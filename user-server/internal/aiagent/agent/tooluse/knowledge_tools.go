@@ -12,10 +12,10 @@ import (
 
 	"gorm.io/gorm"
 
-	knowledgerepo "marketing/internal/aiagent/knowledge/repository"
-	knowledgesvc "marketing/internal/aiagent/knowledge/service"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	knowledgerepo "hivemtk-user/internal/aiagent/knowledge/repository"
+	knowledgesvc "hivemtk-user/internal/aiagent/knowledge/service"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 )
 
 // knowledge_tools.go 知识工具实现（PRD §5.2）

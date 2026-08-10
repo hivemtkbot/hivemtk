@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // traceHeader 是入站/出站透传的追踪头名称。

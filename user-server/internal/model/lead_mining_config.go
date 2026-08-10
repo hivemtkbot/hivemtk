@@ -7,16 +7,16 @@ import (
 
 // LeadMiningConfig 线索发掘全局配置（单例，ID 固定为 1）
 type LeadMiningConfig struct {
-	ID            int64       `gorm:"column:id;primaryKey;autoIncrement:false" json:"id"`
-	Enabled       bool        `gorm:"column:enabled;default:false" json:"enabled"`
-	Keywords      JSONStrings `gorm:"column:keywords;type:text" json:"keywords"`     // 关键词（命中任一即加分）
-	Tags          JSONStrings `gorm:"column:tags;type:text" json:"tags"`             // 命中后打给客户的标签
-	Requirement   string      `gorm:"column:requirement;type:text" json:"requirement"` // 线索要求文字描述（判定标准）
-	Channels      JSONStrings `gorm:"column:channels;type:text" json:"channels"`     // 启用的渠道；空=全部渠道
-	MinIntentScore int        `gorm:"column:min_intent_score;default:50" json:"min_intent_score"`
-	Model         string      `gorm:"column:model;type:varchar(64)" json:"model"` // 可选覆盖模型，空=默认
-	CreatedAt     int64       `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt     int64       `gorm:"autoUpdateTime" json:"updated_at"`
+	ID             int64       `gorm:"column:id;primaryKey;autoIncrement:false" json:"id"`
+	Enabled        bool        `gorm:"column:enabled;default:false" json:"enabled"`
+	Keywords       JSONStrings `gorm:"column:keywords;type:text" json:"keywords"`       // 关键词（命中任一即加分）
+	Tags           JSONStrings `gorm:"column:tags;type:text" json:"tags"`               // 命中后打给客户的标签
+	Requirement    string      `gorm:"column:requirement;type:text" json:"requirement"` // 线索要求文字描述（判定标准）
+	Channels       JSONStrings `gorm:"column:channels;type:text" json:"channels"`       // 启用的渠道；空=全部渠道
+	MinIntentScore int         `gorm:"column:min_intent_score;default:50" json:"min_intent_score"`
+	Model          string      `gorm:"column:model;type:varchar(64)" json:"model"` // 可选覆盖模型，空=默认
+	CreatedAt      int64       `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt      int64       `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 func (m *LeadMiningConfig) TableName() string { return "lead_mining_configs" }

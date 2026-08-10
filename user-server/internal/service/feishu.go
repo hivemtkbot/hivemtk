@@ -2,49 +2,48 @@ package service
 
 import (
 	"bytes"
+
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
+
 	"crypto/hmac"
-	"crypto/rand"
+
 	"crypto/sha256"
-	"encoding/base64"
+
 	"encoding/hex"
+
 	"encoding/json"
+
 	"errors"
+
 	"fmt"
+
 	"io"
+
 	"net/http"
+
 	"strings"
+
 	"time"
 
 	"gorm.io/gorm"
 
-	"marketing/internal/channelbot/core"
-	"marketing/internal/channelbot/telegram"
-	"marketing/internal/channelbot/whatsapp"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/httpclient"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/channelbot/core"
+
+	"hivemtk-user/internal/channelbot/telegram"
+
+	"hivemtk-user/internal/model"
+
+	"hivemtk-user/internal/pkg/httpclient"
+
+	"hivemtk-user/internal/pkg/utils/logger"
+
+	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// 飞书服务（FeishuService + FeishuIntegrationService）
-// ----------------------------------------------------------------------------
-// 商业产品级场景：
-//   1. 商户在 UI 配置 App ID / App Secret / Encrypt Key / Verification Token
-//   2. 飞书回调（URL 验证 + 事件）→ WebhookService 验签 → FeishuService 解析
-//   3. 入消息中台 + 收件箱 → 触发 智能体
-//   4. 智能体回复 → 通过飞书 Open API 出站
-// ============================================================================
-
-// FeishuService 飞书账号管理
 type FeishuService struct {
 	accountRepo *repository.FeishuAccountRepository
 }
 
-// NewFeishuService 创建飞书服务
 func NewFeishuService(db *gorm.DB) *FeishuService {
 	if db == nil {
 		return &FeishuService{}
@@ -56,7 +55,6 @@ func NewFeishuService(db *gorm.DB) *FeishuService {
 	}
 }
 
-// CreateAccount 创建飞书账号
 func (s *FeishuService) CreateAccount(ctx context.Context, input *model.FeishuAccount) (*model.FeishuAccount, error) {
 	if input.AccountName == "" || input.AppID == "" || input.AppSecret == "" {
 		return nil, errors.New("account_name, app_id, app_secret are required")
@@ -70,27 +68,22 @@ func (s *FeishuService) CreateAccount(ctx context.Context, input *model.FeishuAc
 	return input, nil
 }
 
-// UpdateAccount 更新账号
 func (s *FeishuService) UpdateAccount(ctx context.Context, acc *model.FeishuAccount) error {
 	return s.accountRepo.Update(ctx, acc)
 }
 
-// GetAccount 获取账号
 func (s *FeishuService) GetAccount(ctx context.Context, id uint) (*model.FeishuAccount, error) {
 	return s.accountRepo.GetByID(ctx, id)
 }
 
-// ListAccounts 列出所有账号
 func (s *FeishuService) ListAccounts(ctx context.Context) ([]*model.FeishuAccount, error) {
 	return s.accountRepo.GetAll(ctx)
 }
 
-// DeleteAccount 删除账号
 func (s *FeishuService) DeleteAccount(ctx context.Context, id uint) error {
 	return s.accountRepo.Delete(ctx, id)
 }
 
-// GetSecretsByAccountID 获取 app_id + verification_token + encrypt_key（按 ID）
 func (s *FeishuService) GetSecretsByAccountID(ctx context.Context, accountID string) (appID, token, encryptKey string, err error) {
 	if s.accountRepo == nil {
 		return "", "", "", errors.New("db nil")
@@ -114,7 +107,6 @@ func (s *FeishuService) GetSecretsByAccountID(ctx context.Context, accountID str
 	return acc.AppID, acc.VerificationToken, acc.EncryptKey, nil
 }
 
-// FeishuIntegrationService 飞书消息分发 + 出站
 type FeishuIntegrationService struct {
 	feishu        *FeishuService
 	hub           *MessageHubService
@@ -122,7 +114,6 @@ type FeishuIntegrationService struct {
 	feishuMsgRepo *repository.FeishuMessageRepository
 }
 
-// NewFeishuIntegrationService 创建集成服务
 func NewFeishuIntegrationService(db *gorm.DB) *FeishuIntegrationService {
 	var msgRepo *repository.FeishuMessageRepository
 	if db != nil {
@@ -137,7 +128,6 @@ func NewFeishuIntegrationService(db *gorm.DB) *FeishuIntegrationService {
 	}
 }
 
-// IngestFeishuMessage 入站消息
 type FeishuIngestRequest struct {
 	AccountID uint
 	OpenID    string
@@ -151,7 +141,6 @@ type FeishuIngestRequest struct {
 	ChatType  string // p2p / group
 }
 
-// IngestMessage 飞书入站消息入消息中台 + 收件箱
 func (s *FeishuIntegrationService) IngestMessage(ctx context.Context, req *FeishuIngestRequest) (*model.MessageHub, *model.InboxConversation, error) {
 	if s.feishuMsgRepo == nil {
 		return nil, nil, errors.New("db nil")
@@ -196,11 +185,6 @@ func (s *FeishuIntegrationService) IngestMessage(ctx context.Context, req *Feish
 	return hubMsg, conv, nil
 }
 
-// SendMessage 通过飞书 Open API 发送文本消息
-// 参考：https://open.feishu.cn/document/server-docs/im-v1/message/create
-// SendMessage 主动发消息。receiveIDType 指定 receive_id 类型：
-//   - "open_id"（默认）：发给个人（p2p）
-//   - "open_chat_id"：发到群聊（群消息回复必须走群 chat_id，否则会被当成私信发给用户）
 func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID uint, openID, content, receiveIDType string) error {
 	if s.feishuMsgRepo == nil {
 		return errors.New("db nil")
@@ -279,13 +263,12 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	})
 	if hubMsg != nil {
 		if _, err := s.inbox.UpsertFromHubMessage(ctx, hubMsg); err != nil {
-		logger.Warnf("[feishu] upsert outbound to inbox failed: %v", err)
-	}
+			logger.Warnf("[feishu] upsert outbound to inbox failed: %v", err)
+		}
 	}
 	return nil
 }
 
-// getAccessToken 内部拿 access_token（含缓存过期刷新）
 func (s *FeishuIntegrationService) getAccessToken(ctx context.Context, acc *model.FeishuAccount) (string, error) {
 	if acc.AccessToken != "" && acc.TokenExpires != nil && time.Now().Before(*acc.TokenExpires) {
 		return acc.AccessToken, nil
@@ -324,7 +307,6 @@ func (s *FeishuIntegrationService) getAccessToken(ctx context.Context, acc *mode
 	return out.TenantAccessToken, nil
 }
 
-// RefreshAccessToken 公开方法：强制刷新 access_token（用于 controller 主动刷新）
 func (s *FeishuIntegrationService) RefreshAccessToken(ctx context.Context, acc *model.FeishuAccount) error {
 	if acc == nil {
 		return errors.New("account nil")
@@ -335,16 +317,10 @@ func (s *FeishuIntegrationService) RefreshAccessToken(ctx context.Context, acc *
 	return err
 }
 
-// GetAccessTokenForTest 公开方法：测试用拿 access_token（不清空）
 func (s *FeishuIntegrationService) GetAccessTokenForTest(ctx context.Context, acc *model.FeishuAccount) (string, error) {
 	return s.getAccessToken(ctx, acc)
 }
 
-// ============================================================================
-// Telegram 集成服务
-// ============================================================================
-
-// TelegramService Telegram 账号管理
 type TelegramService struct {
 	accRepo *repository.TelegramAccountRepository
 }
@@ -388,7 +364,6 @@ func (s *TelegramService) DeleteAccount(ctx context.Context, id uint) error {
 	return s.accRepo.Delete(ctx, id)
 }
 
-// GetSecretsByAccountID 获取 bot_token + webhook_secret
 func (s *TelegramService) GetSecretsByAccountID(ctx context.Context, accountID string) (botToken, webhookSecret string, err error) {
 	if s.accRepo == nil {
 		return "", "", errors.New("db nil")
@@ -409,7 +384,6 @@ func (s *TelegramService) GetSecretsByAccountID(ctx context.Context, accountID s
 	return acc.BotToken, acc.WebhookSecret, nil
 }
 
-// TelegramIntegrationService Telegram 消息分发 + 出站
 type TelegramIntegrationService struct {
 	tg    *TelegramService
 	hub   *MessageHubService
@@ -437,7 +411,6 @@ type TelegramIngestRequest struct {
 	GroupTitle string
 }
 
-// IngestMessage Telegram 入站
 func (s *TelegramIntegrationService) IngestMessage(ctx context.Context, req *TelegramIngestRequest) (*model.MessageHub, *model.InboxConversation, error) {
 	if s.tg == nil {
 		return nil, nil, errors.New("db nil")
@@ -476,8 +449,6 @@ func (s *TelegramIntegrationService) IngestMessage(ctx context.Context, req *Tel
 	return hubMsg, conv, nil
 }
 
-// SendMessage 通过 Telegram Bot API 发送消息
-// POST https://api.telegram.org/bot<token>/sendMessage
 func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID uint, chatID int64, content string) error {
 	if s.tg == nil {
 		return errors.New("db nil")
@@ -514,14 +485,12 @@ func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID 
 	})
 	if hubMsg != nil {
 		if _, err := s.inbox.UpsertFromHubMessage(ctx, hubMsg); err != nil {
-		logger.Warnf("[feishu] upsert outbound to inbox failed: %v", err)
-	}
+			logger.Warnf("[feishu] upsert outbound to inbox failed: %v", err)
+		}
 	}
 	return nil
 }
 
-// SendCard 通过 Telegram 发送结构化富卡片（标题/描述/字段文本 + inline keyboard 按钮）。
-// 卡片以 HTML 格式文本呈现，配合 URL 按钮跳转；关闭 markdown 自动转换以避免与卡片 HTML 冲突。
 func (s *TelegramIntegrationService) SendCard(ctx context.Context, accountID uint, chatID int64, card *model.RichCard) error {
 	if s.tg == nil {
 		return errors.New("db nil")
@@ -537,9 +506,9 @@ func (s *TelegramIntegrationService) SendCard(ctx context.Context, accountID uin
 	text := buildTelegramCardText(card)
 	kb := buildTelegramCardKeyboard(card)
 	if _, err := cli.SendMessage(ctx, chatID, text, telegram.SendMessageOptions{
-		ParseMode:                "HTML",
+		ParseMode:                 "HTML",
 		DisableMarkdownConversion: true,
-		InlineKeyboard:           kb,
+		InlineKeyboard:            kb,
 	}); err != nil {
 		now := time.Now()
 		acc.LastErrorAt = &now
@@ -564,13 +533,12 @@ func (s *TelegramIntegrationService) SendCard(ctx context.Context, accountID uin
 	})
 	if hubMsg != nil {
 		if _, err := s.inbox.UpsertFromHubMessage(ctx, hubMsg); err != nil {
-		logger.Warnf("[feishu] upsert outbound to inbox failed: %v", err)
-	}
+			logger.Warnf("[feishu] upsert outbound to inbox failed: %v", err)
+		}
 	}
 	return nil
 }
 
-// buildTelegramCardText 将卡片渲染为 Telegram HTML 文本
 func buildTelegramCardText(card *model.RichCard) string {
 	var b strings.Builder
 	b.WriteString("<b>")
@@ -596,7 +564,6 @@ func buildTelegramCardText(card *model.RichCard) string {
 	return b.String()
 }
 
-// buildTelegramCardKeyboard 将卡片按钮转为 Telegram inline keyboard（每行一个按钮）
 func buildTelegramCardKeyboard(card *model.RichCard) [][]telegram.InlineButton {
 	if len(card.Buttons) == 0 {
 		return nil
@@ -629,11 +596,6 @@ func subtleConstantTimeEqual(a, b string) bool {
 	return res == 0
 }
 
-// ============================================================================
-// WhatsApp Cloud 集成服务
-// ============================================================================
-
-// WhatsAppCloudService WhatsApp Cloud API 账号管理
 type WhatsAppCloudService struct {
 	accRepo *repository.WhatsAppCloudAccountRepository
 }
@@ -680,7 +642,6 @@ func (s *WhatsAppCloudService) DeleteAccount(ctx context.Context, id uint) error
 	return s.accRepo.Delete(ctx, id)
 }
 
-// GetSecretsByAccountID 获取 access_token + app_secret
 func (s *WhatsAppCloudService) GetSecretsByAccountID(ctx context.Context, accountID string) (token, appSecret string, err error) {
 	if s.accRepo == nil {
 		return "", "", errors.New("db nil")
@@ -701,7 +662,6 @@ func (s *WhatsAppCloudService) GetSecretsByAccountID(ctx context.Context, accoun
 	return acc.AccessToken, acc.AppSecret, nil
 }
 
-// VerifyWhatsAppSignature 校验 X-Hub-Signature-256（sha256=hex）
 func VerifyWhatsAppSignature(appSecret string, body []byte, signature string) bool {
 	if appSecret == "" {
 		return true
@@ -713,7 +673,6 @@ func VerifyWhatsAppSignature(appSecret string, body []byte, signature string) bo
 	return subtleConstantTimeEqual(expected, signature)
 }
 
-// WhatsAppCloudIntegrationService WhatsApp Cloud 消息分发 + 出站
 type WhatsAppCloudIntegrationService struct {
 	wa    *WhatsAppCloudService
 	hub   *MessageHubService
@@ -738,7 +697,6 @@ type WhatsAppIngestRequest struct {
 	ChatID       string
 }
 
-// IngestMessage WhatsApp Cloud 入站
 func (s *WhatsAppCloudIntegrationService) IngestMessage(ctx context.Context, req *WhatsAppIngestRequest) (*model.MessageHub, *model.InboxConversation, error) {
 	if s.wa == nil {
 		return nil, nil, errors.New("db nil")
@@ -773,100 +731,3 @@ func (s *WhatsAppCloudIntegrationService) IngestMessage(ctx context.Context, req
 	}
 	return hubMsg, conv, nil
 }
-
-// SendMessage 通过 WhatsApp Cloud API 发送文本
-// POST https://graph.facebook.com/v18.0/<phone_number_id>/messages
-func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accountID uint, toPhone, content string) error {
-	if s.wa == nil {
-		return errors.New("db nil")
-	}
-	acc, err := s.wa.GetAccount(ctx, accountID)
-	if err != nil {
-		return fmt.Errorf("get wa account: %w", err)
-	}
-	// 主动发消息委托独立包 channelbot/whatsapp（官方 Cloud API，合规）
-	// 注入统一出站 client（httpclient.Client，带超时+连接池），与 出站 client 收敛一致，并使测试可拦截
-	cli := whatsapp.NewCloudClient(acc.PhoneNumberID, acc.AccessToken, core.WithHTTPClient(httpclient.Client))
-	if _, err := cli.SendText(ctx, toPhone, content); err != nil {
-		now := time.Now()
-		acc.LastErrorAt = &now
-		acc.LastErrorMsg = err.Error()
-		_ = s.wa.UpdateAccount(ctx, acc)
-		return fmt.Errorf("send wa msg: %w", err)
-	}
-	// 写消息中台
-	hubMsg, _ := s.hub.Push(ctx, &PushMessageRequest{
-		Platform:       "whatsapp",
-		AccountID:      fmt.Sprintf("%d", accountID),
-		MsgID:          fmt.Sprintf("wa-out-%d", time.Now().UnixNano()),
-		Direction:      "outbound",
-		MsgType:        "text",
-		SenderID:       fmt.Sprintf("%d", accountID),
-		ReceiverID:     toPhone,
-		Content:        content,
-		ConversationID: toPhone,
-		IsAIReply:      true,
-		AIAgent:        "sales_engine",
-		SentAt:         timePtr(time.Now()),
-	})
-	if hubMsg != nil {
-		if _, err := s.inbox.UpsertFromHubMessage(ctx, hubMsg); err != nil {
-		logger.Warnf("[feishu] upsert outbound to inbox failed: %v", err)
-	}
-	}
-	return nil
-}
-
-// ============================================================================
-// 飞书事件加密/解密（用于卡片回调等可选加密场景）
-// ============================================================================
-
-// DecryptFeishuEvent 用 EncryptKey 解密飞书事件 payload
-func DecryptFeishuEvent(encryptKey, encrypted string) ([]byte, error) {
-	if encryptKey == "" {
-		return nil, errors.New("encrypt_key empty")
-	}
-	// encryptKey 是 32 字节字符串作为 AES-256 key（截断/补足）
-	key := []byte(encryptKey)
-	if len(key) > 32 {
-		key = key[:32]
-	} else {
-		pad := make([]byte, 32-len(key))
-		key = append(key, pad...)
-	}
-	enc, err := base64.StdEncoding.DecodeString(encrypted)
-	if err != nil {
-		return nil, err
-	}
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-	if len(enc)%aes.BlockSize != 0 || len(enc) < aes.BlockSize {
-		return nil, errors.New("invalid encrypted length")
-	}
-	iv := enc[:aes.BlockSize]
-	ciphertext := enc[aes.BlockSize:]
-	mode := cipher.NewCBCDecrypter(block, iv)
-	plain := make([]byte, len(ciphertext))
-	mode.CryptBlocks(plain, ciphertext)
-	// PKCS#7 去填充
-	padLen := int(plain[len(plain)-1])
-	if padLen < 1 || padLen > aes.BlockSize {
-		return nil, errors.New("invalid padding")
-	}
-	plain = plain[:len(plain)-padLen]
-	return plain, nil
-}
-
-// 随机 IV（PKCS#7 填充，标准做法）
-func randomBytes(n int) []byte {
-	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		logger.Errorf("rand failed: %v", err)
-	}
-	return b
-}
-
-// timePtr 工具
-func timePtr(t time.Time) *time.Time { return &t }

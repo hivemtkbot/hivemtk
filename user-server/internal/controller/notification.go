@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 )
 
 // NotificationController 通知中心控制器（商户端站内通知）

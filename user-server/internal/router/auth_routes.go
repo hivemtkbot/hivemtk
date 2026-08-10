@@ -1,20 +1,20 @@
 package router
 
 import (
-	knowledgesvc "marketing/internal/aiagent/knowledge/service"
-	"marketing/internal/cache"
-	"marketing/internal/controller"
-	"marketing/internal/middleware"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/repository"
-	"marketing/internal/service"
-	i18nservice "marketing/internal/service/i18n"
+	knowledgesvc "hivemtk-user/internal/aiagent/knowledge/service"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/controller"
+	"hivemtk-user/internal/middleware"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/service"
+	"hivemtk-user/internal/service/translation"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // setupAuthRoutes 认证相关路由
-func setupAuthRoutes(auth *gin.RouterGroup) {
+func setupAuthRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	authCtrl := controller.NewAuthController()
 	auth.POST("/auth/refresh-token", authCtrl.RefreshToken)
 	auth.GET("/auth/current-user", authCtrl.GetCurrentUser)
@@ -46,7 +46,7 @@ func setupAuthRoutes(auth *gin.RouterGroup) {
 	auth.PUT("/auth/password-policy", authCtrl.SavePasswordPolicy)
 
 	// 通知中心（站内通知 / 顶部铃铛 badge）
-	notifCtrl := controller.NewNotificationController(service.NewNotificationService(db.GetDB()))
+	notifCtrl := controller.NewNotificationController(service.NewNotificationService(gormDB))
 	auth.GET("/auth/notifications", notifCtrl.List)
 	auth.POST("/auth/notifications/:id/read", notifCtrl.MarkRead)
 	auth.POST("/auth/notifications/read-all", notifCtrl.MarkAllRead)
@@ -106,9 +106,9 @@ func setupAccountRoutes(auth *gin.RouterGroup) {
 }
 
 // setupShortLinkRoutes 短链管理路由
-func setupShortLinkRoutes(auth *gin.RouterGroup, public *gin.RouterGroup) {
-	shortLinkCtrl := controller.NewShortLinkController(service.NewShortLinkService(db.GetDB()))
-	shortLinkStatsCtrl := controller.NewShortLinkStatsController(service.NewShortLinkService(db.GetDB()))
+func setupShortLinkRoutes(auth *gin.RouterGroup, public *gin.RouterGroup, gormDB *gorm.DB) {
+	shortLinkCtrl := controller.NewShortLinkController(service.NewShortLinkService(gormDB))
+	shortLinkStatsCtrl := controller.NewShortLinkStatsController(service.NewShortLinkService(gormDB))
 
 	// 短链管理
 	auth.GET("/short-link/list", shortLinkCtrl.GetList)
@@ -164,7 +164,7 @@ func setupLiveCodeRoutes(auth *gin.RouterGroup, liveCodeController *controller.L
 }
 
 // setupEmailRoutes 邮件管理路由
-func setupEmailRoutes(auth *gin.RouterGroup) {
+func setupEmailRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	emailListCtrl := controller.NewEmailListController()
 	emailSmtpCtrl := controller.NewEmailSmtpController()
 	emailDraftCtrl := controller.NewEmailDraftController()
@@ -203,7 +203,7 @@ func setupEmailRoutes(auth *gin.RouterGroup) {
 	auth.POST("/email/send", emailSendCtrl.SendEmail)
 
 	// D 域 缺口修复 - 邮件退订管理 + 打开率追踪
-	emailUnsubscribeRepo := repository.NewEmailUnsubscribeRepository(db.GetDB())
+	emailUnsubscribeRepo := repository.NewEmailUnsubscribeRepository(gormDB)
 	emailUnsubscribeCtrl := controller.NewEmailUnsubscribeController(
 		service.NewEmailUnsubscribeService(emailUnsubscribeRepo),
 	)
@@ -216,34 +216,35 @@ func setupEmailRoutes(auth *gin.RouterGroup) {
 }
 
 // setupSmsRoutes 短信管理路由
-func setupSmsRoutes(auth *gin.RouterGroup) {
+func setupSmsRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	smsRepo := repository.NewSmsRepository()
 	smsCtrl := controller.NewSmsController(service.NewSmsService(smsRepo))
 	smsCtrl.RegisterRoutes(auth)
 
 	// E 域 缺口修复 - 短信退订管理 + 到达率追踪
-	smsUnsubscribeRepo := repository.NewSmsUnsubscribeRepository(db.GetDB())
+	smsUnsubscribeRepo := repository.NewSmsUnsubscribeRepository(gormDB)
 	smsUnsubscribeCtrl := controller.NewSmsUnsubscribeController(
 		service.NewSmsUnsubscribeService(smsUnsubscribeRepo),
 	)
 	smsUnsubscribeCtrl.RegisterRoutes(nil, auth)
 
 	smsDeliveryTrackerCtrl := controller.NewSmsDeliveryTrackerController(
-		service.NewSmsDeliveryTrackerService(db.GetDB(), nil, nil),
+		service.NewSmsDeliveryTrackerService(gormDB, nil, nil),
 	)
 	smsDeliveryTrackerCtrl.RegisterRoutes(nil, auth)
 }
 
 // setupAutoReplyRoutes 自动回复路由
-func setupAutoReplyRoutes(auth *gin.RouterGroup) {
+func setupAutoReplyRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// 回复语言链路：注入术语表渲染器与输出后置校准器（满足 aiagent 依赖倒置接口）。
 	// 使用进程内内存缓存避免每条回复都回查术语表；术语表读多写少，多副本间短暂不一致可接受。
-	glossarySvc := i18nservice.NewGlossaryService(repository.NewGlossaryRepositoryWithDB(db.GetDB()), cache.NewMemoryCache())
-	ragStack := knowledgesvc.NewRAGStack(db.GetDB(), glossarySvc, glossarySvc)
-	autoReplyCtrl := controller.NewAutoReplyController(service.NewAutoReplyService(db.GetDB()), ragStack)
-	autoReplyManagerCtrl := controller.NewAutoReplyManagerController(service.NewAutoReplyService(db.GetDB()))
-	xianyuAutoReplyCtrl := controller.NewXianyuAutoReplyController(service.NewXianyuAutoReplyService(db.GetDB()), ragStack)
-	xiaohongshuAutoReplyCtrl := controller.NewXiaohongshuAutoReplyController(service.NewXiaohongshuAutoReplyService(db.GetDB()), ragStack)
+	glossarySvc := translation.NewGlossaryService(repository.NewGlossaryRepositoryWithDB(gormDB), cache.NewMemoryCache())
+	ragStack := knowledgesvc.NewRAGStack(gormDB, glossarySvc, glossarySvc)
+	service.SetRAGStack(ragStack) // bot 启动编排经 service facade 读取
+	autoReplyCtrl := controller.NewAutoReplyController(service.NewAutoReplyService(gormDB))
+	autoReplyManagerCtrl := controller.NewAutoReplyManagerController(service.NewAutoReplyService(gormDB))
+	xianyuAutoReplyCtrl := controller.NewXianyuAutoReplyController(service.NewXianyuAutoReplyService(gormDB))
+	xiaohongshuAutoReplyCtrl := controller.NewXiaohongshuAutoReplyController(service.NewXiaohongshuAutoReplyService(gormDB))
 
 	// 通用自动回复
 	auth.POST("/auto-reply/start-login", autoReplyCtrl.StartLogin)

@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	sysmodel "marketing/internal/model"
+	sysmodel "hivemtk-user/internal/model"
 )
 
 // PerformanceTestResult 性能压测结果

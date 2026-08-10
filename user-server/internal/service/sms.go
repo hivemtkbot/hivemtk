@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"context"
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/httpclient"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/httpclient"
+	"hivemtk-user/internal/repository"
 )
 
 // SmsService 短信服务接口

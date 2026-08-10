@@ -2,40 +2,30 @@ package service
 
 import (
 	"context"
+
 	"fmt"
+
 	"sync"
+
 	"time"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
-// ============================================================================
-// 商业产品级 统一收件箱 + OneID 自动绑定 + 旅程自动启动
-// ----------------------------------------------------------------------------
-// 商业市场需求（按真实用户使用场景）：
-//   销售每天同时经营微信/抖音/小红书/邮件 4 个渠道，每个渠道每天 50+ 私信。
-//   统一收件箱按 OneID 合并同一客户，旅程自动启动，销售只看一个面板。
-//
-// 关键能力：
-//   1. 多渠道消息入站（微信/抖音/小红书/邮件）
-//   2. OneID 自动绑定：手机号/邮箱/OpenID 命中现有客户即合并；无则新建
-//   3. 旅程自动启动：客户首次互动即创建 JourneyState
-//   4. 跨渠道 thread 视图：按 OneID 汇总同一客户所有渠道消息
-//   5. AI 谈单入口：消息入站后自动触发 TriggerAfterSales 联动下游
-// ============================================================================
-
-// InboxChannel 渠道
 type InboxChannel string
 
 const (
-	InboxChannelWeChat      InboxChannel = "wechat"
-	InboxChannelDouyin      InboxChannel = "douyin"
+	InboxChannelWeChat InboxChannel = "wechat"
+
+	InboxChannelDouyin InboxChannel = "douyin"
+
 	InboxChannelXiaohongshu InboxChannel = "xiaohongshu"
-	InboxChannelEmail       InboxChannel = "email"
-	InboxChannelWeb         InboxChannel = "web"
+
+	InboxChannelEmail InboxChannel = "email"
+
+	InboxChannelWeb InboxChannel = "web"
 )
 
-// InboxMessage 收件箱消息（已绑定 OneID）
 type InboxMessage struct {
 	MessageID    string       `json:"message_id"`
 	Channel      InboxChannel `json:"channel"`
@@ -59,8 +49,6 @@ type InboxMessage struct {
 	TransferTo string `json:"transfer_to,omitempty"`
 }
 
-// InboxThread 同一客户跨渠道的对话线
-// 商业产品级关键：销售不需要切换 4 个 tab，所有渠道统一为一条 thread
 type InboxThread struct {
 	UnifiedID       string          `json:"unified_id"`
 	CustomerID      string          `json:"customer_id"`
@@ -83,7 +71,6 @@ type InboxThread struct {
 	RecentMessages  []*InboxMessage `json:"recent_messages,omitempty"` // 最近 N 条
 }
 
-// InboxSummary 收件箱摘要
 type InboxSummary struct {
 	Threads       []*InboxThread `json:"threads"`
 	TotalThreads  int            `json:"total_threads"`
@@ -93,7 +80,6 @@ type InboxSummary struct {
 	GeneratedAt   time.Time      `json:"generated_at"`
 }
 
-// InboxFilter 收件箱过滤
 type InboxFilter struct {
 	Channel       InboxChannel // 按渠道过滤
 	OnlyUnread    bool         // 仅未读
@@ -106,8 +92,6 @@ type InboxFilter struct {
 	Offset        int
 }
 
-// UnifiedInboxService 统一收件箱服务
-// 商业逻辑：所有渠道的私信都汇入此服务，自动绑定 OneID，启动旅程，联动下游
 type UnifiedInboxService struct {
 	mu sync.RWMutex
 
@@ -133,7 +117,6 @@ type UnifiedInboxService struct {
 	tagger   *AITagger
 }
 
-// OneIDCustomerLite 收件箱用的客户简化模型（不依赖数据库）
 type OneIDCustomerLite struct {
 	UnifiedID     string    `json:"unified_id"`
 	CustomerID    string    `json:"customer_id"`
@@ -148,7 +131,6 @@ type OneIDCustomerLite struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
-// NewUnifiedInboxService 创建统一收件箱服务
 func NewUnifiedInboxService(journey *CustomerJourneyService, followup *FollowUpService, tagger *AITagger) *UnifiedInboxService {
 	return &UnifiedInboxService{
 		messages:            make(map[string][]*InboxMessage),
@@ -165,13 +147,6 @@ func NewUnifiedInboxService(journey *CustomerJourneyService, followup *FollowUpS
 	}
 }
 
-// IngestMessage 消息入站（核心入口）
-// 商业产品级业务流：
-//  1. OneID 解析：phone/email/openID 找到/创建客户
-//  2. 自动绑定：新渠道身份合并到现有客户
-//  3. 旅程自动启动：客户首次互动即创建 JourneyState
-//  4. 记录到收件箱
-//  5. 联动 AI 谈单 / 跟进
 func (s *UnifiedInboxService) IngestMessage(ctx context.Context, msg *InboxMessage) (*InboxMessage, error) {
 	if msg == nil {
 		return nil, fmt.Errorf("消息为空")
@@ -235,9 +210,6 @@ func (s *UnifiedInboxService) IngestMessage(ctx context.Context, msg *InboxMessa
 	return msg, nil
 }
 
-// resolveOneID OneID 解析：phone > email > 平台 OpenID
-// 关键：同一客户可能先在微信留资（phone），又在抖音咨询（douyin_open_id）
-// 必须能把这两个记录合并为同一个 unifiedID
 func (s *UnifiedInboxService) resolveOneID(ctx context.Context, msg *InboxMessage) (*OneIDCustomerLite, string, error) {
 	// 1) 按 sender_id 找（sender_id 通常是平台 OpenID）
 	if msg.SenderID != "" {
@@ -358,8 +330,6 @@ func (s *UnifiedInboxService) resolveOneID(ctx context.Context, msg *InboxMessag
 	return cust, cust.UnifiedID, nil
 }
 
-// bindIdentity 把新渠道身份合并到现有客户
-// 关键：客户先在微信留手机号，后又在抖音发消息 → 必须把抖音 OpenID 补到 customer
 func (s *UnifiedInboxService) bindIdentity(ctx context.Context, cust *OneIDCustomerLite, msg *InboxMessage) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -397,7 +367,6 @@ func (s *UnifiedInboxService) bindIdentity(ctx context.Context, cust *OneIDCusto
 	return nil
 }
 
-// findUnifiedByPlatformID 按平台 ID 查 unifiedID
 func (s *UnifiedInboxService) findUnifiedByPlatformID(ctx context.Context, channel InboxChannel, senderID string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -415,8 +384,6 @@ func (s *UnifiedInboxService) findUnifiedByPlatformID(ctx context.Context, chann
 	return "", false
 }
 
-// triggerDownstream 联动 AI 谈单 / 跟进
-// 关键：消息入站后必须自动联动下游组件，不能让销售手动跑 5 个页面
 func (s *UnifiedInboxService) triggerDownstream(ctx context.Context, cust *OneIDCustomerLite, msg *InboxMessage) error {
 	if !msg.IsInbound {
 		return nil // 只对客户→我们的消息触发
@@ -436,8 +403,6 @@ func (s *UnifiedInboxService) triggerDownstream(ctx context.Context, cust *OneID
 	return nil
 }
 
-// ListThreads 列出收件箱 thread 列表
-// 商业产品级：按 OneID 合并后，每个客户只显示一条 thread
 func (s *UnifiedInboxService) ListThreads(ctx context.Context, filter InboxFilter) *InboxSummary {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -614,7 +579,6 @@ func (s *UnifiedInboxService) ListThreads(ctx context.Context, filter InboxFilte
 	}
 }
 
-// GetThread 获取单条 thread 详情
 func (s *UnifiedInboxService) GetThread(ctx context.Context, unifiedID string) (*InboxThread, []*InboxMessage, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -675,7 +639,6 @@ func (s *UnifiedInboxService) GetThread(ctx context.Context, unifiedID string) (
 	return thread, msgCopy, nil
 }
 
-// MarkRead 标记消息已读
 func (s *UnifiedInboxService) MarkRead(ctx context.Context, unifiedID string, messageIDs []string) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -701,8 +664,6 @@ func (s *UnifiedInboxService) MarkRead(ctx context.Context, unifiedID string, me
 	return count
 }
 
-// MergeAccounts 手动合并两个客户
-// 关键：OneID 自动合并失败的边界情况，由销售/管理员手动合并
 func (s *UnifiedInboxService) MergeAccounts(ctx context.Context, primaryUnifiedID, secondaryUnifiedID string) error {
 	if primaryUnifiedID == secondaryUnifiedID {
 		return fmt.Errorf("不能合并自身")
@@ -756,70 +717,4 @@ func (s *UnifiedInboxService) MergeAccounts(ctx context.Context, primaryUnifiedI
 	// 删除次要客户
 	delete(s.customerByUnifiedID, secondaryUnifiedID)
 	return nil
-}
-
-// GetCustomerByUnifiedID 查询客户
-func (s *UnifiedInboxService) GetCustomerByUnifiedID(ctx context.Context, unifiedID string) *OneIDCustomerLite {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if c, ok := s.customerByUnifiedID[unifiedID]; ok {
-		cp := *c
-		return &cp
-	}
-	return nil
-}
-
-// channelLabel 渠道展示标签
-func (s *UnifiedInboxService) channelLabel(ctx context.Context, c InboxChannel) string {
-	switch c {
-	case InboxChannelWeChat:
-		return "微信"
-	case InboxChannelDouyin:
-		return "抖音"
-	case InboxChannelXiaohongshu:
-		return "小红书"
-	case InboxChannelEmail:
-		return "邮件"
-	case InboxChannelWeb:
-		return "网页"
-	}
-	return string(c)
-}
-
-func inboxTruncate(s string, max int) string {
-	if len(s) <= max {
-		return s
-	}
-	return s[:max] + "..."
-}
-
-func containsFold(s, sub string) bool {
-	return len(s) >= len(sub) && (indexFold(s, sub) >= 0)
-}
-
-func indexFold(s, sub string) int {
-	// 简化的大小写不敏感包含
-	if sub == "" {
-		return 0
-	}
-	for i := 0; i+len(sub) <= len(s); i++ {
-		match := true
-		for j := 0; j < len(sub); j++ {
-			a, b := s[i+j], sub[j]
-			if a >= 'A' && a <= 'Z' {
-				a += 32
-			}
-			if b >= 'A' && b <= 'Z' {
-				b += 32
-			}
-			if a != b {
-				match = false
-				break
-			}
-		}
-		if match {
-			return i
-		}
-	}
-	return -1
 }

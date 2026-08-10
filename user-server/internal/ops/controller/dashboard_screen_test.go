@@ -8,12 +8,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"marketing/internal/ops/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/ops/model"
+	"hivemtk-user/internal/pkg/db"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 func setupDashboardScreenTestDB(t *testing.T) *gorm.DB {

@@ -13,9 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
+
 	"gorm.io/gorm"
-	"marketing/internal/model"
-	"marketing/internal/repository"
 )
 
 // DingTalkAppService 钉钉企业内部应用账号服务（CRUD + 回调验签 + 入站收消息）

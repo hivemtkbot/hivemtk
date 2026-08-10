@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	ragcustomerservice "marketing/internal/aiagent/rag/customer_service"
-	ragretrieval "marketing/internal/aiagent/rag/retrieval"
+	ragcustomerservice "hivemtk-user/internal/aiagent/rag/customer_service"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
 )
 
 // MockRagRetrievalService 模拟RAG检索服务

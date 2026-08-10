@@ -26,9 +26,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 // ----------------------------------------------------------------------------
@@ -142,7 +142,7 @@ func (s *RagMetricsService) flushLoop(ctx context.Context) {
 type RecordQueryRequest struct {
 	Query           string
 	SessionID       string
-	ProductID string
+	ProductID       string
 	RetrievedDocIDs []string
 	RelevantDocIDs  []string
 	Latency         time.Duration

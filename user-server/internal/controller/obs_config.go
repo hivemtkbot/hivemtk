@@ -4,9 +4,9 @@ import (
 	"context"
 	"strconv"
 
-	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

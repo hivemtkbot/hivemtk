@@ -1,13 +1,13 @@
 package repository
 
 import (
-	contentmodel "marketing/internal/content/model"
-	"marketing/internal/ops/model"
-	"marketing/internal/pkg/utils/db"
+	contentmodel "hivemtk-user/internal/content/model"
+	"hivemtk-user/internal/ops/model"
+	"hivemtk-user/internal/pkg/db"
 	"testing"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupDashboardTestDB 设置数据大屏测试数据库

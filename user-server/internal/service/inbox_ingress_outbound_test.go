@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // 验证三通道架构的核心 DB 路径：下行队列查询（通道C·GET /api/bridge/outbox）

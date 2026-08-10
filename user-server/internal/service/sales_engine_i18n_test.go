@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	i18npkg "marketing/internal/pkg/i18n"
+	i18npkg "hivemtk-user/internal/pkg/i18n"
 )
 
 // stubGlossary / stubCalibrator 用于验证 SalesEngine 语言链路接线（依赖倒置接口）。

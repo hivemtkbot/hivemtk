@@ -3,17 +3,18 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/service"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/service"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupCustomer360TestDB 设置测试数据库

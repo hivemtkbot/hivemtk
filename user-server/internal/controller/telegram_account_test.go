@@ -9,15 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/repository"
-	"marketing/internal/service"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/service"
 )
 
 // setupTelegramControllerTestDB 准备 PostgreSQL 测试 DB + Telegram 相关表

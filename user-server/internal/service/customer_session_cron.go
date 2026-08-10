@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // SessionTTLCron 会话 TTL 自动关闭定时任务

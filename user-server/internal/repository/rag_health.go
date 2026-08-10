@@ -14,7 +14,7 @@ import (
 
 	"gorm.io/gorm"
 
-	kbmodel "marketing/internal/aiagent/knowledge/model"
+	"hivemtk-user/internal/model"
 )
 
 // RagHealthRepository RAG 健康度仓储接口
@@ -36,7 +36,7 @@ func NewRagHealthRepository(db *gorm.DB) RagHealthRepository {
 func (r *ragHealthRepo) CountKnowledgeChunks(ctx context.Context) (int64, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).
-		Model(&kbmodel.KnowledgeChunk{}).
+		Model(&model.KnowledgeChunk{}).
 		Count(&count).Error; err != nil {
 		return 0, err
 	}

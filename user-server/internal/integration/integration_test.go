@@ -1,13 +1,19 @@
+// Package integration 跨域集成测试落点（test-only 包，不放生产代码；ADR-015 定性）。
+//
+// 生产模板数据在 templates 子包（被 service/integration_template.go 引用）。
+// Package integration 跨域集成测试落点（test-only 包，不放生产代码；ADR-015 定性）。
+//
+// 生产模板数据在 templates 子包（被 service/integration_template.go 引用）。
 package integration
 
 import (
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupIntegrationTestDB 设置集成测试数据库

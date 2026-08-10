@@ -3,7 +3,7 @@ package platform
 import (
 	"context"
 
-	"marketing/internal/repository"
+	"hivemtk-user/internal/repository"
 )
 
 // AssetMarketClientAdapter 适配 repository.PlatformAPIClient

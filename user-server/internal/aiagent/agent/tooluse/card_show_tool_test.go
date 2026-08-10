@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 func TestCardShowTool_Execute(t *testing.T) {

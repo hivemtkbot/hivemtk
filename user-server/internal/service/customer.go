@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // CustomerService 客户服务

@@ -3,9 +3,10 @@ package repository
 import (
 	"context"
 
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+
 	"gorm.io/gorm"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
 )
 
 // LowQualitySampleRepository 低质样本仓储（拟人度域 管理面读模型）

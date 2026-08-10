@@ -16,8 +16,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 )
 
 // SystemConfigKVRepository KV 配置仓储接口

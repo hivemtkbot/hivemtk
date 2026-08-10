@@ -15,7 +15,7 @@ import (
 	"context"
 	"fmt"
 
-	"marketing/internal/aiagent/llm"
+	"hivemtk-user/internal/aiagent/llm"
 )
 
 // LLMChatOptions LLM Chat 调用选项

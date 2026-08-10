@@ -2,7 +2,7 @@ package migrations
 
 import (
 	"context"
-	"marketing/internal/migration"
+	"hivemtk-user/internal/migration"
 
 	"gorm.io/gorm"
 )

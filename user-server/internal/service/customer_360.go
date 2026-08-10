@@ -2,21 +2,25 @@ package service
 
 import (
 	"context"
-	"gorm.io/gorm"
-	"marketing/internal/model"
-	_type "marketing/internal/pkg/utils/type"
-	"marketing/internal/repository"
+
+	"hivemtk-user/internal/model"
+
+	_type "hivemtk-user/internal/pkg/utils/type"
+
+	"hivemtk-user/internal/repository"
+
 	"strconv"
+
 	"time"
+
+	"gorm.io/gorm"
 )
 
-// Customer360ServiceInterface Customer360 服务接口
 type Customer360ServiceInterface interface {
 	GetCustomer360(userID string) (*Customer360DTO, error)
 	GetCustomerList(page, pageSize int, filters map[string]string) (map[string]*Customer360DTO, int64, error)
 }
 
-// Customer360Service 客户 360° 视图服务
 type Customer360Service struct {
 	sessionRepo      *repository.CustomerSessionRepository
 	messageRepo      *repository.SessionMessageRepository
@@ -26,7 +30,6 @@ type Customer360Service struct {
 	unifiedReplyRepo repository.UnifiedReplyRepository
 }
 
-// NewCustomer360ServiceWithDB 创建客户 360° 视图服务（带数据库连接，用于测试）
 func NewCustomer360ServiceWithDB(db *gorm.DB) *Customer360Service {
 	return &Customer360Service{
 		sessionRepo:      repository.NewCustomerSessionRepositoryWithDB(db),
@@ -38,7 +41,6 @@ func NewCustomer360ServiceWithDB(db *gorm.DB) *Customer360Service {
 	}
 }
 
-// NewCustomer360Service 创建客户 360° 视图服务
 func NewCustomer360Service() *Customer360Service {
 	return &Customer360Service{
 		sessionRepo:      repository.NewCustomerSessionRepository(),
@@ -50,7 +52,6 @@ func NewCustomer360Service() *Customer360Service {
 	}
 }
 
-// Customer360DTO 客户 360° 视图数据传输对象
 type Customer360DTO struct {
 	// 基本信息
 	BasicInfo *CustomerBasicInfo `json:"basic_info"`
@@ -77,7 +78,6 @@ type Customer360DTO struct {
 	UserProfile *UserProfile `json:"user_profile"`
 }
 
-// CustomerBasicInfo 客户基本信息
 type CustomerBasicInfo struct {
 	UserID         string `json:"user_id"`
 	UserName       string `json:"user_name"`
@@ -89,7 +89,6 @@ type CustomerBasicInfo struct {
 	SourcePlatform string `json:"source_platform"`
 }
 
-// SessionStatistics 会话统计
 type SessionStatistics struct {
 	TotalSessions   int64 `json:"total_sessions"`
 	ActiveSessions  int64 `json:"active_sessions"`
@@ -102,7 +101,6 @@ type SessionStatistics struct {
 	RatingCount     int64 `json:"rating_count"` // 评分次数
 }
 
-// SessionHistoryItem 会话历史项
 type SessionHistoryItem struct {
 	SessionID     string `json:"session_id"`
 	Platform      string `json:"platform"`
@@ -115,7 +113,6 @@ type SessionHistoryItem struct {
 	Rating        int    `json:"rating,omitempty"`
 }
 
-// MessageHistoryItem 消息历史项
 type MessageHistoryItem struct {
 	SessionID    string  `json:"session_id"`
 	Content      string  `json:"content"`
@@ -126,7 +123,6 @@ type MessageHistoryItem struct {
 	AIConfidence float64 `json:"ai_confidence,omitempty"`
 }
 
-// ClueInfo 线索信息
 type ClueInfo struct {
 	ClueID    string `json:"clue_id"`
 	Source    string `json:"source"`
@@ -139,7 +135,6 @@ type ClueInfo struct {
 	CreatedAt string `json:"created_at"`
 }
 
-// OrderInfo 订单信息
 type OrderInfo struct {
 	TotalOrders     int64        `json:"total_orders"`
 	TotalAmount     float64      `json:"total_amount"`
@@ -149,7 +144,6 @@ type OrderInfo struct {
 	Orders          []*OrderItem `json:"orders"`
 }
 
-// OrderItem 订单项
 type OrderItem struct {
 	OrderID     string  `json:"order_id"`
 	Amount      float64 `json:"amount"`
@@ -158,7 +152,6 @@ type OrderItem struct {
 	ProductName string  `json:"product_name"`
 }
 
-// InteractionStats 互动统计
 type InteractionStats struct {
 	TotalInteractions int64 `json:"total_interactions"`
 	DouyinCount       int64 `json:"douyin_count"`
@@ -174,7 +167,6 @@ type InteractionStats struct {
 	FirstResponseTime     int     `json:"first_response_time"` // 首次响应时间（秒）
 }
 
-// UserProfile 用户画像
 type UserProfile struct {
 	Tags              []string `json:"tags"`
 	Interests         []string `json:"interests"`
@@ -185,7 +177,6 @@ type UserProfile struct {
 	PreferredTime     string   `json:"preferred_time"`
 }
 
-// GetCustomer360 获取客户 360° 视图
 func (s *Customer360Service) GetCustomer360(ctx context.Context, userID string) (*Customer360DTO, error) {
 	dto := &Customer360DTO{}
 
@@ -226,7 +217,6 @@ func (s *Customer360Service) GetCustomer360(ctx context.Context, userID string) 
 	return dto, nil
 }
 
-// buildBasicInfo 构建基本信息
 func (s *Customer360Service) buildBasicInfo(ctx context.Context, sessions []*model.CustomerSession) *CustomerBasicInfo {
 	if len(sessions) == 0 {
 		return nil
@@ -257,7 +247,6 @@ func (s *Customer360Service) buildBasicInfo(ctx context.Context, sessions []*mod
 	}
 }
 
-// buildSessionStats 构建会话统计
 func (s *Customer360Service) buildSessionStats(ctx context.Context, sessions []*model.CustomerSession) *SessionStatistics {
 	if len(sessions) == 0 {
 		return nil
@@ -304,7 +293,6 @@ func (s *Customer360Service) buildSessionStats(ctx context.Context, sessions []*
 	return stats
 }
 
-// buildSessionHistory 构建会话历史
 func (s *Customer360Service) buildSessionHistory(ctx context.Context, sessions []*model.CustomerSession) []*SessionHistoryItem {
 	history := make([]*SessionHistoryItem, 0, len(sessions))
 
@@ -330,9 +318,6 @@ func (s *Customer360Service) buildSessionHistory(ctx context.Context, sessions [
 	return history
 }
 
-// buildMessageHistory 构建消息历史
-//
-// 使用 ListBySessionIDsBatch 单次 SQL 拉所有 session 的消息，按 session_id 分桶后拼接。
 func (s *Customer360Service) buildMessageHistory(ctx context.Context, sessions []*model.CustomerSession) ([]*MessageHistoryItem, error) {
 	history := make([]*MessageHistoryItem, 0)
 	if len(sessions) == 0 {
@@ -381,10 +366,6 @@ func (s *Customer360Service) buildMessageHistory(ctx context.Context, sessions [
 	return history, nil
 }
 
-// buildClueInfo 构建线索信息
-//
-// 直接复用上层传入的 userSessions 提取联系方式，
-// 使用 clueRepo.ListByAccounts 单次 SQL 拉取所有线索。
 func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string, userSessions []*model.CustomerSession) (*ClueInfo, error) {
 	// 从已加载的 userSessions 提取 phone / email / accountID
 	var userPhone, userEmail, accountID string
@@ -431,10 +412,6 @@ func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string, u
 	return clueInfo, nil
 }
 
-// buildOrderInfo 构建订单信息
-//
-// 直接复用上层传入的 userSessions 提取 accountID，
-// 使用 orderRepo.ListByAccountIDs 单次 SQL 拉取所有订单。
 func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string, userSessions []*model.CustomerSession) (*OrderInfo, error) {
 	// 从已加载的 userSessions 提取 accountID
 	var accountID string
@@ -500,7 +477,6 @@ func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string, 
 	return orderInfo, nil
 }
 
-// orderStatusToString 将订单状态转换为字符串
 func orderStatusToString(status _type.OrderStatusType) string {
 	switch status {
 	case _type.OrderStatusPending:
@@ -518,7 +494,6 @@ func orderStatusToString(status _type.OrderStatusType) string {
 	}
 }
 
-// buildInteractionStats 构建互动统计
 func (s *Customer360Service) buildInteractionStats(ctx context.Context, sessions []*model.CustomerSession) *InteractionStats {
 	stats := &InteractionStats{}
 
@@ -553,7 +528,6 @@ func (s *Customer360Service) buildInteractionStats(ctx context.Context, sessions
 	return stats
 }
 
-// buildUserProfile 构建用户画像
 func (s *Customer360Service) buildUserProfile(ctx context.Context, sessions []*model.CustomerSession, interactionStats *InteractionStats, orderInfo *OrderInfo) *UserProfile {
 	profile := &UserProfile{
 		Tags:          make([]string, 0),
@@ -598,10 +572,6 @@ func (s *Customer360Service) buildUserProfile(ctx context.Context, sessions []*m
 	return profile
 }
 
-// GetCustomerList 获取客户列表（带分页和筛选）
-//
-// batch 拉取全量用户会话 + 一次性拉所有 session 的消息 / 线索 / 订单，
-// 再纯内存按 userID 分桶组装 DTO，把 IO 收敛到常数级别。
 func (s *Customer360Service) GetCustomerList(ctx context.Context, page, pageSize int, filters map[string]string) (map[string]*Customer360DTO, int64, error) {
 	sessions, total, err := s.sessionRepo.GetByMerchant(ctx, "", page, pageSize)
 	if err != nil {
@@ -670,7 +640,6 @@ func (s *Customer360Service) GetCustomerList(ctx context.Context, page, pageSize
 	return result, total, nil
 }
 
-// indexCluesByAccount 拉取线索并按 account / name 索引为 map（供 GetCustomerList 批量组装 DTO）
 func (s *Customer360Service) indexCluesByAccount(ctx context.Context, accounts []string) map[string][]*model.Clue {
 	out := make(map[string][]*model.Clue)
 	if len(accounts) == 0 {
@@ -691,12 +660,16 @@ func (s *Customer360Service) indexCluesByAccount(ctx context.Context, accounts [
 	return out
 }
 
-// assembleCustomer360DTO 由 GetCustomerList 在内存中组装单个用户 DTO
 func (s *Customer360Service) assembleCustomer360DTO(
+
 	userSessions []*model.CustomerSession,
+
 	messageMap map[string][]*model.SessionMessage,
+
 	clueMap map[string][]*model.Clue,
+
 	orderMap map[string][]*model.Order,
+
 ) *Customer360DTO {
 	if len(userSessions) == 0 {
 		return nil
@@ -713,7 +686,6 @@ func (s *Customer360Service) assembleCustomer360DTO(
 	return dto
 }
 
-// buildMessageHistoryFromMap 由已 batch 拉取的 messageMap 拼装消息历史（无 IO）
 func (s *Customer360Service) buildMessageHistoryFromMap(sessions []*model.CustomerSession, messageMap map[string][]*model.SessionMessage) []*MessageHistoryItem {
 	history := make([]*MessageHistoryItem, 0)
 	for _, session := range sessions {
@@ -733,7 +705,6 @@ func (s *Customer360Service) buildMessageHistoryFromMap(sessions []*model.Custom
 	return history
 }
 
-// buildClueInfoFromMap 由已 batch 拉取的 clueMap 取首条（按 create_time DESC）最新线索（无 IO）
 func (s *Customer360Service) buildClueInfoFromMap(userSessions []*model.CustomerSession, clueMap map[string][]*model.Clue) *ClueInfo {
 	if len(userSessions) == 0 {
 		return nil
@@ -765,81 +736,4 @@ func (s *Customer360Service) buildClueInfoFromMap(userSessions []*model.Customer
 		clueInfo.Status = "qualified"
 	}
 	return clueInfo
-}
-
-// buildOrderInfoFromMap 由已 batch 拉取的 orderMap 拼装订单信息（无 IO）
-func (s *Customer360Service) buildOrderInfoFromMap(userSessions []*model.CustomerSession, orderMap map[string][]*model.Order) *OrderInfo {
-	if len(userSessions) == 0 {
-		return &OrderInfo{Orders: make([]*OrderItem, 0)}
-	}
-	accountID := userSessions[0].AccountID
-	if accountID == "" {
-		return &OrderInfo{Orders: make([]*OrderItem, 0)}
-	}
-	userOrders := orderMap[accountID]
-	if len(userOrders) == 0 {
-		return &OrderInfo{Orders: make([]*OrderItem, 0)}
-	}
-	var totalAmount float64
-	lastOrder := userOrders[0] // ListByAccountIDs 已按 create_time DESC 排序
-	orderItems := make([]*OrderItem, 0, len(userOrders))
-	for _, order := range userOrders {
-		amount, _ := strconv.ParseFloat(order.Price, 64)
-		totalAmount += amount
-		orderItems = append(orderItems, &OrderItem{
-			OrderID:     order.ID,
-			Amount:      amount,
-			Status:      orderStatusToString(order.Status),
-			CreatedAt:   time.Unix(order.CreateTime, 0).Format("2006-01-02 15:04:05"),
-			ProductName: "平台商品",
-		})
-	}
-	orderInfo := &OrderInfo{
-		TotalOrders: int64(len(userOrders)),
-		TotalAmount: totalAmount,
-		Orders:      orderItems,
-	}
-	if lastOrder != nil {
-		orderInfo.LastOrderID = lastOrder.ID
-		orderInfo.LastOrderAt = time.Unix(lastOrder.CreateTime, 0).Format("2006-01-02 15:04:05")
-		amount, _ := strconv.ParseFloat(lastOrder.Price, 64)
-		orderInfo.LastOrderAmount = amount
-	}
-	return orderInfo
-}
-
-// Customer360ServiceForTest 用于测试的 Customer360Service（公开字段）
-type Customer360ServiceForTest struct {
-	SessionRepo      *repository.CustomerSessionRepository
-	MessageRepo      *repository.SessionMessageRepository
-	ClueRepo         repository.ClueRepository
-	OrderRepo        repository.OrderRepository
-	UnifiedMsgRepo   repository.UnifiedMessageRepository
-	UnifiedReplyRepo repository.UnifiedReplyRepository
-}
-
-// GetCustomer360 获取客户 360 视图（测试版本）
-func (s *Customer360ServiceForTest) GetCustomer360(ctx context.Context, userID string) (*Customer360DTO, error) {
-	realService := &Customer360Service{
-		sessionRepo:      s.SessionRepo,
-		messageRepo:      s.MessageRepo,
-		clueRepo:         s.ClueRepo,
-		orderRepo:        s.OrderRepo,
-		unifiedMsgRepo:   s.UnifiedMsgRepo,
-		unifiedReplyRepo: s.UnifiedReplyRepo,
-	}
-	return realService.GetCustomer360(ctx, userID)
-}
-
-// GetCustomerList 获取客户列表（测试版本）
-func (s *Customer360ServiceForTest) GetCustomerList(ctx context.Context, page, pageSize int, filters map[string]string) (map[string]*Customer360DTO, int64, error) {
-	realService := &Customer360Service{
-		sessionRepo:      s.SessionRepo,
-		messageRepo:      s.MessageRepo,
-		clueRepo:         s.ClueRepo,
-		orderRepo:        s.OrderRepo,
-		unifiedMsgRepo:   s.UnifiedMsgRepo,
-		unifiedReplyRepo: s.UnifiedReplyRepo,
-	}
-	return realService.GetCustomerList(ctx, page, pageSize, filters)
 }

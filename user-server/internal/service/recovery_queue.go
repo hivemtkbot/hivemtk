@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"context"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // RecoveryQueueService 流失挽回队列服务

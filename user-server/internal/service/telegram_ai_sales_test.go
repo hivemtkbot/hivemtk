@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"testing"
 
-	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"gorm.io/gorm"
+
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // setupTelegramTestDB 准备 PostgreSQL 测试 DB + Telegram 相关表

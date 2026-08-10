@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/tracing"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/tracing"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -126,7 +126,7 @@ func TestTracingAndMonitoring(t *testing.T) {
 		TraceID: linked, ConversationID: conv, AccountID: "acct-test",
 		Channel: "xiaohongshu", Node: tracing.NodeOutboundEnqueue, Direction: "outbound",
 		MsgID: "m-out-" + conv, Input: map[string]any{"content_len": 5},
-		Output: map[string]any{"status": "pending"},
+		Output:   map[string]any{"status": "pending"},
 		Expected: "AI 回复落库 outbox(pending)", Status: tracing.StatusOk,
 	})
 	tracing.RecordNode(ctx, tracing.NodeSpan{

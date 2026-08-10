@@ -4,7 +4,7 @@ import (
 	"context"
 	"sort"
 
-	"marketing/internal/pkg/utils/bm25"
+	"hivemtk-user/internal/pkg/utils/bm25"
 )
 
 // bm25SearchAll 兜底:全产品 BM25-lite 检索

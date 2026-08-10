@@ -10,13 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/service"
+
+	"hivemtk-user/internal/pkg/testutil"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupShortLinkControllerTestDB 设置短链控制器测试数据库

@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	bizerr "marketing/internal/domain/errors"
-	"marketing/internal/repository"
+	bizerr "hivemtk-user/internal/domain/errors"
+	"hivemtk-user/internal/repository"
 )
 
 // AssetMarketService 资产市场代理服务

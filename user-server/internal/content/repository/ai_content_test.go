@@ -1,11 +1,11 @@
 package repository
 
 import (
-	"marketing/internal/content/model"
+	"hivemtk-user/internal/content/model"
 	"testing"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupAIContentTestDB 设置 AI 内容测试数据库

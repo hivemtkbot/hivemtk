@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 
-	"marketing/internal/model"
-	dbutil "marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	dbutil "hivemtk-user/internal/pkg/db"
 )
 
 // ============================================================================

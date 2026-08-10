@@ -2,14 +2,15 @@ package service
 
 import (
 	"context"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/repository"
 	"testing"
 	"time"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupCustomerSessionServiceTestDB 设置测试数据库
@@ -1159,10 +1160,10 @@ func TestAutoCloseStaleSessions_OnlyStaleActiveClosed(t *testing.T) {
 	}
 
 	// 4 个测试样本
-	sA := mk("A", model.SessionStatusAIHandling, &veryOld)     // 25h 前活跃 → 应关
-	sB := mk("B", model.SessionStatusAIHandling, &recent)      // 1h 前活跃 → 保留
-	sC := mk("C", model.SessionStatusPending, nil)             // 25h 前创建 + 无消息 → 应关（用 COALESCE(created_at)）
-	sD := mk("D", model.SessionStatusClosed, &veryOld)         // 已关 → 不动
+	sA := mk("A", model.SessionStatusAIHandling, &veryOld) // 25h 前活跃 → 应关
+	sB := mk("B", model.SessionStatusAIHandling, &recent)  // 1h 前活跃 → 保留
+	sC := mk("C", model.SessionStatusPending, nil)         // 25h 前创建 + 无消息 → 应关（用 COALESCE(created_at)）
+	sD := mk("D", model.SessionStatusClosed, &veryOld)     // 已关 → 不动
 
 	for _, s := range []*model.CustomerSession{sA, sB, sC, sD} {
 		if err := repo.Create(context.Background(), s); err != nil {
@@ -1210,27 +1211,27 @@ func TestGetActiveByUserID_RespectsTTL(t *testing.T) {
 
 	// 25h 前的会话（按 last_message_at COALESCE 已超 TTL）
 	old := &model.CustomerSession{
-		SessionID:      "sess_old",
-		Platform:       model.PlatformDouyin,
-		AccountID:      "tg_acc",
-		UserID:         "user_X",
-		Status:         model.SessionStatusAIHandling,
-		LastMessageAt:  &veryOld,
-		CreatedAt:      veryOld,
-		LastMessage:    "old",
-		LastMessageBy:  "user",
+		SessionID:     "sess_old",
+		Platform:      model.PlatformDouyin,
+		AccountID:     "tg_acc",
+		UserID:        "user_X",
+		Status:        model.SessionStatusAIHandling,
+		LastMessageAt: &veryOld,
+		CreatedAt:     veryOld,
+		LastMessage:   "old",
+		LastMessageBy: "user",
 	}
 	// 1h 前的会话（在 TTL 内）
 	newer := &model.CustomerSession{
-		SessionID:      "sess_new",
-		Platform:       model.PlatformDouyin,
-		AccountID:      "tg_acc",
-		UserID:         "user_X",
-		Status:         model.SessionStatusAIHandling,
-		LastMessageAt:  &recent,
-		CreatedAt:      recent,
-		LastMessage:    "new",
-		LastMessageBy:  "user",
+		SessionID:     "sess_new",
+		Platform:      model.PlatformDouyin,
+		AccountID:     "tg_acc",
+		UserID:        "user_X",
+		Status:        model.SessionStatusAIHandling,
+		LastMessageAt: &recent,
+		CreatedAt:     recent,
+		LastMessage:   "new",
+		LastMessageBy: "user",
 	}
 	for _, s := range []*model.CustomerSession{old, newer} {
 		if err := repo.Create(context.Background(), s); err != nil {
@@ -1262,16 +1263,16 @@ func TestGetActiveByOneID_CrossPlatformMerge(t *testing.T) {
 	now := time.Now()
 	// 已有会话：web 端用户（OneID=phone:138xxx）
 	web := &model.CustomerSession{
-		SessionID:      "sess_web",
-		Platform:       model.PlatformWebEmbed,
-		AccountID:      "web_acc",
-		UserID:         "web_user_42",
-		OneID:          "phone:13800001234",
-		Status:         model.SessionStatusAIHandling,
-		LastMessageAt:  &now,
-		CreatedAt:      now,
-		LastMessage:    "网页端上一条消息",
-		LastMessageBy:  "user",
+		SessionID:     "sess_web",
+		Platform:      model.PlatformWebEmbed,
+		AccountID:     "web_acc",
+		UserID:        "web_user_42",
+		OneID:         "phone:13800001234",
+		Status:        model.SessionStatusAIHandling,
+		LastMessageAt: &now,
+		CreatedAt:     now,
+		LastMessage:   "网页端上一条消息",
+		LastMessageBy: "user",
 	}
 	if err := repo.Create(context.Background(), web); err != nil {
 		t.Fatalf("seed web session failed: %v", err)

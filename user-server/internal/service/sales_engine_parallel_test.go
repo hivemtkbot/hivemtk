@@ -13,8 +13,8 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/dto"
-	"marketing/internal/pkg/featureflag"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/featureflag"
 )
 
 // TestSalesEngine_HandleParallel_NilRequest 测试 nil req 应返回 error

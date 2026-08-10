@@ -28,8 +28,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ============================================================================
@@ -115,6 +115,7 @@ func (c *Client) Close() {
 //   - broadcast: 全局广播通道
 //   - mu: 保护 clients map（避免与 Run 中的 select 竞争）
 //   - done: 关闭信号（用于优雅停止 Run goroutine）
+//
 // wg: 跟踪 Run goroutine 生命周期 (: Stop 等待 Run 真正退出)
 type ChatWSHub struct {
 	clients     map[string]*Client

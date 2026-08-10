@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"marketing/internal/channelbot/core"
+	"hivemtk-user/internal/channelbot/core"
 )
 
 const defaultGraphBase = "https://graph.facebook.com"

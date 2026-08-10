@@ -3,7 +3,7 @@ package agent_runtime
 import (
 	"time"
 
-	"marketing/internal/event"
+	"hivemtk-user/internal/event"
 )
 
 // ============================================================================

@@ -3,7 +3,7 @@ package ragcustomerservice
 import (
 	"strings"
 
-	"marketing/internal/pkg/i18n"
+	"hivemtk-user/internal/pkg/i18n"
 )
 
 // MultilingualSystemPromptTemplate 多语言 system prompt 模板
@@ -15,7 +15,7 @@ import (
 //   - 强制 LLM 仅以 target_language 输出，避免混语
 //   - 明确知识库语种（source_language），要求自然翻译
 //   - 术语表（GlossaryBlock）与 few-shot（FewShotBlock）作为可插拔扩展点，
-//     当前留空，后续由 service/i18n 层注入
+//     当前留空，后续由 service/translation 层注入
 const MultilingualSystemPromptTemplate = `You are a professional cross-border e-commerce customer service agent.
 
 ## LANGUAGE REQUIREMENT (CRITICAL)
@@ -54,7 +54,7 @@ type promptTemplateData struct {
 // renderMultilingualSystemPrompt 渲染多语言 system prompt
 //
 // internalLang / targetLang 为小写短码（如 "zh"/"en"/"ja"/"ar"）。
-// glossaryBlock / fewShotBlock 暂可留空，后续由 service/i18n 层注入。
+// glossaryBlock / fewShotBlock 暂可留空，后续由 service/translation 层注入。
 func renderMultilingualSystemPrompt(internalLang, targetLang, glossaryBlock, fewShotBlock string) string {
 	data := promptTemplateData{
 		TargetLangName: i18n.LangName(targetLang),

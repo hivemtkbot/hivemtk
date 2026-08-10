@@ -3,8 +3,8 @@ package service
 import (
 	"encoding/json"
 	"errors"
-	"marketing/internal/ops/model"
-	"marketing/internal/ops/repository"
+	"hivemtk-user/internal/ops/model"
+	"hivemtk-user/internal/ops/repository"
 	"math"
 	"time"
 

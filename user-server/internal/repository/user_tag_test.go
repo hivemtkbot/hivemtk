@@ -2,12 +2,13 @@ package repository
 
 import (
 	"context"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 	"testing"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupUserTagTestDB 设置用户标签测试数据库

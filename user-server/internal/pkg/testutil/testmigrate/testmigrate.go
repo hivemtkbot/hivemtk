@@ -16,8 +16,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/migration"
-	"marketing/internal/migration/migrations"
+	"hivemtk-user/internal/migration"
+	"hivemtk-user/internal/migration/migrations"
 )
 
 // RunTestMigrations 运行所有注册的 registry 迁移的 Up()，使测试库具备与生产一致的完整 schema。

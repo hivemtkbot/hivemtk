@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 
 	"gorm.io/gorm"
 )

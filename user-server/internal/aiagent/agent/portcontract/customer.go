@@ -3,7 +3,7 @@ package portcontract
 import (
 	"errors"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // ----------------------------------------------------------------------------

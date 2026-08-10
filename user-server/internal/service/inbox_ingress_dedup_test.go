@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"marketing/internal/cache"
-	"marketing/internal/model"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/model"
 )
 
 // TestInboxIngress_BatchMerge_Scenarios 验证 2026-08-05 重构后的 batch 合并机制。
@@ -18,11 +18,11 @@ import (
 //   - 时序处理：timestamp 与锚点比较，历史堆积消息保留原 timestamp
 //
 // 本测试用 nil DB（hubRepo==nil），验证 batch 内 AI 合并行为：
-//   1. 相同会话多条消息 → batch 末尾合并一次 AI 回复
-//   2. 不同会话消息 → 各自触发 AI（按 conversation 分组）
-//   3. 不同渠道相同会话 → 同 conversation 分组，合并触发
-//   4. 不同账号不同会话 → 各自触发 AI
-//   5. 内容 hash 函数仍存在（兼容性验证）
+//  1. 相同会话多条消息 → batch 末尾合并一次 AI 回复
+//  2. 不同会话消息 → 各自触发 AI（按 conversation 分组）
+//  3. 不同渠道相同会话 → 同 conversation 分组，合并触发
+//  4. 不同账号不同会话 → 各自触发 AI
+//  5. 内容 hash 函数仍存在（兼容性验证）
 func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 	ctx := context.Background()
 

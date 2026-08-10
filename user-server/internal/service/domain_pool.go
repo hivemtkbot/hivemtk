@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 	"fmt"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 	"io"
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/repository"
 	"net/http"
 	"sync"
 	"time"

@@ -27,7 +27,7 @@ package lifecycle
 import (
 	"context"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // AgentLifecycle 智能体生命周期统一接口。

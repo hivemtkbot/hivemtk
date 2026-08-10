@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"marketing/internal/pkg/utils/logger"
-	i18nservice "marketing/internal/service/i18n"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/service/translation"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -25,7 +25,7 @@ var upgrader = websocket.Upgrader{
 // WSHandler WebSocket 处理器
 type WSHandler struct {
 	hub          *Hub
-	langResolver *i18nservice.LangConfigResolver
+	langResolver *translation.LangConfigResolver
 }
 
 // NewWSHandler 创建 WebSocket 处理器
@@ -37,7 +37,7 @@ func NewWSHandler() *WSHandler {
 
 // SetLangResolver 注入多语言解析器（v1.2 出海方案）。
 // 未注入时仍可正常工作，ctx 中语言走默认 zh 兜底。
-func (h *WSHandler) SetLangResolver(r *i18nservice.LangConfigResolver) {
+func (h *WSHandler) SetLangResolver(r *translation.LangConfigResolver) {
 	h.langResolver = r
 }
 

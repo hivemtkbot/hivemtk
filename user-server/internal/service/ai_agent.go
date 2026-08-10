@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	dbUtil "marketing/internal/pkg/utils/db"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	dbUtil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
 )
@@ -198,21 +198,21 @@ func (s *AIAgentService) LoadContext(ctx context.Context, agentID uint) (*AgentC
 
 	// 3. 构造 AgentContext
 	agentCtx := &AgentContext{
-		AgentID:              agent.ID,
-		AgentCode:            agent.AgentCode,
-		Name:                 agent.Name,
-		AgentType:            agent.AgentType,
-		Persona:              agent.Persona,
-		SystemPrompt:         agent.SystemPrompt,
-		Greeting:             agent.Greeting,
-		RagProductIDs:        []string(agent.RagProductIDs),
+		AgentID:       agent.ID,
+		AgentCode:     agent.AgentCode,
+		Name:          agent.Name,
+		AgentType:     agent.AgentType,
+		Persona:       agent.Persona,
+		SystemPrompt:  agent.SystemPrompt,
+		Greeting:      agent.Greeting,
+		RagProductIDs: []string(agent.RagProductIDs),
 		// 知识库绑定 (FAQ / SOP 模板)
-		FAQEntryIDs:    []string(agent.FAQEntryIDs),
-		SOPTemplateIDs: []string(agent.SOPTemplateIDs),
+		FAQEntryIDs:          []string(agent.FAQEntryIDs),
+		SOPTemplateIDs:       []string(agent.SOPTemplateIDs),
 		SOPIDs:               []string(agent.SOPIDs),
 		ScriptLibraryIDs:     []string(agent.ScriptLibraryIDs),
 		LLMModel:             agent.LLMModel,
-		LLMProviderConfig:    agent.LLMProviderConfig,
+		LLMProviderConfig:    LLMProviderConfigToDTO(agent.LLMProviderConfig),
 		Temperature:          agent.Temperature,
 		MaxTokens:            agent.MaxTokens,
 		TopP:                 agent.TopP,

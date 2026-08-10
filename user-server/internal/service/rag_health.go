@@ -22,7 +22,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/repository"
+	"hivemtk-user/internal/repository"
 )
 
 // ----------------------------------------------------------------------------

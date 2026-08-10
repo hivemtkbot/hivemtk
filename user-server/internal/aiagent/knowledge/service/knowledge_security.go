@@ -9,8 +9,8 @@ package service
 import (
 	"context"
 
-	"marketing/internal/pkg/utils/text"
-	urlutil "marketing/internal/pkg/utils/url"
+	"hivemtk-user/internal/pkg/utils/text"
+	urlutil "hivemtk-user/internal/pkg/utils/url"
 )
 
 // validateURL URL 校验(含 SSRF 防护)

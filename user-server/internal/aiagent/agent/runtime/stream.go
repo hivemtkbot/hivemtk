@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ============================================================================
@@ -27,25 +27,25 @@ import (
 type StreamEventType string
 
 const (
-	StreamEventToolCall    StreamEventType = "tool_call"    // 工具调用开始
-	StreamEventToolResult  StreamEventType = "tool_result"  // 工具调用结果
-	StreamEventMessage     StreamEventType = "message"      // 消息输出
-	StreamEventError       StreamEventType = "error"        // 错误事件
-	StreamEventComplete    StreamEventType = "complete"     // 完成事件
-	StreamEventStageStart  StreamEventType = "stage_start"  // 阶段开始
-	StreamEventStageEnd    StreamEventType = "stage_end"    // 阶段结束
+	StreamEventToolCall   StreamEventType = "tool_call"   // 工具调用开始
+	StreamEventToolResult StreamEventType = "tool_result" // 工具调用结果
+	StreamEventMessage    StreamEventType = "message"     // 消息输出
+	StreamEventError      StreamEventType = "error"       // 错误事件
+	StreamEventComplete   StreamEventType = "complete"    // 完成事件
+	StreamEventStageStart StreamEventType = "stage_start" // 阶段开始
+	StreamEventStageEnd   StreamEventType = "stage_end"   // 阶段结束
 )
 
 // StreamEvent 流式事件
 type StreamEvent struct {
-	Type       StreamEventType `json:"type"`
-	ToolName   string         `json:"tool_name,omitempty"`
-	CallID     string         `json:"call_id,omitempty"`
-	Content    string         `json:"content,omitempty"`
-	StageName  string         `json:"stage_name,omitempty"`
-	Error      string         `json:"error,omitempty"`
-	Timestamp  time.Time      `json:"timestamp"`
-	Duration   time.Duration  `json:"duration,omitempty"`
+	Type      StreamEventType `json:"type"`
+	ToolName  string          `json:"tool_name,omitempty"`
+	CallID    string          `json:"call_id,omitempty"`
+	Content   string          `json:"content,omitempty"`
+	StageName string          `json:"stage_name,omitempty"`
+	Error     string          `json:"error,omitempty"`
+	Timestamp time.Time       `json:"timestamp"`
+	Duration  time.Duration   `json:"duration,omitempty"`
 }
 
 // StreamHandler 流式处理器接口
@@ -64,9 +64,9 @@ type StreamHandler interface {
 
 // BufferedStreamHandler 缓冲流式处理器
 type BufferedStreamHandler struct {
-	events    []StreamEvent
-	mu        sync.Mutex
-	callback  func(event StreamEvent)
+	events   []StreamEvent
+	mu       sync.Mutex
+	callback func(event StreamEvent)
 }
 
 // NewBufferedStreamHandler 创建缓冲流式处理器
@@ -93,8 +93,8 @@ func (h *BufferedStreamHandler) OnEvent(event StreamEvent) {
 // OnError 处理错误
 func (h *BufferedStreamHandler) OnError(err error) {
 	h.OnEvent(StreamEvent{
-		Type:    StreamEventError,
-		Error:   err.Error(),
+		Type:  StreamEventError,
+		Error: err.Error(),
 	})
 }
 
@@ -128,7 +128,7 @@ func (h *BufferedStreamHandler) Clear() {
 
 // ChannelStreamHandler 通道流式处理器
 type ChannelStreamHandler struct {
- channel chan StreamEvent
+	channel chan StreamEvent
 	done    chan struct{}
 }
 
@@ -153,8 +153,8 @@ func (h *ChannelStreamHandler) OnEvent(event StreamEvent) {
 // OnError 处理错误
 func (h *ChannelStreamHandler) OnError(err error) {
 	h.OnEvent(StreamEvent{
-		Type:    StreamEventError,
-		Error:   err.Error(),
+		Type:  StreamEventError,
+		Error: err.Error(),
 	})
 }
 
@@ -325,9 +325,9 @@ func (c *InferenceCycle) RunOnceStream(ctx context.Context, payload CustomerMess
 		// 发送阶段结束事件
 		if handler != nil {
 			handler.OnEvent(StreamEvent{
-				Type:       StreamEventStageEnd,
-				StageName:  stage.Name(),
-				Duration:   stageDuration,
+				Type:      StreamEventStageEnd,
+				StageName: stage.Name(),
+				Duration:  stageDuration,
 			})
 		}
 

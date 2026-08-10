@@ -1,6 +1,6 @@
 package utils
 
-import "marketing/internal/pkg/i18n"
+import "hivemtk-user/internal/pkg/i18n"
 
 // ErrorCode 错误码类型
 type ErrorCode string

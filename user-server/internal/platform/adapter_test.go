@@ -1,7 +1,7 @@
 package platform
 
 import (
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 	"strings"
 	"testing"
 )

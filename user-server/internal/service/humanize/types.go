@@ -11,8 +11,8 @@ import (
 	"context"
 	"errors"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
 )
 
 // HumanizeEvaluator 单次评估器接口（规则与 LLM 共同实现）

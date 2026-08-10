@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 
 	"gorm.io/gorm"
 )

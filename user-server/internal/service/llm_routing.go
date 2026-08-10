@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ============================================================================

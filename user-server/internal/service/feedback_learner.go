@@ -7,8 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // FeedbackLearner 反馈学习器
@@ -81,19 +81,19 @@ func (f *FeedbackLearner) RecordFeedback(ctx context.Context, record *FeedbackRe
 	// 1. 落库（db 不为空时持久化；db 为空仅内存聚合，兼容测试/无 DB 场景）
 	if f.db != nil {
 		orm := &model.FeedbackRecordORM{
-			SessionID:     record.SessionID,
-			CustomerID:    record.CustomerID,
-			IntentType:    record.IntentType,
-			Confidence:    record.Confidence,
-			SOPName:       record.SOPName,
-			AIReply:       record.AIReply,
-			HumanReply:    record.HumanReply,
+			SessionID:      record.SessionID,
+			CustomerID:     record.CustomerID,
+			IntentType:     record.IntentType,
+			Confidence:     record.Confidence,
+			SOPName:        record.SOPName,
+			AIReply:        record.AIReply,
+			HumanReply:     record.HumanReply,
 			CustomerAccept: record.CustomerAccept,
-			Transferred:   record.Transferred,
+			Transferred:    record.Transferred,
 			TransferReason: record.TransferReason,
-			Tokens:        record.Tokens,
-			LatencyMs:     record.LatencyMs,
-			CreatedAt:     record.CreatedAt,
+			Tokens:         record.Tokens,
+			LatencyMs:      record.LatencyMs,
+			CreatedAt:      record.CreatedAt,
 		}
 		if err := f.db.WithContext(ctx).Create(orm).Error; err != nil {
 			// 落库失败不阻断内存聚合（降级），但必须告警以便感知数据丢失

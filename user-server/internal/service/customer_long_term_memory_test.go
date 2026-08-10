@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
+
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupLongTermMemoryTestDB 初始化测试 DB（含 CustomerLongTermMemory 表）

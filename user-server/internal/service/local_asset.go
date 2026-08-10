@@ -9,10 +9,10 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"marketing/internal/domain/asset"
-	bizerr "marketing/internal/domain/errors"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/domain/asset"
+	bizerr "hivemtk-user/internal/domain/errors"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 type LocalAssetFilter = repository.LocalAssetFilter

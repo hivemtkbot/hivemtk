@@ -16,8 +16,8 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 
-	"marketing/internal/controller"
-	"marketing/internal/service"
+	"hivemtk-user/internal/controller"
+	"hivemtk-user/internal/service"
 )
 
 // RegisterWSRoutes 注册 WebSocket 路由（不破坏其他路由）

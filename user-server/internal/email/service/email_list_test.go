@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupEmailListServiceTestDB 设置邮件列表服务测试数据库

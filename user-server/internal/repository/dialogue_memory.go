@@ -14,8 +14,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
-	_db "marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	_db "hivemtk-user/internal/pkg/db"
 )
 
 // DialogueMemoryRepository 对话记忆仓储接口

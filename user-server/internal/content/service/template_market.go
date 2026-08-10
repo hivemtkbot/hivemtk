@@ -3,11 +3,11 @@ package service
 import (
 	"encoding/json"
 	"errors"
-	"marketing/internal/content/model"
-	sysmodel "marketing/internal/model"
-	opsmodel "marketing/internal/ops/model"
-	opsrepo "marketing/internal/ops/repository"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/content/model"
+	sysmodel "hivemtk-user/internal/model"
+	opsmodel "hivemtk-user/internal/ops/model"
+	opsrepo "hivemtk-user/internal/ops/repository"
+	"hivemtk-user/internal/pkg/db"
 )
 
 var _ = sysmodel.JSONMap{} // 保持 sysmodel 引用以备后续扩展

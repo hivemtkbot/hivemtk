@@ -3,8 +3,8 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	"marketing/internal/ops/model"
-	"marketing/internal/ops/service"
+	"hivemtk-user/internal/ops/model"
+	"hivemtk-user/internal/ops/service"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupChurnPredictionTestDB 设置测试数据库

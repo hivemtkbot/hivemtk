@@ -1,4 +1,4 @@
-module marketing
+module hivemtk-user
 
 go 1.25.0
 

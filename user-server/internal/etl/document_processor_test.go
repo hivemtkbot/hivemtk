@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/aiagent/rag/core"
+	"hivemtk-user/internal/aiagent/rag/core"
 )
 
 // TestProcessDocument_NoInfiniteLoop 回归测试：

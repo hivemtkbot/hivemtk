@@ -2,12 +2,13 @@ package repository
 
 import (
 	"context"
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 	"testing"
 	"time"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupDomainPoolTestDB 设置域名池测试数据库

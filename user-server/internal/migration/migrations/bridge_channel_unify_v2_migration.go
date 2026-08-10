@@ -14,13 +14,13 @@ package migrations
 //   - channel_agent_bindings.channel_type
 //   - ai_suggestions.session_id 内的 platform 前缀（历史 session_id 形如 "xhs_web:..."）
 //
-// 单一源：marketing/internal/model/message_event.go ChannelXHS/ChannelDouyin/ChannelKuaishou/ChannelXianyu/ChannelTikTok。
+// 单一源：hivemtk-user/internal/model/message_event.go ChannelXHS/ChannelDouyin/ChannelKuaishou/ChannelXianyu/ChannelTikTok。
 
 import (
 	"context"
 	"fmt"
 
-	"marketing/internal/migration"
+	"hivemtk-user/internal/migration"
 
 	"gorm.io/gorm"
 )
@@ -47,7 +47,9 @@ func NewBridgeChannelUnifyV2Migration(db *gorm.DB) *BridgeChannelUnifyV2Migratio
 }
 
 func (m *BridgeChannelUnifyV2Migration) Version() string { return "v3.18.0" }
-func (m *BridgeChannelUnifyV2Migration) Name() string    { return "渠道编码统一 v2（*_web/xhs -> 全名）" }
+func (m *BridgeChannelUnifyV2Migration) Name() string {
+	return "渠道编码统一 v2（*_web/xhs -> 全名）"
+}
 func (m *BridgeChannelUnifyV2Migration) Description() string {
 	return "把 message_hub / customer_sessions / inbox_conversations / bridge_accounts / channel_agent_bindings / ai_suggestions 中的 *_web / xhs 历史值归一化为全名（xiaohongshu/douyin/kuaishou/xianyu/tiktok）"
 }

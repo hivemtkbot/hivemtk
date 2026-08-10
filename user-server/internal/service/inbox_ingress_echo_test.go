@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // 回归测试：跨天回扫时，patrol 抓取的 AI 回复气泡 msg_id（contentHash）与服务端

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // 2026-08-07 第六轮修复：服务端权威内容级去重（钩子2.5）。

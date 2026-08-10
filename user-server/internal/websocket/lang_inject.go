@@ -3,8 +3,8 @@ package websocket
 import (
 	"context"
 
-	"marketing/internal/pkg/i18n"
-	i18nservice "marketing/internal/service/i18n"
+	"hivemtk-user/internal/pkg/i18n"
+	"hivemtk-user/internal/service/translation"
 )
 
 // injectLangToCtx 在 WebSocket handler 内部使用的多语言 ctx 注入 helper。
@@ -16,7 +16,7 @@ import (
 //   - resolver 为 nil → 注入默认 zh
 //   - resolver.Resolve 报错或返回 nil → 注入默认 zh
 //   - 正常解析 → 注入 result 中的语言
-func injectLangToCtx(ctx context.Context, resolver *i18nservice.LangConfigResolver, channelID string, agentID uint) context.Context {
+func injectLangToCtx(ctx context.Context, resolver *translation.LangConfigResolver, channelID string, agentID uint) context.Context {
 	if resolver == nil {
 		return injectDefaultLang(ctx)
 	}

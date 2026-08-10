@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/httpclient"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/httpclient"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
 )

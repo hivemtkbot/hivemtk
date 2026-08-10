@@ -10,7 +10,7 @@ type UpgradeTask struct {
 	FromVersion     string     `gorm:"type:varchar(50);not null" json:"from_version"`
 	ToVersion       string     `gorm:"type:varchar(50);not null" json:"to_version"`
 	Status          string     `gorm:"type:varchar(20);default:'pending'" json:"status"` // pending, running, completed, failed
-	Progress        int        `gorm:"default:0" json:"progress"`                      // 0-100
+	Progress        int        `gorm:"default:0" json:"progress"`                        // 0-100
 	TotalSteps      int        `gorm:"default:0" json:"total_steps"`
 	CurrentStep     int        `gorm:"default:0" json:"current_step"`
 	CurrentStepDesc string     `gorm:"type:varchar(255)" json:"current_step_desc"`

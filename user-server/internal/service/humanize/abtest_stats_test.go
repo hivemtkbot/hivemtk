@@ -16,7 +16,7 @@ import (
 	"math"
 	"testing"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // ============================================================================

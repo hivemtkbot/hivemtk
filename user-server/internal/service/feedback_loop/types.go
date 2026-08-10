@@ -24,7 +24,7 @@ import (
 	"errors"
 	"time"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // ----------------------------------------------------------------------------

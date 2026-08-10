@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // Hub WebSocket连接中心

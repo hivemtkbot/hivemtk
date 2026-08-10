@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"marketing/internal/aiagent/agent/portcontract"
+	"hivemtk-user/internal/aiagent/agent/portcontract"
 )
 
 // ============================================================================

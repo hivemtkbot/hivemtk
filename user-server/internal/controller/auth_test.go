@@ -8,9 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/service"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

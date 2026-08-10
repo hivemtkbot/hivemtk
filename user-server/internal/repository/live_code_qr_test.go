@@ -2,12 +2,13 @@ package repository
 
 import (
 	"context"
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 	"testing"
 	"time"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupLiveCodeQRTestDB 设置活码二维码测试数据库

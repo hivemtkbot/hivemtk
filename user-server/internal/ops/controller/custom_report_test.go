@@ -3,9 +3,9 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	sysmodel "marketing/internal/model"
-	"marketing/internal/ops/model"
-	"marketing/internal/ops/service"
+	sysmodel "hivemtk-user/internal/model"
+	"hivemtk-user/internal/ops/model"
+	"hivemtk-user/internal/ops/service"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupCustomReportTestDB 设置测试数据库

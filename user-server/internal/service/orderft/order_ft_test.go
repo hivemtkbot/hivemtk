@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/service"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/testutil"
+	"hivemtk-user/internal/service"
 )
 
 // TestOrderWebhookAndCustomerLookup_FT 订单功能测试（独立包，规避 service 包内损坏的其它测试文件）：

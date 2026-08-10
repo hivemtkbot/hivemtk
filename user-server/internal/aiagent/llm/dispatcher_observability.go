@@ -10,8 +10,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ============================================================================

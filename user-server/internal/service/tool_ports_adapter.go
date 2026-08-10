@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"marketing/internal/aiagent/agent/portcontract"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/aiagent/agent/portcontract"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // ============================================================================

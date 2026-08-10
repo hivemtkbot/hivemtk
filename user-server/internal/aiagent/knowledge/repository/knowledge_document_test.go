@@ -11,8 +11,8 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/aiagent/knowledge/model"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/aiagent/knowledge/model"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
 )

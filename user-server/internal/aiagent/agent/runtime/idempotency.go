@@ -7,7 +7,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // replyGuardTTL 幂等认领的存活时间。

@@ -5,9 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"marketing/internal/aiagent/agent/portcontract"
-	"marketing/internal/model"
-	"marketing/internal/service"
+	"hivemtk-user/internal/aiagent/agent/portcontract"
+	"hivemtk-user/internal/model"
 )
 
 // private_message_tools.go 私信工具实现（智能体对话域核心）
@@ -22,29 +21,21 @@ import (
 //
 // 工具层完整走 Port：
 //   - 所有方法统一走 portcontract.SessionPort。
-//   - SessionSvc 字段作为旧装配入口的回退路径。
 //   - 装配期通过 NewPrivateMessageToolDepsWithPort 注入；为 nil 时工具返回 "port not injected"。
+//   - P2-3：已移除直连 service 的回退路径，tooluse 不再 import service。
 
 // PrivateMessageToolDeps 私信工具依赖
 //
 // 所有方法统一走 portcontract.SessionPort。
-// SessionSvc 仅作为旧装配入口的回退路径，不推荐新代码使用。
 type PrivateMessageToolDeps struct {
-	// Session 会话域 Port（推荐路径）。
-	// 由 service.SessionPortAdapter 注入；nil 时工具返回 "port not injected"。
+	// Session 会话域 Port。
+	// 由装配层（internal/app）以 service.SessionPortAdapter 注入；nil 时工具返回 "port not injected"。
 	Session portcontract.SessionPort
-	// SessionSvc 直接服务引用（兼容旧路径回退）。
-	SessionSvc *service.CustomerSessionService
 }
 
-// NewPrivateMessageToolDeps 创建私信工具依赖（注入真实会话服务，Session port 暂不注入）
-func NewPrivateMessageToolDeps(sessionSvc *service.CustomerSessionService) PrivateMessageToolDeps {
-	return PrivateMessageToolDeps{SessionSvc: sessionSvc}
-}
-
-// NewPrivateMessageToolDepsWithPort 创建带 Session Port 注入的私信工具依赖（推荐）。
+// NewPrivateMessageToolDepsWithPort 创建带 Session Port 注入的私信工具依赖。
 //
-// 在 main/cmd/api 启动期或测试装配期调用：
+// 在装配期调用：
 //
 //	sessionPort := service.NewSessionPortAdapter(service.NewCustomerSessionService())
 //	deps := tooluse.NewPrivateMessageToolDepsWithPort(sessionPort)
@@ -52,30 +43,12 @@ func NewPrivateMessageToolDepsWithPort(session portcontract.SessionPort) Private
 	return PrivateMessageToolDeps{Session: session}
 }
 
-// sessionOrFallback 返回 Session Port 或回退到 SessionSvc
-func (d PrivateMessageToolDeps) sessionOrFallback() portcontract.SessionPort {
-	if d.Session != nil {
-		return d.Session
-	}
-	if d.SessionSvc == nil {
-		return nil
-	}
-	return service.NewSessionPortAdapter(d.SessionSvc)
-}
-
 // BuildPrivateMessageTools 构造全部 3 个私信工具（不注册到 Registry）
 //
-// 内部完成 SessionPort 的兜底解析（deps.SessionPort 优先，否则从 SessionSvc 创建）。
+// deps.Session 为 nil 时工具以 "port not injected" 应答（fail-closed）。
 // 调用方：PrivateMessageToolProvider.Provide()
 func BuildPrivateMessageTools(deps PrivateMessageToolDeps) []Tool {
-	port := deps.sessionOrFallback()
-	if port == nil {
-		// 仍保持旧版兜底：deps.SessionSvc 自动创建
-		if deps.SessionSvc == nil {
-			deps.SessionSvc = service.NewCustomerSessionService()
-		}
-		port = service.NewSessionPortAdapter(deps.SessionSvc)
-	}
+	port := deps.Session
 	return []Tool{
 		&openPrivateSessionTool{sessionPort: port},
 		&readPrivateSessionTool{sessionPort: port},
@@ -84,8 +57,6 @@ func BuildPrivateMessageTools(deps PrivateMessageToolDeps) []Tool {
 }
 
 // RegisterPrivateMessageTools 注册私信工具（CategoryPrivateMessage）
-//
-// Session port 优先；为 nil 时回退到 SessionSvc（旧装配兼容）。
 func RegisterPrivateMessageTools(registry *ToolRegistry, deps PrivateMessageToolDeps) error {
 	tools := BuildPrivateMessageTools(deps)
 	for _, t := range tools {

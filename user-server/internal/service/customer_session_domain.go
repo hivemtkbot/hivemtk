@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // ============================================================================

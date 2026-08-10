@@ -3,7 +3,7 @@ package service
 import (
 	"encoding/json"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // GetCustomerEventData 解析 CustomerEvent.EventData (JSON string) 为 map。

@@ -15,8 +15,9 @@ import (
 	"context"
 	"time"
 
+	"hivemtk-user/internal/model"
+
 	"gorm.io/gorm"
-	"marketing/internal/model"
 )
 
 // NegativeSample 负反馈样本（feedback_events 投影）

@@ -10,63 +10,92 @@
 package dto
 
 import (
-	"marketing/internal/model"
+	"time"
 )
+
+// AssetBundleMessage 资产包内的单条消息（OpenAI ChatML 协议，dto 自有类型）
+// 与 model.AssetBundleMessage 字段一致，由 service 层 mapper 互转
+type AssetBundleMessage struct {
+	Role    string `json:"role"`    // system / user / assistant / tool
+	Content string `json:"content"` // 纯文本内容
+	// 可选：tool_call_id（tool 角色使用）
+	ToolCallID string `json:"tool_call_id,omitempty"`
+	// 可选：name（多角色同名区分）
+	Name string `json:"name,omitempty"`
+}
 
 // AssetBundleCreateRequest 创建资产包请求
 type AssetBundleCreateRequest struct {
-	AssetID     string                     `json:"asset_id" binding:"required"`
-	Title       string                     `json:"title" binding:"required"`
-	Description string                     `json:"description"`
-	Author      string                     `json:"author"`
-	Version     string                     `json:"version"`
-	Scope       model.AssetBundleScope     `json:"scope"`
-	Industry    string                     `json:"industry"`
-	Language    string                     `json:"language"`
-	Tags        []string                   `json:"tags"`
-	Messages    []model.AssetBundleMessage `json:"messages" binding:"required"`
+	AssetID     string               `json:"asset_id" binding:"required"`
+	Title       string               `json:"title" binding:"required"`
+	Description string               `json:"description"`
+	Author      string               `json:"author"`
+	Version     string               `json:"version"`
+	Scope       string               `json:"scope"` // private / shared / official
+	Industry    string               `json:"industry"`
+	Language    string               `json:"language"`
+	Tags        []string             `json:"tags"`
+	Messages    []AssetBundleMessage `json:"messages" binding:"required"`
 }
 
 // AssetBundleUpdateRequest 更新资产包请求
 type AssetBundleUpdateRequest struct {
-	ID          int64                      `json:"id" binding:"required"`
-	Title       string                     `json:"title"`
-	Description string                     `json:"description"`
-	Author      string                     `json:"author"`
-	Version     string                     `json:"version"`
-	Scope       model.AssetBundleScope     `json:"scope"`
-	Industry    string                     `json:"industry"`
-	Language    string                     `json:"language"`
-	Tags        []string                   `json:"tags"`
-	Messages    []model.AssetBundleMessage `json:"messages"`
-	Status      model.AssetBundleStatus    `json:"status"`
-	ChangeNote  string                     `json:"change_note"`
+	ID          int64                `json:"id" binding:"required"`
+	Title       string               `json:"title"`
+	Description string               `json:"description"`
+	Author      string               `json:"author"`
+	Version     string               `json:"version"`
+	Scope       string               `json:"scope"`
+	Industry    string               `json:"industry"`
+	Language    string               `json:"language"`
+	Tags        []string             `json:"tags"`
+	Messages    []AssetBundleMessage `json:"messages"`
+	Status      string               `json:"status"` // draft / active / inactive / archived
+	ChangeNote  string               `json:"change_note"`
 }
 
 // AssetBundleListRequest 列表查询请求
 type AssetBundleListRequest struct {
-	Keyword  string                  `json:"keyword" form:"keyword"`
-	Author   string                  `json:"author" form:"author"`
-	Industry string                  `json:"industry" form:"industry"`
-	Language string                  `json:"language" form:"language"`
-	Scope    model.AssetBundleScope  `json:"scope" form:"scope"`
-	Status   model.AssetBundleStatus `json:"status" form:"status"`
-	Tags     []string                `json:"tags" form:"tags"`
-	Page     int                     `json:"page" form:"page"`
-	Size     int                     `json:"size" form:"size"`
+	Keyword  string   `json:"keyword" form:"keyword"`
+	Author   string   `json:"author" form:"author"`
+	Industry string   `json:"industry" form:"industry"`
+	Language string   `json:"language" form:"language"`
+	Scope    string   `json:"scope" form:"scope"`
+	Status   string   `json:"status" form:"status"`
+	Tags     []string `json:"tags" form:"tags"`
+	Page     int      `json:"page" form:"page"`
+	Size     int      `json:"size" form:"size"`
 }
 
-// AssetBundleResponse 资产包响应（基础）
-type AssetBundleResponse struct {
-	*model.AssetBundle
+// AssetBundleView 资产包响应视图（镜像 model.AssetBundle 的 JSON 字段，不嵌入实体）
+type AssetBundleView struct {
+	ID                 int64                `json:"id"`
+	AssetID            string               `json:"asset_id"`
+	Title              string               `json:"title"`
+	Description        string               `json:"description"`
+	Author             string               `json:"author"`
+	Version            string               `json:"version"`
+	Scope              string               `json:"scope"`
+	Status             string               `json:"status"`
+	Industry           string               `json:"industry"`
+	Language           string               `json:"language"`
+	Tags               []string             `json:"tags"`
+	Messages           []AssetBundleMessage `json:"messages"`
+	Examples           []any                `json:"examples"`
+	SupportedLanguages []string             `json:"supported_languages"`
+	UseCount           int64                `json:"use_count"`
+	Rating             float64              `json:"rating"`
+	RatingCount        int                  `json:"rating_count"`
+	CreatedAt          time.Time            `json:"created_at"`
+	UpdatedAt          time.Time            `json:"updated_at"`
 }
 
 // AssetBundleListResponse 列表响应
 type AssetBundleListResponse struct {
-	List  []*model.AssetBundle `json:"list"`
-	Total int64                `json:"total"`
-	Page  int                  `json:"page"`
-	Size  int                  `json:"size"`
+	List  []*AssetBundleView `json:"list"`
+	Total int64              `json:"total"`
+	Page  int                `json:"page"`
+	Size  int                `json:"size"`
 }
 
 // ============================================================================
@@ -147,21 +176,21 @@ type MerchantFormParseResponse struct {
 
 // WeaveRequest Weave 算法请求
 type WeaveRequest struct {
-	AssetID      string                     `json:"asset_id" binding:"required"`
-	UserQuery    string                     `json:"user_query" binding:"required"`
-	RAGDocs      []RAGDocumentDTO           `json:"rag_docs"`
-	ChatHistory  []model.AssetBundleMessage `json:"chat_history"`
-	MerchantVars map[string]string          `json:"merchant_vars"`
-	Options      *WeaveOptionsDTO           `json:"options"`
+	AssetID      string               `json:"asset_id" binding:"required"`
+	UserQuery    string               `json:"user_query" binding:"required"`
+	RAGDocs      []RAGDocumentDTO     `json:"rag_docs"`
+	ChatHistory  []AssetBundleMessage `json:"chat_history"`
+	MerchantVars map[string]string    `json:"merchant_vars"`
+	Options      *WeaveOptionsDTO     `json:"options"`
 	// 沙箱/预览模式：开发者 Playground 本地试运行置 true，跳过热插拔门禁与用量累加
 	Sandbox bool `json:"sandbox"`
 }
 
 // WeaveResponse Weave 响应
 type WeaveResponse struct {
-	Messages     []model.AssetBundleMessage `json:"messages"`
-	ResultLength int                        `json:"result_length"`
-	Stats        WeaveStats                 `json:"stats"`
+	Messages     []AssetBundleMessage `json:"messages"`
+	ResultLength int                  `json:"result_length"`
+	Stats        WeaveStats           `json:"stats"`
 }
 
 // WeaveStats 织布统计

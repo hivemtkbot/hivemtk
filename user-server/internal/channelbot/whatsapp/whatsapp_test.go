@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/channelbot/core"
+	"hivemtk-user/internal/channelbot/core"
 )
 
 type fakeTransport struct {

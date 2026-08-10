@@ -20,9 +20,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/embedding"
-	"marketing/internal/aiagent/llm"
-	feedbackloop "marketing/internal/service/feedback_loop"
+	"hivemtk-user/internal/aiagent/embedding"
+	"hivemtk-user/internal/aiagent/llm"
+	feedbackloop "hivemtk-user/internal/service/feedback_loop"
 )
 
 // 全局单例

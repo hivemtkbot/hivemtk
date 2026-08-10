@@ -14,7 +14,7 @@ package feedbackloop
 // 参考: service/self_learning/validation.go 先例
 
 import (
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // ValidateCollectRequest 校验反馈采集请求合法性

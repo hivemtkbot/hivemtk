@@ -11,10 +11,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
-	"marketing/internal/websocket"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/websocket"
 )
 
 // VisitorChatService 访客端客服会话服务
@@ -310,16 +310,16 @@ type VisitorSendMessageRequest struct {
 
 // VisitorSendMessageResult 访客发送消息结果
 type VisitorSendMessageResult struct {
-	UserMessage    *model.SessionMessage `json:"user_message"`
-	AIReplied      bool                  `json:"ai_replied"`
-	AIResponse     *model.SessionMessage `json:"ai_response,omitempty"`
+	UserMessage *model.SessionMessage `json:"user_message"`
+	AIReplied   bool                  `json:"ai_replied"`
+	AIResponse  *model.SessionMessage `json:"ai_response,omitempty"`
 	// AICards 会话内结构化富卡片（商品卡/订单卡/优惠卡等），随 HTTP 响应一并下发给访客
-	AICards        []model.RichCard     `json:"ai_cards,omitempty"`
-	Transferred    bool                  `json:"transferred"`
-	TransferReason string                `json:"transfer_reason,omitempty"`
-	Confidence     float64               `json:"confidence"`
-	HandlerType    string                `json:"handler_type"`
-	SuggestionID   uint                  `json:"suggestion_id,omitempty"`
+	AICards        []model.RichCard `json:"ai_cards,omitempty"`
+	Transferred    bool             `json:"transferred"`
+	TransferReason string           `json:"transfer_reason,omitempty"`
+	Confidence     float64          `json:"confidence"`
+	HandlerType    string           `json:"handler_type"`
+	SuggestionID   uint             `json:"suggestion_id,omitempty"`
 }
 
 // SendMessage 访客发送消息（核心入口）

@@ -25,9 +25,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	dbUtil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/repository"
 )
 
 const (
@@ -36,10 +37,10 @@ const (
 	faqHitThresh   = 0.6 // 命中分数阈值, 低于此值不进 Layer1
 	faqTopKDefault = 3
 	// 质量衰减
-	faqDecayPerWeek  = 0.1            // 每次衰减量
+	faqDecayPerWeek  = 0.1                // 每次衰减量
 	faqDecayDays     = 7 * 24 * time.Hour // 7 天未命中触发
-	faqDecayMinHits  = 5              // 命中次数 < 此值才衰减
-	faqDecayMaxBatch = 1000           // 单次最多处理条数, 避免长事务
+	faqDecayMinHits  = 5                  // 命中次数 < 此值才衰减
+	faqDecayMaxBatch = 1000               // 单次最多处理条数, 避免长事务
 	// Task 15: agentID 共享池 (agentID=0 表示全局共享池)
 	faqAgentShared uint = 0
 )
@@ -114,6 +115,11 @@ type FAQService struct {
 	loaded map[uint]time.Time
 }
 
+// NewFAQServiceDefault 使用全局 DB 创建 FAQ Service（controller 层入口，避免 controller 持有 gorm.DB）。
+func NewFAQServiceDefault() *FAQService {
+	return NewFAQService(dbUtil.GetDB(), nil)
+}
+
 // NewFAQService 创建 FAQ Service
 //
 // Task 15: 第二个参数保留 *repository.FAQRepository 兼容旧调用, bindingRepo 走 SetBindingRepo 注入。
@@ -180,6 +186,7 @@ func (s *FAQService) SetClock(c Clock) {
 //   - 仅查询 agent_id IS NULL 的全局共享 FAQ
 //   - 保留旧 Match API 用于调试 / 后台管理界面
 //   - 业务运行时应使用 MatchByAgent
+//
 // cachedEntries 返回指定 agent 的 FAQ 候选集（已启用）。优先命中内存缓存（TTL faqCacheTTL），
 // 避免每次 FAQ 匹配都从 DB 全量拉取最多 faqCacheMaxN 条 FAQ 再做内存打分。
 //

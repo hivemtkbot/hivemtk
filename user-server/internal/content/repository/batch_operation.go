@@ -7,8 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
-	contentmodel "marketing/internal/content/model"
-	_db "marketing/internal/pkg/utils/db"
+	contentmodel "hivemtk-user/internal/content/model"
+	_db "hivemtk-user/internal/pkg/db"
 )
 
 // BatchOperationRepository 批量操作历史仓储

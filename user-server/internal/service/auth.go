@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils"
-	"marketing/internal/pkg/utils/bcrypt"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
-	"marketing/internal/system/install"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
+	"hivemtk-user/internal/pkg/utils/bcrypt"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/system/install"
 
 	"gorm.io/gorm"
 )

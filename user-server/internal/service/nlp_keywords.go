@@ -6,9 +6,9 @@ import "strings"
 // 整合 chat_visitor.transferKeywords / veto_rule.explicitKeywords / smart_cs_orchestrator.urgentKeywords
 // 避免三套独立关键词列表不一致的问题
 var NLPKeywords = struct {
-	Transfer  []string // 触发转人工
-	Explicit  []string // 显式转人工（veto 规则）
-	Urgent    []string // 紧急/投诉
+	Transfer []string // 触发转人工
+	Explicit []string // 显式转人工（veto 规则）
+	Urgent   []string // 紧急/投诉
 }{
 	// 仅匹配「显式要求人工」的短语，避免误伤：
 	//   - 去掉裸词 "客服"（"你们的客服系统怎么用" 是产品问题，不应转人工）

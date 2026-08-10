@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 	"fmt"
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/content/model"
-	"marketing/internal/content/repository"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/content/model"
+	"hivemtk-user/internal/content/repository"
 	"os"
 	"strings"
 
-	sysrepo "marketing/internal/repository"
+	sysrepo "hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
 )

@@ -20,9 +20,10 @@ import (
 	"strconv"
 	"strings"
 
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
+
 	"github.com/gin-gonic/gin"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
 )
 
 // EmailOpenTrackerController 邮件打开率追踪控制器

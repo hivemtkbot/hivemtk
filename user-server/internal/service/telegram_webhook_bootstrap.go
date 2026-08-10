@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/config"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/pkg/utils/tgbot"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/tgbot"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // GenTGWebhookSecret 生成 32 字节十六进制 webhook secret，用于
@@ -67,7 +67,7 @@ func ValidateTelegramWebhookURL(raw string) error {
 //  1. 账号表 telegram_accounts.webhook_url（用户在 UI 显式填写的，覆盖默认）
 //  2. 配置文件 external.public_base_url 或环境变量 PUBLIC_BASE_URL（公网域名/frp 暴露的域名）
 //     → 私域部署基线：user-server 跑在 frp 后，请求 Host 总是 localhost:8204，
-//       必须显式声明公网域名，否则 Telegram 永远无法回调本系统。
+//     必须显式声明公网域名，否则 Telegram 永远无法回调本系统。
 //
 // 返回值：(url, hasPublicBase)
 //   - url: 最终 webhook URL；账号未启用 / 未配置 时返回空串

@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 )
 
 // ChatChannelController 客服 Web Widget 渠道管理（B 端）

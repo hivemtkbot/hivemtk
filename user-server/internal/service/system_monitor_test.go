@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
-	contentmodel "marketing/internal/content/model"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	contentmodel "hivemtk-user/internal/content/model"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupSystemMonitorTestDB 设置系统监控服务测试数据库

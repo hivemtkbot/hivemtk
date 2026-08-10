@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"marketing/internal/pkg/utils/httpclient"
+	"hivemtk-user/internal/pkg/httpclient"
 )
 
 // GetRequest 发起 HTTP GET 请求并将 JSON 响应体解析为 map

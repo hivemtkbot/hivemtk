@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"marketing/internal/cache"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 // SegmentService 用户分群服务 (F。

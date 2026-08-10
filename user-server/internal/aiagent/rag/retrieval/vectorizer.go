@@ -7,7 +7,7 @@ import (
 	"math"
 	"strings"
 
-	"marketing/internal/aiagent/llm"
+	"hivemtk-user/internal/aiagent/llm"
 )
 
 // EmbeddingProviderOpenAI 默认 provider：基于 llm.EmbeddingService（OpenAI 兼容）

@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"marketing/internal/platform"
+	"hivemtk-user/internal/platform"
 )
 
 // SubmitToPlatform 将本地调试好的资产包提交到平台端审核上架（开发者上架链路）。

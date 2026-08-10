@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/aiagent/knowledge/model"
+	"hivemtk-user/internal/aiagent/knowledge/model"
 
 	"github.com/google/uuid"
 )

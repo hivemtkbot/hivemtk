@@ -375,7 +375,7 @@ func (m *MemoryCache) Incr(ctx context.Context, key string, expiration time.Dura
 	if ele, ok := m.data[key]; ok {
 		item := ele.Value.(*cacheItem)
 		// 未过期且值为 int64 → 累加
-		if (item.expiration.IsZero() || item.expiration.After(time.Now())) {
+		if item.expiration.IsZero() || item.expiration.After(time.Now()) {
 			if n, ok := item.value.(int64); ok {
 				n++
 				item.value = n

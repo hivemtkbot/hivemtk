@@ -3,15 +3,15 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"marketing/internal/content/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/content/model"
+	"hivemtk-user/internal/pkg/db"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	cdpmodel "marketing/internal/model"
-	"marketing/internal/pkg/testutil"
+	cdpmodel "hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
 )

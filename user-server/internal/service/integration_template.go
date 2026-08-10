@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"marketing/internal/integration/templates"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/integration/templates"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // IntegrationTemplateService 第三方对接模板服务

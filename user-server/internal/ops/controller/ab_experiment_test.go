@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	sysmodel "marketing/internal/model"
-	"marketing/internal/ops/model"
-	"marketing/internal/ops/service"
-	"marketing/internal/pkg/utils/db"
+	sysmodel "hivemtk-user/internal/model"
+	"hivemtk-user/internal/ops/model"
+	"hivemtk-user/internal/ops/service"
+	"hivemtk-user/internal/pkg/db"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupABExperimentTestDB 设置 A/B 实验测试数据库

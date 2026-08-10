@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // CategoryCard 会话内富卡片工具分类

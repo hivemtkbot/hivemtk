@@ -1,7 +1,7 @@
 # ADR-013：模块名 marketing → user-server 重命名
 
 - **范围**: user-server Go 模块名合规化
-- **状态**: 立项中（待执行）
+- **状态**: 已执行（2026-08-10，采用方案 B：hivemtk-user）
 - **关联规范**: GO_FIVE_LAYER_ARCHITECTURE.md §2.1
 - **关联 ADR**: ADR-012（config 包迁移，建议同步执行）
 
@@ -140,8 +140,16 @@ ADR-012（config 包迁移）与本 ADR 都涉及全量 import 替换，建议**
 ## 七、时间线
 
 - **立项**：2026-07-26（本 ADR）
-- **执行**：待排期（建议在下一个 minor 版本切换时执行，与 ADR-012 一起做）
-- **完成**：待标记
+- **执行**：2026-08-10（P0-P3 架构整改一次性落地，与 ADR-012 同步执行）
+- **完成**：2026-08-10
+
+### 执行记录
+
+- go.mod `module marketing` → `module hivemtk-user`（方案 B）
+- 全仓 1093 个 .go 文件 import 路径替换（含注释内旧路径同步更新）
+- `.golangci.yml` depguard 规则、`scripts/check-architecture.sh` 同步更新
+- CI 的 `marketing_tools` 为数据库名（非模块路径），保持不变
+- 验收：go build/vet/test ./... 全绿，golangci-lint 0 issues
 
 ---
 
@@ -157,6 +165,14 @@ ADR-012（config 包迁移）与本 ADR 都涉及全量 import 替换，建议**
 **理由**：用 go.work 管理 monorepo，模块名可独立
 **反驳**：当前 user-server 与 platform-server 是独立仓库，go.work 不适用
 
+---
+
+## 九、关联
+
+- **前置 ADR**：无
+- **关联 ADR**：ADR-012（config 包迁移，建议同步执行）
+- **关联规范**：GO_FIVE_LAYER_ARCHITECTURE.md §2.1 目录布局
+- **触发事件**：2026-07-26 inference_load_test.go 全角度审查头脑风暴
 ---
 
 ## 九、关联

@@ -2,9 +2,9 @@ package controller
 
 import (
 	"context"
-	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -45,7 +45,7 @@ func (c *ClueScoreController) ScoreClue(ctx *gin.Context) {
 		response.ErrorFromDB(ctx, err, "评分失败: "+err.Error())
 		return
 	}
-	resp := dto.FromClueScoreModel(score)
+	resp := service.FromClueScoreModel(score)
 	response.Success(ctx, resp, "评分完成")
 }
 
@@ -83,7 +83,7 @@ func (c *ClueScoreController) GetByClueID(ctx *gin.Context) {
 		response.Error(ctx, http.StatusNotFound, "未找到评分")
 		return
 	}
-	response.Success(ctx, dto.FromClueScoreModel(score), "ok")
+	response.Success(ctx, service.FromClueScoreModel(score), "ok")
 }
 
 // ListByGrade 按等级分页
@@ -110,7 +110,7 @@ func (c *ClueScoreController) ListByGrade(ctx *gin.Context) {
 		PageSize: pageSize,
 	}
 	for _, s := range list {
-		resp.List = append(resp.List, dto.FromClueScoreModel(s))
+		resp.List = append(resp.List, service.FromClueScoreModel(s))
 	}
 	response.Success(ctx, resp, "ok")
 }

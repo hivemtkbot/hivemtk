@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	contentsvc "marketing/internal/content/service"
-	"marketing/internal/model"
+	contentsvc "hivemtk-user/internal/content/service"
+	"hivemtk-user/internal/model"
 )
 
 // sop_condition.go SOP 条件表达式引擎（PRD §5.2 G2 缺口修复）

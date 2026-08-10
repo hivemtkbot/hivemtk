@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	_db "marketing/internal/pkg/utils/db"
+	_db "hivemtk-user/internal/pkg/db"
 )
 
 // ============================================================================
@@ -80,7 +80,7 @@ func (r *TelegramPollingLockRepository) GetDB(ctx context.Context) *gorm.DB {
 // TryAcquirePollingLock 原子抢占 Telegram 账号的 polling 锁
 //
 // 抢占条件（满足任一即可）：
-//  1. 锁空闲（polling_owner = '' 或 NULL）
+//  1. 锁空闲（polling_owner = ” 或 NULL）
 //  2. 锁过期（polling_heartbeat_at < now - 60s），视为僵尸锁，可被抢占
 //  3. 锁就是 workerID 持有（支持 worker 内部重启续约）
 //

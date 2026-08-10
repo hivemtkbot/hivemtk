@@ -4,8 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
+	"hivemtk-user/internal/dto"
 )
 
 // ============================================================================
@@ -161,7 +160,7 @@ func TestSalesEngine_RecordFeedback_WithSOP(t *testing.T) {
 			IntentType: IntentAskProduct,
 			Confidence: 0.9,
 		},
-		MatchedSOP: &model.SOPAgent{Name: sopName},
+		MatchedSOP: &dto.SOPAgent{Name: sopName},
 		Steps:      make([]dto.SalesStepLog, 0, 9),
 	}
 	req := &SalesRequest{
@@ -235,7 +234,7 @@ func TestSalesEngine_RecordFeedback_StepDetail(t *testing.T) {
 			IntentType: IntentAskProduct,
 			Confidence: 0.88,
 		},
-		MatchedSOP: &model.SOPAgent{Name: "test_sop"},
+		MatchedSOP: &dto.SOPAgent{Name: "test_sop"},
 		CostTokens: 200,
 		LatencyMs:  500,
 		Steps:      make([]dto.SalesStepLog, 0, 9),

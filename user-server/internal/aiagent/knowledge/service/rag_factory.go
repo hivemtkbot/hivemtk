@@ -1,13 +1,13 @@
 package service
 
 import (
-	auto_reply_integration "marketing/internal/aiagent/agent/auto_reply"
-	"marketing/internal/aiagent/llm"
-	rag_core "marketing/internal/aiagent/rag/core"
-	ragcustomerservice "marketing/internal/aiagent/rag/customer_service"
-	ragretrieval "marketing/internal/aiagent/rag/retrieval"
-	"marketing/internal/cache"
-	"marketing/internal/pkg/utils/logger"
+	auto_reply_integration "hivemtk-user/internal/aiagent/agent/auto_reply"
+	"hivemtk-user/internal/aiagent/llm"
+	rag_core "hivemtk-user/internal/aiagent/rag/core"
+	ragcustomerservice "hivemtk-user/internal/aiagent/rag/customer_service"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"time"
 
 	"gorm.io/gorm"

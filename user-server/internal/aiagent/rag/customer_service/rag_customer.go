@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"marketing/internal/aiagent/llm"
-	ragretrieval "marketing/internal/aiagent/rag/retrieval"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/llm"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // RagCustomerServiceImpl RAG客服服务实现

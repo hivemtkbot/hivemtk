@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // ChatChannelService 客服 Web Widget 渠道管理服务

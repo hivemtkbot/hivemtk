@@ -3,9 +3,10 @@ package repository
 import (
 	"context"
 
+	"hivemtk-user/internal/model"
+	_db "hivemtk-user/internal/pkg/db"
+
 	"gorm.io/gorm"
-	"marketing/internal/model"
-	_db "marketing/internal/pkg/utils/db"
 )
 
 // AfterSaleRepository 售后单仓库。

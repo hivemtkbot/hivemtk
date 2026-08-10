@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 	"errors"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 	"math"
 	"strconv"
 	"time"

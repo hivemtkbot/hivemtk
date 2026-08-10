@@ -1,9 +1,9 @@
 package controller
 
 import (
-	syscontroller "marketing/internal/controller"
-	"marketing/internal/ops/service"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/ops/service"
+	"hivemtk-user/internal/pkg/errhttp"
+	"hivemtk-user/internal/pkg/utils/response"
 	"net/http"
 	"strconv"
 
@@ -32,7 +32,7 @@ func (c *ABExperimentController) CreateExperiment(ctx *gin.Context) {
 	}
 
 	experiment, err := c.abService.CreateExperiment(&req)
-	if syscontroller.HandleDBError(ctx, err, "创建实验") {
+	if errhttp.HandleDBError(ctx, err, "创建实验") {
 		return
 	}
 
@@ -93,7 +93,7 @@ func (c *ABExperimentController) UpdateExperiment(ctx *gin.Context) {
 	}
 
 	experiment, err := c.abService.UpdateExperiment(uint(id), &req)
-	if syscontroller.HandleDBError(ctx, err, "更新实验") {
+	if errhttp.HandleDBError(ctx, err, "更新实验") {
 		return
 	}
 
@@ -109,7 +109,7 @@ func (c *ABExperimentController) DeleteExperiment(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.abService.DeleteExperiment(uint(id)), "删除实验") {
+	if errhttp.HandleDBError(ctx, c.abService.DeleteExperiment(uint(id)), "删除实验") {
 		return
 	}
 
@@ -125,7 +125,7 @@ func (c *ABExperimentController) StartExperiment(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.abService.StartExperiment(uint(id)), "启动实验") {
+	if errhttp.HandleDBError(ctx, c.abService.StartExperiment(uint(id)), "启动实验") {
 		return
 	}
 
@@ -141,7 +141,7 @@ func (c *ABExperimentController) PauseExperiment(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.abService.PauseExperiment(uint(id)), "暂停实验") {
+	if errhttp.HandleDBError(ctx, c.abService.PauseExperiment(uint(id)), "暂停实验") {
 		return
 	}
 
@@ -157,7 +157,7 @@ func (c *ABExperimentController) StopExperiment(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.abService.StopExperiment(uint(id)), "停止实验") {
+	if errhttp.HandleDBError(ctx, c.abService.StopExperiment(uint(id)), "停止实验") {
 		return
 	}
 
@@ -174,7 +174,7 @@ func (c *ABExperimentController) GetExperimentResults(ctx *gin.Context) {
 	}
 
 	results, err := c.abService.GetExperimentResults(uint(id))
-	if syscontroller.HandleDBError(ctx, err, "获取实验结果") {
+	if errhttp.HandleDBError(ctx, err, "获取实验结果") {
 		return
 	}
 

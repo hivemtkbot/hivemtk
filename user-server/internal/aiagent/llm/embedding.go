@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/pkg/utils/config"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // EmbeddingConfig Embedding 配置

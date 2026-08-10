@@ -4,36 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
-	"math/rand"
 	"runtime/debug"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
-// decorator.go 工具执行装饰器链（PRD §5.2 G3）
-//
-// 设计目标：
-//  1. 5 装饰器链按固定顺序执行：权限 → 限流 → 重试 → 超时 → 审计计费 → 实际工具执行
-//  2. 每个装饰器独立可测试
-//  3. 依赖通过接口注入（PermissionChecker/RateLimiter/RetryPolicy/AuditLogger/CostTracker）
-//  4. 提供 NoOp 默认实现以便单测
-//  5. 装饰器支持 panic 恢复（防止单个工具异常影响整个智能体链路）
-
-// ===== 核心类型 =====
-
-// ToolHandler 工具执行处理器（被装饰的目标）
-// 由 ToolExecutor 包装 Tool.Execute 得到
 type ToolHandler func(ctx context.Context, args map[string]any) (ToolResult, error)
 
-// ToolDecorator 装饰器（函数式）
-// 接收下一个 handler，返回增强后的 handler
 type ToolDecorator func(next ToolHandler) ToolHandler
 
-// ToolContext 工具执行上下文（贯穿整个装饰器链）
-// 通过 context.Value 传递，避免污染 ToolHandler 签名
 type ToolContext struct {
 	CallerID    string   // 调用者ID（如智能体ID / 座席ID）
 	AgentID     string   // 智能体ID
@@ -44,15 +24,12 @@ type ToolContext struct {
 	Source      string   // 调用来源（agent/sop/manual/api）
 }
 
-// toolContextKey context.Value 的 key 类型（避免冲突）
 type toolContextKey struct{}
 
-// WithToolContext 将 ToolContext 注入 context
 func WithToolContext(ctx context.Context, tc *ToolContext) context.Context {
 	return context.WithValue(ctx, toolContextKey{}, tc)
 }
 
-// GetToolContext 从 context 取出 ToolContext
 func GetToolContext(ctx context.Context) *ToolContext {
 	if v, ok := ctx.Value(toolContextKey{}).(*ToolContext); ok {
 		return v
@@ -60,21 +37,16 @@ func GetToolContext(ctx context.Context) *ToolContext {
 	return nil
 }
 
-// ===== 依赖接口 =====
-
-// PermissionChecker 权限校验接口
 type PermissionChecker interface {
 	// Check 返回 nil 表示放行，非 nil 表示拒绝
 	Check(ctx context.Context, toolName string, tc *ToolContext) error
 }
 
-// RateLimiter 限流接口
 type RateLimiter interface {
 	// Acquire 获取令牌；返回 nil 表示放行，ErrRateLimited 表示被限流
 	Acquire(ctx context.Context, key string) error
 }
 
-// RetryPolicy 重试策略接口
 type RetryPolicy interface {
 	// NextBackoff 返回下一次重试的等待时间；ok=false 表示不再重试
 	NextBackoff(attempt int, lastErr error) (delay time.Duration, ok bool)
@@ -82,15 +54,10 @@ type RetryPolicy interface {
 	MaxAttempts() int
 }
 
-// AuditLogger 审计日志接口
 type AuditLogger interface {
 	Log(ctx context.Context, entry AuditEntry)
 }
 
-// AuditEntry 审计日志条目
-//
-// 新增 TraceID 字段，贯穿整个 Agent Loop 的多次工具调用
-// 同一个 Agent Loop 内所有 AuditEntry 共享同一 TraceID，便于关联分析
 type AuditEntry struct {
 	TraceID       string        `json:"trace_id,omitempty"` // 贯穿 Agent Loop 的 trace_id
 	ToolName      string        `json:"tool_name"`
@@ -108,13 +75,10 @@ type AuditEntry struct {
 	ExecutedAt    time.Time     `json:"executed_at"`
 }
 
-// CostTracker 计费接口
 type CostTracker interface {
 	// Record 记录一次工具调用的成本
 	Record(ctx context.Context, toolName string, success bool, duration time.Duration) error
 }
-
-// ===== 错误定义 =====
 
 var (
 	// ErrPermissionDenied 权限拒绝
@@ -127,10 +91,6 @@ var (
 	ErrToolPanic = fmt.Errorf("tool panic")
 )
 
-// ===== 装饰器 1：权限校验 =====
-
-// PermissionDecorator 权限校验装饰器
-// 在工具执行前校验调用者是否拥有调用该工具的权限
 func PermissionDecorator(checker PermissionChecker) ToolDecorator {
 	return func(next ToolHandler) ToolHandler {
 		return func(ctx context.Context, args map[string]any) (ToolResult, error) {
@@ -150,15 +110,12 @@ func PermissionDecorator(checker PermissionChecker) ToolDecorator {
 	}
 }
 
-// toolNameKey context.Value 的 key（用于在装饰器链中传递工具名）
 type toolNameKey struct{}
 
-// WithToolName 将工具名注入 context（供装饰器使用）
 func WithToolName(ctx context.Context, name string) context.Context {
 	return context.WithValue(ctx, toolNameKey{}, name)
 }
 
-// GetToolName 从 context 取出工具名
 func GetToolName(ctx context.Context) string {
 	if v, ok := ctx.Value(toolNameKey{}).(string); ok {
 		return v
@@ -166,16 +123,12 @@ func GetToolName(ctx context.Context) string {
 	return ""
 }
 
-// traceIDKey context.Value 的 key（用于在装饰器链中传递 trace_id）
 type traceIDKey struct{}
 
-// WithTraceID 将 trace_id 注入 context（供装饰器使用）
-// 由 Agent Loop 调用方注入，贯穿整个 loop 的所有工具调用
 func WithTraceID(ctx context.Context, traceID string) context.Context {
 	return context.WithValue(ctx, traceIDKey{}, traceID)
 }
 
-// GetTraceID 从 context 取出 trace_id
 func GetTraceID(ctx context.Context) string {
 	if v, ok := ctx.Value(traceIDKey{}).(string); ok {
 		return v
@@ -183,10 +136,6 @@ func GetTraceID(ctx context.Context) string {
 	return ""
 }
 
-// ===== 装饰器 2：限流 =====
-
-// RateLimitDecorator 限流装饰器
-// key 由限流器内部决定（通常按 caller_id + tool_name 维度限流）
 func RateLimitDecorator(limiter RateLimiter) ToolDecorator {
 	return func(next ToolHandler) ToolHandler {
 		return func(ctx context.Context, args map[string]any) (ToolResult, error) {
@@ -208,16 +157,6 @@ func RateLimitDecorator(limiter RateLimiter) ToolDecorator {
 	}
 }
 
-// ===== 装饰器 3：重试 =====
-
-// RetryDecorator 重试装饰器
-// 失败时按 RetryPolicy 重试；成功或重试次数耗尽后返回
-// panic 也算失败，会触发重试
-//
-// 错误类型分类
-//   - 可重试错误：网络抖动、超时、5xx 服务端错误、panic（瞬时故障）
-//   - 不可重试错误：权限拒绝、限流、熔断开启、context 取消、参数校验失败（确定性故障）
-//   - 不可重试错误立即返回，不浪费重试次数
 func RetryDecorator(policy RetryPolicy) ToolDecorator {
 	return func(next ToolHandler) ToolHandler {
 		return func(ctx context.Context, args map[string]any) (result ToolResult, err error) {
@@ -279,10 +218,6 @@ func RetryDecorator(policy RetryPolicy) ToolDecorator {
 	}
 }
 
-// ensureErrorResult 保证失败结果携带 toolName 与错误详情，避免返回零值 ToolResult
-// （ToolName/Error 皆空）却带非 nil err 的脏数据。
-// 仅当 result 既无 ToolName 也无 Error（即零值/不完整）时才用 err 重建，
-// 以保留工具自身或上游装饰器返回的业务错误详情。
 func ensureErrorResult(toolName string, result ToolResult, err error) ToolResult {
 	if result.Success || result.ToolName != "" || result.Error != "" || err == nil {
 		return result
@@ -290,17 +225,6 @@ func ensureErrorResult(toolName string, result ToolResult, err error) ToolResult
 	return ErrorResult(toolName, err)
 }
 
-// isNonRetryableError 判断错误是否不可重试（确定性故障）
-//
-// 不可重试错误类型：
-//   - ErrPermissionDenied: 权限不足，重试也不会通过
-//   - ErrRateLimited: 已被限流，重试只会加剧拥塞
-//   - ErrCircuitOpen: 熔断开启，重试无意义
-//   - ErrLoopDetected: 工具调用循环被检测到，重试只会再次触发循环
-//     （依据 loop_guard.go L34 注释承诺：ErrLoopDetected 是不可重试错误）
-//   - context.Canceled: 客户端主动取消
-//   - context.DeadlineExceeded: 总超时（不是单次超时），重试无意义
-//   - 参数校验错误（业务错误，重试不会改变结果）
 func isNonRetryableError(err error) bool {
 	if err == nil {
 		return false
@@ -324,10 +248,6 @@ func isNonRetryableError(err error) bool {
 	return false
 }
 
-// isNonRetryableResult 判断结果是否不可重试
-//
-// 业务错误（如 customer_not_found / order_already_exists）不应重试
-// 这些错误由工具自身返回 Success=false + Error 字段
 func isNonRetryableResult(result ToolResult) bool {
 	if result.Success {
 		return false
@@ -358,7 +278,6 @@ func isNonRetryableResult(result ToolResult) bool {
 	return false
 }
 
-// safeExecute 带 panic 恢复的执行
 func safeExecute(ctx context.Context, h ToolHandler, args map[string]any) (result ToolResult, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -369,10 +288,6 @@ func safeExecute(ctx context.Context, h ToolHandler, args map[string]any) (resul
 	return h(ctx, args)
 }
 
-// ===== 装饰器 4：超时 =====
-
-// TimeoutDecorator 超时装饰器
-// 单次工具执行最长允许 duration 时间
 func TimeoutDecorator(duration time.Duration) ToolDecorator {
 	return func(next ToolHandler) ToolHandler {
 		return func(ctx context.Context, args map[string]any) (ToolResult, error) {
@@ -410,10 +325,6 @@ func TimeoutDecorator(duration time.Duration) ToolDecorator {
 	}
 }
 
-// ===== 装饰器 5：审计 + 计费 =====
-
-// AuditDecorator 审计 + 计费装饰器
-// 在工具执行前后记录审计日志、累计计费
 func AuditDecorator(logger AuditLogger, costTracker CostTracker) ToolDecorator {
 	return func(next ToolHandler) ToolHandler {
 		return func(ctx context.Context, args map[string]any) (ToolResult, error) {
@@ -471,14 +382,6 @@ func AuditDecorator(logger AuditLogger, costTracker CostTracker) ToolDecorator {
 	}
 }
 
-// recordToolCallMetrics 记录工具调用 Prometheus 指标
-//
-// 指标维度：
-//   - ToolCallTotal: tool_name|result(success|failed|panic)
-//   - ToolCallDuration: tool_name（sums + counts）
-//   - ToolCallErrors: tool_name|error_type(permission|ratelimit|timeout|panic|internal)
-//
-// 设计说明：私域部署, 无 Prometheus 端点, 调用审计已落库 (operation_logs / tool_call_logs)
 func recordToolCallMetrics(toolName string, err error, result ToolResult, duration time.Duration) {
 	_ = toolName
 	_ = err
@@ -486,7 +389,6 @@ func recordToolCallMetrics(toolName string, err error, result ToolResult, durati
 	_ = duration
 }
 
-// summarizeArgs 参数脱敏摘要（截断 + 移除敏感字段）
 func summarizeArgs(args map[string]any) string {
 	if len(args) == 0 {
 		return ""
@@ -514,8 +416,6 @@ func summarizeArgs(args map[string]any) string {
 	return out
 }
 
-// summarizeResult 结果摘要（前 200 字符，避免日志膨胀）
-// 接受 ToolResult.Data（any 类型），序列化为字符串后截断
 func summarizeResult(data any) string {
 	if data == nil {
 		return ""
@@ -527,15 +427,6 @@ func summarizeResult(data any) string {
 	return s
 }
 
-// ===== 装饰器链构造 =====
-
-// ChainDecorators 串联多个装饰器
-// 执行顺序：decorators[0] → decorators[1] → ... → handler
-// 即 decorators[0] 最先执行其前置逻辑，最后执行其后置逻辑
-//
-// 例：ChainDecorators(handler, PermissionDecorator(c), RateLimitDecorator(r))
-// 等价于：PermissionDecorator(c)(RateLimitDecorator(r)(handler))
-// 调用流：permission.pre → ratelimit.pre → handler → ratelimit.post → permission.post
 func ChainDecorators(handler ToolHandler, decorators ...ToolDecorator) ToolHandler {
 	// 从后往前包裹
 	for i := len(decorators) - 1; i >= 0; i-- {
@@ -547,13 +438,6 @@ func ChainDecorators(handler ToolHandler, decorators ...ToolDecorator) ToolHandl
 	return handler
 }
 
-// BuildDefaultChain 按默认顺序构造 5 装饰器链
-// 顺序：权限 → 限流 → 熔断 → 重试 → 超时 → 审计计费 → handler
-//
-// 新增熔断器装饰器（位于限流之后、重试之前）
-//   - 限流在熔断之前：先过滤掉超频请求，再判断熔断状态
-//   - 熔断在重试之前：避免对已熔断的工具进行重试（浪费资源）
-//   - 超时在审计之前：超时由 TimeoutDecorator 兜底，审计记录真实耗时
 func BuildDefaultChain(
 	handler ToolHandler,
 	checker PermissionChecker,
@@ -572,12 +456,6 @@ func BuildDefaultChain(
 	)
 }
 
-// BuildChainWithCircuitBreaker 按顺序构造 7 装饰器链（含熔断器 + 参数校验）
-// 顺序：权限 → 限流 → 熔断 → 参数校验 → 重试 → 超时 → 审计计费 → handler
-//
-// 新增熔断器装饰器，用于生产环境的工具执行链
-// 新增参数校验装饰器，提前拒绝非法参数（避免无效重试）
-// 当 circuitBreaker 为 nil 时退化为 BuildDefaultChain
 func BuildChainWithCircuitBreaker(
 	handler ToolHandler,
 	checker PermissionChecker,
@@ -601,12 +479,6 @@ func BuildChainWithCircuitBreaker(
 	)
 }
 
-// BuildChainWithCircuitBreakerAndValidator 按顺序构造 7 装饰器链（含熔断器 + 参数校验）
-// 顺序：权限 → 限流 → 熔断 → 参数校验 → 重试 → 超时 → 审计计费 → handler
-//
-// 新增参数校验装饰器（位于熔断之后、重试之前）
-//   - 参数校验在重试之前：避免无效参数被重试
-//   - 参数校验在熔断之后：避免对已熔断工具做无效校验
 func BuildChainWithCircuitBreakerAndValidator(
 	handler ToolHandler,
 	checker PermissionChecker,
@@ -632,36 +504,26 @@ func BuildChainWithCircuitBreakerAndValidator(
 	return ChainDecorators(handler, chain...)
 }
 
-// ===== 默认 NoOp 实现（用于测试 / 默认放行） =====
-
-// NoOpPermissionChecker 始终放行
 type NoOpPermissionChecker struct{}
 
 func (NoOpPermissionChecker) Check(ctx context.Context, toolName string, tc *ToolContext) error {
 	return nil
 }
 
-// NoOpRateLimiter 始终放行
 type NoOpRateLimiter struct{}
 
 func (NoOpRateLimiter) Acquire(ctx context.Context, key string) error { return nil }
 
-// NoOpAuditLogger 不写日志
 type NoOpAuditLogger struct{}
 
 func (NoOpAuditLogger) Log(ctx context.Context, entry AuditEntry) {}
 
-// NoOpCostTracker 不计费
 type NoOpCostTracker struct{}
 
 func (NoOpCostTracker) Record(ctx context.Context, toolName string, success bool, duration time.Duration) error {
 	return nil
 }
 
-// ===== 内置 RateLimiter 实现：令牌桶（按 caller+tool 维度） =====
-
-// TokenBucketLimiter 令牌桶限流器
-// 每个 key（caller_id:tool_name）独立一个桶
 type TokenBucketLimiter struct {
 	mu      sync.Mutex
 	buckets map[string]*tokenBucket
@@ -674,9 +536,6 @@ type tokenBucket struct {
 	lastRef time.Time
 }
 
-// NewTokenBucketLimiter 创建令牌桶限流器
-// rate: 每秒生成令牌数（如 10 表示 10 QPS）
-// burst: 桶容量（允许瞬时突发）
 func NewTokenBucketLimiter(rate float64, burst int) *TokenBucketLimiter {
 	if burst < 1 {
 		burst = 1
@@ -686,224 +545,4 @@ func NewTokenBucketLimiter(rate float64, burst int) *TokenBucketLimiter {
 		rate:    rate,
 		burst:   burst,
 	}
-}
-
-// Acquire 获取一个令牌
-func (l *TokenBucketLimiter) Acquire(ctx context.Context, key string) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	now := time.Now()
-	b, ok := l.buckets[key]
-	if !ok {
-		b = &tokenBucket{tokens: float64(l.burst), lastRef: now}
-		l.buckets[key] = b
-	}
-	// 按时间间隔补充令牌
-	elapsed := now.Sub(b.lastRef).Seconds()
-	b.tokens += elapsed * l.rate
-	if b.tokens > float64(l.burst) {
-		b.tokens = float64(l.burst)
-	}
-	b.lastRef = now
-	if b.tokens < 1.0 {
-		return ErrRateLimited
-	}
-	b.tokens -= 1.0
-	return nil
-}
-
-// ===== 内置 RetryPolicy 实现：指数退避 =====
-
-// ExponentialBackoffPolicy 指数退避重试策略
-type ExponentialBackoffPolicy struct {
-	MaxAttemptsValue int           // 最大重试次数（含首次）
-	BaseDelay        time.Duration // 基础延迟
-	MaxDelay         time.Duration // 最大延迟
-	Jitter           bool          // 是否添加随机抖动
-}
-
-// NewExponentialBackoffPolicy 创建指数退避策略
-func NewExponentialBackoffPolicy(maxAttempts int, baseDelay, maxDelay time.Duration) *ExponentialBackoffPolicy {
-	if maxAttempts < 1 {
-		maxAttempts = 1
-	}
-	if baseDelay <= 0 {
-		baseDelay = 100 * time.Millisecond
-	}
-	if maxDelay <= 0 {
-		maxDelay = 10 * time.Second
-	}
-	return &ExponentialBackoffPolicy{
-		MaxAttemptsValue: maxAttempts,
-		BaseDelay:        baseDelay,
-		MaxDelay:         maxDelay,
-		Jitter:           true,
-	}
-}
-
-// MaxAttempts 最大重试次数
-func (p *ExponentialBackoffPolicy) MaxAttempts() int {
-	return p.MaxAttemptsValue
-}
-
-// NextBackoff 下一次重试延迟
-// attempt 从 1 开始（第 1 次重试的延迟）
-// delay = baseDelay * 2^(attempt-1)，最大不超过 maxDelay
-func (p *ExponentialBackoffPolicy) NextBackoff(attempt int, lastErr error) (time.Duration, bool) {
-	if attempt < 1 {
-		return 0, false
-	}
-	if attempt > p.MaxAttemptsValue {
-		return 0, false
-	}
-	// 指数退避
-	delay := float64(p.BaseDelay) * math.Pow(2, float64(attempt-1))
-	if delay > float64(p.MaxDelay) {
-		delay = float64(p.MaxDelay)
-	}
-	// 添加抖动（±20%）
-	if p.Jitter {
-		jitter := (rand.Float64() - 0.5) * 0.4 * delay
-		delay += jitter
-		if delay < 0 {
-			delay = float64(p.BaseDelay)
-		}
-	}
-	return time.Duration(delay), true
-}
-
-// ===== 内置 AuditLogger 实现：内存记录（用于测试 / 默认审计） =====
-
-// MemoryAuditLogger 内存审计日志（用于测试 / 单机审计）
-type MemoryAuditLogger struct {
-	mu      sync.Mutex
-	entries []AuditEntry
-	maxSize int
-}
-
-// NewMemoryAuditLogger 创建内存审计日志
-// maxSize: 最大保留条数（超出后滚动覆盖最旧条目）
-func NewMemoryAuditLogger(maxSize int) *MemoryAuditLogger {
-	if maxSize < 1 {
-		maxSize = 1000
-	}
-	return &MemoryAuditLogger{
-		entries: make([]AuditEntry, 0, maxSize),
-		maxSize: maxSize,
-	}
-}
-
-// Log 记录审计日志
-func (l *MemoryAuditLogger) Log(ctx context.Context, entry AuditEntry) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if len(l.entries) >= l.maxSize {
-		// 滚动覆盖最旧条目
-		l.entries = l.entries[1:]
-	}
-	l.entries = append(l.entries, entry)
-}
-
-// Entries 返回所有审计日志副本
-func (l *MemoryAuditLogger) Entries() []AuditEntry {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	out := make([]AuditEntry, len(l.entries))
-	copy(out, l.entries)
-	return out
-}
-
-// Count 返回审计日志条数
-func (l *MemoryAuditLogger) Count() int {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return len(l.entries)
-}
-
-// Reset 清空审计日志
-func (l *MemoryAuditLogger) Reset() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.entries = l.entries[:0]
-}
-
-// ===== 内置 CostTracker 实现：内存计费（用于测试 / 统计） =====
-
-// MemoryCostTracker 内存计费统计
-type MemoryCostTracker struct {
-	mu      sync.Mutex
-	records map[string]*costRecord
-}
-
-type costRecord struct {
-	TotalCalls      int64
-	SuccessCalls    int64
-	FailedCalls     int64
-	TotalDurationMs int64
-}
-
-// NewMemoryCostTracker 创建内存计费统计
-func NewMemoryCostTracker() *MemoryCostTracker {
-	return &MemoryCostTracker{
-		records: make(map[string]*costRecord),
-	}
-}
-
-// Record 记录一次工具调用的成本
-func (t *MemoryCostTracker) Record(ctx context.Context, toolName string, success bool, duration time.Duration) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	rec, ok := t.records[toolName]
-	if !ok {
-		rec = &costRecord{}
-		t.records[toolName] = rec
-	}
-	atomic.AddInt64(&rec.TotalCalls, 1)
-	if success {
-		atomic.AddInt64(&rec.SuccessCalls, 1)
-	} else {
-		atomic.AddInt64(&rec.FailedCalls, 1)
-	}
-	atomic.AddInt64(&rec.TotalDurationMs, duration.Milliseconds())
-	return nil
-}
-
-// CostStats 计费统计快照
-type CostStats struct {
-	ToolName        string  `json:"tool_name"`
-	TotalCalls      int64   `json:"total_calls"`
-	SuccessCalls    int64   `json:"success_calls"`
-	FailedCalls     int64   `json:"failed_calls"`
-	TotalDurationMs int64   `json:"total_duration_ms"`
-	SuccessRate     float64 `json:"success_rate"`
-	AvgDurationMs   float64 `json:"avg_duration_ms"`
-}
-
-// Stats 返回所有工具的计费统计
-func (t *MemoryCostTracker) Stats() []CostStats {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	out := make([]CostStats, 0, len(t.records))
-	for name, rec := range t.records {
-		stats := CostStats{
-			ToolName:        name,
-			TotalCalls:      atomic.LoadInt64(&rec.TotalCalls),
-			SuccessCalls:    atomic.LoadInt64(&rec.SuccessCalls),
-			FailedCalls:     atomic.LoadInt64(&rec.FailedCalls),
-			TotalDurationMs: atomic.LoadInt64(&rec.TotalDurationMs),
-		}
-		if stats.TotalCalls > 0 {
-			stats.SuccessRate = float64(stats.SuccessCalls) / float64(stats.TotalCalls)
-			stats.AvgDurationMs = float64(stats.TotalDurationMs) / float64(stats.TotalCalls)
-		}
-		out = append(out, stats)
-	}
-	return out
-}
-
-// Reset 清空计费统计
-func (t *MemoryCostTracker) Reset() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.records = make(map[string]*costRecord)
 }

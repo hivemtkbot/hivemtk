@@ -24,10 +24,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 // ConfidenceAggregator 置信度总聚合器

@@ -18,8 +18,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	dbUtil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/repository"
 )
 
 // AgentKBBindingService 智能体知识库绑定服务
@@ -27,6 +28,11 @@ type AgentKBBindingService struct {
 	bindingRepo *repository.AgentKBBindingRepository
 	kbRepo      *repository.KnowledgeBaseRepository
 	db          *gorm.DB
+}
+
+// NewAgentKBBindingServiceDefault 使用全局 DB 创建绑定服务（controller 层入口，避免 controller 持有 gorm.DB）。
+func NewAgentKBBindingServiceDefault() *AgentKBBindingService {
+	return NewAgentKBBindingService(dbUtil.GetDB())
 }
 
 // NewAgentKBBindingService 创建绑定服务

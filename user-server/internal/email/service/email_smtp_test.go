@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupEmailSmtpServiceTestDB 设置邮件 SMTP 服务测试数据库

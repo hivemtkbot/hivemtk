@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
+
 	"github.com/gin-gonic/gin"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
 )
 
 // SmsUnsubscribeController 短信退订控制器

@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 
-	"marketing/internal/aiagent/knowledge/model"
-	"marketing/internal/aiagent/knowledge/repository"
+	"hivemtk-user/internal/aiagent/knowledge/model"
+	"hivemtk-user/internal/aiagent/knowledge/repository"
 )
 
 // ============================================================================

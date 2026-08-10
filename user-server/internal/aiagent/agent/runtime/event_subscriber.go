@@ -6,8 +6,8 @@ import (
 	"runtime/debug"
 	"time"
 
-	"marketing/internal/event"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/event"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ============================================================================

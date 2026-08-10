@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/cache"
+	"hivemtk-user/internal/cache"
 )
 
 // ============================================================================

@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"marketing/internal/ops/model"
-	opsrepo "marketing/internal/ops/repository"
+	"hivemtk-user/internal/ops/model"
+	opsrepo "hivemtk-user/internal/ops/repository"
 )
 
 // PerformanceTestService 性能压测服务

@@ -13,7 +13,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // ScriptLibraryRepository 话术库仓储

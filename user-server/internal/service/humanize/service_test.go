@@ -22,8 +22,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
 )
 
 // ============================================================================

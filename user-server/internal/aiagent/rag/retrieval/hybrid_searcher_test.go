@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
 )

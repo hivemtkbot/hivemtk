@@ -16,7 +16,7 @@ import (
 	"context"
 	"fmt"
 
-	"marketing/internal/migration"
+	"hivemtk-user/internal/migration"
 
 	"gorm.io/gorm"
 )

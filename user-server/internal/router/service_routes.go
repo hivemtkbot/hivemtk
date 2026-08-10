@@ -5,25 +5,22 @@ import (
 	"os"
 	"time"
 
-	"marketing/internal/controller"
-	opsctrl "marketing/internal/ops/controller"
-	"marketing/internal/service"
-	i18nservice "marketing/internal/service/i18n"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/websocket"
+	"hivemtk-user/internal/app"
+	"hivemtk-user/internal/controller"
+	opsctrl "hivemtk-user/internal/ops/controller"
+	"hivemtk-user/internal/service"
+	"hivemtk-user/internal/service/translation"
+	"hivemtk-user/internal/websocket"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-// bridgeIngressSvc 网页桥接消息入站服务（包级变量，供 Setup 在 webhookSvc 构造后注入 AITrigger）
-var bridgeIngressSvc *service.InboxIngressService
-
 // setupCustomerServiceRoutes 客服会话管理路由
 //
 // 传入 aiAgentSvc 以满足 agent_status controller 装配（控制器零 db 引用）。
 // 传入 langResolver 注入到坐席 WebSocket handler。
-func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAgentService, langResolver *i18nservice.LangConfigResolver) {
+func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAgentService, langResolver *translation.LangConfigResolver) {
 	// 客服会话管理
 	customerSessionCtrl := controller.NewCustomerSessionController()
 	auth.GET("/customer-sessions", customerSessionCtrl.GetSessions)
@@ -235,7 +232,7 @@ func setupIntentRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	rec := service.GetIntentRecognizer()
 	if rec == nil {
 		// 兜底：若全局未初始化(单测等场景)则临时创建一个
-		rec = service.NewIntentRecognizer(db, getGlobalDispatcher(), nil)
+		rec = service.NewIntentRecognizer(db, app.GetGlobalDispatcher(), nil)
 	}
 	intentCtrl := controller.NewIntentController(rec)
 	auth.POST("/intent/recognize", intentCtrl.Recognize)
@@ -257,8 +254,8 @@ func setupIntentRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 // failover 为 nil 时使用占位 controller（所有端点返回 503）。
 // 生产环境 main.go 应通过 NewSetupLLMProviderRoutes 注入真实 failover。
 func setupLLMProviderRoutes(auth *gin.RouterGroup) {
-	failover := getGlobalProviderFailover()
-	llmProvCtrl := controller.NewLLMProviderController(failover)
+	failoverSvc := service.NewLLMFailoverService(app.GetGlobalProviderFailover())
+	llmProvCtrl := controller.NewLLMProviderController(failoverSvc)
 	auth.GET("/llm/providers/health", llmProvCtrl.GetHealth)
 	auth.GET("/llm/providers/health/:provider", llmProvCtrl.GetProviderHealth)
 	auth.POST("/llm/providers/circuit/reset", llmProvCtrl.ResetCircuit)
@@ -330,19 +327,19 @@ func setupSOPRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.POST("/sop/step", sopCtrl.Step)
 
 	// FAQ 知识库 CRUD + Layer1 匹配
-	faqCtrl := controller.NewFAQController(db)
+	faqCtrl := controller.NewFAQController()
 	faqCtrl.RegisterRoutes(auth)
 
 	// SOP 模板 CRUD + Layer1 匹配
-	sopTplCtrl := controller.NewSOPTemplateController(db)
+	sopTplCtrl := controller.NewSOPTemplateController()
 	sopTplCtrl.RegisterRoutes(auth)
 
 	// 强 1对1: 知识库主表 CRUD + 业务级联
-	kbCtrl := controller.NewKnowledgeBaseController(db)
+	kbCtrl := controller.NewKnowledgeBaseController()
 	kbCtrl.RegisterRoutes(auth)
 
 	// 强 1对1: 智能体 × 知识库 绑定 CRUD
-	bindCtrl := controller.NewAgentKBBindingController(db)
+	bindCtrl := controller.NewAgentKBBindingController()
 	bindCtrl.RegisterRoutes(auth)
 }
 
@@ -357,7 +354,7 @@ func setupReachPipelineRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	}
 	// 注入真实触达发送器：连接 IntegrationReachAdapter + BridgeReachAdapter，
 	// 使调度器真正下发到渠道（修复"触达调度器下发占位"缺口）。
-	if sender := newPipelineReachSender(db); sender != nil {
+	if sender := app.NewPipelineReachSender(db); sender != nil {
 		reachSvc.SetReachSender(sender)
 	}
 	reachSvc.StartDispatcher(context.Background(), 15*time.Second)
@@ -382,12 +379,12 @@ func setupReachPipelineRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 
 // setupLLMRoutingRoutes LLM 多模型路由
 func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
-	dispatcher := getGlobalDispatcher()
+	dispatcher := app.GetGlobalDispatcher()
 	routingService := service.NewLLMRoutingService(dispatcher)
 	llmCtrl := controller.NewLLMRoutingController(routingService)
 	// 注入熔断器，Health 端点可展示 circuit_open / error_count / last_error
-	if f := getGlobalProviderFailover(); f != nil {
-		llmCtrl.SetFailover(f)
+	if f := app.GetGlobalProviderFailover(); f != nil {
+		llmCtrl.SetFailover(service.NewLLMFailoverService(f))
 	}
 	// Provider / Model 管理（:name 而非 :id）
 	auth.GET("/llm/models", llmCtrl.ListModels)
@@ -468,8 +465,8 @@ func setupQualityRoutes(auth *gin.RouterGroup) {
 }
 
 // setupSecurityAuditRoutes 安全审计：列表 / 立即审计 / 明细。
-func setupSecurityAuditRoutes(auth *gin.RouterGroup) {
-	ctrl := controller.NewSecurityAuditController(service.NewSecurityAuditService(db.GetDB()))
+func setupSecurityAuditRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
+	ctrl := controller.NewSecurityAuditController(service.NewSecurityAuditService(gormDB))
 	auth.GET("/security/audit/list", ctrl.ListSecurityAudits)
 	auth.POST("/security/audit", ctrl.RunSecurityAudit)
 	auth.GET("/security/audit/:id", ctrl.GetSecurityAudit)

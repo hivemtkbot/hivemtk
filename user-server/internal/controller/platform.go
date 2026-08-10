@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"marketing/internal/cache"
-	"marketing/internal/pkg/utils/pagination"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/platform"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/pkg/utils/pagination"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/platform"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

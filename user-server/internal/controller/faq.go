@@ -18,13 +18,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"gorm.io/gorm"
-
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/pagination"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/repository"
-	"marketing/internal/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/pagination"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,8 +33,8 @@ type FAQController struct {
 }
 
 // NewFAQController 创建 FAQ 控制器
-func NewFAQController(db *gorm.DB) *FAQController {
-	return &FAQController{svc: service.NewFAQService(db, nil)}
+func NewFAQController() *FAQController {
+	return &FAQController{svc: service.NewFAQServiceDefault()}
 }
 
 // RegisterRoutes 注册路由
@@ -60,7 +58,7 @@ func (c *FAQController) List(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	filter := repository.FAQFilter{
+	filter := dto.FAQFilter{
 		Keyword:  ctx.Query("keyword"),
 		Category: ctx.Query("category"),
 		Intent:   ctx.Query("intent"),

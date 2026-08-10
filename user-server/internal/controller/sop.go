@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/pagination"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils/pagination"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

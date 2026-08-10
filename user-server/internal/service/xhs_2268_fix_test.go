@@ -14,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // TestNormalizeChannelType_BridgeWebChannels 验证 *_web 渠道正确归一化

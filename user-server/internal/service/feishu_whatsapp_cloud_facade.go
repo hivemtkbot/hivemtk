@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"context"
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // ============================================================================

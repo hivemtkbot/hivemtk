@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 
-	bizerr "marketing/internal/domain/errors"
-	"marketing/internal/model"
+	bizerr "hivemtk-user/internal/domain/errors"
+	"hivemtk-user/internal/model"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

@@ -1,13 +1,13 @@
 package router
 
 import (
-	"marketing/internal/controller"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/platform"
-	"marketing/internal/repository"
-	"marketing/internal/service"
+	"hivemtk-user/internal/controller"
+	"hivemtk-user/internal/platform"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // setupAssetBundleRoutes 资产包（AssetBundle）路由
@@ -32,17 +32,17 @@ import (
 //	POST   /api/asset-bundle/:id/enable   热启用（D1，立即生效）
 //	POST   /api/asset-bundle/:id/disable  热禁用（D1，立即生效）
 //	POST   /api/asset-bundle/enabled/list 查询已热启用的资产包列表
-func setupAssetBundleRoutes(auth *gin.RouterGroup) {
+func setupAssetBundleRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// 装配：repo → service → controller
-	assetBundleRepo := repository.NewAssetBundleRepository(db.GetDB())
-	versionLogRepo := repository.NewAssetBundleVersionLogRepository(db.GetDB())
+	assetBundleRepo := repository.NewAssetBundleRepository(gormDB)
+	versionLogRepo := repository.NewAssetBundleVersionLogRepository(gormDB)
 	assetBundleSvc := service.NewAssetBundleService(assetBundleRepo, versionLogRepo)
 	// 注入平台同步资产加载器：资产包解析器在 asset_bundles 未命中时回退解析商户从
 	// 平台同步下来的本地资产（local_assets），闭合「平台下发资产包→运行时消费」闭环。
-	localAssetRepo := repository.NewLocalAssetRepository(db.GetDB())
-	localAssetDataRepo := repository.NewLocalAssetDataRepository(db.GetDB())
-	localAssetSyncLogRepo := repository.NewLocalAssetSyncLogRepository(db.GetDB())
-	localAssetSvc := service.NewLocalAssetService(localAssetRepo, localAssetDataRepo, localAssetSyncLogRepo, platform.NewPlatformAPIClient(), db.GetDB())
+	localAssetRepo := repository.NewLocalAssetRepository(gormDB)
+	localAssetDataRepo := repository.NewLocalAssetDataRepository(gormDB)
+	localAssetSyncLogRepo := repository.NewLocalAssetSyncLogRepository(gormDB)
+	localAssetSvc := service.NewLocalAssetService(localAssetRepo, localAssetDataRepo, localAssetSyncLogRepo, platform.NewPlatformAPIClient(), gormDB)
 	assetBundleSvc.SetLocalLoader(localAssetSvc)
 	// 注入全局资产包解析器：让 SalesEngine 在执行智能体时按 asset_bundle_id
 	// 织入资产包人设/话术（渠道→智能体→资产包 三层接线点）
@@ -58,5 +58,52 @@ func setupAssetBundleRoutes(auth *gin.RouterGroup) {
 		auth,
 	} {
 		ctrl.Register(g)
+	}
+}
+
+// ============================================================================
+// 以下内容合并自 asset_market_routes.go（P1-2 router 文件数收敛）
+// ============================================================================
+
+// setupAssetMarketRoutes 资产市场 + 本地资产
+func setupAssetMarketRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
+	gdb := gormDB
+	ar := repository.NewLocalAssetRepository(gdb)
+	dr := repository.NewLocalAssetDataRepository(gdb)
+	sr := repository.NewLocalAssetSyncLogRepository(gdb)
+	pc := platform.NewPlatformAPIClient()
+	h := controller.NewAssetMarketController(
+		service.NewLocalAssetService(ar, dr, sr, pc, gdb),
+		service.NewAssetMarketService(pc),
+		service.NewAIAgentService(),
+	)
+
+	// 兼容 /api/v1 与 /api
+	groups := []*gin.RouterGroup{
+		auth.Group("/v1/asset-market"),
+		auth.Group("/asset-market"),
+	}
+	for _, market := range groups {
+		market.GET("/list", h.ListMarket)
+		market.GET("/detail/:asset_id", h.MarketDetail)
+		market.POST("/purchase", h.Purchase)
+		market.POST("/sync", h.Sync)
+		market.POST("/report-usage", h.ReportUsage)
+		market.GET("/my-purchases", h.MyPurchases)
+		market.POST("/bind", h.BindToAgent)
+	}
+
+	localGroups := []*gin.RouterGroup{
+		auth.Group("/v1/local-assets"),
+		auth.Group("/local-assets"),
+	}
+	for _, local := range localGroups {
+		local.GET("", h.ListLocal)
+		local.GET("/sync-log", h.SyncLog)
+		local.GET("/:id", h.GetLocal)
+		local.POST("", h.CreateLocal)
+		local.PUT("/:id", h.UpdateLocal)
+		local.DELETE("/:id", h.DeleteLocal)
+		local.PUT("/:id/toggle-active", h.ToggleActive)
 	}
 }

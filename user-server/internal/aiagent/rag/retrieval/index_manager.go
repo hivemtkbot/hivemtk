@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"math"
 	"sync"
 	"time"

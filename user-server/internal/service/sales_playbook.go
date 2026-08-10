@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"context"
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // ============================================================================

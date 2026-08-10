@@ -2,12 +2,12 @@ package repository
 
 import (
 	"context"
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 	"testing"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/pkg/testutil/testmigrate"
+	"hivemtk-user/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil/testmigrate"
 )
 
 // setupRagConfigTestDB 设置 RAG 配置测试数据库

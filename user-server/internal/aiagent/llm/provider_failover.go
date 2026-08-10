@@ -24,12 +24,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"marketing/internal/cache"
+	"hivemtk-user/internal/cache"
 	"time"
 
 	"gorm.io/gorm"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ProviderStatus Provider 健康状态

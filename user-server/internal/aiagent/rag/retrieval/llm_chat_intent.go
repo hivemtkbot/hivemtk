@@ -33,7 +33,7 @@ import (
 	"fmt"
 	"strings"
 
-	"marketing/internal/aiagent/llm"
+	"hivemtk-user/internal/aiagent/llm"
 )
 
 // KeyIntentType 7 个核心精细意图类型

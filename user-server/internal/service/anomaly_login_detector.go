@@ -25,9 +25,9 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 // AnomalyLoginAlertChannel 告警通道

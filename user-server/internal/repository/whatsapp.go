@@ -3,10 +3,11 @@ package repository
 import (
 	"context"
 	"errors"
+	"hivemtk-user/internal/model"
+	_db "hivemtk-user/internal/pkg/db"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"marketing/internal/model"
-	_db "marketing/internal/pkg/utils/db"
 )
 
 type WhatsappRepository interface {

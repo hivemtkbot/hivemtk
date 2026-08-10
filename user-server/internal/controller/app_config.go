@@ -2,10 +2,10 @@ package controller
 
 import (
 	"context"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/platform"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/platform"
+	"hivemtk-user/internal/service"
 	"net/http"
 	"runtime"
 	"time"

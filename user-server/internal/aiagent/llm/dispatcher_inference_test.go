@@ -3,7 +3,7 @@ package llm
 import (
 	"testing"
 
-	"marketing/internal/pkg/utils/config"
+	"hivemtk-user/internal/config"
 )
 
 // TestNewDispatcherFromConfig_LocalFirst 验证优化三：本地优先、云端 opt-in

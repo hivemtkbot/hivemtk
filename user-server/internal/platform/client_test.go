@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"marketing/internal/config"
+	"hivemtk-user/internal/config"
 )
 
 // TestClient_Do_401SelfHeal 验证遇 401 时清空 token 并重试一次，最终成功（V6 自愈）。

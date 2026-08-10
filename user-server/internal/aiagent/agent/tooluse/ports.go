@@ -12,7 +12,7 @@ package tooluse
 // 文档：docs/企业级架构优化/坐席实时聊天看板.md §七
 // ============================================================================
 
-import "marketing/internal/aiagent/agent/portcontract"
+import "hivemtk-user/internal/aiagent/agent/portcontract"
 
 // ----- 类型别名（保持向後兼容，零侵入） -----
 

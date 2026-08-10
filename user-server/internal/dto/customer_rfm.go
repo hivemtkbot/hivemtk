@@ -1,11 +1,5 @@
 package dto
 
-import (
-	"time"
-
-	"marketing/internal/model"
-)
-
 // CustomerRFMResponse 客户 RFM 响应
 type CustomerRFMResponse struct {
 	CustomerID     string `json:"customer_id"`
@@ -24,34 +18,6 @@ type CustomerRFMResponse struct {
 	ChurnScore     int    `json:"churn_score"`
 	LastActiveAt   string `json:"last_active_at"`
 	ComputedAt     string `json:"computed_at"`
-}
-
-// FromCustomerRFMModel RFM 实体 → 响应(包级函数,架构文档 §三 L4 要求)
-func FromCustomerRFMModel(rfm *model.CustomerRFM) *CustomerRFMResponse {
-	if rfm == nil {
-		return nil
-	}
-	resp := &CustomerRFMResponse{
-		CustomerID:     rfm.CustomerID,
-		UnifiedID:      rfm.UnifiedID,
-		RecencyDays:    rfm.RecencyDays,
-		Frequency:      rfm.Frequency,
-		MonetaryTotal:  rfm.MonetaryTotal,
-		AvgOrderValue:  rfm.AvgOrderValue,
-		RScore:         rfm.RScore,
-		FScore:         rfm.FScore,
-		MScore:         rfm.MScore,
-		CompositeScore: rfm.CompositeScore,
-		Segment:        rfm.Segment,
-		SegmentDesc:    model.RFMSegmentDescriptions[rfm.Segment],
-		ChurnRiskLevel: rfm.ChurnRiskLevel,
-		ChurnScore:     rfm.ChurnScore,
-		ComputedAt:     rfm.ComputedAt.UTC().Format(time.RFC3339),
-	}
-	if rfm.LastActiveAt != nil {
-		resp.LastActiveAt = rfm.LastActiveAt.UTC().Format(time.RFC3339)
-	}
-	return resp
 }
 
 // CustomerRFMListResponse 列表响应

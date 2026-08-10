@@ -3,12 +3,10 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	knowledgemodel "marketing/internal/aiagent/knowledge/model"
-	knowledgerepo "marketing/internal/aiagent/knowledge/repository"
-	knowledgesvc "marketing/internal/aiagent/knowledge/service"
-	syscontroller "marketing/internal/controller"
-	"marketing/internal/pkg/utils/response"
-	systemservice "marketing/internal/service"
+	knowledgemodel "hivemtk-user/internal/aiagent/knowledge/model"
+	knowledgerepo "hivemtk-user/internal/aiagent/knowledge/repository"
+	knowledgesvc "hivemtk-user/internal/aiagent/knowledge/service"
+	"hivemtk-user/internal/pkg/utils/response"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,15 +19,18 @@ import (
 // 涵盖:文档导入(上传/文本/URL)、文档管理、检索、OpenAPI 数据源、统计
 type KnowledgeWorkspaceController struct {
 	kbService      *knowledgesvc.KnowledgeService
-	openapiService *systemservice.OpenAPIService
+	openapiService OpenAPISourcePort
 	statsService   *knowledgesvc.KnowledgeStatisticsService
 }
 
 // NewKnowledgeWorkspaceController 创建知识库工作台控制器
-func NewKnowledgeWorkspaceController() *KnowledgeWorkspaceController {
+//
+// P2-3：OpenAPI 数据源能力改经 OpenAPISourcePort 窄接口注入（装配层提供适配器），
+// 未注入时相关端点返回 503。
+func NewKnowledgeWorkspaceController(openapiPort OpenAPISourcePort) *KnowledgeWorkspaceController {
 	return &KnowledgeWorkspaceController{
 		kbService:      knowledgesvc.NewKnowledgeService(),
-		openapiService: systemservice.NewOpenAPIService(),
+		openapiService: openapiPort,
 		statsService:   knowledgesvc.NewKnowledgeStatisticsService(),
 	}
 }
@@ -372,7 +373,7 @@ func (ctrl *KnowledgeWorkspaceController) DeleteDocument(c *gin.Context) {
 	}
 	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
 	if err := ctrl.kbService.Delete(c.Request.Context(), productID, int64(id)); err != nil {
-		if syscontroller.IsNotFoundError(err) {
+		if isNotFoundError(err) {
 			response.Error(c, http.StatusNotFound, err.Error())
 			return
 		}
@@ -391,7 +392,7 @@ func (ctrl *KnowledgeWorkspaceController) ReindexDocument(c *gin.Context) {
 	}
 	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
 	if err := ctrl.kbService.Reindex(c.Request.Context(), productID, uint64(id)); err != nil {
-		if syscontroller.IsNotFoundError(err) {
+		if isNotFoundError(err) {
 			response.Error(c, http.StatusNotFound, err.Error())
 			return
 		}
@@ -530,8 +531,20 @@ func (ctrl *KnowledgeWorkspaceController) ListImportLogs(c *gin.Context) {
 // OpenAPI 数据源
 // ============================================================================
 
+// requireOpenAPIPort 端口未注入时 fail-closed（P2-3）
+func (ctrl *KnowledgeWorkspaceController) requireOpenAPIPort(c *gin.Context) bool {
+	if ctrl.openapiService == nil {
+		response.Error(c, http.StatusServiceUnavailable, "OpenAPI 数据源服务未装配")
+		return false
+	}
+	return true
+}
+
 // ListOpenAPISources 列出 OpenAPI 数据源
 func (ctrl *KnowledgeWorkspaceController) ListOpenAPISources(c *gin.Context) {
+	if !ctrl.requireOpenAPIPort(c) {
+		return
+	}
 	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
 	sources, err := ctrl.openapiService.ListSources(c.Request.Context(), productID)
 	if err != nil {
@@ -543,6 +556,9 @@ func (ctrl *KnowledgeWorkspaceController) ListOpenAPISources(c *gin.Context) {
 
 // CreateOpenAPISource 创建数据源
 func (ctrl *KnowledgeWorkspaceController) CreateOpenAPISource(c *gin.Context) {
+	if !ctrl.requireOpenAPIPort(c) {
+		return
+	}
 	var src knowledgemodel.KnowledgeOpenAPISource
 	if err := c.ShouldBindJSON(&src); err != nil {
 		response.Error(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
@@ -564,6 +580,9 @@ func (ctrl *KnowledgeWorkspaceController) CreateOpenAPISource(c *gin.Context) {
 
 // GetOpenAPISource 获取数据源
 func (ctrl *KnowledgeWorkspaceController) GetOpenAPISource(c *gin.Context) {
+	if !ctrl.requireOpenAPIPort(c) {
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "无效的数据源ID")
@@ -580,6 +599,9 @@ func (ctrl *KnowledgeWorkspaceController) GetOpenAPISource(c *gin.Context) {
 
 // UpdateOpenAPISource 更新数据源
 func (ctrl *KnowledgeWorkspaceController) UpdateOpenAPISource(c *gin.Context) {
+	if !ctrl.requireOpenAPIPort(c) {
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "无效的数据源ID")
@@ -601,6 +623,9 @@ func (ctrl *KnowledgeWorkspaceController) UpdateOpenAPISource(c *gin.Context) {
 
 // DeleteOpenAPISource 删除数据源
 func (ctrl *KnowledgeWorkspaceController) DeleteOpenAPISource(c *gin.Context) {
+	if !ctrl.requireOpenAPIPort(c) {
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "无效的数据源ID")
@@ -616,6 +641,9 @@ func (ctrl *KnowledgeWorkspaceController) DeleteOpenAPISource(c *gin.Context) {
 
 // SyncOpenAPISource 同步数据源
 func (ctrl *KnowledgeWorkspaceController) SyncOpenAPISource(c *gin.Context) {
+	if !ctrl.requireOpenAPIPort(c) {
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "无效的数据源ID")
@@ -624,7 +652,7 @@ func (ctrl *KnowledgeWorkspaceController) SyncOpenAPISource(c *gin.Context) {
 	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
 	result, err := ctrl.openapiService.SyncSource(c.Request.Context(), productID, int64(id))
 	if err != nil {
-		if syscontroller.IsNotFoundError(err) {
+		if isNotFoundError(err) {
 			response.Error(c, http.StatusNotFound, err.Error())
 			return
 		}
@@ -636,6 +664,9 @@ func (ctrl *KnowledgeWorkspaceController) SyncOpenAPISource(c *gin.Context) {
 
 // TestOpenAPISource 测试连接
 func (ctrl *KnowledgeWorkspaceController) TestOpenAPISource(c *gin.Context) {
+	if !ctrl.requireOpenAPIPort(c) {
+		return
+	}
 	var src knowledgemodel.KnowledgeOpenAPISource
 	if err := c.ShouldBindJSON(&src); err != nil {
 		response.Error(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
@@ -647,6 +678,9 @@ func (ctrl *KnowledgeWorkspaceController) TestOpenAPISource(c *gin.Context) {
 
 // ToggleOpenAPISource 启用/禁用
 func (ctrl *KnowledgeWorkspaceController) ToggleOpenAPISource(c *gin.Context) {
+	if !ctrl.requireOpenAPIPort(c) {
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "无效的数据源ID")
@@ -658,7 +692,7 @@ func (ctrl *KnowledgeWorkspaceController) ToggleOpenAPISource(c *gin.Context) {
 	_ = c.ShouldBindJSON(&body)
 	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
 	if err := ctrl.openapiService.ToggleEnabled(c.Request.Context(), productID, int64(id), body.Enabled); err != nil {
-		if syscontroller.IsNotFoundError(err) {
+		if isNotFoundError(err) {
 			response.Error(c, http.StatusNotFound, err.Error())
 			return
 		}

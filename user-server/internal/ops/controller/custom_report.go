@@ -1,9 +1,9 @@
 package controller
 
 import (
-	syscontroller "marketing/internal/controller"
-	"marketing/internal/ops/service"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/ops/service"
+	"hivemtk-user/internal/pkg/errhttp"
+	"hivemtk-user/internal/pkg/utils/response"
 	"net/http"
 	"strconv"
 	"time"
@@ -39,7 +39,7 @@ func (c *CustomReportController) CreateReport(ctx *gin.Context) {
 	}
 
 	report, err := c.reportService.CreateReport(userID.(uint), &req)
-	if syscontroller.HandleServiceError(ctx, err) {
+	if errhttp.HandleServiceError(ctx, err) {
 		return
 	}
 
@@ -112,7 +112,7 @@ func (c *CustomReportController) UpdateReport(ctx *gin.Context) {
 	}
 
 	report, err := c.reportService.UpdateReport(uint(id), &req)
-	if syscontroller.HandleDBError(ctx, err, "更新报表") {
+	if errhttp.HandleDBError(ctx, err, "更新报表") {
 		return
 	}
 
@@ -130,7 +130,7 @@ func (c *CustomReportController) DeleteReport(ctx *gin.Context) {
 	}
 
 	err = c.reportService.DeleteReport(uint(id))
-	if syscontroller.HandleDBError(ctx, err, "删除报表") {
+	if errhttp.HandleDBError(ctx, err, "删除报表") {
 		return
 	}
 
@@ -165,7 +165,7 @@ func (c *CustomReportController) UseTemplate(ctx *gin.Context) {
 	}
 
 	report, err := c.reportService.UseTemplate(uint(id), userID.(uint))
-	if syscontroller.HandleDBError(ctx, err, "使用报表模板") {
+	if errhttp.HandleDBError(ctx, err, "使用报表模板") {
 		return
 	}
 

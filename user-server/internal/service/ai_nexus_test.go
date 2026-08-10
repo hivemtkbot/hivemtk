@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	knowledgesvc "marketing/internal/aiagent/knowledge/service"
+	knowledgesvc "hivemtk-user/internal/aiagent/knowledge/service"
 )
 
 // TestHumanizePolisher_RemoveAITraces 测试去除 AI 痕迹

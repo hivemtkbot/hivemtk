@@ -14,10 +14,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"marketing/internal/middleware"
-	"marketing/internal/pkg/utils/config"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/middleware"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 )
 
 // ChatPublicController 公开 chat API 控制器（访客端，无 JWT）

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/cache"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/pkg/utils/logger"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
@@ -159,16 +159,16 @@ func RateLimitMiddleware(config ...RateLimitConfig) gin.HandlerFunc {
 			clientKey = c.ClientIP()
 		}
 
-	// 检查是否允许请求（REDIS_HOST 配置时为 Redis 共享限流，跨实例一致；否则进程内令牌桶）
-	if !globalRateLimiter.Allow(clientKey) {
-		c.JSON(429, gin.H{
-			"code":        429,
-			"msg":         "请求过于频繁，请稍后再试",
-			"retry_after": 5,
-		})
-		c.Abort()
-		return
-	}
+		// 检查是否允许请求（REDIS_HOST 配置时为 Redis 共享限流，跨实例一致；否则进程内令牌桶）
+		if !globalRateLimiter.Allow(clientKey) {
+			c.JSON(429, gin.H{
+				"code":        429,
+				"msg":         "请求过于频繁，请稍后再试",
+				"retry_after": 5,
+			})
+			c.Abort()
+			return
+		}
 
 		c.Next()
 	}

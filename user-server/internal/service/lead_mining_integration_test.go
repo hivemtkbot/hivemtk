@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/testutil"
+	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
 )
@@ -100,11 +100,11 @@ func TestLeadMining_Integration_FullPipeline(t *testing.T) {
 		Confidence:      0.95,
 	}}
 	s := &Service{
-		judge:      judge,
-		custRepo:   repository.NewCustomerRepository(),
-		clueRepo:   repository.NewClueRepository(),
-		cfgRepo:    cfgRepo,
-		lastJudge:  map[string]time.Time{},
+		judge:     judge,
+		custRepo:  repository.NewCustomerRepository(),
+		clueRepo:  repository.NewClueRepository(),
+		cfgRepo:   cfgRepo,
+		lastJudge: map[string]time.Time{},
 	}
 
 	// 触发判定（取最后一条入站消息作为钩子入口）
@@ -219,13 +219,13 @@ func TestLeadMining_Integration_AsyncEnqueue(t *testing.T) {
 	judge := &fakeJudge{resp: &LeadJudgement{IsLead: true, IntentScore: 75, MatchedTags: []string{"AI兴趣"}}}
 	ctxCancel, cancel := context.WithCancel(ctx)
 	s := &Service{
-		queue:    make(chan *model.MessageHub, 16),
-		workers:  1,
-		judge:    judge,
-		custRepo: repository.NewCustomerRepository(),
-		clueRepo: repository.NewClueRepository(),
-		cfgRepo:  cfgRepo,
-		cancel:   cancel,
+		queue:     make(chan *model.MessageHub, 16),
+		workers:   1,
+		judge:     judge,
+		custRepo:  repository.NewCustomerRepository(),
+		clueRepo:  repository.NewClueRepository(),
+		cfgRepo:   cfgRepo,
+		cancel:    cancel,
 		lastJudge: map[string]time.Time{},
 	}
 	s.wg.Add(1)

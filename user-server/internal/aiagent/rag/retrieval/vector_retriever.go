@@ -24,8 +24,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // VectorRetriever pgvector HNSW 向量召回器

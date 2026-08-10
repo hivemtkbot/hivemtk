@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/cache"
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // TestRecheck_NoHubRepo_SafelySkips 验证 hubRepo==nil 时 RecheckUnrepliedAndTrigger 安全跳过不 panic。

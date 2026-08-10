@@ -2,8 +2,9 @@ package repository
 
 import (
 	"context"
+	"hivemtk-user/internal/model"
+
 	"gorm.io/gorm"
-	"marketing/internal/model"
 )
 
 // XiaohongshuCardRepository 小红书卡片仓储接口

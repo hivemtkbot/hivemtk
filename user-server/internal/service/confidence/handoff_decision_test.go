@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // newHandoffDecisionServiceForTest 构造无需 DB 的测试实例（repo/seatSvc 均可为 nil，reasonOf 不依赖二者）
@@ -15,7 +15,7 @@ func newHandoffDecisionServiceForTest() *HandoffDecisionService {
 func TestReasonOf_VetoTriggered_Wins(t *testing.T) {
 	h := newHandoffDecisionServiceForTest()
 	dec := &dto.ConfidenceDecision{
-		VetoTriggered: "user_explicitly_asks_human",
+		VetoTriggered:  "user_explicitly_asks_human",
 		AggregatedConf: 0.95,
 		DecisionBand:   dto.BandHandoff,
 	}

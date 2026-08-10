@@ -1,17 +1,18 @@
 package router
 
 import (
-	knowledgectrl "marketing/internal/aiagent/knowledge/controller"
-	"marketing/internal/controller"
-	"marketing/internal/middleware"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/repository"
-	"marketing/internal/service"
-	"marketing/internal/system/install"
+	knowledgectrl "hivemtk-user/internal/aiagent/knowledge/controller"
+	"hivemtk-user/internal/controller"
+	"hivemtk-user/internal/middleware"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/service"
+	"hivemtk-user/internal/system/install"
+
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"net/http"
 )
 
 // setupPlatformRoutes 平台端管理路由（需要平台权限）
@@ -182,5 +183,3 @@ func wirePublicDependencies(db *gorm.DB) publicDeps {
 		inboxIngressCtrl:       controller.NewInboxIngressController(service.NewInboxIngressService()),
 	}
 }
-
-

@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"marketing/internal/middleware"
-	"marketing/internal/pkg/utils/config"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/platform"
-	"marketing/internal/router"
+	"hivemtk-user/internal/middleware"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/platform"
+	"hivemtk-user/internal/router"
 
 	"github.com/gin-gonic/gin"
 )
@@ -30,7 +30,7 @@ func main() {
 
 	gin.SetMode(gin.DebugMode)
 	r := gin.New()
-	router.Setup(r)
+	router.Setup(r, db.GetDB())
 
 	// 打印所有已注册的 /api/chat-channels 路由
 	fmt.Fprintln(os.Stderr, "=== 已注册的 /api/chat-channels 路由 ===")

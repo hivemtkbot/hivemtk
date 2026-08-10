@@ -10,10 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
+
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupReachTestDB 创建测试数据库

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
 )
@@ -256,11 +256,11 @@ func TestInboxIngress_AckOutboundDelivered_OwnershipIsolation(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		channel    = "douyin_web"
-		accountA   = "acc_owner_A"
-		accountB   = "acc_owner_B"
-		content    = "归属隔离内容"
-		conv       = "conv_owner"
+		channel  = "douyin_web"
+		accountA = "acc_owner_A"
+		accountB = "acc_owner_B"
+		content  = "归属隔离内容"
+		conv     = "conv_owner"
 	)
 	hA := seedPendingOutbound(t, db, channel, accountA, conv, content)
 	_ = seedPendingOutbound(t, db, channel, accountB, conv, "归属隔离内容_B") // B 的不同内容行（不同 msg_id）

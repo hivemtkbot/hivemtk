@@ -8,13 +8,14 @@ import (
 	"io"
 	"strings"
 
-	"marketing/internal/model"
-	dbUtil "marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/httpclient"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	dbUtil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/httpclient"
+	"hivemtk-user/internal/repository"
 	"time"
 
 	"context"
+
 	"gorm.io/gorm"
 )
 

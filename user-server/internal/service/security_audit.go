@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/bcrypt"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/bcrypt"
 
 	"gorm.io/gorm"
 )

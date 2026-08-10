@@ -3,8 +3,8 @@ package controller
 import (
 	"net/http"
 
-	"marketing/internal/middleware"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/middleware"
+	"hivemtk-user/internal/pkg/utils/response"
 
 	"github.com/gin-gonic/gin"
 )

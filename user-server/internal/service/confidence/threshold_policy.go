@@ -15,8 +15,8 @@ import (
 	"context"
 	"sync"
 
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // ThresholdPolicyEngine 动态阈值策略引擎

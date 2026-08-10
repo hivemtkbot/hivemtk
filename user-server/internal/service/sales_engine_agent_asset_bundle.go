@@ -5,7 +5,7 @@ import (
 	"log"
 	"sync"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // sales_engine_agent_asset_bundle.go 资产包解析器（渠道→智能体→资产包 三层接线）

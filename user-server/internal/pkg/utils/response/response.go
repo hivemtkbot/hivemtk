@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"marketing/internal/pkg/i18n"
-	"marketing/internal/pkg/utils"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/i18n"
+	"hivemtk-user/internal/pkg/utils"
+	"hivemtk-user/internal/pkg/utils/logger"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

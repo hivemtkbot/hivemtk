@@ -1,12 +1,12 @@
 package repository
 
 import (
-	"marketing/internal/ops/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/ops/model"
+	"hivemtk-user/internal/pkg/db"
 	"testing"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupCustomReportTestDB 设置自定义报表测试数据库

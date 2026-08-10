@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/model"
-	_db "marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 const (
@@ -50,6 +50,7 @@ type Service struct {
 	custRepo       repository.CustomerRepository
 	clueRepo       repository.ClueRepository
 	cfgRepo        repository.LeadMiningConfigRepository
+	hubRepo        *repository.MessageHubRepository
 	mu             sync.Mutex
 	lastJudge      map[string]time.Time
 	cfgCache       *model.LeadMiningConfig
@@ -71,6 +72,7 @@ func NewLeadMiningService() *Service {
 		custRepo:  repository.NewCustomerRepository(),
 		clueRepo:  repository.NewClueRepository(),
 		cfgRepo:   repository.NewLeadMiningConfigRepository(),
+		hubRepo:   repository.NewMessageHubRepository(),
 		lastJudge: make(map[string]time.Time),
 		cancel:    cancel,
 	}
@@ -91,6 +93,55 @@ func ReloadConfigCache() {
 	singleton.mu.Lock()
 	singleton.cfgCache = nil
 	singleton.mu.Unlock()
+}
+
+// GetLeadMiningConfig 读取线索发掘全局配置（controller 层入口，避免 controller 直连 repository/model）
+func GetLeadMiningConfig(ctx context.Context) (*dto.LeadMiningConfig, error) {
+	cfg, err := repository.NewLeadMiningConfigRepository().GetSingleton(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if cfg == nil {
+		return &dto.LeadMiningConfig{}, nil
+	}
+	return leadMiningConfigToDTO(cfg), nil
+}
+
+// SaveLeadMiningConfig 保存配置并热更新运行中的缓存
+func SaveLeadMiningConfig(ctx context.Context, in *dto.LeadMiningConfig) error {
+	if err := repository.NewLeadMiningConfigRepository().Save(ctx, leadMiningConfigFromDTO(in)); err != nil {
+		return err
+	}
+	ReloadConfigCache()
+	return nil
+}
+
+func leadMiningConfigToDTO(m *model.LeadMiningConfig) *dto.LeadMiningConfig {
+	return &dto.LeadMiningConfig{
+		ID:             m.ID,
+		Enabled:        m.Enabled,
+		Keywords:       []string(m.Keywords),
+		Tags:           []string(m.Tags),
+		Requirement:    m.Requirement,
+		Channels:       []string(m.Channels),
+		MinIntentScore: m.MinIntentScore,
+		Model:          m.Model,
+		CreatedAt:      m.CreatedAt,
+		UpdatedAt:      m.UpdatedAt,
+	}
+}
+
+func leadMiningConfigFromDTO(d *dto.LeadMiningConfig) *model.LeadMiningConfig {
+	return &model.LeadMiningConfig{
+		ID:             d.ID,
+		Enabled:        d.Enabled,
+		Keywords:       model.JSONStrings(d.Keywords),
+		Tags:           model.JSONStrings(d.Tags),
+		Requirement:    d.Requirement,
+		Channels:       model.JSONStrings(d.Channels),
+		MinIntentScore: d.MinIntentScore,
+		Model:          d.Model,
+	}
 }
 
 // Stop 停止服务（进程退出时）
@@ -210,12 +261,7 @@ func (s *Service) fetchHistory(ctx context.Context, hub *model.MessageHub) []llm
 
 // fetchHistoryDB 从 message_hub 取该客户最近 N 条入站消息，按时间正序构造多轮上下文
 func (s *Service) fetchHistoryDB(ctx context.Context, hub *model.MessageHub) []llm.ChatMessage {
-	var hubs []model.MessageHub
-	err := _db.GetDB().WithContext(ctx).
-		Where("platform = ? AND sender_id = ? AND direction = 'inbound'", hub.Platform, hub.SenderID).
-		Order("sent_at DESC").
-		Limit(leadMiningHistorySize).
-		Find(&hubs).Error
+	hubs, err := s.hubRepo.ListRecentInboundBySender(ctx, hub.Platform, hub.SenderID, leadMiningHistorySize)
 	if err != nil {
 		logger.Warnf("[lead-mining] 读取会话历史失败: %v", err)
 		return nil

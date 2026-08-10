@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
 )

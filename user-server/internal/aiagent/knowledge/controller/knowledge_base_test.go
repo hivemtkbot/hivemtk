@@ -2,8 +2,8 @@ package controller
 
 import (
 	"bytes"
-	knowledgesvc "marketing/internal/aiagent/knowledge/service"
-	"marketing/internal/model"
+	knowledgesvc "hivemtk-user/internal/aiagent/knowledge/service"
+	"hivemtk-user/internal/model"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -11,8 +11,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/pkg/testutil/testmigrate"
+	"hivemtk-user/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil/testmigrate"
 )
 
 // setupKBTestDB 设置知识库测试数据库

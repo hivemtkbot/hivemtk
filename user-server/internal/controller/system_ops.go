@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

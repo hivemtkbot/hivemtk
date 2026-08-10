@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"marketing/internal/repository"
+	"hivemtk-user/internal/repository"
 )
 
 // ============================================================================
@@ -28,11 +28,11 @@ const (
 
 // LogisticsIntegration 实时快递轨迹接口配置（工具依赖）。
 type LogisticsIntegration struct {
-	Enabled  bool   `json:"enabled"`   // 是否启用实时快递轨迹
-	Provider string `json:"provider"`  // 聚合平台标识，如 kuaidi100 / 自建
-	BaseURL  string `json:"base_url"`  // 实时快递接口基地址（如 https://kuaidi.example.com）
-	Key      string `json:"key"`       // 接口 Key（Bearer Token，可选）
-	Secret   string `json:"secret"`    // 接口密钥（X-Api-Secret 头，可选）
+	Enabled  bool   `json:"enabled"`  // 是否启用实时快递轨迹
+	Provider string `json:"provider"` // 聚合平台标识，如 kuaidi100 / 自建
+	BaseURL  string `json:"base_url"` // 实时快递接口基地址（如 https://kuaidi.example.com）
+	Key      string `json:"key"`      // 接口 Key（Bearer Token，可选）
+	Secret   string `json:"secret"`   // 接口密钥（X-Api-Secret 头，可选）
 }
 
 // AfterSaleIntegration 售后回写电商平台接口配置（工具依赖）。

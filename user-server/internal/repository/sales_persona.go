@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
+	"hivemtk-user/internal/model"
+
 	"gorm.io/gorm"
-	"marketing/internal/model"
 )
 
 // SalesPersonaRepository 销冠能力画像聚合查询仓储

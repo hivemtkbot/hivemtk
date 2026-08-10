@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 	"fmt"
-	"marketing/internal/aiagent/knowledge/model"
-	ragretrieval "marketing/internal/aiagent/rag/retrieval"
-	"marketing/internal/etl"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/aiagent/knowledge/model"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
+	"hivemtk-user/internal/etl"
+	"hivemtk-user/internal/pkg/db"
 	"os"
 
 	"gorm.io/gorm"

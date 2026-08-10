@@ -27,8 +27,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupRagMetricsTestDB 创建 RAG 监控测试库（含 rag_query_logs / rag_metrics_daily）
@@ -105,7 +105,7 @@ func TestRagMetrics_RecordQuerySync_Basic(t *testing.T) {
 	req := &RecordQueryRequest{
 		Query:           "如何申请退款",
 		SessionID:       "sess-001",
-		ProductID: "100",
+		ProductID:       "100",
 		RetrievedDocIDs: []string{"d1", "d2", "d3"},
 		RelevantDocIDs:  []string{"d1", "d2"},
 		Latency:         150 * time.Millisecond,

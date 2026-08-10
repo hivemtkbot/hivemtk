@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"context"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // SystemInitService 系统初始化服务

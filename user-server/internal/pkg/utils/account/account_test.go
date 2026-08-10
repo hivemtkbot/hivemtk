@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/shopspring/decimal"
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 func TestSetAccount(t *testing.T) {

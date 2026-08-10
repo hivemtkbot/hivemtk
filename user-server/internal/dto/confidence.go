@@ -9,8 +9,6 @@ package dto
 
 import (
 	"time"
-
-	"marketing/internal/model"
 )
 
 // FiveSignals 5 维置信度信号值
@@ -47,7 +45,7 @@ type SignalCollectionInput struct {
 	LLMLogprobs       []float64      `json:"llm_logprobs,omitempty"` // top-k token logprobs
 	RAGChunks         []RAGChunk     `json:"rag_chunks,omitempty"`
 	RAGExecuted       bool           `json:"rag_executed,omitempty"` // RAG 是否已实际执行；false=该维度未知（取中性 0.5，不惩罚）
-	LastTurns         []string       `json:"last_turns,omitempty"` // 最近 3 轮对话
+	LastTurns         []string       `json:"last_turns,omitempty"`   // 最近 3 轮对话
 
 	// 上下文因子（用于动态阈值）
 	CustomerLevel     string  `json:"customer_level,omitempty"`     // vip / normal / low
@@ -112,26 +110,4 @@ type ThresholdPolicyRequest struct {
 	Version                 int     `json:"version" binding:"min=1"`
 }
 
-// ToThresholdPolicyModel DTO → Model 转换(供 Service/Repository 使用)
-// 架构文档 §三 L4: DTO 禁止写方法体,转换用包级函数(参考 glossary.go FromGlossaryModel 先例)
-func ToThresholdPolicyModel(r *ThresholdPolicyRequest) *model.ThresholdPolicy {
-	if r == nil {
-		return nil
-	}
-	now := time.Now()
-	return &model.ThresholdPolicy{
-		PolicyID:                r.PolicyID,
-		IntentType:              r.IntentType,
-		BaseThreshold:           r.BaseThreshold,
-		CustomerLevelWeight:     r.CustomerLevelWeight,
-		TimeslotWeight:          r.TimeslotWeight,
-		AgentAvailabilityWeight: r.AgentAvailabilityWeight,
-		BandHandoffUpper:        r.BandHandoffUpper,
-		BandFallbackUpper:       r.BandFallbackUpper,
-		BandReviewUpper:         r.BandReviewUpper,
-		ReviewSLASeconds:        r.ReviewSLASeconds,
-		Version:                 r.Version,
-		CreatedAt:               now,
-		UpdatedAt:               now,
-	}
-}
+// ToThresholdPolicyModel 转换函数已下沉至 service/confidence 包，dto 层保持纯数据结构。

@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"log/slog"
 
+	"hivemtk-user/internal/dto"
+
 	"gorm.io/gorm"
-	"marketing/internal/dto"
 )
 
 // ABTestPlan AB 测试方案

@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 	"errors"
-	"marketing/internal/aiagent/knowledge/model"
-	sysmodel "marketing/internal/model"
+	"hivemtk-user/internal/aiagent/knowledge/model"
+	sysmodel "hivemtk-user/internal/model"
 	"time"
 
 	"github.com/google/uuid"

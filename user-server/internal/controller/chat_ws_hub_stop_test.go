@@ -85,7 +85,7 @@ func TestHub_NoGoroutineLeak(t *testing.T) {
 		// 忽略可能的 background goroutine (例如 runtime 监控)
 		goleak.IgnoreTopFunction("github.com/rs/zerolog.AsyncWriter.func1"),
 		// 忽略预存在的 SessionTTLCron (单例 cron, 进程级生命周期, 非 ChatWSHub 责任)
-		goleak.IgnoreTopFunction("marketing/internal/service.(*SessionTTLCron).run"),
+		goleak.IgnoreTopFunction("hivemtk-user/internal/service.(*SessionTTLCron).run"),
 	)
 
 	hub := NewChatWSHub()

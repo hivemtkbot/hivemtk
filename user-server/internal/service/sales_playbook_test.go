@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // ============================================================================

@@ -10,8 +10,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // WeComAccountHealthService 企微账号健康度服务

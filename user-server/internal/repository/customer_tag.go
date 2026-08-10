@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
-	"marketing/internal/model"
-	_db "marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	_db "hivemtk-user/internal/pkg/db"
 )
 
 // CustomerTagRepository defines the interface for customer tag data access

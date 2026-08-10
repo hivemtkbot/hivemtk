@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"regexp"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 const evalSystemPrompt = `你是企业知识库客服质量评估专家。给定【用户问题】与【AI 客服回复】，从四个维度打分(0-100)：

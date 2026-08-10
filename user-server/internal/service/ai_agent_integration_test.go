@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/pkg/utils/config"
+	"hivemtk-user/internal/config"
 )
 
 // ============================================================================

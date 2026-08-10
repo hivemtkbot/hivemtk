@@ -20,8 +20,8 @@ import (
 	"os"
 	"time"
 
-	"marketing/internal/pkg/utils/config"
-	"marketing/tests/perf/perflib"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/tests/perf/perflib"
 )
 
 var (

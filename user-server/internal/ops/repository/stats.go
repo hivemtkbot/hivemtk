@@ -8,7 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
-	sysmodel "marketing/internal/model"
+	sysmodel "hivemtk-user/internal/model"
 )
 
 // StatsRepository 统计仓库接口

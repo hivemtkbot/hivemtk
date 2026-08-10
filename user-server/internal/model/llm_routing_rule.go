@@ -17,7 +17,7 @@ import "time"
 type LLMRoutingRule struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Scenario  string    `gorm:"column:scenario;uniqueIndex;size:64" json:"scenario"` // intent / sop / objection ...
-	RouteJSON string    `gorm:"column:route_json;type:text" json:"route_json"`        // 完整 ScenarioRoute JSON
+	RouteJSON string    `gorm:"column:route_json;type:text" json:"route_json"`       // 完整 ScenarioRoute JSON
 	Version   int       `gorm:"column:version;default:1" json:"version"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

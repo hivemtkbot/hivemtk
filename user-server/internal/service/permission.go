@@ -16,8 +16,8 @@ import (
 	"errors"
 	"fmt"
 
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
 )

@@ -2,8 +2,6 @@ package dto
 
 import (
 	"time"
-
-	"marketing/internal/model"
 )
 
 // sales.go 销冠域 - 销售引擎 DTO
@@ -18,9 +16,91 @@ import (
 //  7. AgentContext：智能体执行上下文（深度 DTO 迁移-4 已迁入）
 //
 // 设计说明：
-//   - dto 引用 model 是允许的（model 不引用 dto，无循环依赖）
+//   - dto 不引用 model（P0-7）：跨层共享的实体视图以 dto 自有镜像类型承载，
+//     model ↔ dto 互转统一收口在 service 层（见 service/sales_mapper.go）
 //   - service 层使用 type alias 保持向后兼容（如 service.Industry = dto.Industry）
 //   - 这些类型多为纯数据结构 + JSON 标签，迁移到 dto 后可被 controller / repository / 上层直接复用
+
+// ============================================================================
+// model 实体镜像（dto 自有，字段/JSON 标签与 model 保持一致）
+// ============================================================================
+
+// LLMProviderConfig LLM 提供商配置（镜像 model.LLMProviderConfig，去 gorm 标签）
+type LLMProviderConfig struct {
+	APIKey         string `json:"api_key"`
+	BaseURL        string `json:"base_url"`
+	APIType        string `json:"api_type"` // openai, anthropic, custom, azure
+	Model          string `json:"model"`
+	MaxRetries     int    `json:"max_retries"`
+	RequestTimeout int    `json:"request_timeout"`
+}
+
+// DialogueMemory 对话长期记忆视图（镜像 model.DialogueMemory，去 gorm 标签）
+type DialogueMemory struct {
+	ID                   uint           `json:"id"`
+	SessionID            string         `json:"session_id"`
+	CustomerID           string         `json:"customer_id"`
+	Summary              string         `json:"summary"`
+	KeyFacts             map[string]any `json:"key_facts"`
+	CustomerName         string         `json:"customer_name"`
+	CustomerPhone        string         `json:"customer_phone"`
+	CustomerWechat       string         `json:"customer_wechat"`
+	Budget               string         `json:"budget"`
+	Demand               string         `json:"demand"`
+	Objections           []any          `json:"objections"`
+	PurchaseIntent       string         `json:"purchase_intent"`
+	IntentTrail          []any          `json:"intent_trail"`
+	SOPHistory           []any          `json:"sop_history"`
+	LastAction           string         `json:"last_action"`
+	NextActionSuggestion string         `json:"next_action_suggestion"`
+	LastActiveAt         time.Time      `json:"last_active_at"`
+	MessageCount         int            `json:"message_count"`
+	CreatedAt            time.Time      `json:"created_at"`
+	UpdatedAt            time.Time      `json:"updated_at"`
+}
+
+// SOPAgent SOP 智能体视图（镜像 model.SOPAgent，去 gorm 标签）
+type SOPAgent struct {
+	ID             uint           `json:"id"`
+	Name           string         `json:"name"`
+	Scenario       string         `json:"scenario"`
+	Description    string         `json:"description"`
+	TriggerType    string         `json:"trigger_type"`
+	TriggerConfig  map[string]any `json:"trigger_config"`
+	SOPGraph       map[string]any `json:"sop_graph"`
+	Version        int            `json:"version"`
+	IsActive       bool           `json:"is_active"`
+	Priority       int            `json:"priority"`
+	ExecutionCount int            `json:"execution_count"`
+	SuccessCount   int            `json:"success_count"`
+	ABTestConfig   map[string]any `json:"ab_test_config"`
+	UseBandit      bool           `json:"use_bandit"`
+	CreatedBy      uint           `json:"created_by"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+}
+
+// RichCardType 卡片类型
+type RichCardType string
+
+// CardButton 卡片动作按钮
+type CardButton struct {
+	Text   string `json:"text"`
+	URL    string `json:"url,omitempty"`
+	Action string `json:"action,omitempty"`
+}
+
+// RichCard 会话内结构化富卡片（镜像 model.RichCard）
+type RichCard struct {
+	Type        RichCardType      `json:"type"`
+	Title       string            `json:"title"`
+	Subtitle    string            `json:"subtitle,omitempty"`
+	Description string            `json:"description,omitempty"`
+	ImageURL    string            `json:"image_url,omitempty"`
+	ThumbURL    string            `json:"thumb_url,omitempty"`
+	Fields      map[string]string `json:"fields,omitempty"`
+	Buttons     []CardButton      `json:"buttons,omitempty"`
+}
 
 // SalesStepLog 销售链路步骤日志
 type SalesStepLog struct {
@@ -180,36 +260,36 @@ func DefaultSalesEngineConfig() *SalesEngineConfig {
 // AgentContext 智能体执行上下文
 // 由 AIAgentService.LoadContext 加载，传给 SalesEngine.HandleWithAgent
 type AgentContext struct {
-	AgentID              uint                    `json:"agent_id"`
-	AgentCode            string                  `json:"agent_code"`
-	Name                 string                  `json:"name"`
-	AgentType            string                  `json:"agent_type"`
-	AgentMode            string                  `json:"agent_mode"` // passive 被动 / active 主动
-	Persona              string                  `json:"persona"`
-	SystemPrompt         string                  `json:"system_prompt"`
-	Greeting             string                  `json:"greeting"`
-	RagProductIDs        []string                `json:"rag_product_ids"`    // 知识库挂载
+	AgentID       uint     `json:"agent_id"`
+	AgentCode     string   `json:"agent_code"`
+	Name          string   `json:"name"`
+	AgentType     string   `json:"agent_type"`
+	AgentMode     string   `json:"agent_mode"` // passive 被动 / active 主动
+	Persona       string   `json:"persona"`
+	SystemPrompt  string   `json:"system_prompt"`
+	Greeting      string   `json:"greeting"`
+	RagProductIDs []string `json:"rag_product_ids"` // 知识库挂载
 	// 知识库挂载 (FAQ / SOP 模板)
 	// 空切片 = 全局共享（向后兼容）；非空 = 仅匹配绑定的 ID 集合
-	FAQEntryIDs    []string `json:"faq_entry_ids"`
-	SOPTemplateIDs []string `json:"sop_template_ids"`
-	SOPIDs               []string                `json:"sop_ids"`            // SOP 挂载
-	ScriptLibraryIDs     []string                `json:"script_library_ids"` // 话术库挂载
-	LLMModel             string                  `json:"llm_model"`
-	LLMProviderConfig    model.LLMProviderConfig `json:"llm_provider_config"`
-	Temperature          float64                 `json:"temperature"`
-	MaxTokens            int                     `json:"max_tokens"`
-	TopP                 float64                 `json:"top_p"`
-	FrequencyPenalty     float64                 `json:"frequency_penalty"`
-	PresencePenalty      float64                 `json:"presence_penalty"`
-	EnableRAG            bool                    `json:"enable_rag"`
-	EnableScriptMatch    bool                    `json:"enable_script_match"`
-	EnableHumanizePolish bool                    `json:"enable_humanize_polish"`
-	EnableContentAudit   bool                    `json:"enable_content_audit"`
-	EnablePlaybook       bool                    `json:"enable_playbook"`
-	RAGTopK              int                     `json:"rag_top_k"`
-	ConfidenceThreshold  float64                 `json:"confidence_threshold"`
-	MaxAIConsecutive     int                     `json:"max_ai_consecutive"`
+	FAQEntryIDs          []string          `json:"faq_entry_ids"`
+	SOPTemplateIDs       []string          `json:"sop_template_ids"`
+	SOPIDs               []string          `json:"sop_ids"`            // SOP 挂载
+	ScriptLibraryIDs     []string          `json:"script_library_ids"` // 话术库挂载
+	LLMModel             string            `json:"llm_model"`
+	LLMProviderConfig    LLMProviderConfig `json:"llm_provider_config"`
+	Temperature          float64           `json:"temperature"`
+	MaxTokens            int               `json:"max_tokens"`
+	TopP                 float64           `json:"top_p"`
+	FrequencyPenalty     float64           `json:"frequency_penalty"`
+	PresencePenalty      float64           `json:"presence_penalty"`
+	EnableRAG            bool              `json:"enable_rag"`
+	EnableScriptMatch    bool              `json:"enable_script_match"`
+	EnableHumanizePolish bool              `json:"enable_humanize_polish"`
+	EnableContentAudit   bool              `json:"enable_content_audit"`
+	EnablePlaybook       bool              `json:"enable_playbook"`
+	RAGTopK              int               `json:"rag_top_k"`
+	ConfidenceThreshold  float64           `json:"confidence_threshold"`
+	MaxAIConsecutive     int               `json:"max_ai_consecutive"`
 
 	// 决策策略挂载 — 新增(§2.3)
 	DecisionStrategyIDs []string `json:"decision_strategy_ids"`
@@ -273,25 +353,25 @@ type SalesRequest struct {
 
 // SalesResponse 销售回复
 type SalesResponse struct {
-	Reply               string                `json:"reply"`            // 最终回复
-	Intent              *RecognizeResult      `json:"intent"`           // 意图
-	Memory              *model.DialogueMemory `json:"memory,omitempty"` // 当前记忆
-	MatchedSOP          *model.SOPAgent       `json:"matched_sop,omitempty"`
-	RAGChunks           []RAGChunk            `json:"rag_chunks,omitempty"`
-	ScriptTemplate      *ScriptTemplate       `json:"script_template,omitempty"`
-	PlaybookSuggestions []*PlaybookEntry      `json:"playbook_suggestions,omitempty"` // 销冠话术推荐
-	LLMProvider         string                `json:"llm_provider,omitempty"`
-	LLMModel            string                `json:"llm_model,omitempty"`
-	CostTokens          int                   `json:"cost_tokens"`
-	LatencyMs           int                   `json:"latency_ms"`
-	Polished            bool                  `json:"polished"`
-	Audited             bool                  `json:"audited"`
-	AuditIssues         []string              `json:"audit_issues,omitempty"`
-	TransferredToHuman  bool                  `json:"transferred_to_human"` // 是否转人工
-	TransferReason      string                `json:"transfer_reason,omitempty"`
+	Reply               string           `json:"reply"`            // 最终回复
+	Intent              *RecognizeResult `json:"intent"`           // 意图
+	Memory              *DialogueMemory  `json:"memory,omitempty"` // 当前记忆
+	MatchedSOP          *SOPAgent        `json:"matched_sop,omitempty"`
+	RAGChunks           []RAGChunk       `json:"rag_chunks,omitempty"`
+	ScriptTemplate      *ScriptTemplate  `json:"script_template,omitempty"`
+	PlaybookSuggestions []*PlaybookEntry `json:"playbook_suggestions,omitempty"` // 销冠话术推荐
+	LLMProvider         string           `json:"llm_provider,omitempty"`
+	LLMModel            string           `json:"llm_model,omitempty"`
+	CostTokens          int              `json:"cost_tokens"`
+	LatencyMs           int              `json:"latency_ms"`
+	Polished            bool             `json:"polished"`
+	Audited             bool             `json:"audited"`
+	AuditIssues         []string         `json:"audit_issues,omitempty"`
+	TransferredToHuman  bool             `json:"transferred_to_human"` // 是否转人工
+	TransferReason      string           `json:"transfer_reason,omitempty"`
 	// Cards 会话内结构化富卡片（商品卡/订单卡/优惠卡等），随回复一并下发到会话方
-	Cards               []model.RichCard      `json:"cards,omitempty"`
-	Steps               []SalesStepLog        `json:"steps"` // 9 步链路日志
+	Cards []RichCard     `json:"cards,omitempty"`
+	Steps []SalesStepLog `json:"steps"` // 9 步链路日志
 
 	// 置信度决策（注入 ConfidenceAggregator 时填充）
 	Confidence *ConfidenceDecision `json:"confidence,omitempty"`

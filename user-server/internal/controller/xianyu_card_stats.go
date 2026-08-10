@@ -1,8 +1,8 @@
 package controller
 
 import (
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 	"strconv"
 	"time"
 

@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/pkg/utils/response"
 )
 
 // RegisterRoutes 在已有路由组（已挂 InitGuard 私域鉴权）上注册监控端点。

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/pkg/utils/config"
+	"hivemtk-user/internal/config"
 )
 
 // TestInferVendor 验证厂商推断覆盖所有已知 BaseURL
@@ -20,7 +20,7 @@ func TestInferVendor(t *testing.T) {
 		{"https://api.openai.com", "openai"},
 		{"https://open.bigmodel.cn/api/paas/v4", "zhipu"},
 		{"https://api.moonshot.cn", "moonshot"},
-		{config.DefaultLLMBaseURLDev, "local"},     // 127.0.0.1:8207（ports.go 单一源）
+		{config.DefaultLLMBaseURLDev, "local"}, // 127.0.0.1:8207（ports.go 单一源）
 		{"http://localhost:8080", "local"},
 		{"http://mtk-llm:" + config.DefaultLLMPortStr + "/v1", "local"},
 		{"", "other"},

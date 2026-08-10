@@ -3,13 +3,13 @@ package controller
 import (
 	"encoding/csv"
 	"fmt"
-	syscontroller "marketing/internal/controller"
+	"hivemtk-user/internal/pkg/errhttp"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"marketing/internal/content/service"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/content/service"
+	"hivemtk-user/internal/pkg/utils/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -347,7 +347,7 @@ func (c *BatchOperationController) CancelHistory(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.svc.CancelHistory(uint(id)), "取消批量操作") {
+	if errhttp.HandleDBError(ctx, c.svc.CancelHistory(uint(id)), "取消批量操作") {
 		return
 	}
 

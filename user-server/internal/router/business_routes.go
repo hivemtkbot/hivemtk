@@ -1,9 +1,9 @@
 package router
 
 import (
-	contentctrl "marketing/internal/content/controller"
-	"marketing/internal/controller"
-	opsctrl "marketing/internal/ops/controller"
+	contentctrl "hivemtk-user/internal/content/controller"
+	"hivemtk-user/internal/controller"
+	opsctrl "hivemtk-user/internal/ops/controller"
 
 	"github.com/gin-gonic/gin"
 )
@@ -201,4 +201,24 @@ func setupCommunityRoutes(auth *gin.RouterGroup) {
 	auth.GET("/community/stats", communityCtrl.GetStatistics)
 	auth.POST("/community/import", communityCtrl.ImportData)
 	auth.POST("/community/export", communityCtrl.ExportData)
+}
+
+// ============================================================================
+// 以下内容合并自 event_routes.go（P1-2 router 文件数收敛）
+// ============================================================================
+
+// setupEventRoutes 客户事件追踪(CDP)路由
+// 提供 8 个事件端点 + 历史查询/统计
+func setupEventRoutes(auth *gin.RouterGroup) {
+	eventCtrl := controller.NewCustomerEventController()
+	auth.POST("/events/track", eventCtrl.TrackEvent)
+	auth.GET("/events/customer/:id", eventCtrl.GetEventHistory)
+	auth.DELETE("/events/customer/:id", eventCtrl.DeleteEvent)
+	auth.GET("/events/stats", eventCtrl.GetEventStats)
+	auth.POST("/events/pageview", eventCtrl.TrackPageView)
+	auth.POST("/events/click", eventCtrl.TrackClick)
+	auth.POST("/events/purchase", eventCtrl.TrackPurchase)
+	auth.POST("/events/signup", eventCtrl.TrackSignup)
+	auth.POST("/events/login", eventCtrl.TrackLogin)
+	auth.POST("/events/add-to-cart", eventCtrl.TrackAddToCart)
 }

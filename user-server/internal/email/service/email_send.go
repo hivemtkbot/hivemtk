@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 	"gopkg.in/gomail.v2"
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 // 邮件状态常量

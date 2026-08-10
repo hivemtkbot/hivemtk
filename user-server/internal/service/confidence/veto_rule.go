@@ -16,7 +16,7 @@ package confidence
 import (
 	"strings"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // VetoRule 一票否决规则接口
@@ -77,7 +77,8 @@ func (r *VetoLowEntity) Check(signals *dto.FiveSignals, ctx *VetoContext) (bool,
 //
 // 默认阈值 0.1：RAGQual < 0.1 视为知识库无覆盖，必须转人工/兜底。
 // 业务规则：当 Threshold=0 时自动用默认值 0.1（而非禁用）。
-//   禁用本规则请用负数（如 Threshold=-1）显式声明。
+//
+//	禁用本规则请用负数（如 Threshold=-1）显式声明。
 type VetoLowRAG struct {
 	Threshold float64 // 默认 0.1
 }

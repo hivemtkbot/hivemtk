@@ -27,17 +27,17 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/repository"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 // FeedbackLearningCron G7 反馈学习闭环定时任务
 type FeedbackLearningCron struct {
-	svc    *FeedbackLearningService
-	sopRepo *repository.SopAgentRepository
-	stopCh  chan struct{}
+	svc      *FeedbackLearningService
+	sopRepo  *repository.SopAgentRepository
+	stopCh   chan struct{}
 	stopOnce sync.Once
-	wg      sync.WaitGroup
+	wg       sync.WaitGroup
 }
 
 // NewFeedbackLearningCron 创建 G7 闭环定时任务

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	"marketing/internal/cache"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ClueScoreRFMUpdater 线索评分 RFM 回流端口（F- 依赖倒置）。
@@ -191,6 +191,7 @@ func (o *CustomerOrchestrator) OnCustomerEvent(ctx context.Context, customerID s
 // OnRFMComputed RFM 计算完成后联动：
 //  1. 失效 360 缓存（避免读到旧 RFM 数据）
 //  2. 更新 RFM 标签（champion/loyal/at_risk/churn/potential）
+//
 // 3. 回流线索评分（F-：调 ClueScoreService.UpdateByCustomerRFM）
 // 4. 触发分群重算（F-：调 SegmentService.RecomputeForCustomer）
 //

@@ -22,8 +22,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 )
 
 // SystemUserAdminController 人员管理控制器（阶段 4 新增）

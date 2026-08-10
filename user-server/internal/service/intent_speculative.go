@@ -17,7 +17,7 @@ import (
 	"context"
 	"time"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // RecognizeSpeculative 投机识别 (并行化优化)
@@ -28,9 +28,9 @@ import (
 //   - error: 严重错误 (ctx canceled, dispatcher nil 等)
 //
 // 调用方建议:
-//   1. 立即用同步结果继续 Phase 1 (SOP/RAG/LLM 生成候选)
-//   2. Phase 2 异步收割 channel: select + 10ms timeout
-//   3. 如果 LLM 结果置信度更高,可选择性升级 (用于下一轮 cache)
+//  1. 立即用同步结果继续 Phase 1 (SOP/RAG/LLM 生成候选)
+//  2. Phase 2 异步收割 channel: select + 10ms timeout
+//  3. 如果 LLM 结果置信度更高,可选择性升级 (用于下一轮 cache)
 func (s *IntentRecognizer) RecognizeSpeculative(
 	ctx context.Context, sessionID, customerID, text string,
 ) (*dto.RecognizeResult, <-chan *dto.RecognizeResult, error) {

@@ -3,8 +3,8 @@ package router
 import (
 	"testing"
 
-	"marketing/internal/pkg/testutil"
-	dbutil "marketing/internal/pkg/utils/db"
+	dbutil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,7 +17,7 @@ func TestSetup_HealthEndpoint(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	Setup(r)
+	Setup(r, database)
 
 	// Verify the engine has routes registered
 	routes := r.Routes()
@@ -33,7 +33,7 @@ func TestSetup_PublicRoutes(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	Setup(r)
+	Setup(r, database)
 
 	// Check that health endpoint exists
 	routes := r.Routes()
@@ -62,7 +62,7 @@ func TestSetup_AuthRoutes(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	Setup(r)
+	Setup(r, database)
 
 	routes := r.Routes()
 	foundAuthRefresh := false
@@ -83,7 +83,7 @@ func TestSetup_CardRoutes(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	Setup(r)
+	Setup(r, database)
 
 	routes := r.Routes()
 	foundDouyin := false
@@ -104,7 +104,7 @@ func TestSetup_AutoReplyRoutes(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	Setup(r)
+	Setup(r, database)
 
 	routes := r.Routes()
 	foundAutoReply := false
@@ -125,7 +125,7 @@ func TestSetup_SystemRoutes(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	Setup(r)
+	Setup(r, database)
 
 	routes := r.Routes()
 	foundSystemConfig := false
@@ -146,7 +146,7 @@ func TestSetup_ShortLinkRoutes(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	Setup(r)
+	Setup(r, database)
 
 	routes := r.Routes()
 	foundShortLink := false
@@ -167,7 +167,7 @@ func TestSetup_LiveCodeRoutes(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	Setup(r)
+	Setup(r, database)
 
 	routes := r.Routes()
 	foundLiveCode := false
@@ -188,7 +188,7 @@ func TestSetup_RAGRoutes(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	Setup(r)
+	Setup(r, database)
 
 	routes := r.Routes()
 	foundRAG := false
@@ -209,7 +209,7 @@ func TestSetup_UploadRoute(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	Setup(r)
+	Setup(r, database)
 
 	routes := r.Routes()
 	foundUpload := false

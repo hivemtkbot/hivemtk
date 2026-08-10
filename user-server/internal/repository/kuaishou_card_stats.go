@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 
 	"gorm.io/gorm"
 )

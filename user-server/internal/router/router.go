@@ -7,19 +7,20 @@ import (
 	"os"
 	"strings"
 
-	"marketing/internal/bridge"
-	contentservice "marketing/internal/content/service"
-	"marketing/internal/controller"
-	"marketing/internal/middleware"
-	"marketing/internal/service/trace_learning"
-	"marketing/internal/monitor"
-	"marketing/internal/aiagent/agent/tooluse"
-	"marketing/internal/pkg/tracing"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
-	"marketing/internal/service"
-	i18nservice "marketing/internal/service/i18n"
+	"hivemtk-user/internal/aiagent/agent/tooluse"
+	"hivemtk-user/internal/app"
+	"hivemtk-user/internal/bridge"
+	channelgw "hivemtk-user/internal/channelgw"
+	contentservice "hivemtk-user/internal/content/service"
+	"hivemtk-user/internal/controller"
+	"hivemtk-user/internal/middleware"
+	"hivemtk-user/internal/monitor"
+	"hivemtk-user/internal/pkg/tracing"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/service"
+	"hivemtk-user/internal/service/trace_learning"
+	"hivemtk-user/internal/service/translation"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -96,7 +97,7 @@ func SetHealthRedis(p Pinger) {
 	HealthRedis = p
 }
 
-func Setup(r *gin.Engine) {
+func Setup(r *gin.Engine, gormDB *gorm.DB) {
 	// WhatsApp Cloud 账号服务（在函数级作用域声明，供 Webhook URL 验证与 Cloud 路由共用）
 	var whatsappCloudSvc *service.WhatsAppCloudService
 	var webhookSvc *service.WebhookService
@@ -128,12 +129,16 @@ func Setup(r *gin.Engine) {
 
 	// 初始化全局事件总线（在 Service 构造之前）
 	// 试点：OperationLog 异步写入；后续可在 initEventBus 中追加订阅者
-	initEventBus()
+	app.InitEventBus()
+
+	// P1-3：注入 middleware 窄接口实现（PermChecker / AuditSink），
+	// middleware 不再 import service/repository，实现统一在此装配期注入
+	injectMiddlewarePorts()
 
 	// 健康检查端点（公开）
-	r.GET("/health", HealthCheck(HealthRedis))
+	r.GET("/health", HealthCheck(HealthRedis, gormDB))
 	r.GET("/healthz", LivenessCheck())
-	r.GET("/readyz", ReadinessCheck(HealthRedis))
+	r.GET("/readyz", ReadinessCheck(HealthRedis, gormDB))
 
 	// 私域部署: 已移除 Prometheus 指标采集 (/metrics 端点 + PrometheusMetricsMiddleware)
 	// 关键指标 (wall_ms / LCP / Layer1 命中率) 通过应用层日志 + layer_decision_logs 表审计。
@@ -149,6 +154,8 @@ func Setup(r *gin.Engine) {
 		Enabled:    true,
 		ExemptPaths: []string{
 			"/api/bridge/ingest",
+			// 渠道网关 WS 传输：升级请求即长连接，限流会误伤渠道接入
+			"/api/ws/channel",
 		},
 	}))
 
@@ -164,7 +171,7 @@ func Setup(r *gin.Engine) {
 	r.Use(middleware.AuditMiddleware())
 
 	// 活码控制器（需要在多个路由组中使用）
-	liveCodeController := controller.NewLiveCodeController(service.NewLiveCodeService(db.GetDB()))
+	liveCodeController := controller.NewLiveCodeController(service.NewLiveCodeService(gormDB))
 
 	// 平台控制器（需要在多个路由组中使用）
 	platformCtrl := controller.NewPlatformController()
@@ -173,22 +180,22 @@ func Setup(r *gin.Engine) {
 	// auth 路由组（智能体管理 CRUD）和 webhook 路由组（智能体路由）共享同一份实例
 	//
 	// 装配顺序（关键）：
-	//   1) initGlobalToolExecutor()    —— 创建全局 ToolExecutor（含装饰器链：限流/重试/审计/计费）
-	//   2) registerAllAgentTools(db)   —— 注册全部 41 个智能体工具到全局注册中心
+	//   1) app.InitGlobalToolExecutor()    —— 创建全局 ToolExecutor（含装饰器链：限流/重试/审计/计费）
+	//   2) app.RegisterAllAgentTools(db)   —— 注册全部 41 个智能体工具到全局注册中心
 	//                                      （reach×20 + pm×3 + customer×8 + knowledge×4 + business×6）
-	//   3) buildSalesEngine(db)        —— 此时 GetGlobalExecutor() 返回非 nil，
+	//   3) app.BuildSalesEngine(db)        —— 此时 GetGlobalExecutor() 返回非 nil，
 	//                                      SalesEngine 注入 ToolExecutorAdapter 后 Agent Loop (ReAct) 激活
 	// 4) initInferenceOrchestrator —— 装配推理闭环编排器（优化：原本死代码，本次激活）
-	initGlobalToolExecutor()
-	initGlobalToolRouter() // 装配 ToolRouter（熔断 + 限流 + 成本统计 + 全局统计），激活原本死代码
-	registerAllAgentTools(db.GetDB())
+	app.InitGlobalToolExecutor()
+	app.InitGlobalToolRouter() // 装配 ToolRouter（熔断 + 限流 + 成本统计 + 全局统计），激活原本死代码
+	app.RegisterAllAgentTools(gormDB)
 	// 网页私信桥接：构造 BridgeReachAdapter 并把 AI 回复经 WebSocket 回写 Chrome 扩展。
 	// 必须在 registerAllAgentTools 之后、Agent Loop 激活之前调用（其内部会注册桥接出站回调）。
-	registerAgentReachTools(db.GetDB())
-	initInferenceOrchestrator() // 优化：激活推理闭环编排器（历史死代码）
+	app.RegisterAgentReachTools(gormDB)
+	app.InitInferenceOrchestrator() // 优化：激活推理闭环编排器（历史死代码）
 
-	engine := buildSalesEngine(db.GetDB())
-	orchestrator := buildSmartOrchestrator(engine)
+	engine := app.BuildSalesEngine(gormDB)
+	orchestrator := app.BuildSmartOrchestrator(engine)
 	aiAgentSvcGlobal := service.NewAIAgentService()
 	channelBindingSvcGlobal := service.NewChannelAgentBindingService()
 	csAgentSvcGlobal := service.NewCustomerServiceAgentService()
@@ -198,13 +205,13 @@ func Setup(r *gin.Engine) {
 	// v1.2 出海方案：初始化 LangConfigResolver（双语言配置读取器）。
 	// 注入到所有用户消息入口（chat HTTP / WS / webhook），实现多层兜底解析。
 	// resolver 自身永不报错，下游即便配置缺失也会拿到默认 zh。
-	langResolver := i18nservice.NewLangConfigResolver(
+	langResolver := translation.NewLangConfigResolver(
 		repository.NewChatChannelRepository(),
 		repository.NewAIAgentRepository(),
 	)
 
 	// M2：初始化资产市场运行时覆盖层（业务运行时优先读取生效中的已购资产）
-	service.InitAssetResolver(db.GetDB())
+	service.InitAssetResolver(gormDB)
 	// 注入「读取生效中 marketing_workflow 资产」函数，打破 content/service 循环依赖
 	contentservice.SetWorkflowAssetResolver(func(ctx context.Context) (json.RawMessage, bool) {
 		if r := service.GetAssetResolver(); r != nil {
@@ -220,16 +227,16 @@ func Setup(r *gin.Engine) {
 	// 公开路由（不需要认证）
 	public := r.Group("/api")
 	{
-		setupPublicRoutes(public, liveCodeController, platformCtrl, db.GetDB())
+		setupPublicRoutes(public, liveCodeController, platformCtrl, gormDB)
 		// 公开 chat API（AppKey 鉴权）
-		setupChatPublicRoutes(public, db.GetDB(), orchestrator, langResolver)
+		setupChatPublicRoutes(public, gormDB, orchestrator, langResolver)
 	}
 
 	// 访客 WebSocket（公开，无鉴权）
 	setupChatPublicWebSocket(r, langResolver)
 
 	// 卡片分享路由（公开，不需要认证）
-	setupCardShareRoutes(r)
+	setupCardShareRoutes(r, gormDB)
 
 	// 静态文件服务（chat embed 页面 + embed SDK）
 	// 私域部署：用户把 user-web/dist 部署到 user-server 同源，
@@ -243,7 +250,7 @@ func Setup(r *gin.Engine) {
 	auth.Use(middleware.JWTAuthMiddleware()) // 2) JWT 必须有效
 	{
 		// 认证相关
-		setupAuthRoutes(auth)
+		setupAuthRoutes(auth, gormDB)
 
 		// 用户管理
 		setupUserRoutes(auth)
@@ -252,28 +259,28 @@ func Setup(r *gin.Engine) {
 		setupAccountRoutes(auth)
 
 		// 短链管理
-		setupShortLinkRoutes(auth, public)
+		setupShortLinkRoutes(auth, public, gormDB)
 
 		// 活码管理
 		setupLiveCodeRoutes(auth, liveCodeController)
 
 		// 邮件管理
-		setupEmailRoutes(auth)
+		setupEmailRoutes(auth, gormDB)
 
 		// 短信管理
-		setupSmsRoutes(auth)
+		setupSmsRoutes(auth, gormDB)
 
 		// 卡片管理（抖音、快手、小红书、闲鱼）
-		setupCardRoutes(auth)
+		setupCardRoutes(auth, gormDB)
 
 		// 卡片统计
-		setupCardStatsRoutes(auth)
+		setupCardStatsRoutes(auth, gormDB)
 
 		// 自动回复
-		setupAutoReplyRoutes(auth)
+		setupAutoReplyRoutes(auth, gormDB)
 
 		// 域名池管理
-		setupDomainPoolRoutes(auth)
+		setupDomainPoolRoutes(auth, gormDB)
 
 		// 素材管理
 		setupMaterialRoutes(auth)
@@ -304,35 +311,35 @@ func Setup(r *gin.Engine) {
 		setupPermissionRoutes(auth)
 
 		// RAG 知识库
-		setupRagRoutes(auth)
+		setupRagRoutes(auth, gormDB)
 
 		// 知识库管理
 		setupKnowledgeBaseRoutes(auth)
 
 		// WhatsApp (Web 扫码)
-		setupWhatsappRoutes(auth)
+		setupWhatsappRoutes(auth, gormDB)
 
 		// WhatsApp Cloud (Meta 商业 API)
-		whatsappCloudSvc = service.NewWhatsAppCloudService(db.GetDB())
-		setupWhatsAppCloudRoutes(auth, whatsappCloudSvc)
+		whatsappCloudSvc = service.NewWhatsAppCloudService(gormDB)
+		setupWhatsAppCloudRoutes(auth, whatsappCloudSvc, gormDB)
 
 		// 钉钉企业内部应用（支持回调收消息）
-		webhookSvc = service.NewWebhookService(db.GetDB())
-		dingtalkAppSvc = service.NewDingTalkAppService(db.GetDB(), webhookSvc)
+		webhookSvc = service.NewWebhookService(gormDB)
+		dingtalkAppSvc = service.NewDingTalkAppService(gormDB, webhookSvc)
 
 		setupDingTalkAppRoutes(auth, dingtalkAppSvc)
 
 		// Telegram
-		setupTelegramRoutes(auth)
+		setupTelegramRoutes(auth, gormDB)
 
 		// 飞书
-		setupFeishuRoutes(auth)
+		setupFeishuRoutes(auth, gormDB)
 
 		// TikTok
-		setupTiktokRoutes(auth)
+		setupTiktokRoutes(auth, gormDB)
 
 		// 企业微信
-		setupWeComRoutes(auth)
+		setupWeComRoutes(auth, gormDB)
 
 		// 客服会话管理
 		setupCustomerServiceRoutes(auth, aiAgentSvcGlobal, langResolver)
@@ -345,7 +352,8 @@ func Setup(r *gin.Engine) {
 		//   - 详细设计见 internal/bridge/handler_http.go
 		// 不要求前端 JWT——账号以 channel+account_id 自证身份（私有化部署单用户场景）。
 		// 仅过 InitGuard（系统须已初始化），不过 JWTAuthMiddleware，故无需在 popup 填 token。
-		bridgeIngressSvc = service.NewInboxIngressService()
+		bridgeIngressSvc := service.NewInboxIngressService()
+		app.SetBridgeIngressSvc(bridgeIngressSvc) // P1-1：供 app 装配（reach 桥接适配器）读取
 		bridgeHandler := bridge.NewBridgeIngestHandler(bridgeIngressSvc)
 		bridgeWS := r.Group("/api")
 		bridgeWS.Use(middleware.InitGuard())
@@ -355,26 +363,34 @@ func Setup(r *gin.Engine) {
 		bridgeWS.GET("/bridge/outbox", bridgeHandler.GetBridgeOutbox)
 		// 通道B·状态上报：扩展把消息成功转发到网页后确认 delivered（防重复下发）。
 		bridgeWS.POST("/bridge/outbox/ack", bridgeHandler.AckBridgeOutbox)
+
+		// 2026-08-10 渠道网关（channelgw）：WebSocket 传输，与 HTTP 三通道平级。
+		// 共享同一入站管道（InboxIngressService）与同一下发事实源（message_hub outbound pending），
+		// 面向 WebSocket 类渠道客户端（第三方 bot / webchat 中继）。
+		// 鉴权模型与 bridge HTTP 完全一致：InitGuard + channel+account_id 自证身份。
+		channelPipeline := channelgw.NewPipeline(bridgeIngressSvc)
+		channelWSTransport := channelgw.NewWSTransport(channelPipeline, channelgw.Default)
+		bridgeWS.GET("/ws/channel", channelWSTransport.HandleWS)
 		// 桥接 DOM 选择器 LLM 动态生成（解耦硬编码选择器）：前端把脱敏 DOM 快照发来，
 		// 后端用 LLM 生成标准 SelectorSpec 返回，插件缓存执行；未配置 LLM 时返回 enabled=false 回退规则。
 		bridgeWS.POST("/bridge/ai-selectors", bridge.AISelectors)
 
-	// 全链路监控追踪：健康概览/异常/追踪时间线/仪表盘。
-	// 私域部署，沿用 bridge 的 InitGuard 鉴权模型（无需前端 JWT，账号以 channel+account_id 自证）。
-	monitor.RegisterRoutes(bridgeWS)
+		// 全链路监控追踪：健康概览/异常/追踪时间线/仪表盘。
+		// 私域部署，沿用 bridge 的 InitGuard 鉴权模型（无需前端 JWT，账号以 channel+account_id 自证）。
+		monitor.RegisterRoutes(bridgeWS)
 
-	// 追踪自学习：手动触发评估 + 打分/权重查询（与 monitor 同 InitGuard 鉴权模型）
-	tlCtrl := controller.NewTraceLearningController(trace_learning.Global())
-	bridgeWS.POST("/monitor/trace-eval/trigger", tlCtrl.TriggerEval)
-	bridgeWS.GET("/monitor/trace-eval/logs", tlCtrl.EvalLogs)
-	bridgeWS.GET("/monitor/knowledge-weights", tlCtrl.KnowledgeWeights)
+		// 追踪自学习：手动触发评估 + 打分/权重查询（与 monitor 同 InitGuard 鉴权模型）
+		tlCtrl := controller.NewTraceLearningController(trace_learning.Global())
+		bridgeWS.POST("/monitor/trace-eval/trigger", tlCtrl.TriggerEval)
+		bridgeWS.GET("/monitor/trace-eval/logs", tlCtrl.EvalLogs)
+		bridgeWS.GET("/monitor/knowledge-weights", tlCtrl.KnowledgeWeights)
 
-	// 启动追踪异步落库 worker + 注册工具层 observer（自动采集 agent 多轮/多工具，非阻塞）。
-	tracing.Init(db.GetDB())
-	tooluse.ToolTraceSink = tracing.ReportToolCall
+		// 启动追踪异步落库 worker + 注册工具层 observer（自动采集 agent 多轮/多工具，非阻塞）。
+		tracing.Init(gormDB)
+		tooluse.ToolTraceSink = tracing.ReportToolCall
 
 		// 网页私信桥接账号：持久化 + 归属校验 + 管理路由（抖音/小红书/TikTok）
-		bridgeRepo := bridge.NewBridgeAccountRepository(db.GetDB())
+		bridgeRepo := bridge.NewBridgeAccountRepository(gormDB)
 		bridge.RegisterBridgeAccountRepo(bridgeRepo)
 		bridge.RegisterOwnershipChecker(func(ctx context.Context, userID uint, channel, accountID string) (bool, error) {
 			acc, err := bridgeRepo.GetByChannelAccount(ctx, channel, accountID)
@@ -409,34 +425,34 @@ func Setup(r *gin.Engine) {
 		}
 
 		// 客服 Web Widget 渠道管理（前端 ChatChannel.vue 列表/创建/编辑依赖）
-		setupChatChannelAdminRoutes(auth, db.GetDB())
+		setupChatChannelAdminRoutes(auth, gormDB)
 
 		// v1.2 出海多语言方案：术语表管理 + 校验预览
-		setupI18nRoutes(auth, db.GetDB())
+		setupI18nRoutes(auth, gormDB)
 
 		// 客户事件追踪(CDP)
 		setupEventRoutes(auth)
 
 		// 统一消息管理
-		setupMessageRoutes(auth, db.GetDB())
+		setupMessageRoutes(auth, gormDB)
 
 		// 平台账号管理
 		setupPlatformAccountRoutes(auth)
 
 		// 企微账号健康度
-		setupWeComHealthRoutes(auth, db.GetDB())
+		setupWeComHealthRoutes(auth, gormDB)
 
 		// 意图识别
-		setupIntentRoutes(auth, db.GetDB())
+		setupIntentRoutes(auth, gormDB)
 
 		// 对话记忆
-		setupDialogueMemoryRoutes(auth, db.GetDB())
+		setupDialogueMemoryRoutes(auth, gormDB)
 
 		// 触达 Pipeline 框架
-		setupReachPipelineRoutes(auth, db.GetDB())
+		setupReachPipelineRoutes(auth, gormDB)
 
 		// SOP 智能体
-		setupSOPRoutes(auth, db.GetDB())
+		setupSOPRoutes(auth, gormDB)
 
 		// LLM 多模型路由
 		setupLLMRoutingRoutes(auth)
@@ -460,7 +476,7 @@ func Setup(r *gin.Engine) {
 		setupQualityRoutes(auth)
 
 		// 安全审计
-		setupSecurityAuditRoutes(auth)
+		setupSecurityAuditRoutes(auth, gormDB)
 
 		// 批量操作
 		setupBatchRoutes(auth)
@@ -493,10 +509,10 @@ func Setup(r *gin.Engine) {
 		setupTuningRoutes(auth)
 
 		// 资产市场（平台购买 + 本地同源同构 CRUD）
-		setupAssetMarketRoutes(auth)
+		setupAssetMarketRoutes(auth, gormDB)
 
 		// 方向9：资产包模式 — OpenAI messages 资产包 CRUD + Weave 织布算法
-		setupAssetBundleRoutes(auth)
+		setupAssetBundleRoutes(auth, gormDB)
 
 		// 流失预警
 		setupChurnRoutes(auth)
@@ -511,7 +527,7 @@ func Setup(r *gin.Engine) {
 		setupBackupRoutes(auth)
 
 		// 数据库迁移（原"版本升级"，M3 重命名以避免与 OTA 概念混淆）
-		setupMigrationRoutes(auth)
+		setupMigrationRoutes(auth, gormDB)
 
 		// 文件上传
 		// controller.UploadFile 是 free function（无 struct 包装），无需工厂方法。
@@ -523,17 +539,17 @@ func Setup(r *gin.Engine) {
 
 		// 工具权限白名单管理 API（，原本已实现但未装配， 优化激活）
 		// 端点：/api/agent/tools/permission/{default,global,agents}
-		setupToolPermissionRoutes(auth)
+		app.SetupToolPermissionRoutes(auth)
 
 		// AI 工具配置管理 API
 		// 端点：/api/ai-tools/{list,get,status,accounts}
-		setupAIToolConfigRoutes(auth, db.GetDB())
+		setupAIToolConfigRoutes(auth, gormDB)
 
 		// 推理闭环 API（，原本已实现但未装配， 优化激活）
 		// 端点：/api/agent/inference/{run,stats}
 		// 注意：initInferenceOrchestrator 必须在 router.Setup 早期调用；
 		// 若未初始化，handleInferenceRun 会返回 503。
-		setupInferenceRoutes(auth)
+		app.SetupInferenceRoutes(auth)
 
 		// 多 AI 智能体架构（MULTI_AI_AGENT_DESIGN）
 		// 使用提前构建的共享 service 实例，确保 AIAgentService 缓存在所有使用方之间一致
@@ -552,7 +568,7 @@ func Setup(r *gin.Engine) {
 
 		// 前端 API 路径别名（兼容前端调用习惯）
 		// 必须放在所有 setup* 之后，避免更具体的路由被覆盖
-		setupFrontendAliases(auth, r)
+		setupFrontendAliases(auth, r, gormDB)
 	}
 
 	// 多渠道 Webhook 路由（公开，不需要鉴权）
@@ -562,7 +578,7 @@ func Setup(r *gin.Engine) {
 	// 钉钉应用账号服务注入，用于回调验签 + 入站收消息（GET/POST /api/webhook/dingtalk/{id}）
 	webhookCtrl.SetDingTalkAppService(dingtalkAppSvc)
 	// 飞书账号服务注入，用于回调 URL 验证（GET /api/webhook/feishu/{id} 校验 VerificationToken）
-	webhookCtrl.SetFeishuService(service.NewFeishuService(db.GetDB()))
+	webhookCtrl.SetFeishuService(service.NewFeishuService(gormDB))
 	// 修复：智能体引擎 8 步链路真实依赖注入
 	// 不再 nil 注入，让 SalesEngine 真正调用 intent/memory/sop/rag/script/customer
 	webhookCtrl.SetSalesEngine(engine)
@@ -580,7 +596,7 @@ func Setup(r *gin.Engine) {
 	// 解决「TG 配置→启动→AI销售」断链：服务器重启 / 域名变更 / UI 新建账号后，
 	// 若不重新注册 webhook，Telegram 不再推送更新，导致全链路静默断裂。
 	// best-effort，外网请求不阻塞启动流程。
-	go service.ReconcileTelegramWebhooks(service.NewTelegramService(db.GetDB()))
+	go service.ReconcileTelegramWebhooks(service.NewTelegramService(gormDB))
 
 	// 平台端路由（需要平台权限）
 	platform := r.Group("/api/platform")

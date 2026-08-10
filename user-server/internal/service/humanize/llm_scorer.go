@@ -25,8 +25,8 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
 )
 
 // LLMScorerImpl LLM 评估器实现

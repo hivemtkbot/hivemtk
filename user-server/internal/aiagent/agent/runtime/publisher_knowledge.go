@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"time"
 
-	"marketing/internal/event"
+	"hivemtk-user/internal/event"
 )
 
 // ============================================================================

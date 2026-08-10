@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"context"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // ClueScoreService 线索评分服务

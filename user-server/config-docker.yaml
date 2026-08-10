@@ -1,6 +1,6 @@
 platform_api:
   # 平台端 API 网关（user-server 跑在容器内，跨网络物理隔离）
-  # 单一源：internal/pkg/utils/config/ports.go → DefaultPlatformPort=8205
+  # 单一源：internal/config/ports.go → DefaultPlatformPort=8205
   # 文档源：DEVELOPMENT.md §2.4 + docker-compose.yml 中 platform-server 端口映射
   # 调整流程：先改 ports.go 常量 → 同步本字段 → 同步 docker-compose.yml
   # 覆盖优先级：环境变量 PLATFORM_API_URL > 本默认值
@@ -72,18 +72,10 @@ inference:
   llm:
     mode: cloud
     base_url: "${LLM_BASE_URL:http://host.docker.internal:8207/v1}"
-    # 与 .env 中 LLM_SERVED_NAME=qwen2.5-7b-instruct 保持一致
-    # 双模式切换（2026-07-31 用户决策）：
-    #   - dev  (16GB 本机)：Qwen2.5-7B-Instruct Q4_K_M (4.4GB)，30-60s/题
-    #   - prod (生产部署)：LLM_BASE_URL=https://api.deepseek.com/v1 + LLM_API_KEY=sk-xxx
-    #                     单条 2-5s，100 题 8-15min
-    # Qwen2.5-7B（替代 9B Ornith / 3B Qwen）：
-    #   - 7B 4-bit 4.4GB，16GB 设备内存余量更宽松
-    #   - 中文 7B SOTA（C-Eval 86.5 / MMLU 82.3 / CMMLU 84.1）
-    #   - 原厂 Function Calling + JSON Schema 强制输出（智能体工具调用稳定）
-    #   - 128K 上下文（默认 8192 够 RAG 场景，省内存）
-    #   - dev 目标 = 业务跑通 + 功能完成（用户原话），质量让位给速度
-    model: "qwen2.5-7b-instruct"
+    # 2026-08-10：切换为宿主机 MLX 栈 SmolLM3-3B 4bit（ModelScope 下载 + mlx_lm.convert，
+    # 见 scripts/inference-host/mlx/），经 host.docker.internal:8207 直连。
+    # 此前为 llama.cpp qwen2.5-7b-instruct GGUF；DB llm_providers（default 行）为运行时真相。
+    model: "smollm3-3b-4bit-mlx"
     api_key: ""
     temperature: 0.7
     # 调优（2026-07-31 03:10）：1024 在 RAG 长答案上 finish_reason=length 截断，

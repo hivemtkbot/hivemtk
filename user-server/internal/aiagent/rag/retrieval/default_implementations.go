@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/cache"
-	"marketing/internal/pkg/utils/config"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // InMemoryStorage 内存存储实现

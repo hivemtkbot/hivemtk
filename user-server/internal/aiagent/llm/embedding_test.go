@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/pkg/utils/config"
+	"hivemtk-user/internal/config"
 )
 
 // TestEmbeddingService_DefaultConfig_LocalBaseURL 验证私域基线：
@@ -16,8 +16,9 @@ import (
 //
 // 文档源：DEVELOPMENT.md §2.4 + config.yaml inference.embedding
 // dev 档契约：base_url=http://127.0.0.1:8208/v1（宿主机 llama.cpp，dev 部署位置）
-//             docker 档契约：base_url=http://mtk-embedding:8208/v1（容器内服务名）
-//             调整流程：先改 ports.go DefaultEmbeddingBaseURLDev/Docker，再同步 config.yaml
+//
+//	docker 档契约：base_url=http://mtk-embedding:8208/v1（容器内服务名）
+//	调整流程：先改 ports.go DefaultEmbeddingBaseURLDev/Docker，再同步 config.yaml
 func TestEmbeddingService_DefaultConfig_LocalBaseURL(t *testing.T) {
 	// 清理所有可能影响默认值的环境变量
 	clearEmbeddingEnv(t)
@@ -62,7 +63,8 @@ func TestEmbeddingService_DefaultConfig_NotFallBackToLLMBaseURL(t *testing.T) {
 //
 // 文档源：embedding.go DefaultConfig 注释 §2/§3
 // 优先级：config.yaml > env 变量（base_url/model/dim 三项仅在 file 为空时回退）>
-//          内置默认；EMBEDDING_ALLOW_FALLBACK 显式覆盖（不论 file 是否有值）
+//
+//	内置默认；EMBEDDING_ALLOW_FALLBACK 显式覆盖（不论 file 是否有值）
 func TestEmbeddingService_DefaultConfig_OverrideByEnv(t *testing.T) {
 	clearEmbeddingEnv(t)
 	// env 变量在 file 已设置时不覆盖（base_url/model/dim）

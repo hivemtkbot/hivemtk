@@ -5,10 +5,11 @@ import (
 	"strings"
 	"time"
 
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils/logger"
+
 	"gorm.io/gorm"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/logger"
 )
 
 // providerDB 返回用于 provider 持久化的 *gorm.DB：

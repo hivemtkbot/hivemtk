@@ -1,6 +1,9 @@
 package bridge
 
-import "marketing/internal/model"
+import (
+	gw "hivemtk-user/internal/channelgw"
+	"hivemtk-user/internal/model"
+)
 
 // 网页桥接渠道标识（与平台基础渠道同名——渠道编码统一后无 _web 后缀）
 //
@@ -11,8 +14,8 @@ const (
 	ChannelDouyinWeb   = "douyin"      // 历史值 "douyin_web" 已统一为全名
 	ChannelXHSWeb      = "xiaohongshu" // 历史值 "xhs_web" 已统一为全名
 	ChannelTikTok      = "tiktok"
-	ChannelKuaishouWeb = "kuaishou"    // 历史值 "kuaishou_web" 已统一为全名
-	ChannelXianyuWeb   = "xianyu"      // 历史值 "xianyu_web" 已统一为全名
+	ChannelKuaishouWeb = "kuaishou" // 历史值 "kuaishou_web" 已统一为全名
+	ChannelXianyuWeb   = "xianyu"   // 历史值 "xianyu_web" 已统一为全名
 )
 
 // apiToBridge 平台基础渠道 -> 网页桥接渠道（统一后为 identity：已是全名）
@@ -29,15 +32,16 @@ var apiToBridge = map[string]string{
 var bridgeToAPI = map[string]string{
 	ChannelDouyinWeb:   model.ChannelDouyin,
 	ChannelXHSWeb:      model.ChannelXHS,
-	ChannelTikTok:   model.ChannelTikTok,
+	ChannelTikTok:      model.ChannelTikTok,
 	ChannelKuaishouWeb: model.ChannelKuaishou,
 	ChannelXianyuWeb:   model.ChannelXianyu,
 }
 
-// IsBridgeChannel 判断是否为网页桥接渠道（统一后 = 5 大社交平台全名）
+// IsBridgeChannel 判断是否为网页桥接渠道（委托渠道网关注册表，白名单单源化）。
+// 2026-08-10：渠道白名单收敛到 channelgw.Default（douyin/xiaohongshu/kuaishou/
+// xianyu/tiktok），HTTP/WS 传输校验共用同一注册表。
 func IsBridgeChannel(ch string) bool {
-	_, ok := bridgeToAPI[ch]
-	return ok
+	return gw.Default.IsChannel(ch)
 }
 
 // ToBridgeChannel 渠道编码统一：base/bridge 已合一，直接返回 ch。

@@ -17,7 +17,7 @@ import (
 	"context"
 	"fmt"
 
-	"marketing/internal/migration"
+	"hivemtk-user/internal/migration"
 
 	"gorm.io/gorm"
 )
@@ -40,8 +40,8 @@ func NewBridgeChannelNormalizeMigration(db *gorm.DB) *BridgeChannelNormalizeMigr
 	return &BridgeChannelNormalizeMigration{db: db}
 }
 
-func (m *BridgeChannelNormalizeMigration) Version() string  { return "v3.17.0" }
-func (m *BridgeChannelNormalizeMigration) Name() string     { return "归一化旧 bridge channel 数据" }
+func (m *BridgeChannelNormalizeMigration) Version() string { return "v3.17.0" }
+func (m *BridgeChannelNormalizeMigration) Name() string    { return "归一化旧 bridge channel 数据" }
 func (m *BridgeChannelNormalizeMigration) Description() string {
 	return "将 bridge_accounts / channel_agent_bindings / message_hub 中的旧基础渠道值（douyin/xhs/xianyu）归一化为桥接渠道值（douyin_web/xhs_web/xianyu_web）"
 }

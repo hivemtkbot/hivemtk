@@ -6,8 +6,9 @@ import (
 	"strconv"
 	"strings"
 
+	"hivemtk-user/internal/pkg/utils/logger"
+
 	"gorm.io/gorm"
-	"marketing/internal/pkg/utils/logger"
 )
 
 // AdjustedChunk 单次权重调整记录

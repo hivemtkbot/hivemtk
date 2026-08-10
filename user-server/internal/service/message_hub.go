@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/cache"
-	"marketing/internal/model"
-	dbUtil "marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/model"
+	dbUtil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

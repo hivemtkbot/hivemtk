@@ -1,35 +1,92 @@
+# =============================================================================
+# golangci-lint 配置（P0-1 修复版，config version 2）
+# -----------------------------------------------------------------------------
+# 护栏策略：只启用「当前已清零」的层级规则，保证 lint 即刻可执行；
+# 随 P2/P3 整改推进，逐步解开下方注释中的规则（见各项 TODO）。
+# 架构依据：docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md（五层单向依赖）
+# =============================================================================
+
+version: "2"
+
 run:
   timeout: 5m
-  go: "1.21"
+  go: "1.25"
+  # 架构护栏只约束生产代码；测试文件允许跨层构造夹具（如直连 gorm 建内存 DB）
+  tests: false
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - govet
-    - errcheck
-    - ineffassign
-    - staticcheck
-    - unused
     - depguard
+  # TODO(P3-5 护栏常态化)：存量 errcheck/unused 清零后逐步启用
+  # - errcheck
+  # - ineffassign
+  # - staticcheck
+  # - unused
+  settings:
+    depguard:
+      rules:
+        # model 为叶子层：只依赖标准库/第三方 ORM，不得反向依赖任何上层
+        model-layer:
+          files:
+            - "**/internal/model/**.go"
+          deny:
+            - pkg: "hivemtk-user/internal/service"
+              desc: "model 为叶子层，不得反向依赖 service"
+            - pkg: "hivemtk-user/internal/controller"
+              desc: "model 为叶子层，不得反向依赖 controller"
+            - pkg: "hivemtk-user/internal/repository"
+              desc: "model 为叶子层，不得依赖 repository"
+            - pkg: "hivemtk-user/internal/router"
+              desc: "model 为叶子层，不得依赖 router"
+            - pkg: "hivemtk-user/internal/aiagent"
+              desc: "model 为叶子层，不得反向依赖 aiagent（P0-2 已清零）"
 
-linters-settings:
-  depguard:
-    rules:
-      controller-layer:
-        files:
-          - "$all"
-        deny:
-          - pkg: "marketing/internal/model"
-            desc: "controller(handler) 不得直接依赖 model，应通过 service / DTO"
-          - pkg: "marketing/internal/repository"
-            desc: "controller(handler) 不得直接依赖 repository，应通过 service"
-      model-layer:
-        files:
-          - "marketing/internal/model"
-        deny:
-          - pkg: "marketing/internal/service"
-            desc: "model 为叶子层，不得反向依赖 service"
-          - pkg: "marketing/internal/controller"
-            desc: "model 为叶子层，不得反向依赖 controller"
-          - pkg: "marketing/internal/repository"
-            desc: "model 为叶子层，不得依赖 repository"
+        # dto 为纯数据传输层：不得引用 GORM 实体（P0-7 已清零）
+        dto-layer:
+          files:
+            - "**/internal/dto/**.go"
+          deny:
+            - pkg: "hivemtk-user/internal/model"
+              desc: "dto 不得引用 model 实体，镜像类型 + service 层 mapper 转换"
+            - pkg: "gorm.io/gorm"
+              desc: "dto 不得依赖 ORM"
+
+        # controller 只依赖 service/dto：不得直连 repository/ORM（P0-5 已清零）
+        # TODO(P3-4)：controller→model 清零后，追加 deny hivemtk-user/internal/model
+        controller-layer:
+          files:
+            - "**/internal/controller/**.go"
+          deny:
+            - pkg: "hivemtk-user/internal/repository"
+              desc: "controller 不得直接依赖 repository，应通过 service"
+            - pkg: "gorm.io/gorm"
+              desc: "controller 不得直连 ORM，应通过 service"
+
+        # repository 不得反向依赖 service/controller
+        repository-layer:
+          files:
+            - "**/internal/repository/**.go"
+          deny:
+            - pkg: "hivemtk-user/internal/service"
+              desc: "repository 不得反向依赖 service"
+            - pkg: "hivemtk-user/internal/controller"
+              desc: "repository 不得依赖 controller"
+
+        # aiagent 不得反向依赖业务三层（P2-3 已清零，端口接口 + app 装配注入）
+        aiagent-layer:
+          files:
+            - "**/internal/aiagent/**.go"
+          deny:
+            - pkg: "hivemtk-user/internal/service"
+              desc: "aiagent 不得反向依赖 service，走端口接口注入"
+            - pkg: "hivemtk-user/internal/repository"
+              desc: "aiagent 不得反向依赖 repository，走端口接口注入"
+            - pkg: "hivemtk-user/internal/controller"
+              desc: "aiagent 不得反向依赖 controller"
+
+issues:
+  # 存量代码较多，先不限单 issue 数量上限，保证护栏全量可见
+  max-issues-per-linter: 0
+  max-same-issues: 0

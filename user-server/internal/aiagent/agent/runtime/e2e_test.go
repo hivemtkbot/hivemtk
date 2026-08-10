@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/aiagent/rag/incremental"
-	"marketing/internal/event"
+	"hivemtk-user/internal/aiagent/rag/incremental"
+	"hivemtk-user/internal/event"
 )
 
 // ============================================================================

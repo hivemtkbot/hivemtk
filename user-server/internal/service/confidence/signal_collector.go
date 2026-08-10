@@ -19,7 +19,7 @@ import (
 	"math"
 	"strings"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // Embedder 向量化接口（解耦对 llm.EmbeddingServiceInterface 的依赖）

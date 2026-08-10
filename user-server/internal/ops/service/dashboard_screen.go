@@ -5,11 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	sysmodel "hivemtk-user/internal/model"
+	"hivemtk-user/internal/ops/model"
+	opsrepo "hivemtk-user/internal/ops/repository"
+	sysrepo "hivemtk-user/internal/repository"
 	"log"
-	sysmodel "marketing/internal/model"
-	"marketing/internal/ops/model"
-	opsrepo "marketing/internal/ops/repository"
-	sysrepo "marketing/internal/repository"
 	"time"
 )
 

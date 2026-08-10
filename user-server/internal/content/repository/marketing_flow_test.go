@@ -1,13 +1,13 @@
 package repository
 
 import (
-	"marketing/internal/content/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/content/model"
+	"hivemtk-user/internal/pkg/db"
 	"testing"
 	"time"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupMarketingFlowTestDB 设置营销流程测试数据库

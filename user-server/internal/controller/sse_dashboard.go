@@ -22,8 +22,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 )
 
 // SSEDashboardController SSE 驾驶舱控制器

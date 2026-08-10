@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"runtime"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // merchantKey 单租户独立部署的本地标识（用于 platform 包内 API 调用的身份标记）

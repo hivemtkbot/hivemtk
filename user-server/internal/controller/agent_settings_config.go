@@ -3,7 +3,7 @@ package controller
 import (
 	"net/http"
 
-	"marketing/internal/service"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // Adapter 平台适配器接口(供 service / controller 通过 registry 使用)

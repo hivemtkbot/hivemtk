@@ -11,25 +11,25 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 
-	"marketing/internal/aiagent/agent/runtime"
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/aiagent/rag/incremental"
-	"marketing/internal/cache"
-	platformconfig "marketing/internal/config"
-	"marketing/internal/event"
-	"marketing/internal/middleware"
-	"marketing/internal/migration"
-	"marketing/internal/migration/migrations"
-	"marketing/internal/pkg/tracing"
-	"marketing/internal/pkg/utils/config"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/platform"
-	"marketing/internal/router"
-	"marketing/internal/service"
-	"marketing/internal/service/trace_learning"
-	"marketing/internal/system/install"
-	"marketing/internal/websocket"
+	agent_runtime "hivemtk-user/internal/aiagent/agent/runtime"
+	"hivemtk-user/internal/aiagent/llm"
+	rag "hivemtk-user/internal/aiagent/rag/incremental"
+	"hivemtk-user/internal/app"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/event"
+	"hivemtk-user/internal/middleware"
+	"hivemtk-user/internal/migration"
+	"hivemtk-user/internal/migration/migrations"
+	"hivemtk-user/internal/pkg/tracing"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/platform"
+	"hivemtk-user/internal/router"
+	"hivemtk-user/internal/service"
+	"hivemtk-user/internal/service/trace_learning"
+	"hivemtk-user/internal/system/install"
+	"hivemtk-user/internal/websocket"
 )
 
 // 端口兜底常量（单源：config 包的 ports.go / DEVELOPMENT.md §2.4 端口对照表）
@@ -169,7 +169,7 @@ func main() {
 	}
 
 	// 加载平台配置（消除"平台配置未初始化"报错；商户上报/授权同步依赖 config.PlatformCfg）
-	if err := platformconfig.LoadPlatform("config/platform.yaml"); err != nil {
+	if err := config.LoadPlatform("config/platform.yaml"); err != nil {
 		logger.Errorf("平台配置加载失败（PlatformCfg 未初始化，商户上报/授权同步将不可用）：%v", err)
 	} else {
 		// 打印当前生效的平台上报域名，便于排查初始化/上报是否走线上域名
@@ -177,7 +177,7 @@ func main() {
 		if v := os.Getenv("PLATFORM_URL"); v != "" {
 			source = "PLATFORM_URL 环境变量"
 		}
-		logger.Infof("[平台配置] api_url=%s（来源：%s）", platformconfig.PlatformCfg.APIURL, source)
+		logger.Infof("[平台配置] api_url=%s（来源：%s）", config.PlatformCfg.APIURL, source)
 	}
 
 	// 初始化上报检查器（install.lock + 3 分钟心跳 + 9 分钟容错）
@@ -185,8 +185,8 @@ func main() {
 	// 平台端地址：优先 PlatformCfg.APIURL（即商户上报地址，初始化/上报共用同一域名），
 	// 兼容旧变量名 PLATFORM_URL / PLATFORM_API_URL（覆盖 LicenseChecker 的 ServerURL）。
 	platformURL := ""
-	if platformconfig.PlatformCfg != nil {
-		platformURL = platformconfig.PlatformCfg.APIURL
+	if config.PlatformCfg != nil {
+		platformURL = config.PlatformCfg.APIURL
 	}
 	if platformURL == "" {
 		platformURL = os.Getenv("PLATFORM_API_URL")
@@ -247,8 +247,8 @@ func main() {
 	failover.Start(context.Background())
 	defer failover.Stop()
 	// 注入全局 failover 到 router 供 setupLLMProviderRoutes 读取
-	router.SetGlobalProviderFailover(failover)
-	router.SetGlobalDispatcher(llm.GetGlobalDispatcher())
+	app.SetGlobalProviderFailover(failover)
+	app.SetGlobalDispatcher(llm.GetGlobalDispatcher())
 	logger.Info("[M-1] LLM Provider failover manager started (health check + circuit breaker)")
 
 	// 2) 全链路追踪事件总线
@@ -331,7 +331,7 @@ func main() {
 	// Event Bus 订阅者规范对应的 ADR 待补；详见 ARCHITECTURE.md §六。
 	registerEventSubscribers()
 
-	router.Setup(r)
+	router.Setup(r, db.GetDB())
 
 	// 端口来源（单一文档源）：
 	//   1) 运行时环境变量 PORT（最高优先级，覆盖一切）

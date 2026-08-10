@@ -19,11 +19,12 @@ import (
 	"testing"
 	"time"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // setupTestDB 准备 PostgreSQL 测试数据库（每个测试独立）

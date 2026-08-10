@@ -13,10 +13,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 // MemorySystem 4 层记忆系统入口

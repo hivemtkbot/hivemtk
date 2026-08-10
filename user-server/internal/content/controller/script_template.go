@@ -1,9 +1,9 @@
 package controller
 
 import (
-	"marketing/internal/content/service"
-	syscontroller "marketing/internal/controller"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/content/service"
+	"hivemtk-user/internal/pkg/errhttp"
+	"hivemtk-user/internal/pkg/utils/response"
 	"net/http"
 	"strconv"
 
@@ -33,7 +33,7 @@ func (c *ScriptTemplateController) CreateTemplate(ctx *gin.Context) {
 	}
 
 	template, err := c.templateService.CreateTemplate(userID.(uint), &req)
-	if syscontroller.HandleDBError(ctx, err, "创建话术模板") {
+	if errhttp.HandleDBError(ctx, err, "创建话术模板") {
 		return
 	}
 
@@ -97,7 +97,7 @@ func (c *ScriptTemplateController) UpdateTemplate(ctx *gin.Context) {
 	}
 
 	template, err := c.templateService.UpdateTemplate(uint(id), &req)
-	if syscontroller.HandleDBError(ctx, err, "更新话术模板") {
+	if errhttp.HandleDBError(ctx, err, "更新话术模板") {
 		return
 	}
 
@@ -114,7 +114,7 @@ func (c *ScriptTemplateController) DeleteTemplate(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.templateService.DeleteTemplate(uint(id)), "删除话术模板") {
+	if errhttp.HandleDBError(ctx, c.templateService.DeleteTemplate(uint(id)), "删除话术模板") {
 		return
 	}
 

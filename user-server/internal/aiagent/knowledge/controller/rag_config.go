@@ -6,10 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"marketing/internal/aiagent/knowledge/model"
-	"marketing/internal/aiagent/knowledge/service"
-	syscontroller "marketing/internal/controller"
-	sysmodel "marketing/internal/model"
+	"hivemtk-user/internal/aiagent/knowledge/model"
+	"hivemtk-user/internal/aiagent/knowledge/service"
+	sysmodel "hivemtk-user/internal/model"
 
 	"github.com/gin-gonic/gin"
 )
@@ -56,7 +55,7 @@ func (ctrl *RagConfigController) CreateRagProduct(c *gin.Context) {
 
 	product, err := ctrl.service.CreateRagProduct(c.Request.Context(), &req)
 	if err != nil {
-		if syscontroller.IsNotFoundError(err) {
+		if isNotFoundError(err) {
 			c.JSON(http.StatusNotFound, gin.H{
 				"code":    404,
 				"message": err.Error(),
@@ -130,7 +129,7 @@ func (ctrl *RagConfigController) GetRagProduct(c *gin.Context) {
 
 	product, err := ctrl.service.GetRagProduct(c.Request.Context(), id)
 	if err != nil {
-		if syscontroller.IsNotFoundError(err) {
+		if isNotFoundError(err) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}
@@ -162,7 +161,7 @@ func (ctrl *RagConfigController) UpdateRagProduct(c *gin.Context) {
 
 	err := ctrl.service.UpdateRagProduct(c.Request.Context(), &req)
 	if err != nil {
-		if syscontroller.IsNotFoundError(err) {
+		if isNotFoundError(err) {
 			c.JSON(http.StatusNotFound, gin.H{
 				"code":    404,
 				"message": err.Error(),
@@ -240,7 +239,7 @@ func (ctrl *RagConfigController) UpdateAccountConfig(c *gin.Context) {
 
 	err := ctrl.service.UpdateAccountConfig(c.Request.Context(), &req)
 	if err != nil {
-		if syscontroller.IsNotFoundError(err) {
+		if isNotFoundError(err) {
 			c.JSON(http.StatusNotFound, gin.H{
 				"code":    404,
 				"message": err.Error(),

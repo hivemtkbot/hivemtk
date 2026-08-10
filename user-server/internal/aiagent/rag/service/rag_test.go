@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/aiagent/rag/core"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/aiagent/rag/core"
 )
 
 // mockThreeTier 用于在 rag_service 内做单元测试

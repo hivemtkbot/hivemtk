@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/config"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/pkg/utils/tgbot"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/tgbot"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ============================================================================

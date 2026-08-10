@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/pkg/i18n"
+	"hivemtk-user/internal/pkg/i18n"
 )
 
 func TestDetectLangCode(t *testing.T) {

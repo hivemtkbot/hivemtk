@@ -8,16 +8,17 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/repository"
-	"marketing/internal/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupTestSmsDB 设置短信测试数据库

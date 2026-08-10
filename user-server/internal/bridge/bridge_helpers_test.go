@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // TestMaskTokenBridge 验证 token 脱敏格式（保留前 4 位 + 总长度 + 尾部 chars）与扩展端对齐

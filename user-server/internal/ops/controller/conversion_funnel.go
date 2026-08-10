@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"marketing/internal/ops/service"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/ops/service"
+	"hivemtk-user/internal/pkg/utils/response"
 
 	"github.com/gin-gonic/gin"
 )

@@ -12,11 +12,18 @@
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # ---- 从 .env 加载（单一源）----
+# 容错：.env 中可能存在非 shell 语法行（如 "KEY = value" 等号两侧带空格），
+# 若调用方开启 set -e（如 mlx/download-model.sh），source 报错会直接中断脚本，
+# 故临时关闭 errexit 再加载；个别行解析失败不影响其余变量。
 if [[ -f "$PROJECT_ROOT/.env" ]]; then
+  _env_sh_had_e=0
+  if [[ "$-" == *e* ]]; then _env_sh_had_e=1; set +e; fi
   set -a
   # shellcheck source=/dev/null
-  source "$PROJECT_ROOT/.env"
+  source "$PROJECT_ROOT/.env" 2>/dev/null
   set +a
+  if [[ $_env_sh_had_e -eq 1 ]]; then set -e; fi
+  unset _env_sh_had_e
 fi
 
 # ---- 路径（仅 .env 未定义时 fallback）----
@@ -52,6 +59,17 @@ LLAMACPP_BIN="$(detect_llamacpp_bin)"
 : "${LLM_PORT:=8207}"
 : "${EMBEDDING_PORT:=8208}"
 : "${RERANK_PORT:=8209}"
+
+# ---- LLM 引擎：llamacpp（默认，GGUF）| mlx（Apple Silicon，SmolLM3-3B 4bit）----
+: "${LLM_ENGINE:=llamacpp}"
+# MLX 引擎专属参数（仅 LLM_ENGINE=mlx 时生效，均由 mlx/server.py 读取）
+: "${MLX_MODEL:=$HIVEMTK_MODELS_DIR/llm/SmolLM3-3B-4bit-mlx}"
+: "${MLX_MAX_TOKENS:=1024}"
+: "${MLX_ENABLE_THINKING:=false}"
+: "${MLX_HOST:=0.0.0.0}"
+: "${MLX_STATS_DIR:=$HIVEMTK_RUNTIME_DIR/mlx-stats}"
+: "${MLX_PYTHON:=}"   # 留空自动探测 python3；虚拟环境可指定绝对路径
+export MLX_MODEL MLX_MAX_TOKENS MLX_ENABLE_THINKING MLX_HOST MLX_STATS_DIR MLX_PYTHON
 
 # ---- 推理参数 ----
 : "${CTX_SIZE:=8192}"
@@ -118,6 +136,7 @@ print_inference_host_banner() {
 ============================================================
 HiveMtk 宿主机推理栈
   profile     = $HIVEMTK_PROFILE
+  llm engine  = ${LLM_ENGINE:-llamacpp}
   llama.cpp   = ${LLAMACPP_BIN:-未安装}
   project     = $PROJECT_ROOT
   models dir  = $HIVEMTK_MODELS_DIR  (项目内，.gitignore 已忽略)

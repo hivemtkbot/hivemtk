@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // Cron 自学习定时任务：周期扫描未评估 trace 批量打分+调权。

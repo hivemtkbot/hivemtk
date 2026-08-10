@@ -8,9 +8,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/agent/portcontract"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/aiagent/agent/portcontract"
+	"hivemtk-user/internal/model"
 )
 
 // customer_tools.go 客户工具实现（PRD §5.2）
@@ -36,15 +35,15 @@ var errInvalidCustomer = errors.New("至少需要提供一种身份标识（phon
 
 // CustomerToolDeps 客户工具依赖
 //
-// 仅依赖 portcontract.CustomerPort + repository + *gorm.DB。
+// 仅依赖 portcontract.CustomerPort + CustomerDataStore 端口 + *gorm.DB。
 // 工具层不 import service 包以避免反向依赖；错误码用 portcontract.ErrCustomerNotFound sentinel。
 type CustomerToolDeps struct {
 	// Customer 客户域 Port（必需，由装配层注入）。
 	// 由 service.CustomerPortAdapter 注入；nil 时所有依赖客户的工具
 	// 返回 "port not injected" 错误。
 	Customer portcontract.CustomerPort
-	// CustomerRepo 仓储层（用于 search / update 等直接查询）
-	CustomerRepo repository.CustomerRepository
+	// CustomerRepo 客户数据访问端口（用于 search / update 等直接查询，装配层注入）
+	CustomerRepo CustomerDataStore
 	// DB 原生 *gorm.DB（用于 search / segment 等直接 SQL）
 	DB *gorm.DB
 }
@@ -54,9 +53,7 @@ type CustomerToolDeps struct {
 // 返回的 deps.Customer = nil；调用方必须在执行工具前通过 NewCustomerToolDepsWithPort
 // 注入 Customer Port；否则依赖 Port 的工具会返回 "port not injected" 错误。
 func NewCustomerToolDeps() CustomerToolDeps {
-	return CustomerToolDeps{
-		CustomerRepo: repository.NewCustomerRepository(),
-	}
+	return CustomerToolDeps{}
 }
 
 // NewCustomerToolDepsWithDB 创建客户工具依赖（带 DB，用于测试/装配）
@@ -64,8 +61,7 @@ func NewCustomerToolDeps() CustomerToolDeps {
 // 返回的 deps.Customer = nil；如需 Port 注入，请改用 NewCustomerToolDepsWithPort。
 func NewCustomerToolDepsWithDB(db *gorm.DB) CustomerToolDeps {
 	return CustomerToolDeps{
-		CustomerRepo: repository.NewCustomerRepository(),
-		DB:           db,
+		DB: db,
 	}
 }
 
@@ -78,9 +74,10 @@ func NewCustomerToolDepsWithDB(db *gorm.DB) CustomerToolDeps {
 //
 // 注意：装配方仍可持有 *service.CustomerService 实例用于构造 Port Adapter，
 // 但工具层自身不再直接 import service 包。
-func NewCustomerToolDepsWithPort(customer portcontract.CustomerPort, db *gorm.DB) CustomerToolDeps {
+func NewCustomerToolDepsWithPort(customer portcontract.CustomerPort, db *gorm.DB, store CustomerDataStore) CustomerToolDeps {
 	d := NewCustomerToolDepsWithDB(db)
 	d.Customer = customer
+	d.CustomerRepo = store
 	return d
 }
 
@@ -676,8 +673,8 @@ func (t *CustomerSegmentTool) Execute(ctx context.Context, args map[string]any) 
 		pageSize = 100
 	}
 
-	// 构造 repository 层过滤条件
-	filter := repository.CustomerSearchFilter{
+	// 构造分群过滤条件（装配层适配器转换为 repository 层入参）
+	filter := CustomerSegmentFilter{
 		Page:     page,
 		PageSize: pageSize,
 	}

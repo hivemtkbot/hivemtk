@@ -15,11 +15,11 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/aiagent/knowledge/model"
-	rag_core "marketing/internal/aiagent/rag/core"
-	ragretrieval "marketing/internal/aiagent/rag/retrieval"
-	"marketing/internal/etl"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/knowledge/model"
+	rag_core "hivemtk-user/internal/aiagent/rag/core"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
+	"hivemtk-user/internal/etl"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // processDocumentAsync 异步处理文档
@@ -204,4 +204,3 @@ func (s *KnowledgeService) markFailed(ctx context.Context, documentID uint64, er
 		logger.Errorf("[knowledge] 标记失败状态错误: %v", err)
 	}
 }
-

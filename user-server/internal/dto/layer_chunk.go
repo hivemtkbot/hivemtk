@@ -30,24 +30,24 @@ const (
 
 // LayerDecision 双层架构路由决策
 type LayerDecision struct {
-	Layer      string  `json:"layer"`        // layer1 / layer2
-	SkipLLM    bool    `json:"skip_llm"`     // 是否跳过 LLM
-	Reply      string  `json:"reply"`        // Layer1 命中时的模板回复
-	Reason     string  `json:"reason"`       // 决策原因
-	Confidence float64 `json:"confidence"`   // 命中置信度 0-1
-	FAQID      uint    `json:"faq_id"`       // FAQ 命中 ID
-	SOPID      uint    `json:"sop_id"`       // SOP 命中 ID
-	Intent     string  `json:"intent"`       // 当前意图
-	WallMs     int     `json:"wall_ms"`      // 决策耗时 ms
-	Metadata   string  `json:"metadata"`     // 附加元数据 (JSON)
+	Layer      string  `json:"layer"`      // layer1 / layer2
+	SkipLLM    bool    `json:"skip_llm"`   // 是否跳过 LLM
+	Reply      string  `json:"reply"`      // Layer1 命中时的模板回复
+	Reason     string  `json:"reason"`     // 决策原因
+	Confidence float64 `json:"confidence"` // 命中置信度 0-1
+	FAQID      uint    `json:"faq_id"`     // FAQ 命中 ID
+	SOPID      uint    `json:"sop_id"`     // SOP 命中 ID
+	Intent     string  `json:"intent"`     // 当前意图
+	WallMs     int     `json:"wall_ms"`    // 决策耗时 ms
+	Metadata   string  `json:"metadata"`   // 附加元数据 (JSON)
 }
 
 // FAQMatchResult FAQ 匹配结果
 type FAQMatchResult struct {
 	Entry     *FAQEntry `json:"entry,omitempty"`
-	Score     float64   `json:"score"`     // 匹配分 (0-1)
-	Rank      int       `json:"rank"`      // 排名 (0=top1)
-	HitCount  int64     `json:"hit_count"` // 命中次数
+	Score     float64   `json:"score"`      // 匹配分 (0-1)
+	Rank      int       `json:"rank"`       // 排名 (0=top1)
+	HitCount  int64     `json:"hit_count"`  // 命中次数
 	MatchType string    `json:"match_type"` // keyword / embedding / exact
 }
 
@@ -110,9 +110,9 @@ type StreamChunk struct {
 	Step     string         `json:"step,omitempty"` // 当前阶段名
 	Steps    []SalesStepLog `json:"steps,omitempty"`
 	WallMs   int            `json:"wall_ms,omitempty"`
-	Layer    string         `json:"layer,omitempty"`     // layer1/layer2
-	Model    string         `json:"model,omitempty"`     // LLM model
-	Tokens   int            `json:"tokens,omitempty"`    // 累计 tokens
-	Error    string         `json:"error,omitempty"`     // 错误信息
-	Metadata string         `json:"metadata,omitempty"`  // 附加元数据 (JSON)
+	Layer    string         `json:"layer,omitempty"`    // layer1/layer2
+	Model    string         `json:"model,omitempty"`    // LLM model
+	Tokens   int            `json:"tokens,omitempty"`   // 累计 tokens
+	Error    string         `json:"error,omitempty"`    // 错误信息
+	Metadata string         `json:"metadata,omitempty"` // 附加元数据 (JSON)
 }

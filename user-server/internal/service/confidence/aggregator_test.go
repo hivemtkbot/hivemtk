@@ -16,7 +16,7 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // makeTestAggregator 构造测试用聚合器（无 DB 依赖）

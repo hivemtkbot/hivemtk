@@ -12,7 +12,7 @@ import "sync"
 //
 //	package mytools
 //
-//	import "marketing/internal/aiagent/agent/tooluse"
+//	import "hivemtk-user/internal/aiagent/agent/tooluse"
 //
 //	type MyProvider struct{}
 //
@@ -25,7 +25,7 @@ import "sync"
 //
 // 然后在 main 包中通过空白导入触发 init：
 //
-//	import _ "marketing/internal/mytools"
+//	import _ "hivemtk-user/internal/mytools"
 //
 // router.Setup 启动时会调用 GetAutoRegisteredProviders() 获取所有自注册 Provider，
 // 并通过 ProviderRegistry.RegisterProvider 装配。

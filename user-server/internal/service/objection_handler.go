@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"context"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // ObjectionHandlerService 异议处理服务

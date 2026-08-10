@@ -6,10 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
+
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupPersonaTestDB 初始化测试 DB（含 LowQualitySample 表）

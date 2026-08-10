@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // ----------------------------------------------------------------------------
@@ -30,7 +30,7 @@ func TestIsValidKBType_AllValid(t *testing.T) {
 		{"faq", true},
 		{"rag", true},
 		{"sop", true},
-		{"FAQ", true},   // 大小写不敏感
+		{"FAQ", true},     // 大小写不敏感
 		{"  faq  ", true}, // 前后空格
 		{"RAG", true},
 		{"", false},
@@ -242,7 +242,8 @@ func TestUnbindFromAgent_NilBindingRepo(t *testing.T) {
 // TestBindToAgent_NilBindingRepo 测试 BindToAgent 在 nil bindingRepo 下
 //
 // 实际行为: BindToAgent 内部用 NewAgentKBBindingServiceWithRepos, 不依赖 svc.bindingRepo
-//   即使 svc.bindingRepo = nil, BindToAgent 仍能工作 (它构造新 service)
+//
+//	即使 svc.bindingRepo = nil, BindToAgent 仍能工作 (它构造新 service)
 func TestBindToAgent_NilBindingRepo(t *testing.T) {
 	svc := &KnowledgeBaseService{} // bindingRepo = nil
 	// BindToAgent 需要 kbSvc 调内部 bindingSvc.Bind, 但 bindingSvc 构造时 bindingRepo 是 nil

@@ -2,11 +2,12 @@ package repository
 
 import (
 	"context"
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 	"testing"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupDouyinCardTestDB 设置抖音卡片测试数据库

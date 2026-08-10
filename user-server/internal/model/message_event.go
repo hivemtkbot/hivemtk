@@ -45,11 +45,11 @@ const (
 //  3. 不映射到数据库表，仅作为运行时事件结构在内存与 Redis 中流转
 //  4. 与 model.MessageHub（持久化消息）通过 Normalize 转换：MessageEvent -> MessageHub
 type MessageEvent struct {
-	EventID        string         `json:"event_id"`   // 全局唯一事件 ID（用于幂等）
-	SessionID      string         `json:"session_id"` // 系统内映射的唯一会话 ID
-	Channel        string         `json:"channel"`    // 渠道来源：web / telegram / whatsapp / xhs ...
-	SenderID       string         `json:"sender_id"`  // 最终客户的唯一物理标识
-	SenderName     string         `json:"sender_name,omitempty"`
+	EventID    string `json:"event_id"`   // 全局唯一事件 ID（用于幂等）
+	SessionID  string `json:"session_id"` // 系统内映射的唯一会话 ID
+	Channel    string `json:"channel"`    // 渠道来源：web / telegram / whatsapp / xhs ...
+	SenderID   string `json:"sender_id"`  // 最终客户的唯一物理标识
+	SenderName string `json:"sender_name,omitempty"`
 	// SenderType 发送者类型（2026-08-05 钩子机制需求）：
 	//   - "customer"：客户消息 → 入库 + 触发 AI 判断
 	//   - "self" / "agent"：自己/坐席发出的消息 → 直接丢弃，不入库不触发 AI

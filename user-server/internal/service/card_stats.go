@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // PlatformCardStatsService 平台卡片统计服务统一接口

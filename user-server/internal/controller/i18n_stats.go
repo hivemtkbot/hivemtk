@@ -21,17 +21,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"marketing/internal/pkg/utils/response"
-	i18nservice "marketing/internal/service/i18n"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service/translation"
 )
 
 // I18nStatsController 多语言监控看板控制器
 type I18nStatsController struct {
-	svc *i18nservice.I18nStatsService
+	svc *translation.I18nStatsService
 }
 
 // NewI18nStatsController 构造看板控制器
-func NewI18nStatsController(svc *i18nservice.I18nStatsService) *I18nStatsController {
+func NewI18nStatsController(svc *translation.I18nStatsService) *I18nStatsController {
 	return &I18nStatsController{svc: svc}
 }
 

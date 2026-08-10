@@ -8,11 +8,12 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
+	"gorm.io/gorm"
+
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
 )
 
 func setupDialogueMemoryTestDB(t *testing.T) *gorm.DB {

@@ -13,10 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/tracing"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/service"
+	"hivemtk-user/internal/channelgw"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/tracing"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -48,76 +49,30 @@ const (
 	HTTPIngestMaxMessages = 200
 )
 
-// HTTPIngestRequest 上报请求体（与扩展端 http-ingest.js 严格对齐）
-type HTTPIngestRequest struct {
-	V              int                       `json:"v,omitempty"` // 协议版本（缺省 = 1）
-	Channel        string                    `json:"channel"`
-	AccountID      string                    `json:"account_id"`
-	ConversationID string                    `json:"conversation_id,omitempty"`
-	Messages       []*HTTPIngestMessage      `json:"messages"`
-	ExpectReply    bool                      `json:"expect_reply,omitempty"`     // 是否长轮询等待 AI 回复
-	TimeoutMs      int                       `json:"timeout_ms,omitempty"`       // 期望长轮询时长（毫秒）
-	AccountName    string                    `json:"account_name,omitempty"`     // 账号昵称（首次注册用）
-	AgentID        uint                      `json:"agent_id,omitempty"`         // 绑定到该智能体（首次注册用）
-	// InternalOnly 内部调试字段：跳过 AI 触发（仅落库），用于 e2e 测试
-	InternalOnly bool `json:"internal_only,omitempty"`
-}
+// HTTPIngestRequest 上报请求体（别名 channelgw.IngestRequest，与扩展端 http-ingest.js 严格对齐）。
+// 2026-08-10 协议单源化：线路协议类型统一收敛到渠道网关 channelgw，HTTP/WS 共用。
+type HTTPIngestRequest = channelgw.IngestRequest
 
-// HTTPIngestMessage 单条消息（与前端 types.js UnifiedMessage 对齐）
-type HTTPIngestMessage struct {
-	EventID        string         `json:"event_id,omitempty"`
-	Channel        string         `json:"channel,omitempty"`
-	AccountID      string         `json:"account_id,omitempty"`
-	ConversationID string         `json:"conversation_id"`
-	SenderID       string         `json:"sender_id"`
-	SenderName     string         `json:"sender_name,omitempty"`
-	// SenderType 仅供前端参考；服务端在入库环节按"内容是否命中本会话平台下发(outbound)"
-	// 权威重判自/他（见 InboxIngressService.isPlatformOutboundEcho），不再信任此字段。
-	// 故：命中 outbound → 视为平台自己的回显(SELF)跳过；否则一律按用户消息(CUSTOMER)处理。
-	SenderType     string         `json:"sender_type,omitempty"` // customer | self | agent | system（服务端不采信）
-	ReceiverID     string         `json:"receiver_id,omitempty"`
-	MsgType        string         `json:"msg_type"`
-	Content        string         `json:"content"`
-	MediaURL       string         `json:"media_url,omitempty"`
-	Timestamp      int64          `json:"timestamp"`
-	Direction      string         `json:"direction,omitempty"` // inbound | outbound
-	IsGroup        bool           `json:"is_group,omitempty"`
-	GroupID        string         `json:"group_id,omitempty"`
-	GroupName      string         `json:"group_name,omitempty"`
-	History        []*HistoryItem `json:"history,omitempty"` // 会话级多轮历史（点3）
-	Extra          map[string]any `json:"extra,omitempty"`
-	// ContentHash 前端按与服务端 ContentHashMsgID 同源算法生成的消息内容哈希（mh: 前缀 FNV-1a）。
-	// 用作回环去重钩子2 的兜底依据：AI 出站消息 MsgID 即该值，前端扫描到 AI 回显重新上报时
-	// 携带它 → GetByMsgID 命中 → 幂等跳过（即便 event_id/DOM id 与 msg_id 不一致也能兜住）。
-	ContentHash string `json:"content_hash,omitempty"`
-}
+// HTTPIngestMessage 单条消息（别名 channelgw.IngestMessage，与前端 types.js UnifiedMessage 对齐）。
+//
+// SenderType 仅供前端参考；服务端在入库环节按“内容是否命中本会话平台下发(outbound)”
+// 权威重判自/他（见 InboxIngressService.isPlatformOutboundEcho），不再信任此字段。
+// 故：命中 outbound → 视为平台自己的回显(SELF)跳过；否则一律按用户消息(CUSTOMER)处理。
+type HTTPIngestMessage = channelgw.IngestMessage
 
-// HTTPIngestResponse 上报响应
-type HTTPIngestResponse struct {
-	OK              bool                       `json:"ok"`
-	Ingested        []*HTTPIngestResult        `json:"ingested"`                   // 每条消息处理结果
-	OutboundReplies []*UnifiedReply            `json:"outbound_replies,omitempty"` // AI 回复（outbound_reply）
-	SessionID       string                     `json:"session_id,omitempty"`
-	Reason          string                     `json:"reason,omitempty"`
-	ServerTime      int64                      `json:"server_time"` // 服务端处理完时间（毫秒）
-}
+// HTTPIngestResponse 上报响应（别名 channelgw.IngestResponse）。
+type HTTPIngestResponse = channelgw.IngestResponse
 
-// HTTPIngestResult 单条消息处理结果
-type HTTPIngestResult struct {
-	EventID   string `json:"event_id"`
-	Accepted  bool   `json:"accepted"`
-	Duplicate bool   `json:"duplicate,omitempty"`  // 5min 内内容 hash 重复
-	AIHandled bool   `json:"ai_handled,omitempty"` // 已触发 AI 推理
-	Reason    string `json:"reason,omitempty"`
-}
+// HTTPIngestResult 单条消息处理结果（别名 channelgw.IngestResult）。
+type HTTPIngestResult = channelgw.IngestResult
 
 // HTTPIngestPending 等待中的长轮询请求（用于将来"扩展发来多轮等 AI 一起返回"扩展）
 //
 // 当前实现：单条消息的 AI 回复即时在请求内完成；本结构为预留，便于将来"批量合并推理"
 // （同会话多条消息 → 合并为单次 AI 调用 → 统一返回）。当前不写、不读，保留接口稳定。
 type HTTPIngestPending struct {
-	mu        sync.Mutex
-	waiters   map[string]chan *HTTPIngestResponse // key: conversation_id
+	mu      sync.Mutex
+	waiters map[string]chan *HTTPIngestResponse // key: conversation_id
 }
 
 // collectHTTPRequestInfo 收集 HTTP 请求的"完整 URL + 全部 query + headers + body"快照。
@@ -216,8 +171,8 @@ func readBodyForLog(rc io.ReadCloser, previewBytes int) (string, int, string, bo
 type BridgeIngestHandler struct {
 	ingress *service.InboxIngressService
 	// mockHandle / mockPersist 测试用：nil 时走真实 ingress，否则走注入函数
-	mockHandle   func(ctx context.Context, ev *model.MessageEvent) (*service.InboxIngressResult, error)
-	mockPersist  func(ctx context.Context, ev *model.MessageEvent, direction string) error
+	mockHandle  func(ctx context.Context, ev *model.MessageEvent) (*service.InboxIngressResult, error)
+	mockPersist func(ctx context.Context, ev *model.MessageEvent, direction string) error
 }
 
 // NewBridgeIngestHandler 构造 HTTP ingest 处理器
@@ -255,11 +210,11 @@ func (h *BridgeIngestHandler) callPersistHistory(ctx context.Context, ev *model.
 // HandleHTTPIngest POST /api/bridge/ingest 统一收件箱 HTTP 上报端点
 //
 // 2026-08-05 架构重构（用户诉求）：
-//   1. 接收扩展一次性上报的多条消息
-//   2. 对每条消息走 InboxIngressService.HandleIngressMessage（含 sender_type 过滤、
-//      内容 hash 去重、5min 回复窗口、AI 触发）
-//   3. 若 expect_reply=true 且至少一条消息触发 AI：长轮询等待 AI 推理完成（最多 HTTPPollingMaxTimeout）
-//   4. 返回 ingest 处理结果 + outbound_replies（AI 回复）
+//  1. 接收扩展一次性上报的多条消息
+//  2. 对每条消息走 InboxIngressService.HandleIngressMessage（含 sender_type 过滤、
+//     内容 hash 去重、5min 回复窗口、AI 触发）
+//  3. 若 expect_reply=true 且至少一条消息触发 AI：长轮询等待 AI 推理完成（最多 HTTPPollingMaxTimeout）
+//  4. 返回 ingest 处理结果 + outbound_replies（AI 回复）
 //
 // 鉴权（与 WS 端点一致）：
 //   - 路由层仅过 InitGuard（系统须已初始化），不过 JWTAuthMiddleware
@@ -590,7 +545,7 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 					anyAIQueued = true
 				}
 			}
-		_ = batchResult.TriggeredAI
+			_ = batchResult.TriggeredAI
 		}
 	}
 
@@ -628,18 +583,8 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 // AI 回复落 message_hub(status=pending) 作为下发队列；扩展独立轮询 outbox 拉取并转发网页，
 // 成功后通过 ack 通道确认 delivered。详见 docs/bridge/REDESIGN-2026-08-06.md。
 
-// BridgeOutboxMessage 下发队列中的一条待发消息。
-type BridgeOutboxMessage struct {
-	MsgID          string    `json:"msg_id"`
-	ConversationID string    `json:"conversation_id"`
-	MsgType        string    `json:"msg_type"`
-	Content        string    `json:"content"`
-	MediaURL       string    `json:"media_url"`
-	SenderID       string    `json:"sender_id"`
-	ReceiverID     string    `json:"receiver_id"`
-	IsAIReply      bool      `json:"is_ai_reply"`
-	CreatedAt      time.Time `json:"created_at"`
-}
+// BridgeOutboxMessage 下发队列中的一条待发消息（别名 channelgw.OutboxMessage，HTTP/WS 共用序列化）。
+type BridgeOutboxMessage = channelgw.OutboxMessage
 
 // BridgeOutboxAckRequest 状态上报请求体（通道B）。
 type BridgeOutboxAckRequest struct {
@@ -671,25 +616,9 @@ func writeOutboxJSON(c *gin.Context, hubs []*model.MessageHub) {
 }
 
 // GET /api/bridge/outbox?channel=<ch>&account_id=<acc>
-// isIngestDuplicate 判断上报结果原因是否属于「已被服务端幂等/拦截确认为重复」（允许重复上报，但 ack 标记去重）。
-// 命中则返回 true，前端据此将该 event_id 标记为已确认，停止重发。
+// isIngestDuplicate 委托 channelgw.IsDuplicateReason（HTTP/WS 传输共用同一判定）。
 func isIngestDuplicate(reason string) bool {
-	if reason == "" {
-		return false
-	}
-	for _, kw := range []string{
-		"msg_id already exists", // 钩子2：msg_id 已落库（幂等跳过）
-		"intercepted",           // 统一收件中间件拦截（回环回显 / 短时重复）
-		"echo",                  // 自/他回显
-		"duplicate",             // 重复投递
-		"skip",                  // 跳过
-		"already exists",        // 兜底：任意已存在
-	} {
-		if strings.Contains(reason, kw) {
-			return true
-		}
-	}
-	return false
+	return channelgw.IsDuplicateReason(reason)
 }
 
 func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
@@ -801,43 +730,14 @@ func (h *BridgeIngestHandler) callHandleIngressBatch(ctx context.Context, events
 	return h.ingress.HandleIngressBatch(ctx, events)
 }
 
-// httpMessageToEvent 将 HTTP 单条消息转 model.MessageEvent。
+// httpMessageToEvent 将 HTTP 单条消息转 model.MessageEvent（委托 channelgw 规范化转换器，
+// 与 WS 传输同源；transport 标记 "http" 写入 Extra 供可观测）。
 func httpMessageToEvent(m *HTTPIngestMessage) *model.MessageEvent {
-	ch := ToBridgeChannel(m.Channel)
-	ts := time.UnixMilli(m.Timestamp)
-	if m.Timestamp == 0 {
-		ts = time.Now()
+	if m == nil {
+		return nil
 	}
-	ev := &model.MessageEvent{
-		EventID:        m.EventID,
-		SessionID:      ch + ":" + m.AccountID + ":" + m.ConversationID,
-		Channel:        ch,
-		SenderID:       m.SenderID,
-		SenderName:     m.SenderName,
-		SenderType:     m.SenderType,
-		ReceiverID:     m.ReceiverID,
-		MsgType:        m.MsgType,
-		Content:        m.Content,
-		MediaURL:       m.MediaURL,
-		ConversationID: m.ConversationID,
-		IsGroup:        m.IsGroup,
-		GroupID:        m.GroupID,
-		Timestamp:      ts,
-		Extra:          map[string]any{"account_id": m.AccountID, "bridge": true, "sender_type": m.SenderType, "transport": "http"},
-	}
-	if m.ContentHash != "" {
-		ev.Extra["content_hash"] = m.ContentHash
-	}
-	if m.IsGroup {
-		ev.Extra["is_group"] = true
-	}
-	if m.GroupID != "" {
-		ev.Extra["group_id"] = m.GroupID
-	}
-	if m.GroupName != "" {
-		ev.Extra["group_name"] = m.GroupName
-	}
-	return ev
+	m.Channel = ToBridgeChannel(m.Channel)
+	return m.ToEvent("http")
 }
 
 // httpMessageToUnified HTTP 单条消息 → UnifiedMessage（仅用于 historyItemToEvent 提取 channel/account/conversation）。

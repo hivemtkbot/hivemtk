@@ -1,8 +1,8 @@
 package controller
 
 import (
-	"marketing/internal/aiagent/knowledge/service"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/aiagent/knowledge/service"
+	"hivemtk-user/internal/pkg/utils/response"
 	"net/http"
 	"strconv"
 

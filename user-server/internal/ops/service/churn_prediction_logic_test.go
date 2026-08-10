@@ -2,7 +2,7 @@ package service
 
 import (
 	"encoding/json"
-	"marketing/internal/ops/model"
+	"hivemtk-user/internal/ops/model"
 	"math"
 	"testing"
 )

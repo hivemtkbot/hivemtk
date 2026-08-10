@@ -1,10 +1,10 @@
 package controller
 
 import (
-	syscontroller "marketing/internal/controller"
-	"marketing/internal/ops/model"
-	"marketing/internal/ops/service"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/ops/model"
+	"hivemtk-user/internal/ops/service"
+	"hivemtk-user/internal/pkg/errhttp"
+	"hivemtk-user/internal/pkg/utils/response"
 	"net/http"
 	"strconv"
 
@@ -136,7 +136,7 @@ func (c *ChurnPredictionController) MarkWarningHandled(ctx *gin.Context) {
 	userID, _ := ctx.Get("user_id")
 	handledBy, _ := userID.(uint)
 
-	if syscontroller.HandleDBError(ctx, c.churnService.MarkWarningHandled(uint(id), handledBy, req.Note), "标记预警") {
+	if errhttp.HandleDBError(ctx, c.churnService.MarkWarningHandled(uint(id), handledBy, req.Note), "标记预警") {
 		return
 	}
 
@@ -159,7 +159,7 @@ func (c *ChurnPredictionController) InterveneUser(ctx *gin.Context) {
 	userID, _ := ctx.Get("user_id")
 	handledBy, _ := userID.(uint)
 
-	if syscontroller.HandleDBError(ctx, c.churnService.InterveneWarning(req.WarningID, handledBy, req.InterventionType), "干预预警") {
+	if errhttp.HandleDBError(ctx, c.churnService.InterveneWarning(req.WarningID, handledBy, req.InterventionType), "干预预警") {
 		return
 	}
 
@@ -173,7 +173,7 @@ func (c *ChurnPredictionController) InterveneUser(ctx *gin.Context) {
 func (c *ChurnPredictionController) GetModelConfig(ctx *gin.Context) {
 
 	config, err := c.churnService.GetModelConfig()
-	if syscontroller.HandleDBError(ctx, err, "获取模型配置") {
+	if errhttp.HandleDBError(ctx, err, "获取模型配置") {
 		return
 	}
 
@@ -189,7 +189,7 @@ func (c *ChurnPredictionController) SaveModelConfig(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.churnService.SaveModelConfig(&config), "保存模型配置") {
+	if errhttp.HandleDBError(ctx, c.churnService.SaveModelConfig(&config), "保存模型配置") {
 		return
 	}
 

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/pkg/testutil/testmigrate"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil/testmigrate"
 )
 
 // toPgVector 将 []float32 格式化为 pgvector 字面量（如 [0.1,0.2,...]）

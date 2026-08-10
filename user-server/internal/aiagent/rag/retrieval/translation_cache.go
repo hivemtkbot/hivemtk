@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // TranslationCacheTTLDefault 翻译缓存默认 TTL（1 小时）

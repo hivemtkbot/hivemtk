@@ -9,8 +9,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
 )
 
 // sop_abtest.go SOP A/B 测试流量分配与统计（PRD §5.2 G2 缺口修复）

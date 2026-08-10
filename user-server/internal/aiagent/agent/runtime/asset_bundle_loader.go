@@ -5,9 +5,9 @@ import (
 	"errors"
 	"strings"
 
-	"marketing/internal/aiagent/agent/portcontract"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/agent/portcontract"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ============================================================================

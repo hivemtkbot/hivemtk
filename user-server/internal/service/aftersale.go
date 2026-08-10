@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"marketing/internal/aiagent/agent/portcontract"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/aiagent/agent/portcontract"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // AfterSaleService 售后服务（客服侧发起售后 → 回写电商）。

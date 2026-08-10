@@ -2,13 +2,14 @@ package service
 
 import (
 	"context"
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 	"testing"
 	"time"
 
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/testutil"
+
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/pkg/utils/db"
 )
 
 func setupClueScoreTestDB(t *testing.T) *gorm.DB {

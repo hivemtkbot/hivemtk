@@ -15,8 +15,8 @@ import (
 	"sync"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
 )
@@ -218,6 +218,7 @@ func (s *stubBanditAllocator) PromoteCalls() []promoteCall {
 //
 // 行为：
 //   - 调用 testutil.NewTestDB 创建独立 PG 库（项目规则"不允许跳过"，连接失败时 t.Fatal）
+//
 // AutoMigrate 全部 6 张新表 + 关联表（sop_agents / optimization_suggestions）
 //   - testutil 已自动启用 pgvector 扩展（champion_dialogues.embedding 字段必需）
 //   - 注：champion_dialogues.embedding 的 GORM tag 为 type:vector(1024)，

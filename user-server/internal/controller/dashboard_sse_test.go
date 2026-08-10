@@ -24,7 +24,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"marketing/internal/service"
+	"hivemtk-user/internal/service"
 )
 
 func TestRoundTo(t *testing.T) {

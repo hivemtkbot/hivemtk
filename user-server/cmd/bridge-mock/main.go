@@ -38,9 +38,9 @@ import (
 	"syscall"
 	"time"
 
-	"marketing/internal/bridge"
-	"marketing/internal/model"
-	"marketing/internal/service"
+	"hivemtk-user/internal/bridge"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -254,7 +254,9 @@ func readBodyPreview(rc interface {
 }
 
 type readCloser struct {
-	r interface{ Read(p []byte) (n int, err error) }
+	r interface {
+		Read(p []byte) (n int, err error)
+	}
 }
 
 func (rc readCloser) Read(p []byte) (int, error) { return rc.r.Read(p) }

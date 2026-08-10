@@ -7,10 +7,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	_db "marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	_db "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

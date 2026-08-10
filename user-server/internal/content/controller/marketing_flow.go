@@ -1,9 +1,9 @@
 package controller
 
 import (
-	"marketing/internal/content/service"
-	syscontroller "marketing/internal/controller"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/content/service"
+	"hivemtk-user/internal/pkg/errhttp"
+	"hivemtk-user/internal/pkg/utils/response"
 	"net/http"
 	"strconv"
 
@@ -33,7 +33,7 @@ func (c *MarketingFlowController) CreateFlow(ctx *gin.Context) {
 	}
 
 	flow, err := c.flowService.CreateFlow(userID.(uint), &req)
-	if syscontroller.HandleServiceError(ctx, err) {
+	if errhttp.HandleServiceError(ctx, err) {
 		return
 	}
 
@@ -96,7 +96,7 @@ func (c *MarketingFlowController) UpdateFlow(ctx *gin.Context) {
 	}
 
 	flow, err := c.flowService.UpdateFlow(uint(id), &req)
-	if syscontroller.HandleDBError(ctx, err, "更新营销流程") {
+	if errhttp.HandleDBError(ctx, err, "更新营销流程") {
 		return
 	}
 
@@ -113,7 +113,7 @@ func (c *MarketingFlowController) DeleteFlow(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.flowService.DeleteFlow(uint(id)), "删除营销流程") {
+	if errhttp.HandleDBError(ctx, c.flowService.DeleteFlow(uint(id)), "删除营销流程") {
 		return
 	}
 
@@ -130,7 +130,7 @@ func (c *MarketingFlowController) ActivateFlow(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.flowService.ActivateFlow(uint(id)), "激活营销流程") {
+	if errhttp.HandleDBError(ctx, c.flowService.ActivateFlow(uint(id)), "激活营销流程") {
 		return
 	}
 
@@ -147,7 +147,7 @@ func (c *MarketingFlowController) PauseFlow(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.flowService.PauseFlow(uint(id)), "暂停营销流程") {
+	if errhttp.HandleDBError(ctx, c.flowService.PauseFlow(uint(id)), "暂停营销流程") {
 		return
 	}
 
@@ -164,7 +164,7 @@ func (c *MarketingFlowController) StopFlow(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.flowService.StopFlow(uint(id)), "停止营销流程") {
+	if errhttp.HandleDBError(ctx, c.flowService.StopFlow(uint(id)), "停止营销流程") {
 		return
 	}
 
@@ -185,7 +185,7 @@ func (c *MarketingFlowController) GetExecutionList(ctx *gin.Context) {
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
 
 	executions, total, err := c.flowService.GetExecutionList(uint(flowID), page, pageSize)
-	if syscontroller.HandleDBError(ctx, err, "获取执行记录") {
+	if errhttp.HandleDBError(ctx, err, "获取执行记录") {
 		return
 	}
 
@@ -208,7 +208,7 @@ func (c *MarketingFlowController) GetExecutionStats(ctx *gin.Context) {
 	}
 
 	stats, err := c.flowService.GetExecutionStats(uint(id))
-	if syscontroller.HandleDBError(ctx, err, "获取执行统计") {
+	if errhttp.HandleDBError(ctx, err, "获取执行统计") {
 		return
 	}
 

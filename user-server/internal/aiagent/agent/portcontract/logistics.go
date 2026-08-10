@@ -21,15 +21,15 @@ const (
 	LogisticsStatusInTransit LogisticsTrackStatus = "in_transit" // 运输中
 	LogisticsStatusDelivered LogisticsTrackStatus = "delivered"  // 已签收
 	LogisticsStatusException LogisticsTrackStatus = "exception"  // 异常
-	LogisticsStatusUnknown   LogisticsTrackStatus = "unknown"     // 未知
+	LogisticsStatusUnknown   LogisticsTrackStatus = "unknown"    // 未知
 )
 
 // LogisticsTrackView 单条物流轨迹节点（最新在前）
 type LogisticsTrackView struct {
-	Time        string `json:"time"`         // 节点时间（RFC3339 或 "2024-01-02 10:00"）
-	Status      string `json:"status"`       // 节点状态，见 LogisticsTrackStatus
-	Location    string `json:"location"`     // 当前位置 / 城市
-	Description string `json:"description"`  // 轨迹描述（如“快件已到达【杭州转运中心】”）
+	Time        string `json:"time"`        // 节点时间（RFC3339 或 "2024-01-02 10:00"）
+	Status      string `json:"status"`      // 节点状态，见 LogisticsTrackStatus
+	Location    string `json:"location"`    // 当前位置 / 城市
+	Description string `json:"description"` // 轨迹描述（如“快件已到达【杭州转运中心】”）
 }
 
 // LogisticsTrackRequest 物流轨迹查询请求

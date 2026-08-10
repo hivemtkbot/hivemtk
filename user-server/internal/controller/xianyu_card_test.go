@@ -9,13 +9,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/service"
+
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupXianyuCardTestDB 设置闲鱼卡片测试数据库

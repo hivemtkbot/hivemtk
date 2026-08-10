@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // sop_condition_test.go SOP 条件表达式引擎测试（PRD §5.2 G2）

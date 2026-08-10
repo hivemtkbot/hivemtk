@@ -3,7 +3,7 @@ package ragcustomerservice
 import (
 	"context"
 
-	"marketing/internal/aiagent/llm"
+	"hivemtk-user/internal/aiagent/llm"
 )
 
 // LLMServiceAdapter 适配 *llm.LLMService → LLMServiceInterface

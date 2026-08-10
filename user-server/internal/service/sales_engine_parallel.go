@@ -36,9 +36,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/featureflag"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/featureflag"
 )
 
 // 5 阶段阶段名常量 (用于 Steps 日志)
@@ -98,13 +98,13 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 	phase0 := e.runPhase0Parallel(ctx, req)
 	phase0Ptr = phase0
 	resp.Steps = append(resp.Steps, dto.SalesStepLog{
-		Step:     PhaseParallel,
-		Status:   "ok",
+		Step:      PhaseParallel,
+		Status:    "ok",
 		LatencyMs: ms(phase0Start),
-		Detail:   fmt.Sprintf("phase0 (customer+memory+intent+rag parallel) wall=%dms", ms(phase0Start)),
+		Detail:    fmt.Sprintf("phase0 (customer+memory+intent+rag parallel) wall=%dms", ms(phase0Start)),
 	})
 	resp.Intent = phase0.intent
-	resp.Memory = phase0.memCtx
+	resp.Memory = DialogueMemoryToDTO(phase0.memCtx)
 	resp.RAGChunks = phase0.ragChunks
 
 	// ========== Phase 0.5: Layer1 双层路由 fastPath ==========
@@ -125,10 +125,10 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 		if decision != nil && decision.SkipLLM && decision.Reply != "" {
 			resp.Reply = decision.Reply
 			resp.Steps = append(resp.Steps, dto.SalesStepLog{
-				Step:     "0.5_layer1_fastpath",
-				Status:   "ok",
+				Step:      "0.5_layer1_fastpath",
+				Status:    "ok",
 				LatencyMs: ms(phase05Start),
-				Detail:   fmt.Sprintf("layer1 hit (reason=%s faq_id=%d sop_id=%d) wall=%dms",
+				Detail: fmt.Sprintf("layer1 hit (reason=%s faq_id=%d sop_id=%d) wall=%dms",
 					decision.Reason, decision.FAQID, decision.SOPID, decision.WallMs),
 			})
 			// 立即返回, 跳过 Phase 1/2
@@ -142,18 +142,18 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 	if transferred {
 		// 已转人工, 跳过 Phase 2/3
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{
-			Step:     PhaseSerial,
-			Status:   "skip",
+			Step:      PhaseSerial,
+			Status:    "skip",
 			LatencyMs: ms(phase1Start),
-			Detail:   "transferred to human, phase 2/3 skipped",
+			Detail:    "transferred to human, phase 2/3 skipped",
 		})
 		return resp, nil
 	}
 	resp.Steps = append(resp.Steps, dto.SalesStepLog{
-		Step:     PhaseSerial,
-		Status:   "ok",
+		Step:      PhaseSerial,
+		Status:    "ok",
 		LatencyMs: ms(phase1Start),
-		Detail:   fmt.Sprintf("phase1 (3.5+4+5.5+5.6+6 serial) wall=%dms", ms(phase1Start)),
+		Detail:    fmt.Sprintf("phase1 (3.5+4+5.5+5.6+6 serial) wall=%dms", ms(phase1Start)),
 	})
 
 	// ========== Phase 2: 异步收割 LLM intent (10ms 超时, 不阻塞) ==========
@@ -357,7 +357,7 @@ func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, re
 		return false
 	}
 	resp.Reply = reply
-	resp.Cards = cards
+	resp.Cards = RichCardsToDTO(cards)
 	if dispatchResult != nil {
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{
 			Step: "6_generate_candidate", Status: "ok", LatencyMs: ms(stepStart),

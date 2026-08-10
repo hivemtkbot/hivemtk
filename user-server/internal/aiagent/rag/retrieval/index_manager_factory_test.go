@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"marketing/internal/pkg/utils/config"
+	"hivemtk-user/internal/config"
 )
 
 // TestNewIndexManager_UnsupportedType 不支持的向量库类型返回错误

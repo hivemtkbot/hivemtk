@@ -1,6 +1,6 @@
 package agent_runtime
 
-import "marketing/internal/pkg/i18n"
+import "hivemtk-user/internal/pkg/i18n"
 
 // InternalPromptTemplates 内部工具 prompt 多语言版本
 //

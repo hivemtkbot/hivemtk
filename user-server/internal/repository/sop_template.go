@@ -31,7 +31,8 @@ package repository
 import (
 	"context"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
 
 	"gorm.io/gorm"
 )
@@ -292,18 +293,11 @@ func (r *SOPTemplateRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.SOPTemplate{}).Error
 }
 
-// SOPTemplateFilter SOP 模板查询过滤器 (前端管理页面)
+// SOPTemplateFilter SOP 模板查询过滤器（前端管理页面）。
+// 架构整改 P0-5：权威定义迁至 dto 包，本处保留别名以兼容存量签名。
 //
 // AgentID 字段
 //   - nil:  不过滤 (兼容旧调用)
 //   - &0:   仅查共享 (agent_id IS NULL)
 //   - &X:   仅查该智能体 (agent_id = X)
-type SOPTemplateFilter struct {
-	Keyword  string
-	Intent   string
-	Stage    string
-	Enabled  *bool
-	AgentID  *uint
-	Page     int
-	PageSize int
-}
+type SOPTemplateFilter = dto.SOPTemplateFilter

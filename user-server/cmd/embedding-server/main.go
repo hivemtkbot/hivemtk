@@ -39,9 +39,9 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/aiagent/embedding"
-	"marketing/internal/pkg/utils/config"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/embedding"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // EmbeddingRequest 通用 OpenAI 兼容请求

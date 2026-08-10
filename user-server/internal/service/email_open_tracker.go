@@ -29,9 +29,9 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
+	"hivemtk-user/internal/repository"
 )
 
 // ----------------------------------------------------------------------------

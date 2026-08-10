@@ -1,6 +1,6 @@
 platform_api:
   # 平台端 API 网关地址（user-server 启动时读取 / 心跳上报 / 商户服务代理）
-  # 单一源：internal/pkg/utils/config/ports.go → DefaultPlatformPort + DefaultPlatformBaseURL
+  # 单一源：internal/config/ports.go → DefaultPlatformPort + DefaultPlatformBaseURL
   # 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8205 | platform-server
   # 覆盖优先级：环境变量 PLATFORM_API_URL > 本默认值
   # 调整流程：先改 ports.go 常量 → 同步本字段 → 同步 DEVELOPMENT.md §2.4
@@ -71,7 +71,7 @@ inference:
   profile: dev
   embedding:
     mode: local
-    # 单一源：internal/pkg/utils/config/ports.go → DefaultEmbeddingPort=8208
+    # 单一源：internal/config/ports.go → DefaultEmbeddingPort=8208
     # 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8208 | Embedding（bge-m3）
     # 覆盖优先级：环境变量 EMBEDDING_BASE_URL > config > 默认（127.0.0.1:8208）
     base_url: "${EMBEDDING_BASE_URL:http://127.0.0.1:8208/v1}"
@@ -81,7 +81,7 @@ inference:
     allow_fallback: false          # 禁止静默降级哈希伪向量（仅单测显式开启）
   rerank:
     mode: local
-    # 单一源：internal/pkg/utils/config/ports.go → DefaultRerankPort=8209
+    # 单一源：internal/config/ports.go → DefaultRerankPort=8209
     # 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8209 | Rerank（bge-reranker-v2-m3）
     # 覆盖优先级：环境变量 RERANK_BASE_URL > config > 默认（127.0.0.1:8209）
     base_url: "${RERANK_BASE_URL:http://127.0.0.1:8209/v1}"
@@ -90,15 +90,16 @@ inference:
     enabled: true
   llm:
     mode: local
-    # 单一源：internal/pkg/utils/config/ports.go → DefaultLLMPort=8207
+    # 单一源：internal/config/ports.go → DefaultLLMPort=8207
     # 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8207 | LLM（llama.cpp）
     # 覆盖优先级：环境变量 LLM_BASE_URL > config > 默认（127.0.0.1:8207）
     # Docker 部署请使用 config-docker.yaml（host.docker.internal:8207）
     base_url: "${LLM_BASE_URL:http://127.0.0.1:8207/v1}"
-    # dev 轻量档：Qwen2.5-1.5B-Instruct（与 defaultLLMModelLocal 单一源对齐）
-    # 7B 模型请使用 config-docker.yaml（生产档）
-    model: "Qwen2.5-1.5B-Instruct"
-    no_fc: true                      # 1.5B 不支持原生 Function Calling，启用 ReAct 文本协议
+    # 2026-08-10：切换为 MLX 栈 SmolLM3-3B 4bit（ModelScope 下载 + mlx_lm.convert，
+    # 见 scripts/inference-host/mlx/）；此前为 llama.cpp Qwen2.5 系 GGUF。
+    # DB llm_providers 表（default 行）为运行时真相，本行仅占位对齐。
+    model: "smollm3-3b-4bit-mlx"
+    no_fc: true                      # MLX 服务未实现 Function Calling，启用 ReAct 文本协议
     api_key: ""                     # 本地模型无需密钥
     temperature: 0.7
     # 2026-07-24 性能优化：2048→1024。客服回复通常 <200 字（~300 token），
@@ -141,7 +142,7 @@ i18n:
   embedding:
     provider: bge-m3                       # openai / bge-m3
     model: "BAAI/bge-m3"
-    # 单一源：internal/pkg/utils/config/ports.go → DefaultBGEBaseURLDev（=Embedding 同源 8208）
+    # 单一源：internal/config/ports.go → DefaultBGEBaseURLDev（=Embedding 同源 8208）
     # 文档源：DEVELOPMENT.md §2.4 | 8208 | embedding（BGE-m3）
     # 调整必须先改 ports.go，再改本字段；禁止裸字面量（如 :8080）
     # 覆盖优先级：环境变量 BGE_M3_BASE_URL > config > 默认

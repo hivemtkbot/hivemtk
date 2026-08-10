@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/content/model"
-	contentrepo "marketing/internal/content/repository"
-	cdpmodel "marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	cdprepo "marketing/internal/repository"
+	"hivemtk-user/internal/content/model"
+	contentrepo "hivemtk-user/internal/content/repository"
+	cdpmodel "hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	cdprepo "hivemtk-user/internal/repository"
 )
 
 // BatchOperationService 批量操作服务

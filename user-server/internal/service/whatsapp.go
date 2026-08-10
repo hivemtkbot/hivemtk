@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	whatsapp "github.com/Rhymen/go-whatsapp"
-	"github.com/google/uuid"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
+	"hivemtk-user/internal/repository"
 	"sync"
 	"time"
+
+	whatsapp "github.com/Rhymen/go-whatsapp"
+	"github.com/google/uuid"
 )
 
 type WhatsappService struct {

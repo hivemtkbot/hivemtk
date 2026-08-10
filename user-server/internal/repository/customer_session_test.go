@@ -2,13 +2,14 @@ package repository
 
 import (
 	"context"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 	"testing"
 	"time"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupCustomerSessionTestDB 设置客服会话测试数据库

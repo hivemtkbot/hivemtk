@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // ============================================================================

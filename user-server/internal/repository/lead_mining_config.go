@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"marketing/internal/model"
-	_db "marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	_db "hivemtk-user/internal/pkg/db"
 
 	"gorm.io/gorm"
 )
@@ -57,13 +57,13 @@ func (r *leadMiningConfigRepo) Save(ctx context.Context, cfg *model.LeadMiningCo
 		return err
 	}
 	return r.db.WithContext(ctx).Model(&model.LeadMiningConfig{}).Where("id = ?", 1).Updates(map[string]any{
-		"enabled":         cfg.Enabled,
-		"keywords":        cfg.Keywords,
-		"tags":            cfg.Tags,
-		"requirement":     cfg.Requirement,
-		"channels":        cfg.Channels,
+		"enabled":          cfg.Enabled,
+		"keywords":         cfg.Keywords,
+		"tags":             cfg.Tags,
+		"requirement":      cfg.Requirement,
+		"channels":         cfg.Channels,
 		"min_intent_score": cfg.MinIntentScore,
-		"model":           cfg.Model,
-		"updated_at":      time.Now().Unix(),
+		"model":            cfg.Model,
+		"updated_at":       time.Now().Unix(),
 	}).Error
 }

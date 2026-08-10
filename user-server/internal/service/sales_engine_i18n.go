@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	i18npkg "marketing/internal/pkg/i18n"
+	i18npkg "hivemtk-user/internal/pkg/i18n"
 )
 
 // ============================================================================
-// 回复语言链路（与 ragcustomerservice 同源，依赖倒置接入 service/i18n）
+// 回复语言链路（与 ragcustomerservice 同源，依赖倒置接入 service/translation）
 // ----------------------------------------------------------------------------
 // SmartCSOrchestrator → SalesEngine 是主力 AI 客服对话路径，此前完全不感知语种。
 // 本文件把「术语表 + 后置校准 + 目标语种路由」接入 SalesEngine 的两条 LLM 路径
@@ -17,19 +17,19 @@ import (
 //
 // 设计约束：
 //   - 通过接口（GlossaryRenderer / OutputCalibrator）解耦，service 层不反向依赖
-//     service/i18n 的具体类型（i18n.GlossaryService 以鸭子类型同时满足两接口）。
+//     service/translation 的具体类型（i18n.GlossaryService 以鸭子类型同时满足两接口）。
 //   - 接口方法签名与 ragcustomerservice 包保持一致，便于统一实现。
 //   - 全部可选注入：nil 时跳过对应环节，向后兼容（同语种零开销）。
 // ============================================================================
 
-// GlossaryRenderer 术语表渲染接口（由 service/i18n.GlossaryService 实现）。
+// GlossaryRenderer 术语表渲染接口（由 service/translation.GlossaryService 实现）。
 //
 // 返回的 block 追加到 system prompt，约束 LLM 在目标语种下对品牌术语的正确写法。
 type GlossaryRenderer interface {
 	Render(ctx context.Context, lang string) string
 }
 
-// OutputCalibrator 输出后置校准接口（由 service/i18n.GlossaryService 适配实现）。
+// OutputCalibrator 输出后置校准接口（由 service/translation.GlossaryService 适配实现）。
 //
 // 在 LLM 生成文本返回前做术语校准与敏感模式保护
 // （SKU/金额/URL/邮箱/电话等不被误翻译）。

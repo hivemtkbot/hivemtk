@@ -9,7 +9,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 type PgDialogManager struct {

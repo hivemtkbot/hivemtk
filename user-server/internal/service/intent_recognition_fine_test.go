@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // ===== 8 大类规则匹配测试（每类至少 3 个用例） =====

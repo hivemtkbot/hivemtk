@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/pkg/trace"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/trace"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // TestTraceID_InheritanceWebhookRouteCtx 验证 triggerSmartOrchestrator 内部

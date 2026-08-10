@@ -23,8 +23,8 @@ type Chunk struct {
 	Content    string         `json:"content"`
 	Title      string         `json:"title"`
 	Metadata   map[string]any `json:"metadata"`
-	Embedding  []float32      `json:"-"`     // 嵌入向量
-	Score      float64        `json:"score"` // 相似度分数
+	Embedding  []float32      `json:"-"`      // 嵌入向量
+	Score      float64        `json:"score"`  // 相似度分数
 	Weight     float64        `json:"weight"` // 自学习权重（默认 0，由 RagSearcher 回填）
 	TokenCount int            `json:"token_count"`
 	ChunkIndex int            `json:"chunk_index"` // 在原文档中的分片索引

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // TestInboxIngress_ClaimPendingOutbound_NoDuplicateForward 验证下发通道的服务端权威认领：

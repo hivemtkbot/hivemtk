@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/ops/model"
-	"marketing/internal/ops/repository"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/ops/model"
+	"hivemtk-user/internal/ops/repository"
+	"hivemtk-user/internal/pkg/db"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupDashboardScreenTestDB 设置数据大屏服务测试数据库

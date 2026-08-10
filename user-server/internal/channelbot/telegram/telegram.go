@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/channelbot/core"
+	"hivemtk-user/internal/channelbot/core"
 )
 
 const (

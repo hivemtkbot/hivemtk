@@ -98,7 +98,7 @@ type CustomerMessagePayload struct {
 // 关联主题:TopicKnowledgeDocumentChanged
 // 触发时机:KnowledgeDocumentService.Create/Update/Delete 后 publish
 type KnowledgeDocumentChangePayload struct {
-	WorkspaceID string   `json:"workspace_id"` // 知识库工作区 ID
+	WorkspaceID string `json:"workspace_id"` // 知识库工作区 ID
 	DocumentID  uint   `json:"document_id"`  // 文档 ID
 	ChangeType  string `json:"change_type"`  // create / update / delete
 	ContentHash string `json:"content_hash"` // 用于增量检测

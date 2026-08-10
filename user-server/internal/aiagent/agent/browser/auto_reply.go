@@ -2,16 +2,20 @@ package browser
 
 import (
 	"context"
+
 	"encoding/json"
+
 	"fmt"
+
 	"strings"
+
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/model"
+
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// PlatformMessenger 平台消息接口
 type PlatformMessenger interface {
 	// GetUnreadMessages 获取未读消息
 	GetUnreadMessages() ([]Message, error)
@@ -21,7 +25,6 @@ type PlatformMessenger interface {
 	MarkAsRead(messageID string) error
 }
 
-// Message 消息结构
 type Message struct {
 	ID         string    `json:"id"`
 	SenderID   string    `json:"sender_id"`
@@ -33,7 +36,6 @@ type Message struct {
 	ChatID     string    `json:"chat_id"`
 }
 
-// AutoReplyBot 自动回复机器人
 type AutoReplyBot struct {
 	assistant    *Assistant
 	platform     Platform
@@ -48,7 +50,6 @@ type AutoReplyBot struct {
 	dedup        MessageDedup // 消息去重
 }
 
-// NewAutoReplyBot 创建自动回复机器人
 func NewAutoReplyBot(platform Platform, account string, accountID uint, cookies string, headless bool) (*AutoReplyBot, error) {
 	opts := Options{
 		Headless: headless, // 根据参数设置无头模式
@@ -76,7 +77,6 @@ func NewAutoReplyBot(platform Platform, account string, accountID uint, cookies 
 	return bot, nil
 }
 
-// Start 启动自动回复
 func (bot *AutoReplyBot) Start(matcher RuleMatcher, userID uint) error {
 	if bot.isRunning {
 		return fmt.Errorf("机器人已在运行中")
@@ -94,12 +94,10 @@ func (bot *AutoReplyBot) Start(matcher RuleMatcher, userID uint) error {
 	return nil
 }
 
-// SetupPlatform 公开方法:仅设置 Cookie + 导航,不启动消息循环,供一次性发送消息使用
 func (bot *AutoReplyBot) SetupPlatform() error {
 	return bot.setupPlatform()
 }
 
-// Stop 停止自动回复
 func (bot *AutoReplyBot) Stop() error {
 	if !bot.isRunning {
 		return fmt.Errorf("机器人未运行")
@@ -113,7 +111,6 @@ func (bot *AutoReplyBot) Stop() error {
 	return nil
 }
 
-// setupPlatform 设置平台环境(真实注入 Cookie 并导航到消息页)
 func (bot *AutoReplyBot) setupPlatform() error {
 	// 1. 先访问平台根域(让后续 document.cookie 写入能成功)
 	rootURL := getPlatformRootURL(bot.platform)
@@ -145,8 +142,6 @@ func (bot *AutoReplyBot) setupPlatform() error {
 	return nil
 }
 
-// injectCookies 通过 JS 把原始 Cookie 字符串注入到当前页面
-// 原始 cookie 形如 "k1=v1; k2=v2",会被拆分为 document.cookie = "k1=v1; domain=...; path=/"
 func (bot *AutoReplyBot) injectCookies(cookieStr string) (int, error) {
 	domain := getPlatformDomain(bot.platform)
 	if domain == "" {
@@ -188,7 +183,6 @@ func (bot *AutoReplyBot) injectCookies(cookieStr string) (int, error) {
 	return count, nil
 }
 
-// messageLoop 消息监听循环
 func (bot *AutoReplyBot) messageLoop(matcher RuleMatcher, userID uint) {
 	// 可配置的轮询间隔，默认5秒
 	pollInterval := 5 * time.Second
@@ -234,7 +228,6 @@ func (bot *AutoReplyBot) messageLoop(matcher RuleMatcher, userID uint) {
 	}
 }
 
-// checkAndReplyMessages 检查并回复消息
 func (bot *AutoReplyBot) checkAndReplyMessages(matcher RuleMatcher, userID uint) error {
 	messages, err := bot.getUnreadMessages()
 	if err != nil {
@@ -250,7 +243,6 @@ func (bot *AutoReplyBot) checkAndReplyMessages(matcher RuleMatcher, userID uint)
 	return nil
 }
 
-// getUnreadMessages 获取未读消息
 func (bot *AutoReplyBot) getUnreadMessages() ([]Message, error) {
 	switch bot.platform {
 	case Douyin:
@@ -268,7 +260,6 @@ func (bot *AutoReplyBot) getUnreadMessages() ([]Message, error) {
 	}
 }
 
-// RuleMatcher 接口用于匹配规则
 type RuleMatcher interface {
 	TestMatching(ctx context.Context, platform, message string, userID uint) (*model.AutoReplyRule, error)
 	AppendLog(userID, accountID, ruleID uint, platform, target, reply, status, errMsg string) error
@@ -325,8 +316,6 @@ func (bot *AutoReplyBot) processMessage(msg Message, matcher RuleMatcher, userID
 	return nil
 }
 
-// genericMessageScript 生成通用的"抓取未读消息"脚本
-// 通过平台参数控制选择器优先级。返回 JSON 字符串,字段名严格匹配 Message struct tag
 func genericMessageScript(platformTag string) string {
 	// 各平台的选择器优先级(可同时支持多版本,取首个命中的)
 	var (
@@ -456,32 +445,26 @@ func genericMessageScript(platformTag string) string {
 	`, itemSelectors, senderSel, contentSel, timeSel, senderIDAttr, chatIDSelector, platformTag, platformTag)
 }
 
-// getDouyinMessages 获取抖音消息
 func (bot *AutoReplyBot) getDouyinMessages() ([]Message, error) {
 	return bot.runGenericMessageScript("douyin")
 }
 
-// getKuaishouMessages 获取快手消息
 func (bot *AutoReplyBot) getKuaishouMessages() ([]Message, error) {
 	return bot.runGenericMessageScript("kuaishou")
 }
 
-// getXiaohongshuMessages 获取小红书消息
 func (bot *AutoReplyBot) getXiaohongshuMessages() ([]Message, error) {
 	return bot.runGenericMessageScript("xiaohongshu")
 }
 
-// getXianyuMessages 获取闲鱼消息
 func (bot *AutoReplyBot) getXianyuMessages() ([]Message, error) {
 	return bot.runGenericMessageScript("xianyu")
 }
 
-// getTiktokMessages 获取TikTok消息
 func (bot *AutoReplyBot) getTiktokMessages() ([]Message, error) {
 	return bot.runGenericMessageScript("tiktok")
 }
 
-// runGenericMessageScript 执行通用消息抓取脚本,并把 JSON 解析为 []Message
 func (bot *AutoReplyBot) runGenericMessageScript(platformTag string) ([]Message, error) {
 	js := genericMessageScript(platformTag)
 	result, err := bot.assistant.Evaluate(js)
@@ -508,7 +491,6 @@ func truncate(s string, n int) string {
 	return s[:n] + "..."
 }
 
-// SendReply 发送回复消息
 func (bot *AutoReplyBot) SendReply(messageID, content string) error {
 	switch bot.platform {
 	case Douyin:
@@ -526,8 +508,6 @@ func (bot *AutoReplyBot) SendReply(messageID, content string) error {
 	}
 }
 
-// genericSendScript 生成通用的"点击消息->输入->发送"脚本
-// 会先按 messageID 切到对应会话,再向 contenteditable / input 注入文本,模拟 React 输入事件
 func genericSendScript(platformTag, messageID, content string) string {
 	// 平台特定 input / send button 选择器
 	var inputSel, sendBtnSel string
@@ -652,32 +632,26 @@ func genericSendScript(platformTag, messageID, content string) string {
 	`, string(messageIDJSON), string(contentJSON), inputSel, sendBtnSel)
 }
 
-// sendDouyinReply 发送抖音回复
 func (bot *AutoReplyBot) sendDouyinReply(messageID, content string) error {
 	return bot.runGenericSendScript("douyin", messageID, content)
 }
 
-// sendKuaishouReply 发送快手回复
 func (bot *AutoReplyBot) sendKuaishouReply(messageID, content string) error {
 	return bot.runGenericSendScript("kuaishou", messageID, content)
 }
 
-// sendXiaohongshuReply 发送小红书回复
 func (bot *AutoReplyBot) sendXiaohongshuReply(messageID, content string) error {
 	return bot.runGenericSendScript("xiaohongshu", messageID, content)
 }
 
-// sendXianyuReply 发送闲鱼回复
 func (bot *AutoReplyBot) sendXianyuReply(messageID, content string) error {
 	return bot.runGenericSendScript("xianyu", messageID, content)
 }
 
-// sendTiktokReply 发送 TikTok 回复
 func (bot *AutoReplyBot) sendTiktokReply(messageID, content string) error {
 	return bot.runGenericSendScript("tiktok", messageID, content)
 }
 
-// runGenericSendScript 通用发送逻辑:重试 + 解析返回 JSON
 func (bot *AutoReplyBot) runGenericSendScript(platformTag, messageID, content string) error {
 	js := genericSendScript(platformTag, messageID, content)
 	maxRetries := 3
@@ -719,7 +693,6 @@ func (bot *AutoReplyBot) runGenericSendScript(platformTag, messageID, content st
 	return fmt.Errorf("[%s] 回复发送失败,已重试 %d 次: %v", platformTag, maxRetries, lastErr)
 }
 
-// MarkAsRead 标记消息已读(实际点击消息触发阅读,或调用平台 API)
 func (bot *AutoReplyBot) MarkAsRead(messageID string) error {
 	js := fmt.Sprintf(`
 		(function(){
@@ -751,196 +724,18 @@ func (bot *AutoReplyBot) MarkAsRead(messageID string) error {
 	return nil
 }
 
-// IsRunning 返回机器人运行状态
 func (bot *AutoReplyBot) IsRunning() bool {
 	return bot.isRunning
 }
 
-// GetPlatform 获取平台类型
 func (bot *AutoReplyBot) GetPlatform() Platform {
 	return bot.platform
 }
 
-// SetReplyHandler 设置回复处理器（可选，不设置则使用纯规则模式）
 func (bot *AutoReplyBot) SetReplyHandler(h ReplyHandler) {
 	bot.replyHandler = h
 }
 
-// SetDedup 设置消息去重器
 func (bot *AutoReplyBot) SetDedup(d MessageDedup) {
 	bot.dedup = d
-}
-func (bot *AutoReplyBot) GetAccount() string {
-	return bot.account
-}
-
-// GetAccountID 获取账号ID
-func (bot *AutoReplyBot) GetAccountID() uint {
-	return bot.accountID
-}
-
-// IsHeadless 获取无头模式状态
-func (bot *AutoReplyBot) IsHeadless() bool {
-	return bot.headless
-}
-
-// GetUnreadMessagesPublic 公开方法,供 platform 适配器直接抓取消息
-func (bot *AutoReplyBot) GetUnreadMessagesPublic() ([]Message, error) {
-	return bot.getUnreadMessages()
-}
-
-// IsCookieExpiredPublic 公开方法,供 platform 适配器检测登录态
-func (bot *AutoReplyBot) IsCookieExpiredPublic() bool {
-	return bot.isCookieExpired()
-}
-
-// IsCookieExpired 检测 Cookie 是否过期(真实多维检测)
-func (bot *AutoReplyBot) isCookieExpired() bool {
-	// 通过 4 个维度综合判断:
-	// 1) URL 是否被重定向到登录页
-	// 2) 页面是否存在登录弹窗
-	// 3) 页面是否包含"未登录/请登录"等关键文案
-	// 4) 通过浏览器 Network API 看最近请求是否返回 401/403
-	js := `
-		(function() {
-			try {
-				var url = (window.location && window.location.href) || '';
-				var u = url.toLowerCase();
-
-				// 维度 1:URL 命中登录/退出/错误页
-				var loginPathHits = ['/login', '/signin', '/sign-in', 'passport.', '/logout', '/auth/'];
-				for (var i = 0; i < loginPathHits.length; i++) {
-					if (u.indexOf(loginPathHits[i]) >= 0) return 'expired:url:' + loginPathHits[i];
-				}
-
-				// 维度 2:登录弹窗/登录容器存在
-				var loginModalSelectors = [
-					'.login-modal', '.login-dialog', '.login-container', '.sign-in-modal',
-					'.passport-login-container', '[class*="loginModal"]', '[class*="LoginModal"]',
-					'[class*="login-box"]', '[class*="loginBox"]',
-					'div[class*="login"][class*="modal"]', 'div[class*="Login"][class*="Modal"]'
-				];
-				for (var j = 0; j < loginModalSelectors.length; j++) {
-					var el = document.querySelector(loginModalSelectors[j]);
-					if (el && el.offsetParent !== null) {
-						return 'expired:modal:' + loginModalSelectors[j];
-					}
-				}
-
-				// 维度 3:页面文案
-				var bodyText = (document.body && document.body.innerText) || '';
-				var indicators = ['未登录', '请先登录', '登录后继续', '扫码登录', '登录失效', 'session expired', 'please log in'];
-				for (var k = 0; k < indicators.length; k++) {
-					if (bodyText.indexOf(indicators[k]) >= 0) {
-						return 'expired:text:' + indicators[k];
-					}
-				}
-
-				// 维度 4:页面没有可识别的登录态元素(头像/消息入口/工作台) 也提示可能未登录
-				var authedHints = ['[data-e2e="user-info"]', '.user-avatar', '.user-info', '.avatar', '.nickname'];
-				var hasAuthHint = false;
-				for (var m = 0; m < authedHints.length; m++) {
-					if (document.querySelector(authedHints[m])) { hasAuthHint = true; break; }
-				}
-				// 如果页面同时存在 login 文本 且没有登录态元素,直接判过期
-				if (!hasAuthHint && /登录|login/i.test(bodyText)) {
-					return 'expired:no-auth-hint';
-				}
-
-				return 'ok';
-			} catch (e) {
-				return 'error:' + (e && e.message ? e.message : 'unknown');
-			}
-		})();
-	`
-
-	result, err := bot.assistant.Evaluate(js)
-	if err != nil {
-		// JS 执行失败保守视为未过期(让上层用 API 兜底)
-		logger.Errorf("[%s] isCookieExpired JS 执行失败: %v", bot.platform, err)
-		return false
-	}
-
-	if result == "ok" {
-		return false
-	}
-	// error:xxx 也视为不过期,留给上层兜底
-	if strings.HasPrefix(result, "error:") {
-		logger.Errorf("[%s] isCookieExpired 检测异常: %s", bot.platform, result)
-		return false
-	}
-	logger.Infof("[%s] Cookie 已过期,信号: %s", bot.platform, result)
-	return true
-}
-
-// SetHeadless 设置无头模式
-func (bot *AutoReplyBot) SetHeadless(headless bool) {
-	bot.headless = headless
-	logger.Infof("[%s] 无头模式已设置为: %v", bot.platform, headless)
-}
-
-// GetAssistant 获取浏览器助手实例（用于资源管理）
-func (bot *AutoReplyBot) GetAssistant() *Assistant {
-	return bot.assistant
-}
-
-// getPlatformDomain 获取平台域名(用于 cookie domain)
-func getPlatformDomain(p Platform) string {
-	switch p {
-	case Douyin:
-		return ".douyin.com"
-	case Kuaishou:
-		return ".kuaishou.com"
-	case Xiaohongshu:
-		return ".xiaohongshu.com"
-	case Xianyu:
-		return ".goofish.com" // 闲鱼实际主域是 goofish.com,xianyu.com 也会跳转
-	case Tiktok:
-		return ".tiktok.com"
-	default:
-		return ""
-	}
-}
-
-// getPlatformRootURL 获取平台根 URL(用于 cookie 注入前的域准备)
-func getPlatformRootURL(p Platform) string {
-	switch p {
-	case Douyin:
-		return "https://www.douyin.com/"
-	case Kuaishou:
-		return "https://www.kuaishou.com/"
-	case Xiaohongshu:
-		return "https://www.xiaohongshu.com/"
-	case Xianyu:
-		return "https://www.goofish.com/"
-	case Tiktok:
-		return "https://www.tiktok.com/"
-	default:
-		return ""
-	}
-}
-
-// getPlatformMessageURL 获取平台消息页面 URL
-// 注意:抖音/快手/小红书/TikTok 实际没有公开的 web 端消息页,需要登录后从
-// 工作台/消息中心进入;闲鱼有 workbench
-func getPlatformMessageURL(p Platform) string {
-	switch p {
-	case Douyin:
-		// 抖音创作者中心私信
-		return "https://creator.douyin.com/creator-micro/data-analysis/message"
-	case Kuaishou:
-		// 快手创作者私信中心
-		return "https://cp.kuaishou.com/article/publish/video"
-	case Xiaohongshu:
-		// 小红书创作者中心
-		return "https://creator.xiaohongshu.com/creator/home"
-	case Xianyu:
-		// 闲鱼工作台
-		return "https://www.goofish.com/im"
-	case Tiktok:
-		// TikTok 创作者中心
-		return "https://www.tiktok.com/creator-center/dm"
-	default:
-		return "https://www.douyin.com/"
-	}
 }

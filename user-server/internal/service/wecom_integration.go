@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // WeComIntegrationService 企微与消息中台/统一收件箱集成

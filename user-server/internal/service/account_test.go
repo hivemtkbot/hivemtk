@@ -2,14 +2,15 @@ package service
 
 import (
 	"context"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
-	_type "marketing/internal/pkg/utils/type"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	_type "hivemtk-user/internal/pkg/utils/type"
 	"strconv"
 	"testing"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 func setupAccountServiceTestDB(t *testing.T) *gorm.DB {

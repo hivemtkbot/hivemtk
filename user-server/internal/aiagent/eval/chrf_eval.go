@@ -5,7 +5,7 @@
 //   - LLMJudge      ：基于另一个 LLM 的多维质量评分（fluency/accuracy/terminology/tone）
 //
 // 五层架构归属：L3 aiagent 内部工具包。不依赖 service / repository，
-// 可被 service/i18n 等上层服务组合使用。
+// 可被 service/translation 等上层服务组合使用。
 package eval
 
 import "strings"

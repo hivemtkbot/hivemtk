@@ -14,7 +14,7 @@ package confidence
 //   - LLMEntropy:  0.20
 
 import (
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // SignalWeights 5 维信号权重

@@ -7,12 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"marketing/internal/content/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/content/model"
+	"hivemtk-user/internal/pkg/db"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 func setupAIContentTestDB(t *testing.T) *gorm.DB {

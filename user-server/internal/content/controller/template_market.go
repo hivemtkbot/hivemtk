@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"marketing/internal/content/model"
-	"marketing/internal/content/service"
-	syscontroller "marketing/internal/controller"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/content/model"
+	"hivemtk-user/internal/content/service"
+	"hivemtk-user/internal/pkg/errhttp"
+	"hivemtk-user/internal/pkg/utils/response"
 	"net/http"
 	"strconv"
 
@@ -74,7 +74,7 @@ func (c *TemplateMarketController) DownloadTemplate(ctx *gin.Context) {
 	}
 
 	template, err := c.marketService.DownloadTemplate(userID.(uint), uint(id))
-	if syscontroller.HandleDBError(ctx, err, "下载模板") {
+	if errhttp.HandleDBError(ctx, err, "下载模板") {
 		return
 	}
 
@@ -154,7 +154,7 @@ func (c *TemplateMarketController) CreateTemplate(ctx *gin.Context) {
 		template.Author = ""
 	}
 
-	if syscontroller.HandleServiceError(ctx, c.marketService.CreateTemplate(&template)) {
+	if errhttp.HandleServiceError(ctx, c.marketService.CreateTemplate(&template)) {
 		return
 	}
 
@@ -178,7 +178,7 @@ func (c *TemplateMarketController) RateTemplate(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.marketService.RateTemplate(uint(id), req.Rating), "评分模板") {
+	if errhttp.HandleDBError(ctx, c.marketService.RateTemplate(uint(id), req.Rating), "评分模板") {
 		return
 	}
 

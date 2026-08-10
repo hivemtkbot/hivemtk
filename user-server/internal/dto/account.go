@@ -1,7 +1,7 @@
 package dto
 
 import (
-	_type "marketing/internal/pkg/utils/type"
+	_type "hivemtk-user/internal/pkg/utils/type"
 )
 
 type CreateAccountRequest struct {

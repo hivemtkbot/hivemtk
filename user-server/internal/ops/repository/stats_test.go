@@ -2,12 +2,12 @@ package repository
 
 import (
 	"context"
-	sysmodel "marketing/internal/model"
+	sysmodel "hivemtk-user/internal/model"
 	"testing"
 	"time"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupStatsTestDB 设置统计测试数据库

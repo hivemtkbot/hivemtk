@@ -3,12 +3,12 @@ package service
 import (
 	"context"
 	"errors"
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils"
-	"marketing/internal/pkg/utils/bcrypt"
-	_type "marketing/internal/pkg/utils/type"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
+	"hivemtk-user/internal/pkg/utils/bcrypt"
+	_type "hivemtk-user/internal/pkg/utils/type"
+	"hivemtk-user/internal/repository"
 	"strconv"
 )
 

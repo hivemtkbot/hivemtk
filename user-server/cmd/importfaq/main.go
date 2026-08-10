@@ -30,8 +30,8 @@ import (
 
 	"github.com/lib/pq"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 )
 
 type faqSeed struct {

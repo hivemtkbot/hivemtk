@@ -260,3 +260,21 @@ docker-down:
 
 docker-logs:
 	docker compose --profile dev logs -f mtk-user-server-dev
+
+# =============================================================================
+# 代码质量护栏（P0-1：架构依赖规则见 user-server/.golangci.yml depguard）
+# =============================================================================
+.PHONY: lint lint-install vet test-go
+
+lint-install:
+	@which golangci-lint >/dev/null 2>&1 || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
+
+# 架构护栏：五层依赖方向 + depguard 规则（提交前必跑）
+lint: lint-install
+	cd user-server && golangci-lint run ./...
+
+vet:
+	cd user-server && go vet ./...
+
+test-go:
+	cd user-server && go test ./... -count=1

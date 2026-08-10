@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
 )
 
 // TestUserController_GetUserList_Success 测试获取用户列表成功

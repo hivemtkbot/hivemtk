@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/cache"
-	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ============================================================================

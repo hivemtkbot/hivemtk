@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/websocket"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/websocket"
 )
 
 // ============================================================================

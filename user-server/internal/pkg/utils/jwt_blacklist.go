@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"time"
 
-	"marketing/internal/cache"
+	"hivemtk-user/internal/cache"
 )
 
 // jwt_blacklist.go JWT 黑名单工具

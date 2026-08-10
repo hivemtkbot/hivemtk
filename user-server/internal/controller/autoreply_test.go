@@ -8,12 +8,13 @@ import (
 	"strconv"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+
+	"hivemtk-user/internal/pkg/testutil"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupAutoReplyTestDB 设置自动回复测试数据库
@@ -31,7 +32,7 @@ func setupAutoReplyTestDB(t *testing.T) *gorm.DB {
 // setupAutoReplyController 设置自动回复控制器测试环境
 func setupAutoReplyController(t *testing.T) (*AutoReplyController, *gin.Engine) {
 	setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 
 	router.Use(func(ctx *gin.Context) {
@@ -94,7 +95,7 @@ func TestAutoReplyController_StartLogin_InvalidJSON(t *testing.T) {
 // TestAutoReplyController_StartLogin_NoUser 测试缺少用户信息
 func TestAutoReplyController_StartLogin_NoUser(t *testing.T) {
 	setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 	router.POST("/auto-reply/login/start", ctrl.StartLogin)
 
@@ -117,7 +118,7 @@ func TestAutoReplyController_StartLogin_NoUser(t *testing.T) {
 // TestAutoReplyController_LoginStatus_Success 测试查询登录状态成功
 func TestAutoReplyController_LoginStatus_Success(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 
 	router.Use(func(ctx *gin.Context) {
@@ -150,7 +151,7 @@ func TestAutoReplyController_LoginStatus_Success(t *testing.T) {
 // TestAutoReplyController_LoginStatus_NoUser 测试缺少用户信息
 func TestAutoReplyController_LoginStatus_NoUser(t *testing.T) {
 	setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 	router.GET("/auto-reply/login/status", ctrl.LoginStatus)
 
@@ -166,7 +167,7 @@ func TestAutoReplyController_LoginStatus_NoUser(t *testing.T) {
 // TestAutoReplyController_ListAccounts_Success 测试获取账号列表成功
 func TestAutoReplyController_ListAccounts_Success(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 
 	router.Use(func(ctx *gin.Context) {
@@ -197,7 +198,7 @@ func TestAutoReplyController_ListAccounts_Success(t *testing.T) {
 // TestAutoReplyController_ListAccounts_NoUser 测试缺少用户信息
 func TestAutoReplyController_ListAccounts_NoUser(t *testing.T) {
 	setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 	router.GET("/auto-reply/accounts", ctrl.ListAccounts)
 
@@ -258,7 +259,7 @@ func TestAutoReplyController_UpsertAccount_InvalidJSON(t *testing.T) {
 // TestAutoReplyController_UpsertAccount_NoUser 测试缺少用户信息
 func TestAutoReplyController_UpsertAccount_NoUser(t *testing.T) {
 	setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 	router.POST("/auto-reply/account", ctrl.UpsertAccount)
 
@@ -281,7 +282,7 @@ func TestAutoReplyController_UpsertAccount_NoUser(t *testing.T) {
 // TestAutoReplyController_SaveCookies_Success 测试保存 Cookie 成功
 func TestAutoReplyController_SaveCookies_Success(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 
 	router.Use(func(ctx *gin.Context) {
@@ -318,7 +319,7 @@ func TestAutoReplyController_SaveCookies_Success(t *testing.T) {
 // TestAutoReplyController_DeleteAccount_Success 测试删除账号成功
 func TestAutoReplyController_DeleteAccount_Success(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 
 	router.Use(func(ctx *gin.Context) {
@@ -353,7 +354,7 @@ func TestAutoReplyController_DeleteAccount_Success(t *testing.T) {
 // TestAutoReplyController_GetRule_Success 测试获取规则成功
 func TestAutoReplyController_GetRule_Success(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 
 	router.Use(func(ctx *gin.Context) {
@@ -387,7 +388,7 @@ func TestAutoReplyController_GetRule_Success(t *testing.T) {
 // TestAutoReplyController_GetRule_NotFound 测试规则不存在
 func TestAutoReplyController_GetRule_NotFound(t *testing.T) {
 	setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 
 	router.Use(func(ctx *gin.Context) {
@@ -460,7 +461,7 @@ func TestAutoReplyController_SaveRule_InvalidJSON(t *testing.T) {
 // TestAutoReplyController_ListLogs_Success 测试获取日志列表成功
 func TestAutoReplyController_ListLogs_Success(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 
 	router.Use(func(ctx *gin.Context) {
@@ -491,7 +492,7 @@ func TestAutoReplyController_ListLogs_Success(t *testing.T) {
 // TestAutoReplyController_ListLogs_NoUser 测试缺少用户信息
 func TestAutoReplyController_ListLogs_NoUser(t *testing.T) {
 	setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 	router.GET("/auto-reply/logs", ctrl.ListLogs)
 
@@ -516,7 +517,7 @@ func TestAutoReplyController_Start_Success(t *testing.T) {
 		ctx.Set("user_id", uint(1))
 		ctx.Next()
 	})
-	_ = NewAutoReplyController(nil, nil) // 创建控制器实例（用于初始化单例）
+	_ = NewAutoReplyController(nil) // 创建控制器实例（用于初始化单例）
 
 	merchantAccount := &model.Account{
 		TgBotToken: "test_token",
@@ -576,7 +577,7 @@ func TestAutoReplyController_Start_InvalidJSON(t *testing.T) {
 // TestAutoReplyController_Start_NoUser 测试缺少用户信息
 func TestAutoReplyController_Start_NoUser(t *testing.T) {
 	setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 	router.POST("/auto-reply/start", ctrl.Start)
 
@@ -645,7 +646,7 @@ func TestAutoReplyController_Stop_InvalidJSON(t *testing.T) {
 // TestAutoReplyController_GetHeadlessMode_Success 测试获取无头模式成功
 func TestAutoReplyController_GetHeadlessMode_Success(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 
 	router.Use(func(ctx *gin.Context) {
@@ -672,7 +673,7 @@ func TestAutoReplyController_GetHeadlessMode_Success(t *testing.T) {
 
 func TestAutoReplyController_GetHeadlessMode_NoAccount(t *testing.T) {
 	setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 
 	router.Use(func(ctx *gin.Context) {
@@ -699,7 +700,7 @@ func TestAutoReplyController_SetHeadlessMode_Success(t *testing.T) {
 		ctx.Set("user_id", uint(1))
 		ctx.Next()
 	})
-	_ = NewAutoReplyController(nil, nil) // 创建控制器实例（用于初始化单例）
+	_ = NewAutoReplyController(nil) // 创建控制器实例（用于初始化单例）
 
 	merchantAccount := &model.Account{
 		TgBotToken: "test_token",
@@ -749,7 +750,7 @@ func TestAutoReplyController_SetHeadlessMode_InvalidJSON(t *testing.T) {
 // TestAutoReplyController_SetHeadlessMode_InvalidPlatform 测试不支持的平台
 func TestAutoReplyController_SetHeadlessMode_InvalidPlatform(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 
 	router.Use(func(ctx *gin.Context) {
@@ -835,7 +836,7 @@ func TestAutoReplyController_TestBrowser_InvalidJSON(t *testing.T) {
 // TestAutoReplyController_GetDebugStatus_Success 测试获取调试状态成功
 func TestAutoReplyController_GetDebugStatus_Success(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	router := gin.New()
 
 	router.Use(func(ctx *gin.Context) {
@@ -866,7 +867,7 @@ func TestAutoReplyController_GetDebugStatus_Success(t *testing.T) {
 
 // TestAutoReplyController_NewAutoReplyController 测试构造函数
 func TestAutoReplyController_NewAutoReplyController(t *testing.T) {
-	ctrl := NewAutoReplyController(nil, nil)
+	ctrl := NewAutoReplyController(nil)
 	if ctrl == nil {
 		t.Error("Expected controller instance, got nil")
 	}

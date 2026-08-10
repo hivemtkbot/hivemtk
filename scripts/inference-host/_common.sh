@@ -285,3 +285,102 @@ wait_health() {
     sleep 1
   done
 }
+
+# ============================================================
+# MLX 引擎（Apple Silicon，替代 llama.cpp 承担 llm 角色）
+# ============================================================
+
+# Python 解释器探测：MLX_PYTHON > python3
+detect_python_bin() {
+  if [[ -n "${MLX_PYTHON:-}" && -x "$(command -v "$MLX_PYTHON" 2>/dev/null || true)" ]]; then
+    echo "$MLX_PYTHON"; return
+  fi
+  command -v python3 2>/dev/null || echo ""
+}
+
+# 依赖检查：mlx_lm / fastapi / uvicorn / pydantic
+ensure_mlx_deps() {
+  local py
+  py="$(detect_python_bin)"
+  if [[ -z "$py" ]]; then
+    log_err "未找到 python3，请先安装 Python 3.9+"
+    return 1
+  fi
+  if ! "$py" -c "import mlx_lm, fastapi, uvicorn, pydantic" >/dev/null 2>&1; then
+    log_err "MLX 依赖缺失，请执行：$py -m pip install mlx-lm fastapi uvicorn pydantic"
+    return 1
+  fi
+  MLX_PYTHON_BIN="$py"
+}
+
+# 模型产物检查：缺失则自动走 mlx/download-model.sh
+ensure_mlx_model() {
+  local model_dir="${MLX_MODEL:-$LLM_MODEL_DIR/SmolLM3-3B-4bit-mlx}"
+  if compgen -G "$model_dir/*.safetensors" >/dev/null 2>&1; then
+    return 0
+  fi
+  log_warn "[llm-mlx] 模型产物不存在: $model_dir"
+  log_warn "  正在执行 ModelScope 下载 + MLX 转换（首次约 6GB）..."
+  bash "$SCRIPT_DIR_COMMON/mlx/download-model.sh" || {
+    log_err "[llm-mlx] 模型准备失败"
+    return 1
+  }
+  compgen -G "$model_dir/*.safetensors" >/dev/null 2>&1 || {
+    log_err "[llm-mlx] 转换产物仍缺失: $model_dir"
+    return 1
+  }
+}
+
+# 启动 MLX LLM 服务（role 名固定 llm，与 llama.cpp 栈共用 pid/log 命名，
+# stop_role 无需感知引擎差异）
+start_mlx_llm() {
+  local role="llm"
+  local pid_file="$PID_DIR/$role.pid"
+  local log_file="$PID_DIR/$role.log"
+
+  if is_running "$role"; then
+    log_warn "[$role] 已在运行 (pid=$(cat "$pid_file"))，跳过启动"
+    return 0
+  fi
+  if port_in_use "$LLM_PORT"; then
+    log_warn "[$role] 端口 $LLM_PORT 已被其他进程占用（不是本服务）"
+    log_warn "  如需替换，请先：bash stop-all.sh 或 kill 该进程"
+    return 1
+  fi
+
+  ensure_mlx_deps || return 1
+  ensure_mlx_model || return 1
+
+  local model_dir="${MLX_MODEL:-$LLM_MODEL_DIR/SmolLM3-3B-4bit-mlx}"
+  local cmd=("$MLX_PYTHON_BIN" "$SCRIPT_DIR_COMMON/mlx/server.py")
+  log_info "[$role] 启动(mlx): ${cmd[*]}"
+  # 环境变量由 env.sh 已 source 的上下文继承（LLM_PORT/MLX_* 等）
+  MLX_MODEL="$model_dir" nohup "${cmd[@]}" >"$log_file" 2>&1 &
+  local pid=$!
+  echo "$pid" > "$pid_file"
+  sleep 0.5
+
+  if ! kill -0 "$pid" >/dev/null 2>&1; then
+    log_err "[$role] 启动后立即退出，请查看日志：$log_file"
+    tail -n 30 "$log_file" >&2 || true
+    rm -f "$pid_file"
+    return 1
+  fi
+  log_ok "[$role] 已启动(mlx) (pid=$pid, port=$LLM_PORT, log=$log_file)"
+}
+
+# 打印单个 role 的状态行（供 status.sh 使用）
+describe_role() {
+  local role="$1" port="$2"
+  local pid_file="$PID_DIR/$role.pid"
+  local state="stopped" pid=""
+  if is_running "$role"; then
+    state="running"
+    pid=$(cat "$pid_file" 2>/dev/null || echo "?")
+  fi
+  local health="down"
+  if curl -fsS --max-time 3 "http://127.0.0.1:${port}/health" >/dev/null 2>&1; then
+    health="ok"
+  fi
+  printf "  %-10s %-8s pid=%-7s port=%-6s health=%s\n" "$role" "$state" "${pid:--}" "$port" "$health"
+}

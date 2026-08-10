@@ -4,15 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"marketing/internal/aiagent/llm"
-	ragretrieval "marketing/internal/aiagent/rag/retrieval"
-	"marketing/internal/model"
-	"marketing/internal/pkg/i18n"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/llm"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/i18n"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"strings"
 )
 
-// FewShotRenderer few-shot 示例渲染接口（由 service/i18n.FewShotService 实现）。
+// FewShotRenderer few-shot 示例渲染接口（由 service/translation.FewShotService 实现）。
 //
 // 通过依赖倒置避免 aiagent 层直接依赖 service 层，由调用方在装配期注入。
 // 返回的 block 直接填充 MultilingualSystemPromptTemplate 的 {{.FewShotBlock}}。
@@ -20,7 +20,7 @@ type FewShotRenderer interface {
 	Render(ctx context.Context, lang string) (string, error)
 }
 
-// FallbackBridge 低资源语言降级桥接口（由 service/i18n.FallbackBridge 实现）。
+// FallbackBridge 低资源语言降级桥接口（由 service/translation.FallbackBridge 实现）。
 //
 // 通过依赖倒置避免 aiagent 层直接依赖 service 层。
 // Enabled() 返回 false 时主流程不调用 Generate，走标准跨语言路径。
@@ -30,7 +30,7 @@ type FallbackBridge interface {
 	Generate(ctx context.Context, query string, targetLang string, docs []any) (string, error)
 }
 
-// EvalHook 评估钩子接口（由 service/i18n.EvalService 实现）。
+// EvalHook 评估钩子接口（由 service/translation.EvalService 实现）。
 //
 // 在 LLM 生成回复后异步抽样评估质量（chrF++ + LLM-as-Judge）。
 // 通过依赖倒置避免 aiagent 层直接依赖 service 层（五层架构方向：
@@ -43,7 +43,7 @@ type EvalHook interface {
 	MaybeEvaluate(ctx context.Context, log *model.LLMRoutingLog, query, candidate, reference string)
 }
 
-// GlossaryRenderer 术语表渲染接口（由 service/i18n.GlossaryService 实现）。
+// GlossaryRenderer 术语表渲染接口（由 service/translation.GlossaryService 实现）。
 //
 // 通过依赖倒置避免 aiagent 层直接依赖 service 层。返回的 block 填充
 // MultilingualSystemPromptTemplate 的 {{.GlossaryBlock}}，把品牌术语在目标语言下的
@@ -52,7 +52,7 @@ type GlossaryRenderer interface {
 	Render(ctx context.Context, lang string) string
 }
 
-// OutputCalibrator 输出后置校准接口（由 service/i18n.GlossaryService 适配实现）。
+// OutputCalibrator 输出后置校准接口（由 service/translation.GlossaryService 适配实现）。
 //
 // 在 LLM 生成文本返回前做术语校准与敏感模式保护（SKU/金额/URL/邮箱等不被误翻译）。
 // 通过依赖倒置避免 aiagent 层反向依赖 service 层（service → aiagent 合法）。
@@ -74,11 +74,11 @@ type ResponseGeneratorImpl struct {
 	llmService     LLMServiceInterface
 	config         *ResponseGenerationConfig
 	transCache     *ragretrieval.TranslationCache
-	fewShot        FewShotRenderer // 可选：跨语言路径注入 few-shot 示例
-	fallbackBridge FallbackBridge  // 可选：低资源语言降级桥
-	evalHook       EvalHook        // 可选：异步质量评估钩子
+	fewShot        FewShotRenderer  // 可选：跨语言路径注入 few-shot 示例
+	fallbackBridge FallbackBridge   // 可选：低资源语言降级桥
+	evalHook       EvalHook         // 可选：异步质量评估钩子
 	glossary       GlossaryRenderer // 可选：跨语言路径注入术语表 block
-	calibrator     OutputCalibrator  // 可选：输出后置校准（术语 + 模式保护）
+	calibrator     OutputCalibrator // 可选：输出后置校准（术语 + 模式保护）
 }
 
 // WithTranslationCache 注入翻译缓存（可选）
@@ -294,7 +294,7 @@ func (g *ResponseGeneratorImpl) generateSameLangResponse(ctx context.Context, re
 // 知识库语种为 internalLang，对外输出语种为 targetLang。
 // 通过 renderMultilingualSystemPrompt 渲染跨语言 system prompt，强制 LLM
 // 仅以 targetLang 输出，并将知识库上下文自然翻译为目标语言。
-// glossaryBlock / fewShotBlock 暂留空，后续由 service/i18n 层接入。
+// glossaryBlock / fewShotBlock 暂留空，后续由 service/translation 层接入。
 //
 // TranslationCache 集成
 //  1. 查缓存：命中直接返回（避免 LLM 调用，跨语言路径延迟从秒级降到毫秒级）

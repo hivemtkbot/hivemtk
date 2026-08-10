@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"marketing/internal/model"
-	dbUtil "marketing/internal/pkg/utils/db"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	dbUtil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/repository"
 	"time"
 
 	"gorm.io/gorm"

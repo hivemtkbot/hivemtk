@@ -1,15 +1,15 @@
 package router
 
 import (
-	"marketing/internal/controller"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/service"
+	"hivemtk-user/internal/controller"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // setupWhatsappRoutes WhatsApp 管理路由
-func setupWhatsappRoutes(auth *gin.RouterGroup) {
+func setupWhatsappRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	whatsappCtrl := controller.NewWhatsappController()
 	auth.GET("/whatsapp/accounts", whatsappCtrl.ListAccounts)
 	auth.POST("/whatsapp/accounts", whatsappCtrl.CreateAccount)
@@ -33,8 +33,8 @@ func setupWhatsappRoutes(auth *gin.RouterGroup) {
 	whatsappGroupMsgCtrl := controller.NewGroupMessagingController(
 		whatsappCtrl.GetService(),
 		service.NewClueService(),
-		service.NewMessageQueueService(db.GetDB()),
-		service.NewWhatsAppTemplateService(db.GetDB()),
+		service.NewMessageQueueService(gormDB),
+		service.NewWhatsAppTemplateService(gormDB),
 	)
 	auth.GET("/whatsapp/lead-groups", whatsappGroupMsgCtrl.GetLeadGroups)
 	auth.POST("/whatsapp/group-messaging/send", whatsappGroupMsgCtrl.SelectGroupAndSendMessage)
@@ -50,24 +50,24 @@ func setupWhatsappRoutes(auth *gin.RouterGroup) {
 // setupTelegramRoutes Telegram 机器人账号管理路由
 // 用于配置 TG Bot Token + Webhook + 智能体开关，
 // 配合 /api/webhook/telegram/{account_id} 自动触发智能体流程
-func setupTelegramRoutes(auth *gin.RouterGroup) {
-	telegramAccountCtrl := controller.NewTelegramAccountController(service.NewTelegramService(db.GetDB()))
+func setupTelegramRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
+	telegramAccountCtrl := controller.NewTelegramAccountController(service.NewTelegramService(gormDB))
 	telegramAccountCtrl.RegisterRoutes(auth)
 }
 
 // setupFeishuRoutes 飞书机器人账号管理路由
 // 商户在 UI 配置 App ID / App Secret / Verification Token / Encrypt Key，
 // 配合 /api/webhook/feishu/{account_id} 自动触发智能体流程
-func setupFeishuRoutes(auth *gin.RouterGroup) {
-	feishuCtrl := controller.NewFeishuAccountController(service.NewFeishuService(db.GetDB()), service.NewFeishuIntegrationService(db.GetDB()))
+func setupFeishuRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
+	feishuCtrl := controller.NewFeishuAccountController(service.NewFeishuService(gormDB), service.NewFeishuIntegrationService(gormDB))
 	feishuCtrl.RegisterRoutes(auth)
 }
 
 // setupWhatsAppCloudRoutes WhatsApp Cloud API 商业账号管理路由
 // 商户在 UI 配置 Phone Number ID / WABA ID / Access Token / App Secret，
 // 配合 /api/webhook/whatsapp/{account_id} 自动触发智能体流程
-func setupWhatsAppCloudRoutes(auth *gin.RouterGroup, whatsappCloudSvc *service.WhatsAppCloudService) {
-	waCtrl := controller.NewWhatsAppCloudAccountController(whatsappCloudSvc, service.NewWhatsAppCloudIntegrationService(db.GetDB()))
+func setupWhatsAppCloudRoutes(auth *gin.RouterGroup, whatsappCloudSvc *service.WhatsAppCloudService, gormDB *gorm.DB) {
+	waCtrl := controller.NewWhatsAppCloudAccountController(whatsappCloudSvc, service.NewWhatsAppCloudIntegrationService(gormDB))
 	waCtrl.RegisterRoutes(auth)
 }
 
@@ -78,11 +78,11 @@ func setupDingTalkAppRoutes(auth *gin.RouterGroup, dingtalkAppSvc *service.DingT
 }
 
 // setupTiktokRoutes TikTok 管理路由
-func setupTiktokRoutes(auth *gin.RouterGroup) {
+func setupTiktokRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// TikTok 卡片管理
 	// 五层架构：service 由 router 层注入，controller 不再 import repository / db
 	tiktokCardCtrl := controller.NewTikTokCardController(
-		service.NewTikTokCardServiceWithDB(db.GetDB()),
+		service.NewTikTokCardServiceWithDB(gormDB),
 	)
 	tiktokCardCtrl.RegisterRoutes(auth)
 

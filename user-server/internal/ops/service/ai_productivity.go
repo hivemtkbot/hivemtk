@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	opsrepo "marketing/internal/ops/repository"
+	opsrepo "hivemtk-user/internal/ops/repository"
 )
 
 // AIProductivityService AI 产能分析服务

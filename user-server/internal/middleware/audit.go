@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"log"
-	"marketing/internal/model"
-	"marketing/internal/repository"
 	"sync"
 	"time"
 
@@ -16,7 +14,7 @@ import (
 
 // 审计日志通道
 var (
-	auditLogChan   chan *model.OperationLog
+	auditLogChan   chan *AuditEntry
 	auditLogOnce   sync.Once
 	auditLogCtx    context.Context
 	auditLogCancel context.CancelFunc
@@ -25,7 +23,7 @@ var (
 // 初始化审计日志异步处理器
 func initAuditLogger() {
 	auditLogOnce.Do(func() {
-		auditLogChan = make(chan *model.OperationLog, 1000) // 缓冲队列
+		auditLogChan = make(chan *AuditEntry, 1000) // 缓冲队列
 		auditLogCtx, auditLogCancel = context.WithCancel(context.Background())
 		go processAuditLogs()
 	})
@@ -36,7 +34,7 @@ func processAuditLogs() {
 	const batchSize = 50
 	const flushInterval = 5 * time.Second
 
-	batch := make([]*model.OperationLog, 0, batchSize)
+	batch := make([]*AuditEntry, 0, batchSize)
 	ticker := time.NewTicker(flushInterval)
 	defer ticker.Stop()
 
@@ -66,27 +64,32 @@ func processAuditLogs() {
 	}
 }
 
-// saveAuditBatch 批量保存审计日志（带重试机制）
-func saveAuditBatch(logs []*model.OperationLog) {
+// saveAuditBatch 批量保存审计日志（带重试机制，落库走注入的 AuditSink）
+func saveAuditBatch(logs []*AuditEntry) {
 	if len(logs) == 0 {
+		return
+	}
+
+	sink := getAuditSink()
+	if sink == nil {
+		warnPortMissing("AuditSink")
+		log.Printf("[audit] 丢弃 %d 条审计日志", len(logs))
 		return
 	}
 
 	maxRetries := 3
 	baseDelay := 100 * time.Millisecond
 
-	repo := repository.NewOperationLogRepository()
-
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		successCount := 0
-		failedLogs := make([]*model.OperationLog, 0, len(logs))
+		failedLogs := make([]*AuditEntry, 0, len(logs))
 
-		for _, log := range logs {
-			if err := repo.Create(context.Background(), log); err == nil {
+		for _, entry := range logs {
+			if err := sink.Save(context.Background(), entry); err == nil {
 				successCount++
 			} else {
 				// 将失败的日志收集到 failedLogs，确保下次重试
-				failedLogs = append(failedLogs, log)
+				failedLogs = append(failedLogs, entry)
 			}
 		}
 
@@ -220,7 +223,7 @@ func AuditMiddleware() gin.HandlerFunc {
 		detailJSON, _ := json.Marshal(detail)
 
 		// 创建操作日志
-		log := &model.OperationLog{
+		entry := &AuditEntry{
 			UserID:     convertToUint(userID),
 			Username:   convertToString(username),
 			Action:     action,
@@ -233,7 +236,7 @@ func AuditMiddleware() gin.HandlerFunc {
 		}
 
 		// 异步保存日志
-		go saveAuditLog(log)
+		go saveAuditLog(entry)
 	}
 }
 
@@ -407,21 +410,22 @@ func convertToString(v any) string {
 }
 
 // saveAuditLog 保存审计日志（发送到异步通道）
-func saveAuditLog(log *model.OperationLog) {
+func saveAuditLog(entry *AuditEntry) {
 	initAuditLogger()
 	select {
-	case auditLogChan <- log:
+	case auditLogChan <- entry:
 		// 成功发送到通道
 	default:
 		// 通道已满，同步保存作为降级
-		repo := repository.NewOperationLogRepository()
-		repo.Create(context.Background(), log)
+		if sink := getAuditSink(); sink != nil {
+			sink.Save(context.Background(), entry)
+		}
 	}
 }
 
 // LogLogin 登录日志
 func LogLogin(userID uint, username, ip, userAgent string) {
-	log := &model.OperationLog{
+	entry := &AuditEntry{
 		UserID:    userID,
 		Username:  username,
 		Action:    "login",
@@ -431,12 +435,12 @@ func LogLogin(userID uint, username, ip, userAgent string) {
 		UserAgent: userAgent,
 	}
 	initAuditLogger()
-	saveAuditLog(log)
+	saveAuditLog(entry)
 }
 
 // LogLogout 登出日志
 func LogLogout(userID uint, username, ip string) {
-	log := &model.OperationLog{
+	entry := &AuditEntry{
 		UserID:   userID,
 		Username: username,
 		Action:   "logout",
@@ -445,13 +449,13 @@ func LogLogout(userID uint, username, ip string) {
 		IP:       ip,
 	}
 	initAuditLogger()
-	saveAuditLog(log)
+	saveAuditLog(entry)
 }
 
 // LogCustom 自定义日志
 func LogCustom(userID uint, username, action, module, resource, resourceID string, detail any) {
 	detailJSON, _ := json.Marshal(detail)
-	log := &model.OperationLog{
+	entry := &AuditEntry{
 		UserID:     userID,
 		Username:   username,
 		Action:     action,
@@ -461,7 +465,7 @@ func LogCustom(userID uint, username, action, module, resource, resourceID strin
 		Detail:     string(detailJSON),
 	}
 	initAuditLogger()
-	saveAuditLog(log)
+	saveAuditLog(entry)
 }
 
 // DataChangeMiddleware 数据变更审计中间件

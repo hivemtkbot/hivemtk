@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/pkg/testutil"
-	dbutil "marketing/internal/pkg/utils/db"
+	dbutil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,7 +18,7 @@ func TestSetup_WeComRoutes(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	Setup(r)
+	Setup(r, database)
 
 	routes := r.Routes()
 

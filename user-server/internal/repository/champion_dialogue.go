@@ -15,7 +15,7 @@ import (
 	"context"
 	"time"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // ChampionDialogueRow 销冠对话候选行（feedback_signals + feedback_events 聚合快照）

@@ -1,9 +1,8 @@
 package controller
 
 import (
-	"marketing/internal/aiagent/knowledge/service"
-	syscontroller "marketing/internal/controller"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/aiagent/knowledge/service"
+	"hivemtk-user/internal/pkg/utils/response"
 	"net/http"
 	"strconv"
 
@@ -98,7 +97,7 @@ func (ctrl *KnowledgeBaseController) DeleteDocument(c *gin.Context) {
 	}
 
 	if err := ctrl.kbService.DeleteDocument(c.Request.Context(), uint(id)); err != nil {
-		if syscontroller.IsNotFoundError(err) {
+		if isNotFoundError(err) {
 			response.Error(c, http.StatusNotFound, err.Error())
 			return
 		}

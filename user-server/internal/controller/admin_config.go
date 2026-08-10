@@ -1,8 +1,8 @@
 package controller
 
 import (
-	"marketing/internal/config"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/pkg/utils/response"
 
 	"github.com/gin-gonic/gin"
 )

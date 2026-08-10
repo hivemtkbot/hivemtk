@@ -3,22 +3,22 @@ package trace_learning
 import (
 	"context"
 
-	"marketing/internal/aiagent/llm"
+	"hivemtk-user/internal/aiagent/llm"
 )
 
 // Config 自学习模块配置
 type Config struct {
-	Scenario       llm.DispatchScenario // LLM 打分场景
-	BadThreshold   int                  // 低于此分视为差回复 → 降权
-	GoodThreshold  int                  // 高于此分视为好回复 → 升权
-	Decay          float64              // 差回复降权系数（<1）
-	Boost          float64              // 好回复升权系数（>1）
-	MinWeight      float64              // 权重下限
-	MaxWeight      float64              // 权重上限
-	MeanReversion  float64              // 均值回归强度（0~1）：每次调权后向 BaseWeight(1.0) 回归，防止永久锚定上下限
-	BatchSize      int                  // 单次批量评估条数（仅 RunBatch 分批参考）
-	Concurrency    int                  // 批量评估并发度（LLM 调用为瓶颈，并行打分提升吞吐；权重调整由全局锁串行化）
-	SinceHours     int                  // opt-in 时间窗：仅评估该小时内的 trace（0=评估全部未评估 trace，避免漏评）
+	Scenario      llm.DispatchScenario // LLM 打分场景
+	BadThreshold  int                  // 低于此分视为差回复 → 降权
+	GoodThreshold int                  // 高于此分视为好回复 → 升权
+	Decay         float64              // 差回复降权系数（<1）
+	Boost         float64              // 好回复升权系数（>1）
+	MinWeight     float64              // 权重下限
+	MaxWeight     float64              // 权重上限
+	MeanReversion float64              // 均值回归强度（0~1）：每次调权后向 BaseWeight(1.0) 回归，防止永久锚定上下限
+	BatchSize     int                  // 单次批量评估条数（仅 RunBatch 分批参考）
+	Concurrency   int                  // 批量评估并发度（LLM 调用为瓶颈，并行打分提升吞吐；权重调整由全局锁串行化）
+	SinceHours    int                  // opt-in 时间窗：仅评估该小时内的 trace（0=评估全部未评估 trace，避免漏评）
 }
 
 // DefaultConfig 默认配置（可直接调参）

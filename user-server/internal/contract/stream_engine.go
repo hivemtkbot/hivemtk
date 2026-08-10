@@ -7,10 +7,10 @@
 //   - service 实现方需不依赖 controller（编译期解耦）
 //
 // 设计动机：
-//   1. 接口定义在 contract 包, 双方 (controller 与 service) 都依赖 contract，
-//      不直接互相 import，从源头打破潜在循环依赖
-//   2. 接口可在 controller 单测中独立 mock（不引入 service 真实依赖）
-//   3. service 后续若需要拆分/重组，接口签名由 contract 锁定更稳定
+//  1. 接口定义在 contract 包, 双方 (controller 与 service) 都依赖 contract，
+//     不直接互相 import，从源头打破潜在循环依赖
+//  2. 接口可在 controller 单测中独立 mock（不引入 service 真实依赖）
+//  3. service 后续若需要拆分/重组，接口签名由 contract 锁定更稳定
 //
 // 命名规范：
 //   - 全部接口以 Interface 结尾（如 StreamEngineInterface）
@@ -24,7 +24,7 @@ package contract
 import (
 	"context"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // ============================================================================

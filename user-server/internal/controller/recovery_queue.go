@@ -2,9 +2,9 @@ package controller
 
 import (
 	"context"
-	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 	"net/http"
 	"strconv"
 	"time"
@@ -41,7 +41,7 @@ func (c *RecoveryQueueController) Enqueue(ctx *gin.Context) {
 		response.ErrorFromDB(ctx, err, "入队失败: "+err.Error())
 		return
 	}
-	response.Success(ctx, dto.FromRecoveryQueueModel(item), "ok")
+	response.Success(ctx, service.FromRecoveryQueueModel(item), "ok")
 }
 
 // MarkAttempt 记录触达尝试
@@ -142,7 +142,7 @@ func (c *RecoveryQueueController) ListByStage(ctx *gin.Context) {
 		PageSize: pageSize,
 	}
 	for _, item := range list {
-		resp.List = append(resp.List, dto.FromRecoveryQueueModel(item))
+		resp.List = append(resp.List, service.FromRecoveryQueueModel(item))
 	}
 	response.Success(ctx, resp, "ok")
 }
@@ -180,7 +180,7 @@ func (c *RecoveryQueueController) ListReadyForAttempt(ctx *gin.Context) {
 	}
 	resp := make([]*dto.RecoveryQueueResponse, 0, len(list))
 	for _, item := range list {
-		resp = append(resp, dto.FromRecoveryQueueModel(item))
+		resp = append(resp, service.FromRecoveryQueueModel(item))
 	}
 	response.Success(ctx, resp, "ok")
 }

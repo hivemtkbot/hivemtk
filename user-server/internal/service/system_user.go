@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
 )

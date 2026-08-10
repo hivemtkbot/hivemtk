@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/cache"
-	"marketing/internal/model"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/model"
 )
 
 func TestInboxIngress_NormalizeEvent_Defaults(t *testing.T) {

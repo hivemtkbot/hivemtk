@@ -7,11 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"hivemtk-user/internal/model"
+	dbutil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/testutil"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
-	dbutil "marketing/internal/pkg/utils/db"
 )
 
 func setupTikTokAutoReplyRouter(ctrl *TikTokAutoReplyController) *gin.Engine {

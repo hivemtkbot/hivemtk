@@ -14,9 +14,9 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/repository"
-	"marketing/internal/service"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/service"
 )
 
 // ----------------------------------------------------------------------------

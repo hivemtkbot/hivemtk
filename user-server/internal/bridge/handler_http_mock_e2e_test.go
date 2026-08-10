@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/service"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

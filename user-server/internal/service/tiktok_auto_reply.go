@@ -5,10 +5,11 @@ import (
 	"strconv"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 
 	"context"
+
 	"gorm.io/gorm"
 )
 

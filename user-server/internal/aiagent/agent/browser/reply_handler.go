@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	auto_reply_integration "marketing/internal/aiagent/agent/auto_reply"
-	ragcustomerservice "marketing/internal/aiagent/rag/customer_service"
-	ragretrieval "marketing/internal/aiagent/rag/retrieval"
+	auto_reply_integration "hivemtk-user/internal/aiagent/agent/auto_reply"
+	ragcustomerservice "hivemtk-user/internal/aiagent/rag/customer_service"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 type ReplyHandler interface {

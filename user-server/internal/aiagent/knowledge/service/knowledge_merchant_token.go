@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"time"
 
-	"marketing/internal/aiagent/knowledge/model"
-	"marketing/internal/pkg/utils"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/knowledge/model"
+	"hivemtk-user/internal/pkg/utils"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ============================================================================

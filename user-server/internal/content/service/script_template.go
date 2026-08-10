@@ -2,8 +2,8 @@ package service
 
 import (
 	"encoding/json"
-	"marketing/internal/content/model"
-	"marketing/internal/content/repository"
+	"hivemtk-user/internal/content/model"
+	"hivemtk-user/internal/content/repository"
 	"strings"
 )
 

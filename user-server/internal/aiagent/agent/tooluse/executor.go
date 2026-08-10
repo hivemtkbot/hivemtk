@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/trace"
-	"marketing/internal/pkg/tracing"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/trace"
+	"hivemtk-user/internal/pkg/tracing"
 )
 
 // executor.go 工具执行引擎（PRD §5.2 G3）

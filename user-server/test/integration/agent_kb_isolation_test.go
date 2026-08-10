@@ -22,10 +22,10 @@ import (
 	"fmt"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/repository"
-	"marketing/internal/service"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/service"
 
 	"gorm.io/gorm"
 )

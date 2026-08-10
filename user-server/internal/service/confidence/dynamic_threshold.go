@@ -18,8 +18,8 @@ import (
 	"math"
 	"time"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
 )
 
 // DynamicThresholdCalculator 4 因子动态阈值计算器

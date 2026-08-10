@@ -6,9 +6,6 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-
-	"marketing/internal/model"
-	"marketing/internal/service"
 )
 
 // AppKeyResolve AppKey 软解析中间件（不再强制鉴权）
@@ -21,11 +18,12 @@ import (
 //  5. 渠道禁用返回 403（防误用）
 //  6. 不再做 Origin 白名单阻断（仅记录，不影响访问）
 //
-// 使用方式：r.Group("/api/chat/public").Use(AppKeyResolve(channelSvc))
+// 使用方式：r.Group("/api/chat/public").Use(AppKeyResolve(resolver))
 //
 // 适用场景：用户自己部署本系统后，作为通道嵌入到自有网站，无需 AppKey 鉴权。
 // AppKey 仍保留为渠道的软标识（用于日志追踪 + 未来多渠道管理），但不再作为强制凭证。
-func AppKeyResolve(channelSvc *service.ChatChannelService) gin.HandlerFunc {
+// resolver 由装配层注入（service.ChatChannelService 的适配器）。
+func AppKeyResolve(resolver ChatChannelResolver) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 测试模式直接放行
 		if IsTestMode && testing.Testing() {
@@ -40,9 +38,9 @@ func AppKeyResolve(channelSvc *service.ChatChannelService) gin.HandlerFunc {
 
 		// 先尝试 AppKey 解析
 		if appKey != "" {
-			channel, err := channelSvc.GetByAppKey(c.Request.Context(), appKey)
+			channel, err := resolver.ResolveByAppKey(c.Request.Context(), appKey)
 			if err == nil {
-				if !service.ChatChannelIsActive(channel) {
+				if !channel.Active {
 					c.JSON(http.StatusForbidden, gin.H{
 						"code":    403,
 						"message": "渠道已被禁用",
@@ -69,14 +67,15 @@ func AppKeyResolve(channelSvc *service.ChatChannelService) gin.HandlerFunc {
 		}
 
 		// 解析 channel
-		channel, err := channelSvc.GetByChannelID(c.Request.Context(), channelID)
+		channel, err := resolver.ResolveByChannelID(c.Request.Context(), channelID)
 		if err != nil {
 			// 没有这个 channel，使用 placeholder 放行
 			// 让业务层 controller 内部决定如何处理
-			placeholder := &model.ChatChannel{
+			placeholder := &ChatChannelView{
 				ChannelID:   channelID,
 				ChannelName: channelID,
-				Status:      model.ChatChannelStatusActive,
+				Status:      "active",
+				Active:      true,
 			}
 			c.Set("chat_channel", placeholder)
 			c.Set("chat_channel_id", channelID)
@@ -84,7 +83,7 @@ func AppKeyResolve(channelSvc *service.ChatChannelService) gin.HandlerFunc {
 			return
 		}
 
-		if !service.ChatChannelIsActive(channel) {
+		if !channel.Active {
 			c.JSON(http.StatusForbidden, gin.H{
 				"code":    403,
 				"message": "渠道已被禁用",
@@ -96,7 +95,7 @@ func AppKeyResolve(channelSvc *service.ChatChannelService) gin.HandlerFunc {
 		// Origin 软记录：仅记录到 header，不阻断
 		origin := c.GetHeader("Origin")
 		if origin != "" {
-			origins := service.ChatChannelAllowedOriginsList(channel)
+			origins := channel.AllowedOrigins
 			allowed := false
 			for _, o := range origins {
 				if o == "*" || strings.EqualFold(o, origin) {
@@ -117,12 +116,12 @@ func AppKeyResolve(channelSvc *service.ChatChannelService) gin.HandlerFunc {
 
 // GetChatChannel 从上下文获取 chat channel（由 AppKeyResolve 注入）
 // 即使没有真实 channel，也会返回一个 placeholder（含 ChannelID）
-func GetChatChannel(c *gin.Context) (*model.ChatChannel, bool) {
+func GetChatChannel(c *gin.Context) (*ChatChannelView, bool) {
 	v, ok := c.Get("chat_channel")
 	if !ok {
 		return nil, false
 	}
-	ch, ok := v.(*model.ChatChannel)
+	ch, ok := v.(*ChatChannelView)
 	return ch, ok
 }
 

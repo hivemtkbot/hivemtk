@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"time"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // SliderConfig 滑块配置

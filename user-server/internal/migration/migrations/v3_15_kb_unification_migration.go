@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"log"
 
-	"marketing/internal/migration"
+	"hivemtk-user/internal/migration"
 
 	"gorm.io/gorm"
 )

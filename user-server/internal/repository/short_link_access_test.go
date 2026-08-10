@@ -2,13 +2,14 @@ package repository
 
 import (
 	"context"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 	"testing"
 	"time"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupShortLinkAccessTestDB 设置短链访问统计测试数据库

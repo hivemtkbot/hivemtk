@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 	"time"
 
 	"gorm.io/gorm"

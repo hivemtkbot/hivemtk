@@ -23,11 +23,11 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
-	"marketing/internal/websocket"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/websocket"
 )
 
 // SOPDispatcherConfig 调度器配置

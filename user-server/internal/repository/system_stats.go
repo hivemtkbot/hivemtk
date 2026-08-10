@@ -11,9 +11,8 @@ package repository
 import (
 	"context"
 
-	contentmodel "marketing/internal/content/model"
-	"marketing/internal/model"
-	_db "marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	_db "hivemtk-user/internal/pkg/db"
 
 	"gorm.io/gorm"
 )
@@ -136,7 +135,9 @@ func (r *systemStatsRepo) CountEmailJobs(ctx context.Context) (int64, error) {
 
 func (r *systemStatsRepo) CountMaterials(ctx context.Context) (int64, error) {
 	var n int64
-	if err := r.db.Model(&contentmodel.Material{}).Count(&n).Error; err != nil {
+	// 素材属 content 域私有实体，共享 repository 不跨域引用其 model，
+	// 与 CountCards 同样按表名聚合（GORM 默认表名 materials）。
+	if err := r.db.Table("materials").Count(&n).Error; err != nil {
 		return 0, err
 	}
 	return n, nil

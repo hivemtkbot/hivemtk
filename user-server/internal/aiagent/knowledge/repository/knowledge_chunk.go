@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-	"marketing/internal/aiagent/knowledge/model"
+	"hivemtk-user/internal/aiagent/knowledge/model"
 	"strconv"
 	"time"
 

@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
-	"marketing/internal/dto"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/repository"
 	"time"
 
 	"gorm.io/gorm"

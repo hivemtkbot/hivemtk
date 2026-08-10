@@ -2,55 +2,43 @@ package service
 
 import (
 	"context"
+
 	"encoding/json"
+
 	"fmt"
+
 	"math"
-	"regexp"
+
 	"strings"
-	"time"
 
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/aiagent/llm"
+
+	"hivemtk-user/internal/model"
+
+	"hivemtk-user/internal/pkg/utils/logger"
+
+	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// G6 拟人度 6 维度评估器
-// ----------------------------------------------------------------------------
-// 对应 PRD §5.2 G6：严格商用标准 ≥ 0.85
-//
-// 6 维度权重：
-//   自然度 0.25 | 相关性 0.20 | 人设 0.20 | 情绪 0.15 | 简洁性 0.10 | 合规 0.10
-//
-// 评估流程：
-//   1. LLM 评估 6 维度得分（0-1）
-//   2. 加权计算综合分
-//   3. 综合分 ≥ 0.85 → 通过
-//   4. 综合分 < 0.85 → 重生成（最多 3 次）
-//   5. 3 次仍不达标 → 转人工 + 记录低质样本
-//
-// 设计：
-//   - PersonaEvaluator 接口：单次评估（LLM / 规则两种实现）
-//   - PersonaEvaluationService：上层服务（重生成循环 + 低质样本收集）
-//   - LowQualitySampleCollector：低质样本持久化（DB / 日志两种实现）
-// ============================================================================
-
-// PersonaDimension 拟人度评估维度
 type PersonaDimension string
 
 const (
 	PersonaDimensionNaturalness PersonaDimension = "naturalness" // 自然度：口语化、无机械感
-	PersonaDimensionRelevance   PersonaDimension = "relevance"   // 相关性：答非所问检测
-	PersonaDimensionPersona     PersonaDimension = "persona"     // 人设：销冠角色 + 行业专业度
-	PersonaDimensionEmotion     PersonaDimension = "emotion"     // 情绪：共情客户情绪
+
+	PersonaDimensionRelevance PersonaDimension = "relevance" // 相关性：答非所问检测
+
+	PersonaDimensionPersona PersonaDimension = "persona" // 人设：销冠角色 + 行业专业度
+
+	PersonaDimensionEmotion PersonaDimension = "emotion" // 情绪：共情客户情绪
+
 	PersonaDimensionConciseness PersonaDimension = "conciseness" // 简洁性：字数控制
-	PersonaDimensionCompliance  PersonaDimension = "compliance"  // 合规：广告法 + 虚假承诺
+
+	PersonaDimensionCompliance PersonaDimension = "compliance" // 合规：广告法 + 虚假承诺
+
 )
 
-// PersonaDimensionWeight 6 维度权重（对应 PRD §5.2 G6）
 var PersonaDimensionWeight = map[PersonaDimension]float64{
 	PersonaDimensionNaturalness: 0.25,
 	PersonaDimensionRelevance:   0.20,
@@ -60,7 +48,6 @@ var PersonaDimensionWeight = map[PersonaDimension]float64{
 	PersonaDimensionCompliance:  0.10,
 }
 
-// AllPersonaDimensions 全部 6 维度（用于遍历）
 var AllPersonaDimensions = []PersonaDimension{
 	PersonaDimensionNaturalness,
 	PersonaDimensionRelevance,
@@ -70,7 +57,6 @@ var AllPersonaDimensions = []PersonaDimension{
 	PersonaDimensionCompliance,
 }
 
-// PersonaEvaluationInput 评估输入
 type PersonaEvaluationInput struct {
 	CustomerID      string // 客户 ID（用于低质样本追溯）
 	SessionID       string // 会话 ID
@@ -82,14 +68,12 @@ type PersonaEvaluationInput struct {
 	Intent          string // 意图（price_inquiry/complaint/...）
 }
 
-// PersonaDimensionScore 单维度得分
 type PersonaDimensionScore struct {
 	Dimension PersonaDimension `json:"dimension"`
 	Score     float64          `json:"score"` // 0-1
 	Reason    string           `json:"reason"`
 }
 
-// PersonaEvaluationResult 评估结果
 type PersonaEvaluationResult struct {
 	Scores       []PersonaDimensionScore `json:"scores"`
 	TotalScore   float64                 `json:"total_score"` // 加权综合分
@@ -100,7 +84,6 @@ type PersonaEvaluationResult struct {
 	Input        *PersonaEvaluationInput `json:"input,omitempty"`
 }
 
-// ScoreByDimension 按维度查询得分
 func (r *PersonaEvaluationResult) ScoreByDimension(ctx context.Context, dim PersonaDimension) (float64, bool) {
 	for _, s := range r.Scores {
 		if s.Dimension == dim {
@@ -110,29 +93,21 @@ func (r *PersonaEvaluationResult) ScoreByDimension(ctx context.Context, dim Pers
 	return 0, false
 }
 
-// PersonaEvaluator 单次评估器接口
 type PersonaEvaluator interface {
 	Evaluate(ctx context.Context, input *PersonaEvaluationInput) (*PersonaEvaluationResult, error)
 }
 
-// PersonaRegenerateFn 重生成回调
-// 调用方提供：根据上次评估结果重新生成回复
 type PersonaRegenerateFn func(ctx context.Context, input *PersonaEvaluationInput, feedback *PersonaEvaluationResult) (string, error)
 
-// LowQualitySampleCollector 低质样本收集器接口
 type LowQualitySampleCollector interface {
 	Collect(ctx context.Context, input *PersonaEvaluationInput, result *PersonaEvaluationResult) error
 }
 
-// =================== LLM 评估器（生产路径） ===================
-
-// LLMPersonaEvaluator 基于 LLM 的拟人度评估器
 type LLMPersonaEvaluator struct {
 	dispatcher *llm.Dispatcher
 	threshold  float64 // 默认 0.85
 }
 
-// NewLLMPersonaEvaluator 构造 LLM 评估器
 func NewLLMPersonaEvaluator(dispatcher *llm.Dispatcher) *LLMPersonaEvaluator {
 	return &LLMPersonaEvaluator{
 		dispatcher: dispatcher,
@@ -140,7 +115,6 @@ func NewLLMPersonaEvaluator(dispatcher *llm.Dispatcher) *LLMPersonaEvaluator {
 	}
 }
 
-// Threshold 设置阈值（链式）
 func (e *LLMPersonaEvaluator) WithThreshold(ctx context.Context, t float64) *LLMPersonaEvaluator {
 	if t > 0 && t <= 1 {
 		e.threshold = t
@@ -148,7 +122,6 @@ func (e *LLMPersonaEvaluator) WithThreshold(ctx context.Context, t float64) *LLM
 	return e
 }
 
-// Evaluate 单次评估
 func (e *LLMPersonaEvaluator) Evaluate(ctx context.Context, input *PersonaEvaluationInput) (*PersonaEvaluationResult, error) {
 	if e.dispatcher == nil {
 		return nil, fmt.Errorf("dispatcher not configured")
@@ -181,7 +154,6 @@ func (e *LLMPersonaEvaluator) Evaluate(ctx context.Context, input *PersonaEvalua
 	return parsed, nil
 }
 
-// buildPersonaEvaluationPrompt 构建 LLM 评估 prompt
 func buildPersonaEvaluationPrompt(input *PersonaEvaluationInput) string {
 	var sb strings.Builder
 	sb.WriteString("请按以下 6 维度评估 智能体回复的拟人度，每项 0-1 分（1 分完美，0 分极差）：\n\n")
@@ -211,7 +183,6 @@ func buildPersonaEvaluationPrompt(input *PersonaEvaluationInput) string {
 	return sb.String()
 }
 
-// parsePersonaEvaluationResult 解析 LLM 返回的 JSON
 func parsePersonaEvaluationResult(content string) (*PersonaEvaluationResult, error) {
 	content = strings.TrimSpace(content)
 	// 兼容 ```json ... ``` 包裹
@@ -252,7 +223,6 @@ func parsePersonaEvaluationResult(content string) (*PersonaEvaluationResult, err
 	}, nil
 }
 
-// computeWeightedScore 按权重计算综合分
 func computeWeightedScore(scores []PersonaDimensionScore) float64 {
 	scoreMap := make(map[PersonaDimension]float64, len(scores))
 	for _, s := range scores {
@@ -268,24 +238,14 @@ func computeWeightedScore(scores []PersonaDimensionScore) float64 {
 	return math.Round(total*10000) / 10000
 }
 
-// =================== 规则评估器（测试 / 降级路径） ===================
-
-// RuleBasedPersonaEvaluator 基于规则的拟人度评估器
-// 不依赖 LLM，使用关键词匹配 + 字数统计评分
-// 用途：
-//   - 单元测试（无网络、无 API Key）
-//   - LLM 不可用时的降级
-//   - LLM 评估前的快速预筛选
 type RuleBasedPersonaEvaluator struct {
 	threshold float64
 }
 
-// NewRuleBasedPersonaEvaluator 构造规则评估器
 func NewRuleBasedPersonaEvaluator() *RuleBasedPersonaEvaluator {
 	return &RuleBasedPersonaEvaluator{threshold: 0.85}
 }
 
-// WithThreshold 设置阈值（链式）
 func (e *RuleBasedPersonaEvaluator) WithThreshold(ctx context.Context, t float64) *RuleBasedPersonaEvaluator {
 	if t > 0 && t <= 1 {
 		e.threshold = t
@@ -293,7 +253,6 @@ func (e *RuleBasedPersonaEvaluator) WithThreshold(ctx context.Context, t float64
 	return e
 }
 
-// Evaluate 单次评估（规则评分）
 func (e *RuleBasedPersonaEvaluator) Evaluate(ctx context.Context, input *PersonaEvaluationInput) (*PersonaEvaluationResult, error) {
 	if input == nil {
 		return nil, fmt.Errorf("input cannot be nil")
@@ -318,10 +277,6 @@ func (e *RuleBasedPersonaEvaluator) Evaluate(ctx context.Context, input *Persona
 	}, nil
 }
 
-// scoreNaturalness 自然度评分：
-//   - 包含 AI 痕迹词 → 严重扣分
-//   - 口语化词（"嗯"/"哦"/"呢"等）→ 加分
-//   - 基础分 0.88：纯中文、正常表达的回复默认较自然
 func (e *RuleBasedPersonaEvaluator) scoreNaturalness(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	reply := input.AIReply
 	score := 0.88 // 基础分
@@ -352,10 +307,6 @@ func (e *RuleBasedPersonaEvaluator) scoreNaturalness(ctx context.Context, input 
 	return clampScore(score)
 }
 
-// scoreRelevance 相关性评分：
-//   - 客户消息的关键词是否在 AI 回复中体现
-//   - 完全无关联 → 低分
-//   - 语义意图对齐（价格问询/推荐等场景）→ 显著加分
 func (e *RuleBasedPersonaEvaluator) scoreRelevance(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	if input.CustomerMessage == "" {
 		return 0.8 // 无客户消息上下文，给中等分
@@ -382,8 +333,6 @@ func (e *RuleBasedPersonaEvaluator) scoreRelevance(ctx context.Context, input *P
 	return clampScore(score)
 }
 
-// computeIntentAlignment 意图对齐评分
-// 识别客户消息的意图类别，与 AI 回复中是否包含对应的语义词
 func computeIntentAlignment(input *PersonaEvaluationInput) float64 {
 	customer := input.CustomerMessage
 	reply := input.AIReply
@@ -446,10 +395,6 @@ func containsAny(text string, words []string) bool {
 	return false
 }
 
-// scorePersona 人设评分：
-//   - 是否包含人设关键词
-//   - 是否包含行业专业词
-//   - 基础分 0.75：合理的销售话术默认人设表现良好
 func (e *RuleBasedPersonaEvaluator) scorePersona(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	score := 0.75 // 基础分
 	reply := input.AIReply
@@ -474,10 +419,6 @@ func (e *RuleBasedPersonaEvaluator) scorePersona(ctx context.Context, input *Per
 	return clampScore(score)
 }
 
-// scoreEmotion 情绪评分：
-//   - 共情词（"理解"/"抱歉"/"恭喜"/"开心"等）→ 加分
-//   - 投诉场景必须共情，否则扣分
-//   - 基础分 0.75：中性专业语气（不冷漠也不过度热情）作为正常基线
 func (e *RuleBasedPersonaEvaluator) scoreEmotion(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	reply := input.AIReply
 	score := 0.8 // 基础分：中性专业语气作为正常基线
@@ -520,12 +461,6 @@ func (e *RuleBasedPersonaEvaluator) scoreEmotion(ctx context.Context, input *Per
 	return clampScore(score)
 }
 
-// scoreConciseness 简洁性评分：
-//   - ≤60 字 → 满分
-//   - 60-100 字 → 0.92
-//   - 100-180 字 → 0.7
-//   - 180-300 字 → 0.25
-//   - >300 字 → 0.1
 func (e *RuleBasedPersonaEvaluator) scoreConciseness(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	length := len([]rune(input.AIReply))
 	switch {
@@ -542,9 +477,6 @@ func (e *RuleBasedPersonaEvaluator) scoreConciseness(ctx context.Context, input 
 	}
 }
 
-// scoreCompliance 合规评分：
-//   - 广告法极限词（"最好"/"第一"/"国家级"等）→ 严重扣分
-//   - 虚假承诺词（"100%"/"绝对"/"保证"等）→ 扣分
 func (e *RuleBasedPersonaEvaluator) scoreCompliance(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	reply := input.AIReply
 	score := 1.0
@@ -570,7 +502,6 @@ func (e *RuleBasedPersonaEvaluator) scoreCompliance(ctx context.Context, input *
 	return clampScore(score)
 }
 
-// clampScore 限制得分在 [0, 1]
 func clampScore(s float64) float64 {
 	if s < 0 {
 		return 0
@@ -581,8 +512,6 @@ func clampScore(s float64) float64 {
 	return math.Round(s*100) / 100
 }
 
-// extractKeywords 简化关键词提取（中文 2-4 字滑窗）
-// 仅用于规则评分的相关性判断，非通用分词
 func extractKeywords(text string) []string {
 	text = strings.TrimSpace(text)
 	if text == "" {
@@ -611,10 +540,6 @@ func extractKeywords(text string) []string {
 	return keywords
 }
 
-// =================== 低质样本收集器 ===================
-
-// LogLowQualitySampleCollector 日志收集器（默认）
-// 仅打印日志，不持久化。用于不需要 DB 的场景。
 type LogLowQualitySampleCollector struct{}
 
 // Collect 收集低质样本（仅日志）
@@ -624,16 +549,10 @@ func (c *LogLowQualitySampleCollector) Collect(ctx context.Context, input *Perso
 	return nil
 }
 
-// DBLowQualitySampleCollector 数据库收集器
-//
-// 五层架构修复：service 层不再持有 *gorm.DB，由 repository 层封装所有 DB 操作。
 type DBLowQualitySampleCollector struct {
 	repo repository.PersonaLowQualitySampleRepository
 }
 
-// NewDBLowQualitySampleCollector 构造 DB 收集器
-// db 参数保留以兼容调用方签名（含测试），内部转换为 PersonaLowQualitySampleRepository。
-// db 为 nil 时 repo 也为 nil，Collect 内通过 c.repo == nil 防御。
 func NewDBLowQualitySampleCollector(db *gorm.DB) *DBLowQualitySampleCollector {
 	var repo repository.PersonaLowQualitySampleRepository
 	if db != nil {
@@ -642,7 +561,6 @@ func NewDBLowQualitySampleCollector(db *gorm.DB) *DBLowQualitySampleCollector {
 	return &DBLowQualitySampleCollector{repo: repo}
 }
 
-// Collect 收集低质样本到数据库
 func (c *DBLowQualitySampleCollector) Collect(ctx context.Context, input *PersonaEvaluationInput, result *PersonaEvaluationResult) error {
 	if c.repo == nil {
 		return nil
@@ -684,10 +602,6 @@ func (c *DBLowQualitySampleCollector) Collect(ctx context.Context, input *Person
 	return c.repo.Create(ctx, sample)
 }
 
-// =================== 评估服务（含重生成循环） ===================
-
-// PersonaEvaluationService 拟人度评估服务
-// 职责：组合单次评估器 + 重生成循环 + 低质样本收集
 type PersonaEvaluationService struct {
 	evaluator       PersonaEvaluator
 	threshold       float64
@@ -695,13 +609,10 @@ type PersonaEvaluationService struct {
 	sampleCollector LowQualitySampleCollector
 }
 
-// DefaultPersonaThreshold 默认阈值（PRD：≥ 0.85）
 const DefaultPersonaThreshold = 0.85
 
-// DefaultPersonaMaxRetry 默认最大重试次数（PRD：最多 3 次）
 const DefaultPersonaMaxRetry = 3
 
-// NewPersonaEvaluationService 构造评估服务
 func NewPersonaEvaluationService(evaluator PersonaEvaluator) *PersonaEvaluationService {
 	return &PersonaEvaluationService{
 		evaluator:       evaluator,
@@ -711,7 +622,6 @@ func NewPersonaEvaluationService(evaluator PersonaEvaluator) *PersonaEvaluationS
 	}
 }
 
-// WithThreshold 设置阈值
 func (s *PersonaEvaluationService) WithThreshold(ctx context.Context, t float64) *PersonaEvaluationService {
 	if t > 0 && t <= 1 {
 		s.threshold = t
@@ -719,7 +629,6 @@ func (s *PersonaEvaluationService) WithThreshold(ctx context.Context, t float64)
 	return s
 }
 
-// WithMaxRetry 设置最大重试次数
 func (s *PersonaEvaluationService) WithMaxRetry(ctx context.Context, n int) *PersonaEvaluationService {
 	if n > 0 {
 		s.maxRetry = n
@@ -727,7 +636,6 @@ func (s *PersonaEvaluationService) WithMaxRetry(ctx context.Context, n int) *Per
 	return s
 }
 
-// WithSampleCollector 设置低质样本收集器
 func (s *PersonaEvaluationService) WithSampleCollector(ctx context.Context, c LowQualitySampleCollector) *PersonaEvaluationService {
 	if c != nil {
 		s.sampleCollector = c
@@ -735,7 +643,6 @@ func (s *PersonaEvaluationService) WithSampleCollector(ctx context.Context, c Lo
 	return s
 }
 
-// Evaluate 单次评估（不重生成）
 func (s *PersonaEvaluationService) Evaluate(ctx context.Context, input *PersonaEvaluationInput) (*PersonaEvaluationResult, error) {
 	result, err := s.evaluator.Evaluate(ctx, input)
 	if err != nil {
@@ -749,14 +656,6 @@ func (s *PersonaEvaluationService) Evaluate(ctx context.Context, input *PersonaE
 	return result, nil
 }
 
-// EvaluateWithRetry 含重生成循环
-// 流程：
-//  1. 评估 input.AIReply
-//  2. 综合分 ≥ threshold → 通过
-//  3. 综合分 < threshold → 调 regenerateFn 重新生成（最多 maxRetry 次）
-//  4. maxRetry 次仍不达标 → 转人工 + 记录低质样本
-//
-// regenerateFn 为 nil 时退化为单次评估（不重生成）
 func (s *PersonaEvaluationService) EvaluateWithRetry(ctx context.Context, input *PersonaEvaluationInput, regenerateFn PersonaRegenerateFn) (*PersonaEvaluationResult, error) {
 	if input == nil {
 		return nil, fmt.Errorf("input cannot be nil")
@@ -836,53 +735,12 @@ func (s *PersonaEvaluationService) EvaluateWithRetry(ctx context.Context, input 
 	return result, nil
 }
 
-// Compile-time interface compliance checks
 var (
-	_ PersonaEvaluator          = (*LLMPersonaEvaluator)(nil)
-	_ PersonaEvaluator          = (*RuleBasedPersonaEvaluator)(nil)
+	_ PersonaEvaluator = (*LLMPersonaEvaluator)(nil)
+
+	_ PersonaEvaluator = (*RuleBasedPersonaEvaluator)(nil)
+
 	_ LowQualitySampleCollector = (*LogLowQualitySampleCollector)(nil)
+
 	_ LowQualitySampleCollector = (*DBLowQualitySampleCollector)(nil)
 )
-
-// =================== 辅助：低质样本查询（用于 UI 展示） ===================
-
-// ListLowQualitySamples 列出低质样本
-func ListLowQualitySamples(db *gorm.DB, handled *bool, sampleType string, limit, offset int) ([]model.LowQualitySample, int64, error) {
-	if db == nil {
-		return nil, 0, fmt.Errorf("db not configured")
-	}
-	if limit <= 0 {
-		limit = 20
-	}
-	q := db.Model(&model.LowQualitySample{})
-	if handled != nil {
-		q = q.Where("handled = ?", *handled)
-	}
-	if sampleType != "" {
-		q = q.Where("sample_type = ?", sampleType)
-	}
-	var total int64
-	q.Count(&total)
-	var list []model.LowQualitySample
-	if err := q.Order("created_at DESC").Limit(limit).Offset(offset).Find(&list).Error; err != nil {
-		return nil, 0, err
-	}
-	return list, total, nil
-}
-
-// MarkLowQualitySampleHandled 标记低质样本已处理
-func MarkLowQualitySampleHandled(db *gorm.DB, id uint64, handler, note string) error {
-	if db == nil {
-		return fmt.Errorf("db not configured")
-	}
-	now := time.Now()
-	return db.Model(&model.LowQualitySample{}).Where("id = ?", id).Updates(map[string]any{
-		"handled":      true,
-		"handled_by":   handler,
-		"handled_at":   &now,
-		"handled_note": note,
-	}).Error
-}
-
-// touchUnusedRegex 避免 regexp 包未被引用（保留以备后续复杂规则扩展）
-var _ = regexp.MustCompile

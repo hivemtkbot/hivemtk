@@ -3,7 +3,7 @@ package service
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"marketing/internal/identity"
+	"hivemtk-user/internal/identity"
 	"regexp"
 	"strings"
 )

@@ -1,13 +1,13 @@
 package controller
 
 import (
-	"marketing/internal/content/service"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/content/service"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils/response"
 	"net/http"
 	"strconv"
 
-	syscontroller "marketing/internal/controller"
+	"hivemtk-user/internal/pkg/errhttp"
 
 	"github.com/gin-gonic/gin"
 )
@@ -44,7 +44,7 @@ func (c *AIContentController) GenerateContent(ctx *gin.Context) {
 	}
 
 	result, err := c.contentService.GenerateContent(ctx.Request.Context(), uid, &req)
-	if syscontroller.HandleServiceError(ctx, err) {
+	if errhttp.HandleServiceError(ctx, err) {
 		return
 	}
 
@@ -69,7 +69,7 @@ func (c *AIContentController) CreateHistory(ctx *gin.Context) {
 	}
 
 	record, err := c.contentService.CreateHistory(uid, &req)
-	if syscontroller.HandleServiceError(ctx, err) {
+	if errhttp.HandleServiceError(ctx, err) {
 		return
 	}
 
@@ -159,7 +159,7 @@ func (c *AIContentController) SaveRecord(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.contentService.SaveRecord(uint(id)), "保存记录") {
+	if errhttp.HandleDBError(ctx, c.contentService.SaveRecord(uint(id)), "保存记录") {
 		return
 	}
 
@@ -183,7 +183,7 @@ func (c *AIContentController) FavoriteRecord(ctx *gin.Context) {
 		req.IsFavorite = true
 	}
 
-	if syscontroller.HandleDBError(ctx, c.contentService.FavoriteRecord(uint(id), req.IsFavorite), "收藏记录") {
+	if errhttp.HandleDBError(ctx, c.contentService.FavoriteRecord(uint(id), req.IsFavorite), "收藏记录") {
 		return
 	}
 
@@ -208,7 +208,7 @@ func (c *AIContentController) RateRecord(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.contentService.RateRecord(uint(id), req.Rating), "评分记录") {
+	if errhttp.HandleDBError(ctx, c.contentService.RateRecord(uint(id), req.Rating), "评分记录") {
 		return
 	}
 
@@ -225,7 +225,7 @@ func (c *AIContentController) DeleteRecord(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleServiceError(ctx, c.contentService.DeleteRecord(uint(id))) {
+	if errhttp.HandleServiceError(ctx, c.contentService.DeleteRecord(uint(id))) {
 		return
 	}
 
@@ -299,7 +299,7 @@ func (c *AIContentController) UpdateTemplate(ctx *gin.Context) {
 	}
 
 	template, err := c.templateService.UpdateTemplate(uint(id), &req)
-	if syscontroller.HandleServiceError(ctx, err) {
+	if errhttp.HandleServiceError(ctx, err) {
 		return
 	}
 
@@ -316,7 +316,7 @@ func (c *AIContentController) DeleteTemplate(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleServiceError(ctx, c.templateService.DeleteTemplate(uint(id))) {
+	if errhttp.HandleServiceError(ctx, c.templateService.DeleteTemplate(uint(id))) {
 		return
 	}
 

@@ -1,7 +1,5 @@
 package dto
 
-import "marketing/internal/model"
-
 // ClueScoreRequest 单条评分请求
 type ClueScoreRequest struct {
 	ClueID string `json:"clue_id" binding:"required"`
@@ -22,28 +20,6 @@ type ClueScoreResponse struct {
 	ModelVersion    string `json:"model_version"`
 	ScoredAt        string `json:"scored_at"`
 	FactorsJSON     string `json:"factors_json"`
-}
-
-// FromClueScoreModel ClueScore → ClueScoreResponse(包级函数,架构文档 §三 L4 要求)
-func FromClueScoreModel(s *model.ClueScore) *ClueScoreResponse {
-	if s == nil {
-		return nil
-	}
-	return &ClueScoreResponse{
-		ClueID:          s.ClueID,
-		Account:         s.Account,
-		TotalScore:      s.TotalScore,
-		Grade:           s.Grade,
-		Confidence:      s.Confidence,
-		ChannelScore:    s.ChannelScore,
-		VerifyScore:     s.VerifyScore,
-		ProfileScore:    s.ProfileScore,
-		EngagementScore: s.EngagementScore,
-		RecencyScore:    s.RecencyScore,
-		ModelVersion:    s.ModelVersion,
-		ScoredAt:        s.ScoredAt.UTC().Format("2006-01-02T15:04:05Z"),
-		FactorsJSON:     s.FactorsJSON,
-	}
 }
 
 // ClueScoreListResponse 评分列表响应

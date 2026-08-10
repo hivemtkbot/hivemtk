@@ -1,10 +1,11 @@
 package controller
 
 import (
-	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/pagination"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils/pagination"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
+	"hivemtk-user/internal/service/confidence"
 	"net/http"
 	"strconv"
 	"time"
@@ -127,7 +128,7 @@ func (c *TuningController) UpsertThresholdPolicy(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "invalid body: "+err.Error())
 		return
 	}
-	policy := dto.ToThresholdPolicyModel(&body)
+	policy := confidence.ToThresholdPolicyModel(&body)
 	if err := c.svc.UpsertThresholdPolicy(ctx.Request.Context(), policy); err != nil {
 		response.ErrorFromDB(ctx, err, "save failed: "+err.Error())
 		return

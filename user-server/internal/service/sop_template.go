@@ -30,9 +30,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	dbUtil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/repository"
 )
 
 const (
@@ -108,6 +109,11 @@ type SOPTemplateService struct {
 	mu     sync.RWMutex
 	cache  map[uint][]model.SOPTemplate
 	loaded map[uint]time.Time
+}
+
+// NewSOPTemplateServiceDefault 使用全局 DB 创建 SOP Service（controller 层入口，避免 controller 持有 gorm.DB）。
+func NewSOPTemplateServiceDefault() *SOPTemplateService {
+	return NewSOPTemplateService(dbUtil.GetDB(), nil)
 }
 
 // NewSOPTemplateService 创建 SOP Service
@@ -350,6 +356,7 @@ func sopToDTO(t *model.SOPTemplate) *dto.SOPTemplate {
 // Render 渲染模板 (Go text/template)
 //
 //   - rawTpl: 含 {{.var_name}} 占位符的字符串
+//
 // vars: map[string]any 变量 (: 仅白名单字段透传到模板, 防止 SSTI)
 //
 // 安全:

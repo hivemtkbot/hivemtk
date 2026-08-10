@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/aiagent/agent/tooluse"
-	"marketing/internal/service"
+	"hivemtk-user/internal/aiagent/agent/tooluse"
+	"hivemtk-user/internal/service"
 )
 
 // TestBridgeReachAdapter_OnlineDeliversToBuffer 验证 HTTP-only 模式下，桥接渠道（抖音）的 AI 回复
@@ -15,7 +15,7 @@ import (
 // 历史：WS 模式下靠 c.send 通道收 reply（被 hub.Deliver 写入）；HTTP 模式无 WS 长连接，
 // reply 直接入 in-memory buffer（256 容量 FIFO）。本测试覆盖"无 WebSocket 也能投递"的关键路径。
 func TestBridgeReachAdapter_OnlineDeliversToBuffer(t *testing.T) {
-	adapter := NewBridgeReachAdapter(&tooluse.IntegrationReachAdapter{}, service.NewInboxIngressServiceWithDB(nil, nil))
+	adapter := NewBridgeReachAdapter(tooluse.NoOpReachAdapter{}, service.NewInboxIngressServiceWithDB(nil, nil))
 	id, err := adapter.SendDouyin(context.Background(), "acc1", "conv1", "text", "hello")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
@@ -42,7 +42,7 @@ func TestBridgeReachAdapter_OnlineDeliversToBuffer(t *testing.T) {
 // TestBridgeReachAdapter_OfflineStillDeliversToBuffer 验证 HTTP-only 模式下无 WebSocket 连接时
 // 也能把 reply 入 buffer（HTTP 模式无"离线"概念，buffer 始终可达）。
 func TestBridgeReachAdapter_OfflineStillDeliversToBuffer(t *testing.T) {
-	adapter := NewBridgeReachAdapter(&tooluse.IntegrationReachAdapter{}, service.NewInboxIngressServiceWithDB(nil, nil))
+	adapter := NewBridgeReachAdapter(tooluse.NoOpReachAdapter{}, service.NewInboxIngressServiceWithDB(nil, nil))
 	_, err := adapter.SendDouyin(context.Background(), "accOff", "conv1", "text", "hello")
 	if err != nil {
 		t.Fatalf("HTTP-only 模式不依赖扩展在线，期望 nil err，实际 %v", err)
@@ -55,7 +55,7 @@ func TestBridgeReachAdapter_OfflineStillDeliversToBuffer(t *testing.T) {
 
 // TestBridgeReachAdapter_XHSAndTikTokDeliversToBuffer 验证小红书和 TikTok 渠道的 reply 走各自 channel 的 buffer。
 func TestBridgeReachAdapter_XHSAndTikTokDeliversToBuffer(t *testing.T) {
-	adapter := NewBridgeReachAdapter(&tooluse.IntegrationReachAdapter{}, service.NewInboxIngressServiceWithDB(nil, nil))
+	adapter := NewBridgeReachAdapter(tooluse.NoOpReachAdapter{}, service.NewInboxIngressServiceWithDB(nil, nil))
 	if _, err := adapter.SendXHS(context.Background(), "x1", "c", "text", "hi-xhs"); err != nil {
 		t.Fatalf("xhs deliver err: %v", err)
 	}

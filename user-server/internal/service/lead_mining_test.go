@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // ---------------- 内存 Fake 实现（无 DB 依赖） ----------------
@@ -67,7 +67,7 @@ func (f *fakeCustRepo) GetByDouyinOpenID(context.Context, string) (*model.Custom
 func (f *fakeCustRepo) GetByXiaohongshuID(context.Context, string) (*model.Customer, error) {
 	return nil, nil
 }
-func (f *fakeCustRepo) Delete(context.Context, string) error        { return nil }
+func (f *fakeCustRepo) Delete(context.Context, string) error { return nil }
 func (f *fakeCustRepo) List(context.Context, int, int) ([]*model.Customer, int64, error) {
 	return nil, 0, nil
 }
@@ -84,12 +84,12 @@ func (f *fakeCustRepo) SearchByFilter(context.Context, repository.CustomerSearch
 }
 
 type fakeClueRepo struct {
-	mu        sync.Mutex
-	byID      map[string]*model.Clue
+	mu         sync.Mutex
+	byID       map[string]*model.Clue
 	byTypeAcct map[string]*model.Clue
-	seq       int
-	createCnt int
-	updateCnt int
+	seq        int
+	createCnt  int
+	updateCnt  int
 }
 
 func newFakeClueRepo() *fakeClueRepo {
@@ -138,7 +138,7 @@ func (f *fakeClueRepo) ExistsByTypeAndAccount(_ context.Context, t int64, acct s
 func (f *fakeClueRepo) GetClueList(context.Context, int, int) ([]*model.Clue, int64, error) {
 	return nil, 0, nil
 }
-func (f *fakeClueRepo) Delete(context.Context, string) error        { return nil }
+func (f *fakeClueRepo) Delete(context.Context, string) error { return nil }
 func (f *fakeClueRepo) GetRecentClueList(context.Context) ([]*model.Clue, error) {
 	return nil, nil
 }
@@ -222,23 +222,23 @@ func cannedHistory() func(context.Context, *model.MessageHub) []llm.ChatMessage 
 
 func newTestService(cfg *model.LeadMiningConfig, j *fakeJudge) *Service {
 	return &Service{
-		judge:         j,
+		judge:          j,
 		historyFetcher: cannedHistory(),
-		custRepo:      newFakeCustRepo(),
-		clueRepo:      newFakeClueRepo(),
-		cfgRepo:       &fakeCfgRepo{cfg: cfg},
-		lastJudge:     map[string]time.Time{},
+		custRepo:       newFakeCustRepo(),
+		clueRepo:       newFakeClueRepo(),
+		cfgRepo:        &fakeCfgRepo{cfg: cfg},
+		lastJudge:      map[string]time.Time{},
 	}
 }
 
 func sampleHub(platform, senderID, content string) *model.MessageHub {
 	return &model.MessageHub{
-		ID:        1,
-		Platform:  platform,
-		SenderID:  senderID,
-		SenderName: "张三",
-		Direction: "inbound",
-		Content:   content,
+		ID:             1,
+		Platform:       platform,
+		SenderID:       senderID,
+		SenderName:     "张三",
+		Direction:      "inbound",
+		Content:        content,
 		ConversationID: "conv-" + senderID,
 	}
 }
@@ -274,8 +274,8 @@ func TestChannelEnabled(t *testing.T) {
 
 func TestBuildSystemPrompt(t *testing.T) {
 	cfg := &model.LeadMiningConfig{
-		Keywords:   []string{"购买", "代理"},
-		Tags:       []string{"高意向"},
+		Keywords:    []string{"购买", "代理"},
+		Tags:        []string{"高意向"},
 		Requirement: "客户明确表达购买意向",
 	}
 	p := buildSystemPrompt(cfg)

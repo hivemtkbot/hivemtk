@@ -40,18 +40,18 @@ func IsValidKBTypeDTO(t string) bool {
 //   - CreatedAt/UpdatedAt 用 string (RFC3339), 便于前端直接展示
 //   - 不暴露内部字段 (如 MemberCount/DocCount 等冗余统计可后续按需补充)
 type KnowledgeBase struct {
-	ID           uint    `json:"id"`
-	KBCode       string  `json:"kb_code"`
-	Type         string  `json:"type"`         // faq / rag / sop
-	Name         string  `json:"name"`
-	Description  string  `json:"description"`
-	OwnerType    string  `json:"owner_type"`   // private / shared
-	OwnerAgentID *uint   `json:"owner_agent_id,omitempty"`
-	MemberCount  int     `json:"member_count"`
-	DocCount     int     `json:"doc_count"`
-	Enabled      *bool   `json:"enabled,omitempty"`
-	CreatedAt    string  `json:"created_at,omitempty"`
-	UpdatedAt    string  `json:"updated_at,omitempty"`
+	ID           uint   `json:"id"`
+	KBCode       string `json:"kb_code"`
+	Type         string `json:"type"` // faq / rag / sop
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	OwnerType    string `json:"owner_type"` // private / shared
+	OwnerAgentID *uint  `json:"owner_agent_id,omitempty"`
+	MemberCount  int    `json:"member_count"`
+	DocCount     int    `json:"doc_count"`
+	Enabled      *bool  `json:"enabled,omitempty"`
+	CreatedAt    string `json:"created_at,omitempty"`
+	UpdatedAt    string `json:"updated_at,omitempty"`
 }
 
 // AgentKBBinding 智能体 × 知识库 绑定 DTO

@@ -23,9 +23,9 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // ============================================================================

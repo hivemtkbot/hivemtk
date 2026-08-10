@@ -8,11 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/cache"
-	"marketing/internal/model"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/model"
+
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupMessageHubTestDB 创建测试数据库（每个测试用唯一 db 名称避免污染）

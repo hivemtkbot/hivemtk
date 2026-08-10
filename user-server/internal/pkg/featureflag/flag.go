@@ -8,7 +8,7 @@
 //
 // 使用方式:
 //
-//	import "marketing/internal/pkg/featureflag"
+//	import "hivemtk-user/internal/pkg/featureflag"
 //
 //	if featureflag.Flag("parallel").Bool() {
 //	    // 启用并行化
@@ -30,10 +30,10 @@ const PollInterval = 5 * time.Second
 
 // Flag 表示一个 FeatureFlag 实例 (线程安全)
 type Flag struct {
-	name        string
+	name         string
 	defaultValue bool
-	mu          sync.RWMutex
-	lastReload  time.Time
+	mu           sync.RWMutex
+	lastReload   time.Time
 
 	// 缓存上一次解析结果, 配合后台轮询实现热加载
 	// resolve() 直接返回缓存, 由 background poller 定期刷新。

@@ -22,10 +22,8 @@ import (
 	"strconv"
 	"strings"
 
-	"gorm.io/gorm"
-
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,9 +34,9 @@ type AgentKBBindingController struct {
 }
 
 // NewAgentKBBindingController 创建绑定控制器
-func NewAgentKBBindingController(db *gorm.DB) *AgentKBBindingController {
+func NewAgentKBBindingController() *AgentKBBindingController {
 	return &AgentKBBindingController{
-		svc: service.NewAgentKBBindingService(db),
+		svc: service.NewAgentKBBindingServiceDefault(),
 	}
 }
 

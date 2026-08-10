@@ -1,17 +1,17 @@
 package router
 
 import (
-	"marketing/internal/controller"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/service"
+	"hivemtk-user/internal/controller"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // setupCardRoutes 卡片管理路由（抖音、快手、小红书、闲鱼）
-func setupCardRoutes(auth *gin.RouterGroup) {
+func setupCardRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// 抖音卡片
-	douyinCardCtrl := controller.NewDouyinCardController(service.NewDouyinCardService(db.GetDB()))
+	douyinCardCtrl := controller.NewDouyinCardController(service.NewDouyinCardService(gormDB))
 	auth.GET("/douyin-card/list", douyinCardCtrl.GetList)
 	auth.POST("/douyin-card", douyinCardCtrl.Create)
 	auth.PUT("/douyin-card/:id", douyinCardCtrl.Update)
@@ -26,7 +26,7 @@ func setupCardRoutes(auth *gin.RouterGroup) {
 	auth.POST("/douyin/:id/generate-short-link", douyinCardCtrl.GenerateShortLink)
 
 	// 快手卡片
-	kuaishouCardCtrl := controller.NewKuaishouCardController(service.NewKuaishouCardService(db.GetDB()))
+	kuaishouCardCtrl := controller.NewKuaishouCardController(service.NewKuaishouCardService(gormDB))
 	auth.GET("/kuaishou-card/list", kuaishouCardCtrl.GetList)
 	auth.POST("/kuaishou-card", kuaishouCardCtrl.Create)
 	auth.PUT("/kuaishou-card/:id", kuaishouCardCtrl.Update)
@@ -43,7 +43,7 @@ func setupCardRoutes(auth *gin.RouterGroup) {
 	auth.POST("/kuaishou/:id/generate-short-link", kuaishouCardCtrl.GenerateShortLink)
 
 	// 小红书卡片
-	xiaohongshuCardCtrl := controller.NewXiaohongshuCardController(service.NewXiaohongshuCardService(db.GetDB()))
+	xiaohongshuCardCtrl := controller.NewXiaohongshuCardController(service.NewXiaohongshuCardService(gormDB))
 	auth.GET("/xiaohongshu-card/list", xiaohongshuCardCtrl.GetList)
 	auth.POST("/xiaohongshu-card", xiaohongshuCardCtrl.Create)
 	auth.PUT("/xiaohongshu-card/:id", xiaohongshuCardCtrl.Update)
@@ -58,7 +58,7 @@ func setupCardRoutes(auth *gin.RouterGroup) {
 	auth.POST("/xiaohongshu/:id/generate-short-link", xiaohongshuCardCtrl.GenerateShortLink)
 
 	// 闲鱼卡片
-	xianyuCardCtrl := controller.NewXianyuCardController(service.NewXianyuCardService(db.GetDB()), service.NewXianyuCardStatsService(db.GetDB()))
+	xianyuCardCtrl := controller.NewXianyuCardController(service.NewXianyuCardService(gormDB), service.NewXianyuCardStatsService(gormDB))
 	auth.GET("/xianyu-card/list", xianyuCardCtrl.GetList)
 	auth.POST("/xianyu-card", xianyuCardCtrl.Create)
 	auth.PUT("/xianyu-card/:id", xianyuCardCtrl.Update)
@@ -74,30 +74,30 @@ func setupCardRoutes(auth *gin.RouterGroup) {
 }
 
 // setupCardStatsRoutes 卡片统计路由
-func setupCardStatsRoutes(auth *gin.RouterGroup) {
+func setupCardStatsRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// 抖音统计
-	douyinStatsCtrl := controller.NewDouyinCardStatsController(service.NewDouyinCardStatsService(db.GetDB()))
+	douyinStatsCtrl := controller.NewDouyinCardStatsController(service.NewDouyinCardStatsService(gormDB))
 	auth.GET("/douyin-card/stats/:id", douyinStatsCtrl.GetCardStats)
 	auth.GET("/douyin-card/overall-stats", douyinStatsCtrl.GetOverallStats)
 	auth.GET("/douyin/stats/card/:id", douyinStatsCtrl.GetCardStats)
 	auth.GET("/douyin/stats/overall", douyinStatsCtrl.GetOverallStats)
 
 	// 快手统计
-	kuaishouStatsCtrl := controller.NewKuaishouCardStatsController(service.NewKuaishouCardStatsService(db.GetDB()))
+	kuaishouStatsCtrl := controller.NewKuaishouCardStatsController(service.NewKuaishouCardStatsService(gormDB))
 	auth.GET("/kuaishou-card/stats/:id", kuaishouStatsCtrl.GetCardStats)
 	auth.GET("/kuaishou-card/overall-stats", kuaishouStatsCtrl.GetOverallStats)
 	auth.GET("/kuaishou/stats/card/:id", kuaishouStatsCtrl.GetCardStats)
 	auth.GET("/kuaishou/stats/overall", kuaishouStatsCtrl.GetOverallStats)
 
 	// 小红书统计
-	xiaohongshuStatsCtrl := controller.NewXiaohongshuCardStatsController(service.NewXiaohongshuCardStatsService(db.GetDB()))
+	xiaohongshuStatsCtrl := controller.NewXiaohongshuCardStatsController(service.NewXiaohongshuCardStatsService(gormDB))
 	auth.GET("/xiaohongshu-card/stats/:id", xiaohongshuStatsCtrl.GetCardStats)
 	auth.GET("/xiaohongshu-card/overall-stats", xiaohongshuStatsCtrl.GetOverallStats)
 	auth.GET("/xiaohongshu/stats/card/:id", xiaohongshuStatsCtrl.GetCardStats)
 	auth.GET("/xiaohongshu/stats/overall", xiaohongshuStatsCtrl.GetOverallStats)
 
 	// 闲鱼统计
-	xianyuStatsCtrl := controller.NewXianyuCardStatsController(service.NewXianyuCardStatsService(db.GetDB()))
+	xianyuStatsCtrl := controller.NewXianyuCardStatsController(service.NewXianyuCardStatsService(gormDB))
 	auth.GET("/xianyu-card/stats/:id", xianyuStatsCtrl.GetCardStats)
 	auth.GET("/xianyu-card/overall-stats", xianyuStatsCtrl.GetOverallStats)
 	auth.GET("/xianyu/stats/card/:id", xianyuStatsCtrl.GetCardStats)
@@ -105,11 +105,11 @@ func setupCardStatsRoutes(auth *gin.RouterGroup) {
 
 	// LM-：统一平台路由（card_stats_factory）— 通过 :platform 路径参数选择 service
 	factory := controller.NewCardStatsFactoryController(
-		service.NewPlatformDouyinCardStatsAdapter(service.NewDouyinCardStatsService(db.GetDB())),
-		service.NewPlatformKuaishouCardStatsAdapter(service.NewKuaishouCardStatsService(db.GetDB())),
-		service.NewPlatformXiaohongshuCardStatsAdapter(service.NewXiaohongshuCardStatsService(db.GetDB())),
-		service.NewPlatformXianyuCardStatsAdapter(service.NewXianyuCardStatsService(db.GetDB())),
-		service.NewPlatformTiktokCardStatsAdapter(service.NewTikTokCardServiceWithDB(db.GetDB()), db.GetDB()),
+		service.NewPlatformDouyinCardStatsAdapter(service.NewDouyinCardStatsService(gormDB)),
+		service.NewPlatformKuaishouCardStatsAdapter(service.NewKuaishouCardStatsService(gormDB)),
+		service.NewPlatformXiaohongshuCardStatsAdapter(service.NewXiaohongshuCardStatsService(gormDB)),
+		service.NewPlatformXianyuCardStatsAdapter(service.NewXianyuCardStatsService(gormDB)),
+		service.NewPlatformTiktokCardStatsAdapter(service.NewTikTokCardServiceWithDB(gormDB), gormDB),
 	)
 	auth.GET("/card-stats/:platform/stats/:id", factory.GetCardStats)
 	auth.GET("/card-stats/:platform/overall", factory.GetOverallStats)

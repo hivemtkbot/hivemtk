@@ -7,15 +7,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/service"
 )
 
 // LLMRoutingController LLM 路由控制器
 type LLMRoutingController struct {
 	routingService *service.LLMRoutingService
-	failover       *llm.ProviderFailover // 注入熔断器供 Health/Stats 使用
+	failoverSvc    *service.LLMFailoverService // 注入熔断器中转服务供 Health/Stats 使用
 }
 
 // NewLLMRoutingController 创建 LLM 路由控制器
@@ -23,9 +22,9 @@ func NewLLMRoutingController(routingService *service.LLMRoutingService) *LLMRout
 	return &LLMRoutingController{routingService: routingService}
 }
 
-// SetFailover 注入熔断器（v3.7.0 补：Health 端点用于展示 circuit_open / last_error）
-func (c *LLMRoutingController) SetFailover(f *llm.ProviderFailover) {
-	c.failover = f
+// SetFailover 注入熔断器中转服务（v3.7.0 补：Health 端点用于展示 circuit_open / last_error）
+func (c *LLMRoutingController) SetFailover(f *service.LLMFailoverService) {
+	c.failoverSvc = f
 }
 
 // ============================================================================
@@ -201,13 +200,12 @@ func (c *LLMRoutingController) UpdateSceneRouting(ctx *gin.Context) {
 		return
 	}
 	// 兼容单 route 形式
-	var single llm.ScenarioRoute
+	var single service.LLMScenarioRoute
 	if err := ctx.ShouldBindJSON(&single); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid body: " + err.Error()})
 		return
 	}
-	batch := service.UpdateStrategiesRequest{Routes: []llm.ScenarioRoute{single}}
-	if err := c.routingService.UpdateStrategies(ctx.Request.Context(), batch); err != nil {
+	if err := c.routingService.UpdateSingleScenarioRoute(ctx.Request.Context(), single); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
@@ -351,9 +349,9 @@ func (c *LLMRoutingController) Health(ctx *gin.Context) {
 		circuitOpen := false
 		errorCount := 0
 		lastError := ""
-		if c.failover != nil {
-			circuitOpen = c.failover.IsCircuitOpen(m.Name)
-			health := c.failover.GetHealth(m.Name)
+		if c.failoverSvc != nil && c.failoverSvc.Ready() {
+			circuitOpen = c.failoverSvc.IsCircuitOpen(m.Name)
+			health := c.failoverSvc.GetHealth(m.Name)
 			if health != nil {
 				errorCount = health.ConsecutiveFailures
 				lastError = health.LastError

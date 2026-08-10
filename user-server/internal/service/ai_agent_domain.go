@@ -6,7 +6,7 @@ import (
 	"errors"
 	"strings"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // ============================================================================
@@ -104,7 +104,9 @@ func (s *AIAgentService) CreateAIAgent(ctx context.Context, req *AIAgentCreateDT
 		agent.Status = 1
 	}
 	if agent.LLMModel == "" {
-		agent.LLMModel = "gpt-4o-mini"
+		// 展示默认值：实际调用走 dispatcher 场景路由（llm_providers 表），
+		// 与本地推理栈实际模型保持一致（2026-08-10 切 MLX 栈 SmolLM3）
+		agent.LLMModel = "smollm3-3b-4bit-mlx"
 	}
 	if agent.Temperature == 0 {
 		agent.Temperature = 0.7

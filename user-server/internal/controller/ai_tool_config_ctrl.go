@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"marketing/internal/service"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

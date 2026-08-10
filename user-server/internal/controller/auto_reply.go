@@ -9,17 +9,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
-	"marketing/internal/aiagent/agent/browser"
-	knowledgesvc "marketing/internal/aiagent/knowledge/service"
-	"marketing/internal/pkg/utils/config"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/pkg/utils/pagination"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/pkg/utils/urlguard"
-	"marketing/internal/service"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/pagination"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/pkg/utils/urlguard"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -33,67 +30,15 @@ func getHeadlessDescription(headless bool) string {
 }
 
 type AutoReplyController struct {
-	svc      *service.AutoReplyService
-	manager  *browser.AutoReplyManager // 自动回复管理器
-	ragStack *knowledgesvc.RAGStack
+	svc *service.AutoReplyService
 }
 
-// AutoReplyManagerSingleton 单例管理器
-type AutoReplyManagerSingleton struct {
-	manager *browser.AutoReplyManager
-	once    sync.Once
-}
-
-var singleton *AutoReplyManagerSingleton
-
-// GetAutoReplyManager 返回单例的自动回复管理器实例
-func GetAutoReplyManager() *browser.AutoReplyManager {
-	if singleton == nil {
-		once := sync.Once{}
-		once.Do(func() {
-			if singleton == nil {
-				singleton = &AutoReplyManagerSingleton{}
-				singleton.init()
-			}
-		})
-	}
-	return singleton.GetManager()
-}
-
-// GetManager 获取管理器实例
-func (s *AutoReplyManagerSingleton) GetManager() *browser.AutoReplyManager {
-	if s.manager == nil {
-		s.once.Do(func() {
-			if s.manager == nil {
-				s.init()
-			}
-		})
-	}
-	return s.manager
-}
-
-// init 初始化管理器
-func (s *AutoReplyManagerSingleton) init() {
-	// 默认所有平台都使用无头模式
-	defaultHeadless := map[string]bool{
-		"douyin":      true,
-		"kuaishou":    true,
-		"xiaohongshu": true,
-		"xianyu":      true,
-	}
-	s.manager = browser.NewAutoReplyManager(defaultHeadless)
-}
-
-func NewAutoReplyController(svc *service.AutoReplyService, ragStack *knowledgesvc.RAGStack) *AutoReplyController {
+func NewAutoReplyController(svc *service.AutoReplyService) *AutoReplyController {
 	// svc 为 nil 时自动构造默认服务（测试场景：setupAutoReplyTestDB 已 SetTestDB）
 	if svc == nil {
 		svc = service.NewAutoReplyServiceAuto()
 	}
-	return &AutoReplyController{
-		svc:      svc,
-		manager:  GetAutoReplyManager(), // 使用单例管理器
-		ragStack: ragStack,
-	}
+	return &AutoReplyController{svc: svc}
 }
 
 type upsertAccountReq struct {
@@ -492,41 +437,8 @@ func (c *AutoReplyController) Start(ctx *gin.Context) {
 		platformHeadless = v
 	}
 
-	// 使用单例管理器并更新其设置
-	manager := GetAutoReplyManager()
-	for platform, headless := range headlessSettings {
-		manager.SetHeadless(platform, headless)
-	}
-	c.manager = manager
-
-	// 使用管理器创建机器人实例
-	platform := browser.Platform(req.Platform)
-	if err := c.manager.StartBot(platform, accUsername, accID, accCookie); err != nil {
-		response.ErrorFromDB(ctx, err, fmt.Sprintf("创建机器人失败: %v", err))
-		return
-	}
-
-	// 获取机器人实例并启动
-	bot, err := c.manager.GetBot(platform)
-	if err != nil {
-		response.ErrorFromDB(ctx, err, fmt.Sprintf("获取机器人实例失败: %v", err))
-		return
-	}
-
-	dedup := browser.NewInMemoryDedup(5 * time.Minute)
-	bot.SetDedup(dedup)
-
-	replyService := service.NewAutoReplyServiceAuto()
-
-	bot.SetReplyHandler(browser.NewIntegrationReplyHandler(
-		c.ragStack.Integration,
-		c.ragStack.Customer,
-		c.ragStack.Retrieval,
-		replyService,
-	))
-
-	// 启动机器人，传入规则匹配器和用户ID
-	if err := bot.Start(replyService, userID); err != nil {
+	// 启动编排下沉 service：同步无头设置 → 创建 bot → 装配 RAG 回复 handler → 启动
+	if err := c.svc.StartPlatformBot(req.Platform, accUsername, accID, userID, accCookie, headlessSettings); err != nil {
 		response.ErrorFromDB(ctx, err, fmt.Sprintf("启动机器人失败: %v", err))
 		return
 	}
@@ -549,8 +461,8 @@ func (c *AutoReplyController) Stop(ctx *gin.Context) {
 		return
 	}
 
-	platform := browser.Platform(req.Platform)
-	if err := c.manager.StopBot(platform); err != nil {
+	platform := req.Platform
+	if err := service.GetAutoReplyBotManager().StopBot(platform); err != nil {
 		response.ErrorFromDB(ctx, err, fmt.Sprintf("停止机器人失败: %v", err))
 		return
 	}
@@ -630,16 +542,14 @@ func (c *AutoReplyController) SetHeadlessMode(ctx *gin.Context) {
 		response.ErrorFromDB(ctx, err, "读取无头模式设置失败")
 		return
 	}
-	manager := GetAutoReplyManager()
+	manager := service.GetAutoReplyBotManager()
 	headlessSettings := map[string]bool{
 		"douyin":      settings.Douyin,
 		"kuaishou":    settings.Kuaishou,
 		"xiaohongshu": settings.Xiaohongshu,
 		"xianyu":      settings.Xianyu,
 	}
-	for platform, headless := range headlessSettings {
-		manager.SetHeadless(platform, headless)
-	}
+	manager.SyncHeadless(headlessSettings)
 
 	response.Success(ctx, gin.H{
 		"platform": req.Platform,
@@ -674,40 +584,19 @@ func (c *AutoReplyController) TestBrowser(ctx *gin.Context) {
 		return
 	}
 
-	// 创建临时浏览器实例进行测试
-	opts := browser.Options{
-		Headless: req.Headless,
-	}
-
-	assistant, err := browser.NewAssistant(opts)
+	// 创建临时浏览器实例进行测试（编排下沉 service facade）
+	title, screenshotOK, err := service.GetAutoReplyBotManager().TestBrowserNavigation(req.URL, req.Headless)
 	if err != nil {
-		response.ErrorFromDB(ctx, err, fmt.Sprintf("创建浏览器失败: %v", err))
+		response.ErrorFromDB(ctx, err, fmt.Sprintf("浏览器测试失败: %v", err))
 		return
 	}
-	defer assistant.Close()
-
-	// 测试导航
-	if err := assistant.Navigate(req.URL); err != nil {
-		response.ErrorFromDB(ctx, err, fmt.Sprintf("导航失败: %v", err))
-		return
-	}
-
-	// 获取页面标题
-	title, err := assistant.Evaluate("document.title")
-	if err != nil {
-		response.ErrorFromDB(ctx, err, fmt.Sprintf("获取标题失败: %v", err))
-		return
-	}
-
-	// 获取页面截图（可选）
-	_, screenshotErr := assistant.Screenshot("body")
 
 	response.Success(ctx, gin.H{
 		"message":    "浏览器测试成功",
 		"url":        req.URL,
 		"title":      title,
 		"headless":   req.Headless,
-		"screenshot": screenshotErr == nil,
+		"screenshot": screenshotOK,
 	}, "浏览器测试成功")
 }
 

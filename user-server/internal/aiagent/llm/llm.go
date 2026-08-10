@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/pkg/utils/config"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // LLMConfig LLM配置
@@ -171,11 +171,11 @@ type chatResponse struct {
 	Choices []struct {
 		Index   int `json:"index"`
 		Message struct {
-			Role             string         `json:"role"`
-			Content          string         `json:"content"`
-			ReasoningContent string         `json:"reasoning,omitempty"`      // 推理模型（如 sensenova-6.7-flash-lite）的链式思考
-			ReasoningContent2 string        `json:"reasoning_content,omitempty"` // DeepSeek-R1 等用此键
-			ToolCalls        []chatToolCall `json:"tool_calls,omitempty"` // 解析 LLM 返回的 tool_calls
+			Role              string         `json:"role"`
+			Content           string         `json:"content"`
+			ReasoningContent  string         `json:"reasoning,omitempty"`         // 推理模型（如 sensenova-6.7-flash-lite）的链式思考
+			ReasoningContent2 string         `json:"reasoning_content,omitempty"` // DeepSeek-R1 等用此键
+			ToolCalls         []chatToolCall `json:"tool_calls,omitempty"`        // 解析 LLM 返回的 tool_calls
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"` // "stop"/"length"/"tool_calls"/"content_filter"
 	} `json:"choices"`
@@ -257,6 +257,7 @@ func (s *LLMService) Generate(ctx context.Context, config *LLMConfig, prompt str
 // 工具构造规则：
 //   - config.Tools 非空时，序列化为 OpenAI tools 数组并设置 tool_choice。
 //   - tool_choice 默认 "auto"；支持 "auto"/"none"/"required" 或 {"type":"function","function":{"name":"xxx"}}。
+//
 // sanitizeToolName 将工具函数名转为 OpenAI/DeepSeek 兼容格式（仅允许 [a-zA-Z0-9_-]）。
 // 本地 llama-server 对函数名较宽松，但云端 DeepSeek 严格校验正则 ^[a-zA-Z0-9_-]+$，
 // 本项目工具名含点号（如 knowledge.search）会被 400 拒绝。此处统一合规化，并在响应时还原。

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/cache"
+	"hivemtk-user/internal/cache"
 )
 
 // TestRedisBackedCacheSearchResultRoundTrip 验证适配器通过 JSON 信封保留具体 Go 类型，

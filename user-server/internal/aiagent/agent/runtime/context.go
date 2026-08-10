@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ============================================================================
@@ -50,18 +50,18 @@ func (r ToolResult) ToJSON() string {
 
 // Message 消息类型
 type Message struct {
-	Role       string         `json:"role"`       // user/assistant/system/tool
-	Content    string         `json:"content"`    // 消息内容
-	ToolCalls  []ToolCall     `json:"tool_calls,omitempty"`  // 工具调用
-	ToolResult *ToolResult    `json:"tool_result,omitempty"` // 工具结果
-	Timestamp  time.Time      `json:"timestamp"`
+	Role       string      `json:"role"`                  // user/assistant/system/tool
+	Content    string      `json:"content"`               // 消息内容
+	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`  // 工具调用
+	ToolResult *ToolResult `json:"tool_result,omitempty"` // 工具结果
+	Timestamp  time.Time   `json:"timestamp"`
 }
 
 // ToolCall 工具调用
 type ToolCall struct {
-	ID       string         `json:"id"`
-	Name     string         `json:"name"`
-	Args     map[string]any `json:"args"`
+	ID   string         `json:"id"`
+	Name string         `json:"name"`
+	Args map[string]any `json:"args"`
 }
 
 // ContextCompressor 上下文压缩器接口
@@ -277,7 +277,7 @@ type ToolCallRecord struct {
 
 // ToolCallHistory 工具调用历史
 type ToolCallHistory struct {
-	Calls   []ToolCallRecord    `json:"calls"`
+	Calls   []ToolCallRecord      `json:"calls"`
 	Results map[string]ToolResult `json:"results"`
 	mu      sync.RWMutex
 }
@@ -399,18 +399,18 @@ func (h *ToolCallHistory) Count() int {
 // EnhancedInferenceContext 增强的推理上下文
 type EnhancedInferenceContext struct {
 	*InferenceContext
-	ToolHistory  *ToolCallHistory   `json:"tool_history"`
-	Compressor   ContextCompressor  `json:"-"`
-	MaxTokens    int                `json:"max_tokens"`
+	ToolHistory *ToolCallHistory  `json:"tool_history"`
+	Compressor  ContextCompressor `json:"-"`
+	MaxTokens   int               `json:"max_tokens"`
 }
 
 // NewEnhancedInferenceContext 创建增强的推理上下文
 func NewEnhancedInferenceContext(ic *InferenceContext, compressor ContextCompressor, maxTokens int) *EnhancedInferenceContext {
 	return &EnhancedInferenceContext{
 		InferenceContext: ic,
-		ToolHistory:     NewToolCallHistory(),
-		Compressor:      compressor,
-		MaxTokens:       maxTokens,
+		ToolHistory:      NewToolCallHistory(),
+		Compressor:       compressor,
+		MaxTokens:        maxTokens,
 	}
 }
 

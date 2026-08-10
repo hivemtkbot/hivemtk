@@ -52,7 +52,7 @@ echo "[1/10] Controller 反向依赖检查..."
 # 允许例外: *_test.go 文件可以 import repository 用于测试构造(Go 标准模式)
 CONTROLLER_NON_TEST_FILES=$(find "$TARGET/internal/controller" -name "*.go" ! -name "*_test.go" 2>/dev/null)
 if [ -n "$CONTROLLER_NON_TEST_FILES" ]; then
-  if grep -rn "marketing/internal/repository\|marketing/internal/repo" $CONTROLLER_NON_TEST_FILES 2>/dev/null; then
+  if grep -rn "hivemtk-user/internal/repository\|hivemtk-user/internal/repo" $CONTROLLER_NON_TEST_FILES 2>/dev/null; then
     log_fail "[L3] controller 直接引用 repository,违反分层(_test.go 文件例外)"
   else
     log_pass "[L3] controller 未直接引用 repository"
@@ -99,7 +99,7 @@ echo ""
 echo "[2/10] Service 反向依赖检查..."
 
 # 2.1 service 不应调 controller / router
-if grep -rn "marketing/internal/controller\|marketing/internal/router" "$TARGET/internal/service/" 2>/dev/null; then
+if grep -rn "hivemtk-user/internal/controller\|hivemtk-user/internal/router" "$TARGET/internal/service/" 2>/dev/null; then
   log_fail "[L4] service 引用 controller/router,违反分层"
 else
   log_pass "[L4] service 未引用 controller/router"
@@ -141,14 +141,14 @@ echo ""
 echo "[3/10] Repository 反向依赖检查..."
 
 # 3.1 repository 不应调 service
-if grep -rn "marketing/internal/service" "$TARGET/internal/repository/" 2>/dev/null; then
+if grep -rn "hivemtk-user/internal/service" "$TARGET/internal/repository/" 2>/dev/null; then
   log_fail "[L5] repository 引用 service,违反分层"
 else
   log_pass "[L5] repository 未引用 service"
 fi
 
 # 3.2 repository 不应返回 dto
-if grep -rn "marketing/internal/dto" "$TARGET/internal/repository/" 2>/dev/null; then
+if grep -rn "hivemtk-user/internal/dto" "$TARGET/internal/repository/" 2>/dev/null; then
   log_fail "[L5] repository 引用 dto,应只返回 model"
 else
   log_pass "[L5] repository 未引用 dto"
@@ -182,7 +182,7 @@ echo ""
 echo "[5/10] DTO 反向依赖检查..."
 
 # 5.1 dto 不应引用 service / repository
-if grep -rn "marketing/internal/service\|marketing/internal/repository\|marketing/internal/repo" "$TARGET/internal/dto/" 2>/dev/null; then
+if grep -rn "hivemtk-user/internal/service\|hivemtk-user/internal/repository\|hivemtk-user/internal/repo" "$TARGET/internal/dto/" 2>/dev/null; then
   log_fail "[DTO] dto 引用 service/repository,违反分层"
 else
   log_pass "[DTO] dto 未引用 service/repository"

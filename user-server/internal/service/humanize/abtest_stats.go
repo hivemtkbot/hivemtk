@@ -22,7 +22,7 @@ import (
 	"sort"
 	"time"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // ============================================================================

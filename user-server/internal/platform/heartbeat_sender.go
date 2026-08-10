@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/system/install"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/system/install"
 )
 
 // heartbeatInterval 心跳上报周期（开源版：每 3 分钟上报一次，best-effort）。

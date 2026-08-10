@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/aiagent/rag/retrieval"
-	"marketing/internal/cache"
-	"marketing/internal/pkg/tracing"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/aiagent/rag/retrieval"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/tracing"
+	"hivemtk-user/internal/pkg/utils/logger"
 
 	"gorm.io/gorm"
 )

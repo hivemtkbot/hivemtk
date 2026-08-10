@@ -4,34 +4,6 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-
-	knowledgemodel "marketing/internal/aiagent/knowledge/model"
-)
-
-// LLMProviderConfig 引用 knowledge 包类型(避免循环依赖)
-type LLMProviderConfig = knowledgemodel.LLMProviderConfig
-
-// 引用 knowledge 包的状态/来源类型
-type (
-	EmbedStatus = knowledgemodel.EmbedStatus
-	SourceType  = knowledgemodel.SourceType
-)
-
-// 引用 knowledge 包的常量
-const (
-	SourceTypeOpenAPI = knowledgemodel.SourceTypeOpenAPI
-	SourceTypeUpload  = knowledgemodel.SourceTypeUpload
-	SourceTypeText    = knowledgemodel.SourceTypeText
-	SourceTypeURL     = knowledgemodel.SourceTypeURL
-	SourceTypeBatch   = knowledgemodel.SourceTypeBatch
-)
-
-// 引用 knowledge 包的 embed status 常量
-const (
-	EmbedStatusPending    = knowledgemodel.EmbedStatusPending
-	EmbedStatusProcessing = knowledgemodel.EmbedStatusProcessing
-	EmbedStatusIndexed    = knowledgemodel.EmbedStatusIndexed
-	EmbedStatusFailed     = knowledgemodel.EmbedStatusFailed
 )
 
 // ============================================================================
@@ -113,7 +85,7 @@ type AIAgent struct {
 	AssetBundleID string `gorm:"type:varchar(128);column:asset_bundle_id;default:''" json:"asset_bundle_id"`
 
 	// LLM 配置
-	LLMModel          string            `gorm:"type:varchar(100);default:'gpt-4o-mini'" json:"llm_model"`
+	LLMModel          string            `gorm:"type:varchar(100);default:'smollm3-3b-4bit-mlx'" json:"llm_model"`
 	LLMProviderConfig LLMProviderConfig `gorm:"embedded;embeddedPrefix:llm_" json:"llm_provider_config"`
 	Temperature       float64           `gorm:"default:0.7" json:"temperature"`
 	MaxTokens         int               `gorm:"default:800" json:"max_tokens"`

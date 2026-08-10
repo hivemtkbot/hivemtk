@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -22,10 +22,10 @@ func TestReachAlertHook_InvokedOnFire(t *testing.T) {
 	})
 
 	svc.fireAlert(context.Background(), &model.ReachJob{
-		ID:          1,
-		Channel:     "telegram",
-		AccountID:   "acc1",
-		CustomerID:  "user1",
+		ID:         1,
+		Channel:    "telegram",
+		AccountID:  "acc1",
+		CustomerID: "user1",
 	}, "failed", "boom")
 
 	assert.True(t, called, "告警钩子应在 fireAlert 时被调用")

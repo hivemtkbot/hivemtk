@@ -22,13 +22,13 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/knowledge/model"
-	knowledgerepo "marketing/internal/aiagent/knowledge/repository"
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/aiagent/rag/core"
-	"marketing/internal/etl"
-	"marketing/internal/event"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/knowledge/model"
+	knowledgerepo "hivemtk-user/internal/aiagent/knowledge/repository"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/aiagent/rag/core"
+	"hivemtk-user/internal/etl"
+	"hivemtk-user/internal/event"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ============================================================================

@@ -2,10 +2,10 @@ package repository
 
 import (
 	"context"
-	"marketing/internal/model"
-	_type "marketing/internal/pkg/utils/type"
+	"hivemtk-user/internal/model"
+	_type "hivemtk-user/internal/pkg/utils/type"
 
-	_db "marketing/internal/pkg/utils/db"
+	_db "hivemtk-user/internal/pkg/db"
 
 	"gorm.io/gorm"
 )

@@ -2,7 +2,7 @@ package migrations
 
 import (
 	"context"
-	"marketing/internal/migration"
+	"hivemtk-user/internal/migration"
 
 	"gorm.io/gorm"
 )
@@ -16,7 +16,7 @@ import (
 //   - 心跳超时的死锁可被其他进程抢占，避免僵尸锁
 //
 // 字段：
-//   - polling_owner VARCHAR(100) DEFAULT ''：当前持有 polling 的 worker 标识（hostname:pid）
+//   - polling_owner VARCHAR(100) DEFAULT ”：当前持有 polling 的 worker 标识（hostname:pid）
 //   - polling_heartbeat_at TIMESTAMP：worker 最近一次心跳时间
 type TelegramPollingLockMigration struct {
 	db *gorm.DB

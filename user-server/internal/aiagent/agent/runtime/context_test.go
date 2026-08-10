@@ -30,8 +30,8 @@ func TestSimpleTokenEstimator_Estimate(t *testing.T) {
 	}{
 		{"空文本", "", 0},
 		{"中文", "你好世界", 8},
-		{"英文", "hello world", 2},  // 1个单词约1.3个token，向下取整
-		{"混合", "你好world", 5},  // 2个中文字符(4) + 1个单词(1.3≈1)
+		{"英文", "hello world", 2}, // 1个单词约1.3个token，向下取整
+		{"混合", "你好world", 5},     // 2个中文字符(4) + 1个单词(1.3≈1)
 	}
 
 	for _, tt := range tests {

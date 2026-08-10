@@ -3,12 +3,13 @@ package repository
 import (
 	"context"
 	"encoding/json"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 	"testing"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // testTagSetRule 测试辅助：设置标签规则（替代已迁出的 model.CustomerTag.SetRule）

@@ -26,8 +26,8 @@ import (
 	"fmt"
 	"time"
 
-	"marketing/internal/pkg/featureflag"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/featureflag"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // FallbackLevel 降级级别

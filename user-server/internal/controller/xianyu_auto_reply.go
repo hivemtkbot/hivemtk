@@ -2,13 +2,9 @@ package controller
 
 import (
 	"context"
-	"marketing/internal/aiagent/agent/browser"
-	knowledgesvc "marketing/internal/aiagent/knowledge/service"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/pkg/utils/pagination"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/pagination"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,38 +13,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ragStack 由 router 在启动时通过 SetRAGStack 注入；为 nil 时（如测试场景）
-// 调用方应避免触发依赖 RAGStack 的 Start 流程。
-var ragStack *knowledgesvc.RAGStack
-
-// SetRAGStack 注入全局 RAGStack 实例（由 router 调用，避免 controller 直连 db）
-func SetRAGStack(s *knowledgesvc.RAGStack) {
-	ragStack = s
-}
-
-// getRAGStack 返回 router 注入的 RAGStack 实例
-func getRAGStack() *knowledgesvc.RAGStack {
-	return ragStack
-}
-
 type XianyuAutoReplyController struct {
-	svc      *service.XianyuAutoReplyService
-	manager  *browser.AutoReplyManager
-	infra    *browser.AutoReplyInfra
-	ragStack *knowledgesvc.RAGStack
+	svc *service.XianyuAutoReplyService
 }
 
-func NewXianyuAutoReplyController(svc *service.XianyuAutoReplyService, ragStack *knowledgesvc.RAGStack) *XianyuAutoReplyController {
+func NewXianyuAutoReplyController(svc *service.XianyuAutoReplyService) *XianyuAutoReplyController {
 	// 测试场景下 svc 为 nil 时自动构造默认服务（依赖全局 DB，由 SetTestDB 设置）
 	if svc == nil {
 		svc = service.NewXianyuAutoReplyService(nil)
 	}
-	return &XianyuAutoReplyController{
-		svc:      svc,
-		manager:  GetAutoReplyManager(),
-		infra:    browser.GetAutoReplyInfra(),
-		ragStack: ragStack,
-	}
+	return &XianyuAutoReplyController{svc: svc}
 }
 
 type xianyuUpsertAccountReq struct {
@@ -95,14 +69,16 @@ func (c *XianyuAutoReplyController) StartLogin(ctx *gin.Context) {
 	}
 
 	now := time.Now()
-	item := &model.AutoReplyAccount{UserID: userID, Platform: "xianyu", Username: req.Username, IsActive: true, Headless: headless, LoginAt: &now}
-	if err := c.svc.UpsertAccount(context.Background(), item); err != nil {
+	accountID, err := c.svc.UpsertAccountDTO(context.Background(), service.XianyuAccountCreateReq{
+		UserID: userID, Username: req.Username, IsActive: true, Headless: headless, LoginAt: &now,
+	})
+	if err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
 	// 启动浏览器登录流程（后台异步）
-	c.svc.StartLoginBrowser(context.Background(), userID, req.Username, item.ID, headless)
-	response.Success(ctx, gin.H{"started": true, "accountId": item.ID, "headless": headless}, "ok")
+	c.svc.StartLoginBrowser(context.Background(), userID, req.Username, accountID, headless)
+	response.Success(ctx, gin.H{"started": true, "accountId": accountID, "headless": headless}, "ok")
 }
 
 // 查询登录状态：根据是否存在 Cookie 判定，并返回 Cookie（如已获取）
@@ -198,12 +174,14 @@ func (c *XianyuAutoReplyController) UpsertAccount(ctx *gin.Context) {
 		headless = *req.Headless
 	}
 
-	item := &model.AutoReplyAccount{UserID: userID, Platform: "xianyu", Username: req.Username, Cookie: req.Cookie, IsActive: true, Headless: headless, LoginAt: &loginAt}
-	if err := c.svc.UpsertAccount(context.Background(), item); err != nil {
+	accountID, err := c.svc.UpsertAccountDTO(context.Background(), service.XianyuAccountCreateReq{
+		UserID: userID, Username: req.Username, Cookie: req.Cookie, IsActive: true, Headless: headless, LoginAt: &loginAt,
+	})
+	if err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
-	response.Success(ctx, gin.H{"id": item.ID, "headless": headless}, "ok")
+	response.Success(ctx, gin.H{"id": accountID, "headless": headless}, "ok")
 }
 
 func (c *XianyuAutoReplyController) SaveCookies(ctx *gin.Context) {
@@ -294,7 +272,10 @@ func (c *XianyuAutoReplyController) SaveRule(ctx *gin.Context) {
 	if id, ok := userIDInterface.(uint); ok {
 		userID = id
 	}
-	err := c.svc.SaveRule(context.Background(), &model.AutoReplyRule{UserID: userID, Platform: "xianyu", Keywords: req.Keywords, ReplyContent: req.ReplyContent, Frequency: req.Frequency, DailyLimit: req.DailyLimit, IsActive: req.IsActive})
+	err := c.svc.SaveRuleDTO(context.Background(), service.XianyuRuleSaveReq{
+		UserID: userID, Keywords: req.Keywords, ReplyContent: req.ReplyContent,
+		Frequency: req.Frequency, DailyLimit: req.DailyLimit, IsActive: req.IsActive,
+	})
 	if err != nil {
 		HandleServiceError(ctx, err)
 		return
@@ -347,59 +328,25 @@ func (c *XianyuAutoReplyController) Start(ctx *gin.Context) {
 	}
 
 	account := accounts[0]
-	browserPlatform := browser.Platform(platform)
 
-	// 确定是否使用 WS 模式
-	useWS := account.WsMode
-	headless := account.Headless
-
-	c.manager.SetHeadless(platform, headless)
-
-	if err := c.manager.StartBot(browserPlatform, account.Username, account.ID, account.Cookie); err != nil {
-		HandleServiceError(ctx, err)
-		return
-	}
-
-	bot, err := c.manager.GetBot(browserPlatform)
+	// 启动编排下沉 service：装配 bot + RAG handler → WS 模式（失败降级轮询）
+	useWS, err := c.svc.StartXianyuBot(context.Background(), account, userID)
 	if err != nil {
 		HandleServiceError(ctx, err)
 		return
-	}
-
-	dedup := browser.NewInMemoryDedup(5 * time.Minute)
-	bot.SetDedup(dedup)
-	bot.SetReplyHandler(browser.NewIntegrationReplyHandler(
-		c.ragStack.Integration,
-		c.ragStack.Customer,
-		c.ragStack.Retrieval,
-		c.svc,
-	))
-
-	if useWS {
-		if err := c.svc.StartWSBot(context.Background(), bot, c.svc, userID, c.infra.RateLimiter, c.infra.SliderSolver); err != nil {
-			logger.Warnf("[闲鱼] WS 模式启动失败，降级为轮询: %v", err)
-			bot.Start(c.svc, userID)
-			useWS = false
-		} else {
-			// 记录 WS 连接成功时间（下沉到 service，controller 不直连 DB）
-			if err := c.svc.MarkWSConnected(context.Background(), account.ID); err != nil {
-				logger.Errorf("[闲鱼] 记录 WS 连接时间失败: %v", err)
-			}
-		}
 	}
 	response.Success(ctx, gin.H{
 		"started":    true,
 		"platform":   platform,
 		"account_id": account.ID,
-		"headless":   headless,
+		"headless":   account.Headless,
 		"ws_mode":    useWS,
 	}, "闲鱼机器人启动成功")
 }
 
 func (c *XianyuAutoReplyController) Stop(ctx *gin.Context) {
 	platform := "xianyu"
-	browserPlatform := browser.Platform(platform)
-	if err := c.manager.StopBot(browserPlatform); err != nil {
+	if err := service.GetAutoReplyBotManager().StopBot(platform); err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
@@ -424,17 +371,15 @@ func (c *XianyuAutoReplyController) extractUserID(ctx *gin.Context) uint {
 // Health 返回自动回复服务健康状态
 func (c *XianyuAutoReplyController) Health(ctx *gin.Context) {
 	platform := "xianyu"
-	bot, botErr := c.manager.GetBot(browser.Platform(platform))
+	mgr := service.GetAutoReplyBotManager()
+	botStatus := mgr.GetBotStatus(platform)
 	rateKey := "xianyu_" + platform
 
 	status := gin.H{
 		"platform":    platform,
-		"bot_running": botErr == nil && bot.IsRunning(),
-		"rate_limit":  c.infra.RateLimiter.Stats(rateKey),
-	}
-
-	if botErr == nil && bot != nil {
-		status["headless"] = bot.IsHeadless()
+		"bot_running": botStatus.Running,
+		"rate_limit":  mgr.RateLimitStats(rateKey),
+		"headless":    botStatus.Headless,
 	}
 
 	response.Success(ctx, status, "ok")

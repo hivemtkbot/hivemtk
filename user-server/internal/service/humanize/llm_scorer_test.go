@@ -15,11 +15,11 @@ package humanize
 import (
 	"context"
 	"errors"
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 	"math/rand"
 	"testing"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // ============================================================================

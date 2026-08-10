@@ -26,9 +26,9 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ===== 8 大意图类常量 =====

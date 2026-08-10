@@ -2,9 +2,8 @@ package middleware
 
 import (
 	"errors"
-	"marketing/internal/pkg/utils"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils"
+	"hivemtk-user/internal/pkg/utils/response"
 	"os"
 	"strings"
 	"testing"
@@ -24,12 +23,9 @@ func PermissionMiddleware(permission string) gin.HandlerFunc {
 			return
 		}
 
-		// 创建权限服务
-		permissionService := service.NewPermissionService()
-
 		// 检查权限（独立部署：role 直接用于权限判断）
-		hasPermission := permissionService.CheckPermission(c.Request.Context(), role.(string), permission)
-		if !hasPermission {
+		// PermChecker 由装配层注入；未注入时 fail-closed 拒绝访问
+		if !checkPermission(c, role.(string), permission) {
 			response.Error(c, utils.ErrorCodeForbidden, "无权限执行此操作")
 			c.Abort()
 			return
@@ -170,6 +166,16 @@ func ParseJWTToken(tokenString string) (map[string]any, error) {
 	return result, nil
 }
 
+// checkPermission 通过注入的 PermChecker 检查权限；未注入时 fail-closed（拒绝）
+func checkPermission(c *gin.Context, role, permission string) bool {
+	checker := getPermChecker()
+	if checker == nil {
+		warnPortMissing("PermChecker")
+		return false
+	}
+	return checker.CheckPermission(c.Request.Context(), role, permission)
+}
+
 // RequirePermission 快捷方法 - 检查特定权限
 func RequirePermission(permission string) gin.HandlerFunc {
 	return PermissionMiddleware(permission)
@@ -185,10 +191,8 @@ func RequireAnyPermission(permissions ...string) gin.HandlerFunc {
 			return
 		}
 
-		permissionService := service.NewPermissionService()
-
 		for _, p := range permissions {
-			if permissionService.CheckPermission(c.Request.Context(), role.(string), p) {
+			if checkPermission(c, role.(string), p) {
 				c.Next()
 				return
 			}
@@ -209,10 +213,8 @@ func RequireAllPermissions(permissions ...string) gin.HandlerFunc {
 			return
 		}
 
-		permissionService := service.NewPermissionService()
-
 		for _, p := range permissions {
-			if !permissionService.CheckPermission(c.Request.Context(), role.(string), p) {
+			if !checkPermission(c, role.(string), p) {
 				response.Error(c, utils.ErrorCodeForbidden, "无权限执行此操作")
 				c.Abort()
 				return

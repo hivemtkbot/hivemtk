@@ -21,7 +21,7 @@ import (
 	"time"
 	"unicode"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // ============================================================================

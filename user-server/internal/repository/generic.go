@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	_db "marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/logger"
+	_db "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"sync"
 
 	"gorm.io/gorm"

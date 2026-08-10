@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // ===== Sales Dashboard 集成测试 =====

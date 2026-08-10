@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	knowledgemodel "marketing/internal/aiagent/knowledge/model"
-	"marketing/internal/event"
-	"marketing/internal/pkg/testutil"
+	knowledgemodel "hivemtk-user/internal/aiagent/knowledge/model"
+	"hivemtk-user/internal/event"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // ============================================================================

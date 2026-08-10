@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 // CustomerRFMService 客户 RFM 服务

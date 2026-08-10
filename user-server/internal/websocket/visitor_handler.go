@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/pkg/utils/logger"
-	i18nservice "marketing/internal/service/i18n"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/service/translation"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -47,7 +47,7 @@ import (
 type VisitorWSHandler struct {
 	hub          *Hub
 	db           *gorm.DB
-	langResolver *i18nservice.LangConfigResolver
+	langResolver *translation.LangConfigResolver
 }
 
 // NewVisitorWSHandler 创建访客 WebSocket 处理器
@@ -57,7 +57,7 @@ func NewVisitorWSHandler(db *gorm.DB) *VisitorWSHandler {
 
 // SetLangResolver 注入多语言解析器（v1.2 出海方案）。
 // 未注入时仍可正常工作，ctx 中语言走默认 zh 兜底。
-func (h *VisitorWSHandler) SetLangResolver(r *i18nservice.LangConfigResolver) {
+func (h *VisitorWSHandler) SetLangResolver(r *translation.LangConfigResolver) {
 	h.langResolver = r
 }
 
@@ -146,6 +146,7 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 //   - 若 sinceSeq > 0：尝试按 seq 范围拉取（基于 GlobalPendingAck）
 //   - 否则：走原有 delivered_at IS NULL 兜底路径
 //   - 双轨制：seq 路径精确但有窗口期（seq 重启后归零）；delivered_at 兜底
+//
 // onConnect 推送建立连接后（或 resume 时）的离线/历史消息，统一处理注册与离线消息
 // 推送逻辑，避免 HandleVisitorWebSocket 与 resume 分支重复。采用单条 SQL 批量标记已送达，
 // 配合 delivered_at 避免重复推送同一批离线消息。如果会话从未离线（无离线消息），直接返回。

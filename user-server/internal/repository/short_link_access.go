@@ -2,9 +2,10 @@ package repository
 
 import (
 	"context"
-	"gorm.io/gorm"
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // ShortLinkAccessRepository 短链访问统计仓储接口

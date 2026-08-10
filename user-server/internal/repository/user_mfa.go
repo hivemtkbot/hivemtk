@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 
-	_db "marketing/internal/pkg/utils/db"
+	_db "hivemtk-user/internal/pkg/db"
 
 	"gorm.io/gorm"
 )

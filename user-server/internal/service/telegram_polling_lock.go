@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/repository"
+	"hivemtk-user/internal/repository"
 )
 
 // Polling 锁相关常量（service 层复用）

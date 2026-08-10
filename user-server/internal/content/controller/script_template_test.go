@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"testing"
 
-	"marketing/internal/content/model"
-	"marketing/internal/content/service"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/content/model"
+	"hivemtk-user/internal/content/service"
+	"hivemtk-user/internal/pkg/db"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 func setupScriptTestDB(t *testing.T) *gorm.DB {

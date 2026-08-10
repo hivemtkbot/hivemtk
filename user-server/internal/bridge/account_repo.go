@@ -8,7 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // ErrAccountOwnedByOther 归属冲突：该渠道账号已归属于其他用户，

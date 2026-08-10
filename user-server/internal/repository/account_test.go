@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/pkg/utils/db"
-	_type "marketing/internal/pkg/utils/type"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/testutil"
+	_type "hivemtk-user/internal/pkg/utils/type"
 
 	"gorm.io/gorm"
 )

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service/trace_learning"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service/trace_learning"
 
 	"github.com/gin-gonic/gin"
 )

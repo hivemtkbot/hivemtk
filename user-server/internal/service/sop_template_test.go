@@ -16,8 +16,8 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // TestSOPTemplate_Render_BasicVars 测试基本变量替换
@@ -217,16 +217,16 @@ func TestSOPTemplate_Render_OnlyWhitelistVars(t *testing.T) {
 	svc := &SOPTemplateService{}
 	tpl := "客户={{.customer_id}} 意图={{.intent}} 阶段={{.stage}} 坐席={{.agent_name}} 商品={{.product_name}} 意图名={{.intent_name}}"
 	vars := map[string]any{
-		"customer_id":   "c001",
-		"intent":        "logistics",
-		"stage":         "initial",
-		"agent_name":    "小薇",
-		"product_name":  "纸皮核桃",
-		"intent_name":   "物流查询",
-		"user_message":  "SHOULD_NOT_APPEAR",
-		"admin_secret":  "topsecret",
-		"jwt_token":     "ey...",
-		"db_password":   "p@ssw0rd",
+		"customer_id":  "c001",
+		"intent":       "logistics",
+		"stage":        "initial",
+		"agent_name":   "小薇",
+		"product_name": "纸皮核桃",
+		"intent_name":  "物流查询",
+		"user_message": "SHOULD_NOT_APPEAR",
+		"admin_secret": "topsecret",
+		"jwt_token":    "ey...",
+		"db_password":  "p@ssw0rd",
 	}
 	got, err := svc.Render(tpl, vars)
 	if err != nil {
@@ -277,7 +277,7 @@ type mockSOPRepoForTask16 struct {
 	// 按 agentID 维度的存储
 	byAgent map[uint][]model.SOPTemplate
 	// mock 错误注入
-	listByAgentErr error
+	listByAgentErr  error
 	matchByAgentErr error
 	// 记录调用, 便于断言
 	matchCalls []struct {

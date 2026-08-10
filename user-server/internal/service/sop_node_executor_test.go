@@ -14,8 +14,8 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
 )
 
 // ===== NodeExecutorRegistry 测试 =====

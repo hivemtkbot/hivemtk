@@ -10,8 +10,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/agent/portcontract"
-	"marketing/internal/service"
+	"hivemtk-user/internal/aiagent/agent/portcontract"
 )
 
 // business_tools.go 业务工具实现（PRD §5.2 G3）
@@ -21,23 +20,18 @@ import (
 //   2. follow_task.update - 更新跟进任务（完成/取消/重新安排，联动客户旅程推进）
 //
 // 工具层完整走 Port：
-//   - 跟进方法统一走 portcontract.FollowUpPort。
-//   - FollowUpService 字段作为旧装配入口的回退路径。
+//   - 跟进/订单/售后方法统一走 portcontract 各 Port。
+//   - P2-3：已移除直连 service 的回退路径，tooluse 不再 import service。
 
 // ===== 业务工具依赖 =====
 
 // BusinessToolDeps 业务工具依赖
 //
-// 方法统一走 portcontract.FollowUpPort。
-// FollowUpService 仅作为旧装配入口的回退路径，不推荐新代码使用。
+// 方法统一走 portcontract 各 Port；未注入的 Port 对应工具返回 "port not injected"。
 type BusinessToolDeps struct {
 	// FollowUp 跟进域 Port（推荐路径）。
 	// 由 service.FollowUpPortAdapter 注入；nil 时 follow_task.* 返回 "port not injected"。
 	FollowUp portcontract.FollowUpPort
-	// FollowUpService 直接服务引用（兼容旧路径回退）。
-	FollowUpService *service.FollowUpService
-	// JourneyService 客户旅程服务（保留字段以便旧装配回退）。
-	JourneyService *service.CustomerJourneyService
 	// Order 订单查询 Port（只读镜像，客服查单用）。nil 时 order.lookup 返回 "port not injected"。
 	Order portcontract.OrderPort
 	// AfterSale 售后 Port（客服侧唯一允许写订单的入口：发起退款/退货，回写电商）。
@@ -46,20 +40,15 @@ type BusinessToolDeps struct {
 	Logistics portcontract.LogisticsPort
 }
 
-// NewBusinessToolDeps 创建业务工具依赖（使用全局 DB，FollowUp port 暂不注入）
+// NewBusinessToolDeps 创建业务工具依赖（各 Port 均未注入，需装配层补齐）
 func NewBusinessToolDeps() BusinessToolDeps {
-	return BusinessToolDeps{
-		FollowUpService: service.NewFollowUpService(service.NewCustomerJourneyService()),
-		JourneyService:  service.NewCustomerJourneyService(),
-	}
+	return BusinessToolDeps{}
 }
 
-// NewBusinessToolDepsWithDB 创建业务工具依赖（带 DB，用于测试）
+// NewBusinessToolDepsWithDB 创建业务工具依赖（带 DB，用于测试；各 Port 需装配层注入）
 func NewBusinessToolDepsWithDB(gdb *gorm.DB) BusinessToolDeps {
-	return BusinessToolDeps{
-		FollowUpService: service.NewFollowUpService(service.NewCustomerJourneyService()),
-		JourneyService:  service.NewCustomerJourneyService(),
-	}
+	_ = gdb
+	return BusinessToolDeps{}
 }
 
 // NewBusinessToolDepsWithPorts 创建带 Port 注入的业务工具依赖（推荐）。
@@ -84,31 +73,19 @@ func NewBusinessToolDepsWithLogistics(followUp portcontract.FollowUpPort, order 
 	return d
 }
 
-// followUpOrFallback 返回 FollowUp Port 或回退到 FollowUpService
-func (d BusinessToolDeps) followUpOrFallback() portcontract.FollowUpPort {
-	if d.FollowUp != nil {
-		return d.FollowUp
-	}
-	if d.FollowUpService == nil {
-		return nil
-	}
-	return service.NewFollowUpPortAdapter(d.FollowUpService)
+// followUpPort 返回 FollowUp Port（未注入返回 nil，工具以 "port not injected" 应答）
+func (d BusinessToolDeps) followUpPort() portcontract.FollowUpPort {
+	return d.FollowUp
 }
 
-// orderOrFallback 返回 Order Port 或回退到默认适配器（基于全局 DB 的 ExternalOrderRepository）
-func (d BusinessToolDeps) orderOrFallback() portcontract.OrderPort {
-	if d.Order != nil {
-		return d.Order
-	}
-	return service.NewOrderPortAdapter(nil)
+// orderPort 返回 Order Port（未注入返回 nil）
+func (d BusinessToolDeps) orderPort() portcontract.OrderPort {
+	return d.Order
 }
 
-// afterSaleOrFallback 返回 AfterSale Port 或回退到默认适配器（基于全局 DB 的 AfterSaleRepository）
-func (d BusinessToolDeps) afterSaleOrFallback() portcontract.AfterSalePort {
-	if d.AfterSale != nil {
-		return d.AfterSale
-	}
-	return service.NewAfterSalePortAdapter(nil)
+// afterSalePort 返回 AfterSale Port（未注入返回 nil）
+func (d BusinessToolDeps) afterSalePort() portcontract.AfterSalePort {
+	return d.AfterSale
 }
 
 // logisticsOrFallback 返回 Logistics Port 或回退到 NoopLogisticsPort（保证工具可用）
@@ -295,14 +272,14 @@ func NewFollowTaskCreateTool(deps BusinessToolDeps) *FollowTaskCreateTool {
 
 // Execute 执行创建跟进任务
 //
-// 优先走 portcontract.FollowUpPort，FollowUpService 仅作回退。
+// 走 portcontract.FollowUpPort；未注入返回 "port not injected"。
 func (t *FollowTaskCreateTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"customer_id"}); err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
-	followUpPort := t.deps.followUpOrFallback()
+	followUpPort := t.deps.followUpPort()
 	if followUpPort == nil {
-		return ErrorResult(t.Name(), errors.New("follow_task.create 工具需要 FollowUpPort 或 FollowUpService 依赖")), errors.New("follow_task.create 工具需要 FollowUpPort 或 FollowUpService 依赖")
+		return ErrorResult(t.Name(), errors.New("follow_task.create 工具需要 FollowUpPort 依赖（未装配）")), errors.New("follow_task.create 工具需要 FollowUpPort 依赖（未装配）")
 	}
 
 	customerID := getArgString(args, "customer_id")
@@ -399,14 +376,14 @@ func NewFollowTaskUpdateTool(deps BusinessToolDeps) *FollowTaskUpdateTool {
 
 // Execute 执行更新跟进任务
 //
-// 优先走 portcontract.FollowUpPort，FollowUpService 仅作回退。
+// 走 portcontract.FollowUpPort；未注入返回 "port not injected"。
 func (t *FollowTaskUpdateTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"reminder_id", "action"}); err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
-	followUpPort := t.deps.followUpOrFallback()
+	followUpPort := t.deps.followUpPort()
 	if followUpPort == nil {
-		return ErrorResult(t.Name(), errors.New("follow_task.update 工具需要 FollowUpPort 或 FollowUpService 依赖")), errors.New("follow_task.update 工具需要 FollowUpPort 或 FollowUpService 依赖")
+		return ErrorResult(t.Name(), errors.New("follow_task.update 工具需要 FollowUpPort 依赖（未装配）")), errors.New("follow_task.update 工具需要 FollowUpPort 依赖（未装配）")
 	}
 
 	reminderID := getArgString(args, "reminder_id")
@@ -496,7 +473,7 @@ func NewOrderLookupTool(deps BusinessToolDeps) *OrderLookupTool {
 
 // Execute 执行订单查询
 func (t *OrderLookupTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
-	orderPort := t.deps.orderOrFallback()
+	orderPort := t.deps.orderPort()
 	if orderPort == nil {
 		return ErrorResult(t.Name(), errors.New("order.lookup 工具需要 OrderPort 依赖")), errors.New("order.lookup 工具需要 OrderPort 依赖")
 	}
@@ -578,7 +555,7 @@ func (t *AfterSaleCreateTool) Execute(ctx context.Context, args map[string]any) 
 	if err := ValidateRequired(args, []string{"order_id"}); err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
-	afterSalePort := t.deps.afterSaleOrFallback()
+	afterSalePort := t.deps.afterSalePort()
 	if afterSalePort == nil {
 		return ErrorResult(t.Name(), errors.New("aftersale.create 工具需要 AfterSalePort 依赖")), errors.New("aftersale.create 工具需要 AfterSalePort 依赖")
 	}
@@ -642,7 +619,7 @@ func NewAfterSaleQueryTool(deps BusinessToolDeps) *AfterSaleQueryTool {
 
 // Execute 执行查询售后
 func (t *AfterSaleQueryTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
-	afterSalePort := t.deps.afterSaleOrFallback()
+	afterSalePort := t.deps.afterSalePort()
 	if afterSalePort == nil {
 		return ErrorResult(t.Name(), errors.New("aftersale.query 工具需要 AfterSalePort 依赖")), errors.New("aftersale.query 工具需要 AfterSalePort 依赖")
 	}

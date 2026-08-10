@@ -21,8 +21,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // Calibrator 置信度校准器

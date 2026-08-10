@@ -15,8 +15,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 )
 
 // HumanizeLowQualitySampleCollector 低质样本收集器

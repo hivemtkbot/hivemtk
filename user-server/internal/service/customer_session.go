@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
-	"marketing/internal/websocket"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/websocket"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -102,18 +102,18 @@ func NewCustomerSessionServiceWithDB(db *gorm.DB) *CustomerSessionService {
 
 // CreateSessionRequest 创建会话请求
 type CreateSessionRequest struct {
-	Platform   model.Platform `json:"platform" binding:"required"`
-	AccountID  string         `json:"account_id" binding:"required"`
-	UserID     string         `json:"user_id" binding:"required"`
+	Platform  model.Platform `json:"platform" binding:"required"`
+	AccountID string         `json:"account_id" binding:"required"`
+	UserID    string         `json:"user_id" binding:"required"`
 	// OneID 客户 OneID（S3-1 跨渠道合并辅助键）
 	//
 	// 用途：网页 / 移动端 / 第三方渠道（TG/WhatsApp）间共享同一客户身份，
 	// 避免跨渠道 user_id 不同导致每次冷启动。
-	OneID      string         `json:"one_id"`
-	UserName   string         `json:"user_name"`
-	UserAvatar string         `json:"user_avatar"`
-	UserPhone  string         `json:"user_phone"`
-	UserEmail  string         `json:"user_email"`
+	OneID      string `json:"one_id"`
+	UserName   string `json:"user_name"`
+	UserAvatar string `json:"user_avatar"`
+	UserPhone  string `json:"user_phone"`
+	UserEmail  string `json:"user_email"`
 }
 
 // CreateSession 创建会话

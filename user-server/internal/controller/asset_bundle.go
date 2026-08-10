@@ -16,11 +16,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 )
 
 // AssetBundleController 资产包 HTTP 控制器
@@ -98,11 +98,11 @@ func (c *AssetBundleController) Create(ctx *gin.Context) {
 		Description: req.Description,
 		Author:      req.Author,
 		Version:     req.Version,
-		Scope:       req.Scope,
+		Scope:       model.AssetBundleScope(req.Scope),
 		Industry:    req.Industry,
 		Language:    req.Language,
 		Tags:        req.Tags,
-		Messages:    req.Messages,
+		Messages:    service.AssetBundleMessagesFromDTO(req.Messages),
 	}
 	if err := c.svc.CreateBundle(ctx.Request.Context(), bundle); err != nil {
 		logger.Errorf("[asset-bundle] create failed: %v", err)
@@ -130,12 +130,12 @@ func (c *AssetBundleController) Update(ctx *gin.Context) {
 		Description: req.Description,
 		Author:      req.Author,
 		Version:     req.Version,
-		Scope:       req.Scope,
+		Scope:       model.AssetBundleScope(req.Scope),
 		Industry:    req.Industry,
 		Language:    req.Language,
 		Tags:        req.Tags,
-		Messages:    req.Messages,
-		Status:      req.Status,
+		Messages:    service.AssetBundleMessagesFromDTO(req.Messages),
+		Status:      model.AssetBundleStatus(req.Status),
 	}
 	if err := c.svc.UpdateBundle(ctx.Request.Context(), bundle); err != nil {
 		logger.Errorf("[asset-bundle] update failed: %v", err)
@@ -183,13 +183,13 @@ func (c *AssetBundleController) List(ctx *gin.Context) {
 		}
 	}
 	list, total, err := c.svc.ListBundlesWithParams(ctx.Request.Context(),
-		req.Keyword, req.Author, req.Industry, req.Language, string(req.Scope), assetBundleStatusToInt(req.Status), strings.Join(req.Tags, ","), req.Page, req.Size)
+		req.Keyword, req.Author, req.Industry, req.Language, req.Scope, assetBundleStatusToInt(model.AssetBundleStatus(req.Status)), strings.Join(req.Tags, ","), req.Page, req.Size)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, dto.AssetBundleListResponse{
-		List: list, Total: total, Page: req.Page, Size: req.Size,
+		List: service.FromAssetBundleModelList(list), Total: total, Page: req.Page, Size: req.Size,
 	}, "ok")
 }
 
@@ -286,7 +286,7 @@ func (c *AssetBundleController) Weave(ctx *gin.Context) {
 	// DTO → Service 层 WeaveInput 转换
 	in := service.WeaveInput{
 		UserQuery:    req.UserQuery,
-		ChatHistory:  req.ChatHistory,
+		ChatHistory:  service.AssetBundleMessagesFromDTO(req.ChatHistory),
 		MerchantVars: req.MerchantVars,
 		Sandbox:      req.Sandbox,
 	}
@@ -319,7 +319,7 @@ func (c *AssetBundleController) Weave(ctx *gin.Context) {
 		stats.RAGMessages = 1
 	}
 	response.Success(ctx, dto.WeaveResponse{
-		Messages:     msgs,
+		Messages:     service.AssetBundleMessagesToDTO(msgs),
 		ResultLength: len(msgs),
 		Stats:        stats,
 	}, "ok")

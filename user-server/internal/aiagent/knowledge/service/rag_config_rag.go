@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"marketing/internal/aiagent/llm"
-	rag_core "marketing/internal/aiagent/rag/core"
-	ragretrieval "marketing/internal/aiagent/rag/retrieval"
-	rag_service "marketing/internal/aiagent/rag/service"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/llm"
+	rag_core "hivemtk-user/internal/aiagent/rag/core"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
+	rag_service "hivemtk-user/internal/aiagent/rag/service"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"strconv"
 )
 

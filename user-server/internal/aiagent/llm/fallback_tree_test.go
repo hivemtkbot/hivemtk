@@ -17,7 +17,7 @@ import (
 	"os"
 	"testing"
 
-	"marketing/internal/pkg/featureflag"
+	"hivemtk-user/internal/pkg/featureflag"
 )
 
 // withFallbackChainFlag 临时设置 FF_FALLBACK_CHAIN, 测试结束恢复

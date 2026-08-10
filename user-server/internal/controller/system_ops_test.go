@@ -9,13 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/pkg/testutil"
-	dbutil "marketing/internal/pkg/utils/db"
+	dbutil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 func setupSystemOpsRouter(ctrl *SystemOpsController) *gin.Engine {

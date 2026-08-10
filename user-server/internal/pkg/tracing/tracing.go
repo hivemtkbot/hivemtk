@@ -10,10 +10,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/trace"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/trace"
+	"hivemtk-user/internal/pkg/utils/logger"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

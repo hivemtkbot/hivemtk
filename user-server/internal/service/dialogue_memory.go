@@ -10,10 +10,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // DialogueMemoryService 对话记忆服务（短期+长期）
@@ -25,8 +25,8 @@ type DialogueMemoryService struct {
 }
 
 const (
-	shortTermWindow    = 10    // 短期记忆保留最近 10 轮（硬上限，经验证的注入锚点，保持不变）
-	shortTermMsgMaxLen = 1500  // 单条历史消息注入 prompt 前的硬截断，防止异常长消息撑爆上下文
+	shortTermWindow    = 10   // 短期记忆保留最近 10 轮（硬上限，经验证的注入锚点，保持不变）
+	shortTermMsgMaxLen = 1500 // 单条历史消息注入 prompt 前的硬截断，防止异常长消息撑爆上下文
 	memoryTTL          = 30 * 24 * time.Hour
 )
 

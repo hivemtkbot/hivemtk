@@ -16,8 +16,9 @@ import (
 	"fmt"
 	"time"
 
+	"hivemtk-user/internal/model"
+
 	"gorm.io/gorm"
-	"marketing/internal/model"
 )
 
 // GetRunningPromptABTestBySOPNode 查询指定 SOP 节点 running 状态的 Prompt A/B 测试

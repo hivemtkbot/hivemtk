@@ -54,9 +54,9 @@ type ToolInfo struct {
 
 // DefaultToolDiscovery 默认工具发现实现
 type DefaultToolDiscovery struct {
-	registry   *ToolRegistry
-	index      *ToolIndex
-	mu         sync.RWMutex
+	registry *ToolRegistry
+	index    *ToolIndex
+	mu       sync.RWMutex
 }
 
 // ToolIndex 工具索引（支持快速搜索）
@@ -312,9 +312,9 @@ type ToolLoader interface {
 
 // LazyToolLoader 延迟加载工具加载器
 type LazyToolLoader struct {
-	registry   *ToolRegistry
-	factories  map[string]ToolFactory
-	mu         sync.RWMutex
+	registry  *ToolRegistry
+	factories map[string]ToolFactory
+	mu        sync.RWMutex
 }
 
 // ToolFactory 工具工厂函数

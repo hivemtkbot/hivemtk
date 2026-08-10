@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
+	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
 )

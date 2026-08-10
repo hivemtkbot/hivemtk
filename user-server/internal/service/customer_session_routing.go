@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strconv"
 
-	"marketing/internal/repository"
-	"marketing/internal/websocket"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/websocket"
 )
 
 // ============================================================================

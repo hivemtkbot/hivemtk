@@ -2,7 +2,7 @@ package ragretrieval
 
 import (
 	"fmt"
-	"marketing/internal/pkg/utils/config"
+	"hivemtk-user/internal/config"
 
 	"gorm.io/gorm"
 )

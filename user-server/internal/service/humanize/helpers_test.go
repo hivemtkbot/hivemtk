@@ -9,8 +9,8 @@ import (
 	"math"
 	"sync"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
 )
 
 // approxEqual 浮点近似相等（绝对误差 ≤ 1e-6）

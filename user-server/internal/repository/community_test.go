@@ -4,11 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
+
+	"hivemtk-user/internal/pkg/testutil"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 func setupCommunityTestDB(t *testing.T) *gorm.DB {

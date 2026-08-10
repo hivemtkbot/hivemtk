@@ -5,8 +5,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/ops/model"
-	_db "marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/ops/model"
+	_db "hivemtk-user/internal/pkg/db"
 )
 
 // PerformanceTestRepository 性能压测结果仓储

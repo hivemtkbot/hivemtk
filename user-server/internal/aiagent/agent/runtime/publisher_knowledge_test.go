@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/event"
+	"hivemtk-user/internal/event"
 )
 
 var _ = strings.Contains

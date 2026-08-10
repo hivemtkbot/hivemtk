@@ -29,7 +29,7 @@
 //	智能体只理解 AgentContext；二者经 ChannelAgentBinding 解耦。
 package agent
 
-import "marketing/internal/model"
+import "hivemtk-user/internal/model"
 
 // ModeOf 返回智能体的工作模式（默认被动）。
 func ModeOf(a *model.AIAgent) model.AgentMode {

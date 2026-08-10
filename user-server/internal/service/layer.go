@@ -21,11 +21,11 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/featureflag"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/featureflag"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 const (
@@ -44,12 +44,12 @@ type FAQMatcher interface {
 
 // LayerRouter 双层路由决策器
 type LayerRouter struct {
-	db      *gorm.DB
-	faqRepo FAQMatcher
-	sopRepo *repository.SOPTemplateRepository
-	logRepo *repository.LayerDecisionLogRepository
-	faqSvc  *FAQService
-	sopSvc  *SOPTemplateService
+	db        *gorm.DB
+	faqRepo   FAQMatcher
+	sopRepo   *repository.SOPTemplateRepository
+	logRepo   *repository.LayerDecisionLogRepository
+	faqSvc    *FAQService
+	sopSvc    *SOPTemplateService
 	traceFunc func() string // trace_id 生成函数 (注入避免强耦合)
 }
 
@@ -107,11 +107,11 @@ type RouteRequest struct {
 func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDecision {
 	start := time.Now()
 	decision := &dto.LayerDecision{
-		Layer:    dto.Layer2,
-		SkipLLM:  false,
-		Reason:   dto.ReasonFallback,
-		Intent:   intentType(req.Intent),
-		WallMs:   0,
+		Layer:   dto.Layer2,
+		SkipLLM: false,
+		Reason:  dto.ReasonFallback,
+		Intent:  intentType(req.Intent),
+		WallMs:  0,
 	}
 	defer func() {
 		decision.WallMs = int(time.Since(start).Milliseconds())

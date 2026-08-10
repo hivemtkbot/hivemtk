@@ -18,9 +18,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/featureflag"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/featureflag"
 )
 
 // withLayer1Flag 临时设置 FF_LAYER1 的值, 测试结束恢复
@@ -127,8 +127,8 @@ func TestLayerRouter_Route_Layer1Disabled(t *testing.T) {
 		logRepo: nil,
 	}
 	dec := router.Route(context.Background(), &RouteRequest{
-		SessionID:  "s1",
-		CustomerID: "c1",
+		SessionID:   "s1",
+		CustomerID:  "c1",
 		UserMessage: "你好",
 	})
 	if dec == nil {
@@ -155,10 +155,10 @@ func TestLayerRouter_Route_NoRepoFallback(t *testing.T) {
 		logRepo: nil,
 	}
 	dec := router.Route(context.Background(), &RouteRequest{
-		SessionID:  "s1",
-		CustomerID: "c1",
+		SessionID:   "s1",
+		CustomerID:  "c1",
 		UserMessage: "你好",
-		Intent:     &dto.RecognizeResult{IntentType: "greeting", Confidence: 0.5},
+		Intent:      &dto.RecognizeResult{IntentType: "greeting", Confidence: 0.5},
 	})
 	if dec == nil {
 		t.Fatal("expected non-nil decision")
@@ -176,8 +176,8 @@ func TestLayerRouter_Route_EmptyMessage(t *testing.T) {
 	withLayer1Flag(t, "1")
 	router := &LayerRouter{faqRepo: nil, sopRepo: nil, logRepo: nil}
 	dec := router.Route(context.Background(), &RouteRequest{
-		SessionID:  "s1",
-		CustomerID: "c1",
+		SessionID:   "s1",
+		CustomerID:  "c1",
 		UserMessage: "",
 	})
 	if dec == nil {
@@ -241,8 +241,8 @@ func TestLayerRouter_Route_FAQLowScore(t *testing.T) {
 		logRepo: nil,
 	}
 	dec := router.Route(context.Background(), &RouteRequest{
-		SessionID:  "s1",
-		CustomerID: "c1",
+		SessionID:   "s1",
+		CustomerID:  "c1",
 		UserMessage: "模糊问句",
 	})
 	if dec == nil {
@@ -284,4 +284,3 @@ func TestLayerRouter_Route_FFToggle(t *testing.T) {
 		t.Error("expected reason != layer1_disabled when FF on")
 	}
 }
-

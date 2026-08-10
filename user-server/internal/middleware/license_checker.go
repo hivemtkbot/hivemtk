@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/system/install"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/system/install"
 	"sync"
 )
 

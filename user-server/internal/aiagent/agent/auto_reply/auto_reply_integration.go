@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	ragcustomerservice "marketing/internal/aiagent/rag/customer_service"
-	ragretrieval "marketing/internal/aiagent/rag/retrieval"
+	ragcustomerservice "hivemtk-user/internal/aiagent/rag/customer_service"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
 )
 
 // AutoReplyIntegrationServiceImpl 自动回复集成服务实现

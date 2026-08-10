@@ -3,7 +3,7 @@ package browser
 import (
 	"encoding/json"
 	"fmt"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"net/http"
 	"sync"
 	"time"

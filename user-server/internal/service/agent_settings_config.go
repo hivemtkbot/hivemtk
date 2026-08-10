@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"marketing/internal/repository"
+	"hivemtk-user/internal/repository"
 )
 
 // ============================================================================

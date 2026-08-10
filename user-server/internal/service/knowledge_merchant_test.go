@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	knowledgesvc "marketing/internal/aiagent/knowledge/service"
-	"marketing/internal/model"
+	knowledgesvc "hivemtk-user/internal/aiagent/knowledge/service"
+	"hivemtk-user/internal/model"
 )
 
 func TestParseCSV_Basic(t *testing.T) {

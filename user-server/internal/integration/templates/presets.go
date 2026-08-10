@@ -8,7 +8,7 @@ package templates
 import (
 	"encoding/json"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // 通用字段定义（与本地系统对齐）

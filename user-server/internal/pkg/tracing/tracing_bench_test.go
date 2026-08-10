@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // BenchmarkSinkAbsorb 评估「业务主链路」发布 span 的吞吐（Publish 仅做指针拷贝 + channel 发送，

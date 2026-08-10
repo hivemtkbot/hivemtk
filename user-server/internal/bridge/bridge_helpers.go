@@ -2,11 +2,10 @@ package bridge
 
 import (
 	"context"
-	"encoding/json"
 	"net/url"
-	"time"
 
-	"marketing/internal/model"
+	gw "hivemtk-user/internal/channelgw"
+	"hivemtk-user/internal/model"
 )
 
 // =============================================================
@@ -16,13 +15,11 @@ import (
 // 原 handler.go 中以下内容仍被 HTTP 端使用，迁移到本文件：
 //   - OwnershipChecker：账号归属校验（HTTP ingest 端点使用）
 //   - maskTokenBridge / itoa / describeUpstreamQuery：日志脱敏工具
-//   - historyItemToEvent / toMessageEvent / orDefault：消息事件映射
+//   - historyItemToEvent / toMessageEvent：消息事件映射
 //   - maxReplyContentBytes：单条 AI 回复最大字节数（reach_adapter 截断使用）
 //
-// 与 WebSocket 强耦合的部分（bridgeCheckOrigin / splitAndTrim / trimSpaces /
-// bridgeTestAutoReply / WarnOnTestMode / truncateForLog / truncateForLogBytes /
-// BridgeClient / BridgeHub / BridgeWSHandler / HandleWebSocket / upgraderBridge 等）
-// 全部删除。
+// 2026-08-10 协议单源化：消息事件映射委托 channelgw 规范化转换器
+// （HTTP/WS 传输共用同一转换器，消除多套重复实现）。
 // =============================================================
 
 // 单条 AI 回复最大字节数（防止 XSS payload 巨大 + 平台限制）
@@ -105,123 +102,19 @@ func describeUpstreamQuery(values url.Values) map[string]string {
 // historyItemToEvent 把会话级 history 帧中的单轮（HistoryItem）映射为 model.MessageEvent。
 // 会话元数据（channel/account/conversation/群）取自帧顶层的 message，轮次字段取自 item。
 //
-// HTTP-only 模式（2026-08-05 之后）共用本函数：HTTP ingest 端点收到 history 帧时，
-// 同样需要 historyItemToEvent 把每个 HistoryItem 落库。
+// 2026-08-10 协议单源化：委托 channelgw.HistoryToEvent（HTTP/WS 传输共用同一转换器）。
 func historyItemToEvent(m *UnifiedMessage, it *HistoryItem) *model.MessageEvent {
-	ch := ToBridgeChannel(m.Channel)
-	ts := time.UnixMilli(it.Timestamp)
-	if it.Timestamp == 0 {
-		ts = time.Now()
-	}
-	ev := &model.MessageEvent{
-		EventID:        it.EventID,
-		SessionID:      ch + ":" + m.AccountID + ":" + m.ConversationID,
-		Channel:        ch,
-		SenderID:       it.SenderID,
-		SenderName:     it.SenderName,
-		ReceiverID:     orDefault(it.ReceiverID, m.ReceiverID),
-		MsgType:        it.MsgType,
-		Content:        it.Content,
-		MediaURL:       it.MediaURL,
-		ConversationID: m.ConversationID,
-		IsGroup:        it.IsGroup || m.IsGroup,
-		GroupID:        orDefault(it.GroupID, m.GroupID),
-		Timestamp:      ts,
-		Extra: map[string]any{
-			"account_id": m.AccountID, "bridge": true,
-			"sender_type": orDefault(it.SenderType, m.SenderType),
-		},
-	}
-	// 出站轮次 receiver_id 兜底：扩展侧 _historyItem 已填「会话对方」，此处再兜一层
-	// （旧版扩展未填时，统一收信中心仍能按「对方」聚合而非「自己」）。
-	if ev.ReceiverID == "" && it.Direction == "outbound" {
-		ev.ReceiverID = m.ConversationID
-	}
-	if ev.IsGroup {
-		ev.Extra["is_group"] = true
-	}
-	if ev.GroupID != "" {
-		ev.Extra["group_id"] = ev.GroupID
-	}
-	if groupName := orDefault(it.GroupName, m.GroupName); groupName != "" {
-		ev.Extra["group_name"] = groupName
-	}
-	return ev
-}
-
-func orDefault(v, def string) string {
-	if v != "" {
-		return v
-	}
-	return def
+	return gw.HistoryToEvent(m, it)
 }
 
 // toMessageEvent 将 UnifiedMessage 映射为 model.MessageEvent。
 //
-// HTTP-only 模式下：HTTP ingest 端点使用 httpMessageToEvent 转换 HTTP 上行消息；
-// toMessageEvent 保留以兼容 (1) 老的统一收信中心读取路径 (2) 旧扩展帧格式 fallback。
-//
-// 会话级多轮 history 透传到 MessageEvent.History，并冗余到 Extra["history"]，
-// 供统一收件箱展示/可观测（AI 上下文由 session_messages 自行重建）。
+// 2026-08-10 协议单源化：委托 channelgw 规范化转换器 ToEventFull（含 History 拷贝），
+// 保留本函数以兼容 (1) 老的统一收信中心读取路径 (2) 旧扩展帧格式 fallback。
 func toMessageEvent(m *UnifiedMessage) *model.MessageEvent {
-	ch := ToBridgeChannel(m.Channel)
-	ts := time.UnixMilli(m.Timestamp)
-	if m.Timestamp == 0 {
-		ts = time.Now()
+	if m == nil {
+		return nil
 	}
-	ev := &model.MessageEvent{
-		EventID:        m.EventID,
-		SessionID:      ch + ":" + m.AccountID + ":" + m.ConversationID,
-		Channel:        ch,
-		SenderID:       m.SenderID,
-		SenderName:     m.SenderName,
-		SenderType:     m.SenderType,
-		ReceiverID:     m.ReceiverID,
-		MsgType:        m.MsgType,
-		Content:        m.Content,
-		MediaURL:       m.MediaURL,
-		ConversationID: m.ConversationID,
-		IsGroup:        m.IsGroup,
-		GroupID:        m.GroupID,
-		Timestamp:      ts,
-		Extra:          map[string]any{"account_id": m.AccountID, "bridge": true, "sender_type": m.SenderType},
-	}
-	if len(m.History) > 0 {
-		hist := make([]model.MessageEventHistoryItem, 0, len(m.History))
-		for _, it := range m.History {
-			if it == nil {
-				continue
-			}
-			hist = append(hist, model.MessageEventHistoryItem{
-				EventID:    it.EventID,
-				SenderType: it.SenderType,
-				SenderID:   it.SenderID,
-				SenderName: it.SenderName,
-				ReceiverID: it.ReceiverID,
-				MsgType:    it.MsgType,
-				Content:    it.Content,
-				MediaURL:   it.MediaURL,
-				Timestamp:  it.Timestamp,
-				Direction:  it.Direction,
-				IsGroup:    it.IsGroup,
-				GroupID:    it.GroupID,
-				GroupName:  it.GroupName,
-			})
-		}
-		ev.History = hist
-		ev.Extra["history"] = hist
-	}
-	if m.IsGroup {
-		ev.Extra["is_group"] = true
-	}
-	if m.GroupID != "" {
-		ev.Extra["group_id"] = m.GroupID
-	}
-	if m.GroupName != "" {
-		ev.Extra["group_name"] = m.GroupName
-	}
-	return ev
+	m.Channel = ToBridgeChannel(m.Channel)
+	return m.ToEventFull("http")
 }
-
-// 编译期断言（防止 import 被优化掉）
-var _ = json.Marshal

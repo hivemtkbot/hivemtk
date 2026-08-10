@@ -9,11 +9,12 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/tracing"
+	"hivemtk-user/internal/pkg/utils/logger"
+
 	"gorm.io/gorm"
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/model"
-	"marketing/internal/pkg/tracing"
-	"marketing/internal/pkg/utils/logger"
 )
 
 // adjustMu 跨 trace 并发评估时，串行化「权重调整」这一段快路径，避免两个不同 trace 召回同一
@@ -284,21 +285,21 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 				previewBuf = previewBuf[:0]
 				previewMu.Unlock()
 			}
-		// 熔断：若整批（满批）全部评估失败（processed==0），说明剩余 trace 持续不可评估
-		// （如 LLM 过载 / 上下文取消），连续 2 轮则提前退出，避免无限重选失败 trace 死循环持锁。
-		if processed == 0 && len(traceIDs) >= batchSize {
-			stalled++
-			if stalled >= 2 {
-				logger.Warnf("[trace_learning] RunBatch 连续 %d 轮满批无成功评估，提前退出避免死循环", stalled)
+			// 熔断：若整批（满批）全部评估失败（processed==0），说明剩余 trace 持续不可评估
+			// （如 LLM 过载 / 上下文取消），连续 2 轮则提前退出，避免无限重选失败 trace 死循环持锁。
+			if processed == 0 && len(traceIDs) >= batchSize {
+				stalled++
+				if stalled >= 2 {
+					logger.Warnf("[trace_learning] RunBatch 连续 %d 轮满批无成功评估，提前退出避免死循环", stalled)
+					break
+				}
+			} else {
+				stalled = 0
+			}
+			// 本批已全评估完；不足一批说明已到底，结束。
+			if len(traceIDs) < batchSize {
 				break
 			}
-		} else {
-			stalled = 0
-		}
-		// 本批已全评估完；不足一批说明已到底，结束。
-		if len(traceIDs) < batchSize {
-			break
-		}
 		}
 		return nil
 	})

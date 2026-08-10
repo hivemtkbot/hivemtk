@@ -1,5 +1,5 @@
 # 平台端地址
-# 单一源：user-server/internal/pkg/utils/config/ports.go → DefaultPlatformAPI / DefaultPlatformPort
+# 单一源：user-server/internal/config/ports.go → DefaultPlatformAPI / DefaultPlatformPort
 # 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8205 | platform-server
 # 需求：hivemtk 初始化后直接将安装信息上报到该平台。
 #

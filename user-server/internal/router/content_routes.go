@@ -1,19 +1,19 @@
 package router
 
 import (
-	contentctrl "marketing/internal/content/controller"
-	contentservice "marketing/internal/content/service"
-	"marketing/internal/controller"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/repository"
-	"marketing/internal/service"
+	contentctrl "hivemtk-user/internal/content/controller"
+	contentservice "hivemtk-user/internal/content/service"
+	"hivemtk-user/internal/controller"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // setupDomainPoolRoutes 域名池管理路由
-func setupDomainPoolRoutes(auth *gin.RouterGroup) {
-	database := db.GetDB()
+func setupDomainPoolRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
+	database := gormDB
 	domainPoolRepo := repository.NewDomainPoolRepository(database)
 	domainPoolSvc := service.NewDomainPoolService(database)
 	healthSvc := service.NewDomainHealthService(database, domainPoolRepo)

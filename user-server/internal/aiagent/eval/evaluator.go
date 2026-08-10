@@ -15,7 +15,7 @@ import (
 // 设计：
 //   - chrF 为必选组件（nil 时自动用默认参数构造）
 //   - judge 为可选组件（nil 时仅做 chrF 评估）
-//   - 评估是同步阻塞调用；异步抽样由 service/i18n.EvalService 负责
+//   - 评估是同步阻塞调用；异步抽样由 service/translation.EvalService 负责
 // ============================================================================
 
 // EvaluationResult 批量评估结果。

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 
 	"gorm.io/gorm"
 )

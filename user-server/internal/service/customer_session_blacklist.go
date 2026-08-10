@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"marketing/internal/model"
-	"marketing/internal/repository"
-	"marketing/internal/websocket"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/websocket"
 	"reflect"
 	"time"
 )

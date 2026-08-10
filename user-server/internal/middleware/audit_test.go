@@ -6,8 +6,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"marketing/internal/model"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -425,7 +423,7 @@ func TestAuditResponseWriter_WriteString(t *testing.T) {
 // TestSaveAuditBatch_Empty 测试空批次保存
 func TestSaveAuditBatch_Empty(t *testing.T) {
 	// 这个测试主要是确保 saveAuditBatch 处理空切片不 panic
-	var logs []*model.OperationLog
+	var logs []*AuditEntry
 	saveAuditBatch(logs)
 	t.Log("saveAuditBatch with empty slice completed without panic")
 }

@@ -24,11 +24,11 @@ const (
 
 // CustomerSession 客服会话
 type CustomerSession struct {
-	ID              uint          `gorm:"primaryKey;autoIncrement" json:"id"`
-	SessionID       string        `gorm:"type:varchar(50);uniqueIndex;not null" json:"session_id"`
-	Platform        Platform      `gorm:"type:varchar(20)" json:"platform"`
-	AccountID       string        `gorm:"type:varchar(50)" json:"account_id"`
-	UserID          string        `gorm:"type:varchar(50);index" json:"user_id"`
+	ID        uint     `gorm:"primaryKey;autoIncrement" json:"id"`
+	SessionID string   `gorm:"type:varchar(50);uniqueIndex;not null" json:"session_id"`
+	Platform  Platform `gorm:"type:varchar(20)" json:"platform"`
+	AccountID string   `gorm:"type:varchar(50)" json:"account_id"`
+	UserID    string   `gorm:"type:varchar(50);index" json:"user_id"`
 	// OneID 客户统一 ID（跨渠道合并会话的辅助键；S3-1）
 	//
 	// 场景：用户先在网页客服创建会话，拿到 OneID=phone:138xxx；

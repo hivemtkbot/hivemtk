@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // ============================================================================

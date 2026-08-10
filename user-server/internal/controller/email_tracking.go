@@ -8,9 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
+
 	"github.com/gin-gonic/gin"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
 )
 
 // EmailTrackingController 邮件追踪控制器

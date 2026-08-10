@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"marketing/internal/aiagent/rag/retrieval"
-	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/text"
+	"hivemtk-user/internal/aiagent/rag/retrieval"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils/text"
 )
 
 // RAGChunk 别名(从 dto 包引用)

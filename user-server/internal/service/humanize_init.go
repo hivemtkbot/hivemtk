@@ -21,12 +21,12 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/config"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
-	humanizesvc "marketing/internal/service/humanize"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
+	humanizesvc "hivemtk-user/internal/service/humanize"
 )
 
 // 全局单例

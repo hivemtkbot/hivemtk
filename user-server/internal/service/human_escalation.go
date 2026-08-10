@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/cache"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // 方向7: 转人工门禁数据流向

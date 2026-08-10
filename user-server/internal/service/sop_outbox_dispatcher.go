@@ -23,8 +23,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 // SOPDispatchSender 调度任务派发接口

@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-	"marketing/internal/aiagent/knowledge/model"
+	"hivemtk-user/internal/aiagent/knowledge/model"
 	"time"
 
 	"gorm.io/gorm"
@@ -85,7 +85,7 @@ func (r *KnowledgeDocumentRepository) GetByProductAndID(ctx context.Context, pro
 //   - &0:   仅查共享 (agent_id IS NULL)
 //   - &X:   仅查该智能体 (agent_id = X)
 type ListFilter struct {
-	ProductID string
+	ProductID   string
 	EmbedStatus string
 	SourceType  string
 	Category    string

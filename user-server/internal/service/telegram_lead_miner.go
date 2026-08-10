@@ -19,9 +19,9 @@ import (
 	"strconv"
 	"strings"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 // ClueTypeTelegram 线索来源类型：Telegram

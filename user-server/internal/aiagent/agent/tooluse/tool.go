@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // tool.go 工具注册表核心接口定义（PRD §5.2 G3）

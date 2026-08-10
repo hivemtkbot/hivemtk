@@ -5,12 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/content/model"
-	sysmodel "marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/content/model"
+	sysmodel "hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupAIContentServiceTestDB 设置 AI 内容服务测试数据库

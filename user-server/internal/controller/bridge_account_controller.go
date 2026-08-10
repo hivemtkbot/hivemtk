@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"marketing/internal/bridge"
+	"hivemtk-user/internal/bridge"
 
 	"github.com/gin-gonic/gin"
 )
@@ -42,10 +42,10 @@ func (ctrl *BridgeAccountController) List(c *gin.Context) {
 }
 
 type bridgeSendReq struct {
-	Channel       string `json:"channel"`
-	AccountID     string `json:"account_id"`
+	Channel        string `json:"channel"`
+	AccountID      string `json:"account_id"`
 	ConversationID string `json:"conversation_id"`
-	Content       string `json:"content"`
+	Content        string `json:"content"`
 }
 
 // SendManual 人工座席经桥接代发（G14）：校验归属 + 在线后投递到 message_hub(outbound, status=pending)

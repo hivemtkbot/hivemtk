@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/config"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
+
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupShortLinkServiceTestDB 设置短链服务测试数据库

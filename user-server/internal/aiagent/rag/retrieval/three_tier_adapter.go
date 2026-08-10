@@ -3,8 +3,8 @@ package ragretrieval
 import (
 	"context"
 
-	"marketing/internal/aiagent/rag/core"
-	"marketing/internal/aiagent/rag/service"
+	"hivemtk-user/internal/aiagent/rag/core"
+	"hivemtk-user/internal/aiagent/rag/service"
 )
 
 // RAGThreeTierAdapter 将 RAGThreeTierService 适配为 rag_service.ThreeTierSearcher 接口

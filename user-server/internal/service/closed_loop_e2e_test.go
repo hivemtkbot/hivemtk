@@ -6,8 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
+	"hivemtk-user/internal/dto"
 )
 
 // ============================================================================
@@ -367,5 +366,5 @@ func modelDialogueMemoryFixture(customerID, demand, budget string) modelDialogue
 	}
 }
 
-// modelDialogueMemoryT 测试用 DialogueMemory（与 model.DialogueMemory 同结构，避免 import cycle）
-type modelDialogueMemoryT = model.DialogueMemory
+// modelDialogueMemoryT 测试用 DialogueMemory（P0-7 后 SalesResponse.Memory 为 dto 镜像类型）
+type modelDialogueMemoryT = dto.DialogueMemory

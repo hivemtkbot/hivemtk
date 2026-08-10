@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/repository"
+	"hivemtk-user/internal/repository"
 )
 
 // AssetResolver 资产市场运行时覆盖层（M2：运行时覆盖默认）。

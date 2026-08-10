@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/pkg/utils/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,6 +16,7 @@ import (
 //  1. 基于 IP + 端点 key 计数
 //  2. 滑动窗口（最近 15 分钟内）
 //  3. 超过阈值后锁定一段时间（递增）
+//
 // 4. 扩展：超过阈值后写入安全告警表（由调用方或 service 触发）
 type bruteForceEntry struct {
 	failures    int

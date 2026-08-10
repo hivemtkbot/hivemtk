@@ -1,4 +1,4 @@
-// marketing/internal/controller/tiktok_auto_reply_controller.go
+// hivemtk-user/internal/controller/tiktok_auto_reply_controller.go
 package controller
 
 import (
@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

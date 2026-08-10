@@ -1,8 +1,8 @@
 package service
 
 import (
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // AIToolConfigService AI工具配置服务
@@ -34,7 +34,7 @@ func (s *AIToolConfigService) ListTools(category string, enabled *bool, page, pa
 	for _, tool := range tools {
 		bindings, _ := s.bindingRepo.ListByTool(tool.ToolName)
 		result = append(result, model.AIToolWithBinding{
-			AIToolConfig: tool,
+			AIToolConfig:  tool,
 			BoundAccounts: bindings,
 		})
 	}
@@ -54,7 +54,7 @@ func (s *AIToolConfigService) GetTool(name string) (*model.AIToolWithBinding, er
 
 	bindings, _ := s.bindingRepo.ListByTool(name)
 	return &model.AIToolWithBinding{
-		AIToolConfig: *tool,
+		AIToolConfig:  *tool,
 		BoundAccounts: bindings,
 	}, nil
 }

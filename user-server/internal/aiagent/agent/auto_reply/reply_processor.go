@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	ragcustomerservice "marketing/internal/aiagent/rag/customer_service"
-	ragretrieval "marketing/internal/aiagent/rag/retrieval"
+	ragcustomerservice "hivemtk-user/internal/aiagent/rag/customer_service"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
 )
 
 // ReplyProcessorImpl 回复处理器实现

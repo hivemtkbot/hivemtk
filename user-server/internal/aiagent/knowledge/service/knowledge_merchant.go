@@ -1,11 +1,11 @@
 package service
 
 import (
-	dbutil "marketing/internal/pkg/utils/db"
+	dbutil "hivemtk-user/internal/pkg/db"
 
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/knowledge/repository"
+	"hivemtk-user/internal/aiagent/knowledge/repository"
 )
 
 // KnowledgeMerchantService 商户自部署场景的 RAG 核心增强服务

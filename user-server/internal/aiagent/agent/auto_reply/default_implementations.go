@@ -3,8 +3,8 @@ package auto_reply_integration
 import (
 	"time"
 
-	ragcustomerservice "marketing/internal/aiagent/rag/customer_service"
-	ragretrieval "marketing/internal/aiagent/rag/retrieval"
+	ragcustomerservice "hivemtk-user/internal/aiagent/rag/customer_service"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
 )
 
 // NewDefaultAutoReplyIntegrationService 创建默认的自动回复集成服务

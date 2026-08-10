@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"marketing/internal/migration"
+	"hivemtk-user/internal/migration"
 
 	"gorm.io/gorm"
 )

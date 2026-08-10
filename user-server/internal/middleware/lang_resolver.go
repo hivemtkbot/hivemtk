@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"marketing/internal/pkg/i18n"
-	i18nservice "marketing/internal/service/i18n"
+	"hivemtk-user/internal/pkg/i18n"
+	"hivemtk-user/internal/service/translation"
 )
 
 // ============================================================================
@@ -33,7 +33,7 @@ import (
 //	r.Group("/api/chat/public").Use(middleware.LangResolverMiddleware(resolver))
 //
 // resolver 为 nil 时直接注入默认值（zh），保证主流程不中断。
-func LangResolverMiddleware(resolver *i18nservice.LangConfigResolver) gin.HandlerFunc {
+func LangResolverMiddleware(resolver *translation.LangConfigResolver) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. 提取 channel_id（复用 AppKeyResolve 的结果，兜底走软解析）
 		channelID := GetChatChannelID(c)
@@ -97,7 +97,7 @@ func LangResolverMiddleware(resolver *i18nservice.LangConfigResolver) gin.Handle
 // 调用方典型用法：
 //
 //	ctx = middleware.InjectLangToCtx(ctx, langResolver, channelID, agentID)
-func InjectLangToCtx(ctx context.Context, resolver *i18nservice.LangConfigResolver, channelID string, agentID uint) context.Context {
+func InjectLangToCtx(ctx context.Context, resolver *translation.LangConfigResolver, channelID string, agentID uint) context.Context {
 	if resolver == nil {
 		return injectDefaultLang(ctx)
 	}

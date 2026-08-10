@@ -10,7 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/aiagent/agent/tooluse"
+	"hivemtk-user/internal/aiagent/agent/tooluse"
+	"hivemtk-user/internal/app"
 
 	"github.com/gin-gonic/gin"
 )
@@ -683,10 +684,10 @@ func TestHandleToolCircuitReset_HTTP(t *testing.T) {
 	c.Request = httptest.NewRequest("POST", "/api/agent/tools/circuit/reset", bytes.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
 
-	// 先保存原 globalToolRouter，临时置 nil
-	origRouter := globalToolRouter
-	globalToolRouter = nil
-	defer func() { globalToolRouter = origRouter }()
+	// 先保存原全局 ToolRouter，临时置 nil（P1-1：全局持有已迁入 app 包，经测试钩子操作）
+	origRouter := app.GetGlobalToolRouter()
+	app.SetGlobalToolRouterForTest(nil)
+	defer app.SetGlobalToolRouterForTest(origRouter)
 
 	handleToolCircuitReset(c)
 

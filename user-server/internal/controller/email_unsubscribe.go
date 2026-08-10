@@ -8,9 +8,10 @@ import (
 	"net/url"
 	"strconv"
 
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
+
 	"github.com/gin-gonic/gin"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
 )
 
 // EmailUnsubscribeController 邮件退订控制器

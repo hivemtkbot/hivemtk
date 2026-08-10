@@ -3,15 +3,16 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	"marketing/internal/model"
-	"marketing/internal/service"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/service"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupTikTokCardTestDB 设置 TikTok 卡片测试数据库

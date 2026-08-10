@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
-	contentservice "marketing/internal/content/service"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	contentservice "hivemtk-user/internal/content/service"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // ============================================================================

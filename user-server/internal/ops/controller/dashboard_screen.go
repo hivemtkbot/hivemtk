@@ -1,11 +1,11 @@
 package controller
 
 import (
-	syscontroller "marketing/internal/controller"
-	sysmodel "marketing/internal/model"
-	"marketing/internal/ops/service"
-	"marketing/internal/pkg/utils/response"
-	sysrepo "marketing/internal/repository"
+	sysmodel "hivemtk-user/internal/model"
+	"hivemtk-user/internal/ops/service"
+	"hivemtk-user/internal/pkg/errhttp"
+	"hivemtk-user/internal/pkg/utils/response"
+	sysrepo "hivemtk-user/internal/repository"
 	"net/http"
 	"strconv"
 	"time"
@@ -36,7 +36,7 @@ func (c *DashboardScreenController) CreateScreen(ctx *gin.Context) {
 	}
 
 	screen, err := c.screenService.CreateScreen(userID.(uint), &req)
-	if syscontroller.HandleDBError(ctx, err, "创建大屏") {
+	if errhttp.HandleDBError(ctx, err, "创建大屏") {
 		return
 	}
 
@@ -99,7 +99,7 @@ func (c *DashboardScreenController) UpdateScreen(ctx *gin.Context) {
 	}
 
 	screen, err := c.screenService.UpdateScreen(uint(id), &req)
-	if syscontroller.HandleDBError(ctx, err, "更新大屏") {
+	if errhttp.HandleDBError(ctx, err, "更新大屏") {
 		return
 	}
 
@@ -116,7 +116,7 @@ func (c *DashboardScreenController) DeleteScreen(ctx *gin.Context) {
 		return
 	}
 
-	if syscontroller.HandleDBError(ctx, c.screenService.DeleteScreen(uint(id)), "删除大屏") {
+	if errhttp.HandleDBError(ctx, c.screenService.DeleteScreen(uint(id)), "删除大屏") {
 		return
 	}
 

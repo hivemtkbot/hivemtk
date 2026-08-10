@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 // ============================================================================
@@ -134,9 +134,9 @@ type HandleResult struct {
 	Transferred    bool              `json:"transferred"`
 	TransferReason string            `json:"transfer_reason,omitempty"`
 	// Cards 会话内结构化富卡片（商品卡/订单卡/优惠卡等），随回复一并下发
-	Cards          []model.RichCard  `json:"cards,omitempty"`
-	SuggestionID   uint              `json:"suggestion_id,omitempty"`
-	SalesResponse  *SalesResponse    `json:"sales_response,omitempty"`
+	Cards         []model.RichCard `json:"cards,omitempty"`
+	SuggestionID  uint             `json:"suggestion_id,omitempty"`
+	SalesResponse *SalesResponse   `json:"sales_response,omitempty"`
 }
 
 // HandleIncoming 处理入站消息（智能体主入口，默认配置）
@@ -269,7 +269,7 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	result.Confidence = o.extractConfidence(ctx, salesResp)
 	// 会话内结构化卡片是 Agent Loop 产出的具体产物，与“是否自动回复/转人工”决策解耦：
 	// 即便因置信度不足转人工，AI 已生成的卡片也应随结果下发（落库 + 推向访客），避免被丢弃。
-	result.Cards = salesResp.Cards
+	result.Cards = RichCardsFromDTO(salesResp.Cards)
 
 	// 7. 保存 AI 建议（无论是否自动回复，都给座席参考）
 	suggestionID := o.saveAISuggestion(ctx, session.SessionID, salesResp)
@@ -338,6 +338,7 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 //     相同则合并会话，避免冷启动
 //  2. user_id（单渠道内）—— 命中 user_id 索引，单点查
 //  3. 创建新会话时，若 OneID 为空，自动以 Platform:SenderID 拼接临时 OneID
+//
 // （兜底），保证同 Platform + SenderID 的用户在 TTL 内可被同会话合并
 //
 // 注释：S3-1 之前的实现只按 user_id 匹配，会导致 web → TG 切换时冷启动。

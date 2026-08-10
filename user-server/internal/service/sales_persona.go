@@ -4,8 +4,9 @@ import (
 	"time"
 
 	"context"
+	"hivemtk-user/internal/repository"
+
 	"gorm.io/gorm"
-	"marketing/internal/repository"
 )
 
 // SalesPersonaService 销冠能力画像服务

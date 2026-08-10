@@ -2,9 +2,9 @@ package service
 
 import (
 	"context"
-	"marketing/internal/model"
-	"marketing/internal/platform"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/platform"
+	"hivemtk-user/internal/repository"
 )
 
 // PlatformAccountService 平台账号服务

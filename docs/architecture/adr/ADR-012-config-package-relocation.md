@@ -1,7 +1,7 @@
 # ADR-012：config 包整体迁移至 internal/config/
 
 - **范围**: user-server 配置包位置合规化
-- **状态**: 立项中（待执行）
+- **状态**: 已执行（2026-08-10，随 P3-2 utils 解体落地）
 - **关联规范**: GO_FIVE_LAYER_ARCHITECTURE.md §2.1
 - **关联检查**: scripts/check-architecture.sh [10/10]
 
@@ -130,8 +130,19 @@ internal/config/
 ## 六、时间线
 
 - **立项**：2026-07-26（本 ADR）
-- **执行**：待排期（建议在下一个 minor 版本切换时执行，与 ADR-013 模块名重命名一起做）
-- **完成**：待标记
+- **执行**：2026-08-10（P0-P3 架构整改一次性落地）
+- **完成**：2026-08-10
+
+### 执行偏差记录
+
+1. **未拆分 server.go**：原计划按业务域拆为 app.go/inference.go/database.go 等，
+   实际以整文件 `server.go` 原样迁入 `internal/config/`（控制单次变更风险）；
+   文件内类型已按域分段注释，拆分可作为后续纯重命名类小改动跟进。
+2. **符号冲突处置**：`type PlatformCfg struct`（yaml 解析载体）与
+   `internal/config` 已有的 `var PlatformCfg *PlatformConfig` 同名，
+   前者重命名为非导出 `platformAPIYAML`（仅 GetServerBaseURL 内部使用，零外部影响）。
+3. **测试路径**：inference_load_test.go 相对路径由 4 级上改为 2 级上
+   （`internal/config` 相对 user-server 根目录仅 2 级）。
 
 ---
 

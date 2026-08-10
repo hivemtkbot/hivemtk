@@ -17,13 +17,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"gorm.io/gorm"
-
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/pagination"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/repository"
-	"marketing/internal/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/pagination"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -34,9 +32,9 @@ type SOPTemplateController struct {
 }
 
 // NewSOPTemplateController 创建 SOP 模板控制器
-func NewSOPTemplateController(db *gorm.DB) *SOPTemplateController {
+func NewSOPTemplateController() *SOPTemplateController {
 	return &SOPTemplateController{
-		svc: service.NewSOPTemplateService(db, nil),
+		svc: service.NewSOPTemplateServiceDefault(),
 	}
 }
 
@@ -60,7 +58,7 @@ func (c *SOPTemplateController) List(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	filter := repository.SOPTemplateFilter{
+	filter := dto.SOPTemplateFilter{
 		Keyword:  ctx.Query("keyword"),
 		Intent:   ctx.Query("intent"),
 		Stage:    ctx.Query("stage"),

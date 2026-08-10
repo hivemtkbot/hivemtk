@@ -4,12 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"time"
-
-	knowledgemodel "marketing/internal/aiagent/knowledge/model"
 )
-
-// RagProduct 引用 knowledge 包类型
-type RagProduct = knowledgemodel.RagProduct
 
 // ReplyRule 回复规则
 type ReplyRule struct {

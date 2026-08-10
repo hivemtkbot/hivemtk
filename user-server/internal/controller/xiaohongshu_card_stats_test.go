@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 	"net/http/httptest"
 	"testing"
 	"time"

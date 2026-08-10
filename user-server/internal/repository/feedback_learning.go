@@ -18,7 +18,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // FeedbackLearningRepository 反馈学习域仓储

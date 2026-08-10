@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/dto"
-	"marketing/internal/model"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
 )
 
 // ===== StartExecutor 测试 =====

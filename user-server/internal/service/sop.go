@@ -2,68 +2,96 @@ package service
 
 import (
 	"context"
+
 	"encoding/json"
+
 	"errors"
+
 	"fmt"
-	"sort"
+
 	"sync"
+
 	"time"
 
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/aiagent/llm"
+
+	"hivemtk-user/internal/dto"
+
+	"hivemtk-user/internal/model"
+
+	"hivemtk-user/internal/pkg/utils/logger"
+
+	"hivemtk-user/internal/repository"
 )
 
-// SOPService SOP 智能体服务
 type SOPService struct {
 	agentRepo  *repository.SopAgentRepository
 	execRepo   *repository.SopExecutionRepository
 	dispatcher *llm.Dispatcher
 }
 
-// 常量定义
 const (
-	SOPStatusPending  = "pending"
-	SOPStatusRunning  = "running"
-	SOPStatusSuccess  = "success"
-	SOPStatusFailed   = "failed"
-	SOPStatusPaused   = "paused"
+	SOPStatusPending = "pending"
+
+	SOPStatusRunning = "running"
+
+	SOPStatusSuccess = "success"
+
+	SOPStatusFailed = "failed"
+
+	SOPStatusPaused = "paused"
+
 	SOPStatusCanceled = "canceled"
 
-	// 兼容旧版节点类型（保留以向后兼容）
-	SOPNodeTypeStart     = "start"
-	SOPNodeTypeMessage   = "message"
-	SOPNodeTypeBranch    = "branch"
-	SOPNodeTypeWait      = "wait"
-	SOPNodeTypeAction    = "action"
-	SOPNodeTypeEnd       = "end"
-	SOPNodeTypeAIDecide  = "ai_decide"
+	SOPNodeTypeStart = "start"
+
+	SOPNodeTypeMessage = "message"
+
+	SOPNodeTypeBranch = "branch"
+
+	SOPNodeTypeWait = "wait"
+
+	SOPNodeTypeAction = "action"
+
+	SOPNodeTypeEnd = "end"
+
+	SOPNodeTypeAIDecide = "ai_decide"
+
 	SOPNodeTypeSendOffer = "send_offer"
 
-	// 商用级 14 节点类型（PRD §5.2 标准）
-	SOPNodeTypeGreeting  = "greeting"  // 问候
-	SOPNodeTypeInquire   = "inquire"   // 询问需求
-	SOPNodeTypeIntroduce = "introduce" // 介绍产品
-	SOPNodeTypeHandle    = "handle"    // 异议处理
-	SOPNodeTypeClose     = "close"     // 促单
-	SOPNodeTypeInvite    = "invite"    // 邀约
-	SOPNodeTypeFollowUp  = "follow_up" // 跟进
-	SOPNodeTypeActivate  = "activate"  // 激活沉默客户
-	SOPNodeTypeNurture   = "nurture"   // 培育线索
-	SOPNodeTypeCondition = "condition" // 条件分支（替代旧 branch）
-	SOPNodeTypeLLM       = "llm"       // LLM 决策节点
+	SOPNodeTypeGreeting = "greeting" // 问候
 
-	SOPTriggerManual   = "manual"
-	SOPTriggerAuto     = "auto"
-	SOPTriggerIntent   = "intent"
+	SOPNodeTypeInquire = "inquire" // 询问需求
+
+	SOPNodeTypeIntroduce = "introduce" // 介绍产品
+
+	SOPNodeTypeHandle = "handle" // 异议处理
+
+	SOPNodeTypeClose = "close" // 促单
+
+	SOPNodeTypeInvite = "invite" // 邀约
+
+	SOPNodeTypeFollowUp = "follow_up" // 跟进
+
+	SOPNodeTypeActivate = "activate" // 激活沉默客户
+
+	SOPNodeTypeNurture = "nurture" // 培育线索
+
+	SOPNodeTypeCondition = "condition" // 条件分支（替代旧 branch）
+
+	SOPNodeTypeLLM = "llm" // LLM 决策节点
+
+	SOPTriggerManual = "manual"
+
+	SOPTriggerAuto = "auto"
+
+	SOPTriggerIntent = "intent"
+
 	SOPTriggerSchedule = "schedule"
 )
 
-// SOPNodeSupportedTypes 当前支持的节点类型集合（用于校验）
 var SOPNodeSupportedTypes = map[string]bool{
 	SOPNodeTypeStart: true, SOPNodeTypeMessage: true, SOPNodeTypeBranch: true,
 	SOPNodeTypeWait: true, SOPNodeTypeAction: true, SOPNodeTypeEnd: true,
@@ -74,37 +102,28 @@ var SOPNodeSupportedTypes = map[string]bool{
 	SOPNodeTypeCondition: true, SOPNodeTypeLLM: true,
 }
 
-// 错误定义
 var (
-	ErrSOPNotFound       = errors.New("sop not found")
-	ErrSOPInvalidGraph   = errors.New("invalid sop graph")
-	ErrSOPNoStart        = errors.New("sop graph has no start node")
-	ErrSOPExecNotFound   = errors.New("execution not found")
+	ErrSOPNotFound = errors.New("sop not found")
+
+	ErrSOPInvalidGraph = errors.New("invalid sop graph")
+
+	ErrSOPNoStart = errors.New("sop graph has no start node")
+
+	ErrSOPExecNotFound = errors.New("execution not found")
+
 	ErrSOPExecNotRunning = errors.New("execution is not running")
 )
 
-// SOPNode SOP 节点（商用级增强版，向后兼容旧字段）
-// 已迁移至 dto 包，此处保留类型别名以维持向后兼容
 type SOPNode = dto.SOPNode
 
-// SOPConditionBranch 条件分支（用于 condition 节点的优先级路由）
-// 按优先级从上到下匹配，第一个匹配成功的分支胜出
-// 已迁移至 dto 包
 type SOPConditionBranch = dto.SOPConditionBranch
 
-// SOPPosition 节点在可视化编辑器中的坐标
-// 已迁移至 dto 包
 type SOPPosition = dto.SOPPosition
 
-// SOPGraph SOP 图（商用级增强版，向后兼容旧字段）
-// 已迁移至 dto 包
 type SOPGraph = dto.SOPGraph
 
-// SOPEdge SOP 边
-// 已迁移至 dto 包
 type SOPEdge = dto.SOPEdge
 
-// NewSOPService 创建 SOP 服务
 func NewSOPService(db *gorm.DB, dispatcher *llm.Dispatcher) *SOPService {
 	return &SOPService{
 		agentRepo:  repository.NewSopAgentRepository(db),
@@ -113,13 +132,8 @@ func NewSOPService(db *gorm.DB, dispatcher *llm.Dispatcher) *SOPService {
 	}
 }
 
-// CreateRequest 创建 SOP 请求
-// 已迁移至 dto 包，此处保留类型别名以维持向后兼容
 type CreateRequest = dto.CreateRequest
 
-// Create 创建 SOP
-// TemplateFromActiveAsset 返回「生效中」的已购 industry_sop 资产转换出的 SOP 模板（M2 运行时覆盖默认）。
-// 当请求未携带 SOP 图（如从「模板」创建）时，Create 会回退到该默认模板。
 func (s *SOPService) TemplateFromActiveAsset(ctx context.Context, scenario string) (*CreateRequest, bool) {
 	if r := GetAssetResolver(); r != nil {
 		if sop, ok := r.GetActiveSOP(ctx); ok && sop != nil {
@@ -186,7 +200,6 @@ func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOP
 	return agent, nil
 }
 
-// Update 更新 SOP
 func (s *SOPService) Update(ctx context.Context, id uint, req *CreateRequest) (*model.SOPAgent, error) {
 	if err := s.validateGraph(ctx, &req.SOPGraph); err != nil {
 		return nil, err
@@ -223,7 +236,6 @@ func (s *SOPService) Update(ctx context.Context, id uint, req *CreateRequest) (*
 	return agent, nil
 }
 
-// Get 获取 SOP
 func (s *SOPService) Get(ctx context.Context, id uint) (*model.SOPAgent, error) {
 	agent, err := s.agentRepo.GetByID(ctx, id)
 	if err != nil {
@@ -235,12 +247,10 @@ func (s *SOPService) Get(ctx context.Context, id uint) (*model.SOPAgent, error) 
 	return agent, nil
 }
 
-// List 列出 SOP
 func (s *SOPService) List(ctx context.Context, scenario string, page, pageSize int) ([]model.SOPAgent, int64, error) {
 	return s.agentRepo.List(ctx, scenario, page, pageSize)
 }
 
-// Delete 删除 SOP
 func (s *SOPService) Delete(ctx context.Context, id uint) error {
 	rowsAffected, err := s.agentRepo.DeleteByID(ctx, id)
 	if err != nil {
@@ -252,7 +262,6 @@ func (s *SOPService) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
-// Activate 启用 SOP 智能体
 func (s *SOPService) Activate(ctx context.Context, id uint) error {
 	rowsAffected, err := s.agentRepo.UpdateActive(ctx, id, true)
 	if err != nil {
@@ -264,7 +273,6 @@ func (s *SOPService) Activate(ctx context.Context, id uint) error {
 	return nil
 }
 
-// Deactivate 停用 SOP 智能体
 func (s *SOPService) Deactivate(ctx context.Context, id uint) error {
 	rowsAffected, err := s.agentRepo.UpdateActive(ctx, id, false)
 	if err != nil {
@@ -276,14 +284,6 @@ func (s *SOPService) Deactivate(ctx context.Context, id uint) error {
 	return nil
 }
 
-// ExecuteRequest / StepRequest 已迁至 dto 包（DTO 层补全）
-// 使用 dto.ExecuteRequest / dto.StepRequest 替代本地类型
-
-// Execute 启动 SOP 执行
-//
-// 改造（v2.7.0）：创建 Execution 后派发 start 节点到 SOPExecutionDispatcher，
-// 由 Worker Pool 异步执行节点动作（消息发送/条件路由/LLM 决策/wait 等）。
-// 调用方拿到 Execution 即可，节点流转由调度器自治完成。
 func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*model.SOPExecution, error) {
 	agent, err := s.Get(ctx, req.SOPID)
 	if err != nil {
@@ -354,12 +354,6 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 	return exec, nil
 }
 
-// Step 单步推进
-//
-// 改造（v2.7.0）：
-//   - 调度器存在时：仅合并 Output 到 ExecutionData，然后派发当前节点任务给调度器，
-//     由 Worker Pool 执行节点动作并推进下一节点（客户消息唤醒 wait 节点场景）
-//   - 调度器不存在时（如测试场景）：保持原有同步推进逻辑（向后兼容）
 func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOPExecution, error) {
 	exec, err := s.execRepo.GetByID(ctx, req.ExecutionID)
 	if err != nil {
@@ -464,17 +458,14 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 	return exec, nil
 }
 
-// Pause 暂停
 func (s *SOPService) Pause(ctx context.Context, execID uint) error {
 	return s.execRepo.UpdateStatus(ctx, execID, SOPStatusPaused)
 }
 
-// Resume 恢复
 func (s *SOPService) Resume(ctx context.Context, execID uint) error {
 	return s.execRepo.UpdateStatus(ctx, execID, SOPStatusRunning)
 }
 
-// Cancel 取消
 func (s *SOPService) Cancel(ctx context.Context, execID uint) error {
 	now := time.Now()
 	return s.execRepo.UpdateFields(ctx, execID, map[string]any{
@@ -483,7 +474,6 @@ func (s *SOPService) Cancel(ctx context.Context, execID uint) error {
 	})
 }
 
-// GetExecution 获取执行
 func (s *SOPService) GetExecution(ctx context.Context, execID uint) (*model.SOPExecution, error) {
 	exec, err := s.execRepo.GetByID(ctx, execID)
 	if err != nil {
@@ -495,12 +485,10 @@ func (s *SOPService) GetExecution(ctx context.Context, execID uint) (*model.SOPE
 	return exec, nil
 }
 
-// ListExecutions 列出执行
 func (s *SOPService) ListExecutions(ctx context.Context, customerID string, status string, page, pageSize int) ([]model.SOPExecution, int64, error) {
 	return s.execRepo.List(ctx, customerID, status, page, pageSize)
 }
 
-// MatchByIntent 根据意图匹配 SOP
 func (s *SOPService) MatchByIntent(ctx context.Context, intentType string) ([]model.SOPAgent, error) {
 	list, err := s.agentRepo.ListAll(ctx)
 	if err != nil {
@@ -524,7 +512,6 @@ func (s *SOPService) MatchByIntent(ctx context.Context, intentType string) ([]mo
 	return matched, nil
 }
 
-// Stats 统计
 func (s *SOPService) Stats(ctx context.Context) (map[string]int64, error) {
 	stats := map[string]int64{
 		"total":   0,
@@ -563,8 +550,6 @@ func (s *SOPService) Stats(ctx context.Context) (map[string]int64, error) {
 	stats["failed"] = failedExecs
 	return stats, nil
 }
-
-// ===== 辅助函数 =====
 
 func (s *SOPService) validateGraph(ctx context.Context, graph *SOPGraph) error {
 	if graph == nil {
@@ -647,13 +632,6 @@ func findNodeByID(graph *SOPGraph, id string) *SOPNode {
 	return nil
 }
 
-// nextNode SOP 状态机核心：根据当前节点类型决定下一个节点
-// 支持 14 节点类型 + 旧版类型（向后兼容）
-//   - end 节点：返回 nil（流程结束）
-//   - condition 节点：优先用 Conditions 优先级路由，fallback 到旧 Condition 字段
-//   - branch 节点：旧版 Edges + when 字段（向后兼容）
-//   - llm 节点：从 data["_llm_decision"] 或 Config.next 读取下一个节点 ID
-//   - 其他节点：按 Next[0] 顺序流转
 func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 	if current == nil {
 		return nil
@@ -777,9 +755,9 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 	return nil
 }
 
-// ===== 全局实例 =====
 var (
-	sopOnce     sync.Once
+	sopOnce sync.Once
+
 	sopInstance *SOPService
 )
 
@@ -792,117 +770,4 @@ func InitSOPService(db *gorm.DB, dispatcher *llm.Dispatcher) *SOPService {
 		sopInstance = NewSOPService(db, dispatcher)
 	})
 	return sopInstance
-}
-
-// ===== 模板 SOP 工厂 =====
-
-// NewWelcomeSOP 创建欢迎 SOP（使用商用级新节点类型）
-func NewWelcomeSOP() *CreateRequest {
-	return &CreateRequest{
-
-		Name:        "客户欢迎 SOP",
-		Scenario:    "welcome",
-		Description: "新客户接入时的标准欢迎流程（14 节点类型示范）",
-		TriggerType: SOPTriggerAuto,
-		SOPGraph: SOPGraph{
-			Name:     "welcome_graph",
-			Scenario: "welcome",
-			Version:  "2.0",
-			Entry:    "start",
-			Exits:    []string{"end"},
-			Nodes: []SOPNode{
-				{ID: "start", Type: SOPNodeTypeStart, Name: "开始", Next: []string{"greeting"}},
-				{
-					ID:          "greeting",
-					Type:        SOPNodeTypeGreeting,
-					Name:        "问候",
-					Description: "标准化客户问候",
-					Prompt:      "您好，欢迎咨询，我是您的专属顾问",
-					Next:        []string{"inquire"},
-				},
-				{
-					ID:          "inquire",
-					Type:        SOPNodeTypeInquire,
-					Name:        "询问需求",
-					Description: "了解客户核心诉求",
-					Prompt:      "请问您想了解什么产品或服务？",
-					Next:        []string{"end"},
-				},
-				{ID: "end", Type: SOPNodeTypeEnd, Name: "结束"},
-			},
-		},
-	}
-}
-
-// NewObjectionSOP 创建异议处理 SOP（使用商用级新节点类型 + condition 优先级路由）
-func NewObjectionSOP() *CreateRequest {
-	return &CreateRequest{
-
-		Name:          "价格异议处理 SOP",
-		Scenario:      "objection_price",
-		Description:   "客户价格异议时使用，按意向分数路由不同处理路径",
-		TriggerType:   SOPTriggerIntent,
-		TriggerConfig: map[string]any{"intents": []string{"objection_price"}},
-		SOPGraph: SOPGraph{
-			Name:     "objection_price_graph",
-			Scenario: "objection_price",
-			Version:  "2.0",
-			Entry:    "start",
-			Exits:    []string{"end"},
-			Nodes: []SOPNode{
-				{ID: "start", Type: SOPNodeTypeStart, Name: "开始", Next: []string{"handle"}},
-				{
-					ID:          "handle",
-					Type:        SOPNodeTypeHandle,
-					Name:        "异议处理",
-					Description: "共情客户异议",
-					Prompt:      "理解您的考虑，价格确实是重要因素",
-					Next:        []string{"cond"},
-				},
-				{
-					ID:          "cond",
-					Type:        SOPNodeTypeCondition,
-					Name:        "意向判断",
-					Description: "按 intent_score 路由不同优惠力度",
-					Conditions: []SOPConditionBranch{
-						{Label: "高意向", Condition: "intent_score gte 0.7", Next: "close", Priority: 100},
-						{Label: "中意向", Condition: "intent_score gte 0.4", Next: "nurture", Priority: 50},
-						{Label: "低意向", Condition: "", Next: "follow_up", Priority: 0},
-					},
-				},
-				{
-					ID:          "close",
-					Type:        SOPNodeTypeClose,
-					Name:        "促单",
-					Description: "高意向客户直接促单 + 大力度优惠",
-					Prompt:      "针对您这样的高意向客户，我们可以提供 15% 折扣",
-					Next:        []string{"end"},
-				},
-				{
-					ID:          "nurture",
-					Type:        SOPNodeTypeNurture,
-					Name:        "培育",
-					Description: "中意向客户培育 + 中等优惠",
-					Prompt:      "我们提供 10% 折扣，您可以先试用一周",
-					Next:        []string{"end"},
-				},
-				{
-					ID:          "follow_up",
-					Type:        SOPNodeTypeFollowUp,
-					Name:        "跟进",
-					Description: "低意向客户后续跟进",
-					Prompt:      "好的，我先把资料发给您，后续再聊",
-					Next:        []string{"end"},
-				},
-				{ID: "end", Type: SOPNodeTypeEnd, Name: "结束"},
-			},
-		},
-	}
-}
-
-// SortNodesByPriority 按优先级排序
-func SortNodesByPriority(list []model.SOPAgent) {
-	sort.Slice(list, func(i, j int) bool {
-		return list[i].Priority > list[j].Priority
-	})
 }

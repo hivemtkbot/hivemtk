@@ -5,8 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"hivemtk-user/internal/model"
+
 	"gorm.io/gorm"
-	"marketing/internal/model"
 )
 
 // =============================================================================

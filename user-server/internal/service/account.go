@@ -2,9 +2,9 @@ package service
 
 import (
 	"context"
-	"marketing/internal/model"
-	_type "marketing/internal/pkg/utils/type"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	_type "hivemtk-user/internal/pkg/utils/type"
+	"hivemtk-user/internal/repository"
 )
 
 type AccountService struct {

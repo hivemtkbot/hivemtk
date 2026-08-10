@@ -6,8 +6,8 @@ import (
 
 	"gorm.io/gorm"
 
-	sysmodel "marketing/internal/model"
-	_db "marketing/internal/pkg/utils/db"
+	sysmodel "hivemtk-user/internal/model"
+	_db "hivemtk-user/internal/pkg/db"
 )
 
 // FunnelSourceStat 漏斗来源统计行

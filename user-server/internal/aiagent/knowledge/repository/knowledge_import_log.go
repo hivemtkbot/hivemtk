@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"marketing/internal/aiagent/knowledge/model"
+	"hivemtk-user/internal/aiagent/knowledge/model"
 	"time"
 
 	"gorm.io/gorm"

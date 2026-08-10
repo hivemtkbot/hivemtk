@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // reachSeedPipeline 为调度器/级联测试创建一个 sms 触达 Pipeline

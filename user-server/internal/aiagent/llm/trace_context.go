@@ -21,7 +21,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // TraceSpanKind Span 类型

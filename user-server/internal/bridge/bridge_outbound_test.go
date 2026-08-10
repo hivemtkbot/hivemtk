@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/aiagent/agent/tooluse"
-	"marketing/internal/service"
+	"hivemtk-user/internal/aiagent/agent/tooluse"
+	"hivemtk-user/internal/service"
 )
 
 // TestBridgeOutbound_DeliversViaHTTPBuffer 验证桥接出站接线（HTTP-only 模式）：
@@ -14,7 +14,7 @@ import (
 //
 // 历史：WS 模式验证 c.send channel 收到 Frame；HTTP 模式无 WS，验证 buffer 中有匹配 reply 即可。
 func TestBridgeOutbound_DeliversViaHTTPBuffer(t *testing.T) {
-	adapter := NewBridgeReachAdapter(&tooluse.IntegrationReachAdapter{}, service.NewInboxIngressServiceWithDB(nil, nil))
+	adapter := NewBridgeReachAdapter(tooluse.NoOpReachAdapter{}, service.NewInboxIngressServiceWithDB(nil, nil))
 	SetBridgeReachAdapter(adapter)
 
 	if err := service.DeliverBridgeOutbound(context.Background(), ChannelDouyinWeb, "acc1", "conv1", "text", "你好，这是AI回复", "evt-1"); err != nil {

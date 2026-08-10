@@ -6,8 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/aiagent/agent/tooluse"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/agent/tooluse"
+	"hivemtk-user/internal/app"
+	"hivemtk-user/internal/pkg/utils/logger"
 
 	"github.com/gin-gonic/gin"
 )
@@ -175,7 +176,7 @@ func handleToolExecute(c *gin.Context) {
 	defer cancel()
 
 	// 复用全局 ToolRouter（走熔断 + 限流 + 成本统计），未装配时降级走 ToolExecutor
-	router := GetGlobalToolRouter()
+	router := app.GetGlobalToolRouter()
 	var routeResult tooluse.RouteResult
 	if router != nil {
 		routeResult = router.Route(ctx, req.ToolName, req.Args, toolCtx)
@@ -216,7 +217,7 @@ func handleToolExecute(c *gin.Context) {
 func handleToolStats(c *gin.Context) {
 	registry := tooluse.GetGlobalRegistry()
 	exec := tooluse.GetGlobalExecutor()
-	router := GetGlobalToolRouter()
+	router := app.GetGlobalToolRouter()
 
 	resp := gin.H{
 		"success":            true,
@@ -270,7 +271,7 @@ func handleToolAudit(c *gin.Context) {
 
 	// 尝试通过反射或接口获取 AuditLogger 的内存实例
 	// 这里通过 router 包级别的便利方法（见下文 tool_executor_wiring.go 中的内存 AuditLogger 持有）
-	memLogger := GetGlobalMemoryAuditLogger()
+	memLogger := app.GetGlobalMemoryAuditLogger()
 	if memLogger == nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
@@ -301,7 +302,7 @@ func handleToolAudit(c *gin.Context) {
 
 // handleToolCost 获取计费统计
 func handleToolCost(c *gin.Context) {
-	memTracker := GetGlobalMemoryCostTracker()
+	memTracker := app.GetGlobalMemoryCostTracker()
 	if memTracker == nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
@@ -330,7 +331,7 @@ type toolCircuitResetRequest struct {
 //
 // 当某工具因连续失败被熔断后，运维可手动调用此端点立即解除熔断
 func handleToolCircuitReset(c *gin.Context) {
-	router := GetGlobalToolRouter()
+	router := app.GetGlobalToolRouter()
 	if router == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "error": "tool router not initialized"})
 		return
@@ -399,15 +400,15 @@ func (e *simpleError) Error() string { return e.msg }
 //	  ]
 //	}
 func handleToolProviders(c *gin.Context) {
-	if globalProviderRegistry == nil {
+	if app.GetGlobalProviderRegistry() == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"success": false,
 			"error":   "provider registry not initialized",
 		})
 		return
 	}
-	results := globalProviderRegistry.Results()
-	providers := globalProviderRegistry.ListProviders()
+	results := app.GetGlobalProviderRegistry().Results()
+	providers := app.GetGlobalProviderRegistry().ListProviders()
 
 	// 合并 Provider 元信息与最近一次注册结果
 	providerInfo := make([]gin.H, 0, len(providers))
@@ -442,7 +443,7 @@ func handleToolProviders(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success":          true,
 		"total_providers":  len(providers),
-		"registered_count": globalProviderRegistry.Count(),
+		"registered_count": app.GetGlobalProviderRegistry().Count(),
 		"results":          providerInfo,
 	})
 }

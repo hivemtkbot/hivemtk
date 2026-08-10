@@ -35,6 +35,7 @@ import (
 //   - Intent:   关联意图 (与 IntentLog.IntentMajor 对齐)
 //   - Confidence: 人工标注的基准置信度 (0-1, 用于动态阈值)
 //   - HitCount: 命中次数 (用于优化排序 + 报表)
+//
 // QualityScore: 动态质量分 0-1, 默认 0.5 (: 用于周期衰减/正负反馈)
 // LastHitAt: 最近一次命中时间 (: 用于 7 天未命中判定)
 // NegativeHitCount: 用户负反馈次数 (: 用于快速降权)

@@ -2,14 +2,15 @@ package service
 
 import (
 	"context"
-	"marketing/internal/model"
-	_type "marketing/internal/pkg/utils/type"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	_type "hivemtk-user/internal/pkg/utils/type"
+	"hivemtk-user/internal/repository"
 	"testing"
 	"time"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupCustomer360TestDB 设置 Customer360 测试数据库

@@ -25,11 +25,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"gorm.io/gorm"
-
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -40,9 +38,9 @@ type KnowledgeBaseController struct {
 }
 
 // NewKnowledgeBaseController 创建知识库控制器
-func NewKnowledgeBaseController(db *gorm.DB) *KnowledgeBaseController {
+func NewKnowledgeBaseController() *KnowledgeBaseController {
 	return &KnowledgeBaseController{
-		svc: service.NewKnowledgeBaseService(db),
+		svc: service.NewKnowledgeBaseServiceDefault(),
 	}
 }
 
@@ -142,13 +140,13 @@ func (c *KnowledgeBaseController) ListByType(ctx *gin.Context) {
 
 // knowledgeBaseCreateReq 创建请求体
 type knowledgeBaseCreateReq struct {
-	KBCode      string `json:"kb_code" binding:"required"`
-	Type        string `json:"type" binding:"required"`
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description"`
-	OwnerType   string `json:"owner_type"`
-	OwnerAgentID *uint `json:"owner_agent_id"`
-	Enabled     *bool  `json:"enabled"`
+	KBCode       string `json:"kb_code" binding:"required"`
+	Type         string `json:"type" binding:"required"`
+	Name         string `json:"name" binding:"required"`
+	Description  string `json:"description"`
+	OwnerType    string `json:"owner_type"`
+	OwnerAgentID *uint  `json:"owner_agent_id"`
+	Enabled      *bool  `json:"enabled"`
 }
 
 // Create 新增

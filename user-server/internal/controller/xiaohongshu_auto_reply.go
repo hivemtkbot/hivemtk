@@ -7,31 +7,20 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/aiagent/agent/browser"
-	knowledgesvc "marketing/internal/aiagent/knowledge/service"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/pkg/utils/pagination"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/pagination"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
 type XiaohongshuAutoReplyController struct {
-	svc      *service.XiaohongshuAutoReplyService
-	manager  *browser.AutoReplyManager
-	infra    *browser.AutoReplyInfra
-	ragStack *knowledgesvc.RAGStack
+	svc *service.XiaohongshuAutoReplyService
 }
 
-func NewXiaohongshuAutoReplyController(svc *service.XiaohongshuAutoReplyService, ragStack *knowledgesvc.RAGStack) *XiaohongshuAutoReplyController {
-	return &XiaohongshuAutoReplyController{
-		svc:      svc,
-		manager:  GetAutoReplyManager(),
-		infra:    browser.GetAutoReplyInfra(),
-		ragStack: ragStack,
-	}
+func NewXiaohongshuAutoReplyController(svc *service.XiaohongshuAutoReplyService) *XiaohongshuAutoReplyController {
+	return &XiaohongshuAutoReplyController{svc: svc}
 }
 
 type xhsAccountReq struct {
@@ -80,16 +69,15 @@ func (c *XiaohongshuAutoReplyController) StartLogin(ctx *gin.Context) {
 		headless = *req.Headless
 	}
 	now := time.Now()
-	item := &model.AutoReplyAccount{
-		UserID: userID, Platform: "xiaohongshu", Username: req.Username,
-		IsActive: true, Headless: headless, LoginAt: &now,
-	}
-	if err := c.svc.UpsertAccount(context.Background(), item); err != nil {
+	accountID, err := c.svc.UpsertAccountDTO(context.Background(), service.XiaohongshuAccountCreateReq{
+		UserID: userID, Username: req.Username, IsActive: true, Headless: headless, LoginAt: &now,
+	})
+	if err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
-	c.svc.StartLoginBrowser(context.Background(), userID, req.Username, item.ID, headless)
-	response.Success(ctx, gin.H{"started": true, "accountId": item.ID}, "ok")
+	c.svc.StartLoginBrowser(context.Background(), userID, req.Username, accountID, headless)
+	response.Success(ctx, gin.H{"started": true, "accountId": accountID}, "ok")
 }
 
 func (c *XiaohongshuAutoReplyController) LoginStatus(ctx *gin.Context) {
@@ -134,15 +122,14 @@ func (c *XiaohongshuAutoReplyController) UpsertAccount(ctx *gin.Context) {
 		headless = *req.Headless
 	}
 	now := time.Now()
-	item := &model.AutoReplyAccount{
-		UserID: userID, Platform: "xiaohongshu", Username: req.Username,
-		Cookie: req.Cookie, IsActive: true, Headless: headless, LoginAt: &now,
-	}
-	if err := c.svc.UpsertAccount(context.Background(), item); err != nil {
+	accountID, err := c.svc.UpsertAccountDTO(context.Background(), service.XiaohongshuAccountCreateReq{
+		UserID: userID, Username: req.Username, Cookie: req.Cookie, IsActive: true, Headless: headless, LoginAt: &now,
+	})
+	if err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
-	response.Success(ctx, gin.H{"id": item.ID}, "ok")
+	response.Success(ctx, gin.H{"id": accountID}, "ok")
 }
 
 func (c *XiaohongshuAutoReplyController) SaveCookies(ctx *gin.Context) {
@@ -209,12 +196,11 @@ func (c *XiaohongshuAutoReplyController) SaveRule(ctx *gin.Context) {
 		return
 	}
 	userID := c.extractUserID(ctx)
-	rule := &model.AutoReplyRule{
-		UserID: userID, Platform: "xiaohongshu", Keywords: req.Keywords,
-		ReplyContent: req.ReplyContent, Frequency: req.Frequency,
-		DailyLimit: req.DailyLimit, IsActive: req.IsActive,
-	}
-	if err := c.svc.SaveRule(context.Background(), rule); err != nil {
+	err := c.svc.SaveRuleDTO(context.Background(), service.XiaohongshuRuleSaveReq{
+		UserID: userID, Keywords: req.Keywords, ReplyContent: req.ReplyContent,
+		Frequency: req.Frequency, DailyLimit: req.DailyLimit, IsActive: req.IsActive,
+	})
+	if err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
@@ -251,30 +237,9 @@ func (c *XiaohongshuAutoReplyController) Start(ctx *gin.Context) {
 	}
 
 	account := accounts[0]
-	bp := browser.Platform(platform)
-	c.manager.SetHeadless(platform, account.Headless)
 
-	if err := c.manager.StartBot(bp, account.Username, account.ID, account.Cookie); err != nil {
-		HandleServiceError(ctx, err)
-		return
-	}
-
-	bot, err := c.manager.GetBot(bp)
-	if err != nil {
-		HandleServiceError(ctx, err)
-		return
-	}
-
-	dedup := browser.NewInMemoryDedup(5 * time.Minute)
-	bot.SetDedup(dedup)
-	bot.SetReplyHandler(browser.NewIntegrationReplyHandler(
-		c.ragStack.Integration,
-		c.ragStack.Customer,
-		c.ragStack.Retrieval,
-		c.svc,
-	))
-
-	if err := bot.Start(c.svc, userID); err != nil {
+	// 启动编排下沉 service：装配 bot + RAG handler → 启动轮询
+	if err := c.svc.StartXiaohongshuBot(context.Background(), account, userID); err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
@@ -288,8 +253,7 @@ func (c *XiaohongshuAutoReplyController) Start(ctx *gin.Context) {
 }
 
 func (c *XiaohongshuAutoReplyController) Stop(ctx *gin.Context) {
-	bp := browser.Platform("xiaohongshu")
-	if err := c.manager.StopBot(bp); err != nil {
+	if err := service.GetAutoReplyBotManager().StopBot("xiaohongshu"); err != nil {
 		logger.Errorf("[小红书] 停止失败: %v", err)
 	}
 	response.Success(ctx, gin.H{"stopped": true, "platform": "xiaohongshu"}, "ok")
@@ -297,14 +261,13 @@ func (c *XiaohongshuAutoReplyController) Stop(ctx *gin.Context) {
 
 func (c *XiaohongshuAutoReplyController) Health(ctx *gin.Context) {
 	platform := "xiaohongshu"
-	bot, botErr := c.manager.GetBot(browser.Platform(platform))
+	mgr := service.GetAutoReplyBotManager()
+	botStatus := mgr.GetBotStatus(platform)
 	status := gin.H{
 		"platform":    platform,
-		"bot_running": botErr == nil && bot.IsRunning(),
-		"rate_limit":  c.infra.RateLimiter.Stats("xiaohongshu_" + platform),
-	}
-	if botErr == nil && bot != nil {
-		status["headless"] = bot.IsHeadless()
+		"bot_running": botStatus.Running,
+		"rate_limit":  mgr.RateLimitStats("xiaohongshu_" + platform),
+		"headless":    botStatus.Headless,
 	}
 	response.Success(ctx, status, "ok")
 }

@@ -24,8 +24,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // HybridSearcher 混合检索器主入口
@@ -76,9 +76,9 @@ type HybridSearcherConfig struct {
 // 通过环境变量 RAG_ENABLE_HYDE / RAG_ENABLE_MULTIQUERY 开启。
 func DefaultHybridSearcherConfig() *HybridSearcherConfig {
 	return &HybridSearcherConfig{
-		DefaultTopK:      5,
-		CandidatePool:    50,
-		FusedTopN:        10, // 送重排的候选数：RRF 已按综合分排序，top-10 足够覆盖最终 top-5，
+		DefaultTopK:   5,
+		CandidatePool: 50,
+		FusedTopN:     10, // 送重排的候选数：RRF 已按综合分排序，top-10 足够覆盖最终 top-5，
 		// 将重排耗时从 ~2.5s 降到 ~1.2s（每次 RAG 问答都能省约 1s），质量影响可忽略。
 		RRFK:             60,
 		EfSearch:         80,

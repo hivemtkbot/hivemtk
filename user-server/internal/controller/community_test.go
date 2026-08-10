@@ -7,12 +7,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+
+	"hivemtk-user/internal/pkg/testutil"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupCommunityTestDB 设置社群管理测试数据库

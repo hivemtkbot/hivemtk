@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/aiagent/llm"
+	"hivemtk-user/internal/aiagent/llm"
 )
 
 // mockEmbeddingService mock llm.EmbeddingServiceInterface

@@ -1,9 +1,10 @@
 package repository
 
 import (
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 
 	"context"
+
 	"gorm.io/gorm"
 )
 

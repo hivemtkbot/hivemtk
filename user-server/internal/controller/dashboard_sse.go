@@ -44,9 +44,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 )
 
 // DashboardSSEController 实时驾驶舱 SSE 控制器

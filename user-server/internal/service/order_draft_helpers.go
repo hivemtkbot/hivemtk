@@ -1,8 +1,8 @@
 package service
 
 import (
-	"marketing/internal/model"
-	_type "marketing/internal/pkg/utils/type"
+	"hivemtk-user/internal/model"
+	_type "hivemtk-user/internal/pkg/utils/type"
 )
 
 // toOrderModel 把 OrderDraft 转成 model.Order（用于持久化）

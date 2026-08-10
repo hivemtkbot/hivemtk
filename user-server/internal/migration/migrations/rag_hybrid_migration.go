@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	"marketing/internal/migration"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/migration"
+	"hivemtk-user/internal/pkg/utils/logger"
 
 	"gorm.io/gorm"
 )

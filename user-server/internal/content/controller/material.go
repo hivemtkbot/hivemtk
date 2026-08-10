@@ -1,14 +1,14 @@
 package controller
 
 import (
-	syscontroller "marketing/internal/controller"
+	"hivemtk-user/internal/pkg/errhttp"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"marketing/internal/content/dto"
-	"marketing/internal/content/service"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/content/dto"
+	"hivemtk-user/internal/content/service"
+	"hivemtk-user/internal/pkg/utils/response"
 )
 
 type MaterialController struct {
@@ -58,7 +58,7 @@ func (c *MaterialController) GetMaterialByID(ctx *gin.Context) {
 	}
 
 	material, err := c.service.GetMaterial(materialID)
-	if syscontroller.HandleDBError(ctx, err, "获取素材详情") {
+	if errhttp.HandleDBError(ctx, err, "获取素材详情") {
 		return
 	}
 	response.Success(ctx, material, "success")
@@ -73,7 +73,7 @@ func (c *MaterialController) GetMaterialCategoryByID(ctx *gin.Context) {
 	}
 
 	category, err := c.service.GetCategory(categoryID)
-	if syscontroller.HandleDBError(ctx, err, "获取素材分类详情") {
+	if errhttp.HandleDBError(ctx, err, "获取素材分类详情") {
 		return
 	}
 	response.Success(ctx, category, "success")
@@ -94,7 +94,7 @@ func (c *MaterialController) UpdateMaterialUsage(ctx *gin.Context) {
 	}
 
 	err := c.service.UpdateMaterialUsage(materialID)
-	if syscontroller.HandleDBError(ctx, err, "更新素材使用次数") {
+	if errhttp.HandleDBError(ctx, err, "更新素材使用次数") {
 		return
 	}
 	response.Success(ctx, nil, "更新成功")
@@ -180,7 +180,7 @@ func (c *MaterialController) DeleteMaterial(ctx *gin.Context) {
 	}
 
 	err := c.service.DeleteMaterial(materialID)
-	if syscontroller.HandleDBError(ctx, err, "删除素材") {
+	if errhttp.HandleDBError(ctx, err, "删除素材") {
 		return
 	}
 	response.Success(ctx, gin.H{"deleted": true}, "删除成功")
@@ -255,7 +255,7 @@ func (c *MaterialController) UpdateMaterialCategory(ctx *gin.Context) {
 	}
 
 	category, err := c.service.UpdateCategory(categoryID, &req)
-	if syscontroller.HandleDBError(ctx, err, "更新素材分类") {
+	if errhttp.HandleDBError(ctx, err, "更新素材分类") {
 		return
 	}
 	response.Success(ctx, category, "更新成功")
@@ -270,7 +270,7 @@ func (c *MaterialController) DeleteMaterialCategory(ctx *gin.Context) {
 	}
 
 	err := c.service.DeleteCategory(categoryID)
-	if syscontroller.HandleDBError(ctx, err, "删除素材分类") {
+	if errhttp.HandleDBError(ctx, err, "删除素材分类") {
 		return
 	}
 	response.Success(ctx, gin.H{"deleted": true}, "删除成功")

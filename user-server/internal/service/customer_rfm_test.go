@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 func TestRFMScoreRecency(t *testing.T) {

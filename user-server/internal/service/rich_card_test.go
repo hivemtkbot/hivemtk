@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 func TestMarshalRichCardRoundTrip(t *testing.T) {

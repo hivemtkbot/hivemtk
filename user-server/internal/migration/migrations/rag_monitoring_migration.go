@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	"marketing/internal/migration"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/migration"
+	"hivemtk-user/internal/pkg/utils/logger"
 
 	"gorm.io/gorm"
 )
@@ -72,6 +72,7 @@ func (m *RagMonitoringMigration) Up(ctx context.Context) error {
 // 查询场景：
 //   - GetRecallMetrics 聚合时间窗口指标
 //   - GetLowRecallQueries 查询低召回样本（调优）
+//
 // 延迟计算（偏移法）
 func (m *RagMonitoringMigration) createRagQueryLogs(ctx context.Context) error {
 	stmt := `

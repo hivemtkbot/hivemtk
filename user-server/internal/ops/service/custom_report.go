@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	sysmodel "marketing/internal/model"
-	"marketing/internal/ops/model"
-	opsrepo "marketing/internal/ops/repository"
-	sysrepo "marketing/internal/repository"
+	sysmodel "hivemtk-user/internal/model"
+	"hivemtk-user/internal/ops/model"
+	opsrepo "hivemtk-user/internal/ops/repository"
+	sysrepo "hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
 )

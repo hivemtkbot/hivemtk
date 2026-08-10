@@ -80,6 +80,14 @@ jobs:
         working-directory: user-server
         run: go vet ./...
 
+      - name: golangci-lint（架构护栏 depguard）
+        # P0-1：五层依赖方向护栏，规则见 user-server/.golangci.yml
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.1.6
+          working-directory: user-server
+          args: --timeout=10m
+
       - name: go build
         working-directory: user-server
         run: go build ./...

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 func TestRecoveryQueueService_Enqueue_Default(t *testing.T) {

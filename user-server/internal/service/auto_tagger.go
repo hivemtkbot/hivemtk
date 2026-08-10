@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 	"strings"
 	"time"
 )

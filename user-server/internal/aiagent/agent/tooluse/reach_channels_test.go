@@ -7,8 +7,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // reach_new_channels_test.go 触达工具（Telegram/WhatsApp/Feishu）单元测试
@@ -503,10 +502,17 @@ func TestReachFeishuSendTool_ToLLMFunction(t *testing.T) {
 
 // ===== 桥接派发测试 =====
 
+// dispatchBridge 测试辅助：包装 dispatchToAdapter，保留原桥接测试写法
+type dispatchBridge struct{ adapter ReachAdapter }
+
+func (b *dispatchBridge) dispatch(ctx context.Context, req *ReachSendRequest) (string, error) {
+	return dispatchToAdapter(ctx, b.adapter, req)
+}
+
 func TestReachChannelAdapterBridge_DispatchesTelegram(t *testing.T) {
 	mock := &mockReachAdapter{}
-	bridge := &reachChannelAdapterBridge{adapter: mock}
-	_, err := bridge.Send(context.Background(), &service.ReachSendRequest{
+	bridge := &dispatchBridge{adapter: mock}
+	_, err := bridge.dispatch(context.Background(), &ReachSendRequest{
 		Channel:     "telegram",
 		AccountID:   "1",
 		RecipientID: "123",
@@ -522,8 +528,8 @@ func TestReachChannelAdapterBridge_DispatchesTelegram(t *testing.T) {
 
 func TestReachChannelAdapterBridge_DispatchesWhatsApp(t *testing.T) {
 	mock := &mockReachAdapter{}
-	bridge := &reachChannelAdapterBridge{adapter: mock}
-	_, err := bridge.Send(context.Background(), &service.ReachSendRequest{
+	bridge := &dispatchBridge{adapter: mock}
+	_, err := bridge.dispatch(context.Background(), &ReachSendRequest{
 		Channel:     "whatsapp",
 		AccountID:   "1",
 		RecipientID: "+861",
@@ -539,8 +545,8 @@ func TestReachChannelAdapterBridge_DispatchesWhatsApp(t *testing.T) {
 
 func TestReachChannelAdapterBridge_DispatchesFeishu(t *testing.T) {
 	mock := &mockReachAdapter{}
-	bridge := &reachChannelAdapterBridge{adapter: mock}
-	_, err := bridge.Send(context.Background(), &service.ReachSendRequest{
+	bridge := &dispatchBridge{adapter: mock}
+	_, err := bridge.dispatch(context.Background(), &ReachSendRequest{
 		Channel:     "feishu",
 		AccountID:   "1",
 		RecipientID: "ou_x",
@@ -556,8 +562,8 @@ func TestReachChannelAdapterBridge_DispatchesFeishu(t *testing.T) {
 
 func TestReachChannelAdapterBridge_UnknownChannel(t *testing.T) {
 	mock := &mockReachAdapter{}
-	bridge := &reachChannelAdapterBridge{adapter: mock}
-	_, err := bridge.Send(context.Background(), &service.ReachSendRequest{
+	bridge := &dispatchBridge{adapter: mock}
+	_, err := bridge.dispatch(context.Background(), &ReachSendRequest{
 		Channel:     "unknown_channel",
 		AccountID:   "1",
 		RecipientID: "x",
@@ -574,9 +580,8 @@ func TestReachNewChannelsTools_RegistrationWithDB(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	registry := NewToolRegistry()
 
-	// 使用 mock adapter
-	reachDeps := NewReachToolDepsWithDB(db)
-	reachDeps.Adapter = &mockReachAdapter{}
+	// 使用 mock adapter（P2-3：端口装配上移 app，此处仅验证注册链路）
+	reachDeps := ReachToolDeps{Adapter: &mockReachAdapter{}, DB: db}
 
 	if err := RegisterReachTools(registry, reachDeps); err != nil {
 		t.Fatalf("register reach tools failed: %v", err)

@@ -7,8 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"hivemtk-user/internal/pkg/db"
+
 	"github.com/gin-gonic/gin"
-	"marketing/internal/pkg/utils/db"
 )
 
 type errorPinger struct {
@@ -29,7 +30,7 @@ func TestHealthCheck_NoDependencies(t *testing.T) {
 	t.Cleanup(func() { db.SetTestDB(prevDB) })
 
 	r := gin.New()
-	r.GET("/health", HealthCheck(nil))
+	r.GET("/health", HealthCheck(nil, nil))
 
 	req := httptest.NewRequest("GET", "/health", nil)
 	w := httptest.NewRecorder()
@@ -43,7 +44,7 @@ func TestHealthCheck_NoDependencies(t *testing.T) {
 func TestHealthCheck_RedisDown(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.GET("/health", HealthCheck(&errorPinger{err: errors.New("connection refused")}))
+	r.GET("/health", HealthCheck(&errorPinger{err: errors.New("connection refused")}, nil))
 
 	req := httptest.NewRequest("GET", "/health", nil)
 	w := httptest.NewRecorder()
@@ -72,7 +73,7 @@ func TestLivenessCheck(t *testing.T) {
 func TestReadinessCheck_NoDB(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.GET("/readyz", ReadinessCheck(nil))
+	r.GET("/readyz", ReadinessCheck(nil, nil))
 
 	req := httptest.NewRequest("GET", "/readyz", nil)
 	w := httptest.NewRecorder()

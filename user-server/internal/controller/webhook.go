@@ -9,9 +9,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"marketing/internal/middleware"
-	"marketing/internal/service"
-	i18nservice "marketing/internal/service/i18n"
+	"hivemtk-user/internal/middleware"
+	"hivemtk-user/internal/service"
+	"hivemtk-user/internal/service/translation"
 )
 
 // WebhookController 多渠道 Webhook 控制器
@@ -22,7 +22,7 @@ type WebhookController struct {
 	waCloudSvc   *service.WhatsAppCloudService
 	dtAppSvc     *service.DingTalkAppService
 	feishuSvc    *service.FeishuService
-	langResolver *i18nservice.LangConfigResolver
+	langResolver *translation.LangConfigResolver
 }
 
 // NewWebhookController 创建 Webhook 控制器
@@ -49,7 +49,7 @@ func (c *WebhookController) SetFeishuService(svc *service.FeishuService) {
 
 // SetLangResolver 注入多语言解析器（v1.2 出海方案）。
 // 未注入时仍可正常工作，ctx 中语言走默认 zh 兜底。
-func (c *WebhookController) SetLangResolver(r *i18nservice.LangConfigResolver) {
+func (c *WebhookController) SetLangResolver(r *translation.LangConfigResolver) {
 	c.langResolver = r
 }
 

@@ -19,7 +19,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // ----------------------------------------------------------------------------

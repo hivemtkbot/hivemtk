@@ -2,16 +2,16 @@ package service
 
 import (
 	"context"
-	sysmodel "marketing/internal/model"
-	"marketing/internal/ops/model"
-	opsrepo "marketing/internal/ops/repository"
-	"marketing/internal/pkg/utils/db"
-	sysrepo "marketing/internal/repository"
+	sysmodel "hivemtk-user/internal/model"
+	"hivemtk-user/internal/ops/model"
+	opsrepo "hivemtk-user/internal/ops/repository"
+	"hivemtk-user/internal/pkg/db"
+	sysrepo "hivemtk-user/internal/repository"
 	"testing"
 	"time"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupCustomReportServiceTestDB 设置测试数据库

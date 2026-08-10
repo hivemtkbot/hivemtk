@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ===== 测试用例 =====

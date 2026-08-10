@@ -7,13 +7,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+
+	"hivemtk-user/internal/pkg/testutil"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
 )
 
 // setupTestControllerDB 设置测试数据库

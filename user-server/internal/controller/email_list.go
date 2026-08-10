@@ -3,11 +3,11 @@ package controller
 import (
 	"bytes"
 	"context"
+	"hivemtk-user/internal/dto"
+	email "hivemtk-user/internal/email/service"
+	"hivemtk-user/internal/pkg/utils/response"
 	"image"
 	"image/png"
-	"marketing/internal/dto"
-	"marketing/internal/email/service"
-	"marketing/internal/pkg/utils/response"
 	"net/http"
 	"strings"
 

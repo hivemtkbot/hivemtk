@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/identity"
+	"hivemtk-user/internal/identity"
 )
 
 // ===== NormalizePhone 测试 =====

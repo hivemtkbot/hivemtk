@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/aiagent/knowledge/model"
-	"marketing/internal/aiagent/knowledge/repository"
-	"marketing/internal/pkg/utils"
+	"hivemtk-user/internal/aiagent/knowledge/model"
+	"hivemtk-user/internal/aiagent/knowledge/repository"
+	"hivemtk-user/internal/pkg/utils"
 
 	"github.com/google/uuid"
 )

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"marketing/internal/aiagent/agent/tooluse"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/service"
+	"hivemtk-user/internal/aiagent/agent/tooluse"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/service"
 )
 
 // BridgeReachAdapter 包装 IntegrationReachAdapter：
@@ -27,7 +27,7 @@ import (
 //
 // 2026-08-05 渠道编码统一：bridge 渠道名 = 平台全名（无 _web 后缀）。
 type BridgeReachAdapter struct {
-	inner   *tooluse.IntegrationReachAdapter
+	inner   tooluse.ReachAdapter
 	ingress *service.InboxIngressService
 	// httpReplyBuffer HTTP 模式 reply 缓冲（跨传输层共享；HTTP ingest 长轮询从该 buffer 拉）
 	httpReplyBuffer *httpReplyBuffer
@@ -38,7 +38,7 @@ type BridgeReachAdapter struct {
 // ingress 可选：传入时 delivery 失败会落 message_hub(outbound, status=failed) 等待补发；
 // nil 时仅返回错误（用于早期装配阶段）。实际 HTTP 模式下 reply 总能 Push 到 buffer，
 // 失败兜底落库通常不会触发；保留参数是为了兼容既有装配代码（router/wiring）。
-func NewBridgeReachAdapter(inner *tooluse.IntegrationReachAdapter, ingress ...*service.InboxIngressService) *BridgeReachAdapter {
+func NewBridgeReachAdapter(inner tooluse.ReachAdapter, ingress ...*service.InboxIngressService) *BridgeReachAdapter {
 	a := &BridgeReachAdapter{inner: inner, httpReplyBuffer: newHTTPReplyBuffer()}
 	if len(ingress) > 0 {
 		a.ingress = ingress[0]
@@ -103,9 +103,9 @@ func SetBridgeReachAdapter(a *BridgeReachAdapter) {
 // deliverHTTP HTTP-only 模式：把 AI reply 入 httpReplyBuffer，等下次 ingest 长轮询拉到。
 //
 // 步骤：
-// 1. content 长度截断：防止超大 XSS payload 撑爆响应（修复 -7）；截断时置 Truncated=true
-//    （审计 2026-08-05 P0 修复：原截断后无标记，客户端看到半截消息不知情）
-// 2. Push 到 httpReplyBuffer（256 容量 FIFO 淘汰；扩展长轮询 500s 内必拉到）
+//  1. content 长度截断：防止超大 XSS payload 撑爆响应（修复 -7）；截断时置 Truncated=true
+//     （审计 2026-08-05 P0 修复：原截断后无标记，客户端看到半截消息不知情）
+//  2. Push 到 httpReplyBuffer（256 容量 FIFO 淘汰；扩展长轮询 500s 内必拉到）
 //
 // 幂等守卫仍由上层 sendOutbound 统一处理（ClaimReply）。
 func (a *BridgeReachAdapter) deliverHTTP(ctx context.Context, channel, accountID, conversationID, msgType, content, eventID string) (string, error) {

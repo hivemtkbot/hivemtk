@@ -14,24 +14,25 @@ package router
 //   3. 别名只在 path 层面转发，不改变参数/响应格式
 
 import (
-	contentctrl "marketing/internal/content/controller"
-	"marketing/internal/controller"
-	opsctrl "marketing/internal/ops/controller"
-	"marketing/internal/pkg/utils/db"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/repository"
-	"marketing/internal/service"
+	"hivemtk-user/internal/app"
+	contentctrl "hivemtk-user/internal/content/controller"
+	"hivemtk-user/internal/controller"
+	opsctrl "hivemtk-user/internal/ops/controller"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // setupFrontendAliases 注册前端 API 路径别名（兼容前端调用习惯）
 //
 // 此函数必须在其他 setup* 函数之后调用，避免被更具体的路由抢先匹配。
 // 通过 recover 机制捕获 Gin 在重复注册时的 panic，保证已存在路由不影响其他别名。
-func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
+func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gorm.DB) {
 	// 构造本地 aiAgentSvc 供 agent_status controller 使用，避免 controller 直接调 dbutil.GetDB()。
-	aiAgentSvc := service.NewAIAgentServiceWithDB(db.GetDB())
+	aiAgentSvc := service.NewAIAgentServiceWithDB(gormDB)
 	// 通用 helper：注册时捕获重复注册的 panic
 	doReg := func(method, path string, handlers ...gin.HandlerFunc) {
 		defer func() {
@@ -68,7 +69,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// 1. 通知中心 - 别名（前端用 /api/notifications）
 	// 已在 auth_routes.go 中注册基础路由
 	// ============================================================
-	notifCtrl := controller.NewNotificationController(service.NewNotificationService(db.GetDB()))
+	notifCtrl := controller.NewNotificationController(service.NewNotificationService(gormDB))
 	doReg("GET", "/notifications/list", notifCtrl.List)
 
 	// ============================================================
@@ -182,7 +183,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	intentRec := service.GetIntentRecognizer()
 	if intentRec == nil {
-		intentRec = service.NewIntentRecognizer(db.GetDB(), getGlobalDispatcher(), nil)
+		intentRec = service.NewIntentRecognizer(gormDB, app.GetGlobalDispatcher(), nil)
 	}
 	intentCtrl := controller.NewIntentController(intentRec)
 	doReg("GET", "/intent-records", intentCtrl.RecentIntents)
@@ -198,7 +199,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 12. 对话记忆 - 别名（前端用 /api/dialogue-memories）
 	// ============================================================
-	memCtrl := controller.NewDialogueMemoryController(service.NewDialogueMemoryService(db.GetDB(), nil))
+	memCtrl := controller.NewDialogueMemoryController(service.NewDialogueMemoryService(gormDB, nil))
 	doReg("GET", "/dialogue-memories", memCtrl.Stats)
 	doReg("GET", "/dialogue-memories/list", memCtrl.Stats)
 	doReg("GET", "/dialogue-memories/stats", memCtrl.Stats)
@@ -216,7 +217,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 13. LLM 路由 - 别名
 	// ============================================================
-	routingSvc := service.NewLLMRoutingService(getGlobalDispatcher())
+	routingSvc := service.NewLLMRoutingService(app.GetGlobalDispatcher())
 	llmCtrl := controller.NewLLMRoutingController(routingSvc)
 	doReg("GET", "/llm-routing/rules", llmCtrl.ListStrategies)
 	doReg("GET", "/llm-routing/models", llmCtrl.ListModels)
@@ -239,7 +240,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 14. 触达 Pipeline - 别名（前端用 /api/reach-pipelines）
 	// ============================================================
-	reachCtrl := controller.NewReachPipelineController(service.NewReachPipelineService(db.GetDB()))
+	reachCtrl := controller.NewReachPipelineController(service.NewReachPipelineService(gormDB))
 	doReg("GET", "/reach-pipelines", reachCtrl.ListPipelines)
 	doReg("GET", "/reach-pipelines/list", reachCtrl.ListPipelines)
 	doReg("GET", "/reach-pipelines/:id", reachCtrl.GetPipeline)
@@ -272,7 +273,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 17. SOP 智能体 - 别名
 	// ============================================================
-	sopCtrl := controller.NewSOPController(service.NewSOPService(db.GetDB(), nil))
+	sopCtrl := controller.NewSOPController(service.NewSOPService(gormDB, nil))
 	doReg("GET", "/sop-agents", sopCtrl.List)
 	doReg("GET", "/sop-agents/list", sopCtrl.List)
 	doReg("GET", "/sop-agents/stats", sopCtrl.Stats)
@@ -412,7 +413,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// 27-30. 抖音/快手/小红书/闲鱼 卡片 - 别名
 	// ============================================================
 	{
-		douyinCtrl := controller.NewDouyinCardController(service.NewDouyinCardService(db.GetDB()))
+		douyinCtrl := controller.NewDouyinCardController(service.NewDouyinCardService(gormDB))
 		doReg("GET", "/douyin-cards", douyinCtrl.GetList)
 		doReg("GET", "/douyin-cards/list", douyinCtrl.GetList)
 		doReg("GET", "/douyin-cards/:id", douyinCtrl.GetByID)
@@ -421,7 +422,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 		doReg("DELETE", "/douyin-cards/:id", douyinCtrl.Delete)
 	}
 	{
-		kuaishouCtrl := controller.NewKuaishouCardController(service.NewKuaishouCardService(db.GetDB()))
+		kuaishouCtrl := controller.NewKuaishouCardController(service.NewKuaishouCardService(gormDB))
 		doReg("GET", "/kuaishou-cards", kuaishouCtrl.GetList)
 		doReg("GET", "/kuaishou-cards/list", kuaishouCtrl.GetList)
 		doReg("GET", "/kuaishou-cards/:id", kuaishouCtrl.GetByID)
@@ -430,7 +431,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 		doReg("DELETE", "/kuaishou-cards/:id", kuaishouCtrl.Delete)
 	}
 	{
-		xhsCtrl := controller.NewXiaohongshuCardController(service.NewXiaohongshuCardService(db.GetDB()))
+		xhsCtrl := controller.NewXiaohongshuCardController(service.NewXiaohongshuCardService(gormDB))
 		doReg("GET", "/xiaohongshu-cards", xhsCtrl.GetList)
 		doReg("GET", "/xiaohongshu-cards/list", xhsCtrl.GetList)
 		doReg("GET", "/xiaohongshu-cards/:id", xhsCtrl.GetByID)
@@ -439,7 +440,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 		doReg("DELETE", "/xiaohongshu-cards/:id", xhsCtrl.Delete)
 	}
 	{
-		xianyuCtrl := controller.NewXianyuCardController(service.NewXianyuCardService(db.GetDB()), service.NewXianyuCardStatsService(db.GetDB()))
+		xianyuCtrl := controller.NewXianyuCardController(service.NewXianyuCardService(gormDB), service.NewXianyuCardStatsService(gormDB))
 		doReg("GET", "/xianyu-cards", xianyuCtrl.GetList)
 		doReg("GET", "/xianyu-cards/list", xianyuCtrl.GetList)
 		doReg("GET", "/xianyu-cards/:id", xianyuCtrl.GetByID)
@@ -453,7 +454,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 五层架构：service 由 router 层注入，controller 不再 import repository / db
 	tiktokCtrl := controller.NewTikTokCardController(
-		service.NewTikTokCardServiceWithDB(db.GetDB()),
+		service.NewTikTokCardServiceWithDB(gormDB),
 	)
 	doReg("GET", "/tiktok-cards", tiktokCtrl.List)
 	doReg("GET", "/tiktok-cards/list", tiktokCtrl.List)
@@ -465,7 +466,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 32. 飞书 - 别名
 	// ============================================================
-	feishuCtrl := controller.NewFeishuAccountController(service.NewFeishuService(db.GetDB()), service.NewFeishuIntegrationService(db.GetDB()))
+	feishuCtrl := controller.NewFeishuAccountController(service.NewFeishuService(gormDB), service.NewFeishuIntegrationService(gormDB))
 	doReg("GET", "/feishu/accounts", feishuCtrl.List)
 	doReg("GET", "/feishu/accounts/list", feishuCtrl.List)
 	doReg("GET", "/feishu/accounts/:id", feishuCtrl.Get)
@@ -476,7 +477,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 33. Telegram - 别名
 	// ============================================================
-	tgCtrl := controller.NewTelegramAccountController(service.NewTelegramService(db.GetDB()))
+	tgCtrl := controller.NewTelegramAccountController(service.NewTelegramService(gormDB))
 	doReg("GET", "/telegram/accounts", tgCtrl.List)
 	doReg("GET", "/telegram/accounts/list", tgCtrl.List)
 	doReg("GET", "/telegram/accounts/:id", tgCtrl.Get)
@@ -487,7 +488,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 34. 短链 - 别名（前端用 /api/short-links）
 	// ============================================================
-	shortLinkCtrl := controller.NewShortLinkController(service.NewShortLinkService(db.GetDB()))
+	shortLinkCtrl := controller.NewShortLinkController(service.NewShortLinkService(gormDB))
 	doReg("GET", "/short-links", shortLinkCtrl.GetList)
 	doReg("GET", "/short-links/list", shortLinkCtrl.GetList)
 	doReg("GET", "/short-links/:id", shortLinkCtrl.GetByID)
@@ -498,7 +499,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 35. 活码 - 别名（前端用 /api/live-codes）
 	// ============================================================
-	liveCodeCtrl := controller.NewLiveCodeController(service.NewLiveCodeService(db.GetDB()))
+	liveCodeCtrl := controller.NewLiveCodeController(service.NewLiveCodeService(gormDB))
 	doReg("GET", "/live-codes", liveCodeCtrl.GetList)
 	doReg("GET", "/live-codes/list", liveCodeCtrl.GetList)
 	doReg("GET", "/live-codes/:id", liveCodeCtrl.GetByID)
@@ -642,7 +643,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 47. 域名池 - 别名
 	// ============================================================
-	domainDB := db.GetDB()
+	domainDB := gormDB
 	domainPoolRepo := repository.NewDomainPoolRepository(domainDB)
 	domainCtrl := controller.NewDomainPoolController(
 		service.NewDomainPoolService(domainDB),

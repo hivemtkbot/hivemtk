@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"time"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // ==================== BaseClient（共享 HTTP 客户端） ====================
@@ -88,7 +88,7 @@ func NewBaseClient(opts ...ClientOption) BaseClient {
 				IdleConnTimeout:       90 * time.Second,
 				DisableCompression:    false,
 				DisableKeepAlives:     false,
-				TLSHandshakeTimeout:  10 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
 				ResponseHeaderTimeout: 30 * time.Second,
 				DialContext: (&net.Dialer{
 					Timeout:   10 * time.Second,

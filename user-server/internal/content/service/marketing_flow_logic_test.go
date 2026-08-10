@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"marketing/internal/content/model"
+	"hivemtk-user/internal/content/model"
 	"strings"
 	"testing"
 	"time"

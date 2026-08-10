@@ -17,9 +17,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/repository"
-	confidencesvc "marketing/internal/service/confidence"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/repository"
+	confidencesvc "hivemtk-user/internal/service/confidence"
 )
 
 // 全局单例

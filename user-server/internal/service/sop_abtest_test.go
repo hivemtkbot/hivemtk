@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // sop_abtest_test.go SOP A/B 测试流量分配与统计测试（PRD §5.2 G2）

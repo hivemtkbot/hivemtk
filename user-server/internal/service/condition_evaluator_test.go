@@ -1,15 +1,15 @@
 package service
 
 import (
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 	"math"
 	"strings"
 	"testing"
 
-	contentmodel "marketing/internal/content/model"
-	contentsvc "marketing/internal/content/service"
-	"marketing/internal/pkg/testutil"
+	contentmodel "hivemtk-user/internal/content/model"
+	contentsvc "hivemtk-user/internal/content/service"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupConditionEvaluatorService 本地 helper（不依赖被 build tag 隔离的 marketing_flow_test.go）

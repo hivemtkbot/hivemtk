@@ -4,11 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
 )
+
 func setupAgentKBBindingTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := testutil.NewTestDB(t, &model.AgentKBBinding{}, &model.KnowledgeBase{})

@@ -14,11 +14,11 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/cache"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/bcrypt"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/bcrypt"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
 )

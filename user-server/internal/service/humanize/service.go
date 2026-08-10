@@ -19,9 +19,9 @@ import (
 	"math/rand"
 	"time"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // DefaultThreshold 默认达标阈值（PRD §5.2 G6：≥ 0.85）

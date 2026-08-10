@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	contentsvc "marketing/internal/content/service"
-	"marketing/internal/dto"
-	"marketing/internal/repository"
+	contentsvc "hivemtk-user/internal/content/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/repository"
 )
 
 // marketing_flow_sms_init.go 营销流程 send_sms 动作的 SMS 发送实现注入

@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 func TestReproduce_XhsWeb_NoAITrigger(t *testing.T) {
@@ -33,7 +33,7 @@ func TestReproduce_XhsWeb_NoAITrigger(t *testing.T) {
 		Content:        "你好",
 		MsgType:        "text",
 		Timestamp:      time.Now(),
-		Extra:          map[string]any{
+		Extra: map[string]any{
 			"account_id":  "69c730300000000034018cb2",
 			"bridge":      true,
 			"sender_type": "customer",

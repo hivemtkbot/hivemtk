@@ -31,7 +31,7 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // BGEM3ProviderName bge-m3 provider 标识

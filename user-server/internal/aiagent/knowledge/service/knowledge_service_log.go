@@ -7,7 +7,7 @@ package service
 import (
 	"context"
 
-	"marketing/internal/aiagent/knowledge/model"
+	"hivemtk-user/internal/aiagent/knowledge/model"
 )
 
 // logImport 记录导入日志

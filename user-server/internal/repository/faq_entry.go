@@ -22,7 +22,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
 
 	"gorm.io/gorm"
 )
@@ -138,7 +139,8 @@ func (r *FAQRepository) listEnabledForAgent(ctx context.Context, agentID uint, l
 // MatchByIDs 按 ID 集合匹配 (: 智能体绑定 FAQ 范围)
 //
 // DEPRECATED: 此方法不再用 ID 范围过滤, 改为按 agentID 过滤.
-//   保留方法签名以兼容旧调用, 内部走 MatchByKeywordForAgent 路径.
+//
+//	保留方法签名以兼容旧调用, 内部走 MatchByKeywordForAgent 路径.
 //
 // agent 绑定了 FAQ 时, 仅在绑定的 IDs 内匹配; 绑定为空 = 全局共享
 //
@@ -328,15 +330,9 @@ func (r *FAQRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.FAQEntry{}).Error
 }
 
-// FAQFilter FAQ 查询过滤器 (前端管理页面)
-type FAQFilter struct {
-	Keyword  string
-	Category string
-	Intent   string
-	Enabled  *bool
-	Page     int
-	PageSize int
-}
+// FAQFilter FAQ 查询过滤器（前端管理页面）。
+// 架构整改 P0-5：权威定义迁至 dto 包，本处保留别名以兼容存量签名。
+type FAQFilter = dto.FAQFilter
 
 // IncrementHitCount 命中次数 +1
 func (r *FAQRepository) IncrementHitCount(ctx context.Context, id uint) error {

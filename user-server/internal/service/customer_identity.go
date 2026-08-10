@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 	"errors"
-	"marketing/internal/identity"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/identity"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // CustomerIdentityService 客户身份识别服务

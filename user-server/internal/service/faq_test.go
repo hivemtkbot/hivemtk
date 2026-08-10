@@ -18,18 +18,18 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // fakeFAQEntry 用于测试的 FAQ 匹配项
 type fakeFAQEntry struct {
-	entry  *dto.FAQEntry
-	score  float64
-	rank   int
-	hits   int64
-	mType  string
+	entry *dto.FAQEntry
+	score float64
+	rank  int
+	hits  int64
+	mType string
 }
 
 // makeFAQMatchResult 构造测试用 FAQMatchResult
@@ -163,20 +163,20 @@ func TestFAQService_InvalidateCache_NilSafe(t *testing.T) {
 //
 // Task 15 扩展: 同样支持 MatchByAgent / ListByAgent 的 mock 数据
 type mockFAQRepoForDecay struct {
-	candidates       []model.FAQEntry
-	cutoffSeen       time.Time
-	decayCalls       []struct {
+	candidates []model.FAQEntry
+	cutoffSeen time.Time
+	decayCalls []struct {
 		ID    uint
 		Decay float64
 	}
-	listErr          error
-	decayErr         error
+	listErr  error
+	decayErr error
 	// Task 15: MatchByAgent / ListByAgent 的 mock 状态
-	agentIDSeen      uint
-	msgSeen          string
-	matchByAgentErr  error
-	listByAgentErr   error
-	entriesByAgent   map[uint][]model.FAQEntry
+	agentIDSeen     uint
+	msgSeen         string
+	matchByAgentErr error
+	listByAgentErr  error
+	entriesByAgent  map[uint][]model.FAQEntry
 }
 
 func (m *mockFAQRepoForDecay) MatchByKeyword(ctx context.Context, msg string, topK int) ([]model.FAQEntry, error) {

@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"testing"
 
-	"marketing/internal/migration"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/migration"
+	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
 )

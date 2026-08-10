@@ -3,8 +3,8 @@ package cron
 import (
 	"context"
 
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/service"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/service"
 	"time"
 )
 

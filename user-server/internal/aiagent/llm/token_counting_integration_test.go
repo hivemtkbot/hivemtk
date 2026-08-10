@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/pkg/utils/config"
+	"hivemtk-user/internal/config"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gorm.io/driver/postgres"

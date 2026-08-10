@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/aiagent/rag/core"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/aiagent/rag/core"
 )
 
 // RAGService RAG服务

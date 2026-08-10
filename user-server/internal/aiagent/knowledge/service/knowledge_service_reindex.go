@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"marketing/internal/aiagent/knowledge/model"
-	"marketing/internal/aiagent/knowledge/repository"
+	"hivemtk-user/internal/aiagent/knowledge/model"
+	"hivemtk-user/internal/aiagent/knowledge/repository"
 )
 
 // Reindex 重建指定文档的向量索引。复用已落库的分片内容重新向量化，不重新分块。

@@ -1,12 +1,12 @@
 package repository
 
 import (
-	"marketing/internal/content/model"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/content/model"
+	"hivemtk-user/internal/pkg/db"
 	"testing"
 
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // toPtr 将字符串转为 *string，便于构造素材分类的 ParentID 指针字段
@@ -61,14 +61,14 @@ func TestMaterialCategoryRepository_Create(t *testing.T) {
 		},
 		{
 			name: "create child category",
-		category: &model.MaterialCategory{
-			Name:        "Child Category",
-			Type:        model.MaterialTypeImage,
-			LicenseID:   "license-1",
-			ParentID:    func() *string { s := "parent-id"; return &s }(),
-			Sort:        2,
-			Description: "Child description",
-		},
+			category: &model.MaterialCategory{
+				Name:        "Child Category",
+				Type:        model.MaterialTypeImage,
+				LicenseID:   "license-1",
+				ParentID:    func() *string { s := "parent-id"; return &s }(),
+				Sort:        2,
+				Description: "Child description",
+			},
 			wantErr: false,
 		},
 	}

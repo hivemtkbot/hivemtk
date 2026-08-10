@@ -19,8 +19,8 @@ import (
 	"context"
 	"fmt"
 
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // RoleWithCount 角色 + 成员数（DTO）

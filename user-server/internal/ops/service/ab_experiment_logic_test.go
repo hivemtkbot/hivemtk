@@ -1,7 +1,7 @@
 package service
 
 import (
-	"marketing/internal/ops/model"
+	"hivemtk-user/internal/ops/model"
 	"math"
 	"testing"
 )

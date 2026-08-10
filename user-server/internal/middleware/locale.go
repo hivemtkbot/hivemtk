@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"marketing/internal/pkg/i18n"
+	"hivemtk-user/internal/pkg/i18n"
 
 	"github.com/gin-gonic/gin"
 )

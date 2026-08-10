@@ -40,10 +40,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 
-	"marketing/internal/config"
-	"marketing/internal/contract"
-	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/contract"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ============================================================================
@@ -109,7 +109,7 @@ func NewChatWSController(hub *ChatWSHub, engine contract.StreamEngineInterface) 
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
-			CheckOrigin: buildCheckOrigin(config.GetAllowedWSOrigins()),
+			CheckOrigin:     buildCheckOrigin(config.GetAllowedWSOrigins()),
 		},
 	}
 }

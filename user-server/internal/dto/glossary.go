@@ -2,8 +2,6 @@ package dto
 
 import (
 	"time"
-
-	"marketing/internal/model"
 )
 
 // ============================================================================
@@ -68,65 +66,5 @@ type GlossaryValidateResponse struct {
 	Issues        []GlossaryValidateIssue `json:"issues"`
 }
 
-// ToGlossaryModel DTO → Model 转换(GlossaryRequest → model.Glossary)
-// 包级函数,架构文档 §三 L4 要求(与 FromGlossaryModel 风格一致)
-func ToGlossaryModel(r *GlossaryRequest) *model.Glossary {
-	if r == nil {
-		return nil
-	}
-	translations := make(model.JSONMap, len(r.Translations))
-	for lang, text := range r.Translations {
-		translations[lang] = text
-	}
-	status := r.Status
-	if status == "" {
-		status = "active"
-	}
-	return &model.Glossary{
-		TermID:       r.TermID,
-		Category:     r.Category,
-		Preserve:     r.Preserve,
-		Translations: translations,
-		Pattern:      r.Pattern,
-		Status:       status,
-	}
-}
-
-// FromGlossaryModel Model → DTO 转换（model.Glossary → GlossaryResponse）
-func FromGlossaryModel(g *model.Glossary) *GlossaryResponse {
-	if g == nil {
-		return nil
-	}
-	translations := make(map[string]string, len(g.Translations))
-	for lang, val := range g.Translations {
-		switch v := val.(type) {
-		case string:
-			translations[lang] = v
-		default:
-			translations[lang] = ""
-		}
-	}
-	return &GlossaryResponse{
-		ID:           g.ID,
-		TermID:       g.TermID,
-		Category:     g.Category,
-		Preserve:     g.Preserve,
-		Translations: translations,
-		Pattern:      g.Pattern,
-		Status:       g.Status,
-		CreatedAt:    g.CreatedAt,
-		UpdatedAt:    g.UpdatedAt,
-	}
-}
-
-// FromGlossaryModelList 批量转换 Model → DTO
-func FromGlossaryModelList(list []*model.Glossary) []*GlossaryResponse {
-	if len(list) == 0 {
-		return []*GlossaryResponse{}
-	}
-	out := make([]*GlossaryResponse, 0, len(list))
-	for _, g := range list {
-		out = append(out, FromGlossaryModel(g))
-	}
-	return out
-}
+// DTO ↔ Model 互转函数已下沉至 service/translation 包（ToGlossaryModel / FromGlossaryModel /
+// FromGlossaryModelList），dto 层保持纯数据结构，不引用 model。

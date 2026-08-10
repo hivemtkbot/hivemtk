@@ -2,8 +2,8 @@ package service
 
 import (
 	"context"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // IdentityConflict 身份冲突记录

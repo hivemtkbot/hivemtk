@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"marketing/internal/pkg/utils"
+	"hivemtk-user/internal/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 )

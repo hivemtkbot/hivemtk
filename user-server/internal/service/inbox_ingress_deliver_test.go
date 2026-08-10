@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/testutil"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // TestInboxIngress_DeliverOutbound_OutboxLifecycle 验证人工座席代发经 DeliverOutbound

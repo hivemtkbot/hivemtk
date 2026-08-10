@@ -5,54 +5,32 @@ import (
 	"net/http"
 	"strconv"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
-// ============================================================================
-// 多 AI 智能体架构 - Controller 层
-// ----------------------------------------------------------------------------
-// 三个 Controller：
-//  1. AIAgentController              - 智能体 CRUD + 测试 + 上下文加载
-//  2. ChannelAgentBindingController  - 渠道绑定 CRUD
-//  3. CustomerServiceAgentController - 客服挂载 CRUD
-//
-// 五层架构：Controller → Service → Repository → Model
-// 私域独立部署：无 merchant_id 字段
-// ============================================================================
-
-// ----------------------------------------------------------------------------
-// AIAgentController
-// ----------------------------------------------------------------------------
-
-// AIAgentController AI 智能体管理控制器
 type AIAgentController struct {
 	svc    *service.AIAgentService
 	engine *service.SalesEngine // 用于 TestAgent，可能为 nil
 }
 
-// NewAIAgentController 创建智能体控制器
 func NewAIAgentController() *AIAgentController {
 	return &AIAgentController{
 		svc: service.NewAIAgentService(),
 	}
 }
 
-// NewAIAgentControllerWithService 创建智能体控制器（注入共享 service 实例）
-// 用于 router 层统一依赖注入，确保 AIAgentService 缓存在所有使用方之间共享
 func NewAIAgentControllerWithService(svc *service.AIAgentService) *AIAgentController {
 	return &AIAgentController{svc: svc}
 }
 
-// SetSalesEngine 注入 SalesEngine（用于 TestAgent）
 func (ctrl *AIAgentController) SetSalesEngine(engine *service.SalesEngine) {
 	ctrl.engine = engine
 }
 
-// RegisterRoutes 注册路由
 func (ctrl *AIAgentController) RegisterRoutes(router *gin.RouterGroup) {
 	g := router.Group("/ai-agents")
 	{
@@ -69,8 +47,6 @@ func (ctrl *AIAgentController) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/ai-agents-enabled", ctrl.ListEnabled)
 }
 
-// List 列表
-// GET /api/ai-agents?type=sales&status=1&keyword=xxx
 func (ctrl *AIAgentController) List(c *gin.Context) {
 	agentType := c.Query("type")
 	statusStr := c.Query("status")
@@ -89,8 +65,6 @@ func (ctrl *AIAgentController) List(c *gin.Context) {
 	response.SuccessWithList(c, list, int64(len(list)))
 }
 
-// ListEnabled 启用智能体列表
-// GET /api/ai-agents-enabled
 func (ctrl *AIAgentController) ListEnabled(c *gin.Context) {
 	list, err := ctrl.svc.ListEnabled(c.Request.Context())
 	if err != nil {
@@ -100,8 +74,6 @@ func (ctrl *AIAgentController) ListEnabled(c *gin.Context) {
 	response.SuccessWithList(c, list, int64(len(list)))
 }
 
-// Get 详情
-// GET /api/ai-agents/:id
 func (ctrl *AIAgentController) Get(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -116,21 +88,20 @@ func (ctrl *AIAgentController) Get(c *gin.Context) {
 	response.Success(c, agent, "获取成功")
 }
 
-// aiAgentCreateReq 创建/更新请求体
 type aiAgentCreateReq struct {
-	AgentCode            string                  `json:"agent_code" binding:"required"`
-	Name                 string                  `json:"name" binding:"required"`
-	Description          string                  `json:"description"`
-	Avatar               string                  `json:"avatar"`
-	AgentType            string                  `json:"agent_type"`
-	Persona              string                  `json:"persona" binding:"required"`
-	SystemPrompt         string                  `json:"system_prompt"`
-	Greeting             string                  `json:"greeting"`
-	RagProductIDs        []string                `json:"rag_product_ids"`
+	AgentCode     string   `json:"agent_code" binding:"required"`
+	Name          string   `json:"name" binding:"required"`
+	Description   string   `json:"description"`
+	Avatar        string   `json:"avatar"`
+	AgentType     string   `json:"agent_type"`
+	Persona       string   `json:"persona" binding:"required"`
+	SystemPrompt  string   `json:"system_prompt"`
+	Greeting      string   `json:"greeting"`
+	RagProductIDs []string `json:"rag_product_ids"`
 	// 知识库绑定 - FAQ / SOP 模板
-	FAQEntryIDs    []string `json:"faq_entry_ids"`
-	SOPTemplateIDs []string `json:"sop_template_ids"`
-	SOPIDs         []string `json:"sop_ids"` // SOP 流程图
+	FAQEntryIDs          []string                `json:"faq_entry_ids"`
+	SOPTemplateIDs       []string                `json:"sop_template_ids"`
+	SOPIDs               []string                `json:"sop_ids"` // SOP 流程图
 	ScriptLibraryIDs     []string                `json:"script_library_ids"`
 	LLMModel             string                  `json:"llm_model"`
 	LLMProviderConfig    model.LLMProviderConfig `json:"llm_provider_config"`
@@ -153,8 +124,6 @@ type aiAgentCreateReq struct {
 	TargetLanguage   string `json:"target_language"`   // 对外目标语言（空则退化=InternalLanguage）
 }
 
-// Create 创建
-// POST /api/ai-agents
 func (ctrl *AIAgentController) Create(c *gin.Context) {
 	var req aiAgentCreateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -202,7 +171,9 @@ func (ctrl *AIAgentController) Create(c *gin.Context) {
 		agent.Status = 1
 	}
 	if agent.LLMModel == "" {
-		agent.LLMModel = "gpt-4o-mini"
+		// 展示默认值：实际调用走 dispatcher 场景路由（llm_providers 表），
+		// 与本地推理栈实际模型保持一致（2026-08-10 切 MLX 栈 SmolLM3）
+		agent.LLMModel = "smollm3-3b-4bit-mlx"
 	}
 	if agent.Temperature == 0 {
 		agent.Temperature = 0.7
@@ -238,8 +209,6 @@ func (ctrl *AIAgentController) Create(c *gin.Context) {
 	response.Success(c, agent, "创建成功")
 }
 
-// Update 部分更新（保留原值，缺失字段不重置）
-// PUT /api/ai-agents/:id
 func (ctrl *AIAgentController) Update(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -366,8 +335,6 @@ func (ctrl *AIAgentController) Update(c *gin.Context) {
 	response.Success(c, existing, "更新成功")
 }
 
-// Delete 删除
-// DELETE /api/ai-agents/:id
 func (ctrl *AIAgentController) Delete(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -381,8 +348,6 @@ func (ctrl *AIAgentController) Delete(c *gin.Context) {
 	response.Success(c, nil, "删除成功")
 }
 
-// Toggle 启用/禁用（智能切换当前状态）
-// POST /api/ai-agents/:id/toggle  body: 可选 {"status": 0|1}；不传则按当前状态取反
 func (ctrl *AIAgentController) Toggle(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -419,8 +384,6 @@ func (ctrl *AIAgentController) Toggle(c *gin.Context) {
 	response.Success(c, gin.H{"id": id, "status": newStatus}, "状态更新成功")
 }
 
-// Test 测试执行
-// POST /api/ai-agents/:id/test  body: {"customer_id": "xxx", "message": "你好"}
 func (ctrl *AIAgentController) Test(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -447,8 +410,6 @@ func (ctrl *AIAgentController) Test(c *gin.Context) {
 	response.Success(c, resp, "测试成功")
 }
 
-// GetContext 获取智能体执行上下文（调试用）
-// GET /api/ai-agents/:id/context
 func (ctrl *AIAgentController) GetContext(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -467,28 +428,20 @@ func (ctrl *AIAgentController) GetContext(c *gin.Context) {
 	response.Success(c, ctx, "加载成功")
 }
 
-// ----------------------------------------------------------------------------
-// ChannelAgentBindingController
-// ----------------------------------------------------------------------------
-
-// ChannelAgentBindingController 渠道绑定控制器
 type ChannelAgentBindingController struct {
 	svc *service.ChannelAgentBindingService
 }
 
-// NewChannelAgentBindingController 创建渠道绑定控制器
 func NewChannelAgentBindingController() *ChannelAgentBindingController {
 	return &ChannelAgentBindingController{
 		svc: service.NewChannelAgentBindingService(),
 	}
 }
 
-// NewChannelAgentBindingControllerWithService 创建渠道绑定控制器（注入共享 service 实例）
 func NewChannelAgentBindingControllerWithService(svc *service.ChannelAgentBindingService) *ChannelAgentBindingController {
 	return &ChannelAgentBindingController{svc: svc}
 }
 
-// RegisterRoutes 注册路由
 func (ctrl *ChannelAgentBindingController) RegisterRoutes(router *gin.RouterGroup) {
 	g := router.Group("/channel-agent-bindings")
 	{
@@ -500,8 +453,6 @@ func (ctrl *ChannelAgentBindingController) RegisterRoutes(router *gin.RouterGrou
 	}
 }
 
-// List 按渠道账号查询绑定
-// GET /api/channel-agent-bindings?channel_type=telegram&account_id=1
 func (ctrl *ChannelAgentBindingController) List(c *gin.Context) {
 	channelType := c.Query("channel_type")
 	accountID := c.Query("account_id")
@@ -518,8 +469,6 @@ func (ctrl *ChannelAgentBindingController) List(c *gin.Context) {
 	response.SuccessWithList(c, list, int64(len(list)))
 }
 
-// ListByAgent 反查智能体被哪些渠道使用
-// GET /api/channel-agent-bindings/by-agent/:agent_id
 func (ctrl *ChannelAgentBindingController) ListByAgent(c *gin.Context) {
 	agentID, err := strconv.ParseUint(c.Param("agent_id"), 10, 64)
 	if err != nil {
@@ -534,7 +483,6 @@ func (ctrl *ChannelAgentBindingController) ListByAgent(c *gin.Context) {
 	response.SuccessWithList(c, list, int64(len(list)))
 }
 
-// channelBindingReq 创建/更新请求
 type channelBindingReq struct {
 	ChannelType string `json:"channel_type" binding:"required"`
 	AccountID   string `json:"account_id" binding:"required"`
@@ -543,8 +491,6 @@ type channelBindingReq struct {
 	Enabled     bool   `json:"enabled"`
 }
 
-// Create 创建绑定
-// POST /api/channel-agent-bindings
 func (ctrl *ChannelAgentBindingController) Create(c *gin.Context) {
 	var req channelBindingReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -568,8 +514,6 @@ func (ctrl *ChannelAgentBindingController) Create(c *gin.Context) {
 	response.Success(c, b, "创建成功")
 }
 
-// Update 更新绑定
-// PUT /api/channel-agent-bindings/:id
 func (ctrl *ChannelAgentBindingController) Update(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -598,8 +542,6 @@ func (ctrl *ChannelAgentBindingController) Update(c *gin.Context) {
 	response.Success(c, existing, "更新成功")
 }
 
-// Delete 删除绑定
-// DELETE /api/channel-agent-bindings/:id
 func (ctrl *ChannelAgentBindingController) Delete(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -613,28 +555,20 @@ func (ctrl *ChannelAgentBindingController) Delete(c *gin.Context) {
 	response.Success(c, nil, "删除成功")
 }
 
-// ----------------------------------------------------------------------------
-// CustomerServiceAgentController
-// ----------------------------------------------------------------------------
-
-// CustomerServiceAgentController 客服挂载控制器
 type CustomerServiceAgentController struct {
 	svc *service.CustomerServiceAgentService
 }
 
-// NewCustomerServiceAgentController 创建客服挂载控制器
 func NewCustomerServiceAgentController() *CustomerServiceAgentController {
 	return &CustomerServiceAgentController{
 		svc: service.NewCustomerServiceAgentService(),
 	}
 }
 
-// NewCustomerServiceAgentControllerWithService 创建客服挂载控制器（注入共享 service 实例）
 func NewCustomerServiceAgentControllerWithService(svc *service.CustomerServiceAgentService) *CustomerServiceAgentController {
 	return &CustomerServiceAgentController{svc: svc}
 }
 
-// RegisterRoutes 注册路由
 func (ctrl *CustomerServiceAgentController) RegisterRoutes(router *gin.RouterGroup) {
 	g := router.Group("/customer-service-agents")
 	{
@@ -649,8 +583,6 @@ func (ctrl *CustomerServiceAgentController) RegisterRoutes(router *gin.RouterGro
 	}
 }
 
-// List 按座席查询挂载
-// GET /api/customer-service-agents?agent_status_id=1
 func (ctrl *CustomerServiceAgentController) List(c *gin.Context) {
 	agentStatusIDStr := c.Query("agent_status_id")
 	if agentStatusIDStr == "" {
@@ -670,8 +602,6 @@ func (ctrl *CustomerServiceAgentController) List(c *gin.Context) {
 	response.SuccessWithList(c, list, int64(len(list)))
 }
 
-// ListByAIAgent 反查智能体被哪些客服使用
-// GET /api/customer-service-agents/by-ai-agent/:ai_agent_id
 func (ctrl *CustomerServiceAgentController) ListByAIAgent(c *gin.Context) {
 	aiAgentID, err := strconv.ParseUint(c.Param("ai_agent_id"), 10, 64)
 	if err != nil {
@@ -686,120 +616,9 @@ func (ctrl *CustomerServiceAgentController) ListByAIAgent(c *gin.Context) {
 	response.SuccessWithList(c, list, int64(len(list)))
 }
 
-// csAgentMountReq 创建/更新请求
 type csAgentMountReq struct {
 	AgentStatusID uint `json:"agent_status_id" binding:"required"`
 	AIAgentID     uint `json:"ai_agent_id" binding:"required"`
 	IsPrimary     bool `json:"is_primary"`
 	Enabled       bool `json:"enabled"`
-}
-
-// Create 创建挂载
-// POST /api/customer-service-agents
-func (ctrl *CustomerServiceAgentController) Create(c *gin.Context) {
-	var req csAgentMountReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
-		return
-	}
-	m := &model.CustomerServiceAgent{
-		AgentStatusID: req.AgentStatusID,
-		AIAgentID:     req.AIAgentID,
-		IsPrimary:     req.IsPrimary,
-		Enabled:       true,
-	}
-	if !req.Enabled {
-		m.Enabled = false
-	}
-	if err := ctrl.svc.Create(c.Request.Context(), m); err != nil {
-		response.Error(c, http.StatusBadRequest, "创建失败", err.Error())
-		return
-	}
-	response.Success(c, m, "创建成功")
-}
-
-// Update 更新挂载
-// PUT /api/customer-service-agents/:id
-func (ctrl *CustomerServiceAgentController) Update(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "无效的ID", err.Error())
-		return
-	}
-	existing, err := ctrl.svc.GetByID(c.Request.Context(), uint(id))
-	if err != nil {
-		response.Error(c, http.StatusNotFound, "挂载不存在", err.Error())
-		return
-	}
-	var req csAgentMountReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
-		return
-	}
-	existing.AgentStatusID = req.AgentStatusID
-	existing.AIAgentID = req.AIAgentID
-	existing.IsPrimary = req.IsPrimary
-	existing.Enabled = req.Enabled
-	if err := ctrl.svc.Update(c.Request.Context(), existing); err != nil {
-		response.Error(c, http.StatusBadRequest, "更新失败", err.Error())
-		return
-	}
-	response.Success(c, existing, "更新成功")
-}
-
-// Delete 删除挂载
-// DELETE /api/customer-service-agents/:id
-func (ctrl *CustomerServiceAgentController) Delete(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "无效的ID", err.Error())
-		return
-	}
-	if err := ctrl.svc.Delete(c.Request.Context(), uint(id)); err != nil {
-		response.ErrorFromDB(c, err, "删除失败", err.Error())
-		return
-	}
-	response.Success(c, nil, "删除成功")
-}
-
-// ListByUser 按用户ID查询挂载（团队成员即座席）
-// GET /api/customer-service-agents/by-user/:user_id
-func (ctrl *CustomerServiceAgentController) ListByUser(c *gin.Context) {
-	userID, err := strconv.ParseUint(c.Param("user_id"), 10, 64)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "无效的用户ID", err.Error())
-		return
-	}
-	list, err := ctrl.svc.ListByUserID(c.Request.Context(), uint(userID))
-	if err != nil {
-		response.ErrorFromDB(c, err, "查询失败", err.Error())
-		return
-	}
-	response.SuccessWithList(c, list, int64(len(list)))
-}
-
-// CreateByUser 按用户ID创建挂载（自动创建座席状态）
-// POST /api/customer-service-agents/by-user/:user_id
-// body: {"ai_agent_id": 1, "is_primary": true, "user_name": "张三"}
-func (ctrl *CustomerServiceAgentController) CreateByUser(c *gin.Context) {
-	userID, err := strconv.ParseUint(c.Param("user_id"), 10, 64)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "无效的用户ID", err.Error())
-		return
-	}
-	var req struct {
-		AIAgentID uint   `json:"ai_agent_id" binding:"required"`
-		IsPrimary bool   `json:"is_primary"`
-		UserName  string `json:"user_name"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
-		return
-	}
-	m, err := ctrl.svc.CreateByUserID(c.Request.Context(), uint(userID), req.UserName, req.AIAgentID, req.IsPrimary)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "创建失败", err.Error())
-		return
-	}
-	response.Success(c, m, "创建成功")
 }

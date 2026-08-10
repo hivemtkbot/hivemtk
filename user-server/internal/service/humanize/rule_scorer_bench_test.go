@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // 真实业务 AI 回复样本（用于 benchmark）

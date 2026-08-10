@@ -8,9 +8,9 @@ import (
 	"sort"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/tracing"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/tracing"
 )
 
 // ErrNoDB 表示未初始化数据库句柄（测试/未连接场景）。
@@ -296,12 +296,12 @@ func NodeHealthByChannel(ctx context.Context) ([]NodeHealth, error) {
 	since := time.Now().Add(-nodeHealthWindow)
 
 	type aggRow struct {
-		Channel  string
-		Node     string
-		Total    int64
-		Abnormal int64
-		AvgMs    float64
-		P95Ms    float64
+		Channel      string
+		Node         string
+		Total        int64
+		Abnormal     int64
+		AvgMs        float64
+		P95Ms        float64
 		LastAbnormal sql.NullTime
 	}
 	var rows []aggRow
@@ -427,24 +427,24 @@ func Lifecycle(ctx context.Context, conversationID, traceID string, limit int) (
 		var prev *LifecycleNode
 		var ingestAt, deliveredAt *time.Time
 		for _, t := range items {
-		ln := LifecycleNode{
-			TraceID:        tid,
-			ConversationID: items[0].ConversationID,
-			Node:           t.Node,
-			NodeLabel:      tracing.NodeLabel(t.Node),
-			NodeOrder:      t.NodeOrder,
-			Channel:        t.Channel,
-			Direction:      t.Direction,
-			MsgID:          t.MsgID,
-			Input:          t.Input,
-			Output:         t.Output,
-			DurationMs:     t.DurationMs,
-			Expected:       t.Expected,
-			Status:         t.Status,
-			Abnormal:       t.Abnormal,
-			Error:          t.Error,
-			CreatedAt:      t.CreatedAt,
-		}
+			ln := LifecycleNode{
+				TraceID:        tid,
+				ConversationID: items[0].ConversationID,
+				Node:           t.Node,
+				NodeLabel:      tracing.NodeLabel(t.Node),
+				NodeOrder:      t.NodeOrder,
+				Channel:        t.Channel,
+				Direction:      t.Direction,
+				MsgID:          t.MsgID,
+				Input:          t.Input,
+				Output:         t.Output,
+				DurationMs:     t.DurationMs,
+				Expected:       t.Expected,
+				Status:         t.Status,
+				Abnormal:       t.Abnormal,
+				Error:          t.Error,
+				CreatedAt:      t.CreatedAt,
+			}
 			if prev != nil {
 				g := t.CreatedAt.Sub(prev.CreatedAt).Milliseconds()
 				ln.GapMs = &g
@@ -558,10 +558,10 @@ func Traces(ctx context.Context, limit int) ([]TraceSummary, error) {
 
 // TraceTreeData 单条消息 / 单轮对话的完整链路（层级 span 已排序）。
 type TraceTreeData struct {
-	TraceID        string             `json:"trace_id"`
-	ConversationID string             `json:"conversation_id"`
-	Channel        string             `json:"channel"`
-	AccountID      string             `json:"account_id"`
+	TraceID        string               `json:"trace_id"`
+	ConversationID string               `json:"conversation_id"`
+	Channel        string               `json:"channel"`
+	AccountID      string               `json:"account_id"`
 	Spans          []model.MessageTrace `json:"spans"` // 按 node_order→turn_index→created_at 排序
 }
 
@@ -623,10 +623,10 @@ func TraceTree(ctx context.Context, traceID, conversationID, msgID string) (*Tra
 // 端到端时延（按渠道）：ingest → delivered_ack 的 p50 / p95
 // ───────────────────────────────────────────────────────────────────────────
 type LifecycleLatency struct {
-	Channel    string  `json:"channel"`
-	P50Ms      int64   `json:"p50_ms"`
-	P95Ms      int64   `json:"p95_ms"`
-	SampleSize int64   `json:"sample_size"`
+	Channel    string `json:"channel"`
+	P50Ms      int64  `json:"p50_ms"`
+	P95Ms      int64  `json:"p95_ms"`
+	SampleSize int64  `json:"sample_size"`
 }
 
 // LifecycleLatencyByChannel 按渠道统计端到端时延（上报接入 → 送达确认）。

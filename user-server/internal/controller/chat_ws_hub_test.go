@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/dto"
+	"hivemtk-user/internal/dto"
 )
 
 // newTestClient 创建测试用 Client (不依赖真实 websocket 连接)

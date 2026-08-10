@@ -2,9 +2,9 @@ package controller
 
 import (
 	"context"
-	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -40,7 +40,7 @@ func (c *CustomerRFMController) ComputeForCustomer(ctx *gin.Context) {
 		response.ErrorFromDB(ctx, err, "计算失败: "+err.Error())
 		return
 	}
-	response.Success(ctx, dto.FromCustomerRFMModel(rfm), "ok")
+	response.Success(ctx, service.FromCustomerRFMModel(rfm), "ok")
 }
 
 // ComputeAll 批量计算所有客户 RFM
@@ -74,7 +74,7 @@ func (c *CustomerRFMController) GetByCustomerID(ctx *gin.Context) {
 		response.Error(ctx, http.StatusNotFound, "未找到")
 		return
 	}
-	response.Success(ctx, dto.FromCustomerRFMModel(rfm), "ok")
+	response.Success(ctx, service.FromCustomerRFMModel(rfm), "ok")
 }
 
 // ListBySegment 按分层分页查询
@@ -101,7 +101,7 @@ func (c *CustomerRFMController) ListBySegment(ctx *gin.Context) {
 		PageSize: pageSize,
 	}
 	for _, r := range list {
-		resp.List = append(resp.List, dto.FromCustomerRFMModel(r))
+		resp.List = append(resp.List, service.FromCustomerRFMModel(r))
 	}
 	response.Success(ctx, resp, "ok")
 }

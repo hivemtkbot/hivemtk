@@ -23,7 +23,7 @@ import (
 
 	"gorm.io/gorm"
 
-	_db "marketing/internal/pkg/utils/db"
+	_db "hivemtk-user/internal/pkg/db"
 )
 
 // I18nStatsRepository 多语言统计仓库接口

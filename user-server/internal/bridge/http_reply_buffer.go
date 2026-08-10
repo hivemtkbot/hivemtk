@@ -72,6 +72,7 @@ func (b *httpReplyBuffer) Push(r *UnifiedReply) {
 // 匹配规则：
 //   - conversationID 非空：必须匹配（空时匹配任意）
 //   - replyToEventID 非空：必须匹配 ReplyToEventID（空时匹配任意）
+//
 // 拉取后从 buffer 移除（非阻塞）
 // 未匹配时返回 nil
 //

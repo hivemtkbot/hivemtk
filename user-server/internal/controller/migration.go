@@ -2,10 +2,10 @@ package controller
 
 import (
 	"context"
-	"marketing/internal/migration"
-	"marketing/internal/migration/migrations"
-	"marketing/internal/pkg/utils/pagination"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/migration"
+	"hivemtk-user/internal/migration/migrations"
+	"hivemtk-user/internal/pkg/utils/pagination"
+	"hivemtk-user/internal/pkg/utils/response"
 	"net/http"
 	"strconv"
 

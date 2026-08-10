@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"marketing/internal/middleware"
-	"marketing/internal/pkg/utils"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"hivemtk-user/internal/middleware"
+	"hivemtk-user/internal/pkg/utils"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

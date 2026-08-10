@@ -3,8 +3,8 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	contentmodel "marketing/internal/content/model"
-	"marketing/internal/content/service"
+	contentmodel "hivemtk-user/internal/content/model"
+	"hivemtk-user/internal/content/service"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,8 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
-	cdpmodel "marketing/internal/model"
-	"marketing/internal/pkg/testutil"
+	cdpmodel "hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupMarketingFlowTestDB 设置测试数据库

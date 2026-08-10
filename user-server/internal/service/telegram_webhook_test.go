@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/config"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/model"
 )
 
 // TestResolveTelegramWebhookURL 覆盖 ResolveTelegramWebhookURL 的所有分支

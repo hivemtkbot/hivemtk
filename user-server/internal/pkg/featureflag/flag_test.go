@@ -214,4 +214,3 @@ func TestFlag_ReloadAll_UpdateLastReload(t *testing.T) {
 		t.Errorf("LastReload should advance: before=%s after=%s", before, after)
 	}
 }
-

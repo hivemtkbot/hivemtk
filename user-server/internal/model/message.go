@@ -1,7 +1,7 @@
 package model
 
 import (
-	_type "marketing/internal/pkg/utils/type"
+	_type "hivemtk-user/internal/pkg/utils/type"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

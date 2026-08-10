@@ -2,10 +2,10 @@ package controller
 
 import (
 	"context"
-	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/reach/card/template"
-	"marketing/internal/service"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/reach/card/template"
+	"hivemtk-user/internal/service"
 	"net/http"
 	"strconv"
 	"strings"

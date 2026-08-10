@@ -2,13 +2,13 @@ package email
 
 import (
 	"errors"
-	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/mail"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/mail"
 	"strings"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 
 	"context"
 	"github.com/google/uuid"

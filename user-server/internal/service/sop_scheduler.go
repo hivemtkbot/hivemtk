@@ -3,16 +3,16 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"marketing/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"strconv"
 	"sync"
 	"time"
 
 	"gorm.io/gorm"
 
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // SOPScheduler SOP 自动调度器

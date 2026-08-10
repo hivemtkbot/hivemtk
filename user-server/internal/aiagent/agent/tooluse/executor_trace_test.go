@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/tracing"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/tracing"
 )
 
 // fakeResultTool 返回预设的 ToolResult 与 err，用于精确复现各类错误/成功路径。

@@ -4,13 +4,13 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"fmt"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 	"io"
-	"strings"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"context"
@@ -124,8 +124,8 @@ func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup)
 		backup.Status = model.BackupStatusFailed
 		backup.ErrorMessage = err.Error()
 		if err := s.backupRepo.Update(ctx, backup); err != nil {
-		logger.Errorf("[backup] update backup status failed: %v", err)
-	}
+			logger.Errorf("[backup] update backup status failed: %v", err)
+		}
 		return
 	}
 
@@ -138,8 +138,8 @@ func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup)
 		backup.Status = model.BackupStatusFailed
 		backup.ErrorMessage = "数据库备份失败：" + err.Error()
 		if err := s.backupRepo.Update(ctx, backup); err != nil {
-		logger.Errorf("[backup] update backup status failed: %v", err)
-	}
+			logger.Errorf("[backup] update backup status failed: %v", err)
+		}
 		return
 	}
 
@@ -148,8 +148,8 @@ func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup)
 		backup.Status = model.BackupStatusFailed
 		backup.ErrorMessage = "压缩备份失败：" + err.Error()
 		if err := s.backupRepo.Update(ctx, backup); err != nil {
-		logger.Errorf("[backup] update backup status failed: %v", err)
-	}
+			logger.Errorf("[backup] update backup status failed: %v", err)
+		}
 		return
 	}
 

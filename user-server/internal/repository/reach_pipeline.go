@@ -20,7 +20,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // ReachPipelineStats 触达统计聚合结果（一次性返回 Pipeline + Job 全量统计）

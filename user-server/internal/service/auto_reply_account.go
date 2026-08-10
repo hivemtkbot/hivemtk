@@ -1,7 +1,7 @@
 package service
 
 import (
-	"marketing/internal/model"
+	"hivemtk-user/internal/model"
 )
 
 // auto_reply_account_service.go

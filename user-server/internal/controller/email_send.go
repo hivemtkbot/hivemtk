@@ -2,11 +2,12 @@ package controller
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-	"marketing/internal/dto"
-	"marketing/internal/email/service"
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/dto"
+	email "hivemtk-user/internal/email/service"
+	"hivemtk-user/internal/pkg/utils/response"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 type EmailSendController struct {

@@ -8,10 +8,11 @@ import (
 	"os"
 	"time"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/pkg/utils/db"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/app"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // Pinger Redis 健康检查接口（避免强制依赖 go-redis 模块）
@@ -26,7 +27,7 @@ type Pinger interface {
 // P1 修复：此前健康检查完全不探测推理栈，LLM 挂掉时容器仍 healthy，
 // 网关继续投流量导致全部 AI 回复失败。
 func inferenceStatus() string {
-	f := getGlobalProviderFailover()
+	f := app.GetGlobalProviderFailover()
 	if f == nil {
 		return "not_configured"
 	}
@@ -77,7 +78,7 @@ func embeddingStatus() (string, string) {
 
 // HealthCheck 全维度健康检查
 // 返回应用、数据库、Redis、推理栈 四层健康状态
-func HealthCheck(redisClient Pinger) gin.HandlerFunc {
+func HealthCheck(redisClient Pinger, gormDB *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
 		defer cancel()
@@ -94,7 +95,7 @@ func HealthCheck(redisClient Pinger) gin.HandlerFunc {
 		// 1. 数据库健康检查
 		dbStatus := "ok"
 		dbErr := ""
-		if database := db.GetDB(); database != nil {
+		if database := gormDB; database != nil {
 			if err := database.WithContext(ctx).Exec("SELECT 1").Error; err != nil {
 				dbStatus = "down"
 				dbErr = err.Error()
@@ -156,19 +157,19 @@ func LivenessCheck() gin.HandlerFunc {
 }
 
 // ReadinessCheck 就绪性检查（检查依赖）
-func ReadinessCheck(redisClient Pinger) gin.HandlerFunc {
+func ReadinessCheck(redisClient Pinger, gormDB *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 1*time.Second)
 		defer cancel()
 
-		if database := db.GetDB(); database == nil {
+		if database := gormDB; database == nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"status": "not_ready",
 				"reason": "database not initialized",
 			})
 			return
 		}
-		if err := db.GetDB().WithContext(ctx).Exec("SELECT 1").Error; err != nil {
+		if err := gormDB.WithContext(ctx).Exec("SELECT 1").Error; err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"status": "not_ready",
 				"reason": "database: " + err.Error(),

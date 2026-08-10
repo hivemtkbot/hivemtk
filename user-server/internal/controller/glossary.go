@@ -6,10 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"marketing/internal/dto"
-	i18npkg "marketing/internal/pkg/i18n"
-	"marketing/internal/pkg/utils/response"
-	i18nservice "marketing/internal/service/i18n"
+	"hivemtk-user/internal/dto"
+	i18npkg "hivemtk-user/internal/pkg/i18n"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service/translation"
 )
 
 // ============================================================================
@@ -25,15 +25,15 @@ import (
 
 // GlossaryController 术语表管理控制器
 type GlossaryController struct {
-	svc       *i18nservice.GlossaryService
-	validator *i18nservice.PostValidator
+	svc       *translation.GlossaryService
+	validator *translation.PostValidator
 }
 
 // NewGlossaryController 构造术语表控制器
-func NewGlossaryController(svc *i18nservice.GlossaryService) *GlossaryController {
+func NewGlossaryController(svc *translation.GlossaryService) *GlossaryController {
 	return &GlossaryController{
 		svc:       svc,
-		validator: i18nservice.NewPostValidator(),
+		validator: translation.NewPostValidator(),
 	}
 }
 
@@ -58,12 +58,12 @@ func (ctrl *GlossaryController) Create(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "请求参数错误", err.Error())
 		return
 	}
-	g := dto.ToGlossaryModel(&req)
+	g := translation.ToGlossaryModel(&req)
 	if err := ctrl.svc.Create(c.Request.Context(), g); err != nil {
 		response.Error(c, http.StatusBadRequest, "创建失败", err.Error())
 		return
 	}
-	response.Success(c, dto.FromGlossaryModel(g), "创建成功")
+	response.Success(c, translation.FromGlossaryModel(g), "创建成功")
 }
 
 // List 列表查询（支持 category/status/keyword 过滤 + 分页）
@@ -88,7 +88,7 @@ func (ctrl *GlossaryController) List(c *gin.Context) {
 			response.ErrorFromDB(c, err, "查询失败", err.Error())
 			return
 		}
-		response.SuccessWithList(c, dto.FromGlossaryModelList(list), int64(len(list)))
+		response.SuccessWithList(c, translation.FromGlossaryModelList(list), int64(len(list)))
 		return
 	}
 
@@ -97,7 +97,7 @@ func (ctrl *GlossaryController) List(c *gin.Context) {
 		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
-	response.SuccessWithPage(c, dto.FromGlossaryModelList(list), int64(req.Page), int64(req.PageSize), total)
+	response.SuccessWithPage(c, translation.FromGlossaryModelList(list), int64(req.Page), int64(req.PageSize), total)
 }
 
 // Get 查询单条术语
@@ -110,14 +110,14 @@ func (ctrl *GlossaryController) Get(c *gin.Context) {
 	}
 	g, err := ctrl.svc.GetByTermID(c.Request.Context(), termID)
 	if err != nil {
-		if errors.Is(err, i18nservice.ErrGlossaryNotFound) {
+		if errors.Is(err, translation.ErrGlossaryNotFound) {
 			response.NotFoundError(c, "术语")
 			return
 		}
 		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
-	response.Success(c, dto.FromGlossaryModel(g), "获取成功")
+	response.Success(c, translation.FromGlossaryModel(g), "获取成功")
 }
 
 // Update 更新术语
@@ -136,7 +136,7 @@ func (ctrl *GlossaryController) Update(c *gin.Context) {
 	// 确保术语存在
 	existing, err := ctrl.svc.GetByTermID(c.Request.Context(), termID)
 	if err != nil {
-		if errors.Is(err, i18nservice.ErrGlossaryNotFound) {
+		if errors.Is(err, translation.ErrGlossaryNotFound) {
 			response.NotFoundError(c, "术语")
 			return
 		}
@@ -144,7 +144,7 @@ func (ctrl *GlossaryController) Update(c *gin.Context) {
 		return
 	}
 	// 以路径 term_id 为准（忽略 body 中的 term_id，避免误改唯一键）
-	updated := dto.ToGlossaryModel(&req)
+	updated := translation.ToGlossaryModel(&req)
 	updated.ID = existing.ID
 	updated.TermID = termID
 	if updated.Status == "" {
@@ -154,7 +154,7 @@ func (ctrl *GlossaryController) Update(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "更新失败", err.Error())
 		return
 	}
-	response.Success(c, dto.FromGlossaryModel(updated), "更新成功")
+	response.Success(c, translation.FromGlossaryModel(updated), "更新成功")
 }
 
 // Delete 删除术语

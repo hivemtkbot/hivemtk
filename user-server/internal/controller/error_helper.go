@@ -1,55 +1,27 @@
 package controller
 
 import (
-	"net/http"
-	"strings"
-
-	"marketing/internal/pkg/utils/response"
+	"hivemtk-user/internal/pkg/errhttp"
 
 	"github.com/gin-gonic/gin"
 )
 
-// HandleDBError 处理服务层返回的错误。
-// 如果错误表示记录不存在（消息包含"不存在"或"not found"），
-// 响应 404；否则响应 500 并附带操作描述。
-// operation 参数用于构造 500 错误消息，如 "获取短链"、"创建活码"。
-// 返回 true 表示已处理错误并写入响应，调用方应立即 return。
+// HandleDBError 处理服务层返回的错误（委托 pkg/errhttp）。
+//
+// P2-5 content/ops 双范式归位：实现下沉到 internal/pkg/errhttp，
+// 本包保留委托函数以兼容存量 controller；新代码请直接使用 errhttp 包。
 func HandleDBError(ctx *gin.Context, err error, operation string) bool {
-	if err == nil {
-		return false
-	}
-	if isNotFoundError(err) {
-		response.NotFound(ctx, "记录不存在")
-		return true
-	}
-	response.ErrorFromDB(ctx, err, operation+"失败")
-	return true
+	return errhttp.HandleDBError(ctx, err, operation)
 }
 
-// HandleServiceError 处理服务层返回的业务错误。
-// 与 HandleDBError 不同，非"记录不存在"的错误响应 400（业务校验错误），
-// 适用于服务层会返回业务校验错误（如"系统模板不能修改"、"无权限修改"）的场景。
-// 返回 true 表示已处理错误并写入响应，调用方应立即 return。
+// HandleServiceError 处理服务层返回的业务错误（委托 pkg/errhttp）。
 func HandleServiceError(ctx *gin.Context, err error) bool {
-	if err == nil {
-		return false
-	}
-	if isNotFoundError(err) {
-		response.NotFound(ctx, "记录不存在")
-		return true
-	}
-	// 业务错误统一返回 400，并透传真实错误原因（避免掩盖业务校验/DB 失败的具体信息）
-	response.Error(ctx, http.StatusBadRequest, err.Error())
-	return true
+	return errhttp.HandleServiceError(ctx, err)
 }
 
-// isNotFoundError 判断错误是否表示记录不存在
-// 使用字符串匹配而非 gorm.ErrRecordNotFound，避免 controller 层依赖 gorm
+// isNotFoundError 判断错误是否表示记录不存在（包内私有版）。
 func isNotFoundError(err error) bool {
-	// 服务层可能使用 errors.New("xxx不存在") 包装错误，检查错误消息
-	// gorm.ErrRecordNotFound 的消息为 "record not found"，同样会被 "not found" 匹配
-	msg := err.Error()
-	return strings.Contains(msg, "不存在") || strings.Contains(msg, "not found")
+	return errhttp.IsNotFoundError(err)
 }
 
 // IsNotFoundError 公开版 isNotFoundError(供跨包调用)

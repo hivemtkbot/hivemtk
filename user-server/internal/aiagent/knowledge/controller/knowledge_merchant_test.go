@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	knowledgesvc "marketing/internal/aiagent/knowledge/service"
-	ragretrieval "marketing/internal/aiagent/rag/retrieval"
-	"marketing/internal/model"
+	knowledgesvc "hivemtk-user/internal/aiagent/knowledge/service"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
+	"hivemtk-user/internal/model"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -17,8 +17,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"marketing/internal/pkg/testutil"
-	"marketing/internal/pkg/testutil/testmigrate"
+	"hivemtk-user/internal/pkg/testutil"
+	"hivemtk-user/internal/pkg/testutil/testmigrate"
 )
 
 // toPgVector 将 []float32 格式化为 pgvector 字面量（如 [0.1,0.2,...]）

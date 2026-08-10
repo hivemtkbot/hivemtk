@@ -20,9 +20,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	dbUtil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils"
+	"hivemtk-user/internal/repository"
 )
 
 // KnowledgeBaseService 知识库业务服务
@@ -41,6 +42,11 @@ func IsValidKBType(t string) bool {
 	return t == model.KnowledgeBaseTypeFAQ ||
 		t == model.KnowledgeBaseTypeRAG ||
 		t == model.KnowledgeBaseTypeSOP
+}
+
+// NewKnowledgeBaseServiceDefault 使用全局 DB 创建知识库服务（controller 层入口，避免 controller 持有 gorm.DB）。
+func NewKnowledgeBaseServiceDefault() *KnowledgeBaseService {
+	return NewKnowledgeBaseService(dbUtil.GetDB())
 }
 
 // NewKnowledgeBaseService 创建知识库服务
@@ -145,12 +151,12 @@ func (s *KnowledgeBaseService) ListKBs(ctx context.Context, kbType, ownerType st
 		filtered := make([]*model.KnowledgeBase, 0, len(ptrs))
 		for _, kb := range ptrs {
 			if strings.Contains(strings.ToLower(kb.Name), like) || strings.Contains(strings.ToLower(kb.Description), like) {
-			filtered = append(filtered, kb)
+				filtered = append(filtered, kb)
+			}
 		}
+		// 修复：keyword 过滤后返回的实际列表长度应与 total 一致，否则分页/前端总数显示错误
+		return filtered, int64(len(filtered)), nil
 	}
-	// 修复：keyword 过滤后返回的实际列表长度应与 total 一致，否则分页/前端总数显示错误
-	return filtered, int64(len(filtered)), nil
-}
 	return ptrs, total, nil
 }
 

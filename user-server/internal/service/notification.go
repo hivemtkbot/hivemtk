@@ -8,8 +8,8 @@ import (
 	"gorm.io/gorm"
 
 	"context"
-	"marketing/internal/model"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 )
 
 // NotificationService 通知中心服务

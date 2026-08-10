@@ -11,11 +11,11 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
-	"marketing/internal/aiagent/llm"
-	"marketing/internal/dto"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 )
 
 // IntentEnabled 意图识别总开关（内存态）
@@ -40,20 +40,20 @@ const IntentConfigKey = "intent_recognition_config"
 
 // IntentConfig 意图识别配置（DB 持久化结构）
 type IntentConfig struct {
-	Enabled   bool   `json:"enabled"`             // 是否启用意图识别
+	Enabled   bool   `json:"enabled"`              // 是否启用意图识别
 	UpdatedAt string `json:"updated_at,omitempty"` // 更新时间（RFC3339）
 	UpdatedBy string `json:"updated_by,omitempty"` // 更新人
 }
 
 // IntentRecognizer 销售意图识别器
 type IntentRecognizer struct {
-	db                 *gorm.DB
-	recordRepo         *repository.IntentRecordRepository
-	logRepo            *repository.IntentLogRepository
-	sopExecutionRepo   *repository.SopExecutionRepository
-	dispatcher         *llm.Dispatcher
-	cache              *redis.Client
-	sopService         *SOPService
+	db               *gorm.DB
+	recordRepo       *repository.IntentRecordRepository
+	logRepo          *repository.IntentLogRepository
+	sopExecutionRepo *repository.SopExecutionRepository
+	dispatcher       *llm.Dispatcher
+	cache            *redis.Client
+	sopService       *SOPService
 }
 
 // NewIntentRecognizer 创建意图识别器
@@ -67,12 +67,12 @@ func NewIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.C
 		logRepo.SetDB(context.Background(), db)
 	}
 	return &IntentRecognizer{
-		db:                db,
-		recordRepo:        recordRepo,
-		logRepo:           logRepo,
-		sopExecutionRepo:  repository.NewSopExecutionRepository(db),
-		dispatcher:        dispatcher,
-		cache:             cache,
+		db:               db,
+		recordRepo:       recordRepo,
+		logRepo:          logRepo,
+		sopExecutionRepo: repository.NewSopExecutionRepository(db),
+		dispatcher:       dispatcher,
+		cache:            cache,
 	}
 }
 

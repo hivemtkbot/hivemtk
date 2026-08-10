@@ -1,9 +1,9 @@
 package repository
 
 import (
-	contentmodel "marketing/internal/content/model"
-	"marketing/internal/ops/model"
-	_db "marketing/internal/pkg/utils/db"
+	contentmodel "hivemtk-user/internal/content/model"
+	"hivemtk-user/internal/ops/model"
+	_db "hivemtk-user/internal/pkg/db"
 
 	"gorm.io/gorm"
 )

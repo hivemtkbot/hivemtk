@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"marketing/internal/channelbot/core"
+	"hivemtk-user/internal/channelbot/core"
 )
 
 // TestSplitMessage 覆盖长度拆分的所有边界场景
