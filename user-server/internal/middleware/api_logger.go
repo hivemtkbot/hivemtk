@@ -61,13 +61,14 @@ func APIInteractionLogger() gin.HandlerFunc {
 			}
 		}
 
-		// 读取完整请求体并还原给 handler（cap 仅用于日志截断，绝不能截断 handler 收到的 body）
-		var reqBody []byte
+		// 以有界缓冲（TeeReader）在 handler 消费 body 时旁路捕获，避免对超大请求体执行
+		// io.ReadAll 导致整请求体常驻内存（内存放大 / DoS 风险）。捕获上限 apiLogReqBodyCap
+		// 同时作为日志截断上限；handler 仍读取原始 body 流，绝不被截断。
+		var reqCap *cappedBufferWriter
 		if c.Request.Body != nil {
-			reqBody, _ = io.ReadAll(c.Request.Body)
-			c.Request.Body = io.NopCloser(bytes.NewReader(reqBody))
+			reqCap = &cappedBufferWriter{cap: apiLogReqBodyCap}
+			c.Request.Body = io.NopCloser(io.TeeReader(c.Request.Body, reqCap))
 		}
-		reqBodyLog := redactJSON(reqBody, apiLogReqBodyCap)
 
 		// 包装响应写入器以捕获响应体
 		w := &apiLogResponseWriter{ResponseWriter: c.Writer, cap: apiLogRespBodyCap}
@@ -76,6 +77,11 @@ func APIInteractionLogger() gin.HandlerFunc {
 		start := time.Now()
 		c.Next()
 		latencyMs := time.Since(start).Milliseconds()
+
+		reqBodyLog := ""
+		if reqCap != nil {
+			reqBodyLog = redactJSON(reqCap.Bytes(), apiLogReqBodyCap)
+		}
 
 		status := c.Writer.Status()
 		respBodyLog := w.snapshot()
@@ -161,6 +167,31 @@ func (w *apiLogResponseWriter) snapshot() string {
 	}
 	return s
 }
+
+// cappedBufferWriter 有界写入器：最多保留 cap 字节，超出部分静默丢弃。
+// 用于 TeeReader 旁路捕获请求体，保证内存占用上限，杜绝超大请求体 OOM。
+type cappedBufferWriter struct {
+	buf  bytes.Buffer
+	cap  int
+	full bool
+}
+
+func (w *cappedBufferWriter) Write(p []byte) (int, error) {
+	if w.full {
+		return len(p), nil
+	}
+	if w.buf.Len()+len(p) > w.cap {
+		if remain := w.cap - w.buf.Len(); remain > 0 {
+			w.buf.Write(p[:remain])
+		}
+		w.full = true
+		return len(p), nil
+	}
+	w.buf.Write(p)
+	return len(p), nil
+}
+
+func (w *cappedBufferWriter) Bytes() []byte { return w.buf.Bytes() }
 
 // redactJSON 解析 JSON 并脱敏敏感字段；非 JSON 或超限则截断后原样返回。
 func redactJSON(b []byte, capSize int) string {
