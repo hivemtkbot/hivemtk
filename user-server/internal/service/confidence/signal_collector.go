@@ -68,7 +68,7 @@ func (c *SignalCollector) Collect(ctx context.Context, in *dto.SignalCollectionI
 	}
 
 	// 4. RAGQual
-	signals.RAGQual = c.computeRAGQual(in.RAGChunks)
+	signals.RAGQual = c.computeRAGQual(in)
 
 	// 5. LLMEntropy
 	signals.LLMEntropy = c.computeLLMEntropy(in.LLMLogprobs)
@@ -142,8 +142,17 @@ func (c *SignalCollector) computeCtxRelev(ctx context.Context, query string, las
 //
 // 公式：mean(top-k chunk score) * coverage_ratio
 // coverage_ratio = min(1, len(chunks) / expected_k)，expected_k=5
-// 无 chunks 时返回 0
-func (c *SignalCollector) computeRAGQual(chunks []dto.RAGChunk) float64 {
+//
+// ⚠️ RAG 未实际执行（如 handoff 预检在 RAG 跑之前调用）：该维度未知，返回中性 0.5，
+// 避免把"未测量"误当作"低质量"而系统性拉低聚合置信度、误触发转人工。
+// 与 computeCtxRelev（无上下文→0.5）、computeLLMEntropy（无 logprobs→0.5）的降级语义一致。
+// 判定：仅当「未标记 RAGExecuted 且未提供任何 chunks」视为未执行(中性 0.5)；
+// 已标记执行但无命中(chunks 为空)仍返回 0（确实低质量）；提供 chunks 则按质量计算。
+func (c *SignalCollector) computeRAGQual(in *dto.SignalCollectionInput) float64 {
+	if !in.RAGExecuted && len(in.RAGChunks) == 0 {
+		return 0.5
+	}
+	chunks := in.RAGChunks
 	if len(chunks) == 0 {
 		return 0.0
 	}

@@ -360,3 +360,51 @@ func TestAggregator_ErrAggregatorNotInitialized(t *testing.T) {
 		t.Errorf("ErrAggregatorNotInitialized 错误消息不应为空")
 	}
 }
+
+// TestAggregate_RAGNotExecuted_SignalNeutral 复现 SalesEngine handoff 预检场景：
+// RAG 尚未执行（未置 RAGExecuted、无 RAGChunks）时，RAGQual 信号应取中性 0.5，
+// 而非被当作"低质量"记 0，避免系统性拉低聚合置信度、误触发转人工。
+//
+// 回归：修复前 computeRAGQual 对空 chunks 返回 0.0，导致预检聚合分被压低、模糊消息误判 BandHandoff。
+func TestAggregate_RAGNotExecuted_SignalNeutral(t *testing.T) {
+	a := makeTestAggregator()
+	in := &dto.SignalCollectionInput{
+		Text:          "hello",
+		IntentType:    "ask_product",
+		RawIntentConf: 0.6,
+		// 故意不置 RAGExecuted、不提供 RAGChunks —— 模拟 RAG 跑之前的 handoff 预检
+	}
+	dec, err := a.Aggregate(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Aggregate 失败: %v", err)
+	}
+	if dec.Signals.RAGQual != 0.5 {
+		t.Errorf("RAG 未执行时 RAGQual 应中性 0.5, got %v", dec.Signals.RAGQual)
+	}
+}
+
+// TestComputeRAGQual_NeutralVsExecuted 直接校验 computeRAGQual 三态语义
+func TestComputeRAGQual_NeutralVsExecuted(t *testing.T) {
+	c := NewSignalCollector(nil)
+
+	// 1) 未执行且无 chunks → 中性 0.5
+	neutral := c.computeRAGQual(&dto.SignalCollectionInput{})
+	if neutral != 0.5 {
+		t.Errorf("未执行+无 chunks 应返回中性 0.5, got %v", neutral)
+	}
+
+	// 2) 已执行但无命中 → 0（确实低质量）
+	executedEmpty := c.computeRAGQual(&dto.SignalCollectionInput{RAGExecuted: true})
+	if executedEmpty != 0.0 {
+		t.Errorf("已执行无命中应返回 0, got %v", executedEmpty)
+	}
+
+	// 3) 提供 chunks → 按质量计算（>0）
+	withChunks := c.computeRAGQual(&dto.SignalCollectionInput{
+		RAGExecuted: true,
+		RAGChunks:   []dto.RAGChunk{{Score: 0.9}, {Score: 0.8}},
+	})
+	if withChunks <= 0.0 || withChunks > 1.0 {
+		t.Errorf("提供 chunks 应返回 (0,1] 的质量分, got %v", withChunks)
+	}
+}

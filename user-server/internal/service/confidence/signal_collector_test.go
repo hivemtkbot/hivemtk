@@ -190,9 +190,13 @@ func TestSignalCollector_CtxRelev_MeanOfMultipleTurns(t *testing.T) {
 
 func TestSignalCollector_RAGQual_Empty(t *testing.T) {
 	c := NewSignalCollector(nil)
-	got := c.computeRAGQual(nil)
-	if !approxEqual(got, 0.0) {
-		t.Errorf("空 chunks 应返回 0.0, got %v", got)
+	// RAG 未执行且无 chunks（handoff 预检场景）：未知维度，中性 0.5，不惩罚
+	if got := c.computeRAGQual(&dto.SignalCollectionInput{}); !approxEqual(got, 0.5) {
+		t.Errorf("未执行+空 chunks 应返回中性 0.5, got %v", got)
+	}
+	// RAG 已执行但无命中：确实低质量 → 0.0
+	if got := c.computeRAGQual(&dto.SignalCollectionInput{RAGExecuted: true}); !approxEqual(got, 0.0) {
+		t.Errorf("已执行+空 chunks 应返回 0.0, got %v", got)
 	}
 }
 
@@ -206,7 +210,7 @@ func TestSignalCollector_RAGQual_PartialCoverage(t *testing.T) {
 		{Score: 0.6},
 		{Score: 0.4},
 	}
-	got := c.computeRAGQual(chunks)
+	got := c.computeRAGQual(&dto.SignalCollectionInput{RAGChunks: chunks})
 	if !approxEqual(got, 0.36) {
 		t.Errorf("部分覆盖 RAGQual 应为 0.36, got %v", got)
 	}
@@ -224,7 +228,7 @@ func TestSignalCollector_RAGQual_FullCoverage(t *testing.T) {
 		{Score: 0.5},
 		{Score: 0.4},
 	}
-	got := c.computeRAGQual(chunks)
+	got := c.computeRAGQual(&dto.SignalCollectionInput{RAGChunks: chunks})
 	if !approxEqual(got, 0.6) {
 		t.Errorf("全覆盖 RAGQual 应为 0.6, got %v", got)
 	}
@@ -237,7 +241,7 @@ func TestSignalCollector_RAGQual_MoreThanExpected(t *testing.T) {
 		{Score: 1.0}, {Score: 1.0}, {Score: 1.0}, {Score: 1.0},
 		{Score: 1.0}, {Score: 1.0}, {Score: 1.0}, {Score: 1.0},
 	}
-	got := c.computeRAGQual(chunks)
+	got := c.computeRAGQual(&dto.SignalCollectionInput{RAGChunks: chunks})
 	if !approxEqual(got, 1.0) {
 		t.Errorf("score 全 1.0 + 全覆盖应返回 1.0, got %v", got)
 	}

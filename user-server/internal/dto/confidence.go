@@ -46,6 +46,7 @@ type SignalCollectionInput struct {
 	ExpectedEntities  map[string]any `json:"expected_entities,omitempty"`
 	LLMLogprobs       []float64      `json:"llm_logprobs,omitempty"` // top-k token logprobs
 	RAGChunks         []RAGChunk     `json:"rag_chunks,omitempty"`
+	RAGExecuted       bool           `json:"rag_executed,omitempty"` // RAG 是否已实际执行；false=该维度未知（取中性 0.5，不惩罚）
 	LastTurns         []string       `json:"last_turns,omitempty"` // 最近 3 轮对话
 
 	// 上下文因子（用于动态阈值）
