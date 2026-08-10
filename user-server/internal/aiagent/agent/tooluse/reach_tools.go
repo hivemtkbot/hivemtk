@@ -216,7 +216,7 @@ func NewReachToolDepsWithAdapter(db *gorm.DB, adapter ReachAdapter) ReachToolDep
 		DB:       db,
 	}
 	deps.SendPipeline = service.NewSendPipeline(
-		service.DefaultSendPipelineConfig(&reachChannelAdapterBridge{adapter: adapter}),
+		service.NewDefaultRateLimitedPipelineConfig(&reachChannelAdapterBridge{adapter: adapter}),
 	)
 	return deps
 }

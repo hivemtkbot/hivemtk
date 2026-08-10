@@ -72,9 +72,12 @@
 3. **09 营销自动化 统一 CustomerQuery 根除渠道拼接违规** → 🟰 **已合规**
    - 全量核对 platform/channel 查询均为单值参数化 `Where("platform = ?", platform)`（adapter / customer_session / integration / lead_mining / bridge / repository 等），无"多渠道拼接成查询条件"反模式。正是铁律要求的事实源单值。无需改。
 
-4. **04/05 邮件/短信 发送全局令牌桶** → 🛡 **基础设施已存在，NoOp 默认是有意安全默认（deferred）**
-   - `reach_send_pipeline.go` 已有 `MemorySendRateLimiter`（分片令牌桶）+ `NoOpSendRateLimiter`；`SendPipeline` 默认 `RateLimiter: NoOpSendRateLimiter{}`。
-   - 未配供应商配额前启用会直接丢弃发送（丢消息）= 猜测。启用属部署配置决策（需供应商配额），deferred，不盲改。
+4. **04/05 邮件/短信/即时通讯 发送全局令牌桶** → ✅ **已落地（三个第三方发送渠道全部启用限流）**
+   - 核准：`tool_accounts` 三方账号 = 短信 / 邮件 / 即时通讯；`SendPipeline` 仅在 `reach_tools.go` 的 AI agent 触达工具生产接线处被调用，传统 `sms.go`/`email_send.go` 走各自路径。
+   - 落地：`reach_send_pipeline.go` 新增 `defaultThirdPartyRateLimitByChannel`（sms QPS50/Burst100、email QPS30/Burst60、IM 类 wecom/weixin/douyin/kuaishou/xhs/tiktok/xianyu/dingtalk/telegram/whatsapp/feishu 各 QPS30/Burst60 保守默认）+ `DefaultThirdPartyRateLimitSpec(channel)` + `NewDefaultRateLimitedPipelineConfig(adapter)`（启用 `MemorySendRateLimiter`）；`runRateLimit` 在全局 `RateLimitSpec` 为零时按渠道套用默认规格（内部渠道 card/web 不在表中→零值→不限流）。
+   - `reach_tools.go::NewReachToolDepsWithAdapter`（router.Setup 生产接线）改用 `NewDefaultRateLimitedPipelineConfig`，**三个第三方发送渠道（短信/邮件/即时通讯）正式启用令牌桶削峰**，避免突发触发供应商限频被 ban / 过载丢消息。
+   - 安全边界：`DefaultSendPipelineConfig` 默认仍 `NoOp`（不破坏现有测试契约）；限流为保守默认，正常流量放行，异常突发削峰；全局 `RateLimitSpec` 非零时优先生效（便于按三方账号供应商配额精确配置）。
+   - 验证：`go build ./...` 绿；`docker compose build --no-cache mtk-user-server-dev` 绿（消除构建缓存导致的 `290 行 **rateLimiterShard` 假编译错误，证实工作区代码正确）；容器已用新镜像 Up 并在 air 编译运行。
 
 5. **17 数据分析 导出异步化 + 特征表版本化** → 🔍 **大特性 deferred**
    - 导出为同步实现（`operation_log.ExportAll`、`community.ExportData`、`content.GenerateCSV` 等 controller 直调 service 返 CSV）。
