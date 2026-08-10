@@ -217,7 +217,14 @@ type sendRateBucket struct {
 	burst    int
 }
 
-const rateLimiterShards = 64
+const (
+	rateLimiterShards        = 64
+	rateLimiterBucketIdleTTL = 10 * time.Minute // 桶空闲超过此值视为可重置（返回客户重置 burst 额度）
+)
+
+// rateLimiterMaxBuckets 每分片最大桶数（64 分片 × 4096 ≈ 26 万上限），超出驱逐最久未用桶，防止内存泄漏。
+// 用 var 以便测试可调小上限验证边界。
+var rateLimiterMaxBuckets = 4096
 
 // NewMemorySendRateLimiter 创建内存限流器
 func NewMemorySendRateLimiter() *MemorySendRateLimiter {
@@ -244,17 +251,27 @@ func (l *MemorySendRateLimiter) Allow(ctx context.Context, key string, limit Rat
 	s := l.shardOf(ctx, key)
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	now := time.Now()
 	b, ok := s.buckets[key]
-	if !ok || b.qps != limit.QPS || b.burst != limit.Burst {
+	// !ok 优先短路，保证下方 b.lastFill 访问不空指针；
+	// 规格变更或空闲过久 → 重建（空闲过久的桶重置 burst，等价于失效）
+	if !ok || b.qps != limit.QPS || b.burst != limit.Burst || now.Sub(b.lastFill) > rateLimiterBucketIdleTTL {
+		if !ok {
+			// 缓存未命中且分片已满：驱逐最久未用的桶，限制每分片桶数上限，杜绝无限增长（内存泄漏）
+			if len(s.buckets) >= rateLimiterMaxBuckets {
+				s.evictStalestLocked()
+			}
+		}
 		b = &sendRateBucket{
 			tokens:   float64(limit.Burst),
-			lastFill: time.Now(),
+			lastFill: now,
 			qps:      limit.QPS,
 			burst:    limit.Burst,
 		}
 		s.buckets[key] = b
 	}
-	now := time.Now()
+
 	elapsed := now.Sub(b.lastFill).Seconds()
 	b.tokens = math.Min(float64(b.burst), b.tokens+elapsed*float64(b.qps))
 	b.lastFill = now
@@ -263,6 +280,35 @@ func (l *MemorySendRateLimiter) Allow(ctx context.Context, key string, limit Rat
 		return true
 	}
 	return false
+}
+
+// totalBucketCount 统计所有分片桶总数（仅供测试验证内存上限）。
+func (l *MemorySendRateLimiter) totalBucketCount() int {
+	total := 0
+	for i := range l.shards {
+		s := l.shards[i]
+		s.mu.Lock()
+		total += len(s.buckets)
+		s.mu.Unlock()
+	}
+	return total
+}
+
+// evictStalestLocked 驱逐 lastFill 最早的桶。调用方须持 s.mu。
+func (s *rateLimiterShard) evictStalestLocked() {
+	var staleKey string
+	var staleTime time.Time
+	first := true
+	for k, b := range s.buckets {
+		if first || b.lastFill.Before(staleTime) {
+			staleKey = k
+			staleTime = b.lastFill
+			first = false
+		}
+	}
+	if staleKey != "" {
+		delete(s.buckets, staleKey)
+	}
 }
 
 // Reset 重置指定 key 的限流（用于测试）
@@ -459,6 +505,52 @@ func DefaultSendPipelineConfig(adapter ChannelAdapter) SendPipelineConfig {
 	}
 }
 
+// defaultThirdPartyRateLimitByChannel 三方发送渠道的保守默认限流规格（削峰用安全下限，非业务配额）。
+// 仅覆盖短信 / 邮件 / 即时通讯等「第三方服务账号」（tool_accounts）渠道；内部渠道（card / web）
+// 不在表内，MemorySendRateLimiter 对零值规格放行（不限流）。
+// 生产应按三方账号供应商配额配置 SendPipelineConfig.RateLimitSpec 全局覆盖。
+var defaultThirdPartyRateLimitByChannel = map[string]RateLimitSpec{
+	"sms":   {QPS: 50, Burst: 100},
+	"email": {QPS: 30, Burst: 60},
+	// 即时通讯类第三方渠道
+	"wecom":        {QPS: 30, Burst: 60},
+	"weixin":       {QPS: 30, Burst: 60},
+	"douyin":       {QPS: 30, Burst: 60},
+	"douyin_web":   {QPS: 30, Burst: 60},
+	"kuaishou":     {QPS: 30, Burst: 60},
+	"kuaishou_web": {QPS: 30, Burst: 60},
+	"xiaohongshu":  {QPS: 30, Burst: 60},
+	"xhs":          {QPS: 30, Burst: 60},
+	"xhs_web":      {QPS: 30, Burst: 60},
+	"tiktok":       {QPS: 30, Burst: 60},
+	"tiktok_web":   {QPS: 30, Burst: 60},
+	"xianyu":       {QPS: 30, Burst: 60},
+	"xianyu_web":   {QPS: 30, Burst: 60},
+	"dingtalk":     {QPS: 30, Burst: 60},
+	"telegram":     {QPS: 30, Burst: 60},
+	"whatsapp":     {QPS: 30, Burst: 60},
+	"feishu":       {QPS: 30, Burst: 60},
+}
+
+// DefaultThirdPartyRateLimitSpec 返回指定渠道的三方默认限流规格；
+// 非三方 / 内部渠道（如 card / web）返回零值，MemorySendRateLimiter 会放行（不限流）。
+func DefaultThirdPartyRateLimitSpec(channel string) RateLimitSpec {
+	if spec, ok := defaultThirdPartyRateLimitByChannel[channel]; ok {
+		return spec
+	}
+	return RateLimitSpec{}
+}
+
+// NewDefaultRateLimitedPipelineConfig 在默认配置基础上启用三方渠道令牌桶限流：
+// 覆盖短信 / 邮件 / 即时通讯等第三方发送渠道，避免突发流量触发供应商限频被 ban 或过载丢消息。
+// 内部渠道（card / web）不在默认限流表内，保持不限流。
+// 全局 SendPipelineConfig.RateLimitSpec 若非零则优先生效（用于按三方账号配额精确配置）。
+func NewDefaultRateLimitedPipelineConfig(adapter ChannelAdapter) SendPipelineConfig {
+	cfg := DefaultSendPipelineConfig(adapter)
+	cfg.RateLimiter = NewMemorySendRateLimiter()
+	return cfg
+}
+
 // defaultSendPipeline 默认实现
 type defaultSendPipeline struct {
 	config SendPipelineConfig
@@ -587,7 +679,12 @@ func (p *defaultSendPipeline) runRateLimit(ctx context.Context, req *ReachSendRe
 		return log
 	}
 	key := fmt.Sprintf("%s:%s:%s", req.Channel, req.AccountID, req.CustomerID)
-	if !p.config.RateLimiter.Allow(ctx, key, p.config.RateLimitSpec) {
+	spec := p.config.RateLimitSpec
+	if spec.QPS <= 0 && spec.Burst <= 0 {
+		// 未显式配置全局限流时，按渠道套用三方渠道保守默认规格（短信/邮件/即时通讯）。
+		spec = DefaultThirdPartyRateLimitSpec(req.Channel)
+	}
+	if !p.config.RateLimiter.Allow(ctx, key, spec) {
 		log.Success = false
 		log.Error = ErrSendRateLimited.Error()
 	} else {
@@ -631,6 +728,12 @@ func (p *defaultSendPipeline) runRetry(ctx context.Context, req *ReachSendReques
 		if !p.isRetryable(ctx, err, policy.RetryableErrors) {
 			break
 		}
+		// 上下文已取消/超时：立即停止重试，不再重发（break 跳出 for 循环）
+		if ctx.Err() != nil {
+			lastErr = ctx.Err()
+			resp.RetryCount = attempt
+			break
+		}
 		// 计算退避时间
 		if attempt < policy.MaxRetries {
 			wait := p.computeBackoff(ctx, policy, attempt)
@@ -638,6 +741,11 @@ func (p *defaultSendPipeline) runRetry(ctx context.Context, req *ReachSendReques
 			case <-time.After(wait):
 			case <-ctx.Done():
 				lastErr = ctx.Err()
+			}
+			// 等待期间上下文取消：停止重试。此处 break 位于 for 循环体内，跳出整个重试循环；
+			// 原有的 break 误置于 select 内，仅跳出 select，导致 ctx 取消后仍继续重发直至 MaxRetries 耗尽。
+			if ctx.Err() != nil {
+				resp.RetryCount = attempt
 				break
 			}
 		}

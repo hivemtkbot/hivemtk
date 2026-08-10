@@ -1076,3 +1076,72 @@ func TestDefaultSendPipelineConfig_AllComponents(t *testing.T) {
 		t.Errorf("期望 MaxRetries=3，实际 %d", cfg.RetryPolicy.MaxRetries)
 	}
 }
+
+// ===== 23. ctx 取消后重试必须立即停止（不得继续重发） =====
+// 深入审计发现：原 runRetry 在退避 select 内 `case <-ctx.Done(): break` 的 break 仅跳出 select，
+// 不跳出 for 循环（Go 语义），导致客户端断开/超时取消后仍以 MaxRetries 重发，浪费资源且可能重复发送。
+
+func TestSendPipeline_RetryStopsOnContextCancel(t *testing.T) {
+	var sendCalls int
+	adapter := NewFuncChannelAdapter(func(ctx context.Context, req *ReachSendRequest) (string, error) {
+		sendCalls++
+		return "", errors.New("always fail")
+	})
+	cfg := DefaultSendPipelineConfig(adapter)
+	cfg.RetryPolicy = SendRetryPolicy{MaxRetries: 5, IntervalMs: 50, Backoff: "exponential"}
+	pipeline := NewSendPipeline(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // 进入 Send 前即取消上下文
+
+	resp := pipeline.Send(ctx, &ReachSendRequest{
+		Channel:     "sms",
+		AccountID:   "acc-cancel",
+		CustomerID:  "c1",
+		RecipientID: "r1",
+		Content:     "hi",
+	})
+	if resp.Success {
+		t.Fatal("已取消上下文，期望发送失败")
+	}
+	// 修复前会重发至 MaxRetries+1=6 次；修复后首次失败即停止，仅 1 次
+	if sendCalls != 1 {
+		t.Errorf("ctx 取消后仍重发 %d 次，期望 1 次（首次失败后即刻停止）", sendCalls)
+	}
+}
+
+// ===== 24. MemorySendRateLimiter 空闲桶驱逐（防内存泄漏） =====
+
+func TestRateLimiterShard_EvictStalest(t *testing.T) {
+	s := &rateLimiterShard{buckets: make(map[string]*sendRateBucket)}
+	now := time.Now()
+	s.buckets["a"] = &sendRateBucket{lastFill: now.Add(-3 * time.Minute)}
+	s.buckets["b"] = &sendRateBucket{lastFill: now.Add(-1 * time.Minute)}
+	s.buckets["c"] = &sendRateBucket{lastFill: now}
+	s.evictStalestLocked()
+	if _, ok := s.buckets["a"]; ok {
+		t.Error("a (最久未用) 应被驱逐")
+	}
+	if len(s.buckets) != 2 {
+		t.Errorf("期望剩余 2 个桶，实际 %d", len(s.buckets))
+	}
+}
+
+// ===== 25. 限流器桶数受每分片上限约束（不无限增长） =====
+
+func TestMemorySendRateLimiter_BoundedByCap(t *testing.T) {
+	orig := rateLimiterMaxBuckets
+	rateLimiterMaxBuckets = 4
+	defer func() { rateLimiterMaxBuckets = orig }()
+
+	limiter := NewMemorySendRateLimiter()
+	spec := RateLimitSpec{QPS: 1, Burst: 1}
+	ctx := context.Background()
+	for i := 0; i < 100; i++ {
+		limiter.Allow(ctx, fmt.Sprintf("k-%d", i), spec)
+	}
+	// 64 分片 × 4 = 256 上限
+	if got := limiter.totalBucketCount(); got > rateLimiterShards*rateLimiterMaxBuckets {
+		t.Errorf("桶总数 %d 超过上限 %d（内存泄漏）", got, rateLimiterShards*rateLimiterMaxBuckets)
+	}
+}
