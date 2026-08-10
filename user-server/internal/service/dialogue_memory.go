@@ -25,8 +25,9 @@ type DialogueMemoryService struct {
 }
 
 const (
-	shortTermWindow = 10 // 短期记忆保留最近 10 轮
-	memoryTTL       = 30 * 24 * time.Hour
+	shortTermWindow    = 10    // 短期记忆保留最近 10 轮（硬上限，经验证的注入锚点，保持不变）
+	shortTermMsgMaxLen = 1500  // 单条历史消息注入 prompt 前的硬截断，防止异常长消息撑爆上下文
+	memoryTTL          = 30 * 24 * time.Hour
 )
 
 // NewDialogueMemoryService 创建对话记忆服务
@@ -118,7 +119,7 @@ func (s *DialogueMemoryService) GetShortTermMemory(ctx context.Context, sessionI
 		}
 		msgs = append(msgs, dto.Message{
 			Role:      role,
-			Content:   r.Content,
+			Content:   truncate(r.Content, shortTermMsgMaxLen),
 			Timestamp: r.SentAt,
 		})
 	}

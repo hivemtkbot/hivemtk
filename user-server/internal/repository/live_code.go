@@ -17,6 +17,8 @@ type LiveCodeRepository interface {
 	GetByID(ctx context.Context, id string) (*model.LiveCode, error)
 	GetByShortLink(ctx context.Context, shortLink string) (*model.LiveCode, error)
 	GetList(ctx context.Context, page, pageSize int, name, status string) ([]*model.LiveCode, int64, error)
+	// IncrementClicks 原子累加活码点击次数，避免并发读改写导致计数丢失（lost-update）
+	IncrementClicks(ctx context.Context, id string) error
 }
 
 // liveCodeRepository 活码仓储实现
@@ -52,6 +54,17 @@ func (r *liveCodeRepository) GetAvailableLiveCodes(ctx context.Context) ([]*mode
 	err := r.db.Where("status = ? AND created_at > ?", 1, now.AddDate(0, 0, -7)).
 		Find(&liveCodes).Error
 	return liveCodes, err
+}
+
+// IncrementClicks 原子累加活码点击次数（total_clicks/daily_clicks 各 +1）。
+// 使用数据库侧的 UPDATE ... SET col = col + 1，避免「读-改-写」在并发扫码时丢计数（lost-update）。
+func (r *liveCodeRepository) IncrementClicks(ctx context.Context, id string) error {
+	return r.db.Model(&model.LiveCode{}).
+		Where("id = ?", id).
+		UpdateColumns(map[string]interface{}{
+			"total_clicks": gorm.Expr("total_clicks + 1"),
+			"daily_clicks": gorm.Expr("daily_clicks + 1"),
+		}).Error
 }
 
 // GetByID 根据ID获取活码

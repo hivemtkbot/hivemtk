@@ -241,18 +241,8 @@ func (s *liveCodeService) RecordClick(ctx context.Context, qrID string, userAgen
 		return err
 	}
 
-	// 获取活码信息
-	liveCode, err := s.liveCodeRepo.GetByID(ctx, qrCode.LiveCodeID)
-	if err != nil {
-		return err
-	}
-
-	// 更新活码点击次数
-	liveCode.TotalClicks++
-	liveCode.DailyClicks++
-
-	err = s.liveCodeRepo.Update(ctx, liveCode)
-	if err != nil {
+	// 原子累加活码点击次数，避免并发读改写丢计数（lost-update）
+	if err := s.liveCodeRepo.IncrementClicks(ctx, qrCode.LiveCodeID); err != nil {
 		return err
 	}
 
