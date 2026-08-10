@@ -462,7 +462,13 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 	if s.agentBindingSvc != nil {
 		agentCtxFromChannel, _ = s.agentBindingSvc.LoadAgentForChannel(ctx, NormalizeChannelType(string(model.PlatformWebEmbed)), channel.ChannelID)
 	}
-	handleResult, err := s.orchestrator.HandleIncomingWithAgent(ctx, in, agentCtxFromChannel)
+	// 服务端对 AI 推理设置硬性截止，避免 RAG/LLM 栈异常（如 embedding/rerank 不可达）时，
+	// 同步 HTTP 端点无限挂起（agentLoopTotalTimeout=180s 仅作后台安全网，不应让浏览器空等）。
+	// 超时后编排器 ctx 取消，返回「访客消息已保存、无 AI 回复」的降级结果，而非让客户端卡死。
+	const webChatReplyTimeout = 60 * time.Second
+	aiCtx, aiCancel := context.WithTimeout(ctx, webChatReplyTimeout)
+	defer aiCancel()
+	handleResult, err := s.orchestrator.HandleIncomingWithAgent(aiCtx, in, agentCtxFromChannel)
 	if err != nil {
 		// 编排失败不影响访客消息已保存
 		return &VisitorSendMessageResult{
