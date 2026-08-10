@@ -269,6 +269,20 @@ func (r *ReachPipelineRepository) SaveJob(ctx context.Context, job *model.ReachJ
 	return r.db.WithContext(ctx).Save(job).Error
 }
 
+// TouchRunningJob 刷新运行中任务的 updated_at，作为执行存活心跳。
+// 仅当任务仍处于 running 时才更新，避免把已被 ResetStuckJobs 重置为 pending 的任务
+// 误标为存活。配合 dispatchDueJobs 的 ResetStuckJobs(10min)：心跳周期内 updated_at
+// 持续刷新 -> 仍在执行的任务（如第三方渠道发送阻塞）不会被误判为卡死而重复派发，
+// 从而根绝「运行中任务被重置后重复执行导致重复触达」的竞态。
+func (r *ReachPipelineRepository) TouchRunningJob(ctx context.Context, id uint) error {
+	if r == nil || r.db == nil {
+		return errors.New("reach pipeline repository not initialized")
+	}
+	return r.db.WithContext(ctx).Model(&model.ReachJob{}).
+		Where("id = ? AND state = ?", id, "running").
+		Update("updated_at", time.Now()).Error
+}
+
 // GetScriptContent 按 ID 在 script_templates / script_libraries 表中查询 content
 //
 // 优先匹配 script_templates，命中非空内容即返回；否则兜底 script_libraries；

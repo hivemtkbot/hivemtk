@@ -69,6 +69,9 @@ const (
 
 	JobStateRunning = "running"
 
+	// reachJobHeartbeatInterval 执行存活心跳间隔，须远小于 ResetStuckJobs 的卡死阈值(10min)。
+	reachJobHeartbeatInterval = 1 * time.Minute
+
 	JobStateSuccess = "success"
 
 	JobStateFailed = "failed"
@@ -633,6 +636,34 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 	job.State = JobStateRunning
 	job.StartedAt = &now
 	s.repo.SaveJob(ctx, job)
+
+	// 启动执行存活心跳：周期性刷新 updated_at，防止 dispatchDueJobs 的 ResetStuckJobs
+	// 把仍在执行（如第三方渠道发送阻塞）的任务误判为卡死而重置为 pending 并重复派发，
+	// 从而杜绝运行中任务被并发重复执行导致的重复触达。心跳仅在本函数返回时停止，
+	// 故只有进程真正崩溃（心跳 goroutine 随之死亡）时任务才会被 ResetStuckJobs 安全恢复。
+	hbStop := make(chan struct{})
+	hbDone := make(chan struct{})
+	go func() {
+		defer close(hbDone)
+		ticker := time.NewTicker(reachJobHeartbeatInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-hbStop:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				// 使用 WithoutCancel 脱离 ctx 取消，确保心跳自身不被外层 ctx 取消打断；
+				// 外层 ctx 取消时由上面的 ctx.Done() 分支负责退出。
+				_ = s.repo.TouchRunningJob(context.WithoutCancel(ctx), job.ID)
+			}
+		}
+	}()
+	defer func() {
+		close(hbStop)
+		<-hbDone
+	}()
 
 	// 累计 Pipeline 运行次数
 	s.repo.IncrementPipelineField(ctx, pipe.ID, "total_runs", 1)
