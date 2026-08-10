@@ -646,9 +646,13 @@ func RecordDownlinkFetchBatch(ctx context.Context, channel, accountID string, hu
 		ids = append(ids, h.MsgID)
 	}
 	if d := db.GetDB(); d != nil {
-		_ = d.Model(&model.MessageTrace{}).
+		if err := d.Model(&model.MessageTrace{}).
 			Where("node = ? AND msg_id IN ?", NodeDownlinkFetch, ids).
-			Pluck("msg_id", &existing).Error
+			Pluck("msg_id", &existing).Error; err != nil {
+			// dedup 查询失败仅影响去重精度（可能重复记 downlink_fetch span），不影响下行主链路；
+			// 但须打印错误以便观测，避免静默吞掉 DB 异常。
+			logger.Errorf("[tracing] RecordDownlinkFetchBatch dedup query failed (best-effort): %v", err)
+		}
 	}
 	existSet := make(map[string]struct{}, len(existing))
 	for _, e := range existing {
