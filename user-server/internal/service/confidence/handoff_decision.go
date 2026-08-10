@@ -111,13 +111,20 @@ func (h *HandoffDecisionService) MarkResolved(ctx context.Context, decisionID st
 //
 // 优先级：
 //  1. veto_triggered（否决原因）
-//  2. low_confidence（conf < 0.4）
-//  3. band_handoff（其他）
-func (h *HandoffDecisionService) reasonOf(ctx context.Context, dec *dto.ConfidenceDecision) string {
+//  2. low_confidence（聚合置信度落入 handoff 区间，即 dec.DecisionBand == BandHandoff）
+//  3. band_handoff（其他，防御性兜底）
+//
+// 必须以 dec.DecisionBand 为准，而非硬编码 0.4，也非 dec.DynamicThreshold：
+//   - 真实转人工判据由 DynamicThresholdCalculator.DetermineBand 基于 policy.BandHandoffUpper
+//     计算（该值可由运营后台按意图动态调整，默认 0.40）。硬编码 0.4 会在 BandHandoffUpper
+//     被调高（如 0.55）后与真实判据脱节，把本应归 low_confidence 的 handoff 误标为 band_handoff。
+//   - dec.DynamicThreshold 是 per-intent 计算值（如 0.70），并非 handoff 触发条件，
+//     用它判定会恒把真实 handoff 归为 band_handoff，故不可取。
+func (h *HandoffDecisionService) reasonOf(_ context.Context, dec *dto.ConfidenceDecision) string {
 	if dec.VetoTriggered != "" {
 		return dec.VetoTriggered
 	}
-	if dec.AggregatedConf < 0.4 {
+	if dec.DecisionBand == dto.BandHandoff {
 		return "low_confidence"
 	}
 	return "band_handoff"
