@@ -1,14 +1,15 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"hivemtk-user/internal/cache"
 	"hivemtk-user/internal/pkg/utils/pagination"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/platform"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -49,7 +50,15 @@ func (pc *PlatformController) platformCall(c *gin.Context, method, path string, 
 		}
 	}
 
-	if err := pc.platformClient.Do(method, path, req, resp); err != nil {
+	// 平台端统一响应契约：{ code, msg, data:{...} }。
+	// platform.Client.Do 会把整个响应体解到 respData，但业务字段在 data 子层，
+	// 故此处先用中间结构接收，再仅将 data 解到业务 resp，避免顶层解析永远为空。
+	var wrapper struct {
+		Code int             `json:"code"`
+		Msg  string          `json:"msg"`
+		Data json.RawMessage `json:"data"`
+	}
+	if err := pc.platformClient.Do(method, path, req, &wrapper); err != nil {
 		// 按结构化 *platform.PlatformError 的状态码分支，废弃脆弱的
 		// strings.Contains(err, "404"/"400") 字符串匹配。
 		if perr, ok := err.(*platform.PlatformError); ok {
@@ -63,6 +72,14 @@ func (pc *PlatformController) platformCall(c *gin.Context, method, path string, 
 			response.Error(c, http.StatusBadGateway, errMsg+": "+err.Error())
 		}
 		return
+	}
+
+	// 仅当平台返回了 data 层时才二次解析；无 data（如空 success）则保留 resp 零值。
+	if len(wrapper.Data) > 0 && string(wrapper.Data) != "null" {
+		if err := json.Unmarshal(wrapper.Data, resp); err != nil {
+			response.Error(c, http.StatusBadGateway, errMsg+": 响应解析失败: "+err.Error())
+			return
+		}
 	}
 
 	if method == http.MethodGet {
@@ -211,10 +228,8 @@ func (pc *PlatformController) GetLatestMessage(c *gin.Context) {
 		List []map[string]any `json:"list"`
 	}
 	path := "/platform/message/list?page=1&page_size=1"
-	if err := pc.platformClient.Do(http.MethodGet, path, nil, &resp); err != nil {
-		response.Success(c, nil, "")
-		return
-	}
+	// 复用 platformCall（已剥离平台响应 data 层），避免顶层解析为空。
+	pc.platformCall(c, http.MethodGet, path, nil, &resp, "获取最新站内信失败")
 	if len(resp.List) > 0 {
 		response.Success(c, resp.List[0], "")
 		return
