@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -57,10 +60,16 @@ func AppKeyResolve(resolver ChatChannelResolver) gin.HandlerFunc {
 			// AppKey 解析失败 -> 降级：不阻断，继续走 channel_id 流程
 		}
 
-		// 兜底：取 channel_id（header > query > 默认）
+		// 兜底：取 channel_id（header > query > body > 默认）
 		channelID := channelIDHeader
 		if channelID == "" {
 			channelID = channelIDQuery
+		}
+		if channelID == "" {
+			// 兼容 web_embed 在 JSON 请求体中携带 channel_id 的标准契约
+			if bid := extractBodyChannelID(c); bid != "" {
+				channelID = bid
+			}
 		}
 		if channelID == "" {
 			channelID = DefaultChannelID
@@ -140,6 +149,33 @@ func GetChatChannelID(c *gin.Context) string {
 		return q
 	}
 	return DefaultChannelID
+}
+
+// extractBodyChannelID 从 JSON 请求体中提取 channel_id，用于兼容 web_embed 在 body 中携带渠道 ID 的标准契约。
+// 读取后会原样还原请求体（io.NopCloser），不影响后续 controller 对 body 的解析。
+func extractBodyChannelID(c *gin.Context) string {
+	if c.Request == nil || c.Request.Body == nil {
+		return ""
+	}
+	if ct := c.GetHeader("Content-Type"); !strings.Contains(ct, "application/json") {
+		return ""
+	}
+	if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead {
+		return ""
+	}
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		return ""
+	}
+	// 还原请求体，供后续 controller 重新解析
+	c.Request.Body = io.NopCloser(bytes.NewReader(body))
+	var probe struct {
+		ChannelID string `json:"channel_id"`
+	}
+	if err := json.Unmarshal(body, &probe); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(probe.ChannelID)
 }
 
 // DefaultChannelID 默认渠道 ID（无渠道时使用）
