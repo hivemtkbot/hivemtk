@@ -33,16 +33,16 @@ vi.mock('@/utils/request', () => ({ default: mocks.request, http: mocks.http }))
 vi.mock('axios', () => ({ default: mocks.axios, __esModule: true }))
 
 const API_FILES = [
-  'abExperiment', 'aiAgent', 'aiContent', 'aiProductivity', 'autoReply', 'backup', 'batchOperation',
+  'abExperiment', 'aiAgent', 'aiProductivity', 'autoReply', 'backup', 'batchOperation',
   'bulkMessaging', 'channelAgentBinding', 'chat', 'chatChannel', 'chatPublic', 'churnPrediction',
   'clue', 'community', 'conversionFunnel', 'customReport', 'customer360', 'customerEvent',
   'customerJourney', 'customerService', 'customerServiceAgent', 'customerSession', 'dashboardScreen',
   'dialogueMemory', 'domainPool', 'douyinCard', 'email', 'feishu', 'integration', 'intentRecognition',
   'knowledge', 'knowledgeBase', 'knowledgeMerchant', 'kuaishouCard', 'license', 'livecode', 'llmRouting',
-  'marketingFlow', 'material', 'messageHub', 'objection', 'obs', 'oneid', 'operationLog', 'order',
-  'persona', 'platform', 'platformAccount', 'rag-product-config', 'reachPipeline',
+  'marketingFlow', 'material', 'messageHub', 'objection', 'obs', 'oneid', 'operationLog',
+  'persona', 'platform', 'platformAccount', 'reachPipeline',
   'scriptTemplate', 'securityAudit', 'shortLink', 'sms', 'sopAgent', 'stats', 'system', 'tagSegmentation',
-  'teamUser', 'telegram', 'templateMarket', 'tiktokAutoReply', 'tiktokCard', 'tuning', 'unifiedInbox',
+  'telegram', 'tiktokAutoReply', 'tiktokCard', 'tuning', 'unifiedInbox',
   'unifiedMessage', 'userSegment', 'users', 'wecomAccount', 'whatsapp', 'xianyuAutoReply', 'xianyuCard',
   'xiaohongshuCard'
 ]
