@@ -2,24 +2,16 @@ package service
 
 import (
 	"context"
-
 	"fmt"
-
+	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	confidencesvc "hivemtk-user/internal/service/confidence"
+	humanizesvc "hivemtk-user/internal/service/humanize"
 	"time"
 
 	"gorm.io/gorm"
-
-	"hivemtk-user/internal/aiagent/llm"
-
-	"hivemtk-user/internal/dto"
-
-	"hivemtk-user/internal/model"
-
-	"hivemtk-user/internal/pkg/utils/logger"
-
-	confidencesvc "hivemtk-user/internal/service/confidence"
-
-	humanizesvc "hivemtk-user/internal/service/humanize"
 )
 
 type AgentToolExecutor interface {
@@ -115,46 +107,8 @@ func (e *SalesEngine) SetPermissionChecker(pc AgentToolPermissionChecker) {
 	e.permissionChecker = pc
 }
 
-type RAGSearcher interface {
-	Search(ctx context.Context, query string, topK int) ([]RAGChunk, error)
-}
-
-type RAGChunk = dto.RAGChunk
-
-type ScriptLookup interface {
-	MatchScript(ctx context.Context, intent string, scenario string) (*ScriptTemplate, error)
-}
-
-type ScriptTemplate = dto.ScriptTemplate
-
-type CustomerLookup interface {
-	GetByOneID(ctx context.Context, oneID string) (*model.Customer, error)
-	GetByID(ctx context.Context, id string) (*model.Customer, error)
-}
-
-type IntentRecognizerInterface interface {
-	Recognize(ctx context.Context, sessionID, customerID, text string) (*dto.RecognizeResult, error)
-}
-
-type DialogueMemoryInterface interface {
-	AppendMessage(ctx context.Context, sessionID, customerID string, msg dto.Message) error
-	GetOrCreateMemory(ctx context.Context, sessionID, customerID string) (*model.DialogueMemory, error)
-}
-
-type SOPMatcherInterface interface {
-	MatchByIntent(ctx context.Context, intentType string) ([]model.SOPAgent, error)
-}
-
 type PolisherInterface interface {
 	Polish(ctx context.Context, raw string, pctx *PolishContext) (string, error)
-}
-
-type PlaybookRecommenderInterface interface {
-	RecommendForResponse(ctx context.Context, industry Industry, productID string, stage JourneyStage, intent string) []*PlaybookEntry
-}
-
-type FeedbackRecorderInterface interface {
-	RecordFeedback(ctx context.Context, record *FeedbackRecord) error
 }
 
 type SalesEngineConfig = dto.SalesEngineConfig
@@ -238,8 +192,6 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		req.Config = DefaultSalesEngineConfig()
 	}
 
-	// 并行化开关 (FeatureFlag 灰度)
-	// 启用时走 5 阶段并行版本; 关闭时走原 9 步串行 (向后兼容)
 	if e.shouldUseParallel() {
 		return e.HandleParallel(ctx, req)
 	}
@@ -250,14 +202,11 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 	}
 	defer func() {
 		resp.LatencyMs = int(time.Since(start).Milliseconds())
-		// 第 8 步：反馈学习（AI 自我进化闭环）
-		// 不论本次是否转人工，都记录决策快照，
-		// 后续客户下一条消息/人工接管时由 SmartCSOrchestrator 更新 CustomerAccept
+
 		e.recordFeedback(ctx, req, resp)
-		// 私域: 无 Prometheus 端点, 指标已落库 (layer_decision_logs)
+
 	}()
 
-	// 步骤 1：消息解析 + OneID 识别
 	stepStart := time.Now()
 	customer, err := e.resolveCustomer(ctx, req)
 	if err != nil {
@@ -271,7 +220,6 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		})
 	}
 
-	// 步骤 2：短期/长期记忆召回
 	stepStart = time.Now()
 	memCtx, err := e.recallMemory(ctx, req)
 	if err != nil {
@@ -286,7 +234,6 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 	}
 	resp.Memory = DialogueMemoryToDTO(memCtx)
 
-	// 步骤 3：意图识别（intent 注入为 nil 时使用规则兜底）
 	stepStart = time.Now()
 	var intentResult *dto.RecognizeResult
 	if e.intent != nil {
@@ -311,7 +258,6 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 	}
 	resp.Intent = intentResult
 
-	// 步骤 3.5：判断是否转人工
 	transfer, reason := e.shouldTransferToHuman(ctx, intentResult, memCtx, req)
 	if transfer {
 		resp.TransferredToHuman = true
@@ -324,7 +270,6 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		return resp, nil
 	}
 
-	// 步骤 4：SOP 匹配
 	stepStart = time.Now()
 	matchedSOP, sopStage, err := e.matchSOP(ctx, intentResult, customer)
 	if err != nil {
@@ -343,7 +288,6 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 	}
 	resp.MatchedSOP = SOPAgentToDTO(matchedSOP)
 
-	// 步骤 5：RAG 召回
 	stepStart = time.Now()
 	ragChunks, err := e.recallRAG(ctx, req, intentResult)
 	if err != nil {
@@ -358,7 +302,6 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 	}
 	resp.RAGChunks = ragChunks
 
-	// 步骤 5.5：话术库匹配（可选）
 	stepStart = time.Now()
 	script, err := e.matchScript(ctx, intentResult)
 	if err != nil {
@@ -377,11 +320,9 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 	}
 	resp.ScriptTemplate = script
 
-	// 步骤 5.6：销冠话术库推荐（按客户行业+阶段+意图推荐 3-5 条话术）
-	// 商业产品级：销售辅助模式下，销售可一键采用最匹配话术
 	stepStart = time.Now()
 	if e.playbook != nil && intentResult != nil {
-		// 推断行业（默认通用，留待接入客户档案时替换为真实行业）
+
 		industry := Industry("")
 		productID := ""
 		stage := stageToJourneyStage(sopStage)
@@ -396,29 +337,24 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		})
 	}
 
-	// 步骤 6：LLM 生成候选回复
 	stepStart = time.Now()
 	candidate, llmResult, cards, err := e.generateCandidate(ctx, req, intentResult, memCtx, matchedSOP, sopStage, ragChunks, script, customer)
 	if err != nil {
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{
 			Step: "6_generate_candidate", Status: "fail", Error: err.Error(),
 		})
-		// LLM 失败时按优先级兜底：
-		//   1) 话术模板（script）
-		//   2) RAG 检索顶部 chunk（ragChunks[0]）
-		//   3) 终极兜底：默认问候语
+
 		switch {
 		case script != nil && script.Content != "":
 			candidate = script.Content
 		case len(ragChunks) > 0 && ragChunks[0].Content != "":
-			// 直接使用 RAG 顶部检索内容作为回复（带轻微包装）
+
 			candidate = "根据知识库：\n" + truncateForReply(ragChunks[0].Content, 280)
 		default:
 			candidate = "您好，请问有什么可以帮您？"
 		}
 	} else {
-		// generateCandidate 可能返回 (candidate, nil, nil)（如走 script/rag 兜底）
-		// 此时 llmResult 为 nil，不能直接访问其字段，否则 panic
+
 		if llmResult != nil {
 			resp.Steps = append(resp.Steps, dto.SalesStepLog{
 				Step: "6_generate_candidate", Status: "ok", LatencyMs: ms(stepStart),
@@ -444,10 +380,9 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		resp.CostTokens = llmResult.TotalTokens
 	}
 
-	// 步骤 7：拟人润色
 	stepStart = time.Now()
 	finalReply := candidate
-	// 会话内结构化卡片随最终回复一并下发（来自 agent 工具产出）
+
 	resp.Cards = RichCardsToDTO(cards)
 	if req.Config.EnableHumanizePolish {
 		polished, err := e.polisher.Polish(ctx, candidate, &PolishContext{
@@ -474,9 +409,6 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		})
 	}
 
-	// 步骤 7.5：拟人度评估
-	// 注入 HumanizeEvalService 时启用，<0.85 触发重生成（最多 3 次）
-	// 私域本地 LLM 部署下由 HumanizeEvaluatorEnabled 开关跳过本步骤（避免 1.5B q4 模型被 0.85 阈值反复打回）
 	if e.humanizeEvaluator != nil && HumanizeEvaluatorEnabled {
 		stepStart = time.Now()
 		evalInput := &dto.HumanizeEvalInput{
@@ -499,11 +431,7 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 			resp.HumanizePassed = evalResult.Passed
 			resp.HumanizeAttempt = evalResult.AttemptCount
 			if !evalResult.Passed {
-				// 拟人度未达标：保留 AI 回复并正常下发，不再因“不够拟人”而丢弃回复、转人工。
-				// 设计意图（humanize_init.go 背景说明）：私域/本地 LLM 部署下 LLM 推理成功即应
-				// 自动回复，由真实人工按需接管；若直接转人工且无在线客服，访客将收不到任何回复，
-				// 这与“客服对话必须有返回”的预期相悖。因此此处仅记录评分、保留最优回复并继续
-				// 走下发流程，绝不吞掉已生成的有效回复。
+
 				resp.HumanizeScore = evalResult.TotalScore
 				resp.HumanizePassed = false
 				resp.HumanizeAttempt = evalResult.AttemptCount
@@ -514,9 +442,9 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 					Step: "7.5_humanize_eval", Status: "fail_soft", LatencyMs: ms(stepStart),
 					Detail: fmt.Sprintf("拟人度未达标（%.2f < 0.85），保留 AI 回复下发（不转人工）", evalResult.TotalScore),
 				})
-				// 注意：不设置 TransferredToHuman，继续走审核/下发流程
+
 			}
-			// 通过评估但可能替换了 finalReply（重生成后达标）
+
 			if evalResult.FinalReply != "" && evalResult.FinalReply != finalReply {
 				finalReply = evalResult.FinalReply
 			}
@@ -533,7 +461,6 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 
 	resp.Reply = finalReply
 
-	// 记录到对话记忆
 	if e.memory != nil {
 		_ = e.memory.AppendMessage(ctx, req.SessionID, req.CustomerID, dto.Message{
 			Role:      "ai",
@@ -561,7 +488,6 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 		req.Config = DefaultSalesEngineConfig()
 	}
 
-	// 1) start chunk：通知客户端 trace_id / 启动
 	startChunk := &dto.StreamChunk{
 		Type:    dto.ChunkTypeStart,
 		TraceID: logger.TraceIDFromContext(ctx),
@@ -571,24 +497,20 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 		return ctx.Err()
 	}
 
-	// 2) : 真正流式 - 先做 Layer1 路由, 命中立即推 delta + final
-	// 避免走 5 阶段并行 + LLM 推理导致 LCP 19.6s
 	if e.layerRouter != nil {
-		// 浅意图识别 (规则级, < 5ms) 走 Speculative 不可用回退到 nil
-		// LayerRouter 内部已经处理 nil intent, 不依赖这里先做 intent
+
 		decision := e.layerRouter.Route(ctx, &RouteRequest{
 			SessionID:   req.SessionID,
 			CustomerID:  req.CustomerID,
 			UserMessage: req.UserMessage,
-			Intent:      nil, // Stream 路径不阻塞 intent, 让 LayerRouter 内部 FAQ/SOP 走 keyword
+			Intent:      nil,
 			RAGChunks:   nil,
 			Stage:       "",
-			// 传 agentID 实现按智能体隔离的 FAQ/SOP 匹配
+
 			AgentID: agentIDFromCtx(req),
 		})
 		if decision != nil && decision.SkipLLM && decision.Reply != "" {
-			// Layer1 命中 -> 立即推 delta (完整 reply) + final
-			// 整个 LCP < 100ms, 客户端秒收回复
+
 			_ = onChunk(&dto.StreamChunk{
 				Type:    dto.ChunkTypeDelta,
 				TraceID: startChunk.TraceID,
@@ -618,7 +540,6 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 		}
 	}
 
-	// 3) Layer2 路径: 先推 placeholder (LCP < 100ms), 再调 Handle() 拿最终结果
 	placeholder := "正在为您查询…"
 	_ = onChunk(&dto.StreamChunk{
 		Type:    dto.ChunkTypeDelta,
@@ -638,11 +559,9 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 		return fmt.Errorf("handle stream: %w", err)
 	}
 
-	// 4) Layer2: 把 Handle 拿到的回复按字符切片"模拟"流式（直到 LLM Dispatcher 切到真流式）
-	// 注意: 已保证 start + placeholder 在 < 100ms 抵达, 切片延迟只影响后续体感
 	reply := resp.Reply
 	if reply == "" {
-		// 无文本（可能已转人工）— 直接发 final
+
 	} else {
 		runes := []rune(reply)
 		const batchSize = 4 // Layer2 路径可稍大 (4 字符), 减少 chunk 数
@@ -677,7 +596,6 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 		}
 	}
 
-	// 5) final chunk
 	finalChunk := &dto.StreamChunk{
 		Type:    dto.ChunkTypeFinal,
 		TraceID: startChunk.TraceID,
@@ -703,31 +621,105 @@ func layerOfResponse(resp *SalesResponse) string {
 		return dto.Layer2
 	}
 	if resp.Confidence != nil && resp.Confidence.DecisionBand != "" {
-		// handoff/llm_fallback/review/auto 都映射到 layer2 (单 LLM 路径)
+
 		return dto.Layer2
 	}
 	return dto.Layer2
 }
 
-func (e *SalesEngine) resolveCustomer(ctx context.Context, req *SalesRequest) (*model.Customer, error) {
-	if e.customerLookup == nil {
-		return nil, fmt.Errorf("customer_lookup is nil")
-	}
-	if req.OneID != "" {
-		c, err := e.customerLookup.GetByOneID(ctx, req.OneID)
-		if err == nil && c != nil {
-			return c, nil
+// agentLoopMaxIterations Agent Loop 最大迭代次数
+// 防止 LLM 无限调用工具或陷入循环。
+// 默认 5；运行期调参存数据库 system_config_kv[agent.settings].max_loop_iterations，
+// 由 LoadAgentSettingsConfig 读取覆盖；也可由 SetAgentLoopMaxIterations 注入（测试/内嵌）。
+// 注意：必须 >= 2。LLM 在第 1 轮返回 tool_calls 后，需要第 2 轮（携带工具结果）才能生成最终
+// 文本回复；若设为 1，工具调用永远无法产出答案，会被降级为“空回复→转人工”，工具调用形同失效。
+// 默认 5，兼顾多工具串联与 follow-up 问答；受 agentLoopTotalTimeout(默认180s) 约束。
+var agentLoopMaxIterations = 5
+
+// agentLoopMaxTools Agent Loop 向 LLM 注入的工具数量上限（默认优先级模式下）。
+// 当 Agent 未配置 Tools 白名单时，limitToolsForAgent 按默认优先级取前 agentLoopMaxTools 个工具。
+// 默认 18（覆盖原式硬编码的 10，使电商客服关键工具
+// reach.card.send / reach.sms.send / aftersale.* / logistics.track 默认可见）；
+// 运行期调参存数据库 system_config_kv[agent.settings].max_tools，由 LoadAgentSettingsConfig
+// 读取覆盖；也可由 SetAgentLoopMaxTools 注入（测试/内嵌）。
+var agentLoopMaxTools = 18
+
+// resolveAgentSettings 解析 Agent Loop 运行期调参（数据库 system_config_kv[agent.settings]
+// 为唯一真相源；缺配置/读取失败时回退到代码内默认值，尊重 SetAgentLoop* 注入）。
+func resolveAgentSettings(ctx context.Context) (maxTools, maxIter int) {
+	maxTools, maxIter = agentLoopMaxTools, agentLoopMaxIterations
+	if cfg, err := LoadAgentSettingsConfig(ctx); err == nil && cfg != nil {
+		if cfg.MaxTools > 0 {
+			maxTools = cfg.MaxTools
+		}
+		if cfg.MaxLoopIterations > 0 {
+			maxIter = cfg.MaxLoopIterations
 		}
 	}
-	if req.CustomerID != "" {
-		return e.customerLookup.GetByID(ctx, req.CustomerID)
-	}
-	return nil, fmt.Errorf("no customer identifier provided")
+	return
 }
 
-func (e *SalesEngine) recallMemory(ctx context.Context, req *SalesRequest) (*model.DialogueMemory, error) {
-	if e.memory == nil {
-		return &model.DialogueMemory{}, nil
+// agentLoopTotalTimeout Agent Loop wall-clock 总超时
+//
+// 演进：
+// 120s（1.5B Q4 CPU 推理 35-60s）
+// 改为可配置，由 main.go 启动时从 inference.llm.timeout_seconds 注入
+//
+// 设计：默认 180s（保守值，覆盖大多数 CPU 推理场景）。
+// 开发模式可在 config.yaml 设大值（如 720s）确保 LLM 调用不被 ctx 掐断；
+// 生产环境推荐 120-180s，超时后由 fallback 兜底。
+// 由 SetAgentLoopTimeout 注入；与 dispatcher.MaxLatency、llm_service.httpClient.Timeout
+// 共享同一配置源（inference.llm.timeout_seconds），全链路一致。
+var agentLoopTotalTimeout = 180 * time.Second
+
+// ms 计算耗时（毫秒）
+func ms(start time.Time) int {
+	return int(time.Since(start).Milliseconds())
+}
+
+// ProcessIncomingMessage 多渠道统一入口
+func (e *SalesEngine) ProcessIncomingMessage(ctx context.Context, msg *ChannelMessage) (*SalesResponse, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("message is nil")
 	}
-	return e.memory.GetOrCreateMemory(ctx, req.SessionID, req.CustomerID)
+	if msg.Content == "" && msg.MediaURL == "" {
+
+		return &SalesResponse{}, nil
+	}
+
+	content, sessionID, customerID := e.normalizeChannelMessage(context.Background(), msg)
+
+	req := &SalesRequest{
+		SessionID:   sessionID,
+		CustomerID:  customerID,
+		OneID:       customerID,
+		UserMessage: content,
+		Platform:    msg.Channel,
+		AutoExecute: true,
+		Config:      DefaultSalesEngineConfig(),
+	}
+
+	if msg.Channel == "feishu" {
+		req.Config.Persona = "你是飞书上的企业助手，回复简洁专业。"
+	} else if msg.Channel == "telegram" {
+		req.Config.Persona = "你是 Telegram 上的销售助手，语气亲切。"
+	}
+
+	return e.Handle(ctx, req)
+}
+
+// stageToJourneyStage SOP 阶段字符串 → JourneyStage
+// 商业产品级：把 SOP 引擎的语义阶段映射到客户旅程的标准化阶段
+// 便于话术库按客户实际所处阶段精准推荐
+func stageToJourneyStage(stage string) JourneyStage {
+	switch stage {
+	case "churn_risk":
+		return StageSleeping
+	case "active":
+		return StageContact
+	case "default":
+		return StageLead
+	default:
+		return StageLead
+	}
 }

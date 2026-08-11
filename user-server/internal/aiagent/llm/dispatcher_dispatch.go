@@ -1,0 +1,406 @@
+package llm
+
+import (
+	"context"
+
+	"fmt"
+
+	"sort"
+
+	"time"
+
+	"encoding/json"
+	"hivemtk-user/internal/pkg/utils/logger"
+)
+
+type DispatchRequest struct {
+	Scenario       DispatchScenario `json:"scenario"`
+	Prompt         string           `json:"prompt"`
+	SystemPrompt   string           `json:"system_prompt"`
+	MaxTokens      int              `json:"max_tokens"`
+	Temperature    float64          `json:"temperature"`
+	JSONMode       bool             `json:"json_mode"`
+	CacheKey       string           `json:"cache_key"`       // 缓存 key
+	CacheTTL       int              `json:"cache_ttl"`       // 缓存秒数
+	ReturnLogprobs bool             `json:"return_logprobs"` // 请求 LLM 返回 token logprobs
+	TopLogprobs    int              `json:"top_logprobs"`    // 返回 top-N 候选 token logprobs（默认 20）
+	// 智能体 tool_call 支持
+	// Tools: 工具定义列表，非空时 Dispatcher 走 GenerateWithTools 路径
+	// ToolChoice: "auto"/"none"/"required" 或 JSON 对象字符串
+	Tools      []ToolDefinition `json:"tools,omitempty"`
+	ToolChoice string           `json:"tool_choice,omitempty"`
+	// Messages: 多轮对话历史（含 tool 角色回灌工具结果）
+	// 非空时 Prompt 字段被忽略，使用 Messages 进行多轮对话
+	Messages []ChatMessage `json:"messages,omitempty"`
+	// CanaryKey: 灰度发布判定 key（如 user_id），空时按权重随机抽样
+	// 让 Dispatch 走灰度路由
+	CanaryKey string `json:"canary_key,omitempty"`
+	// 多语言方案：跨语言生成元数据（由 service/translation 层注入）
+	InternalLang    string `json:"internal_lang,omitempty"`    // 商户内部语言（知识库语言）
+	TargetLang      string `json:"target_lang,omitempty"`      // 对外输出语言
+	CrossLingual    bool   `json:"cross_lingual,omitempty"`    // 是否跨语言生成（InternalLang != TargetLang）
+	GlossaryVersion string `json:"glossary_version,omitempty"` // 术语表版本（落库审计）
+}
+
+type DispatchResult struct {
+	Provider    string  `json:"provider"`
+	Model       string  `json:"model"`
+	Content     string  `json:"content"`
+	TotalTokens int     `json:"total_tokens"`
+	Cost        float64 `json:"cost"`
+	LatencyMs   int     `json:"latency_ms"`
+	FromCache   bool    `json:"from_cache"`
+	// 用于置信度计算的 token 级信号
+	// 当前 LLMService 尚未真正透传 logprobs，字段保留供上游 SignalCollector
+	// 在 LLMService 升级（添加 chatResponse.logprobs 解析）后自动填充。
+	// 当前为安全降级：Logprobs/TopTokenEntropy 留空，FinishReason 透传 "stop"/"length" 等。
+	Logprobs        []float64 `json:"logprobs,omitempty"`
+	TopTokenEntropy float64   `json:"top_token_entropy,omitempty"`
+	FinishReason    string    `json:"finish_reason,omitempty"`
+	// 智能体 tool_call 返回结果
+	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+	// 详细 token 使用量（用于计费/成本分析）
+	// 由 provider 响应中的 usage 字段填充
+	// TokenUsage 类型在下方定义
+	Usage TokenUsage `json:"usage,omitempty"`
+	// v3.7.0 扩展：token 计量元数据（用于 llm_routing_logs 落库）
+	BaseURL        string  `json:"base_url,omitempty"`        // 出域审计
+	IsFallback     bool    `json:"is_fallback,omitempty"`     // 是否为降级调用
+	TokenSource    string  `json:"token_source,omitempty"`    // actual/estimated/missing
+	Estimator      string  `json:"estimator,omitempty"`       // char_weight/empty_fallback
+	PromptCost     float64 `json:"prompt_cost,omitempty"`     // prompt 单价计费
+	CompletionCost float64 `json:"completion_cost,omitempty"` // completion 单价计费
+}
+
+type TokenUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
+type TokenUsageDetailed struct {
+	PromptTokens     int     `json:"prompt_tokens"`
+	CompletionTokens int     `json:"completion_tokens"`
+	TotalTokens      int     `json:"total_tokens"`
+	Cost             float64 `json:"cost"`
+	LatencyMs        int     `json:"latency_ms"`
+}
+
+func (d *Dispatcher) pickEnabledFallback(route *ScenarioRoute) string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	type pe struct {
+		name  string
+		score float64
+	}
+	list := make([]pe, 0, len(d.providers))
+	for name, p := range d.providers {
+		if !p.Enabled {
+			continue
+		}
+		if route != nil && route.MinQuality > 0 && p.QualityScore < route.MinQuality {
+			continue
+		}
+		list = append(list, pe{name: name, score: p.QualityScore})
+	}
+	if len(list) == 0 {
+		return ""
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].score > list[j].score })
+	return list[0].name
+}
+
+// ===== merged from dispatcher_part2.go (was a mechanical _partN split) =====
+func degradedReply(req DispatchRequest) *DispatchResult {
+	tmpl := "抱歉，当前客服系统繁忙，请稍后再试，或联系人工客服获取帮助。"
+	if fo := GetGlobalFailover(); fo != nil {
+		if c := fo.Config().TemplateReply; c != "" {
+			tmpl = c
+		}
+	}
+	promptTokens := estimateTokens(req.Prompt)
+	completionTokens := estimateTokens(tmpl)
+	return &DispatchResult{
+		Provider:     "degraded",
+		Model:        "template",
+		Content:      tmpl,
+		FinishReason: "degraded",
+		Usage: TokenUsage{
+			PromptTokens:     promptTokens,
+			CompletionTokens: completionTokens,
+			TotalTokens:      promptTokens + completionTokens,
+		},
+	}
+}
+
+// callProvider 调用 provider
+func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig, req DispatchRequest, route *ScenarioRoute) (*DispatchResult, error) {
+
+	if provider.APIKey == "" {
+		logger.Warnf("[LLM] WARN: provider %s APIKey empty (local model is fine; cloud will 401)", provider.Name)
+	}
+
+	if route.MaxLatency > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(route.MaxLatency)*time.Millisecond)
+		defer cancel()
+	}
+
+	maxTokens := req.MaxTokens
+	if maxTokens <= 0 {
+
+		maxTokens = 2048
+	}
+	temperature := req.Temperature
+	if temperature <= 0 {
+		temperature = 0.7
+	}
+
+	config := &LLMConfig{
+		APIKey:         provider.APIKey,
+		BaseURL:        provider.BaseURL,
+		APIType:        provider.APIType,
+		Model:          provider.Model,
+		Temperature:    temperature,
+		MaxTokens:      maxTokens,
+		MaxRetries:     1,
+		RequestTimeout: route.MaxLatency / 1000,
+		SystemPrompt:   req.SystemPrompt,
+	}
+	if req.JSONMode {
+		config.ResponseFormat = "json_object"
+	}
+
+	if req.ReturnLogprobs {
+		config.Logprobs = true
+		if req.TopLogprobs > 0 {
+			config.TopLogprobs = req.TopLogprobs
+		} else {
+			config.TopLogprobs = 20
+		}
+	}
+
+	config.Tools = req.Tools
+	config.ToolChoice = req.ToolChoice
+	config.Messages = req.Messages
+
+	reactMode := IsReActMode(&req, provider.NoFC)
+	logger.Infof("[Dispatcher] provider=%s NoFC=%v reactMode=%v tools=%d",
+		provider.Name, provider.NoFC, reactMode, len(req.Tools))
+	if reactMode {
+
+		originalSystem := config.SystemPrompt
+		config.SystemPrompt = d.getReActAdapter().WrapSystemPrompt(originalSystem, req.Tools)
+
+		config.Tools = nil
+		config.ToolChoice = ""
+
+	}
+
+	start := time.Now()
+
+	result, err := d.llmService.GenerateWithTools(ctx, config, req.Prompt)
+	latency := int(time.Since(start).Milliseconds())
+	if err != nil {
+		return nil, fmt.Errorf("provider %s: %w", provider.Name, err)
+	}
+
+	promptTokens := result.Usage.PromptTokens
+	completionTokens := result.Usage.CompletionTokens
+	totalTokens := result.Usage.TotalTokens
+	if totalTokens <= 0 {
+
+		promptTokens = estimateTokens(req.Prompt)
+		completionTokens = estimateTokens(result.Content)
+		totalTokens = promptTokens + completionTokens
+	}
+	cost := float64(totalTokens) / 1000.0 * provider.CostPer1k
+	tokenSource := InferTokenSource(result.Usage.TotalTokens, result.Content)
+	estimator := ClassifyEstimator(tokenSource)
+	promptCost, completionCost := splitCost(cost, promptTokens, completionTokens, totalTokens)
+
+	// 填充 Usage（来自 LLM 真实响应；零值时省略）
+	var usage TokenUsage
+	if result.Usage.TotalTokens > 0 {
+		usage = TokenUsage{
+			PromptTokens:     result.Usage.PromptTokens,
+			CompletionTokens: result.Usage.CompletionTokens,
+			TotalTokens:      result.Usage.TotalTokens,
+		}
+	}
+	dispatchResult := &DispatchResult{
+		Provider:       provider.Name,
+		Model:          provider.Model,
+		Content:        result.Content,
+		TotalTokens:    totalTokens,
+		Cost:           cost,
+		LatencyMs:      latency,
+		FinishReason:   result.FinishReason,
+		ToolCalls:      result.ToolCalls,
+		Usage:          usage,
+		BaseURL:        provider.BaseURL,
+		TokenSource:    tokenSource,
+		Estimator:      estimator,
+		PromptCost:     promptCost,
+		CompletionCost: completionCost,
+	}
+
+	if reactMode {
+		dispatchResult = d.getReActAdapter().AdaptResult(dispatchResult)
+	}
+	return dispatchResult, nil
+}
+
+// DispatchStructured 结构化输出
+func (d *Dispatcher) DispatchStructured(ctx context.Context, req DispatchRequest, schema any) (*DispatchResult, error) {
+	req.JSONMode = true
+	result, err := d.Dispatch(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonStr := extractJSON(result.Content)
+	if jsonStr == "" {
+		return result, fmt.Errorf("no JSON content in response: %s", result.Content)
+	}
+	if err := json.Unmarshal([]byte(jsonStr), schema); err != nil {
+		return result, fmt.Errorf("parse JSON: %w", err)
+	}
+	result.Content = jsonStr
+	return result, nil
+}
+
+// estimateTokens 估算 token 数（仅作为 LLM 未返回 usage 时的兜底，标记 token_source=estimated）
+//
+// 估算公式：
+//   - 中文字符（U+4E00~U+9FFF）：每字符计 1 token
+//   - 其他字符（ASCII/标点/空白）：每 4 字节计 1 token（UTF-8 编码下英文为 1 字节/字符）
+//
+// 注意：本函数仅为兜底，优先使用 LLM 真实 Usage（token_source=actual）。
+// 本地 llama-server / vLLM / Ollama 等主流推理栈均默认返回 usage 字段，
+// 实际生产中 estimated 路径极少触发，missing 路径触发即告警。
+func estimateTokens(text string) int {
+	if text == "" {
+		return 0
+	}
+	cn := 0
+	for _, r := range text {
+		if r >= 0x4E00 && r <= 0x9FFF {
+			cn++
+		}
+	}
+	en := len(text) - cn*3
+	if en < 0 {
+		en = len(text)
+	}
+	return cn + en/4
+}
+
+// GetProviderList 获取所有 provider
+func (d *Dispatcher) GetProviderList() []ProviderConfig {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	list := make([]ProviderConfig, 0, len(d.providers))
+	for _, p := range d.providers {
+		list = append(list, *p)
+	}
+	return list
+}
+
+// GetAllProviders 获取所有 provider（GetProviderList 的语义别名）
+//
+// 注意：GetProviderList / GetProvider / GetRoute / RemoveProvider 的实际定义
+// 在 dispatcher_registry.go（保持向后兼容的返回签名）。本文件仅提供
+// GetAllProviders / GetAllRoutes / SetRoute / SetRouteWithAudit / Dispatch /
+// RegisterProvider / CallProviderForTest 等 dispatcher 核心逻辑。
+func (d *Dispatcher) GetAllProviders() []ProviderConfig {
+	return d.GetProviderList()
+}
+
+// GetAllRoutes 获取所有路由（语义别名）
+func (d *Dispatcher) GetAllRoutes() []ScenarioRoute {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	out := make([]ScenarioRoute, 0, len(d.routes))
+	for _, r := range d.routes {
+		out = append(out, *r)
+	}
+	return out
+}
+
+// CallProviderForTest 调 provider 一次（不触发告警/熔断/统计）
+//
+// 用途：LLMRoutingService.TestModel 在管理后台测试 provider 连通性。
+// 关键不变量：
+//   - 不调 AlertProviderFailure/Success
+//   - 不调 LogRoutingDecision
+//   - 不更新 provider.AvgLatencyMs
+//   - 走 callProvider 同一逻辑，但屏蔽所有副作用
+//
+// 实现：通过一个开关字段（isTest）让 callProvider 跳过告警/统计。
+// 本方法在 callProvider 之前注入 isTest，callProvider 检查后跳过副作用。
+func (d *Dispatcher) CallProviderForTest(ctx context.Context, provider *ProviderConfig, req DispatchRequest, route *ScenarioRoute) (*DispatchResult, error) {
+
+	d.testMode.Store(true)
+	defer d.testMode.Store(false)
+
+	return d.callProvider(ctx, provider, req, route)
+}
+
+// DispatchMultiModel 多模型投票（用于异议处理等高质量场景）
+func (d *Dispatcher) DispatchMultiModel(ctx context.Context, req DispatchRequest, providers []string) ([]*DispatchResult, error) {
+	results := make([]*DispatchResult, 0, len(providers))
+	for _, name := range providers {
+		d.mu.RLock()
+		provider, ok := d.providers[name]
+		d.mu.RUnlock()
+		if !ok || !provider.Enabled || provider.APIKey == "" {
+			continue
+		}
+
+		if fo := GetGlobalFailover(); fo != nil && fo.IsCircuitOpen(name) {
+			logger.Debugf("[LLM] DispatchMultiModel provider=%s 集群熔断中，跳过", name)
+			continue
+		}
+		result, err := d.callProvider(ctx, provider, req, &ScenarioRoute{MaxLatency: 10000})
+		if err != nil {
+
+			if fo := GetGlobalFailover(); fo != nil {
+				fo.RecordFailure(name, err)
+			}
+			continue
+		}
+
+		if fo := GetGlobalFailover(); fo != nil {
+			fo.RecordSuccess(name, int64(result.LatencyMs))
+		}
+		results = append(results, result)
+	}
+	if len(results) == 0 {
+		return nil, fmt.Errorf("all providers failed")
+	}
+	return results, nil
+}
+
+// MultiModelVote 多模型投票返回最一致答案
+func (d *Dispatcher) MultiModelVote(results []*DispatchResult) string {
+	if len(results) == 0 {
+		return ""
+	}
+	if len(results) == 1 {
+		return results[0].Content
+	}
+
+	bestIdx := 0
+	bestQuality := 0.0
+	for i, r := range results {
+		d.mu.RLock()
+		p, ok := d.providers[r.Provider]
+		d.mu.RUnlock()
+		if ok && p.QualityScore > bestQuality {
+			bestQuality = p.QualityScore
+			bestIdx = i
+		}
+	}
+	return results[bestIdx].Content
+}

@@ -2,52 +2,24 @@ package service
 
 import (
 	"context"
-
-	"crypto/aes"
-
-	"crypto/cipher"
-
 	"crypto/hmac"
-
-	"crypto/sha1"
-
 	"crypto/sha256"
-
 	"crypto/subtle"
-
-	"encoding/base64"
-
-	"encoding/binary"
-
 	"encoding/hex"
-
 	"encoding/json"
-
 	"errors"
-
 	"fmt"
-
+	"hivemtk-user/internal/channelbot/telegram"
+	"hivemtk-user/internal/channelbot/whatsapp"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 	"os"
-
-	"strconv"
-
 	"strings"
-
 	"sync"
-
 	"time"
 
 	"gorm.io/gorm"
-
-	"hivemtk-user/internal/channelbot/telegram"
-
-	"hivemtk-user/internal/channelbot/whatsapp"
-
-	"hivemtk-user/internal/model"
-
-	"hivemtk-user/internal/pkg/utils/logger"
-
-	"hivemtk-user/internal/repository"
 )
 
 type WebhookService struct {
@@ -107,35 +79,6 @@ type WebhookService struct {
 
 	// 推理并发信号量：限制同时进行的本地 LLM 生成数，保护单节点推理栈。
 	replySem chan struct{}
-
-	// 注：TG 群「发现线索主动触达」冷却已迁至全局缓存（见 tgLeadOutreachAllowed），
-	// 走 cache.GetGlobalCache()，REDIS_HOST 配置时为 Redis 共享后端（多实例防刷屏一致），
-	// 否则为内存单例（单实例安全），不再需要进程内 map + 锁。
-}
-
-type tgDispatchExtra struct {
-	Mentioned      bool // 该消息是否 @提及了本机器人（群内「@bot 才回复」的触发条件）
-	NewOpportunity bool // 该消息挖掘后是否让发言者「新晋为商机」
-}
-
-type webhookJob struct {
-	event  *model.WebhookEvent
-	raw    []byte
-	header map[string]string
-	source string
-	// 解析后的入站消息（用于业务分发）
-	channel WebhookChannel
-	account string
-	payload *ParsedPayload
-}
-
-type tokenBucket struct {
-	mu         sync.Mutex
-	capacity   int
-	refillRate float64
-	tokens     float64
-	lastRefill time.Time
-	lastAccess time.Time // 用于 janitor 清理闲置桶
 }
 
 func (b *tokenBucket) allow(ctx context.Context) bool {
@@ -155,56 +98,7 @@ func (b *tokenBucket) allow(ctx context.Context) bool {
 	return false
 }
 
-const (
-	WebhookDedupTTL = 5 * time.Minute
-
-	WebhookWorkerCount = 4 // 接入 worker 数（从 WEBHOOK_WORKER_COUNT 覆盖）
-
-	WebhookQueueSize = 512
-
-	WebhookRateLimit = 30
-
-	WebhookRateBurst = 60
-
-	WebhookMaxRetries = 3
-
-	WebhookReplyConcurrency = 32
-)
-
-func webhookEnvInt(key string, def int) int {
-	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			return n
-		}
-	}
-	return def
-}
-
 type WebhookChannel string
-
-const (
-	ChannelDouyin WebhookChannel = "douyin"
-
-	ChannelKuaishou WebhookChannel = "kuaishou"
-
-	ChannelXiaohongshu WebhookChannel = "xiaohongshu"
-
-	ChannelXianyu WebhookChannel = "xianyu"
-
-	ChannelTiktok WebhookChannel = "tiktok"
-
-	ChannelWechat WebhookChannel = "wechat"
-
-	ChannelWeCom WebhookChannel = "wecom"
-
-	ChannelWhatsapp WebhookChannel = "whatsapp"
-
-	ChannelTelegram WebhookChannel = "telegram"
-
-	ChannelFeishu WebhookChannel = "feishu"
-
-	ChannelCustom WebhookChannel = "custom"
-)
 
 func NewWebhookService(db *gorm.DB) *WebhookService {
 	wecomRepo := repository.NewWeComAccountRepository()
@@ -270,10 +164,6 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 	return s
 }
 
-func (s *WebhookService) SetSalesEngine(ctx context.Context, e *SalesEngine) {
-	s.salesEngine = e
-}
-
 func (s *WebhookService) SetIngressSvc(ingress *InboxIngressService) {
 	if ingress != nil {
 		s.ingressSvc = ingress
@@ -300,10 +190,6 @@ func (s *WebhookService) ensureReposFromDB(ctx context.Context) {
 	}
 }
 
-func (s *WebhookService) SetSmartOrchestrator(ctx context.Context, o *SmartCSOrchestrator) {
-	s.smartOrchestrator = o
-}
-
 func (s *WebhookService) SetAgentBindingService(ctx context.Context, svc *ChannelAgentBindingService) {
 	s.agentBindingSvc = svc
 }
@@ -317,7 +203,7 @@ func (a webhookIngressAdapter) HandleIngressMessage(ctx context.Context, event *
 	}
 	_, err := a.svc.HandleIngressMessage(ctx, event)
 	if err != nil && (strings.Contains(err.Error(), "UNIQUE") || strings.Contains(err.Error(), "duplicate")) {
-		// 渠道重复投递视为成功（中台已落库过同 EventID 的消息）
+
 		return nil
 	}
 	return err
@@ -332,10 +218,10 @@ type webhookEventRepo struct {
 }
 
 func newWebhookEventRepoWithDB(db *gorm.DB) *repository.WebhookEventRepository {
-	// 注入到全局 repository 的 db 字段
+
 	r := repository.NewWebhookEventRepository()
 	if db != nil {
-		// 通过 SetDB 注入
+
 		repository.SetWebhookEventRepoDB(r, db)
 	}
 	return r
@@ -358,8 +244,7 @@ func (s *WebhookService) Stop(ctx context.Context) {
 	s.stopped = true
 	close(s.stopCh)
 	s.mu.Unlock()
-	// 在锁外等待，避免与 worker 内部可能的回调产生死锁
-	// 通过 context 超时防止 worker 处于 retryWithBackoff 长延迟时无限阻塞
+
 	done := make(chan struct{})
 	go func() {
 		s.wg.Wait()
@@ -367,10 +252,9 @@ func (s *WebhookService) Stop(ctx context.Context) {
 	}()
 	select {
 	case <-done:
-		// 全部 worker 正常退出
+
 	case <-time.After(2 * time.Second):
-		// worker 卡在 retryWithBackoff 等长延迟，强制返回
-		// （测试环境允许；生产环境应保证 worker 不在长延迟中）
+
 	}
 }
 
@@ -391,8 +275,7 @@ func (s *WebhookService) worker(ctx context.Context, id int) {
 			if !ok {
 				return
 			}
-			// 修复：单条 job 处理（派发/解析/AI 编排）panic 不得杀死 worker goroutine，
-			// 否则 worker 数静默下降，webhook 队列最终停摆。recover 后仅记日志，循环继续。
+
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
@@ -403,18 +286,6 @@ func (s *WebhookService) worker(ctx context.Context, id int) {
 			}()
 		}
 	}
-}
-
-func groupNameFromHub(hub *model.MessageHub) string {
-	if hub == nil || hub.Extra == nil {
-		return ""
-	}
-	if v, ok := hub.Extra["group_name"]; ok {
-		if s, _ := v.(string); s != "" {
-			return s
-		}
-	}
-	return ""
 }
 
 type ReceiveRequest struct {
@@ -451,7 +322,6 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 		return &ReceiveResult{Accepted: false, Reason: "missing account_id"}, nil
 	}
 
-	// 1) 验签
 	verified, err := s.Verify(ctx, req.Channel, req.AccountID, req.Body, req.Headers, req.Query)
 	if err != nil {
 		logger.Errorf("[Webhook] 验签异常 channel=%s account=%s: %v", req.Channel, req.AccountID, err)
@@ -461,7 +331,6 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 		return &ReceiveResult{Accepted: false, VerifyFail: true, Reason: "signature mismatch"}, nil
 	}
 
-	// 2) 解析基础字段
 	payload, err := s.ParsePayload(ctx, req.Channel, req.Body)
 	if err != nil {
 		return &ReceiveResult{Accepted: false, Reason: "parse error: " + err.Error()}, nil
@@ -473,7 +342,6 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 		payload.EventType = "unknown"
 	}
 
-	// 3) 幂等去重
 	if s.isDuplicate(ctx, payload.EventID) {
 		return &ReceiveResult{
 			Accepted:  true,
@@ -482,13 +350,11 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 		}, nil
 	}
 
-	// 4) 限流
 	key := string(req.Channel) + ":" + req.AccountID
 	if !s.allowRate(ctx, key) {
 		return &ReceiveResult{Accepted: false, RateLimit: true, Reason: "rate limited"}, nil
 	}
 
-	// 5) 持久化事件记录
 	evt := &model.WebhookEvent{
 		Platform:  string(req.Channel),
 		EventID:   payload.EventID,
@@ -502,7 +368,6 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 		}
 	}
 
-	// 6) 入异步队列（携带解析后的 payload 减少 worker 重复解析）
 	job := &webhookJob{
 		event:   evt,
 		raw:     req.Body,
@@ -540,11 +405,10 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)
 		return verifyHMAC(secret, body, headers, "X-Lark-Signature", "X-Douyin-Signature", "Signature"), nil
 	case ChannelTelegram:
-		// TG 验签：Telegram Bot API 通过 X-Telegram-Bot-Api-Secret-Token 头传递 webhook secret
-		// secret 来自 TelegramAccount.WebhookSecret（在 setWebhook 时配置）；验签委托独立包 channelbot/telegram
+
 		secret := s.getTelegramWebhookSecret(ctx, accountID)
 		if secret == "" {
-			// 未配置 secret：开发/测试环境放行；生产环境必须配置，否则拒绝伪造 webhook
+
 			if os.Getenv("GIN_MODE") == "release" {
 				return false, errors.New("telegram webhook secret 未配置，生产环境拒绝放行")
 			}
@@ -562,7 +426,7 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)
 		return verifyHMAC(secret, body, headers, "X-Signature", "Signature", "X-Hub-Signature-256", "Encrypt"), nil
 	case ChannelWhatsapp:
-		// WA 验签：X-Hub-Signature-256（HMAC-SHA256，app secret 对 raw body 签名）；委托独立包 channelbot/whatsapp
+
 		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)
 		if secret == "" {
 			if os.Getenv("GIN_MODE") == "release" {
@@ -574,8 +438,7 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 	default:
 		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)
 		if secret == "" {
-			// 未配置 secret：开发/测试环境放行；生产环境必须配置，否则拒绝伪造 webhook
-			// （此前 default 分支无条件放行，攻击者可在 secret 未配置时伪造任意入站消息，P1 缺陷）
+
 			if os.Getenv("GIN_MODE") == "release" {
 				return false, errors.New("webhook secret 未配置，生产环境拒绝放行(channel=" + string(channel) + ")")
 			}
@@ -583,76 +446,6 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 		}
 		return verifyHMAC(secret, body, headers, "X-Signature", "Signature", "X-Hub-Signature-256"), nil
 	}
-}
-
-func verifyWeCom(token, aesKey string, body []byte, query map[string]string) (bool, error) {
-	if token == "" {
-		return false, errors.New("missing token")
-	}
-	// body 中取 msg_signature/timestamp/nonce
-	var p struct {
-		MsgSignature string `json:"msg_signature"`
-		Timestamp    string `json:"timestamp"`
-		Nonce        string `json:"nonce"`
-		Encrypt      string `json:"encrypt"`
-	}
-	if err := json.Unmarshal(body, &p); err != nil {
-		// 也允许 query 携带
-		if query != nil {
-			p.MsgSignature = query["msg_signature"]
-			p.Timestamp = query["timestamp"]
-			p.Nonce = query["nonce"]
-		}
-	}
-	if p.MsgSignature == "" && query != nil {
-		p.MsgSignature = query["msg_signature"]
-		p.Timestamp = query["timestamp"]
-		p.Nonce = query["nonce"]
-	}
-	if p.Timestamp == "" {
-		p.Timestamp = query["timestamp"]
-	}
-	if p.Nonce == "" {
-		p.Nonce = query["nonce"]
-	}
-	if p.MsgSignature == "" || p.Timestamp == "" || p.Nonce == "" {
-		return false, errors.New("missing msg_signature/timestamp/nonce")
-	}
-	parts := []string{token, p.Timestamp, p.Nonce}
-	sortStrings(parts)
-	h := sha1Hex([]byte(strings.Join(parts, "")))
-	if subtle.ConstantTimeCompare([]byte(h), []byte(p.MsgSignature)) != 1 {
-		return false, errors.New("signature mismatch")
-	}
-	return true, nil
-}
-
-func sortStrings(a []string) {
-	for i := 1; i < len(a); i++ {
-		for j := i; j > 0 && a[j-1] > a[j]; j-- {
-			a[j-1], a[j] = a[j], a[j-1]
-		}
-	}
-}
-
-func verifyWechat(token string, body []byte, headers map[string]string) bool {
-	if token == "" {
-		return false
-	}
-	ts := headers["X-Wechat-Timestamp"]
-	nonce := headers["X-Wechat-Nonce"]
-	sig := headers["X-Wechat-Signature"]
-	if sig == "" {
-		sig = headers["signature"]
-	}
-	if ts == "" || nonce == "" || sig == "" {
-		return false
-	}
-	// 微信公众号官方：sha1(sort([token, timestamp, nonce]))
-	parts := []string{token, ts, nonce}
-	sortStrings(parts)
-	h := sha1Hex([]byte(strings.Join(parts, "")))
-	return subtle.ConstantTimeCompare([]byte(h), []byte(sig)) == 1
 }
 
 func verifyHMAC(secret string, body []byte, headers map[string]string, headerNames ...string) bool {
@@ -676,81 +469,6 @@ func verifyHMAC(secret string, body []byte, headers map[string]string, headerNam
 	return subtle.ConstantTimeCompare([]byte(sig), []byte(expected)) == 1
 }
 
-func sha1Hex(b []byte) string {
-	h := sha1.Sum(b)
-	return hex.EncodeToString(h[:])
-}
-
-func DecryptWeComMessage(aesKey, encrypted string) ([]byte, error) {
-	if len(aesKey) != 43 {
-		return nil, fmt.Errorf("invalid EncodingAESKey length: %d", len(aesKey))
-	}
-	// 补 '='
-	key := aesKey + "="
-	keyB, err := base64.StdEncoding.DecodeString(key)
-	if err != nil {
-		return nil, fmt.Errorf("decode key: %w", err)
-	}
-	cipherB, err := base64.StdEncoding.DecodeString(encrypted)
-	if err != nil {
-		return nil, fmt.Errorf("decode cipher: %w", err)
-	}
-	if len(cipherB) < 16 || len(cipherB)%16 != 0 {
-		return nil, fmt.Errorf("invalid cipher length: %d", len(cipherB))
-	}
-	block, err := aes.NewCipher(keyB)
-	if err != nil {
-		return nil, err
-	}
-	iv := cipherB[:16]
-	mode := cipher.NewCBCDecrypter(block, iv)
-	plain := make([]byte, len(cipherB)-16)
-	mode.CryptBlocks(plain, cipherB[16:])
-	// PKCS#7 去填充
-	plen := int(plain[len(plain)-1])
-	if plen < 1 || plen > 32 {
-		return nil, fmt.Errorf("invalid padding: %d", plen)
-	}
-	plain = plain[:len(plain)-plen]
-	// 结构：rand(16) + msg_len(4) + msg + receiveid
-	if len(plain) < 20 {
-		return nil, fmt.Errorf("plain too short: %d", len(plain))
-	}
-	msgLen := int(binary.BigEndian.Uint32(plain[16:20]))
-	if 20+msgLen > len(plain) {
-		return nil, fmt.Errorf("msg_len overflow: %d", msgLen)
-	}
-	return plain[20 : 20+msgLen], nil
-}
-
-func VerifyURL(token, aesKey, msgSignature, timestamp, nonce, echostr string) (string, error) {
-	if len(aesKey) != 43 {
-		return "", errors.New("invalid EncodingAESKey")
-	}
-	// 1) 解密 echostr（先解密才能拿到原文用于验签）
-	plain, err := DecryptWeComMessage(aesKey, echostr)
-	if err != nil {
-		return "", fmt.Errorf("decrypt echostr: %w", err)
-	}
-	// 兼容结构体：rand(16)+len(4)+echostr
-	plainStr := strings.TrimRight(string(plain), "\x00")
-	if len(plainStr) > 20 {
-		msgLen := int(binary.BigEndian.Uint32([]byte(plainStr)[16:20]))
-		if 20+msgLen <= len(plainStr) {
-			plainStr = plainStr[20 : 20+msgLen]
-		}
-	}
-	// 2) 验签：用解密后的明文 + token + timestamp + nonce
-	parts := []string{token, timestamp, nonce, plainStr}
-	sortStrings(parts)
-	h := sha1Hex([]byte(strings.Join(parts, "")))
-	if subtle.ConstantTimeCompare([]byte(h), []byte(msgSignature)) != 1 {
-		return "", errors.New("signature mismatch")
-	}
-	// 3) 返回明文
-	return plainStr, nil
-}
-
 type ParsedPayload struct {
 	EventID   string         `json:"event_id"`
 	EventType string         `json:"event_type"`
@@ -758,4 +476,114 @@ type ParsedPayload struct {
 	Content   string         `json:"content,omitempty"`
 	ChatID    string         `json:"chat_id,omitempty"`
 	Extra     map[string]any `json:"extra,omitempty"`
+}
+
+// ===== merged from webhook_part2.go (was a mechanical _partN split) =====
+func (s *WebhookService) ParsePayload(ctx context.Context, channel WebhookChannel, body []byte) (*ParsedPayload, error) {
+	var raw map[string]any
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, err
+	}
+	p := &ParsedPayload{Extra: raw}
+	p.EventID = getString(raw, "event_id", "EventID", "msg_id", "MsgId")
+	p.EventType = getString(raw, "event_type", "EventType", "event", "Event", "type", "Type", "msg_type", "MsgType")
+	p.Sender = getString(raw, "from_user", "FromUserName", "sender", "sender_id", "from")
+	p.Content = getString(raw, "content", "text", "Text", "Content", "message")
+	p.ChatID = getString(raw, "chat_id", "ChatID", "conversation_id", "to_user", "ToUserName")
+	return p, nil
+}
+
+// ToUnifiedMessage 转成统一消息
+func (s *WebhookService) ToUnifiedMessage(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload) *model.UnifiedMessage {
+	return &model.UnifiedMessage{
+		MessageID:   s.genMessageID(ctx, channel, accountID, p),
+		Platform:    model.Platform(channel),
+		AccountID:   accountID,
+		ChatID:      p.ChatID,
+		SenderID:    p.Sender,
+		Content:     p.Content,
+		ContentType: model.MessageTypeText,
+		RawData:     "",
+		Status:      model.MessageStatusPending,
+	}
+}
+
+func (s *WebhookService) handleJob(ctx context.Context, job *webhookJob) {
+	channel := job.channel
+	if channel == "" {
+		channel = WebhookChannel(job.event.Platform)
+	}
+	payload := job.payload
+	if payload == nil {
+		var err error
+		payload, err = s.ParsePayload(ctx, channel, job.raw)
+		if err != nil {
+			logger.Errorf("[Webhook] 处理失败 event=%s: %v", job.event.EventID, err)
+			return
+		}
+	}
+
+	hubMsg, tgExtra, dispatchErr := s.dispatchToChannel(ctx, channel, job.account, payload, job.raw, job.header)
+	if dispatchErr != nil {
+		logger.Errorf("[Webhook] dispatch %s failed event=%s: %v", channel, job.event.EventID, dispatchErr)
+	}
+
+	if hubMsg == nil && dispatchErr == nil {
+		known := channel == ChannelWeCom || channel == ChannelWhatsapp ||
+			channel == ChannelTelegram || channel == ChannelFeishu
+		if known {
+			logger.Infof("[Webhook] skip non-message event channel=%s event=%s", channel, job.event.EventID)
+			s.markProcessed(ctx, job.event)
+			return
+		}
+	}
+
+	um := s.ToUnifiedMessage(ctx, channel, job.account, payload)
+	if um.AccountID == "" {
+		um.AccountID = job.event.EventID
+	}
+	if err := s.dispatchToUnified(ctx, um); err != nil {
+		s.retryWithBackoff(ctx, job, payload, err)
+		return
+	}
+
+	triggerAI := hubMsg != nil && s.shouldTriggerAI(ctx, channel, job.account)
+	if triggerAI {
+		if channel != ChannelTelegram || !hubMsg.IsGroup {
+			s.triggerSalesEngine(ctx, channel, job.account, payload, hubMsg)
+		} else {
+			mentioned := tgExtra != nil && tgExtra.Mentioned
+			newOpp := tgExtra != nil && tgExtra.NewOpportunity
+			switch {
+			case mentioned:
+
+				s.triggerSalesEngine(ctx, channel, job.account, payload, hubMsg)
+			case newOpp && s.tgLeadOutreachAllowed(ctx, job.account, payload.ChatID, payload.Sender):
+
+				s.triggerSalesEngine(ctx, channel, job.account, payload, hubMsg)
+			}
+		}
+	}
+
+	s.markProcessed(ctx, job.event)
+}
+
+// dispatchToChannel 按渠道路由业务逻辑
+func (s *WebhookService) dispatchToChannel(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, raw []byte, headers map[string]string) (*model.MessageHub, *tgDispatchExtra, error) {
+	switch channel {
+	case ChannelWeCom:
+		hub, err := s.dispatchWeCom(ctx, accountID, p, raw, headers)
+		return hub, nil, err
+	case ChannelWhatsapp:
+		hub, err := s.dispatchWhatsApp(ctx, accountID, p, raw)
+		return hub, nil, err
+	case ChannelTelegram:
+		return s.dispatchTelegram(ctx, accountID, p, raw)
+	case ChannelFeishu:
+		hub, err := s.dispatchFeishu(ctx, accountID, p, raw)
+		return hub, nil, err
+	default:
+
+		return nil, nil, nil
+	}
 }

@@ -2,11 +2,10 @@ package tooluse
 
 import (
 	"context"
-
 	"errors"
-
 	"fmt"
-
+	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -77,64 +76,6 @@ type AccountInfo struct {
 
 var ErrAdapterNotConfigured = errors.New("reach adapter not configured")
 
-type NoOpReachAdapter struct{}
-
-func (NoOpReachAdapter) SendSMS(ctx context.Context, phone, content, templateID string, params map[string]string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
-func (NoOpReachAdapter) SendEmail(ctx context.Context, to, subject, content string, attachments []string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
-func (NoOpReachAdapter) SendWeCom(ctx context.Context, accountID, externalUserID, msgType, content string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
-func (NoOpReachAdapter) SendWeixin(ctx context.Context, openID, msgType, content string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
-func (NoOpReachAdapter) SendDouyin(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
-func (NoOpReachAdapter) SendKuaishou(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
-func (NoOpReachAdapter) SendXHS(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
-func (NoOpReachAdapter) SendTikTok(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
-func (NoOpReachAdapter) SendXianyu(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
-func (NoOpReachAdapter) SendDingTalk(ctx context.Context, chatID, msgType, content string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
-func (NoOpReachAdapter) SendTelegram(ctx context.Context, accountID, chatID, content string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
-func (NoOpReachAdapter) SendWhatsApp(ctx context.Context, accountID, toPhone, content string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
-func (NoOpReachAdapter) SendFeishu(ctx context.Context, accountID, openID, content string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
-func (NoOpReachAdapter) SendWeb(ctx context.Context, sessionID, content string) (string, error) {
-	return "", ErrAdapterNotConfigured
-}
-
 func (NoOpReachAdapter) SendCard(ctx context.Context, channel, accountID, externalUserID, cardID string) (string, error) {
 	return "", ErrAdapterNotConfigured
 }
@@ -198,7 +139,7 @@ func dispatchToAdapter(ctx context.Context, adapter ReachAdapter, req *ReachSend
 	case "web":
 		return adapter.SendWeb(ctx, req.RecipientID, req.Content)
 	case "card":
-		// 卡片渠道：实际子渠道通过 Metadata["subchannel"] 传递（douyin/kuaishou/wecom/weixin）
+
 		subchannel := "douyin"
 		if req.Metadata != nil {
 			if sc, ok := req.Metadata["subchannel"]; ok && sc != "" {
@@ -219,8 +160,7 @@ func sendViaPipeline(ctx context.Context, deps ReachToolDeps, req *ReachSendRequ
 		}
 		return resp.MessageID, resp, nil
 	}
-	// 回退：直接调用 Adapter（未配置 9 步 SendPipeline 时）
-	// 核心敏感接口：此处不经过 defaultSendPipeline.Send，仍需强制输出合规提示
+
 	complianceReminderHook(req.Channel, req.RecipientID)
 	msgID, err := dispatchToAdapter(ctx, deps.Adapter, req)
 	return msgID, &ReachSendResponse{
@@ -278,36 +218,6 @@ func MustRegisterReachTools(registry *ToolRegistry, deps ReachToolDeps) {
 	}
 }
 
-type ReachSMSSendTool struct {
-	BaseTool
-	deps ReachToolDeps
-}
-
-func NewReachSMSSendTool(deps ReachToolDeps) *ReachSMSSendTool {
-	return &ReachSMSSendTool{
-		BaseTool: BaseTool{
-			NameVal:        "reach.sms.send",
-			CategoryVal:    CategoryReach,
-			DescriptionVal: "发送短信。支持模板短信（传 template_id + params）和直发（传 content）。",
-			ParamsVal: ToolParameters{
-				Type: "object",
-				Properties: map[string]ToolParam{
-					"phone":       {Type: "string", Description: "手机号"},
-					"content":     {Type: "string", Description: "短信内容（直发模式）"},
-					"template_id": {Type: "string", Description: "短信模板 ID（模板模式）"},
-					"params": {
-						Type:        "object",
-						Description: "模板参数（key-value）",
-						Properties:  map[string]ToolParam{},
-					},
-				},
-				Required: []string{"phone"},
-			},
-		},
-		deps: deps,
-	}
-}
-
 func (t *ReachSMSSendTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"phone"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -321,7 +231,6 @@ func (t *ReachSMSSendTool) Execute(ctx context.Context, args map[string]any) (To
 		return ErrorResult(t.Name(), errors.New("content 和 template_id 至少需要一个")), errors.New("content 和 template_id 至少需要一个")
 	}
 
-	// G4：通过 9 步 SendPipeline 发送
 	req := &ReachSendRequest{
 		Channel:     "sms",
 		RecipientID: phone,
@@ -349,36 +258,6 @@ func (t *ReachSMSSendTool) Execute(ctx context.Context, args map[string]any) (To
 		"retry_count":   resp.RetryCount,
 		"fallback_used": resp.FallbackUsed,
 	}), nil
-}
-
-type ReachEmailSendTool struct {
-	BaseTool
-	deps ReachToolDeps
-}
-
-func NewReachEmailSendTool(deps ReachToolDeps) *ReachEmailSendTool {
-	return &ReachEmailSendTool{
-		BaseTool: BaseTool{
-			NameVal:        "reach.email.send",
-			CategoryVal:    CategoryReach,
-			DescriptionVal: "发送邮件。支持附件。",
-			ParamsVal: ToolParameters{
-				Type: "object",
-				Properties: map[string]ToolParam{
-					"to":      {Type: "string", Description: "收件人邮箱（多个用逗号分隔）"},
-					"subject": {Type: "string", Description: "邮件主题"},
-					"content": {Type: "string", Description: "邮件内容（HTML 或纯文本）"},
-					"attachments": {
-						Type:        "array",
-						Description: "附件 URL 列表",
-						Items:       &ToolParam{Type: "string"},
-					},
-				},
-				Required: []string{"to", "subject", "content"},
-			},
-		},
-		deps: deps,
-	}
 }
 
 func (t *ReachEmailSendTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
@@ -417,37 +296,6 @@ func (t *ReachEmailSendTool) Execute(ctx context.Context, args map[string]any) (
 	}), nil
 }
 
-type ReachWeComSendTool struct {
-	BaseTool
-	deps ReachToolDeps
-}
-
-func NewReachWeComSendTool(deps ReachToolDeps) *ReachWeComSendTool {
-	return &ReachWeComSendTool{
-		BaseTool: BaseTool{
-			NameVal:        "reach.wecom.send",
-			CategoryVal:    CategoryReach,
-			DescriptionVal: "通过企业微信向客户发送消息。支持 text/image/link/textcard 等消息类型。",
-			ParamsVal: ToolParameters{
-				Type: "object",
-				Properties: map[string]ToolParam{
-					"account_id":       {Type: "string", Description: "企微账号 ID"},
-					"external_user_id": {Type: "string", Description: "外部联系人 ID"},
-					"msg_type": {
-						Type:        "string",
-						Description: "消息类型",
-						Enum:        []string{"text", "image", "link", "textcard", "miniprogram", "file"},
-						Default:     "text",
-					},
-					"content": {Type: "string", Description: "消息内容（text 类型为文本，其他类型为 JSON 配置）"},
-				},
-				Required: []string{"account_id", "external_user_id", "content"},
-			},
-		},
-		deps: deps,
-	}
-}
-
 func (t *ReachWeComSendTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"account_id", "external_user_id", "content"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -483,36 +331,6 @@ func (t *ReachWeComSendTool) Execute(ctx context.Context, args map[string]any) (
 	}), nil
 }
 
-type ReachWeixinSendTool struct {
-	BaseTool
-	deps ReachToolDeps
-}
-
-func NewReachWeixinSendTool(deps ReachToolDeps) *ReachWeixinSendTool {
-	return &ReachWeixinSendTool{
-		BaseTool: BaseTool{
-			NameVal:        "reach.weixin.send",
-			CategoryVal:    CategoryReach,
-			DescriptionVal: "通过微信公众号向用户发送消息（客服消息）。",
-			ParamsVal: ToolParameters{
-				Type: "object",
-				Properties: map[string]ToolParam{
-					"open_id": {Type: "string", Description: "用户 OpenID"},
-					"msg_type": {
-						Type:        "string",
-						Description: "消息类型",
-						Enum:        []string{"text", "image", "news", "template"},
-						Default:     "text",
-					},
-					"content": {Type: "string", Description: "消息内容"},
-				},
-				Required: []string{"open_id", "content"},
-			},
-		},
-		deps: deps,
-	}
-}
-
 func (t *ReachWeixinSendTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"open_id", "content"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -543,37 +361,6 @@ func (t *ReachWeixinSendTool) Execute(ctx context.Context, args map[string]any) 
 		"retry_count":   resp.RetryCount,
 		"fallback_used": resp.FallbackUsed,
 	}), nil
-}
-
-type ReachDouyinSendTool struct {
-	BaseTool
-	deps ReachToolDeps
-}
-
-func NewReachDouyinSendTool(deps ReachToolDeps) *ReachDouyinSendTool {
-	return &ReachDouyinSendTool{
-		BaseTool: BaseTool{
-			NameVal:        "reach.douyin.send",
-			CategoryVal:    CategoryReach,
-			DescriptionVal: "通过抖音私信向用户发送消息。",
-			ParamsVal: ToolParameters{
-				Type: "object",
-				Properties: map[string]ToolParam{
-					"account_id": {Type: "string", Description: "抖音账号 ID"},
-					"open_id":    {Type: "string", Description: "用户 OpenID"},
-					"msg_type": {
-						Type:        "string",
-						Description: "消息类型",
-						Enum:        []string{"text", "image", "card", "video"},
-						Default:     "text",
-					},
-					"content": {Type: "string", Description: "消息内容"},
-				},
-				Required: []string{"account_id", "open_id", "content"},
-			},
-		},
-		deps: deps,
-	}
 }
 
 func (t *ReachDouyinSendTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
@@ -611,37 +398,6 @@ func (t *ReachDouyinSendTool) Execute(ctx context.Context, args map[string]any) 
 	}), nil
 }
 
-type ReachKuaishouSendTool struct {
-	BaseTool
-	deps ReachToolDeps
-}
-
-func NewReachKuaishouSendTool(deps ReachToolDeps) *ReachKuaishouSendTool {
-	return &ReachKuaishouSendTool{
-		BaseTool: BaseTool{
-			NameVal:        "reach.kuaishou.send",
-			CategoryVal:    CategoryReach,
-			DescriptionVal: "通过快手私信向用户发送消息。",
-			ParamsVal: ToolParameters{
-				Type: "object",
-				Properties: map[string]ToolParam{
-					"account_id": {Type: "string", Description: "快手账号 ID"},
-					"open_id":    {Type: "string", Description: "用户 OpenID"},
-					"msg_type": {
-						Type:        "string",
-						Description: "消息类型",
-						Enum:        []string{"text", "image", "card", "video"},
-						Default:     "text",
-					},
-					"content": {Type: "string", Description: "消息内容"},
-				},
-				Required: []string{"account_id", "open_id", "content"},
-			},
-		},
-		deps: deps,
-	}
-}
-
 func (t *ReachKuaishouSendTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"account_id", "open_id", "content"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -675,37 +431,6 @@ func (t *ReachKuaishouSendTool) Execute(ctx context.Context, args map[string]any
 		"retry_count":   resp.RetryCount,
 		"fallback_used": resp.FallbackUsed,
 	}), nil
-}
-
-type ReachXHSSendTool struct {
-	BaseTool
-	deps ReachToolDeps
-}
-
-func NewReachXHSSendTool(deps ReachToolDeps) *ReachXHSSendTool {
-	return &ReachXHSSendTool{
-		BaseTool: BaseTool{
-			NameVal:        "reach.xhs.send",
-			CategoryVal:    CategoryReach,
-			DescriptionVal: "通过小红书私信向用户发送消息。",
-			ParamsVal: ToolParameters{
-				Type: "object",
-				Properties: map[string]ToolParam{
-					"account_id": {Type: "string", Description: "小红书账号 ID"},
-					"open_id":    {Type: "string", Description: "用户 OpenID"},
-					"msg_type": {
-						Type:        "string",
-						Description: "消息类型",
-						Enum:        []string{"text", "image", "card"},
-						Default:     "text",
-					},
-					"content": {Type: "string", Description: "消息内容"},
-				},
-				Required: []string{"account_id", "open_id", "content"},
-			},
-		},
-		deps: deps,
-	}
 }
 
 func (t *ReachXHSSendTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
@@ -743,7 +468,741 @@ func (t *ReachXHSSendTool) Execute(ctx context.Context, args map[string]any) (To
 	}), nil
 }
 
-type ReachDingTalkSendTool struct {
+func (t *ReachDingTalkSendTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	if err := ValidateRequired(args, []string{"chat_id", "content"}); err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	chatID, _ := GetStringArg(args, "chat_id")
+	msgType := getArgString(args, "msg_type")
+	if msgType == "" {
+		msgType = "text"
+	}
+	content, _ := GetStringArg(args, "content")
+
+	msgID, resp, err := sendViaPipeline(ctx, t.deps, &ReachSendRequest{
+		Channel:     "dingtalk",
+		RecipientID: chatID,
+		MsgType:     msgType,
+		Content:     content,
+	})
+	if err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	return SuccessResult(t.Name(), map[string]any{
+		"chat_id":       chatID,
+		"msg_type":      msgType,
+		"message_id":    msgID,
+		"channel":       "dingtalk",
+		"sent_at":       time.Now().Format(time.RFC3339),
+		"step_results":  resp.StepResults,
+		"retry_count":   resp.RetryCount,
+		"fallback_used": resp.FallbackUsed,
+	}), nil
+}
+
+// ReachCardSendTool 客户卡片（多渠道）
+type ReachCardSendTool struct {
 	BaseTool
 	deps ReachToolDeps
+}
+
+func NewReachCardSendTool(deps ReachToolDeps) *ReachCardSendTool {
+	return &ReachCardSendTool{
+		BaseTool: BaseTool{
+			NameVal:        "reach.card.send",
+			CategoryVal:    CategoryReach,
+			DescriptionVal: "发送客户卡片（如抖音卡片、快手卡片）。支持指定渠道和卡片模板。",
+			ParamsVal: ToolParameters{
+				Type: "object",
+				Properties: map[string]ToolParam{
+					"channel": {
+						Type:        "string",
+						Description: "目标渠道",
+						Enum:        []string{"douyin", "kuaishou", "wecom", "weixin"},
+					},
+					"account_id":       {Type: "string", Description: "发送账号 ID"},
+					"external_user_id": {Type: "string", Description: "接收方 ID"},
+					"card_id":          {Type: "string", Description: "卡片模板 ID"},
+				},
+				Required: []string{"channel", "account_id", "external_user_id", "card_id"},
+			},
+		},
+		deps: deps,
+	}
+}
+
+func (t *ReachCardSendTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	if err := ValidateRequired(args, []string{"channel", "account_id", "external_user_id", "card_id"}); err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	channel, _ := GetStringArg(args, "channel")
+	accountID, _ := GetStringArg(args, "account_id")
+	externalUserID, _ := GetStringArg(args, "external_user_id")
+	cardID, _ := GetStringArg(args, "card_id")
+
+	req := &ReachSendRequest{
+		Channel:     "card",
+		AccountID:   accountID,
+		RecipientID: externalUserID,
+		CardID:      cardID,
+		Metadata:    map[string]string{"subchannel": channel},
+	}
+	if custID, ok := args["customer_id"]; ok {
+		req.CustomerID, _ = custID.(string)
+	}
+	if opID, ok := args["operator_id"]; ok {
+		req.OperatorID, _ = opID.(string)
+	}
+
+	msgID, resp, err := sendViaPipeline(ctx, t.deps, req)
+	if err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	return SuccessResult(t.Name(), map[string]any{
+		"channel":          channel,
+		"account_id":       accountID,
+		"external_user_id": externalUserID,
+		"card_id":          cardID,
+		"message_id":       msgID,
+		"sent_at":          time.Now().Format(time.RFC3339),
+		"step_results":     resp.StepResults,
+		"retry_count":      resp.RetryCount,
+		"fallback_used":    resp.FallbackUsed,
+	}), nil
+}
+
+// BatchSendItem 批量触达条目
+type BatchSendItem struct {
+	CustomerID string         `json:"customer_id"`
+	AccountID  string         `json:"account_id,omitempty"`
+	Payload    map[string]any `json:"payload"`
+}
+
+// ReachBatchTool 批量触达
+type ReachBatchTool struct {
+	BaseTool
+	deps ReachToolDeps
+}
+
+func NewReachBatchTool(deps ReachToolDeps) *ReachBatchTool {
+	return &ReachBatchTool{
+		BaseTool: BaseTool{
+			NameVal:        "reach.batch",
+			CategoryVal:    CategoryReach,
+			DescriptionVal: "通过触达 Pipeline 批量发送消息。需要指定 pipeline_id，会为每个 customer 创建一个 job。",
+			ParamsVal: ToolParameters{
+				Type: "object",
+				Properties: map[string]ToolParam{
+					"pipeline_id": {Type: "string", Description: "触达 Pipeline ID"},
+					"channel": {
+						Type:        "string",
+						Description: "渠道（不填则用 pipeline 配置）",
+						Enum:        []string{"sms", "email", "wecom", "weixin", "douyin", "kuaishou", "xiaohongshu", "dingtalk", "telegram", "whatsapp", "feishu", "card"},
+					},
+					"items": {
+						Type:        "array",
+						Description: "批量触达条目列表",
+						Items: &ToolParam{
+							Type: "object",
+							Properties: map[string]ToolParam{
+								"customer_id": {Type: "string", Description: "客户 ID"},
+								"account_id":  {Type: "string", Description: "账号 ID（可选）"},
+								"payload":     {Type: "object", Description: "消息载荷"},
+							},
+						},
+					},
+				},
+				Required: []string{"pipeline_id", "items"},
+			},
+		},
+		deps: deps,
+	}
+}
+
+func (t *ReachBatchTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	if t.deps.Pipeline == nil {
+		return ErrorResult(t.Name(), errors.New("batch 工具需要 Pipeline 依赖")), errors.New("batch 工具需要 Pipeline 依赖")
+	}
+	if err := ValidateRequired(args, []string{"pipeline_id", "items"}); err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	pipelineIDStr, _ := GetStringArg(args, "pipeline_id")
+	pipelineID := parseUint(pipelineIDStr)
+	channel := getArgString(args, "channel")
+
+	items := getArgInterfaceSlice(args, "items")
+	if len(items) == 0 {
+		return ErrorResult(t.Name(), errors.New("items 不能为空")), errors.New("items 不能为空")
+	}
+
+	jobIDs := make([]string, 0, len(items))
+	failed := make([]string, 0)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	for _, item := range items {
+		itemMap, ok := item.(map[string]any)
+		if !ok {
+			failed = append(failed, "invalid item")
+			continue
+		}
+		customerID := getArgString(itemMap, "customer_id")
+		accountID := getArgString(itemMap, "account_id")
+
+		payload := getArgMap(itemMap, "payload")
+		if customerID == "" {
+			failed = append(failed, "missing customer_id")
+			continue
+		}
+		wg.Add(1)
+		go func(cid, aid string, p map[string]any) {
+			defer wg.Done()
+			req := &ReachJobRequest{
+				PipelineID: pipelineID,
+				Channel:    channel,
+				CustomerID: cid,
+				AccountID:  aid,
+				Payload:    p,
+			}
+			job, err := t.deps.Pipeline.EnqueueJob(ctx, req)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				failed = append(failed, fmt.Sprintf("%s: %v", cid, err))
+				return
+			}
+			jobIDs = append(jobIDs, fmt.Sprintf("%d", job.ID))
+		}(customerID, accountID, payload)
+	}
+	wg.Wait()
+
+	success := len(jobIDs)
+	return SuccessResult(t.Name(), map[string]any{
+		"pipeline_id":    pipelineID,
+		"total":          len(items),
+		"success_count":  success,
+		"failed_count":   len(failed),
+		"job_ids":        jobIDs,
+		"failed_details": failed,
+	}), nil
+}
+
+// ReachScheduleTool 定时触达
+type ReachScheduleTool struct {
+	BaseTool
+	deps ReachToolDeps
+}
+
+func NewReachScheduleTool(deps ReachToolDeps) *ReachScheduleTool {
+	return &ReachScheduleTool{
+		BaseTool: BaseTool{
+			NameVal:        "reach.schedule",
+			CategoryVal:    CategoryReach,
+			DescriptionVal: "定时触发触达任务。通过 Pipeline 在指定时间执行。",
+			ParamsVal: ToolParameters{
+				Type: "object",
+				Properties: map[string]ToolParam{
+					"pipeline_id": {Type: "string", Description: "触达 Pipeline ID"},
+					"channel":     {Type: "string", Description: "渠道"},
+					"customer_id": {Type: "string", Description: "客户 ID"},
+					"account_id":  {Type: "string", Description: "账号 ID"},
+					"run_at":      {Type: "string", Description: "执行时间（RFC3339 格式）"},
+					"payload":     {Type: "object", Description: "消息载荷"},
+				},
+				Required: []string{"pipeline_id", "customer_id", "run_at", "payload"},
+			},
+		},
+		deps: deps,
+	}
+}
+
+func (t *ReachScheduleTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	if t.deps.Pipeline == nil {
+		return ErrorResult(t.Name(), errors.New("schedule 工具需要 Pipeline 依赖")), errors.New("schedule 工具需要 Pipeline 依赖")
+	}
+	if err := ValidateRequired(args, []string{"pipeline_id", "customer_id", "run_at", "payload"}); err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	pipelineIDStr, _ := GetStringArg(args, "pipeline_id")
+	pipelineID := parseUint(pipelineIDStr)
+	channel := getArgString(args, "channel")
+	customerID, _ := GetStringArg(args, "customer_id")
+	accountID := getArgString(args, "account_id")
+	runAtStr, _ := GetStringArg(args, "run_at")
+	payload := getArgStringMap(args, "payload")
+
+	runAt, err := time.Parse(time.RFC3339, runAtStr)
+	if err != nil {
+		return ErrorResult(t.Name(), fmt.Errorf("run_at 格式错误：%w", err)), fmt.Errorf("run_at 格式错误：%w", err)
+	}
+	if runAt.Before(time.Now()) {
+		return ErrorResult(t.Name(), errors.New("run_at 不能早于当前时间")), errors.New("run_at 不能早于当前时间")
+	}
+
+	payloadMap := map[string]any{}
+	for k, v := range payload {
+		payloadMap[k] = v
+	}
+
+	req := &ReachJobRequest{
+		PipelineID: pipelineID,
+		Channel:    channel,
+		CustomerID: customerID,
+		AccountID:  accountID,
+		Payload:    payloadMap,
+		RunAt:      &runAt,
+	}
+	job, err := t.deps.Pipeline.EnqueueJob(ctx, req)
+	if err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	return SuccessResult(t.Name(), map[string]any{
+		"job_id":      job.ID,
+		"pipeline_id": pipelineID,
+		"customer_id": customerID,
+		"channel":     channel,
+		"run_at":      runAt.Format(time.RFC3339),
+		"state":       job.State,
+	}), nil
+}
+
+// ReachRecallTool 撤回消息
+type ReachRecallTool struct {
+	BaseTool
+	deps ReachToolDeps
+}
+
+func NewReachRecallTool(deps ReachToolDeps) *ReachRecallTool {
+	return &ReachRecallTool{
+		BaseTool: BaseTool{
+			NameVal:        "reach.recall",
+			CategoryVal:    CategoryReach,
+			DescriptionVal: "撤回已发送的消息。并非所有渠道都支持撤回。",
+			ParamsVal: ToolParameters{
+				Type: "object",
+				Properties: map[string]ToolParam{
+					"channel": {
+						Type:        "string",
+						Description: "渠道",
+						Enum:        []string{"sms", "email", "wecom", "weixin", "douyin", "kuaishou", "xiaohongshu", "dingtalk", "telegram", "whatsapp", "feishu", "card"},
+					},
+					"message_id": {Type: "string", Description: "消息 ID"},
+				},
+				Required: []string{"channel", "message_id"},
+			},
+		},
+		deps: deps,
+	}
+}
+
+func (t *ReachRecallTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	if err := ValidateRequired(args, []string{"channel", "message_id"}); err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	channel, _ := GetStringArg(args, "channel")
+	msgID, _ := GetStringArg(args, "message_id")
+
+	if err := t.deps.Adapter.Recall(ctx, channel, msgID); err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	return SuccessResult(t.Name(), map[string]any{
+		"channel":     channel,
+		"message_id":  msgID,
+		"recalled":    true,
+		"recalled_at": time.Now().Format(time.RFC3339),
+	}), nil
+}
+
+// ReachHealthTool 账号健康度查询
+type ReachHealthTool struct {
+	BaseTool
+	deps ReachToolDeps
+}
+
+func NewReachHealthTool(deps ReachToolDeps) *ReachHealthTool {
+	return &ReachHealthTool{
+		BaseTool: BaseTool{
+			NameVal:        "reach.health",
+			CategoryVal:    CategoryReach,
+			DescriptionVal: "查询账号健康度。返回账号状态、剩余配额、风险等级等信息。",
+			ParamsVal: ToolParameters{
+				Type: "object",
+				Properties: map[string]ToolParam{
+					"channel": {
+						Type:        "string",
+						Description: "渠道",
+						Enum:        []string{"sms", "email", "wecom", "weixin", "douyin", "kuaishou", "xiaohongshu", "dingtalk", "telegram", "whatsapp", "feishu", "card"},
+					},
+					"account_id": {Type: "string", Description: "账号 ID（不填则查询渠道下所有账号摘要）"},
+				},
+				Required: []string{"channel"},
+			},
+		},
+		deps: deps,
+	}
+}
+
+func (t *ReachHealthTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	if err := ValidateRequired(args, []string{"channel"}); err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	channel, _ := GetStringArg(args, "channel")
+	accountID := getArgString(args, "account_id")
+
+	info, err := t.deps.Adapter.AccountHealth(ctx, channel, accountID)
+	if err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	return SuccessResult(t.Name(), info), nil
+}
+
+// ReachHistoryTool 触达历史查询
+type ReachHistoryTool struct {
+	BaseTool
+	deps ReachToolDeps
+}
+
+func NewReachHistoryTool(deps ReachToolDeps) *ReachHistoryTool {
+	return &ReachHistoryTool{
+		BaseTool: BaseTool{
+			NameVal:        "reach.history",
+			CategoryVal:    CategoryReach,
+			DescriptionVal: "查询触达历史。可按渠道、客户 ID、状态筛选。",
+			ParamsVal: ToolParameters{
+				Type: "object",
+				Properties: map[string]ToolParam{
+					"channel":     {Type: "string", Description: "渠道（可选）"},
+					"customer_id": {Type: "string", Description: "客户 ID（可选）"},
+					"state": {
+						Type:        "string",
+						Description: "任务状态",
+						Enum:        []string{"pending", "running", "success", "failed", "canceled", "retrying", "rate_limited"},
+					},
+					"page":      {Type: "integer", Description: "页码（默认 1）", Default: 1},
+					"page_size": {Type: "integer", Description: "每页数量（默认 20）", Default: 20},
+				},
+			},
+		},
+		deps: deps,
+	}
+}
+
+func (t *ReachHistoryTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	if t.deps.Pipeline == nil {
+		return ErrorResult(t.Name(), errors.New("history 工具需要 Pipeline 依赖")), errors.New("history 工具需要 Pipeline 依赖")
+	}
+	channel := getArgString(args, "channel")
+	state := getArgString(args, "state")
+	page, _ := GetIntArg(args, "page")
+	if page <= 0 {
+		page = 1
+	}
+	pageSize, _ := GetIntArg(args, "page_size")
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 200 {
+		pageSize = 200
+	}
+
+	jobs, total, err := t.deps.Pipeline.ListJobs(ctx, channel, state, page, pageSize)
+	if err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	totalPages := int64(0)
+	if pageSize > 0 {
+		totalPages = (total + int64(pageSize) - 1) / int64(pageSize)
+	}
+	return SuccessResult(t.Name(), map[string]any{
+		"jobs":        jobs,
+		"total":       total,
+		"page":        page,
+		"page_size":   pageSize,
+		"total_pages": totalPages,
+	}), nil
+}
+
+// ReachTemplateApplyTool 模板应用
+type ReachTemplateApplyTool struct {
+	BaseTool
+	deps ReachToolDeps
+}
+
+func NewReachTemplateApplyTool(deps ReachToolDeps) *ReachTemplateApplyTool {
+	return &ReachTemplateApplyTool{
+		BaseTool: BaseTool{
+			NameVal:        "reach.template.apply",
+			CategoryVal:    CategoryReach,
+			DescriptionVal: "应用模板参数生成最终消息内容。支持 {{var}} 占位符替换。",
+			ParamsVal: ToolParameters{
+				Type: "object",
+				Properties: map[string]ToolParam{
+					"template": {Type: "string", Description: "模板内容（含 {{var}} 占位符）"},
+					"params": {
+						Type:        "object",
+						Description: "替换参数（key-value）",
+						Properties:  map[string]ToolParam{},
+					},
+				},
+				Required: []string{"template", "params"},
+			},
+		},
+		deps: deps,
+	}
+}
+
+func (t *ReachTemplateApplyTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	if err := ValidateRequired(args, []string{"template", "params"}); err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	tmpl, _ := GetStringArg(args, "template")
+	params := getArgStringMap(args, "params")
+
+	result := tmpl
+	for k, v := range params {
+		placeholder := fmt.Sprintf("{{%s}}", k)
+		result = strings.ReplaceAll(result, placeholder, v)
+
+		placeholder2 := fmt.Sprintf("{{ %s }}", k)
+		result = strings.ReplaceAll(result, placeholder2, v)
+	}
+
+	remaining := findUnreplacedPlaceholders(result)
+	return SuccessResult(t.Name(), map[string]any{
+		"template":                tmpl,
+		"params":                  params,
+		"content":                 result,
+		"unreplaced_placeholders": remaining,
+	}), nil
+}
+
+// findUnreplacedPlaceholders 查找未替换的 {{...}} 占位符
+func findUnreplacedPlaceholders(s string) []string {
+	var placeholders []string
+	i := 0
+	for i < len(s) {
+		if s[i] == '{' && i+1 < len(s) && s[i+1] == '{' {
+
+			end := strings.Index(s[i+2:], "}}")
+			if end < 0 {
+				break
+			}
+			placeholder := strings.TrimSpace(s[i+2 : i+2+end])
+			placeholders = append(placeholders, placeholder)
+			i = i + 2 + end + 2
+		} else {
+			i++
+		}
+	}
+	return placeholders
+}
+
+// ReachAccountListTool 账号列表查询
+type ReachAccountListTool struct {
+	BaseTool
+	deps ReachToolDeps
+}
+
+func NewReachAccountListTool(deps ReachToolDeps) *ReachAccountListTool {
+	return &ReachAccountListTool{
+		BaseTool: BaseTool{
+			NameVal:        "reach.account.list",
+			CategoryVal:    CategoryReach,
+			DescriptionVal: "查询指定渠道下的可用账号列表（含健康状态）。",
+			ParamsVal: ToolParameters{
+				Type: "object",
+				Properties: map[string]ToolParam{
+					"channel": {
+						Type:        "string",
+						Description: "渠道（不填则返回所有渠道）",
+						Enum:        []string{"sms", "email", "wecom", "weixin", "douyin", "kuaishou", "xiaohongshu", "dingtalk", "telegram", "whatsapp", "feishu", "card"},
+					},
+				},
+			},
+		},
+		deps: deps,
+	}
+}
+
+func (t *ReachAccountListTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	channel := getArgString(args, "channel")
+
+	accounts, err := t.deps.Adapter.ListAccounts(ctx, channel)
+	if err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+
+	healthy := 0
+	for _, a := range accounts {
+		if a.IsHealthy {
+			healthy++
+		}
+	}
+	return SuccessResult(t.Name(), map[string]any{
+		"channel":       channel,
+		"accounts":      accounts,
+		"total":         len(accounts),
+		"healthy_count": healthy,
+	}), nil
+}
+
+func (t *ReachTelegramSendTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	if err := ValidateRequired(args, []string{"account_id", "chat_id", "content"}); err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	accountID, _ := GetStringArg(args, "account_id")
+	chatID, _ := GetStringArg(args, "chat_id")
+	content, _ := GetStringArg(args, "content")
+	if content == "" {
+		return ErrorResult(t.Name(), errors.New("content 不能为空")), errors.New("content 不能为空")
+	}
+
+	req := &ReachSendRequest{
+		Channel:     "telegram",
+		AccountID:   accountID,
+		RecipientID: chatID,
+		Content:     content,
+	}
+	if custID, ok := args["customer_id"]; ok {
+		req.CustomerID, _ = custID.(string)
+	}
+	if opID, ok := args["operator_id"]; ok {
+		req.OperatorID, _ = opID.(string)
+	}
+
+	msgID, resp, err := sendViaPipeline(ctx, t.deps, req)
+	if err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	return SuccessResult(t.Name(), map[string]any{
+		"account_id":    accountID,
+		"chat_id":       chatID,
+		"message_id":    msgID,
+		"channel":       "telegram",
+		"sent_at":       time.Now().Format(time.RFC3339),
+		"step_results":  resp.StepResults,
+		"retry_count":   resp.RetryCount,
+		"fallback_used": resp.FallbackUsed,
+	}), nil
+}
+
+func (t *ReachWhatsAppSendTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	if err := ValidateRequired(args, []string{"account_id", "to_phone", "content"}); err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	accountID, _ := GetStringArg(args, "account_id")
+	toPhone, _ := GetStringArg(args, "to_phone")
+	content, _ := GetStringArg(args, "content")
+	templateID := getArgString(args, "template_id")
+	params := getArgStringMap(args, "params")
+	if content == "" && templateID == "" {
+		return ErrorResult(t.Name(), errors.New("content 和 template_id 至少需要一个")), errors.New("content 和 template_id 至少需要一个")
+	}
+
+	req := &ReachSendRequest{
+		Channel:     "whatsapp",
+		AccountID:   accountID,
+		RecipientID: toPhone,
+		Content:     content,
+		TemplateID:  templateID,
+		Params:      params,
+	}
+	if custID, ok := args["customer_id"]; ok {
+		req.CustomerID, _ = custID.(string)
+	}
+	if opID, ok := args["operator_id"]; ok {
+		req.OperatorID, _ = opID.(string)
+	}
+
+	msgID, resp, err := sendViaPipeline(ctx, t.deps, req)
+	if err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	return SuccessResult(t.Name(), map[string]any{
+		"account_id":    accountID,
+		"to_phone":      toPhone,
+		"template_id":   templateID,
+		"message_id":    msgID,
+		"channel":       "whatsapp",
+		"sent_at":       time.Now().Format(time.RFC3339),
+		"step_results":  resp.StepResults,
+		"retry_count":   resp.RetryCount,
+		"fallback_used": resp.FallbackUsed,
+	}), nil
+}
+
+func (t *ReachFeishuSendTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	if err := ValidateRequired(args, []string{"account_id", "open_id", "content"}); err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	accountID, _ := GetStringArg(args, "account_id")
+	openID, _ := GetStringArg(args, "open_id")
+	content, _ := GetStringArg(args, "content")
+	msgType := getArgString(args, "msg_type")
+	if msgType == "" {
+		msgType = "text"
+	}
+	if content == "" {
+		return ErrorResult(t.Name(), errors.New("content 不能为空")), errors.New("content 不能为空")
+	}
+
+	req := &ReachSendRequest{
+		Channel:     "feishu",
+		AccountID:   accountID,
+		RecipientID: openID,
+		MsgType:     msgType,
+		Content:     content,
+	}
+	if custID, ok := args["customer_id"]; ok {
+		req.CustomerID, _ = custID.(string)
+	}
+	if opID, ok := args["operator_id"]; ok {
+		req.OperatorID, _ = opID.(string)
+	}
+
+	msgID, resp, err := sendViaPipeline(ctx, t.deps, req)
+	if err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	return SuccessResult(t.Name(), map[string]any{
+		"account_id":    accountID,
+		"open_id":       openID,
+		"msg_type":      msgType,
+		"message_id":    msgID,
+		"channel":       "feishu",
+		"sent_at":       time.Now().Format(time.RFC3339),
+		"step_results":  resp.StepResults,
+		"retry_count":   resp.RetryCount,
+		"fallback_used": resp.FallbackUsed,
+	}), nil
+}
+
+func (t *ReachWebSendTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	if err := ValidateRequired(args, []string{"session_id", "content"}); err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	sessionID, _ := GetStringArg(args, "session_id")
+	content, _ := GetStringArg(args, "content")
+
+	req := &ReachSendRequest{
+		Channel:     "web",
+		RecipientID: sessionID,
+		Content:     content,
+	}
+	if custID, ok := args["customer_id"]; ok {
+		req.CustomerID, _ = custID.(string)
+	}
+
+	msgID, resp, err := sendViaPipeline(ctx, t.deps, req)
+	if err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	return SuccessResult(t.Name(), map[string]any{
+		"session_id":    sessionID,
+		"message_id":    msgID,
+		"channel":       "web",
+		"sent_at":       time.Now().Format(time.RFC3339),
+		"step_results":  resp.StepResults,
+		"retry_count":   resp.RetryCount,
+		"fallback_used": resp.FallbackUsed,
+	}), nil
 }

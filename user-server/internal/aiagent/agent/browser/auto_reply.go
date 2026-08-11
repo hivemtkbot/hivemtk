@@ -2,18 +2,12 @@ package browser
 
 import (
 	"context"
-
 	"encoding/json"
-
 	"fmt"
-
-	"strings"
-
-	"time"
-
 	"hivemtk-user/internal/model"
-
 	"hivemtk-user/internal/pkg/utils/logger"
+	"strings"
+	"time"
 )
 
 type PlatformMessenger interface {
@@ -52,7 +46,7 @@ type AutoReplyBot struct {
 
 func NewAutoReplyBot(platform Platform, account string, accountID uint, cookies string, headless bool) (*AutoReplyBot, error) {
 	opts := Options{
-		Headless: headless, // 根据参数设置无头模式
+		Headless: headless,
 	}
 
 	assistant, err := NewAssistant(opts)
@@ -71,7 +65,7 @@ func NewAutoReplyBot(platform Platform, account string, accountID uint, cookies 
 		ctx:       ctx,
 		cancel:    cancel,
 		isRunning: false,
-		headless:  headless, // 保存无头模式设置
+		headless:  headless,
 	}
 
 	return bot, nil
@@ -82,7 +76,6 @@ func (bot *AutoReplyBot) Start(matcher RuleMatcher, userID uint) error {
 		return fmt.Errorf("机器人已在运行中")
 	}
 
-	// 设置Cookie并导航到对应平台
 	if err := bot.SetupPlatform(); err != nil {
 		return fmt.Errorf("设置平台失败: %v", err)
 	}
@@ -112,7 +105,7 @@ func (bot *AutoReplyBot) Stop() error {
 }
 
 func (bot *AutoReplyBot) setupPlatform() error {
-	// 1. 先访问平台根域(让后续 document.cookie 写入能成功)
+
 	rootURL := getPlatformRootURL(bot.platform)
 	if rootURL == "" {
 		rootURL = getPlatformMessageURL(bot.platform)
@@ -121,7 +114,6 @@ func (bot *AutoReplyBot) setupPlatform() error {
 		return fmt.Errorf("访问平台根域失败: %w", err)
 	}
 
-	// 2. 通过 JS 注入 Cookie(必须在同域上下文中才生效)
 	if bot.cookies != "" {
 		injected, err := bot.injectCookies(bot.cookies)
 		if err != nil {
@@ -131,13 +123,11 @@ func (bot *AutoReplyBot) setupPlatform() error {
 		}
 	}
 
-	// 3. 注入完成后,真正导航到消息页面
 	messageURL := getPlatformMessageURL(bot.platform)
 	if err := bot.assistant.Navigate(messageURL); err != nil {
 		return fmt.Errorf("导航到消息页失败: %w", err)
 	}
 
-	// 4. 给页面时间渲染(避免 selector 找不到元素)
 	time.Sleep(1500 * time.Millisecond)
 	return nil
 }
@@ -148,7 +138,6 @@ func (bot *AutoReplyBot) injectCookies(cookieStr string) (int, error) {
 		return 0, fmt.Errorf("unknown platform domain for %s", bot.platform)
 	}
 
-	// 逐个 cookie 注入,避免一段 JS 失败导致全部失败
 	parts := strings.Split(cookieStr, ";")
 	count := 0
 	for _, p := range parts {
@@ -162,7 +151,7 @@ func (bot *AutoReplyBot) injectCookies(cookieStr string) (int, error) {
 		}
 		name := strings.TrimSpace(p[:eq])
 		value := strings.TrimSpace(p[eq+1:])
-		// 转义 JS 字符串(双引号、反斜杠、换行)
+
 		safeValue := strings.ReplaceAll(value, `\`, `\\`)
 		safeValue = strings.ReplaceAll(safeValue, `"`, `\"`)
 		safeValue = strings.ReplaceAll(safeValue, "\n", "")
@@ -184,23 +173,20 @@ func (bot *AutoReplyBot) injectCookies(cookieStr string) (int, error) {
 }
 
 func (bot *AutoReplyBot) messageLoop(matcher RuleMatcher, userID uint) {
-	// 可配置的轮询间隔，默认5秒
+
 	pollInterval := 5 * time.Second
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
-	// 错误计数器，用于检测连续错误
 	errorCount := 0
-	maxErrors := 5 // 最大错误次数
+	maxErrors := 5
 
 	for {
 		select {
 		case <-bot.ctx.Done():
 			return
 		case <-ticker.C:
-			// 修复：每次轮询迭代独立 recover，避免底层 JS Evaluate / 网络调用 panic
-			// 杀死整个自动回复 goroutine（无重启、无告警，业务静默停摆）。recover 后
-			// 仅记日志，循环继续下一次轮询。
+
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
@@ -211,17 +197,15 @@ func (bot *AutoReplyBot) messageLoop(matcher RuleMatcher, userID uint) {
 					logger.Errorf("[%s] 检查消息失败: %v", bot.platform, err)
 					errorCount++
 
-					// 如果连续错误次数超过阈值，检查是否是Cookie失效
 					if errorCount >= maxErrors {
 						if bot.isCookieExpired() {
 							logger.Infof("[%s] 检测到Cookie已过期，需要重新登录: %s", bot.platform, bot.account)
-							// 这里可以触发重新登录逻辑或通知用户
-							// 暂时记录日志，实际应用中可以调用重新登录API
+
 						}
-						errorCount = 0 // 重置错误计数
+						errorCount = 0
 					}
 				} else {
-					errorCount = 0 // 成功时重置错误计数
+					errorCount = 0
 				}
 			}()
 		}
@@ -370,7 +354,6 @@ func genericMessageScript(platformTag string) string {
 		chatIDSelector = `'.chat-item.active'`
 	}
 
-	// 通用抓取函数:返回标准字段
 	return fmt.Sprintf(`
 		(function(){
 			var ITEM_SELECTORS = %s;
@@ -443,26 +426,6 @@ func genericMessageScript(platformTag string) string {
 			return JSON.stringify(result);
 		})();
 	`, itemSelectors, senderSel, contentSel, timeSel, senderIDAttr, chatIDSelector, platformTag, platformTag)
-}
-
-func (bot *AutoReplyBot) getDouyinMessages() ([]Message, error) {
-	return bot.runGenericMessageScript("douyin")
-}
-
-func (bot *AutoReplyBot) getKuaishouMessages() ([]Message, error) {
-	return bot.runGenericMessageScript("kuaishou")
-}
-
-func (bot *AutoReplyBot) getXiaohongshuMessages() ([]Message, error) {
-	return bot.runGenericMessageScript("xiaohongshu")
-}
-
-func (bot *AutoReplyBot) getXianyuMessages() ([]Message, error) {
-	return bot.runGenericMessageScript("xianyu")
-}
-
-func (bot *AutoReplyBot) getTiktokMessages() ([]Message, error) {
-	return bot.runGenericMessageScript("tiktok")
 }
 
 func (bot *AutoReplyBot) runGenericMessageScript(platformTag string) ([]Message, error) {
@@ -544,7 +507,6 @@ func genericSendScript(platformTag, messageID, content string) string {
 	}
 	_ = targetItemSel
 
-	// content 必须 JSON.stringify 后再嵌入,确保特殊字符安全
 	contentJSON, _ := json.Marshal(content)
 	messageIDJSON, _ := json.Marshal(messageID)
 
@@ -632,26 +594,6 @@ func genericSendScript(platformTag, messageID, content string) string {
 	`, string(messageIDJSON), string(contentJSON), inputSel, sendBtnSel)
 }
 
-func (bot *AutoReplyBot) sendDouyinReply(messageID, content string) error {
-	return bot.runGenericSendScript("douyin", messageID, content)
-}
-
-func (bot *AutoReplyBot) sendKuaishouReply(messageID, content string) error {
-	return bot.runGenericSendScript("kuaishou", messageID, content)
-}
-
-func (bot *AutoReplyBot) sendXiaohongshuReply(messageID, content string) error {
-	return bot.runGenericSendScript("xiaohongshu", messageID, content)
-}
-
-func (bot *AutoReplyBot) sendXianyuReply(messageID, content string) error {
-	return bot.runGenericSendScript("xianyu", messageID, content)
-}
-
-func (bot *AutoReplyBot) sendTiktokReply(messageID, content string) error {
-	return bot.runGenericSendScript("tiktok", messageID, content)
-}
-
 func (bot *AutoReplyBot) runGenericSendScript(platformTag, messageID, content string) error {
 	js := genericSendScript(platformTag, messageID, content)
 	maxRetries := 3
@@ -672,7 +614,7 @@ func (bot *AutoReplyBot) runGenericSendScript(platformTag, messageID, content st
 			Err    string `json:"err"`
 		}
 		if err := json.Unmarshal([]byte(result), &resp); err != nil {
-			// 兜底:旧版脚本可能直接返回 "true"/"false"
+
 			if result == "true" {
 				logger.Infof("[%s] 回复发送成功(legacy): %s", platformTag, content)
 				return nil
@@ -738,4 +680,115 @@ func (bot *AutoReplyBot) SetReplyHandler(h ReplyHandler) {
 
 func (bot *AutoReplyBot) SetDedup(d MessageDedup) {
 	bot.dedup = d
+}
+
+// ===== merged from auto_reply_part2.go (was a mechanical _partN split) =====
+func (bot *AutoReplyBot) GetAccount() string {
+	return bot.account
+}
+
+// GetAccountID 获取账号ID
+func (bot *AutoReplyBot) GetAccountID() uint {
+	return bot.accountID
+}
+
+// IsHeadless 获取无头模式状态
+func (bot *AutoReplyBot) IsHeadless() bool {
+	return bot.headless
+}
+
+// GetUnreadMessagesPublic 公开方法,供 platform 适配器直接抓取消息
+func (bot *AutoReplyBot) GetUnreadMessagesPublic() ([]Message, error) {
+	return bot.getUnreadMessages()
+}
+
+// IsCookieExpiredPublic 公开方法,供 platform 适配器检测登录态
+func (bot *AutoReplyBot) IsCookieExpiredPublic() bool {
+	return bot.isCookieExpired()
+}
+
+// IsCookieExpired 检测 Cookie 是否过期(真实多维检测)
+func (bot *AutoReplyBot) isCookieExpired() bool {
+
+	js := `
+		(function() {
+			try {
+				var url = (window.location && window.location.href) || '';
+				var u = url.toLowerCase();
+
+				// 维度 1:URL 命中登录/退出/错误页
+				var loginPathHits = ['/login', '/signin', '/sign-in', 'passport.', '/logout', '/auth/'];
+				for (var i = 0; i < loginPathHits.length; i++) {
+					if (u.indexOf(loginPathHits[i]) >= 0) return 'expired:url:' + loginPathHits[i];
+				}
+
+				// 维度 2:登录弹窗/登录容器存在
+				var loginModalSelectors = [
+					'.login-modal', '.login-dialog', '.login-container', '.sign-in-modal',
+					'.passport-login-container', '[class*="loginModal"]', '[class*="LoginModal"]',
+					'[class*="login-box"]', '[class*="loginBox"]',
+					'div[class*="login"][class*="modal"]', 'div[class*="Login"][class*="Modal"]'
+				];
+				for (var j = 0; j < loginModalSelectors.length; j++) {
+					var el = document.querySelector(loginModalSelectors[j]);
+					if (el && el.offsetParent !== null) {
+						return 'expired:modal:' + loginModalSelectors[j];
+					}
+				}
+
+				// 维度 3:页面文案
+				var bodyText = (document.body && document.body.innerText) || '';
+				var indicators = ['未登录', '请先登录', '登录后继续', '扫码登录', '登录失效', 'session expired', 'please log in'];
+				for (var k = 0; k < indicators.length; k++) {
+					if (bodyText.indexOf(indicators[k]) >= 0) {
+						return 'expired:text:' + indicators[k];
+					}
+				}
+
+				// 维度 4:页面没有可识别的登录态元素(头像/消息入口/工作台) 也提示可能未登录
+				var authedHints = ['[data-e2e="user-info"]', '.user-avatar', '.user-info', '.avatar', '.nickname'];
+				var hasAuthHint = false;
+				for (var m = 0; m < authedHints.length; m++) {
+					if (document.querySelector(authedHints[m])) { hasAuthHint = true; break; }
+				}
+				// 如果页面同时存在 login 文本 且没有登录态元素,直接判过期
+				if (!hasAuthHint && /登录|login/i.test(bodyText)) {
+					return 'expired:no-auth-hint';
+				}
+
+				return 'ok';
+			} catch (e) {
+				return 'error:' + (e && e.message ? e.message : 'unknown');
+			}
+		})();
+	`
+
+	result, err := bot.assistant.Evaluate(js)
+	if err != nil {
+
+		logger.Errorf("[%s] isCookieExpired JS 执行失败: %v", bot.platform, err)
+		return false
+	}
+
+	if result == "ok" {
+		return false
+	}
+
+	if strings.HasPrefix(result, "error:") {
+		logger.Errorf("[%s] isCookieExpired 检测异常: %s", bot.platform, result)
+		return false
+	}
+	logger.Infof("[%s] Cookie 已过期,信号: %s", bot.platform, result)
+	return true
+}
+
+// SetHeadless 设置无头模式
+func (bot *AutoReplyBot) SetHeadless(headless bool) {
+	bot.headless = headless
+	logger.Infof("[%s] 无头模式已设置为: %v", bot.platform, headless)
+}
+
+// GetAssistant 获取浏览器助手实例（用于资源管理）
+func (bot *AutoReplyBot) GetAssistant() *Assistant {
+	return bot.assistant
 }
