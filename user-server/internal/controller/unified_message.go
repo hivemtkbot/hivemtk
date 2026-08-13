@@ -2,9 +2,9 @@ package controller
 
 import (
 	"context"
+	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/pagination"
 	"hivemtk-user/internal/pkg/utils/response"
-	"hivemtk-user/internal/platform"
 	"hivemtk-user/internal/service"
 	"net/http"
 	"strconv"
@@ -70,13 +70,13 @@ func (c *UnifiedMessageController) GetMessageByID(ctx *gin.Context) {
 // GetReplies 获取消息回复列表
 func (c *UnifiedMessageController) GetReplies(ctx *gin.Context) {
 
-	messageID := ctx.Param("message_id")
+	messageID := ctx.Param("id")
 	if messageID == "" {
 		response.Error(ctx, http.StatusBadRequest, "缺少消息ID")
 		return
 	}
 
-	replies, err := c.messageService.GetReplies(context.Background(), messageID)
+	replies, err := c.messageService.GetReplies(ctx.Request.Context(), messageID)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, err.Error())
 		return
@@ -231,9 +231,18 @@ func (c *PlatformAccountController) CheckLoginStatus(ctx *gin.Context) {
 }
 
 // GetSupportedPlatforms 获取支持的平台列表
+//
+// 注：抖音/快手/小红书/咸鱼/tiktok 原为 CDP 无头浏览器自动回复通道（internal/platform
+// 的 BrowserAdapter），该实现已删除。这些平台现由独立的桥接模块对接，此处仅返回平台
+// 静态清单用于前端展示，不再依赖已删除的 platform 适配器注册表。
 func (c *PlatformAccountController) GetSupportedPlatforms(ctx *gin.Context) {
-	registry := platform.GetAdapterRegistry()
-	platforms := registry.GetPlatforms()
+	platforms := []model.Platform{
+		model.PlatformDouyin,
+		model.PlatformKuaishou,
+		model.PlatformXiaohongshu,
+		model.PlatformXianyu,
+		model.PlatformTiktok,
+	}
 
 	result := make([]map[string]string, 0, len(platforms))
 	platformNames := map[string]string{
@@ -241,6 +250,7 @@ func (c *PlatformAccountController) GetSupportedPlatforms(ctx *gin.Context) {
 		"kuaishou":    "快手",
 		"xiaohongshu": "小红书",
 		"xianyu":      "闲鱼",
+		"tiktok":      "TikTok",
 	}
 
 	for _, p := range platforms {

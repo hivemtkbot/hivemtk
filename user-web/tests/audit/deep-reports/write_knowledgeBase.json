@@ -1,0 +1,63 @@
+{
+  "resource": "knowledgeBase",
+  "steps": [
+    {
+      "step": "create",
+      "status": 200,
+      "id": 8,
+      "apiData": {
+        "kb_code": "DEEPTEST_1786499303565",
+        "name": "深度测试知识库_1786499303565",
+        "type": "rag",
+        "description": "deep-test-desc",
+        "enabled": true
+      }
+    },
+    {
+      "step": "create-db",
+      "found": true,
+      "dbData": {
+        "kb_code": "DEEPTEST_1786499303565",
+        "name": "深度测试知识库_1786499303565",
+        "type": "rag",
+        "description": "deep-test-desc",
+        "enabled": true
+      }
+    },
+    {
+      "step": "update-db",
+      "name": "深度测试知识库_1786499303565_UPD",
+      "description": "deep-test-desc_UPD",
+      "enabled": false
+    },
+    {
+      "step": "delete",
+      "status": 200
+    },
+    {
+      "step": "delete-db",
+      "remaining": 0
+    }
+  ],
+  "mismatches": [
+    {
+      "step": "update",
+      "field": "name",
+      "api": "",
+      "db": "深度测试知识库_1786499303565_UPD"
+    },
+    {
+      "step": "update",
+      "field": "description",
+      "api": "",
+      "db": "deep-test-desc_UPD"
+    },
+    {
+      "step": "update",
+      "field": "enabled",
+      "api": "",
+      "db": "false"
+    }
+  ],
+  "errors": []
+}

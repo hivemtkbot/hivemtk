@@ -57,7 +57,7 @@
               </el-card>
             </el-col>
             <el-col :span="6">
-              <el-card class="action-card" @click="goToAutoReply">
+              <el-card class="action-card" @click="goToAccountConfig">
                 <div class="action-item">
                   <el-icon class="action-icon"><ChatDotRound /></el-icon>
                   <div class="action-label">自动回复设置</div>
@@ -234,12 +234,6 @@ const goToConfig = () => {
 // 跳转到账号配置页面
 const goToAccountConfig = () => {
   router.push('/system/rag-product-config')
-}
-
-// 跳转到自动回复设置页面
-const goToAutoReply = () => {
-  // 跳转到抖音自动回复页面，用户可以从那里访问RAG设置
-  router.push('/douyin/auto-reply')
 }
 
 // 帮助文档弹窗

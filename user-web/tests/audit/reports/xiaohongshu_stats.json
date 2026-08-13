@@ -1,0 +1,13 @@
+{
+  "page": "xiaohongshu/stats",
+  "url": "http://localhost:8213/#/xiaohongshu/stats",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 8
+}

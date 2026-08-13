@@ -13,7 +13,7 @@ import (
 	"hivemtk-user/internal/aiagent/agent/tooluse"
 
 	"hivemtk-user/internal/dto"
-	"hivemtk-user/internal/email/service"
+	email "hivemtk-user/internal/email/service"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"

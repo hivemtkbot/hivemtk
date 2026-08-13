@@ -478,7 +478,6 @@ type ParsedPayload struct {
 	Extra     map[string]any `json:"extra,omitempty"`
 }
 
-// ===== merged from webhook_part2.go (was a mechanical _partN split) =====
 func (s *WebhookService) ParsePayload(ctx context.Context, channel WebhookChannel, body []byte) (*ParsedPayload, error) {
 	var raw map[string]any
 	if err := json.Unmarshal(body, &raw); err != nil {

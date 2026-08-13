@@ -11,6 +11,7 @@ import (
 	"hivemtk-user/internal/repository"
 
 	"context"
+
 	"github.com/google/uuid"
 )
 
@@ -240,4 +241,17 @@ func toEmailListResponse(l *model.EmailList) *dto.EmailListResponse {
 		JobsID:      l.JobsID.String(),
 		IsSuccess:   int64(l.IsSuccess),
 	}
+}
+
+// GetTrackingEvents 获取邮件列表关联的追踪事件（按 JobsID 查询 email_tracking_events）
+func (s *EmailListService) GetTrackingEvents(ctx context.Context, listID uuid.UUID, page, limit int) ([]*model.EmailTrackingEvent, int64, error) {
+	list, err := s.GetEmailListByID(ctx, listID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if list == nil || list.JobsID == uuid.Nil {
+		return []*model.EmailTrackingEvent{}, 0, nil
+	}
+	trackingRepo := repository.NewEmailTrackingRepository(nil)
+	return trackingRepo.ListEventsByJob(ctx, list.JobsID.String(), page, limit)
 }

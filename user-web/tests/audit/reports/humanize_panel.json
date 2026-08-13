@@ -1,0 +1,13 @@
+{
+  "page": "humanize/panel",
+  "url": "http://localhost:8213/#/humanize/panel",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 8
+}

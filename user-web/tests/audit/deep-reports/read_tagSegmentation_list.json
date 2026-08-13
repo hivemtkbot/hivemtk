@@ -1,0 +1,27 @@
+{
+  "page": "tagSegmentation/list",
+  "readDiffs": [
+    {
+      "api": "/api/user-segment/layers",
+      "frontendRows": 2,
+      "apiRows": 11,
+      "frontendRowsNotFoundInApi": 2
+    },
+    {
+      "api": "/api/session-tags",
+      "frontendRows": 2,
+      "apiRows": 0,
+      "frontendRowsNotFoundInApi": 2
+    }
+  ],
+  "notes": [
+    "has-rows"
+  ],
+  "frontendRows": 2,
+  "listApis": [
+    "/api/inbox?page=1&page_size=20",
+    "/api/user-segment/layers",
+    "/api/session-tags",
+    "/api/customer-360/tag-rules"
+  ]
+}

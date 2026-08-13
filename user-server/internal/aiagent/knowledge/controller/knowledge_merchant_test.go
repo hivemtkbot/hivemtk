@@ -15,10 +15,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"hivemtk-user/internal/pkg/testutil"
 	"hivemtk-user/internal/pkg/testutil/testmigrate"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // toPgVector 将 []float32 格式化为 pgvector 字面量（如 [0.1,0.2,...]）

@@ -538,8 +538,6 @@ func (e *WaitExecutor) NodeType() string { return SOPNodeTypeWait }
 
 func (e *WaitExecutor) IsAsync() bool { return true }
 
-// ===== merged from sop_node_executors_part2.go (was a mechanical _partN split) =====
-// 拆分自 sop_node_executors.go（P2-4 God 文件拆分，同包机械拆分，不改行为）。
 
 func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
 	waitSeconds, _ := ec.Node.Config["wait_seconds"].(float64)

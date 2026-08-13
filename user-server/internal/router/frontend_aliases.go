@@ -375,6 +375,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/email/lists/:id", emailListCtrl.UpdateEmailList)
 	doReg("DELETE", "/email/lists/:id", emailListCtrl.DeleteEmailList)
 	doReg("GET", "/email/lists/:id/trace", emailListCtrl.TraceEmail)
+	doReg("GET", "/email/lists/:id/tracking", emailListCtrl.GetTracking)
 
 	emailSmtpCtrl := controller.NewEmailSmtpController()
 	doReg("GET", "/email/smtps", emailSmtpCtrl.GetEmailSmtpList)

@@ -22,6 +22,15 @@ type GlossaryRequest struct {
 	Status       string            `json:"status"` // active/inactive
 }
 
+// GlossaryUpdateRequest 术语更新请求（term_id 来自 URL 路径，body 无需重复提供）
+type GlossaryUpdateRequest struct {
+	Category     string            `json:"category" binding:"required"`
+	Preserve     bool              `json:"preserve"`
+	Translations map[string]string `json:"translations" binding:"required"`
+	Pattern      string            `json:"pattern"`
+	Status       string            `json:"status"`
+}
+
 // GlossaryResponse 术语表响应
 type GlossaryResponse struct {
 	ID           int64             `json:"id"`

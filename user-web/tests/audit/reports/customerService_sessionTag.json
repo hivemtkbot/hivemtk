@@ -1,0 +1,13 @@
+{
+  "page": "customerService/sessionTag",
+  "url": "http://localhost:8213/#/customerService/sessionTag",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 6
+}

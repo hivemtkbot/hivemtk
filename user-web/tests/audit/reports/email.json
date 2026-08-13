@@ -1,0 +1,14 @@
+{
+  "page": "email",
+  "url": "http://localhost:8213/#/email",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 9,
+  "note": "page_interaction_timeout_guard_triggered"
+}

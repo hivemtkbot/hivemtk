@@ -1,0 +1,19 @@
+{
+  "page": "i18n/dashboard",
+  "readDiffs": [
+    {
+      "api": "/api/i18n/stats/glossary",
+      "frontendRows": 1,
+      "apiRows": 1,
+      "frontendRowsNotFoundInApi": 1
+    }
+  ],
+  "notes": [
+    "has-rows"
+  ],
+  "frontendRows": 1,
+  "listApis": [
+    "/api/inbox?page=1&page_size=20",
+    "/api/i18n/stats/glossary"
+  ]
+}

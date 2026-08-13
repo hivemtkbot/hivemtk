@@ -118,6 +118,10 @@ func (s *ConversionFunnelService) GetStageDetails(stage string, startTime, endTi
 	ctx := context.Background()
 	det := &StageConversion{Stage: stage}
 	switch stage {
+	case "visit":
+		det.Name = "访问"
+		count, _ := s.repo.CountCustomerEventsByTimeRange(ctx, startTime, endTime)
+		det.Count = count
 	case "clue":
 		det.Name = "线索"
 		count, _ := s.repo.CountCluesByUnixTimeRange(ctx, startTime, endTime)

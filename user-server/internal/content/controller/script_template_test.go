@@ -12,9 +12,10 @@ import (
 	"hivemtk-user/internal/content/service"
 	"hivemtk-user/internal/pkg/db"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"hivemtk-user/internal/pkg/testutil"
 )
 
 func setupScriptTestDB(t *testing.T) *gorm.DB {

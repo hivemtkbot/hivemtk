@@ -1,0 +1,14 @@
+{
+  "page": "shortLink",
+  "url": "http://localhost:8213/#/shortLink",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 16,
+  "note": "page_interaction_timeout_guard_triggered"
+}

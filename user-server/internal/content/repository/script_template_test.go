@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/gorm"
 	"hivemtk-user/internal/pkg/testutil"
+
+	"gorm.io/gorm"
 )
 
 // setupScriptTemplateTestDB 设置话术模板测试数据库

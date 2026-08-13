@@ -1,0 +1,14 @@
+{
+  "page": "backup/list",
+  "url": "http://localhost:8213/#/backup/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 14,
+  "note": "page_interaction_timeout_guard_triggered"
+}

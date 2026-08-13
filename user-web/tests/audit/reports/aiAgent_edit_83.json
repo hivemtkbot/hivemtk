@@ -1,0 +1,13 @@
+{
+  "page": "aiAgent/edit/83",
+  "url": "http://localhost:8213/#/aiAgent/edit/83",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 20
+}

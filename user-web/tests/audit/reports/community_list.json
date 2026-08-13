@@ -1,0 +1,32 @@
+{
+  "page": "community/list",
+  "url": "http://localhost:8213/#/community/list",
+  "errors": {
+    "console": [
+      "Error: 导入数据不能为空\n    at buildRequestError (http://localhost:8213/src/utils/request.js?t=1786480047261:90:15)\n    at http://localhost:8213/src/utils/request.js?t=1786480047261:246:31\n    at async Axios.request (http://localhost:8213/node_modules/.vite/deps/axios.js?v=8e4591b1:2115:14)\n    at async handleImport (http://localhost:8213/src/views/community/List.vue:304:5)\n    at Axios.request (http://localhost:8213/node_modules/.vite/deps/axios.js?v=8e4591b1:2119:41)\n    at async handleImport (http://localhost:8213/src/views/community/List.vue:304:5)"
+    ],
+    "page": [],
+    "net": [
+      {
+        "url": "http://localhost:8213/api/community/import",
+        "status": 400,
+        "method": "POST"
+      }
+    ]
+  },
+  "interactions": [
+    {
+      "action": "click",
+      "label": "Import",
+      "note": "CONSOLE: Error: 导入数据不能为空\n    at buildRequestError (http://localhost:8213/src/utils/request.js?t=1786480047261:90:15)\n    at http://localhost:8213/src/utils/request.js?t=1786480047261:246:31\n    at async Axios.request (http://localhost:8213/node_modules/.vite/deps/axios.js?v=8e4591b1:2115:14)\n    at async handleImport (http://localhost:8213/src/views/community/List.vue:304:5)\n    at Axios.request (http://localhost:8213/node_modules/.vite/deps/axios.js?v=8e4591b1:2119:41)\n    at async handleImport (http://localhost:8213/src/views/community/List.vue:304:5)"
+    },
+    {
+      "action": "click",
+      "label": "Import",
+      "note": "NET: {\"url\":\"http://localhost:8213/api/community/import\",\"status\":400,\"method\":\"POST\"}"
+    }
+  ],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 18
+}

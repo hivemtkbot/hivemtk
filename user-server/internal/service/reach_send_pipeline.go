@@ -773,7 +773,6 @@ func (p *defaultSendPipeline) runFallback(ctx context.Context, req *ReachSendReq
 	return log
 }
 
-// ===== merged from reach_send_pipeline_part2.go (was a mechanical _partN split) =====
 func (p *defaultSendPipeline) runAudit(ctx context.Context, req *ReachSendRequest, resp *SendResponse) SendStepLog {
 	start := time.Now()
 	log := SendStepLog{Step: SendStepAudit, StartedAt: start}

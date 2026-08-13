@@ -1,0 +1,13 @@
+{
+  "page": "email/drafts",
+  "url": "http://localhost:8213/#/email/drafts",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 4
+}

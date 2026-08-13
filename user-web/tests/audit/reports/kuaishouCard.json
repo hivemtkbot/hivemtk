@@ -1,0 +1,13 @@
+{
+  "page": "kuaishouCard",
+  "url": "http://localhost:8213/#/kuaishouCard",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 17
+}

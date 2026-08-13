@@ -20,7 +20,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ===== merged from webhook_part4.go (was a mechanical _partN split) =====
 func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, content string, hubMsg *model.MessageHub, cards []model.RichCard) {
 
 	if !agent_runtime.ClaimReply(p.EventID) {

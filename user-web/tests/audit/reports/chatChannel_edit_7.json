@@ -1,0 +1,19 @@
+{
+  "page": "chatChannel/edit/7",
+  "url": "http://localhost:8213/#/chatChannel/edit/7",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": [
+      {
+        "url": "http://localhost:8213/api/channel-agent-bindings?channel_id=a9475dd3-2579-418a-a17a-82cb51067bec&is_default=true",
+        "status": 400,
+        "method": "GET"
+      }
+    ]
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 15
+}

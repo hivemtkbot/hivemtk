@@ -128,11 +128,6 @@ func (ctrl *GlossaryController) Update(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "term_id 不能为空")
 		return
 	}
-	var req dto.GlossaryRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "请求参数错误", err.Error())
-		return
-	}
 	// 确保术语存在
 	existing, err := ctrl.svc.GetByTermID(c.Request.Context(), termID)
 	if err != nil {
@@ -144,7 +139,12 @@ func (ctrl *GlossaryController) Update(c *gin.Context) {
 		return
 	}
 	// 以路径 term_id 为准（忽略 body 中的 term_id，避免误改唯一键）
-	updated := translation.ToGlossaryModel(&req)
+	var req dto.GlossaryUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "请求参数错误", err.Error())
+		return
+	}
+	updated := translation.ToGlossaryModelUpdate(&req)
 	updated.ID = existing.ID
 	updated.TermID = termID
 	if updated.Status == "" {

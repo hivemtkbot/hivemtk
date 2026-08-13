@@ -1,0 +1,13 @@
+{
+  "page": "persona/list",
+  "url": "http://localhost:8213/#/persona/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 7
+}

@@ -350,14 +350,16 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		})
 		return
 	}
-	// 兜底：body 内 channel/account_id 与 query 不一致时以 query 为准（防扩展错传）
-	if req.Channel == "" {
+	// query 始终优先于 body（防扩展错传：body 内 channel/account_id 若与 query 冲突，
+	// 以 URL query 为准；query 缺失时才回退用 body 值，保持兼容）。
+	// 注意：之前实现是 body 优先（req=="" 才用 query），与注释意图相反，已是 bug。
+	if channel != "" {
 		req.Channel = channel
 	}
-	if req.AccountID == "" {
+	if accountID != "" {
 		req.AccountID = accountID
 	}
-	if req.ConversationID == "" {
+	if conversationID != "" {
 		req.ConversationID = conversationID
 	}
 	if len(req.Messages) > HTTPIngestMaxMessages {

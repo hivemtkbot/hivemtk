@@ -1,0 +1,13 @@
+{
+  "page": "stats",
+  "url": "http://localhost:8213/#/stats",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 2
+}

@@ -1,0 +1,13 @@
+{
+  "page": "chatChannel/list",
+  "url": "http://localhost:8213/#/chatChannel/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 17
+}

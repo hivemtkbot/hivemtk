@@ -118,6 +118,11 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 		service.NewKuaishouCardService(db),
 		service.NewXiaohongshuCardService(db),
 		service.NewXianyuCardService(db),
+		service.NewDouyinCardStatsService(db),
+		service.NewKuaishouCardStatsService(db),
+		service.NewXiaohongshuCardStatsService(db),
+		service.NewXianyuCardStatsService(db),
+		service.NewTikTokCardServiceWithDB(db),
 	)
 	public.GET("/s/:code", redirectCtrl.RedirectShortLink)
 	public.GET("/l/:code", liveCodeController.RedirectLiveCode)

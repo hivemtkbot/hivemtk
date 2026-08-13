@@ -1,0 +1,14 @@
+{
+  "page": "sopAgent/list",
+  "url": "http://localhost:8213/#/sopAgent/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 19,
+  "note": "page_interaction_timeout_guard_triggered"
+}

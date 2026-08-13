@@ -97,26 +97,7 @@ func TestSetup_CardRoutes(t *testing.T) {
 	}
 }
 
-func TestSetup_AutoReplyRoutes(t *testing.T) {
-	database := testutil.NewTestDB(t)
-	dbutil.SetTestDB(database)
-	defer dbutil.SetTestDB(nil)
 
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	Setup(r, database)
-
-	routes := r.Routes()
-	foundAutoReply := false
-	for _, route := range routes {
-		if route.Path == "/api/auto-reply/rules" {
-			foundAutoReply = true
-		}
-	}
-	if !foundAutoReply {
-		t.Error("Expected /api/auto-reply/rules route to be registered")
-	}
-}
 
 func TestSetup_SystemRoutes(t *testing.T) {
 	database := testutil.NewTestDB(t)

@@ -1,0 +1,44 @@
+{
+  "page": "xiaohongshuCard",
+  "url": "http://localhost:8213/#/xiaohongshuCard",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": [
+      {
+        "url": "https://example.com/seed/xhs2.jpg",
+        "status": 0,
+        "method": "GET",
+        "failed": true
+      },
+      {
+        "url": "https://example.com/seed/xhs3.jpg",
+        "status": 0,
+        "method": "GET",
+        "failed": true
+      },
+      {
+        "url": "https://example.com/seed/xhs5.jpg",
+        "status": 0,
+        "method": "GET",
+        "failed": true
+      },
+      {
+        "url": "https://example.com/seed/xhs4.jpg",
+        "status": 0,
+        "method": "GET",
+        "failed": true
+      },
+      {
+        "url": "https://example.com/seed/xhs1.jpg",
+        "status": 0,
+        "method": "GET",
+        "failed": true
+      }
+    ]
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 16
+}

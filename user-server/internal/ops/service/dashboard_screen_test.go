@@ -9,8 +9,9 @@ import (
 	"hivemtk-user/internal/ops/repository"
 	"hivemtk-user/internal/pkg/db"
 
-	"gorm.io/gorm"
 	"hivemtk-user/internal/pkg/testutil"
+
+	"gorm.io/gorm"
 )
 
 // setupDashboardScreenTestDB 设置数据大屏服务测试数据库

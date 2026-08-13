@@ -165,7 +165,7 @@ import { toList } from '@/utils/list'
 
 const activeTab = ref('customers')
 const pageSize = 20
-const chartPageSize = 1000
+const chartPageSize = 100
 
 const accounts = ref([])
 const selectedAccountId = ref(null)

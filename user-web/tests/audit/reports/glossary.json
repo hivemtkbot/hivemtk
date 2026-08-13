@@ -1,0 +1,33 @@
+{
+  "page": "glossary",
+  "url": "http://localhost:8213/#/glossary",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": [
+      {
+        "url": "http://localhost:8213/src/api/glossary.js",
+        "status": 0,
+        "method": "GET",
+        "failed": true
+      },
+      {
+        "url": "http://localhost:8213/src/views/glossary/List.vue?vue&type=style&index=0&scoped=e04e6c5e&lang.scss",
+        "status": 0,
+        "method": "GET",
+        "failed": true
+      },
+      {
+        "url": "http://localhost:8213/api/license/status",
+        "status": 0,
+        "method": "GET",
+        "failed": true
+      }
+    ]
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 10,
+  "note": "page_interaction_timeout_guard_triggered"
+}

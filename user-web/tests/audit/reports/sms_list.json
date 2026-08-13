@@ -1,0 +1,13 @@
+{
+  "page": "sms/list",
+  "url": "http://localhost:8213/#/sms/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 15
+}

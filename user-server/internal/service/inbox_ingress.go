@@ -578,7 +578,6 @@ type InboxIngressBatchResult struct {
 	Reason      string                `json:"reason,omitempty"`
 }
 
-// ===== merged from inbox_ingress_part2.go (was a mechanical _partN split) =====
 func (s *InboxIngressService) HandleIngressBatch(ctx context.Context, events []*model.MessageEvent) (*InboxIngressBatchResult, error) {
 	batchResult := &InboxIngressBatchResult{
 		PerEvent: make([]*InboxIngressResult, len(events)),

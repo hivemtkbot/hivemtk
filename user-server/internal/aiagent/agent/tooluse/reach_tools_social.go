@@ -126,7 +126,6 @@ type ReachDingTalkSendTool struct {
 	deps ReachToolDeps
 }
 
-// ===== merged from reach_tools_part2.go (was a mechanical _partN split) =====
 func NewReachDingTalkSendTool(deps ReachToolDeps) *ReachDingTalkSendTool {
 	return &ReachDingTalkSendTool{
 		BaseTool: BaseTool{

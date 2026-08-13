@@ -1,0 +1,13 @@
+{
+  "page": "system/rag-product-config",
+  "url": "http://localhost:8213/#/system/rag-product-config",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 19
+}

@@ -482,7 +482,6 @@ func structToMap(v any) (map[string]any, error) {
 	return m, nil
 }
 
-// ===== merged from sales_engine_part3.go (was a mechanical _partN split) =====
 // buildPrompt 构造 LLM prompt
 func (e *SalesEngine) buildPrompt(
 	req *SalesRequest,

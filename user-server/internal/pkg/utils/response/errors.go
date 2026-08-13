@@ -54,14 +54,6 @@ const (
 	ErrShortLinkDeleteFailed = "删除短链失败"
 )
 
-// 自动回复相关错误消息
-const (
-	ErrAutoReplyNotFound     = "自动回复规则不存在"
-	ErrAutoReplyCreateFailed = "创建自动回复失败"
-	ErrAutoReplyUpdateFailed = "更新自动回复失败"
-	ErrAutoReplyDeleteFailed = "删除自动回复失败"
-)
-
 // 用户管理相关错误消息
 const (
 	ErrUserNotFound       = "用户不存在"

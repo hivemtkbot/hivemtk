@@ -1,7 +1,6 @@
 package service
 
 import (
-	auto_reply_integration "hivemtk-user/internal/aiagent/agent/auto_reply"
 	"hivemtk-user/internal/aiagent/llm"
 	rag_core "hivemtk-user/internal/aiagent/rag/core"
 	ragcustomerservice "hivemtk-user/internal/aiagent/rag/customer_service"
@@ -14,9 +13,8 @@ import (
 )
 
 type RAGStack struct {
-	Retrieval   ragretrieval.RagRetrievalService
-	Customer    ragcustomerservice.RagCustomerService
-	Integration auto_reply_integration.AutoReplyIntegrationService
+	Retrieval ragretrieval.RagRetrievalService
+	Customer  ragcustomerservice.RagCustomerService
 }
 
 func NewRAGStack(db *gorm.DB, glossary ragcustomerservice.GlossaryRenderer, calibrator ragcustomerservice.OutputCalibrator) *RAGStack {
@@ -111,15 +109,10 @@ func NewRAGStack(db *gorm.DB, glossary ragcustomerservice.GlossaryRenderer, cali
 		qualityAssessor, feedbackLearner, retrieval, csConfig,
 	)
 
-	ruleMatcher := &auto_reply_integration.DefaultRuleBasedMatcher{}
-	integration := auto_reply_integration.NewDefaultAutoReplyIntegrationService(customerService, retrieval)
-	_ = ruleMatcher
-
 	logger.Info("[RAGFactory] RAG 栈初始化完成")
 
 	return &RAGStack{
-		Retrieval:   retrieval,
-		Customer:    customerService,
-		Integration: integration,
+		Retrieval: retrieval,
+		Customer:  customerService,
 	}
 }

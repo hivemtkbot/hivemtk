@@ -276,9 +276,6 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		// 卡片统计
 		setupCardStatsRoutes(auth, gormDB)
 
-		// 自动回复
-		setupAutoReplyRoutes(auth, gormDB)
-
 		// 域名池管理
 		setupDomainPoolRoutes(auth, gormDB)
 

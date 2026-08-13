@@ -34,10 +34,6 @@ func (c *AccountController) CreateAccount(ctx *gin.Context) {
 		ProxyProtoclo:       req.ProxyProtoclo,
 		ProxyHost:           req.ProxyHost,
 		ProxyPort:           req.ProxyPort,
-		DouyinHeadless:      req.DouyinHeadless,
-		KuaishouHeadless:    req.KuaishouHeadless,
-		XiaohongshuHeadless: req.XiaohongshuHeadless,
-		XianyuHeadless:      req.XianyuHeadless,
 	}
 
 	createdAccount, err := c.svc.CreateAccount(context.Background(), account)
@@ -57,10 +53,6 @@ func (c *AccountController) CreateAccount(ctx *gin.Context) {
 		ProxyPort:           createdAccount.ProxyPort,
 		Status:              createdAccount.Status,
 		CreateTime:          createdAccount.CreateTime,
-		DouyinHeadless:      createdAccount.DouyinHeadless,
-		KuaishouHeadless:    createdAccount.KuaishouHeadless,
-		XiaohongshuHeadless: createdAccount.XiaohongshuHeadless,
-		XianyuHeadless:      createdAccount.XianyuHeadless,
 	}
 	response.Success(ctx, resp, "success")
 }
@@ -89,10 +81,6 @@ func (c *AccountController) GetAccounts(ctx *gin.Context) {
 			ProxyPort:           account.ProxyPort,
 			Status:              account.Status,
 			CreateTime:          account.CreateTime,
-			DouyinHeadless:      account.DouyinHeadless,
-			KuaishouHeadless:    account.KuaishouHeadless,
-			XiaohongshuHeadless: account.XiaohongshuHeadless,
-			XianyuHeadless:      account.XianyuHeadless,
 		})
 	}
 	response.Success(ctx, resp, "success")
@@ -129,10 +117,6 @@ func (c *AccountController) GetAccount(ctx *gin.Context) {
 		CreateTime:          account.CreateTime,
 		Msg:                 account.Msg,
 		URL:                 account.URL,
-		DouyinHeadless:      account.DouyinHeadless,
-		KuaishouHeadless:    account.KuaishouHeadless,
-		XiaohongshuHeadless: account.XiaohongshuHeadless,
-		XianyuHeadless:      account.XianyuHeadless,
 	}
 	response.Success(ctx, resp, "success")
 }
@@ -166,10 +150,6 @@ func (c *AccountController) UpdateAccount(ctx *gin.Context) {
 		ProxyProtoclo:       req.ProxyProtoclo,
 		ProxyHost:           req.ProxyHost,
 		ProxyPort:           req.ProxyPort,
-		DouyinHeadless:      req.DouyinHeadless,
-		KuaishouHeadless:    req.KuaishouHeadless,
-		XiaohongshuHeadless: req.XiaohongshuHeadless,
-		XianyuHeadless:      req.XianyuHeadless,
 	}
 	err := c.svc.UpdateAccount(context.Background(), account)
 	if err != nil {

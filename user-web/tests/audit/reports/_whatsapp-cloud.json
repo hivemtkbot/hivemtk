@@ -1,0 +1,13 @@
+{
+  "page": "/whatsapp-cloud",
+  "url": "http://localhost:8213/#/whatsapp-cloud",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 2
+}

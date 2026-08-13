@@ -110,7 +110,6 @@ func (d *Dispatcher) pickEnabledFallback(route *ScenarioRoute) string {
 	return list[0].name
 }
 
-// ===== merged from dispatcher_part2.go (was a mechanical _partN split) =====
 func degradedReply(req DispatchRequest) *DispatchResult {
 	tmpl := "抱歉，当前客服系统繁忙，请稍后再试，或联系人工客服获取帮助。"
 	if fo := GetGlobalFailover(); fo != nil {

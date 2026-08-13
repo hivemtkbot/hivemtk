@@ -6,12 +6,6 @@ export default [
     meta: { title: '闲鱼卡片', group: 'community', icon: 'ShoppingBag' }
   },
   {
-    path: '/xianyu/auto-reply',
-    name: 'XianyuAutoReply',
-    component: () => import('@/views/xianyuCard/AutoReply.vue'),
-    meta: { title: '闲鱼自动回复', group: 'community', icon: 'ChatDotRound' }
-  },
-  {
     path: '/xianyu/stats',
     name: 'XianyuStats',
     component: () => import('@/views/xianyuCard/Stats.vue'),

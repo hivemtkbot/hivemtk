@@ -1,0 +1,1154 @@
+[
+  {
+    "module": "abExperiment",
+    "path": "abExperiment/list",
+    "name": "AbExperimentList",
+    "component": "@/views/abExperiment/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/abExperiment/List.vue",
+    "title": "A/B 实验"
+  },
+  {
+    "module": "aiAgent",
+    "path": "aiAgent",
+    "name": "AIAgent",
+    "component": "@/views/aiAgent/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/aiAgent/List.vue",
+    "title": "智能体"
+  },
+  {
+    "module": "aiAgent",
+    "path": "aiAgent/list",
+    "name": "AIAgentList",
+    "component": "@/views/aiAgent/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/aiAgent/List.vue",
+    "title": "智能体列表"
+  },
+  {
+    "module": "aiAgent",
+    "path": "aiAgent/create",
+    "name": "AIAgentCreate",
+    "component": "@/views/aiAgent/Edit.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/aiAgent/Edit.vue",
+    "title": "创建智能体"
+  },
+  {
+    "module": "aiAgent",
+    "path": "aiAgent/edit/:id",
+    "name": "AIAgentEdit",
+    "component": "@/views/aiAgent/Edit.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/aiAgent/Edit.vue",
+    "title": "编辑智能体"
+  },
+  {
+    "module": "aiAgent",
+    "path": "aiAgent/tools",
+    "name": "AIToolManagement",
+    "component": "@/views/aiAgent/ToolManagement/ToolList.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/aiAgent/ToolManagement/ToolList.vue",
+    "title": "AI 工具管理"
+  },
+  {
+    "module": "aiProductivity",
+    "path": "aiProductivity/list",
+    "name": "AiProductivityList",
+    "component": "@/views/aiProductivity/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/aiProductivity/List.vue",
+    "title": "AI产能分析"
+  },
+  {
+    "module": "assetBundle",
+    "path": "asset-bundle/list",
+    "name": "AssetBundleList",
+    "component": "@/views/assetBundle/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/assetBundle/List.vue",
+    "title": "资产包管理"
+  },
+  {
+    "module": "assetBundle",
+    "path": "asset-bundle/playground",
+    "name": "AssetBundlePlayground",
+    "component": "@/views/assetBundle/Playground.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/assetBundle/Playground.vue",
+    "title": "开发者 Playground"
+  },
+  {
+    "module": "assetBundle",
+    "path": "asset-bundle/playground/:aid",
+    "name": "AssetBundlePlaygroundEdit",
+    "component": "@/views/assetBundle/Playground.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/assetBundle/Playground.vue",
+    "title": "开发者 Playground"
+  },
+  {
+    "module": "assetBundle",
+    "path": "asset-bundle/merchant-new",
+    "name": "AssetBundleMerchantNew",
+    "component": "@/views/assetBundle/MerchantEditor.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/assetBundle/MerchantEditor.vue",
+    "title": "商户新建话术包"
+  },
+  {
+    "module": "assetBundle",
+    "path": "asset-bundle/merchant/:aid",
+    "name": "AssetBundleMerchantEdit",
+    "component": "@/views/assetBundle/MerchantEditor.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/assetBundle/MerchantEditor.vue",
+    "title": "商户配置话术包"
+  },
+  {
+    "module": "assetMarket",
+    "path": "asset-market",
+    "name": "AssetMarket",
+    "component": "@/views/assetMarket/Market.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/assetMarket/Market.vue",
+    "title": "资产市场"
+  },
+  {
+    "module": "assetMarket",
+    "path": "asset-market/detail/:id",
+    "name": "AssetMarketDetail",
+    "component": "@/views/assetMarket/Detail.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/assetMarket/Detail.vue",
+    "title": "资产详情"
+  },
+  {
+    "module": "assetMarket",
+    "path": "asset-market/my-assets",
+    "name": "AssetMyAssets",
+    "component": "@/views/assetMarket/MyAssets.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/assetMarket/MyAssets.vue",
+    "title": "我的资产"
+  },
+  {
+    "module": "assetMarket",
+    "path": "asset-market/sync-log",
+    "name": "AssetSyncLog",
+    "component": "@/views/assetMarket/SyncLog.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/assetMarket/SyncLog.vue",
+    "title": "同步日志"
+  },
+  {
+    "module": "backup",
+    "path": "backup/list",
+    "name": "BackupList",
+    "component": "@/views/backup/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/backup/List.vue",
+    "title": "备份恢复"
+  },
+  {
+    "module": "batchOperation",
+    "path": "batchOperation/list",
+    "name": "BatchOperationList",
+    "component": "@/views/batchOperation/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/batchOperation/List.vue",
+    "title": "批量操作"
+  },
+  {
+    "module": "chatChannel",
+    "path": "chatChannel/list",
+    "name": "ChatChannelList",
+    "component": "@/views/chatChannel/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/chatChannel/List.vue",
+    "title": "客服渠道"
+  },
+  {
+    "module": "chatChannel",
+    "path": "chatChannel/create",
+    "name": "ChatChannelCreate",
+    "component": "@/views/chatChannel/Create.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/chatChannel/Create.vue",
+    "title": "新建客服渠道"
+  },
+  {
+    "module": "chatChannel",
+    "path": "chatChannel/edit/:id",
+    "name": "ChatChannelEdit",
+    "component": "@/views/chatChannel/Edit.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/chatChannel/Edit.vue",
+    "title": "编辑客服渠道"
+  },
+  {
+    "module": "chatChannel",
+    "path": "chatChannel/install-guide/:id?",
+    "name": "ChatChannelInstallGuide",
+    "component": "@/views/chatChannel/InstallGuide.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/chatChannel/InstallGuide.vue",
+    "title": "Widget 安装引导"
+  },
+  {
+    "module": "churnPrediction",
+    "path": "churnPrediction/list",
+    "name": "ChurnPredictionList",
+    "component": "@/views/churnPrediction/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/churnPrediction/List.vue",
+    "title": "流失预警"
+  },
+  {
+    "module": "clue",
+    "path": "clue/list",
+    "name": "ClueList",
+    "component": "@/views/clue/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/clue/List.vue",
+    "title": "线索列表"
+  },
+  {
+    "module": "clue",
+    "path": "clue/statistics",
+    "name": "ClueStatistics",
+    "component": "@/views/clue/Statistics.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/clue/Statistics.vue",
+    "title": "线索统计"
+  },
+  {
+    "module": "community",
+    "path": "community/list",
+    "name": "CommunityList",
+    "component": "@/views/community/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/community/List.vue",
+    "title": "社群管理"
+  },
+  {
+    "module": "conversionFunnel",
+    "path": "conversionFunnel/list",
+    "name": "ConversionFunnelList",
+    "component": "@/views/conversionFunnel/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/conversionFunnel/List.vue",
+    "title": "转化漏斗"
+  },
+  {
+    "module": "customReport",
+    "path": "customReport/list",
+    "name": "CustomReportList",
+    "component": "@/views/customReport/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/customReport/List.vue",
+    "title": "自定义报表"
+  },
+  {
+    "module": "customer360",
+    "path": "customer360/list",
+    "name": "Customer360List",
+    "component": "@/views/customer360/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/customer360/List.vue",
+    "title": "客户 360"
+  },
+  {
+    "module": "customerEvent",
+    "path": "customerEvent/list",
+    "name": "CustomerEventList",
+    "component": "@/views/customerEvent/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/customerEvent/List.vue",
+    "title": "客户事件"
+  },
+  {
+    "module": "customerJourney",
+    "path": "customerJourney/dashboard",
+    "name": "CustomerJourneyDashboard",
+    "component": "@/views/customerJourney/Dashboard.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/customerJourney/Dashboard.vue",
+    "title": "客户旅程大屏"
+  },
+  {
+    "module": "customerService",
+    "path": "customerService/agentStatus",
+    "name": "AgentStatus",
+    "component": "@/views/customerService/AgentStatus.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/customerService/AgentStatus.vue",
+    "title": "坐席状态"
+  },
+  {
+    "module": "customerService",
+    "path": "customerService/quickReply",
+    "name": "QuickReply",
+    "component": "@/views/customerService/QuickReply.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/customerService/QuickReply.vue",
+    "title": "快捷回复"
+  },
+  {
+    "module": "customerService",
+    "path": "customerService/sessionTag",
+    "name": "SessionTag",
+    "component": "@/views/customerService/SessionTag.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/customerService/SessionTag.vue",
+    "title": "会话标签"
+  },
+  {
+    "module": "customerService",
+    "path": "customerService/aiSuggestion",
+    "name": "AISuggestion",
+    "component": "@/views/customerService/AISuggestion.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/customerService/AISuggestion.vue",
+    "title": "AI 建议"
+  },
+  {
+    "module": "customerSession",
+    "path": "customerSession/list",
+    "name": "CustomerSessionList",
+    "component": "@/views/customerSession/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/customerSession/List.vue",
+    "title": "客服会话"
+  },
+  {
+    "module": "dashboardScreen",
+    "path": "dashboardScreen/list",
+    "name": "DashboardScreenList",
+    "component": "@/views/dashboardScreen/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/dashboardScreen/List.vue",
+    "title": "数据大屏"
+  },
+  {
+    "module": "dialogueMemory",
+    "path": "dialogueMemory/list",
+    "name": "DialogueMemoryList",
+    "component": "@/views/dialogueMemory/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/dialogueMemory/List.vue",
+    "title": "对话记忆"
+  },
+  {
+    "module": "dingtalkApp",
+    "path": "/dingtalk-app",
+    "name": "DingtalkApp",
+    "component": "@/views/dingtalkApp/DingtalkAppAccount.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/dingtalkApp/DingtalkAppAccount.vue",
+    "title": "钉钉应用"
+  },
+  {
+    "module": "domainPool",
+    "path": "domainPool",
+    "name": "DomainPool",
+    "component": "@/views/domainPool/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/domainPool/List.vue",
+    "title": "域名池管理"
+  },
+  {
+    "module": "douyinCard",
+    "path": "/douyinCard",
+    "name": "DouyinCard",
+    "component": "@/views/douyinCard/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/douyinCard/List.vue",
+    "title": "抖音卡片"
+  },
+  {
+    "module": "douyinCard",
+    "path": "/douyin/auto-reply",
+    "name": "DouyinAutoReply",
+    "component": "@/views/douyinCard/AutoReply.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/douyinCard/AutoReply.vue",
+    "title": "抖音自动回复"
+  },
+  {
+    "module": "douyinCard",
+    "path": "/douyin/stats",
+    "name": "DouyinStats",
+    "component": "@/views/douyinCard/Stats.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/douyinCard/Stats.vue",
+    "title": "抖音卡片统计"
+  },
+  {
+    "module": "douyinCard",
+    "path": "/douyin-card-stats/:id",
+    "name": "DouyinCardStats",
+    "component": "@/views/douyinCard/CardStats.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/douyinCard/CardStats.vue",
+    "title": "抖音卡片详情统计"
+  },
+  {
+    "module": "email",
+    "path": "email",
+    "name": "Email",
+    "component": "@/views/email/EmailList.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/email/EmailList.vue",
+    "title": "邮件列表"
+  },
+  {
+    "module": "email",
+    "path": "email/drafts",
+    "name": "EmailDrafts",
+    "component": "@/views/email/Drafts.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/email/Drafts.vue",
+    "title": "我的草稿"
+  },
+  {
+    "module": "email",
+    "path": "email/jobs",
+    "name": "EmailJobs",
+    "component": "@/views/email/Jobs.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/email/Jobs.vue",
+    "title": "我的任务"
+  },
+  {
+    "module": "email",
+    "path": "email/smtp",
+    "name": "EmailSmtp",
+    "component": "@/views/email/Smtp.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/email/Smtp.vue",
+    "title": "邮件账号"
+  },
+  {
+    "module": "email",
+    "path": "email/info",
+    "name": "EmailInfo",
+    "component": "@/views/email/Info.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/email/Info.vue",
+    "title": "邮件代理"
+  },
+  {
+    "module": "email",
+    "path": "email/guide",
+    "name": "EmailGuide",
+    "component": "@/views/email/Guide.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/email/Guide.vue",
+    "title": "使用引导"
+  },
+  {
+    "module": "faq",
+    "path": "faq",
+    "name": "FAQ",
+    "component": "@/views/faq/Index.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/faq/Index.vue",
+    "title": "FAQ 知识库"
+  },
+  {
+    "module": "faq",
+    "path": "faq/list",
+    "name": "FAQList",
+    "component": "@/views/faq/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/faq/List.vue",
+    "title": "FAQ 列表"
+  },
+  {
+    "module": "faq",
+    "path": "faq/editor",
+    "name": "FAQEditor",
+    "component": "@/views/faq/Editor.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/faq/Editor.vue",
+    "title": "FAQ 编辑"
+  },
+  {
+    "module": "faq",
+    "path": "faq/editor/:id",
+    "name": "FAQEditorEdit",
+    "component": "@/views/faq/Editor.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/faq/Editor.vue",
+    "title": "FAQ 编辑"
+  },
+  {
+    "module": "feishu",
+    "path": "feishu",
+    "name": "Feishu",
+    "component": "@/views/feishu/FeishuAccount.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/feishu/FeishuAccount.vue",
+    "title": "飞书"
+  },
+  {
+    "module": "feishu",
+    "path": "feishu/account",
+    "name": "FeishuAccount",
+    "component": "@/views/feishu/FeishuAccount.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/feishu/FeishuAccount.vue",
+    "title": "飞书账号"
+  },
+  {
+    "module": "glossary",
+    "path": "glossary",
+    "name": "GlossaryList",
+    "component": "@/views/glossary/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/glossary/List.vue",
+    "title": "术语表管理"
+  },
+  {
+    "module": "i18nStats",
+    "path": "i18n/dashboard",
+    "name": "I18nDashboard",
+    "component": "@/views/i18n/Dashboard.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/i18n/Dashboard.vue",
+    "title": "多语言监控"
+  },
+  {
+    "module": "integration",
+    "path": "integration/list",
+    "name": "IntegrationList",
+    "component": "@/views/integration/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/integration/List.vue",
+    "title": "第三方对接"
+  },
+  {
+    "module": "intentRecognition",
+    "path": "intentRecognition/list",
+    "name": "IntentRecognitionList",
+    "component": "@/views/intentRecognition/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/intentRecognition/List.vue",
+    "title": "意图识别"
+  },
+  {
+    "module": "knowledge",
+    "path": "knowledge/management",
+    "name": "KnowledgeManagement",
+    "component": "@/views/KnowledgeWorkspace/KnowledgeManagement.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/KnowledgeWorkspace/KnowledgeManagement.vue",
+    "title": "知识库管理"
+  },
+  {
+    "module": "knowledge",
+    "path": "knowledge/batch-import",
+    "name": "KnowledgeBatchImport",
+    "component": "@/views/KnowledgeWorkspace/BatchImport.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/KnowledgeWorkspace/BatchImport.vue",
+    "title": "批量导入"
+  },
+  {
+    "module": "knowledge",
+    "path": "knowledge/playground",
+    "name": "KnowledgePlayground",
+    "component": "@/views/KnowledgeWorkspace/Playground.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/KnowledgeWorkspace/Playground.vue",
+    "title": "检索 Playground"
+  },
+  {
+    "module": "knowledge",
+    "path": "knowledge/feedbacks",
+    "name": "KnowledgeFeedbacks",
+    "component": "@/views/KnowledgeWorkspace/FeedbackList.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/KnowledgeWorkspace/FeedbackList.vue",
+    "title": "反馈管理"
+  },
+  {
+    "module": "knowledge",
+    "path": "knowledge/tokens",
+    "name": "KnowledgeTokens",
+    "component": "@/views/KnowledgeWorkspace/ApiToken.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/KnowledgeWorkspace/ApiToken.vue",
+    "title": "API Token"
+  },
+  {
+    "module": "knowledge",
+    "path": "knowledge/external",
+    "name": "KnowledgeExternal",
+    "component": "@/views/KnowledgeWorkspace/ExternalImport.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/KnowledgeWorkspace/ExternalImport.vue",
+    "title": "外部系统接入"
+  },
+  {
+    "module": "knowledge",
+    "path": "knowledge/statistics",
+    "name": "KnowledgeStatistics",
+    "component": "@/views/KnowledgeWorkspace/KnowledgeStatistics.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/KnowledgeWorkspace/KnowledgeStatistics.vue",
+    "title": "知识库统计"
+  },
+  {
+    "module": "knowledge",
+    "path": "knowledge/openapi",
+    "name": "KnowledgeOpenAPI",
+    "component": "@/views/KnowledgeWorkspace/OpenAPIIntegration.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/KnowledgeWorkspace/OpenAPIIntegration.vue",
+    "title": "OpenAPI 集成"
+  },
+  {
+    "module": "knowledgeBase",
+    "path": "knowledgeBase",
+    "name": "KnowledgeBase",
+    "component": "@/views/knowledgeBase/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/knowledgeBase/List.vue",
+    "title": "知识库管理"
+  },
+  {
+    "module": "knowledgeBase",
+    "path": "knowledgeBase/list",
+    "name": "KnowledgeBaseList",
+    "component": "@/views/knowledgeBase/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/knowledgeBase/List.vue",
+    "title": "知识库列表"
+  },
+  {
+    "module": "knowledgeBase",
+    "path": "knowledgeBase/create",
+    "name": "KnowledgeBaseCreate",
+    "component": "@/views/knowledgeBase/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/knowledgeBase/List.vue",
+    "title": "新建知识库"
+  },
+  {
+    "module": "knowledgeBase",
+    "path": "knowledgeBase/edit/:id",
+    "name": "KnowledgeBaseEdit",
+    "component": "@/views/knowledgeBase/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/knowledgeBase/List.vue",
+    "title": "编辑知识库"
+  },
+  {
+    "module": "kuaishouCard",
+    "path": "/kuaishouCard",
+    "name": "KuaishouCard",
+    "component": "@/views/kuaishouCard/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/kuaishouCard/List.vue",
+    "title": "快手卡片"
+  },
+  {
+    "module": "kuaishouCard",
+    "path": "/kuaishou/auto-reply",
+    "name": "KuaishouAutoReply",
+    "component": "@/views/kuaishouCard/AutoReply.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/kuaishouCard/AutoReply.vue",
+    "title": "快手自动回复"
+  },
+  {
+    "module": "kuaishouCard",
+    "path": "/kuaishou/stats",
+    "name": "KuaishouStats",
+    "component": "@/views/kuaishouCard/Stats.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/kuaishouCard/Stats.vue",
+    "title": "快手卡片统计"
+  },
+  {
+    "module": "kuaishouCard",
+    "path": "/kuaishou-card-stats/:id",
+    "name": "KuaishouCardStats",
+    "component": "@/views/kuaishouCard/CardStats.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/kuaishouCard/CardStats.vue",
+    "title": "快手卡片详情统计"
+  },
+  {
+    "module": "leadMining",
+    "path": "lead-mining/index",
+    "name": "LeadMining",
+    "component": "@/views/leadMining/Index.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/leadMining/Index.vue",
+    "title": "线索发掘"
+  },
+  {
+    "module": "livecode",
+    "path": "/livecode",
+    "name": "LiveCodeManagement",
+    "component": "@/views/livecode/LiveCodeManagement.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/livecode/LiveCodeManagement.vue",
+    "title": "活码管理"
+  },
+  {
+    "module": "llmRouting",
+    "path": "llmRouting/list",
+    "name": "LlmRoutingList",
+    "component": "@/views/llmRouting/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/llmRouting/List.vue",
+    "title": "LLM路由"
+  },
+  {
+    "module": "marketingFlow",
+    "path": "marketingFlow/list",
+    "name": "MarketingFlowList",
+    "component": "@/views/marketingFlow/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/marketingFlow/List.vue",
+    "title": "营销自动化"
+  },
+  {
+    "module": "messageHub",
+    "path": "messageHub/list",
+    "name": "MessageHubList",
+    "component": "@/views/messageHub/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/messageHub/List.vue",
+    "title": "消息中台"
+  },
+  {
+    "module": "objection",
+    "path": "objection/list",
+    "name": "ObjectionList",
+    "component": "@/views/objection/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/objection/List.vue",
+    "title": "异议处理"
+  },
+  {
+    "module": "oneid",
+    "path": "oneid/list",
+    "name": "OneIDList",
+    "component": "@/views/oneid/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/oneid/List.vue",
+    "title": "OneID 列表"
+  },
+  {
+    "module": "oneid",
+    "path": "oneid/conflicts",
+    "name": "OneIDConflicts",
+    "component": "@/views/oneid/Conflicts.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/oneid/Conflicts.vue",
+    "title": "身份冲突解决"
+  },
+  {
+    "module": "operationLog",
+    "path": "operationLog/list",
+    "name": "OperationLogList",
+    "component": "@/views/operationLog/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/operationLog/List.vue",
+    "title": "操作日志"
+  },
+  {
+    "module": "permission",
+    "path": "system/permissions",
+    "name": "PermissionPanel",
+    "component": "@/views/system/PermissionPanel.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/system/PermissionPanel.vue",
+    "title": "permission.title"
+  },
+  {
+    "module": "persona",
+    "path": "persona/list",
+    "name": "PersonaList",
+    "component": "@/views/persona/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/persona/List.vue",
+    "title": "销冠画像"
+  },
+  {
+    "module": "platformAccount",
+    "path": "platformAccount/list",
+    "name": "PlatformAccountList",
+    "component": "@/views/platformAccount/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/platformAccount/List.vue",
+    "title": "平台账号"
+  },
+  {
+    "module": "ragProductConfig",
+    "path": "system/rag-product-config",
+    "name": "RagProductConfigIndex",
+    "component": "@/views/RagProductConfig/index.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/RagProductConfig/index.vue",
+    "title": "RAG 主配置"
+  },
+  {
+    "module": "ragProductConfig",
+    "path": "system/rag-account",
+    "name": "RagProductAccountConfig",
+    "component": "@/views/RagProductConfig/AccountConfig.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/RagProductConfig/AccountConfig.vue",
+    "title": "RAG 账号配置"
+  },
+  {
+    "module": "ragProductConfig",
+    "path": "system/rag-product",
+    "name": "RagProductManagement",
+    "component": "@/views/RagProductConfig/RagProductManagement.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/RagProductConfig/RagProductManagement.vue",
+    "title": "RAG 产品管理"
+  },
+  {
+    "module": "reachPipeline",
+    "path": "reachPipeline/list",
+    "name": "ReachPipelineList",
+    "component": "@/views/reachPipeline/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/reachPipeline/List.vue",
+    "title": "触达Pipeline"
+  },
+  {
+    "module": "role",
+    "path": "system/roles",
+    "name": "RoleList",
+    "component": "@/views/system/RoleList.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/system/RoleList.vue",
+    "title": "role.title"
+  },
+  {
+    "module": "scriptTemplate",
+    "path": "scriptTemplate/list",
+    "name": "ScriptTemplateList",
+    "component": "@/views/scriptTemplate/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/scriptTemplate/List.vue",
+    "title": "话术库"
+  },
+  {
+    "module": "securityAudit",
+    "path": "securityAudit/list",
+    "name": "SecurityAuditList",
+    "component": "@/views/securityAudit/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/securityAudit/List.vue",
+    "title": "安全审计"
+  },
+  {
+    "module": "shortLink",
+    "path": "shortLink",
+    "name": "ShortLink",
+    "component": "@/views/shortLink/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/shortLink/List.vue",
+    "title": "短链管理"
+  },
+  {
+    "module": "shortLink",
+    "path": "shortLink/stats",
+    "name": "ShortLinkStats",
+    "component": "@/views/shortLink/Stats.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/shortLink/Stats.vue",
+    "title": "短链统计"
+  },
+  {
+    "module": "sms",
+    "path": "sms/list",
+    "name": "SmsList",
+    "component": "@/views/sms/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/sms/List.vue",
+    "title": "短信列表"
+  },
+  {
+    "module": "sms",
+    "path": "sms/drafts",
+    "name": "SmsDrafts",
+    "component": "@/views/sms/Drafts.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/sms/Drafts.vue",
+    "title": "短信草稿"
+  },
+  {
+    "module": "sms",
+    "path": "sms/jobs",
+    "name": "SmsJobs",
+    "component": "@/views/sms/Jobs.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/sms/Jobs.vue",
+    "title": "短信任务"
+  },
+  {
+    "module": "sms",
+    "path": "sms/config",
+    "name": "SmsConfig",
+    "component": "@/views/sms/Config.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/sms/Config.vue",
+    "title": "短信配置"
+  },
+  {
+    "module": "sopAgent",
+    "path": "sopAgent/list",
+    "name": "SopAgentList",
+    "component": "@/views/sopAgent/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/sopAgent/List.vue",
+    "title": "销冠 SOP 智能体"
+  },
+  {
+    "module": "sopTemplateKb",
+    "path": "sop-template",
+    "name": "SOPTemplate",
+    "component": "@/views/sopTemplate/Index.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/sopTemplate/Index.vue",
+    "title": "SOP 模板库"
+  },
+  {
+    "module": "sopTemplateKb",
+    "path": "sop-template/list",
+    "name": "SOPTemplateList",
+    "component": "@/views/sopTemplate/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/sopTemplate/List.vue",
+    "title": "SOP 模板列表"
+  },
+  {
+    "module": "sopTemplateKb",
+    "path": "sop-template/editor",
+    "name": "SOPTemplateEditor",
+    "component": "@/views/sopTemplate/Editor.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/sopTemplate/Editor.vue",
+    "title": "SOP 模板编辑"
+  },
+  {
+    "module": "sopTemplateKb",
+    "path": "sop-template/editor/:id",
+    "name": "SOPTemplateEditorEdit",
+    "component": "@/views/sopTemplate/Editor.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/sopTemplate/Editor.vue",
+    "title": "SOP 模板编辑"
+  },
+  {
+    "module": "system",
+    "path": "system/config",
+    "name": "SystemConfig",
+    "component": "@/views/system/Config.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/system/Config.vue",
+    "title": "站点设置"
+  },
+  {
+    "module": "system",
+    "path": "system/obs-config",
+    "name": "SystemObsConfig",
+    "component": "@/views/system/ObsConfig.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/system/ObsConfig.vue",
+    "title": "存储配置"
+  },
+  {
+    "module": "system",
+    "path": "system/material-library",
+    "name": "SystemMaterialLibrary",
+    "component": "@/views/system/MaterialLibrary.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/system/MaterialLibrary.vue",
+    "title": "素材库"
+  },
+  {
+    "module": "system",
+    "path": "system/monitor",
+    "name": "SystemMonitor",
+    "component": "@/views/system/Monitor.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/system/Monitor.vue",
+    "title": "监控"
+  },
+  {
+    "module": "system",
+    "path": "system/trace",
+    "name": "TraceMonitor",
+    "component": "@/views/system/TraceMonitor.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/system/TraceMonitor.vue",
+    "title": "链路追踪"
+  },
+  {
+    "module": "system",
+    "path": "system/guide",
+    "name": "SystemGuide",
+    "component": "@/views/system/Guide.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/system/Guide.vue",
+    "title": "使用引导"
+  },
+  {
+    "module": "system",
+    "path": "system/rag-overview",
+    "name": "RagOverview",
+    "component": "@/views/system/RagOverview.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/system/RagOverview.vue",
+    "title": "RAG概览"
+  },
+  {
+    "module": "systemUser",
+    "path": "system/users",
+    "name": "SystemUserList",
+    "component": "@/views/system/UserList.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/system/UserList.vue",
+    "title": "systemUser.title"
+  },
+  {
+    "module": "tagSegmentation",
+    "path": "tagSegmentation/list",
+    "name": "TagSegmentationList",
+    "component": "@/views/tagSegmentation/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/tagSegmentation/List.vue",
+    "title": "标签分层"
+  },
+  {
+    "module": "telegram",
+    "path": "telegram",
+    "name": "Telegram",
+    "component": "@/views/telegram/account.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/telegram/account.vue",
+    "title": "TG 机器人"
+  },
+  {
+    "module": "telegram",
+    "path": "telegram/account",
+    "name": "TelegramAccount",
+    "component": "@/views/telegram/account.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/telegram/account.vue",
+    "title": "机器人账号"
+  },
+  {
+    "module": "tiktok",
+    "path": "tiktok",
+    "name": "TikTok",
+    "component": "@/views/tiktokCard/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/tiktokCard/List.vue",
+    "title": "TikTok"
+  },
+  {
+    "module": "tiktok",
+    "path": "stats",
+    "name": "TikTokStats",
+    "component": "@/views/tiktokCard/Stats.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/tiktokCard/Stats.vue",
+    "title": "TikTok统计"
+  },
+  {
+    "module": "tiktok",
+    "path": "card-stats/:id",
+    "name": "TikTokCardStats",
+    "component": "@/views/tiktokCard/CardStats.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/tiktokCard/CardStats.vue",
+    "title": "TikTok卡片统计"
+  },
+  {
+    "module": "tiktok",
+    "path": "auto-reply",
+    "name": "TikTokAutoReply",
+    "component": "@/views/tiktokCard/AutoReply.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/tiktokCard/AutoReply.vue",
+    "title": "TikTok自动回复"
+  },
+  {
+    "module": "tuning",
+    "path": "confidence/panel",
+    "name": "ConfidencePanel",
+    "component": "@/views/confidence/Panel.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/confidence/Panel.vue",
+    "title": "置信度运营"
+  },
+  {
+    "module": "tuning",
+    "path": "humanize/panel",
+    "name": "HumanizePanel",
+    "component": "@/views/humanize/Panel.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/humanize/Panel.vue",
+    "title": "拟人度评估"
+  },
+  {
+    "module": "tuning",
+    "path": "feedbackLoop/panel",
+    "name": "FeedbackLoopPanel",
+    "component": "@/views/feedbackLoop/Panel.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/feedbackLoop/Panel.vue",
+    "title": "反馈学习闭环"
+  },
+  {
+    "module": "unifiedInbox",
+    "path": "unifiedInbox/list",
+    "name": "UnifiedInboxList",
+    "component": "@/views/unifiedInbox/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/unifiedInbox/List.vue",
+    "title": "统一收件箱"
+  },
+  {
+    "module": "unifiedMessage",
+    "path": "unifiedMessage/list",
+    "name": "UnifiedMessageList",
+    "component": "@/views/unifiedMessage/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/unifiedMessage/List.vue",
+    "title": "统一消息"
+  },
+  {
+    "module": "userSegment",
+    "path": "userSegment/list",
+    "name": "UserSegmentList",
+    "component": "@/views/userSegment/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/userSegment/List.vue",
+    "title": "用户分层 RFM"
+  },
+  {
+    "module": "wecomAccount",
+    "path": "wecomAccount/list",
+    "name": "WecomAccountList",
+    "component": "@/views/wecomAccount/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/wecomAccount/List.vue",
+    "title": "企微账号管理"
+  },
+  {
+    "module": "wecomAccount",
+    "path": "wecomAccount/data",
+    "name": "WecomAccountData",
+    "component": "@/views/wecomAccount/Data.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/wecomAccount/Data.vue",
+    "title": "企微数据看板"
+  },
+  {
+    "module": "whatsapp",
+    "path": "whatsapp",
+    "name": "Whatsapp",
+    "component": "@/views/whatsapp/WhatsappAccount.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/whatsapp/WhatsappAccount.vue",
+    "title": "WhatsApp 社群"
+  },
+  {
+    "module": "whatsapp",
+    "path": "whatsapp/account",
+    "name": "WhatsappAccount",
+    "component": "@/views/whatsapp/WhatsappAccount.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/whatsapp/WhatsappAccount.vue",
+    "title": "账号管理"
+  },
+  {
+    "module": "whatsapp",
+    "path": "whatsapp/drafts",
+    "name": "WhatsappDrafts",
+    "component": "@/views/whatsapp/WhatsappDrafts.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/whatsapp/WhatsappDrafts.vue",
+    "title": "草稿箱"
+  },
+  {
+    "module": "whatsapp",
+    "path": "whatsapp/jobs",
+    "name": "WhatsappJobs",
+    "component": "@/views/whatsapp/WhatsappJobs.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/whatsapp/WhatsappJobs.vue",
+    "title": "群发"
+  },
+  {
+    "module": "whatsapp",
+    "path": "whatsapp/lead-group-selection",
+    "name": "LeadGroupSelection",
+    "component": "@/views/whatsappBot/LeadGroupSelection.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/whatsappBot/LeadGroupSelection.vue",
+    "title": "从线索库选择群体"
+  },
+  {
+    "module": "whatsapp",
+    "path": "whatsapp/group-messaging",
+    "name": "BulkMessaging",
+    "component": "@/views/whatsappBot/BulkMessaging.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/whatsappBot/BulkMessaging.vue",
+    "title": "批量消息发送"
+  },
+  {
+    "module": "whatsappCloud",
+    "path": "/whatsapp-cloud",
+    "name": "WhatsappCloud",
+    "component": "@/views/whatsappCloud/WhatsappCloudAccount.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/whatsappCloud/WhatsappCloudAccount.vue",
+    "title": "WhatsApp Cloud"
+  },
+  {
+    "module": "xianyuCard",
+    "path": "/xianyuCard",
+    "name": "XianyuCard",
+    "component": "@/views/xianyuCard/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/xianyuCard/List.vue",
+    "title": "闲鱼卡片"
+  },
+  {
+    "module": "xianyuCard",
+    "path": "/xianyu/auto-reply",
+    "name": "XianyuAutoReply",
+    "component": "@/views/xianyuCard/AutoReply.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/xianyuCard/AutoReply.vue",
+    "title": "闲鱼自动回复"
+  },
+  {
+    "module": "xianyuCard",
+    "path": "/xianyu/stats",
+    "name": "XianyuStats",
+    "component": "@/views/xianyuCard/Stats.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/xianyuCard/Stats.vue",
+    "title": "闲鱼卡片统计"
+  },
+  {
+    "module": "xianyuCard",
+    "path": "/xianyu-card-stats/:id",
+    "name": "XianyuCardStats",
+    "component": "@/views/xianyuCard/CardStats.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/xianyuCard/CardStats.vue",
+    "title": "闲鱼卡片详情统计"
+  },
+  {
+    "module": "xiaohongshuCard",
+    "path": "/xiaohongshuCard",
+    "name": "XiaohongshuCard",
+    "component": "@/views/xiaohongshuCard/List.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/xiaohongshuCard/List.vue",
+    "title": "小红书卡片"
+  },
+  {
+    "module": "xiaohongshuCard",
+    "path": "/xiaohongshu/auto-reply",
+    "name": "XiaohongshuAutoReply",
+    "component": "@/views/xiaohongshuCard/AutoReply.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/xiaohongshuCard/AutoReply.vue",
+    "title": "小红书自动回复"
+  },
+  {
+    "module": "xiaohongshuCard",
+    "path": "/xiaohongshu/stats",
+    "name": "XiaohongshuStats",
+    "component": "@/views/xiaohongshuCard/Stats.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/xiaohongshuCard/Stats.vue",
+    "title": "小红书卡片统计"
+  },
+  {
+    "module": "xiaohongshuCard",
+    "path": "/xiaohongshu-card-stats/:id",
+    "name": "XiaohongshuCardStats",
+    "component": "@/views/xiaohongshuCard/CardStats.vue",
+    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/xiaohongshuCard/CardStats.vue",
+    "title": "小红书卡片详情统计"
+  }
+]

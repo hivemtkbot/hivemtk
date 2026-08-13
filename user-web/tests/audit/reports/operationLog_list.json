@@ -1,0 +1,25 @@
+{
+  "page": "operationLog/list",
+  "url": "http://localhost:8213/#/operationLog/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": [
+      {
+        "url": "http://localhost:8213/api/operation-logs/export",
+        "status": 400,
+        "method": "GET"
+      }
+    ]
+  },
+  "interactions": [
+    {
+      "action": "click",
+      "label": "Export",
+      "note": "NET: {\"url\":\"http://localhost:8213/api/operation-logs/export\",\"status\":400,\"method\":\"GET\"}"
+    }
+  ],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 13
+}

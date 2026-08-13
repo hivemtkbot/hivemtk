@@ -18,13 +18,6 @@ type Account struct {
 	ProxyHost        string `gorm:"default:'127.0.0.1'" json:"proxy_host"`
 	ProxyPort        int    `gorm:"default:1080" json:"proxy_port"`
 
-	// 自动回复平台无头模式设置
-	DouyinHeadless      *bool `gorm:"default:true" json:"douyin_headless"`
-	KuaishouHeadless    *bool `gorm:"default:true" json:"kuaishou_headless"`
-	XiaohongshuHeadless *bool `gorm:"default:true" json:"xiaohongshu_headless"`
-	XianyuHeadless      *bool `gorm:"default:true" json:"xianyu_headless"`
-	TiktokHeadless      *bool `gorm:"default:true" json:"tiktok_headless"`
-
 	Status     _type.AccountStatusType `gorm:"index;default:1" json:"status"`
 	CreateTime int64                   `gorm:"autoCreateTime" json:"create_time"`
 	Msg        string                  `gorm:"msg" json:"msg"`

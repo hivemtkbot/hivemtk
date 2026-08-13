@@ -1,0 +1,13 @@
+{
+  "page": "chatChannel/create",
+  "url": "http://localhost:8213/#/chatChannel/create",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 16
+}

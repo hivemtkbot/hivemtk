@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/aiagent/llm"
-	"hivemtk-user/internal/aiagent/rag/retrieval"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
 	"hivemtk-user/internal/cache"
 	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/tracing"

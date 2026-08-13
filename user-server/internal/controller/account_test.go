@@ -38,7 +38,6 @@ func TestAccountController_CreateAccount_Success(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/accounts", ctrl.CreateAccount)
 
-	trueVal := true
 	createReq := dto.CreateAccountRequest{
 		TgBotToken:          "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
 		Price:               "100.0",
@@ -47,10 +46,6 @@ func TestAccountController_CreateAccount_Success(t *testing.T) {
 		ProxyProtoclo:       "http",
 		ProxyHost:           "localhost",
 		ProxyPort:           8080,
-		DouyinHeadless:      &trueVal,
-		KuaishouHeadless:    &trueVal,
-		XiaohongshuHeadless: &trueVal,
-		XianyuHeadless:      &trueVal,
 	}
 	body, _ := json.Marshal(createReq)
 
@@ -307,7 +302,6 @@ func TestAccountController_CreateAccount_WithProxyConfig(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/accounts", ctrl.CreateAccount)
 
-	trueVal := true
 	createReq := dto.CreateAccountRequest{
 		TgBotToken:       "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
 		Price:            "100.0",
@@ -316,7 +310,6 @@ func TestAccountController_CreateAccount_WithProxyConfig(t *testing.T) {
 		ProxyProtoclo:    "socks5",
 		ProxyHost:        "proxy.example.com",
 		ProxyPort:        1080,
-		DouyinHeadless:   &trueVal,
 	}
 	body, _ := json.Marshal(createReq)
 
@@ -396,8 +389,8 @@ func TestAccountController_GetAccounts_MultipleAccounts(t *testing.T) {
 	}
 }
 
-// TestAccountController_CreateAccount_WithoutHeadless 测试创建不带无头模式配置的账户
-func TestAccountController_CreateAccount_WithoutHeadless(t *testing.T) {
+// TestAccountController_CreateAccount_Default 测试创建账号时使用默认配置（无头浏览器自动回复功能已删除）
+func TestAccountController_CreateAccount_Default(t *testing.T) {
 	setupTestControllerDB(t)
 	ctrl := NewAccountController()
 	router := setupGinEngine()

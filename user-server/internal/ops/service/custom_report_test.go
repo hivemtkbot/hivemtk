@@ -10,8 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/gorm"
 	"hivemtk-user/internal/pkg/testutil"
+
+	"gorm.io/gorm"
 )
 
 // setupCustomReportServiceTestDB 设置测试数据库

@@ -61,6 +61,9 @@ MODEL_PATH = os.path.normpath(
     os.getenv("MLX_MODEL", os.path.join(_PROJECT_ROOT, "models", "llm", "SmolLM3-3B-4bit-mlx")))
 SERVED_MODEL_NAME = os.getenv("LLM_SERVED_NAME", "smollm3-3b-4bit-mlx")
 MAX_TOKENS_DEFAULT = int(os.getenv("MLX_MAX_TOKENS", "1024"))
+# KV cache 上限：限制上下文窗口，避免超长历史撑爆统一内存（M1 16GB 敏感）。
+# 不设置则使用模型原生窗口（SmolLM3 为 4096）。
+MAX_KV_SIZE = int(os.getenv("MLX_MAX_KV_SIZE", "0")) or None
 ENABLE_THINKING = os.getenv("MLX_ENABLE_THINKING", "false").lower() in ("1", "true", "yes")
 _RUNTIME_DIR = os.getenv("HIVEMTK_RUNTIME_DIR", os.path.join(_PROJECT_ROOT, ".runtime"))
 STATS_DIR = os.getenv("MLX_STATS_DIR", os.path.join(_RUNTIME_DIR, "mlx-stats"))
@@ -88,6 +91,8 @@ _START_TIME = time.time()
 
 app = FastAPI(title="hivemtk-mlx-llm", version=VERSION)
 print(f"[mlx-llm] 加载模型: {MODEL_PATH}", flush=True)
+if MAX_KV_SIZE:
+    print(f"[mlx-llm] 限制 KV cache 窗口: {MAX_KV_SIZE}", flush=True)
 model, tokenizer = load(MODEL_PATH)
 
 # 显式加载 chat_template.jinja（部分 mlx_lm 版本不自动读取该文件，
@@ -244,16 +249,32 @@ class ChatReq(BaseModel):
 
 
 def _tool_injection_note(tools: Optional[list]) -> str:
-    """将 tools 定义压缩为 ReAct 文本协议指令，追加进 system 消息"""
+    """将 tools 定义压缩为 ReAct 文本协议指令，追加进 system 消息。
+
+    2026-08-11 优化（提速，不换模型）：
+    原实现把每个工具的完整 parameters JSON schema（type/description/required/properties
+    全量）整段写入 system，导致 18 个工具轻松占 2000+ token，小模型（SmolLM3-3B）prefill
+    与首 token 延迟爆炸（实测单次请求 input≈4640 token、延迟≈98s）。
+    3B 模型走 ReAct 文本降级时，主要靠 工具名+用途 识别该调哪个工具，冗长 JSON schema
+    既看不懂也用不好。故精简为：工具名 + 一句话描述 + 参数 key 列表（不带 type/描述），
+    通常可砍掉 60%-70% 的工具注入 token，直接降低 prefill 耗时与首 token 延迟。
+    """
     if not tools:
         return ""
     lines = []
     for t in tools:
         fn = (t or {}).get("function") or {}
         name = fn.get("name", "")
-        desc = fn.get("description", "")
-        params = json.dumps(fn.get("parameters") or {}, ensure_ascii=False)
-        lines.append(f"- {name}: {desc} 参数: {params}")
+        if not name:
+            continue
+        desc = (fn.get("description") or "").strip()
+        # 仅取参数 property 的 key 名（最多 8 个），丢弃 type/描述/required 等冗余
+        props = (((fn.get("parameters") or {}).get("properties")) or {})
+        keys = list(props.keys())[:8]
+        param_hint = f" [参数: {', '.join(keys)}]" if keys else ""
+        lines.append(f"- {name}{param_hint}: {desc}")
+    if not lines:
+        return ""
     return (
         "\n\n你可以调用以下工具。需要调用时严格按此文本协议输出（每次仅一个）：\n"
         "Action: 工具名\nAction Input: JSON 参数\n"
@@ -347,6 +368,11 @@ def chat(req: ChatReq):
     cmpl_id = f"chatcmpl-{uuid.uuid4().hex[:24]}"
     created = int(time.time())
 
+    # KV cache 窗口限制（M1 统一内存敏感）：透传给 stream_generate/generate
+    _gen_kwargs = {}
+    if MAX_KV_SIZE:
+        _gen_kwargs["max_kv_size"] = MAX_KV_SIZE
+
     # ---- 流式 SSE ----
     if req.stream:
         def event_stream():
@@ -355,7 +381,7 @@ def chat(req: ChatReq):
                 with _INFER_LOCK:
                     for resp in stream_generate(
                             model, tokenizer, prompt=prompt_text,
-                            max_tokens=max_tokens, sampler=sampler):
+                            max_tokens=max_tokens, sampler=sampler, **_gen_kwargs):
                         # 0.31.x 返回 GenerationResponse 对象，旧版为 dict，getattr 兼容
                         text = getattr(resp, "text", None)
                         if text is None and isinstance(resp, dict):
@@ -397,7 +423,7 @@ def chat(req: ChatReq):
     try:
         with _INFER_LOCK:
             output = generate(model, tokenizer, prompt=prompt_text,
-                              max_tokens=max_tokens, sampler=sampler)
+                              max_tokens=max_tokens, sampler=sampler, **_gen_kwargs)
     except Exception as e:  # noqa: BLE001
         STATS.record(ok=False, error=str(e))
         return JSONResponse(status_code=500, content=_error_body(str(e), 500))

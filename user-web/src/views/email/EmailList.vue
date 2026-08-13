@@ -83,9 +83,9 @@
       <div v-loading="traceLoading">
         <div v-if="traceData && traceData.length">
           <el-table :data="traceData" border>
-            <el-table-column prop="recipient" label="收件人" />
-            <el-table-column prop="status" label="状态" />
-            <el-table-column prop="opened_at" label="打开时间" />
+            <el-table-column prop="email" label="收件人" />
+            <el-table-column prop="eventType" label="状态" />
+            <el-table-column prop="timestamp" label="时间" />
           </el-table>
         </div>
         <el-empty v-else description="暂无追踪数据" />

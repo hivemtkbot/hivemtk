@@ -85,8 +85,4 @@ func setupTiktokRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 		service.NewTikTokCardServiceWithDB(gormDB),
 	)
 	tiktokCardCtrl.RegisterRoutes(auth)
-
-	// TikTok 自动回复管理
-	tiktokAutoReplyCtrl := controller.NewTikTokAutoReplyController()
-	tiktokAutoReplyCtrl.RegisterRoutes(auth)
 }

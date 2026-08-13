@@ -1,0 +1,13 @@
+{
+  "page": "sms/drafts",
+  "url": "http://localhost:8213/#/sms/drafts",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 8
+}

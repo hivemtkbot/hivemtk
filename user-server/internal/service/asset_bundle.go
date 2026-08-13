@@ -759,7 +759,6 @@ func BuildBundleFromMerchantForm(req dto.MerchantFormSaveRequest) (*model.AssetB
 	}, nil
 }
 
-// ===== merged from asset_bundle_part2.go (was a mechanical _partN split) =====
 func buildMerchantSystemPrompt(req dto.MerchantFormSaveRequest) string {
 	var sb strings.Builder
 	sb.WriteString("# 核心角色与销冠人设\n")

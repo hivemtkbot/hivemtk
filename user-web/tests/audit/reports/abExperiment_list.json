@@ -1,0 +1,13 @@
+{
+  "page": "abExperiment/list",
+  "url": "http://localhost:8213/#/abExperiment/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 9
+}

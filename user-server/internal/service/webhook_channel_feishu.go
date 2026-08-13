@@ -14,7 +14,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ===== merged from webhook_part3.go (was a mechanical _partN split) =====
 func (s *WebhookService) dispatchFeishu(ctx context.Context, accountID string, p *ParsedPayload, raw []byte) (*model.MessageHub, error) {
 	if s.db == nil {
 		return nil, nil

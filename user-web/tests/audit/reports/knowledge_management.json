@@ -1,0 +1,20 @@
+{
+  "page": "knowledge/management",
+  "url": "http://localhost:8213/#/knowledge/management",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": [
+      {
+        "url": "http://localhost:8213/@id/__x00__@intlify/unplugin-vue-i18n/messages?t=1786463544740",
+        "status": 0,
+        "method": "GET",
+        "failed": true
+      }
+    ]
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 15
+}

@@ -1,0 +1,79 @@
+[
+  {
+    "module": "conversionFunnel",
+    "title": "转化漏斗",
+    "hash": "conversionFunnel/list",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "netErrors": [],
+    "renderedNodes": 11,
+    "bodyLen": 859,
+    "likelyEmptyState": false
+  },
+  {
+    "module": "aiProductivity",
+    "title": "AI产能分析",
+    "hash": "aiProductivity/list",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "netErrors": [],
+    "renderedNodes": 3,
+    "bodyLen": 519,
+    "likelyEmptyState": false
+  },
+  {
+    "module": "dashboardScreen",
+    "title": "数据大屏",
+    "hash": "dashboardScreen/list",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "netErrors": [],
+    "renderedNodes": 16,
+    "bodyLen": 1104,
+    "likelyEmptyState": false
+  },
+  {
+    "module": "customerJourney",
+    "title": "客户旅程大屏",
+    "hash": "customerJourney/dashboard",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "netErrors": [],
+    "renderedNodes": 13,
+    "bodyLen": 1503,
+    "likelyEmptyState": false
+  },
+  {
+    "module": "customReport",
+    "title": "自定义报表",
+    "hash": "customReport/list",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "netErrors": [],
+    "renderedNodes": 4,
+    "bodyLen": 524,
+    "likelyEmptyState": true
+  },
+  {
+    "module": "abExperiment",
+    "title": "A/B实验",
+    "hash": "abExperiment/list",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "netErrors": [],
+    "renderedNodes": 4,
+    "bodyLen": 587,
+    "likelyEmptyState": true
+  },
+  {
+    "module": "churnPrediction",
+    "title": "流失预警",
+    "hash": "churnPrediction/list",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "netErrors": [],
+    "renderedNodes": 12,
+    "bodyLen": 517,
+    "likelyEmptyState": true
+  }
+]

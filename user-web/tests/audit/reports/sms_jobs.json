@@ -1,0 +1,14 @@
+{
+  "page": "sms/jobs",
+  "url": "http://localhost:8213/#/sms/jobs",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 12,
+  "note": "page_interaction_timeout_guard_triggered"
+}

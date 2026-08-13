@@ -1,0 +1,13 @@
+{
+  "page": "asset-bundle/merchant-new",
+  "url": "http://localhost:8213/#/asset-bundle/merchant-new",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 24
+}

@@ -1,0 +1,22 @@
+{
+  "page": "feedbackLoop/panel",
+  "readDiffs": [
+    {
+      "api": "/api/admin/tuning/bandit/arms?page=1&page_size=100",
+      "frontendRows": 20,
+      "apiRows": 0,
+      "frontendRowsNotFoundInApi": 20
+    }
+  ],
+  "notes": [
+    "has-rows"
+  ],
+  "frontendRows": 20,
+  "listApis": [
+    "/api/inbox?page=1&page_size=20",
+    "/api/admin/tuning/feedback/dialogues?page=1&page_size=20",
+    "/api/admin/tuning/bandit/arms?page=1&page_size=100",
+    "/api/admin/tuning/feedback/events?page=1&page_size=20",
+    "/api/admin/tuning/prompt/candidates?page=1&page_size=50"
+  ]
+}

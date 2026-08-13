@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/gorm"
 	"hivemtk-user/internal/pkg/testutil"
+
+	"gorm.io/gorm"
 )
 
 // setupStatsTestDB 设置统计测试数据库

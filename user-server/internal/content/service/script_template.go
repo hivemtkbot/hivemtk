@@ -25,6 +25,7 @@ func NewScriptTemplateService() *ScriptTemplateService {
 
 // CreateScriptTemplateRequest 创建话术模板请求
 type CreateScriptTemplateRequest struct {
+	Name      string   `json:"name"`
 	Category  string   `json:"category" binding:"required"`
 	Title     string   `json:"title" binding:"required"`
 	Content   string   `json:"content" binding:"required"`
@@ -39,7 +40,7 @@ func (s *ScriptTemplateService) CreateTemplate(createdBy uint, req *CreateScript
 
 	template := &model.ScriptTemplate{
 		Category:  req.Category,
-		Name:      req.Title,
+		Name:      req.Name,
 		Title:     req.Title,
 		Content:   req.Content,
 		Variables: string(variables),
@@ -71,12 +72,14 @@ func (s *ScriptTemplateService) GetTemplateByID(id uint) (*model.ScriptTemplate,
 
 // UpdateTemplateRequest 更新话术模板请求
 type UpdateTemplateRequest struct {
-	Category  string   `json:"category"`
-	Title     string   `json:"title"`
-	Content   string   `json:"content"`
-	Variables []string `json:"variables"`
-	Tags      string   `json:"tags"`
-	IsPublic  bool     `json:"is_public"`
+	Name        string   `json:"name"`
+	Category    string   `json:"category"`
+	Title       string   `json:"title"`
+	Content     string   `json:"content"`
+	Variables   []string `json:"variables"`
+	Tags        string   `json:"tags"`
+	JourneyStage string  `json:"journey_stage"`
+	IsPublic    bool     `json:"is_public"`
 }
 
 // UpdateTemplate 更新话术模板
@@ -86,6 +89,9 @@ func (s *ScriptTemplateService) UpdateTemplate(id uint, req *UpdateTemplateReque
 		return nil, err
 	}
 
+	if req.Name != "" {
+		template.Name = req.Name
+	}
 	if req.Category != "" {
 		template.Category = req.Category
 	}
@@ -100,6 +106,7 @@ func (s *ScriptTemplateService) UpdateTemplate(id uint, req *UpdateTemplateReque
 		template.Variables = string(variables)
 	}
 	template.Tags = req.Tags
+	template.JourneyStage = req.JourneyStage
 	template.IsPublic = req.IsPublic
 
 	if err := s.templateRepo.Update(template); err != nil {

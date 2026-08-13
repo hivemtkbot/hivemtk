@@ -1,0 +1,13 @@
+{
+  "page": "whatsapp/drafts",
+  "url": "http://localhost:8213/#/whatsapp/drafts",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 12
+}

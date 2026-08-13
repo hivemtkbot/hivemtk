@@ -1,0 +1,32 @@
+{
+  "page": "persona/list",
+  "readDiffs": [
+    {
+      "api": "/api/inbox?page=1&page_size=20",
+      "frontendRows": 13,
+      "apiRows": 20,
+      "frontendRowsNotFoundInApi": 13
+    },
+    {
+      "api": "/api/analytics/persona/staffs",
+      "frontendRows": 13,
+      "apiRows": 13,
+      "frontendRowsNotFoundInApi": 13
+    },
+    {
+      "api": "/api/analytics/persona/staffs/39",
+      "frontendRows": 13,
+      "apiRows": 7,
+      "frontendRowsNotFoundInApi": 13
+    }
+  ],
+  "notes": [
+    "has-rows"
+  ],
+  "frontendRows": 13,
+  "listApis": [
+    "/api/inbox?page=1&page_size=20",
+    "/api/analytics/persona/staffs",
+    "/api/analytics/persona/staffs/39"
+  ]
+}

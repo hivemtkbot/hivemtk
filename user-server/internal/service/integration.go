@@ -653,7 +653,6 @@ func NewJDClient(account *model.IntegrationAccount) *JDClient {
 	}
 }
 
-// ===== merged from integration_part2.go (was a mechanical _partN split) =====
 func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.IntegrationAccount) (int, error) {
 	client := NewJDClient(account)
 

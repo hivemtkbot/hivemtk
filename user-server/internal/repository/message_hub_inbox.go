@@ -2,14 +2,12 @@ package repository
 
 import (
 	"context"
-
-	"fmt"
-
-	"time"
-
+	"errors"
 	"hivemtk-user/internal/model"
-
 	_db "hivemtk-user/internal/pkg/db"
+	"strings"
+	"time"
+	"unicode/utf8"
 
 	"gorm.io/gorm"
 )
@@ -74,18 +72,18 @@ func (r *MessageHubRepository) CreateWithInboxTx(
 		return nil
 	}
 	if inboxRepo == nil {
-		// 无 inboxRepo 时退化为单表 Create（兼容老路径）
+
 		return r.Create(ctx, hub)
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(hub).Error; err != nil {
-			// 唯一键冲突视为幂等成功（与 Create 行为一致）
+
 			if isDuplicateKeyErr(err) {
 				return nil
 			}
 			return err
 		}
-		// 调用 inboxRepo 的 tx 版本，复用同一个 tx
+
 		return inboxRepo.UpsertFromMessageTx(tx, input)
 	})
 }
@@ -100,56 +98,6 @@ func (r *MessageHubRepository) GetByMsgID(ctx context.Context, msgID string) (*m
 	var hub model.MessageHub
 	err := r.db.Where("msg_id = ?", msgID).First(&hub).Error
 	return &hub, err
-}
-
-func (r *MessageHubRepository) AckOutboundDeliveredBatch(ctx context.Context, channel, accountID string, msgIDs []string) (int64, error) {
-	if r.db == nil || len(msgIDs) == 0 {
-		return 0, nil
-	}
-	res := r.db.WithContext(ctx).
-		Model(&model.MessageHub{}).
-		// 翻转范围覆盖 pending 与 inflight：ack 可能在「认领→超时回收→重新认领」的间隙到达，
-		// 此时行已回退为 pending；两种状态都翻 delivered 保证幂等且绝不漏翻（at-least-once 安全）。
-		Where("platform = ? AND account_id = ? AND direction = 'outbound' AND msg_id IN ? AND status IN ('pending','inflight')", channel, accountID, msgIDs).
-		Update("status", "delivered")
-	return res.RowsAffected, res.Error
-}
-
-func (r *MessageHubRepository) ClaimPendingOutbound(ctx context.Context, channel, accountID string, limit int, claimTimeout time.Duration) ([]model.MessageHub, error) {
-	if r == nil || r.db == nil || limit <= 0 {
-		return nil, nil
-	}
-	cutoff := time.Now().Add(-claimTimeout)
-	// 1) 回收超时 inflight → pending（惰性 reaper）。
-	//    注意：claimed_at 为 NULL 的 pending 行（新入队、从未被认领）必须显式排除，
-	//    否则 `claimed_at < cutoff` 对 NULL 求值为 unknown → 整条 WHERE 失效、回收 0 行（虽无害，
-	//    但语义上不应依赖 NULL 比较）。这里已用 `status = 'inflight'` 精确锁定目标行。
-	if err := r.db.WithContext(ctx).
-		Model(&model.MessageHub{}).
-		Where("platform = ? AND account_id = ? AND direction = 'outbound' AND status = 'inflight' AND claimed_at IS NOT NULL AND claimed_at < ?", channel, accountID, cutoff).
-		Updates(map[string]any{"status": "pending", "claimed_at": nil}).Error; err != nil {
-		fmt.Printf("[ClaimPendingOutbound] 回收超时 inflight 失败（继续认领）: %v\n", err)
-	}
-	// 2) 原子认领 top-N pending → inflight。
-	//    关键并发安全：子查询必须加 `FOR UPDATE SKIP LOCKED`。
-	//    否则 PostgreSQL 在 READ COMMITTED 下，UPDATE...RETURNING 仅按 `id IN (...)` 重新判定，
-	//    不复核子查询的 `status='pending'`——若并发轮询 T1 已把某 pending 翻为 inflight 并提交，
-	//    T2 仍会按各自快照算出的同一 id 集合再次翻该行为 inflight 并 RETURNING → 同一条被两个
-	//    轮询同时认领 → 重复下发。`FOR UPDATE SKIP LOCKED` 让 T2 的子查询跳过被 T1 锁定的行，
-	//    实现服务端权威互斥（多标签页并发轮询也安全）。
-	list := make([]model.MessageHub, 0, limit)
-	const q = `UPDATE message_hub SET status = 'inflight', claimed_at = now()
-		WHERE id IN (
-			SELECT id FROM message_hub
-			WHERE platform = ? AND account_id = ? AND direction = 'outbound' AND status = 'pending'
-			ORDER BY id ASC LIMIT ?
-			FOR UPDATE SKIP LOCKED
-		)
-		RETURNING *`
-	if err := r.db.WithContext(ctx).Raw(q, channel, accountID, limit).Scan(&list).Error; err != nil {
-		return nil, err
-	}
-	return list, nil
 }
 
 func (r *MessageHubRepository) GetByContentHash(ctx context.Context, canonicalHash string) (*model.MessageHub, error) {
@@ -354,129 +302,6 @@ func (r *MessageHubRepository) ListByHubQuery(ctx context.Context, q HubListQuer
 	return rows, total, nil
 }
 
-type HubStatsResult struct {
-	Total       int64
-	Inbound     int64
-	Outbound    int64
-	Unread      int64
-	ByPlatform  map[string]int64
-	ByDirection map[string]int64
-	ByMsgType   map[string]int64
-	ByAccount   map[string]int64
-	Recent24h   int64
-}
-
-func (r *MessageHubRepository) GetHubStats(ctx context.Context, start, end *time.Time) (*HubStatsResult, error) {
-	if r == nil || r.db == nil {
-		return &HubStatsResult{
-			ByPlatform: map[string]int64{}, ByDirection: map[string]int64{},
-			ByMsgType: map[string]int64{}, ByAccount: map[string]int64{},
-		}, nil
-	}
-
-	var total, inbound, outbound, unread int64
-
-	countQuery := r.db.WithContext(ctx).Model(&model.MessageHub{}).Where("1 = 1")
-	if start != nil {
-		countQuery = countQuery.Where("sent_at >= ?", *start)
-	}
-	if end != nil {
-		countQuery = countQuery.Where("sent_at <= ?", *end)
-	}
-	if err := countQuery.Count(&total).Error; err != nil {
-		return nil, err
-	}
-	r.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("direction = ?", "inbound").
-		Count(&inbound)
-	r.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("direction = ?", "outbound").
-		Count(&outbound)
-	r.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("(is_read = ? OR is_read IS NULL)", false).
-		Count(&unread)
-
-	stats := &HubStatsResult{
-		Total: total, Inbound: inbound, Outbound: outbound, Unread: unread,
-		ByPlatform: map[string]int64{}, ByDirection: map[string]int64{},
-		ByMsgType: map[string]int64{}, ByAccount: map[string]int64{},
-	}
-
-	type pcount struct {
-		Platform string
-		C        int64
-	}
-	var pCounts []pcount
-	r.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("1 = 1").
-		Select("platform AS platform, COUNT(*) AS c").
-		Group("platform").Scan(&pCounts)
-	for _, p := range pCounts {
-		stats.ByPlatform[p.Platform] = p.C
-		stats.ByDirection["inbound_or_outbound"] += p.C
-	}
-
-	type dcount struct {
-		Direction string
-		C         int64
-	}
-	var dCounts []dcount
-	r.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("1 = 1").
-		Select("direction AS direction, COUNT(*) AS c").
-		Group("direction").Scan(&dCounts)
-	for _, d := range dCounts {
-		stats.ByDirection[d.Direction] = d.C
-	}
-
-	type tcount struct {
-		MsgType string
-		C       int64
-	}
-	var tCounts []tcount
-	r.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("1 = 1").
-		Select("msg_type AS msg_type, COUNT(*) AS c").
-		Group("msg_type").Scan(&tCounts)
-	for _, t := range tCounts {
-		stats.ByMsgType[t.MsgType] = t.C
-	}
-
-	type acount struct {
-		AccountID string
-		C         int64
-	}
-	var aCounts []acount
-	r.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("1 = 1").
-		Select("account_id AS account_id, COUNT(*) AS c").
-		Group("account_id").Order("c DESC").Limit(50).Scan(&aCounts)
-	for _, a := range aCounts {
-		stats.ByAccount[a.AccountID] = a.C
-	}
-
-	threshold24h := time.Now().Add(-24 * time.Hour)
-	r.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("sent_at >= ?", threshold24h).
-		Count(&stats.Recent24h)
-
-	return stats, nil
-}
-
-func (r *MessageHubRepository) GetLastByPlatformAccount(ctx context.Context, platform, accountID string) (*model.MessageHub, error) {
-	if r == nil || r.db == nil {
-		return nil, gorm.ErrRecordNotFound
-	}
-	var msg model.MessageHub
-	err := r.db.WithContext(ctx).
-		Where("platform = ? AND account_id = ?", platform, accountID).
-		Order("sent_at DESC").First(&msg).Error
-	if err != nil {
-		return nil, err
-	}
-	return &msg, nil
-}
-
 func (r *MessageHubRepository) GetLastByConversation(ctx context.Context, conversationID string) (*model.MessageHub, error) {
 	if r == nil || r.db == nil {
 		return nil, gorm.ErrRecordNotFound
@@ -494,257 +319,783 @@ func (r *MessageHubRepository) GetLastByConversation(ctx context.Context, conver
 	return &msg, nil
 }
 
-func (r *MessageHubRepository) HasUnrepliedCustomerMessage(ctx context.Context, conversationID string, replyWindow time.Duration) (unreplied bool, withinWindow bool, err error) {
-	if r == nil || r.db == nil {
-		return false, false, nil
+// SetDB 注入 db（用于测试）
+//
+// 五层架构 §三.5 + §七：仓库方法必须首参为 ctx context.Context。
+func (r *InboxConversationRepository) SetDB(ctx context.Context, db *gorm.DB) {
+	if db != nil {
+		r.db = db
 	}
-	if conversationID == "" {
-		return false, false, nil
-	}
-	var last model.MessageHub
-	// 按 conversation_id 查最新一条消息（不分 platform / account_id，因为同一 conversation_id 唯一）
-	if err := r.db.WithContext(ctx).
-		Where("conversation_id = ?", conversationID).
-		Order("sent_at DESC").
-		Limit(1).
-		First(&last).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			// 会话无消息 → 视为未回复且在窗口内（首条消息触发）
-			return true, true, nil
-		}
-		// 查询失败：保守视为已回复（不触发 AI，避免误触发）
-		return false, false, err
-	}
-	// 最后一条消息方向判断：
-	//   - outbound（平台自己发的）→ 已回复，不触发 AI
-	//   - inbound（客户发的）→ 未回复，继续判断 5min 窗口
-	if last.Direction != "inbound" {
-		return false, false, nil // 平台自己发的 → 不回复
-	}
-	// 最后一条是客户消息 → 未回复，判断是否在 5 分钟窗口内
-	cutoff := time.Now().Add(-replyWindow)
-	if last.SentAt.Before(cutoff) {
-		// 最后一条客户消息超过 5 分钟 → 历史消息不触发
-		return true, false, nil
-	}
-	return true, true, nil
 }
 
-func (r *MessageHubRepository) GetLastOutboundByConversation(ctx context.Context, conversationID string) (*model.MessageHub, error) {
-	if r == nil || r.db == nil {
-		return nil, gorm.ErrRecordNotFound
-	}
-	if conversationID == "" {
-		return nil, gorm.ErrRecordNotFound
-	}
-	cutoff := time.Now().Add(-5 * time.Minute)
-	var msg model.MessageHub
-	err := r.db.WithContext(ctx).
-		Where("conversation_id = ? AND direction = ? AND sent_at >= ?", conversationID, "outbound", cutoff).
-		Order("sent_at DESC").
-		First(&msg).Error
+// FindByPlatformAccountCustomer 按平台/账号/客户查找会话
+func (r *InboxConversationRepository) FindByPlatformAccountCustomer(ctx context.Context, platform, accountID, customerID string) (*model.InboxConversation, error) {
+	var conv model.InboxConversation
+	err := r.db.Where("platform = ? AND account_id = ? AND customer_id = ?",
+		platform, accountID, customerID).First(&conv).Error
 	if err != nil {
 		return nil, err
 	}
-	return &msg, nil
+	return &conv, nil
 }
 
-func (r *MessageHubRepository) GetLastInboundByConversation(ctx context.Context, conversationID string) (*model.MessageHub, error) {
-	if r == nil || r.db == nil {
-		return nil, gorm.ErrRecordNotFound
-	}
-	if conversationID == "" {
-		return nil, gorm.ErrRecordNotFound
-	}
-	var msg model.MessageHub
-	err := r.db.WithContext(ctx).
-		Where("conversation_id = ? AND direction = ?", conversationID, "inbound").
-		Order("sent_at DESC").
-		First(&msg).Error
-	if err != nil {
-		return nil, err
-	}
-	return &msg, nil
-}
-
-func (r *MessageHubRepository) ListByConversationContext(ctx context.Context, platform, accountID, customerID string) ([]*model.MessageHub, error) {
-	if r == nil || r.db == nil {
-		return nil, nil
-	}
-	var hubs []*model.MessageHub
-	if err := r.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("platform = ? AND account_id = ? AND (sender_id = ? OR receiver_id = ?)",
-			platform, accountID, customerID, customerID).
-		Find(&hubs).Error; err != nil {
-		return nil, err
-	}
-	return hubs, nil
-}
-
-func (r *MessageHubRepository) FindNullConversationIDRows(ctx context.Context) ([]model.MessageHub, error) {
-	if r == nil || r.db == nil {
-		return nil, nil
-	}
-	var rows []model.MessageHub
-	if err := r.db.WithContext(ctx).
-		Where("conversation_id IS NULL OR conversation_id = ?", "").
-		Find(&rows).Error; err != nil {
-		return nil, err
-	}
-	return rows, nil
-}
-
-func (r *MessageHubRepository) UpdateConversationID(ctx context.Context, id uint, conversationID string) error {
+// Create 创建会话
+func (r *InboxConversationRepository) Create(ctx context.Context, conv *model.InboxConversation) error {
 	if r == nil || r.db == nil {
 		return nil
 	}
-	return r.db.WithContext(ctx).
-		Model(&model.MessageHub{}).
-		Where("id = ?", id).
-		Update("conversation_id", conversationID).Error
+	return r.db.Create(conv).Error
 }
 
-func (r *MessageHubRepository) FindConversationIDsMissingInbox(ctx context.Context) ([]string, error) {
+// UpdateLastMessage 更新最后消息字段（含 unread_count 自增）
+func (r *InboxConversationRepository) UpdateLastMessage(ctx context.Context, id uint, lastMessage string, lastMessageAt time.Time, unreadInc int) error {
+	// inbox_conversations 表的真实列名是 last_message_preview（varchar(500)）。
+	// 早期代码错用 last_message，每次都报 SQLSTATE 42703。这里同时截断到 500 字符以匹配列宽。
+	const previewMaxLen = 500
+	if len(lastMessage) > previewMaxLen {
+		lastMessage = lastMessage[:previewMaxLen]
+	}
+	return r.db.Model(&model.InboxConversation{}).Where("id = ?", id).
+		Updates(map[string]any{
+			"last_message_preview": lastMessage,
+			"last_message_at":      lastMessageAt,
+			"unread_count":         gorm.Expr("unread_count + ?", unreadInc),
+		}).Error
+}
+
+// GetByID 按 ID 获取会话
+func (r *InboxConversationRepository) GetByID(ctx context.Context, id uint) (*model.InboxConversation, error) {
+	var conv model.InboxConversation
+	err := r.db.First(&conv, id).Error
+	return &conv, err
+}
+
+// Update 更新会话
+func (r *InboxConversationRepository) Update(ctx context.Context, conv *model.InboxConversation) error {
+	return r.db.Save(conv).Error
+}
+
+// ListByAccount 按账号列出会话
+func (r *InboxConversationRepository) ListByAccount(ctx context.Context, platform, accountID string, page, pageSize int) ([]*model.InboxConversation, int64, error) {
+	var items []*model.InboxConversation
+	var total int64
+	query := r.db.Model(&model.InboxConversation{}).
+		Where("platform = ? AND account_id = ?", platform, accountID)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	err := query.Order("pinned DESC, last_message_at DESC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&items).Error
+	return items, total, err
+}
+
+// UpsertFromMessageInput upsert 入参（与 service 层字段一一对应）
+type UpsertFromMessageInput struct {
+	Platform           string
+	AccountID          string
+	CustomerID         string
+	CustomerName       string
+	ConversationID     string
+	LastMessageID      uint
+	LastMessagePreview string
+	LastMessageAt      time.Time
+	LastMessageFrom    string
+}
+
+// UpsertFromMessage 根据消息 upsert 会话（事务封装在 repo 内）
+//
+// 行为保持与原 service 层 upsertInternal 一致：
+//   - 客户首条消息：unread_count=1，status=unread
+//   - 客户后续消息：unread_count+1，closed 状态自动转 unread，assigned+无 assigned_to 也转 unread
+//   - 非客户消息：不修改 unread_count
+func (r *InboxConversationRepository) UpsertFromMessage(ctx context.Context, in UpsertFromMessageInput) error {
+	if r == nil || r.db == nil {
+		return nil
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return r.UpsertFromMessageTx(tx, in)
+	})
+}
+
+// UpsertFromMessageTx 与 UpsertFromMessage 等价，但接受外部 tx（用于跨表事务）。
+// 调用方负责事务边界（如 MessageHubRepository.CreateWithInboxTx）。
+// tx 为 nil 时返回 nil（防御性短路，与 UpsertFromMessage 行为一致）。
+func (r *InboxConversationRepository) UpsertFromMessageTx(tx *gorm.DB, in UpsertFromMessageInput) error {
+	if r == nil || tx == nil {
+		return nil
+	}
+
+	in.LastMessagePreview = sanitizeUTF8(in.LastMessagePreview)
+	in.CustomerName = sanitizeUTF8(in.CustomerName)
+	var conv model.InboxConversation
+	err := tx.Where("platform = ? AND account_id = ? AND customer_id = ?",
+		in.Platform, in.AccountID, in.CustomerID).
+		First(&conv).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		conv = model.InboxConversation{
+			Platform:           in.Platform,
+			AccountID:          in.AccountID,
+			CustomerID:         in.CustomerID,
+			CustomerName:       in.CustomerName,
+			ConversationID:     in.ConversationID,
+			Status:             "unread",
+			UnreadCount:        0,
+			TotalCount:         1,
+			LastMessageID:      in.LastMessageID,
+			LastMessagePreview: in.LastMessagePreview,
+			LastMessageAt:      &in.LastMessageAt,
+			LastMessageFrom:    in.LastMessageFrom,
+		}
+		if in.LastMessageFrom == "customer" {
+			conv.UnreadCount = 1
+		} else {
+
+			conv.Status = "open"
+		}
+		return tx.Create(&conv).Error
+	}
+	if err != nil {
+		return err
+	}
+
+	updates := map[string]any{
+		"last_message_id":      in.LastMessageID,
+		"last_message_preview": in.LastMessagePreview,
+		"last_message_at":      in.LastMessageAt,
+		"last_message_from":    in.LastMessageFrom,
+		"total_count":          conv.TotalCount + 1,
+		"customer_name":        firstNonEmpty(in.CustomerName, conv.CustomerName),
+		"conversation_id":      firstNonEmpty(in.ConversationID, conv.ConversationID),
+	}
+	if in.LastMessageFrom == "customer" {
+		updates["unread_count"] = conv.UnreadCount + 1
+		if conv.Status == "closed" {
+			updates["status"] = "unread"
+			updates["closed_at"] = nil
+		} else if conv.Status == "assigned" && conv.AssignedTo == "" {
+			updates["status"] = "unread"
+		}
+	} else {
+
+		updates["unread_count"] = 0
+		if conv.Status == "unread" {
+			updates["status"] = "open"
+		}
+	}
+	return tx.Model(&model.InboxConversation{}).
+		Where("id = ?", conv.ID).
+		Updates(updates).Error
+}
+
+// DeleteOrphanInboxByConversation 删除同一 (platform, account_id, conversation_id)
+// 下、customer_id 与 keepCustomerID 不一致的孤儿收件箱行。群聊 sender_id 被时间戳
+// 污染后，同一会话会生成多条 customer_id 各异的碎片行，合并为按 conversation_id
+// 归属的单行后，其余碎片需清理以免在收件箱 UI 重复出现。
+func (r *InboxConversationRepository) DeleteOrphanInboxByConversation(ctx context.Context, platform, accountID, conversationID, keepCustomerID string) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
+	res := r.db.WithContext(ctx).
+		Where("platform = ? AND account_id = ? AND conversation_id = ? AND customer_id <> ?",
+			platform, accountID, conversationID, keepCustomerID).
+		Delete(&model.InboxConversation{})
+	return res.RowsAffected, res.Error
+}
+
+// sanitizeUTF8 将字符串中的非法 UTF-8 字节序列替换为 Unicode 替换符（U+FFFD），
+// 避免将损坏内容写入 Postgres（utf8 编码）时报 "invalid byte sequence" 错误。
+// 这是防御性清洗：桥接/历史消息可能携带截断的多字节序列（如 0xe8 0x81）。
+func sanitizeUTF8(s string) string {
+	if s == "" {
+		return s
+	}
+	if utf8.ValidString(s) {
+		return s
+	}
+	return strings.ToValidUTF8(s, "�")
+}
+
+// ListByQuery 按条件分页查询会话（行为与原 service.List 一致）
+func (r *InboxConversationRepository) ListByQuery(ctx context.Context, q InboxConversationQuery) ([]*model.InboxConversation, int64, error) {
+	if r == nil || r.db == nil {
+		return []*model.InboxConversation{}, 0, nil
+	}
+	if q.Page <= 0 {
+		q.Page = 1
+	}
+	if q.PageSize <= 0 || q.PageSize > 200 {
+		q.PageSize = 20
+	}
+
+	tx := r.db.WithContext(ctx).Model(&model.InboxConversation{})
+	if q.Platform != "" {
+		tx = tx.Where("platform = ?", q.Platform)
+	}
+	if q.AccountID != "" {
+		tx = tx.Where("account_id = ?", q.AccountID)
+	}
+	if q.CustomerID != "" {
+		tx = tx.Where("customer_id = ?", q.CustomerID)
+	}
+	if q.Status != "" {
+		tx = tx.Where("status = ?", q.Status)
+	}
+	if q.AssignedTo != "" {
+		tx = tx.Where("assigned_to = ?", q.AssignedTo)
+	}
+	if q.AssignedSOP > 0 {
+		tx = tx.Where("assigned_to_sop = ?", q.AssignedSOP)
+	}
+	if q.Pinned != nil {
+		tx = tx.Where("pinned = ?", *q.Pinned)
+	}
+	if q.Starred != nil {
+		tx = tx.Where("starred = ?", *q.Starred)
+	}
+	if q.Muted != nil {
+		tx = tx.Where("muted = ?", *q.Muted)
+	}
+	if q.Keyword != "" {
+		tx = tx.Where("last_message_preview LIKE ?", "%"+q.Keyword+"%")
+	}
+
+	var total int64
+	if err := tx.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	orderBy := "id DESC"
+	switch q.OrderBy {
+	case "pinned_first":
+		orderBy = "pinned DESC, last_message_at DESC"
+	case "id_desc":
+		orderBy = "id DESC"
+	case "unread_desc":
+		orderBy = "unread_count DESC, last_message_at DESC"
+	case "oldest_asc":
+		orderBy = "last_message_at ASC"
+	case "latest_desc":
+		orderBy = "last_message_at DESC"
+	}
+
+	var list []*model.InboxConversation
+	if err := tx.Order(orderBy).
+		Offset((q.Page - 1) * q.PageSize).
+		Limit(q.PageSize).
+		Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+
+	r.attachLatestMessages(ctx, list)
+	return list, total, nil
+}
+
+// attachLatestMessages 用关联查询（DISTINCT ON conversation_id）读取每个会话的最新一条 message_hub 消息，
+// 覆盖收件箱会话上的 last_message_* 冗余字段，避免与消息表不一致。
+// 注意：仅覆盖有对应 message_hub 记录的会话；无消息记录的会话保留原字段。
+func (r *InboxConversationRepository) attachLatestMessages(ctx context.Context, list []*model.InboxConversation) {
+	if len(list) == 0 {
+		return
+	}
+	ids := make([]string, 0, len(list))
+	for _, c := range list {
+		if c.ConversationID != "" {
+			ids = append(ids, c.ConversationID)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	type latestHub struct {
+		ConversationID string
+		ID             uint
+		Content        string
+		SentAt         *time.Time
+		Direction      string
+		IsAIReply      bool
+	}
+	var rows []latestHub
+	if err := r.db.WithContext(ctx).
+		Table("message_hub").
+		Select("DISTINCT ON (conversation_id) conversation_id, id, content, sent_at, direction, is_ai_reply").
+		Where("conversation_id IN ?", ids).
+		Order("conversation_id, sent_at DESC").
+		Find(&rows).Error; err != nil {
+		return
+	}
+	byConv := make(map[string]*latestHub, len(rows))
+	for i := range rows {
+		byConv[rows[i].ConversationID] = &rows[i]
+	}
+	for _, c := range list {
+		l, ok := byConv[c.ConversationID]
+		if !ok {
+			continue
+		}
+		c.LastMessageID = l.ID
+		preview := l.Content
+		if len(preview) > 200 {
+			preview = preview[:200]
+		}
+		c.LastMessagePreview = preview
+		c.LastMessageAt = l.SentAt
+		switch {
+		case l.Direction == "inbound":
+			c.LastMessageFrom = "customer"
+		case l.IsAIReply:
+			c.LastMessageFrom = "ai"
+		default:
+			c.LastMessageFrom = "staff"
+		}
+	}
+	// 兜底：message_hub 无记录（如 web_embed 渠道消息仅落 session_messages）
+	// 且 inbox_conversations.last_message_preview 仍为空时，从 session_messages
+	// 取该会话最新一条消息内容补全，避免统一收件箱「最新内容」一栏空白。
+	r.attachSessionMessageFallback(ctx, list)
+}
+
+// attachSessionMessageFallback 对仍无 last_message_preview 的会话，从 session_messages
+// 读取其最新一条消息内容补全预览（截断到 200 字符）。
+func (r *InboxConversationRepository) attachSessionMessageFallback(ctx context.Context, list []*model.InboxConversation) {
+	missing := make([]*model.InboxConversation, 0, len(list))
+	for _, c := range list {
+		if c.ConversationID != "" && (c.LastMessagePreview == "") {
+			missing = append(missing, c)
+		}
+	}
+	if len(missing) == 0 {
+		return
+	}
+	ids := make([]string, 0, len(missing))
+	for _, c := range missing {
+		ids = append(ids, c.ConversationID)
+	}
+	type latestSM struct {
+		SessionID string
+		Content   string
+	}
+	var rows []latestSM
+	if err := r.db.WithContext(ctx).
+		Table("session_messages").
+		Select("DISTINCT ON (session_id) session_id, content").
+		Where("session_id IN ?", ids).
+		Order("session_id, id DESC").
+		Find(&rows).Error; err != nil {
+		return
+	}
+	bySession := make(map[string]string, len(rows))
+	for i := range rows {
+		content := rows[i].Content
+		if len(content) > 200 {
+			content = content[:200]
+		}
+		bySession[rows[i].SessionID] = content
+	}
+	for _, c := range missing {
+		if preview, ok := bySession[c.ConversationID]; ok && preview != "" {
+			c.LastMessagePreview = preview
+		}
+	}
+}
+
+// ReconcileUnread 以 message_hub 最后一条消息为准，批量重算全部会话的未读计数与状态。
+//   - 最后一条是我方（AI/坐席）消息 → 未读清零；原“未读”态转“待处理/消息池”。
+//   - 最后一条是客户消息 → 未读记为 1（至少有一条未读）；已分配/已关闭保持不变，其余转“未读”。
+//
+// 仅更新存在 message_hub 记录的会话；无消息记录的会话保持原状。
+func (r *InboxConversationRepository) ReconcileUnread(ctx context.Context) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
+	res := r.db.WithContext(ctx).Exec(`
+		WITH latest AS (
+			SELECT DISTINCT ON (conversation_id) conversation_id, direction
+			FROM message_hub
+			ORDER BY conversation_id, sent_at DESC
+		)
+		UPDATE inbox_conversations ic
+		SET unread_count = CASE
+		        WHEN l.direction = 'inbound' THEN GREATEST(COALESCE(ic.unread_count, 0), 1)
+		        ELSE 0
+		    END,
+		    status = CASE
+		        WHEN l.direction = 'inbound'
+		            THEN CASE WHEN ic.status IN ('assigned', 'closed') THEN ic.status ELSE 'unread' END
+		        ELSE CASE WHEN ic.status = 'unread' THEN 'open' ELSE ic.status END
+		    END
+		FROM latest l
+		WHERE ic.conversation_id = l.conversation_id
+	`)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
+}
+
+// FindOverdueConversations 查询“超时未响应”的会话：
+// 最后一条是客户消息、且早于 threshold、且仍处于活跃态（未读/待处理/已分配）。
+func (r *InboxConversationRepository) FindOverdueConversations(ctx context.Context, threshold time.Time, limit int) ([]*model.InboxConversation, error) {
 	if r == nil || r.db == nil {
 		return nil, nil
 	}
-	var convIDs []string
-	err := r.db.WithContext(ctx).Raw(`
-		SELECT DISTINCT m.conversation_id
-		FROM message_hub m
-		WHERE m.conversation_id IS NOT NULL AND m.conversation_id <> ''
-		  AND NOT EXISTS (
-			SELECT 1 FROM inbox_conversations i WHERE i.conversation_id = m.conversation_id
-		  )
-	`).Scan(&convIDs).Error
+	var list []*model.InboxConversation
+	q := r.db.WithContext(ctx).
+		Where("last_message_from = ?", "customer").
+		Where("last_message_at IS NOT NULL AND last_message_at < ?", threshold).
+		Where("status IN ?", []string{"unread", "open", "assigned"})
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	if err := q.Order("last_message_at ASC").Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+// ListOnlineAgentIDs 返回当前在线（status='online'）的坐席 agent_id 列表（字符串形式，可直接用于分配）。
+func (r *InboxConversationRepository) ListOnlineAgentIDs(ctx context.Context) ([]string, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	var ids []string
+	if err := r.db.WithContext(ctx).
+		Table("agent_statuses").
+		Where("status = ?", "online").
+		Pluck("CAST(agent_id AS TEXT)", &ids).Error; err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
+// MarkRead 标记会话已读（重置未读计数 + 状态置为 open）
+func (r *InboxConversationRepository) MarkRead(ctx context.Context, conversationID uint) error {
+	if r == nil || r.db == nil {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(&model.InboxConversation{}).
+		Where("id = ?", conversationID).
+		Updates(map[string]any{
+			"unread_count": 0,
+			"status":       "open",
+		}).Error
+}
+
+// UpdateField 更新单个字段（用于 Pin/Star/Mute/Tag 等开关型操作）
+func (r *InboxConversationRepository) UpdateField(ctx context.Context, conversationID uint, field string, value any) error {
+	if r == nil || r.db == nil {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(&model.InboxConversation{}).
+		Where("id = ?", conversationID).
+		Update(field, value).Error
+}
+
+// CountByAssignedToStatus 按 assigned_to + status 集合统计会话数（用于客服负载查询）
+func (r *InboxConversationRepository) CountByAssignedToStatus(ctx context.Context, staffUserID string, statuses []string) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
+	var n int64
+	err := r.db.WithContext(ctx).Model(&model.InboxConversation{}).
+		Where("assigned_to = ? AND status IN ?", staffUserID, statuses).
+		Count(&n).Error
+	return n, err
+}
+
+// AssignTxInput 分配事务入参
+type AssignTxInput struct {
+	ConversationID uint
+	Action         string // assign/reassign/release/close/reopen
+	ToType         string // human/sop/ai
+	ToUserID       string
+	ToSOPID        uint
+	OperatorID     string
+	Remark         string
+}
+
+// AssignTxOutput 分配事务出参
+//
+// OldAssignedTo / NewAssignedTo 用于 service 层同步内存负载缓存（不属于 DB 操作）。
+type AssignTxOutput struct {
+	OldAssignedTo string
+	NewAssignedTo string
+	History       *model.InboxAssignment
+}
+
+// AssignTx 在单个事务内完成「更新会话 + 写入分配历史」
+//
+// 五层架构 §三.5：原 service 层 s.db.Transaction 收敛到 repo。
+// 错误约定：会话不存在时返回 errors.New("conversation not found")（service 层据此映射 ErrInboxConversationMissing）。
+func (r *InboxConversationRepository) AssignTx(ctx context.Context, in AssignTxInput) (*AssignTxOutput, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	out := &AssignTxOutput{}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var conv model.InboxConversation
+		if err := tx.First(&conv, in.ConversationID).Error; err != nil {
+			return errors.New("conversation not found")
+		}
+		out.OldAssignedTo = conv.AssignedTo
+
+		updates := map[string]any{}
+		now := time.Now()
+		switch in.Action {
+		case "assign":
+			updates["status"] = "assigned"
+			updates["assigned_at"] = &now
+		case "reassign":
+			updates["status"] = "assigned"
+			updates["assigned_at"] = &now
+		case "release":
+			updates["status"] = "open"
+			updates["assigned_to"] = ""
+			updates["assigned_to_sop"] = 0
+			updates["assigned_at"] = nil
+		case "close":
+			updates["status"] = "closed"
+			updates["closed_at"] = &now
+		case "reopen":
+			updates["status"] = "unread"
+			updates["closed_at"] = nil
+			updates["assigned_to"] = ""
+			updates["assigned_to_sop"] = 0
+		}
+
+		if in.Action == "assign" || in.Action == "reassign" {
+			updates["assigned_to"] = ""
+			updates["assigned_to_sop"] = 0
+			switch in.ToType {
+			case "human":
+				updates["assigned_to"] = in.ToUserID
+				out.NewAssignedTo = in.ToUserID
+			case "sop":
+				updates["assigned_to_sop"] = in.ToSOPID
+			case "ai":
+
+			}
+		}
+
+		if err := tx.Model(&model.InboxConversation{}).
+			Where("id = ?", in.ConversationID).
+			Updates(updates).Error; err != nil {
+			return err
+		}
+
+		hist := &model.InboxAssignment{
+			ConversationID: conv.ID,
+			Platform:       conv.Platform,
+			AccountID:      conv.AccountID,
+			CustomerID:     conv.CustomerID,
+			Action:         in.Action,
+			FromType:       inferFromType(conv.AssignedTo, conv.AssignedToSOP),
+			FromUserID:     conv.AssignedTo,
+			ToType:         in.ToType,
+			ToUserID:       in.ToUserID,
+			ToSOPID:        in.ToSOPID,
+			OperatorID:     in.OperatorID,
+			Remark:         in.Remark,
+		}
+		if err := tx.Create(hist).Error; err != nil {
+			return err
+		}
+		out.History = hist
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	return convIDs, nil
+	return out, nil
 }
 
-func (r *MessageHubRepository) FindLatestByConversation(ctx context.Context, conversationID string) (*model.MessageHub, error) {
+// InboxStatsResult 收件箱统计结果（与 service.InboxStats 字段对齐）
+type InboxStatsResult struct {
+	Total        int64
+	Unread       int64
+	Open         int64
+	Assigned     int64
+	Closed       int64
+	ByPlatform   map[string]int64
+	ByAssignedTo map[string]int64
+	OverdueCount int64
+}
+
+// GetStats 收件箱多维度统计（行为与原 service.GetStats 一致）
+//
+// 参数：
+//   - validStatuses: 参与状态分布统计的状态集合
+//   - activeStatuses: 客服活跃会话状态集合（用于 ByAssignedTo）
+//   - from: last_message_from 过滤值（通常 "customer"）
+//   - threshold: 超时阈值（last_message_at <= threshold 视为 overdue）
+func (r *InboxConversationRepository) GetStats(ctx context.Context, validStatuses, activeStatuses []string, from string, threshold time.Time) (*InboxStatsResult, error) {
 	if r == nil || r.db == nil {
-		return nil, gorm.ErrRecordNotFound
+		return &InboxStatsResult{
+			ByPlatform: map[string]int64{}, ByAssignedTo: map[string]int64{},
+		}, nil
 	}
-	if conversationID == "" {
-		return nil, gorm.ErrRecordNotFound
+	stats := &InboxStatsResult{
+		ByPlatform:   map[string]int64{},
+		ByAssignedTo: map[string]int64{},
 	}
-	var msg model.MessageHub
-	if err := r.db.WithContext(ctx).
-		Where("conversation_id = ?", conversationID).
-		Order("id DESC").
-		First(&msg).Error; err != nil {
+
+	type sc struct {
+		Status string
+		C      int64
+	}
+	var scs []sc
+	if err := r.db.WithContext(ctx).Model(&model.InboxConversation{}).
+		Select("status, COUNT(*) AS c").
+		Where("status IN ?", validStatuses).
+		Group("status").Scan(&scs).Error; err != nil {
 		return nil, err
 	}
-	return &msg, nil
-}
-
-type SyncGapConv struct {
-	Platform       string
-	AccountID      string
-	ConversationID string
-	CustomerID     string
-}
-
-func (r *MessageHubRepository) FindSyncGapConversations(ctx context.Context, since time.Time) ([]SyncGapConv, error) {
-	if r == nil || r.db == nil {
-		return nil, nil
+	for _, s := range scs {
+		switch s.Status {
+		case "unread":
+			stats.Unread = s.C
+		case "open":
+			stats.Open = s.C
+		case "assigned":
+			stats.Assigned = s.C
+		case "closed":
+			stats.Closed = s.C
+		}
+		stats.Total += s.C
 	}
-	const triad = "(CASE" +
-		" WHEN m.is_group AND m.conversation_id <> '' THEN m.conversation_id" +
-		" WHEN m.conversation_id <> '' AND (m.sender_id LIKE (m.conversation_id || ' %') OR m.receiver_id LIKE (m.conversation_id || ' %')) THEN m.conversation_id" +
-		" ELSE (CASE WHEN m.direction = 'inbound' THEN m.sender_id ELSE m.receiver_id END)" +
-		" END)"
-	sql := `SELECT DISTINCT m.platform, m.account_id, m.conversation_id, ` + triad + ` AS customer_id
-		FROM message_hub m
-		WHERE m.conversation_id IS NOT NULL AND m.conversation_id <> ''
-		  AND m.created_at >= $1
-		  AND NOT EXISTS (
-			SELECT 1 FROM inbox_conversations ic
-			WHERE ic.platform = m.platform AND ic.account_id = m.account_id AND ic.customer_id = ` + triad + `
-		  )`
-	var rows []SyncGapConv
-	if err := r.db.WithContext(ctx).Raw(sql, since).Scan(&rows).Error; err != nil {
-		return nil, err
+
+	type pc struct {
+		Platform string
+		C        int64
 	}
-	return rows, nil
+	var pcs []pc
+	r.db.WithContext(ctx).Model(&model.InboxConversation{}).
+		Select("platform AS platform, COUNT(*) AS c").
+		Group("platform").Scan(&pcs)
+	for _, p := range pcs {
+		stats.ByPlatform[p.Platform] = p.C
+	}
+
+	type ac struct {
+		AssignedTo string
+		C          int64
+	}
+	var acs []ac
+	r.db.WithContext(ctx).Model(&model.InboxConversation{}).
+		Select("assigned_to, COUNT(*) AS c").
+		Where("assigned_to <> '' AND status IN ?", activeStatuses).
+		Group("assigned_to").Scan(&acs)
+	for _, a := range acs {
+		stats.ByAssignedTo[a.AssignedTo] = a.C
+	}
+
+	var overdue int64
+	r.db.WithContext(ctx).Model(&model.InboxConversation{}).
+		Where("status IN ? AND last_message_from = ? AND last_message_at <= ?",
+			[]string{"unread", "open", "assigned"}, from, threshold).
+		Count(&overdue)
+	stats.OverdueCount = overdue
+
+	return stats, nil
 }
 
-func (r *MessageHubRepository) NormalizePollutedConversationIDs(ctx context.Context) (int64, error) {
-	if r == nil || r.db == nil {
-		return 0, nil
-	}
-	// 末尾时间戳/状态 token 正则（按 $ 锚定，'g' 模式去除所有后缀时间戳）：
-	//   昨天/今天/前天/明天 + HH:MM（两 token，须排在单 token 日前词之前，否则会只剥半截）
-	//   刚刚/刚才/前天/昨天/今天/明天/周X（单 token 日标识）
-	//   N分钟前/小时前/天前（相对时间）
-	//   YYYY/MM/DD、MM/DD（日期）   HH:MM（时刻）
-	//   有新交易评价/交易成功（交易状态串）
-	const tsPat = "( 昨天 \\d{1,2}:\\d{2}| 今天 \\d{1,2}:\\d{2}| 前天 \\d{1,2}:\\d{2}| 明天 \\d{1,2}:\\d{2}" +
-		"| 刚刚| 刚才| 前天| 大前天| 昨天| 今天| 明天| 周[一二三四五六日天]" +
-		"| \\d+分钟前| \\d+小时前| \\d+天前" +
-		"| \\d{4}/\\d{1,2}/\\d{1,2}| \\d{1,2}/\\d{1,2}| \\d{1,2}:\\d{2}" +
-		"| 有新交易评价| 交易成功)$"
-	res := r.db.WithContext(ctx).Exec(`
-		UPDATE message_hub m
-		SET conversation_id = regexp_replace(
-			CASE
-				WHEN m.sender_id   LIKE (m.conversation_id || ' %') THEN m.sender_id
-				WHEN m.receiver_id LIKE (m.conversation_id || ' %') THEN m.receiver_id
-				ELSE m.conversation_id
-			END,
-			?, '', 'g'
-		)
-		WHERE m.conversation_id LIKE 'conv:%'
-		  AND (m.sender_id   LIKE (m.conversation_id || ' %')
-		    OR m.receiver_id LIKE (m.conversation_id || ' %'))`,
-		tsPat)
-	return res.RowsAffected, res.Error
-}
-
-func (r *MessageHubRepository) NormalizePollutedTraceConversationIDs(ctx context.Context) (int64, error) {
-	if r == nil || r.db == nil {
-		return 0, nil
-	}
-	const tsPat = "( 昨天 \\d{1,2}:\\d{2}| 今天 \\d{1,2}:\\d{2}| 前天 \\d{1,2}:\\d{2}| 明天 \\d{1,2}:\\d{2}" +
-		"| 刚刚| 刚才| 前天| 大前天| 昨天| 今天| 明天| 周[一二三四五六日天]" +
-		"| \\d+分钟前| \\d+小时前| \\d+天前" +
-		"| \\d{4}/\\d{1,2}/\\d{1,2}| \\d{1,2}/\\d{1,2}| \\d{1,2}:\\d{2}" +
-		"| 有新交易评价| 交易成功)$"
-	res := r.db.WithContext(ctx).Exec(`
-		UPDATE message_trace m
-		SET conversation_id = regexp_replace(m.conversation_id, ?, '', 'g')
-		WHERE m.conversation_id LIKE 'conv:% %'`,
-		tsPat)
-	return res.RowsAffected, res.Error
-}
-
-func (r *InboxConversationRepository) DeletePollutedInboxRows(ctx context.Context) (int64, error) {
-	if r == nil || r.db == nil {
-		return 0, nil
-	}
-	res := r.db.WithContext(ctx).
-		Where("conversation_id LIKE ? OR customer_id LIKE ?", "conv:% %", "conv:% %").
-		Delete(&model.InboxConversation{})
-	return res.RowsAffected, res.Error
-}
-
-func (r *InboxConversationRepository) DeleteOrphanConvInboxRows(ctx context.Context) (int64, error) {
-	if r == nil || r.db == nil {
-		return 0, nil
-	}
-	res := r.db.WithContext(ctx).
-		Where("conversation_id LIKE ? AND NOT EXISTS (SELECT 1 FROM message_hub m WHERE m.conversation_id = inbox_conversations.conversation_id)",
-			"conv:%").
-		Delete(&model.InboxConversation{})
-	return res.RowsAffected, res.Error
-}
-
-type InboxConversationRepository struct {
+// InboxAssignmentRepository 统一收件箱分配历史仓库
+type InboxAssignmentRepository struct {
 	db *gorm.DB
 }
 
-func NewInboxConversationRepository() *InboxConversationRepository {
-	return &InboxConversationRepository{db: _db.GetDB()}
+// NewInboxAssignmentRepository 创建分配历史仓库实例
+func NewInboxAssignmentRepository() *InboxAssignmentRepository {
+	return &InboxAssignmentRepository{db: _db.GetDB()}
+}
+
+// NewInboxAssignmentRepositoryWithDB 创建指定数据库连接的 InboxAssignmentRepository 实例
+// 用于 service 层依赖注入与单元测试；db 为 nil 时所有方法做无操作短路。
+func NewInboxAssignmentRepositoryWithDB(db *gorm.DB) *InboxAssignmentRepository {
+	return &InboxAssignmentRepository{db: db}
+}
+
+// SetDB 注入 db（用于测试）
+func (r *InboxAssignmentRepository) SetDB(ctx context.Context, db *gorm.DB) {
+	if db != nil {
+		r.db = db
+	}
+}
+
+// ListByConversationID 按会话 ID 分页查询分配历史
+func (r *InboxAssignmentRepository) ListByConversationID(ctx context.Context, conversationID uint, page, pageSize int) ([]*model.InboxAssignment, int64, error) {
+	if r == nil || r.db == nil {
+		return []*model.InboxAssignment{}, 0, nil
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 20
+	}
+
+	tx := r.db.WithContext(ctx).Model(&model.InboxAssignment{})
+	if conversationID > 0 {
+		tx = tx.Where("conversation_id = ?", conversationID)
+	}
+	var total int64
+	if err := tx.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var list []*model.InboxAssignment
+	if err := tx.Order("created_at DESC").
+		Offset((page - 1) * pageSize).Limit(pageSize).
+		Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+	return list, total, nil
+}
+
+// AssignmentCount 分配计数（按 to_user_id 聚合）
+type AssignmentCount struct {
+	AssignedTo string
+	N          int64
+}
+
+// GroupCountByToUserID 按 to_user_id 聚合统计分配次数（用于轮询分配选最闲客服）
+func (r *InboxAssignmentRepository) GroupCountByToUserID(ctx context.Context, candidates []string, action string) ([]AssignmentCount, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	var counts []AssignmentCount
+	err := r.db.WithContext(ctx).Model(&model.InboxAssignment{}).
+		Select("to_user_id AS assigned_to, COUNT(*) AS n").
+		Where("to_user_id IN ? AND action = ?", candidates, action).
+		Group("to_user_id").Scan(&counts).Error
+	if err != nil {
+		return nil, err
+	}
+	return counts, nil
+}
+
+// inferFromType 根据 assigned_to / assigned_to_sop 推断来源类型
+func inferFromType(assignedTo string, assignedSOP uint) string {
+	if assignedSOP > 0 {
+		return "sop"
+	}
+	if assignedTo != "" {
+		return "human"
+	}
+	return "system"
+}
+
+// firstNonEmpty 返回第一个非空字符串（trim 后非空）
+func firstNonEmpty(a, b string) string {
+	if strings.TrimSpace(a) != "" {
+		return a
+	}
+	return b
 }

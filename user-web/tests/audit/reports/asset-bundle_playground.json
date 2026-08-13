@@ -1,0 +1,13 @@
+{
+  "page": "asset-bundle/playground",
+  "url": "http://localhost:8213/#/asset-bundle/playground",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 23
+}

@@ -1,0 +1,13 @@
+{
+  "page": "auto-reply",
+  "url": "http://localhost:8213/#/auto-reply",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 2
+}

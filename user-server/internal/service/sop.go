@@ -772,7 +772,6 @@ func InitSOPService(db *gorm.DB, dispatcher *llm.Dispatcher) *SOPService {
 	return sopInstance
 }
 
-// ===== merged from sop_part2.go (was a mechanical _partN split) =====
 func NewWelcomeSOP() *CreateRequest {
 	return &CreateRequest{
 

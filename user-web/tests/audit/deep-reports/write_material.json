@@ -1,0 +1,12 @@
+{
+  "resource": "material",
+  "steps": [],
+  "mismatches": [],
+  "errors": [
+    {
+      "step": "create",
+      "status": 404,
+      "body": "{\"error\":\"not found\"}"
+    }
+  ]
+}

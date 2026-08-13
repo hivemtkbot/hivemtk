@@ -1,0 +1,13 @@
+{
+  "page": "dashboardScreen/list",
+  "url": "http://localhost:8213/#/dashboardScreen/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 4
+}

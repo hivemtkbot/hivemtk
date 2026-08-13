@@ -719,7 +719,6 @@ func (s *UnifiedInboxService) MergeAccounts(ctx context.Context, primaryUnifiedI
 	return nil
 }
 
-// ===== merged from unified_inbox_part2.go (was a mechanical _partN split) =====
 func (s *UnifiedInboxService) GetCustomerByUnifiedID(ctx context.Context, unifiedID string) *OneIDCustomerLite {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

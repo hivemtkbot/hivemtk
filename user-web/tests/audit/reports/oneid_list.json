@@ -1,0 +1,14 @@
+{
+  "page": "oneid/list",
+  "url": "http://localhost:8213/#/oneid/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 11,
+  "note": "page_interaction_timeout_guard_triggered"
+}

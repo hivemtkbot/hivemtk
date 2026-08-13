@@ -10,9 +10,10 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/service"
 
+	"net/http/httptest"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"net/http/httptest"
 )
 
 // ───────────────────────── fake pipeline ─────────────────────────

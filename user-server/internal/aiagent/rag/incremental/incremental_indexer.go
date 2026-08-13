@@ -25,7 +25,7 @@ import (
 	"hivemtk-user/internal/aiagent/knowledge/model"
 	knowledgerepo "hivemtk-user/internal/aiagent/knowledge/repository"
 	"hivemtk-user/internal/aiagent/llm"
-	"hivemtk-user/internal/aiagent/rag/core"
+	rag_core "hivemtk-user/internal/aiagent/rag/core"
 	"hivemtk-user/internal/etl"
 	"hivemtk-user/internal/event"
 	"hivemtk-user/internal/pkg/utils/logger"

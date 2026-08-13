@@ -252,7 +252,7 @@ func (ctrl *KnowledgeWorkspaceController) DocumentImport(c *gin.Context) {
 func (ctrl *KnowledgeWorkspaceController) ListDocuments(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 
 	filter := knowledgerepo.ListFilter{
 		ProductID:   productID,
@@ -283,7 +283,7 @@ func (ctrl *KnowledgeWorkspaceController) GetDocument(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的文档ID")
 		return
 	}
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 	doc, err := ctrl.kbService.Get(c.Request.Context(), productID, int64(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, err.Error())
@@ -371,7 +371,7 @@ func (ctrl *KnowledgeWorkspaceController) DeleteDocument(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的文档ID")
 		return
 	}
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 	if err := ctrl.kbService.Delete(c.Request.Context(), productID, int64(id)); err != nil {
 		if isNotFoundError(err) {
 			response.Error(c, http.StatusNotFound, err.Error())
@@ -390,7 +390,7 @@ func (ctrl *KnowledgeWorkspaceController) ReindexDocument(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的文档ID")
 		return
 	}
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 	if err := ctrl.kbService.Reindex(c.Request.Context(), productID, uint64(id)); err != nil {
 		if isNotFoundError(err) {
 			response.Error(c, http.StatusNotFound, err.Error())
@@ -507,7 +507,7 @@ func (ctrl *KnowledgeWorkspaceController) Search(c *gin.Context) {
 func (ctrl *KnowledgeWorkspaceController) ListImportLogs(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 
 	docs, total, err := ctrl.kbService.ListImportLogs(c.Request.Context(), knowledgerepo.ImportLogListFilter{
 		ProductID: productID,
@@ -545,7 +545,7 @@ func (ctrl *KnowledgeWorkspaceController) ListOpenAPISources(c *gin.Context) {
 	if !ctrl.requireOpenAPIPort(c) {
 		return
 	}
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 	sources, err := ctrl.openapiService.ListSources(c.Request.Context(), productID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
@@ -588,7 +588,7 @@ func (ctrl *KnowledgeWorkspaceController) GetOpenAPISource(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的数据源ID")
 		return
 	}
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 	src, err := ctrl.openapiService.GetSource(c.Request.Context(), productID, int64(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, err.Error())
@@ -631,7 +631,7 @@ func (ctrl *KnowledgeWorkspaceController) DeleteOpenAPISource(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的数据源ID")
 		return
 	}
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 	if err := ctrl.openapiService.DeleteSource(c.Request.Context(), productID, int64(id)); err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -649,7 +649,7 @@ func (ctrl *KnowledgeWorkspaceController) SyncOpenAPISource(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的数据源ID")
 		return
 	}
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 	result, err := ctrl.openapiService.SyncSource(c.Request.Context(), productID, int64(id))
 	if err != nil {
 		if isNotFoundError(err) {
@@ -690,7 +690,7 @@ func (ctrl *KnowledgeWorkspaceController) ToggleOpenAPISource(c *gin.Context) {
 		Enabled bool `json:"enabled"`
 	}
 	_ = c.ShouldBindJSON(&body)
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 	if err := ctrl.openapiService.ToggleEnabled(c.Request.Context(), productID, int64(id), body.Enabled); err != nil {
 		if isNotFoundError(err) {
 			response.Error(c, http.StatusNotFound, err.Error())
@@ -708,7 +708,7 @@ func (ctrl *KnowledgeWorkspaceController) ToggleOpenAPISource(c *gin.Context) {
 
 // GetOverviewStats 总览统计
 func (ctrl *KnowledgeWorkspaceController) GetOverviewStats(c *gin.Context) {
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 	overview, err := ctrl.statsService.GetOverview(c.Request.Context(), productID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
@@ -719,7 +719,7 @@ func (ctrl *KnowledgeWorkspaceController) GetOverviewStats(c *gin.Context) {
 
 // GetDocumentStats 文档维度统计
 func (ctrl *KnowledgeWorkspaceController) GetDocumentStats(c *gin.Context) {
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
 	if days <= 0 {
 		days = 30
@@ -734,7 +734,7 @@ func (ctrl *KnowledgeWorkspaceController) GetDocumentStats(c *gin.Context) {
 
 // GetSearchStats 检索维度统计
 func (ctrl *KnowledgeWorkspaceController) GetSearchStats(c *gin.Context) {
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 	days, _ := strconv.Atoi(c.DefaultQuery("days", "7"))
 	if days <= 0 {
 		days = 7
@@ -749,7 +749,7 @@ func (ctrl *KnowledgeWorkspaceController) GetSearchStats(c *gin.Context) {
 
 // GetImportStats 导入维度统计
 func (ctrl *KnowledgeWorkspaceController) GetImportStats(c *gin.Context) {
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
 	if days <= 0 {
 		days = 30
@@ -764,7 +764,7 @@ func (ctrl *KnowledgeWorkspaceController) GetImportStats(c *gin.Context) {
 
 // GetOpenAPIStats OpenAPI 同步统计
 func (ctrl *KnowledgeWorkspaceController) GetOpenAPIStats(c *gin.Context) {
-	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
+	productID := ctrl.resolveProductID(c.Query("product_id"))
 	data, err := ctrl.statsService.GetOpenAPIStats(c.Request.Context(), productID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())

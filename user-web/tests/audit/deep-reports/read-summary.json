@@ -1,0 +1,562 @@
+[
+  {
+    "page": "/dingtalk-app",
+    "diffs": 0
+  },
+  {
+    "page": "/livecode",
+    "diffs": 0
+  },
+  {
+    "page": "/whatsapp-cloud",
+    "diffs": 0
+  },
+  {
+    "page": "abExperiment/list",
+    "diffs": 0
+  },
+  {
+    "page": "aiAgent",
+    "diffs": 0
+  },
+  {
+    "page": "aiAgent/create",
+    "diffs": 0
+  },
+  {
+    "page": "aiAgent/edit/83",
+    "diffs": 0
+  },
+  {
+    "page": "aiAgent/list",
+    "diffs": 0
+  },
+  {
+    "page": "aiAgent/tools",
+    "diffs": 0
+  },
+  {
+    "page": "aiProductivity/list",
+    "diffs": 0
+  },
+  {
+    "page": "asset-bundle/list",
+    "diffs": 0
+  },
+  {
+    "page": "asset-bundle/merchant-new",
+    "diffs": 0
+  },
+  {
+    "page": "asset-bundle/merchant/1",
+    "diffs": 0
+  },
+  {
+    "page": "asset-bundle/playground",
+    "diffs": 0
+  },
+  {
+    "page": "asset-bundle/playground/1",
+    "diffs": 0
+  },
+  {
+    "page": "asset-market",
+    "diffs": 0
+  },
+  {
+    "page": "asset-market/detail/1",
+    "diffs": 0
+  },
+  {
+    "page": "asset-market/my-assets",
+    "diffs": 0
+  },
+  {
+    "page": "asset-market/sync-log",
+    "diffs": 0
+  },
+  {
+    "page": "auto-reply",
+    "diffs": 0
+  },
+  {
+    "page": "backup/list",
+    "diffs": 0
+  },
+  {
+    "page": "batchOperation/list",
+    "diffs": 0
+  },
+  {
+    "page": "chatChannel/create",
+    "diffs": 0
+  },
+  {
+    "page": "chatChannel/edit/7",
+    "diffs": 0
+  },
+  {
+    "page": "chatChannel/install-guide/7",
+    "diffs": 0
+  },
+  {
+    "page": "chatChannel/list",
+    "diffs": 0
+  },
+  {
+    "page": "churnPrediction/list",
+    "diffs": 0
+  },
+  {
+    "page": "clue/list",
+    "diffs": 0
+  },
+  {
+    "page": "clue/statistics",
+    "diffs": 0
+  },
+  {
+    "page": "community/list",
+    "diffs": 0
+  },
+  {
+    "page": "confidence/panel",
+    "diffs": 1
+  },
+  {
+    "page": "conversionFunnel/list",
+    "diffs": 0
+  },
+  {
+    "page": "customReport/list",
+    "diffs": 0
+  },
+  {
+    "page": "customer360/list",
+    "diffs": 0
+  },
+  {
+    "page": "customerEvent/list",
+    "diffs": 0
+  },
+  {
+    "page": "customerJourney/dashboard",
+    "diffs": 0
+  },
+  {
+    "page": "customerService/agentStatus",
+    "diffs": 0
+  },
+  {
+    "page": "customerService/aiSuggestion",
+    "diffs": 0
+  },
+  {
+    "page": "customerService/quickReply",
+    "diffs": 0
+  },
+  {
+    "page": "customerService/sessionTag",
+    "diffs": 0
+  },
+  {
+    "page": "customerSession/list",
+    "diffs": 0
+  },
+  {
+    "page": "dashboardScreen/list",
+    "diffs": 0
+  },
+  {
+    "page": "dialogueMemory/list",
+    "diffs": 0
+  },
+  {
+    "page": "domainPool",
+    "diffs": 0
+  },
+  {
+    "page": "douyinCard",
+    "diffs": 0
+  },
+  {
+    "page": "douyin/auto-reply",
+    "diffs": 0
+  },
+  {
+    "page": "douyin/stats",
+    "diffs": 0
+  },
+  {
+    "page": "email",
+    "diffs": 0
+  },
+  {
+    "page": "email/drafts",
+    "diffs": 0
+  },
+  {
+    "page": "email/guide",
+    "diffs": 0
+  },
+  {
+    "page": "email/info",
+    "diffs": 0
+  },
+  {
+    "page": "email/jobs",
+    "diffs": 0
+  },
+  {
+    "page": "email/smtp",
+    "diffs": 0
+  },
+  {
+    "page": "faq",
+    "diffs": 0
+  },
+  {
+    "page": "faq/editor",
+    "diffs": 0
+  },
+  {
+    "page": "faq/editor/1",
+    "diffs": 1
+  },
+  {
+    "page": "faq/list",
+    "diffs": 1
+  },
+  {
+    "page": "feedbackLoop/panel",
+    "diffs": 1
+  },
+  {
+    "page": "feishu",
+    "diffs": 0
+  },
+  {
+    "page": "feishu/account",
+    "diffs": 0
+  },
+  {
+    "page": "glossary",
+    "diffs": 0
+  },
+  {
+    "page": "humanize/panel",
+    "diffs": 0
+  },
+  {
+    "page": "i18n/dashboard",
+    "diffs": 1
+  },
+  {
+    "page": "integration/list",
+    "diffs": 0
+  },
+  {
+    "page": "intentRecognition/list",
+    "diffs": 1
+  },
+  {
+    "page": "knowledgeBase",
+    "diffs": 0
+  },
+  {
+    "page": "knowledgeBase/create",
+    "diffs": 0
+  },
+  {
+    "page": "knowledgeBase/edit/1",
+    "diffs": 0
+  },
+  {
+    "page": "knowledgeBase/list",
+    "diffs": 0
+  },
+  {
+    "page": "knowledge/batch-import",
+    "diffs": 0
+  },
+  {
+    "page": "knowledge/external",
+    "diffs": 0
+  },
+  {
+    "page": "knowledge/feedbacks",
+    "diffs": 0
+  },
+  {
+    "page": "knowledge/management",
+    "diffs": 1
+  },
+  {
+    "page": "knowledge/openapi",
+    "diffs": 0
+  },
+  {
+    "page": "knowledge/playground",
+    "diffs": 0
+  },
+  {
+    "page": "knowledge/statistics",
+    "diffs": 0
+  },
+  {
+    "page": "knowledge/tokens",
+    "diffs": 0
+  },
+  {
+    "page": "kuaishouCard",
+    "diffs": 0
+  },
+  {
+    "page": "kuaishou/auto-reply",
+    "diffs": 0
+  },
+  {
+    "page": "kuaishou/stats",
+    "diffs": 0
+  },
+  {
+    "page": "lead-mining/index",
+    "diffs": 0
+  },
+  {
+    "page": "list",
+    "diffs": 0
+  },
+  {
+    "page": "llmRouting/list",
+    "diffs": 0
+  },
+  {
+    "page": "marketingFlow/list",
+    "diffs": 0
+  },
+  {
+    "page": "messageHub/list",
+    "diffs": 0
+  },
+  {
+    "page": "objection/list",
+    "diffs": 0
+  },
+  {
+    "page": "oneid/conflicts",
+    "diffs": 0
+  },
+  {
+    "page": "oneid/list",
+    "diffs": 0
+  },
+  {
+    "page": "operationLog/list",
+    "diffs": 0
+  },
+  {
+    "page": "persona/list",
+    "diffs": 3
+  },
+  {
+    "page": "platformAccount/list",
+    "diffs": 0
+  },
+  {
+    "page": "reachPipeline/list",
+    "diffs": 0
+  },
+  {
+    "page": "scriptTemplate/list",
+    "diffs": 0
+  },
+  {
+    "page": "securityAudit/list",
+    "diffs": 0
+  },
+  {
+    "page": "shortLink",
+    "diffs": 0
+  },
+  {
+    "page": "shortLink/stats",
+    "diffs": 0
+  },
+  {
+    "page": "sms/config",
+    "diffs": 0
+  },
+  {
+    "page": "sms/drafts",
+    "diffs": 0
+  },
+  {
+    "page": "sms/jobs",
+    "diffs": 0
+  },
+  {
+    "page": "sms/list",
+    "diffs": 0
+  },
+  {
+    "page": "sop-template",
+    "diffs": 0
+  },
+  {
+    "page": "sop-template/editor",
+    "diffs": 0
+  },
+  {
+    "page": "sop-template/editor/33",
+    "diffs": 0
+  },
+  {
+    "page": "sop-template/list",
+    "diffs": 1
+  },
+  {
+    "page": "sopAgent/list",
+    "diffs": 0
+  },
+  {
+    "page": "stats",
+    "diffs": 0
+  },
+  {
+    "page": "system/config",
+    "diffs": 0
+  },
+  {
+    "page": "system/guide",
+    "diffs": 0
+  },
+  {
+    "page": "system/material-library",
+    "diffs": 0
+  },
+  {
+    "page": "system/monitor",
+    "diffs": 0
+  },
+  {
+    "page": "system/obs-config",
+    "diffs": 0
+  },
+  {
+    "page": "system/permissions",
+    "diffs": 0
+  },
+  {
+    "page": "system/rag-account",
+    "diffs": 0
+  },
+  {
+    "page": "system/rag-overview",
+    "diffs": 0
+  },
+  {
+    "page": "system/rag-product-config",
+    "diffs": 0
+  },
+  {
+    "page": "system/rag-product",
+    "diffs": 0
+  },
+  {
+    "page": "system/roles",
+    "diffs": 0
+  },
+  {
+    "page": "system/trace",
+    "diffs": 0
+  },
+  {
+    "page": "system/users",
+    "diffs": 0
+  },
+  {
+    "page": "tagSegmentation/list",
+    "diffs": 2
+  },
+  {
+    "page": "telegram",
+    "diffs": 0
+  },
+  {
+    "page": "telegram/account",
+    "diffs": 0
+  },
+  {
+    "page": "tiktok",
+    "diffs": 0
+  },
+  {
+    "page": "unifiedInbox/list",
+    "diffs": 0
+  },
+  {
+    "page": "unifiedMessage/list",
+    "diffs": 0
+  },
+  {
+    "page": "userSegment/list",
+    "diffs": 0
+  },
+  {
+    "page": "wecomAccount/data",
+    "diffs": 0
+  },
+  {
+    "page": "wecomAccount/list",
+    "diffs": 0
+  },
+  {
+    "page": "whatsapp",
+    "diffs": 0
+  },
+  {
+    "page": "whatsapp/account",
+    "diffs": 0
+  },
+  {
+    "page": "whatsapp/drafts",
+    "diffs": 0
+  },
+  {
+    "page": "whatsapp/group-messaging",
+    "diffs": 0
+  },
+  {
+    "page": "whatsapp/jobs",
+    "diffs": 0
+  },
+  {
+    "page": "whatsapp/lead-group-selection",
+    "diffs": 0
+  },
+  {
+    "page": "xianyuCard",
+    "diffs": 0
+  },
+  {
+    "page": "xianyu/auto-reply",
+    "diffs": 0
+  },
+  {
+    "page": "xianyu/stats",
+    "diffs": 0
+  },
+  {
+    "page": "xiaohongshuCard",
+    "diffs": 0
+  },
+  {
+    "page": "xiaohongshu/auto-reply",
+    "diffs": 0
+  },
+  {
+    "page": "xiaohongshu/stats",
+    "diffs": 0
+  }
+]

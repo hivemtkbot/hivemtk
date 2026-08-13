@@ -10,10 +10,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
-	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupCustomReportTestDB 设置测试数据库

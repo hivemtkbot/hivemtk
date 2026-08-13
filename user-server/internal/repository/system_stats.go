@@ -25,8 +25,6 @@ type SystemStatsRepository interface {
 	CountCards(ctx context.Context) (int64, error)
 	CountShortLinks(ctx context.Context) (int64, error)
 	CountTodayVisits(ctx context.Context, sinceUnix int64) (int64, error)
-	CountAutoReplyAccounts(ctx context.Context) (int64, error)
-	CountAutoReplyRules(ctx context.Context) (int64, error)
 	CountEmailLists(ctx context.Context) (int64, error)
 	CountEmailJobs(ctx context.Context) (int64, error)
 	CountMaterials(ctx context.Context) (int64, error)
@@ -96,22 +94,6 @@ func (r *systemStatsRepo) CountTodayVisits(ctx context.Context, sinceUnix int64)
 	// timestamp 字段与 int 直接比较时 PG 不会自动按 epoch 解释，
 	// 必须显式 to_timestamp(?) 转换为 timestamp 后再比较。
 	if err := r.db.Model(&model.VisitLog{}).Where("created_at >= to_timestamp(?)", sinceUnix).Count(&n).Error; err != nil {
-		return 0, err
-	}
-	return n, nil
-}
-
-func (r *systemStatsRepo) CountAutoReplyAccounts(ctx context.Context) (int64, error) {
-	var n int64
-	if err := r.db.Model(&model.AutoReplyAccount{}).Count(&n).Error; err != nil {
-		return 0, err
-	}
-	return n, nil
-}
-
-func (r *systemStatsRepo) CountAutoReplyRules(ctx context.Context) (int64, error) {
-	var n int64
-	if err := r.db.Model(&model.AutoReplyRule{}).Count(&n).Error; err != nil {
 		return 0, err
 	}
 	return n, nil

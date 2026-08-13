@@ -6,12 +6,6 @@ export default [
     meta: { title: '快手卡片', group: 'community', icon: 'ChatDotRound' }
   },
   {
-    path: '/kuaishou/auto-reply',
-    name: 'KuaishouAutoReply',
-    component: () => import('@/views/kuaishouCard/AutoReply.vue'),
-    meta: { title: '快手自动回复', group: 'community', icon: 'ChatDotRound' }
-  },
-  {
     path: '/kuaishou/stats',
     name: 'KuaishouStats',
     component: () => import('@/views/kuaishouCard/Stats.vue'),

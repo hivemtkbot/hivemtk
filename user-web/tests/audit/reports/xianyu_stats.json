@@ -1,0 +1,13 @@
+{
+  "page": "xianyu/stats",
+  "url": "http://localhost:8213/#/xianyu/stats",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 7
+}

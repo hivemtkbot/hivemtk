@@ -1,0 +1,13 @@
+{
+  "page": "system/trace",
+  "url": "http://localhost:8213/#/system/trace",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 15
+}

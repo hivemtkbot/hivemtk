@@ -1,0 +1,13 @@
+{
+  "page": "sop-template",
+  "url": "http://localhost:8213/#/sop-template",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 6
+}

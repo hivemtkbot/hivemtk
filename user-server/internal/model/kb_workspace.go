@@ -122,7 +122,7 @@ func (KnowledgeImportLog) TableName() string {
 // KnowledgeSearchLog 知识库检索统计日志
 type KnowledgeSearchLog struct {
 	ID                  uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
-	ProductID           string    `gorm:"index;not null;default:''" json:"product_id"`
+	ProductID           string    `gorm:"index;default:''" json:"product_id"`
 	Query               string    `gorm:"type:text" json:"query"`
 	QueryHash           string    `gorm:"size:64;index" json:"query_hash"`
 	TopK                int       `json:"top_k"`

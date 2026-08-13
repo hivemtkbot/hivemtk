@@ -1,0 +1,21 @@
+{
+  "page": "knowledge/management",
+  "readDiffs": [
+    {
+      "api": "/api/ai-tools?category=knowledge",
+      "frontendRows": 13,
+      "apiRows": 0,
+      "frontendRowsNotFoundInApi": 13
+    }
+  ],
+  "notes": [
+    "has-rows"
+  ],
+  "frontendRows": 13,
+  "listApis": [
+    "/api/inbox?page=1&page_size=20",
+    "/api/rag-config/products",
+    "/api/ai-tools?category=knowledge",
+    "/api/knowledge/documents?page=1&page_size=20&product_id=&embed_status=&source_type=&keyword="
+  ]
+}

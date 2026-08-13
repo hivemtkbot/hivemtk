@@ -1,0 +1,13 @@
+{
+  "page": "kuaishou/auto-reply",
+  "url": "http://localhost:8213/#/kuaishou/auto-reply",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 13
+}

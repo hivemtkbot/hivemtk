@@ -5,8 +5,9 @@ import (
 	"hivemtk-user/internal/pkg/db"
 	"testing"
 
-	"gorm.io/gorm"
 	"hivemtk-user/internal/pkg/testutil"
+
+	"gorm.io/gorm"
 )
 
 // toPtr 将字符串转为 *string，便于构造素材分类的 ParentID 指针字段

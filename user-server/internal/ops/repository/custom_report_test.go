@@ -5,8 +5,9 @@ import (
 	"hivemtk-user/internal/pkg/db"
 	"testing"
 
-	"gorm.io/gorm"
 	"hivemtk-user/internal/pkg/testutil"
+
+	"gorm.io/gorm"
 )
 
 // setupCustomReportTestDB 设置自定义报表测试数据库

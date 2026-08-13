@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -32,31 +33,19 @@ func main() {
 	r := gin.New()
 	router.Setup(r, db.GetDB())
 
-	// 打印所有已注册的 /api/chat-channels 路由
-	fmt.Fprintln(os.Stderr, "=== 已注册的 /api/chat-channels 路由 ===")
-	chatCount := 0
-	for _, route := range r.Routes() {
-		if len(route.Path) >= 14 && route.Path[:14] == "/api/chat-chan" {
-			fmt.Fprintf(os.Stderr, "%-7s %s\n", route.Method, route.Path)
-			chatCount++
-		}
+	// 打印全部 /api 路由到 stdout（供测试脚手架解析）
+	routes := r.Routes()
+	type rp struct {
+		Method string `json:"method"`
+		Path   string `json:"path"`
 	}
-	fmt.Fprintf(os.Stderr, "共 %d 条 chat-channels 路由\n", chatCount)
-
-	// 测试访问
-	fmt.Fprintln(os.Stderr, "\n=== 测试 /api/chat-channels 路由 ===")
-	for _, route := range r.Routes() {
-		if route.Path == "/api/chat-channels" {
-			fmt.Fprintf(os.Stderr, "FOUND: %s %s\n", route.Method, route.Path)
-		}
-	}
-
-	// 打印所有 /api 路由数量
-	total := 0
-	for _, route := range r.Routes() {
+	out := []rp{}
+	for _, route := range routes {
 		if len(route.Path) >= 4 && route.Path[:4] == "/api" {
-			total++
+			out = append(out, rp{Method: route.Method, Path: route.Path})
 		}
 	}
-	fmt.Fprintf(os.Stderr, "API 路由总数: %d\n", total)
+	b, _ := json.MarshalIndent(out, "", "  ")
+	fmt.Println(string(b))
+	fmt.Fprintf(os.Stderr, "API 路由总数: %d\n", len(out))
 }

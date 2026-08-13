@@ -29,10 +29,6 @@ func (s *AccountService) CreateAccountDTO(ctx context.Context, req dto.CreateAcc
 		ProxyProtoclo:       req.ProxyProtoclo,
 		ProxyHost:           req.ProxyHost,
 		ProxyPort:           req.ProxyPort,
-		DouyinHeadless:      req.DouyinHeadless,
-		KuaishouHeadless:    req.KuaishouHeadless,
-		XiaohongshuHeadless: req.XiaohongshuHeadless,
-		XianyuHeadless:      req.XianyuHeadless,
 	}
 	created, err := s.CreateAccount(ctx, account)
 	if err != nil {
@@ -78,10 +74,6 @@ func (s *AccountService) UpdateAccountDTO(ctx context.Context, req dto.UpdateAcc
 		ProxyProtoclo:       req.ProxyProtoclo,
 		ProxyHost:           req.ProxyHost,
 		ProxyPort:           req.ProxyPort,
-		DouyinHeadless:      req.DouyinHeadless,
-		KuaishouHeadless:    req.KuaishouHeadless,
-		XiaohongshuHeadless: req.XiaohongshuHeadless,
-		XianyuHeadless:      req.XianyuHeadless,
 	}
 	if err := s.UpdateAccount(ctx, account); err != nil {
 		return nil, err
@@ -105,10 +97,6 @@ func toAccountResponse(a *model.Account) *dto.AccountResponse {
 		CreateTime:          a.CreateTime,
 		Msg:                 a.Msg,
 		URL:                 a.URL,
-		DouyinHeadless:      a.DouyinHeadless,
-		KuaishouHeadless:    a.KuaishouHeadless,
-		XiaohongshuHeadless: a.XiaohongshuHeadless,
-		XianyuHeadless:      a.XianyuHeadless,
 	}
 }
 

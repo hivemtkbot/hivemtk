@@ -1,0 +1,20 @@
+{
+  "page": "sop-template/list",
+  "readDiffs": [
+    {
+      "api": "/api/knowledge-bases?kb_type=sop&page=1&page_size=200",
+      "frontendRows": 20,
+      "apiRows": 0,
+      "frontendRowsNotFoundInApi": 20
+    }
+  ],
+  "notes": [
+    "has-rows"
+  ],
+  "frontendRows": 20,
+  "listApis": [
+    "/api/inbox?page=1&page_size=20",
+    "/api/knowledge-bases?kb_type=sop&page=1&page_size=200",
+    "/api/sop-templates?page=1&page_size=20"
+  ]
+}

@@ -18,7 +18,6 @@ func setupPlatformAccountServiceTestDB(t *testing.T) *gorm.DB {
 		&model.PlatformAccount{},
 		&model.UnifiedMessage{},
 		&model.UnifiedReply{},
-		&model.AutoReplyAccount{},
 	)
 }
 

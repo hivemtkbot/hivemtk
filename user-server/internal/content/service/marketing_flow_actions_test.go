@@ -37,7 +37,6 @@ func setupMarketingFlowServiceTestDBWithCDP(t *testing.T) *gorm.DB {
 		&model.MarketingFlow{},
 		&model.FlowExecution{},
 		&reachmodel.UserTag{},
-		&reachmodel.AutoReplyAccount{},
 		&reachmodel.CustomerSession{},
 		&reachmodel.AgentStatus{},
 		&reachmodel.OperationLog{},

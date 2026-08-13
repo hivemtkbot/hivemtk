@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"hivemtk-user/internal/aiagent/rag/retrieval"
+	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/pkg/utils/text"
 )

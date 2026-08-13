@@ -124,7 +124,6 @@ func (s *InboxIngressService) ListPendingOutbound(ctx context.Context, channel, 
 	return list, nil
 }
 
-// ===== merged from inbox_ingress_part3.go (was a mechanical _partN split) =====
 func (s *InboxIngressService) ListPendingOutboundLimit(ctx context.Context, channel, accountID string, limit int) ([]*model.MessageHub, error) {
 	if s.hubRepo == nil {
 		return nil, nil

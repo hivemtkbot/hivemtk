@@ -197,5 +197,8 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewBridgeChannelUnifyV2Migration(db))
 	// customer_sessions 补齐 updated_at 列（修复全渠道会话 upsert 的 SQLSTATE 42703）
 	registry.Register(NewCustomerSessionUpdatedAtMigration(db))
+	registry.Register(NewKnowledgeSearchLogProductOptionalMigration(db))
+	// 清理 CDP 无头浏览器自动回复删除后残留的孤儿 schema（accounts.headless 列 + auto_reply_* 三表）
+	registry.Register(NewDropCdpAutoReplyMigration(db))
 	// 继续添加新的迁移...
 }

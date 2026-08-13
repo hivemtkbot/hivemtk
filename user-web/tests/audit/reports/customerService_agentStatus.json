@@ -1,0 +1,14 @@
+{
+  "page": "customerService/agentStatus",
+  "url": "http://localhost:8213/#/customerService/agentStatus",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 9,
+  "note": "page_interaction_timeout_guard_triggered"
+}

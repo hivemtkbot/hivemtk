@@ -3,7 +3,7 @@ package cron
 import (
 	"context"
 	"fmt"
-	"hivemtk-user/internal/email/service"
+	email "hivemtk-user/internal/email/service"
 	"hivemtk-user/internal/pkg/mail"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"time"

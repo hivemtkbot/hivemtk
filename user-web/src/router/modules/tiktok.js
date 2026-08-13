@@ -23,12 +23,6 @@ export default [
         component: () => import('@/views/tiktokCard/CardStats.vue'),
         meta: { title: 'TikTok卡片统计', group: 'reach', icon: 'DataAnalysis', requiresAuth: true },
         props: true
-      },
-      {
-        path: 'auto-reply',
-        name: 'TikTokAutoReply',
-        component: () => import('@/views/tiktokCard/AutoReply.vue'),
-        meta: { title: 'TikTok自动回复', group: 'reach', icon: 'ChatDotRound', requiresAuth: true }
       }
     ]
   }

@@ -1,9 +1,10 @@
 package repository
 
 import (
-	"gorm.io/gorm"
 	"hivemtk-user/internal/ops/model"
 	_db "hivemtk-user/internal/pkg/db"
+
+	"gorm.io/gorm"
 )
 
 // CustomReportRepository 自定义报表仓库

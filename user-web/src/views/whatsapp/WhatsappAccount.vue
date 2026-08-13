@@ -103,6 +103,16 @@ function refreshStatus(row) {
     }
   })
 }
+
+// 绑定 AI 智能体
+const bindingDialogVisible = ref(false)
+const bindingAccountId = ref(0)
+const bindingAccountLabel = ref('')
+function openBindingDialog(row) {
+  bindingAccountId.value = row.id
+  bindingAccountLabel.value = row.name || row.remark || `#${row.id}`
+  bindingDialogVisible.value = true
+}
 </script>
 
 <style scoped>

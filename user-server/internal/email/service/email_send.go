@@ -8,12 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"gopkg.in/gomail.v2"
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
+
+	"github.com/google/uuid"
+	"gopkg.in/gomail.v2"
 )
 
 // 邮件状态常量

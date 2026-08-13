@@ -165,3 +165,36 @@ func (c *EmailListController) TraceEmail(ctx *gin.Context) {
 
 	ctx.Data(200, "image/png", buf.Bytes())
 }
+
+// GetTracking 获取邮件列表关联的追踪事件（基于 JobsID 查询，返回 JSON）
+func (c *EmailListController) GetTracking(ctx *gin.Context) {
+	var req struct {
+		ID   string `uri:"id" binding:"required"`
+		Page int    `form:"page"`
+		Size int    `form:"page_size"`
+	}
+	if err := ctx.ShouldBindUri(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.Size <= 0 {
+		req.Size = 50
+	}
+	listID, err := uuid.Parse(req.ID)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	events, total, err := c.svc.GetTrackingEvents(ctx.Request.Context(), listID, req.Page, req.Size)
+	if err != nil {
+		response.ErrorFromDB(ctx, err, err.Error())
+		return
+	}
+	response.Success(ctx, map[string]interface{}{
+		"list":  events,
+		"total": total,
+	}, "success")
+}

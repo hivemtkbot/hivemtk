@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,16 +18,23 @@ import (
 //
 // 私域部署（升级）：
 //   - 抖音 / 快手 / 小红书 / 闲鱼 四个平台的卡片短链统一跳转到「卡片聊天页」
-//   - 卡片聊天页包含卡片信息 + 联系客服按钮，点击按钮打开 /chat/embed/{platform}_card_{id}
+//   - 卡片聊天页包含卡片信息 + 联系客服按钮，点击按钮打开 /chat/embed/{platform}_card
 //   - 不再直接 302 跳转到外部 redirect_url，避免跳出客服域
 //
 // 五层架构修复：所有 service 由 router 注入，controller 不再直接访问数据库
 type RedirectController struct {
-	shortLinkService       service.ShortLinkService
-	douyinCardService      service.DouyinCardService
-	kuaishouCardService    service.KuaishouCardService
-	xiaohongshuCardService service.XiaohongshuCardService
-	xianyuCardService      service.XianyuCardService
+	shortLinkService          service.ShortLinkService
+	douyinCardService         service.DouyinCardService
+	kuaishouCardService       service.KuaishouCardService
+	xiaohongshuCardService    service.XiaohongshuCardService
+	xianyuCardService         service.XianyuCardService
+	// 各平台卡片统计 service：用于打开卡片时记录浏览（上报），驱动统计聚合
+	douyinCardStatsService    service.DouyinCardStatsService
+	kuaishouCardStatsService  *service.KuaishouCardStatsService
+	xiaohongshuCardStatsService service.XiaohongshuCardStatsService
+	xianyuCardStatsService    service.XianyuCardStatsService
+	// TikTok 卡片为外链型，无聊天页；打开时记录浏览并跳转到外部 RedirectURL
+	tiktokCardService service.TikTokCardService
 }
 
 // NewRedirectController 创建短链重定向控制器（service 由 router 注入）
@@ -36,13 +44,23 @@ func NewRedirectController(
 	kuaishouCardService service.KuaishouCardService,
 	xiaohongshuCardService service.XiaohongshuCardService,
 	xianyuCardService service.XianyuCardService,
+	douyinCardStatsService service.DouyinCardStatsService,
+	kuaishouCardStatsService *service.KuaishouCardStatsService,
+	xiaohongshuCardStatsService service.XiaohongshuCardStatsService,
+	xianyuCardStatsService service.XianyuCardStatsService,
+	tiktokCardService service.TikTokCardService,
 ) *RedirectController {
 	return &RedirectController{
-		shortLinkService:       shortLinkService,
-		douyinCardService:      douyinCardService,
-		kuaishouCardService:    kuaishouCardService,
-		xiaohongshuCardService: xiaohongshuCardService,
-		xianyuCardService:      xianyuCardService,
+		shortLinkService:          shortLinkService,
+		douyinCardService:         douyinCardService,
+		kuaishouCardService:       kuaishouCardService,
+		xiaohongshuCardService:    xiaohongshuCardService,
+		xianyuCardService:         xianyuCardService,
+		douyinCardStatsService:    douyinCardStatsService,
+		kuaishouCardStatsService:  kuaishouCardStatsService,
+		xiaohongshuCardStatsService: xiaohongshuCardStatsService,
+		xianyuCardStatsService:    xianyuCardStatsService,
+		tiktokCardService:         tiktokCardService,
 	}
 }
 
@@ -58,6 +76,16 @@ func (ctrl *RedirectController) RedirectShortLink(ctx *gin.Context) {
 	shortLink, err := ctrl.shortLinkService.GetByShortCode(context.Background(), code)
 	if err != nil {
 		ctx.String(http.StatusNotFound, "短链不存在")
+		return
+	}
+
+	// 状态/过期校验：禁用或已过期的短链视为失效，不再跳转、不计访问也不计浏览
+	if shortLink.Status == 2 {
+		ctx.String(http.StatusGone, "短链已停用")
+		return
+	}
+	if shortLink.ExpireTime != nil && shortLink.ExpireTime.Before(time.Now()) {
+		ctx.String(http.StatusGone, "短链已过期")
 		return
 	}
 
@@ -79,25 +107,35 @@ func (ctrl *RedirectController) RedirectShortLink(ctx *gin.Context) {
 
 	// 抖音卡片：/douyin/card/{id}
 	if id, ok := extractCardID(originalURL, "/douyin/card/"); ok {
-		renderCardChatPage(ctx, ctrl.douyinCardService.GenerateCardChatPage, id, baseURL)
+		renderCardChatPage(ctx, ctrl.douyinCardService.GenerateCardChatPage, id, baseURL,
+			func() { ctrl.recordCardView("douyin", id, ctx) })
 		return
 	}
 
 	// 快手卡片：/kuaishou/card/{id}
 	if id, ok := extractCardID(originalURL, "/kuaishou/card/"); ok {
-		renderCardChatPage(ctx, ctrl.kuaishouCardService.GenerateCardChatPage, id, baseURL)
+		renderCardChatPage(ctx, ctrl.kuaishouCardService.GenerateCardChatPage, id, baseURL,
+			func() { ctrl.recordCardView("kuaishou", id, ctx) })
 		return
 	}
 
 	// 小红书卡片：/xiaohongshu/card/{id}
 	if id, ok := extractCardID(originalURL, "/xiaohongshu/card/"); ok {
-		renderCardChatPage(ctx, ctrl.xiaohongshuCardService.GenerateCardChatPage, id, baseURL)
+		renderCardChatPage(ctx, ctrl.xiaohongshuCardService.GenerateCardChatPage, id, baseURL,
+			func() { ctrl.recordCardView("xiaohongshu", id, ctx) })
 		return
 	}
 
 	// 闲鱼卡片：/xianyu/card/{id}
 	if id, ok := extractCardID(originalURL, "/xianyu/card/"); ok {
-		renderCardChatPage(ctx, ctrl.xianyuCardService.GenerateCardChatPage, id, baseURL)
+		renderCardChatPage(ctx, ctrl.xianyuCardService.GenerateCardChatPage, id, baseURL,
+			func() { ctrl.recordCardView("xianyu", id, ctx) })
+		return
+	}
+
+	// TikTok 卡片：/tiktok/card/{id}（外链型，记录浏览后跳转外部地址）
+	if id, ok := extractCardID(originalURL, "/tiktok/card/"); ok {
+		ctrl.renderTiktokCard(ctx, id)
 		return
 	}
 
@@ -108,20 +146,75 @@ func (ctrl *RedirectController) RedirectShortLink(ctx *gin.Context) {
 		ctx.String(http.StatusBadRequest, "非法的跳转地址")
 		return
 	}
-	ctx.Redirect(http.StatusMovedPermanently, target)
+	ctx.Redirect(http.StatusFound, target)
+}
+
+// recordCardView 打开卡片时记录一次浏览（上报）。best-effort：失败仅记日志，不影响卡片展示。
+func (ctrl *RedirectController) recordCardView(platform string, id uint, ctx *gin.Context) {
+	bg := context.Background()
+	ip := ctx.ClientIP()
+	ua := ctx.GetHeader("User-Agent")
+	ref := ctx.GetHeader("Referer")
+	switch platform {
+	case "douyin":
+		if err := ctrl.douyinCardStatsService.RecordActivity(bg, id, 0, "view", "", ip, ua); err != nil {
+			logger.Errorf("[recordCardView] 抖音卡片浏览上报失败(id=%d): %v", id, err)
+		}
+	case "kuaishou":
+		if err := ctrl.kuaishouCardStatsService.RecordActivity(bg, id, "view", ip, ua, ""); err != nil {
+			logger.Errorf("[recordCardView] 快手卡片浏览上报失败(id=%d): %v", id, err)
+		}
+	case "xiaohongshu":
+		if err := ctrl.xiaohongshuCardStatsService.RecordActivity(bg, id, 0, "view", "", ip, ua); err != nil {
+			logger.Errorf("[recordCardView] 小红书卡片浏览上报失败(id=%d): %v", id, err)
+		}
+	case "xianyu":
+		if err := ctrl.xianyuCardStatsService.RecordView(bg, id, ip, ua, ref); err != nil {
+			logger.Errorf("[recordCardView] 闲鱼卡片浏览上报失败(id=%d): %v", id, err)
+		}
+	}
+}
+
+// renderTiktokCard TikTok 卡片为外链型：记录浏览后 302 跳转至外部 RedirectURL
+func (ctrl *RedirectController) renderTiktokCard(ctx *gin.Context, id uint) {
+	card, err := ctrl.tiktokCardService.GetCardModelByID(ctx.Request.Context(), id)
+	if err != nil || card == nil {
+		ctx.Header("Content-Type", "text/html; charset=utf-8")
+		ctx.String(http.StatusNotFound, fallbackCardHTML())
+		return
+	}
+
+	// 上报浏览（best-effort）
+	if err := ctrl.tiktokCardService.RecordView(ctx.Request.Context(), id, ctx.ClientIP(), ctx.GetHeader("User-Agent")); err != nil {
+		logger.Errorf("[renderTiktokCard] TikTok 卡片浏览上报失败(id=%d): %v", id, err)
+	}
+
+	target := card.RedirectURL
+	if target == "" {
+		target = "https://www.tiktok.com"
+	}
+	if u, err := url.Parse(target); err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		ctx.String(http.StatusBadRequest, "非法的跳转地址")
+		return
+	}
+	ctx.Redirect(http.StatusFound, target)
 }
 
 // cardChatPageGenerator 卡片聊天页生成函数签名（四平台统一）
 type cardChatPageGenerator func(ctx context.Context, id uint, baseURL string) (string, error)
 
 // renderCardChatPage 调用平台 service 生成卡片聊天页并写入响应
-func renderCardChatPage(ctx *gin.Context, gen cardChatPageGenerator, id uint, baseURL string) {
+// onSuccess 在页面成功渲染后调用（用于记录浏览上报），不传则跳过。
+func renderCardChatPage(ctx *gin.Context, gen cardChatPageGenerator, id uint, baseURL string, onSuccess ...func()) {
 	html, err := gen(ctx.Request.Context(), id, baseURL)
 	if err != nil {
 		// 卡片不存在或渲染失败时降级为提示页
 		ctx.Header("Content-Type", "text/html; charset=utf-8")
 		ctx.String(http.StatusNotFound, fallbackCardHTML())
 		return
+	}
+	if len(onSuccess) > 0 && onSuccess[0] != nil {
+		onSuccess[0]()
 	}
 	ctx.Header("Content-Type", "text/html; charset=utf-8")
 	ctx.String(http.StatusOK, html)

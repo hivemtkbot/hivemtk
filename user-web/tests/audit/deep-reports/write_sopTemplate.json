@@ -1,0 +1,31 @@
+{
+  "resource": "sopTemplate",
+  "steps": [
+    {
+      "step": "create",
+      "status": 200,
+      "id": 86
+    },
+    {
+      "step": "create-db",
+      "checked": 13,
+      "diffs": 0
+    },
+    {
+      "step": "delete",
+      "status": 200
+    },
+    {
+      "step": "delete-db",
+      "remaining": 0
+    }
+  ],
+  "mismatches": [],
+  "errors": [
+    {
+      "step": "update",
+      "status": 500,
+      "body": "{\"code\":\"INTERNAL_ERROR_6002\",\"message\":\"ERROR: duplicate key value violates unique constraint \\\"sop_templates_pkey\\\" (SQLSTATE 23505)\"}"
+    }
+  ]
+}

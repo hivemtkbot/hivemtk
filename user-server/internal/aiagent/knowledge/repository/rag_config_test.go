@@ -5,9 +5,10 @@ import (
 	"hivemtk-user/internal/model"
 	"testing"
 
-	"gorm.io/gorm"
 	"hivemtk-user/internal/pkg/testutil"
 	"hivemtk-user/internal/pkg/testutil/testmigrate"
+
+	"gorm.io/gorm"
 )
 
 // setupRagConfigTestDB 设置 RAG 配置测试数据库

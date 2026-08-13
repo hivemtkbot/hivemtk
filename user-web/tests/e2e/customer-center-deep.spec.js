@@ -369,6 +369,59 @@ test.describe('客户中心深层功能验证', () => {
     })
   })
 
+  // ===================== 9. 聊天渠道（chatChannel/list） =====================
+  // 客户中心第 7 个菜单，原 deep spec 缺口补齐。
+  test.describe('chatChannel/List 聊天渠道', () => {
+    test('列表渲染 + 禁用/启用写往返同步落库（不改终态）', async ({ page: p }) => {
+      await gotoPage(p, 'chatChannel/list', '.el-main .el-table')
+      await p.waitForSelector('.el-main .el-table__row', { timeout: 20000 })
+      const total = await rowCount(p)
+      expect(Number.isFinite(total)).toBeTruthy()
+
+      // 直连 API 对账：列表接口真实可用且有数据
+      const api = await apiGet(API + '/api/chat-channels?page=1&page_size=20')
+      expect(api.status).toBe(200)
+      expect(Array.isArray(api.body?.data?.list)).toBeTruthy()
+
+      // 找第一条「禁用」按钮（即对启用中渠道），点它执行禁用；无则跳过写往返
+      const disableBtn = p.locator('.el-main .el-table__row button:has-text("禁用")').first()
+      if ((await disableBtn.count()) === 0) {
+        console.log('[chatChannel] 当前无启用中渠道，跳过禁用/启用写往返')
+        return
+      }
+
+      // 该行：渠道名(第2列) + 渠道ID(第1列)，用于 API 对账与还原
+      const row = disableBtn.locator('xpath=ancestor::tr[1]')
+      const channelId = (await row.locator('td').nth(0).innerText()).trim()
+      const channelName = (await row.locator('td').nth(1).innerText()).trim()
+
+      // —— 禁用 ——
+      await disableBtn.click()
+      await p.locator('.el-message-box__btns button.el-button--primary').click()
+      await p.waitForTimeout(2000)
+
+      // 禁用后按 channelId 重新定位该行（Vue 重渲染后原 row locator 已 stale）
+      const rowAfterDisable = p.locator('.el-main .el-table__row', { hasText: channelId }).first()
+      await expect(rowAfterDisable.locator('button:has-text("启用")')).toBeVisible({ timeout: 15000 })
+
+      // API 对账：该渠道 status === 'disabled'
+      const apiAfter = await apiGet(API + '/api/chat-channels?page=1&page_size=50')
+      const rec = (apiAfter.body?.data?.list || []).find((x) => String(x.channel_id) === String(channelId) || String(x.id) === String(channelId))
+      expect(rec).toBeTruthy()
+      expect(rec.status).toBe('disabled')
+
+      // —— 启用还原（不改真实数据终态）——
+      await rowAfterDisable.locator('button:has-text("启用")').click()
+      await p.locator('.el-message-box__btns button.el-button--primary').click()
+      await p.waitForTimeout(3000)
+      const rowAfterEnable = p.locator('.el-main .el-table__row', { hasText: channelId }).first()
+      // UI 终态：该行「禁用」按钮可见 ⇒ 状态已恢复为 active。中间禁用 API 对账已通过 status=disabled，
+      // 综合证明 禁用/启用写往返真实生效，DB 终态还原为 active。
+      await expect(rowAfterEnable.locator('button:has-text("禁用")')).toBeVisible({ timeout: 15000 })
+      console.log('[chatChannel] 禁用↔启用写往返通过，channel=' + channelName + ' 已还原为启用')
+    })
+  })
+
   // ===================== 8. OneID =====================
   test.describe('oneid/List OneID', () => {
     test('解析创建(write→DB回查) + UI搜索回查 + 链接身份 + 查看身份 + API对账', async ({ page }) => {

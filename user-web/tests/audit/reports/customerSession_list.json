@@ -1,0 +1,13 @@
+{
+  "page": "customerSession/list",
+  "url": "http://localhost:8213/#/customerSession/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 6
+}

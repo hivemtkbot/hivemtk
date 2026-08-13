@@ -145,7 +145,6 @@ type ReplyDecision struct {
 	Content      string            `json:"content"`
 	Confidence   float64           `json:"confidence"`
 	Reason       string            `json:"reason"`
-	RuleMatched  *AutoReplyRule    `json:"rule_matched,omitempty"`
 	KnowledgeHit *KnowledgeHit     `json:"knowledge_hit,omitempty"`
 	Variables    map[string]string `json:"variables,omitempty"`
 }

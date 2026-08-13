@@ -38,17 +38,15 @@ func TestSystemConfigRepository_SaveConfig(t *testing.T) {
 		{
 			name: "create new config",
 			config: &model.SystemConfig{
-				Name:              "app_config",
-				WebsiteURL:        "https://example.com",
-				AutoReplyHeadless: true,
+				Name:       "app_config",
+				WebsiteURL: "https://example.com",
 			},
 			wantErr: false,
 		},
 		{
 			name: "create config with minimal fields",
 			config: &model.SystemConfig{
-				Name:              "minimal_config",
-				AutoReplyHeadless: false,
+				Name: "minimal_config",
 			},
 			wantErr: false,
 		},
@@ -77,9 +75,8 @@ func TestSystemConfigRepository_GetConfig(t *testing.T) {
 
 	// 创建测试配置
 	expectedConfig := &model.SystemConfig{
-		Name:              "test_config",
-		WebsiteURL:        "https://test.example.com",
-		AutoReplyHeadless: true,
+		Name:       "test_config",
+		WebsiteURL: "https://test.example.com",
 	}
 	repo.SaveConfig(context.Background(), expectedConfig)
 
@@ -108,10 +105,7 @@ func TestSystemConfigRepository_GetConfig(t *testing.T) {
 				if result.WebsiteURL != "https://test.example.com" {
 					t.Errorf("Expected website URL 'https://test.example.com', got '%s'", result.WebsiteURL)
 				}
-				if result.AutoReplyHeadless != true {
-					t.Errorf("Expected AutoReplyHeadless true, got %v", result.AutoReplyHeadless)
 				}
-			}
 		})
 	}
 }
@@ -122,9 +116,8 @@ func TestSystemConfigRepository_SaveConfig_Update(t *testing.T) {
 
 	// 先创建配置
 	config := &model.SystemConfig{
-		Name:              "update_test",
-		WebsiteURL:        "https://original.example.com",
-		AutoReplyHeadless: false,
+		Name:       "update_test",
+		WebsiteURL: "https://original.example.com",
 	}
 	_, err := repo.SaveConfig(context.Background(), config)
 	if err != nil {
@@ -134,7 +127,6 @@ func TestSystemConfigRepository_SaveConfig_Update(t *testing.T) {
 	// 注意：SaveConfig 使用 FirstOrCreate，不会更新现有记录
 	// 这个测试验证行为：尝试用相同的 Name 创建不会覆盖
 	config.WebsiteURL = "https://updated.example.com"
-	config.AutoReplyHeadless = true
 
 	// FirstOrCreate 会找到已存在的记录，不会更新
 	resultConfig, err := repo.SaveConfig(context.Background(), config)

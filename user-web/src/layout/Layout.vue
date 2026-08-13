@@ -357,7 +357,6 @@ const topMenus = ref([
         icon: 'VideoPlay',
         children: [
           { key: 'douyinCard', title: '抖音卡片', icon: 'VideoPlay', path: '/douyinCard' },
-          { key: 'douyinAutoReply', title: '抖音自动回复', icon: 'ChatDotRound', path: '/douyin/auto-reply' },
           { key: 'douyinStats', title: '抖音统计', icon: 'DataAnalysis', path: '/douyin/stats' }
         ]
       },
@@ -367,7 +366,6 @@ const topMenus = ref([
         icon: 'Bell',
         children: [
           { key: 'kuaishouCard', title: '快手卡片', icon: 'ChatDotRound', path: '/kuaishouCard' },
-          { key: 'kuaishouAutoReply', title: '快手自动回复', icon: 'ChatDotRound', path: '/kuaishou/auto-reply' },
           { key: 'kuaishouStats', title: '快手统计', icon: 'DataAnalysis', path: '/kuaishou/stats' }
         ]
       },
@@ -377,7 +375,6 @@ const topMenus = ref([
         icon: 'Picture',
         children: [
           { key: 'xiaohongshuCard', title: '小红书卡片', icon: 'Picture', path: '/xiaohongshuCard' },
-          { key: 'xiaohongshuAutoReply', title: '小红书自动回复', icon: 'ChatDotRound', path: '/xiaohongshu/auto-reply' },
           { key: 'xiaohongshuStats', title: '小红书统计', icon: 'DataAnalysis', path: '/xiaohongshu/stats' }
         ]
       },
@@ -387,7 +384,6 @@ const topMenus = ref([
         icon: 'ShoppingBag',
         children: [
           { key: 'xianyuCard', title: '闲鱼卡片', icon: 'ShoppingBag', path: '/xianyuCard' },
-          { key: 'xianyuAutoReply', title: '闲鱼自动回复', icon: 'ChatDotRound', path: '/xianyu/auto-reply' },
           { key: 'xianyuStats', title: '闲鱼统计', icon: 'DataAnalysis', path: '/xianyu/stats' }
         ]
       },
@@ -397,8 +393,7 @@ const topMenus = ref([
         icon: 'VideoPlay',
         children: [
           { key: 'tiktokList', title: 'TikTok卡片', icon: 'VideoPlay', path: '/tiktok/list' },
-          { key: 'tiktokStats', title: 'TikTok统计', icon: 'DataAnalysis', path: '/tiktok/stats' },
-          { key: 'tiktokAutoReply', title: 'TikTok自动回复', icon: 'ChatDotRound', path: '/tiktok/auto-reply' }
+          { key: 'tiktokStats', title: 'TikTok统计', icon: 'DataAnalysis', path: '/tiktok/stats' }
         ]
       },
       {

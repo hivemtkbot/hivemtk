@@ -1,0 +1,13 @@
+{
+  "page": "system/guide",
+  "url": "http://localhost:8213/#/system/guide",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 4
+}

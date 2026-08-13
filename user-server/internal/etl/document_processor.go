@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"hivemtk-user/internal/aiagent/rag/core"
+	rag_core "hivemtk-user/internal/aiagent/rag/core"
 )
 
 // DocumentProcessor 文档处理器

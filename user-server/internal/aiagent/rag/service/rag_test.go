@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"hivemtk-user/internal/aiagent/llm"
-	"hivemtk-user/internal/aiagent/rag/core"
+	rag_core "hivemtk-user/internal/aiagent/rag/core"
 )
 
 // mockThreeTier 用于在 rag_service 内做单元测试

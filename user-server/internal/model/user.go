@@ -1,10 +1,11 @@
 package model
 
 import (
-	"github.com/google/uuid"
 	"hivemtk-user/internal/pkg/utils/bcrypt"
 	_type "hivemtk-user/internal/pkg/utils/type"
 	"time"
+
+	"github.com/google/uuid"
 
 	"gorm.io/gorm"
 )

@@ -1,10 +1,12 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"hivemtk-user/internal/ops/model"
 	"hivemtk-user/internal/ops/repository"
+	_db "hivemtk-user/internal/pkg/db"
 	"math"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 
 // ChurnPredictionService 流失预警服务
 type ChurnPredictionService struct {
+	db             *gorm.DB
 	predictionRepo *repository.ChurnPredictionRepository
 	warningRepo    *repository.ChurnWarningRepository
 	configRepo     *repository.ChurnModelConfigRepository
@@ -22,6 +25,7 @@ type ChurnPredictionService struct {
 // NewChurnPredictionService 创建流失预警服务实例
 func NewChurnPredictionService() *ChurnPredictionService {
 	return &ChurnPredictionService{
+		db:             _db.GetDB(),
 		predictionRepo: repository.NewChurnPredictionRepository(),
 		warningRepo:    repository.NewChurnWarningRepository(),
 		configRepo:     repository.NewChurnModelConfigRepository(),
@@ -32,6 +36,7 @@ func NewChurnPredictionService() *ChurnPredictionService {
 // NewChurnPredictionServiceWithDB 创建指定数据库连接的流失预警服务实例（用于测试）
 func NewChurnPredictionServiceWithDB(db *gorm.DB) *ChurnPredictionService {
 	return &ChurnPredictionService{
+		db:             db,
 		predictionRepo: repository.NewChurnPredictionRepositoryWithDB(db),
 		warningRepo:    repository.NewChurnWarningRepositoryWithDB(db),
 		configRepo:     repository.NewChurnModelConfigRepositoryWithDB(db),
@@ -74,8 +79,8 @@ func (s *ChurnPredictionService) GetHighRiskUsers(limit int) ([]*model.ChurnPred
 func (s *ChurnPredictionService) CalculateChurnPrediction(userID string, userData map[string]any) error {
 	// 获取配置
 	config, err := s.configRepo.GetCurrent()
-	if err != nil {
-		// 使用默认配置
+	if err != nil || !isValidChurnConfig(config) {
+		// 配置缺失或无效（如权重全 0、阈值 <=0）时回退到默认配置，避免算出全 0/全 critical 的失真结果
 		config = s.getDefaultConfig()
 	}
 
@@ -310,6 +315,25 @@ func (s *ChurnPredictionService) getDefaultConfig() *model.ChurnModelConfig {
 	}
 }
 
+// isValidChurnConfig 校验流失模型配置是否有效。
+// 权重和必须为正数，且未活跃/未购买阈值必须为正整数，否则计算会失真（全 0 分或全 critical）。
+func isValidChurnConfig(c *model.ChurnModelConfig) bool {
+	if c == nil {
+		return false
+	}
+	weightSum := c.InactiveDaysWeight + c.PurchaseFreqWeight + c.OrderValueWeight + c.EngagementWeight
+	if weightSum <= 0 {
+		return false
+	}
+	if c.InactiveThreshold <= 0 || c.PurchaseThreshold <= 0 {
+		return false
+	}
+	if c.HighRiskScore <= 0 || c.CriticalRiskScore <= 0 {
+		return false
+	}
+	return true
+}
+
 // GetChurnStatistics 获取流失统计
 func (s *ChurnPredictionService) GetChurnStatistics(startDate, endDate string) ([]*model.ChurnStatistics, error) {
 	return s.statsRepo.GetAll(startDate, endDate)
@@ -382,6 +406,109 @@ func (s *ChurnPredictionService) RunChurnCalculation(users []map[string]any) err
 	s.CalculateDailyStatistics(date)
 
 	return nil
+}
+
+// UserBehaviorSnapshot 单个客户从 customer_events 聚合出的真实行为快照
+type UserBehaviorSnapshot struct {
+	CustomerID        string
+	DaysSinceActive   int
+	LastActivityAt    time.Time
+	Interactions30d   int
+	DaysSincePurchase int
+	LastPurchaseAt    time.Time
+	PurchaseFreq      int
+	AverageOrderValue float64
+}
+
+// DebugAggregate 暴露聚合结果用于调试/测试断言
+func (s *ChurnPredictionService) DebugAggregate(ctx context.Context) ([]UserBehaviorSnapshot, error) {
+	return s.aggregateCustomerBehavior(ctx)
+}
+
+// GetPredictionByUserID 按用户 ID 获取流失预测（用于调试/验证）
+func (s *ChurnPredictionService) GetPredictionByUserID(userID string) (*model.ChurnPrediction, error) {
+	return s.predictionRepo.GetByUserID(userID)
+}
+
+// aggregateCustomerBehavior 从 customer_events 真实聚合所有客户的行为特征。
+// customer_events 是系统唯一的用户行为事实源（含 login/click/page_view/add_to_cart/purchase/signup 等事件）。
+// external_orders.user_id 在生产数据为 NULL，无法关联金额，故 average_order_value 以近 90 天 purchase 事件数作代理信号。
+func (s *ChurnPredictionService) aggregateCustomerBehavior(ctx context.Context) ([]UserBehaviorSnapshot, error) {
+	type row struct {
+		CustomerID         string
+		LastActivityAt     time.Time
+		Interactions30d    int64
+		LastPurchaseAt     *time.Time
+		PurchaseCount90d   int64
+	}
+	const q = `
+		SELECT
+			customer_id,
+			MAX(occurred_at)                                    AS last_activity_at,
+			COUNT(*) FILTER (WHERE occurred_at >= NOW() - INTERVAL '30 days') AS interactions_30d,
+			MAX(occurred_at) FILTER (WHERE event_type = 'purchase')          AS last_purchase_at,
+			COUNT(*) FILTER (WHERE event_type = 'purchase'
+				AND occurred_at >= NOW() - INTERVAL '90 days')               AS purchase_count_90d
+		FROM customer_events
+		GROUP BY customer_id`
+
+	var rows []row
+	if err := s.db.WithContext(ctx).Raw(q).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	snaps := make([]UserBehaviorSnapshot, 0, len(rows))
+	for _, r := range rows {
+		snap := UserBehaviorSnapshot{
+			CustomerID:      r.CustomerID,
+			LastActivityAt:  r.LastActivityAt,
+			Interactions30d: int(r.Interactions30d),
+			PurchaseFreq:    int(r.PurchaseCount90d),
+			// 无金额事实源时，用近 90 天购买事件数作为订单价值代理信号（>=1 表示有真实购买行为）
+			AverageOrderValue: float64(r.PurchaseCount90d),
+		}
+		if !r.LastActivityAt.IsZero() {
+			snap.DaysSinceActive = int(now.Sub(r.LastActivityAt).Hours() / 24)
+		}
+		if r.LastPurchaseAt != nil && !r.LastPurchaseAt.IsZero() {
+			snap.LastPurchaseAt = *r.LastPurchaseAt
+			snap.DaysSincePurchase = int(now.Sub(*r.LastPurchaseAt).Hours() / 24)
+		} else {
+			snap.DaysSincePurchase = 9999 // 从未购买
+		}
+		snaps = append(snaps, snap)
+	}
+	return snaps, nil
+}
+
+// RunChurnCalculationForAllCustomers 基于真实 customer_events 数据对全部客户执行流失计算。
+// 解决此前 churn_predictions 表永远为空（RunChurnCalculation 无生产调用方）的断头功能问题。
+func (s *ChurnPredictionService) RunChurnCalculationForAllCustomers(ctx context.Context) (int, error) {
+	snaps, err := s.aggregateCustomerBehavior(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	users := make([]map[string]any, 0, len(snaps))
+	for _, snap := range snaps {
+		u := map[string]any{
+			"user_id":             snap.CustomerID,
+			"days_since_active":   snap.DaysSinceActive,
+			"last_activity_at":    snap.LastActivityAt,
+			"interactions_30d":    snap.Interactions30d,
+			"days_since_purchase": snap.DaysSincePurchase,
+			"last_purchase_at":    snap.LastPurchaseAt,
+			"purchase_freq":       snap.PurchaseFreq,
+			"average_order_value": snap.AverageOrderValue,
+		}
+		users = append(users, u)
+	}
+
+	if err := s.RunChurnCalculation(users); err != nil {
+		return 0, err
+	}
+	return len(users), nil
 }
 
 // GetChurnRate 获取流失率

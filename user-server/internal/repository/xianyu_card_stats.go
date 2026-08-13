@@ -308,5 +308,15 @@ func (r *xianyuCardStatsRepository) RecordActivity(ctx context.Context, cardID u
 		return fmt.Errorf("记录活动失败: %w", err)
 	}
 
+	// 与其它平台（douyin/kuaishou/xiaohongshu）保持一致：浏览动作同时原子自增
+	// xianyu_cards.view_count，避免卡片详情/热门排序读取该字段时恒为 0。
+	if activityType == "view" {
+		if err := r.db.WithContext(ctx).Model(&model.XianyuCard{}).
+			Where("id = ?", cardID).
+			UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error; err != nil {
+			return fmt.Errorf("递增卡片浏览数失败: %w", err)
+		}
+	}
+
 	return nil
 }

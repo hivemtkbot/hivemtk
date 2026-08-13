@@ -687,7 +687,6 @@ func deriveBackfillConversationID(m *model.MessageHub) string {
 	return m.Platform + ":" + accountID
 }
 
-// ===== merged from inbox_part2.go (was a mechanical _partN split) =====
 func (s *InboxService) reconcileBackfill(ctx context.Context) (*ReconcileResult, error) {
 	res := &ReconcileResult{Mode: ReconcileModeBackfill}
 	if s.hubRepo == nil {

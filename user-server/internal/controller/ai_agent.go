@@ -623,8 +623,6 @@ type csAgentMountReq struct {
 	Enabled       bool `json:"enabled"`
 }
 
-// ===== merged from ai_agent_part2.go (was a mechanical _partN split) =====
-// 拆分自 ai_agent.go（P2-4 God 文件拆分，同包机械拆分，不改行为）。
 
 func (ctrl *CustomerServiceAgentController) Create(c *gin.Context) {
 	var req csAgentMountReq

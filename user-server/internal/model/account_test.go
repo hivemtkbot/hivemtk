@@ -13,9 +13,6 @@ func TestAccount_TableName(t *testing.T) {
 }
 
 func TestAccount_BasicFields(t *testing.T) {
-	trueVal := true
-	falseVal := false
-
 	account := &Account{
 		TgName:              "testbot",
 		TgBotToken:          "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
@@ -25,11 +22,6 @@ func TestAccount_BasicFields(t *testing.T) {
 		ProxyProtoclo:       "https",
 		ProxyHost:           "proxy.example.com",
 		ProxyPort:           8080,
-		DouyinHeadless:      &trueVal,
-		KuaishouHeadless:    &falseVal,
-		XiaohongshuHeadless: &trueVal,
-		XianyuHeadless:      &trueVal,
-		TiktokHeadless:      &falseVal,
 		Status:              1,
 		Msg:                 "test message",
 		URL:                 "https://example.com",
@@ -49,15 +41,6 @@ func TestAccount_BasicFields(t *testing.T) {
 	}
 	if account.ProxyPort != 8080 {
 		t.Errorf("Expected ProxyPort 8080, got %d", account.ProxyPort)
-	}
-}
-
-func TestAccount_DefaultHeadlessValues(t *testing.T) {
-	account := &Account{}
-
-	// Default headless values should be nil (will be set to true by GORM default)
-	if account.DouyinHeadless != nil {
-		t.Logf("DouyinHeadless is %v (expected nil before save)", *account.DouyinHeadless)
 	}
 }
 
@@ -118,33 +101,6 @@ func TestAccount_WithProxyConfig(t *testing.T) {
 	}
 	if account.ProxyPort != 1080 {
 		t.Errorf("Expected ProxyPort 1080, got %d", account.ProxyPort)
-	}
-}
-
-func TestAccount_AllHeadlessPlatforms(t *testing.T) {
-	trueVal := true
-	account := &Account{
-		DouyinHeadless:      &trueVal,
-		KuaishouHeadless:    &trueVal,
-		XiaohongshuHeadless: &trueVal,
-		XianyuHeadless:      &trueVal,
-		TiktokHeadless:      &trueVal,
-	}
-
-	if !*account.DouyinHeadless {
-		t.Error("Expected DouyinHeadless to be true")
-	}
-	if !*account.KuaishouHeadless {
-		t.Error("Expected KuaishouHeadless to be true")
-	}
-	if !*account.XiaohongshuHeadless {
-		t.Error("Expected XiaohongshuHeadless to be true")
-	}
-	if !*account.XianyuHeadless {
-		t.Error("Expected XianyuHeadless to be true")
-	}
-	if !*account.TiktokHeadless {
-		t.Error("Expected TiktokHeadless to be true")
 	}
 }
 

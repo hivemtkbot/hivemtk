@@ -7,8 +7,9 @@ import (
 	"regexp"
 	"strings"
 
-	"gopkg.in/yaml.v3"
 	"hivemtk-user/internal/pkg/utils/logger"
+
+	"gopkg.in/yaml.v3"
 )
 
 // envVarWithDefaultRe 匹配 ${VAR} 或 ${VAR:default} 两种形式

@@ -9,10 +9,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"hivemtk-user/internal/pkg/testutil"
 	"hivemtk-user/internal/pkg/testutil/testmigrate"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // setupKBTestDB 设置知识库测试数据库

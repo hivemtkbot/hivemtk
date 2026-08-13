@@ -1,0 +1,14 @@
+{
+  "page": "messageHub/list",
+  "url": "http://localhost:8213/#/messageHub/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 18,
+  "note": "page_interaction_timeout_guard_triggered"
+}

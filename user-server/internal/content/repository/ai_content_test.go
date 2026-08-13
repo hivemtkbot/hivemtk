@@ -4,8 +4,9 @@ import (
 	"hivemtk-user/internal/content/model"
 	"testing"
 
-	"gorm.io/gorm"
 	"hivemtk-user/internal/pkg/testutil"
+
+	"gorm.io/gorm"
 )
 
 // setupAIContentTestDB 设置 AI 内容测试数据库

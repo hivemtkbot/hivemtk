@@ -63,7 +63,6 @@ func (e *SalesEngine) recallMemory(ctx context.Context, req *SalesRequest) (*mod
 	return e.memory.GetOrCreateMemory(ctx, req.SessionID, req.CustomerID)
 }
 
-// ===== merged from sales_engine_part2.go (was a mechanical _partN split) =====
 func (e *SalesEngine) matchSOP(ctx context.Context, intent *dto.RecognizeResult, customer *model.Customer) (*model.SOPAgent, string, error) {
 	if e.sop == nil || intent == nil {
 		return nil, "", nil

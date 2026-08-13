@@ -2,8 +2,8 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"hivemtk-user/internal/model"
-	"hivemtk-user/internal/platform"
 	"hivemtk-user/internal/repository"
 )
 
@@ -96,50 +96,28 @@ func (s *PlatformAccountService) DeleteAccount(ctx context.Context, id uint) err
 }
 
 // Login 登录
+//
+// 原实现依赖 internal/platform 的 CDP 无头浏览器适配器（BrowserAdapter）对
+// 抖音/快手/小红书/咸鱼/tiktok 做服务端扫码登录，该通道已删除。这些平台现由独立
+// 桥接模块对接（登录在前端扩展侧完成），后端不再提供服务端无头登录。
+// 故此处对所有平台统一返回"不支持"，由调用方走到桥接登录流程。
 func (s *PlatformAccountService) Login(ctx context.Context, id uint, req *PlatformLoginRequest) (*model.PlatformAccount, error) {
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-
-	// 获取平台适配器
-	adapter, err := platform.GetAdapter(account.Platform)
-	if err != nil {
-		return nil, err
-	}
-
-	// 执行登录
-	result, err := adapter.Login(req.Credentials)
-	if err != nil {
-		return nil, err
-	}
-
-	// 更新账号信息
-	account.AccountID = result.AccountID
-	account.AccountName = result.AccountName
-	account.Status = 1
-
-	if err := s.accountRepo.Update(ctx, account); err != nil {
-		return nil, err
-	}
-
-	return account, nil
+	return nil, fmt.Errorf("平台 %s 不支持服务端无头登录（CDP 自动回复通道已移除，请通过桥接扩展登录）", account.Platform)
 }
 
 // CheckLoginStatus 检查登录状态
+//
+// 同上：服务端 CDP 登录态检查已随通道删除移除，登录态改由桥接模块维护。
 func (s *PlatformAccountService) CheckLoginStatus(ctx context.Context, id uint) (bool, error) {
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return false, err
 	}
-
-	// 获取平台适配器
-	adapter, err := platform.GetAdapter(account.Platform)
-	if err != nil {
-		return false, err
-	}
-
-	return adapter.CheckLoginStatus(account.AccountID)
+	return false, fmt.Errorf("平台 %s 不支持服务端登录态检查（CDP 自动回复通道已移除，登录态由桥接模块维护）", account.Platform)
 }
 
 var ErrPermissionDenied = &PermissionDeniedError{}

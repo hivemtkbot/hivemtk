@@ -6,12 +6,6 @@ export default [
     meta: { title: '抖音卡片', group: 'community', icon: 'VideoPlay' }
   },
   {
-    path: '/douyin/auto-reply',
-    name: 'DouyinAutoReply',
-    component: () => import('@/views/douyinCard/AutoReply.vue'),
-    meta: { title: '抖音自动回复', group: 'community', icon: 'ChatDotRound' }
-  },
-  {
     path: '/douyin/stats',
     name: 'DouyinStats',
     component: () => import('@/views/douyinCard/Stats.vue'),

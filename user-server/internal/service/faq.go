@@ -367,6 +367,9 @@ func (s *FAQService) Update(ctx context.Context, id uint, entry *model.FAQEntry)
 	if s.repo == nil {
 		return fmt.Errorf("repo not initialized")
 	}
+	// 修复：repo.Update 使用 Select("*").Updates(entry)，若 entry.ID 为零值会触发主键冲突。
+	// 显式回填主键，确保 UPDATE 命中同一行，且所有字段（含零值 enabled=false）被正确更新。
+	entry.ID = id
 	if err := s.repo.Update(ctx, id, entry); err != nil {
 		return err
 	}

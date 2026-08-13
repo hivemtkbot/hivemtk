@@ -91,7 +91,7 @@
                   <span>最近活动</span>
                 </div>
               </template>
-              <el-table :data="cardStats.recentActivity.filter(item => item.action === 'view')" style="width: 100%">
+              <el-table :data="(cardStats.recentActivity || []).filter(item => item.action === 'view')" style="width: 100%">
                 <el-table-column prop="username" label="用户" />
                 <el-table-column prop="action" label="操作">
                   <template #default="scope">
@@ -207,7 +207,7 @@ const updateCharts = () => {
     },
     xAxis: {
       type: 'category',
-      data: cardStats.dailyStats.map(item => item.date)
+      data: (cardStats.dailyStats || []).map(item => item.date)
     },
     yAxis: {
       type: 'value'
@@ -216,7 +216,7 @@ const updateCharts = () => {
       {
         name: '浏览量',
         type: 'line',
-        data: cardStats.dailyStats.map(item => item.view),
+        data: (cardStats.dailyStats || []).map(item => item.view),
         smooth: true
       }
     ]

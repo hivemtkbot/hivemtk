@@ -1,0 +1,25 @@
+{
+  "page": "xiaohongshu/auto-reply",
+  "url": "http://localhost:8213/#/xiaohongshu/auto-reply",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": [
+      {
+        "url": "http://localhost:8213/api/xiaohongshu/auto-reply/start",
+        "status": 404,
+        "method": "POST"
+      }
+    ]
+  },
+  "interactions": [
+    {
+      "action": "click",
+      "label": "启动自动回复",
+      "note": "NET: {\"url\":\"http://localhost:8213/api/xiaohongshu/auto-reply/start\",\"status\":404,\"method\":\"POST\"}"
+    }
+  ],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 13
+}

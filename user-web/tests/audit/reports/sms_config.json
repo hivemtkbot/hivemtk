@@ -1,0 +1,13 @@
+{
+  "page": "sms/config",
+  "url": "http://localhost:8213/#/sms/config",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 17
+}

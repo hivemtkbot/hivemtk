@@ -22,7 +22,6 @@ func setupMarketingFlowServiceTestDB(t *testing.T) *gorm.DB {
 		&model.MarketingFlow{},
 		&model.FlowExecution{},
 		&cdpmodel.UserTag{},
-		&cdpmodel.AutoReplyAccount{},
 	)
 	db.SetTestDB(database)
 	return database
@@ -659,120 +658,10 @@ func TestMarketingFlowService_handleDelay(t *testing.T) {
 }
 
 // TestMarketingFlowService_sendActionSendMessage 测试发送消息动作
-func TestMarketingFlowService_sendActionSendMessage(t *testing.T) {
-	service := setupMarketingFlowService(t)
-
-	// 创建测试用的自动回复账号（直接写明文 Cookie 字段，测试发送动作不需要解密）
-	testAccount := &cdpmodel.AutoReplyAccount{
-		Platform: "xiaohongshu",
-		Username: "account-1",
-		Cookie:   "test-session-cookie-value",
-	}
-	db.GetDB().Create(testAccount)
-
-	tests := []struct {
-		name        string
-		config      map[string]any
-		merchantID  string
-		userID      string
-		wantErr     bool
-		wantSuccess bool
-	}{
-		{
-			name: "missing platform",
-			config: map[string]any{
-				"content": "Test message",
-			},
-
-			userID:      "user-1",
-			wantErr:     true,
-			wantSuccess: false,
-		},
-		{
-			name: "missing account_id",
-			config: map[string]any{
-				"platform": "douyin",
-				"content":  "Test message",
-			},
-
-			userID:      "user-2",
-			wantErr:     true,
-			wantSuccess: false,
-		},
-		{
-			name: "missing chat_id",
-			config: map[string]any{
-				"platform":   "douyin",
-				"account_id": "account-1",
-				"content":    "Test message",
-			},
-
-			userID:      "user-3",
-			wantErr:     true,
-			wantSuccess: false,
-		},
-		{
-			name: "missing content",
-			config: map[string]any{
-				"platform":   "douyin",
-				"account_id": "account-1",
-				"chat_id":    "chat-1",
-			},
-
-			userID:      "user-4",
-			wantErr:     true,
-			wantSuccess: false,
-		},
-		{
-			name: "invalid platform adapter",
-			config: map[string]any{
-				"platform":   "invalid-platform",
-				"account_id": "account-1",
-				"chat_id":    "chat-1",
-				"content":    "Test message",
-			},
-
-			userID:      "user-5",
-			wantErr:     true,
-			wantSuccess: false,
-		},
-		{
-			name: "valid config - xiaohongshu",
-			config: map[string]any{
-				"platform":   "xiaohongshu",
-				"account_id": "account-1",
-				"chat_id":    "chat-1",
-				"content":    "Test message",
-			},
-
-			userID:      "user-6",
-			wantErr:     true, // Browser automation not available in test environment
-			wantSuccess: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := service.sendActionSendMessage(context.Background(), tt.config, tt.userID, nil)
-
-			// 1. 校验错误预期
-			if (err != nil) != tt.wantErr {
-				t.Errorf("sendActionSendMessage() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			// 2. 成功路径下校验结果
-			if !tt.wantErr && tt.wantSuccess {
-				if result == nil {
-					t.Fatal("Expected non-nil result on success")
-				}
-				if success, ok := result["success"].(bool); !ok || !success {
-					t.Errorf("Expected success=true, got %v", result["success"])
-				}
-			}
-		})
-	}
-}
+//
+// 注：原实现依赖已删除的 CDP 无头浏览器适配器（BrowserAdapter）下发消息（创建
+// AutoReplyAccount、走服务端无头浏览器）。该通道已移除，sendActionSendMessage 现在
+// 对这些平台统一返回“不支持，请通过桥接模块下发”。故此处不再覆盖 CDP 发送路径。
 
 // TestMarketingFlowService_sendActionAddTag 测试添加标签动作
 func TestMarketingFlowService_sendActionAddTag(t *testing.T) {

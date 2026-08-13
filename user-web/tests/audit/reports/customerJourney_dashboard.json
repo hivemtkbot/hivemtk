@@ -1,0 +1,13 @@
+{
+  "page": "customerJourney/dashboard",
+  "url": "http://localhost:8213/#/customerJourney/dashboard",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 5
+}

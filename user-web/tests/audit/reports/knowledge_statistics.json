@@ -1,0 +1,13 @@
+{
+  "page": "knowledge/statistics",
+  "url": "http://localhost:8213/#/knowledge/statistics",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 6
+}

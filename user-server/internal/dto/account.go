@@ -12,12 +12,6 @@ type CreateAccountRequest struct {
 	ProxyProtoclo    string `json:"proxy_protoclo"`
 	ProxyHost        string `json:"proxy_host"`
 	ProxyPort        int    `json:"proxy_port"`
-
-	// 自动回复平台无头模式设置
-	DouyinHeadless      *bool `json:"douyin_headless"`
-	KuaishouHeadless    *bool `json:"kuaishou_headless"`
-	XiaohongshuHeadless *bool `json:"xiaohongshu_headless"`
-	XianyuHeadless      *bool `json:"xianyu_headless"`
 }
 
 type AccountResponse struct {
@@ -34,12 +28,6 @@ type AccountResponse struct {
 	CreateTime       int64                   `json:"create_time"`
 	Msg              string                  `json:"msg"`
 	URL              string                  `json:"url"`
-
-	// 自动回复平台无头模式设置
-	DouyinHeadless      *bool `json:"douyin_headless"`
-	KuaishouHeadless    *bool `json:"kuaishou_headless"`
-	XiaohongshuHeadless *bool `json:"xiaohongshu_headless"`
-	XianyuHeadless      *bool `json:"xianyu_headless"`
 }
 
 type GetAccountListResponse struct {
@@ -57,12 +45,6 @@ type UpdateAccountRequest struct {
 	ProxyProtoclo    string `json:"proxy_protoclo"`
 	ProxyHost        string `json:"proxy_host"`
 	ProxyPort        int    `json:"proxy_port"`
-
-	// 自动回复平台无头模式设置
-	DouyinHeadless      *bool `json:"douyin_headless"`
-	KuaishouHeadless    *bool `json:"kuaishou_headless"`
-	XiaohongshuHeadless *bool `json:"xiaohongshu_headless"`
-	XianyuHeadless      *bool `json:"xianyu_headless"`
 }
 
 type DeleteAccountRequest struct {

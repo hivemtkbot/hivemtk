@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/gorm"
 	"hivemtk-user/internal/pkg/testutil"
+
+	"gorm.io/gorm"
 )
 
 // setupMarketingFlowTestDB 设置营销流程测试数据库

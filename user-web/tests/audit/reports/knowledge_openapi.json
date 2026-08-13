@@ -1,0 +1,14 @@
+{
+  "page": "knowledge/openapi",
+  "url": "http://localhost:8213/#/knowledge/openapi",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 11,
+  "note": "page_interaction_timeout_guard_triggered"
+}

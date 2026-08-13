@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/aiagent/llm"
-	"hivemtk-user/internal/aiagent/rag/core"
+	rag_core "hivemtk-user/internal/aiagent/rag/core"
 )
 
 // RAGService RAG服务

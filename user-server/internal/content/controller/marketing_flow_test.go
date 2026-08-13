@@ -9,11 +9,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	cdpmodel "hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
-	cdpmodel "hivemtk-user/internal/model"
-	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupMarketingFlowTestDB 设置测试数据库

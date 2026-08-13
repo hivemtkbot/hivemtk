@@ -1,0 +1,14 @@
+{
+  "page": "/livecode",
+  "url": "http://localhost:8213/#/livecode",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 16,
+  "note": "page_interaction_timeout_guard_triggered"
+}

@@ -49,6 +49,8 @@ const fetchDetail = async () => {
   try {
     const resp = await assetDetail(route.params.id)
     detail.value = resp?.data || resp
+  } catch (e) {
+    ElMessage.error(e?.message || '获取资产详情失败')
   } finally {
     loading.value = false
   }

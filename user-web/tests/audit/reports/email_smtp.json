@@ -1,0 +1,13 @@
+{
+  "page": "email/smtp",
+  "url": "http://localhost:8213/#/email/smtp",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 6
+}

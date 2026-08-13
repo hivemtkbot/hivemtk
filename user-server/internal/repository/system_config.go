@@ -14,8 +14,6 @@ type SystemConfigRepository interface {
 	SaveConfig(ctx context.Context, config *model.SystemConfig) (*model.SystemConfig, error)
 	// CountUsers 统计系统用户数
 	CountUsers(ctx context.Context) (int64, error)
-	// CountAutoReplyLogs 统计自动回复日志数
-	CountAutoReplyLogs(ctx context.Context) (int64, error)
 	// PingDB 检查数据库连通性
 	PingDB(ctx context.Context) bool
 }
@@ -50,13 +48,6 @@ func (r *systemConfigRepo) SaveConfig(ctx context.Context, config *model.SystemC
 func (r *systemConfigRepo) CountUsers(ctx context.Context) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.SystemUser{}).Count(&n).Error
-	return n, err
-}
-
-// CountAutoReplyLogs 统计自动回复日志数
-func (r *systemConfigRepo) CountAutoReplyLogs(ctx context.Context) (int64, error) {
-	var n int64
-	err := r.db.WithContext(ctx).Model(&model.AutoReplyLog{}).Count(&n).Error
 	return n, err
 }
 

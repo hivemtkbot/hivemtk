@@ -1,0 +1,14 @@
+{
+  "page": "customReport/list",
+  "url": "http://localhost:8213/#/customReport/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 4,
+  "note": "page_interaction_timeout_guard_triggered"
+}

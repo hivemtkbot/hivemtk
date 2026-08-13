@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"hivemtk-user/internal/content/dto"
 	"hivemtk-user/internal/content/service"
 	"hivemtk-user/internal/pkg/utils/response"
+
+	"github.com/gin-gonic/gin"
 )
 
 type MaterialController struct {

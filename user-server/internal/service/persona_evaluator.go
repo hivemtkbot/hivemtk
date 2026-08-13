@@ -747,7 +747,6 @@ var (
 	_ LowQualitySampleCollector = (*DBLowQualitySampleCollector)(nil)
 )
 
-// ===== merged from persona_evaluator_part2.go (was a mechanical _partN split) =====
 func ListLowQualitySamples(db *gorm.DB, handled *bool, sampleType string, limit, offset int) ([]model.LowQualitySample, int64, error) {
 	if db == nil {
 		return nil, 0, fmt.Errorf("db not configured")

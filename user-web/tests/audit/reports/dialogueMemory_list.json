@@ -1,0 +1,13 @@
+{
+  "page": "dialogueMemory/list",
+  "url": "http://localhost:8213/#/dialogueMemory/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 11
+}

@@ -1,0 +1,32 @@
+{
+  "page": "xianyu/auto-reply",
+  "url": "http://localhost:8213/#/xianyu/auto-reply",
+  "errors": {
+    "console": [
+      "Error: 未找到可用的闲鱼账号，请先绑定账号\n    at buildRequestError (http://localhost:8213/src/utils/request.js?t=1786477135206:90:15)\n    at http://localhost:8213/src/utils/request.js?t=1786477135206:246:31\n    at async Axios.request (http://localhost:8213/node_modules/.vite/deps/axios.js?v=8e4591b1:2115:14)\n    at async start (http://localhost:8213/src/views/xianyuCard/AutoReply.vue:185:5)\n    at Axios.request (http://localhost:8213/node_modules/.vite/deps/axios.js?v=8e4591b1:2119:41)\n    at async start (http://localhost:8213/src/views/xianyuCard/AutoReply.vue:185:5)"
+    ],
+    "page": [],
+    "net": [
+      {
+        "url": "http://localhost:8213/api/xianyu/auto-reply/start",
+        "status": 404,
+        "method": "POST"
+      }
+    ]
+  },
+  "interactions": [
+    {
+      "action": "click",
+      "label": "启动自动回复",
+      "note": "CONSOLE: Error: 未找到可用的闲鱼账号，请先绑定账号\n    at buildRequestError (http://localhost:8213/src/utils/request.js?t=1786477135206:90:15)\n    at http://localhost:8213/src/utils/request.js?t=1786477135206:246:31\n    at async Axios.request (http://localhost:8213/node_modules/.vite/deps/axios.js?v=8e4591b1:2115:14)\n    at async start (http://localhost:8213/src/views/xianyuCard/AutoReply.vue:185:5)\n    at Axios.request (http://localhost:8213/node_modules/.vite/deps/axios.js?v=8e4591b1:2119:41)\n    at async start (http://localhost:8213/src/views/xianyuCard/AutoReply.vue:185:5)"
+    },
+    {
+      "action": "click",
+      "label": "启动自动回复",
+      "note": "NET: {\"url\":\"http://localhost:8213/api/xianyu/auto-reply/start\",\"status\":404,\"method\":\"POST\"}"
+    }
+  ],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 14
+}

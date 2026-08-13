@@ -288,11 +288,11 @@ func (pc *PlatformController) DeleteUser(c *gin.Context) {
 // 平台端方法 - 系统统计 - GET /platform/stats/system
 func (pc *PlatformController) GetSystemStats(c *gin.Context) {
 	var resp struct {
-		ServerTime  string `json:"server_time"`
-		Uptime      string `json:"uptime"`
-		MemoryUsage string `json:"memory_usage"`
-		CPUUsage    string `json:"cpu_usage"`
-		DiskUsage   string `json:"disk_usage"`
+		ServerTime  string  `json:"server_time"`
+		Uptime      float64 `json:"uptime"`
+		MemoryUsage float64 `json:"memory_usage"`
+		CPUUsage    float64 `json:"cpu_usage"`
+		DiskUsage   float64 `json:"disk_usage"`
 	}
 	pc.platformCall(c, "GET", "/platform/stats/system", nil, &resp, "获取系统统计失败")
 }
@@ -317,7 +317,7 @@ func (pc *PlatformController) GetPlatformMerchantStats(c *gin.Context) {
 	days := c.DefaultQuery("days", "7")
 
 	var resp struct {
-		Days  string           `json:"days"`
+		Days  int              `json:"days"`
 		Stats []map[string]any `json:"stats"`
 	}
 

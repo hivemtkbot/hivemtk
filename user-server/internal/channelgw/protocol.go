@@ -136,11 +136,16 @@ type IngestRequest struct {
 }
 
 // IngestResult 单条消息处理结果（HTTP 响应与 WS ack 帧共用）。
+//
+// 注意：Duplicate / AIHandled 不要加 omitempty —— 结果对象里的布尔标志位必须
+// 「始终显式出现」，否则客户端无法安全读取 result.duplicate（被省略后变成
+// undefined/null，只能退化为 `=== true` 判断，易踩坑）。accepted 已显式无
+// omitempty，此处与之保持一致。
 type IngestResult struct {
 	EventID   string `json:"event_id"`
 	Accepted  bool   `json:"accepted"`
-	Duplicate bool   `json:"duplicate,omitempty"`  // 幂等跳过 / 中间件拦截（重复投递）
-	AIHandled bool   `json:"ai_handled,omitempty"` // 已触发 AI 推理
+	Duplicate bool   `json:"duplicate"`  // 幂等跳过 / 中间件拦截（重复投递）
+	AIHandled bool   `json:"ai_handled"` // 已触发 AI 推理
 	Reason    string `json:"reason,omitempty"`
 }
 

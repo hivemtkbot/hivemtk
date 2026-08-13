@@ -1,15 +1,15 @@
 platform_api:
-  # 平台端 API 网关地址（user-server 启动时读取 / 心跳上报 / 商户服务代理）
-  # 单一源：internal/config/ports.go → DefaultPlatformPort + DefaultPlatformBaseURL
-  # 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8205 | platform-server
+  # 平台端 API 网关（user-server 跑在容器内，跨网络物理隔离）
+  # 单一源：internal/config/ports.go → DefaultPlatformPort=8205
+  # 文档源：DEVELOPMENT.md §2.4 + docker-compose.yml 中 platform-server 端口映射
+  # 调整流程：先改 ports.go 常量 → 同步本字段 → 同步 docker-compose.yml
   # 覆盖优先级：环境变量 PLATFORM_API_URL > 本默认值
-  # 调整流程：先改 ports.go 常量 → 同步本字段 → 同步 DEVELOPMENT.md §2.4
   # 字段名统一为 api_url（与 internal/config/platform.go LoadPlatform / server.go PlatformAPI 一致）
-  api_url: "${PLATFORM_API_URL:http://localhost:8205}"
+  api_url: "${PLATFORM_API_URL:http://host.docker.internal:8205}"
 
 # 外部可达基座 URL（用于自动推导 Telegram / 飞书 / 钉钉等被动渠道的 Webhook 回调地址）
 # 背景：user-server 部署在反代/frp/云函数之后，渠道回调所需的公网 URL
-#       无法从「请求 Host 头」直接推断（默认会得到 localhost:8080，
+#       无法从「请求 Host 头」直接推断（默认会得到 localhost:8204，
 #       Telegram 无法向其投递消息）。显式声明后，注册 webhook 时优先使用该地址。
 # 覆盖优先级（自高到低）：
 #   1. 环境变量 PUBLIC_BASE_URL（部署期单点覆盖，无需改文件）
@@ -20,33 +20,27 @@ platform_api:
 #   - scheme + host（不含 path），如 https://shop.example.com 或 https://example.com:8443
 #   - 必须是 https（Telegram / 飞书强制 https；本系统会自动把 http+端口 升级为 https）
 #   - 不带尾部斜杠
-# 留空 → 回退到 X-Forwarded-* 头 / 请求 Host（不推荐用于生产）
+# 留空 → 自动降级到 polling 模式（无需公网域名，但禁止水平扩展，仅适合开发 / 单实例）
 external:
   public_base_url: "${PUBLIC_BASE_URL:}"
 
-# 统一日志系统配置（zerolog 驱动）
-# level:    debug | info | warn | error
-# format:   json（生产，便于采集）| console（本地，带颜色）
-# output:   stdout | file | both
-# file:     output 为 file/both 时生效；超过 max_size(MB) 自动滚动（保留 1 份备份）
-# component: 写入每条日志的 service 标识
+# 统一日志系统配置（生产建议 json + both，便于日志采集与本地排障）
 logging:
   level: "info"
-  format: "console"
-  output: "stdout"
+  format: "json"
+  output: "both"
   file: "logs/user-server.log"
-  max_size: 100
+  max_size: 200
   component: "user-server"
 
 database:
   type: postgres
   postgres:
-    host: localhost
-    port: 8232
+    host: mtk-postgres
+    port: 8202
     user: admin
-    # 私域合规基线 §7.2：密码不落配置文件，禁止任何密码形态写入 config。
-    # 数据库连接密码仅由运行时从环境变量 POSTGRES_PASSWORD 注入
-    # （来源：本地 .env / 私有密钥管理 / 密钥文件），app 启动直接读取，
+    # 私域合规基线 §7.2：密码不落配置文件。docker 部署时由 docker-compose 的
+    # env_file / 密钥管理注入 POSTGRES_PASSWORD，app 启动直接读取，
     # 配置文件不保留 password 字段。
     dbname: user_db
     sslmode: disable
@@ -55,114 +49,68 @@ vector_database:
   type: pgvector
   pgvector:
     table: knowledge_embeddings
-    # 2026-07-18 私域基线：本地 TEI + BAAI/bge-m3，向量维度 1024
-    # 与迁移 SQL vector(1024) 及运行时默认维度保持一致，避免 pgvector 入库维度不匹配
+    # 2026-07-24：本地 llama.cpp + bge-m3（1024 维），与 pgvector vector(1024) 对齐
     dimension: 1024
 
 # 本地推理栈（embedding / rerank / llm）统一配置
 # 设计详见 docs/architecture/HOST_INFERENCE_PLAN.md
-# 三个能力统一暴露为 OpenAI 兼容 HTTP：
-#   - embedding: /v1/embeddings   - rerank: /v1/rerank   - llm: /v1/chat/completions
-# 默认走本地（127.0.0.1，宿主机 llama.cpp），仅在 base_url+api_key 填线上地址时切到线上。
-# profile=dev：开发默认选最轻量模型（硬件要求最低）；embedding 维度硬性 1024。
-# 部署位置：user-server 与 llama.cpp 均跑在宿主机，端口走 127.0.0.1 直连，
-#           避免 Docker 网络转译带来的 CPU/内存损耗（2026-07-24 重构）。
+# 三个能力走宿主机 llama.cpp（host.docker.internal），容器不再承载推理。
+# 覆盖优先级：环境变量 > config > 默认
 inference:
   profile: dev
   embedding:
     mode: local
-    # 单一源：internal/config/ports.go → DefaultEmbeddingPort=8208
-    # 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8208 | Embedding（bge-m3）
-    # 覆盖优先级：环境变量 EMBEDDING_BASE_URL > config > 默认（127.0.0.1:8208）
-    base_url: "${EMBEDDING_BASE_URL:http://127.0.0.1:8208/v1}"
-    # dev 轻量档：Xorbits/bge-m3-gguf（Q4_K_M，1024 维），与 pgvector vector(1024) 对齐
+    base_url: "${EMBEDDING_BASE_URL:http://host.docker.internal:8208/v1}"
     model: "bge-m3"
     dimension: 1024
-    allow_fallback: false          # 禁止静默降级哈希伪向量（仅单测显式开启）
+    allow_fallback: false
   rerank:
     mode: local
-    # 单一源：internal/config/ports.go → DefaultRerankPort=8209
-    # 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8209 | Rerank（bge-reranker-v2-m3）
-    # 覆盖优先级：环境变量 RERANK_BASE_URL > config > 默认（127.0.0.1:8209）
-    base_url: "${RERANK_BASE_URL:http://127.0.0.1:8209/v1}"
-    # dev 轻量档：bge-reranker-v2-m3 (Q4_K_M)，多语言跨编码器
+    base_url: "${RERANK_BASE_URL:http://host.docker.internal:8209/v1}"
     model: "bge-reranker-v2-m3"
     enabled: true
   llm:
-    mode: local
-    # 单一源：internal/config/ports.go → DefaultLLMPort=8207
-    # 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8207 | LLM（llama.cpp）
-    # 覆盖优先级：环境变量 LLM_BASE_URL > config > 默认（127.0.0.1:8207）
-    # Docker 部署请使用 config-docker.yaml（host.docker.internal:8207）
-    base_url: "${LLM_BASE_URL:http://127.0.0.1:8207/v1}"
-    # 2026-08-10：切换为 MLX 栈 SmolLM3-3B 4bit（ModelScope 下载 + mlx_lm.convert，
-    # 见 scripts/inference-host/mlx/）；此前为 llama.cpp Qwen2.5 系 GGUF。
-    # DB llm_providers 表（default 行）为运行时真相，本行仅占位对齐。
+    mode: cloud
+    base_url: "${LLM_BASE_URL:http://host.docker.internal:8207/v1}"
+    # 2026-08-10：切换为宿主机 MLX 栈 SmolLM3-3B 4bit（ModelScope 下载 + mlx_lm.convert，
+    # 见 scripts/inference-host/mlx/），经 host.docker.internal:8207 直连。
+    # 此前为 llama.cpp qwen2.5-7b-instruct GGUF；DB llm_providers（default 行）为运行时真相。
     model: "smollm3-3b-4bit-mlx"
-    no_fc: true                      # MLX 服务未实现 Function Calling，启用 ReAct 文本协议
-    api_key: ""                     # 本地模型无需密钥
+    api_key: ""
     temperature: 0.7
-    # 2026-07-24 性能优化：2048→1024。客服回复通常 <200 字（~300 token），
-    # 1024 足够覆盖较长回复；CPU 推理时间与生成 token 数近似线性，降 2 倍可省 ~50% 单次推理时间。
-    # 需要更长输出的场景（如 Agent Loop ReAct）已在代码中显式指定 MaxTokens 覆盖此默认值。
-    max_tokens: 1024
-    # 2026-07-24：开发模式提升到 720s，与 dispatcher.MaxLatency、
-    # llm_service.httpClient.Timeout、sales_engine.agentLoopTotalTimeout 全链路对齐。
-    # 生产环境应覆盖为更小值（如 120s）。
-    timeout_seconds: 720
-    # 2026-07-24 性能优化：3→1。本地 LLM 失败多为进程崩溃/OOM，重试无意义只会空等 backoff。
-    # 失败时由 dispatcher 层候选 provider failover 兜底。
+    # 调优（2026-07-31 03:10）：1024 在 RAG 长答案上 finish_reason=length 截断，
+    #   → orchestrator 判定低质量转人工（ai_replied=false）→ 客户端收到空回复。
+    #   提到 2048 让 9B 完整输出一段含 RAG 引用的业务答案（实测首条 content_len=910，
+    #   SOP + 知识库组合后普遍 1300-1700 token）。7B 同样适用。
+    max_tokens: 2048
+    # 调优记录（2026-07-30 → 2026-07-31 02:45）：
+    #   - 300s 实测不够：9B + 完整 RAG 链路（intent + sop + 拟人润色）经常 250-300s，
+    #     context canceled 后被判定为 LLM 失败，触发转人工（conf=0）
+    #   - 提到 600s 适配 9B 长链路（单条最多 2-3 个 LLM 调用 × 60-150s）
+    timeout_seconds: 600
     max_retries: 1
-    # 云端 fallback（deepseek 等）已迁移到数据库表 llm_providers（后台「LLM路由」页面配置），
-    # 由 LoadProvidersFromDB() 在运行时加载，DB 为真相；dev 档 config 不再声明 cloud_providers，
-    # 以符合私域安全基线（禁止 dev 档静默走公网 fallback）。
+    # 主推理 provider：当前以云端 deepseek 为主（本地 default 作为兜底 fallback，本机 8207 未运行）。
+    # 注意：provider 的 API 定义（api_key/base_url/model 等）现已持久化到数据库表 llm_providers，
+    # 由后台「LLM路由」页面 / 脚本经 POST /api/llm/models 写入，容器启动经 LoadProvidersFromDB 加载，
+    # 不再硬编码在配置中（合规基线：密钥不落配置文件）。本环境经脚本/页面注册了 deepseek（enabled）。
+    primary_provider: deepseek
 
 storage:
   type: qiniu
   qiniu:
-    # 密钥通过环境变量注入（合规基线 §7.2 敏感数据脱敏），禁止明文落库
-    access_key: "${QINIU_ACCESS_KEY}"
-    secret_key: "${QINIU_SECRET_KEY}"
-    bucket: "voiceparter"
-    # 对外访问域名（CDN）
-    domain: "qiniu.xapptool.cn"
-    # 华东区域上传入口
-    upload_domain: "up-z2.qiniup.com"
-    region: "z2"
+    access_key: ""
+    secret_key: ""
+    bucket: ""
+    domain: ""
 
-# 多语言方案配置（v1.2 出海多语言 P1-1）
-#   - embedding：bge-m3 多语言 embedding provider 配置
-#     * provider=openai（默认）：复用 inference.embedding（基于 llm.EmbeddingService）
-#     * provider=bge-m3：显式 bge-m3 provider，走 OpenAI 兼容 /v1/embeddings，
-#       支持本地部署（FlagEmbedding/llama.cpp/TEI）或 API 模式（SiliconFlow/智谱）
-#   - cache：跨语言回复翻译缓存（Redis 后端），命中后跳过 LLM 调用
-#     * key = hash(internal_lang + target_lang + query + kb_version)
-#     * TTL 默认 1h；可在知识库更新后通过 redis-cli 清理 prefix 失效
+# 多语言方案配置（v1.2 出海多语言 P1-2）
+# 低资源语言（ar/th/vi/hi/tr）LLM 输出质量不稳定，启用后走 DeepL 翻译降级路径：
+#   中文 RAG 生成 → DeepL 翻译 → Glossary 后处理校准
+# 默认关闭：enabled=false 时不影响主流程，走标准跨语言 LLM 生成路径。
+# 启用条件：enabled=true 且 DEEPL_API_KEY 环境变量已配置。
 i18n:
-  embedding:
-    provider: bge-m3                       # openai / bge-m3
-    model: "BAAI/bge-m3"
-    # 单一源：internal/config/ports.go → DefaultBGEBaseURLDev（=Embedding 同源 8208）
-    # 文档源：DEVELOPMENT.md §2.4 | 8208 | embedding（BGE-m3）
-    # 调整必须先改 ports.go，再改本字段；禁止裸字面量（如 :8080）
-    # 覆盖优先级：环境变量 BGE_M3_BASE_URL > config > 默认
-    base_url: "${BGE_M3_BASE_URL:http://127.0.0.1:8208/v1}"
-    api_key: "${BGE_M3_API_KEY:}"
-    dimension: 1024
-    normalize: true
-    batch_size: 32
-  cache:
-    enabled: true
-    ttl: 3600                              # 秒，默认 1h
-    key_prefix: "i18n:trans:"
-    max_entries: 100000
-  # 多语言方案配置（v1.2 出海多语言 P1-2）
-  # 低资源语言（ar/th/vi/hi/tr）LLM 输出质量不稳定，启用后走 DeepL 翻译降级路径：
-  #   中文 RAG 生成 → DeepL 翻译 → Glossary 后处理校准
-  # 默认关闭：enabled=false 时不影响主流程，走标准跨语言 LLM 生成路径。
-  # 启用条件：enabled=true 且 DEEPL_API_KEY 环境变量已配置。
   fallback:
-    enabled: true                          # 总开关，默认关闭
+    enabled: false                          # 总开关，默认关闭
     low_resource_langs: ["ar", "th", "vi", "hi", "tr"]  # 低资源语言列表
     translator: deepl                       # 翻译引擎（当前仅支持 deepl）
     deepl:
@@ -170,56 +118,3 @@ i18n:
       # 未设置时 FallbackBridge 自动禁用；Free 版需同步改 base_url 为 https://api-free.deepl.com/v2
       api_key: "${DEEPL_API_KEY}"
       base_url: "https://api.deepl.com/v2"
-
-# 客服自动转人工 NLP 配置（2026-07-17）
-# 关键词命中后自动转人工；前端的"转人工"按钮已移除
-# 对用户永远显示"在线客服"，企业内部分为 AI 客服 + 人工客服
-chat:
-  transfer_keywords:
-    - "人工"
-    - "真人"
-    - "转人工"
-    - "human"
-    - "operator"
-    - "客服"
-    - "agent"
-    - "找人"
-  # 命中关键词后 30 秒内无人工接入则提示"客服正在接入中"
-  fallback_seconds: 30
-
-# 自我学习机制配置（运维参考文档）
-# 设计依据：docs/企业级架构优化/对话驱动自我学习机制.md (v1.1) §7.4
-#
-# 重要说明：
-#   - 实际开关状态由 DB 表 self_learning_switches（单例 id=1）管理，运行时通过
-#     SwitchService.UpdateSwitch API 动态调整，本配置块不参与运行时决策
-#   - 本块仅作为「可调参数清单」文档，便于运维理解系统行为
-#   - 首次部署时 DB 表通过 GetOrCreate 自动初始化为下方默认值
-#
-# 三级自治等级：manual（人工审批）/ supervised（半自动）/ autonomous（全自动）
-# 三个分域开关：enable_rag / enable_asset / enable_llm（互不依赖，可单侧启用）
-# 详见 switch_service.go 与 dto.SwitchConfigRequest
-self_learning:
-  autonomy_level: "manual"             # 默认手动模式，确保上线初期人工兜底
-  enable_rag: false                    # RAG 自我学习（语料降权/销冠补录）默认关闭
-  enable_asset: false                  # 资产包自我学习（候选生成/A/B/降级）默认关闭
-  enable_llm: false                    # LLM 自我矫正默认关闭
-  max_daily_corrections: 100           # 每日矫正动作数上限（护栏1）
-  max_daily_promotions: 10             # 每日资产包晋升数上限（护栏2）
-  low_quality_threshold: 0.3           # 低质语料阈值（护栏3）
-  champion_reward_threshold: 1.5       # 销冠补录阈值（护栏4）
-  ab_test_min_samples: 30              # A/B 最小样本数（护栏5）
-  circuit_breaker_threshold: 0.3       # 熔断失败率阈值（护栏6）
-  circuit_breaker_window_min: 30       # 熔断器滑动窗口（分钟）
-
-# HTTP 代理配置（用于中国等需要代理访问外部 API 的环境）
-# 未配置时（enabled=false 或地址为空），HTTP 请求直连不走代理
-# 也可通过环境变量 HTTP_PROXY / HTTPS_PROXY / NO_PROXY 配置（Go 标准库自动识别）
-# 注意：本机调试可用 http://127.0.0.1:7898，但【容器内勿用本机代理】——
-# 容器内 127.0.0.1 指向容器自身，连不到宿主机的代理进程，会导致所有外网请求失败。
-# 容器部署请依赖环境变量注入（http://host.docker.internal:7898）或保持 disabled。
-proxy:
-  enabled: false                   # 默认关闭；本机调试可临时改为 true 并填下方地址
-  http_proxy: ""                    # HTTP 代理地址，如 http://127.0.0.1:7890（仅本机调试）
-  https_proxy: ""                   # HTTPS 代理地址；容器内勿用 127.0.0.1（见上方注释）
-  no_proxy: "localhost,127.0.0.1"   # 不走代理的地址

@@ -1,0 +1,13 @@
+{
+  "page": "lead-mining/index",
+  "url": "http://localhost:8213/#/lead-mining/index",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 2
+}

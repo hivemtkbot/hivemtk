@@ -2,11 +2,10 @@ package etl
 
 import (
 	"context"
+	rag_core "hivemtk-user/internal/aiagent/rag/core"
 	"strings"
 	"testing"
 	"time"
-
-	"hivemtk-user/internal/aiagent/rag/core"
 )
 
 // TestProcessDocument_NoInfiniteLoop 回归测试：

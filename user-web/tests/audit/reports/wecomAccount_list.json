@@ -1,0 +1,13 @@
+{
+  "page": "wecomAccount/list",
+  "url": "http://localhost:8213/#/wecomAccount/list",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 5
+}

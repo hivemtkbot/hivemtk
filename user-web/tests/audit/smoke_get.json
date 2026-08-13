@@ -1,0 +1,3597 @@
+[
+  {
+    "path": "/api/customer-sessions",
+    "filled": "/api/customer-sessions",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-sessions/blacklist",
+    "filled": "/api/customer-sessions/blacklist",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-sessions/blacklist/check",
+    "filled": "/api/customer-sessions/blacklist/check",
+    "status": 400
+  },
+  {
+    "path": "/api/customer-sessions/pending",
+    "filled": "/api/customer-sessions/pending",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-sessions/list",
+    "filled": "/api/customer-sessions/list",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-sessions/:id",
+    "filled": "/api/customer-sessions/1",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-sessions/:id/messages",
+    "filled": "/api/customer-sessions/1/messages",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-service-agents",
+    "filled": "/api/customer-service-agents",
+    "status": 400
+  },
+  {
+    "path": "/api/customer-service-agents/by-ai-agent/:ai_agent_id",
+    "filled": "/api/customer-service-agents/by-ai-agent/:ai_agent_id",
+    "status": 400
+  },
+  {
+    "path": "/api/customer-service-agents/by-user/:user_id",
+    "filled": "/api/customer-service-agents/by-user/:user_id",
+    "status": 400
+  },
+  {
+    "path": "/api/customer-360",
+    "filled": "/api/customer-360",
+    "status": 400
+  },
+  {
+    "path": "/api/customer-360/tag-rules",
+    "filled": "/api/customer-360/tag-rules",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-360/tag-stats",
+    "filled": "/api/customer-360/tag-stats",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-360/tags",
+    "filled": "/api/customer-360/tags",
+    "status": 400
+  },
+  {
+    "path": "/api/customer-360/stats",
+    "filled": "/api/customer-360/stats",
+    "status": 400
+  },
+  {
+    "path": "/api/customer-360/sessions",
+    "filled": "/api/customer-360/sessions",
+    "status": 400
+  },
+  {
+    "path": "/api/customer-360/list",
+    "filled": "/api/customer-360/list",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-360/basic",
+    "filled": "/api/customer-360/basic",
+    "status": 400
+  },
+  {
+    "path": "/api/customer-360/messages",
+    "filled": "/api/customer-360/messages",
+    "status": 400
+  },
+  {
+    "path": "/api/customer-journey/overview",
+    "filled": "/api/customer-journey/overview",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-journey/stages",
+    "filled": "/api/customer-journey/stages",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-journey/by-stage",
+    "filled": "/api/customer-journey/by-stage",
+    "status": 400
+  },
+  {
+    "path": "/api/customer-journey/dashboard",
+    "filled": "/api/customer-journey/dashboard",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-events",
+    "filled": "/api/customer-events",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-events/list",
+    "filled": "/api/customer-events/list",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-events/stats",
+    "filled": "/api/customer-events/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-events/customer/:customer_id",
+    "filled": "/api/customer-events/customer/1",
+    "status": 400
+  },
+  {
+    "path": "/api/customer-rfm/list",
+    "filled": "/api/customer-rfm/list",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-rfm/distribution",
+    "filled": "/api/customer-rfm/distribution",
+    "status": 200
+  },
+  {
+    "path": "/api/customer-rfm/:customer_id",
+    "filled": "/api/customer-rfm/1",
+    "status": 404
+  },
+  {
+    "path": "/api/customer-oneid/:customer_id/identities",
+    "filled": "/api/customer-oneid/1/identities",
+    "status": 404
+  },
+  {
+    "path": "/api/customer-tags",
+    "filled": "/api/customer-tags",
+    "status": 400
+  },
+  {
+    "path": "/api/customer/oneid/list",
+    "filled": "/api/customer/oneid/list",
+    "status": 200
+  },
+  {
+    "path": "/api/customer/oneid/stats",
+    "filled": "/api/customer/oneid/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/customer/oneid/conflicts",
+    "filled": "/api/customer/oneid/conflicts",
+    "status": 200
+  },
+  {
+    "path": "/api/customer/session/list",
+    "filled": "/api/customer/session/list",
+    "status": 200
+  },
+  {
+    "path": "/api/customer/session/:id/messages",
+    "filled": "/api/customer/session/1/messages",
+    "status": 200
+  },
+  {
+    "path": "/api/customer/list",
+    "filled": "/api/customer/list",
+    "status": 200
+  },
+  {
+    "path": "/api/customer/360/:id",
+    "filled": "/api/customer/360/1",
+    "status": 404
+  },
+  {
+    "path": "/api/customer/:id",
+    "filled": "/api/customer/1",
+    "status": 404
+  },
+  {
+    "path": "/api/customer/:id/behaviors",
+    "filled": "/api/customer/1/behaviors",
+    "status": 404
+  },
+  {
+    "path": "/api/customer/:id/communications",
+    "filled": "/api/customer/1/communications",
+    "status": 404
+  },
+  {
+    "path": "/api/custom-reports",
+    "filled": "/api/custom-reports",
+    "status": 200
+  },
+  {
+    "path": "/api/custom-reports/templates",
+    "filled": "/api/custom-reports/templates",
+    "status": 200
+  },
+  {
+    "path": "/api/custom-reports/:id",
+    "filled": "/api/custom-reports/1",
+    "status": 404
+  },
+  {
+    "path": "/api/custom-reports/:id/data",
+    "filled": "/api/custom-reports/1/data",
+    "status": 404
+  },
+  {
+    "path": "/api/churn/prediction",
+    "filled": "/api/churn/prediction",
+    "status": 400
+  },
+  {
+    "path": "/api/churn/predictions",
+    "filled": "/api/churn/predictions",
+    "status": 200
+  },
+  {
+    "path": "/api/churn/high-risk-users",
+    "filled": "/api/churn/high-risk-users",
+    "status": 200
+  },
+  {
+    "path": "/api/churn/warnings",
+    "filled": "/api/churn/warnings",
+    "status": 200
+  },
+  {
+    "path": "/api/churn/unhandled-warnings",
+    "filled": "/api/churn/unhandled-warnings",
+    "status": 200
+  },
+  {
+    "path": "/api/churn/model-config",
+    "filled": "/api/churn/model-config",
+    "status": 200
+  },
+  {
+    "path": "/api/churn/statistics",
+    "filled": "/api/churn/statistics",
+    "status": 400
+  },
+  {
+    "path": "/api/churn/risk-distribution",
+    "filled": "/api/churn/risk-distribution",
+    "status": 200
+  },
+  {
+    "path": "/api/churn-prediction",
+    "filled": "/api/churn-prediction",
+    "status": 200
+  },
+  {
+    "path": "/api/churn-prediction/users",
+    "filled": "/api/churn-prediction/users",
+    "status": 200
+  },
+  {
+    "path": "/api/churn-prediction/unhandled-warnings",
+    "filled": "/api/churn-prediction/unhandled-warnings",
+    "status": 200
+  },
+  {
+    "path": "/api/churn-prediction/list",
+    "filled": "/api/churn-prediction/list",
+    "status": 200
+  },
+  {
+    "path": "/api/churn-prediction/warnings",
+    "filled": "/api/churn-prediction/warnings",
+    "status": 200
+  },
+  {
+    "path": "/api/churn-prediction/statistics",
+    "filled": "/api/churn-prediction/statistics",
+    "status": 400
+  },
+  {
+    "path": "/api/churn-prediction/risk-distribution",
+    "filled": "/api/churn-prediction/risk-distribution",
+    "status": 200
+  },
+  {
+    "path": "/api/churn-prediction/model-config",
+    "filled": "/api/churn-prediction/model-config",
+    "status": 200
+  },
+  {
+    "path": "/api/chat/public/sessions/active",
+    "filled": "/api/chat/public/sessions/active",
+    "status": 400
+  },
+  {
+    "path": "/api/chat/public/sessions/recent-closed",
+    "filled": "/api/chat/public/sessions/recent-closed",
+    "status": 400
+  },
+  {
+    "path": "/api/chat/public/sessions/:session_id/messages",
+    "filled": "/api/chat/public/sessions/1/messages",
+    "status": 400
+  },
+  {
+    "path": "/api/chat/public/sessions/:session_id/offline-messages",
+    "filled": "/api/chat/public/sessions/1/offline-messages",
+    "status": 400
+  },
+  {
+    "path": "/api/chat/public/channel/:app_key/info",
+    "filled": "/api/chat/public/channel/:app_key/info",
+    "status": 404
+  },
+  {
+    "path": "/api/chat/public/agents/available",
+    "filled": "/api/chat/public/agents/available",
+    "status": 200
+  },
+  {
+    "path": "/api/chat-channels",
+    "filled": "/api/chat-channels",
+    "status": 200
+  },
+  {
+    "path": "/api/chat-channels/:channel_id",
+    "filled": "/api/chat-channels/1",
+    "status": 200
+  },
+  {
+    "path": "/api/channel-agent-bindings",
+    "filled": "/api/channel-agent-bindings",
+    "status": 400
+  },
+  {
+    "path": "/api/channel-agent-bindings/by-agent/:agent_id",
+    "filled": "/api/channel-agent-bindings/by-agent/1",
+    "status": 200
+  },
+  {
+    "path": "/api/clues",
+    "filled": "/api/clues",
+    "status": 200
+  },
+  {
+    "path": "/api/clues/list",
+    "filled": "/api/clues/list",
+    "status": 200
+  },
+  {
+    "path": "/api/clues/statistics",
+    "filled": "/api/clues/statistics",
+    "status": 200
+  },
+  {
+    "path": "/api/clues/type",
+    "filled": "/api/clues/type",
+    "status": 200
+  },
+  {
+    "path": "/api/clues/import",
+    "filled": "/api/clues/import",
+    "status": 200
+  },
+  {
+    "path": "/api/clue/score/list",
+    "filled": "/api/clue/score/list",
+    "status": 200
+  },
+  {
+    "path": "/api/clue/score/:clue_id",
+    "filled": "/api/clue/score/:clue_id",
+    "status": 404
+  },
+  {
+    "path": "/api/clue/statistics",
+    "filled": "/api/clue/statistics",
+    "status": 200
+  },
+  {
+    "path": "/api/clue/list",
+    "filled": "/api/clue/list",
+    "status": 200
+  },
+  {
+    "path": "/api/clue-statistics/overview",
+    "filled": "/api/clue-statistics/overview",
+    "status": 200
+  },
+  {
+    "path": "/api/community/members",
+    "filled": "/api/community/members",
+    "status": 400
+  },
+  {
+    "path": "/api/community/members/:id",
+    "filled": "/api/community/members/1",
+    "status": 404
+  },
+  {
+    "path": "/api/community/messages",
+    "filled": "/api/community/messages",
+    "status": 400
+  },
+  {
+    "path": "/api/community/groups",
+    "filled": "/api/community/groups",
+    "status": 200
+  },
+  {
+    "path": "/api/community/groups/:id",
+    "filled": "/api/community/groups/1",
+    "status": 404
+  },
+  {
+    "path": "/api/community/stats",
+    "filled": "/api/community/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/conversion-funnel",
+    "filled": "/api/conversion-funnel",
+    "status": 200
+  },
+  {
+    "path": "/api/conversion-funnels",
+    "filled": "/api/conversion-funnels",
+    "status": 200
+  },
+  {
+    "path": "/api/conversion-funnels/list",
+    "filled": "/api/conversion-funnels/list",
+    "status": 200
+  },
+  {
+    "path": "/api/conversion-funnels/stage",
+    "filled": "/api/conversion-funnels/stage",
+    "status": 200
+  },
+  {
+    "path": "/api/conversion-funnel/list",
+    "filled": "/api/conversion-funnel/list",
+    "status": 200
+  },
+  {
+    "path": "/api/conversion-funnel/stage",
+    "filled": "/api/conversion-funnel/stage",
+    "status": 200
+  },
+  {
+    "path": "/api/card-stats/:platform/stats/:id",
+    "filled": "/api/card-stats/:platform/stats/1",
+    "status": 400
+  },
+  {
+    "path": "/api/card-stats/:platform/overall",
+    "filled": "/api/card-stats/:platform/overall",
+    "status": 400
+  },
+  {
+    "path": "/api/agent-statuses",
+    "filled": "/api/agent-statuses",
+    "status": 200
+  },
+  {
+    "path": "/api/agent-statuses/online",
+    "filled": "/api/agent-statuses/online",
+    "status": 200
+  },
+  {
+    "path": "/api/agent-statuses/list",
+    "filled": "/api/agent-statuses/list",
+    "status": 200
+  },
+  {
+    "path": "/api/agent-statuses/available",
+    "filled": "/api/agent-statuses/available",
+    "status": 200
+  },
+  {
+    "path": "/api/agent-statuses/:id",
+    "filled": "/api/agent-statuses/1",
+    "status": 200
+  },
+  {
+    "path": "/api/agent-statuses/:id/sessions",
+    "filled": "/api/agent-statuses/1/sessions",
+    "status": 200
+  },
+  {
+    "path": "/api/agent-kb-bindings/by-agent/:agentId",
+    "filled": "/api/agent-kb-bindings/by-agent/:agentId",
+    "status": 400
+  },
+  {
+    "path": "/api/agent-kb-bindings/by-kb/:kbId",
+    "filled": "/api/agent-kb-bindings/by-kb/:kbId",
+    "status": 400
+  },
+  {
+    "path": "/api/agent-kb-bindings/agent/:aid",
+    "filled": "/api/agent-kb-bindings/agent/1",
+    "status": 200
+  },
+  {
+    "path": "/api/agent-kb-bindings/kb/:kid",
+    "filled": "/api/agent-kb-bindings/kb/:kid",
+    "status": 400
+  },
+  {
+    "path": "/api/agent/tools/list",
+    "filled": "/api/agent/tools/list",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/tools/get",
+    "filled": "/api/agent/tools/get",
+    "status": 400
+  },
+  {
+    "path": "/api/agent/tools/stats",
+    "filled": "/api/agent/tools/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/tools/audit",
+    "filled": "/api/agent/tools/audit",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/tools/cost",
+    "filled": "/api/agent/tools/cost",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/tools/providers",
+    "filled": "/api/agent/tools/providers",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/tool-integrations",
+    "filled": "/api/agent/tool-integrations",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/settings",
+    "filled": "/api/agent/settings",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/inference/stats",
+    "filled": "/api/agent/inference/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/agents/me",
+    "filled": "/api/agents/me",
+    "status": 200
+  },
+  {
+    "path": "/api/agents/all",
+    "filled": "/api/agents/all",
+    "status": 200
+  },
+  {
+    "path": "/api/agents/online",
+    "filled": "/api/agents/online",
+    "status": 200
+  },
+  {
+    "path": "/api/agents/:id",
+    "filled": "/api/agents/1",
+    "status": 200
+  },
+  {
+    "path": "/api/agents/:id/sessions",
+    "filled": "/api/agents/1/sessions",
+    "status": 200
+  },
+  {
+    "path": "/api/ai-content/templates",
+    "filled": "/api/ai-content/templates",
+    "status": 200
+  },
+  {
+    "path": "/api/ai-content/templates/:id",
+    "filled": "/api/ai-content/templates/1",
+    "status": 404
+  },
+  {
+    "path": "/api/ai-content/list",
+    "filled": "/api/ai-content/list",
+    "status": 200
+  },
+  {
+    "path": "/api/ai-content/history",
+    "filled": "/api/ai-content/history",
+    "status": 200
+  },
+  {
+    "path": "/api/ai-content/:id",
+    "filled": "/api/ai-content/1",
+    "status": 404
+  },
+  {
+    "path": "/api/ai-agents",
+    "filled": "/api/ai-agents",
+    "status": 200
+  },
+  {
+    "path": "/api/ai-agents/:id",
+    "filled": "/api/ai-agents/1",
+    "status": 200
+  },
+  {
+    "path": "/api/ai-agents/:id/context",
+    "filled": "/api/ai-agents/1/context",
+    "status": 404
+  },
+  {
+    "path": "/api/ai-agents-enabled",
+    "filled": "/api/ai-agents-enabled",
+    "status": 200
+  },
+  {
+    "path": "/api/ai-suggestions",
+    "filled": "/api/ai-suggestions",
+    "status": 200
+  },
+  {
+    "path": "/api/ai-suggestions/list",
+    "filled": "/api/ai-suggestions/list",
+    "status": 200
+  },
+  {
+    "path": "/api/ai-suggestions/:session_id",
+    "filled": "/api/ai-suggestions/1",
+    "status": 200
+  },
+  {
+    "path": "/api/ai-tools",
+    "filled": "/api/ai-tools",
+    "status": 200
+  },
+  {
+    "path": "/api/ai-tools/:name",
+    "filled": "/api/ai-tools/1",
+    "status": 404
+  },
+  {
+    "path": "/api/ai-tools/:name/accounts",
+    "filled": "/api/ai-tools/1/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/ai-productivity/overview",
+    "filled": "/api/ai-productivity/overview",
+    "status": 200
+  },
+  {
+    "path": "/api/ai-productivity/trend",
+    "filled": "/api/ai-productivity/trend",
+    "status": 200
+  },
+  {
+    "path": "/api/ai/templates",
+    "filled": "/api/ai/templates",
+    "status": 200
+  },
+  {
+    "path": "/api/ai/templates/:id",
+    "filled": "/api/ai/templates/1",
+    "status": 404
+  },
+  {
+    "path": "/api/ai/template-types",
+    "filled": "/api/ai/template-types",
+    "status": 200
+  },
+  {
+    "path": "/api/ai/history",
+    "filled": "/api/ai/history",
+    "status": 200
+  },
+  {
+    "path": "/api/ai/history/:id",
+    "filled": "/api/ai/history/1",
+    "status": 404
+  },
+  {
+    "path": "/api/auto-reply/rule",
+    "filled": "/api/auto-reply/rule",
+    "status": 200
+  },
+  {
+    "path": "/api/auto-reply/rules",
+    "filled": "/api/auto-reply/rules",
+    "status": 200
+  },
+  {
+    "path": "/api/auto-reply/rate-limit-stats",
+    "filled": "/api/auto-reply/rate-limit-stats",
+    "status": 200
+  },
+  {
+    "path": "/api/auto-reply/login-status",
+    "filled": "/api/auto-reply/login-status",
+    "status": 200
+  },
+  {
+    "path": "/api/auto-reply/logs",
+    "filled": "/api/auto-reply/logs",
+    "status": 200
+  },
+  {
+    "path": "/api/auto-reply/accounts",
+    "filled": "/api/auto-reply/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/auto-reply/concurrent-stats",
+    "filled": "/api/auto-reply/concurrent-stats",
+    "status": 200
+  },
+  {
+    "path": "/api/auto-reply/statistics",
+    "filled": "/api/auto-reply/statistics",
+    "status": 200
+  },
+  {
+    "path": "/api/auto-reply/headless",
+    "filled": "/api/auto-reply/headless",
+    "status": 200
+  },
+  {
+    "path": "/api/auto-reply/debug/status",
+    "filled": "/api/auto-reply/debug/status",
+    "status": 200
+  },
+  {
+    "path": "/api/auth/anomaly/login-events",
+    "filled": "/api/auth/anomaly/login-events",
+    "status": 200
+  },
+  {
+    "path": "/api/auth/anomaly/alerts",
+    "filled": "/api/auth/anomaly/alerts",
+    "status": 200
+  },
+  {
+    "path": "/api/auth/notifications",
+    "filled": "/api/auth/notifications",
+    "status": 200
+  },
+  {
+    "path": "/api/auth/notifications/unread-count",
+    "filled": "/api/auth/notifications/unread-count",
+    "status": 200
+  },
+  {
+    "path": "/api/auth/current-user",
+    "filled": "/api/auth/current-user",
+    "status": 200
+  },
+  {
+    "path": "/api/auth/mfa/status",
+    "filled": "/api/auth/mfa/status",
+    "status": 200
+  },
+  {
+    "path": "/api/auth/login-events",
+    "filled": "/api/auth/login-events",
+    "status": 200
+  },
+  {
+    "path": "/api/auth/security-alerts",
+    "filled": "/api/auth/security-alerts",
+    "status": 200
+  },
+  {
+    "path": "/api/auth/password-policy",
+    "filled": "/api/auth/password-policy",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/confidence/signals",
+    "filled": "/api/admin/tuning/confidence/signals",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/confidence/signals/stats",
+    "filled": "/api/admin/tuning/confidence/signals/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/confidence/signals/:id",
+    "filled": "/api/admin/tuning/confidence/signals/1",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/confidence/calibrations",
+    "filled": "/api/admin/tuning/confidence/calibrations",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/confidence/policies",
+    "filled": "/api/admin/tuning/confidence/policies",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/humanize/scores",
+    "filled": "/api/admin/tuning/humanize/scores",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/humanize/scores/stats",
+    "filled": "/api/admin/tuning/humanize/scores/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/humanize/baselines",
+    "filled": "/api/admin/tuning/humanize/baselines",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/humanize/low-quality",
+    "filled": "/api/admin/tuning/humanize/low-quality",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/feedback/events",
+    "filled": "/api/admin/tuning/feedback/events",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/feedback/events/stats",
+    "filled": "/api/admin/tuning/feedback/events/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/feedback/dialogues",
+    "filled": "/api/admin/tuning/feedback/dialogues",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/prompt/candidates",
+    "filled": "/api/admin/tuning/prompt/candidates",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/tuning/bandit/arms",
+    "filled": "/api/admin/tuning/bandit/arms",
+    "status": 200
+  },
+  {
+    "path": "/api/admin/config",
+    "filled": "/api/admin/config",
+    "status": 200
+  },
+  {
+    "path": "/api/analytics/funnel",
+    "filled": "/api/analytics/funnel",
+    "status": 200
+  },
+  {
+    "path": "/api/analytics/funnel/stage",
+    "filled": "/api/analytics/funnel/stage",
+    "status": 200
+  },
+  {
+    "path": "/api/analytics/ai-productivity",
+    "filled": "/api/analytics/ai-productivity",
+    "status": 200
+  },
+  {
+    "path": "/api/analytics/ai-productivity/trend",
+    "filled": "/api/analytics/ai-productivity/trend",
+    "status": 200
+  },
+  {
+    "path": "/api/analytics/persona/staffs",
+    "filled": "/api/analytics/persona/staffs",
+    "status": 200
+  },
+  {
+    "path": "/api/analytics/persona/staffs/:id",
+    "filled": "/api/analytics/persona/staffs/1",
+    "status": 200
+  },
+  {
+    "path": "/api/asset-market/list",
+    "filled": "/api/asset-market/list",
+    "status": 200
+  },
+  {
+    "path": "/api/asset-market/detail/:asset_id",
+    "filled": "/api/asset-market/detail/:asset_id",
+    "status": 200
+  },
+  {
+    "path": "/api/asset-market/my-purchases",
+    "filled": "/api/asset-market/my-purchases",
+    "status": 200
+  },
+  {
+    "path": "/api/asset-bundle/by-aid/:aid",
+    "filled": "/api/asset-bundle/by-aid/1",
+    "status": 404
+  },
+  {
+    "path": "/api/asset-bundle/:id",
+    "filled": "/api/asset-bundle/1",
+    "status": 404
+  },
+  {
+    "path": "/api/ab-experiments",
+    "filled": "/api/ab-experiments",
+    "status": 200
+  },
+  {
+    "path": "/api/ab-experiments/:id",
+    "filled": "/api/ab-experiments/1",
+    "status": 404
+  },
+  {
+    "path": "/api/ab-experiments/:id/results",
+    "filled": "/api/ab-experiments/1/results",
+    "status": 200
+  },
+  {
+    "path": "/api/ab-experiments/:id/conversion-events",
+    "filled": "/api/ab-experiments/1/conversion-events",
+    "status": 200
+  },
+  {
+    "path": "/api/account/list",
+    "filled": "/api/account/list",
+    "status": 200
+  },
+  {
+    "path": "/api/account/:id",
+    "filled": "/api/account/1",
+    "status": 404
+  },
+  {
+    "path": "/api/accounts/list",
+    "filled": "/api/accounts/list",
+    "status": 200
+  },
+  {
+    "path": "/api/app-config",
+    "filled": "/api/app-config",
+    "status": 200
+  },
+  {
+    "path": "/api/app-config/health",
+    "filled": "/api/app-config/health",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/delivery/portability",
+    "filled": "/api/sms/delivery/portability",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/delivery/portability/:phone",
+    "filled": "/api/sms/delivery/portability/:phone",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/delivery/metrics",
+    "filled": "/api/sms/delivery/metrics",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/delivery/carrier/:phone",
+    "filled": "/api/sms/delivery/carrier/:phone",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/detail/:id",
+    "filled": "/api/sms/detail/1",
+    "status": 404
+  },
+  {
+    "path": "/api/sms/draft/list",
+    "filled": "/api/sms/draft/list",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/draft/:id",
+    "filled": "/api/sms/draft/1",
+    "status": 404
+  },
+  {
+    "path": "/api/sms/drafts",
+    "filled": "/api/sms/drafts",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/drafts/list",
+    "filled": "/api/sms/drafts/list",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/job/list",
+    "filled": "/api/sms/job/list",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/job/:id",
+    "filled": "/api/sms/job/1",
+    "status": 404
+  },
+  {
+    "path": "/api/sms/job/:id/records",
+    "filled": "/api/sms/job/1/records",
+    "status": 404
+  },
+  {
+    "path": "/api/sms/jobs",
+    "filled": "/api/sms/jobs",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/jobs/list",
+    "filled": "/api/sms/jobs/list",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/config",
+    "filled": "/api/sms/config",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/configs",
+    "filled": "/api/sms/configs",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/configs/list",
+    "filled": "/api/sms/configs/list",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/unsubscribe/list",
+    "filled": "/api/sms/unsubscribe/list",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/records",
+    "filled": "/api/sms/records",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/records/list",
+    "filled": "/api/sms/records/list",
+    "status": 200
+  },
+  {
+    "path": "/api/sms/list",
+    "filled": "/api/sms/list",
+    "status": 200
+  },
+  {
+    "path": "/api/system/config",
+    "filled": "/api/system/config",
+    "status": 200
+  },
+  {
+    "path": "/api/system/configs",
+    "filled": "/api/system/configs",
+    "status": 200
+  },
+  {
+    "path": "/api/system/configs/list",
+    "filled": "/api/system/configs/list",
+    "status": 200
+  },
+  {
+    "path": "/api/system/configs/:key",
+    "filled": "/api/system/configs/:key",
+    "status": 200
+  },
+  {
+    "path": "/api/system/roles",
+    "filled": "/api/system/roles",
+    "status": 200
+  },
+  {
+    "path": "/api/system/roles/:code",
+    "filled": "/api/system/roles/1",
+    "status": 400
+  },
+  {
+    "path": "/api/system/roles/:code/members",
+    "filled": "/api/system/roles/1/members",
+    "status": 400
+  },
+  {
+    "path": "/api/system/info",
+    "filled": "/api/system/info",
+    "status": 200
+  },
+  {
+    "path": "/api/system/init-status",
+    "filled": "/api/system/init-status",
+    "status": 200
+  },
+  {
+    "path": "/api/system/users",
+    "filled": "/api/system/users",
+    "status": 200
+  },
+  {
+    "path": "/api/system/users/:id",
+    "filled": "/api/system/users/1",
+    "status": 400
+  },
+  {
+    "path": "/api/system/logs",
+    "filled": "/api/system/logs",
+    "status": 200
+  },
+  {
+    "path": "/api/system/stats",
+    "filled": "/api/system/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/system/backup",
+    "filled": "/api/system/backup",
+    "status": 200
+  },
+  {
+    "path": "/api/system/permissions/audit-logs",
+    "filled": "/api/system/permissions/audit-logs",
+    "status": 200
+  },
+  {
+    "path": "/api/system-monitor/metrics",
+    "filled": "/api/system-monitor/metrics",
+    "status": 200
+  },
+  {
+    "path": "/api/system-monitor/health",
+    "filled": "/api/system-monitor/health",
+    "status": 200
+  },
+  {
+    "path": "/api/sop",
+    "filled": "/api/sop",
+    "status": 200
+  },
+  {
+    "path": "/api/sop/executions",
+    "filled": "/api/sop/executions",
+    "status": 200
+  },
+  {
+    "path": "/api/sop/executions/:id",
+    "filled": "/api/sop/executions/1",
+    "status": 404
+  },
+  {
+    "path": "/api/sop/stats",
+    "filled": "/api/sop/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/sop/match",
+    "filled": "/api/sop/match",
+    "status": 200
+  },
+  {
+    "path": "/api/sop/:id",
+    "filled": "/api/sop/1",
+    "status": 404
+  },
+  {
+    "path": "/api/sop/:id/abtest/stats",
+    "filled": "/api/sop/1/abtest/stats",
+    "status": 400
+  },
+  {
+    "path": "/api/sop-agents",
+    "filled": "/api/sop-agents",
+    "status": 200
+  },
+  {
+    "path": "/api/sop-agents/list",
+    "filled": "/api/sop-agents/list",
+    "status": 200
+  },
+  {
+    "path": "/api/sop-agents/stats",
+    "filled": "/api/sop-agents/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/sop-agents/:id",
+    "filled": "/api/sop-agents/1",
+    "status": 404
+  },
+  {
+    "path": "/api/sop-templates",
+    "filled": "/api/sop-templates",
+    "status": 200
+  },
+  {
+    "path": "/api/sop-templates/:id",
+    "filled": "/api/sop-templates/1",
+    "status": 404
+  },
+  {
+    "path": "/api/script-templates",
+    "filled": "/api/script-templates",
+    "status": 200
+  },
+  {
+    "path": "/api/script-templates/list",
+    "filled": "/api/script-templates/list",
+    "status": 200
+  },
+  {
+    "path": "/api/script-templates/categories",
+    "filled": "/api/script-templates/categories",
+    "status": 200
+  },
+  {
+    "path": "/api/script-templates/search",
+    "filled": "/api/script-templates/search",
+    "status": 200
+  },
+  {
+    "path": "/api/script-templates/public",
+    "filled": "/api/script-templates/public",
+    "status": 200
+  },
+  {
+    "path": "/api/script-templates/:id",
+    "filled": "/api/script-templates/1",
+    "status": 404
+  },
+  {
+    "path": "/api/scripts",
+    "filled": "/api/scripts",
+    "status": 200
+  },
+  {
+    "path": "/api/scripts/categories",
+    "filled": "/api/scripts/categories",
+    "status": 200
+  },
+  {
+    "path": "/api/scripts/search",
+    "filled": "/api/scripts/search",
+    "status": 200
+  },
+  {
+    "path": "/api/scripts/public",
+    "filled": "/api/scripts/public",
+    "status": 200
+  },
+  {
+    "path": "/api/scripts/:id",
+    "filled": "/api/scripts/1",
+    "status": 404
+  },
+  {
+    "path": "/api/short-link/list",
+    "filled": "/api/short-link/list",
+    "status": 200
+  },
+  {
+    "path": "/api/short-link/all-stats",
+    "filled": "/api/short-link/all-stats",
+    "status": 200
+  },
+  {
+    "path": "/api/short-link/:id",
+    "filled": "/api/short-link/1",
+    "status": 404
+  },
+  {
+    "path": "/api/short-link/:id/stats",
+    "filled": "/api/short-link/1/stats",
+    "status": 404
+  },
+  {
+    "path": "/api/short-links",
+    "filled": "/api/short-links",
+    "status": 200
+  },
+  {
+    "path": "/api/short-links/list",
+    "filled": "/api/short-links/list",
+    "status": 200
+  },
+  {
+    "path": "/api/short-links/:id",
+    "filled": "/api/short-links/1",
+    "status": 404
+  },
+  {
+    "path": "/api/shortlink/list",
+    "filled": "/api/shortlink/list",
+    "status": 200
+  },
+  {
+    "path": "/api/shortlink/stats/all",
+    "filled": "/api/shortlink/stats/all",
+    "status": 200
+  },
+  {
+    "path": "/api/shortlink/:id",
+    "filled": "/api/shortlink/1",
+    "status": 404
+  },
+  {
+    "path": "/api/shortlink/:id/stats",
+    "filled": "/api/shortlink/1/stats",
+    "status": 404
+  },
+  {
+    "path": "/api/session-tags",
+    "filled": "/api/session-tags",
+    "status": 200
+  },
+  {
+    "path": "/api/session-tags/list",
+    "filled": "/api/session-tags/list",
+    "status": 200
+  },
+  {
+    "path": "/api/security/audit/list",
+    "filled": "/api/security/audit/list",
+    "status": 200
+  },
+  {
+    "path": "/api/security/audit/:id",
+    "filled": "/api/security/audit/1",
+    "status": 200
+  },
+  {
+    "path": "/api/sales-champions",
+    "filled": "/api/sales-champions",
+    "status": 200
+  },
+  {
+    "path": "/api/sales-champions/list",
+    "filled": "/api/sales-champions/list",
+    "status": 200
+  },
+  {
+    "path": "/api/sales-champions/:id",
+    "filled": "/api/sales-champions/1",
+    "status": 200
+  },
+  {
+    "path": "/api/s/:code",
+    "filled": "/api/s/1",
+    "status": 404
+  },
+  {
+    "path": "/api/stats/system",
+    "filled": "/api/stats/system",
+    "status": 200
+  },
+  {
+    "path": "/api/marketing-flows",
+    "filled": "/api/marketing-flows",
+    "status": 200
+  },
+  {
+    "path": "/api/marketing-flows/executions",
+    "filled": "/api/marketing-flows/executions",
+    "status": 400
+  },
+  {
+    "path": "/api/marketing-flows/executions/stats",
+    "filled": "/api/marketing-flows/executions/stats",
+    "status": 400
+  },
+  {
+    "path": "/api/marketing-flows/list",
+    "filled": "/api/marketing-flows/list",
+    "status": 200
+  },
+  {
+    "path": "/api/marketing-flows/:id",
+    "filled": "/api/marketing-flows/1",
+    "status": 404
+  },
+  {
+    "path": "/api/marketing-flows/:id/executions",
+    "filled": "/api/marketing-flows/1/executions",
+    "status": 200
+  },
+  {
+    "path": "/api/marketing-flows/:id/stats",
+    "filled": "/api/marketing-flows/1/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/market-templates",
+    "filled": "/api/market-templates",
+    "status": 200
+  },
+  {
+    "path": "/api/market-templates/list",
+    "filled": "/api/market-templates/list",
+    "status": 200
+  },
+  {
+    "path": "/api/market-templates/official",
+    "filled": "/api/market-templates/official",
+    "status": 200
+  },
+  {
+    "path": "/api/market-templates/search",
+    "filled": "/api/market-templates/search",
+    "status": 200
+  },
+  {
+    "path": "/api/market-templates/my-downloads",
+    "filled": "/api/market-templates/my-downloads",
+    "status": 200
+  },
+  {
+    "path": "/api/market-templates/:id",
+    "filled": "/api/market-templates/1",
+    "status": 404
+  },
+  {
+    "path": "/api/material/categories",
+    "filled": "/api/material/categories",
+    "status": 200
+  },
+  {
+    "path": "/api/material/categories/:id",
+    "filled": "/api/material/categories/1",
+    "status": 404
+  },
+  {
+    "path": "/api/material/stats",
+    "filled": "/api/material/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/material/selector",
+    "filled": "/api/material/selector",
+    "status": 200
+  },
+  {
+    "path": "/api/material/list",
+    "filled": "/api/material/list",
+    "status": 200
+  },
+  {
+    "path": "/api/material/:id",
+    "filled": "/api/material/1",
+    "status": 404
+  },
+  {
+    "path": "/api/material-library",
+    "filled": "/api/material-library",
+    "status": 200
+  },
+  {
+    "path": "/api/material-library/list",
+    "filled": "/api/material-library/list",
+    "status": 200
+  },
+  {
+    "path": "/api/material-library/categories",
+    "filled": "/api/material-library/categories",
+    "status": 200
+  },
+  {
+    "path": "/api/material-library/stats",
+    "filled": "/api/material-library/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/message-hub/list",
+    "filled": "/api/message-hub/list",
+    "status": 200
+  },
+  {
+    "path": "/api/message-hub/stats",
+    "filled": "/api/message-hub/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/message-hub/platforms",
+    "filled": "/api/message-hub/platforms",
+    "status": 200
+  },
+  {
+    "path": "/api/message-hub/:id",
+    "filled": "/api/message-hub/1",
+    "status": 404
+  },
+  {
+    "path": "/api/messages",
+    "filled": "/api/messages",
+    "status": 200
+  },
+  {
+    "path": "/api/messages/:id",
+    "filled": "/api/messages/1",
+    "status": 404
+  },
+  {
+    "path": "/api/messages/:id/replies",
+    "filled": "/api/messages/1/replies",
+    "status": 200
+  },
+  {
+    "path": "/api/memory/long",
+    "filled": "/api/memory/long",
+    "status": 200
+  },
+  {
+    "path": "/api/memory/list",
+    "filled": "/api/memory/list",
+    "status": 200
+  },
+  {
+    "path": "/api/memory/short",
+    "filled": "/api/memory/short",
+    "status": 400
+  },
+  {
+    "path": "/api/memory/context",
+    "filled": "/api/memory/context",
+    "status": 200
+  },
+  {
+    "path": "/api/monitor/trace-tree",
+    "filled": "/api/monitor/trace-tree",
+    "status": 200
+  },
+  {
+    "path": "/api/monitor/trace-eval/logs",
+    "filled": "/api/monitor/trace-eval/logs",
+    "status": 200
+  },
+  {
+    "path": "/api/monitor/traces",
+    "filled": "/api/monitor/traces",
+    "status": 200
+  },
+  {
+    "path": "/api/monitor/latency",
+    "filled": "/api/monitor/latency",
+    "status": 200
+  },
+  {
+    "path": "/api/monitor/lifecycle",
+    "filled": "/api/monitor/lifecycle",
+    "status": 400
+  },
+  {
+    "path": "/api/monitor/health",
+    "filled": "/api/monitor/health",
+    "status": 200
+  },
+  {
+    "path": "/api/monitor/anomalies",
+    "filled": "/api/monitor/anomalies",
+    "status": 200
+  },
+  {
+    "path": "/api/monitor/node-health",
+    "filled": "/api/monitor/node-health",
+    "status": 200
+  },
+  {
+    "path": "/api/monitor/knowledge-weights",
+    "filled": "/api/monitor/knowledge-weights",
+    "status": 200
+  },
+  {
+    "path": "/api/migration/task/:id",
+    "filled": "/api/migration/task/1",
+    "status": 200
+  },
+  {
+    "path": "/api/migration/history",
+    "filled": "/api/migration/history",
+    "status": 200
+  },
+  {
+    "path": "/api/migration/records",
+    "filled": "/api/migration/records",
+    "status": 200
+  },
+  {
+    "path": "/api/migration/current-version",
+    "filled": "/api/migration/current-version",
+    "status": 200
+  },
+  {
+    "path": "/api/migration/available",
+    "filled": "/api/migration/available",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/scenarios",
+    "filled": "/api/llm/scenarios",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/scenario-stats",
+    "filled": "/api/llm/scenario-stats",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/scene-routing",
+    "filled": "/api/llm/scene-routing",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/strategies",
+    "filled": "/api/llm/strategies",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/stats",
+    "filled": "/api/llm/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/models",
+    "filled": "/api/llm/models",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/models/:name",
+    "filled": "/api/llm/models/1",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/model-type-stats",
+    "filled": "/api/llm/model-type-stats",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/providers/health",
+    "filled": "/api/llm/providers/health",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/providers/health/:provider",
+    "filled": "/api/llm/providers/health/:provider",
+    "status": 400
+  },
+  {
+    "path": "/api/llm/providers/policy",
+    "filled": "/api/llm/providers/policy",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/egress-alerts",
+    "filled": "/api/llm/egress-alerts",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/egress-audit",
+    "filled": "/api/llm/egress-audit",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/fallback",
+    "filled": "/api/llm/fallback",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/cost-stats",
+    "filled": "/api/llm/cost-stats",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/audit",
+    "filled": "/api/llm/audit",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/usage",
+    "filled": "/api/llm/usage",
+    "status": 200
+  },
+  {
+    "path": "/api/llm/health",
+    "filled": "/api/llm/health",
+    "status": 200
+  },
+  {
+    "path": "/api/llm-routings/providers/health",
+    "filled": "/api/llm-routings/providers/health",
+    "status": 200
+  },
+  {
+    "path": "/api/llm-routings/providers/:provider/health",
+    "filled": "/api/llm-routings/providers/:provider/health",
+    "status": 400
+  },
+  {
+    "path": "/api/llm-routings/policy",
+    "filled": "/api/llm-routings/policy",
+    "status": 200
+  },
+  {
+    "path": "/api/llm-routing/rules",
+    "filled": "/api/llm-routing/rules",
+    "status": 200
+  },
+  {
+    "path": "/api/llm-routing/models",
+    "filled": "/api/llm-routing/models",
+    "status": 200
+  },
+  {
+    "path": "/api/live-codes",
+    "filled": "/api/live-codes",
+    "status": 200
+  },
+  {
+    "path": "/api/live-codes/list",
+    "filled": "/api/live-codes/list",
+    "status": 200
+  },
+  {
+    "path": "/api/live-codes/qrcodes/:qr_id/stats",
+    "filled": "/api/live-codes/qrcodes/:qr_id/stats",
+    "status": 404
+  },
+  {
+    "path": "/api/live-codes/:id",
+    "filled": "/api/live-codes/1",
+    "status": 404
+  },
+  {
+    "path": "/api/live-codes/:id/stats",
+    "filled": "/api/live-codes/1/stats",
+    "status": 404
+  },
+  {
+    "path": "/api/live-codes/:id/qrcodes",
+    "filled": "/api/live-codes/1/qrcodes",
+    "status": 404
+  },
+  {
+    "path": "/api/live-code/list",
+    "filled": "/api/live-code/list",
+    "status": 200
+  },
+  {
+    "path": "/api/live-code/:id",
+    "filled": "/api/live-code/1",
+    "status": 404
+  },
+  {
+    "path": "/api/live-code/:id/qr-codes",
+    "filled": "/api/live-code/1/qr-codes",
+    "status": 404
+  },
+  {
+    "path": "/api/live-code/:id/qr-stats",
+    "filled": "/api/live-code/1/qr-stats",
+    "status": 404
+  },
+  {
+    "path": "/api/live-code/:id/stats",
+    "filled": "/api/live-code/1/stats",
+    "status": 404
+  },
+  {
+    "path": "/api/livecode/:id",
+    "filled": "/api/livecode/1",
+    "status": 404
+  },
+  {
+    "path": "/api/license/status",
+    "filled": "/api/license/status",
+    "status": 200
+  },
+  {
+    "path": "/api/license/features",
+    "filled": "/api/license/features",
+    "status": 200
+  },
+  {
+    "path": "/api/local-assets",
+    "filled": "/api/local-assets",
+    "status": 200
+  },
+  {
+    "path": "/api/local-assets/sync-log",
+    "filled": "/api/local-assets/sync-log",
+    "status": 200
+  },
+  {
+    "path": "/api/local-assets/:id",
+    "filled": "/api/local-assets/1",
+    "status": 200
+  },
+  {
+    "path": "/api/l/:code",
+    "filled": "/api/l/1",
+    "status": 404
+  },
+  {
+    "path": "/api/lead-mining/config",
+    "filled": "/api/lead-mining/config",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboards",
+    "filled": "/api/dashboards",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboards/data",
+    "filled": "/api/dashboards/data",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboards/activities",
+    "filled": "/api/dashboards/activities",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboards/public/:code",
+    "filled": "/api/dashboards/public/1",
+    "status": 404
+  },
+  {
+    "path": "/api/dashboards/list",
+    "filled": "/api/dashboards/list",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboards/:id",
+    "filled": "/api/dashboards/1",
+    "status": 404
+  },
+  {
+    "path": "/api/dashboards/:id/data",
+    "filled": "/api/dashboards/1/data",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboard-screen",
+    "filled": "/api/dashboard-screen",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboard-screens",
+    "filled": "/api/dashboard-screens",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboard-screens/list",
+    "filled": "/api/dashboard-screens/list",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboard-screens/:id",
+    "filled": "/api/dashboard-screens/1",
+    "status": 404
+  },
+  {
+    "path": "/api/dashboard-screens/:id/data",
+    "filled": "/api/dashboard-screens/1/data",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboard-screens/:id/activities",
+    "filled": "/api/dashboard-screens/1/activities",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboard-screen/list",
+    "filled": "/api/dashboard-screen/list",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboard/sse",
+    "filled": "/api/dashboard/sse",
+    "status": 400
+  },
+  {
+    "path": "/api/dashboard/stats",
+    "filled": "/api/dashboard/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboard/clients",
+    "filled": "/api/dashboard/clients",
+    "status": 200
+  },
+  {
+    "path": "/api/dashboard/topics",
+    "filled": "/api/dashboard/topics",
+    "status": 200
+  },
+  {
+    "path": "/api/douyin-card/list",
+    "filled": "/api/douyin-card/list",
+    "status": 200
+  },
+  {
+    "path": "/api/douyin-card/stats/:id",
+    "filled": "/api/douyin-card/stats/1",
+    "status": 404
+  },
+  {
+    "path": "/api/douyin-card/overall-stats",
+    "filled": "/api/douyin-card/overall-stats",
+    "status": 200
+  },
+  {
+    "path": "/api/douyin-card/:id",
+    "filled": "/api/douyin-card/1",
+    "status": 404
+  },
+  {
+    "path": "/api/douyin-cards",
+    "filled": "/api/douyin-cards",
+    "status": 200
+  },
+  {
+    "path": "/api/douyin-cards/list",
+    "filled": "/api/douyin-cards/list",
+    "status": 200
+  },
+  {
+    "path": "/api/douyin-cards/:id",
+    "filled": "/api/douyin-cards/1",
+    "status": 404
+  },
+  {
+    "path": "/api/douyin/stats/card/:id",
+    "filled": "/api/douyin/stats/card/1",
+    "status": 404
+  },
+  {
+    "path": "/api/douyin/stats/overall",
+    "filled": "/api/douyin/stats/overall",
+    "status": 200
+  },
+  {
+    "path": "/api/douyin/list",
+    "filled": "/api/douyin/list",
+    "status": 200
+  },
+  {
+    "path": "/api/douyin/view/:id",
+    "filled": "/api/douyin/view/1",
+    "status": 404
+  },
+  {
+    "path": "/api/douyin/:id",
+    "filled": "/api/douyin/1",
+    "status": 404
+  },
+  {
+    "path": "/api/domain-pool",
+    "filled": "/api/domain-pool",
+    "status": 200
+  },
+  {
+    "path": "/api/domain-pool/list",
+    "filled": "/api/domain-pool/list",
+    "status": 200
+  },
+  {
+    "path": "/api/domain-pool/:id",
+    "filled": "/api/domain-pool/1",
+    "status": 404
+  },
+  {
+    "path": "/api/domainpool/list",
+    "filled": "/api/domainpool/list",
+    "status": 200
+  },
+  {
+    "path": "/api/domainpool/:id",
+    "filled": "/api/domainpool/1",
+    "status": 404
+  },
+  {
+    "path": "/api/dialogue-memories",
+    "filled": "/api/dialogue-memories",
+    "status": 200
+  },
+  {
+    "path": "/api/dialogue-memories/stats",
+    "filled": "/api/dialogue-memories/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/dialogue-memories/short",
+    "filled": "/api/dialogue-memories/short",
+    "status": 400
+  },
+  {
+    "path": "/api/dialogue-memories/list",
+    "filled": "/api/dialogue-memories/list",
+    "status": 200
+  },
+  {
+    "path": "/api/dialogue-memories/long",
+    "filled": "/api/dialogue-memories/long",
+    "status": 200
+  },
+  {
+    "path": "/api/dialogue-memories/context",
+    "filled": "/api/dialogue-memories/context",
+    "status": 200
+  },
+  {
+    "path": "/api/dialogue-memories/:customer_id",
+    "filled": "/api/dialogue-memories/1",
+    "status": 400
+  },
+  {
+    "path": "/api/dingtalk-app/accounts",
+    "filled": "/api/dingtalk-app/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/dingtalk-app/accounts/:id",
+    "filled": "/api/dingtalk-app/accounts/1",
+    "status": 200
+  },
+  {
+    "path": "/api/intent/stats",
+    "filled": "/api/intent/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/intent/stats/fine",
+    "filled": "/api/intent/stats/fine",
+    "status": 200
+  },
+  {
+    "path": "/api/intent/recent",
+    "filled": "/api/intent/recent",
+    "status": 200
+  },
+  {
+    "path": "/api/intent/dict",
+    "filled": "/api/intent/dict",
+    "status": 200
+  },
+  {
+    "path": "/api/intent/logs",
+    "filled": "/api/intent/logs",
+    "status": 200
+  },
+  {
+    "path": "/api/intent/config",
+    "filled": "/api/intent/config",
+    "status": 200
+  },
+  {
+    "path": "/api/intent-records",
+    "filled": "/api/intent-records",
+    "status": 200
+  },
+  {
+    "path": "/api/intent-records/list",
+    "filled": "/api/intent-records/list",
+    "status": 200
+  },
+  {
+    "path": "/api/intent-records/stats",
+    "filled": "/api/intent-records/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/intent-records/dict",
+    "filled": "/api/intent-records/dict",
+    "status": 200
+  },
+  {
+    "path": "/api/intent-records/config",
+    "filled": "/api/intent-records/config",
+    "status": 200
+  },
+  {
+    "path": "/api/integration/external-orders",
+    "filled": "/api/integration/external-orders",
+    "status": 200
+  },
+  {
+    "path": "/api/integration/external-orders-by-customer",
+    "filled": "/api/integration/external-orders-by-customer",
+    "status": 400
+  },
+  {
+    "path": "/api/integration/external-customers",
+    "filled": "/api/integration/external-customers",
+    "status": 200
+  },
+  {
+    "path": "/api/integration/external-products",
+    "filled": "/api/integration/external-products",
+    "status": 200
+  },
+  {
+    "path": "/api/integration/sync-logs",
+    "filled": "/api/integration/sync-logs",
+    "status": 200
+  },
+  {
+    "path": "/api/integrations",
+    "filled": "/api/integrations",
+    "status": 200
+  },
+  {
+    "path": "/api/integrations/list",
+    "filled": "/api/integrations/list",
+    "status": 200
+  },
+  {
+    "path": "/api/integrations/:id",
+    "filled": "/api/integrations/1",
+    "status": 404
+  },
+  {
+    "path": "/api/integrations/:id/sync-logs",
+    "filled": "/api/integrations/1/sync-logs",
+    "status": 200
+  },
+  {
+    "path": "/api/inbox",
+    "filled": "/api/inbox",
+    "status": 200
+  },
+  {
+    "path": "/api/inbox/stats",
+    "filled": "/api/inbox/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/inbox/staff/:staff/load",
+    "filled": "/api/inbox/staff/:staff/load",
+    "status": 200
+  },
+  {
+    "path": "/api/inbox/conversations",
+    "filled": "/api/inbox/conversations",
+    "status": 200
+  },
+  {
+    "path": "/api/inbox/conversations/list",
+    "filled": "/api/inbox/conversations/list",
+    "status": 200
+  },
+  {
+    "path": "/api/inbox/assignments",
+    "filled": "/api/inbox/assignments",
+    "status": 200
+  },
+  {
+    "path": "/api/inbox/messages",
+    "filled": "/api/inbox/messages",
+    "status": 400
+  },
+  {
+    "path": "/api/inbox/:id",
+    "filled": "/api/inbox/1",
+    "status": 200
+  },
+  {
+    "path": "/api/inbox/:id/messages",
+    "filled": "/api/inbox/1/messages",
+    "status": 200
+  },
+  {
+    "path": "/api/i18n/stats",
+    "filled": "/api/i18n/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/i18n/stats/lang-dist",
+    "filled": "/api/i18n/stats/lang-dist",
+    "status": 200
+  },
+  {
+    "path": "/api/i18n/stats/latency",
+    "filled": "/api/i18n/stats/latency",
+    "status": 200
+  },
+  {
+    "path": "/api/i18n/stats/cache",
+    "filled": "/api/i18n/stats/cache",
+    "status": 200
+  },
+  {
+    "path": "/api/i18n/stats/glossary",
+    "filled": "/api/i18n/stats/glossary",
+    "status": 200
+  },
+  {
+    "path": "/api/i18n/stats/quality",
+    "filled": "/api/i18n/stats/quality",
+    "status": 200
+  },
+  {
+    "path": "/api/i18n/stats/fallback",
+    "filled": "/api/i18n/stats/fallback",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu-card/list",
+    "filled": "/api/xianyu-card/list",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu-card/stats/:id",
+    "filled": "/api/xianyu-card/stats/1",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu-card/overall-stats",
+    "filled": "/api/xianyu-card/overall-stats",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu-card/:id",
+    "filled": "/api/xianyu-card/1",
+    "status": 404
+  },
+  {
+    "path": "/api/xianyu-cards",
+    "filled": "/api/xianyu-cards",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu-cards/list",
+    "filled": "/api/xianyu-cards/list",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu-cards/:id",
+    "filled": "/api/xianyu-cards/1",
+    "status": 404
+  },
+  {
+    "path": "/api/xianyu-auto-reply/logs",
+    "filled": "/api/xianyu-auto-reply/logs",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu-auto-reply/login-status",
+    "filled": "/api/xianyu-auto-reply/login-status",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu-auto-reply/accounts",
+    "filled": "/api/xianyu-auto-reply/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu-auto-reply/rule",
+    "filled": "/api/xianyu-auto-reply/rule",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu/auto-reply/login/status",
+    "filled": "/api/xianyu/auto-reply/login/status",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu/auto-reply/logs",
+    "filled": "/api/xianyu/auto-reply/logs",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu/auto-reply/accounts",
+    "filled": "/api/xianyu/auto-reply/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu/auto-reply/rules",
+    "filled": "/api/xianyu/auto-reply/rules",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu/auto-reply/health",
+    "filled": "/api/xianyu/auto-reply/health",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu/stats/card/:id",
+    "filled": "/api/xianyu/stats/card/1",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu/stats/overall",
+    "filled": "/api/xianyu/stats/overall",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu/list",
+    "filled": "/api/xianyu/list",
+    "status": 200
+  },
+  {
+    "path": "/api/xianyu/view/:id",
+    "filled": "/api/xianyu/view/1",
+    "status": 404
+  },
+  {
+    "path": "/api/xianyu/:id",
+    "filled": "/api/xianyu/1",
+    "status": 404
+  },
+  {
+    "path": "/api/xiaohongshu/auto-reply/login-status",
+    "filled": "/api/xiaohongshu/auto-reply/login-status",
+    "status": 200
+  },
+  {
+    "path": "/api/xiaohongshu/auto-reply/logs",
+    "filled": "/api/xiaohongshu/auto-reply/logs",
+    "status": 200
+  },
+  {
+    "path": "/api/xiaohongshu/auto-reply/accounts",
+    "filled": "/api/xiaohongshu/auto-reply/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/xiaohongshu/auto-reply/rules",
+    "filled": "/api/xiaohongshu/auto-reply/rules",
+    "status": 200
+  },
+  {
+    "path": "/api/xiaohongshu/auto-reply/health",
+    "filled": "/api/xiaohongshu/auto-reply/health",
+    "status": 200
+  },
+  {
+    "path": "/api/xiaohongshu/stats/card/:id",
+    "filled": "/api/xiaohongshu/stats/card/1",
+    "status": 404
+  },
+  {
+    "path": "/api/xiaohongshu/stats/overall",
+    "filled": "/api/xiaohongshu/stats/overall",
+    "status": 200
+  },
+  {
+    "path": "/api/xiaohongshu/list",
+    "filled": "/api/xiaohongshu/list",
+    "status": 200
+  },
+  {
+    "path": "/api/xiaohongshu/view/:id",
+    "filled": "/api/xiaohongshu/view/1",
+    "status": 404
+  },
+  {
+    "path": "/api/xiaohongshu/:id",
+    "filled": "/api/xiaohongshu/1",
+    "status": 404
+  },
+  {
+    "path": "/api/xiaohongshu-card/list",
+    "filled": "/api/xiaohongshu-card/list",
+    "status": 200
+  },
+  {
+    "path": "/api/xiaohongshu-card/stats/:id",
+    "filled": "/api/xiaohongshu-card/stats/1",
+    "status": 404
+  },
+  {
+    "path": "/api/xiaohongshu-card/overall-stats",
+    "filled": "/api/xiaohongshu-card/overall-stats",
+    "status": 200
+  },
+  {
+    "path": "/api/xiaohongshu-card/:id",
+    "filled": "/api/xiaohongshu-card/1",
+    "status": 404
+  },
+  {
+    "path": "/api/xiaohongshu-cards",
+    "filled": "/api/xiaohongshu-cards",
+    "status": 200
+  },
+  {
+    "path": "/api/xiaohongshu-cards/list",
+    "filled": "/api/xiaohongshu-cards/list",
+    "status": 200
+  },
+  {
+    "path": "/api/xiaohongshu-cards/:id",
+    "filled": "/api/xiaohongshu-cards/1",
+    "status": 404
+  },
+  {
+    "path": "/api/wecom/health/accounts",
+    "filled": "/api/wecom/health/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/wecom/health/accounts/select",
+    "filled": "/api/wecom/health/accounts/select",
+    "status": 404
+  },
+  {
+    "path": "/api/wecom/health/accounts/summary",
+    "filled": "/api/wecom/health/accounts/summary",
+    "status": 200
+  },
+  {
+    "path": "/api/wecom/health/accounts/risks",
+    "filled": "/api/wecom/health/accounts/risks",
+    "status": 200
+  },
+  {
+    "path": "/api/wecom/health/accounts/:id",
+    "filled": "/api/wecom/health/accounts/1",
+    "status": 404
+  },
+  {
+    "path": "/api/wecom/health/accounts/:id/history",
+    "filled": "/api/wecom/health/accounts/1/history",
+    "status": 200
+  },
+  {
+    "path": "/api/wecom/accounts",
+    "filled": "/api/wecom/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/wecom/accounts/:id",
+    "filled": "/api/wecom/accounts/1",
+    "status": 404
+  },
+  {
+    "path": "/api/wecom/customers",
+    "filled": "/api/wecom/customers",
+    "status": 200
+  },
+  {
+    "path": "/api/wecom/groups",
+    "filled": "/api/wecom/groups",
+    "status": 200
+  },
+  {
+    "path": "/api/wecom/messages",
+    "filled": "/api/wecom/messages",
+    "status": 200
+  },
+  {
+    "path": "/api/wecom/tags",
+    "filled": "/api/wecom/tags",
+    "status": 200
+  },
+  {
+    "path": "/api/webhook/wecom/:account_id",
+    "filled": "/api/webhook/wecom/1",
+    "status": 400
+  },
+  {
+    "path": "/api/webhook/whatsapp/:account_id",
+    "filled": "/api/webhook/whatsapp/1",
+    "status": 404
+  },
+  {
+    "path": "/api/webhook/stats",
+    "filled": "/api/webhook/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/webhook/health",
+    "filled": "/api/webhook/health",
+    "status": 200
+  },
+  {
+    "path": "/api/webhook/feishu/:account_id",
+    "filled": "/api/webhook/feishu/1",
+    "status": 400
+  },
+  {
+    "path": "/api/webhook/dingtalk/:account_id",
+    "filled": "/api/webhook/dingtalk/1",
+    "status": 400
+  },
+  {
+    "path": "/api/whatsapp/jobs",
+    "filled": "/api/whatsapp/jobs",
+    "status": 200
+  },
+  {
+    "path": "/api/whatsapp/jobs/:id",
+    "filled": "/api/whatsapp/jobs/1",
+    "status": 400
+  },
+  {
+    "path": "/api/whatsapp/accounts",
+    "filled": "/api/whatsapp/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/whatsapp/accounts/:id/login/status",
+    "filled": "/api/whatsapp/accounts/1/login/status",
+    "status": 400
+  },
+  {
+    "path": "/api/whatsapp/login-status",
+    "filled": "/api/whatsapp/login-status",
+    "status": 400
+  },
+  {
+    "path": "/api/whatsapp/lead-groups",
+    "filled": "/api/whatsapp/lead-groups",
+    "status": 200
+  },
+  {
+    "path": "/api/whatsapp/group-messaging/status/:queue_id",
+    "filled": "/api/whatsapp/group-messaging/status/:queue_id",
+    "status": 200
+  },
+  {
+    "path": "/api/whatsapp/group-messaging/records",
+    "filled": "/api/whatsapp/group-messaging/records",
+    "status": 200
+  },
+  {
+    "path": "/api/whatsapp/templates",
+    "filled": "/api/whatsapp/templates",
+    "status": 200
+  },
+  {
+    "path": "/api/whatsapp/templates/:id",
+    "filled": "/api/whatsapp/templates/1",
+    "status": 404
+  },
+  {
+    "path": "/api/whatsapp/drafts",
+    "filled": "/api/whatsapp/drafts",
+    "status": 200
+  },
+  {
+    "path": "/api/whatsapp-cloud/accounts",
+    "filled": "/api/whatsapp-cloud/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/whatsapp-cloud/accounts/:id",
+    "filled": "/api/whatsapp-cloud/accounts/1",
+    "status": 404
+  },
+  {
+    "path": "/api/knowledge/stats/overview",
+    "filled": "/api/knowledge/stats/overview",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge/stats/openapi",
+    "filled": "/api/knowledge/stats/openapi",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge/stats/documents",
+    "filled": "/api/knowledge/stats/documents",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge/stats/searches",
+    "filled": "/api/knowledge/stats/searches",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge/stats/imports",
+    "filled": "/api/knowledge/stats/imports",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge/documents",
+    "filled": "/api/knowledge/documents",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge/documents/:id",
+    "filled": "/api/knowledge/documents/1",
+    "status": 404
+  },
+  {
+    "path": "/api/knowledge/documents/:id/progress",
+    "filled": "/api/knowledge/documents/1/progress",
+    "status": 404
+  },
+  {
+    "path": "/api/knowledge/documents/:id/chunks",
+    "filled": "/api/knowledge/documents/1/chunks",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge/openapi/sources",
+    "filled": "/api/knowledge/openapi/sources",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge/openapi/sources/:id",
+    "filled": "/api/knowledge/openapi/sources/1",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge/products/:product_id/overview",
+    "filled": "/api/knowledge/products/1/overview",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge/import-logs",
+    "filled": "/api/knowledge/import-logs",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge-merchant/documents/:id/chunks",
+    "filled": "/api/knowledge-merchant/documents/1/chunks",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge-merchant/feedbacks",
+    "filled": "/api/knowledge-merchant/feedbacks",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge-merchant/tokens",
+    "filled": "/api/knowledge-merchant/tokens",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge-merchant/external/jobs",
+    "filled": "/api/knowledge-merchant/external/jobs",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge-bases",
+    "filled": "/api/knowledge-bases",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge-bases/by-agent/:aid",
+    "filled": "/api/knowledge-bases/by-agent/1",
+    "status": 200
+  },
+  {
+    "path": "/api/knowledge-bases/by-type/:type",
+    "filled": "/api/knowledge-bases/by-type/:type",
+    "status": 400
+  },
+  {
+    "path": "/api/knowledge-bases/:id",
+    "filled": "/api/knowledge-bases/1",
+    "status": 404
+  },
+  {
+    "path": "/api/kuaishou-card/list",
+    "filled": "/api/kuaishou-card/list",
+    "status": 200
+  },
+  {
+    "path": "/api/kuaishou-card/stats/:id",
+    "filled": "/api/kuaishou-card/stats/1",
+    "status": 404
+  },
+  {
+    "path": "/api/kuaishou-card/overall-stats",
+    "filled": "/api/kuaishou-card/overall-stats",
+    "status": 200
+  },
+  {
+    "path": "/api/kuaishou-card/:id",
+    "filled": "/api/kuaishou-card/1",
+    "status": 404
+  },
+  {
+    "path": "/api/kuaishou-cards",
+    "filled": "/api/kuaishou-cards",
+    "status": 200
+  },
+  {
+    "path": "/api/kuaishou-cards/list",
+    "filled": "/api/kuaishou-cards/list",
+    "status": 200
+  },
+  {
+    "path": "/api/kuaishou-cards/:id",
+    "filled": "/api/kuaishou-cards/1",
+    "status": 404
+  },
+  {
+    "path": "/api/kuaishou/stats/card/:id",
+    "filled": "/api/kuaishou/stats/card/1",
+    "status": 404
+  },
+  {
+    "path": "/api/kuaishou/stats/overall",
+    "filled": "/api/kuaishou/stats/overall",
+    "status": 200
+  },
+  {
+    "path": "/api/kuaishou/list",
+    "filled": "/api/kuaishou/list",
+    "status": 200
+  },
+  {
+    "path": "/api/kuaishou/view/:id",
+    "filled": "/api/kuaishou/view/1",
+    "status": 404
+  },
+  {
+    "path": "/api/kuaishou/:id",
+    "filled": "/api/kuaishou/1",
+    "status": 404
+  },
+  {
+    "path": "/api/telegram/accounts",
+    "filled": "/api/telegram/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/telegram/accounts/list",
+    "filled": "/api/telegram/accounts/list",
+    "status": 200
+  },
+  {
+    "path": "/api/telegram/accounts/:id",
+    "filled": "/api/telegram/accounts/1",
+    "status": 200
+  },
+  {
+    "path": "/api/telegram/accounts/:id/status",
+    "filled": "/api/telegram/accounts/1/status",
+    "status": 200
+  },
+  {
+    "path": "/api/templates",
+    "filled": "/api/templates",
+    "status": 200
+  },
+  {
+    "path": "/api/templates/official",
+    "filled": "/api/templates/official",
+    "status": 200
+  },
+  {
+    "path": "/api/templates/search",
+    "filled": "/api/templates/search",
+    "status": 200
+  },
+  {
+    "path": "/api/templates/my-downloads",
+    "filled": "/api/templates/my-downloads",
+    "status": 200
+  },
+  {
+    "path": "/api/templates/:id",
+    "filled": "/api/templates/1",
+    "status": 404
+  },
+  {
+    "path": "/api/tiktok-card/list",
+    "filled": "/api/tiktok-card/list",
+    "status": 200
+  },
+  {
+    "path": "/api/tiktok-card/stats/overall",
+    "filled": "/api/tiktok-card/stats/overall",
+    "status": 200
+  },
+  {
+    "path": "/api/tiktok-card/:id",
+    "filled": "/api/tiktok-card/1",
+    "status": 404
+  },
+  {
+    "path": "/api/tiktok-card/:id/stats",
+    "filled": "/api/tiktok-card/1/stats",
+    "status": 404
+  },
+  {
+    "path": "/api/tiktok-cards",
+    "filled": "/api/tiktok-cards",
+    "status": 200
+  },
+  {
+    "path": "/api/tiktok-cards/list",
+    "filled": "/api/tiktok-cards/list",
+    "status": 200
+  },
+  {
+    "path": "/api/tiktok-cards/:id",
+    "filled": "/api/tiktok-cards/1",
+    "status": 404
+  },
+  {
+    "path": "/api/tiktok/auto-reply/accounts",
+    "filled": "/api/tiktok/auto-reply/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/tiktok/auto-reply/rule",
+    "filled": "/api/tiktok/auto-reply/rule",
+    "status": 200
+  },
+  {
+    "path": "/api/tiktok/auto-reply/logs",
+    "filled": "/api/tiktok/auto-reply/logs",
+    "status": 200
+  },
+  {
+    "path": "/api/tools/permission/agents",
+    "filled": "/api/tools/permission/agents",
+    "status": 200
+  },
+  {
+    "path": "/api/tools/permission/agents/:agent_id",
+    "filled": "/api/tools/permission/agents/1",
+    "status": 200
+  },
+  {
+    "path": "/api/tools/permission/default",
+    "filled": "/api/tools/permission/default",
+    "status": 200
+  },
+  {
+    "path": "/api/tools/permission/global",
+    "filled": "/api/tools/permission/global",
+    "status": 200
+  },
+  {
+    "path": "/api/tag-segments",
+    "filled": "/api/tag-segments",
+    "status": 200
+  },
+  {
+    "path": "/api/tag-segmentation/list",
+    "filled": "/api/tag-segmentation/list",
+    "status": 200
+  },
+  {
+    "path": "/api/trace/:traceId",
+    "filled": "/api/trace/1",
+    "status": 501
+  },
+  {
+    "path": "/api/reach/pipelines",
+    "filled": "/api/reach/pipelines",
+    "status": 200
+  },
+  {
+    "path": "/api/reach/pipelines/:id",
+    "filled": "/api/reach/pipelines/1",
+    "status": 404
+  },
+  {
+    "path": "/api/reach/jobs",
+    "filled": "/api/reach/jobs",
+    "status": 200
+  },
+  {
+    "path": "/api/reach/jobs/:id",
+    "filled": "/api/reach/jobs/1",
+    "status": 404
+  },
+  {
+    "path": "/api/reach/stats",
+    "filled": "/api/reach/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/reach-pipelines",
+    "filled": "/api/reach-pipelines",
+    "status": 200
+  },
+  {
+    "path": "/api/reach-pipelines/list",
+    "filled": "/api/reach-pipelines/list",
+    "status": 200
+  },
+  {
+    "path": "/api/reach-pipelines/:id",
+    "filled": "/api/reach-pipelines/1",
+    "status": 404
+  },
+  {
+    "path": "/api/recovery-queue/list",
+    "filled": "/api/recovery-queue/list",
+    "status": 200
+  },
+  {
+    "path": "/api/recovery-queue/distribution",
+    "filled": "/api/recovery-queue/distribution",
+    "status": 200
+  },
+  {
+    "path": "/api/recovery-queue/ready",
+    "filled": "/api/recovery-queue/ready",
+    "status": 200
+  },
+  {
+    "path": "/api/restore/list",
+    "filled": "/api/restore/list",
+    "status": 429
+  },
+  {
+    "path": "/api/restore/last",
+    "filled": "/api/restore/last",
+    "status": 429
+  },
+  {
+    "path": "/api/rag/health",
+    "filled": "/api/rag/health",
+    "status": 429
+  },
+  {
+    "path": "/api/rag/health/refresh",
+    "filled": "/api/rag/health/refresh",
+    "status": 200
+  },
+  {
+    "path": "/api/rag/recall/snapshot",
+    "filled": "/api/rag/recall/snapshot",
+    "status": 200
+  },
+  {
+    "path": "/api/rag/recall/snapshots",
+    "filled": "/api/rag/recall/snapshots",
+    "status": 200
+  },
+  {
+    "path": "/api/rag/documents",
+    "filled": "/api/rag/documents",
+    "status": 200
+  },
+  {
+    "path": "/api/rag/documents/:id",
+    "filled": "/api/rag/documents/1",
+    "status": 200
+  },
+  {
+    "path": "/api/rag-config/products",
+    "filled": "/api/rag-config/products",
+    "status": 200
+  },
+  {
+    "path": "/api/rag-config/products/:id",
+    "filled": "/api/rag-config/products/1",
+    "status": 404
+  },
+  {
+    "path": "/api/rag-config/accounts/config",
+    "filled": "/api/rag-config/accounts/config",
+    "status": 200
+  },
+  {
+    "path": "/api/rag-product-configs",
+    "filled": "/api/rag-product-configs",
+    "status": 200
+  },
+  {
+    "path": "/api/rag-product-configs/list",
+    "filled": "/api/rag-product-configs/list",
+    "status": 200
+  },
+  {
+    "path": "/api/email/list",
+    "filled": "/api/email/list",
+    "status": 200
+  },
+  {
+    "path": "/api/email/lists",
+    "filled": "/api/email/lists",
+    "status": 200
+  },
+  {
+    "path": "/api/email/lists/list",
+    "filled": "/api/email/lists/list",
+    "status": 200
+  },
+  {
+    "path": "/api/email/lists/:id",
+    "filled": "/api/email/lists/1",
+    "status": 400
+  },
+  {
+    "path": "/api/email/lists/:id/trace",
+    "filled": "/api/email/lists/1/trace",
+    "status": 200
+  },
+  {
+    "path": "/api/email/lists/:id/tracking",
+    "filled": "/api/email/lists/1/tracking",
+    "status": 400
+  },
+  {
+    "path": "/api/email/list/:id",
+    "filled": "/api/email/list/1",
+    "status": 400
+  },
+  {
+    "path": "/api/email/smtp",
+    "filled": "/api/email/smtp",
+    "status": 200
+  },
+  {
+    "path": "/api/email/smtps",
+    "filled": "/api/email/smtps",
+    "status": 200
+  },
+  {
+    "path": "/api/email/smtps/list",
+    "filled": "/api/email/smtps/list",
+    "status": 200
+  },
+  {
+    "path": "/api/email/smtps/:id",
+    "filled": "/api/email/smtps/1",
+    "status": 404
+  },
+  {
+    "path": "/api/email/smtp/:id",
+    "filled": "/api/email/smtp/1",
+    "status": 404
+  },
+  {
+    "path": "/api/email/unsubscribe",
+    "filled": "/api/email/unsubscribe",
+    "status": 400
+  },
+  {
+    "path": "/api/email/unsubscribe/list",
+    "filled": "/api/email/unsubscribe/list",
+    "status": 200
+  },
+  {
+    "path": "/api/email/drafts",
+    "filled": "/api/email/drafts",
+    "status": 200
+  },
+  {
+    "path": "/api/email/drafts/:id",
+    "filled": "/api/email/drafts/1",
+    "status": 400
+  },
+  {
+    "path": "/api/email/jobs",
+    "filled": "/api/email/jobs",
+    "status": 200
+  },
+  {
+    "path": "/api/email/jobs/:id",
+    "filled": "/api/email/jobs/1",
+    "status": 400
+  },
+  {
+    "path": "/api/email/track/pixel/:token",
+    "filled": "/api/email/track/pixel/:token",
+    "status": 200
+  },
+  {
+    "path": "/api/email/track/open-metrics",
+    "filled": "/api/email/track/open-metrics",
+    "status": 400
+  },
+  {
+    "path": "/api/events/customer/:id",
+    "filled": "/api/events/customer/1",
+    "status": 200
+  },
+  {
+    "path": "/api/events/stats",
+    "filled": "/api/events/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/user-segment/rfm/rule",
+    "filled": "/api/user-segment/rfm/rule",
+    "status": 200
+  },
+  {
+    "path": "/api/user-segment/rfm/rules",
+    "filled": "/api/user-segment/rfm/rules",
+    "status": 200
+  },
+  {
+    "path": "/api/user-segment/rfm/list",
+    "filled": "/api/user-segment/rfm/list",
+    "status": 200
+  },
+  {
+    "path": "/api/user-segment/rfm/user",
+    "filled": "/api/user-segment/rfm/user",
+    "status": 400
+  },
+  {
+    "path": "/api/user-segment/rfm/stats",
+    "filled": "/api/user-segment/rfm/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/user-segment/layers",
+    "filled": "/api/user-segment/layers",
+    "status": 200
+  },
+  {
+    "path": "/api/user-segments",
+    "filled": "/api/user-segments",
+    "status": 200
+  },
+  {
+    "path": "/api/user-segments/rfm/list",
+    "filled": "/api/user-segments/rfm/list",
+    "status": 200
+  },
+  {
+    "path": "/api/user-segments/rfm/stats",
+    "filled": "/api/user-segments/rfm/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/user-segments/list",
+    "filled": "/api/user-segments/list",
+    "status": 200
+  },
+  {
+    "path": "/api/user-segments/layers",
+    "filled": "/api/user-segments/layers",
+    "status": 200
+  },
+  {
+    "path": "/api/user/list",
+    "filled": "/api/user/list",
+    "status": 200
+  },
+  {
+    "path": "/api/user/:id",
+    "filled": "/api/user/1",
+    "status": 404
+  },
+  {
+    "path": "/api/users",
+    "filled": "/api/users",
+    "status": 200
+  },
+  {
+    "path": "/api/users/:id",
+    "filled": "/api/users/1",
+    "status": 404
+  },
+  {
+    "path": "/api/unified-messages",
+    "filled": "/api/unified-messages",
+    "status": 200
+  },
+  {
+    "path": "/api/unified-messages/list",
+    "filled": "/api/unified-messages/list",
+    "status": 200
+  },
+  {
+    "path": "/api/unified-messages/:id",
+    "filled": "/api/unified-messages/1",
+    "status": 404
+  },
+  {
+    "path": "/api/unified-messages/:id/replies",
+    "filled": "/api/unified-messages/1/replies",
+    "status": 200
+  },
+  {
+    "path": "/api/obs-configs",
+    "filled": "/api/obs-configs",
+    "status": 200
+  },
+  {
+    "path": "/api/obs-configs/list",
+    "filled": "/api/obs-configs/list",
+    "status": 200
+  },
+  {
+    "path": "/api/obs-configs/default",
+    "filled": "/api/obs-configs/default",
+    "status": 200
+  },
+  {
+    "path": "/api/obs-configs/:id",
+    "filled": "/api/obs-configs/1",
+    "status": 404
+  },
+  {
+    "path": "/api/obs/config",
+    "filled": "/api/obs/config",
+    "status": 200
+  },
+  {
+    "path": "/api/obs/config/default",
+    "filled": "/api/obs/config/default",
+    "status": 200
+  },
+  {
+    "path": "/api/obs/config/:id",
+    "filled": "/api/obs/config/1",
+    "status": 404
+  },
+  {
+    "path": "/api/objection-templates",
+    "filled": "/api/objection-templates",
+    "status": 200
+  },
+  {
+    "path": "/api/objection-templates/list",
+    "filled": "/api/objection-templates/list",
+    "status": 200
+  },
+  {
+    "path": "/api/objection/categories",
+    "filled": "/api/objection/categories",
+    "status": 200
+  },
+  {
+    "path": "/api/operation-logs",
+    "filled": "/api/operation-logs",
+    "status": 200
+  },
+  {
+    "path": "/api/operation-logs/list",
+    "filled": "/api/operation-logs/list",
+    "status": 200
+  },
+  {
+    "path": "/api/operation-logs/statistics",
+    "filled": "/api/operation-logs/statistics",
+    "status": 200
+  },
+  {
+    "path": "/api/operation-logs/:id",
+    "filled": "/api/operation-logs/1",
+    "status": 200
+  },
+  {
+    "path": "/api/oneid/identities",
+    "filled": "/api/oneid/identities",
+    "status": 200
+  },
+  {
+    "path": "/api/oneid/conflicts",
+    "filled": "/api/oneid/conflicts",
+    "status": 200
+  },
+  {
+    "path": "/api/platform/merchant/list",
+    "filled": "/api/platform/merchant/list",
+    "status": 200
+  },
+  {
+    "path": "/api/platform/merchant/:id/stats",
+    "filled": "/api/platform/merchant/1/stats",
+    "status": 404
+  },
+  {
+    "path": "/api/platform/message/list",
+    "filled": "/api/platform/message/list",
+    "status": 200
+  },
+  {
+    "path": "/api/platform/message/latest",
+    "filled": "/api/platform/message/latest",
+    "status": 200
+  },
+  {
+    "path": "/api/platform/stats/system",
+    "filled": "/api/platform/stats/system",
+    "status": 200
+  },
+  {
+    "path": "/api/platform/stats/overview",
+    "filled": "/api/platform/stats/overview",
+    "status": 200
+  },
+  {
+    "path": "/api/platform/stats/merchant",
+    "filled": "/api/platform/stats/merchant",
+    "status": 200
+  },
+  {
+    "path": "/api/platform/dashboard",
+    "filled": "/api/platform/dashboard",
+    "status": 200
+  },
+  {
+    "path": "/api/platform/user/list",
+    "filled": "/api/platform/user/list",
+    "status": 404
+  },
+  {
+    "path": "/api/platform-accounts",
+    "filled": "/api/platform-accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/platform-accounts/platforms",
+    "filled": "/api/platform-accounts/platforms",
+    "status": 200
+  },
+  {
+    "path": "/api/platform-accounts/:id",
+    "filled": "/api/platform-accounts/1",
+    "status": 404
+  },
+  {
+    "path": "/api/platform-accounts/:id/status",
+    "filled": "/api/platform-accounts/1/status",
+    "status": 404
+  },
+  {
+    "path": "/api/perf/list",
+    "filled": "/api/perf/list",
+    "status": 200
+  },
+  {
+    "path": "/api/perf/:id",
+    "filled": "/api/perf/1",
+    "status": 200
+  },
+  {
+    "path": "/api/batch/template",
+    "filled": "/api/batch/template",
+    "status": 200
+  },
+  {
+    "path": "/api/batch/tools",
+    "filled": "/api/batch/tools",
+    "status": 200
+  },
+  {
+    "path": "/api/batch/histories",
+    "filled": "/api/batch/histories",
+    "status": 200
+  },
+  {
+    "path": "/api/batch/histories/:id",
+    "filled": "/api/batch/histories/1",
+    "status": 404
+  },
+  {
+    "path": "/api/batch-operations",
+    "filled": "/api/batch-operations",
+    "status": 200
+  },
+  {
+    "path": "/api/batch-operations/list",
+    "filled": "/api/batch-operations/list",
+    "status": 200
+  },
+  {
+    "path": "/api/backups",
+    "filled": "/api/backups",
+    "status": 200
+  },
+  {
+    "path": "/api/backups/list",
+    "filled": "/api/backups/list",
+    "status": 200
+  },
+  {
+    "path": "/api/backups/:id",
+    "filled": "/api/backups/1",
+    "status": 200
+  },
+  {
+    "path": "/api/bridge/outbox",
+    "filled": "/api/bridge/outbox",
+    "status": 400
+  },
+  {
+    "path": "/api/bridge/accounts",
+    "filled": "/api/bridge/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/feishu/accounts",
+    "filled": "/api/feishu/accounts",
+    "status": 200
+  },
+  {
+    "path": "/api/feishu/accounts/list",
+    "filled": "/api/feishu/accounts/list",
+    "status": 200
+  },
+  {
+    "path": "/api/feishu/accounts/:id",
+    "filled": "/api/feishu/accounts/1",
+    "status": 404
+  },
+  {
+    "path": "/api/feishu/accounts/:id/test-send",
+    "filled": "/api/feishu/accounts/1/test-send",
+    "status": 404
+  },
+  {
+    "path": "/api/feishu/accounts/:id/refresh-token",
+    "filled": "/api/feishu/accounts/1/refresh-token",
+    "status": 404
+  },
+  {
+    "path": "/api/faqs",
+    "filled": "/api/faqs",
+    "status": 200
+  },
+  {
+    "path": "/api/faqs/stats",
+    "filled": "/api/faqs/stats",
+    "status": 200
+  },
+  {
+    "path": "/api/faqs/:id",
+    "filled": "/api/faqs/1",
+    "status": 404
+  },
+  {
+    "path": "/api/v1/asset-market/list",
+    "filled": "/api/v1/asset-market/list",
+    "status": 200
+  },
+  {
+    "path": "/api/v1/asset-market/detail/:asset_id",
+    "filled": "/api/v1/asset-market/detail/:asset_id",
+    "status": 200
+  },
+  {
+    "path": "/api/v1/asset-market/my-purchases",
+    "filled": "/api/v1/asset-market/my-purchases",
+    "status": 200
+  },
+  {
+    "path": "/api/v1/asset-bundle/by-aid/:aid",
+    "filled": "/api/v1/asset-bundle/by-aid/1",
+    "status": 404
+  },
+  {
+    "path": "/api/v1/asset-bundle/:id",
+    "filled": "/api/v1/asset-bundle/1",
+    "status": 404
+  },
+  {
+    "path": "/api/v1/local-assets",
+    "filled": "/api/v1/local-assets",
+    "status": 200
+  },
+  {
+    "path": "/api/v1/local-assets/sync-log",
+    "filled": "/api/v1/local-assets/sync-log",
+    "status": 200
+  },
+  {
+    "path": "/api/v1/local-assets/:id",
+    "filled": "/api/v1/local-assets/1",
+    "status": 200
+  },
+  {
+    "path": "/api/quick-replies",
+    "filled": "/api/quick-replies",
+    "status": 200
+  },
+  {
+    "path": "/api/quick-replies/categories",
+    "filled": "/api/quick-replies/categories",
+    "status": 200
+  },
+  {
+    "path": "/api/quick-replies/list",
+    "filled": "/api/quick-replies/list",
+    "status": 200
+  },
+  {
+    "path": "/api/notifications",
+    "filled": "/api/notifications",
+    "status": 200
+  },
+  {
+    "path": "/api/notifications/unread-count",
+    "filled": "/api/notifications/unread-count",
+    "status": 200
+  },
+  {
+    "path": "/api/notifications/list",
+    "filled": "/api/notifications/list",
+    "status": 200
+  },
+  {
+    "path": "/api/glossaries",
+    "filled": "/api/glossaries",
+    "status": 200
+  },
+  {
+    "path": "/api/glossaries/:term_id",
+    "filled": "/api/glossaries/:term_id",
+    "status": 404
+  },
+  {
+    "path": "/api/health",
+    "filled": "/api/health",
+    "status": 200
+  },
+  {
+    "path": "/api/_debug_routes",
+    "filled": "/api/_debug_routes",
+    "status": 404
+  },
+  {
+    "path": "/assets/*filepath",
+    "filled": "/assets/*filepath",
+    "status": 404
+  },
+  {
+    "path": "/health",
+    "filled": "/health",
+    "status": 200
+  },
+  {
+    "path": "/healthz",
+    "filled": "/healthz",
+    "status": 200
+  },
+  {
+    "path": "/chat/embed",
+    "filled": "/chat/embed",
+    "status": 200
+  },
+  {
+    "path": "/chat/embed/*path",
+    "filled": "/chat/embed/*path",
+    "status": 200
+  },
+  {
+    "path": "/readyz",
+    "filled": "/readyz",
+    "status": 200
+  },
+  {
+    "path": "/favicon.ico",
+    "filled": "/favicon.ico",
+    "status": 404
+  },
+  {
+    "path": "/logo.png",
+    "filled": "/logo.png",
+    "status": 200
+  },
+  {
+    "path": "/index.html",
+    "filled": "/index.html",
+    "status": 200
+  },
+  {
+    "path": "/embed/*filepath",
+    "filled": "/embed/*filepath",
+    "status": 404
+  }
+]

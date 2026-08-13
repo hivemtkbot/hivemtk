@@ -10,16 +10,6 @@ export default [
     }
   },
   {
-    path: '/xiaohongshu/auto-reply',
-    name: 'XiaohongshuAutoReply',
-    component: () => import('@/views/xiaohongshuCard/AutoReply.vue'),
-    meta: {
-      title: '小红书自动回复',
-      group: 'community',
-      icon: 'ChatDotRound'
-    }
-  },
-  {
     path: '/xiaohongshu/stats',
     name: 'XiaohongshuStats',
     component: () => import('@/views/xiaohongshuCard/Stats.vue'),

@@ -1,0 +1,13 @@
+{
+  "page": "customerService/aiSuggestion",
+  "url": "http://localhost:8213/#/customerService/aiSuggestion",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 5
+}

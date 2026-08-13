@@ -2,10 +2,11 @@ package functions
 
 import (
 	"errors"
-	"github.com/google/uuid"
-	"github.com/shopspring/decimal"
 	"reflect"
 	"strings"
+
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type StructToMapData struct {

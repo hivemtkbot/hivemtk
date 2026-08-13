@@ -63,10 +63,7 @@ func (s *SystemConfigService) GetUsageStats(ctx context.Context) (userCount int6
 	if n, err := s.repo.CountUsers(ctx); err == nil {
 		userCount = n
 	}
-	if n, err := s.repo.CountAutoReplyLogs(ctx); err == nil {
-		requestCount = n
-	}
-	return userCount, requestCount
+	return userCount, 0
 }
 
 // PingDB 检查数据库连通性，供健康检查使用
@@ -94,6 +91,5 @@ func (s *SystemConfigService) defaultConfig(ctx context.Context) *model.SystemCo
 		// 私域独立部署:不限制用户数(MaxUsers 保留为兼容字段,固定 0)
 		MaxUsers:          0,
 		MaxUploadSizeMB:   50,
-		AutoReplyHeadless: true,
 	}
 }

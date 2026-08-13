@@ -1,0 +1,310 @@
+[
+  {
+    "resource": "knowledgeBase",
+    "errors": 0,
+    "mismatches": 0,
+    "detail": {
+      "resource": "knowledgeBase",
+      "steps": [
+        {
+          "step": "create",
+          "status": 200,
+          "id": 15
+        },
+        {
+          "step": "create-db",
+          "checked": 11,
+          "diffs": 0
+        },
+        {
+          "step": "update-db",
+          "checked": 3,
+          "diffs": 0,
+          "dbSnapshot": {
+            "name": "DEEPTEST_UPD",
+            "description": "deep-test-desc-UPD",
+            "enabled": false
+          }
+        },
+        {
+          "step": "delete",
+          "status": 200
+        },
+        {
+          "step": "delete-db",
+          "remaining": 0
+        }
+      ],
+      "mismatches": [],
+      "errors": []
+    }
+  },
+  {
+    "resource": "faq",
+    "errors": 0,
+    "mismatches": 0,
+    "detail": {
+      "resource": "faq",
+      "steps": [
+        {
+          "step": "create",
+          "status": 200,
+          "id": 164
+        },
+        {
+          "step": "create-db",
+          "checked": 14,
+          "diffs": 0
+        },
+        {
+          "step": "update-db",
+          "checked": 8,
+          "diffs": 0,
+          "dbSnapshot": {
+            "question": "深度测试问题_1786536391797_UPD",
+            "answer": "深度测试答案_UPD",
+            "enabled": false,
+            "keywords": [
+              "test"
+            ],
+            "category": "general",
+            "intent": "test_intent",
+            "confidence": 0.9,
+            "agent_id": 73
+          }
+        },
+        {
+          "step": "delete",
+          "status": 200
+        },
+        {
+          "step": "delete-db",
+          "remaining": 0
+        }
+      ],
+      "mismatches": [],
+      "errors": []
+    }
+  },
+  {
+    "resource": "sopTemplate",
+    "errors": 0,
+    "mismatches": 0,
+    "detail": {
+      "resource": "sopTemplate",
+      "steps": [
+        {
+          "step": "create",
+          "status": 200,
+          "id": 90
+        },
+        {
+          "step": "create-db",
+          "checked": 13,
+          "diffs": 0
+        },
+        {
+          "step": "update-db",
+          "checked": 9,
+          "diffs": 0,
+          "dbSnapshot": {
+            "name": "深度测试SOP_1786536391928_UPD",
+            "intent": "test_intent",
+            "stage": "lead",
+            "template": "模板内容_UPD",
+            "vars": "{}",
+            "priority": 1,
+            "confidence": 0.8,
+            "enabled": false,
+            "agent_id": 73
+          }
+        },
+        {
+          "step": "delete",
+          "status": 200
+        },
+        {
+          "step": "delete-db",
+          "remaining": 0
+        }
+      ],
+      "mismatches": [],
+      "errors": []
+    }
+  },
+  {
+    "resource": "glossary",
+    "errors": 0,
+    "mismatches": 0,
+    "detail": {
+      "resource": "glossary",
+      "steps": [
+        {
+          "step": "create",
+          "status": 200,
+          "id": "DEEPTEST_1786536392054"
+        },
+        {
+          "step": "create-db",
+          "checked": 9,
+          "diffs": 0
+        },
+        {
+          "step": "update-db",
+          "checked": 5,
+          "diffs": 0,
+          "dbSnapshot": {
+            "category": "brand",
+            "preserve": false,
+            "translations": {
+              "zh": "深度测试术语"
+            },
+            "pattern": "",
+            "status": "inactive"
+          }
+        },
+        {
+          "step": "delete",
+          "status": 200
+        },
+        {
+          "step": "delete-db-soft",
+          "activeRemaining": 0
+        }
+      ],
+      "mismatches": [],
+      "errors": []
+    }
+  },
+  {
+    "resource": "scriptTemplate",
+    "errors": 0,
+    "mismatches": 0,
+    "detail": {
+      "resource": "scriptTemplate",
+      "steps": [
+        {
+          "step": "create",
+          "status": 200,
+          "id": 11
+        },
+        {
+          "step": "create-db",
+          "checked": 20,
+          "diffs": 0
+        },
+        {
+          "step": "update-db",
+          "checked": 8,
+          "diffs": 0,
+          "dbSnapshot": {
+            "category": "test",
+            "name": "深度测试话术_1786536392181_UPD",
+            "title": "标题",
+            "content": "话术内容_UPD",
+            "variables": "[]",
+            "tags": "test",
+            "journey_stage": "lead",
+            "created_by": 48
+          }
+        },
+        {
+          "step": "delete",
+          "status": 200
+        },
+        {
+          "step": "delete-db",
+          "remaining": 0
+        }
+      ],
+      "mismatches": [],
+      "errors": []
+    }
+  },
+  {
+    "resource": "materialCategory",
+    "errors": 0,
+    "mismatches": 0,
+    "detail": {
+      "resource": "materialCategory",
+      "steps": [
+        {
+          "step": "create",
+          "status": 200,
+          "id": "3df92c0b-b0ee-4111-a721-05fd3f70fd25"
+        },
+        {
+          "step": "create-db",
+          "checked": 14,
+          "diffs": 0
+        },
+        {
+          "step": "update-db",
+          "checked": 7,
+          "diffs": 0,
+          "dbSnapshot": {
+            "name": "深度测试分类_1786536392313_UPD",
+            "type": "image",
+            "icon": "test-icon_U",
+            "color": "#00FF00",
+            "sort": 11,
+            "description": "deep-test-category_UPD",
+            "status": "active"
+          }
+        },
+        {
+          "step": "delete",
+          "status": 200
+        },
+        {
+          "step": "delete-db",
+          "remaining": 0
+        }
+      ],
+      "mismatches": [],
+      "errors": []
+    }
+  },
+  {
+    "resource": "domainPool",
+    "errors": 0,
+    "mismatches": 0,
+    "detail": {
+      "resource": "domainPool",
+      "steps": [
+        {
+          "step": "create",
+          "status": 200,
+          "id": 40
+        },
+        {
+          "step": "create-db",
+          "checked": 21,
+          "diffs": 0
+        },
+        {
+          "step": "update-db",
+          "checked": 5,
+          "diffs": 0,
+          "dbSnapshot": {
+            "id": 40,
+            "domain": "deeptest-1786536392501.example.com",
+            "port": 8081,
+            "purpose": "deep-test_UPD",
+            "status": 2
+          }
+        },
+        {
+          "step": "delete",
+          "status": 200
+        },
+        {
+          "step": "delete-db",
+          "remaining": 0
+        }
+      ],
+      "mismatches": [],
+      "errors": []
+    }
+  }
+]

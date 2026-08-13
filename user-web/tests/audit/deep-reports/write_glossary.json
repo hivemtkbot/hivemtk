@@ -1,0 +1,31 @@
+{
+  "resource": "glossary",
+  "steps": [
+    {
+      "step": "create",
+      "status": 200,
+      "id": "DEEPTEST_1786505548433"
+    },
+    {
+      "step": "create-db",
+      "checked": 9,
+      "diffs": 0
+    },
+    {
+      "step": "delete",
+      "status": 200
+    },
+    {
+      "step": "delete-db-soft",
+      "activeRemaining": 0
+    }
+  ],
+  "mismatches": [],
+  "errors": [
+    {
+      "step": "update",
+      "status": 400,
+      "body": "{\"code\":\"INVALID_PARAM_1001\",\"message\":\"请求参数错误\",\"data\":\"Key: 'GlossaryRequest.TermID' Error:Field validation for 'TermID' failed on the 'required' tag\"}"
+    }
+  ]
+}

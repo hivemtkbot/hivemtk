@@ -1,0 +1,13 @@
+{
+  "page": "asset-market/detail/1",
+  "url": "http://localhost:8213/#/asset-market/detail/1",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 4
+}

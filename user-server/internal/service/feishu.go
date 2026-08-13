@@ -737,7 +737,6 @@ func (s *WhatsAppCloudIntegrationService) IngestMessage(ctx context.Context, req
 	return hubMsg, conv, nil
 }
 
-// ===== merged from feishu_part2.go (was a mechanical _partN split) =====
 func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accountID uint, toPhone, content string) error {
 	if s.wa == nil {
 		return errors.New("db nil")

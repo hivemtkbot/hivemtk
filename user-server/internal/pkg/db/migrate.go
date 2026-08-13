@@ -61,9 +61,7 @@ func allModels() []any {
 		// 素材库模型
 		&contentmodel.Material{},
 		&contentmodel.MaterialCategory{},
-		&model.AutoReplyAccount{},
-		&model.AutoReplyRule{},
-		&model.AutoReplyLog{},
+
 		// WhatsApp models
 		&model.WhatsappAccount{},
 		&model.WhatsappSession{},

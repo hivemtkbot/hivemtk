@@ -1,0 +1,21 @@
+{
+  "page": "confidence/panel",
+  "readDiffs": [
+    {
+      "api": "/api/admin/tuning/confidence/calibrations?page=1&page_size=50",
+      "frontendRows": 20,
+      "apiRows": 0,
+      "frontendRowsNotFoundInApi": 20
+    }
+  ],
+  "notes": [
+    "has-rows"
+  ],
+  "frontendRows": 20,
+  "listApis": [
+    "/api/inbox?page=1&page_size=20",
+    "/api/admin/tuning/confidence/policies?page=1&page_size=100",
+    "/api/admin/tuning/confidence/signals?page=1&page_size=20",
+    "/api/admin/tuning/confidence/calibrations?page=1&page_size=50"
+  ]
+}

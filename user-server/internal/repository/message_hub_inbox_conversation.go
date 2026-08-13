@@ -39,7 +39,6 @@ func NewInboxConversationRepository() *InboxConversationRepository {
 	return &InboxConversationRepository{db: _db.GetDB()}
 }
 
-// ===== merged from message_hub_inbox_part2.go (was a mechanical _partN split) =====
 func NewInboxConversationRepositoryWithDB(db *gorm.DB) *InboxConversationRepository {
 	return &InboxConversationRepository{db: db}
 }

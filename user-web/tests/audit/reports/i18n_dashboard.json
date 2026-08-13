@@ -1,0 +1,13 @@
+{
+  "page": "i18n/dashboard",
+  "url": "http://localhost:8213/#/i18n/dashboard",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 5
+}

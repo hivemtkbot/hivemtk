@@ -14,7 +14,6 @@ type ReachWhatsAppSendTool struct {
 	deps ReachToolDeps
 }
 
-// ===== merged from reach_tools_part3.go (was a mechanical _partN split) =====
 func NewReachWhatsAppSendTool(deps ReachToolDeps) *ReachWhatsAppSendTool {
 	return &ReachWhatsAppSendTool{
 		BaseTool: BaseTool{

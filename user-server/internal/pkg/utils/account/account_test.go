@@ -4,8 +4,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/shopspring/decimal"
 	"hivemtk-user/internal/model"
+
+	"github.com/shopspring/decimal"
 )
 
 func TestSetAccount(t *testing.T) {

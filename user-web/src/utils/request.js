@@ -140,7 +140,8 @@ const addInterceptors = () => {
   // 响应拦截器
   request.interceptors.response.use(
     (response) => {
-      const { data, config } = response
+      const config = response.config
+      let data = response.data
       const silent = !!(config && config._silent)
 
       // 0) Blob 下载响应（导出文件等）：responseType 为 blob 时 axios 已返回二进制，
@@ -150,7 +151,20 @@ const addInterceptors = () => {
       }
 
       // 1) 非 JSON 响应（如反向代理把 404 兜底成前端 HTML 页面）
-      if (!isJsonResponse(response) || typeof data !== 'object') {
+      //    容错：部分后端接口 Content-Type 非 application/json（如 text/plain），
+      //    但响应体本身是合法 JSON，应正常解析，避免误判为"非 JSON 响应"。
+      let body = data
+      if (!isJsonResponse(response) && typeof data === 'string') {
+        try {
+          const parsed = JSON.parse(data)
+          if (parsed && typeof parsed === 'object') {
+            body = parsed
+          }
+        } catch {
+          // 解析失败说明确为非 JSON（如 HTML 兜底页），保持原样交给下方判断
+        }
+      }
+      if (!isJsonResponse(response) && typeof body !== 'object') {
         if (import.meta.env?.DEV) {
           console.error('[request] 收到非 JSON 响应，疑似网关/Nginx 兜底到前端页面：', data)
         }
@@ -158,6 +172,7 @@ const addInterceptors = () => {
         if (!silent) showToast(msg)
         return Promise.reject(buildRequestError(msg, response))
       }
+      data = body
 
       // 2) 响应体为空
       if (data == null) {

@@ -1,0 +1,13 @@
+{
+  "page": "clue/statistics",
+  "url": "http://localhost:8213/#/clue/statistics",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 6
+}

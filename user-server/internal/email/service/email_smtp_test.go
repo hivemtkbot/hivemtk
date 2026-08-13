@@ -7,8 +7,9 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
 
-	"gorm.io/gorm"
 	"hivemtk-user/internal/pkg/testutil"
+
+	"gorm.io/gorm"
 )
 
 // setupEmailSmtpServiceTestDB 设置邮件 SMTP 服务测试数据库

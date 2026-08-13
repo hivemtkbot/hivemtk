@@ -3,8 +3,9 @@ package ragretrieval
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"hivemtk-user/internal/config"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // TestNewIndexManager_UnsupportedType 不支持的向量库类型返回错误

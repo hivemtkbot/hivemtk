@@ -1,0 +1,13 @@
+{
+  "page": "email/jobs",
+  "url": "http://localhost:8213/#/email/jobs",
+  "errors": {
+    "console": [],
+    "page": [],
+    "net": []
+  },
+  "interactions": [],
+  "loaded": true,
+  "loadError": null,
+  "elementCount": 5
+}

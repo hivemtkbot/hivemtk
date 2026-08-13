@@ -9,8 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/gorm"
 	"hivemtk-user/internal/pkg/testutil"
+
+	"gorm.io/gorm"
 )
 
 // setupEmailSendServiceTestDB 设置邮件发送服务测试数据库

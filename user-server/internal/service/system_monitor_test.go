@@ -21,8 +21,6 @@ func setupSystemMonitorTestDB(t *testing.T) *gorm.DB {
 		&model.Order{},
 		&model.ShortLinkAccess{},
 		&model.VisitLog{},
-		&model.AutoReplyAccount{},
-		&model.AutoReplyRule{},
 		&model.EmailList{},
 		&model.EmailJobs{},
 		&contentmodel.Material{},
@@ -195,15 +193,11 @@ func TestSystemMonitorService_GetDetailedSystemStats_Empty(t *testing.T) {
 		t.Errorf("Expected total_users 0, got %v", basicStats["total_users"])
 	}
 
-	// 验证业务统计结构
-	businessStats, ok := stats["business_stats"].(map[string]any)
-	if !ok {
+	// 验证业务统计结构存在
+	if _, ok := stats["business_stats"].(map[string]any); !ok {
 		t.Fatal("Expected business_stats map")
 	}
 
-	if businessStats["total_auto_reply_accounts"] != int64(0) {
-		t.Errorf("Expected total_auto_reply_accounts 0, got %v", businessStats["total_auto_reply_accounts"])
-	}
 }
 
 // TestSystemMonitorService_GetDetailedSystemStats_WithData 测试有数据的详细系统统计
@@ -221,34 +215,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 			Status:   1,
 		}
 		database.Create(&user)
-	}
-
-	// 创建自动回复账户
-	for i := 0; i < 4; i++ {
-		account := model.AutoReplyAccount{
-			UserID:   1,
-			Platform: "douyin",
-			Username: "account" + string(rune('0'+i)),
-			Cookie:   "cookie" + string(rune('0'+i)),
-			IsActive: true,
-			Headless: true,
-			LoginAt:  &[]time.Time{time.Now()}[0],
-		}
-		database.Create(&account)
-	}
-
-	// 创建自动回复规则
-	for i := 0; i < 6; i++ {
-		rule := model.AutoReplyRule{
-			UserID:       1,
-			Platform:     "douyin",
-			Keywords:     "keyword" + string(rune('0'+i)),
-			ReplyContent: "reply" + string(rune('0'+i)),
-			Frequency:    60,
-			DailyLimit:   100,
-			IsActive:     true,
-		}
-		database.Create(&rule)
 	}
 
 	// 创建邮件列表
@@ -315,13 +281,7 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 		t.Errorf("Expected total_merchants 1 (开源版固定), got %v", basicStats["total_merchants"])
 	}
 
-	// 验证业务统计
-	if businessStats["total_auto_reply_accounts"] != int64(4) {
-		t.Errorf("Expected total_auto_reply_accounts 4, got %v", businessStats["total_auto_reply_accounts"])
-	}
-	if businessStats["total_auto_reply_rules"] != int64(6) {
-		t.Errorf("Expected total_auto_reply_rules 6, got %v", businessStats["total_auto_reply_rules"])
-	}
+
 	if businessStats["total_email_lists"] != int64(3) {
 		t.Errorf("Expected total_email_lists 3, got %v", businessStats["total_email_lists"])
 	}
@@ -561,7 +521,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_AllSections(t *testing.T) {
 	// 验证 business_stats 的所有字段
 	businessStats := stats["business_stats"].(map[string]any)
 	requiredBusinessFields := []string{
-		"total_auto_reply_accounts", "total_auto_reply_rules",
 		"total_email_lists", "total_email_jobs", "total_materials",
 	}
 	for _, field := range requiredBusinessFields {

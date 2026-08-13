@@ -1,0 +1,51 @@
+{
+  "resource": "scriptTemplate",
+  "steps": [
+    {
+      "step": "create",
+      "status": 200,
+      "id": 9
+    },
+    {
+      "step": "create-db",
+      "checked": 20,
+      "diffs": 0
+    },
+    {
+      "step": "update-db",
+      "checked": 8,
+      "diffs": 1,
+      "dbSnapshot": {
+        "category": "test",
+        "name": "深度测试话术_1786515099699_UPD",
+        "title": "标题",
+        "content": "话术内容_UPD",
+        "variables": "[]",
+        "tags": "test",
+        "journey_stage": "lead",
+        "created_by": 48
+      }
+    },
+    {
+      "step": "delete",
+      "status": 200
+    },
+    {
+      "step": "delete-db",
+      "remaining": 0
+    }
+  ],
+  "mismatches": [
+    {
+      "step": "update",
+      "diffs": [
+        {
+          "field": "variables",
+          "api": [],
+          "db": "[]"
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

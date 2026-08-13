@@ -18,7 +18,6 @@ func setupConditionEvaluatorService(t *testing.T) *contentsvc.MarketingFlowServi
 		&contentmodel.MarketingFlow{},
 		&contentmodel.FlowExecution{},
 		&model.UserTag{},
-		&model.AutoReplyAccount{},
 	)
 	db.SetTestDB(database)
 	return contentsvc.NewMarketingFlowServiceWithDB(database)

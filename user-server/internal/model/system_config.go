@@ -20,7 +20,6 @@ type SystemConfig struct {
 	// 私域独立部署:不限制用户数(MaxUsers 保留为兼容旧字段,固定 0,不再用于业务限制)
 	MaxUsers          int  `gorm:"default:0" json:"max_users"`
 	MaxUploadSizeMB   int  `gorm:"default:50" json:"max_upload_size_mb"`    // 最大上传文件大小 (MB)
-	AutoReplyHeadless bool `gorm:"default:true" json:"auto_reply_headless"` // 自动回复无头模式
 }
 
 func (*SystemConfig) TableName() string {

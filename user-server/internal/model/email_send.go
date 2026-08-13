@@ -1,9 +1,10 @@
 package model
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"time"
 )
 
 // EmailSend 已发送邮件模型

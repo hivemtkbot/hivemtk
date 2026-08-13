@@ -9,9 +9,10 @@ import (
 	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/repository"
 
+	"hivemtk-user/internal/pkg/testutil"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"hivemtk-user/internal/pkg/testutil"
 )
 
 // setupEmailDraftServiceTestDB 设置邮件草稿服务测试数据库

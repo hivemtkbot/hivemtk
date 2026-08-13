@@ -158,10 +158,6 @@ func (s *SystemMonitorService) GetDetailedSystemStats(ctx context.Context) (map[
 	totalMerchants := int64(1)
 	// 开源版：移除 License 计数（License 模型已删除）
 
-	// 获取自动回复统计
-	totalAutoReplyAccounts, _ := s.statsRepo.CountAutoReplyAccounts(ctx)
-	totalAutoReplyRules, _ := s.statsRepo.CountAutoReplyRules(ctx)
-
 	// 获取邮件相关统计
 	totalEmailLists, _ := s.statsRepo.CountEmailLists(ctx)
 	totalEmailJobs, _ := s.statsRepo.CountEmailJobs(ctx)
@@ -193,8 +189,6 @@ func (s *SystemMonitorService) GetDetailedSystemStats(ctx context.Context) (map[
 			// 开源版：移除 total_licenses 字段
 		},
 		"business_stats": map[string]any{
-			"total_auto_reply_accounts": totalAutoReplyAccounts,
-			"total_auto_reply_rules":    totalAutoReplyRules,
 			"total_email_lists":         totalEmailLists,
 			"total_email_jobs":          totalEmailJobs,
 			"total_materials":           totalMaterials,

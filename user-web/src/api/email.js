@@ -81,9 +81,9 @@ export const emailApi = {
     return http.get(`/api/email/jobs/${id}`)
   },
 
-  // 获取邮件追踪
+  // 获取邮件追踪（按邮件列表关联的发送任务查询追踪事件）
   getEmailTrace(id) {
-    return http.post(`/api/email/list/${id}/trace`)
+    return http.get(`/api/email/lists/${id}/tracking`)
   },
 
   // 删除邮件列表

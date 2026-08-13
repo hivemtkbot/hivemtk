@@ -738,7 +738,6 @@ func (s *Customer360Service) buildClueInfoFromMap(userSessions []*model.Customer
 	return clueInfo
 }
 
-// ===== merged from customer_360_part2.go (was a mechanical _partN split) =====
 func (s *Customer360Service) buildOrderInfoFromMap(userSessions []*model.CustomerSession, orderMap map[string][]*model.Order) *OrderInfo {
 	if len(userSessions) == 0 {
 		return &OrderInfo{Orders: make([]*OrderItem, 0)}

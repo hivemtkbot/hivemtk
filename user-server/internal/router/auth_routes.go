@@ -1,13 +1,10 @@
 package router
 
 import (
-	knowledgesvc "hivemtk-user/internal/aiagent/knowledge/service"
-	"hivemtk-user/internal/cache"
 	"hivemtk-user/internal/controller"
 	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
-	"hivemtk-user/internal/service/translation"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -234,81 +231,3 @@ func setupSmsRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	smsDeliveryTrackerCtrl.RegisterRoutes(nil, auth)
 }
 
-// setupAutoReplyRoutes 自动回复路由
-func setupAutoReplyRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
-	// 回复语言链路：注入术语表渲染器与输出后置校准器（满足 aiagent 依赖倒置接口）。
-	// 使用进程内内存缓存避免每条回复都回查术语表；术语表读多写少，多副本间短暂不一致可接受。
-	glossarySvc := translation.NewGlossaryService(repository.NewGlossaryRepositoryWithDB(gormDB), cache.NewMemoryCache())
-	ragStack := knowledgesvc.NewRAGStack(gormDB, glossarySvc, glossarySvc)
-	service.SetRAGStack(ragStack) // bot 启动编排经 service facade 读取
-	autoReplyCtrl := controller.NewAutoReplyController(service.NewAutoReplyService(gormDB))
-	autoReplyManagerCtrl := controller.NewAutoReplyManagerController(service.NewAutoReplyService(gormDB))
-	xianyuAutoReplyCtrl := controller.NewXianyuAutoReplyController(service.NewXianyuAutoReplyService(gormDB))
-	xiaohongshuAutoReplyCtrl := controller.NewXiaohongshuAutoReplyController(service.NewXiaohongshuAutoReplyService(gormDB))
-
-	// 通用自动回复
-	auth.POST("/auto-reply/start-login", autoReplyCtrl.StartLogin)
-	auth.GET("/auto-reply/login-status", autoReplyCtrl.LoginStatus)
-	auth.GET("/auto-reply/accounts", autoReplyCtrl.ListAccounts)
-	auth.POST("/auto-reply/accounts", autoReplyCtrl.UpsertAccount)
-	auth.POST("/auto-reply/accounts/:id/cookies", autoReplyCtrl.SaveCookies)
-	auth.DELETE("/auto-reply/accounts/:id", autoReplyCtrl.DeleteAccount)
-	auth.GET("/auto-reply/rule", autoReplyCtrl.GetRule)
-	auth.POST("/auto-reply/rule", autoReplyCtrl.SaveRule)
-	auth.GET("/auto-reply/logs", autoReplyCtrl.ListLogs)
-	auth.POST("/auto-reply/start", autoReplyCtrl.Start)
-	auth.POST("/auto-reply/stop", autoReplyCtrl.Stop)
-
-	// 自动回复管理器
-	auth.GET("/auto-reply/rules", autoReplyManagerCtrl.ListRules)
-	auth.POST("/auto-reply/rules", autoReplyManagerCtrl.CreateRule)
-	auth.PUT("/auto-reply/rules/:id", autoReplyManagerCtrl.UpdateRule)
-	auth.DELETE("/auto-reply/rules/:id", autoReplyManagerCtrl.DeleteRule)
-	auth.POST("/auto-reply/test-matching", autoReplyManagerCtrl.TestMatching)
-	auth.POST("/auto-reply/simulate-message", autoReplyManagerCtrl.SimulateMessage)
-	auth.POST("/auto-reply/test-batch-matching", autoReplyManagerCtrl.TestBatchMatching)
-	auth.POST("/auto-reply/test-rate-limit", autoReplyManagerCtrl.TestRateLimit)
-	auth.POST("/auto-reply/reset-daily-limit", autoReplyManagerCtrl.ResetDailyLimit)
-	auth.GET("/auto-reply/rate-limit-stats", autoReplyManagerCtrl.GetRateLimitStats)
-	auth.GET("/auto-reply/concurrent-stats", autoReplyManagerCtrl.GetConcurrentStats)
-	auth.GET("/auto-reply/statistics", autoReplyManagerCtrl.GetStatistics)
-	auth.GET("/auto-reply/headless", autoReplyCtrl.GetHeadlessMode)
-	auth.POST("/auto-reply/headless", autoReplyCtrl.SetHeadlessMode)
-	auth.POST("/auto-reply/headless/toggle", autoReplyCtrl.ToggleHeadless)
-	auth.GET("/auto-reply/debug/status", autoReplyCtrl.GetDebugStatus)
-	auth.POST("/auto-reply/debug/test-browser", autoReplyCtrl.TestBrowser)
-
-	// 闲鱼自动回复
-	auth.GET("/xianyu/auto-reply/accounts", xianyuAutoReplyCtrl.ListAccounts)
-	auth.POST("/xianyu/auto-reply/login/start", xianyuAutoReplyCtrl.StartLogin)
-	auth.GET("/xianyu/auto-reply/login/status", xianyuAutoReplyCtrl.LoginStatus)
-	auth.POST("/xianyu/auto-reply/accounts", xianyuAutoReplyCtrl.UpsertAccount)
-	auth.POST("/xianyu/auto-reply/accounts/:id/cookies", xianyuAutoReplyCtrl.SaveCookies)
-	auth.DELETE("/xianyu/auto-reply/accounts/:id", xianyuAutoReplyCtrl.DeleteAccount)
-	auth.GET("/xianyu/auto-reply/rules", xianyuAutoReplyCtrl.GetRule)
-	auth.POST("/xianyu/auto-reply/rules", xianyuAutoReplyCtrl.SaveRule)
-	auth.GET("/xianyu/auto-reply/logs", xianyuAutoReplyCtrl.ListLogs)
-	auth.POST("/xianyu/auto-reply/start", xianyuAutoReplyCtrl.Start)
-	auth.POST("/xianyu/auto-reply/stop", xianyuAutoReplyCtrl.Stop)
-	auth.GET("/xianyu/auto-reply/health", xianyuAutoReplyCtrl.Health)
-
-	// 闲鱼自动回复 - 别名路由（前端兼容：/xianyu-auto-reply/*）
-	auth.GET("/xianyu-auto-reply/accounts", xianyuAutoReplyCtrl.ListAccounts)
-	auth.GET("/xianyu-auto-reply/rule", xianyuAutoReplyCtrl.GetRule)
-	auth.GET("/xianyu-auto-reply/logs", xianyuAutoReplyCtrl.ListLogs)
-	auth.GET("/xianyu-auto-reply/login-status", xianyuAutoReplyCtrl.LoginStatus)
-
-	// 小红书自动回复
-	auth.POST("/xiaohongshu/auto-reply/start-login", xiaohongshuAutoReplyCtrl.StartLogin)
-	auth.GET("/xiaohongshu/auto-reply/login-status", xiaohongshuAutoReplyCtrl.LoginStatus)
-	auth.GET("/xiaohongshu/auto-reply/accounts", xiaohongshuAutoReplyCtrl.ListAccounts)
-	auth.POST("/xiaohongshu/auto-reply/accounts", xiaohongshuAutoReplyCtrl.UpsertAccount)
-	auth.POST("/xiaohongshu/auto-reply/accounts/:id/cookies", xiaohongshuAutoReplyCtrl.SaveCookies)
-	auth.DELETE("/xiaohongshu/auto-reply/accounts/:id", xiaohongshuAutoReplyCtrl.DeleteAccount)
-	auth.GET("/xiaohongshu/auto-reply/rules", xiaohongshuAutoReplyCtrl.GetRule)
-	auth.POST("/xiaohongshu/auto-reply/rules", xiaohongshuAutoReplyCtrl.SaveRule)
-	auth.GET("/xiaohongshu/auto-reply/logs", xiaohongshuAutoReplyCtrl.ListLogs)
-	auth.POST("/xiaohongshu/auto-reply/start", xiaohongshuAutoReplyCtrl.Start)
-	auth.POST("/xiaohongshu/auto-reply/stop", xiaohongshuAutoReplyCtrl.Stop)
-	auth.GET("/xiaohongshu/auto-reply/health", xiaohongshuAutoReplyCtrl.Health)
-}
