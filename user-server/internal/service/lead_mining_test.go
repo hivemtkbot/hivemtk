@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -68,11 +69,17 @@ func (f *fakeCustRepo) GetByXiaohongshuID(context.Context, string) (*model.Custo
 	return nil, nil
 }
 func (f *fakeCustRepo) Delete(context.Context, string) error { return nil }
-func (f *fakeCustRepo) List(context.Context, int, int) ([]*model.Customer, int64, error) {
+func (f *fakeCustRepo) List(context.Context, int, int, string) ([]*model.Customer, int64, error) {
 	return nil, 0, nil
 }
-func (f *fakeCustRepo) FindByIdentity(context.Context, string, string, string, string) (*model.Customer, error) {
+func (f *fakeCustRepo) FindByIdentity(context.Context, string, string, string, string, string) (*model.Customer, error) {
 	return nil, nil
+}
+func (f *fakeCustRepo) FindByIdentityAll(context.Context, string, string, string, string, string) ([]*model.Customer, error) {
+	return nil, nil
+}
+func (f *fakeCustRepo) ReassignSessionOneID(context.Context, string, string) error {
+	return nil
 }
 func (f *fakeCustRepo) CountNotEmpty(context.Context, string) (int64, error) { return 0, nil }
 func (f *fakeCustRepo) CountMultiIdentity(context.Context) (int64, error)    { return 0, nil }
@@ -136,6 +143,9 @@ func (f *fakeClueRepo) ExistsByTypeAndAccount(_ context.Context, t int64, acct s
 	return ok, nil
 }
 func (f *fakeClueRepo) GetClueList(context.Context, int, int) ([]*model.Clue, int64, error) {
+	return nil, 0, nil
+}
+func (f *fakeClueRepo) ListByAccount(context.Context, string, int, int) ([]*model.Clue, int64, error) {
 	return nil, 0, nil
 }
 func (f *fakeClueRepo) Delete(context.Context, string) error { return nil }
@@ -426,4 +436,73 @@ func lmContains(s []string, v string) bool {
 		}
 	}
 	return false
+}
+
+// ---------------- 抖音私聊触达契约测试 ----------------
+
+// TestDouyinLeadOutreachUsesOperatorAccount 守护「发现线索立即私聊」的路由键契约：
+// 私信 outbox 按运营账号(AccountID)拉取，hook 必须收到 hub.AccountID，而非客户键(account=platform:sender)。
+// 若回归客户键，桥接扩展按运营账号轮询时永远取不到 → 私聊静默丢失。
+func TestDouyinLeadOutreachUsesOperatorAccount(t *testing.T) {
+	if err := os.Setenv("DOUYIN_LEAD_DM_ENABLED", "1"); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Unsetenv("DOUYIN_LEAD_DM_ENABLED")
+
+	svc := &Service{
+		clueRepo:  newFakeClueRepo(),
+		custRepo:  newFakeCustRepo(),
+		cfgRepo:   &fakeCfgRepo{cfg: &model.LeadMiningConfig{MinIntentScore: 10}},
+		lastJudge: map[string]time.Time{},
+	}
+
+	got := make(chan [3]string, 1)
+	orig := DouyinLeadOutreachHook
+	defer func() { DouyinLeadOutreachHook = orig }()
+	DouyinLeadOutreachHook = func(_ context.Context, accountID, memberOpenID, groupConvID, _, _ string) {
+		got <- [3]string{accountID, memberOpenID, groupConvID}
+	}
+
+	hub := &model.MessageHub{
+		Platform:       "douyin",
+		AccountID:      "op-acct-9", // 运营账号（桥接轮询账号）
+		SenderID:       "member-1",  // 客户（私聊目标）
+		SenderName:     "张三",
+		ConversationID: "group-g1",
+		MsgID:          "m1",
+		Content:        "怎么买",
+		Direction:      "inbound",
+		IsGroup:        true,
+	}
+	svc.persistLead(context.Background(), &model.LeadMiningConfig{MinIntentScore: 10}, hub, "douyin:member-1", &LeadJudgement{IsLead: true, IntentScore: 80, Reason: "高意向"})
+
+	select {
+	case args := <-got:
+		if args[0] != "op-acct-9" {
+			t.Fatalf("抖音发现线索私聊必须传运营账号 hub.AccountID, got=%q", args[0])
+		}
+		if args[1] != "member-1" {
+			t.Fatalf("私聊目标应为 hub.SenderID, got=%q", args[1])
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("抖音线索私聊 hook 未被触发（可能阈值/开关未命中）")
+	}
+}
+
+// TestFirstSeenDouyinGroupMember 守护入群近似触达的去重缓存语义：
+// 同一(运营账号,群,成员) 24h 内只触达一次；跨运营账号/跨成员独立计数。
+func TestFirstSeenDouyinGroupMember(t *testing.T) {
+	douyinJoinSeen = map[string]time.Time{} // 隔离全局去重缓存
+	if !firstSeenDouyinGroupMember("op1", "g1", "m1") {
+		t.Fatal("首次发言应返回 true")
+	}
+	if firstSeenDouyinGroupMember("op1", "g1", "m1") {
+		t.Fatal("24h 内重复发言同一成员应返回 false")
+	}
+	if !firstSeenDouyinGroupMember("op1", "g1", "m2") {
+		t.Fatal("不同成员应返回 true")
+	}
+	if !firstSeenDouyinGroupMember("op2", "g1", "m1") {
+		t.Fatal("不同运营账号应返回 true")
+	}
 }

@@ -277,13 +277,13 @@ func TestCustomerService_GetCustomerByIdentity(t *testing.T) {
 	customer, _ := service.CreateOrUpdate(context.Background(), dto)
 
 	// 通过手机号查找
-	found, _ := service.GetCustomerByIdentity(context.Background(), "13800138006", "", "", "")
+	found, _ := service.GetCustomerByIdentity(context.Background(), "13800138006", "", "", "", "")
 	if found == nil || found.ID != customer.ID {
 		t.Error("Expected to find customer by phone")
 	}
 
 	// 通过邮箱查找
-	found, _ = service.GetCustomerByIdentity(context.Background(), "", "identity@example.com", "", "")
+	found, _ = service.GetCustomerByIdentity(context.Background(), "", "identity@example.com", "", "", "")
 	if found == nil || found.ID != customer.ID {
 		t.Error("Expected to find customer by email")
 	}

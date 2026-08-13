@@ -184,7 +184,7 @@ func TestCustomerIdentityService_LinkIdentity(t *testing.T) {
 	customer, _ := service.IdentifyOrCreate(context.Background(), identifiers)
 
 	// 绑定邮箱
-	err := service.LinkIdentity(context.Background(), customer.ID, "", "linked@example.com", "", "")
+	err := service.LinkIdentity(context.Background(), customer.ID, "", "linked@example.com", "", "", "")
 	if err != nil {
 		t.Fatalf("LinkIdentity failed: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestCustomerIdentityService_LinkIdentity_Conflict(t *testing.T) {
 	_, _ = service.IdentifyOrCreate(context.Background(), identity.Identifiers{Email: "existing@example.com"})
 
 	// 尝试将 customer1 绑定到 customer2 的邮箱
-	err := service.LinkIdentity(context.Background(), customer1.ID, "", "existing@example.com", "", "")
+	err := service.LinkIdentity(context.Background(), customer1.ID, "", "existing@example.com", "", "", "")
 	if err == nil {
 		t.Error("Expected error when linking conflicting email")
 	}
@@ -325,7 +325,7 @@ func TestCustomerIdentityService_LinkIdentity_Wechat(t *testing.T) {
 	})
 
 	// 绑定微信
-	err := service.LinkIdentity(context.Background(), customer.ID, "", "", "wechat_bind", "")
+	err := service.LinkIdentity(context.Background(), customer.ID, "", "", "wechat_bind", "", "")
 	if err != nil {
 		t.Fatalf("LinkIdentity failed: %v", err)
 	}

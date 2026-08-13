@@ -48,7 +48,11 @@ func (c *CustomerOneIDController) MergeIdentity(ctx *gin.Context) {
 		return
 	}
 	custSvc := service.NewCustomerService()
-	if err := custSvc.MergeCustomers(context.Background(), req.PrimaryID, req.SecondaryID); err != nil {
+	svcCtx := service.WithOperator(context.Background(), service.Operator{
+		UserID:   getUserIDFromContext(ctx),
+		Username: ctx.GetString("username"),
+	})
+	if err := custSvc.MergeCustomers(svcCtx, req.PrimaryID, req.SecondaryID); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -116,7 +120,11 @@ func (c *CustomerOneIDController) ResolveConflict(ctx *gin.Context) {
 		return
 	}
 	custSvc := service.NewCustomerService()
-	if err := custSvc.MergeCustomers(context.Background(), req.PrimaryID, req.SecondaryID); err != nil {
+	svcCtx := service.WithOperator(context.Background(), service.Operator{
+		UserID:   getUserIDFromContext(ctx),
+		Username: ctx.GetString("username"),
+	})
+	if err := custSvc.MergeCustomers(svcCtx, req.PrimaryID, req.SecondaryID); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -171,7 +179,7 @@ func (c *CustomerOneIDController) LinkIdentity(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	if err := c.identitySvc.LinkIdentity(context.Background(), customerID, identifiers.Phone, identifiers.Email, identifiers.WechatOpenID, identifiers.DouyinOpenID); err != nil {
+	if err := c.identitySvc.LinkIdentity(context.Background(), customerID, identifiers.Phone, identifiers.Email, identifiers.WechatOpenID, identifiers.DouyinOpenID, identifiers.XiaohongshuID); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}

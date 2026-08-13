@@ -4,19 +4,46 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/repository"
 )
 
+// Operator 表示触发操作的人（来自鉴权上下文），用于审计日志追踪。
+type Operator struct {
+	UserID   uint
+	Username string
+}
+
+type operatorCtxKey struct{}
+
+// WithOperator 将操作人注入 context（供 service 层写审计日志）。
+func WithOperator(ctx context.Context, op Operator) context.Context {
+	return context.WithValue(ctx, operatorCtxKey{}, op)
+}
+
+// OperatorFromContext 从 context 提取操作人；缺失时返回 system 默认，确保审计不中断主流程。
+func OperatorFromContext(ctx context.Context) Operator {
+	if ctx != nil {
+		if op, ok := ctx.Value(operatorCtxKey{}).(Operator); ok {
+			return op
+		}
+	}
+	return Operator{UserID: 0, Username: "system"}
+}
+
 // CustomerService 客户服务
 type CustomerService struct {
-	repo repository.CustomerRepository
+	repo     repository.CustomerRepository
+	auditRepo repository.OperationLogRepository
 }
 
 // NewCustomerService 创建客户服务实例
 func NewCustomerService() *CustomerService {
 	return &CustomerService{
-		repo: repository.NewCustomerRepository(),
+		repo:      repository.NewCustomerRepository(),
+		auditRepo: repository.NewOperationLogRepository(),
 	}
 }
 
@@ -56,7 +83,7 @@ func (s *CustomerService) CreateOrUpdate(ctx context.Context, dto *CustomerDTO) 
 	}
 
 	// 检查是否已存在（通过任意身份标识）
-	existing, err := s.repo.FindByIdentity(ctx, dto.Phone, dto.Email, dto.WechatOpenID, dto.DouyinOpenID)
+	existing, err := s.repo.FindByIdentity(ctx, dto.Phone, dto.Email, dto.WechatOpenID, dto.DouyinOpenID, dto.XiaohongshuID)
 	if err != nil {
 		return nil, err
 	}
@@ -69,8 +96,7 @@ func (s *CustomerService) CreateOrUpdate(ctx context.Context, dto *CustomerDTO) 
 		existing.DouyinOpenID = dto.DouyinOpenID
 		existing.XiaohongshuID = dto.XiaohongshuID
 
-		// 重新生成 UnifiedID
-		existing.UnifiedID = GenerateCustomerUnifiedID(existing)
+		// 注意：UnifiedID 在建档时确定，作为跨业务稳定主键，更新时严禁重算。
 
 		if err := s.repo.Update(ctx, existing); err != nil {
 			return nil, err
@@ -135,7 +161,7 @@ func (s *CustomerService) List(ctx context.Context, page, limit int) ([]*model.C
 		limit = MaxLimit
 	}
 
-	return s.repo.List(ctx, page, limit)
+	return s.repo.List(ctx, page, limit, "")
 }
 
 // AddTags 给客户添加标签
@@ -276,69 +302,95 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 		return err
 	}
 
-	// 重新生成 UnifiedID
-	primary.UnifiedID = GenerateCustomerUnifiedID(primary)
+	// 注意：主档案的 UnifiedID 在建档时即由 BeforeCreate 钩子确定，且作为跨业务
+	// （会话/事件/标签/触达）的稳定主键，合并时严禁重新生成，否则会导致所有外键
+	// 引用失效。副档案的标识已回填到主档案，OneID 保持不变。
 
-	// 更新主要客户
+	// 更新主要客户（OneID 不变）
 	if err := s.repo.Update(ctx, primary); err != nil {
 		return err
 	}
 
-	// 删除次要客户（实际应用中可能标记为已合并而不是物理删除）
-	return s.repo.Delete(ctx, secondaryID)
+	// 迁移关联数据，保证 360 视图完整性：
+	// 1) 会话：按 OneID 聚合（customer_sessions.one_id 指向 UnifiedID）
+	if secondary.UnifiedID != "" && secondary.UnifiedID != primary.UnifiedID {
+		if err := s.repo.ReassignSessionOneID(ctx, secondary.UnifiedID, primary.UnifiedID); err != nil {
+			return fmt.Errorf("迁移会话失败: %w", err)
+		}
+	}
+	// 2) 事件：将 customer_events.customer_id 指向主档案
+	if err := s.migrateCustomerEvents(ctx, secondaryID, primaryID); err != nil {
+		return err
+	}
+
+	// 删除次要客户
+	if err := s.repo.Delete(ctx, secondaryID); err != nil {
+		return err
+	}
+
+	// 合并审计：记录不可逆合并操作，便于追溯"谁被并入谁"。
+	s.writeMergeAuditLog(ctx, primary, secondary)
+
+	return nil
 }
 
-// MergeCustomersWithEventData 合并客户并迁移事件数据
-// 注意：这是一个增强版本的合并方法，会同时迁移事件
-func (s *CustomerService) MergeCustomersWithEventData(ctx context.Context, primaryID, secondaryID string) error {
-	if primaryID == secondaryID {
-		return errors.New("不能合并同一个客户")
+// writeMergeAuditLog 记录合并操作的审计日志（best-effort，失败不影响合并结果）。
+func (s *CustomerService) writeMergeAuditLog(ctx context.Context, primary, secondary *model.Customer) {
+	op := OperatorFromContext(ctx)
+	detail, _ := json.Marshal(map[string]any{
+		"primary_id":            primary.ID,
+		"secondary_id":          secondary.ID,
+		"secondary_unified_id":  secondary.UnifiedID,
+		"secondary_phone":       secondary.Phone,
+		"secondary_email":       secondary.Email,
+		"secondary_wechat":      secondary.WechatOpenID,
+		"secondary_douyin":      secondary.DouyinOpenID,
+		"secondary_xiaohongshu": secondary.XiaohongshuID,
+	})
+	log := &model.OperationLog{
+		UserID:     op.UserID,
+		Username:   op.Username,
+		Action:     "merge",
+		Module:     "customer",
+		Resource:   "customer",
+		ResourceID: primary.ID,
+		Detail:     string(detail),
 	}
+	// 审计失败不阻断合并主流程，但必须可观测（静默吞错会掩盖审计丢失）。
+	// 防御性：auditRepo 未注入时降级到全局仓库，避免 nil panic。
+	auditRepo := s.auditRepo
+	if auditRepo == nil {
+		auditRepo = repository.NewOperationLogRepository()
+	}
+	if err := auditRepo.Create(ctx, log); err != nil {
+		fmt.Printf("[audit][WARN] 合并审计写入失败: primary=%s secondary=%s op=%s err=%v\n",
+			primary.ID, secondary.ID, op.Username, err)
+	}
+}
 
-	primary, err := s.repo.GetByID(ctx, primaryID)
-	if err != nil {
-		return err
-	}
-	if primary == nil {
-		return ErrCustomerNotFound
-	}
-
-	secondary, err := s.repo.GetByID(ctx, secondaryID)
-	if err != nil {
-		return err
-	}
-	if secondary == nil {
-		return errors.New("次要客户不存在")
-	}
-
-	// 迁移事件
+// migrateCustomerEvents 将次要客户的事件迁移到主客户（best-effort，与既有语义一致）。
+func (s *CustomerService) migrateCustomerEvents(ctx context.Context, secondaryID, primaryID string) error {
 	eventRepo := repository.NewCustomerEventRepository()
-	secondaryEvents, err := eventRepo.GetByCustomerID(ctx, secondaryID, 0)
-	if err == nil && len(secondaryEvents) > 0 {
-		// 在内存中更新 event 字段后单次 eventRepo.RecordBatch 批量插入。
-		migrated := make([]*model.CustomerEvent, 0, len(secondaryEvents))
-		for _, event := range secondaryEvents {
-			event.CustomerID = primaryID
-			// 更新事件数据，记录合并信息
-			eventData := GetCustomerEventData(event)
-			eventData["merged_from_secondary"] = true
-			eventData["original_customer_id"] = secondaryID
-			_ = SetCustomerEventData(event, eventData)
-			// 创建新事件记录（因为 ID 已存在）
-			event.ID = ""
-			migrated = append(migrated, event)
-		}
-		// best-effort：批量插入失败不阻塞主合并流程，与原 Record 单条 best-effort 语义对齐
-		_ = eventRepo.RecordBatch(ctx, migrated)
+	events, err := eventRepo.GetByCustomerID(ctx, secondaryID, 0)
+	if err != nil || len(events) == 0 {
+		return nil
 	}
-
-	// 执行基本合并
-	return s.MergeCustomers(ctx, primaryID, secondaryID)
+	migrated := make([]*model.CustomerEvent, 0, len(events))
+	for _, event := range events {
+		event.CustomerID = primaryID
+		data := GetCustomerEventData(event)
+		data["merged_from_secondary"] = true
+		data["original_customer_id"] = secondaryID
+		_ = SetCustomerEventData(event, data)
+		event.ID = "" // 重新插入，避免主键冲突
+		migrated = append(migrated, event)
+	}
+	return eventRepo.RecordBatch(ctx, migrated)
 }
 
 // GetCustomerByIdentity 根据身份标识获取客户
-func (s *CustomerService) GetCustomerByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID string) (*model.Customer, error) {
-	return s.repo.FindByIdentity(ctx, phone, email, wechatOpenID, douyinOpenID)
+func (s *CustomerService) GetCustomerByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) (*model.Customer, error) {
+	return s.repo.FindByIdentity(ctx, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID)
 }
 
 // SerializeTags 序列化标签数组为 JSON 字符串

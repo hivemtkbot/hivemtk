@@ -20,8 +20,12 @@ func NewCustomerDataStore() tooluse.CustomerDataStore {
 	return &customerDataStoreAdapter{repo: repository.NewCustomerRepository()}
 }
 
-func (a *customerDataStoreAdapter) FindByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID string) (*model.Customer, error) {
-	return a.repo.FindByIdentity(ctx, phone, email, wechatOpenID, douyinOpenID)
+func (a *customerDataStoreAdapter) FindByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) (*model.Customer, error) {
+	return a.repo.FindByIdentity(ctx, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID)
+}
+
+func (a *customerDataStoreAdapter) FindByIdentityAll(ctx context.Context, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) ([]*model.Customer, error) {
+	return a.repo.FindByIdentityAll(ctx, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID)
 }
 
 func (a *customerDataStoreAdapter) GetByXiaohongshuID(ctx context.Context, xhsID string) (*model.Customer, error) {

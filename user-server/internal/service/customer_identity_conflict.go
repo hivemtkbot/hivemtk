@@ -34,7 +34,7 @@ func DetectIdentityConflicts(ctx context.Context, repo repository.CustomerReposi
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	all, _, err := repo.List(ctx, 1, 1000)
+	all, _, err := repo.List(ctx, 1, 1000, "")
 	if err != nil || len(all) == 0 {
 		return []*IdentityConflict{}, 0
 	}
@@ -148,7 +148,7 @@ func ListOneIDCustomers(ctx context.Context, repo repository.CustomerRepository,
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	list, total, err := repo.List(ctx, page, pageSize)
+	list, total, err := repo.List(ctx, page, pageSize, keyword)
 	if err != nil {
 		return []*OneIDCustomer{}, 0
 	}

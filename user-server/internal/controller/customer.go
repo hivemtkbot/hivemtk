@@ -207,7 +207,14 @@ func (c *CustomerController) MergeCustomers(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.customerService.MergeCustomersWithEventData(context.Background(), req.PrimaryID, req.SecondaryID); err != nil {
+	// 注入操作人（来自 JWT 鉴权上下文），供合并审计记录追溯。
+	op := service.Operator{
+		UserID:   getUserIDFromContext(ctx),
+		Username: ctx.GetString("username"),
+	}
+	svcCtx := service.WithOperator(context.Background(), op)
+
+	if err := c.customerService.MergeCustomers(svcCtx, req.PrimaryID, req.SecondaryID); err != nil {
 		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}

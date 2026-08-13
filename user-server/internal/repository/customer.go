@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"hivemtk-user/internal/model"
 	_db "hivemtk-user/internal/pkg/db"
 )
@@ -18,8 +20,11 @@ type CustomerRepository interface {
 	GetByDouyinOpenID(ctx context.Context, openID string) (*model.Customer, error)
 	Update(ctx context.Context, customer *model.Customer) error
 	Delete(ctx context.Context, id string) error
-	List(ctx context.Context, page, limit int) ([]*model.Customer, int64, error)
-	FindByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID string) (*model.Customer, error)
+	List(ctx context.Context, page, limit int, keyword string) ([]*model.Customer, int64, error)
+	FindByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) (*model.Customer, error)
+	// FindByIdentityAll 返回所有匹配任一身份标识的客户（多条），用于合并场景检测历史分裂：
+	// 与 FindByIdentity（返回单条，供 Identify 使用）语义不同，避免破坏单条查询契约。
+	FindByIdentityAll(ctx context.Context, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) ([]*model.Customer, error)
 	CountNotEmpty(ctx context.Context, fieldName string) (int64, error)
 	CountMultiIdentity(ctx context.Context) (int64, error)
 	// ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC- N+1 优化）
@@ -30,6 +35,9 @@ type CustomerRepository interface {
 	// SearchByFilter 按过滤条件分页查询客户（用于 customer.segment 工具）
 	// 五层架构修复：将原 tooluse 层的 t.deps.DB.Model().Where() 链下沉到 repository
 	SearchByFilter(ctx context.Context, filter CustomerSearchFilter) (items []*model.Customer, total int64, err error)
+	// ReassignSessionOneID 合并时将次要客户会话聚合到主客户：
+	// 按 one_id 把 customer_sessions 中 oldOneID 的记录改为 newOneID（幂等 UPDATE）。
+	ReassignSessionOneID(ctx context.Context, oldOneID, newOneID string) error
 }
 
 // CustomerSearchFilter 客户搜索过滤条件（CustomerRepository.SearchByFilter 入参）
@@ -130,18 +138,26 @@ func (r *customerRepository) Delete(ctx context.Context, id string) error {
 	return _db.GetDB().WithContext(ctx).Delete(&model.Customer{}, "id = ?", id).Error
 }
 
-// List retrieves customers with pagination
-func (r *customerRepository) List(ctx context.Context, page, limit int) ([]*model.Customer, int64, error) {
+// List retrieves customers with pagination.
+// keyword 对 phone / email / unified_id 做大小写不敏感模糊匹配（为空则忽略）。
+func (r *customerRepository) List(ctx context.Context, page, limit int, keyword string) ([]*model.Customer, int64, error) {
 	var customers []*model.Customer
 	var total int64
 
 	offset := (page - 1) * limit
+	q := _db.GetDB().WithContext(ctx).Model(&model.Customer{})
 
-	if err := _db.GetDB().WithContext(ctx).Model(&model.Customer{}).Count(&total).Error; err != nil {
+	kw := strings.TrimSpace(keyword)
+	if kw != "" {
+		like := "%" + kw + "%"
+		q = q.Where("phone LIKE ? OR email LIKE ? OR unified_id LIKE ?", like, like, like)
+	}
+
+	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	if err := _db.GetDB().WithContext(ctx).Offset(offset).Limit(limit).Find(&customers).Error; err != nil {
+	if err := q.Offset(offset).Limit(limit).Order("created_at DESC").Find(&customers).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -149,7 +165,7 @@ func (r *customerRepository) List(ctx context.Context, page, limit int) ([]*mode
 }
 
 // FindByIdentity finds a customer by any identity field
-func (r *customerRepository) FindByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID string) (*model.Customer, error) {
+func (r *customerRepository) FindByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) (*model.Customer, error) {
 	var customer model.Customer
 	query := _db.GetDB().WithContext(ctx)
 
@@ -173,6 +189,10 @@ func (r *customerRepository) FindByIdentity(ctx context.Context, phone, email, w
 		conditions += "douyin_open_id = ? OR "
 		args = append(args, douyinOpenID)
 	}
+	if xiaohongshuID != "" {
+		conditions += "xiaohongshu_id = ? OR "
+		args = append(args, xiaohongshuID)
+	}
 
 	if conditions == "" {
 		return nil, nil
@@ -186,6 +206,47 @@ func (r *customerRepository) FindByIdentity(ctx context.Context, phone, email, w
 	}
 
 	return &customer, nil
+}
+
+// FindByIdentityAll 返回所有匹配任一身份标识的客户（多条），供合并场景检测历史分裂。
+// 与 FindByIdentity（单条）不同，不会因 First 截断而漏掉同标识的第二条客户。
+func (r *customerRepository) FindByIdentityAll(ctx context.Context, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) ([]*model.Customer, error) {
+	query := _db.GetDB().WithContext(ctx)
+
+	conditions := ""
+	args := []any{}
+
+	if phone != "" {
+		conditions += "phone = ? OR "
+		args = append(args, phone)
+	}
+	if email != "" {
+		conditions += "email = ? OR "
+		args = append(args, email)
+	}
+	if wechatOpenID != "" {
+		conditions += "wechat_open_id = ? OR "
+		args = append(args, wechatOpenID)
+	}
+	if douyinOpenID != "" {
+		conditions += "douyin_open_id = ? OR "
+		args = append(args, douyinOpenID)
+	}
+	if xiaohongshuID != "" {
+		conditions += "xiaohongshu_id = ? OR "
+		args = append(args, xiaohongshuID)
+	}
+
+	if conditions == "" {
+		return nil, nil
+	}
+	conditions = conditions[:len(conditions)-4]
+
+	var customers []*model.Customer
+	if err := query.Where(conditions, args...).Find(&customers).Error; err != nil {
+		return nil, err
+	}
+	return customers, nil
 }
 
 // CountNotEmpty 统计指定字段非空的客户数
@@ -229,6 +290,18 @@ func (r *customerRepository) CountMultiIdentity(ctx context.Context) (int64, err
 		return 0, err
 	}
 	return n, nil
+}
+
+// ReassignSessionOneID 合并时将次要客户会话聚合到主客户。
+// 按 one_id 将 customer_sessions 中 oldOneID 的记录改为 newOneID（幂等 UPDATE，无匹配不报错）。
+func (r *customerRepository) ReassignSessionOneID(ctx context.Context, oldOneID, newOneID string) error {
+	if oldOneID == "" || newOneID == "" || oldOneID == newOneID {
+		return nil
+	}
+	return _db.GetDB().WithContext(ctx).
+		Table("customer_sessions").
+		Where("one_id = ?", oldOneID).
+		Update("one_id", newOneID).Error
 }
 
 // ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC- N+1 优化）
