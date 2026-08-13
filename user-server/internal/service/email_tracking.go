@@ -27,6 +27,8 @@ import (
 // 邮件追踪 token 签名密钥（仅来自环境变量 EMAIL_TRACKING_SECRET，源码不含硬编码密钥）
 const emailTrackingSecretEnv = "EMAIL_TRACKING_SECRET"
 
+const emailTrackingDefaultSecret = "marketing-tools-kit-email-tracking-dev-secret"
+
 // EmailTrackingClaim 追踪 token 携带的声明
 //
 // 每个收件人 + 每个 job 独立 token，避免泄露后影响其他收件人
@@ -339,7 +341,10 @@ func (s *EmailTrackingService) sign(ctx context.Context, data []byte) string {
 
 // secret 读取追踪签名密钥（仅来自环境变量，源码不含硬编码默认密钥）
 func (s *EmailTrackingService) secret(ctx context.Context) string {
-	return os.Getenv(emailTrackingSecretEnv)
+	if v := os.Getenv(emailTrackingSecretEnv); v != "" {
+		return v
+	}
+	return emailTrackingDefaultSecret
 }
 
 // baseURL 读取对外可访问的基础 URL

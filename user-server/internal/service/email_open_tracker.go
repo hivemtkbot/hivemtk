@@ -187,7 +187,8 @@ func (s *EmailOpenTrackerService) recordOpenByEmail(ctx context.Context, email, 
 	}
 	// 生成幂等 event_id：按 (email, messageID) 哈希，使同一邮件对同一收件人的
 	// 重复打开事件能被 EventExists 正确去重（原先用纳秒时间戳导致永远不重复，防重形同虚设）。
-	eventID := fmt.Sprintf("pm-open-%x", sha256.Sum256([]byte(email+"|"+messageID)))
+	// event_id 列是 varchar(36)：前缀 "pm-open-" (8) + 24 位 hex = 32 字符，确保不溢出
+	eventID := "pm-open-" + fmt.Sprintf("%x", sha256.Sum256([]byte(email+"|"+messageID)))[:24]
 	// repo/db 为 nil 时不阻断（兜底：继续落库，由 CreateEvent 报错）
 	if s.repo != nil {
 		if exists, err := s.repo.EventExists(ctx, eventID); err == nil && exists {
@@ -265,7 +266,9 @@ func (s *EmailOpenTrackerService) recordClickByEmail(ctx context.Context, email,
 	if email == "" {
 		return errors.New("email 不能为空")
 	}
-	eventID := fmt.Sprintf("sc-click-%s-%d", messageID, time.Now().UnixNano())
+	// event_id 列是 varchar(36)：前缀 "sc-click-" (8) + 24 位 hex = 32 字符；
+	// 用 (email|messageID|targetURL) 哈希保证幂等去重，避免真实 36 位 MessageID 拼接 nanos 溢出
+	eventID := "sc-click-" + fmt.Sprintf("%x", sha256.Sum256([]byte(email+"|"+messageID+"|"+targetURL)))[:24]
 	if s.repo != nil {
 		if exists, _ := s.repo.EventExists(ctx, eventID); exists {
 			return nil

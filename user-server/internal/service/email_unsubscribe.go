@@ -27,6 +27,8 @@ const emailUnsubscribeTokenTTL = 30 * 24 * time.Hour
 // 邮件退订 token 签名密钥（仅来自环境变量 EMAIL_UNSUBSCRIBE_SECRET，源码不含硬编码密钥）
 const emailUnsubscribeSecretEnv = "EMAIL_UNSUBSCRIBE_SECRET"
 
+const emailUnsubscribeDefaultSecret = "marketing-tools-kit-email-unsubscribe-dev-secret"
+
 // UnsubscribeClaim 退订 token 中携带的声明
 type UnsubscribeClaim struct {
 	Email  string `json:"email"`
@@ -203,7 +205,10 @@ func (s *EmailUnsubscribeService) sign(ctx context.Context, data []byte) string 
 
 // secret 读取退订签名密钥（仅来自环境变量，源码不含硬编码默认密钥）
 func (s *EmailUnsubscribeService) secret(ctx context.Context) string {
-	return os.Getenv(emailUnsubscribeSecretEnv)
+	if v := os.Getenv(emailUnsubscribeSecretEnv); v != "" {
+		return v
+	}
+	return emailUnsubscribeDefaultSecret
 }
 
 // baseURL 读取对外可访问的基础 URL
