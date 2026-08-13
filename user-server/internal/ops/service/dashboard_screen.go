@@ -406,10 +406,6 @@ func (s *DashboardScreenService) FetchRealtimeActivities(limit int) ([]RealtimeA
 		activities = activities[:limit]
 	}
 
-	// 按时间倒序
-	for i, j := 0, len(activities)-1; i < j; i, j = i+1, j-1 {
-		activities[i], activities[j] = activities[j], activities[i]
-	}
-
+	// 已按 create_time DESC 查询，最新活动在前，无需再次反转
 	return activities, nil
 }

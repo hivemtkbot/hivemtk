@@ -7,6 +7,7 @@ import (
 	sysmodel "hivemtk-user/internal/model"
 	"hivemtk-user/internal/ops/model"
 	opsrepo "hivemtk-user/internal/ops/repository"
+	_db "hivemtk-user/internal/pkg/db"
 	sysrepo "hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
@@ -14,6 +15,7 @@ import (
 
 // CustomReportService 自定义报表服务
 type CustomReportService struct {
+	db          *gorm.DB
 	reportRepo  *opsrepo.CustomReportRepository
 	sessionRepo *sysrepo.CustomerSessionRepository
 	clueRepo    sysrepo.ClueRepository
@@ -22,17 +24,20 @@ type CustomReportService struct {
 
 // NewCustomReportService 创建自定义报表服务
 func NewCustomReportService() *CustomReportService {
+	db := _db.GetDB()
 	return &CustomReportService{
-		reportRepo:  opsrepo.NewCustomReportRepository(),
-		sessionRepo: sysrepo.NewCustomerSessionRepository(),
-		clueRepo:    sysrepo.NewClueRepository(),
-		userRfmRepo: sysrepo.NewUserRFMRepository(),
+		db:          db,
+		reportRepo:  opsrepo.NewCustomReportRepositoryWithDB(db),
+		sessionRepo: sysrepo.NewCustomerSessionRepositoryWithDB(db),
+		clueRepo:    sysrepo.NewClueRepositoryWithDB(db),
+		userRfmRepo: sysrepo.NewUserRFMRepositoryWithDB(db),
 	}
 }
 
 // NewCustomReportServiceWithDB 创建指定数据库连接的自定义报表服务实例（用于测试）
 func NewCustomReportServiceWithDB(db *gorm.DB) *CustomReportService {
 	return &CustomReportService{
+		db:          db,
 		reportRepo:  opsrepo.NewCustomReportRepositoryWithDB(db),
 		sessionRepo: sysrepo.NewCustomerSessionRepositoryWithDB(db),
 		clueRepo:    sysrepo.NewClueRepositoryWithDB(db),
@@ -308,21 +313,37 @@ func (s *CustomReportService) queryMessageData(ctx context.Context, report *mode
 	var metrics []model.ReportMetric
 	json.Unmarshal([]byte(report.Metrics), &metrics)
 
-	data := make([]map[string]any, 0)
+	// 真实聚合：按消息内容类型分组统计消息数（unified_messages 表）
+	dimField := "msg_type"
+	metricField := "message_count"
+	if len(dimensions) > 0 {
+		dimField = dimensions[0].Field
+	}
+	if len(metrics) > 0 {
+		metricField = metrics[0].Field
+	}
 
-	// 简单示例：按消息类型统计
-	row := make(map[string]any)
-	for _, dim := range dimensions {
-		if dim.Field == "msg_type" {
-			row["msg_type"] = "text"
-		}
+	type msgAgg struct {
+		ContentType string
+		Count       int64
 	}
-	for _, metric := range metrics {
-		if metric.Field == "message_count" {
-			row["message_count"] = 100
-		}
+	var aggs []msgAgg
+	// content_type 为 NULL 统一记为 unknown，确保分组完整
+	if err := s.db.WithContext(ctx).
+		Model(&sysmodel.UnifiedMessage{}).
+		Select("COALESCE(content_type, 'unknown') AS content_type, COUNT(*) AS count").
+		Group("COALESCE(content_type, 'unknown')").
+		Scan(&aggs).Error; err != nil {
+		return nil, err
 	}
-	data = append(data, row)
+
+	data := make([]map[string]any, 0, len(aggs))
+	for _, a := range aggs {
+		row := make(map[string]any)
+		row[dimField] = a.ContentType
+		row[metricField] = a.Count
+		data = append(data, row)
+	}
 
 	dimNames := make([]string, len(dimensions))
 	for i, dim := range dimensions {
@@ -465,11 +486,73 @@ func (s *CustomReportService) queryRFMData(ctx context.Context, report *model.Cu
 
 // queryUserData 查询用户数据
 func (s *CustomReportService) queryUserData(ctx context.Context, report *model.CustomReport, params map[string]any) (*model.ReportData, error) {
+	var dimensions []model.ReportDimension
+	json.Unmarshal([]byte(report.Dimensions), &dimensions)
+
+	var metrics []model.ReportMetric
+	json.Unmarshal([]byte(report.Metrics), &metrics)
+
+	// 真实聚合：从 customers 表按维度分组统计客户数
+	dimField := "date"
+	if len(dimensions) > 0 {
+		dimField = dimensions[0].Field
+	}
+
+	// 将前端维度字段映射到 customers 表真实列；无对应列的维度回退到注册日期
+	groupExpr := "DATE(created_at)"
+	dimValueExpr := "TO_CHAR(DATE(created_at), 'YYYY-MM-DD')"
+	switch dimField {
+	case "user_type", "churn_risk":
+		groupExpr = "churn_risk"
+		dimValueExpr = "churn_risk::text"
+	case "date", "created_at":
+		groupExpr = "DATE(created_at)"
+		dimValueExpr = "TO_CHAR(DATE(created_at), 'YYYY-MM-DD')"
+	default:
+		// source/platform/region 等非 customers 表字段，回退按注册日期
+		groupExpr = "DATE(created_at)"
+		dimValueExpr = "TO_CHAR(DATE(created_at), 'YYYY-MM-DD')"
+	}
+
+	type userAgg struct {
+		DimValue string
+		Count    int64
+	}
+	var aggs []userAgg
+	if err := s.db.WithContext(ctx).
+		Table("customers").
+		Select(dimValueExpr + " AS dim_value, COUNT(*) AS count").
+		Group(groupExpr).
+		Order(groupExpr).
+		Scan(&aggs).Error; err != nil {
+		return nil, err
+	}
+
+	data := make([]map[string]any, 0, len(aggs))
+	for _, a := range aggs {
+		row := make(map[string]any)
+		row[dimField] = a.DimValue
+		row["count"] = a.Count
+		if len(metrics) > 0 {
+			row[metrics[0].Field] = a.Count
+		}
+		data = append(data, row)
+	}
+
+	dimNames := make([]string, len(dimensions))
+	for i, dim := range dimensions {
+		dimNames[i] = dim.Label
+	}
+	metricNames := make([]string, len(metrics))
+	for i, metric := range metrics {
+		metricNames[i] = metric.Label
+	}
+
 	return &model.ReportData{
-		Dimensions: []string{"维度"},
-		Metrics:    []string{"指标"},
-		Data:       []map[string]any{},
-		Total:      0,
+		Dimensions: dimNames,
+		Metrics:    metricNames,
+		Data:       data,
+		Total:      int64(len(data)),
 	}, nil
 }
 
@@ -481,29 +564,36 @@ func (s *CustomReportService) queryAgentData(ctx context.Context, report *model.
 	var metrics []model.ReportMetric
 	json.Unmarshal([]byte(report.Metrics), &metrics)
 
-	data := make([]map[string]any, 0)
+	// 真实聚合：从 customer_sessions 表按客服分组统计会话数与平均响应时长
+	type agentAgg struct {
+		AgentName        string
+		SessionCount     int64
+		AvgResponseTime  float64
+	}
+	var aggs []agentAgg
+	if err := s.db.WithContext(ctx).
+		Table("customer_sessions").
+		Select("agent_name AS agent_name, COUNT(*) AS session_count, COALESCE(AVG(avg_response_time), 0) AS avg_response_time").
+		Where("agent_name IS NOT NULL AND agent_name <> ''").
+		Group("agent_name").
+		Order("session_count DESC").
+		Scan(&aggs).Error; err != nil {
+		return nil, err
+	}
 
-	// 示例数据
-	row := make(map[string]any)
-	for _, dim := range dimensions {
-		if dim.Field == "agent_name" {
-			row["agent_name"] = "客服 A"
-		}
+	data := make([]map[string]any, 0, len(aggs))
+	for _, a := range aggs {
+		row := make(map[string]any)
+		row["agent_name"] = a.AgentName
+		row["session_count"] = a.SessionCount
+		row["avg_response_time"] = a.AvgResponseTime
+		data = append(data, row)
 	}
-	for _, metric := range metrics {
-		if metric.Field == "session_count" {
-			row["session_count"] = 50
-		} else if metric.Field == "avg_response_time" {
-			row["avg_response_time"] = 30.5
-		}
-	}
-	data = append(data, row)
 
 	dimNames := make([]string, len(dimensions))
 	for i, dim := range dimensions {
 		dimNames[i] = dim.Label
 	}
-
 	metricNames := make([]string, len(metrics))
 	for i, metric := range metrics {
 		metricNames[i] = metric.Label
