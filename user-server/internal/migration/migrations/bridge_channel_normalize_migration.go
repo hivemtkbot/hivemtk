@@ -40,7 +40,9 @@ func NewBridgeChannelNormalizeMigration(db *gorm.DB) *BridgeChannelNormalizeMigr
 	return &BridgeChannelNormalizeMigration{db: db}
 }
 
-func (m *BridgeChannelNormalizeMigration) Version() string { return "v3.17.0" }
+// 注：v3.17.0 已被 v3_17_drop_rag_alerts_migration 占用，本迁移排在之后（且在 unify v3.18.0 之前），
+// 故用 v3.17.1 避免注册表 map 覆盖导致本迁移被静默丢弃。
+func (m *BridgeChannelNormalizeMigration) Version() string { return "v3.17.1" }
 func (m *BridgeChannelNormalizeMigration) Name() string    { return "归一化旧 bridge channel 数据" }
 func (m *BridgeChannelNormalizeMigration) Description() string {
 	return "将 bridge_accounts / channel_agent_bindings / message_hub 中的旧基础渠道值（douyin/xhs/xianyu）归一化为桥接渠道值（douyin_web/xhs_web/xianyu_web）"

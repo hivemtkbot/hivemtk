@@ -1,8 +1,8 @@
 package migrations
 
-// bridge_channel_unify_v2.go 渠道编码统一 v2：把 *_web / xhs 全部归一化为全名
+// v3_18_channel_unify_migration.go 渠道编码统一（把 *_web / xhs 全部归一化为全名）
 //
-// 背景：v3.17.0 把基础渠道名（douyin/xhs/tiktok/xianyu）归一化为 *_web 桥接名，
+// 背景：v3.17.1（bridge_channel_normalize_migration）把基础渠道名（douyin/xhs/tiktok/xianyu）归一化为 *_web 桥接名，
 // 但前端/后端/DB 三方 *_web 与 xiaohongshu / xhs 命名长期不一致，
 // 导致小红书 2268 现场出现「message_hub 有 inbound、0 个 customer_sessions、AI 不回复」。
 //
@@ -101,7 +101,19 @@ func (m *BridgeChannelUnifyV2Migration) Up(ctx context.Context) error {
 	}
 
 	// 4) bridge_accounts.channel
+	//    注意：唯一约束 uk_bridge_ch_acc(account_id, channel) 可能已存在新旧值并存的脏数据
+	//    （如同一账号同时有 xhs_web 与 xiaohongshu）。若直接 UPDATE 会产生 duplicate key 导致整批迁移中止。
+	//    故先删除会与目标值冲突的 old 行（保留 new 行即规范值），再归一化剩余 old 行。
 	for old, new := range bridgeUnifyV2Map {
+		del := m.db.WithContext(ctx).
+			Exec(`DELETE FROM bridge_accounts WHERE channel = $1 AND EXISTS (SELECT 1 FROM bridge_accounts b2 WHERE b2.account_id = bridge_accounts.account_id AND b2.channel = $2)`, old, new)
+		if del.Error != nil {
+			return fmt.Errorf("bridge_accounts 删除冲突 %s 失败: %w", old, del.Error)
+		}
+		if del.RowsAffected > 0 {
+			fmt.Printf("[migration v3.18.0] bridge_accounts: 删除 %d 条冲突 %s（已存在 %s）\n", del.RowsAffected, old, new)
+		}
+
 		result := m.db.WithContext(ctx).
 			Table("bridge_accounts").
 			Where("channel = ?", old).

@@ -33,7 +33,8 @@ func NewAIPerfFAQSOPLayerMigration(db *gorm.DB) *AIPerfFAQSOPLayerMigration {
 }
 
 // Version 返回版本号
-func (m *AIPerfFAQSOPLayerMigration) Version() string { return "v3.13.0" }
+// 注：v3.13.0 已被 knowledge_weight_migration 占用，本迁移排在之后，故用 v3.13.1 避免注册表 map 覆盖。
+func (m *AIPerfFAQSOPLayerMigration) Version() string { return "v3.13.1" }
 
 // Name 返回迁移名称
 func (m *AIPerfFAQSOPLayerMigration) Name() string {
