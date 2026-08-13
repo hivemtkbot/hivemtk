@@ -43,6 +43,7 @@ Thumbs.db
 bin/
 user-server
 embedding-server
+bridge-mock
 cmd/api/api
 cmd/*/api
 main

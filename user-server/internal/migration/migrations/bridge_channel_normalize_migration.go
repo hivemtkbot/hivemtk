@@ -101,10 +101,10 @@ func (m *BridgeChannelNormalizeMigration) Up(ctx context.Context) error {
 	}
 
 	// 3) message_hub: 仅处理 bridge 来源的消息（Extra 包含 bridge:true）
-	//    message_hub 使用 JSON 列，GORM 的 JSON 查询需用 raw SQL
+	//    注意：message_hub 的渠道字段为 platform（无 channel 列），此处用 platform 归一化。
 	for base, bridge := range baseToBridge {
 		result := m.db.WithContext(ctx).
-			Exec(`UPDATE message_hub SET channel = ? WHERE channel = ? AND extra::text LIKE '%"bridge":true%'`, bridge, base)
+			Exec(`UPDATE message_hub SET platform = ? WHERE platform = ? AND extra::text LIKE '%"bridge":true%'`, bridge, base)
 		if result.Error != nil {
 			return fmt.Errorf("message_hub 归一化 %s -> %s 失败: %w", base, bridge, result.Error)
 		}

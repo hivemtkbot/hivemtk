@@ -238,6 +238,11 @@ func (s *liveCodeService) RecordClick(ctx context.Context, qrID string, ip, user
 		return err
 	}
 
+	// 校验父级活码存在，避免为已删除活码的孤儿二维码记录点击
+	if _, err := s.liveCodeRepo.GetByID(ctx, qrCode.LiveCodeID); err != nil {
+		return fmt.Errorf("活码 %s 不存在: %w", qrCode.LiveCodeID, err)
+	}
+
 	// 原子累加活码点击次数，避免并发读改写丢计数（lost-update）
 	if err := s.liveCodeRepo.IncrementClicks(ctx, qrCode.LiveCodeID); err != nil {
 		return err
