@@ -71,6 +71,7 @@ export const PLATFORM_GROUP_MEMBERS = Object.freeze({
   douyin: ['douyin', 'douyin_web'],
   xiaohongshu: ['xiaohongshu', 'xhs_web'],
   tiktok: ['tiktok', 'tiktok_web'],
+  kuaishou: ['kuaishou', 'kuaishou_web'],
   xianyu: ['xianyu', 'xianyu_web']
 })
 
@@ -97,6 +98,18 @@ export const CHANNEL_LABEL_MAP = Object.freeze(
   CHANNEL_OPTIONS.reduce((acc, o) => { acc[o.value] = o.label; return acc }, {})
 )
 
+// 历史 _web 后缀值（及早期 xhs 简写）-> 来源平台全名。
+// 2026-08-13 渠道编码统一收尾：即使 DB 仍残留 *_web 行（历史数据未迁移干净），
+// getChannelLabel 也一律归一到来源平台全名展示，绝不显示「抖音web / 闲鱼web / 快手web / 小红书web」。
+export const CHANNEL_LEGACY_WEB_TO_CANONICAL = Object.freeze({
+  'douyin_web': 'douyin',
+  'xhs_web': 'xiaohongshu',
+  'kuaishou_web': 'kuaishou',
+  'xianyu_web': 'xianyu',
+  'tiktok_web': 'tiktok',
+  'xhs': 'xiaohongshu'
+})
+
 // value -> tagType 快查
 export const CHANNEL_TAG_TYPE_MAP = Object.freeze(
   CHANNEL_OPTIONS.reduce((acc, o) => { acc[o.value] = o.tagType; return acc }, {})
@@ -114,6 +127,8 @@ export const CHANNEL_MAP = Object.freeze(
  */
 export const getChannelLabel = (value) => {
   if (value === undefined || value === null || value === '') return '-'
+  // 历史 _web 后缀值（及 xhs 简写）一律归一到来源平台全名，避免显示「xxweb」
+  if (CHANNEL_LEGACY_WEB_TO_CANONICAL[value]) return getChannelLabel(CHANNEL_LEGACY_WEB_TO_CANONICAL[value])
   if (CHANNEL_LABEL_MAP[value]) return CHANNEL_LABEL_MAP[value]
   // 兼容历史 alias（极少情况）
   if (CHANNEL_LABEL_ALIAS[value]) return CHANNEL_LABEL_ALIAS[value]
@@ -170,6 +185,7 @@ export default {
   CHANNEL_LABEL_MAP,
   CHANNEL_TAG_TYPE_MAP,
   CHANNEL_LABEL_ALIAS,
+  CHANNEL_LEGACY_WEB_TO_CANONICAL,
   CHANNEL_MAP,
   getChannelLabel,
   getChannelTagType,

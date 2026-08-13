@@ -61,7 +61,7 @@
         <span>{{ $t('平台消息分布') }}</span>
       </template>
       <div class="platform-bars">
-        <div v-for="(count, platform) in stats.by_platform" :key="platform" class="platform-bar-item">
+        <div v-for="(count, platform) in mergedByPlatform" :key="platform" class="platform-bar-item">
           <span class="platform-name">{{ platformLabel(platform) }}</span>
           <div class="bar-track">
             <div class="bar-fill" :style="{ width: barWidth(count) + '%' }"></div>
@@ -325,7 +325,7 @@ import { Plus, Search, RefreshRight, DataAnalysis } from '@element-plus/icons-vu
 import { messageHubApi } from '@/api/messageHub'
 // 平台（消息中台 MQ）label / tag type：取自统一 channel 常量，
 // 业务视图禁止再各自维护 platformLabelMap。
-import { getChannelLabel, getChannelTagType } from '@/constants/channel'
+import { getChannelLabel, getChannelTagType, PLATFORM_GROUP_MEMBERS_REVERSE } from '@/constants/channel'
 // 方向/消息类型 label/type：取自统一 direction/msgType 常量
 import { getDirectionLabel, getDirectionTagType } from '@/constants/direction'
 import { getMsgTypeLabel, getMsgTypeTagType } from '@/constants/msgType'
@@ -354,13 +354,25 @@ const searchForm = reactive({
 
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 
+// 平台分布归并：把历史 *_web 后缀值合并回来源平台全名（与统一收件箱一致），
+// 确保消息中台 MQ 分布图绝不出现「抖音web / 闲鱼web / 快手web / 小红书web」等独立分段。
+const mergedByPlatform = computed(() => {
+  const src = stats.value.by_platform
+  if (!src) return {}
+  const out = {}
+  for (const [platform, count] of Object.entries(src)) {
+    const canonical = PLATFORM_GROUP_MEMBERS_REVERSE[platform] || platform
+    out[canonical] = (out[canonical] || 0) + count
+  }
+  return out
+})
+
 const platformCount = computed(() => {
-  return stats.value.by_platform ? Object.keys(stats.value.by_platform).length : 0
+  return Object.keys(mergedByPlatform.value).length
 })
 
 const maxPlatformCount = computed(() => {
-  if (!stats.value.by_platform) return 1
-  const vals = Object.values(stats.value.by_platform)
+  const vals = Object.values(mergedByPlatform.value)
   return vals.length ? Math.max(...vals) : 1
 })
 

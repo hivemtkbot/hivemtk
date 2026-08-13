@@ -74,6 +74,7 @@
   },
   "layout": {
     "licenseExpiry": "授权状态",
+    "licenseActive": "已授权",
     "contactForLicense": "如需支持，请联系开发者",
     "freeTrialHint": "完全开源，可自由使用、部署与二次开发",
     "notifications": "通知",

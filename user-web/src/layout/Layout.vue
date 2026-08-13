@@ -181,12 +181,24 @@ const isLicenseExpired = computed(() => {
   return currentTime > expiryTime
 })
 
+// 授权状态展示文本：
+// - 开源版后端 /api/license/status 不返回 expire_at，而是返回 status/licensed/message
+//   （如 { status: "active", licensed: true, message: "开源版无需授权" }），
+//   此时直接展示后端 message / 由 status 推导的文案，避免显示"未知"。
+// - 商业版若返回 expire_at，则展示到期时间（兼容旧逻辑）。
 const formattedExpiryTime = computed(() => {
-  if (!licenseInfo.value || !licenseInfo.value.expire_at) return t('layout.unknown')
-  const date = new Date(licenseInfo.value.expire_at)
-  const loc = i18n.global.locale.value
-  const localeMap = { zh: 'zh-CN', en: 'en-US', ja: 'ja-JP', ar: 'ar-SA' }
-  return date.toLocaleString(localeMap[loc] || 'zh-CN')
+  const info = licenseInfo.value
+  if (!info) return ''
+  if (info.expire_at) {
+    const date = new Date(info.expire_at)
+    const loc = i18n.global.locale.value
+    const localeMap = { zh: 'zh-CN', en: 'en-US', ja: 'ja-JP', ar: 'ar-SA' }
+    return date.toLocaleString(localeMap[loc] || 'zh-CN')
+  }
+  // 无 expire_at：优先用后端语义化 message，其次由 status 推导
+  if (info.message) return info.message
+  if (info.status === 'active' || info.licensed) return t('layout.licenseActive')
+  return t('layout.unknown')
 })
 
 // 获取授权状态
