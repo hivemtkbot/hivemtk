@@ -329,14 +329,6 @@
   },
   {
     "module": "douyinCard",
-    "path": "/douyin/auto-reply",
-    "name": "DouyinAutoReply",
-    "component": "@/views/douyinCard/AutoReply.vue",
-    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/douyinCard/AutoReply.vue",
-    "title": "抖音自动回复"
-  },
-  {
-    "module": "douyinCard",
     "path": "/douyin/stats",
     "name": "DouyinStats",
     "component": "@/views/douyinCard/Stats.vue",
@@ -582,14 +574,6 @@
     "component": "@/views/kuaishouCard/List.vue",
     "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/kuaishouCard/List.vue",
     "title": "快手卡片"
-  },
-  {
-    "module": "kuaishouCard",
-    "path": "/kuaishou/auto-reply",
-    "name": "KuaishouAutoReply",
-    "component": "@/views/kuaishouCard/AutoReply.vue",
-    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/kuaishouCard/AutoReply.vue",
-    "title": "快手自动回复"
   },
   {
     "module": "kuaishouCard",
@@ -960,14 +944,6 @@
     "title": "TikTok卡片统计"
   },
   {
-    "module": "tiktok",
-    "path": "auto-reply",
-    "name": "TikTokAutoReply",
-    "component": "@/views/tiktokCard/AutoReply.vue",
-    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/tiktokCard/AutoReply.vue",
-    "title": "TikTok自动回复"
-  },
-  {
     "module": "tuning",
     "path": "confidence/panel",
     "name": "ConfidencePanel",
@@ -1097,14 +1073,6 @@
   },
   {
     "module": "xianyuCard",
-    "path": "/xianyu/auto-reply",
-    "name": "XianyuAutoReply",
-    "component": "@/views/xianyuCard/AutoReply.vue",
-    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/xianyuCard/AutoReply.vue",
-    "title": "闲鱼自动回复"
-  },
-  {
-    "module": "xianyuCard",
     "path": "/xianyu/stats",
     "name": "XianyuStats",
     "component": "@/views/xianyuCard/Stats.vue",
@@ -1126,14 +1094,6 @@
     "component": "@/views/xiaohongshuCard/List.vue",
     "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/xiaohongshuCard/List.vue",
     "title": "小红书卡片"
-  },
-  {
-    "module": "xiaohongshuCard",
-    "path": "/xiaohongshu/auto-reply",
-    "name": "XiaohongshuAutoReply",
-    "component": "@/views/xiaohongshuCard/AutoReply.vue",
-    "component_fs": "/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/xiaohongshuCard/AutoReply.vue",
-    "title": "小红书自动回复"
   },
   {
     "module": "xiaohongshuCard",

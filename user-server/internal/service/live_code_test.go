@@ -18,6 +18,8 @@ func setupLiveCodeServiceTestDB(t *testing.T) *gorm.DB {
 		&model.LiveCode{},
 		&model.LiveCodeQR{},
 		&model.LiveCodeQRStat{},
+		&model.LiveCodeClickLog{},
+		&model.QRCodeClickLog{},
 		&model.DomainPool{},
 	)
 	db.SetTestDB(database)
@@ -1154,7 +1156,7 @@ func TestLiveCodeService_RecordClick(t *testing.T) {
 	qrResponse, _ := service.GenerateQRCode(context.Background(), response.ID, generateReq)
 
 	// 记录点击
-	err := service.RecordClick(context.Background(), qrResponse.ID, "Mozilla/5.0", "https://referrer.com")
+	err := service.RecordClick(context.Background(), qrResponse.ID, "203.0.113.7", "Mozilla/5.0", "https://referrer.com")
 	if err != nil {
 		t.Fatalf("RecordClick failed: %v", err)
 	}
@@ -1165,6 +1167,38 @@ func TestLiveCodeService_RecordClick(t *testing.T) {
 	if statCount < 1 {
 		t.Errorf("Expected at least 1 stat record, got %d", statCount)
 	}
+
+	// 验证逐条点击审计日志已写入（活码维度 + 二维码维度）
+	var liveClickLog int64
+	database.Model(&model.LiveCodeClickLog{}).
+		Where("qr_code_id = ? AND ip_address = ?", qrResponse.ID, "203.0.113.7").Count(&liveClickLog)
+	if liveClickLog != 1 {
+		t.Errorf("Expected 1 live code click audit log, got %d", liveClickLog)
+	}
+	var qrClickLog int64
+	database.Model(&model.QRCodeClickLog{}).
+		Where("qr_code_id = ?", qrResponse.ID).Count(&qrClickLog)
+	if qrClickLog != 1 {
+		t.Errorf("Expected 1 QR code click audit log, got %d", qrClickLog)
+	}
+
+	// 验证 GetStats 返回真实非零的二维码点击数
+	stats, err := service.GetStats(context.Background(), response.ID)
+	if err != nil {
+		t.Fatalf("GetStats failed: %v", err)
+	}
+	if stats.TotalQRClicks < 1 {
+		t.Errorf("Expected TotalQRClicks >= 1, got %d", stats.TotalQRClicks)
+	}
+
+	// 验证 GetQRStats 返回真实非零点击数
+	qrStats, err := service.GetQRStats(context.Background(), qrResponse.ID)
+	if err != nil {
+		t.Fatalf("GetQRStats failed: %v", err)
+	}
+	if qrStats.ClickCount < 1 {
+		t.Errorf("Expected QR ClickCount >= 1, got %d", qrStats.ClickCount)
+	}
 }
 
 // TestLiveCodeService_RecordClick_NotFound 测试记录不存在的二维码点击
@@ -1172,7 +1206,7 @@ func TestLiveCodeService_RecordClick_NotFound(t *testing.T) {
 	database := setupLiveCodeServiceTestDB(t)
 	service := newTestLiveCodeService(database)
 
-	err := service.RecordClick(context.Background(), "non-existent-qr-id", "Mozilla/5.0", "https://referrer.com")
+	err := service.RecordClick(context.Background(), "non-existent-qr-id", "203.0.113.7", "Mozilla/5.0", "https://referrer.com")
 	if err == nil {
 		t.Error("Expected error for non-existent QR code")
 	}
@@ -1192,7 +1226,7 @@ func TestLiveCodeService_RecordClick_LiveCodeNotFound(t *testing.T) {
 	}
 	database.Create(qrCode)
 
-	err := service.RecordClick(context.Background(), qrCode.ID, "Mozilla/5.0", "https://referrer.com")
+	err := service.RecordClick(context.Background(), qrCode.ID, "203.0.113.7", "Mozilla/5.0", "https://referrer.com")
 	if err == nil {
 		t.Error("Expected error for non-existent live code")
 	}

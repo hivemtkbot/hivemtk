@@ -163,6 +163,12 @@ user-web/tests/API_TEST_RESULTS.json
 user-web/tests/API_INVENTORY.json
 user-web/tests/.api_id_cache.json
 user-web/docs/ui-inventory/inventory.json
+# 页面级端到端审计脚手架运行时产物（由脚本重新生成，非源码）
+user-web/tests/audit/reports/
+user-web/tests/e2e/audit/reach/
+user-web/tests/e2e/audit/summary.json
+# 临时运行日志（前端桥接运行输出，非源码）
+user-web/_bridge_run.txt
 
 # CodeBuddy IDE 数据（不纳入版本追踪）
 .codebuddy/

@@ -307,7 +307,7 @@ func (c *LiveCodeController) RecordClick(ctx *gin.Context) {
 	}
 
 	// 记录点击统计
-	err := c.liveCodeService.RecordClick(context.Background(), idStr, req.UserAgent, req.Referrer)
+	err := c.liveCodeService.RecordClick(context.Background(), idStr, ctx.ClientIP(), req.UserAgent, req.Referrer)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, "记录点击统计失败")
 		return

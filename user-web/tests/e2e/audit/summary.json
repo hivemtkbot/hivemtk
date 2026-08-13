@@ -100,13 +100,6 @@
   {
     "module": "触达运营",
     "key": "reach",
-    "route": "/tiktok/auto-reply",
-    "interactions": 6,
-    "errorCount": 0
-  },
-  {
-    "module": "触达运营",
-    "key": "reach",
     "route": "/douyinCard",
     "interactions": 11,
     "errorCount": 2
@@ -117,13 +110,6 @@
     "route": "/douyin/stats",
     "interactions": 0,
     "errorCount": 0
-  },
-  {
-    "module": "触达运营",
-    "key": "reach",
-    "route": "/douyin/auto-reply",
-    "interactions": 5,
-    "errorCount": 2
   },
   {
     "module": "触达运营",
@@ -142,13 +128,6 @@
   {
     "module": "触达运营",
     "key": "reach",
-    "route": "/kuaishou/auto-reply",
-    "interactions": 5,
-    "errorCount": 2
-  },
-  {
-    "module": "触达运营",
-    "key": "reach",
     "route": "/xiaohongshuCard",
     "interactions": 6,
     "errorCount": 0
@@ -163,13 +142,6 @@
   {
     "module": "触达运营",
     "key": "reach",
-    "route": "/xiaohongshu/auto-reply",
-    "interactions": 5,
-    "errorCount": 2
-  },
-  {
-    "module": "触达运营",
-    "key": "reach",
     "route": "/xianyuCard",
     "interactions": 7,
     "errorCount": 1
@@ -179,13 +151,6 @@
     "key": "reach",
     "route": "/xianyu/stats",
     "interactions": 2,
-    "errorCount": 0
-  },
-  {
-    "module": "触达运营",
-    "key": "reach",
-    "route": "/xianyu/auto-reply",
-    "interactions": 6,
     "errorCount": 0
   },
   {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"time"
 
 	"hivemtk-user/internal/model"
@@ -188,5 +189,112 @@ func (s *SecurityAuditService) buildChecks(ctx context.Context) []auditCheck {
 				return "pass", "全局操作审计中间件已启用"
 			},
 		},
+		{
+			name: "短链/活码无外部跳转风险", category: "触达安全", level: "high", weight: 20,
+			run: s.auditOutboundLinkSafety,
+		},
 	}
+}
+
+// auditOutboundLinkSafety 审计短链与活码的目标地址是否指向外部/可疑域名（Open Redirect / 钓鱼风险）。
+// 仅统计本系统自有域名池（domain_pools）之外、或非 http(s) 协议的外发跳转，标记潜在风险。
+func (s *SecurityAuditService) auditOutboundLinkSafety(ctx context.Context) (string, string) {
+	// 收集本系统自有域名，作为「可信目标」白名单
+	ownHosts := map[string]bool{}
+	var domains []model.DomainPool
+	if err := s.db.WithContext(ctx).Model(&model.DomainPool{}).
+		Select("domain").Find(&domains).Error; err == nil {
+		for _, d := range domains {
+			if h := hostOf(d.Domain); h != "" {
+				ownHosts[h] = true
+			}
+		}
+	}
+
+	type outbound struct {
+		Kind string
+		URL  string
+	}
+	var risky []outbound
+
+	// 短链目标
+	var links []model.ShortLink
+	if err := s.db.WithContext(ctx).Find(&links).Error; err != nil {
+		return "fail", "查询短链失败: " + err.Error()
+	}
+	for _, l := range links {
+		if r := classifyOutbound(l.OriginalURL, ownHosts); r != "" {
+			risky = append(risky, outbound{Kind: "短链", URL: l.OriginalURL})
+			_ = r
+		}
+	}
+
+	// 活码落地页/入口页
+	var codes []model.LiveCode
+	if err := s.db.WithContext(ctx).Find(&codes).Error; err != nil {
+		return "fail", "查询活码失败: " + err.Error()
+	}
+	for _, c := range codes {
+		for _, u := range []string{c.EntryURL, c.LandingURL} {
+			if u == "" {
+				continue
+			}
+			if r := classifyOutbound(u, ownHosts); r != "" {
+				risky = append(risky, outbound{Kind: "活码", URL: u})
+				_ = r
+			}
+		}
+	}
+
+	if len(risky) == 0 {
+		return "pass", "所有短链/活码目标均指向本系统自有域名或合法 http(s) 地址"
+	}
+	if len(risky) > 10 {
+		risky = risky[:10]
+	}
+	msg := fmt.Sprintf("检测到 %d 个短链/活码指向外部或可疑域名（潜在 Open Redirect / 钓鱼风险）：", len(risky))
+	for _, r := range risky {
+		msg += fmt.Sprintf(" [%s] %s", r.Kind, r.URL)
+	}
+	return "warn", msg
+}
+
+// hostOf 从域名串中提取 host（去掉协议头与端口），失败返回空串。
+func hostOf(domain string) string {
+	if domain == "" {
+		return ""
+	}
+	d := domain
+	if !hasScheme(d) {
+		d = "http://" + d
+	}
+	u, err := url.Parse(d)
+	if err != nil {
+		return ""
+	}
+	return u.Hostname()
+}
+
+// hasScheme 判断字符串是否带 http/https 协议头。
+func hasScheme(s string) bool {
+	return len(s) >= 7 && (s[:7] == "http://" || (len(s) >= 8 && s[:8] == "https://"))
+}
+
+// classifyOutbound 判断外发地址是否属于风险目标：非 http(s) 协议、或指向非自有域名 → 返回原因，否则返回空串。
+func classifyOutbound(rawURL string, ownHosts map[string]bool) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Scheme == "" {
+		return "非法地址"
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "非 http(s) 协议"
+	}
+	host := u.Hostname()
+	if host == "" {
+		return "缺少主机名"
+	}
+	if !ownHosts[host] {
+		return "外部域名"
+	}
+	return ""
 }

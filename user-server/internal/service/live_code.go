@@ -22,7 +22,7 @@ type LiveCodeService interface {
 	// 轮询活码（每日200次，7天有效期）
 	RotateLiveCodes(ctx context.Context) error
 	// 记录点击统计
-	RecordClick(ctx context.Context, id string, userAgent, referrer string) error
+	RecordClick(ctx context.Context, id string, ip, userAgent, referrer string) error
 
 	// 根据ID获取活码
 	GetByID(ctx context.Context, id string) (*dto.LiveCodeResponse, error)
@@ -42,6 +42,7 @@ type liveCodeService struct {
 	liveCodeRepo repository.LiveCodeRepository
 	qrCodeRepo   repository.LiveCodeQRRepository
 	qrStatRepo   repository.LiveCodeQRRepository
+	clickLogRepo repository.LiveCodeClickLogRepository
 	domainRepo   repository.DomainPoolRepository
 }
 
@@ -51,6 +52,7 @@ func NewLiveCodeService(db *gorm.DB) LiveCodeService {
 		liveCodeRepo: repository.NewLiveCodeRepository(db),
 		qrCodeRepo:   repository.NewLiveCodeQRRepository(db),
 		qrStatRepo:   repository.NewLiveCodeQRRepository(db),
+		clickLogRepo: repository.NewLiveCodeClickLogRepository(db),
 		domainRepo:   repository.NewDomainPoolRepository(db),
 	}
 }
@@ -229,15 +231,9 @@ func (s *liveCodeService) RotateLiveCodes(ctx context.Context) error {
 }
 
 // RecordClick 记录点击统计
-func (s *liveCodeService) RecordClick(ctx context.Context, qrID string, userAgent, referrer string) error {
+func (s *liveCodeService) RecordClick(ctx context.Context, qrID string, ip, userAgent, referrer string) error {
 	// 获取二维码信息
 	qrCode, err := s.qrCodeRepo.GetByID(ctx, qrID)
-	if err != nil {
-		return err
-	}
-
-	// 更新二维码点击次数（父级 LiveCode.TotalClicks 累加由后续 liveCodeRepo.Update 完成）
-	err = s.qrCodeRepo.Update(ctx, qrCode)
 	if err != nil {
 		return err
 	}
@@ -247,13 +243,32 @@ func (s *liveCodeService) RecordClick(ctx context.Context, qrID string, userAgen
 		return err
 	}
 
-	// 创建点击统计记录
-	clickStat := &model.LiveCodeQRStat{
-		QRCodeID: qrID,
-		Date:     time.Now(),
+	// 累加二维码当天点击次数（按天聚合）
+	if err := s.qrCodeRepo.IncrementClickStat(ctx, qrID); err != nil {
+		return err
 	}
 
-	return s.qrStatRepo.CreateStat(ctx, clickStat)
+	// 写入逐条点击审计日志（活码维度 + 二维码维度），用于安全审计与溯源
+	if err := s.clickLogRepo.CreateLiveCodeClick(ctx, &model.LiveCodeClickLog{
+		LiveCodeID: qrCode.LiveCodeID,
+		QRCodeID:   qrID,
+		IPAddress:  ip,
+		UserAgent:  userAgent,
+		Referrer:   referrer,
+	}); err != nil {
+		return err
+	}
+	if err := s.clickLogRepo.CreateQRCodeClick(ctx, &model.QRCodeClickLog{
+		QRCodeID:   qrID,
+		LiveCodeID: qrCode.LiveCodeID,
+		IPAddress:  ip,
+		UserAgent:  userAgent,
+		Referrer:   referrer,
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GetByID 根据ID获取活码
@@ -312,7 +327,12 @@ func (s *liveCodeService) GetStats(ctx context.Context, id string) (*dto.LiveCod
 		if qrCode.Status == 1 {
 			activeQRCount++
 		}
-		// 注意：新模型中没有TotalShown和TotalClicks字段，暂时使用默认值0
+	}
+
+	// 从二维码按天聚合统计中汇总活码下所有二维码的展示/点击总数
+	if shown, clicks, err := s.qrCodeRepo.SumLiveCodeStats(ctx, id); err == nil {
+		totalQRShown = int(shown)
+		totalQRClicks = int(clicks)
 	}
 
 	return &dto.LiveCodeStatsResponse{
@@ -402,11 +422,19 @@ func (s *liveCodeService) GetQRStats(ctx context.Context, qrID string) (*dto.Liv
 		}
 	}
 
+	// 从二维码按天聚合统计中汇总历史展示/点击总数
+	viewCount := 0
+	clickCount := 0
+	if shown, clicks, err := s.qrCodeRepo.SumStats(ctx, qrID); err == nil {
+		viewCount = int(shown)
+		clickCount = int(clicks)
+	}
+
 	return &dto.LiveCodeQRStatsResponse{
 		QRCodeID:            qrCode.ID,
 		ExpireDays:          qrCode.ExpireDays,
-		ViewCount:           0,                                           // 新模型中没有此字段，设为默认值
-		ClickCount:          0,                                           // 新模型中没有此字段，设为默认值
+		ViewCount:           viewCount,
+		ClickCount:          clickCount,
 		ExpireTime:          time.Now().AddDate(0, 0, qrCode.ExpireDays), // 使用ExpireDays计算过期时间
 		Status:              qrCode.Status,
 		IsExpired:           false, // 新模型中没有此方法，设为默认值
@@ -439,6 +467,11 @@ func (s *liveCodeService) Share(ctx context.Context, id string, req *dto.ShareLi
 
 	if availableQR == nil {
 		return nil, errors.New("没有可用的二维码")
+	}
+
+	// 累加二维码当天展示次数（Share 即视为活码被展示一次）
+	if err := s.qrCodeRepo.IncrementViewStat(ctx, availableQR.ID); err != nil {
+		return nil, err
 	}
 
 	// 返回分享链接
@@ -546,14 +579,22 @@ func (s *liveCodeService) modelToResponse(ctx context.Context, liveCode *model.L
 
 // qrModelToResponse 将二维码模型转换为响应
 func (s *liveCodeService) qrModelToResponse(ctx context.Context, qrCode *model.LiveCodeQR) *dto.LiveCodeQRResponse {
+	// 从二维码按天聚合统计中汇总历史展示/点击总数
+	viewCount := 0
+	clickCount := 0
+	if shown, clicks, err := s.qrCodeRepo.SumStats(ctx, qrCode.ID); err == nil {
+		viewCount = int(shown)
+		clickCount = int(clicks)
+	}
+
 	return &dto.LiveCodeQRResponse{
 		ID:                  qrCode.ID,
 		LiveCodeID:          qrCode.LiveCodeID,
 		ImageURL:            qrCode.ImageURL,
 		QRImageURL:          qrCode.ImageURL,
 		ExpireDays:          qrCode.ExpireDays,
-		ViewCount:           0, // 新模型中没有此字段，设为默认值
-		ClickCount:          0, // 新模型中没有此字段，设为默认值
+		ViewCount:           viewCount,
+		ClickCount:          clickCount,
 		Status:              qrCode.Status,
 		ExpireTime:          time.Now().AddDate(0, 0, qrCode.ExpireDays), // 使用ExpireDays计算过期时间
 		CreatedAt:           qrCode.CreatedAt,

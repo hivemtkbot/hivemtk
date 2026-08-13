@@ -200,5 +200,7 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewKnowledgeSearchLogProductOptionalMigration(db))
 	// 清理 CDP 无头浏览器自动回复删除后残留的孤儿 schema（accounts.headless 列 + auto_reply_* 三表）
 	registry.Register(NewDropCdpAutoReplyMigration(db))
+	// 创建活码点击审计日志表（live_code_click_logs / qr_code_click_logs）
+	registry.Register(NewLiveCodeClickLogsMigration(db))
 	// 继续添加新的迁移...
 }

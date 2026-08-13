@@ -6,11 +6,11 @@ const STATE = path.resolve(process.cwd(), 'tests/.auth/user.json')
 
 // 剩余触达运营页面（邮件/短信已单独覆盖）：逐页点击主 CTA，验证不崩溃、无 5xx
 const PAGES = [
-  '/douyinCard', '/douyin/auto-reply', '/douyin/stats',
-  '/kuaishouCard', '/kuaishou/auto-reply', '/kuaishou/stats',
-  '/xiaohongshuCard', '/xiaohongshu/auto-reply', '/xiaohongshu/stats',
-  '/xianyuCard', '/xianyu/auto-reply', '/xianyu/stats',
-  '/tiktok/list', '/tiktok/stats', '/tiktok/auto-reply',
+  '/douyinCard', '/douyin/stats',
+  '/kuaishouCard', '/kuaishou/stats',
+  '/xiaohongshuCard', '/xiaohongshu/stats',
+  '/xianyuCard', '/xianyu/stats',
+  '/tiktok/list', '/tiktok/stats',
   '/whatsapp/account', '/whatsapp/drafts', '/whatsapp/jobs',
   '/telegram/account', '/feishu/account',
   '/community/list', '/shortLink', '/shortLink/stats', '/livecode'

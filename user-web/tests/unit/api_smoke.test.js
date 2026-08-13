@@ -33,7 +33,7 @@ vi.mock('@/utils/request', () => ({ default: mocks.request, http: mocks.http }))
 vi.mock('axios', () => ({ default: mocks.axios, __esModule: true }))
 
 const API_FILES = [
-  'abExperiment', 'aiAgent', 'aiProductivity', 'autoReply', 'backup', 'batchOperation',
+  'abExperiment', 'aiAgent', 'aiProductivity', 'backup', 'batchOperation',
   'bulkMessaging', 'channelAgentBinding', 'chat', 'chatChannel', 'chatPublic', 'churnPrediction',
   'clue', 'community', 'conversionFunnel', 'customReport', 'customer360', 'customerEvent',
   'customerJourney', 'customerService', 'customerServiceAgent', 'customerSession', 'dashboardScreen',
@@ -42,8 +42,8 @@ const API_FILES = [
   'marketingFlow', 'material', 'messageHub', 'objection', 'obs', 'oneid', 'operationLog',
   'persona', 'platform', 'platformAccount', 'reachPipeline',
   'scriptTemplate', 'securityAudit', 'shortLink', 'sms', 'sopAgent', 'stats', 'system', 'tagSegmentation',
-  'telegram', 'tiktokAutoReply', 'tiktokCard', 'tuning', 'unifiedInbox',
-  'unifiedMessage', 'userSegment', 'users', 'wecomAccount', 'whatsapp', 'xianyuAutoReply', 'xianyuCard',
+  'telegram', 'tiktokCard', 'tuning', 'unifiedInbox',
+  'unifiedMessage', 'userSegment', 'users', 'wecomAccount', 'whatsapp', 'xianyuCard',
   'xiaohongshuCard'
 ]
 

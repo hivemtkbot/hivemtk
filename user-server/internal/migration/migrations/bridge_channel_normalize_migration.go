@@ -54,7 +54,18 @@ func (m *BridgeChannelNormalizeMigration) Up(ctx context.Context) error {
 	}
 
 	// 1) bridge_accounts.channel: douyin -> douyin_web 等
+	//    唯一约束 uk_bridge_ch_acc(channel, account_id) 可能已存在新旧值并存的脏数据
+	//    （如同一账号同时有 douyin 与 douyin_web），直接 UPDATE 会 duplicate key 致整批迁移中止。
+	//    故先删除会与目标值冲突的 base 行（保留 bridge 行即规范值），再归一化剩余 base 行。
 	for base, bridge := range baseToBridge {
+		del := m.db.WithContext(ctx).
+			Exec(`DELETE FROM bridge_accounts WHERE channel = $1 AND EXISTS (SELECT 1 FROM bridge_accounts b2 WHERE b2.account_id = bridge_accounts.account_id AND b2.channel = $2)`, base, bridge)
+		if del.Error != nil {
+			return fmt.Errorf("bridge_accounts 删除冲突 %s 失败: %w", base, del.Error)
+		}
+		if del.RowsAffected > 0 {
+			fmt.Printf("[migration] bridge_accounts: 删除 %d 条冲突 %s（已存在 %s）\n", del.RowsAffected, base, bridge)
+		}
 		result := m.db.WithContext(ctx).
 			Table("bridge_accounts").
 			Where("channel = ?", base).
@@ -67,8 +78,16 @@ func (m *BridgeChannelNormalizeMigration) Up(ctx context.Context) error {
 		}
 	}
 
-	// 2) channel_agent_bindings.channel_type: 同理
+	// 2) channel_agent_bindings.channel_type: 同理（唯一约束可能为 (channel_type, account_id)）
 	for base, bridge := range baseToBridge {
+		del := m.db.WithContext(ctx).
+			Exec(`DELETE FROM channel_agent_bindings WHERE channel_type = $1 AND EXISTS (SELECT 1 FROM channel_agent_bindings b2 WHERE b2.account_id = channel_agent_bindings.account_id AND b2.channel_type = $2)`, base, bridge)
+		if del.Error != nil {
+			return fmt.Errorf("channel_agent_bindings 删除冲突 %s 失败: %w", base, del.Error)
+		}
+		if del.RowsAffected > 0 {
+			fmt.Printf("[migration] channel_agent_bindings: 删除 %d 条冲突 %s（已存在 %s）\n", del.RowsAffected, base, bridge)
+		}
 		result := m.db.WithContext(ctx).
 			Table("channel_agent_bindings").
 			Where("channel_type = ?", base).

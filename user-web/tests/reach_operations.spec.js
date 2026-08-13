@@ -20,24 +20,19 @@ const PAGES = [
   { group: '短信触达', name: '短信配置', path: '/sms/config' },
   // 抖音
   { group: '抖音', name: '抖音卡片', path: '/douyinCard' },
-  { group: '抖音', name: '抖音自动回复', path: '/douyin/auto-reply' },
   { group: '抖音', name: '抖音统计', path: '/douyin/stats' },
   // 快手
   { group: '快手', name: '快手卡片', path: '/kuaishouCard' },
-  { group: '快手', name: '快手自动回复', path: '/kuaishou/auto-reply' },
   { group: '快手', name: '快手统计', path: '/kuaishou/stats' },
   // 小红书
   { group: '小红书', name: '小红书卡片', path: '/xiaohongshuCard' },
-  { group: '小红书', name: '小红书自动回复', path: '/xiaohongshu/auto-reply' },
   { group: '小红书', name: '小红书统计', path: '/xiaohongshu/stats' },
   // 闲鱼
   { group: '闲鱼', name: '闲鱼卡片', path: '/xianyuCard' },
-  { group: '闲鱼', name: '闲鱼自动回复', path: '/xianyu/auto-reply' },
   { group: '闲鱼', name: '闲鱼统计', path: '/xianyu/stats' },
   // TikTok
   { group: 'TikTok', name: 'TikTok卡片', path: '/tiktok/list' },
   { group: 'TikTok', name: 'TikTok统计', path: '/tiktok/stats' },
-  { group: 'TikTok', name: 'TikTok自动回复', path: '/tiktok/auto-reply' },
   // WhatsApp
   { group: 'WhatsApp', name: '账号管理', path: '/whatsapp/account' },
   { group: 'WhatsApp', name: '草稿箱', path: '/whatsapp/drafts' },
