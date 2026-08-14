@@ -531,6 +531,7 @@ const (
 	StatusOk       = "ok"
 	StatusAbnormal = "abnormal"
 	StatusFailed   = "failed"
+	StatusSkipped  = "skipped" // 2026-08-15 P4 二次审核：duplicate/幂等跳过专用
 )
 
 // RecordNode 记录一个生命周期节点 span（异步非阻塞）。

@@ -787,18 +787,26 @@ func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "messages": msgs})
 }
 
-// BridgeOutboxAckResponse 状态确认响应（通道B），含 per-msg-id 详细状态（P3-D 2026-08-15）。
+// BridgeOutboxAckResponse 状态确认响应（通道B），含 per-msg-id 详细状态（P3-D 2026-08-15 + P4 二次审核 6.2）。
+//
+// 字段语义（2026-08-15 P4 区分 affected vs acked_items）：
+//   - AffectedCount:     SQL UPDATE 实际翻转为 delivered 的行数（跨会话同名 msg_id 时可能 > AckedItemsCount）
+//   - AckedItemsCount:   items 中 status='acked' 的元素数（= 真正"被本次 ack 命中"的 msg_id 数）
+//   - DuplicateCount:    此前已为 delivered 的 msg_id 数（幂等跳过）
+//   - NotFoundCount:     不存在的 msg_id 数
+//   - Items:             按入参 msg_ids 顺序（去重后）逐条结果
 //
 // 协议契约（与前端 downlink.js 配套）：
 //   - items[].status = "acked"        本次成功翻转 pending→delivered
 //   - items[].status = "duplicate"    此前已为 delivered，本地重试队列可清空
 //   - items[].status = "not_found"    本 (channel, account_id) 下不存在，停止重发
 type BridgeOutboxAckResponse struct {
-	Status         string                  `json:"status"`
-	Acked          int                     `json:"acked"`            // 本次翻转行数
-	DuplicateCount int                     `json:"duplicate_count"`  // 已 delivered 幂等跳过
-	NotFoundCount  int                     `json:"not_found_count"`  // 不存在
-	Items          []service.AckOutboundItem `json:"items,omitempty"` // 每条 msg_id 详细结果
+	Status           string                  `json:"status"`
+	AffectedCount    int                     `json:"affected_count"`     // 行级受影响
+	AckedItemsCount  int                     `json:"acked_items_count"`  // msg_id 级命中
+	DuplicateCount   int                     `json:"duplicate_count"`
+	NotFoundCount    int                     `json:"not_found_count"`
+	Items            []service.AckOutboundItem `json:"items"` // 2026-08-15 P4-3.3：去掉 omitempty 始终输出（避免 nil/[] 语义模糊）
 }
 
 // AckBridgeOutbox 桥接下发状态确认（通道B·状态上报）。
@@ -806,9 +814,14 @@ type BridgeOutboxAckResponse struct {
 //
 // POST /api/bridge/outbox/ack  body: {"msg_ids":[...],"status":"delivered"}
 //
-// 2026-08-15 P3-D：响应包含 per-msg-id 详细状态（acked/duplicate/not_found），
-// 前端 downlink.js 据此精确清理本地重试队列，避免重复发送。
+// 2026-08-15 P3-D：响应包含 per-msg-id 详细状态（acked/duplicate/not_found）。
+// 2026-08-15 P4 二次审核修复：
+//   - 7.3: 加 MaxBytesReader 1MB body 大小保护（防 DoS）
+//   - 6.2: 区分 affected_count（行级）与 acked_items_count（msg_id 级）
+//   - 3.3: 去掉 items omitempty 始终输出数组
 func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
+	// P4-7.3：body 大小保护（1MB 上限，远超 maxAckMsgIDs=500 × 50 bytes = 25KB 的合法上限）
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
 	channel := c.Query("channel")
 	accountID := c.Query("account_id")
 	// 2026-08-14 修复：account_id 不再兜底为 "default"
@@ -876,19 +889,21 @@ func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
 		Str("full_url", c.Request.URL.String()).
 		Str("channel", channel).
 		Str("account_id", accountID).
-		Int("acked_affected_rows", ackResult.AffectedCount).
+		Int("affected_count", ackResult.AffectedCount).
+		Int("acked_items_count", ackResult.AckedItemsCount).
 		Int("duplicate_count", ackResult.DuplicateCount).
 		Int("not_found_count", ackResult.NotFoundCount).
 		Int("request_msg_ids_count", len(req.MsgIDs)).
 		Interface("request_msg_ids", req.MsgIDs).
 		Interface("ack_items", ackResult.Items).
-		Msg("[Bridge HTTP] outbox ack 响应（delivered 影响行数 + 详细 ack 结果）")
+		Msg("[Bridge HTTP] outbox ack 响应（行级 affected + msg_id 级 acked + 详细 ack 结果）")
 	c.JSON(http.StatusOK, BridgeOutboxAckResponse{
-		Status:         "ok",
-		Acked:          ackResult.AffectedCount,
-		DuplicateCount: ackResult.DuplicateCount,
-		NotFoundCount:  ackResult.NotFoundCount,
-		Items:          ackResult.Items,
+		Status:          "ok",
+		AffectedCount:   ackResult.AffectedCount,
+		AckedItemsCount: ackResult.AckedItemsCount,
+		DuplicateCount:  ackResult.DuplicateCount,
+		NotFoundCount:   ackResult.NotFoundCount,
+		Items:           ackResult.Items,
 	})
 }
 

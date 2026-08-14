@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"hivemtk-user/internal/model"
@@ -80,9 +81,10 @@ func TestAckBridgeOutbox_DetailedItems_P3D(t *testing.T) {
 	respStr := rr.Body.String()
 	expects := []string{
 		`"status":"ok"`,
-		`"acked":2`,          // msg_a + msg_c（pending → delivered）
-		`"duplicate_count":1`, // msg_b
-		`"not_found_count":1`, // msg_d
+		`"affected_count":2`,     // msg_a + msg_c（pending → delivered）
+		`"acked_items_count":2`,  // msg_id 维度命中
+		`"duplicate_count":1`,    // msg_b
+		`"not_found_count":1`,    // msg_d
 	}
 	for _, e := range expects {
 		if !strings.Contains(respStr, e) {
@@ -224,5 +226,174 @@ func TestGetByMsgIDsInScope_OwnershipIsolation_P3D(t *testing.T) {
 	}
 	if len(rows) > 0 && rows[0].MsgID != "mh:msgA" {
 		t.Errorf("期望 msgA，实际 %s", rows[0].MsgID)
+	}
+}
+
+// TestAckOutboundDeliveredDetailed_ConcurrentDoubleAck_P4 验证 P4-2.1：并发双重 ack。
+//
+// 场景：N=10 个 goroutine 同时 ack 同一 msg_id，最终只能 1 个 acked + 9 个 duplicate。
+// 之前"先查后更"实现会出现 acked 计数虚高；P4 修复后用 RETURNING 单 SQL 原子"分类+翻转"。
+// 跑 go test -race 检测竞态。
+func TestAckOutboundDeliveredDetailed_ConcurrentDoubleAck_P4(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := testutil.NewTestDB(t, &model.MessageHub{})
+	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
+		t.Fatalf("清理失败: %v", err)
+	}
+	svc := service.NewInboxIngressServiceWithDB(db, nil)
+	ctx := context.Background()
+	const (
+		channel   = "douyin_web"
+		accountID = "acc_race"
+		msgID     = "mh:race_msg"
+	)
+	// seed 1 条 pending
+	hub := &model.MessageHub{
+		Platform:       channel,
+		AccountID:      accountID,
+		ConversationID: "conv_race",
+		MsgID:          msgID,
+		MsgType:        "text",
+		Content:        "race content",
+		Direction:      "outbound",
+		Status:         "pending",
+	}
+	if err := db.Create(hub).Error; err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	// 10 个 goroutine 并发 ack 同一 msg_id
+	const N = 10
+	results := make([]*service.AckOutboundResult, N)
+	errs := make([]error, N)
+	var wg sync.WaitGroup
+	wg.Add(N)
+	for i := 0; i < N; i++ {
+		go func(idx int) {
+			defer wg.Done()
+			r, e := svc.AckOutboundDeliveredDetailed(ctx, channel, accountID, []string{msgID})
+			results[idx] = r
+			errs[idx] = e
+		}(i)
+	}
+	wg.Wait()
+	// 汇总：acked_items_count 总和 = 1（仅 1 个真正翻了）
+	totalAcked := 0
+	totalDup := 0
+	for i, r := range results {
+		if errs[i] != nil {
+			t.Errorf("worker %d err: %v", i, errs[i])
+			continue
+		}
+		if r == nil {
+			t.Errorf("worker %d nil result", i)
+			continue
+		}
+		totalAcked += r.AckedItemsCount
+		totalDup += r.DuplicateCount
+	}
+	if totalAcked != 1 {
+		t.Errorf("期望总 acked_items_count=1（仅 1 个真正翻转），实际 %d", totalAcked)
+	}
+	if totalDup != N-1 {
+		t.Errorf("期望总 duplicate=%d（其余 9 个幂等跳过），实际 %d", N-1, totalDup)
+	}
+}
+
+// TestAckOutboundDeliveredDetailed_HubRepoNil_P4 验证 P4-3.1：hubRepo nil 必须返 error。
+func TestAckOutboundDeliveredDetailed_HubRepoNil_P4(t *testing.T) {
+	// 故意构造 svc 不注入 hubRepo
+	db := testutil.NewTestDB(t, &model.MessageHub{})
+	_ = db.Exec("DELETE FROM message_hub").Error
+	svc := service.NewInboxIngressServiceWithDB(db, nil)
+	// 显式清空 hubRepo
+	// (svc 内部 hubRepo 字段已为 nil 因为 NewInboxIngressServiceWithDB 第二参数为 nil)
+	r, err := svc.AckOutboundDeliveredDetailed(context.Background(), "douyin", "acc", []string{"m1"})
+	if err == nil {
+		t.Fatalf("hubRepo nil 应返回 error，实际 (result=%+v, err=nil)", r)
+	}
+	if r != nil {
+		t.Errorf("hubRepo nil 应返 nil result，实际 %+v", r)
+	}
+}
+
+// TestAckOutboundDeliveredDetailed_DuplicateMsgIDInput_P4 验证 P4-7.4：msg_id 入参去重。
+func TestAckOutboundDeliveredDetailed_DuplicateMsgIDInput_P4(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := testutil.NewTestDB(t, &model.MessageHub{})
+	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
+		t.Fatalf("清理失败: %v", err)
+	}
+	svc := service.NewInboxIngressServiceWithDB(db, nil)
+	ctx := context.Background()
+	// seed 1 条
+	hub := &model.MessageHub{
+		Platform:       "douyin",
+		AccountID:      "acc_dup",
+		ConversationID: "c",
+		MsgID:          "mh:dup",
+		MsgType:        "text",
+		Content:        "dup content",
+		Direction:      "outbound",
+		Status:         "pending",
+	}
+	if err := db.Create(hub).Error; err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	// 入参重复 3 次同一 msg_id
+	r, err := svc.AckOutboundDeliveredDetailed(ctx, "douyin", "acc_dup", []string{"mh:dup", "mh:dup", "mh:dup"})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	// items 应当只 1 条（去重后），不是 3 条
+	if len(r.Items) != 1 {
+		t.Errorf("期望 items=1（去重后），实际 %d", len(r.Items))
+	}
+	if r.AckedItemsCount != 1 {
+		t.Errorf("期望 acked_items_count=1，实际 %d", r.AckedItemsCount)
+	}
+}
+
+// TestGetByMsgIDsInScope_OnlyOutbound_P4 验证 P4-1.1：GetByMsgIDsInScope 仅返回 outbound 行。
+func TestGetByMsgIDsInScope_OnlyOutbound_P4(t *testing.T) {
+	db := testutil.NewTestDB(t, &model.MessageHub{})
+	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
+		t.Fatalf("清理失败: %v", err)
+	}
+	hubRepo := repository.NewMessageHubRepositoryWithDB(db)
+	ctx := context.Background()
+	// seed：相同 msg_id 但不同 direction
+	for _, c := range []struct {
+		direction, msg string
+	}{
+		{"inbound", "mh:shared"},
+		{"outbound", "mh:shared"},
+	} {
+		h := &model.MessageHub{
+			Platform:       "douyin",
+			AccountID:      "acc_d",
+			ConversationID: "c",
+			MsgID:          c.msg,
+			MsgType:        "text",
+			Content:        c.msg,
+			Direction:      c.direction,
+			Status:         "pending",
+		}
+		if err := db.Create(h).Error; err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+	rows, err := hubRepo.GetByMsgIDsInScope(ctx, "douyin", "acc_d", []string{"mh:shared"})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	// 仅应返回 outbound 行（1 条）
+	outboundCount := 0
+	for _, h := range rows {
+		if h.Direction == "outbound" {
+			outboundCount++
+		}
+	}
+	if outboundCount != 1 {
+		t.Errorf("期望仅返回 1 条 outbound，实际 %d 条（rows=%+v）", outboundCount, rows)
 	}
 }

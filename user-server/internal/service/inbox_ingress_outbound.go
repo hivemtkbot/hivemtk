@@ -232,90 +232,155 @@ type AckOutboundItem struct {
 	Status string `json:"status"` // acked | duplicate | not_found
 }
 
-// AckOutboundResult 批量 ack 结果（P3-D 详细化）。
+// AckOutboundResult 批量 ack 结果（P3-D 详细化 + P4 二次审核 6.2 区分 affected 与 acked_items）。
+//
+// 字段语义（2026-08-15 P4）：
+//   - AffectedCount: SQL UPDATE 实际翻转为 delivered 的行数（跨会话同名 msg_id 时可能 > AckedItemsCount）
+//   - AckedItemsCount: items 中 status='acked' 的元素数（= 真正"被本次 ack 命中"的 msg_id 数）
+//   - DuplicateCount: 此前已为 delivered 的 msg_id 数（幂等跳过）
+//   - NotFoundCount: 不存在的 msg_id 数
+//   - Items: 按入参 msgIDs 顺序逐条结果（顺序契约由代码保证并由 p3d-contract.test.js 验证）
 type AckOutboundResult struct {
-	AffectedCount int              `json:"affected_count"`
-	DuplicateCount int             `json:"duplicate_count"`
-	NotFoundCount int              `json:"not_found_count"`
-	Items         []AckOutboundItem `json:"items"`
+	AffectedCount   int              `json:"affected_count"`     // SQL 行级受影响（= len(updatedIDs)）
+	AckedItemsCount int              `json:"acked_items_count"`  // msg_id 维度 ack 命中数
+	DuplicateCount  int              `json:"duplicate_count"`    // 幂等跳过
+	NotFoundCount   int              `json:"not_found_count"`    // 不存在
+	Items           []AckOutboundItem `json:"items"`
 }
 
-// AckOutboundDeliveredDetailed 批量 ack 详细版（P3-D）：返回每条 msg_id 的处理状态。
+// AckOutboundDeliveredDetailed 批量 ack 详细版（P3-D + P4 二次审核修复）。
 //
-// 2026-08-15 头脑风暴二次论证 P3-D（ack 幂等协议 6/10 → 10/10）：
-//   同类对比（whatsapp-web.js / WPPConnect）通过 event_id 去重防止重发；
-//   Baileys 通过 msg.key.id + sendUniqueKey 双重去重。
-//   本服务现状：AckOutboundDelivered 内部已幂等（仅更新 status IN pending/inflight），
-//   但前端拿到的是 affected_count，无法区分：
-//     - 哪些 msg_id 是"本次成功 ack"
-//     - 哪些 msg_id 是"已 delivered 的重复 ack"
-//     - 哪些 msg_id 是"不存在的（GC 回收 / 归属错）"
-//   这导致前端重试器无法精确停止重发——可能让用户收到重复消息。
+// 2026-08-15 头脑风暴二次论证 P3-D：
+//   服务端按 (channel, account, msg_id) 去重，按 per-msg-id 状态分类返回。
+//
+// 2026-08-15 P4 二次审核修复（修复 2.1 / 3.1 / 6.2 / 7.4 / 2.3 / 1.1）：
+//   1. hubRepo nil 直接返回 error（修复 3.1：原"全量空 result"会让前端误判为成功）
+//   2. 用 UPDATE ... RETURNING 单 SQL 原子"分类 + 翻转"（修复 2.1：原"先查后更"非原子，
+//      当其他 worker 在两步间抢先翻转为 delivered 时，本 worker 仍把 msg_id 标 acked，但
+//      SQL 实际 affected=0——acked 与 affected 矛盾）
+//   3. 增加 AckedItemsCount 字段，区分"行级 affected"与"msg_id 级 acked"（修复 6.2）
+//   4. msg_id 入参去重（修复 7.4：["m1","m1","m1"] 时只算 1 次）
+//   5. duplicate 状态记 StatusSkipped 而非 StatusOk（修复 2.3：tracing 监控失真）
+//   6. GetByMsgIDsInScope 已加 direction='outbound' 过滤（修复 1.1）
 //
 // 协议契约（与前端 downlink.js 配套）：
-//   响应：{ acked, duplicate_count, not_found_count, items: [{msg_id, status}, ...] }
-//   前端收到 duplicate 时：清空本地重试队列 + 停止重发；
-//   收到 not_found 时：记录异常 + 停止重发（可能是归属错或被 GC）；
-//   收到 acked 时：正常清理重试队列。
+//   响应：{ affected_count, acked_items_count, duplicate_count, not_found_count, items: [{msg_id, status}] }
+//   items 顺序严格对齐入参 msgIDs 顺序（去重后）。
 func (s *InboxIngressService) AckOutboundDeliveredDetailed(ctx context.Context, channel, accountID string, msgIDs []string) (*AckOutboundResult, error) {
 	result := &AckOutboundResult{
 		Items: make([]AckOutboundItem, 0, len(msgIDs)),
 	}
-	if s.hubRepo == nil || len(msgIDs) == 0 {
+	// P4-3.1：hubRepo nil 必须返 error（前端 ackRes.status !== 'ok' → retriable）
+	if s.hubRepo == nil {
+		return nil, errors.New("ack failed: hub repo not configured")
+	}
+	if len(msgIDs) == 0 {
 		return result, nil
 	}
 
-	// 1) 拉取所有目标 msg_id 在 (channel, account_id) 下的当前 status
-	rows, err := s.hubRepo.GetByMsgIDsInScope(ctx, channel, accountID, msgIDs)
-	if err != nil {
-		return nil, err
-	}
-	statusByMsgID := make(map[string]string, len(rows))
-	for _, h := range rows {
-		statusByMsgID[h.MsgID] = h.Status
-	}
-
-	// 2) 分类：需要更新的（pending/inflight） vs 已 delivered（幂等跳过） vs 不存在
-	toAck := make([]string, 0, len(msgIDs))
+	// P4-7.4：入参 msg_id 去重（保留首次出现顺序）
+	seen := make(map[string]struct{}, len(msgIDs))
+	deduped := make([]string, 0, len(msgIDs))
 	for _, id := range msgIDs {
 		if id == "" {
 			continue
 		}
-		status, exists := statusByMsgID[id]
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		deduped = append(deduped, id)
+	}
+	if len(deduped) == 0 {
+		return result, nil
+	}
+
+	// 1) 拉取所有目标 msg_id 在 (channel, account_id, direction=outbound) 下的当前 status
+	//    P4-1.1：GetByMsgIDsInScope 已加 direction='outbound' 过滤
+	rows, err := s.hubRepo.GetByMsgIDsInScope(ctx, channel, accountID, deduped)
+	if err != nil {
+		return nil, err
+	}
+	hubByMsgID := make(map[string]*model.MessageHub, len(rows))
+	for i := range rows {
+		h := rows[i]
+		hubByMsgID[h.MsgID] = &h
+	}
+
+	// 2) 分类：可翻转的（pending/inflight） vs 已 delivered（幂等跳过） vs 不存在
+	toAck := make([]string, 0, len(deduped))
+	for _, id := range deduped {
+		h, exists := hubByMsgID[id]
 		if !exists {
 			result.Items = append(result.Items, AckOutboundItem{MsgID: id, Status: "not_found"})
 			result.NotFoundCount++
 			continue
 		}
-		if status == "delivered" {
+		if h.Status == "delivered" {
 			result.Items = append(result.Items, AckOutboundItem{MsgID: id, Status: "duplicate"})
 			result.DuplicateCount++
 			continue
 		}
 		// pending / inflight 等其他状态都翻转为 delivered
 		toAck = append(toAck, id)
-		result.Items = append(result.Items, AckOutboundItem{MsgID: id, Status: "acked"})
 	}
 
-	// 3) 批量更新
+	// 3) 原子 RETURNING 单 SQL（修复 2.1：消除"先查后更"非原子性）
+	updatedIDSet := make(map[string]struct{}, len(toAck))
 	if len(toAck) > 0 {
-		affected, err := s.hubRepo.AckOutboundDeliveredBatch(ctx, channel, accountID, toAck)
+		updatedIDs, affected, err := s.hubRepo.AckOutboundDeliveredBatchReturning(ctx, channel, accountID, toAck)
 		if err != nil {
 			return nil, err
 		}
 		result.AffectedCount = int(affected)
+		for _, id := range updatedIDs {
+			updatedIDSet[id] = struct{}{}
+		}
 	}
 
-	// 4) 节点9 ack 上报：每条已处理 msg_id 记一条节点（与 AckOutboundDelivered 保持一致）
+	// 4) 精确分类（基于 RETURNING 真实结果，而非查询时的 status）
+	//    之前误分类为 "acked" 但实际未翻转的 msg_id（被其他 worker 抢先）现在归为 duplicate
+	finalItems := make([]AckOutboundItem, 0, len(result.Items))
+	ackedItemsCount := 0
+	for _, item := range result.Items {
+		switch item.Status {
+		case "acked":
+			if _, ok := updatedIDSet[item.MsgID]; ok {
+				// 确实翻了 → 保持 acked
+				finalItems = append(finalItems, item)
+				ackedItemsCount++
+			} else {
+				// 翻失败（被抢先）→ 降级为 duplicate
+				finalItems = append(finalItems, AckOutboundItem{MsgID: item.MsgID, Status: "duplicate"})
+				result.DuplicateCount++
+			}
+		default:
+			// not_found / duplicate 直接保留
+			finalItems = append(finalItems, item)
+		}
+	}
+	result.Items = finalItems
+	result.AckedItemsCount = ackedItemsCount
+
+	// 5) tracing 节点：每条已处理 msg_id 记一条（修复 2.3：duplicate 记 StatusSkipped 不再 StatusOk）
 	ackTimer := tracing.StartSpan()
 	for _, item := range result.Items {
 		if item.Status == "not_found" {
 			continue
 		}
-		hub, _ := s.hubRepo.GetByMsgID(ctx, item.MsgID)
+		h := hubByMsgID[item.MsgID]
 		var traceID, convID string
-		if hub != nil {
-			traceID, convID = hub.TraceID, hub.ConversationID
+		if h != nil {
+			traceID, convID = h.TraceID, h.ConversationID
+		}
+		var traceStatus string
+		switch item.Status {
+		case "acked":
+			traceStatus = tracing.StatusOk
+		case "duplicate":
+			traceStatus = tracing.StatusSkipped
+		default:
+			traceStatus = tracing.StatusOk
 		}
 		tracing.RecordNode(ctx, tracing.NodeSpan{
 			TraceID:        traceID,
@@ -326,17 +391,17 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(ctx context.Context, 
 			Direction:      "outbound",
 			MsgID:          item.MsgID,
 			Input: map[string]any{
-				"channel":     channel,
-				"account_id":  accountID,
-				"msg_id":      item.MsgID,
-				"ack_status":  item.Status, // 节点侧区分幂等 / 首次
+				"channel":    channel,
+				"account_id": accountID,
+				"msg_id":     item.MsgID,
+				"ack_status": item.Status,
 			},
 			Output: map[string]any{
 				"status": "delivered",
 			},
 			DurationMs: ackTimer.ElapsedMs(),
 			Expected:   "pending → delivered（桥接已成功转发到网页）",
-			Status:     tracing.StatusOk,
+			Status:     traceStatus,
 		})
 	}
 	return result, nil
