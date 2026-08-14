@@ -72,6 +72,23 @@
       .sel-tab { flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--secondary); color: #333; font-size: 12px; cursor: pointer; font-weight: 500; transition: all 0.15s; }
       .sel-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
       .sel-tab:hover:not(.active) { background: var(--secondary-hover); }
+
+      /* 2026-08-15 M2-P1-产品1 健康度面板 */
+      .health-card { transition: box-shadow 0.15s; }
+      .health-card:hover { box-shadow: 0 0 0 2px rgba(79, 140, 255, 0.15); }
+
+      /* 2026-08-15 M2-P1-产品3 紧急停止按钮 */
+      button.danger { background: var(--danger); color: #fff; }
+      button.danger:hover:not(:disabled) { background: #b91c1c; }
+
+      /* 2026-08-15 M2-P1-产品4 多账号 */
+      .account-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 4px; font-size: 12px; }
+      .account-row .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+      .account-row .dot.online { background: var(--success); }
+      .account-row .dot.offline { background: var(--danger); }
+      .account-row .dot.unhealthy { background: var(--warning); }
+      .account-row .name { flex: 1; font-weight: 500; }
+      .account-row .meta { color: var(--text-muted); font-size: 11px; }
     </style>
   </head>
   <body>
@@ -114,10 +131,37 @@
 
     <div id="banner" class="banner"></div>
 
+    <!-- 2026-08-15 M2-P1-产品3 紧急停止（常驻按钮，无展开面板） -->
+    <div class="row" style="margin-top: 10px;">
+      <button id="emergencyStop" class="danger" style="flex: 1; font-weight: 600;">⛔ 紧急停止（停所有桥接）</button>
+    </div>
+
     <hr />
 
     <button id="status" class="secondary" style="width: 100%;">刷新连接状态</button>
     <pre id="statusOut">点击刷新…</pre>
+
+    <hr />
+
+    <!-- 2026-08-15 M2-P1-产品4 多账号列表 -->
+    <button id="accountsToggle" class="secondary" style="width: 100%;">多账号管理（实时状态 / 全部暂停）</button>
+    <div id="accountsPanel" style="display: none; margin-top: 8px;">
+      <div class="hint">下方为所有 content script 上报的活跃账号。点击「暂停」可单独停用某渠道（写入 emergencyStop 标记为 channel 级）。</div>
+      <div id="accountsList">加载中…</div>
+      <div class="row" style="margin-top: 6px;">
+        <button id="accountsPauseAll" class="danger" style="flex: 1;">⏸ 全部暂停</button>
+        <button id="accountsResumeAll" class="secondary" style="flex: 1;">▶ 全部恢复</button>
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- 2026-08-15 M2-P1-产品1 健康度面板（实时） -->
+    <button id="healthToggle" class="secondary" style="width: 100%;">健康度面板（熔断器 / 延迟 / 死开关）</button>
+    <div id="healthPanel" style="display: none; margin-top: 8px;">
+      <div class="hint">每 5s 自动刷新。来自各 content script 上报的 circuit-breaker 状态 + 错码分布 + 死开关信号。</div>
+      <div id="healthOut">加载中…</div>
+    </div>
 
     <hr />
 

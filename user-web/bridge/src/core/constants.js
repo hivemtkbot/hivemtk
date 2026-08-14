@@ -107,28 +107,57 @@ export const WS_CLIENT_DEFAULTS = Object.freeze({
 // 巡检语义：一轮巡检完成 → 自动进入下一轮。遍历左侧聊天列表，对有新消息
 // （未读红点）的会话点击进入右侧聊天页，捕获新消息上行（触发 AI 自动对话）。
 // 已 seen 的消息靠去重跳过，故只有真正新增的消息会上行。
+//
+// 2026-08-14 风控重设：原 intervalMs=3s/switch 1-2s/maxPerRound=0 节奏过快，
+//   在抖音/小红书 IM 网页端实测会被风控识别为脚本（连续点击触发滑块/封号预警）。
+//   新节奏模拟真人：
+//     - 轮间隔 30-60s（带 30s 抖动窗口）
+//     - 单轮最多访问 6 个会话（避免一秒钟连续点 10+ 个会话）
+//     - 会话间切换 3-5s（每次都看起来像"看了看又点开另一个"）
+//     - 同一会话 120s 冷却期内不重复点开（避免来回点同一会话触发风控）
+//   上述参数全部为单一源，禁止在 channel-adapter.js 硬编码同样数字。
 export const PATROL_DEFAULTS = Object.freeze({
-  // 巡检轮间隔：完成一轮后等待多久再开始下一轮。
-  // 对齐 REDESIGN-2026-08-06 §4.4/§6（PATROL_INTERVAL_MS=3000）与三通道 PollingLoop.patrolIntervalMs=3000。
-  // 旧值 60s 偏离设计，导致"休眠后巡检一次"节奏过慢、新消息捕获延迟。
-  intervalMs: 3000,
+  // 巡检轮间隔：完成一轮后等待多久再开始下一轮（30-60s 随机抖动，模拟真人）。
+  // 旧值 3000ms 节奏过密，触发平台风控。
+  intervalMs: 30000,
+  // 抖动窗口：在 intervalMs 基础上随机加 0-30s，避免每轮节奏完全相同。
+  // 由 _startPatrolAuto 使用：nextDelay = intervalMs + randInt(0, jitterMs)
+  jitterMs: 30000,
   // 单个会话点击打开后等待线程渲染时长
   waitActiveMs: 5000,
   // 会话间渲染等待（技术性，封顶 600ms，由 _patrolVisit 使用）：仅作 DOM 渲染等待，非节流。
-  // 真正的会话间节流改为"随机 1-2 秒"（见 switchMinMs/switchMaxMs），以模拟真人、规避平台风控。
+  // 真正的会话间节流改为"随机 3-5 秒"（见 switchMinMs/switchMaxMs），以模拟真人、规避平台风控。
   throttleMs: 1500,
-  // 会话间随机暂停区间（设计：随机 1-2 秒，REDESIGN-2026-08-06 §6："逐会话...随机等待 rand(PATROL_SWITCH_MIN_MS, PATROL_SWITCH_MAX_MS)"）。
-  // 旧实现用固定 throttleMs=1500，无随机性，被审计指出"每个会话之间没有随机暂停的逻辑"。
-  switchMinMs: 1000,
-  switchMaxMs: 2000,
-  // 单轮最多访问多少个会话（0 = 不限，按需设上限防止超长轮）
-  maxPerRound: 0,
+  // 会话间随机暂停区间：3-5s（模拟真人翻看聊天列表的节奏，规避平台风控）。
+  // 旧值 1-2s 太短，连续切换易被识别为脚本。
+  switchMinMs: 3000,
+  switchMaxMs: 5000,
+  // 单轮最多访问多少个会话（0 = 不限）。
+  // 2026-08-14 风控：默认 6，避免一秒钟连续点 10+ 个会话触发风控。
+  maxPerRound: 6,
+  maxConversationsPerRound: 6,
+  // 同会话冷却期：上一次点开过的会话在 cooldownMs 内不再点开（避免来回点同一会话）。
+  // 2026-08-14 风控：默认 120s。
+  conversationCooldownMs: 120000,
   // 两轮列表扫描之间的间隔（滚动到底加载更多后等下一轮）：用户诉求 1-2 秒
   //   - 旧值 500ms 太快，虚拟列表还没加载完就开下一轮，漏抓 + 风控
   //   - 1500ms 落在 1-2s 区间中值，给 SPA 足够渲染时间
   scrollLoadMs: 1500,
   // 多轮滚动扫描最多多少 pass（虚拟/懒加载列表逐步加载）
   maxPasses: 8,
+  // 单次 _collectUnseenText 抓取上限（防止「一个超长会话一次抓几千条」OOM）
+  maxBatchPerPatrol: 80,
+  // 2026-08-15 修复（P1-3 限速/分批）：首次 L1 巡检限速阈值。
+  //   含义：channel 实例首次 patrol 抓取时（_patrolFirstRun 标记未置位），每会话单次最多
+  //         抓 firstRunMaxBatch 条，剩余靠下一轮（非首次，节奏 30-60s）扫描补齐。
+  //   目的：避免首次启动时 80 条一次性涌入后端触发：
+  //     - HTTPIngestMaxMessages=200 截断，剩余消息被静默截断
+  //     - 大批回环回采同时入统一收件箱（前端 _collectUnseenText 不分批→后端集中入库）
+  //     - 5min 集中触发多次 AI（rmb 翻倍 + 客服资源瞬时占满）
+  //   实测：80 条首次涌入 → bridge HTTP 413/截断高发 → 用户实际未及时收到 AI 回复。
+  firstRunMaxBatch: 20,
+  // 首次巡检判定窗口：超过该毫秒未 patrol 才视为「首次」(避免短间隔重入触发限速)
+  firstRunWindowMs: 60000,
 });
 
 // =============================================================
@@ -169,6 +198,11 @@ export const UI_DEFAULTS = Object.freeze({
   // 报告当前 meta（accountId/conversationId）周期
   metaReportIntervalMs: 5000,
   // 状态轮询：popup 打开时拉一次，无轮询
+  // 2026-08-15 M2-P1-产品1：新增 popup 内主动健康面板轮询间隔（5s）
+  //   用于实时刷新 health 面板（circuit-breaker / pendingAck / deadLetters / latency）
+  popupHealthPanelPollMs: 5000,
+  // 2026-08-15 M2-P1-产品1：popup 告警横幅轮询间隔（10s 查 circuit-breaker OPEN 状态）
+  popupAlertPollMs: 10000,
 });
 
 // 渠道展示名 → 统一只显示「抖音 / 小红书 / TikTok / 闲鱼」，不出现「抖音私信(网页)」这类冗长写法
@@ -243,10 +277,8 @@ export const BRIDGE_THREE_CHANNEL = Object.freeze({
   sentCacheMax: 2000,
   // 下发单条发送超时（超过视为失败，下个轮询重试）
   sendOutboundTimeoutMs: 20000,
-  // 巡检周期（要求⑤：定时任务 3 秒一次）
-  patrolIntervalMs: 3000,
-  // 每个会话列表切换随机等待 1-2 秒（要求⑤）
-  patrolSwitchMinMs: 1000,
-  patrolSwitchMaxMs: 2000,
+  // 2026-08-14 架构收敛：删除 patrolIntervalMs / patrolSwitchMinMs / patrolSwitchMaxMs
+  //   巡检制度已从 PollingLoop._patrol 收敛到 BaseAdapter._startPatrolAuto（独家承担）。
+  //   巡检参数统一在 PATROL_DEFAULTS（上方）中声明与持久化，避免双源配置漂移。
 });
 

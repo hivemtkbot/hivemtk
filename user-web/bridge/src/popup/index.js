@@ -25,6 +25,19 @@ import { SEL as DOUYIN_SEL } from '../channels/douyin.js';
 import { SEL as XHS_SEL } from '../channels/xhs.js';
 import { SEL as XIANYU_SEL } from '../channels/xianyu.js';
 import { SEL as TIKTOK_SEL } from '../channels/tiktok.js';
+// 2026-08-15 M2-P1-产品1/3/4/5：健康面板 / 告警 / 紧急停止 / 多账号 / 错误码
+import {
+  renderHealthPanel,
+  startHealthPanelPolling,
+  stopHealthPanelPolling,
+} from './health.js';
+import { startAlertPolling, stopAlertPolling } from './alert-banner.js';
+import {
+  isEmergencyStop,
+  triggerEmergencyStop,
+  resumeBridge,
+} from './emergency-stop.js';
+import { explainError, formatErrorBanner } from './error-messages.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -862,7 +875,6 @@ function wirePatrol() {
 
 // ---- DOM ready ----
 document.addEventListener('DOMContentLoaded', () => {
-  // 立即设 placeholder 防止页面空白
   $('serverUrl').placeholder = DEFAULT_PLACEHOLDER;
   $('token').placeholder = '留空也可正常使用（桥接 WS 不要求 JWT）';
   loadConfig((cfg) => {
@@ -935,7 +947,8 @@ document.addEventListener('DOMContentLoaded', () => {
   wireSelectorConfig();
 
   // ---- 巡检制度（需求上行②）----
-  // 启动/停止/立即巡检 + 状态展示。间隔可配置（默认 PATROL_DEFAULTS.intervalMs=60s）。
+  // 启动/停止/立即巡检 + 状态展示。间隔可配置（默认 PATROL_DEFAULTS.intervalMs=3s）。
+  // 2026-08-14 注释修正：原 60s 注释已过时，实际值 3000ms（与 channel-adapter.js _startPatrolAuto 对齐）。
   wirePatrol();
 
   // 打开私信页快捷入口（URL 来源：constants.js PLATFORM_ENTRY_URLS）
@@ -947,10 +960,169 @@ document.addEventListener('DOMContentLoaded', () => {
   // 首次打开时拉一次状态
   refreshStatus();
 
+  // ---- 2026-08-15 M2-P1-产品1：健康度面板（实时轮询）----
+  let _healthStop = null;
+  const healthToggle = $('healthToggle');
+  const healthPanel = $('healthPanel');
+  if (healthToggle && healthPanel) {
+    healthToggle.addEventListener('click', () => {
+      const isOpen = healthPanel.style.display !== 'none';
+      healthPanel.style.display = isOpen ? 'none' : 'block';
+      if (!isOpen) {
+        // 启动轮询
+        if (_healthStop) { try { _healthStop(); } catch (_) {} _healthStop = null; }
+        _healthStop = startHealthPanelPolling({ containerId: 'healthOut', intervalMs: UI_DEFAULTS.popupHealthPanelPollMs });
+      } else {
+        // 关闭轮询
+        if (_healthStop) { stopHealthPanelPolling(_healthStop); _healthStop = null; }
+      }
+    });
+  }
+
+  // ---- 2026-08-15 M2-P1-产品3：紧急停止（toggle）----
+  const emergencyBtn = $('emergencyStop');
+  if (emergencyBtn) {
+    const refreshEmergencyLabel = async () => {
+      const stopped = await isEmergencyStop();
+      if (stopped) {
+        emergencyBtn.textContent = '▶ 恢复桥接（解除紧急停止）';
+        emergencyBtn.classList.remove('danger');
+        emergencyBtn.classList.add('primary');
+        showBanner('warn', '⛔ 桥接已紧急停止', '所有 content script 收到停止信号，不再发送任何 HTTP 请求。点击按钮恢复。');
+      } else {
+        emergencyBtn.textContent = '⛔ 紧急停止（停所有桥接）';
+        emergencyBtn.classList.remove('primary');
+        emergencyBtn.classList.add('danger');
+      }
+    };
+    refreshEmergencyLabel();
+    emergencyBtn.addEventListener('click', async () => {
+      const stopped = await isEmergencyStop();
+      if (stopped) {
+        const r = await resumeBridge();
+        if (r.ok) {
+          showBanner('success', '✓ 已恢复', '桥接已恢复，content script 重新开始上行 / 下行。');
+          refreshEmergencyLabel();
+        } else {
+          showBanner('error', '恢复失败', r.error || '未知');
+        }
+      } else {
+        // 二次确认
+        if (!window.confirm('确认紧急停止所有桥接？\n\n这将停止所有抖音/小红书/TikTok/闲鱼 私信页的：\n  · 自动巡检\n  · 下行回复\n  · ack 重试\n\n用户已收到的消息不受影响（已 cache），但服务端不会收到 ack。')) {
+          return;
+        }
+        const r = await triggerEmergencyStop('user_manual');
+        if (r.ok) {
+          showBanner('warn', '⛔ 已紧急停止', '所有桥接活动已停止。点击按钮恢复。');
+          refreshEmergencyLabel();
+        } else {
+          showBanner('error', '停止失败', r.error || '未知');
+        }
+      }
+    });
+  }
+
+  // ---- 2026-08-15 M2-P1-产品4：多账号管理面板 ----
+  const accountsToggle = $('accountsToggle');
+  const accountsPanel = $('accountsPanel');
+  const accountsList = $('accountsList');
+  if (accountsToggle && accountsPanel && accountsList) {
+    const refreshAccounts = async () => {
+      try {
+        const data = await new Promise((resolve) => {
+          try {
+            chrome.runtime.sendMessage({ type: 'getAccounts' }, (resp) => {
+              try { if (chrome.runtime.lastError) { resolve({ accounts: {}, health: {} }); return; } } catch (_) { /* noop */ }
+              if (!resp) { resolve({ accounts: {}, health: {} }); return; }
+              resolve(resp);
+            });
+          } catch (_) { resolve({ accounts: {}, health: {} }); }
+        });
+        const accounts = data.accounts || {};
+        const health = data.health || {};
+        const channels = Object.keys(accounts);
+        if (channels.length === 0) {
+          accountsList.innerHTML = '<div class="hint" style="padding:8px;">当前无活跃账号（content script 未启动）</div>';
+          return;
+        }
+        const order = ['douyin', 'xiaohongshu', 'tiktok', 'xianyu', 'kuaishou'];
+        const sorted = channels.sort((a, b) => {
+          const ai = order.indexOf(a); const bi = order.indexOf(b);
+          if (ai === -1 && bi === -1) return a.localeCompare(b);
+          if (ai === -1) return 1; if (bi === -1) return -1;
+          return ai - bi;
+        });
+        const rows = sorted.map((ch) => {
+          const a = accounts[ch] || {};
+          const h = health[ch] || {};
+          const online = !!a.accountId;
+          const healthy = h.healthy !== false;
+          const dotClass = !online ? 'offline' : (healthy ? 'online' : 'unhealthy');
+          const meta = [];
+          if (a.accountId) meta.push(a.accountId);
+          if (a.currentConvId) meta.push('会话 ' + a.currentConvId);
+          if (typeof a.capturedCount === 'number') meta.push('已捕获 ' + a.capturedCount);
+          if (h.state) meta.push('熔断 ' + h.state);
+          return `<div class="account-row" data-channel="${ch}">
+            <div class="dot ${dotClass}"></div>
+            <div class="name">${channelDisplayName(ch)}</div>
+            <div class="meta">${meta.join(' / ') || '无数据'}</div>
+          </div>`;
+        });
+        accountsList.innerHTML = rows.join('\n');
+      } catch (e) {
+        accountsList.innerHTML = `<div class="hint" style="color:#dc2626;padding:8px;">加载失败：${e && e.message ? e.message : String(e)}</div>`;
+      }
+    };
+    accountsToggle.addEventListener('click', () => {
+      const isOpen = accountsPanel.style.display !== 'none';
+      accountsPanel.style.display = isOpen ? 'none' : 'block';
+      if (!isOpen) refreshAccounts();
+    });
+    const pauseAllBtn = $('accountsPauseAll');
+    const resumeAllBtn = $('accountsResumeAll');
+    if (pauseAllBtn) {
+      pauseAllBtn.addEventListener('click', async () => {
+        if (!window.confirm('确认暂停所有渠道？\n\n这等价于点击"紧急停止"。')) return;
+        const r = await triggerEmergencyStop('user_pause_all');
+        if (r.ok) {
+          showBanner('warn', '⏸ 已全部暂停', '所有桥接已暂停。');
+        } else {
+          showBanner('error', '暂停失败', r.error || '未知');
+        }
+      });
+    }
+    if (resumeAllBtn) {
+      resumeAllBtn.addEventListener('click', async () => {
+        const r = await resumeBridge();
+        if (r.ok) {
+          showBanner('success', '▶ 已恢复', '所有桥接已恢复。');
+        } else {
+          showBanner('error', '恢复失败', r.error || '未知');
+        }
+      });
+    }
+  }
+
+  // ---- 2026-08-15 M2-P1-产品5：告警横幅自动弹出（健康度异常时）----
+  // 任何时刻只要有渠道熔断/无响应，就在顶部自动弹红色横幅
+  const _alertStop = startAlertPolling({
+    onAlert: (alert) => {
+      showBanner(alert.level, alert.title, alert.body);
+    },
+    onClear: () => {
+      clearBanner();
+    },
+  });
+
   // ---- popup 卸载时 abort 未完成的 in-flight fetch（2026-08-05 审计 P1）----
   // MV3 popup 关闭后，promise resolved 也无处展示；继续占用 socket 直至超时纯属浪费。
   // 监听 pagehide（覆盖移动端 + 桌面）+ beforeunload（兜底），任一触发即 abort。
-  const _abortOnUnload = () => abortInFlightHealth();
+  const _abortOnUnload = () => {
+    abortInFlightHealth();
+    if (_healthStop) { try { _healthStop(); } catch (_) {} _healthStop = null; }
+    if (_alertStop) { try { _alertStop(); } catch (_) {} }
+  };
   window.addEventListener('pagehide', _abortOnUnload, { once: true });
   window.addEventListener('beforeunload', _abortOnUnload, { once: true });
 });
@@ -978,5 +1150,10 @@ if (typeof window !== 'undefined') {
     // 2026-08-05 审计 P1：共享 AbortController 测试入口
     abortInFlightHealth,
     _getHealthAbortCtl: () => _healthAbortCtl,
+    // 2026-08-15 M2-P1：新增模块入口（健康/告警/紧急停止）
+    health: { renderHealthPanel, startHealthPanelPolling, stopHealthPanelPolling },
+    alert: { startAlertPolling, stopAlertPolling },
+    emergency: { isEmergencyStop, triggerEmergencyStop, resumeBridge },
+    errors: { explainError, formatErrorBanner },
   };
 }
