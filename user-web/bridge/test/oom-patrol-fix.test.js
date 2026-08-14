@@ -68,11 +68,48 @@ describe('OOM 巡检 修复', () => {
         getConversationId: () => 'cid',
       },
     });
+    // 2026-08-15 P1-3 修复：首次 patrol 限 20 条,非首次恢复 80 条。
+    //   这里验证"非首次"封顶 80（防 OOM），先模拟"刚 patrol 过 30s 前"→ 走非首次路径。
+    adapter._lastPatrolAt = Date.now() - 30 * 1000;
     const batch = adapter._collectUnseenText();
     expect(batch.length).toBe(80);
     expect(batch[0].text).toBe('msg0');
     expect(batch[79].text).toBe('msg79');
     // 剩下的 seenNodes 已标记，下轮扫描跳过
+  });
+
+  it('_collectUnseenText 首次 patrol 限速 20 条（P1-3 修复）', async () => {
+    // 验证 P1-3 修复：首次 patrol 单会话单次最多抓 20 条,避免 20 条消息同时涌入后端。
+    const items = [];
+    for (let i = 0; i < 100; i++) {
+      items.push({
+        textContent: `msg${i}`,
+        matches: () => false,
+        closest: () => null,
+        getAttribute: () => null,
+        querySelector: () => null,
+        outerHTML: `<div>msg${i}</div>`,
+      });
+    }
+    const adapter = new BaseAdapter({
+      name: 'test',
+      channel: 'xiaohongshu',
+      hooks: {
+        getMessageItems: () => items,
+        parseMessageItem: (it) => ({
+          message_id: `m${it.textContent}`,
+          text: it.textContent,
+          msg_type: 'text',
+          sender_type: 'customer',
+          timestamp: Date.now(),
+        }),
+        getConversationId: () => 'cid',
+      },
+    });
+    // 关键:_lastPatrolAt 未设置(默认 0)→ 首次 patrol → 限 20
+    expect(adapter._isFirstPatrolRun()).toBe(true);
+    const batch = adapter._collectUnseenText();
+    expect(batch.length).toBe(20);
   });
 });
 

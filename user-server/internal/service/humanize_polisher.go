@@ -93,7 +93,14 @@ func (p *HumanizePolisher) Polish(ctx context.Context, raw string, pctx *PolishC
 		polished = p.personalize(ctx, polished, pctx.CustomerName, pctx.Platform)
 	}
 
-	// 6. 自然语气（轻量添加，不强制）
+	// 6. 句首客套前缀清理（仅在非 complaint/after_sale/churn 场景下启用,避免误伤投诉安抚话术）
+	//   P2-5 修复:把"好的，xxx"这类句首纯客套过渡词在文本层面去掉,统一收件箱展示更紧凑。
+	//   白名单:complaint/churn/after_sale → 不清理,保留"好的,让我帮您处理..."这类安抚过渡。
+	if pctx == nil || !p.shouldPreserveLeadingAck(pctx) {
+		polished = p.removeLeadingFlattery(polished)
+	}
+
+	// 7. 自然语气（轻量添加，不强制）
 	if p.enableParticles && pctx != nil && p.shouldAddParticle(ctx, pctx) {
 		polished = p.addNaturalParticle(ctx, polished, pctx)
 	}
@@ -101,24 +108,123 @@ func (p *HumanizePolisher) Polish(ctx context.Context, raw string, pctx *PolishC
 	return strings.TrimSpace(polished), nil
 }
 
+// shouldPreserveLeadingAck 是否保留句首"好的"等客套过渡(用于投诉/挽留/售后场景的安抚话术)。
+func (p *HumanizePolisher) shouldPreserveLeadingAck(pctx *PolishContext) bool {
+	if pctx == nil {
+		return false
+	}
+	switch pctx.Intent {
+	case IntentComplaint, IntentChurn, IntentAfterSale:
+		return true
+	}
+	return false
+}
+
+// removeLeadingFlattery 清理句首纯客套过渡词（"好的"/"可以的"等 + 分隔符）。
+// P2-5 修复:由 Polish 调用,complaint 场景由 shouldPreserveLeadingAck 跳过此步。
+//
+// 严格定义"句首客套"为"客套词 + 分隔符 + 非空后续内容":
+//   - "好的，xxx"  →  "xxx"      ✅ 删除
+//   - "好的😊 xxx"  →  " xxx"     ✅ 删除(emoji 视为分隔符)
+//   - "好的"        →  "好的"     ❌ 保留(整段作有效回答,如"有问题吗"→"好的")
+//   - "好的 xxx"   →  "好的 xxx"  ❌ 保留(中间是空格+普通内容,不是分隔符 → 视为"好的"作实词)
+func (p *HumanizePolisher) removeLeadingFlattery(text string) string {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return text
+	}
+	trimPrefixes := []string{"好的", "可以的", "没问题", "当然可以"}
+	for _, prefix := range trimPrefixes {
+		if !strings.HasPrefix(trimmed, prefix) {
+			continue
+		}
+		after := strings.TrimPrefix(trimmed, prefix)
+		after = strings.TrimLeft(after, " 　\t")
+		if after == "" {
+			// 文本只有"好的"本身 → 整段是有效回答(单字回复),保留
+			return text
+		}
+		first := []rune(after)[0]
+		isSeparator := first == ',' || first == '，' || first == '.' || first == '。' ||
+			first == '!' || first == '！' || first == '?' || first == '？' ||
+			first == ':' || first == '：' || first == ';' || first == '；'
+		// 启发式判断 emoji: 首字节高 4 位 >= 0xF0 (UTF-8 4 字节) 或 surrogate 高代理
+		// 注意: 中文字符 (U+4E00..U+9FFF) 是 3 字节,首字节 0xE0..0xEF,不算 emoji
+		isEmoji := first >= 0x1F000
+		if isSeparator || isEmoji {
+			return strings.TrimLeft(after, " 　\t")
+		}
+		// 不是分隔符(如空格) → "好的"是实词,保留
+		return text
+	}
+	return text
+}
+
 // removeAITraces 去除 AI 痕迹
 func (p *HumanizePolisher) removeAITraces(ctx context.Context, text string) string {
+	// 2026-08-15 P2-5 修复：扩充客套话/模板化清单
+	//   原清单只匹配 "作为 AI 助手" 等 11 个关键词,实际 LLM 输出了大量"可以的！😊" +
+	//   空泛寒暄 + 模板列表的"客套话",原清单 100% 漏判,导致统一收件箱展示出来一眼假。
+	//   新增 4 类识别:
+	//     1) 自报家门(我是助手/我是 AI/作为您的销售...)— 已有
+	//     2) 空泛寒暄(非常感谢您的咨询/很高兴为您服务/感谢您的提问)→ 整句去除
+	//     3) 单一应答客套(可以的!/好的!/没问题!+😊)→ 整句去除(后续是具体内容时去除客套前缀即可)
+	//     4) 模板化道歉(很抱歉/请谅解/造成不便深表歉意)→ 整句去除
+	//   私域部署原则:每条都做兜底字符串匹配,宁多杀不放过,避免重复套话污染下游。
 	aiTraces := []string{
+		// 1) 自报家门
 		"作为 AI 助手",
 		"作为人工智能",
 		"我是 AI",
 		"我是人工智能",
-		"很抱歉，我无法",
-		"作为一个",
 		"我是一个 AI",
+		"作为一个",
 		"我的能力有限",
 		"根据您提供的信息",
 		"我理解您的",
 		"作为您的销售顾问",
+		// 2) 空泛寒暄(P2-5 新增)
+		"非常感谢您的咨询",
+		"非常感谢您的提问",
+		"感谢您的咨询",
+		"感谢您的提问",
+		"感谢您的关注",
+		"很高兴为您服务",
+		"很高兴能帮到您",
+		"很高兴为您解答",
+		"很荣幸为您服务",
+		"非常荣幸为您介绍",
+		"感谢您的信任",
+		"非常感谢您的信任",
+		"很乐意为您解答",
+		"随时为您服务",
+		"期待您的回复",
+		"期待您的反馈",
+		// 3) 单一应答客套(P2-5 新增,带/不带空格/标点)
+		//   关键约束:只删除纯文本+标点的客套话,**不**带 emoji 的形式(emoji 由 applyPlatformStyle 决定是否保留)
+		//   否则 wechat/xhs 等允许 emoji 的平台会把"好的😊"整段删掉,违反 platformStyle。
+		"可以的！",
+		"可以的!",
+		"好的！",
+		"好的!",
+		"没问题！",
+		"没问题!",
+		"当然可以！",
+		"当然可以!",
+		// 4) 模板化道歉(P2-5 新增)
+		"很抱歉，我无法",
+		"很抱歉，无法",
+		"非常抱歉，给您带来不便",
+		"造成不便深表歉意",
+		"请您谅解",
+		"请谅解",
 	}
 	for _, trace := range aiTraces {
 		text = strings.ReplaceAll(text, trace, "")
 	}
+	// 句首客套过渡词（"好的"/"可以的"等 + 分隔符）由 Polish.removeLeadingFlattery 处理：
+	//   - 该步骤在 PolishContext 已知时执行,complaint/churn/after_sale 场景跳过
+	//   - 避免 removeAITraces 在无 PolishContext 时也盲目删除"好的,我帮您..."这种安抚过渡
 	return text
 }
 
