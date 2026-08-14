@@ -67,22 +67,116 @@ function getCache(channel) {
   return caches[channel];
 }
 
-// _pendingAckByChannel：按渠道维护"待重试 ack"的 msg_id 集合。
+// _pendingAckByChannel：按渠道维护"待重试 ack"的 msg_id 队列（2026-08-15 P0-9 升级为带退避的 Map）。
+//
 // 2026-08-14 修复（用户诉求 "不要兜底逻辑会导致垃圾数据" 的反例——这里必须"兜底"）：
 //   sendOutbound 已成功 = 用户已收到。这条事实是"用户是否收到"的唯一权威。
 //   ack 服务端只是后端记账的副作用——若 ack 失败（网络/服务暂时不可用），
 //   必须 (a) 立刻写本地已发缓存防重发 (b) 记入此队列等下轮重发 ack。
-//   上限 1000 防止内存爆炸（持久化也只保留最近 N 批）。
+//
+// 2026-08-15 P0-9 升级（10/10 任务清单）：
+//   - 由 Set 升级为 Map<msg_id, { attempts, firstSeenAt, lastTryAt, lastError }>
+//   - 加入最大重试次数（MAX_ACK_RETRY_ATTEMPTS=10），超过则放弃重试但仍保留 cache
+//     （用户已收到，后端状态机不一致无影响；避免永久重试导致队列膨胀）
+//   - 加入指数退避（baseMs=1000 → 1s, 2s, 4s, 8s, 16s, 32s, 60s, 60s, 60s, 60s）
+//   - 加入条目级 TTL（MAX_ACK_ENTRY_AGE_MS=24h），超过则清理（防永久残留）
+const MAX_ACK_RETRY_ATTEMPTS = 10;
 const MAX_PENDING_ACK_PER_CHANNEL = 1000;
+const ACK_RETRY_BACKOFF_BASE_MS = 1000;     // 首次退避 1s
+const ACK_RETRY_BACKOFF_CAP_MS = 60_000;    // 退避上限 60s
+const MAX_ACK_ENTRY_AGE_MS = 24 * 60 * 60 * 1000; // 单条 msg_id 在 pendingAck 中最长存活 24h
 const _pendingAckByChannel = {};
 function this_pendingAckFor(channel) {
-  if (!_pendingAckByChannel[channel]) _pendingAckByChannel[channel] = new Set();
-  const s = _pendingAckByChannel[channel];
-  if (s.size > MAX_PENDING_ACK_PER_CHANNEL) {
-    const arr = [...s];
-    _pendingAckByChannel[channel] = new Set(arr.slice(arr.length - MAX_PENDING_ACK_PER_CHANNEL));
+  if (!_pendingAckByChannel[channel]) _pendingAckByChannel[channel] = new Map();
+  const m = _pendingAckByChannel[channel];
+  if (m.size > MAX_PENDING_ACK_PER_CHANNEL) {
+    // 容量保护：按 firstSeenAt 升序淘汰最早的条目（FIFO）
+    const sorted = [...m.entries()].sort((a, b) => a[1].firstSeenAt - b[1].firstSeenAt);
+    const evictCount = m.size - MAX_PENDING_ACK_PER_CHANNEL;
+    for (let i = 0; i < evictCount; i++) m.delete(sorted[i][0]);
   }
-  return _pendingAckByChannel[channel];
+  return m;
+}
+
+// ackRetryBackoffMs 计算指定 attempt 次数（从 1 开始）的退避时长（毫秒）。
+// 第 1 次：baseMs=1000；第 2 次：2000；第 3 次：4000；...；第 7 次及之后：capMs=60000。
+export function ackRetryBackoffMs(attempt) {
+  if (attempt < 1) return ACK_RETRY_BACKOFF_BASE_MS;
+  const ms = ACK_RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt - 1);
+  return Math.min(ms, ACK_RETRY_BACKOFF_CAP_MS);
+}
+
+// addPendingAck 添加 msg_id 到重试队列（首次入队时设置 firstSeenAt=now, attempts=0）。
+export function addPendingAck(channel, msgId, lastError) {
+  const m = this_pendingAckFor(channel);
+  if (m.has(msgId)) {
+    const entry = m.get(msgId);
+    entry.lastTryAt = Date.now();
+    if (lastError) entry.lastError = lastError;
+    return entry;
+  }
+  const now = Date.now();
+  const entry = { attempts: 0, firstSeenAt: now, lastTryAt: 0, lastError: lastError || '' };
+  m.set(msgId, entry);
+  // 容量保护：超过上限时按 firstSeenAt 升序淘汰最早的条目（FIFO）
+  if (m.size > MAX_PENDING_ACK_PER_CHANNEL) {
+    const sorted = [...m.entries()].sort((a, b) => a[1].firstSeenAt - b[1].firstSeenAt);
+    const evictCount = m.size - MAX_PENDING_ACK_PER_CHANNEL;
+    for (let i = 0; i < evictCount; i++) m.delete(sorted[i][0]);
+  }
+  return entry;
+}
+
+// claimDuePendingAck 提取本轮可重试的 msg_id（已达退避时长 且 未超最大次数 且 未超 TTL）。
+export function claimDuePendingAck(channel) {
+  const m = this_pendingAckFor(channel);
+  const now = Date.now();
+  const due = [];
+  for (const [msgId, entry] of m) {
+    if (now - entry.firstSeenAt > MAX_ACK_ENTRY_AGE_MS) {
+      m.delete(msgId);
+      continue;
+    }
+    if (entry.attempts >= MAX_ACK_RETRY_ATTEMPTS) {
+      m.delete(msgId);
+      log.warn(`下行 ack 达到最大重试次数 ${MAX_ACK_RETRY_ATTEMPTS}，放弃重试（cache 保留防内容重发）`,
+        { channel, msg_id: msgId, attempts: entry.attempts, last_error: entry.lastError });
+      continue;
+    }
+    const backoff = ackRetryBackoffMs(entry.attempts + 1);
+    if (entry.lastTryAt && now - entry.lastTryAt < backoff) continue;
+    due.push({ msgId, entry });
+  }
+  return due;
+}
+
+// markPendingAckTried 在重试后更新 attempts/lastTryAt。
+export function markPendingAckTried(channel, msgId, success, error) {
+  const m = this_pendingAckFor(channel);
+  if (success) {
+    m.delete(msgId);
+    return;
+  }
+  const entry = m.get(msgId);
+  if (!entry) return;
+  entry.attempts += 1;
+  entry.lastTryAt = Date.now();
+  if (error) entry.lastError = error;
+}
+
+// getPendingAckStats 用于监控/调试（外部可读取重试队列状态）。
+export function getPendingAckStats(channel) {
+  const m = _pendingAckByChannel[channel];
+  if (!m) return { size: 0 };
+  let maxAttempts = 0;
+  let oldest = 0;
+  const now = Date.now();
+  for (const [, entry] of m) {
+    if (entry.attempts > maxAttempts) maxAttempts = entry.attempts;
+    const age = now - entry.firstSeenAt;
+    if (age > oldest) oldest = age;
+  }
+  return { size: m.size, maxAttempts, oldestAgeMs: oldest };
 }
 
 // 初始化：预加载各渠道已发缓存 + 待重试 ack 集合（在轮询开始前调用一次）
@@ -126,34 +220,41 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
   const token = cfg.token || '';
   if (!serverUrl) return;
 
-  // 2026-08-14 修复：先消化上轮残留的 _pendingAck（仅重发 ack，不重发内容）。
+  // 2026-08-15 P0-9：先消化上轮残留的 _pendingAck（带退避，attempts<MAX_ACK_RETRY_ATTEMPTS）。
   // 必要性：ack 是"后端记账"，失败不能让"用户已收到"这件事回滚。
-  // 节奏：放在 _flush 之前，每轮最多重试 1 次（其余下轮再试，避免阻塞主轮询）。
-  const pendingAckSet = this_pendingAckFor(channel);
-  if (pendingAckSet.size) {
-    const ackIds = [...pendingAckSet];
-    try {
-      const reAck = await ackOutbox(
-        { serverUrl, channel, accountId, token },
-        ackIds,
-        { label: `[下行 ack 重试] ${channel}` }
-      );
-      // 2026-08-15 P3-D：详细 ack 响应——per-msg-id 区分 acked/duplicate/not_found。
-      //   - items 中 status='acked' / 'duplicate' 都视为"已处理"，从 pendingAck 移除
-      //   - items 中 status='not_found' 视为"不可能再 ack 成功"，从 pendingAck 移除（停止重发）
-      //   - 老版本响应（无 items 字段）走 acked 全量清空兜底
-      const handled = processAckDetailedResult(reAck, ackIds, channel, 'reAck');
-      if (handled > 0) {
-        pendingAckSet.clear();
-        log.info(`pendingAck 重发 ack 成功`, { channel, count: handled });
-      } else if (reAck && reAck.status === 'ok') {
-        // 服务端返回 ok 但无 items 详情：按"全量成功"处理（兼容老版本）
-        pendingAckSet.clear();
-      } else {
-        log.warn(`pendingAck 重发 ack 仍失败，下轮继续`, { channel, count: ackIds.length });
+  // 节奏：claimDuePendingAck 自动按退避时长筛本轮可重试的条目；逐条重试；attempts++ 直到达上限。
+  // 关键：每条 msg_id 单独走 ackOutbox，与正常下发同接口（避免实现分裂）。
+  const duePending = claimDuePendingAck(channel);
+  if (duePending.length) {
+    let successCount = 0;
+    let failCount = 0;
+    for (const { msgId } of duePending) {
+      try {
+        const reAck = await ackOutbox(
+          { serverUrl, channel, accountId, token },
+          [msgId],
+          { label: `[下行 ack 重试] ${channel}:${msgId}` }
+        );
+        // 详细 ack 响应：acked/duplicate 视为成功，not_found 也视为"已处理（无需再发）"
+        const handled = processAckDetailedResult(reAck, [msgId], channel, 'reAck');
+        const ok = handled.acked + handled.duplicate + handled.not_found;
+        if (ok > 0) {
+          markPendingAckTried(channel, msgId, true);
+          successCount++;
+        } else {
+          markPendingAckTried(channel, msgId, false,
+            reAck && reAck.status === 'ok' ? 'retriable' : 'response_not_ok');
+          failCount++;
+        }
+      } catch (e) {
+        markPendingAckTried(channel, msgId, false, String(e && e.message || e));
+        failCount++;
       }
-    } catch (e) {
-      log.warn(`pendingAck 重发 ack 异常`, { channel, error: String(e && e.message || e) });
+    }
+    if (successCount || failCount) {
+      log.info(`pendingAck 重发 ack 完成`, {
+        channel, success: successCount, fail: failCount, retried: duePending.length,
+      });
     }
   }
 
@@ -291,44 +392,42 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
         { label: `[下行 ack] ${channel}:${convId}` }
       );
       if (ackRes && ackRes.status === 'ok') {
-        // 2026-08-15 P3-D：详细 ack 响应——精确处理每条 msg_id
-        //   - status='not_found' → 立即从 _pendingAck 移除（不可能再 ack 成功，避免无意义重试）
-        //   - status='acked' / 'duplicate' → 不加入 _pendingAck（已处理完成）
-        //   - 老版本无 items → 全部按成功处理
+        // 2026-08-15 P3-D + P4-3.4 修复：详细 ack 响应——精确处理每条 msg_id
+        //   - status='acked' / 'duplicate' → 已处理完成，不入 _pendingAck
+        //   - status='not_found' → 服务端明确"不可能再 ack 成功"，立即停止重发（不写 cache 后续删除由后端）
+        //   - items 中无对应 msg_id（响应不完整）→ 入 _pendingAck 下轮重试
+        //   - items[].status 缺失或未知 → 入 _pendingAck 下轮重试（保守 retriable）
+        //   - 整体响应 ok 但 items 字段缺失（老版本）→ 全量视为成功，不入 pending
         const items = Array.isArray(ackRes.items) ? ackRes.items : null;
-        const pendingArr = this_pendingAckFor(channel);
         if (items) {
-          // 仅 not_found / 失败（无 status 字段）才加入 pending
           const itemByMsgID = new Map(items.map((it) => [it.msg_id, it]));
-          let needsRetry = 0;
           for (const id of sentIds) {
             const it = itemByMsgID.get(id);
-            if (!it) continue;
-            if (it.status === 'not_found') {
-              // 不加入 pending（停止重发）
+            if (!it) {
+              // 响应不完整（无对应 item）→ 保守入 pending 下轮重试
+              addPendingAck(channel, id, 'ack_response_missing_item');
+              log.warn(`下行 ack 详情缺失 item: 入 _pendingAck 下轮重试`, { channel, conv_id: convId, msg_id: id });
+              continue;
+            }
+            if (it.status === 'acked' || it.status === 'duplicate') {
+              // 已处理 → 不入 pending
+            } else if (it.status === 'not_found') {
+              // 明确停止重发（不重试 ack，但 cache 仍保留以防重发）
               log.warn(`下行 ack 详情: not_found 停止重发`, { channel, conv_id: convId, msg_id: id });
             } else {
-              // acked / duplicate 视为已处理，不入 pending
+              // status 缺失或未知 → 保守入 pending 下轮重试
+              addPendingAck(channel, id, `unknown_status_${it.status}`);
+              log.warn(`下行 ack 详情未知 status: 入 _pendingAck`, { channel, conv_id: convId, msg_id: id, status: it.status });
             }
           }
-          // 整体响应 ok + 有 items 详情：通常表示部分或全部已处理
-          // 入 pending 的只有"响应 ok 但无对应 item"或 status 缺失的极少数情况
-          if (needsRetry > 0) {
-            for (const id of sentIds) {
-              const it = itemByMsgID.get(id);
-              if (!it || it.status === 'not_found') continue;
-              if (it.status === 'acked' || it.status === 'duplicate') continue;
-              pendingArr.add(id);
-            }
-          }
-        } else {
-          // 老版本响应：全量视为成功，不入 pending
         }
+        // 老版本响应：全量视为成功，不入 pending（保持兼容）
         allAckIds.push(...sentIds);
       } else {
         // ack 失败但 cache 已写：用户已收到（绝对不重发）。记入 _pendingAckIds 等下轮重发 ack。
-        const pendingArr = this_pendingAckFor(channel);
-        for (const id of sentIds) pendingArr.add(id);
+        for (const id of sentIds) {
+          addPendingAck(channel, id, 'ack_request_failed');
+        }
         log.warn(`下行单会话 ack 失败（已发已写 cache 防重发，纳入下轮 ack 重试队列）`, {
           channel, convId, count: sentIds.length,
         });

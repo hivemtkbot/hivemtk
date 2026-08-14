@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"hivemtk-user/internal/model"
+
+	"gorm.io/gorm"
 )
 
 func (r *MessageHubRepository) AckOutboundDeliveredBatch(ctx context.Context, channel, accountID string, msgIDs []string) (int64, error) {
@@ -103,4 +105,106 @@ func (r *MessageHubRepository) GetByMsgIDsInScope(ctx context.Context, platform,
 		return nil, err
 	}
 	return rows, nil
+}
+
+// GetByMsgIDsInScopeWithConv 与 GetByMsgIDsInScope 类似，但支持可选 conversation_id 过滤（2026-08-15 P0-1）。
+//
+// 入参约定：
+//   - conversationID == ""：等价于 GetByMsgIDsInScope（按 platform+account_id 范围）
+//   - conversationID != ""：WHERE 增加 conversation_id = ?
+//
+// v2 协议下，前端会把每条 msg_id 关联到具体 conversation_id，服务端严格按 (platform, account_id, conversation_id)
+// 范围查询，根除"跨会话同名 msg_id 一锅端"语义问题。
+func (r *MessageHubRepository) GetByMsgIDsInScopeWithConv(ctx context.Context, platform, accountID, conversationID string, msgIDs []string) ([]model.MessageHub, error) {
+	if r == nil || r.db == nil || len(msgIDs) == 0 || platform == "" || accountID == "" {
+		return nil, nil
+	}
+	rows := make([]model.MessageHub, 0, len(msgIDs))
+	q := r.db.WithContext(ctx).
+		Where("platform = ? AND account_id = ? AND direction = 'outbound' AND msg_id IN ?", platform, accountID, msgIDs)
+	if conversationID != "" {
+		q = q.Where("conversation_id = ?", conversationID)
+	}
+	if err := q.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// AckOutboundDeliveredBatchReturningWithStatus 原子 RETURNING + 可配置终态（2026-08-15 P0-3 + P0-1）。
+//
+// 与 AckOutboundDeliveredBatchReturning 区别：
+//   - terminalStatus: 目标终态（"delivered" | "failed"），不写死 delivered
+//   - conversationID: 非空时 WHERE 增加 conversation_id = ? 限定 ack 范围（解决跨会话一锅端）
+//   - status IN ('pending','inflight'): 仅翻可翻转的行；已为 terminalStatus 的不重入
+//
+// 用单条 SQL `UPDATE ... RETURNING msg_id` 一次完成"翻转 + 返回被翻转的 msg_id 集合"，
+// 解决"先查后更"非原子性导致的 acked 计数虚高 / acked 与 affected 矛盾问题（P4 二次审核 2.1）。
+func (r *MessageHubRepository) AckOutboundDeliveredBatchReturningWithStatus(
+	ctx context.Context,
+	channel, accountID, conversationID, terminalStatus string,
+	msgIDs []string,
+) (updatedIDs []string, affectedRows int64, err error) {
+	if r.db == nil || len(msgIDs) == 0 {
+		return nil, 0, nil
+	}
+	if terminalStatus != "delivered" && terminalStatus != "failed" {
+		return nil, 0, fmt.Errorf("invalid terminal status: %q", terminalStatus)
+	}
+	updatedIDs = make([]string, 0, len(msgIDs))
+
+	// SQL 拼接：conversation_id 过滤可选
+	const qBase = `UPDATE message_hub
+		SET status = ?, updated_at = now()
+		WHERE platform = ? AND account_id = ? AND direction = 'outbound'
+		  AND msg_id IN ? AND status IN ('pending','inflight')`
+	q := qBase
+	if conversationID != "" {
+		q = qBase + " AND conversation_id = ?"
+	}
+
+	// 用 Raw + Scan 到 []string：RETURNING 集合大小 = 实际受影响行数
+	var tx *gorm.DB
+	if conversationID != "" {
+		tx = r.db.WithContext(ctx).Raw(q+" RETURNING msg_id", terminalStatus, channel, accountID, msgIDs, conversationID)
+	} else {
+		tx = r.db.WithContext(ctx).Raw(q+" RETURNING msg_id", terminalStatus, channel, accountID, msgIDs)
+	}
+	if err = tx.Scan(&updatedIDs).Error; err != nil {
+		return nil, 0, err
+	}
+	affectedRows = int64(len(updatedIDs))
+	return updatedIDs, affectedRows, nil
+}
+
+// AnyExistsByMsgIDs 检查 msg_id 列表在指定 channel 下"任何账号"是否存在（2026-08-15 P0-8）。
+//
+// 用途：ack 详细化流程中，msg_id 在 (channel, account_id) 范围 not_found 时，
+// 调用此方法确认其是否"被其他账号持有"——若是，分类为 not_in_scope（防越权探测）。
+//
+// 返回：map[msg_id]bool，true 表示存在（任何账号下任何方向的行）
+func (r *MessageHubRepository) AnyExistsByMsgIDs(ctx context.Context, channel string, msgIDs []string) (map[string]bool, error) {
+	if r == nil || r.db == nil || len(msgIDs) == 0 || channel == "" {
+		return map[string]bool{}, nil
+	}
+	out := make(map[string]bool, len(msgIDs))
+	for _, id := range msgIDs {
+		out[id] = false
+	}
+	type idRow struct {
+		MsgID string `gorm:"column:msg_id"`
+	}
+	var rows []idRow
+	err := r.db.WithContext(ctx).
+		Model(&model.MessageHub{}).
+		Select("DISTINCT msg_id").
+		Where("platform = ? AND msg_id IN ?", channel, msgIDs).
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[r.MsgID] = true
+	}
+	return out, nil
 }

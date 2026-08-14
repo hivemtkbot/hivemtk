@@ -12,6 +12,8 @@
 
 [![Go 1.25](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev) [![Vue 3](https://img.shields.io/badge/Vue-3-42b883?logo=vue.js&logoColor=white)](https://vuejs.org) [![Docker](https://img.shields.io/badge/Docker-24+-2496ED?logo=docker&logoColor=white)](https://www.docker.com) [![PostgreSQL 15+](https://img.shields.io/badge/PostgreSQL-15+-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org) [![License AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE) [![Gitee](https://img.shields.io/badge/Gitee-xhpmayun%2Fhivemtk-C71D23?logo=gitee)](https://gitee.com/xhpmayun/hivemtk) [![GitHub](https://img.shields.io/badge/GitHub-xiaofang142%2Fhivemtk-181717?logo=github)](https://github.com/xiaofang142/hivemtk)
 
+[![CI Status](https://img.shields.io/github/actions/workflow/status/xiaofang142/hivemtk/user-server-ci.yml?branch=master&label=CI&logo=github-actions&logoColor=white)](https://github.com/xiaofang142/hivemtk/actions/workflows/user-server-ci.yml) [![Codecov](https://img.shields.io/codecov/c/github/xiaofang142/hivemtk?logo=codecov&logoColor=white)](https://codecov.io/gh/xiaofang142/hivemtk) [![Dependabot Status](https://img.shields.io/badge/Dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](https://github.com/xiaofang142/hivemtk/network/dependencies) [![Code style: go](https://img.shields.io/badge/code%20style-gofmt-00ADD8?logo=go&logoColor=white)](https://golang.org)
+
 </div>
 
 ---
