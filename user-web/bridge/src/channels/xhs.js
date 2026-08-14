@@ -153,8 +153,11 @@ function getAccountId() {
     const ls = localStorage.getItem(`hivebridge:account:${CHANNELS.XHS}`);
     if (ls) return ls;
   } catch (e) { /* noop */ }
-  // 5) 稳定 unknown（绝不返回空串，避免 WS 握手持空 account_id → 服务端 401 → 全链路断）
-  return `${CHANNELS.XHS}-unknown`;
+  // 5) 兜底空串（2026-08-14 治本）：旧逻辑回退 `${CHANNELS.XHS}-unknown` 污染后端入库
+  //    与按 account_id 关联 outbound 的查询链路，导致 AI 出站回采识别失败、回环拦截失效。
+  //    改为空串后，后端层0 改用 (platform + sender_name + content) 三元组命中 outbound，
+  //    完全不依赖 account_id。WS 通道（若回归）需在后端容忍空 account_id 或前端另设兜底。
+  return '';
 }
 
 // 当前会话 id（小红书的会话 id 多为联系人的 user id）。

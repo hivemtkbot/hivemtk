@@ -65,7 +65,10 @@ export function makeUnifiedMessage({
   // event_id 由调用方显式提供（DOM data-message-id 或 `c:${text}` 兜底），后端按 event_id 幂等去重。
   // 自/他判定已移交后端（服务端内容回显检测 + sender_type 强制覆盖），前端不再计算内容 hash。
   const stableEventId = event_id;
-  return {
+  // 2026-08-14 治本：account_id 缺失（DOM 兜底失败）时不发该字段，避免后端 400「channel and account_id required」
+  // 与 `${channel}-unknown` 占位污染入库链路。后端层0 改用 (platform+sender_name+content) 三元组命中 outbound，
+  // 完全不依赖 account_id；account_id 缺失不应被用于关联判据。
+  const out = {
     channel,
     account_id,
     conversation_id,
@@ -86,6 +89,8 @@ export function makeUnifiedMessage({
     history: historyList,
     extra: Object.keys(extra).length ? extra : undefined,
   };
+  if (!account_id) delete out.account_id;
+  return out;
 }
 
 // 消息内容哈希（与服务端 internal/service/webhook.go::ContentHashMsgID 严格一致）。

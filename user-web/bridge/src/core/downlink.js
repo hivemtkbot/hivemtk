@@ -122,7 +122,14 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
     //   跨会话同 content 的 AI 回复 msg_id 相同，若只用 msg_id 做 key，
     //   第一会话 ack 后 cache.add(msg_id) → 第二会话 cache.has(msg_id) 命中 → 跳过，永远不下发！
     //   复合键保证不同会话的同 msg_id 消息各自独立去重。
-    const convId = m.conversation_id || '_unknown_';
+    // 主动私信场景（后端 Extra.dm_target==='member'）：以 receiver_id（成员标识）为会话定位键，
+    // 而非原群会话 conversation_id——抖音私信会话 id 即成员标识，列表匹配可打开已有私信会话。
+    let convId = m.conversation_id || '_unknown_';
+    if (m.receiver_id && m.receiver_id !== m.conversation_id) {
+      let ex = m.extra;
+      if (typeof ex === 'string') { try { ex = JSON.parse(ex); } catch (_) { ex = null; } }
+      if (ex && ex.dm_target === 'member') convId = m.receiver_id;
+    }
     const cacheKey = `${m.msg_id}|${convId}`;
     if (cache.has(cacheKey)) continue; // 已发过，绝不重复
     const raw = m.content || '';
@@ -152,7 +159,7 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
       try {
         if (sendOutbound) {
           result = await withTimeout(
-            sendOutbound(sanitized, msg.conversation_id, { viaAdapter: channel }),
+            sendOutbound(sanitized, convId, { viaAdapter: channel }),
             sendTimeoutMs,
             `sendOutbound(${channel}:${convId})`
           );
@@ -180,7 +187,7 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
           await sleep(waitMs);
           try {
             const r2 = await withTimeout(
-              sendOutbound(sanitized, msg.conversation_id, { viaAdapter: channel }),
+              sendOutbound(sanitized, convId, { viaAdapter: channel }),
               sendTimeoutMs,
               `sendOutbound-retry(${channel}:${convId})`
             );

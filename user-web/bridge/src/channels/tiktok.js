@@ -192,8 +192,9 @@ function getAccountId() {
     }
   }
 
-  // 4) 稳定 unknown（绝不返回空串，避免 WS 401）
-  return `${CHANNELS.TIKTOK}-unknown`;
+  // 4) 兜底空串（2026-08-14 治本）：旧逻辑回退 `${CHANNELS.TIKTOK}-unknown` 污染后端入库
+  //    与按 account_id 关联 outbound 的查询链路。改为空串，后端层0 用三元组命中 outbound。
+  return '';
 }
 
 // —— 当前会话 ID ——

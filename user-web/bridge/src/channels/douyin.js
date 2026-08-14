@@ -191,8 +191,11 @@ function getAccountId() {
     const ls = localStorage.getItem(`hivebridge:account:${CHANNELS.DOUYIN}`);
     if (ls) return ls;
   } catch (e) { /* noop */ }
-  // 5) 稳定 unknown（绝不返回空串，避免 WS 握手持空 account_id → 服务端 401 → 全链路断）
-  return `${CHANNELS.DOUYIN}-unknown`;
+  // 5) 兜底空串（2026-08-14 治本）：旧逻辑回退 `${CHANNELS.DOUYIN}-unknown` 污染后端入库
+  //    与按 account_id 关联 outbound 的查询链路，导致 AI 出站回采识别失败、回环拦截失效。
+  //    改为空串后，后端层0 改用 (platform + sender_name + content) 三元组命中 outbound，
+  //    完全不依赖 account_id。
+  return '';
 }
 
 // —— 非文字消息提取（问题 3）——

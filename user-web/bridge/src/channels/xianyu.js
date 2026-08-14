@@ -193,8 +193,9 @@ function getAccountId() {
     const ls = localStorage.getItem(`hivebridge:account:${CHANNELS.XIANYU}`);
     if (ls) return ls;
   } catch (e) { /* noop */ }
-  // 4) 稳定 unknown
-  return `${CHANNELS.XIANYU}-unknown`;
+  // 4) 兜底空串（2026-08-14 治本）：旧逻辑回退 `${CHANNELS.XIANYU}-unknown` 污染后端入库
+  //    与按 account_id 关联 outbound 的查询链路。改为空串，后端层0 用三元组命中 outbound。
+  return '';
 }
 
 // 当前会话 id（闲鱼）
