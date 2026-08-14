@@ -48,3 +48,21 @@ func (r *MessageHubRepository) ClaimPendingOutbound(ctx context.Context, channel
 	}
 	return list, nil
 }
+
+// GetByMsgIDsInScope 批量查询 (platform, account_id, msg_id IN [...]) 的 message_hub 行（P3-D）。
+//
+// 用于 ack 详细化：先批量查每条 msg_id 的当前 status，再分类执行更新 / 幂等跳过 / 不存在。
+// 限制 (platform, account_id) 避免越权查询其他账号的出站消息。
+func (r *MessageHubRepository) GetByMsgIDsInScope(ctx context.Context, platform, accountID string, msgIDs []string) ([]model.MessageHub, error) {
+	if r == nil || r.db == nil || len(msgIDs) == 0 || platform == "" || accountID == "" {
+		return nil, nil
+	}
+	rows := make([]model.MessageHub, 0, len(msgIDs))
+	err := r.db.WithContext(ctx).
+		Where("platform = ? AND account_id = ? AND msg_id IN ?", platform, accountID, msgIDs).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}

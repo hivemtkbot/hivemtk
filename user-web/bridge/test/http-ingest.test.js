@@ -11,6 +11,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   buildIngestUrl,
+  buildAuthHeaders,
   describeIngestParams,
   previewBody,
   fetchWithRetry,
@@ -20,13 +21,14 @@ import {
 } from '../src/core/http-ingest.js';
 
 describe('http-ingest / buildIngestUrl', () => {
-  it('默认 baseUrl 拼接 /api/bridge/ingest', () => {
+  it('默认 baseUrl 拼接 /api/bridge/ingest（2026-08-14 P0-A：token 不在 URL）', () => {
     const url = buildIngestUrl('http://localhost:8204', {
       channel: 'xiaohongshu',
       accountId: 'acc-1',
       token: 'tkn-1234',
     });
-    expect(url).toBe('http://localhost:8204/api/bridge/ingest?channel=xiaohongshu&account_id=acc-1&token=tkn-1234');
+    expect(url).toBe('http://localhost:8204/api/bridge/ingest?channel=xiaohongshu&account_id=acc-1');
+    expect(url).not.toContain('token=');
   });
 
   it('ws:// 自动归一为 http://', () => {
@@ -36,6 +38,7 @@ describe('http-ingest / buildIngestUrl', () => {
       token: 't',
     });
     expect(url.startsWith('http://localhost:8204/api/bridge/ingest?')).toBe(true);
+    expect(url).not.toContain('token=');
   });
 
   it('wss:// 自动归一为 https://', () => {
@@ -45,6 +48,7 @@ describe('http-ingest / buildIngestUrl', () => {
       token: 't',
     });
     expect(url.startsWith('https://api.example.com/api/bridge/ingest?')).toBe(true);
+    expect(url).not.toContain('token=');
   });
 
   it('带 conversationId 时拼上', () => {
@@ -67,13 +71,11 @@ describe('http-ingest / buildIngestUrl', () => {
     expect(url).not.toContain('conversation_id=');
   });
 
-  it('空 token 不拼 token 参数', () => {
-    const url = buildIngestUrl('http://x', {
-      channel: 'xianyu',
-      accountId: 'acc-6',
-      token: '',
-    });
-    expect(url).not.toContain('token=');
+  it('2026-08-14 P0-A：无论 token 是否有值，都不进 URL', () => {
+    const url1 = buildIngestUrl('http://x', { channel: 'c', accountId: 'a', token: '' });
+    const url2 = buildIngestUrl('http://x', { channel: 'c', accountId: 'a', token: 'secret' });
+    expect(url1).not.toContain('token=');
+    expect(url2).not.toContain('token=');
   });
 
   it('channel 空字符串也允许（服务端会拒绝）', () => {
@@ -97,6 +99,25 @@ describe('http-ingest / buildIngestUrl', () => {
   });
 });
 
+describe('http-ingest / buildAuthHeaders (2026-08-14 P0-A)', () => {
+  it('有 token 时设 Authorization: Bearer <token>', () => {
+    const h = buildAuthHeaders('my-secret-token');
+    expect(h['Content-Type']).toBe('application/json');
+    expect(h['Authorization']).toBe('Bearer my-secret-token');
+  });
+
+  it('空 token 不设 Authorization（让服务端走匿名/默认分支）', () => {
+    const h = buildAuthHeaders('');
+    expect(h['Content-Type']).toBe('application/json');
+    expect(h['Authorization']).toBeUndefined();
+  });
+
+  it('token 前后空白被 trim', () => {
+    const h = buildAuthHeaders('  trimmed  ');
+    expect(h['Authorization']).toBe('Bearer trimmed');
+  });
+});
+
 describe('http-ingest / describeIngestParams', () => {
   it('正常 URL 解析出 origin / path / query', () => {
     const url = buildIngestUrl('http://localhost:8204', {
@@ -111,23 +132,22 @@ describe('http-ingest / describeIngestParams', () => {
     expect(desc.query.account_id).toBe('a1');
   });
 
-  it('token 自动脱敏（前 4 + *** + 长度）', () => {
+  it('2026-08-14 P0-A：URL 中无 token → describeIngestParams 也无 token 字段', () => {
     const url = buildIngestUrl('http://localhost:8204', {
       channel: 'douyin',
       accountId: 'a2',
       token: 'abcdefghij',
     });
     const desc = describeIngestParams(url);
-    expect(desc.query.token).toBe('abcd***(10 chars)');
+    expect(desc.query.token).toBeUndefined();
   });
 
-  it('空 token 不在脱敏串中显示', () => {
+  it('无 token 入参时 describeIngestParams 不写入 token', () => {
     const url = buildIngestUrl('http://localhost:8204', {
       channel: 'douyin',
       accountId: 'a3',
     });
     const desc = describeIngestParams(url);
-    // URL 不带 token → describeIngestParams 不写入 desc.query.token
     expect(desc.query.token).toBeUndefined();
   });
 
@@ -177,8 +197,14 @@ describe('http-ingest / previewBody', () => {
 
 describe('http-ingest / fetchWithRetry', () => {
   let realFetch;
-  beforeEach(() => {
+  beforeEach(async () => {
     realFetch = globalThis.fetch;
+    // 2026-08-15 P3-A：重置 CB 幂等键
+    const cbMod = await import('../src/core/circuit-breaker.js');
+    if (cbMod && cbMod.circuitBreaker) {
+      cbMod.circuitBreaker._idempotencyKeys?.clear?.();
+      cbMod.circuitBreaker.__reset?.();
+    }
   });
   afterEach(() => {
     globalThis.fetch = realFetch;
@@ -290,8 +316,14 @@ describe('http-ingest / fetchWithRetry', () => {
 
 describe('http-ingest / postIngest', () => {
   let realFetch;
-  beforeEach(() => {
+  beforeEach(async () => {
     realFetch = globalThis.fetch;
+    // 2026-08-15 P3-A：重置 CB 幂等键，避免跨测试污染导致同 idempotencyKey 被短路
+    const cbMod = await import('../src/core/circuit-breaker.js');
+    if (cbMod && cbMod.circuitBreaker) {
+      cbMod.circuitBreaker._idempotencyKeys?.clear?.();
+      cbMod.circuitBreaker.__reset?.();
+    }
   });
   afterEach(() => {
     globalThis.fetch = realFetch;
@@ -347,7 +379,9 @@ describe('http-ingest / postIngest', () => {
     expect(captured.url).toContain('channel=xiaohongshu');
     expect(captured.url).toContain('account_id=acc-x');
     expect(captured.url).toContain('conversation_id=conv-x');
-    expect(captured.url).toContain('token=tkn-xyz');
+    // 2026-08-14 P0-A：token 走 Authorization Header，不再放 URL query
+    expect(captured.url).not.toContain('token=');
+    expect(captured.init.headers['Authorization']).toBe('Bearer tkn-xyz');
     expect(captured.init.method).toBe('POST');
     expect(captured.init.headers['Content-Type']).toBe('application/json');
     const parsedBody = JSON.parse(captured.init.body);

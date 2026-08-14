@@ -216,3 +216,128 @@ func (s *InboxIngressService) AckOutboundDelivered(ctx context.Context, channel,
 	}
 	return int(affected), nil
 }
+
+// AckOutboundItem 单条 msg_id 的 ack 处理结果（2026-08-15 P3-D）。
+//
+// 状态语义：
+//   - "acked"        此前为 pending/inflight，本次已翻转为 delivered
+//   - "duplicate"    此前已为 delivered，本次幂等跳过（前端应从本地重试队列移除并停止重发）
+//   - "not_found"    本渠道账号下不存在该 msg_id（前端应停止重发，可能被 GC 回收或归属错）
+//
+// 错误码语义：
+//   - ""              无错误
+//   - "ownership_mismatch" (预留) msg_id 归属其他 (platform, account_id)
+type AckOutboundItem struct {
+	MsgID  string `json:"msg_id"`
+	Status string `json:"status"` // acked | duplicate | not_found
+}
+
+// AckOutboundResult 批量 ack 结果（P3-D 详细化）。
+type AckOutboundResult struct {
+	AffectedCount int              `json:"affected_count"`
+	DuplicateCount int             `json:"duplicate_count"`
+	NotFoundCount int              `json:"not_found_count"`
+	Items         []AckOutboundItem `json:"items"`
+}
+
+// AckOutboundDeliveredDetailed 批量 ack 详细版（P3-D）：返回每条 msg_id 的处理状态。
+//
+// 2026-08-15 头脑风暴二次论证 P3-D（ack 幂等协议 6/10 → 10/10）：
+//   同类对比（whatsapp-web.js / WPPConnect）通过 event_id 去重防止重发；
+//   Baileys 通过 msg.key.id + sendUniqueKey 双重去重。
+//   本服务现状：AckOutboundDelivered 内部已幂等（仅更新 status IN pending/inflight），
+//   但前端拿到的是 affected_count，无法区分：
+//     - 哪些 msg_id 是"本次成功 ack"
+//     - 哪些 msg_id 是"已 delivered 的重复 ack"
+//     - 哪些 msg_id 是"不存在的（GC 回收 / 归属错）"
+//   这导致前端重试器无法精确停止重发——可能让用户收到重复消息。
+//
+// 协议契约（与前端 downlink.js 配套）：
+//   响应：{ acked, duplicate_count, not_found_count, items: [{msg_id, status}, ...] }
+//   前端收到 duplicate 时：清空本地重试队列 + 停止重发；
+//   收到 not_found 时：记录异常 + 停止重发（可能是归属错或被 GC）；
+//   收到 acked 时：正常清理重试队列。
+func (s *InboxIngressService) AckOutboundDeliveredDetailed(ctx context.Context, channel, accountID string, msgIDs []string) (*AckOutboundResult, error) {
+	result := &AckOutboundResult{
+		Items: make([]AckOutboundItem, 0, len(msgIDs)),
+	}
+	if s.hubRepo == nil || len(msgIDs) == 0 {
+		return result, nil
+	}
+
+	// 1) 拉取所有目标 msg_id 在 (channel, account_id) 下的当前 status
+	rows, err := s.hubRepo.GetByMsgIDsInScope(ctx, channel, accountID, msgIDs)
+	if err != nil {
+		return nil, err
+	}
+	statusByMsgID := make(map[string]string, len(rows))
+	for _, h := range rows {
+		statusByMsgID[h.MsgID] = h.Status
+	}
+
+	// 2) 分类：需要更新的（pending/inflight） vs 已 delivered（幂等跳过） vs 不存在
+	toAck := make([]string, 0, len(msgIDs))
+	for _, id := range msgIDs {
+		if id == "" {
+			continue
+		}
+		status, exists := statusByMsgID[id]
+		if !exists {
+			result.Items = append(result.Items, AckOutboundItem{MsgID: id, Status: "not_found"})
+			result.NotFoundCount++
+			continue
+		}
+		if status == "delivered" {
+			result.Items = append(result.Items, AckOutboundItem{MsgID: id, Status: "duplicate"})
+			result.DuplicateCount++
+			continue
+		}
+		// pending / inflight 等其他状态都翻转为 delivered
+		toAck = append(toAck, id)
+		result.Items = append(result.Items, AckOutboundItem{MsgID: id, Status: "acked"})
+	}
+
+	// 3) 批量更新
+	if len(toAck) > 0 {
+		affected, err := s.hubRepo.AckOutboundDeliveredBatch(ctx, channel, accountID, toAck)
+		if err != nil {
+			return nil, err
+		}
+		result.AffectedCount = int(affected)
+	}
+
+	// 4) 节点9 ack 上报：每条已处理 msg_id 记一条节点（与 AckOutboundDelivered 保持一致）
+	ackTimer := tracing.StartSpan()
+	for _, item := range result.Items {
+		if item.Status == "not_found" {
+			continue
+		}
+		hub, _ := s.hubRepo.GetByMsgID(ctx, item.MsgID)
+		var traceID, convID string
+		if hub != nil {
+			traceID, convID = hub.TraceID, hub.ConversationID
+		}
+		tracing.RecordNode(ctx, tracing.NodeSpan{
+			TraceID:        traceID,
+			ConversationID: convID,
+			AccountID:      accountID,
+			Channel:        channel,
+			Node:           tracing.NodeDeliveredAck,
+			Direction:      "outbound",
+			MsgID:          item.MsgID,
+			Input: map[string]any{
+				"channel":     channel,
+				"account_id":  accountID,
+				"msg_id":      item.MsgID,
+				"ack_status":  item.Status, // 节点侧区分幂等 / 首次
+			},
+			Output: map[string]any{
+				"status": "delivered",
+			},
+			DurationMs: ackTimer.ElapsedMs(),
+			Expected:   "pending → delivered（桥接已成功转发到网页）",
+			Status:     tracing.StatusOk,
+		})
+	}
+	return result, nil
+}
