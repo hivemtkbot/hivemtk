@@ -234,7 +234,7 @@ func (c *Customer360Controller) GetCustomer360ByID(ctx *gin.Context) {
 		return
 	}
 
-	dto, err := c.customer360Service.GetCustomer360(context.Background(), userID)
+	dto, err := c.customer360Service.GetCustomer360ByCustomerID(context.Background(), userID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -305,7 +305,7 @@ func (c *Customer360Controller) GetCustomerDetail(ctx *gin.Context) {
 		return
 	}
 
-	dto, err := c.customer360Service.GetCustomer360(context.Background(), userID)
+	dto, err := c.customer360Service.GetCustomer360ByCustomerID(context.Background(), userID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -357,7 +357,7 @@ func (c *Customer360Controller) UpdateCustomer(ctx *gin.Context) {
 	}
 
 	// 返回更新后的 360 视图（如果构建失败则返回基础信息）
-	dto, dtoErr := c.customer360Service.GetCustomer360(context.Background(), userID)
+	dto, dtoErr := c.customer360Service.GetCustomer360ByCustomerID(context.Background(), userID)
 	if dtoErr != nil {
 		response.Success(ctx, gin.H{
 			"id":          view.ID,

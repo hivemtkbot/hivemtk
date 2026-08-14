@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"hivemtk-user/internal/model"
 
@@ -28,6 +29,7 @@ type Customer360Service struct {
 	orderRepo        repository.OrderRepository
 	unifiedMsgRepo   repository.UnifiedMessageRepository
 	unifiedReplyRepo repository.UnifiedReplyRepository
+	customerRepo     repository.CustomerRepository
 }
 
 func NewCustomer360ServiceWithDB(db *gorm.DB) *Customer360Service {
@@ -38,6 +40,7 @@ func NewCustomer360ServiceWithDB(db *gorm.DB) *Customer360Service {
 		orderRepo:        repository.NewOrderRepositoryWithDB(db),
 		unifiedMsgRepo:   repository.NewUnifiedMessageRepositoryWithDB(db),
 		unifiedReplyRepo: repository.NewUnifiedReplyRepositoryWithDB(db),
+		customerRepo:     repository.NewCustomerRepository(),
 	}
 }
 
@@ -49,6 +52,7 @@ func NewCustomer360Service() *Customer360Service {
 		orderRepo:        repository.NewOrderRepository(),
 		unifiedMsgRepo:   repository.NewUnifiedMessageRepository(),
 		unifiedReplyRepo: repository.NewUnifiedReplyRepository(),
+		customerRepo:     repository.NewCustomerRepository(),
 	}
 }
 
@@ -215,6 +219,106 @@ func (s *Customer360Service) GetCustomer360(ctx context.Context, userID string) 
 	dto.UserProfile = s.buildUserProfile(ctx, userSessions, dto.InteractionStats, dto.OrderInfo)
 
 	return dto, nil
+}
+
+// GetCustomer360ByCustomerID 按客户档案主键 id 获取客户 360° 视图。
+//
+// 前端调用 /api/customer/360/:id 与 /api/customer/:id 时传入的是 customers 表主键 id，
+// 而底层会话表（customer_sessions）与客户档案的关联键是 one_id（= customers.unified_id），
+// 并非会话的 user_id 字段。因此这里先按客户 id 解析出 unified_id，再按 one_id 查会话。
+//
+// 即使该客户当前没有关联会话（customer_sessions.one_id 为空是常见情况），也返回客户基本
+// 档案（姓名/电话/邮箱/OneID 等），不再误报 404。
+func (s *Customer360Service) GetCustomer360ByCustomerID(ctx context.Context, customerID string) (*Customer360DTO, error) {
+	cust, err := s.customerRepo.GetByID(ctx, customerID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrCustomerNotFound
+		}
+		return nil, err
+	}
+	if cust == nil {
+		return nil, ErrCustomerNotFound
+	}
+
+	dto := &Customer360DTO{}
+
+	// 用客户的 OneID 查关联会话（会话 one_id = customers.unified_id）
+	sessions, err := s.sessionRepo.GetByOneID(ctx, cust.UnifiedID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 基本信息：优先从客户档案填充（不依赖会话是否存在）
+	dto.BasicInfo = s.buildBasicInfoFromCustomer(cust, sessions)
+
+	if len(sessions) == 0 {
+		// 无会话时仍返回客户档案，仅会话相关字段留空，避免误报 404
+		dto.SessionStats = &SessionStatistics{}
+		dto.InteractionStats = &InteractionStats{}
+		dto.UserProfile = &UserProfile{}
+		return dto, nil
+	}
+
+	// 2. 填充会话统计
+	dto.SessionStats = s.buildSessionStats(ctx, sessions)
+
+	// 3. 填充会话历史
+	dto.SessionHistory = s.buildSessionHistory(ctx, sessions)
+
+	// 4. 填充消息历史（批量拉所有 session 消息，按 session_id 分桶）
+	dto.MessageHistory, _ = s.buildMessageHistory(ctx, sessions)
+
+	// 5. 填充线索信息（单次 SQL 拉取）
+	dto.ClueInfo, _ = s.buildClueInfo(ctx, cust.UnifiedID, sessions)
+
+	// 6. 填充订单信息（单次 SQL 拉取）
+	dto.OrderInfo, _ = s.buildOrderInfo(ctx, cust.UnifiedID, sessions)
+
+	// 7. 填充互动统计
+	dto.InteractionStats = s.buildInteractionStats(ctx, sessions)
+
+	// 8. 填充用户画像
+	dto.UserProfile = s.buildUserProfile(ctx, sessions, dto.InteractionStats, dto.OrderInfo)
+
+	return dto, nil
+}
+
+// buildBasicInfoFromCustomer 从客户档案构造基本展示信息；若有关联会话，补充首次/最近活跃时间。
+func (s *Customer360Service) buildBasicInfoFromCustomer(cust *model.Customer, sessions []*model.CustomerSession) *CustomerBasicInfo {
+	info := &CustomerBasicInfo{
+		UserID:    cust.ID,
+		UserPhone: cust.Phone,
+		UserEmail: cust.Email,
+	}
+	if cust.UnifiedID != "" {
+		info.SourcePlatform = cust.UnifiedID
+	}
+	if len(sessions) > 0 {
+		var firstSeenAt, lastSeenAt string
+		for _, session := range sessions {
+			ts := session.CreatedAt.Format("2006-01-02 15:04:05")
+			if firstSeenAt == "" || ts < firstSeenAt {
+				firstSeenAt = ts
+			}
+			if lastSeenAt == "" || ts > lastSeenAt {
+				lastSeenAt = ts
+			}
+		}
+		info.FirstSeenAt = firstSeenAt
+		info.LastSeenAt = lastSeenAt
+		info.SourcePlatform = string(sessions[0].Platform)
+		if info.UserName == "" {
+			info.UserName = sessions[0].UserName
+		}
+		if info.UserPhone == "" {
+			info.UserPhone = sessions[0].UserPhone
+		}
+		if info.UserEmail == "" {
+			info.UserEmail = sessions[0].UserEmail
+		}
+	}
+	return info
 }
 
 func (s *Customer360Service) buildBasicInfo(ctx context.Context, sessions []*model.CustomerSession) *CustomerBasicInfo {

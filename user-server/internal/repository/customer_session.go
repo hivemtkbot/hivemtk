@@ -167,6 +167,65 @@ func (r *CustomerSessionRepository) GetByUserID(ctx context.Context, userID stri
 	return sessions, nil
 }
 
+// GetByOneID 按客户 OneID（unified_id）拉取该客户的所有会话。
+//
+// 客户档案（customers 表）的主键 id 与客户会话（customer_sessions 表）的 user_id 字段
+// 语义不同：会话的 user_id 是会话创建时的访客 ID（如 web_embed 的 v_xxx），而真正关联到
+// 客户档案的键是 one_id（= customers.unified_id）。因此「按客户 id 查 360」应先解析出
+// unified_id，再用本方法按 one_id 查询会话，而不是把客户 id 直接当 user_id 查。
+func (r *CustomerSessionRepository) GetByOneID(ctx context.Context, oneID string) ([]*model.CustomerSession, error) {
+	if oneID == "" {
+		return nil, nil
+	}
+	var sessions []*model.CustomerSession
+	err := r.db.WithContext(ctx).
+		Where("one_id = ?", oneID).
+		Order("created_at ASC").
+		Find(&sessions).Error
+	if err != nil {
+		return nil, err
+	}
+	return sessions, nil
+}
+
+// ListByOneIDsBatch 批量按 one_id 拉取会话，返回按 one_id 分组的 map（CC- N+1 优化）
+//
+// 用于「客户列表 → 每客户 360 视图」场景：单次 SQL 拉所有客户的会话，
+// 避免 N 个客户各跑一次 GetByOneID 造成的 N+1。
+func (r *CustomerSessionRepository) ListByOneIDsBatch(ctx context.Context, oneIDs []string) (map[string][]*model.CustomerSession, error) {
+	result := make(map[string][]*model.CustomerSession, len(oneIDs))
+	if len(oneIDs) == 0 {
+		return result, nil
+	}
+	unique := make([]string, 0, len(oneIDs))
+	seen := make(map[string]struct{}, len(oneIDs))
+	for _, id := range oneIDs {
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return result, nil
+	}
+	var sessions []*model.CustomerSession
+	if err := r.db.WithContext(ctx).
+		Where("one_id IN ?", unique).
+		Order("created_at ASC").
+		Find(&sessions).Error; err != nil {
+		return nil, err
+	}
+	for _, s := range sessions {
+		oid := s.OneID
+		result[oid] = append(result[oid], s)
+	}
+	return result, nil
+}
+
 // ListByUserIDsBatch 批量按 user_id 拉取会话，返回按 user_id 分组的 map（CC- N+1 优化）
 //
 // 用于「客户列表 → 每用户 360 视图」场景：单次 SQL 拉所有用户的会话，

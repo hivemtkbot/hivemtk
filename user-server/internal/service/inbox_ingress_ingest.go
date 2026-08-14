@@ -89,24 +89,23 @@ func (s *InboxIngressService) interceptInbound(ctx context.Context, event *model
 		return &IngressDecision{}, nil
 	}
 
-	senderKey := s.senderKeyForDedup(event)
-	dedupHash := ContentHashWithSender(event.Channel, senderKey, content)
-
-	if existing, err := s.hubRepo.GetByDedupHash(ctx, event.Channel, dedupHash); err == nil && existing != nil {
-		if existing.Direction == "outbound" {
-			return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(outbound dedup_hash match)"}, nil
-		}
-	}
-
-	if ob, err := s.hubRepo.GetByPlatformContentNormalized(ctx, event.Channel, content); err == nil && ob != nil {
-
-		if event.SenderID == "" || ob.SenderID == "" || event.SenderID == ob.SenderID ||
-			event.SenderType == "self" || event.SenderType == "agent" {
-			return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(normalized content+sender match)"}, nil
-		}
+	// 层0·自回显权威检测（机制级三元组判据，不信任前端自/他声明）：
+	// 自/他判定的唯一权威事实源 = 服务端真实下发的 outbound 内容（AI/坐席出站经 sendOutbound
+	// 落库于 message_hub.direction='outbound'）。桥接扩展把本账号 AI 出站回复从 DOM 抓取后
+	// 恒标 sender_type='customer'/sender_id=会话ID 重发——前端自/他不可信；前端 account_id 在
+	// getAccountId DOM 兜底失败时回退 `${channel}-unknown` 污染入库——account_id 不可信。
+	//
+	// 权威判据（用户核心原则）：
+	//   平台 + 用户名称(右侧 header getPeerName() 稳定名) + 内容 三元组命中 outbound。
+	//   - 真实客户消息 sender_name=客户昵称，与 outbound sender_name=AI/账号名不匹配 → 不误拦。
+	//   - 桥接回采 AI 气泡 sender_name=AI/账号名（与 outbound 同）→ 三元组精确命中 → 拦截。
+	//   - sender_name 为空时（极小概率）方法内部降级为 platform+content 兜底。
+	if ob, oerr := s.hubRepo.GetOutboundByPlatformSenderContent(ctx, event.Channel, event.SenderName, content); oerr == nil && ob != nil {
+		return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(matched outbound by platform+sender_name+content)"}, nil
 	}
 
 	if s.cache != nil {
+		dedupHash := ContentHashWithSender(event.Channel, s.senderKeyForDedup(event), content)
 		dupKey := InboxSenderContentDedupKey + dedupHash
 		if ok, derr := s.cache.SetNX(ctx, dupKey, "1", InboxContentDedupTTL); derr == nil && !ok {
 			return &IngressDecision{Blocked: true, IsDup: true, Reason: "duplicate(channel+sender+content) within window"}, nil
@@ -154,4 +153,15 @@ func groupNameOf(event *model.MessageEvent) string {
 		}
 	}
 	return ""
+}
+
+// isBridgeRelayChannel 判断是否为网页桥接上报渠道（xiaohongshu/douyin）。
+// 仅这两个渠道的桥接扩展会硬编码回采消息 sender_id=会话ID（见 xhs.js:644），
+// 据此指纹判定 AI 回采时不误伤 web_embed / telegram 等 sender_id 语义不同的渠道。
+func isBridgeRelayChannel(ch string) bool {
+	switch strings.ToLower(strings.TrimSpace(ch)) {
+	case "xiaohongshu", "douyin":
+		return true
+	}
+	return false
 }
