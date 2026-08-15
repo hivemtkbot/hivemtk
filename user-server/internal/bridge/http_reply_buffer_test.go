@@ -19,7 +19,6 @@ func TestHTTPReplyBuffer_Basic(t *testing.T) {
 		if got.Content != "你好" {
 			t.Errorf("Content = %q, want 你好", got.Content)
 		}
-		// 同一 reply 已被消费，再次拉取应返回 nil
 		if again := b.Pull("xiaohongshu", "conv_1", "evt_1"); again != nil {
 			t.Errorf("二次 Pull 应返回 nil，实际 %+v", again)
 		}
@@ -30,11 +29,9 @@ func TestHTTPReplyBuffer_Basic(t *testing.T) {
 		reply := &UnifiedReply{Channel: "xiaohongshu", AccountID: "xhs_1", ConversationID: "conv_1", Content: "你好"}
 		b.Push(reply)
 
-		// conversation_id 不匹配 → 不消费，放回
 		if got := b.Pull("xiaohongshu", "conv_2", ""); got != nil {
 			t.Errorf("不匹配的 conv_id 应返回 nil，实际 %+v", got)
 		}
-		// 再用正确的 conv_id 仍能拉到
 		if got := b.Pull("xiaohongshu", "conv_1", ""); got == nil {
 			t.Error("不匹配后放回：再次匹配应能拉到")
 		}
@@ -59,11 +56,9 @@ func TestHTTPReplyBuffer_Basic(t *testing.T) {
 
 	t.Run("FIFO 容量上限", func(t *testing.T) {
 		b := newHTTPReplyBuffer()
-		// Push 超过 maxLen
 		for i := 0; i < b.maxLen+10; i++ {
 			b.Push(&UnifiedReply{Channel: "test_cap", AccountID: "a", ConversationID: "c", Content: "msg"})
 		}
-		// 拉取所有：总数应不超过 maxLen + 少量（Push 时 FIFO 丢最早）
 		count := 0
 		for {
 			r := b.Pull("test_cap", "", "")
@@ -82,7 +77,6 @@ func TestHTTPReplyBuffer_Basic(t *testing.T) {
 
 	t.Run("waitForReply 超时返回 nil", func(t *testing.T) {
 		b := newHTTPReplyBuffer()
-		// 不 Push
 		start := time.Now()
 		got := b.waitForReply("empty_ch", "", "", 300*time.Millisecond)
 		elapsed := time.Since(start)
@@ -107,9 +101,9 @@ func TestHTTPReplyBuffer_Basic(t *testing.T) {
 		if got == nil {
 			t.Fatal("应命中")
 		}
-		// 命中应远小于 timeout
 		if elapsed > 500*time.Millisecond {
 			t.Errorf("命中耗时过长：elapsed=%v", elapsed)
 		}
 	})
 }
+

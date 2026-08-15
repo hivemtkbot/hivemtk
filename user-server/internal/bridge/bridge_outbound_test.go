@@ -38,3 +38,4 @@ func TestBridgeOutbound_DeliversViaHTTPBuffer(t *testing.T) {
 		t.Errorf("reply.AccountID = %q, want acc1", reply.AccountID)
 	}
 }
+

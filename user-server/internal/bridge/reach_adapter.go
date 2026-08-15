@@ -29,7 +29,6 @@ import (
 type BridgeReachAdapter struct {
 	inner   tooluse.ReachAdapter
 	ingress *service.InboxIngressService
-	// httpReplyBuffer HTTP 模式 reply 缓冲（跨传输层共享；HTTP ingest 长轮询从该 buffer 拉）
 	httpReplyBuffer *httpReplyBuffer
 }
 
@@ -75,8 +74,6 @@ func GlobalBridgeReachAdapter() *BridgeReachAdapter {
 // 2026-08-05 渠道编码统一：bridge 渠道名 = 平台全名（无 _web 后缀）。
 func SetBridgeReachAdapter(a *BridgeReachAdapter) {
 	globalReach = a
-	// 注册 AI 回复出站回调（WebhookService.sendOutbound 桥接分支在 8f4625d 后已直接落库 message_hub，
-	// 此处 RegisterBridgeOutbound 回调内部经 Send* → httpReplyBuffer 属遗留接线，仅保留接口兼容）。
 	service.RegisterBridgeOutbound(func(ctx context.Context, channel, accountID, conversationID, msgType, content, eventID string) error {
 		switch channel {
 		case ChannelDouyinWeb:
@@ -112,7 +109,6 @@ func (a *BridgeReachAdapter) deliverHTTP(ctx context.Context, channel, accountID
 	if a == nil {
 		return "", errors.New("bridge adapter not initialized")
 	}
-	// 7 防止 XSS 巨大 payload：单条回复限制 4KB
 	truncated := false
 	if len(content) > maxReplyContentBytes {
 		logger.Ctx(ctx).Warn().Str("module", "bridge").Int("orig_bytes", len(content)).Msg("bridge reply content truncated (anti-xss)")
@@ -165,11 +161,6 @@ func (a *BridgeReachAdapter) EnqueueManualReply(ctx context.Context, channel, ac
 	return a.ingress.DeliverOutbound(ctx, h)
 }
 
-// ===== 以下为 ReachAdapter 接口实现 =====
-//
-// HTTP-only 模式：所有桥接渠道（douyin/xiaohongshu/tiktok/xianyu/kuaishou）的出站走
-// deliverHTTP（入 httpReplyBuffer）→ 下次 /api/bridge/ingest 长轮询拉到 → 扩展端回写网页。
-// 不再判在线、不再持久化失败：HTTP 模式下 reply 直接入 buffer，没有「扩展离线」概念。
 
 func (a *BridgeReachAdapter) SendSMS(ctx context.Context, phone, content, templateID string, params map[string]string) (string, error) {
 	return a.inner.SendSMS(ctx, phone, content, templateID, params)
@@ -248,19 +239,12 @@ func (a *BridgeReachAdapter) ListAccounts(ctx context.Context, channel string) (
 	return a.inner.ListAccounts(ctx, channel)
 }
 
-// extractEventID 从 ctx 取出出站事件 ID（由 WebhookService 透传，便于 ClaimReply 幂等）
-//
-// ctx key: bridge_event_id；调用方通过 WithEventID 注入。
-//
-// 2026-08-05 修复：原误把 ctxKeyEventID 定义为 const string，无引用价值，纯累赘，
-// 删掉以保持文件极简。
 
 // WithEventID 注入出站事件 ID 到 ctx（供 ClaimReply 使用）
 func WithEventID(ctx context.Context, eventID string) context.Context {
 	if eventID == "" {
 		return ctx
 	}
-	// 用唯一 key 类型避免与其他包冲突
 	return context.WithValue(ctx, bridgeEventIDKey{}, eventID)
 }
 
@@ -275,3 +259,4 @@ func extractEventID(ctx context.Context) string {
 	}
 	return ""
 }
+

@@ -51,7 +51,6 @@ func TestCollectHTTPRequestInfo(t *testing.T) {
 
 		info := collectHTTPRequestInfo(c)
 
-		// 字段断言
 		if info.Method != "POST" {
 			t.Errorf("Method = %q, want POST", info.Method)
 		}
@@ -73,11 +72,9 @@ func TestCollectHTTPRequestInfo(t *testing.T) {
 		if info.UserAgent != "Mozilla/5.0 HiveBridge/1.0" {
 			t.Errorf("UserAgent = %q, want Mozilla/5.0 HiveBridge/1.0", info.UserAgent)
 		}
-		// token 脱敏
 		if !strings.Contains(info.TokenMasked, "***") {
 			t.Errorf("TokenMasked = %q, 应含 ***", info.TokenMasked)
 		}
-		// parsed_query 包含 channel/account_id/token
 		if v, ok := info.ParsedQuery["channel"]; !ok || v != "xiaohongshu" {
 			t.Errorf("parsed_query.channel = %v, want xiaohongshu", v)
 		}
@@ -87,7 +84,6 @@ func TestCollectHTTPRequestInfo(t *testing.T) {
 		if v, ok := info.ParsedQuery["token"]; !ok || !strings.Contains(v, "***") {
 			t.Errorf("parsed_query.token = %v, 应含 ***", v)
 		}
-		// body 预览
 		if !strings.Contains(info.BodyPreview, "xiaohongshu") {
 			t.Errorf("BodyPreview 应包含 channel 字段，实际 %q", info.BodyPreview)
 		}
@@ -121,7 +117,6 @@ func TestCollectHTTPRequestInfo(t *testing.T) {
 		if info.BodySize != sb.Len() {
 			t.Errorf("BodySize = %d, want %d", info.BodySize, sb.Len())
 		}
-		// 截断预览应 <= 4KB
 		if len(info.BodyPreview) > 5000 {
 			t.Errorf("BodyPreview 长度 %d 超过截断上限", len(info.BodyPreview))
 		}
@@ -152,7 +147,6 @@ func TestCollectHTTPRequestInfo(t *testing.T) {
 }
 
 func TestHTTPIngestRequest_JsonBind(t *testing.T) {
-	// 验证 HTTPIngestRequest JSON 序列化与反序列化符合预期
 	body := `{
 		"channel": "xiaohongshu",
 		"account_id": "xhs_1",
@@ -209,7 +203,6 @@ func TestHTTPIngestRequest_JsonBind(t *testing.T) {
 }
 
 func TestHTTPIngestResponse_Defaults(t *testing.T) {
-	// 验证响应结构体默认值
 	resp := HTTPIngestResponse{
 		OK:         true,
 		Ingested:   nil,
@@ -224,7 +217,6 @@ func TestHTTPIngestResponse_Defaults(t *testing.T) {
 	if resp.OutboundReplies != nil {
 		t.Errorf("OutboundReplies 应为 nil（omitempty）")
 	}
-	// 序列化验证 omitempty 生效
 	data, err := json.Marshal(resp)
 	if err != nil {
 		t.Fatalf("Marshal 失败: %v", err)
@@ -243,7 +235,6 @@ func TestHTTPIngestHandler_BadRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("缺 channel", func(t *testing.T) {
-		// 不注入 ingress：handler 不应到达业务逻辑
 		h := NewBridgeIngestHandler(nil)
 		r := gin.New()
 		r.POST("/api/bridge/ingest", h.HandleHTTPIngest)
@@ -301,7 +292,6 @@ func TestHTTPIngestHandler_BadRequest(t *testing.T) {
 }
 
 func TestHttpMessageToEvent(t *testing.T) {
-	// 验证 httpMessageToEvent 转换逻辑
 	m := &HTTPIngestMessage{
 		EventID:        "evt_1",
 		Channel:        "xiaohongshu",
@@ -337,7 +327,7 @@ func TestRedactOutboundReplies(t *testing.T) {
 	replies := []*UnifiedReply{
 		{Channel: "xiaohongshu", AccountID: "xhs_1", ConversationID: "conv_1", Content: "你好", ReplyToEventID: "evt_1"},
 		{Channel: "xiaohongshu", AccountID: "xhs_1", ConversationID: "conv_1", Content: strings.Repeat("a", 300), Truncated: true, ReplyToEventID: "evt_2"},
-		nil, // 跳过 nil
+		nil, 
 	}
 	out := redactOutboundReplies(replies)
 	if len(out) != 2 {
@@ -346,10 +336,9 @@ func TestRedactOutboundReplies(t *testing.T) {
 	if out[0]["content_preview"] != "你好" {
 		t.Errorf("第 1 条 content_preview = %v, want 你好", out[0]["content_preview"])
 	}
-	if out[0]["content_length"].(int) != 6 { // "你好" UTF-8 6 字节
+	if out[0]["content_length"].(int) != 6 { 
 		t.Errorf("第 1 条 content_length = %v, want 6", out[0]["content_length"])
 	}
-	// 第 2 条：300 个 a → preview 应含 "..."
 	p2 := out[1]["content_preview"].(string)
 	if !strings.HasSuffix(p2, "...") {
 		t.Errorf("第 2 条 content_preview 应以 ... 结尾（200 截断），实际 %q", p2[len(p2)-20:])
@@ -362,3 +351,4 @@ func min(a, b int) int {
 	}
 	return b
 }
+

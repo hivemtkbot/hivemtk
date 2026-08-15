@@ -8,19 +8,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// =============================================================
-// bridge 模块共享辅助函数（与传输层无关：HTTP 模式专属工具，不依赖 WebSocket）
-//
-// 2026-08-05 架构重构：bridge 模块彻底移除 WebSocket 长连接，
-// 原 handler.go 中以下内容仍被 HTTP 端使用，迁移到本文件：
-//   - OwnershipChecker：账号归属校验（HTTP ingest 端点使用）
-//   - maskTokenBridge / itoa / describeUpstreamQuery：日志脱敏工具
-//   - historyItemToEvent / toMessageEvent：消息事件映射
-//   - maxReplyContentBytes：单条 AI 回复最大字节数（reach_adapter 截断使用）
-//
-// 2026-08-10 协议单源化：消息事件映射委托 channelgw 规范化转换器
-// （HTTP/WS 传输共用同一转换器，消除多套重复实现）。
-// =============================================================
 
 // 单条 AI 回复最大字节数（防止 XSS payload 巨大 + 平台限制）
 // 与前端 constants.SECURITY.maxReplyContentBytes 严格对齐
@@ -118,3 +105,4 @@ func toMessageEvent(m *UnifiedMessage) *model.MessageEvent {
 	m.Channel = ToBridgeChannel(m.Channel)
 	return m.ToEventFull("http")
 }
+

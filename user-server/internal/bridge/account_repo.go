@@ -38,7 +38,6 @@ func (r *BridgeAccountRepository) Upsert(ctx context.Context, u BridgeAccountUps
 		var acc model.BridgeAccount
 		err := r.db.WithContext(ctx).Where("channel = ? AND account_id = ?", u.Channel, u.AccountID).First(&acc).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// 首建：归属必须是当前请求用户
 			acc = model.BridgeAccount{
 				Channel:   u.Channel,
 				AccountID: u.AccountID,
@@ -55,7 +54,7 @@ func (r *BridgeAccountRepository) Upsert(ctx context.Context, u BridgeAccountUps
 			acc.LastSyncAt = &now
 			if cerr := r.db.WithContext(ctx).Create(&acc).Error; cerr != nil {
 				if isUniqueViolation(cerr) {
-					continue // 并发首建冲突：下一轮按"已存在"分支处理
+					continue 
 				}
 				return cerr
 			}
@@ -67,7 +66,6 @@ func (r *BridgeAccountRepository) Upsert(ctx context.Context, u BridgeAccountUps
 			return err
 		}
 
-		// 记录已存在：归属冲突校验
 		if acc.UserID != u.UserID {
 			now := time.Now()
 			_ = r.db.WithContext(ctx).Model(&model.BridgeAccount{}).
@@ -76,7 +74,6 @@ func (r *BridgeAccountRepository) Upsert(ctx context.Context, u BridgeAccountUps
 			return ErrAccountOwnedByOther
 		}
 
-		// 归属一致：允许更新昵称/智能体/状态，但绝不改动 user_id
 		acc.Status = u.Status
 		now := time.Now()
 		acc.LastSyncAt = &now
@@ -131,7 +128,6 @@ func (r *BridgeAccountRepository) SetOffline(ctx context.Context, channel, accou
 	if ctx == nil {
 		dbCtx = context.Background()
 	} else {
-		// 解绑取消传播，保留 trace_id 等值
 		dbCtx = context.WithoutCancel(ctx)
 	}
 	return r.db.WithContext(dbCtx).Model(&model.BridgeAccount{}).
@@ -236,7 +232,7 @@ func (r *BridgeAccountRepository) IsOnline(ctx context.Context, channel, account
 	var acc model.BridgeAccount
 	if err := r.db.WithContext(ctx).Where("channel = ? AND account_id = ?", channel, accountID).First(&acc).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, nil // 账号不存在视为离线
+			return false, nil 
 		}
 		return false, err
 	}
@@ -254,3 +250,4 @@ func (r *BridgeAccountRepository) GetByChannelAccount(ctx context.Context, chann
 }
 
 var _ BridgeAccountRepo = (*BridgeAccountRepository)(nil)
+

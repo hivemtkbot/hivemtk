@@ -23,7 +23,6 @@ func TestBridgeReachAdapter_OnlineDeliversToBuffer(t *testing.T) {
 	if id == "" {
 		t.Fatal("expected non-empty message id")
 	}
-	// 验证 reply 已入 buffer
 	reply := adapter.httpReplyBuffer.Pull(ChannelDouyinWeb, "conv1", "")
 	if reply == nil {
 		t.Fatal("expected reply in httpReplyBuffer, got nil")
@@ -69,3 +68,4 @@ func TestBridgeReachAdapter_XHSAndTikTokDeliversToBuffer(t *testing.T) {
 		t.Errorf("TikTok buffer 应有 reply，实际 %+v", reply)
 	}
 }
+

@@ -9,12 +9,12 @@ import (
 // 正常原因不应误标。这是前端 uplink._markConfirmedFromResponse 正确闭环的服务端契约。
 func TestIsIngestDuplicate_ReasonKeywords(t *testing.T) {
 	positive := []string{
-		"msg_id already exists",           // 钩子2：msg_id 已落库
-		"intercepted by dedup middleware", // 统一收件中间件拦截（回环/短时重复）
-		"platform echo detected",          // 自/他回显
-		"duplicate delivery in 5min",      // 重复投递
-		"skip due to cooldown",            // 跳过
-		"already exists in db",            // 兜底已存在
+		"msg_id already exists",           
+		"intercepted by dedup middleware", 
+		"platform echo detected",          
+		"duplicate delivery in 5min",      
+		"skip due to cooldown",            
+		"already exists in db",            
 	}
 	for _, r := range positive {
 		if !isIngestDuplicate(r) {
@@ -35,3 +35,4 @@ func TestIsIngestDuplicate_ReasonKeywords(t *testing.T) {
 		}
 	}
 }
+

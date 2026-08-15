@@ -36,7 +36,6 @@ func TestAckBridgeOutbox_DetailedItems_P3D(t *testing.T) {
 		},
 		func(ctx context.Context, ev *model.MessageEvent, direction string) error { return nil },
 	)
-	// 注入 ingress（mock 路径走 mockHandle，但 ack 走真实 svc）
 	h.ingress = svc
 
 	const (
@@ -44,7 +43,6 @@ func TestAckBridgeOutbox_DetailedItems_P3D(t *testing.T) {
 		accountID = "acc_p3d_1"
 		conv      = "conv_p3d"
 	)
-	// seed 3 条 pending
 	for _, c := range []string{"msg_a content", "msg_b content", "msg_c content"} {
 		hub := &model.MessageHub{
 			Platform:       channel,
@@ -61,12 +59,10 @@ func TestAckBridgeOutbox_DetailedItems_P3D(t *testing.T) {
 		}
 	}
 
-	// 先单独 ack msg_b（让它变 delivered）
 	if n, err := svc.AckOutboundDelivered(context.Background(), channel, accountID, []string{"mh:msg_b content"}); err != nil || n != 1 {
 		t.Fatalf("首次 ack msg_b 应返回 1，实际 (%d, %v)", n, err)
 	}
 
-	// 构造批量 ack 请求：[a, b（已 delivered）, c, d（不存在）]
 	body := `{"msg_ids":["mh:msg_a content","mh:msg_b content","mh:msg_c content","mh:msg_d content"],"status":"delivered"}`
 	req := httptest.NewRequest("POST", "/api/bridge/outbox/ack?channel="+channel+"&account_id="+accountID, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -81,17 +77,16 @@ func TestAckBridgeOutbox_DetailedItems_P3D(t *testing.T) {
 	respStr := rr.Body.String()
 	expects := []string{
 		`"status":"ok"`,
-		`"affected_count":2`,     // msg_a + msg_c（pending → delivered）
-		`"acked_items_count":2`,  // msg_id 维度命中
-		`"duplicate_count":1`,    // msg_b
-		`"not_found_count":1`,    // msg_d
+		`"affected_count":2`,     
+		`"acked_items_count":2`,  
+		`"duplicate_count":1`,    
+		`"not_found_count":1`,    
 	}
 	for _, e := range expects {
 		if !strings.Contains(respStr, e) {
 			t.Errorf("响应缺少 %q\n实际响应: %s", e, respStr)
 		}
 	}
-	// 验证每条 msg_id 的 status 字段
 	perMsgChecks := []string{
 		`"msg_id":"mh:msg_a content","status":"acked"`,
 		`"msg_id":"mh:msg_b content","status":"duplicate"`,
@@ -116,7 +111,6 @@ func TestAckBridgeOutbox_TooManyMsgIDs_P3D(t *testing.T) {
 	h := NewBridgeIngestHandlerWithMock(nil, nil)
 	h.ingress = svc
 
-	// 构造 501 个 msg_ids
 	ids := make([]string, 501)
 	for i := range ids {
 		ids[i] = `mh:test`
@@ -150,7 +144,6 @@ func TestAckOutboundDeliveredDetailed_CrossSession_P3D(t *testing.T) {
 		accountID = "acc_cross"
 		content   = "cross session content"
 	)
-	// seed 同一 account 不同会话的两条 outbound
 	for _, c := range []string{"conv_1", "conv_2"} {
 		h := &model.MessageHub{
 			Platform:       channel,
@@ -166,8 +159,7 @@ func TestAckOutboundDeliveredDetailed_CrossSession_P3D(t *testing.T) {
 			t.Fatalf("seed 失败: %v", err)
 		}
 	}
-	// 详细 ack：应该两条都翻转为 delivered
-	res, err := svc.AckOutboundDeliveredDetailed(ctx, channel, accountID, []string{"mh:cross"})
+	res, err := svc.AckOutboundDeliveredDetailed(ctx, channel, accountID, []string{"mh:cross"}, "", "delivered", nil)
 	if err != nil {
 		t.Fatalf("AckOutboundDeliveredDetailed: %v", err)
 	}
@@ -195,7 +187,6 @@ func TestGetByMsgIDsInScope_OwnershipIsolation_P3D(t *testing.T) {
 	}
 	hubRepo := repository.NewMessageHubRepositoryWithDB(db)
 	ctx := context.Background()
-	// seed：accountA 有 msgA，accountB 有 msgB
 	for _, c := range []struct {
 		acc, msg string
 	}{
@@ -216,7 +207,6 @@ func TestGetByMsgIDsInScope_OwnershipIsolation_P3D(t *testing.T) {
 			t.Fatalf("seed: %v", err)
 		}
 	}
-	// 查 accountA 下 [msgA, msgB]：只应返回 msgA
 	rows, err := hubRepo.GetByMsgIDsInScope(ctx, "douyin_web", "acc_A", []string{"mh:msgA", "mh:msgB"})
 	if err != nil {
 		t.Fatalf("GetByMsgIDsInScope: %v", err)
@@ -247,7 +237,6 @@ func TestAckOutboundDeliveredDetailed_ConcurrentDoubleAck_P4(t *testing.T) {
 		accountID = "acc_race"
 		msgID     = "mh:race_msg"
 	)
-	// seed 1 条 pending
 	hub := &model.MessageHub{
 		Platform:       channel,
 		AccountID:      accountID,
@@ -270,13 +259,12 @@ func TestAckOutboundDeliveredDetailed_ConcurrentDoubleAck_P4(t *testing.T) {
 	for i := 0; i < N; i++ {
 		go func(idx int) {
 			defer wg.Done()
-			r, e := svc.AckOutboundDeliveredDetailed(ctx, channel, accountID, []string{msgID})
+			r, e := svc.AckOutboundDeliveredDetailed(ctx, channel, accountID, []string{msgID}, "", "delivered", nil)
 			results[idx] = r
 			errs[idx] = e
 		}(i)
 	}
 	wg.Wait()
-	// 汇总：acked_items_count 总和 = 1（仅 1 个真正翻了）
 	totalAcked := 0
 	totalDup := 0
 	for i, r := range results {
@@ -301,13 +289,10 @@ func TestAckOutboundDeliveredDetailed_ConcurrentDoubleAck_P4(t *testing.T) {
 
 // TestAckOutboundDeliveredDetailed_HubRepoNil_P4 验证 P4-3.1：hubRepo nil 必须返 error。
 func TestAckOutboundDeliveredDetailed_HubRepoNil_P4(t *testing.T) {
-	// 故意构造 svc 不注入 hubRepo
 	db := testutil.NewTestDB(t, &model.MessageHub{})
 	_ = db.Exec("DELETE FROM message_hub").Error
 	svc := service.NewInboxIngressServiceWithDB(db, nil)
-	// 显式清空 hubRepo
-	// (svc 内部 hubRepo 字段已为 nil 因为 NewInboxIngressServiceWithDB 第二参数为 nil)
-	r, err := svc.AckOutboundDeliveredDetailed(context.Background(), "douyin", "acc", []string{"m1"})
+	r, err := svc.AckOutboundDeliveredDetailed(context.Background(), "douyin", "acc", []string{"m1"}, "", "delivered", nil)
 	if err == nil {
 		t.Fatalf("hubRepo nil 应返回 error，实际 (result=%+v, err=nil)", r)
 	}
@@ -325,7 +310,6 @@ func TestAckOutboundDeliveredDetailed_DuplicateMsgIDInput_P4(t *testing.T) {
 	}
 	svc := service.NewInboxIngressServiceWithDB(db, nil)
 	ctx := context.Background()
-	// seed 1 条
 	hub := &model.MessageHub{
 		Platform:       "douyin",
 		AccountID:      "acc_dup",
@@ -339,12 +323,10 @@ func TestAckOutboundDeliveredDetailed_DuplicateMsgIDInput_P4(t *testing.T) {
 	if err := db.Create(hub).Error; err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	// 入参重复 3 次同一 msg_id
-	r, err := svc.AckOutboundDeliveredDetailed(ctx, "douyin", "acc_dup", []string{"mh:dup", "mh:dup", "mh:dup"})
+	r, err := svc.AckOutboundDeliveredDetailed(ctx, "douyin", "acc_dup", []string{"mh:dup", "mh:dup", "mh:dup"}, "", "delivered", nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	// items 应当只 1 条（去重后），不是 3 条
 	if len(r.Items) != 1 {
 		t.Errorf("期望 items=1（去重后），实际 %d", len(r.Items))
 	}
@@ -361,7 +343,6 @@ func TestGetByMsgIDsInScope_OnlyOutbound_P4(t *testing.T) {
 	}
 	hubRepo := repository.NewMessageHubRepositoryWithDB(db)
 	ctx := context.Background()
-	// seed：相同 msg_id 但不同 direction
 	for _, c := range []struct {
 		direction, msg string
 	}{
@@ -386,7 +367,6 @@ func TestGetByMsgIDsInScope_OnlyOutbound_P4(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	// 仅应返回 outbound 行（1 条）
 	outboundCount := 0
 	for _, h := range rows {
 		if h.Direction == "outbound" {
@@ -397,3 +377,4 @@ func TestGetByMsgIDsInScope_OnlyOutbound_P4(t *testing.T) {
 		t.Errorf("期望仅返回 1 条 outbound，实际 %d 条（rows=%+v）", outboundCount, rows)
 	}
 }
+

@@ -1,8 +1,5 @@
 package bridge
 
-// P0 全面升级测试（2026-08-15 10/10 任务清单）。
-//
-// 覆盖 P0-1（conversation_id 过滤）+ P0-2（Error 透传）+ P0-3（failed 终态）+ P0-8（not_in_scope 区分）。
 
 import (
 	"context"
@@ -46,7 +43,6 @@ func TestAckOutboundDeliveredDetailed_FailedStatus_P0_3(t *testing.T) {
 	if err := db.Create(hub).Error; err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	// 用 terminalStatus="failed" 标记
 	res, err := svc.AckOutboundDeliveredDetailed(ctx, channel, accountID, []string{"mh:fail_1"}, "", "failed", nil)
 	if err != nil {
 		t.Fatalf("AckOutboundDeliveredDetailed: %v", err)
@@ -85,7 +81,6 @@ func TestAckOutboundDeliveredDetailed_ConversationIDFilter_P0_1(t *testing.T) {
 		accountID = "acc_conv"
 		msgID     = "mh:shared_msg"
 	)
-	// seed 同一 msg_id 在 conv_A 和 conv_B 下各 1 条
 	for _, conv := range []string{"conv_A", "conv_B"} {
 		h := &model.MessageHub{
 			Platform:       channel,
@@ -101,7 +96,6 @@ func TestAckOutboundDeliveredDetailed_ConversationIDFilter_P0_1(t *testing.T) {
 			t.Fatalf("seed %s 失败: %v", conv, err)
 		}
 	}
-	// 限定 conversation_id=conv_A → 只翻 A
 	res, err := svc.AckOutboundDeliveredDetailed(ctx, channel, accountID, []string{msgID}, "conv_A", "delivered", nil)
 	if err != nil {
 		t.Fatalf("AckOutboundDeliveredDetailed: %v", err)
@@ -142,7 +136,6 @@ func TestAckOutboundDeliveredDetailed_NotInScope_P0_8(t *testing.T) {
 		msgInOther  = "mh:other_account_msg"
 		msgMissing  = "mh:truly_missing"
 	)
-	// seed：accountB 持有 msgInOther（不在 accountA 范围）
 	h := &model.MessageHub{
 		Platform:       channel,
 		AccountID:      accountB,
@@ -156,7 +149,6 @@ func TestAckOutboundDeliveredDetailed_NotInScope_P0_8(t *testing.T) {
 	if err := db.Create(h).Error; err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	// accountA 试 ack [msgInOther（本应在 B 名下）, msgMissing（真不存在）]
 	res, err := svc.AckOutboundDeliveredDetailed(ctx, channel, accountA, []string{msgInOther, msgMissing}, "", "delivered", nil)
 	if err != nil {
 		t.Fatalf("AckOutboundDeliveredDetailed: %v", err)
@@ -206,7 +198,6 @@ func TestAckOutboundDeliveredDetailed_ErrorField_P0_2(t *testing.T) {
 	if err := db.Create(hub).Error; err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	// 入参 perItem 带 Error
 	perItem := map[string]service.BridgeOutboundAckInput{
 		"mh:err": {MsgID: "mh:err", Status: "failed", Error: "send_timeout"},
 	}
@@ -220,7 +211,6 @@ func TestAckOutboundDeliveredDetailed_ErrorField_P0_2(t *testing.T) {
 	if res.Items[0].Error != "send_timeout" {
 		t.Errorf("期望 Error=send_timeout，实际 %s", res.Items[0].Error)
 	}
-	// 验证 JSON 序列化包含 error 字段
 	b, _ := json.Marshal(res.Items[0])
 	if !strings.Contains(string(b), `"error":"send_timeout"`) {
 		t.Errorf("JSON 序列化未含 error 字段: %s", string(b))
@@ -242,7 +232,6 @@ func TestAckBridgeOutbox_V2Protocol_P0_1(t *testing.T) {
 		channel   = "douyin_web"
 		accountID = "acc_v2"
 	)
-	// seed
 	hub := &model.MessageHub{
 		Platform:       channel,
 		AccountID:      accountID,
@@ -256,7 +245,6 @@ func TestAckBridgeOutbox_V2Protocol_P0_1(t *testing.T) {
 	if err := db.Create(hub).Error; err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	// 缺 conversation_id → 400
 	body := `{"v":2,"items":[{"msg_id":"mh:v2_test"}],"status":"delivered"}`
 	req := httptest.NewRequest("POST", "/api/bridge/outbox/ack?channel="+channel+"&account_id="+accountID, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -270,7 +258,6 @@ func TestAckBridgeOutbox_V2Protocol_P0_1(t *testing.T) {
 	if !strings.Contains(rr.Body.String(), "conversation_id required") {
 		t.Errorf("响应缺 'conversation_id required' 提示: %s", rr.Body.String())
 	}
-	// 完整 v2 协议：应 200
 	body2 := `{"v":2,"items":[{"msg_id":"mh:v2_test","conversation_id":"conv_v2","status":"delivered"}]}`
 	req2 := httptest.NewRequest("POST", "/api/bridge/outbox/ack?channel="+channel+"&account_id="+accountID, strings.NewReader(body2))
 	req2.Header.Set("Content-Type", "application/json")
@@ -398,7 +385,6 @@ func TestAckOutboundDeliveredDetailed_CrossAccountProbe_NotInScope_P0_6(t *testi
 	svc := service.NewInboxIngressServiceWithDB(db, nil)
 	ctx := context.Background()
 
-	// seed：账号 B 持 outbound m_probe
 	if err := db.Create(&model.MessageHub{
 		Platform:       "douyin_web",
 		AccountID:      "acc_B",
@@ -412,7 +398,6 @@ func TestAckOutboundDeliveredDetailed_CrossAccountProbe_NotInScope_P0_6(t *testi
 		t.Fatalf("seed B 失败: %v", err)
 	}
 
-	// A 探测 m_probe（应在 B 名下）
 	res, err := svc.AckOutboundDeliveredDetailed(ctx, "douyin_web", "acc_A", []string{"m_probe"}, "", "delivered", nil)
 	if err != nil {
 		t.Fatalf("A 探测失败: %v", err)
@@ -479,7 +464,6 @@ func TestAckBridgeOutbox_CrossAccountProbe_NotInScope_P0_6(t *testing.T) {
 	h := NewBridgeIngestHandlerWithMock(nil, nil)
 	h.ingress = svc
 
-	// seed：账号 B 持 outbound
 	if err := db.Create(&model.MessageHub{
 		Platform:       "douyin_web",
 		AccountID:      "acc_B",
@@ -493,7 +477,6 @@ func TestAckBridgeOutbox_CrossAccountProbe_NotInScope_P0_6(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	// A 通过 HTTP ack m_probe_http
 	body := `{"msg_ids":["m_probe_http"],"status":"delivered"}`
 	req := httptest.NewRequest("POST", "/api/bridge/outbox/ack?channel=douyin_web&account_id=acc_A", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -505,11 +488,9 @@ func TestAckBridgeOutbox_CrossAccountProbe_NotInScope_P0_6(t *testing.T) {
 		t.Fatalf("期望 200，实际 %d: %s", rr.Code, rr.Body.String())
 	}
 
-	// 验证响应含 not_in_scope_count=1
 	if !strings.Contains(rr.Body.String(), `"not_in_scope_count":1`) {
 		t.Errorf("响应缺 not_in_scope_count=1: %s", rr.Body.String())
 	}
-	// 不应返回 ownership_mismatch 或其他具体归属信息（防越权信息泄露）
 	if strings.Contains(rr.Body.String(), "acc_B") {
 		t.Errorf("响应不应泄露目标归属账号（B 的 account_id 不应出现在 A 的响应中）")
 	}
@@ -523,3 +504,4 @@ func TestAckBridgeOutbox_CrossAccountProbe_NotInScope_P0_6(t *testing.T) {
 		t.Errorf("B 的行不应被 A 操作影响，期望 pending，实际 %s", b.Status)
 	}
 }
+

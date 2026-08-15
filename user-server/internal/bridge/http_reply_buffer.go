@@ -21,7 +21,7 @@ import (
 // 内存占用：每条 reply 约 200B-2KB（content 截断 4KB），256 条 × 5 渠道 ≈ 2.5MB 上限。
 type httpReplyBuffer struct {
 	mu     sync.Mutex
-	queues map[string]chan *UnifiedReply // key: channel
+	queues map[string]chan *UnifiedReply 
 	maxLen int
 }
 
@@ -54,16 +54,13 @@ func (b *httpReplyBuffer) Push(r *UnifiedReply) {
 	select {
 	case q <- r:
 	default:
-		// 缓冲满：丢弃最早一条
 		select {
 		case <-q:
 		default:
 		}
-		// 重新尝试一次（理论仅丢 1 条）
 		select {
 		case q <- r:
 		default:
-			// 真满（极端）：丢当前
 		}
 	}
 }
@@ -83,7 +80,6 @@ func (b *httpReplyBuffer) Pull(channel, conversationID, replyToEventID string) *
 		return nil
 	}
 	q := b.queue(channel)
-	// 非持锁扫描：把所有元素 drain 到切片
 	items := drainNonBlocking(q)
 	if len(items) == 0 {
 		return nil
@@ -100,12 +96,10 @@ func (b *httpReplyBuffer) Pull(channel, conversationID, replyToEventID string) *
 		}
 		remaining = append(remaining, r)
 	}
-	// 把不匹配的全部放回（顺序保持）
 	for _, r := range remaining {
 		select {
 		case q <- r:
 		default:
-			// 缓冲真满（极端）：丢弃
 		}
 	}
 	return matched
@@ -139,3 +133,4 @@ func (b *httpReplyBuffer) waitForReply(channel, conversationID, replyToEventID s
 		time.Sleep(pollInterval)
 	}
 }
+

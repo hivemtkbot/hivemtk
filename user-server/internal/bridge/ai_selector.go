@@ -17,20 +17,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ============================================================================
-// AI 动态选择器端点（解耦硬编码选择器）
-//
-// 前端插件把「脱敏 DOM 结构快照」POST 上来 → 后端用 LLM 生成标准 SelectorSpec
-// （消息列表/消息项/文本/输入框/发送按钮/自他标记 → 以及「可执行 JS 抽取器」）→ 返回给插件缓存执行。
-//
-// 这样「选择器」不再是前端写死的常量，而是「云端 LLM 生成的运行时产物」：
-//   抖音网页改版 → 只需 LLM 重新识别 → 前端无需发版即可恢复抓取。
-// LLM key 在本服务（本地 Mac，经 frp 穿透），不进前端、不经公网明文。
-// 插件端：命中优先用缓存，连续 0 命中/无缓存时自动重新请求（自愈）。
-//
-// 2026-08-04 升级：主路径改为 LLM 直接返回「可执行 JS 抽取器」(spec.extractor)，
-// 经 new Function 沙箱式执行，彻底不再依赖固定选择器 schema，最大限度兼容平台改版。
-// ============================================================================
 
 const selectorSpecVersion = 3
 
@@ -49,16 +35,13 @@ type SelectorSpec struct {
 	Channel     string   `json:"channel"`
 	Domain      string   `json:"domain"`
 	GeneratedAt int64    `json:"generated_at"`
-	MessageList []string `json:"message_list"` // 消息列表容器
-	MessageItem []string `json:"message_item"` // 单条消息气泡（选择器兜底）
-	Text        []string `json:"text"`         // 气泡内文本节点（选择器兜底）
-	InputBox    []string `json:"input_box"`    // 输入框（contenteditable/textarea）
-	SendButton  []string `json:"send_button"`  // 发送按钮
-	SelfMarker  []string `json:"self_marker"`  // 标记「自己/发出」的气泡 class 或选择器
-	OtherMarker []string `json:"other_marker"` // 标记「客户/收到」的气泡 class 或选择器
-	// Extractor 是「可执行 JS 抽取器」源码：函数 (doc, win) => ({ messages, input_box, send_button })。
-	// 这是**主路径**，彻底不依赖固定选择器 schema —— 即使平台 DOM 大改，LLM 重新生成即可恢复，
-	// 前端经 new Function 沙箱式执行（仅读 DOM，无网络/存储）。无 LLM 或抽取器不可用时回退到上面选择器。
+	MessageList []string `json:"message_list"` 
+	MessageItem []string `json:"message_item"` 
+	Text        []string `json:"text"`         
+	InputBox    []string `json:"input_box"`    
+	SendButton  []string `json:"send_button"`  
+	SelfMarker  []string `json:"self_marker"`  
+	OtherMarker []string `json:"other_marker"` 
 	Extractor string `json:"extractor,omitempty"`
 	Notes     string `json:"notes,omitempty"`
 }
@@ -72,7 +55,7 @@ type aiSelectorsRequest struct {
 
 type aiSelectorsResponse struct {
 	Enabled bool          `json:"enabled"`
-	Source  string        `json:"source"` // "llm" | "cache" | "fallback"
+	Source  string        `json:"source"` 
 	Spec    *SelectorSpec `json:"spec,omitempty"`
 	Reason  string        `json:"reason,omitempty"`
 }
@@ -129,7 +112,6 @@ func AISelectors(c *gin.Context) {
 //
 // 返回 nil 表示无任何可用 LLM → 调用方应回退规则引擎（不抛错）。
 func resolveLLMConfig() *llm.LLMConfig {
-	// 1) 显式覆盖（最高优先级）
 	if ak := os.Getenv("BRIDGE_DIAGNOSE_API_KEY"); ak != "" {
 		return &llm.LLMConfig{
 			APIKey:      ak,
@@ -139,14 +121,13 @@ func resolveLLMConfig() *llm.LLMConfig {
 			Temperature: 0.1,
 		}
 	}
-	// 2) 复用系统全局 Dispatcher 中已启用且带真实密钥的云端厂商
 	if d := llm.GetGlobalDispatcher(); d != nil {
 		for _, p := range d.GetProviderList() {
 			if !p.Enabled || p.APIKey == "" || p.BaseURL == "" {
 				continue
 			}
 			if p.Name == "default" || isLocalhostURL(p.BaseURL) {
-				continue // 跳过本地推理（默认 default，可能未运行）
+				continue 
 			}
 			return &llm.LLMConfig{
 				APIKey:      p.APIKey,
@@ -179,8 +160,6 @@ func isLocalhostURL(u string) bool {
 }
 
 func generateSelectorSpec(ctx context.Context, req aiSelectorsRequest, cfg *llm.LLMConfig) (*SelectorSpec, error) {
-	// 截断超大快照：推理模型会把 token 预算花在 reasoning 上，快照越长推理越久，
-	// 容易把 max_tokens 耗尽导致最终答案(content)被截断。6000 字符对选择器识别已足够。
 	snapshot := req.DomSnapshot
 	const maxSnap = 6000
 	if len(snapshot) > maxSnap {
@@ -198,8 +177,6 @@ func generateSelectorSpec(ctx context.Context, req aiSelectorsRequest, cfg *llm.
 	if err != nil {
 		return nil, err
 	}
-	// 主路径是 extractor（可执行 JS 抽取器）；选择器仅作兜底。
-	// 二者至少要有其一：若都没有，说明 LLM 没识别出任何可用结构。
 	if len(spec.MessageItem) == 0 && spec.Extractor == "" {
 		return nil, fmt.Errorf("llm returned neither message_item selectors nor an extractor")
 	}
@@ -256,7 +233,6 @@ func parseSelectorSpec(raw string, req aiSelectorsRequest) (*SelectorSpec, error
 		return nil, fmt.Errorf("unmarshal selector spec: %w", err)
 	}
 
-	// 抽取器：有则必须安全，否则丢弃（不阻断，前端会回退到选择器）
 	extractor := ""
 	if partial.Extractor != "" {
 		if err := sanitizeExtractor(partial.Extractor); err != nil {
@@ -289,14 +265,10 @@ func parseSelectorSpec(raw string, req aiSelectorsRequest) (*SelectorSpec, error
 func sanitizeExtractor(code string) error {
 	low := strings.ToLower(code)
 	for _, bad := range extractorBlocklist {
-		// 双向小写化：块名单为驼峰（localStorage/sessionStorage），低码比对需归一
 		if strings.Contains(low, strings.ToLower(bad)) {
 			return fmt.Errorf("forbidden token in extractor: %q", bad)
 		}
 	}
-	// 必须长得像一个函数体：普通函数（function...）或箭头函数（=>）均可，
-	// 与前端 selector-ai.js sanitizeExtractorCode 校验口径保持一致（避免服务端
-	// 拒绝 LLM 返回的箭头函数、前端却放行的双向不一致）。
 	if !strings.Contains(low, "function") && !strings.Contains(low, "=>") {
 		return fmt.Errorf("extractor must be a function body (function or arrow)")
 	}
@@ -319,3 +291,4 @@ func dedupe(in []string) []string {
 	}
 	return out
 }
+

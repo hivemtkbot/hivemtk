@@ -33,3 +33,4 @@ func TestSanitizeExtractor(t *testing.T) {
 		})
 	}
 }
+

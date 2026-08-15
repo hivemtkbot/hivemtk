@@ -28,7 +28,6 @@ func TestMaskTokenBridge(t *testing.T) {
 			if got != tc.want {
 				t.Errorf("maskTokenBridge(%q) = %q, want %q", tc.input, got, tc.want)
 			}
-			// 关键安全断言：脱敏后绝不能包含完整原始 token（除空串/<=4 字符）
 			if len(tc.input) > 4 && strings.Contains(got, tc.input) {
 				t.Errorf("脱敏结果包含完整 token，泄漏风险: input=%q got=%q", tc.input, got)
 			}
@@ -112,7 +111,6 @@ func TestDescribeUpstreamQuery(t *testing.T) {
 	})
 
 	t.Run("真实桥接 query 场景", func(t *testing.T) {
-		// 模拟 user-server 实际收到的 HTTP query（HTTP-only 模式后）
 		v := url.Values{}
 		v.Set("channel", "xiaohongshu")
 		v.Set("account_id", "xhs_abc_123")
@@ -154,13 +152,11 @@ func TestMaskTokenBridge_LogFormatAlignment(t *testing.T) {
 	if !strings.Contains(got, "***(") {
 		t.Errorf("应包含 '***(' 段，实际 %q", got)
 	}
-	// 数字段必须能解析为 token 长度
-	// 例: "abcd***(20 chars)" → 提取 "20" → 解析为 20
 	idx := strings.Index(got, "***(")
 	if idx < 0 {
 		t.Fatalf("格式错误: %q", got)
 	}
-	tail := got[idx+4:] // 跳过 "***("
+	tail := got[idx+4:] 
 	tail = strings.TrimSuffix(tail, " chars)")
 	var n int
 	for _, c := range tail {
@@ -248,7 +244,7 @@ func TestHistoryItemToEvent(t *testing.T) {
 				EventID:   "i2",
 				MsgType:   "text",
 				Content:   "缺省方向",
-				Timestamp: 0, // 触发 now 兜底
+				Timestamp: 0, 
 			},
 			want: func(t *testing.T, ev *model.MessageEvent) {
 				if ev.MsgType != "text" || ev.Content != "缺省方向" {
@@ -327,3 +323,4 @@ func TestToMessageEvent_HistoryPropagation(t *testing.T) {
 		t.Fatalf("群属性透传错误: %+v", ev)
 	}
 }
+

@@ -1,14 +1,5 @@
 package bridge
 
-// 协议类型单源化（2026-08-10 统一收件箱 × 渠道网关整合）：
-//
-// bridge 包的线路协议类型全部收敛为 channelgw（渠道网关）的别名。
-// channelgw.IngestMessage 是唯一线路协议（合并了历史 UnifiedMessage /
-// HTTPIngestMessage 两套结构），HTTP 三通道与 WebSocket 传输共用同一协议与
-// 入站管道；本文件仅保留别名与常量引用，保证既有调用方（handler/测试/文档）
-// 零改动兼容。
-//
-// 协议版本与帧语义的权威定义见 internal/channelgw/protocol.go。
 
 import gw "hivemtk-user/internal/channelgw"
 
@@ -24,14 +15,14 @@ const (
 
 // 帧类型常量（扩展 <-> 服务器 双向）
 const (
-	FrameRegister      = gw.FrameRegister      // 扩展上行：注册 channel+account
-	FrameInbound       = gw.FrameInbound       // 扩展上行：实时新私信（触发 AI）
-	FrameHistory       = gw.FrameHistory       // 扩展上行：历史/回填消息（仅落库，不触发 AI）
-	FramePong          = gw.FramePong          // 扩展上行：保活
-	FrameAck           = gw.FrameAck           // 扩展上行：下行确认
-	FramePing          = gw.FramePing          // 服务器下行：保活
-	FrameOutboundReply = gw.FrameOutboundReply // 服务器下行：AI 回复
-	FrameConfigPush    = gw.FrameConfigPush    // 服务器下行：配置推送
+	FrameRegister      = gw.FrameRegister      
+	FrameInbound       = gw.FrameInbound       
+	FrameHistory       = gw.FrameHistory       
+	FramePong          = gw.FramePong          
+	FrameAck           = gw.FrameAck           
+	FramePing          = gw.FramePing          
+	FrameOutboundReply = gw.FrameOutboundReply 
+	FrameConfigPush    = gw.FrameConfigPush    
 )
 
 // HistoryItem 会话级 history 帧中的单轮消息（别名 channelgw.HistoryItem）。
@@ -47,3 +38,4 @@ type UnifiedReply = gw.OutboundReply
 
 // Frame 通用帧（别名 channelgw.Frame；MessageEventID/ProtocolVersion 方法随类型迁移）。
 type Frame = gw.Frame
+

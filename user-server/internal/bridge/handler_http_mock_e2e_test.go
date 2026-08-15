@@ -18,15 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 说明：本文件是 bridge 模块“三通道”架构（2026-08-06 重构后）的 mock 端到端测试，
-// 不依赖真实 DB / Redis / LLM：
-//   - 通道A·上报（POST /api/bridge/ingest）：走真实 HandleHTTPIngest，验证“即时返回、不再同步长轮询 AI 回复”。
-//   - 通道C·下发（GET /api/bridge/outbox）：内存队列镜像生产 message_hub(status='pending') 拉取。
-//   - 通道B·状态（POST /api/bridge/outbox/ack）：内存队列镜像生产 ack 标记 delivered。
-// 生产的 GetBridgeOutbox / AckBridgeOutbox 是 ListPendingOutbound / AckOutboundDelivered 的薄封装，
-// 由 service 层（真实 PG）覆盖；此处用内存 store 忠实复刻其读取/去重/归属校验语义。
 
-// ───────────── 内存下发队列（outbox，每测试实例隔离）─────────────
 
 type outboxItem struct {
 	Channel        string `json:"channel"`
@@ -39,7 +31,7 @@ type outboxItem struct {
 
 type outboxStore struct {
 	mu    sync.Mutex
-	items map[string]*outboxItem // key = channel|account|msgID
+	items map[string]*outboxItem 
 }
 
 func newOutboxStore() *outboxStore {
@@ -89,7 +81,6 @@ func (s *outboxStore) ack(channel, account string, msgIDs []string) int {
 	return n
 }
 
-// ───────────── mock 入站处理（通道A）─────────────
 
 type mockIngestHandler struct {
 	mu        sync.Mutex
@@ -112,7 +103,6 @@ func (m *mockIngestHandler) handle(ctx context.Context, ev *model.MessageEvent) 
 	defer m.mu.Unlock()
 	res := &service.InboxIngressResult{}
 
-	// 事件级去重：同一事件只入一次库
 	if m.seen[ev.EventID] {
 		res.Accepted = false
 		res.QueuedForAI = false
@@ -120,9 +110,6 @@ func (m *mockIngestHandler) handle(ctx context.Context, ev *model.MessageEvent) 
 		m.duplicate++
 		return res, nil
 	}
-	// 钩子2 兜底（镜像生产 HookIngressOrEcho）：前端携带与后端 ContentHashMsgID 同源的
-	// content_hash（AI 出站 MsgID 即该值），即便 event_id 与 msg_id 不一致，也能幂等跳过，
-	// 挡住"AI 回复被平台回显、前端重新扫描上报"引发的无限回环。
 	if ch, ok := ev.Extra["content_hash"].(string); ok && ch != "" && m.seen[ch] {
 		res.Accepted = true
 		res.QueuedForAI = false
@@ -131,7 +118,6 @@ func (m *mockIngestHandler) handle(ctx context.Context, ev *model.MessageEvent) 
 		return res, nil
 	}
 	m.seen[ev.EventID] = true
-	// 把 (event_id, content_hash) 都登记，供上面兜底命中
 	if ch, ok := ev.Extra["content_hash"].(string); ok && ch != "" {
 		m.seen[ch] = true
 	}
@@ -145,8 +131,6 @@ func (m *mockIngestHandler) handle(ctx context.Context, ev *model.MessageEvent) 
 		return res, nil
 	}
 
-	// 用户消息：触发 AI → 先占位 → 入下发队列（status=pending）
-	// 账户从 SessionID（ch:accountID:convID）解析，模拟真实下行按 account 隔离
 	parts := strings.SplitN(ev.SessionID, ":", 3)
 	account := ""
 	if len(parts) == 3 {
@@ -156,7 +140,6 @@ func (m *mockIngestHandler) handle(ctx context.Context, ev *model.MessageEvent) 
 	res.Reason = "batched; will be merged and triggered at batch end"
 	obID := fmt.Sprintf("ob_%s", ev.EventID)
 	m.store.push(ev.Channel, account, ev.ConversationID, obID, "[AI] 回复："+ev.Content)
-	// 登记出站 MsgID（= 后端 ContentHashMsgID 同源），供后续 content_hash 兜底命中回显。
 	m.seen[obID] = true
 	return res, nil
 }
@@ -165,7 +148,6 @@ func newMockIngestHandlerWith(m *mockIngestHandler) *BridgeIngestHandler {
 	return NewBridgeIngestHandlerWithMock(m.handle, nil)
 }
 
-// ───────────── mock 服务器（gin）─────────────
 
 func writeJSON(c *gin.Context, status int, v interface{}) {
 	c.JSON(status, v)
@@ -180,10 +162,8 @@ func startMockServer() (*mockIngestHandler, string, chan error, func()) {
 	h := newMockIngestHandlerWith(m)
 	engine := gin.New()
 
-	// 通道A·上报（真实 handler）
 	engine.POST("/api/bridge/ingest", h.HandleHTTPIngest)
 
-	// 通道C·下发轮询（内存 store）
 	engine.GET("/api/bridge/outbox", func(c *gin.Context) {
 		channel := c.Query("channel")
 		account := c.Query("account_id")
@@ -191,7 +171,6 @@ func startMockServer() (*mockIngestHandler, string, chan error, func()) {
 		writeJSON(c, http.StatusOK, map[string]interface{}{"status": "ok", "messages": items})
 	})
 
-	// 通道B·状态确认（内存 store）
 	engine.POST("/api/bridge/outbox/ack", func(c *gin.Context) {
 		var body struct {
 			MsgIDs []string `json:"msg_ids"`
@@ -208,7 +187,6 @@ func startMockServer() (*mockIngestHandler, string, chan error, func()) {
 	return m, srv.URL, errCh, stop
 }
 
-// ───────────── 测试辅助 ─────────────
 
 func doIngest(t *testing.T, base, channel, account, conv, eventID, senderType, content string) HTTPIngestResponse {
 	t.Helper()
@@ -246,7 +224,6 @@ func doIngest(t *testing.T, base, channel, account, conv, eventID, senderType, c
 	return res
 }
 
-// ───────────── 测试用例 ─────────────
 
 // 回环去重·钩子2 兜底：AI 出站 MsgID=ob_<eventID>，前端扫描到平台回显重新上报时
 // 携带 content_hash=ob_<eventID>（与后端 ContentHashMsgID 同源），即便 event_id 不同，
@@ -255,7 +232,6 @@ func TestBridgeHTTP_OutboundEcho_SkippedByContentHash(t *testing.T) {
 	m, base, _, stop := startMockServer()
 	defer stop()
 
-	// 1) 用户消息 → 触发 AI → 占位入下发队列（outbox msg_id = ob_evt-loop）
 	got := doIngest(t, base, ChannelDouyinWeb, "1", "c1", "evt-loop", "customer", "你好")
 	if !got.Ingested[0].AIHandled {
 		t.Fatalf("用户消息应触发 AI")
@@ -264,25 +240,22 @@ func TestBridgeHTTP_OutboundEcho_SkippedByContentHash(t *testing.T) {
 		t.Fatalf("AI 回复应进入下发队列")
 	}
 
-	// 2) 模拟前端扫描到平台下发的 AI 回复"你好"重新上报：event_id 是平台 DOM id（与 msg_id 不一致），
-	//    但 content_hash 与后端出站 MsgID 同源（mh: ContentHashMsgID(channel, conv, content)）。
-	//    此处直接复用 ob_<eventID> 作为 content_hash，证明钩子2 能命中。
 	req := HTTPIngestRequest{
 		Channel:        ChannelDouyinWeb,
 		AccountID:      "1",
 		ConversationID: "c1",
 		Messages: []*HTTPIngestMessage{{
-			EventID:        "dom-echo-123", // 平台 DOM id，与 ob_evt-loop 不同
+			EventID:        "dom-echo-123", 
 			Channel:        ChannelDouyinWeb,
 			AccountID:      "1",
 			ConversationID: "c1",
-			SenderType:     "customer", // 注意：前端把自/他判定移交后端，回显可能被识别为客户
+			SenderType:     "customer", 
 			SenderID:       "u1",
 			SenderName:     "用户",
 			MsgType:        "text",
-			Content:        "你好", // 与 AI 占位内容相同
+			Content:        "你好", 
 			Timestamp:      time.Now().Unix(),
-			ContentHash:    "ob_evt-loop", // 与后端出站 MsgID 同源
+			ContentHash:    "ob_evt-loop", 
 		}},
 	}
 	body, _ := json.Marshal(req)
@@ -295,7 +268,6 @@ func TestBridgeHTTP_OutboundEcho_SkippedByContentHash(t *testing.T) {
 	_ = json.NewDecoder(resp.Body).Decode(&got2)
 	resp.Body.Close()
 
-	// 关键断言：被钩子2 幂等跳过（不触发 AI、不二次入队）
 	if got2.Ingested[0].AIHandled {
 		t.Fatalf("回显消息不应二次触发 AI（回环防护失效）")
 	}
@@ -325,11 +297,9 @@ func TestBridgeHTTP_ImmediateReturn_NoLongPoll(t *testing.T) {
 	if !got.Ingested[0].AIHandled {
 		t.Fatalf("用户消息未触发 AI: %+v", got)
 	}
-	// 关键：同步长轮询已被移除，OutboundReplies 应恒为空
 	if len(got.OutboundReplies) != 0 {
 		t.Fatalf("重构后不应再同步返回下游回复, 实际: %+v", got.OutboundReplies)
 	}
-	// AI 回复已进入下发队列
 	items := m.store.list(ChannelDouyinWeb, "1")
 	if len(items) != 1 {
 		t.Fatalf("AI 回复应进入下发队列, 实际: %d", len(items))
@@ -363,7 +333,6 @@ func TestBridgeHTTP_Dedup(t *testing.T) {
 	if !strings.Contains(got2.Ingested[0].Reason, "already exists") {
 		t.Fatalf("判重原因不符: %s", got2.Ingested[0].Reason)
 	}
-	// 下发队列只有一条（去重，不重复推送）
 	if len(m.store.list(ChannelTikTok, "1")) != 1 {
 		t.Fatalf("去重后下发队列应为 1 条, 实际: %d", len(m.store.list(ChannelTikTok, "1")))
 	}
@@ -425,7 +394,6 @@ func TestBridgeOutboxAck_RoundTrip(t *testing.T) {
 	defer stop()
 
 	_ = doIngest(t, base, ChannelDouyinWeb, "1", "c1", "evt-rt", "customer", "在吗")
-	// 1) 拉取下发队列（通道C）
 	resp, err := http.Get(base + "/api/bridge/outbox?channel=" + ChannelDouyinWeb + "&account_id=1")
 	if err != nil {
 		t.Fatalf("GET outbox 失败: %v", err)
@@ -441,7 +409,6 @@ func TestBridgeOutboxAck_RoundTrip(t *testing.T) {
 	}
 	msgID := ob.Messages[0].MsgID
 
-	// 2) 确认已下发（通道B）
 	ackBody, _ := json.Marshal(map[string]interface{}{"msg_ids": []string{msgID}})
 	aresp, err := http.Post(base+"/api/bridge/outbox/ack?channel="+ChannelDouyinWeb+"&account_id=1",
 		"application/json", bytes.NewReader(ackBody))
@@ -458,7 +425,6 @@ func TestBridgeOutboxAck_RoundTrip(t *testing.T) {
 		t.Fatalf("ack 应标记 1 条, 实际 %d", ares.Acked)
 	}
 
-	// 3) 再次拉取应清空
 	resp2, _ := http.Get(base + "/api/bridge/outbox?channel=" + ChannelDouyinWeb + "&account_id=1")
 	var ob2 struct {
 		Messages []outboxItem `json:"messages"`
@@ -482,7 +448,6 @@ func TestBridgeOutboxAck_ScopeIsolation(t *testing.T) {
 	}
 	msgID := items[0].MsgID
 
-	// 用另一个 account_id 尝试 ack
 	ackBody, _ := json.Marshal(map[string]interface{}{"msg_ids": []string{msgID}})
 	aresp, _ := http.Post(base+"/api/bridge/outbox/ack?channel="+ChannelDouyinWeb+"&account_id=2",
 		"application/json", bytes.NewReader(ackBody))
@@ -498,3 +463,4 @@ func TestBridgeOutboxAck_ScopeIsolation(t *testing.T) {
 		t.Fatalf("越权 ack 不应清除原账号消息")
 	}
 }
+

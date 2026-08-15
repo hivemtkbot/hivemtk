@@ -172,7 +172,7 @@ $ npm test
 
 > **commit**：`e3fee13`（feat(bridge): P0 全面升级 1-9 全部完成）
 > **commit**：`eb95896`（feat(bridge): M2-P1 popup 增强·健康度面板/告警/紧急停止/多账号/错误码友好化）
-> **commit**：`待回填`（终稿收尾：测试修复 + 8D 报告补 commit hash + 任务清单 100%）
+> **commit**：`95be10c`（终稿收尾：测试修复 + 8D 报告补 commit hash + 任务清单 100%）
 
 | ID | 维度 | 修复 | 文件 | 测试 | commit |
 |----|------|------|------|------|--------|
