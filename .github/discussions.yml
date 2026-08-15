@@ -1,0 +1,38 @@
+name: Discussions
+
+# 启用 Discussions 后，只允许已注册用户发帖（防止垃圾）
+# 可以在 GitHub 仓库 Settings → General → Features → Discussions → Settings 调整
+
+# 评论设置
+# 通过 GitHub UI 调整，本文件仅作为文档参考
+
+categories:
+  - name: 📣 Announcements
+    description: 项目发布、安全公告、重要变更
+    emoji: 📣
+    access: maintainers  # 仅 maintainer 可发新帖
+  - name: 🙏 Q&A
+    description: 用户提问、技术求助、使用问题
+    emoji: 🙏
+  - name: 💡 Ideas
+    description: 新功能建议、改进想法
+    emoji: 💡
+  - name: 🚀 Show and tell
+    description: 部署案例、定制开发、二次集成
+    emoji: 🚀
+  - name: 🐛 Bug reports
+    description: 已知 bug 跟踪（与 Issues 互补）
+    emoji: 🐛
+  - name: 📚 Resources
+    description: 教程、博客、第三方工具
+    emoji: 📚
+  - name: 🇨🇳 中文交流
+    description: 中文用户专属讨论区
+    emoji: 🇨🇳
+
+# 格式规则
+format:
+  category_tags: true
+  titles:
+    - pattern: '^\[.*\]'  # 标题必须以 [Tag] 开头
+    - max_length: 100

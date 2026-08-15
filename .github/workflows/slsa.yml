@@ -1,0 +1,115 @@
+# SLSA Level 3 Provenance（供应链安全）
+#
+# 背景与落地说明：
+# - release.yml 已通过 buildx 的 `provenance: true` 为 Docker 镜像内嵌 OCI 层 provenance。
+# - 本工作流补充：对 release 构建产物（user-server Go 二进制 + Bridge 扩展 zip）
+#   生成独立、可验证的 SLSA 供应链证明（Sigstore 签名 attestation）。
+# - 采用官方 slsa-framework/slsa-github-actions 的 generate_attestations（delegator）模式，
+#   运行在 GitHub 托管的隔离构建器上，满足 SLSA L3 的可信构建条件（ephemeral + isolated）。
+#
+# 触发：tag 推送 v*（与 release.yml 同步）或手动 workflow_dispatch。
+# 产物：user-server-linux-amd64 二进制 + bridge 扩展 zip + provenance attestation（intoto JSON）。
+
+name: SLSA
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build release artifacts
+    runs-on: ubuntu-latest
+    outputs:
+      provenance-name: ${{ steps.generate.outputs.provenance-name }}
+      digests: ${{ steps.generate.outputs.digests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+          cache-dependency-path: user-server/go.sum
+
+      - name: Build user-server (linux/amd64)
+        working-directory: user-server
+        run: |
+          mkdir -p bin
+          # -trimpath 保证可重现构建；CGO_ENABLED=0 产出静态二进制
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -trimpath -o bin/user-server ./cmd/api/
+
+      - name: Upload user-server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-server-linux-amd64
+          path: user-server/bin/user-server
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Build Bridge extension zip
+        working-directory: user-web/bridge
+        run: |
+          npm ci
+          npm run build
+          mkdir -p dist-zip
+          cd dist
+          VERSION=${GITHUB_REF#refs/tags/v}
+          zip -r "../dist-zip/bridge-${VERSION}.zip" . -x "*.map"
+
+      - name: Upload Bridge artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bridge-extension
+          path: user-web/bridge/dist-zip/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Generate provenance
+        # 官方 prepare-workflow：根据已上传 artifact 计算 digest，输出给 delegator
+        id: generate
+        uses: slsa-framework/slsa-github-actions/actions/prepare-workflow@v2
+        with:
+          name: user-server-linux-amd64
+
+      - name: Upload provenance to artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.generate.outputs.provenance-name }}
+          path: ${{ steps.generate.outputs.provenance-path }}
+          if-no-files-found: error
+          retention-days: 90
+
+  generate-provenance:
+    name: Generate SLSA provenance
+    needs: [build]
+    permissions:
+      id-token: write # delegator 需要 OIDC token 做 Sigstore keyless 签名
+      contents: read
+      actions: read
+    uses: slsa-framework/slsa-github-actions/delegator/generate_attestations@v2
+    with:
+      base64-subjects: ${{ needs.build.outputs.digests }}
+      provenance-name: ${{ needs.build.outputs.provenance-name }}
+
+  # 可选的验证 job：本地执行后可用以下命令独立验证
+  # verify:
+  #   needs: [generate-provenance]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: slsa-framework/slsa-verifier/actions/installer@v2
+  #     - uses: actions/download-artifact@v4
+  #     - run: |
+  #         slsa-verifier verify-artifact \
+  #           --provenance-path user-server-linux-amd64.intoto.jsonl \
+  #           --source-uri github.com/${{ github.repository }} \
+  #           --source-tag ${{ github.ref_name }} \
+  #           user-server-linux-amd64

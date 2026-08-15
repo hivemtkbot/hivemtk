@@ -1,0 +1,31 @@
+---
+name: Question
+description: 提问 / 求助（不用于 Bug 报告或功能建议）
+title: "[Question]: "
+labels: ["question"]
+assignees: []
+---
+
+## 问题
+
+<!-- 简洁清晰地描述您的问题 -->
+
+## 您已查阅的文档
+
+- [ ] [README.md](../../)
+- [ ] [CONTRIBUTING.md](../../CONTRIBUTING.md)
+- [ ] [docs/INDEX.md](../../docs/INDEX.md)
+- [ ] [docs/architecture/](../../docs/architecture/)
+- [ ] [docs/operations/](../../docs/operations/)
+
+## 上下文
+
+<!-- 提供必要的上下文信息 -->
+
+- user-server 版本：
+- 部署模式：
+- 相关代码路径：
+
+## 备注
+
+<!-- 任何额外信息 -->

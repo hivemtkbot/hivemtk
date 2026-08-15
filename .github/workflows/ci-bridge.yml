@@ -1,0 +1,78 @@
+# CI for user-web/bridge（HiveBridge Chrome 扩展）
+# 平台：ubuntu-latest
+# 触发：push 到 main / PR 到 main / 手动 workflow_dispatch
+# 内容：npm ci → ESLint → vitest 全量测试 → 构建/打包校验 → 覆盖率上传 Codecov
+# 说明：user-server-ci.yml 中的 bridge-extension-test job 负责"Go 变更触发的 Bridge 测试"，
+#       本工作流负责"仅 Bridge 变更时"的独立快速 CI，二者 job 名不同，互不冲突。
+name: ci-bridge
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'user-web/bridge/**'
+      - '.github/workflows/ci-bridge.yml'
+  pull_request:
+    branches: [master, main]
+    paths:
+      - 'user-web/bridge/**'
+      - '.github/workflows/ci-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-bridge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bridge-ci:
+    name: Bridge CI (lint + test + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: user-web/bridge
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: user-web/bridge/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Vitest (全量测试)
+        run: npx vitest run --reporter=default
+
+      - name: Vitest coverage
+        # 覆盖率采集（lcov 上传 Codecov；缺 c8/v8 配置时仍可跑 text）
+        run: npx vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text
+
+      - name: Build (打包校验)
+        # esbuild 多入口打包 → dist/，校验 manifest 与 popup.html 产物存在
+        run: |
+          npm run build
+          test -f dist/manifest.json
+          test -f dist/popup.html
+          test -f dist/background.js
+          echo "✅ bridge dist 产物校验通过"
+
+      - name: Upload coverage to Codecov
+        # 缺 CODECOV_TOKEN 时不阻断；仅仓库内部 PR 上传
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+        uses: codecov/codecov-action@v4
+        with:
+          files: user-web/bridge/coverage/lcov.info
+          flags: bridge
+          name: bridge-coverage-ci-bridge
+          fail_ci_if_error: false

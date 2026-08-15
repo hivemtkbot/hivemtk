@@ -1,0 +1,65 @@
+# DCO（Developer Certificate of Origin）检查
+#
+# 要求每个 commit 都包含 "Signed-off-by: Name <email>" 行。
+# 参考 https://developercertificate.org/
+
+name: DCO Check
+
+on:
+  - pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    name: DCO Sign-off
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Signed-off-by
+        run: |
+          echo "检查 PR 中的每个 commit 是否包含 Signed-off-by..."
+
+          # 获取 PR 中所有 commit 的 sha
+          COMMITS=$(git rev-list --no-merges "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}")
+
+          if [ -z "$COMMITS" ]; then
+            echo "未发现 commit"
+            exit 0
+          fi
+
+          MISSING=""
+          for COMMIT in $COMMITS; do
+            # 检查 commit message 中是否有 Signed-off-by
+            MESSAGE=$(git log -1 --format=%B "$COMMIT")
+            if ! echo "$MESSAGE" | grep -qE '^Signed-off-by: .+ <.+>$'; then
+              MISSING="$MISSING $COMMIT"
+              echo "❌ 缺失 Signed-off-by: $COMMIT"
+              git log -1 --format='  %h %s' "$COMMIT"
+            else
+              echo "✅ $COMMIT"
+            fi
+          done
+
+          if [ -n "$MISSING" ]; then
+            echo ""
+            echo "============================================"
+            echo "以下 commit 缺少 Signed-off-by:"
+            echo "$MISSING"
+            echo ""
+            echo "如何修复："
+            echo "  git config --global user.name \"Your Name\""
+            echo "  git config --global user.email \"you@example.com\""
+            echo "  git commit --amend --no-edit -s"
+            echo "  git push --force-with-lease"
+            echo "============================================"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ 所有 commit 都包含 Signed-off-by"

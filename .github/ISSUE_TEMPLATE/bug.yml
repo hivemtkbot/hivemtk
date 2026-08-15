@@ -1,0 +1,58 @@
+---
+name: Bug Report
+description: 报告 Bug，帮助我们改进
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees: []
+---
+
+## Bug 描述
+
+<!-- 简洁清晰地描述 Bug -->
+
+## 复现步骤
+
+1.
+2.
+3.
+
+## 期望行为
+
+<!-- 描述您期望发生什么 -->
+
+## 实际行为
+
+<!-- 描述实际发生了什么 -->
+
+## 优先级
+
+<!-- 用 X 标记您认为的优先级 -->
+
+- [ ] Critical（系统不可用 / 数据丢失）
+- [ ] High（主要功能不可用）
+- [ ] Medium（次要功能 / 有 workaround）
+- [ ] Low（微小问题 / UI 美化）
+
+## 复现环境
+
+- 部署模式：[ ] Docker Compose / [ ] 源码 / [ ] Kubernetes
+- user-server 版本：`git rev-parse HEAD` 或 commit hash
+- 浏览器（如 Bridge 扩展问题）：Chrome 版本
+- 操作系统：
+- Python/Node 版本（如有影响）：
+
+## 日志 / 截图
+
+<!-- 粘贴相关日志（去除敏感信息如 token / 手机号 / 邮箱）或截图 -->
+
+```
+<paste logs here>
+```
+
+## 已尝试的排查
+
+<!-- 您已经尝试过什么？ -->
+
+## 备注
+
+<!-- 任何额外信息 -->

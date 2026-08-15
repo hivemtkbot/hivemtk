@@ -1,0 +1,61 @@
+# SBOM（Software Bill of Materials）生成
+# 使用 syft 生成 SPDX 格式的物料清单
+# 文档: https://github.com/anchore/syft
+
+name: SBOM
+
+on:
+  - push
+  - workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Generate SBOM (SPDX, Go)
+        working-directory: user-server
+        run: |
+          syft scan dir:. -o spdx-json=../sbom-go.spdx.json
+          syft scan dir:. -o spdx-json=../sbom-go.spdx.json
+
+      - name: Generate SBOM (SPDX, Bridge)
+        working-directory: user-web/bridge
+        run: |
+          syft scan dir:. -o spdx-json=../../sbom-bridge.spdx.json
+          syft scan dir:. -o spdx-json=../../sbom-bridge.spdx.json
+
+      - name: Generate SBOM (SPDX, Frontend)
+        working-directory: user-web
+        run: |
+          syft scan dir:. -o spdx-json=../sbom-frontend.spdx.json
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            sbom-go.spdx.json
+            sbom-bridge.spdx.json
+            sbom-frontend.spdx.json
+          retention-days: 90
+
+      - name: Attach SBOM to release (only on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            sbom-go.spdx.json
+            sbom-bridge.spdx.json
+            sbom-frontend.spdx.json
+          fail_on_unmatched_files: true

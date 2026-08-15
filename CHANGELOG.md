@@ -1,0 +1,128 @@
+# 更新日志 (Changelog)
+
+本项目所有重要变更都会记录在此文件。版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
+
+格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
+本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 规范。
+
+## [未发布] - 2026-Q3
+
+### 新增 (Added)
+
+#### Bridge 桥接架构 (Chrome 扩展 + 三通道 HTTP 协议)
+- **M2-P1 Popup 增强**:健康度面板/告警横幅/紧急停止/多账号/错误码友好化
+  - `src/popup/health.js` 实时健康度面板（circuit-breaker 状态、延迟 P50/P95、错码分布、死开关）
+  - `src/popup/alert-banner.js` 熔断/无响应时自动弹红色横幅
+  - `src/popup/emergency-stop.js` 一键停所有桥接活动
+  - `src/popup/error-messages.js` 18 种错误码中英文双语 + 解决建议
+- **M1-P0 全面升级** (桥接代码质量 10 项 P0 修复):
+  - 协议升级强制 `conversation_id` 入参（v1/v2 兼容）
+  - `AckOutboundItem.Error` 字段透传
+  - `req.Status` 决定终态（delivered/failed）
+  - 单 SQL `UPDATE...RETURNING` 原子化合并 Get+Update
+  - 500 条 IN 性能基准（< 200ms 阈值）
+  - 跨账号探测安全测试（not_in_scope 状态）
+  - PROTOCOL 常量共享单源化
+  - `not_found` 区分 GC 回收 / 归属错
+  - `_pendingAck` 最大重试次数 + 指数退避（10 次 / 1s→60s cap / 24h TTL）
+- **M0 桥接架构重构**:
+  - 三通道独立 HTTP（uplink / outbox / ack 相互独立）
+  - Token 从 URL 迁移到 Authorization Header
+  - 熔断器（Circuit Breaker）三态机
+  - RateLimiter LRU+TTL 防内存泄漏
+  - 死开关（Dead Man's Switch）健康度上报
+  - 人类化模块（贝塞尔曲线鼠标轨迹/正态分布键入延迟）
+  - 配置热更新（chrome.storage 监听）
+  - 端到端请求 ID 追踪
+
+#### 企业级合规
+- 审计中间件（who/when/from_ip/action/resource/result/trace_id）
+- 敏感数据脱敏中间件（手机/邮箱/身份证）
+
+#### 文档
+- `BRAINSTORM_2026-08-15_8D_REPORT.md` 8 维度报告（产品/企业/开源/代码质量）
+- `bridge_10_of_10_task_list.md` 4 维度任务清单（44 项 / 283h）
+
+### 变更 (Changed)
+
+- **前端 popup** 全新 UI：紧急停止/多账号/健康度面板/告警横幅
+- **后端 ack 协议** v1→v2 平滑升级（conversation_id 过滤/failed 终态/Error 字段）
+- **巡检风控** 30-60s 轮间隔 + 6 个会话/轮 + 120s 会话冷却 + 3-5s 切换间隔
+- **Token 传输** URL query → Authorization Header
+
+### 修复 (Fixed)
+
+- 双巡检冲突（删除 PollingLoop._patrol，保留 BaseAdapter._startPatrolAuto）
+- `OutboxMessage.Extra` 字段缺失（前端主动私信路由失效）
+- `account_id` 缺失时 default 兜底（垃圾数据风险）
+- mergedEvent.EventID 使用新 UUID（幂等性丢失）
+- ack 失败导致用户收到重复消息
+- 高频巡检触发平台风控（30-60s 节奏调整）
+- 16 个 `getPeerName FULL DIAG` 冗余打印删除
+
+### 弃用 (Deprecated)
+
+- PollingLoop 双巡检（保留 L1 巡检作唯一源）
+- WebSocket 桥接协议（改为 HTTP 长轮询）
+- Token in URL query（迁 Authorization Header）
+
+### 安全 (Security)
+
+- 桥接 Token 强制 Header 传输
+- 跨账号探测返回 `not_in_scope`（不告知归属，防越权信息泄露）
+
+---
+
+## 历史版本 (Historical Releases)
+
+> 历史版本见 [GitHub Releases](https://github.com/xiaofang142/hivemtk/releases) ·
+> [Gitee Releases](https://gitee.com/xhpmayun/hivemtk/releases)
+
+### 2026-Q2 早期迭代 (v0.1 - v0.4)
+
+#### v0.4 (2026-Q2 末)
+##### 新增
+- **宿主机推理栈迁移方案**:llama.cpp (Qwen2.5) + TEI (bge-m3 + bge-reranker-v2-m3) 从容器化迁移到宿主机,节省 CPU/内存、提升推理性能
+- 5 阶段并行 + 双层架构 + WebSocket 流式输出(FeatureFlag 灰度控制)
+- 4 级 LLM 降级链(7B → 3B → 规则 → 兜底回复)
+##### 变更
+- 推理栈端口固定为 LLM :8207 / Embedding :8208 / Rerank :8209
+- 支持 dev / prod 模型档切换(Qwen2.5-3B / 14B)
+
+#### v0.3 (2026-Q2 中)
+##### 新增
+- 94 个营销业务模块(marketing-features 文档体系)
+- 三级 RAG 检索:粗排(向量召回) + 精排(bge-reranker) + LLM 改写(HyDE / Query Rewriter)
+- 多智能体协作:被动应答智能体 + 主动触达智能体(ADR-013)
+- AI 销冠:话术模板 + RAG + 自动跟进
+- 七端社媒触达:抖音/快手/小红书/闲鱼/TikTok/企业微信/邮件
+##### 变更
+- 后端 Go 五层架构(Controller → Service → Repository → Model → DTO)硬约束落地,`scripts/check-architecture.sh` 入库 CI
+
+#### v0.2 (2026-Q2 初)
+##### 新增
+- 41 个 ReAct 智能体工具注册表
+- 统一 CDP 客户视图 + 统一消息中心
+- 营销自动化 SOP 可视化编排
+- 企业微信 SCRM 多账号聚合 + 离职继承
+##### 安全
+- JWT 鉴权 + 角色权限 + 行级数据权限(data_scope)
+
+#### v0.1 (2026-Q2 初,首个可运行版本)
+##### 新增
+- 初始 Go 后端(gin + GORM + pgvector)+ Vue 3 前端
+- PostgreSQL 15 + pgvector(1024 维) + Redis 7 数据层
+- 5 分钟一键部署(`make install`)
+- AGPL-3.0 开源,发布 GitHub / Gitee 双仓库
+
+> 📌 各版本具体 commit 记录见 [GitHub Releases](https://github.com/xiaofang142/hivemtk/releases) · [Gitee Releases](https://gitee.com/xhpmayun/hivemtk/releases)
+
+---
+
+**图例**:
+- 🆕 新增
+- 🔧 变更
+- 🐛 修复
+- ⚠️ 弃用
+- 🔒 安全
+- 📚 文档
