@@ -444,7 +444,7 @@ make down                 # 停止旧版全栈
 | 贡献指南 | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | 安全策略 | [SECURITY.md](SECURITY.md) |
 | 免责声明 | [DISCLAIMER.md](DISCLAIMER.md) · [DISCLAIMER.en.md](DISCLAIMER.en.md) |
-| 路线图 | [../.github/ROADMAP.md](../.github/ROADMAP.md) |
+| 路线图 | [.github/ROADMAP.md](.github/ROADMAP.md) |
 
 ---
 
@@ -462,7 +462,7 @@ make down                 # 停止旧版全栈
 
 ## 🗺️ 路线图
 
-完整路线图见 [../.github/ROADMAP.md](../.github/ROADMAP.md),核心方向:
+完整路线图见 [.github/ROADMAP.md](.github/ROADMAP.md),核心方向:
 
 ### 2026 Q3(当前)
 - P0/P1 全部修复项闭环(架构合规 / 安全 / 性能)

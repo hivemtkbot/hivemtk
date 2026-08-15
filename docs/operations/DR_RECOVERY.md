@@ -368,4 +368,4 @@ echo "Backup verification OK"
 
 ---
 
-> 配套：[高可用部署](HA_DEPLOYMENT.md) · [SLA/SLO](SLA_SLO.md) · [等级保护合规](../compliance/等保2.0三级合规.md)
+> 配套：[高可用部署](HA_DEPLOYMENT.md) · [SLA/SLO](SLA_SLO.md) · [等级保护合规](等保2.0三级合规.md)

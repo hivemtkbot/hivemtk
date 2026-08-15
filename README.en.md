@@ -414,13 +414,13 @@ make down                 # Stop legacy full-stack
 | Contributing guide | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Security policy | [SECURITY.md](SECURITY.md) |
 | Disclaimer | [DISCLAIMER.md](DISCLAIMER.md) · [DISCLAIMER.en.md](DISCLAIMER.en.md) |
-| Roadmap | [../.github/ROADMAP.md](../.github/ROADMAP.md) |
+| Roadmap | [.github/ROADMAP.md](.github/ROADMAP.md) |
 
 ---
 
 ## Roadmap
 
-Full roadmap at [../.github/ROADMAP.md](../.github/ROADMAP.md), key directions:
+Full roadmap at [.github/ROADMAP.md](.github/ROADMAP.md), key directions:
 
 ### 2026 Q3 (Current)
 - P0/P1 fixes closure (architecture compliance / security / performance)
