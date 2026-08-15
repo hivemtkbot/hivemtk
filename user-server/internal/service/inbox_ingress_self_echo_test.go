@@ -1,0 +1,117 @@
+package service
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
+)
+
+// 2026-08-13 修复：桥接扩展把本账号 AI 出站回复从 DOM 抓取后恒标 sender_type='customer' 重发，
+// 旧自回显逻辑依赖 senderKey/SenderID 完全一致（桥接侧 senderKey=客户昵称、SenderID=会话ID，
+// 与出站落库的 accountID 永远不同）→ 漏判 → AI 话术以 inbound 污染统一收件箱并形成回环。
+//
+// 新增「层0·自回显权威检测」：入站消息若内容命中本账号同会话近期出站 outbound（归一化容差，
+// 容忍 DOM 抓取空白/零宽差异），即判定为自回显拦截，不落库、不触发 AI。
+func TestHandleIngress_SelfEcho_BridgeRelay_Blocked(t *testing.T) {
+	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
+	svc := NewInboxIngressServiceWithDB(db, nil)
+	ctx := context.Background()
+
+	const (
+		platform = "xiaohongshu"
+		account  = "acct-selfecho"
+		conv     = "conv-selfecho-1"
+		outboundContent = "您好！😊 我是 HiveMTK 销售助手，专注为您提供一站式私域方案。"
+	)
+
+	if err := db.Create(&model.MessageHub{
+		MsgID:          ContentHashMsgID(platform, conv, outboundContent),
+		Platform:       platform,
+		AccountID:      account,
+		Direction:      "outbound",
+		Status:         "delivered",
+		MsgType:        "text",
+		ConversationID: conv,
+		Content:        outboundContent,
+		SentAt:         time.Now(),
+	}).Error; err != nil {
+		t.Fatalf("预置 outbound 失败: %v", err)
+	}
+
+	relayedContent := "您好！　😊 我是 HiveMTK 销售助手，专注为您提供一站式私域方案。​" 
+	evt := &model.MessageEvent{
+		Channel:        model.ChannelXHS,
+		SenderID:       conv, 
+		SenderName:     "雪大王",
+		SenderType:     "customer", 
+		Content:        relayedContent,
+		EventID:        "mh:relay-selfecho-1",
+		ConversationID: conv,
+		Extra:          map[string]interface{}{"account_id": account},
+	}
+	res, err := svc.HandleIngressMessage(ctx, evt)
+	if err != nil {
+		t.Fatalf("HandleIngressMessage 不应报错: %v", err)
+	}
+	if !res.Accepted {
+		t.Fatalf("自回显应 Accepted=true（幂等跳过）")
+	}
+	if res.QueuedForAI {
+		t.Fatalf("自回显必须 QueuedForAI=false（不触发 AI，避免回环）")
+	}
+
+	// 关键回归：AI 话术不能再次以 inbound 入库
+	var inboundCount int64
+	db.Model(&model.MessageHub{}).
+		Where("platform=? AND conversation_id=? AND direction='inbound'", platform, conv).
+		Count(&inboundCount)
+	if inboundCount != 0 {
+		t.Fatalf("自回显话术不应以 inbound 入库，实际 inbound 数=%d", inboundCount)
+	}
+}
+
+// 反向回归：真实客户消息（内容不匹配本账号任何出站）必须正常入库并触发 AI，不被误杀。
+func TestHandleIngress_SelfEcho_RealCustomer_NotBlocked(t *testing.T) {
+	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
+	svc := NewInboxIngressServiceWithDB(db, nil)
+	ctx := context.Background()
+
+	const (
+		platform = "xiaohongshu"
+		account  = "acct-selfecho-real"
+		conv     = "conv-selfecho-real-1"
+		customerQ = "我不会技术，如何安装部署呢？" 
+	)
+
+	evt := &model.MessageEvent{
+		Channel:        model.ChannelXHS,
+		SenderID:       conv,
+		SenderName:     "小红薯ABC",
+		SenderType:     "customer",
+		Content:        customerQ,
+		EventID:        "mh:real-customer-1",
+		ConversationID: conv,
+		Extra:          map[string]interface{}{"account_id": account},
+	}
+	res, err := svc.HandleIngressMessage(ctx, evt)
+	if err != nil {
+		t.Fatalf("HandleIngressMessage 不应报错: %v", err)
+	}
+	if !res.Accepted {
+		t.Fatalf("真实客户消息应 Accepted=true")
+	}
+	// 注意：QueuedForAI 取决于 aiTrigger 是否注入；本测试只断言未被自回显误杀（Accepted=true 且未因 self-echo 拦截）。
+	// 落库校验：应存在一条该内容的 inbound。
+	var inboundCount int64
+	db.Model(&model.MessageHub{}).
+		Where("platform=? AND conversation_id=? AND direction='inbound' AND md5(content)=md5(?)", platform, conv, customerQ).
+		Count(&inboundCount)
+	if inboundCount != 1 {
+		t.Fatalf("真实客户消息应入库 1 条 inbound，实际=%d", inboundCount)
+	}
+}
+
+
