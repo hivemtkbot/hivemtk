@@ -2,7 +2,6 @@
 -- 版本: 1.1.0
 -- 适用于: PostgreSQL 15+ (项目唯一数据库)
 
--- A/B 实验表
 CREATE TABLE IF NOT EXISTS ab_experiments (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -19,7 +18,6 @@ CREATE TABLE IF NOT EXISTS ab_experiments (
 );
 CREATE INDEX IF NOT EXISTS idx_ab_experiments_status ON ab_experiments(status);
 
--- A/B 变体表
 CREATE TABLE IF NOT EXISTS ab_variants (
     id BIGSERIAL PRIMARY KEY,
     experiment_id BIGINT NOT NULL,
@@ -34,7 +32,6 @@ CREATE TABLE IF NOT EXISTS ab_variants (
 );
 CREATE INDEX IF NOT EXISTS idx_ab_variants_experiment ON ab_variants(experiment_id);
 
--- 转化事件表
 CREATE TABLE IF NOT EXISTS ab_conversion_events (
     id BIGSERIAL PRIMARY KEY,
     experiment_id BIGINT NOT NULL,
@@ -50,7 +47,6 @@ CREATE INDEX IF NOT EXISTS idx_ab_conversion_events_experiment ON ab_conversion_
 CREATE INDEX IF NOT EXISTS idx_ab_conversion_events_variant ON ab_conversion_events(variant_id);
 CREATE INDEX IF NOT EXISTS idx_ab_conversion_events_user ON ab_conversion_events(user_id);
 
--- 实验结果统计表
 CREATE TABLE IF NOT EXISTS ab_experiment_results (
     id BIGSERIAL PRIMARY KEY,
     experiment_id BIGINT NOT NULL,
@@ -69,7 +65,6 @@ CREATE TABLE IF NOT EXISTS ab_experiment_results (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ab_experiment_results_exp_variant ON ab_experiment_results(experiment_id, variant_id);
 CREATE INDEX IF NOT EXISTS idx_ab_experiment_results_winner ON ab_experiment_results(is_winner);
 
--- updated_at 自动更新触发器
 CREATE OR REPLACE FUNCTION ab_experiments_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

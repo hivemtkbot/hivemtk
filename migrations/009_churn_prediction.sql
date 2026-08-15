@@ -2,7 +2,6 @@
 -- 版本: 1.1.0
 -- 适用于: PostgreSQL 15+ (项目唯一数据库)
 
--- 流失预测表
 CREATE TABLE IF NOT EXISTS churn_predictions (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(100) NOT NULL,
@@ -23,7 +22,6 @@ CREATE INDEX IF NOT EXISTS idx_churn_predictions_user ON churn_predictions(user_
 CREATE INDEX IF NOT EXISTS idx_churn_predictions_risk ON churn_predictions(churn_risk);
 CREATE INDEX IF NOT EXISTS idx_churn_predictions_score ON churn_predictions(churn_score DESC);
 
--- 流失预警表
 CREATE TABLE IF NOT EXISTS churn_warnings (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(100) NOT NULL,
@@ -43,7 +41,6 @@ CREATE INDEX IF NOT EXISTS idx_churn_warnings_user ON churn_warnings(user_id);
 CREATE INDEX IF NOT EXISTS idx_churn_warnings_handled ON churn_warnings(is_handled);
 CREATE INDEX IF NOT EXISTS idx_churn_warnings_level ON churn_warnings(warning_level);
 
--- 流失模型配置表
 CREATE TABLE IF NOT EXISTS churn_model_configs (
     id BIGSERIAL PRIMARY KEY,
     inactive_days_weight DECIMAL(5,2) DEFAULT 0.3,
@@ -59,7 +56,6 @@ CREATE TABLE IF NOT EXISTS churn_model_configs (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 流失统计表
 CREATE TABLE IF NOT EXISTS churn_statistics (
     id BIGSERIAL PRIMARY KEY,
     stat_date VARCHAR(20) NOT NULL,  -- YYYY-MM-DD
@@ -74,7 +70,6 @@ CREATE TABLE IF NOT EXISTS churn_statistics (
 
 CREATE INDEX IF NOT EXISTS idx_churn_statistics_date ON churn_statistics(stat_date);
 
--- updated_at 自动更新触发器
 CREATE OR REPLACE FUNCTION churn_predictions_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

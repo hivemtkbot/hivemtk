@@ -3,7 +3,6 @@
 -- 版本: 1.1.0
 -- 适用于: PostgreSQL 15+ (项目唯一数据库)
 
--- 商户满意度调研表
 CREATE TABLE IF NOT EXISTS satisfaction_surveys (
     id VARCHAR(36) PRIMARY KEY,
     merchant_key VARCHAR(64) NOT NULL,
@@ -19,13 +18,11 @@ CREATE TABLE IF NOT EXISTS satisfaction_surveys (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 索引
 CREATE INDEX IF NOT EXISTS idx_satisfaction_surveys_merchant ON satisfaction_surveys(merchant_key);
 CREATE INDEX IF NOT EXISTS idx_satisfaction_surveys_rating ON satisfaction_surveys(rating);
 CREATE INDEX IF NOT EXISTS idx_satisfaction_surveys_submitted ON satisfaction_surveys(submitted_at);
 CREATE INDEX IF NOT EXISTS idx_satisfaction_surveys_category ON satisfaction_surveys(category);
 
--- 满意度调研模板表(供运营配置不同维度的调研问卷)
 CREATE TABLE IF NOT EXISTS satisfaction_survey_templates (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -40,7 +37,6 @@ CREATE TABLE IF NOT EXISTS satisfaction_survey_templates (
 CREATE INDEX IF NOT EXISTS idx_satisfaction_templates_category ON satisfaction_survey_templates(category);
 CREATE INDEX IF NOT EXISTS idx_satisfaction_templates_active ON satisfaction_survey_templates(is_active);
 
--- 满意度跟进工单表
 CREATE TABLE IF NOT EXISTS satisfaction_followups (
     id VARCHAR(36) PRIMARY KEY,
     survey_id VARCHAR(36) NOT NULL,
@@ -57,7 +53,6 @@ CREATE INDEX IF NOT EXISTS idx_satisfaction_followups_survey ON satisfaction_fol
 CREATE INDEX IF NOT EXISTS idx_satisfaction_followups_merchant ON satisfaction_followups(merchant_key);
 CREATE INDEX IF NOT EXISTS idx_satisfaction_followups_status ON satisfaction_followups(status);
 
--- updated_at 自动更新触发器
 CREATE OR REPLACE FUNCTION satisfaction_surveys_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
