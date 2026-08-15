@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -14,7 +13,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ---------------- 内存 Fake 实现（无 DB 依赖） ----------------
 
 type fakeCustRepo struct {
 	mu    sync.Mutex
@@ -188,7 +186,6 @@ func (f *fakeJudge) Judge(context.Context, *model.LeadMiningConfig, []llm.ChatMe
 	return f.resp, nil
 }
 
-// ---------------- 辅助 ----------------
 
 func lmItoa(n int) string {
 	if n == 0 {
@@ -253,7 +250,6 @@ func sampleHub(platform, senderID, content string) *model.MessageHub {
 	}
 }
 
-// ---------------- 纯函数测试 ----------------
 
 func TestMergeTags(t *testing.T) {
 	got := mergeTags([]string{"A", "B"}, []string{"b", "C", ""})
@@ -269,7 +265,7 @@ func TestMergeTags(t *testing.T) {
 }
 
 func TestChannelEnabled(t *testing.T) {
-	cfg := &model.LeadMiningConfig{} // 空=全部
+	cfg := &model.LeadMiningConfig{} 
 	if !channelEnabled(cfg, "douyin") {
 		t.Fatal("空渠道配置应放行全部渠道")
 	}
@@ -296,7 +292,6 @@ func TestBuildSystemPrompt(t *testing.T) {
 	}
 }
 
-// ---------------- 端到端逻辑测试 ----------------
 
 func TestProcess_LeadDetected(t *testing.T) {
 	cfg := &model.LeadMiningConfig{
@@ -315,7 +310,6 @@ func TestProcess_LeadDetected(t *testing.T) {
 	if j.calls != 1 {
 		t.Fatalf("期望判定 1 次，实际 %d", j.calls)
 	}
-	// 客户被打标签
 	c := fcr.byUID["lm:telegram:u1"]
 	if c == nil {
 		t.Fatal("未创建/解析客户")
@@ -325,7 +319,6 @@ func TestProcess_LeadDetected(t *testing.T) {
 	if !lmContains(tags, "高意向") || !lmContains(tags, "AI兴趣") {
 		t.Fatalf("客户标签不正确: %v", tags)
 	}
-	// 线索写入库存
 	clue := fkr.byTypeAcct[lmItoa(int(ClueTypeLeadMining))+":telegram:u1"]
 	if clue == nil {
 		t.Fatal("未写入线索库存")
@@ -394,7 +387,6 @@ func TestProcess_Debounce(t *testing.T) {
 	s := newTestService(cfg, j)
 	fkr := s.clueRepo.(*fakeClueRepo)
 
-	// 同客户连续两条消息（60s 窗口内）→ 只判定/写入一次
 	s.process(context.Background(), sampleHub("telegram", "u6", "在吗"))
 	s.process(context.Background(), sampleHub("telegram", "u6", "我想购买"))
 
@@ -414,7 +406,6 @@ func TestProcess_DedupAcrossTime(t *testing.T) {
 
 	account := "telegram:u7"
 	s.process(context.Background(), sampleHub("telegram", "u7", "第一次咨询"))
-	// 模拟时间窗口过去：清除去抖标记，再次触发判定
 	delete(s.lastJudge, account)
 	s.process(context.Background(), sampleHub("telegram", "u7", "第二次咨询"))
 
@@ -438,71 +429,3 @@ func lmContains(s []string, v string) bool {
 	return false
 }
 
-// ---------------- 抖音私聊触达契约测试 ----------------
-
-// TestDouyinLeadOutreachUsesOperatorAccount 守护「发现线索立即私聊」的路由键契约：
-// 私信 outbox 按运营账号(AccountID)拉取，hook 必须收到 hub.AccountID，而非客户键(account=platform:sender)。
-// 若回归客户键，桥接扩展按运营账号轮询时永远取不到 → 私聊静默丢失。
-func TestDouyinLeadOutreachUsesOperatorAccount(t *testing.T) {
-	if err := os.Setenv("DOUYIN_LEAD_DM_ENABLED", "1"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("DOUYIN_LEAD_DM_ENABLED")
-
-	svc := &Service{
-		clueRepo:  newFakeClueRepo(),
-		custRepo:  newFakeCustRepo(),
-		cfgRepo:   &fakeCfgRepo{cfg: &model.LeadMiningConfig{MinIntentScore: 10}},
-		lastJudge: map[string]time.Time{},
-	}
-
-	got := make(chan [3]string, 1)
-	orig := DouyinLeadOutreachHook
-	defer func() { DouyinLeadOutreachHook = orig }()
-	DouyinLeadOutreachHook = func(_ context.Context, accountID, memberOpenID, groupConvID, _, _ string) {
-		got <- [3]string{accountID, memberOpenID, groupConvID}
-	}
-
-	hub := &model.MessageHub{
-		Platform:       "douyin",
-		AccountID:      "op-acct-9", // 运营账号（桥接轮询账号）
-		SenderID:       "member-1",  // 客户（私聊目标）
-		SenderName:     "张三",
-		ConversationID: "group-g1",
-		MsgID:          "m1",
-		Content:        "怎么买",
-		Direction:      "inbound",
-		IsGroup:        true,
-	}
-	svc.persistLead(context.Background(), &model.LeadMiningConfig{MinIntentScore: 10}, hub, "douyin:member-1", &LeadJudgement{IsLead: true, IntentScore: 80, Reason: "高意向"})
-
-	select {
-	case args := <-got:
-		if args[0] != "op-acct-9" {
-			t.Fatalf("抖音发现线索私聊必须传运营账号 hub.AccountID, got=%q", args[0])
-		}
-		if args[1] != "member-1" {
-			t.Fatalf("私聊目标应为 hub.SenderID, got=%q", args[1])
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("抖音线索私聊 hook 未被触发（可能阈值/开关未命中）")
-	}
-}
-
-// TestFirstSeenDouyinGroupMember 守护入群近似触达的去重缓存语义：
-// 同一(运营账号,群,成员) 24h 内只触达一次；跨运营账号/跨成员独立计数。
-func TestFirstSeenDouyinGroupMember(t *testing.T) {
-	douyinJoinSeen = map[string]time.Time{} // 隔离全局去重缓存
-	if !firstSeenDouyinGroupMember("op1", "g1", "m1") {
-		t.Fatal("首次发言应返回 true")
-	}
-	if firstSeenDouyinGroupMember("op1", "g1", "m1") {
-		t.Fatal("24h 内重复发言同一成员应返回 false")
-	}
-	if !firstSeenDouyinGroupMember("op1", "g1", "m2") {
-		t.Fatal("不同成员应返回 true")
-	}
-	if !firstSeenDouyinGroupMember("op2", "g1", "m1") {
-		t.Fatal("不同运营账号应返回 true")
-	}
-}

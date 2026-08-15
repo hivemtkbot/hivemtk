@@ -73,25 +73,20 @@ func (r *xianyuCardRepository) GetList(ctx context.Context, req CardListFilter) 
 	var cards []model.XianyuCard
 	var total int64
 
-	// 构建查询条件
 	query := r.db.WithContext(ctx).Model(&model.XianyuCard{})
 
-	// 关键词搜索
 	if req.Keyword != "" {
 		query = query.Where("title LIKE ? OR description LIKE ?", "%"+req.Keyword+"%", "%"+req.Keyword+"%")
 	}
 
-	// 激活状态筛选
 	if req.IsActive != nil {
 		query = query.Where("is_active = ?", *req.IsActive)
 	}
 
-	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("获取闲鱼卡片总数失败: %w", err)
 	}
 
-	// 获取列表
 	offset := (req.Page - 1) * req.PageSize
 	if err := query.
 		Order("created_at DESC").
@@ -103,3 +98,4 @@ func (r *xianyuCardRepository) GetList(ctx context.Context, req CardListFilter) 
 
 	return cards, total, nil
 }
+

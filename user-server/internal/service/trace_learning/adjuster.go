@@ -26,7 +26,6 @@ type AdjustedChunk struct {
 //   - 硬性合规门槛：safety 维度<70 直接判差（防止 LLM 漏标合规风险）。
 func weightAction(score int, bad bool, safety float64, safetyPresent bool, cfg Config) string {
 	isBad := bad || score < cfg.BadThreshold
-	// 安全维度：仅当 LLM 显式给出 safety 维度时才判定为差，缺失维度（0 默认值）不误判为"不安全"。
 	if safetyPresent && safety < 70 {
 		isBad = true
 	}
@@ -179,3 +178,4 @@ func marshalJSON(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
 }
+

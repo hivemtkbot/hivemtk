@@ -24,21 +24,13 @@ import (
 //   - 所有操作都会写入 DomainHealthLog，便于事后追查；
 //   - 私域独立部署：无 merchant_id 字段。
 type DomainHealthService interface {
-	// CheckOne 探测单个域名，写入健康度与日志
 	CheckOne(ctx context.Context, domainID int) (*HealthCheckResult, error)
-	// CheckAll 探测所有域名
 	CheckAll(ctx context.Context) ([]*HealthCheckResult, error)
-	// SwitchActive 手动切换到指定域名
 	SwitchActive(ctx context.Context, domainID int, reason string) error
-	// SwitchToBest 自动切换到评分最高的可用域名
 	SwitchToBest(ctx context.Context, reason string) (*model.DomainPool, error)
-	// GetActiveDomain 获取当前活跃域名
 	GetActiveDomain(ctx context.Context) (*model.DomainPool, error)
-	// ListAvailable 列出可用域名
 	ListAvailable(ctx context.Context, minScore int) ([]*model.DomainPool, error)
-	// ListHealthLogs 查询最近 N 条健康度日志
 	ListHealthLogs(ctx context.Context, domainID int, limit int) ([]*model.DomainHealthLog, error)
-	// ProbeOnce 一次性探测（不写库），用于单元测试 / API 调试
 	ProbeOnce(ctx context.Context, domain string) (*HealthCheckResult, error)
 }
 
@@ -57,15 +49,15 @@ type HealthCheckResult struct {
 	OnBlacklist  bool      `json:"on_blacklist"`
 	BlacklistSrc string    `json:"blacklist_source,omitempty"`
 	HealthScore  int       `json:"health_score"`
-	ActionTaken  string    `json:"action_taken"` // none / mark_unhealthy / switch_over
+	ActionTaken  string    `json:"action_taken"` 
 }
 
 // 评分阈值（导出常量，供测试断言使用）
 const (
-	HealthScoreSwitchThreshold = 30 // 评分低于此值触发自动切换
+	HealthScoreSwitchThreshold = 30 
 	HealthScoreHealthy         = 80
 	HealthScoreWarn            = 60
-	ConsecutiveFailureLimit    = 3 // 连续失败 3 次触发切换
+	ConsecutiveFailureLimit    = 3 
 	HealthCheckTimeout         = 5 * time.Second
 	HealthLogRetentionDays     = 30
 )
@@ -76,13 +68,12 @@ type domainHealthService struct {
 	logRepo     *repository.DomainHealthLogRepository
 	blacklistR  *repository.DomainBlacklistRepository
 	httpClient  *http.Client
-	probeTarget string // 可选：HTTP 探测时的 Path，默认 "/"
+	probeTarget string 
 	mu          sync.Mutex
 }
 
 // NewDomainHealthService 创建域名健康度服务
 func NewDomainHealthService(db interface{}, repo repository.DomainPoolRepository) DomainHealthService {
-	// db 形参保留扩展位：未来可基于 db 注入其他仓储；当前统一通过仓储层封装 DB 入口
 	_ = db
 	blRepo := repository.NewDomainBlacklistRepository(nil)
 	return &domainHealthService{
@@ -146,7 +137,6 @@ func (s *domainHealthService) checkAndPersist(ctx context.Context, dp *model.Dom
 		logger.Errorf("探测域名失败 domain=%s: %v", dp.Domain, err)
 	}
 
-	// 端口修正：若 port=0 用 http=80，https=443
 	port := dp.Port
 	if port == 0 {
 		if probe.HTTPOk && probe.HTTPStatus > 0 {
@@ -156,7 +146,6 @@ func (s *domainHealthService) checkAndPersist(ctx context.Context, dp *model.Dom
 		}
 	}
 
-	// 黑名单查询
 	blacklisted, blEntry, blErr := s.blacklistR.IsBlacklisted(ctx, dp.Domain)
 	if blErr != nil {
 		logger.Errorf("查询黑名单失败 domain=%s: %v", dp.Domain, blErr)
@@ -166,22 +155,17 @@ func (s *domainHealthService) checkAndPersist(ctx context.Context, dp *model.Dom
 		blSrc = blEntry.Source + ":" + blEntry.Platform
 	}
 
-	// 计算评分
 	score, failures := calcHealthScore(dp.HealthScore, dp.ConsecutiveFailures, probe, blacklisted)
 
-	// 决定动作
 	action := "none"
 	newStatus := dp.Status
 	if !probe.DNSOK || !probe.HTTPOk || blacklisted || score == 0 {
-		// 不可用
 		newStatus = 2
 		action = "mark_unhealthy"
 	} else if score >= HealthScoreHealthy && newStatus != 1 {
-		// 恢复
 		newStatus = 1
 	}
 
-	// 写健康度
 	blacklistAt := time.Time{}
 	if blacklisted && blEntry != nil && !blEntry.CreatedAt.IsZero() {
 		blacklistAt = blEntry.CreatedAt
@@ -198,7 +182,6 @@ func (s *domainHealthService) checkAndPersist(ctx context.Context, dp *model.Dom
 		logger.Errorf("更新域名状态失败 id=%d: %v", dp.ID, err)
 	}
 
-	// 写日志
 	logRow := &model.DomainHealthLog{
 		DomainID:     dp.ID,
 		Domain:       dp.Domain,
@@ -218,9 +201,7 @@ func (s *domainHealthService) checkAndPersist(ctx context.Context, dp *model.Dom
 		logger.Errorf("写入健康度日志失败 id=%d: %v", dp.ID, err)
 	}
 
-	// 自动切换判定
 	if dp.AutoSwitchEnabled {
-		// 评分过低 或 连续失败超限 且 当前活跃
 		if dp.IsActive && (score < HealthScoreSwitchThreshold || failures >= ConsecutiveFailureLimit) {
 			if _, err := s.SwitchToBest(ctx, fmt.Sprintf("健康度自动切换: score=%d failures=%d", score, failures)); err != nil {
 				logger.Errorf("自动切换失败: %v", err)
@@ -255,7 +236,6 @@ func calcHealthScore(prevScore, prevFailures int, probe *HealthCheckResult, blac
 	if !probe.HTTPOk {
 		score -= 50
 	}
-	// 累加连续失败：探测失败 +1，否则归零
 	failures := prevFailures
 	if !probe.DNSOK || !probe.HTTPOk {
 		failures++
@@ -282,7 +262,6 @@ func (s *domainHealthService) ProbeOnce(ctx context.Context, domain string) (*He
 		CheckedAt: time.Now(),
 	}
 
-	// 1) DNS 解析
 	ips, dnsErr := net.LookupHost(domain)
 	if dnsErr != nil || len(ips) == 0 {
 		res.DNSError = dnsErr.Error()
@@ -293,7 +272,6 @@ func (s *domainHealthService) ProbeOnce(ctx context.Context, domain string) (*He
 		res.DNSOK = true
 	}
 
-	// 2) HTTP HEAD 探测（先 http，再 https）
 	urls := []string{
 		"http://" + domain + s.probeTarget,
 		"https://" + domain + s.probeTarget,
@@ -307,10 +285,8 @@ func (s *domainHealthService) ProbeOnce(ctx context.Context, domain string) (*He
 			break
 		}
 		res.HTTPErrorMsg = errMsg
-		// 继续尝试下一个 scheme
 	}
 
-	// 评分（用于 ProbeOnce 返回结果，方便 controller 直接展示）
 	score, _ := calcHealthScore(100, 0, res, false)
 	res.HealthScore = score
 	return res, nil
@@ -368,7 +344,6 @@ func (s *domainHealthService) SwitchToBest(ctx context.Context, reason string) (
 		return nil, errors.New("无可用域名（健康度 >= " + strconv.Itoa(HealthScoreHealthy) + " 且未在黑名单）")
 	}
 	best := candidates[0]
-	// 查找当前活跃域名
 	actives, _ := s.repo.ListActive(ctx)
 	prevID := 0
 	for _, a := range actives {
@@ -410,3 +385,4 @@ func (s *domainHealthService) ListAvailable(ctx context.Context, minScore int) (
 func (s *domainHealthService) ListHealthLogs(ctx context.Context, domainID int, limit int) ([]*model.DomainHealthLog, error) {
 	return s.logRepo.ListByDomain(ctx, domainID, limit)
 }
+

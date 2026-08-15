@@ -20,7 +20,6 @@ func setupPersonaTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// =================== RuleBasedPersonaEvaluator 测试 ===================
 
 func TestRuleBasedPersonaEvaluator_HighQualityReply(t *testing.T) {
 	e := NewRuleBasedPersonaEvaluator()
@@ -89,7 +88,7 @@ func TestRuleBasedPersonaEvaluator_FalsePromiseLowCompliance(t *testing.T) {
 
 func TestRuleBasedPersonaEvaluator_LongReplyLowConciseness(t *testing.T) {
 	e := NewRuleBasedPersonaEvaluator()
-	longReply := strings.Repeat("这是一段很长的回复内容。", 30) // > 250 字
+	longReply := strings.Repeat("这是一段很长的回复内容。", 30) 
 	input := &PersonaEvaluationInput{
 		AIReply: longReply,
 	}
@@ -189,7 +188,6 @@ func TestRuleBasedPersonaEvaluator_AllDimensionsPresent(t *testing.T) {
 	if len(result.Scores) != len(AllPersonaDimensions) {
 		t.Errorf("expected %d dimensions, got %d", len(AllPersonaDimensions), len(result.Scores))
 	}
-	// 所有维度都应有得分
 	for _, dim := range AllPersonaDimensions {
 		if _, ok := result.ScoreByDimension(context.Background(), dim); !ok {
 			t.Errorf("missing dimension: %s", dim)
@@ -199,7 +197,6 @@ func TestRuleBasedPersonaEvaluator_AllDimensionsPresent(t *testing.T) {
 
 func TestRuleBasedPersonaEvaluator_WeightedScore(t *testing.T) {
 	e := NewRuleBasedPersonaEvaluator()
-	// 全 1 分（理想回复）应得 1.0
 	input := &PersonaEvaluationInput{
 		AIReply:         "嗯，亲，我理解您的心情，这款产品适合您，建议购买。",
 		CustomerMessage: "我想要适合的产品",
@@ -207,16 +204,13 @@ func TestRuleBasedPersonaEvaluator_WeightedScore(t *testing.T) {
 		Industry:        "零售",
 	}
 	result, _ := e.Evaluate(context.Background(), input)
-	// 综合分应在合理范围
 	if result.TotalScore < 0 || result.TotalScore > 1 {
 		t.Errorf("total score out of [0,1]: %.3f", result.TotalScore)
 	}
-	// 验证加权计算
 	expectedTotal := 0.0
 	for _, s := range result.Scores {
 		expectedTotal += PersonaDimensionWeight[s.Dimension] * s.Score
 	}
-	// 四舍五入到 4 位
 	expectedTotal = float64(int(expectedTotal*10000)) / 10000
 	if abs(result.TotalScore-expectedTotal) > 0.001 {
 		t.Errorf("weighted score mismatch: expected %.4f, got %.4f", expectedTotal, result.TotalScore)
@@ -245,13 +239,11 @@ func TestRuleBasedPersonaEvaluator_CustomThreshold(t *testing.T) {
 		AIReply: "好的，亲",
 	}
 	result, _ := e.Evaluate(context.Background(), input)
-	// 设置高阈值后，普通回复不应通过
 	if result.Passed {
 		t.Errorf("expected fail with threshold 0.95, got pass (score=%.3f)", result.TotalScore)
 	}
 }
 
-// =================== PersonaEvaluationService 测试 ===================
 
 func TestPersonaEvaluationService_Evaluate_HighQualityPass(t *testing.T) {
 	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator())
@@ -316,7 +308,6 @@ func TestPersonaEvaluationService_EvaluateWithRetry_PassOnFirstAttempt(t *testin
 
 func TestPersonaEvaluationService_EvaluateWithRetry_PassOnSecondAttempt(t *testing.T) {
 	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator())
-	// 第一次低质量，重生成后高质量
 	input := &PersonaEvaluationInput{
 		AIReply:         "全网最好的产品，绝对保证",
 		CustomerMessage: "推荐产品",
@@ -350,7 +341,6 @@ func TestPersonaEvaluationService_EvaluateWithRetry_ExhaustedAndCollect(t *testi
 	db := setupPersonaTestDB(t)
 	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator()).
 		WithSampleCollector(context.Background(), NewDBLowQualitySampleCollector(db))
-	// 始终低质量
 	input := &PersonaEvaluationInput{
 		AIReply:         "全网最好的产品，绝对保证",
 		CustomerMessage: "推荐产品",
@@ -358,7 +348,7 @@ func TestPersonaEvaluationService_EvaluateWithRetry_ExhaustedAndCollect(t *testi
 		SessionID:       "s-1",
 	}
 	regenerateFn := func(ctx context.Context, input *PersonaEvaluationInput, feedback *PersonaEvaluationResult) (string, error) {
-		return "依然最好的产品，绝对保证", nil // 重生成还是低质量
+		return "依然最好的产品，绝对保证", nil 
 	}
 	result, err := svc.EvaluateWithRetry(context.Background(), input, regenerateFn)
 	if err != nil {
@@ -395,7 +385,6 @@ func TestPersonaEvaluationService_EvaluateWithRetry_NoRegenerateFn(t *testing.T)
 	input := &PersonaEvaluationInput{
 		AIReply: "全网最好的产品",
 	}
-	// regenerateFn 为 nil，应退化为单次评估
 	result, err := svc.EvaluateWithRetry(context.Background(), input, nil)
 	if err != nil {
 		t.Fatalf("evaluate: %v", err)
@@ -413,7 +402,6 @@ func TestPersonaEvaluationService_EvaluateWithRetry_RegenerateError(t *testing.T
 	regenerateFn := func(ctx context.Context, input *PersonaEvaluationInput, feedback *PersonaEvaluationResult) (string, error) {
 		return "", fmt.Errorf("regenerate failed")
 	}
-	// 重生成错误不应导致整个评估崩溃
 	result, err := svc.EvaluateWithRetry(context.Background(), input, regenerateFn)
 	if err != nil {
 		t.Fatalf("expected graceful degradation, got error: %v", err)
@@ -473,13 +461,11 @@ func TestPersonaEvaluationService_AllRepliesCollected(t *testing.T) {
 		return "依然最好的产品，绝对保证", nil
 	}
 	result, _ := svc.EvaluateWithRetry(context.Background(), input, regenerateFn)
-	// AllReplies 应包含原始 + 2 次重生成（3 次尝试 = 1 原始 + 2 重生成）
 	if len(result.AllReplies) != DefaultPersonaMaxRetry {
 		t.Errorf("expected %d replies, got %d", DefaultPersonaMaxRetry, len(result.AllReplies))
 	}
 }
 
-// =================== LLMPersonaEvaluator 输入校验测试 ===================
 
 func TestLLMPersonaEvaluator_NilDispatcher(t *testing.T) {
 	e := &LLMPersonaEvaluator{dispatcher: nil}
@@ -505,7 +491,6 @@ func TestLLMPersonaEvaluator_EmptyReply(t *testing.T) {
 	}
 }
 
-// =================== parsePersonaEvaluationResult 测试 ===================
 
 func TestParsePersonaEvaluationResult_ValidJSON(t *testing.T) {
 	content := `{"scores":[{"dimension":"naturalness","score":0.9,"reason":"口语化"},{"dimension":"relevance","score":0.85,"reason":"相关"},{"dimension":"persona","score":0.8,"reason":"符合人设"},{"dimension":"emotion","score":0.7,"reason":"有共情"},{"dimension":"conciseness","score":0.95,"reason":"简洁"},{"dimension":"compliance","score":1.0,"reason":"合规"}],"total_score":0.87}`
@@ -548,7 +533,6 @@ func TestParsePersonaEvaluationResult_InvalidJSON(t *testing.T) {
 }
 
 func TestParsePersonaEvaluationResult_MissingTotalScore(t *testing.T) {
-	// 缺失 total_score 时应自动按权重计算
 	content := `{"scores":[{"dimension":"naturalness","score":1.0,"reason":""},{"dimension":"relevance","score":1.0,"reason":""},{"dimension":"persona","score":1.0,"reason":""},{"dimension":"emotion","score":1.0,"reason":""},{"dimension":"conciseness","score":1.0,"reason":""},{"dimension":"compliance","score":1.0,"reason":""}]}`
 	result, err := parsePersonaEvaluationResult(content)
 	if err != nil {
@@ -560,7 +544,6 @@ func TestParsePersonaEvaluationResult_MissingTotalScore(t *testing.T) {
 }
 
 func TestParsePersonaEvaluationResult_ScoreClamp(t *testing.T) {
-	// 越界得分应被裁剪到 [0,1]
 	content := `{"scores":[{"dimension":"naturalness","score":1.5,"reason":""},{"dimension":"relevance","score":-0.5,"reason":""},{"dimension":"persona","score":0.5,"reason":""},{"dimension":"emotion","score":0.5,"reason":""},{"dimension":"conciseness","score":0.5,"reason":""},{"dimension":"compliance","score":0.5,"reason":""}],"total_score":0.5}`
 	result, err := parsePersonaEvaluationResult(content)
 	if err != nil {
@@ -576,7 +559,6 @@ func TestParsePersonaEvaluationResult_ScoreClamp(t *testing.T) {
 	}
 }
 
-// =================== 低质样本收集器测试 ===================
 
 func TestDBLowQualitySampleCollector_HappyPath(t *testing.T) {
 	db := setupPersonaTestDB(t)
@@ -660,11 +642,9 @@ func TestLogLowQualitySampleCollector_NoError(t *testing.T) {
 	}
 }
 
-// =================== ListLowQualitySamples / MarkLowQualitySampleHandled 测试 ===================
 
 func TestListLowQualitySamples_HappyPath(t *testing.T) {
 	db := setupPersonaTestDB(t)
-	// 插入 3 条
 	for i := 0; i < 3; i++ {
 		db.Create(&model.LowQualitySample{
 			CustomerID:   fmt.Sprintf("c-%d", i),
@@ -750,7 +730,6 @@ func TestMarkLowQualitySampleHandled_NilDB(t *testing.T) {
 	}
 }
 
-// =================== 辅助函数测试 ===================
 
 func TestComputeWeightedScore_AllMax(t *testing.T) {
 	scores := []PersonaDimensionScore{}
@@ -775,7 +754,6 @@ func TestComputeWeightedScore_AllMin(t *testing.T) {
 }
 
 func TestComputeWeightedScore_Partial(t *testing.T) {
-	// 仅自然度 1.0，其他 0.0，应得 0.25
 	scores := []PersonaDimensionScore{
 		{Dimension: PersonaDimensionNaturalness, Score: 1.0},
 		{Dimension: PersonaDimensionRelevance, Score: 0.0},
@@ -800,7 +778,7 @@ func TestClampScore(t *testing.T) {
 		{0.5, 0.5},
 		{1, 1},
 		{1.5, 1},
-		{0.555, 0.56}, // 四舍五入到 2 位
+		{0.555, 0.56}, 
 	}
 	for _, tc := range tests {
 		got := clampScore(tc.input)
@@ -815,7 +793,6 @@ func TestExtractKeywords(t *testing.T) {
 	if len(kws) == 0 {
 		t.Error("expected non-empty keywords")
 	}
-	// 应包含 "这款"/"款手"/"手机" 等 2 字词
 	foundPhone := false
 	for _, kw := range kws {
 		if kw == "手机" {
@@ -887,7 +864,6 @@ func TestPersonaEvaluationResult_ScoreByDimension(t *testing.T) {
 	}
 }
 
-// =================== PRD 验收测试 ===================
 
 // TestPersonaEvaluation_PRDAcceptance_RetryAndCollect PRD §5.2 G6 验收：
 // "重生成循环正确触发" + "低质样本自动收集用于后续训练"
@@ -896,7 +872,6 @@ func TestPersonaEvaluation_PRDAcceptance_RetryAndCollect(t *testing.T) {
 	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator()).
 		WithSampleCollector(context.Background(), NewDBLowQualitySampleCollector(db))
 
-	// 模拟始终低质量回复
 	input := &PersonaEvaluationInput{
 		CustomerID:      "c-prd",
 		SessionID:       "s-prd",
@@ -908,7 +883,6 @@ func TestPersonaEvaluation_PRDAcceptance_RetryAndCollect(t *testing.T) {
 		Intent:          "product_inquiry",
 	}
 	regenerateFn := func(ctx context.Context, input *PersonaEvaluationInput, feedback *PersonaEvaluationResult) (string, error) {
-		// 重生成依然是低质量（含广告法极限词）
 		return "依然是最好的产品，绝对保证，国家级认证", nil
 	}
 	result, err := svc.EvaluateWithRetry(context.Background(), input, regenerateFn)
@@ -916,7 +890,6 @@ func TestPersonaEvaluation_PRDAcceptance_RetryAndCollect(t *testing.T) {
 		t.Fatalf("evaluate: %v", err)
 	}
 
-	// 验收 1：3 次仍不达标 → 转人工
 	if result.Passed {
 		t.Errorf("PRD 验收失败：3 次仍不达标应转人工，got pass (score=%.3f)", result.TotalScore)
 	}
@@ -941,7 +914,6 @@ func TestPersonaEvaluation_PRDAcceptance_RetryAndCollect(t *testing.T) {
 // "综合分 ≥ 0.85 → 通过"
 func TestPersonaEvaluation_PRDAcceptance_HighQualityPass(t *testing.T) {
 	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator())
-	// 高质量回复应通过
 	input := &PersonaEvaluationInput{
 		CustomerMessage: "这个多少钱？",
 		AIReply:         "亲，这款产品 199 元，今天活动价 99 元，您看合适吗？",
@@ -973,7 +945,6 @@ func TestPersonaEvaluation_PRDAcceptance_SixDimensions(t *testing.T) {
 	}
 	result, _ := e.Evaluate(context.Background(), input)
 
-	// 必须有 6 个维度
 	expectedDims := map[PersonaDimension]bool{
 		PersonaDimensionNaturalness: false,
 		PersonaDimensionRelevance:   false,
@@ -993,7 +964,6 @@ func TestPersonaEvaluation_PRDAcceptance_SixDimensions(t *testing.T) {
 		}
 	}
 
-	// 权重总和应为 1.0
 	totalWeight := 0.0
 	for _, w := range PersonaDimensionWeight {
 		totalWeight += w
@@ -1002,3 +972,4 @@ func TestPersonaEvaluation_PRDAcceptance_SixDimensions(t *testing.T) {
 		t.Errorf("PRD 验收失败：权重总和应为 1.0, got %.3f", totalWeight)
 	}
 }
+

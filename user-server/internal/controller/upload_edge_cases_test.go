@@ -86,3 +86,4 @@ func TestUploadFile_MultipleValidExtensions(t *testing.T) {
 		}
 	}
 }
+

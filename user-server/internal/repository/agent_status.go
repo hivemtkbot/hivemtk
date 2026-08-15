@@ -49,9 +49,6 @@ func (r *AgentStatusRepository) GetByAgentID(ctx context.Context, agentID uint) 
 // GetOnlineAgents 获取在线客服列表
 func (r *AgentStatusRepository) GetOnlineAgents(ctx context.Context) ([]*model.AgentStatus, error) {
 	var agents []*model.AgentStatus
-	// 修复：仅返回最近 5 分钟内有心跳（last_active_at）的在线/忙碌坐席。
-	// UpdateStatus 每次上线/心跳都会刷新 last_active_at；崩溃或断网未发 offline 的坐席
-	// 会滞留 status='online' 但不再心跳，若不剔除会被持续分配会话（僵尸坐席）。
 	cutoff := time.Now().Add(-5 * time.Minute)
 	err := r.db.Where("status IN ? AND active_sessions < max_sessions AND last_active_at > ?",
 		[]string{"online", "busy"}, cutoff).
@@ -114,3 +111,4 @@ func (r *AgentStatusRepository) CountOnlineAgents(ctx context.Context) (int, err
 	}
 	return int(count), nil
 }
+

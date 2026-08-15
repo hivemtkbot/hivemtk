@@ -27,10 +27,9 @@ func TestPersistBridgeHistory_HistoryEchoDedupHit_Skipped(t *testing.T) {
 		account  = "acct-xhs-hd"
 		conv     = "conv-xhs-hd-1"
 		content  = "你好呀！😊 很高兴与你交流～有任何产品问题随时问我"
-		hashID   = "mh:hd000001" // 模拟前端 _canonicalMsgId = contentHash
+		hashID   = "mh:hd000001" 
 	)
 
-	// 步骤 1：模拟 1 小时前已下发并入库的 AI 回复（outbound），MsgID 即 contentHash。
 	oldTime := time.Now().Add(-1 * time.Hour)
 	if err := db.Create(&model.MessageHub{
 		MsgID:          hashID,
@@ -46,15 +45,12 @@ func TestPersistBridgeHistory_HistoryEchoDedupHit_Skipped(t *testing.T) {
 		t.Fatalf("插入历史 outbound 失败: %v", err)
 	}
 
-	// 步骤 2：模拟 bridge patrol 把这条 AI 回复塞进 history 上报（前端统一 customer + inbound）。
-	// 注意：前端已不再判自/他，sender_type 一律 'customer'；direction 默认 'inbound'。
-	// 这是 2026-08-06 重构后的契约（channel-adapter.js parseMessageItem）。
 	histEvent := &model.MessageEvent{
 		Channel:        model.ChannelXHS,
 		SenderID:       "customer-xhs-001",
-		SenderType:     "customer", // 前端统一 customer
+		SenderType:     "customer", 
 		Content:        content,
-		EventID:        hashID, // 与已入库 outbound 同 MsgID → GetByMsgID 命中
+		EventID:        hashID, 
 		ConversationID: conv,
 		Extra:          map[string]interface{}{"account_id": account},
 	}
@@ -102,7 +98,7 @@ func TestPersistBridgeHistory_NewHistoryMessage_NotSkipped(t *testing.T) {
 		account  = "acct-xhs-nh"
 		conv     = "conv-xhs-nh-1"
 		content  = "这是页面加载时回填的真实历史消息"
-		newMsgID = "mh:hd0000ff" // 全新 msg_id，DB 中不存在
+		newMsgID = "mh:hd0000ff" 
 	)
 
 	histEvent := &model.MessageEvent{
@@ -143,7 +139,6 @@ func TestPersistBridgeHistory_HistoryEcho_NoNewOutboundAppended(t *testing.T) {
 		hashID   = "mh:nout0001"
 	)
 
-	// 步骤 1：预置已下发的 outbound
 	if err := db.Create(&model.MessageHub{
 		MsgID:          hashID,
 		Platform:       platform,
@@ -158,7 +153,6 @@ func TestPersistBridgeHistory_HistoryEcho_NoNewOutboundAppended(t *testing.T) {
 		t.Fatalf("预置 outbound 失败: %v", err)
 	}
 
-	// 步骤 2：history 上报同 MsgID 项
 	if err := svc.PersistBridgeHistory(ctx, &model.MessageEvent{
 		Channel:        model.ChannelXHS,
 		SenderID:       "customer-xhs-003",
@@ -180,3 +174,4 @@ func TestPersistBridgeHistory_HistoryEcho_NoNewOutboundAppended(t *testing.T) {
 		t.Fatalf("history 命中幂等后该会话 outbound 应仍为 1 条，实际=%d", outboundCount)
 	}
 }
+

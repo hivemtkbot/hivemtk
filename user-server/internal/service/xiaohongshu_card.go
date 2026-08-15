@@ -46,7 +46,6 @@ func NewXiaohongshuCardService(db *gorm.DB) XiaohongshuCardService {
 
 // Create 创建小红书卡片
 func (s *xiaohongshuCardService) Create(ctx context.Context, req *dto.XiaohongshuCardCreateRequest) (*dto.XiaohongshuCardResponse, error) {
-	// 如果没有提供跳转链接，设置默认值
 	redirectURL := req.RedirectURL
 	if redirectURL == "" {
 		redirectURL = "https://www.xiaohongshu.com"
@@ -68,19 +67,16 @@ func (s *xiaohongshuCardService) Create(ctx context.Context, req *dto.Xiaohongsh
 		return nil, err
 	}
 
-	// 生成短链
 	err = s.GenerateShortLink(ctx, createdCard)
 	if err != nil {
 		return nil, err
 	}
 
-	// 重新获取卡片信息以获取短链
 	card, err = s.repo.GetByID(ctx, createdCard.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取短链信息
 	shortCode := ""
 	if card.ShortLinkID != nil {
 		shortLink, err := s.shortLinkService.GetByID(context.Background(), *card.ShortLinkID)
@@ -99,16 +95,13 @@ func (s *xiaohongshuCardService) Update(ctx context.Context, req *dto.Xiaohongsh
 		return nil, err
 	}
 
-	// 保存原始域名池ID用于比较
 	originalDomainPoolID := card.DomainPoolID
 
-	// 如果没有提供跳转链接，设置默认值
 	redirectURL := req.RedirectURL
 	if redirectURL == "" {
 		redirectURL = "https://www.xiaohongshu.com"
 	}
 
-	// 更新字段
 	card.Title = req.Title
 	card.Description = req.Description
 	card.ImageURL = req.ImageURL
@@ -122,21 +115,18 @@ func (s *xiaohongshuCardService) Update(ctx context.Context, req *dto.Xiaohongsh
 		return nil, err
 	}
 
-	// 如果域名池ID发生变化，重新生成短链
 	if originalDomainPoolID != req.DomainPoolID {
 		err = s.GenerateShortLink(ctx, updatedCard)
 		if err != nil {
 			return nil, err
 		}
 
-		// 重新获取卡片信息以获取短链
 		updatedCard, err = s.repo.GetByID(ctx, updatedCard.ID)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// 获取短链信息
 	shortCode := ""
 	if updatedCard.ShortLinkID != nil {
 		shortLink, err := s.shortLinkService.GetByID(context.Background(), *updatedCard.ShortLinkID)
@@ -150,18 +140,15 @@ func (s *xiaohongshuCardService) Update(ctx context.Context, req *dto.Xiaohongsh
 
 // Delete 删除小红书卡片
 func (s *xiaohongshuCardService) Delete(ctx context.Context, id uint) error {
-	// 获取卡片信息，以便删除关联的短链
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	// 如果有关联的短链，删除短链
 	if card.ShortLinkID != nil {
 		_ = s.shortLinkService.Delete(context.Background(), *card.ShortLinkID)
 	}
 
-	// 删除卡片
 	return s.repo.Delete(ctx, id)
 }
 
@@ -193,10 +180,8 @@ func (s *xiaohongshuCardService) GetList(ctx context.Context, req *dto.Xiaohongs
 		return nil, err
 	}
 
-	// 转换为响应格式
 	responses := make([]dto.XiaohongshuCardResponse, len(cards))
 	for i, card := range cards {
-		// 获取短链信息
 		shortCode := ""
 		shortLinkURL := ""
 		if card.ShortLinkID != nil {
@@ -232,13 +217,11 @@ func (s *xiaohongshuCardService) GetList(ctx context.Context, req *dto.Xiaohongs
 
 // ShareCard 分享小红书卡片
 func (s *xiaohongshuCardService) ShareCard(ctx context.Context, id uint, platform string) (*dto.XiaohongshuCardResponse, error) {
-	// 获取卡片信息
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// 记录活动
 	activity := &model.XiaohongshuCardActivity{
 		CardID:       id,
 		ActivityType: "share",
@@ -262,13 +245,11 @@ func (s *xiaohongshuCardService) recordActivity(ctx context.Context, cardID uint
 
 // GenerateHTMLPage 生成小红书卡片HTML页面
 func (s *xiaohongshuCardService) GenerateHTMLPage(ctx context.Context, id uint) (string, error) {
-	// 获取卡片信息
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return "", err
 	}
 
-	// 使用模板服务生成HTML页面
 	data := &template.CardTemplateData{
 		Title:       card.Title,
 		Description: card.Description,
@@ -295,21 +276,15 @@ func (s *xiaohongshuCardService) GenerateCardChatPage(ctx context.Context, id ui
 
 // GenerateShortLink 为小红书卡片生成短链
 func (s *xiaohongshuCardService) GenerateShortLink(ctx context.Context, card *model.XiaohongshuCard) error {
-	// 如果已经有短链，先删除旧的短链
 	if card.ShortLinkID != nil {
-		// 可以选择删除旧短链或保留，这里我们保留旧短链但不再使用
-		// 如果需要删除旧短链，可以调用 s.shortLinkService.Delete(*card.ShortLinkID)
 	}
 
 	// 获取域名池信息
-	var domainID uint = 0 // 默认域名ID为0
+	var domainID uint = 0 
 	if card.DomainPoolID != nil {
-		// 这里需要根据域名池信息找到对应的域名ID
-		// 假设域名池ID和域名ID相同，实际可能需要查询映射关系
 		domainID = *card.DomainPoolID
 	}
 
-	// 生成短码
 	shortCodeReq := &dto.GenerateShortCodeRequest{
 		Length: 6,
 	}
@@ -318,13 +293,12 @@ func (s *xiaohongshuCardService) GenerateShortLink(ctx context.Context, card *mo
 		return err
 	}
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   shortCodeResp.ShortCode,
-		OriginalURL: fmt.Sprintf("/xiaohongshu/card/%d", card.ID), // 指向小红书卡片页面
+		OriginalURL: fmt.Sprintf("/xiaohongshu/card/%d", card.ID), 
 		Title:       card.Title,
 		Description: card.Description,
-		DomainID:    domainID, // 使用域名池ID作为域名ID
+		DomainID:    domainID, 
 	}
 
 	shortLinkResp, err := s.shortLinkService.Create(ctx, createReq)
@@ -332,7 +306,6 @@ func (s *xiaohongshuCardService) GenerateShortLink(ctx context.Context, card *mo
 		return err
 	}
 
-	// 更新卡片的短链ID
 	err = s.repo.UpdateShortLinkID(ctx, card.ID, &shortLinkResp.ID)
 	if err != nil {
 		return err
@@ -343,7 +316,6 @@ func (s *xiaohongshuCardService) GenerateShortLink(ctx context.Context, card *mo
 
 // toResponse 将模型转换为响应DTO
 func (s *xiaohongshuCardService) toResponse(ctx context.Context, card *model.XiaohongshuCard) *dto.XiaohongshuCardResponse {
-	// 获取短链信息
 	shortCode := ""
 	shortLinkURL := ""
 	if card.ShortLinkID != nil {
@@ -394,3 +366,4 @@ func (s *xiaohongshuCardService) toResponseWithShortLink(ctx context.Context, ca
 		UpdatedAt:    card.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 }
+

@@ -124,7 +124,6 @@ func TestEmailSmtp_BeforeCreate(t *testing.T) {
 		Server: "smtp.example.com",
 	}
 
-	// BeforeCreate should generate an ID
 	err := smtp.BeforeCreate(nil)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -132,7 +131,6 @@ func TestEmailSmtp_BeforeCreate(t *testing.T) {
 	if smtp.ID == "" {
 		t.Error("Expected non-empty ID after BeforeCreate")
 	}
-	// Verify it's a valid UUID format
 	if len(smtp.ID) != 36 {
 		t.Errorf("Expected ID length 36 (UUID), got %d", len(smtp.ID))
 	}
@@ -153,3 +151,4 @@ func TestEmailSmtp_BeforeCreate_NoChangeIfExists(t *testing.T) {
 		t.Errorf("Expected ID to remain 'existing-id', got %s", smtp.ID)
 	}
 }
+

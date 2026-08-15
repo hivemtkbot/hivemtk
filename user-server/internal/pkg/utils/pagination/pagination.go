@@ -63,7 +63,6 @@ func ParseWithMax(c *gin.Context, maxPageSize int) (page, pageSize int, err erro
 		return 0, 0, ErrInvalidPage
 	}
 
-	// 兼容三种命名：page_size（snake）、pageSize（camel）、limit（短名）
 	raw := c.Query("page_size")
 	if raw == "" {
 		raw = c.Query("pageSize")
@@ -105,3 +104,4 @@ func parsePositiveInt(s string, defaultVal int) (int, error) {
 	}
 	return v, nil
 }
+

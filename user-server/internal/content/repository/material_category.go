@@ -46,11 +46,9 @@ func (r *materialCategoryRepo) GetList(licenseID string, parentID string, materi
 
 	query := r.db.Model(&model.MaterialCategory{}).Where("license_id = ?", licenseID)
 
-	// 父级筛选
 	if parentID != "" {
 		query = query.Where("parent_id = ?", parentID)
 	}
-	// 类型筛选
 	if materialType != "" {
 		query = query.Where("type = ?", materialType)
 	}
@@ -69,7 +67,6 @@ func (r *materialCategoryRepo) Update(category *model.MaterialCategory) error {
 }
 
 func (r *materialCategoryRepo) Delete(id string) error {
-	// 检查分类是否存在
 	_, err := r.GetByID(id)
 	if err != nil {
 		return err
@@ -132,3 +129,4 @@ func (r *materialCategoryRepo) UpdateMaterialCount(categoryID string) error {
 
 	return r.db.Model(&model.MaterialCategory{}).Where("id = ?", categoryID).Update("material_count", count).Error
 }
+

@@ -22,7 +22,7 @@ type SOPNodeExecutorDeps struct {
 	WSHub       *websocket.Hub
 	MsgRepo     *repository.SessionMessageRepository
 	SessionRepo *repository.CustomerSessionRepository
-	LLMSem      chan struct{} // 全局 LLM 并发信号量（默认容量 4）
+	LLMSem      chan struct{} 
 }
 
 type StartExecutor struct{}
@@ -60,7 +60,7 @@ func (e *EndExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeE
 		Output: model.JSONMap{
 			"_ended_at": time.Now().Format(time.RFC3339),
 		},
-		NextNodeID: "", // 空表示流程结束
+		NextNodeID: "", 
 	}, nil
 }
 
@@ -68,7 +68,7 @@ func (e *EndExecutor) IsAsync() bool { return false }
 
 type MessageNodeBase struct {
 	nodeType   string
-	scenario   llm.DispatchScenario // LLM 降级时的调度场景
+	scenario   llm.DispatchScenario 
 	dispatcher *llm.Dispatcher
 	wsHub      *websocket.Hub
 	msgRepo    *repository.SessionMessageRepository
@@ -84,7 +84,6 @@ func (b *MessageNodeBase) Execute(ctx context.Context, ec *ExecutionContext) (*N
 	nodeID := ec.Node.ID
 	sideEffectKey := fmt.Sprintf("message_sent:%d:%s", execID, nodeID)
 
-	// 1. 幂等性检查：已发送则跳过
 	if hasSideEffect(ec.Execution, sideEffectKey) {
 		logger.Ctx(ctx).Info().
 			Str("node_id", nodeID).
@@ -96,7 +95,6 @@ func (b *MessageNodeBase) Execute(ctx context.Context, ec *ExecutionContext) (*N
 		}, nil
 	}
 
-	// 2. 三级降级获取消息内容
 	content, contentSource, err := b.resolveContent(ctx, ec)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).
@@ -110,7 +108,6 @@ func (b *MessageNodeBase) Execute(ctx context.Context, ec *ExecutionContext) (*N
 		}, err
 	}
 	if strings.TrimSpace(content) == "" {
-		// 内容为空视为失败（避免发空消息给客户）
 		return &NodeExecResult{
 			Status:       NodeStatusFailed,
 			ErrorMessage: "resolved content is empty",
@@ -118,7 +115,6 @@ func (b *MessageNodeBase) Execute(ctx context.Context, ec *ExecutionContext) (*N
 		}, fmt.Errorf("resolved content is empty for node %s", nodeID)
 	}
 
-	// 3. 持久化到 session_messages 表
 	if b.msgRepo != nil && ec.SessionID != "" {
 		msg := &model.SessionMessage{
 			SessionID:   ec.SessionID,
@@ -136,7 +132,6 @@ func (b *MessageNodeBase) Execute(ctx context.Context, ec *ExecutionContext) (*N
 		}
 	}
 
-	// 4. WebSocket 推送（私域部署：BroadcastToMerchant 全广播，前端按 session_id 过滤）
 	if b.wsHub != nil {
 		payload := map[string]any{
 			"execution_id": execID,
@@ -151,7 +146,6 @@ func (b *MessageNodeBase) Execute(ctx context.Context, ec *ExecutionContext) (*N
 		_ = b.wsHub.BroadcastToMerchant("", websocket.MsgTypeSOP, payload)
 	}
 
-	// 5. 更新会话最后消息（best-effort）
 	if ec.SessionID != "" {
 		b.updateSessionLastMessage(ctx, ec.SessionID, content)
 	}
@@ -176,7 +170,6 @@ func (b *MessageNodeBase) Execute(ctx context.Context, ec *ExecutionContext) (*N
 }
 
 func (b *MessageNodeBase) resolveContent(ctx context.Context, ec *ExecutionContext) (string, string, error) {
-	// 1. 优先使用 node.Prompt
 	if ec.Node.Prompt != "" {
 		content := renderPromptTemplate(ec.Node.Prompt, ec.ExecutionData)
 		if strings.TrimSpace(content) != "" {
@@ -184,12 +177,10 @@ func (b *MessageNodeBase) resolveContent(ctx context.Context, ec *ExecutionConte
 		}
 	}
 
-	// 2. 检查 node.Config.content（兼容旧版字段）
 	if cfgContent, ok := ec.Node.Config["content"].(string); ok && strings.TrimSpace(cfgContent) != "" {
 		return renderPromptTemplate(cfgContent, ec.ExecutionData), "config", nil
 	}
 
-	// 3. LLM 降级生成
 	if b.dispatcher != nil {
 		systemPrompt := fmt.Sprintf("你是一名销冠，正在执行 %s 节点。根据客户上下文生成一段简短、自然、专业的话术（不超过 100 字）。", b.nodeType)
 		userPrompt := buildLLMUserPrompt(ec)
@@ -204,19 +195,15 @@ func (b *MessageNodeBase) resolveContent(ctx context.Context, ec *ExecutionConte
 		if err == nil && result != nil && strings.TrimSpace(result.Content) != "" {
 			return strings.TrimSpace(result.Content), "llm", nil
 		}
-		// LLM 失败则继续降级
 		logger.Ctx(ctx).Warn().Err(err).
 			Str("node_type", b.nodeType).
 			Msg("llm dispatch failed, using fallback")
 	}
 
-	// 4. 兜底：按节点类型返回默认话术
 	return defaultScriptForNodeType(b.nodeType), "fallback", nil
 }
 
 func (b *MessageNodeBase) updateSessionLastMessage(ctx context.Context, sessionID, content string) {
-	// 通过 repository.NewCustomerSessionRepository() 拿到 repo（避免循环依赖）
-	// 此处使用全局 GetDB 模式（与既有 saveOutboundMessage 一致）
 	repo := repository.NewCustomerSessionRepository()
 	if repo == nil {
 		return
@@ -304,7 +291,7 @@ func NewMessageNodeExecutor(nodeType string, scenario llm.DispatchScenario, deps
 }
 
 type ConditionExecutor struct {
-	nodeType string // condition 或 branch（旧版）
+	nodeType string 
 }
 
 func (e *ConditionExecutor) NodeType() string { return e.nodeType }
@@ -312,7 +299,6 @@ func (e *ConditionExecutor) NodeType() string { return e.nodeType }
 func (e *ConditionExecutor) IsAsync() bool { return false }
 
 func (e *ConditionExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
-	// 优先用 Conditions 字段（新版优先级路由）
 	if len(ec.Node.Conditions) > 0 {
 		br, err := SOPEvaluateConditionBranches(ec.Node.Conditions, ec.ExecutionData)
 		if err != nil {
@@ -320,7 +306,6 @@ func (e *ConditionExecutor) Execute(ctx context.Context, ec *ExecutionContext) (
 				Str("node_id", ec.Node.ID).
 				Msg("evaluate condition branches failed, fallback to Next[0]")
 		} else if br.Matched && br.NextNode != "" {
-			// 查找匹配分支的 Label（SOPConditionResult 仅返回 NextNode，需回溯分支）
 			matchedLabel := ""
 			for _, branch := range ec.Node.Conditions {
 				if branch.Next == br.NextNode {
@@ -341,7 +326,6 @@ func (e *ConditionExecutor) Execute(ctx context.Context, ec *ExecutionContext) (
 		}
 	}
 
-	// 旧版 Condition 字段兜底
 	if ec.Node.Condition != "" {
 		result, err := SOPEvaluateNodeCondition(ec.Node, ec.ExecutionData)
 		if err == nil {
@@ -355,7 +339,6 @@ func (e *ConditionExecutor) Execute(ctx context.Context, ec *ExecutionContext) (
 		}
 	}
 
-	// 兜底：Next[0]
 	nextID := ""
 	if len(ec.Node.Next) > 0 {
 		nextID = ec.Node.Next[0]
@@ -372,7 +355,7 @@ func (e *ConditionExecutor) Execute(ctx context.Context, ec *ExecutionContext) (
 }
 
 type LLMNodeExecutor struct {
-	nodeType   string // llm 或 ai_decide（旧版）
+	nodeType   string 
 	dispatcher *llm.Dispatcher
 	llmSem     chan struct{}
 }
@@ -382,7 +365,6 @@ func (e *LLMNodeExecutor) NodeType() string { return e.nodeType }
 func (e *LLMNodeExecutor) IsAsync() bool { return false }
 
 func (e *LLMNodeExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
-	// 全局 LLM 并发信号量限流
 	if e.llmSem != nil {
 		select {
 		case e.llmSem <- struct{}{}:
@@ -404,7 +386,6 @@ func (e *LLMNodeExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*N
 		}, fmt.Errorf("llm dispatcher not configured for node %s", ec.Node.ID)
 	}
 
-	// 构造 LLM 输入：候选下一节点列表 + 当前上下文
 	candidates := ec.Node.Next
 	prompt := buildLLMDecisionPrompt(ec, candidates)
 	req := llm.DispatchRequest{
@@ -429,7 +410,6 @@ func (e *LLMNodeExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*N
 		}, nil
 	}
 
-	// 解析 LLM 返回的 JSON
 	decision, parseErr := parseLLMDecision(result.Content)
 	if parseErr != nil || decision.NextNodeID == "" {
 		logger.Ctx(ctx).Warn().Err(parseErr).
@@ -444,7 +424,6 @@ func (e *LLMNodeExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*N
 		}, nil
 	}
 
-	// 校验 LLM 返回的节点 ID 是否在候选列表中（防幻觉）
 	if !containsString(candidates, decision.NextNodeID) {
 		logger.Ctx(ctx).Warn().
 			Str("node_id", ec.Node.ID).
@@ -497,7 +476,6 @@ func parseLLMDecision(content string) (*llmDecision, error) {
 	if err := json.Unmarshal([]byte(content), &d); err == nil {
 		return &d, nil
 	}
-	// 提取 {} 子串
 	start := strings.Index(content, "{")
 	end := strings.LastIndex(content, "}")
 	if start >= 0 && end > start {
@@ -530,7 +508,7 @@ func buildLLMDecisionPrompt(ec *ExecutionContext, candidates []string) string {
 }
 
 type WaitExecutor struct {
-	db        *gorm.DB // 保留字段以兼容既有测试（&WaitExecutor{db: nil}）
+	db        *gorm.DB 
 	timerRepo *repository.SOPTimerRepository
 }
 
@@ -546,10 +524,9 @@ func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Node
 
 	// 计算等待截止时间
 	var waitUntil time.Time
-	waitEvent := WaitEventTimer // 默认 timer
+	waitEvent := WaitEventTimer 
 
 	if waitUntilStr != "" {
-		// 绝对时间（RFC3339）
 		if t, err := time.Parse(time.RFC3339, waitUntilStr); err == nil {
 			waitUntil = t
 		}
@@ -558,7 +535,6 @@ func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Node
 		waitUntil = time.Now().Add(time.Duration(int64(waitSeconds)) * time.Second)
 	}
 	if waitUntil.IsZero() {
-		// 事件等待：默认 24h 超时防卡死
 		waitEvent = WaitEventCustomerReply
 		if waitEventStr != "" {
 			waitEvent = waitEventStr
@@ -568,7 +544,6 @@ func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Node
 		waitEvent = waitEventStr
 	}
 
-	// 写入 sop_timers 表（OutboxDispatcher 周期扫描）
 	if e.timerRepo != nil {
 		timer := &model.SOPTimer{
 			ExecutionID: ec.Execution.ID,
@@ -620,22 +595,16 @@ func NewWaitExecutor(deps *SOPNodeExecutorDeps) *WaitExecutor {
 	return e
 }
 
-// ============================================================================
-// 6. 旧版节点兼容执行器：message / action / send_offer / ai_decide / branch
-// ============================================================================
 
-// 旧版节点映射到新执行器（通过 RegisterLegacyExecutors 注册）
 
 // RegisterAllNodeExecutors 注册所有 14 种节点执行器 + 5 种旧版兼容执行器
 //
 // 应在 SOPExecutionDispatcher 初始化时调用一次。
 // 重复注册会 panic（启动期错误）。
 func RegisterAllNodeExecutors(registry *NodeExecutorRegistry, deps *SOPNodeExecutorDeps) {
-	// 1. 空动作类
 	registry.Register(context.Background(), &StartExecutor{})
 	registry.Register(context.Background(), &EndExecutor{})
 
-	// 2. 消息发送类（9 种商用节点）
 	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeGreeting, llm.ScenarioFriendlyChat, deps))
 	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeInquire, llm.ScenarioSOPReply, deps))
 	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeIntroduce, llm.ScenarioSOPReply, deps))
@@ -646,16 +615,12 @@ func RegisterAllNodeExecutors(registry *NodeExecutorRegistry, deps *SOPNodeExecu
 	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeActivate, llm.ScenarioFriendlyChat, deps))
 	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeNurture, llm.ScenarioFriendlyChat, deps))
 
-	// 3. 条件路由类
 	registry.Register(context.Background(), &ConditionExecutor{nodeType: SOPNodeTypeCondition})
 
-	// 4. LLM 决策类
 	registry.Register(context.Background(), NewLLMNodeExecutor(SOPNodeTypeLLM, deps))
 
-	// 5. 等待类
 	registry.Register(context.Background(), NewWaitExecutor(deps))
 
-	// 6. 旧版节点兼容映射
 	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeMessage, llm.ScenarioFriendlyChat, deps))
 	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeAction, llm.ScenarioSOPReply, deps))
 	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeSendOffer, llm.ScenarioObjection, deps))
@@ -667,7 +632,6 @@ func RegisterAllNodeExecutors(registry *NodeExecutorRegistry, deps *SOPNodeExecu
 		Msg("all sop node executors registered")
 }
 
-// ===== 辅助函数 =====
 
 // firstOrEmpty 返回切片第一个元素，空切片返回空字符串
 func firstOrEmpty(s []string) string {
@@ -686,3 +650,4 @@ func containsString(s []string, v string) bool {
 	}
 	return false
 }
+

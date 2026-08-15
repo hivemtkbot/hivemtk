@@ -1,19 +1,5 @@
 package humanize
 
-// llm_scorer.go LLM 评估器（LLMScorerImpl）
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十六章 §16.4.3
-//
-// G-Eval (Liu et al. 2023) 降级方案：
-//   - 完整 G-Eval 需要 token logprobs，本项目 LLM Dispatcher 不暴露 logprobs
-//   - 降级为 self-consistency：N=3 次独立采样，取中位数结果
-//   - temperature=0.3（足够探索，不至于发散）
-//
-// 触发条件：
-//   - RuleScorer 总分 ∈ [0.70, 0.85) → 100% 触发（边界样本）
-//   - RuleScorer 总分 < 0.85 且 < threshold → 10% 采样触发
-//   - RuleScorer 总分 ≥ 0.85 → 1% 监控采样触发
 
 import (
 	"context"
@@ -33,9 +19,7 @@ import (
 type LLMScorerImpl struct {
 	dispatcher LLMDispatcher
 	baseline   *model.ChampionBaseline
-	// selfConsistencyN self-consistency 采样次数（默认 3）
 	selfConsistencyN int
-	// temperature LLM 采样温度（默认 0.3）
 	temperature float64
 }
 
@@ -108,7 +92,6 @@ func (s *LLMScorerImpl) Evaluate(ctx context.Context, input *dto.HumanizeEvalInp
 	final.Input = input
 	final.CalculatedAt = time.Now()
 
-	// 计算与销冠基线的距离
 	if s.baseline != nil {
 		final.DistanceToChampion = weightedEuclideanDistance(final.Scores, s.baseline)
 	}
@@ -116,9 +99,6 @@ func (s *LLMScorerImpl) Evaluate(ctx context.Context, input *dto.HumanizeEvalInp
 	return final, nil
 }
 
-// ============================================================================
-// Prompt 构建（G-Eval 风格，含 CoT 评估步骤）
-// ============================================================================
 
 // buildHumanizeLLMPrompt 构建 G-Eval 风格 prompt（见 §16.2.5）
 func buildHumanizeLLMPrompt(input *dto.HumanizeEvalInput, baseline *model.ChampionBaseline) string {
@@ -170,7 +150,6 @@ func parseHumanizeEvalResult(content string) (*dto.HumanizeEvalResult, error) {
 		content = strings.TrimSuffix(content, "```")
 		content = strings.TrimSpace(content)
 	}
-	// 尝试提取第一个 JSON 对象（应对 LLM 输出 CoT 后再输出 JSON 的情况）
 	if !strings.HasPrefix(content, "{") {
 		start := strings.Index(content, "{")
 		end := strings.LastIndex(content, "}")
@@ -215,9 +194,6 @@ func pickMedianResult(results []*dto.HumanizeEvalResult) *dto.HumanizeEvalResult
 	return results[len(results)/2]
 }
 
-// ============================================================================
-// 加权欧氏距离（§16.4.4）
-// ============================================================================
 
 // weightedEuclideanDistance 加权欧氏距离
 //
@@ -247,14 +223,11 @@ func weightedEuclideanDistance(scores []dto.HumanizeDimensionScore, baseline *mo
 	return math.Round(math.Sqrt(sum)*10000) / 10000
 }
 
-// =============================================================================
-// 触发采样策略（§16.4.10 主编排服务使用）
-// =============================================================================
 
 // SampleDecision 采样决策
 type SampleDecision struct {
 	NeedLLM  bool
-	Strategy string // full / boundary / sampled / sampled_monitor
+	Strategy string 
 }
 
 // decideLLMSample 根据 RuleScorer 总分决定是否触发 LLM 评估
@@ -283,3 +256,4 @@ func decideLLMSample(ruleScore, threshold, boundaryLow, boundaryHigh, sampleRate
 	}
 	return SampleDecision{NeedLLM: false, Strategy: "full"}
 }
+

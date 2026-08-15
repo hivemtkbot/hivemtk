@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// AI 智能体性能优化 - Layer Decision Log Repository 测试
 
 func setupLayerLogTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
@@ -90,7 +89,6 @@ func TestLayerDecisionLogRepository_StatsByLayer(t *testing.T) {
 	defer done()
 	ctx := context.Background()
 
-	// 5 个 layer1, 3 个 layer2, 2 个 fallback_template
 	logs := []*model.LayerDecisionLog{
 		{Layer: "layer1", Reason: "faq_match", Intent: "logistics"},
 		{Layer: "layer1", Reason: "faq_match", Intent: "logistics"},
@@ -208,3 +206,4 @@ func TestLayerDecisionLogRepository_LLMSkippedCount(t *testing.T) {
 		t.Errorf("expected 2 LLM skipped, got %d", count)
 	}
 }
+

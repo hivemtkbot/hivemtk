@@ -1,20 +1,5 @@
 package ragretrieval
 
-// bm25_retriever.go PostgreSQL tsvector + zhparser BM25 召回
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.4.3
-//
-// SQL 关键:
-//   - WHERE contextual_tsv @@ plainto_tsquery('zh_rag', $1) → 命中 GIN 索引
-//   - ts_rank(contextual_tsv, plainto_tsquery('zh_rag', $1)) AS score → BM25 风格打分
-//   - 优先用 contextual_tsv（含 Anthropic Contextual Retrieval 上下文）
-//   - fallback 到 content_tsv（未做上下文增强时）
-//
-// 兼容性:
-//   - 若 contextual_tsv 列不存在（迁移未执行），自动 fallback 到 content ILIKE 模糊匹配
-//   - 若 zh_rag 配置不存在，fallback 到 simple 配置
-//   - 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -56,20 +41,14 @@ func (r *BM25Retriever) Retrieve(ctx context.Context, productID string, query st
 		topK = 50
 	}
 
-	// 路径 1: contextual_tsv + zh_rag（迁移后优先路径）
-	// 注意：必须按「返回行数 > 0」判定是否命中，而非「无错误即返回」。
-	// 否则当 zh_rag 已安装但 contextual_tsv 为 NULL 时，路径 1 无错误却返回 0 行，
-	// 导致提前返回、永远走不到路径 2/3，造成召回丢失（如 BM25 兜底场景）。
 	if rows, err := r.tryTSQuery(ctx, productID, query, topK, "contextual_tsv", "zh_rag"); err == nil && len(rows) > 0 {
 		return rows, nil
 	}
 
-	// 路径 2: content_tsv + simple（zhparser 未安装时）
 	if rows, err := r.tryTSQuery(ctx, productID, query, topK, "content_tsv", "simple"); err == nil && len(rows) > 0 {
 		return rows, nil
 	}
 
-	// 路径 3: ILIKE 兜底（保证至少有召回，不阻断主流程）
 	return r.ilikeFallback(ctx, productID, query, topK)
 }
 
@@ -100,7 +79,6 @@ func (r *BM25Retriever) tryTSQuery(ctx context.Context, productID string, query 
 //
 // 简单按 query 子串匹配 content，score = 1.0（无 BM25 排序能力，仅保证有召回）
 func (r *BM25Retriever) ilikeFallback(ctx context.Context, productID string, query string, topK int) ([]Chunk, error) {
-	// 对 query 做最小转义（避免 % _ 通配符干扰）
 	escaped := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(query)
 	pattern := "%" + escaped + "%"
 	sql := `
@@ -122,3 +100,4 @@ func (r *BM25Retriever) ilikeFallback(ctx context.Context, productID string, que
 	}
 	return rowsToChunks(rows), nil
 }
+

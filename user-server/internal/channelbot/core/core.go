@@ -22,7 +22,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ==================== BaseClient（共享 HTTP 客户端） ====================
 
 // DefaultHTTPTimeout 默认 HTTP 超时（外部依赖默认 30s）
 const DefaultHTTPTimeout = 30 * time.Second
@@ -82,7 +81,7 @@ func NewBaseClient(opts ...ClientOption) BaseClient {
 		HTTPClient: &http.Client{
 			Timeout: DefaultHTTPTimeout,
 			Transport: &http.Transport{
-				Proxy:                 http.ProxyFromEnvironment, // 支持 HTTP_PROXY / HTTPS_PROXY 环境变量
+				Proxy:                 http.ProxyFromEnvironment, 
 				MaxIdleConns:          100,
 				MaxIdleConnsPerHost:   10,
 				IdleConnTimeout:       90 * time.Second,
@@ -101,7 +100,6 @@ func NewBaseClient(opts ...ClientOption) BaseClient {
 	for _, opt := range opts {
 		opt(&bc)
 	}
-	// 同步 Timeout 到 HTTPClient（若用户未自定义 client）
 	if bc.HTTPClient.Timeout == 0 {
 		bc.HTTPClient.Timeout = bc.Timeout
 	}
@@ -145,7 +143,6 @@ func (c *BaseClient) DoJSONBytes(ctx context.Context, method, url string, body [
 	return c.DoJSON(ctx, method, url, bytes.NewReader(body), headers)
 }
 
-// ==================== 工具函数 ====================
 
 // SecureEqual 常量时间字符串比较（防时序攻击）
 //
@@ -158,7 +155,6 @@ func SecureEqual(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
-// ==================== 入站消息标准化 ====================
 
 // InboundMessage 归一化入站消息（跨渠道统一结构）
 //
@@ -166,21 +162,20 @@ func SecureEqual(a, b string) bool {
 // 字段命名遵循：Platform / AccountID / MessageID / ConversationID / SenderID / SenderName /
 // Content / MsgType / IsGroup / GroupID / GroupName / Timestamp。
 type InboundMessage struct {
-	Platform       string // telegram / whatsapp / feishu / ...
-	AccountID      string // 业务侧账号 ID（字符串化，与消息中台对齐）
-	MessageID      string // 渠道侧消息 ID
-	ConversationID string // 会话 ID（私聊为对方 ID，群组为 group_id）
-	SenderID       string // 发送者 ID
-	SenderName     string // 发送者昵称（可选）
-	Content        string // 文本内容
-	MsgType        string // text / image / voice / ...
-	IsGroup        bool   // 是否群组消息
-	GroupID        string // 群组 ID（仅群消息）
-	GroupName      string // 群名称（仅群消息）
-	Timestamp      int64  // 渠道侧时间戳（秒）
+	Platform       string 
+	AccountID      string 
+	MessageID      string 
+	ConversationID string 
+	SenderID       string 
+	SenderName     string 
+	Content        string 
+	MsgType        string 
+	IsGroup        bool   
+	GroupID        string 
+	GroupName      string 
+	Timestamp      int64  
 }
 
-// ==================== 入站消息中台接入 ====================
 
 // IngressHandler 渠道入站消息中台接口。
 // 由 service.InboxIngressService 经适配器实现（避免 channelbot 反向依赖 service 层，
@@ -213,35 +208,32 @@ func (m InboundMessage) ToMessageEvent(accountID string) *model.MessageEvent {
 			"group_name":     m.GroupName,
 		},
 	}
-	// 渠道侧秒级时间戳；为 0 时留空，由中台 NormalizeEvent 补当前时间
 	if m.Timestamp != 0 {
 		event.Timestamp = time.Unix(m.Timestamp, 0)
 	}
-	// SessionID 统一按 "渠道:会话ID" 派生；为空时由中台回退为 "渠道:发送者ID"
 	if m.ConversationID != "" {
 		event.SessionID = m.Platform + ":" + m.ConversationID
 	}
 	return event
 }
 
-// ==================== 模板组件（WhatsApp Template 消息用） ====================
 
 // TemplateComponent WhatsApp 模板消息组件
 //
 // 文档参考：https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages#template
 // 业务侧只关心 parameters（header/body/button 子段），结构化封装以便序列化。
 type TemplateComponent struct {
-	Type       string              `json:"type"`       // header / body / button
-	Parameters []TemplateParameter `json:"parameters"` // 参数列表
+	Type       string              `json:"type"`       
+	Parameters []TemplateParameter `json:"parameters"` 
 	SubType    string              `json:"sub_type,omitempty"`
 	Index      string              `json:"index,omitempty"`
 }
 
 // TemplateParameter 模板参数
 type TemplateParameter struct {
-	Type     string         `json:"type"`               // text / currency / date_time / image / document / video
-	Text     string         `json:"text,omitempty"`     // 文本
-	Currency *TemplateMoney `json:"currency,omitempty"` // 货币
+	Type     string         `json:"type"`               
+	Text     string         `json:"text,omitempty"`     
+	Currency *TemplateMoney `json:"currency,omitempty"` 
 	DateTime *TemplateTime  `json:"date_time,omitempty"`
 	Image    *TemplateMedia `json:"image,omitempty"`
 }
@@ -249,7 +241,7 @@ type TemplateParameter struct {
 // TemplateMoney 货币参数
 type TemplateMoney struct {
 	FallbackValue string `json:"fallback_value"`
-	Code          string `json:"code"` // ISO 4217
+	Code          string `json:"code"` 
 	Amount1000    int64  `json:"amount_1000"`
 }
 
@@ -263,3 +255,4 @@ type TemplateMedia struct {
 	Link string `json:"link,omitempty"`
 	ID   string `json:"id,omitempty"`
 }
+

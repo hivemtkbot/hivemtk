@@ -93,7 +93,6 @@ func TestShortLinkAccessRepository_GetByID(t *testing.T) {
 	repo := setupShortLinkAccessRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	access := &model.ShortLinkAccess{
 		ShortLinkID: 1,
 		IP:          "192.168.1.100",
@@ -140,7 +139,6 @@ func TestShortLinkAccessRepository_GetByShortLinkID(t *testing.T) {
 	repo := setupShortLinkAccessRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		repo.Create(ctx, &model.ShortLinkAccess{
 			ShortLinkID: 1,
@@ -149,7 +147,6 @@ func TestShortLinkAccessRepository_GetByShortLinkID(t *testing.T) {
 		})
 	}
 
-	// 创建其他短链的访问记录
 	repo.Create(ctx, &model.ShortLinkAccess{
 		ShortLinkID: 99,
 		IP:          "192.168.2.1",
@@ -222,7 +219,6 @@ func TestShortLinkAccessRepository_GetStatsByShortLinkID(t *testing.T) {
 	repo := setupShortLinkAccessRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 10; i++ {
 		repo.Create(ctx, &model.ShortLinkAccess{
 			ShortLinkID: 1,
@@ -251,7 +247,6 @@ func TestShortLinkAccessRepository_GetDailyStatsByShortLinkID(t *testing.T) {
 	repo := setupShortLinkAccessRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	repo.Create(ctx, &model.ShortLinkAccess{
 		ShortLinkID: 1,
 		IP:          "192.168.1.1",
@@ -275,7 +270,6 @@ func TestShortLinkAccessRepository_GetDeviceTypeStatsByShortLinkID(t *testing.T)
 	repo := setupShortLinkAccessRepository(t)
 	ctx := context.Background()
 
-	// 创建不同设备类型的访问记录
 	repo.Create(ctx, &model.ShortLinkAccess{
 		ShortLinkID: 1,
 		IP:          "192.168.1.1",
@@ -312,7 +306,6 @@ func TestShortLinkAccessRepository_GetAllDailyStats(t *testing.T) {
 	repo := setupShortLinkAccessRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	repo.Create(ctx, &model.ShortLinkAccess{
 		ShortLinkID: 1,
 		IP:          "192.168.1.1",
@@ -341,7 +334,6 @@ func TestShortLinkAccessRepository_GetAllDeviceTypeStats(t *testing.T) {
 	repo := setupShortLinkAccessRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	repo.Create(ctx, &model.ShortLinkAccess{
 		ShortLinkID: 1,
 		IP:          "192.168.1.1",
@@ -377,3 +369,4 @@ func TestShortLinkAccessRepository_GetByID_NotFound(t *testing.T) {
 		t.Error("Expected error when getting non-existing access")
 	}
 }
+

@@ -2,12 +2,6 @@ package model
 
 import "time"
 
-// ============================================================================
-// 飞书（Feishu/Lark）账号 / 客户 / 消息 / 事件
-// ----------------------------------------------------------------------------
-// 商业产品级场景：商户在可视化 UI 自行配置飞书机器人 App ID / App Secret /
-// Encrypt Key / Verification Token，本模型提供数据库持久化与业务表支持。
-// ============================================================================
 
 // FeishuAccount 飞书账号（机器人应用）
 type FeishuAccount struct {
@@ -24,7 +18,7 @@ type FeishuAccount struct {
 	LastSyncAt        *time.Time `json:"last_sync_at"`
 	LastErrorAt       *time.Time `json:"last_error_at"`
 	LastErrorMsg      string     `gorm:"type:text" json:"last_error_msg"`
-	Status            int        `gorm:"default:1" json:"status"` // 1-启用 0-禁用
+	Status            int        `gorm:"default:1" json:"status"` 
 	CreatedAt         time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt         time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 }
@@ -55,28 +49,23 @@ type FeishuMessage struct {
 	AccountID uint      `gorm:"index;not null" json:"account_id"`
 	MsgID     string    `gorm:"type:varchar(100);unique" json:"msg_id"`
 	ChatID    string    `gorm:"type:varchar(100);index" json:"chat_id"`
-	ChatType  string    `gorm:"type:varchar(20)" json:"chat_type"` // p2p / group
+	ChatType  string    `gorm:"type:varchar(20)" json:"chat_type"` 
 	SenderID  string    `gorm:"type:varchar(200);index" json:"sender_id"`
-	MsgType   string    `gorm:"type:varchar(20)" json:"msg_type"` // text/image/event/...
+	MsgType   string    `gorm:"type:varchar(20)" json:"msg_type"` 
 	Content   string    `gorm:"type:text" json:"content"`
-	Direction string    `gorm:"type:varchar(10);index" json:"direction"` // inbound/outbound
+	Direction string    `gorm:"type:varchar(10);index" json:"direction"` 
 	IsAIReply bool      `gorm:"default:false" json:"is_ai_reply"`
 	CreatedAt time.Time `gorm:"autoCreateTime;index" json:"created_at"`
 }
 
 func (FeishuMessage) TableName() string { return "feishu_messages" }
 
-// ============================================================================
-// Telegram 账号（Bot）
-// ============================================================================
 
 // TelegramAccount Telegram 机器人账号
 type TelegramAccount struct {
 	ID          uint   `gorm:"primaryKey;autoIncrement" json:"id"`
 	AccountName string `gorm:"type:varchar(100);not null" json:"account_name"`
 	BotToken    string `gorm:"type:varchar(200);not null" json:"bot_token"`
-	// BotUsername 机器人的 @username（由 BotFather 分配），用于群内「@机器人 才回复」的提及识别。
-	// 注册 webhook 时通过 getMe 自动回填，无需商户手动填写。
 	BotUsername    string     `gorm:"type:varchar(64)" json:"bot_username"`
 	WebhookURL     string     `gorm:"type:varchar(500)" json:"webhook_url"`
 	WebhookSecret  string     `gorm:"type:varchar(200)" json:"webhook_secret"`
@@ -85,11 +74,7 @@ type TelegramAccount struct {
 	LastSyncAt     *time.Time `json:"last_sync_at"`
 	LastErrorAt    *time.Time `json:"last_error_at"`
 	LastErrorMsg   string     `gorm:"type:text" json:"last_error_msg"`
-	Status         int        `gorm:"default:1" json:"status"` // 1-启用 0-禁用
-	// PollingOwner + PollingHeartbeatAt：S3-6 分布式锁字段
-	//   - PollingOwner：当前持有 polling worker 的唯一标识（hostname:pid），空表示无锁
-	//   - PollingHeartbeatAt：worker 最近一次心跳时间，用于故障检测（>60s 未更新视为锁过期可被抢占）
-	// 用 DB 行级 UPDATE 作原子操作，避免多实例重复 polling 导致 TG 409 Conflict
+	Status         int        `gorm:"default:1" json:"status"` 
 	PollingOwner       string     `gorm:"type:varchar(100);default:''" json:"polling_owner"`
 	PollingHeartbeatAt *time.Time `json:"polling_heartbeat_at"`
 	CreatedAt          time.Time  `gorm:"autoCreateTime" json:"created_at"`
@@ -98,19 +83,16 @@ type TelegramAccount struct {
 
 func (TelegramAccount) TableName() string { return "telegram_accounts" }
 
-// ============================================================================
-// WhatsApp Cloud API 账号（区别于老版 WhatsApp Web 扫码）
-// ============================================================================
 
 // WhatsAppCloudAccount WhatsApp Cloud API 商业账号
 type WhatsAppCloudAccount struct {
 	ID                 uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	AccountName        string     `gorm:"type:varchar(100);not null" json:"account_name"`
-	PhoneNumberID      string     `gorm:"type:varchar(100);not null" json:"phone_number_id"`      // 来自 Meta 商业管理后台
-	WhatsAppBusinessID string     `gorm:"type:varchar(100);not null" json:"whatsapp_business_id"` // WABA ID
+	PhoneNumberID      string     `gorm:"type:varchar(100);not null" json:"phone_number_id"`      
+	WhatsAppBusinessID string     `gorm:"type:varchar(100);not null" json:"whatsapp_business_id"` 
 	AccessToken        string     `gorm:"type:varchar(500);not null" json:"access_token"`
-	VerifyToken        string     `gorm:"type:varchar(200)" json:"verify_token"` // webhook 验证 token
-	AppSecret          string     `gorm:"type:varchar(200)" json:"app_secret"`   // 用于 HMAC 验签
+	VerifyToken        string     `gorm:"type:varchar(200)" json:"verify_token"` 
+	AppSecret          string     `gorm:"type:varchar(200)" json:"app_secret"`   
 	WebhookEnabled     bool       `gorm:"default:false" json:"webhook_enabled"`
 	AIAgentEnabled     bool       `gorm:"default:false" json:"ai_agent_enabled"`
 	LastSyncAt         *time.Time `json:"last_sync_at"`
@@ -122,3 +104,4 @@ type WhatsAppCloudAccount struct {
 }
 
 func (WhatsAppCloudAccount) TableName() string { return "whatsapp_cloud_accounts" }
+

@@ -92,7 +92,6 @@ func TestAIGenerationRecordRepository_Create(t *testing.T) {
 func TestAIGenerationRecordRepository_GetByID(t *testing.T) {
 	aiRepo, _ := setupAIContentRepositories(t)
 
-	// 创建测试数据
 	record := &model.AIGenerationRecord{
 		UserID: 1,
 		Type:   model.AIGenerationTypeCopywriting,
@@ -141,7 +140,6 @@ func TestAIGenerationRecordRepository_GetByID(t *testing.T) {
 func TestAIGenerationRecordRepository_GetByMerchantAndUser(t *testing.T) {
 	aiRepo, _ := setupAIContentRepositories(t)
 
-	// 创建多条测试数据：user 1 有 3 条，user 2 有 1 条
 	records := []*model.AIGenerationRecord{
 		{UserID: 1, Type: model.AIGenerationTypeCopywriting, Input: "u1-input-1", Output: "u1-output-1"},
 		{UserID: 1, Type: model.AIGenerationTypeCopywriting, Input: "u1-input-2", Output: "u1-output-2"},
@@ -154,7 +152,6 @@ func TestAIGenerationRecordRepository_GetByMerchantAndUser(t *testing.T) {
 		}
 	}
 
-	// 测试 1：user 1 全部记录
 	list, total, err := aiRepo.GetByMerchantAndUser(1, 1, 10, nil)
 	if err != nil {
 		t.Fatalf("GetByMerchantAndUser() error = %v", err)
@@ -166,7 +163,6 @@ func TestAIGenerationRecordRepository_GetByMerchantAndUser(t *testing.T) {
 		t.Errorf("Expected 3 records for user 1, got %d", len(list))
 	}
 
-	// 测试 2：user 2 全部记录
 	_, total2, err := aiRepo.GetByMerchantAndUser(2, 1, 10, nil)
 	if err != nil {
 		t.Fatalf("GetByMerchantAndUser() user 2 error = %v", err)
@@ -175,7 +171,6 @@ func TestAIGenerationRecordRepository_GetByMerchantAndUser(t *testing.T) {
 		t.Errorf("Expected total 1 for user 2, got %d", total2)
 	}
 
-	// 测试 3：user 1 + type 过滤
 	_, totalWithType, err := aiRepo.GetByMerchantAndUser(1, 1, 10, map[string]any{
 		"type": model.AIGenerationTypeCopywriting,
 	})
@@ -186,7 +181,6 @@ func TestAIGenerationRecordRepository_GetByMerchantAndUser(t *testing.T) {
 		t.Errorf("Expected total 2 for user 1 with type=copywriting, got %d", totalWithType)
 	}
 
-	// 测试 4：分页
 	page1, _, err := aiRepo.GetByMerchantAndUser(1, 1, 2, nil)
 	if err != nil {
 		t.Fatalf("GetByMerchantAndUser() page 1 error = %v", err)
@@ -202,7 +196,6 @@ func TestAIGenerationRecordRepository_GetByMerchantAndUser(t *testing.T) {
 		t.Errorf("Expected 1 record on page 2, got %d", len(page2))
 	}
 
-	// 测试 5：空用户
 	empty, totalEmpty, err := aiRepo.GetByMerchantAndUser(999, 1, 10, nil)
 	if err != nil {
 		t.Fatalf("GetByMerchantAndUser() empty user error = %v", err)
@@ -216,7 +209,6 @@ func TestAIGenerationRecordRepository_GetByMerchantAndUser(t *testing.T) {
 func TestAIGenerationRecordRepository_UpdateSaved(t *testing.T) {
 	aiRepo, _ := setupAIContentRepositories(t)
 
-	// 创建测试数据
 	record := &model.AIGenerationRecord{
 		UserID:  1,
 		Type:    model.AIGenerationTypeCopywriting,
@@ -450,7 +442,6 @@ func TestPromptTemplateRepository_GetByID(t *testing.T) {
 func TestPromptTemplateRepository_ListByType(t *testing.T) {
 	_, promptRepo := setupAIContentRepositories(t)
 
-	// 创建系统模板
 	promptRepo.Create(&model.PromptTemplate{
 		Name:     "System Template 1",
 		Type:     model.AIGenerationTypeCopywriting,
@@ -611,7 +602,6 @@ func TestPromptTemplateRepository_IncrementUseCount(t *testing.T) {
 	}
 	promptRepo.Create(template)
 
-	// 增加 3 次使用次数
 	for i := 0; i < 3; i++ {
 		err := promptRepo.IncrementUseCount(template.ID)
 		if err != nil {
@@ -624,3 +614,4 @@ func TestPromptTemplateRepository_IncrementUseCount(t *testing.T) {
 		t.Errorf("Expected UseCount 3, got %d", updated.UseCount)
 	}
 }
+

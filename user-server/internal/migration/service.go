@@ -27,7 +27,6 @@ type MigrationService struct {
 
 // NewMigrationService 创建迁移服务实例(保留旧签名,兼容旧调用)
 func NewMigrationService(registry *MigrationRegistry, db *gorm.DB, initFunc RegistryInitializer) *MigrationService {
-	// 注册所有迁移
 	initFunc(registry, db)
 	return &MigrationService{
 		registry:       registry,
@@ -94,10 +93,8 @@ func (s *MigrationService) WaitForTask(ctx context.Context, taskID uint, timeout
 
 // executeUpgradeAsync 异步执行升级
 func (s *MigrationService) executeUpgradeAsync(parentCtx context.Context, taskID uint, fromVersion, toVersion string) {
-	// 异步执行必须使用 background ctx,避免父 ctx 取消导致升级中断
 	bgCtx := context.Background()
 
-	// 初始状态:开始升级
 	s.taskRepo.UpdateStatus(bgCtx, taskID, "running", 0, 0, "开始升级", "")
 
 	executedVersions, _ := s.recordRepo.GetExecutedVersions(bgCtx)
@@ -206,7 +203,6 @@ func (s *MigrationService) Rollback(ctx context.Context, targetVersion string) e
 		return errors.New("target version not found")
 	}
 
-	// 回滚操作使用父 ctx 即可,失败应当向上抛
 	if err := migration.Down(ctx); err != nil {
 		return err
 	}
@@ -219,3 +215,4 @@ func (s *MigrationService) Rollback(ctx context.Context, targetVersion string) e
 
 	return nil
 }
+

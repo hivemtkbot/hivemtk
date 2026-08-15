@@ -14,40 +14,15 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// =============================================================
-// WebSocket 传输（渠道网关，2026-08-10 统一收件箱整合）
-//
-// 与 HTTP 三通道（POST /api/bridge/ingest、GET /api/bridge/outbox、
-// POST /api/bridge/outbox/ack）平级的第二种传输呈现，共享：
-//   - 同一入站管道 IngressPipeline（InboxIngressService：去重/人工锁/落库/AI 触发）
-//   - 同一下发事实源 message_hub(outbound, pending)：
-//     HTTP 传输轮询拉取；WS 传输由服务端主动推 outbound_reply 帧。
-//
-// 帧协议（见 protocol.go Frame）：
-//   上行:  register → inbound_message(message/messages) / history / ping / ack(msg_ids)
-//   下行:  registered / register_rejected / ack(results) / outbound_reply / pong
-//
-// 不丢不重保证：
-//   - 入站：event_id(msg_id) 幂等去重由管道统一负责（与 HTTP 完全一致）
-//   - 出站：ClaimPendingOutbound 原子认领 pending→inflight；客户端 ack 帧回写
-//     delivered；断线/未 ack 的 inflight 由既有惰性回收机制重回 pending。
-// =============================================================
 
 // WS 传输默认参数。
 const (
-	// wsRegisterTimeout 首帧 register 握手超时（未注册即断开，防匿名挂连接）
 	wsRegisterTimeout = 15 * time.Second
-	// wsReadIdleTimeout 读空闲超时（超过该时长无任何上行帧则视为死连接）
 	wsReadIdleTimeout = 90 * time.Second
-	// wsWriteTimeout 单帧写超时
 	wsWriteTimeout = 10 * time.Second
-	// wsPushIntervalDefault 出站推帧轮询间隔（与 HTTP 扩展轮询节奏同量级）
 	wsPushIntervalDefault = 2 * time.Second
-	// wsPushBatchDefault 单轮推帧认领上限
 	wsPushBatchDefault = 20
-	// wsMaxFrameSize 单帧最大字节数（与 HTTP ingest body 上限同源考虑，取 1MB）
 	wsMaxFrameSize = 1 << 20
-	// wsPipelineTimeout 单次管道调用超时（入站批处理/出站认领/ack）
 	wsPipelineTimeout = 30 * time.Second
 )
 
@@ -58,8 +33,6 @@ type WSTransport struct {
 	upgrader     websocket.Upgrader
 	pushInterval time.Duration
 	pushBatch    int
-	// OnRegister 可选钩子：register 校验通过后异步调用（如 upsert 桥接账号）。
-	// 由路由装配层注入（channelgw 不依赖 bridge 包，避免导入环）。
 	OnRegister func(ctx context.Context, channel, accountID string)
 }
 
@@ -74,9 +47,6 @@ func NewWSTransport(pipeline IngressPipeline, registry *Registry) *WSTransport {
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  4096,
 			WriteBufferSize: 4096,
-			// 私有化部署单租户场景：与 bridge HTTP 端点同鉴权模型（InitGuard +
-			// channel+account_id 自证身份），不限制 Origin；公网多租户部署时
-			// 应替换为精确 CheckOrigin。
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
 		pushInterval: wsPushIntervalDefault,
@@ -93,7 +63,6 @@ func (t *WSTransport) HandleWS(c *gin.Context) {
 		return
 	}
 
-	// ── register 握手：首帧必须为 register，且渠道注册表校验通过 ──
 	_ = conn.SetReadDeadline(time.Now().Add(wsRegisterTimeout))
 	var reg Frame
 	if err := conn.ReadJSON(&reg); err != nil {
@@ -111,7 +80,6 @@ func (t *WSTransport) HandleWS(c *gin.Context) {
 		_ = conn.Close()
 		return
 	}
-	// 注册成功后恢复正常读空闲超时
 	_ = conn.SetReadDeadline(time.Now().Add(wsReadIdleTimeout))
 
 	cn := &wsConn{
@@ -123,7 +91,6 @@ func (t *WSTransport) HandleWS(c *gin.Context) {
 	}
 	logger.Infof("[ChannelGW WS] 渠道连接已注册: channel=%s account=%s", channel, accountID)
 
-	// 异步账号 upsert 钩子（不阻塞握手；失败不影响连接）
 	if t.OnRegister != nil {
 		go func() {
 			defer func() { _ = recover() }()
@@ -133,7 +100,6 @@ func (t *WSTransport) HandleWS(c *gin.Context) {
 		}()
 	}
 
-	// 双泵：读泵处理上行帧；推泵轮询下发队列推帧。handler 阻塞至连接结束。
 	go cn.readPump()
 	go cn.pushPump()
 	<-cn.done
@@ -168,8 +134,8 @@ type wsConn struct {
 	channel   string
 	accountID string
 
-	sendMu    sync.Mutex    // 序列化写（读泵回执与推泵并发写保护）
-	done      chan struct{} // 连接生命周期结束信号
+	sendMu    sync.Mutex    
+	done      chan struct{} 
 	closeOnce sync.Once
 }
 
@@ -220,7 +186,6 @@ func (c *wsConn) handleFrame(f *Frame) {
 	case FramePing:
 		c.send(&Frame{V: CurrentProtocolVersion, Type: FramePong, Channel: c.channel, AccountID: c.accountID})
 	case FrameAck:
-		// 客户端确认出站已下发：回写 delivered（幂等）
 		if len(f.MsgIDs) == 0 {
 			return
 		}
@@ -237,7 +202,6 @@ func (c *wsConn) handleFrame(f *Frame) {
 	case FrameHistory:
 		c.handleHistory(f)
 	default:
-		// 未知帧类型：忽略（前向兼容新客户端扩展帧）
 	}
 }
 
@@ -277,8 +241,6 @@ func (c *wsConn) handleInbound(f *Frame) {
 		if m == nil {
 			continue
 		}
-		// 历史上下文回填（仅落库）：跳过与实时消息同 EventID 的项，
-		// 防止先落库相同 msg_id 导致实时消息被幂等跳过而永不触发 AI。
 		for _, it := range m.History {
 			if it == nil {
 				continue
@@ -381,7 +343,6 @@ func (c *wsConn) pushOnce() {
 	if len(hubs) == 0 {
 		return
 	}
-	// 全链路监控：下行出库节点（与 HTTP outbox 拉取同源可观测）
 	tracing.RecordDownlinkFetchBatch(context.Background(), c.channel, c.accountID, hubs)
 	for _, hub := range hubs {
 		f := &Frame{
@@ -398,7 +359,8 @@ func (c *wsConn) pushOnce() {
 			},
 		}
 		if !c.send(f) {
-			return // 连接已断：剩余 inflight 等待惰性回收
+			return 
 		}
 	}
 }
+

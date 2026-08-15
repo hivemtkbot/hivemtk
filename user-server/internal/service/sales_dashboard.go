@@ -7,42 +7,22 @@ import (
 	"time"
 )
 
-// ============================================================================
-// 商业产品级 销售仪表盘（Sales Dashboard）
-// ----------------------------------------------------------------------------
-// 商业市场需求：销售团队管理者需要实时看到"团队/个人/AI"的产出对比，
-// 据此优化排班、提成、招聘决策。Salesforce / HubSpot / 销售易都把
-// "销售仪表盘"作为管理者门户的核心页面。
-//
-// 关键模块：
-//   1. 转化漏斗（按客户旅程阶段统计）
-//   2. 销售个人业绩（成单/金额/跟进/转化率）
-//   3. 销售团队排行榜
-//   4. AI 产能分析（自动接管数/AI 转化率 vs 人工）
-//   5. 销冠画像（top 10% 销售的能力特征）
-// ============================================================================
 
 // SalesDashboard 销售仪表盘
 type SalesDashboard struct {
 	mu sync.RWMutex
 
-	// 旅程状态机（客户在各阶段的分布）
 	journey *CustomerJourneyService
 
-	// 订单事件
 	orders []OrderEvent
 
-	// 跟进事件
 	followups []FollowUpEvent
 
-	// AI 谈单事件
 	aiDeals []AIDealEvent
 
-	// 订单草稿事件
 	drafts []OrderDraftEvent
 
-	// 销售档案
-	salesProfiles map[string]*SalesProfile // salesID → profile
+	salesProfiles map[string]*SalesProfile 
 }
 
 // OrderDraftEvent 订单草稿事件（-11）
@@ -52,9 +32,9 @@ type OrderDraftEvent struct {
 	OwnerID     string    `json:"owner_id"`
 	ProductName string    `json:"product_name"`
 	Amount      float64   `json:"amount"`
-	Action      string    `json:"action"`     // created/confirmed/cancelled/expired
-	Source      string    `json:"source"`     // ai_chat/manual
-	Confidence  float64   `json:"confidence"` // 来源置信度
+	Action      string    `json:"action"`     
+	Source      string    `json:"source"`     
+	Confidence  float64   `json:"confidence"` 
 	OccurredAt  time.Time `json:"occurred_at"`
 }
 
@@ -65,7 +45,7 @@ type OrderEvent struct {
 	OwnerID     string    `json:"owner_id"`
 	Amount      float64   `json:"amount"`
 	ProductName string    `json:"product_name"`
-	IsAIHandled bool      `json:"is_ai_handled"` // AI 独立成单（无人工）
+	IsAIHandled bool      `json:"is_ai_handled"` 
 	OrderedAt   time.Time `json:"ordered_at"`
 }
 
@@ -75,7 +55,7 @@ type FollowUpEvent struct {
 	OwnerID    string    `json:"owner_id"`
 	Channel    string    `json:"channel"`
 	IsAI       bool      `json:"is_ai"`
-	Result     string    `json:"result"` // success / no_reply / objection / converted
+	Result     string    `json:"result"` 
 	OccurredAt time.Time `json:"occurred_at"`
 }
 
@@ -84,8 +64,8 @@ type AIDealEvent struct {
 	CustomerID  string    `json:"customer_id"`
 	OwnerID     string    `json:"owner_id"`
 	Intent      string    `json:"intent"`
-	Replied     bool      `json:"replied"`     // AI 是否生成回复
-	Transferred bool      `json:"transferred"` // 是否转人工
+	Replied     bool      `json:"replied"`     
+	Transferred bool      `json:"transferred"` 
 	CostTokens  int       `json:"cost_tokens"`
 	LatencyMs   int       `json:"latency_ms"`
 	OccurredAt  time.Time `json:"occurred_at"`
@@ -97,7 +77,7 @@ type SalesProfile struct {
 	Name     string    `json:"name"`
 	Team     string    `json:"team"`
 	JoinedAt time.Time `json:"joined_at"`
-	Tags     []string  `json:"tags"` // 能力标签
+	Tags     []string  `json:"tags"` 
 }
 
 // NewSalesDashboard 创建销售仪表盘
@@ -193,7 +173,6 @@ func (d *SalesDashboard) GetDraftStats(ctx context.Context, ownerID string, sinc
 			stats.ConfirmedAmount += ev.Amount
 		}
 	}
-	// 转化率 = 确认数 / 创建数（核心业务指标：草稿→成单）
 	created := stats.ByAction["created"]
 	confirmed := stats.ByAction["confirmed"]
 	if created > 0 {
@@ -209,26 +188,23 @@ func (d *SalesDashboard) GetDraftStats(ctx context.Context, ownerID string, sinc
 type DraftStats struct {
 	OwnerID         string         `json:"owner_id"`
 	Total           int            `json:"total"`
-	ByAction        map[string]int `json:"by_action"`        // created/confirmed/cancelled/expired
-	ByProduct       map[string]int `json:"by_product"`       // 各产品草稿数
-	ConversionRate  float64        `json:"conversion_rate"`  // 确认率
-	AvgAmount       float64        `json:"avg_amount"`       // 平均金额
-	ConfirmedAmount float64        `json:"confirmed_amount"` // 已确认金额
+	ByAction        map[string]int `json:"by_action"`        
+	ByProduct       map[string]int `json:"by_product"`       
+	ConversionRate  float64        `json:"conversion_rate"`  
+	AvgAmount       float64        `json:"avg_amount"`       
+	ConfirmedAmount float64        `json:"confirmed_amount"` 
 	GeneratedAt     time.Time      `json:"generated_at"`
 }
 
-// ============================================================================
-// 1. 转化漏斗（基于客户旅程状态机）
-// ============================================================================
 
 // FunnelByJourney 基于客户旅程的转化漏斗
 // 商业逻辑：每阶段的客户数 + 阶段间转化率 + 端到端转化率
 type JourneyFunnel struct {
 	Stages       []JourneyFunnelStage `json:"stages"`
-	TotalEntered int                  `json:"total_entered"`   // 漏斗顶端（陌生）
-	TotalWon     int                  `json:"total_won"`       // 漏斗底端（成交）
-	EndToEndRate float64              `json:"end_to_end_rate"` // 端到端转化率
-	AvgDwellDays float64              `json:"avg_dwell_days"`  // 平均停留天数
+	TotalEntered int                  `json:"total_entered"`   
+	TotalWon     int                  `json:"total_won"`       
+	EndToEndRate float64              `json:"end_to_end_rate"` 
+	AvgDwellDays float64              `json:"avg_dwell_days"`  
 	GeneratedAt  time.Time            `json:"generated_at"`
 }
 
@@ -237,10 +213,10 @@ type JourneyFunnelStage struct {
 	Stage        JourneyStage   `json:"stage"`
 	Label        string         `json:"label"`
 	Customers    int            `json:"customers"`
-	StageRate    float64        `json:"stage_rate"` // 阶段转化率（占顶端）
-	StepRate     float64        `json:"step_rate"`  // 上一步→这一步的转化率
+	StageRate    float64        `json:"stage_rate"` 
+	StepRate     float64        `json:"step_rate"`  
 	AvgDwellDays float64        `json:"avg_dwell_days"`
-	OwnerLoad    map[string]int `json:"owner_load"` // 销售负载分布
+	OwnerLoad    map[string]int `json:"owner_load"` 
 }
 
 // FunnelByJourney 构建旅程漏斗
@@ -253,7 +229,6 @@ func (d *SalesDashboard) FunnelByJourney(ctx context.Context) *JourneyFunnel {
 		return funnel
 	}
 
-	// 统计每个阶段的客户数 + 平均停留天数
 	stageCounts := make(map[JourneyStage]int)
 	stageDwell := make(map[JourneyStage][]float64)
 	ownerLoad := make(map[JourneyStage]map[string]int)
@@ -261,10 +236,8 @@ func (d *SalesDashboard) FunnelByJourney(ctx context.Context) *JourneyFunnel {
 	d.journey.mu.RLock()
 	for _, state := range d.journey.states {
 		stageCounts[state.CurrentStage]++
-		// 停留天数
 		dwell := time.Since(state.StageSince).Hours() / 24
 		stageDwell[state.CurrentStage] = append(stageDwell[state.CurrentStage], dwell)
-		// 销售负载：基于 metadata 或 owner_id
 		if ownerLoad[state.CurrentStage] == nil {
 			ownerLoad[state.CurrentStage] = make(map[string]int)
 		}
@@ -282,7 +255,6 @@ func (d *SalesDashboard) FunnelByJourney(ctx context.Context) *JourneyFunnel {
 		funnel.EndToEndRate = float64(funnel.TotalWon) / float64(funnel.TotalEntered)
 	}
 
-	// 按正顺序排列（stranger → won）
 	orderedStages := []JourneyStage{
 		StageStranger, StageLead, StageContact, StageInterested,
 		StageQuoted, StageWon,
@@ -311,7 +283,6 @@ func (d *SalesDashboard) FunnelByJourney(ctx context.Context) *JourneyFunnel {
 			OwnerLoad:    ownerLoad[st],
 		})
 	}
-	// 填充转化率
 	for i := range funnel.Stages {
 		funnel.Stages[i].StageRate = float64(funnel.Stages[i].Customers) / float64(funnel.TotalEntered) * 100
 		if i == 0 {
@@ -323,9 +294,6 @@ func (d *SalesDashboard) FunnelByJourney(ctx context.Context) *JourneyFunnel {
 	return funnel
 }
 
-// ============================================================================
-// 2. 销售个人业绩
-// ============================================================================
 
 // SalesPerformance 销售业绩
 type SalesPerformance struct {
@@ -335,8 +303,8 @@ type SalesPerformance struct {
 	TotalOrders    int       `json:"total_orders"`
 	TotalRevenue   float64   `json:"total_revenue"`
 	TotalFollowUps int       `json:"total_follow_ups"`
-	Conversions    int       `json:"conversions"`     // 跟进→成单
-	ConversionRate float64   `json:"conversion_rate"` // 转化率
+	Conversions    int       `json:"conversions"`     
+	ConversionRate float64   `json:"conversion_rate"` 
 	AvgDealAmount  float64   `json:"avg_deal_amount"`
 	ActiveDays     int       `json:"active_days"`
 	Rank           int       `json:"rank"`
@@ -392,9 +360,6 @@ func (d *SalesDashboard) GetSalesPerformance(ctx context.Context, salesID string
 	return perf
 }
 
-// ============================================================================
-// 3. 销售团队排行榜
-// ============================================================================
 
 // GetTeamRanking 获取销售团队排行榜
 // 商业逻辑：按成单金额排序，前 10% 标记为"销冠"，后 10% 标记为"待改进"
@@ -422,26 +387,23 @@ func (d *SalesDashboard) GetTeamRanking(ctx context.Context, since time.Time, to
 	return performances
 }
 
-// ============================================================================
-// 4. AI 产能分析
-// ============================================================================
 
 // AIProductivity AI 产能分析
 type AIProductivity struct {
 	TotalAIDeals        int       `json:"total_ai_deals"`
 	AIReplied           int       `json:"ai_replied"`
-	ReplyRate           float64   `json:"reply_rate"`        // AI 回复率
-	TransferredCount    int       `json:"transferred_count"` // 转人工次数
-	TransferRate        float64   `json:"transfer_rate"`     // 转人工率
-	AISoloDeals         int       `json:"ai_solo_deals"`     // AI 独立成单数
+	ReplyRate           float64   `json:"reply_rate"`        
+	TransferredCount    int       `json:"transferred_count"` 
+	TransferRate        float64   `json:"transfer_rate"`     
+	AISoloDeals         int       `json:"ai_solo_deals"`     
 	SoloDealAmount      float64   `json:"solo_deal_amount"`
-	AISoloRate          float64   `json:"ai_solo_rate"` // AI 独立成单率
+	AISoloRate          float64   `json:"ai_solo_rate"` 
 	TotalCostTokens     int       `json:"total_cost_tokens"`
 	AvgCostPerDeal      float64   `json:"avg_cost_per_deal"`
 	AvgLatencyMs        float64   `json:"avg_latency_ms"`
-	AIConversionRate    float64   `json:"ai_conversion_rate"`    // AI 处理后转化率
-	HumanConversionRate float64   `json:"human_conversion_rate"` // 人工跟进转化率
-	ProductivityGain    float64   `json:"productivity_gain"`     // 产能提升倍数
+	AIConversionRate    float64   `json:"ai_conversion_rate"`    
+	HumanConversionRate float64   `json:"human_conversion_rate"` 
+	ProductivityGain    float64   `json:"productivity_gain"`     
 	GeneratedAt         time.Time `json:"generated_at"`
 }
 
@@ -471,7 +433,6 @@ func (d *SalesDashboard) GetAIProductivity(ctx context.Context, since time.Time)
 		prod.TotalCostTokens += ev.CostTokens
 		latencySum += ev.LatencyMs
 	}
-	// AI 独立成单（IsAIHandled=true）
 	for _, o := range d.orders {
 		if !since.IsZero() && o.OrderedAt.Before(since) {
 			continue
@@ -481,7 +442,6 @@ func (d *SalesDashboard) GetAIProductivity(ctx context.Context, since time.Time)
 			prod.SoloDealAmount += o.Amount
 		}
 	}
-	// 人工转化率
 	for _, f := range d.followups {
 		if !since.IsZero() && f.OccurredAt.Before(since) {
 			continue
@@ -500,31 +460,26 @@ func (d *SalesDashboard) GetAIProductivity(ctx context.Context, since time.Time)
 		prod.AvgLatencyMs = float64(latencySum) / float64(prod.TotalAIDeals)
 	}
 	if prod.TransferredCount > 0 {
-		// 转人工后转化的比例作为 AI 转化率
 		prod.AIConversionRate = float64(aiConverted) / float64(prod.TransferredCount) * 100
 	}
 	if humanFollowups > 0 {
 		prod.HumanConversionRate = float64(humanConverted) / float64(humanFollowups) * 100
 	}
-	// 产能增益：AI 独立成单 / 人工数
 	if humanFollowups > 0 {
 		prod.ProductivityGain = float64(prod.AISoloDeals) / float64(humanFollowups)
 	}
 	return prod
 }
 
-// ============================================================================
-// 5. 销冠画像（Top 10% 销售能力分析）
-// ============================================================================
 
 // ChampionProfile 销冠画像
 type ChampionProfile struct {
-	TopPerformers     []*SalesPerformance `json:"top_performers"` // 前 10% 销售
-	CommonTags        []string            `json:"common_tags"`    // 共性能力标签
+	TopPerformers     []*SalesPerformance `json:"top_performers"` 
+	CommonTags        []string            `json:"common_tags"`    
 	AvgConversionRate float64             `json:"avg_conversion_rate"`
 	AvgDealAmount     float64             `json:"avg_deal_amount"`
-	RecommendedSOPs   []string            `json:"recommended_sops"` // 推荐销售流程
-	Insights          []string            `json:"insights"`         // 自动洞察
+	RecommendedSOPs   []string            `json:"recommended_sops"` 
+	Insights          []string            `json:"insights"`         
 	GeneratedAt       time.Time           `json:"generated_at"`
 }
 
@@ -538,7 +493,6 @@ func (d *SalesDashboard) GetChampionProfile(ctx context.Context, since time.Time
 			Insights:    []string{"暂无销售数据"},
 		}
 	}
-	// top 10%
 	cutoff := len(all) / 10
 	if cutoff < 1 {
 		cutoff = 1
@@ -552,14 +506,12 @@ func (d *SalesDashboard) GetChampionProfile(ctx context.Context, since time.Time
 		GeneratedAt:   time.Now(),
 	}
 
-	// 计算平均指标
 	sumConv := 0.0
 	sumDeal := 0.0
 	tagCount := make(map[string]int)
 	for _, p := range topPerformers {
 		sumConv += p.ConversionRate
 		sumDeal += p.AvgDealAmount
-		// 收集档案标签
 		if prof, ok := d.salesProfiles[p.SalesID]; ok {
 			for _, t := range prof.Tags {
 				tagCount[t]++
@@ -570,7 +522,6 @@ func (d *SalesDashboard) GetChampionProfile(ctx context.Context, since time.Time
 		profile.AvgConversionRate = sumConv / float64(len(topPerformers))
 		profile.AvgDealAmount = sumDeal / float64(len(topPerformers))
 	}
-	// 共性标签：出现 >= half(数量)
 	half := len(topPerformers) / 2
 	for tag, count := range tagCount {
 		if count >= half {
@@ -579,7 +530,6 @@ func (d *SalesDashboard) GetChampionProfile(ctx context.Context, since time.Time
 	}
 	sort.Strings(profile.CommonTags)
 
-	// 自动洞察
 	if profile.AvgConversionRate > 30 {
 		profile.Insights = append(profile.Insights, "销冠团队转化率 > 30%，远高于行业平均 5-10%")
 	}
@@ -589,11 +539,10 @@ func (d *SalesDashboard) GetChampionProfile(ctx context.Context, since time.Time
 	if len(profile.CommonTags) > 0 {
 		profile.Insights = append(profile.Insights, "销冠共性能力："+joinTags(profile.CommonTags))
 	}
-	// 推荐 SOP
 	profile.RecommendedSOPs = []string{
-		"high_value_intro",   // 高客单开场
-		"objection_handling", // 异议处理
-		"closing_techniques", // 逼单技巧
+		"high_value_intro",   
+		"objection_handling", 
+		"closing_techniques", 
 	}
 	return profile
 }
@@ -609,9 +558,6 @@ func joinTags(tags []string) string {
 	return out
 }
 
-// ============================================================================
-// 6. 团队级综合仪表盘
-// ============================================================================
 
 // TeamDashboard 团队综合仪表盘
 type TeamDashboard struct {
@@ -641,3 +587,4 @@ func (d *SalesDashboard) GetTeamDashboard(ctx context.Context, since time.Time) 
 		GeneratedAt:    now,
 	}
 }
+

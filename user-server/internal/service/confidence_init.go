@@ -1,16 +1,5 @@
 package service
 
-// confidence_init.go 置信度聚合器装配入口
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.4.10
-//
-// 职责：
-//   1. 构造 ConfidenceAggregator（信号采集 → 温度缩放 → 加权聚合 → 一票否决 → 动态阈值）
-//   2. 提供全局单例访问器 GetConfidenceAggregator
-//   3. 在启动时由 main.go / sales_engine_factory.go 注入到 SalesEngine
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"sync"
@@ -45,23 +34,17 @@ func InitConfidenceAggregator(db *gorm.DB, dispatcher *llm.Dispatcher, embedder 
 
 // buildConfidenceAggregator 构造完整聚合器（含信号采集/校准/加权/否决/动态阈值）
 func buildConfidenceAggregator(db *gorm.DB, embedder confidencesvc.Embedder) *confidencesvc.ConfidenceAggregator {
-	// 1. 信号采集器
 	collector := confidencesvc.NewSignalCollector(embedder)
 
-	// 2. 温度缩放校准器（含黄金分割搜索）
 	calibrator := confidencesvc.NewCalibrator(repository.NewConfidenceCalibrationRepository())
 
-	// 3. 加权聚合器（5 维信号默认权重）
 	aggregator := confidencesvc.NewDefaultWeightedAggregator()
 
-	// 4. 一票否决链
 	vetoChain := confidencesvc.NewVetoChain()
 
-	// 5. 动态阈值计算器（含 ThresholdPolicyEngine）
 	policyEngine := confidencesvc.NewThresholdPolicyEngine(repository.NewThresholdPolicyRepository())
 	calc := confidencesvc.NewDynamicThresholdCalculator(policyEngine)
 
-	// 6. 持久化仓储
 	signalRepo := repository.NewConfidenceSignalRepository()
 
 	return confidencesvc.NewConfidenceAggregator(collector, calibrator, aggregator, vetoChain, calc, signalRepo)
@@ -71,3 +54,4 @@ func buildConfidenceAggregator(db *gorm.DB, embedder confidencesvc.Embedder) *co
 func GetConfidenceAggregator() *confidencesvc.ConfidenceAggregator {
 	return confidenceAggregator
 }
+

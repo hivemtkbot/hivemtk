@@ -31,7 +31,7 @@ type SearchResult struct {
 	ID       string         `json:"id"`
 	Score    float64        `json:"score"`
 	Metadata map[string]any `json:"metadata"`
-	Vector   []float32      `json:"-"` // 不序列化向量本身
+	Vector   []float32      `json:"-"` 
 }
 
 // InMemoryVectorStore 内存向量存储实现
@@ -263,11 +263,9 @@ func hashToVector(text string, dim int) []float32 {
 		h ^= uint64(text[i])
 		h *= prime
 	}
-	// 用 hash 派生 dim 个分量（线性同余生成器）
 	state := h
 	for i := 0; i < dim; i++ {
 		state = state*6364136223846793005 + 1442695040888963407
-		// 归一化到 [-1, 1]
 		v := float32((state>>11)&0xFFFF)/32768.0 - 1.0
 		vec[i] = v
 	}
@@ -317,13 +315,11 @@ func (vp *VectorProcessor) ProcessAndStore(ctx context.Context, texts []string, 
 		return errors.New("texts and metadatas length mismatch")
 	}
 
-	// 批量向量化
 	vectors, err := vp.vectorizer.EmbedBatch(texts)
 	if err != nil {
 		return fmt.Errorf("failed to embed texts: %w", err)
 	}
 
-	// 存储向量
 	err = vp.store.AddVectors(vectors, metadatas)
 	if err != nil {
 		return fmt.Errorf("failed to add vectors to store: %w", err)
@@ -334,13 +330,11 @@ func (vp *VectorProcessor) ProcessAndStore(ctx context.Context, texts []string, 
 
 // Search 搜索相似文本
 func (vp *VectorProcessor) Search(ctx context.Context, query string, topK int) ([]SearchResult, error) {
-	// 向量化查询
 	queryVector, err := vp.vectorizer.EmbedText(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to embed query: %w", err)
 	}
 
-	// 搜索相似向量
 	results, err := vp.store.Search(queryVector, topK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search: %w", err)
@@ -366,8 +360,6 @@ func (vp *VectorProcessor) BatchSearch(ctx context.Context, queries []string, to
 
 // RebuildIndex 重建索引
 func (vp *VectorProcessor) RebuildIndex(ctx context.Context) error {
-	// 这里可以实现索引重建逻辑
-	// 对于内存存储，我们只需保留现有数据
 	return nil
 }
 
@@ -375,11 +367,10 @@ func (vp *VectorProcessor) RebuildIndex(ctx context.Context) error {
 func (vp *VectorProcessor) GetStats() map[string]any {
 	stats := make(map[string]any)
 
-	// 这里可以实现获取存储统计信息的逻辑
-	// 例如：向量数量、维度、内存使用情况等
 	stats["dimension"] = vp.store.GetDimension()
 	stats["type"] = "in-memory"
 	stats["timestamp"] = time.Now().Unix()
 
 	return stats
 }
+

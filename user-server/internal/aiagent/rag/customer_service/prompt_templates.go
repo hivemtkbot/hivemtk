@@ -69,3 +69,4 @@ func renderMultilingualSystemPrompt(internalLang, targetLang, glossaryBlock, few
 	out = strings.ReplaceAll(out, "{{.FewShotBlock}}", data.FewShotBlock)
 	return out
 }
+

@@ -1,14 +1,5 @@
 package confidence
 
-// handoff_decision.go 转人工决策服务
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.4.11
-//
-// 职责：
-//   1. 写入 handoff_decisions 表（决策记录）
-//   2. 触发座席分配（SeatAssignmentService.AutoAssign）
-//   3. 更新分配结果（assigned_agent_id / assigned_at）
 
 import (
 	"context"
@@ -26,8 +17,6 @@ import (
 //
 // 已有 SessionAssignmentService 满足，这里抽象为接口解耦
 type SeatAssignmentService interface {
-	// AutoAssign 自动分配座席
-	// 返回分配的座席 ID（0 表示无可用座席，进入 waiting 队列）
 	AutoAssign(ctx context.Context, sessionID, reason string) (agentID uint, err error)
 }
 
@@ -60,7 +49,6 @@ func (h *HandoffDecisionService) Execute(
 		return 0, fmt.Errorf("decision is nil")
 	}
 
-	// 1. 写入决策记录
 	reason := h.reasonOf(ctx, dec)
 	record := &model.HandoffDecisionRecord{
 		DecisionID:    uuid.New().String(),
@@ -80,7 +68,6 @@ func (h *HandoffDecisionService) Execute(
 		return 0, fmt.Errorf("save handoff decision: %w", err)
 	}
 
-	// 2. 触发座席分配
 	if h.seatSvc == nil {
 		return 0, nil
 	}
@@ -142,3 +129,4 @@ func timeslotLabel(t time.Time) string {
 		return "normal"
 	}
 }
+

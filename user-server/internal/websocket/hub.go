@@ -11,12 +11,12 @@ import (
 
 // Hub WebSocket连接中心
 type Hub struct {
-	clients     map[string]*Client // agentID -> Client
+	clients     map[string]*Client 
 	register    chan *Client
 	unregister  chan *Client
 	broadcast   chan *envelopeFrame
 	mu          sync.RWMutex
-	agentOnline map[string]bool // agentID -> online status
+	agentOnline map[string]bool 
 }
 
 // envelopeFrame hub 内部帧（agentID + 已序列化的 Envelope 字节）
@@ -38,17 +38,15 @@ type Client struct {
 	agentID    string
 	agentName  string
 	merchantID string
-	// visitor 专用字段
-	sessionID string // 访客所属会话 ID
-	visitorID string // 访客 ID
-	channelID string // 访客所属渠道 ID
-	// onConnectInflight 防止初始连接与 resume 并发/重复 resume 导致的离线消息重复推送
+	sessionID string 
+	visitorID string 
+	channelID string 
 	onConnectInflight atomic.Bool
 }
 
 // Message WebSocket消息
 type Message struct {
-	Type    string          `json:"type"` // new_session, new_message, session_update, agent_status, ai_suggestion
+	Type    string          `json:"type"` 
 	AgentID string          `json:"agent_id"`
 	Payload json.RawMessage `json:"payload"`
 }
@@ -102,7 +100,6 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 
 		case <-ticker.C:
-			// 心跳检测
 			h.mu.Lock()
 			for agentID, client := range h.clients {
 				select {
@@ -184,7 +181,7 @@ func (h *Hub) BroadcastToMerchant(merchantID string, messageType string, payload
 
 	for agentID, client := range h.clients {
 		_ = client
-		_ = merchantID // 私域部署忽略
+		_ = merchantID 
 		h.Broadcast(&Message{
 			Type:    messageType,
 			AgentID: agentID,
@@ -299,6 +296,6 @@ func NotifyAISuggestion(agentID string, suggestionData any) error {
 
 // BroadcastAgentStatus 广播客服状态变更
 func BroadcastAgentStatus(statusData any) error {
-	// 私域部署：单租户，merchantID 留空
 	return GetHub().BroadcastToMerchant("", "agent_status", statusData)
 }
+

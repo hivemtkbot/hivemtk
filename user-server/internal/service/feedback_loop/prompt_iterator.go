@@ -1,23 +1,5 @@
 package feedbackloop
 
-// prompt_iterator.go Prompt 迭代器
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十七章 §17.4.3
-//
-// 职责：基于低转化 SOP 节点 + 负反馈样本 → LLM 生成 Prompt 候选 → 入库 prompt_candidates
-//
-// 5 阶段流程：
-//   1. 拉取节点当前 active Prompt
-//   2. 拉取最近 7 天负反馈样本（reward < NegativeRewardThreshold）
-//   3. LLM 生成 N 个改进版本
-//   4. 入库 prompt_candidates（status=draft 或 approved，根据 AutoApprove）
-//   5. 自动创建 A/B 测试（包含原 Prompt 作为兜底 arm_0）
-//
-// 关键设计：
-//   - 样本数 < MinSamplesForIteration 拒绝迭代（防止噪声驱动）
-//   - 候选永远保留原版作为兜底臂，防止新版本全面劣化
-//   - 版本号递增规则：v1.0 → v1.1 → ... → v1.9 → v2.0
 
 import (
 	"context"
@@ -78,7 +60,6 @@ func (p *PromptIterator) IterateForNode(ctx context.Context, sopID uint, nodeID 
 		return nil, ErrInvalidInput
 	}
 
-	// 1. 拉取当前 active Prompt
 	current, err := p.repo.GetActivePromptCandidate(ctx, sopID, nodeID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -87,9 +68,6 @@ func (p *PromptIterator) IterateForNode(ctx context.Context, sopID uint, nodeID 
 		return nil, fmt.Errorf("query active prompt: %w", err)
 	}
 
-	// 2. 拉取负反馈样本
-	//    先 COUNT 校验是否达到 MinSamplesForIteration 阈值（防止噪声驱动迭代）
-	//    再 fetch 最多 20 条最低 reward 样本作为 LLM 上下文（避免 token 爆炸）
 	since := time.Now().Add(-7 * 24 * time.Hour)
 	totalNegative, err := p.countNegativeSamples(ctx, sopID, since)
 	if err != nil {
@@ -103,20 +81,18 @@ func (p *PromptIterator) IterateForNode(ctx context.Context, sopID uint, nodeID 
 		return nil, fmt.Errorf("fetch negative samples: %w", err)
 	}
 
-	// 3. LLM 生成候选
 	candidates, err := p.generateCandidates(ctx, *current, samples)
 	if err != nil {
 		return nil, fmt.Errorf("generate candidates: %w", err)
 	}
 
-	// 4. 入库
 	now := time.Now()
 	for i := range candidates {
 		candidates[i].ParentID = current.ID
 		candidates[i].SOPID = sopID
 		candidates[i].SOPNodeID = nodeID
 		candidates[i].Status = model.PromptCandidateStatusDraft
-		candidates[i].Alpha = 2 // Beta(2,2) 弱先验
+		candidates[i].Alpha = 2 
 		candidates[i].Beta = 2
 		candidates[i].GeneratedBy = "llm"
 		if p.config.AutoApprove {
@@ -124,12 +100,10 @@ func (p *PromptIterator) IterateForNode(ctx context.Context, sopID uint, nodeID 
 			candidates[i].ReviewedAt = &now
 		}
 		if err := p.repo.CreatePromptCandidate(ctx, &candidates[i]); err != nil {
-			// 单条失败不阻断，但记录到候选的 ImprovementNotes
 			continue
 		}
 	}
 
-	// 5. 自动创建 A/B 测试（包含原 Prompt 作为兜底臂）
 	if p.config.AutoApprove && len(candidates) > 0 {
 		p.createABTest(ctx, sopID, nodeID, *current, candidates)
 	}
@@ -250,7 +224,6 @@ func (p *PromptIterator) createABTest(ctx context.Context, sopID uint, nodeID st
 		return
 	}
 
-	// 创建 bandit arms（原 Prompt 作为 arm_0）
 	arms := []model.BanditArm{
 		{
 			ExperimentID:      experimentID,
@@ -323,3 +296,4 @@ func nextVersion(v string) string {
 	}
 	return fmt.Sprintf("%s.%d", major, minorInt)
 }
+

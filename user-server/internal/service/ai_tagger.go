@@ -8,19 +8,11 @@ import (
 	"time"
 )
 
-// ============================================================================
-// AI 谈单后自动打标签 + 订单意向提取（Auto Tagger + Order Intent Extractor）
-// ----------------------------------------------------------------------------
-// 商业市场需求：销售每天接触 50+ 客户，手动打标签必然遗漏。AI 自动从对话
-// 中提取标签和订单意向，赋能"数据驱动决策"。
-// ============================================================================
 
 // AITagger AI 谈单后自动打标签
 type AITagger struct {
 	mu sync.RWMutex
-	// 客户-标签索引
 	customerTags map[string]map[string]TagInfo
-	// 标签分类
 	tagTaxonomy map[string][]string
 }
 
@@ -28,7 +20,7 @@ type AITagger struct {
 type TagInfo struct {
 	Tag        string    `json:"tag"`
 	Category   string    `json:"category"`
-	Source     string    `json:"source"` // 来源: ai_chat/manual/order/system
+	Source     string    `json:"source"` 
 	Confidence float64   `json:"confidence"`
 	CreatedAt  time.Time `json:"created_at"`
 }
@@ -55,15 +47,12 @@ func (t *AITagger) TagFromSalesResponse(ctx context.Context, customerID string, 
 	tags := make([]TagInfo, 0)
 	now := time.Now()
 
-	// 1. 基于意图打标签
 	if resp.Intent != nil {
-		// 行为标签（置信度 = 基础值 + 意图置信度权重，按 0.05 精度取整以避免 0.7/0.91 漂移）
 		baseConf := 0.5
 		confBoost := resp.Intent.Confidence * 0.4
 		if resp.Intent.Confidence < 0.3 {
 			confBoost = 0
 		}
-		// 标签置信度：baseConf + confBoost，并四舍五入到 0.05
 		tagConf := roundTo(baseConf+confBoost, 0.05)
 		tagConfLow := roundTo(baseConf-0.1+confBoost, 0.05)
 		tagConfHigh := roundTo(baseConf+0.15+confBoost, 0.05)
@@ -86,25 +75,21 @@ func (t *AITagger) TagFromSalesResponse(ctx context.Context, customerID string, 
 		case IntentGreeting, IntentSocial:
 			tags = append(tags, TagInfo{Tag: "behavior:friendly", Category: "behavior", Source: "ai_chat", Confidence: roundTo(0.4+confBoost, 0.05), CreatedAt: now})
 		}
-		// 兴趣标签（基于意图名）
 		if interest := matchInterestFromIntent(resp.Intent.IntentName); interest != "" {
 			tags = append(tags, TagInfo{Tag: "interest:" + interest, Category: "interest", Source: "ai_chat", Confidence: roundTo(0.5+confBoost, 0.05), CreatedAt: now})
 		}
 	}
 
-	// 2. 基于转人工判断
 	if resp.TransferredToHuman {
 		tags = append(tags, TagInfo{Tag: "behavior:needs_human", Category: "behavior", Source: "ai_chat", Confidence: 0.9, CreatedAt: now})
 	}
 
-	// 3. 基于脚本模板打标签
 	if resp.ScriptTemplate != nil {
 		for _, tag := range resp.ScriptTemplate.Tags {
 			tags = append(tags, TagInfo{Tag: "interest:" + tag, Category: "interest", Source: "script_match", Confidence: 0.5, CreatedAt: now})
 		}
 	}
 
-	// 4. 基于消息内容正则提取
 	if resp.Memory != nil {
 		facts := factsToString(resp.Memory.KeyFacts)
 		if strings.Contains(facts, "VIP") || strings.Contains(facts, "高端") {
@@ -116,7 +101,6 @@ func (t *AITagger) TagFromSalesResponse(ctx context.Context, customerID string, 
 		}
 	}
 
-	// 5. 落地标签
 	for _, tag := range tags {
 		t.applyTag(ctx, customerID, tag)
 	}
@@ -130,7 +114,6 @@ func (t *AITagger) applyTag(ctx context.Context, customerID string, tag TagInfo)
 	if _, ok := t.customerTags[customerID]; !ok {
 		t.customerTags[customerID] = make(map[string]TagInfo)
 	}
-	// 如果已存在且置信度更高则跳过
 	if existing, ok := t.customerTags[customerID][tag.Tag]; ok {
 		if existing.Confidence >= tag.Confidence {
 			return
@@ -182,12 +165,6 @@ func matchInterestFromIntent(intentName string) string {
 	return ""
 }
 
-// ============================================================================
-// 订单意向提取器（Order Intent Extractor）
-// ----------------------------------------------------------------------------
-// 商业市场需求：销售对话中客户说"我想要 XX" / "价格多少" / "怎么付款"，
-// 必须自动同步为订单意向，赋能给销售跟进。
-// ============================================================================
 
 // OrderIntent 订单意向
 type OrderIntent struct {
@@ -200,10 +177,10 @@ type OrderIntent struct {
 	UnitPrice   float64        `json:"unit_price"`
 	TotalAmount float64        `json:"total_amount"`
 	Confidence  float64        `json:"confidence"`
-	Source      string         `json:"source"`   // ai_chat / manual
-	RawText     string         `json:"raw_text"` // 原始对话
+	Source      string         `json:"source"`   
+	RawText     string         `json:"raw_text"` 
 	ExtractedAt time.Time      `json:"extracted_at"`
-	Status      string         `json:"status"` // pending/confirmed/converted
+	Status      string         `json:"status"` 
 	Metadata    map[string]any `json:"metadata"`
 }
 
@@ -231,11 +208,8 @@ func (e *OrderIntentExtractor) ExtractFromText(ctx context.Context, customerID, 
 	}
 	now := time.Now()
 
-	// 1. 提取产品名
 	products := e.productRegex.FindAllStringSubmatch(text, -1)
-	// 2. 提取价格
 	prices := e.priceRegex.FindAllStringSubmatch(text, -1)
-	// 3. 提取数量
 	qtys := e.qtyRegex.FindAllStringSubmatch(text, -1)
 
 	if len(products) == 0 {
@@ -249,7 +223,6 @@ func (e *OrderIntentExtractor) ExtractFromText(ctx context.Context, customerID, 
 		category := categorizeProduct(productName)
 		var unitPrice float64
 		if i < len(prices) {
-			// parse price
 			priceStr := strings.TrimRight(prices[i][1], " 元块RMB¥")
 			unitPrice = atof(priceStr)
 		}
@@ -272,7 +245,7 @@ func (e *OrderIntentExtractor) ExtractFromText(ctx context.Context, customerID, 
 			Metadata:    make(map[string]any),
 		}
 		if unitPrice == 0 {
-			intent.Confidence = 0.5 // 价格未知，置信度低
+			intent.Confidence = 0.5 
 		}
 		intents = append(intents, intent)
 	}
@@ -284,7 +257,6 @@ func (e *OrderIntentExtractor) ExtractFromSalesResponse(ctx context.Context, cus
 	if resp == nil {
 		return nil
 	}
-	// 从话术模板匹配的产品 + RAG 召回的文档中提取
 	text := resp.Reply
 	if resp.ScriptTemplate != nil {
 		text += " " + resp.ScriptTemplate.Content
@@ -331,7 +303,6 @@ func atof(s string) float64 {
 		if c >= '0' && c <= '9' {
 			f = f*10 + float64(c-'0')
 		} else if c == '.' {
-			// 简化处理：忽略小数
 			break
 		}
 	}
@@ -392,3 +363,4 @@ func roundTo(value, precision float64) float64 {
 	}
 	return float64(int64(value/precision+0.5)) * precision
 }
+

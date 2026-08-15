@@ -23,13 +23,13 @@ func NewObjectionHandlerService() *ObjectionHandlerService {
 type ObjectionCategory string
 
 const (
-	ObjectionPrice   ObjectionCategory = "price"   // 价格异议
-	ObjectionNeed    ObjectionCategory = "need"    // 需求异议
-	ObjectionTrust   ObjectionCategory = "trust"   // 信任异议
-	ObjectionTiming  ObjectionCategory = "timing"  // 时机异议
-	ObjectionCompare ObjectionCategory = "compare" // 比较异议
-	ObjectionFeature ObjectionCategory = "feature" // 特性异议
-	ObjectionOther   ObjectionCategory = "other"   // 其他
+	ObjectionPrice   ObjectionCategory = "price"   
+	ObjectionNeed    ObjectionCategory = "need"    
+	ObjectionTrust   ObjectionCategory = "trust"   
+	ObjectionTiming  ObjectionCategory = "timing"  
+	ObjectionCompare ObjectionCategory = "compare" 
+	ObjectionFeature ObjectionCategory = "feature" 
+	ObjectionOther   ObjectionCategory = "other"   
 )
 
 // ObjectionTemplate 异议处理模板
@@ -97,7 +97,6 @@ func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest)
 		Templates:    make([]ObjectionTemplate, 0),
 	}
 
-	// 从 script_library 拉取匹配模板
 	if req.Category == "" {
 		req.Category = string(category)
 	}
@@ -134,12 +133,10 @@ func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest)
 		resp.Template = &resp.Templates[0]
 	}
 
-	// 兜底建议
 	if len(resp.Templates) == 0 {
 		resp.Suggestion = s.defaultSuggestion(ctx, category, req.Text)
 	}
 
-	// 按使用次数排序
 	sort.Slice(resp.Templates, func(i, j int) bool {
 		return resp.Templates[i].UsageCount > resp.Templates[j].UsageCount
 	})
@@ -185,3 +182,4 @@ func (s *ObjectionHandlerService) RecordUsage(ctx context.Context, templateID ui
 	}
 	return s.scriptRepo.IncrementUsageStats(ctx, templateID, success)
 }
+

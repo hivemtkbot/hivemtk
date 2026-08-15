@@ -29,7 +29,6 @@ import (
 	"time"
 )
 
-// ===== 辅助函数 =====
 
 // newTestPipeline 构造一个测试用 Pipeline（使用 FuncChannelAdapter）
 func newTestPipeline(adapter ChannelAdapter) SendPipeline {
@@ -68,7 +67,6 @@ func (denyAllPermission) CheckSendPermission(ctx context.Context, req *ReachSend
 	return ErrSendPermissionDenied
 }
 
-// ===== 1. 9 步全部执行（happy path） =====
 
 func TestSendPipeline_HappyPath_All9StepsExecuted(t *testing.T) {
 	adapter := newSuccessAdapter("msg")
@@ -97,7 +95,6 @@ func TestSendPipeline_HappyPath_All9StepsExecuted(t *testing.T) {
 	if resp.PrimaryChannel != "sms" {
 		t.Errorf("期望 primary_channel=sms，实际 %s", resp.PrimaryChannel)
 	}
-	// 验证步骤全部执行
 	expectedSteps := []string{
 		SendStepPermission, SendStepRateLimit,
 		SendStepRetry, SendStepFallback, SendStepAudit,
@@ -119,7 +116,6 @@ func TestSendPipeline_HappyPath_All9StepsExecuted(t *testing.T) {
 	}
 }
 
-// ===== 2. 权限拒绝 =====
 
 func TestSendPipeline_PermissionDenied(t *testing.T) {
 	adapter := newSuccessAdapter("msg")
@@ -140,7 +136,6 @@ func TestSendPipeline_PermissionDenied(t *testing.T) {
 	if !errors.Is(errors.New(resp.Error), ErrSendPermissionDenied) && !strings.Contains(resp.Error, ErrSendPermissionDenied.Error()) {
 		t.Errorf("期望错误包含 %q，实际 %q", ErrSendPermissionDenied.Error(), resp.Error)
 	}
-	// 权限拒绝应该在第 1 步就中断
 	permStep := findStepResult(resp, SendStepPermission)
 	if permStep == nil {
 		t.Fatal("期望有 permission 步骤")
@@ -148,7 +143,6 @@ func TestSendPipeline_PermissionDenied(t *testing.T) {
 	if permStep.Success {
 		t.Error("期望 permission 步骤失败")
 	}
-	// 后续步骤不应执行
 	if stepExists(resp, SendStepRateLimit) {
 		t.Error("权限拒绝后不应执行 rate_limit 步骤")
 	}
@@ -157,13 +151,12 @@ func TestSendPipeline_PermissionDenied(t *testing.T) {
 	}
 }
 
-// ===== 3. 限流拦截 =====
 
 func TestSendPipeline_RateLimited(t *testing.T) {
 	adapter := newSuccessAdapter("msg")
 	cfg := DefaultSendPipelineConfig(adapter)
 	cfg.RateLimiter = NewMemorySendRateLimiter()
-	cfg.RateLimitSpec = RateLimitSpec{QPS: 1, Burst: 1} // 1 QPS, burst=1
+	cfg.RateLimitSpec = RateLimitSpec{QPS: 1, Burst: 1} 
 	pipeline := NewSendPipeline(cfg)
 
 	req := &ReachSendRequest{
@@ -174,12 +167,10 @@ func TestSendPipeline_RateLimited(t *testing.T) {
 		Content:     "Hello",
 	}
 
-	// 第一次应该成功
 	resp1 := pipeline.Send(context.Background(), req)
 	if !resp1.Success {
 		t.Fatalf("第一次发送应该成功，失败: %s", resp1.Error)
 	}
-	// 第二次立即发送应该被限流
 	resp2 := pipeline.Send(context.Background(), req)
 	if resp2.Success {
 		t.Fatal("第二次发送应该被限流")
@@ -194,22 +185,18 @@ func TestSendPipeline_RateLimited(t *testing.T) {
 	if !strings.Contains(resp2.Error, ErrSendRateLimited.Error()) {
 		t.Errorf("期望错误包含 %q，实际 %q", ErrSendRateLimited.Error(), resp2.Error)
 	}
-	// 限流后不应执行后续步骤
 	if stepExists(resp2, SendStepSend) {
 		t.Error("限流后不应执行 send 步骤")
 	}
 }
 
-// ===== 4. 重试（指数退避，FlakyAdapter 验证） =====
 
 func TestSendPipeline_RetryWithFlakyAdapter(t *testing.T) {
-	// FlakyAdapter 前 2 次失败，第 3 次成功
 	adapter := NewFlakyAdapter(2)
 	cfg := DefaultSendPipelineConfig(adapter)
-	// 缩短重试间隔以加速测试
 	cfg.RetryPolicy = SendRetryPolicy{
 		MaxRetries:    3,
-		IntervalMs:    10, // 10ms
+		IntervalMs:    10, 
 		Backoff:       "exponential",
 		MaxIntervalMs: 100,
 	}
@@ -233,14 +220,12 @@ func TestSendPipeline_RetryWithFlakyAdapter(t *testing.T) {
 	if adapter.Count(context.Background()) < 3 {
 		t.Errorf("期望 adapter 至少调用 3 次，实际 %d", adapter.Count(context.Background()))
 	}
-	// 验证指数退避：2 次重试，间隔 10ms + 20ms = 30ms（最少）
 	if elapsed < 25*time.Millisecond {
 		t.Errorf("期望指数退避至少 30ms，实际 %v", elapsed)
 	}
 }
 
 func TestSendPipeline_RetryExhaustedAllFail(t *testing.T) {
-	// AlwaysFailAdapter 始终失败
 	adapter := NewAlwaysFailAdapter(errors.New("network error"))
 	cfg := DefaultSendPipelineConfig(adapter)
 	cfg.RetryPolicy = SendRetryPolicy{
@@ -261,7 +246,6 @@ func TestSendPipeline_RetryExhaustedAllFail(t *testing.T) {
 	if resp.Success {
 		t.Fatal("期望失败（全部重试失败）")
 	}
-	// MaxRetries=2，应调用 3 次（1 + 2 retries）
 	if adapter.Count(context.Background()) != 3 {
 		t.Errorf("期望 adapter 调用 3 次（1 + 2 retries），实际 %d", adapter.Count(context.Background()))
 	}
@@ -270,12 +254,9 @@ func TestSendPipeline_RetryExhaustedAllFail(t *testing.T) {
 	}
 }
 
-// ===== 7. 降级（主渠道失败 → 备用渠道） =====
 
 func TestSendPipeline_FallbackToBackupChannel(t *testing.T) {
-	// 主渠道始终失败
 	primaryAdapter := NewAlwaysFailAdapter(errors.New("primary down"))
-	// 备用渠道成功
 	backupAdapter := newSuccessAdapter("backup-msg")
 	cfg := DefaultSendPipelineConfig(primaryAdapter)
 	cfg.FallbackAdapters = map[string]ChannelAdapter{
@@ -319,7 +300,6 @@ func TestSendPipeline_FallbackDisabled(t *testing.T) {
 	}
 	pipeline := NewSendPipeline(cfg)
 
-	// 不启用降级
 	req := &ReachSendRequest{
 		Channel:     "sms",
 		RecipientID: "13800138000",
@@ -338,7 +318,6 @@ func TestSendPipeline_FallbackDisabled(t *testing.T) {
 	}
 }
 
-// ===== 8. 审计日志记录 =====
 
 func TestSendPipeline_AuditLogRecorded(t *testing.T) {
 	adapter := newSuccessAdapter("msg")
@@ -360,7 +339,6 @@ func TestSendPipeline_AuditLogRecorded(t *testing.T) {
 	if !resp.Success {
 		t.Fatalf("期望成功，失败: %s", resp.Error)
 	}
-	// 审计日志至少记录 1 条（成功）
 	entries := auditLogger.Entries(context.Background())
 	if len(entries) == 0 {
 		t.Fatal("期望至少 1 条审计日志，实际 0 条")
@@ -417,7 +395,6 @@ func TestSendPipeline_AuditLogRecordsContent(t *testing.T) {
 // TestSendPipeline_AuditLogOnFailure 验证 PRD §5.2 G4 "每条触达有完整审计记录"
 // 即失败时也必须记录审计日志
 func TestSendPipeline_AuditLogOnFailure(t *testing.T) {
-	// 用限流触发失败
 	adapter := newSuccessAdapter("msg")
 	auditLogger := NewMemorySendAuditLogger(100)
 	cfg := DefaultSendPipelineConfig(adapter)
@@ -457,11 +434,10 @@ func TestSendPipeline_AuditLogOnFailure(t *testing.T) {
 	}
 }
 
-// ===== 9. 计费扣费 + 余额不足 =====
 
 func TestSendPipeline_CostTrackerCharged(t *testing.T) {
 	adapter := newSuccessAdapter("msg")
-	costTracker := NewMemorySendCostTracker(100.0) // 初始余额 100
+	costTracker := NewMemorySendCostTracker(100.0) 
 	cfg := DefaultSendPipelineConfig(adapter)
 	cfg.CostTracker = costTracker
 	pipeline := NewSendPipeline(cfg)
@@ -475,7 +451,6 @@ func TestSendPipeline_CostTrackerCharged(t *testing.T) {
 	if !resp.Success {
 		t.Fatalf("期望成功，失败: %s", resp.Error)
 	}
-	// sms 单价 0.05，余额应从 100 减为 99.95
 	balance := costTracker.Balance(context.Background())
 	if balance >= 100.0 {
 		t.Errorf("期望余额 < 100，实际 %f", balance)
@@ -484,7 +459,6 @@ func TestSendPipeline_CostTrackerCharged(t *testing.T) {
 	if used <= 0 {
 		t.Errorf("期望累计消费 > 0，实际 %f", used)
 	}
-	// 步骤记录应包含 cost 步骤
 	costStep := findStepResult(resp, SendStepCost)
 	if costStep == nil {
 		t.Fatal("期望有 cost 步骤")
@@ -496,7 +470,7 @@ func TestSendPipeline_CostTrackerCharged(t *testing.T) {
 
 func TestSendPipeline_CostTrackerInsufficientBalance(t *testing.T) {
 	adapter := newSuccessAdapter("msg")
-	costTracker := NewMemorySendCostTracker(0.01) // 余额不足支付 sms 单价 0.05
+	costTracker := NewMemorySendCostTracker(0.01) 
 	cfg := DefaultSendPipelineConfig(adapter)
 	cfg.CostTracker = costTracker
 	pipeline := NewSendPipeline(cfg)
@@ -522,7 +496,6 @@ func TestSendPipeline_CostTrackerInsufficientBalance(t *testing.T) {
 	}
 }
 
-// ===== 10. 客户轨迹记录 =====
 
 type recordingJourneyTracker struct {
 	mu     sync.Mutex
@@ -585,7 +558,6 @@ func TestSendPipeline_JourneyTrackerRecorded(t *testing.T) {
 	if c.Source != "reach_pipeline" {
 		t.Errorf("期望 source=reach_pipeline，实际 %s", c.Source)
 	}
-	// 步骤记录
 	jStep := findStepResult(resp, SendStepJourney)
 	if jStep == nil {
 		t.Fatal("期望有 journey 步骤")
@@ -595,7 +567,6 @@ func TestSendPipeline_JourneyTrackerRecorded(t *testing.T) {
 	}
 }
 
-// ===== 11. countedSendPipeline 统计包装器 =====
 
 func TestCountedSendPipeline_Stats(t *testing.T) {
 	adapter := newSuccessAdapter("msg")
@@ -606,7 +577,6 @@ func TestCountedSendPipeline_Stats(t *testing.T) {
 		t.Fatal("期望 *countedSendPipeline 类型")
 	}
 
-	// 3 次成功 + 1 次限流失败
 	for i := 0; i < 3; i++ {
 		req := &ReachSendRequest{
 			Channel:     "sms",
@@ -632,7 +602,6 @@ func TestCountedSendPipeline_Stats(t *testing.T) {
 }
 
 func TestCountedSendPipeline_StatsWithFailures(t *testing.T) {
-	// 限流失败统计验证
 	adapter := newSuccessAdapter("msg")
 	cfg := DefaultSendPipelineConfig(adapter)
 	cfg.RateLimiter = NewMemorySendRateLimiter()
@@ -649,11 +618,9 @@ func TestCountedSendPipeline_StatsWithFailures(t *testing.T) {
 			Content:     "Hello",
 		}
 	}
-	// 第 1 次成功
 	if !pipeline.Send(context.Background(), req()).Success {
 		t.Fatal("第 1 次发送应成功")
 	}
-	// 第 2 次被限流（相同限流 key）
 	resp2 := pipeline.Send(context.Background(), req())
 	if resp2.Success {
 		t.Fatal("第 2 次发送应被限流")
@@ -674,25 +641,21 @@ func TestCountedSendPipeline_StatsWithFailures(t *testing.T) {
 	}
 }
 
-// ===== 13. MemorySendRateLimiter 令牌桶行为 =====
 
 func TestMemorySendRateLimiter_TokenBucket(t *testing.T) {
 	ctx := context.Background()
 	limiter := NewMemorySendRateLimiter()
 	spec := RateLimitSpec{QPS: 2, Burst: 2}
 
-	// burst=2，前 2 次允许
 	if !limiter.Allow(ctx, "k1", spec) {
 		t.Error("第 1 次应该允许（burst）")
 	}
 	if !limiter.Allow(ctx, "k1", spec) {
 		t.Error("第 2 次应该允许（burst）")
 	}
-	// 第 3 次应该被限流（无可用 token）
 	if limiter.Allow(ctx, "k1", spec) {
 		t.Error("第 3 次应该被限流")
 	}
-	// 等待 500ms（QPS=2 → 1 个 token）
 	time.Sleep(550 * time.Millisecond)
 	if !limiter.Allow(ctx, "k1", spec) {
 		t.Error("等待 500ms 后应该有 1 个 token 可用")
@@ -704,14 +667,12 @@ func TestMemorySendRateLimiter_DifferentKeys(t *testing.T) {
 	limiter := NewMemorySendRateLimiter()
 	spec := RateLimitSpec{QPS: 1, Burst: 1}
 
-	// 不同 key 应该有独立的桶
 	if !limiter.Allow(ctx, "k1", spec) {
 		t.Error("k1 第 1 次应该允许")
 	}
 	if !limiter.Allow(ctx, "k2", spec) {
 		t.Error("k2 第 1 次应该允许")
 	}
-	// 同一 key 第 2 次应被限流
 	if limiter.Allow(ctx, "k1", spec) {
 		t.Error("k1 第 2 次应该被限流")
 	}
@@ -728,17 +689,15 @@ func TestMemorySendRateLimiter_Reset(t *testing.T) {
 	if limiter.Allow(ctx, "k1", spec) {
 		t.Error("k1 第 2 次应该被限流")
 	}
-	// Reset 后应允许
 	limiter.Reset(context.Background(), "k1")
 	if !limiter.Allow(ctx, "k1", spec) {
 		t.Error("Reset 后 k1 应该允许")
 	}
 }
 
-// ===== 15. MemorySendAuditLogger 容量上限 =====
 
 func TestMemorySendAuditLogger_MaxSize(t *testing.T) {
-	logger := NewMemorySendAuditLogger(3) // 容量 3
+	logger := NewMemorySendAuditLogger(3) 
 	for i := 0; i < 5; i++ {
 		logger.LogSend(context.Background(), &ReachSendRequest{
 			Channel:     "sms",
@@ -750,7 +709,6 @@ func TestMemorySendAuditLogger_MaxSize(t *testing.T) {
 	if len(entries) != 3 {
 		t.Errorf("期望保留 3 条（容量上限），实际 %d", len(entries))
 	}
-	// 应该保留最后 3 条（r2/r3/r4）
 	if entries[0].Recipient != "r2" {
 		t.Errorf("期望第一条 recipient=r2，实际 %s", entries[0].Recipient)
 	}
@@ -759,7 +717,6 @@ func TestMemorySendAuditLogger_MaxSize(t *testing.T) {
 	}
 }
 
-// ===== 16. 默认配置 NoOp 行为验证 =====
 
 func TestNoOpSendCostTracker_ZeroCost(t *testing.T) {
 	tracker := NoOpSendCostTracker{}
@@ -795,7 +752,6 @@ func TestAllowAllSendPermission_AlwaysAllow(t *testing.T) {
 	}
 }
 
-// ===== 17. 默认重试策略验证 =====
 
 func TestDefaultSendRetryPolicy_Values(t *testing.T) {
 	p := DefaultSendRetryPolicy()
@@ -813,7 +769,6 @@ func TestDefaultSendRetryPolicy_Values(t *testing.T) {
 	}
 }
 
-// ===== 18. computeBackoff 指数退避计算 =====
 
 func TestComputeBackoff_Exponential(t *testing.T) {
 	p := &defaultSendPipeline{}
@@ -823,10 +778,6 @@ func TestComputeBackoff_Exponential(t *testing.T) {
 		Backoff:       "exponential",
 		MaxIntervalMs: 10000,
 	}
-	// attempt 0: 100ms
-	// attempt 1: 200ms
-	// attempt 2: 400ms
-	// attempt 3: 800ms
 	cases := []struct {
 		attempt int
 		expect  time.Duration
@@ -850,9 +801,8 @@ func TestComputeBackoff_MaxIntervalCap(t *testing.T) {
 		MaxRetries:    3,
 		IntervalMs:    1000,
 		Backoff:       "exponential",
-		MaxIntervalMs: 5000, // cap at 5s
+		MaxIntervalMs: 5000, 
 	}
-	// attempt 5: 1000 * 2^5 = 32000ms > 5000ms cap
 	got := p.computeBackoff(context.Background(), policy, 5)
 	if got != 5000*time.Millisecond {
 		t.Errorf("期望被 cap 到 5000ms，实际 %v", got)
@@ -874,11 +824,9 @@ func TestComputeBackoff_Fixed(t *testing.T) {
 	}
 }
 
-// ===== 19. isRetryable 错误匹配 =====
 
 func TestIsRetryable_DefaultAllRetryable(t *testing.T) {
 	p := &defaultSendPipeline{}
-	// 默认 RetryableErrors 为空 → 所有错误可重试
 	if !p.isRetryable(context.Background(), errors.New("any error"), nil) {
 		t.Error("默认所有错误应该可重试")
 	}
@@ -904,10 +852,9 @@ func TestIsRetryable_SpecificErrors(t *testing.T) {
 	}
 }
 
-// ===== 20. 默认 Pipeline 不带 adapter 应报错 =====
 
 func TestSendPipeline_NoAdapter_ReturnsError(t *testing.T) {
-	cfg := DefaultSendPipelineConfig(nil) // adapter = nil
+	cfg := DefaultSendPipelineConfig(nil) 
 	pipeline := NewSendPipeline(cfg)
 
 	resp := pipeline.Send(context.Background(), &ReachSendRequest{
@@ -918,18 +865,15 @@ func TestSendPipeline_NoAdapter_ReturnsError(t *testing.T) {
 	if resp.Success {
 		t.Fatal("期望失败（无 adapter）")
 	}
-	// runRetry 中 executeSendWithFallback 会返回 ErrSendChannelNotConfig
 	if !strings.Contains(resp.Error, ErrSendChannelNotConfig.Error()) {
 		t.Errorf("期望错误包含 %q，实际 %q", ErrSendChannelNotConfig.Error(), resp.Error)
 	}
 }
 
-// ===== 21. Custom Steps Order（自定义步骤顺序） =====
 
 func TestSendPipeline_CustomStepsOrder(t *testing.T) {
 	adapter := newSuccessAdapter("msg")
 	cfg := DefaultSendPipelineConfig(adapter)
-	// 只启用 2 步
 	cfg.Steps = []string{SendStepPermission, SendStepRetry}
 	pipeline := NewSendPipeline(cfg)
 
@@ -944,7 +888,6 @@ func TestSendPipeline_CustomStepsOrder(t *testing.T) {
 	if len(resp.StepResults) != 2 {
 		t.Errorf("期望 2 步，实际 %d", len(resp.StepResults))
 	}
-	// 验证未启用的步骤不存在
 	if stepExists(resp, SendStepRateLimit) {
 		t.Error("rate_limit 不应执行（未在自定义 Steps 中）")
 	}
@@ -953,7 +896,6 @@ func TestSendPipeline_CustomStepsOrder(t *testing.T) {
 	}
 }
 
-// ===== 22. 并发安全：高并发下消息不丢失 =====
 
 func TestSendPipeline_ConcurrentSends(t *testing.T) {
 	adapter := newSuccessAdapter("msg")
@@ -995,20 +937,18 @@ func TestSendPipeline_ConcurrentSends(t *testing.T) {
 	}
 }
 
-// ===== 23. MemorySendCostTracker 多渠道单价 =====
 
 func TestMemorySendCostTracker_DifferentChannelCosts(t *testing.T) {
 	tracker := NewMemorySendCostTracker(10.0)
-	// 默认：sms=0.05, email=0.001, wecom=0, card=0.01
 	cases := []struct {
 		channel   string
 		expectErr bool
 	}{
-		{"sms", false},      // 0.05 ≤ 10
-		{"email", false},    // 0.001 ≤ 9.95
-		{"wecom", false},    // 0
-		{"dingtalk", false}, // 0
-		{"card", false},     // 0.01
+		{"sms", false},      
+		{"email", false},    
+		{"wecom", false},    
+		{"dingtalk", false}, 
+		{"card", false},     
 	}
 	for _, c := range cases {
 		_, err := tracker.Charge(context.Background(), c.channel, &ReachSendRequest{})
@@ -1019,7 +959,6 @@ func TestMemorySendCostTracker_DifferentChannelCosts(t *testing.T) {
 			t.Errorf("channel %s: 不期望报错: %v", c.channel, err)
 		}
 	}
-	// 设置新单价
 	tracker.SetCost(context.Background(), "sms", 5.0)
 	balanceBefore := tracker.Balance(context.Background())
 	_, err := tracker.Charge(context.Background(), "sms", &ReachSendRequest{})
@@ -1032,21 +971,17 @@ func TestMemorySendCostTracker_DifferentChannelCosts(t *testing.T) {
 	}
 }
 
-// ===== 24. CustomerJourneySendTracker 适配器（无 Service 时静默返回 nil） =====
 
 func TestCustomerJourneySendTracker_NilService(t *testing.T) {
 	tracker := CustomerJourneySendTracker{Service: nil}
-	// Service 为 nil 应静默成功（不报错）
 	if err := tracker.RecordTouch(context.Background(), "c1", "sms", "test"); err != nil {
 		t.Errorf("Service 为 nil 不应报错: %v", err)
 	}
-	// 空 customerID 应静默成功
 	if err := tracker.RecordTouch(context.Background(), "", "sms", "test"); err != nil {
 		t.Errorf("空 customerID 不应报错: %v", err)
 	}
 }
 
-// ===== 25. DefaultSendPipelineConfig 默认值验证 =====
 
 func TestDefaultSendPipelineConfig_AllComponents(t *testing.T) {
 	adapter := newSuccessAdapter("msg")
@@ -1077,9 +1012,6 @@ func TestDefaultSendPipelineConfig_AllComponents(t *testing.T) {
 	}
 }
 
-// ===== 23. ctx 取消后重试必须立即停止（不得继续重发） =====
-// 深入审计发现：原 runRetry 在退避 select 内 `case <-ctx.Done(): break` 的 break 仅跳出 select，
-// 不跳出 for 循环（Go 语义），导致客户端断开/超时取消后仍以 MaxRetries 重发，浪费资源且可能重复发送。
 
 func TestSendPipeline_RetryStopsOnContextCancel(t *testing.T) {
 	var sendCalls int
@@ -1092,7 +1024,7 @@ func TestSendPipeline_RetryStopsOnContextCancel(t *testing.T) {
 	pipeline := NewSendPipeline(cfg)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // 进入 Send 前即取消上下文
+	cancel() 
 
 	resp := pipeline.Send(ctx, &ReachSendRequest{
 		Channel:     "sms",
@@ -1104,13 +1036,11 @@ func TestSendPipeline_RetryStopsOnContextCancel(t *testing.T) {
 	if resp.Success {
 		t.Fatal("已取消上下文，期望发送失败")
 	}
-	// 修复前会重发至 MaxRetries+1=6 次；修复后首次失败即停止，仅 1 次
 	if sendCalls != 1 {
 		t.Errorf("ctx 取消后仍重发 %d 次，期望 1 次（首次失败后即刻停止）", sendCalls)
 	}
 }
 
-// ===== 24. MemorySendRateLimiter 空闲桶驱逐（防内存泄漏） =====
 
 func TestRateLimiterShard_EvictStalest(t *testing.T) {
 	s := &rateLimiterShard{buckets: make(map[string]*sendRateBucket)}
@@ -1127,7 +1057,6 @@ func TestRateLimiterShard_EvictStalest(t *testing.T) {
 	}
 }
 
-// ===== 25. 限流器桶数受每分片上限约束（不无限增长） =====
 
 func TestMemorySendRateLimiter_BoundedByCap(t *testing.T) {
 	orig := rateLimiterMaxBuckets
@@ -1140,8 +1069,8 @@ func TestMemorySendRateLimiter_BoundedByCap(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		limiter.Allow(ctx, fmt.Sprintf("k-%d", i), spec)
 	}
-	// 64 分片 × 4 = 256 上限
 	if got := limiter.totalBucketCount(); got > rateLimiterShards*rateLimiterMaxBuckets {
 		t.Errorf("桶总数 %d 超过上限 %d（内存泄漏）", got, rateLimiterShards*rateLimiterMaxBuckets)
 	}
 }
+

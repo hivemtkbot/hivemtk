@@ -1,20 +1,5 @@
 package feedbackloop
 
-// feedback_collector_test.go 反馈信号采集器测试
-//
-// 覆盖：
-//  A. 纯函数单元测试（不需 PG）
-//     1. computeReward rating/reply_rate/duration/bool 归一化
-//     2. lookupWeight 已知/未知信号权重
-//     3. toFloat64 各类型转换
-//     4. genEventID 唯一性
-//  B. PG 集成测试
-//     1. CollectSync 持久化 + 聚合
-//     2. CollectSync 多事件同 session 聚合
-//     3. Collect 异步入队 + Stop 优雅关闭
-//     4. Collect 队列满返回 ErrQueueFull
-//     5. CollectSync Validate 校验
-//     6. CollectSync nil 请求
 
 import (
 	"context"
@@ -28,24 +13,18 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ============================================================================
-// A. 纯函数单元测试
-// ============================================================================
 
 // TestComputeReward_Rating 评分归一化（v/5）
 func TestComputeReward_Rating(t *testing.T) {
 	c := &FeedbackCollector{config: DefaultFeedbackCollectorConfig()}
-	// rating=5, weight=0.8 → reward = 0.8 * 5/5 = 0.8
 	r := c.computeReward(dto.FBSignalRating, 5, 0.8)
 	if !approxEqualF64(r, 0.8) {
 		t.Errorf("rating=5 reward = %v want 0.8", r)
 	}
-	// rating=1, weight=0.8 → reward = 0.8 * 1/5 = 0.16
 	r = c.computeReward(dto.FBSignalRating, 1, 0.8)
 	if !approxEqualF64(r, 0.16) {
 		t.Errorf("rating=1 reward = %v want 0.16", r)
 	}
-	// rating=0, weight=0.8 → reward = 0
 	r = c.computeReward(dto.FBSignalRating, 0, 0.8)
 	if !approxEqualF64(r, 0) {
 		t.Errorf("rating=0 reward = %v want 0", r)
@@ -55,7 +34,6 @@ func TestComputeReward_Rating(t *testing.T) {
 // TestComputeReward_ReplyRate 回复率归一化（直接乘）
 func TestComputeReward_ReplyRate(t *testing.T) {
 	c := &FeedbackCollector{config: DefaultFeedbackCollectorConfig()}
-	// reply_rate=0.8, weight=0.5 → reward = 0.5 * 0.8 = 0.4
 	r := c.computeReward(dto.FBSignalReplyRate, 0.8, 0.5)
 	if !approxEqualF64(r, 0.4) {
 		t.Errorf("reply_rate=0.8 reward = %v want 0.4", r)
@@ -65,12 +43,10 @@ func TestComputeReward_ReplyRate(t *testing.T) {
 // TestComputeReward_Duration 会话时长归一化（v/300, 上限 1.0）
 func TestComputeReward_Duration(t *testing.T) {
 	c := &FeedbackCollector{config: DefaultFeedbackCollectorConfig()}
-	// duration=150s, weight=0.3 → reward = 0.3 * 150/300 = 0.15
 	r := c.computeReward(dto.FBSignalDuration, 150, 0.3)
 	if !approxEqualF64(r, 0.15) {
 		t.Errorf("duration=150 reward = %v want 0.15", r)
 	}
-	// duration=600s（超过 300s）, weight=0.3 → reward = 0.3 * 1.0 = 0.3
 	r = c.computeReward(dto.FBSignalDuration, 600, 0.3)
 	if !approxEqualF64(r, 0.3) {
 		t.Errorf("duration=600 reward = %v want 0.3 (capped at 1.0)", r)
@@ -80,17 +56,14 @@ func TestComputeReward_Duration(t *testing.T) {
 // TestComputeReward_Bool 布尔/字串信号直接用权重
 func TestComputeReward_Bool(t *testing.T) {
 	c := &FeedbackCollector{config: DefaultFeedbackCollectorConfig()}
-	// like=true, weight=1.0 → reward = 1.0
 	r := c.computeReward(dto.FBSignalLike, true, 1.0)
 	if !approxEqualF64(r, 1.0) {
 		t.Errorf("like=true reward = %v want 1.0", r)
 	}
-	// complaint, weight=-2.0 → reward = -2.0
 	r = c.computeReward(dto.FBSignalComplaint, true, -2.0)
 	if !approxEqualF64(r, -2.0) {
 		t.Errorf("complaint reward = %v want -2.0", r)
 	}
-	// conversion, weight=2.0 → reward = 2.0
 	r = c.computeReward(dto.FBSignalConversion, true, 2.0)
 	if !approxEqualF64(r, 2.0) {
 		t.Errorf("conversion reward = %v want 2.0", r)
@@ -100,7 +73,6 @@ func TestComputeReward_Bool(t *testing.T) {
 // TestComputeReward_InvalidValue 信号值类型不匹配时退化为权重
 func TestComputeReward_InvalidValue(t *testing.T) {
 	c := &FeedbackCollector{config: DefaultFeedbackCollectorConfig()}
-	// rating 信号但值是字符串（无法转 float64）→ 退化为 weight * 1.0
 	r := c.computeReward(dto.FBSignalRating, "invalid", 0.8)
 	if !approxEqualF64(r, 0.8) {
 		t.Errorf("rating invalid value reward = %v want 0.8 (degraded to weight)", r)
@@ -199,9 +171,6 @@ func TestGenEventID_Format(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// B. PG 集成测试
-// ============================================================================
 
 // TestFeedbackCollector_CollectSync_SingleEvent 同步采集单条事件
 func TestFeedbackCollector_CollectSync_SingleEvent(t *testing.T) {
@@ -234,7 +203,6 @@ func TestFeedbackCollector_CollectSync_SingleEvent(t *testing.T) {
 	if signal.SignalCount != 1 {
 		t.Errorf("SignalCount = %d want 1", signal.SignalCount)
 	}
-	// like 权重 1.0，reward 应为 1.0
 	if !approxEqualF64(signal.AggregatedReward, 1.0) {
 		t.Errorf("AggregatedReward = %v want 1.0", signal.AggregatedReward)
 	}
@@ -256,19 +224,16 @@ func TestFeedbackCollector_CollectSync_MultiEventAggregate(t *testing.T) {
 	sessionID := "sess-multi"
 	ctx := context.Background()
 
-	// 事件 1: like (weight=1.0, reward=1.0)
 	_ = c.CollectSync(ctx, &dto.CollectRequest{
 		SessionID: sessionID, CustomerID: "cust-1",
 		EventType: dto.FBEventTypeExplicit,
 		SignalKey: dto.FBSignalLike, SignalValue: true,
 	})
-	// 事件 2: conversion (weight=2.0, reward=2.0)
 	_ = c.CollectSync(ctx, &dto.CollectRequest{
 		SessionID: sessionID, CustomerID: "cust-1",
 		EventType: dto.FBEventTypeImplicit,
 		SignalKey: dto.FBSignalConversion, SignalValue: true,
 	})
-	// 事件 3: complaint (weight=-2.0, reward=-2.0)
 	_ = c.CollectSync(ctx, &dto.CollectRequest{
 		SessionID: sessionID, CustomerID: "cust-1",
 		EventType: dto.FBEventTypeExplicit,
@@ -290,7 +255,6 @@ func TestFeedbackCollector_CollectSync_MultiEventAggregate(t *testing.T) {
 	if signal.SignalCount != 3 {
 		t.Errorf("SignalCount = %d want 3", signal.SignalCount)
 	}
-	// reward = 1.0 + 2.0 + (-2.0) = 1.0
 	if !approxEqualF64(signal.AggregatedReward, 1.0) {
 		t.Errorf("AggregatedReward = %v want 1.0 (1.0+2.0-2.0)", signal.AggregatedReward)
 	}
@@ -303,7 +267,6 @@ func TestFeedbackCollector_CollectSync_MultiEventAggregate(t *testing.T) {
 //   - Stop 后所有入队事件已刷盘
 func TestFeedbackCollector_Collect_AsyncPersist(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	// 配置短刷盘间隔以加速测试
 	cfg := DefaultFeedbackCollectorConfig()
 	cfg.FlushInterval = 50 * time.Millisecond
 	cfg.BatchSize = 100
@@ -312,7 +275,7 @@ func TestFeedbackCollector_Collect_AsyncPersist(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		err := c.Collect(ctx, &dto.CollectRequest{
-			SessionID:  "sess-async-" + strings.Repeat("x", i+1), // 唯一 session
+			SessionID:  "sess-async-" + strings.Repeat("x", i+1), 
 			CustomerID: "cust-1",
 			EventType:  dto.FBEventTypeExplicit,
 			SignalKey:  dto.FBSignalLike, SignalValue: true,
@@ -322,7 +285,6 @@ func TestFeedbackCollector_Collect_AsyncPersist(t *testing.T) {
 		}
 	}
 
-	// Stop 等待 worker 刷盘
 	c.Stop()
 
 	// 验证 10 条 event 都已入库
@@ -338,9 +300,6 @@ func TestFeedbackCollector_Collect_AsyncPersist(t *testing.T) {
 // 使用极小队列（QueueSize=1）+ 阻塞 worker 模拟
 func TestFeedbackCollector_Collect_QueueFull(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	// QueueSize=2 + 关闭 worker 模拟（不调用 Stop）
-	// 注：NewFeedbackCollector 已启动 worker，但 BatchSize=1000 + FlushInterval=10s
-	// 让 worker 不刷盘，填满队列
 	cfg := DefaultFeedbackCollectorConfig()
 	cfg.QueueSize = 2
 	cfg.BatchSize = 1000
@@ -366,7 +325,6 @@ func TestFeedbackCollector_Collect_QueueFull(t *testing.T) {
 			queueFullCount++
 		}
 	}
-	// 至少触发一次队列满（worker 在 100 条入队期间来不及消费）
 	if queueFullCount == 0 {
 		t.Logf("未触发 ErrQueueFull（worker 消费速度足够快，可能未达队列上限）")
 	}
@@ -439,7 +397,6 @@ func TestFeedbackCollector_ConcurrentCollectSync(t *testing.T) {
 	}
 	wg.Wait()
 
-	// 统计错误数
 	errCount := 0
 	for _, e := range errs {
 		if e != nil {
@@ -471,3 +428,4 @@ func TestFeedbackCollector_ConcurrentCollectSync(t *testing.T) {
 		t.Errorf("SignalCount = %d want %d", signal.SignalCount, N)
 	}
 }
+

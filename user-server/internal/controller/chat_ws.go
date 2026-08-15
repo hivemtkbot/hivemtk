@@ -46,31 +46,17 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// 常量
-// ============================================================================
 
 const (
-	// chatWSPingPeriod 心跳周期（30s）- 主动向客户端发 PingMessage
 	chatWSPingPeriod = 30 * time.Second
 
-	// chatWSPongWait 读超时（60s）- 客户端需在 60s 内回 Pong 或任意帧
 	chatWSPongWait = 60 * time.Second
 
-	// chatWSWriteWait 写超时（10s）- 单次写操作最长 10s
 	chatWSWriteWait = 10 * time.Second
 
-	// chatWSReadLimit 读消息最大体积（8KB）- 防止恶意大帧
 	chatWSReadLimit = 8 * 1024
 )
 
-// ============================================================================
-// StreamEngineInterface
-// ============================================================================
-//
-// 重构: 接口已迁移至 internal/contract 包, 避免 controller ↔ service
-// 循环依赖风险。此处仅保留类型别名以维持调用方最小改动, 后续调用应直接引用
-// contract.StreamEngineInterface。
 
 // StreamEngineInterface 流式销售引擎接口（向后兼容别名）
 //
@@ -78,9 +64,6 @@ const (
 // 保留别名仅为兼容历史调用方, 后续 controller/ 内部将统一改用 contract。
 type StreamEngineInterface = contract.StreamEngineInterface
 
-// ============================================================================
-// ChatWSController
-// ============================================================================
 
 // ChatWSController WebSocket 聊天控制器
 //
@@ -123,13 +106,10 @@ func NewChatWSController(hub *ChatWSHub, engine contract.StreamEngineInterface) 
 // 返回的 func 闭包持有 allowedOrigins 切片, 单次 controller 启动时锁定。
 // 如需运行时重载, 调用 config.ReloadAllowedWSOrigins() 后重建 controller。
 func buildCheckOrigin(allowedOrigins []string) func(r *http.Request) bool {
-	// 复制一份避免外部修改
 	allowed := make([]string, len(allowedOrigins))
 	copy(allowed, allowedOrigins)
 	return func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
-		// 无 Origin 头的请求 (例如非浏览器客户端) 默认放行
-		// 这是 WebSocket 的常见场景: 移动端 / 服务端 / curl 测试不带 Origin 头
 		if origin == "" {
 			return true
 		}
@@ -166,7 +146,6 @@ func (ctrl *ChatWSController) HandleChatWS(c *gin.Context) {
 		return
 	}
 
-	// 1) 鉴权：query param
 	sessionID := c.Query("session_id")
 	customerID := c.Query("customer_id")
 	if sessionID == "" {
@@ -178,31 +157,24 @@ func (ctrl *ChatWSController) HandleChatWS(c *gin.Context) {
 		return
 	}
 
-	// 2) 绑定 trace_id（时间戳 + 8 字节随机十六进制）
 	traceID := newTraceID()
 	ctx := logger.WithTraceID(c.Request.Context(), traceID)
 	ctx = logger.WithModule(ctx, "ws-chat")
 	logger.Ctx(ctx).Info().Msgf("[ws-chat] new connection session_id=%s customer_id=%s", sessionID, customerID)
 
-	// 3) 升级 WebSocket 协议
 	conn, err := ctrl.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[ws-chat] upgrade failed")
 		return
 	}
 
-	// 4) 创建 Client 并注册到 Hub
 	client := NewClient(sessionID, customerID, conn, traceID)
 	ctrl.hub.Register(client)
 
-	// 5) 启动读写协程（透传 ctx）
 	go ctrl.writePump(client, conn, ctx)
 	go ctrl.readPump(client, conn, ctrl.engine, ctx)
 }
 
-// ============================================================================
-// readPump / writePump
-// ============================================================================
 
 // readPump 读取客户端消息并处理业务逻辑
 //
@@ -213,7 +185,6 @@ func (ctrl *ChatWSController) HandleChatWS(c *gin.Context) {
 //   - 连接断开时注销 client
 func (ctrl *ChatWSController) readPump(client *Client, conn *websocket.Conn, engine StreamEngineInterface, ctx context.Context) {
 	defer func() {
-		// 清理
 		ctrl.hub.Unregister(client)
 		_ = conn.Close()
 		client.Close()
@@ -249,10 +220,6 @@ func (ctrl *ChatWSController) readPump(client *Client, conn *websocket.Conn, eng
 
 		switch msg.Type {
 		case "ping":
-			// 心跳（兼容旧客户端的文本 ping）。
-			// ⚠️ gorilla/websocket 的 *Conn 非并发写安全：writePump 协程已独占 conn 写，
-			// 此处严禁直接 conn.WriteMessage/SetWriteDeadline（会帧交错/panic）。
-			// 改为把 pong 文本交给 client.send 通道，统一由 writePump 写出。
 			pong := []byte(`{"type":"pong","trace_id":"` + client.TraceID() + `"}`)
 			select {
 			case client.SendChan() <- pong:
@@ -260,10 +227,8 @@ func (ctrl *ChatWSController) readPump(client *Client, conn *websocket.Conn, eng
 				logger.Ctx(ctx).Warn().Msg("[ws-chat] send pong: channel full, dropped")
 			}
 		case "message":
-			// 业务消息
 			ctrl.handleBusinessMessage(ctx, client, engine, msg)
 		case "cancel":
-			// 客户端主动取消（仅记录，不打断流；流式本身 ctx 不可由外部中断）
 			logger.Ctx(ctx).Info().Msg("[ws-chat] client sent cancel")
 		default:
 			logger.Ctx(ctx).Warn().Str("type", msg.Type).Msg("[ws-chat] unknown message type")
@@ -288,7 +253,6 @@ func (ctrl *ChatWSController) writePump(client *Client, conn *websocket.Conn, ct
 		select {
 		case payload, ok := <-client.RecvChan():
 			if !ok {
-				// hub 关闭了 client.send 通道，发送 Close 帧后退出
 				_ = conn.SetWriteDeadline(time.Now().Add(chatWSWriteWait))
 				_ = conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
@@ -308,9 +272,6 @@ func (ctrl *ChatWSController) writePump(client *Client, conn *websocket.Conn, ct
 	}
 }
 
-// ============================================================================
-// 业务消息处理
-// ============================================================================
 
 // handleBusinessMessage 处理业务消息（user_message -> 流式回复）
 //
@@ -330,7 +291,6 @@ func (ctrl *ChatWSController) handleBusinessMessage(
 		return
 	}
 
-	// 1) 构造请求
 	req := &dto.SalesRequest{
 		SessionID:   client.SessionID,
 		CustomerID:  client.CustomerID,
@@ -339,7 +299,6 @@ func (ctrl *ChatWSController) handleBusinessMessage(
 		Config:      dto.DefaultSalesEngineConfig(),
 	}
 
-	// 2) 定义 chunk 回调（直接写入 client.send）
 	sendChunk := func(chunk *dto.StreamChunk) bool {
 		if chunk == nil {
 			return true
@@ -347,22 +306,19 @@ func (ctrl *ChatWSController) handleBusinessMessage(
 		payload, err := json.Marshal(chunk)
 		if err != nil {
 			logger.Ctx(ctx).Error().Err(err).Msg("[ws-chat] marshal chunk failed")
-			return true // 继续流
+			return true 
 		}
 		select {
 		case client.SendChan() <- payload:
 			return true
 		default:
-			// 通道已满（client 异常），中断流
 			logger.Ctx(ctx).Warn().Msg("[ws-chat] client send channel full, abort stream")
 			return false
 		}
 	}
 
-	// 3) 调用 engine
 	logger.Ctx(ctx).Info().Msgf("[ws-chat] handle message session=%s msg_len=%d", client.SessionID, len(msg.UserMessage))
 	if err := engine.HandleStream(ctx, req, sendChunk); err != nil {
-		// error chunk（HandleStream 内部已发 error chunk，此处仅记录日志）
 		logger.Ctx(ctx).Error().Err(err).Msg("[ws-chat] HandleStream failed")
 	}
 }
@@ -385,24 +341,18 @@ func (ctrl *ChatWSController) sendErrorChunk(ctx context.Context, client *Client
 	}
 }
 
-// ============================================================================
-// 消息结构
-// ============================================================================
 
 // wsIncomingMessage 客户端 -> 服务端 消息
 //
 // 字段大小写不敏感（JSON 标准）；使用 client API 时建议保持小写。
 type wsIncomingMessage struct {
-	Type        string `json:"type"` // "message" / "ping" / "cancel"
+	Type        string `json:"type"` 
 	UserMessage string `json:"user_message"`
 	Platform    string `json:"platform,omitempty"`
 	SessionID   string `json:"session_id,omitempty"`
 	CustomerID  string `json:"customer_id,omitempty"`
 }
 
-// ============================================================================
-// 工具函数
-// ============================================================================
 
 // newTraceID 生成 trace_id（时间戳 + 8 字节随机）
 //
@@ -412,7 +362,6 @@ func newTraceID() string {
 	ts := time.Now().UnixMilli()
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
-		// 退化：使用固定字符串
 		return fmt.Sprintf("%d-fallback", ts)
 	}
 	return fmt.Sprintf("%d-%s", ts, hex.EncodeToString(b))
@@ -425,3 +374,4 @@ func defaultStr(s, fallback string) string {
 	}
 	return s
 }
+

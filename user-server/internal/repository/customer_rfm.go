@@ -143,7 +143,6 @@ func (r *recoveryQueueRepo) Create(ctx context.Context, item *model.RecoveryQueu
 	if item.CustomerID == "" {
 		return errors.New("customer_id 不能为空")
 	}
-	// 防止重复入队（活跃阶段唯一索引兜底）
 	existing, err := r.GetActiveByCustomerID(ctx, item.CustomerID)
 	if err == nil && existing != nil {
 		return errors.New("客户已在挽回队列中")
@@ -247,3 +246,4 @@ func (r *recoveryQueueRepo) CountByStage(ctx context.Context) (map[string]int64,
 func (r *recoveryQueueRepo) Delete(ctx context.Context, id uint64) error {
 	return r.db.Delete(&model.RecoveryQueue{}, id).Error
 }
+

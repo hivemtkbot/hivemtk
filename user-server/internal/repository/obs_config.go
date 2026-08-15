@@ -54,12 +54,10 @@ func (r *obsConfigRepo) GetList(ctx context.Context, page int, limit int, provid
 
 	query := r.db.Model(&model.ObsConfig{})
 
-	// 提供商筛选
 	if provider != "" {
 		query = query.Where("provider = ?", provider)
 	}
 
-	// 状态筛选
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
@@ -88,13 +86,11 @@ func (r *obsConfigRepo) GetDefault(ctx context.Context) (*model.ObsConfig, error
 }
 
 func (r *obsConfigRepo) SetDefault(ctx context.Context, id string) error {
-	// 先清除现有的默认配置
 	err := r.ClearDefault(ctx)
 	if err != nil {
 		return err
 	}
 
-	// 设置新的默认配置
 	return r.db.Model(&model.ObsConfig{}).Where("id = ?", id).Update("is_default", true).Error
 }
 
@@ -117,3 +113,4 @@ func (r *obsConfigRepo) Count(ctx context.Context) (int64, error) {
 	err := r.db.Model(&model.ObsConfig{}).Count(&count).Error
 	return count, err
 }
+

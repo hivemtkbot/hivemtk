@@ -28,12 +28,10 @@ type RedirectController struct {
 	kuaishouCardService       service.KuaishouCardService
 	xiaohongshuCardService    service.XiaohongshuCardService
 	xianyuCardService         service.XianyuCardService
-	// 各平台卡片统计 service：用于打开卡片时记录浏览（上报），驱动统计聚合
 	douyinCardStatsService    service.DouyinCardStatsService
 	kuaishouCardStatsService  *service.KuaishouCardStatsService
 	xiaohongshuCardStatsService service.XiaohongshuCardStatsService
 	xianyuCardStatsService    service.XianyuCardStatsService
-	// TikTok 卡片为外链型，无聊天页；打开时记录浏览并跳转到外部 RedirectURL
 	tiktokCardService service.TikTokCardService
 }
 
@@ -72,14 +70,12 @@ func (ctrl *RedirectController) RedirectShortLink(ctx *gin.Context) {
 		return
 	}
 
-	// 根据短码获取短链
 	shortLink, err := ctrl.shortLinkService.GetByShortCode(context.Background(), code)
 	if err != nil {
 		ctx.String(http.StatusNotFound, "短链不存在")
 		return
 	}
 
-	// 状态/过期校验：禁用或已过期的短链视为失效，不再跳转、不计访问也不计浏览
 	if shortLink.Status == 2 {
 		ctx.String(http.StatusGone, "短链已停用")
 		return
@@ -89,7 +85,6 @@ func (ctrl *RedirectController) RedirectShortLink(ctx *gin.Context) {
 		return
 	}
 
-	// 记录访问（best-effort：不阻断重定向主流程，但记录错误以便排查）
 	if _, err := ctrl.shortLinkService.AccessShortLink(context.Background(), &dto.AccessShortLinkRequest{
 		ShortCode: code,
 		UserAgent: ctx.GetHeader("User-Agent"),
@@ -99,48 +94,39 @@ func (ctrl *RedirectController) RedirectShortLink(ctx *gin.Context) {
 		logger.Errorf("[RedirectShortLink] 记录短链访问失败（code=%s）: %v", code, err)
 	}
 
-	// 构造站点根地址，用于生成绝对 URL（embed chat 链接可被外部直接打开）
 	baseURL := buildBaseURL(ctx)
 
-	// 按平台分发：根据 OriginalURL 的内部路径模式识别平台
 	originalURL := shortLink.OriginalURL
 
-	// 抖音卡片：/douyin/card/{id}
 	if id, ok := extractCardID(originalURL, "/douyin/card/"); ok {
 		renderCardChatPage(ctx, ctrl.douyinCardService.GenerateCardChatPage, id, baseURL,
 			func() { ctrl.recordCardView("douyin", id, ctx) })
 		return
 	}
 
-	// 快手卡片：/kuaishou/card/{id}
 	if id, ok := extractCardID(originalURL, "/kuaishou/card/"); ok {
 		renderCardChatPage(ctx, ctrl.kuaishouCardService.GenerateCardChatPage, id, baseURL,
 			func() { ctrl.recordCardView("kuaishou", id, ctx) })
 		return
 	}
 
-	// 小红书卡片：/xiaohongshu/card/{id}
 	if id, ok := extractCardID(originalURL, "/xiaohongshu/card/"); ok {
 		renderCardChatPage(ctx, ctrl.xiaohongshuCardService.GenerateCardChatPage, id, baseURL,
 			func() { ctrl.recordCardView("xiaohongshu", id, ctx) })
 		return
 	}
 
-	// 闲鱼卡片：/xianyu/card/{id}
 	if id, ok := extractCardID(originalURL, "/xianyu/card/"); ok {
 		renderCardChatPage(ctx, ctrl.xianyuCardService.GenerateCardChatPage, id, baseURL,
 			func() { ctrl.recordCardView("xianyu", id, ctx) })
 		return
 	}
 
-	// TikTok 卡片：/tiktok/card/{id}（外链型，记录浏览后跳转外部地址）
 	if id, ok := extractCardID(originalURL, "/tiktok/card/"); ok {
 		ctrl.renderTiktokCard(ctx, id)
 		return
 	}
 
-	// 兼容旧数据：闲鱼卡片短链此前直接使用 card.RedirectURL 作为 OriginalURL
-	// 这里无法判断平台，只能按外链处理（302 跳转）
 	target := originalURL
 	if u, err := url.Parse(target); err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		ctx.String(http.StatusBadRequest, "非法的跳转地址")
@@ -184,7 +170,6 @@ func (ctrl *RedirectController) renderTiktokCard(ctx *gin.Context, id uint) {
 		return
 	}
 
-	// 上报浏览（best-effort）
 	if err := ctrl.tiktokCardService.RecordView(ctx.Request.Context(), id, ctx.ClientIP(), ctx.GetHeader("User-Agent")); err != nil {
 		logger.Errorf("[renderTiktokCard] TikTok 卡片浏览上报失败(id=%d): %v", id, err)
 	}
@@ -208,7 +193,6 @@ type cardChatPageGenerator func(ctx context.Context, id uint, baseURL string) (s
 func renderCardChatPage(ctx *gin.Context, gen cardChatPageGenerator, id uint, baseURL string, onSuccess ...func()) {
 	html, err := gen(ctx.Request.Context(), id, baseURL)
 	if err != nil {
-		// 卡片不存在或渲染失败时降级为提示页
 		ctx.Header("Content-Type", "text/html; charset=utf-8")
 		ctx.String(http.StatusNotFound, fallbackCardHTML())
 		return
@@ -227,7 +211,6 @@ func extractCardID(originalURL, pathPrefix string) (uint, bool) {
 		return 0, false
 	}
 	idStr := strings.Replace(originalURL, pathPrefix, "", 1)
-	// 兼容尾部斜杠或查询串
 	if idx := strings.IndexAny(idStr, "?#/"); idx >= 0 {
 		idStr = idStr[:idx]
 	}
@@ -254,7 +237,7 @@ func buildBaseURL(ctx *gin.Context) string {
 		host = ctx.Request.Host
 	}
 	if host == "" {
-		return "" // 兜底：使用相对路径
+		return "" 
 	}
 	return scheme + "://" + host
 }
@@ -268,3 +251,4 @@ func fallbackCardHTML() string {
 h1{font-size:18px;margin-bottom:8px;color:#1d1d1f;}p{font-size:14px;}</style></head>
 <body><h1>卡片不存在或已下线</h1><p>请联系客服获取最新链接</p></body></html>`
 }
+

@@ -1,22 +1,5 @@
 package service
 
-// sop_template_service.go SOP 模板业务服务层
-//
-// 五层架构归属: L4 业务编排层
-// 设计依据: AI 智能体性能优化 + 强 1对1 改造 (Task 16)
-//
-// 职责:
-//   - 按 (agent_id, intent, stage) 严格 1对1 匹配 SOP 模板
-//   - Go text/template 变量替换
-//   - 按 agentID 分片缓存 5 分钟 (模板改动少)
-//   - 命中计数
-//
-// Task 16 变更:
-//   - 新 MatchByAgent(ctx, agentID, intent, stage, topK) 签名 (移除 "空数组=全局" 分支)
-//   - 加 bindingRepo 字段 (用于校验 agent ↔ KB 关系)
-//   - 缓存由单片改为按 agentID 分片 (map[uint][]model.SOPTemplate)
-//   - Create 必填 AgentID
-//   - 旧 MatchByAgent(agentSOPIDs []string, ...) 标记 DEPRECATED, 仅做兼容
 
 import (
 	"bytes"
@@ -40,7 +23,6 @@ const (
 	sopCacheTTL  = 5 * time.Minute
 	sopCacheMaxN = 2000
 	sopTopK      = 5
-	// Task 16: agentID 共享池 (agentID=0 表示全局共享池)
 	sopAgentShared uint = 0
 )
 
@@ -68,14 +50,10 @@ type sopRepoIface interface {
 	Create(ctx context.Context, tpl *model.SOPTemplate) error
 	GetByID(ctx context.Context, id uint) (*model.SOPTemplate, error)
 	ListEnabled(ctx context.Context, limit int) ([]model.SOPTemplate, error)
-	// 旧 API: 全局匹配 (agentID=0) — 仅兼容旧调用
 	MatchByIntent(ctx context.Context, intent string) ([]model.SOPTemplate, error)
 	MatchByIntentStage(ctx context.Context, intent, stage string) ([]model.SOPTemplate, error)
-	// Task 16: 按 agentID 严格 1:1 匹配
 	MatchByAgent(ctx context.Context, agentID uint, intent, stage string) ([]model.SOPTemplate, error)
-	// 按 ID 集合 + 意图 + 阶段匹配 (DEPRECATED: 改走 agent_id 字段)
 	MatchByIDs(ctx context.Context, intent, stage string, ids []string) ([]model.SOPTemplate, error)
-	// 任务 16: 列出某智能体 SOP 模板 (缓存预热 / 后台同步用)
 	ListByAgent(ctx context.Context, agentID uint, limit int) ([]model.SOPTemplate, error)
 	IncrementHitCount(ctx context.Context, id uint) error
 	ListWithFilter(ctx context.Context, filter repository.SOPTemplateFilter) ([]model.SOPTemplate, int64, error)
@@ -100,12 +78,9 @@ type sopBindingRepoIface interface {
 //   - 新增 sharedCache 概念: agentID=0 的桶存储"共享池" SOP (向后兼容旧 Match API)
 type SOPTemplateService struct {
 	repo        sopRepoIface
-	bindingRepo sopBindingRepoIface // Task 16 注入
+	bindingRepo sopBindingRepoIface 
 	db          *gorm.DB
 
-	// Task 16: 按 agentID 分片的缓存
-	//   - key 0:   共享池 (Match() 走共享)
-	//   - key N>0: 智能体 N 的私有 SOP 池 (MatchByAgent(ctx, N, ...) 命中)
 	mu     sync.RWMutex
 	cache  map[uint][]model.SOPTemplate
 	loaded map[uint]time.Time
@@ -198,7 +173,6 @@ func (s *SOPTemplateService) MatchByAgent(ctx context.Context, agentID uint, int
 		return nil, nil
 	}
 	if agentID == 0 {
-		// Task 16 强 1对1: 无 agentID 不再做"全局兜底"
 		return nil, nil
 	}
 	if topK <= 0 {
@@ -229,13 +203,11 @@ func (s *SOPTemplateService) MatchByAgentLegacy(ctx context.Context, agentSOPIDs
 		return nil, nil
 	}
 	if len(agentSOPIDs) == 0 {
-		// Task 16 强 1对1: 移除"空数组=全局"分支, 改由 layer.go 显式传 agentID
 		return nil, nil
 	}
 	return s.repo.MatchByIDs(ctx, intent, stage, agentSOPIDs)
 }
 
-// CRUD 方法 (前端 SOP 模板管理页面使用, 五层架构 L4)
 
 // List 列表查询
 func (s *SOPTemplateService) List(ctx context.Context, filter repository.SOPTemplateFilter) ([]dto.SOPTemplate, int64, error) {
@@ -300,13 +272,10 @@ func (s *SOPTemplateService) Update(ctx context.Context, id uint, tpl *model.SOP
 	if s.repo == nil {
 		return fmt.Errorf("repo not initialized")
 	}
-	// 修复：repo.Update 使用 Select("*").Updates(tpl)，若 tpl.ID 为零值会触发主键冲突。
-	// 显式回填主键，确保 UPDATE 命中同一行，且所有字段（含零值）被正确更新。
 	tpl.ID = id
 	if err := s.repo.Update(ctx, id, tpl); err != nil {
 		return err
 	}
-	// 失效对应 agentID 的缓存 (tpl.AgentID 可能为 nil, 兜底用全局)
 	if tpl != nil && tpl.AgentID != nil {
 		s.InvalidateCache(*tpl.AgentID)
 	} else {
@@ -320,7 +289,6 @@ func (s *SOPTemplateService) Delete(ctx context.Context, id uint) error {
 	if s.repo == nil {
 		return fmt.Errorf("repo not initialized")
 	}
-	// 先查一下属于哪个 agent (用于精确失效缓存)
 	existing, _ := s.repo.GetByID(ctx, id)
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return err
@@ -503,3 +471,4 @@ func sopToLayer(tpl *model.SOPTemplate) *dto.LayerDecision {
 		Confidence: tpl.Confidence,
 	}
 }
+

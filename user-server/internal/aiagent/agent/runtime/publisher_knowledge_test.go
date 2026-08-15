@@ -9,15 +9,6 @@ import (
 
 var _ = strings.Contains
 
-// ============================================================================
-// Knowledge Publisher 单元测试
-// ----------------------------------------------------------------------------
-// 验证:
-//   1. publish 后事件能正确发送
-//   2. 空 traceID 自动生成
-//   3. 三个快捷方法(create/update/delete)产生正确 changeType
-//   4. content hash 正确
-// ============================================================================
 
 // TestPublishKnowledgeDocumentChange_AutoTraceID 验证空 traceID 自动生成
 func TestPublishKnowledgeDocumentChange_AutoTraceID(t *testing.T) {
@@ -41,7 +32,6 @@ func TestPublishKnowledgeDocumentChange_CustomTraceID(t *testing.T) {
 
 // TestPublishKnowledgeDocumentCreate 验证 create 快捷方法
 func TestPublishKnowledgeDocumentCreate(t *testing.T) {
-	// 不直接验证事件 publish（无事件总线），仅验证不 panic + 返回 traceID
 	traceID := PublishKnowledgeDocumentCreate("1", 100, "test content", 1)
 	if traceID == "" {
 		t.Error("traceID should not be empty")
@@ -85,3 +75,4 @@ func TestKnowledgeDocumentChangePayload(t *testing.T) {
 		t.Errorf("ChangeType = %s, want create", payload.ChangeType)
 	}
 }
+

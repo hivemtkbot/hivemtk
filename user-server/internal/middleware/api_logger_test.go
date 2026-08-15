@@ -12,7 +12,7 @@ import (
 
 func TestCappedBufferWriter_CapsAndReportsFull(t *testing.T) {
 	w := &cappedBufferWriter{cap: 8}
-	n, err := w.Write([]byte("0123456789")) // 10 字节写入 cap=8
+	n, err := w.Write([]byte("0123456789")) 
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -32,7 +32,7 @@ func TestCappedBufferWriter_MultipleWritesCap(t *testing.T) {
 	w := &cappedBufferWriter{cap: 5}
 	_, _ = w.Write([]byte("ab"))
 	_, _ = w.Write([]byte("cd"))
-	_, _ = w.Write([]byte("efgh")) // 累计超过 cap
+	_, _ = w.Write([]byte("efgh")) 
 	if string(w.Bytes()) != "abcde" {
 		t.Fatalf("want abcde got %q", string(w.Bytes()))
 	}
@@ -52,7 +52,7 @@ func TestAPIInteractionLogger_FullBodyDeliveredViaTee(t *testing.T) {
 		c.String(http.StatusOK, string(b))
 	})
 
-	big := strings.Repeat("x", 1*1024*1024) // 1MB，远超 8KB cap
+	big := strings.Repeat("x", 1*1024*1024) 
 	req := httptest.NewRequest(http.MethodPost, "/api/echo", strings.NewReader(big))
 	req.Header.Set("Content-Type", "text/plain")
 	w := httptest.NewRecorder()
@@ -87,3 +87,4 @@ func TestAPIInteractionLogger_SmallBodyCaptured(t *testing.T) {
 		t.Fatalf("status=%d want 200", w.Code)
 	}
 }
+

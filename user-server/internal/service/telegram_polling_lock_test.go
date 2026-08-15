@@ -15,25 +15,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// ============================================================================
-// Telegram Polling 分布式锁 service 门面测试
-// ----------------------------------------------------------------------------
-// 五层架构修复后的测试：
-//   - L5（repository）负责实际 SQL；测试通过 *repository.TelegramPollingLockRepository
-//     注入测试 DB（testutil.NewTestDB），不依赖全局 DB 单例
-//   - L4（service）门面只做 workerID 解析 + 错误包装；测试覆盖：
-//     1. 锁的基本抢占 / 释放
-//     2. 多 worker 互斥
-//     3. 僵尸锁抢占
-//     4. 心跳丢失检测
-//     5. DB=nil 保护性降级
-//     6. workerID 稳定性
-// ============================================================================
 
 // setupPollingLockTestDB 准备带 telegram_accounts 表的测试库
 func setupPollingLockTestDB(t *testing.T) *gorm.DB {
 	db := testutil.NewTestDB(t, &model.TelegramAccount{})
-	// 清空测试数据（防止不同子测试间残留）
 	if err := db.Exec("DELETE FROM telegram_accounts").Error; err != nil {
 		t.Fatalf("清理测试数据失败: %v", err)
 	}
@@ -48,7 +33,6 @@ func seedTelegramAccount(t *testing.T, db *gorm.DB, id uint, name, token string)
 		BotToken:    token,
 		Status:      1,
 	}
-	// 使用明确的 ID 插入（GORM 默认自增，但测试需要可控 ID）
 	if err := db.Create(acc).Error; err != nil {
 		t.Fatalf("插入测试账号失败: %v", err)
 	}
@@ -80,7 +64,6 @@ func TestPollingLock_AcquireRelease(t *testing.T) {
 	repo := repository.NewTelegramPollingLockRepositoryWithDB(dbConn)
 	withPollingLockRepo(t, repo)
 
-	// 1) 初始：锁空闲，抢占成功
 	acquired, owner, _, err := TryAcquirePollingLock(ctx, nil, 100)
 	if err != nil {
 		t.Fatalf("TryAcquire 失败: %v", err)
@@ -96,12 +79,10 @@ func TestPollingLock_AcquireRelease(t *testing.T) {
 		t.Errorf("owner=%s, want %s", owner, expectedWorker)
 	}
 
-	// 2) 验证 IsPollingLockHeldByMe
 	if !IsPollingLockHeldByMe(ctx, nil, 100) {
 		t.Errorf("IsPollingLockHeldByMe 应返回 true（刚抢到锁）")
 	}
 
-	// 3) 同一 worker 再次抢占应成功（worker ID 匹配）
 	acquired2, owner2, _, _ := TryAcquirePollingLock(ctx, nil, 100)
 	if !acquired2 {
 		t.Errorf("同一 worker 再次抢占应成功（续约场景）")
@@ -110,7 +91,6 @@ func TestPollingLock_AcquireRelease(t *testing.T) {
 		t.Errorf("owner=%s, want %s", owner2, expectedWorker)
 	}
 
-	// 4) 释放
 	if rerr := ReleasePollingLock(ctx, nil, 100); rerr != nil {
 		t.Fatalf("Release 失败: %v", rerr)
 	}
@@ -128,14 +108,12 @@ func TestPollingLock_ConflictBetweenWorkers(t *testing.T) {
 	repo := repository.NewTelegramPollingLockRepositoryWithDB(dbConn)
 	withPollingLockRepo(t, repo)
 
-	// 临时改 worker ID 模拟"另一进程"抢占
 	originalID := pollingWorkerID
 	workerA := "host-A:11111"
 	workerB := "host-B:22222"
 	pollingWorkerID = workerA
 	t.Cleanup(func() { pollingWorkerID = originalID })
 
-	// Worker A 抢占
 	acquiredA, ownerA, _, _ := TryAcquirePollingLock(ctx, nil, 200)
 	if !acquiredA {
 		t.Fatalf("Worker A 应抢占成功")
@@ -144,7 +122,6 @@ func TestPollingLock_ConflictBetweenWorkers(t *testing.T) {
 		t.Errorf("owner=%s, want %s", ownerA, workerA)
 	}
 
-	// 模拟 Worker B 抢占（应失败）
 	pollingWorkerID = workerB
 	acquiredB, ownerB, lastHB, _ := TryAcquirePollingLock(ctx, nil, 200)
 	if acquiredB {
@@ -157,7 +134,6 @@ func TestPollingLock_ConflictBetweenWorkers(t *testing.T) {
 		t.Errorf("失败时应返回 lastHB（最近心跳时间）")
 	}
 
-	// Worker A 释放后，Worker B 抢占应成功
 	pollingWorkerID = workerA
 	if rerr := ReleasePollingLock(ctx, nil, 200); rerr != nil {
 		t.Fatalf("Release 失败: %v", rerr)
@@ -171,7 +147,6 @@ func TestPollingLock_ConflictBetweenWorkers(t *testing.T) {
 		t.Errorf("owner=%s, want %s", ownerB2, workerB)
 	}
 
-	// 清理：Worker B 释放
 	pollingWorkerID = workerB
 	_ = ReleasePollingLock(ctx, nil, 200)
 }
@@ -188,7 +163,6 @@ func TestPollingLock_StaleTakeover(t *testing.T) {
 	originalID := pollingWorkerID
 	defer func() { pollingWorkerID = originalID }()
 
-	// Worker A 抢占后，模拟心跳时间被设为 90s 前（超过 60s 阈值）
 	pollingWorkerID = "host-A:11111"
 	acquired, _, _, _ := TryAcquirePollingLock(ctx, nil, 300)
 	if !acquired {
@@ -201,7 +175,6 @@ func TestPollingLock_StaleTakeover(t *testing.T) {
 		t.Fatalf("设置心跳为过期时间失败: %v", err)
 	}
 
-	// Worker B 抢占（应成功，因为 Worker A 锁已过期）
 	pollingWorkerID = "host-B:22222"
 	acquiredB, ownerB, _, _ := TryAcquirePollingLock(ctx, nil, 300)
 	if !acquiredB {
@@ -211,7 +184,6 @@ func TestPollingLock_StaleTakeover(t *testing.T) {
 		t.Errorf("owner=%s, want %s", ownerB, "host-B:22222")
 	}
 
-	// 清理
 	_ = ReleasePollingLock(ctx, nil, 300)
 }
 
@@ -227,14 +199,12 @@ func TestPollingLock_HeartbeatLoss(t *testing.T) {
 	originalID := pollingWorkerID
 	defer func() { pollingWorkerID = originalID }()
 
-	// Worker A 抢占
 	pollingWorkerID = "host-A:11111"
 	acquired, _, _, _ := TryAcquirePollingLock(ctx, nil, 400)
 	if !acquired {
 		t.Fatalf("Worker A 应抢占成功")
 	}
 
-	// Worker A 心跳：应成功
 	lockLost, err := HeartbeatPollingLock(ctx, nil, 400)
 	if err != nil {
 		t.Fatalf("Worker A 心跳失败: %v", err)
@@ -243,7 +213,6 @@ func TestPollingLock_HeartbeatLoss(t *testing.T) {
 		t.Errorf("Worker A 心跳不应检测到锁丢失")
 	}
 
-	// 模拟 Worker B 抢占成功（强制覆盖）
 	pollingWorkerID = "host-B:22222"
 	if err := dbConn.Exec(
 		"UPDATE telegram_accounts SET polling_owner = ?, polling_heartbeat_at = ? WHERE id = ?",
@@ -252,7 +221,6 @@ func TestPollingLock_HeartbeatLoss(t *testing.T) {
 		t.Fatalf("模拟 Worker B 抢占失败: %v", err)
 	}
 
-	// Worker A 心跳：应检测到锁丢失
 	pollingWorkerID = "host-A:11111"
 	lockLost2, err2 := HeartbeatPollingLock(ctx, nil, 400)
 	if err2 != nil {
@@ -262,7 +230,6 @@ func TestPollingLock_HeartbeatLoss(t *testing.T) {
 		t.Errorf("Worker A 心跳应检测到锁丢失（RowsAffected=0）")
 	}
 
-	// 清理
 	pollingWorkerID = "host-B:22222"
 	_ = ReleasePollingLock(ctx, nil, 400)
 }
@@ -273,7 +240,6 @@ func TestPollingLock_HeartbeatLoss(t *testing.T) {
 // 传 nil 表示「用全局 pollingLockRepo」。若全局 repo 也未初始化（DB 句柄为 nil），
 // 则应返回 error 而非 panic。
 func TestPollingLock_NilDB(t *testing.T) {
-	// 强制把全局 repo 置空，模拟 DB 未就绪
 	prev := pollingLockRepo
 	prevOnce := pollingLockRepoOnce
 	defer func() {
@@ -309,7 +275,6 @@ func TestGetPollingWorkerID(t *testing.T) {
 	if id1 != id2 {
 		t.Errorf("worker ID 应稳定: id1=%s id2=%s", id1, id2)
 	}
-	// 包含 hostname 和 pid
 	expected := fmt.Sprintf("%s:%d", mustHostname(), os.Getpid())
 	if id1 != expected {
 		t.Errorf("worker ID=%s, want %s", id1, expected)
@@ -323,3 +288,4 @@ func mustHostname() string {
 	}
 	return h
 }
+

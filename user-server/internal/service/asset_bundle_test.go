@@ -12,9 +12,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// Weave 织布算法 - 综合测试
-// ============================================================================
 
 // 复用文档中"跨境特定品类 WhatsApp 24小时私域聊单"的标准资产包 fixture
 func buildStandardAsset() *model.AssetBundle {
@@ -45,14 +42,12 @@ func TestWeave_BasicFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("weave: %v", err)
 	}
-	// 预期：5 条资产包 + 1 条 user_query = 6 条
 	if len(out) != 6 {
 		t.Errorf("len = %d, want 6", len(out))
 	}
 	if out[len(out)-1].Role != "user" || out[len(out)-1].Content != "其他口味还有推荐吗？" {
 		t.Errorf("last message wrong: %+v", out[len(out)-1])
 	}
-	// 第一条必须是 system
 	if out[0].Role != "system" {
 		t.Error("first message should be system")
 	}
@@ -73,11 +68,9 @@ func TestWeave_WithRAG(t *testing.T) {
 	if err != nil {
 		t.Fatalf("weave: %v", err)
 	}
-	// 5 + 1(RAG) + 1(user) = 7
 	if len(out) != 7 {
 		t.Errorf("len = %d, want 7 (asset5 + rag1 + user1)", len(out))
 	}
-	// RAG 段应该出现在第 6 位（after_fewshots 模式）
 	ragMsg := out[5]
 	if ragMsg.Role != "system" || !strings.Contains(ragMsg.Content, "实时验证知识库") {
 		t.Errorf("RAG message position/content wrong: %+v", ragMsg)
@@ -106,7 +99,6 @@ func TestWeave_RAGAfterSystem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("weave: %v", err)
 	}
-	// 预期：5 (asset) + 1 (RAG after system) + 1 (user) = 7
 	if out[0].Role != "system" {
 		t.Error("first should be system")
 	}
@@ -134,11 +126,9 @@ func TestWeave_WithHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("weave: %v", err)
 	}
-	// 5 + 2(hist) + 1(user) = 8
 	if len(out) != 8 {
 		t.Errorf("len = %d, want 8", len(out))
 	}
-	// 最后三条：history2 + user query
 	if out[6].Role != "assistant" || !strings.Contains(out[6].Content, "冰爽西瓜") {
 		t.Errorf("history 2nd msg wrong: %+v", out[6])
 	}
@@ -171,7 +161,6 @@ func TestWeave_HistoryTruncated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("weave: %v", err)
 	}
-	// 5 + 5(截断) + 1 = 11
 	if len(out) != 11 {
 		t.Errorf("len = %d, want 11", len(out))
 	}
@@ -191,7 +180,6 @@ func TestWeave_StripFewShotJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("weave: %v", err)
 	}
-	// 检查每条 assistant 都剥掉了 ```json 块
 	for i, m := range out {
 		if m.Role == "assistant" && strings.Contains(m.Content, "```json") {
 			t.Errorf("Few-Shot[%d] still contains JSON: %s", i, m.Content)
@@ -217,7 +205,6 @@ func TestWeave_MerchantVars(t *testing.T) {
 	if err != nil {
 		t.Fatalf("weave: %v", err)
 	}
-	// 找到 system 段，验证参数注入
 	hasMerchantVars := false
 	for _, m := range out {
 		if m.Role == "system" && strings.Contains(m.Content, "shop_name") {
@@ -279,27 +266,17 @@ func TestWeave_EndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("weave: %v", err)
 	}
-	// 预期结构：
-	//  1. system (asset original, + merchant vars appended at end) — 0
-	//  2-5. user/assistant/user/assistant (Few-Shots, JSON stripped)  — 1..4
-	//  6. system (RAG, after_fewshots)                                — 5
-	//  7-8. user/assistant (history)                                  — 6..7
-	//  9. user (query)                                                — 8
-	// 总计 9
 	if len(out) != 9 {
 		t.Errorf("len = %d, want 9", len(out))
 	}
-	// 验证最后一条是 user query
 	last := out[len(out)-1]
 	if last.Role != "user" || !strings.Contains(last.Content, "冰爽西瓜") {
 		t.Errorf("last msg wrong: %+v", last)
 	}
-	// 验证 RAG 段位置（after_fewshots → index 5 = 1 system + 4 Few-Shots + 1 RAG = 5）
 	ragIdx := 5
 	if out[ragIdx].Role != "system" || !strings.Contains(out[ragIdx].Content, "实时验证知识库") {
 		t.Errorf("RAG should be at index %d, got: %+v", ragIdx, out[ragIdx])
 	}
-	// 验证商户参数注入到了第一条 system 段（人设主指令；不会被 RAG 抢走）
 	if !strings.Contains(out[0].Content, "shop_name") {
 		t.Error("merchant vars not injected into first system msg")
 	}
@@ -354,9 +331,6 @@ func TestStripTrailingJSONBlock(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Merchant Form 编解码
-// ============================================================================
 
 // TestBuildBundleFromMerchantForm 商户表单 → 资产包
 func TestBuildBundleFromMerchantForm(t *testing.T) {
@@ -393,11 +367,9 @@ func TestBuildBundleFromMerchantForm(t *testing.T) {
 	if len(bundle.Messages) == 0 {
 		t.Fatal("messages should not be empty")
 	}
-	// 第一条必须是 system
 	if bundle.Messages[0].Role != "system" {
 		t.Error("first should be system")
 	}
-	// 验证 system 含反审查 + 商户参数
 	firstSys := bundle.Messages[0].Content
 	if !strings.Contains(firstSys, "成年人商业交流区") {
 		t.Error("unlock level should include 反安全审查")
@@ -408,7 +380,6 @@ func TestBuildBundleFromMerchantForm(t *testing.T) {
 	if !strings.Contains(firstSys, "双十一") {
 		t.Error("campaign_name should be in system prompt")
 	}
-	// 验证 QA 卡片转成 Few-Shots
 	foundShipping := false
 	foundContact := false
 	for _, m := range bundle.Messages {
@@ -480,9 +451,6 @@ func TestBuildBundleFromMerchantForm_Validation(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 边界场景
-// ============================================================================
 
 // TestWeave_EmptyRAG 无 RAG 不织入
 func TestWeave_EmptyRAG(t *testing.T) {
@@ -495,7 +463,6 @@ func TestWeave_EmptyRAG(t *testing.T) {
 	if err != nil {
 		t.Fatalf("weave: %v", err)
 	}
-	// 5 (asset) + 1 (user query) = 6
 	if len(out) != 6 {
 		t.Errorf("len = %d, want 6", len(out))
 	}
@@ -534,21 +501,17 @@ func TestWeave_HistoryOnlyUserOnlyAssistant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("weave: %v", err)
 	}
-	// 5 + 1 + 1 = 7
 	if len(out) != 7 {
 		t.Errorf("len = %d, want 7", len(out))
 	}
 }
 
-// ============================================================================
-// Service 层 CRUD 测试（使用 in-memory mock 仓储）
-// ============================================================================
 
 // mockAssetBundleRepo 内存版资产包仓储（用于 Service 单元测试）
 type mockAssetBundleRepo struct {
 	mu      sync.Mutex
-	storage map[string]*model.AssetBundle // asset_id -> bundle
-	byID    map[int64]*model.AssetBundle  // id -> bundle
+	storage map[string]*model.AssetBundle 
+	byID    map[int64]*model.AssetBundle  
 	nextID  int64
 }
 
@@ -720,7 +683,6 @@ func TestService_CreateBundle(t *testing.T) {
 	ver := &mockVersionLogRepo{}
 	svc := NewAssetBundleService(repo, ver)
 
-	// 1. 正常创建
 	bundle := &model.AssetBundle{
 		AssetID: "test_001",
 		Title:   "测试",
@@ -741,7 +703,6 @@ func TestService_CreateBundle(t *testing.T) {
 		t.Errorf("default version = %s", bundle.Version)
 	}
 
-	// 2. 重复 AssetID 应失败
 	bundle2 := &model.AssetBundle{
 		AssetID:  "test_001",
 		Title:    "重复",
@@ -751,7 +712,6 @@ func TestService_CreateBundle(t *testing.T) {
 		t.Error("expected duplicate asset_id error")
 	}
 
-	// 3. 缺少 system 应失败
 	bundle3 := &model.AssetBundle{
 		AssetID:  "test_002",
 		Title:    "无 system",
@@ -761,7 +721,6 @@ func TestService_CreateBundle(t *testing.T) {
 		t.Error("expected missing system error")
 	}
 
-	// 4. 缺少 Title 应失败
 	bundle4 := &model.AssetBundle{
 		AssetID:  "test_003",
 		Messages: []model.AssetBundleMessage{{Role: "system", Content: "x"}},
@@ -787,7 +746,6 @@ func TestService_UpdateBundle_VersionLog(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 升级到 1.1.0
 	bundle.Version = "1.1.0"
 	bundle.Title = "v1 升级"
 	if err := svc.UpdateBundle(context.Background(), bundle); err != nil {
@@ -805,7 +763,7 @@ func TestService_UpdateBundle_VersionLog(t *testing.T) {
 // TestService_PublishArchive 测试启用/归档状态机
 func TestService_PublishArchive(t *testing.T) {
 	repo := newMockAssetBundleRepo()
-	svc := NewAssetBundleService(repo, nil) // nil version repo
+	svc := NewAssetBundleService(repo, nil) 
 	bundle := &model.AssetBundle{
 		AssetID:  "state_001",
 		Title:    "x",
@@ -853,7 +811,6 @@ func TestService_WeaveForRequest(t *testing.T) {
 	if len(out) != 2 {
 		t.Errorf("len = %d, want 2 (system + user)", len(out))
 	}
-	// 验证 use_count 累加
 	got, _ := svc.GetBundle(context.Background(), bundle.ID)
 	if got.UseCount != 1 {
 		t.Errorf("use_count = %d, want 1", got.UseCount)
@@ -869,3 +826,4 @@ func TestService_WeaveForRequest_AssetNotFound(t *testing.T) {
 		t.Error("expected not found error")
 	}
 }
+

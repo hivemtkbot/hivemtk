@@ -7,43 +7,21 @@ import (
 	"time"
 )
 
-// ============================================================================
-// Tool Registry Router 工具注册表路由中心
-// ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/工具链调用逻辑.md §2
-//
-// 在 ToolExecutor 之上提供"统一路由中心"：
-//  1. 集中审计日志（带 trace_id 贯穿）
-//  2. 全局限流与频次拦截（按 tool+agent+session 多维度）
-//  3. 工具成本监控（每次调用 cost、累计 cost）
-//  4. 异常容错（熔断后 fallback 友好提示）
-//  5. 调用统计（命中 / 失败 / 降级 / 熔断计数）
-//
-// 与 ToolExecutor 区别：
-//  - Executor：执行工具 + 装饰器链（已存在）
-//  - Router：路由策略 + 全局统计 + 多维度限流（本文件新增）
-// ============================================================================
 
 // ToolRouter 工具路由中心
 type ToolRouter struct {
 	executor *ToolExecutor
 
-	// 限流器（可注入；默认 NoOpRateLimiter）
 	rateLimiter RateLimiter
-	// 限流维度 key 生成器
 	keyBuilder func(toolName string, tc *ToolContext) string
 
-	// 配置
 	failThreshold    int
 	cooldownDuration time.Duration
 
-	// 成本表（tool → 每次成本）
 	toolCosts map[string]float64
 
-	// 熔断（每次失败计数；超过阈值进入冷却）
 	circuit map[string]*circuitState
 
-	// 全局统计
 	mu    sync.RWMutex
 	stats RouterStats
 }
@@ -56,7 +34,6 @@ type RouterStats struct {
 	RateLimitedCalls int64
 	CircuitOpenCalls int64
 	TotalCost        float64
-	// DefaultToolCost 默认成本（统计用）
 	DefaultToolCost float64
 }
 
@@ -70,11 +47,8 @@ type circuitState struct {
 
 // RouterConfig 路由配置
 type RouterConfig struct {
-	// FailThreshold 熔断触发阈值（连续失败 N 次）
 	FailThreshold int
-	// CooldownDuration 熔断冷却时长
 	CooldownDuration time.Duration
-	// DefaultToolCost 工具默认成本（未在 toolCosts 中配置时使用）
 	DefaultToolCost float64
 }
 
@@ -137,7 +111,6 @@ func (r *ToolRouter) Route(ctx context.Context, toolName string, args map[string
 	r.stats.TotalCalls++
 	r.mu.Unlock()
 
-	// 1. 检查熔断
 	if r.isCircuitOpen(toolName) {
 		r.mu.Lock()
 		r.stats.CircuitOpenCalls++
@@ -148,7 +121,6 @@ func (r *ToolRouter) Route(ctx context.Context, toolName string, args map[string
 		}
 	}
 
-	// 2. 检查限流
 	key := r.keyBuilder(toolName, tc)
 	if err := r.rateLimiter.Acquire(ctx, key); err != nil {
 		r.mu.Lock()
@@ -160,14 +132,12 @@ func (r *ToolRouter) Route(ctx context.Context, toolName string, args map[string
 		}
 	}
 
-	// 3. 执行
 	execCtx := ctx
 	if tc != nil {
 		execCtx = WithToolContext(ctx, tc)
 	}
 	result, err := r.executor.ExecuteByName(execCtx, toolName, args)
 
-	// 4. 统计
 	if err != nil || !result.Success {
 		r.mu.Lock()
 		r.stats.FailedCalls++
@@ -222,9 +192,6 @@ func (r *ToolRouter) ResetCircuit(toolName string) {
 	delete(r.circuit, toolName)
 }
 
-// ============================================================================
-// 内部方法
-// ============================================================================
 
 func (r *ToolRouter) isCircuitOpen(toolName string) bool {
 	r.mu.RLock()
@@ -238,7 +205,6 @@ func (r *ToolRouter) isCircuitOpen(toolName string) bool {
 	if time.Now().Before(c.openUntil) {
 		return true
 	}
-	// 冷却期已过，重置
 	if !c.openUntil.IsZero() {
 		c.failCount = 0
 		c.openUntil = time.Time{}
@@ -280,7 +246,6 @@ func (r *ToolRouter) recordSuccess(toolName string) {
 }
 
 func (r *ToolRouter) muLoadDefaultCost() float64 {
-	// 此处可改为读取配置；当前为 0.001
 	return 0.001
 }
 
@@ -291,9 +256,7 @@ func defaultKeyBuilder(toolName string, tc *ToolContext) string {
 	return toolName
 }
 
-// ============================================================================
-// 错误定义
-// ============================================================================
 
 // ErrRouterUnavailable 路由不可用
 var ErrRouterUnavailable = errors.New("tool router unavailable")
+

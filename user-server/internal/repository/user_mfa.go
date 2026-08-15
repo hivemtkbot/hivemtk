@@ -16,7 +16,7 @@ import (
 // 五层架构合规:封装 user_mfa 表的 CRUD,避免 service 层直接调 db.GetDB()。
 type UserMFARepository interface {
 	GetByUserID(ctx context.Context, userID uint) (*model.UserMFA, error)
-	FindByUserID(ctx context.Context, userID uint) (*model.UserMFA, error) // alias for GetByUserID (含 gorm.ErrRecordNotFound)
+	FindByUserID(ctx context.Context, userID uint) (*model.UserMFA, error) 
 	Create(ctx context.Context, mfa *model.UserMFA) error
 	Update(ctx context.Context, mfa *model.UserMFA) error
 	Save(ctx context.Context, mfa *model.UserMFA) error
@@ -92,3 +92,4 @@ func (r *userMFARepository) UpdateLastUsed(ctx context.Context, userID uint, cod
 			"last_used_at":   now,
 		}).Error
 }
+

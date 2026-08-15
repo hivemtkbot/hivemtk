@@ -163,7 +163,6 @@ func (s *ScriptTemplateService) GetPublicTemplates(page, pageSize int) ([]*model
 
 // RecommendScript 推荐话术
 func (s *ScriptTemplateService) RecommendScript(sessionID, message string) ([]*model.ScriptTemplate, error) {
-	// 简单关键词匹配推荐
 	templates, _, _ := s.templateRepo.SearchTemplates("", 1, 100)
 
 	// 计算相关性得分
@@ -180,7 +179,6 @@ func (s *ScriptTemplateService) RecommendScript(sessionID, message string) ([]*m
 		}
 	}
 
-	// 按得分排序
 	for i := 0; i < len(scored)-1; i++ {
 		for j := i + 1; j < len(scored); j++ {
 			if scored[i].score < scored[j].score {
@@ -204,7 +202,6 @@ func (s *ScriptTemplateService) calculateRelevance(message string, template *mod
 	content := strings.ToLower(template.Content)
 	title := strings.ToLower(template.Title)
 
-	// 简单匹配：消息中包含话术关键词
 	matchCount := 0
 	keywords := strings.Fields(content)
 	for _, keyword := range keywords {
@@ -219,10 +216,10 @@ func (s *ScriptTemplateService) calculateRelevance(message string, template *mod
 
 	score := float64(matchCount) / float64(len(keywords))
 
-	// 标题匹配加权
 	if strings.Contains(message, title) {
 		score += 0.3
 	}
 
 	return score
 }
+

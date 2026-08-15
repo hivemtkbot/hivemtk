@@ -34,9 +34,6 @@ func setupSystemConfigController(t *testing.T) (*SystemConfigController, *gin.En
 	return ctrl, router
 }
 
-// ============================================================================
-// SystemConfigController 测试
-// ============================================================================
 
 // TestSystemConfigController_GetConfig_Success 测试获取系统配置成功
 func TestSystemConfigController_GetConfig_Success(t *testing.T) {
@@ -48,7 +45,6 @@ func TestSystemConfigController_GetConfig_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -79,7 +75,6 @@ func TestSystemConfigController_SaveConfig_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -108,3 +103,4 @@ func TestSystemConfigController_NewSystemConfigController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

@@ -40,9 +40,9 @@ const IntentConfigKey = "intent_recognition_config"
 
 // IntentConfig 意图识别配置（DB 持久化结构）
 type IntentConfig struct {
-	Enabled   bool   `json:"enabled"`              // 是否启用意图识别
-	UpdatedAt string `json:"updated_at,omitempty"` // 更新时间（RFC3339）
-	UpdatedBy string `json:"updated_by,omitempty"` // 更新人
+	Enabled   bool   `json:"enabled"`              
+	UpdatedAt string `json:"updated_at,omitempty"` 
+	UpdatedBy string `json:"updated_by,omitempty"` 
 }
 
 // IntentRecognizer 销售意图识别器
@@ -83,23 +83,22 @@ func (s *IntentRecognizer) SetSOPService(ctx context.Context, svc *SOPService) {
 
 // IntentType 销售意图类型常量
 const (
-	IntentPriceInquiry        = "price_inquiry"        // 询价
-	IntentObjectionPrice      = "objection_price"      // 异议-价格
-	IntentObjectionNeed       = "objection_need"       // 异议-不需要
-	IntentObjectionTrust      = "objection_trust"      // 异议-信任
-	IntentObjectionCompetitor = "objection_competitor" // 异议-竞品
-	IntentObjectionTiming     = "objection_timing"     // 异议-时机
-	IntentPurchase            = "purchase"             // 购买意向
-	IntentAskProduct          = "ask_product"          // 咨询产品
-	IntentAskService          = "ask_service"          // 咨询售后
-	IntentAfterSale           = "after_sale"           // 售后问题
-	IntentChurn               = "churn"                // 流失倾向
-	IntentSocial              = "social"               // 社交寒暄
-	IntentGreeting            = "greeting"             // 问候
-	IntentComplaint           = "complaint"            // 投诉
-	IntentUnknown             = "unknown"              // 未知
+	IntentPriceInquiry        = "price_inquiry"        
+	IntentObjectionPrice      = "objection_price"      
+	IntentObjectionNeed       = "objection_need"       
+	IntentObjectionTrust      = "objection_trust"      
+	IntentObjectionCompetitor = "objection_competitor" 
+	IntentObjectionTiming     = "objection_timing"     
+	IntentPurchase            = "purchase"             
+	IntentAskProduct          = "ask_product"          
+	IntentAskService          = "ask_service"          
+	IntentAfterSale           = "after_sale"           
+	IntentChurn               = "churn"                
+	IntentSocial              = "social"               
+	IntentGreeting            = "greeting"             
+	IntentComplaint           = "complaint"            
+	IntentUnknown             = "unknown"              
 
-	// 兼容别名：sales_playbook.go 等模块使用的简写
 	IntentStall         = IntentObjectionTiming
 	IntentAskTrust      = IntentObjectionTrust
 	IntentAskCompetitor = IntentObjectionCompetitor
@@ -196,8 +195,6 @@ var DefaultIntents = []IntentDef{
 	},
 }
 
-// RecognizeResult 已迁至 dto 包（DTO 层补全）
-// 使用 dto.RecognizeResult 替代本地类型
 
 // Recognize 识别意图
 //
@@ -214,7 +211,6 @@ func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID,
 		return &dto.RecognizeResult{IntentType: IntentUnknown, Confidence: 0, Method: "rule"}, nil
 	}
 
-	// 总开关：未开启直接返回 IntentUnknown，不进入规则/LLM 流程
 	if !IntentEnabled {
 		return &dto.RecognizeResult{
 			IntentType:      IntentUnknown,
@@ -228,20 +224,16 @@ func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID,
 
 	var result *dto.RecognizeResult
 
-	// 1. 规则匹配（O(1) 字典）
 	if r := s.recognizeByRule(ctx, text); r != nil {
 		s.saveRecord(ctx, sessionID, customerID, text, r, "", 0, 0)
 		result = r
 	} else if s.dispatcher != nil {
-		// 2. LLM 识别（本地/云端 API 统一走 LLM 兜底）
-		// 重构：移除 isLocalLLMBaseURL 限制，规则未命中时统一调 LLM
 		if r, err := s.recognizeByLLM(ctx, text); err == nil && r != nil {
 			s.saveRecord(ctx, sessionID, customerID, text, r, r.LLMModel, r.CostTokens, r.LatencyMs)
 			result = r
 		}
 	}
 
-	// 兜底
 	if result == nil {
 		result = &dto.RecognizeResult{
 			IntentType:      IntentUnknown,
@@ -253,7 +245,6 @@ func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID,
 		}
 	}
 
-	// 3. 意图→SOP 联动
 	if customerID != "" {
 		s.triggerSOPByIntent(ctx, customerID, sessionID, result.IntentType, result.Confidence)
 	}
@@ -266,7 +257,6 @@ func (s *IntentRecognizer) triggerSOPByIntent(ctx context.Context, customerID, s
 	if s.sopService == nil {
 		return
 	}
-	// 仅高置信度（>= 0.7）才触发 SOP，避免误触发
 	if confidence < 0.7 {
 		return
 	}
@@ -314,7 +304,6 @@ func (s *IntentRecognizer) recognizeByRule(ctx context.Context, text string) *dt
 	if text == "" {
 		return nil
 	}
-	// 完全匹配优先级高
 	for _, def := range DefaultIntents {
 		for _, ex := range def.Examples {
 			if strings.EqualFold(text, ex) {
@@ -430,8 +419,6 @@ func (s *IntentRecognizer) recognizeByLLM(ctx context.Context, text string) (*dt
 			break
 		}
 	}
-	// 修复：LLM 返回未知/拼写错误意图类型时归一化为 unknown，避免下游按原始字符串
-	// 漏匹配 SOP（缺少兜底时意图识别形同失效）
 	if !known {
 		parsed.IntentType = "unknown"
 		intentName = "未知意图"
@@ -483,8 +470,6 @@ func (s *IntentRecognizer) saveRecord(ctx context.Context, sessionID, customerID
 		CostTokens:      costTokens,
 		LatencyMs:       latencyMs,
 	}
-	// 修复：原 fire-and-forget goroutine 无 recover、无 ctx，panic 会杀进程，shutdown 无法取消。
-	// 改为：使用 context.Background()（异步落库不依赖请求生命周期）+ recover 防 panic + 错误日志。
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -510,7 +495,6 @@ func entitiesToMap(data []byte) map[string]any {
 
 func extractJSONFromStr(s string) string {
 	s = strings.TrimSpace(s)
-	// 寻找第一个 { 和最后一个 }
 	start := strings.Index(s, "{")
 	end := strings.LastIndex(s, "}")
 	if start >= 0 && end > start {
@@ -650,12 +634,10 @@ func LoadIntentConfig(ctx context.Context) (*IntentConfig, error) {
 	repo := repository.NewSystemConfigKVRepository()
 	val, err := repo.Get(ctx, IntentConfigKey)
 	if err != nil {
-		// DB 错误时使用默认配置，避免阻断服务
 		logger.Ctx(ctx).Warn().Err(err).Msg("[intent] 加载意图识别配置失败，使用默认配置（Enabled=true）")
 		return &IntentConfig{Enabled: true}, nil
 	}
 	if val == "" {
-		// 无配置记录时使用默认
 		return &IntentConfig{Enabled: true}, nil
 	}
 	var cfg IntentConfig
@@ -703,7 +685,6 @@ func UpdateIntentConfig(ctx context.Context, cfg *IntentConfig) error {
 //   - DB 不可用：降级为默认 Enabled=true（不阻断服务启动）
 func InitIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.Client) *IntentRecognizer {
 	intentRecognizerOnce.Do(func() {
-		// 1. 从 DB 加载配置
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		cfg, err := LoadIntentConfig(ctx)
@@ -719,3 +700,4 @@ func InitIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.
 	})
 	return intentRecognizer
 }
+

@@ -38,3 +38,4 @@ func (s *KnowledgeService) logImport(ctx context.Context, req *ImportRequest, do
 	}
 	return s.importLogRepo.Create(ctx, log)
 }
+

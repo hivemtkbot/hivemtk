@@ -15,9 +15,9 @@ import (
 type PasswordHistory struct {
 	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	UserID       uint      `gorm:"index;not null" json:"user_id"`
-	PasswordHash string    `gorm:"type:varchar(255);not null" json:"-"` // bcrypt 哈希（不在 JSON 中返回）
+	PasswordHash string    `gorm:"type:varchar(255);not null" json:"-"` 
 	ChangedAt    time.Time `gorm:"index;not null" json:"changed_at"`
-	Source       string    `gorm:"type:varchar(50);default:'change_password'" json:"source"` // change_password / reset_password / init_change / forgot_reset
+	Source       string    `gorm:"type:varchar(50);default:'change_password'" json:"source"` 
 	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
@@ -43,3 +43,4 @@ func IsValidPasswordSource(s string) bool {
 		s == PasswordSourceForgotReset ||
 		s == PasswordSourceCreate
 }
+

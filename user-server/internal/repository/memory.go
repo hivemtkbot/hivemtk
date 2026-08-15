@@ -1,15 +1,5 @@
 package repository
 
-// memory_repository.go 4 层记忆系统仓储（L1 短期 / L2 长期 / L3 SOP 状态 / L4 业务）
-//
-// 五层架构归属: L4 数据访问层
-// 设计依据: service/memory_system.go 历史直连 DB 操作下沉
-//
-// 覆盖 model:
-//   - MemoryItem (L1 短期 / L2 长期事实&摘要)
-//   - SOPStateMemory (L3 SOP 状态)
-//   - BusinessMemory (L4 业务记忆)
-//   - CustomerLongTermMemory (L2 pgvector 增强版)
 
 import (
 	"context"
@@ -38,7 +28,6 @@ type LongTermMemoryVectorRow struct {
 
 // MemoryRepository 4 层记忆系统仓储接口
 type MemoryRepository interface {
-	// L1 短期记忆
 	CreateMemoryItem(ctx context.Context, item *model.MemoryItem) error
 	ListShortTermMemoryBySession(ctx context.Context, sessionID string, limit int) ([]model.MemoryItem, error)
 	DeleteShortTermMemoryBySession(ctx context.Context, sessionID string) error
@@ -46,23 +35,19 @@ type MemoryRepository interface {
 	PluckOldestShortTermMemoryIDs(ctx context.Context, sessionID string, limit int) ([]uint, error)
 	DeleteMemoryItemsByIDs(ctx context.Context, ids []uint) error
 
-	// L2 长期事实 / 摘要（MemoryItem 表）
 	ListFacts(ctx context.Context, customerID string, limit int) ([]model.MemoryItem, error)
 	GetLatestSummary(ctx context.Context, customerID string) (*model.MemoryItem, error)
 
-	// L3 SOP 状态
 	SaveSOPState(ctx context.Context, state *model.SOPStateMemory) error
 	GetSOPStateBySession(ctx context.Context, sessionID string) (*model.SOPStateMemory, error)
 	ListSOPStatesByCustomer(ctx context.Context, customerID string, limit int) ([]model.SOPStateMemory, error)
 
-	// L4 业务记忆
 	CountBusinessMemoriesByCustomer(ctx context.Context, customerID string) (int64, error)
 	PluckOldestBusinessMemoryIDs(ctx context.Context, customerID string, limit int) ([]uint, error)
 	DeleteBusinessMemoriesByIDs(ctx context.Context, ids []uint) error
 	CreateBusinessMemory(ctx context.Context, item *model.BusinessMemory) error
 	ListBusinessMemories(ctx context.Context, customerID, memoryType string, limit int) ([]model.BusinessMemory, error)
 
-	// L2 长期记忆 pgvector 增强版
 	CreateLongTermMemory(ctx context.Context, item *model.CustomerLongTermMemory) error
 	SaveLongTermMemory(ctx context.Context, item *model.CustomerLongTermMemory) error
 	SearchLongTermMemoriesByVector(ctx context.Context, queryVecStr, customerID string, fetchN int) ([]LongTermMemoryVectorRow, error)
@@ -70,7 +55,6 @@ type MemoryRepository interface {
 	ListLongTermMemories(ctx context.Context, customerID, memType string, limit int) ([]model.CustomerLongTermMemory, error)
 	DeleteLongTermMemoryByID(ctx context.Context, id uint64) error
 
-	// DB 元信息
 	DialectName(ctx context.Context) string
 }
 
@@ -89,7 +73,6 @@ func NewMemoryRepositoryWithDB(db *gorm.DB) MemoryRepository {
 	return &memoryRepository{db: db}
 }
 
-// =================== L1 短期记忆 ===================
 
 // CreateMemoryItem 创建 MemoryItem（L1 短期消息 / L2 事实摘要通用）
 func (r *memoryRepository) CreateMemoryItem(ctx context.Context, item *model.MemoryItem) error {
@@ -145,7 +128,6 @@ func (r *memoryRepository) DeleteMemoryItemsByIDs(ctx context.Context, ids []uin
 	return r.db.WithContext(ctx).Where("id IN ?", ids).Delete(&model.MemoryItem{}).Error
 }
 
-// =================== L2 长期事实 / 摘要 ===================
 
 // ListFacts 列出客户长期事实（item_type LIKE 'fact:%'，按 importance DESC, created_at DESC）
 func (r *memoryRepository) ListFacts(ctx context.Context, customerID string, limit int) ([]model.MemoryItem, error) {
@@ -173,7 +155,6 @@ func (r *memoryRepository) GetLatestSummary(ctx context.Context, customerID stri
 	return &item, nil
 }
 
-// =================== L3 SOP 状态 ===================
 
 // SaveSOPState 保存 SOP 状态（upsert by ID）
 func (r *memoryRepository) SaveSOPState(ctx context.Context, state *model.SOPStateMemory) error {
@@ -205,7 +186,6 @@ func (r *memoryRepository) ListSOPStatesByCustomer(ctx context.Context, customer
 	return list, err
 }
 
-// =================== L4 业务记忆 ===================
 
 // CountBusinessMemoriesByCustomer 统计客户业务记忆数（用于限额裁剪）
 // 注意：与原实现一致，错误被静默忽略（返回 0），调用方按计数判断是否裁剪
@@ -253,7 +233,6 @@ func (r *memoryRepository) ListBusinessMemories(ctx context.Context, customerID,
 	return list, err
 }
 
-// =================== L2 长期记忆 pgvector 增强版 ===================
 
 // CreateLongTermMemory 创建长期记忆（带 embedding）
 func (r *memoryRepository) CreateLongTermMemory(ctx context.Context, item *model.CustomerLongTermMemory) error {
@@ -322,10 +301,10 @@ func (r *memoryRepository) DeleteLongTermMemoryByID(ctx context.Context, id uint
 	return r.db.WithContext(ctx).Delete(&model.CustomerLongTermMemory{}, id).Error
 }
 
-// =================== DB 元信息 ===================
 
 // DialectName 返回当前 DB dialect 名（如 "postgres" / "sqlite"）
 // 用于 service 判断是否走 pgvector 召回路径
 func (r *memoryRepository) DialectName(ctx context.Context) string {
 	return r.db.Dialector.Name()
 }
+

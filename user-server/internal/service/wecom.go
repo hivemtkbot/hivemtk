@@ -98,12 +98,11 @@ type CreateAccountRequest struct {
 	CorpSecret  string `json:"corp_secret" binding:"required"`
 	AgentID     int    `json:"agent_id"`
 	AgentSecret string `json:"agent_secret"`
-	// 入站回调（接收客户消息 → 智能体自动回复）配置
-	CallbackToken  string `json:"callback_token"`   // 企微管理端"接收事件服务器"配置的 Token
-	EncodingAESKey string `json:"encoding_aes_key"` // 43 字符 EncodingAESKey（消息体加解密）
-	WebhookEnabled bool   `json:"webhook_enabled"`  // 是否启用 webhook 接收
-	AIAgentEnabled bool   `json:"ai_agent_enabled"` // 是否启用智能体自动回复
-	WebhookPath    string `json:"webhook_path"`     // 自定义回调路径（默认 /api/webhook/wecom/{id}）
+	CallbackToken  string `json:"callback_token"`   
+	EncodingAESKey string `json:"encoding_aes_key"` 
+	WebhookEnabled bool   `json:"webhook_enabled"`  
+	AIAgentEnabled bool   `json:"ai_agent_enabled"` 
+	WebhookPath    string `json:"webhook_path"`     
 }
 
 // CreateAccount 创建企业微信账号
@@ -417,7 +416,6 @@ func (s *WeComService) SendMessage(ctx context.Context, account *model.WeComAcco
 
 	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/externalcontact/message/send?access_token=%s", token)
 
-	// externalcontact/message/send 使用 external_userid（客户联系场景），而非应用消息的 to_user/to_party
 	externalUserIDs := []string{}
 	if v := strings.TrimSpace(req.ToUser); v != "" {
 		for _, id := range strings.Split(v, "|") {
@@ -547,3 +545,4 @@ func (s *WeComService) SyncTags(ctx context.Context, account *model.WeComAccount
 
 	return count, nil
 }
+

@@ -37,3 +37,4 @@ func (s *UnifiedMessageService) GetReplies(ctx context.Context, messageID string
 func (s *UnifiedMessageService) GetMessageByID(ctx context.Context, id uint) (*model.UnifiedMessage, error) {
 	return s.messageRepo.GetByID(ctx, id)
 }
+

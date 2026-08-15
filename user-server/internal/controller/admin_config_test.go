@@ -65,7 +65,6 @@ func TestAdminConfigController_NoPasswordField(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	body := w.Body.String()
-	// 大小写不敏感匹配（防止未来有人在字段名/JSON key 上做文章）
 	lowerBody := strings.ToLower(body)
 	for _, kw := range []string{"password", "passwd"} {
 		if strings.Contains(lowerBody, kw) {
@@ -80,3 +79,4 @@ func TestAdminConfigController_NewAdminConfigController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

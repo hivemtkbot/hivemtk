@@ -5,9 +5,9 @@ import "time"
 // BatchOperationHistory 批量操作历史记录
 type BatchOperationHistory struct {
 	ID            uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	OperationType string     `gorm:"type:varchar(50);not null" json:"operation_type"` // import, export, delete, update
-	DataType      string     `gorm:"type:varchar(50)" json:"data_type"`               // clue, user, etc.
-	Status        string     `gorm:"type:varchar(20);default:pending" json:"status"`  // pending, running, success, failed, cancelled
+	OperationType string     `gorm:"type:varchar(50);not null" json:"operation_type"` 
+	DataType      string     `gorm:"type:varchar(50)" json:"data_type"`               
+	Status        string     `gorm:"type:varchar(20);default:pending" json:"status"`  
 	TotalCount    int        `gorm:"default:0" json:"total_count"`
 	SuccessCount  int        `gorm:"default:0" json:"success_count"`
 	FailedCount   int        `gorm:"default:0" json:"failed_count"`
@@ -23,3 +23,4 @@ type BatchOperationHistory struct {
 func (BatchOperationHistory) TableName() string {
 	return "batch_operation_histories"
 }
+

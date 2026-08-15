@@ -247,3 +247,4 @@ func NewChurnModelConfigRepositoryWithDB(db *gorm.DB) *ChurnModelConfigRepositor
 func NewChurnStatisticsRepositoryWithDB(db *gorm.DB) *ChurnStatisticsRepository {
 	return &ChurnStatisticsRepository{db: db}
 }
+

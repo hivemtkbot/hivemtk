@@ -62,7 +62,6 @@ func (r *RagConfigRepository) GetAccountConfig(ctx context.Context, accountID, p
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// 返回默认配置
 			return &sysmodel.PlatformAccountConfig{
 				AccountID:          accountID,
 				Platform:           platform,
@@ -83,14 +82,12 @@ func (r *RagConfigRepository) UpsertAccountConfig(ctx context.Context, config *s
 		First(existingConfig)
 
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		// 创建新记录
 		config.ID = uuid.New().String()
 		return r.db.WithContext(ctx).Create(config).Error
 	} else if result.Error != nil {
 		return result.Error
 	}
 
-	// 更新现有记录
 	config.ID = existingConfig.ID
 	return r.db.WithContext(ctx).Save(config).Error
 }
@@ -107,7 +104,6 @@ func (r *RagConfigRepository) ListRagProducts(ctx context.Context) ([]*model.Rag
 // 若 service 层没有提供任何可更新字段，直接返回 nil（幂等 no-op）。
 func (r *RagConfigRepository) UpdateRagProduct(ctx context.Context, product *model.RagProduct) error {
 	updates := map[string]any{}
-	// 注意：绝不要把 vector_table / id / created_at 写入 updates
 	if product.Name != "" {
 		updates["name"] = product.Name
 	}
@@ -144,7 +140,6 @@ func (r *RagConfigRepository) UpdateRagProduct(ctx context.Context, product *mod
 	if product.LLMProviderConfig.RequestTimeout != 0 {
 		updates["llm_request_timeout"] = product.LLMProviderConfig.RequestTimeout
 	}
-	// 文本向量(text-embedding)供应商配置（per 知识库覆盖全局）
 	if product.EmbeddingProviderConfig.APIType != "" {
 		updates["emb_api_type"] = product.EmbeddingProviderConfig.APIType
 	}
@@ -161,7 +156,6 @@ func (r *RagConfigRepository) UpdateRagProduct(ctx context.Context, product *mod
 		updates["emb_dimension"] = product.EmbeddingProviderConfig.Dimension
 	}
 	updates["emb_enabled"] = product.EmbeddingProviderConfig.Enabled
-	// 重排(rerank)供应商配置（per 知识库覆盖全局）
 	if product.RerankProviderConfig.APIType != "" {
 		updates["rerank_api_type"] = product.RerankProviderConfig.APIType
 	}
@@ -217,8 +211,7 @@ func (r *RagConfigRepository) UpdateRagProduct(ctx context.Context, product *mod
 
 	updates["updated_at"] = time.Now()
 
-	if len(updates) == 1 { // 只有 updated_at
-		// 幂等 no-op
+	if len(updates) == 1 { 
 		return nil
 	}
 	return r.db.WithContext(ctx).Model(&model.RagProduct{}).
@@ -234,3 +227,4 @@ func (r *RagConfigRepository) DeleteRagProduct(ctx context.Context, id string) e
 func (r *RagConfigRepository) UpdateRagProductStats(ctx context.Context, productID string, docCount int, chunkCount int64, lastSyncAt any) error {
 	return nil
 }
+

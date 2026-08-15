@@ -1,18 +1,5 @@
 package service
 
-// customer_session_cron.go 客服会话 TTL 定时任务
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/audit/TELEGRAM_FULLCHAIN_AUDIT_2026_07_28.md §S2-3
-//
-// 单一职责：每小时检查一次「活跃但超过 24h 无互动」的会话，自动 close。
-//   - 仅作用于 pending / ai_handling / waiting / human_handling 四种状态
-//   - 已 resolved / closed 的会话不重复处理
-//   - 单批最多 500 条（repository 层 limit + 分批 UPDATE）
-//   - 失败仅记录日志，不阻塞下一次调度
-//
-// 启动方式：通过 init() 在包加载时自动启动 1 个后台 goroutine；进程退出由
-// sessionTTLCron.Stop 优雅关闭（与 SelfLearningCron.Stop 同模式）。
 
 import (
 	"context"
@@ -70,8 +57,6 @@ func (c *SessionTTLCron) Stop(ctx context.Context) {
 // run 每小时跑一次
 func (c *SessionTTLCron) run(ctx context.Context) {
 	defer c.wg.Done()
-	// 启动后立即执行一次（清理历史堆积）；
-	// DB 未就绪时静默等待（避免 init() 时机早于 db.InitDB 的 panic）
 	c.tryTriggerWithDBWait(ctx)
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
@@ -92,7 +77,6 @@ func (c *SessionTTLCron) run(ctx context.Context) {
 // 此处只判断更轻量的：拿一次 sessionRepo.GetDB，看是否非 nil；为 nil 时跳过本次。
 func (c *SessionTTLCron) tryTriggerWithDBWait(ctx context.Context) {
 	if c.sessionSvc == nil || c.sessionSvc.sessionRepo == nil {
-		// service 未装配（DB 未就绪），跳过本次
 		return
 	}
 	if db := c.sessionSvc.sessionRepo.GetDB(ctx); db == nil {
@@ -133,3 +117,4 @@ func StopSessionTTLCron(ctx context.Context) {
 		sessionTTLCron.Stop(ctx)
 	}
 }
+

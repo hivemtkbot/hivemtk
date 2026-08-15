@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// AI 智能体性能优化 - SOP Template Repository 测试
 
 func setupSOPTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
@@ -77,7 +76,6 @@ func TestSOPTemplateRepository_ListEnabled(t *testing.T) {
 	if len(got) != 2 {
 		t.Errorf("expected 2 enabled, got %d", len(got))
 	}
-	// 优先级 DESC: sop2 (20) > sop1 (10)
 	if got[0].Priority < got[1].Priority {
 		t.Errorf("expected priority DESC, got %d then %d", got[0].Priority, got[1].Priority)
 	}
@@ -131,7 +129,6 @@ func TestSOPTemplateRepository_MatchByIntentStage(t *testing.T) {
 	if len(matches) != 2 {
 		t.Errorf("expected 2 logistics+initial templates, got %d", len(matches))
 	}
-	// 优先级 DESC: li2 (20) > li1 (10)
 	if matches[0].Priority < matches[1].Priority {
 		t.Errorf("expected priority DESC, got %d then %d", matches[0].Priority, matches[1].Priority)
 	}
@@ -176,7 +173,6 @@ func TestSOPTemplateRepository_AgentIsolation_MatchByIntentForAgent(t *testing.T
 		}
 	}
 
-	// agentA 视角: 应匹配 shared + agentA (2 条)
 	matches, err := repo.MatchByIntentForAgent(ctx, "logistics", agentA)
 	if err != nil {
 		t.Fatal(err)
@@ -185,7 +181,6 @@ func TestSOPTemplateRepository_AgentIsolation_MatchByIntentForAgent(t *testing.T
 		t.Errorf("agentA expected 2 (shared+agentA), got %d", len(matches))
 	}
 
-	// agentB 视角: 应匹配 shared + agentB (2 条)
 	matches, err = repo.MatchByIntentForAgent(ctx, "logistics", agentB)
 	if err != nil {
 		t.Fatal(err)
@@ -194,7 +189,6 @@ func TestSOPTemplateRepository_AgentIsolation_MatchByIntentForAgent(t *testing.T
 		t.Errorf("agentB expected 2 (shared+agentB), got %d", len(matches))
 	}
 
-	// 兼容旧签名: agentID=0 应匹配全部 3 条
 	matches, err = repo.MatchByIntent(ctx, "logistics")
 	if err != nil {
 		t.Fatal(err)
@@ -222,7 +216,6 @@ func TestSOPTemplateRepository_AgentIsolation_MatchByIntentStageForAgent(t *test
 		}
 	}
 
-	// agentA 视角 logistics+initial: 应匹配 shared + agentA (2 条)
 	matches, err := repo.MatchByIntentStageForAgent(ctx, "logistics", "initial", agentA)
 	if err != nil {
 		t.Fatal(err)
@@ -231,7 +224,6 @@ func TestSOPTemplateRepository_AgentIsolation_MatchByIntentStageForAgent(t *test
 		t.Errorf("agentA logistics+initial expected 2, got %d", len(matches))
 	}
 
-	// agentA 视角 logistics+middle: 仅 agentA_lm (1 条, 共享无 middle)
 	matches, err = repo.MatchByIntentStageForAgent(ctx, "logistics", "middle", agentA)
 	if err != nil {
 		t.Fatal(err)
@@ -261,7 +253,6 @@ func TestSOPTemplateRepository_MatchByAgent_StrictOneToOne(t *testing.T) {
 		}
 	}
 
-	// MatchByAgent 不应包含 shared
 	matches, err := repo.MatchByAgent(ctx, agentA, "logistics", "initial")
 	if err != nil {
 		t.Fatal(err)
@@ -273,7 +264,6 @@ func TestSOPTemplateRepository_MatchByAgent_StrictOneToOne(t *testing.T) {
 		t.Errorf("expected agentA's own template, got %v", matches[0].AgentID)
 	}
 
-	// agentID=0 应返回 nil
 	matches, err = repo.MatchByAgent(ctx, 0, "logistics", "initial")
 	if err != nil {
 		t.Fatal(err)
@@ -304,7 +294,6 @@ func TestSOPTemplateRepository_AgentIsolation_Lists(t *testing.T) {
 		}
 	}
 
-	// ListShared 应返回 2 条 (shared1, shared2)
 	shared, err := repo.ListShared(ctx, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -313,7 +302,6 @@ func TestSOPTemplateRepository_AgentIsolation_Lists(t *testing.T) {
 		t.Errorf("ListShared expected 2, got %d", len(shared))
 	}
 
-	// ListByAgent(agentA) 应返回 2 条 (agentA1, agentA2)
 	aList, err := repo.ListByAgent(ctx, agentA, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -322,7 +310,6 @@ func TestSOPTemplateRepository_AgentIsolation_Lists(t *testing.T) {
 		t.Errorf("ListByAgent(agentA) expected 2, got %d", len(aList))
 	}
 
-	// ListByKB(kbID=X, agentID=agentA) 应仅 agentA 的
 	kbList, err := repo.ListByKB(ctx, 999, agentA, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -350,7 +337,6 @@ func TestSOPTemplateRepository_ListWithFilter_AgentID(t *testing.T) {
 		}
 	}
 
-	// 过滤 AgentID=&0 -> 仅共享 (1 条)
 	agentZero := uint(0)
 	got, _, err := repo.ListWithFilter(ctx, SOPTemplateFilter{AgentID: &agentZero, Page: 1, PageSize: 100})
 	if err != nil {
@@ -360,7 +346,6 @@ func TestSOPTemplateRepository_ListWithFilter_AgentID(t *testing.T) {
 		t.Errorf("ListWithFilter AgentID=&0 expected 1 (shared), got %d", len(got))
 	}
 
-	// 过滤 AgentID=&10 -> 仅 agentA (2 条)
 	got, _, err = repo.ListWithFilter(ctx, SOPTemplateFilter{AgentID: &agentA, Page: 1, PageSize: 100})
 	if err != nil {
 		t.Fatal(err)
@@ -369,7 +354,6 @@ func TestSOPTemplateRepository_ListWithFilter_AgentID(t *testing.T) {
 		t.Errorf("ListWithFilter AgentID=&10 expected 2, got %d", len(got))
 	}
 
-	// 不传 AgentID -> 全部 (3 条)
 	got, _, err = repo.ListWithFilter(ctx, SOPTemplateFilter{Page: 1, PageSize: 100})
 	if err != nil {
 		t.Fatal(err)
@@ -404,3 +388,4 @@ func TestSOPTemplateRepository_IncrementHitCount(t *testing.T) {
 		t.Errorf("expected hit_count=2, got %d", got.HitCount)
 	}
 }
+

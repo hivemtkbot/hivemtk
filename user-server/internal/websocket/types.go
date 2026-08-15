@@ -10,8 +10,8 @@ import (
 type ClientType string
 
 const (
-	ClientTypeAgent   ClientType = "agent"   // 客服坐席
-	ClientTypeVisitor ClientType = "visitor" // 网站访客
+	ClientTypeAgent   ClientType = "agent"   
+	ClientTypeVisitor ClientType = "visitor" 
 )
 
 // MsgType WebSocket 消息类型常量
@@ -19,14 +19,14 @@ const (
 // 统一管理各业务模块推送的消息类型字符串，
 // 避免散落在调用方导致命名不一致。
 const (
-	MsgTypeNewSession    = "new_session"    // 新会话通知
-	MsgTypeNewMessage    = "new_message"    // 新消息通知
-	MsgTypeSessionUpdate = "session_update" // 会话状态更新
-	MsgTypeAgentStatus   = "agent_status"   // 客服状态变更
-	MsgTypeAISuggestion  = "ai_suggestion"  // AI 建议推送
-	MsgTypeHeartbeat     = "heartbeat"      // 心跳
-	MsgTypeSOP           = "sop_message"    // SOP 节点执行事件（新增）
-	MsgTypeError         = "error"          // 错误通知
+	MsgTypeNewSession    = "new_session"    
+	MsgTypeNewMessage    = "new_message"    
+	MsgTypeSessionUpdate = "session_update" 
+	MsgTypeAgentStatus   = "agent_status"   
+	MsgTypeAISuggestion  = "ai_suggestion"  
+	MsgTypeHeartbeat     = "heartbeat"      
+	MsgTypeSOP           = "sop_message"    
+	MsgTypeError         = "error"          
 )
 
 // WebSocket 连接超时与心跳常量（gorilla/websocket 官方推荐模式）
@@ -40,10 +40,10 @@ const (
 //     防止对端 TCP 窗口关闭时本协程永久阻塞。
 //   - maxMessageSize：单条上行消息最大字节数，防止恶意大帧耗尽内存。
 const (
-	pongWait       = 60 * time.Second    // 等待 Pong 的最大时间
-	pingPeriod     = (pongWait * 9) / 10 // Ping 发送周期（54s，小于 pongWait）
-	writeWait      = 10 * time.Second    // 单次写操作超时
-	maxMessageSize = 8192                // 单条消息最大字节数
+	pongWait       = 60 * time.Second    
+	pingPeriod     = (pongWait * 9) / 10 
+	writeWait      = 10 * time.Second    
+	maxMessageSize = 8192                
 )
 
 // Envelope 信封：所有 WebSocket 下行消息统一外层结构
@@ -75,12 +75,9 @@ type Envelope struct {
 // sessionID 语义：WebSocket 协议使用业务字符串 session_id（sess_xxx），实现方负责
 // 兼容数字主键与业务字符串两种形态。
 type AgentSessionExecutor interface {
-	// MarkSessionRead 标记会话内消息已读
 	MarkSessionRead(ctx context.Context, agentID uint, sessionID string) error
-	// TakeoverSession 坐席接管会话
 	TakeoverSession(ctx context.Context, agentID uint, sessionID string, reason string) error
-	// TransferSession 转接会话给目标坐席
 	TransferSession(ctx context.Context, fromAgentID uint, sessionID string, toAgentID uint) error
-	// CloseSession 关闭会话
 	CloseSession(ctx context.Context, agentID uint, sessionID string) error
 }
+

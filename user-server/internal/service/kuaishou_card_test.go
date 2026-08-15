@@ -113,7 +113,6 @@ func TestKuaishouCardService_Update_Success(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	// 先创建卡片
 	createReq := &dto.KuaishouCardCreateRequest{
 		Title:        "Original Card",
 		Description:  "Original description",
@@ -128,7 +127,6 @@ func TestKuaishouCardService_Update_Success(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 更新卡片
 	updateReq := &dto.KuaishouCardUpdateRequest{
 		ID:          createdCard.ID,
 		Title:       "Updated Card",
@@ -152,7 +150,6 @@ func TestKuaishouCardService_Update_Success(t *testing.T) {
 	if updatedCard.Description != updateReq.Description {
 		t.Errorf("Expected description %s, got %s", updateReq.Description, updatedCard.Description)
 	}
-	// Update 不应覆盖累计的点赞/分享数（由 LikeCard/ShareCard 维护）
 	if updatedCard.LikeCount != 0 {
 		t.Errorf("Expected like count unchanged (0), got %d", updatedCard.LikeCount)
 	}
@@ -210,8 +207,6 @@ func TestKuaishouCardService_Delete_NotFound(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	// Service 的 Delete 方法会先检查卡片是否存在
-	// 对于不存在的卡片会返回错误
 	err := service.Delete(context.Background(), 999)
 	if err == nil {
 		t.Error("Expected error for deleting non-existent card")
@@ -567,3 +562,4 @@ func TestKuaishouCardService_Create_InactiveCard(t *testing.T) {
 		t.Error("Expected non-zero ID")
 	}
 }
+

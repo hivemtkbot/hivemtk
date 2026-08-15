@@ -8,7 +8,6 @@ import (
 )
 
 type RateLimiter interface {
-	// Acquire 获取令牌；返回 nil 表示放行，ErrRateLimited 表示被限流
 	Acquire(ctx context.Context, key string) error
 }
 
@@ -38,8 +37,8 @@ type NoOpRateLimiter struct{}
 type TokenBucketLimiter struct {
 	mu      sync.Mutex
 	buckets map[string]*tokenBucket
-	rate    float64 // 每秒生成令牌数
-	burst   int     // 桶容量
+	rate    float64 
+	burst   int     
 }
 
 type tokenBucket struct {
@@ -57,3 +56,4 @@ func NewTokenBucketLimiter(rate float64, burst int) *TokenBucketLimiter {
 		burst:   burst,
 	}
 }
+

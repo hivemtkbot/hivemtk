@@ -1,23 +1,5 @@
 package feedbackloop
 
-// sop_auto_optimizer.go SOP 自动优化器
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十七章 §17.4.4
-//
-// 职责：消费 optimization_suggestions → 自动应用 → A/B 测试 → 自动选优/回滚
-//
-// 流程：
-//   1. 扫描 pending suggestions
-//   2. priority ≥ AutoApplyPriority 自动应用：
-//        - prompt_rewrite   → 委托 PromptIterator（外部调用方）
-//        - branch_prune     → 克隆 SOP + 标记节点 disabled + 创建 A/B 测试
-//        - node_merge       → 合并相邻 action 节点
-//        - add_objection    → 注入异议处理子分支
-//        - add_empathy      → 修改 LLM 节点 system_prompt
-//        - timing_adjust    → 调整 wait 节点 duration
-//   3. 检查进行中的 A/B 测试是否需要回滚（转化率下降 / 投诉率上升）
-//   4. 检查进行中的 A/B 测试是否可以收敛选优
 
 import (
 	"context"
@@ -33,8 +15,6 @@ import (
 
 // SOPAutoOptimizer SOP 自动优化器
 type SOPAutoOptimizer struct {
-	// db 保留用于兼容测试中的直接构造 &SOPAutoOptimizer{db: db}；
-	// 生产代码全部通过 repo 字段访问 DB。
 	db     *gorm.DB
 	repo   *repository.FeedbackLoopRepository
 	bandit BanditAllocatorInterface
@@ -90,7 +70,6 @@ func (o *SOPAutoOptimizer) ProcessPendingSuggestions(ctx context.Context) (*dto.
 		return report, fmt.Errorf("repo is nil")
 	}
 
-	// 1. 自动应用高 priority
 	autoApply, err := repo.ListPendingSuggestions(ctx, o.config.AutoApplyPriority)
 	if err != nil {
 		report.Errors = append(report.Errors, fmt.Sprintf("query pending suggestions: %v", err))
@@ -104,17 +83,14 @@ func (o *SOPAutoOptimizer) ProcessPendingSuggestions(ctx context.Context) (*dto.
 			report.Errors = append(report.Errors, fmt.Sprintf("apply suggestion %d: %v", autoApply[i].ID, err))
 			continue
 		}
-		// 更新 suggestion 状态为 applied
 		if err := repo.MarkSuggestionApplied(ctx, autoApply[i].ID, time.Now()); err != nil {
 			report.Errors = append(report.Errors, fmt.Sprintf("mark suggestion %d applied: %v", autoApply[i].ID, err))
 		}
 		report.AppliedCount++
 	}
 
-	// 2. 检查进行中的 A/B 测试是否需要回滚
 	o.checkAndRollback(ctx, report)
 
-	// 3. 检查进行中的 A/B 测试是否可以收敛
 	o.checkAndPromote(ctx, report)
 
 	return report, nil
@@ -126,8 +102,6 @@ func (o *SOPAutoOptimizer) ProcessPendingSuggestions(ctx context.Context) (*dto.
 func (o *SOPAutoOptimizer) autoApply(ctx context.Context, sug *model.OptimizationSuggestion) error {
 	switch sug.SuggestionType {
 	case model.SuggestionTypePromptRewrite:
-		// 委托给 PromptIterator.IterateForNode（由调用方在外部触发）
-		// 此处仅标记为已应用，实际 Prompt 候选生成由独立流程处理
 		return nil
 	case model.SuggestionTypeBranchPrune:
 		return o.applyBranchPrune(ctx, sug)
@@ -182,7 +156,6 @@ func (o *SOPAutoOptimizer) checkAndRollback(ctx context.Context, report *dto.Opt
 		return
 	}
 	for _, t := range tests {
-		// 比较实验组 vs 对照组的转化率
 		controlRate, experimentRate := o.fetchConversionRates(ctx, t.ID)
 		if controlRate > 0 && (controlRate-experimentRate)/controlRate > o.config.RollbackDropThreshold {
 			if err := o.rollbackTest(ctx, t.ID, "conversion_drop"); err != nil {
@@ -190,9 +163,8 @@ func (o *SOPAutoOptimizer) checkAndRollback(ctx context.Context, report *dto.Opt
 				continue
 			}
 			report.RolledBackCount++
-			continue // 已回滚则不再检查投诉率
+			continue 
 		}
-		// 投诉率检查
 		controlComplaint, expComplaint := o.fetchComplaintRates(ctx, t.ID)
 		if controlComplaint > 0 && (expComplaint-controlComplaint)/controlComplaint > o.config.RollbackComplaintRatio {
 			if err := o.rollbackTest(ctx, t.ID, "complaint_spike"); err != nil {
@@ -223,7 +195,6 @@ func (o *SOPAutoOptimizer) checkAndPromote(ctx context.Context, report *dto.Opti
 			report.Errors = append(report.Errors, fmt.Sprintf("promote arm (test=%d): %v", t.ID, err))
 			continue
 		}
-		// 更新测试状态
 		now := time.Now()
 		if err := o.getRepo().UpdateABTestFields(ctx, t.ID, map[string]any{
 			"status":         model.PromptABTestStatusCompleted,
@@ -247,13 +218,11 @@ func (o *SOPAutoOptimizer) fetchConversionRates(ctx context.Context, testID uint
 	if err != nil || test == nil {
 		return 0, 0
 	}
-	// 对照组转化率
 	controlTotal, _ := repo.CountFeedbackSignalsByVariant(ctx, test.SOPID, "A")
 	controlSuccess, _ := repo.CountFeedbackSignalsByVariantAndOutcome(ctx, test.SOPID, "A", model.FeedbackSignalOutcomeSuccess)
 	if controlTotal > 0 {
 		controlRate = float64(controlSuccess) / float64(controlTotal)
 	}
-	// 实验组转化率
 	expTotal, _ := repo.CountFeedbackSignalsByVariant(ctx, test.SOPID, "B")
 	expSuccess, _ := repo.CountFeedbackSignalsByVariantAndOutcome(ctx, test.SOPID, "B", model.FeedbackSignalOutcomeSuccess)
 	if expTotal > 0 {
@@ -272,13 +241,11 @@ func (o *SOPAutoOptimizer) fetchComplaintRates(ctx context.Context, testID uint)
 	if err != nil || test == nil {
 		return 0, 0
 	}
-	// 对照组投诉率
 	controlTotal, _ := repo.CountFeedbackEventsByVariant(ctx, test.SOPID, "A")
 	controlComplaint, _ := repo.CountFeedbackEventsByVariantAndSignalKey(ctx, test.SOPID, "A", model.FeedbackSignalComplaint)
 	if controlTotal > 0 {
 		controlRate = float64(controlComplaint) / float64(controlTotal)
 	}
-	// 实验组投诉率
 	expTotal, _ := repo.CountFeedbackEventsByVariant(ctx, test.SOPID, "B")
 	expComplaint, _ := repo.CountFeedbackEventsByVariantAndSignalKey(ctx, test.SOPID, "B", model.FeedbackSignalComplaint)
 	if expTotal > 0 {
@@ -295,3 +262,4 @@ func (o *SOPAutoOptimizer) fetchComplaintRates(ctx context.Context, testID uint)
 func (o *SOPAutoOptimizer) rollbackTest(ctx context.Context, testID uint, reason string) error {
 	return o.getRepo().RollbackABTest(ctx, testID)
 }
+

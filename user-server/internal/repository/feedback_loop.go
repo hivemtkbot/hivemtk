@@ -137,9 +137,6 @@ func (r *FeedbackLoopRepository) ListBanditArms(ctx context.Context, experimentI
 	return rows, total, nil
 }
 
-// ----------------------------------------------------------------------------
-// 反馈学习闭环：service 层专用方法（五层架构 - DB 操作下沉到 repository）
-// ----------------------------------------------------------------------------
 
 // NewFeedbackLoopRepositoryWithDB 使用指定 *gorm.DB 构造（供 service 构造函数与测试使用）
 func NewFeedbackLoopRepositoryWithDB(db *gorm.DB) *FeedbackLoopRepository {
@@ -183,7 +180,6 @@ func upsertFeedbackSignal(tx *gorm.DB, sig FeedbackSignalUpsert) error {
 		breakdown = model.JSONMap{}
 	}
 
-	// Step 2: 尝试 INSERT，若 session_id 已存在则 no-op（DO NOTHING）
 	newSig := model.FeedbackSignal{
 		SessionID:         sig.SessionID,
 		CustomerID:        sig.CustomerID,
@@ -207,14 +203,10 @@ func upsertFeedbackSignal(tx *gorm.DB, sig FeedbackSignalUpsert) error {
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("session_id = ?", sig.SessionID).
 		First(&existing).Error; err != nil {
-		// 理论上不应发生（Step 2 已确保行存在）；若发生则返回错误让事务回滚
 		return fmt.Errorf("upsert signal select for update: %w", err)
 	}
 
-	// Step 4: 若 Step 2 是 no-op（已存在），则累加；若 Step 2 是新插入，则跳过（已写入初值）
-	// 通过 newSig.ID 是否为 0 判断：GORM OnConflict DoNothing 时，若冲突则新插入的 ID 保持 0
 	if newSig.ID == 0 {
-		// 冲突路径：已存在记录，累加 reward/count 并合并 breakdown
 		existing.AggregatedReward += sig.Reward
 		existing.SignalCount += 1
 		if existing.SignalBreakdown == nil {
@@ -231,7 +223,6 @@ func upsertFeedbackSignal(tx *gorm.DB, sig FeedbackSignalUpsert) error {
 		}
 		return tx.Save(&existing).Error
 	}
-	// 新插入路径：Step 2 已写入初值，无需再更新
 	return nil
 }
 
@@ -401,3 +392,4 @@ func (r *FeedbackLoopRepository) RollbackABTest(ctx context.Context, testID uint
 		return nil
 	})
 }
+

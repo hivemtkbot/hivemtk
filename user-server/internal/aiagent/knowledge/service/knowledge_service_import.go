@@ -20,9 +20,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// ============================================================================
-// meta 序列化辅助
-// ============================================================================
 
 // metaToJSON 将附加字段映射为 jsonb 字符串；空/nil 时返回 "{}"。
 func metaToJSON(m map[string]any) string {
@@ -36,9 +33,6 @@ func metaToJSON(m map[string]any) string {
 	return string(b)
 }
 
-// ============================================================================
-// 各种来源导入
-// ============================================================================
 
 // importUploadedFile 处理 multipart 文件上传(PDF/DOCX/TXT/MD/HTML/JSON/CSV)
 func (s *KnowledgeService) importUploadedFile(ctx context.Context, req *ImportRequest, product *model.RagProduct, productNumericID string) (*model.KnowledgeDocument, error) {
@@ -51,7 +45,6 @@ func (s *KnowledgeService) importUploadedFile(ctx context.Context, req *ImportRe
 		return nil, fmt.Errorf("不支持的文件类型: %s", ext)
 	}
 
-	// 保存文件
 	uploadDir := filepath.Join("uploads", "knowledge", req.ProductID, time.Now().Format("20060102"))
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		return nil, fmt.Errorf("创建上传目录失败: %w", err)
@@ -109,7 +102,6 @@ func (s *KnowledgeService) importText(ctx context.Context, req *ImportRequest, p
 		req.Title = "未命名文档_" + time.Now().Format("20060102150405")
 	}
 	tagsJSON, _ := json.Marshal(req.Tags)
-	// 内容存到 FilePath(临时方案,生产可加 Content 字段到 model)
 	tmpDir := filepath.Join("uploads", "knowledge-text", req.ProductID, time.Now().Format("20060102"))
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return nil, fmt.Errorf("创建目录失败: %w", err)
@@ -147,11 +139,9 @@ func (s *KnowledgeService) importFromURL(ctx context.Context, req *ImportRequest
 	if req.SourceRef == "" {
 		return nil, errors.New("URL 不能为空")
 	}
-	// SSRF 防护
 	if err := validateURL(req.SourceRef); err != nil {
 		return nil, err
 	}
-	// 抓取 URL
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Get(req.SourceRef)
 	if err != nil {
@@ -166,12 +156,10 @@ func (s *KnowledgeService) importFromURL(ctx context.Context, req *ImportRequest
 		return nil, fmt.Errorf("读取响应失败: %w", err)
 	}
 	content := string(body)
-	// 简单 HTML 标签剥离(可后续增强)
 	content = stripHTML(content)
 
 	title := req.Title
 	if title == "" {
-		// 从 URL 提取
 		title = filepath.Base(req.SourceRef)
 		if idx := strings.Index(title, "?"); idx > 0 {
 			title = title[:idx]
@@ -209,3 +197,4 @@ func (s *KnowledgeService) importFromURL(ctx context.Context, req *ImportRequest
 	}
 	return doc, nil
 }
+

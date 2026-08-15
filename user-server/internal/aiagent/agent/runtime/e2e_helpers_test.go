@@ -10,12 +10,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// ============================================================================
-// E2E 测试辅助函数
-// ----------------------------------------------------------------------------
-// setupE2EKnowledgeTestEnv 创建真实的 KnowledgeDocument 记录并返回绑定该文档
-// 的 IncrementalIndexer,供 e2e_test.go 验证 publish → indexer.Handle 真实索引链路。
-// ============================================================================
 
 // e2eDocContent E2E 测试用的文档内容,长度足以触发切块（默认 chunkSize 约 500 字符）
 const e2eDocContent = "营销自动化系统支持多渠道统一管理。" +
@@ -34,7 +28,6 @@ func setupE2EKnowledgeTestEnv(t *testing.T, content string) (*rag.IncrementalInd
 	t.Helper()
 	database := testutil.NewTestDB(t, &model.KnowledgeDocument{}, &model.KnowledgeChunk{})
 
-	// 写入临时文档文件,让 indexer.loadDocumentContent 能从 FilePath 读到内容
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "doc.txt")
 	if err := os.WriteFile(filePath, []byte(e2eDocContent), 0644); err != nil {
@@ -60,7 +53,6 @@ func setupE2EKnowledgeTestEnvMulti(t *testing.T, n int) (*rag.IncrementalIndexer
 	t.Helper()
 	database := testutil.NewTestDB(t, &model.KnowledgeDocument{}, &model.KnowledgeChunk{})
 
-	// 共享一个临时文件,内容足以让每个 doc 都能切出 chunk
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "doc.txt")
 	if err := os.WriteFile(filePath, []byte(e2eDocContent), 0644); err != nil {
@@ -84,3 +76,4 @@ func setupE2EKnowledgeTestEnvMulti(t *testing.T, n int) (*rag.IncrementalIndexer
 	}
 	return rag.NewIncrementalIndexer(nil, nil, database), docIDs
 }
+

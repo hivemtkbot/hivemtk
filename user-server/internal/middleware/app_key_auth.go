@@ -28,18 +28,15 @@ import (
 // resolver 由装配层注入（service.ChatChannelService 的适配器）。
 func AppKeyResolve(resolver ChatChannelResolver) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 测试模式直接放行
 		if IsTestMode && testing.Testing() {
 			c.Next()
 			return
 		}
 
-		// 解析顺序：X-Chat-App-Key > X-Chat-Channel-Id > body.channel_id
 		appKey := strings.TrimSpace(c.GetHeader("X-Chat-App-Key"))
 		channelIDHeader := strings.TrimSpace(c.GetHeader("X-Chat-Channel-Id"))
 		channelIDQuery := strings.TrimSpace(c.Query("channel_id"))
 
-		// 先尝试 AppKey 解析
 		if appKey != "" {
 			channel, err := resolver.ResolveByAppKey(c.Request.Context(), appKey)
 			if err == nil {
@@ -57,16 +54,13 @@ func AppKeyResolve(resolver ChatChannelResolver) gin.HandlerFunc {
 				c.Next()
 				return
 			}
-			// AppKey 解析失败 -> 降级：不阻断，继续走 channel_id 流程
 		}
 
-		// 兜底：取 channel_id（header > query > body > 默认）
 		channelID := channelIDHeader
 		if channelID == "" {
 			channelID = channelIDQuery
 		}
 		if channelID == "" {
-			// 兼容 web_embed 在 JSON 请求体中携带 channel_id 的标准契约
 			if bid := extractBodyChannelID(c); bid != "" {
 				channelID = bid
 			}
@@ -75,11 +69,8 @@ func AppKeyResolve(resolver ChatChannelResolver) gin.HandlerFunc {
 			channelID = DefaultChannelID
 		}
 
-		// 解析 channel
 		channel, err := resolver.ResolveByChannelID(c.Request.Context(), channelID)
 		if err != nil {
-			// 没有这个 channel，使用 placeholder 放行
-			// 让业务层 controller 内部决定如何处理
 			placeholder := &ChatChannelView{
 				ChannelID:   channelID,
 				ChannelName: channelID,
@@ -101,7 +92,6 @@ func AppKeyResolve(resolver ChatChannelResolver) gin.HandlerFunc {
 			return
 		}
 
-		// Origin 软记录：仅记录到 header，不阻断
 		origin := c.GetHeader("Origin")
 		if origin != "" {
 			origins := channel.AllowedOrigins
@@ -167,7 +157,6 @@ func extractBodyChannelID(c *gin.Context) string {
 	if err != nil {
 		return ""
 	}
-	// 还原请求体，供后续 controller 重新解析
 	c.Request.Body = io.NopCloser(bytes.NewReader(body))
 	var probe struct {
 		ChannelID string `json:"channel_id"`
@@ -181,3 +170,4 @@ func extractBodyChannelID(c *gin.Context) string {
 // DefaultChannelID 默认渠道 ID（无渠道时使用）
 // 私域部署：单租户，所有未指定 channel 的访客都归入此 channel
 const DefaultChannelID = "default"
+

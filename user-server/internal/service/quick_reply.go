@@ -6,13 +6,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// 快捷回复服务（quick_reply.go）
-// ----------------------------------------------------------------------------
-// 从 customer_session.go 拆分（方向C）。
-// 职责：坐席侧快捷回复模板（按 category 分类）。
-// 文档：docs/企业级架构优化/坐席实时聊天看板.md §二
-// ============================================================================
 
 // QuickReplyService 快捷回复服务
 type QuickReplyService struct {
@@ -48,7 +41,7 @@ func (s *QuickReplyService) CreateReply(ctx context.Context, createdBy uint, req
 		CreatedBy: createdBy,
 	}
 	if !reply.IsPublic {
-		reply.IsPublic = true // 默认公开
+		reply.IsPublic = true 
 	}
 
 	if err := s.replyRepo.Create(ctx, reply); err != nil {
@@ -99,3 +92,4 @@ func (s *QuickReplyService) GetReplies(ctx context.Context, category string) ([]
 func (s *QuickReplyService) GetCategories(ctx context.Context) ([]string, error) {
 	return s.replyRepo.GetCategories(ctx)
 }
+

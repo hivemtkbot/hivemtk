@@ -31,7 +31,6 @@ import (
 // 任何步骤失败通过 markFailed 写入 document.error_msg 并终止，
 // panic 通过 defer recover 兜底确保文档不会永久 pending。
 func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentID uint64, productID string, filePath, fileName, content, mimeType, title string, source model.SourceType, docMeta map[string]any) {
-	// panic 兜底：异步 goroutine 内异常会导致文档永久 pending 且无法重试，必须 recover 并标记失败
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("[knowledge] processDocumentAsync panic doc=%d: %v", documentID, r)
@@ -39,15 +38,11 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		}
 	}()
 
-	// 1. 标记为处理中
 	if err := s.docRepo.UpdateStatus(bgCtx, documentID, model.EmbedStatusProcessing, 10, ""); err != nil {
 		logger.Errorf("[knowledge] 标记处理中失败: %v", err)
 		return
 	}
 
-	// 2. 读取并提取文本
-	//    上传的 PDF/DOCX 是二进制，不能直接 string(bytes) 切片（会产出乱码）。
-	//    先按文件名扩展名提取纯文本，再交给分片器。
 	if content == "" && filePath != "" {
 		bytes, err := os.ReadFile(filePath)
 		if err != nil {
@@ -56,7 +51,6 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		}
 		extracted, extErr := etl.ExtractText(fileName, bytes)
 		if extErr != nil {
-			// 解析失败(如扫描件PDF)退化为原始字节，避免整篇丢失
 			logger.Warnf("[knowledge] 文本提取失败 doc=%d: %v，退化为原始内容", documentID, extErr)
 			extracted = string(bytes)
 		}
@@ -67,7 +61,6 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		return
 	}
 
-	// 3. 分片
 	ragDoc := rag_core.Document{
 		ID:      fmt.Sprintf("kb_doc_%d", documentID),
 		Content: content,
@@ -92,7 +85,6 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		logger.Errorf("[knowledge] 更新进度失败: %v", err)
 	}
 
-	// 4. 写入分段表（分片携带文档级基础信息 + 业务附加字段）
 	baseMeta := map[string]any{
 		"document_id": float64(documentID),
 		"product_id":  productID,
@@ -132,7 +124,6 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		logger.Errorf("[knowledge] 更新进度失败: %v", err)
 	}
 
-	// 5. 向量化（per 知识库 embedding 配置优先，否则全局默认）
 	texts := make([]string, len(chunks))
 	for i, c := range chunks {
 		texts[i] = c.Content
@@ -147,15 +138,11 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		logger.Errorf("[knowledge] 更新进度失败: %v", err)
 	}
 
-	// 5.5 持久化向量到 knowledge_chunks.embedding（pgvector）
-	// embeddings 用于内存索引与持久化；生产 s.indexer==nil 时通过持久化路径承接，
-	// 否则 knowledge_chunks.embedding 为空会导致检索侧 vectorSearch 读不到任何向量 → RAG 召回失效。
 	if err := s.persistChunkEmbeddings(bgCtx, chunkModels, embeddings); err != nil {
 		s.markFailed(bgCtx, documentID, fmt.Sprintf("持久化向量失败: %v", err))
 		return
 	}
 
-	// 6. 入内存索引（生产 s.indexer==nil 跳过；真实检索走 pgvector，见 rag_searcher.go）
 	if s.indexer != nil {
 		idxChunks := make([]ragretrieval.Chunk, len(chunks))
 		for i, c := range chunks {
@@ -173,7 +160,6 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		_ = s.indexer.BuildIndex(bgCtx, fmt.Sprintf("product_%s", productID), idxChunks)
 	}
 
-	// 7. 更新文档状态
 	if err := s.docRepo.UpdateChunkStats(bgCtx, documentID, len(chunks), totalTokens); err != nil {
 		logger.Errorf("[knowledge] 更新分段统计失败: %v", err)
 	}
@@ -181,7 +167,6 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		logger.Errorf("[knowledge] 更新已索引状态失败: %v", err)
 	}
 
-	// 8. 更新产品冗余字段
 	docCount, _ := s.docRepo.CountByProduct(bgCtx, productID)
 	chunkCount, _ := s.chunkRepo.CountByProductID(bgCtx, productID)
 	now := time.Now()
@@ -194,7 +179,6 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 	}
 	if productUUID != "" {
 		_ = s.ragRepo.UpdateRagProductStats(bgCtx, productUUID, int(docCount), chunkCount, &now)
-		// 注:UpdateRagProductStats 方法名保留以兼容旧逻辑(独立部署模式下不真正使用)
 	}
 }
 
@@ -204,3 +188,4 @@ func (s *KnowledgeService) markFailed(ctx context.Context, documentID uint64, er
 		logger.Errorf("[knowledge] 标记失败状态错误: %v", err)
 	}
 }
+

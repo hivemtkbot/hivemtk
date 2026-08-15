@@ -1,14 +1,5 @@
 package llm
 
-// fallback_tree_test.go 4 级降级决策树单元测试
-//
-// 设计依据: AI 智能体性能优化
-//
-// 测试目标:
-//   - TestDecisionTree_Decide_7BTo3B: 7B 失败 -> 3B
-//   - TestDecisionTree_Decide_3BToCache: 3B 失败 + 缓存命中 -> Cache
-//   - TestDecisionTree_Decide_3BToTemplate: 3B 失败 + 缓存 miss -> Template
-//   - TestExecuteWithFallback_FullChain: 完整降级链执行
 
 import (
 	"context"
@@ -33,7 +24,6 @@ func withFallbackChainFlag(t *testing.T, val string) {
 	} else {
 		_ = os.Setenv("FF_FALLBACK_CHAIN", val)
 	}
-	// 立即强制刷新所有 flag 的 cachedValue (避免 5s 轮询窗口导致测试假阳性)
 	featureflag.DefaultManager().ReloadAll()
 	t.Cleanup(func() {
 		if hadPrev {
@@ -109,7 +99,6 @@ func TestDecisionTree_Decide_3BToTemplate(t *testing.T) {
 	withFallbackChainFlag(t, "1")
 	tree := newTestDecisionTree()
 
-	// 缓存 miss
 	dec := tree.Decide(context.Background(), LevelSecondary, "rate_limit", "llm_fallback:def456", false)
 	if dec == nil {
 		t.Fatal("expected non-nil decision")
@@ -159,7 +148,6 @@ func TestDecisionTree_Decide_DisabledFallbackChain(t *testing.T) {
 	withFallbackChainFlag(t, "0")
 	tree := newTestDecisionTree()
 
-	// 7B 失败 -> 关闭时直接 Template
 	dec := tree.Decide(context.Background(), LevelPrimary, "any_reason", "", false)
 	if dec == nil {
 		t.Fatal("expected non-nil decision")
@@ -178,11 +166,10 @@ func TestDecisionTree_Decide_CacheDisabledButHit(t *testing.T) {
 	tree := NewDecisionTree(DecisionTreeConfig{
 		PrimaryProvider:   "p1",
 		SecondaryProvider: "p2",
-		CacheEnabled:      false, // 缓存关闭
+		CacheEnabled:      false, 
 		TemplateEnabled:   true,
 		TemplateFallback:  "兜底",
 	})
-	// 3B 失败 + 即使 hasCacheHit=true, 缓存关闭时直接到 Template
 	dec := tree.Decide(context.Background(), LevelSecondary, "error", "k", true)
 	if dec == nil {
 		t.Fatal("expected non-nil decision")
@@ -199,7 +186,7 @@ func TestDecisionTree_Decide_3BNoTemplateConfigured(t *testing.T) {
 		PrimaryProvider:   "p1",
 		SecondaryProvider: "p2",
 		CacheEnabled:      true,
-		TemplateEnabled:   false, // 模板关闭
+		TemplateEnabled:   false, 
 		TemplateFallback:  "",
 	})
 	dec := tree.Decide(context.Background(), LevelSecondary, "error", "k", false)
@@ -357,7 +344,7 @@ func TestExecuteWithFallback_AllExhausted(t *testing.T) {
 		PrimaryProvider:   "p1",
 		SecondaryProvider: "p2",
 		CacheEnabled:      true,
-		TemplateEnabled:   false, // 模板关闭
+		TemplateEnabled:   false, 
 		TemplateFallback:  "",
 	})
 
@@ -382,7 +369,6 @@ func TestExecuteWithFallback_DefaultTimeout(t *testing.T) {
 	callProvider := func(ctx context.Context, provider string) (string, error) {
 		return "OK", nil
 	}
-	// timeoutMs=0 触发默认 60s
 	_, _, err := tree.ExecuteWithFallback(context.Background(), "x", callProvider, nil, 0)
 	if err != nil {
 		t.Errorf("expected success, got %v", err)
@@ -394,7 +380,6 @@ func TestExecuteWithFallback_FullChain(t *testing.T) {
 	withFallbackChainFlag(t, "1")
 	tree := newTestDecisionTree()
 
-	// 7B 失败 -> 3B 失败 -> 缓存 miss -> 模板
 	callProviders := map[string]string{
 		"local-llama-7b-q5": "",
 		"local-llama-3b-q4": "",
@@ -415,7 +400,6 @@ func TestExecuteWithFallback_FullChain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// 验证调用顺序
 	if len(callOrder) != 2 {
 		t.Errorf("expected 2 provider calls (7B+3B), got %d: %v", len(callOrder), callOrder)
 	}
@@ -425,7 +409,6 @@ func TestExecuteWithFallback_FullChain(t *testing.T) {
 	if callOrder[1] != "local-llama-3b-q4" {
 		t.Errorf("expected second call to 3B, got %s", callOrder[1])
 	}
-	// 验证最终结果是模板
 	if content != "抱歉, 服务暂时不可用, 请稍后重试。" {
 		t.Errorf("expected template content, got %q", content)
 	}
@@ -433,3 +416,4 @@ func TestExecuteWithFallback_FullChain(t *testing.T) {
 		t.Errorf("expected level=template (end of chain), got %s", level)
 	}
 }
+

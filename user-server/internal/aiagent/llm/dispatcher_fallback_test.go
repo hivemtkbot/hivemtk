@@ -8,11 +8,9 @@ import "testing"
 // 路由默认指向已禁用的 primary_provider，对话应自动落到启用的模型而非降级。
 func TestPickEnabledFallback(t *testing.T) {
 	d := NewDispatcher(NewLLMService())
-	// 清空种子 provider/路由，仅保留受控 fixture，避免种子干扰断言
 	d.providers = map[string]*ProviderConfig{}
 	d.routes = map[DispatchScenario]*ScenarioRoute{}
 
-	// 默认路由指向的 primary 已禁用，sensenova 启用且质量最高
 	d.providers["deepseek"] = &ProviderConfig{Name: "deepseek", Enabled: false, QualityScore: 0.90}
 	d.providers["sensenova"] = &ProviderConfig{Name: "sensenova", Enabled: true, QualityScore: 0.95}
 	d.providers["default"] = &ProviderConfig{Name: "default", Enabled: false, QualityScore: 0.99}
@@ -22,7 +20,6 @@ func TestPickEnabledFallback(t *testing.T) {
 		t.Fatalf("期望兜底到 sensenova，实际=%q", got)
 	}
 
-	// 当唯一启用的 provider 质量低于场景门禁时，应无兜底
 	d2 := NewDispatcher(NewLLMService())
 	d2.providers = map[string]*ProviderConfig{}
 	d2.providers["lowq"] = &ProviderConfig{Name: "lowq", Enabled: true, QualityScore: 0.50}
@@ -30,7 +27,6 @@ func TestPickEnabledFallback(t *testing.T) {
 		t.Fatalf("质量不达门禁时不应兜底，实际=%q", got)
 	}
 
-	// 全部禁用时，应无兜底
 	d3 := NewDispatcher(NewLLMService())
 	d3.providers = map[string]*ProviderConfig{}
 	d3.providers["a"] = &ProviderConfig{Name: "a", Enabled: false}
@@ -38,3 +34,4 @@ func TestPickEnabledFallback(t *testing.T) {
 		t.Fatalf("全部禁用时不应兜底，实际=%q", got)
 	}
 }
+

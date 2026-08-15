@@ -69,3 +69,4 @@ func TestPeekSeq_DoesNotAdvance(t *testing.T) {
 		t.Errorf("PeekSeq advanced: before=%d after=%d", before, after)
 	}
 }
+

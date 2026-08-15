@@ -44,12 +44,10 @@ func (m *MerchantIDNullableMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 本系统仅使用 PostgreSQL
 	return m.upPostgres()
 }
 
 func (m *MerchantIDNullableMigration) upPostgres() error {
-	// 1. 找出所有需要修改的表
 	rows, err := m.db.Raw(`
 		SELECT table_schema, table_name
 		FROM information_schema.columns
@@ -81,7 +79,6 @@ func (m *MerchantIDNullableMigration) upPostgres() error {
 		alterSQL := fmt.Sprintf(`ALTER TABLE %q.%q ALTER COLUMN merchant_id DROP NOT NULL`,
 			t.Schema, t.Table)
 		if err := m.db.Exec(alterSQL).Error; err != nil {
-			// 幂等: 已经是 nullable 时会报错,忽略即可
 			if !strings.Contains(err.Error(), "already") &&
 				!strings.Contains(err.Error(), "does not exist") {
 				failed++
@@ -91,7 +88,6 @@ func (m *MerchantIDNullableMigration) upPostgres() error {
 		success++
 	}
 
-	// 3. 同步处理: 若某些表已有 merchant_id 但 NOT NULL DEFAULT,改为允许 NULL 后清掉默认值
 	m.db.Exec(`UPDATE pg_attribute SET attnotnull = false
 		WHERE attrelid IN (
 			SELECT attrelid FROM pg_attribute WHERE attname = 'merchant_id'
@@ -108,3 +104,4 @@ func (m *MerchantIDNullableMigration) Down(ctx context.Context) error {
 
 // Ensure MerchantIDNullableMigration implements Migration interface
 var _ migration.Migration = (*MerchantIDNullableMigration)(nil)
+

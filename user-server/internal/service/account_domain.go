@@ -9,10 +9,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// Account / Clue 领域 DTO 外观方法（保持原 model 签名方法不变，新增 DTO 外观）
-// 供 controller 层使用，避免 controller 直接构造/读取 model。
-// ============================================================================
 
 // NewAccountServiceWithRepo 创建带 repository 的 AccountService（兼容原构造函数语义）
 func NewAccountServiceWithRepo(repo repository.AccountRepository) *AccountService {
@@ -119,3 +115,4 @@ func (s *ClueService) BatchImportCluesFromDTO(ctx context.Context, reqs []dto.Im
 	}
 	return s.BatchImportClues(ctx, clues)
 }
+

@@ -219,3 +219,4 @@ func (r *MarketTemplateDownloadRepository) GetAll(page, pageSize int) ([]*conten
 
 	return records, total, err
 }
+

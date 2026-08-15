@@ -15,27 +15,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// FallbackBridge 低资源语言降级桥（v1.2 出海多语言方案）
-// ----------------------------------------------------------------------------
-// 背景：
-//   LLM 对高资源语言（zh/en/ja/ko/de/fr/es...）覆盖良好，但对低资源语言
-//   （ar/th/vi/hi/tr...）输出质量不稳定，可能出现：漏译、混语、语法错误、
-//   幻觉术语。直接走跨语言生成路径（LLM 翻译）质量不可控。
-//
-// 降级流程：
-//   1. 用现有 RAG 链路以中文生成回复（高质量、可控）
-//   2. 调外部翻译引擎（DeepL / 未来可扩展 Google / NLLB）翻译为目标语言
-//   3. 用 GlossaryService + PostValidator 做术语后处理校准
-//
-// 设计原则：
-//   - 默认关闭（enabled=false），不影响主流程
-//   - Translator 接口化，支持未来扩展多种翻译引擎
-//   - DeepL API key 可空：未配置时 FallbackBridge 自动禁用
-//   - 翻译失败兜底返回中文（保证用户能收到回复）
-//
-// 五层架构归属：L3 业务服务层。不直接访问 db。
-// ============================================================================
 
 // LowResourceLangs 低资源语言列表（LLM 覆盖较弱，需翻译降级）。
 //
@@ -87,13 +66,10 @@ type Translator interface {
 
 // TranslateOptions 翻译选项。
 type TranslateOptions struct {
-	GlossaryID    string            // DeepL glossary ID（术语表 ID）
-	PreserveTerms map[string]string // 强制保留的术语（src → dst，引擎应在翻译后保证这些词形）
+	GlossaryID    string            
+	PreserveTerms map[string]string 
 }
 
-// ----------------------------------------------------------------------------
-// DeepLTranslator DeepL 翻译实现
-// ----------------------------------------------------------------------------
 
 // deeplDefaultBaseURL DeepL API 默认地址（Pro 版本；Free 版本使用 https://api-free.deepl.com/v2）。
 const deeplDefaultBaseURL = "https://api.deepl.com/v2"
@@ -154,11 +130,9 @@ func (t *DeepLTranslator) Translate(ctx context.Context, text, fromLang, toLang 
 		return "", nil
 	}
 
-	// DeepL 语言代码大写化（zh → ZH, en → EN）
 	src := strings.ToUpper(i18npkg.NormalizeLang(fromLang))
 	dst := strings.ToUpper(i18npkg.NormalizeLang(toLang))
 
-	// 构造请求体
 	body := deeplTranslateRequest{
 		Text:       []string{text},
 		SourceLang: src,
@@ -172,7 +146,6 @@ func (t *DeepLTranslator) Translate(ctx context.Context, text, fromLang, toLang 
 		return "", fmt.Errorf("deepl: marshal request failed: %w", err)
 	}
 
-	// 构造 HTTP 请求
 	url := t.baseURL + "/translate"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
@@ -182,7 +155,6 @@ func (t *DeepLTranslator) Translate(ctx context.Context, text, fromLang, toLang 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	// 发送请求
 	resp, err := t.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("deepl: http request failed: %w", err)
@@ -208,7 +180,6 @@ func (t *DeepLTranslator) Translate(ctx context.Context, text, fromLang, toLang 
 	}
 	translated := result.Translations[0].Text
 
-	// PreserveTerms 后处理：强制保证术语词形
 	if len(opts.PreserveTerms) > 0 {
 		translated = applyPreserveTerms(translated, opts.PreserveTerms)
 	}
@@ -256,9 +227,6 @@ func truncateForLog(s string, max int) string {
 	return s[:max] + "..."
 }
 
-// ----------------------------------------------------------------------------
-// RAGGenerator 中文 RAG 生成接口（供 FallbackBridge 复用现有 RAG 链路）
-// ----------------------------------------------------------------------------
 
 // RAGGenerator 中文 RAG 生成器接口。
 //
@@ -269,9 +237,6 @@ type RAGGenerator interface {
 	Generate(ctx context.Context, query string, docs []any) (string, error)
 }
 
-// ----------------------------------------------------------------------------
-// FallbackBridge 低资源语言降级桥
-// ----------------------------------------------------------------------------
 
 // FallbackBridge 低资源语言降级桥。
 //
@@ -303,7 +268,6 @@ func NewFallbackBridge(translator Translator, rag RAGGenerator, glossary *Glossa
 		postValidator:   NewPostValidator(),
 		enabled:         enabled,
 	}
-	// 即使 config enabled=true，translator 不可用时也强制禁用
 	if enabled {
 		if translator == nil {
 			b.enabled = false
@@ -345,7 +309,6 @@ func (b *FallbackBridge) Generate(ctx context.Context, query string, targetLang 
 
 	targetLang = i18npkg.NormalizeLang(targetLang)
 
-	// 1. 中文生成（复用现有 RAG）
 	zhResp, err := b.ragGenerator.Generate(ctx, query, docs)
 	if err != nil {
 		return "", fmt.Errorf("fallback: zh rag generate failed: %w", err)
@@ -354,15 +317,12 @@ func (b *FallbackBridge) Generate(ctx context.Context, query string, targetLang 
 		return "", errors.New("fallback: zh rag generate empty response")
 	}
 
-	// 2. DeepL 翻译
 	translated, err := b.translator.Translate(ctx, zhResp, "zh", targetLang, TranslateOptions{})
 	if err != nil {
-		// 翻译失败兜底返回中文（保证用户能收到回复）
 		logger.Warnf("fallback: translate to %s failed, fallback to zh: %v", targetLang, err)
 		return zhResp, nil
 	}
 
-	// 3. Glossary + PostValidator 后处理校准
 	if b.glossaryService != nil {
 		if view, err := b.glossaryService.LoadByLang(ctx, targetLang); err == nil && view != nil {
 			calibrated, _ := b.postValidator.Validate(translated, targetLang, view)
@@ -374,3 +334,4 @@ func (b *FallbackBridge) Generate(ctx context.Context, query string, targetLang 
 
 // ErrFallbackDisabled FallbackBridge 未启用。
 var ErrFallbackDisabled = errors.New("fallback bridge: disabled")
+

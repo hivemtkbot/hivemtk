@@ -193,3 +193,4 @@ func (c *ScriptTemplateController) RecommendScript(ctx *gin.Context) {
 
 	response.Success(ctx, templates, "获取推荐成功")
 }
+

@@ -143,3 +143,4 @@ func (r *dailyCardUVStatsRepository) GetByCardIDAndDate(ctx context.Context, car
 
 	return &stats, err
 }
+

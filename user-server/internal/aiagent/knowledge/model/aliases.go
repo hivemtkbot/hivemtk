@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ---- 知识库文档（kb_documents） ----
 
 type (
 	KBDocument       = model.KBDocument
@@ -24,7 +23,6 @@ const (
 	KBDocumentStatusFailed     = model.KBDocumentStatusFailed
 )
 
-// ---- 知识库工作区（documents/chunks/logs） ----
 
 type (
 	EmbedStatus = model.EmbedStatus
@@ -51,7 +49,6 @@ const (
 	SourceTypeOpenAPI = model.SourceTypeOpenAPI
 )
 
-// ---- 知识库开放/反馈/外部导入 ----
 
 type (
 	KnowledgeAPIToken = model.KnowledgeAPIToken
@@ -59,7 +56,6 @@ type (
 	ExternalImportJob = model.ExternalImportJob
 )
 
-// ---- RAG 产品与供应商配置 ----
 
 type (
 	LLMProviderConfig       = model.LLMProviderConfig
@@ -74,9 +70,9 @@ func DefaultIntentConfig() model.IntentConfig {
 	return model.DefaultIntentConfig()
 }
 
-// ---- RAG 会话 ----
 
 type (
 	RagSession = model.RagSession
 	RagMessage = model.RagMessage
 )
+

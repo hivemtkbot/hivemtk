@@ -20,17 +20,14 @@ func requireLocalEmbedding(t *testing.T) {
 
 // TestVectorizer_NewVectorizer tests the constructor
 func TestVectorizer_NewVectorizer(t *testing.T) {
-	// Test with valid dimension
 	v := NewVectorizer(128, nil)
 	assert.NotNil(t, v)
 	assert.Equal(t, 128, v.dimension)
 
-	// Test with zero dimension (should use default)
 	vDefault := NewVectorizer(0, nil)
 	assert.NotNil(t, vDefault)
 	assert.Equal(t, 1024, vDefault.dimension)
 
-	// Test with negative dimension (should use default)
 	vNegative := NewVectorizer(-100, nil)
 	assert.NotNil(t, vNegative)
 	assert.Equal(t, 1024, vNegative.dimension)
@@ -173,7 +170,6 @@ func TestVectorizer_EmbedBatch(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Len(t, embeddings, tt.expectedLen)
 
-				// Verify all embeddings have correct dimension
 				for i, emb := range embeddings {
 					assert.Len(t, emb, 128, "embedding %d has wrong dimension", i)
 				}
@@ -321,7 +317,7 @@ func TestJaccardSimilarity(t *testing.T) {
 			name:     "partial_overlap",
 			text1:    "apple banana cherry",
 			text2:    "banana cherry date",
-			expected: 0.5, // 2 intersection / 4 union
+			expected: 0.5, 
 		},
 		{
 			name:     "case_insensitive",
@@ -359,3 +355,4 @@ func isZeroVectorFloat(vec []float32) bool {
 	}
 	return true
 }
+

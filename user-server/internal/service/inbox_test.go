@@ -95,7 +95,6 @@ func TestUpsertFromMessage_OutboundStaff(t *testing.T) {
 	if conv.LastMessageFrom != InboxFromStaff {
 		t.Errorf("expected from=staff, got %s", conv.LastMessageFrom)
 	}
-	// 坐席(outbound)回复后,客户消息未读按业务规则清零(已读)
 	if conv.UnreadCount != 0 {
 		t.Errorf("expected unread=0 after staff reply, got %d", conv.UnreadCount)
 	}
@@ -143,7 +142,6 @@ func TestUpsertFromMessage_IncrementUnread(t *testing.T) {
 	}
 }
 
-// 5. 空 merchant (单租户：删除 - merchant_id 已不再使用)
 
 // 6. 空 customer
 func TestUpsertFromMessage_EmptyCustomer(t *testing.T) {
@@ -417,7 +415,6 @@ func TestInboxGetByID_Success(t *testing.T) {
 	}
 }
 
-// 21. CrossMerchant (单租户：删除 - merchant_id 已不再使用)
 
 // 22. MarkRead
 func TestMarkRead(t *testing.T) {
@@ -502,7 +499,6 @@ func TestAddTag(t *testing.T) {
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.AddTag(context.Background(), c.ID, "VIP")
 	svc.AddTag(context.Background(), c.ID, "urgent")
-	// 重复添加
 	svc.AddTag(context.Background(), c.ID, "VIP")
 	c2, _ := svc.GetByID(context.Background(), 1)
 	if len(c2.Tags) != 2 {
@@ -756,7 +752,6 @@ func TestAssign_ZeroID(t *testing.T) {
 // 40. AutoAssign 负载最小
 func TestAutoAssign_PickMinLoad(t *testing.T) {
 	svc, db := newInboxService(t)
-	// 准备 3 个会话
 	for i := 1; i <= 3; i++ {
 		m := mkMsg(fmt.Sprintf("a%d", i))
 		m.ID = uint(i)
@@ -764,7 +759,6 @@ func TestAutoAssign_PickMinLoad(t *testing.T) {
 		db.Create(m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
-	// 给 staff-1 分配 2 个
 	svc.Assign(context.Background(), InboxAssignRequest{
 		ConversationID: 1, Action: InboxActionAssign,
 		ToType: InboxAssignToHuman, ToUserID: "staff-1",
@@ -785,7 +779,6 @@ func TestAutoAssign_PickMinLoad(t *testing.T) {
 // 41. AutoAssign 容量满
 func TestAutoAssign_AllAtCapacity(t *testing.T) {
 	svc, db := newInboxService(t)
-	// 创建 InboxDefaultStaffLoadLimit 个会话都给 staff-1
 	for i := 0; i < InboxDefaultStaffLoadLimit; i++ {
 		m := mkMsg(fmt.Sprintf("cap%d", i))
 		m.ID = uint(i + 1)
@@ -820,7 +813,6 @@ func TestAutoAssign_EmptyCandidates(t *testing.T) {
 // 43. RoundRobin
 func TestRoundRobinAssign(t *testing.T) {
 	svc, db := newInboxService(t)
-	// 3 个会话，候选 3 个客服
 	for i := 1; i <= 3; i++ {
 		m := mkMsg(fmt.Sprintf("rr%d", i))
 		m.ID = uint(i)
@@ -955,12 +947,10 @@ func TestStats_Status(t *testing.T) {
 		db.Create(m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
-	// 第一个分配
 	svc.Assign(context.Background(), InboxAssignRequest{
 		ConversationID: 1, Action: InboxActionAssign,
 		ToType: InboxAssignToHuman, ToUserID: "s1",
 	})
-	// 第二个关闭
 	svc.Assign(context.Background(), InboxAssignRequest{ConversationID: 2, Action: InboxActionClose})
 	stats, _ := svc.GetStats(context.Background())
 	if stats.Total != 3 {
@@ -1014,7 +1004,6 @@ func TestStats_Overdue(t *testing.T) {
 	m.SentAt = time.Now().Add(-2 * time.Hour)
 	db.Create(m)
 	svc.UpsertFromMessage(context.Background(), m)
-	// 修正 LastMessageAt 为 2 小时前，模拟超时会话
 	db.Model(&model.InboxConversation{}).
 		Where("customer_id = ?", "user-001").
 		Update("last_message_at", time.Now().Add(-2*time.Hour))
@@ -1053,7 +1042,6 @@ func TestGetMessagesByConversation(t *testing.T) {
 		db.Create(m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
-	// 客服回复
 	reply := mkMsg("gm-r1")
 	reply.ID = 4
 	reply.Direction = "outbound"
@@ -1091,11 +1079,9 @@ func TestAssign_LoadTracking(t *testing.T) {
 		ConversationID: c.ID, Action: InboxActionAssign,
 		ToType: InboxAssignToHuman, ToUserID: "staff-1",
 	})
-	// 释放后负载应减少
 	svc.Assign(context.Background(), InboxAssignRequest{
 		ConversationID: c.ID, Action: InboxActionRelease,
 	})
-	// 注意缓存可能不一致，重新查 DB
 	load, _ := svc.StaffLoad(context.Background(), "staff-1")
 	if load != 0 {
 		t.Errorf("expected load=0, got %d", load)
@@ -1111,7 +1097,6 @@ func TestUpsertFromMessage_ReopenClosed(t *testing.T) {
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Assign(context.Background(), InboxAssignRequest{ConversationID: c.ID, Action: InboxActionClose})
-	// 客户再来消息
 	m2 := mkMsg("rc2")
 	m2.ID = 2
 	m2.SentAt = time.Now().Add(time.Minute)
@@ -1131,7 +1116,6 @@ func TestUpsertFromMessage_AssignedNoUser(t *testing.T) {
 	db.Create(m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
-	// 强制设为 assigned 但无 AssignedTo
 	db.Model(&c).Update("status", InboxStatusAssigned)
 	m2 := mkMsg("an2")
 	m2.ID = 2
@@ -1143,7 +1127,6 @@ func TestUpsertFromMessage_AssignedNoUser(t *testing.T) {
 	}
 }
 
-// 58. EmptyMerchant (单租户：删除 - merchant_id 已不再使用)
 
 // 60. List 默认分页
 func TestInboxList_DefaultPage(t *testing.T) {
@@ -1216,7 +1199,6 @@ func TestList_OrderUnread(t *testing.T) {
 		m.SenderID = fmt.Sprintf("u%d", i)
 		db.Create(m)
 		svc.UpsertFromMessage(context.Background(), m)
-		// 多发几条
 		for j := 0; j < i; j++ {
 			mx := mkMsg(fmt.Sprintf("ou%d-%d", i, j))
 			mx.ID = uint(i*10 + j)
@@ -1398,12 +1380,9 @@ func TestAutoAssign_MultipleCandidates(t *testing.T) {
 		db.Create(m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
-	// staff-1 分配 2
 	svc.Assign(context.Background(), InboxAssignRequest{ConversationID: 1, Action: InboxActionAssign, ToType: InboxAssignToHuman, ToUserID: "staff-1"})
 	svc.Assign(context.Background(), InboxAssignRequest{ConversationID: 2, Action: InboxActionAssign, ToType: InboxAssignToHuman, ToUserID: "staff-1"})
-	// staff-2 分配 1
 	svc.Assign(context.Background(), InboxAssignRequest{ConversationID: 3, Action: InboxActionAssign, ToType: InboxAssignToHuman, ToUserID: "staff-2"})
-	// 第 4 个会话应该分给 staff-3 (load 0)
 	h, err := svc.AutoAssign(context.Background(), 4, []string{"staff-1", "staff-2", "staff-3"}, "op-1")
 	if err != nil {
 		t.Fatalf("auto: %v", err)
@@ -1838,3 +1817,4 @@ func TestAutoAssign_Reentrant(t *testing.T) {
 		}
 	}
 }
+

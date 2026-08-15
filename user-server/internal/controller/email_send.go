@@ -35,4 +35,4 @@ func (c *EmailSendController) SendEmail(ctx *gin.Context) {
 	response.Success(ctx, email, "发送成功")
 }
 
-// 其他控制器方法...
+

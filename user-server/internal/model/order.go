@@ -9,10 +9,10 @@ import (
 
 type Order struct {
 	ID         string                `gorm:"type:varchar(36);primary_key;not null" json:"id"`
-	Status     _type.OrderStatusType `gorm:"default:0" json:"status"` // 0待支付 100已支付 -1超时 -2强行关闭
+	Status     _type.OrderStatusType `gorm:"default:0" json:"status"` 
 	CreateTime int64                 `gorm:"create_time;autoCreateTime;not null" json:"create_time"`
 	Price      string                `gorm:"not null" json:"price"`
-	TgID       int64                 `gorm:"tg_id" json:"tg_id"` // 不能给unique，一个tg_id会创建多个订单
+	TgID       int64                 `gorm:"tg_id" json:"tg_id"` 
 	AccountID  string                `gorm:"type:varchar(36);not null" json:"account_id"`
 }
 
@@ -24,3 +24,4 @@ func (o *Order) BeforeCreate(tx *gorm.DB) error {
 	o.ID = uuid.New().String()
 	return nil
 }
+

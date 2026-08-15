@@ -52,7 +52,6 @@ var (
 func NewTestDB(t *testing.T, models ...any) *gorm.DB {
 	t.Helper()
 
-	// 优雅降级：探测 PG 可达性，不可达则跳过本测试
 	host := getEnvOr("POSTGRES_TEST_HOST", "127.0.0.1")
 	port := getEnvOr("POSTGRES_TEST_PORT", "8202")
 	if conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 2*time.Second); err != nil {
@@ -71,23 +70,18 @@ func NewTestDB(t *testing.T, models ...any) *gorm.DB {
 		t.Fatalf("连接 PostgreSQL 测试库失败（dsn=%s）: %v", maskedDSN(testDSN), err)
 	}
 
-	// 启用 pgvector 扩展（业务模型中含 vector 列，缺扩展时 AutoMigrate 报 42704）
 	if sqlDB, dbErr := database.DB(); dbErr == nil {
 		if _, execErr := sqlDB.Exec("CREATE EXTENSION IF NOT EXISTS vector"); execErr != nil {
 			t.Logf("启用 pgvector 扩展提示（需 postgres 镜像含 vector 包）: %v", execErr)
 		}
-		// 关闭外键约束检查（业务域拆分后,跨域共享的 model.License 等不在 content 测试 setup 中,
-		// 关闭 session_replication_role 可避免外键引用失败）
 		if _, execErr := sqlDB.Exec("SET session_replication_role = 'replica'"); execErr != nil {
 			t.Logf("禁用外键约束提示: %v", execErr)
 		}
 	}
 
 	if len(models) > 0 {
-		// 先 DROP 全部目标表（幂等重建），再 AutoMigrate 创建
 		for _, m := range models {
 			if dropErr := database.Migrator().DropTable(m); dropErr != nil {
-				// DROP 不存在表不视为错误
 				t.Logf("DropTable 提示 %T: %v", m, dropErr)
 			}
 		}
@@ -96,10 +90,6 @@ func NewTestDB(t *testing.T, models ...any) *gorm.DB {
 		}
 	}
 
-	// 注册清理：断开本测试连接（不 DROP 整个进程库，供同进程后续测试复用）。
-	// 注意：若本连接被 db.SetTestDB 提升为全局连接，调用方必须在 t.Cleanup 中
-	// 将全局 db 还原为注入前的值（见各测试 helper），否则同进程后续测试会拿到
-	// 「sql: database is closed」。
 	sqlDB, err := database.DB()
 	if err != nil {
 		t.Fatalf("获取 sql.DB 失败: %v", err)
@@ -129,7 +119,6 @@ func ensureProcTestDB(t *testing.T) {
 			}
 		}()
 		s, _ := m.DB()
-		// 清理同 PID 上次（崩溃）残留，再创建干净独立库
 		if _, e := s.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, name)); e != nil {
 			t.Logf("清理残留测试库提示 %s: %v", name, e)
 		}
@@ -151,7 +140,6 @@ func ensureProcTestDB(t *testing.T) {
 func NewTestDBOrSkip(t *testing.T, models ...any) *gorm.DB {
 	t.Helper()
 
-	// 探测 PG 可达性（用维护库 DSN 快速 TCP 探测）
 	host := getEnvOr("POSTGRES_TEST_HOST", "127.0.0.1")
 	port := getEnvOr("POSTGRES_TEST_PORT", "8202")
 	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 2*time.Second)
@@ -171,9 +159,6 @@ func getTestDSN() string {
 	if v := os.Getenv("POSTGRES_TEST_DSN"); v != "" {
 		return v
 	}
-	// 测试用默认值：与 docker-compose-example.yml 中 postgres-user 服务的 8202 对齐
-	// 文档源：DEVELOPMENT.md §2.4 + user-server/.github/workflows/user-server-ci.yml
-	// 严禁把 password123 当作生产默认值；CI 环境统一由 env 注入
 	host := getEnvOr("POSTGRES_TEST_HOST", "127.0.0.1")
 	port := getEnvOr("POSTGRES_TEST_PORT", "8202")
 	user := getEnvOr("POSTGRES_TEST_USER", "admin")
@@ -194,7 +179,6 @@ func getEnvOr(key, fallback string) string {
 // maskedDSN 在 DSN 中隐藏密码，避免在测试日志中泄露
 func maskedDSN(dsn string) string {
 	out := []byte(dsn)
-	// 简易处理：password=xxxx -> password=***
 	for i := 0; i < len(out)-8; i++ {
 		if string(out[i:i+9]) == "password=" {
 			j := i + 9
@@ -207,3 +191,4 @@ func maskedDSN(dsn string) string {
 	}
 	return string(out)
 }
+

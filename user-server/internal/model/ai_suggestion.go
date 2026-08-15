@@ -9,9 +9,9 @@ type AISuggestion struct {
 	MessageID  uint       `json:"message_id"`
 	Suggestion string     `gorm:"type:text" json:"suggestion"`
 	Confidence float64    `gorm:"type:decimal(5,2)" json:"confidence"`
-	Source     string     `gorm:"type:varchar(20)" json:"source"` // rule, rag, llm
+	Source     string     `gorm:"type:varchar(20)" json:"source"` 
 	IsUsed     bool       `gorm:"default:false" json:"is_used"`
-	UsedBy     uint       `json:"used_by"` // 使用的客服ID
+	UsedBy     uint       `json:"used_by"` 
 	UsedAt     *time.Time `json:"used_at"`
 	CreatedAt  time.Time  `gorm:"autoCreateTime" json:"created_at"`
 }
@@ -20,3 +20,4 @@ type AISuggestion struct {
 func (AISuggestion) TableName() string {
 	return "ai_suggestions"
 }
+

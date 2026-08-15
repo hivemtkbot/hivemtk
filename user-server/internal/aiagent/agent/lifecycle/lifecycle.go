@@ -33,28 +33,26 @@ import (
 // AgentLifecycle 智能体生命周期统一接口。
 // 被动/主动两种模式都实现本接口，由上层根据 model.AgentMode 选择。
 type AgentLifecycle interface {
-	// Mode 返回本生命周期的工作模式。
 	Mode() string
-	// Run 在给定智能体上下文下执行一轮（被动=应答；主动=触达）。
 	Run(ctx context.Context, agentCtx *dto.AgentContext, req *LifecycleRequest) (*LifecycleResult, error)
 }
 
 // LifecycleRequest 生命周期请求（被动/主动通用）。
 type LifecycleRequest struct {
-	Channel    string         // 渠道
-	AccountID  string         // 渠道账号
-	CustomerID string         // 客户 OneID（主动模式可空，由策略选材）
-	Content    string         // 输入内容（被动=用户消息；主动=策略/提示）
-	TraceID    string         // 全链路追踪
-	Raw        map[string]any // 原始字段
+	Channel    string         
+	AccountID  string         
+	CustomerID string         
+	Content    string         
+	TraceID    string         
+	Raw        map[string]any 
 }
 
 // LifecycleResult 生命周期结果。
 type LifecycleResult struct {
-	ReplyContent string   // 回复/触达内容
-	ToolsCalled  []string // 本次调用过的工具名
-	Handoff      bool     // 是否转人工
-	StopReason   string   // 终止原因
+	ReplyContent string   
+	ToolsCalled  []string 
+	Handoff      bool     
+	StopReason   string   
 }
 
 // Resolver 按智能体模式选择生命周期实现。
@@ -67,3 +65,4 @@ func Resolver(passive, active AgentLifecycle) func(mode string) AgentLifecycle {
 		return passive
 	}
 }
+

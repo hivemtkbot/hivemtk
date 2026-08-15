@@ -16,11 +16,9 @@ import (
 func InitEventBus() {
 	bus := event.New(2, 1024)
 
-	// 试点：操作日志异步写入
-	// 发布者：业务 Service（SystemUserService 等）
-	// 订阅者：OperationLogSubscriber → operation_logs 表
 	logSubscriber := NewOperationLogSubscriber(repository.NewOperationLogRepository())
 	bus.Subscribe(event.TopicOperationLog, logSubscriber.Handle)
 
 	event.SetGlobalBus(bus)
 }
+

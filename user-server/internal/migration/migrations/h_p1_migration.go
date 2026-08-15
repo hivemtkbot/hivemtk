@@ -1,16 +1,5 @@
 package migrations
 
-// h_p1_migration.go 缺口修复迁移 v3.2.0
-//
-// 五层架构归属: L5 数据层
-// 设计依据: 缺口修复
-// 线索评分（0-100）：clue_scores + clue_engagement_events
-// RFM 分层：customer_rfm
-// 流失挽回：recovery_queue
-//
-// 私域独立部署: 无 merchant_id 字段
-//
-// 幂等性: 全部使用 IF NOT EXISTS，可重入
 
 import (
 	"context"
@@ -50,22 +39,18 @@ func (m *HP1Migration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 1. clue_scores - 线索评分
 	if err := m.createClueScores(ctx); err != nil {
 		return fmt.Errorf("create clue_scores 失败: %w", err)
 	}
 
-	// 2. clue_engagement_events - 线索互动事件
 	if err := m.createClueEngagementEvents(ctx); err != nil {
 		return fmt.Errorf("create clue_engagement_events 失败: %w", err)
 	}
 
-	// 3. customer_rfm - 客户 RFM
 	if err := m.createCustomerRFM(ctx); err != nil {
 		return fmt.Errorf("create customer_rfm 失败: %w", err)
 	}
 
-	// 4. recovery_queue - 流失挽回队列
 	if err := m.createRecoveryQueue(ctx); err != nil {
 		return fmt.Errorf("create recovery_queue 失败: %w", err)
 	}
@@ -192,3 +177,4 @@ func (m *HP1Migration) Down(ctx context.Context) error {
 
 // 编译期接口断言
 var _ migration.Migration = (*HP1Migration)(nil)
+

@@ -1,20 +1,5 @@
 package migrations
 
-// rag_monitoring_migration.go RAG 监控与风控迁移 v2.8.0
-//
-// 五层架构归属: L5 数据层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.6 召回率监控 / §14.6.3 风控预警 / §14.6.4 健康度
-// 私域独立部署: 无 merchant_id 字段
-//
-// 本迁移补充 C 域 缺口 #2/#3/#4 所需的数据库基础设施：
-// 1. rag_query_logs 表（每次检索的明细日志，用于召回率//低召回样本分析）
-//  2. rag_metrics_daily 表（5 分钟窗口聚合的指标快照，用于趋势图和预警）
-//
-// 私域部署: 外部告警通道 (RagAlertService) 已删除, rag_alerts 表由 v3.17
-//   单独 DROP, 异常指标走应用层日志 + rag_query_logs 落库审计。
-//
-// 幂等性: 所有 DDL 使用 IF NOT EXISTS，可重入
-// 依赖: v1.1.0（InitialSchemaMigration）
 
 import (
 	"context"
@@ -61,7 +46,6 @@ func (m *RagMonitoringMigration) Up(ctx context.Context) error {
 	if err := m.createRagMetricsDaily(ctx); err != nil {
 		return fmt.Errorf("create rag_metrics_daily 失败: %w", err)
 	}
-	// 私域部署: 不再创建 rag_alerts 表 (RagAlertService 已删), 由 v3.17 处理旧环境清理
 	return nil
 }
 
@@ -146,3 +130,4 @@ func (m *RagMonitoringMigration) Down(ctx context.Context) error {
 
 // compile-time 接口断言
 var _ migration.Migration = (*RagMonitoringMigration)(nil)
+

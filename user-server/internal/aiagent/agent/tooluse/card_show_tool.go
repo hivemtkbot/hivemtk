@@ -99,7 +99,6 @@ func (t *CardShowTool) Execute(ctx context.Context, args map[string]any) (ToolRe
 	}
 	switch model.RichCardType(cardType) {
 	case model.CardTypeProduct, model.CardTypeOrder, model.CardTypePromo, model.CardTypeGeneric:
-		// 合法类型
 	default:
 		return ErrorResult(t.Name(), fmt.Errorf("type 非法：%q，必须是 product/order/promo/generic", cardType)).withTiming(t.Name(), start),
 			fmt.Errorf("type 非法：%q", cardType)
@@ -114,7 +113,6 @@ func (t *CardShowTool) Execute(ctx context.Context, args map[string]any) (ToolRe
 		ThumbURL:    getArgString(args, "thumb_url"),
 	}
 
-	// fields：结构化键值对
 	if f, ok := args["fields"].(map[string]any); ok && len(f) > 0 {
 		fields := make(map[string]string, len(f))
 		for k, v := range f {
@@ -123,7 +121,6 @@ func (t *CardShowTool) Execute(ctx context.Context, args map[string]any) (ToolRe
 		card.Fields = fields
 	}
 
-	// buttons：动作按钮列表
 	if btns, ok := args["buttons"].([]any); ok {
 		for _, b := range btns {
 			bm, ok := b.(map[string]any)
@@ -160,3 +157,4 @@ func RegisterCardTools(registry *ToolRegistry) {
 		registry.Register(tool)
 	}
 }
+

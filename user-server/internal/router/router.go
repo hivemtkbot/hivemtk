@@ -64,7 +64,6 @@ func corsMiddleware() gin.HandlerFunc {
 		if origin != "" {
 			switch {
 			case strings.HasPrefix(origin, "chrome-extension://"):
-				// 浏览器扩展 popup/content script 需跨域调用 API，按源反射放行
 				allow = true
 			default:
 				for _, a := range allowedCORSOrigins {
@@ -103,10 +102,6 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 	var webhookSvc *service.WebhookService
 	var dingtalkAppSvc *service.DingTalkAppService
 
-	// 启用 405 Method Not Allowed：当路径已注册但 HTTP 方法不匹配时，
-	// 返回 405 而非默认 404，便于客户端（含 API 扫描器）区分「路径不存在」与「方法错误」。
-	// 例如 POST /api/customer-sessions/:id/takeover 被以 GET 访问时，
-	// 返回 405 而非 404，避免误判为「路由缺失」。
 	r.HandleMethodNotAllowed = true
 	r.NoMethod(func(c *gin.Context) {
 		c.JSON(http.StatusMethodNotAllowed, gin.H{
@@ -117,102 +112,61 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		})
 	})
 
-	// 基础中间件
-	r.Use(corsMiddleware()) // 全局 CORS：允许 Chrome 扩展 popup 跨域调用 API（含 OPTIONS 预检）
+	r.Use(corsMiddleware()) 
 	r.Use(gin.Recovery())
 
-	// 多语言：解析请求语言注入上下文，供业务层返回本地化提示
 	r.Use(middleware.LocaleMiddleware())
 
-	// ContextMiddleware：注入 IP / User-Agent 等公共上下文字段，供后续 handler / service 复用
 	r.Use(middleware.ContextMiddleware())
 
-	// 初始化全局事件总线（在 Service 构造之前）
-	// 试点：OperationLog 异步写入；后续可在 initEventBus 中追加订阅者
 	app.InitEventBus()
 
-	// P1-3：注入 middleware 窄接口实现（PermChecker / AuditSink），
-	// middleware 不再 import service/repository，实现统一在此装配期注入
 	injectMiddlewarePorts()
 
-	// 健康检查端点（公开）
 	r.GET("/health", HealthCheck(HealthRedis, gormDB))
 	r.GET("/healthz", LivenessCheck())
 	r.GET("/readyz", ReadinessCheck(HealthRedis, gormDB))
 
-	// 私域部署: 已移除 Prometheus 指标采集 (/metrics 端点 + PrometheusMetricsMiddleware)
-	// 关键指标 (wall_ms / LCP / Layer1 命中率) 通过应用层日志 + layer_decision_logs 表审计。
-	// 巡检方式: SQL 查询 + scripts/post_deploy_check.sh
 
-	// 安全中间件
-	// 限流中间件 - 防止 DDoS 和暴力请求
-	// 注意：私有桥接端点 /api/bridge/ingest 由 InitGuard 保护、单租户、且表现为高频长轮询，
-	// 对其限流会直接掐断消息上行，故加入 ExemptPaths 豁免全局限流。
 	r.Use(middleware.RateLimitMiddleware(middleware.RateLimitConfig{
 		RPS:        10,
 		BucketSize: 100,
 		Enabled:    true,
 		ExemptPaths: []string{
 			"/api/bridge/ingest",
-			// 渠道网关 WS 传输：升级请求即长连接，限流会误伤渠道接入
 			"/api/ws/channel",
 		},
 	}))
 
-	// 追踪中间件必须最先注册（位于脱敏/审计之前）：为请求分配 trace_id 并绑定到 context，
-	// 后续 handler / service / 编排 / 触达全链路复用同一 trace_id，便于线上定位问题。
 	r.Use(middleware.TraceMiddleware())
 
-	// API 交互日志中间件：记录每个 /api 请求与响应的交互数据（方法/路径/状态码/耗时/请求体/响应体），
-	// 供 bridge 等功能的线上问题排查与监控。注册于 TraceMiddleware 之后以自动携带 trace_id。
 	r.Use(middleware.APIInteractionLogger())
 
-	// 审计中间件（全局）
 	r.Use(middleware.AuditMiddleware())
 
-	// 活码控制器（需要在多个路由组中使用）
 	liveCodeController := controller.NewLiveCodeController(service.NewLiveCodeService(gormDB))
 
-	// 平台控制器（需要在多个路由组中使用）
 	platformCtrl := controller.NewPlatformController()
 
-	// 多 AI 智能体架构：提前构建共享 service 和 SalesEngine
-	// auth 路由组（智能体管理 CRUD）和 webhook 路由组（智能体路由）共享同一份实例
-	//
-	// 装配顺序（关键）：
-	//   1) app.InitGlobalToolExecutor()    —— 创建全局 ToolExecutor（含装饰器链：限流/重试/审计/计费）
-	//   2) app.RegisterAllAgentTools(db)   —— 注册全部 41 个智能体工具到全局注册中心
-	//                                      （reach×20 + pm×3 + customer×8 + knowledge×4 + business×6）
-	//   3) app.BuildSalesEngine(db)        —— 此时 GetGlobalExecutor() 返回非 nil，
-	//                                      SalesEngine 注入 ToolExecutorAdapter 后 Agent Loop (ReAct) 激活
-	// 4) initInferenceOrchestrator —— 装配推理闭环编排器（优化：原本死代码，本次激活）
 	app.InitGlobalToolExecutor()
-	app.InitGlobalToolRouter() // 装配 ToolRouter（熔断 + 限流 + 成本统计 + 全局统计），激活原本死代码
+	app.InitGlobalToolRouter() 
 	app.RegisterAllAgentTools(gormDB)
-	// 网页私信桥接：构造 BridgeReachAdapter 并把 AI 回复经 WebSocket 回写 Chrome 扩展。
-	// 必须在 registerAllAgentTools 之后、Agent Loop 激活之前调用（其内部会注册桥接出站回调）。
 	app.RegisterAgentReachTools(gormDB)
-	app.InitInferenceOrchestrator() // 优化：激活推理闭环编排器（历史死代码）
+	app.InitInferenceOrchestrator() 
 
 	engine := app.BuildSalesEngine(gormDB)
 	orchestrator := app.BuildSmartOrchestrator(engine)
 	aiAgentSvcGlobal := service.NewAIAgentService()
 	channelBindingSvcGlobal := service.NewChannelAgentBindingService()
 	csAgentSvcGlobal := service.NewCustomerServiceAgentService()
-	// 注入到 SmartCSOrchestrator（客服座席挂载智能体路由）
 	orchestrator.SetCustomerServiceAgentService(context.Background(), csAgentSvcGlobal)
 
-	// v1.2 出海方案：初始化 LangConfigResolver（双语言配置读取器）。
-	// 注入到所有用户消息入口（chat HTTP / WS / webhook），实现多层兜底解析。
-	// resolver 自身永不报错，下游即便配置缺失也会拿到默认 zh。
 	langResolver := translation.NewLangConfigResolver(
 		repository.NewChatChannelRepository(),
 		repository.NewAIAgentRepository(),
 	)
 
-	// M2：初始化资产市场运行时覆盖层（业务运行时优先读取生效中的已购资产）
 	service.InitAssetResolver(gormDB)
-	// 注入「读取生效中 marketing_workflow 资产」函数，打破 content/service 循环依赖
 	contentservice.SetWorkflowAssetResolver(func(ctx context.Context) (json.RawMessage, bool) {
 		if r := service.GetAssetResolver(); r != nil {
 			if w, ok := r.GetActiveWorkflow(ctx); ok && w != nil {
@@ -224,175 +178,115 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		return nil, false
 	})
 
-	// 公开路由（不需要认证）
 	public := r.Group("/api")
 	{
 		setupPublicRoutes(public, liveCodeController, platformCtrl, gormDB)
-		// 公开 chat API（AppKey 鉴权）
 		setupChatPublicRoutes(public, gormDB, orchestrator, langResolver)
+		setupSSORoutes(public, gormDB)
 	}
 
-	// 访客 WebSocket（公开，无鉴权）
 	setupChatPublicWebSocket(r, langResolver)
 
-	// 卡片分享路由（公开，不需要认证）
 	setupCardShareRoutes(r, gormDB)
 
-	// 静态文件服务（chat embed 页面 + embed SDK）
-	// 私域部署：用户把 user-web/dist 部署到 user-server 同源，
-	// 这样嵌入的 iframe 聊天窗可以无跨域问题加载。
 	setupEmbedStaticRoutes(r)
 
-	// 认证路由
 	auth := r.Group("/api")
-	auth.Use(middleware.InitGuard()) // 1) 系统必须已初始化
-	// 开源版：移除 LicenseGuard 中间件（License 模型删除，授权流程下线）
-	auth.Use(middleware.JWTAuthMiddleware()) // 2) JWT 必须有效
+	auth.Use(middleware.InitGuard()) 
+	auth.Use(middleware.JWTAuthMiddleware()) 
 	{
-		// 认证相关
 		setupAuthRoutes(auth, gormDB)
 
-		// 用户管理
 		setupUserRoutes(auth)
 
-		// 账户管理
 		setupAccountRoutes(auth)
 
-		// 短链管理
 		setupShortLinkRoutes(auth, public, gormDB)
 
-		// 活码管理
 		setupLiveCodeRoutes(auth, liveCodeController)
 
-		// 邮件管理
 		setupEmailRoutes(auth, gormDB)
 
-		// 短信管理
 		setupSmsRoutes(auth, gormDB)
 
-		// 卡片管理（抖音、快手、小红书、闲鱼）
 		setupCardRoutes(auth, gormDB)
 
-		// 卡片统计
 		setupCardStatsRoutes(auth, gormDB)
 
-		// 域名池管理
 		setupDomainPoolRoutes(auth, gormDB)
 
-		// 素材管理
 		setupMaterialRoutes(auth)
 
-		// 线索管理
 		setupClueRoutes(auth)
-		// 线索发掘
 		setupLeadMiningRoutes(auth)
 
-		// 客户 RFM 联动分层
 		setupCustomerRFMRoutes(auth)
 
-		// 流失挽回队列
 		setupRecoveryQueueRoutes(auth)
 
-		// 系统管理（高危操作：重启/日志/备份/恢复/配置写入，需管理员权限）
 		systemAdmin := auth.Group("")
 		systemAdmin.Use(middleware.AdminAuthMiddleware())
 		setupSystemRoutes(systemAdmin)
 
-		// 人员管理（v3.1 §3.1：/api/system/users/*）
 		setupSystemUserRoutes(auth)
 
-		// 角色管理（v3.1 §3.2：/api/system/roles/*）
 		setupRoleRoutes(auth)
 
-		// 授权管理（v3.1 §3.4：/api/system/permissions/*）
 		setupPermissionRoutes(auth)
 
-		// RAG 知识库
 		setupRagRoutes(auth, gormDB)
 
-		// 知识库管理
 		setupKnowledgeBaseRoutes(auth)
 
-		// WhatsApp (Web 扫码)
 		setupWhatsappRoutes(auth, gormDB)
 
-		// WhatsApp Cloud (Meta 商业 API)
 		whatsappCloudSvc = service.NewWhatsAppCloudService(gormDB)
 		setupWhatsAppCloudRoutes(auth, whatsappCloudSvc, gormDB)
 
-		// 钉钉企业内部应用（支持回调收消息）
 		webhookSvc = service.NewWebhookService(gormDB)
 		dingtalkAppSvc = service.NewDingTalkAppService(gormDB, webhookSvc)
 
 		setupDingTalkAppRoutes(auth, dingtalkAppSvc)
 
-		// Telegram
 		setupTelegramRoutes(auth, gormDB)
 
-		// 飞书
 		setupFeishuRoutes(auth, gormDB)
 
-		// TikTok
 		setupTiktokRoutes(auth, gormDB)
 
-		// 企业微信
 		setupWeComRoutes(auth, gormDB)
 
-		// 客服会话管理
 		setupCustomerServiceRoutes(auth, aiAgentSvcGlobal, langResolver)
 
-		// 网页桥接 HTTP 上报（抖音/小红书/TikTok/闲鱼/快手 网页私信）：
-		// 2026-08-05 架构重构：彻底移除 WebSocket 长连接，改用 HTTP 长轮询上报。
-		//   - bridge 端每秒巡检会话列表 → 进入会话抓多轮消息 → 一次性 POST 上报
-		//   - 统一收件箱：去重（5min SHA-256 内容 hash）→ 落库 → 触发 AI → 返回回复
-		//   - 优势：0 长连接、0 goroutine、0 重连状态机；MV3 SW 冻结不影响；curl 可测
-		//   - 详细设计见 internal/bridge/handler_http.go
-		// 不要求前端 JWT——账号以 channel+account_id 自证身份（私有化部署单用户场景）。
-		// 仅过 InitGuard（系统须已初始化），不过 JWTAuthMiddleware，故无需在 popup 填 token。
 		bridgeIngressSvc := service.NewInboxIngressService()
-		app.SetBridgeIngressSvc(bridgeIngressSvc) // P1-1：供 app 装配（reach 桥接适配器）读取
+		app.SetBridgeIngressSvc(bridgeIngressSvc) 
 		bridgeHandler := bridge.NewBridgeIngestHandler(bridgeIngressSvc)
 		bridgeWS := r.Group("/api")
 		bridgeWS.Use(middleware.InitGuard())
 		bridgeWS.POST("/bridge/ingest", bridgeHandler.HandleHTTPIngest)
-		// 2026-08-06 架构重构：桥接下发三通道（上报/状态/下发轮询）相互独立。
-		// 通道C·下发轮询：扩展独立拉取待发消息（message_hub status=pending 出站）。
 		bridgeWS.GET("/bridge/outbox", bridgeHandler.GetBridgeOutbox)
-		// 通道B·状态上报：扩展把消息成功转发到网页后确认 delivered（防重复下发）。
 		bridgeWS.POST("/bridge/outbox/ack", bridgeHandler.AckBridgeOutbox)
 
-		// 2026-08-10 渠道网关（channelgw）：WebSocket 传输，与 HTTP 三通道平级。
-		// 共享同一入站管道（InboxIngressService）与同一下发事实源（message_hub outbound pending），
-		// 面向 WebSocket 类渠道客户端（第三方 bot / webchat 中继）。
-		// 鉴权模型与 bridge HTTP 完全一致：InitGuard + channel+account_id 自证身份。
 		channelPipeline := channelgw.NewPipeline(bridgeIngressSvc)
 		channelWSTransport := channelgw.NewWSTransport(channelPipeline, channelgw.Default)
 		bridgeWS.GET("/ws/channel", channelWSTransport.HandleWS)
-		// 桥接 DOM 选择器 LLM 动态生成（解耦硬编码选择器）：前端把脱敏 DOM 快照发来，
-		// 后端用 LLM 生成标准 SelectorSpec 返回，插件缓存执行；未配置 LLM 时返回 enabled=false 回退规则。
 		bridgeWS.POST("/bridge/ai-selectors", bridge.AISelectors)
 
-		// 全链路监控追踪：健康概览/异常/追踪时间线/仪表盘。
-		// 私域部署，沿用 bridge 的 InitGuard 鉴权模型（无需前端 JWT，账号以 channel+account_id 自证）。
 		monitor.RegisterRoutes(bridgeWS)
 
-		// 追踪自学习：手动触发评估 + 打分/权重查询（与 monitor 同 InitGuard 鉴权模型）
 		tlCtrl := controller.NewTraceLearningController(trace_learning.Global())
 		bridgeWS.POST("/monitor/trace-eval/trigger", tlCtrl.TriggerEval)
 		bridgeWS.GET("/monitor/trace-eval/logs", tlCtrl.EvalLogs)
 		bridgeWS.GET("/monitor/knowledge-weights", tlCtrl.KnowledgeWeights)
 
-		// 启动追踪异步落库 worker + 注册工具层 observer（自动采集 agent 多轮/多工具，非阻塞）。
 		tracing.Init(gormDB)
 		tooluse.ToolTraceSink = tracing.ReportToolCall
 
-		// 网页私信桥接账号：持久化 + 归属校验 + 管理路由（抖音/小红书/TikTok）
 		bridgeRepo := bridge.NewBridgeAccountRepository(gormDB)
 		bridge.RegisterBridgeAccountRepo(bridgeRepo)
 		bridge.RegisterOwnershipChecker(func(ctx context.Context, userID uint, channel, accountID string) (bool, error) {
 			acc, err := bridgeRepo.GetByChannelAccount(ctx, channel, accountID)
 			if err == gorm.ErrRecordNotFound || acc == nil {
-				// 尚未注册：允许连接，注册帧会创建并归属到当前用户（G4 防水平越权）
 				return true, nil
 			}
 			if err != nil {
@@ -403,17 +297,11 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		bridgeAccountCtrl := controller.NewBridgeAccountController()
 		bridgeAccountCtrl.RegisterRoutes(auth)
 
-		// 把 AI 触发实现注入桥接入站服务：抖音/小红书/TikTok 新消息经此触发 AI 客服并原路回写扩展
-		// （必须在 setupCustomerServiceRoutes 之后，因为 bridgeIngressSvc 是在其中被创建的）
 		if bridgeIngressSvc != nil && webhookSvc != nil {
 			bridgeIngressSvc.SetAITrigger(webhookSvc)
-			// 反向注入：让 webhookSvc.sendOutbound 复用 bridgeIngressSvc
-			// （拥有 aiTrigger + hubRepo + cache 完整能力，支持 AI 回复后补触发重检查）
 			webhookSvc.SetIngressSvc(bridgeIngressSvc)
 			logger.Infof("[Bridge] bridge AITrigger 已注入（抖音/小红书/TikTok 网页私信 AI 链路已连通）")
 		}
-		// 注入统一收件箱服务：桥接消息落库 message_hub 后同步会话到 inbox_conversations，
-		// 否则 unifiedInbox/list 统一收件箱看不到抖音/小红书/TikTok 网页私信聊天内容。
 		if bridgeIngressSvc != nil {
 			bridgeIngressSvc.SetInboxService(service.NewInboxService())
 			logger.Infof("[Bridge] bridge InboxService 已注入（统一收件箱会话同步已连通）")
@@ -421,187 +309,118 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 			logger.Infof("[Bridge] bridge LeadMining 已注入（线索发掘异步监听已连通）")
 		}
 
-		// 客服 Web Widget 渠道管理（前端 ChatChannel.vue 列表/创建/编辑依赖）
 		setupChatChannelAdminRoutes(auth, gormDB)
 
-		// v1.2 出海多语言方案：术语表管理 + 校验预览
 		setupI18nRoutes(auth, gormDB)
 
-		// 客户事件追踪(CDP)
 		setupEventRoutes(auth)
 
-		// 统一消息管理
 		setupMessageRoutes(auth, gormDB)
 
-		// 平台账号管理
 		setupPlatformAccountRoutes(auth)
 
-		// 企微账号健康度
 		setupWeComHealthRoutes(auth, gormDB)
 
-		// 意图识别
 		setupIntentRoutes(auth, gormDB)
 
-		// 对话记忆
 		setupDialogueMemoryRoutes(auth, gormDB)
 
-		// 触达 Pipeline 框架
 		setupReachPipelineRoutes(auth, gormDB)
 
-		// SOP 智能体
 		setupSOPRoutes(auth, gormDB)
 
-		// LLM 多模型路由
 		setupLLMRoutingRoutes(auth)
 
-		// 缺口修复路由
-		// LLM Provider 降级管理 / 全链路追踪 / SSE 实时驾驶舱
 		setupLLMProviderRoutes(auth)
 		setupTraceRoutes(auth)
 		setupSSEDashboardRoutes(auth)
 
-		// 数据分析 (转化漏斗 + 智能体产能 + 智能体画像)
 		setupAnalyticsRoutes(auth)
 
-		// 异议处理
 		setupObjectionHandlerRoutes(auth)
 
-		// 客户旅程大屏 (G10)
 		setupCustomerJourneyRoutes(auth)
 
-		// 性能压测
 		setupQualityRoutes(auth)
 
-		// 安全审计
 		setupSecurityAuditRoutes(auth, gormDB)
 
-		// 批量操作
 		setupBatchRoutes(auth)
 
-		// AI 内容创作
 		setupAIContentRoutes(auth)
 
-		// 用户分层 RFM
 		setupUserSegmentRoutes(auth)
 
-		// 营销自动化流程
 		setupMarketingFlowRoutes(auth)
 
-		// 自定义报表
 		setupCustomReportRoutes(auth)
 
-		// 数据大屏
 		setupDashboardRoutes(auth, public)
 
-		// 模板市场
 		setupTemplateRoutes(auth)
 
-		// 话术库
 		setupScriptRoutes(auth)
 
-		// A/B 测试
 		setupABTestRoutes(auth)
 
-		// 置信度/拟人度/反馈学习 统一管理 API
 		setupTuningRoutes(auth)
 
-		// 资产市场（平台购买 + 本地同源同构 CRUD）
 		setupAssetMarketRoutes(auth, gormDB)
 
-		// 方向9：资产包模式 — OpenAI messages 资产包 CRUD + Weave 织布算法
 		setupAssetBundleRoutes(auth, gormDB)
 
-		// 流失预警
 		setupChurnRoutes(auth)
 
-		// 第三方对接
 		setupIntegrationRoutes(auth)
 
-		// 社群管理
 		setupCommunityRoutes(auth)
 
-		// 备份恢复
 		setupBackupRoutes(auth)
 
-		// 数据库迁移（原"版本升级"，M3 重命名以避免与 OTA 概念混淆）
 		setupMigrationRoutes(auth, gormDB)
 
-		// 文件上传
-		// controller.UploadFile 是 free function（无 struct 包装），无需工厂方法。
 		auth.POST("/upload", controller.UploadFile)
 
-		// 工具链调试与可观测 API
-		// 端点：/api/agent/tools/{list,get,execute,stats,audit,cost,circuit/reset}
 		setupToolDebugRoutes(auth)
 
-		// 工具权限白名单管理 API（，原本已实现但未装配， 优化激活）
-		// 端点：/api/agent/tools/permission/{default,global,agents}
 		app.SetupToolPermissionRoutes(auth)
 
-		// AI 工具配置管理 API
-		// 端点：/api/ai-tools/{list,get,status,accounts}
 		setupAIToolConfigRoutes(auth, gormDB)
 
-		// 推理闭环 API（，原本已实现但未装配， 优化激活）
-		// 端点：/api/agent/inference/{run,stats}
-		// 注意：initInferenceOrchestrator 必须在 router.Setup 早期调用；
-		// 若未初始化，handleInferenceRun 会返回 503。
 		app.SetupInferenceRoutes(auth)
 
-		// 多 AI 智能体架构（MULTI_AI_AGENT_DESIGN）
-		// 使用提前构建的共享 service 实例，确保 AIAgentService 缓存在所有使用方之间一致
-		// 智能体管理（CRUD + 测试 + 上下文加载）
 		aiAgentCtrl := controller.NewAIAgentControllerWithService(aiAgentSvcGlobal)
 		aiAgentCtrl.SetSalesEngine(engine)
 		aiAgentCtrl.RegisterRoutes(auth)
 
-		// 渠道账号绑定智能体
 		channelBindingCtrl := controller.NewChannelAgentBindingControllerWithService(channelBindingSvcGlobal)
 		channelBindingCtrl.RegisterRoutes(auth)
 
-		// 客服座席挂载智能体
 		csAgentMountCtrl := controller.NewCustomerServiceAgentControllerWithService(csAgentSvcGlobal)
 		csAgentMountCtrl.RegisterRoutes(auth)
 
-		// 前端 API 路径别名（兼容前端调用习惯）
-		// 必须放在所有 setup* 之后，避免更具体的路由被覆盖
 		setupFrontendAliases(auth, r, gormDB)
 	}
 
-	// 多渠道 Webhook 路由（公开，不需要鉴权）
 	webhookCtrl := controller.NewWebhookController(webhookSvc)
-	// WhatsApp Cloud 账号服务注入，用于回调 URL 验证（GET /api/webhook/whatsapp/{id}）
 	webhookCtrl.SetWhatsAppCloudService(whatsappCloudSvc)
-	// 钉钉应用账号服务注入，用于回调验签 + 入站收消息（GET/POST /api/webhook/dingtalk/{id}）
 	webhookCtrl.SetDingTalkAppService(dingtalkAppSvc)
-	// 飞书账号服务注入，用于回调 URL 验证（GET /api/webhook/feishu/{id} 校验 VerificationToken）
 	webhookCtrl.SetFeishuService(service.NewFeishuService(gormDB))
-	// 修复：智能体引擎 8 步链路真实依赖注入
-	// 不再 nil 注入，让 SalesEngine 真正调用 intent/memory/sop/rag/script/customer
 	webhookCtrl.SetSalesEngine(engine)
-	// Phase 3：注入智能体统一编排器（LLM + 客服座席结合体）
-	// Webhook 入站消息优先走 SmartCSOrchestrator.HandleIncoming 9 步编排
 	webhookCtrl.SetSmartOrchestrator(orchestrator)
-	// v1.2 出海方案：注入多语言解析器，供 webhook 入口注入双语言 ctx
 	webhookCtrl.SetLangResolver(langResolver)
 	webhookCtrl.RegisterRoutes(r)
 
-	// 多 AI 智能体路由：注入到 WebhookService（渠道绑定智能体）
 	webhookCtrl.SetAgentBindingService(channelBindingSvcGlobal)
 
-	// 启动期对账：为所有已启用且 webhook 配置齐全的 Telegram 账号重新 setWebhook。
-	// 解决「TG 配置→启动→AI销售」断链：服务器重启 / 域名变更 / UI 新建账号后，
-	// 若不重新注册 webhook，Telegram 不再推送更新，导致全链路静默断裂。
-	// best-effort，外网请求不阻塞启动流程。
 	go service.ReconcileTelegramWebhooks(service.NewTelegramService(gormDB))
 
-	// 平台端路由（需要平台权限）
 	platform := r.Group("/api/platform")
-	platform.Use(middleware.InitGuard()) // 1) 系统必须已初始化
+	platform.Use(middleware.InitGuard()) 
 	platform.Use(middleware.JWTAuthMiddleware())
 	platform.Use(middleware.AdminAuthMiddleware())
-	// 开源版：移除 LicenseGuard 中间件
 	{
 		setupPlatformRoutes(platform, platformCtrl)
 	}
 }
+

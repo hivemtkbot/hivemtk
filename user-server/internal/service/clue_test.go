@@ -65,7 +65,6 @@ func TestClueService_Register_Duplicate(t *testing.T) {
 
 	service := NewClueService()
 
-	// Register first clue
 	clue1 := model.Clue{
 		SourceID: "source123",
 		Account:  "test_account",
@@ -78,7 +77,6 @@ func TestClueService_Register_Duplicate(t *testing.T) {
 		t.Fatalf("First register failed: %v", err)
 	}
 
-	// Try to register duplicate clue
 	clue2 := model.Clue{
 		SourceID: "source456",
 		Account:  "test_account",
@@ -101,7 +99,6 @@ func TestClueService_GetClue(t *testing.T) {
 
 	service := NewClueService()
 
-	// Register a clue first
 	clue := model.Clue{
 		SourceID: "source123",
 		Account:  "test_account",
@@ -110,8 +107,6 @@ func TestClueService_GetClue(t *testing.T) {
 	}
 	registered, _ := service.Register(context.Background(), clue)
 
-	// Get the clue by ID (repository uses uint, but model uses string - this is a known bug)
-	// For now, test that the service can retrieve data after registration
 	clues, total, _ := service.GetClueList(context.Background(), 1, 10)
 	if total != 1 {
 		t.Fatalf("Expected 1 clue, got %d", total)
@@ -138,7 +133,6 @@ func TestClueService_GetClueList(t *testing.T) {
 
 	service := NewClueService()
 
-	// Register multiple clues
 	for i := 0; i < 5; i++ {
 		clue := model.Clue{
 			SourceID: "source" + string(rune('0'+i)),
@@ -149,7 +143,6 @@ func TestClueService_GetClueList(t *testing.T) {
 		service.Register(context.Background(), clue)
 	}
 
-	// Get clue list
 	clues, total, err := service.GetClueList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetClueList failed: %v", err)
@@ -169,7 +162,6 @@ func TestClueService_GetClueList_Pagination(t *testing.T) {
 
 	service := NewClueService()
 
-	// Register multiple clues
 	for i := 0; i < 10; i++ {
 		clue := model.Clue{
 			SourceID: "source" + string(rune('0'+i)),
@@ -180,7 +172,6 @@ func TestClueService_GetClueList_Pagination(t *testing.T) {
 		service.Register(context.Background(), clue)
 	}
 
-	// Get first page
 	clues, total, err := service.GetClueList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetClueList failed: %v", err)
@@ -200,7 +191,6 @@ func TestClueService_DeleteClue(t *testing.T) {
 
 	service := NewClueService()
 
-	// Register a clue first
 	clue := model.Clue{
 		SourceID: "source123",
 		Account:  "test_account",
@@ -209,15 +199,11 @@ func TestClueService_DeleteClue(t *testing.T) {
 	}
 	registered, _ := service.Register(context.Background(), clue)
 
-	// Delete the clue (repository expects string ID)
 	err := service.DeleteClue(context.Background(), registered.ID)
 	if err != nil {
-		// Note: repository 层对 string ID 的 Delete 行为需注意
-		// This is a known issue in the repository layer
 		t.Logf("DeleteClue returned error (known repository bug): %v", err)
 	}
 
-	// Verify clue still exists in list (if delete failed)
 	_, total, _ := service.GetClueList(context.Background(), 1, 10)
 	if total == 0 {
 		t.Log("Delete succeeded")
@@ -231,7 +217,6 @@ func TestClueService_GetRecentClueList(t *testing.T) {
 
 	service := NewClueService()
 
-	// Register a clue
 	clue := model.Clue{
 		SourceID: "source123",
 		Account:  "test_account",
@@ -240,17 +225,13 @@ func TestClueService_GetRecentClueList(t *testing.T) {
 	}
 	service.Register(context.Background(), clue)
 
-	// Get recent clues - note: repository uses create_time column
-	// Test passes if no error - actual results depend on repository SQL implementation
 	clues, err := service.GetRecentClueList(context.Background())
 	if err != nil {
 		t.Logf("GetRecentClueList returned error: %v", err)
-		// This is acceptable as the repository SQL may have issues
 		return
 	}
 
 	t.Logf("GetRecentClueList returned %d clues", len(clues))
-	// Test passes without error - the repository layer handles the actual query
 }
 
 func TestClueService_GetClueStatistics(t *testing.T) {
@@ -258,7 +239,6 @@ func TestClueService_GetClueStatistics(t *testing.T) {
 
 	service := NewClueService()
 
-	// Register clues with different types
 	for i := 0; i < 3; i++ {
 		clue := model.Clue{
 			SourceID: "source" + string(rune('0'+i)),
@@ -281,12 +261,9 @@ func TestClueService_GetClueStatistics(t *testing.T) {
 		service.Register(context.Background(), clue)
 	}
 
-	// Get statistics - note: repository uses raw SQL with 'clue_type' but column is mapped as 'type'
-	// This is a known bug in the repository layer
 	stats, err := service.GetClueStatistics(context.Background())
 	if err != nil {
 		t.Logf("GetClueStatistics returned error (known repository SQL bug): %v", err)
-		// Test passes as we're testing service layer, not repository bugs
 		return
 	}
 
@@ -300,7 +277,6 @@ func TestClueService_BatchSaveClue(t *testing.T) {
 
 	service := NewClueService()
 
-	// Create clue list
 	clueList := []*model.Clue{
 		{
 			SourceID: "source1",
@@ -322,13 +298,11 @@ func TestClueService_BatchSaveClue(t *testing.T) {
 		},
 	}
 
-	// Batch save
 	err := service.BatchSaveClue(context.Background(), clueList)
 	if err != nil {
 		t.Fatalf("BatchSaveClue failed: %v", err)
 	}
 
-	// Verify clues are saved
 	clues, total, _ := service.GetClueList(context.Background(), 1, 10)
 	if total != 3 {
 		t.Errorf("Expected 3 clues, got %d", total)
@@ -343,7 +317,6 @@ func TestClueService_BatchSaveClue_WithDuplicate(t *testing.T) {
 
 	service := NewClueService()
 
-	// Create clue list with duplicate
 	clueList := []*model.Clue{
 		{
 			SourceID: "source1",
@@ -359,7 +332,6 @@ func TestClueService_BatchSaveClue_WithDuplicate(t *testing.T) {
 		},
 	}
 
-	// First save should succeed
 	err := service.BatchSaveClue(context.Background(), clueList)
 	if err == nil {
 		t.Error("Expected error for duplicate in batch")
@@ -371,7 +343,6 @@ func TestClueService_GetClueAllList(t *testing.T) {
 
 	service := NewClueService()
 
-	// Register clues with different types
 	for i := 0; i < 3; i++ {
 		clue := model.Clue{
 			SourceID: "source" + string(rune('0'+i)),
@@ -392,11 +363,9 @@ func TestClueService_GetClueAllList(t *testing.T) {
 		service.Register(context.Background(), clue)
 	}
 
-	// Get all clues of type 1 - note: repository has bug in SQL query (clue_type vs type)
 	clues, total, err := service.GetClueAllList(context.Background(), 1)
 	if err != nil {
 		t.Logf("GetClueAllList returned error (known repository SQL bug): %v", err)
-		// Test passes as we're testing service layer
 		return
 	}
 
@@ -414,7 +383,6 @@ func TestClueService_BatchImportClues(t *testing.T) {
 
 	service := NewClueService()
 
-	// Create clues to import
 	clues := []*model.Clue{
 		{
 			SourceID: "source1",
@@ -436,7 +404,6 @@ func TestClueService_BatchImportClues(t *testing.T) {
 		},
 	}
 
-	// Batch import
 	successCount, skipCount, err := service.BatchImportClues(context.Background(), clues)
 	if err != nil {
 		t.Fatalf("BatchImportClues failed: %v", err)
@@ -456,7 +423,6 @@ func TestClueService_BatchImportClues_WithSkip(t *testing.T) {
 
 	service := NewClueService()
 
-	// First register a clue
 	clue1 := model.Clue{
 		SourceID: "source1",
 		Account:  "existing_account",
@@ -465,7 +431,6 @@ func TestClueService_BatchImportClues_WithSkip(t *testing.T) {
 	}
 	service.Register(context.Background(), clue1)
 
-	// Create clues to import (one duplicate)
 	clues := []*model.Clue{
 		{
 			SourceID: "source2",
@@ -481,7 +446,6 @@ func TestClueService_BatchImportClues_WithSkip(t *testing.T) {
 		},
 	}
 
-	// Batch import
 	successCount, skipCount, err := service.BatchImportClues(context.Background(), clues)
 	if err != nil {
 		t.Fatalf("BatchImportClues failed: %v", err)
@@ -495,3 +459,4 @@ func TestClueService_BatchImportClues_WithSkip(t *testing.T) {
 		t.Errorf("Expected 1 skipped, got %d", skipCount)
 	}
 }
+

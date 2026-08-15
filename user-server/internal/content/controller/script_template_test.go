@@ -58,7 +58,6 @@ func TestScriptTemplateController_GetTemplateList_NoAuth(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 当前 GetTemplateList 实现未做 user_id 鉴权,直接查询并返回 200
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected 200, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -88,12 +87,9 @@ func TestScriptTemplateController_CreateTemplate_NoAuth(t *testing.T) {
 	ctrl := NewScriptTemplateController()
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	// CreateTemplate 在 ctx 未设置 user_id 时会因 userID.(uint) 断言而 panic
-	// 添加 Recovery 中间件以把 panic 转化为 500 响应
 	router.Use(gin.Recovery())
 	router.POST("/scripts", ctrl.CreateTemplate)
 
-	// 必须传入完整有效 body 才能让请求通过参数校验并进入 userID.(uint) 断言
 	body, _ := json.Marshal(map[string]string{
 		"category": "test",
 		"title":    "test",
@@ -104,7 +100,6 @@ func TestScriptTemplateController_CreateTemplate_NoAuth(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 当前 CreateTemplate 实现中 userID.(uint) 在 nil 时会 panic,经 Recovery 转为 500
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 500 (panic on nil user_id), got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -244,7 +239,6 @@ func TestScriptTemplateController_RecommendScript_NoAuth(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 当前 RecommendScript 实现未做 user_id 鉴权,直接走 service 返回 200
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected 200, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -316,3 +310,4 @@ func TestScriptTemplateController_DeleteTemplate_Success(t *testing.T) {
 		t.Errorf("Expected 200, got %d. Body: %s", deleteW.Code, deleteW.Body.String())
 	}
 }
+

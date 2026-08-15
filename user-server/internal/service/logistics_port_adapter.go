@@ -6,18 +6,6 @@ import (
 	"hivemtk-user/internal/aiagent/agent/portcontract"
 )
 
-// ============================================================================
-// 物流端口适配器
-//
-// 聚合两个来源：
-//   1. 本地订单镜像（portcontract.OrderPort）→ 发货状态兜底（永远可用）
-//   2. 外部快递 API（portcontract.CourierClient）→ 实时轨迹（可选配，配置来自数据库）
-//
-// 实时快递接口的凭证/基地址来自数据库 system_config_kv[agent.tool_integrations].logistics
-// （见 tool_integration_config.go），每次 Track 按需从 DB 读取并构造客户端，因此后台写入
-// 配置后立即对新请求生效，无需重启。即使两个来源都不可用，也返回结构化结果 + Notice，
-// 绝不报错中断对话。
-// ============================================================================
 
 // LogisticsPortAdapter 物流端口适配器实现 portcontract.LogisticsPort
 type LogisticsPortAdapter struct {
@@ -45,7 +33,6 @@ func (a *LogisticsPortAdapter) Track(ctx context.Context, req *portcontract.Logi
 		Carrier:    req.Carrier,
 	}
 
-	// 1. 关联本地订单镜像，拿到发货状态（兜底，永远可用）
 	if req.Platform != "" && req.OrderID != "" && a.order != nil {
 		if v, err := a.order.LookupByOrderID(ctx, req.Platform, req.OrderID); err == nil && v != nil {
 			res.Found = true
@@ -54,7 +41,6 @@ func (a *LogisticsPortAdapter) Track(ctx context.Context, req *portcontract.Logi
 		}
 	}
 
-	// 2. 实时快递轨迹（可选配，凭证来自数据库；按请求按需构造，保存配置即生效）
 	if req.TrackingNo != "" {
 		if courier := a.resolveCourier(ctx); courier != nil {
 			res.Configured = true
@@ -66,7 +52,6 @@ func (a *LogisticsPortAdapter) Track(ctx context.Context, req *portcontract.Logi
 		}
 	}
 
-	// 3. 友好提示：未拿到实时轨迹时说明原因
 	if !res.Realtime && !res.Configured {
 		res.Notice = "当前未配置实时快递接口，仅返回本地订单发货状态。" +
 			"在后台「工具集成配置」中填写物流接口 base_url 后可查询实时物流轨迹。"
@@ -76,3 +61,4 @@ func (a *LogisticsPortAdapter) Track(ctx context.Context, req *portcontract.Logi
 
 	return res, nil
 }
+

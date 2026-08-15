@@ -144,3 +144,4 @@ admin_password: "${TEST_PLATFORM_ADMIN_PW}"
 		t.Errorf("Expected AdminPassword 'env_injected_password', got %s", PlatformCfg.AdminPassword)
 	}
 }
+

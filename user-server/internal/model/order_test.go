@@ -45,7 +45,6 @@ func TestOrder_WithEmptyID(t *testing.T) {
 		ID:    "",
 	}
 
-	// ID should be empty before BeforeCreate is called
 	if order.ID != "" {
 		t.Errorf("Expected empty ID before BeforeCreate, got %s", order.ID)
 	}
@@ -131,7 +130,6 @@ func TestOrder_BeforeCreate(t *testing.T) {
 		Price: "99.00",
 	}
 
-	// BeforeCreate should generate an ID
 	err := order.BeforeCreate(nil)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -139,8 +137,8 @@ func TestOrder_BeforeCreate(t *testing.T) {
 	if order.ID == "" {
 		t.Error("Expected non-empty ID after BeforeCreate")
 	}
-	// Verify it's a valid UUID format
 	if len(order.ID) != 36 {
 		t.Errorf("Expected ID length 36 (UUID), got %d", len(order.ID))
 	}
 }
+

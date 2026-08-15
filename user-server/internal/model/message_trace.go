@@ -50,7 +50,6 @@ type MessageTrace struct {
 	Status         string `gorm:"type:varchar(20);index" json:"status"`
 	Abnormal       string `gorm:"type:text" json:"abnormal"`
 	Error          string `gorm:"type:text" json:"error"`
-	// 层级字段（见上方说明）
 	ParentNode string    `gorm:"type:varchar(40);index:idx_mt_parent;default:''" json:"parent_node"`
 	SpanKind   string    `gorm:"type:varchar(20);index:idx_mt_kind;default:'lifecycle'" json:"span_kind"`
 	TurnIndex  int       `gorm:"index:idx_mt_turn;default:0" json:"turn_index"`
@@ -63,9 +62,9 @@ func (MessageTrace) TableName() string { return "message_trace" }
 
 // 层级 span 种类常量
 const (
-	SpanKindLifecycle = "lifecycle"  // 生命周期节点（ingest/ai_dispatch/...）
-	SpanKindAgentTurn = "agent_turn" // agent 一轮 LLM 推理 + 工具编排
-	SpanKindToolCall  = "tool_call"  // 单次工具调用
+	SpanKindLifecycle = "lifecycle"  
+	SpanKindAgentTurn = "agent_turn" 
+	SpanKindToolCall  = "tool_call"  
 )
 
 // 层级 span 节点名（挂在 ai_dispatch 之下）
@@ -73,3 +72,4 @@ const (
 	NodeAgentTurn = "agent_turn"
 	NodeToolCall  = "tool_call"
 )
+

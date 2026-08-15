@@ -57,7 +57,6 @@ func TestDingTalkSendRobot_AccessTokenOnly(t *testing.T) {
 	srv := dingtalkTestServer(t, 0, nil)
 	defer srv.Close()
 
-	// 仅传 access_token：临时把 base 指向 mock server，验证自动拼接逻辑（不触达真实网络）
 	orig := dingtalkRobotBase
 	dingtalkRobotBase = srv.URL
 	defer func() { dingtalkRobotBase = orig }()
@@ -74,7 +73,6 @@ func TestDingTalkSendRobot_WithSign(t *testing.T) {
 	defer srv.Close()
 
 	svc := NewDingTalkService()
-	// webhook|secret 形式携带加签密钥
 	if _, err := svc.SendRobot(context.Background(), srv.URL+"|my-secret", "", "text", "signed"); err != nil {
 		t.Fatalf("带签名发送失败: %v", err)
 	}
@@ -101,10 +99,9 @@ func TestDingTalkSendRobot_MissingWebhook(t *testing.T) {
 }
 
 func TestIntegrationReachAdapter_SendDingTalk_NilService(t *testing.T) {
-	// 独立的适配器接线测试见 internal/aiagent/agent/tooluse 包（可访问私有字段）。
-	// 此处仅校验 DingTalkService 零值不会 nil panic（生产由 NewIntegrationReachAdapterFromDB 注入）。
 	svc := &DingTalkService{}
 	if _, err := svc.SendRobot(context.Background(), "", "", "text", "x"); err == nil {
 		t.Fatal("空 webhook 应返回错误（零值服务不应 panic）")
 	}
 }
+

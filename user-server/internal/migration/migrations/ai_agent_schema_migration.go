@@ -11,17 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ============================================================================
-// 多 AI 智能体架构数据库迁移
-// ----------------------------------------------------------------------------
-// 创建三张表：
-//  1. ai_agents              - AI 智能体主表
-//  2. channel_agent_bindings - 渠道账号 ↔ 智能体绑定
-//  3. customer_service_agents - 客服座席 ↔ 智能体挂载
-//
-// 设计文档：docs/sales-champion/MULTI_AI_AGENT_DESIGN.md
-// 私域独立部署：无 merchant_id 字段
-// ============================================================================
 
 // AIAgentSchemaMigration 多 AI 智能体架构迁移
 type AIAgentSchemaMigration struct {
@@ -50,17 +39,14 @@ func (m *AIAgentSchemaMigration) Description() string {
 
 // Up 执行迁移
 func (m *AIAgentSchemaMigration) Up(ctx context.Context) error {
-	// 1. 创建 ai_agents 表（使用 AutoMigrate 让 GORM 处理 PostgreSQL 数组类型）
 	if err := m.db.AutoMigrate(&model.AIAgent{}); err != nil {
 		return fmt.Errorf("migrate ai_agents failed: %w", err)
 	}
 
-	// 2. 创建 channel_agent_bindings 表
 	if err := m.db.AutoMigrate(&model.ChannelAgentBinding{}); err != nil {
 		return fmt.Errorf("migrate channel_agent_bindings failed: %w", err)
 	}
 
-	// 3. 创建 customer_service_agents 表
 	if err := m.db.AutoMigrate(&model.CustomerServiceAgent{}); err != nil {
 		return fmt.Errorf("migrate customer_service_agents failed: %w", err)
 	}
@@ -80,7 +66,6 @@ func (m *AIAgentSchemaMigration) Up(ctx context.Context) error {
 			Status:      1,
 		}
 		if err := m.db.Create(defaultAgent).Error; err != nil {
-			// 忽略重复创建错误
 			logger.Errorf("[migration] create default ai_agent warning: %v", err)
 		}
 	}
@@ -90,7 +75,6 @@ func (m *AIAgentSchemaMigration) Up(ctx context.Context) error {
 
 // Down 回滚
 func (m *AIAgentSchemaMigration) Down(ctx context.Context) error {
-	// 注意：按依赖顺序反向删除
 	if m.db.Migrator().HasTable("customer_service_agents") {
 		_ = m.db.Migrator().DropTable("customer_service_agents")
 	}
@@ -105,3 +89,4 @@ func (m *AIAgentSchemaMigration) Down(ctx context.Context) error {
 
 // 编译期接口断言
 var _ migration.Migration = (*AIAgentSchemaMigration)(nil)
+

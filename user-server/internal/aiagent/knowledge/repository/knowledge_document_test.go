@@ -1,11 +1,5 @@
 package repository
 
-// knowledge_document_test.go 知识库文档 Repository 智能体隔离测试
-//
-// 知识库隔离架构: 验证 ListByAgent / ListShared / ListByKB / MatchByAgent
-// 与 ListFilter.AgentID 过滤的语义正确性。
-//
-// 使用 testutil.NewTestDB 跑 PG 真实库 (项目唯一允许的测试 DB 模式)
 
 import (
 	"context"
@@ -58,7 +52,6 @@ func TestKnowledgeDocumentRepository_AgentIsolation_ListByAgent(t *testing.T) {
 		}
 	}
 
-	// ListByAgent(agentA) 应返回 2 条 (不含 shared 和 agentB)
 	got, err := repo.ListByAgent(ctx, agentA, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +60,6 @@ func TestKnowledgeDocumentRepository_AgentIsolation_ListByAgent(t *testing.T) {
 		t.Errorf("ListByAgent(agentA) expected 2, got %d", len(got))
 	}
 
-	// ListByAgent(agentB) 应返回 1 条
 	got, err = repo.ListByAgent(ctx, agentB, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -76,7 +68,6 @@ func TestKnowledgeDocumentRepository_AgentIsolation_ListByAgent(t *testing.T) {
 		t.Errorf("ListByAgent(agentB) expected 1, got %d", len(got))
 	}
 
-	// ListByAgent(0) 应返回 nil
 	got, err = repo.ListByAgent(ctx, 0, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -103,7 +94,6 @@ func TestKnowledgeDocumentRepository_AgentIsolation_ListShared(t *testing.T) {
 		}
 	}
 
-	// ListShared 应返回 2 条
 	got, err := repo.ListShared(ctx, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -130,7 +120,6 @@ func TestKnowledgeDocumentRepository_AgentIsolation_ListByKB(t *testing.T) {
 		}
 	}
 
-	// ListByKB(kbID=1, agentID=agentA) 应仅 agentA 的 (2 条)
 	got, err := repo.ListByKB(ctx, 1, agentA, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -158,7 +147,6 @@ func TestKnowledgeDocumentRepository_AgentIsolation_MatchByAgent(t *testing.T) {
 		}
 	}
 
-	// MatchByAgent(agentA) 应仅返回 agentA 文档 (1 条, 不含 shared)
 	got, err := repo.MatchByAgent(ctx, agentA, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -170,7 +158,6 @@ func TestKnowledgeDocumentRepository_AgentIsolation_MatchByAgent(t *testing.T) {
 		t.Errorf("expected agentA's own doc, got %v", got[0].AgentID)
 	}
 
-	// agentID=0 应返回 nil
 	got, err = repo.MatchByAgent(ctx, 0, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -197,7 +184,6 @@ func TestKnowledgeDocumentRepository_AgentIsolation_ListWithFilter(t *testing.T)
 		}
 	}
 
-	// AgentID=&0 -> 仅共享 (1 条)
 	agentZero := uint(0)
 	got, _, err := repo.List(ctx, ListFilter{AgentID: &agentZero, Page: 1, PageSize: 100})
 	if err != nil {
@@ -207,7 +193,6 @@ func TestKnowledgeDocumentRepository_AgentIsolation_ListWithFilter(t *testing.T)
 		t.Errorf("List AgentID=&0 expected 1 (shared), got %d", len(got))
 	}
 
-	// AgentID=&10 -> 仅 agentA (2 条)
 	got, _, err = repo.List(ctx, ListFilter{AgentID: &agentA, Page: 1, PageSize: 100})
 	if err != nil {
 		t.Fatal(err)
@@ -216,7 +201,6 @@ func TestKnowledgeDocumentRepository_AgentIsolation_ListWithFilter(t *testing.T)
 		t.Errorf("List AgentID=&10 expected 2, got %d", len(got))
 	}
 
-	// 不传 AgentID -> 全部 (3 条)
 	got, _, err = repo.List(ctx, ListFilter{Page: 1, PageSize: 100})
 	if err != nil {
 		t.Fatal(err)
@@ -225,3 +209,4 @@ func TestKnowledgeDocumentRepository_AgentIsolation_ListWithFilter(t *testing.T)
 		t.Errorf("List no AgentID expected 3, got %d", len(got))
 	}
 }
+

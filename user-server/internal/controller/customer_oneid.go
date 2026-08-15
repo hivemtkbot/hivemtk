@@ -97,7 +97,7 @@ func (c *CustomerOneIDController) ListConflicts(ctx *gin.Context) {
 type ResolveConflictRequest struct {
 	PrimaryID   string `json:"primary_id" binding:"required"`
 	SecondaryID string `json:"secondary_id" binding:"required"`
-	Action      string `json:"action"` // merge（默认）/ ignore
+	Action      string `json:"action"` 
 }
 
 // ResolveConflict 解决身份冲突
@@ -144,7 +144,6 @@ func (c *CustomerOneIDController) GetIdentityMappings(ctx *gin.Context) {
 		response.NotFound(ctx, "客户不存在")
 		return
 	}
-	// 构建身份映射详情：列出所有已绑定的身份标识及其来源
 	identities := []gin.H{}
 	if customer.Phone != "" {
 		identities = append(identities, gin.H{"type": "phone", "value": customer.Phone, "source": "手机号"})
@@ -199,7 +198,6 @@ func (c *CustomerOneIDController) ResolveIdentity(ctx *gin.Context) {
 		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
-	// 计算归一化后的标识（不直接创建，让前端决定是否要创建）
 	normalized := identity.Identifiers{
 		Phone:         identity.NormalizePhone(identifiers.Phone),
 		Email:         identity.NormalizeEmail(identifiers.Email),
@@ -262,3 +260,4 @@ func parsePageSize(s string, def int) int {
 	}
 	return n
 }
+

@@ -59,8 +59,6 @@ func (pc *PlatformController) platformCall(c *gin.Context, method, path string, 
 		Data json.RawMessage `json:"data"`
 	}
 	if err := pc.platformClient.Do(method, path, req, &wrapper); err != nil {
-		// 按结构化 *platform.PlatformError 的状态码分支，废弃脆弱的
-		// strings.Contains(err, "404"/"400") 字符串匹配。
 		if perr, ok := err.(*platform.PlatformError); ok {
 			switch perr.StatusCode {
 			case http.StatusNotFound, http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden:
@@ -74,7 +72,6 @@ func (pc *PlatformController) platformCall(c *gin.Context, method, path string, 
 		return
 	}
 
-	// 仅当平台返回了 data 层时才二次解析；无 data（如空 success）则保留 resp 零值。
 	if len(wrapper.Data) > 0 && string(wrapper.Data) != "null" {
 		if err := json.Unmarshal(wrapper.Data, resp); err != nil {
 			response.Error(c, http.StatusBadGateway, errMsg+": 响应解析失败: "+err.Error())
@@ -90,13 +87,7 @@ func (pc *PlatformController) platformCall(c *gin.Context, method, path string, 
 	response.Success(c, resp, "获取成功")
 }
 
-// =============================================================================
-// 保留不变的方法(已正确实现)
-// =============================================================================
 
-// =============================================================================
-// 平台 API 代理方法(真实 HTTP 调用)
-// =============================================================================
 
 func (pc *PlatformController) RegisterMerchant(c *gin.Context) {
 	var req struct {
@@ -228,7 +219,6 @@ func (pc *PlatformController) GetLatestMessage(c *gin.Context) {
 		List []map[string]any `json:"list"`
 	}
 	path := "/platform/message/list?page=1&page_size=1"
-	// 复用 platformCall（已剥离平台响应 data 层），避免顶层解析为空。
 	pc.platformCall(c, http.MethodGet, path, nil, &resp, "获取最新站内信失败")
 	if len(resp.List) > 0 {
 		response.Success(c, resp.List[0], "")
@@ -324,3 +314,4 @@ func (pc *PlatformController) GetPlatformMerchantStats(c *gin.Context) {
 	path := fmt.Sprintf("/platform/stats/merchant?days=%s", days)
 	pc.platformCall(c, "GET", path, nil, &resp, "获取商户统计失败")
 }
+

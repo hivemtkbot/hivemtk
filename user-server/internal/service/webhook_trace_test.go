@@ -22,14 +22,12 @@ func TestTraceID_InheritanceWebhookRouteCtx(t *testing.T) {
 	const upstreamTraceID = "tr-upstream-001"
 	parent := trace.NewContextWithTraceID(context.Background(), upstreamTraceID)
 
-	// 模拟 triggerSmartOrchestrator 的 routeCtx 构造逻辑
 	routeCtx := context.Background()
 	if parentTraceID := trace.TraceIDFromContext(parent); parentTraceID != "" {
 		routeCtx = trace.NewContextWithTraceID(routeCtx, parentTraceID)
 	}
 	routeCtx = logger.WithModule(routeCtx, "webhook")
 
-	// 验证：routeCtx 应携带与 parent 一致的 trace_id
 	if got := trace.TraceIDFromContext(routeCtx); got != upstreamTraceID {
 		t.Fatalf("routeCtx trace_id mismatch: want=%q got=%q", upstreamTraceID, got)
 	}
@@ -45,14 +43,11 @@ func TestTraceID_InheritanceRunAIGenerationCtx(t *testing.T) {
 	const upstreamTraceID = "tr-upstream-002"
 	upstream := trace.NewContextWithTraceID(context.Background(), upstreamTraceID)
 
-	// 模拟 runAIGeneration 内部 ctx 构造逻辑
 	parentCtx := context.Background()
 	if parentTraceID := trace.TraceIDFromContext(upstream); parentTraceID != "" {
 		parentCtx = trace.NewContextWithTraceID(parentCtx, parentTraceID)
 	}
-	// 注：原代码用 context.WithTimeout(context.Background(), 30s) 然后 logger.WithTraceID(ctx, "")
-	// 现修复为基于继承的 parentCtx
-	ctx, cancel := context.WithTimeout(parentCtx, 30*1000*1000*1000) // 30s
+	ctx, cancel := context.WithTimeout(parentCtx, 30*1000*1000*1000) 
 	defer cancel()
 	ctx = logger.WithModule(ctx, "webhook")
 
@@ -64,16 +59,16 @@ func TestTraceID_InheritanceRunAIGenerationCtx(t *testing.T) {
 // TestTraceID_AutoGenerateWhenMissing 验证上游无 trace_id 时自动生成新 ID，
 // 保证可观测性不丢。
 func TestTraceID_AutoGenerateWhenMissing(t *testing.T) {
-	upstream := context.Background() // 无 trace_id
+	upstream := context.Background() 
 
 	parentCtx := context.Background()
 	if parentTraceID := trace.TraceIDFromContext(upstream); parentTraceID != "" {
 		parentCtx = trace.NewContextWithTraceID(parentCtx, parentTraceID)
 	} else {
-		// 上游缺失：让 WithTraceID 自动生成
 		parentCtx = logger.WithTraceID(parentCtx, "")
 	}
 	if got := trace.TraceIDFromContext(parentCtx); got == "" {
 		t.Fatal("auto-generated trace_id should not be empty")
 	}
 }
+

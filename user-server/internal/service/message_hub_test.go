@@ -49,9 +49,6 @@ func newReq() PushMessageRequest {
 	}
 }
 
-// ===========================================
-// 1. ValidPlatform / ValidMsgType / ValidDirection
-// ===========================================
 
 func TestValidPlatform_Supported(t *testing.T) {
 	for _, p := range []string{"wecom", "personal_wx", "douyin", "kuaishou", "xiaohongshu", "xianyu", "tiktok", "whatsapp", "sms", "email"} {
@@ -115,12 +112,7 @@ func TestListMsgTypes(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 2. Normalize 校验
-// ===========================================
 
-// 单租户：删除 - merchant_id 已不再使用
-// (原 TestNormalize_EmptyMerchant 已移除)
 
 func TestNormalize_InvalidPlatform(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -264,9 +256,6 @@ func TestNormalize_AllPlatforms(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 3. Idempotency
-// ===========================================
 
 func TestIdempotencyKey_Stable(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -332,9 +321,6 @@ func TestCheckIdempotent_DifferentAccount(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 4. Push 推送
-// ===========================================
 
 func TestPush_Success(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -346,7 +332,6 @@ func TestPush_Success(t *testing.T) {
 	if msg.ID == 0 {
 		t.Error("expected non-zero id")
 	}
-	// 单租户：merchant_id 已不再使用
 }
 
 func TestPush_DuplicateError(t *testing.T) {
@@ -381,7 +366,6 @@ func TestPush_QueueAfterDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("push: %v", err)
 	}
-	// 队列中应该有
 	if size := svc.Size(context.Background(), "wecom", req.AccountID); size < 1 {
 		t.Errorf("expected queue size >= 1, got %d", size)
 	}
@@ -395,8 +379,6 @@ func TestPush_QueueFull(t *testing.T) {
 		req.MsgID = fmt.Sprintf("full-%d", i)
 		_, _ = svc.Push(context.Background(), &req)
 	}
-	// 第四个应该报队列满（至少有一个会被 Push 失败）
-	// 注意 DB 入库成功后入队失败不会回滚 DB
 }
 
 func TestPushBatch_AllSuccess(t *testing.T) {
@@ -435,16 +417,10 @@ func TestPushBatch_PartialError(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 5. List 查询
-// ===========================================
 
-// 单租户：删除 - merchant_id 已不再使用
-// (原 TestList_EmptyMerchant 已移除)
 
 func TestList_DefaultPage(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
-	// 推送 25 条
 	for i := 0; i < 25; i++ {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("list-%d", i)
@@ -523,7 +499,6 @@ func TestList_FilterKeyword(t *testing.T) {
 	r2.Content = "你好世界"
 	r2.MsgID = "kw2"
 	_, _ = svc.Push(context.Background(), &r2)
-	// 测试 GORM Raw 关键词陷阱：用含中文的 keyword 仍能工作（用 Contains）
 	_, total, _ := svc.List(context.Background(), ListQuery{Keyword: "hello"})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
@@ -603,12 +578,10 @@ func TestList_OrderBy(t *testing.T) {
 		r.MsgID = fmt.Sprintf("ord-%d", i)
 		_, _ = svc.Push(context.Background(), &r)
 	}
-	// 合法 order by
 	_, _, err := svc.List(context.Background(), ListQuery{OrderBy: "sent_at ASC"})
 	if err != nil {
 		t.Errorf("expected no error for valid order by, got %v", err)
 	}
-	// 非法 order by 应被忽略
 	_, _, err = svc.List(context.Background(), ListQuery{OrderBy: "DROP TABLE"})
 	if err != nil {
 		t.Errorf("expected no error for invalid order by (whitelist), got %v", err)
@@ -647,9 +620,6 @@ func TestList_FilterSenderID(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 6. GetByID
-// ===========================================
 
 func TestGetByID_NotFound(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -662,8 +632,6 @@ func TestGetByID_NotFound(t *testing.T) {
 	}
 }
 
-// 单租户：删除 - merchant_id 已不再使用
-// (原 TestGetByID_DifferentMerchant 已移除)
 
 func TestGetByID_Success(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -678,9 +646,6 @@ func TestGetByID_Success(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 7. MarkRead
-// ===========================================
 
 func TestMarkRead_SingleID(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -725,12 +690,7 @@ func TestMarkRead_EmptyIDs(t *testing.T) {
 	}
 }
 
-// 单租户：删除 - merchant_id 已不再使用，所有消息共享同一存储
-// (原 TestMarkRead_CrossMerchant 已移除)
 
-// ===========================================
-// 8. Stats 统计
-// ===========================================
 
 func TestStats_Empty(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -851,9 +811,6 @@ func TestStats_TimeRange(t *testing.T) {
 // ptrTime 构造 *time.Time（原定义在 performance_test_service.go，该文件已移除）
 func ptrTime(t time.Time) *time.Time { return &t }
 
-// ===========================================
-// 9. Consume / Peek / Size 队列
-// ===========================================
 
 func TestConsume_EmptyPartition(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -868,7 +825,6 @@ func TestConsume_EmptyPartition(t *testing.T) {
 
 func TestConsume_OrderBySentAt(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
-	// 倒序插入
 	for i := 3; i >= 0; i-- {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("ord-c-%d", i)
@@ -928,9 +884,6 @@ func TestSize_Empty(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 10. ConvertFromChannel
-// ===========================================
 
 func TestConvertFromChannel_Basic(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -991,9 +944,6 @@ func TestConvertFromChannel_AllPlatforms(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 11. Marshal / Unmarshal
-// ===========================================
 
 func TestMarshalUnmarshal(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -1026,9 +976,6 @@ func TestUnmarshal_InvalidJSON(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 12. Subscriber 通知
-// ===========================================
 
 type testSub struct {
 	mu     sync.Mutex
@@ -1065,7 +1012,6 @@ func TestSubscriber_ReceivesAll(t *testing.T) {
 		r.MsgID = fmt.Sprintf("sub-%d", i)
 		_, _ = svc.Push(context.Background(), &r)
 	}
-	// 等待 goroutine 完成
 	time.Sleep(100 * time.Millisecond)
 	if sub.Count() < 1 {
 		t.Errorf("expected subscriber to receive messages, got %d", sub.Count())
@@ -1090,9 +1036,6 @@ func TestSubscriber_Filtered(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 13. GenerateMsgID
-// ===========================================
 
 func TestGenerateMsgID_Unique(t *testing.T) {
 	seen := make(map[string]bool)
@@ -1116,9 +1059,6 @@ func TestGenerateMsgID_Format(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 14. Builder/Fluent
-// ===========================================
 
 func TestWithIdemTTL(t *testing.T) {
 	svc := NewMessageHubServiceWithDB(nil, cache.NewMemoryCache())
@@ -1144,13 +1084,9 @@ func TestWithQueueSize(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 15. 并发测试
-// ===========================================
 
 func TestPush_Concurrent(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
-	// 串行 push 模拟并发提交（测试稳定性考虑，避免锁竞争）
 	for i := 0; i < 20; i++ {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("conc-%d", i)
@@ -1193,9 +1129,6 @@ func TestConsume_ConcurrentSafe(t *testing.T) {
 	wg.Wait()
 }
 
-// ===========================================
-// 16. 综合集成测试
-// ===========================================
 
 func TestEndToEnd_PushListReadStats(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -1210,14 +1143,11 @@ func TestEndToEnd_PushListReadStats(t *testing.T) {
 		}
 		ids = append(ids, m.ID)
 	}
-	// 2. 列表查询
 	list, total, _ := svc.List(context.Background(), ListQuery{})
 	if total != 10 || len(list) != 10 {
 		t.Errorf("expected 10/10, got %d/%d", total, len(list))
 	}
-	// 3. 标记已读
 	_ = svc.MarkRead(context.Background(), ids[:5])
-	// 4. 统计
 	stats, _ := svc.GetStats(context.Background(), nil, nil)
 	if stats.Total != 10 {
 		t.Errorf("expected total=10, got %d", stats.Total)
@@ -1231,7 +1161,6 @@ func TestEndToEnd_IdempotentPush(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
 	r := newReq()
 	r.MsgID = "idem-e2e"
-	// 5 次重复推送
 	for i := 0; i < 5; i++ {
 		_, err := svc.Push(context.Background(), &r)
 		if i == 0 {
@@ -1244,7 +1173,6 @@ func TestEndToEnd_IdempotentPush(t *testing.T) {
 			}
 		}
 	}
-	// 数据库应只有 1 条
 	_, total, _ := svc.List(context.Background(), ListQuery{})
 	if total != 1 {
 		t.Errorf("expected 1 message, got %d", total)
@@ -1271,9 +1199,6 @@ func TestEndToEnd_FromChannel(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 17. 边界与异常
-// ===========================================
 
 func TestPush_AllRequiredFieldsEmpty(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -1346,7 +1271,6 @@ func TestNormalize_AIReply(t *testing.T) {
 
 func TestConsume_WithDBFallback(t *testing.T) {
 	svc, db := newMessageHubTestService(t)
-	// 直接插库，跳过队列
 	db.Create(&model.MessageHub{
 		MsgID:     "db-1",
 		Platform:  "wecom",
@@ -1374,3 +1298,4 @@ func TestConsume_ContextCancel(t *testing.T) {
 		t.Error("expected context cancellation error")
 	}
 }
+

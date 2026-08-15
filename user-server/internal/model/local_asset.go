@@ -60,3 +60,4 @@ type LocalAssetSyncLog struct {
 }
 
 func (LocalAssetSyncLog) TableName() string { return "local_asset_sync_log" }
+

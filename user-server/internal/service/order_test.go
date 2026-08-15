@@ -62,7 +62,6 @@ func TestOrderService_GetOrder(t *testing.T) {
 
 	service := NewOrderService()
 
-	// Create an order first
 	order := model.Order{
 		AccountID: "account123",
 		Price:     "100.00",
@@ -71,7 +70,6 @@ func TestOrderService_GetOrder(t *testing.T) {
 	}
 	registered, _ := service.CreateOrder(context.Background(), order)
 
-	// Get the order via list since repository GetByID uses uint but model has string ID
 	orders, total, err := service.GetOrderList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
@@ -102,7 +100,6 @@ func TestOrderService_GetOrderList(t *testing.T) {
 
 	service := NewOrderService()
 
-	// Create multiple orders
 	for i := 0; i < 5; i++ {
 		order := model.Order{
 			AccountID: "account" + string(rune('0'+i)),
@@ -113,7 +110,6 @@ func TestOrderService_GetOrderList(t *testing.T) {
 		service.CreateOrder(context.Background(), order)
 	}
 
-	// Get order list
 	orders, total, err := service.GetOrderList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
@@ -133,7 +129,6 @@ func TestOrderService_GetOrderList_Pagination(t *testing.T) {
 
 	service := NewOrderService()
 
-	// Create multiple orders
 	for i := 0; i < 10; i++ {
 		order := model.Order{
 			AccountID: "account" + string(rune('0'+i)),
@@ -144,7 +139,6 @@ func TestOrderService_GetOrderList_Pagination(t *testing.T) {
 		service.CreateOrder(context.Background(), order)
 	}
 
-	// Get first page
 	orders, total, err := service.GetOrderList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
@@ -164,7 +158,6 @@ func TestOrderService_DeleteOrder(t *testing.T) {
 
 	service := NewOrderService()
 
-	// Create an order first
 	order := model.Order{
 		AccountID: "account123",
 		Price:     "100.00",
@@ -173,14 +166,11 @@ func TestOrderService_DeleteOrder(t *testing.T) {
 	}
 	registered, _ := service.CreateOrder(context.Background(), order)
 
-	// Delete the order (repository expects string ID)
 	err := service.DeleteOrder(context.Background(), registered.ID)
 	if err != nil {
-		// Note: repository 层对 string ID 的 Delete 行为存在已知问题
 		t.Logf("DeleteOrder returned error (known repository bug): %v", err)
 	}
 
-	// Verify order status
 	_, total, _ := service.GetOrderList(context.Background(), 1, 10)
 	if total == 0 {
 		t.Log("Delete succeeded")
@@ -194,7 +184,6 @@ func TestOrderService_UpdateOrderStatusById(t *testing.T) {
 
 	service := NewOrderService()
 
-	// Create an order first
 	order := model.Order{
 		AccountID: "account123",
 		Price:     "100.00",
@@ -203,13 +192,11 @@ func TestOrderService_UpdateOrderStatusById(t *testing.T) {
 	}
 	registered, _ := service.CreateOrder(context.Background(), order)
 
-	// Update order status to success
 	err := service.UpdateOrderStatusById(context.Background(), registered.ID, _type.OrderStatusSuccess)
 	if err != nil {
 		t.Fatalf("UpdateOrderStatusById failed: %v", err)
 	}
 
-	// Verify status is updated via list
 	orders, total, _ := service.GetOrderList(context.Background(), 1, 10)
 	if total != 1 {
 		t.Fatalf("Expected 1 order, got %d", total)
@@ -225,7 +212,6 @@ func TestOrderService_UpdateOrderStatusById_NotFound(t *testing.T) {
 
 	service := NewOrderService()
 
-	// Try to update non-existent order
 	err := service.UpdateOrderStatusById(context.Background(), "non-existent-id", _type.OrderStatusSuccess)
 	if err == nil {
 		t.Error("Expected error for non-existent order")
@@ -237,7 +223,6 @@ func TestOrderService_GetRecentOrderList(t *testing.T) {
 
 	service := NewOrderService()
 
-	// Create an order
 	order := model.Order{
 		AccountID: "account123",
 		Price:     "100.00",
@@ -246,19 +231,15 @@ func TestOrderService_GetRecentOrderList(t *testing.T) {
 	}
 	service.CreateOrder(context.Background(), order)
 
-	// Get recent orders - note: repository uses create_time column which exists in model
 	recentOrders, err := service.GetRecentOrderList(context.Background())
 	if err != nil {
 		t.Fatalf("GetRecentOrderList failed: %v", err)
 	}
 
-	// Should return pending orders created in the last 5 minutes
-	// Note: The repository filters by status=Pending and time range
 	if len(recentOrders) < 0 {
 		t.Errorf("Expected orders, got %d", len(recentOrders))
 	}
 
-	// Test passes if no error - actual results depend on repository SQL implementation
 	t.Logf("GetRecentOrderList returned %d orders", len(recentOrders))
 }
 
@@ -267,7 +248,6 @@ func TestOrderService_GetOrderList_WithStatusFilter(t *testing.T) {
 
 	service := NewOrderService()
 
-	// Create orders with different statuses
 	for i := 0; i < 3; i++ {
 		order := model.Order{
 			AccountID: "account" + string(rune('0'+i)),
@@ -288,7 +268,6 @@ func TestOrderService_GetOrderList_WithStatusFilter(t *testing.T) {
 		service.CreateOrder(context.Background(), order)
 	}
 
-	// Get all orders
 	orders, total, err := service.GetOrderList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
@@ -298,7 +277,6 @@ func TestOrderService_GetOrderList_WithStatusFilter(t *testing.T) {
 		t.Errorf("Expected total 5, got %d", total)
 	}
 
-	// Count pending and success orders
 	pendingCount := 0
 	successCount := 0
 	for _, order := range orders {
@@ -323,7 +301,6 @@ func TestOrderService_UpdateOrderStatusById_ToClosed(t *testing.T) {
 
 	service := NewOrderService()
 
-	// Create an order
 	order := model.Order{
 		AccountID: "account123",
 		Price:     "100.00",
@@ -332,13 +309,11 @@ func TestOrderService_UpdateOrderStatusById_ToClosed(t *testing.T) {
 	}
 	registered, _ := service.CreateOrder(context.Background(), order)
 
-	// Update order status to force close
 	err := service.UpdateOrderStatusById(context.Background(), registered.ID, _type.OrderStatusForceClose)
 	if err != nil {
 		t.Fatalf("UpdateOrderStatusById failed: %v", err)
 	}
 
-	// Verify status is updated via list
 	orders, total, _ := service.GetOrderList(context.Background(), 1, 10)
 	if total != 1 {
 		t.Fatalf("Expected 1 order, got %d", total)
@@ -348,3 +323,4 @@ func TestOrderService_UpdateOrderStatusById_ToClosed(t *testing.T) {
 		t.Errorf("Expected status %d, got %d", _type.OrderStatusForceClose, orders[0].Status)
 	}
 }
+

@@ -30,7 +30,6 @@ func setupChatPublicRoutes(public *gin.RouterGroup, db *gorm.DB, orchestrator *s
 	agentBindingSvc := service.NewChannelAgentBindingService()
 	visitorSvc := service.NewVisitorChatService(context.Background(), db, channelSvc, orchestrator, agentBindingSvc)
 
-	// 公开路由组：AppKey 软解析 + 访客限流 + 多语言解析
 	chatPublic := public.Group("/chat/public")
 	chatPublic.Use(middleware.AppKeyResolve(chatChannelResolver{svc: channelSvc}))
 	chatPublic.Use(middleware.LangResolverMiddleware(langResolver))
@@ -38,10 +37,8 @@ func setupChatPublicRoutes(public *gin.RouterGroup, db *gorm.DB, orchestrator *s
 
 	ctrl := controller.NewChatPublicController(visitorSvc, channelSvc)
 
-	// 渠道信息查询（widget 安装引导的连通性测试用）
 	chatPublic.GET("/channel/:app_key/info", ctrl.GetChannelInfoByAppKey)
 
-	// 会话管理
 	chatPublic.POST("/sessions", ctrl.OpenSession)
 	chatPublic.GET("/sessions/active", ctrl.GetActiveSession)
 	chatPublic.GET("/sessions/recent-closed", ctrl.GetRecentClosedSessions)
@@ -52,10 +49,8 @@ func setupChatPublicRoutes(public *gin.RouterGroup, db *gorm.DB, orchestrator *s
 	chatPublic.POST("/sessions/:session_id/close", ctrl.CloseSession)
 	chatPublic.POST("/sessions/:session_id/rate", ctrl.RateSession)
 
-	// 资源查询
 	chatPublic.GET("/agents/available", ctrl.CountAvailableAgents)
 
-	// 附件上传（私域部署：访客直传七牛）
 	chatPublic.GET("/upload-token", ctrl.GetUploadToken)
 }
 
@@ -82,42 +77,31 @@ func setupChatChannelAdminRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	g.POST("/:channel_id/reset-secret", ctrl.ResetAppSecret)
 }
 
-// ============================================================================
-// 以下内容合并自 wecom_routes.go（P1-2 router 文件数收敛）
-// ============================================================================
 
 // setupWeComRoutes 企业微信管理路由
 func setupWeComRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	wecomCtrl := controller.NewWeComController(service.NewWeComServiceWithDB(gormDB))
 
-	// 企业微信账号管理
 	auth.POST("/wecom/accounts", wecomCtrl.CreateAccount)
 	auth.GET("/wecom/accounts", wecomCtrl.GetAccountList)
 	auth.GET("/wecom/accounts/:id", wecomCtrl.GetAccountByID)
 	auth.PUT("/wecom/accounts/:id", wecomCtrl.UpdateAccount)
 	auth.DELETE("/wecom/accounts/:id", wecomCtrl.DeleteAccount)
 
-	// 企业微信客户管理
 	auth.POST("/wecom/accounts/:id/sync-customers", wecomCtrl.SyncCustomers)
 	auth.GET("/wecom/customers", wecomCtrl.GetCustomerList)
 
-	// 企业微信客户群管理
 	auth.POST("/wecom/accounts/:id/sync-groups", wecomCtrl.SyncGroups)
 	auth.GET("/wecom/groups", wecomCtrl.GetGroupList)
 
-	// 企业微信消息管理
 	auth.POST("/wecom/accounts/:id/send-message", wecomCtrl.SendMessage)
 	auth.POST("/wecom/accounts/:id/refresh", wecomCtrl.RefreshAccount)
 	auth.GET("/wecom/messages", wecomCtrl.GetMessageList)
 
-	// 企业微信标签管理
 	auth.GET("/wecom/tags", wecomCtrl.GetTagList)
 	auth.POST("/wecom/accounts/:id/sync-tags", wecomCtrl.SyncTags)
 }
 
-// ============================================================================
-// 以下内容合并自 wechat_routes.go（P1-2 router 文件数收敛）
-// ============================================================================
 
 func setupCardShareRoutes(r *gin.Engine, gormDB *gorm.DB) {
 	douyinCardCtrl := controller.NewDouyinCardController(service.NewDouyinCardService(gormDB))
@@ -132,3 +116,4 @@ func setupCardShareRoutes(r *gin.Engine, gormDB *gorm.DB) {
 	xianyuCardCtrl := controller.NewXianyuCardController(service.NewXianyuCardService(gormDB), service.NewXianyuCardStatsService(gormDB))
 	r.GET("/share/xianyu/:id", xianyuCardCtrl.SharePage)
 }
+

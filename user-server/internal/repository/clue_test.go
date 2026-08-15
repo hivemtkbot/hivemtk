@@ -75,7 +75,6 @@ func TestClueRepository_Create_Duplicate(t *testing.T) {
 		t.Fatalf("First Create failed: %v", err)
 	}
 
-	// Try to create duplicate
 	clue2 := &model.Clue{
 		SourceID: "source456",
 		Account:  "test@example.com",
@@ -192,7 +191,6 @@ func TestClueRepository_ExistsByTypeAndAccount_DifferentType(t *testing.T) {
 	}
 	repo.Create(ctx, clue)
 
-	// Check with different type
 	exists, err := repo.ExistsByTypeAndAccount(context.Background(), 2, "test@example.com")
 	if err != nil {
 		t.Fatalf("ExistsByTypeAndAccount failed: %v", err)
@@ -209,7 +207,6 @@ func TestClueRepository_Create_VariousTypes(t *testing.T) {
 	repo := NewClueRepository()
 	ctx := context.Background()
 
-	// Create clues with different types
 	for i := 0; i < 5; i++ {
 		clue := &model.Clue{
 			SourceID: "source" + string(rune('0'+i)),
@@ -240,7 +237,6 @@ func TestClueRepository_Create_VariousAccounts(t *testing.T) {
 	repo := NewClueRepository()
 	ctx := context.Background()
 
-	// Create clues with different accounts (same type)
 	for i := 0; i < 5; i++ {
 		clue := &model.Clue{
 			SourceID: "source" + string(rune('0'+i)),
@@ -291,7 +287,6 @@ func TestClueRepository_Create_WithAllFields(t *testing.T) {
 		t.Error("Expected non-empty ID after create")
 	}
 
-	// Verify we can retrieve via list
 	clues, _, _ := repo.GetClueList(context.Background(), 1, 10)
 	if len(clues) != 1 {
 		t.Errorf("Expected 1 clue, got %d", len(clues))
@@ -304,7 +299,6 @@ func TestClueRepository_Create_LargeBatch(t *testing.T) {
 	repo := NewClueRepository()
 	ctx := context.Background()
 
-	// Create 50 clues with unique accounts
 	for i := 0; i < 50; i++ {
 		clue := &model.Clue{
 			SourceID: "source" + string(rune('0'+i%10)),
@@ -335,7 +329,6 @@ func TestClueRepository_GetClueList_SecondPage(t *testing.T) {
 	repo := NewClueRepository()
 	ctx := context.Background()
 
-	// Create 20 clues
 	for i := 0; i < 20; i++ {
 		clue := &model.Clue{
 			SourceID: "source" + string(rune('0'+i%10)),
@@ -346,7 +339,6 @@ func TestClueRepository_GetClueList_SecondPage(t *testing.T) {
 		repo.Create(ctx, clue)
 	}
 
-	// Get second page
 	clues, total, err := repo.GetClueList(context.Background(), 2, 10)
 	if err != nil {
 		t.Fatalf("GetClueList failed: %v", err)
@@ -360,3 +352,4 @@ func TestClueRepository_GetClueList_SecondPage(t *testing.T) {
 		t.Errorf("Expected total 20, got %d", total)
 	}
 }
+

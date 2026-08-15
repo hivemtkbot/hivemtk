@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// intent_test.go 销冠域 DTO 类型测试
 
 func TestRecognizeResult_Fields(t *testing.T) {
 	r := RecognizeResult{
@@ -124,11 +123,9 @@ func TestSalesStepLog_Fields(t *testing.T) {
 
 // TestExecuteRequest_NoMerchantID 验证残留 MerchantID 字段已清理（独立部署无多租户）
 func TestExecuteRequest_NoMerchantID(t *testing.T) {
-	// ExecuteRequest 不应包含 MerchantID 字段
-	// 如果存在该字段，以下构造会因零值而通过，但通过反射检查更可靠
 	req := ExecuteRequest{}
-	// 确保 req 是零值可构造的（无残留必填字段）
 	if req.SOPID != 0 {
 		t.Errorf("Expected zero-value SOPID, got %d", req.SOPID)
 	}
 }
+

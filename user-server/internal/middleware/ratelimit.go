@@ -16,23 +16,17 @@ import (
 
 // RateLimitConfig 限流配置
 type RateLimitConfig struct {
-	// 每秒请求数（令牌补充速率）
 	RPS float64
-	// 桶容量（最大突发请求数）
 	BucketSize int
-	// 是否启用
 	Enabled bool
-	// ExemptPaths 豁免限流的路径前缀列表（精确匹配或前缀匹配）。
-	// 用于桥接私有端点（POST /api/bridge/ingest）等内部/单租户、由 InitGuard 保护、
-	// 且天然表现为高频长轮询的通道——对其限流会直接掐断消息上行。
 	ExemptPaths []string
 }
 
 // DefaultRateLimitConfig 默认限流配置
 var DefaultRateLimitConfig = RateLimitConfig{
-	RPS:        10,   // 每秒 10 个请求
-	BucketSize: 100,  // 最大突发 100 个请求
-	Enabled:    true, // 默认启用
+	RPS:        10,   
+	BucketSize: 100,  
+	Enabled:    true, 
 }
 
 // ClientLimiter 客户端限流器
@@ -69,7 +63,6 @@ func InitRateLimiter(config RateLimitConfig) {
 		stopChan: make(chan struct{}),
 	}
 
-	// 启动定期清理 goroutine
 	go globalRateLimiter.cleanupLoop()
 }
 
@@ -111,7 +104,6 @@ func (rl *RateLimiter) getLimiter(clientKey string) *rate.Limiter {
 		return client.limiter
 	}
 
-	// 创建新的限流器
 	limiter := rate.NewLimiter(rate.Limit(rl.config.RPS), rl.config.BucketSize)
 	rl.clients[clientKey] = &ClientLimiter{
 		limiter:  limiter,
@@ -133,18 +125,15 @@ func RateLimitMiddleware(config ...RateLimitConfig) gin.HandlerFunc {
 		cfg = config[0]
 	}
 
-	// 如果未启用，直接跳过
 	if !cfg.Enabled {
 		return func(c *gin.Context) {
 			c.Next()
 		}
 	}
 
-	// 初始化全局限流器
 	InitRateLimiter(cfg)
 
 	return func(c *gin.Context) {
-		// 豁免路径（内部/单租户通道，如桥接 ingest）不做限流，避免掐断消息上行
 		path := c.Request.URL.Path
 		for _, p := range cfg.ExemptPaths {
 			if p == path || strings.HasPrefix(path, p) {
@@ -153,13 +142,11 @@ func RateLimitMiddleware(config ...RateLimitConfig) gin.HandlerFunc {
 			}
 		}
 
-		// 获取客户端标识（优先使用 API Key，其次使用 IP）
 		clientKey := c.GetHeader("X-API-KEY")
 		if clientKey == "" {
 			clientKey = c.ClientIP()
 		}
 
-		// 检查是否允许请求（REDIS_HOST 配置时为 Redis 共享限流，跨实例一致；否则进程内令牌桶）
 		if !globalRateLimiter.Allow(clientKey) {
 			c.JSON(429, gin.H{
 				"code":        429,
@@ -184,7 +171,6 @@ func (rl *RateLimiter) Allow(clientKey string) bool {
 		return rl.getLimiter(clientKey).Allow()
 	}
 	c := cache.GetGlobalCache()
-	// 固定窗口：每分钟一个 key，配额 = RPS×60
 	minute := time.Now().Truncate(time.Minute).Unix()
 	key := fmt.Sprintf("mtk:ratelimit:%s:%d", clientKey, minute)
 	cur, err := c.Incr(context.Background(), key, time.Minute)
@@ -204,7 +190,6 @@ func GetRateLimitStatus(clientKey string) (remaining int, resetAfter float64) {
 		return -1, 0
 	}
 
-	// 未配置 Redis 时走进程内令牌桶的精确状态
 	if !cache.GlobalIsRedis() {
 		limiter := globalRateLimiter.getLimiter(clientKey)
 		tokens := limiter.Tokens()
@@ -225,7 +210,6 @@ func GetRateLimitStatus(clientKey string) (remaining int, resetAfter float64) {
 		return remaining, resetAfter
 	}
 
-	// Redis 共享模式：基于固定窗口剩余配额估算
 	minute := time.Now().Truncate(time.Minute).Unix()
 	key := fmt.Sprintf("mtk:ratelimit:%s:%d", clientKey, minute)
 	curStr, err := cache.GetGlobalCache().Get(context.Background(), key)
@@ -240,3 +224,4 @@ func GetRateLimitStatus(clientKey string) (remaining int, resetAfter float64) {
 	}
 	return int(rem), 0
 }
+

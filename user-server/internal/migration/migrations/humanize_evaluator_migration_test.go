@@ -1,16 +1,5 @@
 package migrations
 
-// humanize_evaluator_migration_test.go 拟人度评估器迁移 v2.9.0 PG 集成测试
-//
-// 覆盖：
-//  1. Version / Name / Description 元信息
-//  2. Up() 创建 5 张表
-//  3. Up() 幂等：重复执行不报错
-//  4. Down() 回滚 5 张表
-//  5. 各表可正常写入数据（验证字段完整）
-//  6. nil db 返回错误
-//  7. 索引创建验证
-//  8. 编译时接口断言
 
 import (
 	"context"
@@ -24,7 +13,6 @@ import (
 // setupHumanizeMigrationTestDB 创建迁移测试 DB（空库）
 func setupHumanizeMigrationTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	// 项目规则"不允许跳过"：PG 集成测试必须运行，testutil.NewTestDB 在连接失败时 t.Fatal
 	return testutil.NewTestDB(t)
 }
 
@@ -105,7 +93,6 @@ func TestHumanizeMigration_Down(t *testing.T) {
 		t.Fatalf("Down() failed: %v", err)
 	}
 
-	// 应被删除的 5 张表
 	deletedTables := []string{
 		"humanize_scores",
 		"humanize_dimensions",
@@ -300,7 +287,6 @@ func TestHumanizeMigration_InsertABTestStat(t *testing.T) {
 		t.Fatalf("Up() failed: %v", err)
 	}
 
-	// 插入 control + treatment 两条
 	for _, g := range []struct {
 		group  string
 		mean   float64
@@ -369,15 +355,12 @@ func TestHumanizeMigration_UpThenDownThenUp(t *testing.T) {
 	db := setupHumanizeMigrationTestDB(t)
 
 	m := NewHumanizeEvaluatorMigration(db)
-	// 第一次 Up
 	if err := m.Up(context.Background()); err != nil {
 		t.Fatalf("first Up() failed: %v", err)
 	}
-	// Down
 	if err := m.Down(context.Background()); err != nil {
 		t.Fatalf("Down() failed: %v", err)
 	}
-	// 第二次 Up（应能重建）
 	if err := m.Up(context.Background()); err != nil {
 		t.Fatalf("second Up() after Down() failed: %v", err)
 	}
@@ -463,3 +446,4 @@ func TestHumanizeMigration_DecimalPrecision(t *testing.T) {
 		t.Errorf("total_score=%v want 0.853", total)
 	}
 }
+

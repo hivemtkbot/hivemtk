@@ -73,7 +73,6 @@ func (m *MarketingFlowSchemaMigration) Description() string {
 
 // Up 执行升级
 func (m *MarketingFlowSchemaMigration) Up(ctx context.Context) error {
-	// 创建营销流程表
 	m.db.Exec(`
 		CREATE TABLE IF NOT EXISTS marketing_flows (
 			id BIGSERIAL PRIMARY KEY,
@@ -89,7 +88,6 @@ func (m *MarketingFlowSchemaMigration) Up(ctx context.Context) error {
 		)
 	`)
 
-	// 创建流程执行记录表
 	m.db.Exec(`
 		CREATE TABLE IF NOT EXISTS flow_executions (
 			id BIGSERIAL PRIMARY KEY,
@@ -105,7 +103,6 @@ func (m *MarketingFlowSchemaMigration) Up(ctx context.Context) error {
 		)
 	`)
 
-	// 创建索引
 	m.db.Exec("CREATE INDEX IF NOT EXISTS idx_marketing_flows_status ON marketing_flows(status)")
 	m.db.Exec("CREATE INDEX IF NOT EXISTS idx_flow_executions_flow ON flow_executions(flow_id)")
 	m.db.Exec("CREATE INDEX IF NOT EXISTS idx_flow_executions_user ON flow_executions(user_id)")
@@ -127,82 +124,44 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewInitialSchemaMigration(db))
 	registry.Register(NewMarketingFlowSchemaMigration(db))
 	registry.Register(NewUnmultitenantSchemaMigration(db))
-	// 私域部署:merchant_id 字段可空化(幂等,可重入)
 	registry.Register(NewMerchantIDNullableMigration(db))
-	// Phase 1: 企微 webhook 字段 + 智能体开关(打通用户全链路)
 	registry.Register(NewWecomWebhookFieldsMigration(db))
-	// 多 AI 智能体架构:ai_agents / channel_agent_bindings / customer_service_agents
 	registry.Register(NewAIAgentSchemaMigration(db))
-	// ai_agents 扩展 2 字段(决策策略 / A/B 实验),依据 §2.3
 	registry.Register(NewAIAgentExtensionMigration(db))
-	// RAG 向量存储(pgvector embedding + HNSW 索引)
 	registry.Register(NewKnowledgeVectorMigration(db))
-	// SOP 节点执行器(sop_exec_events / sop_timers / sop_outbox)
 	registry.Register(NewSOPExecutorMigration(db))
-	// RAG 混合检索(tsvector + query_rewrite_cache + embedding_cache + 监控字段)
 	registry.Register(NewRagHybridMigration(db))
-	// 置信度驱动转人工(7+1 张表：信号/校准/转人工/审核/策略/SLA/AB测试)
 	registry.Register(NewConfidenceMigration(db))
-	// 拟人度评估器(5 张表：评分/维度明细/销冠基线/销冠短语/AB统计)
 	registry.Register(NewHumanizeEvaluatorMigration(db))
-	// 反馈学习闭环(6 张表 + 2 张表扩展：反馈事件/信号/销冠对话/Prompt候选/Bandit臂/AB测试 + sop_agents/script_templates 字段扩展)
 	registry.Register(NewFeedbackLoopMigration(db))
-	// 金额字段使用 BIGINT（分）— decimal 金额字段升级为 bigint
 	registry.Register(NewAmountMoneyMigration(db))
-	// D+E 域合规（邮件+短信退订与追踪 6 张表）
-	// 依据《互联网电子邮件服务管理办法》第十三条 + 《通信短消息服务管理规定》第十八条
 	registry.Register(NewComplianceDEMigration(db))
-	// 线索评分 + RFM 联动 + 流失挽回(4 张表)
 	registry.Register(NewHP1Migration(db))
-	// L 域 - 第三方对接模板(integration_templates)
 	registry.Register(NewLP1Migration(db))
-	// /// 认证与安全（user_mfa / login_events / security_alerts / password_history / system_config_kv）
 	registry.Register(NewAuthSecurityMigration(db))
-	// A 域 — team_users 表新增 data_scope / department_id / team_id / custom_dept_ids 4 字段，支持 行级权限
 	registry.Register(NewADomainP1Migration(db))
-	// short_links 字段补齐 — title 等列缺失会导致短链创建 500
 	registry.Register(NewShortLinkColumnsMigration(db))
-	// provider_health / system_kv_config / intent_logs / trace_events 4 张表
 	registry.Register(NewMP1Migration(db))
-	// ops AI 生产力统计依赖的 llm_usage_records 表
 	registry.Register(NewLLMUsageRecordsMigration(db))
-	// 方向9 资产包模式 — asset_bundles / asset_bundle_version_logs
 	registry.Register(NewAssetBundleMigration(db))
-	// LLM 路由可观测性 — llm_routing_logs / llm_routing_audit 两张表
 	registry.Register(NewLLMRoutingLogsMigration(db))
 	registry.Register(NewLLMRoutingLogsExtendMigration(db))
-	// v1.2 出海多语言方案 - glossaries 表 + ai_agents/chat_channels/llm_routing_logs/knowledge_chunks/asset_bundles 多语言字段
 	registry.Register(NewMultilingualI18nMigration(db))
-	// v1.2 出海多语言方案 - knowledge_chunks.translated_versions 字段（预翻译支持）
 	registry.Register(NewMultilingualI18nP13Migration(db))
-	// 知识库自学习权重列（v3.13.0）：knowledge_chunks.weight 作为检索排名第二依据
 	registry.Register(NewKnowledgeWeightMigration(db))
-	// S3-6 Telegram polling 分布式锁（polling_owner + polling_heartbeat_at）
 	registry.Register(NewTelegramPollingLockMigration(db))
-	// AI 智能体性能优化 - FAQ / SOP 知识库 + Layer 决策日志（双层架构 Layer1 命中 SkipLLM）
 	registry.Register(NewAIPerfFAQSOPLayerMigration(db))
-	// AI 智能体知识库绑定 - faq_entry_ids / sop_template_ids 字段（与 rag_product_ids 一致）
 	registry.Register(NewAIAgentKBBindingMigration(db))
-	// 知识库统一 - knowledge_bases / agent_kb_bindings + 3 表 agent_id
 	registry.Register(NewKBUnificationMigration(db))
-	// 二次深度审查 - 清理孤儿表 rag_safety_audit_logs (commit 3)
 	registry.Register(NewRagSafetyAuditDropMigration(db))
-	// 二次深度审查 - 清理孤儿表 rag_alerts (RagAlertService 已删, commit 4)
 	registry.Register(NewRagAlertsDropMigration(db))
-	// 网页私信桥接账号表（抖音/小红书/TikTok）
 	registry.Register(NewBridgeAccountMigration(db))
-	// 归一化旧 bridge channel 数据（douyin -> douyin_web 等）
 	registry.Register(NewBridgeChannelNormalizeMigration(db))
-	// 2026-08-05 渠道编码统一 v2：把 *_web / xhs 全部归一化为全名（xiaohongshu/douyin/kuaishou/xianyu/tiktok）
 	registry.Register(NewBridgeChannelUnifyV2Migration(db))
-	// 2026-08-13 渠道编码统一收尾：无 gate 彻底清除残留 *_web / xhs 历史值（v3.18.0 的 bridge:true gate 漏掉了大量非桥接行）
 	registry.Register(NewBridgeChannelUnifyV3_18_1Migration(db))
-	// customer_sessions 补齐 updated_at 列（修复全渠道会话 upsert 的 SQLSTATE 42703）
 	registry.Register(NewCustomerSessionUpdatedAtMigration(db))
 	registry.Register(NewKnowledgeSearchLogProductOptionalMigration(db))
-	// 清理 CDP 无头浏览器自动回复删除后残留的孤儿 schema（accounts.headless 列 + auto_reply_* 三表）
 	registry.Register(NewDropCdpAutoReplyMigration(db))
-	// 创建活码点击审计日志表（live_code_click_logs / qr_code_click_logs）
 	registry.Register(NewLiveCodeClickLogsMigration(db))
-	// 继续添加新的迁移...
 }
+

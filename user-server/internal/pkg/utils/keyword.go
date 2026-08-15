@@ -12,3 +12,4 @@ func ContainsKeyword(message string, keywords string) bool {
 	}
 	return false
 }
+

@@ -7,15 +7,6 @@ import (
 	"time"
 )
 
-// ============================================================================
-// 商业产品级 跟进完成 → 客户旅程自动推进 → 仪表盘实时更新 测试套件
-// ----------------------------------------------------------------------------
-// 10：销售点"完成跟进" → 4 件事自动发生：
-//   1. 跟进状态变 done
-//   2. 客户旅程自动推进到目标阶段
-//   3. 销售仪表盘实时记录这次跟进
-//   4. 客户档案互动次数+1
-// ============================================================================
 
 // TestFollowUp_CompleteWithResult_StageAdvance 跟进结果推进客户旅程
 func TestFollowUp_CompleteWithResult_StageAdvance(t *testing.T) {
@@ -27,13 +18,11 @@ func TestFollowUp_CompleteWithResult_StageAdvance(t *testing.T) {
 	custID := "cust_close_001"
 	ownerID := "sales_001"
 
-	// 1. 客户从陌生阶段起步
 	state0 := journey.GetState(context.Background(), custID)
 	if state0.CurrentStage != StageStranger {
 		t.Fatalf("初始阶段应为陌生，实际: %s", state0.CurrentStage)
 	}
 
-	// 2. 安排一个首次跟进
 	r, err := followup.Schedule(context.Background(), custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 		Title:    "首次跟进",
 		Priority: PriorityHigh,
@@ -42,13 +31,11 @@ func TestFollowUp_CompleteWithResult_StageAdvance(t *testing.T) {
 		t.Fatalf("安排跟进失败: %v", err)
 	}
 
-	// 3. 销售跟进，结果"客户表达兴趣"
 	err = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultInterested, "客户咨询了价格")
 	if err != nil {
 		t.Fatalf("完成跟进失败: %v", err)
 	}
 
-	// 4. 验证：客户旅程已推进到感兴趣
 	state1 := journey.GetState(context.Background(), custID)
 	if state1.CurrentStage != StageInterested {
 		t.Errorf("客户旅程应推进到 %s，实际: %s", StageInterested, state1.CurrentStage)
@@ -158,7 +145,6 @@ func TestFollowUp_CompleteWithResult_DashboardRealtime(t *testing.T) {
 	cust1 := "cust_dash_001"
 	cust2 := "cust_dash_002"
 
-	// 1. 安排并完成 2 个跟进：1 个成交，1 个报价
 	r1, _ := followup.Schedule(context.Background(), cust1, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 		Title: "催单", Priority: PriorityHigh,
 	})
@@ -173,7 +159,6 @@ func TestFollowUp_CompleteWithResult_DashboardRealtime(t *testing.T) {
 		t.Fatalf("完成跟进2失败: %v", err)
 	}
 
-	// 2. 验证：仪表盘能查到该销售的跟进数据
 	perf := dashboard.GetSalesPerformance(context.Background(), ownerID, time.Time{})
 	if perf == nil {
 		t.Fatal("应能查询到该销售的业绩")
@@ -188,7 +173,6 @@ func TestFollowUp_CompleteWithResult_DashboardRealtime(t *testing.T) {
 func TestFollowUp_CompleteWithResult_DashboardNil(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
-	// 不注入 dashboard
 
 	custID := "cust_safe_001"
 	ownerID := "sales_safe"
@@ -224,7 +208,6 @@ func TestFollowUp_CompleteWithResult_DefaultContacted(t *testing.T) {
 	r, _ := followup.Schedule(context.Background(), custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 		Title: "首次",
 	})
-	// 用基础 Complete()，应该等同于 CompleteWithResult(Contacted)
 	if err := followup.Complete(context.Background(), r.ID); err != nil {
 		t.Fatalf("Complete 失败: %v", err)
 	}
@@ -280,7 +263,6 @@ func TestFollowUp_CompleteWithResult_MultipleCustomers(t *testing.T) {
 		r, _ := followup.Schedule(context.Background(), custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 			Title: "跟进", Priority: PriorityNormal,
 		})
-		// 5 个 interested, 3 个 quoted, 2 个 lost
 		switch i % 3 {
 		case 0:
 			_ = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultInterested, "")
@@ -291,7 +273,6 @@ func TestFollowUp_CompleteWithResult_MultipleCustomers(t *testing.T) {
 		}
 	}
 
-	// 验证：每个客户旅程都推进了
 	interestedCount, quotedCount, lostCount := 0, 0, 0
 	for i := 0; i < 10; i++ {
 		custID := "cust_multi_" + intToStr(i)
@@ -316,11 +297,6 @@ func TestFollowUp_CompleteWithResult_FunnelTracking(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
 
-	// 构造漏斗：100 客户咨询
-	// 1. 50 客户被跟进到 Contacted
-	// 2. 30 客户被推进到 Interested
-	// 3. 15 客户被推进到 Quoted
-	// 4. 5 客户成交
 	for i := 0; i < 50; i++ {
 		custID := "funnel_c" + intToStr(i)
 		r, _ := followup.Schedule(context.Background(), custID, "sales_funnel", ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
@@ -350,7 +326,6 @@ func TestFollowUp_CompleteWithResult_FunnelTracking(t *testing.T) {
 		_ = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultConverted, "")
 	}
 
-	// 验证：每个客户旅程都正确推进
 	contactedCount := 0
 	interestedCount := 0
 	quotedCount := 0
@@ -385,9 +360,7 @@ func TestFollowUp_CompleteWithResult_FunnelTracking(t *testing.T) {
 	t.Logf("✅ 漏斗正确：%d → %d → %d → %d (50/30/15/5)", contactedCount, interestedCount, quotedCount, wonCount)
 }
 
-// helpers
 
-// 注：contains / indexOf 已在 churn_prediction_logic_test.go 中定义，此处不再重复声明
 
 func intToStr(i int) string {
 	if i == 0 {
@@ -410,3 +383,4 @@ func intToStr(i int) string {
 	}
 	return string(buf[pos:])
 }
+

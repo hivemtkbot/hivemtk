@@ -429,3 +429,4 @@ func (s *MarketingFlowService) handleDelay(ctx context.Context, node model.FlowN
 func (s *MarketingFlowService) GetActiveFlows() ([]*model.MarketingFlow, error) {
 	return s.flowRepo.GetByStatus(model.FlowStatusActive)
 }
+

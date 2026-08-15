@@ -62,7 +62,6 @@ func TestTikTokCardController_Create_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	// Create 操作应该返回 SUCCESS
 	if response["code"] != "SUCCESS" {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
@@ -97,7 +96,6 @@ func TestTikTokCardController_Create_EmptyTitle(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// TikTok 控制器验证 Title 必填,空标题返回 400
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status Bad Request, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -142,7 +140,6 @@ func TestTikTokCardController_Update_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 测试数据库为空,卡片 1 不存在,返回错误
 	if w.Code == http.StatusOK {
 		t.Errorf("Expected error for non-existent card, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -176,7 +173,6 @@ func TestTikTokCardController_Update_EmptyID(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 空 ID 应该返回 404 或正常（取决于路由配置）
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status OK or Not Found, got %d", w.Code)
 	}
@@ -190,7 +186,6 @@ func TestTikTokCardController_Delete_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 测试数据库为空,卡片 1 不存在,返回错误
 	if w.Code == http.StatusOK {
 		t.Errorf("Expected error for non-existent card, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -205,7 +200,6 @@ func TestTikTokCardController_Delete_EmptyID(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 空 ID 路由不匹配，Gin 默认返回 404
 	if w.Code != http.StatusNotFound {
 		t.Errorf("Expected status Not Found for empty ID, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -219,14 +213,12 @@ func TestTikTokCardController_Get_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 测试数据库为空,记录不存在返回 404 是正确行为
 	if w.Code != http.StatusNotFound {
 		t.Errorf("Expected status Not Found, got %d, body: %s", w.Code, w.Body.String())
 	}
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	// 测试空数据库场景:记录不存在,返回非 SUCCESS 错误码是正确行为
 	if response["code"] == "SUCCESS" {
 		t.Errorf("Expected NOT_FOUND code, got %v", response["code"])
 	}
@@ -240,7 +232,6 @@ func TestTikTokCardController_Get_EmptyID(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 空 ID 应该返回 404
 	if w.Code != http.StatusNotFound && w.Code != http.StatusOK {
 		t.Errorf("Expected status Not Found or OK, got %d", w.Code)
 	}
@@ -260,7 +251,6 @@ func TestTikTokCardController_List_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	// List 操作空数据应返回 SUCCESS
 	if response["code"] != "SUCCESS" {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
@@ -284,7 +274,6 @@ func TestTikTokCardController_List_DefaultPagination(t *testing.T) {
 	if !ok {
 		t.Errorf("Expected data to be a map")
 	}
-	// ListResponse 有 list 和 total 字段
 	if data["list"] == nil {
 		t.Errorf("Expected list to be present")
 	}
@@ -301,7 +290,6 @@ func TestTikTokCardController_List_InvalidPage(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 无效分页参数应该使用默认值
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -321,7 +309,6 @@ func TestTikTokCardController_GenerateShortLink_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 测试数据库为空,卡片 1 不存在,返回错误
 	if w.Code == http.StatusOK {
 		t.Errorf("Expected error for non-existent card, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -354,7 +341,6 @@ func TestTikTokCardController_GenerateShortLink_MissingCardId(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 缺少 cardId 时 binding:"required" 拒绝，返回 400
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status Bad Request for missing cardId, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -395,7 +381,6 @@ func TestTikTokCardController_Stats_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 测试数据库为空,卡片 1 不存在,返回 404 或 500 是当前实现
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Not Found or Internal Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -409,7 +394,6 @@ func TestTikTokCardController_Stats_EmptyID(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 空 ID 路由可能返回 400 (无效ID) 或 404 (路由不匹配)
 	if w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound && w.Code != http.StatusOK {
 		t.Errorf("Expected status Bad Request, Not Found or OK, got %d", w.Code)
 	}
@@ -465,7 +449,6 @@ func TestTikTokCardController_Create_InactiveCard(t *testing.T) {
 func TestTikTokCardController_RoutesRegistration(t *testing.T) {
 	router := setupTikTokCardTestRouter(t)
 
-	// 测试所有注册的路由都存在(不验证业务结果,只验证路由可达)
 	testCases := []struct {
 		method string
 		path   string
@@ -485,8 +468,7 @@ func TestTikTokCardController_RoutesRegistration(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		// 路由应可达(非 404)。业务操作可能因数据不存在返回 404/500,但路由本身应注册
-		// 注意:Gin 在路由不匹配时返回 404,所以这里只验证路由是注册的
 		_ = w
 	}
 }
+

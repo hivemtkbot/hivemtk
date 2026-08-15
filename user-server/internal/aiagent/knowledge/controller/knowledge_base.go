@@ -20,7 +20,6 @@ func NewKnowledgeBaseController() *KnowledgeBaseController {
 }
 
 func (ctrl *KnowledgeBaseController) RegisterRoutes(router *gin.RouterGroup) {
-	// 统一收敛到 /api/rag/* 命名空间（MASTER §4.3 禁止 /api/knowledge-base/* 历史前缀）
 	kb := router.Group("/rag")
 	{
 		kb.POST("/import", ctrl.ImportKnowledgeBase)
@@ -107,3 +106,4 @@ func (ctrl *KnowledgeBaseController) DeleteDocument(c *gin.Context) {
 
 	response.Success(c, nil, "删除成功")
 }
+

@@ -10,20 +10,6 @@ import (
 	"hivemtk-user/internal/websocket"
 )
 
-// ============================================================================
-// 坐席 WebSocket 会话操作执行器适配器（ws_agent_executor.go）
-// ----------------------------------------------------------------------------
-// 实现 websocket.AgentSessionExecutor 接口，把 WebSocket 上行的坐席操作
-// 路由到 CustomerSessionService 既有的领域方法。
-//
-// 设计要点：
-//  1. 五层架构：web 层定义接口（websocket.AgentSessionExecutor），service 层
-//     提供实现，避免 websocket 包反向 import service（导致循环依赖）。
-//  2. sessionID 字符串兼容：WebSocket 协议使用业务字段 session_id（sess_xxx），
-//     而 service 多数方法接受数字主键。本适配器负责转换，调用方无需感知。
-//  3. 越权防护：所有方法的 agentID 均来自 JWT 主体（已由 WSHandler 校验），
-//     本适配器对转接/关闭等高危操作仍做二次校验，防止跨坐席误操作。
-// ============================================================================
 
 // WSAgentExecutor WebSocket 坐席会话操作执行器
 //
@@ -81,7 +67,6 @@ func (e *WSAgentExecutor) TransferSession(ctx context.Context, fromAgentID uint,
 	if err != nil {
 		return err
 	}
-	// 越权校验：仅当前归属坐席可发起转接
 	sess, err := e.svc.GetSessionByID(ctx, id)
 	if err != nil {
 		return errors.New("会话不存在")
@@ -101,7 +86,6 @@ func (e *WSAgentExecutor) CloseSession(ctx context.Context, agentID uint, sessio
 	if err != nil {
 		return err
 	}
-	// 越权校验：会话已分配坐席时仅归属坐席可关闭；未分配则放行（管理员路径）
 	sess, err := e.svc.GetSessionByID(ctx, id)
 	if err != nil {
 		return errors.New("会话不存在")
@@ -127,3 +111,4 @@ func (e *WSAgentExecutor) resolveSessionID(ctx context.Context, raw string) (uin
 	}
 	return sess.ID, nil
 }
+

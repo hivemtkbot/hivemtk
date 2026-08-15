@@ -1,15 +1,5 @@
 package ragretrieval
 
-// rrf_fusion_test.go RRF 融合器单元测试
-//
-// 覆盖：
-//  1. RRF 公式：1 / (k + rank)
-//  2. 双路都出现双倍加分
-//  3. 单路命中保留
-//  4. topN 截断
-//  5. 空输入
-//  6. 默认 k=60
-//  7. 同分稳定排序
 
 import (
 	"testing"
@@ -38,7 +28,6 @@ func TestRRFFusion_EmptyInputs(t *testing.T) {
 }
 
 func TestRRFFusion_SingleVecOnly(t *testing.T) {
-	// 只向量召回一路，BM25 为空
 	f := NewRRFFusion(60)
 	vec := []Chunk{
 		{ID: "1", Score: 0.9},
@@ -49,19 +38,16 @@ func TestRRFFusion_SingleVecOnly(t *testing.T) {
 	if len(out) != 3 {
 		t.Fatalf("len=%d want=3", len(out))
 	}
-	// rank 1 = 1/(60+1) ≈ 0.01639
 	expectedFirst := 1.0 / 61.0
 	if abs(out[0].Score-expectedFirst) > 1e-6 {
 		t.Errorf("first RRF score=%.6f want=%.6f", out[0].Score, expectedFirst)
 	}
-	// 顺序保持（按 RRF score 降序）
 	if out[0].ID != "1" || out[1].ID != "2" || out[2].ID != "3" {
 		t.Errorf("order wrong: %s %s %s", out[0].ID, out[1].ID, out[2].ID)
 	}
 }
 
 func TestRRFFusion_SingleBM25Only(t *testing.T) {
-	// 只 BM25 召回一路
 	f := NewRRFFusion(60)
 	bm25 := []Chunk{
 		{ID: "10", Score: 5.0},
@@ -77,7 +63,6 @@ func TestRRFFusion_SingleBM25Only(t *testing.T) {
 }
 
 func TestRRFFusion_BothPathsSameChunkGetsDoubleScore(t *testing.T) {
-	// 验收标准 §14.7.1: 文档在两路都出现则双倍加分
 	f := NewRRFFusion(60)
 	vec := []Chunk{
 		{ID: "common", Score: 0.9},
@@ -91,7 +76,6 @@ func TestRRFFusion_BothPathsSameChunkGetsDoubleScore(t *testing.T) {
 	if len(out) != 3 {
 		t.Fatalf("len=%d want=3 (common + vec_only + bm25_only)", len(out))
 	}
-	// common 在两路都是 rank 1，score = 2 / 61 ≈ 0.03279
 	if out[0].ID != "common" {
 		t.Errorf("first ID=%s want=common (double score)", out[0].ID)
 	}
@@ -120,14 +104,12 @@ func TestRRFFusion_DefaultTopNWhenZero(t *testing.T) {
 		vec[i] = Chunk{ID: string(rune('a' + i))}
 	}
 	out := f.Fuse(vec, nil, 0)
-	// topN=0 应使用默认值 20
 	if len(out) != 20 {
 		t.Errorf("topN=0 should default to 20, got %d", len(out))
 	}
 }
 
 func TestRRFFusion_ScoreOverwritten(t *testing.T) {
-	// 融合后 Chunk.Score 应被覆盖为 RRF score，而非保留原始 score
 	f := NewRRFFusion(60)
 	vec := []Chunk{{ID: "1", Score: 0.999}}
 	out := f.Fuse(vec, nil, 20)
@@ -138,9 +120,7 @@ func TestRRFFusion_ScoreOverwritten(t *testing.T) {
 }
 
 func TestRRFFusion_TieBreakByID(t *testing.T) {
-	// 相同 RRF score 时按 ID 稳定排序
 	f := NewRRFFusion(60)
-	// 两个 chunk 在两路都是 rank 2 → 相同 score 2/(60+2)
 	vec := []Chunk{
 		{ID: "z_first", Score: 0.9},
 		{ID: "a_tie", Score: 0.8},
@@ -150,7 +130,6 @@ func TestRRFFusion_TieBreakByID(t *testing.T) {
 		{ID: "a_tie", Score: 4.0},
 	}
 	out := f.Fuse(vec, bm25, 20)
-	// z_first 和 a_tie 的 RRF score 相同，按 ID 升序：a_tie 在前
 	if out[0].ID != "z_first" {
 		t.Errorf("first should be z_first (rank 1 in both paths), got %s", out[0].ID)
 	}
@@ -178,3 +157,4 @@ func abs(x float64) float64 {
 	}
 	return x
 }
+

@@ -82,9 +82,6 @@ func (c *SystemInitController) InitComplete(ctx *gin.Context) {
 		return
 	}
 
-	// 需写 install.lock，否则 state 停留在 HAS_ADMIN，
-	// InitGuard 持续拦截所有非白名单 API（返回 INIT_REQUIRED 引导 /setup）。
-	// 必须调用 SetAdminInit 写 initialized=true，使 GetStatus() 返回 state=INITIALIZED。
 	adminUsername := checker.GetAdminUsername()
 	if err := checker.SetAdminInit(adminUsername); err != nil {
 		response.ErrorFromDB(ctx, err, "标记初始化状态失败: "+err.Error())
@@ -98,3 +95,4 @@ func (c *SystemInitController) InitComplete(ctx *gin.Context) {
 		"next_action":    "login",
 	}, "初始化完成")
 }
+

@@ -11,19 +11,7 @@ import (
 	"time"
 )
 
-// decorator_test.go 5 装饰器链测试（PRD §5.2 G3）
-//
-// 覆盖：
-//   1. 权限校验装饰器：放行 / 拒绝 / nil checker
-//   2. 限流装饰器：放行 / 被限流 / nil limiter / TokenBucketLimiter
-//   3. 重试装饰器：首次成功 / 失败重试成功 / 重试耗尽 / panic 恢复 / nil policy
-//   4. 超时装饰器：正常 / 超时 / 0 时长
-//   5. 审计计费装饰器：成功 / 失败 / 敏感参数脱敏 / nil logger
-//   6. ChainDecorators 串联顺序
-//   7. BuildDefaultChain 默认 5 装饰器链
-//   8. 工具上下文传递
 
-// ===== 辅助：构造一个 mock handler =====
 
 func makeHandler(name string, callCount *int32, succeed bool, errMsg string) ToolHandler {
 	return func(ctx context.Context, args map[string]any) (ToolResult, error) {
@@ -60,7 +48,6 @@ func makeCtxWithToolName(name string) context.Context {
 	return WithToolName(ctx, name)
 }
 
-// ===== 1. 权限校验装饰器测试 =====
 
 // allowAllChecker 始终放行
 type allowAllChecker struct{}
@@ -145,12 +132,10 @@ func TestPermissionDecorator_Whitelist(t *testing.T) {
 	dec := PermissionDecorator(&permissionListChecker{
 		allowed: map[string]bool{"test.allowed": true},
 	})(h)
-	// 在白名单
 	ctx1 := makeCtxWithToolName("test.allowed")
 	if _, err := dec(ctx1, nil); err != nil {
 		t.Fatalf("白名单内工具应放行：%v", err)
 	}
-	// 不在白名单
 	ctx2 := makeCtxWithToolName("test.denied")
 	_, err := dec(ctx2, nil)
 	if !errors.Is(err, ErrPermissionDenied) {
@@ -158,7 +143,6 @@ func TestPermissionDecorator_Whitelist(t *testing.T) {
 	}
 }
 
-// ===== 2. 限流装饰器测试 =====
 
 func TestRateLimitDecorator_Allow(t *testing.T) {
 	var calls int32
@@ -207,9 +191,8 @@ func TestRateLimitDecorator_Deny(t *testing.T) {
 }
 
 func TestTokenBucketLimiter_BasicAllow(t *testing.T) {
-	limiter := NewTokenBucketLimiter(100, 5) // 100 QPS，桶容量 5
+	limiter := NewTokenBucketLimiter(100, 5) 
 	ctx := context.Background()
-	// 桶初始有 5 个令牌，连续 5 次应放行
 	for i := 0; i < 5; i++ {
 		if err := limiter.Acquire(ctx, "key1"); err != nil {
 			t.Fatalf("第 %d 次应放行，实际错误：%v", i+1, err)
@@ -218,12 +201,10 @@ func TestTokenBucketLimiter_BasicAllow(t *testing.T) {
 }
 
 func TestTokenBucketLimiter_DenyWhenExhausted(t *testing.T) {
-	limiter := NewTokenBucketLimiter(0.01, 2) // 0.01 QPS（每 100s 才补 1 个），桶容量 2
+	limiter := NewTokenBucketLimiter(0.01, 2) 
 	ctx := context.Background()
-	// 用完 2 个令牌
 	_ = limiter.Acquire(ctx, "key1")
 	_ = limiter.Acquire(ctx, "key1")
-	// 第 3 次应被拒绝
 	err := limiter.Acquire(ctx, "key1")
 	if !errors.Is(err, ErrRateLimited) {
 		t.Fatalf("令牌耗尽应返回 ErrRateLimited，实际 %v", err)
@@ -231,10 +212,9 @@ func TestTokenBucketLimiter_DenyWhenExhausted(t *testing.T) {
 }
 
 func TestTokenBucketLimiter_Refill(t *testing.T) {
-	limiter := NewTokenBucketLimiter(1000, 1) // 1000 QPS（每 ms 补 1 个），桶容量 1
+	limiter := NewTokenBucketLimiter(1000, 1) 
 	ctx := context.Background()
-	_ = limiter.Acquire(ctx, "key1") // 用掉唯一令牌
-	// 等待 20ms，应补 ≥ 1 个令牌
+	_ = limiter.Acquire(ctx, "key1") 
 	time.Sleep(20 * time.Millisecond)
 	if err := limiter.Acquire(ctx, "key1"); err != nil {
 		t.Fatalf("等待后应放行，实际错误：%v", err)
@@ -244,9 +224,7 @@ func TestTokenBucketLimiter_Refill(t *testing.T) {
 func TestTokenBucketLimiter_PerKeyIsolation(t *testing.T) {
 	limiter := NewTokenBucketLimiter(0.01, 1)
 	ctx := context.Background()
-	// key1 用完
 	_ = limiter.Acquire(ctx, "key1")
-	// key2 应独立有令牌
 	if err := limiter.Acquire(ctx, "key2"); err != nil {
 		t.Fatalf("不同 key 应独立限流，实际错误：%v", err)
 	}
@@ -258,7 +236,6 @@ func TestRateLimitDecorator_KeyIncludesCallerID(t *testing.T) {
 	h := makeHandler("test.tool", &calls, true, "")
 	dec := RateLimitDecorator(limiter)(h)
 
-	// 同一 caller 用完令牌
 	ctx1 := WithToolContext(
 		WithToolName(context.Background(), "test.tool"),
 		&ToolContext{CallerID: "agent-001"},
@@ -266,12 +243,10 @@ func TestRateLimitDecorator_KeyIncludesCallerID(t *testing.T) {
 	if _, err := dec(ctx1, nil); err != nil {
 		t.Fatalf("首次应放行：%v", err)
 	}
-	// 同 caller 再次调用应被限流
 	_, err := dec(ctx1, nil)
 	if !errors.Is(err, ErrRateLimited) {
 		t.Fatalf("同 caller 再次应被限流，实际 %v", err)
 	}
-	// 不同 caller 应独立放行
 	ctx2 := WithToolContext(
 		WithToolName(context.Background(), "test.tool"),
 		&ToolContext{CallerID: "agent-002"},
@@ -281,7 +256,6 @@ func TestRateLimitDecorator_KeyIncludesCallerID(t *testing.T) {
 	}
 }
 
-// ===== 3. 重试装饰器测试 =====
 
 // countFailThenSucceedN 前 N-1 次失败，第 N 次成功
 func countFailThenSucceedN(name string, counter *int32, failUntil int32) ToolHandler {
@@ -329,7 +303,7 @@ func TestRetryDecorator_FirstSuccess(t *testing.T) {
 
 func TestRetryDecorator_SuccessAfterRetries(t *testing.T) {
 	var calls int32
-	h := countFailThenSucceedN("test.tool", &calls, 3) // 前 2 次失败，第 3 次成功
+	h := countFailThenSucceedN("test.tool", &calls, 3) 
 	dec := RetryDecorator(&zeroBackoffPolicy{maxAttempts: 5})(h)
 	ctx := makeCtxWithToolName("test.tool")
 	r, err := dec(ctx, nil)
@@ -397,13 +371,12 @@ func TestRetryDecorator_ContextCancel(t *testing.T) {
 	h := makeHandler("test.tool", &calls, false, "fail")
 	dec := RetryDecorator(&zeroBackoffPolicy{maxAttempts: 100})(h)
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // 立即取消
+	cancel() 
 	ctx = WithToolName(ctx, "test.tool")
 	_, err := dec(ctx, nil)
 	if err == nil {
 		t.Fatalf("context 已取消应返回错误")
 	}
-	// 注意：首次进入循环时 ctx.Err() != nil，会立即返回，calls 应为 0
 	if calls != 0 {
 		t.Fatalf("context 已取消应不调用 handler，实际 %d", calls)
 	}
@@ -416,17 +389,14 @@ func TestExponentialBackoffPolicy_BasicDelay(t *testing.T) {
 		MaxDelay:         10 * time.Second,
 		Jitter:           false,
 	}
-	// attempt 1: 100ms
 	d1, ok := p.NextBackoff(1, nil)
 	if !ok || d1 != 100*time.Millisecond {
 		t.Fatalf("attempt 1 期望 100ms，实际 %v (ok=%v)", d1, ok)
 	}
-	// attempt 2: 200ms
 	d2, _ := p.NextBackoff(2, nil)
 	if d2 != 200*time.Millisecond {
 		t.Fatalf("attempt 2 期望 200ms，实际 %v", d2)
 	}
-	// attempt 3: 400ms
 	d3, _ := p.NextBackoff(3, nil)
 	if d3 != 400*time.Millisecond {
 		t.Fatalf("attempt 3 期望 400ms，实际 %v", d3)
@@ -440,7 +410,6 @@ func TestExponentialBackoffPolicy_CapAtMax(t *testing.T) {
 		MaxDelay:         5 * time.Second,
 		Jitter:           false,
 	}
-	// attempt 10: 2^9 = 512s，应被 cap 到 5s
 	d, _ := p.NextBackoff(10, nil)
 	if d != 5*time.Second {
 		t.Fatalf("应被 cap 到 5s，实际 %v", d)
@@ -453,19 +422,16 @@ func TestExponentialBackoffPolicy_OutOfRange(t *testing.T) {
 		BaseDelay:        100 * time.Millisecond,
 		MaxDelay:         1 * time.Second,
 	}
-	// attempt 0 不合法
 	_, ok := p.NextBackoff(0, nil)
 	if ok {
 		t.Fatalf("attempt 0 应返回 ok=false")
 	}
-	// attempt 4 超出 maxAttempts=3
 	_, ok = p.NextBackoff(4, nil)
 	if ok {
 		t.Fatalf("attempt 4 应返回 ok=false")
 	}
 }
 
-// ===== 4. 超时装饰器测试 =====
 
 func TestTimeoutDecorator_Normal(t *testing.T) {
 	var calls int32
@@ -495,7 +461,7 @@ func TestTimeoutDecorator_TimedOut(t *testing.T) {
 func TestTimeoutDecorator_ZeroDuration(t *testing.T) {
 	var calls int32
 	h := makeHandler("test.tool", &calls, true, "")
-	dec := TimeoutDecorator(0)(h) // 0 = 不超时
+	dec := TimeoutDecorator(0)(h) 
 	ctx := makeCtxWithToolName("test.tool")
 	_, err := dec(ctx, nil)
 	if err != nil {
@@ -514,7 +480,6 @@ func TestTimeoutDecorator_PanicInGoroutine(t *testing.T) {
 	}
 }
 
-// ===== 5. 审计计费装饰器测试 =====
 
 func TestAuditDecorator_SuccessLogged(t *testing.T) {
 	logger := NewMemoryAuditLogger(100)
@@ -555,7 +520,6 @@ func TestAuditDecorator_SuccessLogged(t *testing.T) {
 	if !strings.Contains(e.ArgsSummary, "foo=bar") {
 		t.Fatalf("ArgsSummary 应包含参数：实际 %s", e.ArgsSummary)
 	}
-	// 计费统计
 	stats := tracker.Stats()
 	if len(stats) != 1 {
 		t.Fatalf("期望 1 条计费统计，实际 %d", len(stats))
@@ -645,13 +609,11 @@ func TestAuditDecorator_TruncatesLongArgs(t *testing.T) {
 	if len(entries) != 1 {
 		t.Fatalf("期望 1 条审计日志")
 	}
-	// 总长度应被截断到 200 字符以内（含省略号）
 	if len(entries[0].ArgsSummary) > 250 {
 		t.Fatalf("长参数应被截断，实际长度 %d", len(entries[0].ArgsSummary))
 	}
 }
 
-// ===== 6. ChainDecorators 串联测试 =====
 
 func TestChainDecorators_Order(t *testing.T) {
 	// 用一个共享 slice 记录调用顺序
@@ -663,7 +625,6 @@ func TestChainDecorators_Order(t *testing.T) {
 		mu.Unlock()
 	}
 
-	// 构造 3 个装饰器，分别在前置/后置打 log
 	dec1 := func(next ToolHandler) ToolHandler {
 		return func(ctx context.Context, args map[string]any) (ToolResult, error) {
 			addLog("dec1-pre")
@@ -720,18 +681,17 @@ func TestChainDecorators_SkipNilDecorators(t *testing.T) {
 	}
 }
 
-// ===== 7. BuildDefaultChain 完整链测试 =====
 
 func TestBuildDefaultChain_PermissionDenyStopsChain(t *testing.T) {
 	var calls int32
 	h := makeHandler("test.tool", &calls, true, "")
 	chain := BuildDefaultChain(h,
-		denyAllChecker{},                   // 权限拒绝
-		NoOpRateLimiter{},                  // 限流（不应被调用）
-		&zeroBackoffPolicy{maxAttempts: 3}, // 重试（不应被调用）
-		1*time.Second,                      // 超时
-		NewMemoryAuditLogger(100),          // 审计
-		NewMemoryCostTracker(),             // 计费
+		denyAllChecker{},                   
+		NoOpRateLimiter{},                  
+		&zeroBackoffPolicy{maxAttempts: 3}, 
+		1*time.Second,                      
+		NewMemoryAuditLogger(100),          
+		NewMemoryCostTracker(),             
 	)
 	ctx := makeCtxWithToolName("test.tool")
 	_, err := chain(ctx, nil)
@@ -747,9 +707,9 @@ func TestBuildDefaultChain_RateLimitedStopsChain(t *testing.T) {
 	var calls int32
 	h := makeHandler("test.tool", &calls, true, "")
 	chain := BuildDefaultChain(h,
-		allowAllChecker{},                  // 权限放行
-		denyAllLimiter{},                   // 限流拒绝
-		&zeroBackoffPolicy{maxAttempts: 3}, // 不应被调用
+		allowAllChecker{},                  
+		denyAllLimiter{},                   
+		&zeroBackoffPolicy{maxAttempts: 3}, 
 		1*time.Second,
 		NewMemoryAuditLogger(100),
 		NewMemoryCostTracker(),
@@ -766,12 +726,11 @@ func TestBuildDefaultChain_RateLimitedStopsChain(t *testing.T) {
 
 func TestBuildDefaultChain_RetryOnFailure(t *testing.T) {
 	var calls int32
-	// 前 2 次失败，第 3 次成功
 	h := countFailThenSucceedN("test.tool", &calls, 3)
 	chain := BuildDefaultChain(h,
 		allowAllChecker{},
 		NoOpRateLimiter{},
-		&zeroBackoffPolicy{maxAttempts: 5}, // 允许重试 5 次
+		&zeroBackoffPolicy{maxAttempts: 5}, 
 		1*time.Second,
 		NewMemoryAuditLogger(100),
 		NewMemoryCostTracker(),
@@ -797,7 +756,7 @@ func TestBuildDefaultChain_FullSuccess(t *testing.T) {
 	chain := BuildDefaultChain(h,
 		allowAllChecker{},
 		NoOpRateLimiter{},
-		&zeroBackoffPolicy{maxAttempts: 1}, // 不重试
+		&zeroBackoffPolicy{maxAttempts: 1}, 
 		1*time.Second,
 		logger,
 		tracker,
@@ -816,7 +775,6 @@ func TestBuildDefaultChain_FullSuccess(t *testing.T) {
 	if calls != 1 {
 		t.Fatalf("期望调用 1 次，实际 %d", calls)
 	}
-	// 审计日志
 	entries := logger.Entries()
 	if len(entries) != 1 {
 		t.Fatalf("期望 1 条审计日志，实际 %d", len(entries))
@@ -827,14 +785,12 @@ func TestBuildDefaultChain_FullSuccess(t *testing.T) {
 	if entries[0].CustomerID != "cust-100" {
 		t.Fatalf("审计日志应包含 CustomerID")
 	}
-	// 计费
 	stats := tracker.Stats()
 	if len(stats) != 1 || stats[0].SuccessCalls != 1 {
 		t.Fatalf("计费统计错误：%+v", stats)
 	}
 }
 
-// ===== 8. ToolContext 传递测试 =====
 
 func TestToolContext_PassThroughChain(t *testing.T) {
 	logger := NewMemoryAuditLogger(100)
@@ -847,7 +803,7 @@ func TestToolContext_PassThroughChain(t *testing.T) {
 	chain := BuildDefaultChain(h,
 		allowAllChecker{},
 		NoOpRateLimiter{},
-		nil, // 不重试
+		nil, 
 		1*time.Second,
 		logger,
 		nil,
@@ -882,7 +838,6 @@ func TestGetToolContext_NilWhenNotSet(t *testing.T) {
 	}
 }
 
-// ===== 9. 内存审计 logger 边界测试 =====
 
 func TestMemoryAuditLogger_RollOver(t *testing.T) {
 	logger := NewMemoryAuditLogger(3)
@@ -894,7 +849,6 @@ func TestMemoryAuditLogger_RollOver(t *testing.T) {
 	if len(entries) != 3 {
 		t.Fatalf("maxSize=3 应只保留 3 条，实际 %d", len(entries))
 	}
-	// 应保留最新的 3 条（b、c、d）
 	if entries[0].ToolName != "b" {
 		t.Fatalf("应滚动覆盖最旧的 a，实际 entries[0]=%s", entries[0].ToolName)
 	}
@@ -956,18 +910,15 @@ func TestMemoryCostTracker_StatsComputation(t *testing.T) {
 	if aStats.TotalDurationMs != 350 {
 		t.Fatalf("TotalDurationMs 期望 350，实际 %d", aStats.TotalDurationMs)
 	}
-	// 成功率 2/3
 	expected := 2.0 / 3.0
 	if aStats.SuccessRate < expected-0.001 || aStats.SuccessRate > expected+0.001 {
 		t.Fatalf("SuccessRate 期望 %f，实际 %f", expected, aStats.SuccessRate)
 	}
-	// 平均时长 350/3
 	if aStats.AvgDurationMs < 116.0 || aStats.AvgDurationMs > 117.0 {
 		t.Fatalf("AvgDurationMs 期望 ~116.67，实际 %f", aStats.AvgDurationMs)
 	}
 }
 
-// ===== 10. summarizeArgs 单元测试 =====
 
 func TestSummarizeArgs_Empty(t *testing.T) {
 	if summarizeArgs(nil) != "" {
@@ -998,11 +949,9 @@ func TestSummarizeArgs_LongValueTruncated(t *testing.T) {
 	if !strings.Contains(s, "...") {
 		t.Fatalf("长值应被截断加省略号，实际 %s", s)
 	}
-	// 截断后单值应 ≤ 53 字符（50 + "..."）
 	idx := strings.Index(s, "long=")
 	if idx >= 0 {
 		val := s[idx+5:]
-		// val 后面可能有逗号
 		if comma := strings.Index(val, ","); comma >= 0 {
 			val = val[:comma]
 		}
@@ -1012,7 +961,6 @@ func TestSummarizeArgs_LongValueTruncated(t *testing.T) {
 	}
 }
 
-// ===== 11. NoOp 实现验证 =====
 
 func TestNoOpImplementations(t *testing.T) {
 	ctx := context.Background()
@@ -1024,8 +972,9 @@ func TestNoOpImplementations(t *testing.T) {
 	if err := (NoOpRateLimiter{}).Acquire(ctx, "any.key"); err != nil {
 		t.Fatalf("NoOpRateLimiter 应返回 nil")
 	}
-	(NoOpAuditLogger{}).Log(ctx, AuditEntry{}) // 不应 panic
+	(NoOpAuditLogger{}).Log(ctx, AuditEntry{}) 
 	if err := (NoOpCostTracker{}).Record(ctx, "any.tool", true, 1*time.Second); err != nil {
 		t.Fatalf("NoOpCostTracker 应返回 nil")
 	}
 }
+

@@ -161,7 +161,6 @@ func TestMessageRepository_Create_MultipleMessages(t *testing.T) {
 
 	repo := NewMessageRepository()
 
-	// Create multiple messages for same user
 	for i := 0; i < 5; i++ {
 		message := &model.Message{
 			Status:    _type.UserStatusValid,
@@ -193,7 +192,6 @@ func TestMessageRepository_Create_DifferentUsers(t *testing.T) {
 
 	repo := NewMessageRepository()
 
-	// Create messages for different users
 	users := []string{"user1", "user2", "user3"}
 	for i, userID := range users {
 		message := &model.Message{
@@ -226,7 +224,6 @@ func TestMessageRepository_GetMessageList_WithStatus(t *testing.T) {
 
 	repo := NewMessageRepository()
 
-	// Create messages with different status
 	for i := 0; i < 3; i++ {
 		message := &model.Message{
 			Status:    _type.UserStatusValid,
@@ -265,7 +262,6 @@ func TestMessageRepository_Create_LargeBatch(t *testing.T) {
 
 	repo := NewMessageRepository()
 
-	// Create 100 messages
 	for i := 0; i < 100; i++ {
 		message := &model.Message{
 			Status:    _type.UserStatusValid,
@@ -297,7 +293,6 @@ func TestMessageRepository_Create_VariousTextLengths(t *testing.T) {
 
 	repo := NewMessageRepository()
 
-	// Create messages with various text lengths
 	messages := []string{
 		"Short",
 		"This is a medium length message",
@@ -326,3 +321,4 @@ func TestMessageRepository_Create_VariousTextLengths(t *testing.T) {
 		t.Errorf("Expected total 5, got %d", total)
 	}
 }
+

@@ -1,21 +1,5 @@
 package controller
 
-// agent_kb_binding_controller.go 智能体知识库绑定 L3 Controller
-//
-// 五层架构归属: L3 API 接入层
-// 设计依据: 强 1对1 改造 (知识库管理)
-//
-// 接口前缀: /api/agent-kb-bindings
-//   GET    /api/agent-kb-bindings/agent/:aid      查某智能体的所有绑定
-//   GET    /api/agent-kb-bindings/kb/:kid         查某知识库被哪些智能体绑定
-//   POST   /api/agent-kb-bindings                 单个绑定 (重复自动覆盖)
-//   POST   /api/agent-kb-bindings/batch           批量绑定 (事务)
-//   DELETE /api/agent-kb-bindings                 单个解绑 (?agent_id&kb_id)
-//
-// 业务规则:
-//   - (agent_id, knowledge_base_id) 唯一; 重复 bind 自动覆盖
-//   - 同一智能体可绑多个不同类型的知识库
-//   - 批量绑定走事务, 任一失败整体回滚
 
 import (
 	"net/http"
@@ -49,14 +33,14 @@ func (c *AgentKBBindingController) RegisterRoutes(router *gin.RouterGroup) {
 	g := router.Group("/agent-kb-bindings")
 	{
 		g.GET("/by-agent/:agentId", c.ListByAgent)
-		g.GET("/agent/:aid", c.ListByAgent) // 旧路径别名
+		g.GET("/agent/:aid", c.ListByAgent) 
 		g.GET("/by-kb/:kbId", c.ListByKB)
-		g.GET("/kb/:kid", c.ListByKB) // 旧路径别名
+		g.GET("/kb/:kid", c.ListByKB) 
 		g.PUT("/by-agent/:agentId", c.ReplaceByAgent)
 		g.DELETE("/:agentId/:kbId", c.UnbindByPath)
 		g.POST("", c.Bind)
 		g.POST("/batch", c.BatchBind)
-		g.DELETE("", c.Unbind) // 旧 body 解绑契约
+		g.DELETE("", c.Unbind) 
 	}
 }
 
@@ -242,3 +226,4 @@ func (c *AgentKBBindingController) Unbind(ctx *gin.Context) {
 		"knowledge_base_id": req.KnowledgeBaseID,
 	}, "解绑成功")
 }
+

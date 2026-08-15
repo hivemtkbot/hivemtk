@@ -1,16 +1,5 @@
 package humanize
 
-// llm_scorer_test.go LLMScorer 单元测试
-//
-// 覆盖：
-//  1. 基本评估流程（含 self-consistency N=3）
-//  2. Prompt 构建（G-Eval 风格）
-//  3. LLM 返回解析（含 ```json 包裹与 CoT 前缀）
-//  4. 中位数结果选取（pickMedianResult）
-//  5. 加权欧氏距离计算
-//  6. 采样决策（decideLLMSample）
-//  7. LLM 失败降级
-//  8. 边界用例（空输入、dispatcher nil）
 
 import (
 	"context"
@@ -22,13 +11,9 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// ============================================================================
-// 基本评估测试
-// ============================================================================
 
 // TestLLMScorer_Evaluate_Basic 基本 LLM 评估
 func TestLLMScorer_Evaluate_Basic(t *testing.T) {
-	// 3 次返回相同结果
 	responses := []string{
 		`{"scores":[{"dimension":"naturalness","score":0.85,"reason":"good"},{"dimension":"conciseness","score":0.9,"reason":"good"},{"dimension":"empathy","score":0.8,"reason":"good"},{"dimension":"professionalism","score":0.85,"reason":"good"},{"dimension":"persuasiveness","score":0.8,"reason":"good"}],"total_score":0.84,"distance_to_champion":0.1}`,
 		`{"scores":[{"dimension":"naturalness","score":0.85,"reason":"good"},{"dimension":"conciseness","score":0.9,"reason":"good"},{"dimension":"empathy","score":0.8,"reason":"good"},{"dimension":"professionalism","score":0.85,"reason":"good"},{"dimension":"persuasiveness","score":0.8,"reason":"good"}],"total_score":0.84,"distance_to_champion":0.1}`,
@@ -70,7 +55,6 @@ func TestLLMScorer_Evaluate_Basic(t *testing.T) {
 
 // TestLLMScorer_Evaluate_SelfConsistencyMedian 中位数选取
 func TestLLMScorer_Evaluate_SelfConsistencyMedian(t *testing.T) {
-	// 3 次返回不同分数：0.70, 0.85, 0.95，中位数 = 0.85
 	responses := []string{
 		`{"scores":[{"dimension":"naturalness","score":0.7},{"dimension":"conciseness","score":0.7},{"dimension":"empathy","score":0.7},{"dimension":"professionalism","score":0.7},{"dimension":"persuasiveness","score":0.7}],"total_score":0.70}`,
 		`{"scores":[{"dimension":"naturalness","score":0.85},{"dimension":"conciseness","score":0.85},{"dimension":"empathy","score":0.85},{"dimension":"professionalism","score":0.85},{"dimension":"persuasiveness","score":0.85}],"total_score":0.85}`,
@@ -111,7 +95,7 @@ func TestLLMScorer_Evaluate_NilDispatcher(t *testing.T) {
 func TestLLMScorer_Evaluate_AllFail(t *testing.T) {
 	dispatcher := newHumanizeStubLLMDispatcher(nil)
 	dispatcher.err = errors.New("LLM service unavailable")
-	dispatcher.failOn = 1 // 第 1 次失败，由于 responses 为空，所有调用都失败
+	dispatcher.failOn = 1 
 	scorer := NewLLMScorer(dispatcher)
 	input := &dto.HumanizeEvalInput{AIReply: "测试"}
 	_, err := scorer.Evaluate(context.Background(), input)
@@ -122,9 +106,8 @@ func TestLLMScorer_Evaluate_AllFail(t *testing.T) {
 
 // TestLLMScorer_Evaluate_PartialFail 部分失败仍可返回中位数
 func TestLLMScorer_Evaluate_PartialFail(t *testing.T) {
-	// 第 1 次失败，第 2、3 次成功
 	responses := []string{
-		"", // 占位，第 1 次因 failOn 失败
+		"", 
 		`{"scores":[{"dimension":"naturalness","score":0.8},{"dimension":"conciseness","score":0.8},{"dimension":"empathy","score":0.8},{"dimension":"professionalism","score":0.8},{"dimension":"persuasiveness","score":0.8}],"total_score":0.8}`,
 		`{"scores":[{"dimension":"naturalness","score":0.9},{"dimension":"conciseness","score":0.9},{"dimension":"empathy","score":0.9},{"dimension":"professionalism","score":0.9},{"dimension":"persuasiveness","score":0.9}],"total_score":0.9}`,
 	}
@@ -142,9 +125,6 @@ func TestLLMScorer_Evaluate_PartialFail(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Prompt 构建测试
-// ============================================================================
 
 // TestBuildHumanizeLLMPrompt_Basic 基本 prompt 构建
 func TestBuildHumanizeLLMPrompt_Basic(t *testing.T) {
@@ -160,7 +140,6 @@ func TestBuildHumanizeLLMPrompt_Basic(t *testing.T) {
 	if prompt == "" {
 		t.Fatal("prompt 不应为空")
 	}
-	// 必须包含关键字段
 	mustContain := []string{
 		"产品怎么样？",
 		"很好用。",
@@ -205,9 +184,6 @@ func TestBuildHumanizeLLMPrompt_WithBaseline(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 解析测试
-// ============================================================================
 
 // TestParseHumanizeEvalResult_PlainJSON 纯 JSON
 func TestParseHumanizeEvalResult_PlainJSON(t *testing.T) {
@@ -294,21 +270,16 @@ func TestParseHumanizeEvalResult_ScoreClamp(t *testing.T) {
 
 // TestParseHumanizeEvalResult_AutoTotal 自动计算综合分
 func TestParseHumanizeEvalResult_AutoTotal(t *testing.T) {
-	// total_score=0 时自动按加权计算
 	content := `{"scores":[{"dimension":"naturalness","score":0.85},{"dimension":"conciseness","score":0.85},{"dimension":"empathy","score":0.85},{"dimension":"professionalism","score":0.85},{"dimension":"persuasiveness","score":0.85}],"total_score":0}`
 	result, err := parseHumanizeEvalResult(content)
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	// 5 维都 0.85，加权 = 0.85
 	if !approxEqualTol(result.TotalScore, 0.85, 1e-3) {
 		t.Errorf("自动计算 TotalScore=%v want 0.85", result.TotalScore)
 	}
 }
 
-// ============================================================================
-// pickMedianResult 测试
-// ============================================================================
 
 // TestPickMedianResult_Odd 奇数取中位数
 func TestPickMedianResult_Odd(t *testing.T) {
@@ -332,7 +303,6 @@ func TestPickMedianResult_Even(t *testing.T) {
 		{TotalScore: 0.95},
 	}
 	picked := pickMedianResult(results)
-	// len/2 = 2，排序后 [0.7, 0.8, 0.9, 0.95]，索引 2 = 0.9
 	if !approxEqual(picked.TotalScore, 0.9) {
 		t.Errorf("偶数中位数=%v want 0.9", picked.TotalScore)
 	}
@@ -349,9 +319,6 @@ func TestPickMedianResult_Single(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 加权欧氏距离测试
-// ============================================================================
 
 // TestWeightedEuclideanDistance_Basic 基本距离计算
 func TestWeightedEuclideanDistance_Basic(t *testing.T) {
@@ -378,7 +345,7 @@ func TestWeightedEuclideanDistance_Basic(t *testing.T) {
 // TestWeightedEuclideanDistance_NonZero 有差距
 func TestWeightedEuclideanDistance_NonZero(t *testing.T) {
 	scores := []dto.HumanizeDimensionScore{
-		{Dimension: dto.HumanizeDimNaturalness, Score: 0.75}, // diff 0.10
+		{Dimension: dto.HumanizeDimNaturalness, Score: 0.75}, 
 		{Dimension: dto.HumanizeDimConciseness, Score: 0.90},
 		{Dimension: dto.HumanizeDimEmpathy, Score: 0.80},
 		{Dimension: dto.HumanizeDimProfessionalism, Score: 0.85},
@@ -391,8 +358,6 @@ func TestWeightedEuclideanDistance_NonZero(t *testing.T) {
 		Professionalism: 0.85,
 		Persuasiveness:  0.80,
 	}
-	// 只有 naturalness 差 0.10，权重 0.25
-	// D = sqrt(0.25 * 0.10^2) = sqrt(0.0025) = 0.05
 	dist := weightedEuclideanDistance(scores, baseline)
 	if !approxEqualTol(dist, 0.05, 1e-3) {
 		t.Errorf("加权欧氏距离=%v want ≈ 0.05", dist)
@@ -410,14 +375,10 @@ func TestWeightedEuclideanDistance_NilBaseline(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 采样决策测试
-// ============================================================================
 
 // TestDecideLLMSample_Boundary 边界样本 100% 触发
 func TestDecideLLMSample_Boundary(t *testing.T) {
 	r := rand.New(rand.NewSource(1))
-	// score ∈ [0.70, 0.85) → boundary
 	for i := 0; i < 20; i++ {
 		dec := decideLLMSample(0.75, 0.85, 0.70, 0.85, 0.10, r)
 		if !dec.NeedLLM {
@@ -440,7 +401,6 @@ func TestDecideLLMSample_BelowThreshold_Low(t *testing.T) {
 			triggerCount++
 		}
 	}
-	// 10% 采样，1000 次中应约 100 次（允许 [60, 140]）
 	if triggerCount < 60 || triggerCount > 140 {
 		t.Errorf("10%% 采样触发次数=%d 应在 [60, 140]", triggerCount)
 	}
@@ -460,7 +420,6 @@ func TestDecideLLMSample_AboveThreshold(t *testing.T) {
 			}
 		}
 	}
-	// 1% 监控采样，1000 次中应约 10 次（允许 [3, 25]）
 	if triggerCount < 3 || triggerCount > 25 {
 		t.Errorf("1%% 监控采样触发次数=%d 应在 [3, 25]", triggerCount)
 	}
@@ -493,9 +452,6 @@ func TestDecideLLMSample_ExactBoundaryHigh(t *testing.T) {
 // TestDecideLLMSample_EqualBoundaryHigh 等于 boundaryHigh 不触发 boundary
 func TestDecideLLMSample_EqualBoundaryHigh(t *testing.T) {
 	r := rand.New(rand.NewSource(1))
-	// score=0.85 = boundaryHigh = threshold
-	// 不属于 [0.70, 0.85)，也不属于 < threshold
-	// 走 >= threshold 分支，1% 监控
 	totalBoundary := 0
 	for i := 0; i < 100; i++ {
 		dec := decideLLMSample(0.85, 0.85, 0.70, 0.85, 0.10, r)
@@ -508,9 +464,6 @@ func TestDecideLLMSample_EqualBoundaryHigh(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 辅助函数
-// ============================================================================
 
 // stringContains 字符串包含（避免引入 strings 包）
 func stringContains(s, sub string) bool {
@@ -526,3 +479,4 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
+

@@ -42,9 +42,7 @@ func TestBuildTelegramCardText(t *testing.T) {
 	if !strings.Contains(text, "价格") || !strings.Contains(text, "5999") {
 		t.Fatalf("fields missing: %s", text)
 	}
-	// HTML 特殊字符必须被转义，避免 Telegram parse_error
 	if strings.Contains(text, "&") && !strings.Contains(text, "&amp;") {
-		// 仅当字段含 & 时校验转义；此处无 &，跳过
 	}
 }
 
@@ -70,3 +68,4 @@ func TestBuildTelegramCardKeyboard_Empty(t *testing.T) {
 		t.Fatalf("expected nil keyboard when no buttons, got %+v", kb)
 	}
 }
+

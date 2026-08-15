@@ -43,15 +43,11 @@ type KnowledgeDocument struct {
 	EmbedStatus   EmbedStatus `gorm:"size:16;default:'pending';index" json:"embed_status"`
 	EmbedProgress int         `gorm:"default:0" json:"embed_progress"`
 	ErrorMsg      string      `gorm:"type:text" json:"error_msg"`
-	Tags          string      `gorm:"type:jsonb;default:'[]'" json:"tags"` // JSON 字符串
+	Tags          string      `gorm:"type:jsonb;default:'[]'" json:"tags"` 
 	Category      string      `gorm:"size:64;index" json:"category"`
 	Priority      int         `gorm:"default:0" json:"priority"`
 	Metadata      string      `gorm:"type:jsonb;default:'{}'" json:"metadata"`
 	ImportedBy    string      `gorm:"size:64" json:"imported_by"`
-	// 按智能体隔离字段
-	//   nil  = 共享 (默认, 向后兼容旧数据)
-	//   &X   = 仅 X 智能体可见
-	// 索引: idx_knowledge_doc_agent_id (按智能体过滤, ListByAgent)
 	AgentID     *uint      `gorm:"index" json:"agent_id,omitempty"`
 	LastIndexAt *time.Time `json:"last_index_at"`
 	SearchCount int64      `gorm:"default:0" json:"search_count"`
@@ -79,16 +75,9 @@ type KnowledgeChunk struct {
 	EmbeddingID     string  `gorm:"size:64" json:"embedding_id"`
 	SimilarityScore float64 `gorm:"default:0" json:"similarity_score"`
 	HitCount        int     `gorm:"default:0" json:"hit_count"`
-	// Weight 知识库自学习权重（默认 1.0）。追踪系统对 trace 打分后动态调整：
-	// 低质回复涉及的 chunk 降权、高质回复涉及的 chunk 升权，作为检索排名的第二依据
-	// （相关性 score 为主序，weight 为调制因子）。
 	Weight         float64 `gorm:"type:double precision;not null;default:1" json:"weight"`
 	Metadata       string  `gorm:"type:jsonb;default:'{}'" json:"metadata"`
-	SourceLanguage string  `gorm:"type:varchar(8);default:'zh'" json:"source_language"` // 知识库源语言（v1.2 出海多语言方案）
-	// TranslatedVersions 预翻译版本（知识库预翻译支持）
-	// 格式：{"en": "translated content", "ja": "..."}
-	// 命中目标语言时返回翻译版本，未命中返回原文 Content。
-	// 默认关闭预翻译，仅高频条目按需翻译后回填此字段。
+	SourceLanguage string  `gorm:"type:varchar(8);default:'zh'" json:"source_language"` 
 	TranslatedVersions JSONMap   `gorm:"type:jsonb;column:translated_versions" json:"translated_versions,omitempty"`
 	CreatedAt          time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
@@ -152,7 +141,7 @@ type KnowledgeOpenAPISource struct {
 	Endpoint        string     `gorm:"size:512;not null" json:"endpoint"`
 	Method          string     `gorm:"size:8;default:'GET'" json:"method"`
 	AuthType        string     `gorm:"size:16;default:'none'" json:"auth_type"`
-	AuthConfig      string     `gorm:"type:jsonb" json:"auth_config"` // 加密 JSON
+	AuthConfig      string     `gorm:"type:jsonb" json:"auth_config"` 
 	RequestTemplate string     `gorm:"type:text" json:"request_template"`
 	ResponsePath    string     `gorm:"size:256" json:"response_path"`
 	FieldMapping    string     `gorm:"type:jsonb;default:'{}'" json:"field_mapping"`
@@ -170,3 +159,4 @@ type KnowledgeOpenAPISource struct {
 func (KnowledgeOpenAPISource) TableName() string {
 	return "knowledge_openapi_sources"
 }
+

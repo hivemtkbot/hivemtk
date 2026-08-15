@@ -1,22 +1,5 @@
 package ragretrieval
 
-// bge_m3_vectorizer.go bge-m3 多语言 embedding provider
-//
-// 五层架构归属: L4 能力层
-// 设计依据: bge-m3 配置化
-//
-// 与 vectorizer.go 中 Vectorizer（基于 llm.EmbeddingService）的差异：
-//   - Vectorizer：默认 provider（openai 兼容），通过 llm.EmbeddingService 间接调用
-//   - BGEM3Vectorizer：显式 bge-m3 provider，直接走 OpenAI 兼容 /v1/embeddings，
-//     支持 normalize / batch_size 等 bge-m3 专属参数；不依赖 llm 包，便于在
-//     i18n 多语言路径独立配置（base_url / api_key / model 可与默认 embedding 不同）
-//
-// 兼容性：
-//   - 实现 VectorizerInterface，可直接替换 Vectorizer 注入到 RagRetrievalService
-//   - 默认维度 1024（与 pgvector vector(1024) 对齐）
-//   - API 兼容 OpenAI /v1/embeddings 协议，可对接：
-//     * 本地部署：FlagEmbedding + ONNX / llama.cpp / TEI
-//     * API 模式：SiliconFlow / 智谱 BigModel 等 OpenAI 兼容服务
 
 import (
 	"bytes"
@@ -49,24 +32,14 @@ const BGEM3DefaultModel = "BAAI/bge-m3"
 //   - 本配置面向 i18n 多语言路径，可独立于默认推理栈 inference.embedding
 //   - 新增 normalize / batch_size 参数（bge-m3 专属）
 type BGEM3Config struct {
-	// Provider provider 类型，固定 "bge-m3"
 	Provider string `yaml:"provider" json:"provider"`
-	// Model 模型名，默认 BAAI/bge-m3
 	Model string `yaml:"model" json:"model"`
-	// BaseURL OpenAI 兼容 /v1/embeddings 根路径
-	// 如 http://localhost:8080/v1、https://api.siliconflow.cn/v1
 	BaseURL string `yaml:"base_url" json:"base_url"`
-	// APIKey 鉴权密钥（本地部署可空）
 	APIKey string `yaml:"api_key" json:"api_key"`
-	// Dimension 向量维度，默认 1024
 	Dimension int `yaml:"dimension" json:"dimension"`
-	// Normalize 是否对返回向量做 L2 归一化（bge-m3 推荐 true）
 	Normalize bool `yaml:"normalize" json:"normalize"`
-	// BatchSize 单次请求最大文本数，默认 32
 	BatchSize int `yaml:"batch_size" json:"batch_size"`
-	// RequestTimeout 单次请求超时（秒），默认 60
 	RequestTimeout int `yaml:"request_timeout" json:"request_timeout"`
-	// MaxRetries 失败重试次数，默认 3
 	MaxRetries int `yaml:"max_retries" json:"max_retries"`
 }
 
@@ -169,7 +142,6 @@ func (v *BGEM3Vectorizer) EmbedBatch(texts []string) ([][]float32, error) {
 	if len(texts) <= v.batchSize {
 		return v.embedWithRetry(context.Background(), texts)
 	}
-	// 分片串行请求
 	total := len(texts)
 	result := make([][]float32, total)
 	for i := 0; i < total; i += v.batchSize {
@@ -264,7 +236,6 @@ func (v *BGEM3Vectorizer) callAPI(ctx context.Context, texts []string) ([][]floa
 	if baseURL == "" {
 		return nil, fmt.Errorf("BGEM3 BaseURL 未配置")
 	}
-	// 兼容 baseURL 已含 /v1 后缀的情况
 	if !strings.HasSuffix(baseURL, "/v1") && !strings.HasSuffix(baseURL, "/v1/") {
 		baseURL = baseURL + "/v1"
 	}
@@ -355,3 +326,4 @@ func normalizeVector(vec []float32) []float32 {
 
 // Compile-time 接口断言：BGEM3Vectorizer 实现 VectorizerInterface
 var _ VectorizerInterface = (*BGEM3Vectorizer)(nil)
+

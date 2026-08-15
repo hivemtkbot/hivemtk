@@ -78,39 +78,33 @@ func TestRFMScoreMonetary(t *testing.T) {
 }
 
 func TestDetermineSegment_Churn(t *testing.T) {
-	// recency >= churnThreshold
 	if got := determineSegment(1, 1, 1, 200, 180); got != model.RFMSegmentChurn {
 		t.Errorf("expected churn, got %s", got)
 	}
-	// R=1 F=1
 	if got := determineSegment(1, 1, 5, 100, 180); got != model.RFMSegmentChurn {
 		t.Errorf("expected churn (R=1 F=1), got %s", got)
 	}
 }
 
 func TestDetermineSegment_Champion(t *testing.T) {
-	// R=5 F=4
 	if got := determineSegment(5, 4, 5, 1, 180); got != model.RFMSegmentChampion {
 		t.Errorf("expected champion, got %s", got)
 	}
 }
 
 func TestDetermineSegment_Loyal(t *testing.T) {
-	// R=4 F=3
 	if got := determineSegment(4, 3, 3, 30, 180); got != model.RFMSegmentLoyal {
 		t.Errorf("expected loyal, got %s", got)
 	}
 }
 
 func TestDetermineSegment_AtRisk(t *testing.T) {
-	// R=2 (会落入 at_risk)
 	if got := determineSegment(2, 2, 2, 60, 180); got != model.RFMSegmentAtRisk {
 		t.Errorf("expected at_risk, got %s", got)
 	}
 }
 
 func TestDetermineSegment_Potential(t *testing.T) {
-	// R=3 F=2 (potential)
 	if got := determineSegment(3, 2, 2, 60, 180); got != model.RFMSegmentPotential {
 		t.Errorf("expected potential, got %s", got)
 	}
@@ -118,24 +112,21 @@ func TestDetermineSegment_Potential(t *testing.T) {
 
 func TestCalcChurnRisk(t *testing.T) {
 	cfg := DefaultRFMConfig()
-	// 1) recency >= threshold → high
 	level, score := calcChurnRisk(200, 0, 0, cfg)
 	if level != "high" || score < 70 {
 		t.Errorf("expected high/score>=70, got %s/%d", level, score)
 	}
-	// 2) recency 0 + F>=5 + M>=100000 → low
 	level, score = calcChurnRisk(0, 10, 200000, cfg)
 	if level != "low" {
 		t.Errorf("expected low, got %s/%d", level, score)
 	}
-	// 3) 中等 (90~180 天, 频率低, 无金额) → medium
 	level, score = calcChurnRisk(120, 1, 0, cfg)
 	if level != "medium" {
 		t.Errorf("expected medium, got %s/%d", level, score)
 	}
-	// 4) 极低风险（高频+高额+最近活跃）→ low
 	level, _ = calcChurnRisk(0, 10, 200000, cfg)
 	if level != "low" {
 		t.Errorf("expected low, got %s", level)
 	}
 }
+

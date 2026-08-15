@@ -1,20 +1,5 @@
 package dto
 
-// sop.go 销冠域 - SOP 智能体 DTO
-//
-// 本文件包含两类内容：
-//  1. SOP 请求 DTO（ExecuteRequest / StepRequest）：controller → service 调用入参
-//  2. SOP 图模型类型（SOPGraph / SOPNode / SOPEdge / SOPPosition / SOPConditionBranch /
-//     SOPABTestConfig / SOPABTestVariant）：纯数据结构，不含业务方法
-//
-// 历史背景：SOP 图模型原定义在 service/sop_service.go 与 service/sop_abtest.go 内，
-// 因 CreateRequest 引用这些类型导致无法迁移到 dto（service → dto → service 循环依赖）。
-// 现将图模型类型迁入 dto，service 包通过类型别名（type alias）保持向后兼容。
-// 业务方法（Validate / SelectVariant）已迁移至 service/sop_abtest.go 的包级函数，
-// 符合五层架构规范：DTO 层仅保留数据结构与入参校验。
-//
-// 注：CreateRequest 待后续迁移到 dto（深度 DTO 迁移-2）。
-// 注：ParseSOPABTestConfig 因引用 model.JSONMap，仍保留在 service 包内。
 
 // ExecuteRequest 执行请求
 type ExecuteRequest struct {
@@ -30,9 +15,6 @@ type StepRequest struct {
 	Output      map[string]any `json:"output"`
 }
 
-// ============================================================================
-// SOP 图模型类型（从 service 包迁入）
-// ============================================================================
 
 // SOPNode SOP 节点（商用级增强版，向后兼容旧字段）
 type SOPNode struct {
@@ -41,25 +23,23 @@ type SOPNode struct {
 	Name   string         `json:"name"`
 	Config map[string]any `json:"config,omitempty"`
 	Next   []string       `json:"next,omitempty"`
-	// 旧字段：向后兼容（仅 branch 节点使用）
 	Condition string `json:"condition,omitempty"`
 
-	// 商用级增强字段（PRD §5.2）
-	Description string               `json:"description,omitempty"` // 节点说明
-	Prompt      string               `json:"prompt,omitempty"`      // LLM 节点的提示词 / 话术模板
-	Tools       []string             `json:"tools,omitempty"`       // 节点可用工具列表
-	Conditions  []SOPConditionBranch `json:"conditions,omitempty"`  // condition 节点优先级路由
-	Position    SOPPosition          `json:"position,omitempty"`    // 可视化编辑器位置
-	Metadata    map[string]any       `json:"metadata,omitempty"`    // 扩展元数据
+	Description string               `json:"description,omitempty"` 
+	Prompt      string               `json:"prompt,omitempty"`      
+	Tools       []string             `json:"tools,omitempty"`       
+	Conditions  []SOPConditionBranch `json:"conditions,omitempty"`  
+	Position    SOPPosition          `json:"position,omitempty"`    
+	Metadata    map[string]any       `json:"metadata,omitempty"`    
 }
 
 // SOPConditionBranch 条件分支（用于 condition 节点的优先级路由）
 // 按优先级从上到下匹配，第一个匹配成功的分支胜出
 type SOPConditionBranch struct {
-	Label     string `json:"label"`              // 分支标签（如 "高意向"、"低意向"）
-	Condition string `json:"condition"`          // 条件表达式（如 "intent_score gte 0.7"）
-	Next      string `json:"next"`               // 匹配成功后跳转的节点 ID
-	Priority  int    `json:"priority,omitempty"` // 优先级（数值越大越优先，默认按数组顺序）
+	Label     string `json:"label"`              
+	Condition string `json:"condition"`          
+	Next      string `json:"next"`               
+	Priority  int    `json:"priority,omitempty"` 
 }
 
 // SOPPosition 节点在可视化编辑器中的坐标
@@ -73,13 +53,12 @@ type SOPGraph struct {
 	Nodes []SOPNode `json:"nodes"`
 	Edges []SOPEdge `json:"edges,omitempty"`
 
-	// 商用级增强字段
-	Name      string         `json:"name,omitempty"`      // 图名称
-	Scenario  string         `json:"scenario,omitempty"`  // 适用场景
-	Version   string         `json:"version,omitempty"`   // 图版本号
-	Entry     string         `json:"entry,omitempty"`     // 入口节点 ID（默认取 type=start 的节点）
-	Exits     []string       `json:"exits,omitempty"`     // 出口节点 ID 列表
-	Variables map[string]any `json:"variables,omitempty"` // 图级变量定义
+	Name      string         `json:"name,omitempty"`      
+	Scenario  string         `json:"scenario,omitempty"`  
+	Version   string         `json:"version,omitempty"`   
+	Entry     string         `json:"entry,omitempty"`     
+	Exits     []string       `json:"exits,omitempty"`     
+	Variables map[string]any `json:"variables,omitempty"` 
 }
 
 // SOPEdge SOP 边
@@ -91,16 +70,16 @@ type SOPEdge struct {
 
 // SOPABTestVariant A/B 测试 variant 定义
 type SOPABTestVariant struct {
-	Name       string `json:"name"`         // variant 名称（如 "A"、"B"）
-	SOPGraphID uint   `json:"sop_graph_id"` // 该 variant 使用的 SOP 图 ID（0 表示用当前 SOP 的主图）
-	Weight     int    `json:"weight"`       // 权重（百分比，0-100；所有 variant 权重之和必须为 100）
+	Name       string `json:"name"`         
+	SOPGraphID uint   `json:"sop_graph_id"` 
+	Weight     int    `json:"weight"`       
 }
 
 // SOPABTestConfig A/B 测试配置
 type SOPABTestConfig struct {
 	Enabled  bool               `json:"enabled"`
 	Variants []SOPABTestVariant `json:"variants"`
-	Salt     string             `json:"salt,omitempty"` // 分流键，默认 "customer_id"
+	Salt     string             `json:"salt,omitempty"` 
 }
 
 // CreateRequest 创建 SOP 请求
@@ -117,3 +96,4 @@ type CreateRequest struct {
 	ABTestConfig  SOPABTestConfig `json:"ab_test_config,omitempty"`
 	CreatedBy     uint            `json:"created_by"`
 }
+

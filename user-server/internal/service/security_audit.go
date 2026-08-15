@@ -30,7 +30,7 @@ func NewSecurityAuditService(db *gorm.DB) *SecurityAuditService {
 type auditCheck struct {
 	name     string
 	category string
-	level    string // critical/high/medium/low
+	level    string 
 	weight   int
 	run      func(ctx context.Context) (result string, message string)
 }
@@ -199,7 +199,6 @@ func (s *SecurityAuditService) buildChecks(ctx context.Context) []auditCheck {
 // auditOutboundLinkSafety 审计短链与活码的目标地址是否指向外部/可疑域名（Open Redirect / 钓鱼风险）。
 // 仅统计本系统自有域名池（domain_pools）之外、或非 http(s) 协议的外发跳转，标记潜在风险。
 func (s *SecurityAuditService) auditOutboundLinkSafety(ctx context.Context) (string, string) {
-	// 收集本系统自有域名，作为「可信目标」白名单
 	ownHosts := map[string]bool{}
 	var domains []model.DomainPool
 	if err := s.db.WithContext(ctx).Model(&model.DomainPool{}).
@@ -298,3 +297,4 @@ func classifyOutbound(rawURL string, ownHosts map[string]bool) string {
 	}
 	return ""
 }
+

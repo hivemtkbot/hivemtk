@@ -48,7 +48,6 @@ func mkWeComAccount(id uint) *model.WeComAccount {
 	}
 }
 
-// ===== ReportHealth 基础测试 =====
 
 // 1. 基本正常上报
 func TestReportHealth_Normal(t *testing.T) {
@@ -85,7 +84,6 @@ func TestReportHealth_HighQuotaUsage(t *testing.T) {
 		AccountID: 1,
 		QuotaUsed: 460, QuotaTotal: 500, SuccessRate: 99, ErrorCount: 0,
 	})
-	// 460/500=92% 超过 90% 阈值 -> -15
 	if rec.HealthScore > 90 {
 		t.Errorf("expected lower score, got %d", rec.HealthScore)
 	}
@@ -148,8 +146,6 @@ func TestReportHealth_ManyErrors(t *testing.T) {
 	}
 }
 
-// 注：原 TestReportHealth_EmptyMerchant 基于 merchant_id 校验，私域独立部署
-// 已移除 merchant_id，该前提不再成立，故删除。
 
 // 8. 空 account
 func TestReportHealth_EmptyAccount(t *testing.T) {
@@ -188,7 +184,6 @@ func TestReportHealth_CustomMetrics(t *testing.T) {
 	}
 }
 
-// ===== GetLatestHealth =====
 
 // 11. 拉取最新健康度
 func TestGetLatestHealth_Success(t *testing.T) {
@@ -223,7 +218,6 @@ func TestGetLatestHealth_NotFound(t *testing.T) {
 	}
 }
 
-// ===== ListHealthHistory =====
 
 // 13. 历史列表
 func TestListHealthHistory_Success(t *testing.T) {
@@ -272,18 +266,14 @@ func TestListHealthHistory_Empty(t *testing.T) {
 	}
 }
 
-// ===== GetRiskAccounts =====
 
 // 16. 风险账号列表
 func TestGetRiskAccounts_WithRisks(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	// 创建一个 warning 账号
 	a1 := mkWeComAccount(1)
 	a1.RiskLevel = WeComRiskWarning
 	db.Create(a1)
-	// 创建一个 normal
 	db.Create(mkWeComAccount(2))
-	// critical
 	a3 := mkWeComAccount(3)
 	a3.RiskLevel = WeComRiskCritical
 	db.Create(a3)
@@ -308,7 +298,6 @@ func TestGetRiskAccounts_AllNormal(t *testing.T) {
 	}
 }
 
-// ===== SelectHealthyAccount =====
 
 // 18. 选最佳账号 - 配额最低优先
 func TestSelectHealthyAccount_QuotaFirst(t *testing.T) {
@@ -349,7 +338,6 @@ func TestSelectHealthyAccount_SkipBanned(t *testing.T) {
 func TestSelectHealthyAccount_NoneAvailable(t *testing.T) {
 	svc, db := newWeComHealthService(t)
 	a1 := mkWeComAccount(1)
-	// 设置 login_state 为 banned，使账号不可用
 	a1.LoginState = WeComLoginBanned
 	db.Create(a1)
 	_, err := svc.SelectHealthyAccount(context.Background())
@@ -362,7 +350,6 @@ func TestSelectHealthyAccount_NoneAvailable(t *testing.T) {
 func TestSelectHealthyAccount_SkipDisabled(t *testing.T) {
 	svc, db := newWeComHealthService(t)
 	a1 := mkWeComAccount(1)
-	// 设置 login_state 为 banned，使账号被跳过
 	a1.LoginState = WeComLoginBanned
 	db.Create(a1)
 	a2 := mkWeComAccount(2)
@@ -390,7 +377,6 @@ func TestSelectHealthyAccount_ByWeight(t *testing.T) {
 	}
 }
 
-// ===== ConsumeQuota =====
 
 // 23. 配额消耗
 func TestConsumeQuota_Success(t *testing.T) {
@@ -439,7 +425,6 @@ func TestConsumeQuota_Disabled(t *testing.T) {
 	svc, db := newWeComHealthService(t)
 	a1 := mkWeComAccount(1)
 	db.Create(a1)
-	// 显式更新 status=0（避免 GORM 零值跳过）
 	db.Model(&model.WeComAccount{}).Where("id = ?", 1).Update("status", 0)
 	err := svc.ConsumeQuota(context.Background(), 1, 10)
 	if err != ErrWeComAccountBanned {
@@ -488,7 +473,6 @@ func TestConsumeQuota_NotFound(t *testing.T) {
 	}
 }
 
-// ===== ResetDailyQuota =====
 
 // 31. 重置日配额
 func TestResetDailyQuota_Success(t *testing.T) {
@@ -531,7 +515,6 @@ func TestResetDailyQuota_SetsTime(t *testing.T) {
 	}
 }
 
-// ===== GetHealthSummary =====
 
 // 34. 健康概览
 func TestGetHealthSummary_Basic(t *testing.T) {
@@ -608,7 +591,6 @@ func TestGetHealthSummary_AccountDetails(t *testing.T) {
 	}
 }
 
-// ===== computeHealthScore 单测 =====
 
 // 38. 健康分 - 正常
 func TestComputeHealthScore_Normal(t *testing.T) {
@@ -730,7 +712,6 @@ func TestComputeHealthScore_UpperBound(t *testing.T) {
 	}
 }
 
-// ===== computeRiskLevel 单测 =====
 
 // 53. 风险等级 - 100
 func TestComputeRiskLevel_100(t *testing.T) {
@@ -796,7 +777,6 @@ func TestComputeRiskLevel_BannedPriority(t *testing.T) {
 	}
 }
 
-// ===== syncAccountState 测试（通过 ReportHealth 间接） =====
 
 // 61. 同步账号状态 - last_active_at
 func TestSyncAccountState_LastActiveAt(t *testing.T) {
@@ -921,7 +901,6 @@ func TestSyncAccountState_OnlineRestores(t *testing.T) {
 	}
 }
 
-// ===== WeCom 集成测试 =====
 
 // 68. WeCom 集成 - IngestMessage 创建消息与会话
 func TestWeComIntegration_IngestMessage(t *testing.T) {
@@ -1001,8 +980,6 @@ func TestWeComIntegration_IngestGroupMessage(t *testing.T) {
 	}
 }
 
-// 注：原 TestWeComIntegration_MissingMerchant 基于 merchant_id 校验，私域独立部署
-// 已移除 merchant_id，该前提不再成立，故删除。
 
 // 72. 集成 - 缺 account
 func TestWeComIntegration_MissingAccount(t *testing.T) {
@@ -1291,7 +1268,6 @@ func TestWeComIntegration_ReceiveCallbackMissing(t *testing.T) {
 	}
 }
 
-// ===== 全局实例化 =====
 
 // 91. 初始化服务
 func TestInitWeComAccountHealthService(t *testing.T) {
@@ -1418,7 +1394,6 @@ func TestListHealthHistory_PageSizeLimit(t *testing.T) {
 		AccountID: 1,
 		QuotaUsed: 0, QuotaTotal: 100, SuccessRate: 100, ErrorCount: 0,
 	})
-	// 传入超大的 pageSize 应被截断为默认 20
 	_, total, _ := svc.ListHealthHistory(context.Background(), 1, 1, 99999)
 	if total != 1 {
 		t.Errorf("expected 1, got %d", total)
@@ -1447,7 +1422,6 @@ func TestWeComIntegration_IngestReceivedAt(t *testing.T) {
 
 // 102. 健康分 - 多种边界组合
 func TestComputeHealthScore_MultipleBounds(t *testing.T) {
-	// 离线+配额>95+成功<50+错误>50
 	score := computeHealthScore(WeComLoginOffline, 0.99, 30, 100)
 	if score > 25 {
 		t.Errorf("expected very low, got %d", score)
@@ -1492,5 +1466,4 @@ func TestGetHealthSummary_TotalQuota(t *testing.T) {
 	}
 }
 
-// 注：原 TestWeComIntegration_AccountsByMerchant 测试 merchant_id 多租户隔离，
-// 私域独立部署已移除 merchant_id，账号不再按租户隔离，该前提不再成立，故删除。
+

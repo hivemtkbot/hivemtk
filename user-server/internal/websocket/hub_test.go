@@ -27,7 +27,6 @@ func TestNewHub(t *testing.T) {
 
 func TestNewWSClient(t *testing.T) {
 	hub := NewHub()
-	// 私域部署：NewClient 不再传 merchantID
 	client := NewWSClient(hub, "agent1", "Agent One")
 
 	if client == nil {
@@ -43,23 +42,17 @@ func TestNewWSClient(t *testing.T) {
 
 func TestHub_Register(t *testing.T) {
 	hub := NewHub()
-	// 私域部署：NewClient 不再传 merchantID
 	client := NewWSClient(hub, "agent1", "Agent One")
 
-	// Start the hub in a goroutine
 	go hub.Run()
 	defer func() {
-		// Clean up
 		hub.Unregister(client)
 	}()
 
-	// Register the client
 	hub.Register(client)
 
-	// Wait for registration
 	time.Sleep(100 * time.Millisecond)
 
-	// Check if client is online
 	if !hub.IsAgentOnline("agent1") {
 		t.Error("Expected agent to be online after registration")
 	}
@@ -67,20 +60,17 @@ func TestHub_Register(t *testing.T) {
 
 func TestHub_Unregister(t *testing.T) {
 	hub := NewHub()
-	// 私域部署：NewClient 不再传 merchantID
 	client := NewWSClient(hub, "agent1", "Agent One")
 	_ = client
 
 	go hub.Run()
 
-	// Register and then unregister
 	hub.Register(client)
 	time.Sleep(50 * time.Millisecond)
 
 	hub.Unregister(client)
 	time.Sleep(50 * time.Millisecond)
 
-	// Check if client is offline
 	if hub.IsAgentOnline("agent1") {
 		t.Error("Expected agent to be offline after unregistration")
 	}
@@ -88,7 +78,6 @@ func TestHub_Unregister(t *testing.T) {
 
 func TestHub_Broadcast(t *testing.T) {
 	hub := NewHub()
-	// 私域部署：NewClient 不再传 merchantID
 	client := NewWSClient(hub, "agent1", "Agent One")
 	_ = client
 
@@ -98,7 +87,6 @@ func TestHub_Broadcast(t *testing.T) {
 	hub.Register(client)
 	time.Sleep(50 * time.Millisecond)
 
-	// Create a test message
 	payload := map[string]string{"test": "data"}
 	err := hub.SendToAgent("agent1", "test_message", payload)
 	if err != nil {
@@ -108,7 +96,6 @@ func TestHub_Broadcast(t *testing.T) {
 
 func TestHub_SendToAgent(t *testing.T) {
 	hub := NewHub()
-	// 私域部署：NewClient 不再传 merchantID
 	client := NewWSClient(hub, "agent1", "Agent One")
 
 	go hub.Run()
@@ -126,11 +113,8 @@ func TestHub_SendToAgent(t *testing.T) {
 
 func TestHub_BroadcastToMerchant(t *testing.T) {
 	hub := NewHub()
-	// 私域部署：NewClient 不再传 merchantID
 	client1 := NewWSClient(hub, "agent1", "Agent One")
-	// 私域部署：NewClient 不再传 merchantID
 	client2 := NewWSClient(hub, "agent2", "Agent Two")
-	// 私域部署：NewClient 不再传 merchantID
 	client3 := NewWSClient(hub, "agent3", "Agent Three")
 
 	go hub.Run()
@@ -155,7 +139,6 @@ func TestHub_BroadcastToMerchant(t *testing.T) {
 func TestHub_IsAgentOnline(t *testing.T) {
 	hub := NewHub()
 
-	// Agent should not be online initially
 	if hub.IsAgentOnline("nonexistent") {
 		t.Error("Expected nonexistent agent to be offline")
 	}
@@ -163,7 +146,6 @@ func TestHub_IsAgentOnline(t *testing.T) {
 
 func TestHub_GetOnlineAgents(t *testing.T) {
 	hub := NewHub()
-	// 私域部署：NewClient 不再传 merchantID
 	client1 := NewWSClient(hub, "agent1", "Agent One")
 	client2 := NewWSClient(hub, "agent2", "Agent Two")
 
@@ -202,7 +184,6 @@ func TestHub_GetOnlineCount(t *testing.T) {
 }
 
 func TestGetHub(t *testing.T) {
-	// GetHub should return the same instance
 	hub1 := GetHub()
 	hub2 := GetHub()
 
@@ -218,7 +199,6 @@ func TestNotifyNewSession(t *testing.T) {
 	}
 
 	err := NotifyNewSession("agent1", sessionData)
-	// This may fail if hub is not initialized, but we test that it doesn't panic
 	_ = err
 }
 
@@ -258,13 +238,11 @@ func TestBroadcastAgentStatus(t *testing.T) {
 		"status":   "online",
 	}
 
-	// 私域部署：单租户，merchantID 留空
 	err := BroadcastAgentStatus(statusData)
 	_ = err
 }
 
 func TestMessageJSON(t *testing.T) {
-	// Test Message struct JSON marshaling
 	payload := map[string]string{"key": "value"}
 	payloadBytes, _ := json.Marshal(payload)
 
@@ -284,7 +262,6 @@ func TestMessageJSON(t *testing.T) {
 
 func TestClient_SendChannel(t *testing.T) {
 	hub := NewHub()
-	// 私域部署：NewClient 不再传 merchantID
 	client := NewWSClient(hub, "agent1", "Agent One")
 	_ = hub
 	_ = client
@@ -303,7 +280,6 @@ func TestHub_ConcurrentAccess(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		go func(id int) {
-			// 私域部署：NewClient 不再传 merchantID
 			client := NewWSClient(hub, "agent"+string(rune(id)), "Agent")
 			hub.Register(client)
 			time.Sleep(50 * time.Millisecond)
@@ -316,3 +292,4 @@ func TestHub_ConcurrentAccess(t *testing.T) {
 		<-done
 	}
 }
+

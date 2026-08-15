@@ -1,22 +1,3 @@
-// Package service 提供 AssetBundle（资产包）的业务逻辑 + Weave 织布算法。
-//
-// 方向9：资产包模式 - OpenAI messages 资产包 CRUD + Weave 织布算法
-// 文档依据：docs/企业级架构优化/资产包模式.md
-//
-// 核心思想：
-//  1. 资产包 = 100% 遵守 OpenAI ChatML 协议的标准 messages 数组
-//  2. Weave 织布算法把以下 4 类消息按 OpenAI 规范拼装成最终 prompt：
-//     a) 资产包原生 messages（开发者预设的 system 人设 + Few-Shots）
-//     b) 商户本地 RAG 检索出的最新事实背景（追加到 system 段）
-//     c) 活跃会话历史聊天（保持时间顺序追加）
-//     d) 当前用户最新提问（trigger）
-//  3. Weave 是无副作用的纯函数：不依赖任何全局状态，可测试
-//
-// 五层架构归位：
-//   - 业务校验：Service 层（CRUD、状态机、版本控制）
-//   - 算法：Weave 是本服务的一部分，但定义上独立可单测
-//   - 上游：HTTP Controller 通过 Service 间接调用
-//   - 下游：Repository 负责持久化
 
 package service
 
@@ -48,46 +29,33 @@ import (
 )
 
 type WeaveInput struct {
-	// 必填：资产包（OpenAI 兼容的 messages 数组）
 	Asset *model.AssetBundle
 
-	// 必填：当前用户最新消息
 	UserQuery string
 
-	// 可选：商户本地 RAG 检索结果（按相关性倒序）
 	RAGDocs []RAGDocument
 
-	// 可选：活跃会话历史（按时间正序）
 	ChatHistory []model.AssetBundleMessage
 
-	// 可选：商户动态参数（促销活动/优惠比例/店铺名等）
-	// 这些参数会自动追加到 system prompt 末尾
 	MerchantVars map[string]string
 
-	// 可选：织布策略
 	Options WeaveOptions
 
-	// 可选：沙箱/预览模式。开发者 Playground 的本地试运行使用该模式，
-	// 跳过「热插拔门禁」与「使用次数累加」，避免开发者自测受生产热启用态影响。
 	Sandbox bool
 }
 
 type RAGDocument struct {
-	ID      string  // 文档 ID
-	Title   string  // 标题
-	Content string  // 内容片段
-	Score   float64 // 相关性分数
-	Source  string  // 来源（产品名/店铺名等）
+	ID      string  
+	Title   string  
+	Content string  
+	Score   float64 
+	Source  string  
 }
 
 type WeaveOptions struct {
-	// RAG 注入位置：after_system（在资产包 system 之后）/ after_fewshots（在 Few-Shots 之后）
 	RAGPosition RAGInsertPosition
-	// 历史最大消息数（0 表示不限制）
 	MaxHistoryMessages int
-	// 是否剥离 Few-Shot 末尾的 ```json 块（让模型专注学习格式而不被历史数据污染）
 	StripFewShotJSON bool
-	// 是否在 system 段尾追加商户参数（促销活动/优惠等）
 	IncludeMerchantVars bool
 }
 
@@ -118,8 +86,6 @@ func Weave(in WeaveInput) ([]model.AssetBundleMessage, error) {
 	if len(in.Asset.Messages) == 0 {
 		return nil, errors.New("weave: asset bundle has no messages")
 	}
-	// 业务约束：资产包必须包含至少一条 system 消息（人设主指令不可缺）
-	// 校验放在剥离之前，确保资产包结构本身合规
 	hasSystem := false
 	for _, m := range in.Asset.Messages {
 		if m.Role == "system" {
@@ -138,12 +104,10 @@ func Weave(in WeaveInput) ([]model.AssetBundleMessage, error) {
 		opts.MaxHistoryMessages = 0
 	}
 
-	// 1. 复制资产包原生 messages
 	result := make([]model.AssetBundleMessage, 0, len(in.Asset.Messages)+8)
 	stripped := false
 	for _, m := range in.Asset.Messages {
 		msg := m
-		// 仅对非 system 的 Few-Shot 段（user/assistant）剥离 JSON 尾巴
 		if opts.StripFewShotJSON && msg.Role != "system" {
 			if cleaned, ok := stripTrailingJSONBlock(msg.Content); ok {
 				msg.Content = cleaned
@@ -153,13 +117,10 @@ func Weave(in WeaveInput) ([]model.AssetBundleMessage, error) {
 		result = append(result, msg)
 	}
 
-	// 2. 商户参数注入到第一条 system 段（人设主指令；必须在 RAG 之前，
-	//    否则 RAG 段的 role=system 会把最后一条 system 段抢走）
 	if opts.IncludeMerchantVars && len(in.MerchantVars) > 0 {
 		injectMerchantVars(result, in.MerchantVars)
 	}
 
-	// 3. 注入 RAG
 	ragMsgs := buildRAGMessages(in.RAGDocs)
 	if len(ragMsgs) > 0 {
 		switch opts.RAGPosition {
@@ -172,7 +133,6 @@ func Weave(in WeaveInput) ([]model.AssetBundleMessage, error) {
 		}
 	}
 
-	// 4. 追加历史聊天
 	if len(in.ChatHistory) > 0 {
 		hist := in.ChatHistory
 		if opts.MaxHistoryMessages > 0 && len(hist) > opts.MaxHistoryMessages {
@@ -181,7 +141,6 @@ func Weave(in WeaveInput) ([]model.AssetBundleMessage, error) {
 		result = append(result, hist...)
 	}
 
-	// 5. 当前用户提问
 	result = append(result, model.AssetBundleMessage{
 		Role:    "user",
 		Content: in.UserQuery,
@@ -211,7 +170,6 @@ func buildRAGMessages(docs []RAGDocument) []model.AssetBundleMessage {
 func insertAfterSystem(msgs []model.AssetBundleMessage, inserts []model.AssetBundleMessage) []model.AssetBundleMessage {
 	for i, m := range msgs {
 		if m.Role == "system" {
-			// 在 i+1 位置插入
 			result := make([]model.AssetBundleMessage, 0, len(msgs)+len(inserts))
 			result = append(result, msgs[:i+1]...)
 			result = append(result, inserts...)
@@ -219,7 +177,6 @@ func insertAfterSystem(msgs []model.AssetBundleMessage, inserts []model.AssetBun
 			return result
 		}
 	}
-	// 没有 system 段时直接追加在末尾
 	return append(msgs, inserts...)
 }
 
@@ -227,7 +184,6 @@ func injectMerchantVars(msgs []model.AssetBundleMessage, vars map[string]string)
 	if len(msgs) == 0 || len(vars) == 0 {
 		return
 	}
-	// 找第一条 system 消息（人设主指令）
 	firstSystemIdx := -1
 	for i, m := range msgs {
 		if m.Role == "system" {
@@ -236,21 +192,18 @@ func injectMerchantVars(msgs []model.AssetBundleMessage, vars map[string]string)
 		}
 	}
 	if firstSystemIdx < 0 {
-		// 没有 system 段时构造一个（理论上 Weave 已校验过，这里是兜底）
 		msgs = append(msgs, model.AssetBundleMessage{Role: "system", Content: ""})
 		firstSystemIdx = len(msgs) - 1
 	}
 	var sb strings.Builder
 	sb.WriteString(msgs[firstSystemIdx].Content)
 	sb.WriteString("\n\n# 商户经营参数（自动注入）\n")
-	// 固定顺序便于 prompt 缓存
 	keys := []string{"shop_name", "campaign_name", "discount_pct", "support_contact"}
 	for _, k := range keys {
 		if v, ok := vars[k]; ok && v != "" {
 			fmt.Fprintf(&sb, "- %s: %s\n", k, v)
 		}
 	}
-	// 其他自定义参数
 	for k, v := range vars {
 		if containsKey(keys, k) || v == "" {
 			continue
@@ -272,23 +225,18 @@ func containsKey(keys []string, target string) bool {
 var codeBlockRE = regexp.MustCompile("(?s)```(?:json|JSON)?[\\s\\S]*?```")
 
 func stripTrailingJSONBlock(content string) (string, bool) {
-	// 找最后一个 ``` 块
 	matches := codeBlockRE.FindAllStringIndex(content, -1)
 	if len(matches) == 0 {
 		return content, false
 	}
 	last := matches[len(matches)-1]
-	// 仅剥离"末尾"的代码块（中间不剥）
 	if last[1] != len(content) {
-		// 看块之后是否只有空白
 		after := strings.TrimSpace(content[last[1]:])
 		if after != "" {
 			return content, false
 		}
 	}
-	// 找到首条代码块
 	first := matches[0]
-	// 全部 strip
 	stripped := content[:first[0]] + content[last[1]:]
 	return strings.TrimRight(stripped, "\n"), true
 }
@@ -296,26 +244,18 @@ func stripTrailingJSONBlock(content string) (string, bool) {
 type AssetBundleService struct {
 	repo    repository.AssetBundleRepository
 	version repository.AssetBundleVersionLogRepository
-	// hotPlug 热插拔缓存：维护运行期已启用的资产包 AssetID 集合。
-	// 启用/禁用立即生效，无需重启服务（纯内存，进程重启后清空）。
 	hotPlug hotPlugCache
-	// localLoader 平台同步资产（local_assets）加载器，用于 ResolveSystemPrompt
-	// 回退解析，实现「平台→商户」下发资产包的运行时闭环（GAP A 修复）。
 	localLoader LocalAssetLoader
 }
 
 func NewAssetBundleService(repo repository.AssetBundleRepository, version repository.AssetBundleVersionLogRepository) *AssetBundleService {
 	if version == nil {
-		// version 可选，传入 nil 时使用 stub（仅 log）
 		version = stubVersionLogRepo{}
 	}
 	return &AssetBundleService{repo: repo, version: version, hotPlug: newHotPlugCache()}
 }
 
 type LocalAssetLoader interface {
-	// LoadOne 按 AssetID 加载单个已同步本地资产及其 ChatML 数据；
-	// 同时累加使用次数并 best-effort 异步上报用量到平台（telemetry）。
-	// 资产不存在时返回 (nil, nil, nil)。
 	LoadOne(ctx context.Context, assetID string) (*model.LocalAsset, []byte, error)
 }
 
@@ -325,7 +265,7 @@ func (s *AssetBundleService) SetLocalLoader(l LocalAssetLoader) {
 
 type hotPlugCache struct {
 	mu      sync.RWMutex
-	enabled map[string]struct{} // key: AssetID
+	enabled map[string]struct{} 
 }
 
 func newHotPlugCache() hotPlugCache {
@@ -383,7 +323,6 @@ func (s *AssetBundleService) CreateBundle(ctx context.Context, m *model.AssetBun
 	if len(m.Messages) == 0 {
 		return errors.New("messages required (at least system prompt)")
 	}
-	// 校验至少一条 system 消息
 	hasSystem := false
 	for _, msg := range m.Messages {
 		if msg.Role == "system" {
@@ -406,7 +345,6 @@ func (s *AssetBundleService) CreateBundle(ctx context.Context, m *model.AssetBun
 	if m.Language == "" {
 		m.Language = "zh"
 	}
-	// 业务键冲突检查
 	exists, err := s.repo.ExistsByAssetID(ctx, m.AssetID)
 	if err != nil {
 		return err
@@ -421,7 +359,6 @@ func (s *AssetBundleService) UpdateBundle(ctx context.Context, m *model.AssetBun
 	if m == nil || m.ID == 0 {
 		return errors.New("bundle id required")
 	}
-	// 取旧值记录版本变更
 	old, err := s.repo.FindByID(ctx, m.ID)
 	if err != nil {
 		return err
@@ -522,9 +459,6 @@ func (s *AssetBundleService) ResolveSystemPrompt(ctx context.Context, assetBundl
 	if err == nil && bundle != nil {
 		return systemPromptFromMessages(bundle.Messages), nil
 	}
-	// 闭环回退（GAP A 修复）：asset_bundles 未命中时，尝试解析商户从平台同步下来的
-	// 本地资产（local_assets）。这样平台下发的资产包在「绑定到智能体」后，运行时即可
-	// 像 seed/自建资产包一样被消费（覆盖 Persona），打通 平台→商户 下发全链路。
 	if s.localLoader != nil {
 		la, data, lerr := s.localLoader.LoadOne(ctx, assetBundleID)
 		if lerr == nil && la != nil && len(data) > 0 {
@@ -558,7 +492,6 @@ func parseChatML(data []byte) ([]model.AssetBundleMessage, error) {
 }
 
 func resolveLocalAssetSystemPrompt(data []byte) string {
-	// 1) 先尝试 ChatML 消息数组
 	if msgs, err := parseChatML(data); err == nil {
 		if p := systemPromptFromMessages(msgs); p != "" {
 			return p
@@ -663,7 +596,6 @@ func (s *AssetBundleService) WeaveForRequest(ctx context.Context, assetID, userQ
 	if assetID == "" {
 		return nil, errors.New("asset_id required")
 	}
-	// 热插拔管控：缓存非空时只放行已热启用的资产包
 	if !s.hotPlug.isEmpty(ctx) && !in.Sandbox && !s.hotPlug.has(ctx, assetID) {
 		return nil, ErrBundleNotHotEnabled
 	}
@@ -674,12 +606,9 @@ func (s *AssetBundleService) WeaveForRequest(ctx context.Context, assetID, userQ
 		}
 		in.Asset = b
 	}
-	// 把 userQuery 合并到 in.UserQuery（避免 in.UserQuery 被调用方漏传）
 	if in.UserQuery == "" {
 		in.UserQuery = userQuery
 	}
-	// 累加使用次数
-	// 沙箱预览不计入真实使用次数（避免本地自测污染用量上报）
 	if !in.Sandbox {
 		_ = s.repo.IncrementUseCount(ctx, assetID)
 	}
@@ -709,15 +638,12 @@ func BuildBundleFromMerchantForm(req dto.MerchantFormSaveRequest) (*model.AssetB
 		return nil, errors.New("title required")
 	}
 
-	// 构造 system 主指令（含反审查 + JSON 协议）
 	system := buildMerchantSystemPrompt(req)
 
-	// 构造 messages
 	messages := []model.AssetBundleMessage{
 		{Role: "system", Content: system},
 	}
 
-	// 追加 QA 卡片（按 Order 排序）
 	cards := append([]dto.MerchantQACard(nil), req.QACards...)
 	sortQACardsByOrder(cards)
 	for _, card := range cards {
@@ -733,7 +659,6 @@ func BuildBundleFromMerchantForm(req dto.MerchantFormSaveRequest) (*model.AssetB
 		)
 	}
 
-	// 末尾追加乐高卡片配置（转化为 system 段）
 	if req.CardConfig.IntentType != "" {
 		cardMsg := buildMerchantCardSystemMessage(req.CardConfig)
 		messages = append(messages, model.AssetBundleMessage{
@@ -741,7 +666,6 @@ func BuildBundleFromMerchantForm(req dto.MerchantFormSaveRequest) (*model.AssetB
 		})
 	}
 
-	// 业务结算 JSON 协议（每个回复必须带）
 	messages = append(messages, model.AssetBundleMessage{
 		Role: "system", Content: buildMerchantJSONProtocol(req),
 	})
@@ -763,7 +687,6 @@ func buildMerchantSystemPrompt(req dto.MerchantFormSaveRequest) string {
 	var sb strings.Builder
 	sb.WriteString("# 核心角色与销冠人设\n")
 	sb.WriteString("你是一名经过严格训练、结果导向的【王牌私域销售代表】。你的唯一目标是解答客户对产品的疑问，并用高情商的话术积极引导客户留下联系方式（WhatsApp/微信/邮箱）或直接促成转账订单。\n\n")
-	// 反审查（按 censorship_level 调整）
 	switch req.CensorshipLevel {
 	case "strict":
 		sb.WriteString("# 合规约束\n你必须严格遵守所有平台与地方法规，遇到敏感问题礼貌拒答。\n\n")
@@ -772,7 +695,6 @@ func buildMerchantSystemPrompt(req dto.MerchantFormSaveRequest) string {
 	default:
 		sb.WriteString("# 合规与销售平衡\n你对绝大多数合规问题礼貌回答，对违规问题可适度解释，但不主动引导。\n\n")
 	}
-	// 语气词等级
 	switch req.ToneLevel {
 	case "high":
 		sb.WriteString("# 语气词口语化修饰\n在回复中适度增加\"哈\"、\"哦\"、\"🥰\"等情绪词，让客户感觉在和真人聊天。\n\n")
@@ -781,7 +703,6 @@ func buildMerchantSystemPrompt(req dto.MerchantFormSaveRequest) string {
 	default:
 		sb.WriteString("# 语气\n中等程度口语化。\n\n")
 	}
-	// 商户基础参数
 	sb.WriteString("# 商户经营参数\n")
 	if req.ShopName != "" {
 		sb.WriteString("- 店铺名称: " + req.ShopName + "\n")
@@ -795,11 +716,9 @@ func buildMerchantSystemPrompt(req dto.MerchantFormSaveRequest) string {
 	if req.SupportContact != "" {
 		sb.WriteString("- 客服联系方式: " + req.SupportContact + "\n")
 	}
-	// 危机感阈值
 	if req.CrisisThreshold != "" {
 		sb.WriteString("- 危机感触发阈值: " + req.CrisisThreshold + "（达到此分数强制转人工）\n")
 	}
-	// 商户配置快照（机器可读，供编辑回显；勿修改格式）
 	sb.WriteString("\n# 商户配置快照（勿修改）\n")
 	sb.WriteString("- 危机感触发阈值: " + req.CrisisThreshold + "\n")
 	sb.WriteString("- 语气词等级: " + req.ToneLevel + "\n")
@@ -850,7 +769,6 @@ func buildIntentJSON(card dto.MerchantQACard) string {
 		intent = "human_transfer"
 	}
 	captured := map[string]string{}
-	// 简单提取 WhatsApp 号
 	if m := regexp.MustCompile(`\+?\d[\d\s-]{7,}`).FindString(card.Reply); m != "" {
 		captured["whatsapp"] = strings.TrimSpace(m)
 	}
@@ -859,7 +777,6 @@ func buildIntentJSON(card dto.MerchantQACard) string {
 }
 
 func sortQACardsByOrder(cards []dto.MerchantQACard) {
-	// 简单插入排序
 	for i := 1; i < len(cards); i++ {
 		for j := i; j > 0 && cards[j-1].Order > cards[j].Order; j-- {
 			cards[j-1], cards[j] = cards[j], cards[j-1]
@@ -878,29 +795,23 @@ func ParseBundleToMerchantForm(bundle *model.AssetBundle) dto.MerchantFormParseR
 	if bundle == nil {
 		return resp
 	}
-	// 1. 提取 system 段中的商户参数
 	for _, msg := range bundle.Messages {
 		if msg.Role != "system" {
 			continue
 		}
 		content := msg.Content
-		// 提取店铺名
 		if m := regexp.MustCompile(`店铺名称[:：]\s*(.+)`).FindStringSubmatch(content); len(m) > 1 {
 			resp.ShopName = strings.TrimSpace(m[1])
 		}
-		// 促销活动
 		if m := regexp.MustCompile(`促销活动[:：]\s*(.+)`).FindStringSubmatch(content); len(m) > 1 {
 			resp.CampaignName = strings.TrimSpace(m[1])
 		}
-		// 优惠比例
 		if m := regexp.MustCompile(`优惠比例[:：]\s*(.+)`).FindStringSubmatch(content); len(m) > 1 {
 			resp.DiscountPct = strings.TrimSpace(m[1])
 		}
-		// 客服联系方式
 		if m := regexp.MustCompile(`客服联系方式[:：]\s*(.+)`).FindStringSubmatch(content); len(m) > 1 {
 			resp.SupportContact = strings.TrimSpace(m[1])
 		}
-		// 6 维拟人门禁指标（从「商户配置快照」快照块还原）
 		if m := regexp.MustCompile(`危机感触发阈值[:：]\s*(\d+)`).FindStringSubmatch(content); len(m) > 1 {
 			resp.CrisisThreshold = strings.TrimSpace(m[1])
 		}
@@ -914,11 +825,9 @@ func ParseBundleToMerchantForm(bundle *model.AssetBundle) dto.MerchantFormParseR
 			resp.EnabledIntents = strings.Split(strings.TrimSpace(m[1]), ",")
 		}
 	}
-	// 2. 从 Few-Shots 提取 QA 卡片（user + 紧跟的 assistant 对）
 	for i := 0; i < len(bundle.Messages)-1; i++ {
 		if bundle.Messages[i].Role == "user" && bundle.Messages[i+1].Role == "assistant" {
 			reply := bundle.Messages[i+1].Content
-			// 剥离尾部 JSON 块
 			if m := regexp.MustCompile(`\n*\x60{3}json[\s\S]*?\x60{3}\s*$`).FindStringIndex(reply); m != nil {
 				reply = reply[:m[0]]
 			}
@@ -933,3 +842,4 @@ func ParseBundleToMerchantForm(bundle *model.AssetBundle) dto.MerchantFormParseR
 	}
 	return resp
 }
+

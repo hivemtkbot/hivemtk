@@ -227,9 +227,9 @@ func vecToPGString(v []float32) string {
 		if i > 0 {
 			b = append(b, ',')
 		}
-		// 'g' 格式：根据数值大小自动选择定点或科学计数，无尾随零
 		b = strconv.AppendFloat(b, float64(f), 'g', -1, 32)
 	}
 	b = append(b, ']')
 	return string(b)
 }
+

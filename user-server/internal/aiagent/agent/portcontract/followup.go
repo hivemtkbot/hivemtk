@@ -5,9 +5,6 @@ import (
 	"time"
 )
 
-// ----------------------------------------------------------------------------
-// FollowUp 域：跟进 / 提醒
-// ----------------------------------------------------------------------------
 
 // FollowUpScheduleOptions 跟进任务选项投影。
 //
@@ -28,12 +25,9 @@ type FollowUpScheduleOptions struct {
 //
 // reminderID 为 string 类型，与 service.Reminder.ID 一致。
 type FollowUpPort interface {
-	// Schedule 创建跟进提醒任务，返回 reminder 实体
 	Schedule(ctx context.Context, customerID, ownerID, reminderType string, dueIn time.Duration, opts *FollowUpScheduleOptions) (any, error)
-	// CompleteWithResult 完成任务并记录结果（用于 SOP 阶段推进）
 	CompleteWithResult(reminderID string, result, note string) error
-	// Cancel 取消任务
 	Cancel(reminderID string) error
-	// ResultInfo 根据结果枚举反查目标 SOP 阶段
 	ResultInfo(result string) (stage string, ok bool)
 }
+

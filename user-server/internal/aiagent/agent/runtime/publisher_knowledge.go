@@ -8,14 +8,6 @@ import (
 	"hivemtk-user/internal/event"
 )
 
-// ============================================================================
-// KnowledgeDocumentChangePublisher 知识库文档变更发布器
-// ----------------------------------------------------------------------------
-// 用途:KnowledgeService.Create/Update/Delete 后调用本发布器
-//       触发 rag.IncrementalIndexer 增量索引
-//
-// 设计依据: §2.5 (子项 2 增量索引更新)
-// ============================================================================
 
 // PublishKnowledgeDocumentChange 发布知识库文档变更事件
 //
@@ -41,7 +33,6 @@ func PublishKnowledgeDocumentChange(workspaceID string, documentID uint, changeT
 		TraceID:     traceID,
 	}
 
-	// 计算内容 hash(用于增量检测)
 	if content != "" {
 		h := sha256.Sum256([]byte(content))
 		payload.ContentHash = hex.EncodeToString(h[:])
@@ -65,3 +56,4 @@ func PublishKnowledgeDocumentUpdate(workspaceID string, documentID uint, content
 func PublishKnowledgeDocumentDelete(workspaceID string, documentID uint, operatorID uint) string {
 	return PublishKnowledgeDocumentChange(workspaceID, documentID, "delete", "", operatorID, "")
 }
+

@@ -156,9 +156,6 @@ func UnbanUser(Bot *tgbotapi.BotAPI, chatID int64, userID int64) error {
 	return err
 }
 
-// ============================================================================
-// 以下为 TG 智能体流程新增工具函数（无状态，基于 bot_token 直接调用 Bot API）
-// ============================================================================
 
 // defaultHTTPClient 支持 HTTP_PROXY / HTTPS_PROXY / NO_PROXY 环境变量
 // 在中国访问 api.telegram.org 需要代理，Go 标准库通过 ProxyFromEnvironment 自动读取
@@ -228,7 +225,6 @@ func ValidateBotToken(token string) error {
 	botID := token[:colonIdx]
 	tok := token[colonIdx+1:]
 
-	// bot_id: 全部为数字
 	for i := 0; i < len(botID); i++ {
 		if botID[i] < '0' || botID[i] > '9' {
 			return fmt.Errorf("bot_token 格式错误：bot_id 部分含非数字字符")
@@ -238,7 +234,6 @@ func ValidateBotToken(token string) error {
 		return fmt.Errorf("bot_token 格式错误：bot_id 长度 %d 不在 6~10 范围内", len(botID))
 	}
 
-	// token: 35 字符，范围 [A-Za-z0-9_-]
 	if len(tok) != 35 {
 		return fmt.Errorf("bot_token 格式错误：token 长度 %d 不等于 35", len(tok))
 	}
@@ -349,7 +344,6 @@ func GetUpdates(ctx context.Context, botToken string, offset int64, limit, timeo
 	form.Set("timeout", fmt.Sprintf("%d", timeout))
 	form.Set("allowed_updates", `["message","edited_message","channel_post","edited_channel_post","callback_query","my_chat_member","chat_member","inline_query"]`)
 
-	// 长轮询：超时时间要略大于 timeout，避免客户端先断
 	client := &http.Client{
 		Timeout:   time.Duration(timeout+10) * time.Second,
 		Transport: config.GetProxyTransport(),
@@ -389,3 +383,4 @@ func GetUpdates(ctx context.Context, botToken string, offset int64, limit, timeo
 	}
 	return result.Result, nil
 }
+

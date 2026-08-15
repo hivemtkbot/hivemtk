@@ -63,13 +63,11 @@ func NewShortLinkService(db *gorm.DB) ShortLinkService {
 
 // Create 创建短链
 func (s *shortLinkService) Create(ctx context.Context, req *dto.CreateShortLinkRequest) (*dto.ShortLinkResponse, error) {
-	// 检查短码是否已存在
 	existingLink, _ := s.shortLinkRepo.GetByShortCode(context.Background(), req.ShortCode)
 	if existingLink != nil {
 		return nil, errors.New("短码已存在")
 	}
 
-	// 如果指定了域名ID，检查域名是否存在且可用
 	if req.DomainID > 0 {
 		domain, err := s.domainRepo.GetByID(ctx, int(req.DomainID))
 		if err != nil {
@@ -80,7 +78,6 @@ func (s *shortLinkService) Create(ctx context.Context, req *dto.CreateShortLinkR
 		}
 	}
 
-	// 创建短链
 	shortLink := &model.ShortLink{
 		ShortCode:   req.ShortCode,
 		OriginalURL: req.OriginalURL,
@@ -102,13 +99,11 @@ func (s *shortLinkService) Create(ctx context.Context, req *dto.CreateShortLinkR
 
 // Update 更新短链
 func (s *shortLinkService) Update(ctx context.Context, req *dto.UpdateShortLinkRequest) (*dto.ShortLinkResponse, error) {
-	// 获取现有短链
 	shortLink, err := s.shortLinkRepo.GetByID(context.Background(), req.ID)
 	if err != nil {
 		return nil, errors.New("短链不存在")
 	}
 
-	// 如果更新了短码，检查新短码是否已存在
 	if req.ShortCode != "" && req.ShortCode != shortLink.ShortCode {
 		existingLink, _ := s.shortLinkRepo.GetByShortCode(context.Background(), req.ShortCode)
 		if existingLink != nil && existingLink.ID != req.ID {
@@ -117,7 +112,6 @@ func (s *shortLinkService) Update(ctx context.Context, req *dto.UpdateShortLinkR
 		shortLink.ShortCode = req.ShortCode
 	}
 
-	// 如果指定了域名ID，检查域名是否存在且可用
 	if req.DomainID > 0 && req.DomainID != shortLink.DomainID {
 		domain, err := s.domainRepo.GetByID(ctx, int(req.DomainID))
 		if err != nil {
@@ -129,7 +123,6 @@ func (s *shortLinkService) Update(ctx context.Context, req *dto.UpdateShortLinkR
 		shortLink.DomainID = req.DomainID
 	}
 
-	// 更新其他字段
 	shortLink.OriginalURL = req.OriginalURL
 	shortLink.Title = req.Title
 	shortLink.Description = req.Description
@@ -152,7 +145,6 @@ func (s *shortLinkService) Delete(ctx context.Context, id uint) error {
 		return errors.New("短链不存在")
 	}
 
-	// 先清理访问记录，避免外键(NO ACTION)阻止删除已被访问的短链
 	if err := s.accessRepo.DeleteByShortLinkID(context.Background(), id); err != nil {
 		return fmt.Errorf("删除短链访问记录失败: %v", err)
 	}
@@ -182,7 +174,6 @@ func (s *shortLinkService) GetByShortCode(ctx context.Context, shortCode string)
 
 // GetList 获取短链列表
 func (s *shortLinkService) GetList(ctx context.Context, req *dto.ListShortLinkRequest) (*dto.ShortLinkListResponse, error) {
-	// 设置默认分页参数
 	if req.Page <= 0 {
 		req.Page = 1
 	}
@@ -208,30 +199,24 @@ func (s *shortLinkService) GetList(ctx context.Context, req *dto.ListShortLinkRe
 
 // AccessShortLink 访问短链
 func (s *shortLinkService) AccessShortLink(ctx context.Context, req *dto.AccessShortLinkRequest) (*dto.AccessShortLinkResponse, error) {
-	// 根据短码获取短链
 	shortLink, err := s.shortLinkRepo.GetByShortCode(context.Background(), req.ShortCode)
 	if err != nil {
 		return nil, errors.New("短链不存在")
 	}
 
-	// 检查短链是否处于活跃状态
 	if !IsShortLinkActive(shortLink) {
 		return nil, errors.New("短链已过期或已禁用")
 	}
 
-	// 如果设置了密码，验证密码
 	if shortLink.Password != "" && shortLink.Password != req.Password {
 		return nil, errors.New("密码错误")
 	}
 
-	// 增加点击次数
 	err = s.shortLinkRepo.IncreaseClickCount(context.Background(), shortLink.ID)
 	if err != nil {
-		// 即使增加点击次数失败，也不影响访问
 		logger.Errorf("增加点击次数失败: %v", err)
 	}
 
-	// 记录访问信息
 	accessRecord := &model.ShortLinkAccess{
 		ShortLinkID: shortLink.ID,
 		IP:          req.IP,
@@ -246,7 +231,6 @@ func (s *shortLinkService) AccessShortLink(ctx context.Context, req *dto.AccessS
 
 	err = s.accessRepo.Create(context.Background(), accessRecord)
 	if err != nil {
-		// 即使记录访问信息失败，也不影响访问
 		logger.Errorf("记录访问信息失败: %v", err)
 	}
 
@@ -258,7 +242,6 @@ func (s *shortLinkService) AccessShortLink(ctx context.Context, req *dto.AccessS
 
 // GenerateShortCode 生成短码
 func (s *shortLinkService) GenerateShortCode(ctx context.Context, req *dto.GenerateShortCodeRequest) (*dto.GenerateShortCodeResponse, error) {
-	// 设置默认长度
 	if req.Length <= 0 {
 		req.Length = 6
 	}
@@ -269,10 +252,8 @@ func (s *shortLinkService) GenerateShortCode(ctx context.Context, req *dto.Gener
 	for i := 0; i < maxAttempts; i++ {
 		shortCode := s.generateRandomString(ctx, req.Length, charset)
 
-		// 检查短码是否已存在
 		_, err := s.shortLinkRepo.GetByShortCode(context.Background(), shortCode)
 		if err != nil {
-			// 短码不存在，可以使用
 			return &dto.GenerateShortCodeResponse{
 				ShortCode: shortCode,
 			}, nil
@@ -323,7 +304,6 @@ func (s *shortLinkService) modelToResponse(ctx context.Context, shortLink *model
 
 // GetStats 获取短链统计
 func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStatsRequest) (*dto.ShortLinkStatsResponse, error) {
-	// 获取短链信息
 	shortLink, err := s.shortLinkRepo.GetByID(context.Background(), req.ID)
 	if err != nil {
 		return nil, errors.New("短链不存在")
@@ -343,14 +323,12 @@ func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStats
 		if err != nil {
 			return nil, errors.New("结束日期格式错误，请使用YYYY-MM-DD格式")
 		}
-		// 设置为当天的23:59:59
 		endDate = endDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	}
 
 	// 获取总访问量
 	var totalAccess int64
 	if startDate.IsZero() && endDate.IsZero() {
-		// 如果没有指定日期范围，获取总访问量
 		_, totalAccessCount, err := s.accessRepo.GetByShortLinkID(context.Background(), req.ID, 1, 0)
 		if err != nil {
 			totalAccess = 0
@@ -358,7 +336,6 @@ func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStats
 			totalAccess = totalAccessCount
 		}
 	} else {
-		// 获取指定日期范围内的访问量
 		dailyStats, err := s.accessRepo.GetDailyStatsByShortLinkID(context.Background(), req.ID, startDate, endDate)
 		if err == nil {
 			for _, stat := range dailyStats {
@@ -369,7 +346,6 @@ func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStats
 		}
 	}
 
-	// 获取今日访问量
 	today := time.Now().Format("2006-01-02")
 	todayStart, _ := time.Parse("2006-01-02", today)
 	todayEnd := todayStart.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
@@ -382,7 +358,6 @@ func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStats
 		}
 	}
 
-	// 获取设备类型统计
 	deviceTypeStats, err := s.accessRepo.GetDeviceTypeStatsByShortLinkID(context.Background(), req.ID, startDate, endDate)
 	var deviceStats []dto.DeviceTypeStats
 	if err == nil {
@@ -404,7 +379,6 @@ func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStats
 		}
 	}
 
-	// 获取每日访问统计
 	dailyStats, err := s.accessRepo.GetDailyStatsByShortLinkID(context.Background(), req.ID, startDate, endDate)
 	var dailyStatsResponse []dto.DailyStats
 	if err == nil {
@@ -449,7 +423,6 @@ func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLin
 		if err != nil {
 			return nil, errors.New("结束日期格式错误，请使用YYYY-MM-DD格式")
 		}
-		// 设置为当天的23:59:59
 		endDate = endDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	}
 
@@ -464,7 +437,6 @@ func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLin
 		}
 	}
 
-	// 获取今日访问量
 	today := time.Now().Format("2006-01-02")
 	todayStart, _ := time.Parse("2006-01-02", today)
 	todayEnd := todayStart.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
@@ -479,7 +451,6 @@ func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLin
 		}
 	}
 
-	// 获取设备类型统计
 	deviceTypeStats, err := s.accessRepo.GetAllDeviceTypeStats(context.Background(), startDate, endDate)
 	var deviceStats []dto.DeviceTypeStats
 	if err == nil {
@@ -501,7 +472,6 @@ func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLin
 		}
 	}
 
-	// 获取每日访问统计
 	dailyStats, err = s.accessRepo.GetAllDailyStats(context.Background(), startDate, endDate)
 	var dailyStatsResponse []dto.DailyStats
 	if err == nil {
@@ -516,7 +486,6 @@ func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLin
 		}
 	}
 
-	// 获取各短链基本统计
 	shortLinksStats, err := s.accessRepo.GetAllShortLinksBasicStats(context.Background(), startDate, endDate)
 	var shortLinksStatsResponse []dto.ShortLinkBasicStats
 	if err == nil {
@@ -546,17 +515,13 @@ func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLin
 
 // ShareShortLink 分享短链
 func (s *shortLinkService) ShareShortLink(ctx context.Context, req *dto.ShareShortLinkRequest) (*dto.ShareShortLinkResponse, error) {
-	// 获取短链信息
 	shortLink, err := s.shortLinkRepo.GetByID(context.Background(), req.ID)
 	if err != nil {
 		return nil, errors.New("短链不存在")
 	}
 
-	// 构建短链URL（端口派生自 config.DefaultUserServerBaseURL）
-	// 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8204 | user-server
 	shortURL := fmt.Sprintf("%s/s/%s", config.DefaultUserServerBaseURL, shortLink.ShortCode)
 
-	// 生成二维码
 	qrCode := utils.GenerateQRCode(shortURL)
 
 	return &dto.ShareShortLinkResponse{
@@ -564,3 +529,4 @@ func (s *shortLinkService) ShareShortLink(ctx context.Context, req *dto.ShareSho
 		QRCode:   qrCode,
 	}, nil
 }
+

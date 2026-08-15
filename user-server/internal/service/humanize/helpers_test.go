@@ -1,8 +1,5 @@
 package humanize
 
-// helpers_test.go 测试通用辅助函数
-//
-// 提供浮点近似比较、stub LLM 调度器、stub 仓储等测试基础设施
 
 import (
 	"context"
@@ -36,18 +33,15 @@ func approxSlice(a, b []float64) bool {
 	return true
 }
 
-// ============================================================================
-// stubLLMDispatcher 测试用 LLM 调度器
-// ============================================================================
 
 // stubLLMDispatcher 测试用 LLM 调度器
 type stubLLMDispatcher struct {
 	mu              sync.Mutex
-	responses       []string // 预置响应队列
+	responses       []string 
 	model           string
 	calls           int
-	failOn          int   // 第 N 次调用失败（0=不失败）
-	err             error // 失败时返回的错误
+	failOn          int   
+	err             error 
 	capturedPrompts []string
 }
 
@@ -76,9 +70,6 @@ func (s *stubLLMDispatcher) ChatSend(ctx context.Context, prompt string) (string
 	return s.responses[idx], s.model, nil
 }
 
-// ============================================================================
-// stubScoreRepo 测试用评分仓储
-// ============================================================================
 
 // stubScoreRepo 测试用评分仓储
 type stubScoreRepo struct {
@@ -107,9 +98,6 @@ func (r *stubScoreRepo) Save(ctx context.Context, score *model.HumanizeScore, di
 	return nil
 }
 
-// ============================================================================
-// stubBaselineRepo 测试用销冠基线仓储
-// ============================================================================
 
 // stubBaselineRepo 测试用销冠基线仓储
 type stubBaselineRepo struct {
@@ -163,9 +151,6 @@ func (r *stubBaselineRepo) RefreshPhrases(ctx context.Context, baselineID uint64
 	return nil
 }
 
-// ============================================================================
-// stubSampleCollector 测试用低质样本收集器
-// ============================================================================
 
 // stubSampleCollector 测试用低质样本收集器
 type stubSampleCollector struct {
@@ -201,9 +186,6 @@ var (
 	_ HumanizeEvaluator          = (*stubEvaluator)(nil)
 )
 
-// ============================================================================
-// stubEvaluator 测试用 HumanizeEvaluator
-// ============================================================================
 
 // stubEvaluator 测试用评估器：按调用顺序返回预设结果
 //
@@ -216,7 +198,6 @@ type stubEvaluator struct {
 	results []*dto.HumanizeEvalResult
 	err     error
 	calls   int
-	// capturedInputs 记录每次调用收到的 input（便于校验 regenerate 后 AIReply 变化）
 	capturedInputs []*dto.HumanizeEvalInput
 }
 
@@ -230,7 +211,6 @@ func (s *stubEvaluator) Evaluate(ctx context.Context, input *dto.HumanizeEvalInp
 	defer s.mu.Unlock()
 	s.calls++
 	if input != nil {
-		// 记录副本
 		cp := *input
 		s.capturedInputs = append(s.capturedInputs, &cp)
 	} else {
@@ -245,3 +225,4 @@ func (s *stubEvaluator) Evaluate(ctx context.Context, input *dto.HumanizeEvalInp
 	}
 	return nil, nil
 }
+

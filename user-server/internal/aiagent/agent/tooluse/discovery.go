@@ -7,35 +7,15 @@ import (
 	"sync"
 )
 
-// ============================================================================
-// ToolDiscovery 工具发现接口（调研结果：动态工具发现）
-// ----------------------------------------------------------------------------
-// 设计目标：
-//  1. 支持运行时动态发现和加载工具
-//  2. 避免全量注入上下文窗口
-//  3. 支持按标签、描述搜索工具
-//  4. 兼容MCP和OpenAI的工具发现机制
-//
-// 与业界标准对比：
-//  - MCP: tools/list + tools/call
-//  - OpenAI: tool_search
-//  - LangChain: 动态工具选择
-// ============================================================================
 
 // ToolDiscovery 工具发现接口
 type ToolDiscovery interface {
-	// Search 根据查询搜索相关工具
-	// query: 搜索关键词（工具名、描述、标签）
-	// limit: 返回结果数量限制
 	Search(query string, limit int) ([]Tool, error)
 
-	// ListByTag 按标签列出工具
 	ListByTag(tag string) ([]Tool, error)
 
-	// GetTool 获取单个工具（延迟加载）
 	GetTool(name string) (Tool, error)
 
-	// ListAll 列出所有可用工具（不加载）
 	ListAll() []ToolInfo
 }
 
@@ -45,12 +25,9 @@ type ToolInfo struct {
 	Category    ToolCategory `json:"category"`
 	Description string       `json:"description"`
 	Tags        []string     `json:"tags,omitempty"`
-	Loaded      bool         `json:"loaded"` // 是否已加载
+	Loaded      bool         `json:"loaded"` 
 }
 
-// ============================================================================
-// DefaultToolDiscovery 默认工具发现实现
-// ============================================================================
 
 // DefaultToolDiscovery 默认工具发现实现
 type DefaultToolDiscovery struct {
@@ -62,7 +39,7 @@ type DefaultToolDiscovery struct {
 // ToolIndex 工具索引（支持快速搜索）
 type ToolIndex struct {
 	byName     map[string]*ToolInfo
-	byTag      map[string][]string // tag -> []toolName
+	byTag      map[string][]string 
 	byCategory map[ToolCategory][]string
 	mu         sync.RWMutex
 }
@@ -129,7 +106,6 @@ func (idx *ToolIndex) Search(query string, limit int) []*ToolInfo {
 	query = strings.ToLower(query)
 	results := make([]*ToolInfo, 0)
 
-	// 精确匹配工具名
 	if info, exists := idx.byName[query]; exists {
 		results = append(results, info)
 		if limit > 0 && len(results) >= limit {
@@ -137,11 +113,9 @@ func (idx *ToolIndex) Search(query string, limit int) []*ToolInfo {
 		}
 	}
 
-	// 模糊匹配工具名和描述
 	for _, info := range idx.byName {
 		if strings.Contains(strings.ToLower(info.Name), query) ||
 			strings.Contains(strings.ToLower(info.Description), query) {
-			// 避免重复
 			duplicate := false
 			for _, r := range results {
 				if r.Name == info.Name {
@@ -191,9 +165,6 @@ func (idx *ToolIndex) ListByCategory(category ToolCategory) []*ToolInfo {
 	return infos
 }
 
-// ============================================================================
-// DefaultToolDiscovery 实现
-// ============================================================================
 
 // NewDefaultToolDiscovery 创建默认工具发现实例
 func NewDefaultToolDiscovery(registry *ToolRegistry) *DefaultToolDiscovery {
@@ -202,7 +173,6 @@ func NewDefaultToolDiscovery(registry *ToolRegistry) *DefaultToolDiscovery {
 		index:    NewToolIndex(),
 	}
 
-	// 构建索引
 	d.rebuildIndex()
 
 	return d
@@ -213,12 +183,10 @@ func (d *DefaultToolDiscovery) rebuildIndex() {
 	d.index.mu.Lock()
 	defer d.index.mu.Unlock()
 
-	// 清空索引
 	d.index.byName = make(map[string]*ToolInfo)
 	d.index.byTag = make(map[string][]string)
 	d.index.byCategory = make(map[ToolCategory][]string)
 
-	// 从注册中心构建索引
 	tools := d.registry.List()
 	for _, tool := range tools {
 		info := &ToolInfo{
@@ -227,7 +195,6 @@ func (d *DefaultToolDiscovery) rebuildIndex() {
 			Description: tool.Description(),
 			Loaded:      true,
 		}
-		// 直接操作内部数据结构，避免死锁
 		d.index.byName[info.Name] = info
 		for _, tag := range info.Tags {
 			d.index.byTag[tag] = append(d.index.byTag[tag], info.Name)
@@ -283,7 +250,6 @@ func (d *DefaultToolDiscovery) ListAll() []ToolInfo {
 		infos = append(infos, *info)
 	}
 
-	// 按名称排序
 	sort.Slice(infos, func(i, j int) bool {
 		return infos[i].Name < infos[j].Name
 	})
@@ -296,17 +262,11 @@ func (d *DefaultToolDiscovery) Refresh() {
 	d.rebuildIndex()
 }
 
-// ============================================================================
-// ToolLoader 工具加载器（延迟加载支持）
-// ============================================================================
 
 // ToolLoader 工具加载器接口
 type ToolLoader interface {
-	// Load 加载指定工具
 	Load(name string) (Tool, error)
-	// LoadAll 加载所有工具
 	LoadAll() ([]Tool, error)
-	// IsLoaded 检查工具是否已加载
 	IsLoaded(name string) bool
 }
 
@@ -337,12 +297,10 @@ func (l *LazyToolLoader) RegisterFactory(name string, factory ToolFactory) {
 
 // Load 加载指定工具
 func (l *LazyToolLoader) Load(name string) (Tool, error) {
-	// 检查是否已加载
 	if l.registry.Has(name) {
 		return l.registry.Get(name)
 	}
 
-	// 尝试从工厂加载
 	l.mu.RLock()
 	factory, exists := l.factories[name]
 	l.mu.RUnlock()
@@ -356,7 +314,6 @@ func (l *LazyToolLoader) Load(name string) (Tool, error) {
 		return nil, fmt.Errorf("load tool %s failed: %w", name, err)
 	}
 
-	// 注册到注册中心
 	if err := l.registry.Register(tool); err != nil {
 		return nil, fmt.Errorf("register tool %s failed: %w", name, err)
 	}
@@ -390,9 +347,6 @@ func (l *LazyToolLoader) IsLoaded(name string) bool {
 	return l.registry.Has(name)
 }
 
-// ============================================================================
-// LazyToolRegistry 延迟加载注册中心
-// ============================================================================
 
 // LazyToolRegistry 延迟加载注册中心
 type LazyToolRegistry struct {
@@ -432,7 +386,6 @@ func (r *LazyToolRegistry) MustRegister(t Tool) {
 
 // GetTool 获取工具（支持延迟加载）
 func (r *LazyToolRegistry) GetTool(name string) (Tool, error) {
-	// 先从缓存获取
 	r.mu.RLock()
 	if tool, exists := r.cache[name]; exists {
 		r.mu.RUnlock()
@@ -440,13 +393,11 @@ func (r *LazyToolRegistry) GetTool(name string) (Tool, error) {
 	}
 	r.mu.RUnlock()
 
-	// 尝试延迟加载
 	tool, err := r.loader.Load(name)
 	if err != nil {
 		return nil, err
 	}
 
-	// 加入缓存
 	r.mu.Lock()
 	r.cache[name] = tool
 	r.mu.Unlock()
@@ -485,3 +436,4 @@ func (r *LazyToolRegistry) ClearCache() {
 	defer r.mu.Unlock()
 	r.cache = make(map[string]Tool)
 }
+

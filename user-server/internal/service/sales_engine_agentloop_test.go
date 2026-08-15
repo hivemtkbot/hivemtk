@@ -19,8 +19,8 @@ func TestEmptyReplyFallback(t *testing.T) {
 	if !strings.Contains(fallback, "无法处理") {
 		t.Fatalf("emptyReplyFallback 文案异常: %q", fallback)
 	}
-	// 确定性：多次调用结果一致。
 	if se.emptyReplyFallback() != fallback {
 		t.Fatal("emptyReplyFallback 非确定性")
 	}
 }
+

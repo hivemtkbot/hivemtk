@@ -27,9 +27,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// ============================================================================
-// 流式销售引擎接口
-// ============================================================================
 
 // StreamEngineInterface 流式销售引擎接口（：从 controller 包提到此处）
 //
@@ -45,9 +42,6 @@ import (
 //   - 后续如新增方法（如 CancelStream / GetSessionSummary），在此处追加
 //   - 实现方 *service.SalesEngine 需保持向后兼容
 type StreamEngineInterface interface {
-	// HandleStream 流式处理销售请求，逐 chunk 回调
-	//
-	// 返回 false 表示调用方（controller）希望中断流；返回 nil 错误表示正常完成。
-	// 任何内部错误会被包装为 dto.StreamChunk{Type: error} 推给客户端。
 	HandleStream(ctx context.Context, req *dto.SalesRequest, onChunk func(chunk *dto.StreamChunk) bool) error
 }
+

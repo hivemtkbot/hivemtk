@@ -1,18 +1,5 @@
 package ragretrieval
 
-// query_rewriter_test.go 查询改写器单元测试
-//
-// 覆盖：
-//  1. 空 query 直接返回 none
-//  2. nil RedisClient + nil DB → 走生成路径
-//  3. HyDE 成功 → strategy=hyde，Rewritten=hydeDoc
-//  4. HyDE 失败 → Rewritten=原 query
-//  5. Multi-Query 成功 → MultiQueries 填充
-//  6. HyDE + Multi-Query 同时成功 → strategy=hyde_multiquery
-//  7. 二者均失败 → strategy=none, Rewritten=原 query
-//  8. Redis 缓存命中 → CacheHit=true
-//  9. DB 缓存命中 → CacheHit=true + 回填 Redis
-// 10. mockLLMChatClient 已在 llm_chat_test.go 定义，这里复用
 
 import (
 	"context"
@@ -44,7 +31,6 @@ func (m *mockRedisClient) Get(_ context.Context, key string) (string, error) {
 	if v, ok := m.store[key]; ok {
 		return v, nil
 	}
-	// 模拟 redis.Nil
 	return "", errRedisNil
 }
 
@@ -53,7 +39,6 @@ func (m *mockRedisClient) Set(_ context.Context, key, value string, ttl time.Dur
 		return m.setErr
 	}
 	if m.store == nil {
-		// 允许直接构造 mock 时 store 为 nil（仅 Get 失败场景），跳过写入
 		return nil
 	}
 	m.mu.Lock()
@@ -89,7 +74,6 @@ func TestQueryRewriter_EmptyQuery(t *testing.T) {
 }
 
 func TestQueryRewriter_NoGenerators_NoCache(t *testing.T) {
-	// 无 HyDE / Multi-Query 生成器，无 Redis / DB → 直接返回原 query, strategy=none
 	q := NewQueryRewriter(nil, nil, nil, nil, nil)
 	rw, err := q.Rewrite(context.Background(), "如何退货")
 	if err != nil {
@@ -123,7 +107,6 @@ func TestQueryRewriter_HyDESuccess(t *testing.T) {
 }
 
 func TestQueryRewriter_HyDEFailure_FallbackToOriginal(t *testing.T) {
-	// HyDE LLM 调用失败 → Rewritten 应回退为原 query
 	hydeGen := NewHyDEGenerator(&mockLLMChatClient{err: errors.New("LLM down")}, nil)
 	q := NewQueryRewriter(hydeGen, nil, nil, nil, nil)
 	rw, err := q.Rewrite(context.Background(), "如何退货")
@@ -152,14 +135,12 @@ func TestQueryRewriter_MultiQuerySuccess(t *testing.T) {
 	if rw.UsedStrategy != StrategyMultiQuery {
 		t.Errorf("strategy=%v want=multiquery", rw.UsedStrategy)
 	}
-	// 无 HyDE，Rewritten 应为原 query
 	if rw.Rewritten != "如何退货" {
 		t.Errorf("Rewritten=%q want=如何退货", rw.Rewritten)
 	}
 }
 
 func TestQueryRewriter_HyDEAndMultiQueryBothSuccess(t *testing.T) {
-	// HyDE 和 Multi-Query 各用独立 mock（避免共享 lastPrompt 串扰）
 	hydeDoc := "假设性答案文档，描述退货流程的具体步骤。"
 	hydeGen := NewHyDEGenerator(&mockLLMChatClient{resp: hydeDoc}, nil)
 	multiResp := `["退货流程","如何退款"]`
@@ -181,7 +162,6 @@ func TestQueryRewriter_HyDEAndMultiQueryBothSuccess(t *testing.T) {
 }
 
 func TestQueryRewriter_BothFail(t *testing.T) {
-	// HyDE 和 Multi-Query 都失败 → strategy=none, Rewritten=原 query
 	hydeGen := NewHyDEGenerator(&mockLLMChatClient{err: errors.New("hyde fail")}, nil)
 	multiGen := NewMultiQueryGenerator(&mockLLMChatClient{err: errors.New("multi fail")}, nil)
 	q := NewQueryRewriter(hydeGen, multiGen, nil, nil, nil)
@@ -198,15 +178,12 @@ func TestQueryRewriter_BothFail(t *testing.T) {
 }
 
 func TestQueryRewriter_RedisCacheHit(t *testing.T) {
-	// Redis 缓存命中 → CacheHit=true, 不调用 LLM
 	redisClient := newMockRedisClient()
-	// 预填一个缓存值
 	hash := sha256Hex(normalizeQuery("如何退货"))
 	cacheKey := "rag:rewrite:" + hash
 	cachedJSON := `{"original":"","rewritten":"缓存的假设文档","multi_queries":["m1"],"used_strategy":"hyde","cache_hit":true}`
 	redisClient.store[cacheKey] = cachedJSON
 
-	// LLM mock 即使配置了 resp，也不应被调用（用 err 测试）
 	llmClient := &mockLLMChatClient{err: errors.New("LLM should not be called")}
 	hydeGen := NewHyDEGenerator(llmClient, nil)
 	q := NewQueryRewriter(hydeGen, nil, redisClient, nil, nil)
@@ -229,9 +206,7 @@ func TestQueryRewriter_RedisCacheHit(t *testing.T) {
 }
 
 func TestQueryRewriter_RedisFailure_DoesNotBlock(t *testing.T) {
-	// Redis Get 失败 → 不阻断，走生成路径
 	redisClient := &mockRedisClient{getErr: errors.New("redis down")}
-	// HyDE 文档必须 >= 20 字符（minDocLength 默认 20），否则会被 HyDEGenerator 视为过短
 	hydeDoc := "假设性答案文档内容，描述退货流程的具体步骤和注意事项，包含正式陈述句风格。"
 	hydeGen := NewHyDEGenerator(&mockLLMChatClient{resp: hydeDoc}, nil)
 	q := NewQueryRewriter(hydeGen, nil, redisClient, nil, nil)
@@ -245,26 +220,20 @@ func TestQueryRewriter_RedisFailure_DoesNotBlock(t *testing.T) {
 }
 
 func TestQueryRewriter_NormalizesQueryForHash(t *testing.T) {
-	// 大小写/前后空白不同但语义相同的 query 应该命中同一缓存
-	// （normalizeQuery 仅合并连续空白，不删除单词间所有空白，故用前后空白而非内部空白）
 	redisClient := newMockRedisClient()
-	// 第一次填缓存
 	q1 := NewQueryRewriter(nil, nil, redisClient, nil, nil)
 	_, _ = q1.Rewrite(context.Background(), "如何退货")
-	// 第二次用前后空白，应命中同一 hash
 	q2 := NewQueryRewriter(nil, nil, redisClient, nil, nil)
 	rw, err := q2.Rewrite(context.Background(), "   如何退货   ")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
-	// 两次都没 LLM 生成器，第一次写入 Redis 后第二次应命中
 	if !rw.CacheHit {
 		t.Error("CacheHit should be true after first write")
 	}
 }
 
 func TestNormalizeQuery_Consistency(t *testing.T) {
-	// 不同空白/大小写归一化后应相同
 	a := normalizeQuery("  How  to  RETURN  ")
 	b := normalizeQuery("how to return")
 	if a != b {
@@ -288,3 +257,4 @@ var _ LLMChatClient = (*mockLLMChatClient)(nil)
 
 // 确保 mockRedisClient 满足 RedisClient 接口（编译期断言）
 var _ RedisClient = (*mockRedisClient)(nil)
+

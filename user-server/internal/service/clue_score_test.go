@@ -26,11 +26,10 @@ func TestClueScoreService_ScoreClue_Verify(t *testing.T) {
 	_ = setupClueScoreTestDB(t)
 
 	svc := NewClueScoreService()
-	// 使用近期时间，让 recency 维度有分（线索创建时间=现在，recency 满分）
 	clue := &model.Clue{
 		ID:         "test-clue-1",
 		Account:    "acc-1",
-		Type:       3, // 电话（高分渠道）
+		Type:       3, 
 		IsVerify:   1,
 		Name:       "Alice",
 		City:       "上海",
@@ -60,9 +59,8 @@ func TestClueScoreService_ScoreClue_LowQuality(t *testing.T) {
 	clue := &model.Clue{
 		ID:       "test-clue-2",
 		Account:  "acc-2",
-		Type:     6, // twitter（低分渠道）
+		Type:     6, 
 		IsVerify: 0,
-		// 全部字段为空
 	}
 	score, err := svc.ScoreClue(context.Background(), clue)
 	if err != nil {
@@ -77,9 +75,7 @@ func TestClueScoreService_ScoreClue_ChannelScore(t *testing.T) {
 	_ = setupClueScoreTestDB(t)
 
 	svc := NewClueScoreService()
-	// 电话应该得高分
 	c1 := &model.Clue{ID: "c-phone", Account: "a1", Type: 3, IsVerify: 1, Name: "A"}
-	// twitter 应该得低分
 	c2 := &model.Clue{ID: "c-tw", Account: "a2", Type: 6, IsVerify: 1, Name: "A"}
 
 	s1, _ := svc.ScoreClue(context.Background(), c1)
@@ -123,9 +119,7 @@ func TestClueScoreService_ListByGrade(t *testing.T) {
 	_ = setupClueScoreTestDB(t)
 
 	svc := NewClueScoreService()
-	// 高分
 	svc.ScoreClue(context.Background(), &model.Clue{ID: "g1", Account: "g1", Type: 3, IsVerify: 1, Name: "A", City: "B", Address: "C", Desc: "D"})
-	// 低分
 	svc.ScoreClue(context.Background(), &model.Clue{ID: "g2", Account: "g2", Type: 6, IsVerify: 0})
 
 	list, total, err := svc.ListByGrade(context.Background(), "", 1, 10)
@@ -144,7 +138,6 @@ func TestClueScoreService_LoadClueForScoring(t *testing.T) {
 	_ = setupClueScoreTestDB(t)
 
 	svc := NewClueScoreService()
-	// Clue.BeforeCreate 会覆盖 ID 为 UUID，因此创建后用实际 ID 重新查找
 	clue := &model.Clue{Account: "la", Type: 2, IsVerify: 1, Name: "load"}
 	err := svc.clueRepo.Create(context.Background(), clue)
 	if err != nil {
@@ -195,3 +188,4 @@ func TestCalcGradeFromScore(t *testing.T) {
 		}
 	}
 }
+

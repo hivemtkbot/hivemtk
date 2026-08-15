@@ -58,7 +58,6 @@ func TestReplyRule_ScanNil(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	// Scan with nil should not modify the rule
 	if rule.ID != "existing-id" {
 		t.Errorf("Expected ID to remain 'existing-id', got %s", rule.ID)
 	}
@@ -160,3 +159,4 @@ func TestPlatformAccountConfig_WithReplyRules(t *testing.T) {
 func strPtr(s string) *string {
 	return &s
 }
+

@@ -132,7 +132,6 @@ func TestLiveCodeQR_BeforeCreate_GeneratesID(t *testing.T) {
 		LiveCodeID: "lc-789",
 	}
 
-	// BeforeCreate should generate an ID if empty
 	err := qr.BeforeCreate(nil)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -140,7 +139,6 @@ func TestLiveCodeQR_BeforeCreate_GeneratesID(t *testing.T) {
 	if qr.ID == "" {
 		t.Error("Expected non-empty ID after BeforeCreate")
 	}
-	// Verify it's a valid UUID format
 	if len(qr.ID) != 36 {
 		t.Errorf("Expected ID length 36 (UUID), got %d", len(qr.ID))
 	}
@@ -218,3 +216,4 @@ func TestLiveCodeQRStat_WithHighCounts(t *testing.T) {
 		t.Errorf("Expected ClickCount 50000, got %d", stat.ClickCount)
 	}
 }
+

@@ -76,7 +76,6 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 	skipAdjust := false
 	if err != nil {
 		if errors.Is(err, ErrNoEvaluableContent) {
-			// 确定性不可评估（缺 query/reply）：记为已评估并跳过调权，避免 cron 每轮重试空耗 LLM/DB。
 			if dryRun {
 				return nil, nil
 			}
@@ -88,8 +87,6 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 				Dimensions: map[string]float64{},
 			}
 		} else {
-			// 非确定性错误（LLM 超时 / 上下文取消 / DB 异常等）：标记「已尝试」避免 RunBatch 无限重选死循环。
-			// 不调权重。后续可清理 trace_eval_log 后手动重评。
 			if !dryRun {
 				if werr := s.persistAttemptedLog(ctx, db, traceID, agg, "评估出错: "+err.Error()); werr != nil {
 					logger.Warnf("[trace_learning] 写错误尝试审计失败 trace=%s: %v", traceID, werr)
@@ -120,7 +117,6 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 	}
 
 	var resultLog *model.TraceEvalLog
-	// 事务内：加咨询锁 → 幂等检查 → 调权 → 写审计，整段串行化，避免并发双调。
 	txErr := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if e := tx.Exec("SELECT pg_advisory_xact_lock(?)", traceLockKey(traceID)).Error; e != nil {
 			return e
@@ -156,8 +152,6 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 			Bad:            res.Bad,
 			AdjustedChunks: string(adjJSON),
 		}
-		// 用结构体 Assign：列名由 GORM 推导为 dimensions_json / adjusted_chunks，
-		// 避免手填 map 键名与真实列名不一致导致更新失败、进而无限重评。
 		if e := tx.Where("trace_id = ?", traceID).Assign(log).FirstOrCreate(&log).Error; e != nil {
 			return e
 		}
@@ -207,7 +201,7 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 		return nil, fmt.Errorf("db nil")
 	}
 	if batchSize <= 0 || batchSize > 500 {
-		batchSize = s.cfg.BatchSize // 200
+		batchSize = s.cfg.BatchSize 
 	}
 	conc := s.cfg.Concurrency
 	if conc < 1 {
@@ -218,7 +212,6 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 	var previewMu sync.Mutex
 	var previewBuf []*model.TraceEvalLog
 
-	// 在专用连接上获取+释放全局咨询锁，确保解锁落回获取锁的同一物理连接（防泄漏）。
 	connErr := s.db.WithContext(ctx).Connection(func(conn *gorm.DB) error {
 		var held bool
 		if e := conn.Raw("SELECT pg_try_advisory_lock(?)", runBatchLockKey).Scan(&held).Error; e != nil {
@@ -230,7 +223,7 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 		}
 		defer func() { _ = conn.Exec("SELECT pg_advisory_unlock(?)", runBatchLockKey).Error }()
 
-		stalled := 0 // 连续无成功轮次计数：批量全失败时熔断，避免死循环持锁
+		stalled := 0 
 		for {
 			sub := conn.WithContext(ctx).Table("message_trace").
 				Select("trace_id").
@@ -254,7 +247,6 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 			if len(traceIDs) == 0 {
 				break
 			}
-			// 并发评估：worker 池并行 LLM 打分；权重调整由 adjustMu 串行化（快路径，不损吞吐）。
 			sem := make(chan struct{}, conc)
 			var wg sync.WaitGroup
 			var processed int32
@@ -285,8 +277,6 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 				previewBuf = previewBuf[:0]
 				previewMu.Unlock()
 			}
-			// 熔断：若整批（满批）全部评估失败（processed==0），说明剩余 trace 持续不可评估
-			// （如 LLM 过载 / 上下文取消），连续 2 轮则提前退出，避免无限重选失败 trace 死循环持锁。
 			if processed == 0 && len(traceIDs) >= batchSize {
 				stalled++
 				if stalled >= 2 {
@@ -296,7 +286,6 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 			} else {
 				stalled = 0
 			}
-			// 本批已全评估完；不足一批说明已到底，结束。
 			if len(traceIDs) < batchSize {
 				break
 			}
@@ -311,8 +300,8 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 
 // BatchResult RunBatch 处理结果
 type BatchResult struct {
-	Processed int                   // 实际评估条数
-	Previews  []*model.TraceEvalLog // dryRun 时的预览列表（不落库）
+	Processed int                   
+	Previews  []*model.TraceEvalLog 
 }
 
 // Logs 查询最近打分记录（供前端展示）。
@@ -349,3 +338,4 @@ func (s *Service) TopWeights(ctx context.Context, limit int) ([]map[string]any, 
 
 // marshalJSON 供外部复用（保持与 adjuster 同名函数一致）
 var _ = marshalJSON
+

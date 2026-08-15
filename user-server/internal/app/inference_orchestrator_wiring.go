@@ -14,27 +14,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ============================================================================
-// 推理闭环编排器装配
-// ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/认知决策大脑层.md / 核心数据流向.md
-//
-// 本文件负责：
-//   1. 创建 memoryProviderAdapter：包装 service.MemorySystem 为
-//      agent_runtime.EpisodicMemoryProvider，让跨会话情境记忆（L1/L2/L3/L4）
-//      注入 InferenceCycle，使规划阶段（PlannerStage）的 ReplyHint 能引用
-//      历史对话与客户画像
-//   2. 装配全局 CoreDataFlowOrchestrator 单例：串联
-//      感知→对齐→门禁→规划 4 阶段推理闭环
-//   3. 暴露 GetInferenceOrchestrator() 供路由层调用
-//
-// 设计要点：
-//   - 不修改 SalesEngine：CoreDataFlowOrchestrator 作为独立推理决策服务暴露，
-//     不影响现有 SalesEngine 9 步流水线（避免破坏生产链路）
-//   - 记忆读取失败仅告警不阻塞：InferenceCycle.RunOnce 内部已处理 err
-//   - 单例 + sync.Once：重复调用安全
-//   - 五层架构合规：router 层装配，依赖 service（L3）+ agent_runtime（L3 内部组件）
-// ============================================================================
 
 // memoryProviderAdapter 把 service.MemorySystem 适配为
 // agent_runtime.EpisodicMemoryProvider
@@ -75,7 +54,6 @@ func InitInferenceOrchestrator() {
 	inferenceOrchestratorOnce.Do(func() {
 		cycle := agent_runtime.NewInferenceCycle()
 
-		// 注入跨会话情境记忆提供者
 		if ms := service.GetMemorySystem(); ms != nil {
 			cycle.SetMemoryProvider(&memoryProviderAdapter{ms: ms})
 			logger.Info("[inference] ✅ EpisodicMemoryProvider 已注入（包装 MemorySystem.BuildFullContext）")
@@ -95,9 +73,6 @@ func GetInferenceOrchestrator() *agent_runtime.CoreDataFlowOrchestrator {
 	return globalInferenceOrchestrator
 }
 
-// ============================================================================
-// 路由注册
-// ============================================================================
 
 // inferenceRunRequest 推理闭环运行请求
 type inferenceRunRequest struct {
@@ -141,7 +116,6 @@ func handleInferenceRun(c *gin.Context) {
 		return
 	}
 
-	// 构造 CustomerMessagePayload
 	payload := agent_runtime.CustomerMessagePayload{
 		ChannelType: req.ChannelType,
 		CustomerID:  req.CustomerID,
@@ -158,7 +132,6 @@ func handleInferenceRun(c *gin.Context) {
 		payload.TraceID = "inference-" + payload.SessionID + "-" + payload.CustomerID
 	}
 
-	// 执行推理闭环
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
 
@@ -200,9 +173,6 @@ func handleInferenceStats(c *gin.Context) {
 	})
 }
 
-// ============================================================================
-// 工具权限白名单管理 API
-// ============================================================================
 
 // 全局权限检查器单例（由 tool_executor_wiring.go 初始化时注入，
 // 或通过 SetGlobalPermissionChecker 手动注入；未初始化时返回 nil）
@@ -403,3 +373,4 @@ func handleRemoveAgentWhitelist(c *gin.Context) {
 		"message":  "whitelist removed, fallback to default policy",
 	})
 }
+

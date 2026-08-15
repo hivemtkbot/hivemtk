@@ -330,9 +330,6 @@ func (r *WeComTagRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.WeComTag{}, id).Error
 }
 
-// ============================================================================
-// WeComAccountRepository 扩展方法（服务于 WeComAccountHealthService）
-// ============================================================================
 
 // FindByRiskLevels 按风险等级列表筛选账号（私域独立部署：无 merchant_id）
 func (r *WeComAccountRepository) FindByRiskLevels(ctx context.Context, riskLevels []string) ([]model.WeComAccount, error) {
@@ -365,10 +362,6 @@ func (r *WeComAccountRepository) FindHealthyAccounts(ctx context.Context, riskLe
 	return accounts, err
 }
 
-// ============================================================================
-// WeComAccountHealthRepository 企业微信账号健康度仓库
-// 五层架构归属: L3 仓库层
-// ============================================================================
 
 // WeComAccountHealthRepository 企业微信账号健康度仓库
 type WeComAccountHealthRepository struct {
@@ -482,3 +475,4 @@ func (r *WeComAccountRepository) ListAllOrderByIDDesc(ctx context.Context) ([]mo
 	err := r.db.WithContext(ctx).Order("id DESC").Find(&accounts).Error
 	return accounts, err
 }
+

@@ -18,22 +18,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ============================================================================
-// SalesEngine 工厂
-// ----------------------------------------------------------------------------
-// 集中构建智能体销冠引擎及其 9 步链路依赖，避免 router.go 出现大量零散构造代码。
-// 五层架构：本文件位于 Router 层，依赖 Service 层，不直接访问 DB（通过 db.GetDB()）。
-//
-// 9 步链路依赖对应：
-//   ① resolveCustomer → CustomerLookup 适配器（→ CustomerRepository）
-//   ② recallMemory    → DialogueMemoryService
-//   ③ 意图识别         → IntentRecognizer
-//   ④ SOP 匹配         → SOPService
-//   ⑤ RAG 召回         → RAGSearcher 适配器（→ RagSearcher）
-//   ⑥ LLM 生成         → llm.Dispatcher
-//   ⑦ 拟人润色         → HumanizePolisher（SalesEngine 内部创建）
-//   ⑧ 反馈学习         → FeedbackLearner（通过 SetFeedbackLearner 注入，智能体自我进化闭环）
-// ============================================================================
 
 // buildSalesEngine 构建智能体销冠引擎（真实依赖注入）
 // 调用方：router.Setup()
@@ -48,27 +32,20 @@ import (
 func BuildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 	dispatcher := llm.GetGlobalDispatcher()
 
-	// ② 对话记忆服务
 	memorySvc := service.NewDialogueMemoryService(gormDB, dispatcher)
 
-	// ③ 意图识别服务：复用全局实例
-	//   - 兜底：若全局未初始化(单测等场景)则临时创建一个
 	intentSvc := service.GetIntentRecognizer()
 	if intentSvc == nil {
 		intentSvc = service.NewIntentRecognizer(gormDB, dispatcher, nil)
 	}
 
-	// ④ SOP 智能体服务
 	sopSvc := service.NewSOPService(gormDB, dispatcher)
 
-	// ⑤ RAG 召回适配器
 	ragSearcher := knowledgesvc.NewRagSearcher()
 
-	// 话术库 + 客户查询适配器
 	scriptLookup := service.NewScriptLookupAdapter(contentservice.NewScriptTemplateService())
 	customerLookup := service.NewCustomerLookupAdapter(repository.NewCustomerRepository())
 
-	// 构建 SalesEngine（db 通过 db.GetDB() 保证全局一致）
 	engine := service.NewSalesEngine(
 		db.GetDB(),
 		dispatcher,
@@ -80,40 +57,21 @@ func BuildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 		customerLookup,
 	)
 
-	// ⑨ 反馈学习器注入（AI 自我进化闭环）
-	// 每次 Handle 结束都记录决策快照（intent/confidence/SOP/回复/是否转人工），
-	// 后续客户下一条消息或人工接管时由 SmartCSOrchestrator 更新 CustomerAccept
 	engine.SetFeedbackLearner(context.Background(), service.NewFeedbackLearner(gormDB))
 
-	// 置信度聚合器注入（5 维信号 + 动态阈值驱动转人工）
-	// 注入后 shouldTransferToHuman 不再使用静态规则（IntentChurn/IntentComplaint/MessageCount>30），
-	// 而是由聚合置信度 + 动态阈值决策
-	//
-	// 调优：9B 4-bit 模型在 RAG 短问答上 confidence 评估均值 ~0.4-0.5，
-	// 5 维信号聚合后判为 BandHandoff 转人工，导致 80% 业务问答空回复。
-	// 临时禁用 confidence aggregator，走兼容路径（仅投诉/流失/对话轮数过多转人工），
-	// 后续等 9B 模型质量提升或 confidence 信号补齐后再恢复。
 	confidenceAgg := service.GetConfidenceAggregator()
 	if confidenceAgg == nil {
-		// 自动初始化（依赖 nil embedder 走 CtxRelev=0.5 降级路径）
 		confidenceAgg = service.InitConfidenceAggregator(gormDB, dispatcher, nil)
 	}
-	// engine.SetConfidenceAggregator(context.Background, confidenceAgg) // 临时禁用
-	_ = confidenceAgg // 保留引用避免 lint 警告
+	_ = confidenceAgg 
 
-	// 拟人度评估器注入（RuleScorer 全量 + LLMScorer 边界采样 + 重生成）
-	// 注入后 Step 7.5 评估回复自然度，<0.85 触发重生成（最多 3 次）
 	humanizeSvc := service.GetHumanizeEvalService()
 	if humanizeSvc == nil {
 		humanizeSvc = service.InitHumanizeEvalService(gormDB, dispatcher)
 	}
 	engine.SetHumanizeEvaluator(context.Background(), humanizeSvc)
-	// 注入重生成 dispatcher：让评估器在拟人不达标时调用 LLM 重新生成
 	service.SetHumanizeRegenerateDispatcher(dispatcher)
 
-	// 真正的智能体 Agent Loop 注入（LLM ↔ 工具 循环）
-	// 通过 ToolExecutorAdapter 适配 *tooluse.ToolExecutor → service.AgentToolExecutor 接口
-	// 避免直接依赖 tooluse 包导致循环依赖（tooluse 反向依赖 service 持有 IntegrationService）
 	toolExec := tooluse.GetGlobalExecutor()
 	if toolExec != nil {
 		engine.SetToolExecutor(context.Background(), NewToolExecutorAdapter(toolExec))
@@ -122,15 +80,11 @@ func BuildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 		logger.Warn("[agent] SalesEngine 未注入 ToolExecutor（globalExecutor 未初始化，走原 9 步流水线）")
 	}
 
-	// 工具执行期权限检查器注入（全局 WhitelistPermissionChecker 单例）。
-	// 与 runAgentLoop 中按 AgentContext.Tools 设置的白名单配合，形成「注入期 + 执行期」双层防护。
 	if pc := GetGlobalPermissionChecker(); pc != nil {
 		engine.SetPermissionChecker(pc)
 		logger.Info("[agent] ✅ SalesEngine 已注入工具权限检查器（按 Agent 白名单执行期放行）")
 	}
 
-	// 回复语言链路注入（术语表渲染 + 输出后置校准）。
-	// 使用进程内内存缓存避免每条回复都回查术语表；术语表读多写少，多副本间短暂不一致可接受。
 	glossarySvc := translation.NewGlossaryService(repository.NewGlossaryRepositoryWithDB(db.GetDB()), cache.NewMemoryCache())
 	engine.SetGlossaryRenderer(glossarySvc)
 	engine.SetOutputCalibrator(glossarySvc)
@@ -165,14 +119,10 @@ func BuildSmartOrchestrator(engine *service.SalesEngine) *service.SmartCSOrchest
 //
 // 调用方：router.Setup()
 func RegisterAgentReachTools(gormDB *gorm.DB) {
-	// 真实触达适配器（含 web 网页客服渠道）；用 BridgeReachAdapter 包装，
-	// 使抖音/小红书/TikTok/闲鱼/快手 网页桥接账号的回复经 HTTP 长轮询原路回写扩展
 	adapter := bridge.NewBridgeReachAdapter(NewIntegrationReachAdapterFromDB(gormDB), GetBridgeIngressSvc())
-	// 注册桥接出站回调：使 WebhookService.sendOutbound 在桥接渠道下把 AI 回复经 HTTP buffer 回写扩展
 	bridge.SetBridgeReachAdapter(adapter)
 	deps := NewReachToolDepsWithAdapter(gormDB, adapter)
 
-	// 注册全部 20 个触达工具到全局注册中心
 	if err := tooluse.RegisterReachTools(tooluse.GetGlobalRegistry(), deps); err != nil {
 		logger.Errorf("[agent] 注册触达工具失败（reach.web.send 等将不可用）：%v", err)
 		return
@@ -194,3 +144,4 @@ func RegisterAgentPrivateMessageTools(gormDB *gorm.DB) {
 	}
 	logger.Info("[agent] ✅ 私信工具（pm.session.open/read/message.send）已接入全局注册中心")
 }
+

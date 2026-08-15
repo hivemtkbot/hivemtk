@@ -76,9 +76,8 @@ func (c *LLMProviderController) ResetCircuit(ctx *gin.Context) {
 	var body struct {
 		Name string `json:"name"`
 	}
-	_ = ctx.ShouldBindJSON(&body) // body 可为空（重置全部）
+	_ = ctx.ShouldBindJSON(&body) 
 	if body.Name == "" {
-		// 重置全部
 		all := c.failoverSvc.GetAllHealth()
 		reset := 0
 		for _, h := range all {
@@ -118,8 +117,6 @@ func (c *LLMProviderController) UpdatePolicy(ctx *gin.Context) {
 		return
 	}
 	c.failoverSvc.ApplyPolicy(policy)
-	// 持久化：复用 LoadPolicy 流程中的 DB 写路径（system_kv_config.key=llm_provider_failover）
-	// ApplyPolicy 是内存生效，外部需通过额外接口持久化（保留语义：UpdatePolicy 内存生效 + log）
 	logger.Infof("[LLMProviderController] UpdatePolicy applied: scenarios=%d", len(policy.Scenarios))
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": policy})
 }
@@ -164,3 +161,4 @@ func (c *LLMProviderController) ResolveRoute(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": resp})
 }
+

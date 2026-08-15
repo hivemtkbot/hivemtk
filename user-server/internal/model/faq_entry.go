@@ -51,13 +51,7 @@ type FAQEntry struct {
 	QualityScore     float64        `gorm:"type:decimal(5,4);default:0.5" json:"quality_score"`
 	LastHitAt        *time.Time     `gorm:"type:timestamptz" json:"last_hit_at,omitempty"`
 	NegativeHitCount int            `gorm:"type:integer;default:0" json:"negative_hit_count"`
-	// 按智能体隔离字段
-	//   nil  = 共享 (默认, 向后兼容旧数据)
-	//   &X   = 仅 X 智能体可见
-	// 索引: idx_faq_agent_id (按智能体过滤, ListByAgent / MatchByAgent 加速)
 	AgentID *uint `gorm:"index" json:"agent_id,omitempty"`
-	// Enabled 用 *bool 避免 GORM v2 零值问题(布尔 false 被 column default 覆盖)
-	// 应用层约定: nil=未设置, &true=启用, &false=禁用
 	Enabled   *bool     `gorm:"type:boolean;default:true;not null" json:"enabled"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
@@ -65,3 +59,4 @@ type FAQEntry struct {
 
 // TableName GORM 表名
 func (FAQEntry) TableName() string { return "faq_entries" }
+

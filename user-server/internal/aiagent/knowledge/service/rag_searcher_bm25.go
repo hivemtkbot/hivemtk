@@ -20,7 +20,7 @@ func (s *RagSearcher) bm25SearchAll(ctx context.Context, query string, topK int)
 	if err := s.db.WithContext(ctx).
 		Table("knowledge_chunks").
 		Select("id, document_id, content").
-		Where("embedding IS NULL OR embedding IS NOT NULL"). // 兜底时包含全部
+		Where("embedding IS NULL OR embedding IS NOT NULL"). 
 		Limit(BM25ScanLimit).
 		Scan(&rows).Error; err != nil {
 		return nil, err
@@ -97,3 +97,4 @@ func (s *RagSearcher) bm25Rank(rows []chunkRow, terms []string) []scored {
 func ScoreText(text string, terms []string) float64 {
 	return bm25.ScoreText(text, terms)
 }
+

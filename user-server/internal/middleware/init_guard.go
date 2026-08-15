@@ -18,14 +18,12 @@ import (
 func InitGuard() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.FullPath()
-		// 白名单：无需 InitGuard 校验
 		if isInitWhitelist(path) {
 			c.Next()
 			return
 		}
 		checker := GetLicenseChecker()
 		if checker == nil {
-			// 授权检查器未初始化（开发模式兜底）
 			c.Next()
 			return
 		}
@@ -35,7 +33,6 @@ func InitGuard() gin.HandlerFunc {
 			return
 		}
 
-		// 仅判断"是否已初始化"，未初始化则引导去 /setup
 		if !status.Initialized {
 			logger.Info("InitGuard: 未初始化 path=" + path)
 			c.AbortWithStatusJSON(200, gin.H{
@@ -47,7 +44,6 @@ func InitGuard() gin.HandlerFunc {
 			return
 		}
 
-		// INITIALIZED，放行
 		c.Next()
 	}
 }
@@ -67,28 +63,22 @@ const (
 // 这些路径是初始化流程的必经节点，必须始终可访问
 func isInitWhitelist(path string) bool {
 	whitelist := map[string]bool{
-		// 状态查询
 		"/api/system/init-status": true,
 		"/api/system/info":        true,
-		// 初始化流程
 		"/api/system/init-admin":    true,
 		"/api/system/init-complete": true,
-		// 鉴权流程（个人中心改密 / 登录）
 		"/api/auth/login":           true,
 		"/api/auth/refresh-token":   true,
-		"/api/auth/change-password": true, // 个人中心重置密码（开源版唯一改密入口）
+		"/api/auth/change-password": true, 
 		"/api/auth/current-user":    true,
-		// 商户自部署兼容
 		"/api/merchant/init": true,
-		// 系统用户默认超管（保留旧接口兼容）
 		"/api/system/create-default-admin": true,
-		// 公开回调（短链/活码跳转）
 		"/s/:code": true,
 		"/l/:code": true,
-		// 健康检查
 		"/health":  true,
 		"/healthz": true,
 		"/readyz":  true,
 	}
 	return whitelist[path]
 }
+

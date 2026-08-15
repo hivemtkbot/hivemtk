@@ -68,3 +68,4 @@ func defaultOnPanic(name string, r interface{}, stack []byte) {
 		Bytes("stack", stack).
 		Msg("后台 goroutine panic 已被 recover，避免进程崩溃")
 }
+

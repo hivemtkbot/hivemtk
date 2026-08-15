@@ -42,7 +42,6 @@ func TestEmailListService_CreateEmailList(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建测试线索
 	clue := model.Clue{
 		Account: "test123",
 		Type:    1,
@@ -52,14 +51,12 @@ func TestEmailListService_CreateEmailList(t *testing.T) {
 	}
 	database.Create(&clue)
 
-	// 创建系统配置
 	systemConfig := model.SystemConfig{
 		Name:       "测试系统",
 		WebsiteURL: "http://localhost:8080",
 	}
 	database.Create(&systemConfig)
 
-	// 创建邮件列表
 	subject := "测试邮件主题"
 	content := "测试邮件内容，Hello {name}，你在 {city}"
 	attachments := "[]"
@@ -111,7 +108,6 @@ func TestEmailListService_CreateEmailList_EmptyAccount(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建账号为空的线索
 	clue := model.Clue{
 		Account: "",
 		Type:    1,
@@ -121,7 +117,6 @@ func TestEmailListService_CreateEmailList_EmptyAccount(t *testing.T) {
 	}
 	database.Create(&clue)
 
-	// 创建系统配置
 	systemConfig := model.SystemConfig{
 		Name:       "测试系统",
 		WebsiteURL: "http://localhost:8080",
@@ -137,7 +132,6 @@ func TestEmailListService_CreateEmailList_EmptyAccount(t *testing.T) {
 		t.Fatalf("CreateEmailList failed: %v", err)
 	}
 
-	// 账号为空的线索应该被跳过
 	if total != 0 {
 		t.Errorf("Expected total 0 (empty account skipped), got %d", total)
 	}
@@ -148,7 +142,6 @@ func TestEmailListService_GetEmailListByID(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建邮件列表
 	emailList := model.EmailList{
 		Subject:     "测试主题",
 		Content:     "测试内容",
@@ -162,7 +155,6 @@ func TestEmailListService_GetEmailListByID(t *testing.T) {
 	}
 	database.Create(&emailList)
 
-	// 获取邮件列表
 	retrieved, err := service.GetEmailListByID(context.Background(), emailList.ID)
 	if err != nil {
 		t.Fatalf("GetEmailListByID failed: %v", err)
@@ -194,7 +186,6 @@ func TestEmailListService_GetEmailListList(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建多个邮件列表
 	for i := 0; i < 5; i++ {
 		emailList := model.EmailList{
 			Subject:     "测试主题" + string(rune('0'+i)),
@@ -210,7 +201,6 @@ func TestEmailListService_GetEmailListList(t *testing.T) {
 		database.Create(&emailList)
 	}
 
-	// 获取列表
 	list, total, err := service.GetEmailListList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetEmailListList failed: %v", err)
@@ -230,7 +220,6 @@ func TestEmailListService_GetEmailListList_WithPagination(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建 10 个邮件列表
 	for i := 0; i < 10; i++ {
 		emailList := model.EmailList{
 			Subject:     "测试主题" + string(rune('0'+i)),
@@ -246,7 +235,6 @@ func TestEmailListService_GetEmailListList_WithPagination(t *testing.T) {
 		database.Create(&emailList)
 	}
 
-	// 第一页
 	list, total, err := service.GetEmailListList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetEmailListList failed: %v", err)
@@ -260,7 +248,6 @@ func TestEmailListService_GetEmailListList_WithPagination(t *testing.T) {
 		t.Errorf("Expected 5 email lists on page 1, got %d", len(list))
 	}
 
-	// 第二页
 	list2, total2, err := service.GetEmailListList(context.Background(), 2, 5)
 	if err != nil {
 		t.Fatalf("GetEmailListList failed: %v", err)
@@ -280,7 +267,6 @@ func TestEmailListService_UpdateEmailList(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建邮件列表
 	emailList := model.EmailList{
 		Subject:     "旧主题",
 		Content:     "旧内容",
@@ -294,7 +280,6 @@ func TestEmailListService_UpdateEmailList(t *testing.T) {
 	}
 	database.Create(&emailList)
 
-	// 更新邮件列表
 	emailList.Subject = "新主题"
 	emailList.Content = "新内容"
 	emailList.IsSend = 1
@@ -319,7 +304,6 @@ func TestEmailListService_DeleteEmailList(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建邮件列表
 	testID := uuid.New()
 	emailList := model.EmailList{
 		ID:          testID,
@@ -335,7 +319,6 @@ func TestEmailListService_DeleteEmailList(t *testing.T) {
 	}
 	database.Create(&emailList)
 
-	// 删除邮件列表
 	err := service.DeleteEmailList(context.Background(), testID)
 	if err != nil {
 		t.Fatalf("DeleteEmailList failed: %v", err)
@@ -354,7 +337,6 @@ func TestEmailListService_GetUnsentEmailList(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建未发送的邮件
 	for i := 0; i < 3; i++ {
 		emailList := model.EmailList{
 			Subject:     "未发送主题" + string(rune('0'+i)),
@@ -370,7 +352,6 @@ func TestEmailListService_GetUnsentEmailList(t *testing.T) {
 		database.Create(&emailList)
 	}
 
-	// 创建已发送的邮件
 	for i := 0; i < 2; i++ {
 		emailList := model.EmailList{
 			Subject:     "已发送主题" + string(rune('0'+i)),
@@ -387,7 +368,6 @@ func TestEmailListService_GetUnsentEmailList(t *testing.T) {
 		database.Create(&emailList)
 	}
 
-	// 获取未发送的邮件列表
 	list, err := service.GetUnsentEmailList(context.Background(), 10)
 	if err != nil {
 		t.Fatalf("GetUnsentEmailList failed: %v", err)
@@ -397,7 +377,6 @@ func TestEmailListService_GetUnsentEmailList(t *testing.T) {
 		t.Errorf("Expected 3 unsent emails, got %d", len(list))
 	}
 
-	// 验证都是未发送的
 	for _, email := range list {
 		if email.IsSend != 0 {
 			t.Errorf("Expected IsSend 0, got %d", email.IsSend)
@@ -410,7 +389,6 @@ func TestEmailListService_GetUnsentEmailList_WithLimit(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建 10 个未发送的邮件
 	for i := 0; i < 10; i++ {
 		emailList := model.EmailList{
 			Subject:     "未发送主题" + string(rune('0'+i)),
@@ -426,7 +404,6 @@ func TestEmailListService_GetUnsentEmailList_WithLimit(t *testing.T) {
 		database.Create(&emailList)
 	}
 
-	// 限制获取 5 个
 	list, err := service.GetUnsentEmailList(context.Background(), 5)
 	if err != nil {
 		t.Fatalf("GetUnsentEmailList failed: %v", err)
@@ -446,7 +423,6 @@ func TestEmailListService_GetTodayCountByFrom(t *testing.T) {
 	now := time.Now()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 1, 0, now.Location())
 
-	// 创建今日发送的邮件
 	for i := 0; i < 5; i++ {
 		emailList := model.EmailList{
 			Subject:     "今日邮件" + string(rune('0'+i)),
@@ -463,7 +439,6 @@ func TestEmailListService_GetTodayCountByFrom(t *testing.T) {
 		database.Create(&emailList)
 	}
 
-	// 创建昨日发送的邮件
 	yesterday := time.Now().AddDate(0, 0, -1)
 	yesterdayStart := time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 1, 0, yesterday.Location())
 	for i := 0; i < 3; i++ {
@@ -482,7 +457,6 @@ func TestEmailListService_GetTodayCountByFrom(t *testing.T) {
 		database.Create(&emailList)
 	}
 
-	// 获取今日发送数量
 	count, err := service.GetTodayCountByFrom(context.Background(), from)
 	if err != nil {
 		t.Fatalf("GetTodayCountByFrom failed: %v", err)
@@ -515,7 +489,6 @@ func TestEmailListService_UpdateEmailListReadInfo(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建邮件任务
 	jobs := model.EmailJobs{
 		Subject:      "测试任务",
 		SendTotal:    0,
@@ -526,7 +499,6 @@ func TestEmailListService_UpdateEmailListReadInfo(t *testing.T) {
 	}
 	database.Create(&jobs)
 
-	// 创建邮件列表
 	traceID := uuid.New()
 	emailList := model.EmailList{
 		Subject:     "测试主题",
@@ -542,7 +514,6 @@ func TestEmailListService_UpdateEmailListReadInfo(t *testing.T) {
 	}
 	database.Create(&emailList)
 
-	// 更新阅读信息
 	err := service.UpdateEmailListReadInfo(context.Background(), traceID)
 	if err != nil {
 		t.Fatalf("UpdateEmailListReadInfo failed: %v", err)
@@ -571,7 +542,6 @@ func TestEmailListService_UpdateEmailListReadInfo_AlreadyRead(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建邮件任务
 	jobs := model.EmailJobs{
 		Subject:      "测试任务",
 		SendTotal:    0,
@@ -582,7 +552,6 @@ func TestEmailListService_UpdateEmailListReadInfo_AlreadyRead(t *testing.T) {
 	}
 	database.Create(&jobs)
 
-	// 创建已读邮件
 	traceID := uuid.New()
 	emailList := model.EmailList{
 		Subject:     "测试主题",
@@ -599,7 +568,6 @@ func TestEmailListService_UpdateEmailListReadInfo_AlreadyRead(t *testing.T) {
 	}
 	database.Create(&emailList)
 
-	// 更新阅读信息（应该直接返回，不做任何操作）
 	err := service.UpdateEmailListReadInfo(context.Background(), traceID)
 	if err != nil {
 		t.Fatalf("UpdateEmailListReadInfo failed: %v", err)
@@ -630,7 +598,6 @@ func TestEmailListService_CreateEmailList_WithQqEmail(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建测试线索（账号不带@qq.com）
 	clue := model.Clue{
 		Account: "12345678",
 		Type:    1,
@@ -640,7 +607,6 @@ func TestEmailListService_CreateEmailList_WithQqEmail(t *testing.T) {
 	}
 	database.Create(&clue)
 
-	// 创建系统配置
 	systemConfig := model.SystemConfig{
 		Name:       "测试系统",
 		WebsiteURL: "http://localhost:8080",
@@ -672,7 +638,6 @@ func TestEmailListService_CreateEmailList_WithFullEmail(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建测试线索（账号已带@qq.com）
 	clue := model.Clue{
 		Account: "test@qq.com",
 		Type:    1,
@@ -682,7 +647,6 @@ func TestEmailListService_CreateEmailList_WithFullEmail(t *testing.T) {
 	}
 	database.Create(&clue)
 
-	// 创建系统配置
 	systemConfig := model.SystemConfig{
 		Name:       "测试系统",
 		WebsiteURL: "http://localhost:8080",
@@ -711,7 +675,6 @@ func TestEmailListService_CreateEmailList_TemplateParse(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建测试线索
 	clue := model.Clue{
 		Account: "template@qq.com",
 		Type:    1,
@@ -721,7 +684,6 @@ func TestEmailListService_CreateEmailList_TemplateParse(t *testing.T) {
 	}
 	database.Create(&clue)
 
-	// 创建系统配置
 	systemConfig := model.SystemConfig{
 		Name:       "测试系统",
 		WebsiteURL: "http://localhost:8080",
@@ -759,7 +721,6 @@ func TestEmailListService_CreateEmailList_TraceID(t *testing.T) {
 	database := setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	// 创建测试线索
 	clue := model.Clue{
 		Account: "trace@qq.com",
 		Type:    1,
@@ -769,7 +730,6 @@ func TestEmailListService_CreateEmailList_TraceID(t *testing.T) {
 	}
 	database.Create(&clue)
 
-	// 创建系统配置
 	systemConfig := model.SystemConfig{
 		Name:       "测试系统",
 		WebsiteURL: "http://localhost:8080",
@@ -792,7 +752,6 @@ func TestEmailListService_CreateEmailList_TraceID(t *testing.T) {
 		t.Error("Expected non-nil TraceID")
 	}
 
-	// 验证追踪图片已添加到内容中
 	if !strings.Contains(emailList.Content, "email/trace/") {
 		t.Errorf("Expected content to contain trace image, got %s", emailList.Content)
 	}
@@ -831,3 +790,4 @@ func TestEmailListService_GetUnsentEmailList_Empty(t *testing.T) {
 		t.Errorf("Expected 0 unsent emails, got %d", len(list))
 	}
 }
+

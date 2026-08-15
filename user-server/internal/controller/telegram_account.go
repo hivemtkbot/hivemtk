@@ -34,7 +34,6 @@ type TelegramAccountController struct {
 
 // NewTelegramAccountController 创建控制器
 func NewTelegramAccountController(svc *service.TelegramService) *TelegramAccountController {
-	// svc 为 nil 时自动构造默认服务（测试场景：SetTestDB 已设置全局 DB）
 	if svc == nil {
 		svc = service.NewTelegramService(nil)
 	}
@@ -152,7 +151,6 @@ func (ctrl *TelegramAccountController) Create(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
 		return
 	}
-	// Bot Token 格式预校验（在落库前拦截，避免 getMe 报错信息对用户不友好）
 	if vErr := tgbot.ValidateBotToken(req.BotToken); vErr != nil {
 		response.Error(c, http.StatusBadRequest, "Bot Token 格式错误", vErr.Error())
 		return
@@ -194,7 +192,6 @@ func (ctrl *TelegramAccountController) Update(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
 		return
 	}
-	// Bot Token 格式预校验（更新时非空才校验；空表示保持原值）
 	if req.BotToken != "" {
 		if vErr := tgbot.ValidateBotToken(req.BotToken); vErr != nil {
 			response.Error(c, http.StatusBadRequest, "Bot Token 格式错误", vErr.Error())
@@ -261,7 +258,6 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 	if req.WebhookURL != "" {
 		acc.WebhookURL = req.WebhookURL
 	}
-	// 未显式提供 webhook_url 时，自动推导：先公网域名，再请求 host
 	if acc.WebhookURL == "" {
 		acc.WebhookURL = deriveTelegramWebhookURL(c, uint(id))
 	}
@@ -269,7 +265,6 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "WebhookURL 无法推导（请配置 external.public_base_url 或在请求 body 中显式传 webhook_url）", "")
 		return
 	}
-	// S3-5：本地静态校验（scheme=https + path 前缀），避免把明显错误的 URL 推到 Telegram 侧。
 	if vErr := service.ValidateTelegramWebhookURL(acc.WebhookURL); vErr != nil {
 		now := time.Now()
 		acc.LastErrorAt = &now
@@ -278,12 +273,10 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "WebhookURL 格式不合法", vErr.Error())
 		return
 	}
-	// WebhookSecret 为空时自动生成，确保生产环境（GIN_MODE=release）入站验签可通过
 	if acc.WebhookSecret == "" {
 		acc.WebhookSecret = service.GenTGWebhookSecret()
 	}
 
-	// 调用 Telegram setWebhook
 	if err := tgbot.SetWebhook(acc.BotToken, acc.WebhookURL, acc.WebhookSecret); err != nil {
 		now := time.Now()
 		acc.LastErrorAt = &now
@@ -298,7 +291,6 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 	acc.LastErrorAt = nil
 	acc.LastErrorMsg = ""
 	acc.WebhookEnabled = true
-	// 注册成功后回填机器人 @username（供群内「@机器人 才回复」识别），best-effort 不阻断主流程
 	if acc.BotUsername == "" {
 		if uname, gerr := tgbot.GetBotUsername(acc.BotToken); gerr == nil && uname != "" {
 			acc.BotUsername = uname
@@ -308,7 +300,6 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 		response.ErrorFromDB(c, err, "保存状态失败", err.Error())
 		return
 	}
-	// Webhook 注册成功 → 停掉对应账号的 polling（避免 webhook + polling 双消费）
 	service.StopTelegramPolling(acc.ID)
 	response.Success(c, toTelegramAccountVO(acc), "Webhook 注册成功")
 }
@@ -420,3 +411,4 @@ func (ctrl *TelegramAccountController) TestSend(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"ok": true}, "发送成功")
 }
+

@@ -1,25 +1,5 @@
 package translation
 
-// ============================================================================
-// PretranslateService 知识库预翻译服务（v1.2 出海多语言方案）
-// ----------------------------------------------------------------------------
-// 五层架构归属：L3 业务服务层
-//
-// 设计目标：
-//   - 仅翻译高频条目，用于低资源语言加速（避免每次召回都走云端翻译）
-//   - 预翻译结果按 lang 存储在 knowledge_chunks.translated_versions 字段
-//   - 召回时通过 GetTranslated 命中预翻译版本，未命中返回原文
-//
-// 启用控制：
-//   - enabled=false（默认）时 PretranslateBatch 直接返回 0，不影响主流程
-//   - GetTranslated 始终可用（仅读取已存储的翻译，无副作用）
-//
-// 依赖：
-// ChunkReader：高频条目查询 + 翻译版本回填（由 repository 层实现， 补全）
-// Translator：翻译接口（复用 fallback_bridge 的 Translator 接口， 补全）
-//
-// 私域独立部署：无 merchant_id
-// ============================================================================
 
 import (
 	"context"
@@ -28,16 +8,10 @@ import (
 	kbmodel "hivemtk-user/internal/aiagent/knowledge/model"
 )
 
-// Translator 翻译接口由 fallback_bridge.go 定义（与本文件同包），直接复用。
-// 签名：Translate(ctx, text, fromLang, toLang, opts TranslateOptions) (string, error)
-//       Name() string
-// 实现方：DeepLTranslator（fallback_bridge.go），未来可扩展 GoogleTranslator / NLLBTranslator。
 
 // ChunkReader 知识库分段读取/回填接口（由 repository 层实现）
 type ChunkReader interface {
-	// ListTopNByFrequency 列出指定源语言下命中率最高的 N 条 chunk
 	ListTopNByFrequency(ctx context.Context, sourceLang string, n int) ([]*kbmodel.KnowledgeChunk, error)
-	// UpdateTranslatedVersion 回填某 chunk 的指定语言翻译版本
 	UpdateTranslatedVersion(ctx context.Context, chunkID int64, lang string, content string) error
 }
 
@@ -115,7 +89,6 @@ func (s *PretranslateService) PretranslateBatch(ctx context.Context, sourceLang,
 		if chunk == nil || chunk.Content == "" {
 			continue
 		}
-		// 已存在该语言的翻译版本则跳过（幂等）
 		if s.hasTranslation(chunk, targetLang) {
 			continue
 		}
@@ -148,13 +121,11 @@ func (s *PretranslateService) GetTranslated(_ context.Context, chunk *kbmodel.Kn
 	if targetLang == "" || chunk.TranslatedVersions == nil {
 		return chunk.Content
 	}
-	// 优先匹配目标语言
 	if v, ok := chunk.TranslatedVersions[targetLang]; ok {
 		if text, ok := v.(string); ok && text != "" {
 			return text
 		}
 	}
-	// 未命中翻译版本，返回原文
 	return chunk.Content
 }
 
@@ -170,3 +141,4 @@ func (s *PretranslateService) hasTranslation(chunk *kbmodel.KnowledgeChunk, lang
 	text, ok := v.(string)
 	return ok && text != ""
 }
+

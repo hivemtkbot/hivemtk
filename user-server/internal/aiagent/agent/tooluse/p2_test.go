@@ -11,18 +11,7 @@ import (
 	"time"
 )
 
-// p2_test.go 改进项 D9-D15 测试用例
-//
-// 覆盖：
-// D9 : 熔断器状态机 + 装饰器
-// D10 : 死信队列 + 重放
-// D11 : 结果缓存 LRU + TTL
-// D12 : 参数校验装饰器
-// D13 : 重试错误分类（不可重试错误立即返回）
-// D14 : DB 持久化 audit log（异步批量写入 + fallback）
-// D15 : 告警机制（失败率/熔断/死信堆积/耗时阈值）
 
-// ===== 辅助工具 =====
 
 // makeFailingHandler 构造连续失败的 handler
 func makeFailingHandler(name string, callCount *int32, errMsg string) ToolHandler {
@@ -60,7 +49,6 @@ func makeCtxWithToolCtx(name string, tc *ToolContext) context.Context {
 	return ctx
 }
 
-// ===== D9: 熔断器测试 =====
 
 // TestD9_1_CircuitBreaker_StateMachine 验证熔断器状态机：
 //
@@ -74,7 +62,6 @@ func TestD9_1_CircuitBreaker_StateMachine(t *testing.T) {
 	registry := NewCircuitBreakerRegistry(cfg)
 	toolName := "test.circuit"
 
-	// 1. 初始 CLOSED，允许通过
 	if registry.State(toolName) != CircuitClosed {
 		t.Fatal("初始应为 CLOSED")
 	}
@@ -82,7 +69,6 @@ func TestD9_1_CircuitBreaker_StateMachine(t *testing.T) {
 		t.Fatal("CLOSED 应允许通过")
 	}
 
-	// 2. 连续失败 3 次 → OPEN
 	registry.RecordFailure(toolName)
 	registry.RecordFailure(toolName)
 	if registry.State(toolName) != CircuitClosed {
@@ -93,12 +79,10 @@ func TestD9_1_CircuitBreaker_StateMachine(t *testing.T) {
 		t.Fatal("3 次失败达阈值，应 OPEN")
 	}
 
-	// 3. OPEN 状态拒绝请求
 	if registry.Allow(toolName) {
 		t.Fatal("OPEN 应拒绝请求")
 	}
 
-	// 4. 等待冷却时间 → HALF_OPEN
 	time.Sleep(60 * time.Millisecond)
 	if !registry.Allow(toolName) {
 		t.Fatal("冷却后应允许试探请求（HALF_OPEN）")
@@ -107,7 +91,6 @@ func TestD9_1_CircuitBreaker_StateMachine(t *testing.T) {
 		t.Fatal("冷却后应为 HALF_OPEN")
 	}
 
-	// 5. HALF_OPEN 成功 → CLOSED
 	registry.RecordSuccess(toolName)
 	if registry.State(toolName) != CircuitClosed {
 		t.Fatal("HALF_OPEN 成功应回到 CLOSED")
@@ -124,20 +107,17 @@ func TestD9_2_CircuitBreaker_HalfOpenFailure(t *testing.T) {
 	registry := NewCircuitBreakerRegistry(cfg)
 	toolName := "test.halfopen_fail"
 
-	// 触发 OPEN
 	registry.RecordFailure(toolName)
 	registry.RecordFailure(toolName)
 	if registry.State(toolName) != CircuitOpen {
 		t.Fatal("2 次失败应 OPEN")
 	}
 
-	// 等待冷却 → HALF_OPEN
 	time.Sleep(30 * time.Millisecond)
 	if !registry.Allow(toolName) {
 		t.Fatal("HALF_OPEN 应允许试探请求")
 	}
 
-	// HALF_OPEN 状态失败 → 立即回到 OPEN
 	registry.RecordFailure(toolName)
 	if registry.State(toolName) != CircuitOpen {
 		t.Fatal("HALF_OPEN 失败应回到 OPEN")
@@ -148,7 +128,7 @@ func TestD9_2_CircuitBreaker_HalfOpenFailure(t *testing.T) {
 func TestD9_3_CircuitBreaker_Decorator(t *testing.T) {
 	cfg := CircuitBreakerConfig{
 		FailureThreshold:    2,
-		Cooldown:            5 * time.Minute, // 长冷却避免测试期间恢复
+		Cooldown:            5 * time.Minute, 
 		HalfOpenMaxAttempts: 1,
 	}
 	registry := NewCircuitBreakerRegistry(cfg)
@@ -158,7 +138,6 @@ func TestD9_3_CircuitBreaker_Decorator(t *testing.T) {
 	failingHandler := makeFailingHandler(toolName, &calls, "downstream error")
 	decorated := CircuitBreakerDecorator(registry)(failingHandler)
 
-	// 调用 2 次失败 → 触发熔断
 	ctx := makeCtxWithToolName(toolName)
 	for i := 0; i < 2; i++ {
 		_, err := decorated(ctx, nil)
@@ -170,7 +149,6 @@ func TestD9_3_CircuitBreaker_Decorator(t *testing.T) {
 		t.Fatalf("2 次失败后应 OPEN，实际 %s", registry.State(toolName))
 	}
 
-	// 第 3 次调用：应被熔断器拒绝（不调用真实 handler）
 	beforeCalls := atomic.LoadInt32(&calls)
 	_, err := decorated(ctx, nil)
 	if err == nil {
@@ -195,7 +173,6 @@ func TestD9_4_CircuitBreaker_ContextCanceledNotCounted(t *testing.T) {
 	registry := NewCircuitBreakerRegistry(cfg)
 	toolName := "test.cancel"
 
-	// 构造 handler：返回 context.Canceled 错误
 	cancelHandler := func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		return ErrorResult(toolName, context.Canceled), context.Canceled
 	}
@@ -205,13 +182,11 @@ func TestD9_4_CircuitBreaker_ContextCanceledNotCounted(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		_, _ = decorated(ctx, nil)
 	}
-	// context 取消不应触发熔断
 	if registry.State(toolName) != CircuitClosed {
 		t.Fatal("context 取消不应触发熔断")
 	}
 }
 
-// ===== D10: 死信队列测试 =====
 
 // TestD10_1_DeadLetterQueue_PushAndGet 验证 Push + Get
 func TestD10_1_DeadLetterQueue_PushAndGet(t *testing.T) {
@@ -270,11 +245,11 @@ func TestD10_2_DeadLetterQueue_ListByTool(t *testing.T) {
 
 // TestD10_3_DeadLetterQueue_LRU_Eviction 验证容量上限淘汰
 func TestD10_3_DeadLetterQueue_LRU_Eviction(t *testing.T) {
-	queue := NewDeadLetterQueue(3, time.Hour) // 小容量便于测试
+	queue := NewDeadLetterQueue(3, time.Hour) 
 	queue.Push("tool.1", nil, errors.New("e1"), "", nil, 0)
 	queue.Push("tool.2", nil, errors.New("e2"), "", nil, 0)
 	queue.Push("tool.3", nil, errors.New("e3"), "", nil, 0)
-	queue.Push("tool.4", nil, errors.New("e4"), "", nil, 0) // 触发淘汰 tool.1
+	queue.Push("tool.4", nil, errors.New("e4"), "", nil, 0) 
 
 	all := queue.ListAll()
 	if len(all) != 3 {
@@ -300,7 +275,6 @@ func TestD10_4_DeadLetterQueue_UpdateStatus(t *testing.T) {
 		t.Errorf("Status 期望 replaying，实际 %s", entry.Status)
 	}
 
-	// 不存在的 ID 应报错
 	if err := queue.UpdateStatus("nonexistent", DeadLetterReplayed); err == nil {
 		t.Fatal("不存在的 ID 应报错")
 	}
@@ -311,7 +285,6 @@ func TestD10_5_DeadLetterQueue_Cleanup(t *testing.T) {
 	queue := NewDeadLetterQueue(100, 10*time.Millisecond)
 	queue.Push("test.tool", nil, errors.New("err"), "", nil, 0)
 
-	// 等待过期
 	time.Sleep(20 * time.Millisecond)
 	removed := queue.Cleanup()
 	if removed != 1 {
@@ -331,13 +304,11 @@ func TestD10_6_DeadLetterQueue_Decorator(t *testing.T) {
 
 	ctx := makeCtxWithToolNameAndTrace("test.dlq_dec", "trace-d10-6")
 
-	// 执行失败
 	_, err := decorated(ctx, map[string]any{"k": "v"})
 	if err == nil {
 		t.Fatal("应返回失败")
 	}
 
-	// 验证已入队
 	pending := queue.ListPending()
 	if len(pending) != 1 {
 		t.Fatalf("期望 1 条待处理死信，实际 %d", len(pending))
@@ -354,7 +325,6 @@ func TestD10_6_DeadLetterQueue_Decorator(t *testing.T) {
 // TestD10_7_DeadLetterQueue_Decorator_SkipsNonRetryable 验证不可重试错误不入队
 func TestD10_7_DeadLetterQueue_Decorator_SkipsNonRetryable(t *testing.T) {
 	queue := NewDeadLetterQueue(100, time.Hour)
-	// 业务错误（already_exists）不应入队
 	bizErrHandler := func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		return ToolResult{
 			Success:  false,
@@ -390,7 +360,6 @@ func TestD10_8_DeadLetterQueue_Decorator_SuccessNotEnqueued(t *testing.T) {
 
 // TestD10_9_DeadLetterReplayer 验证死信重放
 func TestD10_9_DeadLetterReplayer(t *testing.T) {
-	// 准备 registry + executor
 	registry := NewToolRegistry()
 	toolName := "test.replay_tool"
 	var calls int32
@@ -404,7 +373,6 @@ func TestD10_9_DeadLetterReplayer(t *testing.T) {
 		DefaultTimeout: 5 * time.Second,
 	})
 
-	// 准备死信队列 + 一条死信
 	queue := NewDeadLetterQueue(100, time.Hour)
 	args := map[string]any{"phone": "13900001234"}
 	id := queue.Push(toolName, args, errors.New("original failure"), "trace-replay", nil, 1)
@@ -414,19 +382,16 @@ func TestD10_9_DeadLetterReplayer(t *testing.T) {
 		t.Fatalf("Replay 失败：%v", err)
 	}
 
-	// 验证状态已更新为 replayed
 	entry, _ := queue.Get(id)
 	if entry.Status != DeadLetterReplayed {
 		t.Errorf("Status 期望 replayed，实际 %s", entry.Status)
 	}
 
-	// 验证真实 handler 被调用
 	if atomic.LoadInt32(&calls) != 1 {
 		t.Errorf("Replay 应调用真实 handler 1 次，实际 %d", atomic.LoadInt32(&calls))
 	}
 }
 
-// ===== D11: 结果缓存测试 =====
 
 // TestD11_1_ResultCache_SetGet 验证基础 Set/Get
 func TestD11_1_ResultCache_SetGet(t *testing.T) {
@@ -467,9 +432,8 @@ func TestD11_2_ResultCache_TTLExpiry(t *testing.T) {
 
 // TestD11_3_ResultCache_LRU_Eviction 验证 LRU 淘汰
 func TestD11_3_ResultCache_LRU_Eviction(t *testing.T) {
-	cache := NewResultCache(2, time.Minute) // 容量 2
+	cache := NewResultCache(2, time.Minute) 
 
-	// 写入 3 条，第 1 条应被淘汰
 	cache.Set("t.a", map[string]any{"i": 1}, SuccessResult("t.a", "1"), 0)
 	cache.Set("t.b", map[string]any{"i": 2}, SuccessResult("t.b", "2"), 0)
 	cache.Set("t.c", map[string]any{"i": 3}, SuccessResult("t.c", "3"), 0)
@@ -519,7 +483,6 @@ func TestD11_6_ResultCache_Decorator(t *testing.T) {
 	ctx := makeCtxWithToolName("test.cache_dec")
 	args := map[string]any{"q": "v1"}
 
-	// 第一次调用：未命中，执行 handler
 	r1, err := decorated(ctx, args)
 	if err != nil || !r1.Success {
 		t.Fatal("首次调用应成功")
@@ -528,7 +491,6 @@ func TestD11_6_ResultCache_Decorator(t *testing.T) {
 		t.Errorf("首次应调用真实 handler，实际 %d", atomic.LoadInt32(&calls))
 	}
 
-	// 第二次相同参数：命中缓存，不调用 handler
 	r2, err := decorated(ctx, args)
 	if err != nil || !r2.Success {
 		t.Fatal("缓存命中应成功")
@@ -540,7 +502,6 @@ func TestD11_6_ResultCache_Decorator(t *testing.T) {
 		t.Errorf("缓存命中应标记 cache_hit，实际 %q", r2.AuditTrace)
 	}
 
-	// 第三次不同参数：未命中，调用 handler
 	_, _ = decorated(ctx, map[string]any{"q": "v2"})
 	if atomic.LoadInt32(&calls) != 2 {
 		t.Errorf("不同参数应未命中，调用真实 handler，实际 %d", atomic.LoadInt32(&calls))
@@ -569,7 +530,6 @@ func TestD11_7_ResultCache_Invalidate(t *testing.T) {
 	}
 }
 
-// ===== D12: 参数校验装饰器测试 =====
 
 // mockToolForValidator 用于参数校验测试的 mock tool
 type mockToolForValidator struct {
@@ -611,7 +571,6 @@ func TestD12_1_ParamValidator_RequiredMissing(t *testing.T) {
 	}
 	decorated := ParamValidatorDecorator(registry)(handler)
 
-	// 缺少必填 phone
 	ctx := makeCtxWithToolName("test.required")
 	r, err := decorated(ctx, map[string]any{})
 	if err == nil {
@@ -652,25 +611,21 @@ func TestD12_2_ParamValidator_TypeMismatch(t *testing.T) {
 	})
 	ctx := makeCtxWithToolName("test.type")
 
-	// 类型错误：phone 应为 string，传 int
 	_, err := decorated(ctx, map[string]any{"phone": 123})
 	if err == nil || !strings.Contains(err.Error(), "type mismatch") {
 		t.Errorf("phone 类型错误应报错，实际 %v", err)
 	}
 
-	// 类型错误：age 应为 integer，传 string
 	_, err = decorated(ctx, map[string]any{"age": "abc"})
 	if err == nil || !strings.Contains(err.Error(), "type mismatch") {
 		t.Errorf("age 类型错误应报错，实际 %v", err)
 	}
 
-	// 类型错误：active 应为 boolean，传 string
 	_, err = decorated(ctx, map[string]any{"active": "yes"})
 	if err == nil || !strings.Contains(err.Error(), "type mismatch") {
 		t.Errorf("active 类型错误应报错，实际 %v", err)
 	}
 
-	// 类型正确：应通过
 	_, err = decorated(ctx, map[string]any{"phone": "138", "age": 18, "active": true})
 	if err != nil {
 		t.Errorf("正确类型应通过校验，实际 %v", err)
@@ -699,7 +654,6 @@ func TestD12_3_ParamValidator_Enum(t *testing.T) {
 	})
 	ctx := makeCtxWithToolName("test.enum")
 
-	// 非枚举值
 	_, err := decorated(ctx, map[string]any{"status": "invalid_status"})
 	if err == nil {
 		t.Fatal("非枚举值应报错")
@@ -708,7 +662,6 @@ func TestD12_3_ParamValidator_Enum(t *testing.T) {
 		t.Errorf("错误信息应含 not in enum，实际 %v", err)
 	}
 
-	// 枚举内值
 	_, err = decorated(ctx, map[string]any{"status": "active"})
 	if err != nil {
 		t.Errorf("枚举内值应通过，实际 %v", err)
@@ -727,15 +680,12 @@ func TestD12_4_ParamValidator_NilRegistry(t *testing.T) {
 	}
 }
 
-// ===== D13: 重试错误分类测试 =====
 
 // TestD13_1_RetryDecorator_NonRetryableErrorSkips 验证不可重试错误立即返回
 func TestD13_1_RetryDecorator_NonRetryableErrorSkips(t *testing.T) {
-	// 构造 5 次重试策略
 	policy := NewExponentialBackoffPolicy(5, 10*time.Millisecond, 100*time.Millisecond)
 	var calls int32
 
-	// ErrPermissionDenied → 不重试
 	permHandler := func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		atomic.AddInt32(&calls, 1)
 		return ErrorResult("test.perm", ErrPermissionDenied), ErrPermissionDenied
@@ -747,7 +697,6 @@ func TestD13_1_RetryDecorator_NonRetryableErrorSkips(t *testing.T) {
 		t.Errorf("ErrPermissionDenied 不应重试，调用次数应=1，实际 %d", atomic.LoadInt32(&calls))
 	}
 
-	// ErrRateLimited → 不重试
 	atomic.StoreInt32(&calls, 0)
 	rateHandler := func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		atomic.AddInt32(&calls, 1)
@@ -766,7 +715,6 @@ func TestD13_2_RetryDecorator_NonRetryableResultPattern(t *testing.T) {
 	policy := NewExponentialBackoffPolicy(5, 1*time.Millisecond, 10*time.Millisecond)
 	var calls int32
 
-	// 业务错误（资源不存在）→ 不重试
 	bizHandler := func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		atomic.AddInt32(&calls, 1)
 		return ToolResult{
@@ -788,11 +736,9 @@ func TestD13_2_RetryDecorator_NonRetryableResultPattern(t *testing.T) {
 
 // TestD13_3_RetryDecorator_RetryableErrorRetries 验证可重试错误触发重试
 func TestD13_3_RetryDecorator_RetryableErrorRetries(t *testing.T) {
-	// 3 次尝试（首次 + 2 重试）
 	policy := NewExponentialBackoffPolicy(3, 1*time.Millisecond, 10*time.Millisecond)
 	var calls int32
 
-	// 通用错误（网络故障模拟）→ 应重试 3 次
 	retryableHandler := func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		atomic.AddInt32(&calls, 1)
 		return ErrorResult("test.retry", errors.New("connection refused")), errors.New("connection refused")
@@ -810,7 +756,6 @@ func TestD13_4_RetryDecorator_RetryThenSucceed(t *testing.T) {
 	policy := NewExponentialBackoffPolicy(5, 1*time.Millisecond, 10*time.Millisecond)
 	var calls int32
 
-	// 第 2 次成功
 	handler := func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		c := atomic.AddInt32(&calls, 1)
 		if c < 2 {
@@ -834,7 +779,6 @@ func TestD13_4_RetryDecorator_RetryThenSucceed(t *testing.T) {
 
 // TestD13_5_isNonRetryableError_Unit 验证错误分类函数
 func TestD13_5_isNonRetryableError_Unit(t *testing.T) {
-	// 不可重试
 	if !isNonRetryableError(ErrPermissionDenied) {
 		t.Error("ErrPermissionDenied 应不可重试")
 	}
@@ -857,7 +801,6 @@ func TestD13_5_isNonRetryableError_Unit(t *testing.T) {
 		t.Error("'validation failed' 应不可重试")
 	}
 
-	// 可重试
 	if isNonRetryableError(errors.New("connection refused")) {
 		t.Error("'connection refused' 应可重试")
 	}
@@ -903,7 +846,6 @@ func TestD13_6_isNonRetryableResult_Unit(t *testing.T) {
 	}
 }
 
-// ===== D14: DB 持久化 AuditLogger 测试 =====
 
 // TestD14_1_AuditEntryToRecord 验证 AuditEntry → DB 模型转换
 func TestD14_1_AuditEntryToRecord(t *testing.T) {
@@ -945,11 +887,9 @@ func TestD14_1_AuditEntryToRecord(t *testing.T) {
 // TestD14_2_DBAuditLogger_NilDBNoOp 验证 nil DB 不崩溃
 func TestD14_2_DBAuditLogger_NilDBNoOp(t *testing.T) {
 	logger := NewDBAuditLogger(nil, 10, nil)
-	// 应不崩溃
 	logger.Log(context.Background(), AuditEntry{
 		ToolName: "test.nodb",
 	})
-	// 关闭也应正常
 	logger.Close()
 }
 
@@ -957,11 +897,9 @@ func TestD14_2_DBAuditLogger_NilDBNoOp(t *testing.T) {
 func TestD14_3_DBAuditLogger_FallbackOnNilDB(t *testing.T) {
 	memoryLogger := NewMemoryAuditLogger(100)
 	fallback := NewCompositeAuditLogger(memoryLogger, nil, nil)
-	// 应不崩溃
 	fallback.Log(context.Background(), AuditEntry{
 		ToolName: "test.fallback",
 	})
-	// 验证 fallback 记录到了 memory logger
 	entries := memoryLogger.Entries()
 	if len(entries) != 1 {
 		t.Fatalf("fallback 应记录 1 条，实际 %d", len(entries))
@@ -973,11 +911,9 @@ func TestD14_3_DBAuditLogger_FallbackOnNilDB(t *testing.T) {
 
 // TestD14_4_DBAuditLogger_CloseFlushes 验证 Close 时 flush 剩余 batch
 func TestD14_4_DBAuditLogger_CloseFlushes(t *testing.T) {
-	// nil DB + fallback logger，验证 Close 时剩余 batch 被 flush 到 fallback
 	memoryLogger := &captureLogger{}
 	logger := NewDBAuditLogger(nil, 100, memoryLogger)
 
-	// 写入少量 entry（不到 batch size 100）
 	for i := 0; i < 5; i++ {
 		logger.Log(context.Background(), AuditEntry{
 			ToolName: fmt.Sprintf("test.flush.%d", i),
@@ -985,7 +921,6 @@ func TestD14_4_DBAuditLogger_CloseFlushes(t *testing.T) {
 	}
 	logger.Close()
 
-	// 验证 fallback 收到全部 5 条
 	if len(memoryLogger.entries) != 5 {
 		t.Errorf("Close 后应 flush 5 条到 fallback，实际 %d", len(memoryLogger.entries))
 	}
@@ -1018,7 +953,6 @@ func TestD14_6_ToolCallAuditRecord_TableName(t *testing.T) {
 	}
 }
 
-// ===== D15: 告警机制测试 =====
 
 // TestD15_1_AlertManager_FailureRate 验证失败率告警
 func TestD15_1_AlertManager_FailureRate(t *testing.T) {
@@ -1031,22 +965,19 @@ func TestD15_1_AlertManager_FailureRate(t *testing.T) {
 		alerts = append(alerts, event)
 	}))
 
-	// 模拟 6 次失败 + 4 次成功 = 60% 失败率（>50%，且 ≥10 次）
 	for i := 0; i < 10; i++ {
 		entry := AuditEntry{
 			ToolName: "test.alert_rate",
-			Success:  i >= 6, // 前 6 次失败
+			Success:  i >= 6, 
 			Duration: 100 * time.Millisecond,
 		}
 		manager.OnToolCall(entry)
 	}
 
-	// 等待异步 handler 完成
 	time.Sleep(50 * time.Millisecond)
 	mu.Lock()
 	defer mu.Unlock()
 
-	// 应触发至少 1 次失败率告警（可能多次触发，因为每条失败记录后都会检查）
 	rateAlerts := 0
 	for _, a := range alerts {
 		if strings.Contains(a.Title, "失败率过高") {
@@ -1072,7 +1003,7 @@ func TestD15_2_AlertManager_LatencyAlert(t *testing.T) {
 	manager.OnToolCall(AuditEntry{
 		ToolName: "test.latency",
 		Success:  true,
-		Duration: 6 * time.Second, // > 5s
+		Duration: 6 * time.Second, 
 	})
 	got.Wait()
 
@@ -1123,7 +1054,6 @@ func TestD15_4_AlertManager_DeadLetterBacklog(t *testing.T) {
 		got.Done()
 	}))
 
-	// > 100 条应为 critical
 	manager.AlertDeadLetterBacklog("test.dlq_alert", 150)
 	got.Wait()
 
@@ -1161,7 +1091,6 @@ func TestD15_5_AlertManager_DeadLetterBacklog_Warning(t *testing.T) {
 func TestD15_6_AlertManager_WindowReset(t *testing.T) {
 	manager := NewAlertManager()
 
-	// 模拟 10 次失败（全部失败），触发告警
 	for i := 0; i < 10; i++ {
 		manager.OnToolCall(AuditEntry{
 			ToolName: "test.window",
@@ -1177,14 +1106,12 @@ func TestD15_6_AlertManager_WindowReset(t *testing.T) {
 		t.Errorf("窗口内 failed_calls 期望 10，实际 %v", stats["test.window"]["failed_calls"])
 	}
 
-	// 手动修改 windowStart 到 2 分钟前模拟过期
 	manager.mu.Lock()
 	if tracker, ok := manager.failureRateMap["test.window"]; ok {
 		tracker.windowStart = time.Now().Add(-2 * time.Minute)
 	}
 	manager.mu.Unlock()
 
-	// 再调用一次应触发窗口重置
 	manager.OnToolCall(AuditEntry{
 		ToolName: "test.window",
 		Success:  true,
@@ -1214,7 +1141,6 @@ func TestD15_7_AlertManager_HandlerPanicRecovery(t *testing.T) {
 	manager.AddHandler(panicHandler)
 	manager.AddHandler(normalHandler)
 
-	// 触发告警
 	manager.AlertCircuitOpen("test.panic", CircuitOpen)
 	time.Sleep(50 * time.Millisecond)
 
@@ -1249,32 +1175,26 @@ func TestD15_8_AlertEvent_MarshalJSON(t *testing.T) {
 
 // TestD15_9_CompositeAuditLogger 验证复合 logger 同时写入 + 触发告警
 func TestD15_9_CompositeAuditLogger(t *testing.T) {
-	// 准备 memory logger
 	memoryLogger := NewMemoryAuditLogger(100)
-	// 准备 alert manager
 	manager := NewAlertManager()
 	var alertCount int32
 	manager.AddHandler(AlertHandlerFunc(func(event AlertEvent) {
 		atomic.AddInt32(&alertCount, 1)
 	}))
 
-	// 复合 logger = memory + alert
 	composite := NewCompositeAuditLogger(memoryLogger, nil, manager)
 
-	// 写入 1 条 entry（不触发告警）
 	composite.Log(context.Background(), AuditEntry{
 		ToolName: "test.composite",
 		Success:  true,
 		Duration: 100 * time.Millisecond,
 	})
 
-	// 验证 memory logger 收到
 	entries := memoryLogger.Entries()
 	if len(entries) != 1 {
 		t.Errorf("memory logger 应收到 1 条，实际 %d", len(entries))
 	}
 
-	// 写入 1 条触发告警的 entry（耗时 > 5s）
 	composite.Log(context.Background(), AuditEntry{
 		ToolName: "test.composite_slow",
 		Success:  true,
@@ -1286,3 +1206,4 @@ func TestD15_9_CompositeAuditLogger(t *testing.T) {
 		t.Error("应触发耗时告警")
 	}
 }
+

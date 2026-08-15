@@ -44,7 +44,7 @@ func TestSOPScheduler_StartTwiceIsIdempotent(t *testing.T) {
 	svc := NewSOPService(db, nil)
 	s := NewSOPScheduler(svc, db, time.Second)
 	s.Start(context.Background())
-	s.Start(context.Background()) // 不应该 panic
+	s.Start(context.Background()) 
 	s.Stop(context.Background())
 }
 
@@ -52,8 +52,6 @@ func TestSOPScheduler_StopTwiceSafe(t *testing.T) {
 	s := NewSOPScheduler(nil, nil, time.Second)
 	s.Start(context.Background())
 	s.Stop(context.Background())
-	// 二次 Stop 由于 close 已关闭 channel 会 panic，这里不应再次调用
-	// 验证 running 标记
 	if s.running {
 		t.Error("expected running=false after Stop")
 	}
@@ -64,7 +62,6 @@ func TestSOPScheduler_CleanupStuckExecutions(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 
-	// 卡死的执行（25 小时前开始）
 	stuck := &model.SOPExecution{
 		SOPID:      1,
 		CustomerID: "c-1",
@@ -75,7 +72,6 @@ func TestSOPScheduler_CleanupStuckExecutions(t *testing.T) {
 		t.Fatalf("create stuck: %v", err)
 	}
 
-	// 正常的执行（1 小时前开始）
 	fresh := &model.SOPExecution{
 		SOPID:      1,
 		CustomerID: "c-2",
@@ -111,7 +107,6 @@ func TestSOPScheduler_DispatchAutoSOP(t *testing.T) {
 	db := setupSOPSchedulerTestDB(t)
 	ctx := context.Background()
 
-	// 创建一个 auto 类型的 SOP
 	agent := &model.SOPAgent{
 		Name:          "test",
 		Scenario:      "test",
@@ -138,7 +133,7 @@ func TestSOPScheduler_DispatchAutoSOP(t *testing.T) {
 
 func TestSOPScheduler_DispatchAutoSOP_NilDB(t *testing.T) {
 	s := NewSOPScheduler(nil, nil, time.Hour)
-	s.dispatchAutoSOPs(context.Background()) // 不应 panic
+	s.dispatchAutoSOPs(context.Background()) 
 }
 
 func TestSOPScheduler_DispatchScheduledSOP_FirstRun(t *testing.T) {
@@ -214,7 +209,7 @@ func TestSOPScheduler_TryExecute_DuplicateGuard(t *testing.T) {
 	svc := NewSOPService(db, nil)
 	s := NewSOPScheduler(svc, db, time.Hour)
 	s.tryExecute(ctx, *agent)
-	s.tryExecute(ctx, *agent) // 第二次应被去重
+	s.tryExecute(ctx, *agent) 
 
 	var execs []model.SOPExecution
 	db.Where("sop_id = ? AND status = ?", agent.ID, SOPStatusRunning).Find(&execs)
@@ -275,12 +270,13 @@ func TestSOPScheduler_FmtUintSafe(t *testing.T) {
 
 func TestSOPScheduler_Tick_NilDB(t *testing.T) {
 	s := NewSOPScheduler(nil, nil, time.Hour)
-	s.tick(context.Background()) // 不应 panic
+	s.tick(context.Background()) 
 }
 
 func TestSOPScheduler_Tick_WithDB_NoData(t *testing.T) {
 	db := setupSOPSchedulerTestDB(t)
 	svc := NewSOPService(db, nil)
 	s := NewSOPScheduler(svc, db, time.Hour)
-	s.tick(context.Background()) // 空库，不应 panic
+	s.tick(context.Background()) 
 }
+

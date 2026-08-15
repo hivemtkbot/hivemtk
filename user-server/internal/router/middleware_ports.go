@@ -9,9 +9,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// 本文件为 middleware 窄接口（ports.go）的装配适配器（P1-3 / 清单 B8）。
-// middleware 不再 import service / repository / model，转换统一收口在此；
-// P1-1 装配收敛后随装配逻辑一并迁入 internal/app。
 
 // operationLogSink 审计日志落库适配器：middleware.AuditEntry → model.OperationLog → repository
 type operationLogSink struct{}
@@ -64,7 +61,7 @@ func toChatChannelView(c *model.ChatChannel) *middleware.ChatChannelView {
 
 // injectMiddlewarePorts 注入 middleware 窄接口实现（须在路由注册前调用）
 func injectMiddlewarePorts() {
-	// PermissionService.CheckPermission 签名天然满足 middleware.PermChecker
 	middleware.SetPermChecker(service.NewPermissionService())
 	middleware.SetAuditSink(operationLogSink{})
 }
+

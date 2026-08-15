@@ -22,27 +22,22 @@ type CustomerRFM struct {
 	CustomerID string `gorm:"type:varchar(36);not null;uniqueIndex" json:"customer_id"`
 	UnifiedID  string `gorm:"type:varchar(64);default:'';index" json:"unified_id"`
 
-	// 原始指标
-	RecencyDays   int   `gorm:"type:int;not null;default:9999" json:"recency_days"`    // 距今天数
-	Frequency     int   `gorm:"type:int;not null;default:0" json:"frequency"`          // 累计订单数
-	MonetaryTotal int64 `gorm:"type:bigint;not null;default:0" json:"monetary_total"`  // 累计金额（分）
-	AvgOrderValue int64 `gorm:"type:bigint;not null;default:0" json:"avg_order_value"` // 客单价（分）
+	RecencyDays   int   `gorm:"type:int;not null;default:9999" json:"recency_days"`    
+	Frequency     int   `gorm:"type:int;not null;default:0" json:"frequency"`          
+	MonetaryTotal int64 `gorm:"type:bigint;not null;default:0" json:"monetary_total"`  
+	AvgOrderValue int64 `gorm:"type:bigint;not null;default:0" json:"avg_order_value"` 
 
-	// 评分（1-5）
 	RScore int `gorm:"type:int;not null;default:1" json:"r_score"`
 	FScore int `gorm:"type:int;not null;default:1" json:"f_score"`
 	MScore int `gorm:"type:int;not null;default:1" json:"m_score"`
 
-	// 综合 RFM 分（0-100，加权：R 30% + F 30% + M 40%）
 	CompositeScore int    `gorm:"type:int;not null;default:0" json:"composite_score"`
 	Segment        string `gorm:"type:varchar(16);not null;default:'churn'" json:"segment"`
 
-	// 流失风险
-	ChurnRiskLevel string     `gorm:"type:varchar(8);not null;default:'high'" json:"churn_risk_level"` // low/medium/high
-	ChurnScore     int        `gorm:"type:int;not null;default:100" json:"churn_score"`                // 0-100，越高越可能流失
+	ChurnRiskLevel string     `gorm:"type:varchar(8);not null;default:'high'" json:"churn_risk_level"` 
+	ChurnScore     int        `gorm:"type:int;not null;default:100" json:"churn_score"`                
 	LastActiveAt   *time.Time `gorm:"index" json:"last_active_at"`
 
-	// 元数据
 	ComputedAt time.Time `gorm:"not null;default:NOW()" json:"computed_at"`
 	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt  time.Time `gorm:"autoUpdateTime" json:"updated_at"`
@@ -53,11 +48,11 @@ func (CustomerRFM) TableName() string { return "customer_rfm" }
 
 // RFM 分层常量
 const (
-	RFMSegmentChampion  = "champion"  // 高价值忠诚客户：R=5, F>=4
-	RFMSegmentLoyal     = "loyal"     // 忠诚客户：R>=4, F>=3
-	RFMSegmentPotential = "potential" // 潜力客户：R>=3, F>=2 或 M 较高
-	RFMSegmentAtRisk    = "at_risk"   // 风险客户：R=2 或 (F>=2, M>=3)
-	RFMSegmentChurn     = "churn"     // 流失客户：R=1 或 R=2 且 F<=1
+	RFMSegmentChampion  = "champion"  
+	RFMSegmentLoyal     = "loyal"     
+	RFMSegmentPotential = "potential" 
+	RFMSegmentAtRisk    = "at_risk"   
+	RFMSegmentChurn     = "churn"     
 )
 
 // RFMSegmentDescriptions 分层描述
@@ -77,13 +72,11 @@ type RecoveryQueue struct {
 	UnifiedID  string `gorm:"type:varchar(64);default:'';index" json:"unified_id"`
 	Account    string `gorm:"type:varchar(255);default:''" json:"account"`
 
-	// 流转
-	Reason   string `gorm:"type:varchar(32);not null;default:'churn'" json:"reason"` // churn / downgrade / complaint
+	Reason   string `gorm:"type:varchar(32);not null;default:'churn'" json:"reason"` 
 	Strategy string `gorm:"type:varchar(32);not null;default:'sms_coupon'" json:"strategy"`
-	Priority int    `gorm:"type:int;not null;default:5" json:"priority"` // 1-10, 越小越优先
+	Priority int    `gorm:"type:int;not null;default:5" json:"priority"` 
 	Stage    string `gorm:"type:varchar(16);not null;default:'queued';index" json:"stage"`
 
-	// 触达记录
 	Attempts      int        `gorm:"type:int;not null;default:0" json:"attempts"`
 	MaxAttempts   int        `gorm:"type:int;not null;default:3" json:"max_attempts"`
 	LastAttemptAt *time.Time `json:"last_attempt_at"`
@@ -91,11 +84,9 @@ type RecoveryQueue struct {
 	LastChannel   string     `gorm:"type:varchar(32);default:''" json:"last_channel"`
 	LastResult    string     `gorm:"type:varchar(255);default:''" json:"last_result"`
 
-	// 转化追踪
 	RecoveredAt   *time.Time `json:"recovered_at"`
 	RecoveryValue int64      `gorm:"type:bigint;not null;default:0" json:"recovery_value"`
 
-	// 元数据
 	MetaJSON  string    `gorm:"type:text;default:'{}'" json:"meta_json"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
@@ -112,3 +103,4 @@ const (
 	RecoveryStageFailed    = "failed"
 	RecoveryStageCancelled = "cancelled"
 )
+

@@ -1,13 +1,5 @@
 package repository
 
-// humanize_low_quality_collector.go 低质样本收集器实现
-//
-// 五层架构归属: L4 数据访问层
-// 设计依据: docs/核心链路优化.md 第十六章 §16.5.5
-//
-// 复用 low_quality_samples 表（与 共享），通过 sample_type 区分来源：
-// persona / naturalness / relevance / compliance / retry_exhausted / manual_review
-// naturalness_low / persuasiveness_low / champion_distance / ab_test_loser / retry_exhausted
 
 import (
 	"context"
@@ -47,3 +39,4 @@ func (c *HumanizeLowQualitySampleCollector) Collect(
 	}
 	return nil
 }
+

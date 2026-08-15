@@ -9,36 +9,16 @@ import (
 	"time"
 )
 
-// ============================================================================
-// 流式状态机：双拦截核心
-// ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/工具链调用逻辑.md
-//
-// 核心设计：
-//  - LLM 流式输出按"chunk"逐个到达（每个 chunk 是 SSE 增量）
-//  - 状态机逐 chunk 推进，状态转换决定"是否继续向前端推送"
-//  - 6 个状态：Normal / Detected / Parsing / Executing / Reassembling / Done
-//
-// 双拦截含义：
-//  - 第一次拦截：检测到"调用工具："触发词时，立即"掐断"前端推送（不再 SendToClient）
-//  - 第二次拦截：LLM 二进宫（第二次推理）时若再次触发工具调用，需拦截后合并执行
-// ============================================================================
 
 // StreamState 状态枚举
 type StreamState string
 
 const (
-	// StateNormal 正常文本流模式
 	StateNormal StreamState = "normal"
-	// StateDetected 检测到"调用工具："触发词，已掐断前端
 	StateDetected StreamState = "detected"
-	// StateParsing 正在解析工具 JSON（吞下 chunk，攒到 buffer）
 	StateParsing StreamState = "parsing"
-	// StateExecuting 工具执行中（同步等结果）
 	StateExecuting StreamState = "executing"
-	// StateReassembling 二次组装（"二进宫"，把工具结果回填 LLM 让其生成最终回复）
 	StateReassembling StreamState = "reassembling"
-	// StateDone 状态机结束
 	StateDone StreamState = "done"
 )
 
@@ -46,21 +26,13 @@ const (
 type StreamEvent string
 
 const (
-	// EventChunk 收到新 chunk
 	EventChunk StreamEvent = "chunk"
-	// EventTriggerDetected 检测到触发词
 	EventTriggerDetected StreamEvent = "trigger_detected"
-	// EventJSONComplete JSON 完整（检测到闭合括号）
 	EventJSONComplete StreamEvent = "json_complete"
-	// EventParseError JSON 解析失败
 	EventParseError StreamEvent = "parse_error"
-	// EventToolExecuted 工具执行完成
 	EventToolExecuted StreamEvent = "tool_executed"
-	// EventReassembleReady 二进宫组装就绪
 	EventReassembleReady StreamEvent = "reassemble_ready"
-	// EventStreamEnd 流结束
 	EventStreamEnd StreamEvent = "stream_end"
-	// EventTimeout 状态机超时
 	EventTimeout StreamEvent = "timeout"
 )
 
@@ -85,29 +57,24 @@ const (
 type StreamStateMachine struct {
 	mu sync.Mutex
 
-	// 配置
-	trigger   string // 触发词，如 "调用工具："
-	maxBuffer int    // buffer 最大字节（防止异常累积）
+	trigger   string 
+	maxBuffer int    
 	timeout   time.Duration
 
-	// 状态
 	state     StreamState
-	buffer    strings.Builder // 当前累积的 buffer
-	toolName  string          // 解析出的工具名
-	toolArgs  map[string]any  // 解析出的参数
-	jsonStart int             // JSON 开始位置（在 buffer 中的偏移）
-	jsonEnd   int             // JSON 结束位置
+	buffer    strings.Builder 
+	toolName  string          
+	toolArgs  map[string]any  
+	jsonStart int             
+	jsonEnd   int             
 
-	// 关联组件
-	executor ToolExecutorAPI // 工具执行器接口
+	executor ToolExecutorAPI 
 
-	// 历史
 	transitions []StateTransition
 	startTime   time.Time
 
-	// 完成回调
-	onToolCall func(toolName string, args map[string]any) // 检测到工具调用时回调
-	onComplete func(reply string)                         // 状态机完成时回调
+	onToolCall func(toolName string, args map[string]any) 
+	onComplete func(reply string)                         
 }
 
 // StateTransition 状态转换记录
@@ -130,15 +97,10 @@ type ToolExecutorAPI interface {
 type StreamAction string
 
 const (
-	// ActionForwardToClient 继续向前端推送
 	ActionForwardToClient StreamAction = "forward"
-	// ActionBuffer 暂存（不再推送）
 	ActionBuffer StreamAction = "buffer"
-	// ActionExecuteTool 执行工具
 	ActionExecuteTool StreamAction = "execute_tool"
-	// ActionDone 结束
 	ActionDone StreamAction = "done"
-	// ActionFail 失败
 	ActionFail StreamAction = "fail"
 )
 
@@ -146,7 +108,7 @@ const (
 func NewStreamStateMachine() *StreamStateMachine {
 	return &StreamStateMachine{
 		trigger:   "调用工具：",
-		maxBuffer: 64 * 1024, // 64 KB
+		maxBuffer: 64 * 1024, 
 		timeout:   30 * time.Second,
 		state:     StateNormal,
 	}
@@ -203,36 +165,28 @@ func (sm *StreamStateMachine) Process(ctx context.Context, chunk string) (Stream
 		sm.startTime = time.Now()
 	}
 
-	// 写入 buffer
 	sm.buffer.WriteString(chunk)
 
-	// 超时检查
 	if time.Since(sm.startTime) > sm.timeout {
 		sm.transition(StateDone, EventTimeout, "state machine timeout")
 		return ActionFail, errors.New("stream state machine timeout")
 	}
 
-	// 防止 buffer 爆炸
 	if sm.buffer.Len() > sm.maxBuffer {
 		return ActionFail, errors.New("buffer overflow")
 	}
 
 	switch sm.state {
 	case StateNormal:
-		// 检测触发词
 		if idx := strings.Index(sm.buffer.String(), sm.trigger); idx >= 0 {
-			// 找到触发词
-			prefix := sm.buffer.String()[:idx] // 触发词之前是正常文本
-			// 清空 buffer，从 JSON 开始重新累积
+			prefix := sm.buffer.String()[:idx] 
 			sm.buffer.Reset()
-			sm.buffer.WriteString(prefix) // 保留前文
-			sm.buffer.WriteString(chunk)  // 重新写入当前 chunk
+			sm.buffer.WriteString(prefix) 
+			sm.buffer.WriteString(chunk)  
 			sm.jsonStart = 0
 			sm.transition(StateDetected, EventTriggerDetected, "trigger found at "+itoa(idx))
-			// 继续到 StateDetected 处理
 			return sm.processDetected()
 		}
-		// 正常文本：清空 buffer（避免重复扫描）+ 推送
 		sm.buffer.Reset()
 		sm.buffer.WriteString(chunk)
 		return ActionForwardToClient, nil
@@ -241,7 +195,6 @@ func (sm *StreamStateMachine) Process(ctx context.Context, chunk string) (Stream
 		return sm.processDetected()
 
 	case StateExecuting, StateReassembling:
-		// 执行中或组装中，chunk 应被忽略（不推送）
 		return ActionBuffer, nil
 
 	case StateDone:
@@ -256,23 +209,18 @@ func (sm *StreamStateMachine) Process(ctx context.Context, chunk string) (Stream
 //
 // 在 Detected/Parsing 状态下累积 buffer，尝试找到完整 JSON
 func (sm *StreamStateMachine) processDetected() (StreamAction, error) {
-	// 找 JSON 开始（{）
 	jsonStartIdx := strings.Index(sm.buffer.String(), "{")
 	if jsonStartIdx < 0 {
-		// 还没看到 {，继续等
 		sm.state = StateParsing
 		return ActionBuffer, nil
 	}
 
-	// 尝试匹配 JSON 结束
 	endIdx, balanced := matchJSONEnd(sm.buffer.String(), jsonStartIdx)
 	if !balanced {
-		// JSON 还没结束
 		sm.state = StateParsing
 		return ActionBuffer, nil
 	}
 
-	// JSON 完整，提取
 	jsonStr := sm.buffer.String()[jsonStartIdx : endIdx+1]
 	var tc struct {
 		Tool string         `json:"tool"`
@@ -292,7 +240,6 @@ func (sm *StreamStateMachine) processDetected() (StreamAction, error) {
 	sm.toolArgs = tc.Args
 	sm.jsonEnd = endIdx
 
-	// 触发回调
 	if sm.onToolCall != nil {
 		sm.onToolCall(tc.Tool, tc.Args)
 	}
@@ -375,9 +322,6 @@ func (sm *StreamStateMachine) Reset() {
 	sm.startTime = time.Time{}
 }
 
-// ============================================================================
-// 辅助函数
-// ============================================================================
 
 // matchJSONEnd 找 JSON 结束位置（考虑嵌套 {} 和字符串内的 {}）
 //
@@ -442,3 +386,4 @@ func itoa(n int) string {
 	}
 	return string(buf[i:])
 }
+

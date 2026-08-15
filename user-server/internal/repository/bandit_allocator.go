@@ -1,15 +1,5 @@
 package repository
 
-// bandit_allocator.go 反馈闭环 - Multi-Armed Bandit 流量分配器域仓储方法
-//
-// 五层架构归属: L3 仓储层
-// 设计依据: docs/核心链路优化.md 第十七章 §17.4.5
-//
-// 职责：封装 bandit_arms 表的读写 + prompt_ab_tests 表的 running 实验查询
-//        （Thompson Sampling 流量分配器所需的全部 DB 操作）
-//
-// 说明：本文件方法挂载在 FeedbackLoopRepository 上（与 feedback_loop_repository.go 同结构体），
-//        按业务域拆分文件便于维护，不引入新的仓储结构体。
 
 import (
 	"context"
@@ -91,7 +81,6 @@ func (r *FeedbackLoopRepository) PromoteBanditArmWinner(ctx context.Context, exp
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
-		// winner → promoted
 		if err := tx.Model(&model.BanditArm{}).
 			Where("experiment_id = ? AND arm_key = ?", experimentID, winnerKey).
 			Updates(map[string]any{
@@ -101,7 +90,6 @@ func (r *FeedbackLoopRepository) PromoteBanditArmWinner(ctx context.Context, exp
 			}).Error; err != nil {
 			return fmt.Errorf("promote winner: %w", err)
 		}
-		// 其他 → retired
 		if err := tx.Model(&model.BanditArm{}).
 			Where("experiment_id = ? AND arm_key != ?", experimentID, winnerKey).
 			Updates(map[string]any{
@@ -143,3 +131,4 @@ func (r *FeedbackLoopRepository) UpdateBanditArmLastSampled(ctx context.Context,
 		Where("experiment_id = ? AND arm_key = ?", experimentID, armKey).
 		Update("last_sampled_at", sampledAt).Error
 }
+

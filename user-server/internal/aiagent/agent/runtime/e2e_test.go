@@ -10,16 +10,6 @@ import (
 	"hivemtk-user/internal/event"
 )
 
-// ============================================================================
-// E2E 全链路集成测试
-// ----------------------------------------------------------------------------
-// 测试场景:
-//   1. webhook 收到消息 → publish event → AgentRuntime.HandleCustomerMessage
-//   2. 知识库文档变更 → publish event → IncrementalIndexer.Handle
-//   3. 异步并行:customer + knowledge 事件无干扰
-//
-// 不依赖真实 DB / LLM,使用 mock bridge 和 mock indexer
-// ============================================================================
 
 // mockSalesBridge 模拟销售引擎桥接器
 type mockSalesBridge struct {
@@ -79,16 +69,13 @@ func (b *mockSalesBridge) callCount() int {
 
 // TestE2E_CustomerMessageFlow 测试客户消息全链路
 func TestE2E_CustomerMessageFlow(t *testing.T) {
-	// 1. 准备 mock 桥接器
 	salesBridge := &mockSalesBridge{fixedReply: "您好,我是 智能体"}
 	indexer := rag.NewIncrementalIndexer(nil, nil, nil)
 
-	// 2. 准备运行时
 	rt := NewAgentRuntime(nil, salesBridge, nil).(*defaultAgentRuntime)
 	customerHandler := NewEventSubscriber(rt)
 	knowledgeHandler := indexer.Handle
 
-	// 3. 注册到 event bus(同时设置 global bus 让 PublishCustomerMessage 能用)
 	bus := event.New(2, 100)
 	defer bus.Stop()
 	prevGlobal := event.GetGlobalBus()
@@ -98,7 +85,6 @@ func TestE2E_CustomerMessageFlow(t *testing.T) {
 	bus.Subscribe(event.TopicCustomerMessageReceived, customerHandler)
 	bus.Subscribe(event.TopicKnowledgeDocumentChanged, knowledgeHandler)
 
-	// 4. 模拟 webhook 接收消息
 	customerPayload := event.CustomerMessagePayload{
 		ChannelType: "telegram",
 		AccountID:   "tg_e2e_001",
@@ -111,10 +97,8 @@ func TestE2E_CustomerMessageFlow(t *testing.T) {
 
 	event.Publish(event.TopicCustomerMessageReceived, customerPayload)
 
-	// 5. 等待异步处理
 	time.Sleep(100 * time.Millisecond)
 
-	// 6. 验证
 	if salesBridge.callCount() != 1 {
 		t.Errorf("expected 1 sales call, got %d", salesBridge.callCount())
 	}
@@ -146,7 +130,6 @@ func TestE2E_KnowledgeIndexFlow(t *testing.T) {
 
 	bus.Subscribe(event.TopicKnowledgeDocumentChanged, indexer.Handle)
 
-	// 模拟 create
 	PublishKnowledgeDocumentCreate("1", uint(docID), "测试内容", 1)
 	time.Sleep(100 * time.Millisecond)
 
@@ -154,7 +137,6 @@ func TestE2E_KnowledgeIndexFlow(t *testing.T) {
 		t.Error("expected chunks after create event")
 	}
 
-	// 模拟 update
 	PublishKnowledgeDocumentUpdate("1", uint(docID), "更新内容", 1)
 	time.Sleep(100 * time.Millisecond)
 
@@ -162,7 +144,6 @@ func TestE2E_KnowledgeIndexFlow(t *testing.T) {
 		t.Error("expected chunks after update event")
 	}
 
-	// 模拟 delete
 	PublishKnowledgeDocumentDelete("1", uint(docID), 1)
 	time.Sleep(100 * time.Millisecond)
 
@@ -186,7 +167,6 @@ func TestE2E_CustomerAndKnowledgeInParallel(t *testing.T) {
 	bus.Subscribe(event.TopicCustomerMessageReceived, NewEventSubscriber(rt))
 	bus.Subscribe(event.TopicKnowledgeDocumentChanged, indexer.Handle)
 
-	// 混合发布 10 条 customer + 5 条 knowledge
 	for i := 0; i < 10; i++ {
 		PublishCustomerMessage("telegram", "tg_001", "cust_001", "", "msg", "")
 	}
@@ -194,10 +174,8 @@ func TestE2E_CustomerAndKnowledgeInParallel(t *testing.T) {
 		PublishKnowledgeDocumentCreate("1", uint(docID), "content", uint(i+1))
 	}
 
-	// 等待
 	time.Sleep(200 * time.Millisecond)
 
-	// 验证
 	if salesBridge.callCount() != 10 {
 		t.Errorf("expected 10 customer calls, got %d", salesBridge.callCount())
 	}
@@ -221,13 +199,10 @@ func TestE2E_NilBridgeFallback(t *testing.T) {
 
 	bus.Subscribe(event.TopicCustomerMessageReceived, customerHandler)
 
-	// 不应 panic
 	PublishCustomerMessage("telegram", "tg_001", "cust_001", "", "msg", "")
 
 	time.Sleep(100 * time.Millisecond)
 
-	// 没有 panic 即通过
-	// nil bridge 走 fallbackResponse,不调真实引擎
 }
 
 // uintToStr uint → string(辅助)
@@ -242,3 +217,4 @@ func uintToStr(v uint) string {
 	}
 	return string(digits)
 }
+

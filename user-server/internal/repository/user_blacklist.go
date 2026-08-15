@@ -63,7 +63,6 @@ func (r *UserBlacklistRepository) IsBlacklisted(ctx context.Context, userID stri
 		return false, err
 	}
 	if isExpired(&row) {
-		// 过期 → 软删除
 		_ = r.db.Model(&row).Update("active", false).Error
 		return false, nil
 	}
@@ -114,3 +113,4 @@ func isExpired(b *model.UserBlacklist) bool {
 	}
 	return !b.ExpiresAt.After(time.Now())
 }
+

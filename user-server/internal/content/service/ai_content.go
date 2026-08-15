@@ -50,25 +50,21 @@ type GenerateContentResponse struct {
 
 // GenerateContent 生成内容
 func (s *AIContentService) GenerateContent(ctx context.Context, userID uint, req *GenerateContentRequest) (*GenerateContentResponse, error) {
-	// 在调用外部 LLM 服务前，验证 API key 是否已配置
 	apiKey := s.resolveAPIKey(ctx)
 	if apiKey == "" {
 		return nil, fmt.Errorf("AI service not configured")
 	}
 
-	// 构建提示词
 	prompt, err := s.buildPrompt(req)
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取模型配置
 	modelName := req.Model
 	if modelName == "" {
 		modelName = "gpt-3.5-turbo"
 	}
 
-	// 配置 LLM (使用用户配置覆盖默认值)
 	config := &llm.LLMConfig{
 		Model:          modelName,
 		APIType:        "openai",
@@ -79,16 +75,13 @@ func (s *AIContentService) GenerateContent(ctx context.Context, userID uint, req
 		ResponseFormat: "text",
 	}
 
-	// 调用 LLM 生成
 	output, err := s.llmService.Generate(ctx, config, prompt)
 	if err != nil {
 		return nil, fmt.Errorf("生成失败：%v", err)
 	}
 
-	// 实际使用 token 数量
 	tokensUsed := len(prompt)/4 + len(output)/4
 
-	// 保存生成记录
 	record := &model.AIGenerationRecord{
 		UserID:     userID,
 		Type:       req.Type,
@@ -100,7 +93,6 @@ func (s *AIContentService) GenerateContent(ctx context.Context, userID uint, req
 	}
 
 	if err := s.recordRepo.Create(record); err != nil {
-		// 记录保存失败不影响返回结果
 	}
 
 	return &GenerateContentResponse{
@@ -113,7 +105,6 @@ func (s *AIContentService) GenerateContent(ctx context.Context, userID uint, req
 
 // buildPrompt 构建提示词
 func (s *AIContentService) buildPrompt(req *GenerateContentRequest) (string, error) {
-	// 如果指定了模板，使用模板生成
 	if req.TemplateID > 0 {
 		template, err := s.templateRepo.GetByID(req.TemplateID)
 		if err != nil {
@@ -122,7 +113,6 @@ func (s *AIContentService) buildPrompt(req *GenerateContentRequest) (string, err
 		return s.fillTemplate(template.Template, req.Variables)
 	}
 
-	// 否则根据类型构建默认提示词
 	return s.buildDefaultPrompt(req.Type, req.Input, req.Variables)
 }
 
@@ -288,7 +278,6 @@ func (s *PromptTemplateService) GetTemplateByID(id uint) (*model.PromptTemplate,
 	if err != nil {
 		return nil, err
 	}
-	// 系统模板所有人可用
 	_ = template
 	return template, nil
 }
@@ -361,7 +350,7 @@ func (s *PromptTemplateService) InitSystemTemplates() error {
 		existing, _ := s.templateRepo.GetByTypeAndName(template.Type, template.Name)
 		if existing == nil {
 			templateCopy := template
-			templateCopy.Status = 1 // 设置状态为激活
+			templateCopy.Status = 1 
 			s.templateRepo.Create(&templateCopy)
 		}
 	}
@@ -395,7 +384,6 @@ func (s *AIContentService) resolveAPIKey(ctx context.Context) string {
 	if v := os.Getenv("OPENAI_API_KEY"); v != "" {
 		return v
 	}
-	// 退化路径：从系统配置表读取
 	cfg, err := s.loadSystemLLMConfig(ctx)
 	if err != nil || cfg == nil {
 		return ""
@@ -424,13 +412,9 @@ type llmSystemConfig struct {
 // loadSystemLLMConfig 加载系统 LLM 配置
 // 优先级:系统 SystemConfig.Config > LLM_API_KEY 环境变量
 func (s *AIContentService) loadSystemLLMConfig(ctx context.Context) (*llmSystemConfig, error) {
-	// 1) 优先读系统配置表
 	sysCfgRepo := sysrepo.NewSystemConfigRepository()
 	if sysCfg, err := sysCfgRepo.GetConfig(ctx); err == nil && sysCfg != nil {
-		// SystemConfig 自身的字段都是基础项,LLM 配置通常存在 JSON 字段或 env
-		// 这里仅尝试读 llm_api_key 子键
 	}
-	// 2) 退到环境变量(LLM_API_KEY / LLM_BASE_URL / LLM_MODEL)
 	apiKey := os.Getenv("LLM_API_KEY")
 	if apiKey == "" {
 		apiKey = os.Getenv("OPENAI_API_KEY")
@@ -452,3 +436,4 @@ func (s *AIContentService) loadSystemLLMConfig(ctx context.Context) (*llmSystemC
 		Model:   model,
 	}, nil
 }
+

@@ -46,7 +46,6 @@ func (c *EmailUnsubscribeController) UnsubscribePage(ctx *gin.Context) {
 		return
 	}
 
-	// 若已退订，提示已退订
 	if c.svc.IsUnsubscribed(context.Background(), claim.Email) {
 		ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(unsubscribedAlreadyHTML(claim.Email)))
 		return
@@ -112,7 +111,6 @@ func (c *EmailUnsubscribeController) ExportUnsubscribes(ctx *gin.Context) {
 	ctx.Header("Content-Type", "text/csv; charset=utf-8")
 	ctx.Header("Content-Disposition", "attachment; filename=email_unsubscribes.csv")
 
-	// 写入 UTF-8 BOM，保证 Excel 正确识别中文
 	_, _ = ctx.Writer.Write([]byte{0xEF, 0xBB, 0xBF})
 
 	w := csv.NewWriter(ctx.Writer)
@@ -163,9 +161,6 @@ func (c *EmailUnsubscribeController) RegisterRoutes(public *gin.RouterGroup, aut
 
 // unsubscribeConfirmHTML 返回退订确认页 HTML
 func unsubscribeConfirmHTML(email, token string) string {
-	// 修复 XSS：email / token 经过签名校验，但邮箱本身可能含特殊字符；
-	// HTML 上下文用 HTMLEscapeString，JS 字符串上下文用 JSEscapeString，
-	// URL 查询参数用 QueryEscape，防止注入破坏页面或构造恶意脚本。
 	escEmail := template.HTMLEscapeString(email)
 	escTokenJS := template.JSEscapeString(token)
 	escTokenURL := url.QueryEscape(token)
@@ -241,3 +236,4 @@ func unsubscribedAlreadyHTML(email string) string {
 </body>
 </html>`
 }
+

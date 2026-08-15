@@ -90,7 +90,7 @@ func TestRetryDecorator_ContextCancelBeforeExecute(t *testing.T) {
 	tool := newTestTool("test.ctx_cancel_before", ToolResult{}, nil)
 	cfg := ToolExecutorConfig{RetryPolicy: NewExponentialBackoffPolicy(3, 50*time.Millisecond, 200*time.Millisecond)}
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // 调用前即取消
+	cancel() 
 
 	res, captured := runToolAndCapture(t, tool, cfg, ctx, ExecuteRequest{Args: map[string]any{}})
 
@@ -117,7 +117,6 @@ func TestRetryDecorator_ContextCancelBeforeExecute(t *testing.T) {
 // TestRetryDecorator_ContextCancelDuringBackoff 回归（根因场景 C：退避等待中 ctx 取消）：
 // RetryDecorator 在 backoff 等待的 select 中捕获 ctx.Done 也必须返回完整 ToolResult，而非零值。
 func TestRetryDecorator_ContextCancelDuringBackoff(t *testing.T) {
-	// 首次（attempt 0）返回「可重试」错误，进入 attempt 1 的退避等待；期间取消 ctx。
 	retryable := errors.New("transient network blip")
 	tool := newTestTool("test.ctx_cancel_backoff", ToolResult{}, retryable)
 	cfg := ToolExecutorConfig{RetryPolicy: NewExponentialBackoffPolicy(3, 2*time.Second, 2*time.Second)}
@@ -232,7 +231,6 @@ func TestRetry_PreservesBusinessErrorUnderRetry(t *testing.T) {
 	}
 }
 
-// ===== agent_turn span 状态准确性（彻底修复观测缺口：原永远写 ok）=====
 
 // runDispatchAndCaptureTurn 注册工具、接线 trace sink、执行整轮调度，并抽出 agent_turn 事件。
 func runDispatchAndCaptureTurn(t *testing.T, tool Tool, cfg ToolExecutorConfig, ctx context.Context, calls []LLMToolCall) ([]LLMToolResult, *tracing.ToolTraceEvent) {
@@ -320,7 +318,6 @@ func TestDispatch_AgentTurnStatusAbnormalOnToolFailure(t *testing.T) {
 	if err := reg.Register(okTool); err != nil {
 		t.Fatal(err)
 	}
-	// 用同一 registry 但 DispatchByLLMToolCall 内部按 call.Function.Name 查找 —— 需构造带两工具的 executor。
 	exec := NewToolExecutor(reg, ToolExecutorConfig{})
 	var events []tracing.ToolTraceEvent
 	var mu sync.Mutex
@@ -362,7 +359,7 @@ func TestDispatch_AgentTurnStatusAbnormalOnCancel(t *testing.T) {
 		{ID: "c1", Function: LLMToolFunction{Name: "test.turn_cancel", Arguments: "{}"}},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // 调度前即取消
+	cancel() 
 	_, turn := runDispatchAndCaptureTurn(t, tool, ToolExecutorConfig{}, ctx, calls)
 	if turn == nil {
 		t.Fatal("未收到 agent_turn trace 事件")
@@ -374,3 +371,4 @@ func TestDispatch_AgentTurnStatusAbnormalOnCancel(t *testing.T) {
 		t.Fatalf("异常 turn 应携带 %q，实际 %q", context.Canceled.Error(), turn.Error)
 	}
 }
+

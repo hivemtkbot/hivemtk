@@ -18,16 +18,11 @@ type ClueRepository interface {
 	GetRecentClueList(ctx context.Context) ([]*model.Clue, error)
 	GetClueStatistics(ctx context.Context) ([]map[string]any, error)
 	GetClueAllList(ctx context.Context, clueType int64) ([]*model.Clue, int64, error)
-	ExistsByTypeAndAccount(ctx context.Context, clueType int64, account string) (bool, error) // 添加此方法声明
-	// FindByTypeAndAccount 按类型+账号返回已存在线索（不存在返回 nil, nil），用于线索去重后的增量更新
+	ExistsByTypeAndAccount(ctx context.Context, clueType int64, account string) (bool, error) 
 	FindByTypeAndAccount(ctx context.Context, clueType int64, account string) (*model.Clue, error)
 	GetDistinctTypes(ctx context.Context) ([]int64, error)
-	// UpdateByID 按主键更新指定字段，用于营销流程 update_lead 动作
 	UpdateByID(ctx context.Context, id string, updates map[string]any) error
-	// ListByAccounts 批量按 account / Name 查询线索（CC- N+1 优化）
 	ListByAccounts(ctx context.Context, accounts []string) ([]*model.Clue, error)
-	// BatchUpdateInTx 事务内批量按 ID 更新线索字段
-	// 单条失败不中断事务（仅跳过该条），返回成功更新的条数与事务提交错误。
 	BatchUpdateInTx(ctx context.Context, ids []string, updates map[string]any) (int, error)
 }
 
@@ -68,7 +63,6 @@ func (r *clueRepo) GetClueList(ctx context.Context, page int, limit int) ([]*mod
 	var cluelists []*model.Clue
 	var total int64
 	db := r.db.WithContext(ctx)
-	// 分别查询list 和 total
 	err := db.Model(&model.Clue{}).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
@@ -95,11 +89,8 @@ func (r *clueRepo) GetRecentClueList(ctx context.Context) ([]*model.Clue, error)
 func (r *clueRepo) GetClueStatistics(ctx context.Context) ([]map[string]any, error) {
 	var statistics []map[string]any
 	db := r.db.WithContext(ctx)
-	// 注意：模型 TableName() = "clues" (复数)，必须使用复数表名
-	// 兼容两种列名：type (新) 和 clue_type (旧)
 	err := db.Raw("SELECT type AS type, COUNT(*) AS total, SUM(is_verify) AS verify_total FROM clues GROUP BY type ORDER BY type").Scan(&statistics).Error
 	if err != nil {
-		// 兼容旧的 clue_type 列名（迁移未完成时的回退）
 		err = db.Raw("SELECT clue_type AS type, COUNT(*) AS total, SUM(is_verify) AS verify_total FROM clues GROUP BY clue_type ORDER BY clue_type").Scan(&statistics).Error
 	}
 	return statistics, err
@@ -109,7 +100,6 @@ func (r *clueRepo) GetClueAllList(ctx context.Context, clueType int64) ([]*model
 	var cluelists []*model.Clue
 	var total int64
 	db := r.db.WithContext(ctx)
-	// 分别查询list 和 total
 	err := db.Where("type = ?", clueType).Model(&model.Clue{}).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
@@ -182,7 +172,6 @@ func (r *clueRepo) ListByAccounts(ctx context.Context, accounts []string) ([]*mo
 	if len(accounts) == 0 {
 		return nil, nil
 	}
-	// 去重 + 跳过空串
 	unique := make([]string, 0, len(accounts))
 	seen := make(map[string]struct{}, len(accounts))
 	for _, a := range accounts {
@@ -227,3 +216,4 @@ func (r *clueRepo) BatchUpdateInTx(ctx context.Context, ids []string, updates ma
 	})
 	return count, err
 }
+

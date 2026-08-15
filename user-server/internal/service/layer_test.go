@@ -1,16 +1,5 @@
 package service
 
-// layer_test.go LayerRouter 单元测试
-//
-// 设计依据: AI 智能体性能优化
-//
-// 测试目标:
-//   - TestLayerRouter_Route_Layer1Disabled: FF_LAYER1=0 时直接 Layer2
-//   - TestLayerRouter_Route_FAQHit: FAQ 高分命中 -> Layer1 SkipLLM (mock faqRepo)
-//   - TestLayerRouter_Route_NoMatch: 无 FAQ/SOP 命中 -> Layer2 Fallback
-//   - TestLayerRouter_Route_EmptyMessage: 空消息兜底
-//
-// 不依赖真实 DB: 通过注入 FAQMatcher mock 实现.
 
 import (
 	"context"
@@ -120,7 +109,6 @@ func newMockFAQRepoWithEntry(question, answer, intent string, confidence float64
 func TestLayerRouter_Route_Layer1Disabled(t *testing.T) {
 	withLayer1Flag(t, "0")
 
-	// 全部 repo 用 nil, 走默认 Layer2 路径
 	router := &LayerRouter{
 		faqRepo: nil,
 		sopRepo: nil,
@@ -192,14 +180,12 @@ func TestLayerRouter_Route_EmptyMessage(t *testing.T) {
 func TestLayerRouter_Route_FAQHit(t *testing.T) {
 	withLayer1Flag(t, "1")
 
-	// 使用 mock faqRepo 注入高分 FAQ
 	mock := newMockFAQRepoWithEntry("韵达发货吗", "韵达不发的哦", "logistics", 0.9)
 	router := &LayerRouter{
 		faqRepo: mock,
 		sopRepo: nil,
 		logRepo: nil,
 	}
-	// Task 15/16 强 1对1: AgentID > 0 才能命中 FAQ
 	dec := router.Route(context.Background(), &RouteRequest{
 		SessionID:   "s1",
 		CustomerID:  "c1",
@@ -221,9 +207,6 @@ func TestLayerRouter_Route_FAQHit(t *testing.T) {
 	if dec.Reply != "韵达不发的哦" {
 		t.Errorf("expected reply from FAQ answer, got %q", dec.Reply)
 	}
-	// 等待异步 IncrementHitCount (goroutine)
-	// 注: 异步调用, 在测试主线程里直接检查可能 race
-	// 这里用 hint 而不强制检查, 主要验证路由逻辑
 	if mock.hits.Load() < 0 {
 		t.Error("expected hits counter to be set")
 	}
@@ -233,7 +216,6 @@ func TestLayerRouter_Route_FAQHit(t *testing.T) {
 func TestLayerRouter_Route_FAQLowScore(t *testing.T) {
 	withLayer1Flag(t, "1")
 
-	// 低分 FAQ (score < 0.6)
 	mock := newMockFAQRepoWithEntry("模糊问句", "模糊回复", "unknown", 0.3)
 	router := &LayerRouter{
 		faqRepo: mock,
@@ -260,7 +242,6 @@ func TestLayerRouter_Route_FAQLowScore(t *testing.T) {
 func TestLayerRouter_Route_FFToggle(t *testing.T) {
 	router := &LayerRouter{faqRepo: nil, sopRepo: nil, logRepo: nil}
 
-	// 关闭
 	withLayer1Flag(t, "0")
 	if featureflag.Get("layer1").Bool() {
 		t.Fatal("expected FF_LAYER1=false after env=0")
@@ -270,13 +251,11 @@ func TestLayerRouter_Route_FFToggle(t *testing.T) {
 		t.Errorf("expected layer2 when FF off, got %s", dec1.Layer)
 	}
 
-	// 开启
 	withLayer1Flag(t, "1")
 	if !featureflag.Get("layer1").Bool() {
 		t.Fatal("expected FF_LAYER1=true after env=1")
 	}
 	dec2 := router.Route(context.Background(), &RouteRequest{UserMessage: "你好"})
-	// 开启后无 repo, 走默认 Layer2 fallback (但 reason 不再是 disabled)
 	if dec2.Layer != dto.Layer2 {
 		t.Errorf("expected layer2 fallback when FF on + no repos, got %s", dec2.Layer)
 	}
@@ -284,3 +263,4 @@ func TestLayerRouter_Route_FFToggle(t *testing.T) {
 		t.Error("expected reason != layer1_disabled when FF on")
 	}
 }
+

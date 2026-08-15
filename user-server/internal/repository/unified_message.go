@@ -18,7 +18,6 @@ type UnifiedMessageRepository interface {
 	GetByChat(ctx context.Context, chatID string, page, pageSize int) ([]*model.UnifiedMessage, int64, error)
 	UpdateStatus(ctx context.Context, id uint, status model.MessageStatus) error
 	Delete(ctx context.Context, id uint) error
-	// 以下为统一消息视图 service 层使用的查询入口，映射到既有实现
 	GetMessages(ctx context.Context, platform string, page, pageSize int) ([]*model.UnifiedMessage, int, error)
 	GetMessageByID(ctx context.Context, id uint) (*model.UnifiedMessage, error)
 	GetReplies(ctx context.Context, messageID string) ([]*model.UnifiedReply, error)
@@ -240,3 +239,4 @@ func (r *platformAccountRepo) UpdateLastSync(ctx context.Context, id uint) error
 	now := time.Now()
 	return r.db.WithContext(ctx).Model(&model.PlatformAccount{}).Where("id = ?", id).Update("last_sync_at", now).Error
 }
+

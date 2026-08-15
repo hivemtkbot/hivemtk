@@ -1,22 +1,5 @@
 package service
 
-// anomaly_login_detector.go A 域 异常登录预警服务
-//
-// 五层架构归属: L3 业务服务层
-// 设计依据: docs/standards/MASTER_RULES.md「私域独立部署，无 merchant_id 字段」
-//          docs/architecture/DUAL_ROLE_MODEL.md
-// A 域 缺口修复
-//
-// 职责：
-//   1. 入口方法：DetectAndAlert - 接收登录事件 → 评估风险 → 写库 → 通知
-//   2. 复用 LoginRiskService.Evaluate 做核心 4 项检测（异地/频次/时段/设备指纹）
-//   3. 拓展：触发审计日志 + 邮件 + 站内信三类告警通道
-//   4. 暴露：List / Resolve / Ignore 三个管理接口（供 controller 调用）
-//
-// 与 login_risk.go 的关系：
-//   - login_risk.go 负责 LoginEvent 写入 + 风险等级评估（核心检测逻辑）
-//   - 本文件负责告警分发（审计 + 邮件 + 站内信），是 login_risk 的告警"通道"层
-//   - 调用方统一通过本文件入口 DetectAndAlert，底层仍走 LoginRiskService
 
 import (
 	"context"
@@ -34,25 +17,19 @@ import (
 type AnomalyLoginAlertChannel string
 
 const (
-	AnomalyLoginChannelAudit   AnomalyLoginAlertChannel = "audit"     // 审计日志（操作日志表）
-	AnomalyLoginChannelEmail   AnomalyLoginAlertChannel = "email"     // 邮件
-	AnomalyLoginChannelInbox   AnomalyLoginAlertChannel = "inbox"     // 站内信（notifications 表）
-	AnomalyLoginChannelWebsock AnomalyLoginAlertChannel = "websocket" // WebSocket 实时推送
+	AnomalyLoginChannelAudit   AnomalyLoginAlertChannel = "audit"     
+	AnomalyLoginChannelEmail   AnomalyLoginAlertChannel = "email"     
+	AnomalyLoginChannelInbox   AnomalyLoginAlertChannel = "inbox"     
+	AnomalyLoginChannelWebsock AnomalyLoginAlertChannel = "websocket" 
 )
 
 // AnomalyLoginDetectorConfig 异常登录预警配置
 type AnomalyLoginDetectorConfig struct {
-	// 是否启用邮件告警（管理员邮箱）
 	EmailEnabled bool
-	// 是否启用审计日志
 	AuditEnabled bool
-	// 是否启用站内信（已默认开启）
 	InboxEnabled bool
-	// 收件人邮箱列表（管理员邮箱，私域部署可硬编码或从 system_config 读取）
 	AdminEmails []string
-	// 邮件主题模板
 	EmailSubjectTemplate string
-	// 邮件正文模板
 	EmailBodyTemplate string
 }
 
@@ -135,7 +112,6 @@ func (d *AnomalyLoginDetector) DetectAndAlert(ctx context.Context, lctx *LoginRi
 		return nil, errors.New("login context is nil")
 	}
 
-	// 1. 委托 LoginRiskService 做风险评估
 	riskResult, err := d.riskService.Evaluate(ctx, lctx)
 	if err != nil {
 		return nil, fmt.Errorf("风险评估失败: %w", err)
@@ -150,12 +126,10 @@ func (d *AnomalyLoginDetector) DetectAndAlert(ctx context.Context, lctx *LoginRi
 		ChannelsFailed: []AnomalyLoginAlertChannel{},
 	}
 
-	// 2. 若不需要告警，仅返回（事件已写入 login_events）
 	if !riskResult.ShouldAlert {
 		return result, nil
 	}
 
-	// 3. 三通道告警分发
 	if d.config.AuditEnabled {
 		if err := d.writeAuditLog(ctx, lctx, riskResult); err != nil {
 			logger.Errorf("[anomaly_login] 审计日志写入失败: %v", err)
@@ -220,7 +194,6 @@ func (d *AnomalyLoginDetector) writeInboxNotification(ctx context.Context, lctx 
 		Title:   result.AlertTitle,
 		Content: result.AlertDescription,
 	}
-	// 通过 LoginRiskRepository 落库（五层架构合规：仓储层封装 DB 入口）
 	riskRepo := repository.NewLoginRiskRepository()
 	return riskRepo.CreateNotification(context.Background(), notif)
 }
@@ -242,13 +215,12 @@ func (d *AnomalyLoginDetector) sendEmailAlert(ctx context.Context, lctx *LoginRi
 		strings.Join(result.Reasons, "; "),
 	)
 
-	// 通过 repository 落库一封邮件（走异步发送队列，非同步阻塞）
 	emailRepo := repository.NewEmailSendRepository()
 	email := &model.EmailSend{
 		To:      strings.Join(d.config.AdminEmails, ","),
 		Subject: subject,
 		Content: body,
-		Status:  0, // 待发送
+		Status:  0, 
 	}
 	return emailRepo.Create(context.Background(), email)
 }
@@ -268,7 +240,6 @@ func (d *AnomalyLoginDetector) ResolveAlert(ctx context.Context, alertID, operat
 	if err := d.riskService.ResolveSecurityAlert(ctx, alertID, operatorID, note); err != nil {
 		return err
 	}
-	// 写审计
 	repo := repository.NewOperationLogRepository()
 	_ = repo.Create(ctx, &model.OperationLog{
 		UserID:     operatorID,
@@ -299,3 +270,4 @@ func (d *AnomalyLoginDetector) IgnoreAlert(ctx context.Context, alertID, operato
 	})
 	return nil
 }
+

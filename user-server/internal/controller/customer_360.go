@@ -192,7 +192,6 @@ func (c *Customer360Controller) UpdateCustomerTags(ctx *gin.Context) {
 		return
 	}
 
-	// 通过 service 覆盖式更新用户标签
 	finalTags, err := c.userTagSvc.ReplaceUserTags(ctx.Request.Context(), userID, req.Tags)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, "保存标签失败："+err.Error())
@@ -209,7 +208,6 @@ func (c *Customer360Controller) UpdateCustomerTags(ctx *gin.Context) {
 func (c *Customer360Controller) GetCustomerTags(ctx *gin.Context) {
 	userID := ctx.Query("user_id")
 	if userID == "" {
-		// 必填参数缺失，返回 400 而非空标签（避免 mock 数据）
 		response.Error(ctx, http.StatusBadRequest, "缺少 user_id 参数")
 		return
 	}
@@ -328,7 +326,6 @@ func (c *Customer360Controller) UpdateCustomer(ctx *gin.Context) {
 		return
 	}
 
-	// 将 map 转换为 service 的 UserUpdateInput（字段指针为空表示不更新）
 	input := service.UserUpdateInput{}
 	if v, ok := raw["real_name"].(string); ok && v != "" {
 		input.RealName = &v
@@ -356,7 +353,6 @@ func (c *Customer360Controller) UpdateCustomer(ctx *gin.Context) {
 		return
 	}
 
-	// 返回更新后的 360 视图（如果构建失败则返回基础信息）
 	dto, dtoErr := c.customer360Service.GetCustomer360ByCustomerID(context.Background(), userID)
 	if dtoErr != nil {
 		response.Success(ctx, gin.H{
@@ -415,7 +411,6 @@ func (c *Customer360Controller) GetCustomerCommunications(ctx *gin.Context) {
 	}, "获取成功")
 }
 
-// ============ 自动标签规则 (Tag Rules) ============
 
 // ListTagRules 获取自动标签规则列表
 // GET /api/customer-360/tag-rules
@@ -518,3 +513,4 @@ func (c *Customer360Controller) GetTagStats(ctx *gin.Context) {
 	}
 	response.Success(ctx, stats, "获取成功")
 }
+

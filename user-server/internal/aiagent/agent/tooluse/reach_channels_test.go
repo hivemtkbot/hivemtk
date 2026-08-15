@@ -10,17 +10,7 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// reach_new_channels_test.go 触达工具（Telegram/WhatsApp/Feishu）单元测试
-//
-// 覆盖 reach.telegram.send / reach.whatsapp.send / reach.feishu.send
-// 三个境外/协作平台触达工具。
-//
-// 测试策略：
-//   - mockReachAdapter 捕获所有调用，无需真实 IntegrationService
-//   - 验证：参数校验 / 桥接派发 / NoOp 行为 / LLM Function 转换
-//   - 覆盖 100+ 边界用例：私聊/群组 chat_id（含负数）、E.164 手机号、open_id 格式等
 
-// ===== mock ReachAdapter =====
 
 // mockReachAdapter 记录所有调用，支持注入错误
 type mockReachAdapter struct {
@@ -69,7 +59,7 @@ func (m *mockReachAdapter) SendFeishu(_ context.Context, accountID, openID, cont
 	m.lastFeishuAccount = accountID
 	m.lastFeishuOpenID = openID
 	m.lastFeishuContent = content
-	m.lastFeishuMsgType = "text" // 默认
+	m.lastFeishuMsgType = "text" 
 	if m.feishuErr != nil {
 		return "", m.feishuErr
 	}
@@ -121,7 +111,6 @@ func (m *mockReachAdapter) ListAccounts(_ context.Context, _ string) ([]AccountI
 	return nil, nil
 }
 
-// ===== Telegram 测试 =====
 
 func TestReachTelegramSendTool_Name(t *testing.T) {
 	tool := NewReachTelegramSendTool(ReachToolDeps{Adapter: NoOpReachAdapter{}})
@@ -166,7 +155,6 @@ func TestReachTelegramSendTool_GroupChatNegativeID(t *testing.T) {
 	mock := &mockReachAdapter{}
 	tool := NewReachTelegramSendTool(ReachToolDeps{Adapter: mock})
 
-	// 群组 chat_id 是负数（超级群组）
 	_, err := tool.Execute(context.Background(), map[string]any{
 		"account_id": "1",
 		"chat_id":    "-1001234567890",
@@ -246,7 +234,6 @@ func TestReachTelegramSendTool_AdapterError(t *testing.T) {
 }
 
 func TestReachTelegramSendTool_NoOpBehavior(t *testing.T) {
-	// NoOpReachAdapter 应返回未配置错误
 	tool := NewReachTelegramSendTool(ReachToolDeps{Adapter: NoOpReachAdapter{}})
 	_, err := tool.Execute(context.Background(), map[string]any{
 		"account_id": "1",
@@ -267,7 +254,6 @@ func TestReachTelegramSendTool_ToLLMFunction(t *testing.T) {
 	if !strings.Contains(fn.Description, "Telegram") {
 		t.Errorf("expected description to mention Telegram, got %q", fn.Description)
 	}
-	// 验证必填参数
 	requiredFound := false
 	for _, p := range fn.Parameters.Required {
 		if p == "account_id" || p == "chat_id" || p == "content" {
@@ -279,7 +265,6 @@ func TestReachTelegramSendTool_ToLLMFunction(t *testing.T) {
 	}
 }
 
-// ===== WhatsApp 测试 =====
 
 func TestReachWhatsAppSendTool_Name(t *testing.T) {
 	tool := NewReachWhatsAppSendTool(ReachToolDeps{Adapter: NoOpReachAdapter{}})
@@ -345,7 +330,6 @@ func TestReachWhatsAppSendTool_BothContentAndTemplateEmpty(t *testing.T) {
 	_, err := tool.Execute(context.Background(), map[string]any{
 		"account_id": "10",
 		"to_phone":   "+861",
-		// content 和 template_id 都为空
 	})
 	if err == nil {
 		t.Error("expected error when both content and template_id are empty")
@@ -366,7 +350,6 @@ func TestReachWhatsAppSendTool_AdapterError(t *testing.T) {
 }
 
 func TestReachWhatsAppSendTool_E164Format(t *testing.T) {
-	// 验证 E.164 格式传参能正常被透传（不做格式校验）
 	mock := &mockReachAdapter{}
 	tool := NewReachWhatsAppSendTool(ReachToolDeps{Adapter: mock})
 	for _, phone := range []string{"+8613800138000", "+14155552671", "+447911123456"} {
@@ -392,7 +375,6 @@ func TestReachWhatsAppSendTool_ToLLMFunction(t *testing.T) {
 	}
 }
 
-// ===== Feishu 测试 =====
 
 func TestReachFeishuSendTool_Name(t *testing.T) {
 	tool := NewReachFeishuSendTool(ReachToolDeps{Adapter: NoOpReachAdapter{}})
@@ -474,7 +456,6 @@ func TestReachFeishuSendTool_AdapterError(t *testing.T) {
 }
 
 func TestReachFeishuSendTool_OpenIDAndChatID(t *testing.T) {
-	// 飞书 receive_id 支持 open_id (ou_xxx) 和 chat_id (oc_xxx)
 	mock := &mockReachAdapter{}
 	tool := NewReachFeishuSendTool(ReachToolDeps{Adapter: mock})
 	for _, id := range []string{"ou_user_1", "oc_chat_1", "user@email.com"} {
@@ -500,7 +481,6 @@ func TestReachFeishuSendTool_ToLLMFunction(t *testing.T) {
 	}
 }
 
-// ===== 桥接派发测试 =====
 
 // dispatchBridge 测试辅助：包装 dispatchToAdapter，保留原桥接测试写法
 type dispatchBridge struct{ adapter ReachAdapter }
@@ -574,13 +554,11 @@ func TestReachChannelAdapterBridge_UnknownChannel(t *testing.T) {
 	}
 }
 
-// ===== 集成测试：DB 模式下注册 Pipeline =====
 
 func TestReachNewChannelsTools_RegistrationWithDB(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	registry := NewToolRegistry()
 
-	// 使用 mock adapter（P2-3：端口装配上移 app，此处仅验证注册链路）
 	reachDeps := ReachToolDeps{Adapter: &mockReachAdapter{}, DB: db}
 
 	if err := RegisterReachTools(registry, reachDeps); err != nil {
@@ -605,3 +583,4 @@ func TestReachNewChannelsTools_RegistrationWithDB(t *testing.T) {
 		t.Errorf("missing tools: telegram=%v whatsapp=%v feishu=%v", foundTelegram, foundWhatsApp, foundFeishu)
 	}
 }
+

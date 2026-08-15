@@ -24,7 +24,6 @@ func TestRagRetrievalServiceImpl_Search_KBNotFound(t *testing.T) {
 	service := NewRagRetrievalService(&constantVectorizer{dimension: 128}, NewMockIndexManager(), NewMockStorage(), NewMockCache(), nil)
 	ctx := context.Background()
 
-	// 未预存 KB，GetKnowledgeBase 返回错误
 	_, err := service.Search(ctx, "missing_kb", "查询", SearchParams{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "knowledge base not found")
@@ -48,7 +47,6 @@ func TestRagRetrievalServiceImpl_Search_CacheHit(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, results)
 
-	// 验证结果已写入缓存（cacheKey 格式与 Search 内部一致）
 	key := fmt.Sprintf("search:%s:%s:%v", "cache_kb", "缓存", params)
 	cached, ok := cache.Get(key)
 	assert.True(t, ok, "search result should be cached")
@@ -103,7 +101,6 @@ func TestRagRetrievalServiceImpl_IndexDocuments_AutoCreateKB(t *testing.T) {
 	service := NewRagRetrievalService(&constantVectorizer{dimension: 128}, NewMockIndexManager(), storage, NewMockCache(), &RetrievalConfig{MaxDocLength: 10000, MaxChunkSize: 1000, DefaultChunkOverlap: 100})
 	ctx := context.Background()
 
-	// 不预存 KB
 	err := service.IndexDocuments(ctx, "auto_kb", []Document{{ID: "d1", Content: "自动创建知识库文档"}})
 	assert.NoError(t, err)
 
@@ -117,22 +114,18 @@ func TestRagRetrievalServiceImpl_IndexDocuments_AutoCreateKB(t *testing.T) {
 func TestRagRetrievalServiceImpl_preprocessDocuments(t *testing.T) {
 	service := NewRagRetrievalService(&constantVectorizer{dimension: 128}, NewMockIndexManager(), NewMockStorage(), NewMockCache(), &RetrievalConfig{MaxDocLength: 20})
 
-	// 空文档 ID
 	_, err := service.preprocessDocuments([]Document{{ID: "", Content: "内容"}})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "empty ID")
 
-	// 空内容
 	_, err = service.preprocessDocuments([]Document{{ID: "d1", Content: ""}})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "empty content")
 
-	// 内容超长
 	_, err = service.preprocessDocuments([]Document{{ID: "d1", Content: strings.Repeat("长", 100)}})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "exceeds maximum allowed length")
 
-	// 正常
 	out, err := service.preprocessDocuments([]Document{{ID: "d1", Content: "正常内容"}})
 	assert.NoError(t, err)
 	assert.Len(t, out, 1)
@@ -171,11 +164,8 @@ func TestSemanticChunkStrategy_findSemanticBoundary(t *testing.T) {
 	s := &SemanticChunkStrategy{}
 	content := "abc. def! ghi?"
 
-	// 在句子边界 '.'(index 3) 处截断，suggestedEnd=5 应回退到 4
 	assert.Equal(t, 4, s.findSemanticBoundary(content, 0, 5))
-	// suggestedEnd 超出长度，返回整段长度
 	assert.Equal(t, len(content), s.findSemanticBoundary(content, 0, 100))
-	// 无边界时返回 suggestedEnd
 	assert.Equal(t, 4, s.findSemanticBoundary("abcdef", 0, 4))
 }
 
@@ -188,13 +178,9 @@ func TestRagRetrievalServiceImpl_filterResults(t *testing.T) {
 		{Score: 0.8, Metadata: map[string]any{"type": "other"}},
 	}
 
-	// 仅阈值
 	assert.Len(t, service.filterResults(chunks, nil, 0.5), 2)
-	// 仅过滤器
 	assert.Len(t, service.filterResults(chunks, map[string]any{"type": "faq"}, 0), 2)
-	// 阈值 + 过滤器
 	assert.Len(t, service.filterResults(chunks, map[string]any{"type": "other"}, 0.5), 1)
-	// 两者都为空 → 全部
 	assert.Len(t, service.filterResults(chunks, nil, 0), 3)
 }
 
@@ -208,7 +194,7 @@ func TestRagRetrievalServiceImpl_matchFilters(t *testing.T) {
 	assert.True(t, service.matchFilters(chunk, map[string]any{"num": 3}))
 	assert.True(t, service.matchFilters(chunk, map[string]any{"rate": 0.9}))
 	assert.False(t, service.matchFilters(chunk, map[string]any{"rate": 0.1}))
-	assert.True(t, service.matchFilters(chunk, map[string]any{})) // 空过滤器始终匹配
+	assert.True(t, service.matchFilters(chunk, map[string]any{})) 
 }
 
 // TestRagRetrievalServiceImpl_rankResults 按分数降序
@@ -229,3 +215,4 @@ func TestRagRetrievalServiceImpl_calculateConfidence(t *testing.T) {
 	assert.Greater(t, mid, 0.5)
 	assert.Less(t, mid, 1.0)
 }
+

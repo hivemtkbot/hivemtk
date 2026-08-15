@@ -77,3 +77,4 @@ func (r *KBDocumentRepository) UpdateStatusFields(ctx context.Context, id uint, 
 		Where("id = ?", id).
 		Updates(fields).Error
 }
+

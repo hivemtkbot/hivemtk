@@ -43,17 +43,11 @@ type FunnelStatusRow struct {
 // 配套 service.DashboardStatsService，封装 customer_sessions / humanize_scores /
 // customer_journey 表的实时统计查询。所有 Raw SQL 在此层封装，service 不再直接持有 *gorm.DB。
 type DashboardStatsRepository interface {
-	// Available 底层 db 是否可用（离线场景返回 false）
 	Available(ctx context.Context) bool
-	// CountSessionsByStatus 按 status 集合 + 在线阈值统计会话数
 	CountSessionsByStatus(ctx context.Context, statuses []model.SessionStatus, onlineThreshold time.Time) (int64, error)
-	// CountSessionsBySingleStatus 按单一 status 统计会话数
 	CountSessionsBySingleStatus(ctx context.Context, status model.SessionStatus) (int64, error)
-	// QueryHumanizeDistribution 查询拟人度分布（最近 N 小时）
 	QueryHumanizeDistribution(ctx context.Context, since time.Time) (*HumanizeScoreRow, error)
-	// QueryJourneyFunnel 查询 customer_journey 表的阶段分布
 	QueryJourneyFunnel(ctx context.Context, since time.Time) ([]FunnelStageRow, error)
-	// QuerySessionFunnel 兜底：按 customer_sessions 状态聚合
 	QuerySessionFunnel(ctx context.Context, since time.Time) ([]FunnelStatusRow, error)
 }
 
@@ -149,3 +143,4 @@ func (r *dashboardStatsRepo) QuerySessionFunnel(ctx context.Context, since time.
 	}
 	return rows, nil
 }
+

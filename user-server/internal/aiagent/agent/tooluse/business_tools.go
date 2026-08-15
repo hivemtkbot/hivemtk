@@ -13,30 +13,15 @@ import (
 	"hivemtk-user/internal/aiagent/agent/portcontract"
 )
 
-// business_tools.go 业务工具实现（PRD §5.2 G3）
-//
-// 2 个业务工具：
-//   1. follow_task.create - 创建跟进任务（联动 FollowUp Port + 客户旅程）
-//   2. follow_task.update - 更新跟进任务（完成/取消/重新安排，联动客户旅程推进）
-//
-// 工具层完整走 Port：
-//   - 跟进/订单/售后方法统一走 portcontract 各 Port。
-//   - P2-3：已移除直连 service 的回退路径，tooluse 不再 import service。
 
-// ===== 业务工具依赖 =====
 
 // BusinessToolDeps 业务工具依赖
 //
 // 方法统一走 portcontract 各 Port；未注入的 Port 对应工具返回 "port not injected"。
 type BusinessToolDeps struct {
-	// FollowUp 跟进域 Port（推荐路径）。
-	// 由 service.FollowUpPortAdapter 注入；nil 时 follow_task.* 返回 "port not injected"。
 	FollowUp portcontract.FollowUpPort
-	// Order 订单查询 Port（只读镜像，客服查单用）。nil 时 order.lookup 返回 "port not injected"。
 	Order portcontract.OrderPort
-	// AfterSale 售后 Port（客服侧唯一允许写订单的入口：发起退款/退货，回写电商）。
 	AfterSale portcontract.AfterSalePort
-	// Logistics 物流查询 Port（查快递轨迹：本地订单状态兜底 + 可选实时快递 API）。
 	Logistics portcontract.LogisticsPort
 }
 
@@ -129,13 +114,6 @@ func reminderAnyToMap(v any) map[string]any {
 		}
 		key := snakeCaseFieldName(field.Name)
 		val := rv.Field(i).Interface()
-		// 序列化规则（方向D）：
-		//  1. time.Time（值类型）→ RFC3339 字符串
-		//  2. *time.Time（指针，可能 nil）→ 非 nil 时 RFC3339 字符串
-		//  3. 任何基于 string 定义的命名类型（如 service.ReminderType /
-		//     service.ReminderPriority / service.ReminderStatus）→ 转为 string，
-		//     避免 LLM Function Calling 解析 tool 响应时被 interface{} 类型断言 panic。
-		//  4. 实现 fmt.Stringer 的非空指针/值 → x.String()。
 		switch x := val.(type) {
 		case time.Time:
 			if !x.IsZero() {
@@ -147,12 +125,10 @@ func reminderAnyToMap(v any) map[string]any {
 			}
 		default:
 			rvField := rv.Field(i)
-			// 命名字符串类型（type X string）：kind 仍是 string，转换为 string。
 			if rvField.Kind() == reflect.String && rvField.Type() != reflect.TypeOf("") {
 				out[key] = rvField.String()
 				continue
 			}
-			// fmt.Stringer 适配（仅对非 nil 指针 / 非零值调用 String）
 			if s, ok := val.(fmt.Stringer); ok {
 				switch rvField.Kind() {
 				case reflect.Ptr, reflect.Interface, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan:
@@ -165,8 +141,6 @@ func reminderAnyToMap(v any) map[string]any {
 			}
 			out[key] = val
 		}
-		// 兼容别名：service.Reminder.ID 经 snake_case 转换后是 `id`，
-		// 工具既有调用方（含历史 LLM 提示词模板）依赖 `reminder_id` 字段。
 		if key == "id" {
 			rvField := rv.Field(i)
 			if rvField.Kind() == reflect.String {
@@ -189,7 +163,6 @@ func snakeCaseFieldName(name string) string {
 			if i+1 < len(name) {
 				next = rune(name[i+1])
 			}
-			// 前一个字符是小写 或 后一个字符是小写，则在当前位置插入下划线
 			if (prev >= 'a' && prev <= 'z') || (next >= 'a' && next <= 'z') {
 				b.WriteByte('_')
 			}
@@ -234,7 +207,6 @@ func MustRegisterBusinessTools(registry *ToolRegistry, deps BusinessToolDeps) {
 	}
 }
 
-// ===== 工具 3：follow_task.create =====
 
 // FollowTaskCreateTool 创建跟进任务工具
 type FollowTaskCreateTool struct {
@@ -291,7 +263,6 @@ func (t *FollowTaskCreateTool) Execute(ctx context.Context, args map[string]any)
 	if rTypeStr == "" {
 		rTypeStr = "custom"
 	}
-	// 校验 rType 合法
 	switch rTypeStr {
 	case "first_contact", "quote_followup", "after_sale_care", "repurchase", "reactivation", "birthday", "custom":
 	default:
@@ -306,7 +277,6 @@ func (t *FollowTaskCreateTool) Execute(ctx context.Context, args map[string]any)
 
 	title := getArgString(args, "title")
 	description := getArgString(args, "description")
-	// sopName / channel / autoHandle 暂不写入 port 投影；保留字段以便未来 FollowUpScheduleOptions 扩展
 	_ = getArgString(args, "sop_name")
 	_ = getArgString(args, "channel")
 	_ = args["auto_handle"]
@@ -339,12 +309,10 @@ func (t *FollowTaskCreateTool) Execute(ctx context.Context, args map[string]any)
 		return ErrorResult(t.Name(), err), err
 	}
 
-	// reminder 是 any 类型（来自 port 的返回），通过反射取字段输出
 	reminderMap := reminderAnyToMap(reminder)
 	return SuccessResult(t.Name(), reminderMap), nil
 }
 
-// ===== 工具 4：follow_task.update =====
 
 // FollowTaskUpdateTool 更新跟进任务工具
 type FollowTaskUpdateTool struct {
@@ -399,7 +367,6 @@ func (t *FollowTaskUpdateTool) Execute(ctx context.Context, args map[string]any)
 		if resultStr == "" {
 			return ErrorResult(t.Name(), errors.New("action=complete 时 result 必填")), errors.New("action=complete 时 result 必填")
 		}
-		// 校验 result 合法
 		switch resultStr {
 		case "contacted", "interested", "quoted", "converted", "rejected", "lost", "no_response":
 		default:
@@ -408,7 +375,6 @@ func (t *FollowTaskUpdateTool) Execute(ctx context.Context, args map[string]any)
 		if err := followUpPort.CompleteWithResult(reminderID, resultStr, note); err != nil {
 			return ErrorResult(t.Name(), err), err
 		}
-		// 旅程阶段推进（通过 port 的 ResultInfo 反查）
 		targetStage, ok := followUpPort.ResultInfo(resultStr)
 		return SuccessResult(t.Name(), map[string]any{
 			"reminder_id":    reminderID,
@@ -437,10 +403,6 @@ func (t *FollowTaskUpdateTool) Execute(ctx context.Context, args map[string]any)
 	}
 }
 
-// ===== 工具 5：order.lookup（只读查单） =====
-//
-// 客服系统不是电商：订单是外部电商同步进来的只读镜像，本工具只查询、绝不创建/履约。
-// 替代已删除的 order.query 业务工具（order.create 永久移除，下单是电商职责）。
 
 // OrderLookupTool 订单查询工具
 type OrderLookupTool struct {
@@ -514,10 +476,6 @@ func (t *OrderLookupTool) Execute(ctx context.Context, args map[string]any) (Too
 	}), nil
 }
 
-// ===== 工具 6：aftersale.create（客服侧发起售后） =====
-//
-// 这是客服系统对"订单"唯一允许写入的入口：发起退款/退货/换货请求，由电商执行落地。
-// 动作回写电商（best-effort），本系统只记录售后单并跟踪状态。
 
 // AfterSaleCreateTool 创建售后工具
 type AfterSaleCreateTool struct {
@@ -588,7 +546,6 @@ func (t *AfterSaleCreateTool) Execute(ctx context.Context, args map[string]any) 
 	}), nil
 }
 
-// ===== 工具 7：aftersale.query（查询售后进度） =====
 
 // AfterSaleQueryTool 查询售后工具
 type AfterSaleQueryTool struct {
@@ -639,11 +596,6 @@ func (t *AfterSaleQueryTool) Execute(ctx context.Context, args map[string]any) (
 	}), nil
 }
 
-// ===== 工具 6：logistics.track（查快递 / 物流轨迹） =====
-//
-// 业务诉求：客服高频问题“我的快递到哪了 / 什么时候发货 / 物流停在哪了”。
-// 设计：本地订单镜像状态兜底 + 可选实时快递 API（凭证来自数据库 agent.tool_integrations）。
-// 详见 portcontract.LogisticsPort / service.LogisticsPortAdapter / service.CourierClient。
 
 // LogisticsTrackTool 物流轨迹查询工具
 type LogisticsTrackTool struct {
@@ -697,3 +649,4 @@ func (t *LogisticsTrackTool) Execute(ctx context.Context, args map[string]any) (
 	}
 	return SuccessResult(t.Name(), res), nil
 }
+

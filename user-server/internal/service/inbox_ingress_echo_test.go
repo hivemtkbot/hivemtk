@@ -22,11 +22,8 @@ func TestInboxIngress_PlatformEchoAcrossDays(t *testing.T) {
 		conv     = "conv-echo-1"
 		content  = "你好呀！其实我是来帮你的～有任何产品咨询或售后问题随时告诉我"
 	)
-	// MsgID 使用与 ContentHashMsgID 相同的格式：mh: 前缀 + FNV-1a 哈希（不含 conversationID）。
-	// 服务端出站和前端 patrol 上行使用同一 contentHash → 相同 MsgID → 钩子2 命中。
 	hashID := ContentHashMsgID(platform, conv, content)
 
-	// 模拟两天前已下发的 AI 回复（出站），MsgID 即 contentHash
 	oldTime := time.Now().Add(-50 * time.Hour)
 	if err := db.Create(&model.MessageHub{
 		MsgID:          hashID,
@@ -42,13 +39,12 @@ func TestInboxIngress_PlatformEchoAcrossDays(t *testing.T) {
 		t.Fatalf("插入出站回显失败: %v", err)
 	}
 
-	// 模拟 bridge patrol 回扫：前端 _canonicalMsgId = contentHash(channel, conv, content) = hashID
 	event := &model.MessageEvent{
 		Channel:        model.ChannelDouyin,
 		SenderID:       account,
-		SenderType:     "customer", // 前端统一 customer，不判自/他
+		SenderType:     "customer", 
 		Content:        content,
-		EventID:        hashID, // 与出站 MsgID 相同 → GetByMsgID 命中
+		EventID:        hashID, 
 		ConversationID: conv,
 		Extra:          map[string]interface{}{"account_id": account},
 	}
@@ -129,7 +125,6 @@ func TestInboxIngress_PlatformEchoTextModified(t *testing.T) {
 		account  = "acct-mod"
 		conv     = "conv-mod-1"
 		outbound = "你好呀！其实我是来帮你的～有任何问题随时告诉我"
-		// 平台回显时微调文本（补了句号）：内容不再等于 outbound → contentHash 不同
 		reported = "你好呀！其实我是来帮你的～有任何问题随时告诉我。"
 	)
 
@@ -151,13 +146,12 @@ func TestInboxIngress_PlatformEchoTextModified(t *testing.T) {
 		t.Fatalf("插入出站回显失败: %v", err)
 	}
 
-	// 上报的微调文本有不同 contentHash → GetByMsgID 不命中 → 视为新消息 → 触发 AI
 	event := &model.MessageEvent{
 		Channel:        model.ChannelXHS,
 		SenderID:       "customer-xhs",
 		SenderType:     "customer",
 		Content:        reported,
-		EventID:        "mh:aabbcc99", // 不同哈希
+		EventID:        "mh:aabbcc99", 
 		ConversationID: conv,
 		Extra:          map[string]interface{}{"account_id": account},
 	}
@@ -165,7 +159,6 @@ func TestInboxIngress_PlatformEchoTextModified(t *testing.T) {
 	if err != nil {
 		t.Fatalf("HandleIngressMessage 失败: %v", err)
 	}
-	// 微调文本 = 不同哈希 = 视为新消息 = 应触发 AI
 	if !result.Accepted || !result.QueuedForAI {
 		t.Fatalf("微调文本应视为新客户消息(accepted+trigger AI), got %+v", result)
 	}
@@ -179,3 +172,4 @@ func TestInboxIngress_PlatformEchoTextModified(t *testing.T) {
 		t.Fatalf("微调文本应落库 1 条 inbound, 实际 %d", inboundCount)
 	}
 }
+

@@ -50,13 +50,11 @@ func TestJWTUtils_GenerateToken(t *testing.T) {
 func TestJWTUtils_ParseToken(t *testing.T) {
 	jwt := NewJWTUtils(DefaultJWTConfig)
 
-	// Generate a valid token
 	tokenStr, err := jwt.GenerateToken(1, "testuser", "admin")
 	if err != nil {
 		t.Fatalf("GenerateToken failed: %v", err)
 	}
 
-	// Parse the token
 	claims, err := jwt.ParseToken(tokenStr)
 	if err != nil {
 		t.Fatalf("ParseToken failed: %v", err)
@@ -83,7 +81,6 @@ func TestJWTUtils_ParseToken_InvalidToken(t *testing.T) {
 }
 
 func TestJWTUtils_ParseToken_WrongSecret(t *testing.T) {
-	// Create JWT utils with different secret
 	jwt1 := NewJWTUtils(JWTConfig{
 		SecretKey:    "secret1",
 		ExpiresHours: 24,
@@ -100,7 +97,6 @@ func TestJWTUtils_ParseToken_WrongSecret(t *testing.T) {
 		t.Fatalf("GenerateToken failed: %v", err)
 	}
 
-	// Try to parse with different secret
 	_, err = jwt2.ParseToken(tokenStr)
 	if err == nil {
 		t.Error("Expected error for token signed with different secret")
@@ -110,34 +106,28 @@ func TestJWTUtils_ParseToken_WrongSecret(t *testing.T) {
 func TestJWTUtils_RefreshToken(t *testing.T) {
 	jwt := NewJWTUtils(DefaultJWTConfig)
 
-	// Generate initial token
 	tokenStr, err := jwt.GenerateToken(1, "testuser", "admin")
 	if err != nil {
 		t.Fatalf("GenerateToken failed: %v", err)
 	}
 
-	// Parse original token to get expiration
 	originalClaims, err := jwt.ParseToken(tokenStr)
 	if err != nil {
 		t.Fatalf("ParseToken failed: %v", err)
 	}
 
-	// Add small delay to ensure different timestamp
 	time.Sleep(10 * time.Millisecond)
 
-	// Refresh the token
 	newTokenStr, err := jwt.RefreshToken(tokenStr)
 	if err != nil {
 		t.Fatalf("RefreshToken failed: %v", err)
 	}
 
-	// Parse refreshed token
 	newClaims, err := jwt.ParseToken(newTokenStr)
 	if err != nil {
 		t.Fatalf("ParseToken failed for refreshed token: %v", err)
 	}
 
-	// Verify claims are preserved
 	if newClaims.UserID != originalClaims.UserID {
 		t.Errorf("Expected UserID %d, got %d", originalClaims.UserID, newClaims.UserID)
 	}
@@ -148,8 +138,6 @@ func TestJWTUtils_RefreshToken(t *testing.T) {
 		t.Errorf("Expected Role %s, got %s", originalClaims.Role, newClaims.Role)
 	}
 
-	// New token should have later or equal expiration (depends on execution time)
-	// The important thing is that the token is valid and has correct claims
 	if newClaims.ExpiresAt.Before(originalClaims.ExpiresAt.Time) {
 		t.Error("Expected refreshed token to have later expiration")
 	}
@@ -237,3 +225,4 @@ func TestJWTConfig(t *testing.T) {
 		t.Errorf("Expected Issuer 'custom-issuer', got %s", config.Issuer)
 	}
 }
+

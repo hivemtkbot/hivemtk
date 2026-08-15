@@ -1,23 +1,5 @@
 package migrations
 
-// llm_routing_logs_extend_migration.go 扩展 llm_routing_logs 表
-//
-// 背景：
-//   v3.6.0 创建 llm_routing_logs 时仅含基础字段（trace_id/scenario/provider/model/
-//   prompt_tokens/completion_tokens/total_tokens/cost/latency_ms/success/error_msg/from_cache）。
-//   但项目硬约束要求每次 dispatch 落库必须携带：
-//     - model_type     （local / cloud）
-//     - vendor         （厂商维度归集，inferVendor(BaseURL) 自动判定）
-//     - base_url       （出域审计）
-//     - is_fallback    （降级率统计 / 出域审计）
-//     - prompt_cost    （prompt 单价计费）
-//     - completion_cost（completion 单价计费）
-//     - token_source   （actual / estimated / missing，用于 API 完整性告警）
-//     - estimator      （empty_fallback / char_weight 等估算器标识）
-//     - source         （dispatch / cache / fallback / null）
-//     - scenario_provider（聚合键，加快 GROUP BY 查询）
-//
-// 设计：ADD COLUMN IF NOT EXISTS（PG 9.6+），幂等可重入，老数据不补 NULL 默认值。
 
 import (
 	"context"
@@ -56,7 +38,6 @@ func (m *LLMRoutingLogsExtendMigration) Up(ctx context.Context) error {
 	if m.db == nil {
 		return fmt.Errorf("db is nil")
 	}
-	// PostgreSQL 9.6+ 支持 ADD COLUMN IF NOT EXISTS，幂等
 	stmts := []string{
 		`ALTER TABLE llm_routing_logs ADD COLUMN IF NOT EXISTS model_type      VARCHAR(16)  NOT NULL DEFAULT 'local'`,
 		`ALTER TABLE llm_routing_logs ADD COLUMN IF NOT EXISTS vendor         VARCHAR(64)  NOT NULL DEFAULT 'unknown'`,
@@ -68,13 +49,9 @@ func (m *LLMRoutingLogsExtendMigration) Up(ctx context.Context) error {
 		`ALTER TABLE llm_routing_logs ADD COLUMN IF NOT EXISTS estimator      VARCHAR(32)  NOT NULL DEFAULT ''`,
 		`ALTER TABLE llm_routing_logs ADD COLUMN IF NOT EXISTS source         VARCHAR(32)  NOT NULL DEFAULT 'dispatch'`,
 		`ALTER TABLE llm_routing_logs ADD COLUMN IF NOT EXISTS scenario_provider VARCHAR(160) NOT NULL DEFAULT ''`,
-		// 复合索引：场景 + 厂商 + 时间（按厂商维度统计 / 出域审计）
 		`CREATE INDEX IF NOT EXISTS idx_llm_routing_logs_scenario_provider ON llm_routing_logs (scenario, provider, created_at DESC)`,
-		// 复合索引：本地/云端分类 + 时间（按 model_type 维度统计）
 		`CREATE INDEX IF NOT EXISTS idx_llm_routing_logs_model_type_created ON llm_routing_logs (model_type, created_at DESC)`,
-		// 复合索引：token_source + 时间（监控 missing 占比）
 		`CREATE INDEX IF NOT EXISTS idx_llm_routing_logs_token_source ON llm_routing_logs (token_source, created_at DESC)`,
-		// 复合索引：vendor + 时间（按厂商聚合成本）
 		`CREATE INDEX IF NOT EXISTS idx_llm_routing_logs_vendor ON llm_routing_logs (vendor, created_at DESC)`,
 	}
 	for _, s := range stmts {
@@ -120,3 +97,4 @@ func (m *LLMRoutingLogsExtendMigration) Down(ctx context.Context) error {
 
 // compile-time 接口断言
 var _ migration.Migration = (*LLMRoutingLogsExtendMigration)(nil)
+

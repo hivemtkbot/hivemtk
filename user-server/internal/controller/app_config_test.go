@@ -114,7 +114,6 @@ func TestAppConfigController_SyncWithPlatform_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Should return OK, 400, or 500 depending on platform adapter
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError && w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status OK, Bad Request or Internal Server Error, got %d", w.Code)
 	}
@@ -160,3 +159,4 @@ func TestAppConfigController_NewAppConfigController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

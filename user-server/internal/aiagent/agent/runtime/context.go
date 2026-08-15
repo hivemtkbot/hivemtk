@@ -10,36 +10,22 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// ContextCompressor 上下文压缩（调研结果：上下文压缩机制）
-// ----------------------------------------------------------------------------
-// 设计目标：
-//  1. 自动压缩工具调用历史，避免上下文窗口溢出
-//  2. 支持多种压缩策略（摘要、截断、选择性保留）
-//  3. 保持关键信息不丢失
-//  4. 兼容LangChain SummarizationMiddleware
-//
-// 与业界标准对比：
-//  - LangChain: SummarizationMiddleware
-//  - AutoGPT: 历史压缩
-//  - OpenAI: 上下文窗口管理
-// ============================================================================
 
 // ToolResult 工具执行结果（本地定义，避免循环依赖）
 type ToolResult struct {
-	Success    bool       `json:"success"`               // 是否成功
-	Data       any        `json:"data,omitempty"`        // 返回数据
-	Error      string     `json:"error,omitempty"`       // 错误信息
-	Timing     ToolTiming `json:"timing"`                // 执行耗时
-	ToolName   string     `json:"tool_name"`             // 工具名
-	ExecutedAt time.Time  `json:"executed_at"`           // 执行时间
-	AuditTrace string     `json:"audit_trace,omitempty"` // 审计追踪 ID
+	Success    bool       `json:"success"`               
+	Data       any        `json:"data,omitempty"`        
+	Error      string     `json:"error,omitempty"`       
+	Timing     ToolTiming `json:"timing"`                
+	ToolName   string     `json:"tool_name"`             
+	ExecutedAt time.Time  `json:"executed_at"`           
+	AuditTrace string     `json:"audit_trace,omitempty"` 
 }
 
 // ToolTiming 执行耗时统计
 type ToolTiming struct {
-	DurationMs int64 `json:"duration_ms"` // 总耗时（毫秒）
-	RetryCount int   `json:"retry_count"` // 重试次数
+	DurationMs int64 `json:"duration_ms"` 
+	RetryCount int   `json:"retry_count"` 
 }
 
 // ToJSON 将 ToolResult 序列化为 JSON 字符串
@@ -50,10 +36,10 @@ func (r ToolResult) ToJSON() string {
 
 // Message 消息类型
 type Message struct {
-	Role       string      `json:"role"`                  // user/assistant/system/tool
-	Content    string      `json:"content"`               // 消息内容
-	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`  // 工具调用
-	ToolResult *ToolResult `json:"tool_result,omitempty"` // 工具结果
+	Role       string      `json:"role"`                  
+	Content    string      `json:"content"`               
+	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`  
+	ToolResult *ToolResult `json:"tool_result,omitempty"` 
 	Timestamp  time.Time   `json:"timestamp"`
 }
 
@@ -66,21 +52,14 @@ type ToolCall struct {
 
 // ContextCompressor 上下文压缩器接口
 type ContextCompressor interface {
-	// Compress 压缩历史消息
 	Compress(messages []Message, maxTokens int) ([]Message, error)
-	// ShouldCompress 判断是否需要压缩
 	ShouldCompress(messages []Message, maxTokens int) bool
-	// EstimateTokens 估算消息的token数量
 	EstimateTokens(messages []Message) int
 }
 
-// ============================================================================
-// TokenEstimator Token估算器
-// ============================================================================
 
 // TokenEstimator Token估算器
 type TokenEstimator interface {
-	// Estimate 估算文本的token数量
 	Estimate(text string) int
 }
 
@@ -100,17 +79,14 @@ func (e *SimpleTokenEstimator) Estimate(text string) int {
 
 	for _, r := range text {
 		if r >= 0x4E00 && r <= 0x9FFF {
-			// 中文字符
 			runeCount++
 			inWord = false
 		} else if r == ' ' || r == '\t' || r == '\n' {
-			// 空格分隔
 			if inWord {
 				wordCount++
 				inWord = false
 			}
 		} else {
-			// 英文字符
 			inWord = true
 		}
 	}
@@ -122,13 +98,9 @@ func (e *SimpleTokenEstimator) Estimate(text string) int {
 	return runeCount*2 + int(float64(wordCount)*1.3)
 }
 
-// ============================================================================
-// SummarizationCompressor 摘要压缩器
-// ============================================================================
 
 // LLMClient LLM客户端接口
 type LLMClient interface {
-	// Generate 生成文本
 	Generate(ctx context.Context, prompt string) (string, error)
 }
 
@@ -136,7 +108,7 @@ type LLMClient interface {
 type SummarizationCompressor struct {
 	llmClient LLMClient
 	estimator TokenEstimator
-	threshold float64 // 压缩阈值（0.8表示80%时触发压缩）
+	threshold float64 
 }
 
 // NewSummarizationCompressor 创建摘要压缩器
@@ -179,12 +151,10 @@ func (c *SummarizationCompressor) Compress(messages []Message, maxTokens int) ([
 		return messages, nil
 	}
 
-	// 如果不需要压缩，直接返回
 	if !c.ShouldCompress(messages, maxTokens) {
 		return messages, nil
 	}
 
-	// 保留最近的消息，压缩早期的消息
 	keepCount := len(messages) / 3
 	if keepCount < 2 {
 		keepCount = 2
@@ -193,19 +163,15 @@ func (c *SummarizationCompressor) Compress(messages []Message, maxTokens int) ([
 		keepCount = len(messages)
 	}
 
-	// 分割消息
 	earlyMessages := messages[:len(messages)-keepCount]
 	lateMessages := messages[len(messages)-keepCount:]
 
-	// 生成摘要
 	summary, err := c.generateSummary(context.Background(), earlyMessages)
 	if err != nil {
 		logger.Warnf("[context_compressor] generate summary failed: %v", err)
-		// 摘要失败，使用截断策略
 		return c.truncateCompress(messages, maxTokens), nil
 	}
 
-	// 构造压缩后的消息
 	compressed := make([]Message, 0, keepCount+1)
 	compressed = append(compressed, Message{
 		Role:      "system",
@@ -223,7 +189,6 @@ func (c *SummarizationCompressor) generateSummary(ctx context.Context, messages 
 		return "", fmt.Errorf("llm client is nil")
 	}
 
-	// 构造摘要提示
 	prompt := "请总结以下对话历史的关键信息：\n\n"
 	for _, msg := range messages {
 		role := msg.Role
@@ -234,7 +199,6 @@ func (c *SummarizationCompressor) generateSummary(ctx context.Context, messages 
 	}
 	prompt += "\n请用简洁的中文总结上述对话的关键信息，包括：\n1. 用户的主要需求\n2. 已完成的操作\n3. 重要的上下文信息"
 
-	// 调用LLM生成摘要
 	summary, err := c.llmClient.Generate(ctx, prompt)
 	if err != nil {
 		return "", err
@@ -249,7 +213,6 @@ func (c *SummarizationCompressor) truncateCompress(messages []Message, maxTokens
 		return messages
 	}
 
-	// 保留最后几条消息
 	keepCount := len(messages) / 3
 	if keepCount < 2 {
 		keepCount = 2
@@ -261,9 +224,6 @@ func (c *SummarizationCompressor) truncateCompress(messages []Message, maxTokens
 	return messages[len(messages)-keepCount:]
 }
 
-// ============================================================================
-// ToolCallHistory 工具调用历史管理
-// ============================================================================
 
 // ToolCallRecord 工具调用记录
 type ToolCallRecord struct {
@@ -347,7 +307,6 @@ func (h *ToolCallHistory) ToMessages() []Message {
 
 	messages := make([]Message, 0, len(h.Calls)*2)
 	for _, call := range h.Calls {
-		// 工具调用消息
 		argsJSON, _ := json.Marshal(call.Args)
 		messages = append(messages, Message{
 			Role:    "assistant",
@@ -362,7 +321,6 @@ func (h *ToolCallHistory) ToMessages() []Message {
 			Timestamp: call.ExecutedAt,
 		})
 
-		// 工具结果消息
 		if call.Result != nil {
 			messages = append(messages, Message{
 				Role:       "tool",
@@ -392,9 +350,6 @@ func (h *ToolCallHistory) Count() int {
 	return len(h.Calls)
 }
 
-// ============================================================================
-// EnhancedInferenceContext 增强的推理上下文
-// ============================================================================
 
 // EnhancedInferenceContext 增强的推理上下文
 type EnhancedInferenceContext struct {
@@ -429,3 +384,4 @@ func (c *EnhancedInferenceContext) GetCompressedHistory() ([]Message, error) {
 
 	return messages, nil
 }
+

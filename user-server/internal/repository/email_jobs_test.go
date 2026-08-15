@@ -85,7 +85,6 @@ func TestEmailJobsRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailJobsRepository(t)
 
-	// 创建测试数据
 	job := &model.EmailJobs{
 		Subject:      "GetByID Test",
 		EmailTotal:   50,
@@ -134,7 +133,6 @@ func TestEmailJobsRepository_List(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailJobsRepository(t)
 
-	// 创建测试数据
 	for i := 1; i <= 15; i++ {
 		repo.Create(ctx, &model.EmailJobs{
 			Subject:      "Email Job " + string(rune('A'+i-1)),
@@ -206,7 +204,6 @@ func TestEmailJobsRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailJobsRepository(t)
 
-	// 创建测试数据
 	job := &model.EmailJobs{
 		Subject:      "Original Subject",
 		EmailTotal:   100,
@@ -216,7 +213,6 @@ func TestEmailJobsRepository_Update(t *testing.T) {
 	}
 	repo.Create(ctx, job)
 
-	// 更新进度
 	job.SendTotal = 50
 	job.SuccessTotal = 45
 	job.FailTotal = 5
@@ -247,7 +243,6 @@ func TestEmailJobsRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailJobsRepository(t)
 
-	// 创建测试数据
 	job := &model.EmailJobs{
 		Subject:      "To Delete",
 		EmailTotal:   10,
@@ -331,3 +326,4 @@ func TestEmailJobsRepository_Create_WithStats(t *testing.T) {
 		t.Errorf("Expected ReadTotal 600, got %d", result.ReadTotal)
 	}
 }
+

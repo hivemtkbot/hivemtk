@@ -1,18 +1,5 @@
 package translation
 
-// ============================================================================
-// I18nStatsService 多语言统计服务（v1.2 出海多语言方案）
-// ----------------------------------------------------------------------------
-// 五层架构归属：L3 业务服务层
-//
-// 职责：
-//   - 包装 I18nStatsRepository 的聚合查询，提供看板所需的视图模型
-//   - 时间窗口换算（days → since），参数校验与默认值兜底
-//   - 不做内存聚合 —— 所有 GROUP BY / percentile 均在 repository 层 SQL 完成
-//
-// 私域独立部署：无 merchant_id
-// 依赖：I18nStatsRepository（由 repository.i18nStatsRepo 实现）
-// ============================================================================
 
 import (
 	"context"
@@ -39,30 +26,24 @@ type I18nStatsRepo interface {
 //
 // 汇总最近 N 天（默认 7 天）的核心指标，前端一次性拉取渲染首屏。
 type I18nStatsOverview struct {
-	// 时间窗口
 	Days  int       `json:"days"`
 	Since time.Time `json:"since"`
 	Until time.Time `json:"until"`
 
-	// 调用量与语言分布
-	TotalCalls        int64 `json:"total_calls"`         // 多语言扩展字段启用后的总调用数
-	CrossLingualCalls int64 `json:"cross_lingual_calls"` // 跨语言生成调用数
-	LangCount         int   `json:"lang_count"`          // 覆盖的目标语言数
+	TotalCalls        int64 `json:"total_calls"`         
+	CrossLingualCalls int64 `json:"cross_lingual_calls"` 
+	LangCount         int   `json:"lang_count"`          
 
-	// 缓存命中率
 	CacheHit     int64   `json:"cache_hit"`
 	CacheMiss    int64   `json:"cache_miss"`
-	CacheHitRate float64 `json:"cache_hit_rate"` // 0~1
+	CacheHitRate float64 `json:"cache_hit_rate"` 
 
-	// 降级率
 	FallbackTotal int64   `json:"fallback_total"`
 	FallbackCount int64   `json:"fallback_count"`
-	FallbackRate  float64 `json:"fallback_rate"` // 0~1
+	FallbackRate  float64 `json:"fallback_rate"` 
 
-	// 术语覆盖
-	GlossaryLangCount int `json:"glossary_lang_count"` // 术语覆盖的目标语言数
+	GlossaryLangCount int `json:"glossary_lang_count"` 
 
-	// 延迟（全量聚合，单位 ms）
 	LatencyP50 float64 `json:"latency_p50"`
 	LatencyP95 float64 `json:"latency_p95"`
 	LatencyP99 float64 `json:"latency_p99"`
@@ -101,7 +82,6 @@ func (s *I18nStatsService) GetStatsWithDays(ctx context.Context, days int) (*I18
 		Until: now,
 	}
 
-	// 1. 语言分布 → 调用量 / 跨语言数 / 语言数
 	if dist, err := s.repo.LangDistribution(ctx, since); err != nil {
 		return nil, fmt.Errorf("i18n_stats: lang distribution failed: %w", err)
 	} else {
@@ -116,7 +96,6 @@ func (s *I18nStatsService) GetStatsWithDays(ctx context.Context, days int) (*I18
 		overview.LangCount = len(langSeen)
 	}
 
-	// 2. 缓存命中率
 	if hit, miss, err := s.repo.CacheHitRate(ctx, since); err != nil {
 		return nil, fmt.Errorf("i18n_stats: cache hit rate failed: %w", err)
 	} else {
@@ -128,7 +107,6 @@ func (s *I18nStatsService) GetStatsWithDays(ctx context.Context, days int) (*I18
 		}
 	}
 
-	// 3. 降级率
 	if total, fallback, err := s.repo.FallbackRate(ctx, since); err != nil {
 		return nil, fmt.Errorf("i18n_stats: fallback rate failed: %w", err)
 	} else {
@@ -139,14 +117,12 @@ func (s *I18nStatsService) GetStatsWithDays(ctx context.Context, days int) (*I18
 		}
 	}
 
-	// 4. 术语覆盖
 	if cov, err := s.repo.GlossaryCoverage(ctx); err != nil {
 		return nil, fmt.Errorf("i18n_stats: glossary coverage failed: %w", err)
 	} else {
 		overview.GlossaryLangCount = len(cov)
 	}
 
-	// 5. 延迟（按 target_lang 聚合后，做加权平均近似）
 	if latencies, err := s.repo.LatencyStats(ctx, since); err != nil {
 		return nil, fmt.Errorf("i18n_stats: latency stats failed: %w", err)
 	} else {
@@ -258,3 +234,4 @@ func (s *I18nStatsService) GetFallbackRate(ctx context.Context, days int) (float
 	}
 	return float64(fallback) / float64(total), nil
 }
+

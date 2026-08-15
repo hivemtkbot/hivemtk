@@ -23,7 +23,7 @@ var (
 // 初始化审计日志异步处理器
 func initAuditLogger() {
 	auditLogOnce.Do(func() {
-		auditLogChan = make(chan *AuditEntry, 1000) // 缓冲队列
+		auditLogChan = make(chan *AuditEntry, 1000) 
 		auditLogCtx, auditLogCancel = context.WithCancel(context.Background())
 		go processAuditLogs()
 	})
@@ -42,7 +42,6 @@ func processAuditLogs() {
 		select {
 		case log, ok := <-auditLogChan:
 			if !ok {
-				// 通道关闭，处理剩余日志
 				if len(batch) > 0 {
 					saveAuditBatch(batch)
 				}
@@ -88,24 +87,21 @@ func saveAuditBatch(logs []*AuditEntry) {
 			if err := sink.Save(context.Background(), entry); err == nil {
 				successCount++
 			} else {
-				// 将失败的日志收集到 failedLogs，确保下次重试
 				failedLogs = append(failedLogs, entry)
 			}
 		}
 
 		if len(failedLogs) == 0 {
-			return // 全部成功
+			return 
 		}
 
-		// 记录最后一次失败的日志数量
 		if attempt == maxRetries-1 {
 			log.Printf("[audit] %d 条审计日志在 %d 次重试后仍写入失败", len(failedLogs), maxRetries)
 		}
 
-		// 部分失败，等待后重试
 		if attempt < maxRetries-1 {
-			time.Sleep(baseDelay * time.Duration(1<<uint(attempt))) // 指数退避
-			logs = failedLogs                                       // 只重试失败的
+			time.Sleep(baseDelay * time.Duration(1<<uint(attempt))) 
+			logs = failedLogs                                       
 		}
 	}
 }
@@ -137,13 +133,11 @@ var DefaultAuditConfig = AuditConfig{
 // AuditMiddleware 审计日志中间件
 func AuditMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 检查是否启用审计
 		if !DefaultAuditConfig.Enabled {
 			c.Next()
 			return
 		}
 
-		// 检查是否在排除路径中
 		path := c.Request.URL.Path
 		for _, excludePath := range DefaultAuditConfig.ExcludePaths {
 			if path == excludePath {
@@ -152,38 +146,31 @@ func AuditMiddleware() gin.HandlerFunc {
 			}
 		}
 
-		// 记录请求开始时间
 		startTime := time.Now()
 
 		// 读取请求体（用于记录详情）
 		var requestBody []byte
 		if c.Request.Body != nil {
 			requestBody, _ = io.ReadAll(c.Request.Body)
-			// 恢复请求体
 			c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 		}
 
-		// 创建响应记录器
 		responseWriter := &auditResponseWriter{
 			ResponseWriter: c.Writer,
 			body:           &bytes.Buffer{},
 		}
 		c.Writer = responseWriter
 
-		// 处理请求
 		c.Next()
 
-		// 只记录修改操作（POST/PUT/DELETE）
 		method := c.Request.Method
 		if method != "POST" && method != "PUT" && method != "DELETE" && method != "PATCH" {
 			return
 		}
 
-		// 获取用户信息
 		userID, _ := c.Get("user_id")
 		username, _ := c.Get("username")
 
-		// 如果没有用户信息，跳过
 		if userID == nil {
 			return
 		}
@@ -197,12 +184,10 @@ func AuditMiddleware() gin.HandlerFunc {
 			}
 		}
 
-		// 确定操作类型
 		action := getActionFromMethod(method)
 		module := getModuleFromPath(path)
 		resource := getResourceFromPath(path)
 
-		// 构建详情
 		detail := map[string]any{
 			"method":      method,
 			"path":        path,
@@ -212,7 +197,6 @@ func AuditMiddleware() gin.HandlerFunc {
 			"request":     sanitizedRequest,
 		}
 
-		// 如果有错误，记录错误信息
 		if c.Writer.Status() >= 400 {
 			var responseBody map[string]any
 			if err := json.Unmarshal(responseWriter.body.Bytes(), &responseBody); err == nil {
@@ -222,7 +206,6 @@ func AuditMiddleware() gin.HandlerFunc {
 
 		detailJSON, _ := json.Marshal(detail)
 
-		// 创建操作日志
 		entry := &AuditEntry{
 			UserID:     convertToUint(userID),
 			Username:   convertToString(username),
@@ -235,7 +218,6 @@ func AuditMiddleware() gin.HandlerFunc {
 			UserAgent:  c.Request.UserAgent(),
 		}
 
-		// 异步保存日志
 		go saveAuditLog(entry)
 	}
 }
@@ -300,8 +282,6 @@ func getActionFromMethod(method string) string {
 
 // getModuleFromPath 从路径获取模块名
 func getModuleFromPath(path string) string {
-	// /api/team/users -> team_users
-	// /api/short-link/list -> short_link
 	parts := splitPath(path)
 	if len(parts) >= 3 {
 		module := parts[2]
@@ -326,7 +306,6 @@ func getResourceFromPath(path string) string {
 func getResourceIDFromPath(path string) string {
 	parts := splitPath(path)
 	if len(parts) >= 4 {
-		// 检查是否为数字ID
 		for _, part := range parts[3:] {
 			if isNumeric(part) {
 				return part
@@ -414,9 +393,7 @@ func saveAuditLog(entry *AuditEntry) {
 	initAuditLogger()
 	select {
 	case auditLogChan <- entry:
-		// 成功发送到通道
 	default:
-		// 通道已满，同步保存作为降级
 		if sink := getAuditSink(); sink != nil {
 			sink.Save(context.Background(), entry)
 		}
@@ -471,16 +448,12 @@ func LogCustom(userID uint, username, action, module, resource, resourceID strin
 // DataChangeMiddleware 数据变更审计中间件
 func DataChangeMiddleware(module, resource string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 记录旧值（对于更新/删除操作）
 
 		if c.Request.Method == "PUT" || c.Request.Method == "DELETE" {
-			// 这里可以根据ID查询旧值
-			// 暂时留空，实际使用时可以注入服务来查询
 		}
 
 		c.Next()
 
-		// 记录新值（对于创建/更新操作）
-		// 这里可以从响应中获取新值
 	}
 }
+

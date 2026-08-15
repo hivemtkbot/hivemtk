@@ -84,7 +84,6 @@ func TestLiveCodeRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupLiveCodeRepository(t)
 
-	// 创建测试数据
 	liveCode := &model.LiveCode{
 		Name:            "GetByID Live Code",
 		ShortLink:       "test123",
@@ -134,7 +133,6 @@ func TestLiveCodeRepository_GetByShortLink(t *testing.T) {
 	ctx := context.Background()
 	repo := setupLiveCodeRepository(t)
 
-	// 创建测试数据
 	liveCode := &model.LiveCode{
 		Name:            "GetByShortLink Live Code",
 		ShortLink:       "short123",
@@ -184,7 +182,6 @@ func TestLiveCodeRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	repo := setupLiveCodeRepository(t)
 
-	// 创建测试数据
 	liveCode := &model.LiveCode{
 		Name:            "Original Name",
 		ShortLink:       "update123",
@@ -217,7 +214,6 @@ func TestLiveCodeRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	repo := setupLiveCodeRepository(t)
 
-	// 创建测试数据
 	liveCode := &model.LiveCode{
 		Name:            "To Delete",
 		ShortLink:       "delete123",
@@ -245,7 +241,6 @@ func TestLiveCodeRepository_GetList(t *testing.T) {
 	database := setupLiveCodeTestDB(t)
 	repo := NewLiveCodeRepository(database)
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		database.Create(&model.LiveCode{
 			Name:            "Live Code " + string(rune('A'+i-1)),
@@ -257,7 +252,6 @@ func TestLiveCodeRepository_GetList(t *testing.T) {
 		})
 	}
 
-	// 创建 1 个禁用的活码
 	database.Create(&model.LiveCode{
 		Name:            "Disabled Live Code",
 		ShortLink:       "disabled",
@@ -324,7 +318,6 @@ func TestLiveCodeRepository_GetAvailableLiveCodes(t *testing.T) {
 	database := setupLiveCodeTestDB(t)
 	repo := NewLiveCodeRepository(database)
 
-	// 创建 3 个可用的活码（status=1, 7 天内创建）
 	for i := 1; i <= 3; i++ {
 		liveCode := &model.LiveCode{
 			Name:            "Available " + string(rune('0'+i)),
@@ -337,17 +330,15 @@ func TestLiveCodeRepository_GetAvailableLiveCodes(t *testing.T) {
 		database.Create(liveCode)
 	}
 
-	// 创建 1 个禁用的活码 - 先创建再更新 Status 字段
 	disabledCode := &model.LiveCode{
 		Name:            "Disabled Code",
 		ShortLink:       "disabled",
 		ShortDomainID:   1,
 		EntryDomainID:   2,
 		LandingDomainID: 3,
-		Status:          1, // GORM default might override, set to 1 first
+		Status:          1, 
 	}
 	database.Create(disabledCode)
-	// Then update to status 0
 	database.Model(&model.LiveCode{}).Where("id = ?", disabledCode.ID).Update("status", 0)
 
 	availableCodes, err := repo.GetAvailableLiveCodes(ctx)
@@ -355,8 +346,6 @@ func TestLiveCodeRepository_GetAvailableLiveCodes(t *testing.T) {
 		t.Errorf("GetAvailableLiveCodes() error = %v", err)
 	}
 
-	// 应该返回 3 个可用的活码（status=1 且 7 天内创建的）
-	// Note: All records created in this test are within 7 days, so we expect 3
 	if len(availableCodes) != 3 {
 		t.Errorf("Expected 3 available live codes, got %d", len(availableCodes))
 	}
@@ -380,8 +369,7 @@ func TestLiveCodeRepository_Delete_NotFound(t *testing.T) {
 
 	err := repo.Delete(ctx, "non-existing-id")
 	if err != nil {
-		// GORM Delete 不会返回错误，即使没有记录被删除
-		// 这里只检查是否 panic
 		t.Errorf("Delete() panicked = %v", err)
 	}
 }
+

@@ -12,46 +12,24 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// 方向7: 转人工门禁数据流向
-// ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/转人工门禁数据流向图.md
-//
-// 核心职责：
-//  1. 触发转人工熔断（高危危机感命中时执行）：
-//     - 下发 Redis 分布式协同锁，永久锁定当前会话为人工状态
-//     - 记录转人工原因（危机感/情绪/意图）
-//     - 推送"叮咚"通知到商户异步总线（hivemtk:queue:merchant_notif）
-//  2. 检查会话是否已锁定（路由前置阻断器）：
-//     - 高频调用，命中时直接放行（AI 不再调用大模型）
-//  3. 释放人工锁定（坐席主动"解决"会话时调用）
-//  4. 通知总线消费者（坐席 Vue 3 工作台 WebSocket）
-//
-// Redis Key 规范：
-//   - hivemtk:lock:human:{sessionID}            // 人工接管锁（永久）
-//   - hivemtk:session:escalate_reason:{sessionID}  // 转人工原因（24h TTL）
-//   - hivemtk:queue:merchant_notif              // 商户通知队列（LPUSH/BLPOP）
 
 const (
-	// HumanLockKey 会话被人工接管时永久锁定（AI 路由绕过）
 	HumanLockKey = "hivemtk:lock:human:"
-	// HumanReasonKey 转人工原因
 	HumanReasonKey = "hivemtk:session:escalate_reason:"
-	// MerchantNotifQueue 商户异步通知队列
 	MerchantNotifQueue = "hivemtk:queue:merchant_notif"
-	// HumanLockReasonTTL 转人工原因 TTL（24h）
 	HumanLockReasonTTL = 24 * time.Hour
 )
 
 // EscalationEvent 转人工事件载荷（推送到商户通知队列）
 type EscalationEvent struct {
-	Event      string    `json:"event"`                 // 事件类型（TRANSFER_TO_HUMAN）
-	SessionID  string    `json:"session_id"`            // 会话 ID
-	Reason     string    `json:"reason"`                // 转人工原因
-	Severity   string    `json:"severity"`              // 严重度（high/medium/low）
-	Timestamp  time.Time `json:"timestamp"`             // 事件时间
-	Channel    string    `json:"channel,omitempty"`     // 渠道
-	CustomerID string    `json:"customer_id,omitempty"` // 客户 ID
-	AgentCode  string    `json:"agent_code,omitempty"`  // 智能体代号
+	Event      string    `json:"event"`                 
+	SessionID  string    `json:"session_id"`            
+	Reason     string    `json:"reason"`                
+	Severity   string    `json:"severity"`              
+	Timestamp  time.Time `json:"timestamp"`             
+	Channel    string    `json:"channel,omitempty"`     
+	CustomerID string    `json:"customer_id,omitempty"` 
+	AgentCode  string    `json:"agent_code,omitempty"`  
 }
 
 // HumanEscalationManager 转人工协同状态机中枢
@@ -61,28 +39,25 @@ type EscalationEvent struct {
 type HumanEscalationManager struct {
 	cache cache.Cache
 
-	// 通知总线抽象（可注入；默认走 cache.LPush）
 	notifier Notifier
 
-	// 内部统计
 	mu    sync.RWMutex
 	stats EscalationStats
 }
 
 // Notifier 通知接口（解耦消息总线实现）
 type Notifier interface {
-	// Notify 转人工事件
 	Notify(ctx context.Context, event *EscalationEvent) error
 }
 
 // EscalationStats 转人工统计
 type EscalationStats struct {
-	TotalTriggers      int64     // 总触发次数
-	TotalRejections    int64     // 缓存拒绝次数
-	TotalNotifications int64     // 通知推送成功次数
-	LastTriggerAt      time.Time // 最近触发时间
-	LastSessionID      string    // 最近会话 ID
-	TriggersByReason   sync.Map  // reason -> count
+	TotalTriggers      int64     
+	TotalRejections    int64     
+	TotalNotifications int64     
+	LastTriggerAt      time.Time 
+	LastSessionID      string    
+	TriggersByReason   sync.Map  
 }
 
 // NewHumanEscalationManager 构造转人工管理器
@@ -125,7 +100,6 @@ func (h *HumanEscalationManager) TriggerCensorshipEscalation(ctx context.Context
 		return errors.New("cache unavailable")
 	}
 
-	// 1. 下发 Redis 永久锁
 	lockKey := HumanLockKey + sessionID
 	if err := h.cache.Set(ctx, lockKey, "true", 0); err != nil {
 		h.mu.Lock()
@@ -134,11 +108,9 @@ func (h *HumanEscalationManager) TriggerCensorshipEscalation(ctx context.Context
 		return fmt.Errorf("set human lock failed: %w", err)
 	}
 
-	// 2. 记录转人工原因
 	reasonKey := HumanReasonKey + sessionID
 	_ = h.cache.Set(ctx, reasonKey, reason, HumanLockReasonTTL)
 
-	// 3. 推送"叮咚"通知
 	event := &EscalationEvent{
 		Event:     "TRANSFER_TO_HUMAN",
 		SessionID: sessionID,
@@ -152,7 +124,6 @@ func (h *HumanEscalationManager) TriggerCensorshipEscalation(ctx context.Context
 		}
 	}
 
-	// 4. 统计
 	h.mu.Lock()
 	h.stats.TotalTriggers++
 	h.stats.LastTriggerAt = time.Now()
@@ -222,9 +193,6 @@ func (h *HumanEscalationManager) GetStats(ctx context.Context) *EscalationStats 
 	return &h.stats
 }
 
-// ============================================================================
-// 内部辅助
-// ============================================================================
 
 // severityFromReason 从原因推断严重度
 func severityFromReason(reason string) string {
@@ -253,9 +221,6 @@ func hasAnySubstring(s string, subs []string) bool {
 	return false
 }
 
-// ============================================================================
-// CacheNotifier 默认通知实现（通过 Redis 列表推送到商户总线）
-// ============================================================================
 
 // CacheNotifier 基于 Cache 的默认通知器
 type CacheNotifier struct {
@@ -280,9 +245,6 @@ func (n *CacheNotifier) Notify(ctx context.Context, event *EscalationEvent) erro
 	return n.cache.LPush(ctx, n.queue, string(payload), 0)
 }
 
-// ============================================================================
-// 全局单例（可选）
-// ============================================================================
 
 var (
 	globalEscalationMgr *HumanEscalationManager
@@ -296,3 +258,4 @@ func GetGlobalEscalationManager() *HumanEscalationManager {
 	})
 	return globalEscalationMgr
 }
+

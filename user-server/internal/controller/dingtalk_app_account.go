@@ -213,3 +213,4 @@ func (ctrl *DingTalkAppAccountController) Test(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"ok": true, "inbound_enabled": acc.InboundEnabled}, "配置校验通过")
 }
+

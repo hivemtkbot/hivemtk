@@ -41,8 +41,6 @@ func setupEmailSendController(t *testing.T) (*EmailSendController, *gin.Engine) 
 func TestEmailSendController_SendEmail_Success(t *testing.T) {
 	_, router := setupEmailSendController(t)
 
-	// 由于服务层需要实际的 SMTP 配置，这里使用 mock 返回
-	// 实际项目中应该 mock service 层
 	router.POST("/api/email/send", func(ctx *gin.Context) {
 		var req dto.SendEmailRequest
 		if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -50,7 +48,6 @@ func TestEmailSendController_SendEmail_Success(t *testing.T) {
 			return
 		}
 
-		// 模拟成功响应
 		ctx.JSON(http.StatusOK, gin.H{
 			"code": "SUCCESS",
 			"data": gin.H{
@@ -93,7 +90,6 @@ func TestEmailSendController_SendEmail_MissingRequiredFields(t *testing.T) {
 	ctrl, router := setupEmailSendController(t)
 	router.POST("/api/email/send", ctrl.SendEmail)
 
-	// 缺少 to, subject, content, smtpId
 	req := map[string]any{}
 	body, _ := json.Marshal(req)
 
@@ -320,3 +316,4 @@ func TestEmailSendController_NewEmailSendController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

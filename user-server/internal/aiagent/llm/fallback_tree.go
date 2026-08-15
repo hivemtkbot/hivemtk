@@ -1,25 +1,5 @@
 package llm
 
-// fallback_tree.go 4 级智能降级决策树
-//
-// 设计依据: AI 智能体性能优化
-//
-// 目标: 在 Provider 失败时, 自动选择下一级 fallback, 直至 0 出域
-// 4 级降级链:
-//
-//	Level 1: 本地 7B Q5 (主力模型, 质量高, 慢)
-//	  ↓ 失败/超时
-//	Level 2: 本地 3B Q4 (备份模型, 速度优先, 质量略低)
-//	  ↓ 失败/超时
-//	Level 3: 缓存命中 (同 prompt 历史结果, 0 延迟)
-//	  ↓ miss
-//	Level 4: 默认模板 (兜底文案, 100% 可用)
-//
-// 与 dispatcher.go 的 candidates 链配合使用:
-//   - candidates 负责尝试 7B → 3B (LLM 层面)
-//   - DecisionTree 负责 7B/3B → 缓存 → 模板 (跨层降级)
-//
-// 一键回滚: FF_FALLBACK_CHAIN=0 时, 降级链退化为单层 (7B only)
 
 import (
 	"context"
@@ -34,13 +14,9 @@ import (
 type FallbackLevel int
 
 const (
-	// LevelPrimary 主力 (本地 7B Q5)
 	LevelPrimary FallbackLevel = iota + 1
-	// LevelSecondary 备份 (本地 3B Q4)
 	LevelSecondary
-	// LevelCache 缓存命中
 	LevelCache
-	// LevelTemplate 默认模板
 	LevelTemplate
 )
 
@@ -61,13 +37,13 @@ func (l FallbackLevel) String() string {
 
 // FallbackDecision 降级决策
 type FallbackDecision struct {
-	Level       FallbackLevel // 实际使用的级别
-	FromLevel   FallbackLevel // 上一个失败级别 (用于埋点)
-	Reason      string        // 降级原因 (timeout/error/rate_limit/low_quality)
-	Provider    string        // 选中的 Provider 名称
-	CacheKey    string        // 缓存键 (Level=LevelCache 时使用)
-	TemplateKey string        // 模板键 (Level=LevelTemplate 时使用)
-	CanRetry    bool          // 是否可重试 (用于错误恢复)
+	Level       FallbackLevel 
+	FromLevel   FallbackLevel 
+	Reason      string        
+	Provider    string        
+	CacheKey    string        
+	TemplateKey string        
+	CanRetry    bool          
 }
 
 // DecisionTree 智能降级决策树
@@ -125,7 +101,6 @@ func (t *DecisionTree) Decide(
 	cacheKey string,
 	hasCacheHit bool,
 ) *FallbackDecision {
-	// 0. 灰度判定: 降级链关闭时, 直接返回 LevelTemplate 兜底
 	if !featureflag.Get("fallback_chain").Bool() {
 		if currentLevel != LevelTemplate {
 			logger.Warnf("[FallbackTree] fallback_chain disabled, jumping to template from level=%s reason=%s",
@@ -141,7 +116,6 @@ func (t *DecisionTree) Decide(
 
 	switch currentLevel {
 	case LevelPrimary:
-		// 7B 失败 → 3B
 		return &FallbackDecision{
 			Level:     LevelSecondary,
 			FromLevel: LevelPrimary,
@@ -150,7 +124,6 @@ func (t *DecisionTree) Decide(
 			CanRetry:  true,
 		}
 	case LevelSecondary:
-		// 3B 失败 → 缓存
 		if t.cacheEnabled && hasCacheHit {
 			return &FallbackDecision{
 				Level:     LevelCache,
@@ -160,7 +133,6 @@ func (t *DecisionTree) Decide(
 				CanRetry:  true,
 			}
 		}
-		// 无缓存 → 模板
 		if t.templateEnabled {
 			return &FallbackDecision{
 				Level:     LevelTemplate,
@@ -169,7 +141,6 @@ func (t *DecisionTree) Decide(
 				CanRetry:  true,
 			}
 		}
-		// 无模板可用 → 仍返回模板级 (上游会使用默认文案)
 		return &FallbackDecision{
 			Level:     LevelTemplate,
 			FromLevel: LevelSecondary,
@@ -177,7 +148,6 @@ func (t *DecisionTree) Decide(
 			CanRetry:  true,
 		}
 	case LevelCache:
-		// 缓存 miss → 模板
 		if t.templateEnabled {
 			return &FallbackDecision{
 				Level:     LevelTemplate,
@@ -193,7 +163,6 @@ func (t *DecisionTree) Decide(
 			CanRetry:  true,
 		}
 	case LevelTemplate:
-		// 已是最后一级, 不再降级
 		return &FallbackDecision{
 			Level:     LevelTemplate,
 			FromLevel: LevelTemplate,
@@ -232,10 +201,9 @@ func (t *DecisionTree) ExecuteWithFallback(
 	levelTimeoutMs int,
 ) (string, FallbackLevel, error) {
 	if levelTimeoutMs <= 0 {
-		levelTimeoutMs = 60000 // 默认 60s
+		levelTimeoutMs = 60000 
 	}
 
-	// Level 1: 主力 7B
 	levelStart := time.Now()
 	cctx, cancel := context.WithTimeout(ctx, time.Duration(levelTimeoutMs)*time.Millisecond)
 	defer cancel()
@@ -248,7 +216,6 @@ func (t *DecisionTree) ExecuteWithFallback(
 	logger.Warnf("[FallbackTree] level=%s failed: %v (latency=%dms)",
 		LevelPrimary.String(), err, time.Since(levelStart).Milliseconds())
 
-	// Level 2: 备份 3B
 	levelStart = time.Now()
 	cctx2, cancel2 := context.WithTimeout(ctx, time.Duration(levelTimeoutMs)*time.Millisecond)
 	defer cancel2()
@@ -261,7 +228,6 @@ func (t *DecisionTree) ExecuteWithFallback(
 	logger.Warnf("[FallbackTree] level=%s failed: %v (latency=%dms)",
 		LevelSecondary.String(), err, time.Since(levelStart).Milliseconds())
 
-	// Level 3: 缓存
 	if t.cacheEnabled && queryCache != nil {
 		levelStart = time.Now()
 		cacheKey := fmt.Sprintf("llm_fallback:%x", prompt)
@@ -274,12 +240,11 @@ func (t *DecisionTree) ExecuteWithFallback(
 			LevelCache.String(), time.Since(levelStart).Milliseconds())
 	}
 
-	// Level 4: 模板兜底
 	if t.templateEnabled && t.templateFallback != "" {
 		logger.Infof("[FallbackTree] level=%s used", LevelTemplate.String())
 		return t.templateFallback, LevelTemplate, nil
 	}
 
-	// 全部失败
 	return "", LevelTemplate, fmt.Errorf("fallback chain exhausted: 7B/3B/cache all failed")
 }
+

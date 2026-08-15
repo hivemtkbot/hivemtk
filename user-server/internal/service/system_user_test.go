@@ -53,7 +53,6 @@ func TestSystemUserService_GetUsers_WithUsers(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建测试用户
 	for i := 0; i < 5; i++ {
 		user := model.SystemUser{
 			Username: "user" + string(rune('0'+i)),
@@ -79,7 +78,6 @@ func TestSystemUserService_GetUsers_WithUsers(t *testing.T) {
 		t.Errorf("Expected 5 users, got %d", len(users))
 	}
 
-	// 验证用户数据存在（由于按创建时间倒序，不检查具体顺序）
 	usernames := make(map[string]bool)
 	for _, user := range users {
 		usernames[user.Username] = true
@@ -97,7 +95,6 @@ func TestSystemUserService_GetUsers_Pagination(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建 15 个用户，使用不同的用户名
 	for i := 0; i < 15; i++ {
 		user := model.SystemUser{
 			Username: "pageuser" + string(rune('a'+i)),
@@ -109,7 +106,6 @@ func TestSystemUserService_GetUsers_Pagination(t *testing.T) {
 		database.Create(&user)
 	}
 
-	// 第一页
 	users, total, err := service.GetUsers(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetUsers page 1 failed: %v", err)
@@ -123,7 +119,6 @@ func TestSystemUserService_GetUsers_Pagination(t *testing.T) {
 		t.Errorf("Expected 10 users on page 1, got %d", len(users))
 	}
 
-	// 第二页
 	users, total, err = service.GetUsers(context.Background(), 2, 10)
 	if err != nil {
 		t.Fatalf("GetUsers page 2 failed: %v", err)
@@ -139,7 +134,6 @@ func TestSystemUserService_GetUserByID(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Password: "Password123",
@@ -150,7 +144,6 @@ func TestSystemUserService_GetUserByID(t *testing.T) {
 	}
 	database.Create(&user)
 
-	// 获取用户
 	retrievedUser, err := service.GetUserByID(context.Background(), user.ID)
 	if err != nil {
 		t.Fatalf("GetUserByID failed: %v", err)
@@ -241,7 +234,6 @@ func TestSystemUserService_CreateUser_DuplicateUsername(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 先创建一个用户
 	user := model.SystemUser{
 		Username: "existinguser",
 		Password: "Password123",
@@ -251,7 +243,6 @@ func TestSystemUserService_CreateUser_DuplicateUsername(t *testing.T) {
 	}
 	database.Create(&user)
 
-	// 尝试创建相同用户名的用户
 	req := &CreateUserRequest{
 		Username: "existinguser",
 		Password: "Password456",
@@ -303,7 +294,6 @@ func TestSystemUserService_CreateUser_DefaultStatus(t *testing.T) {
 		Password: "Password123",
 		Email:    "new@example.com",
 		Role:     "user",
-		// Status 不设置，应该默认为 1
 	}
 
 	user, err := service.CreateUser(context.Background(), req)
@@ -317,8 +307,6 @@ func TestSystemUserService_CreateUser_DefaultStatus(t *testing.T) {
 }
 
 func TestSystemUserService_CreateUser_WithMerchantID(t *testing.T) {
-	// 显式初始化测试 DB：本测试原本依赖全局 DB，但其他测试的 cleanup 会关闭全局 DB，
-	// 导致 "sql: database is closed"。显式 setup 后通过 SetTestDB 注入全局 DB。
 	setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
@@ -345,7 +333,6 @@ func TestSystemUserService_UpdateUser(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Password: "Password123",
@@ -356,12 +343,11 @@ func TestSystemUserService_UpdateUser(t *testing.T) {
 	}
 	database.Create(&user)
 
-	// 更新用户（注意：服务代码中 Status != 0 才会更新，所以用 2 而不是 0）
 	req := &UpdateUserRequest{
 		Email:    "updated@example.com",
 		RealName: "Updated User",
 		Role:     "admin",
-		Status:   2, // 使用非 0 值
+		Status:   2, 
 	}
 
 	updatedUser, err := service.UpdateUser(context.Background(), user.ID, req)
@@ -410,7 +396,6 @@ func TestSystemUserService_UpdateUser_PartialUpdate(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Password: "Password123",
@@ -421,10 +406,8 @@ func TestSystemUserService_UpdateUser_PartialUpdate(t *testing.T) {
 	}
 	database.Create(&user)
 
-	// 只更新邮箱
 	req := &UpdateUserRequest{
 		Email: "updated@example.com",
-		// 其他字段为空
 	}
 
 	updatedUser, err := service.UpdateUser(context.Background(), user.ID, req)
@@ -432,12 +415,10 @@ func TestSystemUserService_UpdateUser_PartialUpdate(t *testing.T) {
 		t.Fatalf("UpdateUser failed: %v", err)
 	}
 
-	// 验证邮箱已更新
 	if updatedUser.Email != "updated@example.com" {
 		t.Errorf("Expected email 'updated@example.com', got %s", updatedUser.Email)
 	}
 
-	// 验证其他字段保持不变
 	if updatedUser.RealName != "Test User" {
 		t.Errorf("Expected real_name 'Test User', got %s", updatedUser.RealName)
 	}
@@ -451,7 +432,6 @@ func TestSystemUserService_UpdateUser_WithMerchantID(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Password: "Password123",
@@ -477,7 +457,6 @@ func TestSystemUserService_DeleteUser(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Password: "Password123",
@@ -487,13 +466,11 @@ func TestSystemUserService_DeleteUser(t *testing.T) {
 	}
 	database.Create(&user)
 
-	// 删除用户
 	err := service.DeleteUser(context.Background(), user.ID)
 	if err != nil {
 		t.Fatalf("DeleteUser failed: %v", err)
 	}
 
-	// 验证用户已被删除
 	_, err = service.GetUserByID(context.Background(), user.ID)
 	if err == nil {
 		t.Error("Expected error after delete")
@@ -524,7 +501,6 @@ func TestSystemUserService_ResetPassword(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Password: "oldpassword123",
@@ -534,13 +510,11 @@ func TestSystemUserService_ResetPassword(t *testing.T) {
 	}
 	database.Create(&user)
 
-	// 验证旧密码
 	oldUser, _ := service.GetUserByID(context.Background(), user.ID)
 	if oldUser.Username != "testuser" {
 		t.Fatal("Failed to create user")
 	}
 
-	// 重置密码
 	newPassword := "newpassword123"
 	err := service.ResetPassword(context.Background(), user.ID, newPassword)
 	if err != nil {
@@ -551,12 +525,10 @@ func TestSystemUserService_ResetPassword(t *testing.T) {
 	var updatedUser model.SystemUser
 	database.First(&updatedUser, user.ID)
 
-	// 新密码应该可以验证通过
 	if !CheckPassword(&updatedUser, newPassword) {
 		t.Error("New password should be valid")
 	}
 
-	// 旧密码应该验证失败
 	if CheckPassword(&updatedUser, "oldpassword123") {
 		t.Error("Old password should be invalid")
 	}
@@ -582,7 +554,6 @@ func TestSystemUserService_ResetPassword_PasswordHashing(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Password: "oldpassword123",
@@ -592,7 +563,6 @@ func TestSystemUserService_ResetPassword_PasswordHashing(t *testing.T) {
 	}
 	database.Create(&user)
 
-	// 重置密码
 	newPassword := "newpassword123"
 	err := service.ResetPassword(context.Background(), user.ID, newPassword)
 	if err != nil {
@@ -607,7 +577,6 @@ func TestSystemUserService_ResetPassword_PasswordHashing(t *testing.T) {
 		t.Error("Password should be hashed, not stored as plain text")
 	}
 
-	// 验证密码可以正确验证
 	if !CheckPassword(&updatedUser, newPassword) {
 		t.Error("Password verification should succeed")
 	}
@@ -618,7 +587,6 @@ func TestSystemUserService_GetUsers_OrderByCreatedAt(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 按顺序创建用户
 	usernames := []string{"first", "second", "third", "fourth", "fifth"}
 	for _, username := range usernames {
 		user := model.SystemUser{
@@ -636,7 +604,6 @@ func TestSystemUserService_GetUsers_OrderByCreatedAt(t *testing.T) {
 		t.Fatalf("GetUsers failed: %v", err)
 	}
 
-	// 验证按创建时间倒序排列（最新的在前）
 	expectedOrder := []string{"fifth", "fourth", "third", "second", "first"}
 	for i, expectedUsername := range expectedOrder {
 		if users[i].Username != expectedUsername {
@@ -651,16 +618,14 @@ func TestSystemUserService_CreateUser_InvalidRole(t *testing.T) {
 	setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 尝试创建无效角色的用户
 	req := &CreateUserRequest{
 		Username: "invaliduser",
 		Password: "Password123",
 		Email:    "invalid@example.com",
-		Role:     "invalid_role", // 无效角色
+		Role:     "invalid_role", 
 		Status:   1,
 	}
 
-	// 服务层现在会拒绝无效角色
 	_, err := service.CreateUser(context.Background(), req)
 	if err == nil {
 		t.Fatal("CreateUser should fail for invalid role")
@@ -677,7 +642,6 @@ func TestSystemUserService_UpdateUser_InvalidRole(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Password: "Password123",
@@ -687,13 +651,10 @@ func TestSystemUserService_UpdateUser_InvalidRole(t *testing.T) {
 	}
 	database.Create(&user)
 
-	// 尝试更新为无效角色
 	req := &UpdateUserRequest{
-		Role: "invalid_role", // 无效角色
+		Role: "invalid_role", 
 	}
 
-	// 服务层不会验证角色，所以会更新成功
-	// 角色验证由控制器的 binding 标签处理
 	updatedUser, err := service.UpdateUser(context.Background(), user.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateUser should not fail at service level for invalid role: %v", err)
@@ -711,7 +672,7 @@ func TestSystemUserService_CreateUser_EmptyPassword(t *testing.T) {
 
 	req := &CreateUserRequest{
 		Username: "emptypassword",
-		Password: "", // 空密码
+		Password: "", 
 		Email:    "empty@example.com",
 		Role:     "user",
 		Status:   1,
@@ -719,7 +680,6 @@ func TestSystemUserService_CreateUser_EmptyPassword(t *testing.T) {
 
 	_, err := service.CreateUser(context.Background(), req)
 	if err != nil {
-		// 空密码应该被拒绝或处理
 		t.Logf("CreateUser with empty password returned: %v", err)
 	}
 }
@@ -729,7 +689,6 @@ func TestSystemUserService_GetUserByID_AdminRole(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建管理员用户
 	user := model.SystemUser{
 		Username: "adminuser",
 		Password: "Password123",
@@ -754,7 +713,6 @@ func TestSystemUserService_UpdateUser_ToAdmin(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建普通用户
 	user := model.SystemUser{
 		Username: "regularuser",
 		Password: "Password123",
@@ -764,7 +722,6 @@ func TestSystemUserService_UpdateUser_ToAdmin(t *testing.T) {
 	}
 	database.Create(&user)
 
-	// 更新为管理员
 	req := &UpdateUserRequest{
 		Role: "admin",
 	}
@@ -784,7 +741,6 @@ func TestSystemUserService_GetUsers_DisabledUsers(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建启用用户
 	for i := 0; i < 3; i++ {
 		user := model.SystemUser{
 			Username: "active" + string(rune('0'+i)),
@@ -796,7 +752,6 @@ func TestSystemUserService_GetUsers_DisabledUsers(t *testing.T) {
 		database.Create(&user)
 	}
 
-	// 创建禁用用户
 	for i := 0; i < 2; i++ {
 		user := model.SystemUser{
 			Username: "disabled" + string(rune('0'+i)),
@@ -813,7 +768,6 @@ func TestSystemUserService_GetUsers_DisabledUsers(t *testing.T) {
 		t.Fatalf("GetUsers failed: %v", err)
 	}
 
-	// 应该获取所有用户，包括禁用的
 	if total != 5 {
 		t.Errorf("Expected total 5, got %d", total)
 	}
@@ -852,7 +806,6 @@ func TestSystemUserService_UpdateUser_EmptyFields(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Password: "Password123",
@@ -863,12 +816,11 @@ func TestSystemUserService_UpdateUser_EmptyFields(t *testing.T) {
 	}
 	database.Create(&user)
 
-	// 用空字段更新
 	req := &UpdateUserRequest{
 		Email:    "",
 		RealName: "",
 		Role:     "",
-		Status:   0, // Status 为 0 不会更新（服务代码逻辑：if req.Status != 0）
+		Status:   0, 
 	}
 
 	updatedUser, err := service.UpdateUser(context.Background(), user.ID, req)
@@ -876,7 +828,6 @@ func TestSystemUserService_UpdateUser_EmptyFields(t *testing.T) {
 		t.Fatalf("UpdateUser failed: %v", err)
 	}
 
-	// 验证空字段不会覆盖原有数据
 	if updatedUser.Email != "test@example.com" {
 		t.Errorf("Expected email 'test@example.com', got %s", updatedUser.Email)
 	}
@@ -889,7 +840,6 @@ func TestSystemUserService_UpdateUser_EmptyFields(t *testing.T) {
 		t.Errorf("Expected role 'user', got %s", updatedUser.Role)
 	}
 
-	// Status 为 0 不会更新（这是服务代码的设计逻辑）
 	if updatedUser.Status != 1 {
 		t.Errorf("Expected status 1 (unchanged), got %d", updatedUser.Status)
 	}
@@ -900,7 +850,6 @@ func TestSystemUserService_toUserResponse(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Password: "Password123",
@@ -911,7 +860,6 @@ func TestSystemUserService_toUserResponse(t *testing.T) {
 	}
 	database.Create(&user)
 
-	// 获取响应
 	response := service.toUserResponse(context.Background(), &user)
 
 	if response == nil {
@@ -942,7 +890,6 @@ func TestSystemUserService_toUserResponse(t *testing.T) {
 		t.Errorf("Expected status %d, got %d", user.Status, response.Status)
 	}
 
-	// 验证密码不在响应中（已验证响应结构体不包含密码字段）
 }
 
 // TestSystemUserService_CreateUser_MultipleUsers 测试批量创建用户
@@ -971,7 +918,6 @@ func TestSystemUserService_CreateUser_MultipleUsers(t *testing.T) {
 		}
 	}
 
-	// 验证所有用户都已创建
 	users, total, err := service.GetUsers(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetUsers failed: %v", err)
@@ -991,7 +937,6 @@ func TestSystemUserService_DeleteUser_MultipleUsers(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建多个用户
 	userIDs := []uint{}
 	for i := 0; i < 3; i++ {
 		user := model.SystemUser{
@@ -1005,7 +950,6 @@ func TestSystemUserService_DeleteUser_MultipleUsers(t *testing.T) {
 		userIDs = append(userIDs, user.ID)
 	}
 
-	// 逐个删除
 	for _, id := range userIDs {
 		err := service.DeleteUser(context.Background(), id)
 		if err != nil {
@@ -1013,7 +957,6 @@ func TestSystemUserService_DeleteUser_MultipleUsers(t *testing.T) {
 		}
 	}
 
-	// 验证所有用户都已删除
 	users, total, err := service.GetUsers(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetUsers failed: %v", err)
@@ -1033,7 +976,6 @@ func TestSystemUserService_ResetPassword_MultipleTimes(t *testing.T) {
 	database := setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Password: "password1",
@@ -1043,7 +985,6 @@ func TestSystemUserService_ResetPassword_MultipleTimes(t *testing.T) {
 	}
 	database.Create(&user)
 
-	// 多次重置密码
 	passwords := []string{"password2", "password3", "password4"}
 	for _, pwd := range passwords {
 		err := service.ResetPassword(context.Background(), user.ID, pwd)
@@ -1069,3 +1010,4 @@ func TestSystemUserService_ResetPassword_MultipleTimes(t *testing.T) {
 		t.Error("Initial password should be invalid")
 	}
 }
+

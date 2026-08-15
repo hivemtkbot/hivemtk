@@ -72,7 +72,6 @@ func StartHeartbeat(ctx context.Context) {
 func sendHeartbeat() {
 	lock, err := install.Load()
 	if err != nil || lock == nil || lock.InstallID == "" {
-		// 尚未初始化（无 InstallID），跳过上报
 		return
 	}
 
@@ -124,3 +123,4 @@ func collectMetrics() map[string]any {
 		"timestamp":  time.Now().Unix(),
 	}
 }
+

@@ -36,7 +36,6 @@ func setupIntegrationTestDB(t *testing.T) *gorm.DB {
 func TestIntegration_AccountManagement(t *testing.T) {
 	setupIntegrationTestDB(t)
 
-	// 1. 创建账号
 	account := model.Account{
 		TgName:     "integration_test",
 		TgBotToken: "token123",
@@ -64,7 +63,6 @@ func TestIntegration_AccountManagement(t *testing.T) {
 		t.Errorf("Expected TgName 'integration_test', got %s", fetchedAccount.TgName)
 	}
 
-	// 3. 更新账号
 	fetchedAccount.Price = "199.00"
 	err = db.GetDB().Save(&fetchedAccount).Error
 	if err != nil {
@@ -87,7 +85,6 @@ func TestIntegration_AccountManagement(t *testing.T) {
 func TestIntegration_DouyinCardManagement(t *testing.T) {
 	setupIntegrationTestDB(t)
 
-	// 1. 创建卡片
 	card := model.DouyinCard{
 		Title:       "集成测试卡片",
 		Description: "这是一个集成测试卡片",
@@ -114,19 +111,16 @@ func TestIntegration_DouyinCardManagement(t *testing.T) {
 		t.Errorf("Expected Title '集成测试卡片', got %s", fetchedCard.Title)
 	}
 
-	// 3. 增加浏览次数
 	fetchedCard.ViewCount++
 	err = db.GetDB().Save(&fetchedCard).Error
 	if err != nil {
 		t.Errorf("Failed to update card views: %v", err)
 	}
 
-	// 4. 验证更新
 	if fetchedCard.ViewCount != 1 {
 		t.Errorf("Expected ViewCount 1, got %d", fetchedCard.ViewCount)
 	}
 
-	// 5. 禁用卡片
 	fetchedCard.IsActive = false
 	err = db.GetDB().Save(&fetchedCard).Error
 	if err != nil {
@@ -149,7 +143,6 @@ func TestIntegration_DouyinCardManagement(t *testing.T) {
 func TestIntegration_ClueManagement(t *testing.T) {
 	setupIntegrationTestDB(t)
 
-	// 1. 创建线索
 	clue := model.Clue{
 		SourceID: "source123",
 		Account:  "testaccount",
@@ -181,7 +174,6 @@ func TestIntegration_ClueManagement(t *testing.T) {
 		t.Errorf("Expected Name '测试线索', got %s", fetchedClue.Name)
 	}
 
-	// 3. 更新线索验证状态
 	fetchedClue.IsVerify = 1
 	err = db.GetDB().Save(&fetchedClue).Error
 	if err != nil {
@@ -204,12 +196,11 @@ func TestIntegration_ClueManagement(t *testing.T) {
 func TestIntegration_OrderManagement(t *testing.T) {
 	setupIntegrationTestDB(t)
 
-	// 1. 创建订单
 	order := model.Order{
 		TgID:      12345,
 		AccountID: "test-account",
 		Price:     "99.00",
-		Status:    0, // Pending
+		Status:    0, 
 	}
 
 	err := db.GetDB().Create(&order).Error
@@ -232,8 +223,7 @@ func TestIntegration_OrderManagement(t *testing.T) {
 		t.Errorf("Expected Price '99.00', got %s", fetchedOrder.Price)
 	}
 
-	// 3. 更新订单状态为成功
-	fetchedOrder.Status = 2 // Success
+	fetchedOrder.Status = 2 
 	err = db.GetDB().Save(&fetchedOrder).Error
 	if err != nil {
 		t.Errorf("Failed to update order status: %v", err)
@@ -255,7 +245,6 @@ func TestIntegration_OrderManagement(t *testing.T) {
 func TestIntegration_MessageManagement(t *testing.T) {
 	setupIntegrationTestDB(t)
 
-	// 1. 创建消息
 	message := model.Message{
 		AccountID: "test-account",
 		TgID:      12345,
@@ -283,14 +272,12 @@ func TestIntegration_MessageManagement(t *testing.T) {
 		t.Errorf("Expected Text '测试消息内容', got %s", fetchedMessage.Text)
 	}
 
-	// 3. 更新消息状态
-	fetchedMessage.Status = 2 // Processed
+	fetchedMessage.Status = 2 
 	err = db.GetDB().Save(&fetchedMessage).Error
 	if err != nil {
 		t.Errorf("Failed to update message status: %v", err)
 	}
 
-	// 4. 验证更新
 	if fetchedMessage.Status != 2 {
 		t.Errorf("Expected Status 2, got %d", fetchedMessage.Status)
 	}
@@ -300,7 +287,6 @@ func TestIntegration_MessageManagement(t *testing.T) {
 func TestIntegration_BatchOperations(t *testing.T) {
 	setupIntegrationTestDB(t)
 
-	// 批量创建线索
 	clues := []model.Clue{
 		{SourceID: "s1", Account: "a1", Type: 1, Name: "线索 1"},
 		{SourceID: "s2", Account: "a2", Type: 2, Name: "线索 2"},
@@ -343,7 +329,6 @@ func TestIntegration_BatchOperations(t *testing.T) {
 func TestIntegration_QueryOperations(t *testing.T) {
 	setupIntegrationTestDB(t)
 
-	// 创建测试数据
 	accounts := []model.Account{
 		{TgName: "account1", GroupID: 100, Price: "99.00"},
 		{TgName: "account2", GroupID: 200, Price: "199.00"},
@@ -372,8 +357,6 @@ func TestIntegration_QueryOperations(t *testing.T) {
 		t.Errorf("Failed to query expensive accounts: %v", err)
 	}
 
-	// 注意：字符串比较 "99.00" > "150.00" 在字典序下为 true
-	// 这里测试查询功能正常即可
 	if len(expensiveAccounts) < 1 {
 		t.Errorf("Expected at least 1 expensive account, got %d", len(expensiveAccounts))
 	}
@@ -385,8 +368,8 @@ func TestIntegration_QueryOperations(t *testing.T) {
 		t.Errorf("Failed to query sorted accounts: %v", err)
 	}
 
-	// 验证有数据返回
 	if len(sortedAccounts) != 3 {
 		t.Errorf("Expected 3 sorted accounts, got %d", len(sortedAccounts))
 	}
 }
+

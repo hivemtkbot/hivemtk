@@ -14,23 +14,19 @@ import (
 
 // SmsTrackingRepository 短信追踪仓库接口
 type SmsTrackingRepository interface {
-	// 单条状态
 	CreateStatus(ctx context.Context, status *model.SmsDeliveryStatus) error
 	UpdateStatus(ctx context.Context, status *model.SmsDeliveryStatus) error
 	GetByMessageID(ctx context.Context, messageID string) (*model.SmsDeliveryStatus, error)
 	MessageIDExists(ctx context.Context, messageID string) (bool, error)
 
-	// 批量查询
 	ListStatusesByJob(ctx context.Context, jobID string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error)
 	ListStatusesByPhone(ctx context.Context, phone string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error)
 	ListRetryableStatuses(ctx context.Context, limit int) ([]*model.SmsDeliveryStatus, error)
 	ListStatusesByRange(ctx context.Context, start, end time.Time) ([]*model.SmsDeliveryStatus, error)
 
-	// 统计
 	CountByJob(ctx context.Context, jobID, status string) (int64, error)
 	CountByRange(ctx context.Context, start, end time.Time, status string) (int64, error)
 
-	// 任务指标
 	GetJobMetric(ctx context.Context, jobID string) (*model.SmsJobMetric, error)
 	UpsertJobMetric(ctx context.Context, metric *model.SmsJobMetric) error
 	ListJobMetricsByRange(ctx context.Context, start, end time.Time) ([]*model.SmsJobMetric, error)
@@ -236,3 +232,4 @@ func (r *smsTrackingRepo) ListJobMetricsByRange(ctx context.Context, start, end 
 	err := r.db.WithContext(ctx).Where("updated_at BETWEEN ? AND ?", start, end).Find(&metrics).Error
 	return metrics, err
 }
+

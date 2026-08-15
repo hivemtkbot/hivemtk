@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	apiLogReqBodyCap  = 8 * 1024  // 请求体记录上限
-	apiLogRespBodyCap = 16 * 1024 // 响应体记录上限
+	apiLogReqBodyCap  = 8 * 1024  
+	apiLogRespBodyCap = 16 * 1024 
 )
 
 // apiLogSkipPrefixes 不记录交互数据的路径（健康检查/指标等噪声端点）。
@@ -70,7 +70,6 @@ func APIInteractionLogger() gin.HandlerFunc {
 			c.Request.Body = io.NopCloser(io.TeeReader(c.Request.Body, reqCap))
 		}
 
-		// 包装响应写入器以捕获响应体
 		w := &apiLogResponseWriter{ResponseWriter: c.Writer, cap: apiLogRespBodyCap}
 		c.Writer = w
 
@@ -246,3 +245,4 @@ func redactQuery(q url.Values) string {
 	}
 	return clone.Encode()
 }
+

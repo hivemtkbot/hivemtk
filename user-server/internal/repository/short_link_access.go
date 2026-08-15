@@ -19,7 +19,6 @@ type ShortLinkAccessRepository interface {
 	GetAllDailyStats(ctx context.Context, startDate, endDate time.Time) ([]map[string]any, error)
 	GetAllDeviceTypeStats(ctx context.Context, startDate, endDate time.Time) ([]map[string]any, error)
 	GetAllShortLinksBasicStats(ctx context.Context, startDate, endDate time.Time) ([]map[string]any, error)
-	// DeleteByShortLinkID 删除指定短链的所有访问记录（删除短链前清理子表，避免外键 NO ACTION 阻止删除）
 	DeleteByShortLinkID(ctx context.Context, shortLinkID uint) error
 }
 
@@ -60,13 +59,11 @@ func (r *shortLinkAccessRepository) GetByShortLinkID(ctx context.Context, shortL
 
 	query := r.db.Model(&model.ShortLinkAccess{}).Where("short_link_id = ?", shortLinkID)
 
-	// 获取总数
 	err := query.Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
 	offset := (page - 1) * pageSize
 	err = query.Offset(offset).Limit(pageSize).Order("access_time DESC").Find(&accesses).Error
 	if err != nil {
@@ -97,7 +94,6 @@ func (r *shortLinkAccessRepository) GetStatsByShortLinkID(ctx context.Context, s
 		return nil, err
 	}
 
-	// 获取今日访问量
 	today := time.Now().Format("2006-01-02")
 	todayStart, _ := time.Parse("2006-01-02", today)
 
@@ -109,7 +105,6 @@ func (r *shortLinkAccessRepository) GetStatsByShortLinkID(ctx context.Context, s
 		return nil, err
 	}
 
-	// 返回统计信息
 	return &model.ShortLinkAccess{
 		ShortLinkID: shortLinkID,
 	}, nil
@@ -207,3 +202,4 @@ func (r *shortLinkAccessRepository) GetAllShortLinksBasicStats(ctx context.Conte
 	err := query.Group("sl.id, sl.short_code, sl.original_url").Order("access_count DESC").Scan(&results).Error
 	return results, err
 }
+

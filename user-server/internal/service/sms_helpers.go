@@ -45,7 +45,6 @@ func jsonMarshalString(s string) (string, error) {
 				buf.WriteByte(hexDigits[c>>4])
 				buf.WriteByte(hexDigits[c&0xF])
 			} else {
-				// 普通字符(含中英文/Unicode)原样写入
 				buf.WriteByte(c)
 			}
 		}
@@ -77,10 +76,6 @@ func specialURLEncode(s string) string {
 		} else if c == ' ' {
 			buf.WriteByte('+')
 		} else {
-			// 阿里云 v1 规则:把每个字节视为 Latin-1 字符,转换为 Unicode 码点后,
-			// 再用 UTF-8 编码,然后百分号编码(大写)
-			// 例如 "中"(U+4E2D) 的 UTF-8 字节为 E4 B8 AD,
-			// 被当作 Latin-1 字符(码点 0xE4/0xB8/0xAD),再 UTF-8 编码得到 C3 A4 C2 B8 C2 AD
 			r := rune(c)
 			encoded := []byte(string(r))
 			for _, b := range encoded {
@@ -108,7 +103,6 @@ func percentEncode(s string) string {
 
 // signAliyun 计算阿里云 v1 API 签名(HMAC-SHA1)
 func signAliyun(params url.Values, accessKeySecret string) string {
-	// 1. 排序参数名
 	keys := make([]string, 0, len(params))
 	for k := range params {
 		if k == "Signature" {
@@ -129,10 +123,8 @@ func signAliyun(params url.Values, accessKeySecret string) string {
 		query.WriteString(specialURLEncode(params.Get(k)))
 	}
 
-	// 3. StringToSign = HTTPMethod + "&" + specialURLEncode("/") + "&" + specialURLEncode(sortedQuery)
 	stringToSign := "GET" + "&" + specialURLEncode("/") + "&" + specialURLEncode(query.String())
 
-	// 4. HMAC-SHA1
 	mac := hmac.New(sha1.New, []byte(accessKeySecret+"&"))
 	mac.Write([]byte(stringToSign))
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
@@ -160,3 +152,4 @@ func buildWSSE(appKey, appSecret string) string {
 	passwordDigest := base64.StdEncoding.EncodeToString(h.Sum(nil))
 	return `UsernameToken Username="` + appKey + `", PasswordDigest="` + passwordDigest + `", Nonce="` + nonce + `", Created="` + now + `"`
 }
+

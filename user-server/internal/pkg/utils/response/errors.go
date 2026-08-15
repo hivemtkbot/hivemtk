@@ -3,7 +3,6 @@ package response
 // 错误消息常量
 // 用于统一 API 响应中的错误消息文本
 const (
-	// 通用错误
 	ErrSuccess          = "操作成功"
 	ErrInvalidParams    = "无效的请求参数"
 	ErrInvalidIDFormat  = "无效的 ID 格式"
@@ -11,30 +10,24 @@ const (
 	ErrResourceNotFound = "资源不存在"
 	ErrInternalError    = "服务器内部错误"
 
-	// 创建操作
 	ErrCreateFailed  = "创建失败"
 	ErrCreateSuccess = "创建成功"
 
-	// 更新操作
 	ErrUpdateFailed  = "更新失败"
 	ErrUpdateSuccess = "更新成功"
 
-	// 删除操作
 	ErrDeleteFailed  = "删除失败"
 	ErrDeleteSuccess = "删除成功"
 
-	// 获取操作
 	ErrGetFailed     = "获取失败"
 	ErrGetSuccess    = "获取成功"
 	ErrGetListFailed = "获取列表失败"
 
-	// 认证相关
 	ErrUnauthorized     = "未授权访问"
 	ErrTokenInvalid     = "无效的令牌"
 	ErrTokenExpired     = "令牌已过期"
 	ErrPermissionDenied = "权限不足"
 
-	// 业务相关
 	ErrBusinessError = "业务处理失败"
 )
 
@@ -69,6 +62,6 @@ const (
 	ErrConfigNotFound   = "配置不存在"
 	ErrConfigSaveFailed = "保存配置失败"
 
-	// 初始化相关
 	ErrSystemAlreadyInitialized = "系统已初始化，禁止重复创建超管"
 )
+

@@ -266,7 +266,6 @@ func TestEmailSmtpController_DeleteEmailSmtp_InvalidID(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httpReq)
 
-	// 应该会返回错误
 	if w.Code == http.StatusOK {
 		t.Logf("Expected error status, got OK")
 	}
@@ -279,3 +278,4 @@ func TestEmailSmtpController_NewEmailSmtpController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

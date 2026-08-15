@@ -34,8 +34,6 @@ func NewGroupMessagingController(
 	messageQueue *service.MessageQueueService,
 	templateService *service.WhatsAppTemplateService,
 ) *GroupMessagingController {
-	// 测试场景下 nil service 自动构造默认实例（依赖 dbUtil.GetDB()，
-	// 由 testutil.NewTestDB + db.SetTestDB 设置全局 DB）
 	if whatsappSvc == nil {
 		whatsappSvc = service.NewWhatsappService()
 	}
@@ -58,21 +56,17 @@ func NewGroupMessagingController(
 
 // 获取线索库中的群体
 func (gmc *GroupMessagingController) GetLeadGroups(c *gin.Context) {
-	// 获取查询参数
 	page, limit, err := pagination.Parse(c)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	// 注意：ClueService不支持所有这些查询条件，这里使用基本查询
-	// 由于ClueService的限制，我们暂时返回所有线索
-	clues, total, err := gmc.clueSvc.GetClueAllList(context.Background(), 7) // 假设7是WhatsApp线索类型
+	clues, total, err := gmc.clueSvc.GetClueAllList(context.Background(), 7) 
 	if err != nil {
 		response.ErrorFromDB(c, err, "获取线索失败", err.Error())
 		return
 	}
 
-	// 仅做基本分页处理
 	startIndex := (page - 1) * limit
 	if startIndex >= int(total) {
 		startIndex = int(total)
@@ -82,7 +76,6 @@ func (gmc *GroupMessagingController) GetLeadGroups(c *gin.Context) {
 		endIndex = int(total)
 	}
 
-	// 转换数据格式
 	leads := make([]map[string]any, 0)
 	for i := startIndex; i < endIndex && i < len(clues); i++ {
 		clue := clues[i]
@@ -93,7 +86,7 @@ func (gmc *GroupMessagingController) GetLeadGroups(c *gin.Context) {
 			"email":   "",
 			"company": clue.Address,
 			"source":  "whatsapp",
-			"score":   80, // 默认评分
+			"score":   80, 
 			"status":  "new",
 		})
 	}
@@ -111,8 +104,8 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 	var req struct {
 		LeadIDs    []string          `json:"lead_ids" binding:"required"`
 		TemplateID string            `json:"template_id" binding:"required"`
-		ScheduleAt *time.Time        `json:"schedule_at"` // 可选的计划发送时间
-		Variables  map[string]string `json:"variables"`   // 全局变量
+		ScheduleAt *time.Time        `json:"schedule_at"` 
+		Variables  map[string]string `json:"variables"`   
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -120,7 +113,6 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 		return
 	}
 
-	// 获取消息模板
 	template, err := gmc.templateService.GetTemplate(context.Background(), req.TemplateID)
 	if HandleDBError(c, err, "获取消息模板") {
 		return
@@ -131,14 +123,11 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 		return
 	}
 
-	// 从数据库获取所选线索的详细信息
 	leads := make([]map[string]any, 0)
 
-	// 获取所有WhatsApp类型的线索
-	allClues, _, err := gmc.clueSvc.GetClueAllList(context.Background(), 7) // 7 是WhatsApp线索类型
+	allClues, _, err := gmc.clueSvc.GetClueAllList(context.Background(), 7) 
 	if err != nil {
 		logger.Errorf("获取WhatsApp线索失败: %v", err)
-		// 如果获取所有线索失败，仍然尝试处理请求ID
 		for _, leadID := range req.LeadIDs {
 			leads = append(leads, map[string]any{
 				"id":      leadID,
@@ -150,10 +139,8 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 			})
 		}
 	} else {
-		// 遍历所有线索，找到匹配请求ID的线索
 		for _, clue := range allClues {
 			clueIDStr := clue.ID
-			// 检查这个线索是否在请求的ID列表中
 			for _, reqLeadID := range req.LeadIDs {
 				if clueIDStr == reqLeadID {
 					leads = append(leads, map[string]any{
@@ -164,7 +151,7 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 						"company": clue.Address,
 						"source":  "whatsapp",
 					})
-					break // 找到匹配项后跳出内层循环
+					break 
 				}
 			}
 		}
@@ -173,7 +160,6 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 	// 准备消息队列
 	var messages []model.QueuedMessage
 	for _, lead := range leads {
-		// 个性化消息内容
 		leadMap := map[string]any{
 			"name":    lead["name"],
 			"phone":   lead["phone"],
@@ -196,14 +182,12 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 		messages = append(messages, message)
 	}
 
-	// 添加到消息队列
 	queueID, err := gmc.messageQueue.AddBatch(context.Background(), messages)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "添加到队列失败", "添加到队列失败")
 		return
 	}
 
-	// 如果是立即发送，启动发送进程
 	if req.ScheduleAt == nil || req.ScheduleAt.Before(time.Now()) {
 		go gmc.processMessageQueue(queueID)
 	}
@@ -216,7 +200,6 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 
 // 个性化消息内容
 func (gmc *GroupMessagingController) personalizeMessage(templateContent string, lead map[string]any, globalVars map[string]string) string {
-	// 准备数据
 	data := map[string]any{
 		"name":    lead["name"],
 		"phone":   lead["phone"],
@@ -225,20 +208,18 @@ func (gmc *GroupMessagingController) personalizeMessage(templateContent string, 
 		"source":  lead["source"],
 	}
 
-	// 添加全局变量
 	for k, v := range globalVars {
 		data[k] = v
 	}
 
-	// 使用Go模板语法
 	tmpl, err := template.New("message").Parse(templateContent)
 	if err != nil {
-		return templateContent // 如果模板解析失败，返回原始内容
+		return templateContent 
 	}
 
 	var result strings.Builder
 	if err := tmpl.Execute(&result, data); err != nil {
-		return templateContent // 如果执行失败，返回原始内容
+		return templateContent 
 	}
 
 	return result.String()
@@ -249,19 +230,15 @@ func (gmc *GroupMessagingController) processMessageQueue(queueID string) {
 	messages := gmc.messageQueue.GetQueue(context.Background(), queueID)
 
 	for i, message := range messages {
-		// 添加发送间隔，避免被限流
 		if i > 0 {
-			time.Sleep(1 * time.Second) // 每条消息间隔1秒
+			time.Sleep(1 * time.Second) 
 		}
 
-		// 发送消息
 		success := gmc.sendMessageToWhatsApp(message)
 
-		// 更新发送状态
 		gmc.messageQueue.UpdateStatus(context.Background(), queueID, message.ID, success)
 
 		if !success {
-			// 记录发送失败
 			gmc.recordSendFailure(message)
 		}
 	}
@@ -274,7 +251,6 @@ func (gmc *GroupMessagingController) sendMessageToWhatsApp(message model.QueuedM
 		return false
 	}
 
-	// 获取所有可用的WhatsApp账号
 	accounts, err := gmc.whatsappService.ListAccounts(context.Background())
 	if err != nil || len(accounts) == 0 {
 		logger.Errorf("获取WhatsApp账号失败或无可用账号: %v", err)
@@ -294,10 +270,8 @@ func (gmc *GroupMessagingController) sendMessageToWhatsApp(message model.QueuedM
 		account = accounts[0]
 	}
 
-	// 检查账号是否已建立 session
 	hasSession, _ := gmc.whatsappService.LoginStatus(context.Background(), account.ID)
 	if !hasSession {
-		// 启动登录获取 QR；此次发送失败但记录原因
 		_, loginErr := gmc.whatsappService.StartLogin(context.Background(), account.ID, 30*time.Second)
 		if loginErr != nil {
 			logger.Errorf("启动 WhatsApp 登录失败: %v", loginErr)
@@ -308,7 +282,6 @@ func (gmc *GroupMessagingController) sendMessageToWhatsApp(message model.QueuedM
 		return false
 	}
 
-	// 构造 JID 并发送
 	toJid := formatWhatsAppJID(message.PhoneNumber)
 	if _, err := gmc.whatsappService.SendTextMessage(context.Background(), account.ID, toJid, message.Content); err != nil {
 		logger.Errorf("发送 WhatsApp 消息失败: %v", err)
@@ -417,20 +390,17 @@ func (gmc *GroupMessagingController) UpdateTemplate(c *gin.Context) {
 		return
 	}
 
-	// 获取现有模板
 	existingTemplate, err := gmc.templateService.GetTemplate(context.Background(), id)
 	if HandleDBError(c, err, "获取模板") {
 		return
 	}
 
-	// 更新字段
 	existingTemplate.Name = req.Name
 	existingTemplate.Content = req.Content
 	existingTemplate.Category = req.Category
 	existingTemplate.IsActive = req.IsActive
 	existingTemplate.Description = req.Description
 
-	// 保存更新
 	updated, err := gmc.templateService.UpdateTemplate(context.Background(), existingTemplate)
 	if HandleDBError(c, err, "更新模板") {
 		return
@@ -443,7 +413,6 @@ func (gmc *GroupMessagingController) UpdateTemplate(c *gin.Context) {
 func (gmc *GroupMessagingController) DeleteTemplate(c *gin.Context) {
 	id := c.Param("id")
 
-	// 调用TemplateService删除模板
 	if HandleDBError(c, gmc.templateService.DeleteTemplate(context.Background(), id), "删除模板") {
 		return
 	}
@@ -459,7 +428,6 @@ func (gmc *GroupMessagingController) GetSendRecords(c *gin.Context) {
 		return
 	}
 
-	// 从数据库读取所有队列状态
 	allStatuses := gmc.messageQueue.ListAllStatuses(context.Background())
 
 	statuses := make([]map[string]any, 0, len(allStatuses))
@@ -471,7 +439,7 @@ func (gmc *GroupMessagingController) GetSendRecords(c *gin.Context) {
 		statuses = append(statuses, map[string]any{
 			"id":           status.QueueID,
 			"queue_id":     status.QueueID,
-			"templateName": "批量消息", // 实际应用中应关联具体模板
+			"templateName": "批量消息", 
 			"totalCount":   status.Total,
 			"sentCount":    status.Sent,
 			"failedCount":  status.Failed,
@@ -481,7 +449,6 @@ func (gmc *GroupMessagingController) GetSendRecords(c *gin.Context) {
 		})
 	}
 
-	// 分页处理
 	startIndex := (page - 1) * limit
 	if startIndex >= len(statuses) {
 		startIndex = len(statuses)
@@ -491,7 +458,6 @@ func (gmc *GroupMessagingController) GetSendRecords(c *gin.Context) {
 		endIndex = len(statuses)
 	}
 
-	// 应用分页
 	pagedStatuses := statuses[startIndex:endIndex]
 
 	response.Success(c, gin.H{
@@ -505,3 +471,4 @@ func (gmc *GroupMessagingController) GetSendRecords(c *gin.Context) {
 func generateMessageID() string {
 	return fmt.Sprintf("msg_%d", time.Now().UnixNano())
 }
+

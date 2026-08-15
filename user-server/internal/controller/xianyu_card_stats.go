@@ -39,7 +39,6 @@ func (c *XianyuCardStatsController) GetCardStats(ctx *gin.Context) {
 		return
 	}
 
-	// 通过 service 获取原始统计数据（包含完整的 views/clicks/shares）
 	raw, err := c.service.GetCardStatsRaw(ctx, uint(cardID), startDate, endDate)
 	if err != nil {
 		dates := []string{}
@@ -89,7 +88,6 @@ func (c *XianyuCardStatsController) GetCardStats(ctx *gin.Context) {
 		shares[i] = d.Shares
 	}
 
-	// 简单分页对 dailyStats 进行明细化
 	pageStr := ctx.DefaultQuery("page", "1")
 	sizeStr := ctx.DefaultQuery("page_size", "10")
 	page, _ := strconv.Atoi(pageStr)
@@ -154,7 +152,6 @@ func (c *XianyuCardStatsController) GetOverallStats(ctx *gin.Context) {
 	endDate := ctx.DefaultQuery("end_date", time.Now().Format("2006-01-02"))
 	_ = ctx.DefaultQuery("group_by", "day")
 
-	// 通过 service 获取原始整体统计数据
 	raw2, err := c.service.GetOverallStatsRaw(ctx, startDate, endDate)
 	if err != nil {
 		data := gin.H{
@@ -220,3 +217,4 @@ func (c *XianyuCardStatsController) GetOverallStats(ctx *gin.Context) {
 
 	response.Success(ctx, data, "获取成功")
 }
+

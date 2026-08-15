@@ -1,18 +1,5 @@
 package migrations
 
-// feedback_loop_migration_test.go 反馈学习闭环迁移 v3.0.0 PG 集成测试
-//
-// 覆盖：
-//  1. Version / Name / Description 元信息
-//  2. Up() 创建 6 张新表
-//  3. Up() 幂等：重复执行不报错
-//  4. Down() 回滚 6 张表
-//  5. 各表可正常写入数据（验证字段完整）
-//  6. champion_dialogues 表 pgvector 类型字段
-//  7. sop_agents 扩展 use_bandit 字段
-//  8. script_templates 扩展 5 个字段
-//  9. nil db 返回错误
-// 10. 编译时接口断言
 
 import (
 	"context"
@@ -31,7 +18,6 @@ var _ migration.Migration = (*FeedbackLoopMigration)(nil)
 // setupFeedbackLoopMigrationTestDB 创建迁移测试 DB（空库）
 func setupFeedbackLoopMigrationTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	// 项目规则"不允许跳过"：PG 集成测试必须运行，testutil.NewTestDB 在连接失败时 t.Fatal
 	return testutil.NewTestDB(t)
 }
 
@@ -76,7 +62,6 @@ func TestFeedbackLoopMigration_NilDB(t *testing.T) {
 // 此处先手动创建以测试 ALTER 逻辑
 func TestFeedbackLoopMigration_UpCreatesAllTables(t *testing.T) {
 	db := setupFeedbackLoopMigrationTestDB(t)
-	// 预创建 sop_agents 和 script_templates 表（模拟 v1.x 已存在）
 	if err := db.Exec(`
 		CREATE TABLE sop_agents (
 			id BIGSERIAL PRIMARY KEY,
@@ -127,7 +112,6 @@ func TestFeedbackLoopMigration_UpCreatesAllTables(t *testing.T) {
 // TestFeedbackLoopMigration_UpIdempotent 集成测试：Up 幂等
 func TestFeedbackLoopMigration_UpIdempotent(t *testing.T) {
 	db := setupFeedbackLoopMigrationTestDB(t)
-	// 预创建依赖表
 	_ = db.Exec(`CREATE TABLE sop_agents (id BIGSERIAL PRIMARY KEY, name VARCHAR(100))`).Error
 	_ = db.Exec(`CREATE TABLE script_templates (id BIGSERIAL PRIMARY KEY, title VARCHAR(200))`).Error
 
@@ -294,7 +278,6 @@ func TestFeedbackLoopMigration_InsertChampionDialogue(t *testing.T) {
 		t.Fatalf("Up() failed: %v", err)
 	}
 
-	// 构造 1024 维向量（全 0.1）
 	vec := make([]float64, 1024)
 	for i := range vec {
 		vec[i] = 0.1
@@ -439,7 +422,6 @@ func TestFeedbackLoopMigration_SOPAgentsUseBanditColumn(t *testing.T) {
 		t.Errorf("sop_agents 应有 use_bandit 列")
 	}
 
-	// 验证可写入 use_bandit
 	if err := db.Exec(`INSERT INTO sop_agents (name, use_bandit) VALUES ('test', TRUE)`).Error; err != nil {
 		t.Errorf("写入 sop_agents.use_bandit 失败: %v", err)
 	}
@@ -477,7 +459,6 @@ func TestFeedbackLoopMigration_ScriptTemplatesExtendedColumns(t *testing.T) {
 		}
 	}
 
-	// 验证可写入所有新字段
 	if err := db.Exec(`
 		INSERT INTO script_templates
 			(title, source, effectiveness_score, trigger_keywords, journey_stage, champion_dialogue_id)
@@ -536,14 +517,12 @@ func TestFeedbackLoopMigration_BanditArmsUniqueConstraint(t *testing.T) {
 		t.Fatalf("Up() failed: %v", err)
 	}
 
-	// 第一次插入成功
 	if err := db.Exec(`
 		INSERT INTO bandit_arms (experiment_id, experiment_type, arm_key, alpha, beta, status)
 		VALUES ('exp-unique', 'prompt', 'arm_a', 2, 2, 'exploring')
 	`).Error; err != nil {
 		t.Fatalf("第一次插入失败: %v", err)
 	}
-	// 第二次插入相同 (experiment_id, arm_key) 应失败
 	err := db.Exec(`
 		INSERT INTO bandit_arms (experiment_id, experiment_type, arm_key, alpha, beta, status)
 		VALUES ('exp-unique', 'prompt', 'arm_a', 3, 3, 'exploring')
@@ -554,3 +533,4 @@ func TestFeedbackLoopMigration_BanditArmsUniqueConstraint(t *testing.T) {
 		t.Logf("唯一约束生效, 拒绝重复插入: %v", err)
 	}
 }
+

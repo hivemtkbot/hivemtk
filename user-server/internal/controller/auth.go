@@ -38,18 +38,13 @@ func (c *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	// 即使在测试模式下，登录也必须验证用户名和密码
-	// 测试模式只跳过后续的 JWT 中间件认证，不跳过登录验证
 	resp, err := c.authService.Login(context.Background(), &req)
 	if err != nil {
-		// 修复：登录失败计入防爆计数（与路由 BruteForceGuard("auth.login") 配对），
-		// 超限后中间件返回 429，原实现从未调用导致暴力破解无防护。
 		middleware.RecordBruteForceFailure(ctx, "auth.login")
 		response.Error(ctx, http.StatusUnauthorized, err.Error())
 		return
 	}
 
-	// 修复：登录成功清除防爆计数，避免成功登录后误判为持续失败。
 	middleware.ClearBruteForceFailure(ctx, "auth.login")
 	response.Success(ctx, resp, "登录成功")
 }
@@ -61,7 +56,6 @@ func (c *AuthController) Login(ctx *gin.Context) {
 //   - 使用安全的 trim 前缀而非裸切片
 //   - token 通过 gin Context 解析后调用 JWT 工具刷新
 func (c *AuthController) RefreshToken(ctx *gin.Context) {
-	// 从请求头获取 Authorization
 	authHeader := ctx.GetHeader("Authorization")
 	if authHeader == "" {
 		response.Error(ctx, http.StatusUnauthorized, "未提供认证令牌")
@@ -80,7 +74,6 @@ func (c *AuthController) RefreshToken(ctx *gin.Context) {
 		return
 	}
 
-	// 刷新令牌
 	newToken, err := c.authService.RefreshToken(context.Background(), token)
 	if err != nil {
 		response.Error(ctx, http.StatusUnauthorized, "刷新令牌失败", err.Error())
@@ -94,21 +87,18 @@ func (c *AuthController) RefreshToken(ctx *gin.Context) {
 
 // GetCurrentUser 获取当前用户信息
 func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
-	// 从上下文获取用户ID
 	userID, exists := ctx.Get("user_id")
 	if !exists {
 		response.Error(ctx, http.StatusUnauthorized, "未找到用户信息")
 		return
 	}
 
-	// 转换为uint类型
 	uid, ok := userID.(uint)
 	if !ok {
 		response.Error(ctx, http.StatusInternalServerError, "用户ID类型错误")
 		return
 	}
 
-	// 获取用户信息
 	user, err := c.authService.GetCurrentUser(context.Background(), uid)
 	if err != nil {
 		if HandleServiceError(ctx, err) {
@@ -123,14 +113,12 @@ func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
 
 // ChangePassword 修改密码
 func (c *AuthController) ChangePassword(ctx *gin.Context) {
-	// 从上下文获取用户ID
 	userID, exists := ctx.Get("user_id")
 	if !exists {
 		response.Error(ctx, http.StatusUnauthorized, "未找到用户信息")
 		return
 	}
 
-	// 转换为uint类型
 	uid, ok := userID.(uint)
 	if !ok {
 		response.Error(ctx, http.StatusInternalServerError, "用户ID类型错误")
@@ -143,14 +131,11 @@ func (c *AuthController) ChangePassword(ctx *gin.Context) {
 		return
 	}
 
-	// 修改密码
 	if err := c.authService.ChangePassword(context.Background(), uid, &req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// 修复：改密成功后拉黑当前令牌，迫使旧令牌失效（需重新登录），
-	// 防御改密后旧 JWT 仍可被续用。fail-open：缓存故障时 IsJWTBlacklisted 返回 false 不阻断。
 	if authHeader := ctx.GetHeader("Authorization"); authHeader != "" {
 		if parts := strings.SplitN(authHeader, " ", 2); len(parts) == 2 && parts[0] == "Bearer" && parts[1] != "" {
 			utils.BlacklistJWT(parts[1])
@@ -160,7 +145,6 @@ func (c *AuthController) ChangePassword(ctx *gin.Context) {
 	response.Success(ctx, nil, "修改密码成功")
 }
 
-// ============== MFA 多因素认证 ==============
 
 // SetupMFA 设置 MFA：生成 TOTP 密钥并返回 otpauth URL
 // 用户使用 Google Authenticator 扫描二维码
@@ -266,7 +250,6 @@ func (c *AuthController) VerifyMFALogin(ctx *gin.Context) {
 		return
 	}
 
-	// 颁发正式 JWT
 	jwtUtils := c.authService.JwtUtils(context.Background())
 	token, err := jwtUtils.GenerateToken(userID, username, role)
 	if err != nil {
@@ -274,7 +257,6 @@ func (c *AuthController) VerifyMFALogin(ctx *gin.Context) {
 		return
 	}
 
-	// 标记 MFA 已验证（用于敏感操作中间件）
 	middleware.MarkMFAVerified(userID)
 
 	response.Success(ctx, gin.H{
@@ -312,7 +294,6 @@ func (c *AuthController) GetMFAStatus(ctx *gin.Context) {
 	}, "查询成功")
 }
 
-// ============== 异常登录预警 ==============
 
 // ListLoginEvents 查询登录事件列表
 // GET /api/auth/login-events?page=1&page_size=20
@@ -399,7 +380,6 @@ func (c *AuthController) ResolveSecurityAlert(ctx *gin.Context) {
 	response.Success(ctx, nil, "告警已处理")
 }
 
-// ============== 密码策略 ==============
 
 // GetPasswordPolicy 查询当前密码策略
 // GET /api/auth/password-policy
@@ -448,7 +428,6 @@ func NewSystemUserController() *SystemUserController {
 
 // GetUsers 获取用户列表
 func (c *SystemUserController) GetUsers(ctx *gin.Context) {
-	// 获取分页参数
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
 
@@ -459,7 +438,6 @@ func (c *SystemUserController) GetUsers(ctx *gin.Context) {
 		pageSize = 10
 	}
 
-	// 获取用户列表
 	users, total, err := c.userService.GetUsers(context.Background(), page, pageSize)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, err.Error())
@@ -476,7 +454,6 @@ func (c *SystemUserController) GetUsers(ctx *gin.Context) {
 
 // GetUser 获取用户详情
 func (c *SystemUserController) GetUser(ctx *gin.Context) {
-	// 获取用户ID
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -484,7 +461,6 @@ func (c *SystemUserController) GetUser(ctx *gin.Context) {
 		return
 	}
 
-	// 获取用户信息
 	user, err := c.userService.GetUserByID(context.Background(), uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
@@ -502,7 +478,6 @@ func (c *SystemUserController) CreateUser(ctx *gin.Context) {
 		return
 	}
 
-	// 创建用户
 	user, err := c.userService.CreateUser(context.Background(), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
@@ -514,7 +489,6 @@ func (c *SystemUserController) CreateUser(ctx *gin.Context) {
 
 // UpdateUser 更新用户
 func (c *SystemUserController) UpdateUser(ctx *gin.Context) {
-	// 获取用户ID
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -528,7 +502,6 @@ func (c *SystemUserController) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
-	// 更新用户
 	user, err := c.userService.UpdateUser(context.Background(), uint(id), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
@@ -540,7 +513,6 @@ func (c *SystemUserController) UpdateUser(ctx *gin.Context) {
 
 // DeleteUser 删除用户
 func (c *SystemUserController) DeleteUser(ctx *gin.Context) {
-	// 获取用户ID
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -548,7 +520,6 @@ func (c *SystemUserController) DeleteUser(ctx *gin.Context) {
 		return
 	}
 
-	// 删除用户
 	if err := c.userService.DeleteUser(context.Background(), uint(id)); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -559,7 +530,6 @@ func (c *SystemUserController) DeleteUser(ctx *gin.Context) {
 
 // ResetPassword 重置用户密码
 func (c *SystemUserController) ResetPassword(ctx *gin.Context) {
-	// 获取用户ID
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -576,7 +546,6 @@ func (c *SystemUserController) ResetPassword(ctx *gin.Context) {
 		return
 	}
 
-	// 重置密码
 	if err := c.userService.ResetPassword(context.Background(), uint(id), req.Password); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -628,7 +597,6 @@ func (c *SystemUserController) CreateDefaultAdmin(ctx *gin.Context) {
 		return
 	}
 
-	// 委派给 AuthService（与 AuthController.InitAdmin 共享同一份业务逻辑）
 	authSvc := service.NewAuthService()
 	if err := authSvc.InitAdmin(context.Background(), req.Username, req.Password, req.Email); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
@@ -640,3 +608,4 @@ func (c *SystemUserController) CreateDefaultAdmin(ctx *gin.Context) {
 		"message":  "默认管理员创建成功（兼容旧路由）",
 	}, "默认管理员创建成功")
 }
+

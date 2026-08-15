@@ -12,9 +12,9 @@ type MessageHub struct {
 	MsgID          string     `gorm:"type:varchar(100);uniqueIndex:uni_message_hub_msg_id_conv,priority:1" json:"msg_id"`
 	Platform       string     `gorm:"type:varchar(30);not null;index" json:"platform"`
 	AccountID      string     `gorm:"type:varchar(100);not null;index" json:"account_id"`
-	Direction      string     `gorm:"type:varchar(10);not null" json:"direction"`             // inbound / outbound
-	Status         string     `gorm:"type:varchar(20);default:'pending';index" json:"status"` // pending / failed / delivered（桥接离线重试）
-	MsgType        string     `gorm:"type:varchar(20);not null" json:"msg_type"`              // text/image/file/link/card
+	Direction      string     `gorm:"type:varchar(10);not null" json:"direction"`             
+	Status         string     `gorm:"type:varchar(20);default:'pending';index" json:"status"` 
+	MsgType        string     `gorm:"type:varchar(20);not null" json:"msg_type"`              
 	SenderID       string     `gorm:"type:varchar(100);index" json:"sender_id"`
 	SenderName     string     `gorm:"type:varchar(200)" json:"sender_name"`
 	ReceiverID     string     `gorm:"type:varchar(100)" json:"receiver_id"`
@@ -26,9 +26,9 @@ type MessageHub struct {
 	GroupID        string     `gorm:"type:varchar(100)" json:"group_id"`
 	IsAIReply      bool       `gorm:"default:false" json:"is_ai_reply"`
 	AIAgent        string     `gorm:"type:varchar(50)" json:"ai_agent"`
-	TraceID        string     `gorm:"type:varchar(64);index:idx_hub_trace" json:"trace_id"`       // 全链路追踪：关联 inbound↔outbound 同轮对话
-	DedupHash      string     `gorm:"type:varchar(64);index:idx_mh_dedup_hash" json:"dedup_hash"` // 统一收件去重哈希（渠道+发送者+内容），用于服务端权威自/他判定与回环拦截
-	ClaimedAt      *time.Time `gorm:"index" json:"claimed_at"`                                    // 下发认领时间戳：pending→inflight 时写入；超时未 ack 由 ClaimPendingOutbound 惰性回收为 pending（根除重复转发）
+	TraceID        string     `gorm:"type:varchar(64);index:idx_hub_trace" json:"trace_id"`       
+	DedupHash      string     `gorm:"type:varchar(64);index:idx_mh_dedup_hash" json:"dedup_hash"` 
+	ClaimedAt      *time.Time `gorm:"index" json:"claimed_at"`                                    
 	IsRead         bool       `gorm:"default:false" json:"is_read"`
 	ReadAt         *time.Time `json:"read_at"`
 	SentAt         time.Time  `gorm:"index" json:"sent_at"`
@@ -99,19 +99,7 @@ type SOPAgent struct {
 	Priority       int     `gorm:"default:0" json:"priority"`
 	ExecutionCount int     `gorm:"default:0" json:"execution_count"`
 	SuccessCount   int     `gorm:"default:0" json:"success_count"`
-	// ABTestConfig A/B 测试配置（PRD §5.2 G2 新增）
-	// JSON 结构：{
-	//   "enabled": true,
-	//   "variants": [
-	//     {"name":"A","sop_graph_id":1,"weight":50},
-	//     {"name":"B","sop_graph_id":2,"weight":50}
-	//   ],
-	//   "salt":"customer_id"  // 分流键，默认 customer_id
-	// }
 	ABTestConfig JSONMap `gorm:"type:text" json:"ab_test_config"`
-	// UseBandit 是否启用 Bandit 流量分配（v3.0.0 新增）
-	// true  → 走 BanditAllocator Thompson Sampling 自适应分流
-	// false → 走原 ABTestConfig 一致性哈希固定权重分流（向后兼容）
 	UseBandit bool      `gorm:"default:false" json:"use_bandit"`
 	CreatedBy uint      `json:"created_by"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
@@ -133,16 +121,12 @@ type SOPExecution struct {
 	StartedAt      time.Time  `json:"started_at"`
 	CompletedAt    *time.Time `json:"completed_at"`
 	ErrorMessage   string     `gorm:"type:text" json:"error_message"`
-	// Variant A/B 测试命中的 variant 名称（PRD §5.2 G2 新增）
-	// 空值表示未启用 A/B 测试
 	Variant string `gorm:"type:varchar(50);index" json:"variant"`
 
-	// SOP 节点执行器扩展字段（v2.7.0 迁移新增）
-	// 依据：docs/核心链路优化.md 第十三章 §13.3
-	LastEventAt  *time.Time `gorm:"index" json:"last_event_at"`             // 最近一次节点事件时间（卡死检测依据）
-	AttemptCount int        `gorm:"default:0" json:"attempt_count"`         // 当前节点累计重试次数
-	TraceID      string     `gorm:"type:varchar(64);index" json:"trace_id"` // 链路追踪 ID
-	WaitEvent    string     `gorm:"type:varchar(30)" json:"wait_event"`     // 当前等待事件类型（timer/customer_reply/external），空表示非等待态
+	LastEventAt  *time.Time `gorm:"index" json:"last_event_at"`             
+	AttemptCount int        `gorm:"default:0" json:"attempt_count"`         
+	TraceID      string     `gorm:"type:varchar(64);index" json:"trace_id"` 
+	WaitEvent    string     `gorm:"type:varchar(30)" json:"wait_event"`     
 
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
@@ -155,11 +139,11 @@ type ReachPipeline struct {
 	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name         string    `gorm:"type:varchar(100);not null" json:"name"`
 	Description  string    `gorm:"type:varchar(500)" json:"description"`
-	Channel      string    `gorm:"type:varchar(30);not null;index" json:"channel"`        // wecom/sms/email/card/weixin/dingtalk
-	Steps        JSONArray `gorm:"type:text;not null" json:"steps"`                       // 9 步配置
-	RetryPolicy  JSONMap   `gorm:"type:text" json:"retry_policy"`                         // 重试策略
-	RateLimit    JSONMap   `gorm:"type:text" json:"rate_limit"`                           // 限流配置
-	Status       string    `gorm:"type:varchar(20);default:'active';index" json:"status"` // active/paused/archived
+	Channel      string    `gorm:"type:varchar(30);not null;index" json:"channel"`        
+	Steps        JSONArray `gorm:"type:text;not null" json:"steps"`                       
+	RetryPolicy  JSONMap   `gorm:"type:text" json:"retry_policy"`                         
+	RateLimit    JSONMap   `gorm:"type:text" json:"rate_limit"`                           
+	Status       string    `gorm:"type:varchar(20);default:'active';index" json:"status"` 
 	Version      int       `gorm:"default:1" json:"version"`
 	TotalRuns    int64     `gorm:"default:0" json:"total_runs"`
 	TotalSuccess int64     `gorm:"default:0" json:"total_success"`
@@ -178,7 +162,7 @@ type ReachJob struct {
 	CustomerID   string     `gorm:"type:varchar(64);index" json:"customer_id"`
 	AccountID    string     `gorm:"type:varchar(100);index" json:"account_id"`
 	Payload      JSONMap    `gorm:"type:text;not null" json:"payload"`
-	State        string     `gorm:"type:varchar(20);default:'pending';index" json:"state"` // pending/running/success/failed/canceled
+	State        string     `gorm:"type:varchar(20);default:'pending';index" json:"state"` 
 	CurrentStep  int        `gorm:"default:0" json:"current_step"`
 	StepResults  JSONArray  `gorm:"type:text" json:"step_results"`
 	RetryCount   int        `gorm:"default:0" json:"retry_count"`
@@ -199,8 +183,8 @@ type WeComAccountHealth struct {
 	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	AccountID      uint      `gorm:"index;not null" json:"account_id"`
 	Platform       string    `gorm:"type:varchar(30);default:'wecom'" json:"platform"`
-	HealthScore    int       `gorm:"type:int;default:0" json:"health_score"`              // 0-100
-	RiskLevel      string    `gorm:"type:varchar(20);default:'normal'" json:"risk_level"` // normal/warning/critical/banned
+	HealthScore    int       `gorm:"type:int;default:0" json:"health_score"`              
+	RiskLevel      string    `gorm:"type:varchar(20);default:'normal'" json:"risk_level"` 
 	LoginState     string    `gorm:"type:varchar(20)" json:"login_state"`
 	QuotaUsed      int       `gorm:"default:0" json:"quota_used"`
 	QuotaTotal     int       `gorm:"default:0" json:"quota_total"`
@@ -303,8 +287,8 @@ type SalesPersona struct {
 	ConvertedCustomers int        `gorm:"default:0" json:"converted_customers"`
 	ConversionRate     float64    `gorm:"type:decimal(5,2);default:0" json:"conversion_rate"`
 	AvgResponseSec     int        `gorm:"default:0" json:"avg_response_seconds"`
-	AvgDealAmount      int64      `gorm:"type:bigint;default:0" json:"avg_deal_amount"` // 平均成交金额（分）
-	TotalRevenue       int64      `gorm:"type:bigint;default:0" json:"total_revenue"`   // 总营收（分）
+	AvgDealAmount      int64      `gorm:"type:bigint;default:0" json:"avg_deal_amount"` 
+	TotalRevenue       int64      `gorm:"type:bigint;default:0" json:"total_revenue"`   
 	SkillTags          JSONArray  `gorm:"type:text" json:"skill_tags"`
 	BestScenarios      JSONArray  `gorm:"type:text" json:"best_scenarios"`
 	WorkDays           int        `gorm:"default:0" json:"work_days"`
@@ -328,8 +312,6 @@ type AISalesLog struct {
 	PromptTokens     int    `gorm:"default:0" json:"prompt_tokens"`
 	CompletionTokens int    `gorm:"default:0" json:"completion_tokens"`
 	TotalTokens      int    `gorm:"default:0" json:"total_tokens"`
-	// Cost LLM API 调用成本（美元，4 位小数）
-	// 保留 decimal(10,4) 不转换为 bigint：API 成本非订单金额，且 0.0001 精度无法用人民币分表示
 	Cost         float64   `gorm:"type:decimal(10,4);default:0" json:"cost"`
 	LatencyMs    int       `gorm:"default:0" json:"latency_ms"`
 	Success      bool      `gorm:"default:true" json:"success"`
@@ -348,16 +330,16 @@ type InboxConversation struct {
 	CustomerID         string     `gorm:"type:varchar(100);not null;index" json:"customer_id"`
 	CustomerName       string     `gorm:"type:varchar(200)" json:"customer_name"`
 	ConversationID     string     `gorm:"type:varchar(100);index" json:"conversation_id"`
-	Status             string     `gorm:"type:varchar(20);default:'unread';index" json:"status"` // unread/open/assigned/closed
-	AssignedTo         string     `gorm:"type:varchar(64);index" json:"assigned_to"`             // 客服 user id
-	AssignedToSOP      uint       `gorm:"index" json:"assigned_to_sop"`                          // SOP 智能体 ID
+	Status             string     `gorm:"type:varchar(20);default:'unread';index" json:"status"` 
+	AssignedTo         string     `gorm:"type:varchar(64);index" json:"assigned_to"`             
+	AssignedToSOP      uint       `gorm:"index" json:"assigned_to_sop"`                          
 	AssignedAt         *time.Time `json:"assigned_at"`
 	UnreadCount        int        `gorm:"default:0" json:"unread_count"`
 	TotalCount         int        `gorm:"default:0" json:"total_count"`
 	LastMessageID      uint       `json:"last_message_id"`
 	LastMessagePreview string     `gorm:"type:varchar(500)" json:"last_message_preview"`
 	LastMessageAt      *time.Time `gorm:"index" json:"last_message_at"`
-	LastMessageFrom    string     `gorm:"type:varchar(20)" json:"last_message_from"` // customer/staff/ai
+	LastMessageFrom    string     `gorm:"type:varchar(20)" json:"last_message_from"` 
 	Pinned             bool       `gorm:"default:false;index" json:"pinned"`
 	Starred            bool       `gorm:"default:false" json:"starred"`
 	Muted              bool       `gorm:"default:false" json:"muted"`
@@ -377,10 +359,10 @@ type InboxAssignment struct {
 	Platform       string    `gorm:"type:varchar(30);json" json:"platform"`
 	AccountID      string    `gorm:"type:varchar(100)" json:"account_id"`
 	CustomerID     string    `gorm:"type:varchar(100)" json:"customer_id"`
-	Action         string    `gorm:"type:varchar(20);not null" json:"action"` // assign/reassign/release/close/reopen
-	FromType       string    `gorm:"type:varchar(20)" json:"from_type"`       // human/sop/ai/system
+	Action         string    `gorm:"type:varchar(20);not null" json:"action"` 
+	FromType       string    `gorm:"type:varchar(20)" json:"from_type"`       
 	FromUserID     string    `gorm:"type:varchar(64)" json:"from_user_id"`
-	ToType         string    `gorm:"type:varchar(20);index" json:"to_type"` // human/sop/ai/system
+	ToType         string    `gorm:"type:varchar(20);index" json:"to_type"` 
 	ToUserID       string    `gorm:"type:varchar(64);index" json:"to_user_id"`
 	ToSOPID        uint      `gorm:"index" json:"to_sop_id"`
 	OperatorID     string    `gorm:"type:varchar(64);index" json:"operator_id"`
@@ -451,3 +433,4 @@ func (j *JSONArray) Scan(value any) error {
 	}
 	return json.Unmarshal(data, j)
 }
+

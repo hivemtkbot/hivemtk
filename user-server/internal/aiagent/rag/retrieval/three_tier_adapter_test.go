@@ -38,7 +38,7 @@ func TestRAGThreeTierAdapter_Stats(t *testing.T) {
 	adapter := NewRAGThreeTierAdapter(svc)
 
 	adapter.Search(context.Background(), "kb1", "hi", 5)
-	adapter.Search(context.Background(), "kb1", "hi", 5) // cache hit
+	adapter.Search(context.Background(), "kb1", "hi", 5) 
 	stats := adapter.Stats()
 	if stats.Total < 1 {
 		t.Errorf("expected total >= 1, got %d", stats.Total)
@@ -65,7 +65,6 @@ func TestRAGThreeTierAdapter_ErrorPropagation(t *testing.T) {
 	l2 := &mockIndex{err: errors.New("backend down")}
 	svc := NewRAGThreeTierService(nil, v, l2, nil, nil, 10)
 	adapter := NewRAGThreeTierAdapter(svc)
-	// L2 出错但其他层也都没有，应得到 no_hit，不返回 error
 	res, err := adapter.Search(context.Background(), "kb1", "hi", 5)
 	if err != nil {
 		t.Errorf("expected graceful degrade, got error: %v", err)
@@ -77,3 +76,4 @@ func TestRAGThreeTierAdapter_ErrorPropagation(t *testing.T) {
 		t.Errorf("expected empty source, got %s", res.Source)
 	}
 }
+

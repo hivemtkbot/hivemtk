@@ -40,7 +40,6 @@ type kuaishouCardService struct {
 
 // NewKuaishouCardService 创建快手卡片服务实例
 func NewKuaishouCardService(db any) KuaishouCardService {
-	// 类型断言将interface{}转换为*gorm.DB
 	gormDB := db.(*gorm.DB)
 	return &kuaishouCardService{
 		repo:              repository.NewKuaishouCardRepository(gormDB),
@@ -52,9 +51,7 @@ func NewKuaishouCardService(db any) KuaishouCardService {
 
 // Create 创建快手卡片
 func (s *kuaishouCardService) Create(ctx context.Context, req *dto.KuaishouCardCreateRequest) (*dto.KuaishouCardResponse, error) {
-	// 处理跳转链接
 	redirectURL := req.RedirectURL
-	// 如果没有提供跳转链接，设置默认值
 	if redirectURL == "" {
 		redirectURL = "https://www.kuaishou.com"
 	}
@@ -74,18 +71,15 @@ func (s *kuaishouCardService) Create(ctx context.Context, req *dto.KuaishouCardC
 		return nil, err
 	}
 
-	// 生成短链（可选功能：失败时仅记日志，不影响主流程）
 	if err := s.GenerateShortLink(ctx, createdCard); err != nil {
 		logger.Errorf("警告：生成短链失败：%v", err)
 	}
 
-	// 重新获取卡片信息以获取短链
 	card, err = s.repo.GetByID(ctx, createdCard.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取短链信息
 	shortCode := ""
 	if card.ShortLinkID != nil && *card.ShortLinkID != 0 {
 		shortLink, err := s.shortLinkService.GetByID(ctx, *card.ShortLinkID)
@@ -99,28 +93,22 @@ func (s *kuaishouCardService) Create(ctx context.Context, req *dto.KuaishouCardC
 
 // Update 更新快手卡片
 func (s *kuaishouCardService) Update(ctx context.Context, req *dto.KuaishouCardUpdateRequest) (*dto.KuaishouCardResponse, error) {
-	// 获取现有卡片
 	card, err := s.repo.GetByID(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 处理跳转链接
 	redirectURL := req.RedirectURL
-	// 如果没有提供跳转链接，设置默认值
 	if redirectURL == "" {
 		redirectURL = "https://www.kuaishou.com"
 	}
 
-	// 更新字段
 	card.Title = req.Title
 	card.Description = req.Description
 	card.ImageURL = req.ImageURL
 	card.RedirectURL = redirectURL
 	card.DomainPoolID = req.DomainPoolID
 	card.Tags = req.Tags
-	// 注意：LikeCount / ShareCount 由 LikeCard / ShareCard 累积维护，
-	// 此处不能用请求体覆盖，否则会清零累计的点赞/分享数。
 	card.IsActive = req.IsActive
 
 	updatedCard, err := s.repo.Update(ctx, card)
@@ -128,18 +116,15 @@ func (s *kuaishouCardService) Update(ctx context.Context, req *dto.KuaishouCardU
 		return nil, err
 	}
 
-	// 每次更新都重新生成短链（可选功能：失败时仅记日志，不影响主流程）
 	if err := s.GenerateShortLink(ctx, updatedCard); err != nil {
 		logger.Errorf("警告：生成短链失败：%v", err)
 	}
 
-	// 重新获取卡片信息以获取短链
 	card, err = s.repo.GetByID(ctx, updatedCard.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取短链信息
 	shortCode := ""
 	if card.ShortLinkID != nil && *card.ShortLinkID != 0 {
 		shortLink, err := s.shortLinkService.GetByID(ctx, *card.ShortLinkID)
@@ -153,13 +138,11 @@ func (s *kuaishouCardService) Update(ctx context.Context, req *dto.KuaishouCardU
 
 // Delete 删除快手卡片
 func (s *kuaishouCardService) Delete(ctx context.Context, id uint) error {
-	// 检查卡片是否存在
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	// 如果存在短链，删除短链
 	if card.ShortLinkID != nil && *card.ShortLinkID != 0 {
 		_ = s.shortLinkService.Delete(ctx, *card.ShortLinkID)
 	}
@@ -174,7 +157,6 @@ func (s *kuaishouCardService) GetByID(ctx context.Context, id uint) (*dto.Kuaish
 		return nil, err
 	}
 
-	// 获取短链信息
 	shortCode := ""
 	if card.ShortLinkID != nil && *card.ShortLinkID != 0 {
 		shortLink, err := s.shortLinkService.GetByID(ctx, *card.ShortLinkID)
@@ -188,13 +170,11 @@ func (s *kuaishouCardService) GetByID(ctx context.Context, id uint) (*dto.Kuaish
 
 // GetByIDWithRefresh 获取并刷新卡片信息
 func (s *kuaishouCardService) GetByIDWithRefresh(ctx context.Context, id uint) (*dto.KuaishouCardResponse, error) {
-	// 直接从数据库获取最新的卡片信息，不使用缓存
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取短链信息
 	shortCode := ""
 	if card.ShortLinkID != nil && *card.ShortLinkID != 0 {
 		shortLink, err := s.shortLinkService.GetByID(ctx, *card.ShortLinkID)
@@ -221,7 +201,6 @@ func (s *kuaishouCardService) GetList(ctx context.Context, req *dto.KuaishouCard
 
 	var responseList []dto.KuaishouCardResponse
 	for _, card := range cards {
-		// 获取短链信息
 		shortCode := ""
 		if card.ShortLinkID != nil && *card.ShortLinkID != 0 {
 			shortLink, err := s.shortLinkService.GetByID(ctx, *card.ShortLinkID)
@@ -240,13 +219,11 @@ func (s *kuaishouCardService) GetList(ctx context.Context, req *dto.KuaishouCard
 
 // LikeCard 点赞卡片
 func (s *kuaishouCardService) LikeCard(ctx context.Context, id uint) error {
-	// 增加点赞数
 	err := s.repo.IncrementLikeCount(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	// 记录活动
 	ip, _ := ctx.Value("ip").(string)
 	userAgent, _ := ctx.Value("user_agent").(string)
 	activity := &model.KuaishouCardActivity{
@@ -260,13 +237,11 @@ func (s *kuaishouCardService) LikeCard(ctx context.Context, id uint) error {
 
 // ViewCard 浏览卡片
 func (s *kuaishouCardService) ViewCard(ctx context.Context, id uint) error {
-	// 增加浏览数
 	_, err := s.repo.IncrementViewCount(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	// 记录活动
 	ip, _ := ctx.Value("ip").(string)
 	userAgent, _ := ctx.Value("user_agent").(string)
 	activity := &model.KuaishouCardActivity{
@@ -280,19 +255,16 @@ func (s *kuaishouCardService) ViewCard(ctx context.Context, id uint) error {
 
 // ShareCard 分享卡片
 func (s *kuaishouCardService) ShareCard(ctx context.Context, id uint, platform string) (*dto.KuaishouCardResponse, error) {
-	// 获取卡片信息
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// 增加分享数
 	err = s.repo.IncrementShareCount(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// 记录活动
 	ip, _ := ctx.Value("ip").(string)
 	userAgent, _ := ctx.Value("user_agent").(string)
 	activity := &model.KuaishouCardActivity{
@@ -308,13 +280,11 @@ func (s *kuaishouCardService) ShareCard(ctx context.Context, id uint, platform s
 
 // GenerateHTMLPage 生成快手卡片HTML页面
 func (s *kuaishouCardService) GenerateHTMLPage(ctx context.Context, id uint) (string, error) {
-	// 获取卡片信息
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return "", err
 	}
 
-	// 使用模板服务生成HTML页面
 	data := &template.CardTemplateData{
 		Title:       card.Title,
 		Description: card.Description,
@@ -341,13 +311,10 @@ func (s *kuaishouCardService) GenerateCardChatPage(ctx context.Context, id uint,
 
 // GenerateShortLink 生成短链接
 func (s *kuaishouCardService) GenerateShortLink(ctx context.Context, card *model.KuaishouCard) error {
-	// 检查是否已有短链
 	if card.ShortLinkID != nil && *card.ShortLinkID != 0 {
-		// 删除已有短链
 		_ = s.shortLinkService.Delete(ctx, *card.ShortLinkID)
 	}
 
-	// 生成短码
 	generateReq := &dto.GenerateShortCodeRequest{
 		Length: 6,
 	}
@@ -359,19 +326,17 @@ func (s *kuaishouCardService) GenerateShortLink(ctx context.Context, card *model
 	logger.Infof("生成的短码: %s", generateResp.ShortCode)
 
 	// 获取域名池域名
-	var domainID uint = 0 // 默认不绑定域名，避免依赖不存在的 domain_id=1
+	var domainID uint = 0 
 	if card.DomainPoolID != 0 {
-		// 当用户指定了域名池 ID 时，使用该 ID 创建短链
 		domainID = card.DomainPoolID
 	}
 
-	// 创建短链
 	shortLinkReq := &dto.CreateShortLinkRequest{
 		ShortCode:   generateResp.ShortCode,
-		OriginalURL: fmt.Sprintf("/kuaishou/card/%d", card.ID), // 指向快手卡片页面
+		OriginalURL: fmt.Sprintf("/kuaishou/card/%d", card.ID), 
 		Title:       card.Title,
 		Description: card.Description,
-		DomainID:    domainID, // 使用域名池ID作为域名ID
+		DomainID:    domainID, 
 	}
 
 	shortLinkResp, err := s.shortLinkService.Create(ctx, shortLinkReq)
@@ -381,7 +346,6 @@ func (s *kuaishouCardService) GenerateShortLink(ctx context.Context, card *model
 
 	logger.Infof("创建的短链ID: %d", shortLinkResp.ID)
 
-	// 更新卡片的短链ID
 	card.ShortLinkID = &shortLinkResp.ID
 	_, err = s.repo.Update(ctx, card)
 	if err != nil {
@@ -390,14 +354,11 @@ func (s *kuaishouCardService) GenerateShortLink(ctx context.Context, card *model
 
 	logger.Infof("更新卡片短链ID成功: %d", *card.ShortLinkID)
 
-	// 确保更新后的数据被正确保存，刷新数据库连接
-	// 这是为了解决可能的缓存问题
 	updatedCard, err := s.repo.GetByID(ctx, card.ID)
 	if err != nil {
 		return fmt.Errorf("获取更新后的卡片失败: %v", err)
 	}
 
-	// 验证短链ID是否正确更新
 	if updatedCard.ShortLinkID == nil || *updatedCard.ShortLinkID != shortLinkResp.ID {
 		return fmt.Errorf("短链ID更新失败")
 	}
@@ -409,7 +370,6 @@ func (s *kuaishouCardService) GenerateShortLink(ctx context.Context, card *model
 
 // toResponse 将模型转换为响应DTO
 func (s *kuaishouCardService) toResponse(ctx context.Context, card *model.KuaishouCard) *dto.KuaishouCardResponse {
-	// 获取短链信息
 	shortCode := ""
 	shortLinkURL := ""
 	if card.ShortLinkID != nil && *card.ShortLinkID != 0 {
@@ -426,7 +386,7 @@ func (s *kuaishouCardService) toResponse(ctx context.Context, card *model.Kuaish
 		Description:  card.Description,
 		ImageURL:     card.ImageURL,
 		RedirectURL:  card.RedirectURL,
-		DomainPoolID: &card.DomainPoolID, // 转换为指针类型以保持API兼容性
+		DomainPoolID: &card.DomainPoolID, 
 		ShortLinkURL: shortLinkURL,
 		ShortCode:    shortCode,
 		Tags:         card.Tags,
@@ -452,7 +412,7 @@ func (s *kuaishouCardService) toResponseWithShortLink(ctx context.Context, card 
 		Description:  card.Description,
 		ImageURL:     card.ImageURL,
 		RedirectURL:  card.RedirectURL,
-		DomainPoolID: &card.DomainPoolID, // 转换为指针类型以保持API兼容性
+		DomainPoolID: &card.DomainPoolID, 
 		ShortLinkURL: shortLinkURL,
 		ShortCode:    shortCode,
 		Tags:         card.Tags,
@@ -464,3 +424,4 @@ func (s *kuaishouCardService) toResponseWithShortLink(ctx context.Context, card 
 		UpdatedAt:    card.UpdatedAt.Format(time.RFC3339),
 	}
 }
+

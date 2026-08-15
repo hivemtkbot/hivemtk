@@ -73,7 +73,6 @@ func TestSystemConfigRepository_SaveConfig(t *testing.T) {
 func TestSystemConfigRepository_GetConfig(t *testing.T) {
 	repo := setupSystemConfigRepository(t)
 
-	// 创建测试配置
 	expectedConfig := &model.SystemConfig{
 		Name:       "test_config",
 		WebsiteURL: "https://test.example.com",
@@ -114,7 +113,6 @@ func TestSystemConfigRepository_GetConfig(t *testing.T) {
 func TestSystemConfigRepository_SaveConfig_Update(t *testing.T) {
 	repo := setupSystemConfigRepository(t)
 
-	// 先创建配置
 	config := &model.SystemConfig{
 		Name:       "update_test",
 		WebsiteURL: "https://original.example.com",
@@ -124,17 +122,13 @@ func TestSystemConfigRepository_SaveConfig_Update(t *testing.T) {
 		t.Errorf("SaveConfig() create error = %v", err)
 	}
 
-	// 注意：SaveConfig 使用 FirstOrCreate，不会更新现有记录
-	// 这个测试验证行为：尝试用相同的 Name 创建不会覆盖
 	config.WebsiteURL = "https://updated.example.com"
 
-	// FirstOrCreate 会找到已存在的记录，不会更新
 	resultConfig, err := repo.SaveConfig(context.Background(), config)
 	if err != nil {
 		t.Errorf("SaveConfig() error = %v", err)
 	}
 
-	// 验证 FirstOrCreate 保留了原始值而不是更新
 	if resultConfig.WebsiteURL != "https://original.example.com" {
 		t.Errorf("Expected FirstOrCreate to keep original website URL 'https://original.example.com', got '%s'", resultConfig.WebsiteURL)
 	}
@@ -150,3 +144,4 @@ func TestSystemConfigRepository_GetConfig_Empty(t *testing.T) {
 		t.Error("Expected error for empty config")
 	}
 }
+

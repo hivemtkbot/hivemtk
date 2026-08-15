@@ -71,3 +71,4 @@ func (r *dingTalkAppRepo) ListAll(ctx context.Context) ([]model.DingTalkAppAccou
 func (r *dingTalkAppRepo) DeleteByID(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.DingTalkAppAccount{}, id).Error
 }
+

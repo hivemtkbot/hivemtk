@@ -64,7 +64,6 @@ func TestUserService_RegisterUser_DuplicateUsername(t *testing.T) {
 
 	service := NewUserService()
 
-	// 先注册一个用户
 	req := &dto.CreateUserRequest{
 		Username: "testuser",
 		Password: "password123",
@@ -73,7 +72,6 @@ func TestUserService_RegisterUser_DuplicateUsername(t *testing.T) {
 	}
 	service.RegisterUser(context.Background(), req)
 
-	// 尝试注册相同用户名的用户
 	req2 := &dto.CreateUserRequest{
 		Username: "testuser",
 		Password: "password456",
@@ -96,7 +94,6 @@ func TestUserService_RegisterUser_DuplicateEmail(t *testing.T) {
 
 	service := NewUserService()
 
-	// 先注册一个用户
 	req := &dto.CreateUserRequest{
 		Username: "testuser",
 		Password: "password123",
@@ -105,7 +102,6 @@ func TestUserService_RegisterUser_DuplicateEmail(t *testing.T) {
 	}
 	service.RegisterUser(context.Background(), req)
 
-	// 尝试注册相同邮箱的用户
 	req2 := &dto.CreateUserRequest{
 		Username: "testuser2",
 		Password: "password456",
@@ -128,7 +124,6 @@ func TestUserService_GetUser(t *testing.T) {
 
 	service := NewUserService()
 
-	// 先注册用户
 	regReq := &dto.CreateUserRequest{
 		Username: "testuser",
 		Password: "password123",
@@ -137,7 +132,6 @@ func TestUserService_GetUser(t *testing.T) {
 	}
 	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
-	// 获取用户
 	response, err := service.GetUser(context.Background(), regResp.ID)
 	if err != nil {
 		t.Fatalf("GetUser failed: %v", err)
@@ -164,7 +158,6 @@ func TestUserService_GetUserByUsername(t *testing.T) {
 
 	service := NewUserService()
 
-	// 先注册用户
 	regReq := &dto.CreateUserRequest{
 		Username: "testuser",
 		Password: "password123",
@@ -173,7 +166,6 @@ func TestUserService_GetUserByUsername(t *testing.T) {
 	}
 	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
-	// 根据用户名获取
 	response, err := service.GetUserByUsername(context.Background(), "testuser")
 	if err != nil {
 		t.Fatalf("GetUserByUsername failed: %v", err)
@@ -200,7 +192,6 @@ func TestUserService_GetUserList(t *testing.T) {
 
 	service := NewUserService()
 
-	// 注册多个用户
 	for i := 0; i < 5; i++ {
 		req := &dto.CreateUserRequest{
 			Username: "user" + string(rune('0'+i)),
@@ -211,7 +202,6 @@ func TestUserService_GetUserList(t *testing.T) {
 		service.RegisterUser(context.Background(), req)
 	}
 
-	// 获取用户列表
 	response, err := service.GetUserList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetUserList failed: %v", err)
@@ -231,7 +221,6 @@ func TestUserService_DeleteUser(t *testing.T) {
 
 	service := NewUserService()
 
-	// 先注册用户
 	regReq := &dto.CreateUserRequest{
 		Username: "testuser",
 		Password: "password123",
@@ -240,13 +229,11 @@ func TestUserService_DeleteUser(t *testing.T) {
 	}
 	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
-	// 删除用户
 	err := service.DeleteUser(context.Background(), regResp.ID)
 	if err != nil {
 		t.Fatalf("DeleteUser failed: %v", err)
 	}
 
-	// 验证用户已被删除
 	_, err = service.GetUser(context.Background(), regResp.ID)
 	if err == nil {
 		t.Error("Expected error after delete")
@@ -258,7 +245,6 @@ func TestUserService_UpdateUser(t *testing.T) {
 
 	service := NewUserService()
 
-	// 先注册用户
 	regReq := &dto.CreateUserRequest{
 		Username: "testuser",
 		Password: "password123",
@@ -267,7 +253,6 @@ func TestUserService_UpdateUser(t *testing.T) {
 	}
 	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
-	// 更新用户
 	status := 1
 	updateReq := &dto.UpdateUserRequest{
 		RealName: "Updated Name",
@@ -294,7 +279,6 @@ func TestUserService_UpdateUser_DuplicateUsername(t *testing.T) {
 
 	service := NewUserService()
 
-	// 注册两个用户
 	regReq1 := &dto.CreateUserRequest{
 		Username: "testuser1",
 		Password: "password123",
@@ -311,7 +295,6 @@ func TestUserService_UpdateUser_DuplicateUsername(t *testing.T) {
 	}
 	regResp2, _ := service.RegisterUser(context.Background(), regReq2)
 
-	// 尝试将 user2 的用户名改为 user1 的用户名（已存在）
 	updateReq := &dto.UpdateUserRequest{
 		Username: "testuser1",
 	}
@@ -331,7 +314,6 @@ func TestUserService_UpdatePassword(t *testing.T) {
 
 	service := NewUserService()
 
-	// 先注册用户
 	regReq := &dto.CreateUserRequest{
 		Username: "testuser",
 		Password: "oldpassword123",
@@ -340,7 +322,6 @@ func TestUserService_UpdatePassword(t *testing.T) {
 	}
 	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
-	// 更新密码
 	updateReq := &dto.UpdatePasswordRequest{
 		OldPassword: "oldpassword123",
 		NewPassword: "newpassword123",
@@ -351,7 +332,6 @@ func TestUserService_UpdatePassword(t *testing.T) {
 		t.Fatalf("UpdatePassword failed: %v", err)
 	}
 
-	// 验证新密码是否生效
 	loginReq := &dto.LoginRequest{
 		Username: "testuser",
 		Password: "newpassword123",
@@ -371,7 +351,6 @@ func TestUserService_UpdatePassword_WrongOldPassword(t *testing.T) {
 
 	service := NewUserService()
 
-	// 先注册用户
 	regReq := &dto.CreateUserRequest{
 		Username: "testuser",
 		Password: "correctpassword",
@@ -380,7 +359,6 @@ func TestUserService_UpdatePassword_WrongOldPassword(t *testing.T) {
 	}
 	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
-	// 尝试使用错误的旧密码更新
 	updateReq := &dto.UpdatePasswordRequest{
 		OldPassword: "wrongpassword",
 		NewPassword: "newpassword",
@@ -401,7 +379,6 @@ func TestUserService_Login(t *testing.T) {
 
 	service := NewUserService()
 
-	// 先注册用户
 	regReq := &dto.CreateUserRequest{
 		Username: "testuser",
 		Password: "password123",
@@ -410,7 +387,6 @@ func TestUserService_Login(t *testing.T) {
 	}
 	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
-	// 登录
 	loginReq := &dto.LoginRequest{
 		Username: "testuser",
 		Password: "password123",
@@ -439,7 +415,6 @@ func TestUserService_Login_WrongPassword(t *testing.T) {
 
 	service := NewUserService()
 
-	// 先注册用户
 	regReq := &dto.CreateUserRequest{
 		Username: "testuser",
 		Password: "password123",
@@ -448,7 +423,6 @@ func TestUserService_Login_WrongPassword(t *testing.T) {
 	}
 	service.RegisterUser(context.Background(), regReq)
 
-	// 使用错误密码登录
 	loginReq := &dto.LoginRequest{
 		Username: "testuser",
 		Password: "wrongpassword",
@@ -469,7 +443,6 @@ func TestUserService_InitUser(t *testing.T) {
 
 	service := NewUserService()
 
-	// 初始化用户
 	userID, err := service.InitUser(context.Background(), "account123", 12345, "John", "Doe", "johndoe")
 	if err != nil {
 		t.Fatalf("InitUser failed: %v", err)
@@ -479,7 +452,6 @@ func TestUserService_InitUser(t *testing.T) {
 		t.Error("Expected non-empty user ID")
 	}
 
-	// 再次初始化相同用户，应该返回相同的 ID
 	userID2, err := service.InitUser(context.Background(), "account123", 12345, "John", "Doe", "johndoe")
 	if err != nil {
 		t.Fatalf("InitUser second call failed: %v", err)
@@ -495,7 +467,6 @@ func TestUserService_Login_DisabledUser(t *testing.T) {
 
 	service := NewUserService()
 
-	// 先注册用户
 	regReq := &dto.CreateUserRequest{
 		Username: "testuser",
 		Password: "password123",
@@ -504,10 +475,8 @@ func TestUserService_Login_DisabledUser(t *testing.T) {
 	}
 	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
-	// 手动禁用用户
 	db.GetDB().Model(&model.User{}).Where("id = ?", regResp.ID).Update("status", 0)
 
-	// 尝试登录
 	loginReq := &dto.LoginRequest{
 		Username: "testuser",
 		Password: "password123",
@@ -522,3 +491,4 @@ func TestUserService_Login_DisabledUser(t *testing.T) {
 		t.Errorf("Expected '账户已被禁用', got %s", err.Error())
 	}
 }
+

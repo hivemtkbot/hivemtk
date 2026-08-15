@@ -41,7 +41,6 @@ func main() {
 		os.Exit(2)
 	}
 
-	// 0) token 脱敏
 	masked := maskToken(*token)
 	fmt.Printf("== Step 0: 参数准备 ==\n")
 	fmt.Printf("  bot_token: %s\n", masked)
@@ -50,7 +49,6 @@ func main() {
 	webhookURL := strings.TrimRight(*publicBase, "/") + fmt.Sprintf("/api/webhook/telegram/%d", *accountID)
 	fmt.Printf("  derived webhook URL: %s\n\n", webhookURL)
 
-	// 1) getMe
 	fmt.Println("== Step 1: getMe（确认 bot 存活 + 拿 username） ==")
 	me, err := callTG(*token, "getMe", nil)
 	if err != nil {
@@ -61,7 +59,6 @@ func main() {
 	fmt.Printf("  bot username: @%v\n", me["username"])
 	fmt.Printf("  bot first_name: %v\n\n", me["first_name"])
 
-	// 2) setWebhook
 	fmt.Println("== Step 2: setWebhook ==")
 	secret := randomHex(32)
 	params := map[string]string{
@@ -76,7 +73,6 @@ func main() {
 	}
 	fmt.Printf("  setWebhook result: %v\n\n", setRes)
 
-	// 3) getWebhookInfo
 	fmt.Println("== Step 3: getWebhookInfo（验证 TG 侧已生效） ==")
 	info, err := callTG(*token, "getWebhookInfo", nil)
 	if err != nil {
@@ -95,12 +91,10 @@ func main() {
 	fmt.Printf("  last_error_message: %q\n", lastErr)
 	fmt.Printf("  pending=%v → %s\n\n", pending, statusFor(pending, lastErr))
 
-	// 4) 模拟入站：直接 HTTP POST 一条 update 到 webhook URL（不依赖真实用户）
 	fmt.Println("== Step 4: 模拟入站 (HTTP POST 到 webhook URL) ==")
 	dryRunResult := simulatePost(webhookURL, secret)
 	fmt.Printf("  HTTP POST result: %s\n\n", dryRunResult)
 
-	// 5) 清理
 	if *cleanup {
 		fmt.Println("== Step 5: 清理 (deleteWebhook) ==")
 		dRes, err := callTG(*token, "deleteWebhook", map[string]string{"drop_pending_updates": "true"})
@@ -181,7 +175,6 @@ func callTG(token, method string, params map[string]string) (map[string]any, err
 }
 
 func simulatePost(webhookURL, secret string) string {
-	// 构造一条 fake update（从 chat_id=12345 发来的 "/start" 消息）
 	update := map[string]any{
 		"update_id": 99999999,
 		"message": map[string]any{
@@ -207,11 +200,9 @@ func simulatePost(webhookURL, secret string) string {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Telegram-Bot-Api-Secret-Token", secret)
-	// 5s 超时：干跑测试不应阻塞
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		// 这是预期的：本测试场景下 user-server 可能没运行；只是验证「URL 可达 + 验签路径正确」
 		return fmt.Sprintf("HTTP 投递失败(预期，因为 user-server 未运行): %v", err)
 	}
 	defer resp.Body.Close()
@@ -228,3 +219,4 @@ func statusFor(pending float64, lastErr string) string {
 	}
 	return "✅ 正常，TG 侧已正确接收 webhook 注册"
 }
+

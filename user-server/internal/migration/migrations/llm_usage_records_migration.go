@@ -1,11 +1,5 @@
 package migrations
 
-// llm_usage_records_migration.go 创建 llm_usage_records 表 v3.4.0
-//
-// 背景：AI 生产力分析(ops)需要汇总 LLM 的 token 消耗与成本，但历史 schema
-// 漏建了 llm_usage_records 表，导致 /api/analytics/ai-productivity 等接口在
-// 查询该表时返回 `relation "llm_usage_records" does not exist` 并被记入后端错误日志。
-// 本迁移创建该表（幂等，可重入），使相关统计查询可正常执行（初期无数据则汇总为 0）。
 
 import (
 	"context"
@@ -69,3 +63,4 @@ func (m *LLMUsageRecordsMigration) Down(ctx context.Context) error {
 
 // compile-time 接口断言
 var _ migration.Migration = (*LLMUsageRecordsMigration)(nil)
+

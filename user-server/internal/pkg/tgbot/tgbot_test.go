@@ -30,27 +30,14 @@ func TestInitTGBot_NoProxy(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// ValidateBotToken 单元测试（Bot Token 格式预校验）
-// ----------------------------------------------------------------------------
-// 业务动机：用户在 controller Create/Update 入口填写 Bot Token，格式错误时
-// 调用 getMe 会立即 401，错误信息对用户不友好。
-// 在 controller 入口预校验，可直接 4xx 回包并提供人类可读原因。
-//
-// 校验规则：
-//   - 非空
-//   - 含恰好 1 个 ':' 分隔符
-//   - bot_id：6~10 位数字
-//   - token：恰好 35 字符，范围 [A-Za-z0-9_-]
-// ============================================================================
 
 // TestValidateBotToken_Valid 合法 Token 校验通过
 func TestValidateBotToken_Valid(t *testing.T) {
 	validTokens := []string{
-		"1234567890:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3Pqkf", // 10 位 bot_id + 35 字符 token
-		"123456:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3Pqkf",     // 6 位 bot_id
-		"1234567:ABCDEFGHIJKLMNOPQRSTUVWXYZ0123abcde",    // 7 位 bot_id + 35 字符 token
-		"12345678:aBcDeFgHiJkLmNoPqRsTuVwXyZ_-0123456",   // 8 位 bot_id + 35 字符 token（含 _ -）
+		"1234567890:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3Pqkf", 
+		"123456:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3Pqkf",     
+		"1234567:ABCDEFGHIJKLMNOPQRSTUVWXYZ0123abcde",    
+		"12345678:aBcDeFgHiJkLmNoPqRsTuVwXyZ_-0123456",   
 	}
 	for _, tok := range validTokens {
 		if err := ValidateBotToken(tok); err != nil {
@@ -102,12 +89,10 @@ func TestValidateBotToken_NonNumericBotID(t *testing.T) {
 
 // TestValidateBotToken_InvalidBotIDLength bot_id 长度越界拒绝
 func TestValidateBotToken_InvalidBotIDLength(t *testing.T) {
-	// 5 位 bot_id（小于 6）
 	err1 := ValidateBotToken("12345:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3Pqkf")
 	if err1 == nil {
 		t.Error("5 位 bot_id 应返回错误")
 	}
-	// 11 位 bot_id（大于 10）
 	err2 := ValidateBotToken("12345678901:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3Pqkf")
 	if err2 == nil {
 		t.Error("11 位 bot_id 应返回错误")
@@ -116,12 +101,10 @@ func TestValidateBotToken_InvalidBotIDLength(t *testing.T) {
 
 // TestValidateBotToken_InvalidTokenLength token 长度错误拒绝
 func TestValidateBotToken_InvalidTokenLength(t *testing.T) {
-	// 34 字符 token
 	err1 := ValidateBotToken("1234567:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3Pqa")
 	if err1 == nil {
 		t.Error("34 字符 token 应返回错误")
 	}
-	// 36 字符 token
 	err2 := ValidateBotToken("1234567:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3PqkXY")
 	if err2 == nil {
 		t.Error("36 字符 token 应返回错误")
@@ -130,7 +113,6 @@ func TestValidateBotToken_InvalidTokenLength(t *testing.T) {
 
 // TestValidateBotToken_InvalidChar token 含非法字符拒绝
 func TestValidateBotToken_InvalidChar(t *testing.T) {
-	// 35 字符的 token（保证长度通过），含非法字符 '.'
 	err := ValidateBotToken("1234567:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3Pqk.")
 	if err == nil {
 		t.Fatal("含非法字符 '.' 应返回错误")
@@ -164,3 +146,4 @@ func TestIsBotAdminLogic(t *testing.T) {
 		t.Error("Expected error for invalid token")
 	}
 }
+

@@ -42,9 +42,6 @@ func setupCustomerSessionController(t *testing.T) (*CustomerSessionController, *
 	return sessionCtrl, agentCtrl, router
 }
 
-// ============================================================================
-// CustomerSessionController 测试
-// ============================================================================
 
 // TestCustomerSessionController_GetSessions_Success 测试获取会话列表成功
 func TestCustomerSessionController_GetSessions_Success(t *testing.T) {
@@ -56,7 +53,6 @@ func TestCustomerSessionController_GetSessions_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -72,7 +68,6 @@ func TestCustomerSessionController_GetSessions_EmptyList(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -88,7 +83,6 @@ func TestCustomerSessionController_GetSessionByID_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于记录不存在可能返回 404，服务层依赖外部系统接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status OK, Internal Server Error or Not Found, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -127,7 +121,6 @@ func TestCustomerSessionController_CreateSession_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200/400/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -166,7 +159,6 @@ func TestCustomerSessionController_AssignSession_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于记录不存在或服务层依赖外部系统，接受 200/400/404/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -198,7 +190,6 @@ func TestCustomerSessionController_AutoAssignSession_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于记录不存在或服务层依赖外部系统，接受 200/400/404/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -229,7 +220,6 @@ func TestCustomerSessionController_GetMessages_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200、404 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -252,7 +242,6 @@ func TestCustomerSessionController_SendMessage_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于记录不存在或服务层依赖外部系统，接受 200/400/404/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -290,7 +279,6 @@ func TestCustomerSessionController_UpdateSessionStatus_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于记录不存在或服务层依赖外部系统，接受 200/400/404/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -329,7 +317,6 @@ func TestCustomerSessionController_RateSession_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于记录不存在或服务层依赖外部系统，接受 200/400/404/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -375,7 +362,6 @@ func TestCustomerSessionController_TransferSession_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于记录不存在或服务层依赖外部系统，接受 200/400/404/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -428,7 +414,6 @@ func TestCustomerSessionController_TagSession_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于记录不存在或服务层依赖外部系统，接受 200/400/404/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -475,15 +460,11 @@ func TestCustomerSessionController_GetPendingSessions(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 接受 200 或 500（服务层依赖）
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
 
-// ============================================================================
-// AgentStatusController 测试
-// ============================================================================
 
 // TestAgentStatusController_CreateAgent_Success 测试创建客服成功
 func TestAgentStatusController_CreateAgent_Success(t *testing.T) {
@@ -502,7 +483,6 @@ func TestAgentStatusController_CreateAgent_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200/400/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -534,7 +514,6 @@ func TestAgentStatusController_GetAgentStatus_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于记录不存在或服务层依赖外部系统，接受 200/400/404/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -565,7 +544,6 @@ func TestAgentStatusController_GetOnlineAgents(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 接受 200 或 500（服务层依赖）
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -587,7 +565,6 @@ func TestAgentStatusController_UpdateAgentStatus_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于记录不存在或服务层依赖外部系统，接受 200/400/404/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -619,7 +596,6 @@ func TestAgentStatusController_GoOnline_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于记录不存在或服务层依赖外部系统，接受 200/400/404/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -650,7 +626,6 @@ func TestAgentStatusController_GoOffline_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于记录不存在或服务层依赖外部系统，接受 200/400/404/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -681,7 +656,6 @@ func TestAgentStatusController_GetAgentSessions(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200/400/500
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Bad Request or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -694,3 +668,4 @@ func TestAgentStatusController_NewAgentStatusController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

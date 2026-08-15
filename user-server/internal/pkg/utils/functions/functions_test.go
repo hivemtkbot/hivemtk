@@ -15,7 +15,7 @@ type TestStruct struct {
 	NilPtr  *string         `json:"nil_ptr"`
 	Decimal decimal.Decimal `json:"decimal"`
 	UUID    uuid.UUID       `json:"uuid"`
-	NoTag   string          // 没有 json tag
+	NoTag   string          
 }
 
 // 测试用的结构体 - 用于测试 omitempty 的行为
@@ -39,23 +39,18 @@ func TestStructToMap_Basic(t *testing.T) {
 
 	result := StructToMap(testStruct)
 
-	// 验证基本字段
 	if result["name"] != "John" {
 		t.Errorf("StructToMap() name = %v, want John", result["name"])
 	}
-	// 使用反射比较 decimal
 	if !result["decimal"].(decimal.Decimal).Equal(decimal.NewFromFloat(99.99)) {
 		t.Errorf("StructToMap() decimal = %v, want 99.99", result["decimal"])
 	}
-	// uuid.Nil 应该被转换为 nil
 	if result["uuid"] != nil {
 		t.Errorf("StructToMap() uuid = %v, want nil", result["uuid"])
 	}
-	// 没有 json tag 的字段应该被跳过
 	if _, exists := result["NoTag"]; exists {
 		t.Error("StructToMap() should skip fields without json tag")
 	}
-	// email 有 omitempty 且不为空，应该保留
 	if result["email"] != "john@example.com" {
 		t.Errorf("StructToMap() email = %v, want john@example.com", result["email"])
 	}
@@ -70,7 +65,6 @@ func TestStructToMap_ExcludeMode(t *testing.T) {
 		UUID:    uuid.Nil,
 	}
 
-	// 排除模式：排除 name 和 age
 	opts := StructToMapData{
 		Mode: StructToMapExcludeMode,
 		Keys: []string{"name", "age"},
@@ -78,15 +72,12 @@ func TestStructToMap_ExcludeMode(t *testing.T) {
 
 	result := StructToMap(testStruct, opts)
 
-	// 验证排除的字段不存在
 	if _, exists := result["name"]; exists {
 		t.Error("StructToMap() exclude mode should exclude 'name'")
 	}
 	if _, exists := result["age"]; exists {
 		t.Error("StructToMap() exclude mode should exclude 'age'")
 	}
-	// 其他字段应该存在（注意：email 有 omitempty，在 exclude 模式下会被跳过）
-	// 这是代码的预期行为
 }
 
 func TestStructToMap_IncludeMode(t *testing.T) {
@@ -98,7 +89,6 @@ func TestStructToMap_IncludeMode(t *testing.T) {
 		UUID:    uuid.Nil,
 	}
 
-	// 包括模式：只包括 name 和 decimal
 	opts := StructToMapData{
 		Mode: StructToMapIncludeMode,
 		Keys: []string{"name", "decimal"},
@@ -106,15 +96,12 @@ func TestStructToMap_IncludeMode(t *testing.T) {
 
 	result := StructToMap(testStruct, opts)
 
-	// 验证只包括指定的字段
 	if result["name"] != "Bob" {
 		t.Errorf("StructToMap() name = %v, want Bob", result["name"])
 	}
-	// 使用反射比较 decimal
 	if !result["decimal"].(decimal.Decimal).Equal(decimal.NewFromFloat(75.50)) {
 		t.Errorf("StructToMap() decimal = %v, want 75.50", result["decimal"])
 	}
-	// 其他字段不应该存在
 	if _, exists := result["age"]; exists {
 		t.Error("StructToMap() include mode should only include specified fields")
 	}
@@ -131,14 +118,12 @@ func TestStructToMap_IgnoreNil(t *testing.T) {
 		Decimal: decimal.NewFromFloat(60.00),
 	}
 
-	// 测试 IgnoreNilFlag = true
 	opts := StructToMapData{
 		IgnoreNilFlag: true,
 	}
 
 	result := StructToMap(testStruct, opts)
 
-	// nil 指针字段应该被跳过
 	if _, exists := result["nil_ptr"]; exists {
 		t.Error("StructToMap() with IgnoreNilFlag should skip nil pointers")
 	}
@@ -147,15 +132,13 @@ func TestStructToMap_IgnoreNil(t *testing.T) {
 func TestStructToMap_OmitEmpty(t *testing.T) {
 	testStruct := TestStructWithOmitEmpty{
 		Name:    "Charlie",
-		Email:   "", // 空值
+		Email:   "", 
 		Decimal: decimal.NewFromFloat(80.00),
 		UUID:    uuid.Nil,
 	}
 
-	// 默认模式下，omitempty 字段如果为空应该被跳过
 	result := StructToMap(testStruct)
 
-	// email 有 omitempty 且为空，应该被跳过
 	if _, exists := result["email"]; exists {
 		t.Error("StructToMap() should skip omitempty fields with empty values")
 	}
@@ -164,12 +147,11 @@ func TestStructToMap_OmitEmpty(t *testing.T) {
 func TestStructToMap_OmitEmptyWithValue(t *testing.T) {
 	testStruct := TestStructWithOmitEmpty{
 		Name:    "David",
-		Email:   "david@example.com", // 有值
+		Email:   "david@example.com", 
 		Decimal: decimal.NewFromFloat(90.00),
 		UUID:    uuid.Nil,
 	}
 
-	// 使用 include 模式来保留 email 字段（因为 omitempty 在 exclude 模式下会被跳过）
 	opts := StructToMapData{
 		Mode: StructToMapIncludeMode,
 		Keys: []string{"email"},
@@ -177,7 +159,6 @@ func TestStructToMap_OmitEmptyWithValue(t *testing.T) {
 
 	result := StructToMap(testStruct, opts)
 
-	// email 有 omitempty 但有值，且在 include 模式下应该保留
 	if result["email"] != "david@example.com" {
 		t.Errorf("StructToMap() email = %v, want david@example.com", result["email"])
 	}
@@ -208,10 +189,8 @@ func TestStructToMap_EmptyOptions(t *testing.T) {
 		UUID:    uuid.Nil,
 	}
 
-	// 不传选项，使用默认值
 	result := StructToMap(testStruct)
 
-	// 验证基本功能正常
 	if result["name"] != "Eve" {
 		t.Errorf("StructToMap() name = %v, want Eve", result["name"])
 	}
@@ -298,3 +277,4 @@ func TestStructToMap_PointerToStruct(t *testing.T) {
 		t.Errorf("StructToMap() with pointer = %v, want PointerTest", result["name"])
 	}
 }
+

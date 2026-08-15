@@ -35,7 +35,6 @@ type webhookJob struct {
 	raw    []byte
 	header map[string]string
 	source string
-	// 解析后的入站消息（用于业务分发）
 	channel WebhookChannel
 	account string
 	payload *ParsedPayload
@@ -47,13 +46,13 @@ type tokenBucket struct {
 	refillRate float64
 	tokens     float64
 	lastRefill time.Time
-	lastAccess time.Time // 用于 janitor 清理闲置桶
+	lastAccess time.Time 
 }
 
 const (
 	WebhookDedupTTL = 5 * time.Minute
 
-	WebhookWorkerCount = 4 // 接入 worker 数（从 WEBHOOK_WORKER_COUNT 覆盖）
+	WebhookWorkerCount = 4 
 
 	WebhookQueueSize = 512
 
@@ -290,3 +289,4 @@ func getString(m map[string]any, keys ...string) string {
 	}
 	return ""
 }
+

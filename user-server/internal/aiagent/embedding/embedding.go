@@ -44,7 +44,7 @@ const (
 // 预生成一次，全进程共享；每行使用独立哈希种子，保证可复现
 type Projector struct {
 	TargetDim int
-	Matrix    [][]float32 // [TargetDim][SourceDim]，内存 ~ TargetDim*SourceDim*4 字节
+	Matrix    [][]float32 
 }
 
 // NewProjector 构造随机投影器（线程安全）
@@ -56,8 +56,6 @@ func NewProjector(targetDim int, seed int64) *Projector {
 		TargetDim: targetDim,
 		Matrix:    make([][]float32, targetDim),
 	}
-	// Johnson-Lindenstrauss 推荐：每行 ~ N(0, 1/SourceDim)
-	// 用各行独立 rand.Source 保证不同行使用不同序列
 	for i := 0; i < targetDim; i++ {
 		r := rand.New(rand.NewSource(seed + int64(i)*7919))
 		row := make([]float32, SourceDim)
@@ -75,7 +73,6 @@ func (p *Projector) Project(src []float32) []float32 {
 	out := make([]float32, p.TargetDim)
 	for i, row := range p.Matrix {
 		var sum float32
-		// 稀疏点积：只遍历非零维度
 		for j, v := range src {
 			if v != 0 {
 				sum += row[j] * v
@@ -125,7 +122,6 @@ func (l *LocalEmbedding) featurize(text string) []float32 {
 	}
 	vec := make([]float32, SourceDim)
 
-	// 1) 字符 n-gram
 	runes := []rune(text)
 	for n := MinNGram; n <= MaxNGram; n++ {
 		if len(runes) < n {
@@ -137,13 +133,12 @@ func (l *LocalEmbedding) featurize(text string) []float32 {
 		}
 	}
 
-	// 2) 单词级（中文/英文/数字都按 unicode letter/digit 切分）
 	tokens := tokenize(text)
 	for _, tok := range tokens {
 		if len([]rune(tok)) < 2 {
 			continue
 		}
-		addFeature(vec, "w:"+tok, 1.5) // 词级权重略高于字符 n-gram
+		addFeature(vec, "w:"+tok, 1.5) 
 	}
 
 	return vec
@@ -201,7 +196,7 @@ func addFeature(vec []float32, feature string, weight float32) {
 	h := fnv.New64a()
 	h.Write([]byte(feature))
 	sum := h.Sum64()
-	idx := sum & uint64(SourceDim-1) // 假设 SourceDim 是 2 的幂
+	idx := sum & uint64(SourceDim-1) 
 	sign := int8(1)
 	if (sum>>32)&1 == 1 {
 		sign = -1
@@ -225,3 +220,4 @@ func l2normalize(v []float32) []float32 {
 	}
 	return out
 }
+

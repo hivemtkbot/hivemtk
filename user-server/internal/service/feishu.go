@@ -100,11 +100,9 @@ func (s *FeishuService) GetSecretsByAccountID(ctx context.Context, accountID str
 			return acc.AppID, acc.VerificationToken, acc.EncryptKey, nil
 		}
 	}
-	// 兜底：取第一个启用的账号
 	if acc, gerr := s.accountRepo.GetFirstEnabled(ctx); gerr == nil && acc != nil {
 		return acc.AppID, acc.VerificationToken, acc.EncryptKey, nil
 	}
-	// 最后兜底：第一条
 	acc, err := s.accountRepo.GetFirst(ctx)
 	if err != nil {
 		return "", "", "", err
@@ -143,7 +141,7 @@ type FeishuIngestRequest struct {
 	Content   string
 	MsgID     string
 	ChatID    string
-	ChatType  string // p2p / group
+	ChatType  string 
 }
 
 func (s *FeishuIntegrationService) IngestMessage(ctx context.Context, req *FeishuIngestRequest) (*model.MessageHub, *model.InboxConversation, error) {
@@ -198,7 +196,6 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	if err != nil {
 		return fmt.Errorf("get feishu account: %w", err)
 	}
-	// 拿 access_token（缓存复用 / 过期刷新）
 	tk, err := s.getAccessToken(ctx, acc)
 	if err != nil {
 		return fmt.Errorf("get access token: %w", err)
@@ -211,7 +208,6 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	if idType == "open_chat_id" {
 		chatType = "group"
 	}
-	// 构造消息体
 	body := map[string]any{
 		"receive_id": openID,
 		"msg_type":   "text",
@@ -230,14 +226,12 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	defer resp.Body.Close()
 	respB, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		// 记录错误
 		now := time.Now()
 		acc.LastErrorAt = &now
 		acc.LastErrorMsg = string(respB)
 		_ = s.feishu.UpdateAccount(ctx, acc)
 		return fmt.Errorf("feishu api status %d: %s", resp.StatusCode, string(respB))
 	}
-	// 写出站消息记录
 	outMsg := &model.FeishuMessage{
 		AccountID: accountID,
 		MsgID:     fmt.Sprintf("feishu-out-%d", time.Now().UnixNano()),
@@ -251,7 +245,6 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	if err := s.feishuMsgRepo.Create(ctx, outMsg); err != nil {
 		logger.Errorf("[Feishu] 出站消息落库失败 msg_id=%s: %v", outMsg.MsgID, err)
 	}
-	// 写消息中台出站
 	hubMsg, _ := s.hub.Push(ctx, &PushMessageRequest{
 		Platform:       "feishu",
 		AccountID:      fmt.Sprintf("%d", accountID),
@@ -278,7 +271,6 @@ func (s *FeishuIntegrationService) getAccessToken(ctx context.Context, acc *mode
 	if acc.AccessToken != "" && acc.TokenExpires != nil && time.Now().Before(*acc.TokenExpires) {
 		return acc.AccessToken, nil
 	}
-	// 调接口：POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal
 	body := map[string]string{
 		"app_id":     acc.AppID,
 		"app_secret": acc.AppSecret,
@@ -331,8 +323,6 @@ type TelegramService struct {
 }
 
 func NewTelegramService(db *gorm.DB) *TelegramService {
-	// 即使 db 为 nil 也初始化 repository（依赖全局 DB，由 SetTestDB 设置）
-	// 避免测试场景下 svc.accRepo 为 nil 导致 panic
 	r := repository.NewTelegramAccountRepository()
 	if db != nil {
 		r.SetDB(context.Background(), db)
@@ -462,8 +452,6 @@ func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID 
 	if err != nil {
 		return fmt.Errorf("get tg account: %w", err)
 	}
-	// 主动发消息委托独立包 channelbot/telegram（纯协议层）
-	// 注入统一出站 client（httpclient.Client，带超时+连接池），与 出站 client 收敛一致，并使测试可拦截
 	cli := telegram.NewTelegramClient(acc.BotToken, core.WithHTTPClient(httpclient.Client))
 	if _, err := cli.SendMessage(ctx, chatID, content); err != nil {
 		now := time.Now()
@@ -472,7 +460,6 @@ func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID 
 		_ = s.tg.UpdateAccount(ctx, acc)
 		return fmt.Errorf("send tg msg: %w", err)
 	}
-	// 写消息中台
 	chatIDStr := fmt.Sprintf("%d", chatID)
 	hubMsg, _ := s.hub.Push(ctx, &PushMessageRequest{
 		Platform:       "telegram",
@@ -694,7 +681,7 @@ func NewWhatsAppCloudIntegrationService(db *gorm.DB) *WhatsAppCloudIntegrationSe
 
 type WhatsAppIngestRequest struct {
 	AccountID    uint
-	PhoneFrom    string // 客户手机号（E.164）
+	PhoneFrom    string 
 	CustomerName string
 	MsgType      string
 	Content      string
@@ -745,8 +732,6 @@ func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accou
 	if err != nil {
 		return fmt.Errorf("get wa account: %w", err)
 	}
-	// 主动发消息委托独立包 channelbot/whatsapp（官方 Cloud API，合规）
-	// 注入统一出站 client（httpclient.Client，带超时+连接池），与 出站 client 收敛一致，并使测试可拦截
 	cli := whatsapp.NewCloudClient(acc.PhoneNumberID, acc.AccessToken, core.WithHTTPClient(httpclient.Client))
 	if _, err := cli.SendText(ctx, toPhone, content); err != nil {
 		now := time.Now()
@@ -755,7 +740,6 @@ func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accou
 		_ = s.wa.UpdateAccount(ctx, acc)
 		return fmt.Errorf("send wa msg: %w", err)
 	}
-	// 写消息中台
 	hubMsg, _ := s.hub.Push(ctx, &PushMessageRequest{
 		Platform:       "whatsapp",
 		AccountID:      fmt.Sprintf("%d", accountID),
@@ -778,16 +762,12 @@ func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accou
 	return nil
 }
 
-// ============================================================================
-// 飞书事件加密/解密（用于卡片回调等可选加密场景）
-// ============================================================================
 
 // DecryptFeishuEvent 用 EncryptKey 解密飞书事件 payload
 func DecryptFeishuEvent(encryptKey, encrypted string) ([]byte, error) {
 	if encryptKey == "" {
 		return nil, errors.New("encrypt_key empty")
 	}
-	// encryptKey 是 32 字节字符串作为 AES-256 key（截断/补足）
 	key := []byte(encryptKey)
 	if len(key) > 32 {
 		key = key[:32]
@@ -811,7 +791,6 @@ func DecryptFeishuEvent(encryptKey, encrypted string) ([]byte, error) {
 	mode := cipher.NewCBCDecrypter(block, iv)
 	plain := make([]byte, len(ciphertext))
 	mode.CryptBlocks(plain, ciphertext)
-	// PKCS#7 去填充
 	padLen := int(plain[len(plain)-1])
 	if padLen < 1 || padLen > aes.BlockSize {
 		return nil, errors.New("invalid padding")
@@ -831,3 +810,4 @@ func randomBytes(n int) []byte {
 
 // timePtr 工具
 func timePtr(t time.Time) *time.Time { return &t }
+

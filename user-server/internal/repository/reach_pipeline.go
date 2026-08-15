@@ -1,16 +1,5 @@
 package repository
 
-// reach_pipeline.go 触达 Pipeline / Job 仓储
-//
-// 五层架构归属: L4 数据访问层
-//
-// 覆盖：reach_pipelines / reach_jobs / script_templates / script_libraries 表的
-// CRUD 与统计查询，服务于 ReachPipelineService（触达 Pipeline 服务）。
-// 私域独立部署：单租户，无 merchant_id 过滤。
-//
-// 状态字符串（active/paused/archived、pending/running/success/failed/canceled/
-// rate_limited）为 DB schema 枚举值，与 service 层常量保持一致；
-// 此处使用字面量避免反向依赖 service 包造成循环引用。
 
 import (
 	"context"
@@ -318,7 +307,6 @@ func (r *ReachPipelineRepository) GetStats(ctx context.Context) (*ReachPipelineS
 	}
 	stats := &ReachPipelineStats{}
 
-	// Pipeline 统计
 	if err := r.db.WithContext(ctx).Model(&model.ReachPipeline{}).Count(&stats.TotalPipelines).Error; err != nil {
 		return nil, fmt.Errorf("count pipelines: %w", err)
 	}
@@ -329,7 +317,6 @@ func (r *ReachPipelineRepository) GetStats(ctx context.Context) (*ReachPipelineS
 		return nil, fmt.Errorf("count paused pipelines: %w", err)
 	}
 
-	// Job 统计
 	if err := r.db.WithContext(ctx).Model(&model.ReachJob{}).Count(&stats.TotalJobs).Error; err != nil {
 		return nil, fmt.Errorf("count jobs: %w", err)
 	}
@@ -353,3 +340,4 @@ func (r *ReachPipelineRepository) GetStats(ctx context.Context) (*ReachPipelineS
 	}
 	return stats, nil
 }
+

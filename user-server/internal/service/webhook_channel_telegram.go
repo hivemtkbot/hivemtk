@@ -21,8 +21,8 @@ import (
 )
 
 type tgDispatchExtra struct {
-	Mentioned      bool // 该消息是否 @提及了本机器人（群内「@bot 才回复」的触发条件）
-	NewOpportunity bool // 该消息挖掘后是否让发言者「新晋为商机」
+	Mentioned      bool 
+	NewOpportunity bool 
 }
 
 const (
@@ -431,3 +431,4 @@ func (s *WebhookService) getTelegramWebhookSecret(ctx context.Context, accountID
 	}
 	return acc.WebhookSecret
 }
+

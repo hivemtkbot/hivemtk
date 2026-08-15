@@ -27,7 +27,6 @@ func setupXianyuCardTestDB(t *testing.T) *gorm.DB {
 		&model.ShortLink{},
 		&model.DomainPool{},
 	)
-	// 注入全局 DB：部分被测代码（如 backup.go）仍依赖 db.GetDB()
 	db.SetTestDB(database)
 	return database
 }
@@ -155,7 +154,6 @@ func TestXianyuCardController_Update_Success(t *testing.T) {
 	ctrl := NewXianyuCardController(svc, service.NewXianyuCardStatsService(database))
 	router := setupGinEngine()
 
-	// 先创建卡片
 	card, err := svc.Create(context.Background(), &dto.XianyuCardCreateRequest{
 		Title:        "Original Card",
 		Description:  "Original description",
@@ -221,7 +219,7 @@ func TestXianyuCardController_Update_IDMismatch(t *testing.T) {
 	router.PUT("/xianyu/cards/:id", ctrl.Update)
 
 	updateReq := dto.XianyuCardUpdateRequest{
-		ID:    999, // 与 URL 中的 ID 不匹配
+		ID:    999, 
 		Title: "Test",
 	}
 	body, _ := json.Marshal(updateReq)
@@ -243,7 +241,6 @@ func TestXianyuCardController_Delete_Success(t *testing.T) {
 	ctrl := NewXianyuCardController(svc, service.NewXianyuCardStatsService(database))
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.XianyuCardCreateRequest{
 		Title:        "Card to Delete",
 		Description:  "This card will be deleted",
@@ -286,7 +283,6 @@ func TestXianyuCardController_GetByID_Success(t *testing.T) {
 	ctrl := NewXianyuCardController(svc, service.NewXianyuCardStatsService(database))
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.XianyuCardCreateRequest{
 		Title:        "Test Card",
 		Description:  "Test description",
@@ -317,7 +313,6 @@ func TestXianyuCardController_GetByID_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Service returns record not found error which results in 404 or 500
 	if w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status Internal Server Error or Not Found, got %d", w.Code)
 	}
@@ -346,7 +341,6 @@ func TestXianyuCardController_GetList_Success(t *testing.T) {
 	ctrl := NewXianyuCardController(svc, service.NewXianyuCardStatsService(database))
 	router := setupGinEngine()
 
-	// 创建多个卡片
 	for i := 1; i <= 5; i++ {
 		svc.Create(context.Background(), &dto.XianyuCardCreateRequest{
 			Title:        "Card " + string(rune('0'+i)),
@@ -375,7 +369,6 @@ func TestXianyuCardController_GetList_DefaultPagination(t *testing.T) {
 	ctrl := NewXianyuCardController(svc, service.NewXianyuCardStatsService(database))
 	router := setupGinEngine()
 
-	// 创建测试卡片
 	svc.Create(context.Background(), &dto.XianyuCardCreateRequest{
 		Title:        "Card",
 		Description:  "Description",
@@ -419,7 +412,6 @@ func TestXianyuCardController_GenerateShortLink_Success(t *testing.T) {
 	ctrl := NewXianyuCardController(svc, service.NewXianyuCardStatsService(database))
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.XianyuCardCreateRequest{
 		Title:        "Card with Short Link",
 		Description:  "This card will have a short link",
@@ -466,7 +458,6 @@ func TestXianyuCardController_GenerateShortLink_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Service returns record not found error which results in 404 or 500
 	if w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status Internal Server Error or Not Found, got %d", w.Code)
 	}
@@ -532,7 +523,6 @@ func TestXianyuCardController_Update_ViewCount(t *testing.T) {
 	ctrl := NewXianyuCardController(svc, service.NewXianyuCardStatsService(database))
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.XianyuCardCreateRequest{
 		Title:        "Card",
 		Description:  "Description",
@@ -570,7 +560,6 @@ func TestXianyuCardController_ViewCard_Success(t *testing.T) {
 	ctrl := NewXianyuCardController(svc, service.NewXianyuCardStatsService(database))
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.XianyuCardCreateRequest{
 		Title:        "Card to View",
 		Description:  "This card will be viewed",
@@ -613,7 +602,6 @@ func TestXianyuCardController_PostRecordView_Success(t *testing.T) {
 	ctrl := NewXianyuCardController(svc, service.NewXianyuCardStatsService(database))
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.XianyuCardCreateRequest{
 		Title:        "Card to View",
 		Description:  "This card will be viewed",
@@ -648,7 +636,6 @@ func TestXianyuCardController_PostRecordClick_Success(t *testing.T) {
 	ctrl := NewXianyuCardController(svc, service.NewXianyuCardStatsService(database))
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.XianyuCardCreateRequest{
 		Title:        "Card to Click",
 		Description:  "This card will be clicked",
@@ -683,7 +670,6 @@ func TestXianyuCardController_PostRecordShare_Success(t *testing.T) {
 	ctrl := NewXianyuCardController(svc, service.NewXianyuCardStatsService(database))
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.XianyuCardCreateRequest{
 		Title:        "Card to Share",
 		Description:  "This card will be shared",
@@ -710,3 +696,4 @@ func TestXianyuCardController_PostRecordShare_Success(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
+

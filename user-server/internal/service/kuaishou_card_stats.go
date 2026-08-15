@@ -25,26 +25,22 @@ func NewKuaishouCardStatsService(db *gorm.DB) *KuaishouCardStatsService {
 
 // GetCardStats 获取单个快手卡片的统计数据
 func (s *KuaishouCardStatsService) GetCardStats(ctx context.Context, req *dto.KuaishouCardStatsRequest) (*dto.KuaishouCardStatsResponse, error) {
-	// 获取卡片信息
 	card, err := s.repo.GetCardByID(ctx, req.CardID)
 	if err != nil {
 		return nil, fmt.Errorf("卡片不存在: %w", err)
 	}
 
-	// 设置默认时间范围
 	if req.StartDate.IsZero() {
-		req.StartDate = time.Now().AddDate(0, -1, 0) // 默认最近一个月
+		req.StartDate = time.Now().AddDate(0, -1, 0) 
 	}
 	if req.EndDate.IsZero() {
 		req.EndDate = time.Now()
 	}
 
-	// 设置默认分组方式
 	if req.GroupBy == "" {
 		req.GroupBy = "day"
 	}
 
-	// 获取活动统计数据
 	results, err := s.repo.GetCardDailyStats(ctx, req.CardID, req.StartDate, req.EndDate)
 	if err != nil {
 		return nil, fmt.Errorf("查询统计数据失败: %w", err)
@@ -68,18 +64,15 @@ func (s *KuaishouCardStatsService) GetCardStats(ctx context.Context, req *dto.Ku
 		}
 	}
 
-	// 转换为切片并按日期排序
 	for _, stat := range dateMap {
 		dailyStats = append(dailyStats, *stat)
 	}
 
-	// 获取总统计数据
 	totalViews, err := s.repo.CountCardViews(ctx, req.CardID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 构建响应
 	response := &dto.KuaishouCardStatsResponse{
 		CardID:     card.ID,
 		CardTitle:  card.Title,
@@ -92,25 +85,21 @@ func (s *KuaishouCardStatsService) GetCardStats(ctx context.Context, req *dto.Ku
 
 // GetOverallStats 获取快手卡片总体统计数据
 func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto.KuaishouCardOverallStatsRequest) (*dto.KuaishouCardOverallStatsResponse, error) {
-	// 设置默认时间范围
 	if req.StartDate.IsZero() {
-		req.StartDate = time.Now().AddDate(0, -1, 0) // 默认最近一个月
+		req.StartDate = time.Now().AddDate(0, -1, 0) 
 	}
 	if req.EndDate.IsZero() {
 		req.EndDate = time.Now()
 	}
 
-	// 设置默认分组方式
 	if req.GroupBy == "" {
 		req.GroupBy = "day"
 	}
 
-	// 设置默认限制数量
 	if req.Limit == 0 {
 		req.Limit = 10
 	}
 
-	// 获取卡片总数和激活卡片数
 	totalCards, err := s.repo.CountTotalCards(ctx)
 	if err != nil {
 		return nil, err
@@ -121,13 +110,11 @@ func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto
 		return nil, err
 	}
 
-	// 获取总统计数据
 	totalViews, err := s.repo.CountTotalViews(ctx, req.StartDate, req.EndDate)
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取热门卡片
 	popularCards, err := s.repo.GetPopularCards(ctx, req.Limit)
 	if err != nil {
 		return nil, err
@@ -144,7 +131,6 @@ func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto
 		})
 	}
 
-	// 获取每日统计数据
 	results, err := s.repo.GetOverallDailyStats(ctx, req.StartDate, req.EndDate)
 	if err != nil {
 		return nil, fmt.Errorf("查询统计数据失败: %w", err)
@@ -168,12 +154,10 @@ func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto
 		}
 	}
 
-	// 转换为切片并按日期排序
 	for _, stat := range dateMap {
 		dailyStats = append(dailyStats, *stat)
 	}
 
-	// 获取最近活动记录
 	recentResults, err := s.repo.GetRecentActivitiesWithJoin(ctx, 10)
 	if err != nil {
 		return nil, err
@@ -189,7 +173,6 @@ func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto
 		})
 	}
 
-	// 构建响应
 	response := &dto.KuaishouCardOverallStatsResponse{
 		TotalCards:       int(totalCards),
 		ActiveCards:      int(activeCards),
@@ -204,12 +187,10 @@ func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto
 
 // RecordActivity 记录快手卡片活动
 func (s *KuaishouCardStatsService) RecordActivity(ctx context.Context, cardID uint, action, userIP, userAgent, extraData string) error {
-	// 只记录浏览活动
 	if action != "view" {
 		return nil
 	}
 
-	// 创建活动记录
 	activity := model.KuaishouCardActivity{
 		CardID:       cardID,
 		ActivityType: action,
@@ -222,11 +203,8 @@ func (s *KuaishouCardStatsService) RecordActivity(ctx context.Context, cardID ui
 		return err
 	}
 
-	// 更新卡片统计
 	switch action {
 	case "view":
-		// 修复：改用 repo 原子自增，消除「读-改-写」并发丢失更新
-		// （原先 GetCardByID → ViewCount++ → SaveCard，高并发热点卡片统计严重偏低）
 		if err := s.repo.IncrementViewCount(ctx, cardID); err != nil {
 			return fmt.Errorf("更新卡片统计失败: %w", err)
 		}
@@ -234,3 +212,4 @@ func (s *KuaishouCardStatsService) RecordActivity(ctx context.Context, cardID ui
 
 	return nil
 }
+

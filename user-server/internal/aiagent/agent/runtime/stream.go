@@ -8,32 +8,18 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// StreamHandler 流式输出支持（调研结果：流式输出）
-// ----------------------------------------------------------------------------
-// 设计目标：
-//  1. 支持工具调用过程的实时流式输出
-//  2. 支持多种事件类型（工具调用、工具结果、消息）
-//  3. 支持错误处理和完成通知
-//  4. 兼容LangChain stream_events格式
-//
-// 与业界标准对比：
-//  - LangChain: stream_events API
-//  - OpenAI: streaming function calls
-//  - AutoGPT: 实时进度显示
-// ============================================================================
 
 // StreamEventType 流式事件类型
 type StreamEventType string
 
 const (
-	StreamEventToolCall   StreamEventType = "tool_call"   // 工具调用开始
-	StreamEventToolResult StreamEventType = "tool_result" // 工具调用结果
-	StreamEventMessage    StreamEventType = "message"     // 消息输出
-	StreamEventError      StreamEventType = "error"       // 错误事件
-	StreamEventComplete   StreamEventType = "complete"    // 完成事件
-	StreamEventStageStart StreamEventType = "stage_start" // 阶段开始
-	StreamEventStageEnd   StreamEventType = "stage_end"   // 阶段结束
+	StreamEventToolCall   StreamEventType = "tool_call"   
+	StreamEventToolResult StreamEventType = "tool_result" 
+	StreamEventMessage    StreamEventType = "message"     
+	StreamEventError      StreamEventType = "error"       
+	StreamEventComplete   StreamEventType = "complete"    
+	StreamEventStageStart StreamEventType = "stage_start" 
+	StreamEventStageEnd   StreamEventType = "stage_end"   
 )
 
 // StreamEvent 流式事件
@@ -50,17 +36,11 @@ type StreamEvent struct {
 
 // StreamHandler 流式处理器接口
 type StreamHandler interface {
-	// OnEvent 处理流式事件
 	OnEvent(event StreamEvent)
-	// OnError 处理错误
 	OnError(err error)
-	// OnComplete 处理完成
 	OnComplete()
 }
 
-// ============================================================================
-// BufferedStreamHandler 缓冲流式处理器
-// ============================================================================
 
 // BufferedStreamHandler 缓冲流式处理器
 type BufferedStreamHandler struct {
@@ -122,9 +102,6 @@ func (h *BufferedStreamHandler) Clear() {
 	h.events = make([]StreamEvent, 0)
 }
 
-// ============================================================================
-// ChannelStreamHandler 通道流式处理器
-// ============================================================================
 
 // ChannelStreamHandler 通道流式处理器
 type ChannelStreamHandler struct {
@@ -146,7 +123,6 @@ func (h *ChannelStreamHandler) OnEvent(event StreamEvent) {
 	select {
 	case h.channel <- event:
 	default:
-		// 通道满，丢弃事件
 	}
 }
 
@@ -177,9 +153,6 @@ func (h *ChannelStreamHandler) Done() <-chan struct{} {
 	return h.done
 }
 
-// ============================================================================
-// CompositeStreamHandler 组合流式处理器
-// ============================================================================
 
 // CompositeStreamHandler 组合流式处理器
 type CompositeStreamHandler struct {
@@ -231,9 +204,6 @@ func (h *CompositeStreamHandler) OnComplete() {
 	}
 }
 
-// ============================================================================
-// InferenceCycle 流式输出支持
-// ============================================================================
 
 // RunOnceStream 执行一次完整推理闭环（支持流式输出）
 //
@@ -253,7 +223,6 @@ func (c *InferenceCycle) RunOnceStream(ctx context.Context, payload CustomerMess
 
 	start := time.Now()
 
-	// 默认 agentCtx
 	if agentCtx == nil {
 		agentCtx = &AgentContext{
 			AgentID:   0,
@@ -264,7 +233,6 @@ func (c *InferenceCycle) RunOnceStream(ctx context.Context, payload CustomerMess
 		}
 	}
 
-	// 构造总超时 ctx
 	tctx, cancel := context.WithTimeout(ctx, c.TotalTimeout)
 	defer cancel()
 
@@ -279,7 +247,6 @@ func (c *InferenceCycle) RunOnceStream(ctx context.Context, payload CustomerMess
 		},
 	}
 
-	// E1 补全：读取跨会话情境记忆
 	c.mu.RLock()
 	provider := c.memoryProvider
 	c.mu.RUnlock()
@@ -293,7 +260,6 @@ func (c *InferenceCycle) RunOnceStream(ctx context.Context, payload CustomerMess
 		}
 	}
 
-	// 阶段执行列表
 	stages := []InferenceStage{
 		c.PerceptionStage,
 		c.AlignmentStage,
@@ -301,13 +267,11 @@ func (c *InferenceCycle) RunOnceStream(ctx context.Context, payload CustomerMess
 		c.PlannerStage,
 	}
 
-	// 顺序执行
 	for _, stage := range stages {
 		if stage == nil {
 			continue
 		}
 
-		// 发送阶段开始事件
 		if handler != nil {
 			handler.OnEvent(StreamEvent{
 				Type:      StreamEventStageStart,
@@ -315,14 +279,12 @@ func (c *InferenceCycle) RunOnceStream(ctx context.Context, payload CustomerMess
 			})
 		}
 
-		// 阶段超时
 		sctx, scancel := context.WithTimeout(tctx, c.StageTimeout)
 		stageStart := time.Now()
 		result := stage.Execute(sctx, ic)
 		stageDuration := time.Since(stageStart)
 		scancel()
 
-		// 发送阶段结束事件
 		if handler != nil {
 			handler.OnEvent(StreamEvent{
 				Type:      StreamEventStageEnd,
@@ -331,7 +293,6 @@ func (c *InferenceCycle) RunOnceStream(ctx context.Context, payload CustomerMess
 			})
 		}
 
-		// 错误处理
 		if result.Error != nil {
 			logger.Warnf("[inference_cycle] stage=%s error=%v", stage.Name(), result.Error)
 			if handler != nil {
@@ -339,7 +300,6 @@ func (c *InferenceCycle) RunOnceStream(ctx context.Context, payload CustomerMess
 			}
 		}
 
-		// 早退判定
 		if result.EarlyReturn {
 			if result.Decision != nil {
 				ic.Decision = mergeDecision(ic.Decision, *result.Decision)
@@ -361,7 +321,6 @@ func (c *InferenceCycle) RunOnceStream(ctx context.Context, payload CustomerMess
 		}
 	}
 
-	// 全部阶段完成：聚合最终决策
 	ic.Decision.TotalDuration = time.Since(start)
 	if ic.Plan != nil {
 		ic.Decision.ReplyType = "text"
@@ -393,3 +352,4 @@ func (c *InferenceCycle) RunOnceStream(ctx context.Context, payload CustomerMess
 
 	return &ic.Decision, nil
 }
+

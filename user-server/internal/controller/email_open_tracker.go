@@ -1,19 +1,5 @@
 package controller
 
-// email_open_tracker_controller.go 邮件打开率追踪控制器
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md §13.2 邮件打开率追踪
-//
-// 路由（公开，邮件客户端直接访问，无 JWT）：
-//   - GET /api/email/track/pixel/{token}.png  1×1 透明 PNG 像素
-//   - POST /api/email/track/webhook/postmark  Postmark 风格 webhook
-//   - POST /api/email/track/webhook/sendcloud 塞邮式 (SendCloud) webhook
-//
-// 路由（鉴权）：
-//   - GET /api/email/track/open-metrics     任务打开率指标
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"net/http"
@@ -41,7 +27,6 @@ func NewEmailOpenTrackerController(svc *service.EmailOpenTrackerService) *EmailO
 // 兼容 .png 后缀的 URL，邮件客户端按 image/png 解析
 func (c *EmailOpenTrackerController) TrackingPixel(ctx *gin.Context) {
 	if c.svc == nil {
-		// 即使服务不可用也返回像素（不影响邮件显示）
 		ctx.Data(http.StatusOK, service.EmailOpenPixelContentType, service.EmailOpenPixel)
 		return
 	}
@@ -50,7 +35,6 @@ func (c *EmailOpenTrackerController) TrackingPixel(ctx *gin.Context) {
 	ua := ctx.Request.UserAgent()
 	pixel, contentType, maxAge, err := c.svc.RenderPixel(ctx.Request.Context(), token, ip, ua)
 	if err != nil {
-		// token 无效也返回像素（邮件客户端过滤）
 		ctx.Data(http.StatusOK, service.EmailOpenPixelContentType, service.EmailOpenPixel)
 		return
 	}
@@ -128,3 +112,4 @@ func (c *EmailOpenTrackerController) RegisterRoutes(public *gin.RouterGroup, aut
 		authed.GET("/email/track/open-metrics", c.GetOpenMetrics)
 	}
 }
+

@@ -36,9 +36,6 @@ func setupCommunityController(t *testing.T) (*CommunityController, *gin.Engine) 
 	return ctrl, router
 }
 
-// ============================================================================
-// CommunityController 测试
-// ============================================================================
 
 // TestCommunityController_GetGroups_Success 测试获取社群列表成功
 func TestCommunityController_GetGroups_Success(t *testing.T) {
@@ -49,7 +46,6 @@ func TestCommunityController_GetGroups_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -64,7 +60,6 @@ func TestCommunityController_GetGroups_EmptyList(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -87,7 +82,6 @@ func TestCommunityController_CreateGroup_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -124,7 +118,6 @@ func TestCommunityController_UpdateGroup_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200、404 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -154,7 +147,6 @@ func TestCommunityController_DeleteGroup_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200、404 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -169,7 +161,6 @@ func TestCommunityController_GetMembers_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -193,7 +184,6 @@ func TestCommunityController_AddMember_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -230,7 +220,6 @@ func TestCommunityController_UpdateMember_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200、404 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -260,7 +249,6 @@ func TestCommunityController_RemoveMember_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200、404 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -275,7 +263,6 @@ func TestCommunityController_GetMessages_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -290,7 +277,6 @@ func TestCommunityController_GetStatistics_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -303,3 +289,4 @@ func TestCommunityController_NewCommunityController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

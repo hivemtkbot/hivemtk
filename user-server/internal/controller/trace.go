@@ -24,3 +24,4 @@ func (c *TraceController) GetTrace(ctx *gin.Context) {
 		"trace_id": ctx.Param("traceId"),
 	})
 }
+

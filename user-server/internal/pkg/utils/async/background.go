@@ -18,7 +18,6 @@ import (
 //   - 外部数据同步
 func RunWithTimeout(ctx context.Context, timeout time.Duration, fn func(ctx context.Context)) {
 	go func() {
-		// 继承原 ctx 的 Value（traceID 等），但用 Background() 作为 parent
 		newCtx, cancel := context.WithTimeout(DetachContext(ctx), timeout)
 		defer cancel()
 		fn(newCtx)
@@ -47,10 +46,10 @@ func SafeGo(fn func()) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				// 可在此处接入 logger/sentry
 				_ = r
 			}
 		}()
 		fn()
 	}()
 }
+

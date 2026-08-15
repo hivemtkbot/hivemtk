@@ -12,13 +12,14 @@ type AfterSale struct {
 	OrderID       string    `gorm:"type:varchar(100);index" json:"order_id"`
 	CustomerPhone string    `gorm:"type:varchar(50);index" json:"customer_phone"`
 	CustomerName  string    `gorm:"type:varchar(100)" json:"customer_name"`
-	Type          string    `gorm:"type:varchar(50)" json:"type"` // refund / return / exchange
-	Reason        string    `gorm:"type:text" json:"reason"`      // 售后原因
+	Type          string    `gorm:"type:varchar(50)" json:"type"` 
+	Reason        string    `gorm:"type:text" json:"reason"`      
 	Amount        int64     `gorm:"type:bigint;default:0" json:"amount"`
-	Status        string    `gorm:"type:varchar(50);default:'pending'" json:"status"` // pending/processing/done/rejected
-	ExternalID    string    `gorm:"type:varchar(100)" json:"external_id"`             // 电商侧售后单号
+	Status        string    `gorm:"type:varchar(50);default:'pending'" json:"status"` 
+	ExternalID    string    `gorm:"type:varchar(100)" json:"external_id"`             
 	CreatedAt     time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt     time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 func (AfterSale) TableName() string { return "after_sales" }
+

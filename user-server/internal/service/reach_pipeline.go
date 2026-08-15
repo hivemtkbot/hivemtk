@@ -1,4 +1,3 @@
-// 独立部署版本：单租户，无 merchant_id
 
 package service
 
@@ -32,23 +31,23 @@ import (
 )
 
 const (
-	StepAudience = "audience" // 1. 受众筛选
+	StepAudience = "audience" 
 
-	StepContentPrepare = "content_prepare" // 2. 内容准备
+	StepContentPrepare = "content_prepare" 
 
-	StepAccountSelect = "account_select" // 3. 账号选择
+	StepAccountSelect = "account_select" 
 
-	StepRateLimit = "rate_limit" // 4. 限流控制
+	StepRateLimit = "rate_limit" 
 
-	StepMessageGen = "message_gen" // 5. 文案生成
+	StepMessageGen = "message_gen" 
 
-	StepSend = "send" // 6. 发送执行
+	StepSend = "send" 
 
-	StepTrackResult = "track_result" // 7. 结果追踪
+	StepTrackResult = "track_result" 
 
-	StepRetry = "retry" // 8. 失败重试
+	StepRetry = "retry" 
 
-	StepReport = "report" // 9. 汇总报告
+	StepReport = "report" 
 
 )
 
@@ -70,7 +69,6 @@ const (
 
 	JobStateRunning = "running"
 
-	// reachJobHeartbeatInterval 执行存活心跳间隔，须远小于 ResetStuckJobs 的卡死阈值(10min)。
 	reachJobHeartbeatInterval = 1 * time.Minute
 
 	JobStateSuccess = "success"
@@ -93,9 +91,9 @@ var ReachChannels = map[string]bool{
 	"douyin":      true,
 	"kuaishou":    true,
 	"xiaohongshu": true,
-	"telegram":    true, // Telegram Bot API（境外 IM）
-	"whatsapp":    true, // WhatsApp Cloud API（Meta 商业）
-	"feishu":      true, // 飞书 Open API（协作 + 业务）
+	"telegram":    true, 
+	"whatsapp":    true, 
+	"feishu":      true, 
 }
 
 var (
@@ -158,19 +156,19 @@ type StepResult struct {
 }
 
 type RetryPolicy struct {
-	MaxRetries      int      `json:"max_retries"`     // 最大重试次数
-	IntervalMs      int      `json:"interval_ms"`     // 重试间隔 (ms)
-	Backoff         string   `json:"backoff"`         // fixed/exponential
-	MaxIntervalMs   int      `json:"max_interval_ms"` // 指数退避上限
+	MaxRetries      int      `json:"max_retries"`     
+	IntervalMs      int      `json:"interval_ms"`     
+	Backoff         string   `json:"backoff"`         
+	MaxIntervalMs   int      `json:"max_interval_ms"` 
 	RetryableErrors []string `json:"retryable_errors,omitempty"`
 }
 
 type RateLimitConfig struct {
-	QPS          int `json:"qps"`            // 每秒请求数
-	Burst        int `json:"burst"`          // 突发容量
-	DailyQuota   int `json:"daily_quota"`    // 每日配额
-	PerUserLimit int `json:"per_user_limit"` // 单用户频次
-	CooldownSecs int `json:"cooldown_secs"`  // 冷却秒数
+	QPS          int `json:"qps"`            
+	Burst        int `json:"burst"`          
+	DailyQuota   int `json:"daily_quota"`    
+	PerUserLimit int `json:"per_user_limit"` 
+	CooldownSecs int `json:"cooldown_secs"`  
 }
 
 func DefaultRetryPolicy() RetryPolicy {
@@ -195,24 +193,17 @@ func DefaultRateLimit() RateLimitConfig {
 type ReachAlertHook func(ctx context.Context, job *model.ReachJob, finalState string, reason string)
 
 type ReachPipelineService struct {
-	// 五层架构整改：db 操作全部下沉到 repository 层，service 不再持有 *gorm.DB
 	repo *repository.ReachPipelineRepository
 
-	// 限流状态（按渠道+账号）
 	rateMu    sync.RWMutex
 	rateState map[string]*rateBucket
-	// 渠道每日配额
 	dailyQuotaMu sync.RWMutex
 	dailyQuota   map[string]*dailyCounter
-	// 用户频次
 	perUserMu   sync.RWMutex
 	perUserHits map[string][]time.Time
 
-	// 真实触达发送器（由 router 注入，连接 IntegrationReachAdapter + BridgeReachAdapter）。
-	// 未注入时 dispatchOutbound 降级为占位 message_id（仅测试 / 未接线部署）。
 	sender ReachSender
 
-	// 告警钩子（可选）：任务最终失败时触发。默认 nil（不告警，仅写日志）。
 	alertHook ReachAlertHook
 }
 
@@ -424,8 +415,6 @@ func (s *ReachPipelineService) ListPipelines(ctx context.Context, channel, statu
 }
 
 func (s *ReachPipelineService) DeletePipeline(ctx context.Context, id uint) error {
-	// 级联删除该 Pipeline 下的任务，避免留下指向已删除 Pipeline 的孤儿任务
-	// （本模块模型无软删除，Delete 为物理删除）
 	if _, err := s.repo.DeleteJobsByPipeline(ctx, id); err != nil {
 		logger.Errorf("[reach_pipeline] 级联删除任务失败 pipeline=%d: %v", id, err)
 	}
@@ -440,17 +429,14 @@ func (s *ReachPipelineService) DeletePipeline(ctx context.Context, id uint) erro
 }
 
 func (s *ReachPipelineService) PausePipeline(ctx context.Context, id uint) error {
-	// 私域独立部署：无 merchant_id 字段
 	return s.repo.UpdatePipelineStatus(ctx, id, PipelineStatusPaused)
 }
 
 func (s *ReachPipelineService) ResumePipeline(ctx context.Context, id uint) error {
-	// 私域独立部署：无 merchant_id 字段
 	return s.repo.UpdatePipelineStatus(ctx, id, PipelineStatusActive)
 }
 
 func (s *ReachPipelineService) ArchivePipeline(ctx context.Context, id uint) error {
-	// 私域独立部署：无 merchant_id 字段
 	return s.repo.UpdatePipelineStatus(ctx, id, PipelineStatusArchived)
 }
 
@@ -488,7 +474,6 @@ func (s *ReachPipelineService) EnqueueJob(ctx context.Context, req *EnqueueJobRe
 
 	maxRetry := req.MaxRetry
 	if maxRetry <= 0 {
-		// 从 pipeline retry_policy 解析
 		maxRetry = 3
 		if pipe.RetryPolicy != nil {
 			var rp RetryPolicy
@@ -586,7 +571,6 @@ func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.
 	if err != nil {
 		return nil, err
 	}
-	// 原子抢占，避免调度器与手动触发并发执行同一任务
 	claimed, err := s.repo.ClaimJob(ctx, id)
 	if err != nil {
 		return nil, err
@@ -600,7 +584,6 @@ func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.
 func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.ReachJob, autoRetry bool) (*model.ReachJob, error) {
 	pipe, err := s.GetPipeline(ctx, job.PipelineID)
 	if err != nil {
-		// pipeline 已被删除：标记失败，避免任务卡在 running
 		now := time.Now()
 		job.State = JobStateFailed
 		job.ErrorMessage = err.Error()
@@ -608,7 +591,6 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 		s.repo.SaveJob(ctx, job)
 		return job, err
 	}
-	// 解析 steps
 	steps := []string{}
 	if pipe.Steps != nil {
 		if err := json.Unmarshal(mustJSON(pipe.Steps), &steps); err != nil {
@@ -630,18 +612,12 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 	if err := json.Unmarshal(mustJSON(pipe.RateLimit), &rl); err != nil {
 		logger.Errorf("[reach_pipeline] 解析 RateLimit 失败: %v", err)
 	}
-	// 不在这里覆盖 QPS=0，因为显式配置 0 表示禁止
 
-	// 状态 -> running
 	now := time.Now()
 	job.State = JobStateRunning
 	job.StartedAt = &now
 	s.repo.SaveJob(ctx, job)
 
-	// 启动执行存活心跳：周期性刷新 updated_at，防止 dispatchDueJobs 的 ResetStuckJobs
-	// 把仍在执行（如第三方渠道发送阻塞）的任务误判为卡死而重置为 pending 并重复派发，
-	// 从而杜绝运行中任务被并发重复执行导致的重复触达。心跳仅在本函数返回时停止，
-	// 故只有进程真正崩溃（心跳 goroutine 随之死亡）时任务才会被 ResetStuckJobs 安全恢复。
 	hbStop := make(chan struct{})
 	hbDone := make(chan struct{})
 	go func() {
@@ -655,8 +631,6 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				// 使用 WithoutCancel 脱离 ctx 取消，确保心跳自身不被外层 ctx 取消打断；
-				// 外层 ctx 取消时由上面的 ctx.Done() 分支负责退出。
 				_ = s.repo.TouchRunningJob(context.WithoutCancel(ctx), job.ID)
 			}
 		}
@@ -666,7 +640,6 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 		<-hbDone
 	}()
 
-	// 累计 Pipeline 运行次数
 	s.repo.IncrementPipelineField(ctx, pipe.ID, "total_runs", 1)
 
 	results := []StepResult{}
@@ -679,9 +652,7 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 		res := s.runStep(ctx, step, job, &rl)
 		results = append(results, res)
 		if !res.Success {
-			// 限流步骤失败 -> 直接标记为 rate_limited
 			if step == StepRateLimit && res.Error == ErrReachRateLimited.Error() {
-				// 限流失败：退避一段时间再重试，避免被调度器立即重新拾起造成空转
 				backoff := computeNextRunTime(rp, job.RetryCount+1)
 				job.State = JobStateRateLimited
 				job.ErrorMessage = res.Error
@@ -691,7 +662,6 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 				s.appendStepResult(ctx, job, res)
 				return job, ErrReachRateLimited
 			}
-			// V3 整改：记录第一个失败 step 的错误信息，供前端展示
 			if firstErrStep == "" {
 				firstErrStep = step
 				firstErrMsg = res.Error
@@ -701,7 +671,6 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 		}
 	}
 
-	// 序列化结果
 	job.StepResults = toJSONArray(mustJSON(results))
 
 	finish := time.Now()
@@ -713,7 +682,6 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 		s.repo.IncrementPipelineField(ctx, pipe.ID, "total_success", 1)
 	} else {
 		if autoRetry && job.RetryCount < rp.MaxRetries {
-			// 调度器路径：按重试策略进入 retrying，由后台调度器在退避后重新执行
 			job.RetryCount++
 			next := computeNextRunTime(rp, job.RetryCount)
 			job.State = JobStateRetrying
@@ -722,11 +690,8 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 			s.repo.IncrementPipelineField(ctx, pipe.ID, "total_failure", 1)
 		} else {
 			job.State = JobStateFailed
-			// V3 整改：把失败 step 信息持久化到 ErrorMessage
-			// 格式：[step=content_prepare] content prepare failed: ...
 			job.ErrorMessage = fmt.Sprintf("[step=%s] %s", firstErrStep, firstErrMsg)
 			s.repo.IncrementPipelineField(ctx, pipe.ID, "total_failure", 1)
-			// P1-8：触达最终失败 → 触发告警钩子（运维可感知，避免静默失败）
 			s.fireAlert(ctx, job, JobStateFailed, job.ErrorMessage)
 		}
 	}
@@ -772,7 +737,6 @@ func (s *ReachPipelineService) dispatchLoop(ctx context.Context, interval time.D
 }
 
 func (s *ReachPipelineService) dispatchDueJobs(ctx context.Context) {
-	// 先恢复卡住的运行中任务（进程崩溃等），避免永久 stuck
 	if _, err := s.repo.ResetStuckJobs(ctx, 10*time.Minute); err != nil {
 		logger.Errorf("[reach_dispatcher] 恢复 stuck 任务失败: %v", err)
 	}
@@ -783,7 +747,6 @@ func (s *ReachPipelineService) dispatchDueJobs(ctx context.Context) {
 	}
 	for i := range jobs {
 		job := jobs[i]
-		// 原子抢占，防止与手动触发 / 其他实例重复执行
 		claimed, cerr := s.repo.ClaimJob(ctx, job.ID)
 		if cerr != nil {
 			logger.Errorf("[reach_dispatcher] 抢占任务 %d 失败: %v", job.ID, cerr)
@@ -810,7 +773,6 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 	res := StepResult{Step: step, StartedAt: start}
 	switch step {
 	case StepAudience:
-		// 受众筛选: 校验 customerID
 		if job.CustomerID == "" {
 			res.Success = false
 			res.Error = "empty customer_id"
@@ -819,8 +781,6 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 			res.Output = map[string]any{"customer_id": job.CustomerID}
 		}
 	case StepContentPrepare:
-		// 内容准备：真实渲染模板
-		// 优先级：job.Payload.content（字符串模板）> job.Payload.template_id（数据库中的话术模板）> 兜底错误
 		content, err := s.prepareContent(ctx, job)
 		if err != nil {
 			res.Success = false
@@ -834,7 +794,6 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 			}
 		}
 	case StepAccountSelect:
-		// 账号选择
 		if job.AccountID == "" {
 			res.Success = true
 			res.Output = map[string]any{"account_id": "auto"}
@@ -843,7 +802,6 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 			res.Output = map[string]any{"account_id": job.AccountID}
 		}
 	case StepRateLimit:
-		// 限流控制
 		if !s.checkRateLimit(ctx, job.Channel, job.AccountID, job.CustomerID, rl) {
 			res.Success = false
 			res.Error = ErrReachRateLimited.Error()
@@ -852,7 +810,6 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 			res.Output = map[string]any{"pass": true}
 		}
 	case StepMessageGen:
-		// 消息生成：复用 ContentPrepare 的渲染结果，做轻量个性化
 		message, err := s.generateMessage(ctx, job)
 		if err != nil {
 			res.Success = false
@@ -866,10 +823,6 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 			}
 		}
 	case StepSend:
-		// 发送执行：按 channel 路由到真实发送器
-		// 私域独立部署：当前已实现的渠道为 wecom / feishu / telegram / whatsapp（走 webhook_service.sendOutbound 同一底层）
-		// sms / email / card / dingtalk / douyin / kuaishou / xiaohongshu 走各自的 Service
-		// 未支持的渠道返回明确错误（避免静默吞掉）
 		messageID, err := s.dispatchOutbound(ctx, job)
 		if err != nil {
 			res.Success = false
@@ -883,7 +836,6 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 			}
 		}
 	case StepTrackResult:
-		// 结果追踪：把 message_id 写入 job.Payload._tracking，供 StepReport 汇总
 		if err := s.trackSendResult(ctx, job, res); err != nil {
 			res.Success = false
 			res.Error = "track failed: " + err.Error()
@@ -897,11 +849,9 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 			}
 		}
 	case StepRetry:
-		// 失败重试（pipeline 级别逻辑）
 		res.Success = true
 		res.Output = map[string]any{"checked": true}
 	case StepReport:
-		// 汇总报告：聚合 step 时长/成功/失败，更新 pipeline 计数器
 		report, err := s.aggregateReport(ctx, job)
 		if err != nil {
 			res.Success = false
@@ -940,7 +890,6 @@ func (s *ReachPipelineService) prepareContent(ctx context.Context, job *model.Re
 			raw = s
 		}
 	}
-	// 兜底：template_id 走数据库（ScriptTemplate/ScriptLibrary/ContentTemplate）
 	if raw == "" {
 		if v, ok := job.Payload["template_id"]; ok {
 			if tmplID, ok := v.(string); ok && tmplID != "" && s.repo != nil && s.repo.Available() {
@@ -985,10 +934,8 @@ func (s *ReachPipelineService) generateMessage(ctx context.Context, job *model.R
 	if err != nil {
 		return "", err
 	}
-	// 轻量清理
 	cleaned := strings.TrimSpace(base)
-	cleaned = strings.Join(strings.Fields(cleaned), " ") // 折叠空白
-	// 渠道后缀（仅在显式开启时追加）
+	cleaned = strings.Join(strings.Fields(cleaned), " ") 
 	if v, ok := job.Payload["include_channel_footer"]; ok {
 		if b, _ := v.(bool); b && job.Channel != "" {
 			footer := fmt.Sprintf("\n\n[via %s @ %s]", job.Channel, time.Now().Format("2006-01-02 15:04:05"))
@@ -998,23 +945,6 @@ func (s *ReachPipelineService) generateMessage(ctx context.Context, job *model.R
 	return cleaned, nil
 }
 
-// dispatchOutbound 按 channel 路由到真实发送器（V3 整改）
-//
-// 已实现渠道：wecom / feishu / telegram / whatsapp（统一走 webhook_service.sendOutbound 同一底层）
-// 营销自动化渠道：sms / email / card / dingtalk / douyin / kuaishou / xiaohongshu
-//   - 走对应 Service.Send* 方法（sms/email 走 repository）
-//   - 若该渠道的 Service 未配置（如 SMTP 缺失），返回明确错误，不静默吞掉
-//
-// 返回 message_id（渠道侧分配的 ID，便于 StepTrackResult / StepReport 关联）。
-//
-// 真实发送策略（修复"调度器下发占位"缺口）：
-//   - 若已通过 SetReachSender 注入真实发送器（生产由 router 注入，连接
-//     IntegrationReachAdapter + BridgeReachAdapter），则按渠道路由到真实渠道，
-//     真正下发消息。
-//   - 未注入发送器（单元测试 / 未接线部署）时降级为占位 message_id，
-//     保证调度流程可继续，但不真正发送网络请求。
-//
-// V3 副效果：把 message_id 写入 job.Payload["_last_send"]，供 StepTrackResult 读取。
 
 // ReachSender 真实触达发送器接口（由 router 注入）。
 // 实现连接 tooluse.IntegrationReachAdapter（telegram/whatsapp/feishu/web/wecom/dingtalk/sms/email/card）
@@ -1039,7 +969,6 @@ func (s *ReachPipelineService) dispatchOutbound(ctx context.Context, job *model.
 		return "", fmt.Errorf("customer_id is empty")
 	}
 
-	// 生产路径：已注入真实触达适配器，按渠道路由到真实发送器
 	if s.sender != nil {
 		content, cerr := s.prepareContent(ctx, job)
 		if cerr != nil || strings.TrimSpace(content) == "" {
@@ -1060,8 +989,6 @@ func (s *ReachPipelineService) dispatchOutbound(ctx context.Context, job *model.
 		return mid, nil
 	}
 
-	// 未注入发送器：降级为占位 message_id（不真正发送网络请求）
-	// 生成结构化 message_id
 	now := time.Now().UnixNano()
 	id := fmt.Sprintf("msg_%s_%s_%d", job.Channel, job.CustomerID, now)
 	if len(id) > 50 {
@@ -1070,12 +997,11 @@ func (s *ReachPipelineService) dispatchOutbound(ctx context.Context, job *model.
 	implemented := map[string]bool{
 		"wecom": true, "feishu": true, "telegram": true, "whatsapp": true,
 		"sms": true, "email": true, "card": true, "dingtalk": true,
-		"douyin": false, "kuaishou": false, "xiaohongshu": false, // V3 待接入
+		"douyin": false, "kuaishou": false, "xiaohongshu": false, 
 	}
 	if !implemented[job.Channel] {
 		return "", fmt.Errorf("channel %s 暂未实现主动出站（V3 待接入）", job.Channel)
 	}
-	// V3：把发送结果写入 job.Payload，供 StepTrackResult 读取
 	if job.Payload == nil {
 		job.Payload = model.JSONMap{}
 	}
@@ -1102,7 +1028,6 @@ func (s *ReachPipelineService) trackSendResult(ctx context.Context, job *model.R
 	if tracking == nil {
 		tracking = map[string]any{}
 	}
-	// 从 _last_send 读取 StepSend 的结果
 	if last, ok := job.Payload["_last_send"].(map[string]any); ok {
 		if mid, ok := last["message_id"]; ok {
 			tracking["message_id"] = mid
@@ -1170,7 +1095,6 @@ func (s *ReachPipelineService) aggregateReport(ctx context.Context, job *model.R
 		report["slowest_step"] = maxStep
 		report["slowest_step_ms"] = maxDur
 	}
-	// 关联追踪信息
 	if v, ok := job.Payload["_tracking"]; ok {
 		if m, ok := v.(map[string]any); ok {
 			for _, k := range []string{"message_id", "channel", "tracked_at"} {
@@ -1180,7 +1104,6 @@ func (s *ReachPipelineService) aggregateReport(ctx context.Context, job *model.R
 			}
 		}
 	}
-	// 真实更新 Pipeline 计数器
 	if s.repo != nil && s.repo.Available() && job.PipelineID > 0 {
 		if success > 0 && failed == 0 {
 			s.repo.IncrementPipelineField(ctx, job.PipelineID, "total_success", 1)
@@ -1215,28 +1138,23 @@ func renderReachTemplate(template string, job *model.ReachJob) string {
 	b.Grow(len(template))
 	i := 0
 	for i < len(template) {
-		// 找 {{ 开始
 		if i+1 < len(template) && template[i] == '{' && template[i+1] == '{' {
-			// 找 }} 结束
 			j := i + 2
 			for j+1 < len(template) && !(template[j] == '}' && template[j+1] == '}') {
 				j++
 			}
 			if j+1 < len(template) {
-				// 找到完整的 {{key}} 块
 				key := strings.TrimSpace(template[i+2 : j])
 				if v, ok := job.Payload[key]; ok {
 					b.WriteString(fmt.Sprintf("%v", v))
 				} else if v, ok := autoVars[key]; ok {
 					b.WriteString(v)
 				} else {
-					// 未命中：原样输出
 					b.WriteString(template[i : j+2])
 				}
 				i = j + 2
 				continue
 			}
-			// 未闭合：原样输出剩余
 			b.WriteString(template[i:])
 			break
 		}
@@ -1262,21 +1180,17 @@ func (s *ReachPipelineService) appendStepResult(ctx context.Context, job *model.
 
 // checkRateLimit 检查限流
 func (s *ReachPipelineService) checkRateLimit(ctx context.Context, channel, accountID, customerID string, rl *RateLimitConfig) bool {
-	// 每日配额
 	if rl.DailyQuota > 0 {
 		if !s.checkDailyQuota(ctx, channel, rl.DailyQuota) {
 			return false
 		}
 	}
-	// 单用户频次
 	if rl.PerUserLimit > 0 && customerID != "" {
 		if !s.checkPerUser(ctx, customerID, rl.PerUserLimit, time.Duration(rl.CooldownSecs)*time.Second) {
 			return false
 		}
 	}
-	// 令牌桶
 	if rl.QPS > 0 || rl.Burst > 0 {
-		// 独立部署版本：单租户，移除 merchantID 维度
 		key := channel + ":" + accountID
 		s.rateMu.Lock()
 		b, ok := s.rateState[key]
@@ -1289,7 +1203,6 @@ func (s *ReachPipelineService) checkRateLimit(ctx context.Context, channel, acco
 			}
 			s.rateState[key] = b
 		}
-		// 处理配置更新
 		if rl.Burst > 0 && b.burst != rl.Burst {
 			b.burst = rl.Burst
 		}
@@ -1348,7 +1261,6 @@ func (s *ReachPipelineService) checkPerUser(ctx context.Context, customerID stri
 	s.perUserMu.Lock()
 	defer s.perUserMu.Unlock()
 	hits := s.perUserHits[customerID]
-	// 清理过期
 	cutoff := now.Add(-cooldown)
 	newHits := hits[:0]
 	for _, h := range hits {
@@ -1394,7 +1306,6 @@ func (s *ReachPipelineService) validateSteps(ctx context.Context, steps []string
 			return fmt.Errorf("%w: unknown step %s", ErrReachInvalidSteps, st)
 		}
 	}
-	// 必须包含 send
 	hasSend := false
 	for _, st := range steps {
 		if st == StepSend {
@@ -1442,7 +1353,6 @@ func (s *ReachPipelineService) Stats(ctx context.Context) (map[string]int64, err
 		return stats, nil
 	}
 
-	// 五层架构整改：原 10 次零散 Count 调用下沉为 repo.GetStats 一次性返回
 	rs, err := s.repo.GetStats(ctx)
 	if err != nil {
 		return nil, err
@@ -1476,3 +1386,4 @@ func InitReachPipelineService(db *gorm.DB) *ReachPipelineService {
 	})
 	return reachInstance
 }
+

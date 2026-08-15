@@ -494,11 +494,6 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 	}
 
 	if result.AIReplied && (result.Reply != "" || len(result.Cards) > 0) {
-		// 2026-08-15 P1-4 outbound 场景元数据：
-		//   把 HandleResult 与 agentID 注入 ctx，供 sendOutbound 取出补
-		//   dm_target/scenario/intent/confidence/handler_type/agent_id 等 Extra 字段。
-		//   agentID 来自 runAIGeneration 入参 agentCtx（loadAgentForChannel 已加载，
-		//   未注入时为空 → 走默认配置，sendOutbound 端按 "unknown" 占位）。
 		outCtx := HandleResultToContext(ctx, result)
 		if agentCtx != nil && agentCtx.AgentCode != "" {
 			outCtx = AgentIDToContext(outCtx, agentCtx.AgentCode)
@@ -512,3 +507,4 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 		Str("handler", string(result.HandlerType)).
 		Msg("no outbound")
 }
+

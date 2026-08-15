@@ -1,29 +1,5 @@
 package repository
 
-// knowledge_base.go 知识库主表 Repository (隔离架构)
-//
-// 五层架构归属: L5 数据访问层
-// 设计依据: 知识库隔离架构
-//   - 知识库主表 CRUD
-//   - 支持按 Type/Agent/OwnerType/共享 多种维度查询
-//   - 业务逻辑 (缓存/权限/编排) 在 Service 层
-//
-// 方法:
-//   - Create           新增知识库
-//   - GetByID          按 ID 查询
-//   - GetByCode        按 kb_code 查询
-//   - List             列出全部 (带可选过滤)
-//   - ListByType       按类型 (faq/rag/sop) 过滤
-//   - ListByAgent      按智能体查其私有知识库
-//   - ListShared       查全部共享知识库
-//   - Update           更新
-//   - Delete           删除
-//   - CountByAgent     统计某智能体拥有多少私有 KB
-//
-// AgentKBBindingRepository 单独位于 internal/repository/agent_kb_binding.go
-//
-// IsValidType 工具方法: 不放在 Repository 中 (避免架构检查误判"缺 ctx"),
-//                       实际放在 service/knowledge_base.go 的 IsValidKBType 供调用.
 
 import (
 	"context"
@@ -75,10 +51,10 @@ func (r *KnowledgeBaseRepository) GetByCode(ctx context.Context, code string) (*
 
 // ListFilter 列表查询过滤条件
 type KBListFilter struct {
-	Type         string // faq/rag/sop, 空=全部
-	OwnerType    string // private/shared, 空=全部
-	OwnerAgentID *uint  // 按智能体过滤
-	Enabled      *bool  // 按启用状态过滤
+	Type         string 
+	OwnerType    string 
+	OwnerAgentID *uint  
+	Enabled      *bool  
 	Limit        int
 	Offset       int
 }
@@ -172,8 +148,6 @@ func (r *KnowledgeBaseRepository) ListShared(ctx context.Context, kbType string)
 
 // Update 更新知识库
 func (r *KnowledgeBaseRepository) Update(ctx context.Context, id uint, kb *model.KnowledgeBase) error {
-	// 不用 Select("*") 避免 GORM 把 nil pointer / 零值字段当 NULL 写回, 引发 NOT NULL 约束失败
-	// 显式列出可更新字段, 零值会被忽略 (业务字段用指针避开零值问题)
 	return r.db.WithContext(ctx).Model(&model.KnowledgeBase{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
@@ -201,3 +175,4 @@ func (r *KnowledgeBaseRepository) CountByAgent(ctx context.Context, agentID uint
 		Count(&count).Error
 	return count, err
 }
+

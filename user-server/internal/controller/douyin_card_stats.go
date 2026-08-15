@@ -31,7 +31,6 @@ func (c *DouyinCardStatsController) GetCardStats(ctx *gin.Context) {
 		return
 	}
 
-	// 获取查询参数
 	groupBy := ctx.DefaultQuery("groupBy", "day")
 	startDate := ctx.Query("startDate")
 	endDate := ctx.Query("endDate")
@@ -53,7 +52,6 @@ func (c *DouyinCardStatsController) GetCardStats(ctx *gin.Context) {
 
 // GetOverallStats 获取所有卡片的总体统计数据
 func (c *DouyinCardStatsController) GetOverallStats(ctx *gin.Context) {
-	// 获取查询参数
 	groupBy := ctx.DefaultQuery("groupBy", "day")
 	startDate := ctx.Query("startDate")
 	endDate := ctx.Query("endDate")
@@ -72,3 +70,4 @@ func (c *DouyinCardStatsController) GetOverallStats(ctx *gin.Context) {
 
 	response.Success(ctx, stats, "获取成功")
 }
+

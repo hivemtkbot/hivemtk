@@ -1,11 +1,5 @@
 package dto
 
-// confidence.go 置信度驱动转人工 数据传输对象
-//
-// 五层架构归属: L2 网关/L3 业务 之间的传输层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.4.1
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"time"
@@ -37,19 +31,17 @@ type SignalCollectionInput struct {
 	Text       string `json:"text"`
 	IntentType string `json:"intent_type"`
 
-	// 各信号原始值
-	RawIntentConf     float64        `json:"raw_intent_conf"`      // 意图识别器原始置信度（校准前）
-	RawLogits         []float64      `json:"raw_logits,omitempty"` // 意图分类器 logits，用于温度缩放
+	RawIntentConf     float64        `json:"raw_intent_conf"`      
+	RawLogits         []float64      `json:"raw_logits,omitempty"` 
 	ExtractedEntities map[string]any `json:"extracted_entities,omitempty"`
 	ExpectedEntities  map[string]any `json:"expected_entities,omitempty"`
-	LLMLogprobs       []float64      `json:"llm_logprobs,omitempty"` // top-k token logprobs
+	LLMLogprobs       []float64      `json:"llm_logprobs,omitempty"` 
 	RAGChunks         []RAGChunk     `json:"rag_chunks,omitempty"`
-	RAGExecuted       bool           `json:"rag_executed,omitempty"` // RAG 是否已实际执行；false=该维度未知（取中性 0.5，不惩罚）
-	LastTurns         []string       `json:"last_turns,omitempty"`   // 最近 3 轮对话
+	RAGExecuted       bool           `json:"rag_executed,omitempty"` 
+	LastTurns         []string       `json:"last_turns,omitempty"`   
 
-	// 上下文因子（用于动态阈值）
-	CustomerLevel     string  `json:"customer_level,omitempty"`     // vip / normal / low
-	AgentAvailability float64 `json:"agent_availability,omitempty"` // [0,1] 在线座席空闲比例
+	CustomerLevel     string  `json:"customer_level,omitempty"`     
+	AgentAvailability float64 `json:"agent_availability,omitempty"` 
 }
 
 // ConfidenceDecision 置信度决策结果
@@ -59,7 +51,7 @@ type ConfidenceDecision struct {
 	SignalID         string      `json:"signal_id"`
 	AggregatedConf   float64     `json:"aggregated_conf"`
 	DynamicThreshold float64     `json:"dynamic_threshold"`
-	DecisionBand     string      `json:"decision_band"` // handoff / llm_fallback / review / auto
+	DecisionBand     string      `json:"decision_band"` 
 	VetoTriggered    string      `json:"veto_triggered,omitempty"`
 	Signals          FiveSignals `json:"signals"`
 	CalculatedAt     time.Time   `json:"calculated_at"`
@@ -67,10 +59,10 @@ type ConfidenceDecision struct {
 
 // 决策区间常量
 const (
-	BandHandoff     = "handoff"      // [0, 0.4) 立即转人工
-	BandLLMFallback = "llm_fallback" // [0.4, 0.6) LLM 兜底回复（带前缀 + low_confidence 标记）
-	BandReview      = "review"       // [0.6, 0.75) 进审核队列
-	BandAuto        = "auto"         // [0.75, 1.0] 自动回复
+	BandHandoff     = "handoff"      
+	BandLLMFallback = "llm_fallback" 
+	BandReview      = "review"       
+	BandAuto        = "auto"         
 )
 
 // CalibrationResult 校准结果（dto 层暴露给上游）
@@ -110,4 +102,4 @@ type ThresholdPolicyRequest struct {
 	Version                 int     `json:"version" binding:"min=1"`
 }
 
-// ToThresholdPolicyModel 转换函数已下沉至 service/confidence 包，dto 层保持纯数据结构。
+

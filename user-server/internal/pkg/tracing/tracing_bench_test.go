@@ -15,7 +15,6 @@ import (
 func BenchmarkSinkAbsorb(b *testing.B) {
 	Init(nil)
 	ctx := context.Background()
-	// 预热：确认 sink goroutine 已起。
 	RecordNode(ctx, NodeSpan{Node: NodeIngest, Input: map[string]any{"k": "v"}, Output: map[string]any{"ok": true}})
 
 	b.ResetTimer()
@@ -33,20 +32,17 @@ func BenchmarkSinkAbsorb(b *testing.B) {
 // TestSinkNoDropsUnderNormalLoad 正常并发负载下不应发生背压丢帧（dropped=0），
 // 验证异步 sink 在典型 QPS 下对业务零损。
 func TestSinkNoDropsUnderNormalLoad(t *testing.T) {
-	Init(nil) // 确保 sink goroutine 已启动；sync.Once 幂等
+	Init(nil) 
 	ctx := context.Background()
 	beforePub, beforeDrop := Stats()
 	const n = 50000
 	for i := 0; i < n; i++ {
 		RecordNode(ctx, NodeSpan{Node: NodeIngest, Input: i, Output: "ok"})
 	}
-	// 等待后台消费，确认无堆积导致的丢帧（正常负载下缓冲 8192 足以吸收突发）。
 	published, dropped := Stats()
 	if got := published - beforePub; got != n {
 		t.Errorf("published 增量应为 %d，实际 %d", n, got)
 	}
-	// 突发密集发送可能触发背压丢帧（设计内：缓冲满即丢，保证业务零等待）。
-	// 此处仅观测丢帧率，不作为失败条件；压测目的为确认计数正确且背压可控。
 	if d := dropped - beforeDrop; d > 0 {
 		t.Logf("突发 5w 发送触发背压丢帧 %d（丢帧率 %.4f%%），符合设计预期", d, float64(d)/float64(n)*100)
 	}
@@ -72,3 +68,4 @@ func TestPublishMarshalsInSink(t *testing.T) {
 		t.Fatalf("toModelFromPending 应将 any 序列化为 JSON 字符串，实际 input=%q output=%q", m.Input, m.Output)
 	}
 }
+

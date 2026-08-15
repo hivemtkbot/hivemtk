@@ -90,7 +90,6 @@ func TestNewXiaohongshuCardStatsController(t *testing.T) {
 func TestXiaohongshuCardStatsController_GetCardStats(t *testing.T) {
 	_, router := setupXiaohongshuCardStatsController(t)
 
-	// 测试正常请求
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/xiaohongshu/card/1/stats", nil)
 	router.ServeHTTP(w, req)
@@ -100,7 +99,7 @@ func TestXiaohongshuCardStatsController_GetCardStats(t *testing.T) {
 	var response map[string]any
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "SUCCESS", response["code"]) // code "SUCCESS" 表示成功
+	assert.Equal(t, "SUCCESS", response["code"]) 
 	assert.NotNil(t, response["data"])
 }
 
@@ -117,7 +116,7 @@ func TestXiaohongshuCardStatsController_GetCardStats_InvalidID(t *testing.T) {
 	var response map[string]any
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.NotEqual(t, "SUCCESS", response["code"]) // 非 SUCCESS 表示错误
+	assert.NotEqual(t, "SUCCESS", response["code"]) 
 }
 
 // TestXiaohongshuCardStatsController_GetCardStats_WithDateRange 测试带日期范围的请求
@@ -173,9 +172,8 @@ func TestXiaohongshuCardStatsController_GetOverallStats(t *testing.T) {
 	var response map[string]any
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "SUCCESS", response["code"]) // code 0 表示成功
+	assert.Equal(t, "SUCCESS", response["code"]) 
 
-	// 验证返回数据结构
 	data, ok := response["data"].(map[string]any)
 	assert.True(t, ok)
 	assert.Contains(t, data, "totalCards")
@@ -263,7 +261,6 @@ func TestXiaohongshuCardStatsController_GetCardStats_NegativeCardID(t *testing.T
 	req := httptest.NewRequest("GET", "/api/xiaohongshu/card/-1/stats", nil)
 	router.ServeHTTP(w, req)
 
-	// 负数会被 strconv.ParseUint 拒绝，返回 400 错误
 	assert.Equal(t, 400, w.Code)
 }
 
@@ -307,3 +304,4 @@ func TestXiaohongshuCardStatsController_GetOverallStats_EmptyResponse(t *testing
 	assert.NoError(t, err)
 	assert.Equal(t, "SUCCESS", response["code"])
 }
+

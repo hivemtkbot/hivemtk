@@ -51,15 +51,10 @@ func NewCustomerRFMServiceWithRepos(
 
 // RFMConfig RFM 评分配置
 type RFMConfig struct {
-	// R (Recency) 阈值：距今 <= N 天 → 5 分，依次类推
-	RecencyBuckets []int // [7, 30, 90, 180] 默认；<=7→5, <=30→4, <=90→3, <=180→2, >180→1
-	// F (Frequency) 阈值：>= N 次 → 5 分
-	FrequencyBuckets []int // [10, 5, 3, 1] 默认
-	// M (Monetary) 阈值：>= N 分 → 5 分
-	MonetaryBuckets []int64 // [500000, 100000, 30000, 5000] 默认
-	// 流失阈值：recency_days >= N 视为流失
-	ChurnRecencyThreshold int // 默认 180
-	// 自动入挽回队列开关
+	RecencyBuckets []int 
+	FrequencyBuckets []int 
+	MonetaryBuckets []int64 
+	ChurnRecencyThreshold int 
 	AutoEnqueueRecovery bool
 }
 
@@ -68,7 +63,7 @@ func DefaultRFMConfig() RFMConfig {
 	return RFMConfig{
 		RecencyBuckets:        []int{7, 30, 90, 180},
 		FrequencyBuckets:      []int{10, 5, 3, 1},
-		MonetaryBuckets:       []int64{500000, 100000, 30000, 5000}, // 5000元/1000元/300元/50元（分单位）
+		MonetaryBuckets:       []int64{500000, 100000, 30000, 5000}, 
 		ChurnRecencyThreshold: 180,
 		AutoEnqueueRecovery:   true,
 	}
@@ -87,24 +82,20 @@ func (s *CustomerRFMService) ComputeForCustomer(ctx context.Context, customerID 
 		return nil, errors.New("客户不存在")
 	}
 
-	// 解析 account_id（用于 order 关联）
 	accountID := customerID
 	if cust.Phone != "" {
 		accountID = cust.Phone
 	}
 
-	// 计算 R / F / M（基于 order 表 + account_id）
 	r, f, m, lastActive, err := s.computeRawMetrics(ctx, accountID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 1-5 分映射
 	rs := rfmScoreRecency(r, cfg.RecencyBuckets)
 	fs := rfmScoreFrequency(f, cfg.FrequencyBuckets)
 	ms := rfmScoreMonetary(m, cfg.MonetaryBuckets)
 
-	// 综合 0-100：R 30% + F 30% + M 40%
 	composite := int(float64(rs)*30 + float64(fs)*30 + float64(ms)*40)
 	if composite < 0 {
 		composite = 0
@@ -142,7 +133,6 @@ func (s *CustomerRFMService) ComputeForCustomer(ctx context.Context, customerID 
 		return nil, err
 	}
 
-	// 流失客户自动入挽回队列
 	if cfg.AutoEnqueueRecovery && segment == model.RFMSegmentChurn {
 		s.enqueueRecovery(ctx, rfm)
 	}
@@ -157,7 +147,7 @@ func (s *CustomerRFMService) ComputeAll(ctx context.Context, limit int) (int, er
 	if limit < 1 || limit > 1000 {
 		limit = 200
 	}
-	customers, _, err := s.customerRepo.List(ctx, 1, limit)
+	customers, _, err := s.customerRepo.List(ctx, 1, limit, "")
 	if err != nil {
 		return 0, err
 	}
@@ -184,19 +174,16 @@ func (s *CustomerRFMService) computeForCustomerLoaded(ctx context.Context, cust 
 		return nil, errors.New("客户 ID 不能为空")
 	}
 
-	// 解析 account_id（用于 order 关联）
 	accountID := cust.ID
 	if cust.Phone != "" {
 		accountID = cust.Phone
 	}
 
-	// 计算 R / F / M
 	r, f, m, lastActive, err := s.computeRawMetrics(ctx, accountID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 1-5 分映射
 	rs := rfmScoreRecency(r, cfg.RecencyBuckets)
 	fs := rfmScoreFrequency(f, cfg.FrequencyBuckets)
 	ms := rfmScoreMonetary(m, cfg.MonetaryBuckets)
@@ -238,14 +225,10 @@ func (s *CustomerRFMService) computeForCustomerLoaded(ctx context.Context, cust 
 		return nil, err
 	}
 
-	// 流失客户自动入挽回队列
 	if cfg.AutoEnqueueRecovery && segment == model.RFMSegmentChurn {
 		s.enqueueRecovery(ctx, rfm)
 	}
 
-	// 联动业务编排层
-	// CustomerRFMService 通过 NewCustomerRFMService() 无构造函数注入 orchestrator，
-	// 此处直接走 GetGlobalOrchestrator() 全局单例兜底（与 event_tracker / chat_visitor_service 模式一致）。
 	if orch := GetGlobalOrchestrator(); orch != nil {
 		orch.OnRFMComputed(ctx, cust.ID, string(segment))
 	}
@@ -275,8 +258,6 @@ func (s *CustomerRFMService) computeRawMetrics(ctx context.Context, accountID st
 		recencyDays = 9999
 		return
 	}
-	// 1) 直接按 account_id 拉取该客户订单（GetByStringID 不可用，order 表无 string id 索引）
-	// 简化：走 GetByTgID 仅当 accountID 可解析为 int64；否则返回 0
 	tgID, _ := strconv.ParseInt(accountID, 10, 64)
 	if tgID > 0 {
 		orders, oerr := s.orderRepo.GetByTgID(ctx, tgID)
@@ -388,7 +369,6 @@ func determineSegment(r, f, m, recencyDays, churnThreshold int) string {
 //	churn_score: 0-100，越高越可能流失
 func calcChurnRisk(recencyDays, freq int, monetary int64, cfg RFMConfig) (string, int) {
 	score := 0
-	// recency 贡献 60 分（超过阈值直接加满 70）
 	if recencyDays >= cfg.ChurnRecencyThreshold {
 		score += 70
 	} else if recencyDays >= cfg.ChurnRecencyThreshold/2 {
@@ -396,13 +376,11 @@ func calcChurnRisk(recencyDays, freq int, monetary int64, cfg RFMConfig) (string
 	} else if recencyDays >= 30 {
 		score += 15
 	}
-	// frequency 反向贡献（次数越多越不会流失，最多减 25 分）
 	if freq >= 5 {
 		score -= 25
 	} else if freq >= 2 {
 		score -= 10
 	}
-	// monetary 反向贡献（最多减 15 分）
 	if monetary >= 100000 {
 		score -= 15
 	} else if monetary >= 10000 {
@@ -429,24 +407,20 @@ func (s *CustomerRFMService) enqueueRecovery(ctx context.Context, rfm *model.Cus
 	if s.recoveryRepo == nil || rfm == nil {
 		return
 	}
-	// 1) 不重复入队
 	existing, err := s.recoveryRepo.GetActiveByCustomerID(ctx, rfm.CustomerID)
 	if err != nil {
-		// 查询失败：保守处理，不入队，避免去重失效导致重复记录覆盖现有挽回语义
 		logger.Warnf("[rfm] enqueueRecovery: GetActiveByCustomerID failed (customer=%s): %v", rfm.CustomerID, err)
 		return
 	}
 	if existing != nil {
 		return
 	}
-	// 2) 推导优先级：churn_score 越高，priority 越小（越优先）
 	priority := 5
 	if rfm.ChurnScore >= 80 {
 		priority = 1
 	} else if rfm.ChurnScore >= 60 {
 		priority = 2
 	}
-	// 3) 写入
 	item := &model.RecoveryQueue{
 		CustomerID: rfm.CustomerID,
 		UnifiedID:  rfm.UnifiedID,
@@ -471,3 +445,4 @@ func _daysSinceUnix(unixSec int64) int {
 	}
 	return days
 }
+

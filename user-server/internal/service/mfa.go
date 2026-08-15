@@ -32,21 +32,20 @@ const (
 	totpTimeStep    = 30
 	totpDigits      = 6
 	totpSecretBytes = 20
-	// 允许前后各 1 个时间窗口（±30 秒），平衡时钟漂移与安全
 	totpAllowedWindow = 1
 )
 
 // MFASetupResponse MFA 设置响应
 type MFASetupResponse struct {
-	Secret     string `json:"secret"`      // base32 密钥（前端可手动输入）
-	OTPAuthURL string `json:"otpauth_url"` // otpauth://provisioning URI（前端生成二维码）
-	QRCodeURL  string `json:"qr_code_url"` // 直接可渲染的二维码图片 URL（chart API）
+	Secret     string `json:"secret"`      
+	OTPAuthURL string `json:"otpauth_url"` 
+	QRCodeURL  string `json:"qr_code_url"` 
 }
 
 // MFAVerifyRequest MFA 验证请求
 type MFAVerifyRequest struct {
-	TempToken string `json:"temp_token" binding:"required"` // 登录后下发的临时令牌
-	Code      string `json:"code" binding:"required,len=6"` // 6 位 TOTP 码
+	TempToken string `json:"temp_token" binding:"required"` 
+	Code      string `json:"code" binding:"required,len=6"` 
 }
 
 // MFASetupVerifyRequest MFA 设置确认请求（用户扫码后输入 6 位码确认）
@@ -120,30 +119,25 @@ func (s *MFAService) GenerateOTPAuthURL(ctx context.Context, secret, account, is
 // GenerateTOTP 生成指定时间戳的 TOTP 码
 // 实现 RFC 6238
 func (s *MFAService) GenerateTOTP(ctx context.Context, secret string, t time.Time) (string, error) {
-	// base32 解码密钥
 	key, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(strings.ToUpper(secret))
 	if err != nil {
 		return "", fmt.Errorf("密钥解码失败: %w", err)
 	}
 
-	// 计算时间步计数器
 	counter := t.Unix() / totpTimeStep
 	var buf [8]byte
 	binary.BigEndian.PutUint64(buf[:], uint64(counter))
 
-	// HMAC-SHA1
 	mac := hmac.New(sha1.New, key)
 	mac.Write(buf[:])
 	hash := mac.Sum(nil)
 
-	// 动态截取
 	offset := int(hash[len(hash)-1] & 0x0F)
 	code := (int(hash[offset])&0x7F)<<24 |
 		int(hash[offset+1])&0xFF<<16 |
 		int(hash[offset+2])&0xFF<<8 |
 		int(hash[offset+3])&0xFF
 
-	// 取模得到 6 位
 	mod := uint32(1)
 	for i := 0; i < totpDigits; i++ {
 		mod *= 10
@@ -164,7 +158,6 @@ func (s *MFAService) VerifyTOTPAt(ctx context.Context, secret, code string, now 
 	if len(code) != totpDigits {
 		return false
 	}
-	// 检查窗口 [-1, 0, +1]
 	for offset := -totpAllowedWindow; offset <= totpAllowedWindow; offset++ {
 		expected, err := s.GenerateTOTP(ctx, secret, now.Add(time.Duration(offset)*time.Second*totpTimeStep))
 		if err != nil {
@@ -187,7 +180,6 @@ func (s *MFAService) SetupMFA(ctx context.Context, userID uint, username string)
 
 	otpAuthURL := s.GenerateOTPAuthURL(ctx, secret, username, "MarketingSystem")
 
-	// 查找或创建 MFA 记录
 	existing, err := s.mfaRepo.GetByUserID(ctx, userID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.Error(err, "MFA 设置查询失败")
@@ -197,7 +189,7 @@ func (s *MFAService) SetupMFA(ctx context.Context, userID uint, username string)
 	mfa := &model.UserMFA{
 		UserID:     userID,
 		MFASecret:  secret,
-		MFAEnabled: false, // 设置阶段不启用，需用户验证一次后启用
+		MFAEnabled: false, 
 		MFAType:    model.MFATypeTOTP,
 	}
 
@@ -207,7 +199,6 @@ func (s *MFAService) SetupMFA(ctx context.Context, userID uint, username string)
 			return nil, errors.New("MFA 设置失败")
 		}
 	} else {
-		// 保留既有记录的元数据(创建时间/禁用时间等)
 		mfa.ID = existing.ID
 		mfa.CreatedAt = existing.CreatedAt
 		if err := s.mfaRepo.Save(ctx, mfa); err != nil {
@@ -244,9 +235,6 @@ func (s *MFAService) ConfirmMFASetup(ctx context.Context, userID uint, code stri
 	now := time.Now()
 	mfa.MFAEnabled = true
 	mfa.EnabledAt = &now
-	// 注意：ConfirmMFASetup 不设置 LastUsedCode / LastUsedAt，
-	// 这两个字段只在 VerifyMFALogin 中写入，用于登录阶段的 60s 重放保护。
-	// 否则 Confirm 阶段使用的 TOTP 会被立即标记为已用，登录时即便凭据正确也会被拒。
 
 	if err := s.mfaRepo.Save(ctx, mfa); err != nil {
 		return errors.New("MFA 启用失败")
@@ -258,7 +246,6 @@ func (s *MFAService) ConfirmMFASetup(ctx context.Context, userID uint, code stri
 // 需要校验当前密码 + TOTP 码（双重保护，防误关）
 func (s *MFAService) DisableMFA(ctx context.Context, userID uint, password, code string) error {
 
-	// 校验用户密码
 	user, err := s.systemUserRepo.GetByID(ctx, userID)
 	if err != nil {
 		return errors.New("用户不存在")
@@ -270,7 +257,6 @@ func (s *MFAService) DisableMFA(ctx context.Context, userID uint, password, code
 		return errors.New("密码错误")
 	}
 
-	// 校验 TOTP
 	mfa, err := s.mfaRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -325,7 +311,6 @@ func (s *MFAService) IssueTempToken(ctx context.Context, userID uint, username, 
 	if err != nil {
 		return "", errors.New("序列化临时令牌失败")
 	}
-	// 全局缓存：REDIS_HOST 配置时为 Redis 共享（跨实例），否则为内存单例（单实例安全）
 	if err := cache.GetGlobalCache().Set(ctx, tempTokenCachePrefix+token, string(buf), 5*time.Minute); err != nil {
 		return "", errors.New("存储临时令牌失败")
 	}
@@ -373,7 +358,6 @@ func (s *MFAService) VerifyMFALogin(ctx context.Context, tempToken, code string)
 		return 0, "", "", errors.New("MFA 未启用")
 	}
 
-	// 防重放：同一码 30 秒内不可重复使用
 	if mfa.LastUsedCode == code && mfa.LastUsedAt != nil && time.Since(*mfa.LastUsedAt) < 60*time.Second {
 		return 0, "", "", errors.New("验证码已使用，请等待下一次刷新")
 	}
@@ -410,7 +394,6 @@ func (s *MFAService) GenerateBackupCodes(ctx context.Context, userID uint) ([]st
 		hashedCodes[i] = hashed
 	}
 
-	// 序列化哈希数组为 JSON
 	hashedJSON := "[]"
 	for i, h := range hashedCodes {
 		if i == 0 {
@@ -428,3 +411,4 @@ func (s *MFAService) GenerateBackupCodes(ctx context.Context, userID uint) ([]st
 	}
 	return codes, nil
 }
+

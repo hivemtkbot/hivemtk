@@ -59,7 +59,6 @@ func TestOrderRepository_Create_MultipleOrders(t *testing.T) {
 
 	repo := NewOrderRepository()
 
-	// Create multiple orders for same user
 	for i := 0; i < 5; i++ {
 		order := &model.Order{
 			Status:    _type.OrderStatusPending,
@@ -140,7 +139,6 @@ func TestOrderRepository_GetGetLastOrder(t *testing.T) {
 
 	repo := NewOrderRepository()
 
-	// Create first order
 	order1 := &model.Order{
 		Status:    _type.OrderStatusPending,
 		Price:     "99.00",
@@ -149,22 +147,19 @@ func TestOrderRepository_GetGetLastOrder(t *testing.T) {
 	}
 	repo.Create(ctx, order1)
 
-	// Create second order with different TgID to ensure it's returned
 	order2 := &model.Order{
 		Status:    _type.OrderStatusSuccess,
 		Price:     "199.00",
-		TgID:      12346, // Different TgID
+		TgID:      12346, 
 		AccountID: "account123",
 	}
 	repo.Create(ctx, order2)
 
-	// Query by specific TgID - should return order1
 	lastOrder, err := repo.GetGetLastOrder(context.Background(), "account123", 12345)
 	if err != nil {
 		t.Fatalf("GetGetLastOrder failed: %v", err)
 	}
 
-	// Should return the order for this TgID
 	if lastOrder.Price != "99.00" {
 		t.Errorf("Expected order price '99.00', got %s", lastOrder.Price)
 	}
@@ -190,7 +185,6 @@ func TestOrderRepository_UpdateOrderStatusById(t *testing.T) {
 
 	repo := NewOrderRepository()
 
-	// Create order first
 	order := &model.Order{
 		Status:    _type.OrderStatusPending,
 		Price:     "99.00",
@@ -199,13 +193,11 @@ func TestOrderRepository_UpdateOrderStatusById(t *testing.T) {
 	}
 	repo.Create(ctx, order)
 
-	// Update using the order's ID
 	err := repo.UpdateOrderStatusById(context.Background(), order.ID, _type.OrderStatusSuccess)
 	if err != nil {
 		t.Fatalf("UpdateOrderStatusById failed: %v", err)
 	}
 
-	// Verify by getting the last order
 	updatedOrder, _ := repo.GetGetLastOrder(context.Background(), "account123", 12345)
 	if updatedOrder.Status != _type.OrderStatusSuccess {
 		t.Errorf("Expected status Success, got %d", updatedOrder.Status)
@@ -229,7 +221,6 @@ func TestOrderRepository_GetRecentOrderList(t *testing.T) {
 
 	repo := NewOrderRepository()
 
-	// Create some pending orders
 	for i := 0; i < 3; i++ {
 		order := &model.Order{
 			Status:    _type.OrderStatusPending,
@@ -245,7 +236,6 @@ func TestOrderRepository_GetRecentOrderList(t *testing.T) {
 		t.Fatalf("GetRecentOrderList failed: %v", err)
 	}
 
-	// Should return orders within the time window
 	if len(orders) > 3 {
 		t.Errorf("Expected at most 3 recent orders, got %d", len(orders))
 	}
@@ -257,7 +247,6 @@ func TestOrderRepository_GetOrderList_WithDifferentStatus(t *testing.T) {
 
 	repo := NewOrderRepository()
 
-	// Create orders with different status
 	for i := 0; i < 3; i++ {
 		order := &model.Order{
 			Status:    _type.OrderStatusPending,
@@ -321,7 +310,6 @@ func TestOrderRepository_Create_LargeBatch(t *testing.T) {
 
 	repo := NewOrderRepository()
 
-	// Create 100 orders
 	for i := 0; i < 100; i++ {
 		order := &model.Order{
 			Status:    _type.OrderStatusPending,
@@ -352,7 +340,6 @@ func TestOrderRepository_GetGetLastOrder_MultipleUsers(t *testing.T) {
 
 	repo := NewOrderRepository()
 
-	// Create orders for different users
 	for i := 0; i < 3; i++ {
 		order := &model.Order{
 			Status:    _type.OrderStatusPending,
@@ -363,7 +350,6 @@ func TestOrderRepository_GetGetLastOrder_MultipleUsers(t *testing.T) {
 		repo.Create(ctx, order)
 	}
 
-	// Get last order for first user
 	lastOrder, err := repo.GetGetLastOrder(context.Background(), "account0", 10000)
 	if err != nil {
 		t.Fatalf("GetGetLastOrder failed: %v", err)
@@ -373,3 +359,4 @@ func TestOrderRepository_GetGetLastOrder_MultipleUsers(t *testing.T) {
 		t.Errorf("Expected account 'account0', got %s", lastOrder.AccountID)
 	}
 }
+

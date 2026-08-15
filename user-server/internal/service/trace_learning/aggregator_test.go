@@ -17,3 +17,4 @@ func TestDedupeStrings(t *testing.T) {
 	assert.Equal(t, []string{"a", "b", "c"}, dedupeStrings([]string{"a", "b", "a", "c", "b"}))
 	assert.Nil(t, dedupeStrings(nil))
 }
+

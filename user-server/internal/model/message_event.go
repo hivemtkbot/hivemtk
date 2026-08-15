@@ -11,7 +11,7 @@ const (
 	ChannelWeb       = "web"
 	ChannelTelegram  = "telegram"
 	ChannelWhatsApp  = "whatsapp"
-	ChannelXHS       = "xiaohongshu" // 历史值 "xhs" / "xhs_web" 已统一为全名
+	ChannelXHS       = "xiaohongshu" 
 	ChannelWeCom     = "wecom"
 	ChannelXianyu    = "xianyu"
 	ChannelDouyin    = "douyin"
@@ -45,20 +45,14 @@ const (
 //  3. 不映射到数据库表，仅作为运行时事件结构在内存与 Redis 中流转
 //  4. 与 model.MessageHub（持久化消息）通过 Normalize 转换：MessageEvent -> MessageHub
 type MessageEvent struct {
-	EventID    string `json:"event_id"`   // 全局唯一事件 ID（用于幂等）
-	SessionID  string `json:"session_id"` // 系统内映射的唯一会话 ID
-	Channel    string `json:"channel"`    // 渠道来源：web / telegram / whatsapp / xhs ...
-	SenderID   string `json:"sender_id"`  // 最终客户的唯一物理标识
+	EventID    string `json:"event_id"`   
+	SessionID  string `json:"session_id"` 
+	Channel    string `json:"channel"`    
+	SenderID   string `json:"sender_id"`  
 	SenderName string `json:"sender_name,omitempty"`
-	// SenderType 发送者类型（2026-08-05 钩子机制需求）：
-	//   - "customer"：客户消息 → 入库 + 触发 AI 判断
-	//   - "self" / "agent"：自己/坐席发出的消息 → 直接丢弃，不入库不触发 AI
-	//     （桥接场景扩展上报自己发的消息仅用于状态同步，服务端无需持久化）
-	//   - "system"：系统消息 → 仅落库，不触发 AI
-	//   - ""：未携带（历史调用方） → 默认按 customer 处理
 	SenderType     string         `json:"sender_type,omitempty"`
 	ReceiverID     string         `json:"receiver_id,omitempty"`
-	MsgType        string         `json:"msg_type"` // text / image / file ...
+	MsgType        string         `json:"msg_type"` 
 	Content        string         `json:"content"`
 	MediaURL       string         `json:"media_url,omitempty"`
 	ConversationID string         `json:"conversation_id,omitempty"`
@@ -68,8 +62,6 @@ type MessageEvent struct {
 	AIAgent        string         `json:"ai_agent,omitempty"`
 	Extra          map[string]any `json:"extra,omitempty"`
 	Timestamp      time.Time      `json:"timestamp"`
-	// History 会话级多轮历史（扩展上行携带的即时上下文窗口，服务端落 message_hub.Extra
-	// 供统一收件箱展示/可观测；AI 编排的对话上下文由 session_messages 自行重建，不依赖此字段）。
 	History []MessageEventHistoryItem `json:"history,omitempty"`
 }
 
@@ -89,3 +81,4 @@ type MessageEventHistoryItem struct {
 	GroupID    string `json:"group_id,omitempty"`
 	GroupName  string `json:"group_name,omitempty"`
 }
+

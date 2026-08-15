@@ -81,8 +81,6 @@ func TestWeComService_GetAccountList(t *testing.T) {
 	database := setupWeComServiceTestDB(t)
 	service := NewWeComServiceWithDB(database)
 
-	// 单租户模式：所有账号都属于当前部署实例
-	// 创建 4 个账号（其中 1 个用于模拟其他系统的同名账号干扰）
 	accounts := []*model.WeComAccount{
 		{CorpID: "corp_id_0", CorpSecret: "secret_0", Status: 1},
 		{CorpID: "corp_id_1", CorpSecret: "secret_1", Status: 1},
@@ -93,13 +91,11 @@ func TestWeComService_GetAccountList(t *testing.T) {
 		database.Create(account)
 	}
 
-	// 获取账号列表
 	results, err := service.GetAccountList(context.Background())
 	if err != nil {
 		t.Fatalf("GetAccountList failed: %v", err)
 	}
 
-	// 单租户模式下应返回全部 4 个账号
 	if len(results) != 4 {
 		t.Errorf("Expected 4 accounts, got %d", len(results))
 	}
@@ -110,7 +106,6 @@ func TestWeComService_GetAccountByID(t *testing.T) {
 	database := setupWeComServiceTestDB(t)
 	service := NewWeComServiceWithDB(database)
 
-	// 创建账号
 	account := &model.WeComAccount{
 		CorpID:     "test_corp_id",
 		CorpSecret: "test_secret",
@@ -118,7 +113,6 @@ func TestWeComService_GetAccountByID(t *testing.T) {
 	}
 	database.Create(account)
 
-	// 获取账号
 	retrievedAccount, err := service.GetAccountByID(context.Background(), account.ID)
 	if err != nil {
 		t.Fatalf("GetAccountByID failed: %v", err)
@@ -145,7 +139,6 @@ func TestWeComService_UpdateAccount(t *testing.T) {
 	database := setupWeComServiceTestDB(t)
 	service := NewWeComServiceWithDB(database)
 
-	// 创建账号
 	account := &model.WeComAccount{
 		CorpID:     "old_corp_id",
 		CorpSecret: "old_secret",
@@ -154,7 +147,6 @@ func TestWeComService_UpdateAccount(t *testing.T) {
 	}
 	database.Create(account)
 
-	// 更新账号
 	req := &CreateAccountRequest{
 		CorpID:      "new_corp_id",
 		CorpSecret:  "new_secret",
@@ -188,14 +180,12 @@ func TestWeComService_DeleteAccount(t *testing.T) {
 	database := setupWeComServiceTestDB(t)
 	service := NewWeComServiceWithDB(database)
 
-	// 创建账号
 	account := &model.WeComAccount{
 		CorpID: "test_corp_id",
 		Status: 1,
 	}
 	database.Create(account)
 
-	// 删除账号
 	err := service.DeleteAccount(context.Background(), account.ID)
 	if err != nil {
 		t.Fatalf("DeleteAccount failed: %v", err)
@@ -214,7 +204,6 @@ func TestWeComService_GetAccessToken_Cached(t *testing.T) {
 	database := setupWeComServiceTestDB(t)
 	service := NewWeComServiceWithDB(database)
 
-	// 创建带有有效 token 的账号
 	expiresTime := time.Now().Add(1 * time.Hour)
 	account := &model.WeComAccount{
 		CorpID:       "test_corp_id",
@@ -240,7 +229,6 @@ func TestWeComService_GetCustomerList(t *testing.T) {
 	database := setupWeComServiceTestDB(t)
 	service := NewWeComServiceWithDB(database)
 
-	// 创建多个客户
 	for i := 0; i < 5; i++ {
 		customer := &model.WeComCustomer{
 			ExternalUserID: "external_user_" + string(rune('0'+i)),
@@ -251,7 +239,6 @@ func TestWeComService_GetCustomerList(t *testing.T) {
 		database.Create(customer)
 	}
 
-	// 获取客户列表
 	customers, total, err := service.GetCustomerList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetCustomerList failed: %v", err)
@@ -271,7 +258,6 @@ func TestWeComService_GetCustomerList_Pagination(t *testing.T) {
 	database := setupWeComServiceTestDB(t)
 	service := NewWeComServiceWithDB(database)
 
-	// 创建 10 个客户
 	for i := 0; i < 10; i++ {
 		customer := &model.WeComCustomer{
 			ExternalUserID: "external_user_" + string(rune('0'+i%10)),
@@ -280,7 +266,6 @@ func TestWeComService_GetCustomerList_Pagination(t *testing.T) {
 		database.Create(customer)
 	}
 
-	// 第一页
 	customers, total, err := service.GetCustomerList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetCustomerList failed: %v", err)
@@ -294,7 +279,6 @@ func TestWeComService_GetCustomerList_Pagination(t *testing.T) {
 		t.Errorf("Expected 5 customers on page 1, got %d", len(customers))
 	}
 
-	// 第二页
 	customers2, _, err := service.GetCustomerList(context.Background(), 2, 5)
 	if err != nil {
 		t.Fatalf("GetCustomerList page 2 failed: %v", err)
@@ -310,7 +294,6 @@ func TestWeComService_GetGroupList(t *testing.T) {
 	database := setupWeComServiceTestDB(t)
 	service := NewWeComServiceWithDB(database)
 
-	// 创建多个群
 	for i := 0; i < 3; i++ {
 		group := &model.WeComGroup{
 			ChatID:      "chat_id_" + string(rune('0'+i)),
@@ -321,7 +304,6 @@ func TestWeComService_GetGroupList(t *testing.T) {
 		database.Create(group)
 	}
 
-	// 获取群列表
 	groups, total, err := service.GetGroupList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetGroupList failed: %v", err)
@@ -341,7 +323,6 @@ func TestWeComService_GetMessageList(t *testing.T) {
 	database := setupWeComServiceTestDB(t)
 	service := NewWeComServiceWithDB(database)
 
-	// 创建多条消息
 	for i := 0; i < 5; i++ {
 		message := &model.WeComMessage{
 			MsgID:   "msg_id_" + string(rune('0'+i)),
@@ -352,7 +333,6 @@ func TestWeComService_GetMessageList(t *testing.T) {
 		database.Create(message)
 	}
 
-	// 获取消息列表
 	messages, total, err := service.GetMessageList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
@@ -372,7 +352,6 @@ func TestWeComService_GetTagList(t *testing.T) {
 	database := setupWeComServiceTestDB(t)
 	service := NewWeComServiceWithDB(database)
 
-	// 创建多个标签
 	for i := 0; i < 3; i++ {
 		tag := &model.WeComTag{
 			TagID:         "tag_" + string(rune('0'+i)),
@@ -382,7 +361,6 @@ func TestWeComService_GetTagList(t *testing.T) {
 		database.Create(tag)
 	}
 
-	// 获取标签列表
 	tags, err := service.GetTagList(context.Background())
 	if err != nil {
 		t.Fatalf("GetTagList failed: %v", err)
@@ -399,7 +377,6 @@ func TestWeComService_GetAccessToken_NilAccount(t *testing.T) {
 	service := NewWeComServiceWithDB(database)
 	_ = database
 
-	// nil 账号应返回错误
 	_, err := service.GetAccessToken(context.Background(), nil)
 	if err == nil {
 		t.Error("Expected error for nil account")
@@ -428,7 +405,6 @@ func TestWeComService_SendMessage_Text(t *testing.T) {
 	database := setupWeComServiceTestDB(t)
 	_ = NewWeComServiceWithDB(database)
 
-	// 创建账号
 	account := &model.WeComAccount{
 		CorpID:     "test_corp_id",
 		CorpSecret: "test_secret",
@@ -437,7 +413,6 @@ func TestWeComService_SendMessage_Text(t *testing.T) {
 	}
 	database.Create(account)
 
-	// 创建模拟服务器
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := map[string]any{
 			"errcode": 0,
@@ -449,14 +424,12 @@ func TestWeComService_SendMessage_Text(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	// 这里主要测试基本逻辑
 	req := &WeComSendMessageRequest{
 		ToUser:  "user1|user2",
 		MsgType: "text",
 		Content: "这是一条测试消息",
 	}
 
-	// 由于实际 HTTP 请求无法直接 mock，这里只验证输入校验
 	if req.ToUser == "" {
 		t.Error("ToUser should not be empty")
 	}
@@ -465,4 +438,4 @@ func TestWeComService_SendMessage_Text(t *testing.T) {
 	}
 }
 
-// TestWeComService_SendMessage_Text 测试发送文本消息（基础结构验证）
+

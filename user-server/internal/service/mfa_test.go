@@ -1,15 +1,5 @@
 package service
 
-// mfa_service_test.go A 域 MFA 多因素认证服务测试
-//
-// 测试目标（5+ 核心场景）：
-//  1. GenerateMFASecret - 密钥生成（base32，长度）
-//  2. GenerateTOTP / VerifyTOTP - TOTP 一次性密码生成与验证（含 ±1 窗口）
-//  3. GenerateOTPAuthURL - otpauth URL 格式正确性
-//  4. IssueTempToken / ValidateTempToken / ConsumeTempToken - 临时令牌生命周期
-//  5. VerifyTOTP - 错误码 / 过期码 / 长度异常 拒绝
-//  6. 端到端：SetupMFA + ConfirmMFASetup + VerifyMFALogin 集成（依赖 DB）
-//  7. 防重放：同一码 60s 内重复使用被拒
 
 import (
 	"context"
@@ -55,18 +45,15 @@ func TestGenerateMFASecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateMFASecret 失败: %v", err)
 	}
-	// 20 字节 base32 无 padding = 32 字符
 	if len(secret) != 32 {
 		t.Errorf("密钥长度 = %d, want 32", len(secret))
 	}
-	// 必须全部是 base32 字符（A-Z 2-7）
 	for _, c := range secret {
 		if !isBase32Char(c) {
 			t.Errorf("密钥含非法字符: %q in %q", c, secret)
 		}
 	}
 
-	// 两次生成的密钥必须不同
 	secret2, _ := s.GenerateMFASecret(context.Background())
 	if secret == secret2 {
 		t.Error("两次生成的密钥相同（应该随机）")
@@ -78,7 +65,6 @@ func TestGenerateTOTP(t *testing.T) {
 	s := NewMFAService()
 	secret, _ := s.GenerateMFASecret(context.Background())
 
-	// 取一个固定时间点
 	fixedTime := time.Date(2026, 7, 21, 12, 0, 0, 0, time.UTC)
 	code, err := s.GenerateTOTP(context.Background(), secret, fixedTime)
 	if err != nil {
@@ -87,20 +73,17 @@ func TestGenerateTOTP(t *testing.T) {
 	if len(code) != totpDigits {
 		t.Errorf("TOTP 码长度 = %d, want %d", len(code), totpDigits)
 	}
-	// 必须是纯数字
 	for _, c := range code {
 		if c < '0' || c > '9' {
 			t.Errorf("TOTP 码含非数字字符: %q", c)
 		}
 	}
 
-	// 同一时间 + 同一密钥 → 同一码
 	code2, _ := s.GenerateTOTP(context.Background(), secret, fixedTime)
 	if code != code2 {
 		t.Errorf("相同输入应得到相同 TOTP: %s != %s", code, code2)
 	}
 
-	// 不同时间（30 秒之外）→ 不同的码
 	differentTime := fixedTime.Add(45 * time.Second)
 	code3, _ := s.GenerateTOTP(context.Background(), secret, differentTime)
 	if code == code3 {
@@ -115,17 +98,14 @@ func TestVerifyTOTP_SuccessAndFailures(t *testing.T) {
 	fixedTime := time.Date(2026, 7, 21, 12, 0, 0, 0, time.UTC)
 	code, _ := s.GenerateTOTP(context.Background(), secret, fixedTime)
 
-	// 1. 正确码在窗口内应验证通过
 	if !s.VerifyTOTPAt(context.Background(), secret, code, fixedTime) {
 		t.Error("正确的 TOTP 应该验证通过")
 	}
 
-	// 2. 错误码应验证失败
 	if s.VerifyTOTPAt(context.Background(), secret, "000000", fixedTime) {
 		t.Error("错误的 TOTP 不应验证通过")
 	}
 
-	// 3. 长度异常应验证失败
 	if s.VerifyTOTPAt(context.Background(), secret, "12345", fixedTime) {
 		t.Error("5 位 TOTP 应验证失败")
 	}
@@ -136,7 +116,6 @@ func TestVerifyTOTP_SuccessAndFailures(t *testing.T) {
 		t.Error("空 TOTP 应验证失败")
 	}
 
-	// 4. 在 ±1 窗口内（±30s）的码应能验证
 	prevCode, _ := s.GenerateTOTP(context.Background(), secret, fixedTime.Add(-30*time.Second))
 	if !s.VerifyTOTPAt(context.Background(), secret, prevCode, fixedTime) {
 		t.Error("前一个时间窗口的码应验证通过（±1 窗口）")
@@ -146,13 +125,11 @@ func TestVerifyTOTP_SuccessAndFailures(t *testing.T) {
 		t.Error("后一个时间窗口的码应验证通过（±1 窗口）")
 	}
 
-	// 5. 超过 ±1 窗口的码应验证失败
 	farCode, _ := s.GenerateTOTP(context.Background(), secret, fixedTime.Add(120*time.Second))
 	if s.VerifyTOTPAt(context.Background(), secret, farCode, fixedTime) {
 		t.Error("超出 ±1 窗口的码应验证失败")
 	}
 
-	// 6. 错误的密钥应验证失败
 	wrongSecret, _ := s.GenerateMFASecret(context.Background())
 	if s.VerifyTOTPAt(context.Background(), wrongSecret, code, fixedTime) {
 		t.Error("错误密钥 + 正确码应验证失败")
@@ -165,23 +142,18 @@ func TestGenerateOTPAuthURL(t *testing.T) {
 	secret := "JBSWY3DPEHPK3PXP"
 	url := s.GenerateOTPAuthURL(context.Background(), secret, "alice@example.com", "MarketingSystem")
 
-	// 必须以 otpauth://totp/ 开头
 	if !strings.HasPrefix(url, "otpauth://totp/") {
 		t.Errorf("URL 缺少 otpauth://totp/ 前缀: %s", url)
 	}
-	// 必须含 secret 参数
 	if !strings.Contains(url, "secret="+secret) {
 		t.Errorf("URL 缺少 secret 参数: %s", url)
 	}
-	// 必须含 issuer
 	if !strings.Contains(url, "issuer=MarketingSystem") {
 		t.Errorf("URL 缺少 issuer 参数: %s", url)
 	}
-	// 必须含 algorithm
 	if !strings.Contains(url, "algorithm=SHA1") {
 		t.Errorf("URL 缺少 algorithm 参数: %s", url)
 	}
-	// 必须含 digits 与 period
 	if !strings.Contains(url, "digits=6") {
 		t.Errorf("URL 缺少 digits=6 参数: %s", url)
 	}
@@ -206,7 +178,6 @@ func TestGenerateOTPAuthURL_Defaults(t *testing.T) {
 func TestTempToken_Lifecycle(t *testing.T) {
 	s := NewMFAService()
 
-	// 颁发
 	token, err := s.IssueTempToken(context.Background(), 42, "alice", "admin")
 	if err != nil {
 		t.Fatalf("IssueTempToken 失败: %v", err)
@@ -215,7 +186,6 @@ func TestTempToken_Lifecycle(t *testing.T) {
 		t.Fatal("临时令牌为空")
 	}
 
-	// 验证
 	uid, name, role, err := s.ValidateTempToken(context.Background(), token)
 	if err != nil {
 		t.Fatalf("ValidateTempToken 失败: %v", err)
@@ -224,10 +194,8 @@ func TestTempToken_Lifecycle(t *testing.T) {
 		t.Errorf("临时令牌内容错误: uid=%d name=%s role=%s", uid, name, role)
 	}
 
-	// 消费
 	s.ConsumeTempToken(context.Background(), token)
 
-	// 已消费后应无效
 	_, _, _, err = s.ValidateTempToken(context.Background(), token)
 	if err == nil {
 		t.Error("已消费的临时令牌应验证失败")
@@ -238,13 +206,11 @@ func TestTempToken_Lifecycle(t *testing.T) {
 func TestTempToken_Invalid(t *testing.T) {
 	s := NewMFAService()
 
-	// 不存在的令牌
 	_, _, _, err := s.ValidateTempToken(context.Background(), "nonexistent")
 	if err == nil {
 		t.Error("不存在的临时令牌应验证失败")
 	}
 
-	// 空字符串
 	_, _, _, err = s.ValidateTempToken(context.Background(), "")
 	if err == nil {
 		t.Error("空临时令牌应验证失败")
@@ -275,7 +241,6 @@ func TestSetupMFA(t *testing.T) {
 	database := setupMFATestDB(t)
 	s := NewMFAService()
 
-	// 先创建系统用户（MFA 关联需要）
 	user := &model.SystemUser{
 		Username: "test_mfa_user",
 		Password: "Password123",
@@ -328,7 +293,6 @@ func TestConfirmMFASetup_VerifyAndEnable(t *testing.T) {
 	}
 	database.Create(user)
 
-	// Setup
 	resp, err := s.SetupMFA(context.Background(), user.ID, user.Username)
 	if err != nil {
 		t.Fatalf("SetupMFA 失败: %v", err)
@@ -337,7 +301,6 @@ func TestConfirmMFASetup_VerifyAndEnable(t *testing.T) {
 	// Confirm：先从 DB 取 secret，再生成有效码
 	var mfa model.UserMFA
 	database.Where("user_id = ?", user.ID).First(&mfa)
-	// 用固定时间生成码以避免边界漂移
 	now := time.Now()
 	code, _ := s.GenerateTOTP(context.Background(), mfa.MFASecret, now)
 
@@ -345,7 +308,6 @@ func TestConfirmMFASetup_VerifyAndEnable(t *testing.T) {
 		t.Fatalf("ConfirmMFASetup 失败: %v", err)
 	}
 
-	// 再次查 DB：mfa_enabled 应为 true
 	database.Where("user_id = ?", user.ID).First(&mfa)
 	if !mfa.MFAEnabled {
 		t.Error("Confirm 后 mfa_enabled 应为 true")
@@ -354,12 +316,10 @@ func TestConfirmMFASetup_VerifyAndEnable(t *testing.T) {
 		t.Error("Confirm 后 enabled_at 应被设置")
 	}
 
-	// 错误码应失败
 	if err := s.ConfirmMFASetup(context.Background(), user.ID, "000000"); err == nil {
 		t.Error("Confirm 错误码应失败")
 	}
 
-	// 二次 Confirm 应失败（已启用）
 	if err := s.ConfirmMFASetup(context.Background(), user.ID, code); err == nil {
 		t.Error("重复 Confirm 应失败")
 	}
@@ -381,7 +341,6 @@ func TestIsMFAEnabled(t *testing.T) {
 	}
 	database.Create(user)
 
-	// 不存在 → false
 	enabled, err := s.IsMFAEnabled(context.Background(), user.ID)
 	if err != nil {
 		t.Fatalf("IsMFAEnabled 不存在应无错: %v", err)
@@ -390,7 +349,6 @@ func TestIsMFAEnabled(t *testing.T) {
 		t.Error("未设置 MFA 的用户 enabled 应为 false")
 	}
 
-	// Setup + Confirm
 	resp, _ := s.SetupMFA(context.Background(), user.ID, user.Username)
 	var mfa model.UserMFA
 	database.Where("user_id = ?", user.ID).First(&mfa)
@@ -420,7 +378,6 @@ func TestVerifyMFALogin_ReplayProtection(t *testing.T) {
 	}
 	database.Create(user)
 
-	// Setup + Confirm
 	resp, _ := s.SetupMFA(context.Background(), user.ID, user.Username)
 	var mfa model.UserMFA
 	database.Where("user_id = ?", user.ID).First(&mfa)
@@ -429,7 +386,6 @@ func TestVerifyMFALogin_ReplayProtection(t *testing.T) {
 		t.Fatalf("ConfirmMFASetup 失败: %v", err)
 	}
 
-	// 1. 颁发第一个临时令牌 → 用同 code 验证 → 成功
 	tempToken1, _ := s.IssueTempToken(context.Background(), user.ID, user.Username, user.Role)
 	uid, name, role, err := s.VerifyMFALogin(context.Background(), tempToken1, code)
 	if err != nil {
@@ -439,7 +395,6 @@ func TestVerifyMFALogin_ReplayProtection(t *testing.T) {
 		t.Errorf("VerifyMFALogin 返回值错误: uid=%d name=%s role=%s", uid, name, role)
 	}
 
-	// 2. 颁发第二个临时令牌 → 用同 code 再验证 → 触发 60s 重放窗口，被拒
 	tempToken2, _ := s.IssueTempToken(context.Background(), user.ID, user.Username, user.Role)
 	_, _, _, err = s.VerifyMFALogin(context.Background(), tempToken2, code)
 	if err == nil {
@@ -461,7 +416,6 @@ func TestGenerateBackupCodes(t *testing.T) {
 	}
 	database.Create(user)
 
-	// 先 SetupMFA 创建 UserMFA 记录
 	_, err := s.SetupMFA(context.Background(), user.ID, user.Username)
 	if err != nil {
 		t.Fatalf("SetupMFA 失败: %v", err)
@@ -472,12 +426,10 @@ func TestGenerateBackupCodes(t *testing.T) {
 		t.Fatalf("GenerateBackupCodes 失败: %v", err)
 	}
 
-	// 必须返回 10 个
 	if len(codes) != 10 {
 		t.Errorf("备用码数 = %d, want 10", len(codes))
 	}
 
-	// 每个备用码必须唯一
 	seen := make(map[string]bool)
 	for _, c := range codes {
 		if c == "" {
@@ -508,8 +460,9 @@ func isBase32Char(c rune) bool {
 	if c >= '2' && c <= '7' {
 		return true
 	}
-	if c == '=' { // padding（实际上 NoPadding 不会出现）
+	if c == '=' { 
 		return true
 	}
 	return false
 }
+

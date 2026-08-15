@@ -35,7 +35,6 @@ func TestGetAdminConfig_AutoLogin(t *testing.T) {
 		t.Fatal("GetAdminConfig returned nil")
 	}
 
-	// 自动登录默认关闭（不诱导用户使用默认账号）
 	if cfg.AutoLogin.Enabled {
 		t.Error("Expected AutoLogin.Enabled to be false by default (security hardening)")
 	}
@@ -53,7 +52,6 @@ func TestGetAdminConfig_Login(t *testing.T) {
 		t.Fatal("GetAdminConfig returned nil")
 	}
 
-	// 登录页不展示默认凭据提示
 	if cfg.Login.ShowDefaultCredentials {
 		t.Error("Expected ShowDefaultCredentials to be false by default (no default password to show)")
 	}
@@ -63,12 +61,9 @@ func TestGetAdminConfig_Login(t *testing.T) {
 }
 
 func TestGetAdminConfig_NoPasswordField(t *testing.T) {
-	// 强约束：DefaultAdminConfig 不再包含 Password 字段
-	// 此用例为编译期/反射期双重保险，确保未来不会再有人加回 Password
 	cfg := GetAdminConfig()
-	_ = cfg.DefaultAdmin // 编译通过即说明 struct 不含 Password
+	_ = cfg.DefaultAdmin 
 
-	// 反射断言：字段集中不含 Password
 	if hasPasswordField("DefaultAdminConfig") {
 		t.Error("DefaultAdminConfig 不应再有 Password 字段")
 	}
@@ -78,7 +73,6 @@ func TestGetAdminConfig_EnvOverride(t *testing.T) {
 	clearEnv()
 	defer clearEnv()
 
-	// 仅覆盖非敏感的展示字段
 	os.Setenv("ADMIN_USERNAME", "custom_admin")
 	os.Setenv("ADMIN_EMAIL", "custom@example.com")
 	os.Setenv("ADMIN_REAL_NAME", "Custom Admin")
@@ -152,7 +146,6 @@ func TestGetAdminConfig_InvalidBoolEnv(t *testing.T) {
 		t.Fatal("GetAdminConfig returned nil")
 	}
 
-	// 解析失败时使用默认值（false）
 	if cfg.AutoLogin.Enabled {
 		t.Error("Expected AutoLogin.Enabled to be false (default) on parse error")
 	}
@@ -193,7 +186,7 @@ func reflectTypeByName(name string) reflect.Type {
 func clearEnv() {
 	envVars := []string{
 		"ADMIN_USERNAME",
-		"PLATFORM_ADMIN_PASSWORD", // 保留为清理项（即便不再读取，也不允许残留）
+		"PLATFORM_ADMIN_PASSWORD", 
 		"ADMIN_EMAIL",
 		"ADMIN_REAL_NAME",
 		"AUTO_LOGIN_ENABLED",
@@ -206,3 +199,4 @@ func clearEnv() {
 		os.Unsetenv(v)
 	}
 }
+

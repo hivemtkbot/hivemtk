@@ -46,7 +46,6 @@ func setupCustomerSessionRepositories(t *testing.T) (
 		&SessionTagRepository{db: database}
 }
 
-// ============= CustomerSessionRepository Tests =============
 
 // TestCustomerSessionRepository_Create 测试创建会话
 func TestCustomerSessionRepository_Create(t *testing.T) {
@@ -263,7 +262,6 @@ func TestCustomerSessionRepository_GetPendingSessions(t *testing.T) {
 	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
 	ctx := context.Background()
 
-	// 创建不同状态的会话
 	sessionRepo.Create(ctx, &model.CustomerSession{
 		SessionID: "pending-1",
 		Platform:  model.PlatformWeChat,
@@ -295,7 +293,6 @@ func TestCustomerSessionRepository_GetPendingSessions(t *testing.T) {
 		t.Errorf("Expected 2 pending sessions, got %d", len(pending))
 	}
 
-	// 验证优先级排序 (高的在前)
 	if len(pending) == 2 && pending[0].Priority < pending[1].Priority {
 		t.Error("Expected pending sessions to be ordered by priority DESC")
 	}
@@ -308,7 +305,6 @@ func TestCustomerSessionRepository_GetAgentSessions(t *testing.T) {
 
 	agentID := uint(1)
 
-	// 创建客服的活跃会话
 	sessionRepo.Create(ctx, &model.CustomerSession{
 		SessionID: "agent-active-1",
 		Platform:  model.PlatformWeChat,
@@ -324,7 +320,6 @@ func TestCustomerSessionRepository_GetAgentSessions(t *testing.T) {
 		Status:    model.SessionStatusWaiting,
 	})
 
-	// 创建已解决的会话（不应被获取）
 	sessionRepo.Create(ctx, &model.CustomerSession{
 		SessionID: "agent-resolved-1",
 		Platform:  model.PlatformWeChat,
@@ -523,7 +518,6 @@ func TestCustomerSessionRepository_IncrementHumanReplyCount(t *testing.T) {
 	}
 }
 
-// ============= SessionMessageRepository Tests =============
 
 // TestSessionMessageRepository_Create 测试创建消息
 func TestSessionMessageRepository_Create(t *testing.T) {
@@ -595,7 +589,6 @@ func TestSessionMessageRepository_GetBySessionID(t *testing.T) {
 	_, messageRepo, _, _, _, _ := setupCustomerSessionRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试消息
 	for i := 1; i <= 5; i++ {
 		messageRepo.Create(ctx, &model.SessionMessage{
 			SessionID:  "session-messages",
@@ -660,7 +653,6 @@ func TestSessionMessageRepository_MarkAsRead(t *testing.T) {
 
 	now := time.Now()
 
-	// 创建未读消息
 	messageRepo.Create(ctx, &model.SessionMessage{
 		SessionID:  "session-read-test",
 		Content:    "Message 1",
@@ -700,7 +692,6 @@ func TestSessionMessageRepository_GetUnreadCount(t *testing.T) {
 	_, messageRepo, _, _, _, _ := setupCustomerSessionRepositories(t)
 	ctx := context.Background()
 
-	// 创建混合的已读/未读消息
 	messageRepo.Create(ctx, &model.SessionMessage{
 		SessionID:  "session-unread-count",
 		Content:    "Unread 1",
@@ -732,7 +723,6 @@ func TestSessionMessageRepository_GetUnreadCount(t *testing.T) {
 	}
 }
 
-// ============= AgentStatusRepository Tests =============
 
 // TestAgentStatusRepository_Create 测试创建客服状态
 func TestAgentStatusRepository_Create(t *testing.T) {
@@ -867,7 +857,6 @@ func TestAgentStatusRepository_GetOnlineAgents(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 
-	// 创建不同状态的客服
 	agentRepo.Create(ctx, &model.AgentStatus{
 		AgentID:        1,
 		AgentName:      "Agent Online",
@@ -900,7 +889,6 @@ func TestAgentStatusRepository_GetOnlineAgents(t *testing.T) {
 		ActiveSessions: 0,
 		LastActiveAt:   &now,
 	})
-	// 创建已达上限的客服
 	agentRepo.Create(ctx, &model.AgentStatus{
 		AgentID:        5,
 		AgentName:      "Agent Full",
@@ -915,7 +903,6 @@ func TestAgentStatusRepository_GetOnlineAgents(t *testing.T) {
 		t.Errorf("GetOnlineAgents() error = %v", err)
 	}
 
-	// 应该只返回 online/busy 且未达上限的客服 (Agent 1 和 Agent 2)
 	if len(onlineAgents) != 2 {
 		t.Errorf("Expected 2 available agents, got %d", len(onlineAgents))
 	}
@@ -1052,7 +1039,6 @@ func TestAgentStatusRepository_IncrementTodayMessages(t *testing.T) {
 	}
 }
 
-// ============= AISuggestionRepository Tests =============
 
 // TestAISuggestionRepository_Create 测试创建 AI 建议
 func TestAISuggestionRepository_Create(t *testing.T) {
@@ -1110,7 +1096,6 @@ func TestAISuggestionRepository_GetBySessionID(t *testing.T) {
 	_, _, _, aiSuggestionRepo, _, _ := setupCustomerSessionRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试建议
 	for i := 1; i <= 5; i++ {
 		aiSuggestionRepo.Create(ctx, &model.AISuggestion{
 			SessionID:  "session-suggestions",
@@ -1121,7 +1106,6 @@ func TestAISuggestionRepository_GetBySessionID(t *testing.T) {
 		})
 	}
 
-	// 创建另一个会话的建议
 	aiSuggestionRepo.Create(ctx, &model.AISuggestion{
 		SessionID:  "other-session",
 		MessageID:  99,
@@ -1135,7 +1119,6 @@ func TestAISuggestionRepository_GetBySessionID(t *testing.T) {
 		t.Errorf("GetBySessionID() error = %v", err)
 	}
 
-	// 验证返回最新 10 条 (这里只有 5 条)
 	if len(suggestions) != 5 {
 		t.Errorf("Expected 5 suggestions, got %d", len(suggestions))
 	}
@@ -1176,7 +1159,6 @@ func TestAISuggestionRepository_MarkAsUsed(t *testing.T) {
 	}
 }
 
-// ============= QuickReplyRepository Tests =============
 
 // TestQuickReplyRepository_Create 测试创建快捷回复
 func TestQuickReplyRepository_Create(t *testing.T) {
@@ -1336,7 +1318,6 @@ func TestQuickReplyRepository_GetCategories(t *testing.T) {
 	_, _, _, _, quickReplyRepo, _ := setupCustomerSessionRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	quickReplyRepo.Create(ctx, &model.QuickReply{
 		Category: "greeting",
 		Title:    "Hello",
@@ -1368,7 +1349,6 @@ func TestQuickReplyRepository_GetCategories(t *testing.T) {
 	}
 }
 
-// ============= SessionTagRepository Tests =============
 
 // TestSessionTagRepository_Create 测试创建会话标签
 func TestSessionTagRepository_Create(t *testing.T) {
@@ -1512,3 +1492,4 @@ func TestSessionTagRepository_GetByID(t *testing.T) {
 		})
 	}
 }
+

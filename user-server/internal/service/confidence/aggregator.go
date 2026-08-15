@@ -1,22 +1,5 @@
 package confidence
 
-// aggregator.go 置信度总聚合器
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.4.10
-//
-// 协调 SignalCollector / Calibrator / WeightedAggregator / VetoChain /
-// ThresholdPolicyEngine / DynamicThresholdCalculator，输出最终 ConfidenceDecision
-//
-// 主流程：
-//   1. 采集 5 维信号         (SignalCollector.Collect)
-//   2. 温度缩放校准 IntentConf (Calibrator.Calibrate)
-//   3. 一票否决检查           (VetoChain.Check)
-//   4. 加权聚合               (WeightedAggregator.Aggregate)
-//   5. 计算动态阈值           (DynamicThresholdCalculator.Calculate)
-//   6. 决定决策区间           (DynamicThresholdCalculator.DetermineBand)
-//   7. 构造决策               (ConfidenceDecision)
-//   8. 异步持久化信号快照      (signalRepo.Create)
 
 import (
 	"context"
@@ -68,14 +51,11 @@ func (a *ConfidenceAggregator) Aggregate(ctx context.Context, in *dto.SignalColl
 		return nil, ErrAggregatorNotInitialized
 	}
 
-	// 1. 采集 5 维信号
 	signals, err := a.collector.Collect(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. 温度缩放校准 IntentConf
-	//    若有 RawLogits，用 Calibrator.Calibrate 替换 IntentConf
 	calibratedIntentConf := signals.IntentConf
 	if len(in.RawLogits) > 0 && a.calibrator != nil {
 		calibrated := a.calibrator.Calibrate(in.RawLogits)
@@ -85,7 +65,6 @@ func (a *ConfidenceAggregator) Aggregate(ctx context.Context, in *dto.SignalColl
 		}
 	}
 
-	// 3. 一票否决检查
 	vetoCtx := &VetoContext{
 		IntentType:        in.IntentType,
 		CustomerMessage:   in.Text,
@@ -95,13 +74,11 @@ func (a *ConfidenceAggregator) Aggregate(ctx context.Context, in *dto.SignalColl
 	}
 	vetoTriggered, vetoReason := a.vetoChain.Check(signals, vetoCtx)
 
-	// 4. 加权聚合
 	aggregatedConf := a.aggregator.Aggregate(signals)
 	if vetoTriggered {
-		aggregatedConf = 0 // 一票否决强制置零
+		aggregatedConf = 0 
 	}
 
-	// 5. 计算动态阈值
 	threshold := a.calc.Calculate(&ThresholdInput{
 		IntentType:        in.IntentType,
 		CustomerLevel:     inferCustomerLevel(in),
@@ -109,14 +86,12 @@ func (a *ConfidenceAggregator) Aggregate(ctx context.Context, in *dto.SignalColl
 		Now:               time.Now(),
 	})
 
-	// 6. 决定决策区间
 	policy := a.calc.policyEngine.GetPolicy(in.IntentType)
 	band := a.calc.DetermineBand(aggregatedConf, threshold, policy)
 	if vetoTriggered {
-		band = dto.BandHandoff // 否决强制转人工
+		band = dto.BandHandoff 
 	}
 
-	// 7. 构造决策
 	decision := &dto.ConfidenceDecision{
 		SignalID:         uuid.New().String(),
 		AggregatedConf:   aggregatedConf,
@@ -127,7 +102,6 @@ func (a *ConfidenceAggregator) Aggregate(ctx context.Context, in *dto.SignalColl
 		CalculatedAt:     time.Now(),
 	}
 
-	// 8. 异步持久化信号快照（不阻塞主链路）
 	a.saveSignalAsync(ctx, in, decision, signals, calibratedIntentConf)
 	return decision, nil
 }
@@ -166,8 +140,6 @@ func (a *ConfidenceAggregator) saveSignalAsync(
 	if a.calibrator != nil {
 		record.Temperature = a.calibrator.CurrentTemperature()
 	}
-	// 异步写入（best-effort）
-	// goroutine 需 recover + 错误日志（避免 panic 杀进程、错误被静默吞噬）。
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -209,3 +181,4 @@ var ErrAggregatorNotInitialized = &aggError{"confidence aggregator not initializ
 type aggError struct{ msg string }
 
 func (e *aggError) Error() string { return e.msg }
+

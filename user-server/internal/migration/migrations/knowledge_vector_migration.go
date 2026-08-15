@@ -58,21 +58,16 @@ func (m *KnowledgeVectorMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("查询 pgvector 扩展失败: %w", err)
 	}
 	if extCount == 0 {
-		// 尝试创建
 		if err := m.db.Exec(`CREATE EXTENSION IF NOT EXISTS vector`).Error; err != nil {
 			return fmt.Errorf("pgvector 扩展未安装且创建失败: %w(请先在数据库中安装 pgvector)", err)
 		}
 	}
 
-	// 2) 给 knowledge_chunks 增加 embedding 向量列(幂等)
-	// 1024 = TEI bge-m3 实际输出维度
 	addColumnSQL := `ALTER TABLE knowledge_chunks ADD COLUMN IF NOT EXISTS embedding vector(1024)`
 	if err := m.db.Exec(addColumnSQL).Error; err != nil {
 		return fmt.Errorf("添加 embedding 列失败: %w", err)
 	}
 
-	// 3) 加 HNSW 索引(vector_cosine_ops 余弦距离)
-	//    HNSW 相比 IVFFlat:无训练阶段,数据量小(<100k)时召回更准;私域部署场景最合适
 	createIndexSQL := `CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding
 		ON knowledge_chunks
 		USING hnsw (embedding vector_cosine_ops)`
@@ -80,19 +75,15 @@ func (m *KnowledgeVectorMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("创建 HNSW 索引失败: %w", err)
 	}
 
-	// 4) 同时给 product_id 加索引(已经在 migration 中有 idx_knowledge_chunks_product_id,这里仅做一次存在性确认)
-	//    跳过重复创建,避免 IF NOT EXISTS 二次报错
 
 	return nil
 }
 
 // Down 执行降级
 func (m *KnowledgeVectorMigration) Down(ctx context.Context) error {
-	// 删除索引
 	if err := m.db.Exec(`DROP INDEX IF EXISTS idx_knowledge_chunks_embedding`).Error; err != nil {
 		return err
 	}
-	// 删除列
 	if err := m.db.Exec(`ALTER TABLE knowledge_chunks DROP COLUMN IF EXISTS embedding`).Error; err != nil {
 		return err
 	}
@@ -100,3 +91,4 @@ func (m *KnowledgeVectorMigration) Down(ctx context.Context) error {
 }
 
 var _ migration.Migration = (*KnowledgeVectorMigration)(nil)
+

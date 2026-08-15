@@ -70,7 +70,7 @@ inference:
     model: "bge-reranker-v2-m3"
     enabled: true
   llm:
-    mode: cloud
+    mode: remote
     base_url: "${LLM_BASE_URL:http://host.docker.internal:8207/v1}"
     # 2026-08-10：切换为宿主机 MLX 栈 SmolLM3-3B 4bit（ModelScope 下载 + mlx_lm.convert，
     # 见 scripts/inference-host/mlx/），经 host.docker.internal:8207 直连。

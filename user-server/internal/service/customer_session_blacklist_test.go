@@ -16,7 +16,6 @@ func setupBlacklistServiceTestDB(t *testing.T) {
 		&model.UserBlacklist{},
 		&model.AgentStatus{},
 	)
-	// 让全局 db 指向测试库（service 内 New*() 使用）
 	db.SetTestDB(database)
 }
 
@@ -25,7 +24,6 @@ func TestBlacklistUser_Success(t *testing.T) {
 	setupBlacklistServiceTestDB(t)
 	svc := NewCustomerSessionService()
 
-	// 准备：1 个 AI 状态会话（有 user_id）
 	sess, err := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform:  model.PlatformWeb,
 		AccountID: "acc_1",
@@ -36,18 +34,16 @@ func TestBlacklistUser_Success(t *testing.T) {
 		t.Fatalf("CreateSession: %v", err)
 	}
 
-	// 拉黑
 	if err := svc.BlacklistUser(context.Background(), &BlacklistRequest{
 		SessionID:    sess.ID,
 		Reason:       "辱骂客服",
 		OperatorID:   101,
 		OperatorName: "客服甲",
-		TTLHours:     0, // 永久
+		TTLHours:     0, 
 	}); err != nil {
 		t.Fatalf("BlacklistUser: %v", err)
 	}
 
-	// 验证：黑名单已添加
 	ok, err := svc.IsUserBlacklisted(context.Background(), "u_1", model.PlatformWeb)
 	if err != nil {
 		t.Fatalf("IsUserBlacklisted: %v", err)
@@ -56,7 +52,6 @@ func TestBlacklistUser_Success(t *testing.T) {
 		t.Error("expected user u_1 to be blacklisted")
 	}
 
-	// 验证：会话已 closed
 	got, _ := svc.GetSessionByID(context.Background(), sess.ID)
 	if got.Status != model.SessionStatusClosed {
 		t.Errorf("status = %s, want closed", got.Status)
@@ -107,7 +102,7 @@ func TestBlacklistUser_NoUserID(t *testing.T) {
 	sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform:  model.PlatformWeb,
 		AccountID: "acc_1",
-		UserID:    "", // 关键：无 user_id
+		UserID:    "", 
 	})
 
 	err := svc.BlacklistUser(context.Background(), &BlacklistRequest{
@@ -133,27 +128,23 @@ func TestBlacklistUser_Idempotent(t *testing.T) {
 		UserID:    "u_idem",
 	})
 
-	// 第一次拉黑
 	if err := svc.BlacklistUser(context.Background(), &BlacklistRequest{
 		SessionID: sess.ID,
 		Reason:    "first",
 	}); err != nil {
 		t.Fatalf("first BlacklistUser: %v", err)
 	}
-	// 第二次拉黑（更新 reason）
 	if err := svc.BlacklistUser(context.Background(), &BlacklistRequest{
 		SessionID: sess.ID,
 		Reason:    "second",
 	}); err != nil {
 		t.Fatalf("second BlacklistUser: %v", err)
 	}
-	// 仍应是黑名单状态
 	ok, _ := svc.IsUserBlacklisted(context.Background(), "u_idem", model.PlatformWeb)
 	if !ok {
 		t.Error("expected still blacklisted")
 	}
 
-	// 验证数据库中只有 1 条 active 记录（幂等不重复写入）
 	rows, total, err := svc.ListActiveBlacklist(context.Background(), 1, 100)
 	if err != nil {
 		t.Fatalf("ListActiveBlacklist: %v", err)
@@ -234,7 +225,6 @@ func TestListActiveBlacklist_Pagination(t *testing.T) {
 	setupBlacklistServiceTestDB(t)
 	svc := NewCustomerSessionService()
 
-	// 拉黑 3 个不同访客
 	for i := 0; i < 3; i++ {
 		uid := "u_list_" + string(rune('A'+i))
 		sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
@@ -243,7 +233,6 @@ func TestListActiveBlacklist_Pagination(t *testing.T) {
 		_ = svc.BlacklistUser(context.Background(), &BlacklistRequest{SessionID: sess.ID, Reason: "r"})
 	}
 
-	// page=1, page_size=2 → 应返回 2 条
 	rows, total, err := svc.ListActiveBlacklist(context.Background(), 1, 2)
 	if err != nil {
 		t.Fatalf("ListActiveBlacklist page 1: %v", err)
@@ -255,7 +244,6 @@ func TestListActiveBlacklist_Pagination(t *testing.T) {
 		t.Errorf("page 1 rows = %d, want 2", len(rows))
 	}
 
-	// page=2, page_size=2 → 应返回 1 条
 	rows2, _, _ := svc.ListActiveBlacklist(context.Background(), 2, 2)
 	if len(rows2) != 1 {
 		t.Errorf("page 2 rows = %d, want 1", len(rows2))
@@ -267,7 +255,6 @@ func TestListActiveBlacklist_BoundaryPageSize(t *testing.T) {
 	setupBlacklistServiceTestDB(t)
 	svc := NewCustomerSessionService()
 
-	// pageSize=0 应被 repo 兜底为 20；pageSize=999 应被兜底为 20
 	_, total, err := svc.ListActiveBlacklist(context.Background(), 1, 0)
 	if err != nil {
 		t.Fatalf("ListActiveBlacklist pageSize=0: %v", err)
@@ -289,7 +276,6 @@ func TestBlacklistUser_TTLExpiry(t *testing.T) {
 	sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc", UserID: "u_ttl",
 	})
-	// 临时拉黑 1 小时
 	if err := svc.BlacklistUser(context.Background(), &BlacklistRequest{
 		SessionID: sess.ID, Reason: "ttl", TTLHours: 1,
 	}); err != nil {
@@ -309,7 +295,6 @@ func TestCreateSession_RejectedByBlacklist(t *testing.T) {
 	setupBlacklistServiceTestDB(t)
 	svc := NewCustomerSessionService()
 
-	// 创建第一个会话并拉黑
 	sess1, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform:  model.PlatformWeb,
 		AccountID: "acc_x",
@@ -321,7 +306,6 @@ func TestCreateSession_RejectedByBlacklist(t *testing.T) {
 		t.Fatalf("BlacklistUser: %v", err)
 	}
 
-	// 同一 user_id 创建新会话 → 应被拒绝
 	_, err := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform:  model.PlatformWeb,
 		AccountID: "acc_x",
@@ -334,7 +318,6 @@ func TestCreateSession_RejectedByBlacklist(t *testing.T) {
 		t.Errorf("error message should mention 黑名单, got: %v", err)
 	}
 
-	// 解除拉黑 → 新会话应恢复
 	if err := svc.UnblacklistUser(context.Background(), "u_banned", model.PlatformWeb); err != nil {
 		t.Fatalf("UnblacklistUser: %v", err)
 	}
@@ -366,7 +349,6 @@ func TestCreateSession_AllowDifferentPlatform(t *testing.T) {
 	})
 	_ = svc.BlacklistUser(context.Background(), &BlacklistRequest{SessionID: sess.ID, Reason: "x"})
 
-	// web 已拉黑 → 拒绝
 	if _, err := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform:  model.PlatformWeb,
 		AccountID: "acc_y",
@@ -375,7 +357,6 @@ func TestCreateSession_AllowDifferentPlatform(t *testing.T) {
 		t.Error("expected rejection on web")
 	}
 
-	// douyin 未拉黑 → 通过
 	sess2, err := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "acc_y",
@@ -394,7 +375,6 @@ func TestCreateSession_AnonymousUser(t *testing.T) {
 	setupBlacklistServiceTestDB(t)
 	svc := NewCustomerSessionService()
 
-	// user_id="" 的匿名访客不参与黑名单校验（不存在可拉黑维度）
 	sess, err := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform:  model.PlatformWeb,
 		AccountID: "acc_anon",
@@ -436,12 +416,10 @@ func TestPreCreateBlacklistGuard_Direct(t *testing.T) {
 	setupBlacklistServiceTestDB(t)
 	svc := NewCustomerSessionService()
 
-	// nil 请求
 	if err := svc.preCreateBlacklistGuard(context.Background(), nil); err == nil {
 		t.Error("expected error for nil request")
 	}
 
-	// 匿名访客（user_id=""）→ 通过
 	if err := svc.preCreateBlacklistGuard(context.Background(), &CreateSessionRequest{
 		Platform:  model.PlatformWeb,
 		AccountID: "acc",
@@ -450,13 +428,11 @@ func TestPreCreateBlacklistGuard_Direct(t *testing.T) {
 		t.Errorf("anonymous should pass: %v", err)
 	}
 
-	// 拉黑一个 user_id
 	bannedSess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc", UserID: "u_guard",
 	})
 	_ = svc.BlacklistUser(context.Background(), &BlacklistRequest{SessionID: bannedSess.ID})
 
-	// 守卫应拒绝
 	if err := svc.preCreateBlacklistGuard(context.Background(), &CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc", UserID: "u_guard",
 	}); err == nil {
@@ -478,3 +454,4 @@ func contains(s, sub string) bool {
 	}
 	return false
 }
+

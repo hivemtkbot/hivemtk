@@ -34,7 +34,6 @@ func TestUpgradeTask_BasicFields(t *testing.T) {
 	if task.ID != 1 {
 		t.Errorf("Expected ID 1, got %d", task.ID)
 	}
-	// 私域部署：UpgradeTask 不含 MerchantID 字段
 	if task.FromVersion != "1.0.0" {
 		t.Errorf("Expected FromVersion '1.0.0', got %s", task.FromVersion)
 	}
@@ -148,7 +147,6 @@ func TestMigrationRecord_BasicFields(t *testing.T) {
 	if record.ID != 1 {
 		t.Errorf("Expected ID 1, got %d", record.ID)
 	}
-	// 私域部署：MigrationRecord 不含 MerchantID 字段
 	if record.Version != "1.0.0" {
 		t.Errorf("Expected Version '1.0.0', got %s", record.Version)
 	}
@@ -200,7 +198,6 @@ func TestMigrationCheckpoint_BasicFields(t *testing.T) {
 	if checkpoint.ID != 1 {
 		t.Errorf("Expected ID 1, got %d", checkpoint.ID)
 	}
-	// 私域部署：MigrationCheckpoint 不含 MerchantID 字段
 	if checkpoint.Checkpoint != "v1.0.0" {
 		t.Errorf("Expected Checkpoint 'v1.0.0', got %s", checkpoint.Checkpoint)
 	}
@@ -240,3 +237,4 @@ func TestVersionInfo(t *testing.T) {
 		t.Errorf("Expected 3 changes, got %d", len(info.Changes))
 	}
 }
+

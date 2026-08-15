@@ -1,23 +1,5 @@
 package service
 
-// rag_recall_monitor.go RAG 召回率监控（C 域 缺口 #2 - 监控指标）
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.6 召回率监控
-//
-// 与 rag_metrics.go（基础聚合 + 后台异步写入）的关系：
-//   - rag_metrics.go        记录每次检索的 precision/recall，写入 rag_query_logs
-//   - 本文件                 基于 rag_query_logs 计算专项指标：
-//                              * Top-K 命中率  (top_k_hit_rate)
-//                              * Top-1 命中率  (top_1_hit_rate)
-//                              * 平均相似度     (avg_similarity)
-// * 检索耗时 (p95_latency_ms)
-//                              * 自动定时写入  rag_recall_monitor_snapshots 表
-//
-// 数据来源：rag_query_logs（每次检索产出一条，由检索服务同步调用 RecordQuery）。
-// 采集频率：可配置（默认 5 分钟）
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -35,11 +17,8 @@ import (
 
 // RagRecallMonitorConstants
 const (
-	// RagRecallMonitorDefaultInterval 默认监控快照采集间隔
 	RagRecallMonitorDefaultInterval = 5 * time.Minute
-	// RagRecallMonitorDefaultWindow 默认评估窗口（1 小时）
 	RagRecallMonitorDefaultWindow = 1 * time.Hour
-	// RagRecallMonitorTableName 监控快照表
 	RagRecallMonitorTableName = "rag_recall_monitor_snapshots"
 )
 
@@ -48,23 +27,19 @@ type RagRecallMetricsSummary struct {
 	WindowStart time.Time `json:"window_start"`
 	WindowEnd   time.Time `json:"window_end"`
 
-	// 基础量
 	TotalQueries int64 `json:"total_queries"`
 
-	// 命中指标
-	TopKHitRate   float64 `json:"top_k_hit_rate"` // Top-K 命中率（命中数 / 总查询数）
-	TopOneHitRate float64 `json:"top_1_hit_rate"` // Top-1 命中率（top-1 命中数 / 总查询数）
-	AvgRecall     float64 `json:"avg_recall"`     // 平均召回率
-	AvgPrecision  float64 `json:"avg_precision"`  // 平均精确率
-	AvgSimilarity float64 `json:"avg_similarity"` // 平均相似度（最高检索分）
+	TopKHitRate   float64 `json:"top_k_hit_rate"` 
+	TopOneHitRate float64 `json:"top_1_hit_rate"` 
+	AvgRecall     float64 `json:"avg_recall"`     
+	AvgPrecision  float64 `json:"avg_precision"`  
+	AvgSimilarity float64 `json:"avg_similarity"` 
 
-	// 性能指标
 	AvgLatencyMs float64 `json:"avg_latency_ms"`
 	P95LatencyMs int64   `json:"p95_latency_ms"`
 
-	// 分布指标
-	ZeroHitCount   int64 `json:"zero_hit_count"`   // 0 命中查询数
-	LowRecallCount int64 `json:"low_recall_count"` // 低召回查询数
+	ZeroHitCount   int64 `json:"zero_hit_count"`   
+	LowRecallCount int64 `json:"low_recall_count"` 
 }
 
 // RagRecallMonitorService RAG 召回率监控服务
@@ -72,7 +47,6 @@ type RagRecallMonitorService struct {
 	db   *gorm.DB
 	repo repository.RagRecallMonitorRepository
 
-	// 异步控制
 	mu       sync.Mutex
 	started  bool
 	stopCh   chan struct{}
@@ -80,7 +54,6 @@ type RagRecallMonitorService struct {
 	interval time.Duration
 	window   time.Duration
 
-	// 最后一次快照（用于 API 直接返回，无需走 DB）
 	lastSnapshot *RagRecallMetricsSummary
 	lastAt       time.Time
 }
@@ -166,7 +139,6 @@ func (s *RagRecallMonitorService) Collect(ctx context.Context, start, end time.T
 		WindowEnd:   end,
 	}
 
-	// 1) 基础聚合：count / avg recall / avg precision / avg latency / avg similarity
 	row, err := s.repo.AggregateRecallLogs(ctx, start, end)
 	if err != nil {
 		return nil, fmt.Errorf("query recall aggregate: %w", err)
@@ -185,7 +157,6 @@ func (s *RagRecallMonitorService) Collect(ctx context.Context, start, end time.T
 		summary.TopOneHitRate = float64(row.Top1Hit) / float64(row.Total)
 	}
 
-	// 2) 延迟
 	if row.Total > 0 {
 		p95Offset := int(float64(row.Total) * 0.95)
 		if p95Offset >= int(row.Total) {
@@ -209,13 +180,11 @@ func (s *RagRecallMonitorService) CollectAndStore(ctx context.Context, start, en
 		return nil, err
 	}
 
-	// 缓存
 	s.mu.Lock()
 	s.lastSnapshot = summary
 	s.lastAt = time.Now()
 	s.mu.Unlock()
 
-	// 写入监控快照表
 	if s.db != nil {
 		payload, _ := json.Marshal(summary)
 		row := map[string]any{
@@ -235,7 +204,6 @@ func (s *RagRecallMonitorService) CollectAndStore(ctx context.Context, start, en
 			"created_at":       time.Now(),
 		}
 		if err := s.repo.CreateSnapshot(ctx, row); err != nil {
-			// 写库失败不视为致命错误（日志由调用方处理）
 			return summary, fmt.Errorf("store snapshot: %w", err)
 		}
 	}
@@ -262,7 +230,6 @@ func (s *RagRecallMonitorService) ListSnapshots(ctx context.Context, limit int) 
 	if err != nil {
 		return nil, err
 	}
-	// 升序返回（图表 X 轴顺序）
 	sort.Slice(rows, func(i, j int) bool {
 		ai, _ := rows[i]["window_start"].(time.Time)
 		aj, _ := rows[j]["window_start"].(time.Time)
@@ -281,3 +248,4 @@ func (s *RagRecallMonitorService) EnsureSchema(ctx context.Context) error {
 	}
 	return s.repo.EnsureSchema(ctx)
 }
+

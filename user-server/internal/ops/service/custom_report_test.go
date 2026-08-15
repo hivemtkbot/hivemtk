@@ -126,7 +126,6 @@ func TestCustomReportService_GetReport_Success(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	// 创建报表
 	createReq := &CreateReportRequest{
 		Name:       "Get Test",
 		DataSource: "sessions",
@@ -135,7 +134,6 @@ func TestCustomReportService_GetReport_Success(t *testing.T) {
 	}
 	created, _ := service.CreateReport(123, createReq)
 
-	// 获取报表
 	report, err := service.GetReport(created.ID)
 	if err != nil {
 		t.Fatalf("GetReport failed: %v", err)
@@ -162,7 +160,6 @@ func TestCustomReportService_GetReport_NoPermission(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	// 创建私有报表
 	createReq := &CreateReportRequest{
 		Name:       "Private Report",
 		DataSource: "sessions",
@@ -171,7 +168,6 @@ func TestCustomReportService_GetReport_NoPermission(t *testing.T) {
 	}
 	created, _ := service.CreateReport(123, createReq)
 
-	// 尝试查看
 	_, err := service.GetReport(created.ID)
 	if err == nil {
 		t.Error("Expected error for no permission")
@@ -183,7 +179,6 @@ func TestCustomReportService_GetReportList_Success(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	// 创建多个报表
 	for i := 0; i < 5; i++ {
 		createReq := &CreateReportRequest{
 			Name:       "Report " + string(rune('A'+i)),
@@ -193,7 +188,6 @@ func TestCustomReportService_GetReportList_Success(t *testing.T) {
 		service.CreateReport(123, createReq)
 	}
 
-	// 获取列表
 	reports, total, err := service.GetReportList(1, 10)
 	if err != nil {
 		t.Fatalf("GetReportList failed: %v", err)
@@ -212,7 +206,6 @@ func TestCustomReportService_UpdateReport_Success(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	// 创建报表
 	createReq := &CreateReportRequest{
 		Name:       "Original",
 		DataSource: "sessions",
@@ -220,7 +213,6 @@ func TestCustomReportService_UpdateReport_Success(t *testing.T) {
 	}
 	created, _ := service.CreateReport(123, createReq)
 
-	// 更新报表
 	updateReq := &UpdateReportRequest{
 		Name:        "Updated",
 		Description: "New Description",
@@ -264,7 +256,6 @@ func TestCustomReportService_UpdateReport_SingleTenant(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	// 创建报表
 	createReq := &CreateReportRequest{
 		Name:       "Other Report",
 		DataSource: "sessions",
@@ -272,7 +263,6 @@ func TestCustomReportService_UpdateReport_SingleTenant(t *testing.T) {
 	}
 	created, _ := service.CreateReport(123, createReq)
 
-	// 更新报表
 	updateReq := &UpdateReportRequest{
 		Name:       "Updated",
 		DataSource: "sessions",
@@ -293,7 +283,6 @@ func TestCustomReportService_DeleteReport_Success(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	// 创建报表
 	createReq := &CreateReportRequest{
 		Name:       "Delete Me",
 		DataSource: "sessions",
@@ -301,13 +290,11 @@ func TestCustomReportService_DeleteReport_Success(t *testing.T) {
 	}
 	created, _ := service.CreateReport(123, createReq)
 
-	// 删除报表
 	err := service.DeleteReport(created.ID)
 	if err != nil {
 		t.Fatalf("DeleteReport failed: %v", err)
 	}
 
-	// 验证已删除
 	_, err = service.GetReport(created.ID)
 	if err == nil {
 		t.Error("Expected error after deletion")
@@ -338,7 +325,6 @@ func TestCustomReportService_GetPublicTemplates_Success(t *testing.T) {
 	}
 	service.CreateReport(1, createReq)
 
-	// 获取公开模板
 	templates, err := service.GetPublicTemplates()
 	if err != nil {
 		t.Fatalf("GetPublicTemplates failed: %v", err)
@@ -354,7 +340,6 @@ func TestCustomReportService_UseTemplate_Success(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	// 创建模板
 	createReq := &CreateReportRequest{
 		Name:       "Template",
 		DataSource: "sessions",
@@ -363,7 +348,6 @@ func TestCustomReportService_UseTemplate_Success(t *testing.T) {
 	}
 	template, _ := service.CreateReport(1, createReq)
 
-	// 使用模板
 	_, err := service.UseTemplate(template.ID, 123)
 	if err != nil {
 		t.Fatalf("UseTemplate failed: %v", err)
@@ -377,7 +361,6 @@ func TestCustomReportService_QueryReportData_Sessions(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	// 创建会话
 	session := &sysmodel.CustomerSession{
 		UserID:       "user_123",
 		AgentName:    "客服 A",
@@ -386,7 +369,6 @@ func TestCustomReportService_QueryReportData_Sessions(t *testing.T) {
 	}
 	db.Create(session)
 
-	// 创建报表
 	createReq := &CreateReportRequest{
 		Name:       "Session Report",
 		DataSource: "sessions",
@@ -396,7 +378,6 @@ func TestCustomReportService_QueryReportData_Sessions(t *testing.T) {
 	}
 	report, err := service.CreateReport(123, createReq)
 
-	// 查询数据
 	data, err := service.QueryReportData(context.Background(), report, nil)
 	if err != nil {
 		t.Fatalf("QueryReportData failed: %v", err)
@@ -412,7 +393,6 @@ func TestCustomReportService_QueryReportData_Clues(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	// 创建线索
 	clue := &sysmodel.Clue{
 		SourceID: "source_123",
 		Account:  "user_123",
@@ -423,7 +403,6 @@ func TestCustomReportService_QueryReportData_Clues(t *testing.T) {
 	}
 	db.Create(clue)
 
-	// 创建报表
 	createReq := &CreateReportRequest{
 		Name:       "Clue Report",
 		DataSource: "clues",
@@ -433,7 +412,6 @@ func TestCustomReportService_QueryReportData_Clues(t *testing.T) {
 	}
 	report, err := service.CreateReport(123, createReq)
 
-	// 查询数据
 	data, err := service.QueryReportData(context.Background(), report, nil)
 	if err != nil {
 		t.Fatalf("QueryReportData failed: %v", err)
@@ -449,7 +427,6 @@ func TestCustomReportService_QueryReportData_RFM(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	// 创建 RFM 用户（金额字段单位：分）
 	now := time.Now()
 	rfm := &sysmodel.UserRFM{
 		UserID:            123,
@@ -460,12 +437,11 @@ func TestCustomReportService_QueryReportData_RFM(t *testing.T) {
 		TotalScore:        15,
 		LastTransactionAt: &now,
 		TransactionCount:  5,
-		TotalAmount:       100000, // 1000 元 = 100000 分
-		AvgAmount:         20000,  // 200 元 = 20000 分
+		TotalAmount:       100000, 
+		AvgAmount:         20000,  
 	}
 	db.Create(rfm)
 
-	// 创建报表
 	createReq := &CreateReportRequest{
 		Name:       "RFM Report",
 		DataSource: "rfm",
@@ -475,7 +451,6 @@ func TestCustomReportService_QueryReportData_RFM(t *testing.T) {
 	}
 	report, err := service.CreateReport(123, createReq)
 
-	// 查询数据
 	data, err := service.QueryReportData(context.Background(), report, map[string]any{"layer": ""})
 	if err != nil {
 		t.Fatalf("QueryReportData failed: %v", err)
@@ -506,7 +481,6 @@ func TestCustomReportService_QueryReportData_Messages(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	// 创建报表
 	createReq := &CreateReportRequest{
 		Name:       "Message Report",
 		DataSource: "messages",
@@ -516,7 +490,6 @@ func TestCustomReportService_QueryReportData_Messages(t *testing.T) {
 	}
 	report, err := service.CreateReport(123, createReq)
 
-	// 查询数据
 	data, err := service.QueryReportData(context.Background(), report, nil)
 	if err != nil {
 		t.Fatalf("QueryReportData failed: %v", err)
@@ -532,7 +505,6 @@ func TestCustomReportService_QueryReportData_Agents(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	// 创建报表
 	createReq := &CreateReportRequest{
 		Name:       "Agent Report",
 		DataSource: "agents",
@@ -542,7 +514,6 @@ func TestCustomReportService_QueryReportData_Agents(t *testing.T) {
 	}
 	report, err := service.CreateReport(123, createReq)
 
-	// 查询数据
 	data, err := service.QueryReportData(context.Background(), report, nil)
 	if err != nil {
 		t.Fatalf("QueryReportData failed: %v", err)
@@ -558,7 +529,6 @@ func TestCustomReportService_QueryReportData_Users(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	// 创建报表
 	createReq := &CreateReportRequest{
 		Name:       "User Report",
 		DataSource: "users",
@@ -568,13 +538,11 @@ func TestCustomReportService_QueryReportData_Users(t *testing.T) {
 	}
 	report, err := service.CreateReport(123, createReq)
 
-	// 查询数据
 	data, err := service.QueryReportData(context.Background(), report, nil)
 	if err != nil {
 		t.Fatalf("QueryReportData failed: %v", err)
 	}
 
-	// 用户数据查询返回空数据是预期的
 	_ = data
 }
 
@@ -626,3 +594,4 @@ func TestIsValidChartType(t *testing.T) {
 		}
 	}
 }
+

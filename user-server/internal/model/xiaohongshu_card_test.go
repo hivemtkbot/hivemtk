@@ -141,3 +141,4 @@ func TestXiaohongshuCard_WithTags(t *testing.T) {
 		t.Errorf("Expected Tags '种草，好物推荐，小红书', got %s", card.Tags)
 	}
 }
+

@@ -77,7 +77,6 @@ func TestWhatsappRepository_CreateAccount(t *testing.T) {
 func TestWhatsappRepository_GetAccount(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试数据
 	account := &model.WhatsappAccount{
 		Name: "GetAccount Test",
 	}
@@ -126,7 +125,6 @@ func TestWhatsappRepository_GetAccount(t *testing.T) {
 func TestWhatsappRepository_ListAccounts(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试数据
 	for i := 1; i <= 3; i++ {
 		repo.CreateAccount(context.Background(), &model.WhatsappAccount{
 			Name: "Account " + string(rune('0'+i)),
@@ -141,7 +139,6 @@ func TestWhatsappRepository_ListAccounts(t *testing.T) {
 		t.Errorf("ListAccounts() error = %v", err)
 	}
 
-	// 私域部署下返回所有账户
 	if len(accounts) != 4 {
 		t.Errorf("Expected 4 accounts, got %d", len(accounts))
 	}
@@ -151,7 +148,6 @@ func TestWhatsappRepository_ListAccounts(t *testing.T) {
 func TestWhatsappRepository_UpdateAccount(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试数据
 	account := &model.WhatsappAccount{
 		Name:   "Original Name",
 		Status: model.WhatsappStatusPending,
@@ -179,7 +175,6 @@ func TestWhatsappRepository_UpdateAccount(t *testing.T) {
 func TestWhatsappRepository_DeleteAccount(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试数据
 	account := &model.WhatsappAccount{
 		Name: "To Delete",
 	}
@@ -200,13 +195,11 @@ func TestWhatsappRepository_DeleteAccount(t *testing.T) {
 func TestWhatsappRepository_UpsertSession(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试账号
 	account := &model.WhatsappAccount{
 		Name: "Session Test Account",
 	}
 	repo.CreateAccount(context.Background(), account)
 
-	// 创建会话
 	session := &model.WhatsappSession{
 		AccountID:   account.ID.String(),
 		SessionJSON: "session_json_123",
@@ -221,7 +214,6 @@ func TestWhatsappRepository_UpsertSession(t *testing.T) {
 		t.Error("Expected session ID to be set")
 	}
 
-	// 更新会话
 	session.SessionJSON = "updated_session_json"
 	err = repo.UpsertSession(context.Background(), session)
 	if err != nil {
@@ -238,7 +230,6 @@ func TestWhatsappRepository_UpsertSession(t *testing.T) {
 func TestWhatsappRepository_GetSession(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试账号和会话
 	account := &model.WhatsappAccount{
 		Name: "GetSession Test Account",
 	}
@@ -338,7 +329,6 @@ func TestWhatsappRepository_CreateDraft(t *testing.T) {
 func TestWhatsappRepository_GetDraft(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试草稿
 	draft := &model.WhatsappDraft{
 		Title:   "GetDraft Test",
 		Content: "Test content",
@@ -387,7 +377,6 @@ func TestWhatsappRepository_GetDraft(t *testing.T) {
 func TestWhatsappRepository_ListDrafts(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试数据
 	for i := 1; i <= 3; i++ {
 		repo.CreateDraft(context.Background(), &model.WhatsappDraft{
 			Title: "Draft " + string(rune('0'+i)),
@@ -402,7 +391,6 @@ func TestWhatsappRepository_ListDrafts(t *testing.T) {
 		t.Errorf("ListDrafts() error = %v", err)
 	}
 
-	// 私域部署下返回所有草稿
 	if len(drafts) != 4 {
 		t.Errorf("Expected 4 drafts, got %d", len(drafts))
 	}
@@ -412,7 +400,6 @@ func TestWhatsappRepository_ListDrafts(t *testing.T) {
 func TestWhatsappRepository_UpdateDraft(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试草稿
 	draft := &model.WhatsappDraft{
 		Title:   "Original Name",
 		Content: "Original content",
@@ -436,7 +423,6 @@ func TestWhatsappRepository_UpdateDraft(t *testing.T) {
 func TestWhatsappRepository_DeleteDraft(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试草稿
 	draft := &model.WhatsappDraft{
 		Title: "To Delete",
 	}
@@ -498,7 +484,6 @@ func TestWhatsappRepository_CreateJob(t *testing.T) {
 func TestWhatsappRepository_GetJob(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试任务
 	job := &model.WhatsappJob{
 		DraftID: uuid.New(),
 		Status:  model.WhatsappJobPending,
@@ -549,7 +534,6 @@ func TestWhatsappRepository_GetJob(t *testing.T) {
 func TestWhatsappRepository_ListJobs(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试数据
 	for i := 1; i <= 3; i++ {
 		repo.CreateJob(context.Background(), &model.WhatsappJob{
 			DraftID: uuid.New(),
@@ -564,7 +548,6 @@ func TestWhatsappRepository_ListJobs(t *testing.T) {
 		t.Errorf("ListJobs() error = %v", err)
 	}
 
-	// 私域部署下返回所有任务
 	if len(jobs) != 4 {
 		t.Errorf("Expected 4 jobs, got %d", len(jobs))
 	}
@@ -574,7 +557,6 @@ func TestWhatsappRepository_ListJobs(t *testing.T) {
 func TestWhatsappRepository_UpdateJob(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试任务
 	job := &model.WhatsappJob{
 		DraftID: uuid.New(),
 		Status:  model.WhatsappJobPending,
@@ -598,7 +580,6 @@ func TestWhatsappRepository_UpdateJob(t *testing.T) {
 func TestWhatsappRepository_CreateJobDetail(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试任务
 	job := &model.WhatsappJob{
 		DraftID: uuid.New(),
 	}
@@ -649,13 +630,11 @@ func TestWhatsappRepository_CreateJobDetail(t *testing.T) {
 func TestWhatsappRepository_ListJobDetails(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试任务
 	job := &model.WhatsappJob{
 		DraftID: uuid.New(),
 	}
 	repo.CreateJob(context.Background(), job)
 
-	// 创建测试数据
 	for i := 1; i <= 3; i++ {
 		repo.CreateJobDetail(context.Background(), &model.WhatsappJobDetail{
 			JobID:     job.ID,
@@ -678,7 +657,6 @@ func TestWhatsappRepository_ListJobDetails(t *testing.T) {
 func TestWhatsappRepository_UpdateJobDetail(t *testing.T) {
 	repo := setupWhatsappRepository(t)
 
-	// 创建测试任务和详情
 	job := &model.WhatsappJob{
 		DraftID: uuid.New(),
 	}
@@ -705,3 +683,4 @@ func TestWhatsappRepository_UpdateJobDetail(t *testing.T) {
 		t.Errorf("Expected status Success, got %v", updated[0].Status)
 	}
 }
+

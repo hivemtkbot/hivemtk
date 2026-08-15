@@ -88,7 +88,6 @@ func (r *KnowledgeOpenAPIRepository) List(ctx context.Context, productID string)
 
 // Update 更新
 func (r *KnowledgeOpenAPIRepository) Update(ctx context.Context, src *model.KnowledgeOpenAPISource) error {
-	// 兼容 jsonb 字段:空串需转为 "{}"
 	if src.AuthConfig == "" {
 		src.AuthConfig = "{}"
 	}
@@ -126,3 +125,4 @@ func (r *KnowledgeOpenAPIRepository) ListEnabled(ctx context.Context) ([]model.K
 	}
 	return sources, nil
 }
+

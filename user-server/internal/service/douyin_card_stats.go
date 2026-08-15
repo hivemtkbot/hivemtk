@@ -33,28 +33,23 @@ func NewDouyinCardStatsService(db *gorm.DB) DouyinCardStatsService {
 
 // GetCardStats 获取单个卡片的统计数据
 func (s *douyinCardStatsService) GetCardStats(ctx context.Context, req *dto.DouyinCardStatsRequest) (*dto.DouyinCardStatsResponse, error) {
-	// 查询卡片信息
 	card, err := s.repo.GetCardByID(ctx, req.CardID)
 	if err != nil {
 		return nil, fmt.Errorf("卡片不存在: %v", err)
 	}
 
-	// 统计浏览量
 	views, err := s.repo.CountCardViews(ctx, req.CardID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 按日期分组统计 - 仅支持浏览动作
 	tempStats, err := s.repo.GetCardDailyStats(ctx, req.CardID, req.StartDate, req.EndDate, req.GroupBy)
 	if err != nil {
 		return nil, err
 	}
 
-	// 将临时统计结果转换为DailyStat
 	dailyStats := convertDouyinTempStats(tempStats)
 
-	// 构建响应
 	response := &dto.DouyinCardStatsResponse{
 		CardID:     req.CardID,
 		Title:      card.Title,
@@ -67,7 +62,6 @@ func (s *douyinCardStatsService) GetCardStats(ctx context.Context, req *dto.Douy
 
 // convertDouyinTempStats 将仓库返回的临时统计结果转换为 DailyStat
 func convertDouyinTempStats(tempStats []repository.DouyinCardStatsTempStat) []dto.DailyStat {
-	// 先按日期分组
 	dateMap := make(map[string]*dto.DailyStat)
 	for _, stat := range tempStats {
 		if _, exists := dateMap[stat.Date]; !exists {
@@ -77,7 +71,6 @@ func convertDouyinTempStats(tempStats []repository.DouyinCardStatsTempStat) []dt
 			}
 		}
 
-		// 只处理浏览数据
 		if stat.Action == "view" {
 			dateMap[stat.Date].View = stat.Count
 		}
@@ -93,7 +86,6 @@ func convertDouyinTempStats(tempStats []repository.DouyinCardStatsTempStat) []dt
 
 // GetOverallStats 获取所有卡片的总体统计数据
 func (s *douyinCardStatsService) GetOverallStats(ctx context.Context, req *dto.DouyinCardOverallStatsRequest) (*dto.DouyinCardOverallStatsResponse, error) {
-	// 获取卡片总数和激活数
 	totalCards, err := s.repo.CountTotalCards(ctx)
 	if err != nil {
 		return nil, err
@@ -103,13 +95,11 @@ func (s *douyinCardStatsService) GetOverallStats(ctx context.Context, req *dto.D
 		return nil, err
 	}
 
-	// 获取总浏览量
 	totalViews, err := s.repo.CountTotalViews(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取热门卡片 - 仅按浏览量排序
 	topCards, err := s.repo.GetTopCards(ctx, 10)
 	if err != nil {
 		return nil, err
@@ -126,14 +116,12 @@ func (s *douyinCardStatsService) GetOverallStats(ctx context.Context, req *dto.D
 		})
 	}
 
-	// 获取按日期分组的统计数据
 	tempStats, err := s.repo.GetOverallDailyStats(ctx, req.StartDate, req.EndDate, req.GroupBy)
 	if err != nil {
 		return nil, err
 	}
 	dailyStats := convertDouyinTempStats(tempStats)
 
-	// 获取最近的活动 - 仅浏览活动
 	recentActivities, err := s.repo.GetRecentActivities(ctx, 10)
 	if err != nil {
 		return nil, err
@@ -164,7 +152,6 @@ func (s *douyinCardStatsService) GetOverallStats(ctx context.Context, req *dto.D
 
 // RecordActivity 记录卡片活动
 func (s *douyinCardStatsService) RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error {
-	// 只记录浏览活动
 	if action != "view" {
 		return nil
 	}
@@ -183,6 +170,6 @@ func (s *douyinCardStatsService) RecordActivity(ctx context.Context, cardID uint
 		return err
 	}
 
-	// 更新卡片的浏览量统计
 	return s.repo.IncrementCardViewCount(ctx, cardID)
 }
+

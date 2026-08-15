@@ -40,7 +40,6 @@ func TestCustomer360Service_buildClueInfo(t *testing.T) {
 	db := setupCustomer360TestDB(t)
 	service := setupCustomer360Service(t, db)
 
-	// 创建测试会话
 	session := &model.CustomerSession{
 		SessionID: "session-123",
 		UserID:    "user-123",
@@ -49,7 +48,6 @@ func TestCustomer360Service_buildClueInfo(t *testing.T) {
 	}
 	db.Create(session)
 
-	// 创建测试线索
 	clue := &model.Clue{
 		Account:    "13800138000",
 		Type:       1,
@@ -84,7 +82,7 @@ func TestCustomer360Service_buildClueInfo(t *testing.T) {
 		{
 			name: "no matching clue",
 
-			userID:  "user-456", // 使用不同的 userID
+			userID:  "user-456", 
 			wantErr: false,
 			wantNil: true,
 		},
@@ -92,7 +90,6 @@ func TestCustomer360Service_buildClueInfo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 对于 "no matching clue" 测试，创建一个新用户会话，手机号不匹配任何线索
 			if tt.name == "no matching clue" {
 				session2 := &model.CustomerSession{
 					SessionID: "session-456",
@@ -135,7 +132,6 @@ func TestCustomer360Service_buildOrderInfo(t *testing.T) {
 	db := setupCustomer360TestDB(t)
 	service := setupCustomer360Service(t, db)
 
-	// 创建测试会话
 	session := &model.CustomerSession{
 		SessionID: "session-123",
 		UserID:    "user-123",
@@ -143,29 +139,26 @@ func TestCustomer360Service_buildOrderInfo(t *testing.T) {
 	}
 	db.Create(session)
 
-	// 创建测试订单 - 先创建 order1
 	order1 := &model.Order{
 		ID:        "order-1",
 		AccountID: "account-123",
 		Price:     "100.00",
-		Status:    1, // success
+		Status:    1, 
 		TgID:      12345,
 	}
 	db.Create(order1)
 
-	// 稍微延迟一下再创建 order2，确保 CreateTime 不同
 	time.Sleep(10 * time.Millisecond)
 
 	order2 := &model.Order{
 		ID:        "order-2",
 		AccountID: "account-123",
 		Price:     "200.50",
-		Status:    0, // pending
+		Status:    0, 
 		TgID:      12345,
 	}
 	db.Create(order2)
 
-	// 创建其他用户的订单
 	db.Create(&model.Order{
 		ID:        "order-3",
 		AccountID: "account-456",
@@ -225,12 +218,10 @@ func TestCustomer360Service_buildOrderInfo(t *testing.T) {
 				t.Errorf("Expected TotalOrders %d, got %d", tt.wantTotal, result.TotalOrders)
 			}
 
-			// 浮点数比较允许小误差
 			if abs(result.TotalAmount-tt.wantAmount) > 0.01 {
 				t.Errorf("Expected TotalAmount %.2f, got %.2f", tt.wantAmount, result.TotalAmount)
 			}
 
-			// 验证有最新订单信息
 			if tt.wantTotal > 0 {
 				if result.LastOrderID == "" {
 					t.Error("Expected LastOrderID to be set")
@@ -248,7 +239,6 @@ func TestCustomer360Service_GetCustomer360(t *testing.T) {
 	db := setupCustomer360TestDB(t)
 	service := setupCustomer360Service(t, db)
 
-	// 创建测试会话
 	session := &model.CustomerSession{
 		SessionID: "session-123",
 		UserID:    "user-123",
@@ -289,21 +279,17 @@ func TestCustomer360Service_GetCustomer360(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := service.GetCustomer360(context.Background(), tt.userID)
 
-			// 1. 校验错误预期
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetCustomer360(%q) error = %v, wantErr %v", tt.userID, err, tt.wantErr)
 				return
 			}
 
-			// 2. 校验 nil 预期
 			if (result == nil) != tt.wantNil {
 				t.Errorf("GetCustomer360(%q) result == nil: %v, wantNil %v", tt.userID, result == nil, tt.wantNil)
 				return
 			}
 
-			// 3. 成功路径下的字段断言
 			if !tt.wantNil && result != nil {
-				// BasicInfo 必须填充
 				if result.BasicInfo == nil {
 					t.Error("Expected BasicInfo to be non-nil")
 				} else {
@@ -315,19 +301,16 @@ func TestCustomer360Service_GetCustomer360(t *testing.T) {
 					}
 				}
 
-				// SessionStats 必须填充
 				if result.SessionStats == nil {
 					t.Error("Expected SessionStats to be non-nil")
 				} else if result.SessionStats.TotalSessions < 1 {
 					t.Errorf("SessionStats.TotalSessions = %d, want >= 1", result.SessionStats.TotalSessions)
 				}
 
-				// SessionHistory 必须非空且包含已创建的会话
 				if len(result.SessionHistory) == 0 {
 					t.Error("Expected SessionHistory to be non-empty")
 				}
 
-				// UserProfile 必须填充
 				if result.UserProfile == nil {
 					t.Error("Expected UserProfile to be non-nil")
 				}
@@ -368,3 +351,4 @@ func TestCustomer360Service_orderStatusToString(t *testing.T) {
 		})
 	}
 }
+

@@ -6,20 +6,6 @@ import (
 	"strings"
 )
 
-// ============================================================================
-// 业务结算提取器（资产包模式文档 §六 强制业务结算协议）
-//
-// 协议：
-//   {
-//     "intent": "faq / lead_capture / human_transfer",
-//     "captured_data": {"whatsapp": "...", "email": "...", "product": "...", "quantity": "..."}
-//   }
-//
-// 实现策略：
-//  1. 优先解析末尾 ```json ... ``` 代码块（标准格式）
-//  2. 退化解析末尾 {"intent":...} 裸 JSON 段（兼容模型未遵守协议时仍输出）
-//  3. 都找不到时返回 nil, nil（业务降级，按 FAQ 处理）
-// ============================================================================
 
 // BusinessIntentResult 业务结算结果（资产包模式 §六 协议）
 //
@@ -44,12 +30,10 @@ func (DefaultIntentExtractor) Extract(reply string) (*BusinessIntentResult, erro
 		return nil, nil
 	}
 
-	// 1. 优先解析 ```json ... ``` 代码块
 	if ir := extractFromCodeBlock(reply); ir != nil {
 		return ir, nil
 	}
 
-	// 2. 退化解析裸 JSON 段 {"intent":...}
 	if ir := extractFromBareJSON(reply); ir != nil {
 		return ir, nil
 	}
@@ -71,7 +55,6 @@ func extractFromCodeBlock(reply string) *BusinessIntentResult {
 	if len(matches) == 0 {
 		return nil
 	}
-	// 取最后一个匹配（业务结算 JSON 总在末尾）
 	last := matches[len(matches)-1]
 	if len(last) < 2 {
 		return nil
@@ -89,7 +72,6 @@ func extractFromBareJSON(reply string) *BusinessIntentResult {
 		return nil
 	}
 	lastStart := idxs[len(idxs)-1][0]
-	// 从 lastStart 起按大括号深度匹配到结尾
 	depth := 0
 	end := -1
 	for i := lastStart; i < len(reply); i++ {
@@ -151,10 +133,8 @@ func parseIntentJSON(raw string) *BusinessIntentResult {
 				ir.CapturedData[k] = "false"
 			}
 		case nil:
-			// 保留空字符串便于上层判断
 			ir.CapturedData[k] = ""
 		default:
-			// 复杂类型（数组/对象）序列化为字符串
 			if b, err := json.Marshal(val); err == nil {
 				ir.CapturedData[k] = string(b)
 			}
@@ -170,3 +150,4 @@ func formatBusinessFloat(f float64) string {
 	b, _ := json.Marshal(f)
 	return string(b)
 }
+

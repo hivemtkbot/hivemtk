@@ -1,18 +1,5 @@
 package ragretrieval
 
-// cached_embedding_client_test.go Embedding 缓存装饰器单元测试
-//
-// 覆盖：
-//  1. 空输入直接返回
-//  2. 无缓存（disableCache=true）直接走 inner
-//  3. Redis 命中 → 不调 inner
-//  4. Redis 未命中 → 调 inner → 回填 Redis
-//  5. Redis 失败 → 不阻断，走 inner
-//  6. inner 错误透传
-//  7. DefaultConfig 透传
-//  8. EmbedOne 调用 Embed
-//  9. 维度不匹配视为未命中
-// 10. EmbeddingServiceInterface 接口断言
 
 import (
 	"context"
@@ -30,7 +17,7 @@ type mockEmbeddingService struct {
 	called   int
 	lastText []string
 	vectors  [][]float32
-	useEmpty bool // 显式返回空切片
+	useEmpty bool 
 	err      error
 }
 
@@ -42,11 +29,9 @@ func (m *mockEmbeddingService) Embed(_ context.Context, _ *llm.EmbeddingConfig, 
 	if m.err != nil {
 		return nil, m.err
 	}
-	// 显式返回空切片
 	if m.useEmpty {
 		return [][]float32{}, nil
 	}
-	// 返回预置向量；若未预置，返回固定 1024 维向量
 	if len(m.vectors) > 0 {
 		return m.vectors, nil
 	}
@@ -127,7 +112,6 @@ func TestCachedEmbedding_RedisHit_NoInnerCall(t *testing.T) {
 	redisClient := newMockRedisClient()
 	c := NewCachedEmbeddingClient(inner, redisClient, nil, nil)
 
-	// 预填 Redis 缓存
 	model := inner.DefaultConfig().Model
 	text := "hello"
 	key := c.cacheKey(model, text)
@@ -144,7 +128,6 @@ func TestCachedEmbedding_RedisHit_NoInnerCall(t *testing.T) {
 	if len(out[0]) != 1024 {
 		t.Errorf("vector dim=%d want=1024", len(out[0]))
 	}
-	// 验证向量内容
 	for i, v := range out[0] {
 		if v != 0.5 {
 			t.Errorf("vec[%d]=%v want=0.5 (first only)", i, v)
@@ -174,11 +157,8 @@ func TestCachedEmbedding_RedisMiss_CallInnerAndBackfill(t *testing.T) {
 		t.Errorf("inner should be called once on miss, called=%d", inner.callCount())
 	}
 
-	// 等待异步回填完成（异步 goroutine）
-	// 异步回填是 goroutine，给一点时间
 	time.Sleep(50 * time.Millisecond)
 
-	// 验证 Redis 已被回填
 	key := c.cacheKey(cfg.Model, text)
 	if !redisClient.Contains(key) {
 		t.Errorf("Redis should be backfilled after miss, key=%s not found", key)
@@ -186,7 +166,6 @@ func TestCachedEmbedding_RedisMiss_CallInnerAndBackfill(t *testing.T) {
 }
 
 func TestCachedEmbedding_RedisFailure_DoesNotBlock(t *testing.T) {
-	// Redis Get 返回非 redis.Nil 错误 → 不阻断，走 inner
 	inner := &mockEmbeddingService{}
 	redisClient := &mockRedisClient{getErr: errors.New("redis down")}
 	c := NewCachedEmbeddingClient(inner, redisClient, nil, nil)
@@ -236,7 +215,6 @@ func TestCachedEmbedding_EmbedOne_ReturnsVector(t *testing.T) {
 }
 
 func TestCachedEmbedding_EmbedOne_EmptyInner(t *testing.T) {
-	// inner 返回空切片 → EmbedOne 应报错
 	inner := &mockEmbeddingService{useEmpty: true}
 	c := NewCachedEmbeddingClient(inner, nil, nil, nil)
 	_, err := c.EmbedOne(context.Background(), inner.DefaultConfig(), "hello")
@@ -246,12 +224,10 @@ func TestCachedEmbedding_EmbedOne_EmptyInner(t *testing.T) {
 }
 
 func TestCachedEmbedding_DimensionMismatch_TreatedAsMiss(t *testing.T) {
-	// Redis 中缓存了维度不匹配的向量 → 视为未命中，走 inner
 	inner := &mockEmbeddingService{}
 	redisClient := newMockRedisClient()
 	c := NewCachedEmbeddingClient(inner, redisClient, nil, nil)
 
-	// 预填维度错误的向量（512 而非 1024）
 	model := inner.DefaultConfig().Model
 	text := "hello"
 	key := c.cacheKey(model, text)
@@ -271,12 +247,10 @@ func TestCachedEmbedding_DimensionMismatch_TreatedAsMiss(t *testing.T) {
 }
 
 func TestCachedEmbedding_MultipleTexts(t *testing.T) {
-	// 多个 text 混合命中（部分命中 Redis，部分未命中）
 	inner := &mockEmbeddingService{}
 	redisClient := newMockRedisClient()
 	c := NewCachedEmbeddingClient(inner, redisClient, nil, nil)
 
-	// 预填第一个 text 的缓存
 	cfg := inner.DefaultConfig()
 	text1 := "cached"
 	text2 := "fresh"
@@ -290,22 +264,18 @@ func TestCachedEmbedding_MultipleTexts(t *testing.T) {
 	if len(out) != 2 {
 		t.Fatalf("len(out)=%d want=2", len(out))
 	}
-	// 第一个应该来自缓存（值 0.7）
 	if out[0][0] != 0.7 {
 		t.Errorf("out[0][0]=%v want=0.7 (cached)", out[0][0])
 	}
-	// 第二个应该来自 inner（值 1，因为 makeFixedVector(1024, float32(0+1))）
 	if out[1][0] != 1.0 {
 		t.Errorf("out[1][0]=%v want=1.0 (fresh)", out[1][0])
 	}
-	// inner 应只被调用一次（只对未命中的 text2）
 	if inner.callCount() != 1 {
 		t.Errorf("inner call count=%d want=1 (only for fresh text)", inner.callCount())
 	}
 }
 
 func TestCachedEmbedding_NilRedisAndDB_CallInner(t *testing.T) {
-	// 既无 Redis 也无 DB → 直接走 inner
 	inner := &mockEmbeddingService{}
 	c := NewCachedEmbeddingClient(inner, nil, nil, nil)
 	_, err := c.Embed(context.Background(), inner.DefaultConfig(), []string{"hello"})
@@ -320,3 +290,4 @@ func TestCachedEmbedding_NilRedisAndDB_CallInner(t *testing.T) {
 // 接口编译期断言
 var _ llm.EmbeddingServiceInterface = (*mockEmbeddingService)(nil)
 var _ llm.EmbeddingServiceInterface = (*CachedEmbeddingClient)(nil)
+

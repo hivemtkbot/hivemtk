@@ -43,7 +43,6 @@ func TestInboxIngress_DeliverOutbound_OutboxLifecycle(t *testing.T) {
 		t.Fatalf("DeliverOutbound 失败: %v", err)
 	}
 
-	// 1) 应出现在待下发队列（扩展端 outbox 拉取路径）
 	pending, err := svc.ListPendingOutbound(context.Background(), channel, accountID)
 	if err != nil {
 		t.Fatalf("ListPendingOutbound 失败: %v", err)
@@ -62,7 +61,6 @@ func TestInboxIngress_DeliverOutbound_OutboxLifecycle(t *testing.T) {
 		t.Fatalf("期望 outbound/pending，实际 direction=%q status=%q", found.Direction, found.Status)
 	}
 
-	// 2) 扩展端确认下发后，应退出待下发队列
 	n, err := svc.AckOutboundDelivered(context.Background(), channel, accountID, []string{h.MsgID})
 	if err != nil {
 		t.Fatalf("AckOutboundDelivered 失败: %v", err)
@@ -80,3 +78,4 @@ func TestInboxIngress_DeliverOutbound_OutboxLifecycle(t *testing.T) {
 		}
 	}
 }
+

@@ -38,11 +38,11 @@ type IntegrationReachAdapter struct {
 	tg       *service.TelegramIntegrationService
 	wa       *service.WhatsAppCloudIntegrationService
 	feishu   *service.FeishuIntegrationService
-	web      *service.CustomerSessionService  // 网页客服渠道（WebSocket 推送访客）
-	wecom    *service.WeComIntegrationService // 企微渠道（收敛：统一企微出站入口，底层仍由 WeComIntegrationService 承载）
-	dingtalk *service.DingTalkService         // 钉钉群机器人出站（补 todo.md #2 唯一未实现渠道）
-	sms      service.SmsService               // 短信渠道（补 reach.sms.send 真实出站）
-	email    *email.EmailSendService          // 邮件渠道（补 reach.email.send 真实出站）
+	web      *service.CustomerSessionService  
+	wecom    *service.WeComIntegrationService 
+	dingtalk *service.DingTalkService         
+	sms      service.SmsService               
+	email    *email.EmailSendService          
 }
 
 // Sentinel errors
@@ -86,7 +86,6 @@ func NewIntegrationReachAdapterFromDB(db *gorm.DB) *IntegrationReachAdapter {
 	}
 }
 
-// ===== Telegram =====
 
 // SendTelegram 通过 TelegramIntegrationService 发送消息
 //
@@ -114,7 +113,6 @@ func (a *IntegrationReachAdapter) SendTelegram(ctx context.Context, accountID, c
 	return fmt.Sprintf("tg-%d-%d", accID, time.Now().UnixNano()), nil
 }
 
-// ===== WhatsApp Cloud =====
 
 // SendWhatsApp 通过 WhatsAppCloudIntegrationService 发送消息
 //
@@ -138,7 +136,6 @@ func (a *IntegrationReachAdapter) SendWhatsApp(ctx context.Context, accountID, t
 	return fmt.Sprintf("wa-%d-%d", accID, time.Now().UnixNano()), nil
 }
 
-// ===== Feishu =====
 
 // SendFeishu 通过 FeishuIntegrationService 发送消息
 //
@@ -162,7 +159,6 @@ func (a *IntegrationReachAdapter) SendFeishu(ctx context.Context, accountID, ope
 	return fmt.Sprintf("feishu-%d-%d", accID, time.Now().UnixNano()), nil
 }
 
-// ===== Web（网页客服）=====
 
 // SendWeb 通过网页客服渠道（WebSocket）向访客会话推送消息。
 //
@@ -223,8 +219,6 @@ func NewWebReachAdapter(svc *service.CustomerSessionService) *WebReachAdapter {
 	return &WebReachAdapter{web: svc}
 }
 
-// ===== 其他渠道：暂未实现（保持 NoOp 等价行为）=====
-// 注：WeCom 已委托 WeComIntegrationService 实现（见上方 SendWeCom），不在此 NoOp 区块。
 
 // SendSMS 通过 SmsService 发送短信（补 reach.sms.send 真实出站）
 //
@@ -397,7 +391,6 @@ func (a *IntegrationReachAdapter) ListAccounts(ctx context.Context, channel stri
 	return nil, fmt.Errorf("list_accounts(%s): %w", channel, ErrChannelNotImplemented)
 }
 
-// ===== 辅助函数 =====
 
 // parseAccountID 解析账号 ID 字符串为 uint
 func parseAccountID(s string) (uint, error) {
@@ -428,3 +421,4 @@ func parseInt64(s string) (int64, error) {
 	}
 	return v, nil
 }
+

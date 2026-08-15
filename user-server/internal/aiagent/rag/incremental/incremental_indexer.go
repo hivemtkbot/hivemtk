@@ -31,9 +31,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// 1. IncrementalIndexer 增量索引器
-// ============================================================================
 
 // IncrementalIndexer 知识库文档增量索引器
 //
@@ -47,7 +44,7 @@ import (
 // 失败：仅记录日志,不重试(主流程可重新发布事件)
 type IncrementalIndexer struct {
 	mu          sync.RWMutex
-	chunksByDoc map[string][]*eventIndexedChunk // docID -> chunks
+	chunksByDoc map[string][]*eventIndexedChunk 
 	embedder    llm.EmbeddingServiceInterface
 	processor   *etl.DocumentProcessor
 	docRepo     *knowledgerepo.KnowledgeDocumentRepository
@@ -112,11 +109,10 @@ func (i *IncrementalIndexer) Handle(evt event.Event) error {
 
 	payload, ok := evt.Payload.(event.KnowledgeDocumentChangePayload)
 	if !ok {
-		// 兼容指针
 		if p, ok := evt.Payload.(*event.KnowledgeDocumentChangePayload); ok && p != nil {
 			return i.handlePayload(context.Background(), *p)
 		}
-		return nil // 非本订阅者关心的事件,直接忽略
+		return nil 
 	}
 
 	return i.handlePayload(context.Background(), payload)
@@ -161,15 +157,12 @@ func (i *IncrementalIndexer) handlePayload(ctx context.Context, payload event.Kn
 // 随后切块 → Embedding → 写 knowledge_chunks 表（事务模式）。
 // db 为 nil 或 docRepo 不可用时退化为内存索引（仅切块 + 内存存储），便于测试与离线运行。
 func (i *IncrementalIndexer) indexDocument(ctx context.Context, payload event.KnowledgeDocumentChangePayload, docIDStr string) error {
-	// 1. 解析真实文档内容
 	content, err := i.loadDocumentContent(ctx, payload, docIDStr)
 	if err != nil {
-		// 内容获取失败：记录告警并降级为 Title 占位（避免 silent skip）
 		logger.Errorf("[rag] load content failed doc=%d err=%v, fallback to title", payload.DocumentID, err)
 		content = fmt.Sprintf("[Content unavailable] %s", payload.ContentHash)
 	}
 
-	// 2. 切块
 	doc := rag_core.Document{
 		ID:      docIDStr,
 		Content: content,
@@ -179,12 +172,10 @@ func (i *IncrementalIndexer) indexDocument(ctx context.Context, payload event.Kn
 		return err
 	}
 
-	// 3. 索引每个 chunk
 	indexed := make([]*eventIndexedChunk, 0, len(chunks))
 	persisted := make([]model.KnowledgeChunk, 0, len(chunks))
 	for idx, c := range chunks {
 		var embedding []float32
-		// 3.1 Embedding(可选,embedder nil 时跳过)
 		if i.embedder != nil {
 			embeddings, embedErr := i.embedder.Embed(ctx, i.embedder.DefaultConfig(), []string{c.Content})
 			if embedErr != nil {
@@ -219,13 +210,11 @@ func (i *IncrementalIndexer) indexDocument(ctx context.Context, payload event.Kn
 		}
 	}
 
-	// 4. 写内存索引(更新覆盖)
 	i.mu.Lock()
 	delete(i.chunksByDoc, docIDStr)
 	i.chunksByDoc[docIDStr] = indexed
 	i.mu.Unlock()
 
-	// 5. 持久化 chunks（事务：先删后插，保持与"更新覆盖"语义一致）
 	if i.chunkRepo != nil {
 		if delErr := i.chunkRepo.DeleteByDocumentID(ctx, uint64(payload.DocumentID)); delErr != nil {
 			logger.Errorf("[rag] delete old chunks failed doc=%d err=%v", payload.DocumentID, delErr)
@@ -244,12 +233,10 @@ func (i *IncrementalIndexer) indexDocument(ctx context.Context, payload event.Kn
 // 优先级：FilePath 本地文件 → FileURL HTTP GET → DB Title 字段 → SourceRef 字段。
 // 任一来源成功即返回，所有来源都失败时返回错误。
 func (i *IncrementalIndexer) loadDocumentContent(ctx context.Context, payload event.KnowledgeDocumentChangePayload, docIDStr string) (string, error) {
-	// 1. DB 模型读取（最常见路径）
 	if i.docRepo != nil {
 		docID := uint64(payload.DocumentID)
 		doc, err := i.docRepo.GetByID(ctx, docID)
 		if err == nil && doc != nil {
-			// FilePath 优先
 			if doc.FilePath != "" {
 				if data, readErr := os.ReadFile(doc.FilePath); readErr == nil {
 					return string(data), nil
@@ -257,14 +244,12 @@ func (i *IncrementalIndexer) loadDocumentContent(ctx context.Context, payload ev
 					logger.Errorf("[rag] read file failed path=%s err=%v", doc.FilePath, readErr)
 				}
 			}
-			// Title 作为占位文本（确保 chunk 至少有一个语义锚点）
 			if doc.Title != "" {
 				return fmt.Sprintf("# %s\n\nSource: %s\nReference: %s", doc.Title, doc.SourceType, doc.SourceRef), nil
 			}
 		}
 	}
 
-	// 2. payload 自身无内容字段时返回错误（让 indexDocument 走 Title 降级）
 	return "", fmt.Errorf("no content source for doc %s", docIDStr)
 }
 
@@ -275,7 +260,7 @@ func (i *IncrementalIndexer) deleteDocument(docIDStr string) error {
 
 	chunks, ok := i.chunksByDoc[docIDStr]
 	if !ok {
-		return nil // 幂等:不存在视为成功
+		return nil 
 	}
 
 	delete(i.chunksByDoc, docIDStr)
@@ -308,12 +293,10 @@ func (i *IncrementalIndexer) Stop() {
 	i.chunksByDoc = nil
 }
 
-// ============================================================================
-// 2. 工具函数
-// ============================================================================
 
 // hashContent 计算内容 hash(SHA256)
 func hashContent(content string) string {
 	h := sha256.Sum256([]byte(content))
 	return hex.EncodeToString(h[:])
 }
+

@@ -48,7 +48,6 @@ func TestOperationLogController_GetList_Success(t *testing.T) {
 		ctx.Next()
 	})
 
-	// 创建测试数据
 	logs := []model.OperationLog{
 		{UserID: 1, Username: "admin", Action: "create", Module: "user"},
 		{UserID: 1, Username: "admin", Action: "update", Module: "card"},
@@ -95,7 +94,6 @@ func TestOperationLogController_GetList_WithFilters(t *testing.T) {
 		ctx.Next()
 	})
 
-	// 创建测试数据
 	logs := []model.OperationLog{
 		{UserID: 1, Username: "admin", Action: "create", Module: "user"},
 		{UserID: 2, Username: "user1", Action: "update", Module: "card"},
@@ -126,7 +124,6 @@ func TestOperationLogController_GetList_NoMerchant(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 当前 GetList 实现未做 user_id 鉴权,直接查询并返回 200
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK, got %d", w.Code)
 	}
@@ -203,7 +200,6 @@ func TestOperationLogController_GetMyLogs_Success(t *testing.T) {
 		ctx.Next()
 	})
 
-	// 创建测试数据
 	logs := []model.OperationLog{
 		{UserID: 1, Username: "admin", Action: "create", Module: "user"},
 		{UserID: 1, Username: "admin", Action: "update", Module: "card"},
@@ -246,7 +242,6 @@ func TestOperationLogController_GetMyLogs_NoUser(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
-		// 不设置 uint 类型的 user_id, 类型断言会失败
 		ctx.Next()
 	})
 
@@ -256,7 +251,6 @@ func TestOperationLogController_GetMyLogs_NoUser(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 当前 GetMyLogs 实现:user_id 字符串无法转换为 uint,uid=0 进入查询,返回 200(空列表)
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK, got %d", w.Code)
 	}
@@ -274,7 +268,6 @@ func TestOperationLogController_GetStatistics_Success(t *testing.T) {
 		ctx.Next()
 	})
 
-	// 创建测试数据
 	logs := []model.OperationLog{
 		{UserID: 1, Username: "admin", Action: "create", Module: "user"},
 		{UserID: 1, Username: "admin", Action: "update", Module: "user"},
@@ -321,7 +314,6 @@ func TestOperationLogController_GetStatistics_NoMerchant(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 当前 GetStatistics 实现未做 user_id 鉴权,直接查询并返回 200
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK, got %d", w.Code)
 	}
@@ -334,3 +326,4 @@ func TestOperationLogController_NewOperationLogController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

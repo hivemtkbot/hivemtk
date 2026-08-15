@@ -128,14 +128,12 @@ func (c *AccountController) UpdateAccount(ctx *gin.Context) {
 		return
 	}
 
-	// 从URI参数获取ID
 	accountIDStr := ctx.Param("id")
 	if accountIDStr == "" {
 		response.Error(ctx, http.StatusBadRequest, "账户ID不能为空")
 		return
 	}
 
-	// 如果JSON中的ID与URI中的ID不一致，使用URI中的ID
 	if req.ID != "" && req.ID != accountIDStr {
 		req.ID = accountIDStr
 	}
@@ -172,3 +170,4 @@ func (c *AccountController) DeleteAccount(ctx *gin.Context) {
 	}
 	response.Success(ctx, nil, "success")
 }
+

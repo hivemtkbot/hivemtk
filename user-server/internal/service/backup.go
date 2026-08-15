@@ -57,10 +57,6 @@ func (s *BackupService) CreateBackup(ctx context.Context, createdBy uint, req *C
 		return nil, err
 	}
 
-	// 异步执行备份：用 WithoutCancel 脱离请求生命周期，避免客户端断开（前端超时/代理 60s）后
-	// ctx 取消导致备份中途失败、状态卡在 running 且产生半截 zip。
-	// 复制 backup 到 goroutine 局部变量：executeBackup 会修改备份状态并持久化，
-	// 若直接传原指针，会与调用方持有的 backup 对象产生数据竞争（已用 -race 复现）。
 	go func(src model.Backup) {
 		s.executeBackup(context.WithoutCancel(ctx), &src)
 	}(*backup)
@@ -96,7 +92,6 @@ func ParseBackupType(s string) model.BackupType {
 // 为防止异步 goroutine panic 导致整个进程崩溃（如测试场景下 backupDataRepo 未注入），
 // 此处 defer recover 兜底，将 panic 转为错误状态落库。
 func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup) {
-	// 异步 goroutine panic 兜底：防止 nil pointer 或其他 panic 崩溃进程
 	defer func() {
 		if r := recover(); r != nil {
 			if backup == nil {
@@ -112,13 +107,11 @@ func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup)
 		}
 	}()
 
-	// 更新状态为进行中
 	backup.Status = model.BackupStatusRunning
 	if err := s.backupRepo.Update(ctx, backup); err != nil {
 		logger.Errorf("[backup] update backup status failed: %v", err)
 	}
 
-	// 创建备份目录
 	backupDir := filepath.Join("backups", backup.BackupName)
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		backup.Status = model.BackupStatusFailed
@@ -129,11 +122,9 @@ func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup)
 		return
 	}
 
-	// 备份文件名
 	backupFile := filepath.Join(backupDir, fmt.Sprintf("%s.zip", backup.BackupName))
 	backup.FilePath = backupFile
 
-	// 执行数据库备份
 	if err := s.backupDatabase(ctx, backupDir); err != nil {
 		backup.Status = model.BackupStatusFailed
 		backup.ErrorMessage = "数据库备份失败：" + err.Error()
@@ -143,7 +134,6 @@ func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup)
 		return
 	}
 
-	// 压缩备份文件
 	if err := s.compressBackup(ctx, backupDir, backupFile); err != nil {
 		backup.Status = model.BackupStatusFailed
 		backup.ErrorMessage = "压缩备份失败：" + err.Error()
@@ -153,12 +143,10 @@ func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup)
 		return
 	}
 
-	// 获取文件大小
 	if info, err := os.Stat(backupFile); err == nil {
 		backup.FileSize = info.Size()
 	}
 
-	// 完成备份
 	backup.Status = model.BackupStatusCompleted
 	now := time.Now()
 	backup.CompletedAt = &now
@@ -169,19 +157,16 @@ func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup)
 
 // backupDatabase 备份数据库
 func (s *BackupService) backupDatabase(ctx context.Context, dir string) error {
-	// 导出全量数据到 JSON
 	data, err := s.exportData(ctx)
 	if err != nil {
 		return err
 	}
 
 	sqlFile := filepath.Join(dir, "data.json")
-	// 修复：备份含 PII（email/phone），文件权限收紧为 0600，避免同机其他用户可读
 	return os.WriteFile(sqlFile, data, 0600)
 }
 
 func (s *BackupService) exportData(ctx context.Context) ([]byte, error) {
-	// nil 兜底：测试场景下可能未注入 backupDataRepo，避免 nil pointer panic
 	if s.backupDataRepo == nil {
 		return nil, fmt.Errorf("backupDataRepo is nil")
 	}
@@ -189,26 +174,21 @@ func (s *BackupService) exportData(ctx context.Context) ([]byte, error) {
 	now := time.Now()
 	cutoff := now.Add(-24 * time.Hour).Unix()
 
-	// 导出线索
 	clues, err := s.backupDataRepo.DumpClues(ctx, cutoff)
 	if err != nil {
 		return nil, err
 	}
 
-	// 导出用户
 	users, err := s.backupDataRepo.DumpUsers(ctx, 1000)
 	if err != nil {
 		return nil, err
 	}
 
-	// 导出短链
 	links, err := s.backupDataRepo.DumpShortLinks(ctx, 1000)
 	if err != nil {
-		// not fatal if table doesn't exist
 		links = []byte("[]")
 	}
 
-	// 解析为可统计数量的切片
 	clueCount := jsonArrayLen(clues)
 	userCount := jsonArrayLen(users)
 	linkCount := jsonArrayLen(links)
@@ -233,7 +213,6 @@ func rawMessage(b []byte) json.RawMessage {
 	if len(b) == 0 {
 		return json.RawMessage("[]")
 	}
-	// 已是合法 JSON
 	return json.RawMessage(b)
 }
 
@@ -251,7 +230,6 @@ func jsonArrayLen(b []byte) int {
 
 // compressBackup 压缩备份文件
 func (s *BackupService) compressBackup(ctx context.Context, dir, output string) error {
-	// 创建 zip 文件
 	zipFile, err := os.Create(output)
 	if err != nil {
 		return err
@@ -261,18 +239,15 @@ func (s *BackupService) compressBackup(ctx context.Context, dir, output string) 
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
-	// 添加目录下的所有文件
 	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// 跳过目录和 zip 文件本身
 		if info.IsDir() || filepath.Ext(path) == ".zip" {
 			return nil
 		}
 
-		// 添加文件到 zip
 		header, err := zip.FileInfoHeader(info)
 		if err != nil {
 			return err
@@ -313,7 +288,6 @@ func (s *BackupService) DeleteBackup(ctx context.Context, id uint) error {
 		return err
 	}
 
-	// 删除备份文件
 	if backup.FilePath != "" {
 		os.Remove(backup.FilePath)
 	}
@@ -344,7 +318,6 @@ type RestoreBackupRequest struct {
 
 // RestoreBackup 恢复备份
 func (s *RestoreService) RestoreBackup(ctx context.Context, createdBy uint, req *RestoreBackupRequest) (*model.RestoreRecord, error) {
-	// 获取备份信息
 	backup, err := s.backupRepo.GetByID(ctx, req.BackupID)
 	if err != nil {
 		return nil, fmt.Errorf("备份记录不存在")
@@ -365,10 +338,6 @@ func (s *RestoreService) RestoreBackup(ctx context.Context, createdBy uint, req 
 		return nil, err
 	}
 
-	// 异步执行恢复，避免阻塞调用方。
-	// 复制 record 到 goroutine 局部变量：executeRestore 会修改恢复状态并持久化，
-	// 直接传原指针会与调用方持有的 record 对象产生数据竞争（已用 -race 复现）。
-	// backup 仅读取，共享只读安全。
 	go func(src model.RestoreRecord) {
 		s.executeRestore(ctx, &src, backup)
 	}(*record)
@@ -378,11 +347,9 @@ func (s *RestoreService) RestoreBackup(ctx context.Context, createdBy uint, req 
 
 // executeRestore 执行恢复
 func (s *RestoreService) executeRestore(ctx context.Context, record *model.RestoreRecord, backup *model.Backup) {
-	// 更新状态为进行中
 	record.Status = "running"
 	s.restoreRepo.Update(ctx, record)
 
-	// 解压备份文件
 	if err := s.decompressBackup(ctx, backup.FilePath); err != nil {
 		record.Status = "failed"
 		record.ErrorMessage = "解压备份失败：" + err.Error()
@@ -390,7 +357,6 @@ func (s *RestoreService) executeRestore(ctx context.Context, record *model.Resto
 		return
 	}
 
-	// 恢复数据库
 	if err := s.restoreDatabase(ctx, backup); err != nil {
 		record.Status = "failed"
 		record.ErrorMessage = "数据库恢复失败：" + err.Error()
@@ -398,21 +364,18 @@ func (s *RestoreService) executeRestore(ctx context.Context, record *model.Resto
 		return
 	}
 
-	// 完成恢复
 	record.Status = "completed"
 	s.restoreRepo.Update(ctx, record)
 }
 
 // decompressBackup 解压备份文件
 func (s *RestoreService) decompressBackup(ctx context.Context, backupFile string) error {
-	// 打开 zip 文件
 	r, err := zip.OpenReader(backupFile)
 	if err != nil {
 		return err
 	}
 	defer r.Close()
 
-	// 解压所有文件
 	for _, f := range r.File {
 		rc, err := f.Open()
 		if err != nil {
@@ -420,9 +383,7 @@ func (s *RestoreService) decompressBackup(ctx context.Context, backupFile string
 		}
 		defer rc.Close()
 
-		// 跳过目录
 		if f.FileInfo().IsDir() {
-			// 修复：防御 zip slip，目录条目含绝对路径或 .. 直接拒绝
 			if filepath.IsAbs(f.Name) || strings.Contains(f.Name, "..") {
 				return fmt.Errorf("非法的备份条目路径: %s", f.Name)
 			}
@@ -430,8 +391,6 @@ func (s *RestoreService) decompressBackup(ctx context.Context, backupFile string
 			continue
 		}
 
-		// 创建文件
-		// 修复：防御 zip slip——校验条目名不跳出 restore_tmp 目录（拒绝绝对路径或含 ..）
 		if filepath.IsAbs(f.Name) || strings.Contains(f.Name, "..") {
 			return fmt.Errorf("非法的备份条目路径: %s", f.Name)
 		}
@@ -453,7 +412,6 @@ func (s *RestoreService) decompressBackup(ctx context.Context, backupFile string
 
 // restoreDatabase 恢复数据库
 func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Backup) error {
-	// 读取 JSON 并导入
 	jsonFile := filepath.Join("restore_tmp", "data.json")
 	data, err := os.ReadFile(jsonFile)
 	if err != nil {
@@ -470,14 +428,12 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 		return err
 	}
 
-	// 通过 backupDataRepo 重新写入线索(按 ID 存在则跳过)
 	restoredClues := 0
 	for _, c := range backupData.Clues {
 		id, _ := c["id"].(string)
 		if id == "" {
 			continue
 		}
-		// 检查是否已存在
 		exists, err := s.backupDataRepo.ClueExists(ctx, id)
 		if err != nil {
 			logger.Error(err, "检查线索失败: "+id)
@@ -486,7 +442,6 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 		if exists {
 			continue
 		}
-		// 插入
 		row := map[string]any{
 			"id":          id,
 			"source_id":   c["source_id"],
@@ -505,7 +460,6 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 		restoredClues++
 	}
 
-	// 恢复用户(按 username 跳过)
 	restoredUsers := 0
 	for _, u := range backupData.Users {
 		username, _ := u["username"].(string)
@@ -533,7 +487,6 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 
 	logger.Info(fmt.Sprintf("备份 %s 恢复完成: 线索 %d 条, 用户 %d 个", backup.BackupName, restoredClues, restoredUsers))
 
-	// 清理临时文件
 	os.RemoveAll("restore_tmp")
 	return nil
 }
@@ -585,6 +538,6 @@ func (s *ScheduleBackupService) CreateDailyBackup(ctx context.Context) error {
 // RunDailyBackup 运行每日备份（定时任务入口）
 func RunDailyBackup() {
 	service := NewScheduleBackupService()
-	// 定时任务入口,使用 background ctx,避免受任何上游请求取消影响
 	service.CreateDailyBackup(context.Background())
 }
+

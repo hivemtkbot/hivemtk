@@ -13,7 +13,6 @@ import (
 func setupTestContext() (*gin.Context, *httptest.ResponseRecorder) {
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
-	// Add a request to avoid nil pointer dereference in ClientIP
 	req, _ := http.NewRequest("GET", "http://test.com", nil)
 	ctx.Request = req
 	return ctx, w
@@ -35,7 +34,6 @@ func TestError(t *testing.T) {
 
 	Error(ctx, utils.ErrorCodeInvalidParameter, "bad request")
 
-	// Error now returns the HTTP code from the error code config
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status 400, got %d", w.Code)
 	}
@@ -46,7 +44,6 @@ func TestErrorWithDetails(t *testing.T) {
 
 	Error(ctx, utils.ErrorCodeInvalidParameter, "bad request", "detail info")
 
-	// Error now returns the HTTP code from the error code config
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status 400, got %d", w.Code)
 	}
@@ -67,7 +64,6 @@ func TestValidationError(t *testing.T) {
 
 	ValidationError(ctx, "validation error", "field is required")
 
-	// ValidationError returns 400
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status 400, got %d", w.Code)
 	}
@@ -78,7 +74,6 @@ func TestDatabaseError(t *testing.T) {
 
 	DatabaseError(ctx, "db error")
 
-	// DatabaseError returns 500
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status 500, got %d", w.Code)
 	}
@@ -89,7 +84,6 @@ func TestBusinessError(t *testing.T) {
 
 	BusinessError(ctx, "business error", "invalid state")
 
-	// BusinessError returns 400
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status 400, got %d", w.Code)
 	}
@@ -100,7 +94,6 @@ func TestAuthError(t *testing.T) {
 
 	AuthError(ctx, "unauthorized")
 
-	// AuthError returns 401
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("Expected status 401, got %d", w.Code)
 	}
@@ -212,7 +205,6 @@ func TestFileUploadErrorEmptyCode(t *testing.T) {
 func TestError_EmptyMessage(t *testing.T) {
 	ctx, w := setupTestContext()
 
-	// Empty message should use the default message from ErrorCode config
 	Error(ctx, utils.ErrorCodeInvalidParameter, "")
 
 	if w.Code != http.StatusBadRequest {
@@ -289,3 +281,4 @@ func TestErrorCodeFromHTTPCode(t *testing.T) {
 		})
 	}
 }
+

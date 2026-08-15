@@ -9,16 +9,13 @@ import (
 
 // TestLRUCache_NewLRUCache 构造默认值
 func TestLRUCache_NewLRUCache(t *testing.T) {
-	// 正常构造
 	c := NewLRUCache(10, time.Minute)
 	assert.Equal(t, 10, c.Capacity())
 	assert.Equal(t, 0, c.Len())
 
-	// capacity<=0 回退默认 100
 	c = NewLRUCache(0, time.Minute)
 	assert.Equal(t, 100, c.Capacity())
 
-	// ttl<=0 回退默认 30min
 	c = NewLRUCache(10, 0)
 	assert.Equal(t, 30*time.Minute, c.ttl)
 }
@@ -31,7 +28,6 @@ func TestLRUCache_SetGet(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "v1", v)
 
-	// 未命中
 	_, ok = c.Get("missing")
 	assert.False(t, ok)
 }
@@ -61,7 +57,6 @@ func TestLRUCache_Eviction(t *testing.T) {
 	c := NewLRUCache(2, time.Minute)
 	c.Set("a", 1, 0)
 	c.Set("b", 2, 0)
-	// 容量 2，插入第 3 项应淘汰最久未用的 "a"
 	c.Set("c", 3, 0)
 	assert.Equal(t, 2, c.Len())
 	_, ok := c.Get("a")
@@ -77,9 +72,7 @@ func TestLRUCache_AccessReorders(t *testing.T) {
 	c := NewLRUCache(2, time.Minute)
 	c.Set("a", 1, 0)
 	c.Set("b", 2, 0)
-	// 访问 a，使其变为最近使用；b 变成最久未用
 	c.Get("a")
-	// 插入 c，应淘汰 b 而非 a
 	c.Set("c", 3, 0)
 	_, ok := c.Get("a")
 	assert.True(t, ok, "a should remain after being accessed")
@@ -96,7 +89,6 @@ func TestLRUCache_Delete(t *testing.T) {
 	c.Delete("k1")
 	_, ok := c.Get("k1")
 	assert.False(t, ok)
-	// 删除不存在的键不 panic
 	c.Delete("missing")
 }
 
@@ -114,9 +106,7 @@ func TestLRUCache_Clear(t *testing.T) {
 // TestLRUCache_CleanupExpired 清理过期项
 func TestLRUCache_CleanupExpired(t *testing.T) {
 	c := NewLRUCache(10, time.Minute)
-	// 1 个永不过期/长期项
 	c.Set("keep", 1, time.Hour)
-	// 2 个立即过期项
 	c.Set("e1", 1, 1*time.Nanosecond)
 	c.Set("e2", 1, 1*time.Nanosecond)
 	time.Sleep(2 * time.Millisecond)
@@ -148,3 +138,4 @@ func TestLRUCache_DefaultParams(t *testing.T) {
 	c := NewLRUCache(0, 0)
 	assert.Equal(t, 100, c.Capacity())
 }
+

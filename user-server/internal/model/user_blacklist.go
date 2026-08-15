@@ -16,10 +16,10 @@ type UserBlacklist struct {
 	UserID       string     `gorm:"type:varchar(50);index;not null" json:"user_id"`
 	Platform     Platform   `gorm:"type:varchar(20);index" json:"platform"`
 	Reason       string     `gorm:"type:varchar(500)" json:"reason"`
-	Source       string     `gorm:"type:varchar(50);default:'manual'" json:"source"` // manual / auto / risk
-	OperatorID   uint       `gorm:"index" json:"operator_id"`                        // 操作人坐席 ID
+	Source       string     `gorm:"type:varchar(50);default:'manual'" json:"source"` 
+	OperatorID   uint       `gorm:"index" json:"operator_id"`                        
 	OperatorName string     `gorm:"type:varchar(100)" json:"operator_name"`
-	SessionID    string     `gorm:"type:varchar(50);index" json:"session_id"` // 拉黑时所在会话
+	SessionID    string     `gorm:"type:varchar(50);index" json:"session_id"` 
 	Active       bool       `gorm:"default:true;index" json:"active"`
 	ExpiresAt    *time.Time `json:"expires_at"`
 	CreatedAt    time.Time  `gorm:"autoCreateTime" json:"created_at"`
@@ -31,8 +31,4 @@ func (UserBlacklist) TableName() string {
 	return "user_blacklist"
 }
 
-// 注：五层架构 §三.1 规定 model 不含业务方法。
-// 原 (b *UserBlacklist) IsExpired() bool 已迁出至 service / repository 层：
-//   - service: IsBlacklistExpired(*model.UserBlacklist) bool
-//   - repository/user_blacklist.go: 私有 isExpired(*model.UserBlacklist) bool
-// 任何上层需要判断过期时，请走 service/repository，不要在 model 上扩展方法。
+

@@ -10,7 +10,7 @@ import (
 	"hivemtk-user/internal/pkg/db"
 )
 
-var _ = sysmodel.JSONMap{} // 保持 sysmodel 引用以备后续扩展
+var _ = sysmodel.JSONMap{} 
 
 // TemplateMarketService 模板市场服务
 type TemplateMarketService struct {
@@ -43,7 +43,6 @@ func (s *TemplateMarketService) DownloadTemplate(userID uint, templateID uint) (
 		return nil, errors.New("模板不存在")
 	}
 
-	// 创建下载记录
 	record := &model.MarketTemplateDownload{
 		TemplateID:   templateID,
 		TemplateType: template.Type,
@@ -52,7 +51,6 @@ func (s *TemplateMarketService) DownloadTemplate(userID uint, templateID uint) (
 		return nil, err
 	}
 
-	// 增加下载次数
 	s.templateRepo.IncrementDownload(templateID)
 
 	return template, nil
@@ -94,7 +92,6 @@ func (s *TemplateMarketService) UseTemplate(userID uint, template *model.MarketT
 		return err
 	}
 
-	// 记录下载
 	record := &model.MarketTemplateDownload{
 		TemplateID:   template.ID,
 		TemplateType: template.Type,
@@ -238,13 +235,11 @@ func (s *TemplateMarketService) ApplyTemplate(templateID uint, config map[string
 		return errors.New("模板不存在")
 	}
 
-	// 如果有 config 覆盖，合并到模板内容
 	if len(config) > 0 {
 		var templateData map[string]any
 		if err := json.Unmarshal([]byte(template.Content), &templateData); err != nil {
 			return errors.New("模板内容格式错误: " + err.Error())
 		}
-		// 用 config 中的值覆盖模板数据
 		for k, v := range config {
 			templateData[k] = v
 		}
@@ -255,7 +250,6 @@ func (s *TemplateMarketService) ApplyTemplate(templateID uint, config map[string
 		template.Content = string(mergedContent)
 	}
 
-	// 根据模板类型调用对应的导入方法
 	switch template.Type {
 	case "flow":
 		return s.importFlowTemplate(template)
@@ -303,3 +297,4 @@ func (s *TemplateMarketService) RateTemplate(id uint, rating float64) error {
 	}
 	return s.templateRepo.UpdateRating(id, newRating)
 }
+

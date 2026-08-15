@@ -22,19 +22,19 @@ import (
 // ToolTraceEvent 工具层一次调用（agent 一轮 / 单次工具）的可观测事件。
 // 由 tooluse 包在 observer 中点出，tracing 包负责落库（见 ReportToolCall）。
 type ToolTraceEvent struct {
-	Kind       string // model.SpanKindAgentTurn | model.SpanKindToolCall
-	TraceID    string // 贯穿 Agent Loop 的请求级 trace_id
+	Kind       string 
+	TraceID    string 
 	AgentID    string
 	SessionID  string
 	CustomerID string
 	CallerID   string
 	ToolName   string
-	TurnIndex  int // agent 轮次序号（tool_call 继承其所属轮次）
+	TurnIndex  int 
 	Input      any
 	Output     any
 	Error      string
 	DurationMs int64
-	Status     string // ok | abnormal
+	Status     string 
 }
 
 // ===== 生命周期节点（固定顺序，用于画链路图 + 计算节点间时延） =====
@@ -144,7 +144,6 @@ func Init(d *gorm.DB) {
 func flushLoop(d *gorm.DB) {
 	ticker := time.NewTicker(300 * time.Millisecond)
 	defer ticker.Stop()
-	// 落库批大小与 CreateInBatches 第二参数保持一致（200），避免一次 flush 被拆成 200+56 两次插入。
 	batch := make([]*model.MessageTrace, 0, 200)
 	flush := func() {
 		if len(batch) == 0 {
@@ -165,7 +164,6 @@ func flushLoop(d *gorm.DB) {
 	for {
 		select {
 		case span := <-spanCh:
-			// 此处才做 JSON 序列化（后台 goroutine，不占业务主链路）。
 			batch = append(batch, toModelFromPending(span))
 			if len(batch) >= 200 {
 				flush()
@@ -173,7 +171,6 @@ func flushLoop(d *gorm.DB) {
 		case <-ticker.C:
 			flush()
 		case <-stopCh:
-			// 优雅退出：排空缓冲区内剩余 span 后落库，避免进程退出丢 trace。
 			for {
 				select {
 				case span := <-spanCh:
@@ -205,14 +202,12 @@ func Stop() {
 	select {
 	case <-stopDone:
 	case <-time.After(3 * time.Second):
-		// 兜底超时：DB 不可用时不在退出流程上无限阻塞。
 	}
 }
 
 // Publish 非阻塞投递一条 span。缓冲满则丢弃并计数，绝不阻塞调用方。
 func Publish(p pendingSpan) {
 	if spanCh == nil {
-		// 尚未 Init（如单测 / 极早期）：best-effort 同步落库兜底，避免数据丢失。
 		if d := db.GetDB(); d != nil {
 			_ = d.Create(toModelFromPending(p)).Error
 		}
@@ -293,11 +288,6 @@ func (c *Carrier) WithMsgID(id string) *Carrier {
 	return cp
 }
 
-// ===== 知识库召回关联（自学习：trace → 涉及的知识库 chunk） =====
-//
-// RAG 检索时把召回的 chunk ID 累积到 ctx，供 ai_dispatch 埋点记录到 trace，
-// 后续自学习模块据此调整这些 chunk 的权重。使用独立 ctx value（指针共享），
-// 不依赖 Carrier 指针透传，避免子 span Child 复制导致关联丢失。
 
 type recalledChunksKey struct{}
 
@@ -531,7 +521,7 @@ const (
 	StatusOk       = "ok"
 	StatusAbnormal = "abnormal"
 	StatusFailed   = "failed"
-	StatusSkipped  = "skipped" // 2026-08-15 P4 二次审核：duplicate/幂等跳过专用
+	StatusSkipped  = "skipped" 
 )
 
 // RecordNode 记录一个生命周期节点 span（异步非阻塞）。
@@ -579,7 +569,6 @@ func RecordNode(ctx context.Context, span NodeSpan) {
 	})
 }
 
-// ===== 工具层 observer：把工具调用事件落为 tool_call / agent_turn 子 span =====
 
 // ReportToolCall 由工具层 observer（tooluse.ToolTraceSink）调用，将一次工具/轮次事件转为层级 span。
 // 在 router 启动时接线：tooluse.ToolTraceSink = tracing.ReportToolCall。
@@ -630,7 +619,6 @@ func ReportToolCall(ctx context.Context, ev ToolTraceEvent) {
 	})
 }
 
-// ===== 出站下行批量采集（按 msg_id 去重，防止轮询膨胀） =====
 
 // RecordDownlinkFetchBatch 记录一次下行出库拉取（按 msg_id 去重：同一 msg 只记一次）。
 func RecordDownlinkFetchBatch(ctx context.Context, channel, accountID string, hubs []*model.MessageHub) {
@@ -650,8 +638,6 @@ func RecordDownlinkFetchBatch(ctx context.Context, channel, accountID string, hu
 		if err := d.Model(&model.MessageTrace{}).
 			Where("node = ? AND msg_id IN ?", NodeDownlinkFetch, ids).
 			Pluck("msg_id", &existing).Error; err != nil {
-			// dedup 查询失败仅影响去重精度（可能重复记 downlink_fetch span），不影响下行主链路；
-			// 但须打印错误以便观测，避免静默吞掉 DB 异常。
 			logger.Errorf("[tracing] RecordDownlinkFetchBatch dedup query failed (best-effort): %v", err)
 		}
 	}
@@ -679,7 +665,6 @@ func RecordDownlinkFetchBatch(ctx context.Context, channel, accountID string, hu
 	}
 }
 
-// ===== trace_id 工具 =====
 
 // GenerateTraceID 生成全局唯一 trace_id（带 tr- 前缀，>=20 字符）。
 func GenerateTraceID() string {
@@ -772,3 +757,4 @@ func sha1Sum(s string) string {
 	h.Write([]byte(s))
 	return hex.EncodeToString(h.Sum(nil))
 }
+

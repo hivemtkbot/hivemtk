@@ -11,17 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// 2026-08-15 P1-4 修复：sendOutbound 在桥接 channel（xiaohongshu/douyin/tiktok/xianyu/
-// kuaishou）落库 message_hub 时，必须填充 Extra 场景元数据（dm_target/scenario/
-// triggered_by/agent_id/intent/confidence/handler_type）。
-//
-// 本测试直接调用 sendOutbound，不依赖真实出站 HTTP（桥接出站走 message_hub 落库后由
-// bridge 端 downlink 拉取，不在 sendOutbound 阶段做 HTTP 投递——见 webhook_outbound.go
-// 注释）。验证：
-//   1) Extra 必含 dm_target=conv、scenario=auto_reply、triggered_by=ai_dispatch
-//   2) ctx 注入 HandleResult 后,Extra 补 confidence/intent/handler_type
-//   3) ctx 注入 agentID 后,Extra 补 agent_id
-//   4) 占位账号（<channel>-unknown）触发 undeliverable → status=failed、scenario=undeliverable
 
 func TestSendOutbound_BridgeChannel_ExtraMetadata_P1_4(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{}, &model.InboxConversation{})
@@ -55,7 +44,6 @@ func TestSendOutbound_BridgeChannel_ExtraMetadata_P1_4(t *testing.T) {
 		ChatID:  conv,
 	}
 
-	// 模拟 runAIGeneration 注入的 ctx
 	result := &HandleResult{
 		HandlerType: model.HandlerTypeAI,
 		AIReplied:   true,
@@ -186,7 +174,6 @@ func TestSendOutbound_NoCtxResult_StillFillsStableFields_P1_4(t *testing.T) {
 	}
 	p := &ParsedPayload{EventID: "evt-p14-noctx", Sender: "sender-1", Content: "原始消息", ChatID: conv}
 
-	// ctx 不注入 HandleResult,直接 background
 	svc.sendOutbound(context.Background(), ChannelDouyin, account, p, "AI 回复（无 ctx）", hub, nil)
 
 	var out model.MessageHub
@@ -198,14 +185,13 @@ func TestSendOutbound_NoCtxResult_StillFillsStableFields_P1_4(t *testing.T) {
 	if out.Extra == nil {
 		t.Fatalf("outbound.Extra must not be nil even without ctx HandleResult")
 	}
-	// 稳定字段必须有
 	for _, key := range []string{"dm_target", "scenario", "triggered_by"} {
 		if _, ok := out.Extra[key]; !ok {
 			t.Errorf("Extra.%s must exist even without ctx (stable field), got nil", key)
 		}
 	}
-	// agent_id 未注入时显式填空 "unknown"（不允许空串/缺失,否则 group by 漂移）
 	if v, _ := out.Extra["agent_id"].(string); v != "unknown" {
 		t.Errorf("Extra.agent_id expected 'unknown' (no ctx), got %q", v)
 	}
 }
+

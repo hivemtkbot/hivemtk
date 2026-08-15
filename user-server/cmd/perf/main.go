@@ -25,14 +25,9 @@ import (
 )
 
 var (
-	// baseURL 默认 user-server base URL：派生自 config.DefaultUserServerBaseURL
-	// 文档源：user-server/internal/pkg/utils/config/ports.go + DEVELOPMENT.md §2.4 端口对照表
-	// 覆盖：命令行 -base=http://...
 	baseURL = flag.String("base", config.DefaultUserServerBaseURL, "user-server base URL")
 	scene   = flag.String("scene", "all", "测试场景: all|login|customer|message|knowledge|cdp")
 
-	// 登录场景账号/密码（强约束：必须显式传入，禁止硬编码默认值）
-	// 避免：admin123 等弱口令在源码中残留；CI / 本地压测必须用独立测试账号
 	perfUsername = flag.String("username", os.Getenv("PERF_USERNAME"), "登录用户名（必须显式传入）")
 	perfPassword = flag.String("password", os.Getenv("PERF_PASSWORD"), "登录密码（必须显式传入，禁止默认值）")
 )
@@ -62,7 +57,6 @@ func main() {
 			continue
 		}
 		perflib.PrintResult(result)
-		// 防止压垮数据库
 		time.Sleep(500 * time.Millisecond)
 	}
 }
@@ -142,3 +136,4 @@ func cdpEventScene() perflib.Config {
 
 // suppress unused import warnings
 var _ = os.Exit
+

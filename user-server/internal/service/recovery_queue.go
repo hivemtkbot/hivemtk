@@ -122,3 +122,4 @@ func nextDelayPtr(now time.Time, nextDelay time.Duration) *time.Time {
 	t := now.Add(nextDelay)
 	return &t
 }
+

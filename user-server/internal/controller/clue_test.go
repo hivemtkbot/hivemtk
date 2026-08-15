@@ -35,9 +35,6 @@ func setupClueController(t *testing.T) (*ClueController, *gin.Engine) {
 	return ctrl, router
 }
 
-// ============================================================================
-// ClueController 测试
-// ============================================================================
 
 // TestClueController_GetClueList_Success 测试获取线索列表成功
 func TestClueController_GetClueList_Success(t *testing.T) {
@@ -45,7 +42,6 @@ func TestClueController_GetClueList_Success(t *testing.T) {
 	ctrl := NewClueController()
 	router := gin.New()
 
-	// 创建测试数据
 	clues := []*model.Clue{
 		{SourceID: "src-1", Account: "acc1", Name: "线索 1", City: "北京", Type: 1, IsVerify: 0},
 		{SourceID: "src-2", Account: "acc2", Name: "线索 2", City: "上海", Type: 2, IsVerify: 1},
@@ -86,11 +82,10 @@ func TestClueController_GetClueList_InvalidParams(t *testing.T) {
 	ctrl, router := setupClueController(t)
 	router.GET("/clues", ctrl.GetClueList)
 
-	req, _ := http.NewRequest("GET", "/clues", nil) // 缺少 page 和 limit
+	req, _ := http.NewRequest("GET", "/clues", nil) 
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// DTO GetClueRequest 中 Page/PageSize 没有 binding:"required",默认值会被填充,返回 200
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK (defaults applied), got %d", w.Code)
 	}
@@ -102,7 +97,6 @@ func TestClueController_DeleteClue_Success(t *testing.T) {
 	ctrl := NewClueController()
 	router := gin.New()
 
-	// 创建测试线索
 	clue := &model.Clue{SourceID: "src-1", Account: "acc1", Name: "线索 1", City: "北京", Type: 1, IsVerify: 0}
 	database.Create(clue)
 
@@ -112,7 +106,6 @@ func TestClueController_DeleteClue_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于仓库层 Delete 方法有 bug（不支持 string ID），接受 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -124,11 +117,10 @@ func TestClueController_DeleteClue_InvalidID(t *testing.T) {
 	ctrl, router := setupClueController(t)
 	router.DELETE("/clues/:id", ctrl.DeleteClue)
 
-	req, _ := http.NewRequest("DELETE", "/clues/", nil) // 空 ID
+	req, _ := http.NewRequest("DELETE", "/clues/", nil) 
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 空 ID 可能返回 400 或 404（取决于路由匹配）
 	if w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status Bad Request or Not Found, got %d", w.Code)
 	}
@@ -144,7 +136,6 @@ func TestClueController_DeleteClue_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 服务层可能返回 500 或 200（取决于实现）
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -156,7 +147,6 @@ func TestClueController_GetClueStatistics_Success(t *testing.T) {
 	ctrl := NewClueController()
 	router := gin.New()
 
-	// 创建测试数据
 	clues := []*model.Clue{
 		{SourceID: "src-1", Account: "acc1", Name: "线索 1", City: "北京", Type: 1, IsVerify: 0},
 		{SourceID: "src-2", Account: "acc2", Name: "线索 2", City: "上海", Type: 2, IsVerify: 1},
@@ -172,7 +162,6 @@ func TestClueController_GetClueStatistics_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于仓库层 SQL 有 bug（clue_type 列名错误），接受 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -188,7 +177,6 @@ func TestClueController_GetClueStatistics_EmptyList(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于仓库层 SQL 有 bug（clue_type 列名错误），接受 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d", w.Code)
 	}
@@ -230,7 +218,6 @@ func TestClueController_ImportClues_EmptyArray(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 空数组应该仍然返回成功
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -280,3 +267,4 @@ func TestClueController_NewClueController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

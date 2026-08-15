@@ -19,15 +19,10 @@ import (
 
 // 文件上传配置
 const (
-	// 最大文件大小：10MB
 	MaxUploadSize = 10 * 1024 * 1024
-	// 允许的图片格式
 	AllowedImageTypes = "image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml"
-	// 允许的视频格式
 	AllowedVideoTypes = "video/mp4,video/quicktime,video/x-msvideo"
-	// 允许的文档格式
 	AllowedDocTypes = "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-	// 允许的压缩格式
 	AllowedArchiveTypes = "application/zip,application/x-zip-compressed,application/x-rar-compressed,application/x-7z-compressed"
 )
 
@@ -91,7 +86,6 @@ var DefaultUploadConfig = UploadConfig{
 func UploadFile(ctx *gin.Context) {
 	config := DefaultUploadConfig
 
-	// 从环境变量加载配置
 	if envMaxSize := os.Getenv("UPLOAD_MAX_SIZE"); envMaxSize != "" {
 		if size := parseInt64(envMaxSize); size > 0 {
 			config.MaxSize = size
@@ -108,13 +102,11 @@ func UploadFile(ctx *gin.Context) {
 		config.EnableVirusScan = true
 	}
 
-	// 解析 multipart 表单，限制最大内存
 	if err := ctx.Request.ParseMultipartForm(config.MaxSize); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "文件大小超出限制")
 		return
 	}
 
-	// 获取上传的文件
 	file, header, err := ctx.Request.FormFile("file")
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, "获取上传文件失败")
@@ -122,13 +114,11 @@ func UploadFile(ctx *gin.Context) {
 	}
 	defer file.Close()
 
-	// 1. 检查文件大小
 	if header.Size > config.MaxSize {
 		response.Error(ctx, http.StatusBadRequest, fmt.Sprintf("文件大小超出限制，最大允许 %dMB", config.MaxSize/1024/1024))
 		return
 	}
 
-	// 2. 读取文件内容用于验证
 	fileBuffer := bytes.NewBuffer(nil)
 	if _, err := io.Copy(fileBuffer, file); err != nil {
 		response.ErrorFromDB(ctx, err, "读取文件失败")
@@ -136,20 +126,17 @@ func UploadFile(ctx *gin.Context) {
 	}
 	fileBytes := fileBuffer.Bytes()
 
-	// 3. 验证文件扩展名
 	originalExt := strings.ToLower(filepath.Ext(header.Filename))
 	if !isValidExtension(originalExt) {
 		response.Error(ctx, http.StatusBadRequest, "不支持的文件类型："+originalExt)
 		return
 	}
 
-	// 4. 检查危险文件扩展名
 	if dangerousExtensions[originalExt] {
 		response.Error(ctx, http.StatusBadRequest, "禁止上传可执行文件或脚本文件")
 		return
 	}
 
-	// 5. 检测真实文件类型（通过魔术数字）
 	actualExt := detectFileTypeByMagicNumber(fileBytes)
 	if config.CheckMagicNumber && actualExt != "" && !extensionsMatch(actualExt, originalExt) {
 		if !isZipBasedFormat(actualExt, originalExt) {
@@ -158,14 +145,12 @@ func UploadFile(ctx *gin.Context) {
 		}
 	}
 
-	// 6. 检测 MIME 类型
 	detectedMime := detectMimeType(fileBytes)
 	if !isAllowedMimeType(detectedMime, config.AllowedTypes) {
 		response.Error(ctx, http.StatusBadRequest, "不允许上传此类型的文件："+detectedMime)
 		return
 	}
 
-	// 7. 可选：病毒扫描
 	virusScanned := false
 	virusClean := true
 	if config.EnableVirusScan && config.VirusScanURL != "" {
@@ -176,10 +161,8 @@ func UploadFile(ctx *gin.Context) {
 		}
 	}
 
-	// 8. 生成安全的文件名
 	newFilename := uuid.New().String() + originalExt
 
-	// 9. 创建上传目录（使用安全的权限 0750）
 	uploadSubDir := time.Now().Format("20060102")
 	uploadDir := filepath.Join(config.UploadDir, uploadSubDir)
 	if err := os.MkdirAll(uploadDir, 0750); err != nil {
@@ -187,14 +170,12 @@ func UploadFile(ctx *gin.Context) {
 		return
 	}
 
-	// 10. 保存文件（使用安全的权限 0640）
 	filePath := filepath.Join(uploadDir, newFilename)
 	if err := os.WriteFile(filePath, fileBytes, 0640); err != nil {
 		response.ErrorFromDB(ctx, err, "保存文件失败")
 		return
 	}
 
-	// 11. 返回文件信息
 	fileURL := "/uploads/" + uploadSubDir + "/" + newFilename
 	fileType := getFileType(originalExt)
 
@@ -232,15 +213,12 @@ func detectFileTypeByMagicNumber(data []byte) string {
 	for ext, magicNumbers := range fileMagicNumbers {
 		for _, magic := range magicNumbers {
 			if len(data) >= len(magic) && bytes.HasPrefix(data, magic) {
-				// WebP 需要额外校验 RIFF 文件类型标识
 				if ext == ".webp" {
 					if len(data) >= 12 && string(data[8:12]) == "WEBP" {
 						return ".webp"
 					}
 					continue
 				}
-				// Office 文档（.docx/.xlsx/.pptx）与 .zip 共享魔术数字，
-				// 优先返回 Office 扩展以保证可读性
 				if ext == ".docx" || ext == ".xlsx" || ext == ".pptx" {
 					return ext
 				}
@@ -309,7 +287,6 @@ func extensionsMatch(a, b string) bool {
 	if a == b {
 		return true
 	}
-	// jpg 和 jpeg 是同一种格式
 	if (a == ".jpg" && b == ".jpeg") || (a == ".jpeg" && b == ".jpg") {
 		return true
 	}
@@ -410,3 +387,4 @@ func ScanFileContent(filePath string) (bool, error) {
 
 	return true, nil
 }
+

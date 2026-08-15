@@ -56,7 +56,6 @@ func (r *emailListRepo) List(ctx context.Context, page int, pageSize int) ([]*mo
 	var emailLists []*model.EmailList
 	var total int64
 	db := r.db.WithContext(ctx)
-	// 分别查询list 和 total
 	err := db.Model(&model.EmailList{}).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
@@ -114,3 +113,4 @@ func (r *emailListRepo) GetByTraceID(ctx context.Context, traceID uuid.UUID) (*m
 	}
 	return &emailList, nil
 }
+

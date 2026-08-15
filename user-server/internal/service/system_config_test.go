@@ -24,9 +24,6 @@ func setupSystemConfigServiceTestDB(t *testing.T) *gorm.DB {
 
 // newTestSystemConfigRepository 创建测试仓库
 func newTestSystemConfigRepository(database *gorm.DB) repository.SystemConfigRepository {
-	// 使用反射或其他方式创建测试仓库实例
-	// 由于 systemConfigRepo 是私有的，我们直接设置 db 包中的测试数据库
-	// 然后使用 NewSystemConfigRepository() 它会获取测试数据库
 	return repository.NewSystemConfigRepository()
 }
 
@@ -68,14 +65,12 @@ func TestSystemConfigService_GetConfig_WithDB(t *testing.T) {
 	repo := newTestSystemConfigRepository(database)
 	service := &SystemConfigService{repo: repo}
 
-	// 创建测试配置
 	config := &model.SystemConfig{
 		Name:       "测试系统",
 		WebsiteURL: "https://example.com",
 	}
 	database.Create(config)
 
-	// 获取配置
 	retrievedConfig, err := service.GetConfig(context.Background())
 	if err != nil {
 		t.Fatalf("GetConfig failed: %v", err)
@@ -178,7 +173,6 @@ func TestSystemConfigService_SaveConfig_LongFields(t *testing.T) {
 	repo := newTestSystemConfigRepository(database)
 	service := &SystemConfigService{repo: repo}
 
-	// 测试接近字段长度限制的内容（size:255）
 	longName := ""
 	for i := 0; i < 200; i++ {
 		longName += "a"
@@ -211,14 +205,12 @@ func TestSystemConfigService_SaveConfig_MultipleUpdates(t *testing.T) {
 	repo := newTestSystemConfigRepository(database)
 	service := &SystemConfigService{repo: repo}
 
-	// 第一次保存
 	config1 := &model.SystemConfig{
 		Name:       "配置 1",
 		WebsiteURL: "https://example1.com",
 	}
 	service.SaveConfig(context.Background(), config1)
 
-	// 第二次保存（应该更新）
 	config2 := &model.SystemConfig{
 		Name:       "配置 2",
 		WebsiteURL: "https://example2.com",
@@ -232,14 +224,11 @@ func TestSystemConfigService_SaveConfig_MultipleUpdates(t *testing.T) {
 		t.Errorf("Expected only 1 config record, got %d", count)
 	}
 
-	// 获取配置验证内容
 	finalConfig, err := service.GetConfig(context.Background())
 	if err != nil {
 		t.Fatalf("GetConfig failed: %v", err)
 	}
 
-	// 由于 FirstOrCreate 的特性，第一次创建后不会再更新
-	// 这里验证的是配置存在且有效
 	if finalConfig.Name == "" && finalConfig.WebsiteURL == "" {
 		t.Error("Expected non-empty config after multiple saves")
 	}
@@ -251,7 +240,6 @@ func TestSystemConfigService_Integration(t *testing.T) {
 	repo := newTestSystemConfigRepository(database)
 	service := &SystemConfigService{repo: repo}
 
-	// 1. 初始状态应返回空配置
 	config, err := service.GetConfig(context.Background())
 	if err != nil {
 		t.Fatalf("GetConfig failed: %v", err)
@@ -260,7 +248,6 @@ func TestSystemConfigService_Integration(t *testing.T) {
 		t.Errorf("Expected empty initial name, got %s", config.Name)
 	}
 
-	// 2. 保存新配置
 	newConfig := &model.SystemConfig{
 		Name:       "集成测试系统",
 		WebsiteURL: "https://test.example.com",
@@ -270,12 +257,10 @@ func TestSystemConfigService_Integration(t *testing.T) {
 		t.Fatalf("SaveConfig failed: %v", err)
 	}
 
-	// 3. 验证保存的配置
 	if savedConfig.Name != "集成测试系统" {
 		t.Errorf("Expected saved name '集成测试系统', got %s", savedConfig.Name)
 	}
 
-	// 4. 再次获取配置验证一致性
 	finalConfig, err := service.GetConfig(context.Background())
 	if err != nil {
 		t.Fatalf("GetConfig failed: %v", err)
@@ -285,3 +270,4 @@ func TestSystemConfigService_Integration(t *testing.T) {
 		t.Errorf("Expected final name '集成测试系统', got %s", finalConfig.Name)
 	}
 }
+

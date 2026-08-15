@@ -30,7 +30,6 @@ func NewOperationLogController() *OperationLogController {
 
 // GetList 获取操作日志列表
 func (c *OperationLogController) GetList(ctx *gin.Context) {
-	// 获取分页参数
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
 
@@ -41,7 +40,6 @@ func (c *OperationLogController) GetList(ctx *gin.Context) {
 		pageSize = 20
 	}
 
-	// 获取过滤条件
 	filters := make(map[string]any)
 	if userID := ctx.Query("user_id"); userID != "" {
 		filters["user_id"] = userID
@@ -59,7 +57,6 @@ func (c *OperationLogController) GetList(ctx *gin.Context) {
 		filters["end_time"] = endTime
 	}
 
-	// 获取日志列表（service 返回 OperationLogView DTO）
 	logs, total, err := c.logSvc.GetAll(ctx, page, pageSize, filters)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, err.Error())
@@ -76,7 +73,6 @@ func (c *OperationLogController) GetList(ctx *gin.Context) {
 
 // GetByID 获取操作日志详情
 func (c *OperationLogController) GetByID(ctx *gin.Context) {
-	// 获取日志ID
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -84,7 +80,6 @@ func (c *OperationLogController) GetByID(ctx *gin.Context) {
 		return
 	}
 
-	// 获取日志详情（service 在不存在时返回 nil, nil）
 	log, err := c.logSvc.GetByID(ctx, uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, "日志不存在")
@@ -100,7 +95,6 @@ func (c *OperationLogController) GetByID(ctx *gin.Context) {
 
 // GetMyLogs 获取当前用户的操作日志
 func (c *OperationLogController) GetMyLogs(ctx *gin.Context) {
-	// 获取用户ID
 	userID, exists := ctx.Get("user_id")
 	if !exists {
 		response.Error(ctx, http.StatusUnauthorized, "未找到用户信息")
@@ -109,13 +103,11 @@ func (c *OperationLogController) GetMyLogs(ctx *gin.Context) {
 
 	uid, ok := userID.(uint)
 	if !ok {
-		// 尝试从 float64 转换
 		if f, ok := userID.(float64); ok {
 			uid = uint(f)
 		}
 	}
 
-	// 获取分页参数
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
 
@@ -126,7 +118,6 @@ func (c *OperationLogController) GetMyLogs(ctx *gin.Context) {
 		pageSize = 20
 	}
 
-	// 获取日志列表
 	logs, total, err := c.logSvc.GetByUserID(ctx, uid, page, pageSize)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, err.Error())
@@ -143,7 +134,6 @@ func (c *OperationLogController) GetMyLogs(ctx *gin.Context) {
 
 // GetStatistics 获取操作日志统计
 func (c *OperationLogController) GetStatistics(ctx *gin.Context) {
-	// service 已经封装好统计逻辑，直接返回 DTO
 	stats, err := c.logSvc.GetStatistics(ctx)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, err.Error())
@@ -167,7 +157,6 @@ func (c *OperationLogController) ExportLogs(ctx *gin.Context) {
 		pageSize = 10000
 	}
 
-	// service 返回 OperationLogView 列表，controller 负责渲染 CSV
 	logs, err := c.logSvc.ExportAll(ctx, pageSize)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, "查询日志失败: "+err.Error())
@@ -254,3 +243,4 @@ func (c *OperationLogController) DeleteLogs(ctx *gin.Context) {
 		"deleted_count": count,
 	}, "删除成功")
 }
+

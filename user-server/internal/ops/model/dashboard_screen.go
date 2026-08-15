@@ -8,9 +8,9 @@ import (
 type DashboardScreen struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name      string    `gorm:"type:varchar(100);not null" json:"name"`
-	Code      string    `gorm:"type:varchar(50);unique" json:"code"` // 大屏编码，用于访问
-	Layout    string    `json:"layout"`                              // 布局配置 (JSON)
-	Widgets   string    `json:"widgets"`                             //  widget 配置 (JSON)
+	Code      string    `gorm:"type:varchar(50);unique" json:"code"` 
+	Layout    string    `json:"layout"`                              
+	Widgets   string    `json:"widgets"`                             
 	Theme     string    `gorm:"type:varchar(20);default:'dark'" json:"theme"`
 	IsPublic  bool      `gorm:"default:false" json:"is_public"`
 	ViewCount int       `gorm:"default:0" json:"view_count"`
@@ -28,9 +28,9 @@ func (DashboardScreen) TableName() string {
 type DashboardWidget struct {
 	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	ScreenID   uint      `gorm:"index;not null" json:"screen_id"`
-	WidgetType string    `gorm:"type:varchar(50);not null" json:"widget_type"` // chart, table, indicator, map
+	WidgetType string    `gorm:"type:varchar(50);not null" json:"widget_type"` 
 	Title      string    `gorm:"type:varchar(100)" json:"title"`
-	Config     string    `gorm:"type:text" json:"config"` // Widget 配置 (JSON)
+	Config     string    `gorm:"type:text" json:"config"` 
 	DataSource string    `gorm:"type:varchar(50)" json:"data_source"`
 	X          int       `gorm:"default:0" json:"x"`
 	Y          int       `gorm:"default:0" json:"y"`
@@ -44,3 +44,4 @@ type DashboardWidget struct {
 func (DashboardWidget) TableName() string {
 	return "dashboard_widgets"
 }
+

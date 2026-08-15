@@ -1,17 +1,5 @@
 package service
 
-// sop_node_executors_test.go 14 种节点执行器单元测试（§13.6 验收）
-//
-// 覆盖：
-//  1. StartExecutor / EndExecutor：状态机推进
-//  2. MessageNodeBase：幂等性、内容三级降级、模板渲染、默认话术
-//  3. ConditionExecutor：优先级路由 + 旧版 Condition 字段兜底 + Next[0] 兜底
-//  4. LLMNodeExecutor：dispatcher=nil 失败兜底、信号量、parseLLMDecision、buildLLMDecisionPrompt
-//  5. WaitExecutor：wait_seconds / wait_until / wait_event 默认行为
-//  6. RegisterAllNodeExecutors：19 个执行器全部注册
-//
-// 不依赖数据库的纯单元测试。LLM Dispatcher 为具体类型无法 mock，
-// LLM 节点测试覆盖 dispatcher=nil 失败路径与纯函数（parseLLMDecision/buildLLMDecisionPrompt）。
 
 import (
 	"context"
@@ -25,7 +13,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ===== StartExecutor 测试 =====
 
 func TestStartExecutor_NodeType(t *testing.T) {
 	e := &StartExecutor{}
@@ -57,20 +44,17 @@ func TestStartExecutor_ExecuteReturnsCompleted(t *testing.T) {
 	if result.Status != NodeStatusCompleted {
 		t.Errorf("Status=%s want=%s", result.Status, NodeStatusCompleted)
 	}
-	// 应记录 _started_at 与 _trigger
 	if _, ok := result.Output["_started_at"]; !ok {
 		t.Error("Output should contain _started_at")
 	}
 	if result.Output["_trigger"] != "manual" {
 		t.Errorf("Output _trigger=%v want=manual", result.Output["_trigger"])
 	}
-	// start 节点不应指定 NextNodeID（让调度器走默认 Next[0]）
 	if result.NextNodeID != "" {
 		t.Errorf("StartExecutor NextNodeID=%s want empty (use default)", result.NextNodeID)
 	}
 }
 
-// ===== EndExecutor 测试 =====
 
 func TestEndExecutor_NodeType(t *testing.T) {
 	e := &EndExecutor{}
@@ -99,7 +83,6 @@ func TestEndExecutor_ExecuteTerminatesFlow(t *testing.T) {
 	if result.Status != NodeStatusCompleted {
 		t.Errorf("Status=%s want=%s", result.Status, NodeStatusCompleted)
 	}
-	// EndExecutor 应返回空 NextNodeID，调度器据此调用 completeExecution
 	if result.NextNodeID != "" {
 		t.Errorf("EndExecutor NextNodeID=%s want empty (terminate)", result.NextNodeID)
 	}
@@ -108,7 +91,6 @@ func TestEndExecutor_ExecuteTerminatesFlow(t *testing.T) {
 	}
 }
 
-// ===== MessageNodeBase 测试 =====
 
 func TestMessageNodeBase_NodeType(t *testing.T) {
 	b := NewMessageNodeExecutor(SOPNodeTypeGreeting, llm.ScenarioFriendlyChat, &SOPNodeExecutorDeps{})
@@ -125,7 +107,6 @@ func TestMessageNodeBase_IsAsync(t *testing.T) {
 }
 
 func TestMessageNodeBase_IdempotentSkip(t *testing.T) {
-	// 已存在 message_sent 副作用标识时，应跳过返回 skipped
 	b := NewMessageNodeExecutor(SOPNodeTypeGreeting, llm.ScenarioFriendlyChat, &SOPNodeExecutorDeps{})
 	exec := &model.SOPExecution{
 		ID:            1,
@@ -145,7 +126,6 @@ func TestMessageNodeBase_IdempotentSkip(t *testing.T) {
 }
 
 func TestMessageNodeBase_PromptSource(t *testing.T) {
-	// node.Prompt 应作为消息内容来源
 	b := NewMessageNodeExecutor(SOPNodeTypeGreeting, llm.ScenarioFriendlyChat, &SOPNodeExecutorDeps{})
 	ec := &ExecutionContext{
 		Execution:     &model.SOPExecution{ID: 1},
@@ -167,7 +147,6 @@ func TestMessageNodeBase_PromptSource(t *testing.T) {
 	if source != "prompt" {
 		t.Errorf("source=%s want=prompt", source)
 	}
-	// 应记录 side effect
 	if len(result.SideEffects) != 1 {
 		t.Errorf("SideEffects len=%d want=1", len(result.SideEffects))
 	} else if result.SideEffects[0] != "message_sent:1:n1" {
@@ -176,7 +155,6 @@ func TestMessageNodeBase_PromptSource(t *testing.T) {
 }
 
 func TestMessageNodeBase_PromptTemplateRendering(t *testing.T) {
-	// node.Prompt 中的 {{var}} 应被 ExecutionData 替换
 	b := NewMessageNodeExecutor(SOPNodeTypeGreeting, llm.ScenarioFriendlyChat, &SOPNodeExecutorDeps{})
 	ec := &ExecutionContext{
 		Execution:     &model.SOPExecution{ID: 1},
@@ -197,7 +175,6 @@ func TestMessageNodeBase_PromptTemplateRendering(t *testing.T) {
 }
 
 func TestMessageNodeBase_ConfigContentSource(t *testing.T) {
-	// node.Prompt 为空但 node.Config.content 有值时应使用 config 内容
 	b := NewMessageNodeExecutor(SOPNodeTypeInquire, llm.ScenarioSOPReply, &SOPNodeExecutorDeps{})
 	ec := &ExecutionContext{
 		Execution:     &model.SOPExecution{ID: 1},
@@ -222,7 +199,6 @@ func TestMessageNodeBase_ConfigContentSource(t *testing.T) {
 }
 
 func TestMessageNodeBase_FallbackDefaultScript(t *testing.T) {
-	// node.Prompt 与 node.Config.content 均为空、dispatcher=nil 时应使用默认话术
 	b := NewMessageNodeExecutor(SOPNodeTypeClose, llm.ScenarioHighQuality, &SOPNodeExecutorDeps{})
 	ec := &ExecutionContext{
 		Execution:     &model.SOPExecution{ID: 1},
@@ -247,7 +223,6 @@ func TestMessageNodeBase_FallbackDefaultScript(t *testing.T) {
 }
 
 func TestMessageNodeBase_AllNodeTypesHaveDefaultScript(t *testing.T) {
-	// 确保所有消息类节点类型都有默认话术兜底
 	types := []string{
 		SOPNodeTypeGreeting, SOPNodeTypeInquire, SOPNodeTypeIntroduce,
 		SOPNodeTypeHandle, SOPNodeTypeClose, SOPNodeTypeInvite,
@@ -278,7 +253,6 @@ func TestRenderPromptTemplate_VarSubstitution(t *testing.T) {
 }
 
 func TestRenderPromptTemplate_UnmatchedVarPreserved(t *testing.T) {
-	// 未匹配的变量保留原样
 	tmpl := "你好 {{name}}，未知变量 {{unknown}}"
 	data := model.JSONMap{"name": "李四"}
 	out := renderPromptTemplate(tmpl, data)
@@ -297,7 +271,6 @@ func TestRenderPromptTemplate_NilData(t *testing.T) {
 	}
 }
 
-// ===== ConditionExecutor 测试 =====
 
 func TestConditionExecutor_NodeType(t *testing.T) {
 	e := &ConditionExecutor{nodeType: SOPNodeTypeCondition}
@@ -318,7 +291,6 @@ func TestConditionExecutor_IsAsync(t *testing.T) {
 }
 
 func TestConditionExecutor_PriorityRouting(t *testing.T) {
-	// 验收标准 §13.6.2：condition 节点按 intent_score 路由正确
 	e := &ConditionExecutor{nodeType: SOPNodeTypeCondition}
 	ec := &ExecutionContext{
 		Execution: &model.SOPExecution{ID: 1},
@@ -391,7 +363,6 @@ func TestConditionExecutor_LowIntentRouting(t *testing.T) {
 }
 
 func TestConditionExecutor_FallbackToNextZero(t *testing.T) {
-	// 所有分支都不匹配时，兜底走 Next[0]
 	e := &ConditionExecutor{nodeType: SOPNodeTypeCondition}
 	ec := &ExecutionContext{
 		Execution: &model.SOPExecution{ID: 1},
@@ -403,7 +374,7 @@ func TestConditionExecutor_FallbackToNextZero(t *testing.T) {
 				{Label: "高意向", Condition: "intent_score gte 0.7", Next: "close_node", Priority: 100},
 			},
 		},
-		ExecutionData: model.JSONMap{"intent_score": float64(0.1)}, // 不匹配高意向
+		ExecutionData: model.JSONMap{"intent_score": float64(0.1)}, 
 	}
 	result, _ := e.Execute(context.Background(), ec)
 	if result.NextNodeID != "default_node" {
@@ -412,7 +383,6 @@ func TestConditionExecutor_FallbackToNextZero(t *testing.T) {
 }
 
 func TestConditionExecutor_LegacyConditionField(t *testing.T) {
-	// 旧版 branch 节点使用 Condition 字段（向后兼容）
 	e := &ConditionExecutor{nodeType: SOPNodeTypeBranch}
 	ec := &ExecutionContext{
 		Execution: &model.SOPExecution{ID: 1},
@@ -430,7 +400,6 @@ func TestConditionExecutor_LegacyConditionField(t *testing.T) {
 	}
 }
 
-// ===== LLMNodeExecutor 测试 =====
 
 func TestLLMNodeExecutor_NodeType(t *testing.T) {
 	e := NewLLMNodeExecutor(SOPNodeTypeLLM, &SOPNodeExecutorDeps{})
@@ -451,7 +420,6 @@ func TestLLMNodeExecutor_IsAsync(t *testing.T) {
 }
 
 func TestLLMNodeExecutor_DispatcherNilFallsBackToNext(t *testing.T) {
-	// dispatcher=nil 时应返回 failed 状态（不可重试），调用方据此决定是否兜底
 	e := NewLLMNodeExecutor(SOPNodeTypeLLM, &SOPNodeExecutorDeps{LLMSem: make(chan struct{}, 4)})
 	ec := &ExecutionContext{
 		Execution: &model.SOPExecution{ID: 1},
@@ -463,7 +431,6 @@ func TestLLMNodeExecutor_DispatcherNilFallsBackToNext(t *testing.T) {
 		ExecutionData: model.JSONMap{},
 	}
 	result, err := e.Execute(context.Background(), ec)
-	// dispatcher=nil 时返回 err 与 failed 状态（Retryable=false，调度器不会重试）
 	if err == nil {
 		t.Error("expected error when dispatcher is nil")
 	}
@@ -479,14 +446,13 @@ func TestLLMNodeExecutor_DispatcherNilFallsBackToNext(t *testing.T) {
 }
 
 func TestLLMNodeExecutor_NoCandidates(t *testing.T) {
-	// 候选节点为空时，Next[0] 兜底返回空
 	e := NewLLMNodeExecutor(SOPNodeTypeLLM, &SOPNodeExecutorDeps{LLMSem: make(chan struct{}, 4)})
 	ec := &ExecutionContext{
 		Execution: &model.SOPExecution{ID: 1},
 		Node: &dto.SOPNode{
 			ID:   "llm1",
 			Type: SOPNodeTypeLLM,
-			Next: []string{}, // 无候选
+			Next: []string{}, 
 		},
 		ExecutionData: model.JSONMap{},
 	}
@@ -497,7 +463,6 @@ func TestLLMNodeExecutor_NoCandidates(t *testing.T) {
 }
 
 func TestLLMNodeExecutor_SemaphoreLimitsConcurrency(t *testing.T) {
-	// 信号量容量为 4，验证 acquire/release 行为：执行后信号量应被释放回 0
 	sem := make(chan struct{}, 4)
 	e := NewLLMNodeExecutor(SOPNodeTypeLLM, &SOPNodeExecutorDeps{LLMSem: sem})
 	ec := &ExecutionContext{
@@ -509,7 +474,6 @@ func TestLLMNodeExecutor_SemaphoreLimitsConcurrency(t *testing.T) {
 		},
 		ExecutionData: model.JSONMap{},
 	}
-	// 执行前信号量为空
 	if len(sem) != 0 {
 		t.Fatalf("pre-execute semaphore len=%d want=0", len(sem))
 	}
@@ -517,16 +481,14 @@ func TestLLMNodeExecutor_SemaphoreLimitsConcurrency(t *testing.T) {
 	if result == nil {
 		t.Fatal("result should not be nil")
 	}
-	// 执行后信号量应被 defer 释放回 0
 	if len(sem) != 0 {
 		t.Errorf("semaphore not released after Execute, len=%d", len(sem))
 	}
 }
 
 func TestLLMNodeExecutor_SemaphoreBlocksWhenFull(t *testing.T) {
-	// 信号量满时，Execute 应阻塞直到 ctx 取消，返回 retryable failed
 	sem := make(chan struct{}, 1)
-	sem <- struct{}{} // 填满
+	sem <- struct{}{} 
 	e := NewLLMNodeExecutor(SOPNodeTypeLLM, &SOPNodeExecutorDeps{LLMSem: sem})
 	ec := &ExecutionContext{
 		Execution: &model.SOPExecution{ID: 1},
@@ -552,11 +514,9 @@ func TestLLMNodeExecutor_SemaphoreBlocksWhenFull(t *testing.T) {
 	if !result.Retryable {
 		t.Error("ctx cancellation should be retryable")
 	}
-	// 释放预填的 token
 	<-sem
 }
 
-// parseLLMDecision 测试
 
 func TestParseLLMDecision_ValidJSON(t *testing.T) {
 	content := `{"next_node_id":"close_node","reason":"客户意向高"}`
@@ -573,7 +533,6 @@ func TestParseLLMDecision_ValidJSON(t *testing.T) {
 }
 
 func TestParseLLMDecision_JSONInText(t *testing.T) {
-	// LLM 返回包含 JSON 子串的文本
 	content := `根据分析，我建议 {"next_node_id":"nurture_node","reason":"继续培育"} 希望对你有帮助`
 	d, err := parseLLMDecision(content)
 	if err != nil {
@@ -605,7 +564,6 @@ func TestParseLLMDecision_EmptyNextNodeID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	// 解析成功但 NextNodeID 为空，调用方应处理
 	if d.NextNodeID != "" {
 		t.Errorf("NextNodeID=%s want empty", d.NextNodeID)
 	}
@@ -635,7 +593,6 @@ func TestBuildLLMDecisionPrompt_ContainsCandidates(t *testing.T) {
 	}
 }
 
-// ===== WaitExecutor 测试 =====
 
 func TestWaitExecutor_NodeType(t *testing.T) {
 	e := &WaitExecutor{}
@@ -652,8 +609,7 @@ func TestWaitExecutor_IsAsync(t *testing.T) {
 }
 
 func TestWaitExecutor_WaitSeconds(t *testing.T) {
-	// wait_seconds=5 应返回 waiting 状态，WaitEvent=timer
-	e := &WaitExecutor{db: nil} // db=nil 不写表，但逻辑仍执行
+	e := &WaitExecutor{db: nil} 
 	ec := &ExecutionContext{
 		Execution: &model.SOPExecution{ID: 1},
 		Node: &dto.SOPNode{
@@ -676,7 +632,6 @@ func TestWaitExecutor_WaitSeconds(t *testing.T) {
 	if result.WaitUntil == nil {
 		t.Error("WaitUntil should not be nil")
 	}
-	// WaitUntil 应该是大约 5s 后
 	expected := time.Now().Add(5 * time.Second)
 	delta := result.WaitUntil.Sub(expected)
 	if delta > 500*time.Millisecond || delta < -500*time.Millisecond {
@@ -685,7 +640,6 @@ func TestWaitExecutor_WaitSeconds(t *testing.T) {
 }
 
 func TestWaitExecutor_WaitUntilAbsoluteTime(t *testing.T) {
-	// wait_until 使用 RFC3339 绝对时间
 	target := time.Now().Add(1 * time.Hour).Format(time.RFC3339)
 	e := &WaitExecutor{}
 	ec := &ExecutionContext{
@@ -712,7 +666,6 @@ func TestWaitExecutor_WaitUntilAbsoluteTime(t *testing.T) {
 }
 
 func TestWaitExecutor_CustomerReplyDefault(t *testing.T) {
-	// 既无 wait_seconds 也无 wait_until，应使用 customer_reply 等待，默认 24h 超时
 	e := &WaitExecutor{}
 	ec := &ExecutionContext{
 		Execution: &model.SOPExecution{ID: 1},
@@ -733,7 +686,6 @@ func TestWaitExecutor_CustomerReplyDefault(t *testing.T) {
 	if result.WaitUntil == nil {
 		t.Fatal("WaitUntil should not be nil")
 	}
-	// 应该是大约 24h 后
 	expected := time.Now().Add(24 * time.Hour)
 	delta := result.WaitUntil.Sub(expected)
 	if delta > 1*time.Second || delta < -1*time.Second {
@@ -742,7 +694,6 @@ func TestWaitExecutor_CustomerReplyDefault(t *testing.T) {
 }
 
 func TestWaitExecutor_CustomWaitEvent(t *testing.T) {
-	// 显式指定 wait_event=external
 	e := &WaitExecutor{}
 	ec := &ExecutionContext{
 		Execution: &model.SOPExecution{ID: 1},
@@ -759,10 +710,8 @@ func TestWaitExecutor_CustomWaitEvent(t *testing.T) {
 	}
 }
 
-// ===== RegisterAllNodeExecutors 测试 =====
 
 func TestRegisterAllNodeExecutors_AllTypesRegistered(t *testing.T) {
-	// 验收标准：14 种节点 + 5 种旧版兼容 = 19 个执行器全部注册
 	r := NewNodeExecutorRegistry()
 	deps := &SOPNodeExecutorDeps{
 		LLMSem: make(chan struct{}, 4),
@@ -770,13 +719,11 @@ func TestRegisterAllNodeExecutors_AllTypesRegistered(t *testing.T) {
 	RegisterAllNodeExecutors(r, deps)
 
 	expectedTypes := []string{
-		// 14 种商用节点
 		SOPNodeTypeStart, SOPNodeTypeEnd,
 		SOPNodeTypeGreeting, SOPNodeTypeInquire, SOPNodeTypeIntroduce,
 		SOPNodeTypeHandle, SOPNodeTypeClose, SOPNodeTypeInvite,
 		SOPNodeTypeFollowUp, SOPNodeTypeActivate, SOPNodeTypeNurture,
 		SOPNodeTypeCondition, SOPNodeTypeLLM, SOPNodeTypeWait,
-		// 5 种旧版兼容
 		SOPNodeTypeMessage, SOPNodeTypeAction, SOPNodeTypeSendOffer,
 		SOPNodeTypeAIDecide, SOPNodeTypeBranch,
 	}
@@ -795,7 +742,6 @@ func TestRegisterAllNodeExecutors_AllTypesRegistered(t *testing.T) {
 }
 
 func TestRegisterAllNodeExecutors_PanicsOnDuplicate(t *testing.T) {
-	// 重复注册应 panic（启动期错误）
 	r := NewNodeExecutorRegistry()
 	deps := &SOPNodeExecutorDeps{}
 	RegisterAllNodeExecutors(r, deps)
@@ -807,7 +753,6 @@ func TestRegisterAllNodeExecutors_PanicsOnDuplicate(t *testing.T) {
 	RegisterAllNodeExecutors(r, deps)
 }
 
-// ===== 辅助函数测试 =====
 
 func TestFirstOrEmpty(t *testing.T) {
 	if firstOrEmpty(nil) != "" {
@@ -836,7 +781,6 @@ func TestContainsString(t *testing.T) {
 	}
 }
 
-// ===== JSON 序列化兼容性测试 =====
 
 func TestLLMDecision_JSONRoundTrip(t *testing.T) {
 	original := llmDecision{NextNodeID: "close", Reason: "高意向"}
@@ -854,7 +798,6 @@ func TestLLMDecision_JSONRoundTrip(t *testing.T) {
 }
 
 func TestLLMDecision_FieldNamesMatchJSONContract(t *testing.T) {
-	// 确保 JSON 字段名符合 LLM 返回契约：next_node_id / reason
 	original := llmDecision{NextNodeID: "x", Reason: "y"}
 	data, _ := json.Marshal(original)
 	var raw map[string]any
@@ -869,3 +812,4 @@ func TestLLMDecision_FieldNamesMatchJSONContract(t *testing.T) {
 
 // 引用 llm 包以确保导入（避免 unused import 在条件编译下被误判）
 var _ llm.DispatchScenario = llm.ScenarioHighQuality
+

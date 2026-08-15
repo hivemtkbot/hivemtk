@@ -17,7 +17,6 @@ import (
 //   - user-server/Dockerfile:57 ENV SERVER_PORT=8204
 func TestPortsConstants(t *testing.T) {
 	t.Run("PortValues", func(t *testing.T) {
-		// 字面值断言：调整时必须同步 DEVELOPMENT.md §2.4
 		cases := []struct {
 			name string
 			got  string
@@ -54,7 +53,6 @@ func TestPortsConstants(t *testing.T) {
 		}
 	})
 	t.Run("URLDerivedFromPort", func(t *testing.T) {
-		// URL 常量必须派生自端口常量（不允许裸字面量）
 		cases := []struct {
 			name   string
 			url    string
@@ -75,7 +73,6 @@ func TestPortsConstants(t *testing.T) {
 		}
 	})
 	t.Run("InferenceBaseURLsContainPort", func(t *testing.T) {
-		// 推理栈 base_url 必须包含对应端口
 		cases := []struct {
 			name string
 			url  string
@@ -92,7 +89,6 @@ func TestPortsConstants(t *testing.T) {
 		}
 	})
 	t.Run("DockerBaseURLsContainPort", func(t *testing.T) {
-		// Docker 网络 base_url 必须包含对应端口
 		cases := []struct {
 			name string
 			url  string
@@ -109,7 +105,6 @@ func TestPortsConstants(t *testing.T) {
 		}
 	})
 	t.Run("BGEBaseURLsDerivedFromEmbeddingPort", func(t *testing.T) {
-		// BGE base_url 必须与 embedding 同源（同端口 8208）
 		cases := []struct {
 			name string
 			url  string
@@ -124,7 +119,6 @@ func TestPortsConstants(t *testing.T) {
 		}
 	})
 	t.Run("NonEmpty", func(t *testing.T) {
-		// 禁止任何字段为空（禁软启动）
 		all := map[string]string{
 			"DefaultListenPort":             DefaultListenPort,
 			"DefaultRedisPort":              DefaultRedisPort,
@@ -176,3 +170,4 @@ func TestPortsConstants_AlignWithBridge(t *testing.T) {
 		}
 	})
 }
+

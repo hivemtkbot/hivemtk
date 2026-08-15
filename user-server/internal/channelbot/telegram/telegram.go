@@ -19,16 +19,9 @@ import (
 
 const (
 	defaultAPIBase = "https://api.telegram.org"
-	// TGMessageMaxLength Telegram 单条消息最大字符数（官方 API 硬限制）
-	// 超过会被 TG 拒绝 400 "message is too long"。
-	// 拆分时按"按行/段"边界优先，避免在单词/字符中间截断。
 	TGMessageMaxLength = 4096
-	// TG_INLINE_ROWS_MAX / TG_INLINE_BUTTONS_PER_ROW TG inline_keyboard 上限
-	// 官方限制：最多 100 个按钮；每行最多 8 个。
-	// 超出时本实现自动截断。
 	TGInlineRowsMax          = 100
 	TGInlineButtonsPerRowMax = 8
-	// 默认出站重试参数（429/5xx）
 	tgSendMaxRetries  = 3
 	tgSendInitialWait = 200 * time.Millisecond
 	tgSendMaxWait     = 5 * time.Second
@@ -208,14 +201,12 @@ func splitMessage(text string, limit int) []string {
 	var out []string
 	for len(runes) > limit {
 		split := -1
-		// 1) 段落边界 "\n\n"（在前 limit 个 rune 范围内找最近）
 		for i := limit; i > 0; i-- {
 			if i+1 < len(runes) && runes[i] == '\n' && runes[i+1] == '\n' {
 				split = i + 2
 				break
 			}
 		}
-		// 2) 行边界 "\n"
 		if split == -1 {
 			for i := limit; i > 0; i-- {
 				if runes[i] == '\n' {
@@ -224,7 +215,6 @@ func splitMessage(text string, limit int) []string {
 				}
 			}
 		}
-		// 3) 句子边界
 		if split == -1 {
 			for i := limit; i > 0; i-- {
 				if isSentenceSep(runes[i]) {
@@ -233,7 +223,6 @@ func splitMessage(text string, limit int) []string {
 				}
 			}
 		}
-		// 4) 空格边界
 		if split == -1 {
 			for i := limit; i > 0; i-- {
 				if runes[i] == ' ' {
@@ -242,7 +231,6 @@ func splitMessage(text string, limit int) []string {
 				}
 			}
 		}
-		// 5) 硬切兜底
 		if split <= 0 {
 			split = limit
 		}
@@ -433,7 +421,6 @@ func VerifyWebhook(secret, headerSecret string) bool {
 	return core.SecureEqual(secret, headerSecret)
 }
 
-// ---- 被动：入站 Update 解析 ----
 
 // Update Telegram webhook 推送的 Update 结构（精简版）
 type Update struct {
@@ -516,7 +503,6 @@ func (u *Update) ToInbound(accountID string) *core.InboundMessage {
 		msg = u.ChannelPost
 	}
 	if msg == nil {
-		// 回调查询（按钮点击）：合成入站消息，文本为 "/callback " + data
 		if u.CallbackQuery != nil && u.CallbackQuery.From != nil {
 			cb := u.CallbackQuery
 			chatID := ""
@@ -592,9 +578,9 @@ func (u *Update) Ingress(ctx context.Context, h core.IngressHandler, accountID s
 		return nil
 	}
 	event := inbound.ToMessageEvent(accountID)
-	// update_id 幂等：覆盖 EventID，使中台落库的 msg_id 与 TG 重投去重对齐
 	if u.UpdateID != 0 {
 		event.EventID = "tg_upd_" + strconv.FormatInt(u.UpdateID, 10)
 	}
 	return h.HandleIngressMessage(ctx, event)
 }
+

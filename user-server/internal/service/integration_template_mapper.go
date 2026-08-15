@@ -31,3 +31,4 @@ func FromIntegrationTemplateModel(t *model.IntegrationTemplate) *dto.Integration
 		UpdatedAt:  t.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z"),
 	}
 }
+

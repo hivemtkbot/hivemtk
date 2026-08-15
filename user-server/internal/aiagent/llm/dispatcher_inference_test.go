@@ -33,7 +33,6 @@ func TestNewDispatcherFromConfig_LocalFirst(t *testing.T) {
 
 	d := NewDispatcherFromConfig(cfg)
 
-	// 1) 本地 default provider 必须启用
 	def, ok := d.providers["default"]
 	if !ok {
 		t.Fatal("default provider 未注册")
@@ -45,7 +44,6 @@ func TestNewDispatcherFromConfig_LocalFirst(t *testing.T) {
 		t.Fatalf("default base_url 错误: %s", def.BaseURL)
 	}
 
-	// 2) 云端厂商默认禁用（无 api_key）
 	for _, name := range []string{"deepseek"} {
 		p, ok := d.providers[name]
 		if !ok {
@@ -56,7 +54,6 @@ func TestNewDispatcherFromConfig_LocalFirst(t *testing.T) {
 		}
 	}
 
-	// 3) 所有场景主路由指向 default
 	if len(d.routes) == 0 {
 		t.Fatal("未注册任何场景路由")
 	}
@@ -89,3 +86,4 @@ func TestNewDispatcherFromConfig_CloudOptIn(t *testing.T) {
 		t.Fatal("default 仍应启用")
 	}
 }
+

@@ -1,13 +1,5 @@
 package migrations
 
-// llm_routing_logs_migration.go 创建 llm_routing_logs / llm_routing_audit 两张表
-//
-// 背景：
-// 1. 文档承诺 llm_routings / llm_provider_health / llm_routing_logs 三张表长期未建，
-//    本次先补 llm_routing_logs（每次 dispatch 落一条）与 llm_routing_audit（路由变更审计）。
-// 2. 满足"本地模型如何统计总量"和"场景路由如何处理"两个核心可观测性诉求。
-// 3. 两表均带 scenario 维度，可按 (scenario, provider, day) 聚合。
-// 4. 幂等可重入。
 
 import (
 	"context"
@@ -47,7 +39,6 @@ func (m *LLMRoutingLogsMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 	stmts := []string{
-		// 1. dispatch 调用日志（每次 Dispatch 落一条）
 		`CREATE TABLE IF NOT EXISTS llm_routing_logs (
 			id              BIGSERIAL PRIMARY KEY,
 			trace_id        VARCHAR(64),
@@ -68,7 +59,6 @@ func (m *LLMRoutingLogsMigration) Up(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS idx_llm_routing_logs_provider ON llm_routing_logs (provider)`,
 		`CREATE INDEX IF NOT EXISTS idx_llm_routing_logs_created_at ON llm_routing_logs (created_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_llm_routing_logs_trace_id ON llm_routing_logs (trace_id)`,
-		// 2. 路由变更审计（每次 SetRoute 落一条）
 		`CREATE TABLE IF NOT EXISTS llm_routing_audit (
 			id              BIGSERIAL PRIMARY KEY,
 			scenario        VARCHAR(64)    NOT NULL,
@@ -115,3 +105,4 @@ func (m *LLMRoutingLogsMigration) Down(ctx context.Context) error {
 
 // compile-time 接口断言
 var _ migration.Migration = (*LLMRoutingLogsMigration)(nil)
+

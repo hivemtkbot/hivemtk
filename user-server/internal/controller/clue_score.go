@@ -34,7 +34,6 @@ func (c *ClueScoreController) ScoreClue(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "参数错误: "+err.Error())
 		return
 	}
-	// 加载线索
 	clue, err := c.svc.LoadClueForScoring(context.Background(), req.ClueID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, "线索不存在")
@@ -135,3 +134,4 @@ func (c *ClueScoreController) RecordEngagement(ctx *gin.Context) {
 	}
 	response.Success(ctx, nil, "ok")
 }
+

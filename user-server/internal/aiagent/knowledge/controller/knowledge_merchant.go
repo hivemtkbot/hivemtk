@@ -34,38 +34,27 @@ func NewKnowledgeMerchantController() *KnowledgeMerchantController {
 func (ctrl *KnowledgeMerchantController) RegisterRoutes(router *gin.RouterGroup) {
 	g := router.Group("/knowledge-merchant")
 	{
-		// 1) 批量导入
 		g.POST("/batch/import", ctrl.BatchImport)
 		g.POST("/batch/upload", ctrl.BatchUpload)
 
-		// 2) Playground
 		g.POST("/playground", ctrl.Playground)
 
-		// 3) 分段编辑
 		g.GET("/documents/:id/chunks", ctrl.ListDocumentChunks)
 		g.PUT("/chunks/:id", ctrl.UpdateChunk)
 		g.DELETE("/chunks/:id", ctrl.DeleteChunk)
 		g.POST("/chunks/:id/split", ctrl.SplitChunk)
 
-		// 4) 反馈
 		g.POST("/feedback", ctrl.SubmitFeedback)
 		g.GET("/feedbacks", ctrl.ListFeedbacks)
 
-		// 5) API Token
 		g.POST("/tokens", ctrl.CreateToken)
 		g.GET("/tokens", ctrl.ListTokens)
 		g.POST("/tokens/:id/revoke", ctrl.RevokeToken)
 
-		// 6) 外部系统接入
-		// POST /external/import 由 admin_routes.go 注册为公开路由（无需 JWT,使用 API Token 鉴权）
-		// 这里只保留 /external/jobs 供前端查询任务状态
 		g.GET("/external/jobs", ctrl.ListExternalJobs)
 	}
 }
 
-// ============================================================================
-// 1) 批量导入
-// ============================================================================
 
 // BatchImport JSON 体导入
 func (ctrl *KnowledgeMerchantController) BatchImport(c *gin.Context) {
@@ -113,9 +102,6 @@ func (ctrl *KnowledgeMerchantController) BatchUpload(c *gin.Context) {
 	response.Success(c, result, "批量导入完成")
 }
 
-// ============================================================================
-// 2) Playground
-// ============================================================================
 
 func (ctrl *KnowledgeMerchantController) Playground(c *gin.Context) {
 	var req service.PlaygroundRequest
@@ -131,9 +117,6 @@ func (ctrl *KnowledgeMerchantController) Playground(c *gin.Context) {
 	response.Success(c, result, "")
 }
 
-// ============================================================================
-// 3) 分段编辑
-// ============================================================================
 
 func (ctrl *KnowledgeMerchantController) ListDocumentChunks(c *gin.Context) {
 	idStr := c.Param("id")
@@ -207,9 +190,6 @@ func (ctrl *KnowledgeMerchantController) SplitChunk(c *gin.Context) {
 	response.Success(c, nil, "拆分成功")
 }
 
-// ============================================================================
-// 4) 反馈
-// ============================================================================
 
 func (ctrl *KnowledgeMerchantController) SubmitFeedback(c *gin.Context) {
 	var req service.SubmitFeedbackRequest
@@ -232,7 +212,6 @@ func (ctrl *KnowledgeMerchantController) ListFeedbacks(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	rating, _ := strconv.Atoi(c.DefaultQuery("rating", "0"))
-	// 简化：rating=0 当作"全部"
 	filter := 999
 	if rating >= -1 && rating <= 1 {
 		filter = rating
@@ -250,9 +229,6 @@ func (ctrl *KnowledgeMerchantController) ListFeedbacks(c *gin.Context) {
 	response.Success(c, gin.H{"items": list, "total": total, "page": page, "page_size": pageSize}, "")
 }
 
-// ============================================================================
-// 5) API Token
-// ============================================================================
 
 func (ctrl *KnowledgeMerchantController) CreateToken(c *gin.Context) {
 	var req service.CreateTokenRequest
@@ -295,9 +271,6 @@ func (ctrl *KnowledgeMerchantController) RevokeToken(c *gin.Context) {
 	response.Success(c, nil, "已吊销")
 }
 
-// ============================================================================
-// 6) 外部系统接入
-// ============================================================================
 
 func (ctrl *KnowledgeMerchantController) ExternalImport(c *gin.Context) {
 	var req service.ExternalImportRequest
@@ -305,7 +278,6 @@ func (ctrl *KnowledgeMerchantController) ExternalImport(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "请求参数错误")
 		return
 	}
-	// Token 从 Header 读取：X-Knowledge-Token
 	req.Token = c.GetHeader("X-Knowledge-Token")
 	if req.Token == "" {
 		req.Token = c.Query("token")
@@ -332,3 +304,4 @@ func (ctrl *KnowledgeMerchantController) ListExternalJobs(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"items": list, "total": total, "page": page, "page_size": pageSize}, "")
 }
+

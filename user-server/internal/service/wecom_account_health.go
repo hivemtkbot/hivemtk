@@ -36,11 +36,8 @@ const (
 	WeComLoginOffline = "offline"
 	WeComLoginBanned  = "banned"
 
-	// 默认权重配置
 	WeComDefaultWeight = 100
-	// 错误率超阈值后自动降权
 	WeComErrorRateDegradeThreshold = 0.3
-	// 配额超阈值后自动降权
 	WeComQuotaDegradeThreshold = 0.9
 )
 
@@ -86,7 +83,6 @@ func (s *WeComAccountHealthService) ReportHealth(ctx context.Context, req *Repor
 	if s.healthRepo == nil {
 		return nil, fmt.Errorf("db is nil")
 	}
-	// 私域独立部署：无 merchant_id 校验
 	if req.AccountID == 0 {
 		return nil, ErrWeComInvalidAccountID
 	}
@@ -95,16 +91,13 @@ func (s *WeComAccountHealthService) ReportHealth(ctx context.Context, req *Repor
 		platform = "wecom"
 	}
 
-	// 计算配额使用率
 	quotaRate := 0.0
 	if req.QuotaTotal > 0 {
 		quotaRate = float64(req.QuotaUsed) / float64(req.QuotaTotal)
 	}
 
-	// 计算健康分
 	score := computeHealthScore(req.LoginState, quotaRate, req.SuccessRate, req.ErrorCount)
 
-	// 计算风险等级
 	risk := computeRiskLevel(score, req.LoginState)
 
 	now := time.Now()
@@ -131,7 +124,6 @@ func (s *WeComAccountHealthService) ReportHealth(ctx context.Context, req *Repor
 		return nil, err
 	}
 
-	// 同步更新账号主表
 	s.syncAccountState(ctx, req.AccountID, req.LoginState, score, risk, quotaRate, req.LastError)
 
 	return rec, nil
@@ -142,7 +134,6 @@ func (s *WeComAccountHealthService) GetLatestHealth(ctx context.Context, account
 	if s.healthRepo == nil {
 		return nil, fmt.Errorf("db is nil")
 	}
-	// 私域独立部署：无 merchant_id 字段
 	rec, err := s.healthRepo.GetLatestByAccountID(ctx, accountID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -164,7 +155,6 @@ func (s *WeComAccountHealthService) ListHealthHistory(ctx context.Context, accou
 	if pageSize < 1 || pageSize > 200 {
 		pageSize = 20
 	}
-	// 私域独立部署：无 merchant_id 字段
 	return s.healthRepo.ListByAccountIDPaged(ctx, accountID, page, pageSize)
 }
 
@@ -191,7 +181,6 @@ func (s *WeComAccountHealthService) SelectHealthyAccount(ctx context.Context) (*
 	if len(accounts) == 0 {
 		return nil, ErrWeComAccountNotFound
 	}
-	// 按健康度与权重排序
 	sort.Slice(accounts, func(i, j int) bool {
 		scoreI := accountHealthFromModel(&accounts[i])
 		scoreJ := accountHealthFromModel(&accounts[j])
@@ -200,7 +189,6 @@ func (s *WeComAccountHealthService) SelectHealthyAccount(ctx context.Context) (*
 		}
 		return accounts[i].Weight > accounts[j].Weight
 	})
-	// 配额使用率最低优先
 	sort.SliceStable(accounts, func(i, j int) bool {
 		rateI := 0.0
 		if accounts[i].DailyMsgQuota > 0 {
@@ -224,7 +212,6 @@ func (s *WeComAccountHealthService) ConsumeQuota(ctx context.Context, accountID 
 	if count <= 0 {
 		return nil
 	}
-	// 检查账号状态
 	acc, err := s.accountRepo.GetByID(ctx, accountID)
 	if err != nil {
 		return err
@@ -251,8 +238,6 @@ func (s *WeComAccountHealthService) ResetDailyQuota(ctx context.Context) (int64,
 		return 0, nil
 	}
 	now := time.Now()
-	// 单租户部署：无 merchant_id 字段，重置所有账号的日配额
-	// GORM 批量 Updates 必须带 WHERE，使用 1=1 占位（语义上等同无条件更新）
 	return s.accountRepo.UpdateAllFields(ctx, map[string]any{
 		"daily_msg_used": 0,
 		"quota_reset_at": now,
@@ -357,7 +342,6 @@ func computeHealthScore(loginState string, quotaRate, successRate float64, error
 	if loginState == WeComLoginOffline {
 		score -= 50
 	}
-	// 配额使用率
 	if quotaRate > 0.95 {
 		score -= 25
 	} else if quotaRate > WeComQuotaDegradeThreshold {
@@ -365,7 +349,6 @@ func computeHealthScore(loginState string, quotaRate, successRate float64, error
 	} else if quotaRate > 0.7 {
 		score -= 5
 	}
-	// 成功率
 	if successRate < 50 {
 		score -= 30
 	} else if successRate < 80 {
@@ -373,7 +356,6 @@ func computeHealthScore(loginState string, quotaRate, successRate float64, error
 	} else if successRate < 95 {
 		score -= 5
 	}
-	// 错误数
 	if errorCount > 50 {
 		score -= 35
 	} else if errorCount > 20 {
@@ -421,13 +403,11 @@ func (s *WeComAccountHealthService) syncAccountState(ctx context.Context, accoun
 	if lastErr != "" {
 		updates["last_error_at"] = time.Now()
 		updates["last_error_msg"] = lastErr
-		// 直接使用 gorm.Expr 自增。
 		updates["error_count"] = gorm.Expr("error_count + 1")
 	}
 	if quotaRate > WeComQuotaDegradeThreshold && risk == WeComRiskNormal {
 		updates["risk_level"] = WeComRiskWarning
 	}
-	// 私域独立部署：无 merchant_id 字段
 	_ = s.accountRepo.UpdateFields(ctx, accountID, updates)
 }
 
@@ -450,7 +430,6 @@ var (
 // 避免 panic。生产路径仍应在启动时调用 InitWeComAccountHealthService(db) 注入真实 db。
 func GetWeComAccountHealthService() *WeComAccountHealthService {
 	if wecomHealthInstance == nil {
-		// 测试场景：构造一个 db=nil 的实例用于占位访问
 		wecomHealthInstance = &WeComAccountHealthService{}
 	}
 	return wecomHealthInstance
@@ -463,3 +442,4 @@ func InitWeComAccountHealthService(db *gorm.DB) *WeComAccountHealthService {
 	})
 	return wecomHealthInstance
 }
+

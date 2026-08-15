@@ -26,3 +26,4 @@
 // 工具执行时通过 deps.Customer / deps.Session / deps.Order / deps.FollowUp
 // 等端口字段访问业务能力，不再持有具体 service 实例引用。
 package portcontract
+

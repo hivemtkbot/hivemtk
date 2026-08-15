@@ -6,16 +6,6 @@ import (
 	"time"
 )
 
-// ============================================================================
-// Perception Stage 感知阶段实现
-// ----------------------------------------------------------------------------
-// 文档依据：方向4 阶段1 情绪感知 + 阶段2 意图识别
-// 合并为单一阶段，编排器在 InferenceCycle 视为一个 stage
-//
-// 顺序：
-//  1. SentimentAnalyzer.Analyze → SentimentScore
-//  2. IntentRecognizer.Recognize → IntentResult
-// ============================================================================
 
 // DefaultPerceptionStage 默认感知阶段（基于规则 + 关键词）
 //
@@ -50,10 +40,8 @@ func (p *DefaultPerceptionStage) Name() string {
 func (p *DefaultPerceptionStage) Execute(ctx context.Context, ic *InferenceContext) StageResult {
 	start := time.Now()
 
-	// 1. 情绪分析
 	ic.Sentiment = p.Sentiment.Analyze(ctx, ic.Payload.Content)
 
-	// 2. 意图识别
 	hint := map[string]string{
 		"channel":    ic.Payload.ChannelType,
 		"account_id": ic.Payload.AccountID,
@@ -63,7 +51,6 @@ func (p *DefaultPerceptionStage) Execute(ctx context.Context, ic *InferenceConte
 	}
 	ic.Intent = p.Intent.Recognize(ctx, ic.Payload.Content, hint)
 
-	// 3. 记录决策
 	ic.Stages = append(ic.Stages, StageDecision{
 		Stage:    p.Name(),
 		Action:   "analyze",
@@ -75,16 +62,12 @@ func (p *DefaultPerceptionStage) Execute(ctx context.Context, ic *InferenceConte
 	return ContinueResult()
 }
 
-// ============================================================================
-// KeywordSentimentAnalyzer 基于关键词的情绪分析器
-// ============================================================================
 
 // KeywordSentimentAnalyzer 关键词情绪分析器
 //
 // 字典驱动，覆盖中英文常见情绪词
 // 真实生产可替换为 LLM-based 或 BERT 模型
 type KeywordSentimentAnalyzer struct {
-	// 词 → 权重
 	AngryWords    map[string]float64
 	AnxiousWords  map[string]float64
 	AppreciWords  map[string]float64
@@ -133,7 +116,6 @@ func (k *KeywordSentimentAnalyzer) Analyze(ctx context.Context, text string) Sen
 		SentimentConfused: 0,
 	}
 
-	// 累加每类关键词
 	for word, weight := range k.AngryWords {
 		if strings.Contains(text, word) {
 			scores[SentimentAngry] += weight
@@ -170,7 +152,6 @@ func (k *KeywordSentimentAnalyzer) Analyze(ctx context.Context, text string) Sen
 		}
 	}
 
-	// 归一化
 	if maxScore > 1.0 {
 		maxScore = 1.0
 	}
@@ -182,9 +163,6 @@ func (k *KeywordSentimentAnalyzer) Analyze(ctx context.Context, text string) Sen
 	}
 }
 
-// ============================================================================
-// KeywordIntentRecognizer 基于关键词的意图识别器
-// ============================================================================
 
 // KeywordIntentRecognizer 关键词意图识别器
 type KeywordIntentRecognizer struct {
@@ -195,7 +173,6 @@ type KeywordIntentRecognizer struct {
 // SlotPattern 槽位正则模式
 type SlotPattern struct {
 	Key string
-	// 简化：词表匹配（真实场景用正则）
 	Words []string
 }
 
@@ -249,13 +226,11 @@ func (r *KeywordIntentRecognizer) Recognize(ctx context.Context, text string, hi
 		}
 	}
 
-	// 简单 fallback：包含 "?" 默认为 inquiry
 	if primary == IntentUnknown && (strings.Contains(text, "?") || strings.Contains(text, "？")) {
 		primary = IntentInquiry
 		maxCount = 1
 	}
 
-	// 槽位抽取
 	tags := map[string]string{}
 	for _, p := range r.SlotPatterns {
 		for _, w := range p.Words {
@@ -266,7 +241,6 @@ func (r *KeywordIntentRecognizer) Recognize(ctx context.Context, text string, hi
 		}
 	}
 
-	// 置信度：粗略归一化
 	score := 0.5
 	if maxCount > 0 {
 		score = 0.5 + float64(maxCount)*0.15
@@ -282,3 +256,4 @@ func (r *KeywordIntentRecognizer) Recognize(ctx context.Context, text string, hi
 		Tags:      tags,
 	}
 }
+

@@ -196,9 +196,9 @@ func (dm *PgDialogManager) startSessionCleanup() {
 	ticker := time.NewTicker(dm.config.SessionCleanupInterval)
 	defer ticker.Stop()
 	for range ticker.C {
-		// 后台清理任务,使用 background ctx,不受任何上游取消影响
 		if err := dm.CleanupExpiredSessions(context.Background()); err != nil {
 			logger.Errorf("[PgDialogManager] 清理过期会话失败: %v", err)
 		}
 	}
 }
+

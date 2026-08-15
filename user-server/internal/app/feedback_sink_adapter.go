@@ -12,31 +12,10 @@ import (
 	feedbackloop "hivemtk-user/internal/service/feedback_loop"
 )
 
-// feedback_sink_adapter.go : FeedbackCollector → FeedbackSink 适配器
-//
-// 五层架构归属: L1 路由层（适配器层）
-// 设计依据: docs/核心链路优化.md 第十七章 §17.4.1
-//
-// 职责：
-//   将 tooluse.ToolCallEvent 转换为 dto.CollectRequest，
-//   提交给 feedbackloop.FeedbackCollector.Collect（异步队列）。
-//
-// 设计要点：
-//   1. 位于 router 层，打破 tooluse ↔ service 循环依赖
-//   2. ToolCallEvent → CollectRequest 映射：
-//        ToolName + Success → SignalKey=tool_call, SignalValue=success/failure
-//        Args → Metadata.args
-//        Duration → Metadata.duration_ms
-//        TraceID → Metadata.trace_id
-//        AgentID/CustomerID/SessionID → 对应字段
-//   3. 使用 FeedbackCollector.Collect（异步队列，<1ms 返回）
-//      不使用 CollectSync（同步会阻塞反馈回流 goroutine）
-//   4. 内部计数器统计回流成功/失败次数，便于监控
 
 // FeedbackCollectorAdapter 适配器
 type FeedbackCollectorAdapter struct {
 	collector *feedbackloop.FeedbackCollector
-	// 统计计数（原子操作）
 	successCount atomic.Int64
 	failedCount  atomic.Int64
 }
@@ -66,13 +45,11 @@ func (a *FeedbackCollectorAdapter) RecordToolCall(ctx context.Context, event too
 		return nil
 	}
 
-	// 构造反馈信号值（成功=1.0，失败=0.0）
 	signalValue := 0.0
 	if event.Success {
 		signalValue = 1.0
 	}
 
-	// 构造 Metadata（包含工具调用详情，便于后续分析）
 	metadata := map[string]any{
 		"tool_name":   event.ToolName,
 		"duration_ms": event.Duration.Milliseconds(),
@@ -89,25 +66,22 @@ func (a *FeedbackCollectorAdapter) RecordToolCall(ctx context.Context, event too
 	if event.Version != "" {
 		metadata["version"] = event.Version
 	}
-	// 参数序列化（脱敏后，控制大小）
 	if argsJSON, err := marshalArgs(event.Args); err == nil {
 		metadata["args"] = argsJSON
 	}
 
-	// 构造 CollectRequest
 	req := &dto.CollectRequest{
 		SessionID:   event.SessionID,
 		CustomerID:  event.CustomerID,
 		EventType:   dto.FBEventTypeImplicit,
-		SignalKey:   "tool_call", // 工具调用信号
+		SignalKey:   "tool_call", 
 		SignalValue: signalValue,
-		AIReply:     "", // 不传 args JSON 到 AIReply，避免污染销冠分析
-		CustomerMsg: "", // 不传 result JSON 到 CustomerMsg
+		AIReply:     "", 
+		CustomerMsg: "", 
 		Metadata:    metadata,
-		CreatedBy:   0, // 系统提交
+		CreatedBy:   0, 
 	}
 
-	// 提交到 FeedbackCollector 异步队列
 	if err := a.collector.Collect(ctx, req); err != nil {
 		a.failedCount.Add(1)
 		logger.Warnf("[FeedbackSink] collect failed: tool=%s trace=%s err=%v",
@@ -151,3 +125,4 @@ func marshalArgs(args map[string]any) (string, error) {
 	}
 	return string(b), nil
 }
+

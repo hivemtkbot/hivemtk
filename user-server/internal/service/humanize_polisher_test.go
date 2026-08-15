@@ -6,28 +6,11 @@ import (
 	"testing"
 )
 
-// =============================================================================
-// HumanizePolisher 拟人润色器 - 单元测试
-// =============================================================================
-// 覆盖策略：
-//   1. AI 痕迹去除（11 类）         - 11 用例
-//   2. 多余符号压缩（! ? .）         - 8 用例
-//   3. 平台风格适配（7 平台）        - 14 用例
-//   4. 长度截断（边界 0/1/80/81/200）- 10 用例
-//   5. 个性化称呼（5 场景）          - 6 用例
-//   6. 语气词添加（5 场景）          - 8 用例
-//   7. 端到端集成（10 综合场景）     - 10 用例
-//   8. 边界与异常（15 场景）         - 15 用例
-// 合计 100+ 用例，覆盖所有公开 API 与内部 helper
-// =============================================================================
 
-// -----------------------------------------------------------------------------
-// 1. AI 痕迹去除
-// -----------------------------------------------------------------------------
 
 func TestHumanize_RemoveAITraces(t *testing.T) {
 	p := NewHumanizePolisher()
-	p.enableTruncation = false // 关闭截断以便检查完整输出
+	p.enableTruncation = false 
 	cases := []struct {
 		name     string
 		input    string
@@ -45,9 +28,7 @@ func TestHumanize_RemoveAITraces(t *testing.T) {
 		{"根据您提供的信息", "根据您提供的信息，推荐 A 方案", "推荐 A 方案", "根据您提供的信息"},
 		{"我理解您的", "我理解您的疑问，请稍等", "疑问，请稍等", "我理解您的"},
 		{"作为您的销售顾问", "作为您的销售顾问 我建议您考虑", "我建议您考虑", "作为您的销售顾问"},
-		// 多个 AI 痕迹同时出现
 		{"多重 AI 痕迹", "作为 AI 助手，根据您提供的信息，我推荐", "我推荐", "作为 AI 助手"},
-		// 不含 AI 痕迹
 		{"无 AI 痕迹", "价格 199，下单包邮", "价格 199", ""},
 	}
 	for _, c := range cases {
@@ -66,9 +47,6 @@ func TestHumanize_RemoveAITraces(t *testing.T) {
 	}
 }
 
-// -----------------------------------------------------------------------------
-// 2. 多余符号压缩
-// -----------------------------------------------------------------------------
 
 func TestHumanize_RemoveExtraSymbols(t *testing.T) {
 	p := NewHumanizePolisher()
@@ -88,7 +66,7 @@ func TestHumanize_RemoveExtraSymbols(t *testing.T) {
 		{"单个 ? 不变", "真的吗?", "真的吗?"},
 		{"连续 . 4 个", "嗯......", "嗯……"},
 		{"连续 . 5 个", "嗯.....", "嗯……"},
-		{"2 个 . 不变", "嗯..", "嗯.."}, // 设计只处理 3+
+		{"2 个 . 不变", "嗯..", "嗯.."}, 
 		{"全角省略号不变", "嗯……", "嗯……"},
 	}
 	for _, c := range cases {
@@ -101,9 +79,6 @@ func TestHumanize_RemoveExtraSymbols(t *testing.T) {
 	}
 }
 
-// -----------------------------------------------------------------------------
-// 3. 平台风格适配
-// -----------------------------------------------------------------------------
 
 func TestHumanize_PlatformStyle(t *testing.T) {
 	p := NewHumanizePolisher()
@@ -115,31 +90,19 @@ func TestHumanize_PlatformStyle(t *testing.T) {
 		mustHave []string
 		mustMiss []string
 	}{
-		// wechat - 允许 emoji
 		{"wechat 允许 emoji", "已发货😊，请查收", "wechat", []string{"😊"}, nil},
-		// douyin
 		{"douyin 允许 emoji", "买它🔥🔥", "douyin", []string{"🔥"}, nil},
-		// xiaohongshu
 		{"小红书 允许 emoji", "姐妹们🌟冲啊", "xiaohongshu", []string{"🌟"}, nil},
-		// 邮件：不允许 emoji
 		{"邮件去除 emoji", "已收到 😊，谢谢", "email", nil, []string{"😊"}},
 		{"邮件全角 emoji 去除", "已收到 😁，谢谢", "email", nil, []string{"😁"}},
-		// 邮件：允许正式语气
 		{"邮件正式语气 嗯→是的", "嗯 好的", "email", []string{"是的"}, nil},
-		// IM 类：允许正式
 		{"whatsapp 正式 哈哈→呵呵", "哈哈 好的", "whatsapp", []string{"呵呵"}, nil},
-		// 大小写不敏感
 		{"WeChat 大小写", "ok", "WeChat", nil, nil},
 		{"XHS 简写", "ok", "xhs", nil, nil},
-		// 未知平台：使用默认
 		{"未知平台", "ok", "unknown_platform_xyz", nil, nil},
-		// 不带 platform
 		{"nil context", "ok", "", nil, nil},
-		// 邮件无 emoji + 无正式语气
 		{"邮件 短句", "好", "email", []string{"好"}, nil},
-		// 微信保留 emoji
 		{"weixin 别名", "ok😊", "weixin", []string{"😊"}, nil},
-		// telegram 当作 IM
 		{"telegram", "哈哈", "telegram", nil, nil},
 	}
 	for _, c := range cases {
@@ -160,17 +123,14 @@ func TestHumanize_PlatformStyle(t *testing.T) {
 	}
 }
 
-// -----------------------------------------------------------------------------
-// 4. 长度截断
-// -----------------------------------------------------------------------------
 
 func TestHumanize_Truncation(t *testing.T) {
 	cases := []struct {
 		name      string
 		input     string
-		maxLen    int  // 期望的 maxLength（直接覆盖结构体字段）
-		exLen     int  // expected length (in runes)
-		shouldEnd bool // 是否应该以 "…" 结尾
+		maxLen    int  
+		exLen     int  
+		shouldEnd bool 
 	}{
 		{"不超长 默认 80", "短文本", 80, 3, false},
 		{"正好 80", strings.Repeat("中", 80), 80, 80, false},
@@ -178,11 +138,11 @@ func TestHumanize_Truncation(t *testing.T) {
 		{"100 截断到 80", strings.Repeat("中", 100), 80, 80, true},
 		{"200 截断到 80", strings.Repeat("a", 200), 80, 80, true},
 		{"maxLen 0 不截断", strings.Repeat("中", 100), 0, 100, false},
-		{"maxLen 1", "中文", 1, 1, true},  // "" + "…"
-		{"maxLen 2", "中文", 2, 2, false}, // 2 <= 2 不截断
-		{"maxLen 3", "中文", 3, 2, false}, // 2 < 3 不截断
+		{"maxLen 1", "中文", 1, 1, true},  
+		{"maxLen 2", "中文", 2, 2, false}, 
+		{"maxLen 3", "中文", 3, 2, false}, 
 		{"空串", "", 80, 0, false},
-		{"半角 ASCII 截断", "abcdefghij", 5, 5, true}, // "abcd" + "…"
+		{"半角 ASCII 截断", "abcdefghij", 5, 5, true}, 
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -213,9 +173,6 @@ func TestHumanize_TruncationDisabled(t *testing.T) {
 	}
 }
 
-// -----------------------------------------------------------------------------
-// 5. 个性化称呼
-// -----------------------------------------------------------------------------
 
 func TestHumanize_Personalization(t *testing.T) {
 	p := NewHumanizePolisher()
@@ -227,7 +184,6 @@ func TestHumanize_Personalization(t *testing.T) {
 		platform string
 		mustHave string
 	}{
-		// 注意：当前实现对"未识别"类回复以外的场景不强制加称呼
 		{"含名字 不重复加", "王先生，您好", "王先生", "wechat", "王先生"},
 		{"含亲 不再加", "亲，欢迎光临", "张三", "wechat", "亲"},
 		{"含您 不再加", "您说得对", "张三", "wechat", "您说得对"},
@@ -246,9 +202,6 @@ func TestHumanize_Personalization(t *testing.T) {
 	}
 }
 
-// -----------------------------------------------------------------------------
-// 6. 语气词添加
-// -----------------------------------------------------------------------------
 
 func TestHumanize_Particle(t *testing.T) {
 	p := NewHumanizePolisher()
@@ -259,23 +212,18 @@ func TestHumanize_Particle(t *testing.T) {
 		intent   string
 		expected string
 	}{
-		// 短回复加 嗯
 		{"好的 加 嗯", "好的", "greeting", "嗯，好的"},
 		{"是的 加 嗯", "是的", "greeting", "嗯，是的"},
 		{"可以 加 嗯", "可以", "greeting", "嗯，可以"},
 		{"没问题 加 嗯", "没问题", "greeting", "嗯，没问题"},
 		{"OK 加 嗯", "OK", "greeting", "嗯，OK"},
-		// 投诉类不加
 		{"投诉不加", "好的", "complaint", "好的"},
 		{"流失倾向不加", "好的", "churn", "好的"},
 		{"售后不加", "好的", "after_sale", "好的"},
-		// 非短回复不加
 		{"长文本不加", "感谢您的支持，我们会尽快处理", "greeting", "感谢您的支持，我们会尽快处理"},
-		// 边界 60 字
 		{"60 字 不加", strings.Repeat("中", 60), "greeting", strings.Repeat("中", 60)},
 		{"61 字 不加", strings.Repeat("中", 61), "greeting", strings.Repeat("中", 61)},
 		{"59 字 不加", strings.Repeat("中", 59), "greeting", strings.Repeat("中", 59)},
-		// 空文本
 		{"空文本", "", "greeting", ""},
 	}
 	for _, c := range cases {
@@ -299,9 +247,6 @@ func TestHumanize_ParticleDisabled(t *testing.T) {
 	}
 }
 
-// -----------------------------------------------------------------------------
-// 7. 端到端集成
-// -----------------------------------------------------------------------------
 
 func TestHumanize_EndToEnd(t *testing.T) {
 	p := NewHumanizePolisher()
@@ -397,9 +342,6 @@ func TestHumanize_EndToEnd(t *testing.T) {
 	}
 }
 
-// -----------------------------------------------------------------------------
-// 8. 边界与异常
-// -----------------------------------------------------------------------------
 
 func TestHumanize_EdgeCases(t *testing.T) {
 	p := NewHumanizePolisher()
@@ -427,7 +369,6 @@ func TestHumanize_EdgeCases(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			// 不 panic 即可
 			out, err := p.Polish(context.Background(), c.input, c.pctx)
 			if err != nil {
 				t.Fatalf("unexpected err: %v", err)
@@ -437,9 +378,6 @@ func TestHumanize_EdgeCases(t *testing.T) {
 	}
 }
 
-// -----------------------------------------------------------------------------
-// 9. 内部 helper 单元测试
-// -----------------------------------------------------------------------------
 
 func TestHumanize_GetStyleForPlatform(t *testing.T) {
 	p := NewHumanizePolisher()
@@ -460,7 +398,7 @@ func TestHumanize_GetStyleForPlatform(t *testing.T) {
 		{"telegram", "im", true, true},
 		{"email", "email", false, true},
 		{"mail", "email", false, true},
-		{"unknown", "default", true, false}, // 默认风格
+		{"unknown", "default", true, false}, 
 	}
 	for _, c := range cases {
 		t.Run(c.platform, func(t *testing.T) {
@@ -480,23 +418,18 @@ func TestHumanize_GetStyleForPlatform(t *testing.T) {
 
 func TestHumanize_TruncateByLengthBoundary(t *testing.T) {
 	p := NewHumanizePolisher()
-	// maxLen = 0 不截断
 	if out := p.truncateByLength(context.Background(), "中文", 0); out != "中文" {
 		t.Errorf("maxLen=0 should not truncate, got %q", out)
 	}
-	// maxLen = 1 截到 0 + … = "…"
 	if out := p.truncateByLength(context.Background(), "中文", 1); out != "…" {
 		t.Errorf("maxLen=1 want '…' got %q", out)
 	}
-	// 不超长
 	if out := p.truncateByLength(context.Background(), "abc", 10); out != "abc" {
 		t.Errorf("len<max should not truncate, got %q", out)
 	}
-	// 正好等于
 	if out := p.truncateByLength(context.Background(), "abcde", 5); out != "abcde" {
 		t.Errorf("len==max should not truncate, got %q", out)
 	}
-	// 多 1 个
 	if out := p.truncateByLength(context.Background(), "abcdef", 5); out != "abcd…" {
 		t.Errorf("len>max should truncate, got %q", out)
 	}
@@ -504,7 +437,6 @@ func TestHumanize_TruncateByLengthBoundary(t *testing.T) {
 
 func TestHumanize_ShouldAddParticle(t *testing.T) {
 	p := NewHumanizePolisher()
-	// 投诉不加
 	if p.shouldAddParticle(context.Background(), &PolishContext{Intent: "complaint"}) {
 		t.Error("complaint should not add particle")
 	}
@@ -514,7 +446,6 @@ func TestHumanize_ShouldAddParticle(t *testing.T) {
 	if p.shouldAddParticle(context.Background(), &PolishContext{Intent: "after_sale"}) {
 		t.Error("after_sale should not add particle")
 	}
-	// 其他加
 	if !p.shouldAddParticle(context.Background(), &PolishContext{Intent: "greeting"}) {
 		t.Error("greeting should add particle")
 	}
@@ -528,31 +459,22 @@ func TestHumanize_ShouldAddParticle(t *testing.T) {
 
 func TestHumanize_Personalize(t *testing.T) {
 	p := NewHumanizePolisher()
-	// 空名字
 	if out := p.personalize(context.Background(), "ok", "", "wechat"); out != "ok" {
 		t.Errorf("empty name should not personalize, got %q", out)
 	}
-	// 已包含名字
 	if out := p.personalize(context.Background(), "王先生好", "王先生", "wechat"); out != "王先生好" {
 		t.Errorf("existing name should not duplicate, got %q", out)
 	}
-	// 已包含 亲
 	if out := p.personalize(context.Background(), "亲，欢迎", "张三", "wechat"); out != "亲，欢迎" {
 		t.Errorf("existing 亲 should not add, got %q", out)
 	}
-	// 已包含 您
 	if out := p.personalize(context.Background(), "您说的对", "张三", "wechat"); out != "您说的对" {
 		t.Errorf("existing 您 should not add, got %q", out)
 	}
 }
 
-// -----------------------------------------------------------------------------
-// 10. 统计：验证用例总数 ≥ 100
-// -----------------------------------------------------------------------------
 
 func TestHumanize_TestCaseCount(t *testing.T) {
-	// 这是一个"契约测试"，确保我们对每个功能点都有充分覆盖
-	// 实际用例数通过 `go test -v` 输出确认
 	t.Log("HumanizePolisher 测试覆盖：≥100 用例")
 	t.Log("  - AI 痕迹去除: 13")
 	t.Log("  - 多余符号压缩: 12")
@@ -565,3 +487,4 @@ func TestHumanize_TestCaseCount(t *testing.T) {
 	t.Log("  - 内部 helper: 5+6+3 = 14")
 	t.Log("  合计: ≥109")
 }
+

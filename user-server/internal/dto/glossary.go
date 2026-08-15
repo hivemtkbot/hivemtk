@@ -4,22 +4,15 @@ import (
 	"time"
 )
 
-// ============================================================================
-// 多语言术语表 DTO（v1.2 出海多语言方案）
-// ----------------------------------------------------------------------------
-// 五层架构归属：L2 数据传输层
-// 职责：HTTP 请求/响应数据结构定义 + DTO ↔ Model 互转
-// 私域独立部署：无 merchant_id
-// ============================================================================
 
 // GlossaryRequest 术语表创建/更新请求
 type GlossaryRequest struct {
 	TermID       string            `json:"term_id" binding:"required"`
-	Category     string            `json:"category" binding:"required"` // brand/sku/logistic/policy/other
+	Category     string            `json:"category" binding:"required"` 
 	Preserve     bool              `json:"preserve"`
-	Translations map[string]string `json:"translations" binding:"required"` // {lang: text}
+	Translations map[string]string `json:"translations" binding:"required"` 
 	Pattern      string            `json:"pattern"`
-	Status       string            `json:"status"` // active/inactive
+	Status       string            `json:"status"` 
 }
 
 // GlossaryUpdateRequest 术语更新请求（term_id 来自 URL 路径，body 无需重复提供）
@@ -56,13 +49,13 @@ type GlossaryListRequest struct {
 // GlossaryValidateRequest 术语校验预览请求
 type GlossaryValidateRequest struct {
 	Text   string `json:"text" binding:"required"`
-	Lang   string `json:"lang"`    // 目标语言（空则用 zh）
-	TermID string `json:"term_id"` // 可选：仅校验单个术语
+	Lang   string `json:"lang"`    
+	TermID string `json:"term_id"` 
 }
 
 // GlossaryValidateIssue 校验记录
 type GlossaryValidateIssue struct {
-	Type     string `json:"type"` // glossary_corrected / pattern_protected
+	Type     string `json:"type"` 
 	Term     string `json:"term"`
 	Expected string `json:"expected"`
 	Actual   string `json:"actual"`
@@ -75,5 +68,4 @@ type GlossaryValidateResponse struct {
 	Issues        []GlossaryValidateIssue `json:"issues"`
 }
 
-// DTO ↔ Model 互转函数已下沉至 service/translation 包（ToGlossaryModel / FromGlossaryModel /
-// FromGlossaryModelList），dto 层保持纯数据结构，不引用 model。
+

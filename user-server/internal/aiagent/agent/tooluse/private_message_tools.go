@@ -9,27 +9,11 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// private_message_tools.go 私信工具实现（智能体对话域核心）
-//
-// 私信模块（CustomerSessionService）是智能体「与用户链接」的载体：
-//   - 被动模式：渠道消息进入私信会话 → 智能体在会话内读取/回复（pm.session.read / pm.message.send）
-//   - 主动模式：智能体主动 pm.session.open 开启私信会话，直接触达用户（与短信/邮件互补的 1:1 对话触达）
-//
-// 注意：pm.* 与 reach.* 的关系
-//   - reach.* = 一对多外发（短信/邮件/卡片/各渠道广播），偏营销召回
-//   - pm.*    = 一对一私信会话（读/写/开），偏实时对话链接，是智能体真正的"对话域"
-//
-// 工具层完整走 Port：
-//   - 所有方法统一走 portcontract.SessionPort。
-//   - 装配期通过 NewPrivateMessageToolDepsWithPort 注入；为 nil 时工具返回 "port not injected"。
-//   - P2-3：已移除直连 service 的回退路径，tooluse 不再 import service。
 
 // PrivateMessageToolDeps 私信工具依赖
 //
 // 所有方法统一走 portcontract.SessionPort。
 type PrivateMessageToolDeps struct {
-	// Session 会话域 Port。
-	// 由装配层（internal/app）以 service.SessionPortAdapter 注入；nil 时工具返回 "port not injected"。
 	Session portcontract.SessionPort
 }
 
@@ -67,9 +51,6 @@ func RegisterPrivateMessageTools(registry *ToolRegistry, deps PrivateMessageTool
 	return nil
 }
 
-// ---------------------------------------------------------------------------
-// pm.session.open 主动开启私信会话（主动模式核心：与用户链接 / 唤起）
-// ---------------------------------------------------------------------------
 
 type openPrivateSessionTool struct {
 	BaseTool
@@ -128,9 +109,6 @@ func (t *openPrivateSessionTool) Execute(ctx context.Context, args map[string]an
 	}).withTiming(t.Name(), start), nil
 }
 
-// ---------------------------------------------------------------------------
-// pm.session.read 读取私信会话历史（被动/主动通用：理解上下文）
-// ---------------------------------------------------------------------------
 
 type readPrivateSessionTool struct {
 	BaseTool
@@ -187,9 +165,6 @@ func (t *readPrivateSessionTool) Execute(ctx context.Context, args map[string]an
 	}).withTiming(t.Name(), start), nil
 }
 
-// ---------------------------------------------------------------------------
-// pm.message.send 在私信会话中发送消息（被动回复 / 主动触达写入）
-// ---------------------------------------------------------------------------
 
 type sendPrivateMessageTool struct {
 	BaseTool
@@ -249,7 +224,7 @@ func (t *sendPrivateMessageTool) Execute(ctx context.Context, args map[string]an
 	if err != nil {
 		return ErrorResult(t.Name(), err), nil
 	}
-	_ = mediaURL // SendMessageInput 暂未透传 media_url，service 侧在 SendMessageRequest 中支持
+	_ = mediaURL 
 	_ = senderName
 	return SuccessResult(t.Name(), map[string]any{
 		"message_id":  msg.ID,
@@ -282,3 +257,4 @@ func toStr(v any) string {
 		return ""
 	}
 }
+

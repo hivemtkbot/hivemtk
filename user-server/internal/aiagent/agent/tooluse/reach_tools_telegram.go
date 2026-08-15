@@ -39,3 +39,4 @@ func NewReachTelegramSendTool(deps ReachToolDeps) *ReachTelegramSendTool {
 		deps: deps,
 	}
 }
+

@@ -1,15 +1,5 @@
 package ragretrieval
 
-// rerank_advanced_test.go Re-rank 重排序器单元测试（≥15 组）
-//
-// 覆盖：
-//   - Cross-Encoder 策略（mock delegate）
-//   - RRF 策略（纯算法，无需 mock）
-//   - Hybrid 混合策略
-//   - 缓存命中/过期/淘汰
-//   - topK 限制 / docs 限制
-//   - 空输入/降级路径
-//   - 适配器 / 转换工具
 
 import (
 	"context"
@@ -21,15 +11,12 @@ import (
 	"time"
 )
 
-// ----------------------------------------------------------------------------
-// Mock RerankerInterface（模拟 LocalReranker）
-// ----------------------------------------------------------------------------
 
 // mockRerankerInstance 可控的 RerankerInterface 实现
 type mockRerankerInstance struct {
 	mu           sync.Mutex
 	callCount    int32
-	scores       map[string]float64 // docID → score（预置）
+	scores       map[string]float64 
 	err          error
 	latency      time.Duration
 	recordInputs bool
@@ -65,7 +52,7 @@ func (m *mockRerankerInstance) Rerank(ctx context.Context, query string, docs []
 	for _, d := range docs {
 		s, ok := m.scores[d.ID]
 		if !ok {
-			s = 0.5 // 默认分数
+			s = 0.5 
 		}
 		out = append(out, RerankResult{ID: d.ID, Score: s})
 	}
@@ -79,9 +66,6 @@ func (m *mockRerankerInstance) setErr(err error) {
 	m.mu.Unlock()
 }
 
-// ----------------------------------------------------------------------------
-// 1. CrossEncoderReranker 测试
-// ----------------------------------------------------------------------------
 
 // 1) TestCrossEncoderRerank_Basic 基本重排
 func TestCrossEncoderRerank_Basic(t *testing.T) {
@@ -106,7 +90,6 @@ func TestCrossEncoderRerank_Basic(t *testing.T) {
 	if len(ranked) != 3 {
 		t.Fatalf("len=%d want=3", len(ranked))
 	}
-	// 按 Cross-Encoder 分数降序：d1(0.9) > d3(0.7) > d2(0.3)
 	if ranked[0].ID != "d1" || ranked[1].ID != "d3" || ranked[2].ID != "d2" {
 		t.Errorf("order wrong: %s %s %s", ranked[0].ID, ranked[1].ID, ranked[2].ID)
 	}
@@ -150,7 +133,6 @@ func TestCrossEncoderRerank_DelegateFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("should not propagate error, got %v", err)
 	}
-	// 降级：按 Original 分数排序：d2(0.8) > d1(0.5)
 	if len(ranked) != 2 {
 		t.Fatalf("len=%d want=2", len(ranked))
 	}
@@ -169,13 +151,11 @@ func TestCrossEncoderRerank_CacheHit(t *testing.T) {
 	reranker := NewCrossEncoderReranker(scorer)
 
 	docs := []RetrievedDoc{{ID: "d1", Content: "doc1", Score: 0.5}}
-	// 第一次调用，应触发 delegate
 	_, _ = reranker.Rerank(context.Background(), "q", docs, 1)
 	callsAfterFirst := mock.calls()
 	if callsAfterFirst != 1 {
 		t.Fatalf("delegate should be called once, got=%d", callsAfterFirst)
 	}
-	// 第二次调用同样 query+doc_id，应命中缓存，不再触发 delegate
 	_, _ = reranker.Rerank(context.Background(), "q", docs, 1)
 	callsAfterSecond := mock.calls()
 	if callsAfterSecond != 1 {
@@ -183,9 +163,6 @@ func TestCrossEncoderRerank_CacheHit(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 2. RRFReranker 测试
-// ----------------------------------------------------------------------------
 
 // 5) TestRRFReranker_BasicMultiSource 多路 RRF 融合
 func TestRRFReranker_BasicMultiSource(t *testing.T) {
@@ -200,7 +177,6 @@ func TestRRFReranker_BasicMultiSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("rrf: %v", err)
 	}
-	// common 在两路都是 rank 1 → score = 2/(60+1)
 	if len(ranked) != 3 {
 		t.Fatalf("len=%d want=3 (common + vec_only + bm25_only)", len(ranked))
 	}
@@ -225,7 +201,6 @@ func TestRRFReranker_SingleSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("rrf: %v", err)
 	}
-	// 单源：按原 score 降序得 rank，2 排第一
 	if ranked[0].ID != "2" {
 		t.Errorf("first should be 2 (highest score), got %s", ranked[0].ID)
 	}
@@ -248,9 +223,6 @@ func TestRRFReranker_CustomK(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 3. HybridReranker 测试
-// ----------------------------------------------------------------------------
 
 // 9) TestHybridRerank_WithCrossEncoder 混合策略（含 Cross-Encoder）
 func TestHybridRerank_WithCrossEncoder(t *testing.T) {
@@ -274,7 +246,6 @@ func TestHybridRerank_WithCrossEncoder(t *testing.T) {
 	if len(ranked) != 3 {
 		t.Fatalf("len=%d want=3 (topK)", len(ranked))
 	}
-	// 第一名应为 d1（Cross-Encoder 0.95）
 	if ranked[0].ID != "d1" {
 		t.Errorf("first should be d1 (CE=0.95), got %s", ranked[0].ID)
 	}
@@ -289,7 +260,7 @@ func TestHybridRerank_NoDelegate(t *testing.T) {
 	docs := []RetrievedDoc{
 		{ID: "d1", Score: 0.9, Source: "vector"},
 		{ID: "d2", Score: 0.7, Source: "bm25"},
-		{ID: "d1", Score: 5.0, Source: "bm25"}, // 同 ID 多源
+		{ID: "d1", Score: 5.0, Source: "bm25"}, 
 	}
 	ranked, err := reranker.Rerank(context.Background(), "q", docs, 5)
 	if err != nil {
@@ -298,7 +269,6 @@ func TestHybridRerank_NoDelegate(t *testing.T) {
 	if len(ranked) == 0 {
 		t.Fatalf("should have results")
 	}
-	// d1 应在第一（双路命中）
 	if ranked[0].ID != "d1" {
 		t.Errorf("first should be d1 (multi-path), got %s", ranked[0].ID)
 	}
@@ -323,7 +293,6 @@ func TestHybridRerank_CrossEncoderFails(t *testing.T) {
 	if len(ranked) != 2 {
 		t.Fatalf("len=%d want=2", len(ranked))
 	}
-	// 回退到 RRF 排序（同源时按原 score）：d1 > d2
 	if ranked[0].ID != "d1" {
 		t.Errorf("first should be d1, got %s", ranked[0].ID)
 	}
@@ -343,9 +312,6 @@ func TestHybridRerank_TopKRespected(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 4. 限制与边界
-// ----------------------------------------------------------------------------
 
 // 13) TestClampTopK topK 限制（≤20，≤0 用默认）
 func TestClampTopK(t *testing.T) {
@@ -406,7 +372,7 @@ func TestCache_Eviction(t *testing.T) {
 	c.Set("k1", 1.0)
 	c.Set("k2", 2.0)
 	c.Set("k3", 3.0)
-	c.Set("k4", 4.0) // 应淘汰一个
+	c.Set("k4", 4.0) 
 	if c.Len() != 3 {
 		t.Errorf("Len=%d want=3 (cap)", c.Len())
 	}
@@ -425,9 +391,6 @@ func TestCacheKey(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 5. 适配器与转换工具
-// ----------------------------------------------------------------------------
 
 // 19) TestAdapter_Basic 适配器把 Reranker 转 RerankerInterface
 func TestAdapter_Basic(t *testing.T) {
@@ -446,7 +409,6 @@ func TestAdapter_Basic(t *testing.T) {
 	if len(results) != 2 {
 		t.Fatalf("len=%d want=2", len(results))
 	}
-	// 按分数降序
 	if results[0].ID != "d1" {
 		t.Errorf("first should be d1, got %s", results[0].ID)
 	}
@@ -542,7 +504,6 @@ func TestRankedDocs_StableSort(t *testing.T) {
 	if len(ranked) != 2 {
 		t.Fatalf("len=%d want=2", len(ranked))
 	}
-	// b 排在前面（RRF 分数更高，因为 b 在两路中都是 rank 0）
 	if ranked[0].ID != "b" {
 		t.Errorf("first should be b (higher RRF score), got %s", ranked[0].ID)
 	}
@@ -592,7 +553,7 @@ func TestTrimStrategyName(t *testing.T) {
 	}
 	long := "this_is_a_very_long_strategy_name_that_exceeds_32_chars"
 	got := TrimStrategyName(long)
-	if len(got) > 35 { // 32 + "..."
+	if len(got) > 35 { 
 		t.Errorf("should be truncated, got len=%d", len(got))
 	}
 }
@@ -608,7 +569,7 @@ func TestRankedDoc_String(t *testing.T) {
 
 // 29) TestScorer_NilContext 未初始化 scorer 报错
 func TestScorer_NilContext(t *testing.T) {
-	scorer := &CrossEncoderScorer{} // delegate=nil
+	scorer := &CrossEncoderScorer{} 
 	_, err := scorer.Score(context.Background(), "q", []RetrievedDoc{{ID: "d1"}})
 	if err == nil {
 		t.Errorf("should error on nil delegate")
@@ -654,7 +615,6 @@ func TestCache_ConcurrentSafe(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	// 不 panic 即可
 }
 
 // absFloat 浮点绝对值（避免与 rrf_fusion_test.go 的 abs 冲突）
@@ -664,3 +624,4 @@ func absFloat(x float64) float64 {
 	}
 	return x
 }
+

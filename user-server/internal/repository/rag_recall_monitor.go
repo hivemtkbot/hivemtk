@@ -1,14 +1,5 @@
 package repository
 
-// rag_recall_monitor_repository.go RAG 召回率监控快照仓储（C 域 缺口 #2 - 监控指标）
-//
-// 五层架构归属: L3 Repository 层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.6 召回率监控
-//
-// 职责:
-// 聚合 rag_query_logs 计算 Top-K / Top-1 命中率 / 平均相似度 / 延迟
-//   - 写入 / 查询 rag_recall_monitor_snapshots 监控快照表
-//   - 确保监控表存在（CREATE TABLE IF NOT EXISTS，部署初始化时调用）
 
 import (
 	"context"
@@ -23,9 +14,6 @@ import (
 // 与 service 层常量保持一致；放此处以便 repository 内部使用，避免循环引用。
 const RagRecallMonitorTableName = "rag_recall_monitor_snapshots"
 
-// ----------------------------------------------------------------------------
-// 聚合行结构
-// ----------------------------------------------------------------------------
 
 // RagRecallAggRow rag_query_logs 召回监控聚合行
 //
@@ -41,27 +29,16 @@ type RagRecallAggRow struct {
 	Top1Hit       int64
 }
 
-// ----------------------------------------------------------------------------
-// 仓储接口
-// ----------------------------------------------------------------------------
 
 // RagRecallMonitorRepository RAG 召回率监控仓储接口
 type RagRecallMonitorRepository interface {
-	// AggregateRecallLogs 聚合时间窗口内的召回日志
 	AggregateRecallLogs(ctx context.Context, start, end time.Time) (*RagRecallAggRow, error)
-	// PluckP95Latency 取 延迟（按 latency_ms 升序偏移取一条）
 	PluckP95Latency(ctx context.Context, start, end time.Time, offset int) (int64, error)
-	// CreateSnapshot 创建一条监控快照（row 字段与原 map[string]any 行为一致）
 	CreateSnapshot(ctx context.Context, row map[string]any) error
-	// ListSnapshots 列出最近 N 条快照（按 window_start DESC，limit 已校验）
 	ListSnapshots(ctx context.Context, limit int) ([]map[string]any, error)
-	// EnsureSchema 确保监控表存在（CREATE TABLE IF NOT EXISTS）
 	EnsureSchema(ctx context.Context) error
 }
 
-// ----------------------------------------------------------------------------
-// 实现
-// ----------------------------------------------------------------------------
 
 type ragRecallMonitorRepo struct {
 	db *gorm.DB
@@ -161,3 +138,4 @@ func (r *ragRecallMonitorRepo) EnsureSchema(ctx context.Context) error {
 
 // 编译期断言
 var _ RagRecallMonitorRepository = (*ragRecallMonitorRepo)(nil)
+

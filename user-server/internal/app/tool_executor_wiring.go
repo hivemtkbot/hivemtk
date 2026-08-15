@@ -12,28 +12,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// ============================================================================
-// 全局 ToolExecutor 装配（+）
-// ----------------------------------------------------------------------------
-// 本文件负责：
-//   1. 初始化全局 ToolExecutor（装饰器链：权限/限流/重试/超时/审计/计费）
-//   2. 将 18 个未注册工具接入全局注册中心（customer×8 + knowledge×4 + business×6）
-//
-// 调用顺序（router.Setup 中）：
-//   1) InitGlobalToolExecutor()           —— 必须最先调用，创建 globalExecutor
-//   2) RegisterAgentReachTools(db)         —— 注册 20 个 reach 工具
-//   3) RegisterAgentPrivateMessageTools(db) —— 注册 3 个 pm 工具
-//   4) registerAgentCustomerTools(db)      —— 注册 8 个 customer 工具
-//   5) registerAgentKnowledgeTools(db)    —— 注册 4 个 knowledge 工具
-//   6) registerAgentBusinessTools(db)     —— 注册 6 个 business 工具
-//   7) BuildSalesEngine(db)               —— 此时 GetGlobalExecutor() 返回非 nil，
-//      SalesEngine 注入 ToolExecutorAdapter 后，Agent Loop (ReAct) 真正激活
-//
-// 设计要点：
-//   - InitGlobalExecutor 内部用 sync.Once，重复调用安全
-//   - 装饰器链使用真实实现（非 NoOp），防止 Agent Loop 被 nil 装饰器短路
-//   - AuditLogger / CostTracker 使用内存版本（重启丢失），后续可替换为 DB 持久化版本
-// ============================================================================
 
 // initGlobalToolExecutor 初始化全局 ToolExecutor（含真实装饰器链）
 //
@@ -56,16 +34,12 @@ func InitGlobalToolExecutor() {
 	memCostTracker = tooluse.NewMemoryCostTracker()
 	config := tooluse.ToolExecutorConfig{
 		DefaultTimeout: 30 * time.Second,
-		// 接入全局 WhitelistPermissionChecker（defaultAllow=true，向后兼容）。
-		// 与 runAgentLoop 中按 AgentContext.Tools 设置的执行期白名单配合，形成「注入期 + 执行期」双层防护。
 		PermissionChecker: GetGlobalPermissionChecker(),
 		RateLimiter:       tooluse.NewTokenBucketLimiter(20, 50),
 		RetryPolicy:       tooluse.NewExponentialBackoffPolicy(3, 200*time.Millisecond, 5*time.Second),
 		AuditLogger:       memAuditLogger,
 		CostTracker:       memCostTracker,
 	}
-	// 注意：tooluse.InitGlobalExecutor 使用 sync.Once 内部创建 ToolExecutor。
-	// 此处改为显式创建并 SetGlobalExecutor，便于本文件持有 logger/tracker 引用。
 	exec := tooluse.NewToolExecutor(tooluse.GetGlobalRegistry(), config)
 	tooluse.SetGlobalExecutor(exec)
 	logger.Info("[agent] ✅ 全局 ToolExecutor 已初始化（装饰器链：权限/限流/重试/超时/审计/计费 全部启用）")
@@ -97,19 +71,6 @@ func GetGlobalMemoryCostTracker() *tooluse.MemoryCostTracker {
 	return memCostTracker
 }
 
-// ============================================================================
-// 全局 ToolRouter 装配（优化：激活已实现但未接入的 ToolRouter）
-// ----------------------------------------------------------------------------
-// ToolRouter（tooluse/tool_router.go）已实现"熔断 + 限流 + 成本统计 + 全局统计"
-// 但历史上从未在 router.Setup 中装配，属于死代码。
-// 本次优化将其接入全局，并暴露 stats / audit / cost API，让运维侧可观测。
-//
-// 设计要点：
-//   - ToolRouter 不替换 ToolExecutor，而是复用其执行能力（Router 持有 executor 引用）
-//   - ToolRouter 提供独立的失败计数熔断（连续失败 5 次冷却 30s）
-//   - ToolRouter 自带统计（TotalCalls / SuccessCalls / FailedCalls / CircuitOpenCalls / TotalCost）
-//   - 不影响 Agent Loop 主路径：Agent Loop 仍走 ToolExecutorAdapter，仅在调试/统计场景使用 Router
-// ============================================================================
 
 var (
 	globalToolRouter     *tooluse.ToolRouter
@@ -212,7 +173,6 @@ func registerAgentKnowledgeTools(gormDB *gorm.DB) {
 func registerAgentBusinessTools(gormDB *gorm.DB) {
 	orderPort := service.NewOrderPortAdapter(repository.NewExternalOrderRepository())
 	afterSalePort := service.NewAfterSalePortAdapter(service.NewAfterSaleService())
-	// 物流端口：本地订单镜像兜底 + 可选实时快递 API（凭证来自数据库 agent.tool_integrations，按请求按需读取）
 	logisticsPort := service.NewLogisticsPortAdapter(orderPort)
 	deps := tooluse.NewBusinessToolDepsWithLogistics(
 		service.NewFollowUpPortAdapter(service.NewFollowUpService(service.NewCustomerJourneyService())),
@@ -240,3 +200,4 @@ func registerAgentBusinessTools(gormDB *gorm.DB) {
 func RegisterAllAgentTools(gormDB *gorm.DB) {
 	registerAllAgentToolsViaProviders(gormDB)
 }
+

@@ -37,3 +37,4 @@ func injectDefaultLang(ctx context.Context) context.Context {
 	ctx = i18n.WithCrossLingual(ctx, false)
 	return ctx
 }
+

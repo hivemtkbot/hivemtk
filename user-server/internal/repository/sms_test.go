@@ -38,7 +38,6 @@ func setupSmsRepository(t *testing.T) SmsRepository {
 func TestSmsRepository_GetConfig(t *testing.T) {
 	repo := setupSmsRepository(t)
 
-	// 测试没有配置时返回默认值
 	config, err := repo.GetConfig(context.Background())
 	if err != nil {
 		t.Errorf("GetConfig() error = %v", err)
@@ -51,7 +50,6 @@ func TestSmsRepository_GetConfig(t *testing.T) {
 		t.Errorf("Expected rate limit 100, got %d", config.RateLimit)
 	}
 
-	// 测试保存配置后获取
 	newConfig := &model.SmsConfig{
 		DefaultProvider: "tencent",
 		RateLimit:       200,
@@ -118,7 +116,6 @@ func TestSmsRepository_SaveConfig(t *testing.T) {
 func TestSmsRepository_AliyunConfig(t *testing.T) {
 	repo := setupSmsRepository(t)
 
-	// 测试获取配置（空）
 	config, err := repo.GetAliyunConfig(context.Background())
 	if err != nil {
 		t.Errorf("GetAliyunConfig() error = %v", err)
@@ -127,7 +124,6 @@ func TestSmsRepository_AliyunConfig(t *testing.T) {
 		t.Error("Expected config, got nil")
 	}
 
-	// 测试保存配置
 	newConfig := &model.SmsAliyunConfig{
 		AccessKeyID:     "test-key-id",
 		AccessKeySecret: "test-secret",
@@ -138,7 +134,6 @@ func TestSmsRepository_AliyunConfig(t *testing.T) {
 		t.Errorf("SaveAliyunConfig() error = %v", err)
 	}
 
-	// 验证保存
 	config, err = repo.GetAliyunConfig(context.Background())
 	if err != nil {
 		t.Errorf("GetAliyunConfig() error = %v", err)
@@ -147,7 +142,6 @@ func TestSmsRepository_AliyunConfig(t *testing.T) {
 		t.Errorf("Expected AccessKeyID 'test-key-id', got '%s'", config.AccessKeyID)
 	}
 
-	// 测试更新配置
 	newConfig.AccessKeyID = "updated-key-id"
 	err = repo.SaveAliyunConfig(context.Background(), newConfig)
 	if err != nil {
@@ -262,7 +256,6 @@ func TestSmsRepository_CreateSmsRecord(t *testing.T) {
 func TestSmsRepository_GetSmsByID(t *testing.T) {
 	repo := setupSmsRepository(t)
 
-	// 创建测试数据
 	record := &model.SmsRecord{
 		Phone:    "13800138000",
 		Content:  "GetByID Test",
@@ -312,7 +305,6 @@ func TestSmsRepository_GetSmsByID(t *testing.T) {
 func TestSmsRepository_GetSmsList(t *testing.T) {
 	repo := setupSmsRepository(t)
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		repo.CreateSmsRecord(context.Background(), &model.SmsRecord{
 			Phone:    "13800138000",
@@ -391,7 +383,6 @@ func TestSmsRepository_GetSmsList(t *testing.T) {
 				t.Errorf("Expected %d results, got %d", tt.wantCount, len(results))
 			}
 
-			// Check total count only for first page with no filters
 			if tt.page == 1 && tt.phone == "" && tt.status == "" && int(total) != 6 {
 				t.Errorf("Expected total 6, got %d", total)
 			}
@@ -403,7 +394,6 @@ func TestSmsRepository_GetSmsList(t *testing.T) {
 func TestSmsRepository_UpdateSmsRecord(t *testing.T) {
 	repo := setupSmsRepository(t)
 
-	// 创建测试数据
 	record := &model.SmsRecord{
 		Phone:    "13800138000",
 		Content:  "Original content",
@@ -449,7 +439,6 @@ func TestSmsRepository_CreateDraft(t *testing.T) {
 func TestSmsRepository_GetDraftByID(t *testing.T) {
 	repo := setupSmsRepository(t)
 
-	// 创建测试数据
 	draft := &model.SmsDraft{
 		Title:   "GetByID Draft",
 		Content: "GetByID content",
@@ -497,7 +486,6 @@ func TestSmsRepository_GetDraftByID(t *testing.T) {
 func TestSmsRepository_GetDraftList(t *testing.T) {
 	repo := setupSmsRepository(t)
 
-	// 创建测试数据
 	repo.CreateDraft(context.Background(), &model.SmsDraft{Title: "Draft A", Content: "Content A"})
 	repo.CreateDraft(context.Background(), &model.SmsDraft{Title: "Draft B", Content: "Content B"})
 	repo.CreateDraft(context.Background(), &model.SmsDraft{Title: "Draft C", Content: "Content C"})
@@ -622,7 +610,6 @@ func TestSmsRepository_CreateJob(t *testing.T) {
 func TestSmsRepository_GetJobByID(t *testing.T) {
 	repo := setupSmsRepository(t)
 
-	// 创建测试数据
 	job := &model.SmsJob{
 		Name:   "GetByID Job",
 		Total:  50,
@@ -671,7 +658,6 @@ func TestSmsRepository_GetJobByID(t *testing.T) {
 func TestSmsRepository_GetJobList(t *testing.T) {
 	repo := setupSmsRepository(t)
 
-	// 创建测试数据
 	repo.CreateJob(context.Background(), &model.SmsJob{Name: "Job A", Total: 100, Status: "pending"})
 	repo.CreateJob(context.Background(), &model.SmsJob{Name: "Job B", Total: 200, Status: "running"})
 	repo.CreateJob(context.Background(), &model.SmsJob{Name: "Job C", Total: 300, Status: "completed"})
@@ -782,11 +768,9 @@ func TestSmsRepository_DeleteJob(t *testing.T) {
 func TestSmsRepository_CreateJobDetails(t *testing.T) {
 	repo := setupSmsRepository(t)
 
-	// 创建任务
 	job := &model.SmsJob{Name: "Test Job", Total: 3}
 	repo.CreateJob(context.Background(), job)
 
-	// 创建任务详情
 	details := []*model.SmsJobDetail{
 		{JobID: job.ID, Phone: "13800138001", Content: "Message 1", Status: "pending"},
 		{JobID: job.ID, Phone: "13800138002", Content: "Message 2", Status: "pending"},
@@ -798,7 +782,6 @@ func TestSmsRepository_CreateJobDetails(t *testing.T) {
 		t.Errorf("CreateJobDetails() error = %v", err)
 	}
 
-	// 验证创建
 	for _, d := range details {
 		if d.ID == 0 {
 			t.Error("Expected detail ID to be set after creation")
@@ -810,7 +793,6 @@ func TestSmsRepository_CreateJobDetails(t *testing.T) {
 func TestSmsRepository_GetJobDetails(t *testing.T) {
 	repo := setupSmsRepository(t)
 
-	// 创建任务和详情
 	job := &model.SmsJob{Name: "Test Job", Total: 5}
 	repo.CreateJob(context.Background(), job)
 
@@ -880,7 +862,6 @@ func TestSmsRepository_GetJobDetails(t *testing.T) {
 func TestSmsRepository_DeleteJobDetails(t *testing.T) {
 	repo := setupSmsRepository(t)
 
-	// 创建任务和详情
 	job := &model.SmsJob{Name: "Test Job", Total: 3}
 	repo.CreateJob(context.Background(), job)
 
@@ -896,9 +877,9 @@ func TestSmsRepository_DeleteJobDetails(t *testing.T) {
 		t.Errorf("DeleteJobDetails() error = %v", err)
 	}
 
-	// 验证删除
 	results, _, _ := repo.GetJobDetails(context.Background(), job.ID, 1, 10)
 	if len(results) != 0 {
 		t.Errorf("Expected 0 details after deletion, got %d", len(results))
 	}
 }
+

@@ -1,12 +1,5 @@
 package trace
 
-// trace_test.go 追踪包单元测试
-//
-// 覆盖范围：
-//   - TraceID / SpanID 生成（UUIDv4 格式）
-//   - ctx 注入 / 提取（trace_id / span_id / parent_span_id）
-//   - ChildSpan 串联
-//   - Gin 中间件（X-Trace-Id 头解析 / 回写）
 
 import (
 	"context"
@@ -22,11 +15,9 @@ func TestGenerateTraceID(t *testing.T) {
 	if id == "" {
 		t.Fatal("expected non-empty trace_id")
 	}
-	// UUIDv4 长度 36 (含 4 个 '-')
 	if len(id) != 36 {
 		t.Errorf("expected length 36, got %d (%s)", len(id), id)
 	}
-	// 两次生成的 ID 不重复
 	if id == GenerateTraceID() {
 		t.Error("expected unique trace_id per call")
 	}
@@ -81,7 +72,6 @@ func TestTracerInjectContext(t *testing.T) {
 
 func TestTracerInjectContextNilCtx(t *testing.T) {
 	tr := NewTracer("trace-nil", "")
-	// 应回退到 context.Background() 不 panic
 	ctx := tr.InjectContext(context.TODO())
 	if got := TraceIDFromContext(ctx); got != "trace-nil" {
 		t.Errorf("expected trace-nil, got %s", got)
@@ -107,7 +97,6 @@ func TestNewContextWithTraceID(t *testing.T) {
 	if got := TraceIDFromContext(ctx); got != "trace-ctx" {
 		t.Errorf("expected trace-ctx, got %s", got)
 	}
-	// 空 traceID 应自动生成
 	ctx2 := NewContextWithTraceID(context.Background(), "")
 	if got := TraceIDFromContext(ctx2); got == "" {
 		t.Error("expected auto-generated trace_id when empty input")
@@ -131,7 +120,6 @@ func TestNilTracerSafety(t *testing.T) {
 		t.Error("nil tracer should return empty span_id")
 	}
 	if tr.InjectContext(context.Background()) == nil {
-		// 这里不能直接 == nil 比较，需要用 Error 检查
 	}
 	if tr.LogFields() != nil {
 		t.Error("nil tracer should return nil log fields")
@@ -152,7 +140,6 @@ func TestLogFields(t *testing.T) {
 	}
 }
 
-// ===== Gin 中间件测试 =====
 
 func TestGinTraceMiddleware_Generate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -221,7 +208,6 @@ func TestGinTraceMiddleware_NilContext(t *testing.T) {
 	r := gin.New()
 	r.Use(GinTraceMiddleware())
 	r.GET("/test", func(c *gin.Context) {
-		// gin.Context 为 nil 不应该 panic
 		if TraceIDFromGin(nil) != "" {
 			t.Error("nil gin context should return empty trace_id")
 		}
@@ -231,3 +217,4 @@ func TestGinTraceMiddleware_NilContext(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test", nil)
 	r.ServeHTTP(w, req)
 }
+

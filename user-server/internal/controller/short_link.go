@@ -48,7 +48,6 @@ func (c *ShortLinkController) Update(ctx *gin.Context) {
 		return
 	}
 
-	// 从URI参数获取ID并验证与JSON中的ID一致
 	idStr := ctx.Param("id")
 	idFromURI, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -56,7 +55,6 @@ func (c *ShortLinkController) Update(ctx *gin.Context) {
 		return
 	}
 
-	// 验证JSON中的ID与URI中的ID一致
 	if req.ID != uint(idFromURI) {
 		response.Error(ctx, http.StatusBadRequest, "ID不一致: JSON中的ID与URI参数中的ID不匹配")
 		return
@@ -130,7 +128,6 @@ func (c *ShortLinkController) AccessShortLink(ctx *gin.Context) {
 
 	resp, err := c.shortLinkService.AccessShortLink(context.Background(), &req)
 	if err != nil {
-		// 透传真实业务错误（密码错误/过期/禁用/不存在），避免被笼统掩盖
 		response.Error(ctx, accessErrorStatus(err), err.Error())
 		return
 	}
@@ -168,3 +165,4 @@ func (c *ShortLinkController) GenerateShortCode(ctx *gin.Context) {
 
 	response.Success(ctx, resp, "生成成功")
 }
+

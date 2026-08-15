@@ -30,7 +30,6 @@ func setupUpgradeRepositories(t *testing.T) (*UpgradeTaskRepository, *MigrationR
 		&MigrationCheckpointRepository{db: db.GetDB()}
 }
 
-// ============= UpgradeTaskRepository Tests =============
 
 // TestUpgradeTaskRepository_Create 测试创建升级任务
 func TestUpgradeTaskRepository_Create(t *testing.T) {
@@ -90,7 +89,6 @@ func TestUpgradeTaskRepository_GetByID(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	task := &model.UpgradeTask{
 		FromVersion:     "1.0.0",
 		ToVersion:       "2.0.0",
@@ -127,7 +125,6 @@ func TestUpgradeTaskRepository_GetByID(t *testing.T) {
 			}
 
 			if !tt.wantErr {
-				// 私域部署：MigrationRecord 不含 MerchantID 字段
 			}
 		})
 	}
@@ -138,7 +135,6 @@ func TestUpgradeTaskRepository_GetAll(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		repo.Create(ctx, &model.UpgradeTask{
 			FromVersion: "1.0.0",
@@ -147,7 +143,6 @@ func TestUpgradeTaskRepository_GetAll(t *testing.T) {
 		})
 	}
 
-	// 创建其他任务
 	repo.Create(ctx, &model.UpgradeTask{
 		FromVersion: "1.0.0",
 		ToVersion:   "2.0.0",
@@ -208,7 +203,6 @@ func TestUpgradeTaskRepository_GetLatestTask(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	repo.Create(ctx, &model.UpgradeTask{
 		FromVersion: "1.0.0",
 		ToVersion:   "1.5.0",
@@ -237,7 +231,6 @@ func TestUpgradeTaskRepository_Update(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	task := &model.UpgradeTask{
 		FromVersion:     "1.0.0",
 		ToVersion:       "2.0.0",
@@ -248,7 +241,6 @@ func TestUpgradeTaskRepository_Update(t *testing.T) {
 	}
 	repo.Create(ctx, task)
 
-	// 更新
 	task.Status = "running"
 	task.Progress = 50
 	task.CurrentStep = 3
@@ -273,7 +265,6 @@ func TestUpgradeTaskRepository_UpdateStatus(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	task := &model.UpgradeTask{
 		FromVersion: "1.0.0",
 		ToVersion:   "2.0.0",
@@ -282,7 +273,6 @@ func TestUpgradeTaskRepository_UpdateStatus(t *testing.T) {
 	}
 	repo.Create(ctx, task)
 
-	// 更新状态
 	err := repo.UpdateStatus(context.Background(), task.ID, "running", 50, 3, "Processing step 3", "")
 	if err != nil {
 		t.Errorf("UpdateStatus() error = %v", err)
@@ -308,7 +298,6 @@ func TestUpgradeTaskRepository_UpdateStatus_WithCompletion(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	task := &model.UpgradeTask{
 		FromVersion: "1.0.0",
 		ToVersion:   "2.0.0",
@@ -317,7 +306,6 @@ func TestUpgradeTaskRepository_UpdateStatus_WithCompletion(t *testing.T) {
 	}
 	repo.Create(ctx, task)
 
-	// 完成更新
 	err := repo.UpdateStatus(context.Background(), task.ID, "completed", 100, 5, "Final step", "")
 	if err != nil {
 		t.Errorf("UpdateStatus() error = %v", err)
@@ -335,7 +323,6 @@ func TestUpgradeTaskRepository_UpdateStatus_WithCompletion(t *testing.T) {
 	}
 }
 
-// ============= MigrationRecordRepository Tests =============
 
 // TestMigrationRecordRepository_Create 测试创建迁移记录
 func TestMigrationRecordRepository_Create(t *testing.T) {
@@ -390,7 +377,6 @@ func TestMigrationRecordRepository_GetByVersion(t *testing.T) {
 	_, repo, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	record := &model.MigrationRecord{
 		Version: "1.5.0",
 		Name:    "Version 1.5.0 Migration",
@@ -438,7 +424,6 @@ func TestMigrationRecordRepository_GetExecutedVersions(t *testing.T) {
 	_, repo, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	repo.Create(ctx, &model.MigrationRecord{
 		Version: "1.0.0",
 		Name:    "Migration 1",
@@ -465,7 +450,6 @@ func TestMigrationRecordRepository_GetExecutedVersions(t *testing.T) {
 		t.Errorf("GetExecutedVersions() error = %v", err)
 	}
 
-	// 私域部署下,所有已完成的迁移都会被返回(1.0.0 + 1.1.0 = 2)
 	if len(versions) != 2 {
 		t.Errorf("Expected 2 completed versions, got %d", len(versions))
 	}
@@ -476,7 +460,6 @@ func TestMigrationRecordRepository_Update(t *testing.T) {
 	_, repo, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	record := &model.MigrationRecord{
 		Version: "1.0.0",
 		Name:    "Original Name",
@@ -485,7 +468,6 @@ func TestMigrationRecordRepository_Update(t *testing.T) {
 	}
 	repo.Create(ctx, record)
 
-	// 更新
 	record.Name = "Updated Name"
 	record.Status = "completed"
 
@@ -503,13 +485,11 @@ func TestMigrationRecordRepository_Update(t *testing.T) {
 	}
 }
 
-// ============= MigrationCheckpointRepository Tests =============
 
 // TestMigrationCheckpointRepository_GetByCheckpoint 测试根据检查点名称获取
 func TestMigrationCheckpointRepository_GetByCheckpoint(t *testing.T) {
 	_, _, repo := setupUpgradeRepositories(t)
 
-	// 创建测试数据
 	checkpoint := &model.MigrationCheckpoint{
 		Checkpoint: "backup_created",
 		Data:       `{"backup_id": "123", "timestamp": "2024-01-01"}`,
@@ -554,7 +534,6 @@ func TestMigrationCheckpointRepository_GetByCheckpoint(t *testing.T) {
 func TestMigrationCheckpointRepository_Upsert(t *testing.T) {
 	_, _, repo := setupUpgradeRepositories(t)
 
-	// 创建新检查点
 	checkpoint := &model.MigrationCheckpoint{
 		Checkpoint: "initial_backup",
 		Data:       `{"backup_id": "123"}`,
@@ -568,16 +547,15 @@ func TestMigrationCheckpointRepository_Upsert(t *testing.T) {
 		t.Error("Expected checkpoint ID to be set after creation")
 	}
 
-	// 更新已存在的检查点
 	checkpoint.Data = `{"backup_id": "456", "verified": true}`
 	err = repo.Upsert(context.Background(), checkpoint)
 	if err != nil {
 		t.Errorf("Upsert() update error = %v", err)
 	}
 
-	// 验证更新
 	updated, _ := repo.GetByCheckpoint(context.Background(), "initial_backup")
 	if updated.Data != `{"backup_id": "456", "verified": true}` {
 		t.Errorf("Expected updated data, got '%s'", updated.Data)
 	}
 }
+

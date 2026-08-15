@@ -10,16 +10,6 @@ import (
 	"hivemtk-user/internal/event"
 )
 
-// ============================================================================
-// event_subscriber 单元测试
-// ----------------------------------------------------------------------------
-// 验证:
-//   1. 正确的事件载荷被路由到 runtime.HandleCustomerMessage
-//   2. 错误的事件载荷返回 error(不 panic)
-//   3. nil payload 不 panic
-//   4. runtime 抛错时不 panic,正常返回 error
-//   5. payload 转换正确
-// ============================================================================
 
 // mockRuntime 模拟运行时
 type mockRuntime struct {
@@ -99,7 +89,6 @@ func TestEventSubscriber_Handle_ValidPayload(t *testing.T) {
 		t.Errorf("expected 1 call, got %d", mock.callCount())
 	}
 
-	// 验证 payload 转换正确
 	got := mock.receivedPayloads[0]
 	if got.ChannelType != "telegram" {
 		t.Errorf("ChannelType = %s, want telegram", got.ChannelType)
@@ -141,7 +130,6 @@ func TestEventSubscriber_Handle_NilPayload(t *testing.T) {
 		}
 	}()
 
-	// nil 指针类型
 	err := handler(event.Event{
 		Topic:   event.TopicCustomerMessageReceived,
 		Payload: (*event.CustomerMessagePayload)(nil),
@@ -186,7 +174,7 @@ func TestEventSubscriber_Handle_AutoTraceID(t *testing.T) {
 		ChannelType: "telegram",
 		AccountID:   "tg_002",
 		Content:     "test",
-		TraceID:     "", // 空 TraceID
+		TraceID:     "", 
 	}
 
 	err := handler(event.Event{
@@ -247,3 +235,4 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
+

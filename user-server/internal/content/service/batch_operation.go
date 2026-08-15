@@ -71,7 +71,7 @@ func (s *BatchOperationService) ImportFromCSV(ctx context.Context, importType Im
 	}
 
 	reader := csv.NewReader(file)
-	reader.FieldsPerRecord = -1 // 允许可变列数
+	reader.FieldsPerRecord = -1 
 	reader.LazyQuotes = true
 
 	rows, err := reader.ReadAll()
@@ -83,7 +83,6 @@ func (s *BatchOperationService) ImportFromCSV(ctx context.Context, importType Im
 		return result, nil
 	}
 
-	// 跳过表头
 	header := rows[0]
 	dataRows := rows[1:]
 	result.Total = len(dataRows)
@@ -102,7 +101,6 @@ func (s *BatchOperationService) ImportFromCSV(ctx context.Context, importType Im
 
 // importClues 导入线索
 func (s *BatchOperationService) importClues(ctx context.Context, rows [][]string, header []string, result *ImportResult) {
-	// 解析列索引
 	colMap := make(map[string]int)
 	for i, h := range header {
 		colMap[strings.TrimSpace(h)] = i
@@ -111,7 +109,6 @@ func (s *BatchOperationService) importClues(ctx context.Context, rows [][]string
 	requiredCols := []string{"姓名", "账户", "类型", "城市", "地址", "描述", "来源 ID"}
 	for _, col := range requiredCols {
 		if _, ok := colMap[col]; !ok {
-			// 尝试英文列名
 			if col == "姓名" {
 				if _, ok := colMap["name"]; !ok {
 					result.Errors = append(result.Errors, ImportError{
@@ -314,7 +311,6 @@ func (s *BatchOperationService) exportClues(ctx context.Context, writer *csv.Wri
 		return nil, fmt.Errorf("查询线索失败: %w", err)
 	}
 
-	// 创建 ID 过滤集合
 	idSet := make(map[string]bool)
 	hasFilter := len(ids) > 0
 	for _, id := range ids {
@@ -487,7 +483,6 @@ func (s *BatchOperationService) BatchUpdateClues(req *BatchUpdateRequest) (int, 
 		return 0, errors.New("更新字段不能为空")
 	}
 
-	// 构造可更新字段
 	updates := make(map[string]any)
 	if v, ok := req.Fields["name"]; ok {
 		updates["name"] = v
@@ -516,7 +511,6 @@ func (s *BatchOperationService) BatchUpdateClues(req *BatchUpdateRequest) (int, 
 		return 0, errors.New("无可更新字段")
 	}
 
-	// Trim IDs（保持与原实现一致：跳过空白 ID）
 	trimmedIDs := make([]string, 0, len(req.IDs))
 	for _, id := range req.IDs {
 		id = strings.TrimSpace(id)
@@ -546,3 +540,4 @@ func (s *BatchOperationService) GetHistoryByID(id uint) (*model.BatchOperationHi
 func (s *BatchOperationService) CancelHistory(id uint) error {
 	return s.batchOpRepo.CancelHistory(context.Background(), id)
 }
+

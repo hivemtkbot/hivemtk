@@ -22,12 +22,10 @@ func TestDispatchCacheSetGet(t *testing.T) {
 
 func TestDispatchCacheExpiry(t *testing.T) {
 	d := newTestDispatcher()
-	// 写入后命中
 	d.setCache("k1", 60, "v1")
 	if v, ok := d.getCache("k1"); !ok || v != "v1" {
 		t.Fatal("expected cache hit for k1")
 	}
-	// 缺失 key 命中失败
 	if _, ok := d.getCache("missing"); ok {
 		t.Fatal("expected miss for missing key")
 	}
@@ -63,3 +61,4 @@ func TestCacheKeyStableAndDistinct(t *testing.T) {
 		t.Fatal("different scenarios should produce different keys")
 	}
 }
+

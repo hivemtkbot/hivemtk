@@ -12,9 +12,6 @@ import (
 // CustomerIdentityService 客户身份识别服务
 type CustomerIdentityService struct {
 	repo repository.CustomerRepository
-	// customerSvc 复用统一构造器产出的 CustomerService（含审计仓库），
-	// 避免 MergeByIdentity 内以字面量绕过 NewCustomerService() 构造器
-	// （反模式会让 auditRepo 与 DI 体系割裂，且未来构造器加依赖时编译/功能破损）。
 	customerSvc *CustomerService
 }
 
@@ -35,10 +32,8 @@ var ErrIdentityNotFound = errors.New("未找到有效的身份标识")
 // 输入会先经过归一化（手机号去 +86/空格/横线，邮箱小写），避免同一客户被不同写法误建多条。
 // 如果找到匹配的客户则返回，否则创建新客户
 func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifiers identity.Identifiers) (*model.Customer, error) {
-	// 归一化：处理 +86、空格、横线、邮箱大小写等差异
 	identifiers = NormalizeIdentifiers(identifiers)
 
-	// 验证至少有一个有效身份标识
 	if !HasAnyIdentifier(identifiers) {
 		return nil, ErrIdentityNotFound
 	}
@@ -47,7 +42,6 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 	var customer *model.Customer
 	var err error
 
-	// 1. 优先查找手机号
 	if identifiers.Phone != "" {
 		customer, err = s.repo.GetByPhone(ctx, identifiers.Phone)
 		if err != nil {
@@ -58,7 +52,6 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 		}
 	}
 
-	// 2. 查找邮箱
 	if identifiers.Email != "" {
 		customer, err = s.repo.GetByEmail(ctx, identifiers.Email)
 		if err != nil {
@@ -69,7 +62,6 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 		}
 	}
 
-	// 3. 查找微信 OpenID
 	if identifiers.WechatOpenID != "" {
 		customer, err = s.repo.GetByWechatOpenID(ctx, identifiers.WechatOpenID)
 		if err != nil {
@@ -80,7 +72,6 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 		}
 	}
 
-	// 4. 查找抖音 OpenID
 	if identifiers.DouyinOpenID != "" {
 		customer, err = s.repo.GetByDouyinOpenID(ctx, identifiers.DouyinOpenID)
 		if err != nil {
@@ -91,7 +82,6 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 		}
 	}
 
-	// 未找到现有客户，创建新客户
 	customer = &model.Customer{
 		Phone:         identifiers.Phone,
 		Email:         identifiers.Email,
@@ -103,8 +93,6 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 	}
 
 	if err := s.repo.Create(ctx, customer); err != nil {
-		// 并发双建档竞态：另一请求已先用相同标识建档（unified_id 唯一索引冲突）。
-		// 回查已由并发请求创建的客户并返回，保证同一真实客户全局仅建档一次。
 		if repository.IsDuplicateKeyErr(err) {
 			if existing, ferr := s.findExistingWithRetry(ctx, identifiers); existing != nil {
 				return existing, nil
@@ -121,7 +109,6 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 // Identify 识别客户（不创建）
 // 按优先级返回第一个匹配的客户
 func (s *CustomerIdentityService) Identify(ctx context.Context, identifiers identity.Identifiers) (*model.Customer, error) {
-	// 使用 FindByIdentity 方法查找
 	customer, err := s.repo.FindByIdentity(ctx, identifiers.Phone, identifiers.Email, identifiers.WechatOpenID, identifiers.DouyinOpenID, identifiers.XiaohongshuID)
 	if err != nil {
 		return nil, err
@@ -136,7 +123,6 @@ func (s *CustomerIdentityService) Identify(ctx context.Context, identifiers iden
 
 // LinkIdentity 为客户添加新的身份标识
 func (s *CustomerIdentityService) LinkIdentity(ctx context.Context, customerID, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) error {
-	// 归一化：处理 +86、空格、横线、邮箱大小写等差异
 	phone = NormalizePhone(phone)
 	email = NormalizeEmail(email)
 	wechatOpenID = NormalizeOpenID(wechatOpenID)
@@ -151,7 +137,6 @@ func (s *CustomerIdentityService) LinkIdentity(ctx context.Context, customerID, 
 		return ErrCustomerNotFound
 	}
 
-	// 检查新标识是否已被其他客户使用
 	if phone != "" {
 		existing, _ := s.repo.GetByPhone(ctx, phone)
 		if existing != nil && existing.ID != customerID {
@@ -192,8 +177,6 @@ func (s *CustomerIdentityService) LinkIdentity(ctx context.Context, customerID, 
 		customer.XiaohongshuID = xiaohongshuID
 	}
 
-	// 注意：UnifiedID 在建档时由 BeforeCreate 钩子确定，作为跨业务稳定主键，
-	// 链接新身份时严禁重算（否则会改变 OneID 前缀、破坏会话/事件归属）。
 
 	return s.repo.Update(ctx, customer)
 }
@@ -201,20 +184,16 @@ func (s *CustomerIdentityService) LinkIdentity(ctx context.Context, customerID, 
 // MergeByIdentity 根据身份标识合并客户
 // 当发现两个身份标识属于同一客户时，自动合并
 func (s *CustomerIdentityService) MergeByIdentity(ctx context.Context, identifiers identity.Identifiers) (*model.Customer, error) {
-	// 归一化：处理 +86、空格、横线、邮箱大小写等差异
 	identifiers = NormalizeIdentifiers(identifiers)
 	if !HasAnyIdentifier(identifiers) {
 		return nil, ErrIdentityNotFound
 	}
 
-	// 查找所有匹配的客户（多条查询）：覆盖"同一标识历史分裂为多条客户"的场景，
-	// 用 FindByIdentityAll 而非各维度 GetByXxx(First)，避免 First 截断漏掉第二条。
 	all, err := s.repo.FindByIdentityAll(ctx, identifiers.Phone, identifiers.Email,
 		identifiers.WechatOpenID, identifiers.DouyinOpenID, identifiers.XiaohongshuID)
 	if err != nil {
 		return nil, err
 	}
-	// 去重（不同维度可能命中同一客户）
 	seen := make(map[string]bool)
 	var matchedCustomers []*model.Customer
 	for _, c := range all {
@@ -226,31 +205,25 @@ func (s *CustomerIdentityService) MergeByIdentity(ctx context.Context, identifie
 	}
 
 	if len(matchedCustomers) == 0 {
-		// 没有匹配的客户，创建新的
 		return s.IdentifyOrCreate(ctx, identifiers)
 	}
 
 	if len(matchedCustomers) == 1 {
-		// 只有一个匹配，更新该客户的其他标识
 		customer := matchedCustomers[0]
 		s.updateCustomerIdentifiers(ctx, customer, identifiers)
 		return customer, s.repo.Update(ctx, customer)
 	}
 
-	// 多个匹配，需要合并
-	// 使用第一个匹配的客户作为主客户
 	primary := matchedCustomers[0]
 	for i := 1; i < len(matchedCustomers); i++ {
 		secondary := matchedCustomers[i]
 		if secondary.ID != primary.ID {
-			// 使用 DI 构造的 CustomerService 的合并方法（审计仓库与主链路一致）
 			if err := s.customerSvc.MergeCustomers(ctx, primary.ID, secondary.ID); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	// 更新最终客户的标识
 	updatedPrimary, _ := s.repo.GetByID(ctx, primary.ID)
 	s.updateCustomerIdentifiers(ctx, updatedPrimary, identifiers)
 	return updatedPrimary, s.repo.Update(ctx, updatedPrimary)
@@ -282,7 +255,6 @@ func (s *CustomerIdentityService) GetCustomerByUnifiedID(ctx context.Context, un
 
 // ResolveIdentity 解析身份标识，返回所有关联的客户
 func (s *CustomerIdentityService) ResolveIdentity(ctx context.Context, identifiers identity.Identifiers) ([]*model.Customer, error) {
-	// 归一化：处理 +86、空格、横线、邮箱大小写等差异
 	identifiers = NormalizeIdentifiers(identifiers)
 	var customers []*model.Customer
 	seenIDs := make(map[string]bool)
@@ -340,7 +312,6 @@ func (s *CustomerIdentityService) findExistingWithRetry(ctx context.Context, ide
 		if attempt > 0 {
 			time.Sleep(time.Duration(1<<uint(attempt-1)) * 10 * time.Millisecond)
 		}
-		// 1) 按冲突的唯一索引列直接回查（最高命中率）
 		if uid := unifiedIDFromIdentifiers(identifiers); uid != "" {
 			if uexisting, uferr := s.repo.GetByUnifiedID(ctx, uid); uferr == nil && uexisting != nil {
 				return uexisting, nil
@@ -348,7 +319,6 @@ func (s *CustomerIdentityService) findExistingWithRetry(ctx context.Context, ide
 				lastErr = uferr
 			}
 		}
-		// 2) 兜底：OR 匹配任意非空标识
 		existing, ferr := s.repo.FindByIdentity(ctx, identifiers.Phone, identifiers.Email, identifiers.WechatOpenID, identifiers.DouyinOpenID, identifiers.XiaohongshuID)
 		if ferr != nil {
 			lastErr = ferr
@@ -378,3 +348,4 @@ func unifiedIDFromIdentifiers(id identity.Identifiers) string {
 		return ""
 	}
 }
+

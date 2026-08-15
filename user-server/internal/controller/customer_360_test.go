@@ -28,7 +28,6 @@ func setupCustomer360TestDB(t *testing.T) *gorm.DB {
 		&model.UnifiedReply{},
 		&model.UserTag{},
 	)
-	// 设置全局测试 DB，使 service 层内部 new repository 时能拿到测试 DB
 	db.SetTestDB(database)
 	return database
 }
@@ -37,8 +36,6 @@ func setupCustomer360TestDB(t *testing.T) *gorm.DB {
 func setupCustomer360Router(t *testing.T, db *gorm.DB) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
-	// 创建服务实例（customer360Service 直接注入测试 DB；
-	// userTagSvc / userProfileSvc / tagRuleSvc 通过 db.GetDB() 拿到测试 DB）
 	customer360Service := service.NewCustomer360ServiceWithDB(db)
 
 	controller := &Customer360Controller{
@@ -55,7 +52,6 @@ func setupCustomer360Router(t *testing.T, db *gorm.DB) *gin.Engine {
 		c.Next()
 	})
 
-	// Customer360 相关路由
 	router.GET("/api/customer/360", controller.GetCustomer360)
 	router.GET("/api/customer/list", controller.GetCustomerList)
 	router.GET("/api/customer/basic", controller.GetCustomerBasicInfo)
@@ -82,7 +78,7 @@ func TestCustomer360Controller_GetCustomer360(t *testing.T) {
 		{
 			name:           "success",
 			url:            "/api/customer/360?user_id=user-test",
-			expectedStatus: 404, // 客户不存在
+			expectedStatus: 404, 
 			expectSuccess:  false,
 		},
 		{
@@ -181,7 +177,7 @@ func TestCustomer360Controller_GetCustomerBasicInfo(t *testing.T) {
 		{
 			name:           "success",
 			url:            "/api/customer/basic?user_id=user-test",
-			expectedStatus: 404, // 客户不存在
+			expectedStatus: 404, 
 			expectSuccess:  false,
 		},
 		{
@@ -227,7 +223,7 @@ func TestCustomer360Controller_GetCustomerStats(t *testing.T) {
 		{
 			name:           "success",
 			url:            "/api/customer/stats?user_id=user-test",
-			expectedStatus: 404, // 客户不存在
+			expectedStatus: 404, 
 			expectSuccess:  false,
 		},
 		{
@@ -273,7 +269,7 @@ func TestCustomer360Controller_GetCustomerSessions(t *testing.T) {
 		{
 			name:           "success",
 			url:            "/api/customer/sessions?user_id=user-test",
-			expectedStatus: 404, // 客户不存在
+			expectedStatus: 404, 
 			expectSuccess:  false,
 		},
 		{
@@ -319,7 +315,7 @@ func TestCustomer360Controller_GetCustomerMessages(t *testing.T) {
 		{
 			name:           "success",
 			url:            "/api/customer/messages?user_id=user-test",
-			expectedStatus: 404, // 客户不存在
+			expectedStatus: 404, 
 			expectSuccess:  false,
 		},
 		{
@@ -442,7 +438,7 @@ func TestCustomer360Controller_GetCustomerTags(t *testing.T) {
 		{
 			name:           "success",
 			url:            "/api/customer/tags?user_id=user-test",
-			expectedStatus: 200, // 用户无标签时返回空数组,非 404
+			expectedStatus: 200, 
 			expectSuccess:  true,
 		},
 		{
@@ -473,3 +469,4 @@ func TestCustomer360Controller_GetCustomerTags(t *testing.T) {
 		})
 	}
 }
+

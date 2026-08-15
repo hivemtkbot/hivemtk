@@ -1,15 +1,5 @@
 package repository
 
-// feedback_learning_repository.go 反馈学习域仓储
-//
-// 五层架构归属: L4 数据访问层
-// 设计依据: docs/核心链路优化.md 第十七章 §17.4
-//
-// 覆盖：SessionMessage(反馈学习专用查询)、SOPNodeTransition、
-// OptimizationSuggestion、SalesChampionProfileSnapshot 的 CRUD。
-// SOPAgent / SOPExecution 的查询复用 sop.go 中的 SopAgentRepository / SopExecutionRepository。
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -31,9 +21,6 @@ func NewFeedbackLearningRepository(db *gorm.DB) *FeedbackLearningRepository {
 	return &FeedbackLearningRepository{db: db}
 }
 
-// ----------------------------------------------------------------------------
-// SessionMessage 查询（反馈学习专用）
-// ----------------------------------------------------------------------------
 
 // ListAIMessagesByPeriod 查询指定时间段内的 AI 回复消息
 //
@@ -81,9 +68,6 @@ func (r *FeedbackLearningRepository) ListCustomerMessagesBySessions(ctx context.
 	return msgs, nil
 }
 
-// ----------------------------------------------------------------------------
-// SOPNodeTransition 节点流转记录
-// ----------------------------------------------------------------------------
 
 // CreateNodeTransition 创建节点流转记录
 // t 为 nil 时直接返回 nil（与原 service 实现一致）
@@ -117,9 +101,6 @@ func (r *FeedbackLearningRepository) ListNodeTransitionsBySOPAndVariant(ctx cont
 	return transitions, nil
 }
 
-// ----------------------------------------------------------------------------
-// OptimizationSuggestion 优化建议
-// ----------------------------------------------------------------------------
 
 // CreateSuggestionsInBatches 批量创建优化建议
 //
@@ -171,9 +152,6 @@ func (r *FeedbackLearningRepository) UpdateSuggestionFields(ctx context.Context,
 		Updates(fields).Error
 }
 
-// ----------------------------------------------------------------------------
-// SalesChampionProfileSnapshot 销冠画像快照
-// ----------------------------------------------------------------------------
 
 // CreateProfileSnapshot 创建画像快照
 func (r *FeedbackLearningRepository) CreateProfileSnapshot(ctx context.Context, snapshot *model.SalesChampionProfileSnapshot) error {
@@ -207,3 +185,4 @@ func (r *FeedbackLearningRepository) ListLatestProfileSnapshots(ctx context.Cont
 	}
 	return list, nil
 }
+

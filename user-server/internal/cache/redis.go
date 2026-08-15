@@ -12,7 +12,7 @@ import (
 // RedisCache Redis 缓存实现
 type RedisCache struct {
 	client       *redis.Client
-	sharedClient bool // true 表示 client 由外部（main）持有，Close 为 no-op
+	sharedClient bool 
 }
 
 // RedisConfig Redis 配置
@@ -33,7 +33,6 @@ func NewRedisCache(config RedisConfig) (*RedisCache, error) {
 		PoolSize: config.PoolSize,
 	})
 
-	// 测试连接
 	ctx := context.Background()
 	if err := client.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("redis connection failed: %w", err)
@@ -172,3 +171,4 @@ func (r *RedisCache) Close() error {
 	}
 	return r.client.Close()
 }
+

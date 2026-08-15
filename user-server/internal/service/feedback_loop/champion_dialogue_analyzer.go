@@ -1,24 +1,5 @@
 package feedbackloop
 
-// champion_dialogue_analyzer.go 销冠对话分析器
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十七章 §17.4.2
-//
-// 职责：从 feedback_signals 筛选高价值对话 → pgvector 聚类 → LLM 提取话术 → 入库
-//
-// 四阶段管道：
-//   阶段 1: 候选筛选      - 从 feedback_signals 拉取 reward ≥ MinReward 的对话
-//   阶段 2: 向量化与聚类  - LocalEmbedding.Embed → 简化 DBSCAN 聚类
-//   阶段 3: 话术提取      - LLM Dispatcher 从 Top-K 代表样本提取 1-3 条话术
-//   阶段 4: 入库与回流    - 持久化 champion_dialogues + 写入 script_templates
-//
-// 关键设计：
-//   - 聚类算法 O(n^2) 相似度比对（n ≤ 500 可接受）
-//   - 簇大小 < MinClusterSize 视为噪声丢弃
-//   - 每簇按 reward 排序取 Top-K 作为代表样本
-//   - 话术写入 script_templates 时 Source='champion_extract'
-//   - LLM 失败不阻断整体流程（记录错误继续下一簇）
 
 import (
 	"context"
@@ -87,7 +68,6 @@ func (a *ChampionDialogueAnalyzer) AnalyzePipeline(ctx context.Context, since ti
 		Errors:           make([]string, 0),
 	}
 
-	// 阶段 1：候选筛选
 	candidates, err := a.fetchCandidates(ctx, since)
 	if err != nil {
 		report.Errors = append(report.Errors, fmt.Sprintf("fetch candidates: %v", err))
@@ -98,7 +78,6 @@ func (a *ChampionDialogueAnalyzer) AnalyzePipeline(ctx context.Context, since ti
 		return report, nil
 	}
 
-	// 阶段 2：向量化 + 聚类
 	clusters, err := a.clusterDialogues(ctx, candidates)
 	if err != nil {
 		report.Errors = append(report.Errors, fmt.Sprintf("cluster dialogues: %v", err))
@@ -106,13 +85,11 @@ func (a *ChampionDialogueAnalyzer) AnalyzePipeline(ctx context.Context, since ti
 	}
 	report.ClusterCount = len(clusters)
 
-	// 阶段 3 & 4：话术提取 + 入库
 	for clusterID, dialogues := range clusters {
 		if len(dialogues) < a.config.MinClusterSize {
 			continue
 		}
 		topK := a.takeTopK(dialogues, a.config.TopKPerCluster)
-		// 持久化销冠对话
 		for _, d := range topK {
 			if err := a.persistDialogue(ctx, d, clusterID); err != nil {
 				report.Errors = append(report.Errors, fmt.Sprintf("persist dialogue (cluster=%d): %v", clusterID, err))
@@ -120,13 +97,11 @@ func (a *ChampionDialogueAnalyzer) AnalyzePipeline(ctx context.Context, since ti
 			}
 			report.PersistedCount++
 		}
-		// LLM 提取话术
 		scripts, err := a.extractScriptsWithLLM(ctx, topK)
 		if err != nil {
 			report.Errors = append(report.Errors, fmt.Sprintf("extract scripts (cluster=%d): %v", clusterID, err))
 			continue
 		}
-		// 标注 cluster_id 后写入 report + script_templates
 		for i := range scripts {
 			scripts[i].ClusterID = clusterID
 		}
@@ -137,9 +112,6 @@ func (a *ChampionDialogueAnalyzer) AnalyzePipeline(ctx context.Context, since ti
 	return report, nil
 }
 
-// ----------------------------------------------------------------------------
-// 阶段 1：候选筛选
-// ----------------------------------------------------------------------------
 
 // fetchCandidates 从 feedback_signals 拉取高价值候选对话
 //
@@ -155,9 +127,6 @@ func (a *ChampionDialogueAnalyzer) fetchCandidates(ctx context.Context, since ti
 	return rows, nil
 }
 
-// ----------------------------------------------------------------------------
-// 阶段 2：向量化与聚类
-// ----------------------------------------------------------------------------
 
 // championDialogueWithEmb 候选对话 + 向量
 type championDialogueWithEmb struct {
@@ -175,7 +144,6 @@ func (a *ChampionDialogueAnalyzer) clusterDialogues(ctx context.Context, rows []
 	if a.embedder == nil {
 		return nil, ErrEmbedderNotConfig
 	}
-	// 1. 向量化
 	candidates := make([]championDialogueWithEmb, len(rows))
 	for i, r := range rows {
 		text := r.CustomerMsg + " || " + r.AIReply
@@ -185,11 +153,10 @@ func (a *ChampionDialogueAnalyzer) clusterDialogues(ctx context.Context, rows []
 		}
 	}
 
-	// 2. 简化 DBSCAN
 	visited := make([]bool, len(candidates))
 	clusterID := uint(0)
 	clusters := make(map[uint][]championDialogueWithEmb)
-	simThreshold := float32(a.config.ClusterSimThreshold) // cosine similarity ≥ threshold 视为同簇
+	simThreshold := float32(a.config.ClusterSimThreshold) 
 
 	for i := 0; i < len(candidates); i++ {
 		if visited[i] {
@@ -248,9 +215,6 @@ func (a *ChampionDialogueAnalyzer) takeTopK(dialogues []championDialogueWithEmb,
 	return dialogues[:k]
 }
 
-// ----------------------------------------------------------------------------
-// 阶段 3：话术提取
-// ----------------------------------------------------------------------------
 
 // extractScriptsWithLLM LLM 提取话术
 //
@@ -284,7 +248,6 @@ func (a *ChampionDialogueAnalyzer) extractScriptsWithLLM(ctx context.Context, di
 	if err != nil {
 		return nil, fmt.Errorf("dispatch extract: %w", err)
 	}
-	// 提取 JSON 子串（LLM 可能包裹 markdown ```json ... ```）
 	jsonStr := extractJSON(content)
 	if jsonStr == "" {
 		return nil, fmt.Errorf("no JSON content in LLM response: %s", content)
@@ -302,24 +265,19 @@ func extractJSON(s string) string {
 	if s == "" {
 		return ""
 	}
-	// 去除 markdown 围栏
 	if strings.HasPrefix(s, "```") {
-		// 去掉首行 ```json 或 ```
 		if idx := strings.Index(s, "\n"); idx >= 0 {
 			s = s[idx+1:]
 		}
-		// 去掉结尾 ```
 		if idx := strings.LastIndex(s, "```"); idx >= 0 {
 			s = s[:idx]
 		}
 		s = strings.TrimSpace(s)
 	}
-	// 找第一个 [ 或 {
 	start := strings.IndexAny(s, "[{")
 	if start < 0 {
 		return ""
 	}
-	// 找最后一个 ] 或 }
 	end := strings.LastIndexAny(s, "]}")
 	if end < start {
 		return ""
@@ -327,9 +285,6 @@ func extractJSON(s string) string {
 	return s[start : end+1]
 }
 
-// ----------------------------------------------------------------------------
-// 阶段 4：入库与回流
-// ----------------------------------------------------------------------------
 
 // persistDialogue 持久化销冠对话到 champion_dialogues
 //
@@ -341,7 +296,7 @@ func (a *ChampionDialogueAnalyzer) persistDialogue(ctx context.Context, d champi
 	}
 	fingerprint := d.SessionID + "_" + d.Scenario
 	embStr := formatEmbeddingForPgVector(d.Embedding)
-	conversionAchieved := d.Reward >= 2.0 // reward ≥ 2.0 视为转化成功
+	conversionAchieved := d.Reward >= 2.0 
 
 	return a.repo.PersistChampionDialogue(ctx, repository.ChampionDialoguePersist{
 		Fingerprint:        fingerprint,
@@ -368,7 +323,6 @@ func formatEmbeddingForPgVector(v []float32) string {
 		if i > 0 {
 			b.WriteByte(',')
 		}
-		// 用 %.6f 保证精度，避免科学计数法
 		b.WriteString(fmt.Sprintf("%.6f", f))
 	}
 	b.WriteByte(']')
@@ -387,7 +341,6 @@ func (a *ChampionDialogueAnalyzer) saveScriptsToTemplate(ctx context.Context, sc
 	if a.repo == nil || len(scripts) == 0 {
 		return
 	}
-	// 反查 cluster_id 对应的最新 champion_dialogue.id
 	dialogueID, _ := a.repo.GetChampionDialogueIDByCluster(ctx, clusterID)
 
 	for _, s := range scripts {
@@ -399,7 +352,6 @@ func (a *ChampionDialogueAnalyzer) saveScriptsToTemplate(ctx context.Context, sc
 			effectiveScore = 0
 		}
 		if err := a.repo.InsertScriptTemplate(ctx, s.Scenario, s.Title, s.Content, tags, effectiveScore, s.JourneyStage, dialogueID); err != nil {
-			// 单条失败不阻断
 			continue
 		}
 	}
@@ -415,3 +367,4 @@ func absFloat32(f float32) float32 {
 
 // _ 确保 math 包被引用（未来 sqrtF32 等函数可能扩展）
 var _ = math.Pi
+

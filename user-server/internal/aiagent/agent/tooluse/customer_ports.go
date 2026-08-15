@@ -14,7 +14,7 @@ type CustomerSegmentFilter struct {
 	Tag           string
 	RFMMin        int
 	RFMMax        int
-	HasRFMMin     bool // 区分零值与未设置
+	HasRFMMin     bool 
 	HasRFMMax     bool
 	ChurnRisk     string
 	CreatedAfter  string
@@ -34,3 +34,4 @@ type CustomerDataStore interface {
 	Update(ctx context.Context, customer *model.Customer) error
 	SearchByFilter(ctx context.Context, filter CustomerSegmentFilter) ([]*model.Customer, int64, error)
 }
+

@@ -78,7 +78,6 @@ func lifecycleHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// 前端按「扁平节点行」渲染：把每轮的次级节点拍平，节点已携带 trace_id/conversation_id。
 	flat := make([]LifecycleNode, 0)
 	for _, round := range lc {
 		flat = append(flat, round.Nodes...)
@@ -114,3 +113,4 @@ func traceTreeHandler(c *gin.Context) {
 	}
 	response.Success(c, tree, "success")
 }
+

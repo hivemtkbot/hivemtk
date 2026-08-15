@@ -137,7 +137,6 @@ func TestABExperimentService_CreateExperiment_WithoutVariants(t *testing.T) {
 func TestABExperimentService_GetExperiment_Success(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 创建实验
 	createReq := &CreateExperimentRequest{
 		Name:       "Get Test",
 		SourceType: "page",
@@ -146,7 +145,6 @@ func TestABExperimentService_GetExperiment_Success(t *testing.T) {
 	}
 	created, _ := service.CreateExperiment(createReq)
 
-	// 获取实验
 	retrieved, err := service.GetExperiment(created.ID)
 	if err != nil {
 		t.Fatalf("GetExperiment failed: %v", err)
@@ -171,7 +169,6 @@ func TestABExperimentService_GetExperiment_NotFound(t *testing.T) {
 func TestABExperimentService_GetExperimentList_Success(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 创建多个实验
 	for i := 1; i <= 5; i++ {
 		createReq := &CreateExperimentRequest{
 			Name:       "Experiment " + string(rune('0'+i)),
@@ -182,7 +179,6 @@ func TestABExperimentService_GetExperimentList_Success(t *testing.T) {
 		service.CreateExperiment(createReq)
 	}
 
-	// 获取列表
 	experiments, total, err := service.GetExperimentList(1, 10)
 	if err != nil {
 		t.Fatalf("GetExperimentList failed: %v", err)
@@ -200,7 +196,6 @@ func TestABExperimentService_GetExperimentList_Success(t *testing.T) {
 func TestABExperimentService_GetExperimentList_WithPagination(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 创建 15 个实验
 	for i := 0; i < 15; i++ {
 		createReq := &CreateExperimentRequest{
 			Name:       "Experiment" + string(rune('A'+i)),
@@ -211,7 +206,6 @@ func TestABExperimentService_GetExperimentList_WithPagination(t *testing.T) {
 		service.CreateExperiment(createReq)
 	}
 
-	// 获取第一页
 	experiments, total, err := service.GetExperimentList(1, 10)
 	if err != nil {
 		t.Fatalf("GetExperimentList failed: %v", err)
@@ -224,7 +218,6 @@ func TestABExperimentService_GetExperimentList_WithPagination(t *testing.T) {
 		t.Errorf("Expected 10 experiments on page 1, got %d", len(experiments))
 	}
 
-	// 获取第二页
 	experiments2, _, err := service.GetExperimentList(2, 10)
 	if err != nil {
 		t.Fatalf("GetExperimentList page 2 failed: %v", err)
@@ -255,7 +248,6 @@ func TestABExperimentService_GetExperimentList_EmptyList(t *testing.T) {
 func TestABExperimentService_UpdateExperiment_Success(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 创建实验
 	createReq := &CreateExperimentRequest{
 		Name:       "Original",
 		SourceType: "page",
@@ -264,7 +256,6 @@ func TestABExperimentService_UpdateExperiment_Success(t *testing.T) {
 	}
 	created, _ := service.CreateExperiment(createReq)
 
-	// 更新实验
 	updateReq := &CreateExperimentRequest{
 		Name:         "Updated",
 		Description:  "New Description",
@@ -311,7 +302,6 @@ func TestABExperimentService_UpdateExperiment_NotFound(t *testing.T) {
 func TestABExperimentService_DeleteExperiment_Success(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 创建实验
 	createReq := &CreateExperimentRequest{
 		Name:       "Delete Me",
 		SourceType: "page",
@@ -320,13 +310,11 @@ func TestABExperimentService_DeleteExperiment_Success(t *testing.T) {
 	}
 	created, _ := service.CreateExperiment(createReq)
 
-	// 删除实验
 	err := service.DeleteExperiment(created.ID)
 	if err != nil {
 		t.Fatalf("DeleteExperiment failed: %v", err)
 	}
 
-	// 验证已删除
 	_, err = service.GetExperiment(created.ID)
 	if err == nil {
 		t.Error("Expected error after deletion")
@@ -337,7 +325,6 @@ func TestABExperimentService_DeleteExperiment_Success(t *testing.T) {
 func TestABExperimentService_StartExperiment_Success(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 创建实验
 	createReq := &CreateExperimentRequest{
 		Name:       "Start Test",
 		SourceType: "page",
@@ -346,13 +333,11 @@ func TestABExperimentService_StartExperiment_Success(t *testing.T) {
 	}
 	created, _ := service.CreateExperiment(createReq)
 
-	// 启动实验
 	err := service.StartExperiment(created.ID)
 	if err != nil {
 		t.Fatalf("StartExperiment failed: %v", err)
 	}
 
-	// 验证状态
 	updated, _ := service.GetExperiment(created.ID)
 	if updated.Status != "running" {
 		t.Errorf("Expected status 'running', got '%s'", updated.Status)
@@ -363,7 +348,6 @@ func TestABExperimentService_StartExperiment_Success(t *testing.T) {
 func TestABExperimentService_PauseExperiment_Success(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 创建并启动实验
 	createReq := &CreateExperimentRequest{
 		Name:       "Pause Test",
 		SourceType: "page",
@@ -373,13 +357,11 @@ func TestABExperimentService_PauseExperiment_Success(t *testing.T) {
 	created, _ := service.CreateExperiment(createReq)
 	service.StartExperiment(created.ID)
 
-	// 暂停实验
 	err := service.PauseExperiment(created.ID)
 	if err != nil {
 		t.Fatalf("PauseExperiment failed: %v", err)
 	}
 
-	// 验证状态
 	updated, _ := service.GetExperiment(created.ID)
 	if updated.Status != "paused" {
 		t.Errorf("Expected status 'paused', got '%s'", updated.Status)
@@ -390,7 +372,6 @@ func TestABExperimentService_PauseExperiment_Success(t *testing.T) {
 func TestABExperimentService_StopExperiment_Success(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 创建并启动实验
 	createReq := &CreateExperimentRequest{
 		Name:       "Stop Test",
 		SourceType: "page",
@@ -400,13 +381,11 @@ func TestABExperimentService_StopExperiment_Success(t *testing.T) {
 	created, _ := service.CreateExperiment(createReq)
 	service.StartExperiment(created.ID)
 
-	// 停止实验
 	err := service.StopExperiment(created.ID)
 	if err != nil {
 		t.Fatalf("StopExperiment failed: %v", err)
 	}
 
-	// 验证状态
 	updated, _ := service.GetExperiment(created.ID)
 	if updated.Status != "completed" {
 		t.Errorf("Expected status 'completed', got '%s'", updated.Status)
@@ -417,7 +396,6 @@ func TestABExperimentService_StopExperiment_Success(t *testing.T) {
 func TestABExperimentService_GetVariant_CacheHit(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 先缓存一个变体
 	hashKey := service.hashSourceID("test_source")
 	cachedVariant := &model.ABVariant{
 		Name:      "Cached",
@@ -425,7 +403,6 @@ func TestABExperimentService_GetVariant_CacheHit(t *testing.T) {
 	}
 	service.variantCache[hashKey] = cachedVariant
 
-	// 获取变体
 	variant, err := service.GetVariant("test_source")
 	if err != nil {
 		t.Fatalf("GetVariant failed: %v", err)
@@ -453,7 +430,7 @@ func TestABExperimentService_hashSourceID(t *testing.T) {
 	hash1 := service.hashSourceID("test123")
 	hash2 := service.hashSourceID("test123")
 	hash3 := service.hashSourceID("test456")
-	_ = hash3 // Suppress unused variable warning
+	_ = hash3 
 
 	if hash1 != hash2 {
 		t.Error("Same input should produce same hash")
@@ -470,7 +447,6 @@ func TestABExperimentService_hashSourceID(t *testing.T) {
 func TestABExperimentService_RecordConversion_Success(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 创建实验和变体
 	createReq := &CreateExperimentRequest{
 		Name:       "Conversion Test",
 		SourceType: "page",
@@ -479,21 +455,19 @@ func TestABExperimentService_RecordConversion_Success(t *testing.T) {
 	}
 	experiment, _ := service.CreateExperiment(createReq)
 
-	// 获取变体
 	variants, _ := service.variantRepo.GetByExperiment(experiment.ID)
 	if len(variants) == 0 {
 		t.Fatal("No variants created")
 	}
 	variant := variants[0]
 
-	// 记录转化
 	metadata := map[string]any{"source": "test"}
 	err := service.RecordConversion(
 		experiment.ID,
 		variant.ID,
 		"purchase",
 		"click",
-		9999, // 99.99 元 = 9999 分
+		9999, 
 		"user_123",
 		metadata,
 	)
@@ -501,7 +475,6 @@ func TestABExperimentService_RecordConversion_Success(t *testing.T) {
 		t.Fatalf("RecordConversion failed: %v", err)
 	}
 
-	// 验证转化事件已创建
 	events, _, _ := service.conversionRepo.GetByExperiment(experiment.ID, 1, 10)
 	if len(events) != 1 {
 		t.Errorf("Expected 1 conversion event, got %d", len(events))
@@ -512,7 +485,6 @@ func TestABExperimentService_RecordConversion_Success(t *testing.T) {
 func TestABExperimentService_CalculateResults_Success(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 创建实验和变体
 	createReq := &CreateExperimentRequest{
 		Name:       "Results Test",
 		SourceType: "page",
@@ -523,25 +495,21 @@ func TestABExperimentService_CalculateResults_Success(t *testing.T) {
 	}
 	experiment, _ := service.CreateExperiment(createReq)
 
-	// 获取变体
 	variants, _ := service.variantRepo.GetByExperiment(experiment.ID)
 	if len(variants) == 0 {
 		t.Fatal("No variants created")
 	}
 	variant := variants[0]
 
-	// 更新变体计数
 	service.variantRepo.IncrementTraffic(variant.ID)
 	service.variantRepo.IncrementTraffic(variant.ID)
 	service.variantRepo.IncrementConversion(variant.ID)
 
-	// 计算结果
 	err := service.CalculateResults(experiment.ID)
 	if err != nil {
 		t.Fatalf("CalculateResults failed: %v", err)
 	}
 
-	// 验证结果
 	results, _ := service.resultRepo.GetByExperiment(experiment.ID)
 	if len(results) < 1 {
 		t.Errorf("Expected at least 1 result, got %d", len(results))
@@ -552,7 +520,6 @@ func TestABExperimentService_CalculateResults_Success(t *testing.T) {
 func TestABExperimentService_calculateConfidence(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 高转化率 (>50%)
 	result1 := &model.ABExperimentResult{
 		TrafficCount:   100,
 		ConversionRate: 70.0,
@@ -562,18 +529,15 @@ func TestABExperimentService_calculateConfidence(t *testing.T) {
 		t.Errorf("Expected confidence > 0.5 for 70%% conversion, got %f", conf1)
 	}
 
-	// 50% 转化率
 	result2 := &model.ABExperimentResult{
 		TrafficCount:   100,
 		ConversionRate: 50.0,
 	}
 	conf2 := service.calculateConfidence(result2)
-	// 50% 转化率应该接近 0.5 置信度
 	if conf2 < 0.3 || conf2 > 0.7 {
 		t.Logf("Confidence for 50%% conversion: %f (expected around 0.5)", conf2)
 	}
 
-	// 零流量
 	result3 := &model.ABExperimentResult{
 		TrafficCount:   0,
 		ConversionRate: 0.0,
@@ -588,7 +552,6 @@ func TestABExperimentService_calculateConfidence(t *testing.T) {
 func TestABExperimentService_calculateWinner(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 创建实验
 	createReq := &CreateExperimentRequest{
 		Name:       "Winner Test",
 		SourceType: "page",
@@ -598,7 +561,6 @@ func TestABExperimentService_calculateWinner(t *testing.T) {
 	experiment, _ := service.CreateExperiment(createReq)
 	variants, _ := service.variantRepo.GetByExperiment(experiment.ID)
 
-	// 创建结果（由于唯一索引限制，只创建一个变体的结果）
 	resultA := &model.ABExperimentResult{
 		ExperimentID:    experiment.ID,
 		VariantID:       variants[0].ID,
@@ -614,13 +576,11 @@ func TestABExperimentService_calculateWinner(t *testing.T) {
 		t.Fatalf("Failed to create result: %v", err)
 	}
 
-	// 计算获胜者（只有一个变体时也应该能工作）
 	err = service.calculateWinner(experiment.ID)
 	if err != nil {
 		t.Fatalf("calculateWinner failed: %v", err)
 	}
 
-	// 验证结果存在
 	results, _ := service.resultRepo.GetByExperiment(experiment.ID)
 	if len(results) < 1 {
 		t.Error("Expected at least 1 result")
@@ -631,7 +591,6 @@ func TestABExperimentService_calculateWinner(t *testing.T) {
 func TestABExperimentService_GetExperimentResults_Success(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 创建实验
 	createReq := &CreateExperimentRequest{
 		Name:       "Get Results Test",
 		SourceType: "page",
@@ -640,7 +599,6 @@ func TestABExperimentService_GetExperimentResults_Success(t *testing.T) {
 	}
 	experiment, _ := service.CreateExperiment(createReq)
 
-	// 创建结果
 	result := &model.ABExperimentResult{
 		ExperimentID:    experiment.ID,
 		VariantID:       1,
@@ -652,7 +610,6 @@ func TestABExperimentService_GetExperimentResults_Success(t *testing.T) {
 	}
 	service.resultRepo.Upsert(result)
 
-	// 获取结果
 	results, err := service.GetExperimentResults(experiment.ID)
 	if err != nil {
 		t.Fatalf("GetExperimentResults failed: %v", err)
@@ -667,7 +624,6 @@ func TestABExperimentService_GetExperimentResults_Success(t *testing.T) {
 func TestABExperimentService_GetConversionEvents_Success(t *testing.T) {
 	service := setupABExperimentService(t)
 
-	// 创建实验
 	createReq := &CreateExperimentRequest{
 		Name:       "Get Events Test",
 		SourceType: "page",
@@ -677,18 +633,16 @@ func TestABExperimentService_GetConversionEvents_Success(t *testing.T) {
 	experiment, _ := service.CreateExperiment(createReq)
 	variants, _ := service.variantRepo.GetByExperiment(experiment.ID)
 
-	// 创建转化事件
 	event := &model.ABConversionEvent{
 		ExperimentID: experiment.ID,
 		VariantID:    variants[0].ID,
 		EventName:    "purchase",
 		EventType:    "click",
-		EventValue:   9999, // 99.99 元 = 9999 分
+		EventValue:   9999, 
 		UserID:       "user_123",
 	}
 	service.conversionRepo.Create(event)
 
-	// 获取事件
 	events, total, err := service.GetConversionEvents(experiment.ID, 1, 10)
 	if err != nil {
 		t.Fatalf("GetConversionEvents failed: %v", err)
@@ -701,3 +655,4 @@ func TestABExperimentService_GetConversionEvents_Success(t *testing.T) {
 		t.Errorf("Expected 1 event, got %d", len(events))
 	}
 }
+

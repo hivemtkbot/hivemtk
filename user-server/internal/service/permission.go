@@ -1,15 +1,5 @@
 package service
 
-// permission.go 授权管理服务
-//
-// 五层架构归属：L3 业务逻辑层
-//
-// 设计依据（详见 docs/architecture/MENU_PERMISSION_PLAN.md v3.1 §3.4）：
-//   - 授权管理 = 启停（SetEnabled）+ 改密（ResetPassword）+ 审计（ListAuditLogs）
-//   - 不做权限点分配
-//   - 业务校验失败返回 fmt.Errorf("...: %w", ErrInvalidInput)
-//   - 不调 db，只调 repository
-//   - 审计日志由 OperationLogService 写入 operation_logs 表
 
 import (
 	"context"
@@ -58,12 +48,10 @@ func NewAuthorizationServiceWithRepo(userRepo repository.SystemUserRepository, a
 //   - 目标不存在 → ErrInvalidInput（不泄露存在性）
 //   - 系统级错误 → 原样返回
 func (s *AuthorizationService) SetEnabled(ctx context.Context, actorID, targetID uint, enabled bool) error {
-	// 1. 不能操作自己
 	if actorID == targetID {
 		return fmt.Errorf("不能启停自己的账号: %w", ErrInvalidInput)
 	}
 
-	// 2. 查询目标
 	target, err := s.userRepo.GetByID(ctx, targetID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -72,7 +60,6 @@ func (s *AuthorizationService) SetEnabled(ctx context.Context, actorID, targetID
 		return err
 	}
 
-	// 3. 禁用 admin 时守卫
 	if !enabled && target.Role == model.SystemUserRoleAdmin {
 		enabledCount, err := s.userRepo.CountEnabledAdmins(ctx)
 		if err != nil {
@@ -83,7 +70,6 @@ func (s *AuthorizationService) SetEnabled(ctx context.Context, actorID, targetID
 		}
 	}
 
-	// 4. 写库
 	if err := s.userRepo.SetEnabled(ctx, targetID, enabled); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("用户不存在: %w", ErrInvalidInput)
@@ -91,7 +77,6 @@ func (s *AuthorizationService) SetEnabled(ctx context.Context, actorID, targetID
 		return err
 	}
 
-	// 5. 写审计日志（best-effort，不阻断主流程）
 	action := "user.enable"
 	if !enabled {
 		action = "user.disable"
@@ -109,17 +94,14 @@ func (s *AuthorizationService) SetEnabled(ctx context.Context, actorID, targetID
 //   - 密码强度：至少 8 位 + 大小写字母 + 数字（与 validatePassword 一致）
 //   - 操作后自动写审计日志（action=user.reset_password）
 func (s *AuthorizationService) ResetPassword(ctx context.Context, actorID, targetID uint, newPassword string) error {
-	// 1. 不能改自己
 	if actorID == targetID {
 		return fmt.Errorf("不能重置自己的密码，请使用修改密码功能: %w", ErrInvalidInput)
 	}
 
-	// 2. 校验密码强度
 	if err := validatePassword(newPassword); err != nil {
 		return fmt.Errorf("%w: %s", ErrInvalidInput, err.Error())
 	}
 
-	// 3. 查询目标
 	target, err := s.userRepo.GetByID(ctx, targetID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -128,13 +110,11 @@ func (s *AuthorizationService) ResetPassword(ctx context.Context, actorID, targe
 		return err
 	}
 
-	// 4. bcrypt 加密
 	hashed, err := HashPassword(newPassword)
 	if err != nil {
 		return err
 	}
 
-	// 5. 写库
 	if err := s.userRepo.UpdatePassword(ctx, targetID, hashed); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("用户不存在: %w", ErrInvalidInput)
@@ -142,7 +122,6 @@ func (s *AuthorizationService) ResetPassword(ctx context.Context, actorID, targe
 		return err
 	}
 
-	// 6. 写审计日志
 	_ = s.writeAuditLog(ctx, actorID, targetID, target.Username, "user.reset_password",
 		fmt.Sprintf("actor=%d -> target=%d (%s)", actorID, targetID, target.Username))
 
@@ -151,11 +130,11 @@ func (s *AuthorizationService) ResetPassword(ctx context.Context, actorID, targe
 
 // ListAuditLogsRequest 审计日志查询请求
 type ListAuditLogsRequest struct {
-	UserID   uint   `json:"user_id"`   // 操作人 ID
-	Action   string `json:"action"`    // 动作过滤（user.enable/user.disable/user.reset_password）
-	Module   string `json:"module"`    // 模块过滤（默认 role）
-	Page     int    `json:"page"`      // 页码（默认 1）
-	PageSize int    `json:"page_size"` // 每页条数（默认 20）
+	UserID   uint   `json:"user_id"`   
+	Action   string `json:"action"`    
+	Module   string `json:"module"`    
+	Page     int    `json:"page"`      
+	PageSize int    `json:"page_size"` 
 }
 
 // ListAuditLogsResponse 审计日志查询响应
@@ -182,7 +161,7 @@ func (s *AuthorizationService) ListAuditLogs(ctx context.Context, req *ListAudit
 	}
 
 	filters := map[string]any{
-		"module": "role", // 授权管理模块的 module 标识
+		"module": "role", 
 	}
 	if req.UserID > 0 {
 		filters["user_id"] = req.UserID
@@ -190,9 +169,7 @@ func (s *AuthorizationService) ListAuditLogs(ctx context.Context, req *ListAudit
 	if req.Action != "" {
 		filters["action"] = req.Action
 	} else {
-		// 限定为授权管理相关动作
 		filters["action"] = "user.%"
-		// 注意：repository.GetAll 暂未支持 LIKE，改为不带 action 过滤，依赖前端展示过滤
 		delete(filters, "action")
 	}
 
@@ -201,7 +178,6 @@ func (s *AuthorizationService) ListAuditLogs(ctx context.Context, req *ListAudit
 		return nil, err
 	}
 
-	// 若指定了 action 过滤（精确匹配），在 service 层再过滤一次
 	if req.Action != "" {
 		filtered := make([]*OperationLogView, 0, len(logs))
 		for _, l := range logs {
@@ -228,10 +204,11 @@ func (s *AuthorizationService) writeAuditLog(ctx context.Context, actorID, targe
 		UserID:     actorID,
 		Username:   targetUsername,
 		Action:     action,
-		Module:     "role", // 授权管理归入 role 模块
+		Module:     "role", 
 		Resource:   "system_user",
 		ResourceID: fmt.Sprintf("%d", targetID),
 		Detail:     detail,
 	}
 	return repository.NewOperationLogRepository().Create(ctx, log)
 }
+

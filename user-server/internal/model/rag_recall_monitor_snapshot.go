@@ -32,3 +32,4 @@ type RagRecallMonitorSnapshot struct {
 func (RagRecallMonitorSnapshot) TableName() string {
 	return "rag_recall_monitor_snapshots"
 }
+

@@ -16,7 +16,6 @@ func TestTelegramPollingLockRepository_BasicFlow(t *testing.T) {
 	if err := db.Exec("DELETE FROM telegram_accounts").Error; err != nil {
 		t.Fatalf("清理测试数据失败: %v", err)
 	}
-	// seed
 	acc := &model.TelegramAccount{
 		ID:          700,
 		AccountName: "test-acc-700",
@@ -32,7 +31,6 @@ func TestTelegramPollingLockRepository_BasicFlow(t *testing.T) {
 	workerA := "host-A:11111"
 	workerB := "host-B:22222"
 
-	// 1) 初始空闲，Worker A 抢占应成功
 	acqA, _, err := repo.TryAcquirePollingLock(ctx, workerA, 700)
 	if err != nil {
 		t.Fatalf("Worker A 抢占失败: %v", err)
@@ -41,7 +39,6 @@ func TestTelegramPollingLockRepository_BasicFlow(t *testing.T) {
 		t.Fatalf("Worker A 抢占应成功（初始空闲）")
 	}
 
-	// 2) Worker B 抢占应失败（锁活跃）
 	acqB, infoB, err := repo.TryAcquirePollingLock(ctx, workerB, 700)
 	if err != nil {
 		t.Fatalf("Worker B 抢占查询失败: %v", err)
@@ -56,7 +53,6 @@ func TestTelegramPollingLockRepository_BasicFlow(t *testing.T) {
 		t.Errorf("失败时应返回 lastHeartbeat")
 	}
 
-	// 3) Worker A 心跳应成功（lockLost=false）
 	lockLost, err := repo.HeartbeatPollingLock(ctx, workerA, 700)
 	if err != nil {
 		t.Fatalf("Worker A 心跳失败: %v", err)
@@ -65,7 +61,6 @@ func TestTelegramPollingLockRepository_BasicFlow(t *testing.T) {
 		t.Errorf("Worker A 心跳不应检测到锁丢失")
 	}
 
-	// 4) Worker B 心跳应检测到锁丢失（lockLost=true）
 	lockLost, err = repo.HeartbeatPollingLock(ctx, workerB, 700)
 	if err != nil {
 		t.Fatalf("Worker B 心跳应不报错（仅返回 lockLost=true）: %v", err)
@@ -74,7 +69,6 @@ func TestTelegramPollingLockRepository_BasicFlow(t *testing.T) {
 		t.Errorf("Worker B 心跳应检测到锁丢失（lockLost=true）")
 	}
 
-	// 5) Worker A 释放
 	if err := repo.ReleasePollingLock(ctx, workerA, 700); err != nil {
 		t.Fatalf("Worker A 释放失败: %v", err)
 	}
@@ -82,7 +76,6 @@ func TestTelegramPollingLockRepository_BasicFlow(t *testing.T) {
 		t.Errorf("Release 后 IsPollingLockHeldByMe 应返回 false")
 	}
 
-	// 6) Worker A 释放后，Worker B 抢占应成功
 	acqB, _, err = repo.TryAcquirePollingLock(ctx, workerB, 700)
 	if err != nil {
 		t.Fatalf("Worker A 释放后 Worker B 抢占失败: %v", err)
@@ -91,7 +84,6 @@ func TestTelegramPollingLockRepository_BasicFlow(t *testing.T) {
 		t.Errorf("Worker A 释放后 Worker B 应抢占成功")
 	}
 
-	// 清理
 	_ = repo.ReleasePollingLock(ctx, workerB, 700)
 }
 
@@ -116,13 +108,11 @@ func TestTelegramPollingLockRepository_StaleTakeover(t *testing.T) {
 	workerA := "host-A:11111"
 	workerB := "host-B:22222"
 
-	// Worker A 抢占
 	acqA, _, err := repo.TryAcquirePollingLock(ctx, workerA, 800)
 	if err != nil || !acqA {
 		t.Fatalf("Worker A 抢占失败: %v acq=%v", err, acqA)
 	}
 
-	// 模拟心跳过期（90s 前）
 	staleTime := time.Now().Add(-90 * time.Second)
 	if err := db.Model(&model.TelegramAccount{}).
 		Where("id = ?", 800).
@@ -130,7 +120,6 @@ func TestTelegramPollingLockRepository_StaleTakeover(t *testing.T) {
 		t.Fatalf("设置心跳过期失败: %v", err)
 	}
 
-	// Worker B 抢占僵尸锁应成功
 	acqB, _, err := repo.TryAcquirePollingLock(ctx, workerB, 800)
 	if err != nil {
 		t.Fatalf("Worker B 抢占僵尸锁失败: %v", err)
@@ -139,7 +128,6 @@ func TestTelegramPollingLockRepository_StaleTakeover(t *testing.T) {
 		t.Errorf("Worker B 抢占僵尸锁应成功")
 	}
 
-	// 清理
 	_ = repo.ReleasePollingLock(ctx, workerB, 800)
 }
 
@@ -169,3 +157,4 @@ func TestTelegramPollingLockRepository_NilDB(t *testing.T) {
 		t.Errorf("db=nil HeartbeatPollingLock 应返回 lockLost=true")
 	}
 }
+

@@ -174,8 +174,6 @@ func (c *AssetBundleController) GetByAssetID(ctx *gin.Context) {
 // List 分页
 func (c *AssetBundleController) List(ctx *gin.Context) {
 	var req dto.AssetBundleListRequest
-	// 前端以 POST + JSON body 调用，优先按 JSON 绑定；空 query 时 ShouldBindQuery
-	// 会误判成功而跳过 JSON 绑定，故必须先 JSON 后 query。
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		if err2 := ctx.ShouldBindQuery(&req); err2 != nil {
 			response.Error(ctx, http.StatusBadRequest, err.Error())
@@ -283,7 +281,6 @@ func (c *AssetBundleController) Weave(ctx *gin.Context) {
 	if !response.BindJSON(ctx, &req) {
 		return
 	}
-	// DTO → Service 层 WeaveInput 转换
 	in := service.WeaveInput{
 		UserQuery:    req.UserQuery,
 		ChatHistory:  service.AssetBundleMessagesFromDTO(req.ChatHistory),
@@ -336,7 +333,6 @@ func (c *AssetBundleController) MerchantSave(ctx *gin.Context) {
 		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
-	// 如果已存在则更新，否则创建
 	existing, _ := c.svc.GetBundleByAssetID(ctx.Request.Context(), req.AssetID)
 	if existing != nil {
 		bundle.ID = existing.ID
@@ -381,3 +377,4 @@ func assetBundleStatusToInt(s model.AssetBundleStatus) int {
 		return 0
 	}
 }
+

@@ -81,7 +81,6 @@ func (m *mockKeyword) Search(ctx context.Context, kbID, q string, topK int) ([]C
 	return m.chunks[:topK], nil
 }
 
-// ============== RAGThreeTierService ==============
 
 func newThreeTierService() (*RAGThreeTierService, *mockIndex, *mockIndex, *mockKeyword) {
 	v := &mockVectorizer{dim: 16}
@@ -119,7 +118,6 @@ func TestRAGThreeTier_L2Hit(t *testing.T) {
 
 func TestRAGThreeTier_L3Fallback(t *testing.T) {
 	s, l2, l3, _ := newThreeTierService()
-	// L2 失败
 	l2.err = errors.New("l2 error")
 	l3.chunks = map[string][]Chunk{
 		"kb1": {{ID: "c3", DocumentID: "d3", Content: "cold", Score: 0.7}},
@@ -157,12 +155,10 @@ func TestRAGThreeTier_L1Cache(t *testing.T) {
 	l2.chunks = map[string][]Chunk{
 		"kb1": {{ID: "c1", Content: "hi", Score: 0.9}},
 	}
-	// 第一次
 	r1, _ := s.Search(context.Background(), "kb1", "hi", 5)
 	if r1.Source != TierL2WarmIndex {
 		t.Errorf("first expected L2, got %s", r1.Source)
 	}
-	// 第二次应命中 L1
 	r2, _ := s.Search(context.Background(), "kb1", "hi", 5)
 	if r2.Source != TierL2WarmIndex {
 		t.Errorf("second expected L2 (from cache), got %s", r2.Source)
@@ -195,7 +191,6 @@ func TestRAGThreeTier_ClearCache(t *testing.T) {
 	l2.chunks = map[string][]Chunk{"kb1": {{ID: "c1", Score: 0.9}}}
 	s.Search(context.Background(), "kb1", "hi", 5)
 	s.ClearCache()
-	// 清空后应再次走 L2
 	r, _ := s.Search(context.Background(), "kb1", "hi", 5)
 	if r.FromCache {
 		t.Error("expected not from cache after clear")
@@ -224,7 +219,6 @@ func TestRAGThreeTier_MergeResults(t *testing.T) {
 	if len(merged) != 3 {
 		t.Errorf("expected 3 unique, got %d", len(merged))
 	}
-	// 第一名应是 score 0.9 (a)
 	if merged[0].ID != "a" {
 		t.Errorf("expected a first, got %s", merged[0].ID)
 	}
@@ -312,7 +306,6 @@ func TestRAGThreeTier_NoIndexers(t *testing.T) {
 }
 
 func TestRAGThreeTier_VectorizerError(t *testing.T) {
-	// 模拟 vectorizer 错误：当前实现为降级（log 后继续下一层），不返回 error
 	bad := &badVectorizer{}
 	l2 := &mockIndex{}
 	s := NewRAGThreeTierService(nil, bad, l2, nil, nil, 10)
@@ -323,7 +316,6 @@ func TestRAGThreeTier_VectorizerError(t *testing.T) {
 	if r == nil {
 		t.Fatal("expected non-nil result")
 	}
-	// 所有层都不可用时，应返回 no_hit
 	if r.Source != "" {
 		t.Errorf("expected empty source (degrade), got %s", r.Source)
 	}
@@ -349,7 +341,6 @@ func TestRAGThreeTier_NilService(t *testing.T) {
 
 func TestRAGThreeTier_OnlyL1(t *testing.T) {
 	s := NewRAGThreeTierService(nil, nil, nil, nil, nil, 10)
-	// 仅 L1 缓存可用
 	s.EnableTier(TierL1HotCache, true)
 	r, _ := s.Search(context.Background(), "kb", "hi", 5)
 	if r == nil {
@@ -370,7 +361,7 @@ func TestRAGThreeTier_L2WithScore(t *testing.T) {
 
 func TestRAGThreeTier_L2NoResults_FallbackL3(t *testing.T) {
 	s, l2, l3, _ := newThreeTierService()
-	l2.chunks = map[string][]Chunk{} // 空
+	l2.chunks = map[string][]Chunk{} 
 	l3.chunks = map[string][]Chunk{
 		"kb1": {{ID: "c1", Score: 0.8}},
 	}
@@ -432,3 +423,4 @@ func TestRAGThreeTier_PutCache_Disabled(t *testing.T) {
 		t.Errorf("expected 0 L1 hit, got %d", stats.L1Hits)
 	}
 }
+

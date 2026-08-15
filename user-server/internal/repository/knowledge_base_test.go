@@ -240,9 +240,6 @@ func TestKnowledgeBaseRepository_CountByAgent(t *testing.T) {
 	}
 }
 
-// =====================================================================
-// 补充测试: 边界条件 / 错误处理 / 过滤组合 (Task 38)
-// =====================================================================
 
 // TestKnowledgeBaseRepository_GetByID_NotFound 验证 GetByID 不存在返回 nil
 func TestKnowledgeBaseRepository_GetByID_NotFound(t *testing.T) {
@@ -286,7 +283,6 @@ func TestKnowledgeBaseRepository_DuplicateCode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 尝试用相同 kb_code 再次创建
 	kb2 := newTestKB("KB-DUP-001", "rag", "shared", nil)
 	err := repo.Create(ctx, kb2)
 	if err == nil {
@@ -360,7 +356,6 @@ func TestKnowledgeBaseRepository_List_FilterByEnabled(t *testing.T) {
 	kb2.Enabled = &enabled
 	_ = repo.Create(ctx, kb2)
 
-	// 过滤 enabled=true
 	kbs, total, err := repo.List(ctx, KBListFilter{Enabled: &[]bool{true}[0]})
 	if err != nil {
 		t.Fatal(err)
@@ -402,7 +397,6 @@ func TestKnowledgeBaseRepository_List_LimitDefault(t *testing.T) {
 	defer done()
 	ctx := context.Background()
 
-	// 插入 5 条, limit 0 -> 默认 200
 	for i := 0; i < 5; i++ {
 		_ = repo.Create(ctx, newTestKB(fmt.Sprintf("L%d", i), "faq", "shared", nil))
 	}
@@ -424,7 +418,6 @@ func TestKnowledgeBaseRepository_List_Pagination(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		_ = repo.Create(ctx, newTestKB(fmt.Sprintf("P%d", i), "faq", "shared", nil))
 	}
-	// limit=2 offset=1
 	kbs, total, err := repo.List(ctx, KBListFilter{Limit: 2, Offset: 1})
 	if err != nil {
 		t.Fatal(err)
@@ -461,17 +454,14 @@ func TestKnowledgeBaseRepository_ListByAgent_IncludesSharedBinding(t *testing.T)
 	a1 := uint(11)
 	_ = repo.Create(ctx, newTestKB("P1", "faq", "private", &a1))
 
-	// shared KB
 	shared := newTestKB("S1", "rag", "shared", nil)
 	_ = repo.Create(ctx, shared)
 
-	// a1 没有 binding, 看不到 S1
 	got, _ := repo.ListByAgent(ctx, a1)
 	if len(got) != 1 {
 		t.Fatalf("expected 1 (only P1), got %d", len(got))
 	}
 
-	// 通过 binding repo 插入绑定
 	bindingRepo := NewAgentKBBindingRepository(repo.db)
 	binding := &model.AgentKBBinding{
 		AgentID: a1,
@@ -484,7 +474,6 @@ func TestKnowledgeBaseRepository_ListByAgent_IncludesSharedBinding(t *testing.T)
 		t.Fatal(err)
 	}
 
-	// a1 现在能看到 S1
 	got, _ = repo.ListByAgent(ctx, a1)
 	if len(got) != 2 {
 		t.Fatalf("expected 2 (P1 + S1), got %d", len(got))
@@ -509,7 +498,6 @@ func TestKnowledgeBaseRepository_ListByType_Limit(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		_ = repo.Create(ctx, newTestKB(fmt.Sprintf("T%d", i), "faq", "shared", nil))
 	}
-	// limit=2
 	got, err := repo.ListByType(ctx, "faq", 2)
 	if err != nil {
 		t.Fatal(err)
@@ -551,8 +539,6 @@ func TestKnowledgeBaseRepository_Update_NonExistent(t *testing.T) {
 
 	kb := newTestKB("X", "faq", "shared", nil)
 	kb.Name = "updated"
-	// GORM Updates 在没有匹配行时不会报错, 但 RowsAffected = 0
-	// 这里验证不 panic 即可
 	_ = repo.Update(ctx, 99999, kb)
 }
 
@@ -581,3 +567,4 @@ func TestKnowledgeBaseRepository_CountByAgent_NoKB(t *testing.T) {
 		t.Errorf("expected count=0 for agent with no KB, got %d", c)
 	}
 }
+

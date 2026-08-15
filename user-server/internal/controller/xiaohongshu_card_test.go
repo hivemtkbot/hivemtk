@@ -36,7 +36,6 @@ func uintPtr(v uint) *uint {
 // TestXiaohongshuCardController_Create_Success 测试创建小红书卡片成功
 func TestXiaohongshuCardController_Create_Success(t *testing.T) {
 	database := setupXiaohongshuCardTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -135,7 +134,6 @@ func TestXiaohongshuCardController_Create_InvalidImageURL(t *testing.T) {
 // TestXiaohongshuCardController_Create_DefaultRedirectURL 测试默认跳转链接
 func TestXiaohongshuCardController_Create_DefaultRedirectURL(t *testing.T) {
 	database := setupXiaohongshuCardTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -168,7 +166,6 @@ func TestXiaohongshuCardController_Create_DefaultRedirectURL(t *testing.T) {
 // TestXiaohongshuCardController_Update_Success 测试更新卡片成功
 func TestXiaohongshuCardController_Update_Success(t *testing.T) {
 	database := setupXiaohongshuCardTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -179,7 +176,6 @@ func TestXiaohongshuCardController_Update_Success(t *testing.T) {
 	ctrl := NewXiaohongshuCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	card, _ := svc.Create(context.Background(), &dto.XiaohongshuCardCreateRequest{
 		Title:        "Original Card",
 		Description:  "Original description",
@@ -247,7 +243,7 @@ func TestXiaohongshuCardController_Update_IDMismatch(t *testing.T) {
 	router.PUT("/xiaohongshu/cards/:id", ctrl.Update)
 
 	updateReq := dto.XiaohongshuCardUpdateRequest{
-		ID:    999, // 与 URL 中的 ID 不匹配
+		ID:    999, 
 		Title: "Test",
 	}
 	body, _ := json.Marshal(updateReq)
@@ -269,7 +265,6 @@ func TestXiaohongshuCardController_Delete_Success(t *testing.T) {
 	ctrl := NewXiaohongshuCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.XiaohongshuCardCreateRequest{
 		Title:        "Card to Delete",
 		Description:  "This card will be deleted",
@@ -312,7 +307,6 @@ func TestXiaohongshuCardController_GetByID_Success(t *testing.T) {
 	ctrl := NewXiaohongshuCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.XiaohongshuCardCreateRequest{
 		Title:        "Test Card",
 		Description:  "Test description",
@@ -343,7 +337,6 @@ func TestXiaohongshuCardController_GetByID_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Service returns record not found error which results in 404 or 500
 	if w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status Internal Server Error or Not Found, got %d", w.Code)
 	}
@@ -372,7 +365,6 @@ func TestXiaohongshuCardController_GetList_Success(t *testing.T) {
 	ctrl := NewXiaohongshuCardController(svc)
 	router := setupGinEngine()
 
-	// 创建多个卡片
 	for i := 1; i <= 5; i++ {
 		svc.Create(context.Background(), &dto.XiaohongshuCardCreateRequest{
 			Title:        "Card " + string(rune('0'+i)),
@@ -401,7 +393,6 @@ func TestXiaohongshuCardController_GetList_DefaultPagination(t *testing.T) {
 	ctrl := NewXiaohongshuCardController(svc)
 	router := setupGinEngine()
 
-	// 创建测试卡片
 	svc.Create(context.Background(), &dto.XiaohongshuCardCreateRequest{
 		Title:        "Card",
 		Description:  "Description",
@@ -441,7 +432,6 @@ func TestXiaohongshuCardController_GetList_InvalidPage(t *testing.T) {
 // TestXiaohongshuCardController_GenerateShortLink_Success 测试生成短链成功
 func TestXiaohongshuCardController_GenerateShortLink_Success(t *testing.T) {
 	database := setupXiaohongshuCardTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -452,7 +442,6 @@ func TestXiaohongshuCardController_GenerateShortLink_Success(t *testing.T) {
 	ctrl := NewXiaohongshuCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	card, _ := svc.Create(context.Background(), &dto.XiaohongshuCardCreateRequest{
 		Title:        "Card with Short Link",
 		Description:  "This card will have a short link",
@@ -476,7 +465,6 @@ func TestXiaohongshuCardController_GenerateShortLink_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 短链生成依赖外部域名，测试环境无数据时接受 200/500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -509,7 +497,6 @@ func TestXiaohongshuCardController_GenerateShortLink_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Service returns record not found error which results in 404 or 500
 	if w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status Internal Server Error or Not Found, got %d", w.Code)
 	}
@@ -518,7 +505,6 @@ func TestXiaohongshuCardController_GenerateShortLink_NotFound(t *testing.T) {
 // TestXiaohongshuCardController_Create_WithTags 测试创建带标签的卡片
 func TestXiaohongshuCardController_Create_WithTags(t *testing.T) {
 	database := setupXiaohongshuCardTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -552,7 +538,6 @@ func TestXiaohongshuCardController_Create_WithTags(t *testing.T) {
 // TestXiaohongshuCardController_Create_InactiveCard 测试创建非激活卡片
 func TestXiaohongshuCardController_Create_InactiveCard(t *testing.T) {
 	database := setupXiaohongshuCardTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -585,7 +570,6 @@ func TestXiaohongshuCardController_Create_InactiveCard(t *testing.T) {
 // TestXiaohongshuCardController_Update_ViewCount 测试更新浏览次数
 func TestXiaohongshuCardController_Update_ViewCount(t *testing.T) {
 	database := setupXiaohongshuCardTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -596,7 +580,6 @@ func TestXiaohongshuCardController_Update_ViewCount(t *testing.T) {
 	ctrl := NewXiaohongshuCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	card, _ := svc.Create(context.Background(), &dto.XiaohongshuCardCreateRequest{
 		Title:        "Card",
 		Description:  "Description",
@@ -635,3 +618,4 @@ func TestXiaohongshuCardController_Update_ViewCount(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
+

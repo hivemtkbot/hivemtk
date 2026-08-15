@@ -10,36 +10,7 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// ============================================================================
-// 内置 ToolProvider 实现（+ 优化：统一扩展入口）
-// ----------------------------------------------------------------------------
-// 本文件定义 5 个内置 Provider，对应原有的 5 个 registerAgent*Tools 函数。
-// 每个 Provider 包装对应的 BuildXxxTools 工厂函数，返回 []Tool。
-//
-// 设计要点：
-//   - Provider 实现 ToolProvider 接口（定义在 tooluse/provider.go）
-//   - Provider 持有 deps 构造逻辑，但通过 ProviderContext 注入 DB
-//   - service 层依赖（如 CustomerSessionService）在 Provide() 中构造
-//   - 不破坏现有 5 个 registerAgent*Tools 函数（保留向后兼容）
-//   - registerAllAgentTools 改为基于 Provider 装配（同时清理旧函数）
-//
-// 扩展示例（第三方）：
-//
-//	type AnalyticsProvider struct{}
-//	func (p *AnalyticsProvider) Name() string { return "analytics" }
-//	func (p *AnalyticsProvider) Category() tooluse.ToolCategory { return tooluse.CategoryBusiness }
-//	func (p *AnalyticsProvider) Description() string { return "分析工具集" }
-//	func (p *AnalyticsProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.Tool, error) {
-//	    deps := tooluse.NewBusinessToolDepsWithDB(ctx.DB)
-//	    return []tooluse.Tool{tooluse.NewOrderLookupTool(deps)}, nil
-//	}
-//	// 方式 1：在 router 包显式注册
-//	providerRegistry.RegisterProvider(&AnalyticsProvider{})
-//	// 方式 2：在第三方包 init 中自注册
-//	func init() { tooluse.RegisterToolProvider(&AnalyticsProvider{}) }
-// ============================================================================
 
-// ---- ReachToolProvider 触达工具提供者 ----
 
 // ReachToolProvider 提供 20 个多渠道触达工具
 type ReachToolProvider struct{}
@@ -62,7 +33,6 @@ func (p *ReachToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.Tool
 	return tooluse.BuildReachTools(deps), nil
 }
 
-// ---- PrivateMessageToolProvider 私信工具提供者 ----
 
 // PrivateMessageToolProvider 提供 3 个私信工具
 type PrivateMessageToolProvider struct{}
@@ -84,7 +54,6 @@ func (p *PrivateMessageToolProvider) Provide(ctx tooluse.ProviderContext) ([]too
 	return tooluse.BuildPrivateMessageTools(deps), nil
 }
 
-// ---- CustomerToolProvider 客户工具提供者 ----
 
 // CustomerToolProvider 提供 8 个客户工具
 type CustomerToolProvider struct{}
@@ -104,7 +73,6 @@ func (p *CustomerToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.T
 	return tooluse.BuildCustomerTools(deps), nil
 }
 
-// ---- KnowledgeToolProvider 知识工具提供者 ----
 
 // KnowledgeToolProvider 提供 4 个知识工具
 type KnowledgeToolProvider struct{}
@@ -123,7 +91,6 @@ func (p *KnowledgeToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.
 	return tooluse.BuildKnowledgeTools(deps), nil
 }
 
-// ---- BusinessToolProvider 业务工具提供者 ----
 
 // BusinessToolProvider 提供 5 个业务工具
 type BusinessToolProvider struct{}
@@ -149,7 +116,6 @@ func (p *BusinessToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.T
 	return tooluse.BuildBusinessTools(deps), nil
 }
 
-// ---- 错误定义 ----
 
 // errProviderDBRequired Provider 依赖 DB 但未提供
 var errProviderDBRequired = &providerError{"provider requires DB in ProviderContext"}
@@ -158,7 +124,6 @@ type providerError struct{ msg string }
 
 func (e *providerError) Error() string { return e.msg }
 
-// ---- 内置 Provider 装配 ----
 
 // globalProviderRegistry 全局 ProviderRegistry 单例
 //
@@ -175,8 +140,6 @@ func SetGlobalProviderRegistryForTest(r *tooluse.ProviderRegistry) { globalProvi
 //
 // 调用方：registerAllAgentTools
 func initBuiltinToolProviders(registry *tooluse.ProviderRegistry) {
-	// 注册顺序：reach → pm → customer → knowledge → business
-	// 与原有 registerAgent*Tools 调用顺序保持一致
 	providers := []tooluse.ToolProvider{
 		&ReachToolProvider{},
 		&PrivateMessageToolProvider{},
@@ -207,10 +170,8 @@ func registerAllAgentToolsViaProviders(gormDB *gorm.DB) {
 	providerRegistry := tooluse.NewProviderRegistry()
 	globalProviderRegistry = providerRegistry
 
-	// 1. 内置 Provider
 	initBuiltinToolProviders(providerRegistry)
 
-	// 2. 自注册的第三方 Provider
 	autoProviders := tooluse.GetAutoRegisteredProviders()
 	for _, p := range autoProviders {
 		if err := providerRegistry.RegisterProvider(p); err != nil {
@@ -220,21 +181,18 @@ func registerAllAgentToolsViaProviders(gormDB *gorm.DB) {
 		}
 	}
 
-	// 3. 批量装配
 	ctx := tooluse.ProviderContext{
 		DB:     gormDB,
-		Config: tooluse.ProviderConfig{Enabled: true}, // 默认启用所有 Provider
+		Config: tooluse.ProviderConfig{Enabled: true}, 
 	}
 	results, err := providerRegistry.RegisterAll(ctx, tooluse.GetGlobalRegistry())
 	if err != nil {
 		logger.Errorf("[agent] ⚠️ Provider 批量装配存在失败: %v", err)
 	}
 
-	// 会话内富卡片工具（card.show，无外部依赖，直接注册到全局注册中心）
 	tooluse.RegisterCardTools(tooluse.GetGlobalRegistry())
 	logger.Info("[agent] ✅ 会话内卡片工具（card.show）已接入全局注册中心")
 
-	// 4. 日志输出
 	totalTools := 0
 	totalProviders := 0
 	failedProviders := 0
@@ -256,6 +214,6 @@ func registerAllAgentToolsViaProviders(gormDB *gorm.DB) {
 	logger.Infof("[agent] 🎯 工具链装配总结: providers=%d tools=%d failed=%d",
 		totalProviders, totalTools, failedProviders)
 
-	// 5. 初始化 ToolRouter（依赖工具已注册）
 	InitGlobalToolRouter()
 }
+

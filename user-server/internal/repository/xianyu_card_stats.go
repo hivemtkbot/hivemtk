@@ -74,7 +74,6 @@ func (r *xianyuCardStatsRepository) GetCardStats(ctx context.Context, cardID uin
 	}
 	var basic basicStats
 
-	// 查询总统计数据
 	err := r.db.WithContext(ctx).
 		Model(&model.XianyuCardActivity{}).
 		Where("card_id = ? AND activity_type = ? AND created_at >= ? AND created_at <= ?", cardID, "view", startDate, endDate.AddDate(0, 0, 1)).
@@ -125,7 +124,6 @@ func (r *xianyuCardStatsRepository) GetCardStats(ctx context.Context, cardID uin
 		return nil, fmt.Errorf("获取按日期统计数据失败: %w", err)
 	}
 
-	// 转换数据格式
 	statsByDate := make([]CardStatsByDate, len(dateStatsList))
 	for i, ds := range dateStatsList {
 		statsByDate[i] = CardStatsByDate{
@@ -160,7 +158,6 @@ func (r *xianyuCardStatsRepository) GetOverallStats(ctx context.Context, startDa
 	}
 	var total totalStats
 
-	// 获取活动统计
 	err := r.db.WithContext(ctx).
 		Model(&model.XianyuCardActivity{}).
 		Where("created_at >= ? AND created_at <= ?", startDate, endDate.AddDate(0, 0, 1)).
@@ -188,7 +185,6 @@ func (r *xianyuCardStatsRepository) GetOverallStats(ctx context.Context, startDa
 		return nil, fmt.Errorf("获取总分享数失败: %w", err)
 	}
 
-	// 获取卡片统计
 	err = r.db.WithContext(ctx).
 		Model(&model.XianyuCard{}).
 		Count(&total.TotalCards).Error
@@ -260,7 +256,6 @@ func (r *xianyuCardStatsRepository) GetOverallStats(ctx context.Context, startDa
 		return nil, fmt.Errorf("获取热门卡片失败: %w", err)
 	}
 
-	// 转换数据格式
 	statsByDate := make([]CardStatsByDate, len(dateStatsList))
 	for i, ds := range dateStatsList {
 		statsByDate[i] = CardStatsByDate{
@@ -308,8 +303,6 @@ func (r *xianyuCardStatsRepository) RecordActivity(ctx context.Context, cardID u
 		return fmt.Errorf("记录活动失败: %w", err)
 	}
 
-	// 与其它平台（douyin/kuaishou/xiaohongshu）保持一致：浏览动作同时原子自增
-	// xianyu_cards.view_count，避免卡片详情/热门排序读取该字段时恒为 0。
 	if activityType == "view" {
 		if err := r.db.WithContext(ctx).Model(&model.XianyuCard{}).
 			Where("id = ?", cardID).
@@ -320,3 +313,4 @@ func (r *xianyuCardStatsRepository) RecordActivity(ctx context.Context, cardID u
 
 	return nil
 }
+

@@ -56,7 +56,7 @@ func TestInMemoryVectorStore_AddVectors_WrongDimension(t *testing.T) {
 	store := NewInMemoryVectorStore(3)
 
 	vectors := [][]float32{
-		{1.0, 0.0}, // Wrong dimension
+		{1.0, 0.0}, 
 	}
 	metadatas := []map[string]any{
 		{"id": "1"},
@@ -92,7 +92,6 @@ func TestInMemoryVectorStore_Search(t *testing.T) {
 	if len(results) != 2 {
 		t.Errorf("Expected 2 results, got %d", len(results))
 	}
-	// First result should be the most similar (the first vector)
 	if results[0].Score < 0.9 {
 		t.Errorf("Expected high similarity score, got %f", results[0].Score)
 	}
@@ -101,7 +100,7 @@ func TestInMemoryVectorStore_Search(t *testing.T) {
 func TestInMemoryVectorStore_Search_WrongDimension(t *testing.T) {
 	store := NewInMemoryVectorStore(3)
 
-	queryVector := []float32{1.0, 0.0} // Wrong dimension
+	queryVector := []float32{1.0, 0.0} 
 	_, err := store.Search(queryVector, 5)
 	if err == nil {
 		t.Error("Expected error for wrong dimension")
@@ -123,7 +122,6 @@ func TestInMemoryVectorStore_Search_TopK(t *testing.T) {
 
 	queryVector := []float32{1.0, 0.0, 0.0}
 
-	// Test with topK <= 0 (should return all)
 	results, err := store.Search(queryVector, 0)
 	if err != nil {
 		t.Fatalf("Search failed: %v", err)
@@ -132,7 +130,6 @@ func TestInMemoryVectorStore_Search_TopK(t *testing.T) {
 		t.Errorf("Expected 2 results, got %d", len(results))
 	}
 
-	// Test with topK > len(vectors)
 	results, err = store.Search(queryVector, 10)
 	if err != nil {
 		t.Fatalf("Search failed: %v", err)
@@ -155,14 +152,12 @@ func TestInMemoryVectorStore_Delete(t *testing.T) {
 	}
 	store.AddVectors(vectors, metadatas)
 
-	// 添加后应能搜出 2 条
 	queryVector := []float32{1.0, 0.0, 0.0}
 	results, _ := store.Search(queryVector, 5)
 	if len(results) != 2 {
 		t.Fatalf("Pre-delete: expected 2 results, got %d", len(results))
 	}
 
-	// 用一个肯定不存在的 id 删除,Delete 应当幂等(不报错)且不影响其他向量
 	err := store.Delete([]string{"non-existent-id"})
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
@@ -177,7 +172,6 @@ func TestInMemoryVectorStore_Delete(t *testing.T) {
 func TestInMemoryVectorStore_Update(t *testing.T) {
 	store := NewInMemoryVectorStore(3)
 
-	// 先添加一条向量
 	vectors := [][]float32{
 		{1.0, 0.0, 0.0},
 	}
@@ -186,7 +180,6 @@ func TestInMemoryVectorStore_Update(t *testing.T) {
 	}
 	store.AddVectors(vectors, metadatas)
 
-	// 用一个不存在的 id 更新应返回错误
 	err := store.Update("non-existent-id", []float32{1.0, 0.0, 0.0}, map[string]any{"id": "1"})
 	if err == nil {
 		t.Error("Expected error for non-existent id")
@@ -202,7 +195,6 @@ func TestInMemoryVectorStore_GetDimension(t *testing.T) {
 }
 
 func TestCosineSimilarity(t *testing.T) {
-	// Test identical vectors
 	a := []float32{1.0, 0.0, 0.0}
 	b := []float32{1.0, 0.0, 0.0}
 	score := cosineSimilarity(a, b)
@@ -210,21 +202,18 @@ func TestCosineSimilarity(t *testing.T) {
 		t.Errorf("Expected score close to 1 for identical vectors, got %f", score)
 	}
 
-	// Test orthogonal vectors
 	c := []float32{0.0, 1.0, 0.0}
 	score = cosineSimilarity(a, c)
 	if score > 0.01 {
 		t.Errorf("Expected score close to 0 for orthogonal vectors, got %f", score)
 	}
 
-	// Test different length vectors
 	d := []float32{1.0, 0.0}
 	score = cosineSimilarity(a, d)
 	if score != 0 {
 		t.Errorf("Expected score 0 for different length vectors, got %f", score)
 	}
 
-	// Test zero vectors
 	zero := []float32{0.0, 0.0, 0.0}
 	score = cosineSimilarity(a, zero)
 	if score != 0 {
@@ -279,9 +268,6 @@ func TestHashVectorizer_EmbedBatch(t *testing.T) {
 func TestHashVectorizer_EmbedBatch_WithError(t *testing.T) {
 	v := NewHashVectorizer(128)
 
-	// 当前 RemoteVectorizer.EmbedBatch 不在 vectorizer 层校验空字符串, 由内部 EmbeddingService 处理.
-	// 这里验证: 内部 EmbeddingService 会对空字符串返回错误, 或在某些 fallback 模式下成功
-	// 总之调用不 panic 且返回合理结果即可.
 	_, err := v.EmbedBatch([]string{"test1", "", "test3"})
 	if err != nil {
 		t.Logf("EmbedBatch returned error (acceptable): %v", err)
@@ -335,7 +321,7 @@ func TestVectorProcessor_ProcessAndStore_MismatchedLength(t *testing.T) {
 	texts := []string{"test1", "test2"}
 	metadatas := []map[string]any{
 		{"id": "1"},
-	} // Mismatched length
+	} 
 
 	err := processor.ProcessAndStore(ctx, texts, metadatas)
 	if err == nil {
@@ -350,7 +336,6 @@ func TestVectorProcessor_Search(t *testing.T) {
 
 	ctx := context.Background()
 
-	// First add some data
 	texts := []string{"test1", "test2"}
 	metadatas := []map[string]any{
 		{"id": "1"},
@@ -358,7 +343,6 @@ func TestVectorProcessor_Search(t *testing.T) {
 	}
 	processor.ProcessAndStore(ctx, texts, metadatas)
 
-	// Then search
 	results, err := processor.Search(ctx, "test1", 5)
 	if err != nil {
 		t.Fatalf("Search failed: %v", err)
@@ -375,7 +359,6 @@ func TestVectorProcessor_BatchSearch(t *testing.T) {
 
 	ctx := context.Background()
 
-	// First add some data
 	texts := []string{"test1", "test2"}
 	metadatas := []map[string]any{
 		{"id": "1"},
@@ -383,7 +366,6 @@ func TestVectorProcessor_BatchSearch(t *testing.T) {
 	}
 	processor.ProcessAndStore(ctx, texts, metadatas)
 
-	// Then batch search
 	results, err := processor.BatchSearch(ctx, []string{"test1", "test2"}, 5)
 	if err != nil {
 		t.Fatalf("BatchSearch failed: %v", err)
@@ -433,7 +415,6 @@ func TestVectorProcessor_Search_EmbedTextError(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Empty string will cause EmbedText to return error
 	_, err := processor.Search(ctx, "", 5)
 	if err == nil {
 		t.Error("Expected error for empty query string")
@@ -448,7 +429,6 @@ func TestVectorProcessor_BatchSearch_ErrorInBatch(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Batch with empty string will cause error
 	_, err := processor.BatchSearch(ctx, []string{"test1", "", "test3"}, 5)
 	if err == nil {
 		t.Error("Expected error for empty string in batch")
@@ -464,7 +444,6 @@ func TestVectorProcessor_ProcessAndStore_EmbedBatchError(t *testing.T) {
 	processor := NewVectorProcessor(v, store)
 
 	ctx := context.Background()
-	// 长度不匹配会触发 ProcessAndStore 的长度校验错误
 	texts := []string{"test1", "test2"}
 	metadatas := []map[string]any{
 		{"id": "1"},
@@ -478,7 +457,7 @@ func TestVectorProcessor_ProcessAndStore_EmbedBatchError(t *testing.T) {
 
 // TestVectorProcessor_ProcessAndStore_AddVectorsError tests ProcessAndStore when AddVectors fails
 func TestVectorProcessor_ProcessAndStore_AddVectorsError(t *testing.T) {
-	v := NewHashVectorizer(3) // Use dimension 3
+	v := NewHashVectorizer(3) 
 	store := NewInMemoryVectorStore(3)
 	processor := NewVectorProcessor(v, store)
 
@@ -488,7 +467,6 @@ func TestVectorProcessor_ProcessAndStore_AddVectorsError(t *testing.T) {
 		{"id": "1"},
 		{"id": "2"},
 	}
-	// This should succeed since EmbedBatch works
 	err := processor.ProcessAndStore(ctx, texts, metadatas)
 	if err != nil {
 		t.Errorf("ProcessAndStore should succeed with valid data: %v", err)
@@ -528,7 +506,6 @@ func TestInMemoryVectorStore_Search_NegativeTopK(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Search failed: %v", err)
 	}
-	// Negative topK should return all results
 	if len(results) != 2 {
 		t.Errorf("Expected 2 results, got %d", len(results))
 	}
@@ -579,7 +556,6 @@ func TestVectorProcessor_ProcessAndStore_Success(t *testing.T) {
 		t.Fatalf("ProcessAndStore failed: %v", err)
 	}
 
-	// Verify data was stored by checking stats
 	stats := processor.GetStats()
 	if stats["dimension"] != 3 {
 		t.Errorf("Expected dimension 3, got %v", stats["dimension"])
@@ -590,16 +566,10 @@ func TestVectorProcessor_ProcessAndStore_Success(t *testing.T) {
 func TestInMemoryVectorStore_Search_SortingVerification(t *testing.T) {
 	store := NewInMemoryVectorStore(3)
 
-	// Add vectors with varying similarity to ensure sorting swaps elements
-	// Query vector will be [1, 0, 0]
-	// v1: [0, 1, 0] - orthogonal (score ~0)
-	// v2: [0, 0, 1] - orthogonal (score ~0)
-	// v3: [1, 0, 0] - identical (score = 1)
-	// After sorting, v3 should be first
 	vectors := [][]float32{
-		{0, 1, 0}, // v1 - low similarity
-		{0, 0, 1}, // v2 - low similarity
-		{1, 0, 0}, // v3 - highest similarity
+		{0, 1, 0}, 
+		{0, 0, 1}, 
+		{1, 0, 0}, 
 	}
 	metadatas := []map[string]any{
 		{"id": "v1"},
@@ -618,7 +588,6 @@ func TestInMemoryVectorStore_Search_SortingVerification(t *testing.T) {
 		t.Errorf("Expected 3 results, got %d", len(results))
 	}
 
-	// First result should be v3 (index 2) with highest score
 	if results[0].Metadata["id"] != "v3" {
 		t.Errorf("Expected first result to be v3, got %v", results[0].Metadata["id"])
 	}
@@ -629,14 +598,12 @@ func TestInMemoryVectorStore_Search_SortingVerification(t *testing.T) {
 
 // TestVectorProcessor_Search_ErrorPath tests Search error path when store.Search fails
 func TestVectorProcessor_Search_StoreError(t *testing.T) {
-	// Create a processor with a store that will fail on search
 	v := NewHashVectorizer(3)
 	store := NewInMemoryVectorStore(3)
 	processor := NewVectorProcessor(v, store)
 
 	ctx := context.Background()
 
-	// Search with empty store should work but return empty results
 	results, err := processor.Search(ctx, "test query", 5)
 	if err != nil {
 		t.Fatalf("Search should succeed with empty store: %v", err)
@@ -709,3 +676,4 @@ func TestVectorProcessor_Search_MockStoreError(t *testing.T) {
 		t.Errorf("Expected 'failed to search' error, got %v", err)
 	}
 }
+

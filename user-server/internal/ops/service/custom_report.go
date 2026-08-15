@@ -73,17 +73,14 @@ type UpdateReportRequest struct {
 
 // CreateReport 创建报表
 func (s *CustomReportService) CreateReport(createdBy uint, req *CreateReportRequest) (*model.CustomReport, error) {
-	// 验证数据源
 	if !isValidDataSource(req.DataSource) {
 		return nil, errors.New("不支持的数据源类型")
 	}
 
-	// 验证图表类型
 	if !isValidChartType(req.ChartType) {
 		return nil, errors.New("不支持的图表类型")
 	}
 
-	// 序列化 JSON 字段
 	dimensionsJSON, _ := json.Marshal(req.Dimensions)
 	metricsJSON, _ := json.Marshal(req.Metrics)
 	filtersJSON, _ := json.Marshal(req.Filters)
@@ -117,7 +114,6 @@ func (s *CustomReportService) GetReport(id uint) (*model.CustomReport, error) {
 		return nil, errors.New("报表不存在")
 	}
 
-	// 检查权限
 	if !report.IsPublic {
 		return nil, errors.New("无权限查看")
 	}
@@ -139,17 +135,14 @@ func (s *CustomReportService) UpdateReport(id uint, req *UpdateReportRequest) (*
 
 	_ = report
 
-	// 验证数据源
 	if !isValidDataSource(req.DataSource) {
 		return nil, errors.New("不支持的数据源类型")
 	}
 
-	// 验证图表类型
 	if !isValidChartType(req.ChartType) {
 		return nil, errors.New("不支持的图表类型")
 	}
 
-	// 序列化 JSON 字段
 	dimensionsJSON, _ := json.Marshal(req.Dimensions)
 	metricsJSON, _ := json.Marshal(req.Metrics)
 	filtersJSON, _ := json.Marshal(req.Filters)
@@ -257,12 +250,10 @@ func (s *CustomReportService) querySessionData(ctx context.Context, report *mode
 		return nil, err
 	}
 
-	// 构建报表数据
 	data := make([]map[string]any, 0)
 	for _, session := range sessions {
 		row := make(map[string]any)
 
-		// 填充维度
 		for _, dim := range dimensions {
 			if dim.Field == "date" {
 				row["date"] = session.CreatedAt.Format("2006-01-02")
@@ -273,7 +264,6 @@ func (s *CustomReportService) querySessionData(ctx context.Context, report *mode
 			}
 		}
 
-		// 填充指标
 		for _, metric := range metrics {
 			if metric.Field == "session_count" {
 				row["session_count"] = 1
@@ -285,13 +275,11 @@ func (s *CustomReportService) querySessionData(ctx context.Context, report *mode
 		data = append(data, row)
 	}
 
-	// 提取维度字段名
 	dimNames := make([]string, len(dimensions))
 	for i, dim := range dimensions {
 		dimNames[i] = dim.Label
 	}
 
-	// 提取指标字段名
 	metricNames := make([]string, len(metrics))
 	for i, metric := range metrics {
 		metricNames[i] = metric.Label
@@ -313,7 +301,6 @@ func (s *CustomReportService) queryMessageData(ctx context.Context, report *mode
 	var metrics []model.ReportMetric
 	json.Unmarshal([]byte(report.Metrics), &metrics)
 
-	// 真实聚合：按消息内容类型分组统计消息数（unified_messages 表）
 	dimField := "msg_type"
 	metricField := "message_count"
 	if len(dimensions) > 0 {
@@ -328,7 +315,6 @@ func (s *CustomReportService) queryMessageData(ctx context.Context, report *mode
 		Count       int64
 	}
 	var aggs []msgAgg
-	// content_type 为 NULL 统一记为 unknown，确保分组完整
 	if err := s.db.WithContext(ctx).
 		Model(&sysmodel.UnifiedMessage{}).
 		Select("COALESCE(content_type, 'unknown') AS content_type, COUNT(*) AS count").
@@ -430,14 +416,12 @@ func (s *CustomReportService) queryRFMData(ctx context.Context, report *model.Cu
 	var total int64
 	var err error
 
-	// 根据 layer 参数选择查询方法
 	if layer != "" {
 		rfms, total, err = s.userRfmRepo.GetByLayer(ctx, layer, 1, 1000)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		// layer 为空时查询所有 RFM
 		rfms, total, err = s.userRfmRepo.GetAll(ctx, 1, 1000)
 		if err != nil {
 			return nil, err
@@ -492,13 +476,11 @@ func (s *CustomReportService) queryUserData(ctx context.Context, report *model.C
 	var metrics []model.ReportMetric
 	json.Unmarshal([]byte(report.Metrics), &metrics)
 
-	// 真实聚合：从 customers 表按维度分组统计客户数
 	dimField := "date"
 	if len(dimensions) > 0 {
 		dimField = dimensions[0].Field
 	}
 
-	// 将前端维度字段映射到 customers 表真实列；无对应列的维度回退到注册日期
 	groupExpr := "DATE(created_at)"
 	dimValueExpr := "TO_CHAR(DATE(created_at), 'YYYY-MM-DD')"
 	switch dimField {
@@ -509,7 +491,6 @@ func (s *CustomReportService) queryUserData(ctx context.Context, report *model.C
 		groupExpr = "DATE(created_at)"
 		dimValueExpr = "TO_CHAR(DATE(created_at), 'YYYY-MM-DD')"
 	default:
-		// source/platform/region 等非 customers 表字段，回退按注册日期
 		groupExpr = "DATE(created_at)"
 		dimValueExpr = "TO_CHAR(DATE(created_at), 'YYYY-MM-DD')"
 	}
@@ -606,3 +587,4 @@ func (s *CustomReportService) queryAgentData(ctx context.Context, report *model.
 		Total:      int64(len(data)),
 	}, nil
 }
+

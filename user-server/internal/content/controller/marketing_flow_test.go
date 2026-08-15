@@ -44,7 +44,6 @@ func setupMarketingFlowRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 		c.Next()
 	})
 
-	// 营销流程相关路由
 	router.POST("/api/flows", controller.CreateFlow)
 	router.GET("/api/flows", controller.GetFlowList)
 	router.GET("/api/flows/:id", controller.GetFlowByID)
@@ -153,7 +152,6 @@ func TestMarketingFlowController_GetFlowList(t *testing.T) {
 	db := setupMarketingFlowTestDB(t)
 	router := setupMarketingFlowRouter(t, db)
 
-	// 创建测试流程
 	for i := 1; i <= 5; i++ {
 		db.Create(&contentmodel.MarketingFlow{
 			Name:        "Flow " + string(rune('0'+i)),
@@ -217,7 +215,6 @@ func TestMarketingFlowController_GetFlowByID(t *testing.T) {
 	db := setupMarketingFlowTestDB(t)
 	router := setupMarketingFlowRouter(t, db)
 
-	// 创建测试流程
 	testFlow := &contentmodel.MarketingFlow{
 		Name:        "Test Flow",
 		Description: "Test Description",
@@ -285,7 +282,6 @@ func TestMarketingFlowController_UpdateFlow(t *testing.T) {
 	db := setupMarketingFlowTestDB(t)
 	router := setupMarketingFlowRouter(t, db)
 
-	// 创建测试流程
 	testFlow := &contentmodel.MarketingFlow{
 		Name:        "Original Name",
 		Description: "Original Description",
@@ -360,7 +356,6 @@ func TestMarketingFlowController_DeleteFlow(t *testing.T) {
 	db := setupMarketingFlowTestDB(t)
 	router := setupMarketingFlowRouter(t, db)
 
-	// 创建测试流程
 	testFlow := &contentmodel.MarketingFlow{
 		Name:        "To Delete",
 		Status:      contentmodel.FlowStatusDraft,
@@ -421,7 +416,6 @@ func TestMarketingFlowController_ActivateFlow(t *testing.T) {
 	db := setupMarketingFlowTestDB(t)
 	router := setupMarketingFlowRouter(t, db)
 
-	// 创建测试流程（草稿状态，带有效的流程定义）
 	flowData := `{"nodes": [{"id": "start", "type": "trigger", "name": "Start"}]}`
 	testFlow := &contentmodel.MarketingFlow{
 		Name:          "To Activate",
@@ -486,7 +480,6 @@ func TestMarketingFlowController_PauseFlow(t *testing.T) {
 	db := setupMarketingFlowTestDB(t)
 	router := setupMarketingFlowRouter(t, db)
 
-	// 创建测试流程（激活状态，带有效的流程定义）
 	flowData := `{"nodes": [{"id": "start", "type": "trigger", "name": "Start"}]}`
 	testFlow := &contentmodel.MarketingFlow{
 		Name:          "To Pause",
@@ -550,7 +543,6 @@ func TestMarketingFlowController_StopFlow(t *testing.T) {
 	db := setupMarketingFlowTestDB(t)
 	router := setupMarketingFlowRouter(t, db)
 
-	// 创建测试流程（激活状态，带有效的流程定义）
 	flowData := `{"nodes": [{"id": "start", "type": "trigger", "name": "Start"}]}`
 	testFlow := &contentmodel.MarketingFlow{
 		Name:          "To Stop",
@@ -614,7 +606,6 @@ func TestMarketingFlowController_GetExecutionList(t *testing.T) {
 	db := setupMarketingFlowTestDB(t)
 	router := setupMarketingFlowRouter(t, db)
 
-	// 创建测试流程
 	testFlow := &contentmodel.MarketingFlow{
 		Name:        "Flow with Executions",
 		Status:      contentmodel.FlowStatusActive,
@@ -623,7 +614,6 @@ func TestMarketingFlowController_GetExecutionList(t *testing.T) {
 	}
 	db.Create(testFlow)
 
-	// 创建执行记录
 	for i := 1; i <= 3; i++ {
 		db.Create(&contentmodel.FlowExecution{
 			FlowID:      testFlow.ID,
@@ -686,7 +676,6 @@ func TestMarketingFlowController_GetExecutionStats(t *testing.T) {
 	db := setupMarketingFlowTestDB(t)
 	router := setupMarketingFlowRouter(t, db)
 
-	// 创建测试流程
 	testFlow := &contentmodel.MarketingFlow{
 		Name:        "Flow with Stats",
 		Status:      contentmodel.FlowStatusActive,
@@ -695,7 +684,6 @@ func TestMarketingFlowController_GetExecutionStats(t *testing.T) {
 	}
 	db.Create(testFlow)
 
-	// 创建执行记录
 	for i := 1; i <= 5; i++ {
 		status := "completed"
 		if i%2 == 0 {
@@ -756,3 +744,4 @@ func TestMarketingFlowController_GetExecutionStats(t *testing.T) {
 		})
 	}
 }
+

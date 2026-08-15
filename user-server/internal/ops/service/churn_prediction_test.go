@@ -69,7 +69,6 @@ func TestChurnPredictionService_CalculateChurnPrediction_LowRisk(t *testing.T) {
 		t.Fatalf("CalculateChurnPrediction failed: %v", err)
 	}
 
-	// 验证预测已保存
 	prediction, err := service.GetChurnPrediction("user_123")
 	if err != nil {
 		t.Fatalf("GetChurnPrediction failed: %v", err)
@@ -78,8 +77,6 @@ func TestChurnPredictionService_CalculateChurnPrediction_LowRisk(t *testing.T) {
 	if prediction.ChurnRisk != "low" {
 		t.Errorf("Expected churn_risk 'low', got '%s'", prediction.ChurnRisk)
 	}
-	// DaysSinceActive 存储的是 inactiveScore 而不是原始天数
-	// 5 天 < 30 天阈值，所以分数应该是 5/30 * 50 = 8.33 -> 8
 	if prediction.DaysSinceActive < 5 || prediction.DaysSinceActive > 10 {
 		t.Errorf("Expected days_since_active around 8 (score for 5 days), got %d", prediction.DaysSinceActive)
 	}
@@ -116,7 +113,6 @@ func TestChurnPredictionService_CalculateChurnPrediction_HighRisk(t *testing.T) 
 func TestChurnPredictionService_CalculateChurnPrediction_WithCustomConfig(t *testing.T) {
 	service := setupChurnPredictionService(t)
 
-	// 创建自定义配置
 	config := &model.ChurnModelConfig{
 		InactiveDaysWeight: 0.5,
 		PurchaseFreqWeight: 0.3,
@@ -152,7 +148,6 @@ func TestChurnPredictionService_CalculateChurnPrediction_WithCustomConfig(t *tes
 func TestChurnPredictionService_GetChurnPredictions(t *testing.T) {
 	service := setupChurnPredictionService(t)
 
-	// 创建多个预测
 	for i := 1; i <= 5; i++ {
 		userData := map[string]any{
 			"user_id":             "user_" + string(rune('0'+i)),
@@ -164,7 +159,6 @@ func TestChurnPredictionService_GetChurnPredictions(t *testing.T) {
 		service.CalculateChurnPrediction("user_"+string(rune('0'+i)), userData)
 	}
 
-	// 获取列表
 	predictions, total, err := service.GetChurnPredictions(1, 10)
 	if err != nil {
 		t.Fatalf("GetChurnPredictions failed: %v", err)
@@ -182,7 +176,6 @@ func TestChurnPredictionService_GetChurnPredictions(t *testing.T) {
 func TestChurnPredictionService_GetHighRiskUsers(t *testing.T) {
 	service := setupChurnPredictionService(t)
 
-	// 创建高风险用户
 	userData := map[string]any{
 		"user_id":             "user_high",
 		"days_since_active":   100,
@@ -192,7 +185,6 @@ func TestChurnPredictionService_GetHighRiskUsers(t *testing.T) {
 	}
 	service.CalculateChurnPrediction("user_high", userData)
 
-	// 创建低风险用户
 	userDataLow := map[string]any{
 		"user_id":             "user_low",
 		"days_since_active":   5,
@@ -202,7 +194,6 @@ func TestChurnPredictionService_GetHighRiskUsers(t *testing.T) {
 	}
 	service.CalculateChurnPrediction("user_low", userDataLow)
 
-	// 获取高风险用户
 	highRiskUsers, err := service.GetHighRiskUsers(10)
 	if err != nil {
 		t.Fatalf("GetHighRiskUsers failed: %v", err)
@@ -229,7 +220,6 @@ func TestChurnPredictionService_CreateChurnWarning(t *testing.T) {
 		t.Fatalf("CreateChurnWarning failed: %v", err)
 	}
 
-	// 验证预警已创建
 	warnings, total, _ := service.GetChurnWarnings(1, 10)
 	if total != 1 {
 		t.Errorf("Expected 1 warning, got %d", total)
@@ -255,7 +245,6 @@ func TestChurnPredictionService_CreateChurnWarning_LowRisk(t *testing.T) {
 		t.Fatalf("CreateChurnWarning failed: %v", err)
 	}
 
-	// 验证没有创建预警
 	_, total, _ := service.GetChurnWarnings(1, 10)
 	if total != 0 {
 		t.Errorf("Expected 0 warnings for low risk, got %d", total)
@@ -266,7 +255,6 @@ func TestChurnPredictionService_CreateChurnWarning_LowRisk(t *testing.T) {
 func TestChurnPredictionService_GetUnhandledWarnings(t *testing.T) {
 	service := setupChurnPredictionService(t)
 
-	// 创建预警
 	prediction := &model.ChurnPrediction{
 		UserID:      "user_unhandled",
 		ChurnScore:  75.0,
@@ -275,7 +263,6 @@ func TestChurnPredictionService_GetUnhandledWarnings(t *testing.T) {
 	}
 	service.CreateChurnWarning("user_unhandled", prediction)
 
-	// 获取未处理预警
 	warnings, total, err := service.GetUnhandledWarnings(1, 10)
 	if err != nil {
 		t.Fatalf("GetUnhandledWarnings failed: %v", err)
@@ -293,7 +280,6 @@ func TestChurnPredictionService_GetUnhandledWarnings(t *testing.T) {
 func TestChurnPredictionService_MarkWarningHandled(t *testing.T) {
 	service := setupChurnPredictionService(t)
 
-	// 创建预警
 	prediction := &model.ChurnPrediction{
 		UserID:      "user_handle",
 		ChurnScore:  80.0,
@@ -302,20 +288,17 @@ func TestChurnPredictionService_MarkWarningHandled(t *testing.T) {
 	}
 	service.CreateChurnWarning("user_handle", prediction)
 
-	// 获取预警
 	warnings, _, _ := service.GetChurnWarnings(1, 10)
 	if len(warnings) == 0 {
 		t.Fatal("No warnings created")
 	}
 	warningID := warnings[0].ID
 
-	// 标记为已处理
 	err := service.MarkWarningHandled(warningID, 123, "已联系用户")
 	if err != nil {
 		t.Fatalf("MarkWarningHandled failed: %v", err)
 	}
 
-	// 验证状态
 	updated, _, _ := service.GetUnhandledWarnings(1, 10)
 	if len(updated) != 0 {
 		t.Error("Expected warning to be handled")
@@ -326,7 +309,6 @@ func TestChurnPredictionService_MarkWarningHandled(t *testing.T) {
 func TestChurnPredictionService_GetModelConfig(t *testing.T) {
 	service := setupChurnPredictionService(t)
 
-	// 获取默认配置
 	config, err := service.GetModelConfig()
 	if err != nil {
 		t.Fatalf("GetModelConfig failed: %v", err)
@@ -360,7 +342,6 @@ func TestChurnPredictionService_SaveModelConfig(t *testing.T) {
 		t.Fatalf("SaveModelConfig failed: %v", err)
 	}
 
-	// 验证配置已保存
 	retrieved, err := service.GetModelConfig()
 	if err != nil {
 		t.Fatalf("GetModelConfig failed: %v", err)
@@ -375,7 +356,6 @@ func TestChurnPredictionService_SaveModelConfig(t *testing.T) {
 func TestChurnPredictionService_CalculateDailyStatistics(t *testing.T) {
 	service := setupChurnPredictionService(t)
 
-	// 创建不同风险的预测
 	for i := 1; i <= 10; i++ {
 		risk := "low"
 		score := 30.0
@@ -396,14 +376,12 @@ func TestChurnPredictionService_CalculateDailyStatistics(t *testing.T) {
 		service.predictionRepo.Upsert(prediction)
 	}
 
-	// 计算统计
 	date := time.Now().Format("2006-01-02")
 	err := service.CalculateDailyStatistics(date)
 	if err != nil {
 		t.Fatalf("CalculateDailyStatistics failed: %v", err)
 	}
 
-	// 验证统计
 	stats, err := service.statsRepo.GetLatest()
 	if err != nil {
 		t.Fatalf("GetLatest stats failed: %v", err)
@@ -424,7 +402,6 @@ func TestChurnPredictionService_CalculateDailyStatistics(t *testing.T) {
 func TestChurnPredictionService_GetRiskDistribution(t *testing.T) {
 	service := setupChurnPredictionService(t)
 
-	// 创建不同风险的预测
 	risks := []string{"low", "low", "medium", "high", "critical"}
 	for i, risk := range risks {
 		score := 30.0
@@ -446,7 +423,6 @@ func TestChurnPredictionService_GetRiskDistribution(t *testing.T) {
 		service.predictionRepo.Upsert(prediction)
 	}
 
-	// 获取分布
 	distribution, err := service.GetRiskDistribution()
 	if err != nil {
 		t.Fatalf("GetRiskDistribution failed: %v", err)
@@ -618,13 +594,11 @@ func TestChurnPredictionService_calculateEngagementScore(t *testing.T) {
 func TestChurnPredictionService_identifyRiskFactors(t *testing.T) {
 	service := setupChurnPredictionService(t)
 
-	// 所有因素都高风险
 	factors := service.identifyRiskFactors(80, 80, 80, 80)
 	if len(factors) != 4 {
 		t.Errorf("Expected 4 risk factors, got %d", len(factors))
 	}
 
-	// 所有因素都低风险
 	factorsLow := service.identifyRiskFactors(30, 30, 30, 30)
 	if len(factorsLow) != 0 {
 		t.Errorf("Expected 0 risk factors, got %d", len(factorsLow))
@@ -657,7 +631,6 @@ func TestChurnPredictionService_RunChurnCalculation(t *testing.T) {
 		t.Fatalf("RunChurnCalculation failed: %v", err)
 	}
 
-	// 验证预测已创建
 	pred1, _ := service.GetChurnPrediction("user_batch_1")
 	if pred1 == nil {
 		t.Error("Expected prediction for user_batch_1")
@@ -668,7 +641,6 @@ func TestChurnPredictionService_RunChurnCalculation(t *testing.T) {
 		t.Error("Expected prediction for user_batch_2")
 	}
 
-	// 验证预警已创建（高风险用户）
 	_, total, _ := service.GetUnhandledWarnings(1, 10)
 	if total < 1 {
 		t.Errorf("Expected at least 1 warning, got %d", total)
@@ -706,7 +678,6 @@ func TestCalculateConfidence(t *testing.T) {
 func TestChurnPredictionService_GetChurnRate(t *testing.T) {
 	service := setupChurnPredictionService(t)
 
-	// 先创建统计数据
 	stats := &model.ChurnStatistics{
 		StatDate:      time.Now().Format("2006-01-02"),
 		TotalUsers:    100,
@@ -717,7 +688,6 @@ func TestChurnPredictionService_GetChurnRate(t *testing.T) {
 	}
 	service.statsRepo.Create(stats)
 
-	// 获取流失率
 	rate, err := service.GetChurnRate()
 	if err != nil {
 		t.Fatalf("GetChurnRate failed: %v", err)
@@ -732,7 +702,6 @@ func TestChurnPredictionService_GetChurnRate(t *testing.T) {
 func TestChurnPredictionService_GetChurnWarnings_Pagination(t *testing.T) {
 	service := setupChurnPredictionService(t)
 
-	// 创建多个预警
 	for i := 1; i <= 15; i++ {
 		prediction := &model.ChurnPrediction{
 			UserID:      "user_page_" + string(rune('0'+i%10)),
@@ -743,7 +712,6 @@ func TestChurnPredictionService_GetChurnWarnings_Pagination(t *testing.T) {
 		service.CreateChurnWarning("user_page_"+string(rune('0'+i%10)), prediction)
 	}
 
-	// 获取第一页
 	warnings, total, err := service.GetChurnWarnings(1, 10)
 	if err != nil {
 		t.Fatalf("GetChurnWarnings failed: %v", err)
@@ -787,3 +755,4 @@ func TestChurnPredictionService_CalculateChurnPrediction_RiskFactorsJSON(t *test
 		t.Errorf("Expected at least 1 risk factor, got %d", len(factors))
 	}
 }
+

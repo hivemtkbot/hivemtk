@@ -12,7 +12,6 @@ import (
 
 // SmsRepository 短信仓库接口
 type SmsRepository interface {
-	// 配置相关
 	GetConfig(ctx context.Context) (*model.SmsConfig, error)
 	SaveConfig(ctx context.Context, config *model.SmsConfig) error
 	GetAliyunConfig(ctx context.Context) (*model.SmsAliyunConfig, error)
@@ -22,20 +21,17 @@ type SmsRepository interface {
 	GetHuaweiConfig(ctx context.Context) (*model.SmsHuaweiConfig, error)
 	SaveHuaweiConfig(ctx context.Context, config *model.SmsHuaweiConfig) error
 
-	// 短信记录相关
 	GetSmsList(ctx context.Context, page, limit int, phone, status, startDate, endDate string) ([]*model.SmsRecord, int64, error)
 	GetSmsByID(ctx context.Context, id uint) (*model.SmsRecord, error)
 	CreateSmsRecord(ctx context.Context, record *model.SmsRecord) error
 	UpdateSmsRecord(ctx context.Context, record *model.SmsRecord) error
 
-	// 草稿相关
 	GetDraftList(ctx context.Context, page, limit int, title string) ([]*model.SmsDraft, int64, error)
 	GetDraftByID(ctx context.Context, id uint) (*model.SmsDraft, error)
 	CreateDraft(ctx context.Context, draft *model.SmsDraft) error
 	UpdateDraft(ctx context.Context, draft *model.SmsDraft) error
 	DeleteDraft(ctx context.Context, id uint) error
 
-	// 任务相关
 	GetJobList(ctx context.Context, page, limit int, status, name string) ([]*model.SmsJob, int64, error)
 	GetJobByID(ctx context.Context, id uint) (*model.SmsJob, error)
 	CreateJob(ctx context.Context, job *model.SmsJob) error
@@ -65,7 +61,6 @@ func (r *smsRepository) GetConfig(ctx context.Context) (*model.SmsConfig, error)
 	err := r.db.First(&config).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// 返回默认配置
 			return &model.SmsConfig{
 				DefaultProvider: "aliyun",
 				RateLimit:       100,
@@ -190,17 +185,14 @@ func (r *smsRepository) GetSmsList(ctx context.Context, page, limit int, phone, 
 		query = query.Where("created_at >= ?", startDate)
 	}
 	if endDate != "" {
-		// 结束日期加一天，包含整天
 		endDate = endDate + " 23:59:59"
 		query = query.Where("created_at <= ?", endDate)
 	}
 
-	// 计算总数
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
 	offset := (page - 1) * limit
 	if err := query.Order("created_at DESC").Offset(offset).Limit(limit).Find(&records).Error; err != nil {
 		return nil, 0, err
@@ -237,12 +229,10 @@ func (r *smsRepository) GetDraftList(ctx context.Context, page, limit int, title
 		query = query.Where("title LIKE ?", "%"+title+"%")
 	}
 
-	// 计算总数
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
 	offset := (page - 1) * limit
 	if err := query.Order("updated_at DESC").Offset(offset).Limit(limit).Find(&drafts).Error; err != nil {
 		return nil, 0, err
@@ -287,12 +277,10 @@ func (r *smsRepository) GetJobList(ctx context.Context, page, limit int, status,
 		query = query.Where("name LIKE ?", "%"+name+"%")
 	}
 
-	// 计算总数
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
 	offset := (page - 1) * limit
 	if err := query.Order("created_at DESC").Offset(offset).Limit(limit).Find(&jobs).Error; err != nil {
 		return nil, 0, err
@@ -340,12 +328,10 @@ func (r *smsRepository) GetJobDetails(ctx context.Context, jobID uint, page, lim
 
 	query := r.db.Model(&model.SmsJobDetail{}).Where("job_id = ?", jobID)
 
-	// 计算总数
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
 	offset := (page - 1) * limit
 	if err := query.Order("created_at ASC").Offset(offset).Limit(limit).Find(&details).Error; err != nil {
 		return nil, 0, err
@@ -353,3 +339,4 @@ func (r *smsRepository) GetJobDetails(ctx context.Context, jobID uint, page, lim
 
 	return details, total, nil
 }
+

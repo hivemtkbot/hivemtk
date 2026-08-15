@@ -39,7 +39,6 @@ type douyinCardService struct {
 
 // NewDouyinCardService 创建抖音卡片服务
 func NewDouyinCardService(db any) DouyinCardService {
-	// 类型断言将interface{}转换为*gorm.DB
 	gormDB := db.(*gorm.DB)
 	return &douyinCardService{
 		repo:              repository.NewDouyinCardRepository(gormDB),
@@ -52,10 +51,8 @@ func NewDouyinCardService(db any) DouyinCardService {
 
 // Create 创建抖音卡片
 func (s *douyinCardService) Create(ctx context.Context, req *dto.DouyinCardCreateRequest) (*dto.DouyinCardResponse, error) {
-	// 处理跳转链接
 	redirectURL := req.RedirectURL
 
-	// 如果没有提供跳转链接，设置默认值
 	if redirectURL == "" {
 		redirectURL = "https://www.douyin.com"
 	}
@@ -75,13 +72,10 @@ func (s *douyinCardService) Create(ctx context.Context, req *dto.DouyinCardCreat
 		return nil, err
 	}
 
-	// 生成短码和短链（可选功能，失败不影响卡片创建）
 	if err := s.GenerateShortLink(ctx, createdCard); err != nil {
-		// 记录日志但不返回错误，允许卡片创建成功
 		logger.Errorf("警告：生成短链失败：%v", err)
 	}
 
-	// 获取短链信息
 	shortCode := ""
 	if createdCard.ShortLinkID != 0 {
 		shortLink, err := s.shortLinkService.GetByID(ctx, createdCard.ShortLinkID)
@@ -100,13 +94,10 @@ func (s *douyinCardService) Update(ctx context.Context, req *dto.DouyinCardUpdat
 		return nil, err
 	}
 
-	// 保存原始域名池ID，用于比较
 	originalDomainPoolID := card.DomainPoolID
 
-	// 处理跳转链接
 	redirectURL := req.RedirectURL
 
-	// 如果没有提供跳转链接，设置默认值
 	if redirectURL == "" {
 		redirectURL = "https://www.douyin.com"
 	}
@@ -125,14 +116,12 @@ func (s *douyinCardService) Update(ctx context.Context, req *dto.DouyinCardUpdat
 		return nil, err
 	}
 
-	// 如果域名池ID发生变化，重新生成短链
 	if originalDomainPoolID != req.DomainPoolID {
 		if err := s.GenerateShortLink(ctx, updatedCard); err != nil {
 			return nil, err
 		}
 	}
 
-	// 获取短链信息
 	shortCode := ""
 	if updatedCard.ShortLinkID != 0 {
 		shortLink, err := s.shortLinkService.GetByID(ctx, updatedCard.ShortLinkID)
@@ -156,7 +145,6 @@ func (s *douyinCardService) GetByID(ctx context.Context, id uint) (*dto.DouyinCa
 		return nil, err
 	}
 
-	// 获取短链信息
 	shortCode := ""
 	if card.ShortLinkID != 0 {
 		shortLink, err := s.shortLinkService.GetByID(ctx, card.ShortLinkID)
@@ -170,13 +158,11 @@ func (s *douyinCardService) GetByID(ctx context.Context, id uint) (*dto.DouyinCa
 
 // GetByIDWithRefresh 根据ID获取抖音卡片，强制刷新缓存
 func (s *douyinCardService) GetByIDWithRefresh(ctx context.Context, id uint) (*dto.DouyinCardResponse, error) {
-	// 直接从数据库获取最新的卡片信息，不使用缓存
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取短链信息
 	shortCode := ""
 	if card.ShortLinkID != 0 {
 		shortLink, err := s.shortLinkService.GetByID(ctx, card.ShortLinkID)
@@ -207,7 +193,6 @@ func (s *douyinCardService) GetList(ctx context.Context, req *dto.DouyinCardList
 
 	var responses []dto.DouyinCardResponse
 	for _, card := range cards {
-		// 获取短链信息
 		shortCode := ""
 		if card.ShortLinkID != 0 {
 			shortLink, err := s.shortLinkService.GetByID(ctx, card.ShortLinkID)
@@ -231,7 +216,6 @@ func (s *douyinCardService) ShareCard(ctx context.Context, id uint, platform str
 		return err
 	}
 
-	// 记录活动
 	_ = s.statsService.RecordActivity(ctx, id, 0, "share", platform, "", "")
 
 	return nil
@@ -244,7 +228,6 @@ func (s *douyinCardService) GenerateHTMLPage(ctx context.Context, id uint) (stri
 		return "", err
 	}
 
-	// 准备模板数据
 	data := &template.CardTemplateData{
 		Title:       card.Title,
 		Description: card.Description,
@@ -252,7 +235,6 @@ func (s *douyinCardService) GenerateHTMLPage(ctx context.Context, id uint) (stri
 		RedirectURL: card.RedirectURL,
 	}
 
-	// 生成HTML页面
 	html, err := s.templateService.GenerateDouyinCardPage(data)
 	if err != nil {
 		return "", err
@@ -278,7 +260,7 @@ func (s *douyinCardService) toResponse(ctx context.Context, card *model.DouyinCa
 		Description:  card.Description,
 		ImageURL:     card.ImageURL,
 		RedirectURL:  card.RedirectURL,
-		DomainPoolID: &card.DomainPoolID, // 转换为指针类型以保持API兼容性
+		DomainPoolID: &card.DomainPoolID, 
 		Tags:         card.Tags,
 		ViewCount:    card.ViewCount,
 		IsActive:     card.IsActive,
@@ -300,7 +282,7 @@ func (s *douyinCardService) toResponseWithShortLink(ctx context.Context, card *m
 		Description:  card.Description,
 		ImageURL:     card.ImageURL,
 		RedirectURL:  card.RedirectURL,
-		DomainPoolID: &card.DomainPoolID, // 转换为指针类型以保持API兼容性
+		DomainPoolID: &card.DomainPoolID, 
 		ShortLinkURL: shortLinkURL,
 		ShortCode:    shortCode,
 		Tags:         card.Tags,
@@ -313,13 +295,10 @@ func (s *douyinCardService) toResponseWithShortLink(ctx context.Context, card *m
 
 // GenerateShortLink 为抖音卡片生成短链
 func (s *douyinCardService) GenerateShortLink(ctx context.Context, card *model.DouyinCard) error {
-	// 检查是否已有短链
 	if card.ShortLinkID != 0 {
-		// 删除已有短链
 		_ = s.shortLinkService.Delete(ctx, card.ShortLinkID)
 	}
 
-	// 生成短码
 	generateReq := &dto.GenerateShortCodeRequest{
 		Length: 6,
 	}
@@ -337,15 +316,13 @@ func (s *douyinCardService) GenerateShortLink(ctx context.Context, card *model.D
 			domainID = uint(pool.ID)
 		}
 	}
-	// domainID == 0 表示使用默认基座域名（不再硬编码为 1）
 
-	// 创建短链
 	shortLinkReq := &dto.CreateShortLinkRequest{
 		ShortCode:   generateResp.ShortCode,
-		OriginalURL: fmt.Sprintf("/douyin/card/%d", card.ID), // 指向抖音卡片页面
+		OriginalURL: fmt.Sprintf("/douyin/card/%d", card.ID), 
 		Title:       card.Title,
 		Description: card.Description,
-		DomainID:    domainID, // 使用域名池ID作为域名ID
+		DomainID:    domainID, 
 	}
 
 	shortLinkResp, err := s.shortLinkService.Create(ctx, shortLinkReq)
@@ -355,7 +332,6 @@ func (s *douyinCardService) GenerateShortLink(ctx context.Context, card *model.D
 
 	logger.Infof("创建的短链ID: %d", shortLinkResp.ID)
 
-	// 更新卡片的短链ID
 	card.ShortLinkID = shortLinkResp.ID
 	_, err = s.repo.Update(ctx, card)
 	if err != nil {
@@ -364,14 +340,11 @@ func (s *douyinCardService) GenerateShortLink(ctx context.Context, card *model.D
 
 	logger.Infof("更新卡片短链ID成功: %d", card.ShortLinkID)
 
-	// 确保更新后的数据被正确保存，刷新数据库连接
-	// 这是为了解决可能的缓存问题
 	updatedCard, err := s.repo.GetByID(ctx, card.ID)
 	if err != nil {
 		return fmt.Errorf("获取更新后的卡片失败: %v", err)
 	}
 
-	// 验证短链ID是否正确更新
 	if updatedCard.ShortLinkID != shortLinkResp.ID {
 		return fmt.Errorf("短链ID更新失败")
 	}
@@ -380,3 +353,4 @@ func (s *douyinCardService) GenerateShortLink(ctx context.Context, card *model.D
 
 	return nil
 }
+

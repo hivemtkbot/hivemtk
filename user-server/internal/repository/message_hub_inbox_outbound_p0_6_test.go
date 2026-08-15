@@ -30,7 +30,6 @@ func TestAnyExistsByMsgIDs_AcrossAccount_P0_6(t *testing.T) {
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
-	// seed
 	seeds := []*model.MessageHub{
 		{Platform: "douyin_web", AccountID: "acc_A", ConversationID: "c1", MsgID: "m_same", MsgType: "text", Content: "self", Direction: "outbound", Status: "pending"},
 		{Platform: "douyin_web", AccountID: "acc_B", ConversationID: "c2", MsgID: "m_cross_out", MsgType: "text", Content: "cross out", Direction: "outbound", Status: "pending"},
@@ -42,14 +41,12 @@ func TestAnyExistsByMsgIDs_AcrossAccount_P0_6(t *testing.T) {
 		}
 	}
 
-	// 探测：账号 A 询问 4 条 msg_id 是否存在
 	probe := []string{"m_same", "m_cross_out", "m_cross_in", "m_not_exist"}
 	out, err := repo.AnyExistsByMsgIDs(ctx, "douyin_web", probe)
 	if err != nil {
 		t.Fatalf("AnyExistsByMsgIDs 失败: %v", err)
 	}
 
-	// 期望：m_same=true, m_cross_out=true, m_cross_in=true, m_not_exist=false
 	expects := map[string]bool{
 		"m_same":       true,
 		"m_cross_out":  true,
@@ -90,7 +87,6 @@ func TestAnyExistsByMsgIDs_ChannelIsolation_P0_6(t *testing.T) {
 		t.Fatalf("seed xhs 失败: %v", err)
 	}
 
-	// 探测 douyin_web
 	out, err := repo.AnyExistsByMsgIDs(ctx, "douyin_web", []string{"m_shared"})
 	if err != nil {
 		t.Fatalf("AnyExistsByMsgIDs 失败: %v", err)
@@ -99,7 +95,6 @@ func TestAnyExistsByMsgIDs_ChannelIsolation_P0_6(t *testing.T) {
 		t.Errorf("douyin_web 应存在 m_shared，实际不存在")
 	}
 
-	// 探测 xhs_web
 	out2, err := repo.AnyExistsByMsgIDs(ctx, "xhs_web", []string{"m_shared"})
 	if err != nil {
 		t.Fatalf("AnyExistsByMsgIDs 失败: %v", err)
@@ -108,7 +103,6 @@ func TestAnyExistsByMsgIDs_ChannelIsolation_P0_6(t *testing.T) {
 		t.Errorf("xhs_web 应存在 m_shared，实际不存在")
 	}
 
-	// 探测一个不存在的 channel
 	out3, err := repo.AnyExistsByMsgIDs(ctx, "tiktok_web", []string{"m_shared"})
 	if err != nil {
 		t.Fatalf("AnyExistsByMsgIDs 失败: %v", err)
@@ -125,7 +119,6 @@ func TestAnyExistsByMsgIDs_EmptyAndNil_P0_6(t *testing.T) {
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
-	// 空 msgIDs → 空 map
 	out, err := repo.AnyExistsByMsgIDs(ctx, "douyin_web", nil)
 	if err != nil {
 		t.Errorf("空 msgIDs 不应报错: %v", err)
@@ -144,3 +137,4 @@ func TestAnyExistsByMsgIDs_EmptyAndNil_P0_6(t *testing.T) {
 		t.Errorf("nil repo 应返回空 map，实际 %d", len(out2))
 	}
 }
+

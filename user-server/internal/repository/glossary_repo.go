@@ -1,22 +1,5 @@
 package repository
 
-// ============================================================================
-// GlossaryRepository 术语表仓储（v1.2 出海多语言方案）
-// ----------------------------------------------------------------------------
-// 五层架构归属：L4 数据访问层
-// 表：glossaries
-//
-// 私域独立部署：无 merchant_id 字段。
-// 通过 *gorm.DB 提供术语表 CRUD；service 层不直接持有 db。
-//
-// 字段说明（与 model.Glossary 对齐）：
-//   - TermID       ：业务唯一标识（非主键 ID），用于跨系统引用
-//   - Category     ：brand/sku/logistic/policy/other
-//   - Preserve     ：true=全语种不翻译（仅保护）
-//   - Translations ：JSON 数组 [{lang,text},...] 存为 text[]
-//   - Pattern      ：正则保护模式
-//   - Status       ：active/disabled
-// ============================================================================
 
 import (
 	"context"
@@ -60,9 +43,6 @@ func (r *GlossaryRepository) GetDB(_ context.Context) *gorm.DB {
 	return r.db
 }
 
-// ----------------------------------------------------------------------------
-// CRUD
-// ----------------------------------------------------------------------------
 
 // Create 创建术语。
 func (r *GlossaryRepository) Create(ctx context.Context, g *model.Glossary) error {
@@ -184,3 +164,4 @@ func (r *GlossaryRepository) ListAll(ctx context.Context, status, keyword string
 	}
 	return list, total, nil
 }
+

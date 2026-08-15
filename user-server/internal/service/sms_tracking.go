@@ -34,7 +34,7 @@ type DeliveryReportRequest struct {
 	Phone       string `json:"phone"`
 	JobID       string `json:"jobId"`
 	Provider    string `json:"provider"`
-	Status      string `json:"status" binding:"required"` // delivered / failed / pending / sent
+	Status      string `json:"status" binding:"required"` 
 	ErrorCode   string `json:"errorCode"`
 	ErrorMsg    string `json:"errorMsg"`
 	SentAt      string `json:"sentAt"`
@@ -76,14 +76,11 @@ func (s *SmsTrackingService) RecordDeliveryReport(ctx context.Context, req *Deli
 		return errors.New("status 不能为空")
 	}
 
-	// 规范化状态
 	status := normalizeSmsStatus(req.Status)
 
-	// 判定是否可重试
 	isRetryable := false
 	if status == model.SmsStatusFailed {
 		isRetryable = s.IsRetryable(ctx, req.ErrorCode)
-		// 失败但可重试 → 状态置为 retryable
 		if isRetryable {
 			status = model.SmsStatusRetryable
 		}
@@ -93,7 +90,6 @@ func (s *SmsTrackingService) RecordDeliveryReport(ctx context.Context, req *Deli
 	sentAt, _ := parseSmsTime(req.SentAt)
 	deliveredAt, _ := parseSmsTime(req.DeliveredAt)
 
-	// 已存在则更新
 	existing, err := s.repo.GetByMessageID(ctx, req.MessageID)
 	if err != nil {
 		logger.Errorf("查询短信送达状态失败 message_id=%s: %v", req.MessageID, err)
@@ -122,7 +118,6 @@ func (s *SmsTrackingService) RecordDeliveryReport(ctx context.Context, req *Deli
 		return s.repo.UpdateStatus(ctx, existing)
 	}
 
-	// 新记录
 	record := &model.SmsDeliveryStatus{
 		MessageID:   req.MessageID,
 		Phone:       NormalizePhone(req.Phone),
@@ -184,7 +179,6 @@ func (s *SmsTrackingService) RetryFailedMessages(ctx context.Context, batchSize 
 
 	retried := 0
 	for _, st := range statuses {
-		// 达到最大重试次数 → 标记为 failed，不再重试
 		if st.RetryCount >= st.MaxRetry {
 			st.Status = model.SmsStatusFailed
 			st.IsRetryable = false
@@ -196,10 +190,7 @@ func (s *SmsTrackingService) RetryFailedMessages(ctx context.Context, batchSize 
 			continue
 		}
 
-		// 标记重试中：retry_count + 1
 		st.RetryCount++
-		// 状态保持为 retryable，等待下一次 webhook 报告（成功 → delivered / 失败 → retryable 或 failed）
-		// 注：实际重新发送由调用方通过 SmsService.ResendSms 完成
 		if err := s.repo.UpdateStatus(ctx, st); err != nil {
 			logger.Errorf("更新短信重试计数失败 message_id=%s: %v", st.MessageID, err)
 			continue
@@ -216,7 +207,6 @@ func (s *SmsTrackingService) GetJobMetrics(ctx context.Context, jobID string) (*
 		return nil, errors.New("job_id 不能为空")
 	}
 
-	// 优先读取已聚合的指标
 	metric, err := s.repo.GetJobMetric(ctx, jobID)
 	if err != nil {
 		return nil, err
@@ -225,7 +215,6 @@ func (s *SmsTrackingService) GetJobMetrics(ctx context.Context, jobID string) (*
 		metric = &model.SmsJobMetric{JobID: jobID}
 	}
 
-	// 实时统计
 	sent, err := s.repo.CountByJob(ctx, jobID, "")
 	if err != nil {
 		return nil, err
@@ -245,7 +234,7 @@ func (s *SmsTrackingService) GetJobMetrics(ctx context.Context, jobID string) (*
 
 	metric.TotalSent = sent
 	metric.TotalDelivered = delivered
-	metric.TotalFailed = failed + retryable // failed 含永久失败 + 待重试
+	metric.TotalFailed = failed + retryable 
 	metric.TotalRetried = retryable
 
 	if sent > 0 {
@@ -350,15 +339,10 @@ func normalizeSmsStatus(status string) string {
 	case "SENT", "ACCEPTD", "ACCEPTED":
 		return model.SmsStatusSent
 	default:
-		// 未知状态保持原值小写
 		return strings.ToLower(status)
 	}
 }
 
-// parseSmsTime 解析运营商 webhook 时间字符串
-//
-// 支持格式：
-// RFC3339: Z07:00
 
 // - Unix 时间戳（秒）
 func parseSmsTime(s string) (*time.Time, error) {
@@ -379,7 +363,6 @@ func parseSmsTime(s string) (*time.Time, error) {
 		}
 	}
 
-	// 失败返回 nil（不阻塞主流程）
 	return nil, errors.New("unsupported time format")
 }
 
@@ -387,3 +370,4 @@ func parseSmsTime(s string) (*time.Time, error) {
 func smsTrackingServiceWithDB(db *gorm.DB) *SmsTrackingService {
 	return NewSmsTrackingService(repository.NewSmsTrackingRepository(db))
 }
+

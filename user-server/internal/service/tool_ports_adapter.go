@@ -10,14 +10,7 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// tooluse Port 适配器（L4 依赖反转）
-// ----------------------------------------------------------------------------
-// tooluse 只依赖 portcontract.CustomerPort / SessionPort / OrderPort / FollowUpPort；
-// 本文件把业务 Service 适配为 Port，在 router 装配期注入。
-// ============================================================================
 
-// ----- CustomerPort -----
 
 // CustomerPortAdapter 适配 CustomerService → portcontract.CustomerPort
 type CustomerPortAdapter struct {
@@ -35,7 +28,6 @@ func NewCustomerPortAdapter(svc *CustomerService) *CustomerPortAdapter {
 func (a *CustomerPortAdapter) GetCustomerProfile(customerID string) (*portcontract.CustomerProfileView, error) {
 	p, err := a.svc.GetCustomerProfile(context.Background(), customerID)
 	if err != nil {
-		// 把 service 包 sentinel 映射为 portcontract sentinel,避免工具层反向依赖 service
 		if errors.Is(err, ErrCustomerNotFound) {
 			return nil, portcontract.ErrCustomerNotFound
 		}
@@ -76,7 +68,6 @@ func (a *CustomerPortAdapter) RemoveTags(customerID string, tags []string) error
 	return a.svc.RemoveTags(context.Background(), customerID, tags)
 }
 
-// ----- SessionPort -----
 
 // SessionPortAdapter 适配 CustomerSessionService → portcontract.SessionPort
 type SessionPortAdapter struct {
@@ -126,7 +117,6 @@ func (a *SessionPortAdapter) SendMessage(ctx context.Context, in *portcontract.S
 	})
 }
 
-// ----- FollowUpPort -----
 
 // FollowUpPortAdapter 适配 FollowUpService → portcontract.FollowUpPort
 type FollowUpPortAdapter struct {
@@ -255,7 +245,6 @@ type AfterSalePortAdapter struct {
 // NewAfterSalePortAdapter 构造
 func NewAfterSalePortAdapter(svc *AfterSaleService) *AfterSalePortAdapter {
 	if svc == nil {
-		// 默认仓储；回写电商客户端按数据库 agent.tool_integrations 配置按需构造
 		svc = NewAfterSaleServiceWithClient(repository.NewAfterSaleRepository(), nil)
 	}
 	return &AfterSalePortAdapter{svc: svc}
@@ -268,3 +257,4 @@ func (a *AfterSalePortAdapter) Create(ctx context.Context, req *portcontract.Aft
 func (a *AfterSalePortAdapter) Query(ctx context.Context, platform, orderID, customerPhone string) ([]*portcontract.AfterSaleView, error) {
 	return a.svc.Query(ctx, platform, orderID, customerPhone)
 }
+

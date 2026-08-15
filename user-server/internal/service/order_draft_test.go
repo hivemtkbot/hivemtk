@@ -13,24 +13,6 @@ import (
 	"hivemtk-user/internal/pkg/db"
 )
 
-// ============================================================================
-// 商业产品级 订单草稿服务测试套件（-11）
-// ----------------------------------------------------------------------------
-// 商业产品级业务流：AI 谈单时提取到"光子嫩肤 3 次 2280 元" →
-//   1. 自动生成草稿（待确认）
-//   2. 销售点击"确认" → 4 件事自动发生：
-//      - 创建正式订单
-//      - 客户旅程推到"成交"
-//      - 销售仪表盘记录订单
-//      - 7 天后自动安排售后回访
-//
-// 核心测试维度：
-//   A. 草稿创建（手动/自动/去重）
-//   B. 草稿操作（确认/取消/编辑/过期）
-//   C. 草稿查询（按客户/按销售/待确认）
-//   D. 销售动作触发器联动（核心闭环）
-//   E. 边界场景（空值/重复/价格0/置信度）
-// ============================================================================
 
 // helper: 完整环境（5 组件 + 草稿服务 + 触发器）
 func setupDraftEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AITagger, *OrderIntentExtractor, *SalesDashboard, *OrderDraftService, *SalesActionTrigger) {
@@ -39,8 +21,6 @@ func setupDraftEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AI
 	)
 	db.SetTestDB(database)
 
-	// 必须使用各自的构造函数初始化，否则内部 map / 正则等字段为 nil，
-	// 在调用 CreateManual / ExtractFromText / Trigger 等 API 时会 panic。
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
@@ -51,14 +31,10 @@ func setupDraftEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AI
 	draftSvc.SetDashboard(context.Background(), dashboard)
 	draftSvc.SetFollowUp(context.Background(), followup)
 	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
-	// SalesActionTrigger 自动创建草稿依赖 draftService 注入（NewSalesActionTrigger 不会自动绑定）
 	trigger.SetDraftService(context.Background(), draftSvc)
 	return journey, followup, tagger, extractor, dashboard, draftSvc, trigger
 }
 
-// ============================================================================
-// A. 草稿创建测试
-// ============================================================================
 
 // TestDraft_CreateManual 手动创建草稿
 func TestDraft_CreateManual(t *testing.T) {
@@ -96,7 +72,6 @@ func TestDraft_CreateManual(t *testing.T) {
 // TestDraft_CreateFromIntent 从订单意向自动创建草稿
 func TestDraft_CreateFromIntent(t *testing.T) {
 	_, _, _, extractor, _, draftSvc, _ := setupDraftEnv(t)
-	// 模拟 AI 提取的订单意向
 	intents := extractor.ExtractFromText(context.Background(), "cust_002", "我想要光子嫩肤套餐 3 次 2280 元")
 	if len(intents) == 0 {
 		t.Fatal("提取器应能从对话中提取光子嫩肤")
@@ -132,7 +107,6 @@ func TestDraft_CreateFromIntent(t *testing.T) {
 //	去重到同一草稿，累加数量 / 提升置信度
 func TestDraft_Deduplication(t *testing.T) {
 	_, _, _, extractor, _, draftSvc, _ := setupDraftEnv(t)
-	// 第一次意向
 	intents1 := extractor.ExtractFromText(context.Background(), "cust_003", "光子嫩肤 3 次 2280 元")
 	if len(intents1) == 0 {
 		t.Fatal("第一次应能提取")
@@ -141,7 +115,6 @@ func TestDraft_Deduplication(t *testing.T) {
 	if draft1 == nil {
 		t.Fatal("第一次草稿应创建")
 	}
-	// 第二次意向（同一产品）
 	intents2 := extractor.ExtractFromText(context.Background(), "cust_003", "我要光子嫩肤")
 	if len(intents2) > 0 {
 		draft2 := draftSvc.CreateFromIntent(context.Background(), &intents2[0], "sales_003")
@@ -152,7 +125,6 @@ func TestDraft_Deduplication(t *testing.T) {
 			t.Errorf("应去重到同一草稿，draft1=%s draft2=%s", draft1.ID, draft2.ID)
 		}
 	}
-	// 验证：客户只有 1 个草稿
 	all := draftSvc.ListByCustomer(context.Background(), "cust_003")
 	if len(all) != 1 {
 		t.Errorf("应有 1 个草稿（去重），实际: %d", len(all))
@@ -207,9 +179,6 @@ func TestDraft_ManualValidation(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// B. 草稿操作测试
-// ============================================================================
 
 // TestDraft_Confirm 销售一键确认草稿
 // 商业产品级核心闭环：销售点"确认" → 4 件事自动发生
@@ -217,7 +186,6 @@ func TestDraft_Confirm(t *testing.T) {
 	journey, followup, _, _, dashboard, draftSvc, _ := setupDraftEnv(t)
 	custID := "cust_confirm_001"
 	ownerID := "sales_confirm"
-	// 客户在"报价"阶段
 	_, _ = journey.Transition(context.Background(), custID, StageQuoted, "test", ownerID, "已报价", nil)
 
 	draft, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
@@ -242,19 +210,16 @@ func TestDraft_Confirm(t *testing.T) {
 		t.Errorf("阶段应为 won，实际: %s", result.StageAdvanced)
 	}
 
-	// 验证：客户旅程推到 won
 	state := journey.GetState(context.Background(), custID)
 	if state.CurrentStage != StageWon {
 		t.Errorf("客户旅程应为 won，实际: %s", state.CurrentStage)
 	}
 
-	// 验证：仪表盘记录订单
 	perf := dashboard.GetSalesPerformance(context.Background(), ownerID, time.Time{})
 	if perf.TotalOrders < 1 {
 		t.Errorf("仪表盘应记录订单，实际: %d", perf.TotalOrders)
 	}
 
-	// 验证：自动安排 7 天后售后回访
 	if result.FollowUpID == "" {
 		t.Error("应自动安排售后跟进")
 	}
@@ -269,7 +234,6 @@ func TestDraft_Confirm(t *testing.T) {
 		t.Error("应自动安排售后回访")
 	}
 
-	// 验证：草稿状态变 confirmed
 	if draft.Status != DraftStatusConfirmed {
 		t.Errorf("草稿状态应为 confirmed，实际: %s", draft.Status)
 	}
@@ -326,7 +290,6 @@ func TestDraft_Cancel(t *testing.T) {
 	if draft.CancelReason != "客户改变主意" {
 		t.Errorf("取消原因错误: %s", draft.CancelReason)
 	}
-	// 仪表盘应记录 cancelled
 	stats := dashboard.GetDraftStats(context.Background(), ownerID, time.Time{})
 	if stats.ByAction["cancelled"] < 1 {
 		t.Error("仪表盘应记录 cancelled 事件")
@@ -340,7 +303,6 @@ func TestDraft_Edit(t *testing.T) {
 	draft, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "光子嫩肤", Quantity: 1, UnitPrice: 1000,
 	})
-	// 修改数量 + 单价
 	newQty := 3
 	newPrice := 880.0
 	newNote := "客户砍价后调整"
@@ -381,7 +343,6 @@ func TestDraft_Expire(t *testing.T) {
 	draft, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
-	// 模拟过期
 	draft.ExpiresAt = time.Now().Add(-1 * time.Hour)
 	expired := draftSvc.ExpireOverdue(context.Background())
 	if expired < 1 {
@@ -393,15 +354,11 @@ func TestDraft_Expire(t *testing.T) {
 	t.Logf("✅ 草稿过期: %d 个", expired)
 }
 
-// ============================================================================
-// C. 草稿查询测试
-// ============================================================================
 
 // TestDraft_ListPending 待确认草稿列表
 // 商业产品级：销售工作台首页展示
 func TestDraft_ListPending(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	// 创建 3 个 pending + 1 个 confirmed + 1 个 cancelled
 	for i := 0; i < 3; i++ {
 		draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 			CustomerID: "c1", OwnerID: "sales_list", ProductName: "P", Quantity: 1, UnitPrice: 100,
@@ -440,7 +397,6 @@ func TestDraft_ListPending_Sort(t *testing.T) {
 	d3, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "中", Quantity: 1, UnitPrice: 500,
 	})
-	// 调整置信度
 	d1.Confidence = 0.5
 	d2.Confidence = 0.7
 	d3.Confidence = 0.9
@@ -511,9 +467,6 @@ func TestDraft_GetByID(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// D. 销售动作触发器联动（核心闭环）
-// ============================================================================
 
 // TestDraft_TriggerAutoCreate AI 谈单 → 自动创建草稿（核心入口）
 // 商业产品级核心业务流：AI 回复中包含"光子嫩肤 3 次 2280 元"
@@ -524,7 +477,6 @@ func TestDraft_TriggerAutoCreate(t *testing.T) {
 	custID := "cust_trigger_001"
 	ownerID := "sales_trigger"
 
-	// 模拟 AI 谈单响应
 	resp := &SalesResponse{
 		Reply:  "好的，光子嫩肤 3 次套餐 2280 元，预约周六可以吗？",
 		Intent: &dto.RecognizeResult{IntentType: IntentPurchase, IntentName: "准备购买", Confidence: 0.92},
@@ -534,7 +486,6 @@ func TestDraft_TriggerAutoCreate(t *testing.T) {
 		t.Fatal("触发器应返回记录")
 	}
 
-	// 验证：自动创建了草稿
 	hasDraftCreated := false
 	for _, a := range rec.Actions {
 		if a.Action == "order_draft_created" && a.Result == "ok" {
@@ -545,7 +496,6 @@ func TestDraft_TriggerAutoCreate(t *testing.T) {
 		t.Error("应自动创建订单草稿")
 	}
 
-	// 验证：草稿存在
 	pending := draftSvc.ListPending(context.Background(), ownerID, 0)
 	if len(pending) == 0 {
 		t.Fatal("应有 1 个 pending 草稿")
@@ -554,14 +504,12 @@ func TestDraft_TriggerAutoCreate(t *testing.T) {
 		t.Errorf("草稿产品名错误: %s", pending[0].ProductName)
 	}
 
-	// 验证：标签已打、阶段已推进
 	_ = tagger.GetTags(context.Background(), custID)
 	state := journey.GetState(context.Background(), custID)
 	if state.CurrentStage == StageStranger {
 		t.Error("客户旅程应推进")
 	}
 
-	// 验证：仪表盘记录草稿
 	_ = dashboard.GetDraftStats(context.Background(), ownerID, time.Time{})
 	t.Logf("✅ 触发器自动创建草稿: 阶段=%s, 草稿数=%d", state.CurrentStage, len(pending))
 }
@@ -573,14 +521,12 @@ func TestDraft_TriggerCreateAndConfirm(t *testing.T) {
 	custID := "cust_e2e_001"
 	ownerID := "sales_e2e"
 
-	// 1. AI 谈单：客户明确要买
 	resp := &SalesResponse{
 		Reply:  "好的，光子嫩肤 3 次套餐 2280 元，给您下单",
 		Intent: &dto.RecognizeResult{IntentType: IntentPurchase, IntentName: "购买", Confidence: 0.95},
 	}
 	trigger.TriggerAfterSales(context.Background(), custID, ownerID, resp)
 
-	// 2. 销售在工作台看到待确认草稿
 	pending := draftSvc.ListPending(context.Background(), ownerID, 0)
 	if len(pending) != 1 {
 		t.Fatalf("应有 1 个待确认草稿，实际: %d", len(pending))
@@ -588,28 +534,22 @@ func TestDraft_TriggerCreateAndConfirm(t *testing.T) {
 	draft := pending[0]
 	t.Logf("   草稿: %s %s x %d = %.2f", draft.ProductName, draft.ProductName, draft.Quantity, draft.TotalAmount)
 
-	// 3. 销售点击"确认"
 	result, err := draftSvc.Confirm(context.Background(), draft.ID, ownerID)
 	if err != nil {
 		t.Fatalf("确认失败: %v", err)
 	}
 
-	// 4. 验证：4 件事自动发生
-	// 4.1 订单创建
 	if result.OrderID == "" {
 		t.Error("应创建订单")
 	}
-	// 4.2 客户旅程推到 won
 	state := journey.GetState(context.Background(), custID)
 	if state.CurrentStage != StageWon {
 		t.Errorf("客户旅程应为 won，实际: %s", state.CurrentStage)
 	}
-	// 4.3 仪表盘记录订单
 	perf := dashboard.GetSalesPerformance(context.Background(), ownerID, time.Time{})
 	if perf.TotalOrders < 1 {
 		t.Error("仪表盘应记录订单")
 	}
-	// 4.4 售后跟进已安排
 	followups := followup.ListPending(context.Background(), ownerID, 0)
 	foundAfterSale := false
 	for _, f := range followups {
@@ -661,9 +601,6 @@ func TestDraft_TriggerNoIntent(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// E. 边界场景
-// ============================================================================
 
 // TestDraft_Confirm_Expired 确认过期草稿
 func TestDraft_Confirm_Expired(t *testing.T) {
@@ -671,7 +608,7 @@ func TestDraft_Confirm_Expired(t *testing.T) {
 	draft, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
-	draft.ExpiresAt = time.Now().Add(-1 * time.Hour) // 已过期
+	draft.ExpiresAt = time.Now().Add(-1 * time.Hour) 
 	_, err := draftSvc.Confirm(context.Background(), draft.ID, "s1")
 	if err == nil {
 		t.Error("过期草稿不应能确认")
@@ -686,7 +623,6 @@ func TestDraft_DashboardStats(t *testing.T) {
 	journey, _, _, _, dashboard, draftSvc, _ := setupDraftEnv(t)
 	_ = journey
 	ownerID := "sales_stats"
-	// 创建 5 个，确认 2 个，取消 1 个
 	for i := 0; i < 5; i++ {
 		d, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 			CustomerID: "c1", OwnerID: ownerID, ProductName: "P", Quantity: 1, UnitPrice: 1000,
@@ -698,7 +634,6 @@ func TestDraft_DashboardStats(t *testing.T) {
 		}
 	}
 	stats := dashboard.GetDraftStats(context.Background(), ownerID, time.Time{})
-	// Total = 5 created + 2 confirmed + 1 cancelled = 8 events
 	if stats.Total != 8 {
 		t.Errorf("总事件数应为 8，实际: %d", stats.Total)
 	}
@@ -711,7 +646,6 @@ func TestDraft_DashboardStats(t *testing.T) {
 	if stats.ByAction["cancelled"] != 1 {
 		t.Errorf("cancelled 应为 1，实际: %d", stats.ByAction["cancelled"])
 	}
-	// 转化率 = 2 confirmed / 5 created = 40%
 	if stats.ConversionRate < 39 || stats.ConversionRate > 41 {
 		t.Errorf("转化率应约 40%%，实际: %.2f", stats.ConversionRate)
 	}
@@ -732,7 +666,6 @@ func TestDraft_DefaultQuantity(t *testing.T) {
 
 // TestDraft_NilServiceSafe 草稿服务不被注入时仍安全
 func TestDraft_NilServiceSafe(t *testing.T) {
-	// 不注入任何下游服务
 	draftSvc := NewOrderDraftService(nil)
 	draft, err := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "P", Quantity: 1, UnitPrice: 100,
@@ -740,7 +673,6 @@ func TestDraft_NilServiceSafe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("创建失败: %v", err)
 	}
-	// 确认（无 orderService 也能跑，生成模拟订单 ID）
 	result, err := draftSvc.Confirm(context.Background(), draft.ID, "s1")
 	if err != nil {
 		t.Fatalf("确认失败: %v", err)
@@ -754,7 +686,6 @@ func TestDraft_NilServiceSafe(t *testing.T) {
 // TestDraft_ConfidenceBoost 高置信度字段加成
 func TestDraft_ConfidenceBoost(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	// 完整信号（产品+价格+数量）
 	intent1 := OrderIntent{
 		CustomerID:  "c1",
 		ProductName: "光子嫩肤",
@@ -763,7 +694,6 @@ func TestDraft_ConfidenceBoost(t *testing.T) {
 		Confidence:  0.7,
 	}
 	d1 := draftSvc.CreateFromIntent(context.Background(), &intent1, "s1")
-	// 弱信号（产品+价格+数量都没有）
 	intent2 := OrderIntent{
 		CustomerID:  "c2",
 		ProductName: "光子嫩肤",
@@ -779,7 +709,6 @@ func TestDraft_ConfidenceBoost(t *testing.T) {
 // TestDraft_ConcurrentSafe 并发安全
 func TestDraft_ConcurrentSafe(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	// 100 并发创建
 	done := make(chan bool, 100)
 	for i := 0; i < 100; i++ {
 		go func(idx int) {
@@ -801,3 +730,4 @@ func TestDraft_ConcurrentSafe(t *testing.T) {
 		t.Errorf("并发创建后应有 100 个，实际: %d", len(all))
 	}
 }
+

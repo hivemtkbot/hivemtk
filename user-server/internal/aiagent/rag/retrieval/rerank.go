@@ -31,7 +31,6 @@ type RerankResult struct {
 
 // RerankerInterface 重排接口
 type RerankerInterface interface {
-	// Rerank 对候选文档按与 query 的相关性重排，返回按分数降序的结果
 	Rerank(ctx context.Context, query string, docs []RerankDoc) ([]RerankResult, error)
 }
 
@@ -59,7 +58,7 @@ type RerankConfig struct {
 // 两者响应字段一致：results[].index / results[].relevance_score，业务代码零改动。
 type LocalReranker struct {
 	httpClient *http.Client
-	cfg        *RerankConfig // 可选：per 知识库显式覆盖全局默认
+	cfg        *RerankConfig 
 }
 
 // sharedRerankTransport 进程级共享 Transport，避免每次请求 new http.Client 导致连接不复用、
@@ -109,18 +108,15 @@ const (
 //
 // 必须以配置文件为准，否则宿主机被 docker 专用的 mtk-rerank 服务名带偏（宿主机无法解析）。
 func DefaultRerankConfig() *RerankConfig {
-	// 1) 配置文件为准
 	fileCfg := config.GetAppConfig().Inference.Rerank
 	baseURL := fileCfg.BaseURL
 	model := fileCfg.Model
 	apiKey := fileCfg.APIKey
-	// 默认启用；仅当配置文件显式指定 enabled: false 或环境变量关闭时才禁用
 	enabled := true
 	if baseURL != "" && !fileCfg.Enabled {
 		enabled = false
 	}
 
-	// 2) 环境变量仅在配置文件未指定时回退读取（便于部署层/调试显式覆盖）
 	if baseURL == "" {
 		baseURL = os.Getenv("RERANK_BASE_URL")
 	}
@@ -131,17 +127,10 @@ func DefaultRerankConfig() *RerankConfig {
 		enabled = false
 	}
 
-	// 3) 内置默认（docker 网络内本地 rerank 服务名，端口 8209）
 	if baseURL == "" {
-		// 单一源：config.DefaultRerankBaseURLDocker（user-server/internal/pkg/utils/config/ports.go）
-		// 文档源：DEVELOPMENT.md §2.4 + docker-compose-host.yml mtk-rerank 服务
-		// 行为：fallback 必须指向 rerank 服务（mtk-rerank:8209），不能 fallback 到 embedding（8208）
 		baseURL = config.DefaultRerankBaseURLDocker
 	}
 	if model == "" {
-		// 单一源：config.DefaultRerankModel()（user-server/internal/pkg/utils/config/server.go）
-		// 文档源：DEVELOPMENT.md §2.4 + config.yaml inference.rerank.model
-		// 行为：dev 档默认为 bge-reranker-v2-m3（多语言跨编码器）
 		model = config.DefaultRerankModel()
 	}
 	timeout := 30
@@ -166,7 +155,7 @@ func DefaultRerankConfig() *RerankConfig {
 type rerankRequest struct {
 	Model     string   `json:"model"`
 	Query     string   `json:"query"`
-	Documents []string `json:"documents"` // llama.cpp /v1/rerank 规范字段（与 smoke-test.sh / warmup.sh 一致）
+	Documents []string `json:"documents"` 
 }
 
 type rerankResponse struct {
@@ -199,11 +188,6 @@ func (r *LocalReranker) Rerank(ctx context.Context, query string, docs []RerankD
 	}
 
 	baseURL := strings.TrimRight(cfg.BaseURL, "/")
-	// 端点约定：在 BaseURL 后追加 /rerank。
-	//   - TEI:       BaseURL=http://host:port      → /rerank（根路径）
-	//   - llama.cpp: BaseURL=http://host:port/v1   → /v1/rerank
-	// 与 embedding_service.go 一致：BaseURL 未显式含 /v1 时自动补齐，
-	// 使 config.yaml 中 base_url 无论是否带 /v1 后缀都能正确路由到 /v1/rerank。
 	if !strings.HasSuffix(baseURL, "/v1") && !strings.HasSuffix(baseURL, "/v1/") {
 		baseURL = baseURL + "/v1"
 	}
@@ -243,8 +227,6 @@ func (r *LocalReranker) callOnce(ctx context.Context, endpoint string, timeout t
 	if err != nil {
 		return nil, fmt.Errorf("marshal rerank request: %w", err)
 	}
-	// 复用 r.httpClient（共享 Transport 连接池），通过 context.WithTimeout 控制超时
-	// 避免每次请求创建新 http.Client 对象增加 GC 压力
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(body))
@@ -331,15 +313,11 @@ func applyRerank(chunks []Chunk, results []RerankResult) []Chunk {
 	seen := make(map[string]bool, len(results))
 	for _, res := range results {
 		if c, ok := byID[res.ID]; ok {
-			// 写回 bge-reranker 相关性分数（0~1 语义），使下游阈值过滤/降级逻辑与 rerank 路径语义一致。
-			// 原实现仅重排序、丢弃 relevance_score，导致 chunk.Score 停留在 RRF 量级(~0.03)，
-			// 工具层 threshold=0.3 会把全部候选过滤，造成"永远空召回"。
 			c.Score = res.Score
 			ordered = append(ordered, c)
 			seen[res.ID] = true
 		}
 	}
-	// 追加重排结果中未覆盖的分片（保底）
 	for _, c := range chunks {
 		if !seen[c.ID] {
 			ordered = append(ordered, c)
@@ -354,3 +332,4 @@ func maxInt(a, b int) int {
 	}
 	return b
 }
+

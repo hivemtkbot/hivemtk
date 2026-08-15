@@ -11,25 +11,11 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// 商业产品级 客户旅程状态机（Customer Journey State Machine）
-// ----------------------------------------------------------------------------
-// 商业市场需求：每个客户都处于旅程的某个阶段，AI/销售的所有动作都应该
-// 与当前阶段匹配。例如"陌生"客户发优惠券 = 浪费；"成交"客户被再次销售
-// = 骚扰。Salesforce、HubSpot 都以客户旅程为核心。
-//
-// 完整 9 阶段：陌生 → 留资 → 初步接触 → 意向 → 报价 → 成交 → 售后 → 复购 → 沉睡
-//
-// 持久化（CC- 修复）：状态变更同步写 Redis（key=journey:state:{customer_id}），
-// 内存 map 作为 L1 缓存，Redis 作为 source of truth，跨实例共享。Redis
-// 不可用时优雅降级为纯内存模式，仅影响持久性不影响功能。
-// ============================================================================
 
 // Redis 持久化相关常量
 const (
 	journeyStateKeyPrefix = "journey:state:"
 
-	// 阶段级 TTL：活跃阶段 30 天，事务阶段 90 天，沉睡 180 天，已流失 365 天
 	journeyTTLAcquisition   = 30 * 24 * time.Hour
 	journeyTTLTransactional = 90 * 24 * time.Hour
 	journeyTTLSleeping      = 180 * 24 * time.Hour
@@ -106,11 +92,11 @@ type StageMeta struct {
 	Stage           JourneyStage  `json:"stage"`
 	Label           string        `json:"label"`
 	Description     string        `json:"description"`
-	DefaultFollowup time.Duration `json:"default_followup"`          // 默认跟进间隔
-	RecommendedSOP  string        `json:"recommended_sop"`           // 推荐 SOP
-	OwnerRole       string        `json:"owner_role"`                // 负责角色
-	AllowAIHandle   bool          `json:"allow_ai_handle"`           // 是否允许 AI 接管
-	AutoNextStage   JourneyStage  `json:"auto_next_stage,omitempty"` // 自动迁移下一阶段
+	DefaultFollowup time.Duration `json:"default_followup"`          
+	RecommendedSOP  string        `json:"recommended_sop"`           
+	OwnerRole       string        `json:"owner_role"`                
+	AllowAIHandle   bool          `json:"allow_ai_handle"`           
+	AutoNextStage   JourneyStage  `json:"auto_next_stage,omitempty"` 
 }
 
 // StageMetas 阶段配置
@@ -169,12 +155,12 @@ var StageMetas = map[JourneyStage]*StageMeta{
 
 // JourneyEvent 旅程事件
 type JourneyEvent struct {
-	Type       string         `json:"type"`        // 事件类型
-	FromStage  JourneyStage   `json:"from_stage"`  // 起始阶段
-	ToStage    JourneyStage   `json:"to_stage"`    // 目标阶段
-	Reason     string         `json:"reason"`      // 原因
-	Source     string         `json:"source"`      // 来源：ai_chat / order / manual / system
-	OperatorID string         `json:"operator_id"` // 操作者（AI / 销售 / 系统）
+	Type       string         `json:"type"`        
+	FromStage  JourneyStage   `json:"from_stage"`  
+	ToStage    JourneyStage   `json:"to_stage"`    
+	Reason     string         `json:"reason"`      
+	Source     string         `json:"source"`      
+	OperatorID string         `json:"operator_id"` 
 	Metadata   map[string]any `json:"metadata,omitempty"`
 	Timestamp  time.Time      `json:"timestamp"`
 }
@@ -184,19 +170,19 @@ type JourneyState struct {
 	CustomerID   string            `json:"customer_id"`
 	OneID        string            `json:"one_id"`
 	CurrentStage JourneyStage      `json:"current_stage"`
-	StageSince   time.Time         `json:"stage_since"`   // 进入当前阶段时间
-	StageHistory []JourneyEvent    `json:"stage_history"` // 阶段迁移历史
-	LastTouchAt  time.Time         `json:"last_touch_at"` // 最后互动时间
-	TotalTouches int               `json:"total_touches"` // 总互动次数
-	AutoTags     []string          `json:"auto_tags"`     // 自动标签
+	StageSince   time.Time         `json:"stage_since"`   
+	StageHistory []JourneyEvent    `json:"stage_history"` 
+	LastTouchAt  time.Time         `json:"last_touch_at"` 
+	TotalTouches int               `json:"total_touches"` 
+	AutoTags     []string          `json:"auto_tags"`     
 	Metadata     map[string]string `json:"metadata"`
 }
 
 // CustomerJourneyService 客户旅程服务
 type CustomerJourneyService struct {
 	mu          sync.RWMutex
-	states      map[string]*JourneyState // customerID → state（L1 缓存）
-	cache       cache.Cache              // Redis 持久化后端（可降级为内存）
+	states      map[string]*JourneyState 
+	cache       cache.Cache              
 	subscribers []JourneySubscriber
 }
 
@@ -251,7 +237,6 @@ func (s *CustomerJourneyService) persistState(ctx context.Context, state *Journe
 
 // GetState 获取客户旅程状态（L1 内存 → L2 Redis → 默认陌生客户）
 func (s *CustomerJourneyService) GetState(ctx context.Context, customerID string) *JourneyState {
-	// L1：进程内缓存（毫秒级）
 	s.mu.RLock()
 	if state, ok := s.states[customerID]; ok {
 		s.mu.RUnlock()
@@ -260,11 +245,9 @@ func (s *CustomerJourneyService) GetState(ctx context.Context, customerID string
 	}
 	s.mu.RUnlock()
 
-	// L2：Redis 持久化（跨实例共享，弥补重启丢失）
 	if s.cache != nil {
 		var loaded JourneyState
 		if err := s.cache.GetJSON(ctx, journeyStateKey(customerID), &loaded); err == nil && loaded.CustomerID != "" {
-			// 回填 L1（写时复制，避免指针共享被外部修改）
 			s.mu.Lock()
 			stored := loaded
 			s.states[customerID] = &stored
@@ -272,10 +255,8 @@ func (s *CustomerJourneyService) GetState(ctx context.Context, customerID string
 			out := loaded
 			return &out
 		}
-		// 错误或空 → 视为未命中，继续走默认分支（Redis 不可用时静默降级）
 	}
 
-	// 默认陌生客户
 	return &JourneyState{
 		CustomerID:   customerID,
 		CurrentStage: StageStranger,
@@ -306,7 +287,6 @@ func (s *CustomerJourneyService) Touch(ctx context.Context, customerID, source s
 	state.TotalTouches++
 	snapshot := cloneJourneyState(state)
 	s.mu.Unlock()
-	// 锁外异步持久化（深拷贝保证安全；Redis 失败仅记录日志）
 	s.persistState(ctx, &snapshot)
 }
 
@@ -330,11 +310,9 @@ func (s *CustomerJourneyService) Transition(ctx context.Context, customerID stri
 	}
 	fromStage := state.CurrentStage
 	if fromStage == toStage {
-		// 同阶段不迁移
 		s.mu.Unlock()
 		return nil, nil
 	}
-	// 阶段迁移
 	event := &JourneyEvent{
 		Type:       "stage_transition",
 		FromStage:  fromStage,
@@ -348,13 +326,10 @@ func (s *CustomerJourneyService) Transition(ctx context.Context, customerID stri
 	state.CurrentStage = toStage
 	state.StageSince = time.Now()
 	state.StageHistory = append(state.StageHistory, *event)
-	// 触发的副作用
 	s.applyStageSideEffects(ctx, state, toStage)
 	snapshot := cloneJourneyState(state)
 	s.mu.Unlock()
-	// 锁外持久化到 Redis（深拷贝安全；失败仅降级不影响主流程）
 	s.persistState(ctx, &snapshot)
-	// 通知订阅者
 	for _, sub := range s.subscribers {
 		go sub.OnJourneyEvent(ctx, customerID, event)
 	}
@@ -367,7 +342,6 @@ func (s *CustomerJourneyService) applyStageSideEffects(ctx context.Context, stat
 	if meta == nil {
 		return
 	}
-	// 自动打标签
 	tag := "stage:" + string(stage)
 	hasTag := false
 	for _, t := range state.AutoTags {
@@ -423,20 +397,17 @@ func (s *CustomerJourneyService) AutoDetectSleeping(ctx context.Context) []strin
 		if meta == nil {
 			continue
 		}
-		// 沉睡阈值：默认基于 DefaultFollowup*3；如无则用阶段级硬编码
 		threshold := meta.DefaultFollowup * 3
 		if threshold == 0 {
 			threshold = stageDefaultSleepThreshold(state.CurrentStage)
 		}
 		if threshold == 0 {
-			continue // lost / stranger 不处理
+			continue 
 		}
-		// 用 StageSince + LastTouchAt 两者中更早的时间（更早的表示更久没互动）
 		ref := state.StageSince
 		if !state.LastTouchAt.IsZero() && state.LastTouchAt.Before(ref) {
 			ref = state.LastTouchAt
 		}
-		// 如果 LastTouchAt 是零值（从未互动过），直接用 StageSince
 		if state.LastTouchAt.IsZero() {
 			ref = state.StageSince
 		}
@@ -459,7 +430,6 @@ func (s *CustomerJourneyService) AutoDetectSleeping(ctx context.Context) []strin
 		}
 	}
 	s.mu.Unlock()
-	// 锁外统一持久化（最佳努力，Redis 不可用不影响主流程）
 	for cid, snap := range snapshots {
 		cs := snap
 		s.persistState(ctx, &cs)
@@ -489,8 +459,8 @@ type JourneyStageOverview struct {
 	Stage        JourneyStage `json:"stage"`
 	Label        string       `json:"label"`
 	Count        int          `json:"count"`
-	Rate         float64      `json:"rate"`           // 占总客户比例 %
-	AvgStayHours float64      `json:"avg_stay_hours"` // 平均停留小时
+	Rate         float64      `json:"rate"`           
+	AvgStayHours float64      `json:"avg_stay_hours"` 
 }
 
 // JourneyOverview 客户旅程总览
@@ -512,7 +482,6 @@ func (s *CustomerJourneyService) GetOverview(ctx context.Context) *JourneyOvervi
 	}
 	overview.TotalCustomers = len(s.states)
 
-	// 统计每个阶段的客户数与累计停留时间
 	stageCounts := make(map[JourneyStage]int, len(AllStages))
 	stageStaySum := make(map[JourneyStage]float64, len(AllStages))
 	now := time.Now()
@@ -523,7 +492,6 @@ func (s *CustomerJourneyService) GetOverview(ctx context.Context) *JourneyOvervi
 		overview.TotalEvents += len(state.StageHistory)
 	}
 
-	// 按 AllStages 顺序输出
 	for _, st := range AllStages {
 		count := stageCounts[st]
 		var rate float64
@@ -549,3 +517,4 @@ func (s *CustomerJourneyService) GetOverview(ctx context.Context) *JourneyOvervi
 	}
 	return overview
 }
+

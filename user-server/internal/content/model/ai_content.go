@@ -8,20 +8,20 @@ import (
 type AIGenerationType string
 
 const (
-	AIGenerationTypeCopywriting AIGenerationType = "copywriting" // 文案
-	AIGenerationTypeTitle       AIGenerationType = "title"       // 标题
-	AIGenerationTypeSummary     AIGenerationType = "summary"     // 摘要
-	AIGenerationTypeReply       AIGenerationType = "reply"       // 回复
-	AIGenerationTypeTranslation AIGenerationType = "translation" // 翻译
-	AIGenerationTypeRewrite     AIGenerationType = "rewrite"     // 改写
-	AIGenerationTypeExpand      AIGenerationType = "expand"      // 扩写
-	AIGenerationTypePolish      AIGenerationType = "polish"      // 润色
-	AIGenerationTypeKeywords    AIGenerationType = "keywords"    // 关键词
-	AIGenerationTypeDescription AIGenerationType = "description" // 描述
-	AIGenerationTypeAdCopy      AIGenerationType = "ad_copy"     // 广告文案
-	AIGenerationTypeSocialPost  AIGenerationType = "social_post" // 社交媒体帖子
-	AIGenerationTypeEmail       AIGenerationType = "email"       // 邮件
-	AIGenerationTypeScript      AIGenerationType = "script"      // 话术
+	AIGenerationTypeCopywriting AIGenerationType = "copywriting" 
+	AIGenerationTypeTitle       AIGenerationType = "title"       
+	AIGenerationTypeSummary     AIGenerationType = "summary"     
+	AIGenerationTypeReply       AIGenerationType = "reply"       
+	AIGenerationTypeTranslation AIGenerationType = "translation" 
+	AIGenerationTypeRewrite     AIGenerationType = "rewrite"     
+	AIGenerationTypeExpand      AIGenerationType = "expand"      
+	AIGenerationTypePolish      AIGenerationType = "polish"      
+	AIGenerationTypeKeywords    AIGenerationType = "keywords"    
+	AIGenerationTypeDescription AIGenerationType = "description" 
+	AIGenerationTypeAdCopy      AIGenerationType = "ad_copy"     
+	AIGenerationTypeSocialPost  AIGenerationType = "social_post" 
+	AIGenerationTypeEmail       AIGenerationType = "email"       
+	AIGenerationTypeScript      AIGenerationType = "script"      
 )
 
 // AIGenerationRecord AI生成记录
@@ -36,7 +36,7 @@ type AIGenerationRecord struct {
 	TokensUsed int              `json:"tokens_used"`
 	IsSaved    bool             `gorm:"default:false" json:"is_saved"`
 	IsFavorite bool             `gorm:"default:false" json:"is_favorite"`
-	Rating     int              `json:"rating"` // 1-5
+	Rating     int              `json:"rating"` 
 	CreatedAt  time.Time        `gorm:"autoCreateTime;index" json:"created_at"`
 }
 
@@ -51,9 +51,9 @@ type PromptTemplate struct {
 	Name        string           `gorm:"type:varchar(100);not null" json:"name"`
 	Type        AIGenerationType `gorm:"type:varchar(20);not null" json:"type"`
 	Template    string           `gorm:"type:text;not null" json:"template"`
-	Variables   string           `gorm:"type:text" json:"variables"` // JSON 格式的变量定义
+	Variables   string           `gorm:"type:text" json:"variables"` 
 	Description string           `gorm:"type:varchar(255)" json:"description"`
-	Example     string           `gorm:"type:text" json:"example"` // 示例输出
+	Example     string           `gorm:"type:text" json:"example"` 
 	IsSystem    bool             `gorm:"default:false" json:"is_system"`
 	Status      int              `gorm:"default:1" json:"status"`
 	UseCount    int              `gorm:"default:0" json:"use_count"`
@@ -133,3 +133,4 @@ var SystemPromptTemplates = []PromptTemplate{
 		IsSystem:    true,
 	},
 }
+

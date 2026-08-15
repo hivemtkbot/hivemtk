@@ -24,7 +24,6 @@ func TestPendingAck_Ack(t *testing.T) {
 	p.Track("s1", 101)
 	p.Track("s1", 102)
 
-	// 批量 ack
 	count := p.Ack("s1", 100, 101)
 	if count != 2 {
 		t.Errorf("acked = %d, want 2", count)
@@ -99,7 +98,6 @@ func TestPendingAck_EmptySession(t *testing.T) {
 // TestPendingAck_TrackInvalid 输入合法性
 func TestPendingAck_TrackInvalid(t *testing.T) {
 	p := NewPendingAck()
-	// 空 sessionID / seq=0 都应被忽略
 	p.Track("", 100)
 	p.Track("s1", 0)
 
@@ -133,9 +131,9 @@ func TestGlobalPendingAck_Singleton(t *testing.T) {
 	if a != b {
 		t.Error("GlobalPendingAck should return same instance")
 	}
-	// Track + Ack 验证连通
 	a.Track("singleton_test", 99999)
 	if a.Ack("singleton_test", 99999) != 1 {
 		t.Error("singleton Track/Ack failed")
 	}
 }
+

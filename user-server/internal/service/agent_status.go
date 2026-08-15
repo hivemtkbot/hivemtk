@@ -8,13 +8,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// 客服状态服务（agent_status.go）
-// ----------------------------------------------------------------------------
-// 从 customer_session.go 拆分（方向C）。
-// 职责：客服在线/离线、活跃会话数、容量配置。
-// 文档：docs/企业级架构优化/坐席实时聊天看板.md
-// ============================================================================
 
 // AgentStatusService 客服状态服务
 type AgentStatusService struct {
@@ -81,7 +74,6 @@ func (s *AgentStatusService) UpdateAgentStatus(ctx context.Context, agentID uint
 	}
 	_ = agent
 
-	// 检查状态变更合法性
 	if agent.Status == "offline" && status != "online" {
 		return errors.New("客服离线时只能切换到在线状态")
 	}
@@ -102,7 +94,6 @@ func (s *AgentStatusService) GoOffline(ctx context.Context, agentID uint) error 
 	}
 	_ = agent
 
-	// 检查是否有未完成的会话
 	if agent.ActiveSessions > 0 {
 		return errors.New("还有未完成的会话，请先处理或转接")
 	}
@@ -115,3 +106,4 @@ func (s *AgentStatusService) GetAgentSessions(ctx context.Context, agentID uint)
 	sessionRepo := repository.NewCustomerSessionRepository()
 	return sessionRepo.GetAgentSessions(ctx, agentID)
 }
+

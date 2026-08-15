@@ -84,11 +84,10 @@ func (s *KnowledgeBaseService) DeleteDocument(ctx context.Context, id uint) erro
 	if err := s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.KBDocument{}).Error; err != nil {
 		return err
 	}
-	// 同时删除物理文件
 	if doc.FilePath != "" {
 		_ = os.Remove(doc.FilePath)
 	}
-	// 从索引中删除(忽略错误,索引可能已不存在)
 	_ = s.indexer.DropIndex(ctx, fmt.Sprintf("kb_%d", doc.ID))
 	return nil
 }
+

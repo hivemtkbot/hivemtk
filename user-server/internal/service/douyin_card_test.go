@@ -23,15 +23,12 @@ func setupDouyinCardServiceTestDB(t *testing.T) *gorm.DB {
 		&model.DouyinCardActivity{},
 	)
 	db.SetTestDB(database)
-	// 预 seed 一条 ID=1 的可用域名池记录，所有测试用例都使用 DomainPoolID=1
-	// 若缺少该记录，DouyinCardService.Create/Update → GenerateShortLink → ShortLinkService.Create
-	// 会因 domainRepo.GetByID(context.Background(), 1) 失败而返回"域名不存在"。
 	if err := database.Create(&model.DomainPool{
 		ID:      1,
 		Domain:  "example.com",
 		Port:    80,
 		Purpose: "测试域名",
-		Status:  1, // 1=正常可用
+		Status:  1, 
 	}).Error; err != nil {
 		t.Fatalf("预创建 DomainPool 记录失败: %v", err)
 	}
@@ -101,8 +98,6 @@ func TestDouyinCardService_Create_EmptyTitle(t *testing.T) {
 
 	_, err := service.Create(context.Background(), req)
 
-	// 空标题应该创建成功（由数据库约束或业务逻辑决定）
-	// 如果期望失败，使用：if err == nil { t.Error("Expected error for empty title") }
 	if err != nil {
 		t.Logf("Create with empty title failed (expected): %v", err)
 	}
@@ -118,7 +113,6 @@ func TestDouyinCardService_Create_EmptyRedirectURL(t *testing.T) {
 		Description:  "Test description",
 		ImageURL:     "https://example.com/image.jpg",
 		DomainPoolID: 1,
-		// 不提供 RedirectURL，应该使用默认值
 	}
 
 	card, err := service.Create(context.Background(), req)
@@ -127,9 +121,7 @@ func TestDouyinCardService_Create_EmptyRedirectURL(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 应该使用默认跳转链接
 	expectedDefaultURL := "https://www.douyin.com"
-	// 注意：实际跳转链接可能在 service 中设置
 	_ = expectedDefaultURL
 	_ = card
 }
@@ -139,7 +131,6 @@ func TestDouyinCardService_Update_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
 		Title:        "Original Card",
 		Description:  "Original description",
@@ -154,7 +145,6 @@ func TestDouyinCardService_Update_Success(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 更新卡片
 	updateReq := &dto.DouyinCardUpdateRequest{
 		ID:          createdCard.ID,
 		Title:       "Updated Card",
@@ -188,7 +178,7 @@ func TestDouyinCardService_Update_NotFound(t *testing.T) {
 	service := NewDouyinCardService(database)
 
 	updateReq := &dto.DouyinCardUpdateRequest{
-		ID:    999, // 不存在的 ID
+		ID:    999, 
 		Title: "Non-existent Card",
 	}
 
@@ -203,7 +193,6 @@ func TestDouyinCardService_Delete_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
 		Title:        "Card to Delete",
 		Description:  "This card will be deleted",
@@ -216,13 +205,11 @@ func TestDouyinCardService_Delete_Success(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 删除卡片
 	err = service.Delete(context.Background(), createdCard.ID)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	// 验证卡片已被删除
 	_, err = service.GetByID(context.Background(), createdCard.ID)
 	if err == nil {
 		t.Error("Expected error when getting deleted card")
@@ -234,10 +221,7 @@ func TestDouyinCardService_Delete_NotFound(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	// GORM 的 Delete 方法在删除不存在的记录时不会返回错误
-	// 这是预期行为，测试验证删除操作不会 panic
 	err := service.Delete(context.Background(), 999)
-	// 不期望错误，因为 GORM 不会对不存在的记录报错
 	if err != nil {
 		t.Errorf("Delete should not return error for non-existent card: %v", err)
 	}
@@ -248,7 +232,6 @@ func TestDouyinCardService_GetByID_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
 		Title:        "Test Card",
 		Description:  "Test description",
@@ -263,7 +246,6 @@ func TestDouyinCardService_GetByID_Success(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 获取卡片
 	fetchedCard, err := service.GetByID(context.Background(), createdCard.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
@@ -293,7 +275,6 @@ func TestDouyinCardService_GetByIDWithRefresh_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
 		Title:        "Test Card",
 		Description:  "Test description",
@@ -306,7 +287,6 @@ func TestDouyinCardService_GetByIDWithRefresh_Success(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 获取卡片（强制刷新）
 	fetchedCard, err := service.GetByIDWithRefresh(context.Background(), createdCard.ID)
 	if err != nil {
 		t.Fatalf("GetByIDWithRefresh failed: %v", err)
@@ -322,7 +302,6 @@ func TestDouyinCardService_GetCardModelByID_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
 		Title:        "Test Card",
 		Description:  "Test description",
@@ -335,7 +314,6 @@ func TestDouyinCardService_GetCardModelByID_Success(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 获取卡片模型
 	modelCard, err := service.GetCardModelByID(context.Background(), createdCard.ID)
 	if err != nil {
 		t.Fatalf("GetCardModelByID failed: %v", err)
@@ -354,7 +332,6 @@ func TestDouyinCardService_GetList_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	// 创建多个卡片
 	for i := 1; i <= 5; i++ {
 		createReq := &dto.DouyinCardCreateRequest{
 			Title:        "Card " + string(rune('0'+i)),
@@ -369,7 +346,6 @@ func TestDouyinCardService_GetList_Success(t *testing.T) {
 		}
 	}
 
-	// 获取列表
 	listReq := &dto.DouyinCardListRequest{
 		Page:     1,
 		PageSize: 10,
@@ -392,7 +368,6 @@ func TestDouyinCardService_GetList_Pagination(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	// 创建多个卡片
 	for i := 1; i <= 15; i++ {
 		createReq := &dto.DouyinCardCreateRequest{
 			Title:        "Card " + string(rune('0'+i)),
@@ -407,7 +382,6 @@ func TestDouyinCardService_GetList_Pagination(t *testing.T) {
 		}
 	}
 
-	// 获取第一页
 	listReq := &dto.DouyinCardListRequest{
 		Page:     1,
 		PageSize: 10,
@@ -421,7 +395,6 @@ func TestDouyinCardService_GetList_Pagination(t *testing.T) {
 		t.Errorf("Expected 10 cards on page 1, got %d", len(listResp.List))
 	}
 
-	// 获取第二页
 	listReq.Page = 2
 	listResp2, err := service.GetList(context.Background(), listReq)
 	if err != nil {
@@ -460,7 +433,6 @@ func TestDouyinCardService_ShareCard_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
 		Title:        "Share Test Card",
 		Description:  "This card will be shared",
@@ -473,7 +445,6 @@ func TestDouyinCardService_ShareCard_Success(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 分享卡片
 	err = service.ShareCard(context.Background(), createdCard.ID, "wechat")
 	if err != nil {
 		t.Fatalf("ShareCard failed: %v", err)
@@ -496,7 +467,6 @@ func TestDouyinCardService_GenerateShortLink_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
 		Title:        "Card with Short Link",
 		Description:  "This card will have a short link",
@@ -509,7 +479,6 @@ func TestDouyinCardService_GenerateShortLink_Success(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 验证短链已生成
 	if createdCard.ShortCode == "" {
 		t.Log("Short code not generated (this may be expected if short link service has issues)")
 	}
@@ -520,7 +489,6 @@ func TestDouyinCardService_ToResponse(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	// 创建测试卡片模型
 	card := &model.DouyinCard{
 		ID:           1,
 		Title:        "Test Card",
@@ -537,8 +505,6 @@ func TestDouyinCardService_ToResponse(t *testing.T) {
 		t.Fatalf("Failed to create test card: %v", result.Error)
 	}
 
-	// 使用反射调用私有方法 toResponse 进行测试
-	// 由于 toResponse 是私有方法，我们通过公共方法间接测试
 	fetchedCard, err := service.GetByID(context.Background(), card.ID)
 	if err == nil {
 		if fetchedCard.Title != card.Title {
@@ -552,7 +518,6 @@ func TestDouyinCardService_ToResponseWithShortLink(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	// 先创建卡片（会自动生成短链）
 	createReq := &dto.DouyinCardCreateRequest{
 		Title:        "Card with Short Link",
 		Description:  "Test description",
@@ -565,7 +530,6 @@ func TestDouyinCardService_ToResponseWithShortLink(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 验证响应包含短链信息（如果短链生成成功）
 	_ = createdCard.ShortCode
 	_ = createdCard.ShortLinkURL
 }
@@ -612,9 +576,6 @@ func TestDouyinCardService_Create_InactiveCard(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 注意：由于模型定义中 IsActive 有 gorm:"default:true" 标签
-	// 当 IsActive 为 false 时，GORM 可能不会正确插入该值
-	// 这是 GORM 的行为，测试验证卡片可以创建成功
 	if card.ID == 0 {
 		t.Error("Expected non-zero ID")
 	}
@@ -625,7 +586,6 @@ func TestDouyinCardService_Update_DomainPoolChange(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
 		Title:        "Test Card",
 		Description:  "Test description",
@@ -638,13 +598,12 @@ func TestDouyinCardService_Update_DomainPoolChange(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 更新域名池
 	updateReq := &dto.DouyinCardUpdateRequest{
 		ID:           createdCard.ID,
 		Title:        "Test Card",
 		Description:  "Test description",
 		ImageURL:     "https://example.com/image.jpg",
-		DomainPoolID: 1, // 保持相同域名池
+		DomainPoolID: 1, 
 		IsActive:     true,
 	}
 
@@ -653,3 +612,4 @@ func TestDouyinCardService_Update_DomainPoolChange(t *testing.T) {
 		t.Fatalf("Update failed: %v", err)
 	}
 }
+

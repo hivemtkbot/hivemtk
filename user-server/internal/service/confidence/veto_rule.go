@@ -1,17 +1,5 @@
 package confidence
 
-// veto_rule.go 一票否决规则
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.4.7
-//
-// 6 条一票否决规则（任一命中即强制 conf=0 并转人工）：
-//   1. VetoComplaint:    intent ∈ {complaint, churn}        → 投诉必须人工
-//   2. VetoLowEntity:    EntityComp < 0.2 且 intent 需要实体 → 关键实体缺失
-//   3. VetoLowRAG:       RAGQual < 0.1 且 intent 需要 RAG    → 知识库无覆盖
-//   4. VetoHighEntropy:  LLMEntropy < 0.2                   → LLM 生成高度不确定
-//   5. VetoLoop:         同一问题连续 3 轮                  → 循环检测
-//   6. VetoExplicit:     客户显式说"转人工"                  → 客户意愿优先
 
 import (
 	"strings"
@@ -21,8 +9,6 @@ import (
 
 // VetoRule 一票否决规则接口
 type VetoRule interface {
-	// Check 检查是否触发否决
-	// 返回 (triggered, reason)；triggered=true 时 reason 为否决原因
 	Check(signals *dto.FiveSignals, ctx *VetoContext) (triggered bool, reason string)
 }
 
@@ -35,9 +21,6 @@ type VetoContext struct {
 	ExtractedEntities map[string]any
 }
 
-// ============================================================================
-// 6 条具体否决规则
-// ============================================================================
 
 // VetoComplaint 投诉/流失意图直接否决
 type VetoComplaint struct{}
@@ -53,7 +36,7 @@ func (r *VetoComplaint) Check(_ *dto.FiveSignals, ctx *VetoContext) (bool, strin
 
 // VetoLowEntity 实体完整性过低
 type VetoLowEntity struct {
-	Threshold float64 // 默认 0.2
+	Threshold float64 
 }
 
 // Check 实现 VetoRule
@@ -61,7 +44,7 @@ type VetoLowEntity struct {
 // 仅当 expected 非空（即 intent 需要实体）时才检查
 func (r *VetoLowEntity) Check(signals *dto.FiveSignals, ctx *VetoContext) (bool, string) {
 	if len(ctx.ExpectedEntities) == 0 {
-		return false, "" // intent 不需要实体
+		return false, "" 
 	}
 	threshold := r.Threshold
 	if threshold <= 0 {
@@ -80,7 +63,7 @@ func (r *VetoLowEntity) Check(signals *dto.FiveSignals, ctx *VetoContext) (bool,
 //
 //	禁用本规则请用负数（如 Threshold=-1）显式声明。
 type VetoLowRAG struct {
-	Threshold float64 // 默认 0.1
+	Threshold float64 
 }
 
 // defaultVetoLowRAGThreshold VetoLowRAG 兜底阈值
@@ -92,10 +75,10 @@ const defaultVetoLowRAGThreshold = 0.1
 func (r *VetoLowRAG) Check(signals *dto.FiveSignals, _ *VetoContext) (bool, string) {
 	threshold := r.Threshold
 	if threshold == 0 {
-		threshold = defaultVetoLowRAGThreshold // 0 → 默认 0.1
+		threshold = defaultVetoLowRAGThreshold 
 	}
 	if threshold < 0 {
-		return false, "" // 负数 = 显式禁用
+		return false, "" 
 	}
 	if signals.RAGQual < threshold {
 		return true, "veto_low_rag"
@@ -108,7 +91,7 @@ func (r *VetoLowRAG) Check(signals *dto.FiveSignals, _ *VetoContext) (bool, stri
 // 注意：LLMEntropy 信号定义为 1 - normalized_entropy
 // 所以"高不确定"对应 LLMEntropy < threshold
 type VetoHighEntropy struct {
-	Threshold float64 // 默认 0.2
+	Threshold float64 
 }
 
 // Check 实现 VetoRule
@@ -131,11 +114,9 @@ type VetoLoop struct{}
 
 // Check 实现 VetoRule
 func (r *VetoLoop) Check(_ *dto.FiveSignals, ctx *VetoContext) (bool, string) {
-	if len(ctx.LastNTurns) < 6 { // 3 轮 = 6 条消息（user+ai 交替）
+	if len(ctx.LastNTurns) < 6 { 
 		return false, ""
 	}
-	// 取最近 3 条用户消息（假设 LastNTurns 是 [user, ai, user, ai, ...] 顺序）
-	// 简化：直接检查最后 3 条是否相同
 	last3 := ctx.LastNTurns[len(ctx.LastNTurns)-3:]
 	if last3[0] == last3[1] && last3[1] == last3[2] && last3[0] != "" {
 		return true, "veto_loop"
@@ -168,9 +149,6 @@ func (r *VetoExplicit) Check(_ *dto.FiveSignals, ctx *VetoContext) (bool, string
 	return false, ""
 }
 
-// ============================================================================
-// VetoChain 否决链
-// ============================================================================
 
 // VetoChain 一票否决链（按顺序检查，返回第一个触发的规则）
 type VetoChain struct {
@@ -193,7 +171,7 @@ func NewVetoChain() *VetoChain {
 			&VetoComplaint{},
 			&VetoLoop{},
 			&VetoLowEntity{Threshold: 0.2},
-			&VetoLowRAG{Threshold: 0}, // 禁用 RAG 否决
+			&VetoLowRAG{Threshold: 0}, 
 			&VetoHighEntropy{Threshold: 0.2},
 		},
 	}
@@ -218,3 +196,4 @@ func (c *VetoChain) Check(signals *dto.FiveSignals, ctx *VetoContext) (bool, str
 func (c *VetoChain) Rules() []VetoRule {
 	return c.rules
 }
+

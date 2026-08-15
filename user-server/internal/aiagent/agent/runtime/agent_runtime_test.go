@@ -7,12 +7,6 @@ import (
 	"time"
 )
 
-// ============================================================================
-// agent_runtime 骨架测试
-// ----------------------------------------------------------------------------
-// 任务 4：仅验证骨架编译 + 接口签名
-// 完整功能测试在任务 9（agent_runtime_test.go + event_subscriber_test.go + incremental_indexer_test.go）
-// ============================================================================
 
 // TestAgentContext_Structure 验证 AgentContext 字段完整性
 func TestAgentContext_Structure(t *testing.T) {
@@ -92,7 +86,6 @@ func TestCacheKey_String(t *testing.T) {
 
 // TestNewAgentRuntime 验证运行时实例创建
 func TestNewAgentRuntime(t *testing.T) {
-	// 骨架阶段：传 nil 验证结构完整性
 	rt := NewAgentRuntime(nil, nil, nil)
 	if rt == nil {
 		t.Error("NewAgentRuntime returned nil")
@@ -108,7 +101,6 @@ func TestConcurrentLoad(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			// 验证并发读写不 panic
 			rt.mu.Lock()
 			_ = rt.cache
 			rt.mu.Unlock()
@@ -116,6 +108,6 @@ func TestConcurrentLoad(t *testing.T) {
 	}
 	wg.Wait()
 
-	// 调用 Stop（不验证行为,只验证不 panic）
 	_ = rt.Stop(context.Background())
 }
+

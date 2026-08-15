@@ -2,7 +2,6 @@
 -- 版本: 1.1.0
 -- 适用于: PostgreSQL 15+ (项目唯一数据库)
 
--- RFM 规则表
 CREATE TABLE IF NOT EXISTS rfm_rules (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100),
@@ -48,7 +47,6 @@ COMMENT ON COLUMN rfm_rules.is_active IS '是否活跃';
 COMMENT ON COLUMN rfm_rules.is_system IS '是否系统内置';
 COMMENT ON TABLE rfm_rules IS 'RFM 规则表';
 
--- updated_at 自动更新触发器 (rfm_rules)
 CREATE OR REPLACE FUNCTION rfm_rules_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -61,7 +59,6 @@ CREATE TRIGGER trg_rfm_rules_updated_at
     BEFORE UPDATE ON rfm_rules
     FOR EACH ROW EXECUTE FUNCTION rfm_rules_set_updated_at();
 
--- 用户 RFM 表
 CREATE TABLE IF NOT EXISTS user_rfms (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -86,7 +83,6 @@ COMMENT ON COLUMN user_rfms.total_amount IS '总消费金额';
 COMMENT ON COLUMN user_rfms.avg_amount IS '平均消费金额';
 COMMENT ON TABLE user_rfms IS '用户 RFM 表';
 
--- updated_at 自动更新触发器 (user_rfms)
 CREATE OR REPLACE FUNCTION user_rfms_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

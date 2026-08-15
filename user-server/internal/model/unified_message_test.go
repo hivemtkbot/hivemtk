@@ -259,3 +259,4 @@ func TestKnowledgeHit(t *testing.T) {
 		t.Errorf("Expected Score 0.95, got %f", hit.Score)
 	}
 }
+

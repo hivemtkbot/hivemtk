@@ -18,7 +18,6 @@ type NotificationController struct {
 
 // NewNotificationController 构造控制器
 func NewNotificationController(svc *service.NotificationService) *NotificationController {
-	// 启动时种子数据（保证通知中心有内容可看）
 	_ = svc.SeedIfEmpty(context.Background())
 	return &NotificationController{svc: svc}
 }
@@ -113,3 +112,4 @@ func (ctrl *NotificationController) UnreadCount(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"count": count}, "ok")
 }
+

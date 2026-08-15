@@ -123,3 +123,4 @@ func (c *CustomerRFMController) Distribution(ctx *gin.Context) {
 	}
 	response.Success(ctx, dto.RFMDistributionResponse{Distribution: dist, Total: total}, "ok")
 }
+

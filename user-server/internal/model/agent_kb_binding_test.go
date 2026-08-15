@@ -58,3 +58,4 @@ func TestAgentKBBinding_RoleConstants(t *testing.T) {
 		t.Errorf("Reference should be 'reference'")
 	}
 }
+

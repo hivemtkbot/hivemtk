@@ -44,7 +44,7 @@ func TestEmailSendRepository_Create(t *testing.T) {
 				To:      "user@example.com",
 				Subject: "Test Email",
 				Content: "This is a test email content",
-				Status:  0, // pending
+				Status:  0, 
 				SendTime: func() *time.Time {
 					t := time.Now().Add(time.Hour)
 					return &t
@@ -74,7 +74,7 @@ func TestEmailSendRepository_Create(t *testing.T) {
 				To:       "user@example.com",
 				Subject:  "Already sent",
 				Content:  "Content",
-				Status:   1, // sent
+				Status:   1, 
 				SendTime: func() *time.Time { t := time.Now(); return &t }(),
 				SmtpID:   "smtp-2",
 			},
@@ -102,7 +102,6 @@ func TestEmailSendRepository_GetByID(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	email := &model.EmailSend{
 		To:      "getbyid@example.com",
 		Subject: "GetByID Test",
@@ -155,7 +154,6 @@ func TestEmailSendRepository_List(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		repo.Create(ctx, &model.EmailSend{
 			To:       "user" + string(rune('0'+i)) + "@example.com",
@@ -181,7 +179,6 @@ func TestEmailSendRepository_Delete(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	email := &model.EmailSend{
 		To:      "delete@example.com",
 		Subject: "To Delete",
@@ -207,18 +204,16 @@ func TestEmailSendRepository_UpdateStatus(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	email := &model.EmailSend{
 		To:      "update@example.com",
 		Subject: "Status Update Test",
 		Content: "Content",
-		Status:  0, // pending
+		Status:  0, 
 	}
 	repo.Create(ctx, email)
 
 	id := uuid.MustParse(email.ID)
 
-	// 更新为已发送
 	err := repo.UpdateStatus(context.Background(), id, 1)
 	if err != nil {
 		t.Errorf("UpdateStatus() error = %v", err)
@@ -229,7 +224,6 @@ func TestEmailSendRepository_UpdateStatus(t *testing.T) {
 		t.Errorf("Expected status 1, got %d", updated.Status)
 	}
 
-	// 更新为失败
 	err = repo.UpdateStatus(context.Background(), id, 2)
 	if err != nil {
 		t.Errorf("UpdateStatus() error = %v", err)
@@ -246,7 +240,6 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 	ctx := context.Background()
 
-	// 创建待发送的邮件（发送时间在过去）
 	pastTime := time.Now().Add(-time.Hour)
 	repo.Create(ctx, &model.EmailSend{
 		To:       "pending1@example.com",
@@ -264,7 +257,6 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 		SendTime: &pastTime,
 	})
 
-	// 创建已发送的邮件
 	repo.Create(ctx, &model.EmailSend{
 		To:       "sent@example.com",
 		Subject:  "Sent Email",
@@ -273,7 +265,6 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 		SendTime: &pastTime,
 	})
 
-	// 创建计划发送时间在未来的邮件
 	futureTime := time.Now().Add(time.Hour)
 	repo.Create(ctx, &model.EmailSend{
 		To:       "future@example.com",
@@ -288,7 +279,6 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 		t.Errorf("GetPendingEmails() error = %v", err)
 	}
 
-	// 应该返回 2 个待发送的邮件
 	if len(results) != 2 {
 		t.Errorf("Expected 2 pending emails, got %d", len(results))
 	}
@@ -332,3 +322,4 @@ func TestEmailSendRepository_List_EmptyResult(t *testing.T) {
 		t.Errorf("Expected 0 emails, got %d", len(results))
 	}
 }
+

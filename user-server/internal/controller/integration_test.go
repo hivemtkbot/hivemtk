@@ -44,9 +44,6 @@ func setupIntegrationController(t *testing.T) (*IntegrationController, *gin.Engi
 	return ctrl, router
 }
 
-// ============================================================================
-// IntegrationController 测试
-// ============================================================================
 
 // TestIntegrationController_CreateAccount_Success 测试创建对接账号成功
 func TestIntegrationController_CreateAccount_Success(t *testing.T) {
@@ -66,7 +63,6 @@ func TestIntegrationController_CreateAccount_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -98,7 +94,6 @@ func TestIntegrationController_GetAccountList_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -110,7 +105,6 @@ func TestIntegrationController_GetAccountByID_Success(t *testing.T) {
 	ctrl, router := setupIntegrationController(t)
 	router.GET("/integration/accounts/:id", ctrl.GetAccountByID)
 
-	// 预先创建一条账号记录，确保查询时能匹配
 	account := &model.IntegrationAccount{
 		AccountName: "test-account",
 		Platform:    "test-platform",
@@ -126,7 +120,6 @@ func TestIntegrationController_GetAccountByID_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -153,7 +146,6 @@ func TestIntegrationController_UpdateAccount_Success(t *testing.T) {
 	ctrl, router := setupIntegrationController(t)
 	router.PUT("/integration/accounts/:id", ctrl.UpdateAccount)
 
-	// 预先创建一条账号记录，确保更新时能匹配
 	account := &model.IntegrationAccount{
 		AccountName: "test-account",
 		Platform:    "taobao",
@@ -177,7 +169,6 @@ func TestIntegrationController_UpdateAccount_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -224,7 +215,6 @@ func TestIntegrationController_DeleteAccount_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -255,7 +245,6 @@ func TestIntegrationController_SyncCustomers_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于账号不存在可能返回 404，服务层依赖外部系统接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status OK, Internal Server Error or Not Found, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -286,7 +275,6 @@ func TestIntegrationController_SyncOrders_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于账号不存在可能返回 404，服务层依赖外部系统接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status OK, Internal Server Error or Not Found, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -317,7 +305,6 @@ func TestIntegrationController_SyncProducts_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于账号不存在可能返回 404，服务层依赖外部系统接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status OK, Internal Server Error or Not Found, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -348,7 +335,6 @@ func TestIntegrationController_GetSyncLogs_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -364,7 +350,6 @@ func TestIntegrationController_GetExternalCustomers_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -380,7 +365,6 @@ func TestIntegrationController_GetExternalOrders_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -396,7 +380,6 @@ func TestIntegrationController_GetExternalProducts_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -409,3 +392,4 @@ func TestIntegrationController_NewIntegrationController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

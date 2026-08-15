@@ -13,7 +13,6 @@ func TestSafeGo_Normal(t *testing.T) {
 	SafeGo(context.Background(), "test.normal", func(ctx context.Context) {
 		executed.Store(true)
 	})
-	// 等待 goroutine 启动
 	time.Sleep(50 * time.Millisecond)
 	if !executed.Load() {
 		t.Fatal("SafeGo 未执行目标函数")
@@ -21,17 +20,13 @@ func TestSafeGo_Normal(t *testing.T) {
 }
 
 func TestSafeGo_PanicRecovered(t *testing.T) {
-	// 启动会 panic 的 goroutine，验证进程不被击穿
 	SafeGo(context.Background(), "test.panic", func(ctx context.Context) {
 		panic("test panic - 进程应存活")
 	})
-	// 给 recover 一点时间
 	time.Sleep(50 * time.Millisecond)
-	// 如果 recover 失败，进程已经崩溃，测试将无法继续
 }
 
 func TestSafeGo_NilFunc(t *testing.T) {
-	// nil 函数不能 panic
 	defer func() {
 		if r := recover(); r != nil {
 			t.Fatalf("SafeGo(nil) 不应 panic, 实际: %v", r)
@@ -76,3 +71,4 @@ func TestSafeGoWithRecover_CustomHandler(t *testing.T) {
 		t.Fatal("onPanic 回调未被调用")
 	}
 }
+

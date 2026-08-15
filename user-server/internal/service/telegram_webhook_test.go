@@ -10,7 +10,6 @@ import (
 
 // TestResolveTelegramWebhookURL 覆盖 ResolveTelegramWebhookURL 的所有分支
 func TestResolveTelegramWebhookURL(t *testing.T) {
-	// 保存环境变量，测试结束还原
 	oldEnv := os.Getenv("PUBLIC_BASE_URL")
 	defer func() {
 		if oldEnv == "" {
@@ -19,7 +18,6 @@ func TestResolveTelegramWebhookURL(t *testing.T) {
 			_ = os.Setenv("PUBLIC_BASE_URL", oldEnv)
 		}
 	}()
-	// 备份全局 AppConfig
 	oldCfg := config.GetAppConfig()
 	defer config.SetAppConfig(&oldCfg)
 
@@ -45,7 +43,7 @@ func TestResolveTelegramWebhookURL(t *testing.T) {
 
 	t.Run("falls back to public_base_url env when explicit empty", func(t *testing.T) {
 		_ = os.Setenv("PUBLIC_BASE_URL", "https://env.example.com")
-		config.SetAppConfig(&config.AppConfig{}) // config 空
+		config.SetAppConfig(&config.AppConfig{}) 
 		acc := &model.TelegramAccount{ID: 7, WebhookURL: ""}
 		url, has := ResolveTelegramWebhookURL(acc)
 		if url != "https://env.example.com/api/webhook/telegram/7" {
@@ -212,3 +210,4 @@ func errMsg(e error) string {
 	}
 	return e.Error()
 }
+

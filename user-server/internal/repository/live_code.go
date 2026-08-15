@@ -17,7 +17,6 @@ type LiveCodeRepository interface {
 	GetByID(ctx context.Context, id string) (*model.LiveCode, error)
 	GetByShortLink(ctx context.Context, shortLink string) (*model.LiveCode, error)
 	GetList(ctx context.Context, page, pageSize int, name, status string) ([]*model.LiveCode, int64, error)
-	// IncrementClicks 原子累加活码点击次数，避免并发读改写导致计数丢失（lost-update）
 	IncrementClicks(ctx context.Context, id string) error
 }
 
@@ -75,7 +74,6 @@ func (r *liveCodeRepository) GetByID(ctx context.Context, id string) (*model.Liv
 		return nil, err
 	}
 
-	// 手动加载关联数据
 	if liveCode.ShortDomainID > 0 {
 		var shortDomain model.DomainPool
 		if err := r.db.Where("id = ?", liveCode.ShortDomainID).First(&shortDomain).Error; err == nil {
@@ -108,7 +106,6 @@ func (r *liveCodeRepository) GetByShortLink(ctx context.Context, shortLink strin
 		return nil, err
 	}
 
-	// 手动加载关联数据
 	if liveCode.ShortDomainID > 0 {
 		var shortDomain model.DomainPool
 		if err := r.db.Where("id = ?", liveCode.ShortDomainID).First(&shortDomain).Error; err == nil {
@@ -138,17 +135,13 @@ func (r *liveCodeRepository) GetList(ctx context.Context, page, pageSize int, na
 	var liveCodes []*model.LiveCode
 	var total int64
 
-	// 构建查询条件
 	query := r.db.Model(&model.LiveCode{})
 
-	// 如果有名称搜索条件
 	if name != "" {
 		query = query.Where("name LIKE ?", "%"+name+"%")
 	}
 
-	// 如果有状态搜索条件
 	if status != "" {
-		// Convert string status to int for proper comparison
 		if status == "1" {
 			query = query.Where("status = ?", 1)
 		} else if status == "0" {
@@ -156,20 +149,17 @@ func (r *liveCodeRepository) GetList(ctx context.Context, page, pageSize int, na
 		}
 	}
 
-	// 计算总数
 	err := query.Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
 	offset := (page - 1) * pageSize
 	err = query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&liveCodes).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// 手动加载关联数据
 	for _, liveCode := range liveCodes {
 		if liveCode.ShortDomainID > 0 {
 			var shortDomain model.DomainPool
@@ -195,3 +185,4 @@ func (r *liveCodeRepository) GetList(ctx context.Context, page, pageSize int, na
 
 	return liveCodes, total, nil
 }
+

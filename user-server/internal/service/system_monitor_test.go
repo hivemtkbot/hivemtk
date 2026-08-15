@@ -25,8 +25,6 @@ func setupSystemMonitorTestDB(t *testing.T) *gorm.DB {
 		&model.EmailJobs{},
 		&contentmodel.Material{},
 		&model.SystemMetrics{},
-		// 卡片和短链相关表：GetSystemStats 会跨表统计这些表，必须包含在 setup 中
-		// 否则其他测试（如 TestXiaohongshuCardService_*）残留的数据会让 Empty 测试失败
 		&model.ShortLink{},
 		&model.DouyinCard{},
 		&model.XiaohongshuCard{},
@@ -59,7 +57,6 @@ func TestSystemMonitorService_GetSystemStats_Empty(t *testing.T) {
 		t.Fatal("Expected non-nil stats")
 	}
 
-	// 验证基本统计字段存在且为 0
 	if stats["total_users"] != int64(0) {
 		t.Errorf("Expected total_users 0, got %v", stats["total_users"])
 	}
@@ -82,8 +79,6 @@ func TestSystemMonitorService_GetSystemStats_WithData(t *testing.T) {
 	database := setupSystemMonitorTestDB(t)
 	service := NewSystemMonitorService()
 
-	// 创建测试数据
-	// 创建用户
 	for i := 0; i < 3; i++ {
 		user := model.SystemUser{
 			Username: "user" + string(rune('0'+i)),
@@ -95,7 +90,6 @@ func TestSystemMonitorService_GetSystemStats_WithData(t *testing.T) {
 		database.Create(&user)
 	}
 
-	// 创建订单
 	for i := 0; i < 5; i++ {
 		order := model.Order{
 			Status:    1,
@@ -106,7 +100,6 @@ func TestSystemMonitorService_GetSystemStats_WithData(t *testing.T) {
 		database.Create(&order)
 	}
 
-	// 创建访问日志（今天的）
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	for i := 0; i < 10; i++ {
@@ -120,7 +113,6 @@ func TestSystemMonitorService_GetSystemStats_WithData(t *testing.T) {
 		database.Create(&visitLog)
 	}
 
-	// 创建短链接访问记录（用于测试 short_links 计数）
 	for i := 0; i < 2; i++ {
 		shortLink := model.ShortLinkAccess{
 			ShortLinkID: uint(i + 1),
@@ -145,7 +137,6 @@ func TestSystemMonitorService_GetSystemStats_WithData(t *testing.T) {
 		t.Errorf("Expected today_visits 10, got %v", stats["today_visits"])
 	}
 
-	// 验证时间戳存在
 	if _, ok := stats["timestamp"]; !ok {
 		t.Error("Expected timestamp to be set")
 	}
@@ -156,14 +147,11 @@ func TestSystemMonitorService_GetSystemStats_CardTables(t *testing.T) {
 	setupSystemMonitorTestDB(t)
 	service := NewSystemMonitorService()
 
-	// 由于卡片表（douyin_cards, kuaishou_cards 等）未迁移，
-	// GetSystemStats 应该优雅地处理这些不存在的表
 	stats, err := service.GetSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetSystemStats should handle missing card tables gracefully: %v", err)
 	}
 
-	// 卡片数量应该为 0（因为表不存在）
 	if stats["total_cards"] != int64(0) {
 		t.Errorf("Expected total_cards 0 for non-existent tables, got %v", stats["total_cards"])
 	}
@@ -183,7 +171,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_Empty(t *testing.T) {
 		t.Fatal("Expected non-nil stats")
 	}
 
-	// 验证基本统计结构
 	basicStats, ok := stats["basic_stats"].(map[string]any)
 	if !ok {
 		t.Fatal("Expected basic_stats map")
@@ -193,7 +180,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_Empty(t *testing.T) {
 		t.Errorf("Expected total_users 0, got %v", basicStats["total_users"])
 	}
 
-	// 验证业务统计结构存在
 	if _, ok := stats["business_stats"].(map[string]any); !ok {
 		t.Fatal("Expected business_stats map")
 	}
@@ -205,7 +191,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 	database := setupSystemMonitorTestDB(t)
 	service := NewSystemMonitorService()
 
-	// 创建用户
 	for i := 0; i < 5; i++ {
 		user := model.SystemUser{
 			Username: "user" + string(rune('0'+i)),
@@ -217,7 +202,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 		database.Create(&user)
 	}
 
-	// 创建邮件列表
 	for i := 0; i < 3; i++ {
 		emailList := model.EmailList{
 			Subject: "Email" + string(rune('0'+i)),
@@ -229,7 +213,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 		database.Create(&emailList)
 	}
 
-	// 创建邮件任务
 	for i := 0; i < 2; i++ {
 		emailJob := model.EmailJobs{
 			Subject:      "Job" + string(rune('0'+i)),
@@ -241,7 +224,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 		database.Create(&emailJob)
 	}
 
-	// 创建素材
 	for i := 0; i < 7; i++ {
 		material := contentmodel.Material{
 			Name:     "Material" + string(rune('0'+i)),
@@ -255,7 +237,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 		database.Create(&material)
 	}
 
-	// 创建系统指标
 	for i := 0; i < 5; i++ {
 		metric := model.SystemMetrics{
 			CPUUsage:    float64(i * 10),
@@ -273,7 +254,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 	basicStats := stats["basic_stats"].(map[string]any)
 	businessStats := stats["business_stats"].(map[string]any)
 
-	// 验证基本统计
 	if basicStats["total_users"] != int64(5) {
 		t.Errorf("Expected total_users 5, got %v", basicStats["total_users"])
 	}
@@ -292,7 +272,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 		t.Errorf("Expected total_materials 7, got %v", businessStats["total_materials"])
 	}
 
-	// 验证系统指标
 	systemMetrics, ok := stats["system_metrics"].([]model.SystemMetrics)
 	if !ok {
 		t.Fatal("Expected system_metrics slice")
@@ -310,7 +289,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_ActiveUsers(t *testing.T) {
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
-	// 创建今天更新过的用户（活跃用户）
 	for i := 0; i < 3; i++ {
 		user := model.SystemUser{
 			Username: "active" + string(rune('0'+i)),
@@ -323,7 +301,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_ActiveUsers(t *testing.T) {
 		database.Create(&user)
 	}
 
-	// 创建昨天更新过的用户（非活跃用户）
 	yesterday := today.AddDate(0, 0, -1)
 	for i := 0; i < 2; i++ {
 		user := model.SystemUser{
@@ -344,12 +321,10 @@ func TestSystemMonitorService_GetDetailedSystemStats_ActiveUsers(t *testing.T) {
 
 	basicStats := stats["basic_stats"].(map[string]any)
 
-	// 总用户数应该是 5
 	if basicStats["total_users"] != int64(5) {
 		t.Errorf("Expected total_users 5, got %v", basicStats["total_users"])
 	}
 
-	// 今天活跃用户数应该是 3
 	if basicStats["active_users_today"] != int64(3) {
 		t.Errorf("Expected active_users_today 3, got %v", basicStats["active_users_today"])
 	}
@@ -365,13 +340,11 @@ func TestSystemMonitorService_GetSystemStats_MemoryUsage(t *testing.T) {
 		t.Fatalf("GetSystemStats failed: %v", err)
 	}
 
-	// 验证内存使用率存在
 	memUsage, ok := stats["memory_usage"].(float64)
 	if !ok {
 		t.Error("Expected memory_usage to be a float64")
 	}
 
-	// 内存使用率应该在 0-100 之间
 	if memUsage < 0 || memUsage > 100 {
 		t.Errorf("Expected memory_usage between 0-100, got %v", memUsage)
 	}
@@ -392,7 +365,6 @@ func TestSystemMonitorService_GetSystemStats_Timestamp(t *testing.T) {
 		t.Error("Expected timestamp to be a time.Time")
 	}
 
-	// 时间戳应该是当前时间附近
 	now := time.Now()
 	if timestamp.Before(now.Add(-1*time.Minute)) || timestamp.After(now.Add(1*time.Minute)) {
 		t.Errorf("Expected timestamp near %v, got %v", now, timestamp)
@@ -427,7 +399,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_ShortLinks(t *testing.T) {
 	database := setupSystemMonitorTestDB(t)
 	service := NewSystemMonitorService()
 
-	// 创建短链接访问记录
 	for i := 0; i < 8; i++ {
 		shortLink := model.ShortLinkAccess{
 			ShortLinkID: uint(i + 1),
@@ -444,8 +415,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_ShortLinks(t *testing.T) {
 
 	basicStats := stats["basic_stats"].(map[string]any)
 
-	// 由于服务代码查询的是 short_links 表（不存在），而 ShortLinkAccess 的表名是 short_link_accesses
-	// 所以这里期望得到 0（这是当前服务代码的行为）
 	if basicStats["total_short_links"] != int64(0) {
 		t.Errorf("Expected total_short_links 0 (table mismatch), got %v", basicStats["total_short_links"])
 	}
@@ -456,10 +425,9 @@ func TestSystemMonitorService_GetSystemStats_Orders(t *testing.T) {
 	database := setupSystemMonitorTestDB(t)
 	service := NewSystemMonitorService()
 
-	// 创建不同状态的订单
 	for i := 0; i < 3; i++ {
 		order := model.Order{
-			Status:    0, // 待支付
+			Status:    0, 
 			Price:     "100.00",
 			TgID:      int64(1000 + i),
 			AccountID: "account" + string(rune('0'+i)),
@@ -469,7 +437,7 @@ func TestSystemMonitorService_GetSystemStats_Orders(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		order := model.Order{
-			Status:    1, // 已支付
+			Status:    1, 
 			Price:     "200.00",
 			TgID:      int64(2000 + i),
 			AccountID: "account" + string(rune('0'+i)),
@@ -482,7 +450,6 @@ func TestSystemMonitorService_GetSystemStats_Orders(t *testing.T) {
 		t.Fatalf("GetSystemStats failed: %v", err)
 	}
 
-	// 总订单数应该是 8
 	if stats["total_orders"] != int64(8) {
 		t.Errorf("Expected total_orders 8, got %v", stats["total_orders"])
 	}
@@ -498,7 +465,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_AllSections(t *testing.T) {
 		t.Fatalf("GetDetailedSystemStats failed: %v", err)
 	}
 
-	// 验证所有必需的部分都存在
 	requiredSections := []string{"basic_stats", "business_stats", "system_metrics", "timestamp"}
 	for _, section := range requiredSections {
 		if _, ok := stats[section]; !ok {
@@ -506,7 +472,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_AllSections(t *testing.T) {
 		}
 	}
 
-	// 验证 basic_stats 的所有字段
 	basicStats := stats["basic_stats"].(map[string]any)
 	requiredBasicFields := []string{
 		"total_users", "total_orders", "total_cards", "total_short_links",
@@ -518,7 +483,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_AllSections(t *testing.T) {
 		}
 	}
 
-	// 验证 business_stats 的所有字段
 	businessStats := stats["business_stats"].(map[string]any)
 	requiredBusinessFields := []string{
 		"total_email_lists", "total_email_jobs", "total_materials",
@@ -539,7 +503,6 @@ func TestSystemMonitorService_GetSystemStats_VisitLogsOld(t *testing.T) {
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	yesterday := today.AddDate(0, 0, -1)
 
-	// 创建今天的访问日志
 	for i := 0; i < 5; i++ {
 		visitLog := model.VisitLog{
 			LicenseID: "license123",
@@ -551,7 +514,6 @@ func TestSystemMonitorService_GetSystemStats_VisitLogsOld(t *testing.T) {
 		database.Create(&visitLog)
 	}
 
-	// 创建昨天的访问日志
 	for i := 0; i < 10; i++ {
 		visitLog := model.VisitLog{
 			LicenseID: "license123",
@@ -568,8 +530,8 @@ func TestSystemMonitorService_GetSystemStats_VisitLogsOld(t *testing.T) {
 		t.Fatalf("GetSystemStats failed: %v", err)
 	}
 
-	// 今日访问数应该只是今天的 5 条，不包括昨天的 10 条
 	if stats["today_visits"] != int64(5) {
 		t.Errorf("Expected today_visits 5 (excluding yesterday's 10), got %v", stats["today_visits"])
 	}
 }
+

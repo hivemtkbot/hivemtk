@@ -1,23 +1,5 @@
 package service
 
-// sse_hub.go SSE 实时驾驶舱事件总线
-//
-// 五层架构归属: L2 服务层
-// 设计依据: PRD § 缺口修复
-// 私域独立部署: 无 merchant_id 字段
-//
-// 功能：
-//   - SSE Hub 管理 client 连接，按 topic 订阅
-//   - Topics：llm_calls / intent_recognition / rag_queries / agent_actions / humanize_scores / system_alerts
-//   - 心跳：每 15 秒发送 :ping
-//   - 单 IP 最多 5 个连接
-//   - 缓冲区 100 条消息
-//   - 支持 Publish 广播事件到所有订阅该 topic 的 client
-//
-// 与 trace_context.go 的 InMemoryTraceBus 的关系：
-//   - TraceBus 用于内部 trace 事件传递（service → service）
-//   - SSEHub 用于将事件推送到前端 dashboard（service → 浏览器）
-//   - 两者解耦：TraceBus 的订阅者可以调用 SSEHub.Publish 转发到前端
 
 import (
 	"context"
@@ -33,29 +15,29 @@ import (
 
 // SSE Topic 常量
 const (
-	SSETopicLLMCalls       = "llm_calls"          // LLM 调用事件
-	SSETopicIntentRecogn   = "intent_recognition" // 意图识别事件
-	SSETopicRAGQueries     = "rag_queries"        // RAG 检索事件
-	SSETopicAgentActions   = "agent_actions"      // 智能体动作事件
-	SSETopicHumanizeScores = "humanize_scores"    // 拟人度评分事件
-	SSETopicSystemAlerts   = "system_alerts"      // 系统告警事件
+	SSETopicLLMCalls       = "llm_calls"          
+	SSETopicIntentRecogn   = "intent_recognition" 
+	SSETopicRAGQueries     = "rag_queries"        
+	SSETopicAgentActions   = "agent_actions"      
+	SSETopicHumanizeScores = "humanize_scores"    
+	SSETopicSystemAlerts   = "system_alerts"      
 )
 
 // SSE 默认参数
 const (
-	SSEHeartbeatInterval = 15 * time.Second // 心跳间隔
-	SSEMaxConnPerIP      = 5                // 单 IP 最大连接数
-	SSEClientBufferSize  = 100              // 客户端缓冲区大小
-	SSEWriteTimeout      = 30 * time.Second // 写超时
+	SSEHeartbeatInterval = 15 * time.Second 
+	SSEMaxConnPerIP      = 5                
+	SSEClientBufferSize  = 100              
+	SSEWriteTimeout      = 30 * time.Second 
 )
 
 // SSEEvent SSE 事件
 type SSEEvent struct {
-	Topic     string    `json:"topic"`              // 事件 topic
-	EventType string    `json:"event_type"`         // 事件类型（如 llm_call_completed）
-	Data      any       `json:"data"`               // 事件数据
-	TraceID   string    `json:"trace_id,omitempty"` // 关联 trace_id
-	Timestamp time.Time `json:"timestamp"`          // 事件时间戳
+	Topic     string    `json:"topic"`              
+	EventType string    `json:"event_type"`         
+	Data      any       `json:"data"`               
+	TraceID   string    `json:"trace_id,omitempty"` 
+	Timestamp time.Time `json:"timestamp"`          
 }
 
 // SSEClient 单个 SSE 客户端连接
@@ -114,7 +96,6 @@ func (c *SSEClient) Send(ctx context.Context, event SSEEvent) bool {
 	case c.eventCh <- event:
 		return true
 	default:
-		// 缓冲区满，标记关闭（下次清理时移除）
 		return false
 	}
 }
@@ -144,8 +125,8 @@ func (c *SSEClient) Closed(ctx context.Context) bool {
 // SSEHub SSE 事件总线（管理所有 client 连接）
 type SSEHub struct {
 	mu      sync.RWMutex
-	clients map[string]*SSEClient // client_id -> client
-	ipCount map[string]int        // ip -> connection count
+	clients map[string]*SSEClient 
+	ipCount map[string]int        
 	stopCh  chan struct{}
 	stopped atomic.Bool
 }
@@ -170,7 +151,6 @@ func (h *SSEHub) Register(ctx context.Context, client *SSEClient) error {
 	if h.stopped.Load() {
 		return fmt.Errorf("hub stopped")
 	}
-	// 检查单 IP 连接数
 	if h.ipCount[client.ip] >= SSEMaxConnPerIP {
 		return fmt.Errorf("exceeded max connections per IP: %d", SSEMaxConnPerIP)
 	}
@@ -218,7 +198,6 @@ func (h *SSEHub) Publish(ctx context.Context, event SSEEvent) {
 	h.mu.RUnlock()
 	for _, c := range clients {
 		if !c.Send(context.Background(), event) {
-			// 发送失败（缓冲区满），异步注销
 			go h.Unregister(context.Background(), c.id)
 		}
 	}
@@ -281,7 +260,6 @@ func (h *SSEHub) Stopped(ctx context.Context) bool {
 	return h.stopped.Load()
 }
 
-// ===== 全局 SSE Hub 单例 =====
 
 var (
 	globalSSEHub     *SSEHub
@@ -379,7 +357,6 @@ func SSEWriteEvent(c *gin.Context, event SSEEvent) error {
 	if err != nil {
 		return err
 	}
-	// SSE 协议：event: <type>\ndata: <json>\n\n
 	_, _ = fmt.Fprintf(c.Writer, "event: %s\n", event.EventType)
 	_, _ = fmt.Fprintf(c.Writer, "data: %s\n\n", string(data))
 	c.Writer.Flush()
@@ -399,14 +376,12 @@ func SSEWriteEvent(c *gin.Context, event SSEEvent) error {
 //   - 监听 client.Events() 推送事件
 //   - 客户端断开或 Hub 停止时退出
 func SSEStreamHandler(c *gin.Context, hub *SSEHub, client *SSEClient) {
-	// 设置 SSE 响应头
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
-	c.Writer.Header().Set("X-Accel-Buffering", "no") // nginx 不缓冲
+	c.Writer.Header().Set("X-Accel-Buffering", "no") 
 	c.Writer.WriteHeader(http.StatusOK)
 
-	// 发送初始连接成功事件
 	_ = SSEWriteEvent(c, SSEEvent{
 		Topic:     "system_alerts",
 		EventType: "connected",
@@ -426,22 +401,18 @@ func SSEStreamHandler(c *gin.Context, hub *SSEHub, client *SSEClient) {
 	for {
 		select {
 		case <-clientClosed:
-			// 客户端断开
 			return
 		case <-hub.stopCh:
-			// Hub 停止
 			return
 		case <-client.CloseCh(context.Background()):
-			// 客户端被关闭
 			return
 		case event := <-client.Events(context.Background()):
-			// 推送事件
 			if err := SSEWriteEvent(c, event); err != nil {
 				return
 			}
 		case <-heartbeatTicker.C:
-			// 心跳
 			SSEWriteHeartbeat(c)
 		}
 	}
 }
+

@@ -56,7 +56,6 @@ func AggregateTrace(ctx context.Context, db *gorm.DB, traceID string) (*Aggregat
 		}
 	}
 	agg.RecalledChunkIDs = dedupeStrings(agg.RecalledChunkIDs)
-	// 兜底：若 ingest 未记录 query，从 message_hub 取最近 inbound content
 	if agg.Query == "" && agg.ConversationID != "" {
 		var content string
 		if err := db.WithContext(ctx).Table("message_hub").
@@ -66,7 +65,6 @@ func AggregateTrace(ctx context.Context, db *gorm.DB, traceID string) (*Aggregat
 		}
 		agg.Query = content
 	}
-	// 兜底：若 ai_dispatch 未记录 reply 文本，从 message_hub 取最近 outbound（AI 真实回复）
 	if agg.Reply == "" && agg.ConversationID != "" {
 		var content string
 		if err := db.WithContext(ctx).Table("message_hub").
@@ -109,3 +107,4 @@ func extractContent(input string) string {
 	}
 	return ""
 }
+

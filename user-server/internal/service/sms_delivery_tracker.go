@@ -1,24 +1,5 @@
 package service
 
-// sms_delivery_tracker.go 短信到达率追踪服务（E 域 缺口 #2）
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/marketing-features/sms-config.md + 核心链路优化 §15.2
-//
-// 与 sms_tracking.go（通用送达状态记录）的关系：
-//   - sms_tracking.go         通用状态记录：成功/失败/可重试 + 重试
-//   - 本文件                  专注于"到达率"维度：
-//                              * 携号转网（Number Portability）追踪
-//                              * 黑名单维度（运营商级 / 业务级）
-//                              * 到达率 / 失败率批量聚合
-//                              * 多家运营商回执兼容（阿里云/腾讯云/华为云）
-//
-// 私域独立部署: 无 merchant_id 字段
-//
-// 合规要点：
-//   - 携号转网：用户携号转网后，运营商回执的 carrier 字段会变化；
-//     本服务追踪 carrier 变化以发现"号码已换运营商"，对运营触达策略很重要。
-//   - 黑名单：分运营商级（如 ERR_4002）与业务级（用户主动退订），分别记录。
 
 import (
 	"context"
@@ -36,23 +17,17 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ----------------------------------------------------------------------------
-// 常量
-// ----------------------------------------------------------------------------
 
 // SmsBlockType 黑名单类型
 type SmsBlockType string
 
 const (
-	SmsBlockCarrier    SmsBlockType = "carrier"    // 运营商级黑名单（如 ERR_4002）
-	SmsBlockBusiness   SmsBlockType = "business"   // 业务级（用户主动退订）
-	SmsBlockRegulatory SmsBlockType = "regulatory" // 监管/合规黑名单
-	SmsBlockContent    SmsBlockType = "content"    // 内容违规
+	SmsBlockCarrier    SmsBlockType = "carrier"    
+	SmsBlockBusiness   SmsBlockType = "business"   
+	SmsBlockRegulatory SmsBlockType = "regulatory" 
+	SmsBlockContent    SmsBlockType = "content"    
 )
 
-// ----------------------------------------------------------------------------
-// 服务结构
-// ----------------------------------------------------------------------------
 
 // SmsDeliveryTrackerService 短信到达率追踪服务
 type SmsDeliveryTrackerService struct {
@@ -60,11 +35,10 @@ type SmsDeliveryTrackerService struct {
 	repo         repository.SmsTrackingRepository
 	deliveryRepo repository.SmsDeliveryRepository
 
-	// 携号转网内存缓存：phone → 最新运营商（避免每次 webhook 走 DB）
 	carrierMu        sync.RWMutex
 	carrierCache     map[string]model.SmsCarrier
 	carrierLoaded    bool
-	carrierLoadErrAt time.Time // 上次加载失败时间，用于退避重试，避免 DB 抖动时重试风暴
+	carrierLoadErrAt time.Time 
 }
 
 // NewSmsDeliveryTrackerService 创建短信到达率追踪服务
@@ -87,9 +61,6 @@ func NewSmsDeliveryTrackerService(db *gorm.DB, tracking *SmsTrackingService, rep
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 携号转网追踪
-// ----------------------------------------------------------------------------
 
 // DetectCarrierFromPhone 简单规则识别运营商（前 7 位号段）
 //
@@ -144,33 +115,29 @@ func (s *SmsDeliveryTrackerService) DetectAndRecordPortability(ctx context.Conte
 	case "telecom", "中国电信", "ct", "dianxin":
 		newCarrier = model.SmsCarrierTelecom
 	default:
-		// webhook 未给 → 用号段兜底
 		newCarrier = DetectCarrierFromPhone(phone)
 	}
 	if newCarrier == model.SmsCarrierUnknown {
-		return nil // 无法识别就不记录
+		return nil 
 	}
 
-	// 2) 与缓存对比
 	s.carrierMu.Lock()
 	original, exists := s.carrierCache[phone]
 	s.carrierCache[phone] = newCarrier
 	s.carrierMu.Unlock()
 
 	if !exists {
-		// 首次记录：从 DB 加载历史
 		s.loadCarrierCache(ctx)
 		s.carrierMu.RLock()
 		original, exists = s.carrierCache[phone]
 		s.carrierMu.RUnlock()
-		s.carrierCache[phone] = newCarrier // 还原
+		s.carrierCache[phone] = newCarrier 
 	}
 
 	if exists && original == newCarrier {
-		return nil // 运营商未变化
+		return nil 
 	}
 
-	// 3) 写入转网记录
 	rec := &model.SmsNumberPortabilityRecord{
 		Phone:           phone,
 		OriginalCarrier: original,
@@ -191,15 +158,12 @@ func (s *SmsDeliveryTrackerService) loadCarrierCache(ctx context.Context) {
 	if s.carrierLoaded || s.deliveryRepo == nil {
 		return
 	}
-	// 退避：上次加载失败后 60s 内不重试，避免 DB 抖动时重试风暴
 	if !s.carrierLoadErrAt.IsZero() && time.Since(s.carrierLoadErrAt) < 60*time.Second {
 		return
 	}
 	rows, err := s.deliveryRepo.LoadLatestPortability(ctx, 10000)
 	if err != nil {
 		logger.Errorf("[SmsDeliveryTracker] load carrier cache: %v", err)
-		// ⚠️ 不要置 carrierLoaded=true：否则缓存会永久为空且永不重试，
-		// 携号转网识别将永远退化到号段兜底。仅记录失败时间以触发退避重试。
 		s.carrierLoadErrAt = time.Now()
 		return
 	}
@@ -223,7 +187,6 @@ func (s *SmsDeliveryTrackerService) GetCurrentCarrier(ctx context.Context, phone
 	}
 	s.carrierMu.RUnlock()
 
-	// fallback：从号段识别
 	return DetectCarrierFromPhone(phone)
 }
 
@@ -249,9 +212,6 @@ func (s *SmsDeliveryTrackerService) ListPortabilityRecords(ctx context.Context, 
 	return rows, total, nil
 }
 
-// ----------------------------------------------------------------------------
-// 黑名单维度追踪
-// ----------------------------------------------------------------------------
 
 // SmsBlacklistRecord 黑名单记录（聚合）
 type SmsBlacklistRecord struct {
@@ -296,9 +256,6 @@ func (s *SmsDeliveryTrackerService) RecordBlacklistEvent(ctx context.Context, ph
 	logger.Infof("[SmsDeliveryTracker] blacklist: %+v", rec)
 }
 
-// ----------------------------------------------------------------------------
-// 到达率聚合
-// ----------------------------------------------------------------------------
 
 // DeliveryRateMetrics 到达率指标
 type DeliveryRateMetrics struct {
@@ -308,9 +265,9 @@ type DeliveryRateMetrics struct {
 	Delivered    int64                  `json:"delivered"`
 	Failed       int64                  `json:"failed"`
 	Retryable    int64                  `json:"retryable"`
-	Blacklisted  int64                  `json:"blacklisted"`   // 黑名单触达失败
-	Portability  int64                  `json:"portability"`   // 携号转网触达失败
-	DeliveryRate float64                `json:"delivery_rate"` // delivered / total * 100
+	Blacklisted  int64                  `json:"blacklisted"`   
+	Portability  int64                  `json:"portability"`   
+	DeliveryRate float64                `json:"delivery_rate"` 
 	FailureRate  float64                `json:"failure_rate"`
 	ByCarrier    map[string]CarrierStat `json:"by_carrier"`
 }
@@ -341,7 +298,6 @@ func (s *SmsDeliveryTrackerService) GetDeliveryRateMetrics(ctx context.Context, 
 		ByCarrier:   make(map[string]CarrierStat),
 	}
 
-	// 1) 基础聚合
 	row, err := s.deliveryRepo.GetDeliveryAggregate(ctx, start, end)
 	if err != nil {
 		return nil, err
@@ -355,15 +311,12 @@ func (s *SmsDeliveryTrackerService) GetDeliveryRateMetrics(ctx context.Context, 
 		m.FailureRate = round2(float64(m.Failed+m.Retryable) / float64(m.TotalSent) * 100)
 	}
 
-	// 2) 黑名单 / 携号转网触达失败
 	blacklisted, _ := s.deliveryRepo.CountBlacklisted(ctx, start, end)
 	m.Blacklisted = blacklisted
 
-	// 携号转网触达失败（号码已不存在/换运营商）
 	port, _ := s.deliveryRepo.CountPortabilityFailure(ctx, start, end)
 	m.Portability = port
 
-	// 3) 按运营商维度统计
 	crows, err := s.deliveryRepo.GetCarrierStats(ctx, start, end)
 	if err == nil {
 		for _, cr := range crows {
@@ -382,9 +335,6 @@ func (s *SmsDeliveryTrackerService) GetDeliveryRateMetrics(ctx context.Context, 
 	return m, nil
 }
 
-// ----------------------------------------------------------------------------
-// 多家运营商回执兼容
-// ----------------------------------------------------------------------------
 
 // ProviderDeliveryReport 兼容的运营商回执统一格式
 type ProviderDeliveryReport struct {
@@ -392,7 +342,7 @@ type ProviderDeliveryReport struct {
 	Phone       string `json:"phone"`
 	JobID       string `json:"jobId"`
 	Provider    string `json:"provider"`
-	Carrier     string `json:"carrier"` // 携号转网维度
+	Carrier     string `json:"carrier"` 
 	Status      string `json:"status"`
 	ErrorCode   string `json:"errorCode"`
 	ErrorMsg    string `json:"errorMsg"`
@@ -415,7 +365,6 @@ func (s *SmsDeliveryTrackerService) RecordFromProvider(ctx context.Context, r *P
 		return errors.New("messageId 不能为空")
 	}
 
-	// 1) 走原 tracking 路径
 	req := &DeliveryReportRequest{
 		MessageID:   r.MessageID,
 		Phone:       r.Phone,
@@ -431,14 +380,12 @@ func (s *SmsDeliveryTrackerService) RecordFromProvider(ctx context.Context, r *P
 		logger.Errorf("[SmsDeliveryTracker] record delivery report: %v", err)
 	}
 
-	// 2) 检测携号转网（异步不阻塞主流程）
 	go func(phone, carrier string) {
 		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = s.DetectAndRecordPortability(bgCtx, phone, carrier)
 	}(r.Phone, r.Carrier)
 
-	// 3) 黑名单事件
 	if r.ErrorCode != "" {
 		s.RecordBlacklistEvent(ctx, r.Phone, r.ErrorCode, r.ErrorMsg, r.JobID, r.MessageID)
 	}
@@ -446,12 +393,10 @@ func (s *SmsDeliveryTrackerService) RecordFromProvider(ctx context.Context, r *P
 	return nil
 }
 
-// ----------------------------------------------------------------------------
-// JSON 序列化辅助
-// ----------------------------------------------------------------------------
 
 // MarshalReport 序列化原始回执（用于持久化到 raw_payload 字段）
 func MarshalReport(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
 }
+

@@ -1,17 +1,5 @@
 package service
 
-// sms_delivery_tracker_test.go 短信到达率追踪服务测试
-//
-// 测试覆盖：
-//  1) 构造
-//  2) DetectCarrierFromPhone 号段识别
-//  3) hasPrefix 工具
-//  4) DetectAndRecordPortability
-//  5) GetCurrentCarrier 缓存 fallback
-//  6) GetDeliveryRateMetrics 边界
-//  7) RecordBlacklistEvent 分类
-//  8) RecordFromProvider 串联
-//  9) MarshalReport
 
 import (
 	"context"
@@ -57,7 +45,7 @@ func TestSmsDeliveryTracker_DetectCarrier(t *testing.T) {
 		{"18900189000", model.SmsCarrierTelecom},
 		{"20000000000", model.SmsCarrierUnknown},
 		{"123", model.SmsCarrierUnknown},
-		{"138-0013-8000", model.SmsCarrierMobile}, // 规范化后识别
+		{"138-0013-8000", model.SmsCarrierMobile}, 
 	}
 	for _, c := range cases {
 		got := DetectCarrierFromPhone(c.phone)
@@ -83,7 +71,6 @@ func TestSmsDeliveryTracker_HasPrefix(t *testing.T) {
 // 4) DetectAndRecordPortability
 func TestSmsDeliveryTracker_DetectAndRecordPortability_NilDB(t *testing.T) {
 	s := newDeliveryTracker()
-	// 首次记录 + nil db → 应当不 panic
 	err := s.DetectAndRecordPortability(context.Background(), "13800138000", "mobile")
 	if err != nil {
 		t.Errorf("Expected nil err with nil db, got %v", err)
@@ -100,16 +87,13 @@ func TestSmsDeliveryTracker_DetectAndRecordPortability_EmptyPhone(t *testing.T) 
 
 func TestSmsDeliveryTracker_DetectAndRecordPortability_UnknownCarrier(t *testing.T) {
 	s := newDeliveryTracker()
-	// 未知运营商但有 webhook carrier → 应识别为对应运营商
 	err := s.DetectAndRecordPortability(context.Background(), "13800138000", "unicom")
 	if err != nil {
 		t.Errorf("Expected nil err, got %v", err)
 	}
-	// webhook 未给 → 用号段兜底
 	if err := s.DetectAndRecordPortability(context.Background(), "13800138000", ""); err != nil {
 		t.Errorf("Expected nil err, got %v", err)
 	}
-	// webhook 给 unknown
 	if err := s.DetectAndRecordPortability(context.Background(), "13800138000", "???"); err != nil {
 		t.Errorf("Expected nil err, got %v", err)
 	}
@@ -126,7 +110,6 @@ func TestSmsDeliveryTracker_GetCurrentCarrier_FromCache(t *testing.T) {
 
 func TestSmsDeliveryTracker_GetCurrentCarrier_Fallback(t *testing.T) {
 	s := newDeliveryTracker()
-	// 缓存未命中 → 用号段识别
 	got := s.GetCurrentCarrier(context.Background(), "18600186000")
 	if got != model.SmsCarrierUnicom {
 		t.Errorf("Expected unicom, got %s", got)
@@ -173,7 +156,6 @@ func TestSmsDeliveryTracker_RecordBlacklistEvent_Content(t *testing.T) {
 func TestSmsDeliveryTracker_RecordBlacklistEvent_EmptyPhone(t *testing.T) {
 	s := newDeliveryTracker()
 	s.RecordBlacklistEvent(context.Background(), "", "ERR_4002", "", "", "")
-	// 应静默
 }
 
 // 8) RecordFromProvider
@@ -195,7 +177,6 @@ func TestSmsDeliveryTracker_RecordFromProvider_EmptyMessageID(t *testing.T) {
 
 func TestSmsDeliveryTracker_RecordFromProvider_Full(t *testing.T) {
 	s := newDeliveryTracker()
-	// nil db → 内部走 nil repo 会报错，但黑名单事件不依赖 db
 	err := s.RecordFromProvider(context.Background(), &ProviderDeliveryReport{
 		MessageID: "msg-1",
 		Phone:     "13800138000",
@@ -216,3 +197,4 @@ func TestSmsDeliveryTracker_MarshalReport(t *testing.T) {
 		t.Errorf("Unexpected output: %s", out)
 	}
 }
+

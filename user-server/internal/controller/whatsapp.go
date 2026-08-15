@@ -275,3 +275,4 @@ func (c *WhatsappController) DeleteJob(ctx *gin.Context) {
 	}
 	response.Success(ctx, nil, "删除任务成功")
 }
+

@@ -24,10 +24,10 @@ type CardChatTemplateData struct {
 	ImageURL      string
 	Tags          string
 	TagList       []string
-	Platform      string // douyin / kuaishou / xiaohongshu / xianyu
-	PlatformLabel string // 抖音 / 快手 / 小红书 / 闲鱼
-	ThemeColor    string // 品牌色
-	ChatURL       string // 跳转到 embed chat 的 URL
+	Platform      string 
+	PlatformLabel string 
+	ThemeColor    string 
+	ChatURL       string 
 }
 
 // LiveCodeTemplateData 活码模板数据
@@ -175,15 +175,12 @@ func PlatformThemeColor(platform string) string {
 // cardID: 卡片 ID（作为 query 参数 source / card_id 传递，用于追踪；channel_ref 用平台级 {platform}_card）
 // baseURL: 站点根地址（如 https://chat.example.com）；为空时使用相对路径 /chat/embed/...
 func BuildChatURL(platform string, cardID uint, baseURL, cardTitle string) string {
-	// 4 平台共享一个渠道 ID（douyin_card / kuaishou_card / xiaohongshu_card / xianyu_card）
-	// 由 ChatChannelService.GetOrCreateCardChannel 首次访问时自动创建
 	channelRef := fmt.Sprintf("%s_card", platform)
 	q := url.Values{}
 	if cardTitle != "" {
 		q.Set("title", cardTitle)
 	}
 	q.Set("color", PlatformThemeColor(platform))
-	// 附带来源信息，便于客服识别具体卡片
 	q.Set("source", platform)
 	q.Set("card_id", fmt.Sprintf("%d", cardID))
 	queryStr := q.Encode()
@@ -214,8 +211,6 @@ func ParseTagList(tags string) []string {
 func (s *TemplateService) GenerateCardChatPage(data *CardChatTemplateData) (string, error) {
 	tmplPath := filepath.Join(s.templateDir, "card_chat.html")
 	tmpl, err := template.New("card_chat.html").Funcs(template.FuncMap{
-		// 防止 XSS：所有字段在渲染前由调用方保证来源可信（管理员录入），
-		// 模板默认使用 text/template 的转义机制；如需 HTML 原样输出，请显式声明。
 	}).ParseFiles(tmplPath)
 	if err != nil {
 		return "", err
@@ -247,3 +242,4 @@ func (s *TemplateService) RenderCardChatPage(platform string, cardID uint, title
 	}
 	return s.GenerateCardChatPage(data)
 }
+

@@ -32,7 +32,6 @@ func TestIntentSOP_SetSOPService(t *testing.T) {
 
 func TestIntentSOP_TriggerSOPByIntent_NoService(t *testing.T) {
 	rec := NewIntentRecognizer(nil, nil, nil)
-	// 不应 panic
 	rec.triggerSOPByIntent(context.Background(), "c-1", "s-1", "objection_price", 0.9)
 }
 
@@ -42,7 +41,6 @@ func TestIntentSOP_TriggerSOPByIntent_LowConfidence(t *testing.T) {
 	rec := NewIntentRecognizer(db, nil, nil)
 	rec.SetSOPService(context.Background(), svc)
 
-	// 创建匹配的 SOP
 	agent := &model.SOPAgent{
 		Name:          "price-objection",
 		Scenario:      "objection",
@@ -56,7 +54,6 @@ func TestIntentSOP_TriggerSOPByIntent_LowConfidence(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 
-	// 置信度 < 0.7 不触发
 	rec.triggerSOPByIntent(context.Background(), "c-1", "s-1", "objection_price", 0.5)
 	var count int64
 	db.Model(&model.SOPExecution{}).Where("sop_id = ?", agent.ID).Count(&count)
@@ -113,7 +110,6 @@ func TestIntentSOP_TriggerSOPByIntent_InactiveAgent(t *testing.T) {
 	if err := db.Create(agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	// 由于 model IsActive 默认值是 true，强制更新为 false 模拟停用
 	if err := db.Model(agent).Update("is_active", false).Error; err != nil {
 		t.Fatalf("deactivate: %v", err)
 	}
@@ -203,7 +199,6 @@ func TestIntentSOP_Recognize_EmptyCustomer(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 
-	// 空 customerID 不应触发 SOP
 	rec.Recognize(context.Background(), "s-1", "", "这个多少钱？")
 
 	var count int64
@@ -246,3 +241,4 @@ func TestIntentSOP_Recognize_TriggersSOP(t *testing.T) {
 		t.Errorf("expected 1 execution triggered by Recognize, got %d", count)
 	}
 }
+

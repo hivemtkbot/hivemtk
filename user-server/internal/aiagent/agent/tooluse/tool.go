@@ -9,76 +9,62 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// tool.go 工具注册表核心接口定义（PRD §5.2 G3）
-//
-// 设计目标：
-//  1. 统一的工具接口，可被 LLM Function Calling 调用
-//  2. 支持 JSON Schema 参数定义
-//  3. 支持同步/异步执行
-//  4. 支持装饰器链（权限/限流/重试/超时/审计计费）
-//  5. 工具按 category 分类管理（customer/reach/knowledge/business）
 
 // ToolCategory 工具分类
 type ToolCategory string
 
 const (
-	CategoryCustomer       ToolCategory = "customer"        // 客户工具：OneID 画像 / 标签 / 记忆
-	CategoryReach          ToolCategory = "reach"           // 触达工具：短信 / 邮件 / 卡片 / 多渠道外发
-	CategoryPrivateMessage ToolCategory = "private_message" // 私信工具：主动发起/回复私信聊天（主动模式核心，实现与用户链接）
-	CategoryKnowledge      ToolCategory = "knowledge"       // 知识工具：RAG 检索 / 企业知识强化
-	CategoryBusiness       ToolCategory = "business"        // 业务工具：订单 / 优惠券 / 跟进任务
+	CategoryCustomer       ToolCategory = "customer"        
+	CategoryReach          ToolCategory = "reach"           
+	CategoryPrivateMessage ToolCategory = "private_message" 
+	CategoryKnowledge      ToolCategory = "knowledge"       
+	CategoryBusiness       ToolCategory = "business"        
 )
 
 // Tool 工具接口（所有工具必须实现）
 type Tool interface {
-	// Name 工具唯一名称（如 "customer.search"）
 	Name() string
-	// Category 工具分类
 	Category() ToolCategory
-	// Description 工具描述（供 LLM function calling 使用）
 	Description() string
-	// Parameters 参数 JSON Schema
 	Parameters() ToolParameters
-	// Execute 执行工具
 	Execute(ctx context.Context, args map[string]any) (ToolResult, error)
 }
 
 // ToolParameters 工具参数 JSON Schema
 type ToolParameters struct {
-	Type        string               `json:"type"`                  // 固定 "object"
-	Properties  map[string]ToolParam `json:"properties"`            // 参数属性
-	Required    []string             `json:"required,omitempty"`    // 必填参数列表
-	Definitions map[string]ToolParam `json:"definitions,omitempty"` // 复用的类型定义（支持$ref）
+	Type        string               `json:"type"`                  
+	Properties  map[string]ToolParam `json:"properties"`            
+	Required    []string             `json:"required,omitempty"`    
+	Definitions map[string]ToolParam `json:"definitions,omitempty"` 
 }
 
 // ToolParam 单个参数定义
 type ToolParam struct {
-	Type        string               `json:"type"`                 // string/number/integer/boolean/array/object
-	Description string               `json:"description"`          // 参数说明
-	Enum        []string             `json:"enum,omitempty"`       // 枚举值（可选）
-	Default     any                  `json:"default,omitempty"`    // 默认值（可选）
-	Items       *ToolParam           `json:"items,omitempty"`      // 数组元素类型（type=array 时）
-	Properties  map[string]ToolParam `json:"properties,omitempty"` // 对象属性（type=object 时）
-	Ref         string               `json:"$ref,omitempty"`       // 引用definitions中的类型定义
+	Type        string               `json:"type"`                 
+	Description string               `json:"description"`          
+	Enum        []string             `json:"enum,omitempty"`       
+	Default     any                  `json:"default,omitempty"`    
+	Items       *ToolParam           `json:"items,omitempty"`      
+	Properties  map[string]ToolParam `json:"properties,omitempty"` 
+	Ref         string               `json:"$ref,omitempty"`       
 }
 
 // ToolResult 工具执行结果
 type ToolResult struct {
-	Success    bool       `json:"success"`               // 是否成功
-	Data       any        `json:"data,omitempty"`        // 返回数据
-	Error      string     `json:"error,omitempty"`       // 错误信息
-	Timing     ToolTiming `json:"timing"`                // 执行耗时
-	ToolName   string     `json:"tool_name"`             // 工具名
-	ExecutedAt time.Time  `json:"executed_at"`           // 执行时间
-	AuditTrace string     `json:"audit_trace,omitempty"` // 审计追踪 ID
-	// Card 工具产出的结构化富卡片（随智能体回复一并下发给会话方）
+	Success    bool       `json:"success"`               
+	Data       any        `json:"data,omitempty"`        
+	Error      string     `json:"error,omitempty"`       
+	Timing     ToolTiming `json:"timing"`                
+	ToolName   string     `json:"tool_name"`             
+	ExecutedAt time.Time  `json:"executed_at"`           
+	AuditTrace string     `json:"audit_trace,omitempty"` 
 	Card *model.RichCard `json:"card,omitempty"`
 }
 
 // ToolTiming 执行耗时统计
 type ToolTiming struct {
-	DurationMs int64 `json:"duration_ms"` // 总耗时（毫秒）
-	RetryCount int   `json:"retry_count"` // 重试次数
+	DurationMs int64 `json:"duration_ms"` 
+	RetryCount int   `json:"retry_count"` 
 }
 
 // ToJSON 将 ToolResult 序列化为 JSON 字符串
@@ -210,3 +196,4 @@ func GetFloatArg(args map[string]any, key string) (float64, error) {
 		return 0, fmt.Errorf("参数 %s 类型错误，期望 float，实际 %T", key, v)
 	}
 }
+

@@ -8,15 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ============================================================================
-// ai_agents 表扩展迁移
-// ----------------------------------------------------------------------------
-// 设计依据： §2.3
-// 背景：智能体需要挂载"多逻辑"——除已有 sop_ids / script_library_ids 外，
-//       新增 decision_strategy_ids（决策策略） / ab_experiment_ids（A/B 实验）。
-// 私域独立部署：无 merchant_id 字段
-// 兼容性：仅新增 2 字段，已存在数据无影响
-// ============================================================================
 
 // AIAgentExtensionMigration ai_agents 表扩展迁移
 type AIAgentExtensionMigration struct {
@@ -45,12 +36,10 @@ func (m *AIAgentExtensionMigration) Description() string {
 
 // Up 执行迁移
 func (m *AIAgentExtensionMigration) Up(ctx context.Context) error {
-	// 幂等检查：表不存在则跳过（依赖 v2.2.0 创建 ai_agents 表）
 	if !m.db.Migrator().HasTable("ai_agents") {
 		return nil
 	}
 
-	// 检查并新增 decision_strategy_ids 字段
 	if !m.db.Migrator().HasColumn(&struct {
 		DecisionStrategyIDs string `gorm:"type:text[]"`
 	}{}, "DecisionStrategyIDs") {
@@ -59,7 +48,6 @@ func (m *AIAgentExtensionMigration) Up(ctx context.Context) error {
 		}
 	}
 
-	// 检查并新增 ab_experiment_ids 字段
 	if !m.db.Migrator().HasColumn(&struct {
 		ABExperimentIDs string `gorm:"type:text[]"`
 	}{}, "ABExperimentIDs") {
@@ -83,3 +71,4 @@ func (m *AIAgentExtensionMigration) Down(ctx context.Context) error {
 
 // 编译期接口断言
 var _ migration.Migration = (*AIAgentExtensionMigration)(nil)
+

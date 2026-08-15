@@ -11,32 +11,27 @@ import (
 )
 
 type WhatsappRepository interface {
-	// accounts
 	CreateAccount(ctx context.Context, acc *model.WhatsappAccount) error
 	UpdateAccount(ctx context.Context, acc *model.WhatsappAccount) error
 	DeleteAccount(ctx context.Context, id uuid.UUID) error
 	ListAccounts(ctx context.Context) ([]*model.WhatsappAccount, error)
 	GetAccount(ctx context.Context, id uuid.UUID) (*model.WhatsappAccount, error)
 
-	// session
 	UpsertSession(ctx context.Context, sess *model.WhatsappSession) error
 	GetSession(ctx context.Context, accountID uuid.UUID) (*model.WhatsappSession, error)
 
-	// drafts
 	CreateDraft(ctx context.Context, d *model.WhatsappDraft) error
 	UpdateDraft(ctx context.Context, d *model.WhatsappDraft) error
 	DeleteDraft(ctx context.Context, id uuid.UUID) error
 	ListDrafts(ctx context.Context) ([]*model.WhatsappDraft, error)
 	GetDraft(ctx context.Context, id uuid.UUID) (*model.WhatsappDraft, error)
 
-	// jobs
 	CreateJob(ctx context.Context, j *model.WhatsappJob) error
 	UpdateJob(ctx context.Context, j *model.WhatsappJob) error
 	DeleteJob(ctx context.Context, id uuid.UUID) error
 	ListJobs(ctx context.Context) ([]*model.WhatsappJob, error)
 	GetJob(ctx context.Context, id uuid.UUID) (*model.WhatsappJob, error)
 
-	// job details
 	CreateJobDetail(ctx context.Context, d *model.WhatsappJobDetail) error
 	UpdateJobDetail(ctx context.Context, d *model.WhatsappJobDetail) error
 	ListJobDetails(ctx context.Context, jobID uuid.UUID) ([]*model.WhatsappJobDetail, error)
@@ -161,3 +156,4 @@ func (r *whatsappRepo) ListJobDetails(ctx context.Context, jobID uuid.UUID) ([]*
 	err := r.db.Where("job_id = ?", jobID).Order("created_at asc").Find(&list).Error
 	return list, err
 }
+

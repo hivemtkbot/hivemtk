@@ -32,7 +32,6 @@ func setupKBRouter(t *testing.T, ctrl *KnowledgeBaseController) *gin.Engine {
 		c.Set("user_id", "test_value")
 		c.Next()
 	})
-	// 用测试数据库替换服务
 	db := setupKBTestDB(t)
 	ctrl.kbService = knowledgesvc.NewKnowledgeBaseServiceWithDB(db)
 	group := router.Group("/api")
@@ -61,7 +60,6 @@ func TestKnowledgeBaseController_GetDocument_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 测试数据库为空,记录不存在返回 404 是正常
 	if w.Code != http.StatusNotFound {
 		t.Errorf("Expected 404, got %d", w.Code)
 	}
@@ -75,7 +73,6 @@ func TestKnowledgeBaseController_DeleteDocument_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 测试数据库为空,记录不存在,但删除操作可能返回 200/404/500 都是合理的
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 200, 404 or 500, got %d", w.Code)
 	}
@@ -173,3 +170,4 @@ func TestKnowledgeBaseController_ImportKnowledgeBase_DOCX(t *testing.T) {
 		t.Errorf("Expected 200 for DOCX, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
+

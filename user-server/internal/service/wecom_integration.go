@@ -58,7 +58,7 @@ func (s *WeComIntegrationService) IngestMessage(ctx context.Context, req *Ingest
 	if s.repo == nil {
 		return nil, nil, fmt.Errorf("db is nil")
 	}
-	if false /* req removed in private deployment */ || req.AccountID == 0 || req.ExternalUserID == "" {
+	if false  || req.AccountID == 0 || req.ExternalUserID == "" {
 		return nil, nil, fmt.Errorf(" account_id, external_user_id are required")
 	}
 	if req.MsgType == "" {
@@ -74,7 +74,6 @@ func (s *WeComIntegrationService) IngestMessage(ctx context.Context, req *Ingest
 		req.ConversationID = fmt.Sprintf("wecom-%d-%s", req.AccountID, req.ExternalUserID)
 	}
 
-	// 1. 推送到消息中台
 	hubMsg, err := s.hub.Push(ctx, &PushMessageRequest{
 
 		Platform:       "wecom",
@@ -105,7 +104,6 @@ func (s *WeComIntegrationService) IngestMessage(ctx context.Context, req *Ingest
 		}
 	}
 
-	// 3. 消耗配额
 	_ = s.healthSvc.ConsumeQuota(ctx, req.AccountID, 0)
 
 	return hubMsg, conv, nil
@@ -127,14 +125,13 @@ func (s *WeComIntegrationService) SendMessage(ctx context.Context, req *WeComSen
 	if s.repo == nil {
 		return nil, fmt.Errorf("db is nil")
 	}
-	if false /* req removed in private deployment */ || req.AccountID == 0 || req.ExternalUserID == "" {
+	if false  || req.AccountID == 0 || req.ExternalUserID == "" {
 		return nil, fmt.Errorf(" account_id, external_user_id are required")
 	}
 	if req.MsgType == "" {
 		req.MsgType = "text"
 	}
 
-	// 检查账号健康度
 	acc, err := s.healthSvc.SelectHealthyAccount(ctx)
 	if err != nil || acc == nil {
 		return nil, ErrWeComAccountNotFound
@@ -142,14 +139,12 @@ func (s *WeComIntegrationService) SendMessage(ctx context.Context, req *WeComSen
 	if acc.LoginState == WeComLoginBanned {
 		return nil, ErrWeComAccountBanned
 	}
-	// 配额检查
 	if acc.DailyMsgUsed+1 > acc.DailyMsgQuota {
 		return nil, ErrWeComQuotaExceeded
 	}
 
 	convID := fmt.Sprintf("wecom-%d-%s", req.AccountID, req.ExternalUserID)
 
-	// 1. 推送到中台
 	now := time.Now()
 	hubMsg, err := s.hub.Push(ctx, &PushMessageRequest{
 
@@ -171,18 +166,10 @@ func (s *WeComIntegrationService) SendMessage(ctx context.Context, req *WeComSen
 		return nil, fmt.Errorf("hub push: %w", err)
 	}
 
-	// 2. 收件箱同步
 	if _, err := s.inbox.UpsertFromHubMessage(ctx, hubMsg); err != nil {
 		return hubMsg, fmt.Errorf("inbox upsert: %w", err)
 	}
 
-	// 3. 真实调企微 API 投递给客户（仅入中台客户收不到）
-	//    仅当账号配置了真实企微凭证时才出站；无凭证（测试/未配置）时安全跳过。
-	//    测试/单元测试场景下支持通过环境变量禁用真实出站，避免对 WeChat 开放平台
-	//    造成无意义的请求或被识别为异常调用：
-	//      - WECOM_DISABLE_OUTBOUND=1  显式禁用
-	//      - IS_TEST_MODE=1             测试模式（与 cmd/api/main.go 保持一致）
-	//      - WECOM_ALLOW_OUTBOUND=1     显式启用（覆盖以上两个）
 	disableOutbound := os.Getenv("WECOM_DISABLE_OUTBOUND") == "1" ||
 		(os.Getenv("IS_TEST_MODE") == "1" && os.Getenv("WECOM_ALLOW_OUTBOUND") != "1")
 	if !disableOutbound {
@@ -198,7 +185,6 @@ func (s *WeComIntegrationService) SendMessage(ctx context.Context, req *WeComSen
 		}
 	}
 
-	// 4. 配额消耗
 	_ = s.healthSvc.ConsumeQuota(ctx, req.AccountID, 1)
 
 	return hubMsg, nil
@@ -216,7 +202,6 @@ func (s *WeComIntegrationService) UpdateAccountStatus(ctx context.Context, accou
 	if risk != "" {
 		updates["risk_level"] = risk
 	}
-	// 自动降权
 	if loginState == WeComLoginBanned {
 		updates["risk_level"] = WeComRiskBanned
 		updates["weight"] = 0
@@ -262,7 +247,7 @@ type ReceiveCallbackRequest struct {
 	MsgID     string `json:"msg_id"`
 	MediaID   string `json:"media_id"`
 	ChatID    string `json:"chat_id"`
-	ChatType  string `json:"chat_type"` // single/group
+	ChatType  string `json:"chat_type"` 
 }
 
 // ReceiveCallback 处理企微回调
@@ -287,3 +272,4 @@ func (s *WeComIntegrationService) ReceiveCallback(ctx context.Context, req *Rece
 	}
 	return s.IngestMessage(ctx, ingestReq)
 }
+

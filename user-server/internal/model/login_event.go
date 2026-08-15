@@ -8,10 +8,10 @@ import (
 type RiskLevel string
 
 const (
-	RiskLevelLow      RiskLevel = "low"      // 正常登录
-	RiskLevelMedium   RiskLevel = "medium"   // 中等风险（如设备指纹变更）
-	RiskLevelHigh     RiskLevel = "high"     // 高风险（如异地登录）
-	RiskLevelCritical RiskLevel = "critical" // 严重风险（如频繁失败 + 异地）
+	RiskLevelLow      RiskLevel = "low"      
+	RiskLevelMedium   RiskLevel = "medium"   
+	RiskLevelHigh     RiskLevel = "high"     
+	RiskLevelCritical RiskLevel = "critical" 
 )
 
 // IsValidRiskLevel 校验风险等级
@@ -31,16 +31,16 @@ func IsValidRiskLevel(r RiskLevel) bool {
 //   - location: IP 解析后的地理位置（国家+省+市）
 type LoginEvent struct {
 	ID                uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID            uint      `gorm:"index;not null" json:"user_id"`          // 关联 SystemUser.ID（不存在用户则 0）
-	Username          string    `gorm:"type:varchar(50);index" json:"username"` // 用户名（用于不存在用户的事件）
+	UserID            uint      `gorm:"index;not null" json:"user_id"`          
+	Username          string    `gorm:"type:varchar(50);index" json:"username"` 
 	IP                string    `gorm:"type:varchar(50);index;not null" json:"ip"`
 	UserAgent         string    `gorm:"type:varchar(512)" json:"user_agent"`
 	DeviceFingerprint string    `gorm:"type:varchar(128);index" json:"device_fingerprint"`
 	LoginAt           time.Time `gorm:"index;not null" json:"login_at"`
 	Success           bool      `json:"success"`
 	RiskLevel         RiskLevel `gorm:"type:varchar(20);default:'low';index" json:"risk_level"`
-	Location          string    `gorm:"type:varchar(255)" json:"location"` // IP 解析的地理位置
-	Reason            string    `gorm:"type:varchar(255)" json:"reason"`   // 失败原因 / 风险描述
+	Location          string    `gorm:"type:varchar(255)" json:"location"` 
+	Reason            string    `gorm:"type:varchar(255)" json:"reason"`   
 	CreatedAt         time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
@@ -48,3 +48,4 @@ type LoginEvent struct {
 func (LoginEvent) TableName() string {
 	return "login_events"
 }
+

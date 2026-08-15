@@ -289,9 +289,6 @@ func (r *KnowledgeDocumentRepository) CountTodayImports(ctx context.Context) (in
 	return count, nil
 }
 
-// ============================================================================
-// 统计 SQL
-// ============================================================================
 
 // CategoryStat 分类统计（repository 层结构体，供 docRepo.CategoryStats 返回）
 type CategoryStat struct {
@@ -366,3 +363,4 @@ func (r *KnowledgeDocumentRepository) TopHitDocuments(ctx context.Context, produ
 	}
 	return results, nil
 }
+

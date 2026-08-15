@@ -5,21 +5,7 @@ import (
 	"testing"
 )
 
-// react_adapter_test.go ReAct Prompting 适配器测试
-//
-// 覆盖：
-//   D8.1 ParseReActResponse: 解析 Action + Action Input
-//   D8.2 ParseReActResponse: 解析 Final Answer
-//   D8.3 ParseReActResponse: 解析 Thought
-//   D8.4 ParseReActResponse: 空内容 / 无协议文本降级
-//   D8.5 ToToolCall: ReAct → ToolCall 转换
-//   D8.6 WrapSystemPrompt: 注入工具描述
-//   D8.7 AdaptResult: Action 路径注入 ToolCalls
-//   D8.8 AdaptResult: Final Answer 路径替换 Content
-//   D8.9 IsReActMode: NoFC + Tools 触发
-//   D8.10 BuildObservationMessage: Observation 消息构造
 
-// ===== D8.1: 解析 Action + Action Input =====
 
 func TestD8_1_ParseReActResponse_Action(t *testing.T) {
 	content := `Thought: 我需要查询客户信息
@@ -43,7 +29,6 @@ Action Input: {"phone":"13800138000"}`
 	}
 }
 
-// ===== D8.2: 解析 Final Answer =====
 
 func TestD8_2_ParseReActResponse_FinalAnswer(t *testing.T) {
 	content := `Thought: 已获得客户信息
@@ -63,30 +48,24 @@ Final Answer: 客户张三，手机 13800138000`
 	}
 }
 
-// ===== D8.3: 解析 Thought =====
 
 func TestD8_3_ParseReActResponse_Thought(t *testing.T) {
-	// 仅 Thought 无 Action 也不应崩溃（降级为 Final Answer）
 	content := `Thought: 我正在思考`
 	result, err := ParseReActResponse(content)
 	if err != nil {
 		t.Fatalf("解析失败：%v", err)
 	}
-	// 仅 Thought 不匹配 Action/Final Answer，触发降级路径
 	if !result.IsFinal {
 		t.Fatal("仅 Thought 应降级为 Final Answer")
 	}
 }
 
-// ===== D8.4: 空内容 / 无协议文本降级 =====
 
 func TestD8_4_ParseReActResponse_EmptyAndFallback(t *testing.T) {
-	// 空内容应报错
 	if _, err := ParseReActResponse(""); err == nil {
 		t.Fatal("空内容应返回错误")
 	}
 
-	// 无 ReAct 协议文本降级为 Final Answer
 	plainText := "你好，请问需要什么帮助？"
 	result, err := ParseReActResponse(plainText)
 	if err != nil {
@@ -100,10 +79,8 @@ func TestD8_4_ParseReActResponse_EmptyAndFallback(t *testing.T) {
 	}
 }
 
-// ===== D8.5: ToToolCall 转换 =====
 
 func TestD8_5_ToToolCall_Conversion(t *testing.T) {
-	// Action 路径
 	r := &ReActParseResult{
 		IsFinal:     false,
 		Action:      "customer.search",
@@ -126,7 +103,6 @@ func TestD8_5_ToToolCall_Conversion(t *testing.T) {
 		t.Errorf("Function.Arguments 错误：%s", tc.Function.Arguments)
 	}
 
-	// Final Answer 路径应返回 nil
 	finalR := &ReActParseResult{
 		IsFinal:     true,
 		FinalAnswer: "你好",
@@ -136,7 +112,6 @@ func TestD8_5_ToToolCall_Conversion(t *testing.T) {
 	}
 }
 
-// ===== D8.6: WrapSystemPrompt 注入工具描述 =====
 
 func TestD8_6_WrapSystemPrompt(t *testing.T) {
 	adapter := NewReActAdapter()
@@ -165,11 +140,9 @@ func TestD8_6_WrapSystemPrompt(t *testing.T) {
 	}
 	wrapped := adapter.WrapSystemPrompt(original, tools)
 
-	// 验证：包含原始 prompt
 	if !strings.Contains(wrapped, original) {
 		t.Error("WrapSystemPrompt 应保留原 SystemPrompt")
 	}
-	// 验证：包含每个工具名
 	for _, tool := range tools {
 		if !strings.Contains(wrapped, tool.Function.Name) {
 			t.Errorf("WrapSystemPrompt 应含工具名 %s", tool.Function.Name)
@@ -178,7 +151,6 @@ func TestD8_6_WrapSystemPrompt(t *testing.T) {
 			t.Errorf("WrapSystemPrompt 应含工具描述 %s", tool.Function.Description)
 		}
 	}
-	// 验证：包含 ReAct 协议关键字
 	for _, keyword := range []string{"Thought", "Action", "Action Input", "Final Answer"} {
 		if !strings.Contains(wrapped, keyword) {
 			t.Errorf("WrapSystemPrompt 应含 ReAct 关键字 %q", keyword)
@@ -186,7 +158,6 @@ func TestD8_6_WrapSystemPrompt(t *testing.T) {
 	}
 }
 
-// ===== D8.7: AdaptResult Action 路径 =====
 
 func TestD8_7_AdaptResult_ActionPath(t *testing.T) {
 	adapter := NewReActAdapter()
@@ -217,7 +188,6 @@ Action Input: {"phone":"13800138000"}`,
 	}
 }
 
-// ===== D8.8: AdaptResult Final Answer 路径 =====
 
 func TestD8_8_AdaptResult_FinalAnswerPath(t *testing.T) {
 	adapter := NewReActAdapter()
@@ -243,10 +213,8 @@ Final Answer: 客户张三，手机 13800138000`,
 	}
 }
 
-// ===== D8.9: IsReActMode 触发条件 =====
 
 func TestD8_9_IsReActMode(t *testing.T) {
-	// NoFC=true + Tools 非空 → 触发
 	req := &DispatchRequest{
 		Tools: []ToolDefinition{{Type: "function", Function: ToolFunctionSchema{Name: "test"}}},
 	}
@@ -254,24 +222,20 @@ func TestD8_9_IsReActMode(t *testing.T) {
 		t.Error("NoFC=true + Tools 应触发 ReAct 模式")
 	}
 
-	// NoFC=true + Tools 为空 → 不触发
 	emptyReq := &DispatchRequest{}
 	if IsReActMode(emptyReq, true) {
 		t.Error("NoFC=true + 空 Tools 不应触发 ReAct 模式")
 	}
 
-	// NoFC=false + Tools 非空 → 不触发（走原生 FC 路径）
 	if IsReActMode(req, false) {
 		t.Error("NoFC=false 不应触发 ReAct 模式")
 	}
 
-	// nil req → 不触发
 	if IsReActMode(nil, true) {
 		t.Error("nil req 不应触发 ReAct 模式")
 	}
 }
 
-// ===== D8.10: BuildObservationMessage =====
 
 func TestD8_10_BuildObservationMessage(t *testing.T) {
 	msg := BuildObservationMessage("customer.search", "react_123_1", `{"id":"cust-001"}`)
@@ -292,7 +256,6 @@ func TestD8_10_BuildObservationMessage(t *testing.T) {
 	}
 }
 
-// ===== D8.11: 并发安全（toolCallID 唯一性） =====
 
 func TestD8_11_AdaptResult_ConcurrentIDUniqueness(t *testing.T) {
 	adapter := NewReActAdapter()
@@ -324,3 +287,4 @@ Action Input: {}`,
 		ids[id] = true
 	}
 }
+

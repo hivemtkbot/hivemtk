@@ -18,15 +18,12 @@ import (
 //   - 各平台 service 在保留自身专属方法（向后兼容）的同时，额外提供对应
 //     Adapter 方法以满足本接口。
 type PlatformCardStatsService interface {
-	// Platform 返回平台标识（douyin / kuaishou / xiaohongshu / xianyu / tiktok）
 	Platform() string
 
-	// GetCardStats 获取单个卡片统计数据
 	GetCardStats(ctx context.Context, req *dto.PlatformCardStatsRequest) (*dto.PlatformCardStatsResponse, error)
 
-	// GetOverallStats 获取全部卡片总体统计数据
 	GetOverallStats(ctx context.Context, req *dto.PlatformCardOverallStatsRequest) (*dto.PlatformCardOverallStatsResponse, error)
 
-	// RecordActivity 记录一次卡片活动（view / click / share 等）
 	RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error
 }
+

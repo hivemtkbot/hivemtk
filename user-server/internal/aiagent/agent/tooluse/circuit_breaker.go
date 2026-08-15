@@ -9,41 +9,19 @@ import (
 	"time"
 )
 
-// circuit_breaker.go 工具调用熔断器
-//
-// 设计目标：
-//   防止下游工具持续失败时引发雪崩效应（错误连锁、资源耗尽、响应堆积）。
-//   当某工具连续失败超过阈值时，熔断器进入 OPEN 状态，直接拒绝请求；
-//   经过冷却时间后进入 HALF_OPEN 状态，允许少量请求试探性通过；
-//   若试探成功则恢复 CLOSED，否则回到 OPEN。
-//
-// 状态机：
-//   CLOSED   → 连续失败数 ≥ FailureThreshold → OPEN
-//   OPEN     → 经过 Cooldown 时间 → HALF_OPEN
-//   HALF_OPEN → 1 次成功 → CLOSED
-//   HALF_OPEN → 1 次失败 → OPEN
-//
-// 熔断粒度：按 tool_name 独立熔断（不同工具不互相影响）
-// 线程安全：使用 sync.Map + atomic 操作
 
-// ===== 错误定义 =====
 
 var (
-	// ErrCircuitOpen 熔断器开启（拒绝请求）
 	ErrCircuitOpen = fmt.Errorf("circuit breaker open")
 )
 
-// ===== 熔断状态 =====
 
 // CircuitState 熔断器状态
 type CircuitState int32
 
 const (
-	// CircuitClosed 闭合（正常放行）
 	CircuitClosed CircuitState = iota
-	// CircuitOpen 开启（拒绝所有请求）
 	CircuitOpen
-	// CircuitHalfOpen 半开（允许少量试探请求）
 	CircuitHalfOpen
 )
 
@@ -62,14 +40,8 @@ func (s CircuitState) String() string {
 
 // CircuitBreakerConfig 熔断器配置
 type CircuitBreakerConfig struct {
-	// FailureThreshold 连续失败次数阈值（达到后 OPEN）
-	// 默认 5
 	FailureThreshold int
-	// Cooldown OPEN 状态持续时间（之后进入 HALF_OPEN）
-	// 默认 30s
 	Cooldown time.Duration
-	// HalfOpenMaxAttempts HALF_OPEN 状态下允许的试探请求数
-	// 默认 1（试探成功即恢复 CLOSED）
 	HalfOpenMaxAttempts int
 }
 
@@ -82,16 +54,15 @@ func DefaultCircuitBreakerConfig() CircuitBreakerConfig {
 	}
 }
 
-// ===== 单工具熔断器 =====
 
 // toolCircuit 单工具的熔断器实例
 //
 // 状态字段使用 atomic 操作保证线程安全
 type toolCircuit struct {
-	state            atomic.Int32 // CircuitState
-	consecutiveFails atomic.Int32 // 连续失败次数
-	openedAt         atomic.Int64 // OPEN 状态起始时间（unix nano）
-	halfOpenAttempts atomic.Int32 // HALF_OPEN 状态已放行的试探请求数
+	state            atomic.Int32 
+	consecutiveFails atomic.Int32 
+	openedAt         atomic.Int64 
+	halfOpenAttempts atomic.Int32 
 }
 
 func newToolCircuit() *toolCircuit {
@@ -113,21 +84,17 @@ func (c *toolCircuit) Allow(now time.Time, cfg CircuitBreakerConfig) bool {
 		return true
 
 	case CircuitOpen:
-		// 检查是否已过冷却时间
 		openedAt := time.Unix(0, c.openedAt.Load())
 		if now.Sub(openedAt) >= cfg.Cooldown {
-			// 进入 HALF_OPEN（CAS 防止并发重复切换）
 			if c.state.CompareAndSwap(int32(CircuitOpen), int32(CircuitHalfOpen)) {
 				c.halfOpenAttempts.Store(0)
 			}
-			// 继续走 HALF_OPEN 逻辑
 		} else {
 			return false
 		}
 		fallthrough
 
 	case CircuitHalfOpen:
-		// 限制试探请求数
 		if c.halfOpenAttempts.Add(1) > int32(cfg.HalfOpenMaxAttempts) {
 			return false
 		}
@@ -156,7 +123,6 @@ func (c *toolCircuit) RecordFailure(now time.Time, cfg CircuitBreakerConfig) {
 	state := CircuitState(c.state.Load())
 
 	if state == CircuitHalfOpen {
-		// HALF_OPEN 失败：立即回到 OPEN
 		c.state.Store(int32(CircuitOpen))
 		c.openedAt.Store(now.UnixNano())
 		return
@@ -180,7 +146,6 @@ func (c *toolCircuit) ConsecutiveFails() int32 {
 	return c.consecutiveFails.Load()
 }
 
-// ===== 熔断器注册中心 =====
 
 // CircuitBreakerRegistry 熔断器注册中心（按 tool_name 独立熔断）
 type CircuitBreakerRegistry struct {
@@ -211,7 +176,6 @@ func (r *CircuitBreakerRegistry) GetCircuit(toolName string) *toolCircuit {
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	// double-check
 	if c, ok := r.circuits[toolName]; ok {
 		return c
 	}
@@ -260,7 +224,6 @@ func (r *CircuitBreakerRegistry) Config() CircuitBreakerConfig {
 	return r.cfg
 }
 
-// ===== 装饰器：熔断器装饰器 =====
 
 // CircuitBreakerDecorator 熔断器装饰器
 //
@@ -275,20 +238,15 @@ func CircuitBreakerDecorator(registry *CircuitBreakerRegistry) ToolDecorator {
 			}
 			toolName := GetToolName(ctx)
 
-			// 1. 检查熔断状态
 			if !registry.Allow(toolName) {
 				return ErrorResult(toolName, fmt.Errorf("%w: tool=%s state=%s",
 					ErrCircuitOpen, toolName, registry.State(toolName))), ErrCircuitOpen
 			}
 
-			// 2. 执行工具
 			result, err := next(ctx, args)
 
-			// 3. 记录成功/失败
 			if err != nil || !result.Success {
-				// 错误判断：context 取消和超时不算业务失败（不计入熔断）
 				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-					// 客户端取消/超时，不影响熔断状态
 					return result, err
 				}
 				registry.RecordFailure(toolName)
@@ -301,7 +259,6 @@ func CircuitBreakerDecorator(registry *CircuitBreakerRegistry) ToolDecorator {
 	}
 }
 
-// ===== 内存熔断器（用于测试和 NoOp 场景）=====
 
 // NoOpCircuitBreakerRegistry 空操作熔断器（不进行任何熔断）
 // 用于不需要熔断的场景（如单元测试、低频调用工具）
@@ -313,3 +270,4 @@ func (NoOpCircuitBreakerRegistry) RecordFailure(toolName string)      {}
 func (NoOpCircuitBreakerRegistry) State(toolName string) CircuitState { return CircuitClosed }
 func (NoOpCircuitBreakerRegistry) AllStates() map[string]CircuitState { return nil }
 func (NoOpCircuitBreakerRegistry) Config() CircuitBreakerConfig       { return DefaultCircuitBreakerConfig() }
+

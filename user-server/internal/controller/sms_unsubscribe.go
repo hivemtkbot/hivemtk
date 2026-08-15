@@ -147,7 +147,6 @@ func (c *SmsUnsubscribeController) ExportUnsubscribes(ctx *gin.Context) {
 	ctx.Header("Content-Type", "text/csv; charset=utf-8")
 	ctx.Header("Content-Disposition", "attachment; filename=sms_unsubscribes.csv")
 
-	// 写入 UTF-8 BOM，保证 Excel 正确识别中文
 	_, _ = ctx.Writer.Write([]byte{0xEF, 0xBB, 0xBF})
 
 	w := csv.NewWriter(ctx.Writer)
@@ -173,3 +172,4 @@ func (c *SmsUnsubscribeController) RegisterRoutes(public *gin.RouterGroup, authe
 		authed.GET("/sms/unsubscribe/export", c.ExportUnsubscribes)
 	}
 }
+

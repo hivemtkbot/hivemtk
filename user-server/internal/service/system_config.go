@@ -23,7 +23,6 @@ func NewSystemConfigService() *SystemConfigService {
 func (s *SystemConfigService) GetConfig(ctx context.Context) (*model.SystemConfig, error) {
 	config, err := s.repo.GetConfig(ctx)
 	if err != nil {
-		// 没有数据时返回默认配置
 		return s.defaultConfig(ctx), nil
 	}
 	return config, nil
@@ -34,15 +33,12 @@ func (s *SystemConfigService) SaveConfig(ctx context.Context, config *model.Syst
 	if config == nil {
 		return nil, gorm.ErrInvalidData
 	}
-	// 私域部署:MaxUsers 兼容旧字段,固定 0 表示不限制用户数
 	if config.MaxUsers < 0 {
 		config.MaxUsers = 0
 	}
-	// 兜底:上传文件大小
 	if config.MaxUploadSizeMB <= 0 {
 		config.MaxUploadSizeMB = 50
 	}
-	// 兜底:主题色
 	if config.ThemeColor == "" {
 		config.ThemeColor = "#409EFF"
 	}
@@ -88,8 +84,8 @@ func (s *SystemConfigService) defaultConfig(ctx context.Context) *model.SystemCo
 		EnableEmailMarketing: true,
 		EnableRAG:            true,
 		MaintenanceMode:      false,
-		// 私域独立部署:不限制用户数(MaxUsers 保留为兼容字段,固定 0)
 		MaxUsers:          0,
 		MaxUploadSizeMB:   50,
 	}
 }
+

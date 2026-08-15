@@ -18,7 +18,6 @@ func TestUserController_GetUserList_Success(t *testing.T) {
 	router := setupGinEngine()
 	router.GET("/users", ctrl.GetUserList)
 
-	// 创建测试用户
 	user := model.User{
 		Username: "testuser",
 		Email:    "test@example.com",
@@ -331,7 +330,6 @@ func TestUserController_Login_Success(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/users/login", ctrl.Login)
 
-	// 创建测试用户
 	user := model.User{
 		Username: "testuser",
 		Password: "password123",
@@ -363,7 +361,6 @@ func TestUserController_Login_WrongPassword(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/users/login", ctrl.Login)
 
-	// 创建测试用户
 	user := model.User{
 		Username: "testuser",
 		Password: "correctpassword",
@@ -412,7 +409,6 @@ func TestUserController_Login_NonExistentUser(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/users/login", ctrl.Login)
 
-	// 创建第一个用户
 	firstUser := model.User{
 		Username: "existinguser",
 		Password: "password123",
@@ -443,7 +439,6 @@ func TestUserController_Login_DisabledUser(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/users/login", ctrl.Login)
 
-	// 创建第一个用户
 	firstUser := model.User{
 		Username: "admin",
 		Password: "admin123",
@@ -451,7 +446,6 @@ func TestUserController_Login_DisabledUser(t *testing.T) {
 	}
 	database.Create(&firstUser)
 
-	// 创建禁用状态的用户
 	disabledUser := model.User{
 		Username: "disableduser",
 		Password: "password123",
@@ -474,3 +468,4 @@ func TestUserController_Login_DisabledUser(t *testing.T) {
 		t.Errorf("Expected status Unauthorized, got %d", w.Code)
 	}
 }
+

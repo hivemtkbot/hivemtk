@@ -68,3 +68,4 @@ type EmailJobMetric struct {
 func (*EmailJobMetric) TableName() string {
 	return "email_job_metrics"
 }
+

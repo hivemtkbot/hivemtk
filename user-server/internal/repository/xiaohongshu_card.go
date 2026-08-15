@@ -66,21 +66,17 @@ func (r *xiaohongshuCardRepository) GetList(ctx context.Context, req CardListFil
 	var cards []model.XiaohongshuCard
 	var total int64
 
-	// 基础查询
 	query := r.db.Model(&model.XiaohongshuCard{})
 
-	// 关键词搜索（标题、描述、标签）
 	if req.Keyword != "" {
 		query = query.Where("title LIKE ? OR description LIKE ? OR tags LIKE ?",
 			"%"+req.Keyword+"%", "%"+req.Keyword+"%", "%"+req.Keyword+"%")
 	}
 
-	// 状态筛选
 	if req.IsActive != nil {
 		query = query.Where("is_active = ?", *req.IsActive)
 	}
 
-	// 分页
 	if req.Page > 0 && req.PageSize > 0 {
 		offset := (req.Page - 1) * req.PageSize
 		query = query.Offset(offset).Limit(req.PageSize)
@@ -108,7 +104,6 @@ func (r *xiaohongshuCardRepository) IncrementViewCount(ctx context.Context, id u
 		return nil, err
 	}
 
-	// 重新获取更新后的数据
 	if err := r.db.First(&card, id).Error; err != nil {
 		return nil, err
 	}
@@ -125,3 +120,4 @@ func (r *xiaohongshuCardRepository) CreateActivity(ctx context.Context, activity
 func (r *xiaohongshuCardRepository) UpdateShortLinkID(ctx context.Context, id uint, shortLinkID *uint) error {
 	return r.db.Model(&model.XiaohongshuCard{}).Where("id = ?", id).Update("short_link_id", shortLinkID).Error
 }
+

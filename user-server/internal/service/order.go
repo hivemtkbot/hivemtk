@@ -89,3 +89,4 @@ func (s *OrderService) UpdateOrderStatusById(ctx context.Context, id string, sta
 func (s *OrderService) UpdateOrder(ctx context.Context, order *model.Order) error {
 	return s.repo.Update(ctx, order)
 }
+

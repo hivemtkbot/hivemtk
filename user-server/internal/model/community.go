@@ -25,8 +25,8 @@ type CommunityMember struct {
 	GroupID   string    `gorm:"type:varchar(36);not null;index" json:"group_id"`
 	Name      string    `gorm:"type:varchar(255);not null" json:"name"`
 	Username  string    `gorm:"type:varchar(255);not null;index" json:"username"`
-	Role      string    `gorm:"type:varchar(50);default:'member'" json:"role"`   // admin, member, moderator
-	Status    string    `gorm:"type:varchar(50);default:'active'" json:"status"` // active, inactive, banned
+	Role      string    `gorm:"type:varchar(50);default:'member'" json:"role"`   
+	Status    string    `gorm:"type:varchar(50);default:'active'" json:"status"` 
 	JoinDate  time.Time `json:"join_date"`
 	LastSeen  time.Time `json:"last_seen"`
 	CreatedAt time.Time `json:"created_at"`
@@ -45,7 +45,7 @@ type CommunityMessage struct {
 	UserID      string    `gorm:"type:varchar(36);not null;index" json:"user_id"`
 	UserName    string    `gorm:"type:varchar(255);not null" json:"user_name"`
 	Content     string    `gorm:"type:text;not null" json:"content"`
-	MessageType string    `gorm:"type:varchar(50);default:'text'" json:"message_type"` // text, image, video, file
+	MessageType string    `gorm:"type:varchar(50);default:'text'" json:"message_type"` 
 	Timestamp   time.Time `json:"timestamp"`
 	CreatedAt   time.Time `json:"created_at"`
 }
@@ -54,3 +54,4 @@ type CommunityMessage struct {
 func (CommunityMessage) TableName() string {
 	return "community_messages"
 }
+

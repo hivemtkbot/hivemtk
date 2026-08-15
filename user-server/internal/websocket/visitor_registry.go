@@ -46,3 +46,4 @@ func getVisitorClient(sessionID string) *Client {
 func IsVisitorOnline(sessionID string) bool {
 	return getVisitorClient(sessionID) != nil
 }
+

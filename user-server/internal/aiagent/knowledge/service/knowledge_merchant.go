@@ -19,13 +19,12 @@ import (
 //  5. TokenService          外部 API Token 管理              → knowledge_merchant_token.go
 //  6. ExternalImportService 外部系统接入（飞书/Notion/通用 JSON） → knowledge_merchant_external.go
 type KnowledgeMerchantService struct {
-	db        *gorm.DB // 保留以维持 GetDB() 兼容（测试和过渡场景）
+	db        *gorm.DB 
 	kbService *KnowledgeService
 	ragSearch *RagSearcher
 	docRepo   *repository.KnowledgeDocumentRepository
 	chunkRepo *repository.KnowledgeChunkRepository
 	prodRepo  *repository.RagConfigRepository
-	// 新增：商户 RAG 业务专属仓储
 	searchLogRepo *repository.KnowledgeSearchLogRepository
 	feedbackRepo  *repository.KnowledgeFeedbackRepository
 	tokenRepo     *repository.KnowledgeAPITokenRepository
@@ -89,3 +88,4 @@ func (s *KnowledgeMerchantService) ensureReposFromDB() {
 		s.externalRepo = repository.NewExternalImportJobRepository(s.db)
 	}
 }
+

@@ -6,18 +6,6 @@ import (
 	"hivemtk-user/internal/event"
 )
 
-// ============================================================================
-// Publisher 事件发布器
-// ----------------------------------------------------------------------------
-// 设计依据: §2.2
-// 用途:Channel Adapter(webhook 层)在收到消息后,调用本发布器发布事件
-//       AgentRuntime.EventSubscriber 订阅并处理
-//
-// 优势:
-//   1. Channel Adapter 不需要知道 AI 引擎存在
-//   2. 新增渠道无需修改 AI 代码,只需 publish 事件
-//   3. Event Bus 是天然的可观测点
-// ============================================================================
 
 // PublishCustomerMessage 发布客户消息事件
 //
@@ -81,3 +69,4 @@ func PublishCustomerMessageWithType(channelType, accountID, customerID, sessionI
 	event.Publish(event.TopicCustomerMessageReceived, payload)
 	return traceID
 }
+

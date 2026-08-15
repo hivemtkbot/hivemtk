@@ -76,7 +76,6 @@ func TestCommunityRepository_New(t *testing.T) {
 	}
 }
 
-// ==================== Group Tests ====================
 
 func TestCommunityRepository_CreateGroup(t *testing.T) {
 	db := setupCommunityTestDB(t)
@@ -307,7 +306,6 @@ func TestCommunityRepository_DeleteGroup_NotFound(t *testing.T) {
 	}
 }
 
-// ==================== Member Tests ====================
 
 func TestCommunityRepository_AddMember(t *testing.T) {
 	db := setupCommunityTestDB(t)
@@ -334,7 +332,6 @@ func TestCommunityRepository_AddMember(t *testing.T) {
 		t.Error("Expected non-empty ID after add")
 	}
 
-	// Check member count updated
 	fetchedGroup, _ := repo.GetGroupByID(context.Background(), group.ID)
 	if fetchedGroup.MemberCount != 1 {
 		t.Errorf("Expected MemberCount 1, got %d", fetchedGroup.MemberCount)
@@ -358,7 +355,6 @@ func TestCommunityRepository_AddMember_DuplicateUsername(t *testing.T) {
 	}
 	repo.AddMember(context.Background(), member)
 
-	// Try to add duplicate
 	member2 := &model.CommunityMember{
 		ID:       uuid.New().String(),
 		GroupID:  group.ID,
@@ -415,7 +411,6 @@ func TestCommunityRepository_GetMembers(t *testing.T) {
 
 	group := createGroup(t, repo, "Test Group", "Test description")
 
-	// Add 10 members
 	for i := 0; i < 10; i++ {
 		createMember(t, repo, group.ID, "Member "+string(rune('0'+i)), "user"+string(rune('0'+i)), "member", "active")
 	}
@@ -510,7 +505,6 @@ func TestCommunityRepository_RemoveMember(t *testing.T) {
 		t.Fatalf("RemoveMember failed: %v", err)
 	}
 
-	// Check member count updated
 	fetchedGroup, _ := repo.GetGroupByID(context.Background(), group.ID)
 	if fetchedGroup.MemberCount != 0 {
 		t.Errorf("Expected MemberCount 0 after removal, got %d", fetchedGroup.MemberCount)
@@ -528,7 +522,6 @@ func TestCommunityRepository_RemoveMember_NotFound(t *testing.T) {
 	}
 }
 
-// ==================== Message Tests ====================
 
 func TestCommunityRepository_AddMessage(t *testing.T) {
 	db := setupCommunityTestDB(t)
@@ -593,7 +586,6 @@ func TestCommunityRepository_GetMessages(t *testing.T) {
 
 	group := createGroup(t, repo, "Test Group", "Test description")
 
-	// Add 10 messages
 	for i := 0; i < 10; i++ {
 		createMessage(t, repo, group.ID, "user"+string(rune('0'+i)), "user"+string(rune('0'+i)), "Message "+string(rune('0'+i)), "text")
 	}
@@ -638,16 +630,13 @@ func TestCommunityRepository_GetMessages_DifferentGroup(t *testing.T) {
 
 	repo := NewCommunityRepository(db)
 
-	// Create two groups
 	group1 := createGroup(t, repo, "Group 1", "Description 1")
 	group2 := createGroup(t, repo, "Group 2", "Description 2")
 
-	// Add messages to group1
 	for i := 0; i < 5; i++ {
 		createMessage(t, repo, group1.ID, "user"+string(rune('0'+i)), "user"+string(rune('0'+i)), "Group 1 Message "+string(rune('0'+i)), "text")
 	}
 
-	// Add messages to group2
 	for i := 0; i < 3; i++ {
 		createMessage(t, repo, group2.ID, "user"+string(rune('a'+i)), "user"+string(rune('a'+i)), "Group 2 Message "+string(rune('a'+i)), "text")
 	}
@@ -666,23 +655,19 @@ func TestCommunityRepository_GetMessages_DifferentGroup(t *testing.T) {
 	}
 }
 
-// ==================== Statistics Tests ====================
 
 func TestCommunityRepository_GetStatistics(t *testing.T) {
 	db := setupCommunityTestDB(t)
 
 	repo := NewCommunityRepository(db)
 
-	// Create groups
 	group1 := createGroup(t, repo, "Group 1", "Description 1")
 	group2 := createGroup(t, repo, "Group 2", "Description 2")
 
-	// Add members
 	createMember(t, repo, group1.ID, "Member 1", "member1", "member", "active")
 	createMember(t, repo, group1.ID, "Member 2", "member2", "member", "active")
 	createMember(t, repo, group2.ID, "Member 3", "member3", "member", "active")
 
-	// Add messages
 	createMessage(t, repo, group1.ID, "user123", "testuser", "Hello!", "text")
 
 	stats, err := repo.GetStatistics(context.Background())
@@ -725,3 +710,4 @@ func TestCommunityRepository_GetStatistics_Empty(t *testing.T) {
 		t.Errorf("Expected total_messages 0, got %v", (*stats)["total_messages"])
 	}
 }
+

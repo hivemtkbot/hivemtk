@@ -1,15 +1,5 @@
 package repository
 
-// champion_dialogue.go 反馈闭环 - 销冠对话域仓储方法
-//
-// 五层架构归属: L3 仓储层
-// 设计依据: docs/核心链路优化.md 第十七章 §17.4.2
-//
-// 职责：封装 champion_dialogues 表的写入（含 pgvector 原生 SQL）
-//        + script_templates 表的回流写入 + feedback_signals 聚合查询
-//
-// 说明：本文件方法挂载在 FeedbackLoopRepository 上（与 feedback_loop_repository.go 同结构体），
-//        按业务域拆分文件便于维护，不引入新的仓储结构体。
 
 import (
 	"context"
@@ -70,7 +60,7 @@ type ChampionDialoguePersist struct {
 	Scenario           string
 	CustomerMsg        string
 	ChampionReply      string
-	EmbeddingLiteral   string // pgvector 字面量 '[v1,v2,...]'
+	EmbeddingLiteral   string 
 	ClusterID          uint
 	Reward             float64
 	ConversionAchieved bool
@@ -142,3 +132,4 @@ func (r *FeedbackLoopRepository) InsertScriptTemplate(ctx context.Context, categ
 		category, title, content, tags, effectivenessScore,
 		effectivenessScore, tags, journeyStage, championDialogueID).Error
 }
+

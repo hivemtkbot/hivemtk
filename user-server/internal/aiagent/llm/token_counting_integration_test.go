@@ -32,7 +32,6 @@ func TestIntegration_TokenSourceActual(t *testing.T) {
 		t.Skip("PG_PASSWORD not set, skipping integration test")
 	}
 
-	// 1. 连接 PostgreSQL 并注入 auditDB（端口 8232 单一源：config.DefaultDBPortDev）
 	dsn := fmt.Sprintf("host=127.0.0.1 port=%d user=admin password=%s dbname=user_db sslmode=disable",
 		config.DefaultDBPortDev, pgPassword)
 	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -44,20 +43,17 @@ func TestIntegration_TokenSourceActual(t *testing.T) {
 
 	ResetTokenSourceStats()
 
-	// 2. 构造一个 actual 路径的 LogEntry（模拟 LLM 返回真实 usage）
 	provider := &ProviderConfig{
 		Name:    "default",
-		BaseURL: config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
-		Model:   "Qwen2.5-1.5B-Instruct",     // dev 档契约
+		BaseURL: config.DefaultLLMBaseURLDev, 
+		Model:   "Qwen2.5-1.5B-Instruct",     
 	}
 	traceID := fmt.Sprintf("integration-test-%d", time.Now().UnixNano())
 	entry := NewLogEntry(ScenarioSOPReply, provider, "Qwen2.5-1.5B-Instruct",
 		30, 9, 39, 0.0, 150, true, "", false, false, traceID, "你好", SourceDispatch)
 
-	// 3. 落库
 	LogRoutingDecision(context.Background(), entry)
 
-	// 4. 查询 llm_routing_logs 表验证字段填充
 	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		t.Fatalf("create pgxpool failed: %v", err)
@@ -90,7 +86,6 @@ func TestIntegration_TokenSourceActual(t *testing.T) {
 		t.Fatalf("query llm_routing_logs failed: %v", err)
 	}
 
-	// 5. 断言：token_source 必须为 actual（因为传入了 totalTokens=39 > 0）
 	if gotTokenSource != TokenSourceActual {
 		t.Errorf("token_source = %q, want %q", gotTokenSource, TokenSourceActual)
 	}
@@ -121,7 +116,6 @@ func TestIntegration_TokenSourceActual(t *testing.T) {
 		gotTokenSource, gotModelType, gotVendor,
 		gotPromptTokens, gotCompletionTokens, gotTotalTokens)
 
-	// 6. 验证计数器
 	total, missing := GetTokenSourceStats()
 	if total != 1 {
 		t.Errorf("counter total = %d, want 1", total)
@@ -157,12 +151,10 @@ func TestIntegration_TokenSourceMissing(t *testing.T) {
 		Model:   "deepseek-chat",
 	}
 	traceID := fmt.Sprintf("integration-missing-%d", time.Now().UnixNano())
-	// 失败调用：无 content，isFallback=true
 	entry := NewLogEntry(ScenarioObjection, provider, "deepseek-chat",
 		0, 0, 0, 0, 0, false, "timeout", false, true, traceID, "", SourceFallback)
 	LogRoutingDecision(context.Background(), entry)
 
-	// 查询验证
 	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		t.Fatalf("create pgxpool failed: %v", err)
@@ -208,3 +200,4 @@ func TestIntegration_TokenSourceMissing(t *testing.T) {
 		t.Errorf("counter: total=%d missing=%d, want (1, 1)", total, missing)
 	}
 }
+

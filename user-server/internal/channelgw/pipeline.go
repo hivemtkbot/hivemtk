@@ -66,3 +66,4 @@ func (p *ingressPipeline) AckOutbound(ctx context.Context, channel, accountID st
 	}
 	return p.ingress.AckOutboundDelivered(ctx, channel, accountID, msgIDs)
 }
+

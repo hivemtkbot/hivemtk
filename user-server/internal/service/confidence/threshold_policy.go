@@ -1,15 +1,5 @@
 package confidence
 
-// threshold_policy.go 动态阈值策略引擎
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.4.8
-//
-// 公式：T = base[intent] + α*customer_level + β*timeslot + γ*agent_availability
-// 最终 clip 到 [0.4, 0.95]
-//
-// 策略加载：启动时从 DB 加载所有 active 策略到内存
-// 热更新：运营后台调 UpdatePolicy 后内存同步更新（不重启服务）
 
 import (
 	"context"
@@ -22,7 +12,7 @@ import (
 // ThresholdPolicyEngine 动态阈值策略引擎
 type ThresholdPolicyEngine struct {
 	mu       sync.RWMutex
-	policies map[string]*model.ThresholdPolicy // key: intent_type
+	policies map[string]*model.ThresholdPolicy 
 	repo     *repository.ThresholdPolicyRepository
 }
 
@@ -39,13 +29,11 @@ func NewThresholdPolicyEngine(repo *repository.ThresholdPolicyRepository) *Thres
 // 启动时调用一次，后续热更新通过 UpdatePolicy
 func (e *ThresholdPolicyEngine) LoadPolicies(ctx context.Context) error {
 	if e.repo == nil {
-		// 无 DB 时加载默认策略
 		e.loadDefaults()
 		return nil
 	}
 	policies, err := e.repo.ListActive(ctx)
 	if err != nil {
-		// DB 错误时降级到默认策略
 		e.loadDefaults()
 		return err
 	}
@@ -56,7 +44,6 @@ func (e *ThresholdPolicyEngine) LoadPolicies(ctx context.Context) error {
 		p := policies[i]
 		e.policies[p.IntentType] = &p
 	}
-	// 确保 default 策略存在
 	if _, ok := e.policies["default"]; !ok {
 		e.policies["default"] = defaultPolicy()
 	}
@@ -140,3 +127,4 @@ func (e *ThresholdPolicyEngine) AllPolicies() []model.ThresholdPolicy {
 	}
 	return result
 }
+

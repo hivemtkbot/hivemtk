@@ -12,39 +12,18 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// customer_tools.go 客户工具实现（PRD §5.2）
-//
-// 8 个客户工具：
-//   1. customer.search   - 按身份标识搜索客户
-//   2. customer.get      - 按 ID 获取客户详情（含 360 视图）
-//   3. customer.create   - 创建新客户
-//   4. customer.update   - 更新客户基本信息
-//   5. customer.merge    - 合并两个客户（OneID）
-//   6. customer.add_tag  - 给客户添加标签
-//   7. customer.remove_tag - 移除客户标签
-//   8. customer.segment  - 按 tag/RFM/churn_risk 等条件分群
-//
-// 所有方法统一走 portcontract.CustomerPort。
-// 装配期通过 CustomerToolDeps.Customer
-// 强制注入 Port Adapter；nil 时工具返回 "port not injected" 错误。
 
 // errInvalidCustomer 客户身份参数缺失错误
 var errInvalidCustomer = errors.New("至少需要提供一种身份标识（phone/email/wechat_open_id/douyin_open_id/xiaohongshu_id）")
 
-// ===== 客户工具依赖 =====
 
 // CustomerToolDeps 客户工具依赖
 //
 // 仅依赖 portcontract.CustomerPort + CustomerDataStore 端口 + *gorm.DB。
 // 工具层不 import service 包以避免反向依赖；错误码用 portcontract.ErrCustomerNotFound sentinel。
 type CustomerToolDeps struct {
-	// Customer 客户域 Port（必需，由装配层注入）。
-	// 由 service.CustomerPortAdapter 注入；nil 时所有依赖客户的工具
-	// 返回 "port not injected" 错误。
 	Customer portcontract.CustomerPort
-	// CustomerRepo 客户数据访问端口（用于 search / update 等直接查询，装配层注入）
 	CustomerRepo CustomerDataStore
-	// DB 原生 *gorm.DB（用于 search / segment 等直接 SQL）
 	DB *gorm.DB
 }
 
@@ -115,7 +94,6 @@ func MustRegisterCustomerTools(registry *ToolRegistry, deps CustomerToolDeps) {
 	}
 }
 
-// ===== 工具 1：customer.search =====
 
 // CustomerSearchTool 按身份标识搜索客户
 type CustomerSearchTool struct {
@@ -141,7 +119,6 @@ func NewCustomerSearchTool(deps CustomerToolDeps) *CustomerSearchTool {
 					"limit":          {Type: "integer", Description: "返回数量上限（默认 20，最大 100）", Default: 20},
 				},
 			},
-			// 至少一个身份标识
 		},
 		deps: deps,
 	}
@@ -162,12 +139,10 @@ func (t *CustomerSearchTool) Execute(ctx context.Context, args map[string]any) (
 		limit = 100
 	}
 
-	// 至少一个身份标识
 	if phone == "" && email == "" && wechat == "" && douyin == "" && xhs == "" {
 		return ErrorResult(t.Name(), errors.New("至少需要提供一个身份标识参数")), errors.New("至少需要提供一个身份标识参数")
 	}
 
-	// 优先用 FindByIdentity
 	customer, err := t.deps.CustomerRepo.FindByIdentity(ctx, phone, email, wechat, douyin)
 	if err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -178,12 +153,9 @@ func (t *CustomerSearchTool) Execute(ctx context.Context, args map[string]any) (
 		results = append(results, customer)
 	}
 
-	// 补充按小红书 ID 搜索（FindByIdentity 不支持 xhs）
-	// 通过 repository.CustomerRepository.GetByXiaohongshuID 访问
 	if xhs != "" && t.deps.CustomerRepo != nil {
 		xhsCustomer, err := t.deps.CustomerRepo.GetByXiaohongshuID(ctx, xhs)
 		if err == nil && xhsCustomer != nil && xhsCustomer.ID != "" {
-			// 去重
 			dupe := false
 			for _, c := range results {
 				if c.ID == xhsCustomer.ID {
@@ -197,7 +169,6 @@ func (t *CustomerSearchTool) Execute(ctx context.Context, args map[string]any) (
 		}
 	}
 
-	// 限制返回数量
 	if len(results) > limit {
 		results = results[:limit]
 	}
@@ -208,7 +179,6 @@ func (t *CustomerSearchTool) Execute(ctx context.Context, args map[string]any) (
 	}), nil
 }
 
-// ===== 工具 2：customer.get =====
 
 // CustomerGetTool 获取客户详情（含 360 视图）
 type CustomerGetTool struct {
@@ -272,14 +242,13 @@ func (t *CustomerGetTool) Execute(ctx context.Context, args map[string]any) (Too
 
 // fetchCustomerProfile 拉取客户 360 视图（仅走 portcontract.CustomerPort）
 func (t *CustomerGetTool) fetchCustomerProfile(ctx context.Context, customerID string) (*portcontract.CustomerProfileView, error) {
-	_ = ctx // Port 接口无 ctx 参数,保留入参仅作未来扩展位
+	_ = ctx 
 	if t.deps.Customer == nil {
 		return nil, errors.New("CustomerPort not injected")
 	}
 	return t.deps.Customer.GetCustomerProfile(customerID)
 }
 
-// ===== 工具 3：customer.create =====
 
 // CustomerCreateTool 创建客户
 type CustomerCreateTool struct {
@@ -332,7 +301,6 @@ func (t *CustomerCreateTool) Execute(ctx context.Context, args map[string]any) (
 	return SuccessResult(t.Name(), customer), nil
 }
 
-// ===== 工具 4：customer.update =====
 
 // CustomerUpdateTool 更新客户基本信息
 type CustomerUpdateTool struct {
@@ -379,7 +347,6 @@ func (t *CustomerUpdateTool) Execute(ctx context.Context, args map[string]any) (
 		return ErrorResult(t.Name(), portcontract.ErrCustomerNotFound), portcontract.ErrCustomerNotFound
 	}
 
-	// 仅更新非空字段
 	if v := getArgString(args, "phone"); v != "" {
 		customer.Phone = v
 	}
@@ -396,7 +363,6 @@ func (t *CustomerUpdateTool) Execute(ctx context.Context, args map[string]any) (
 		customer.XiaohongshuID = v
 	}
 
-	// 重新生成 UnifiedID
 	customer.UnifiedID = model.GenerateCustomerUnifiedID(customer)
 
 	if err := t.deps.CustomerRepo.Update(ctx, customer); err != nil {
@@ -405,7 +371,6 @@ func (t *CustomerUpdateTool) Execute(ctx context.Context, args map[string]any) (
 	return SuccessResult(t.Name(), customer), nil
 }
 
-// ===== 工具 5：customer.merge =====
 
 // CustomerMergeTool 合并两个客户（OneID）
 type CustomerMergeTool struct {
@@ -456,7 +421,6 @@ func (t *CustomerMergeTool) Execute(ctx context.Context, args map[string]any) (T
 	}), nil
 }
 
-// ===== 工具 6：customer.add_tag =====
 
 // CustomerAddTagTool 给客户添加标签
 type CustomerAddTagTool struct {
@@ -511,7 +475,6 @@ func (t *CustomerAddTagTool) Execute(ctx context.Context, args map[string]any) (
 		return ErrorResult(t.Name(), err), err
 	}
 
-	// 返回更新后的客户标签
 	customer, _ := t.deps.CustomerRepo.GetByID(ctx, customerID)
 	var currentTags []string
 	if customer != nil {
@@ -524,7 +487,6 @@ func (t *CustomerAddTagTool) Execute(ctx context.Context, args map[string]any) (
 	}), nil
 }
 
-// ===== 工具 7：customer.remove_tag =====
 
 // CustomerRemoveTagTool 移除客户标签
 type CustomerRemoveTagTool struct {
@@ -579,7 +541,6 @@ func (t *CustomerRemoveTagTool) Execute(ctx context.Context, args map[string]any
 		return ErrorResult(t.Name(), err), err
 	}
 
-	// 返回更新后的客户标签
 	customer, _ := t.deps.CustomerRepo.GetByID(ctx, customerID)
 	var currentTags []string
 	if customer != nil {
@@ -592,7 +553,6 @@ func (t *CustomerRemoveTagTool) Execute(ctx context.Context, args map[string]any
 	}), nil
 }
 
-// ===== 工具 8：customer.segment =====
 
 // CustomerSegmentTool 按条件分群客户
 type CustomerSegmentTool struct {
@@ -673,7 +633,6 @@ func (t *CustomerSegmentTool) Execute(ctx context.Context, args map[string]any) 
 		pageSize = 100
 	}
 
-	// 构造分群过滤条件（装配层适配器转换为 repository 层入参）
 	filter := CustomerSegmentFilter{
 		Page:     page,
 		PageSize: pageSize,
@@ -716,7 +675,6 @@ func (t *CustomerSegmentTool) Execute(ctx context.Context, args map[string]any) 
 	}), nil
 }
 
-// ===== 辅助函数 =====
 
 // getArgString 安全获取 string 参数（不存在返回空字符串，不报错）
 func getArgString(args map[string]any, key string) string {
@@ -733,7 +691,6 @@ func getArgStringSlice(args map[string]any, key string) []string {
 	if !ok || v == nil {
 		return nil
 	}
-	// JSON 反序列化后是 []interface{}
 	if arr, ok := v.([]any); ok {
 		out := make([]string, 0, len(arr))
 		for _, item := range arr {
@@ -743,11 +700,9 @@ func getArgStringSlice(args map[string]any, key string) []string {
 		}
 		return out
 	}
-	// 直接是 []string
 	if arr, ok := v.([]string); ok {
 		return arr
 	}
-	// 尝试从 JSON 字符串解析
 	if s, ok := v.(string); ok && s != "" {
 		var arr []string
 		if err := json.Unmarshal([]byte(s), &arr); err == nil {
@@ -775,5 +730,4 @@ func GetIntArgSafe(args map[string]any, key string) (int, bool) {
 	return 0, false
 }
 
-// escapeJSONString 由 repository 包（customer_repository.go）实现，
-// CustomerRepository.SearchByFilter 内部使用，本包不再需要。
+

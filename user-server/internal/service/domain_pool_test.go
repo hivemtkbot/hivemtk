@@ -96,13 +96,11 @@ func TestDomainPoolService_Create_DuplicateDomain(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	// 创建第一条记录
 	_, err := service.Create(context.Background(), "example.com", 8080, "API 服务")
 	if err != nil {
 		t.Fatalf("First Create failed: %v", err)
 	}
 
-	// 尝试创建重复域名
 	_, err = service.Create(context.Background(), "example.com", 9000, "其他服务")
 	if err == nil {
 		t.Error("Expected error for duplicate domain")
@@ -117,10 +115,8 @@ func TestDomainPoolService_Update(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	// 创建记录
 	created, _ := service.Create(context.Background(), "example.com", 8080, "API 服务")
 
-	// 更新记录
 	updated, err := service.Update(context.Background(), created.ID, "newexample.com", 9000, "新用途", 2)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
@@ -161,11 +157,9 @@ func TestDomainPoolService_Update_DuplicateDomain(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	// 创建两条记录
 	_, _ = service.Create(context.Background(), "example1.com", 8080, "服务 1")
 	created2, _ := service.Create(context.Background(), "example2.com", 9000, "服务 2")
 
-	// 尝试将第二条记录的域名更新为第一条的域名
 	_, err := service.Update(context.Background(), created2.ID, "example1.com", 9000, "服务 2", 1)
 	if err == nil {
 		t.Error("Expected error for duplicate domain")
@@ -207,16 +201,13 @@ func TestDomainPoolService_Delete(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	// 创建记录
 	created, _ := service.Create(context.Background(), "example.com", 8080, "API 服务")
 
-	// 删除记录
 	err := service.Delete(context.Background(), created.ID)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	// 验证已删除
 	_, err = service.GetByID(context.Background(), created.ID)
 	if err == nil {
 		t.Error("Expected error for deleted record")
@@ -239,10 +230,8 @@ func TestDomainPoolService_GetByID(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	// 创建记录
 	created, _ := service.Create(context.Background(), "example.com", 8080, "API 服务")
 
-	// 获取记录
 	retrieved, err := service.GetByID(context.Background(), created.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
@@ -275,13 +264,11 @@ func TestDomainPoolService_List(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	// 创建多条记录
 	for i := 0; i < 5; i++ {
 		domain := "example" + string(rune('0'+i)) + ".com"
 		_, _ = service.Create(context.Background(), domain, 8080, "服务"+string(rune('0'+i)))
 	}
 
-	// 获取列表
 	list, total, err := service.List(context.Background(), 1, 10, "", 0)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
@@ -300,12 +287,10 @@ func TestDomainPoolService_List_WithDomainFilter(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	// 创建多条记录
 	_, _ = service.Create(context.Background(), "test1.example.com", 8080, "服务 1")
 	_, _ = service.Create(context.Background(), "test2.example.com", 8080, "服务 2")
 	_, _ = service.Create(context.Background(), "other.com", 8080, "其他服务")
 
-	// 获取列表，使用域名过滤
 	list, total, err := service.List(context.Background(), 1, 10, "example", 0)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
@@ -324,14 +309,11 @@ func TestDomainPoolService_List_WithStatusFilter(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	// 创建不同状态的记录
-	_, _ = service.Create(context.Background(), "example1.com", 8080, "服务 1") // status 1
-	_, _ = service.Create(context.Background(), "example2.com", 8080, "服务 2") // status 1
+	_, _ = service.Create(context.Background(), "example1.com", 8080, "服务 1") 
+	_, _ = service.Create(context.Background(), "example2.com", 8080, "服务 2") 
 
-	// 手动更新一条记录的状态为 2
 	database.Model(&model.DomainPool{}).Where("domain = ?", "example2.com").Update("status", 2)
 
-	// 获取列表，使用状态过滤
 	list, total, err := service.List(context.Background(), 1, 10, "", 1)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
@@ -350,19 +332,16 @@ func TestDomainPoolService_List_Pagination(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	// 创建多条记录
 	for i := 0; i < 15; i++ {
 		domain := "example" + string(rune('0'+i%10)) + string(rune('0'+i/10)) + ".com"
 		_, _ = service.Create(context.Background(), domain, 8080, "服务")
 	}
 
-	// 获取第一页
 	list1, total1, err := service.List(context.Background(), 1, 10, "", 0)
 	if err != nil {
 		t.Fatalf("List page 1 failed: %v", err)
 	}
 
-	// 获取第二页
 	list2, _, err := service.List(context.Background(), 2, 10, "", 0)
 	if err != nil {
 		t.Fatalf("List page 2 failed: %v", err)
@@ -384,10 +363,8 @@ func TestDomainPoolService_CheckDomain(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	// 创建记录（使用一个可能无法访问的域名进行测试）
 	created, _ := service.Create(context.Background(), "nonexistent.invalid.domain", 80, "测试")
 
-	// 检查域名（应该返回 false，因为域名不存在）
 	accessible, err := service.CheckDomain(context.Background(), created.ID)
 	if err != nil {
 		t.Fatalf("CheckDomain failed: %v", err)
@@ -397,7 +374,6 @@ func TestDomainPoolService_CheckDomain(t *testing.T) {
 		t.Error("Expected domain to be inaccessible")
 	}
 
-	// 验证状态已更新为 2（不可访问）
 	updated, _ := service.GetByID(context.Background(), created.ID)
 	if updated.Status != 2 {
 		t.Errorf("Expected status 2 after check, got %d", updated.Status)
@@ -420,11 +396,9 @@ func TestDomainPoolService_CheckAllDomains(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	// 创建多条记录
 	_, _ = service.Create(context.Background(), "example1.invalid", 80, "测试 1")
 	_, _ = service.Create(context.Background(), "example2.invalid", 8080, "测试 2")
 
-	// 检查所有域名
 	results, err := service.CheckAllDomains(context.Background())
 	if err != nil {
 		t.Fatalf("CheckAllDomains failed: %v", err)
@@ -434,7 +408,6 @@ func TestDomainPoolService_CheckAllDomains(t *testing.T) {
 		t.Errorf("Expected 2 results, got %d", len(results))
 	}
 
-	// 验证所有结果都标记为不可访问（因为是无效域名）
 	for _, result := range results {
 		if result.Status != 2 {
 			t.Errorf("Expected status 2 for invalid domain, got %d", result.Status)
@@ -464,7 +437,6 @@ func TestDomainPoolService_Create_EmptyDomain(t *testing.T) {
 
 	_, err := service.Create(context.Background(), "", 8080, "API 服务")
 	if err != nil {
-		// 空域名可能被数据库唯一索引拒绝，这是可接受的
 		t.Logf("Empty domain rejected: %v", err)
 	}
 }
@@ -507,13 +479,11 @@ func TestDomainPoolService_List_LargePageSize(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	// 创建少量记录
 	for i := 0; i < 3; i++ {
 		domain := "example" + string(rune('0'+i)) + ".com"
 		_, _ = service.Create(context.Background(), domain, 8080, "服务")
 	}
 
-	// 使用大分页尺寸
 	list, total, err := service.List(context.Background(), 1, 1000, "", 0)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
@@ -534,7 +504,6 @@ func TestDomainPoolService_Update_LastCheck(t *testing.T) {
 
 	created, _ := service.Create(context.Background(), "example.com", 8080, "API 服务")
 
-	// 检查域名会更新 UpdatedAt
 	_, _ = service.CheckDomain(context.Background(), created.ID)
 
 	updated, _ := service.GetByID(context.Background(), created.ID)
@@ -614,3 +583,4 @@ func TestDomainPoolService_Create_SpecialCharactersInPurpose(t *testing.T) {
 		t.Errorf("Expected purpose %s, got %s", purpose, domainPool.Purpose)
 	}
 }
+

@@ -1,5 +1,3 @@
-//go:build permission_check
-// +build permission_check
 
 package service
 
@@ -82,8 +80,14 @@ func TestIsWriteRole(t *testing.T) {
 	if !IsWriteRole("admin") {
 		t.Error("admin should be write role")
 	}
-	if !IsWriteRole("manager") {
-		t.Error("manager should be write role")
+	if !IsWriteRole("customer_service") {
+		t.Error("customer_service should be write role")
+	}
+	if IsWriteRole("manager") {
+		t.Error("legacy manager should NOT be write role")
+	}
+	if IsWriteRole("staff") {
+		t.Error("staff should NOT be write role")
 	}
 	if IsWriteRole("viewer") {
 		t.Error("viewer should NOT be write role")
@@ -103,8 +107,9 @@ func TestIsReadOnlyRole(t *testing.T) {
 	}
 }
 
-// TestAssertCanOperateTeamUser 测试 TeamUser 操作权限
-func TestAssertCanOperateTeamUser(t *testing.T) {
+// TestAssertCanOperateSystemUser 测试 SystemUser 操作权限
+// 单租户迁移后 team_users 已合并进 system_users，此处覆盖生产函数 AssertCanOperateSystemUser。
+func TestAssertCanOperateSystemUser(t *testing.T) {
 	tests := []struct {
 		name         string
 		operatorID   uint
@@ -113,55 +118,53 @@ func TestAssertCanOperateTeamUser(t *testing.T) {
 		targetID     uint
 		wantErr      bool
 	}{
-		// admin 可以做任何操作
 		{name: "admin create", operatorID: 1, operatorRole: "admin", action: "create", targetID: 0, wantErr: false},
 		{name: "admin delete other", operatorID: 1, operatorRole: "admin", action: "delete", targetID: 5, wantErr: false},
 		{name: "admin reset_password other", operatorID: 1, operatorRole: "admin", action: "reset_password", targetID: 5, wantErr: false},
+		{name: "admin update other", operatorID: 1, operatorRole: "admin", action: "update", targetID: 5, wantErr: false},
 
-		// manager 仅能更新（不能 create/delete/reset）
 		{name: "manager update other", operatorID: 1, operatorRole: "manager", action: "update", targetID: 5, wantErr: false},
-		{name: "manager update self", operatorID: 5, operatorRole: "manager", action: "update", targetID: 5, wantErr: false},
 		{name: "manager create 拒绝", operatorID: 1, operatorRole: "manager", action: "create", targetID: 0, wantErr: true},
 		{name: "manager delete 拒绝", operatorID: 1, operatorRole: "manager", action: "delete", targetID: 5, wantErr: true},
 		{name: "manager reset 拒绝", operatorID: 1, operatorRole: "manager", action: "reset_password", targetID: 5, wantErr: true},
-		{name: "manager delete self 拒绝", operatorID: 5, operatorRole: "manager", action: "delete", targetID: 5, wantErr: true},
 
-		// viewer 任何操作都拒绝
+		{name: "customer_service update other", operatorID: 1, operatorRole: "customer_service", action: "update", targetID: 5, wantErr: false},
+		{name: "customer_service create 拒绝", operatorID: 1, operatorRole: "customer_service", action: "create", targetID: 0, wantErr: true},
+		{name: "customer_service delete 拒绝", operatorID: 1, operatorRole: "customer_service", action: "delete", targetID: 5, wantErr: true},
+
+		{name: "staff update 拒绝", operatorID: 1, operatorRole: "staff", action: "update", targetID: 5, wantErr: true},
 		{name: "viewer create 拒绝", operatorID: 1, operatorRole: "viewer", action: "create", targetID: 0, wantErr: true},
-		{name: "viewer update other 拒绝", operatorID: 1, operatorRole: "viewer", action: "update", targetID: 5, wantErr: true},
-		{name: "viewer update self 拒绝", operatorID: 5, operatorRole: "viewer", action: "update", targetID: 5, wantErr: true},
+		{name: "viewer update 拒绝", operatorID: 1, operatorRole: "viewer", action: "update", targetID: 5, wantErr: true},
 
-		// 空角色
 		{name: "空角色拒绝", operatorID: 1, operatorRole: "", action: "create", targetID: 0, wantErr: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := AssertCanOperateTeamUser(tt.operatorID, tt.operatorRole, tt.action, tt.targetID)
+			err := AssertCanOperateSystemUser(tt.operatorID, tt.operatorRole, tt.action, tt.targetID)
 			gotErr := err != nil
 			if gotErr != tt.wantErr {
-				t.Errorf("AssertCanOperateTeamUser(%d, %q, %q, %d) error = %v, wantErr = %v",
+				t.Errorf("AssertCanOperateSystemUser(%d, %q, %q, %d) error = %v, wantErr = %v",
 					tt.operatorID, tt.operatorRole, tt.action, tt.targetID, err, tt.wantErr)
 			}
 		})
 	}
 }
 
-// TestIsValidTeamUserRole 测试角色合法性校验
-func TestIsValidTeamUserRole(t *testing.T) {
-	valid := []string{"admin", "manager", "viewer"}
+// TestIsValidSystemUserRoleCode 测试 system_user 角色合法性校验
+func TestIsValidSystemUserRoleCode(t *testing.T) {
+	valid := []string{"admin", "customer_service", "staff"}
 	for _, r := range valid {
-		if !IsValidTeamUserRole(r) {
+		if !IsValidSystemUserRoleCode(r) {
 			t.Errorf("role %q should be valid", r)
 		}
 	}
-	invalid := []string{"", "super_admin", "operator", "sales", "user"}
+	invalid := []string{"", "super_admin", "manager", "viewer", "operator", "sales", "user"}
 	for _, r := range invalid {
-		if IsValidTeamUserRole(r) {
+		if IsValidSystemUserRoleCode(r) {
 			t.Errorf("role %q should NOT be valid", r)
 		}
 	}
 }
 
-// TestIsValidSystemUserRole 已在 model/system_user_test.go 中覆盖
-// 删除此重复测试（项目规则"不允许跳过"，重复测试应删除而非 t.Skip）
+

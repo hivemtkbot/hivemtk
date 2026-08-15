@@ -1,23 +1,5 @@
 package migrations
 
-// feedback_loop_migration.go 反馈学习闭环迁移 v3.0.0
-//
-// 五层架构归属: L5 数据层
-// 设计依据: docs/核心链路优化.md 第十七章 §17.3 表结构设计
-// 私域独立部署: 无 merchant_id / tenant_id 多租户字段
-//
-// 本迁移创建 反馈学习闭环所需的 6 张新表 + 2 张现有表扩展字段：
-//  新表 1. feedback_events    - 反馈事件流水（append-only）
-//  新表 2. feedback_signals   - 反馈信号聚合（按 session 唯一）
-//  新表 3. champion_dialogues - 销冠对话 + pgvector 向量
-//  新表 4. prompt_candidates  - Prompt 候选版本池
-//  新表 5. bandit_arms        - Thompson Sampling 臂状态
-//  新表 6. prompt_ab_tests    - A/B 测试配置与结果
-//  扩展 1. sop_agents         - 新增 use_bandit 字段
-//  扩展 2. script_templates   - 新增 source/effectiveness_score/trigger_keywords/journey_stage/champion_dialogue_id 字段
-//
-// 幂等性: 所有 DDL 使用 IF NOT EXISTS / IF NOT EXISTS column，可重入
-// 依赖: v1.x（sop_agents / script_tables 已创建）
 
 import (
 	"context"
@@ -57,42 +39,34 @@ func (m *FeedbackLoopMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 1. feedback_events 表
 	if err := m.createFeedbackEvents(ctx); err != nil {
 		return fmt.Errorf("create feedback_events 失败: %w", err)
 	}
 
-	// 2. feedback_signals 表
 	if err := m.createFeedbackSignals(ctx); err != nil {
 		return fmt.Errorf("create feedback_signals 失败: %w", err)
 	}
 
-	// 3. champion_dialogues 表（含 pgvector 索引）
 	if err := m.createChampionDialogues(ctx); err != nil {
 		return fmt.Errorf("create champion_dialogues 失败: %w", err)
 	}
 
-	// 4. prompt_candidates 表
 	if err := m.createPromptCandidates(ctx); err != nil {
 		return fmt.Errorf("create prompt_candidates 失败: %w", err)
 	}
 
-	// 5. bandit_arms 表
 	if err := m.createBanditArms(ctx); err != nil {
 		return fmt.Errorf("create bandit_arms 失败: %w", err)
 	}
 
-	// 6. prompt_ab_tests 表
 	if err := m.createPromptABTests(ctx); err != nil {
 		return fmt.Errorf("create prompt_ab_tests 失败: %w", err)
 	}
 
-	// 7. 扩展 sop_agents 表：新增 use_bandit 字段
 	if err := m.alterSOPAgents(ctx); err != nil {
 		return fmt.Errorf("alter sop_agents 失败: %w", err)
 	}
 
-	// 8. 扩展 script_templates 表：新增 source/effectiveness_score/trigger_keywords/journey_stage/champion_dialogue_id 字段
 	if err := m.alterScriptTemplates(ctx); err != nil {
 		return fmt.Errorf("alter script_templates 失败: %w", err)
 	}
@@ -162,7 +136,6 @@ func (m *FeedbackLoopMigration) createFeedbackSignals(ctx context.Context) error
 // createChampionDialogues 创建 champion_dialogues 表（含 pgvector 索引）
 func (m *FeedbackLoopMigration) createChampionDialogues(ctx context.Context) error {
 	stmts := []string{
-		// 先确保 pgvector 扩展已启用（首次执行可能未启用）
 		`CREATE EXTENSION IF NOT EXISTS vector`,
 		`CREATE TABLE IF NOT EXISTS champion_dialogues (
 			id                  BIGSERIAL PRIMARY KEY,
@@ -184,8 +157,6 @@ func (m *FeedbackLoopMigration) createChampionDialogues(ctx context.Context) err
 			extracted_at        TIMESTAMPTZ,
 			created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`,
-		// ivfflat 余弦相似度索引（lists=100，适合 ~10 万条规模）
-		// 注意：ivfflat 索引在空表上创建会警告，需有数据后 ANALYZE 才能生效；此处仅创建结构
 		`CREATE INDEX IF NOT EXISTS idx_champion_dialogues_embedding ON champion_dialogues USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)`,
 		`CREATE INDEX IF NOT EXISTS idx_champion_dialogues_cluster ON champion_dialogues(cluster_id, reward DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_champion_dialogues_scenario ON champion_dialogues(scenario, journey_stage, created_at)`,
@@ -295,7 +266,6 @@ func (m *FeedbackLoopMigration) createPromptABTests(ctx context.Context) error {
 
 // alterSOPAgents 扩展 sop_agents 表：新增 use_bandit 字段
 func (m *FeedbackLoopMigration) alterSOPAgents(ctx context.Context) error {
-	// PostgreSQL 不支持 IF NOT EXISTS column 子句，需要通过 DO 块 + information_schema 检查
 	stmt := `DO $$
 BEGIN
 	IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sop_agents' AND column_name = 'use_bandit') THEN
@@ -326,7 +296,6 @@ BEGIN
 		ALTER TABLE script_templates ADD COLUMN IF NOT EXISTS champion_dialogue_id BIGINT DEFAULT 0;
 	END IF;
 END $$`,
-		// 为话术来源 + 旅程阶段建立联合索引，便于 ScriptLookup 检索 champion_extract 类型话术
 		`CREATE INDEX IF NOT EXISTS idx_script_templates_source ON script_templates(source, journey_stage, effectiveness_score DESC)`,
 	}
 	return execAllFeedbackLoop(ctx, m.db, stmts)
@@ -339,7 +308,6 @@ END $$`,
 //   - sop_agents.use_bandit 字段删除（不丢业务数据）
 //   - script_templates 的扩展字段删除（不丢业务数据）
 func (m *FeedbackLoopMigration) Down(ctx context.Context) error {
-	// 先删除扩展字段（依赖原表存在）
 	stmts := []string{
 		`DROP INDEX IF EXISTS idx_script_templates_source`,
 		`ALTER TABLE script_templates DROP COLUMN IF EXISTS champion_dialogue_id`,
@@ -348,7 +316,6 @@ func (m *FeedbackLoopMigration) Down(ctx context.Context) error {
 		`ALTER TABLE script_templates DROP COLUMN IF EXISTS effectiveness_score`,
 		`ALTER TABLE script_templates DROP COLUMN IF EXISTS source`,
 		`ALTER TABLE sop_agents DROP COLUMN IF EXISTS use_bandit`,
-		// 再删除 6 张新表（依赖顺序：prompt_ab_tests/bandit_arms 依赖 prompt_candidates）
 		`DROP TABLE IF EXISTS prompt_ab_tests`,
 		`DROP TABLE IF EXISTS bandit_arms`,
 		`DROP TABLE IF EXISTS prompt_candidates`,
@@ -376,3 +343,4 @@ func execAllFeedbackLoop(ctx context.Context, db *gorm.DB, stmts []string) error
 
 // compile-time 接口断言
 var _ migration.Migration = (*FeedbackLoopMigration)(nil)
+

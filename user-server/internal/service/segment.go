@@ -48,7 +48,6 @@ func (s *SegmentService) RecomputeForCustomer(ctx context.Context, customerID st
 	if customerID == "" {
 		return nil
 	}
-	// 1. 失效分群缓存
 	if s.cache != nil {
 		segKey := fmt.Sprintf("segment:%s", customerID)
 		if err := s.cache.Delete(ctx, segKey); err != nil {
@@ -59,10 +58,10 @@ func (s *SegmentService) RecomputeForCustomer(ctx context.Context, customerID st
 			logger.Errorf("[F-P1-92] invalidate 360 cache %s error: %v", custKey, err)
 		}
 	}
-	// 2. 确认最新 RFM 分层已落库（best-effort 读取，不做写入）
 	if rfm, err := s.rfmRepo.GetByCustomerID(ctx, customerID); err == nil && rfm != nil {
 		logger.Infof("[F-P1-92] segment recompute confirmed customer=%s segment=%s composite=%d",
 			customerID, rfm.Segment, rfm.CompositeScore)
 	}
 	return nil
 }
+

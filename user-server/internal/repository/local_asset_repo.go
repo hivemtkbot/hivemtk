@@ -33,22 +33,12 @@ type LocalAssetRepository interface {
 	ListByTypeAndActive(ctx context.Context, assetType string) ([]*model.LocalAsset, error)
 	IncrementUseCount(ctx context.Context, id int64, delta int64) error
 	SetReportedUseCount(ctx context.Context, id int64, val int64) error
-	// AdvanceReportedUseCount 按 delta 累加 reported_use_count
-	// delta<=0 时为 no-op（幂等保护）
 	AdvanceReportedUseCount(ctx context.Context, id int64, delta int64) error
 
-	// FindActiveAssetIDByType 返回某类型下「生效中」(is_active=true 且未软删) 资产的 asset_id，
-	// 按最近同步时间取第一条。不存在时返回 ("", nil)。
 	FindActiveAssetIDByType(ctx context.Context, assetType string) (string, error)
 
-	// PurchaseAndSyncTx 封装「购买并同步」事务：upsert 资产主表 + upsert 数据 + 写同步日志。
-	// la 由 service 构造（含时间戳），repo 负责持久化；la.ID 在 upsert 命中冲突时由 repo 回填。
 	PurchaseAndSyncTx(ctx context.Context, la *model.LocalAsset, data []byte, syncLog *model.LocalAssetSyncLog) error
-	// SyncDataTx 封装「同步最新版本」事务：保存资产主表 + upsert 数据 + 写成功日志。
-	// la 由 service 预先置入新 Version/SyncedAt；syncLog 由 service 构造，repo 在事务内创建。
 	SyncDataTx(ctx context.Context, la *model.LocalAsset, data []byte, syncLog *model.LocalAssetSyncLog) error
-	// UpdateWithDataTx 封装「编辑资产」事务：保存资产主表 + upsert 数据。
-	// la 由 service 预先置入新 Name/AssetType/Industry/UpdatedAt；data 为新的资产 JSON。
 	UpdateWithDataTx(ctx context.Context, la *model.LocalAsset, data []byte) error
 }
 
@@ -197,8 +187,6 @@ func (r *localAssetRepo) FindActiveAssetIDByType(ctx context.Context, assetType 
 // la.SyncedAt 同时用作 local_asset_data.UpdatedAt。
 func (r *localAssetRepo) PurchaseAndSyncTx(ctx context.Context, la *model.LocalAsset, data []byte, syncLog *model.LocalAssetSyncLog) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 使用 upsert：已存在的资产（含被软删除的）重新购买时更新并恢复（清空 deleted_at），
-		// 同时避免并发购买触发 UNIQUE(asset_id) 重复键导致 500。
 		if err := tx.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "asset_id"}},
 			DoUpdates: clause.AssignmentColumns([]string{
@@ -208,14 +196,12 @@ func (r *localAssetRepo) PurchaseAndSyncTx(ctx context.Context, la *model.LocalA
 		}).Create(la).Error; err != nil {
 			return bizerr.Wrap(bizerr.CodeInternal, "保存资产主表失败", err)
 		}
-		// upsert 命中冲突时 GORM 不会回填主键，需按 asset_id 取回，确保子表关联正确。
 		if la.ID == 0 {
 			var got model.LocalAsset
 			if ferr := tx.Where("asset_id = ?", la.AssetID).First(&got).Error; ferr == nil {
 				la.ID = got.ID
 			}
 		}
-		// local_asset_data.local_asset_id 唯一：重新购买（或恢复软删除）时更新而非重复插入。
 		lad := &model.LocalAssetData{LocalAssetID: la.ID, Data: data, UpdatedAt: la.SyncedAt}
 		if err := tx.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "local_asset_id"}},
@@ -329,3 +315,4 @@ func (r *syncLogRepo) List(ctx context.Context, assetID string, limit int) ([]*m
 	err := q.Order("created_at DESC").Limit(limit).Find(&list).Error
 	return list, err
 }
+

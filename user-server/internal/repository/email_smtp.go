@@ -48,3 +48,4 @@ func (r *emailSmtpRepo) GetEmailSmtpList(ctx context.Context) ([]*model.EmailSmt
 	err := r.db.WithContext(ctx).Find(&emailSmtp).Error
 	return emailSmtp, err
 }
+

@@ -90,7 +90,6 @@ type Server struct {
 }
 
 func main() {
-	// 端口派生自 config.DefaultEmbeddingPort=8208（DEVELOPMENT.md §2.4 端口对照表）
 	port := flag.Int("port", envInt("EMBEDDING_PORT", config.DefaultEmbeddingPort), "HTTP 监听端口")
 	dim := flag.Int("dim", envInt("EMBEDDING_DIM", 1024), "向量维度（与 BGE 模型一致）")
 	model := flag.String("model", envStr("EMBEDDING_MODEL", "bge-m3"), "模型名（仅作声明，实际使用本地算法）")
@@ -162,7 +161,6 @@ func (s *Server) handleEmbed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 读取 body（限制大小：每个请求 1MB）
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	body, err := readAll(r.Body)
 	if err != nil {
@@ -187,18 +185,15 @@ func (s *Server) handleEmbed(w http.ResponseWriter, r *http.Request) {
 		req.Model = s.defaultMod
 	}
 
-	// 过滤空文本
 	cleanInputs := make([]string, len(req.Input))
 	for i, t := range req.Input {
 		cleanInputs[i] = strings.TrimSpace(t)
 	}
 
-	// 批量向量化
 	s.mu.RLock()
 	vectors := s.engine.EmbedBatch(cleanInputs)
 	s.mu.RUnlock()
 
-	// 构造响应
 	data := make([]EmbeddingItem, len(vectors))
 	var totalChars int
 	for i, v := range vectors {
@@ -215,7 +210,7 @@ func (s *Server) handleEmbed(w http.ResponseWriter, r *http.Request) {
 		Data:   data,
 		Model:  req.Model,
 		Usage: Usage{
-			PromptTokens: totalChars, // 粗略：1 字符 = 1 token
+			PromptTokens: totalChars, 
 			TotalTokens:  totalChars,
 		},
 	}
@@ -301,3 +296,4 @@ func envStr(key, def string) string {
 	}
 	return def
 }
+

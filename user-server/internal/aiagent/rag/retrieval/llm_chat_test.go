@@ -1,6 +1,5 @@
 package ragretrieval
 
-// llm_chat_test.go LLM Chat 客户端接口与适配器测试
 
 import (
 	"context"
@@ -68,3 +67,4 @@ func TestMockLLMChatClient_WithError(t *testing.T) {
 
 // 接口编译时断言（确保 mock 实现接口）
 var _ LLMChatClient = (*mockLLMChatClient)(nil)
+

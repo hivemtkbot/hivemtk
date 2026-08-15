@@ -1,18 +1,5 @@
 package confidence
 
-// dynamic_threshold.go 4 因子动态阈值计算器
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.4.9
-//
-// 公式：T = base[intent] + α*customer_level + β*timeslot + γ*agent_availability
-// 最终 clip 到 [0.4, 0.95]
-//
-// 4 段决策区间：
-//   [0, 0.4)            → handoff      立即转人工
-//   [0.4, 0.6)          → llm_fallback LLM 兜底回复
-//   [0.6, 0.75)         → review       进审核队列
-//   [0.75, 1.0]         → auto         自动回复
 
 import (
 	"math"
@@ -34,10 +21,10 @@ func NewDynamicThresholdCalculator(engine *ThresholdPolicyEngine) *DynamicThresh
 
 // ThresholdInput 计算入参
 type ThresholdInput struct {
-	IntentType        string    // 意图类型
-	CustomerLevel     string    // vip / normal / low
-	AgentAvailability float64   // [0, 1] 在线座席空闲比例
-	Now               time.Time // 当前时间
+	IntentType        string    
+	CustomerLevel     string    
+	AgentAvailability float64   
+	Now               time.Time 
 }
 
 // Calculate 计算 4 因子动态阈值
@@ -51,14 +38,13 @@ type ThresholdInput struct {
 //   - agent_availability: 空闲>50% -1（多转人工）, 空闲<10% +1（加严避免堆积）, 其他 0；权重 γ = 0.10
 func (c *DynamicThresholdCalculator) Calculate(in *ThresholdInput) float64 {
 	if c.policyEngine == nil {
-		return 0.70 // 兜底
+		return 0.70 
 	}
 	policy := c.policyEngine.GetPolicy(in.IntentType)
 	if policy == nil {
 		return 0.70
 	}
 
-	// 1. base
 	t := policy.BaseThreshold
 
 	// 2. customer_level_factor
@@ -73,14 +59,13 @@ func (c *DynamicThresholdCalculator) Calculate(in *ThresholdInput) float64 {
 	}
 	t += policy.CustomerLevelWeight * clFactor
 
-	// 3. timeslot_factor（基于小时）
 	hour := in.Now.Hour()
 	var tsFactor float64
 	switch {
 	case (hour >= 10 && hour < 12) || (hour >= 14 && hour < 16):
-		tsFactor = -1.0 // 高峰放宽
+		tsFactor = -1.0 
 	case hour >= 0 && hour < 7:
-		tsFactor = 1.0 // 低谷加严
+		tsFactor = 1.0 
 	default:
 		tsFactor = 0
 	}
@@ -90,15 +75,14 @@ func (c *DynamicThresholdCalculator) Calculate(in *ThresholdInput) float64 {
 	var avFactor float64
 	switch {
 	case in.AgentAvailability > 0.5:
-		avFactor = -1.0 // 空闲多，放宽让更多进人工
+		avFactor = -1.0 
 	case in.AgentAvailability < 0.1:
-		avFactor = 1.0 // 几乎无人，加严避免堆积
+		avFactor = 1.0 
 	default:
 		avFactor = 0
 	}
 	t += policy.AgentAvailabilityWeight * avFactor
 
-	// 5. clip 到 [0.4, 0.95]
 	t = math.Max(0.40, math.Min(0.95, t))
 	return t
 }
@@ -124,7 +108,6 @@ func (c *DynamicThresholdCalculator) Calculate(in *ThresholdInput) float64 {
 // threshold 用于触发条件判定，band 边界用 policy 配置
 func (c *DynamicThresholdCalculator) DetermineBand(conf, threshold float64, policy *model.ThresholdPolicy) string {
 	if policy == nil {
-		// 兜底默认边界
 		if conf < 0.40 {
 			return dto.BandHandoff
 		}
@@ -147,3 +130,4 @@ func (c *DynamicThresholdCalculator) DetermineBand(conf, threshold float64, poli
 	}
 	return dto.BandAuto
 }
+

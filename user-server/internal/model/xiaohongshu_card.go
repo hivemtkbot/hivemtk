@@ -12,8 +12,8 @@ type XiaohongshuCard struct {
 	ImageURL     string    `gorm:"size:500" json:"image_url"`
 	RedirectURL  string    `gorm:"size:500" json:"redirect_url"`
 	ShareURL     string    `gorm:"size:500" json:"share_url"`
-	ShortLinkID  *uint     `json:"short_link_id" gorm:""`  // 关联的短链ID
-	DomainPoolID *uint     `json:"domain_pool_id" gorm:""` // 关联的域名池ID
+	ShortLinkID  *uint     `json:"short_link_id" gorm:""`  
+	DomainPoolID *uint     `json:"domain_pool_id" gorm:""` 
 	Tags         string    `gorm:"size:255" json:"tags"`
 	ViewCount    int       `gorm:"default:0" json:"view_count"`
 	IsActive     bool      `gorm:"default:true" json:"is_active"`
@@ -25,3 +25,4 @@ type XiaohongshuCard struct {
 func (XiaohongshuCard) TableName() string {
 	return "xiaohongshu_cards"
 }
+

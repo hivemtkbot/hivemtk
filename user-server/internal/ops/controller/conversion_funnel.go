@@ -59,3 +59,4 @@ func parseTimeRange(ctx *gin.Context) (time.Time, time.Time) {
 	}
 	return start, end
 }
+

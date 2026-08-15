@@ -19,17 +19,14 @@ func NewLLMServiceAdapter(svc *llm.LLMService) *LLMServiceAdapter {
 
 // Generate 适配 Generate 接口
 func (a *LLMServiceAdapter) Generate(ctx context.Context, config any, prompt string) (string, error) {
-	// 尝试从 config 中提取 LLMConfig（如有）
 	if llmCfg, ok := config.(*llm.LLMConfig); ok {
 		return a.svc.Generate(ctx, llmCfg, prompt)
 	}
-	// 兜底：用默认 config
 	return a.svc.Generate(ctx, &llm.LLMConfig{}, prompt)
 }
 
 // GenerateStructured 适配结构化生成
 func (a *LLMServiceAdapter) GenerateStructured(ctx context.Context, config any, prompt string, schema any) (any, error) {
-	// 简化实现：复用 Generate
 	out, err := a.Generate(ctx, config, prompt)
 	if err != nil {
 		return nil, err
@@ -46,3 +43,4 @@ func (a *LLMServiceAdapter) ValidateConfig(config any) error {
 func (a *LLMServiceAdapter) GetDefaultConfig() any {
 	return &llm.LLMConfig{}
 }
+

@@ -27,17 +27,17 @@ import (
 type PersonaDimension string
 
 const (
-	PersonaDimensionNaturalness PersonaDimension = "naturalness" // 自然度：口语化、无机械感
+	PersonaDimensionNaturalness PersonaDimension = "naturalness" 
 
-	PersonaDimensionRelevance PersonaDimension = "relevance" // 相关性：答非所问检测
+	PersonaDimensionRelevance PersonaDimension = "relevance" 
 
-	PersonaDimensionPersona PersonaDimension = "persona" // 人设：销冠角色 + 行业专业度
+	PersonaDimensionPersona PersonaDimension = "persona" 
 
-	PersonaDimensionEmotion PersonaDimension = "emotion" // 情绪：共情客户情绪
+	PersonaDimensionEmotion PersonaDimension = "emotion" 
 
-	PersonaDimensionConciseness PersonaDimension = "conciseness" // 简洁性：字数控制
+	PersonaDimensionConciseness PersonaDimension = "conciseness" 
 
-	PersonaDimensionCompliance PersonaDimension = "compliance" // 合规：广告法 + 虚假承诺
+	PersonaDimensionCompliance PersonaDimension = "compliance" 
 
 )
 
@@ -60,29 +60,29 @@ var AllPersonaDimensions = []PersonaDimension{
 }
 
 type PersonaEvaluationInput struct {
-	CustomerID      string // 客户 ID（用于低质样本追溯）
-	SessionID       string // 会话 ID
-	CustomerMessage string // 客户消息
-	AIReply         string // AI 回复
-	Persona         string // 销冠人设（如"美妆顾问"/"3C 数码专家"）
-	Industry        string // 行业（如"美妆"/"3C"/"服饰"）
-	Platform        string // 平台（wechat/douyin/xiaohongshu/...）
-	Intent          string // 意图（price_inquiry/complaint/...）
+	CustomerID      string 
+	SessionID       string 
+	CustomerMessage string 
+	AIReply         string 
+	Persona         string 
+	Industry        string 
+	Platform        string 
+	Intent          string 
 }
 
 type PersonaDimensionScore struct {
 	Dimension PersonaDimension `json:"dimension"`
-	Score     float64          `json:"score"` // 0-1
+	Score     float64          `json:"score"` 
 	Reason    string           `json:"reason"`
 }
 
 type PersonaEvaluationResult struct {
 	Scores       []PersonaDimensionScore `json:"scores"`
-	TotalScore   float64                 `json:"total_score"` // 加权综合分
-	Passed       bool                    `json:"passed"`      // 是否 ≥ threshold
+	TotalScore   float64                 `json:"total_score"` 
+	Passed       bool                    `json:"passed"`      
 	AttemptCount int                     `json:"attempt_count"`
-	FinalReply   string                  `json:"final_reply"` // 最终回复
-	AllReplies   []string                `json:"all_replies"` // 所有候选回复（调试用）
+	FinalReply   string                  `json:"final_reply"` 
+	AllReplies   []string                `json:"all_replies"` 
 	Input        *PersonaEvaluationInput `json:"input,omitempty"`
 }
 
@@ -107,7 +107,7 @@ type LowQualitySampleCollector interface {
 
 type LLMPersonaEvaluator struct {
 	dispatcher *llm.Dispatcher
-	threshold  float64 // 默认 0.85
+	threshold  float64 
 }
 
 func NewLLMPersonaEvaluator(dispatcher *llm.Dispatcher) *LLMPersonaEvaluator {
@@ -187,7 +187,6 @@ func buildPersonaEvaluationPrompt(input *PersonaEvaluationInput) string {
 
 func parsePersonaEvaluationResult(content string) (*PersonaEvaluationResult, error) {
 	content = strings.TrimSpace(content)
-	// 兼容 ```json ... ``` 包裹
 	if strings.HasPrefix(content, "```") {
 		content = strings.TrimPrefix(content, "```json")
 		content = strings.TrimPrefix(content, "```")
@@ -205,7 +204,6 @@ func parsePersonaEvaluationResult(content string) (*PersonaEvaluationResult, err
 	if len(raw.Scores) == 0 {
 		return nil, fmt.Errorf("empty scores")
 	}
-	// 归一化得分到 [0,1]
 	for i := range raw.Scores {
 		if raw.Scores[i].Score < 0 {
 			raw.Scores[i].Score = 0
@@ -214,7 +212,6 @@ func parsePersonaEvaluationResult(content string) (*PersonaEvaluationResult, err
 			raw.Scores[i].Score = 1
 		}
 	}
-	// 如果 total_score 缺失或为 0，按权重重新计算
 	totalScore := raw.TotalScore
 	if totalScore <= 0 {
 		totalScore = computeWeightedScore(raw.Scores)
@@ -236,7 +233,6 @@ func computeWeightedScore(scores []PersonaDimensionScore) float64 {
 		s := scoreMap[dim]
 		total += w * s
 	}
-	// 四舍五入到小数点 4 位
 	return math.Round(total*10000) / 10000
 }
 
@@ -281,8 +277,7 @@ func (e *RuleBasedPersonaEvaluator) Evaluate(ctx context.Context, input *Persona
 
 func (e *RuleBasedPersonaEvaluator) scoreNaturalness(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	reply := input.AIReply
-	score := 0.88 // 基础分
-	// AI 痕迹词（每个 -0.3）
+	score := 0.88 
 	aiTraces := []string{
 		"作为 AI", "作为人工智能", "我是 AI", "我是人工智能",
 		"很抱歉，我无法", "作为一个", "我是一个 AI", "我的能力有限",
@@ -293,8 +288,6 @@ func (e *RuleBasedPersonaEvaluator) scoreNaturalness(ctx context.Context, input 
 			score -= 0.3
 		}
 	}
-	// 口语化词（每个 +0.02，上限 +0.1）
-	// "亲" 是中文销售场景的常用称呼，体现自然口语化
 	particles := []string{"嗯", "哦", "呢", "啦", "呀", "哈哈", "对了", "亲"}
 	particleBonus := 0.0
 	for _, p := range particles {
@@ -311,9 +304,8 @@ func (e *RuleBasedPersonaEvaluator) scoreNaturalness(ctx context.Context, input 
 
 func (e *RuleBasedPersonaEvaluator) scoreRelevance(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	if input.CustomerMessage == "" {
-		return 0.8 // 无客户消息上下文，给中等分
+		return 0.8 
 	}
-	// 提取客户消息的关键词（中文按 2-3 字分词简化）
 	keywords := extractKeywords(input.CustomerMessage)
 	if len(keywords) == 0 {
 		return 0.8
@@ -325,12 +317,7 @@ func (e *RuleBasedPersonaEvaluator) scoreRelevance(ctx context.Context, input *P
 		}
 	}
 	hitRate := float64(hitCount) / float64(len(keywords))
-	// 语义意图加权：识别客户意图与 AI 回复是否一致
 	intentBoost := computeIntentAlignment(input)
-	// 计算得分：
-	//   关键词命中提供基础分（hit_rate 0 → 0.25, hit_rate 1 → 0.65）
-	//   意图对齐提供额外奖励（最高 +0.4）
-	//   完全无关（无关键词命中且无意图对齐）应低于 0.4
 	score := 0.25 + hitRate*0.4 + intentBoost
 	return clampScore(score)
 }
@@ -340,7 +327,6 @@ func computeIntentAlignment(input *PersonaEvaluationInput) float64 {
 	reply := input.AIReply
 	boost := 0.0
 
-	// 价格问询：客户提到"多少钱/价格/贵不贵"，AI 提到数字/价格
 	if containsAny(customer, []string{"多少钱", "价格", "贵不贵", "怎么卖", "几钱"}) {
 		hasNumber := false
 		for _, r := range reply {
@@ -354,28 +340,24 @@ func computeIntentAlignment(input *PersonaEvaluationInput) float64 {
 		}
 	}
 
-	// 推荐请求：客户提到"推荐/建议/怎么选"，AI 提到"推荐/建议/适合"
 	if containsAny(customer, []string{"推荐", "建议", "怎么选", "选哪", "用哪"}) {
 		if containsAny(reply, []string{"推荐", "建议", "适合", "选择", "可以", "您可以"}) {
 			boost += 0.4
 		}
 	}
 
-	// 功效问询：客户提到"效果/有用吗/怎么样"，AI 提到效果描述
 	if containsAny(customer, []string{"效果", "有用", "怎么样", "好不好", "管用"}) {
 		if containsAny(reply, []string{"效果", "帮助", "改善", "缓解", "提升", "可以"}) {
 			boost += 0.25
 		}
 	}
 
-	// 优惠/活动问询
 	if containsAny(customer, []string{"优惠", "活动", "折扣", "便宜", "特价"}) {
 		if containsAny(reply, []string{"活动", "优惠", "折扣", "特价", "减", "省", "划算"}) {
 			boost += 0.3
 		}
 	}
 
-	// 通用：包含核心词"产品/商品/东西"通常意味着对产品的讨论
 	if containsAny(customer, []string{"产品", "商品", "东西", "这个"}) {
 		if containsAny(reply, []string{"产品", "商品", "款", "这一款", "这个"}) {
 			boost += 0.15
@@ -398,7 +380,7 @@ func containsAny(text string, words []string) bool {
 }
 
 func (e *RuleBasedPersonaEvaluator) scorePersona(ctx context.Context, input *PersonaEvaluationInput) float64 {
-	score := 0.75 // 基础分
+	score := 0.75 
 	reply := input.AIReply
 	if input.Persona != "" && strings.Contains(reply, input.Persona) {
 		score += 0.1
@@ -406,7 +388,6 @@ func (e *RuleBasedPersonaEvaluator) scorePersona(ctx context.Context, input *Per
 	if input.Industry != "" && strings.Contains(reply, input.Industry) {
 		score += 0.05
 	}
-	// 销冠常用语（多个词命中累计加分，上限 0.1）
 	salesWords := []string{"亲", "您", "建议", "推荐", "适合", "专属", "可以", "您看"}
 	salesBonus := 0.0
 	for _, w := range salesWords {
@@ -423,7 +404,7 @@ func (e *RuleBasedPersonaEvaluator) scorePersona(ctx context.Context, input *Per
 
 func (e *RuleBasedPersonaEvaluator) scoreEmotion(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	reply := input.AIReply
-	score := 0.8 // 基础分：中性专业语气作为正常基线
+	score := 0.8 
 	empathyWords := []string{"理解", "抱歉", "不好意思", "恭喜", "开心", "放心", "别担心", "明白您的", "感谢"}
 	for _, w := range empathyWords {
 		if strings.Contains(reply, w) {
@@ -431,7 +412,6 @@ func (e *RuleBasedPersonaEvaluator) scoreEmotion(ctx context.Context, input *Per
 			break
 		}
 	}
-	// 礼貌询问也算轻微共情（询问客户意见，体现尊重）
 	politeEmpathy := []string{"您看", "您喜欢", "您考虑", "合适吗", "喜欢吗", "考虑吗"}
 	for _, w := range politeEmpathy {
 		if strings.Contains(reply, w) {
@@ -439,7 +419,6 @@ func (e *RuleBasedPersonaEvaluator) scoreEmotion(ctx context.Context, input *Per
 			break
 		}
 	}
-	// 积极销售词（体现主动服务意识）
 	activeServiceWords := []string{"建议", "推荐", "适合", "帮您", "为您"}
 	for _, w := range activeServiceWords {
 		if strings.Contains(reply, w) {
@@ -447,7 +426,6 @@ func (e *RuleBasedPersonaEvaluator) scoreEmotion(ctx context.Context, input *Per
 			break
 		}
 	}
-	// 投诉场景必须共情（无共情词时严厉扣分，"帮您"等服务词不能替代共情）
 	if input.Intent == "complaint" {
 		hasEmpathy := false
 		for _, w := range empathyWords {
@@ -482,7 +460,6 @@ func (e *RuleBasedPersonaEvaluator) scoreConciseness(ctx context.Context, input 
 func (e *RuleBasedPersonaEvaluator) scoreCompliance(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	reply := input.AIReply
 	score := 1.0
-	// 广告法极限词（每个 -0.4）
 	adLawWords := []string{
 		"最好", "最佳", "第一", "顶级", "国家级", "世界级",
 		"最高级", "唯一", "首个", "独家", "万能", "100%",
@@ -492,7 +469,6 @@ func (e *RuleBasedPersonaEvaluator) scoreCompliance(ctx context.Context, input *
 			score -= 0.4
 		}
 	}
-	// 虚假承诺（每个 -0.3）
 	falsePromiseWords := []string{
 		"绝对", "保证", "包治", "根治", "100%有效", "无风险",
 	}
@@ -535,7 +511,6 @@ func extractKeywords(text string) []string {
 			}
 		}
 	}
-	// 限制关键词数量，避免过多导致命中率虚低
 	if len(keywords) > 20 {
 		keywords = keywords[:20]
 	}
@@ -570,7 +545,6 @@ func (c *DBLowQualitySampleCollector) Collect(ctx context.Context, input *Person
 	if input == nil || result == nil {
 		return nil
 	}
-	// 序列化维度得分
 	scoresMap := make(map[string]float64, len(result.Scores))
 	for _, s := range result.Scores {
 		scoresMap[string(s.Dimension)] = s.Score
@@ -578,10 +552,8 @@ func (c *DBLowQualitySampleCollector) Collect(ctx context.Context, input *Person
 	scoresJSON, _ := json.Marshal(scoresMap)
 	repliesJSON, _ := json.Marshal(result.AllReplies)
 
-	// 判断样本类型
 	sampleType := model.LowQualitySampleRetryExhausted
 	if result.AttemptCount == 1 {
-		// 单次评估未达标但未被重试（说明调用方只评估了一次）
 		sampleType = model.LowQualitySamplePersona
 	}
 
@@ -674,11 +646,9 @@ func (s *PersonaEvaluationService) EvaluateWithRetry(ctx context.Context, input 
 		r, err := s.evaluator.Evaluate(ctx, input)
 		if err != nil {
 			lastErr = err
-			// 评估失败不立即返回，尝试用上次结果（如果有）
 			if result != nil {
 				break
 			}
-			// 第一次评估就失败，无法继续
 			return nil, fmt.Errorf("evaluate attempt %d: %w", attempt, err)
 		}
 		result = r
@@ -686,31 +656,26 @@ func (s *PersonaEvaluationService) EvaluateWithRetry(ctx context.Context, input 
 		result.AllReplies = allReplies
 		result.Input = input
 
-		// 通过阈值
 		if result.TotalScore >= s.threshold {
 			result.Passed = true
 			result.FinalReply = input.AIReply
 			return result, nil
 		}
 
-		// 未达标：无重生成函数 → 立即结束（退化为单次评估）
 		if regenerateFn == nil {
 			result.Passed = false
 			result.FinalReply = input.AIReply
 			break
 		}
 
-		// 未达标，准备重生成
 		if attempt < s.maxRetry {
 			newReply, err := regenerateFn(ctx, input, r)
 			if err != nil {
-				// 重生成失败，用当前结果
 				result.Passed = false
 				result.FinalReply = input.AIReply
 				break
 			}
 			if newReply == "" {
-				// 空回复，用当前结果
 				result.Passed = false
 				result.FinalReply = input.AIReply
 				break
@@ -720,7 +685,6 @@ func (s *PersonaEvaluationService) EvaluateWithRetry(ctx context.Context, input 
 		}
 	}
 
-	// 达到 maxRetry 仍不达标 → 转人工 + 记录低质样本
 	if result == nil {
 		return nil, fmt.Errorf("no evaluation result (lastErr=%v)", lastErr)
 	}
@@ -728,7 +692,6 @@ func (s *PersonaEvaluationService) EvaluateWithRetry(ctx context.Context, input 
 	result.FinalReply = input.AIReply
 	result.AllReplies = allReplies
 
-	// 收集低质样本（不阻塞返回，仅记录错误日志）
 	if s.sampleCollector != nil {
 		if err := s.sampleCollector.Collect(ctx, input, result); err != nil {
 			logger.Errorf("[PersonaEvaluationService] collect low quality sample failed: %v", err)
@@ -786,3 +749,4 @@ func MarkLowQualitySampleHandled(db *gorm.DB, id uint64, handler, note string) e
 
 // touchUnusedRegex 避免 regexp 包未被引用（保留以备后续复杂规则扩展）
 var _ = regexp.MustCompile
+

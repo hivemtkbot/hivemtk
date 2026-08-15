@@ -52,3 +52,4 @@ func (s *OperationLogSubscriber) Handle(evt event.Event) error {
 
 	return s.repo.Create(context.Background(), logEntry)
 }
+

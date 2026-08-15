@@ -50,9 +50,6 @@ func (r *systemStatsRepo) CountSystemUsers(ctx context.Context) (int64, error) {
 
 func (r *systemStatsRepo) CountActiveSystemUsers(ctx context.Context, sinceUnix int64) (int64, error) {
 	var n int64
-	// PostgreSQL 修复：sinceUnix 为 Unix epoch 秒（int64），
-	// timestamp 字段与 int 直接比较时 PG 不会自动按 epoch 解释，
-	// 必须显式 to_timestamp(?) 转换为 timestamp 后再比较。
 	if err := r.db.Model(&model.SystemUser{}).Where("updated_at >= to_timestamp(?)", sinceUnix).Count(&n).Error; err != nil {
 		return 0, err
 	}
@@ -90,9 +87,6 @@ func (r *systemStatsRepo) CountShortLinks(ctx context.Context) (int64, error) {
 
 func (r *systemStatsRepo) CountTodayVisits(ctx context.Context, sinceUnix int64) (int64, error) {
 	var n int64
-	// PostgreSQL 修复：sinceUnix 为 Unix epoch 秒（int64），
-	// timestamp 字段与 int 直接比较时 PG 不会自动按 epoch 解释，
-	// 必须显式 to_timestamp(?) 转换为 timestamp 后再比较。
 	if err := r.db.Model(&model.VisitLog{}).Where("created_at >= to_timestamp(?)", sinceUnix).Count(&n).Error; err != nil {
 		return 0, err
 	}
@@ -117,8 +111,6 @@ func (r *systemStatsRepo) CountEmailJobs(ctx context.Context) (int64, error) {
 
 func (r *systemStatsRepo) CountMaterials(ctx context.Context) (int64, error) {
 	var n int64
-	// 素材属 content 域私有实体，共享 repository 不跨域引用其 model，
-	// 与 CountCards 同样按表名聚合（GORM 默认表名 materials）。
 	if err := r.db.Table("materials").Count(&n).Error; err != nil {
 		return 0, err
 	}
@@ -132,3 +124,4 @@ func (r *systemStatsRepo) ListRecentSystemMetrics(ctx context.Context, limit int
 	}
 	return list, nil
 }
+

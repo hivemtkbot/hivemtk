@@ -126,14 +126,12 @@ func (c *IntentController) Stats(ctx *gin.Context) {
 		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
-	// 包装为前端约定的 {total, distribution, by_intent, period_days, by_method, by_level}
 	byIntent := map[string]int{}
 	total := 0
 	for k, v := range stats {
 		byIntent[k] = v
 		total += v
 	}
-	// 顺手补全 method/level 维度（如果底层有数据则统计；空实现也允许）
 	byMethod, byLevel := c.rec.GetMethodLevelStats(context.Background(), days)
 	distribution := make([]map[string]any, 0, len(byIntent))
 	for k, v := range byIntent {
@@ -198,7 +196,6 @@ func (c *IntentController) Intents(ctx *gin.Context) {
 	response.Success(ctx, service.DefaultIntents, "查询成功")
 }
 
-// ===== ：精细意图识别（8 大类 + 7 子类）=====
 
 // RecognizeFineRequest 精细识别请求
 type RecognizeFineRequest struct {
@@ -249,7 +246,6 @@ func (c *IntentController) IntentStatsFine(ctx *gin.Context) {
 	response.Success(ctx, stats, "查询成功")
 }
 
-// ===== 意图识别配置管理（前端 user-web 意图识别页面在线开关）=====
 
 // GetConfig 获取意图识别配置
 // GET /api/intent/config
@@ -269,7 +265,7 @@ func (c *IntentController) GetConfig(ctx *gin.Context) {
 
 // UpdateConfigRequest 更新意图识别配置请求体
 type UpdateConfigRequest struct {
-	Enabled bool `json:"enabled"` // 是否启用意图识别
+	Enabled bool `json:"enabled"` 
 }
 
 // UpdateConfig 更新意图识别配置
@@ -286,7 +282,6 @@ func (c *IntentController) UpdateConfig(ctx *gin.Context) {
 		return
 	}
 
-	// 提取更新人（从 JWT context 取，缺省为 "admin"）
 	updatedBy := "admin"
 	if v, ok := ctx.Get("username"); ok && v != nil {
 		if s, ok := v.(string); ok && s != "" {
@@ -305,3 +300,4 @@ func (c *IntentController) UpdateConfig(ctx *gin.Context) {
 	}
 	response.Success(ctx, cfg, "更新成功")
 }
+

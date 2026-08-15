@@ -31,7 +31,6 @@ func TestHandleIngress_CanonicalContentHash_AlreadyExists_Skipped(t *testing.T) 
 		content  = "您好！HiveMtk 支持私有化部署，云服务器完全可以。"
 	)
 
-	// 预置已下发的 AI outbound（algo2 hash，即服务端权威）
 	algo2Hash := ContentHashMsgID(platform, conv, content)
 	now := time.Now()
 	if err := db.Create(&model.MessageHub{
@@ -41,8 +40,7 @@ func TestHandleIngress_CanonicalContentHash_AlreadyExists_Skipped(t *testing.T) 
 		t.Fatalf("预置 outbound 失败: %v", err)
 	}
 
-	// 模拟 patrol 上报「同内容但 algo1 hash」（前端历史曾用 algo1，msg_id 与 algo2 不同）
-	algo1Hash := "mh:0000aabb" // 模拟 algo1 hash（与 algo2 不等）
+	algo1Hash := "mh:0000aabb" 
 	evt := &model.MessageEvent{
 		Channel:        model.ChannelXHS,
 		SenderID:       "customer-xhs-100",
@@ -93,7 +91,6 @@ func TestHandleIngress_CrossConv_SameInboundContent_NotSkipped(t *testing.T) {
 		content  = "已连续聊天3天，解锁聊天状态去看看"
 	)
 
-	// 预置：A 会话已有同 content 的 inbound（客户发的系统提示）
 	convA := "conv-cross-A"
 	if err := db.Create(&model.MessageHub{
 		MsgID: "mh:preexistingA", Platform: platform, AccountID: account, Direction: "inbound", Status: "pending",
@@ -102,7 +99,6 @@ func TestHandleIngress_CrossConv_SameInboundContent_NotSkipped(t *testing.T) {
 		t.Fatalf("预置 A 会话 inbound 失败: %v", err)
 	}
 
-	// B 会话客户发同 content（系统提示在新会话也会出现）
 	convB := "conv-cross-B"
 	evt := &model.MessageEvent{
 		Channel:        model.ChannelXHS,
@@ -158,11 +154,8 @@ func TestHandleIngress_CrossConv_SameAlgo2MsgID_NotSkipped(t *testing.T) {
 		account  = "acct-cross-conv-algo2"
 		content  = "测试跨会话去重内容unique20260807"
 	)
-	// algo2 event_id（前端 _canonicalMsgId = ContentHashMsgID(channel, '', content)，不含 conversationID）。
-	// 与后端出站 MsgID 算法一致 → 跨会话同 content 命中钩子2.5 第二道内容去重。
 	algo2EventID := ContentHashMsgID(platform, "", content)
 
-	// 预置：A 会话已有同 content + 同 algo2 msg_id 的 inbound
 	convA := "conv-cross-algo2-A"
 	if err := db.Create(&model.MessageHub{
 		MsgID: algo2EventID, Platform: platform, AccountID: account, Direction: "inbound", Status: "pending",
@@ -171,7 +164,6 @@ func TestHandleIngress_CrossConv_SameAlgo2MsgID_NotSkipped(t *testing.T) {
 		t.Fatalf("预置 A 会话 inbound 失败: %v", err)
 	}
 
-	// B 会话客户发同 content，前端 _canonicalMsgId 生成相同 algo2 event_id
 	convB := "conv-cross-algo2-B"
 	evt := &model.MessageEvent{
 		Channel:        model.ChannelXHS,
@@ -264,12 +256,9 @@ func TestPersistBridgeHistory_NormalizedDedup_DOMWhitespaceVariance_Skipped(t *t
 		account  = "acct-persist-norm"
 		conv     = "conv-persist-norm-1"
 	)
-	// DB 中 AI 原始 content（含换行，AI 生成时常用 markdown 列表）
 	dbContent := "您好！😊 很高兴为您服务！\n\n- 🛍️ **产品推荐**：根据您的需求推荐合适"
-	// patrol 采集 DOM 后的 content（换行变空格，DOM 文本规范化）
 	domContent := "您好！😊 很高兴为您服务！ - 🛍️ **产品推荐**：根据您的需求推荐合适"
 
-	// 预置已下发的 AI outbound（content 含换行）
 	algo2Hash := ContentHashMsgID(platform, conv, dbContent)
 	now := time.Now()
 	if err := db.Create(&model.MessageHub{
@@ -279,7 +268,6 @@ func TestPersistBridgeHistory_NormalizedDedup_DOMWhitespaceVariance_Skipped(t *t
 		t.Fatalf("预置 outbound 失败: %v", err)
 	}
 
-	// 模拟 patrol 上报 DOM 规范化后的 content（msg_id 用 domContent 算，与 DB msg_id 不同）
 	domMsgID := ContentHashMsgID(platform, conv, domContent)
 	evt := &model.MessageEvent{
 		Channel:        model.ChannelXHS,
@@ -291,7 +279,6 @@ func TestPersistBridgeHistory_NormalizedDedup_DOMWhitespaceVariance_Skipped(t *t
 		Extra:          map[string]interface{}{"account_id": account},
 	}
 
-	// PersistBridgeHistory 应通过第三道 GetByPlatformContentNormalized 命中跳过
 	if err := svc.PersistBridgeHistory(ctx, evt, "inbound"); err != nil {
 		t.Fatalf("PersistBridgeHistory 不应报错: %v", err)
 	}
@@ -347,3 +334,4 @@ func TestPersistBridgeHistory_NewContent_Persisted(t *testing.T) {
 		t.Fatalf("direction 应为 inbound，got=%s", row.Direction)
 	}
 }
+

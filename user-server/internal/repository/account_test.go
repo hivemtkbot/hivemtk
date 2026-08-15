@@ -239,3 +239,4 @@ func TestAccountRepository_UpdateAccountTgNameById_NotFound(t *testing.T) {
 		t.Error("Expected error for non-existent account")
 	}
 }
+

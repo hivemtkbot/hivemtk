@@ -88,7 +88,7 @@ func TestOperationLogSubscriber_Handle_WrongPayloadType(t *testing.T) {
 
 	evt := event.Event{
 		Topic:   event.TopicOperationLog,
-		Payload: "wrong-type-payload", // 不是 event.OperationLogPayload
+		Payload: "wrong-type-payload", 
 	}
 
 	err := subscriber.Handle(evt)
@@ -136,7 +136,6 @@ func TestOperationLogSubscriber_EndToEnd(t *testing.T) {
 	subscriber := NewOperationLogSubscriber(newTestLogRepo(database))
 	bus.Subscribe(event.TopicOperationLog, subscriber.Handle)
 
-	// 发布事件
 	bus.Publish(event.Event{
 		Topic: event.TopicOperationLog,
 		Payload: event.OperationLogPayload{
@@ -152,7 +151,6 @@ func TestOperationLogSubscriber_EndToEnd(t *testing.T) {
 		},
 	})
 
-	// 等待异步处理完成
 	waitForLogCondition(t, func() bool {
 		var count int64
 		database.Model(&model.OperationLog{}).Count(&count)
@@ -175,7 +173,6 @@ func TestOperationLogSubscriber_EndToEnd(t *testing.T) {
 	}
 }
 
-// === 辅助 ===
 
 // newTestLogRepo 创建测试用 OperationLogRepository
 func newTestLogRepo(database *gorm.DB) *testLogRepo {
@@ -223,3 +220,4 @@ func waitForLogCondition(t *testing.T, cond func() bool, timeout time.Duration) 
 		time.Sleep(time.Millisecond)
 	}
 }
+

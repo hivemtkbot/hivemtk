@@ -1,20 +1,5 @@
 package migrations
 
-// v3_18_channel_unify_migration.go 渠道编码统一（把 *_web / xhs 全部归一化为全名）
-//
-// 背景：v3.17.1（bridge_channel_normalize_migration）把基础渠道名（douyin/xhs/tiktok/xianyu）归一化为 *_web 桥接名，
-// 但前端/后端/DB 三方 *_web 与 xiaohongshu / xhs 命名长期不一致，
-// 导致小红书 2268 现场出现「message_hub 有 inbound、0 个 customer_sessions、AI 不回复」。
-//
-// 本迁移执行反向归一化（*_web / xhs -> 全名），覆盖 6 张核心业务表：
-//   - message_hub.platform            （仅 bridge:true 标记的消息）
-//   - customer_sessions.platform
-//   - inbox_conversations.platform
-//   - bridge_accounts.channel
-//   - channel_agent_bindings.channel_type
-//   - ai_suggestions.session_id 内的 platform 前缀（历史 session_id 形如 "xhs_web:..."）
-//
-// 单一源：hivemtk-user/internal/model/message_event.go ChannelXHS/ChannelDouyin/ChannelKuaishou/ChannelXianyu/ChannelTikTok。
 
 import (
 	"context"
@@ -35,7 +20,7 @@ var bridgeUnifyV2Map = map[string]string{
 	"kuaishou_web": "kuaishou",
 	"xianyu_web":   "xianyu",
 	"tiktok_web":   "tiktok",
-	"xhs":          "xiaohongshu", // 早期 ChannelXHS 简写
+	"xhs":          "xiaohongshu", 
 }
 
 type BridgeChannelUnifyV2Migration struct {
@@ -59,8 +44,6 @@ func (m *BridgeChannelUnifyV2Migration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 1) message_hub.platform：仅迁移 bridge 来源（extra::text LIKE '%"bridge":true%'）
-	//    非 bridge 渠道（如 web_embed/douyin 官方 API）保留原值。
 	for old, new := range bridgeUnifyV2Map {
 		result := m.db.WithContext(ctx).
 			Exec(`UPDATE message_hub SET platform = ? WHERE platform = ? AND extra::text LIKE '%"bridge":true%'`, new, old)
@@ -72,7 +55,6 @@ func (m *BridgeChannelUnifyV2Migration) Up(ctx context.Context) error {
 		}
 	}
 
-	// 2) customer_sessions.platform：会话级
 	for old, new := range bridgeUnifyV2Map {
 		result := m.db.WithContext(ctx).
 			Table("customer_sessions").
@@ -86,7 +68,6 @@ func (m *BridgeChannelUnifyV2Migration) Up(ctx context.Context) error {
 		}
 	}
 
-	// 3) inbox_conversations.platform：统一收件箱
 	for old, new := range bridgeUnifyV2Map {
 		result := m.db.WithContext(ctx).
 			Table("inbox_conversations").
@@ -100,10 +81,6 @@ func (m *BridgeChannelUnifyV2Migration) Up(ctx context.Context) error {
 		}
 	}
 
-	// 4) bridge_accounts.channel
-	//    注意：唯一约束 uk_bridge_ch_acc(account_id, channel) 可能已存在新旧值并存的脏数据
-	//    （如同一账号同时有 xhs_web 与 xiaohongshu）。若直接 UPDATE 会产生 duplicate key 导致整批迁移中止。
-	//    故先删除会与目标值冲突的 old 行（保留 new 行即规范值），再归一化剩余 old 行。
 	for old, new := range bridgeUnifyV2Map {
 		del := m.db.WithContext(ctx).
 			Exec(`DELETE FROM bridge_accounts WHERE channel = $1 AND EXISTS (SELECT 1 FROM bridge_accounts b2 WHERE b2.account_id = bridge_accounts.account_id AND b2.channel = $2)`, old, new)
@@ -126,7 +103,6 @@ func (m *BridgeChannelUnifyV2Migration) Up(ctx context.Context) error {
 		}
 	}
 
-	// 5) channel_agent_bindings.channel_type
 	for old, new := range bridgeUnifyV2Map {
 		result := m.db.WithContext(ctx).
 			Table("channel_agent_bindings").
@@ -140,8 +116,6 @@ func (m *BridgeChannelUnifyV2Migration) Up(ctx context.Context) error {
 		}
 	}
 
-	// 6) ai_suggestions.session_id 形如 "xhs_web:xxx:yyy"，把前缀替换为全名
-	//    session_id 字符串前缀用 LIKE 'old:%' 精确匹配，避免误改其他字段
 	for old, new := range bridgeUnifyV2Map {
 		result := m.db.WithContext(ctx).
 			Exec(`UPDATE ai_suggestions SET session_id = ? || SUBSTRING(session_id FROM ?) WHERE session_id LIKE ?`,
@@ -158,8 +132,6 @@ func (m *BridgeChannelUnifyV2Migration) Up(ctx context.Context) error {
 }
 
 func (m *BridgeChannelUnifyV2Migration) Down(ctx context.Context) error {
-	// 回滚：全名 -> *_web
-	// 注意：xhs/xhs_web 都映射到 xiaohongshu，回滚时无法 100% 还原原始 xhs 简写，统一还原为 *_web 形式。
 	reverse := map[string]string{
 		"xiaohongshu": "xhs_web",
 		"douyin":      "douyin_web",
@@ -181,3 +153,4 @@ func (m *BridgeChannelUnifyV2Migration) Down(ctx context.Context) error {
 }
 
 var _ migration.Migration = (*BridgeChannelUnifyV2Migration)(nil)
+

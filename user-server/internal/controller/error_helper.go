@@ -28,3 +28,4 @@ func isNotFoundError(err error) bool {
 func IsNotFoundError(err error) bool {
 	return isNotFoundError(err)
 }
+

@@ -52,7 +52,6 @@ func TestAuthService_JwtUtils(t *testing.T) {
 func TestAuthService_Login_Success(t *testing.T) {
 	service := setupAuthService(t)
 
-	// 先创建一个超管用户
 	database := db.GetDB()
 	adminUser := &model.SystemUser{
 		Username: "admin",
@@ -97,27 +96,23 @@ func TestAuthService_Login_Success(t *testing.T) {
 func TestAuthService_Login_ExistingUser(t *testing.T) {
 	service := setupAuthService(t)
 
-	// 先创建第一个用户（会自动成为超管）
 	firstUserReq := &LoginRequest{
 		Username: "admin",
 		Password: "admin123",
 	}
 	_, _ = service.Login(context.Background(), firstUserReq)
 
-	// 创建第二个普通用户
 	database := db.GetDB()
 	secondUser := &model.SystemUser{
 		Username: "testuser",
-		Password: "password123", // BeforeCreate 钩子会自动加密
+		Password: "password123", 
 		Email:    "test@example.com",
 		RealName: "Test User",
 		Role:     "user",
 		Status:   1,
 	}
-	// BeforeCreate 钩子会调用 HashPassword，不需要手动加密
 	database.Create(secondUser)
 
-	// 测试第二个用户登录
 	loginReq := &LoginRequest{
 		Username: "testuser",
 		Password: "password123",
@@ -137,10 +132,8 @@ func TestAuthService_Login_ExistingUser(t *testing.T) {
 func TestAuthService_Login_WrongPassword(t *testing.T) {
 	service := setupAuthService(t)
 
-	// 先创建第一个用户
 	_, _ = service.Login(context.Background(), &LoginRequest{Username: "admin", Password: "admin123"})
 
-	// 测试错误密码
 	req := &LoginRequest{
 		Username: "admin",
 		Password: "wrongpassword",
@@ -156,10 +149,8 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 func TestAuthService_Login_DisabledUser(t *testing.T) {
 	service := setupAuthService(t)
 
-	// 先创建第一个用户
 	_, _ = service.Login(context.Background(), &LoginRequest{Username: "admin", Password: "admin123"})
 
-	// 创建一个被禁用的用户
 	database := db.GetDB()
 	disabledUser := &model.SystemUser{
 		Username: "disabled",
@@ -167,12 +158,11 @@ func TestAuthService_Login_DisabledUser(t *testing.T) {
 		Email:    "disabled@example.com",
 		RealName: "Disabled User",
 		Role:     "user",
-		Status:   0, // 禁用状态
+		Status:   0, 
 	}
 	model.HashSystemUserPassword(disabledUser)
 	database.Create(disabledUser)
 
-	// 测试禁用用户登录
 	req := &LoginRequest{
 		Username: "disabled",
 		Password: "password123",
@@ -188,7 +178,6 @@ func TestAuthService_Login_DisabledUser(t *testing.T) {
 func TestAuthService_Login_NonExistentUser(t *testing.T) {
 	service := setupAuthService(t)
 
-	// 先创建第一个用户
 	_, _ = service.Login(context.Background(), &LoginRequest{Username: "admin", Password: "admin123"})
 
 	req := &LoginRequest{
@@ -206,17 +195,14 @@ func TestAuthService_Login_NonExistentUser(t *testing.T) {
 func TestAuthService_RefreshToken(t *testing.T) {
 	service := setupAuthService(t)
 
-	// 先创建第一个用户并登录获取令牌
 	_, _ = service.Login(context.Background(), &LoginRequest{Username: "admin", Password: "admin123"})
 
-	// 生成一个新令牌用于测试刷新
 	jwtUtils := service.JwtUtils(context.Background())
 	token, err := jwtUtils.GenerateToken(1, "admin", "admin")
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
 
-	// 测试刷新令牌
 	newToken, err := service.RefreshToken(context.Background(), token)
 	if err != nil {
 		t.Fatalf("RefreshToken failed: %v", err)
@@ -230,7 +216,6 @@ func TestAuthService_RefreshToken(t *testing.T) {
 func TestAuthService_GetCurrentUser(t *testing.T) {
 	service := setupAuthService(t)
 
-	// 先创建用户
 	database := db.GetDB()
 	adminUser := &model.SystemUser{
 		Username: "admin",
@@ -244,7 +229,6 @@ func TestAuthService_GetCurrentUser(t *testing.T) {
 		t.Fatalf("Create admin failed: %v", err)
 	}
 
-	// 获取用户信息
 	userInfo, err := service.GetCurrentUser(context.Background(), adminUser.ID)
 	if err != nil {
 		t.Fatalf("GetCurrentUser failed: %v", err)
@@ -272,7 +256,6 @@ func TestAuthService_GetCurrentUser_NonExistent(t *testing.T) {
 func TestAuthService_ChangePassword(t *testing.T) {
 	service := setupAuthService(t)
 
-	// 先创建用户
 	database := db.GetDB()
 	adminUser := &model.SystemUser{
 		Username: "admin",
@@ -286,7 +269,6 @@ func TestAuthService_ChangePassword(t *testing.T) {
 		t.Fatalf("Create admin failed: %v", err)
 	}
 
-	// 修改密码（新密码需满足密码策略：大写+小写+数字+无弱密码片段）
 	req := &ChangePasswordRequest{
 		OldPassword: "admin123",
 		NewPassword: "N3wSecur3Pwd!",
@@ -297,7 +279,6 @@ func TestAuthService_ChangePassword(t *testing.T) {
 		t.Fatalf("ChangePassword failed: %v", err)
 	}
 
-	// 验证新密码可以登录
 	loginReq := &LoginRequest{
 		Username: "admin",
 		Password: "N3wSecur3Pwd!",
@@ -315,7 +296,6 @@ func TestAuthService_ChangePassword(t *testing.T) {
 func TestAuthService_ChangePassword_WrongOldPassword(t *testing.T) {
 	service := setupAuthService(t)
 
-	// 先创建第一个用户
 	_, _ = service.Login(context.Background(), &LoginRequest{Username: "admin", Password: "admin123"})
 
 	req := &ChangePasswordRequest{
@@ -378,7 +358,6 @@ func TestAuthService_toUserResponse(t *testing.T) {
 func TestAuthService_loginWithUser(t *testing.T) {
 	service := setupAuthService(t)
 
-	// 创建用户
 	now := time.Now()
 	user := &model.SystemUser{
 		ID:        1,
@@ -391,7 +370,6 @@ func TestAuthService_loginWithUser(t *testing.T) {
 		LastLogin: &now,
 	}
 
-	// 直接测试 loginWithUser 方法
 	response, err := service.loginWithUser(context.Background(), user)
 	if err != nil {
 		t.Fatalf("loginWithUser failed: %v", err)
@@ -407,3 +385,4 @@ func TestAuthService_loginWithUser(t *testing.T) {
 		t.Error("Expected user info to be populated")
 	}
 }
+

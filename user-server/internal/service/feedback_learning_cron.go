@@ -1,24 +1,5 @@
 package service
 
-// feedback_learning_cron.go G7 反馈学习闭环定时任务
-//
-// 五层架构归属: L3 业务层
-// 设计依据: PRD §5.2 G7 系统自我进化 —— 对话/反馈驱动 AI 持续进化
-//
-// 职责（打通此前孤儿服务 FeedbackLearningService 的自学习闭环）：
-//   1. 周期调用 ExtractProfile 从反馈记录提取销冠画像 5 维度（持久化为快照）
-//   2. 遍历所有 SOP，调用 AnalyzeNodeConversion 分析节点转化率
-//   3. 对低转化瓶颈节点调用 GenerateOptimizationSuggestions 生成优化建议（落库）
-//
-// 数据流闭环：
-//   SalesEngine.recordFeedback → FeedbackLearner.RecordFeedback（INSERT feedback_records）
-//     → [本 cron 周期] FeedbackLearningService.ExtractProfile / AnalyzeNodeConversion
-//       → GenerateOptimizationSuggestions（INSERT optimization_suggestions）
-//     → 运营审核 → ReviewSuggestion（approve/apply）
-//
-// 设计：
-//   - 单 goroutine + ticker，失败仅记录日志，不影响主服务
-//   - Stop() 关闭 stopCh 优雅退出（与 SelfLearningCron.Stop 同模式）
 
 import (
 	"context"
@@ -103,14 +84,12 @@ func (c *FeedbackLearningCron) trigger(ctx context.Context) {
 		return
 	}
 
-	// 1. 提取销冠画像（系统级智能体，场景 ai_champion，最近 30 天）
 	periodEnd := time.Now()
 	periodStart := periodEnd.AddDate(0, 0, -30)
 	if _, err := c.svc.ExtractProfile(ctx, 0, "系统智能体", "ai_champion", periodStart, periodEnd); err != nil {
 		logger.Ctx(ctx).Warn().Err(err).Msg("[feedback_learning_cron] ExtractProfile failed")
 	}
 
-	// 2. 遍历所有 SOP：分析节点转化 + 生成优化建议
 	if c.sopRepo == nil {
 		return
 	}
@@ -136,3 +115,4 @@ func (c *FeedbackLearningCron) trigger(ctx context.Context) {
 		}
 	}
 }
+

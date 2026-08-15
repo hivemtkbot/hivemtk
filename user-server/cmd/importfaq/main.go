@@ -86,7 +86,6 @@ func main() {
 			continue
 		}
 
-		// 构造模型
 		entry := &model.FAQEntry{
 			Question:   s.Question,
 			Answer:     s.Answer,
@@ -116,3 +115,4 @@ func main() {
 		os.Exit(1)
 	}
 }
+

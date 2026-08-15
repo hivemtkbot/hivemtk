@@ -6,8 +6,8 @@ import "time"
 type ChatChannelStatus string
 
 const (
-	ChatChannelStatusActive   ChatChannelStatus = "active"   // 启用
-	ChatChannelStatusDisabled ChatChannelStatus = "disabled" // 禁用
+	ChatChannelStatusActive   ChatChannelStatus = "active"   
+	ChatChannelStatusDisabled ChatChannelStatus = "disabled" 
 )
 
 // ChatChannel 客服 Web Widget 渠道（多通道设计）
@@ -19,23 +19,23 @@ const (
 //   - 私域部署：所有 channel 归属本实例，无 merchant_id
 type ChatChannel struct {
 	ID                  uint              `gorm:"primaryKey;autoIncrement" json:"id"`
-	ChannelID           string            `gorm:"type:varchar(50);uniqueIndex;not null" json:"channel_id"`        // 渠道 ID（UUID）
-	ChannelName         string            `gorm:"type:varchar(100);not null" json:"channel_name"`                 // 渠道名称（如"官网首页"）
-	AppKey              string            `gorm:"type:varchar(64);uniqueIndex;not null" json:"app_key"`           // 公开凭证（32 字符）
-	AppSecretHash       string            `gorm:"type:varchar(128);not null" json:"-"`                            // 内部凭证（不返回前端）
-	AllowedOrigins      string            `gorm:"type:text" json:"allowed_origins"`                               // 跨域白名单（逗号分隔，* 表示允许所有）
-	DefaultRAGProductID uint              `gorm:"index" json:"default_rag_product_id"`                            // 默认 RAG 产品 ID
-	WelcomeMessage      string            `gorm:"type:text" json:"welcome_message"`                               // 欢迎语
-	WidgetColor         string            `gorm:"type:varchar(20);default:'#1989fa'" json:"widget_color"`         // 浮标颜色
-	WidgetPosition      string            `gorm:"type:varchar(20);default:'bottom-right'" json:"widget_position"` // 浮标位置
-	WidgetTitle         string            `gorm:"type:varchar(100);default:'在线客服'" json:"widget_title"`           // 聊天窗标题
-	Status              ChatChannelStatus `gorm:"type:varchar(20);default:'active'" json:"status"`                // active/disabled
-	VisitorCount        int64             `gorm:"default:0" json:"visitor_count"`                                 // 累计访客数
-	SessionCount        int64             `gorm:"default:0" json:"session_count"`                                 // 累计会话数
-	AutoAssign          bool              `gorm:"default:true" json:"auto_assign"`                                // 是否自动分配坐席
-	ConfidenceThreshold float64           `gorm:"type:decimal(4,2);default:0.70" json:"confidence_threshold"`     // AI 自动回复阈值
-	TargetLanguage      string            `gorm:"type:varchar(8);default:''" json:"target_language"`              // 渠道目标输出语言（空则退化到智能体配置）
-	CreatedBy           uint              `json:"created_by"`                                                     // 创建人 user_id
+	ChannelID           string            `gorm:"type:varchar(50);uniqueIndex;not null" json:"channel_id"`        
+	ChannelName         string            `gorm:"type:varchar(100);not null" json:"channel_name"`                 
+	AppKey              string            `gorm:"type:varchar(64);uniqueIndex;not null" json:"app_key"`           
+	AppSecretHash       string            `gorm:"type:varchar(128);not null" json:"-"`                            
+	AllowedOrigins      string            `gorm:"type:text" json:"allowed_origins"`                               
+	DefaultRAGProductID uint              `gorm:"index" json:"default_rag_product_id"`                            
+	WelcomeMessage      string            `gorm:"type:text" json:"welcome_message"`                               
+	WidgetColor         string            `gorm:"type:varchar(20);default:'#1989fa'" json:"widget_color"`         
+	WidgetPosition      string            `gorm:"type:varchar(20);default:'bottom-right'" json:"widget_position"` 
+	WidgetTitle         string            `gorm:"type:varchar(100);default:'在线客服'" json:"widget_title"`           
+	Status              ChatChannelStatus `gorm:"type:varchar(20);default:'active'" json:"status"`                
+	VisitorCount        int64             `gorm:"default:0" json:"visitor_count"`                                 
+	SessionCount        int64             `gorm:"default:0" json:"session_count"`                                 
+	AutoAssign          bool              `gorm:"default:true" json:"auto_assign"`                                
+	ConfidenceThreshold float64           `gorm:"type:decimal(4,2);default:0.70" json:"confidence_threshold"`     
+	TargetLanguage      string            `gorm:"type:varchar(8);default:''" json:"target_language"`              
+	CreatedBy           uint              `json:"created_by"`                                                     
 	CreatedAt           time.Time         `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt           time.Time         `gorm:"autoUpdateTime" json:"updated_at"`
 }
@@ -44,3 +44,4 @@ type ChatChannel struct {
 func (ChatChannel) TableName() string {
 	return "chat_channels"
 }
+

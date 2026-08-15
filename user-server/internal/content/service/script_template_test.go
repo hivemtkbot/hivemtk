@@ -24,7 +24,6 @@ func TestCalculateRelevance_NoMatch(t *testing.T) {
 
 func TestCalculateRelevance_Match(t *testing.T) {
 	s := &ScriptTemplateService{}
-	// 关键词 "价格" 在消息中出现，应该至少 0.3
 	tmpl := &model.ScriptTemplate{Title: "t", Content: "价格 优惠"}
 	score := s.calculateRelevance("价格优惠", tmpl)
 	if score <= 0.3 {
@@ -36,7 +35,6 @@ func TestCalculateRelevance_TitleMatch(t *testing.T) {
 	s := &ScriptTemplateService{}
 	tmpl := &model.ScriptTemplate{Title: "退款", Content: "其他其他其他其他"}
 	score := s.calculateRelevance("我想了解退款政策", tmpl)
-	// 标题匹配应该加分
 	if score < 0.3 {
 		t.Errorf("expected title match boost, got %v", score)
 	}
@@ -44,11 +42,10 @@ func TestCalculateRelevance_TitleMatch(t *testing.T) {
 
 func TestCalculateRelevance_ShortKeywordsSkipped(t *testing.T) {
 	s := &ScriptTemplateService{}
-	// 全部短于等于 2 个字符的关键词
 	tmpl := &model.ScriptTemplate{Title: "ZZZ", Content: "ab cd ef"}
 	score := s.calculateRelevance("ab cd ef ZZZ", tmpl)
-	// 短于等于 2 个字符的关键词被忽略，但标题匹配可能加分
 	if score > 0.3 {
 		t.Errorf("expected <= 0.3 for short keywords, got %v", score)
 	}
 }
+

@@ -7,19 +7,7 @@ import (
 	"time"
 )
 
-// ============================================================================
-// Inference Cycle 测试套件
-// ----------------------------------------------------------------------------
-// 覆盖：
-//  1. 端到端：闲聊 / 询价 / 投诉 / 退款 / 转人工 等场景
-//  2. 各阶段：感知 / 对齐 / 门禁 / 规划 独立单元测试
-//  3. 边界：空内容 / 极长内容 / 异常情绪
-//  4. 性能：循环 1000 次，统计平均耗时
-// ============================================================================
 
-// ============================================================================
-// Stage 1: 感知阶段测试
-// ============================================================================
 
 // TestPerceptionStage_Greeting 测试寒暄场景
 func TestPerceptionStage_Greeting(t *testing.T) {
@@ -124,9 +112,6 @@ func TestKeywordIntentRecognizer_OrderStatus(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Stage 2: 对齐阶段测试
-// ============================================================================
 
 // TestAlignmentStage_Empathy 验证同理心打分
 func TestAlignmentStage_Empathy(t *testing.T) {
@@ -174,9 +159,6 @@ func TestAlignmentScore_MaxDimension(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Stage 3: 门禁阶段测试
-// ============================================================================
 
 // TestGatekeeper_Refund 验证退款触发转人工
 func TestGatekeeper_Refund(t *testing.T) {
@@ -210,8 +192,6 @@ func TestGatekeeper_Complaint(t *testing.T) {
 
 	result := d.Execute(context.Background(), ic)
 	if result.EarlyReturn {
-		// 投诉关键词 + 愤怒情绪 → 高危机 → 转人工
-		// 这是预期行为
 	}
 	if ic.Crisis.Level < CrisisMedium {
 		t.Errorf("expected at least Medium crisis, got %d", ic.Crisis.Level)
@@ -255,9 +235,6 @@ func TestCrisisSignal_NeedsEscalation(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Stage 4: 规划器测试
-// ============================================================================
 
 // TestPlanner_Greeting 验证寒暄规划
 func TestPlanner_Greeting(t *testing.T) {
@@ -350,7 +327,7 @@ func TestPlanner_NoRAG(t *testing.T) {
 		Payload: CustomerMessagePayload{Content: "产品多少钱？"},
 		Intent:  IntentResult{Primary: IntentInquiry},
 		AgentCtx: &AgentContext{
-			EnableRAG: false, // 关闭 RAG
+			EnableRAG: false, 
 		},
 	}
 
@@ -365,9 +342,6 @@ func TestPlanner_NoRAG(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 端到端推理闭环测试
-// ============================================================================
 
 // TestInferenceCycle_Greeting 端到端：寒暄
 func TestInferenceCycle_Greeting(t *testing.T) {
@@ -388,7 +362,6 @@ func TestInferenceCycle_Greeting(t *testing.T) {
 		t.Fatal("expected plan to be set")
 	}
 	if len(decision.Plan.ToolCalls) == 0 && !decision.Plan.SkipLLM {
-		// 寒暄无工具调用是合理的
 	}
 }
 
@@ -447,7 +420,6 @@ func TestInferenceCycle_FAQSkip(t *testing.T) {
 		return false, ""
 	}
 	cycle := NewInferenceCycle()
-	// 注入自定义 planner
 	planner := NewDefaultTaskPlannerWithFAQ(faq)
 	cycle.PlannerStage = planner
 
@@ -483,7 +455,6 @@ func TestInferenceCycle_Stages(t *testing.T) {
 	if decision == nil {
 		t.Fatal("expected non-nil decision")
 	}
-	// 通过 stats 验证
 	stats := cycle.GetStats()
 	if stats.TotalRuns == 0 {
 		t.Error("expected TotalRuns > 0")
@@ -498,7 +469,6 @@ func TestInferenceCycle_ContextStages(t *testing.T) {
 		AgentCtx: &AgentContext{AgentCode: "default", EnableRAG: true},
 	}
 
-	// 手动执行各阶段
 	cycle.PerceptionStage.Execute(context.Background(), ic)
 	cycle.AlignmentStage.Execute(context.Background(), ic)
 	cycle.GatekeeperStage.Execute(context.Background(), ic)
@@ -508,7 +478,6 @@ func TestInferenceCycle_ContextStages(t *testing.T) {
 		t.Errorf("expected at least 4 stage records, got %d", len(ic.Stages))
 	}
 
-	// 验证每个阶段都有 Name / Duration
 	for i, s := range ic.Stages {
 		if s.Stage == "" {
 			t.Errorf("stage %d missing name", i)
@@ -537,9 +506,6 @@ func TestInferenceCycle_Stop(t *testing.T) {
 	cycle.Reset()
 }
 
-// ============================================================================
-// 性能与压力测试
-// ============================================================================
 
 // TestInferenceCycle_100Runs 验证 100 次循环
 func TestInferenceCycle_100Runs(t *testing.T) {
@@ -603,9 +569,6 @@ func TestInferenceCycle_PerfSingleRun(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 边界场景测试
-// ============================================================================
 
 // TestInferenceCycle_EmptyContent 空内容
 func TestInferenceCycle_EmptyContent(t *testing.T) {
@@ -622,7 +585,6 @@ func TestInferenceCycle_EmptyContent(t *testing.T) {
 	if decision == nil {
 		t.Fatal("expected non-nil decision")
 	}
-	// 空内容应能正常处理（不会 panic）
 }
 
 // TestInferenceCycle_LongContent 极长内容
@@ -748,3 +710,4 @@ func TestInferenceCycle_IntegrationWithTypes(t *testing.T) {
 		t.Error("plan confidence should be preserved")
 	}
 }
+

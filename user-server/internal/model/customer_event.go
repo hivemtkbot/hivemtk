@@ -38,7 +38,7 @@ type CustomerEvent struct {
 	CustomerID  string      `gorm:"type:varchar(36);index;not null" json:"customer_id"`
 	EventType   EventType   `gorm:"type:varchar(32);index;not null" json:"event_type"`
 	EventSource EventSource `gorm:"type:varchar(32);index" json:"event_source"`
-	EventData   string      `gorm:"type:text" json:"event_data"` // JSON string with event details
+	EventData   string      `gorm:"type:text" json:"event_data"` 
 	OccurredAt  time.Time   `gorm:"index;not null" json:"occurred_at"`
 	CreatedAt   time.Time   `gorm:"autoCreateTime" json:"created_at"`
 }
@@ -50,15 +50,14 @@ func (CustomerEvent) TableName() string {
 
 // BeforeCreate 创建前钩子 - 自动生成 ID
 func (e *CustomerEvent) BeforeCreate(tx *gorm.DB) error {
-	// 生成 ID
 	if e.ID == "" {
 		e.ID = uuid.New().String()
 	}
 
-	// 如果 OccurredAt 未设置，使用当前时间
 	if e.OccurredAt.IsZero() {
 		e.OccurredAt = time.Now()
 	}
 
 	return nil
 }
+

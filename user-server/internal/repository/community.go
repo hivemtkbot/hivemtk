@@ -83,7 +83,6 @@ func (r *communityRepository) UpdateGroup(ctx context.Context, id string, update
 }
 
 func (r *communityRepository) DeleteGroup(ctx context.Context, id string) error {
-	// 先删除相关的成员和消息
 	if err := r.db.WithContext(ctx).Where("group_id = ?", id).Delete(&model.CommunityMember{}).Error; err != nil {
 		return err
 	}
@@ -147,7 +146,6 @@ func (r *communityRepository) AddMember(ctx context.Context, member *model.Commu
 		return nil, err
 	}
 
-	// 更新群组成员数量
 	if err := r.db.WithContext(ctx).Model(&model.CommunityGroup{}).Where("id = ?", member.GroupID).UpdateColumn("member_count", gorm.Expr("member_count + ?", 1)).Error; err != nil {
 		return member, err
 	}
@@ -183,7 +181,6 @@ func (r *communityRepository) RemoveMember(ctx context.Context, id string) error
 		return errors.New("社群成员不存在")
 	}
 
-	// 更新群组成员数量
 	if err := r.db.WithContext(ctx).Model(&model.CommunityGroup{}).Where("id = ?", member.GroupID).UpdateColumn("member_count", gorm.Expr("member_count - ?", 1)).Error; err != nil {
 		return err
 	}
@@ -255,7 +252,6 @@ func (r *communityRepository) GetStatistics(ctx context.Context) (*map[string]an
 		return nil, err
 	}
 
-	// 计算今日新增成员数量
 	todayStart := time.Now().Truncate(24 * time.Hour)
 	var newMembersToday int64
 	if err := r.db.WithContext(ctx).Model(&model.CommunityMember{}).
@@ -274,3 +270,4 @@ func (r *communityRepository) GetStatistics(ctx context.Context) (*map[string]an
 
 	return &stats, nil
 }
+

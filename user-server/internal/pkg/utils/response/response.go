@@ -40,9 +40,9 @@ func localeOf(c *gin.Context) i18n.Locale {
 
 // Response 统一响应结构
 type Response struct {
-	Code    any    `json:"code"`           // 错误码
-	Message string `json:"message"`        // 错误消息
-	Data    any    `json:"data,omitempty"` // 数据
+	Code    any    `json:"code"`           
+	Message string `json:"message"`        
+	Data    any    `json:"data,omitempty"` 
 }
 
 // Success 成功响应
@@ -109,7 +109,6 @@ func Error(c *gin.Context, code any, message string, data ...any) {
 		Data:    nil,
 	}
 
-	// 如果有提供的数据，使用它
 	if len(data) > 0 {
 		resp.Data = data[0]
 	}
@@ -129,7 +128,6 @@ func ErrorFromDB(c *gin.Context, err error, fallbackMsg string, data ...any) {
 		return
 	}
 	msg := err.Error()
-	// 优先按错误类型判断（链路未被 %s/拼接打断时）。
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		NotFound(c, fallbackMsg)
 		return
@@ -146,8 +144,6 @@ func ErrorFromDB(c *gin.Context, err error, fallbackMsg string, data ...any) {
 		Error(c, http.StatusForbidden, fallbackMsg, data...)
 		return
 	}
-	// 兜底：部分 service/controller 用 %s 或字符串拼接包裹错误，导致类型链丢失，
-	// 这里依据常见消息做语义识别，避免「资源不存在/无权限」被误报为 500。
 	if strings.Contains(msg, "record not found") || strings.Contains(msg, "not found") || strings.Contains(msg, "不存在") {
 		NotFound(c, fallbackMsg)
 		return
@@ -201,14 +197,12 @@ func ErrorWithCode(c *gin.Context, errorCode utils.ErrorCode, httpCode int, mess
 
 // ErrorWithLog 错误响应并记录日志
 func ErrorWithLog(c *gin.Context, errorCode utils.ErrorCode, message string, details ...string) {
-	// 记录错误日志
 	detail := ""
 	if len(details) > 0 {
 		detail = details[0]
 	}
 	utils.LogErrorWithRequest(c, utils.NewAppError(utils.ErrorTypeSystem, message, utils.GetHTTPCode(errorCode), detail))
 
-	// 发送错误响应
 	Error(c, errorCode, message)
 }
 
@@ -336,3 +330,4 @@ func BindQuery(c *gin.Context, obj any) bool {
 	}
 	return true
 }
+

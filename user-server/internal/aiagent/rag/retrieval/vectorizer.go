@@ -40,7 +40,6 @@ func NewVectorizer(dimension int, embedder EmbeddingClient) *Vectorizer {
 		embedder:  embedder,
 		config:    embedder.DefaultConfig(),
 	}
-	// 将向量化器维度同步到 embedding 配置,确保离线降级实现与期望维度一致
 	v.config.Dimension = dimension
 	return v
 }
@@ -64,8 +63,6 @@ func NewVectorizerFromConfig(provider string, bgeM3Cfg BGEM3Config) VectorizerIn
 	case EmbeddingProviderOpenAI:
 		fallthrough
 	default:
-		// 默认走 *Vectorizer（基于 llm.EmbeddingService）
-		// 维度跟随 bgeM3Cfg.Dimension（保持与配置一致），<=0 时由 NewVectorizer 兜底 1024
 		return NewVectorizer(bgeM3Cfg.Dimension, nil)
 	}
 }
@@ -141,14 +138,13 @@ func JaccardSimilarity(text1, text2 string) float64 {
 	words2 := getUniqueWords(text2)
 
 	intersection := 0
-	union := len(words2) // 初始化为集合2的大小
+	union := len(words2) 
 
-	// 计算交集和调整并集大小
 	for word := range words1 {
 		if _, exists := words2[word]; exists {
 			intersection++
 		} else {
-			union++ // 如果word不在集合2中，则它在并集中
+			union++ 
 		}
 	}
 
@@ -165,7 +161,6 @@ func getUniqueWords(text string) map[string]bool {
 	wordSet := make(map[string]bool)
 
 	for _, word := range words {
-		// 移除标点符号
 		cleanWord := strings.Trim(word, ".,!?;:\"'()[]{}")
 		if cleanWord != "" {
 			wordSet[cleanWord] = true
@@ -174,3 +169,4 @@ func getUniqueWords(text string) map[string]bool {
 
 	return wordSet
 }
+

@@ -1,12 +1,5 @@
 package repository
 
-// password_history_repository.go 密码历史仓储
-//
-// 五层架构归属：L4 数据访问层
-// 表：password_history
-// 私域独立部署：无 merchant_id 字段
-//
-// 本文件仅承载密码历史仓储。
 
 import (
 	"context"
@@ -20,13 +13,10 @@ import (
 
 // PasswordHistoryRepository 密码历史仓储接口
 type PasswordHistoryRepository interface {
-	// Create 创建一条历史记录
 	Create(ctx context.Context, h *model.PasswordHistory) error
 
-	// ListRecent 查询用户最近 N 条历史（按 changed_at DESC）
 	ListRecent(ctx context.Context, userID uint, limit int) ([]model.PasswordHistory, error)
 
-	// Latest 查询用户最近一次密码变更记录
 	Latest(ctx context.Context, userID uint) (*model.PasswordHistory, error)
 }
 
@@ -77,3 +67,4 @@ func (r *passwordHistoryRepo) Latest(ctx context.Context, userID uint) (*model.P
 
 // compile-time 接口断言
 var _ PasswordHistoryRepository = (*passwordHistoryRepo)(nil)
+

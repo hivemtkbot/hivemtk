@@ -1,18 +1,5 @@
 package model
 
-// humanize_score.go 拟人度评估器模型层
-//
-// 五层架构归属: L5 数据层
-// 设计依据: docs/核心链路优化.md 第十六章 §16.3 表结构设计
-//
-// 包含 5 张新表 + 1 张扩展（low_quality_samples 复用 已有表）：
-//  1. HumanizeScore     - 拟人度评估主表（每次评估一条记录）
-//  2. HumanizeDimensionRecord - 维度得分明细
-//  3. ChampionBaseline  - 销冠基线（persona+industry+intent 三元组）
-//  4. ChampionPhrase    - 销冠短语（TF-IDF 提取）
-// 5. ABTestStat - A/B 测试统计结果（与 ABTest 不同，本表存单次实验汇总）
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import "time"
 
@@ -20,19 +7,19 @@ import "time"
 type HumanizeEvaluatorType string
 
 const (
-	HumanizeEvaluatorRule   HumanizeEvaluatorType = "rule"   // 规则评估器
-	HumanizeEvaluatorLLM    HumanizeEvaluatorType = "llm"    // LLM 评估器
-	HumanizeEvaluatorHybrid HumanizeEvaluatorType = "hybrid" // 混合评估器
+	HumanizeEvaluatorRule   HumanizeEvaluatorType = "rule"   
+	HumanizeEvaluatorLLM    HumanizeEvaluatorType = "llm"    
+	HumanizeEvaluatorHybrid HumanizeEvaluatorType = "hybrid" 
 )
 
 // HumanizeSampleStrategy 采样策略
 type HumanizeSampleStrategy string
 
 const (
-	HumanizeSampleFull           HumanizeSampleStrategy = "full"            // 全量规则评估
-	HumanizeSampleBoundary       HumanizeSampleStrategy = "boundary"        // 边界样本 100% LLM
-	HumanizeSampleSampled        HumanizeSampleStrategy = "sampled"         // 10% 采样 LLM
-	HumanizeSampleSampledMonitor HumanizeSampleStrategy = "sampled_monitor" // 1% 监控采样
+	HumanizeSampleFull           HumanizeSampleStrategy = "full"            
+	HumanizeSampleBoundary       HumanizeSampleStrategy = "boundary"        
+	HumanizeSampleSampled        HumanizeSampleStrategy = "sampled"         
+	HumanizeSampleSampledMonitor HumanizeSampleStrategy = "sampled_monitor" 
 )
 
 // HumanizeScore 拟人度评估主表（对应 humanize_scores 表）
@@ -140,7 +127,7 @@ func (ChampionPhrase) TableName() string { return "champion_phrases" }
 type ABTestStat struct {
 	ID              uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
 	ExperimentID    string    `gorm:"column:experiment_id;size:64;not null;index:idx_abstat_exp,priority:1" json:"experiment_id"`
-	GroupName       string    `gorm:"column:group_name;size:16;not null;index:idx_abstat_exp,priority:2" json:"group_name"` // control / treatment
+	GroupName       string    `gorm:"column:group_name;size:16;not null;index:idx_abstat_exp,priority:2" json:"group_name"` 
 	SampleSize      int       `gorm:"column:sample_size;not null" json:"sample_size"`
 	MeanScore       float64   `gorm:"column:mean_score;type:decimal(8,4)" json:"mean_score"`
 	MedianScore     float64   `gorm:"column:median_score;type:decimal(8,4)" json:"median_score"`
@@ -163,8 +150,9 @@ func (ABTestStat) TableName() string { return "ab_test_stats" }
 //
 // 复用 low_quality_samples 表的 sample_type 字段，仅追加枚举值，不修改表结构
 const (
-	LowQualitySampleNaturalnessLow    LowQualitySampleType = "naturalness_low"    // 自然度低
-	LowQualitySamplePersuasivenessLow LowQualitySampleType = "persuasiveness_low" // 说服力低
-	LowQualitySampleChampionDistance  LowQualitySampleType = "champion_distance"  // 与销冠基线距离过大
-	LowQualitySampleABTestLoser       LowQualitySampleType = "ab_test_loser"      // A/B 实验落败
+	LowQualitySampleNaturalnessLow    LowQualitySampleType = "naturalness_low"    
+	LowQualitySamplePersuasivenessLow LowQualitySampleType = "persuasiveness_low" 
+	LowQualitySampleChampionDistance  LowQualitySampleType = "champion_distance"  
+	LowQualitySampleABTestLoser       LowQualitySampleType = "ab_test_loser"      
 )
+

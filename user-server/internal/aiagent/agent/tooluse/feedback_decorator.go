@@ -9,29 +9,7 @@ import (
 	"time"
 )
 
-// feedback_decorator.go 工具调用反馈回流装饰器
-//
-// 设计目标：
-//   将工具调用结果作为隐式反馈信号回流到 FeedbackCollector，
-//   用于驱动 SOP 优化 / Bandit 流量分配 / Prompt 迭代。
-//
-// 设计要点：
-//   1. 通过 FeedbackSink 接口解耦，tooluse 包不直接依赖 feedback_loop 包
-//      （feedback_loop 包依赖 dto/model，若 tooluse 反向依赖会产生循环）
-//   2. 仅在工具执行成功后异步回流，不阻塞主链路
-//   3. 失败的工具调用也回流（标记 Success=false），用于降级率统计
-//   4. 装饰器位置：审计计费之后、handler 之前（最内层）
-//      这样可以拿到最终的 result 和 duration，且不受重试/超时影响
-//      但为了避免双重计时，本装饰器位于 AuditDecorator 之后（外层），
-//      通过独立的 sink.RecordToolCall 异步上报
-//
-// 装饰器链位置（后，实际执行顺序，外→内）：
-//   死信 → 反馈回流 → 循环检测 → 权限 → 限流 → 熔断 → 参数校验 → 缓存 → 重试 → 超时 → 审计计费 → handler
-//   （反馈回流位于重试之外：重试是同一逻辑调用的多次尝试，只回流最终结果）
-//   （反馈回流位于审计之外：审计已记录完整信息，反馈回流可复用 result/error）
-//   （反馈回流位于循环检测之外：循环命中时反馈仍能记录失败事件，用于降级率统计）
 
-// ===== 接口定义（解耦 tooluse ↔ feedback_loop）=====
 
 // ToolRiskLevel 工具风险级别
 //
@@ -42,16 +20,10 @@ import (
 type ToolRiskLevel string
 
 const (
-	// RiskLevelRead 读工具（如 customer.search、knowledge.search）
-	// 仅查询数据，无副作用；反馈信号权重低
 	RiskLevelRead ToolRiskLevel = "read"
 
-	// RiskLevelWrite 写工具（如 knowledge.feedback、knowledge.add_doc）
-	// 修改/写入数据，有副作用但可回滚；反馈信号权重中
 	RiskLevelWrite ToolRiskLevel = "write"
 
-	// RiskLevelAdmin 管理工具（如 customer.delete、reach.broadcast）
-	// 不可逆操作或影响范围大；反馈信号权重高
 	RiskLevelAdmin ToolRiskLevel = "admin"
 )
 
@@ -61,31 +33,26 @@ const (
 //   - FeedbackCollectorAdapter 包装 service.FeedbackCollector
 //   - 测试场景使用 MemoryFeedbackSink
 type FeedbackSink interface {
-	// RecordToolCall 记录一次工具调用事件
-	// 实现应异步处理，不阻塞主链路；失败不应影响工具执行结果
 	RecordToolCall(ctx context.Context, event ToolCallEvent) error
 }
 
 // ToolCallEvent 工具调用事件（反馈回流载荷）
 type ToolCallEvent struct {
-	ToolName   string         `json:"tool_name"`             // 工具名
-	Args       map[string]any `json:"args"`                  // 调用参数（脱敏后）
-	Result     ToolResult     `json:"result"`                // 执行结果
-	Duration   time.Duration  `json:"duration_ms"`           // 执行耗时
-	TraceID    string         `json:"trace_id,omitempty"`    // 追踪 ID（贯穿 Agent Loop）
-	SessionID  string         `json:"session_id,omitempty"`  // 会话 ID
-	CustomerID string         `json:"customer_id,omitempty"` // 客户 ID
-	AgentID    string         `json:"agent_id,omitempty"`    // 智能体 ID
-	Source     string         `json:"source,omitempty"`      // 调用来源（agent/sop/manual/api）
-	Success    bool           `json:"success"`               // 是否成功
-	Error      string         `json:"error,omitempty"`       // 错误信息
-	// 风险级别：用于反馈加权（写工具的反馈信号权重高于读工具）
+	ToolName   string         `json:"tool_name"`             
+	Args       map[string]any `json:"args"`                  
+	Result     ToolResult     `json:"result"`                
+	Duration   time.Duration  `json:"duration_ms"`           
+	TraceID    string         `json:"trace_id,omitempty"`    
+	SessionID  string         `json:"session_id,omitempty"`  
+	CustomerID string         `json:"customer_id,omitempty"` 
+	AgentID    string         `json:"agent_id,omitempty"`    
+	Source     string         `json:"source,omitempty"`      
+	Success    bool           `json:"success"`               
+	Error      string         `json:"error,omitempty"`       
 	RiskLevel ToolRiskLevel `json:"risk_level,omitempty"`
-	// 工具版本：用于版本维度分析
 	Version string `json:"version,omitempty"`
 }
 
-// ===== 装饰器 =====
 
 // FeedbackCollectorDecorator 反馈回流装饰器
 //
@@ -111,12 +78,10 @@ func FeedbackCollectorDecorator(sink FeedbackSink) ToolDecorator {
 				return result, err
 			}
 
-			// 提取上下文信息
 			toolName := GetToolName(ctx)
 			tc := GetToolContext(ctx)
 			traceID := GetTraceID(ctx)
 
-			// 构造事件（脱敏参数，避免敏感信息进入反馈流）
 			event := ToolCallEvent{
 				ToolName: toolName,
 				Args:     sanitizeArgsForFeedback(args),
@@ -137,14 +102,9 @@ func FeedbackCollectorDecorator(sink FeedbackSink) ToolDecorator {
 				event.Source = tc.Source
 			}
 
-			// 异步回流（不阻塞主链路）
-			// 使用 context.Background() 而非原 ctx，避免 ctx 被取消后回流失败
 			go func(ev ToolCallEvent) {
-				// 限制回流最大耗时 5s，防止 sink 卡死 goroutine
 				sinkCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				// 监控 sink.RecordToolCall 错误
-				// 错误不影响主链路，但需要被观测以发现反馈回流链路异常
 				if sinkErr := sink.RecordToolCall(sinkCtx, ev); sinkErr != nil {
 					log.Printf("[WARN] FeedbackSink.RecordToolCall failed: tool=%s trace_id=%s err=%v",
 						ev.ToolName, ev.TraceID, sinkErr)
@@ -180,7 +140,6 @@ func sanitizeArgsForFeedback(args map[string]any) map[string]any {
 	return out
 }
 
-// ===== 内存实现（用于测试 / 默认场景）=====
 
 // MemoryFeedbackSink 内存反馈接收器（用于测试 / 单机审计）
 //
@@ -193,11 +152,11 @@ func sanitizeArgsForFeedback(args map[string]any) map[string]any {
 // 必须加锁保护内部状态。
 type MemoryFeedbackSink struct {
 	mu      sync.Mutex
-	buf     []ToolCallEvent // 固定容量环形缓冲区
-	head    int             // 下一个写入位置
-	size    int             // 当前条目数（<= cap）
-	max     int             // 缓冲区容量（= cap(buf)）
-	dropped int64           // 因容量满被覆盖的旧条目数（监控用）
+	buf     []ToolCallEvent 
+	head    int             
+	size    int             
+	max     int             
+	dropped int64           
 }
 
 // NewMemoryFeedbackSink 创建内存反馈接收器
@@ -218,13 +177,11 @@ func NewMemoryFeedbackSink(max int) *MemoryFeedbackSink {
 func (s *MemoryFeedbackSink) RecordToolCall(ctx context.Context, event ToolCallEvent) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	// 写入 head 位置
 	s.buf[s.head] = event
 	s.head = (s.head + 1) % s.max
 	if s.size < s.max {
 		s.size++
 	} else {
-		// 缓冲区已满，覆盖最旧条目（head 此时指向最旧条目）
 		s.dropped++
 	}
 	return nil
@@ -238,11 +195,9 @@ func (s *MemoryFeedbackSink) Events() []ToolCallEvent {
 		return []ToolCallEvent{}
 	}
 	out := make([]ToolCallEvent, s.size)
-	// head 指向下一个写入位置，即最旧条目的位置（当 size==max 时）
-	// 或 0（当 size<max 时，未发生覆盖）
 	start := 0
 	if s.size == s.max {
-		start = s.head // head 指向最旧条目
+		start = s.head 
 	}
 	for i := 0; i < s.size; i++ {
 		out[i] = s.buf[(start+i)%s.max]
@@ -280,18 +235,17 @@ func (NoOpFeedbackSink) RecordToolCall(ctx context.Context, event ToolCallEvent)
 	return nil
 }
 
-// ===== : FeedbackSink 错误监控 =====
 
 // FeedbackSinkMetrics 反馈回流错误监控指标
 //
 // 通过 atomic 计数器实现无锁监控，避免反馈回流影响主链路性能
 // 调用方可通过 Metrics() 读取当前快照，用于 /metrics endpoint 暴露或告警判定
 type FeedbackSinkMetrics struct {
-	TotalAttempts  atomic.Int64 // 总尝试次数（含成功+失败）
-	SuccessCount   atomic.Int64 // 成功次数
-	FailureCount   atomic.Int64 // 失败次数（sink.RecordToolCall 返回 error）
-	TimeoutCount   atomic.Int64 // 超时次数（ctx deadline exceeded）
-	LastFailureMsg atomic.Value // 最近一次失败的错误信息（string）
+	TotalAttempts  atomic.Int64 
+	SuccessCount   atomic.Int64 
+	FailureCount   atomic.Int64 
+	TimeoutCount   atomic.Int64 
+	LastFailureMsg atomic.Value 
 }
 
 // Snapshot 返回指标快照（用于 /metrics 暴露或日志输出）
@@ -300,7 +254,7 @@ type FeedbackSinkMetricsSnapshot struct {
 	SuccessCount   int64
 	FailureCount   int64
 	TimeoutCount   int64
-	FailureRate    float64 // 失败率 = FailureCount / TotalAttempts
+	FailureRate    float64 
 	LastFailureMsg string
 }
 
@@ -362,10 +316,8 @@ func (s *MonitoredFeedbackSink) RecordToolCall(ctx context.Context, event ToolCa
 		s.metrics.SuccessCount.Add(1)
 		return nil
 	}
-	// 失败：计数 + 记录最近错误信息
 	s.metrics.FailureCount.Add(1)
 	s.metrics.LastFailureMsg.Store(err.Error())
-	// 检测超时错误
 	if errors.Is(err, context.DeadlineExceeded) {
 		s.metrics.TimeoutCount.Add(1)
 	}
@@ -376,3 +328,4 @@ func (s *MonitoredFeedbackSink) RecordToolCall(ctx context.Context, event ToolCa
 func (s *MonitoredFeedbackSink) Metrics() *FeedbackSinkMetrics {
 	return &s.metrics
 }
+

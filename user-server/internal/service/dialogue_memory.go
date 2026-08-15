@@ -25,8 +25,8 @@ type DialogueMemoryService struct {
 }
 
 const (
-	shortTermWindow    = 10   // 短期记忆保留最近 10 轮（硬上限，经验证的注入锚点，保持不变）
-	shortTermMsgMaxLen = 1500 // 单条历史消息注入 prompt 前的硬截断，防止异常长消息撑爆上下文
+	shortTermWindow    = 10   
+	shortTermMsgMaxLen = 1500 
 	memoryTTL          = 30 * 24 * time.Hour
 )
 
@@ -41,8 +41,6 @@ func NewDialogueMemoryService(db *gorm.DB, dispatcher *llm.Dispatcher) *Dialogue
 	return &DialogueMemoryService{repo: repo, dispatcher: dispatcher}
 }
 
-// Message / ShortTermMemory 已迁至 dto 包（DTO 层补全）
-// 使用 dto.Message / dto.ShortTermMemory 替代本地类型
 
 // GetOrCreateMemory 获取或创建记忆
 func (s *DialogueMemoryService) GetOrCreateMemory(ctx context.Context, sessionID, customerID string) (*model.DialogueMemory, error) {
@@ -56,7 +54,6 @@ func (s *DialogueMemoryService) GetOrCreateMemory(ctx context.Context, sessionID
 	if err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
-	// 创建
 	mem = &model.DialogueMemory{
 		SessionID:    sessionID,
 		CustomerID:   customerID,
@@ -79,20 +76,17 @@ func (s *DialogueMemoryService) AppendMessage(ctx context.Context, sessionID, cu
 	if err != nil {
 		return err
 	}
-	// 更新短期记忆
 	trail := []string{}
 	if mem.IntentTrail != nil {
 		_ = json.Unmarshal(mustJSON(mem.IntentTrail), &trail)
 	}
 
-	// 更新 message_count
 	mem.MessageCount++
 	mem.LastActiveAt = time.Now()
 	if msg.Role == "ai" || msg.Role == "agent" {
 		mem.LastAction = truncate(msg.Content, 100)
 	}
 
-	// 每累计 5 轮触发一次长期摘要更新
 	if mem.MessageCount%5 == 0 && s.dispatcher != nil {
 		s.updateLongTermSummary(ctx, mem, msg)
 	}
@@ -109,7 +103,6 @@ func (s *DialogueMemoryService) GetShortTermMemory(ctx context.Context, sessionI
 	if err != nil {
 		return nil, err
 	}
-	// 转换为 Message，倒序变为正序
 	msgs := make([]dto.Message, 0, len(records))
 	for i := len(records) - 1; i >= 0; i-- {
 		r := records[i]
@@ -131,7 +124,6 @@ func (s *DialogueMemoryService) GetLongTermMemory(ctx context.Context, sessionID
 	return s.GetOrCreateMemory(ctx, sessionID, "")
 }
 
-// UpdateKeyFacts 更新关键事实
 
 // ListByCustomerID 根据 customerID 获取对话记忆列表
 func (s *DialogueMemoryService) ListByCustomerID(ctx context.Context, customerID string, limit int) ([]*model.DialogueMemory, int64, error) {
@@ -381,3 +373,4 @@ func truncate(s string, n int) string {
 	}
 	return string(r[:n]) + "..."
 }
+

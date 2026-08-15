@@ -154,7 +154,6 @@ func TestDashboardScreenService_GetScreenList(t *testing.T) {
 	repo := newTestDashboardScreenRepository(database)
 	service := &DashboardScreenService{screenRepo: repo}
 
-	// 创建 5 个大屏
 	for i := 0; i < 5; i++ {
 		req := &CreateScreenRequest{
 			Name:     fmt.Sprintf("大屏-%d", i),
@@ -168,7 +167,6 @@ func TestDashboardScreenService_GetScreenList(t *testing.T) {
 		}
 	}
 
-	// 获取列表
 	screens, total, err := service.GetScreenList(1, 10)
 	if err != nil {
 		t.Fatalf("GetScreenList failed: %v", err)
@@ -189,7 +187,6 @@ func TestDashboardScreenService_GetScreenList_Single(t *testing.T) {
 	repo := newTestDashboardScreenRepository(database)
 	service := &DashboardScreenService{screenRepo: repo}
 
-	// 创建一个大屏
 	req := &CreateScreenRequest{
 		Name:     "单一大屏",
 		Layout:   map[string]any{},
@@ -201,7 +198,6 @@ func TestDashboardScreenService_GetScreenList_Single(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 获取列表
 	screens, total, err := service.GetScreenList(1, 10)
 	if err != nil {
 		t.Fatalf("GetScreenList failed: %v", err)
@@ -223,7 +219,6 @@ func TestDashboardScreenService_GetScreenList_MultipleUsers(t *testing.T) {
 	repo := newTestDashboardScreenRepository(database)
 	service := &DashboardScreenService{screenRepo: repo}
 
-	// 用户 1 创建 2 个大屏
 	for i := 0; i < 2; i++ {
 		req := &CreateScreenRequest{
 			Name:     fmt.Sprintf("大屏-A-%d", i),
@@ -237,7 +232,6 @@ func TestDashboardScreenService_GetScreenList_MultipleUsers(t *testing.T) {
 		}
 	}
 
-	// 用户 2 创建 3 个大屏
 	for i := 0; i < 3; i++ {
 		req := &CreateScreenRequest{
 			Name:     fmt.Sprintf("大屏-B-%d", i),
@@ -251,7 +245,6 @@ func TestDashboardScreenService_GetScreenList_MultipleUsers(t *testing.T) {
 		}
 	}
 
-	// 单租户下，GetScreenList 返回所有大屏
 	all, total, err := service.GetScreenList(1, 10)
 	if err != nil {
 		t.Fatalf("GetScreenList failed: %v", err)
@@ -263,7 +256,6 @@ func TestDashboardScreenService_GetScreenList_MultipleUsers(t *testing.T) {
 		t.Errorf("Expected 5 screens, got %d", len(all))
 	}
 
-	// 统计各 CreatedBy 的数量
 	countByUser := map[uint]int{}
 	for _, s := range all {
 		countByUser[s.CreatedBy]++
@@ -282,7 +274,6 @@ func TestDashboardScreenService_GetScreenList_WithPagination(t *testing.T) {
 	repo := newTestDashboardScreenRepository(database)
 	service := &DashboardScreenService{screenRepo: repo}
 
-	// 创建 3 个大屏用于测试分页
 	for i := 0; i < 3; i++ {
 		req := &CreateScreenRequest{
 			Name:     fmt.Sprintf("大屏-%d", i),
@@ -296,7 +287,6 @@ func TestDashboardScreenService_GetScreenList_WithPagination(t *testing.T) {
 		}
 	}
 
-	// 获取第一页（每页 2 条）
 	screens, total, err := service.GetScreenList(1, 2)
 	if err != nil {
 		t.Fatalf("GetScreenList failed: %v", err)
@@ -310,7 +300,6 @@ func TestDashboardScreenService_GetScreenList_WithPagination(t *testing.T) {
 		t.Errorf("Expected 2 screens on page 1, got %d", len(screens))
 	}
 
-	// 获取第二页
 	screens2, _, err := service.GetScreenList(2, 2)
 	if err != nil {
 		t.Fatalf("GetScreenList failed for page 2: %v", err)
@@ -326,7 +315,6 @@ func TestDashboardScreenService_GetScreenList_EmptyMerchant(t *testing.T) {
 	repo := newTestDashboardScreenRepository(database)
 	service := &DashboardScreenService{screenRepo: repo}
 
-	// 获取列表
 	screens, total, err := service.GetScreenList(1, 10)
 	if err != nil {
 		t.Fatalf("GetScreenList failed: %v", err)
@@ -347,7 +335,6 @@ func TestDashboardScreenService_GetScreenByID(t *testing.T) {
 	_ = newTestDashboardScreenRepository(database)
 	service := NewDashboardScreenService()
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "测试大屏",
 		Layout:   map[string]any{"key": "value"},
@@ -359,7 +346,6 @@ func TestDashboardScreenService_GetScreenByID(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 获取大屏
 	retrievedScreen, err := service.GetScreenByID(screen.ID)
 	if err != nil {
 		t.Fatalf("GetScreenByID failed: %v", err)
@@ -381,7 +367,6 @@ func TestDashboardScreenService_GetScreenByID_SingleTenant(t *testing.T) {
 	_ = newTestDashboardScreenRepository(database)
 	service := NewDashboardScreenService()
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "测试大屏",
 		Layout:   map[string]any{},
@@ -393,7 +378,6 @@ func TestDashboardScreenService_GetScreenByID_SingleTenant(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 单租户下任意访问者都能查看
 	got, err := service.GetScreenByID(screen.ID)
 	if err != nil {
 		t.Fatalf("GetScreenByID should succeed in single-tenant mode, got: %v", err)
@@ -421,7 +405,6 @@ func TestDashboardScreenService_UpdateScreen(t *testing.T) {
 	_ = newTestDashboardScreenRepository(database)
 	service := NewDashboardScreenService()
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "旧名称",
 		Layout:   map[string]any{"old": "layout"},
@@ -433,7 +416,6 @@ func TestDashboardScreenService_UpdateScreen(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 更新大屏
 	updateReq := &UpdateScreenRequest{
 		Name:     "新名称",
 		Layout:   map[string]any{"new": "layout"},
@@ -484,7 +466,6 @@ func TestDashboardScreenService_UpdateScreen_Partial(t *testing.T) {
 	_ = newTestDashboardScreenRepository(database)
 	service := NewDashboardScreenService()
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "原名称",
 		Layout:   map[string]any{"original": "layout"},
@@ -496,7 +477,6 @@ func TestDashboardScreenService_UpdateScreen_Partial(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 部分更新（只更新名称）
 	updateReq := &UpdateScreenRequest{
 		Name:     "新名称",
 		Layout:   nil,
@@ -513,7 +493,6 @@ func TestDashboardScreenService_UpdateScreen_Partial(t *testing.T) {
 		t.Errorf("Expected name '新名称', got %s", updatedScreen.Name)
 	}
 
-	// 其他字段应保持不变
 	if updatedScreen.Theme != "light" {
 		t.Errorf("Expected theme to remain 'light', got %s", updatedScreen.Theme)
 	}
@@ -526,7 +505,6 @@ func TestDashboardScreenService_UpdateScreen_SingleTenant(t *testing.T) {
 	_ = newTestDashboardScreenRepository(database)
 	service := NewDashboardScreenService()
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "测试大屏",
 		Layout:   map[string]any{},
@@ -572,7 +550,6 @@ func TestDashboardScreenService_DeleteScreen(t *testing.T) {
 	widgetRepo := newTestDashboardWidgetRepository(database)
 	service := &DashboardScreenService{screenRepo: repo, widgetRepo: widgetRepo}
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "待删除大屏",
 		Layout:   map[string]any{},
@@ -584,7 +561,6 @@ func TestDashboardScreenService_DeleteScreen(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 创建 widget
 	widget := &model.DashboardWidget{
 		ScreenID:   screen.ID,
 		WidgetType: "chart",
@@ -597,7 +573,6 @@ func TestDashboardScreenService_DeleteScreen(t *testing.T) {
 	}
 	database.Create(widget)
 
-	// 删除大屏
 	err = service.DeleteScreen(screen.ID)
 	if err != nil {
 		t.Fatalf("DeleteScreen failed: %v", err)
@@ -624,7 +599,6 @@ func TestDashboardScreenService_DeleteScreen_Access(t *testing.T) {
 	widgetRepo := newTestDashboardWidgetRepository(database)
 	service := &DashboardScreenService{screenRepo: repo, widgetRepo: widgetRepo}
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "测试大屏",
 		Layout:   map[string]any{},
@@ -636,7 +610,6 @@ func TestDashboardScreenService_DeleteScreen_Access(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 单租户模式下，任何授权用户可删除大屏
 	err = service.DeleteScreen(screen.ID)
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -661,7 +634,6 @@ func TestDashboardScreenService_GetPublicScreen(t *testing.T) {
 	_ = newTestDashboardScreenRepository(database)
 	service := NewDashboardScreenService()
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "公开大屏",
 		Layout:   map[string]any{},
@@ -673,7 +645,6 @@ func TestDashboardScreenService_GetPublicScreen(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 公开访问
 	retrievedScreen, err := service.GetPublicScreen(screen.Code)
 	if err != nil {
 		t.Fatalf("GetPublicScreen failed: %v", err)
@@ -697,7 +668,6 @@ func TestDashboardScreenService_GetPublicScreen_MultipleViews(t *testing.T) {
 	_ = newTestDashboardScreenRepository(database)
 	service := NewDashboardScreenService()
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "公开大屏",
 		Layout:   map[string]any{},
@@ -709,7 +679,6 @@ func TestDashboardScreenService_GetPublicScreen_MultipleViews(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 多次访问
 	for i := 0; i < 5; i++ {
 		_, err = service.GetPublicScreen(screen.Code)
 		if err != nil {
@@ -743,7 +712,6 @@ func TestDashboardScreenService_GetScreenWidgets(t *testing.T) {
 	_ = newTestDashboardScreenRepository(database)
 	service := NewDashboardScreenService()
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "测试大屏",
 		Layout:   map[string]any{},
@@ -755,7 +723,6 @@ func TestDashboardScreenService_GetScreenWidgets(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 创建 widgets
 	widgets := []model.DashboardWidget{
 		{ScreenID: screen.ID, WidgetType: "chart", Title: "图表 1", Config: "{}", X: 0, Y: 0, Width: 4, Height: 3, SortOrder: 0},
 		{ScreenID: screen.ID, WidgetType: "table", Title: "表格 1", Config: "{}", X: 4, Y: 0, Width: 4, Height: 3, SortOrder: 1},
@@ -765,7 +732,6 @@ func TestDashboardScreenService_GetScreenWidgets(t *testing.T) {
 		database.Create(&widgets[i])
 	}
 
-	// 获取 widgets
 	retrievedWidgets, err := service.GetScreenWidgets(screen.ID)
 	if err != nil {
 		t.Fatalf("GetScreenWidgets failed: %v", err)
@@ -775,7 +741,6 @@ func TestDashboardScreenService_GetScreenWidgets(t *testing.T) {
 		t.Errorf("Expected 3 widgets, got %d", len(retrievedWidgets))
 	}
 
-	// 验证排序
 	if retrievedWidgets[0].Title != "图表 1" {
 		t.Errorf("Expected first widget '图表 1', got %s", retrievedWidgets[0].Title)
 	}
@@ -793,7 +758,6 @@ func TestDashboardScreenService_GetScreenWidgets_Empty(t *testing.T) {
 	_ = newTestDashboardScreenRepository(database)
 	service := NewDashboardScreenService()
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "测试大屏",
 		Layout:   map[string]any{},
@@ -805,7 +769,6 @@ func TestDashboardScreenService_GetScreenWidgets_Empty(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 获取 widgets（应为空）
 	widgets, err := service.GetScreenWidgets(screen.ID)
 	if err != nil {
 		t.Fatalf("GetScreenWidgets failed: %v", err)
@@ -822,7 +785,6 @@ func TestDashboardScreenService_updateWidgets(t *testing.T) {
 	_ = newTestDashboardScreenRepository(database)
 	service := NewDashboardScreenService()
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "测试大屏",
 		Layout:   map[string]any{},
@@ -834,7 +796,6 @@ func TestDashboardScreenService_updateWidgets(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 先创建一些 widgets
 	oldWidgets := []model.DashboardWidget{
 		{ScreenID: screen.ID, WidgetType: "old1", Title: "旧 Widget 1", Config: "{}", X: 0, Y: 0, Width: 4, Height: 3},
 		{ScreenID: screen.ID, WidgetType: "old2", Title: "旧 Widget 2", Config: "{}", X: 4, Y: 0, Width: 4, Height: 3},
@@ -843,13 +804,11 @@ func TestDashboardScreenService_updateWidgets(t *testing.T) {
 		database.Create(&oldWidgets[i])
 	}
 
-	// 准备新 widgets
 	newWidgets := []WidgetConfig{
 		{WidgetType: "chart", Title: "新 Widget 1", Config: map[string]any{"type": "line"}, DataSource: "source1", X: 0, Y: 0, Width: 6, Height: 4},
 		{WidgetType: "table", Title: "新 Widget 2", Config: map[string]any{"type": "grid"}, DataSource: "source2", X: 6, Y: 0, Width: 6, Height: 4},
 	}
 
-	// 调用 updateWidgets（私有方法，通过 UpdateScreen 间接测试）
 	updateReq := &UpdateScreenRequest{
 		Widgets: newWidgets,
 	}
@@ -890,7 +849,6 @@ func TestGenerateScreenCode(t *testing.T) {
 		t.Error("Expected non-empty code")
 	}
 
-	// 验证编码格式
 	expectedPrefix := "screen_"
 	if len(code) < len(expectedPrefix) {
 		t.Errorf("Expected code to start with '%s', got %s", expectedPrefix, code)
@@ -906,7 +864,6 @@ func TestGenerateScreenCode(t *testing.T) {
 func TestGenerateScreenCode_Uniqueness(t *testing.T) {
 	codes := make(map[string]bool)
 
-	// 生成多个编码（每个之间间隔 1 秒以确保唯一）
 	for i := 0; i < 5; i++ {
 		code := generateScreenCode()
 		if codes[code] {
@@ -916,7 +873,6 @@ func TestGenerateScreenCode_Uniqueness(t *testing.T) {
 		time.Sleep(1100 * time.Millisecond)
 	}
 
-	// 验证生成了 5 个唯一的编码
 	if len(codes) != 5 {
 		t.Errorf("Expected 5 unique codes, got %d", len(codes))
 	}
@@ -940,7 +896,6 @@ func TestDashboardScreenService_CreateScreen_WithWidgets(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 验证布局已正确序列化
 	if screen.Layout == "" {
 		t.Error("Expected non-empty layout")
 	}
@@ -952,7 +907,6 @@ func TestDashboardScreenService_UpdateScreen_WithEmptyWidgets(t *testing.T) {
 	_ = newTestDashboardScreenRepository(database)
 	service := NewDashboardScreenService()
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "测试大屏",
 		Layout:   map[string]any{},
@@ -964,7 +918,6 @@ func TestDashboardScreenService_UpdateScreen_WithEmptyWidgets(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 先创建一些 widgets
 	oldWidget := &model.DashboardWidget{
 		ScreenID:   screen.ID,
 		WidgetType: "chart",
@@ -977,7 +930,6 @@ func TestDashboardScreenService_UpdateScreen_WithEmptyWidgets(t *testing.T) {
 	}
 	database.Create(oldWidget)
 
-	// 更新为空 widgets 列表
 	updateReq := &UpdateScreenRequest{
 		Widgets: []WidgetConfig{},
 	}
@@ -1001,7 +953,6 @@ func TestDashboardScreenService_GetScreenByID_DeletedScreen(t *testing.T) {
 	widgetRepo := newTestDashboardWidgetRepository(database)
 	service := &DashboardScreenService{screenRepo: repo, widgetRepo: widgetRepo}
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "待删除大屏",
 		Layout:   map[string]any{},
@@ -1013,13 +964,11 @@ func TestDashboardScreenService_GetScreenByID_DeletedScreen(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 删除大屏
 	err = service.DeleteScreen(screen.ID)
 	if err != nil {
 		t.Fatalf("DeleteScreen failed: %v", err)
 	}
 
-	// 尝试获取已删除的大屏
 	_, err = service.GetScreenByID(screen.ID)
 	if err == nil {
 		t.Error("Expected error for deleted screen")
@@ -1034,7 +983,6 @@ func TestDashboardScreenService_ConcurrentAccess(t *testing.T) {
 	repo := newTestDashboardScreenRepository(database)
 	service := &DashboardScreenService{screenRepo: repo}
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "并发测试大屏",
 		Layout:   map[string]any{},
@@ -1046,7 +994,6 @@ func TestDashboardScreenService_ConcurrentAccess(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 顺序访问（模拟并发访问的效果）
 	for i := 0; i < 10; i++ {
 		_, err := service.GetPublicScreen(screen.Code)
 		if err != nil {
@@ -1068,7 +1015,6 @@ func TestDashboardScreenService_WidgetConfigSerialization(t *testing.T) {
 	_ = newTestDashboardScreenRepository(database)
 	service := NewDashboardScreenService()
 
-	// 创建大屏
 	req := &CreateScreenRequest{
 		Name:     "测试大屏",
 		Layout:   map[string]any{},
@@ -1080,7 +1026,6 @@ func TestDashboardScreenService_WidgetConfigSerialization(t *testing.T) {
 		t.Fatalf("CreateScreen failed: %v", err)
 	}
 
-	// 带复杂配置的 widgets
 	complexConfig := map[string]any{
 		"chartType":   "line",
 		"showLegend":  true,
@@ -1117,3 +1062,4 @@ func TestDashboardScreenService_WidgetConfigSerialization(t *testing.T) {
 		t.Error("Expected non-empty widget config")
 	}
 }
+

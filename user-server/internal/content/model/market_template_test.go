@@ -104,7 +104,6 @@ func TestMarketTemplateDownload_BasicFields(t *testing.T) {
 		t.Errorf("Expected ID 1, got %d", download.ID)
 	}
 
-	// 私域部署：不校验 MerchantID
 	if download.TemplateID != 100 {
 		t.Errorf("Expected TemplateID 100, got %d", download.TemplateID)
 	}
@@ -112,3 +111,4 @@ func TestMarketTemplateDownload_BasicFields(t *testing.T) {
 		t.Errorf("Expected TemplateType 'flow', got %s", download.TemplateType)
 	}
 }
+

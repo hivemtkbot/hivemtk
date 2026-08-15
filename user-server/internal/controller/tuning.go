@@ -21,12 +21,6 @@ func safeDiv(a, b float64) float64 {
 	return a / b
 }
 
-// tuning_controller.go 置信度/拟人度/反馈学习 统一管理 API Controller
-//
-// 五层架构归属: L3 表现层
-// 全部数据访问通过 TuningService,不再持有任何 Repository。
-//
-// 路由前缀: /api/admin/tuning/
 
 // TuningController 统一管理 Controller
 type TuningController struct {
@@ -38,9 +32,6 @@ func NewTuningController(svc service.TuningService) *TuningController {
 	return &TuningController{svc: svc}
 }
 
-// ----------------------------------------------------------------------------
-// 1. 置信度信号 (ConfidenceSignal)
-// ----------------------------------------------------------------------------
 
 // ListConfidenceSignals 信号列表
 func (c *TuningController) ListConfidenceSignals(ctx *gin.Context) {
@@ -86,9 +77,6 @@ func (c *TuningController) StatsConfidenceSignals(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"days": days, "bands": rows}, "")
 }
 
-// ----------------------------------------------------------------------------
-// 2. 置信度校准 (ConfidenceCalibration)
-// ----------------------------------------------------------------------------
 
 // ListCalibrations 校准记录列表
 func (c *TuningController) ListCalibrations(ctx *gin.Context) {
@@ -107,9 +95,6 @@ func (c *TuningController) ListCalibrations(ctx *gin.Context) {
 	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
-// ----------------------------------------------------------------------------
-// 3. 阈值策略 (ThresholdPolicy)
-// ----------------------------------------------------------------------------
 
 // ListThresholdPolicies 策略列表
 func (c *TuningController) ListThresholdPolicies(ctx *gin.Context) {
@@ -136,9 +121,6 @@ func (c *TuningController) UpsertThresholdPolicy(ctx *gin.Context) {
 	response.Success(ctx, policy, "")
 }
 
-// ----------------------------------------------------------------------------
-// 4. 拟人度评分 (HumanizeScore)
-// ----------------------------------------------------------------------------
 
 // ListHumanizeScores 评分列表
 func (c *TuningController) ListHumanizeScores(ctx *gin.Context) {
@@ -190,9 +172,6 @@ func (c *TuningController) StatsHumanizeScores(ctx *gin.Context) {
 	}, "")
 }
 
-// ----------------------------------------------------------------------------
-// 5. 销冠基线 (ChampionBaseline)
-// ----------------------------------------------------------------------------
 
 // ListChampionBaselines 基线列表
 func (c *TuningController) ListChampionBaselines(ctx *gin.Context) {
@@ -204,9 +183,6 @@ func (c *TuningController) ListChampionBaselines(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"list": rows}, "")
 }
 
-// ----------------------------------------------------------------------------
-// 6. 反馈事件 (FeedbackEvent)
-// ----------------------------------------------------------------------------
 
 // ListFeedbackEvents 事件列表
 func (c *TuningController) ListFeedbackEvents(ctx *gin.Context) {
@@ -242,9 +218,6 @@ func (c *TuningController) StatsFeedbackEvents(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"days": days, "signals": rows}, "")
 }
 
-// ----------------------------------------------------------------------------
-// 7. 销冠对话 (ChampionDialogue)
-// ----------------------------------------------------------------------------
 
 // ListChampionDialogues 销冠对话列表
 func (c *TuningController) ListChampionDialogues(ctx *gin.Context) {
@@ -264,9 +237,6 @@ func (c *TuningController) ListChampionDialogues(ctx *gin.Context) {
 	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
-// ----------------------------------------------------------------------------
-// 8. Prompt 候选 (PromptCandidate)
-// ----------------------------------------------------------------------------
 
 // ListPromptCandidates 候选列表
 func (c *TuningController) ListPromptCandidates(ctx *gin.Context) {
@@ -300,9 +270,6 @@ func (c *TuningController) UpdatePromptCandidateStatus(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"id": id, "status": status}, "")
 }
 
-// ----------------------------------------------------------------------------
-// 9. Bandit 臂 (BanditArm)
-// ----------------------------------------------------------------------------
 
 // ListBanditArms 臂列表
 func (c *TuningController) ListBanditArms(ctx *gin.Context) {
@@ -322,9 +289,6 @@ func (c *TuningController) ListBanditArms(ctx *gin.Context) {
 	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
-// ----------------------------------------------------------------------------
-// 11. 低质样本 (LowQualitySample)
-// ----------------------------------------------------------------------------
 
 // ListLowQualitySamples 低质样本列表
 func (c *TuningController) ListLowQualitySamples(ctx *gin.Context) {
@@ -343,9 +307,6 @@ func (c *TuningController) ListLowQualitySamples(ctx *gin.Context) {
 	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
-// ----------------------------------------------------------------------------
-// 通用助手
-// ----------------------------------------------------------------------------
 
 // jsonList 通用列表响应(分页元数据)
 func (c *TuningController) jsonList(ctx *gin.Context, list any, total int64, page, pageSize int) {
@@ -356,3 +317,4 @@ func (c *TuningController) jsonList(ctx *gin.Context, list any, total int64, pag
 		"size":  pageSize,
 	}, "")
 }
+

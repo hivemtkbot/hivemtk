@@ -145,7 +145,6 @@ func TestWhatsappController_StartLogin_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// May return 200, 400, or 500 depending on account existence
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 200/400/500, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -179,3 +178,4 @@ func TestWhatsappController_CreateJob_InvalidJSON(t *testing.T) {
 		t.Errorf("Expected 400, got %d", w.Code)
 	}
 }
+

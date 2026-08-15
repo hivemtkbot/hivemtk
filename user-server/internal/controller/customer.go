@@ -33,7 +33,6 @@ func NewCustomerController() *CustomerController {
 // @Success 200 {object} object{data=list, total=int} "获取成功"
 // @Router /api/customer [get]
 func (c *CustomerController) ListCustomers(ctx *gin.Context) {
-	// 解析分页参数
 	page, limit, err := pagination.Parse(ctx)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
@@ -207,7 +206,6 @@ func (c *CustomerController) MergeCustomers(ctx *gin.Context) {
 		return
 	}
 
-	// 注入操作人（来自 JWT 鉴权上下文），供合并审计记录追溯。
 	op := service.Operator{
 		UserID:   getUserIDFromContext(ctx),
 		Username: ctx.GetString("username"),
@@ -221,3 +219,4 @@ func (c *CustomerController) MergeCustomers(ctx *gin.Context) {
 
 	response.Success(ctx, nil, "合并成功")
 }
+

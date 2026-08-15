@@ -12,7 +12,7 @@ import (
 type LLMProviderConfig struct {
 	APIKey         string `json:"api_key" gorm:"column:api_key"`
 	BaseURL        string `json:"base_url" gorm:"column:base_url"`
-	APIType        string `json:"api_type" gorm:"column:api_type"` // openai, anthropic, custom, azure
+	APIType        string `json:"api_type" gorm:"column:api_type"` 
 	Model          string `json:"model" gorm:"column:model_detail"`
 	MaxRetries     int    `json:"max_retries" gorm:"column:max_retries;default:3"`
 	RequestTimeout int    `json:"request_timeout" gorm:"column:request_timeout;default:60"`
@@ -24,7 +24,7 @@ type LLMProviderConfig struct {
 type EmbeddingProviderConfig struct {
 	APIKey    string `json:"api_key" gorm:"column:api_key"`
 	BaseURL   string `json:"base_url" gorm:"column:base_url"`
-	APIType   string `json:"api_type" gorm:"column:api_type"` // openai 兼容 /v1/embeddings
+	APIType   string `json:"api_type" gorm:"column:api_type"` 
 	Model     string `json:"model" gorm:"column:model"`
 	Dimension int    `json:"dimension" gorm:"column:dimension;default:1024"`
 	Enabled   bool   `json:"enabled" gorm:"column:enabled;default:true"`
@@ -36,7 +36,7 @@ type EmbeddingProviderConfig struct {
 type RerankProviderConfig struct {
 	APIKey  string `json:"api_key" gorm:"column:api_key"`
 	BaseURL string `json:"base_url" gorm:"column:base_url"`
-	APIType string `json:"api_type" gorm:"column:api_type"` // openai 兼容 /v1/rerank
+	APIType string `json:"api_type" gorm:"column:api_type"` 
 	Model   string `json:"model" gorm:"column:model"`
 	Enabled bool   `json:"enabled" gorm:"column:enabled;default:true"`
 }
@@ -62,33 +62,19 @@ type RagProduct struct {
 	PresencePenalty         float64                 `json:"presence_penalty" gorm:"default:0.5"`
 	ResponseFormat          string                  `json:"response_format" gorm:"size:50;default:json_object"`
 	SystemPrompt            string                  `json:"system_prompt" gorm:"type:text"`
-	// V2.0 新增检索参数
 	TopK                int     `json:"top_k" gorm:"default:5"`
 	ChunkSize           int     `json:"chunk_size" gorm:"default:800"`
 	ChunkOverlap        int     `json:"chunk_overlap" gorm:"default:100"`
 	SimilarityThreshold float64 `json:"similarity_threshold" gorm:"default:0.6"`
-	// 状态(兼容旧 is_active 字段)
 	IsActive bool `json:"is_active" gorm:"default:true"`
 	Status   int  `json:"status" gorm:"default:1"`
-	// V2.0 新增冗余统计字段
 	DocCount     int        `json:"doc_count" gorm:"default:0"`
 	ChunkCount   int64      `json:"chunk_count" gorm:"default:0"`
 	LastImportAt *time.Time `json:"last_import_at"`
 	LastSearchAt *time.Time `json:"last_search_at"`
 	SearchCount  int64      `json:"search_count" gorm:"default:0"`
-	// 精细意图识别配置
-	// 8 大意图类（consult/price_inquiry/objection/...）+ 7 关键子类（价格异议/质量异议/购买意向/...）
-	// 用于：
-	//   - LLM 调用时按意图路由不同的 system_prompt 模板
-	//   - RAG 检索时按意图过滤相关向量
-	//   - 漏斗统计时按意图计数
-	IntentClassification string `json:"intent_classification" gorm:"type:text;column:intent_classification"` // JSON 序列化的意图配置
-	// 启用的意图类别（逗号分隔），空表示全部启用
-	// 8 大类：consult, price_inquiry, objection, after_sale, complaint, churn, intent_buy, ask_product
-	// 7 子类：price_objection, quality_objection, purchase_intent, trust_objection, competitor_objection, discount_request, refund_request
+	IntentClassification string `json:"intent_classification" gorm:"type:text;column:intent_classification"` 
 	EnabledIntents string `json:"enabled_intents" gorm:"type:text;column:enabled_intents"`
-	// 7 子类到 SOP 模板 ID 的映射（JSON 序列化）
-	// 格式：{"price_objection": "sop_template_001", "purchase_intent": "sop_template_002"}
 	IntentSOPMap string    `json:"intent_sop_map" gorm:"type:text;column:intent_sop_map"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
@@ -101,15 +87,10 @@ func (RagProduct) TableName() string {
 
 // IntentConfig 精细意图识别配置（运行时反序列化 IntentClassification）
 type IntentConfig struct {
-	// 启用模式：all / custom（全部 / 自定义子集）
 	Mode string `json:"mode"`
-	// 自定义启用的意图列表（mode=custom 时生效）
 	EnabledIntents []string `json:"enabled_intents,omitempty"`
-	// 7 子类置信度阈值（低于此值触发 LLM 二次识别）
 	KeyIntentThreshold float64 `json:"key_intent_threshold"`
-	// 是否启用 LLM 二次识别（confidence 不足时）
 	EnableLLMFallback bool `json:"enable_llm_fallback"`
-	// 7 子类 → 异议处理模板的映射
 	KeyIntentSOPMap map[string]string `json:"key_intent_sop_map,omitempty"`
 }
 
@@ -131,3 +112,4 @@ func DefaultIntentConfig() IntentConfig {
 		},
 	}
 }
+

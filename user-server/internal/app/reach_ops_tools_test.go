@@ -13,22 +13,8 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// reach_ops_tools_test.go 触达运维类工具补充测试
-//
-// P2-3：从 tooluse 包迁入 app 包——本测试依赖真实 service.ReachPipelineService
-// 装配（经 reachBatchPipelineAdapter 注入端口），属于装配层职责。
-//
-// 覆盖 reach_tools.go 中此前未被 reach_e2e_test / reach_channels_test 覆盖的工具：
-//   - reach.batch     （批量触达：依赖 Pipeline.EnqueueJob，并发 + 失败收集）
-//   - reach.schedule  （定时触达：依赖 Pipeline.EnqueueJob + RunAt 校验）
-//   - reach.recall    （撤回：依赖 Adapter.Recall）
-//   - reach.health    （账号健康度：依赖 Adapter.AccountHealth）
-//   - reach.history   （触达历史：依赖 Pipeline.ListJobs）
 
-// 批量/定时/历史测试统一经 reachBatchPipelineAdapter（与生产装配同路径）注入端口；
-// Pipeline 缺失分支直接传 nil 端口验证。
 
-// ===== reach.batch =====
 
 func TestReachBatchTool_MissingPipelineDep(t *testing.T) {
 	tool := tooluse.NewReachBatchTool(tooluse.ReachToolDeps{Adapter: &e2eMockReachAdapter{}})
@@ -44,7 +30,6 @@ func TestReachBatchTool_MissingPipelineDep(t *testing.T) {
 func TestReachBatchTool_MissingRequired(t *testing.T) {
 	p := &reachBatchPipelineAdapter{}
 	tool := tooluse.NewReachBatchTool(tooluse.ReachToolDeps{Pipeline: p, Adapter: &e2eMockReachAdapter{}})
-	// 缺 items
 	if _, err := tool.Execute(context.Background(), map[string]any{"pipeline_id": "1"}); err == nil {
 		t.Fatal("expected error when items missing")
 	}
@@ -88,7 +73,7 @@ func TestReachBatchTool_HappyPath(t *testing.T) {
 		"items": []any{
 			map[string]any{"customer_id": "c1", "payload": map[string]any{"content": "hi"}},
 			map[string]any{"customer_id": "c2", "payload": map[string]any{"content": "yo"}},
-			map[string]any{"account_id": "a1"}, // 缺 customer_id -> 进 failed
+			map[string]any{"account_id": "a1"}, 
 		},
 	})
 	if err != nil {
@@ -109,7 +94,6 @@ func TestReachBatchTool_HappyPath(t *testing.T) {
 	}
 }
 
-// ===== reach.schedule =====
 
 func TestReachScheduleTool_MissingPipelineDep(t *testing.T) {
 	tool := tooluse.NewReachScheduleTool(tooluse.ReachToolDeps{Adapter: &e2eMockReachAdapter{}})
@@ -170,7 +154,6 @@ func TestReachScheduleTool_HappyPath(t *testing.T) {
 	}
 }
 
-// ===== reach.recall =====
 
 func TestReachRecallTool_HappyPath(t *testing.T) {
 	adapter := &e2eMockReachAdapter{}
@@ -209,7 +192,6 @@ type errRecallAdapter struct {
 
 func (e *errRecallAdapter) Recall(_ context.Context, _, _ string) error { return e.err }
 
-// ===== reach.health =====
 
 func TestReachHealthTool_HappyPath(t *testing.T) {
 	adapter := &e2eMockReachAdapter{}
@@ -225,7 +207,6 @@ func TestReachHealthTool_HappyPath(t *testing.T) {
 	}
 }
 
-// ===== reach.history =====
 
 func TestReachHistoryTool_MissingPipelineDep(t *testing.T) {
 	tool := tooluse.NewReachHistoryTool(tooluse.ReachToolDeps{Adapter: &e2eMockReachAdapter{}})
@@ -246,10 +227,8 @@ func TestReachHistoryTool_PageSizeCap(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data := res.Data.(map[string]any)
-	// 注意：reach.history 工具自实现分页上限为 200（reach_tools.go:1311），
-	// 而 ReachPipelineService.ListJobs 的上限为 20（reach_pipeline.go:476），
-	// 两者不一致（产品级审查发现点）。此处断言以工具实际行为(200)为准。
 	if data["page_size"].(int) != 200 {
 		t.Errorf("expected page_size capped to 200 by tool, got %v", data["page_size"])
 	}
 }
+

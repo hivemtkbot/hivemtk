@@ -40,26 +40,20 @@ func InitAllAccount() error {
 		return err
 	}
 	for _, account := range accountList {
-		// 初始化账号
 		botName, err := InitOneAccount(account)
 		if err != nil {
 			logger.Info(fmt.Sprintf("初始化账号ID %s 失败: %s", account.ID, err.Error()))
-			// 更新失败信息
 			accountSer.UpdateAccountStatusById(context.Background(), account.ID, _type.AccountStatusInactive, err.Error())
 		} else {
-			// 更新成功信息
 			logger.Info(fmt.Sprintf("初始化账号ID %s 成功: %s", account.ID, botName))
 			accountSer.UpdateAccountStatusById(context.Background(), account.ID, _type.AccountStatusActive, "")
-			//更新name
 			accountSer.UpdateAccountTgNameById(context.Background(), account.ID, botName)
 		}
-		// 更新成功信息
 	}
 	return nil
 }
 
 func InitOneAccount(account *model.Account) (string, error) {
-	// 字符串 0 1 转 bot
 	bot, err := tgbot.InitTGBot(account.TgBotToken, account.GroupID, account.ProxyEnableProxy, account.ProxyProtoclo, account.ProxyHost, account.ProxyPort)
 	if err != nil {
 		return "", err
@@ -67,14 +61,12 @@ func InitOneAccount(account *model.Account) (string, error) {
 	botName := bot.Self.FirstName
 	account.TgName = botName
 
-	// build data
 	accountData, err := FormateAccountDictData(account, bot)
 	accountData.AccountName = botName
 	if err != nil {
 		return botName, err
 	}
 	SetAccount(account.TgBotToken, accountData)
-	// 运行
 	go RunTgBot(accountData)
 	return botName, nil
 }
@@ -136,23 +128,21 @@ func handleUpdate(account accountData, update tgbotapi.Update) {
 	var from_UserName = update.Message.From.UserName
 	var text = update.Message.Text
 
-	// 保存用户
 	userSer := service.NewUserService()
 	user_id, err := userSer.InitUser(context.Background(), account.AccountID, int64(from_id), from_FirstName, from_LastName, from_UserName)
 	if err != nil {
 		logger.Info(err.Error())
 	}
-	// 保存聊天记录
 	messageSer := service.NewMessageService()
 	_, err = messageSer.InitMessage(context.Background(), account.AccountID, user_id, int64(from_id), text)
 	if err != nil {
 		logger.Info(err.Error())
 	}
 
-	if update.Message != nil && update.Message.Chat.IsPrivate() { // 只处理私聊信息
+	if update.Message != nil && update.Message.Chat.IsPrivate() { 
 		if update.Message.IsCommand() {
 			switch update.Message.Command() {
-			case "start": //start
+			case "start": 
 				msgText := BuildAccountStartNoticeMsg(account.AccountName)
 				tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
 			default:
@@ -165,7 +155,6 @@ func handleUpdate(account accountData, update tgbotapi.Update) {
 		}
 	}
 
-	// 校验新成员
 	if update.Message.NewChatMembers != nil {
 		msgText := BuildAccountStartNoticeMsg(account.AccountName)
 		tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
@@ -185,3 +174,4 @@ func SendMsgBYBootToken(token string, msgText string, chatID int64) error {
 	tgbot.SendTgMsg(account.Bot, msgText, chatID)
 	return nil
 }
+

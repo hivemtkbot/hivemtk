@@ -21,13 +21,10 @@ type DomainPoolRepository interface {
 	UpdateStatus(ctx context.Context, id, status int) error
 	UpdateLastCheck(ctx context.Context, id int, lastCheck time.Time) error
 
-	// G 域 ：健康度自动切换
 	UpdateHealth(ctx context.Context, id int, score, consecutiveFailures int, dnsOK bool, dnsErr string, httpStatus, latencyMs int, onBlacklist bool, blacklistAt time.Time, blacklistNote string) error
 	UpdateActive(ctx context.Context, id int, isActive bool, switchedAt *time.Time, switchedFromID int) error
 	ListActive(ctx context.Context) ([]*model.DomainPool, error)
-	// ListAvailable 返回健康度评分 >= minScore 且未在黑名单的可用域名
 	ListAvailable(ctx context.Context, minScore int) ([]*model.DomainPool, error)
-	// DeactivateAll 取消所有当前活跃域名
 	DeactivateAll(ctx context.Context) error
 }
 
@@ -96,7 +93,6 @@ func (r *domainPoolRepository) List(ctx context.Context, page, pageSize int, dom
 
 	query := r.dbOrDefault(ctx).Model(&model.DomainPool{})
 
-	// 添加搜索条件
 	if domain != "" {
 		query = query.Where("domain LIKE ?", "%"+domain+"%")
 	}
@@ -104,12 +100,10 @@ func (r *domainPoolRepository) List(ctx context.Context, page, pageSize int, dom
 		query = query.Where("status = ?", status)
 	}
 
-	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 获取分页数据
 	offset := (page - 1) * pageSize
 	if err := query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&domainPools).Error; err != nil {
 		return nil, 0, err
@@ -196,7 +190,6 @@ func (r *domainPoolRepository) DeactivateAll(ctx context.Context) error {
 	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("is_active = ?", true).Update("is_active", false).Error
 }
 
-// ============== 健康度日志 ==============
 
 // DomainHealthLogRepository 健康度日志仓储
 type DomainHealthLogRepository struct {
@@ -229,7 +222,6 @@ func (r *DomainHealthLogRepository) ListByDomain(ctx context.Context, domainID i
 	return rows, err
 }
 
-// ============== 黑名单 ==============
 
 // DomainBlacklistRepository 黑名单仓储
 type DomainBlacklistRepository struct {
@@ -257,7 +249,6 @@ func (r *DomainBlacklistRepository) IsBlacklisted(ctx context.Context, domain st
 		}
 		return false, nil, err
 	}
-	// 过期判断
 	if row.ExpiresAt != nil && row.ExpiresAt.Before(time.Now()) {
 		return false, &row, nil
 	}
@@ -325,3 +316,4 @@ func (r *DomainBlacklistRepository) List(ctx context.Context, page, pageSize int
 	}
 	return rows, total, nil
 }
+

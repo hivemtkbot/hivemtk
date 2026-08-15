@@ -11,7 +11,7 @@ import (
 
 // SalesPersonaService 销冠能力画像服务
 type SalesPersonaService struct {
-	db   *gorm.DB // 保留以维持构造签名兼容
+	db   *gorm.DB 
 	repo *repository.SalesPersonaRepository
 }
 
@@ -50,7 +50,7 @@ type PersonaItem struct {
 	Name   string  `json:"name"`
 	Score  float64 `json:"score"`
 	Sample int64   `json:"sample"`
-	Trend  string  `json:"trend"` // up/down/stable
+	Trend  string  `json:"trend"` 
 }
 
 // PersonaReport 销冠画像报告
@@ -71,7 +71,6 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		GeneratedAt: time.Now(),
 	}
 
-	// 1. 响应速度 (基于 session_messages 的平均响应时间)
 	avgResponseSec, _ := s.repo.AvgHumanResponseSec(ctx)
 	respScore := 100.0
 	if avgResponseSec > 60 {
@@ -85,7 +84,6 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		Tag: "response_speed", Name: "响应速度", Score: respScore, Sample: 100, Trend: "stable",
 	})
 
-	// 2. 转化能力 (订单数 / 会话数)
 	sessions, orders, _ := s.repo.SessionOrderCount(ctx, staffID)
 	convScore := 0.0
 	if sessions > 0 {
@@ -98,7 +96,6 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		Tag: "conversion", Name: "转化能力", Score: convScore, Sample: sessions, Trend: "stable",
 	})
 
-	// 3. SOP 使用率
 	sopCount, _ := s.repo.CountSopExecutionsByStaff(ctx, staffID)
 	sopScore := float64(sopCount) * 5
 	if sopScore > 100 {
@@ -108,7 +105,6 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		Tag: "sop_usage", Name: "SOP 使用率", Score: sopScore, Sample: sopCount, Trend: "up",
 	})
 
-	// 4. 知识库调用
 	ragCount, _ := s.repo.CountRagQueryLogsByUser(ctx, staffID)
 	ragScore := float64(ragCount) * 2
 	if ragScore > 100 {
@@ -118,7 +114,6 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		Tag: "knowledge_usage", Name: "知识库调用", Score: ragScore, Sample: ragCount, Trend: "up",
 	})
 
-	// 5. 异议处理
 	objCount, _ := s.repo.CountObjectionRecordsByStaff(ctx, staffID)
 	objScore := float64(objCount) * 3
 	if objScore > 100 {
@@ -128,7 +123,6 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		Tag: "objection_handling", Name: "异议处理", Score: objScore, Sample: objCount, Trend: "stable",
 	})
 
-	// 6. 客户满意度 (来自 customer_session.rating)
 	satStats, _ := s.repo.SatisfactionByStaff(ctx, staffID)
 	if satStats == nil {
 		satStats = &repository.SatisfactionStats{}
@@ -138,7 +132,6 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		Tag: "satisfaction", Name: "客户满意度", Score: satScore, Sample: satStats.Count, Trend: "up",
 	})
 
-	// 7. 跟进及时性 (会话关单率)
 	closeStats, _ := s.repo.SessionCloseByStaff(ctx, staffID)
 	if closeStats == nil {
 		closeStats = &repository.SessionCloseStats{}
@@ -151,7 +144,6 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		Tag: "followup", Name: "跟进及时性", Score: closeScore, Sample: closeStats.Total, Trend: "stable",
 	})
 
-	// 综合得分
 	total := 0.0
 	for _, it := range report.Items {
 		total += it.Score
@@ -177,3 +169,4 @@ func (s *SalesPersonaService) ListStaffs(ctx context.Context) ([]map[string]any,
 	}
 	return out, nil
 }
+

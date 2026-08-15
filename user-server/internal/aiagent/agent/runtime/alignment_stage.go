@@ -5,26 +5,10 @@ import (
 	"time"
 )
 
-// ============================================================================
-// Alignment Stage 6维拟人度打分阶段
-// ----------------------------------------------------------------------------
-// 文档依据：方向4 阶段3 同理心/热情/专业度等多轨打分
-//
-// 6 维评分：
-//  1. Empathy   同理心 - 基于情绪（焦虑/愤怒 → 高同理心）
-//  2. Enthusiasm 热情度 - 基于意图（询价/赞赏 → 高热情）
-//  3. Expertise 专业度 - 知识库检索置信度（未挂知识库时取默认 3）
-//  4. Patience  耐心   - 会话轮次（轮次越多越需要耐心）
-//  5. Clarity   清晰度 - 表述简洁（无长难句 + 有问有答）
-//  6. Politeness 礼貌度 - 敬语使用
-// ============================================================================
 
 // DefaultAlignmentScorer 默认 6 维拟人度评分器
 type DefaultAlignmentScorer struct {
-	// RAGConfidenceFunc 知识库检索置信度查询函数（可注入）
-	// 返回 [0, 1]，未挂知识库返回 0
 	RAGConfidenceFunc func(ctx context.Context, agentCtx *AgentContext, content string) float64
-	// TurnCountFunc 当前会话已进行的轮次（可注入）
 	TurnCountFunc func(ctx context.Context, agentCtx *AgentContext, customerID string) int
 }
 
@@ -75,7 +59,6 @@ func (s *DefaultAlignmentScorer) Score(ctx context.Context, ic *InferenceContext
 		Politeness: 3,
 	}
 
-	// 1. Empathy: 情绪越负面 → 越要高同理心
 	switch ic.Sentiment.Label {
 	case SentimentAngry:
 		score.Empathy = 5
@@ -89,7 +72,6 @@ func (s *DefaultAlignmentScorer) Score(ctx context.Context, ic *InferenceContext
 		score.Empathy = 3
 	}
 
-	// 2. Enthusiasm: 询价/赞赏/销售线索 → 高热情
 	switch ic.Intent.Primary {
 	case IntentInquiry, IntentSalesLead:
 		score.Enthusiasm = 5
@@ -105,14 +87,11 @@ func (s *DefaultAlignmentScorer) Score(ctx context.Context, ic *InferenceContext
 		score.Enthusiasm = 3
 	}
 
-	// 3. Expertise: 知识库检索置信度
 	if s.RAGConfidenceFunc != nil && ic.AgentCtx != nil {
 		ragScore := s.RAGConfidenceFunc(ctx, ic.AgentCtx, ic.Payload.Content)
-		// [0,1] → [1,5]
 		score.Expertise = clamp(int(ragScore*4)+1, 1, 5)
 	}
 
-	// 4. Patience: 轮次越多越需耐心
 	if s.TurnCountFunc != nil && ic.AgentCtx != nil {
 		turns := s.TurnCountFunc(ctx, ic.AgentCtx, ic.Payload.CustomerID)
 		switch {
@@ -127,18 +106,16 @@ func (s *DefaultAlignmentScorer) Score(ctx context.Context, ic *InferenceContext
 		}
 	}
 
-	// 5. Clarity: 简单规则 — 消息长度适中（10-200字） → 高清晰度
 	contentLen := len(ic.Payload.Content)
 	switch {
 	case contentLen >= 10 && contentLen <= 200:
 		score.Clarity = 4
 	case contentLen < 10:
-		score.Clarity = 3 // 信息少
+		score.Clarity = 3 
 	default:
-		score.Clarity = 3 // 长文本需要拆分
+		score.Clarity = 3 
 	}
 
-	// 6. Politeness: 包含敬语 → 高礼貌
 	politenessMarkers := []string{"请", "谢谢", "麻烦", "您好", "请帮我", "please", "thanks"}
 	for _, m := range politenessMarkers {
 		if containsFold(ic.Payload.Content, m) {
@@ -154,8 +131,6 @@ func (s *DefaultAlignmentScorer) Score(ctx context.Context, ic *InferenceContext
 //
 // 实际不做转换；这里用 helper 处理 IntentAppreci（语义赞赏的意图）
 func IntentAppreciIntent() Intent {
-	// 我们没有 IntentAppreci，复用 IntentGreeting / IntentChitchat 表达赞赏语义
-	// 此处保留接口以备后续扩展
 	return IntentGreeting
 }
 
@@ -165,7 +140,6 @@ func containsFold(s, substr string) bool {
 }
 
 func indexFold(s, substr string) int {
-	// 简化：转小写后用 strings.Contains（性能可接受）
 	ls := toLower(s)
 	lb := toLower(substr)
 	for i := 0; i+len(lb) <= len(ls); i++ {
@@ -199,13 +173,11 @@ func clamp(v, lo, hi int) int {
 }
 
 func formatFloat(f float64) string {
-	// 简单格式化：保留 2 位小数
 	intPart := int(f)
 	frac := int((f - float64(intPart)) * 100)
 	if frac < 0 {
 		frac = -frac
 	}
-	// 用 string concat 避免 strconv 依赖（保持文件自包含）
 	if frac < 10 {
 		return itoa(intPart) + ".0" + itoa(frac)
 	}
@@ -233,3 +205,4 @@ func itoa(n int) string {
 	}
 	return string(buf[i:])
 }
+

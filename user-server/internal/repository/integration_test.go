@@ -98,7 +98,6 @@ func TestIntegrationAccountRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	account := &model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "GetByID Account",
@@ -148,7 +147,6 @@ func TestIntegrationAccountRepository_GetByPlatform(t *testing.T) {
 	ctx := context.Background()
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	repo.Create(ctx, &model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "CRM Account",
@@ -206,7 +204,6 @@ func TestIntegrationAccountRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	account := &model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Original Name",
@@ -236,7 +233,6 @@ func TestIntegrationAccountRepository_UpdateToken(t *testing.T) {
 	ctx := context.Background()
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	account := &model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Token Test",
@@ -263,7 +259,6 @@ func TestIntegrationAccountRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	account := &model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "To Delete",
@@ -286,7 +281,6 @@ func TestIntegrationAccountRepository_UpdateSyncTime(t *testing.T) {
 	ctx := context.Background()
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	account := &model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Sync Test",
@@ -357,7 +351,6 @@ func TestSyncLogRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	_, syncRepo, _, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	log := &model.SyncLog{
 		Platform:    "crm_xiaoshouyi",
 		SyncType:    "customer",
@@ -408,7 +401,6 @@ func TestSyncLogRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	_, syncRepo, _, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	log := &model.SyncLog{
 		Platform:    "crm_xiaoshouyi",
 		SyncType:    "customer",
@@ -439,7 +431,6 @@ func TestSyncLogRepository_UpdateStatus(t *testing.T) {
 	ctx := context.Background()
 	_, syncRepo, _, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	log := &model.SyncLog{
 		Platform: "crm_xiaoshouyi",
 		SyncType: "customer",
@@ -551,7 +542,6 @@ func TestExternalCustomerRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	_, _, customerRepo, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	customer := &model.ExternalCustomer{
 		Platform:   "crm_xiaoshouyi",
 		ExternalID: "ext-getbyid",
@@ -602,7 +592,6 @@ func TestExternalCustomerRepository_GetByExternalID(t *testing.T) {
 	ctx := context.Background()
 	_, _, customerRepo, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	customer := &model.ExternalCustomer{
 		Platform:   "crm_xiaoshouyi",
 		ExternalID: "unique-external-id",
@@ -619,7 +608,6 @@ func TestExternalCustomerRepository_GetByExternalID(t *testing.T) {
 		t.Errorf("Expected name 'Unique Customer', got '%s'", result.Name)
 	}
 
-	// 测试不存在的客户
 	_, err = customerRepo.GetByExternalID(context.Background(), "crm_xiaoshouyi", "non-existing")
 	if err == nil {
 		t.Error("Expected error for non-existing external ID")
@@ -630,7 +618,6 @@ func TestExternalCustomerRepository_GetByPlatform(t *testing.T) {
 	ctx := context.Background()
 	_, _, customerRepo, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	customerRepo.Create(ctx, &model.ExternalCustomer{
 		Platform:   "crm_xiaoshouyi",
 		ExternalID: "crm-1",
@@ -689,7 +676,6 @@ func TestExternalCustomerRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	_, _, customerRepo, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	customer := &model.ExternalCustomer{
 		Platform:   "crm_xiaoshouyi",
 		ExternalID: "ext-update",
@@ -720,7 +706,6 @@ func TestExternalCustomerRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	_, _, customerRepo, _, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	customer := &model.ExternalCustomer{
 		Platform:   "crm_xiaoshouyi",
 		ExternalID: "ext-delete",
@@ -758,9 +743,9 @@ func TestExternalOrderRepository_Create(t *testing.T) {
 				UserID:         "user-123",
 				UserName:       "Test User",
 				UserPhone:      "13800138000",
-				TotalAmount:    10000, // 100 元 = 10000 分
-				PayAmount:      9000,  // 90 元 = 9000 分
-				DiscountAmount: 1000,  // 10 元 = 1000 分
+				TotalAmount:    10000, 
+				PayAmount:      9000,  
+				DiscountAmount: 1000,  
 				Status:         "pending",
 				Items:          `[{"id": "item-1", "name": "Item 1", "price": 100, "quantity": 1}]`,
 				ShippingAddr:   `{"address": "Test Address", "city": "Shanghai"}`,
@@ -775,7 +760,7 @@ func TestExternalOrderRepository_Create(t *testing.T) {
 				OrderNo:     "internal-order-456",
 				UserID:      "user-456",
 				UserName:    "JD User",
-				TotalAmount: 20000, // 200 元 = 20000 分
+				TotalAmount: 20000, 
 				PayAmount:   20000,
 				Status:      "paid",
 			},
@@ -803,14 +788,13 @@ func TestExternalOrderRepository_GetByOrderID(t *testing.T) {
 	ctx := context.Background()
 	_, _, _, orderRepo, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	order := &model.ExternalOrder{
 		Platform:    "ecommerce_taobao",
 		OrderID:     "unique-order-id",
 		OrderNo:     "internal-123",
 		UserID:      "user-123",
 		UserName:    "Order User",
-		TotalAmount: 15000, // 150 元 = 15000 分
+		TotalAmount: 15000, 
 	}
 	orderRepo.Create(ctx, order)
 
@@ -858,7 +842,6 @@ func TestExternalOrderRepository_GetByPlatform(t *testing.T) {
 	ctx := context.Background()
 	_, _, _, orderRepo, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	orderRepo.Create(ctx, &model.ExternalOrder{
 		Platform: "ecommerce_taobao",
 		OrderID:  "tb-order-1",
@@ -919,14 +902,13 @@ func TestExternalOrderRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	_, _, _, orderRepo, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	order := &model.ExternalOrder{
 		Platform:    "ecommerce_taobao",
 		OrderID:     "update-order",
 		OrderNo:     "internal-update",
 		UserID:      "user-123",
 		UserName:    "Original User",
-		TotalAmount: 10000, // 100 元 = 10000 分
+		TotalAmount: 10000, 
 		Status:      "pending",
 	}
 	orderRepo.Create(ctx, order)
@@ -953,7 +935,6 @@ func TestExternalOrderRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	_, _, _, orderRepo, _, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	order := &model.ExternalOrder{
 		Platform: "ecommerce_taobao",
 		OrderID:  "delete-order",
@@ -991,8 +972,8 @@ func TestExternalProductRepository_Create(t *testing.T) {
 				Name:          "Test Product",
 				CategoryID:    "cat-1",
 				CategoryName:  "Test Category",
-				Price:         9900,  // 99 元 = 9900 分
-				OriginalPrice: 19900, // 199 元 = 19900 分
+				Price:         9900,  
+				OriginalPrice: 19900, 
 				Stock:         100,
 				Sales:         50,
 				Images:        `["image1.jpg", "image2.jpg"]`,
@@ -1006,7 +987,7 @@ func TestExternalProductRepository_Create(t *testing.T) {
 				Platform:  "ecommerce_jd",
 				ProductID: "prod-456",
 				Name:      "JD Product",
-				Price:     15000, // 150 元 = 15000 分
+				Price:     15000, 
 				Stock:     50,
 				Status:    1,
 			},
@@ -1034,13 +1015,12 @@ func TestExternalProductRepository_GetByProductID(t *testing.T) {
 	ctx := context.Background()
 	_, _, _, _, productRepo, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	product := &model.ExternalProduct{
 		Platform:      "ecommerce_taobao",
 		ProductID:     "unique-product-id",
 		Name:          "Unique Product",
-		Price:         9900,  // 99 元 = 9900 分
-		OriginalPrice: 19900, // 199 元 = 19900 分
+		Price:         9900,  
+		OriginalPrice: 19900, 
 		Stock:         100,
 	}
 	productRepo.Create(ctx, product)
@@ -1087,19 +1067,18 @@ func TestExternalProductRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	_, _, _, _, productRepo, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	product := &model.ExternalProduct{
 		Platform:  "ecommerce_taobao",
 		ProductID: "update-product",
 		Name:      "Original Name",
-		Price:     9900, // 99.00 元 = 9900 分
+		Price:     9900, 
 		Stock:     100,
 		Status:    1,
 	}
 	productRepo.Create(ctx, product)
 
 	product.Name = "Updated Name"
-	product.Price = 14900 // 149.00 元 = 14900 分
+	product.Price = 14900 
 	product.Stock = 50
 
 	err := productRepo.Update(ctx, product)
@@ -1124,12 +1103,11 @@ func TestExternalProductRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	_, _, _, _, productRepo, _ := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	product := &model.ExternalProduct{
 		Platform:  "ecommerce_taobao",
 		ProductID: "delete-product",
 		Name:      "To Delete",
-		Price:     9900, // 99.00 元 = 9900 分
+		Price:     9900, 
 	}
 	productRepo.Create(ctx, product)
 
@@ -1198,7 +1176,6 @@ func TestWebhookEventRepository_GetByEventID(t *testing.T) {
 	ctx := context.Background()
 	_, _, _, _, _, webhookRepo := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	event := &model.WebhookEvent{
 		Platform:  "ecommerce_taobao",
 		EventID:   "unique-event-id",
@@ -1249,7 +1226,6 @@ func TestWebhookEventRepository_GetUnprocessed(t *testing.T) {
 	ctx := context.Background()
 	_, _, _, _, _, webhookRepo := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	webhookRepo.Create(ctx, &model.WebhookEvent{
 		Platform:  "ecommerce_taobao",
 		EventID:   "unprocessed-1",
@@ -1284,7 +1260,6 @@ func TestWebhookEventRepository_MarkProcessed(t *testing.T) {
 	ctx := context.Background()
 	_, _, _, _, _, webhookRepo := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	event := &model.WebhookEvent{
 		Platform:  "ecommerce_taobao",
 		EventID:   "mark-processed",
@@ -1312,7 +1287,6 @@ func TestWebhookEventRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	_, _, _, _, _, webhookRepo := setupIntegrationRepositories(t)
 
-	// 创建测试数据
 	event := &model.WebhookEvent{
 		Platform:  "ecommerce_taobao",
 		EventID:   "update-event",
@@ -1338,3 +1312,4 @@ func TestWebhookEventRepository_Update(t *testing.T) {
 		t.Errorf("Expected raw data '{\"updated\": \"data\"}', got '%s'", updated.RawData)
 	}
 }
+

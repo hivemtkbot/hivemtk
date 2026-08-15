@@ -1,24 +1,5 @@
 package ragretrieval
 
-// query_rewriter.go 查询改写器（HyDE + Multi-Query 双策略组合）
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.4.6
-//
-// 策略:
-//   - HyDE: LLM 生成假设答案文档 → 用作向量召回的 query（论文 Gao 2022）
-//   - Multi-Query: LLM 生成 N 个视角变体 → 可用于 BM25 多路召回
-// 缓存:
-//   - L1 Redis（key: rag:rewrite:{query_hash}, TTL 24h）
-//   - L2 DB query_rewrite_cache 表（持久化）
-//   - 命中缓存直接返回；未命中并行调用 HyDE + Multi-Query 后回填
-//
-// 设计原则:
-//   - HyDE 优先作为向量召回 query（与真实文档同风格）
-//   - HyDE 失败时 fallback 到原 query（不阻断主流程）
-//   - Multi-Query 失败时不影响 HyDE；二者独立决策
-//   - nil Redis 客户端时跳过 L1 缓存，仅走 L2
-//   - 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -36,19 +17,19 @@ import (
 type QueryRewriteStrategy string
 
 const (
-	StrategyNone       QueryRewriteStrategy = "none"            // 未改写
-	StrategyHyDE       QueryRewriteStrategy = "hyde"            // 仅 HyDE
-	StrategyMultiQuery QueryRewriteStrategy = "multiquery"      // 仅 Multi-Query
-	StrategyHyDEMulti  QueryRewriteStrategy = "hyde_multiquery" // HyDE + Multi-Query
+	StrategyNone       QueryRewriteStrategy = "none"            
+	StrategyHyDE       QueryRewriteStrategy = "hyde"            
+	StrategyMultiQuery QueryRewriteStrategy = "multiquery"      
+	StrategyHyDEMulti  QueryRewriteStrategy = "hyde_multiquery" 
 )
 
 // RewrittenQuery 改写结果
 type RewrittenQuery struct {
-	Original     string               `json:"original"`      // 原始 query
-	Rewritten    string               `json:"rewritten"`     // 用于向量召回的最终 query（HyDE 假设文档优先）
-	MultiQueries []string             `json:"multi_queries"` // Multi-Query 变体（用于 BM25 多路召回）
-	UsedStrategy QueryRewriteStrategy `json:"used_strategy"` // hyde|multiquery|hyde_multiquery|none
-	CacheHit     bool                 `json:"cache_hit"`     // 是否命中缓存
+	Original     string               `json:"original"`      
+	Rewritten    string               `json:"rewritten"`     
+	MultiQueries []string             `json:"multi_queries"` 
+	UsedStrategy QueryRewriteStrategy `json:"used_strategy"` 
+	CacheHit     bool                 `json:"cache_hit"`     
 }
 
 // QueryRewriter 查询改写器
@@ -57,7 +38,7 @@ type QueryRewriter struct {
 	multiGen    *MultiQueryGenerator
 	redisClient RedisClient
 	db          *gorm.DB
-	redisTTL    time.Duration // 默认 24h
+	redisTTL    time.Duration 
 }
 
 // QueryRewriterConfig 查询改写配置
@@ -122,24 +103,20 @@ func (q *QueryRewriter) Rewrite(ctx context.Context, query string) (*RewrittenQu
 	hash := sha256Hex(normalizeQuery(query))
 	redisKey := fmt.Sprintf("rag:rewrite:%s", hash)
 
-	// 1) 查 Redis 缓存
 	if q.redisClient != nil {
 		if cached, err := q.redisClient.Get(ctx, redisKey); err == nil && cached != "" {
 			var rw RewrittenQuery
 			if err := json.Unmarshal([]byte(cached), &rw); err == nil {
 				rw.CacheHit = true
 				rw.Original = query
-				// 异步更新 hit_count（best-effort,使用 background ctx 避免上游取消中断）
 				go q.updateCacheStats(context.Background(), hash)
 				return &rw, nil
 			}
 		}
 	}
 
-	// 2) 查 DB 缓存
 	if q.db != nil {
 		if dbCached, err := q.queryDB(ctx, hash); err == nil && dbCached != nil {
-			// 回填 Redis
 			if q.redisClient != nil {
 				if data, err := json.Marshal(dbCached); err == nil {
 					_ = q.redisClient.Set(ctx, redisKey, string(data), q.redisTTL)
@@ -176,7 +153,6 @@ func (q *QueryRewriter) Rewrite(ctx context.Context, query string) (*RewrittenQu
 	}
 	wg.Wait()
 
-	// 4) 决策：HyDE 优先，失败用原 query
 	rw := &RewrittenQuery{Original: query}
 	if hydeErr == nil && hydeDoc != "" {
 		rw.Rewritten = hydeDoc
@@ -194,14 +170,12 @@ func (q *QueryRewriter) Rewrite(ctx context.Context, query string) (*RewrittenQu
 	}
 	rw.UsedStrategy = strategy
 
-	// 5) 写入 Redis + DB（best-effort，不阻塞返回）
 	if q.redisClient != nil {
 		if data, err := json.Marshal(rw); err == nil {
 			_ = q.redisClient.Set(ctx, redisKey, string(data), q.redisTTL)
 		}
 	}
 	if q.db != nil {
-		// 异步持久化（best-effort,使用 background ctx 避免上游取消中断）
 		go q.persistToDB(context.Background(), hash, query, rw)
 	}
 
@@ -251,7 +225,7 @@ func (q *QueryRewriter) queryDB(ctx context.Context, hash string) (*RewrittenQue
 		_ = json.Unmarshal([]byte(row.MultiQueries), &rw.MultiQueries)
 	}
 	if rw.Rewritten == "" {
-		rw.Rewritten = row.HyDEDoc // 兜底
+		rw.Rewritten = row.HyDEDoc 
 	}
 	return rw, nil
 }
@@ -271,7 +245,6 @@ func (q *QueryRewriter) persistToDB(ctx context.Context, hash, query string, rw 
 		return
 	}
 	multiJSON, _ := json.Marshal(rw.MultiQueries)
-	// ON CONFLICT (query_hash) DO UPDATE：相同 query_hash 覆盖 hyde_doc/multi_queries
 	err := q.db.WithContext(ctx).Exec(`
 		INSERT INTO query_rewrite_cache (query_hash, original_query, hyde_doc, multi_queries, rewrite_model, rewrite_type, hit_count, last_used_at, expires_at, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, 0, NOW(), NOW() + INTERVAL '30 days', NOW(), NOW())
@@ -284,7 +257,6 @@ func (q *QueryRewriter) persistToDB(ctx context.Context, hash, query string, rw 
 		hash, query, rw.Rewritten, string(multiJSON), "local", string(rw.UsedStrategy),
 	).Error
 	if err != nil {
-		// best-effort：不阻断主流程，但记录错误
 		logger.Errorf("query_rewriter: persist rewrite cache failed, hash=%s: %v", hash, err)
 	}
 }
@@ -305,3 +277,4 @@ func (q *QueryRewriter) updateCacheStats(ctx context.Context, hash string) {
 		hash,
 	).Error
 }
+

@@ -70,9 +70,9 @@ type CustomClaims struct {
 	UserID       uint   `json:"user_id,string"`
 	Username     string `json:"username"`
 	Role         string `json:"role"`
-	DataScope    string `json:"data_scope,omitempty"`    // 数据范围 all/department/team/self
-	DepartmentID uint   `json:"department_id,omitempty"` // 部门 ID
-	TeamID       uint   `json:"team_id,omitempty"`       // 团队 ID
+	DataScope    string `json:"data_scope,omitempty"`    
+	DepartmentID uint   `json:"department_id,omitempty"` 
+	TeamID       uint   `json:"team_id,omitempty"`       
 	jwt.RegisteredClaims
 }
 
@@ -93,7 +93,6 @@ func (j *JWTUtils) GenerateToken(userID uint, username, role string) (string, er
 
 // GenerateTokenWithScope 生成带数据范围的 JWT 令牌（行级权限）
 func (j *JWTUtils) GenerateTokenWithScope(userID uint, username, role, dataScope string, departmentID, teamID uint) (string, error) {
-	// 创建声明
 	claims := CustomClaims{
 		UserID:       userID,
 		Username:     username,
@@ -109,18 +108,14 @@ func (j *JWTUtils) GenerateTokenWithScope(userID uint, username, role, dataScope
 		},
 	}
 
-	// 创建令牌
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	// 签名令牌
 	return token.SignedString([]byte(j.config.SecretKey))
 }
 
 // ParseToken 解析JWT令牌
 func (j *JWTUtils) ParseToken(tokenString string) (*CustomClaims, error) {
-	// 解析令牌
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
-		// 验证签名方法
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("无效的签名方法")
 		}
@@ -131,7 +126,6 @@ func (j *JWTUtils) ParseToken(tokenString string) (*CustomClaims, error) {
 		return nil, err
 	}
 
-	// 验证令牌并获取声明
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
 		return claims, nil
 	}
@@ -141,13 +135,11 @@ func (j *JWTUtils) ParseToken(tokenString string) (*CustomClaims, error) {
 
 // RefreshToken 刷新令牌
 func (j *JWTUtils) RefreshToken(tokenString string) (string, error) {
-	// 解析旧令牌
 	claims, err := j.ParseToken(tokenString)
 	if err != nil {
 		return "", err
 	}
 
-	// 创建新声明（保留 data_scope 等扩展字段）
 	newClaims := CustomClaims{
 		UserID:       claims.UserID,
 		Username:     claims.Username,
@@ -163,9 +155,8 @@ func (j *JWTUtils) RefreshToken(tokenString string) (string, error) {
 		},
 	}
 
-	// 创建新令牌
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, newClaims)
 
-	// 签名新令牌
 	return token.SignedString([]byte(j.config.SecretKey))
 }
+

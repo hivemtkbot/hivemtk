@@ -79,7 +79,6 @@ func (r *shortLinkRepository) GetList(ctx context.Context, page, pageSize int, s
 
 	query := r.db.Model(&model.ShortLink{})
 
-	// 添加查询条件
 	if shortCode != "" {
 		query = query.Where("short_code LIKE ?", "%"+shortCode+"%")
 	}
@@ -90,13 +89,11 @@ func (r *shortLinkRepository) GetList(ctx context.Context, page, pageSize int, s
 		query = query.Where("status = ?", status)
 	}
 
-	// 获取总数
 	err := query.Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
 	offset := (page - 1) * pageSize
 	err = query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&shortLinks).Error
 	if err != nil {
@@ -117,3 +114,4 @@ func (r *shortLinkRepository) GetTotalCount(ctx context.Context) (int64, error) 
 func (r *shortLinkRepository) IncreaseClickCount(ctx context.Context, id uint) error {
 	return r.db.Model(&model.ShortLink{}).Where("id = ?", id).UpdateColumn("click_count", gorm.Expr("click_count + ?", 1)).Error
 }
+

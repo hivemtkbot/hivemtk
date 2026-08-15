@@ -29,7 +29,6 @@ func TestEmailDraft_BeforeCreate(t *testing.T) {
 		Content: "Test content",
 	}
 
-	// BeforeCreate should generate UUID and set timestamps
 	if draft.ID.String() != "" {
 		t.Logf("ID before BeforeCreate: %s", draft.ID.String())
 	}
@@ -101,7 +100,6 @@ func TestEmailSend_BeforeCreate_Full(t *testing.T) {
 	if email.ID == "" {
 		t.Error("Expected non-empty ID after BeforeCreate")
 	}
-	// Verify it's a valid UUID format
 	if len(email.ID) != 36 {
 		t.Errorf("Expected ID length 36 (UUID), got %d", len(email.ID))
 	}
@@ -152,7 +150,6 @@ func TestEmailJobs_BeforeCreate(t *testing.T) {
 		Subject: "Test Job",
 	}
 
-	// BeforeCreate should generate UUID
 	if job.ID.String() != "" {
 		t.Logf("ID before BeforeCreate: %s", job.ID.String())
 	}
@@ -203,7 +200,6 @@ func TestEmailSend_BeforeCreate(t *testing.T) {
 		Subject: "Test",
 	}
 
-	// BeforeCreate should generate UUID if ID is empty
 	if email.ID != "" {
 		t.Errorf("Expected empty ID before BeforeCreate, got %s", email.ID)
 	}
@@ -258,7 +254,6 @@ func TestEmailList_BeforeCreate(t *testing.T) {
 		To:      "recipient@example.com",
 	}
 
-	// BeforeCreate should generate UUID if ID is empty
 	if emailList.ID.String() != "" {
 		t.Logf("ID before BeforeCreate: %s", emailList.ID.String())
 	}
@@ -327,3 +322,4 @@ func TestEmailList_IsReadValues(t *testing.T) {
 		}
 	}
 }
+

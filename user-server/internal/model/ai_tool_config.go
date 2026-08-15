@@ -77,3 +77,4 @@ type AIToolListResponse struct {
 	List  []AIToolWithBinding `json:"list"`
 	Total int                 `json:"total"`
 }
+

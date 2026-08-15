@@ -6,13 +6,7 @@ import (
 	"sync"
 )
 
-// 本文件定义 middleware 层对外依赖的窄接口（P1-3 / 清单 B8）。
-// middleware 不再 import service / repository / model：
-// 实现由装配层（router，后续迁入 internal/app）通过 Set* 函数注入。
 
-// ---------------------------------------------------------------------------
-// 权限检查（原 service.PermissionService）
-// ---------------------------------------------------------------------------
 
 // PermChecker 权限检查窄接口（service.PermissionService 天然满足）
 type PermChecker interface {
@@ -38,9 +32,6 @@ func getPermChecker() PermChecker {
 	return permChecker
 }
 
-// ---------------------------------------------------------------------------
-// 审计日志落库（原 repository.OperationLogRepository）
-// ---------------------------------------------------------------------------
 
 // AuditEntry middleware 自有的审计日志条目（镜像 model.OperationLog 所需字段）
 type AuditEntry struct {
@@ -79,17 +70,14 @@ func getAuditSink() AuditSink {
 	return auditSink
 }
 
-// ---------------------------------------------------------------------------
-// 聊天渠道解析（原 service.ChatChannelService）
-// ---------------------------------------------------------------------------
 
 // ChatChannelView middleware 自有的渠道视图（装配层从 model.ChatChannel 转换而来）
 type ChatChannelView struct {
 	ChannelID      string
 	ChannelName    string
-	Status         string   // 渠道状态（如 "active" / "disabled"）
-	Active         bool     // 是否启用
-	AllowedOrigins []string // Origin 白名单（"*" 表示允许所有）
+	Status         string   
+	Active         bool     
+	AllowedOrigins []string 
 }
 
 // ChatChannelResolver 渠道解析窄接口（装配层由 service.ChatChannelService 适配）
@@ -102,3 +90,4 @@ type ChatChannelResolver interface {
 func warnPortMissing(port string) {
 	log.Printf("[middleware] %s 未注入（装配遗漏），已降级处理", port)
 }
+

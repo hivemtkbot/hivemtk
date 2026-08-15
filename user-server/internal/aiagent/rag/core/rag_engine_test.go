@@ -33,7 +33,6 @@ func newTestRAGEngine(config *RAGConfig) *RAGEngine {
 
 // TestRAGEngine_NewRAGEngine 测试创建 RAG 引擎
 func TestRAGEngine_newTestRAGEngine(t *testing.T) {
-	// 使用默认配置创建
 	engine := newTestRAGEngine(nil)
 	if engine == nil {
 		t.Fatal("Expected RAGEngine to be created")
@@ -41,12 +40,10 @@ func TestRAGEngine_newTestRAGEngine(t *testing.T) {
 	if engine.config.ChunkSize != 512 {
 		t.Errorf("Expected ChunkSize 512, got %d", engine.config.ChunkSize)
 	}
-	// 默认维度 1024（TEI + BAAI/bge-m3），与运行时真实 embedding 输出一致。
 	if engine.config.VectorDimension != 1024 {
 		t.Errorf("Expected VectorDimension 1024, got %d", engine.config.VectorDimension)
 	}
 
-	// 使用自定义配置创建
 	customConfig := &RAGConfig{
 		ChunkSize:           256,
 		ChunkOverlap:        30,
@@ -92,12 +89,10 @@ func TestRAGEngine_AddDocuments(t *testing.T) {
 		t.Fatalf("Failed to add documents: %v", err)
 	}
 
-	// 验证文档已添加
 	if len(engine.documents) != 2 {
 		t.Errorf("Expected 2 documents, got %d", len(engine.documents))
 	}
 
-	// 验证分片已生成
 	if len(engine.chunks) == 0 {
 		t.Error("Expected chunks to be generated")
 	}
@@ -122,7 +117,6 @@ func TestRAGEngine_AddDocuments_EmptyContent(t *testing.T) {
 		t.Fatalf("Failed to add empty document: %v", err)
 	}
 
-	// 空内容应该不会生成有效分片或应该正确处理
 	if _, exists := engine.documents["empty_doc"]; !exists {
 		t.Error("Expected empty document to be stored")
 	}
@@ -133,30 +127,25 @@ func TestRAGEngine_DeleteDocument(t *testing.T) {
 	engine := newTestRAGEngine(nil)
 	ctx := context.Background()
 
-	// 先添加文档
 	docs := []Document{
 		{ID: "doc1", Content: "测试内容 1", CreatedAt: time.Now()},
 		{ID: "doc2", Content: "测试内容 2", CreatedAt: time.Now()},
 	}
 	engine.AddDocuments(ctx, docs)
 
-	// 删除其中一个文档
 	err := engine.DeleteDocument(ctx, "doc1")
 	if err != nil {
 		t.Fatalf("Failed to delete document: %v", err)
 	}
 
-	// 验证文档已删除
 	if _, exists := engine.documents["doc1"]; exists {
 		t.Error("Expected doc1 to be deleted")
 	}
 
-	// 验证另一个文档还在
 	if _, exists := engine.documents["doc2"]; !exists {
 		t.Error("Expected doc2 to still exist")
 	}
 
-	// 验证分片已清理
 	for _, chunk := range engine.chunks {
 		if chunk.DocumentID == "doc1" {
 			t.Error("Expected all chunks for doc1 to be removed")
@@ -178,7 +167,6 @@ func TestRAGEngine_DeleteDocument_NotFound(t *testing.T) {
 // TestRAGEngine_Search 测试搜索功能
 func TestRAGEngine_Search(t *testing.T) {
 	requireLocalEmbedding(t)
-	// 使用低阈值避免本地哈希 fallback 下相似度过低
 	engine := newTestRAGEngine(&RAGConfig{
 		ChunkSize:           512,
 		ChunkOverlap:        50,
@@ -188,7 +176,6 @@ func TestRAGEngine_Search(t *testing.T) {
 	})
 	ctx := context.Background()
 
-	// 添加测试文档
 	docs := []Document{
 		{ID: "doc1", Content: "人工智能是未来科技的发展趋势", CreatedAt: time.Now()},
 		{ID: "doc2", Content: "机器学习是人工智能的一个重要分支", CreatedAt: time.Now()},
@@ -196,7 +183,6 @@ func TestRAGEngine_Search(t *testing.T) {
 	}
 	engine.AddDocuments(ctx, docs)
 
-	// 搜索
 	results, err := engine.Search(ctx, "人工智能", 2)
 	if err != nil {
 		t.Fatalf("Search failed: %v", err)
@@ -210,7 +196,6 @@ func TestRAGEngine_Search(t *testing.T) {
 		t.Errorf("Expected max 2 results, got %d", len(results))
 	}
 
-	// 验证结果包含分数
 	for _, result := range results {
 		if result.Score < 0 || result.Score > 1 {
 			t.Errorf("Invalid similarity score: %f", result.Score)
@@ -228,7 +213,6 @@ func TestRAGEngine_Search_EmptyQuery(t *testing.T) {
 		t.Fatalf("Empty query should not fail: %v", err)
 	}
 
-	// 空查询可能返回空结果或全部结果（取决于实现）
 	_ = results
 }
 
@@ -253,14 +237,12 @@ func TestRAGEngine_Search_TopK(t *testing.T) {
 	engine := newTestRAGEngine(nil)
 	ctx := context.Background()
 
-	// 添加多个文档
 	for i := 0; i < 10; i++ {
 		engine.AddDocuments(ctx, []Document{
 			{ID: string(rune('a' + i)), Content: "测试内容" + string(rune('0'+i)), CreatedAt: time.Now()},
 		})
 	}
 
-	// 请求 3 个结果
 	results, err := engine.Search(ctx, "测试", 3)
 	if err != nil {
 		t.Fatalf("Search failed: %v", err)
@@ -286,7 +268,6 @@ func TestRAGEngine_GetDocument(t *testing.T) {
 	}
 	engine.AddDocuments(ctx, []Document{originalDoc})
 
-	// 获取文档
 	doc, err := engine.GetDocument(ctx, "test_doc")
 	if err != nil {
 		t.Fatalf("Failed to get document: %v", err)
@@ -372,7 +353,6 @@ func TestRAGEngine_SplitDocument(t *testing.T) {
 		t.Fatal("Expected chunks to be generated")
 	}
 
-	// 验证每个分片的内容不超过限制
 	for i, chunk := range chunks {
 		if len(chunk.Content) > engine.config.ChunkSize+20 {
 			t.Errorf("Chunk %d exceeds size limit: %d chars", i, len(chunk.Content))
@@ -403,7 +383,6 @@ func TestRAGEngine_SplitDocument_Boundary(t *testing.T) {
 		ChunkOverlap: 5,
 	})
 
-	// 包含标点符号的内容，应该在标点处分割
 	doc := Document{
 		ID:      "boundary_test",
 		Content: "这是第一句。这是第二句！这是第三句？这是第四句。",
@@ -415,12 +394,10 @@ func TestRAGEngine_SplitDocument_Boundary(t *testing.T) {
 		t.Fatal("Expected chunks to be generated")
 	}
 
-	// 验证分片在标点符号处分割
 	for _, chunk := range chunks {
 		content := chunk.Content
 		if len(content) > 0 {
 			lastChar := content[len(content)-1]
-			// 应该在标点符号或空格处结束（如果可能）
 			_ = lastChar
 		}
 	}
@@ -463,7 +440,6 @@ func TestCosineSimilarity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := cosineSimilarity(tt.vec1, tt.vec2)
-			// 允许小的浮点误差
 			diff := result - tt.expected
 			if diff < -0.0001 || diff > 0.0001 {
 				t.Errorf("Expected similarity %f, got %f", tt.expected, result)
@@ -476,7 +452,6 @@ func TestCosineSimilarity(t *testing.T) {
 func TestMockEmbedder(t *testing.T) {
 	embedder := NewMockEmbedder(128)
 
-	// 测试 EmbedText
 	vec, err := embedder.EmbedText("测试文本")
 	if err != nil {
 		t.Fatalf("EmbedText failed: %v", err)
@@ -485,7 +460,6 @@ func TestMockEmbedder(t *testing.T) {
 		t.Errorf("Expected vector dimension 128, got %d", len(vec))
 	}
 
-	// 测试 EmbedQuery
 	queryVec, err := embedder.EmbedQuery("查询文本")
 	if err != nil {
 		t.Fatalf("EmbedQuery failed: %v", err)
@@ -494,7 +468,6 @@ func TestMockEmbedder(t *testing.T) {
 		t.Errorf("Expected query vector dimension 128, got %d", len(queryVec))
 	}
 
-	// 测试 GetDimension
 	dim := embedder.GetDimension()
 	if dim != 128 {
 		t.Errorf("Expected dimension 128, got %d", dim)
@@ -506,12 +479,10 @@ func TestRAGEngine_ConcurrentAccess(t *testing.T) {
 	engine := newTestRAGEngine(nil)
 	ctx := context.Background()
 
-	// 添加初始文档
 	engine.AddDocuments(ctx, []Document{
 		{ID: "base_doc", Content: "基础文档内容", CreatedAt: time.Now()},
 	})
 
-	// 并发读取
 	done := make(chan bool, 10)
 	for i := 0; i < 10; i++ {
 		go func() {
@@ -522,7 +493,6 @@ func TestRAGEngine_ConcurrentAccess(t *testing.T) {
 		}()
 	}
 
-	// 等待所有 goroutine 完成
 	for i := 0; i < 10; i++ {
 		<-done
 	}
@@ -540,7 +510,6 @@ func TestDocument_JSONSerialization(t *testing.T) {
 		CreatedAt: time.Now(),
 	}
 
-	// 验证字段存在
 	if doc.ID != "json_test" {
 		t.Errorf("Expected ID 'json_test', got %s", doc.ID)
 	}
@@ -563,3 +532,4 @@ func TestChunk_Score(t *testing.T) {
 		t.Errorf("Invalid chunk score: %f", chunk.Score)
 	}
 }
+

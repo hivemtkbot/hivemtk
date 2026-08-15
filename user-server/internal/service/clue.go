@@ -55,7 +55,6 @@ func (s *ClueService) GetClueAllList(ctx context.Context, clueType int64) ([]*mo
 // BatchImportClues 批量导入线索，返回成功数量和跳过数量
 func (s *ClueService) BatchImportClues(ctx context.Context, clues []*model.Clue) (successCount, skipCount int64, err error) {
 	for _, clue := range clues {
-		// 检查是否已存在
 		exists, err := s.repo.ExistsByTypeAndAccount(ctx, clue.Type, clue.Account)
 		if err != nil {
 			return successCount, skipCount, err
@@ -65,7 +64,6 @@ func (s *ClueService) BatchImportClues(ctx context.Context, clues []*model.Clue)
 			continue
 		}
 
-		// 创建新线索
 		if err := s.repo.Create(ctx, clue); err != nil {
 			return successCount, skipCount, err
 		}
@@ -110,3 +108,4 @@ var defaultClueTypes = []ClueType{
 func (s *ClueService) GetClueTypes(ctx context.Context) ([]ClueType, error) {
 	return defaultClueTypes, nil
 }
+

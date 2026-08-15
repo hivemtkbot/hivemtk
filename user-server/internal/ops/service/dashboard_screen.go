@@ -62,11 +62,9 @@ func (s *DashboardScreenService) CreateScreen(createdBy uint, req *CreateScreenR
 
 // generateScreenCode 生成大屏访问码
 func generateScreenCode() string {
-	// 生成唯一码：时间戳 + 4 字节随机 hex，确保并发下不重复
 	timestamp := time.Now().Format("20060102150405")
 	randomBytes := make([]byte, 4)
 	if _, err := rand.Read(randomBytes); err != nil {
-		// 极端兜底：使用纳秒时间戳的十六进制后 8 位
 		return fmt.Sprintf("screen_%s_%08x", timestamp, time.Now().UnixNano()&0xFFFFFFFF)
 	}
 	return "screen_" + timestamp + "_" + hex.EncodeToString(randomBytes)
@@ -130,7 +128,6 @@ func (s *DashboardScreenService) UpdateScreen(id uint, req *UpdateScreenRequest)
 		return nil, err
 	}
 
-	// 更新 widgets
 	if req.Widgets != nil {
 		s.updateWidgets(screen.ID, req.Widgets)
 	}
@@ -140,10 +137,8 @@ func (s *DashboardScreenService) UpdateScreen(id uint, req *UpdateScreenRequest)
 
 // updateWidgets 更新 widgets
 func (s *DashboardScreenService) updateWidgets(screenID uint, widgets []WidgetConfig) error {
-	// 删除原有 widgets
 	s.widgetRepo.DeleteByScreenID(screenID)
 
-	// 创建新 widgets
 	for i, w := range widgets {
 		config, _ := json.Marshal(w.Config)
 		widget := &model.DashboardWidget{
@@ -172,7 +167,6 @@ func (s *DashboardScreenService) DeleteScreen(id uint) error {
 	}
 	_ = screen
 
-	// 删除 widgets
 	s.widgetRepo.DeleteByScreenID(id)
 
 	return s.screenRepo.Delete(id)
@@ -185,7 +179,6 @@ func (s *DashboardScreenService) GetPublicScreen(code string) (*model.DashboardS
 		return nil, err
 	}
 
-	// 增加访问次数
 	s.screenRepo.IncrementViewCount(screen.ID)
 
 	return screen, nil
@@ -212,7 +205,7 @@ type DashboardKpiItem struct {
 	Label string `json:"label"`
 	Value any    `json:"value"`
 	Color string `json:"color"`
-	Trend int    `json:"trend"` // 较昨日百分比，正增长/负下降
+	Trend int    `json:"trend"` 
 }
 
 // NameValue 名称-数值对（渠道/来源/地区/漏斗）
@@ -246,16 +239,16 @@ func pct(num, den int64) int64 {
 
 // RealtimeActivity 实时活动项
 type RealtimeActivity struct {
-	Type      string    `json:"type"`      // clue/order/message/customer
-	Title     string    `json:"title"`     // 活动标题
-	UserName  string    `json:"user_name"` // 用户名
+	Type      string    `json:"type"`      
+	Title     string    `json:"title"`     
+	UserName  string    `json:"user_name"` 
 	CreatedAt time.Time `json:"created_at"`
 }
 
 // AggregateDashboardData 聚合大屏数据（Service 层）
 // 私域部署：单租户，查询所有数据。返回结构与前端 dashboardScreen/List.vue 对齐。
 func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, error) {
-	gormDB := sysrepo.GetDB() // 通过 repository 访问 DB
+	gormDB := sysrepo.GetDB() 
 	now := time.Now()
 	loc := now.Location()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
@@ -312,7 +305,7 @@ func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, 
 	for i, key := range dates {
 		agg.Trend.Clues[i] = clueMap[key]
 		agg.Trend.Conversions[i] = orderMap[key]
-		agg.Trend.Visits[i] = clueMap[key] // 访问量无独立埋点，以线索为代理
+		agg.Trend.Visits[i] = clueMap[key] 
 	}
 
 	// 渠道分布（按线索 source_id）
@@ -327,7 +320,6 @@ func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, 
 	for _, r := range chRows {
 		agg.Channels = append(agg.Channels, NameValue{Name: r.Name, Value: r.Value})
 	}
-	// 用户来源 TOP5（复用渠道分布，取前 5）
 	for i, r := range agg.Channels {
 		if i >= 5 {
 			break
@@ -344,7 +336,6 @@ func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, 
 		agg.Regions = append(agg.Regions, NameValue{Name: r.Name, Value: r.Value})
 	}
 
-	// 漏斗：线索 → 客户 → 成单
 	agg.Funnel = []NameValue{
 		{Name: "线索", Value: totalClues},
 		{Name: "客户", Value: totalCustomers},
@@ -361,7 +352,6 @@ func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, 
 	agg.Conversion.ThisWeek = []int64{pct(ordersTW, cluesTW)}
 	agg.Conversion.LastWeek = []int64{pct(ordersLW, cluesLW)}
 
-	// KPI 卡片
 	trendToday := 0
 	if yesterdayClues > 0 {
 		trendToday = int(float64(todayClues-yesterdayClues) / float64(yesterdayClues) * 100)
@@ -401,11 +391,10 @@ func (s *DashboardScreenService) FetchRealtimeActivities(limit int) ([]RealtimeA
 		}
 	}
 
-	// 截断
 	if len(activities) > limit {
 		activities = activities[:limit]
 	}
 
-	// 已按 create_time DESC 查询，最新活动在前，无需再次反转
 	return activities, nil
 }
+

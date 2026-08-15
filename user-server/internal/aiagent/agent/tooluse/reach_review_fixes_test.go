@@ -8,7 +8,7 @@ import (
 func TestGetArgMap_PreservesTypes(t *testing.T) {
 	args := map[string]any{
 		"payload": map[string]any{
-			"order_id": float64(12345), // JSON 数字反序列化为 float64
+			"order_id": float64(12345), 
 			"vip":      true,
 			"name":     "Alice",
 			"tags":     []any{"a", "b"},
@@ -47,3 +47,4 @@ func TestGetArgMap_NilAndMissing(t *testing.T) {
 		t.Errorf("非 map 值应返回 nil, got %v", got)
 	}
 }
+

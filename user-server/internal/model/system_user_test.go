@@ -128,11 +128,9 @@ func TestSystemUser_IsAdmin(t *testing.T) {
 }
 
 func TestSystemUser_CheckPassword(t *testing.T) {
-	// 创建一个真实哈希的密码用于测试
 	user := &SystemUser{
 		Password: "password123",
 	}
-	// 先哈希密码
 	err := HashSystemUserPassword(user)
 	if err != nil {
 		t.Fatalf("Failed to hash password: %v", err)
@@ -157,11 +155,9 @@ func TestSystemUser_BeforeCreate_HashesPassword(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
-	// Verify password was hashed (should be different from original)
 	if user.Password == "password123" {
 		t.Error("Expected password to be hashed")
 	}
-	// Verify hashed password format (bcrypt starts with $2a$)
 	if len(user.Password) < 59 {
 		t.Errorf("Expected bcrypt hash length >= 59, got %d", len(user.Password))
 	}
@@ -183,3 +179,4 @@ func TestSystemUser_HashPassword(t *testing.T) {
 		t.Errorf("Expected bcrypt hash length >= 59, got %d", len(user.Password))
 	}
 }
+

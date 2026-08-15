@@ -44,7 +44,6 @@ func (m *DropCdpAutoReplyMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 1. account 表的 5 个无头模式开关列
 	if tableExists(ctx, m.db, "account") {
 		headlessCols := []string{
 			"douyin_headless", "kuaishou_headless", "xiaohongshu_headless",
@@ -58,7 +57,6 @@ func (m *DropCdpAutoReplyMigration) Up(ctx context.Context) error {
 		}
 	}
 
-	// 2. system_config 表的 auto_reply_headless 全局开关列
 	if tableExists(ctx, m.db, "system_config") {
 		stmt := "ALTER TABLE system_config DROP COLUMN IF EXISTS auto_reply_headless"
 		if err := m.db.WithContext(ctx).Exec(stmt).Error; err != nil {
@@ -66,7 +64,6 @@ func (m *DropCdpAutoReplyMigration) Up(ctx context.Context) error {
 		}
 	}
 
-	// 3. 三张孤儿表（无 GORM 模型、initial_schema 不再创建）
 	orphanTables := []string{"auto_reply_accounts", "auto_reply_rules", "auto_reply_logs"}
 	for _, tbl := range orphanTables {
 		stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", tbl)
@@ -78,7 +75,6 @@ func (m *DropCdpAutoReplyMigration) Up(ctx context.Context) error {
 }
 
 func (m *DropCdpAutoReplyMigration) Down(ctx context.Context) error {
-	// 孤儿 schema 随功能删除永久移除，不提供回滚（重建空表无实际意义）
 	return nil
 }
 
@@ -92,3 +88,4 @@ func tableExists(ctx context.Context, db *gorm.DB, name string) bool {
 	}
 	return n > 0
 }
+

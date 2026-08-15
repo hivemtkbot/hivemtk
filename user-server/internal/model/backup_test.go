@@ -46,7 +46,7 @@ func TestBackup_BasicFields(t *testing.T) {
 		BackupType:   BackupTypeFull,
 		Status:       BackupStatusCompleted,
 		FilePath:     "/backups/2024-01-15/backup.sql",
-		FileSize:     1073741824, // 1GB
+		FileSize:     1073741824, 
 		ErrorMessage: "",
 		StartedAt:    now,
 		CompletedAt:  &completed,
@@ -58,7 +58,6 @@ func TestBackup_BasicFields(t *testing.T) {
 		t.Errorf("Expected ID 1, got %d", backup.ID)
 	}
 
-	// 私域部署：不校验 MerchantID
 	if backup.BackupName != "Daily Backup" {
 		t.Errorf("Expected BackupName 'Daily Backup', got %s", backup.BackupName)
 	}
@@ -139,7 +138,7 @@ func TestBackup_WithNilCompletedAt(t *testing.T) {
 func TestBackup_WithLargeFileSize(t *testing.T) {
 	backup := &Backup{
 		BackupName: "Large Backup",
-		FileSize:   10737418240, // 10GB
+		FileSize:   10737418240, 
 	}
 
 	if backup.FileSize != 10737418240 {
@@ -172,7 +171,6 @@ func TestRestoreRecord_BasicFields(t *testing.T) {
 		t.Errorf("Expected ID 1, got %d", record.ID)
 	}
 
-	// 私域部署：不校验 MerchantID
 	if record.BackupID != 10 {
 		t.Errorf("Expected BackupID 10, got %d", record.BackupID)
 	}
@@ -196,3 +194,4 @@ func TestRestoreRecord_WithStatusValues(t *testing.T) {
 		}
 	}
 }
+

@@ -4,17 +4,17 @@ import "context"
 
 // 售后类型
 const (
-	AfterSaleRefund   = "refund"   // 仅退款
-	AfterSaleReturn   = "return"   // 退货退款
-	AfterSaleExchange = "exchange" // 换货
+	AfterSaleRefund   = "refund"   
+	AfterSaleReturn   = "return"   
+	AfterSaleExchange = "exchange" 
 )
 
 // 售后状态（本系统侧记录，真实状态由电商回写）
 const (
-	AfterSalePending    = "pending"    // 待电商处理
-	AfterSaleProcessing = "processing" // 处理中
-	AfterSaleDone       = "done"       // 已完成
-	AfterSaleRejected   = "rejected"   // 已拒绝
+	AfterSalePending    = "pending"    
+	AfterSaleProcessing = "processing" 
+	AfterSaleDone       = "done"       
+	AfterSaleRejected   = "rejected"   
 )
 
 // AfterSaleRequest 发起售后请求（客服侧发起，动作回写电商）。
@@ -51,3 +51,4 @@ type AfterSalePort interface {
 	Create(ctx context.Context, req *AfterSaleRequest) (*AfterSaleView, error)
 	Query(ctx context.Context, platform, orderID, customerPhone string) ([]*AfterSaleView, error)
 }
+

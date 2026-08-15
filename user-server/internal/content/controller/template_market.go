@@ -187,3 +187,4 @@ func (c *TemplateMarketController) RateTemplate(ctx *gin.Context) {
 		"rating":      req.Rating,
 	}, "评分成功")
 }
+

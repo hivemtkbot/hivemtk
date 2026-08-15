@@ -12,19 +12,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// reach_e2e_test.go 触达工具 E2E 集成测试
-//
-// P2-3：从 tooluse 包迁入 app 包——本测试依赖 service.NewSendPipeline 装配，
-// 属于装配层职责。
-//
-// 覆盖 Telegram/WhatsApp/Feishu 三个触达工具的端到端集成测试
-// 验证路径：tool.Execute → sendViaPipeline → SendPipeline → bridge → adapter → mock sender
-// 验证内容：
-//   1. 三个工具通过 SendPipeline 完整执行（不直接调用 Adapter）
-//   2. SendPipeline 的 9 步（permission/rate_limit/audit/retry/fallback/cost/journey/send）正常
-//   3. 工具返回值（message_id / step_results / retry_count）符合 schema
-//   4. LLM Function Calling 序列化后能被反序列化
-//   5. 错误透传：上游错误能被工具层捕获
 
 // e2eMockSender 端到端测试用 mock sender
 type e2eMockSender struct {
@@ -125,7 +112,6 @@ func (m *e2eMockReachAdapter) ListAccounts(_ context.Context, _ string) ([]toolu
 	return nil, nil
 }
 
-// ===== E2E 测试 1：Telegram 端到端 =====
 
 func TestE2E_ReachTelegram_FullPipeline(t *testing.T) {
 	db := testutil.NewTestDB(t)
@@ -144,12 +130,10 @@ func TestE2E_ReachTelegram_FullPipeline(t *testing.T) {
 		t.Fatalf("tool.Execute failed: %v", err)
 	}
 
-	// 验证：mock adapter 被调用 1 次
 	if atomic.LoadInt32(&mock.telegramCalls) != 1 {
 		t.Errorf("expected 1 telegram call, got %d", mock.telegramCalls)
 	}
 
-	// 验证：result.Data 包含预期字段
 	data, _ := json.Marshal(result.Data)
 	dataStr := string(data)
 	for _, key := range []string{"message_id", "channel", "sent_at", "step_results", "retry_count", "fallback_used"} {
@@ -178,7 +162,6 @@ func TestE2E_ReachTelegram_ErrorPropagation(t *testing.T) {
 	}
 }
 
-// ===== E2E 测试 2：WhatsApp 端到端 =====
 
 func TestE2E_ReachWhatsApp_FullPipeline(t *testing.T) {
 	db := testutil.NewTestDB(t)
@@ -208,19 +191,17 @@ func TestE2E_ReachWhatsApp_TemplateWithoutContent(t *testing.T) {
 	deps := NewReachToolDepsWithAdapter(db, mock)
 
 	tool := tooluse.NewReachWhatsAppSendTool(deps)
-	// 模板消息可以只传 template_id 不传 content
 	_, err := tool.Execute(context.Background(), map[string]any{
 		"account_id":  "10",
 		"to_phone":    "+8613800138000",
 		"template_id": "utility_v1",
-		"content":     "x", // 占位文本（实际由模板渲染）
+		"content":     "x", 
 	})
 	if err != nil {
 		t.Fatalf("tool.Execute failed: %v", err)
 	}
 }
 
-// ===== E2E 测试 3：Feishu 端到端 =====
 
 func TestE2E_ReachFeishu_FullPipeline(t *testing.T) {
 	db := testutil.NewTestDB(t)
@@ -265,7 +246,6 @@ func TestE2E_ReachFeishu_AllMsgTypes(t *testing.T) {
 	}
 }
 
-// ===== E2E 测试 4：注册到 Registry + LLM Function Calling 序列化 =====
 
 func TestE2E_ReachNewChannels_LLMFunctionSerialization(t *testing.T) {
 	db := testutil.NewTestDB(t)
@@ -276,7 +256,6 @@ func TestE2E_ReachNewChannels_LLMFunctionSerialization(t *testing.T) {
 		t.Fatalf("register failed: %v", err)
 	}
 
-	// 导出 3 个新工具的 LLM Function
 	tools := registry.List()
 	found := map[string]bool{
 		"reach.telegram.send": false,
@@ -294,7 +273,6 @@ func TestE2E_ReachNewChannels_LLMFunctionSerialization(t *testing.T) {
 		}
 	}
 
-	// 序列化为 OpenAI Function Calling JSON
 	executor := tooluse.NewToolExecutor(registry, tooluse.ToolExecutorConfig{})
 	fns := executor.ListAvailableLLMFunctions()
 	data, err := json.Marshal(fns)
@@ -309,27 +287,14 @@ func TestE2E_ReachNewChannels_LLMFunctionSerialization(t *testing.T) {
 	}
 }
 
-// ===== E2E 测试 5：完整入站 → 出站闭环（无 智能体）=====
-//
-// 模拟场景：
-//   1. 用户从 Telegram 发起对话（webhook 入口）
-//   2. 系统解析 webhook，写入消息中台
-//   3. 智能体（mock）生成回复
-//   4. 智能体调用 reach.telegram.send 工具回包
-//   5. 验证：消息能被回传到 Telegram（通过 mock adapter）
-//
-// 注：本测试不依赖真实 webhook_controller（避免引入 HTTP 服务）
-// 只验证"智能体 → tool → adapter"链路
 
 func TestE2E_ReachFullLoop_SalesReply(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	mock := &e2eMockReachAdapter{}
 	deps := NewReachToolDepsWithAdapter(db, mock)
 
-	// 模拟 智能体生成回复内容
 	replyContent := "您好！感谢咨询我们的产品。请问您对哪个产品感兴趣？"
 
-	// 智能体调用工具
 	tool := tooluse.NewReachTelegramSendTool(deps)
 	result, err := tool.Execute(context.Background(), map[string]any{
 		"account_id": "1",
@@ -340,26 +305,22 @@ func TestE2E_ReachFullLoop_SalesReply(t *testing.T) {
 		t.Fatalf("智能体回复失败：%v", err)
 	}
 
-	// 验证 mock adapter 被调用
 	if atomic.LoadInt32(&mock.telegramCalls) != 1 {
 		t.Error("智能体回复应触发 1 次 telegram 调用")
 	}
 
-	// 验证返回的 message_id 可用于后续追踪
 	data, _ := json.Marshal(result.Data)
 	if !strings.Contains(string(data), "e2e-tg-msg") {
 		t.Errorf("返回的 message_id 不正确：%s", string(data))
 	}
 }
 
-// ===== E2E 测试 6：批量工具调用（模拟 智能体一次决策出多条消息）=====
 
 func TestE2E_ReachNewChannels_BatchDispatch(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	mock := &e2eMockReachAdapter{}
 	deps := NewReachToolDepsWithAdapter(db, mock)
 
-	// 智能体：同时给 3 个渠道发送
 	tools := []tooluse.Tool{
 		tooluse.NewReachTelegramSendTool(deps),
 		tooluse.NewReachWhatsAppSendTool(deps),
@@ -389,10 +350,8 @@ func TestE2E_ReachNewChannels_BatchDispatch(t *testing.T) {
 	}
 }
 
-// ===== E2E 测试 7：SendPipeline 与 bridge 协作 =====
 
 func TestE2E_ReachPipeline_ChannelDispatch(t *testing.T) {
-	// 验证 reachChannelAdapterBridge 把 ChannelAdapter 派发到 ReachAdapter
 	mock := &e2eMockReachAdapter{}
 	bridge := &reachChannelAdapterBridge{adapter: mock}
 
@@ -417,3 +376,4 @@ func TestE2E_ReachPipeline_ChannelDispatch(t *testing.T) {
 		t.Error("bridge should dispatch feishu")
 	}
 }
+

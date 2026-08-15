@@ -1,16 +1,5 @@
 package service
 
-// knowledge_base.go 知识库业务服务层
-//
-// 五层架构归属: L4 业务编排层
-// 设计依据: 强 1对1 改造
-//
-// 业务规则:
-//   - owner_type=private 时 owner_agent_id 必填, 校验失败拒绝创建
-//   - owner_type=shared  时 owner_agent_id 必为空, 校验失败拒绝创建
-//   - type 必须为 faq/rag/sop 三选一
-//   - 删除知识库时, 应同步删除所有 agent_kb_bindings 引用 (业务级联)
-//   - agent 删除时, 业务级联删除其作为 owner 的 private 知识库
 
 import (
 	"context"
@@ -103,7 +92,6 @@ func (s *KnowledgeBaseService) CreateKB(ctx context.Context, kb *model.Knowledge
 		if kb.OwnerAgentID != nil && *kb.OwnerAgentID != 0 {
 			return errors.New("owner_type=shared 时 owner_agent_id 必为空")
 		}
-		// shared 时显式置空, 避免入库残留
 		kb.OwnerAgentID = nil
 	default:
 		return fmt.Errorf("owner_type 非法: %s (private/shared)", kb.OwnerType)
@@ -140,12 +128,10 @@ func (s *KnowledgeBaseService) ListKBs(ctx context.Context, kbType, ownerType st
 	if err != nil {
 		return nil, 0, err
 	}
-	// 转为指针切片, 保持服务层 API 稳定
 	ptrs := make([]*model.KnowledgeBase, len(kbs))
 	for i := range kbs {
 		ptrs[i] = &kbs[i]
 	}
-	// 服务层再做一次 keyword 过滤 (List 层 keyword 暂未支持)
 	if keyword != "" {
 		like := strings.ToLower(strings.TrimSpace(keyword))
 		filtered := make([]*model.KnowledgeBase, 0, len(ptrs))
@@ -154,7 +140,6 @@ func (s *KnowledgeBaseService) ListKBs(ctx context.Context, kbType, ownerType st
 				filtered = append(filtered, kb)
 			}
 		}
-		// 修复：keyword 过滤后返回的实际列表长度应与 total 一致，否则分页/前端总数显示错误
 		return filtered, int64(len(filtered)), nil
 	}
 	return ptrs, total, nil
@@ -203,7 +188,6 @@ func (s *KnowledgeBaseService) UpdateKB(ctx context.Context, id uint, kb *model.
 	if kb.Name == "" {
 		return fmt.Errorf("%w: name 不能为空", utils.ErrInvalidInput)
 	}
-	// type 与 owner_type 校验
 	if kb.Type != "" && !IsValidKBType(kb.Type) {
 		return fmt.Errorf("%w: type 非法: %s", utils.ErrInvalidInput, kb.Type)
 	}
@@ -229,7 +213,6 @@ func (s *KnowledgeBaseService) DeleteKB(ctx context.Context, id uint) error {
 	if s.repo == nil {
 		return errors.New("repo not initialized")
 	}
-	// 先删除所有绑定
 	if err := s.bindingRepo.DeleteByKB(ctx, id); err != nil {
 		return fmt.Errorf("删除知识库绑定失败: %w", err)
 	}
@@ -249,3 +232,4 @@ func (s *KnowledgeBaseService) UnbindFromAgent(ctx context.Context, kbID, agentI
 	}
 	return s.bindingRepo.DeleteByAgentAndKB(ctx, agentID, kbID)
 }
+

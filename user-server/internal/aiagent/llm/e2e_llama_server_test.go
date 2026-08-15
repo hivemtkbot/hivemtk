@@ -36,7 +36,6 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 		t.Skip("PG_PASSWORD not set, skipping e2e test")
 	}
 
-	// 1. 检查 llama-server 可达性（端口 8207 单一源：config.DefaultLLMBaseURLDev）
 	client := &http.Client{Timeout: 3 * time.Second}
 	resp, err := client.Get(config.DefaultLLMBaseURLDev + "/models")
 	if err != nil {
@@ -47,7 +46,6 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 		t.Skipf("llama-server /v1/models 返回非 200: %d", resp.StatusCode)
 	}
 
-	// 2. 连接 PostgreSQL 并注入 auditDB（端口 8232 单一源：config.DefaultDBPortDev）
 	dsn := fmt.Sprintf("host=127.0.0.1 port=%d user=admin password=%s dbname=user_db sslmode=disable",
 		config.DefaultDBPortDev, pgPassword)
 	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -58,11 +56,10 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 	defer AttachAuditDB(nil)
 	ResetTokenSourceStats()
 
-	// 3. 直接调用 LLMService.GenerateWithTools（绕过 Dispatcher 路由，避免云端 provider 超时）
 	svc := NewLLMService()
 	llmCfg := &LLMConfig{
-		BaseURL:        config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
-		Model:          "Qwen2.5-1.5B-Instruct",     // dev 档契约
+		BaseURL:        config.DefaultLLMBaseURLDev, 
+		Model:          "Qwen2.5-1.5B-Instruct",     
 		MaxTokens:      50,
 		Temperature:    0.7,
 		MaxRetries:     1,
@@ -83,7 +80,6 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 		result.Usage.PromptTokens, result.Usage.CompletionTokens, result.Usage.TotalTokens)
 	t.Logf("   FinishReason: %s", result.FinishReason)
 
-	// 4. 验证 LLM 真实 Usage 被正确提取
 	if result.Usage.TotalTokens <= 0 {
 		t.Errorf("result.Usage.TotalTokens = %d, want > 0（llama-server 应返回真实 usage）", result.Usage.TotalTokens)
 	}
@@ -94,11 +90,10 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 		t.Errorf("result.Usage.CompletionTokens = %d, want > 0", result.Usage.CompletionTokens)
 	}
 
-	// 5. 模拟 Dispatcher.callProvider 的逻辑：构造 LogEntry 并落库
 	provider := &ProviderConfig{
 		Name:    "default",
-		BaseURL: config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
-		Model:   "Qwen2.5-1.5B-Instruct",     // dev 档契约
+		BaseURL: config.DefaultLLMBaseURLDev, 
+		Model:   "Qwen2.5-1.5B-Instruct",     
 	}
 	traceID := fmt.Sprintf("e2e-llama-%d", time.Now().UnixNano())
 	tokenSource := InferTokenSource(result.Usage.TotalTokens, result.Content)
@@ -115,7 +110,6 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 		0, 0, true, "", false, false, traceID, result.Content, SourceDispatch)
 	LogRoutingDecision(context.Background(), entry)
 
-	// 6. 查询数据库验证落库
 	time.Sleep(300 * time.Millisecond)
 
 	pool, err := pgxpool.New(context.Background(), dsn)
@@ -154,7 +148,6 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 		gotPromptTokens, gotCompletionTokens, gotTotalTokens)
 	t.Logf("   scenario_provider=%s", gotScenarioProvider)
 
-	// 7. 数据库字段断言
 	if gotTokenSource != TokenSourceActual {
 		t.Errorf("DB token_source = %q, want %q", gotTokenSource, TokenSourceActual)
 	}
@@ -189,3 +182,4 @@ func truncate(s string, n int) string {
 	}
 	return s[:n] + "..."
 }
+

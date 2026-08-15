@@ -1,18 +1,5 @@
 package ragretrieval
 
-// multi_query_generator.go Multi-Query 变体生成器
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.4.8
-//
-// 思想: LLM 生成 N 个视角的 query → 并行 BM25/向量召回 → 合并去重
-// LangChain MultiQueryRetriever 默认 4 个变体；本项目取 3 个平衡延迟
-//
-// 设计原则:
-//   - LLM 输出必须是 JSON 数组格式（兼容 markdown 代码块包裹）
-//   - 解析失败返回 error，由 QueryRewriter 决定是否降级
-//   - 空数组视为失败
-//   - 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -25,7 +12,7 @@ import (
 type MultiQueryGenerator struct {
 	chatClient LLMChatClient
 	enabled    bool
-	variantN   int // 默认 3
+	variantN   int 
 }
 
 // MultiQueryGeneratorConfig Multi-Query 配置
@@ -94,7 +81,7 @@ func (g *MultiQueryGenerator) Generate(ctx context.Context, query string) ([]str
 %d 个查询变体:`, g.variantN, query, g.variantN)
 
 	resp, err := g.chatClient.Chat(ctx, prompt, LLMChatOptions{
-		Temperature: 0.5, // 略高温度保证多样性
+		Temperature: 0.5, 
 		MaxTokens:   200,
 	})
 	if err != nil {
@@ -111,7 +98,6 @@ func (g *MultiQueryGenerator) Generate(ctx context.Context, query string) ([]str
 		return nil, fmt.Errorf("Multi-Query 解析失败: %w (raw=%s)", err, jsonStr)
 	}
 
-	// 去空白 + 去重 + 去空字符串
 	seen := make(map[string]bool, len(variants))
 	out := make([]string, 0, len(variants))
 	for _, v := range variants {
@@ -133,7 +119,6 @@ func (g *MultiQueryGenerator) Generate(ctx context.Context, query string) ([]str
 // 与 llm_service.go 中的 extractJSON 不同，本函数仅识别数组（[ 开头）
 func extractJSONArray(s string) string {
 	s = strings.TrimSpace(s)
-	// 去除 markdown 代码块包裹
 	if strings.HasPrefix(s, "```json") {
 		s = strings.TrimPrefix(s, "```json")
 		s = strings.TrimSuffix(s, "```")
@@ -143,7 +128,6 @@ func extractJSONArray(s string) string {
 	}
 	s = strings.TrimSpace(s)
 
-	// 找到第一个 [ 和最后一个 ]
 	start := strings.Index(s, "[")
 	if start == -1 {
 		return ""
@@ -154,3 +138,4 @@ func extractJSONArray(s string) string {
 	}
 	return s[start : end+1]
 }
+

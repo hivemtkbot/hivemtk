@@ -12,43 +12,22 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// SmartCSOrchestrator 智能体统一编排器（LLM + 客服座席结合体）
-// ----------------------------------------------------------------------------
-// 这是商户端"智能体"支柱的核心枢纽，把 智能体引擎（SalesEngine 8 步链路）
-// 与客服座席体系（SessionAssignment + CustomerSession + AISuggestion）统一编排。
-//
-// 设计理念（对应产品定位）：
-//   - 智能体 = LLM 能力 + 客服座席 协作体
-//   - 高置信度场景：AI 全自动回复（降本）
-//   - 低置信度场景：转人工座席 + 推送 AI 建议参考（兜底）
-//   - 座席可随时接管任意 AI 会话（人机协同）
-//
-// 入口：webhook 收到消息 → SmartCSOrchestrator.HandleIncoming
-// 出口：① AI 自动回复  ② 转人工 + AI 建议推送  ③ 座席接管
-//
-// 五层架构：Service 层，依赖 Repository 层，被 Controller/Webhook 层调用。
-// ============================================================================
 
 // SmartCSOrchestrator 智能体编排器
 type SmartCSOrchestrator struct {
-	engine         *SalesEngine              // 智能体引擎（8 步链路）
-	sessionSvc     *CustomerSessionService   // 客服会话服务
-	assignmentSvc  *SessionAssignmentService // 会话分配服务（转人工）
+	engine         *SalesEngine              
+	sessionSvc     *CustomerSessionService   
+	assignmentSvc  *SessionAssignmentService 
 	suggestionRepo *repository.AISuggestionRepository
 	sessionRepo    *repository.CustomerSessionRepository
 	messageRepo    *repository.SessionMessageRepository
 	agentRepo      *repository.AgentStatusRepository
 
-	// 多 AI 智能体：客服座席挂载的智能体服务
-	// 注入后 HandleIncomingWithAgent 会按座席挂载的智能体覆盖渠道默认智能体
-	// 未注入时仅使用渠道绑定智能体（agentCtxFromChannel）
 	csAgentSvc *CustomerServiceAgentService
 
-	// 配置
-	confidenceThreshold float64 // AI 自动回复的置信度阈值
-	enableAutoReply     bool    // 是否启用 AI 自动回复（false=仅生成建议，不自动发）
-	maxAIConsecutive    int     // 单会话 AI 连续回复上限（防止 AI 死循环）
+	confidenceThreshold float64 
+	enableAutoReply     bool    
+	maxAIConsecutive    int     
 }
 
 // OrchestratorConfig 编排器配置
@@ -63,7 +42,7 @@ func DefaultOrchestratorConfig() *OrchestratorConfig {
 	return &OrchestratorConfig{
 		ConfidenceThreshold: 0.7,
 		EnableAutoReply:     true,
-		MaxAIConsecutive:    10, // 单会话 AI 连续回复上限 10（防 AI 死循环，同时给正常多轮对话充足空间）
+		MaxAIConsecutive:    10, 
 	}
 }
 
@@ -102,9 +81,6 @@ func (o *SmartCSOrchestrator) SetCustomerServiceAgentService(ctx context.Context
 // 主动模式（active）由后续主动触达引擎落地（详见）。
 func (o *SmartCSOrchestrator) Mode(ctx context.Context) string { return string(model.AgentModePassive) }
 
-// ----------------------------------------------------------------------------
-// 入口：处理入站消息
-// ----------------------------------------------------------------------------
 
 // IncomingContext 入站消息上下文
 type IncomingContext struct {
@@ -115,10 +91,7 @@ type IncomingContext struct {
 	Content    string
 	MessageID  string
 	MediaURL   string
-	OneID      string // 客户 OneID（若已知）
-	// IsGroup / GroupID / GroupName 群聊元数据（桥接渠道透传）：
-	// 群聊中 SenderID 被聚合为群 id，AI 编排需据 SenderName 区分“谁在群中发言”，
-	// 并按 GroupID 建独立会话（群聊≠1:1 私信）。
+	OneID      string 
 	IsGroup   bool
 	GroupID   string
 	GroupName string
@@ -127,13 +100,12 @@ type IncomingContext struct {
 // HandleResult 处理结果
 type HandleResult struct {
 	SessionID      string            `json:"session_id"`
-	HandlerType    model.HandlerType `json:"handler_type"` // ai / human
+	HandlerType    model.HandlerType `json:"handler_type"` 
 	AIReplied      bool              `json:"ai_replied"`
 	Reply          string            `json:"reply,omitempty"`
 	Confidence     float64           `json:"confidence"`
 	Transferred    bool              `json:"transferred"`
 	TransferReason string            `json:"transfer_reason,omitempty"`
-	// Cards 会话内结构化富卡片（商品卡/订单卡/优惠卡等），随回复一并下发
 	Cards         []model.RichCard `json:"cards,omitempty"`
 	SuggestionID  uint             `json:"suggestion_id,omitempty"`
 	SalesResponse *SalesResponse   `json:"sales_response,omitempty"`
@@ -159,7 +131,6 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		return nil, errors.New("content is empty")
 	}
 
-	// 追踪：绑定 module=orchestrator，trace_id 由上游（webhook / websocket）经 ctx 传入
 	ctx = logger.WithModule(ctx, "orchestrator")
 	start := time.Now()
 	result := &HandleResult{HandlerType: model.HandlerTypeAI}
@@ -179,19 +150,16 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 			Msg("[9] orchestrator done")
 	}()
 
-	// 1. 查找或创建客服会话
 	session, err := o.findOrCreateSession(ctx, in)
 	if err != nil {
 		return nil, fmt.Errorf("find/create session failed: %w", err)
 	}
 	result.SessionID = session.SessionID
 
-	// 2. 保存入站消息到会话
 	if err := o.saveInboundMessage(ctx, session, in); err != nil {
 		return nil, fmt.Errorf("save inbound message failed: %w", err)
 	}
 
-	// 3. 已分配给在线人工座席的会话：直接转人工，不触发 AI
 	if session.HandlerType == model.HandlerTypeHuman && session.AgentID > 0 {
 		if o.isAgentOnline(ctx, session.AgentID) {
 			result.HandlerType = model.HandlerTypeHuman
@@ -199,10 +167,8 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 			result.TransferReason = "会话已分配给在线座席"
 			return result, nil
 		}
-		// 座席离线，继续走 AI 流程
 	}
 
-	// 4. 检查是否超过 AI 连续回复上限（0=不限制）
 	if o.maxAIConsecutive > 0 && session.AIReplyCount >= o.maxAIConsecutive {
 		result.HandlerType = model.HandlerTypeHuman
 		result.Transferred = true
@@ -211,7 +177,6 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		return result, nil
 	}
 
-	// 5. 检查紧急/投诉内容：直接转人工
 	if o.isUrgentOrComplaint(ctx, in.Content) {
 		result.HandlerType = model.HandlerTypeHuman
 		result.Transferred = true
@@ -220,9 +185,7 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		return result, nil
 	}
 
-	// 6. 调用 SalesEngine 8 步链路（核心）
 	if o.engine == nil {
-		// 引擎未注入，降级转人工
 		result.HandlerType = model.HandlerTypeHuman
 		result.Transferred = true
 		result.TransferReason = "AI 引擎未就绪，转人工"
@@ -230,20 +193,15 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		return result, nil
 	}
 
-	// 6.1 智能体上下文优先级裁决：
-	//   优先级：座席挂载 > 渠道绑定 > 默认配置
-	//   若会话已分配座席（session.AgentID > 0），尝试按座席挂载加载智能体
 	finalAgentCtx := agentCtxFromChannel
 	if session.AgentID > 0 && o.csAgentSvc != nil {
 		seatAgentCtx, err := o.csAgentSvc.LoadAgentForSeat(ctx, session.AgentID)
 		if err != nil {
-			// 加载失败不阻断主流程，降级使用渠道绑定智能体
 			logger.Ctx(ctx).Warn().
 				Err(err).
 				Uint("agent_id", session.AgentID).
 				Msg("[6.1] load seat agent failed, fallback to channel binding")
 		} else if seatAgentCtx != nil {
-			// 座席挂载优先：覆盖渠道绑定智能体
 			finalAgentCtx = seatAgentCtx
 		}
 	}
@@ -256,7 +214,6 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		Platform:    string(in.Platform),
 		AutoExecute: o.enableAutoReply,
 	}
-	// 按智能体上下文执行（finalAgentCtx == nil 时 HandleWithAgent 内部回退到 Handle）
 	salesResp, err := o.engine.HandleWithAgent(ctx, salesReq, finalAgentCtx)
 	if err != nil || salesResp == nil {
 		result.HandlerType = model.HandlerTypeHuman
@@ -267,32 +224,20 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	}
 	result.SalesResponse = salesResp
 	result.Confidence = o.extractConfidence(ctx, salesResp)
-	// 会话内结构化卡片是 Agent Loop 产出的具体产物，与“是否自动回复/转人工”决策解耦：
-	// 即便因置信度不足转人工，AI 已生成的卡片也应随结果下发（落库 + 推向访客），避免被丢弃。
 	result.Cards = RichCardsFromDTO(salesResp.Cards)
 
-	// 7. 保存 AI 建议（无论是否自动回复，都给座席参考）
 	suggestionID := o.saveAISuggestion(ctx, session.SessionID, salesResp)
 	result.SuggestionID = suggestionID
 
-	// 8. 决策：AI 自动回复 or 转人工
-	// 若智能体自定义了置信度阈值，优先使用智能体阈值
 	threshold := o.confidenceThreshold
 	if finalAgentCtx != nil && finalAgentCtx.ConfidenceThreshold > 0 {
 		threshold = finalAgentCtx.ConfidenceThreshold
 	}
-	// Agent Loop 已产出结构化卡片=明确、可用的回复产物；即便意图置信度偏低，
-	// 也应随 AI 自动回复一并下发（卡片+说明文本），避免被“转人工”丢弃。
-	// 显式 TransferredToHuman（坐席主动接管）仍优先于本兜底。
 	effectiveConf := result.Confidence
 	if len(salesResp.Cards) > 0 && effectiveConf < threshold {
 		effectiveConf = threshold
 	}
 	result.Confidence = effectiveConf
-	// 决策逻辑：
-	//   - 显式转人工(坐席接管) 或 紧急/投诉 -> 转人工
-	//   - 已知意图且非安全意图且置信度低于阈值 -> 转人工
-	//   - 未知意图(意图识别占位符, 不反映回答质量)：让 AI 先答, 不因其低置信度误转人工
 	knownIntent := salesResp.Intent != nil && salesResp.Intent.IntentType != IntentUnknown
 	safeIntent := salesResp.Intent != nil &&
 		(salesResp.Intent.IntentType == IntentGreeting || salesResp.Intent.IntentType == IntentSocial)
@@ -311,7 +256,6 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		return result, nil
 	}
 
-	// 9. AI 自动回复
 	result.HandlerType = model.HandlerTypeAI
 	result.AIReplied = true
 	result.Reply = salesResp.Reply
@@ -327,9 +271,6 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	return result, nil
 }
 
-// ----------------------------------------------------------------------------
-// 内部方法
-// ----------------------------------------------------------------------------
 
 // findOrCreateSession 查找或创建会话
 //
@@ -343,17 +284,6 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 //
 // 注释：S3-1 之前的实现只按 user_id 匹配，会导致 web → TG 切换时冷启动。
 func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *IncomingContext) (*model.CustomerSession, error) {
-	// 群聊会话键：群聊的“客户”是群本身——按 groupID 聚合一个会话，
-	// 群内各成员消息的 SenderID 用成员身份（见 handleFrame 已透传），
-	// 避免把不同成员当成不同客户/不同会话。
-	//
-	// 修复（2026-08-05 审计 P0）：群聊路径原用 time.Now().UnixNano() 派生 session_id，
-	// 与单聊路径同样存在并发首消息产生 N 个重复 session 的 race condition。
-	// 改为与单聊一致的「UpsertByOneID 稳定键」模式：
-	//   - oneID = "group:" + groupKey（群唯一标识）
-	//   - stable session_id = "sess_{platform}_{account_id}_group:{groupKey}"
-	//   - INSERT ... ON CONFLICT DO NOTHING 保证原子性
-	//   - Upsert 失败时降级用旧逻辑（time.Now().UnixNano() 派生）
 	if in.IsGroup {
 		groupKey := in.GroupID
 		if groupKey == "" {
@@ -363,7 +293,6 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 		now := time.Now()
 		stableSessionID := fmt.Sprintf("sess_%s_%s_%s", string(in.Platform), in.AccountID, derivedOneID)
 		if id, err := o.sessionRepo.UpsertByOneID(ctx, string(in.Platform), in.AccountID, derivedOneID, derivedOneID, in.GroupName, in.Content, &now); err != nil {
-			// Upsert 失败时降级用旧逻辑（time.Now().UnixNano() 派生），保证不卡死
 			staleID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
 			logger.Ctx(ctx).Warn().Err(err).Str("stable_id", stableSessionID).Str("stale_id", staleID).
 				Msg("[Orchestrator] 群聊 UpsertByOneID 失败，降级用 stale session_id")
@@ -386,10 +315,8 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 			}
 			return session, nil
 		} else if id != "" {
-			// Upsert 返回稳定 session_id，直接用
 			return o.sessionRepo.GetByIDString(ctx, id)
 		}
-		// 兜底：理论上不会到这里
 		staleID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
 		session := &model.CustomerSession{
 			SessionID:     staleID,
@@ -411,43 +338,23 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 		return session, nil
 	}
 
-	// 1) 优先 OneID 匹配（跨渠道合并）
 	if in.OneID != "" {
 		if existing, err := o.sessionRepo.GetActiveByOneID(ctx, in.OneID); err == nil && existing != nil {
 			return existing, nil
 		}
 	}
 
-	// 2) 降级 user_id 匹配（单渠道内活跃会话）
-	// 直接按 user_id + 活跃状态点查（命中 user_id 索引）。
-	// GetByMerchant("",1,20) 会对全量会话做 COUNT + 取最近 20 条再线性匹配，
-	// 在 1000 万/日被动回复下每条消息都触发一次全表 COUNT，且只扫 20 条会漏掉用户真实会话。
 	if existing, err := o.sessionRepo.GetActiveByUserID(ctx, in.SenderID); err == nil && existing != nil {
 		return existing, nil
 	}
 
-	// 3) 创建新会话
-	// 兜底：OneID 为空时，用 Platform:SenderID 拼接临时 OneID。
-	// - 拼接规则：fmt.Sprintf("%s:%s", in.Platform, in.SenderID)
-	// - 适用场景：未通过用户实名/手机号识别出的访客（如匿名 Web 访客首次进入）
-	// - 后续同一 Platform + SenderID 的消息可命中此 OneID，避免重复建会话
-	// - 未来 OneID 识别模块补全后，真 OneID 优先于临时 OneID（前端不感知）
 	derivedOneID := in.OneID
 	if derivedOneID == "" {
 		derivedOneID = fmt.Sprintf("%s:%s", in.Platform, in.SenderID)
 	}
-	// 修复（2026-08-05 P1 大扫除）：session_id 由 time.Now().UnixNano() 派生，
-	// 并发首消息（同一会话窗口内 10 个 goroutine 同时首次入站）会产生不同 session_id → 重复会话。
-	// 修复：改为「先按 OneID 原子 UPSERT，再按需创建」：
-	//   - 用 (platform, account_id, one_id) 作为稳定键做原子 INSERT ... ON CONFLICT DO NOTHING
-	//   - 然后再 SELECT 一次拿稳定 session
-	// 这样并发场景下"只会有一个 session 实体"，避免 N 个 session_id 重复。
-	// 副作用：老 session_id（time.Now().UnixNano() 派生）会变成"无主孤儿"，
-	// 由 message_hub.session_id 仍能路由到正确会话（用 derived OneID 聚合）。
 	now := time.Now()
 	stableSessionID := fmt.Sprintf("sess_%s_%s_%s", string(in.Platform), in.AccountID, derivedOneID)
 	if id, err := o.sessionRepo.UpsertByOneID(ctx, string(in.Platform), in.AccountID, derivedOneID, in.SenderID, in.SenderName, in.Content, &now); err != nil {
-		// Upsert 失败时降级用旧逻辑（time.Now().UnixNano() 派生），保证不卡死
 		staleID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
 		logger.Ctx(ctx).Warn().Err(err).Str("stable_id", stableSessionID).Str("stale_id", staleID).Msg("[Orchestrator] UpsertByOneID 失败，降级用 stale session_id")
 		session := &model.CustomerSession{
@@ -469,10 +376,8 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 		}
 		return session, nil
 	} else if id != "" {
-		// Upsert 返回稳定 session_id，直接用
 		return o.sessionRepo.GetByIDString(ctx, id)
 	}
-	// 兜底：理论上不会到这里
 	staleID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
 	session := &model.CustomerSession{
 		SessionID:     staleID,
@@ -566,22 +471,17 @@ func (o *SmartCSOrchestrator) markSuggestionUsed(ctx context.Context, id uint) e
 
 // transferToHuman 转人工（联动 SessionAssignmentService 真正分配在线座席）
 func (o *SmartCSOrchestrator) transferToHuman(ctx context.Context, session *model.CustomerSession, reason string) error {
-	// 1. 更新会话状态为待人工
 	session.Status = model.SessionStatusWaiting
 	session.HandlerType = model.HandlerTypeHuman
 	session.LastMessage = reason
 	now := time.Now()
 	session.LastMessageAt = &now
-	// 重置 AI 连续回复计数：转人工后不应永久封死 AI。
-	// 否则被 max_ai_consecutive 触发的会话（尤其网页客服续接的活跃会话）
-	// 会永远走转人工，访客再也无法得到 AI 回复。重置后下次消息可重新进入 AI 流程。
 	session.AIReplyCount = 0
 	if err := o.sessionRepo.Update(ctx, session); err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[transferToHuman] update session status failed")
 		return err
 	}
 
-	// 2. 保存转人工系统消息
 	sysMsg := &model.SessionMessage{
 		SessionID:   session.SessionID,
 		Content:     "【系统】" + reason,
@@ -594,8 +494,6 @@ func (o *SmartCSOrchestrator) transferToHuman(ctx context.Context, session *mode
 		logger.Ctx(ctx).Error().Err(err).Msg("[transferToHuman] create system message failed")
 	}
 
-	// 3. 联动 SessionAssignmentService 真正分配在线座席
-	//    失败时（无在线客服）保持 waiting 状态等待后续分配，不阻断主流程
 	if o.assignmentSvc != nil {
 		if err := o.assignmentSvc.autoAssignToAgent(ctx, session, reason); err != nil {
 			logger.Ctx(ctx).Error().Err(err).Msg("[transferToHuman] autoAssignToAgent failed")
@@ -643,8 +541,7 @@ func (o *SmartCSOrchestrator) extractConfidence(ctx context.Context, resp *Sales
 	if resp.Intent != nil && resp.Intent.Confidence > 0 {
 		return resp.Intent.Confidence
 	}
-	// 无意图置信度时，根据链路完整度评估
-	score := 0.5 // 基础分
+	score := 0.5 
 	if resp.Reply != "" {
 		score += 0.1
 	}
@@ -674,9 +571,6 @@ func safeMessageID(id string) string {
 	return id
 }
 
-// ----------------------------------------------------------------------------
-// 座席接管相关
-// ----------------------------------------------------------------------------
 
 // AgentTakeover 座席接管 AI 会话
 // 当座席认为 AI 回复不合适时，可主动接管会话
@@ -726,3 +620,4 @@ func (o *SmartCSOrchestrator) AgentReply(ctx context.Context, sessionID string, 
 	session.LastMessageBy = "agent"
 	return o.sessionRepo.Update(ctx, session)
 }
+

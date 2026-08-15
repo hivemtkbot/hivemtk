@@ -22,34 +22,14 @@ type SegmentRecomputer interface {
 	RecomputeForCustomer(ctx context.Context, customerID string) error
 }
 
-// ============================================================================
-// CustomerOrchestrator 客户业务编排层 (F
-// ----------------------------------------------------------------------------
-// 现状问题：客户创建 / 事件追踪 / RFM 计算后未联动旅程、标签、360 缓存，
-// 导致客户旅程阶段停留在"陌生"，标签未自动更新，360 视图读到旧数据。
-//
-// 设计目标：
-//   1. OnCustomerCreated → 联动 JourneyService 初始化旅程 + 标签初始化
-//   2. OnCustomerEvent   → 联动 JourneyService 记录互动 + TagService 自动打标
-//   3. OnRFMComputed     → 联动 360 缓存失效 + TagService 更新 RFM 标签
-//
-// 依赖注入：
-//   - 通过 setter 注入 JourneyService / TagService / CacheManager
-//   - 任一依赖未注入时跳过对应联动，不阻塞主流程
-//   - 所有联动均通过 recover 保护，避免 panic 影响主流程
-//
-// 五层架构合规：
-//   - 不直访 db，通过 service / repository 间接操作
-//   - 不依赖 controller / router
-// ============================================================================
 
 // CustomerOrchestrator 客户业务编排层
 type CustomerOrchestrator struct {
 	journey       *CustomerJourneyService
 	tagger        *AutoTagger
 	cache         cache.Cache
-	clueScoreUpd  ClueScoreRFMUpdater // 线索评分 RFM 回流
-	segmentRecomp SegmentRecomputer   // 分群重算
+	clueScoreUpd  ClueScoreRFMUpdater 
+	segmentRecomp SegmentRecomputer   
 }
 
 // NewCustomerOrchestrator 创建客户业务编排层实例。
@@ -109,7 +89,6 @@ func (o *CustomerOrchestrator) OnCustomerCreated(ctx context.Context, customer *
 	if o == nil || customer == nil || customer.ID == "" {
 		return
 	}
-	// 1. 旅程初始化：记录首次接触
 	if o.journey != nil {
 		func() {
 			defer func() {
@@ -120,7 +99,6 @@ func (o *CustomerOrchestrator) OnCustomerCreated(ctx context.Context, customer *
 			o.journey.Touch(ctx, customer.ID, "system_create")
 		}()
 	}
-	// 2. 标签初始化：评估规则并打标
 	if o.tagger != nil {
 		func() {
 			defer func() {
@@ -145,7 +123,6 @@ func (o *CustomerOrchestrator) OnCustomerEvent(ctx context.Context, customerID s
 	if o == nil || customerID == "" || event == nil {
 		return
 	}
-	// 1. 旅程记录互动
 	if o.journey != nil {
 		func() {
 			defer func() {
@@ -156,7 +133,6 @@ func (o *CustomerOrchestrator) OnCustomerEvent(ctx context.Context, customerID s
 			o.journey.Touch(ctx, customerID, string(event.EventSource))
 		}()
 	}
-	// 2. 根据事件类型自动迁移阶段
 	if o.journey != nil {
 		func() {
 			defer func() {
@@ -173,7 +149,6 @@ func (o *CustomerOrchestrator) OnCustomerEvent(ctx context.Context, customerID s
 			}
 		}()
 	}
-	// 3. 自动打标
 	if o.tagger != nil {
 		func() {
 			defer func() {
@@ -200,7 +175,6 @@ func (o *CustomerOrchestrator) OnRFMComputed(ctx context.Context, customerID str
 	if o == nil || customerID == "" {
 		return
 	}
-	// 1. 失效 360 缓存
 	if o.cache != nil {
 		func() {
 			defer func() {
@@ -214,7 +188,6 @@ func (o *CustomerOrchestrator) OnRFMComputed(ctx context.Context, customerID str
 			}
 		}()
 	}
-	// 2. 更新 RFM 标签
 	if o.tagger != nil {
 		func() {
 			defer func() {
@@ -227,7 +200,6 @@ func (o *CustomerOrchestrator) OnRFMComputed(ctx context.Context, customerID str
 			}
 		}()
 	}
-	// 3. F-: 回流线索评分（RFM → clue_score）
 	if o.clueScoreUpd != nil {
 		func() {
 			defer func() {
@@ -240,7 +212,6 @@ func (o *CustomerOrchestrator) OnRFMComputed(ctx context.Context, customerID str
 			}
 		}()
 	}
-	// 4. F-: 触发分群重算（RFM → segment）
 	if o.segmentRecomp != nil {
 		func() {
 			defer func() {
@@ -272,14 +243,6 @@ func stageForEvent(eventType model.EventType) JourneyStage {
 	}
 }
 
-// ============================================================================
-// 全局单例（F-/90/92 装配入口）
-// ----------------------------------------------------------------------------
-// CustomerRFMService / CustomerService / EventTracker 在 controller 中各自
-// 构造，无法通过构造函数统一注入 orchestrator。通过全局单例兜底：
-//   - main.go 启动阶段调用 SetGlobalOrchestrator 注入已装配依赖的实例
-//   - 各 service 的 SetOrchestrator 未被调用时，回退到全局单例
-// ============================================================================
 
 var (
 	globalOrch *CustomerOrchestrator
@@ -299,3 +262,4 @@ func GetGlobalOrchestrator() *CustomerOrchestrator {
 	defer globalMu.RUnlock()
 	return globalOrch
 }
+

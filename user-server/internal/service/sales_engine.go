@@ -15,42 +15,38 @@ import (
 )
 
 type AgentToolExecutor interface {
-	// ListTools 返回所有可用工具的 LLM Function Calling 格式定义
 	ListTools() []AgentToolDef
-	// DispatchToolCalls 并发执行 LLM 返回的 tool_call 列表，返回每个调用的结果
-	// toolCtx 包含 session_id / customer_id 等执行上下文
 	DispatchToolCalls(ctx context.Context, calls []AgentToolCall, toolCtx AgentToolContext) []AgentToolResult
 }
 
 type AgentToolPermissionChecker interface {
-	// SetAgentWhitelist 覆盖式设置某 Agent 允许使用的工具名单。
 	SetAgentWhitelist(agentID string, tools []string)
 }
 
 type AgentToolDef struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description"`
-	Parameters  map[string]any `json:"parameters"` // JSON Schema
+	Parameters  map[string]any `json:"parameters"` 
 }
 
 type AgentToolCall struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
-	Arguments string `json:"arguments"` // JSON 字符串参数
+	Arguments string `json:"arguments"` 
 }
 
 type AgentToolContext struct {
 	AgentID    string
 	SessionID  string
 	CustomerID string
-	Source     string // agent / sop / manual / api
+	Source     string 
 }
 
 type AgentToolResult struct {
 	ToolCallID string          `json:"tool_call_id"`
-	Content    string          `json:"content"` // 工具结果 JSON 字符串
+	Content    string          `json:"content"` 
 	Success    bool            `json:"success"`
-	Card       *model.RichCard `json:"card,omitempty"` // 工具产出的结构化富卡片
+	Card       *model.RichCard `json:"card,omitempty"` 
 }
 
 type SalesEngine struct {
@@ -63,42 +59,19 @@ type SalesEngine struct {
 	ragSearcher     RAGSearcher
 	scriptLookup    ScriptLookup
 	customerLookup  CustomerLookup
-	playbook        PlaybookRecommenderInterface // 销冠话术库（可选注入）
-	feedbackLearner FeedbackRecorderInterface    // 反馈学习器（可选注入，形成 AI 自我进化闭环）
+	playbook        PlaybookRecommenderInterface 
+	feedbackLearner FeedbackRecorderInterface    
 
-	// 置信度聚合器（可选注入）
-	// 注入后 shouldTransferToHuman 改为基于 5 维信号 + 动态阈值决策
 	confidenceAggregator *confidencesvc.ConfidenceAggregator
 
-	// 拟人度评估器（可选注入）
-	// 注入后在 Step 7.5 评估回复自然度，<0.85 触发重生成（最多 3 次）
 	humanizeEvaluator *humanizesvc.HumanizeEvalService
 
-	// 智能体 Agent Loop（真正的智能体，不做流程编排）
-	// 注入后 Step 6 改为：LLM ↔ 工具 循环，LLM 决定调用哪些工具 → 执行 → 回灌结果 → 再生成，
-	// 直到 LLM 给出最终回复（finish_reason=stop）或达到最大迭代次数。
-	// 未注入时维持原 9 步流水线行为（向后兼容）。
-	// 通过接口注入以避免 service ↔ tooluse 循环依赖（依赖倒置原则）
 	toolExecutor AgentToolExecutor
 
-	// 双层架构 LayerRouter（可选注入, /）
-	// 注入后 Step 6 (generateCandidate) 顶部先做 Layer1 FAQ/SOP 路由:
-	//   - 命中且 conf >= 0.6 -> SkipLLM, 用 FAQ 答案或 SOP 模板回复
-	//   - 命中但 conf <  0.6 -> 走 Layer2 LLM
-	//   - FAQ/SOP 均未命中   -> 走 Layer2 LLM
-	// 未注入时维持原 LLM 单一路径 (向后兼容)
 	layerRouter *LayerRouter
 
-	// permissionChecker 工具执行期权限检查器（可选注入，依赖倒置避免 service↔tooluse 循环依赖）。
-	// 注入后 runAgentLoop 每轮执行前按 Agent 白名单（AgentContext.Tools）覆盖式设置执行期放行名单，
-	// 与 limitToolsForAgent 的“注入期过滤”形成双层防护。同一全局 *tooluse.WhitelistPermissionChecker
-	// 单例由 router 注入，管理 API（/api/agent/tools/permission/agents/:agent_id）亦可设置。
 	permissionChecker AgentToolPermissionChecker
 
-	// 回复语言链路（可选注入）：术语表渲染器 + 输出后置校准器。
-	// 注入后 generateCandidate / runAgentLoop 的跨语言路径会追加语种指令与术语表块，
-	// 并对 LLM 输出做术语校准与敏感模式保护（依赖倒置，由 service/translation.GlossaryService 适配）。
-	// 与 ragcustomerservice 同源逻辑，使主力 AI 客服对话也按客户语言回复。
 	glossary   GlossaryRenderer
 	calibrator OutputCalibrator
 }
@@ -564,7 +537,7 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 
 	} else {
 		runes := []rune(reply)
-		const batchSize = 4 // Layer2 路径可稍大 (4 字符), 减少 chunk 数
+		const batchSize = 4 
 		interval := 15 * time.Millisecond
 		for i := 0; i < len(runes); i += batchSize {
 			select {
@@ -723,3 +696,4 @@ func stageToJourneyStage(stage string) JourneyStage {
 		return StageLead
 	}
 }
+

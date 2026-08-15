@@ -9,7 +9,6 @@ var ErrorMessages = map[string]map[Locale]string{
 		ZH: "成功", EN: "Success", JA: "成功しました", AR: "نجاح",
 	},
 
-	// 通用错误 (1xxx)
 	"UNKNOWN_1000": {
 		ZH: "未知错误", EN: "Unknown error", JA: "不明なエラー", AR: "خطأ غير معروف",
 	},
@@ -26,7 +25,6 @@ var ErrorMessages = map[string]map[Locale]string{
 		ZH: "请求超时", EN: "Request timeout", JA: "リクエストがタイムアウトしました", AR: "انتهت مهلة الطلب",
 	},
 
-	// 认证授权错误 (2xxx)
 	"UNAUTHORIZED_2001": {
 		ZH: "未授权访问", EN: "Unauthorized", JA: "認証が必要です", AR: "غير مصرح",
 	},
@@ -49,7 +47,6 @@ var ErrorMessages = map[string]map[Locale]string{
 		ZH: "权限不足", EN: "Insufficient permissions", JA: "権限が不足しています", AR: "صلاحيات غير كافية",
 	},
 
-	// 数据库错误 (3xxx)
 	"DB_ERROR_3001": {
 		ZH: "数据库错误", EN: "Database error", JA: "データベースエラー", AR: "خطأ في قاعدة البيانات",
 	},
@@ -63,7 +60,6 @@ var ErrorMessages = map[string]map[Locale]string{
 		ZH: "外键约束冲突", EN: "Foreign key constraint violation", JA: "外部キー制約違反", AR: "انتهاك قيد المفتاح الخارجي",
 	},
 
-	// 验证错误 (4xxx)
 	"VALIDATION_4001": {
 		ZH: "验证失败", EN: "Validation failed", JA: "検証に失敗しました", AR: "فشل التحقق",
 	},
@@ -77,7 +73,6 @@ var ErrorMessages = map[string]map[Locale]string{
 		ZH: "数值范围无效", EN: "Invalid value range", JA: "値の範囲が無効です", AR: "النطاق غير صالح",
 	},
 
-	// 业务错误 (5xxx)
 	"BUSINESS_5001": {
 		ZH: "业务错误", EN: "Business error", JA: "ビジネスエラー", AR: "خطأ في العمل",
 	},
@@ -91,7 +86,6 @@ var ErrorMessages = map[string]map[Locale]string{
 		ZH: "操作失败", EN: "Operation failed", JA: "操作に失敗しました", AR: "فشلت العملية",
 	},
 
-	// 系统错误 (6xxx)
 	"SYSTEM_6001": {
 		ZH: "系统错误", EN: "System error", JA: "システムエラー", AR: "خطأ في النظام",
 	},
@@ -102,7 +96,6 @@ var ErrorMessages = map[string]map[Locale]string{
 		ZH: "服务不可用", EN: "Service unavailable", JA: "サービス利用不可", AR: "الخدمة غير متوفرة",
 	},
 
-	// 文件上传错误 (7xxx)
 	"FILE_TOO_LARGE_7001": {
 		ZH: "文件过大", EN: "File too large", JA: "ファイルが大きすぎます", AR: "الملف كبير جدًا",
 	},
@@ -203,3 +196,4 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
+

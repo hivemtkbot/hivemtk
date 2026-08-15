@@ -11,15 +11,10 @@ import (
 
 // VisitorRateLimitConfig 访客限流配置
 type VisitorRateLimitConfig struct {
-	// 每 IP 每秒允许的请求数
 	PerIPRPS float64
-	// 每 IP 桶容量（最大突发）
 	PerIPBucket int
-	// 每 app_key 每秒允许的请求数
 	PerChannelRPS float64
-	// 每 app_key 桶容量
 	PerChannelBucket int
-	// 是否启用
 	Enabled bool
 }
 
@@ -154,7 +149,6 @@ func VisitorRateLimitMiddleware(config ...VisitorRateLimitConfig) gin.HandlerFun
 			return
 		}
 
-		// channel 限流
 		if ch, ok := c.Get("chat_channel_id"); ok {
 			if channelID, ok2 := ch.(string); ok2 && channelID != "" {
 				chLimiter := globalVisitorLimiter.getChannelLimiter(channelID)
@@ -172,3 +166,4 @@ func VisitorRateLimitMiddleware(config ...VisitorRateLimitConfig) gin.HandlerFun
 		c.Next()
 	}
 }
+

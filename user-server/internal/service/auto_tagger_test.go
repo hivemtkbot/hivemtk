@@ -54,7 +54,6 @@ func TestAutoTagger_CreateAutoTag(t *testing.T) {
 		t.Fatalf("CreateAutoTag failed: %v", err)
 	}
 
-	// 验证标签已创建
 	tags, err := tagger.GetAutoTags(context.Background())
 	if err != nil {
 		t.Fatalf("GetAutoTags failed: %v", err)
@@ -71,7 +70,6 @@ func TestAutoTagger_CreateAutoTag(t *testing.T) {
 func TestAutoTagger_GetAutoTags(t *testing.T) {
 	tagger := setupAutoTagger(t)
 
-	// 创建多个标签
 	rule := map[string]any{"type": "simple", "field": "rfm_score", "operator": "gte", "value": 50}
 	tagger.CreateAutoTag(context.Background(), "Tag1", string(model.TagCategoryBehavioral), rule)
 	tagger.CreateAutoTag(context.Background(), "Tag2", string(model.TagCategoryDemographic), rule)
@@ -104,7 +102,6 @@ func TestAutoTagger_evaluateSimpleRule(t *testing.T) {
 		t.Error("Expected rule to match (75 >= 50)")
 	}
 
-	// 测试不匹配的情况
 	ruleNotMatch := map[string]any{
 		"field":    "rfm_score",
 		"operator": "gte",
@@ -130,7 +127,6 @@ func TestAutoTagger_evaluateEventCountRule(t *testing.T) {
 		"events": events,
 	}
 
-	// 测试页面浏览数量规则
 	rule := map[string]any{
 		"type":       "event_count",
 		"event_type": "page_view",
@@ -143,7 +139,6 @@ func TestAutoTagger_evaluateEventCountRule(t *testing.T) {
 		t.Error("Expected rule to match (2 page_views >= 2)")
 	}
 
-	// 测试购买数量规则（不匹配）
 	ruleNotMatch := map[string]any{
 		"type":       "event_count",
 		"event_type": "purchase",
@@ -164,7 +159,6 @@ func TestAutoTagger_evaluatePurchaseAmountRule(t *testing.T) {
 		"total_purchase_amount": 500.00,
 	}
 
-	// 测试匹配规则
 	rule := map[string]any{
 		"type":      "purchase_amount",
 		"operator":  "gte",
@@ -176,7 +170,6 @@ func TestAutoTagger_evaluatePurchaseAmountRule(t *testing.T) {
 		t.Error("Expected rule to match (500 >= 300)")
 	}
 
-	// 测试不匹配规则
 	ruleNotMatch := map[string]any{
 		"type":      "purchase_amount",
 		"operator":  "gte",
@@ -196,7 +189,6 @@ func TestAutoTagger_evaluateDaysSinceRule(t *testing.T) {
 		"days_since_last_purchase": 45,
 	}
 
-	// 测试匹配规则
 	rule := map[string]any{
 		"type":      "days_since",
 		"field":     "days_since_last_purchase",
@@ -282,7 +274,6 @@ func TestAutoTagger_buildCustomerDataSnapshot(t *testing.T) {
 			OccurredAt: tagger.getTimeDaysAgo(context.Background(), 5),
 		},
 	}
-	// 设置事件数据
 	eventData := map[string]any{"amount": 100.00}
 	if err := SetCustomerEventData(events[0], eventData); err != nil {
 		t.Fatalf("SetCustomerEventData failed: %v", err)
@@ -390,13 +381,11 @@ func TestAutoTagger_evaluateRuleWithEvents(t *testing.T) {
 func TestAutoTagger_ProcessEvent(t *testing.T) {
 	tagger := setupAutoTagger(t)
 
-	// 创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138030",
 	})
 
-	// 创建自动标签规则
 	rule := map[string]any{
 		"type":     "simple",
 		"field":    "rfm_score",
@@ -405,14 +394,12 @@ func TestAutoTagger_ProcessEvent(t *testing.T) {
 	}
 	tagger.CreateAutoTag(context.Background(), "Active", string(model.TagCategoryBehavioral), rule)
 
-	// 创建事件
 	event := &model.CustomerEvent{
 		CustomerID:  customer.ID,
 		EventType:   model.EventTypePageView,
 		EventSource: model.EventSourceWebsite,
 	}
 
-	// 处理事件
 	err := tagger.ProcessEvent(context.Background(), event)
 	if err != nil {
 		t.Fatalf("ProcessEvent failed: %v", err)
@@ -423,13 +410,11 @@ func TestAutoTagger_ProcessEvent(t *testing.T) {
 func TestAutoTagger_EvaluateAndTag(t *testing.T) {
 	tagger := setupAutoTagger(t)
 
-	// 创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138031",
 	})
 
-	// 创建自动标签规则（始终匹配）
 	rule := map[string]any{
 		"type":     "simple",
 		"field":    "rfm_score",
@@ -438,13 +423,11 @@ func TestAutoTagger_EvaluateAndTag(t *testing.T) {
 	}
 	tagger.CreateAutoTag(context.Background(), "TestTag", string(model.TagCategoryBehavioral), rule)
 
-	// 评估和打标签
 	err := tagger.EvaluateAndTag(context.Background(), customer.ID)
 	if err != nil {
 		t.Fatalf("EvaluateAndTag failed: %v", err)
 	}
 
-	// 验证标签已添加
 	updated, _ := tagger.custRepo.GetByID(context.Background(), customer.ID)
 	tags := model.GetCustomerTags(updated)
 	found := false
@@ -458,3 +441,4 @@ func TestAutoTagger_EvaluateAndTag(t *testing.T) {
 		t.Error("Expected TestTag to be added")
 	}
 }
+

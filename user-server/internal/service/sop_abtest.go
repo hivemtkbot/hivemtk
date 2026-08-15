@@ -13,17 +13,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// sop_abtest.go SOP A/B 测试流量分配与统计（PRD §5.2 G2 缺口修复）
-//
-// 设计目标：
-//  1. 支持基于客户 ID 一致性哈希的稳定分流（同一客户始终命中同一 variant）
-//  2. 支持 variant 权重分配（如 A:50%, B:50% 或 A:70%, B:20%, C:10%）
-//  3. 支持 variant 维度的执行/成功统计，用于效果对比
-//  4. 不影响未启用 A/B 测试的 SOP（向后兼容）
-//
-// 架构合规：SOPABTestConfig / SOPABTestVariant 类型定义在 dto 包（纯数据结构），
-// 业务方法（Validate / SelectVariant）以包级函数形式定义在本文件，
-// 符合五层架构规范：DTO 层不含业务逻辑。
 
 // SOPABTestVariant A/B 测试 variant 定义
 // 已迁移至 dto 包，此处保留类型别名以维持向后兼容
@@ -82,13 +71,10 @@ func SelectSOPABTestVariant(c SOPABTestConfig, customerID string) SOPABTestVaria
 		salt = "customer_id"
 	}
 
-	// 一致性哈希
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(salt + ":" + customerID))
 	hashVal := h.Sum64()
 
-	// 按权重累积选择
-	// 先按 Name 排序确保稳定性
 	variants := make([]SOPABTestVariant, len(c.Variants))
 	copy(variants, c.Variants)
 	sort.Slice(variants, func(i, j int) bool {
@@ -111,7 +97,6 @@ func SelectSOPABTestVariant(c SOPABTestConfig, customerID string) SOPABTestVaria
 			return v
 		}
 	}
-	// 兜底：返回最后一个
 	return variants[len(variants)-1]
 }
 
@@ -123,7 +108,6 @@ func ParseSOPABTestConfig(raw model.JSONMap) SOPABTestConfig {
 		return cfg
 	}
 
-	// 通过 JSON 序列化/反序列化转换
 	data, err := json.Marshal(raw)
 	if err != nil {
 		return cfg
@@ -139,7 +123,7 @@ type SOPABTestVariantStats struct {
 	SuccessCount   int64   `json:"success_count"`
 	FailedCount    int64   `json:"failed_count"`
 	RunningCount   int64   `json:"running_count"`
-	SuccessRate    float64 `json:"success_rate"` // 成功率（百分比）
+	SuccessRate    float64 `json:"success_rate"` 
 }
 
 // GetABTestStats 查询指定 SOP 的 A/B 测试 variant 统计
@@ -159,22 +143,18 @@ func (s *SOPService) GetABTestStats(ctx context.Context, sopID uint) ([]SOPABTes
 	for _, v := range cfg.Variants {
 		var execCount, successCount, failedCount, runningCount int64
 
-		// 总执行数
 		execCount, err := s.execRepo.CountBySOPIDAndVariant(ctx, sopID, v.Name)
 		if err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 执行数失败：%w", v.Name, err)
 		}
-		// 成功数
 		successCount, err = s.execRepo.CountBySOPIDAndVariantAndStatus(ctx, sopID, v.Name, SOPStatusSuccess)
 		if err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 成功数失败：%w", v.Name, err)
 		}
-		// 失败数
 		failedCount, err = s.execRepo.CountBySOPIDAndVariantAndStatus(ctx, sopID, v.Name, SOPStatusFailed)
 		if err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 失败数失败：%w", v.Name, err)
 		}
-		// 运行中
 		runningCount, err = s.execRepo.CountBySOPIDAndVariantAndStatus(ctx, sopID, v.Name, SOPStatusRunning)
 		if err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 运行中数失败：%w", v.Name, err)
@@ -209,7 +189,6 @@ func (s *SOPService) UpdateABTestConfig(ctx context.Context, sopID uint, cfg SOP
 		return nil, err
 	}
 
-	// 序列化为 JSONMap
 	data, err := json.Marshal(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("A/B 测试配置序列化失败：%w", err)
@@ -254,7 +233,6 @@ func (s *SOPService) loadSOPGraph(ctx context.Context, agent *model.SOPAgent, gr
 		return graph, nil
 	}
 
-	// 加载指定 ID 的 SOP 图
 	target, err := s.agentRepo.GetByID(ctx, graphID)
 	if err != nil {
 		return SOPGraph{}, fmt.Errorf("variant SOP 图加载失败（sop_id=%d）：%w", graphID, err)
@@ -268,3 +246,4 @@ func (s *SOPService) loadSOPGraph(ctx context.Context, agent *model.SOPAgent, gr
 
 // 用 gorm.Expr 占位避免 unused 警告（保留扩展点）
 var _ = gorm.Expr
+

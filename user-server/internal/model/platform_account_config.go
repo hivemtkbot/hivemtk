@@ -30,7 +30,7 @@ func (r *ReplyRule) Scan(value any) error {
 type PlatformAccountConfig struct {
 	ID                 string      `json:"id" gorm:"primaryKey;size:64"`
 	AccountID          string      `json:"account_id" gorm:"size:255;not null"`
-	Platform           string      `json:"platform" gorm:"size:50;not null"` // douyin, kuaishou, xiaohongshu, xianyu
+	Platform           string      `json:"platform" gorm:"size:50;not null"` 
 	RagProductID       *string     `json:"rag_product_id" gorm:"size:64"`
 	IsAutoReplyEnabled bool        `json:"is_auto_reply_enabled" gorm:"default:false"`
 	IsRagEnabled       bool        `json:"is_rag_enabled" gorm:"default:false"`
@@ -39,7 +39,6 @@ type PlatformAccountConfig struct {
 	CreatedAt          time.Time   `json:"created_at"`
 	UpdatedAt          time.Time   `json:"updated_at"`
 
-	// 关联RAG产品
 	RagProduct *RagProduct `json:"rag_product,omitempty" gorm:"foreignKey:RagProductID"`
 }
 
@@ -47,3 +46,4 @@ type PlatformAccountConfig struct {
 func (PlatformAccountConfig) TableName() string {
 	return "platform_account_configs"
 }
+

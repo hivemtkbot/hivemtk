@@ -45,7 +45,6 @@ func setupCustomReportRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 		c.Next()
 	})
 
-	// 自定义报表相关路由
 	router.POST("/api/reports", controller.CreateReport)
 	router.GET("/api/reports/:id", controller.GetReport)
 	router.GET("/api/reports", controller.GetReportList)
@@ -149,7 +148,6 @@ func TestCustomReportController_GetReport(t *testing.T) {
 	db := setupCustomReportTestDB(t)
 	router := setupCustomReportRouter(t, db)
 
-	// 创建测试报表(IsPublic=true 才能通过 service 的权限校验)
 	testReport := &model.CustomReport{
 		Name:        "Test Report",
 		Description: "Test Description",
@@ -211,7 +209,6 @@ func TestCustomReportController_GetReportList(t *testing.T) {
 	db := setupCustomReportTestDB(t)
 	router := setupCustomReportRouter(t, db)
 
-	// 创建测试报表
 	for i := 1; i <= 5; i++ {
 		db.Create(&model.CustomReport{
 			Name:        "Report " + string(rune('0'+i)),
@@ -274,7 +271,6 @@ func TestCustomReportController_UpdateReport(t *testing.T) {
 	db := setupCustomReportTestDB(t)
 	router := setupCustomReportRouter(t, db)
 
-	// 创建测试报表
 	testReport := &model.CustomReport{
 		Name:        "Original Name",
 		Description: "Original Description",
@@ -358,7 +354,6 @@ func TestCustomReportController_DeleteReport(t *testing.T) {
 	db := setupCustomReportTestDB(t)
 	router := setupCustomReportRouter(t, db)
 
-	// 创建测试报表
 	testReport := &model.CustomReport{
 		Name:       "To Delete",
 		DataSource: "sessions",
@@ -458,7 +453,6 @@ func TestCustomReportController_UseTemplate(t *testing.T) {
 	db := setupCustomReportTestDB(t)
 	router := setupCustomReportRouter(t, db)
 
-	// 创建公开模板
 	template := &model.CustomReport{
 		Name:        "Template",
 		Description: "Public Template",
@@ -520,7 +514,6 @@ func TestCustomReportController_QueryReportData(t *testing.T) {
 	db := setupCustomReportTestDB(t)
 	router := setupCustomReportRouter(t, db)
 
-	// 创建测试报表(IsPublic=true 才能通过 service 的权限校验)
 	testReport := &model.CustomReport{
 		Name:       "Test Report",
 		DataSource: "sessions",
@@ -575,3 +568,4 @@ func TestCustomReportController_QueryReportData(t *testing.T) {
 		})
 	}
 }
+

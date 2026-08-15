@@ -14,10 +14,7 @@ import (
 type XianyuCardStatsService interface {
 	GetCardStats(ctx context.Context, cardID uint, startDate, endDate string) (*dto.XianyuCardStatsResponse, error)
 	GetOverallStats(ctx context.Context, startDate, endDate string) (*dto.XianyuCardOverallStatsResponse, error)
-	// GetCardStatsRaw 返回原始统计数据（包含 views/clicks/shares 完整字段）
-	// 供需要按日期明细展示 clicks/shares 的 controller 使用，避免丢失数据。
 	GetCardStatsRaw(ctx context.Context, cardID uint, startDate, endDate string) (*dto.CardStatsData, error)
-	// GetOverallStatsRaw 返回原始整体统计数据（包含完整的 StatsByDate 与 TopCards）
 	GetOverallStatsRaw(ctx context.Context, startDate, endDate string) (*dto.OverallStatsData, error)
 	RecordView(ctx context.Context, cardID uint, ip, userAgent, referer string) error
 	RecordClick(ctx context.Context, cardID uint, ip, userAgent, referer string) error
@@ -39,7 +36,6 @@ func NewXianyuCardStatsService(db any) XianyuCardStatsService {
 
 // GetCardStats 获取卡片统计数据
 func (s *xianyuCardStatsService) GetCardStats(ctx context.Context, cardID uint, startDate, endDate string) (*dto.XianyuCardStatsResponse, error) {
-	// 解析日期
 	start, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
 		return nil, fmt.Errorf("开始日期格式错误: %w", err)
@@ -49,14 +45,11 @@ func (s *xianyuCardStatsService) GetCardStats(ctx context.Context, cardID uint, 
 		return nil, fmt.Errorf("结束日期格式错误: %w", err)
 	}
 
-	// 获取统计数据
 	stats, err := s.repo.GetCardStats(ctx, cardID, start, end)
 	if err != nil {
 		return nil, fmt.Errorf("获取卡片统计数据失败: %w", err)
 	}
 
-	// 转换为响应格式
-	// 转换 StatsByDate 到 DailyStat
 	dailyStats := make([]dto.DailyStat, len(stats.StatsByDate))
 	for i, stat := range stats.StatsByDate {
 		dailyStats[i] = dto.DailyStat{
@@ -67,7 +60,7 @@ func (s *xianyuCardStatsService) GetCardStats(ctx context.Context, cardID uint, 
 
 	return &dto.XianyuCardStatsResponse{
 		CardID:     cardID,
-		Title:      "", // 需要从其他地方获取标题
+		Title:      "", 
 		ViewCount:  stats.Views,
 		ClickCount: stats.Clicks,
 		ShareCount: stats.Shares,
@@ -77,7 +70,6 @@ func (s *xianyuCardStatsService) GetCardStats(ctx context.Context, cardID uint, 
 
 // GetOverallStats 获取整体统计数据
 func (s *xianyuCardStatsService) GetOverallStats(ctx context.Context, startDate, endDate string) (*dto.XianyuCardOverallStatsResponse, error) {
-	// 解析日期
 	start, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
 		return nil, fmt.Errorf("开始日期格式错误: %w", err)
@@ -87,14 +79,11 @@ func (s *xianyuCardStatsService) GetOverallStats(ctx context.Context, startDate,
 		return nil, fmt.Errorf("结束日期格式错误: %w", err)
 	}
 
-	// 获取统计数据
 	stats, err := s.repo.GetOverallStats(ctx, start, end)
 	if err != nil {
 		return nil, fmt.Errorf("获取整体统计数据失败: %w", err)
 	}
 
-	// 转换为响应格式
-	// 转换 StatsByDate 到 DailyStat
 	dailyStats := make([]dto.DailyStat, len(stats.StatsByDate))
 	for i, stat := range stats.StatsByDate {
 		dailyStats[i] = dto.DailyStat{
@@ -103,7 +92,6 @@ func (s *xianyuCardStatsService) GetOverallStats(ctx context.Context, startDate,
 		}
 	}
 
-	// 转换 TopCards 到 PopularCard
 	popularCards := make([]dto.PopularCard, len(stats.TopCards))
 	for i, card := range stats.TopCards {
 		popularCards[i] = dto.PopularCard{
@@ -122,7 +110,7 @@ func (s *xianyuCardStatsService) GetOverallStats(ctx context.Context, startDate,
 		TotalShares:    stats.TotalShareCount,
 		DailyStats:     dailyStats,
 		PopularCards:   popularCards,
-		RecentActivity: []dto.Activity{}, // 暂时为空，后续可以添加
+		RecentActivity: []dto.Activity{}, 
 	}, nil
 }
 
@@ -140,7 +128,6 @@ func (s *xianyuCardStatsService) GetCardStatsRaw(ctx context.Context, cardID uin
 	if err != nil {
 		return nil, err
 	}
-	// 转换 repository.CardStatsResult → dto.CardStatsData
 	statsByDate := make([]dto.StatsByDate, len(result.StatsByDate))
 	for i, sd := range result.StatsByDate {
 		statsByDate[i] = dto.StatsByDate{
@@ -173,7 +160,6 @@ func (s *xianyuCardStatsService) GetOverallStatsRaw(ctx context.Context, startDa
 	if err != nil {
 		return nil, err
 	}
-	// 转换 repository.CardOverallStatsResult → dto.OverallStatsData
 	statsByDate := make([]dto.StatsByDate, len(result.StatsByDate))
 	for i, sd := range result.StatsByDate {
 		statsByDate[i] = dto.StatsByDate{
@@ -217,3 +203,4 @@ func (s *xianyuCardStatsService) RecordClick(ctx context.Context, cardID uint, i
 func (s *xianyuCardStatsService) RecordShare(ctx context.Context, cardID uint, ip, userAgent, referer string) error {
 	return s.repo.RecordActivity(ctx, cardID, "share", ip, userAgent, referer)
 }
+

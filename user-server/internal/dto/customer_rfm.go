@@ -49,3 +49,4 @@ type RFMDistributionResponse struct {
 	Distribution map[string]int64 `json:"distribution"`
 	Total        int64            `json:"total"`
 }
+

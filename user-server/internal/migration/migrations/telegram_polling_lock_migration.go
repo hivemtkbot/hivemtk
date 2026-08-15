@@ -47,7 +47,6 @@ func (m *TelegramPollingLockMigration) Up(ctx context.Context) error {
 	if !m.db.Migrator().HasTable("telegram_accounts") {
 		return nil
 	}
-	// polling_owner：worker 标识
 	if !m.db.Migrator().HasColumn(&struct {
 		PollingOwner string `gorm:"type:varchar(100)"`
 	}{}, "PollingOwner") {
@@ -55,7 +54,6 @@ func (m *TelegramPollingLockMigration) Up(ctx context.Context) error {
 			return err
 		}
 	}
-	// polling_heartbeat_at：心跳时间（用 TIMESTAMP 类型，允许 NULL）
 	if !m.db.Migrator().HasColumn(&struct {
 		PollingHeartbeatAt *string `gorm:"type:timestamp"`
 	}{}, "PollingHeartbeatAt") {
@@ -63,7 +61,6 @@ func (m *TelegramPollingLockMigration) Up(ctx context.Context) error {
 			return err
 		}
 	}
-	// 索引：扫描「正在被哪个 worker 持有」时按 owner 过滤（监控 / 运维查询）
 	if !m.db.Migrator().HasIndex(&struct {
 		PollingOwner string `gorm:"type:varchar(100);index"`
 	}{}, "PollingOwner") {
@@ -85,3 +82,4 @@ func (m *TelegramPollingLockMigration) Down(ctx context.Context) error {
 
 // 编译期接口断言
 var _ migration.Migration = (*TelegramPollingLockMigration)(nil)
+

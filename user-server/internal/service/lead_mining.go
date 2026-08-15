@@ -19,21 +19,21 @@ import (
 const (
 	leadMiningQueueSize       = 8192
 	leadMiningWorkers         = 4
-	leadMiningDebounce        = 60 * time.Second // 同客户窗口内只判一次（聚合多轮）
-	leadMiningHistorySize     = 20               // 多轮提取取最近 N 条入站消息
+	leadMiningDebounce        = 60 * time.Second 
+	leadMiningHistorySize     = 20               
 	leadMiningConfigTTL       = 30 * time.Second
-	leadMiningHighOpportunity = 70 // intent_score >= 该值标记为高意向商机
+	leadMiningHighOpportunity = 70 
 )
 
 // LeadJudgement LLM 结构化判定结果
 type LeadJudgement struct {
 	IsLead          bool     `json:"is_lead"`
-	IntentScore     int      `json:"intent_score"`     // 0-100
-	MatchedKeywords []string `json:"matched_keywords"` // 命中的关键词
-	MatchedTags     []string `json:"matched_tags"`     // LLM 建议追加的标签
-	Summary         string   `json:"summary"`          // 一句话线索摘要
-	Confidence      float64  `json:"confidence"`       // 0-1
-	Reason          string   `json:"reason"`           // 判定理由
+	IntentScore     int      `json:"intent_score"`     
+	MatchedKeywords []string `json:"matched_keywords"` 
+	MatchedTags     []string `json:"matched_tags"`     
+	Summary         string   `json:"summary"`          
+	Confidence      float64  `json:"confidence"`       
+	Reason          string   `json:"reason"`           
 }
 
 // LLMJudge 判定接口（便于测试注入 fake）
@@ -160,7 +160,6 @@ func (s *Service) Enqueue(hub *model.MessageHub) {
 	select {
 	case s.queue <- hub:
 	default:
-		// 队列满：背压丢弃，保障核心业务零影响
 		logger.Warnf("[lead-mining] 队列已满，丢弃消息 msgID=%s", hub.MsgID)
 	}
 }
@@ -203,7 +202,6 @@ func (s *Service) process(ctx context.Context, hub *model.MessageHub) {
 	}
 
 	account := fmt.Sprintf("%s:%s", hub.Platform, hub.SenderID)
-	// 去抖：同客户窗口内只判一次，自然聚合多轮消息
 	s.mu.Lock()
 	if last, ok := s.lastJudge[account]; ok && time.Since(last) < leadMiningDebounce {
 		s.mu.Unlock()
@@ -266,7 +264,6 @@ func (s *Service) fetchHistoryDB(ctx context.Context, hub *model.MessageHub) []l
 		logger.Warnf("[lead-mining] 读取会话历史失败: %v", err)
 		return nil
 	}
-	// 反转为时间正序
 	for i, j := 0, len(hubs)-1; i < j; i, j = i+1, j-1 {
 		hubs[i], hubs[j] = hubs[j], hubs[i]
 	}
@@ -311,7 +308,6 @@ func (s *Service) persistLead(ctx context.Context, cfg *model.LeadMiningConfig, 
 
 	existing, gerr := s.clueRepo.FindByTypeAndAccount(ctx, ClueTypeLeadMining, account)
 	if gerr == nil && existing != nil {
-		// 已存在：增量更新，避免重复刷屏
 		_ = s.clueRepo.UpdateByID(ctx, existing.ID, map[string]any{
 			"intent_score":    int64(jd.IntentScore),
 			"desc":            jd.Summary,
@@ -358,7 +354,6 @@ func (s *Service) tagCustomer(ctx context.Context, customer *model.Customer, new
 	return s.custRepo.Update(ctx, customer)
 }
 
-// ----- 辅助函数 -----
 
 func channelEnabled(cfg *model.LeadMiningConfig, platform string) bool {
 	if len(cfg.Channels) == 0 {
@@ -374,7 +369,7 @@ func channelEnabled(cfg *model.LeadMiningConfig, platform string) bool {
 
 // mergeTags 合并两组标签，按小写去重（避免 AI兴趣/ai兴趣 重复），保留首次出现的原始大小写
 func mergeTags(a, b []string) []string {
-	set := map[string]string{} // lowerKey -> original
+	set := map[string]string{} 
 	add := func(t string) {
 		if v := strings.TrimSpace(t); v != "" {
 			k := strings.ToLower(v)
@@ -459,3 +454,4 @@ func buildSystemPrompt(cfg *model.LeadMiningConfig) string {
 	b.WriteString("只输出 JSON，不要额外解释。")
 	return b.String()
 }
+

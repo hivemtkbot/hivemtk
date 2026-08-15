@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// ===== Customer Journey 状态机测试 =====
 
 func TestCustomerJourney_NewCustomerIsStranger(t *testing.T) {
 	s := NewCustomerJourneyService()
@@ -80,10 +79,9 @@ func TestCustomerJourney_ListByStage(t *testing.T) {
 func TestCustomerJourney_AutoDetectSleeping(t *testing.T) {
 	s := NewCustomerJourneyService()
 	_, _ = s.Transition(context.Background(), "old_cust", StageWon, "ai", "ai", "", nil)
-	// 手动修改时间（用 reflection 或直接操作）
 	s.mu.Lock()
 	state := s.states["old_cust"]
-	state.LastTouchAt = time.Now().Add(-200 * 24 * time.Hour) // 200 天前
+	state.LastTouchAt = time.Now().Add(-200 * 24 * time.Hour) 
 	s.mu.Unlock()
 	wokeUp := s.AutoDetectSleeping(context.Background())
 	found := false
@@ -97,7 +95,6 @@ func TestCustomerJourney_AutoDetectSleeping(t *testing.T) {
 	}
 }
 
-// ===== FollowUp 测试 =====
 
 func TestFollowUp_Schedule(t *testing.T) {
 	journey := NewCustomerJourneyService()
@@ -154,17 +151,15 @@ func TestFollowUp_Overdue(t *testing.T) {
 func TestFollowUp_DailyCalendar(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	svc := NewFollowUpService(journey)
-	// 使用绝对时间戳避免跨日边界问题（3 个提醒都在今天 00:00-24:00 内）
 	now := time.Now()
 	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	due1 := dayStart.Add(9 * time.Hour)  // 今天 09:00
-	due2 := dayStart.Add(12 * time.Hour) // 今天 12:00
-	due3 := dayStart.Add(15 * time.Hour) // 今天 15:00
+	due1 := dayStart.Add(9 * time.Hour)  
+	due2 := dayStart.Add(12 * time.Hour) 
+	due3 := dayStart.Add(15 * time.Hour) 
 	_, _ = svc.Schedule(context.Background(), "a", "sales_001", ReminderFirstContact, due1.Sub(now), nil)
 	_, _ = svc.Schedule(context.Background(), "b", "sales_001", ReminderFirstContact, due2.Sub(now), nil)
 	_, _ = svc.Schedule(context.Background(), "c", "sales_001", ReminderFirstContact, due3.Sub(now), nil)
 	cal := svc.GetDailyCalendar(context.Background(), "sales_001", now)
-	// 3 个都在今天范围内
 	if len(cal) < 3 {
 		t.Errorf("expected 3 in calendar, got %d", len(cal))
 	}
@@ -174,16 +169,13 @@ func TestFollowUp_DailyCalendar(t *testing.T) {
 func TestFollowUp_WeeklyCalendar(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	svc := NewFollowUpService(journey)
-	// 1 分钟后（今天）+ 25h 后（明天）+ 73h 后（第 4 天）
 	_, _ = svc.Schedule(context.Background(), "a", "sales_001", ReminderFirstContact, 1*time.Minute, nil)
 	_, _ = svc.Schedule(context.Background(), "b", "sales_001", ReminderFirstContact, 25*time.Hour, nil)
 	_, _ = svc.Schedule(context.Background(), "c", "sales_001", ReminderFirstContact, 73*time.Hour, nil)
 	week := svc.GetWeeklyCalendar(context.Background(), "sales_001", time.Now())
-	// 至少 7 天（即便 0 个）
 	if len(week) != 7 {
 		t.Errorf("weekly calendar should have 7 days, got %d", len(week))
 	}
-	// 累计应 >= 3
 	total := 0
 	for _, day := range week {
 		total += len(day)
@@ -193,11 +185,9 @@ func TestFollowUp_WeeklyCalendar(t *testing.T) {
 	}
 }
 
-// ===== Repurchase Engine 测试 =====
 
 func TestRepurchase_Champion(t *testing.T) {
 	e := NewRepurchaseEngine()
-	// 模拟冠军客户
 	now := time.Now()
 	for i := 0; i < 12; i++ {
 		e.RecordPurchase(context.Background(), PurchaseEvent{
@@ -218,7 +208,6 @@ func TestRepurchase_Champion(t *testing.T) {
 func TestRepurchase_Hibernating(t *testing.T) {
 	e := NewRepurchaseEngine()
 	now := time.Now()
-	// 一年前只买过 1 次
 	e.RecordPurchase(context.Background(), PurchaseEvent{
 		OrderID: "o1", CustomerID: "old", Amount: 500, ProductName: "瑜伽课",
 		OrderedAt: now.AddDate(-1, 0, 0),
@@ -253,7 +242,6 @@ func TestRepurchase_Plan(t *testing.T) {
 	if len(plan) == 0 {
 		t.Error("hibernating should have reactivation plan")
 	}
-	// 第 1 波应该在 3 天后
 	if plan[0].WaitDays != 3 {
 		t.Errorf("first wave should be 3 days, got %d", plan[0].WaitDays)
 	}
@@ -275,4 +263,4 @@ func TestRepurchase_ReactivationCandidates(t *testing.T) {
 	}
 }
 
-// ===== 业务组件回归测试 =====
+

@@ -1,11 +1,5 @@
 package humanize
 
-// types.go 拟人度评估器类型与接口定义
-//
-// 五层架构归属: L3 业务层 / L4 能力层
-// 设计依据: docs/核心链路优化.md 第十六章 §16.4.1
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -17,8 +11,6 @@ import (
 
 // HumanizeEvaluator 单次评估器接口（规则与 LLM 共同实现）
 type HumanizeEvaluator interface {
-	// Evaluate 单次评估
-	// input 不允许 nil 且 AIReply 不允许空
 	Evaluate(ctx context.Context, input *dto.HumanizeEvalInput) (*dto.HumanizeEvalResult, error)
 }
 
@@ -37,13 +29,9 @@ type HumanizeScoreRepository interface {
 
 // ChampionBaselineRepository 销冠基线仓储接口
 type ChampionBaselineRepository interface {
-	// FindByPersonaIndustryIntent 查找启用的基线（取最新版本）
 	FindByPersonaIndustryIntent(ctx context.Context, persona, industry, intent string) (*model.ChampionBaseline, error)
-	// Save 保存新版本基线
 	Save(ctx context.Context, b *model.ChampionBaseline) (uint64, error)
-	// ListEnabled 列出所有启用的基线
 	ListEnabled(ctx context.Context) ([]model.ChampionBaseline, error)
-	// RefreshPhrases 刷新短语库（异步）
 	RefreshPhrases(ctx context.Context, baselineID uint64, phrases []model.ChampionPhrase) error
 }
 
@@ -65,7 +53,6 @@ type LowQualitySampleCollector interface {
 
 // LLMDispatcher LLM 调度器接口（抽象 llm.Dispatcher，便于测试）
 type LLMDispatcher interface {
-	// ChatSend 发送聊天请求，返回 content 与 model
 	ChatSend(ctx context.Context, prompt string) (content, model string, err error)
 }
 
@@ -106,3 +93,4 @@ func computeHumanizeWeightedScore(scores []dto.HumanizeDimensionScore) float64 {
 	}
 	return total
 }
+

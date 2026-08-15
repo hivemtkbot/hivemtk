@@ -34,3 +34,4 @@ type OpenAPISourcePort interface {
 	SyncSource(ctx context.Context, productID string, sourceID int64) (*OpenAPISyncResult, error)
 	TestConnection(ctx context.Context, src *knowledgemodel.KnowledgeOpenAPISource) (map[string]any, error)
 }
+

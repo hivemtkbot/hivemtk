@@ -8,12 +8,6 @@ import (
 	"hivemtk-user/internal/aiagent/llm"
 )
 
-// ============================================================================
-// LLM 降级管理中转服务（B3 整改：controller 不得直引 aiagent/llm）
-//
-// controller/llm_provider.go、controller/llm_routing.go 的健康度/熔断/策略端点
-// 一律经本服务访问 ProviderFailover 与 Dispatcher，mirror 类型隔离 llm 包类型。
-// ============================================================================
 
 // LLMProviderHealth provider 健康状态（mirror llm.ProviderHealth）
 type LLMProviderHealth struct {
@@ -197,9 +191,6 @@ func (s *LLMRoutingService) UpdateSingleScenarioRoute(ctx context.Context, route
 	return s.UpdateStrategies(ctx, batch)
 }
 
-// ============================================================================
-// mirror 转换器
-// ============================================================================
 
 func fromLLMProviderHealth(h llm.ProviderHealth) LLMProviderHealth {
 	return LLMProviderHealth{
@@ -242,3 +233,4 @@ func toLLMFailoverPolicy(p LLMFailoverPolicy) llm.FailoverPolicy {
 		Scenarios: p.Scenarios,
 	}
 }
+

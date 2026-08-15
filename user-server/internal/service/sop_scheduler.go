@@ -106,7 +106,6 @@ func (s *SOPScheduler) loop(ctx context.Context) {
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 
-	// 启动时立即执行一次
 	s.tick(context.Background())
 
 	for {
@@ -127,13 +126,10 @@ func (s *SOPScheduler) tick(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// 1. 清理超时执行（超过 24 小时未完成视为卡死）
 	s.cleanupStuckExecutions(ctx)
 
-	// 2. 自动匹配并启动 SOP
 	s.dispatchAutoSOPs(ctx)
 
-	// 3. 处理 schedule 类定时 SOP
 	s.dispatchScheduledSOPs(ctx)
 }
 
@@ -178,7 +174,6 @@ func (s *SOPScheduler) dispatchScheduledSOPs(ctx context.Context) {
 	}
 	now := time.Now()
 	for _, agent := range list {
-		// 检查 cron 表达式（如果配置了 last_run_at）
 		cfg := agent.TriggerConfig
 		intervalMin, _ := cfg["interval_minutes"].(float64)
 		if intervalMin <= 0 {
@@ -195,7 +190,6 @@ func (s *SOPScheduler) dispatchScheduledSOPs(ctx context.Context) {
 			continue
 		}
 		s.tryExecute(ctx, agent)
-		// 更新 last_run_at
 		updated := setJSONMapValue(agent.TriggerConfig, "last_run_at", now.UTC().Format(time.RFC3339))
 		_ = s.agentRepo.UpdateTriggerConfig(ctx, agent.ID, updated)
 	}
@@ -206,7 +200,6 @@ func (s *SOPScheduler) tryExecute(ctx context.Context, agent model.SOPAgent) {
 	if s.execRepo == nil {
 		return
 	}
-	// 去重：检查是否已有 running 的执行
 	count, err := s.execRepo.CountBySOPIDAndStatus(ctx, agent.ID, SOPStatusRunning)
 	if err != nil {
 		logger.Errorf("[SOPScheduler] 检查运行中执行失败: %v", err)
@@ -216,10 +209,8 @@ func (s *SOPScheduler) tryExecute(ctx context.Context, agent model.SOPAgent) {
 		return
 	}
 
-	// 解析目标客户列表
 	customers, _ := extractCustomerIDs(agent.TriggerConfig)
 	if len(customers) == 0 {
-		// 全量执行（demo 用） - 用 agent 的 created_by 作为目标
 		customers = []string{fmtUintSafe(agent.CreatedBy)}
 	}
 
@@ -277,3 +268,4 @@ func setJSONMapValue(m model.JSONMap, key, value string) string {
 func fmtUintSafe(v uint) string {
 	return strconv.FormatUint(uint64(v), 10)
 }
+

@@ -16,20 +16,17 @@ import (
 // 封装 login_events / security_alerts / notifications 三张表,
 // 避免 service 层直接调 db.GetDB()。
 type LoginRiskRepository interface {
-	// --- login_events ---
 	CountRecentFailures(ctx context.Context, userID uint, username string, since time.Time) (int64, error)
 	GetLastSuccessLocation(ctx context.Context, userID uint) (location, ip string, found bool, err error)
 	CountDeviceFingerprintSince(ctx context.Context, userID uint, fingerprint string, since time.Time) (int64, error)
 	CreateLoginEvent(ctx context.Context, event *model.LoginEvent) (*model.LoginEvent, error)
 	ListLoginEvents(ctx context.Context, userID uint, page, pageSize int) ([]*model.LoginEvent, int64, error)
 
-	// --- security_alerts ---
 	CreateSecurityAlert(ctx context.Context, alert *model.SecurityAlert) (*model.SecurityAlert, error)
 	MarkAlertNotified(ctx context.Context, alertID uint) error
 	ListSecurityAlerts(ctx context.Context, userID uint, status string, page, pageSize int) ([]*model.SecurityAlert, int64, error)
 	ResolveSecurityAlert(ctx context.Context, alertID, resolverUserID uint, note string, now time.Time, status string) error
 
-	// --- notifications ---
 	CreateNotification(ctx context.Context, notif *model.Notification) error
 }
 
@@ -195,3 +192,4 @@ func (r *loginRiskRepo) CreateNotification(ctx context.Context, notif *model.Not
 }
 
 var _ LoginRiskRepository = (*loginRiskRepo)(nil)
+

@@ -20,15 +20,11 @@ import (
 //	docker 档契约：base_url=http://mtk-embedding:8208/v1（容器内服务名）
 //	调整流程：先改 ports.go DefaultEmbeddingBaseURLDev/Docker，再同步 config.yaml
 func TestEmbeddingService_DefaultConfig_LocalBaseURL(t *testing.T) {
-	// 清理所有可能影响默认值的环境变量
 	clearEmbeddingEnv(t)
 
 	svc := NewEmbeddingService()
 	cfg := svc.DefaultConfig()
 
-	// dev 档默认走宿主机 127.0.0.1（config.yaml inference.embedding.base_url）
-	// 禁止走到 docker 服务名 mtk-embedding（宿主机会无法解析）
-	// 禁止走公网 LLM 厂商 API（私域数据禁止出域）
 	if !strings.HasPrefix(cfg.BaseURL, "http://127.0.0.1:8208/") &&
 		!strings.HasPrefix(cfg.BaseURL, "http://mtk-embedding:8208/") {
 		t.Errorf("私域基线违规：默认 BaseURL 必须指向本地 embedding 服务（127.0.0.1:8208 或 mtk-embedding:8208），实际: %s", cfg.BaseURL)
@@ -48,7 +44,6 @@ func TestEmbeddingService_DefaultConfig_LocalBaseURL(t *testing.T) {
 // 即不允许把 LLM 对话 API 用于 Embedding（私域数据禁止出域）
 func TestEmbeddingService_DefaultConfig_NotFallBackToLLMBaseURL(t *testing.T) {
 	clearEmbeddingEnv(t)
-	// 即使设置了 LLM_BASE_URL 也不应该影响 Embedding BaseURL
 	t.Setenv("LLM_BASE_URL", "https://api.openai.com/v1")
 
 	svc := NewEmbeddingService()
@@ -67,8 +62,6 @@ func TestEmbeddingService_DefaultConfig_NotFallBackToLLMBaseURL(t *testing.T) {
 //	内置默认；EMBEDDING_ALLOW_FALLBACK 显式覆盖（不论 file 是否有值）
 func TestEmbeddingService_DefaultConfig_OverrideByEnv(t *testing.T) {
 	clearEmbeddingEnv(t)
-	// env 变量在 file 已设置时不覆盖（base_url/model/dim）
-	// EMBEDDING_ALLOW_FALLBACK 总是覆盖 file（显式安全开关）
 	t.Setenv("EMBEDDING_BASE_URL", "http://my-tei:9000")
 	t.Setenv("EMBEDDING_MODEL", "BAAI/bge-large-zh-v1.5")
 	t.Setenv("EMBEDDING_DIM", "768")
@@ -77,18 +70,15 @@ func TestEmbeddingService_DefaultConfig_OverrideByEnv(t *testing.T) {
 	svc := NewEmbeddingService()
 	cfg := svc.DefaultConfig()
 
-	// file 优先：env 不覆盖已配置值
 	if !strings.HasPrefix(cfg.BaseURL, "http://127.0.0.1:8208/") {
 		t.Errorf("BaseURL 应来自 config.yaml（127.0.0.1:8208 宿主机部署），env 变量不覆盖已配置值，实际: %s", cfg.BaseURL)
 	}
 	if cfg.Model != "bge-m3" {
 		t.Errorf("Model 应来自 config.yaml（bge-m3），env 变量不覆盖已配置值，实际: %s", cfg.Model)
 	}
-	// Dimension: file=1024, env=768, file wins
 	if cfg.Dimension != 1024 {
 		t.Errorf("Dimension 应来自 config.yaml=1024，env=768 不覆盖，实际: %d", cfg.Dimension)
 	}
-	// AllowFallback: env 总是覆盖（显式安全开关）
 	if !cfg.AllowFallback {
 		t.Error("EMBEDDING_ALLOW_FALLBACK=true 应生效（env 覆盖 file）")
 	}
@@ -98,9 +88,6 @@ func TestEmbeddingService_DefaultConfig_OverrideByEnv(t *testing.T) {
 // 不可达时直接返回错误（不再静默降级到 hash）。
 func TestEmbeddingService_Embed_NoFallback_ReturnsError(t *testing.T) {
 	clearEmbeddingEnv(t)
-	// 指向一个不可达的端口（9 必未占用）
-	// 由于 config 缓存机制，env 变量无法可靠地覆盖已缓存的 fileCfg.BaseURL，
-	// 所以这里用 SetAppConfig 直接注入测试所需的 BaseURL，确保 cfg.BaseURL 真实生效。
 	config.SetAppConfig(&config.AppConfig{
 		Inference: config.InferenceConfig{
 			Embedding: config.InferenceEmbeddingConfig{
@@ -115,7 +102,6 @@ func TestEmbeddingService_Embed_NoFallback_ReturnsError(t *testing.T) {
 
 	svc := NewEmbeddingService()
 	cfg := svc.DefaultConfig()
-	// 缩短重试间隔以加速测试
 	cfg.RequestTimeout = 1
 	cfg.MaxRetries = 1
 
@@ -133,7 +119,7 @@ func TestEmbeddingService_Embed_NoFallback_ReturnsError(t *testing.T) {
 func TestEmbeddingService_Embed_AllowFallback_Works(t *testing.T) {
 	clearEmbeddingEnv(t)
 	t.Setenv("EMBEDDING_ALLOW_FALLBACK", "true")
-	t.Setenv("EMBEDDING_DIM", "1024") // 文本向量维度硬性 1024（pgvector vector(1024) 兼容）
+	t.Setenv("EMBEDDING_DIM", "1024") 
 
 	svc := NewEmbeddingService()
 	cfg := svc.DefaultConfig()
@@ -158,14 +144,12 @@ func TestEmbeddingService_Embed_AllowFallback_Works(t *testing.T) {
 // EMBEDDING_BASE_URL env 变量不覆盖已配置值（file 优先），故本测试直接构造 cfg 走 mock server。
 func TestEmbeddingService_Embed_RealLocalServer(t *testing.T) {
 	clearEmbeddingEnv(t)
-	// 启动一个返回 768 维向量的本地 mock 服务（模拟 TEI）
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/embeddings" {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		// 返回 768 维假向量（与 BGE-base-zh 维度一致）
 		vec := make([]float32, 768)
 		for i := range vec {
 			vec[i] = 0.01
@@ -176,7 +160,6 @@ func TestEmbeddingService_Embed_RealLocalServer(t *testing.T) {
 	defer mock.Close()
 
 	svc := NewEmbeddingService()
-	// 直接构造 cfg（绕过 DefaultConfig 的 file 优先逻辑），验证对接 mock 服务
 	cfg := &EmbeddingConfig{
 		BaseURL:        mock.URL,
 		Model:          "BAAI/bge-base-zh-v1.5",
@@ -200,15 +183,12 @@ func floatArrayString(v []float32) string {
 	parts := make([]string, len(v))
 	for i, f := range v {
 		parts[i] = strings.TrimRight(strings.TrimRight(
-			// 简单格式化，避免引入 fmt
 			formatFloat(f), "0"), ".")
 	}
 	return strings.Join(parts, ",")
 }
 
 func formatFloat(f float32) string {
-	// 0.01 -> "0.01"
-	// 简单实现：直接拼
 	return "0.01"
 }
 
@@ -224,3 +204,4 @@ func clearEmbeddingEnv(t *testing.T) {
 		_ = os.Unsetenv(k)
 	}
 }
+

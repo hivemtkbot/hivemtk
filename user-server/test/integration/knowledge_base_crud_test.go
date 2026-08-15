@@ -19,9 +19,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// ----------------------------------------------------------------------------
-// knowledge_bases CRUD 集成测试
-// ----------------------------------------------------------------------------
 
 // TestKBCRUD_FullLifecycle 测试知识库完整生命周期
 func TestKBCRUD_FullLifecycle(t *testing.T) {
@@ -29,7 +26,6 @@ func TestKBCRUD_FullLifecycle(t *testing.T) {
 	ctx := context.Background()
 	kbSvc, _ := newIsolationSetup(t, db)
 
-	// 1. Create
 	agent1 := uint(50)
 	kb := &model.KnowledgeBase{
 		KBCode:       "KB-FAQ-LIFECYCLE",
@@ -47,7 +43,6 @@ func TestKBCRUD_FullLifecycle(t *testing.T) {
 		t.Fatal("expected auto-increment ID")
 	}
 
-	// 2. Get
 	got, err := kbSvc.GetKB(ctx, kb.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
@@ -56,7 +51,6 @@ func TestKBCRUD_FullLifecycle(t *testing.T) {
 		t.Fatalf("get mismatch: %+v", got)
 	}
 
-	// 3. Update
 	kb.Name = "updated name"
 	kb.Description = "更新后描述"
 	if err := kbSvc.UpdateKB(ctx, kb.ID, kb); err != nil {
@@ -70,7 +64,6 @@ func TestKBCRUD_FullLifecycle(t *testing.T) {
 		t.Errorf("update description failed: %q", got2.Description)
 	}
 
-	// 4. List
 	listed, total, err := kbSvc.ListKBs(ctx, model.KnowledgeBaseTypeFAQ, "", agent1, "")
 	if err != nil {
 		t.Fatalf("list: %v", err)
@@ -89,7 +82,6 @@ func TestKBCRUD_FullLifecycle(t *testing.T) {
 		t.Error("created KB not found in list")
 	}
 
-	// 5. Delete
 	if err := kbSvc.DeleteKB(ctx, kb.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
@@ -118,10 +110,9 @@ func TestKBCRUD_DuplicateCode(t *testing.T) {
 		t.Fatalf("first create: %v", err)
 	}
 
-	// 重复 kb_code 应失败
 	agent2 := uint(2)
 	kb2 := &model.KnowledgeBase{
-		KBCode:       "KB-UNIQUE-001", // 同样的 code
+		KBCode:       "KB-UNIQUE-001", 
 		Type:         model.KnowledgeBaseTypeRAG,
 		Name:         "second",
 		OwnerType:    model.KnowledgeBaseOwnerPrivate,
@@ -144,13 +135,11 @@ func TestKBCRUD_PrivateRequiresOwner(t *testing.T) {
 	ctx := context.Background()
 	kbSvc, _ := newIsolationSetup(t, db)
 
-	// private 但 owner_agent_id 为 nil
 	kb1 := &model.KnowledgeBase{
 		KBCode:    "KB-PRI-NO-OWNER",
 		Type:      model.KnowledgeBaseTypeFAQ,
 		Name:      "no owner",
 		OwnerType: model.KnowledgeBaseOwnerPrivate,
-		// OwnerAgentID: nil
 		Enabled: boolPtr(true),
 	}
 	err := kbSvc.CreateKB(ctx, kb1)
@@ -158,7 +147,6 @@ func TestKBCRUD_PrivateRequiresOwner(t *testing.T) {
 		t.Error("expected error for private KB without owner_agent_id")
 	}
 
-	// private 但 owner_agent_id = 0
 	zero := uint(0)
 	kb2 := &model.KnowledgeBase{
 		KBCode:       "KB-PRI-OWNER-ZERO",
@@ -186,7 +174,7 @@ func TestKBCRUD_SharedRequiresNoOwner(t *testing.T) {
 		Type:         model.KnowledgeBaseTypeFAQ,
 		Name:         "shared with owner",
 		OwnerType:    model.KnowledgeBaseOwnerShared,
-		OwnerAgentID: &agent1, // 违反 shared 规则
+		OwnerAgentID: &agent1, 
 		Enabled:      boolPtr(true),
 	}
 	err := kbSvc.CreateKB(ctx, kb)
@@ -230,7 +218,7 @@ func TestKBCRUD_InvalidOwnerType(t *testing.T) {
 		KBCode:       "KB-INVALID-OWNER",
 		Type:         model.KnowledgeBaseTypeFAQ,
 		Name:         "invalid owner",
-		OwnerType:    "PUBLIC", // 非法
+		OwnerType:    "PUBLIC", 
 		OwnerAgentID: &agent1,
 		Enabled:      boolPtr(true),
 	}
@@ -277,7 +265,6 @@ func TestKBCRUD_DefaultEnabled(t *testing.T) {
 		Name:         "default enabled",
 		OwnerType:    model.KnowledgeBaseOwnerPrivate,
 		OwnerAgentID: &agent1,
-		// Enabled: nil  // 不传, 期望默认 true
 	}
 	if err := kbSvc.CreateKB(ctx, kb); err != nil {
 		t.Fatalf("create: %v", err)
@@ -300,7 +287,6 @@ func TestKBCRUD_CountByAgent(t *testing.T) {
 	agent1 := uint(11)
 	agent2 := uint(22)
 
-	// agent1 拥有 3 个 private KB
 	for i, code := range []string{"K1", "K2", "K3"} {
 		kb := &model.KnowledgeBase{
 			KBCode:       code,
@@ -315,7 +301,6 @@ func TestKBCRUD_CountByAgent(t *testing.T) {
 		}
 		_ = i
 	}
-	// agent2 拥有 1 个
 	kb := &model.KnowledgeBase{
 		KBCode:       "K4",
 		Type:         model.KnowledgeBaseTypeRAG,
@@ -338,9 +323,6 @@ func TestKBCRUD_CountByAgent(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// agent_kb_bindings CRUD 集成测试
-// ----------------------------------------------------------------------------
 
 // TestBindingCRUD_BindUnbind 验证 Bind/Unbind 生命周期
 func TestBindingCRUD_BindUnbind(t *testing.T) {
@@ -349,7 +331,6 @@ func TestBindingCRUD_BindUnbind(t *testing.T) {
 	_, bindSvc := newIsolationSetup(t, db)
 	kbRepo := repository.NewKnowledgeBaseRepository(db)
 
-	// 创建 KB
 	agent1 := uint(1)
 	kb := &model.KnowledgeBase{
 		KBCode:       "KB-BIND-001",
@@ -363,12 +344,10 @@ func TestBindingCRUD_BindUnbind(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 1. Bind
 	if err := bindSvc.Bind(ctx, agent1, kb.ID, 5); err != nil {
 		t.Fatalf("bind: %v", err)
 	}
 
-	// 2. List
 	bindings, err := bindSvc.ListByAgent(ctx, agent1)
 	if err != nil {
 		t.Fatal(err)
@@ -380,7 +359,6 @@ func TestBindingCRUD_BindUnbind(t *testing.T) {
 		t.Errorf("expected priority=5, got %d", bindings[0].Priority)
 	}
 
-	// 3. Unbind
 	if err := bindSvc.Unbind(ctx, agent1, kb.ID); err != nil {
 		t.Fatalf("unbind: %v", err)
 	}
@@ -397,7 +375,6 @@ func TestBindingCRUD_BatchBind(t *testing.T) {
 	_, bindSvc := newIsolationSetup(t, db)
 	kbRepo := repository.NewKnowledgeBaseRepository(db)
 
-	// 创建 3 个 shared KB
 	kbIDs := make([]uint, 3)
 	for i := 0; i < 3; i++ {
 		kb := &model.KnowledgeBase{
@@ -413,7 +390,6 @@ func TestBindingCRUD_BatchBind(t *testing.T) {
 		kbIDs[i] = kb.ID
 	}
 
-	// 1. 正常批量绑定
 	items := []service.BatchBindItem{
 		{AgentID: 100, KBID: kbIDs[0], Priority: 1},
 		{AgentID: 100, KBID: kbIDs[1], Priority: 2},
@@ -423,7 +399,6 @@ func TestBindingCRUD_BatchBind(t *testing.T) {
 		t.Fatalf("batch bind: %v", err)
 	}
 
-	// 2. 验证
 	got100, _ := bindSvc.ListByAgent(ctx, 100)
 	if len(got100) != 2 {
 		t.Errorf("expected agent100 has 2 bindings, got %d", len(got100))
@@ -433,16 +408,14 @@ func TestBindingCRUD_BatchBind(t *testing.T) {
 		t.Errorf("expected agent200 has 1 binding, got %d", len(got200))
 	}
 
-	// 3. 批量绑定包含不存在的 KB, 全部回滚
 	itemsBad := []service.BatchBindItem{
 		{AgentID: 300, KBID: kbIDs[0], Priority: 1},
-		{AgentID: 300, KBID: 99999, Priority: 1}, // 不存在
+		{AgentID: 300, KBID: 99999, Priority: 1}, 
 	}
 	err := bindSvc.BatchBind(ctx, itemsBad)
 	if err == nil {
 		t.Error("expected error for non-existent KB")
 	}
-	// 回滚验证
 	got300, _ := bindSvc.ListByAgent(ctx, 300)
 	if len(got300) != 0 {
 		t.Errorf("expected 0 bindings for agent300 (rollback), got %d", len(got300))
@@ -470,15 +443,12 @@ func TestBindingCRUD_DuplicateBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 第一次 Bind OK
 	if err := bindSvc.Bind(ctx, agent1, kb.ID, 0); err != nil {
 		t.Fatal(err)
 	}
-	// Service 层 Bind 走先删后建, 不应报错
 	if err := bindSvc.Bind(ctx, agent1, kb.ID, 99); err != nil {
 		t.Errorf("service-level repeat bind should not error, got: %v", err)
 	}
-	// 但 Repository 层 Create 应报重复错误 (绕过 service 直接调)
 	err := bindRepo.Create(ctx, &model.AgentKBBinding{
 		AgentID:  agent1,
 		KBID:     kb.ID,
@@ -497,7 +467,6 @@ func TestBindingCRUD_CascadeDeleteOnKBDelete(t *testing.T) {
 	ctx := context.Background()
 	kbSvc, bindSvc := newIsolationSetup(t, db)
 
-	// 1. shared KB + 3 个 binding
 	kb := &model.KnowledgeBase{
 		KBCode:    "KB-CASCADE-TEST",
 		Type:      model.KnowledgeBaseTypeSOP,
@@ -520,12 +489,10 @@ func TestBindingCRUD_CascadeDeleteOnKBDelete(t *testing.T) {
 		t.Fatalf("expected 3 bindings before delete, got %d", len(before))
 	}
 
-	// 2. 删 KB
 	if err := kbSvc.DeleteKB(ctx, kb.ID); err != nil {
 		t.Fatal(err)
 	}
 
-	// 3. bindings 应级联删除
 	after, _ := bindRepo.ListByKB(ctx, kb.ID)
 	if len(after) != 0 {
 		t.Errorf("expected 0 bindings after KB delete (cascade), got %d", len(after))
@@ -541,7 +508,6 @@ func TestBindingCRUD_PrioritySort(t *testing.T) {
 	bindRepo := repository.NewAgentKBBindingRepository(db)
 
 	agent1 := uint(1)
-	// 5 个 KB, priority 3/1/5/2/4
 	for i, pri := range []int{3, 1, 5, 2, 4} {
 		kb := &model.KnowledgeBase{
 			KBCode:       "KB-PRI-" + string(rune('A'+i)),
@@ -559,7 +525,6 @@ func TestBindingCRUD_PrioritySort(t *testing.T) {
 		}
 	}
 
-	// 验证按 priority DESC 排序
 	bindings, _ := bindRepo.ListByAgent(ctx, agent1, "")
 	if len(bindings) != 5 {
 		t.Fatalf("expected 5, got %d", len(bindings))
@@ -572,7 +537,6 @@ func TestBindingCRUD_PrioritySort(t *testing.T) {
 		}
 		prev = b.Priority
 	}
-	// 第一个应是 priority=5
 	if bindings[0].Priority != 5 {
 		t.Errorf("expected top priority=5, got %d", bindings[0].Priority)
 	}
@@ -602,7 +566,6 @@ func TestBindingCRUD_DisabledBinding_FilteredOut(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 禁用 binding
 	bindings, _ := bindRepo.ListByAgent(ctx, agent1, "")
 	if len(bindings) != 1 {
 		t.Fatal("setup failed")
@@ -612,13 +575,11 @@ func TestBindingCRUD_DisabledBinding_FilteredOut(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 重新 List, 应为 0 (默认过滤 enabled=true)
 	got, _ := bindRepo.ListByAgent(ctx, agent1, "")
 	if len(got) != 0 {
 		t.Errorf("expected 0 enabled bindings, got %d", len(got))
 	}
 
-	// ListByAgentAll 应能列出 (不过滤 enabled)
 	allGot, _ := bindRepo.ListByAgentAll(ctx, agent1)
 	if len(allGot) != 1 {
 		t.Errorf("expected 1 (including disabled) in ListByAgentAll, got %d", len(allGot))
@@ -644,7 +605,6 @@ func TestKBCRUD_UpdateKB_TypeChangeValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 尝试更新 type 为非法值
 	update := &model.KnowledgeBase{
 		KBCode:       "KB-UPDATE-TYPE",
 		Type:         "BOGUS",
@@ -678,13 +638,12 @@ func TestKBCRUD_UpdateKB_OwnerTypeChangeToShared(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// private -> shared (调用方应把 owner_agent_id 设为 nil, 然后由 service 确认 owner_type=shared 时无 owner)
 	update := &model.KnowledgeBase{
 		KBCode:       kb.KBCode,
 		Name:         "promoted",
 		Type:         model.KnowledgeBaseTypeFAQ,
 		OwnerType:    model.KnowledgeBaseOwnerShared,
-		OwnerAgentID: nil, // 升级到 shared 时必须显式清空
+		OwnerAgentID: nil, 
 		Enabled:      boolPtr(true),
 	}
 	if err := kbSvc.UpdateKB(ctx, kb.ID, update); err != nil {
@@ -711,7 +670,6 @@ func TestKBCRUD_UpdateKB_SharedToPrivateWithOwner(t *testing.T) {
 	ctx := context.Background()
 	kbSvc, _ := newIsolationSetup(t, db)
 
-	// 1. 创建 shared KB
 	kb := &model.KnowledgeBase{
 		KBCode:    "KB-SHARED-TO-PRIV",
 		Type:      model.KnowledgeBaseTypeFAQ,
@@ -723,10 +681,9 @@ func TestKBCRUD_UpdateKB_SharedToPrivateWithOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 2. shared -> private (需 owner_agent_id)
 	agent1 := uint(99)
 	update := &model.KnowledgeBase{
-		KBCode:       kb.KBCode, // 必填, 保留原值
+		KBCode:       kb.KBCode, 
 		Name:         "demoted",
 		Type:         model.KnowledgeBaseTypeFAQ,
 		OwnerType:    model.KnowledgeBaseOwnerPrivate,
@@ -757,7 +714,6 @@ func TestKBCRUD_ListByType_All(t *testing.T) {
 	ctx := context.Background()
 	kbSvc, _ := newIsolationSetup(t, db)
 
-	// 2 个 FAQ, 1 个 RAG, 1 个 SOP
 	for i, t1 := range []string{
 		model.KnowledgeBaseTypeFAQ, model.KnowledgeBaseTypeFAQ,
 		model.KnowledgeBaseTypeRAG, model.KnowledgeBaseTypeSOP,
@@ -770,7 +726,7 @@ func TestKBCRUD_ListByType_All(t *testing.T) {
 			Name:         t1,
 			OwnerType:    model.KnowledgeBaseOwnerShared,
 			Enabled:      boolPtr(true),
-			OwnerAgentID: nil, // shared
+			OwnerAgentID: nil, 
 		}
 		_ = agent1
 		if err := kbSvc.CreateKB(ctx, kb); err != nil {
@@ -850,7 +806,6 @@ func TestBindingCRUD_ListByKB(t *testing.T) {
 	_, bindSvc := newIsolationSetup(t, db)
 	kbRepo := repository.NewKnowledgeBaseRepository(db)
 
-	// 1 个 shared KB, 4 个智能体 binding
 	kb := &model.KnowledgeBase{
 		KBCode:    "KB-LIST-BY-KB",
 		Type:      model.KnowledgeBaseTypeFAQ,
@@ -874,8 +829,8 @@ func TestBindingCRUD_ListByKB(t *testing.T) {
 	if len(got) != 4 {
 		t.Errorf("expected 4 bindings, got %d", len(got))
 	}
-	// priority 排序: 4 优先
 	if got[0].Priority != 4 {
 		t.Errorf("expected top priority=4, got %d", got[0].Priority)
 	}
 }
+

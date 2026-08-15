@@ -39,7 +39,6 @@ func setupCustomerEventRouter(t *testing.T) *gin.Engine {
 		c.Next()
 	})
 
-	// 事件追踪相关路由
 	router.POST("/api/events/track", controller.TrackEvent)
 	router.GET("/api/events/customer/:id", controller.GetEventHistory)
 	router.GET("/api/events/stats", controller.GetEventStats)
@@ -97,9 +96,6 @@ func TestCustomerEventController_TrackEvent(t *testing.T) {
 				"event_type":   "page_view",
 				"event_source": "website",
 			},
-			// 当前 TrackEvent 实现不校验 user_id,直接进入 service;
-			// EventTracker.Track 不强校验 customer 存在,只记录事件。
-			// 200/500 都允许,且响应 code 接受 SUCCESS/非 SUCCESS 任意。
 			expectedStatus: 0,
 			expectSuccess:  false,
 			allowSuccess:   true,
@@ -128,7 +124,6 @@ func TestCustomerEventController_TrackEvent(t *testing.T) {
 			if tt.expectedStatus != 0 {
 				assert.Equal(t, tt.expectedStatus, w.Code)
 			} else {
-				// expectedStatus == 0 表示接受多状态任一
 				assert.True(t, w.Code == 200 || w.Code == 500,
 					"expected 200 or 500, got %d", w.Code)
 			}
@@ -142,7 +137,6 @@ func TestCustomerEventController_TrackEvent(t *testing.T) {
 			} else if !tt.allowSuccess {
 				assert.NotEqual(t, "SUCCESS", response["code"])
 			}
-			// allowSuccess 为 true 时跳过 code 校验,仅做状态码检查
 		})
 	}
 }
@@ -218,7 +212,6 @@ func TestCustomerEventController_GetEventStats(t *testing.T) {
 		{
 			name: "missing_user_id",
 			url:  "/api/events/stats",
-			// 当前 GetEventStats 实现不校验 user_id,直接使用默认日期范围查询,返回 200
 			expectedStatus: 200,
 			expectSuccess:  true,
 		},
@@ -241,7 +234,6 @@ func TestCustomerEventController_GetEventStats(t *testing.T) {
 			} else if !tt.allowSuccess {
 				assert.NotEqual(t, "SUCCESS", response["code"])
 			}
-			// allowSuccess 为 true 时跳过 code 校验,仅做状态码检查
 		})
 	}
 }
@@ -536,3 +528,4 @@ func TestCustomerEventController_TrackAddToCart(t *testing.T) {
 		})
 	}
 }
+

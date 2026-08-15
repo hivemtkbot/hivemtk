@@ -5,8 +5,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// asset_bundle_mapper.go AssetBundle DTO ↔ Model 转换
-// 转换属业务层职责（P0-7：dto 层不再引用 model，转换统一收口在 service）
 
 // AssetBundleMessagesFromDTO dto 消息切片 → model JSONB 消息数组
 func AssetBundleMessagesFromDTO(msgs []dto.AssetBundleMessage) model.AssetBundleMessages {
@@ -78,3 +76,4 @@ func FromAssetBundleModelList(list []*model.AssetBundle) []*dto.AssetBundleView 
 	}
 	return out
 }
+

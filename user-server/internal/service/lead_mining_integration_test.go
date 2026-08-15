@@ -16,9 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// 以下集成测试构造真实数据（lead_mining_config / message_hub / customers / clues），
-// 在真实 PostgreSQL 中验证「配置落库→多轮提取→LLM判定→打标签→写线索库存→去重」全链路。
-// 不依赖真实 LLM：注入 fakeJudge，但 custRepo/clueRepo/cfgRepo/historyFetcher 全部走真实实现。
 
 // 构造一条带唯一 MsgID 的入站消息
 func seedHub(platform, sender, name, content string, idx int) model.MessageHub {
@@ -48,7 +45,6 @@ func TestLeadMining_Integration_FullPipeline(t *testing.T) {
 	ctx := context.Background()
 	cfgRepo := repository.NewLeadMiningConfigRepository()
 
-	// 1) 构造配置（真实落库）
 	cfg := &model.LeadMiningConfig{
 		Enabled:        true,
 		Keywords:       model.JSONStrings{"购买", "代理", "报价", "合作"},
@@ -60,7 +56,6 @@ func TestLeadMining_Integration_FullPipeline(t *testing.T) {
 	if err := cfgRepo.Save(ctx, cfg); err != nil {
 		t.Fatalf("保存配置失败: %v", err)
 	}
-	// 校验 GetSingleton 能从 DB 读回
 	got, err := cfgRepo.GetSingleton(ctx)
 	if err != nil || got == nil || !got.Enabled {
 		t.Fatalf("配置未正确落库: err=%v got=%+v", err, got)
@@ -69,7 +64,6 @@ func TestLeadMining_Integration_FullPipeline(t *testing.T) {
 		t.Fatalf("配置关键词未持久化: %v", got.Keywords)
 	}
 
-	// 2) 构造真实多轮入站消息（同一 telegram 客户，4 条入站 + 1 条出站）
 	sender := "integration_lead_001"
 	cleanupLeadMiningData(t, database, sender)
 	msgs := []model.MessageHub{
@@ -83,14 +77,12 @@ func TestLeadMining_Integration_FullPipeline(t *testing.T) {
 			t.Fatalf("构造消息失败: %v", err)
 		}
 	}
-	// 出站消息不应进入多轮历史
 	out := seedHub("telegram", sender, "王经理", "好的，我给您发资料", 5)
 	out.Direction = "outbound"
 	if err := database.Create(&out).Error; err != nil {
 		t.Fatalf("构造出站消息失败: %v", err)
 	}
 
-	// 3) 真实管道：注入 fakeJudge，但其余全部走真实实现
 	judge := &fakeJudge{resp: &LeadJudgement{
 		IsLead:          true,
 		IntentScore:     85,
@@ -107,11 +99,9 @@ func TestLeadMining_Integration_FullPipeline(t *testing.T) {
 		lastJudge: map[string]time.Time{},
 	}
 
-	// 触发判定（取最后一条入站消息作为钩子入口）
 	last := msgs[len(msgs)-1]
 	s.process(ctx, &last)
 
-	// 4) 断言：线索写入真实 clues 表（type=8）
 	account := "telegram:" + sender
 	var clue model.Clue
 	if err := database.Where("type = ? AND account = ?", ClueTypeLeadMining, account).First(&clue).Error; err != nil {
@@ -141,7 +131,6 @@ func TestLeadMining_Integration_FullPipeline(t *testing.T) {
 		t.Fatalf("客户标签缺失，实际: %v", tags)
 	}
 
-	// 6) 去重：跨时间窗再次判定，应走 UpdateByID 而非新建
 	delete(s.lastJudge, account)
 	s.process(ctx, &last)
 	var cnt int64
@@ -232,10 +221,8 @@ func TestLeadMining_Integration_AsyncEnqueue(t *testing.T) {
 	go s.worker(ctxCancel)
 	defer s.Stop()
 
-	// 非阻塞入队（模拟 persistMessage 中的唯一钩子）
 	s.Enqueue(&msg)
 
-	// 轮询真实 DB，等待 worker 异步落地
 	account := "telegram:" + sender
 	deadline := time.Now().Add(3 * time.Second)
 	for {
@@ -288,7 +275,6 @@ func TestLeadMining_Integration_Debounce(t *testing.T) {
 		cfgRepo:   cfgRepo,
 		lastJudge: map[string]time.Time{},
 	}
-	// 模拟同一客户短时间内连续多条消息进入
 	for i := 1; i <= 3; i++ {
 		var m model.MessageHub
 		database.Where("msg_id = ?", fmt.Sprintf("seed-%s-%d", sender, i)).First(&m)
@@ -324,12 +310,11 @@ func cleanupLeadMiningData(t *testing.T, database *gorm.DB, senders ...string) {
 			database.Where("type = ? AND account = ?", ClueTypeLeadMining, account).Delete(&model.Clue{})
 			database.Where("unified_id = ?", "lm:"+account).Delete(&model.Customer{})
 			database.Where("sender_id = ?", s).Delete(&model.MessageHub{})
-			// douyin 渠道场景
 			accountD := "douyin:" + s
 			database.Where("type = ? AND account = ?", ClueTypeLeadMining, accountD).Delete(&model.Clue{})
 			database.Where("unified_id = ?", "lm:"+accountD).Delete(&model.Customer{})
 		}
-		// 单例配置表：清理本测试写入的配置，避免污染后续测试的 GetSingleton 读取
 		database.Delete(&model.LeadMiningConfig{})
 	})
 }
+

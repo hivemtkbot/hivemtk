@@ -103,7 +103,6 @@ func TestMigrationController_GetUpgradeTask_NoAuth(t *testing.T) {
 	ctrl := NewMigrationController(nil)
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	// 添加 Recovery 中间件以将 DB 访问失败转成 500
 	router.Use(gin.Recovery())
 	router.GET("/migration/task/:id", ctrl.GetUpgradeTask)
 
@@ -111,7 +110,6 @@ func TestMigrationController_GetUpgradeTask_NoAuth(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 当前 GetUpgradeTask 实现未做 user_id 鉴权,直接查 DB;空 DB → 404
 	if w.Code != http.StatusNotFound {
 		t.Errorf("Expected 404 (task not found), got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -144,3 +142,4 @@ func TestMigrationController_GetUpgradeTask_NotFound(t *testing.T) {
 		t.Errorf("Expected 404, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
+

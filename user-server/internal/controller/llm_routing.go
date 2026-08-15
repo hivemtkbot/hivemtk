@@ -14,7 +14,7 @@ import (
 // LLMRoutingController LLM 路由控制器
 type LLMRoutingController struct {
 	routingService *service.LLMRoutingService
-	failoverSvc    *service.LLMFailoverService // 注入熔断器中转服务供 Health/Stats 使用
+	failoverSvc    *service.LLMFailoverService 
 }
 
 // NewLLMRoutingController 创建 LLM 路由控制器
@@ -27,9 +27,6 @@ func (c *LLMRoutingController) SetFailover(f *service.LLMFailoverService) {
 	c.failoverSvc = f
 }
 
-// ============================================================================
-// Provider / Model 管理
-// ============================================================================
 
 // ListModels 列出所有 LLM provider
 //
@@ -74,7 +71,6 @@ func (c *LLMRoutingController) GetModel(ctx *gin.Context) {
 			return
 		}
 	}
-	// 未找到时返回 200 + null data（detail 查询的宽容语义，避免前端探测性请求产生 404 噪音）
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": nil, "message": "model not found"})
 }
 
@@ -140,10 +136,9 @@ func (c *LLMRoutingController) TestModel(ctx *gin.Context) {
 	}
 	var req service.TestModelRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		// Body 解析失败也允许（仅做最小测试）
 		req = service.TestModelRequest{}
 	}
-	req.Provider = resolved // 强制使用解析后的 provider name
+	req.Provider = resolved 
 	result, err := c.routingService.TestModel(ctx.Request.Context(), req)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
@@ -152,9 +147,6 @@ func (c *LLMRoutingController) TestModel(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": result})
 }
 
-// ============================================================================
-// 场景路由管理
-// ============================================================================
 
 // ListStrategies 列出所有场景路由
 //
@@ -180,7 +172,6 @@ func (c *LLMRoutingController) UpdateStrategies(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
-	// 返回最新快照
 	routes := c.routingService.ListStrategies(ctx.Request.Context())
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": routes})
 }
@@ -226,9 +217,6 @@ func (c *LLMRoutingController) ListAuditHistory(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": rows})
 }
 
-// ============================================================================
-// 用量统计
-// ============================================================================
 
 // Stats 进程内实时 provider 维度统计
 //
@@ -262,7 +250,6 @@ func (c *LLMRoutingController) CostStats(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
-	// 转换为前端期望的形态
 	out := gin.H{
 		"window":         summary.WindowLabel,
 		"monthly_cost":   summary.TotalCost,
@@ -270,7 +257,7 @@ func (c *LLMRoutingController) CostStats(ctx *gin.Context) {
 		"total_calls":    summary.TotalCalls,
 		"by_scenario":    summary.ByScenario,
 		"by_provider":    summary.ByProvider,
-		"by_model":       summary.ByProvider, // 前端字段别名
+		"by_model":       summary.ByProvider, 
 		"enabled_models": summary.EnabledModels,
 		"active_models":  summary.ActiveModels,
 	}
@@ -295,16 +282,6 @@ func (c *LLMRoutingController) FallbackConfig(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": out})
 }
 
-// ============================================================================
-// 补全端点（E2E 完整性补齐）
-// ----------------------------------------------------------------------------
-//   1. /api/llm/scenarios        场景列表（strategies 别名）
-//   2. /api/llm/health           整体健康度（聚合 provider 维度）
-//   3. /api/llm/scenario-stats   场景聚合统计（Usage 别名）
-//   4. /api/llm/model-type-stats 模型类型聚合（local/cloud）
-//   5. /api/llm/egress-alerts    出域告警
-//   6. /api/llm/egress-audit     出域审计
-// ============================================================================
 
 // ListScenarios 场景列表（与 strategies 同义）
 //
@@ -345,7 +322,6 @@ func (c *LLMRoutingController) Health(ctx *gin.Context) {
 	healthyCount := 0
 	for _, m := range models {
 		healthy := m.Enabled && m.BaseURL != ""
-		// 默认值：未注入 failover 时返回零值
 		circuitOpen := false
 		errorCount := 0
 		lastError := ""
@@ -355,7 +331,6 @@ func (c *LLMRoutingController) Health(ctx *gin.Context) {
 			if health != nil {
 				errorCount = health.ConsecutiveFailures
 				lastError = health.LastError
-				// 熔断中视为不健康
 				if circuitOpen {
 					healthy = false
 				}
@@ -431,7 +406,6 @@ func (c *LLMRoutingController) ModelTypeStats(ctx *gin.Context) {
 	models := c.routingService.ListModels(ctx.Request.Context())
 	providerToType := make(map[string]string, len(models))
 	for _, m := range models {
-		// BaseURL 为空或 localhost/127.0.0.1/self_hosted → 本地
 		isLocal := m.BaseURL == "" ||
 			strings.Contains(m.BaseURL, "localhost") ||
 			strings.Contains(m.BaseURL, "127.0.0.1") ||
@@ -495,7 +469,6 @@ func (c *LLMRoutingController) EgressAlerts(ctx *gin.Context) {
 	alerts := make([]gin.H, 0)
 	for _, m := range models {
 		base := strings.ToLower(m.BaseURL)
-		// 标记为本地但实际指向云端 → 出域告警
 		isLocalHint := strings.HasPrefix(m.Name, "default") || m.Vendor == "self_hosted"
 		isRemoteHost := base != "" && !strings.Contains(base, "localhost") &&
 			!strings.Contains(base, "127.0.0.1") && !strings.Contains(base, "0.0.0.0")
@@ -525,3 +498,4 @@ func (c *LLMRoutingController) EgressAlerts(ctx *gin.Context) {
 func (c *LLMRoutingController) EgressAudit(ctx *gin.Context) {
 	c.EgressAlerts(ctx)
 }
+

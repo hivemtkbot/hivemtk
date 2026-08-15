@@ -76,7 +76,6 @@ func TestAIGenerationRecord_BasicFields(t *testing.T) {
 		t.Errorf("Expected ID 1, got %d", record.ID)
 	}
 
-	// 私域部署：不校验 MerchantID（单租户无此字段）
 	if record.UserID != 100 {
 		t.Errorf("Expected UserID 100, got %d", record.UserID)
 	}
@@ -188,7 +187,6 @@ func TestPromptTemplate_BasicFields(t *testing.T) {
 		t.Errorf("Expected ID 1, got %d", template.ID)
 	}
 
-	// 私域部署：不校验 MerchantID（单租户无此字段）
 	if template.Name != "文案生成模板" {
 		t.Errorf("Expected Name '文案生成模板', got %s", template.Name)
 	}
@@ -240,3 +238,4 @@ func TestPromptTemplate_WithStatusValues(t *testing.T) {
 		}
 	}
 }
+

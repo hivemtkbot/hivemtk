@@ -107,7 +107,6 @@ func TestDouyinCardController_Create_DefaultRedirectURL(t *testing.T) {
 		Title:       "Test Card",
 		Description: "This is a test card",
 		ImageURL:    "https://example.com/image.jpg",
-		// 不提供 RedirectURL，应该使用默认值
 	}
 	body, _ := json.Marshal(createReq)
 
@@ -128,7 +127,6 @@ func TestDouyinCardController_Update_Success(t *testing.T) {
 	ctrl := NewDouyinCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	card, _ := svc.Create(context.Background(), &dto.DouyinCardCreateRequest{
 		Title:        "Original Card",
 		Description:  "Original description",
@@ -187,7 +185,7 @@ func TestDouyinCardController_Update_IDMismatch(t *testing.T) {
 	router.PUT("/douyin/cards/:id", ctrl.Update)
 
 	updateReq := dto.DouyinCardUpdateRequest{
-		ID:    999, // 与 URL 中的 ID 不匹配
+		ID:    999, 
 		Title: "Test",
 	}
 	body, _ := json.Marshal(updateReq)
@@ -209,7 +207,6 @@ func TestDouyinCardController_Delete_Success(t *testing.T) {
 	ctrl := NewDouyinCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.DouyinCardCreateRequest{
 		Title:        "Card to Delete",
 		Description:  "This card will be deleted",
@@ -252,7 +249,6 @@ func TestDouyinCardController_GetByID_Success(t *testing.T) {
 	ctrl := NewDouyinCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.DouyinCardCreateRequest{
 		Title:        "Test Card",
 		Description:  "Test description",
@@ -311,7 +307,6 @@ func TestDouyinCardController_GetList_Success(t *testing.T) {
 	ctrl := NewDouyinCardController(svc)
 	router := setupGinEngine()
 
-	// 创建多个卡片
 	for i := 1; i <= 5; i++ {
 		svc.Create(context.Background(), &dto.DouyinCardCreateRequest{
 			Title:        "Card " + string(rune('0'+i)),
@@ -340,7 +335,6 @@ func TestDouyinCardController_GetList_DefaultPagination(t *testing.T) {
 	ctrl := NewDouyinCardController(svc)
 	router := setupGinEngine()
 
-	// 创建测试卡片
 	svc.Create(context.Background(), &dto.DouyinCardCreateRequest{
 		Title:        "Card",
 		Description:  "Description",
@@ -351,7 +345,6 @@ func TestDouyinCardController_GetList_DefaultPagination(t *testing.T) {
 
 	router.GET("/douyin/cards", ctrl.GetList)
 
-	// 注意：由于 DTO 使用了 binding:"min=1,max=100"，所以必须提供有效的 page_size
 	req, _ := http.NewRequest("GET", "/douyin/cards?page=1&page_size=10", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -385,7 +378,6 @@ func TestDouyinCardController_GenerateShortLink_Success(t *testing.T) {
 	ctrl := NewDouyinCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	card, err := svc.Create(context.Background(), &dto.DouyinCardCreateRequest{
 		Title:        "Card with Short Link",
 		Description:  "This card will have a short link",
@@ -399,7 +391,6 @@ func TestDouyinCardController_GenerateShortLink_Success(t *testing.T) {
 
 	router.POST("/douyin/cards/:id/shortlink", ctrl.GenerateShortLink)
 
-	// 接受 OK / 500 / 404（短链生成可能依赖外部服务/域名；测试环境无完整数据时 404 也视为通过）
 	cardID := "1"
 	if card != nil && card.ID != 0 {
 		cardID = fmt.Sprintf("%d", card.ID)
@@ -505,7 +496,6 @@ func TestDouyinCardController_Update_ViewCount(t *testing.T) {
 	ctrl := NewDouyinCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	card, err := svc.Create(context.Background(), &dto.DouyinCardCreateRequest{
 		Title:        "Card",
 		Description:  "Description",
@@ -528,7 +518,7 @@ func TestDouyinCardController_Update_ViewCount(t *testing.T) {
 		Title:        "Card",
 		Description:  "Description",
 		ImageURL:     "https://example.com/image.jpg",
-		DomainPoolID: 1, // 与 Create 保持一致，避免触发短链重新生成（依赖外部域名池）
+		DomainPoolID: 1, 
 		ViewCount:    1000,
 		IsActive:     true,
 	}
@@ -543,3 +533,4 @@ func TestDouyinCardController_Update_ViewCount(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
+

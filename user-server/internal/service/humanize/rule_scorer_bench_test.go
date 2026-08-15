@@ -1,21 +1,5 @@
 package humanize
 
-// rule_scorer_bench_test.go RuleScorer 性能基准
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十六章 §16.5
-//
-// 性能目标：
-//   - RuleScorer 全量评估 < 1ms（5 维同步执行）
-//   - 边界情况（500字长文本、含 AI 痕迹词）应保持稳定 < 5ms
-//
-// 运行方式：
-//
-//	go test -bench=BenchmarkRuleScorer -benchmem -benchtime=3s ./internal/service/humanize/
-//
-// 监控指标：
-// 监控 humanize_score_value_count (counter)
-//   - 内部 latency 记录在 zerolog 业务日志
 
 import (
 	"context"
@@ -73,7 +57,6 @@ var benchReplies = []struct {
 // BenchmarkRuleScorer_RuleOnly 基准：纯 RuleScorer 全量评估
 func BenchmarkRuleScorer_RuleOnly(b *testing.B) {
 	s := NewRuleScorer()
-	// 取一个代表性样本
 	sample := benchReplies[1]
 
 	b.ReportAllocs()
@@ -130,3 +113,4 @@ func BenchmarkRuleScorer_Parallel(b *testing.B) {
 		}
 	})
 }
+

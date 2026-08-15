@@ -8,25 +8,6 @@ import (
 	"strings"
 )
 
-// ============================================================================
-// LLMJudge LLM-as-Judge 评估框架
-// ----------------------------------------------------------------------------
-// 思路：用一个 LLM 充当"评分员"，对另一个 LLM 生成的客服回复做多维
-// 质量打分。与 chrF++（字面匹配）互补：
-//   - chrF++  擅长捕捉字面 n-gram 重合度，但对同义不同形的回复会低估
-//   - LLMJudge擅长捕捉语义 / 术语 / 语气，但成本高、有非确定性
-//
-// 评估维度（默认）：
-//   - fluency     ：目标语言下的流畅度
-//   - accuracy    ：信息准确性
-//   - terminology ：SKU / 价格 / 品牌名是否保留正确
-//   - tone        ：语气是否专业友好
-//
-// 设计：
-//   - LLMJudge 为接口，便于替换实现（默认 DefaultLLMJudge + mock 测试）
-//   - DefaultLLMJudge 复用项目现有 LLM 服务（通过 LLMServiceInterface 抽象）
-//   - enabled=false 时不影响主流程（EvalService 异步调用直接跳过）
-// ============================================================================
 
 // LLMJudge LLM 评分器接口。
 type LLMJudge interface {
@@ -35,19 +16,19 @@ type LLMJudge interface {
 
 // JudgeRequest 评分请求。
 type JudgeRequest struct {
-	Query      string   // 用户问题
-	Reference  string   // 参考答案（可选，为空时 LLM 仅依据自身判断）
-	Candidate  string   // 待评估的生成回复
-	TargetLang string   // 目标语言（如 "en" / "zh" / "ja"）
-	Criteria   []string // 评估维度（默认 fluency/accuracy/terminology/tone）
+	Query      string   
+	Reference  string   
+	Candidate  string   
+	TargetLang string   
+	Criteria   []string 
 }
 
 // JudgeResult 评分结果。
 type JudgeResult struct {
-	OverallScore    float64            // 综合分 0.0~1.0
-	DimensionScores map[string]float64 // 各维度分数 0.0~1.0
-	Explanation     string             // 评分理由
-	Issues          []string           // 发现的问题列表
+	OverallScore    float64            
+	DimensionScores map[string]float64 
+	Explanation     string             
+	Issues          []string           
 }
 
 // LLMServiceInterface LLM 服务接口。
@@ -167,7 +148,6 @@ func (j *DefaultLLMJudge) parseJudgeResult(resp string) (*JudgeResult, error) {
 		return nil, fmt.Errorf("llm judge: parse json failed: %w", err)
 	}
 
-	// 归一化 overall_score 到 [0, 1]
 	score := raw.OverallScore
 	if score > 1.0 {
 		score = score / 100.0
@@ -227,3 +207,4 @@ func extractJSON(s string) string {
 	}
 	return ""
 }
+

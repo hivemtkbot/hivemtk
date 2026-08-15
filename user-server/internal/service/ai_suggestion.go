@@ -9,13 +9,6 @@ import (
 	"hivemtk-user/internal/websocket"
 )
 
-// ============================================================================
-// AI 建议服务（ai_suggestion.go）
-// ----------------------------------------------------------------------------
-// 从 customer_session.go 拆分（方向C）。
-// 职责：AI 推理时给坐席的实时建议（按会话 ID 聚合）。
-// 文档：docs/企业级架构优化/坐席实时聊天看板.md §二
-// ============================================================================
 
 // AISuggestionService AI建议服务
 type AISuggestionService struct {
@@ -45,7 +38,6 @@ func (s *AISuggestionService) CreateSuggestion(ctx context.Context, sessionID st
 		return nil, err
 	}
 
-	// 通知客服
 	session, _ := s.sessionRepo.GetBySessionID(ctx, sessionID)
 	if session != nil && session.AgentID > 0 {
 		websocket.NotifyAISuggestion(strconv.FormatUint(uint64(session.AgentID), 10), ais)
@@ -63,3 +55,4 @@ func (s *AISuggestionService) GetSuggestions(ctx context.Context, sessionID stri
 func (s *AISuggestionService) UseSuggestion(ctx context.Context, id uint, agentID uint) error {
 	return s.suggestionRepo.MarkAsUsed(ctx, id, agentID)
 }
+

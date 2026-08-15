@@ -12,23 +12,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// FewShotService Few-shot 示例库服务（v1.2 出海多语言方案）
-// ----------------------------------------------------------------------------
-// 职责：
-//   1. 从资产包（AssetBundle.Examples）加载多语言 few-shot 示例
-//   2. 按目标语言过滤并渲染为 system prompt 块，供跨语言生成路径注入
-//   3. Redis 缓存（key: fewshot:lang:{lang}，TTL 1h）
-//   4. 资产包更新时主动失效缓存
-//
-// 五层架构归属：L3 业务服务层。本服务不直接访问 db，
-// 通过 FewShotAssetReader 接口委托 repository / service 层读取资产包。
-//
-// 与 GlossaryService 的关系：
-//   - GlossaryService 渲染"术语映射"（强制替换规则）
-//   - FewShotService  渲染"问答示例"（few-shot 引导 LLM 输出风格）
-//   两者注入 system prompt 不同段落，互不依赖
-// ============================================================================
 
 // FewShotExample 多语言 few-shot 示例。
 //
@@ -100,27 +83,22 @@ func NewFewShotService(repo FewShotAssetReader, c cache.Cache, assetType string)
 func (s *FewShotService) LoadByLang(ctx context.Context, lang string) ([]FewShotExample, error) {
 	lang = i18npkg.NormalizeLang(lang)
 
-	// 1. 命中缓存直接返回
 	if examples, ok := s.loadFromCache(ctx, lang); ok {
 		return examples, nil
 	}
 
-	// 2. 读资产包
 	bundle, err := s.assetRepo.GetActiveAssetBundle(ctx, s.assetType)
 	if err != nil {
 		return nil, fmt.Errorf("fewshot: load asset bundle failed: %w", err)
 	}
 	if bundle == nil || len(bundle.Examples) == 0 {
-		// 无示例：写空缓存避免穿透，返回空切片
 		s.saveToCache(ctx, lang, nil)
 		return nil, nil
 	}
 
-	// 3. 解析 + 按语言过滤
 	all := parseExamples(bundle.Examples)
 	filtered := filterByLang(all, lang)
 
-	// 4. 写缓存（best-effort）
 	s.saveToCache(ctx, lang, filtered)
 	return filtered, nil
 }
@@ -175,8 +153,6 @@ func (s *FewShotService) InvalidateCacheLang(ctx context.Context, lang string) {
 func (s *FewShotService) invalidateCache(ctx context.Context, lang string) {
 	lang = i18npkg.NormalizeLang(lang)
 	if lang == "" || lang == "*" {
-		// 当前 Cache 接口未提供 SCAN/批量删除，退化到清空全部缓存。
-		// 调用方需自行权衡（与 GlossaryService.InvalidateAll 行为一致）。
 		if err := s.cache.Clear(ctx); err != nil {
 			logger.Warnf("fewshot: clear cache failed: %v", err)
 		}
@@ -188,9 +164,6 @@ func (s *FewShotService) invalidateCache(ctx context.Context, lang string) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 内部辅助
-// ----------------------------------------------------------------------------
 
 // loadFromCache 从缓存读取示例列表；未命中或反序列化失败时返回 (nil, false)。
 func (s *FewShotService) loadFromCache(ctx context.Context, lang string) ([]FewShotExample, bool) {
@@ -200,9 +173,6 @@ func (s *FewShotService) loadFromCache(ctx context.Context, lang string) ([]FewS
 		logger.Debugf("fewshot: cache get key=%s err=%v", key, err)
 		return nil, false
 	}
-	// 反序列化成功但为 nil 时区分"缓存了空值"与"未命中"：
-	// GetJSON 未命中会返回 err，走到上面的 false 分支；
-	// 走到这里说明缓存命中（可能为空切片），返回 true。
 	return examples, true
 }
 
@@ -234,7 +204,6 @@ func parseExamples(raw model.JSONArray) []FewShotExample {
 			Lang:     toString(m["lang"]),
 			Category: toString(m["category"]),
 		}
-		// 至少有 query + reply 才算有效示例
 		if ex.Query == "" || ex.Reply == "" {
 			continue
 		}
@@ -259,3 +228,4 @@ func filterByLang(examples []FewShotExample, lang string) []FewShotExample {
 	}
 	return out
 }
+

@@ -18,13 +18,11 @@ import (
 
 func setupEmailJobsController(t *testing.T) (*EmailJobsController, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
-	// 邮件任务服务依赖全局 db（repository 通过 db.GetDB() 取连接），
-	// 必须先构建并迁移真实测试库，否则 GetEmailJobsList 会因 email_jobs 表不存在返回 400。
 	database := testutil.NewTestDB(t, &model.EmailJobs{})
 	_db.SetTestDB(database)
 	ctrl := NewEmailJobsController()
 	router := gin.New()
-	router.Use(gin.Recovery()) // 把 service/repo 的 nil-DB panic 转化为 500
+	router.Use(gin.Recovery()) 
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
@@ -170,7 +168,6 @@ func TestEmailJobsController_GetEmailJobsList_MissingPage(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httpReq)
 
-	// 控制器在 req.Page <= 0 时兜底为 1, 不返回 400
 	if w.Code == http.StatusBadRequest {
 		t.Errorf("Expected controller to apply default page=1, got 400 instead. Body: %s", w.Body.String())
 	}
@@ -185,7 +182,6 @@ func TestEmailJobsController_GetEmailJobsList_MissingLimit(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httpReq)
 
-	// 控制器在 req.PageSize <= 0 时兜底为 20, 不返回 400
 	if w.Code == http.StatusBadRequest {
 		t.Errorf("Expected controller to apply default page_size=20, got 400 instead. Body: %s", w.Body.String())
 	}
@@ -394,3 +390,4 @@ func TestEmailJobsController_NewEmailJobsController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

@@ -92,7 +92,6 @@ func TestTracingAndMonitoring(t *testing.T) {
 	ctx := context.Background()
 	conv := "conv-monitor-test-" + time.Now().Format("150405")
 
-	// 1) 注入一条 inbound（带 trace_id），模拟「客户消息落库」
 	inboundTrace := tracing.GenerateTraceID()
 	inHub := &model.MessageHub{
 		ConversationID: conv, AccountID: "acct-test", Platform: "xiaohongshu",
@@ -102,26 +101,22 @@ func TestTracingAndMonitoring(t *testing.T) {
 	if err := gdb.WithContext(ctx).Create(inHub).Error; err != nil {
 		t.Fatalf("create inbound: %v", err)
 	}
-	// 模拟 persistMessage 写 ingest 节点（节点1 上报接入）
 	tracing.RecordNode(ctx, tracing.NodeSpan{
 		TraceID: inboundTrace, ConversationID: conv, AccountID: "acct-test",
 		Channel: "xiaohongshu", Node: tracing.NodeIngest, Direction: "inbound",
 		MsgID: inHub.MsgID, Expected: "客户消息落库", Status: tracing.StatusOk,
 	})
-	// 模拟节点4 收件箱同步
 	tracing.RecordNode(ctx, tracing.NodeSpan{
 		TraceID: inboundTrace, ConversationID: conv, AccountID: "acct-test",
 		Channel: "xiaohongshu", Node: tracing.NodeInboxSync, Direction: "inbound",
 		MsgID: inHub.MsgID, Expected: "inbox_conversations 同步", Status: tracing.StatusOk,
 	})
 
-	// 2) LinkOutboundTraceID 应复用同会话 inbound 的 trace_id（查 ingest 节点）
 	linked := tracing.LinkOutboundTraceID(ctx, conv)
 	if linked != inboundTrace {
 		t.Fatalf("LinkOutboundTraceID 期望复用 %q，实际 %q", inboundTrace, linked)
 	}
 
-	// 3) 写一条 outbound 出站节点（节点3 出站入队）+ 送达节点（节点6）
 	tracing.RecordNode(ctx, tracing.NodeSpan{
 		TraceID: linked, ConversationID: conv, AccountID: "acct-test",
 		Channel: "xiaohongshu", Node: tracing.NodeOutboundEnqueue, Direction: "outbound",
@@ -136,7 +131,6 @@ func TestTracingAndMonitoring(t *testing.T) {
 		DurationMs: 42, Expected: "pending→delivered", Status: tracing.StatusOk,
 	})
 
-	// 4) HealthOverview 应可计算且无错误，且 TotalTraces>=4
 	ov, err := HealthOverview(ctx)
 	if err != nil {
 		t.Fatalf("HealthOverview: %v", err)
@@ -145,7 +139,6 @@ func TestTracingAndMonitoring(t *testing.T) {
 		t.Fatalf("TotalTraces 期望 >=4，实际 %d", ov.TotalTraces)
 	}
 
-	// 5) Lifecycle 还原该会话链路：节点按序、含入参出参/响应时间/预期
 	lcs, err := Lifecycle(ctx, conv, "", 5)
 	if err != nil {
 		t.Fatalf("Lifecycle: %v", err)
@@ -161,7 +154,6 @@ func TestTracingAndMonitoring(t *testing.T) {
 		t.Fatalf("应计算出端到端时延")
 	}
 
-	// 6) Traces 最新轮次应包含本会话
 	traces, err := Traces(ctx, 50)
 	if err != nil {
 		t.Fatalf("Traces: %v", err)
@@ -177,7 +169,6 @@ func TestTracingAndMonitoring(t *testing.T) {
 		t.Fatalf("Traces 应包含本会话 %q", conv)
 	}
 
-	// 7) NodeHealthByChannel 应聚合到 xiaohongshu 的若干节点
 	nh, err := NodeHealthByChannel(ctx)
 	if err != nil {
 		t.Fatalf("NodeHealthByChannel: %v", err)
@@ -193,7 +184,6 @@ func TestTracingAndMonitoring(t *testing.T) {
 		t.Fatalf("NodeHealthByChannel 应包含 xiaohongshu 的节点聚合")
 	}
 
-	// 8) PurgeOld 安全（删除 > 100 年的，不应删测试数据）
 	deleted, err := PurgeOld(ctx, 100*365*24*time.Hour)
 	if err != nil {
 		t.Fatalf("PurgeOld: %v", err)
@@ -202,7 +192,6 @@ func TestTracingAndMonitoring(t *testing.T) {
 		t.Fatalf("PurgeOld 不应删除近期数据，实际删除 %d", deleted)
 	}
 
-	// 清理
 	gdb.WithContext(ctx).Where("conversation_id = ?", conv).Delete(&model.MessageTrace{})
 	gdb.WithContext(ctx).Where("conversation_id = ?", conv).Delete(&model.MessageHub{})
 }
@@ -214,3 +203,4 @@ func TestGenerateTraceID(t *testing.T) {
 		t.Fatalf("GenerateTraceID 异常: %q / %q", a, b)
 	}
 }
+

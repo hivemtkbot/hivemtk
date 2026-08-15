@@ -90,3 +90,4 @@ func (r *AIToolConfigRepository) CountEnabled() (int64, error) {
 	err := r.db.Model(&model.AIToolConfig{}).Where("is_enabled = true").Count(&count).Error
 	return count, err
 }
+

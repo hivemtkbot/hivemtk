@@ -89,3 +89,4 @@ func TestSmlistType(t *testing.T) {
 		t.Errorf("Expected SmlistTypeManMnaM to be 4, got %d", SmlistTypeManMnaM)
 	}
 }
+

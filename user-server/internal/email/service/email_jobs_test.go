@@ -112,7 +112,6 @@ func TestEmailJobsService_GetEmailJobsByID(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建任务
 	jobs := &model.EmailJobs{
 		Subject:      "测试任务",
 		EmailTotal:   50,
@@ -123,7 +122,6 @@ func TestEmailJobsService_GetEmailJobsByID(t *testing.T) {
 	}
 	database.Create(jobs)
 
-	// 获取任务
 	retrievedJobs, err := service.GetEmailJobsByID(context.Background(), jobs.ID)
 	if err != nil {
 		t.Fatalf("GetEmailJobsByID failed: %v", err)
@@ -176,7 +174,6 @@ func TestEmailJobsService_GetEmailJobsList(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建多个任务
 	for i := 0; i < 10; i++ {
 		jobs := &model.EmailJobs{
 			Subject:      "测试任务" + string(rune('0'+i)),
@@ -187,10 +184,9 @@ func TestEmailJobsService_GetEmailJobsList(t *testing.T) {
 			ReadTotal:    0,
 		}
 		database.Create(jobs)
-		time.Sleep(10 * time.Millisecond) // 确保 created_at 不同
+		time.Sleep(10 * time.Millisecond) 
 	}
 
-	// 获取列表（第一页，每页 5 条）
 	jobsLists, total, err := service.GetEmailJobsList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetEmailJobsList failed: %v", err)
@@ -204,7 +200,6 @@ func TestEmailJobsService_GetEmailJobsList(t *testing.T) {
 		t.Errorf("Expected 5 jobs on page 1, got %d", len(jobsLists))
 	}
 
-	// 获取第二页
 	jobsLists2, total2, err := service.GetEmailJobsList(context.Background(), 2, 5)
 	if err != nil {
 		t.Fatalf("GetEmailJobsList page 2 failed: %v", err)
@@ -245,7 +240,6 @@ func TestEmailJobsService_GetEmailJobsList_PageBeyond(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建 3 个任务
 	for i := 0; i < 3; i++ {
 		jobs := &model.EmailJobs{
 			Subject:    "任务" + string(rune('0'+i)),
@@ -254,7 +248,6 @@ func TestEmailJobsService_GetEmailJobsList_PageBeyond(t *testing.T) {
 		database.Create(jobs)
 	}
 
-	// 获取第 10 页（超出范围）
 	jobsLists, total, err := service.GetEmailJobsList(context.Background(), 10, 5)
 	if err != nil {
 		t.Fatalf("GetEmailJobsList failed: %v", err)
@@ -275,7 +268,6 @@ func TestEmailJobsService_UpdateEmailJobs(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建任务
 	jobs := &model.EmailJobs{
 		Subject:      "旧主题",
 		EmailTotal:   100,
@@ -286,7 +278,6 @@ func TestEmailJobsService_UpdateEmailJobs(t *testing.T) {
 	}
 	database.Create(jobs)
 
-	// 更新任务
 	jobs.Subject = "新主题"
 	jobs.SendTotal = 50
 	jobs.SuccessTotal = 45
@@ -336,8 +327,6 @@ func TestEmailJobsService_UpdateEmailJobs_NotFound(t *testing.T) {
 	}
 
 	err := service.UpdateEmailJobs(context.Background(), jobs)
-	// GORM Save 行为：对于不存在的记录可能不会返回错误
-	// 这里我们只验证方法可以调用
 	t.Logf("UpdateEmailJobs for non-existent jobs returned: %v", err)
 }
 
@@ -347,7 +336,6 @@ func TestEmailJobsService_DeleteEmailJobs(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建任务
 	jobs := &model.EmailJobs{
 		Subject:      "待删除任务",
 		EmailTotal:   100,
@@ -358,7 +346,6 @@ func TestEmailJobsService_DeleteEmailJobs(t *testing.T) {
 	}
 	database.Create(jobs)
 
-	// 删除任务
 	err := service.DeleteEmailJobs(context.Background(), jobs.ID)
 	if err != nil {
 		t.Fatalf("DeleteEmailJobs failed: %v", err)
@@ -397,7 +384,6 @@ func TestEmailJobsService_IncreaseSendTotal(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建任务
 	jobs := model.EmailJobs{
 		Subject:      "发送计数测试",
 		EmailTotal:   100,
@@ -408,7 +394,6 @@ func TestEmailJobsService_IncreaseSendTotal(t *testing.T) {
 	}
 	database.Create(&jobs)
 
-	// 增加发送总数 3 次
 	for i := 0; i < 3; i++ {
 		err := service.IncreaseSendTotal(context.Background(), jobs.ID)
 		if err != nil {
@@ -442,7 +427,6 @@ func TestEmailJobsService_IncreaseSuccessTotal(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建任务
 	jobs := model.EmailJobs{
 		Subject:      "成功计数测试",
 		EmailTotal:   100,
@@ -453,7 +437,6 @@ func TestEmailJobsService_IncreaseSuccessTotal(t *testing.T) {
 	}
 	database.Create(&jobs)
 
-	// 增加成功总数 5 次
 	for i := 0; i < 5; i++ {
 		err := service.IncreaseSuccessTotal(context.Background(), jobs.ID)
 		if err != nil {
@@ -487,7 +470,6 @@ func TestEmailJobsService_IncreaseFailTotal(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建任务
 	jobs := model.EmailJobs{
 		Subject:      "失败计数测试",
 		EmailTotal:   100,
@@ -498,7 +480,6 @@ func TestEmailJobsService_IncreaseFailTotal(t *testing.T) {
 	}
 	database.Create(&jobs)
 
-	// 增加失败总数 3 次
 	for i := 0; i < 3; i++ {
 		err := service.IncreaseFailTotal(context.Background(), jobs.ID)
 		if err != nil {
@@ -532,7 +513,6 @@ func TestEmailJobsService_IncreaseReadTotal(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建任务
 	jobs := model.EmailJobs{
 		Subject:      "阅读计数测试",
 		EmailTotal:   100,
@@ -543,7 +523,6 @@ func TestEmailJobsService_IncreaseReadTotal(t *testing.T) {
 	}
 	database.Create(&jobs)
 
-	// 增加阅读总数 10 次
 	for i := 0; i < 10; i++ {
 		err := service.IncreaseReadTotal(context.Background(), jobs.ID)
 		if err != nil {
@@ -577,7 +556,6 @@ func TestEmailJobsService_CreateAndGet(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建任务
 	jobs := model.EmailJobs{
 		Subject:      "完整测试任务",
 		EmailTotal:   200,
@@ -592,7 +570,6 @@ func TestEmailJobsService_CreateAndGet(t *testing.T) {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
 
-	// 根据 ID 获取
 	retrievedJobs, err := service.GetEmailJobsByID(context.Background(), createdJobs.ID)
 	if err != nil {
 		t.Fatalf("GetEmailJobsByID failed: %v", err)
@@ -624,7 +601,6 @@ func TestEmailJobsService_FullWorkflow(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建任务
 	jobs := model.EmailJobs{
 		Subject:      "工作流测试",
 		EmailTotal:   100,
@@ -638,7 +614,6 @@ func TestEmailJobsService_FullWorkflow(t *testing.T) {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
 
-	// 模拟发送过程
 	for i := 0; i < 50; i++ {
 		err := service.IncreaseSendTotal(context.Background(), createdJobs.ID)
 		if err != nil {
@@ -646,7 +621,6 @@ func TestEmailJobsService_FullWorkflow(t *testing.T) {
 		}
 	}
 
-	// 模拟成功
 	for i := 0; i < 45; i++ {
 		err := service.IncreaseSuccessTotal(context.Background(), createdJobs.ID)
 		if err != nil {
@@ -654,7 +628,6 @@ func TestEmailJobsService_FullWorkflow(t *testing.T) {
 		}
 	}
 
-	// 模拟失败
 	for i := 0; i < 5; i++ {
 		err := service.IncreaseFailTotal(context.Background(), createdJobs.ID)
 		if err != nil {
@@ -662,7 +635,6 @@ func TestEmailJobsService_FullWorkflow(t *testing.T) {
 		}
 	}
 
-	// 模拟阅读
 	for i := 0; i < 30; i++ {
 		err := service.IncreaseReadTotal(context.Background(), createdJobs.ID)
 		if err != nil {
@@ -670,7 +642,6 @@ func TestEmailJobsService_FullWorkflow(t *testing.T) {
 		}
 	}
 
-	// 验证最终状态
 	finalJobs, err := service.GetEmailJobsByID(context.Background(), createdJobs.ID)
 	if err != nil {
 		t.Fatalf("GetEmailJobsByID failed: %v", err)
@@ -689,20 +660,17 @@ func TestEmailJobsService_FullWorkflow(t *testing.T) {
 		t.Errorf("Expected ReadTotal 30, got %d", finalJobs.ReadTotal)
 	}
 
-	// 更新任务
 	finalJobs.Subject = "已完成的工作流"
 	err = service.UpdateEmailJobs(context.Background(), *finalJobs)
 	if err != nil {
 		t.Fatalf("UpdateEmailJobs failed: %v", err)
 	}
 
-	// 删除任务
 	err = service.DeleteEmailJobs(context.Background(), finalJobs.ID)
 	if err != nil {
 		t.Fatalf("DeleteEmailJobs failed: %v", err)
 	}
 
-	// 验证删除后无法获取
 	_, err = service.GetEmailJobsByID(context.Background(), finalJobs.ID)
 	if err == nil {
 		t.Error("Expected error for getting deleted jobs")
@@ -715,7 +683,6 @@ func TestEmailJobsService_LargeCounters(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建任务
 	jobs := model.EmailJobs{
 		Subject:      "大数值测试",
 		EmailTotal:   1000000,
@@ -729,7 +696,6 @@ func TestEmailJobsService_LargeCounters(t *testing.T) {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
 
-	// 批量增加计数器
 	for i := 0; i < 1000; i++ {
 		err := service.IncreaseSendTotal(context.Background(), createdJobs.ID)
 		if err != nil {
@@ -741,7 +707,6 @@ func TestEmailJobsService_LargeCounters(t *testing.T) {
 		}
 	}
 
-	// 验证
 	finalJobs, err := service.GetEmailJobsByID(context.Background(), createdJobs.ID)
 	if err != nil {
 		t.Fatalf("GetEmailJobsByID failed: %v", err)
@@ -761,7 +726,6 @@ func TestEmailJobsService_NegativeCounters(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建任务，初始值为负数（测试边界情况）
 	jobs := model.EmailJobs{
 		Subject:      "负数测试",
 		EmailTotal:   100,
@@ -776,7 +740,6 @@ func TestEmailJobsService_NegativeCounters(t *testing.T) {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
 
-	// 验证负数被保存
 	retrievedJobs, err := service.GetEmailJobsByID(context.Background(), createdJobs.ID)
 	if err != nil {
 		t.Fatalf("GetEmailJobsByID failed: %v", err)
@@ -793,7 +756,6 @@ func TestEmailJobsService_LongSubject(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建长主题（接近 255 字符限制）
 	longSubject := ""
 	for i := 0; i < 10; i++ {
 		longSubject += "这是一个很长的邮件主题测试"
@@ -859,7 +821,6 @@ func TestEmailJobsService_CountersConsistency(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	// 创建任务
 	jobs := model.EmailJobs{
 		Subject:      "一致性测试",
 		EmailTotal:   100,
@@ -873,7 +834,6 @@ func TestEmailJobsService_CountersConsistency(t *testing.T) {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
 
-	// 成功 + 失败应该等于发送总数
 	sendCount := 50
 	successCount := 45
 	failCount := 5
@@ -898,3 +858,4 @@ func TestEmailJobsService_CountersConsistency(t *testing.T) {
 			finalJobs.SuccessTotal, finalJobs.FailTotal, finalJobs.SendTotal)
 	}
 }
+

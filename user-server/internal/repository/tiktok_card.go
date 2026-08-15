@@ -205,3 +205,4 @@ func (r *tiktokCardRepository) ListRecentActivities(ctx context.Context, limit i
 	}
 	return list, nil
 }
+

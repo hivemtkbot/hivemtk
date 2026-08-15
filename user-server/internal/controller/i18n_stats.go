@@ -1,20 +1,5 @@
 package controller
 
-// ============================================================================
-// I18nStatsController 多语言监控看板控制器（v1.2 出海多语言方案）
-// ----------------------------------------------------------------------------
-// 端点：
-//   GET /api/i18n/stats              - 总览（看板首页）
-//   GET /api/i18n/stats/lang-dist    - 语言分布 ?days=7
-//   GET /api/i18n/stats/cache        - 缓存命中率 ?days=7
-//   GET /api/i18n/stats/glossary     - 术语覆盖率
-//   GET /api/i18n/stats/quality      - 质量趋势 ?days=30
-//   GET /api/i18n/stats/latency      - 延迟统计 ?days=7
-//   GET /api/i18n/stats/fallback     - 降级率 ?days=7
-//
-// 五层架构：Controller → Service → Repository → Model
-// 私域独立部署：无 merchant_id，B 端 JWT 関权
-// ============================================================================
 
 import (
 	"strconv"
@@ -59,7 +44,6 @@ func parseDays(c *gin.Context, def int) int {
 	if err != nil || n <= 0 {
 		return def
 	}
-	// 上限 365 天，防止全表扫描
 	if n > 365 {
 		n = 365
 	}
@@ -154,3 +138,4 @@ func (ctrl *I18nStatsController) GetFallbackRate(c *gin.Context) {
 		"fallback_rate": rate,
 	}, "获取成功")
 }
+

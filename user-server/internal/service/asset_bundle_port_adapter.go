@@ -8,21 +8,7 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ============================================================================
-// 资产包 Port 适配器（L4 依赖反转）
-// ----------------------------------------------------------------------------
-// agent_runtime.AssetBundleLoader 只依赖 portcontract.AssetBundleWeavePort；
-// 本文件把业务 AssetBundleService 适配为 Port，在 router 装配期注入。
-//
-// 解决的循环依赖：
-//   service.webhook_service → agent_runtime
-//   agent_runtime.AssetBundleLoader → service.AssetBundleService
-//   ↑ 这会形成循环。引入 Port 后变成：
-//   agent_runtime.AssetBundleLoader → portcontract.AssetBundleWeavePort
-//   service.AssetBundleWeavePortAdapter → portcontract.AssetBundleWeavePort (实现)
-// ============================================================================
 
-// ----- AssetBundleWeavePort -----
 
 // AssetBundleWeavePortAdapter 适配 AssetBundleService → portcontract.AssetBundleWeavePort
 type AssetBundleWeavePortAdapter struct {
@@ -32,8 +18,6 @@ type AssetBundleWeavePortAdapter struct {
 // NewAssetBundleWeavePortAdapter 构造
 func NewAssetBundleWeavePortAdapter(svc *AssetBundleService) *AssetBundleWeavePortAdapter {
 	if svc == nil {
-		// 兜底：service 单元测试场景下 svc 可能未注入
-		// 生产装配由 router/asset_bundle_routes.go 注入
 		return &AssetBundleWeavePortAdapter{svc: nil}
 	}
 	return &AssetBundleWeavePortAdapter{svc: svc}
@@ -47,7 +31,6 @@ func (a *AssetBundleWeavePortAdapter) WeaveForRequest(ctx context.Context, in po
 	if a == nil || a.svc == nil {
 		return nil, errors.New("asset bundle weave port adapter not configured")
 	}
-	// portcontract.RAGDocumentPort → service.RAGDocument
 	ragDocs := make([]RAGDocument, 0, len(in.RAGDocs))
 	for _, d := range in.RAGDocs {
 		ragDocs = append(ragDocs, RAGDocument{
@@ -58,7 +41,6 @@ func (a *AssetBundleWeavePortAdapter) WeaveForRequest(ctx context.Context, in po
 			Source:  d.Source,
 		})
 	}
-	// portcontract.WeaveOptionsPort → service.WeaveOptions
 	weaveIn := WeaveInput{
 		UserQuery:    in.UserQuery,
 		RAGDocs:      ragDocs,
@@ -73,7 +55,6 @@ func (a *AssetBundleWeavePortAdapter) WeaveForRequest(ctx context.Context, in po
 	}
 	msgs, err := a.svc.WeaveForRequest(ctx, in.AssetID, in.UserQuery, &weaveIn)
 	if err != nil {
-		// 把 service 包 sentinel 映射为 portcontract sentinel
 		if errors.Is(err, ErrBundleNotHotEnabled) {
 			return nil, portcontract.ErrAssetBundleNotEnabled
 		}
@@ -97,7 +78,6 @@ func (a *AssetBundleWeavePortAdapter) IsBundleEnabled(assetID string) bool {
 // 编译期断言：AssetBundleWeavePortAdapter 实现 portcontract.AssetBundleWeavePort
 var _ portcontract.AssetBundleWeavePort = (*AssetBundleWeavePortAdapter)(nil)
 
-// ----- KnowledgeSearchPort -----
 
 // KnowledgeSearchPortAdapter 适配 KnowledgeBaseService → portcontract.KnowledgeSearchPort
 type KnowledgeSearchPortAdapter struct {
@@ -124,3 +104,4 @@ func (a *KnowledgeSearchPortAdapter) Search(ctx context.Context, query string, t
 
 // 编译期断言
 var _ portcontract.KnowledgeSearchPort = (*KnowledgeSearchPortAdapter)(nil)
+

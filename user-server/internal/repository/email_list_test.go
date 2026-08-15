@@ -131,7 +131,6 @@ func TestEmailListRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailListRepository(t)
 
-	// 创建测试数据
 	list := &model.EmailList{
 		To:      "getbyid@example.com",
 		Subject: "GetByID Test",
@@ -181,7 +180,6 @@ func TestEmailListRepository_List(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailListRepository(t)
 
-	// 创建测试数据
 	for i := 1; i <= 15; i++ {
 		repo.Create(ctx, &model.EmailList{
 			To:      "user" + string(rune('0'+i)) + "@example.com",
@@ -254,7 +252,6 @@ func TestEmailListRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailListRepository(t)
 
-	// 创建测试数据
 	list := &model.EmailList{
 		To:      "update@example.com",
 		Subject: "Original Subject",
@@ -265,7 +262,6 @@ func TestEmailListRepository_Update(t *testing.T) {
 	}
 	repo.Create(ctx, list)
 
-	// 更新
 	list.Subject = "Updated Subject"
 	list.Content = "Updated content"
 	list.IsSend = 1
@@ -289,7 +285,6 @@ func TestEmailListRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailListRepository(t)
 
-	// 创建测试数据
 	list := &model.EmailList{
 		To:      "delete@example.com",
 		Subject: "To Delete",
@@ -316,7 +311,6 @@ func TestEmailListRepository_GetUnsentEmailList(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailListRepository(t)
 
-	// 创建未发送的邮件
 	repo.Create(ctx, &model.EmailList{
 		To:      "unsent1@example.com",
 		Subject: "Unsent Email 1",
@@ -335,7 +329,6 @@ func TestEmailListRepository_GetUnsentEmailList(t *testing.T) {
 		IsSend:  0,
 	})
 
-	// 创建已发送的邮件
 	repo.Create(ctx, &model.EmailList{
 		To:      "sent@example.com",
 		Subject: "Sent Email",
@@ -360,7 +353,6 @@ func TestEmailListRepository_GetTodayCountByFrom(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailListRepository(t)
 
-	// 创建今日发送的邮件
 	repo.Create(ctx, &model.EmailList{
 		To:       "today1@example.com",
 		Subject:  "Today Email 1",
@@ -381,7 +373,6 @@ func TestEmailListRepository_GetTodayCountByFrom(t *testing.T) {
 		SendTime: time.Now(),
 	})
 
-	// 创建其他发送者的邮件
 	repo.Create(ctx, &model.EmailList{
 		To:       "other@example.com",
 		Subject:  "Other Email",
@@ -481,3 +472,4 @@ func TestEmailListRepository_List_EmptyResult(t *testing.T) {
 		t.Errorf("Expected total 0, got %d", total)
 	}
 }
+

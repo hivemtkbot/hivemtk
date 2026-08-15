@@ -89,7 +89,6 @@ func TestCustomReportRepository_Create(t *testing.T) {
 func TestCustomReportRepository_GetByID(t *testing.T) {
 	repo := setupCustomReportRepository(t)
 
-	// 创建测试数据
 	report := &model.CustomReport{
 		Name:        "GetByID Report",
 		DataSource:  "sessions",
@@ -137,7 +136,6 @@ func TestCustomReportRepository_GetByID(t *testing.T) {
 func TestCustomReportRepository_GetByDataSource(t *testing.T) {
 	repo := setupCustomReportRepository(t)
 
-	// 创建不同数据源的报表
 	repo.Create(&model.CustomReport{
 		Name:       "Sessions Report",
 		DataSource: "sessions",
@@ -156,7 +154,6 @@ func TestCustomReportRepository_GetByDataSource(t *testing.T) {
 		IsPublic:   false,
 	})
 
-	// 创建公开报表
 	repo.Create(&model.CustomReport{
 		Name:       "Public Sessions",
 		DataSource: "sessions",
@@ -177,7 +174,6 @@ func TestCustomReportRepository_GetByDataSource(t *testing.T) {
 func TestCustomReportRepository_Update(t *testing.T) {
 	repo := setupCustomReportRepository(t)
 
-	// 创建测试数据
 	report := &model.CustomReport{
 		Name:        "Original Name",
 		DataSource:  "sessions",
@@ -187,7 +183,6 @@ func TestCustomReportRepository_Update(t *testing.T) {
 	}
 	repo.Create(report)
 
-	// 更新
 	report.Name = "Updated Name"
 	report.Description = "Updated description"
 
@@ -209,7 +204,6 @@ func TestCustomReportRepository_Update(t *testing.T) {
 func TestCustomReportRepository_Delete(t *testing.T) {
 	repo := setupCustomReportRepository(t)
 
-	// 创建测试数据
 	report := &model.CustomReport{
 		Name:       "To Delete",
 		DataSource: "sessions",
@@ -233,7 +227,6 @@ func TestCustomReportRepository_Delete(t *testing.T) {
 func TestCustomReportRepository_GetPublicTemplates(t *testing.T) {
 	repo := setupCustomReportRepository(t)
 
-	// 创建系统公开模板
 	repo.Create(&model.CustomReport{
 		Name:       "System Template 1",
 		DataSource: "sessions",
@@ -257,7 +250,6 @@ func TestCustomReportRepository_GetPublicTemplates(t *testing.T) {
 		t.Errorf("GetPublicTemplates() error = %v", err)
 	}
 
-	// 私域部署下，所有 is_public=true 的报表都是可见的公开模板
 	if len(results) != 3 {
 		t.Errorf("Expected 3 public templates, got %d", len(results))
 	}
@@ -267,7 +259,6 @@ func TestCustomReportRepository_GetPublicTemplates(t *testing.T) {
 func TestCustomReportRepository_UseTemplate(t *testing.T) {
 	repo := setupCustomReportRepository(t)
 
-	// 创建系统模板
 	template := &model.CustomReport{
 		Name:        "Template to Use",
 		DataSource:  "sessions",
@@ -280,7 +271,6 @@ func TestCustomReportRepository_UseTemplate(t *testing.T) {
 	}
 	repo.Create(template)
 
-	// 使用模板创建报表
 	report, err := repo.UseTemplate(template.ID, 1)
 	if err != nil {
 		t.Errorf("UseTemplate() error = %v", err)
@@ -321,3 +311,4 @@ func TestCustomReportRepository_GetAll_EmptyResult(t *testing.T) {
 		t.Errorf("Expected total 0, got %d", total)
 	}
 }
+

@@ -27,3 +27,4 @@ func FromClueScoreModel(s *model.ClueScore) *dto.ClueScoreResponse {
 		FactorsJSON:     s.FactorsJSON,
 	}
 }
+

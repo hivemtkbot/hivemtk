@@ -117,7 +117,6 @@ func TestIntegrationService_CreateIntegrationAccount_EmptyConfig(t *testing.T) {
 func TestIntegrationService_GetIntegrationAccountList(t *testing.T) {
 	service := setupIntegrationService(t)
 
-	// 创建测试数据
 	for i := 0; i < 3; i++ {
 		db.GetDB().Create(&model.IntegrationAccount{
 			Platform:    "crm_xiaoshouyi",
@@ -142,7 +141,6 @@ func TestIntegrationService_GetIntegrationAccountList(t *testing.T) {
 func TestIntegrationService_GetIntegrationAccountByID(t *testing.T) {
 	service := setupIntegrationService(t)
 
-	// 创建测试数据
 	account := &model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Test Account",
@@ -152,7 +150,6 @@ func TestIntegrationService_GetIntegrationAccountByID(t *testing.T) {
 	}
 	db.GetDB().Create(account)
 
-	// 获取账号
 	result, err := service.GetIntegrationAccountByID(context.Background(), account.ID)
 	if err != nil {
 		t.Fatalf("GetIntegrationAccountByID failed: %v", err)
@@ -168,7 +165,6 @@ func TestIntegrationService_GetIntegrationAccountByID(t *testing.T) {
 func TestIntegrationService_GetIntegrationAccountByID_SingleTenant(t *testing.T) {
 	service := setupIntegrationService(t)
 
-	// 创建测试数据
 	account := &model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Test Account",
@@ -178,7 +174,6 @@ func TestIntegrationService_GetIntegrationAccountByID_SingleTenant(t *testing.T)
 	}
 	db.GetDB().Create(account)
 
-	// 单租户下正常访问
 	got, err := service.GetIntegrationAccountByID(context.Background(), account.ID)
 	if err != nil {
 		t.Fatalf("GetIntegrationAccountByID should succeed in single-tenant mode, got: %v", err)
@@ -192,7 +187,6 @@ func TestIntegrationService_GetIntegrationAccountByID_SingleTenant(t *testing.T)
 func TestIntegrationService_UpdateIntegrationAccount(t *testing.T) {
 	service := setupIntegrationService(t)
 
-	// 创建测试数据
 	account := &model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Old Name",
@@ -202,7 +196,6 @@ func TestIntegrationService_UpdateIntegrationAccount(t *testing.T) {
 	}
 	db.GetDB().Create(account)
 
-	// 更新账号
 	req := &CreateIntegrationAccountRequest{
 		AccountName: "New Name",
 		APIKey:      "new_key",
@@ -228,7 +221,6 @@ func TestIntegrationService_UpdateIntegrationAccount(t *testing.T) {
 func TestIntegrationService_UpdateIntegrationAccount_SingleTenant(t *testing.T) {
 	service := setupIntegrationService(t)
 
-	// 创建测试数据
 	account := &model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Test Account",
@@ -238,7 +230,6 @@ func TestIntegrationService_UpdateIntegrationAccount_SingleTenant(t *testing.T) 
 	}
 	db.GetDB().Create(account)
 
-	// 单租户下正常更新
 	req := &CreateIntegrationAccountRequest{
 		AccountName: "Updated",
 	}
@@ -255,7 +246,6 @@ func TestIntegrationService_UpdateIntegrationAccount_SingleTenant(t *testing.T) 
 func TestIntegrationService_DeleteIntegrationAccount(t *testing.T) {
 	service := setupIntegrationService(t)
 
-	// 创建测试数据
 	account := &model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Test Account",
@@ -265,13 +255,11 @@ func TestIntegrationService_DeleteIntegrationAccount(t *testing.T) {
 	}
 	db.GetDB().Create(account)
 
-	// 删除账号
 	err := service.DeleteIntegrationAccount(context.Background(), account.ID)
 	if err != nil {
 		t.Fatalf("DeleteIntegrationAccount failed: %v", err)
 	}
 
-	// 验证已删除
 	_, err = service.GetIntegrationAccountByID(context.Background(), account.ID)
 	if err == nil {
 		t.Error("Expected account to be deleted")
@@ -283,7 +271,6 @@ func TestIntegrationService_DeleteIntegrationAccount(t *testing.T) {
 func TestIntegrationService_DeleteIntegrationAccount_SingleTenant(t *testing.T) {
 	service := setupIntegrationService(t)
 
-	// 创建测试数据
 	account := &model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Test Account",
@@ -293,7 +280,6 @@ func TestIntegrationService_DeleteIntegrationAccount_SingleTenant(t *testing.T) 
 	}
 	db.GetDB().Create(account)
 
-	// 单租户下正常删除
 	if err := service.DeleteIntegrationAccount(context.Background(), account.ID); err != nil {
 		t.Fatalf("DeleteIntegrationAccount should succeed in single-tenant mode, got: %v", err)
 	}
@@ -352,7 +338,6 @@ func TestIntegrationService_SyncProducts_UnsupportedPlatform(t *testing.T) {
 func TestIntegrationService_GetSyncLogs(t *testing.T) {
 	service := setupIntegrationService(t)
 
-	// 创建测试数据
 	for i := 0; i < 5; i++ {
 		db.GetDB().Create(&model.SyncLog{
 			Platform:    "crm_xiaoshouyi",
@@ -379,7 +364,6 @@ func TestIntegrationService_GetSyncLogs(t *testing.T) {
 func TestIntegrationService_GetExternalCustomers(t *testing.T) {
 	service := setupIntegrationService(t)
 
-	// 创建测试数据
 	for i := 0; i < 3; i++ {
 		db.GetDB().Create(&model.ExternalCustomer{
 			Platform:   "crm_xiaoshouyi",
@@ -388,7 +372,6 @@ func TestIntegrationService_GetExternalCustomers(t *testing.T) {
 		})
 	}
 
-	// 按平台筛选
 	customers, total, err := service.GetExternalCustomers(context.Background(), "crm_xiaoshouyi", 1, 10)
 	if err != nil {
 		t.Fatalf("GetExternalCustomers failed: %v", err)
@@ -406,7 +389,6 @@ func TestIntegrationService_GetExternalCustomers(t *testing.T) {
 func TestIntegrationService_GetExternalCustomers_NoPlatformFilter(t *testing.T) {
 	service := setupIntegrationService(t)
 
-	// 创建测试数据
 	db.GetDB().Create(&model.ExternalCustomer{
 		Platform:   "crm_xiaoshouyi",
 		ExternalID: "ext_id_1",
@@ -418,7 +400,6 @@ func TestIntegrationService_GetExternalCustomers_NoPlatformFilter(t *testing.T) 
 		Name:       "Customer 2",
 	})
 
-	// 不筛选平台
 	customers, total, err := service.GetExternalCustomers(context.Background(), "", 1, 10)
 	if err != nil {
 		t.Fatalf("GetExternalCustomers failed: %v", err)
@@ -436,7 +417,6 @@ func TestIntegrationService_GetExternalCustomers_NoPlatformFilter(t *testing.T) 
 func TestIntegrationService_GetExternalOrders(t *testing.T) {
 	service := setupIntegrationService(t)
 
-	// 创建测试数据
 	for i := 0; i < 3; i++ {
 		db.GetDB().Create(&model.ExternalOrder{
 			Platform: "ecommerce_taobao",
@@ -462,7 +442,6 @@ func TestIntegrationService_GetExternalOrders(t *testing.T) {
 func TestIntegrationService_GetExternalOrders_NoPlatformFilter(t *testing.T) {
 	service := setupIntegrationService(t)
 
-	// 创建测试数据
 	db.GetDB().Create(&model.ExternalOrder{
 		Platform: "ecommerce_taobao",
 		OrderID:  "order_1",
@@ -474,7 +453,6 @@ func TestIntegrationService_GetExternalOrders_NoPlatformFilter(t *testing.T) {
 		Status:   "shipped",
 	})
 
-	// 不筛选平台
 	orders, total, err := service.GetExternalOrders(context.Background(), "", 1, 10)
 	if err != nil {
 		t.Fatalf("GetExternalOrders failed: %v", err)
@@ -492,13 +470,12 @@ func TestIntegrationService_GetExternalOrders_NoPlatformFilter(t *testing.T) {
 func TestIntegrationService_GetExternalProducts(t *testing.T) {
 	service := setupIntegrationService(t)
 
-	// 创建测试数据
 	for i := 0; i < 3; i++ {
 		db.GetDB().Create(&model.ExternalProduct{
 			Platform:  "ecommerce_taobao",
 			ProductID: "product_id",
 			Name:      "Product",
-			Price:     10000, // 100.00 元 = 10000 分
+			Price:     10000, 
 			Stock:     10,
 		})
 	}
@@ -611,3 +588,4 @@ func TestNewJDClient(t *testing.T) {
 		t.Errorf("Expected appSecret 'test_secret', got '%s'", client.appSecret)
 	}
 }
+

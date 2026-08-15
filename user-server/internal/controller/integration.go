@@ -59,7 +59,6 @@ func (c *IntegrationController) GetAccountList(ctx *gin.Context) {
 		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
-	// 修复：响应脱敏，避免 APISecret/AccessToken/RefreshToken 明文回传前端
 	for _, acc := range accounts {
 		acc.APISecret = maskCredential(acc.APISecret)
 		acc.AccessToken = maskCredential(acc.AccessToken)
@@ -84,7 +83,6 @@ func (c *IntegrationController) GetAccountByID(ctx *gin.Context) {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
 	}
-	// 修复：响应脱敏，避免 APISecret/AccessToken/RefreshToken 明文回传前端
 	account.APISecret = maskCredential(account.APISecret)
 	account.AccessToken = maskCredential(account.AccessToken)
 	account.RefreshToken = maskCredential(account.RefreshToken)
@@ -371,3 +369,4 @@ func (c *IntegrationController) GetExternalProducts(ctx *gin.Context) {
 		"page_size": pageSize,
 	}, "获取成功")
 }
+

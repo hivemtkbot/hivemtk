@@ -86,7 +86,6 @@ func TestBaseCardController_Update_Success(t *testing.T) {
 	ctrl := NewDouyinCardController(svc)
 	router := gin.New()
 
-	// 先创建卡片
 	card := &model.DouyinCard{
 		Title:        "Original Card",
 		Description:  "Original description",
@@ -147,7 +146,6 @@ func TestBaseCardController_Delete_Success(t *testing.T) {
 	ctrl := NewDouyinCardController(svc)
 	router := gin.New()
 
-	// 先创建卡片
 	card := &model.DouyinCard{
 		Title:        "Card to Delete",
 		Description:  "This card will be deleted",
@@ -193,7 +191,6 @@ func TestBaseCardController_GetByID_Success(t *testing.T) {
 	ctrl := NewDouyinCardController(svc)
 	router := gin.New()
 
-	// 先创建卡片
 	card := &model.DouyinCard{
 		Title:        "Test Card",
 		Description:  "Test description",
@@ -257,7 +254,6 @@ func TestBaseCardController_GetList_Success(t *testing.T) {
 	ctrl := NewDouyinCardController(svc)
 	router := gin.New()
 
-	// 创建多个卡片
 	for i := 1; i <= 5; i++ {
 		db.Create(&model.DouyinCard{
 			Title:        "Card " + strconv.Itoa(i),
@@ -286,7 +282,6 @@ func TestBaseCardController_GetList_DefaultPagination(t *testing.T) {
 	ctrl := NewDouyinCardController(svc)
 	router := gin.New()
 
-	// 创建测试卡片
 	db.Create(&model.DouyinCard{
 		Title:        "Card",
 		Description:  "Description",
@@ -394,3 +389,4 @@ func createReqToJSON(t *testing.T, req any) *strings.Reader {
 	}
 	return strings.NewReader(string(data))
 }
+

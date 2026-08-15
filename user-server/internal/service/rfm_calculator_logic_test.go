@@ -35,36 +35,27 @@ func TestRFM_CalcRScore(t *testing.T) {
 		want int
 	}
 	cases := []tc{
-		// 5 分：days <= 7
 		{"0_days_ago", 0, 5},
 		{"1_day_ago", 1, 5},
 		{"7_days_ago_boundary", 7, 5},
-		// 4 分：7 < days <= 14
 		{"8_days_ago", 8, 4},
 		{"10_days_ago", 10, 4},
 		{"14_days_ago_boundary", 14, 4},
-		// 3 分：14 < days <= 30
 		{"15_days_ago", 15, 3},
 		{"20_days_ago", 20, 3},
 		{"29_days_ago", 29, 3},
 		{"30_days_ago_boundary", 30, 3},
-		// 2 分：30 < days <= 60
 		{"31_days_ago", 31, 2},
 		{"45_days_ago", 45, 2},
 		{"59_days_ago", 59, 2},
 		{"60_days_ago_boundary", 60, 2},
-		// 1 分：60 < days <= 90
 		{"61_days_ago", 61, 1},
 		{"75_days_ago", 75, 1},
 		{"89_days_ago", 89, 1},
 		{"90_days_ago_boundary", 90, 1},
-		// 超出 90：1 分
 		{"100_days_ago", 100, 1},
 		{"180_days_ago", 180, 1},
 		{"365_days_ago", 365, 1},
-		// nil → 1
-		// {"nil_time", -1, 1}, // 单独测
-		// 未来时间用例移除（negative days 在本测试中代表 nil）
 	}
 
 	passed, failed := 0, 0
@@ -84,7 +75,6 @@ func TestRFM_CalcRScore(t *testing.T) {
 		})
 	}
 
-	// nil 时间
 	if got := svc.calcRScore(context.Background(), nil, rule); got != 1 {
 		t.Errorf("[nil_time] got=%d want=1", got)
 		failed++
@@ -106,28 +96,21 @@ func TestRFM_CalcFScore(t *testing.T) {
 		want  int
 	}
 	cases := []tc{
-		// 0 → 1
 		{"zero", 0, 1},
-		// 1 分：count >= 1
 		{"count_1", 1, 1},
 		{"count_2", 2, 1},
-		// 2 分：count >= 3
 		{"count_3", 3, 2},
 		{"count_4", 4, 2},
-		// 3 分：count >= 5
 		{"count_5", 5, 3},
 		{"count_6", 6, 3},
 		{"count_9", 9, 3},
-		// 4 分：count >= 10
 		{"count_10", 10, 4},
 		{"count_15", 15, 4},
 		{"count_19", 19, 4},
-		// 5 分：count >= 20
 		{"count_20", 20, 5},
 		{"count_50", 50, 5},
 		{"count_100", 100, 5},
 		{"count_1000", 1000, 5},
-		// 负数（异常）→ 1（因为 0 检查通过，但 0 是边界）
 		{"negative", -1, 1},
 		{"very_negative", -100, 1},
 	}
@@ -159,36 +142,27 @@ func TestRFM_CalcMScore(t *testing.T) {
 		want   int
 	}
 	cases := []tc{
-		// 0 → 1
 		{"zero", 0, 1},
-		// 1 分：amount >= 10000 分（100 元）
 		{"amount_100_yuan", 10000, 1},
 		{"amount_200_yuan", 20000, 1},
 		{"amount_499_yuan", 49900, 1},
-		// 2 分：amount >= 50000 分（500 元）
 		{"amount_500_yuan", 50000, 2},
 		{"amount_800_yuan", 80000, 2},
 		{"amount_999_yuan", 99900, 2},
-		// 3 分：amount >= 100000 分（1000 元）
 		{"amount_1000_yuan", 100000, 3},
 		{"amount_2000_yuan", 200000, 3},
 		{"amount_4999_yuan", 499900, 3},
-		// 4 分：amount >= 500000 分（5000 元）
 		{"amount_5000_yuan", 500000, 4},
 		{"amount_7000_yuan", 700000, 4},
 		{"amount_9999_yuan", 999900, 4},
-		// 5 分：amount >= 1000000 分（10000 元）
 		{"amount_10000_yuan", 1000000, 5},
 		{"amount_50000_yuan", 5000000, 5},
 		{"amount_100000_yuan", 10000000, 5},
 		{"amount_1e8_yuan", 10000000000, 5},
-		// 小数金额（边界：99.99 元 = 9999 分）
 		{"amount_99_99_yuan", 9999, 1},
 		{"amount_100_01_yuan", 10001, 1},
-		// 负数（异常）→ 1
 		{"negative", -1, 1},
 		{"very_negative", -1000000, 1},
-		// 极小正数（1 分 = 0.01 元）
 		{"tiny_one_cent", 1, 1},
 	}
 
@@ -215,57 +189,42 @@ func TestRFM_DetermineLayer(t *testing.T) {
 	type tc struct {
 		name    string
 		r, f, m int
-		days    int // -1 = nil
+		days    int 
 		want    model.RFMLayer
 	}
 	cases := []tc{
-		// === 8 种 RFM 组合 ===
-		// R高 F高 M高 → ImportantValue
 		{"5_5_5_recent", 5, 5, 5, 1, model.RFMLayerImportantValue},
 		{"4_4_4_recent", 4, 4, 4, 10, model.RFMLayerImportantValue},
 		{"3_3_3_recent", 3, 3, 3, 25, model.RFMLayerImportantValue},
-		// R低 F高 M高 → ImportantKeep
 		{"1_5_5", 1, 5, 5, 50, model.RFMLayerImportantKeep},
 		{"2_4_4", 2, 4, 4, 50, model.RFMLayerImportantKeep},
-		// R高 F2+ M高 → ImportantDevelop (避开 New 触发：f 必须 >=2)
 		{"5_2_5", 5, 2, 5, 1, model.RFMLayerImportantDevelop},
 		{"4_2_3", 4, 2, 3, 10, model.RFMLayerImportantDevelop},
-		// R低 F低 M高 → ImportantStay
 		{"1_2_5", 1, 2, 5, 50, model.RFMLayerImportantStay},
 		{"2_2_3", 2, 2, 3, 50, model.RFMLayerImportantStay},
-		// R高 F高 M低 → GeneralValue
 		{"5_5_1", 5, 5, 1, 1, model.RFMLayerGeneralValue},
 		{"3_3_2", 3, 3, 2, 20, model.RFMLayerGeneralValue},
-		// R低 F高 M低 → GeneralKeep
 		{"1_5_1", 1, 5, 1, 50, model.RFMLayerGeneralKeep},
 		{"2_4_2", 2, 4, 2, 50, model.RFMLayerGeneralKeep},
-		// R高 F2+ M低 → GeneralDevelop (避开 New 触发)
 		{"5_2_1", 5, 2, 1, 1, model.RFMLayerGeneralDevelop},
 		{"4_2_2", 4, 2, 2, 10, model.RFMLayerGeneralDevelop},
-		// R低 F低 M低 → GeneralStay
 		{"1_2_1", 1, 2, 1, 50, model.RFMLayerGeneralStay},
 		{"2_2_2", 2, 2, 2, 50, model.RFMLayerGeneralStay},
-		// === 特殊状态：New (F=1, R>=4) ===
 		{"new_5_1_3", 5, 1, 3, 1, model.RFMLayerNew},
 		{"new_4_1_5", 4, 1, 5, 10, model.RFMLayerNew},
 		{"new_5_1_1", 5, 1, 1, 1, model.RFMLayerNew},
 		{"new_4_1_1", 4, 1, 1, 5, model.RFMLayerNew},
-		// New 边界：R=3 不算 new
-		{"not_new_3_1_3", 3, 1, 3, 20, model.RFMLayerImportantDevelop}, // R=3,F=1,M=3
-		// === 特殊状态：Sleep (60 < days <= 90) ===
+		{"not_new_3_1_3", 3, 1, 3, 20, model.RFMLayerImportantDevelop}, 
 		{"sleep_65", 1, 1, 1, 65, model.RFMLayerSleep},
 		{"sleep_80", 1, 1, 1, 80, model.RFMLayerSleep},
 		{"sleep_70", 2, 2, 2, 70, model.RFMLayerSleep},
-		// === 特殊状态：Lost (days > 90) 优先级最高，覆盖所有 RFM 组合 ===
 		{"lost_91", 1, 1, 1, 91, model.RFMLayerLost},
 		{"lost_180", 1, 1, 1, 180, model.RFMLayerLost},
 		{"lost_365", 1, 1, 1, 365, model.RFMLayerLost},
 		{"lost_high_rfm", 5, 5, 5, 100, model.RFMLayerLost},
-		// === nil 时间 ===
 		{"nil_time_1_1_1", 1, 1, 1, -1, model.RFMLayerGeneralStay},
 		{"nil_time_5_5_5", 5, 5, 5, -1, model.RFMLayerImportantValue},
-		// === 极端分数 ===
-		{"zero_all", 0, 0, 0, -1, model.RFMLayerGeneralStay}, // R=0 不存在，但 F=0,M=0
+		{"zero_all", 0, 0, 0, -1, model.RFMLayerGeneralStay}, 
 	}
 
 	passed, failed := 0, 0
@@ -341,7 +300,6 @@ func TestRFM_SaveRFMRuleRequest_FieldMapping(t *testing.T) {
 		{"normal_values", SaveRFMRuleRequest{
 			Name: "test", RDays1: 5, RDays2: 10, RDays3: 20, RDays4: 40, RDays5: 80,
 			FCount1: 1, FCount2: 2, FCount3: 3, FCount4: 4, FCount5: 5,
-			// 金额单位：分（50 元 = 5000 分）
 			MAmount1: 5000, MAmount2: 10000, MAmount3: 20000, MAmount4: 40000, MAmount5: 80000,
 			IsActive: true,
 		}},
@@ -349,7 +307,6 @@ func TestRFM_SaveRFMRuleRequest_FieldMapping(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			// 验证字段赋值
 			if tt.req.Name != "test" && tt.req.Name != "" {
 				t.Errorf("Name=%s", tt.req.Name)
 			}
@@ -382,3 +339,4 @@ func TestRFM_LayerDescription(t *testing.T) {
 		})
 	}
 }
+

@@ -263,10 +263,6 @@ func (r *WhatsAppCloudAccountRepository) Delete(ctx context.Context, id uint) er
 	return r.db.Delete(&model.WhatsAppCloudAccount{}, id).Error
 }
 
-// ============================================================================
-// 扩展方法：GetFirstEnabled / GetFirst
-// 服务于 feishu_service.go 的兜底取号逻辑（多渠道 webhook 验签配置反查）
-// ============================================================================
 
 // GetFirstEnabled 取第一个启用的飞书账号（webhook_enabled=true 且 status=1）
 // 找不到返回 gorm.ErrRecordNotFound
@@ -355,3 +351,4 @@ func (r *WhatsAppCloudAccountRepository) GetFirst(ctx context.Context) (*model.W
 	}
 	return &acc, nil
 }
+

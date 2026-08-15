@@ -10,9 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// =============================================================================
-// DetectTelegramIntent：中英双语意向打分（纯函数）
-// =============================================================================
 
 func TestDetectTelegramIntent(t *testing.T) {
 	cases := []struct {
@@ -20,7 +17,7 @@ func TestDetectTelegramIntent(t *testing.T) {
 		text     string
 		minScore int
 		wantOpp  bool
-		wantSig  string // 期望命中的关键信号（可空）
+		wantSig  string 
 	}{
 		{name: "空消息", text: "", minScore: 0, wantOpp: false},
 		{name: "普通寒暄", text: "大家好呀", minScore: 8, wantOpp: false},
@@ -59,16 +56,12 @@ func TestDetectTelegramIntent(t *testing.T) {
 }
 
 func TestDetectTelegramIntent_ScoreCap(t *testing.T) {
-	// 多条高意向词叠加应封顶 100
 	score, _, _ := DetectTelegramIntent("how much price buy wholesale distributor reseller procurement")
 	if score != 100 {
 		t.Fatalf("期望封顶 100，实际 %d", score)
 	}
 }
 
-// =============================================================================
-// format / parse 意向分往返
-// =============================================================================
 
 func TestFormatAndParseTelegramLeadScore(t *testing.T) {
 	desc := formatTelegramLeadDesc("销售交流群", "我想买", 82, []string{"价格", "合作"}, true)
@@ -83,9 +76,6 @@ func TestFormatAndParseTelegramLeadScore(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// telegramLeadAccountKey：去重键
-// =============================================================================
 
 func TestTelegramLeadAccountKey(t *testing.T) {
 	if k := telegramLeadAccountKey("alice", "123"); k != "@alice" {
@@ -105,9 +95,6 @@ func TestTelegramLeadAccountKey(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// mineTelegramGroupLead：去重 / 意向分增量 / 噪声过滤
-// =============================================================================
 
 func TestMineTelegramGroupLead_CreateDedupUpgrade(t *testing.T) {
 	db := setupTelegramTestDB(t)
@@ -115,7 +102,6 @@ func TestMineTelegramGroupLead_CreateDedupUpgrade(t *testing.T) {
 	account := "@alice"
 	hub := &model.MessageHub{MsgID: "m-1", ConversationID: "conv-alice", SenderID: "123"}
 
-	// 首次：寒暄 意向分 8 → 新建（非商机，newOpportunity=false）
 	newOpp := svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "123", "alice", "Alice", "大家好呀")
 	if newOpp {
 		t.Fatalf("寒暄不应标记为新晋商机")
@@ -130,7 +116,6 @@ func TestMineTelegramGroupLead_CreateDedupUpgrade(t *testing.T) {
 	if !strings.Contains(got.Desc, "[意向分:8]") {
 		t.Fatalf("首条 desc 应含意向分8: %s", got.Desc)
 	}
-	// 结构化意向分 + 会话关联（不再依赖解析 Desc 文本）
 	if got.IntentScore != 8 || got.IsOpportunity != 0 {
 		t.Fatalf("首条意向分/商机标记异常: score=%d opp=%d", got.IntentScore, got.IsOpportunity)
 	}
@@ -141,7 +126,6 @@ func TestMineTelegramGroupLead_CreateDedupUpgrade(t *testing.T) {
 		t.Fatalf("同一账号应仅 1 条线索，实际 %d", n)
 	}
 
-	// 再次：高意向（请问12+价格25+多少12+批发25+base8=82）→ 增量更新到 82，仍 1 条，且新晋为商机
 	newOpp = svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "123", "alice", "Alice", "请问价格多少批发")
 	if !newOpp {
 		t.Fatalf("跨过阈值应为新晋商机")
@@ -160,7 +144,6 @@ func TestMineTelegramGroupLead_CreateDedupUpgrade(t *testing.T) {
 		t.Fatalf("升级不应新增线索，实际 %d", n)
 	}
 
-	// 再次：低意向 8 → 不降级（保留 82）；已为商机，newOpportunity=false
 	newOpp = svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "123", "alice", "Alice", "你好啊")
 	if newOpp {
 		t.Fatalf("非跨阈值升级不应再标记新晋商机")
@@ -183,9 +166,9 @@ func TestMineTelegramGroupLead_NoiseSkipped(t *testing.T) {
 	account := "@bob"
 	hub := &model.MessageHub{MsgID: "m-b", ConversationID: "conv-bob", SenderID: "999"}
 
-	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "999", "bob", "Bob", "/start") // 命令
-	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "999", "bob", "Bob", "😀😀😀")    // 纯表情
-	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "999", "bob", "Bob", "   ")    // 空白
+	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "999", "bob", "Bob", "/start") 
+	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "999", "bob", "Bob", "😀😀😀")    
+	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "999", "bob", "Bob", "   ")    
 
 	if got, _ := svc.clueRepo.FindByTypeAndAccount(context.Background(), ClueTypeTelegram, account); got != nil {
 		t.Fatalf("噪声消息不应建线索，实际: %+v", got)
@@ -199,7 +182,6 @@ func TestMineTelegramGroupLead_FallbackID(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	svc := &WebhookService{db: db}
 	hub := &model.MessageHub{MsgID: "m-c", ConversationID: "conv-555", SenderID: "555"}
-	// 无 username → 用 tg:<id> 作去重键
 	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "555", "", "Unknown", "我想采购一批货")
 	got, err := svc.clueRepo.FindByTypeAndAccount(context.Background(), ClueTypeTelegram, "tg:555")
 	if err != nil || got == nil {
@@ -210,9 +192,6 @@ func TestMineTelegramGroupLead_FallbackID(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// dispatchTelegram 集成：真人发言建线索 / 机器人自身不建
-// =============================================================================
 
 func TestDispatchTelegram_MinesHumanGroupMessage(t *testing.T) {
 	db := setupTelegramTestDB(t)
@@ -236,7 +215,6 @@ func TestDispatchTelegram_MinesHumanGroupMessage(t *testing.T) {
 	if err != nil || got == nil {
 		t.Fatalf("真人群发言应建线索: err=%v got=%v", err, got)
 	}
-	// 高意向群发言应标记为「新晋商机」（触发群内主动触达），且因未配置 username 而 Mentioned=false
 	if extra == nil {
 		t.Fatalf("dispatchTelegram 应返回 tgDispatchExtra")
 	}
@@ -293,9 +271,6 @@ func TestDispatchTelegram_MinesPrivateHumanDM(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// isTelegramBotMentioned：群内 @机器人 提及识别（纯函数）
-// =============================================================================
 
 func TestIsTelegramBotMentioned(t *testing.T) {
 	cases := []struct {
@@ -309,7 +284,7 @@ func TestIsTelegramBotMentioned(t *testing.T) {
 		{name: "大小写不敏感", text: "hi @MyBot 在吗", botUsername: "mybot", want: true},
 		{name: "无 @提及", text: "请问价格多少", botUsername: "mybot", want: false},
 		{name: "提及别人", text: "找 @otherbot 吧", botUsername: "mybot", want: false},
-		{name: "用户名带前缀 @ 不匹配", text: "hi @mybotX", botUsername: "mybot", want: false}, // 子串不算，必须精确 @username
+		{name: "用户名带前缀 @ 不匹配", text: "hi @mybotX", botUsername: "mybot", want: false}, 
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -320,27 +295,19 @@ func TestIsTelegramBotMentioned(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// tgLeadOutreachAllowed：群内「发现线索主动触达」冷却
-// =============================================================================
 
 func TestTgLeadOutreachAllowed(t *testing.T) {
 	svc := &WebhookService{}
 
-	// 首次均允许
 	if !svc.tgLeadOutreachAllowed(context.Background(), "acc1", "-100", "u1") {
 		t.Fatalf("首次应允许触达")
 	}
-	// 同一发言者冷却期内拒绝
 	if svc.tgLeadOutreachAllowed(context.Background(), "acc1", "-100", "u1") {
 		t.Fatalf("冷却期内不应重复触达同一发言者")
 	}
-	// 不同发言者不受影响
 	if !svc.tgLeadOutreachAllowed(context.Background(), "acc1", "-100", "u2") {
 		t.Fatalf("不同发言者不受前者冷却影响")
 	}
-	// 注：冷却到期由全局缓存 TTL 自动释放（REDIS_HOST 配置时为 Redis 共享，否则内存单例），
-	// 不再依赖进程内 map，故此处不模拟手动提前到期；跨实例一致性由共享缓存保证。
 }
 
 // countClues 统计指定账号的 TG 线索条数（验证去重）
@@ -351,3 +318,4 @@ func countClues(t *testing.T, db *gorm.DB, account string) int {
 	}
 	return len(list)
 }
+

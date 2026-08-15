@@ -125,7 +125,6 @@ func VerifyWebhook(appSecret string, body []byte, signature string) bool {
 	return core.SecureEqual(expected, signature)
 }
 
-// ---- 被动：Webhook 事件解析 ----
 
 // WebhookEvent Meta webhook 推送结构（精简版）
 type WebhookEvent struct {
@@ -231,7 +230,6 @@ func (e *WebhookEvent) Ingress(ctx context.Context, h core.IngressHandler, accou
 						break
 					}
 				}
-				// 非文本消息内容映射（与原 dispatch 行为一致）
 				if content == "" {
 					switch msgType {
 					case "image":
@@ -268,3 +266,4 @@ func (e *WebhookEvent) Ingress(ctx context.Context, h core.IngressHandler, accou
 	}
 	return firstErr
 }
+

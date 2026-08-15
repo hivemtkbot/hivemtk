@@ -14,8 +14,8 @@ type EventTracker struct {
 	repo         repository.CustomerEventRepository
 	customerRepo repository.CustomerRepository
 	autoTagger   *AutoTagger
-	orchestrator *CustomerOrchestrator // 业务编排层（可选）
-	disableAsync bool                  // 用于测试禁用异步处理
+	orchestrator *CustomerOrchestrator 
+	disableAsync bool                  
 }
 
 // NewEventTracker 创建事件追踪服务实例
@@ -52,7 +52,6 @@ func (s *EventTracker) Track(ctx context.Context, dto *EventDTO) error {
 		return ErrInvalidDTO
 	}
 
-	// 创建事件记录
 	event := &model.CustomerEvent{
 		CustomerID:  dto.CustomerID,
 		EventType:   dto.EventType,
@@ -60,21 +59,17 @@ func (s *EventTracker) Track(ctx context.Context, dto *EventDTO) error {
 		OccurredAt:  time.Now(),
 	}
 
-	// 设置事件数据
 	if dto.EventData != nil {
 		if err := SetCustomerEventData(event, dto.EventData); err != nil {
 			return err
 		}
 	}
 
-	// 记录事件
 	if err := s.repo.Record(ctx, event); err != nil {
 		return err
 	}
 
-	// 异步触发自动标签处理 + 业务编排层联动（旅程 / 标签）
 	if !s.disableAsync {
-		// goroutine 需 recover 保护（避免 panic 杀进程）。
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -85,7 +80,6 @@ func (s *EventTracker) Track(ctx context.Context, dto *EventDTO) error {
 				logger.Errorf("AutoTagger.ProcessEvent error: %v", err)
 			}
 		}()
-		// 联动业务编排层（旅程阶段迁移 / 标签更新）
 		if s.orchestrator != nil {
 			go func() {
 				defer func() {
@@ -154,10 +148,9 @@ func (s *EventTracker) GetEventHistory(ctx context.Context, customerID string, l
 
 // GetStats 获取事件统计
 func (s *EventTracker) GetStats(ctx context.Context, start, end string) (*repository.EventStats, error) {
-	// 解析时间范围
 	startTime, err := time.Parse("2006-01-02", start)
 	if err != nil {
-		startTime = time.Now().AddDate(0, -1, 0) // 默认过去 30 天
+		startTime = time.Now().AddDate(0, -1, 0) 
 	}
 
 	endTime, err := time.Parse("2006-01-02", end)
@@ -218,7 +211,7 @@ func (s *EventTracker) TrackAddToCart(ctx context.Context, customerID, productID
 //   - 失败仅记录日志，不向上游返回错误（best-effort，不阻塞触达主流程）
 func (s *EventTracker) RecordReachEvent(ctx context.Context, customerID, channel, messageID string, success bool, errMsg string) error {
 	if customerID == "" {
-		return nil // 无客户 ID 不记录（避免污染事件表）
+		return nil 
 	}
 	eventType := model.EventType("reach")
 	eventSource := model.EventSource(channel)
@@ -289,3 +282,4 @@ func SerializeEventData(data map[string]any) (string, error) {
 	}
 	return string(jsonData), nil
 }
+

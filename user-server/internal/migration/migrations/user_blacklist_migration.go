@@ -1,14 +1,5 @@
 package migrations
 
-// user_blacklist_migration.go 创建 user_blacklist 表
-//
-// 背景：
-// 1. 方向10「坐席实时聊天看板 - 拉黑/取消拉黑」依赖 user_blacklist 表，
-//    但 model.UserBlacklist 已定义却从未被任何迁移 AutoMigrate，导致
-//    GET /api/customer-sessions/blacklist 返回 500（relation does not exist）。
-// 2. 采用 AutoMigrate 建表，由 GORM 依据 struct tag 自动推导列与索引
-//    （user_id / platform / session_id / operator_id / active 均有索引）。
-// 3. 幂等可重入：AutoMigrate 在表已存在时仅补齐缺失列，不会破坏已有数据。
 
 import (
 	"context"
@@ -66,3 +57,4 @@ func (m *UserBlacklistMigration) Down(ctx context.Context) error {
 
 // compile-time 接口断言
 var _ migration.Migration = (*UserBlacklistMigration)(nil)
+

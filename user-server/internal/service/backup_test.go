@@ -51,7 +51,6 @@ func TestBackupService_CreateBackup(t *testing.T) {
 		BackupType: model.BackupTypeFull,
 	}
 
-	// 私域部署：不传 merchantID（单租户无此字段）
 	backup, err := service.CreateBackup(ctx, 1, req)
 	if err != nil {
 		t.Fatalf("CreateBackup failed: %v", err)
@@ -104,7 +103,6 @@ func TestBackupService_CreateBackup_EmptyName(t *testing.T) {
 		t.Fatalf("CreateBackup failed: %v", err)
 	}
 
-	// 验证自动生成的备份名称格式
 	if backup.BackupName == "" {
 		t.Error("Expected auto-generated backup name")
 	}
@@ -139,7 +137,6 @@ func TestBackupService_GetBackupList(t *testing.T) {
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
-	// 创建多个备份记录
 	for i := 0; i < 5; i++ {
 		backup := &model.Backup{
 			BackupName: "backup-" + string(rune('0'+i)),
@@ -150,7 +147,6 @@ func TestBackupService_GetBackupList(t *testing.T) {
 		repo.Create(context.Background(), backup)
 	}
 
-	// 获取列表
 	backups, total, err := service.GetBackupList(ctx, 1, 10)
 	if err != nil {
 		t.Fatalf("GetBackupList failed: %v", err)
@@ -172,7 +168,6 @@ func TestBackupService_GetBackupList_Pagination(t *testing.T) {
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
-	// 创建 10 个备份记录
 	for i := 0; i < 10; i++ {
 		backup := &model.Backup{
 			BackupName: "backup-" + string(rune('0'+i)),
@@ -182,7 +177,6 @@ func TestBackupService_GetBackupList_Pagination(t *testing.T) {
 		repo.Create(context.Background(), backup)
 	}
 
-	// 第一页，每页 5 条
 	backups, total, err := service.GetBackupList(ctx, 1, 5)
 	if err != nil {
 		t.Fatalf("GetBackupList failed: %v", err)
@@ -204,7 +198,6 @@ func TestBackupService_GetBackupByID(t *testing.T) {
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
-	// 创建备份
 	backup := &model.Backup{
 		BackupName: "test-backup",
 		Status:     model.BackupStatusCompleted,
@@ -212,7 +205,6 @@ func TestBackupService_GetBackupByID(t *testing.T) {
 	}
 	repo.Create(context.Background(), backup)
 
-	// 获取备份
 	retrievedBackup, err := service.GetBackupByID(ctx, backup.ID)
 	if err != nil {
 		t.Fatalf("GetBackupByID failed: %v", err)
@@ -250,7 +242,6 @@ func TestBackupService_GetBackupByID_SingleTenant(t *testing.T) {
 	}
 	repo.Create(context.Background(), backup)
 
-	// 单租户模式下，无需 merchant 鉴权，任意用户可访问
 	got, err := service.GetBackupByID(ctx, backup.ID)
 	if err != nil {
 		t.Fatalf("GetBackupByID failed: %v", err)
@@ -267,7 +258,6 @@ func TestBackupService_DeleteBackup(t *testing.T) {
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
-	// 创建备份
 	backup := &model.Backup{
 		BackupName: "test-backup",
 		Status:     model.BackupStatusCompleted,
@@ -275,7 +265,6 @@ func TestBackupService_DeleteBackup(t *testing.T) {
 	}
 	repo.Create(context.Background(), backup)
 
-	// 删除备份
 	err := service.DeleteBackup(ctx, backup.ID)
 	if err != nil {
 		t.Fatalf("DeleteBackup failed: %v", err)
@@ -316,7 +305,6 @@ func TestBackupService_DeleteBackup_SingleTenant(t *testing.T) {
 	}
 	repo.Create(context.Background(), backup)
 
-	// 单租户模式下无需 merchant 校验，删除成功
 	err := service.DeleteBackup(ctx, backup.ID)
 	if err != nil {
 		t.Fatalf("DeleteBackup failed: %v", err)
@@ -336,7 +324,6 @@ func TestBackupService_DeleteBackup_WithFile(t *testing.T) {
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
-	// 创建临时备份文件
 	tmpDir := t.TempDir()
 	backupFile := filepath.Join(tmpDir, "test-backup.zip")
 	err := os.WriteFile(backupFile, []byte("test content"), 0644)
@@ -344,7 +331,6 @@ func TestBackupService_DeleteBackup_WithFile(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	// 创建备份记录
 	backup := &model.Backup{
 		BackupName: "test-backup",
 		FilePath:   backupFile,
@@ -353,13 +339,11 @@ func TestBackupService_DeleteBackup_WithFile(t *testing.T) {
 	}
 	repo.Create(context.Background(), backup)
 
-	// 删除备份（应同时删除文件）
 	err = service.DeleteBackup(ctx, backup.ID)
 	if err != nil {
 		t.Fatalf("DeleteBackup failed: %v", err)
 	}
 
-	// 验证文件已删除
 	if _, err := os.Stat(backupFile); !os.IsNotExist(err) {
 		t.Error("Expected backup file to be deleted")
 	}
@@ -376,7 +360,6 @@ func TestRestoreService_RestoreBackup(t *testing.T) {
 		backupRepo:  backupRepo,
 	}
 
-	// 创建已完成的备份
 	backup := &model.Backup{
 		BackupName:  "test-backup",
 		Status:      model.BackupStatusCompleted,
@@ -459,7 +442,6 @@ func TestRestoreService_RestoreBackup_SingleTenant(t *testing.T) {
 		BackupID: backup.ID,
 	}
 
-	// 单租户模式下无需 merchant 校验
 	_, err := service.RestoreBackup(ctx, 1, req)
 	if err != nil {
 		t.Fatalf("RestoreBackup failed: %v", err)
@@ -477,7 +459,6 @@ func TestRestoreService_RestoreBackup_Incomplete(t *testing.T) {
 		backupRepo:  backupRepo,
 	}
 
-	// 创建未完成的备份
 	backup := &model.Backup{
 		BackupName: "incomplete-backup",
 		Status:     model.BackupStatusPending,
@@ -509,7 +490,6 @@ func TestRestoreService_GetRestoreList(t *testing.T) {
 		backupRepo:  backupRepo,
 	}
 
-	// 创建多个恢复记录
 	for i := 0; i < 5; i++ {
 		record := &model.RestoreRecord{
 			BackupID:   uint(i + 1),
@@ -520,7 +500,6 @@ func TestRestoreService_GetRestoreList(t *testing.T) {
 		restoreRepo.Create(context.Background(), record)
 	}
 
-	// 获取列表
 	records, total, err := service.GetRestoreList(ctx, 1, 10)
 	if err != nil {
 		t.Fatalf("GetRestoreList failed: %v", err)
@@ -546,7 +525,6 @@ func TestRestoreService_GetLastRestore(t *testing.T) {
 		backupRepo:  backupRepo,
 	}
 
-	// 创建多个恢复记录
 	restoreRepo.Create(context.Background(), &model.RestoreRecord{
 		BackupID:   1,
 		BackupName: "backup-1",
@@ -554,7 +532,7 @@ func TestRestoreService_GetLastRestore(t *testing.T) {
 		CreatedBy:  1,
 	})
 
-	time.Sleep(10 * time.Millisecond) // 确保时间有差异
+	time.Sleep(10 * time.Millisecond) 
 
 	restoreRepo.Create(context.Background(), &model.RestoreRecord{
 		BackupID:   2,
@@ -563,7 +541,6 @@ func TestRestoreService_GetLastRestore(t *testing.T) {
 		CreatedBy:  1,
 	})
 
-	// 获取最近的恢复记录
 	lastRecord, err := service.GetLastRestore(ctx)
 	if err != nil {
 		t.Fatalf("GetLastRestore failed: %v", err)
@@ -605,10 +582,7 @@ func TestScheduleBackupService_CreateDailyBackup(t *testing.T) {
 
 // TestRunDailyBackup 测试运行每日备份函数
 func TestRunDailyBackup(t *testing.T) {
-	// 必须初始化测试 DB，否则 NewBackupRepository() 内部 db.GetDB() 返回 nil 导致 panic
 	setupBackupServiceTestDB(t)
-	// 这个函数不返回错误，只打印日志
-	// 测试主要确保它不会 panic
 	RunDailyBackup()
 }
 
@@ -622,7 +596,6 @@ func TestBackupService_ExecuteBackup_DirCreationError(t *testing.T) {
 		backupDataRepo: repository.NewBackupDataRepositoryWithDB(database),
 	}
 
-	// 创建备份记录
 	backup := &model.Backup{
 		BackupName: "test-backup",
 		Status:     model.BackupStatusPending,
@@ -630,19 +603,14 @@ func TestBackupService_ExecuteBackup_DirCreationError(t *testing.T) {
 	}
 	repo.Create(context.Background(), backup)
 
-	// 直接调用 executeBackup（同步测试）
-	// 注意：在 PostgreSQL 测试环境中，目录创建可能成功（因为使用临时目录）
-	// 所以这个测试主要验证异步备份流程不会崩溃
 	service.executeBackup(ctx, backup)
 
-	// 等待异步操作完成
 	time.Sleep(100 * time.Millisecond)
 
 	// 验证备份记录已更新
 	var updatedBackup model.Backup
 	database.First(&updatedBackup, backup.ID)
 
-	// 状态应该是 completed 或 failed（取决于目录创建是否成功）
 	if updatedBackup.Status != model.BackupStatusCompleted && updatedBackup.Status != model.BackupStatusFailed {
 		t.Errorf("Expected status 'completed' or 'failed', got %s", updatedBackup.Status)
 	}
@@ -655,7 +623,6 @@ func TestBackupService_CompressBackup(t *testing.T) {
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
-	// 创建临时目录和文件
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.json")
 	err := os.WriteFile(testFile, []byte(`{"test": "data"}`), 0644)
@@ -665,13 +632,11 @@ func TestBackupService_CompressBackup(t *testing.T) {
 
 	outputFile := filepath.Join(tmpDir, "output.zip")
 
-	// 测试压缩
 	err = service.compressBackup(ctx, tmpDir, outputFile)
 	if err != nil {
 		t.Fatalf("compressBackup failed: %v", err)
 	}
 
-	// 验证压缩文件已创建
 	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
 		t.Error("Expected zip file to be created")
 	}
@@ -688,7 +653,6 @@ func TestRestoreService_DecompressBackup(t *testing.T) {
 		backupRepo:  backupRepo,
 	}
 
-	// 创建临时目录和测试 zip 文件
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "data.json")
 	testContent := `{"user_id": "test-merchant"}`
@@ -697,20 +661,16 @@ func TestRestoreService_DecompressBackup(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	// 创建 zip 文件
 	zipFile := filepath.Join(tmpDir, "backup.zip")
 
-	// 使用 service 的 compressBackup 创建有效的 zip 文件
 	testService := &BackupService{backupRepo: backupRepo}
 	err = testService.compressBackup(ctx, tmpDir, zipFile)
 	if err != nil {
 		t.Fatalf("Failed to create valid zip: %v", err)
 	}
 
-	// 删除原始文件，只保留 zip
 	os.Remove(testFile)
 
-	// 测试解压
 	err = service.decompressBackup(ctx, zipFile)
 	if err != nil {
 		t.Fatalf("decompressBackup failed: %v", err)
@@ -728,7 +688,6 @@ func TestRestoreService_ExecuteRestore_FailedBackup(t *testing.T) {
 		backupRepo:  backupRepo,
 	}
 
-	// 创建恢复记录
 	record := &model.RestoreRecord{
 		BackupID:   1,
 		BackupName: "test-backup",
@@ -737,7 +696,6 @@ func TestRestoreService_ExecuteRestore_FailedBackup(t *testing.T) {
 	}
 	restoreRepo.Create(context.Background(), record)
 
-	// 创建不存在的备份文件路径
 	backup := &model.Backup{
 		BackupName: "test-backup",
 		FilePath:   "/nonexistent/backup.zip",
@@ -746,10 +704,8 @@ func TestRestoreService_ExecuteRestore_FailedBackup(t *testing.T) {
 	}
 	backupRepo.Create(context.Background(), backup)
 
-	// 执行恢复（会失败）
 	service.executeRestore(ctx, record, backup)
 
-	// 验证状态为失败
 	updatedRecord, _ := restoreRepo.GetByID(context.Background(), record.ID)
 
 	if updatedRecord.Status != "failed" {
@@ -808,7 +764,6 @@ func TestBackupService_MultipleBackupTypes(t *testing.T) {
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
-	// 测试全量备份
 	fullReq := &CreateBackupRequest{
 		BackupName: "full-backup",
 		BackupType: model.BackupTypeFull,
@@ -821,7 +776,6 @@ func TestBackupService_MultipleBackupTypes(t *testing.T) {
 		t.Errorf("Expected BackupType 'full', got %s", fullBackup.BackupType)
 	}
 
-	// 测试增量备份
 	incrementalReq := &CreateBackupRequest{
 		BackupName: "incremental-backup",
 		BackupType: model.BackupTypeIncremental,
@@ -845,10 +799,8 @@ func TestBackupService_RepositoryNil(t *testing.T) {
 		BackupType: model.BackupTypeFull,
 	}
 
-	// 当 repo 为 nil 时，CreateBackup 会 panic
 	defer func() {
 		if r := recover(); r != nil {
-			// 期望的 panic，测试通过
 			t.Logf("Expected panic when repository is nil: %v", r)
 		} else {
 			t.Error("Expected panic when repository is nil")
@@ -870,10 +822,8 @@ func TestRestoreService_RepositoryNil(t *testing.T) {
 		BackupID: 1,
 	}
 
-	// 当 repo 为 nil 时，RestoreBackup 会 panic
 	defer func() {
 		if r := recover(); r != nil {
-			// 期望的 panic，测试通过
 			t.Logf("Expected panic when repository is nil: %v", r)
 		} else {
 			t.Error("Expected panic when repository is nil")
@@ -888,7 +838,6 @@ func TestBackupService_BackupStatusTransitions(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
 	repo := newTestBackupRepository(database)
 
-	// 创建备份
 	backup := &model.Backup{
 		BackupName: "test-backup",
 		Status:     model.BackupStatusPending,
@@ -896,7 +845,6 @@ func TestBackupService_BackupStatusTransitions(t *testing.T) {
 	}
 	repo.Create(context.Background(), backup)
 
-	// 手动测试状态转换
 	backup.Status = model.BackupStatusRunning
 	repo.Update(context.Background(), backup)
 
@@ -905,7 +853,6 @@ func TestBackupService_BackupStatusTransitions(t *testing.T) {
 		t.Errorf("Expected status 'running', got %s", updated.Status)
 	}
 
-	// 转换到完成状态
 	backup.Status = model.BackupStatusCompleted
 	repo.Update(context.Background(), backup)
 
@@ -920,7 +867,6 @@ func TestRestoreService_RestoreStatusTransitions(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
 	restoreRepo := newTestRestoreRecordRepository(database)
 
-	// 创建恢复记录
 	record := &model.RestoreRecord{
 		BackupID:   1,
 		BackupName: "test-backup",
@@ -929,7 +875,6 @@ func TestRestoreService_RestoreStatusTransitions(t *testing.T) {
 	}
 	restoreRepo.Create(context.Background(), record)
 
-	// 手动测试状态转换
 	record.Status = "running"
 	restoreRepo.Update(context.Background(), record)
 
@@ -938,7 +883,6 @@ func TestRestoreService_RestoreStatusTransitions(t *testing.T) {
 		t.Errorf("Expected status 'running', got %s", updated.Status)
 	}
 
-	// 转换到完成状态
 	record.Status = "completed"
 	restoreRepo.Update(context.Background(), record)
 
@@ -971,3 +915,4 @@ func TestNewScheduleBackupService(t *testing.T) {
 		t.Error("Expected non-nil schedule backup service")
 	}
 }
+

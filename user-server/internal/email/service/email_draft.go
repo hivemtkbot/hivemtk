@@ -49,7 +49,6 @@ func (s *EmailDraftService) DeleteEmailDraft(ctx context.Context, id uuid.UUID) 
 	return s.repo.Delete(ctx, id)
 }
 
-// ---- DTO 外观方法：供 controller 调用，避免 controller 直接依赖 model ----
 
 // CreateEmailDraftDTO 通过请求 DTO 创建草稿
 func (s *EmailDraftService) CreateEmailDraftDTO(ctx context.Context, req dto.CreateEmailDraftRequest) (*dto.EmailDraftResponse, error) {
@@ -121,3 +120,4 @@ func splitCSV(s string) []string {
 	}
 	return strings.Split(s, ",")
 }
+

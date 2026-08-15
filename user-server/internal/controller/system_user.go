@@ -1,19 +1,5 @@
 package controller
 
-// system_user.go 系统用户控制器（人员管理）
-//
-// 五层架构归属：L2 控制层
-// 路由：/api/system/users/*（仅 admin 可见，由 router/system_user_routes.go 注册）
-//
-// 阶段 4 范围：
-//   - GetUsers / GetByID / Create / Update / Delete
-//   - 全部受 RequireAdminMiddleware 保护（路由层）
-//   - 业务校验失败（service 返回的 *service.ErrInvalidInput 包装）→ 400
-//
-// 注意：
-//   - 旧的 SystemUserController（GetUsers/GetUser/CreateUser/UpdateUser/DeleteUser/ResetPassword）
-//     仍位于 controller/auth.go，供 setupUserRoutes（/api/user/*、/api/users/*）使用
-//   - 本文件独立承载"人员管理"模块的 5 个新端点，避免与旧 controller 互相干扰
 
 import (
 	"errors"
@@ -116,7 +102,6 @@ func (c *SystemUserAdminController) GetUsers(ctx *gin.Context) {
 		writeServiceError(ctx, err)
 		return
 	}
-	// 分页参数兜底（与 service 层一致）
 	p := req.Page
 	if p < 1 {
 		p = 1
@@ -201,3 +186,4 @@ func (c *SystemUserAdminController) Delete(ctx *gin.Context) {
 	}
 	response.Success(ctx, nil, "账号删除成功")
 }
+

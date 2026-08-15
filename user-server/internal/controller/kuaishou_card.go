@@ -47,7 +47,6 @@ func (c *KuaishouCardController) Update(ctx *gin.Context) {
 		return
 	}
 
-	// 从 URI 参数获取 ID 并验证与 JSON 中的 ID 一致
 	idStr := ctx.Param("id")
 	idFromURI, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -55,7 +54,6 @@ func (c *KuaishouCardController) Update(ctx *gin.Context) {
 		return
 	}
 
-	// 验证 JSON 中的 ID 与 URI 中的 ID 一致
 	if req.ID == 0 {
 		req.ID = uint(idFromURI)
 	} else if req.ID != uint(idFromURI) {
@@ -114,7 +112,6 @@ func (c *KuaishouCardController) GetList(ctx *gin.Context) {
 		return
 	}
 
-	// 设置默认值
 	if req.Page <= 0 {
 		req.Page = 1
 	}
@@ -196,21 +193,18 @@ func (c *KuaishouCardController) GenerateShortLink(ctx *gin.Context) {
 		return
 	}
 
-	// 获取卡片模型
 	card, err := c.service.GetCardModelByID(ctx, uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, response.ErrResourceNotFound, err.Error())
 		return
 	}
 
-	// 生成短链接
 	err = c.service.GenerateShortLink(ctx, card)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, response.ErrBusinessError, err.Error())
 		return
 	}
 
-	// 重新获取卡片信息
 	updatedCard, err := c.service.GetByID(ctx, uint(id))
 	if HandleDBError(ctx, err, "获取快手卡片") {
 		return
@@ -229,3 +223,4 @@ func (c *KuaishouCardController) SharePage(ctx *gin.Context) {
 	}
 	renderCardChatPage(ctx, c.service.GenerateCardChatPage, uint(id), buildBaseURL(ctx))
 }
+

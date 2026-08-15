@@ -76,7 +76,6 @@ func TestShortLinkRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
-	// 创建测试数据
 	link := &model.ShortLink{
 		ShortCode:   "getbyid",
 		OriginalURL: "https://example.com",
@@ -123,7 +122,6 @@ func TestShortLinkRepository_GetByShortCode(t *testing.T) {
 	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
-	// 创建测试数据
 	link := &model.ShortLink{
 		ShortCode:   "testcode",
 		OriginalURL: "https://example.com/test",
@@ -171,7 +169,6 @@ func TestShortLinkRepository_GetList(t *testing.T) {
 	database := setupShortLinkTestDB(t)
 	repo := NewShortLinkRepository(database)
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		database.Create(&model.ShortLink{
 			ShortCode:   "code" + string(rune('0'+i)),
@@ -181,7 +178,6 @@ func TestShortLinkRepository_GetList(t *testing.T) {
 		})
 	}
 
-	// 创建 1 个禁用的短链
 	database.Create(&model.ShortLink{
 		ShortCode:   "disabled",
 		OriginalURL: "https://example.com/disabled",
@@ -271,7 +267,6 @@ func TestShortLinkRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
-	// 创建测试数据
 	link := &model.ShortLink{
 		ShortCode:   "update",
 		OriginalURL: "https://example.com/original",
@@ -301,7 +296,6 @@ func TestShortLinkRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
-	// 创建测试数据
 	link := &model.ShortLink{
 		ShortCode:   "delete",
 		OriginalURL: "https://example.com/delete",
@@ -324,7 +318,6 @@ func TestShortLinkRepository_GetTotalCount(t *testing.T) {
 	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		repo.Create(ctx, &model.ShortLink{
 			ShortCode:   "code" + string(rune('0'+i)),
@@ -347,7 +340,6 @@ func TestShortLinkRepository_IncreaseClickCount(t *testing.T) {
 	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
-	// 创建测试数据
 	link := &model.ShortLink{
 		ShortCode:   "click",
 		OriginalURL: "https://example.com",
@@ -365,7 +357,6 @@ func TestShortLinkRepository_IncreaseClickCount(t *testing.T) {
 		t.Errorf("Expected ClickCount 1, got %d", updated.ClickCount)
 	}
 
-	// 再次增加
 	err = repo.IncreaseClickCount(context.Background(), link.ID)
 	if err != nil {
 		t.Errorf("IncreaseClickCount() error = %v", err)
@@ -443,3 +434,4 @@ func TestShortLinkRepository_WithExpireTime(t *testing.T) {
 		t.Error("Expected ExpireTime to be set")
 	}
 }
+

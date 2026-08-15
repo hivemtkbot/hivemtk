@@ -91,7 +91,6 @@ func (d *Dispatcher) GetCandidateChain(scenario DispatchScenario) []string {
 			out = append(out, name)
 		}
 	}
-	// 自动追加本地兜底（如果存在）
 	if !seen["default"] {
 		if _, ok := d.providers["default"]; ok {
 			out = append(out, "default")
@@ -122,9 +121,8 @@ func (d *Dispatcher) CountProvidersByStatus() (up, down, disabled int) {
 			disabled++
 			continue
 		}
-		// 这里不读 ProviderFailover 的健康表，仅看 Enabled 字段
-		// 详细的 up/down 状态由 ProviderFailover.GetAllHealth() 提供
 		up++
 	}
 	return up, down, disabled
 }
+

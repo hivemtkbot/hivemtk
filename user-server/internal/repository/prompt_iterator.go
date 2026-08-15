@@ -1,15 +1,5 @@
 package repository
 
-// prompt_iterator.go 反馈闭环 - Prompt 迭代器域仓储方法
-//
-// 五层架构归属: L3 仓储层
-// 设计依据: docs/核心链路优化.md 第十七章 §17.4.3
-//
-// 职责：封装 prompt_candidates / prompt_ab_tests / bandit_arms 的写入
-//        + feedback_events 负反馈样本查询（Raw SQL）
-//
-// 说明：本文件方法挂载在 FeedbackLoopRepository 上（与 feedback_loop_repository.go 同结构体），
-//        按业务域拆分文件便于维护，不引入新的仓储结构体。
 
 import (
 	"context"
@@ -112,3 +102,4 @@ func (r *FeedbackLoopRepository) CreateBanditArmsInBatches(ctx context.Context, 
 	}
 	return r.db.WithContext(ctx).CreateInBatches(arms, batchSize).Error
 }
+

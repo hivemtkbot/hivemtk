@@ -82,7 +82,6 @@ func TestDouyinCardRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupDouyinCardRepository(t)
 
-	// 创建测试数据
 	card := &model.DouyinCard{
 		Title:       "GetByID Card",
 		Description: "GetByID Description",
@@ -130,11 +129,9 @@ func TestDouyinCardRepository_GetList(t *testing.T) {
 	database := setupDouyinCardTestDB(t)
 	repo := NewDouyinCardRepository(database)
 
-	// 创建测试数据
 	activeTrue := true
 	activeFalse := false
 
-	// 创建 5 个活跃卡片
 	for i := 1; i <= 5; i++ {
 		card := &model.DouyinCard{
 			Title:    "Active Card " + string(rune('A'+i-1)),
@@ -145,15 +142,13 @@ func TestDouyinCardRepository_GetList(t *testing.T) {
 		}
 	}
 
-	// 创建 1 个不活跃卡片 - 先创建再更新 IsActive 字段
 	inactiveCard := &model.DouyinCard{
 		Title:    "Inactive Card",
-		IsActive: true, // 先设置为 true 让 GORM 创建记录
+		IsActive: true, 
 	}
 	if err := database.Create(inactiveCard).Error; err != nil {
 		t.Fatalf("Failed to create inactive card: %v", err)
 	}
-	// 然后用 Update 明确更新 IsActive 为 false
 	if err := database.Model(&model.DouyinCard{}).Where("id = ?", inactiveCard.ID).Update("is_active", false).Error; err != nil {
 		t.Fatalf("Failed to update inactive card IsActive: %v", err)
 	}
@@ -246,7 +241,6 @@ func TestDouyinCardRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	repo := setupDouyinCardRepository(t)
 
-	// 创建测试数据
 	card := &model.DouyinCard{
 		Title:       "Original Title",
 		Description: "Original Description",
@@ -276,7 +270,6 @@ func TestDouyinCardRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	repo := setupDouyinCardRepository(t)
 
-	// 创建测试数据
 	card := &model.DouyinCard{
 		Title:    "To Delete",
 		IsActive: true,
@@ -299,7 +292,6 @@ func TestDouyinCardRepository_IncrementViewCount(t *testing.T) {
 	ctx := context.Background()
 	repo := setupDouyinCardRepository(t)
 
-	// 创建测试数据
 	card := &model.DouyinCard{
 		Title:     "View Count Test",
 		ViewCount: 0,
@@ -321,7 +313,6 @@ func TestDouyinCardRepository_IncrementShareCount(t *testing.T) {
 	ctx := context.Background()
 	repo := setupDouyinCardRepository(t)
 
-	// 创建测试数据
 	card := &model.DouyinCard{
 		Title:      "Share Count Test",
 		ShareCount: 0,
@@ -338,3 +329,4 @@ func TestDouyinCardRepository_IncrementShareCount(t *testing.T) {
 		t.Errorf("Expected ShareCount 1, got %d", updated.ShareCount)
 	}
 }
+

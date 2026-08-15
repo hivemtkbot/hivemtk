@@ -23,15 +23,12 @@ func setupXiaohongshuCardServiceTestDB(t *testing.T) *gorm.DB {
 		&model.XiaohongshuCardActivity{},
 	)
 	db.SetTestDB(database)
-	// 预 seed 一条 ID=1 的可用域名池记录，所有测试用例都使用 DomainPoolID=uintPtr(1)
-	// 若缺少该记录，XiaohongshuCardService.Create → GenerateShortLink → ShortLinkService.Create
-	// 会因 domainRepo.GetByID(context.Background(), 1) 失败而返回"域名不存在"。
 	if err := database.Create(&model.DomainPool{
 		ID:      1,
 		Domain:  "example.com",
 		Port:    80,
 		Purpose: "测试域名",
-		Status:  1, // 1=正常可用
+		Status:  1, 
 	}).Error; err != nil {
 		t.Fatalf("预创建 DomainPool 记录失败: %v", err)
 	}
@@ -125,7 +122,6 @@ func TestXiaohongshuCardService_Update_Success(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-	// 先创建卡片
 	createReq := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Original Card",
 		Description:  "Original description",
@@ -140,7 +136,6 @@ func TestXiaohongshuCardService_Update_Success(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 更新卡片
 	updateReq := &dto.XiaohongshuCardUpdateRequest{
 		ID:          createdCard.ID,
 		Title:       "Updated Card",
@@ -213,8 +208,6 @@ func TestXiaohongshuCardService_Delete_NotFound(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-	// Service 的 Delete 方法会先检查卡片是否存在
-	// 对于不存在的卡片会返回错误
 	err := service.Delete(context.Background(), 999)
 	if err == nil {
 		t.Error("Expected error for deleting non-existent card")
@@ -480,3 +473,4 @@ func TestXiaohongshuCardService_Create_InactiveCard(t *testing.T) {
 func uintPtr(i uint) *uint {
 	return &i
 }
+

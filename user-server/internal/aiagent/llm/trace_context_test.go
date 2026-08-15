@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ===== 测试用例 =====
 
 // 1. NewTraceContext 生成 trace_id 和 span_id
 func TestNewTraceContext(t *testing.T) {
@@ -153,7 +152,6 @@ func TestInMemoryTraceBusPublish(t *testing.T) {
 		Operation: "chat_completion",
 		Timestamp: time.Now(),
 	})
-	// 等待异步派发
 	deadline := time.Now().Add(500 * time.Millisecond)
 	for time.Now().Before(deadline) && got.Load() == 0 {
 		time.Sleep(10 * time.Millisecond)
@@ -188,28 +186,27 @@ func TestInMemoryTraceBusMultiSubscribers(t *testing.T) {
 func TestInMemoryTraceBusSubscribeNil(t *testing.T) {
 	bus := NewInMemoryTraceBus()
 	defer bus.Stop()
-	bus.Subscribe(nil) // 不应 panic
+	bus.Subscribe(nil) 
 }
 
 // 14. InMemoryTraceBus Stop 不重复关闭
 func TestInMemoryTraceBusStop(t *testing.T) {
 	bus := NewInMemoryTraceBus()
 	bus.Stop()
-	bus.Stop() // 不应 panic
+	bus.Stop() 
 }
 
 // 15. InMemoryTraceBus Stop 后 Publish 丢弃
 func TestInMemoryTraceBusStopPublish(t *testing.T) {
 	bus := NewInMemoryTraceBus()
 	bus.Stop()
-	bus.Publish(TraceEvent{TraceID: "t1", SpanID: "s1"}) // 不应 panic
+	bus.Publish(TraceEvent{TraceID: "t1", SpanID: "s1"}) 
 }
 
 // 16. PublishTraceEvent 自动补全字段
 func TestPublishTraceEventAutoFill(t *testing.T) {
 	bus := NewInMemoryTraceBus()
 	defer bus.Stop()
-	// 临时把全局 bus 指向本地 bus（仅此测试用），测试结束恢复
 	oldBus := globalTraceBus
 	globalTraceBus = bus
 	defer func() { globalTraceBus = oldBus }()
@@ -489,8 +486,6 @@ func TestTraceEventQueryByTraceID(t *testing.T) {
 
 // 29. TraceContextFromGin 从 gin.Context 取出 TraceContext
 func TestTraceContextFromGin(t *testing.T) {
-	// 此测试在 llm 包内，无法直接调用 middleware 包（会循环引用）
-	// 测试 NewTraceContext 注入与取出
 	tc := NewTraceContext("trace-gin-1", "")
 	if tc.TraceID() != "trace-gin-1" {
 		t.Errorf("expected trace-gin-1, got %s", tc.TraceID())
@@ -506,7 +501,6 @@ func TestGetGlobalTraceBusSingleton(t *testing.T) {
 	}
 }
 
-// ===== 测试辅助 =====
 
 type testSubscriber struct {
 	fn func(event TraceEvent)
@@ -517,3 +511,4 @@ func (s *testSubscriber) OnEvent(event TraceEvent) {
 		s.fn(event)
 	}
 }
+

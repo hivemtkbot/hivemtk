@@ -94,7 +94,6 @@ func TestEmailSmtpRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailSmtpRepository(t)
 
-	// 创建测试数据
 	smtp := &model.EmailSmtp{
 		Name:     "GetByID SMTP",
 		Server:   "smtp.getbyid.com",
@@ -147,7 +146,6 @@ func TestEmailSmtpRepository_GetEmailSmtpList(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailSmtpRepository(t)
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		repo.Create(ctx, &model.EmailSmtp{
 			Name:     "SMTP " + string(rune('0'+i)),
@@ -174,7 +172,6 @@ func TestEmailSmtpRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailSmtpRepository(t)
 
-	// 创建测试数据
 	smtp := &model.EmailSmtp{
 		Name:     "Original SMTP",
 		Server:   "smtp.original.com",
@@ -185,7 +182,6 @@ func TestEmailSmtpRepository_Update(t *testing.T) {
 	}
 	repo.Create(ctx, smtp)
 
-	// 更新
 	smtp.Name = "Updated SMTP"
 	smtp.Server = "smtp.updated.com"
 	smtp.Port = 465
@@ -213,7 +209,6 @@ func TestEmailSmtpRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailSmtpRepository(t)
 
-	// 创建测试数据
 	smtp := &model.EmailSmtp{
 		Name:     "Delete SMTP",
 		Server:   "smtp.delete.com",
@@ -260,3 +255,4 @@ func TestEmailSmtpRepository_GetEmailSmtpList_EmptyResult(t *testing.T) {
 		t.Errorf("Expected 0 SMTP configs, got %d", len(results))
 	}
 }
+

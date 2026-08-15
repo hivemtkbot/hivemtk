@@ -51,6 +51,6 @@ func (m *LiveCodeClickLogsMigration) Up(ctx context.Context) error {
 }
 
 func (m *LiveCodeClickLogsMigration) Down(ctx context.Context) error {
-	// 审计日志表按设计长期保留，不提供回滚（删除会丢失审计数据）
 	return nil
 }
+

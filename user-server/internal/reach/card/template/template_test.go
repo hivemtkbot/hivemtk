@@ -58,7 +58,6 @@ func TestNewTemplateService(t *testing.T) {
 }
 
 func TestTemplateService_GenerateDouyinCardPage(t *testing.T) {
-	// Create a temporary template file
 	tempDir := t.TempDir()
 	tmplContent := `<html><body><h1>{{.Title}}</h1><p>{{.Description}}</p></body></html>`
 	tmplPath := filepath.Join(tempDir, "douyin_card.html")
@@ -100,7 +99,6 @@ func TestTemplateService_GenerateDouyinCardPage_NonExistentTemplate(t *testing.T
 }
 
 func TestTemplateService_GenerateLiveCodePage(t *testing.T) {
-	// Create a temporary template file
 	tempDir := t.TempDir()
 	tmplContent := `<html><body><h1>{{.Title}}</h1><p>{{.Description}}</p><p>Total: {{.TotalClicks}}</p></body></html>`
 	tmplPath := filepath.Join(tempDir, "live_code.html")
@@ -143,7 +141,6 @@ func TestTemplateService_GenerateLiveCodePage_NonExistentTemplate(t *testing.T) 
 }
 
 func TestTemplateService_GenerateXiaohongshuCardPage(t *testing.T) {
-	// Create a temporary template file
 	tempDir := t.TempDir()
 	tmplContent := `<html><body><h1>{{.Title}}</h1></body></html>`
 	tmplPath := filepath.Join(tempDir, "xiaohongshu_card.html")
@@ -168,7 +165,6 @@ func TestTemplateService_GenerateXiaohongshuCardPage(t *testing.T) {
 }
 
 func TestTemplateService_GenerateKuaishouCardPage(t *testing.T) {
-	// Create a temporary template file
 	tempDir := t.TempDir()
 	tmplContent := `<html><body><h1>{{.Title}}</h1></body></html>`
 	tmplPath := filepath.Join(tempDir, "kuaishou_card.html")
@@ -193,7 +189,6 @@ func TestTemplateService_GenerateKuaishouCardPage(t *testing.T) {
 }
 
 func TestTemplateService_RenderXianyuCard(t *testing.T) {
-	// Create a temporary template file
 	tempDir := t.TempDir()
 	tmplContent := `<html><body><h1>{{.Title}}</h1></body></html>`
 	tmplPath := filepath.Join(tempDir, "xianyu_card.html")
@@ -236,7 +231,6 @@ func TestTemplateService_RenderXianyuCard_NonExistentTemplate(t *testing.T) {
 
 // Test template execution error
 func TestTemplateService_ExecuteError(t *testing.T) {
-	// Create a template with a syntax error
 	tempDir := t.TempDir()
 	tmplContent := `<html><body><h1>{{.InvalidField}}</h1></body></html>`
 	tmplPath := filepath.Join(tempDir, "douyin_card.html")
@@ -259,7 +253,6 @@ func TestTemplateService_ExecuteError(t *testing.T) {
 // TestTemplateService_GenerateLiveCodePage_AllFields tests all fields in LiveCodeTemplateData
 func TestTemplateService_GenerateLiveCodePage_AllFields(t *testing.T) {
 	tempDir := t.TempDir()
-	// Template that uses all fields
 	tmplContent := `
 <html>
 <body>
@@ -304,7 +297,6 @@ QR Count: {{.QRCount}}
 		t.Fatalf("GenerateLiveCodePage failed: %v", err)
 	}
 
-	// Verify all fields are rendered
 	expectedStrings := []string{
 		"test-id-123",
 		"Live Code Title",
@@ -506,3 +498,4 @@ func TestTemplateService_GenerateDouyinCardPage_AllFields(t *testing.T) {
 		}
 	}
 }
+

@@ -92,3 +92,4 @@ func TestKnowledgeBase_SharedHasNilOwner(t *testing.T) {
 		t.Error("shared KB must have nil OwnerAgentID")
 	}
 }
+

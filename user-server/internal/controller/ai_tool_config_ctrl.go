@@ -188,3 +188,4 @@ func (c *AIToolConfigController) UnbindAccount(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "message": "success"})
 }
+

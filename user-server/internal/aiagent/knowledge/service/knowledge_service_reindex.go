@@ -56,3 +56,4 @@ func (s *KnowledgeService) RebuildIndex(ctx context.Context, productID string) e
 	}
 	return firstErr
 }
+

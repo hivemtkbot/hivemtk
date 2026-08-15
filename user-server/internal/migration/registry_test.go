@@ -11,17 +11,14 @@ import (
 func TestMigrationRegistry_Register(t *testing.T) {
 	registry := NewMigrationRegistry()
 
-	// 创建一个模拟迁移
 	testMigration := &testMigration{
 		version:     "v1.1.0",
 		name:        "Add new feature",
 		description: "Add new feature migration",
 	}
 
-	// 注册迁移
 	registry.Register(testMigration)
 
-	// 验证注册成功
 	migration, ok := registry.Get("v1.1.0")
 	if !ok {
 		t.Fatal("Expected migration to be registered")
@@ -46,7 +43,6 @@ func TestMigrationRegistry_GetNonExistent(t *testing.T) {
 func TestMigrationRegistry_GetAll(t *testing.T) {
 	registry := NewMigrationRegistry()
 
-	// 注册多个迁移
 	registry.Register(&testMigration{version: "v1.0.0", name: "Initial"})
 	registry.Register(&testMigration{version: "v1.1.0", name: "Update 1"})
 	registry.Register(&testMigration{version: "v1.2.0", name: "Update 2"})
@@ -61,15 +57,12 @@ func TestMigrationRegistry_GetAll(t *testing.T) {
 func TestMigrationRegistry_GetPending(t *testing.T) {
 	registry := NewMigrationRegistry()
 
-	// 注册多个迁移
 	registry.Register(&testMigration{version: "v1.0.0", name: "Initial"})
 	registry.Register(&testMigration{version: "v1.1.0", name: "Update 1"})
 	registry.Register(&testMigration{version: "v1.2.0", name: "Update 2"})
 
-	// 模拟已执行的版本
 	executedVersions := []string{"v1.0.0", "v1.1.0"}
 
-	// 获取待执行的迁移
 	pending := registry.GetPending(executedVersions)
 	if len(pending) != 1 {
 		t.Errorf("Expected 1 pending migration, got %d", len(pending))
@@ -85,7 +78,6 @@ func TestMigrationRegistry_GetPending_Empty(t *testing.T) {
 
 	registry.Register(&testMigration{version: "v1.0.0", name: "Initial"})
 
-	// 所有迁移都已执行
 	executedVersions := []string{"v1.0.0"}
 	pending := registry.GetPending(executedVersions)
 
@@ -98,7 +90,6 @@ func TestMigrationRegistry_GetPending_Empty(t *testing.T) {
 func TestMigrationRegistry_Validate(t *testing.T) {
 	registry := NewMigrationRegistry()
 
-	// 添加唯一的迁移
 	registry.Register(&testMigration{version: "v1.0.0", name: "Initial"})
 	registry.Register(&testMigration{version: "v1.1.0", name: "Update 1"})
 
@@ -114,13 +105,10 @@ func TestMigrationRegistry_Validate_Duplicate(t *testing.T) {
 		migrations: make(map[string]Migration),
 	}
 
-	// 手动添加重复的迁移
 	m := &testMigration{version: "v1.0.0", name: "Initial"}
 	registry.migrations["v1.0.0"] = m
-	registry.migrations["v1.0.0"] = m // 重复
+	registry.migrations["v1.0.0"] = m 
 
-	// 由于 map 会覆盖，所以不会检测到重复
-	// 这个测试验证 Validate 只检查 map 的 key
 	err := registry.Validate()
 	if err != nil {
 		t.Errorf("Expected no error for overwritten entry, got %v", err)
@@ -131,13 +119,9 @@ func TestMigrationRegistry_Validate_Duplicate(t *testing.T) {
 func TestMigrationRegistry_Validate_DetectDuplicate(t *testing.T) {
 	registry := NewMigrationRegistry()
 
-	// 使用不同的 mock 实例但相同的版本号
 	registry.Register(&testMigration{version: "v1.0.0", name: "Initial"})
-	// 注意：实际上 register 会覆盖，所以不会检测到重复
-	// 这个测试主要是为了覆盖 Validate 方法的代码路径
 	registry.Register(&testMigration{version: "v1.0.0", name: "Duplicate"})
 
-	// Validate 不会检测到重复，因为后一个会覆盖前一个
 	err := registry.Validate()
 	if err != nil {
 		t.Errorf("Expected no error (duplicate is overwritten), got %v", err)
@@ -236,7 +220,6 @@ func TestMigrationRegistry_NilContext(t *testing.T) {
 	m := &testMigration{version: "v1.0.0", name: "Test"}
 	registry.Register(m)
 
-	// 使用 nil 上下文调用
 	err := m.Up(nil)
 	if err != nil {
 		t.Errorf("Expected no error with nil context, got %v", err)
@@ -250,7 +233,6 @@ func TestMigrationRegistry_EmptyContext(t *testing.T) {
 	m := &testMigration{version: "v1.0.0", name: "Test"}
 	registry.Register(m)
 
-	// 使用空上下文调用
 	ctx := context.Background()
 	err := m.Up(ctx)
 	if err != nil {
@@ -286,7 +268,6 @@ func TestMigrationRegistry_GetPending_NoExecutedVersions(t *testing.T) {
 	registry.Register(&testMigration{version: "v1.0.0", name: "Initial"})
 	registry.Register(&testMigration{version: "v1.1.0", name: "Update 1"})
 
-	// 空已执行版本列表
 	pending := registry.GetPending([]string{})
 	if len(pending) != 2 {
 		t.Errorf("Expected 2 pending migrations, got %d", len(pending))
@@ -301,7 +282,6 @@ func TestMigrationRegistry_GetPartialExecutedVersions(t *testing.T) {
 	registry.Register(&testMigration{version: "v1.1.0", name: "Update 1"})
 	registry.Register(&testMigration{version: "v1.2.0", name: "Update 2"})
 
-	// 部分已执行
 	executedVersions := []string{"v1.1.0"}
 
 	pending := registry.GetPending(executedVersions)
@@ -324,3 +304,4 @@ func TestMigrationService_Mechanics(t *testing.T) {
 		t.Error("Expected registry to be set")
 	}
 }
+

@@ -12,17 +12,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// LLM 路由服务（重构于）
-// ----------------------------------------------------------------------------
-// 核心能力：
-//  1. scenario 维度：LLMModelStat 拆为「按 provider」+「按 (provider, scenario)」
-//  2. 路由变更走 SetRouteWithAudit（自动落 llm_routing_audit 表）
-//  3. TestModel 走独立路径：直接调 dispatcher.callProvider，不动 routes map
-//  4. Usage 读 llm_routing_logs 聚合（按 scenario+provider），同时返回 in-memory 实时数据
-//  5. CostStats 暴露按场景维度的详细统计
-//  6. Stats 读 llm_routing_logs 跨进程历史
-// ============================================================================
 
 // LLMModelStat 内存中"按 provider"实时累计（用于 /stats 实时面板）
 //
@@ -36,7 +25,7 @@ type LLMModelStat struct {
 	FailedCount  int64     `json:"failed_count"`
 	TotalTokens  int64     `json:"total_tokens"`
 	TotalCost    float64   `json:"total_cost"`
-	AvgLatencyMs int64     `json:"avg_latency_ms"` // 最近一次写入的延迟（不是真平均）
+	AvgLatencyMs int64     `json:"avg_latency_ms"` 
 	LastUsedAt   time.Time `json:"last_used_at"`
 }
 
@@ -46,7 +35,7 @@ type LLMProviderInfo struct {
 	DisplayName  string   `json:"display_name,omitempty"`
 	BaseURL      string   `json:"base_url"`
 	Model        string   `json:"model"`
-	APIKey       string   `json:"api_key,omitempty"` // 创建/更新时设置；列表仅返回是否设置（APIKeySet）
+	APIKey       string   `json:"api_key,omitempty"` 
 	APIKeySet    bool     `json:"api_key_set"`
 	Enabled      bool     `json:"enabled"`
 	QualityScore float64  `json:"quality_score"`
@@ -122,7 +111,7 @@ type LLMRoutingService struct {
 	dispatcher *llm.Dispatcher
 
 	mu    sync.Mutex
-	stats map[string]*LLMModelStat // key=provider，进程内实时累计
+	stats map[string]*LLMModelStat 
 }
 
 // NewLLMRoutingService 创建 LLM 路由服务
@@ -133,9 +122,6 @@ func NewLLMRoutingService(d *llm.Dispatcher) *LLMRoutingService {
 	}
 }
 
-// ============================================================================
-// 模型管理
-// ============================================================================
 
 // ListModels 列出所有 provider
 func (s *LLMRoutingService) ListModels(ctx context.Context) []LLMProviderInfo {
@@ -171,11 +157,9 @@ func (s *LLMRoutingService) ResolveProviderName(name string) string {
 	if s.dispatcher == nil || name == "" {
 		return ""
 	}
-	// 1. 按 provider Name 精确匹配
 	if s.dispatcher.GetProvider(name) != nil {
 		return name
 	}
-	// 2. 按 Model 字段精确匹配
 	for _, p := range s.dispatcher.GetAllProviders() {
 		if p.Model == name {
 			return p.Name
@@ -219,12 +203,10 @@ func (s *LLMRoutingService) CreateModel(ctx context.Context, info LLMProviderInf
 		Vendor:       info.Vendor,
 		Tags:         info.Tags,
 	}
-	s.dispatcher.AddProvider(pc) // 内存立即生效
-	// 落库：容器重启后经 LoadProvidersFromDB 重新加载，避免丢失
+	s.dispatcher.AddProvider(pc) 
 	if err := s.dispatcher.UpsertProviderToDB(pc); err != nil {
 		return fmt.Errorf("provider 落库失败: %w", err)
 	}
-	// 审计：注册新模型（不污染 routes map，直接写 audit）
 	s.dispatcher.LogModelLifecycle(ctx,
 		"create_model", info.Name, operatorFromContext(ctx), logger.TraceIDFromContext(ctx))
 	return nil
@@ -255,7 +237,6 @@ func (s *LLMRoutingService) UpdateModel(ctx context.Context, identifier string, 
 	if old == nil {
 		return fmt.Errorf("provider %q not found", identifier)
 	}
-	// API Key 处理：空 = 保留；清空标记 = 清空；其他 = 覆盖
 	apiKey := old.APIKey
 	switch {
 	case info.APIKey == APIKeyClearSentinel:
@@ -264,12 +245,12 @@ func (s *LLMRoutingService) UpdateModel(ctx context.Context, identifier string, 
 		apiKey = info.APIKey
 	}
 	updated := llm.ProviderConfig{
-		Name:         identifier, // 不允许重命名（避免 routes 引用断裂）
+		Name:         identifier, 
 		DisplayName:  orDefault(info.DisplayName, old.DisplayName),
 		BaseURL:      orDefault(info.BaseURL, old.BaseURL),
 		Model:        orDefault(info.Model, old.Model),
 		APIKey:       apiKey,
-		APIType:      old.APIType, // LLMProviderInfo 无此字段，沿用原值
+		APIType:      old.APIType, 
 		Enabled:      info.Enabled,
 		QualityScore: nonZero(info.QualityScore, old.QualityScore),
 		MaxRPM:       nonZeroInt(info.MaxRPM, old.MaxRPM),
@@ -278,8 +259,7 @@ func (s *LLMRoutingService) UpdateModel(ctx context.Context, identifier string, 
 		Vendor:       orDefault(info.Vendor, old.Vendor),
 		Tags:         info.Tags,
 	}
-	s.dispatcher.AddProvider(updated) // 内存立即生效
-	// 落库：镜像内存态（含 APIKey：空=保留旧值由上面 apiKey 解析决定，清空标记=清空）
+	s.dispatcher.AddProvider(updated) 
 	if err := s.dispatcher.UpsertProviderToDB(updated); err != nil {
 		return fmt.Errorf("provider 落库失败: %w", err)
 	}
@@ -308,23 +288,17 @@ func (s *LLMRoutingService) DeleteModel(ctx context.Context, identifier string) 
 	if !s.dispatcher.RemoveProvider(identifier) {
 		return fmt.Errorf("provider %q remove failed", identifier)
 	}
-	// 落库删除（default 之外均从 llm_providers 移除，重启不再加载）
 	if err := s.dispatcher.DeleteProviderFromDB(identifier); err != nil {
 		return fmt.Errorf("provider 落库删除失败: %w", err)
 	}
-	// 清理内存 stats
 	s.mu.Lock()
 	delete(s.stats, identifier)
 	s.mu.Unlock()
-	// 审计
 	s.dispatcher.LogModelLifecycle(ctx,
 		"delete_model", identifier, operatorFromContext(ctx), logger.TraceIDFromContext(ctx))
 	return nil
 }
 
-// ============================================================================
-// 场景路由管理
-// ============================================================================
 
 // ListStrategies 列出所有场景路由
 func (s *LLMRoutingService) ListStrategies(ctx context.Context) []llm.ScenarioRoute {
@@ -354,7 +328,6 @@ func (s *LLMRoutingService) UpdateStrategies(ctx context.Context, req UpdateStra
 		if r.Provider == "" {
 			return fmt.Errorf("scenario %q: provider is required", r.Scenario)
 		}
-		// canary 子路由也校验 provider 非空
 		if r.Weight > 0 && r.Weight < 100 && r.CanaryRoute != nil {
 			if r.CanaryRoute.Provider == "" {
 				return fmt.Errorf("scenario %q: canary route provider is required", r.Scenario)
@@ -370,9 +343,6 @@ func (s *LLMRoutingService) ListAuditHistory(ctx context.Context, scenario strin
 	return llm.QueryAuditHistory(ctx, scenario, limit)
 }
 
-// ============================================================================
-// 用量统计
-// ============================================================================
 
 // Stats 返回进程内实时 provider 维度统计
 func (s *LLMRoutingService) Stats(ctx context.Context) map[string]LLMModelStat {
@@ -434,7 +404,6 @@ func (s *LLMRoutingService) Usage(ctx context.Context, window string) (*UsageSum
 	for _, pr := range providerMap {
 		summary.ByProvider = append(summary.ByProvider, *pr)
 	}
-	// enabled/active 模型数从 dispatcher 实时取（更准）
 	if s.dispatcher != nil {
 		providers := s.dispatcher.GetAllProviders()
 		for _, p := range providers {
@@ -447,9 +416,6 @@ func (s *LLMRoutingService) Usage(ctx context.Context, window string) (*UsageSum
 	return summary, nil
 }
 
-// ============================================================================
-// 模型连通性测试
-// ============================================================================
 
 // TestModel 测试模型连通性（走独立路径，不污染全局路由/告警/熔断）
 //
@@ -478,20 +444,15 @@ func (s *LLMRoutingService) TestModel(ctx context.Context, req TestModelRequest)
 	if timeout <= 0 {
 		timeout = 60
 	}
-	// 独立 ctx，规避 trace_id 污染
 	tCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
 
-	// 构造一个走测试 provider 的临时 route（不动 dispatcher 全局）
 	testRoute := &llm.ScenarioRoute{
 		Scenario:   llm.ScenarioLowCost,
 		Provider:   req.Provider,
-		MaxLatency: timeout * 1000, // 拉宽
+		MaxLatency: timeout * 1000, 
 		MinQuality: 0,
 	}
-	// 走 dispatcher 的私有 callProvider（不走 Dispatch，避免告警/熔断/统计）
-	// 我们用反射私有方法不安全；改走临时构造 DispatchRequest + 直接 HTTP
-	// 这里复用 GenerateWithTools 的服务端 LLMService
 	dreq := llm.DispatchRequest{
 		Scenario:    llm.ScenarioLowCost,
 		Prompt:      req.Prompt,
@@ -499,7 +460,6 @@ func (s *LLMRoutingService) TestModel(ctx context.Context, req TestModelRequest)
 		Temperature: 0.7,
 		CanaryKey:   "_test_only_" + logger.TraceIDFromContext(ctx),
 	}
-	// 重要：直接走 dispatcher 公开方法，但用 isTest 路径
 	result, err := s.dispatcher.CallProviderForTest(tCtx, provider, dreq, testRoute)
 	res := &TestModelResult{
 		Provider: req.Provider,
@@ -518,9 +478,6 @@ func (s *LLMRoutingService) TestModel(ctx context.Context, req TestModelRequest)
 	return res, nil
 }
 
-// ============================================================================
-// 内部工具
-// ============================================================================
 
 func orDefault(s, def string) string {
 	if s == "" {
@@ -584,3 +541,4 @@ func operatorFromContext(ctx context.Context) string {
 	}
 	return "system"
 }
+

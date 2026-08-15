@@ -10,9 +10,7 @@ import (
 )
 
 type RetryPolicy interface {
-	// NextBackoff 返回下一次重试的等待时间；ok=false 表示不再重试
 	NextBackoff(attempt int, lastErr error) (delay time.Duration, ok bool)
-	// MaxAttempts 最大重试次数（含首次）
 	MaxAttempts() int
 }
 
@@ -144,3 +142,4 @@ func safeExecute(ctx context.Context, h ToolHandler, args map[string]any) (resul
 	}()
 	return h(ctx, args)
 }
+

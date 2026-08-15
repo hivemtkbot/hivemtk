@@ -1,23 +1,5 @@
 package feedbackloop
 
-// bandit_allocator_test.go Multi-Armed Bandit 流量分配器测试
-//
-// 覆盖：
-//  A. 纯算法单元测试（不需 PG）
-//     1. betaSample 范围 [0,1]
-//     2. betaSample 边界（α≤0 / β≤0 返回 0.5）
-//     3. gammaSample Marsaglia-Tsang 正确性
-//     4. pickLowestTrafficArm 选流量最低的非排除臂
-//     5. enforceTrafficCeiling 流量上限保护
-//  B. PG 集成测试
-//     1. SelectArm 冷启动均匀分配
-//     2. SelectArm 单臂场景
-//     3. SelectArm 无臂错误
-//     4. UpdateReward 成功/失败增量更新
-//     5. CheckConvergence 收敛判定（样本不足 / 已收敛）
-//     6. PromoteArm 提升胜出臂 + 退役其他
-//     7. InvalidateCache 失效缓存
-//     8. SelectPrompt 便捷方法
 
 import (
 	"context"
@@ -30,9 +12,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ============================================================================
-// A. 纯算法单元测试
-// ============================================================================
 
 // TestBetaSample_RangeInUnitInterval Beta 采样结果应在 [0,1]
 func TestBetaSample_RangeInUnitInterval(t *testing.T) {
@@ -53,7 +32,6 @@ func TestBetaSample_RangeInUnitInterval(t *testing.T) {
 // TestBetaSample_BoundaryConditions 边界条件
 func TestBetaSample_BoundaryConditions(t *testing.T) {
 	b := NewBanditAllocator(nil, DefaultBanditConfig(), 42)
-	// α≤0 或 β≤0 返回 0.5
 	if got := b.betaSample(0, 5); !approxEqualF64(got, 0.5) {
 		t.Errorf("betaSample(0, 5) = %v want 0.5", got)
 	}
@@ -76,10 +54,10 @@ func TestBetaSample_MeanConverges(t *testing.T) {
 	cases := []struct {
 		alpha, beta float64
 	}{
-		{2, 8},   // 理论均值 0.2
-		{5, 5},   // 理论均值 0.5
-		{8, 2},   // 理论均值 0.8
-		{50, 50}, // 理论均值 0.5
+		{2, 8},   
+		{5, 5},   
+		{8, 2},   
+		{50, 50}, 
 	}
 	const N = 5000
 	for _, c := range cases {
@@ -130,7 +108,6 @@ func TestGammaSample_MeanConverges(t *testing.T) {
 		}
 		mean := sum / N
 		expected := c.alpha * c.theta
-		// 容差 10%（Gamma 分布方差较大）
 		if math.Abs(mean-expected)/expected > 0.10 {
 			t.Errorf("gammaSample(α=%v, θ=%v) 均值=%v want≈%v (N=%d)",
 				c.alpha, c.theta, mean, expected, N)
@@ -145,17 +122,14 @@ func TestPickLowestTrafficArm(t *testing.T) {
 		{ArmKey: "arm_b", TotalTrials: 30},
 		{ArmKey: "arm_c", TotalTrials: 50},
 	}
-	// 排除 arm_a，应选 arm_b（流量最低）
 	got := pickLowestTrafficArm(arms, "arm_a")
 	if got != "arm_b" {
 		t.Errorf("pickLowestTrafficArm exclude=arm_a = %q want arm_b", got)
 	}
-	// 排除 arm_b，应选 arm_c（流量最低的非 arm_b）
 	got = pickLowestTrafficArm(arms, "arm_b")
 	if got != "arm_c" {
 		t.Errorf("pickLowestTrafficArm exclude=arm_b = %q want arm_c", got)
 	}
-	// 全部都被排除时退化为 excludeKey
 	got = pickLowestTrafficArm([]*model.BanditArm{{ArmKey: "only", TotalTrials: 1}}, "only")
 	if got != "only" {
 		t.Errorf("pickLowestTrafficArm single arm = %q want only", got)
@@ -169,7 +143,6 @@ func TestEnforceTrafficCeiling_NoCeilingReached(t *testing.T) {
 		{ArmKey: "arm_a", TotalTrials: 50},
 		{ArmKey: "arm_b", TotalTrials: 50},
 	}
-	// arm_a 占 50%，未超 60% 上限，应不强制
 	forced, needExplore := b.enforceTrafficCeiling(arms, "arm_a", 100)
 	if needExplore {
 		t.Errorf("arm_a 占 50%% 未超上限，不应强制探索")
@@ -183,7 +156,7 @@ func TestEnforceTrafficCeiling_NoCeilingReached(t *testing.T) {
 func TestEnforceTrafficCeiling_CeilingReached(t *testing.T) {
 	b := NewBanditAllocator(nil, DefaultBanditConfig(), 42)
 	arms := []*model.BanditArm{
-		{ArmKey: "arm_a", TotalTrials: 80}, // 占 80%，超 60% 上限
+		{ArmKey: "arm_a", TotalTrials: 80}, 
 		{ArmKey: "arm_b", TotalTrials: 20},
 	}
 	forced, needExplore := b.enforceTrafficCeiling(arms, "arm_a", 100)
@@ -211,9 +184,6 @@ func TestEnforceTrafficCeiling_ZeroTotalTrials(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// B. PG 集成测试
-// ============================================================================
 
 // TestBanditAllocator_SelectArm_ColdStartUniform 冷启动期均匀随机分配
 //
@@ -235,7 +205,6 @@ func TestBanditAllocator_SelectArm_ColdStartUniform(t *testing.T) {
 
 	b := NewBanditAllocator(db, DefaultBanditConfig(), 42)
 
-	// 冷启动期：每臂 0 trials < 30，应使用 cold_start_uniform
 	selected := make(map[string]int)
 	for i := 0; i < 60; i++ {
 		armKey, _, err := b.SelectArm(ctx, expID)
@@ -244,7 +213,6 @@ func TestBanditAllocator_SelectArm_ColdStartUniform(t *testing.T) {
 		}
 		selected[armKey]++
 	}
-	// 3 个臂都应被选中过（均匀性）
 	if len(selected) < 3 {
 		t.Errorf("冷启动期应均匀分配到 3 个臂，实际选中 %d 个: %v", len(selected), selected)
 	}
@@ -307,7 +275,6 @@ func TestBanditAllocator_UpdateReward_Success(t *testing.T) {
 	}
 	b := NewBanditAllocator(db, DefaultBanditConfig(), 42)
 
-	// 成功：alpha + 1
 	if err := b.UpdateReward(ctx, expID, "arm_a", true, 1.5); err != nil {
 		t.Fatalf("UpdateReward: %v", err)
 	}
@@ -383,7 +350,6 @@ func TestBanditAllocator_CheckConvergence_InsufficientSamples(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 	b := NewBanditAllocator(db, DefaultBanditConfig(), 42)
-	// 默认 MinSamplesForPromote=100，每臂只有 50 trials
 	winner, ok := b.CheckConvergence(context.Background(), expID)
 	if ok {
 		t.Errorf("样本不足不应收敛，但 winner=%s", winner)
@@ -479,14 +445,11 @@ func TestBanditAllocator_InvalidateCache(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 	b := NewBanditAllocator(db, DefaultBanditConfig(), 42)
-	// 第一次调用加载缓存
 	_, _, err := b.SelectArm(ctx, expID)
 	if err != nil {
 		t.Fatalf("first SelectArm: %v", err)
 	}
-	// 失效缓存
 	b.InvalidateCache(expID)
-	// 第二次调用应重新查 DB（不会报错）
 	_, _, err = b.SelectArm(ctx, expID)
 	if err != nil {
 		t.Fatalf("second SelectArm after invalidate: %v", err)
@@ -512,7 +475,6 @@ func TestBanditAllocator_SelectPrompt_NoRunningTest(t *testing.T) {
 // TestBanditAllocator_SelectPrompt_WithRunningTest 有运行中实验返回候选
 func TestBanditAllocator_SelectPrompt_WithRunningTest(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	// 创建 prompt candidate
 	cand := model.PromptCandidate{
 		SOPNodeID: "node_1", SOPID: 1, Scenario: "sop_reply", Version: "v1.0",
 		Title: "test", SystemPrompt: "sys", UserPromptTemplate: "user",
@@ -521,7 +483,6 @@ func TestBanditAllocator_SelectPrompt_WithRunningTest(t *testing.T) {
 	if err := db.Create(&cand).Error; err != nil {
 		t.Fatalf("seed candidate: %v", err)
 	}
-	// 创建 A/B test
 	now := time.Now()
 	expID := fmt.Sprintf("sop1_node1_%d", now.Unix())
 	test := model.PromptABTest{
@@ -535,7 +496,6 @@ func TestBanditAllocator_SelectPrompt_WithRunningTest(t *testing.T) {
 	if err := db.Create(&test).Error; err != nil {
 		t.Fatalf("seed ab test: %v", err)
 	}
-	// 创建 bandit arm
 	arm := model.BanditArm{
 		ExperimentID: expID, ExperimentType: model.BanditExperimentTypePrompt,
 		ArmKey: "arm_0", SOPID: 1, PromptCandidateID: cand.ID,
@@ -557,3 +517,4 @@ func TestBanditAllocator_SelectPrompt_WithRunningTest(t *testing.T) {
 		t.Errorf("armKey = %q want arm_0", armKey)
 	}
 }
+

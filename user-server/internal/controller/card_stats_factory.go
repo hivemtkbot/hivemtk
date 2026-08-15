@@ -39,7 +39,6 @@ func NewCardStatsFactoryController(services ...service.PlatformCardStatsService)
 func (c *CardStatsFactoryController) resolve(ctx *gin.Context) (service.PlatformCardStatsService, bool) {
 	platform := ctx.Param("platform")
 	if platform == "" {
-		// 也支持 query 参数（兼容旧调用）
 		platform = ctx.Query("platform")
 	}
 	svc, ok := c.registry[platform]
@@ -133,3 +132,4 @@ func buildPlatformCardOverallStatsRequest(ctx *gin.Context, platform string) *dt
 		Limit:     limit,
 	}
 }
+

@@ -131,3 +131,4 @@ func (c *UserController) Login(ctx *gin.Context) {
 
 	response.Success(ctx, result, "登录成功")
 }
+

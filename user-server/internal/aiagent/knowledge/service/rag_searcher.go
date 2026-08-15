@@ -73,7 +73,7 @@ func getGlobalRedisClient() ragretrieval.RedisClient {
 type RagSearcher struct {
 	db               *gorm.DB
 	embeddingService llm.EmbeddingServiceInterface
-	hybridSearcher   *ragretrieval.HybridSearcher // 委托的混合检索器（可选，nil 时走 legacy）
+	hybridSearcher   *ragretrieval.HybridSearcher 
 }
 
 // NewRagSearcher 创建全局 RAG 检索器（自动初始化 TEI 客户端 + HybridSearcher）
@@ -101,12 +101,9 @@ func newRagSearcherWithDB(gdb *gorm.DB) *RagSearcher {
 		db:               gdb,
 		embeddingService: llm.NewEmbeddingService(),
 	}
-	// 构造独立 Dispatcher 实例（无外部注入时使用本地 LLM 服务）。
 	dispatcher := llm.NewDispatcher(llm.NewLLMService())
-	_ = dispatcher // 留作未来扩展（HyDE/MultiQuery 启用时通过 SetLLMChat 注入）
+	_ = dispatcher 
 
-	// 关键修复：生产装配必须走 CachedEmbeddingClient 装饰（L1 Redis + L2 PG），
-	// 而非裸 llm.EmbeddingService。裸 embedding 会跳过全部缓存，放大 TEI 负载。
 	embClient := ragretrieval.NewCachedEmbeddingClient(s.embeddingService, getGlobalRedisClient(), gdb, nil)
 
 	// reranker 注入：HybridSearcherConfig.EnableRerank 默认 true，但 reranker 为 nil 时
@@ -117,7 +114,6 @@ func newRagSearcherWithDB(gdb *gorm.DB) *RagSearcher {
 		reranker = ragretrieval.NewLocalReranker()
 	}
 
-	// redisClient 用于查询改写缓存（L1）；无 Redis 时传 nil 跳过 L1 层。
 	s.EnableHybridSearcher(reranker, nil, getGlobalRedisClient(), embClient, ragretrieval.DefaultHybridSearcherConfig())
 	return s
 }
@@ -175,32 +171,26 @@ func (s *RagSearcher) Search(ctx context.Context, query string, topK int) ([]RAG
 		return nil, nil
 	}
 
-	// 1) 优先委托给 HybridSearcher
 	if s.hybridSearcher != nil {
 		chunks, err := s.hybridSearcher.Search(ctx, query, topK)
 		if err == nil {
 			return s.rankRAGChunks(ctx, chunksToRAGChunks(chunks)), nil
 		}
-		// 混合检索失败：降级到 legacy 路径（保证可用性）
 		logger.Errorf("[RagSearcher] hybrid search failed, fallback to legacy: %v", err)
 	} else {
 		logger.Debugf("[RagSearcher] hybrid searcher not enabled, use legacy vector+BM25-lite")
 	}
 
-	// 2) legacy 向量检索
 	rows, vecErr := s.vectorSearch(ctx, "", query, topK)
 	if vecErr == nil && len(rows) > 0 {
 		return s.rankRAGChunks(ctx, s.toRAGChunks(rows)), nil
 	}
 	if vecErr != nil {
-		// 私域基线：禁止静默降级；但当 TEI 不可达/无 embedding 列时，必须有兜底
 		logger.Errorf("[RagSearcher] vector search failed, fallback to BM25-lite: %v", vecErr)
 	}
 
-	// 3) 兜底 BM25-lite（向量检索不可用时的文本匹配兜底，确保不返回 0 召回误判"无知识"）
 	bm25, _ := s.bm25SearchAll(ctx, query, topK)
 	if len(bm25) == 0 && vecErr != nil {
-		// 向量检索失败且 BM25 也无命中：提示 embedding 缺失/服务不可达，避免误判知识库为空
 		logger.Warnf("[RagSearcher] 向量检索失败且 BM25 无命中（query=%q）：可能 knowledge_chunks.embedding 缺失或 embedding 服务不可达，导致召回为 0；请检查 chunk 向量化状态与 EMBEDDING_BASE_URL", query)
 	}
 	return s.rankRAGChunks(ctx, bm25), nil
@@ -222,7 +212,6 @@ func (s *RagSearcher) SearchIndex(ctx context.Context, productID string, query s
 		return nil, nil
 	}
 
-	// 1) 优先委托给 HybridSearcher
 	if s.hybridSearcher != nil {
 		chunks, err := s.hybridSearcher.SearchIndex(ctx, productID, query, topK)
 		if err == nil {
@@ -231,7 +220,6 @@ func (s *RagSearcher) SearchIndex(ctx context.Context, productID string, query s
 		logger.Errorf("[RagSearcher] hybrid search (product=%s) failed, fallback to legacy: %v", productID, err)
 	}
 
-	// 2) legacy 向量检索
 	rows, vecErr := s.vectorSearch(ctx, productID, query, topK)
 	if vecErr == nil && len(rows) > 0 {
 		return s.rankMerchantChunks(ctx, filterMerchantChunksByMetadata(s.toMerchantChunks(rows), metadata)), nil
@@ -240,11 +228,9 @@ func (s *RagSearcher) SearchIndex(ctx context.Context, productID string, query s
 		logger.Errorf("[RagSearcher] vector search failed (product=%s), fallback to BM25-lite: %v", productID, vecErr)
 	}
 
-	// 3) 兜底 BM25-lite（向量检索不可用时的文本匹配兜底，确保不返回 0 召回误判"无知识"）
 	bm25, _ := s.bm25SearchIndex(ctx, productID, query, topK)
 	filtered := filterMerchantChunksByMetadata(bm25, metadata)
 	if len(filtered) == 0 && vecErr != nil {
-		// 向量检索失败且 BM25 也无命中：提示 embedding 缺失/服务不可达，避免误判知识库为空
 		logger.Warnf("[RagSearcher] 向量检索失败且 BM25 无命中（product=%s, query=%q）：可能 knowledge_chunks.embedding 缺失或 embedding 服务不可达，导致召回为 0；请检查 chunk 向量化状态", productID, query)
 	}
 	return s.rankMerchantChunks(ctx, filtered), nil
@@ -345,7 +331,7 @@ func (s *RagSearcher) rankRAGChunks(ctx context.Context, chunks []RAGChunk) []RA
 	out := make([]RAGChunk, len(items))
 	for i, it := range items {
 		it.c.Weight = it.w
-		it.c.Score = it.eff // 用权重调制后的最终排名分
+		it.c.Score = it.eff 
 		out[i] = it.c
 	}
 	return out
@@ -387,3 +373,4 @@ func (s *RagSearcher) rankMerchantChunks(ctx context.Context, chunks []MerchantR
 	}
 	return out
 }
+

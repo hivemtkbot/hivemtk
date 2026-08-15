@@ -35,7 +35,6 @@ func TestNormalizePublicBaseURL(t *testing.T) {
 }
 
 func TestGetPublicBaseURL_EnvOverridesConfig(t *testing.T) {
-	// 准备：临时设置环境变量 + 内存里塞一份 AppConfig
 	oldEnv, hadEnv := os.LookupEnv("PUBLIC_BASE_URL")
 	defer func() {
 		if hadEnv {
@@ -45,7 +44,6 @@ func TestGetPublicBaseURL_EnvOverridesConfig(t *testing.T) {
 		}
 	}()
 
-	// 测试 1：仅配置文件生效
 	t.Run("config only", func(t *testing.T) {
 		_ = os.Unsetenv("PUBLIC_BASE_URL")
 		setAppConfigForTest(t, &AppConfig{External: ExternalConfig{PublicBaseURL: "https://config.example.com"}})
@@ -54,7 +52,6 @@ func TestGetPublicBaseURL_EnvOverridesConfig(t *testing.T) {
 		}
 	})
 
-	// 测试 2：环境变量覆盖配置
 	t.Run("env overrides config", func(t *testing.T) {
 		_ = os.Setenv("PUBLIC_BASE_URL", "https://env.example.com:8443")
 		setAppConfigForTest(t, &AppConfig{External: ExternalConfig{PublicBaseURL: "https://config.example.com"}})
@@ -63,7 +60,6 @@ func TestGetPublicBaseURL_EnvOverridesConfig(t *testing.T) {
 		}
 	})
 
-	// 测试 3：环境变量为空 + 配置文件为空 → 返回空串
 	t.Run("both empty", func(t *testing.T) {
 		_ = os.Unsetenv("PUBLIC_BASE_URL")
 		setAppConfigForTest(t, &AppConfig{})
@@ -72,7 +68,6 @@ func TestGetPublicBaseURL_EnvOverridesConfig(t *testing.T) {
 		}
 	})
 
-	// 测试 4：环境变量配置了 http+端口 → 升级为 https
 	t.Run("env http+port upgraded to https", func(t *testing.T) {
 		_ = os.Setenv("PUBLIC_BASE_URL", "http://example.com:8443")
 		setAppConfigForTest(t, &AppConfig{})
@@ -89,3 +84,4 @@ func setAppConfigForTest(t *testing.T, cfg *AppConfig) {
 	SetAppConfig(cfg)
 	t.Cleanup(func() { SetAppConfig(&old) })
 }
+

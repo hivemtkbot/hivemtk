@@ -1,19 +1,5 @@
 package repository
 
-// layer_decision_log.go Layer 决策日志 Repository
-//
-// 五层架构归属: L5 数据访问层
-// 设计依据: AI 智能体性能优化
-//   - 每次 Layer 决策 + Fallback 触发落一条, 私域巡检通过 SQL 聚合统计
-//   - StatsByLayer / StatsByIntent 用于聚合查询
-//   - 与 llm_routing_logs 互补: llm_routing_logs 关注 LLM 调用, 本表关注 Layer 决策
-//
-// 方法:
-//   - Record           新增一条决策日志
-//   - GetByTraceID     按 trace 查询 (端到端串联)
-//   - StatsByLayer     按 (layer, day) 聚合
-//   - StatsByIntent    按 (intent, day) 聚合
-//   - Recent           查询最近 N 条
 
 import (
 	"context"
@@ -130,3 +116,4 @@ func (r *LayerDecisionLogRepository) LLMSkippedCount(ctx context.Context, since 
 		Count(&count).Error
 	return count, err
 }
+

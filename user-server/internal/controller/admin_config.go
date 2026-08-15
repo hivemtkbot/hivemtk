@@ -39,3 +39,4 @@ func (c *AdminConfigController) GetAdminConfig(ctx *gin.Context) {
 
 	response.Success(ctx, configInfo, "获取管理员配置成功")
 }
+

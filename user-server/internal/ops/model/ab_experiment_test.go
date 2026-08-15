@@ -34,7 +34,6 @@ func TestABExperiment_BasicFields(t *testing.T) {
 		t.Errorf("Expected ID 1, got %d", experiment.ID)
 	}
 
-	// 私域部署：不校验 MerchantID（单租户无此字段）
 	_ = experiment
 	if experiment.Name != "Test Experiment" {
 		t.Errorf("Expected Name 'Test Experiment', got %s", experiment.Name)
@@ -111,7 +110,7 @@ func TestABConversionEvent_BasicFields(t *testing.T) {
 		ExperimentID: 100,
 		EventName:    "purchase",
 		EventType:    "click",
-		EventValue:   9999, // 99.99 元 = 9999 分
+		EventValue:   9999, 
 		UserID:       "user-001",
 		VariantID:    1,
 		Metadata:     `{"product_id": "p123"}`,
@@ -149,8 +148,8 @@ func TestABExperimentResult_BasicFields(t *testing.T) {
 		TrafficCount:    1000,
 		ConversionCount: 50,
 		ConversionRate:  0.05,
-		Revenue:         500000, // 5000.00 元 = 500000 分
-		AverageValue:    10000,  // 100.00 元 = 10000 分
+		Revenue:         500000, 
+		AverageValue:    10000,  
 		ConfidenceLevel: 0.95,
 		IsWinner:        true,
 	}
@@ -168,3 +167,4 @@ func TestABExperimentResult_BasicFields(t *testing.T) {
 		t.Error("Expected IsWinner to be true")
 	}
 }
+

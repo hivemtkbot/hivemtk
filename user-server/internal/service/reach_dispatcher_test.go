@@ -73,7 +73,6 @@ func TestDispatcherExecutesDueJobs(t *testing.T) {
 		t.Fatalf("任务初始应为 pending，实际 %s", job.State)
 	}
 
-	// 直接驱动一次调度（不依赖后台 goroutine 时序，避免抖动）
 	svc.dispatchDueJobs(context.Background())
 
 	got, err := svc.GetJob(context.Background(), job.ID)
@@ -126,7 +125,6 @@ func TestResetStuckJobs(t *testing.T) {
 		t.Fatalf("enqueue: %v", err)
 	}
 
-	// 模拟任务卡在 running 且 updated_at 很久未更新（进程崩溃场景）
 	old := time.Now().Add(-30 * time.Minute)
 	if err := db.Model(&model.ReachJob{}).Where("id = ?", job.ID).
 		Updates(map[string]any{"state": JobStateRunning, "updated_at": old}).Error; err != nil {
@@ -145,3 +143,4 @@ func TestResetStuckJobs(t *testing.T) {
 		t.Errorf("stuck 任务应被重置为 pending，实际 %s", got.State)
 	}
 }
+

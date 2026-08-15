@@ -20,7 +20,6 @@ func TestFlow_ParseCondition(t *testing.T) {
 		wantErr   bool
 	}
 	cases := []tc{
-		// === eq 运算符 ===
 		{"eq_basic", "name eq John", "name", "eq", "John", false},
 		{"eq_spaces", "status   eq   active", "status", "eq", "active", false},
 		{"eq_chinese_field", "城市 eq 北京", "城市", "eq", "北京", false},
@@ -28,38 +27,30 @@ func TestFlow_ParseCondition(t *testing.T) {
 		{"eq_with_number", "count eq 5", "count", "eq", "5", false},
 		{"eq_with_special", "email eq a@b.c", "email", "eq", "a@b.c", false},
 
-		// === ne 运算符 ===
 		{"ne_basic", "status ne inactive", "status", "ne", "inactive", false},
 		{"ne_with_zero", "count ne 0", "count", "ne", "0", false},
 
-		// === gt 运算符 ===
 		{"gt_basic", "amount gt 100", "amount", "gt", "100", false},
 		{"gt_negative", "balance gt -50", "balance", "gt", "-50", false},
 		{"gt_float", "ratio gt 0.5", "ratio", "gt", "0.5", false},
 
-		// === lt 运算符 ===
 		{"lt_basic", "age lt 18", "age", "lt", "18", false},
 		{"lt_zero", "score lt 0", "score", "lt", "0", false},
 
-		// === gte 运算符 ===
 		{"gte_basic", "score gte 90", "score", "gte", "90", false},
 		{"gte_float", "ratio gte 0.95", "ratio", "gte", "0.95", false},
 
-		// === lte 运算符 ===
 		{"lte_basic", "score lte 100", "score", "lte", "100", false},
 		{"lte_negative", "loss lte -10", "loss", "lte", "-10", false},
 
-		// === contains 运算符 ===
 		{"contains_basic", "email contains @gmail", "email", "contains", "@gmail", false},
 		{"contains_chinese", "name contains 测试", "name", "contains", "测试", false},
 		{"contains_space", "msg contains hello world", "msg", "contains", "hello world", false},
 
-		// === in 运算符 ===
 		{"in_basic", "status in [active,pending]", "status", "in", "[active,pending]", false},
 		{"in_spaces", "tier in [gold, silver, platinum]", "tier", "in", "[gold, silver, platinum]", false},
 		{"in_numbers", "count in [1,2,3]", "count", "in", "[1,2,3]", false},
 
-		// === 无效输入 ===
 		{"empty", "", "", "", "", true},
 		{"no_op", "namevalue", "", "", "", true},
 		{"invalid_op", "status invalid value", "", "", "", true},
@@ -108,26 +99,21 @@ func TestFlow_EvalEq(t *testing.T) {
 		wantErr   bool
 	}
 	cases := []tc{
-		// string
 		{"str_exact", "John", "John", true, false},
 		{"str_case", "john", "John", true, false},
 		{"str_diff", "Jane", "John", false, false},
 		{"str_empty_match", "", "", true, false},
 		{"str_empty_diff", "abc", "", false, false},
 		{"str_unicode", "你好", "你好", true, false},
-		// float64
 		{"num_5", float64(5), "5", true, false},
 		{"num_5_5", float64(5), "5.5", false, false},
 		{"num_zero", float64(0), "0", true, false},
 		{"num_negative", float64(-10), "-10", true, false},
 		{"num_invalid", float64(5), "abc", false, true},
-		// bool
 		{"bool_true", true, "true", true, false},
 		{"bool_false", false, "false", true, false},
-		// int
 		{"int_5", 5, "5", true, false},
-		// nil
-		{"nil_with_empty", nil, "", false, false}, // fmt.Sprintf("%v", nil)="<nil>", EqualFold("<nil>","")=false
+		{"nil_with_empty", nil, "", false, false}, 
 	}
 
 	passed, failed := 0, 0
@@ -163,7 +149,7 @@ func TestFlow_EvalNe(t *testing.T) {
 		{"str_same", "active", "active", false},
 		{"num_diff", float64(5), "10", true},
 		{"num_same", float64(5), "5", false},
-		{"case_diff", "John", "JOHN", false}, // case-insensitive same
+		{"case_diff", "John", "JOHN", false}, 
 		{"unicode", "北京", "上海", true},
 	}
 	passed, failed := 0, 0
@@ -381,7 +367,7 @@ func TestFlow_EvalContains(t *testing.T) {
 		{"unicode_value", "hello world", "WORLD", true},
 		{"full_match", "abc", "abc", true},
 		{"partial", "abcdef", "cde", true},
-		{"number_field", float64(123), "12", true}, // 字符串化
+		{"number_field", float64(123), "12", true}, 
 		{"bool_field", true, "tru", true},
 		{"nil_field", nil, "abc", false},
 		{"long_text", "The quick brown fox jumps over the lazy dog", "fox", true},
@@ -425,10 +411,9 @@ func TestFlow_EvalIn(t *testing.T) {
 		{"missing_bracket_open", "a", "active,pending]", false, true},
 		{"missing_bracket_close", "a", "[active,pending", false, true},
 		{"no_bracket", "a", "active", false, true},
-		{"case_match", "John", "[JOHN,jane]", true, false}, // case-insensitive
+		{"case_match", "John", "[JOHN,jane]", true, false}, 
 		{"chinese", "北京", "[上海,北京,广州]", true, false},
 		{"numbers_as_strings", "5", "[1,5,10]", true, false},
-		// 含空字符串条目："a" 不在 ["","b","c"] 中
 		{"empty_item_no_match", "a", "[,b,c]", false, false},
 		{"trailing_comma", "a", "[a,b,c,]", true, false},
 		{"only_whitespace", "a", "[   ]", false, false},
@@ -613,7 +598,7 @@ func TestFlow_EvaluateCondition(t *testing.T) {
 			"status invalid value",
 			map[string]any{"status": "active"},
 			[]string{"a", "b"},
-			false, false, // 解析失败返回 error
+			false, false, 
 		},
 		{
 			"matched_with_two_next",
@@ -681,7 +666,6 @@ func TestFlow_EvaluateCondition(t *testing.T) {
 				failed++
 				return
 			}
-			// 验证数据是否保留
 			for k, v := range tt.data {
 				if result[k] != v {
 					t.Errorf("[%s] data[%s] lost: %v != %v", tt.name, k, result[k], v)
@@ -706,9 +690,8 @@ func TestFlow_HandleDelay(t *testing.T) {
 	}
 	cases := []tc{
 		{"no_delay", 0, 1 * time.Second, false},
-		{"short_delay", 0.05, 1 * time.Second, false}, // 50ms
+		{"short_delay", 0.05, 1 * time.Second, false}, 
 		{"ctx_cancelled", 10.0, 50 * time.Millisecond, true},
-		// duration=0 时不进入 select,直接返回 nil,即使 ctx 已取消也不会检测
 		{"zero_duration", 0, 0, false},
 	}
 	passed, failed := 0, 0
@@ -792,3 +775,4 @@ func TestFlow_ExecuteNode(t *testing.T) {
 	}
 	t.Logf("executeNode: %d/%d passed", passed, passed+failed)
 }
+

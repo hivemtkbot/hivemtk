@@ -187,7 +187,6 @@ func TestAIContentService_GenerateContent_WithTemplate(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 先创建模板
 	template := &model.PromptTemplate{
 		Name:        "测试模板",
 		Type:        model.AIGenerationTypeCopywriting,
@@ -284,7 +283,6 @@ func TestAIContentService_GetGenerationHistory(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewAIContentService(database)
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		record := &model.AIGenerationRecord{
 			UserID: 1,
@@ -317,7 +315,6 @@ func TestAIContentService_GetGenerationHistory_WithFilters(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewAIContentService(database)
 
-	// 创建测试数据
 	record1 := &model.AIGenerationRecord{
 		UserID:  1,
 		Type:    model.AIGenerationTypeCopywriting,
@@ -338,7 +335,6 @@ func TestAIContentService_GetGenerationHistory_WithFilters(t *testing.T) {
 
 	userID := uint(1)
 
-	// 按类型过滤
 	filters := map[string]any{
 		"type": string(model.AIGenerationTypeCopywriting),
 	}
@@ -362,7 +358,6 @@ func TestAIContentService_GetRecordByID_Success(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewAIContentService(database)
 
-	// 创建测试记录
 	record := &model.AIGenerationRecord{
 		UserID: 1,
 		Type:   model.AIGenerationTypeCopywriting,
@@ -385,7 +380,6 @@ func TestAIContentService_GetRecordByID_WrongMerchant(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewAIContentService(database)
 
-	// 创建测试记录
 	record := &model.AIGenerationRecord{
 		UserID: 1,
 		Type:   model.AIGenerationTypeCopywriting,
@@ -394,7 +388,6 @@ func TestAIContentService_GetRecordByID_WrongMerchant(t *testing.T) {
 	}
 	database.Create(record)
 
-	// 私域部署：单租户架构，所有记录均可访问
 	fetchedRecord, err := service.GetRecordByID(record.ID)
 	if err != nil {
 		t.Fatalf("GetRecordByID should succeed in single-tenant mode: %v", err)
@@ -409,7 +402,6 @@ func TestAIContentService_SaveRecord(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewAIContentService(database)
 
-	// 创建测试记录
 	record := &model.AIGenerationRecord{
 		UserID:  1,
 		Type:    model.AIGenerationTypeCopywriting,
@@ -438,7 +430,6 @@ func TestAIContentService_FavoriteRecord(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewAIContentService(database)
 
-	// 创建测试记录
 	record := &model.AIGenerationRecord{
 		UserID:     1,
 		Type:       model.AIGenerationTypeCopywriting,
@@ -467,7 +458,6 @@ func TestAIContentService_RateRecord_Success(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewAIContentService(database)
 
-	// 创建测试记录
 	record := &model.AIGenerationRecord{
 		UserID: 1,
 		Type:   model.AIGenerationTypeCopywriting,
@@ -496,7 +486,6 @@ func TestAIContentService_RateRecord_InvalidRating(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewAIContentService(database)
 
-	// 创建测试记录
 	record := &model.AIGenerationRecord{
 		UserID: 1,
 		Type:   model.AIGenerationTypeCopywriting,
@@ -505,7 +494,7 @@ func TestAIContentService_RateRecord_InvalidRating(t *testing.T) {
 	}
 	database.Create(record)
 
-	err := service.RateRecord(record.ID, 10) // 评分必须在 1-5 之间
+	err := service.RateRecord(record.ID, 10) 
 	if err == nil {
 		t.Error("Expected error for invalid rating")
 	}
@@ -516,7 +505,6 @@ func TestAIContentService_DeleteRecord_Success(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewAIContentService(database)
 
-	// 创建测试记录
 	record := &model.AIGenerationRecord{
 		UserID: 1,
 		Type:   model.AIGenerationTypeCopywriting,
@@ -543,7 +531,6 @@ func TestAIContentService_DeleteRecord_WrongMerchant(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewAIContentService(database)
 
-	// 创建测试记录
 	record := &model.AIGenerationRecord{
 		UserID: 1,
 		Type:   model.AIGenerationTypeCopywriting,
@@ -552,7 +539,6 @@ func TestAIContentService_DeleteRecord_WrongMerchant(t *testing.T) {
 	}
 	database.Create(record)
 
-	// 私域部署：单租户架构，删除可以成功
 	err := service.DeleteRecord(record.ID)
 	if err != nil {
 		t.Errorf("DeleteRecord should succeed in single-tenant mode: %v", err)
@@ -564,7 +550,6 @@ func TestPromptTemplateService_GetTemplates(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewPromptTemplateService(database)
 
-	// 创建测试模板
 	template1 := &model.PromptTemplate{
 		Name:     "测试模板 1",
 		Type:     model.AIGenerationTypeCopywriting,
@@ -598,7 +583,6 @@ func TestPromptTemplateService_GetTemplates_ByType(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewPromptTemplateService(database)
 
-	// 创建测试模板
 	template1 := &model.PromptTemplate{
 		Name:     "文案模板",
 		Type:     model.AIGenerationTypeCopywriting,
@@ -636,7 +620,6 @@ func TestPromptTemplateService_GetTemplateByID_Success(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewPromptTemplateService(database)
 
-	// 创建测试模板
 	template := &model.PromptTemplate{
 		Name:     "测试模板",
 		Type:     model.AIGenerationTypeCopywriting,
@@ -665,7 +648,6 @@ func TestPromptTemplateService_GetTemplateByID_SystemTemplate(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewPromptTemplateService(database)
 
-	// 创建系统模板
 	template := &model.PromptTemplate{
 		Name:     "系统模板",
 		Type:     model.AIGenerationTypeCopywriting,
@@ -689,7 +671,6 @@ func TestPromptTemplateService_GetTemplateByID_WrongMerchant(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewPromptTemplateService(database)
 
-	// 创建测试模板
 	template := &model.PromptTemplate{
 		Name:     "测试模板",
 		Type:     model.AIGenerationTypeCopywriting,
@@ -699,7 +680,6 @@ func TestPromptTemplateService_GetTemplateByID_WrongMerchant(t *testing.T) {
 	}
 	database.Create(template)
 
-	// 私域部署：单租户架构，所有模板均可访问
 	fetchedTemplate, err := service.GetTemplateByID(template.ID)
 	if err != nil {
 		t.Fatalf("GetTemplateByID should succeed in single-tenant mode: %v", err)
@@ -752,7 +732,6 @@ func TestPromptTemplateService_UpdateTemplate_Success(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewPromptTemplateService(database)
 
-	// 创建测试模板
 	template := &model.PromptTemplate{
 		Name:     "原模板",
 		Type:     model.AIGenerationTypeCopywriting,
@@ -798,7 +777,6 @@ func TestPromptTemplateService_UpdateTemplate_SystemTemplate(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewPromptTemplateService(database)
 
-	// 创建系统模板
 	template := &model.PromptTemplate{
 		Name:     "系统模板",
 		Type:     model.AIGenerationTypeCopywriting,
@@ -824,7 +802,6 @@ func TestPromptTemplateService_UpdateTemplate_WrongMerchant(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewPromptTemplateService(database)
 
-	// 创建测试模板
 	template := &model.PromptTemplate{
 		Name:     "测试模板",
 		Type:     model.AIGenerationTypeCopywriting,
@@ -840,7 +817,6 @@ func TestPromptTemplateService_UpdateTemplate_WrongMerchant(t *testing.T) {
 		Template: "更新后的内容",
 	}
 
-	// 私域部署：单租户架构，更新可以成功
 	_, err := service.UpdateTemplate(template.ID, req)
 	if err != nil {
 		t.Errorf("UpdateTemplate should succeed in single-tenant mode: %v", err)
@@ -852,7 +828,6 @@ func TestPromptTemplateService_DeleteTemplate_Success(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewPromptTemplateService(database)
 
-	// 创建测试模板
 	template := &model.PromptTemplate{
 		Name:     "测试模板",
 		Type:     model.AIGenerationTypeCopywriting,
@@ -881,7 +856,6 @@ func TestPromptTemplateService_DeleteTemplate_SystemTemplate(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewPromptTemplateService(database)
 
-	// 创建系统模板
 	template := &model.PromptTemplate{
 		Name:     "系统模板",
 		Type:     model.AIGenerationTypeCopywriting,
@@ -901,7 +875,6 @@ func TestPromptTemplateService_DeleteTemplate_WrongMerchant(t *testing.T) {
 	database := setupAIContentServiceTestDB(t)
 	service := NewPromptTemplateService(database)
 
-	// 创建测试模板
 	template := &model.PromptTemplate{
 		Name:     "测试模板",
 		Type:     model.AIGenerationTypeCopywriting,
@@ -911,7 +884,6 @@ func TestPromptTemplateService_DeleteTemplate_WrongMerchant(t *testing.T) {
 	}
 	database.Create(template)
 
-	// 私域部署：单租户架构，删除可以成功
 	err := service.DeleteTemplate(template.ID)
 	if err != nil {
 		t.Errorf("DeleteTemplate should succeed in single-tenant mode: %v", err)
@@ -943,7 +915,6 @@ func TestPromptTemplateService_InitSystemTemplates(t *testing.T) {
 		t.Error("Expected system templates to be created")
 	}
 
-	// 验证至少有一个系统模板
 	hasSystemTemplate := false
 	for _, template := range templates {
 		if template.IsSystem && template.Status == 1 {
@@ -968,7 +939,6 @@ func TestPromptTemplateService_GetTemplateTypes(t *testing.T) {
 		t.Error("Expected non-empty template types")
 	}
 
-	// 验证包含预期的类型
 	foundCopywriting := false
 	foundTitle := false
 
@@ -1094,3 +1064,4 @@ func TestAIContentService_buildDefaultPrompt_AllTypes(t *testing.T) {
 		})
 	}
 }
+

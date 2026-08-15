@@ -73,10 +73,8 @@ func hashVector(text string, dim int) []float32 {
 	for i := 0; i < dim; i++ {
 		h.Reset()
 		h.Write([]byte(text))
-		// 将维度索引作为盐值混入,确保各维度值独立
 		h.Write([]byte{byte(i), byte(i >> 8), byte(i >> 16), byte(i >> 24)})
 		u := h.Sum64()
-		// 映射到 [-1, 1] 区间
 		vec[i] = float32(int64(u%2000001)-1000000) / 1000000.0
 	}
 
@@ -93,3 +91,4 @@ func hashVector(text string, dim int) []float32 {
 	}
 	return vec
 }
+

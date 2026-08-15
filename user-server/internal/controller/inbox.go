@@ -232,7 +232,7 @@ func (c *InboxController) AutoAssign(ctx *gin.Context) {
 	var req struct {
 		ConversationID uint     `json:"conversation_id" binding:"required"`
 		Candidates     []string `json:"candidates" binding:"required"`
-		Mode           string   `json:"mode"` // load (default) | round_robin
+		Mode           string   `json:"mode"` 
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
@@ -414,3 +414,4 @@ func (c *InboxIngressController) UnlockHuman(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"session_id": sessionID, "unlocked": true}, "解除人工接管成功")
 }
+

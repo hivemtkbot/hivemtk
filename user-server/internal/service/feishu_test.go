@@ -35,7 +35,7 @@ func setupFeishuTestDB(t *testing.T) *gorm.DB {
 
 // feishuMockTransport 拦截飞书开放平台 HTTP 请求，返回成功响应
 type feishuMockTransport struct {
-	code int // 用于错误用例：非 0 表示 API 业务错误
+	code int 
 }
 
 func (m feishuMockTransport) RoundTrip(r *http.Request) (*http.Response, error) {
@@ -46,7 +46,6 @@ func (m feishuMockTransport) RoundTrip(r *http.Request) (*http.Response, error) 
 		if m.code == 0 {
 			body = []byte(`{"code":0,"msg":"success","data":{"message_id":"om_test_123","msg_id":"om_test_123"}}`)
 		} else {
-			// 飞书仅以 HTTP 状态码判定成败，业务 code!=0 时返回 500 触发错误分支
 			body = []byte(`{"code":9999,"msg":"api error","data":{}}`)
 			status = http.StatusInternalServerError
 		}
@@ -86,7 +85,6 @@ func TestFeishuIntegrationService_SendMessage(t *testing.T) {
 	svc := NewFeishuIntegrationService(database)
 	acc := newFeishuTestAccount(t, database)
 
-	// 拦截飞书 HTTP，避免真实外网调用
 	orig := httpclient.Client
 	httpclient.Client = &http.Client{Transport: feishuMockTransport{}}
 	defer func() { httpclient.Client = orig }()
@@ -170,3 +168,4 @@ func TestFeishuIntegrationService_IngestMessage(t *testing.T) {
 func uintToStr(v uint) string {
 	return strconv.FormatUint(uint64(v), 10)
 }
+

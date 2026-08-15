@@ -25,3 +25,4 @@ func (u *EmailSmtp) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+

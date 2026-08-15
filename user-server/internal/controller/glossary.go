@@ -12,16 +12,6 @@ import (
 	"hivemtk-user/internal/service/translation"
 )
 
-// ============================================================================
-// GlossaryController 多语言术语表管理控制器（v1.2 出海多语言方案）
-// ----------------------------------------------------------------------------
-// 职责：
-//   - 术语表 CRUD（创建/查询/更新/删除）
-//   - 术语校验预览（对输入文本做后置校准，返回校准结果与命中记录）
-//
-// 五层架构：Controller → Service → Repository → Model
-// 私域独立部署：无 merchant_id
-// ============================================================================
 
 // GlossaryController 术语表管理控制器
 type GlossaryController struct {
@@ -81,7 +71,6 @@ func (ctrl *GlossaryController) List(c *gin.Context) {
 		req.PageSize = 20
 	}
 
-	// 指定 category 且无 status/keyword 时，走 ListByCategory（全量 active）
 	if req.Category != "" && req.Status == "" && req.Keyword == "" {
 		list, err := ctrl.svc.ListByCategory(c.Request.Context(), req.Category)
 		if err != nil {
@@ -128,7 +117,6 @@ func (ctrl *GlossaryController) Update(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "term_id 不能为空")
 		return
 	}
-	// 确保术语存在
 	existing, err := ctrl.svc.GetByTermID(c.Request.Context(), termID)
 	if err != nil {
 		if errors.Is(err, translation.ErrGlossaryNotFound) {
@@ -202,3 +190,4 @@ func (ctrl *GlossaryController) Validate(c *gin.Context) {
 	}
 	response.Success(c, resp, "校验完成")
 }
+

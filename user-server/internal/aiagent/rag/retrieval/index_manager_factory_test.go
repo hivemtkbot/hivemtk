@@ -20,7 +20,6 @@ func TestNewIndexManager_PGVector(t *testing.T) {
 	mgr, err := NewIndexManager(config.VectorDatabaseConfig{Type: config.VectorDBTypePGVector})
 	assert.NoError(t, err)
 	assert.NotNil(t, mgr)
-	// 回退实现为内存索引，维度 512
 	im, ok := mgr.(*InMemoryIndexManager)
 	assert.True(t, ok)
 	assert.Equal(t, 512, im.dimension)
@@ -38,8 +37,8 @@ func TestNewIndexManagerWithDB_PGVector(t *testing.T) {
 	mgr, err := NewIndexManagerWithDB(nil, config.VectorDatabaseConfig{Type: config.VectorDBTypePGVector})
 	assert.NoError(t, err)
 	assert.NotNil(t, mgr)
-	// 工厂统一返回 InMemoryIndexManager
 	im, ok := mgr.(*InMemoryIndexManager)
 	assert.True(t, ok, "expected *InMemoryIndexManager after PGVector dead-code removal")
 	assert.Equal(t, 512, im.dimension)
 }
+

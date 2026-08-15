@@ -72,3 +72,4 @@ func (r *customerTagRepository) Delete(ctx context.Context, id string) error {
 func (r *customerTagRepository) Update(ctx context.Context, tag *model.CustomerTag) error {
 	return _db.GetDB().Save(tag).Error
 }
+

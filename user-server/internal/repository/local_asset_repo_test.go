@@ -96,11 +96,9 @@ func TestAdvanceReportedUseCount_ConcurrentSafe(t *testing.T) {
 	ctx := context.Background()
 	id := seedLocalAsset(t, r, "asset-3", useCount(10), reportedCount(5))
 
-	// 步骤 1: 上报 delta=5（基于读取快照 use_count=10）
 	if err := r.AdvanceReportedUseCount(ctx, id, 5); err != nil {
 		t.Fatalf("advance: %v", err)
 	}
-	// 步骤 2: 期间另一 goroutine 又累加了 use_count += 1
 	if err := r.IncrementUseCount(ctx, id, 1); err != nil {
 		t.Fatalf("increment use_count: %v", err)
 	}
@@ -109,15 +107,12 @@ func TestAdvanceReportedUseCount_ConcurrentSafe(t *testing.T) {
 	if err := r.db.First(&got, id).Error; err != nil {
 		t.Fatalf("reload: %v", err)
 	}
-	// reported_use_count 应该是 5+5=10（CAS 失效时仍为 5）
 	if got.ReportedUseCount != 10 {
 		t.Fatalf("BUG-1 regression: expected reported=10, got %d (CAS may have failed)", got.ReportedUseCount)
 	}
-	// use_count 应该是 10+1=11
 	if got.UseCount != 11 {
 		t.Fatalf("expected use_count=11, got %d", got.UseCount)
 	}
-	// 下次应只上报 delta = 11 - 10 = 1
 	nextDelta := got.UseCount - got.ReportedUseCount
 	if nextDelta != 1 {
 		t.Fatalf("next delta should be 1, got %d (would cause duplicate count)", nextDelta)
@@ -163,12 +158,10 @@ func TestSetReportedUseCountIfMatch_LegacyCAS_BrokenBehavior(t *testing.T) {
 	ctx := context.Background()
 	id := seedLocalAsset(t, r, "asset-5", useCount(10), reportedCount(5))
 
-	// 期间并发累加 use_count
 	if err := r.IncrementUseCount(ctx, id, 1); err != nil {
 		t.Fatalf("increment: %v", err)
 	}
 
-	// 旧 CAS 调用方式：newVal=10, expected=10（即调用方读取时的快照值）
 	err := r.SetReportedUseCountIfMatch(ctx, id, 10, 10)
 	if err != nil {
 		t.Fatalf("CAS should not error even if no row matched: %v", err)
@@ -176,7 +169,6 @@ func TestSetReportedUseCountIfMatch_LegacyCAS_BrokenBehavior(t *testing.T) {
 
 	var got model.LocalAsset
 	_ = r.db.First(&got, id).Error
-	// 因为 use_count 已经变成 11，WHERE use_count=10 不命中，reported_use_count 仍为 5
 	if got.ReportedUseCount != 5 {
 		t.Fatalf("legacy CAS baseline changed: expected reported=5 (broken), got %d", got.ReportedUseCount)
 	}
@@ -214,3 +206,4 @@ func TestIncrementUseCount_Concurrent(t *testing.T) {
 // 辅助函数，提升测试可读性
 func useCount(v int64) int64      { return v }
 func reportedCount(v int64) int64 { return v }
+

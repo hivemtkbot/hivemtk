@@ -1,23 +1,5 @@
 package repository
 
-// agent_kb_binding.go 智能体 ↔ 知识库 绑定 Repository (隔离架构)
-//
-// 五层架构归属: L5 数据访问层
-// 设计依据: 知识库隔离架构
-//   - 多对多绑定: 一个智能体可挂载多个 KB, 一个 KB 可被多个智能体共享
-//   - 强 1:1 唯一约束: UNIQUE(agent_id, kb_id), 重复绑定报错
-//   - 业务逻辑 (缓存/编排) 在 Service 层
-//
-// 方法:
-//   - Create           新增绑定
-//   - Delete           删除绑定 (按 ID 或按 agent+kb)
-//   - DeleteByAgent    删某智能体所有绑定 (智能体删除时业务级联)
-//   - DeleteByKB       删某知识库所有绑定 (知识库删除时业务级联)
-//   - ListByAgent      列出某智能体的全部绑定 (可选 kb_type 过滤)
-//   - ListByAgentAll   列出某智能体的全部绑定 (不过滤 kb_type, service 级联删除用)
-//   - ListByKB         列出引用某 KB 的全部智能体
-//   - CheckExists      检查 (agent, kb) 是否已绑定
-//   - Update           更新绑定 (role/priority/enabled)
 
 import (
 	"context"
@@ -143,3 +125,4 @@ func (r *AgentKBBindingRepository) Update(ctx context.Context, id uint, b *model
 		Where("id = ?", id).
 		Select("*").Updates(b).Error
 }
+

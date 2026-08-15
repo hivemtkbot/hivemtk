@@ -1,14 +1,5 @@
 package service
 
-// rag_recall_monitor_test.go RAG 召回率监控服务测试
-//
-// 测试覆盖：
-//  1) 构造与默认参数
-//  2) Collect 空数据场景
-//  3) Collect 数据计算
-//  4) GetLatestSnapshot 内存缓存
-//  5) Start/Stop cron 启停
-//  6) 边界：nil db / end<start / 越界参数
 
 import (
 	"context"
@@ -63,11 +54,8 @@ func TestRagRecallMonitor_CollectAndStore_NilDB(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error for nil db")
 	}
-	// 内存缓存仍然应被设置（即使持久化失败）
 	snap, _ := s.GetLatestSnapshot(context.Background())
 	if snap == nil {
-		// 设计：db 为 nil 时 CollectAndStore 在持久化阶段就报错，不会更新缓存
-		// 这里允许 nil
 		_ = snap
 	}
 }
@@ -88,11 +76,9 @@ func TestRagRecallMonitor_GetLatestSnapshot_Empty(t *testing.T) {
 func TestRagRecallMonitor_StartStop(t *testing.T) {
 	s := NewRagRecallMonitorService(nil, 50*time.Millisecond, time.Hour)
 	s.Start(context.Background())
-	// 重复 Start 应当幂等
 	s.Start(context.Background())
 	time.Sleep(80 * time.Millisecond)
 	s.Stop(context.Background())
-	// 重复 Stop 必须安全（用 recover 保护，不应 panic）
 	s.Stop(context.Background())
 }
 
@@ -123,3 +109,4 @@ func TestRagRecallMonitor_BoundaryParams(t *testing.T) {
 		t.Errorf("Expected default window, got %v", s.window)
 	}
 }
+

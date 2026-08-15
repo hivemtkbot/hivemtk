@@ -77,3 +77,4 @@ func (c *RedisBackedCache) Set(key string, value any, ttl time.Duration) {
 func (c *RedisBackedCache) Delete(key string) {
 	_ = c.backend.Delete(context.Background(), key)
 }
+

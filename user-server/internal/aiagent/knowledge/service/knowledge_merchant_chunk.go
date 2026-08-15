@@ -12,9 +12,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// 3) 分段编辑
-// ============================================================================
 
 // GetDocumentChunks 列出文档分段（支持分页）。
 //
@@ -28,7 +25,6 @@ func (s *KnowledgeMerchantService) GetDocumentChunks(ctx context.Context, docume
 	if pageSize < 1 {
 		pageSize = DefaultPageSize
 	}
-	// 越权(IDOR)防护：携带 API Token 时校验文档归属是否与授权产品一致
 	if token != "" {
 		doc, derr := s.docRepo.GetByID(ctx, documentID)
 		if derr != nil {
@@ -49,7 +45,7 @@ func (s *KnowledgeMerchantService) GetDocumentChunks(ctx context.Context, docume
 type UpdateChunkRequest struct {
 	ChunkID uint64 `json:"chunk_id"`
 	Content string `json:"content"`
-	Token   string `json:"-"` // 可选：外部系统 API Token，用于越权(IDOR)防护
+	Token   string `json:"-"` 
 }
 
 // UpdateChunk 更新分段
@@ -64,7 +60,6 @@ func (s *KnowledgeMerchantService) UpdateChunk(ctx context.Context, req *UpdateC
 	if err != nil {
 		return fmt.Errorf("分段不存在: %w", err)
 	}
-	// 越权(IDOR)防护：携带 API Token 时校验分段归属是否与授权产品一致
 	if req.Token != "" {
 		tok, terr := s.ValidateToken(ctx, req.Token)
 		if terr != nil {
@@ -79,11 +74,10 @@ func (s *KnowledgeMerchantService) UpdateChunk(ctx context.Context, req *UpdateC
 	chunk.TokenCount = len(strings.Fields(req.Content))
 	h := sha256.Sum256([]byte(req.Content))
 	chunk.ContentHash = hex.EncodeToString(h[:])
-	chunk.EmbeddingID = "" // 内容变化后清空旧向量，触发重新向量化
+	chunk.EmbeddingID = "" 
 	if err := s.chunkRepo.Update(ctx, chunk); err != nil {
 		return err
 	}
-	// 重新向量化（per-product 配置优先），保持 knowledge_chunks.embedding 与内容一致
 	if err := s.kbService.EmbedAndPersistChunks(ctx, chunk.ProductID, []model.KnowledgeChunk{*chunk}); err != nil {
 		logger.Errorf("[knowledge] 分段更新后重新向量化失败: %v", err)
 	}
@@ -97,7 +91,6 @@ func (s *KnowledgeMerchantService) DeleteChunk(ctx context.Context, chunkID uint
 	if chunkID == 0 {
 		return errors.New("chunk_id 不能为空")
 	}
-	// 越权(IDOR)防护：携带 API Token 时校验分段归属是否与授权产品一致
 	if token != "" {
 		chunk, err := s.chunkRepo.GetByID(ctx, chunkID)
 		if err != nil {
@@ -132,7 +125,6 @@ func (s *KnowledgeMerchantService) SplitChunk(ctx context.Context, req *SplitChu
 	if err != nil {
 		return err
 	}
-	// 删除原分段，插入新分段
 	if err := s.chunkRepo.Delete(ctx, chunk.ID); err != nil {
 		return err
 	}
@@ -158,9 +150,9 @@ func (s *KnowledgeMerchantService) SplitChunk(ctx context.Context, req *SplitChu
 	if err := s.chunkRepo.BatchCreate(ctx, newChunks); err != nil {
 		return err
 	}
-	// 重新向量化（per-product 配置优先），保持 knowledge_chunks.embedding 与新分段一致
 	if err := s.kbService.EmbedAndPersistChunks(ctx, productID, newChunks); err != nil {
 		logger.Errorf("[knowledge] 分段重切后重新向量化失败: %v", err)
 	}
 	return nil
 }
+

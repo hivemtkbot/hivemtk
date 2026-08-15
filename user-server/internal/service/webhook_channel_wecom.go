@@ -318,3 +318,4 @@ func (s *WebhookService) getWeComSecrets(ctx context.Context, accountID string) 
 	}
 	return "", "", errors.New("wecom account not found")
 }
+

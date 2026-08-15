@@ -66,7 +66,7 @@ var upgraderVisitor = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		return true // 允许所有来源（私域部署，自有网站无需鉴权）
+		return true 
 	},
 }
 
@@ -85,7 +85,6 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 		channelID = "default"
 	}
 
-	// since_seq 增量补发（断点续传）；解析失败时按 0 处理（全量补发）
 	sinceSeq := uint64(0)
 	if s := strings.TrimSpace(c.Query("since_seq")); s != "" {
 		if n, err := strconv.ParseUint(s, 10, 64); err == nil {
@@ -100,23 +99,17 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 		return
 	}
 
-	// 分配/透传追踪 ID：每个访客连接一条链路，便于追踪单个访客的会话生命周期
 	ctx := logger.WithTraceID(c.Request.Context(), c.GetHeader("X-Trace-Id"))
 	ctx = logger.WithModule(ctx, "websocket")
 
-	// v1.2 出海方案：按 channel_id 解析双语言并注入 ctx（多层兜底，永不中断）。
-	// 访客 WS 连接层无 AIAgent.ID（session 维度的 agent_id 在 service 层解析），
-	// 传 0 时 resolver 走 channel.target_language → 默认 zh 的多层兜底路径。
 	ctx = injectLangToCtx(ctx, h.langResolver, channelID, 0)
 
-	// 升级 WebSocket 连接
 	conn, err := upgraderVisitor.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Str("session_id", sessionID).Str("visitor_id", visitorID).Msg("ws upgrade failed")
 		return
 	}
 
-	// 创建访客客户端
 	client := NewVisitorClient(h.hub, sessionID, visitorID, channelID)
 	client.hub = h.hub
 	registerVisitorClient(client)
@@ -127,11 +120,9 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 		Str("channel_id", channelID).
 		Msg("visitor connected")
 
-	// 启动读写协程（均透传 ctx 以共享 trace_id）
 	go h.writePump(client, conn)
 	go h.readPump(client, conn, ctx)
 
-	// 连接建立后异步推送欢迎消息 + 离线消息
 	go h.onConnect(client, sinceSeq, ctx)
 }
 
@@ -165,7 +156,6 @@ func (h *VisitorWSHandler) onConnect(client *Client, sinceSeq uint64, ctx contex
 		return
 	}
 
-	// 1. welcome 帧（带 seq）
 	welcomeEnv := MustEnvelope(NextSeq(), TypeWelcome, map[string]any{
 		"session_id": client.sessionID,
 		"visitor_id": client.visitorID,
@@ -200,13 +190,11 @@ func (h *VisitorWSHandler) onConnect(client *Client, sinceSeq uint64, ctx contex
 	}
 
 	if len(rows) == 0 {
-		// seq 路径无 pending 直接返回
 		if sinceSeq > 0 {
 			pending := GlobalPendingAck().PendingSince(client.sessionID, sinceSeq)
 			if len(pending) == 0 {
 				return
 			}
-			// 仅有 ack tracker pending 但 DB 无新行：发送 missed_ack 提示客户端
 			missedEnv := MustEnvelope(NextSeq(), "missed_ack", map[string]any{
 				"session_id": client.sessionID,
 				"pending":    pending,
@@ -218,7 +206,6 @@ func (h *VisitorWSHandler) onConnect(client *Client, sinceSeq uint64, ctx contex
 		return
 	}
 
-	// 3. 推送离线消息（带 seq + ts 走 Envelope）
 	ids := make([]uint, 0, len(rows))
 	for _, r := range rows {
 		ids = append(ids, r.ID)
@@ -230,7 +217,7 @@ func (h *VisitorWSHandler) onConnect(client *Client, sinceSeq uint64, ctx contex
 			"ai_source":   r.AISource,
 			"confidence":  r.AIConfidence,
 			"created_at":  r.CreatedAt,
-			"offline":     true, // 标记为离线补发
+			"offline":     true, 
 		})
 		if bytes, err := env.MarshalBytes(); err == nil {
 			sendToClient(client, bytes)
@@ -238,7 +225,6 @@ func (h *VisitorWSHandler) onConnect(client *Client, sinceSeq uint64, ctx contex
 		}
 	}
 
-	// 4. 标记已投递
 	now := time.Now()
 	if err := h.db.Table("session_messages").
 		Where("session_id = ? AND id IN ?", client.sessionID, ids).
@@ -255,7 +241,6 @@ func sendToClient(client *Client, payload []byte) {
 	select {
 	case client.send <- payload:
 	case <-time.After(500 * time.Millisecond):
-		// 客户端发送 channel 阻塞，丢弃
 	}
 }
 
@@ -278,7 +263,6 @@ func (h *VisitorWSHandler) writePump(client *Client, conn *websocket.Conn) {
 		select {
 		case message, ok := <-client.send:
 			if !ok {
-				// hub 关闭了 channel，发送 Close 帧后退出
 				_ = conn.SetWriteDeadline(time.Now().Add(writeWait))
 				_ = conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
@@ -288,7 +272,6 @@ func (h *VisitorWSHandler) writePump(client *Client, conn *websocket.Conn) {
 				return
 			}
 		case <-ticker.C:
-			// 定期发 Ping 维持连接；Pong 由 readPump 的 SetPongHandler 处理
 			_ = conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
@@ -338,23 +321,18 @@ func (h *VisitorWSHandler) readPump(client *Client, conn *websocket.Conn, ctx co
 		msgType, _ := msg["type"].(string)
 		switch msgType {
 		case "ping":
-			// 心跳响应
 			pongEnv := MustEnvelope(NextSeq(), TypePong, map[string]any{"time": time.Now().Unix()})
 			if bytes, err := pongEnv.MarshalBytes(); err == nil {
 				sendToClient(client, bytes)
 			}
 		case "ack":
-			// 客户端确认已收到的 seq 列表（批量 ack）
-			// 协议：{"type":"ack","seq":[100,101,102]} 或 {"type":"ack","seq":100}
 			ackedCount := handleAckMessage(client, msg)
 			logger.Ctx(ctx).Debug().Str("session_id", client.sessionID).Int("acked", ackedCount).Msg("ack received")
 		case "resume":
-			// 客户端重连后增量补发：{"type":"resume","since_seq":N}
 			sinceSeq := parseSinceSeq(msg)
 			logger.Ctx(ctx).Info().Str("session_id", client.sessionID).Uint64("since_seq", sinceSeq).Msg("resume requested")
 			go h.onConnect(client, sinceSeq, ctx)
 		case "delivered":
-			// 旧协议兼容（仅日志）
 			logger.Ctx(ctx).Debug().Str("session_id", client.sessionID).Interface("ack", msg).Msg("received delivered ack (legacy)")
 		case "close":
 			logger.Ctx(ctx).Info().Str("session_id", client.sessionID).Msg("visitor closed connection")
@@ -410,3 +388,4 @@ func sendVisitorError(client *Client, msg string) {
 	})
 	sendToClient(client, errBytes)
 }
+

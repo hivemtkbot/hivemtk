@@ -1,13 +1,5 @@
 package feedbackloop
 
-// helpers_test.go 反馈学习闭环测试通用辅助
-//
-// 提供：
-//   1. stubLLMDispatcher   - LLM 调度器 stub（实现 LLMDispatcher 接口）
-//   2. stubEmbedder        - Embedder stub（实现 Embedder 接口）
-//   3. stubBanditAllocator  - BanditAllocator stub（实现 BanditAllocatorInterface）
-// 4. PG 测试 DB setup - 复用 testutil.NewTestDB，自动 AutoMigrate 全部模型
-//   5. 浮点近似比较辅助
 
 import (
 	"context"
@@ -21,9 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ----------------------------------------------------------------------------
-// 浮点近似比较
-// ----------------------------------------------------------------------------
 
 func approxEqualF64(a, b float64) bool {
 	return math.Abs(a-b) < 1e-6
@@ -33,9 +22,6 @@ func approxEqualF32(a, b float32) bool {
 	return math.Abs(float64(a-b)) < 1e-6
 }
 
-// ----------------------------------------------------------------------------
-// stubLLMDispatcher LLM 调度器 stub
-// ----------------------------------------------------------------------------
 
 // stubLLMDispatcher 测试用 LLM 调度器
 //
@@ -87,9 +73,6 @@ func (s *stubLLMDispatcher) Calls() int {
 	return s.calls
 }
 
-// ----------------------------------------------------------------------------
-// stubEmbedder Embedder stub
-// ----------------------------------------------------------------------------
 
 // stubEmbedder 测试用 Embedder
 //
@@ -152,16 +135,13 @@ func (s *stubEmbedder) Dimension() int {
 	return s.dimension
 }
 
-// ----------------------------------------------------------------------------
-// stubBanditAllocator BanditAllocator stub
-// ----------------------------------------------------------------------------
 
 // stubBanditAllocator 测试用 BanditAllocator
 //
 // 用于 SOPAutoOptimizer 测试，可控返回收敛结果与 PromoteArm 行为
 type stubBanditAllocator struct {
 	mu             sync.Mutex
-	convergenceMap map[string]string // experimentID → winnerKey（空表示未收敛）
+	convergenceMap map[string]string 
 	promoteCalls   []promoteCall
 	promoteErr     error
 }
@@ -210,9 +190,6 @@ func (s *stubBanditAllocator) PromoteCalls() []promoteCall {
 	return out
 }
 
-// ----------------------------------------------------------------------------
-// PG 测试 DB setup
-// ----------------------------------------------------------------------------
 
 // setupFeedbackLoopTestDB 创建 测试 DB
 //
@@ -225,17 +202,15 @@ func (s *stubBanditAllocator) PromoteCalls() []promoteCall {
 //     AutoMigrate 会创建为 vector(1024) 类型（pgvector 扩展已启用）
 func setupFeedbackLoopTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	// 项目规则"不允许跳过"：PG 集成测试必须运行，testutil.NewTestDB 在连接失败时 t.Fatal
 	return testutil.NewTestDB(t,
-		// 6 张新表
 		&model.FeedbackEvent{},
 		&model.FeedbackSignal{},
 		&model.ChampionDialogue{},
 		&model.PromptCandidate{},
 		&model.BanditArm{},
 		&model.PromptABTest{},
-		// 关联表（用于 SOPAutoOptimizer 测试）
 		&model.SOPAgent{},
 		&model.OptimizationSuggestion{},
 	)
 }
+

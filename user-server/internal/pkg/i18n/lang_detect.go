@@ -32,7 +32,6 @@ func DetectLangCode(text string) string {
 		case isVietnamese(r):
 			counts["vi"]++
 		default:
-			// 拉丁等脚本不计入（避免误判）。
 		}
 	}
 	best := ""
@@ -54,7 +53,7 @@ func isHiragana(r rune) bool {
 }
 
 func isKatakana(r rune) bool {
-	return (r >= 0x30A0 && r <= 0x30FF) || (r >= 0xFF65 && r <= 0xFF9F) // 半角片假名
+	return (r >= 0x30A0 && r <= 0x30FF) || (r >= 0xFF65 && r <= 0xFF9F) 
 }
 
 func isHangul(r rune) bool {
@@ -86,11 +85,12 @@ func isCJK(r rune) bool {
 // 避免与同样带变音符号的法文/西班牙文等混淆。
 func isVietnamese(r rune) bool {
 	switch r {
-	case 0x0111, 0x0110, // đ Đ
-		0x0103, 0x0102, // ă Ă
-		0x01A1, 0x01A0, // ơ Ơ
-		0x01B0, 0x01AF: // ư Ư
+	case 0x0111, 0x0110, 
+		0x0103, 0x0102, 
+		0x01A1, 0x01A0, 
+		0x01B0, 0x01AF: 
 		return true
 	}
 	return false
 }
+

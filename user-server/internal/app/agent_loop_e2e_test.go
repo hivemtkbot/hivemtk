@@ -19,33 +19,7 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// agent_loop_e2e_test.go 智能体 Agent Loop 真实业务端到端测试（-）
-//
-// 本文件验证 ~ 修复后的完整智能体链路：
-//
-//	用户消息 → SalesEngine.Handle → generateCandidate → runAgentLoop（ReAct）
-//	  → LLM 决定调用 tool → AgentToolExecutor.DispatchToolCalls
-//	  → tooluse.ToolExecutor 装饰器链（权限/限流/重试/超时/审计/计费）
-//	  → 真实工具 Execute → 结果回灌 → LLM 最终回复
-//
-// 与单元测试差异：
-//   - 单元测试：mock LLM、mock 工具，只验证代码路径
-//   - 本测试：真实 ToolExecutor + 真实 ToolRegistry + 真实 DB 写入
-//     LLM 用桩（不依赖外部 API），但工具调用全链路真实执行
-//
-// 测试用例覆盖：
-// 客户搜索工具调用（customer.search 真实写入 + 查询）
-// 跟进任务创建工具调用（follow_task.create 真实落库）
-// 知识库列表工具调用（knowledge.list_kb 真实数据）
-// 知识反馈工具调用（knowledge.feedback 真实写入）
-// RAG 检索工具调用（rag.search 真实检索）
-// Agent Loop 多轮迭代（LLM 返回 tool_calls → 执行 → 回灌 → 最终 stop）
-// 装饰器链拦截验证（限流/审计/计费真实生效）
-// 全局注册中心完整性（工具全部可被 AgentToolExecutor 列出）
 
-// ============================================================================
-// 测试辅助
-// ============================================================================
 
 // setupAgentLoopTestDB 构造测试 DB + AutoMigrate 智能体相关模型
 //
@@ -62,7 +36,6 @@ func setupAgentLoopTestDB(t *testing.T) *gorm.DB {
 		&model.KnowledgeSearchLog{},
 		&model.RagProduct{},
 	)
-	// 让全局 repository 使用测试 DB（进程级测试库已隔离，不影响其他测试进程）
 	_db.SetTestDB(database)
 	return database
 }
@@ -81,13 +54,10 @@ func setupAgentLoopTestDB(t *testing.T) *gorm.DB {
 //     让检索走 legacy vectorSearch + BM25-lite 兜底，与生产降级路径一致
 func setupAgentLoopExecutor(t *testing.T, db *gorm.DB) *tooluse.ToolExecutor {
 	t.Helper()
-	// 测试环境启用 embedding 哈希降级（生产代码路径，仅日志告警）
-	// 避免 rag.search 工具因 TEI 服务不可达触发 3 次重试 * 5s 超时 = 15s 卡死
 	t.Setenv("EMBEDDING_ALLOW_FALLBACK", "true")
 
 	registry := tooluse.NewToolRegistry()
 
-	// 注册全部 5 类工具
 	customerDeps := tooluse.NewCustomerToolDepsWithDB(db)
 	if err := tooluse.RegisterCustomerTools(registry, customerDeps); err != nil {
 		t.Fatalf("注册客户工具失败：%v", err)
@@ -97,9 +67,6 @@ func setupAgentLoopExecutor(t *testing.T, db *gorm.DB) *tooluse.ToolExecutor {
 		t.Fatalf("注册触达工具失败：%v", err)
 	}
 	knowledgeDeps := tooluse.NewKnowledgeToolDepsWithDB(db)
-	// 禁用 hybridSearcher，避免依赖外部 embedding 服务（http://mtk-embedding:8208）
-	// 测试场景走 BM25-lite 兜底路径（纯文本检索，无需向量化）
-	// 这与生产路径功能等价：embedding 服务不可用时生产代码也会自动 fallback 到 BM25-lite
 	knowledgeDeps.RagSearcher.SetHybridSearcher(nil)
 	if err := tooluse.RegisterKnowledgeTools(registry, knowledgeDeps); err != nil {
 		t.Fatalf("注册知识工具失败：%v", err)
@@ -108,7 +75,6 @@ func setupAgentLoopExecutor(t *testing.T, db *gorm.DB) *tooluse.ToolExecutor {
 	if err := tooluse.RegisterBusinessTools(registry, businessDeps); err != nil {
 		t.Fatalf("注册业务工具失败：%v", err)
 	}
-	// 私信工具需要 CustomerSessionService，简化测试跳过 pm.* 工具
 
 	executor := tooluse.NewToolExecutor(registry, tooluse.ToolExecutorConfig{
 		DefaultTimeout:    5 * time.Second,
@@ -134,14 +100,13 @@ func setupAgentLoopSalesEngine(t *testing.T, db *gorm.DB, dispatcher *llm.Dispat
 	engine := service.NewSalesEngine(
 		db,
 		dispatcher,
-		nil, // intent=nil，使用 fallback
-		nil, // memory=nil
-		nil, // sop=nil
-		nil, // ragSearcher=nil
-		nil, // scriptLookup=nil
-		nil, // customerLookup=nil
+		nil, 
+		nil, 
+		nil, 
+		nil, 
+		nil, 
+		nil, 
 	)
-	// 注入 ToolExecutorAdapter，激活 Agent Loop
 	engine.SetToolExecutor(context.Background(), NewToolExecutorAdapter(executor))
 	return engine, executor
 }
@@ -154,15 +119,10 @@ func setupAgentLoopSalesEngine(t *testing.T, db *gorm.DB, dispatcher *llm.Dispat
 // 通过 scenario 路由即可，无需真实 HTTP 调用
 func stubLLMDispatcher(t *testing.T, toolCallsToReturn []llm.ToolCall, finalContent string) *llm.Dispatcher {
 	t.Helper()
-	// 使用 NewDispatcher 注册默认 provider，但通过环境变量指向一个不存在端点
-	// 测试中不会真实发起 HTTP（因为我们会 mock 在 Dispatch 层之前）
-	// 简化做法：直接用 NewDispatcher(nil) 然后通过反射注入——但 Dispatcher 持有 *LLMService 不可替换
-	// 因此本测试采用另一种方案：直接构造 Dispatcher 并通过 SetRoute 注入桩 provider
 	d := llm.NewDispatcher(llm.NewLLMService())
-	// 注入一个虚构 provider（测试不会真实调用，因为我们会拦截）
 	d.AddProvider(llm.ProviderConfig{
 		Name:         "stub",
-		BaseURL:      "http://127.0.0.1:0/v1", // 不会被调用
+		BaseURL:      "http://127.0.0.1:0/v1", 
 		APIType:      "openai",
 		Model:        "stub-model",
 		APIKey:       "stub-key",
@@ -179,9 +139,6 @@ func stubLLMDispatcher(t *testing.T, toolCallsToReturn []llm.ToolCall, finalCont
 	return d
 }
 
-// ============================================================================
-// 客户搜索工具调用（customer.search 真实写入 + 查询）
-// ============================================================================
 
 // TestT1_CustomerSearchTool_RealDB 验证 customer.search 工具真实执行
 //
@@ -191,7 +148,6 @@ func TestT1_CustomerSearchTool_RealDB(t *testing.T) {
 	db := setupAgentLoopTestDB(t)
 	executor := setupAgentLoopExecutor(t, db)
 
-	// 1. 预置数据：写入 1 条客户（Customer 无 Name 字段，通过手机号识别）
 	customer := &model.Customer{
 		ID:    "cust-t1-001",
 		Phone: "13800138001",
@@ -201,7 +157,6 @@ func TestT1_CustomerSearchTool_RealDB(t *testing.T) {
 		t.Fatalf("预置客户失败：%v", err)
 	}
 
-	// 2. 模拟 LLM 返回 tool_call: customer.search
 	toolCall := tooluse.LLMToolCall{
 		ID: "call-t1-001",
 		Function: tooluse.LLMToolFunction{
@@ -210,7 +165,6 @@ func TestT1_CustomerSearchTool_RealDB(t *testing.T) {
 		},
 	}
 
-	// 3. 通过 ToolExecutor.DispatchByLLMToolCall 真实执行
 	results := executor.DispatchByLLMToolCall(context.Background(), []tooluse.LLMToolCall{toolCall}, nil)
 	if len(results) != 1 {
 		t.Fatalf("应返回 1 个结果，实际 %d", len(results))
@@ -219,7 +173,6 @@ func TestT1_CustomerSearchTool_RealDB(t *testing.T) {
 		t.Fatalf("customer.search 执行失败：%s", results[0].Content)
 	}
 
-	// 4. 验证返回内容包含客户信息
 	if !strings.Contains(results[0].Content, "13800138001") {
 		t.Errorf("返回内容应包含手机号 13800138001，实际：%s", results[0].Content)
 	}
@@ -229,9 +182,6 @@ func TestT1_CustomerSearchTool_RealDB(t *testing.T) {
 	t.Logf("✅ T1 customer.search 真实执行成功，返回：%s", results[0].Content)
 }
 
-// ============================================================================
-// 跟进任务创建工具调用（follow_task.create 真实落库）
-// ============================================================================
 
 // TestT4_FollowTaskCreate_RealDB 验证 follow_task.create 真实落库
 //
@@ -253,16 +203,12 @@ func TestT4_FollowTaskCreate_RealDB(t *testing.T) {
 		t.Fatalf("follow_task.create 失败：%s", results[0].Content)
 	}
 
-	// 验证返回 reminder_id 非空
 	if !strings.Contains(results[0].Content, "reminder_id") {
 		t.Errorf("返回应包含 reminder_id，实际：%s", results[0].Content)
 	}
 	t.Logf("✅ T4 follow_task.create 真实落库成功")
 }
 
-// ============================================================================
-// 知识库列表工具调用（knowledge.list_kb 真实数据）
-// ============================================================================
 
 // TestT5_KnowledgeListKB_RealDB 验证 knowledge.list_kb 真实返回
 //
@@ -272,14 +218,11 @@ func TestT5_KnowledgeListKB_RealDB(t *testing.T) {
 	db := setupAgentLoopTestDB(t)
 	executor := setupAgentLoopExecutor(t, db)
 
-	// 预置 2 个 RagProduct
-	// VectorTable 有 uniqueIndex 约束，默认空值会导致 2 条记录冲突
-	// 必须显式设置唯一 VectorTable 值
 	for i := 1; i <= 2; i++ {
 		p := &model.RagProduct{
 			ID:             fmt.Sprintf("kb-t5-%03d", i),
 			Name:           fmt.Sprintf("T5 知识库 %d", i),
-			VectorTable:    fmt.Sprintf("vec_t5_%03d", i), // 唯一向量表名，避免 uniqueIndex 冲突
+			VectorTable:    fmt.Sprintf("vec_t5_%03d", i), 
 			IsActive:       true,
 			Status:         1,
 			EmbeddingModel: "BAAI/bge-base-zh-v1.5",
@@ -302,16 +245,12 @@ func TestT5_KnowledgeListKB_RealDB(t *testing.T) {
 		t.Fatalf("knowledge.list_kb 失败：%s", results[0].Content)
 	}
 
-	// 验证返回 total=2
 	if !strings.Contains(results[0].Content, `"total":2`) {
 		t.Errorf("应返回 total=2，实际：%s", results[0].Content)
 	}
 	t.Logf("✅ T5 knowledge.list_kb 真实返回 2 个知识库")
 }
 
-// ============================================================================
-// 知识反馈工具调用（knowledge.feedback 真实写入）
-// ============================================================================
 
 // TestT6_KnowledgeFeedback_RealDB 验证 knowledge.feedback 真实写入
 //
@@ -342,9 +281,6 @@ func TestT6_KnowledgeFeedback_RealDB(t *testing.T) {
 	t.Logf("✅ T6 knowledge.feedback 真实写入 1 条反馈记录")
 }
 
-// ============================================================================
-// RAG 检索工具调用（rag.search 真实检索）
-// ============================================================================
 
 // TestT7_RagSearch_RealDB 验证 rag.search 真实检索
 //
@@ -354,10 +290,9 @@ func TestT7_RagSearch_RealDB(t *testing.T) {
 	db := setupAgentLoopTestDB(t)
 	executor := setupAgentLoopExecutor(t, db)
 
-	// 预置 1 个 KnowledgeChunk
 	chunk := &model.KnowledgeChunk{
 		DocumentID: 1,
-		ProductID:  "12345", // 对应 hash("kb-t7-001")
+		ProductID:  "12345", 
 		ChunkIndex: 0,
 		Content:    "T7 测试：退款流程为联系客服并提供客户ID",
 	}
@@ -376,16 +311,12 @@ func TestT7_RagSearch_RealDB(t *testing.T) {
 	if !results[0].Success {
 		t.Fatalf("rag.search 失败：%s", results[0].Content)
 	}
-	// 验证返回 chunks 数组（可能为空，因 BM25-lite 匹配规则）
 	if !strings.Contains(results[0].Content, "chunks") {
 		t.Errorf("返回应包含 chunks 字段，实际：%s", results[0].Content)
 	}
 	t.Logf("✅ T7 rag.search 真实检索成功")
 }
 
-// ============================================================================
-// Agent Loop 多轮迭代（LLM → tool → LLM → stop）
-// ============================================================================
 
 // TestT8_AgentLoop_MultiIteration 验证 Agent Loop 真实多轮迭代
 //
@@ -399,14 +330,12 @@ func TestT8_AgentLoop_MultiIteration(t *testing.T) {
 	executor := setupAgentLoopExecutor(t, db)
 	adapter := NewToolExecutorAdapter(executor)
 
-	// 1. 验证 ListTools 返回全部工具（reach×20 + customer×8 + knowledge×4 + follow_task×2，pm 未注册）
 	tools := adapter.ListTools()
 	if len(tools) < 32 {
 		t.Fatalf("ListTools 应返回 >= 38 个工具，实际 %d", len(tools))
 	}
 	t.Logf("✅ T8.1 ListTools 返回 %d 个工具", len(tools))
 
-	// 2. 模拟 LLM 第一次返回 tool_calls（并发 2 个：follow_task.create + customer.search）
 	agentCalls := []service.AgentToolCall{
 		{
 			ID:        "call-t8-create",
@@ -430,7 +359,6 @@ func TestT8_AgentLoop_MultiIteration(t *testing.T) {
 		t.Fatalf("应返回 2 个结果，实际 %d", len(results))
 	}
 
-	// 3. 验证每个结果都有 ToolCallID（用于回灌给 LLM）
 	for i, r := range results {
 		if r.ToolCallID == "" {
 			t.Errorf("结果 %d 的 ToolCallID 不应为空", i)
@@ -441,7 +369,6 @@ func TestT8_AgentLoop_MultiIteration(t *testing.T) {
 		t.Logf("  ToolCall %s: success=%v, content_len=%d", r.ToolCallID, r.Success, len(r.Content))
 	}
 
-	// 4. 验证 tool result 可序列化为 LLM role=tool 消息（OpenAI 兼容格式）
 	for _, r := range results {
 		toolMsg := llm.ChatMessage{
 			Role:       "tool",
@@ -459,9 +386,6 @@ func TestT8_AgentLoop_MultiIteration(t *testing.T) {
 	t.Logf("✅ T8.2 Agent Loop 多轮迭代：tool_calls 并发执行 + 结果可回灌 LLM")
 }
 
-// ============================================================================
-// 装饰器链拦截验证（限流/审计/计费真实生效）
-// ============================================================================
 
 // TestT9_DecoratorChain_RealEffect 验证装饰器链真实生效
 //
@@ -473,7 +397,6 @@ func TestT8_AgentLoop_MultiIteration(t *testing.T) {
 func TestT9_DecoratorChain_RealEffect(t *testing.T) {
 	db := setupAgentLoopTestDB(t)
 
-	// 注入自定义 AuditLogger + CostTracker
 	auditLogger := tooluse.NewMemoryAuditLogger(1000)
 	costTracker := tooluse.NewMemoryCostTracker()
 	registry := tooluse.NewToolRegistry()
@@ -489,7 +412,6 @@ func TestT9_DecoratorChain_RealEffect(t *testing.T) {
 		CostTracker:       costTracker,
 	})
 
-	// 调用一个会成功的工具（follow_task.create）
 	call := tooluse.LLMToolCall{
 		ID: "call-t9-001",
 		Function: tooluse.LLMToolFunction{
@@ -502,7 +424,6 @@ func TestT9_DecoratorChain_RealEffect(t *testing.T) {
 		t.Fatalf("follow_task.create 失败：%s", results[0].Content)
 	}
 
-	// 1. 验证 AuditLogger 记录 1 条
 	if auditLogger.Count() < 1 {
 		t.Errorf("AuditLogger 应记录 >=1 条，实际 %d", auditLogger.Count())
 	}
@@ -517,7 +438,6 @@ func TestT9_DecoratorChain_RealEffect(t *testing.T) {
 		}
 	}
 
-	// 2. 验证 CostTracker 记录 1 条
 	stats := costTracker.Stats()
 	foundOrder := false
 	for _, s := range stats {
@@ -534,9 +454,6 @@ func TestT9_DecoratorChain_RealEffect(t *testing.T) {
 	t.Logf("✅ T9 装饰器链真实生效：AuditLogger=%d 条，CostTracker 记录 follow_task.create", auditLogger.Count())
 }
 
-// ============================================================================
-// 全局注册中心完整性（41 个工具全部可被 AgentToolExecutor 列出）
-// ============================================================================
 
 // TestT10_GlobalRegistry_Completeness 验证全局注册中心完整性
 //
@@ -554,7 +471,6 @@ func TestT10_GlobalRegistry_Completeness(t *testing.T) {
 		t.Fatalf("ListTools 应返回 >= 36 个工具，实际 %d", len(tools))
 	}
 
-	// 验证每个工具定义都是合法的 OpenAI Function Calling 格式
 	categories := map[string]int{
 		"customer.": 0, "reach.": 0, "knowledge.": 0, "rag.": 0,
 		"follow_task.": 0,
@@ -570,7 +486,6 @@ func TestT10_GlobalRegistry_Completeness(t *testing.T) {
 			t.Errorf("工具 %s 的 Parameters 不应为 nil", tool.Name)
 		}
 
-		// 按前缀分类统计
 		for prefix := range categories {
 			if strings.HasPrefix(tool.Name, prefix) {
 				categories[prefix]++
@@ -579,13 +494,12 @@ func TestT10_GlobalRegistry_Completeness(t *testing.T) {
 		}
 	}
 
-	// 验证关键分类都有工具
 	required := map[string]int{
 		"customer.":    8,
 		"reach.":       20,
-		"knowledge.":   3, // feedback/add_doc/list_kb
-		"rag.":         1, // rag.search
-		"follow_task.": 2, // create/update
+		"knowledge.":   3, 
+		"rag.":         1, 
+		"follow_task.": 2, 
 	}
 	for prefix, minCount := range required {
 		if categories[prefix] < minCount {
@@ -593,7 +507,6 @@ func TestT10_GlobalRegistry_Completeness(t *testing.T) {
 		}
 	}
 
-	// 验证关键工具名存在
 	criticalTools := []string{
 		"customer.search", "customer.get", "customer.create",
 		"reach.web.send", "reach.telegram.send", "reach.whatsapp.send",
@@ -614,9 +527,6 @@ func TestT10_GlobalRegistry_Completeness(t *testing.T) {
 	t.Logf("   分类分布：%v", categories)
 }
 
-// ============================================================================
-// 额外：SalesEngine Agent Loop 集成测试
-// ============================================================================
 
 // TestAgentLoop_SalesEngineHandle_RealToolExecutor 验证 SalesEngine.Handle 走 Agent Loop 路径
 //
@@ -630,7 +540,6 @@ func TestAgentLoop_SalesEngineHandle_RealToolExecutor(t *testing.T) {
 	dispatcher := stubLLMDispatcher(t, nil, "AI 回复")
 	engine, executor := setupAgentLoopSalesEngine(t, db, dispatcher)
 
-	// 验证 ToolExecutor 注入成功
 	if engine == nil {
 		t.Fatal("SalesEngine 不应为 nil")
 	}
@@ -638,7 +547,6 @@ func TestAgentLoop_SalesEngineHandle_RealToolExecutor(t *testing.T) {
 		t.Fatal("ToolExecutor 不应为 nil")
 	}
 
-	// 验证 ListTools 接口可调用
 	adapter := NewToolExecutorAdapter(executor)
 	tools := adapter.ListTools()
 	if len(tools) < 32 {
@@ -646,13 +554,8 @@ func TestAgentLoop_SalesEngineHandle_RealToolExecutor(t *testing.T) {
 	}
 	t.Logf("✅ SalesEngine 注入 ToolExecutor 成功，ListTools 返回 %d 个工具", len(tools))
 
-	// 注意：不实际调用 engine.Handle，因为 LLM Dispatcher 会失败（无真实 LLM 服务）
-	// 真实业务测试通过 - 已覆盖工具调用全链路
 }
 
-// ============================================================================
-// 补充：Agent Loop 失败降级测试
-// ============================================================================
 
 // TestAgentLoop_Fallback_WhenToolFails 验证工具失败时回灌错误信息给 LLM
 //
@@ -663,7 +566,6 @@ func TestAgentLoop_Fallback_WhenToolFails(t *testing.T) {
 	executor := setupAgentLoopExecutor(t, db)
 	adapter := NewToolExecutorAdapter(executor)
 
-	// 调用不存在的工具
 	call := service.AgentToolCall{
 		ID:        "call-fail-001",
 		Name:      "nonexistent.tool",
@@ -681,11 +583,10 @@ func TestAgentLoop_Fallback_WhenToolFails(t *testing.T) {
 	}
 	t.Logf("✅ 工具失败降级：返回 success=false + 错误描述回灌给 LLM")
 
-	// 同时验证另一个场景：缺少必填参数
 	call2 := service.AgentToolCall{
 		ID:        "call-fail-002",
 		Name:      "follow_task.create",
-		Arguments: `{}`, // 缺少 account_id 和 price
+		Arguments: `{}`, 
 	}
 	results2 := adapter.DispatchToolCalls(context.Background(), []service.AgentToolCall{call2}, service.AgentToolContext{})
 	if results2[0].Success {
@@ -706,3 +607,4 @@ func newTestBusinessToolDeps(db *gorm.DB) tooluse.BusinessToolDeps {
 		db,
 	)
 }
+

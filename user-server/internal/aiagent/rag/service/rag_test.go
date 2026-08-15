@@ -159,7 +159,6 @@ func TestQueryResponse_Fields(t *testing.T) {
 	}
 }
 
-// ============== Three-tier integration tests ==============
 
 func TestRAGService_SetThreeTier(t *testing.T) {
 	llmSvc := llm.NewLLMService()
@@ -180,13 +179,11 @@ func TestRAGService_ThreeTierStats(t *testing.T) {
 	ragEngine := rag_core.NewRAGEngine(nil)
 	svc := NewRAGService(llmSvc, ragEngine)
 
-	// 无三级时返回 false
 	_, ok := svc.ThreeTierStats()
 	if ok {
 		t.Error("expected false when no three tier")
 	}
 
-	// 注入后返回 true
 	mock := &mockThreeTier{}
 	svc.SetThreeTier(mock)
 	stats, ok := svc.ThreeTierStats()
@@ -194,7 +191,7 @@ func TestRAGService_ThreeTierStats(t *testing.T) {
 		t.Error("expected true after set")
 	}
 	if stats.Total == 0 {
-		_ = stats // ok, mock 还未被调用
+		_ = stats 
 	}
 }
 
@@ -233,7 +230,6 @@ func TestRAGService_Retrieve_NoKBID_NoThreeTier(t *testing.T) {
 
 	mock := &mockThreeTier{}
 	svc.SetThreeTier(mock)
-	// 无 KBID，应回退到 RAGEngine
 	_, source, err := svc.retrieve(context.Background(), "", "hello", 5)
 	if err != nil {
 		t.Fatalf("retrieve: %v", err)
@@ -251,7 +247,6 @@ func TestRAGService_Retrieve_ThreeTierError_Fallback(t *testing.T) {
 	ragEngine := rag_core.NewRAGEngineWithEmbedder(nil, rag_core.NewMockEmbedder(128))
 	svc := NewRAGService(llmSvc, ragEngine)
 
-	// 三级返回 error，应降级到 RAGEngine
 	mock := &mockThreeTier{err: &dummyError{}}
 	svc.SetThreeTier(mock)
 	_, source, _ := svc.retrieve(context.Background(), "kb1", "hello", 5)
@@ -290,3 +285,4 @@ func TestThreeTierResult_Fields(t *testing.T) {
 		t.Error("expected FromCache true")
 	}
 }
+

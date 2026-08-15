@@ -79,7 +79,7 @@ func TestIngestMessage_ToEventFull(t *testing.T) {
 		Channel: "xianyu", AccountID: "a", ConversationID: "c",
 		History: []*HistoryItem{
 			{EventID: "h-1", Content: "轮次1", SenderType: "customer", Timestamp: 1700000000000},
-			nil, // nil 项应被跳过
+			nil, 
 			{EventID: "h-2", Content: "轮次2", SenderType: "self", Direction: "outbound"},
 		},
 	}
@@ -94,7 +94,6 @@ func TestIngestMessage_ToEventFull(t *testing.T) {
 		t.Error("Extra[history] 冗余缺失")
 	}
 
-	// 无 History 时 ToEventFull 与 ToEvent 等价（不 panic）
 	empty := &IngestMessage{Channel: "xianyu", AccountID: "a", ConversationID: "c"}
 	if full := empty.ToEventFull("http"); len(full.History) != 0 {
 		t.Errorf("无 History 时不应产生历史: %+v", full.History)
@@ -122,7 +121,6 @@ func TestHistoryToEvent(t *testing.T) {
 	if ev.EventID != "h-9" || ev.Content != "出站轮次" || ev.Extra["sender_type"] != "self" {
 		t.Errorf("轮次字段应取自 item: %+v", ev)
 	}
-	// receiver_id：item 未填 → 回退 parent.ReceiverID
 	if ev.ReceiverID != "recv-parent" {
 		t.Errorf("ReceiverID = %q, want recv-parent（parent 兜底）", ev.ReceiverID)
 	}
@@ -130,7 +128,6 @@ func TestHistoryToEvent(t *testing.T) {
 		t.Errorf("群元数据应继承 parent: %+v", ev.Extra)
 	}
 
-	// 出站轮次 receiver 兜底：parent 也无 ReceiverID 时用 ConversationID
 	parent2 := &IngestMessage{Channel: "douyin", AccountID: "a", ConversationID: "conv-2"}
 	ev2 := HistoryToEvent(parent2, &HistoryItem{Direction: "outbound"})
 	if ev2.ReceiverID != "conv-2" {
@@ -202,7 +199,6 @@ func TestIngestMessage_JSONCompat(t *testing.T) {
 		t.Errorf("history JSON tag 不兼容: %+v", m.History)
 	}
 
-	// 序列化回读：snake_case tag 保持不变
 	out, err := json.Marshal(&m)
 	if err != nil {
 		t.Fatalf("序列化失败: %v", err)
@@ -246,3 +242,4 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
+

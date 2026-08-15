@@ -39,7 +39,6 @@ func setupCustomerRouter(t *testing.T) *gin.Engine {
 		c.Next()
 	})
 
-	// 客户管理相关路由（与生产 router/service_routes.go 对齐：/api/customer/...）
 	router.GET("/api/customer", controller.ListCustomers)
 	router.GET("/api/customer/:id", controller.GetCustomer)
 	router.POST("/api/customer", controller.CreateCustomer)
@@ -76,7 +75,7 @@ func TestCustomerController_ListCustomers(t *testing.T) {
 		{
 			name:           "invalid_page",
 			url:            "/api/customer?page=abc&limit=xyz",
-			expectedStatus: 400, // 非法 page 参数应被校验拒绝
+			expectedStatus: 400, 
 			expectSuccess:  false,
 		},
 	}
@@ -116,13 +115,13 @@ func TestCustomerController_GetCustomer(t *testing.T) {
 		{
 			name:           "missing_customer",
 			url:            "/api/customer/non-existent-id",
-			expectedStatus: 404, // 客户不存在
+			expectedStatus: 404, 
 			expectSuccess:  false,
 		},
 		{
 			name:           "empty_id",
 			url:            "/api/customer/",
-			expectedStatus: 301, // Gin 路由会返回 301 重定向
+			expectedStatus: 301, 
 			expectSuccess:  false,
 		},
 	}
@@ -168,7 +167,7 @@ func TestCustomerController_CreateCustomer(t *testing.T) {
 				Email:        "test@example.com",
 				WechatOpenID: "test-wechat-openid",
 			},
-			expectedStatus: 200, // 缺少 user_id 时可能仍创建成功
+			expectedStatus: 200, 
 			expectSuccess:  true,
 		},
 	}
@@ -205,7 +204,7 @@ func TestCustomerController_AddTags(t *testing.T) {
 				"tags": []string{"VIP", "High-Value"},
 			},
 			url:            "/api/customer/test-customer-id/tags",
-			expectedStatus: 404, // 客户不存在
+			expectedStatus: 404, 
 			expectSuccess:  false,
 		},
 		{
@@ -214,7 +213,7 @@ func TestCustomerController_AddTags(t *testing.T) {
 				"tags": []string{},
 			},
 			url:            "/api/customer/test-customer-id/tags",
-			expectedStatus: 200, // 空标签是允许的操作（无操作）
+			expectedStatus: 200, 
 			expectSuccess:  true,
 		},
 	}
@@ -251,7 +250,7 @@ func TestCustomerController_RemoveTags(t *testing.T) {
 				"tags": []string{"VIP"},
 			},
 			url:            "/api/customer/test-customer-id/tags",
-			expectedStatus: 404, // 客户不存在
+			expectedStatus: 404, 
 			expectSuccess:  false,
 		},
 		{
@@ -260,7 +259,7 @@ func TestCustomerController_RemoveTags(t *testing.T) {
 				"tags": []string{},
 			},
 			url:            "/api/customer/test-customer-id/tags",
-			expectedStatus: 200, // 空标签是允许的操作（无操作）
+			expectedStatus: 200, 
 			expectSuccess:  true,
 		},
 	}
@@ -296,7 +295,7 @@ func TestCustomerController_MergeCustomers(t *testing.T) {
 				"primary_id":   "customer-1",
 				"secondary_id": "customer-1",
 			},
-			expectedStatus: 500, // 不能合并同一个客户
+			expectedStatus: 500, 
 			expectSuccess:  false,
 		},
 		{
@@ -305,7 +304,7 @@ func TestCustomerController_MergeCustomers(t *testing.T) {
 				"primary_id":   "non-existent-1",
 				"secondary_id": "non-existent-2",
 			},
-			expectedStatus: 404, // 客户不存在 → NotFound(404)，符合 REST 语义
+			expectedStatus: 404, 
 			expectSuccess:  false,
 		},
 	}
@@ -323,3 +322,4 @@ func TestCustomerController_MergeCustomers(t *testing.T) {
 		})
 	}
 }
+

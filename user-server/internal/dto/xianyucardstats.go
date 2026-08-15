@@ -2,40 +2,40 @@ package dto
 
 // XianyuCardStatsRequest 闲鱼卡片统计请求
 type XianyuCardStatsRequest struct {
-	CardID    uint   `json:"cardId" form:"cardId"`       // 卡片ID
-	StartDate string `json:"startDate" form:"startDate"` // 开始日期，格式：
-	EndDate   string `json:"endDate" form:"endDate"`     // 结束日期，格式：
-	GroupBy   string `json:"groupBy" form:"groupBy"`     // 分组方式：day, week, month
+	CardID    uint   `json:"cardId" form:"cardId"`       
+	StartDate string `json:"startDate" form:"startDate"` 
+	EndDate   string `json:"endDate" form:"endDate"`     
+	GroupBy   string `json:"groupBy" form:"groupBy"`     
 }
 
 // XianyuCardStatsResponse 闲鱼卡片统计响应
 type XianyuCardStatsResponse struct {
-	CardID         uint        `json:"cardId"`         // 卡片ID
-	Title          string      `json:"title"`          // 卡片标题
-	ViewCount      int         `json:"viewCount"`      // 总浏览数
-	ClickCount     int         `json:"clickCount"`     // 总点击数
-	ShareCount     int         `json:"shareCount"`     // 总分享数
-	DailyStats     []DailyStat `json:"dailyStats"`     // 按时间分组的统计数据
-	RecentActivity []Activity  `json:"recentActivity"` // 最近活动
+	CardID         uint        `json:"cardId"`         
+	Title          string      `json:"title"`          
+	ViewCount      int         `json:"viewCount"`      
+	ClickCount     int         `json:"clickCount"`     
+	ShareCount     int         `json:"shareCount"`     
+	DailyStats     []DailyStat `json:"dailyStats"`     
+	RecentActivity []Activity  `json:"recentActivity"` 
 }
 
 // XianyuCardOverallStatsRequest 闲鱼卡片总体统计请求
 type XianyuCardOverallStatsRequest struct {
-	GroupBy   string `json:"groupBy" form:"groupBy"` // day, week, month
+	GroupBy   string `json:"groupBy" form:"groupBy"` 
 	StartDate string `json:"startDate" form:"startDate"`
 	EndDate   string `json:"endDate" form:"endDate"`
 }
 
 // XianyuCardOverallStatsResponse 闲鱼卡片总体统计响应
 type XianyuCardOverallStatsResponse struct {
-	TotalCards     int           `json:"totalCards"`     // 总卡片数
-	ActiveCards    int           `json:"activeCards"`    // 激活卡片数
-	TotalViews     int           `json:"totalViews"`     // 总浏览数
-	TotalClicks    int           `json:"totalClicks"`    // 总点击数
-	TotalShares    int           `json:"totalShares"`    // 总分享数
-	PopularCards   []PopularCard `json:"popularCards"`   // 热门卡片
-	DailyStats     []DailyStat   `json:"dailyStats"`     // 按时间分组的统计数据
-	RecentActivity []Activity    `json:"recentActivity"` // 最近活动
+	TotalCards     int           `json:"totalCards"`     
+	ActiveCards    int           `json:"activeCards"`    
+	TotalViews     int           `json:"totalViews"`     
+	TotalClicks    int           `json:"totalClicks"`    
+	TotalShares    int           `json:"totalShares"`    
+	PopularCards   []PopularCard `json:"popularCards"`   
+	DailyStats     []DailyStat   `json:"dailyStats"`     
+	RecentActivity []Activity    `json:"recentActivity"` 
 }
 
 // CardStatsData 卡片统计数据
@@ -75,3 +75,4 @@ type TopCard struct {
 	ViewCount int    `json:"viewCount"`
 	CreatedAt string `json:"createdAt"`
 }
+

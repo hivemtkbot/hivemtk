@@ -131,7 +131,6 @@ func (c *EmailListController) DeleteEmailList(ctx *gin.Context) {
 }
 
 func (c *EmailListController) TraceEmail(ctx *gin.Context) {
-	// 创建1x1透明图像
 	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
 
 	// 编码为PNG
@@ -150,7 +149,6 @@ func (c *EmailListController) TraceEmail(ctx *gin.Context) {
 		return
 	}
 
-	// 更新状态  打开状态  时间 统计次数
 	traceID, err := uuid.Parse(req.TraceID)
 	if err != nil {
 		ctx.Data(200, "image/png", buf.Bytes())
@@ -198,3 +196,4 @@ func (c *EmailListController) GetTracking(ctx *gin.Context) {
 		"total": total,
 	}, "success")
 }
+

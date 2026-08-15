@@ -27,7 +27,7 @@ func NewPerformanceTestService() *PerformanceTestService {
 type TestRequest struct {
 	TestName    string `json:"test_name"`
 	TargetURL   string `json:"target_url"`
-	TestType    string `json:"test_type"` // stress/spike/soak/ramp
+	TestType    string `json:"test_type"` 
 	Concurrency int    `json:"concurrency"`
 	DurationSec int    `json:"duration_sec"`
 }
@@ -44,7 +44,6 @@ func (s *PerformanceTestService) RunTest(ctx context.Context, req TestRequest) (
 		req.TestType = "stress"
 	}
 
-	// 创建压测记录
 	record := &model.PerformanceTestResult{
 		TestName:    req.TestName,
 		TargetURL:   req.TargetURL,
@@ -58,7 +57,6 @@ func (s *PerformanceTestService) RunTest(ctx context.Context, req TestRequest) (
 		return nil, err
 	}
 
-	// 异步执行压测
 	go s.executeTest(record.ID, req)
 
 	return record, nil
@@ -86,14 +84,11 @@ func (s *PerformanceTestService) executeTest(recordID uint, req TestRequest) {
 			defer func() { <-sem }()
 
 			start := time.Now()
-			// 模拟 HTTP 请求（避免真实网络依赖）
-			// 实际生产中应使用 net/http.Client
 			min, max := 5.0, 200.0
 			simulated := min + rand.Float64()*(max-min)
 			time.Sleep(time.Duration(simulated) * time.Millisecond)
 
 			atomic.AddInt64(&total, 1)
-			// 模拟 1% 错误率
 			if rand.Float64() < 0.01 {
 				atomic.AddInt64(&fail, 1)
 			} else {
@@ -109,7 +104,6 @@ func (s *PerformanceTestService) executeTest(recordID uint, req TestRequest) {
 
 	wg.Wait()
 
-	// 计算指标
 	sort.Float64s(latencies)
 	p50 := percentile(latencies, 50)
 	p95 := percentile(latencies, 95)
@@ -179,3 +173,4 @@ func average(data []float64) float64 {
 }
 
 func ptrTime(t time.Time) *time.Time { return &t }
+

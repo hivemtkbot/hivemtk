@@ -89,7 +89,6 @@ func TestCustomerEventRepository_Record(t *testing.T) {
 func TestCustomerEventRepository_GetByCustomerID(t *testing.T) {
 	repo := setupCustomerEventRepository(t)
 
-	// Create test customer and events
 	customerID := "test-customer"
 
 	now := time.Now()
@@ -156,7 +155,6 @@ func TestCustomerEventRepository_GetByCustomerID(t *testing.T) {
 				t.Errorf("Expected %d events, got %d", tt.wantCount, len(result))
 			}
 
-			// Verify events are ordered by occurred_at DESC when limit is applied
 			if tt.limit > 0 && len(result) > 1 {
 				for i := 0; i < len(result)-1; i++ {
 					if result[i].OccurredAt.Before(result[i+1].OccurredAt) {
@@ -174,25 +172,24 @@ func TestCustomerEventRepository_GetByTimeRange(t *testing.T) {
 
 	now := time.Now()
 
-	// Create events at different times
 	events := []*model.CustomerEvent{
 		{
 			CustomerID:  "customer-1",
 			EventType:   model.EventTypePageView,
 			EventSource: model.EventSourceWebsite,
-			OccurredAt:  now.Add(-48 * time.Hour), // 2 days ago
+			OccurredAt:  now.Add(-48 * time.Hour), 
 		},
 		{
 			CustomerID:  "customer-2",
 			EventType:   model.EventTypeClick,
 			EventSource: model.EventSourceApp,
-			OccurredAt:  now.Add(-24 * time.Hour), // 1 day ago
+			OccurredAt:  now.Add(-24 * time.Hour), 
 		},
 		{
 			CustomerID:  "customer-3",
 			EventType:   model.EventTypePurchase,
 			EventSource: model.EventSourceWechat,
-			OccurredAt:  now.Add(-12 * time.Hour), // 12 hours ago
+			OccurredAt:  now.Add(-12 * time.Hour), 
 		},
 		{
 			CustomerID:  "customer-4",
@@ -274,7 +271,6 @@ func TestCustomerEventRepository_EventData(t *testing.T) {
 		t.Errorf("Record() error = %v", err)
 	}
 
-	// Retrieve and verify event data
 	result, err := repo.GetByCustomerID(context.Background(), event.CustomerID, 1)
 	if err != nil {
 		t.Errorf("GetByCustomerID() error = %v", err)
@@ -293,7 +289,6 @@ func TestCustomerEventRepository_EventData(t *testing.T) {
 		t.Errorf("Expected product_id 'prod-123', got '%v'", data["product_id"])
 	}
 
-	// Note: JSON unmarshals numbers as float64
 	if data["quantity"] != float64(2) {
 		t.Errorf("Expected quantity 2, got '%v'", data["quantity"])
 	}
@@ -371,3 +366,4 @@ func TestCustomerEventRepository_AllEventSources(t *testing.T) {
 		t.Errorf("Expected %d events, got %d", len(eventSources), len(events))
 	}
 }
+

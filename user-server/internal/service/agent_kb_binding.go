@@ -1,15 +1,5 @@
 package service
 
-// agent_kb_binding.go 智能体知识库绑定业务服务层
-//
-// 五层架构归属: L4 业务编排层
-// 设计依据: 强 1对1 改造
-//
-// 业务规则:
-//   - (agent_id, knowledge_base_id) 唯一; 重复 bind 自动覆盖 (先删后建)
-//   - 同一智能体可绑多个不同类型 (faq/rag/sop) 的知识库
-//   - 同一类型可绑多个知识库, 业务层按 priority DESC 排序
-//   - BatchBind 接受一组 (agent_id, kb_id) 对, 失败时回滚 (事务)
 
 import (
 	"context"
@@ -87,7 +77,6 @@ func (s *AgentKBBindingService) Bind(ctx context.Context, agentID, kbID uint, pr
 	if kbID == 0 {
 		return errors.New("knowledge_base_id 不能为空")
 	}
-	// 校验知识库存在
 	if s.kbRepo != nil {
 		kb, err := s.kbRepo.GetByID(ctx, kbID)
 		if err != nil {
@@ -97,14 +86,13 @@ func (s *AgentKBBindingService) Bind(ctx context.Context, agentID, kbID uint, pr
 			return errors.New("知识库不存在")
 		}
 	}
-	// 重复自动覆盖: 先删后建
 	if err := s.bindingRepo.DeleteByAgentAndKB(ctx, agentID, kbID); err != nil {
 		return fmt.Errorf("清除旧绑定失败: %w", err)
 	}
 	binding := &model.AgentKBBinding{
 		AgentID:  agentID,
 		KBID:     kbID,
-		KBType:   model.KnowledgeBaseTypeFAQ, // 默认; CreateBinding 路径会显式覆盖
+		KBType:   model.KnowledgeBaseTypeFAQ, 
 		Role:     model.AgentKBBindingRolePrimary,
 		Priority: priority,
 		Enabled:  boolPtr(true),
@@ -200,7 +188,6 @@ func (s *AgentKBBindingService) ReplaceByAgent(ctx context.Context, agentID uint
 			return nil
 		})
 	}
-	// 无 db (测试场景): 直接执行
 	if err := s.bindingRepo.DeleteByAgent(ctx, agentID); err != nil {
 		return err
 	}
@@ -219,7 +206,6 @@ func (s *AgentKBBindingService) ReplaceByAgent(ctx context.Context, agentID uint
 type BatchBindItem struct {
 	AgentID uint `json:"agent_id"`
 	KBID    uint `json:"knowledge_base_id"`
-	// Priority 可选, 默认 0
 	Priority int `json:"priority"`
 }
 
@@ -230,14 +216,12 @@ type BatchBindItem struct {
 //   - 任一条失败: 整体回滚
 //   - items 为空: 直接返回 nil (不视为错误)
 func (s *AgentKBBindingService) BatchBind(ctx context.Context, items []BatchBindItem) error {
-	// 空 items 不依赖 repo, 优先返回 nil (避免空操作走 nil repo 错误)
 	if len(items) == 0 {
 		return nil
 	}
 	if s.bindingRepo == nil {
 		return errors.New("binding repo not initialized")
 	}
-	// 校验
 	for i, it := range items {
 		if it.AgentID == 0 {
 			return fmt.Errorf("items[%d]: agent_id 不能为空", i)
@@ -246,13 +230,11 @@ func (s *AgentKBBindingService) BatchBind(ctx context.Context, items []BatchBind
 			return fmt.Errorf("items[%d]: knowledge_base_id 不能为空", i)
 		}
 	}
-	// 走事务
 	if s.db != nil {
 		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			tmpBindingRepo := repository.NewAgentKBBindingRepository(tx)
 			tmpKBRepo := repository.NewKnowledgeBaseRepository(tx)
 			for _, it := range items {
-				// 校验 KB 存在
 				kb, err := tmpKBRepo.GetByID(ctx, it.KBID)
 				if err != nil {
 					return fmt.Errorf("items[agent=%d kb=%d]: 知识库不存在: %w", it.AgentID, it.KBID, err)
@@ -263,7 +245,6 @@ func (s *AgentKBBindingService) BatchBind(ctx context.Context, items []BatchBind
 				if err := tmpBindingRepo.DeleteByAgentAndKB(ctx, it.AgentID, it.KBID); err != nil {
 					return fmt.Errorf("items[agent=%d kb=%d]: 清除旧绑定失败: %w", it.AgentID, it.KBID, err)
 				}
-				// 取 KB 类型, 用于 KBType 字段冗余
 				kbType := kb.Type
 				b := &model.AgentKBBinding{
 					AgentID:  it.AgentID,
@@ -280,7 +261,6 @@ func (s *AgentKBBindingService) BatchBind(ctx context.Context, items []BatchBind
 			return nil
 		})
 	}
-	// 无 db (测试场景): 直接执行
 	for _, it := range items {
 		if err := s.Bind(ctx, it.AgentID, it.KBID, it.Priority); err != nil {
 			return err
@@ -291,3 +271,4 @@ func (s *AgentKBBindingService) BatchBind(ctx context.Context, items []BatchBind
 
 // boolPtr 构造 *bool
 func boolPtr(b bool) *bool { return &b }
+

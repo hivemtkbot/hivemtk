@@ -20,7 +20,6 @@ func TestAutoMigrate_Complete(t *testing.T) {
 		DB = originalDB
 	}()
 
-	// 运行 AutoMigrate - 不应该 panic
 	db := AutoMigrate()
 	if db == nil {
 		t.Error("AutoMigrate returned nil")
@@ -59,11 +58,9 @@ func TestAutoMigrate_Idempotent(t *testing.T) {
 	if testDB == nil {
 		t.Fatal("NewTestDB returned nil")
 	}
-	// 第一次迁移
 	if err := testDB.AutoMigrate(&model.User{}); err != nil {
 		t.Fatalf("first migrate: %v", err)
 	}
-	// 第二次迁移应该幂等成功
 	if err := testDB.AutoMigrate(&model.User{}); err != nil {
 		t.Errorf("second migrate failed: %v", err)
 	}
@@ -88,7 +85,6 @@ func TestAutoMigrate_NilDB(t *testing.T) {
 		DB = originalDB
 	}()
 
-	// 应该 panic
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("Expected panic for nil DB")
@@ -104,7 +100,6 @@ func TestAutoMigrate_EmptyModel(t *testing.T) {
 	if testDB == nil {
 		t.Fatal("NewTestDB returned nil")
 	}
-	// AutoMigrate 不带参数不应该 panic
 	if err := testDB.AutoMigrate(); err != nil {
 		t.Errorf("migrate empty: %v", err)
 	}
@@ -127,7 +122,6 @@ func TestAutoMigrate_ConcurrentAccess(t *testing.T) {
 	if testDB == nil {
 		t.Fatal("NewTestDB returned nil")
 	}
-	// 并发执行迁移，PostgreSQL 应该处理锁
 	done := make(chan error, 3)
 	for i := 0; i < 3; i++ {
 		go func() {
@@ -176,3 +170,4 @@ func TestAutoMigrate_VeryLargeNumberOfModels(t *testing.T) {
 		t.Errorf("migrate: %v", err)
 	}
 }
+

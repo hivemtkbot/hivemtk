@@ -25,7 +25,6 @@ func setupDomainPoolRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	auth.GET("/domainpool/:id", domainPoolCtrl.GetByID)
 	auth.POST("/domainpool/check-domain", domainPoolCtrl.CheckDomain)
 	auth.POST("/domainpool/check-all", domainPoolCtrl.CheckAllDomains)
-	// 前端兼容路由
 	auth.DELETE("/domainpool/delete/:id", domainPoolCtrl.Delete)
 	auth.POST("/domainpool/check/:id", func(c *gin.Context) {
 		c.Request.URL.Path = "/api/domainpool/check-domain"
@@ -53,7 +52,6 @@ func setupMaterialRoutes(auth *gin.RouterGroup) {
 	auth.GET("/material/categories/:id", materialCtrl.GetMaterialCategoryByID)
 	auth.GET("/material/selector", materialCtrl.GetMaterialSelector)
 	auth.GET("/material/:id", materialCtrl.GetMaterialByID)
-	// 前端兼容路由
 	auth.POST("/material/upload", materialCtrl.UploadMaterial)
 	auth.POST("/material/:id/usage", materialCtrl.UpdateMaterialUsage)
 }
@@ -65,14 +63,12 @@ func setupClueRoutes(auth *gin.RouterGroup) {
 	auth.DELETE("/clue/:id", clueCtrl.DeleteClue)
 	auth.GET("/clue/statistics", clueCtrl.GetClueStatistics)
 	auth.POST("/clue/import", clueCtrl.ImportClues)
-	// 前端兼容路由
 	auth.GET("/clues/list", clueCtrl.GetClueList)
 	auth.DELETE("/clues/delete/:id", clueCtrl.DeleteClue)
 	auth.GET("/clues/statistics", clueCtrl.GetClueStatistics)
 	auth.POST("/clues/import", clueCtrl.ImportClues)
 	auth.GET("/clues/type", clueCtrl.GetClueTypes)
 
-	// 线索评分 + 互动事件
 	clueScoreCtrl := controller.NewClueScoreController()
 	auth.POST("/clue/score", clueScoreCtrl.ScoreClue)
 	auth.POST("/clue/score-all", clueScoreCtrl.ScoreAll)
@@ -109,3 +105,4 @@ func setupRecoveryQueueRoutes(auth *gin.RouterGroup) {
 	auth.GET("/recovery-queue/distribution", ctrl.Distribution)
 	auth.GET("/recovery-queue/ready", ctrl.ListReadyForAttempt)
 }
+

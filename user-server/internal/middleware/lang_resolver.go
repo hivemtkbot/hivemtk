@@ -10,21 +10,6 @@ import (
 	"hivemtk-user/internal/service/translation"
 )
 
-// ============================================================================
-// LangResolverMiddleware 多语言解析中间件（v1.2 出海方案 - 消息入口集成）
-// ----------------------------------------------------------------------------
-// 设计目标：
-//   - 在 HTTP 消息入口（chat / webhook 等）调用 LangConfigResolver 解析双语言
-//   - 多层兜底：resolver 未注入 / 解析失败 / channel_id 与 agent_id 缺失，
-//     任何情况都向 ctx 注入默认值（internal=zh, target=zh, cross_lingual=false），
-//     永不中断主流程
-//
-// 数据来源：
-//   - channel_id：优先复用 AppKeyResolve 注入的 chat_channel_id，
-//     兜底走 GetChatChannelID（header / query / 默认 "default"）
-//   - agent_id：优先 c.GetUint("agent_id")，兜底 c.Query("agent_id")
-//     （注意：HTTP 入口通常无 AI Agent ID，留 0 时 resolver 走 channel 兜底）
-// ============================================================================
 
 // LangResolverMiddleware 语言解析中间件（gin 版本）。
 //
@@ -35,10 +20,8 @@ import (
 // resolver 为 nil 时直接注入默认值（zh），保证主流程不中断。
 func LangResolverMiddleware(resolver *translation.LangConfigResolver) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 1. 提取 channel_id（复用 AppKeyResolve 的结果，兜底走软解析）
 		channelID := GetChatChannelID(c)
 
-		// 2. 提取 agent_id（HTTP 入口通常缺失，0 时 resolver 走 channel 兜底）
 		agentID := c.GetUint("agent_id")
 		if agentID == 0 {
 			if aid := c.Query("agent_id"); aid != "" {
@@ -48,7 +31,6 @@ func LangResolverMiddleware(resolver *translation.LangConfigResolver) gin.Handle
 			}
 		}
 
-		// 3. 单次解析 + 多层兜底注入（永不报错）
 		ctx := c.Request.Context()
 		var internalLang, targetLang, langSource string
 		var crossLingual bool
@@ -76,7 +58,6 @@ func LangResolverMiddleware(resolver *translation.LangConfigResolver) gin.Handle
 			langSource = "default"
 		}
 
-		// 4. 同步到 gin context 便于日志 / 调试读取（与 ctx 保持一致）
 		c.Set("internal_lang", internalLang)
 		c.Set("target_lang", targetLang)
 		c.Set("cross_lingual", crossLingual)
@@ -119,3 +100,4 @@ func injectDefaultLang(ctx context.Context) context.Context {
 	ctx = i18n.WithCrossLingual(ctx, false)
 	return ctx
 }
+

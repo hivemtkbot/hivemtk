@@ -14,10 +14,10 @@ const DefaultMaxKeys = 10_000
 // MemoryCache 内存缓存实现（带 LRU 上限）
 type MemoryCache struct {
 	data    map[string]*list.Element
-	order   *list.List // LRU 双向链表：front=最近使用，back=最久未用
+	order   *list.List 
 	mu      sync.RWMutex
-	stop    chan struct{} // 停止信号，用于关闭清理 goroutine
-	closed  chan struct{} // 标记已关闭，防止重复关闭
+	stop    chan struct{} 
+	closed  chan struct{} 
 	maxKeys int
 }
 
@@ -54,7 +54,6 @@ func NewMemoryCacheWithLimit(maxKeys int) *MemoryCache {
 func (m *MemoryCache) Close() {
 	select {
 	case <-m.closed:
-		// 已经关闭，直接返回
 		return
 	default:
 		close(m.closed)
@@ -119,10 +118,8 @@ func (m *MemoryCache) peekItem(key string) (*cacheItem, bool) {
 		return nil, false
 	}
 	item := ele.Value.(*cacheItem)
-	// 升级为写锁以更新 LRU 顺序
 	m.mu.RUnlock()
 	m.mu.Lock()
-	// 二次校验：可能已被淘汰
 	if ele2, ok2 := m.data[key]; ok2 && ele2 == ele {
 		m.touch(ele)
 		m.mu.Unlock()
@@ -374,7 +371,6 @@ func (m *MemoryCache) Incr(ctx context.Context, key string, expiration time.Dura
 	}
 	if ele, ok := m.data[key]; ok {
 		item := ele.Value.(*cacheItem)
-		// 未过期且值为 int64 → 累加
 		if item.expiration.IsZero() || item.expiration.After(time.Now()) {
 			if n, ok := item.value.(int64); ok {
 				n++
@@ -433,7 +429,6 @@ func (m *MemoryCache) GetJSON(ctx context.Context, key string, dest any) error {
 // SetJSON 设置 JSON 缓存
 // 优化：写入时一次性序列化，避免 GetJSON 每次 Marshal 浪费 CPU
 func (m *MemoryCache) SetJSON(ctx context.Context, key string, value any, expiration time.Duration) error {
-	// 兼容历史调用：传 struct 时仅做一次性 JSON 序列化并以 []byte 形式存储
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -449,3 +444,4 @@ func (m *MemoryCache) Clear(ctx context.Context) error {
 	m.order = list.New()
 	return nil
 }
+

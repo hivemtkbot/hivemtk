@@ -249,3 +249,4 @@ func (r *KnowledgeSearchLogRepository) SearchTrend(ctx context.Context, productI
 	}
 	return trend, nil
 }
+

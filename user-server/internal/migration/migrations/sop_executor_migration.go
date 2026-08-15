@@ -8,15 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ============================================================================
-// SOP 执行器迁移（SOP 节点执行器完善设计）
-// ----------------------------------------------------------------------------
-// 设计依据：docs/核心链路优化.md 第十三章 §13.3 表结构设计
-// 创建 3 张新表：sop_exec_events / sop_timers / sop_outbox
-// 扩展 sop_executions 表：last_event_at / attempt_count / trace_id / wait_event
-// 私域独立部署：无 merchant_id 字段
-// 幂等性：所有 DDL 使用 IF NOT EXISTS
-// ============================================================================
 
 // SOPExecutorMigration SOP 执行器迁移
 type SOPExecutorMigration struct {
@@ -45,7 +36,6 @@ func (m *SOPExecutorMigration) Description() string {
 
 // Up 执行迁移
 func (m *SOPExecutorMigration) Up(ctx context.Context) error {
-	// 1. 创建 sop_exec_events 表（SOP 执行事件流）
 	if err := m.db.Exec(`CREATE TABLE IF NOT EXISTS sop_exec_events (
 		id BIGSERIAL PRIMARY KEY,
 		execution_id BIGINT NOT NULL,
@@ -70,7 +60,6 @@ func (m *SOPExecutorMigration) Up(ctx context.Context) error {
 	_ = m.db.Exec(`CREATE INDEX IF NOT EXISTS idx_sop_exec_events_execution ON sop_exec_events(execution_id, created_at)`).Error
 	_ = m.db.Exec(`CREATE INDEX IF NOT EXISTS idx_sop_exec_events_trace ON sop_exec_events(trace_id)`).Error
 
-	// 2. 创建 sop_timers 表（SOP 定时器）
 	if err := m.db.Exec(`CREATE TABLE IF NOT EXISTS sop_timers (
 		id BIGSERIAL PRIMARY KEY,
 		execution_id BIGINT NOT NULL,
@@ -88,7 +77,6 @@ func (m *SOPExecutorMigration) Up(ctx context.Context) error {
 	_ = m.db.Exec(`CREATE INDEX IF NOT EXISTS idx_sop_timers_due ON sop_timers(status, wait_until) WHERE status = 'pending'`).Error
 	_ = m.db.Exec(`CREATE INDEX IF NOT EXISTS idx_sop_timers_execution ON sop_timers(execution_id)`).Error
 
-	// 3. 创建 sop_outbox 表（SOP Outbox 事件）
 	if err := m.db.Exec(`CREATE TABLE IF NOT EXISTS sop_outbox (
 		id BIGSERIAL PRIMARY KEY,
 		execution_id BIGINT NOT NULL,
@@ -104,7 +92,6 @@ func (m *SOPExecutorMigration) Up(ctx context.Context) error {
 	_ = m.db.Exec(`CREATE INDEX IF NOT EXISTS idx_sop_outbox_unprocessed ON sop_outbox(processed, created_at) WHERE processed = FALSE`).Error
 	_ = m.db.Exec(`CREATE INDEX IF NOT EXISTS idx_sop_outbox_execution ON sop_outbox(execution_id)`).Error
 
-	// 4. 扩展 sop_executions 表（幂等添加字段）
 	_ = m.db.Exec(`ALTER TABLE sop_executions ADD COLUMN IF NOT EXISTS last_event_at TIMESTAMP`).Error
 	_ = m.db.Exec(`ALTER TABLE sop_executions ADD COLUMN IF NOT EXISTS attempt_count INTEGER DEFAULT 0`).Error
 	_ = m.db.Exec(`ALTER TABLE sop_executions ADD COLUMN IF NOT EXISTS trace_id VARCHAR(64)`).Error
@@ -129,3 +116,4 @@ func (m *SOPExecutorMigration) Down(ctx context.Context) error {
 
 // 编译期接口断言
 var _ migration.Migration = (*SOPExecutorMigration)(nil)
+

@@ -197,3 +197,4 @@ func evalLte(fieldValue any, value string) (bool, error) {
 func (s *MarketingFlowService) EvaluateCondition(node model.FlowNode, data map[string]any) (map[string]any, error) {
 	return s.evaluateCondition(node, data)
 }
+

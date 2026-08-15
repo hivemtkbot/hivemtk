@@ -48,3 +48,4 @@ func isMissingRelationErr(err error) bool {
 		strings.Contains(msg, "42704") ||
 		strings.Contains(msg, "42p01")
 }
+

@@ -1,34 +1,5 @@
 package migrations
 
-// amount_money_migration.go 金额字段 BIGINT 重构迁移 v2.9.0
-//
-// 五层架构归属: L5 数据层
-// 设计依据: docs/standards/MASTER_RULES.md「金额一律用 BIGINT 存「分」，不要用 NUMERIC/FLOAT」
-// 私域独立部署: 无 merchant_id 字段
-//
-// 本迁移将历史遗留的 float64 + decimal(10,2) 金额字段重构为 int64 + bigint（单位：分）：
-//  1. market_templates.price             decimal(10,2) → bigint（数据 * 100 转换）
-//  2. rfm_rules.m_amount_1 ~ m_amount_5  decimal(10,2) → bigint（数据 * 100 转换）
-//  3. user_rfms.total_amount             decimal(10,2) → bigint（数据 * 100 转换）
-//  4. user_rfms.avg_amount               decimal(10,2) → bigint（数据 * 100 转换）
-//  5. sales_personas.avg_deal_amount     decimal(12,2) → bigint（数据 * 100 转换）
-//  6. sales_personas.total_revenue       decimal(14,2) → bigint（数据 * 100 转换）
-//  7. external_orders.total_amount       decimal(10,2) → bigint（数据 * 100 转换）
-//  8. external_orders.pay_amount         decimal(10,2) → bigint（数据 * 100 转换）
-//  9. external_orders.discount_amount    decimal(10,2) → bigint（数据 * 100 转换）
-// 10. external_products.price            decimal(10,2) → bigint（数据 * 100 转换）
-// 11. external_products.original_price   decimal(10,2) → bigint（数据 * 100 转换）
-// 12. ab_conversion_events.event_value   decimal(10,2) → bigint（数据 * 100 转换）
-// 13. ab_experiment_results.revenue      decimal(10,2) → bigint（数据 * 100 转换）
-// 14. ab_experiment_results.average_value（原无 gorm 类型，AutoMigrate 自动建为 bigint，无需数据迁移）
-//
-// 保留 decimal 不转换的字段：
-//   - ai_sales_logs.cost（decimal(10,4)）：LLM API 调用成本（美元），4 位小数无法用分表示
-//   - ops/churn_predictions.average_order_value（decimal(10,2)）：0-100 评分（非金额）
-//   - 各类 *_score / *_rate / *_weight（decimal(5,2)）：评分/比率/权重（非金额）
-//
-// 幂等性: 通过检查当前列类型决定是否执行，可重入
-// 依赖: market_templates / rfm_rules / user_rfms / sales_personas / external_orders / external_products 表已存在（由 initial_schema 创建）
 
 import (
 	"context"
@@ -66,43 +37,34 @@ func (m *AmountMoneyMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 1. market_templates.price: decimal(10,2) → bigint（数据 * 100 转换）
 	if err := m.migrateMarketTemplatePrice(ctx); err != nil {
 		return fmt.Errorf("migrate market_templates.price 失败: %w", err)
 	}
 
-	// 2. rfm_rules.m_amount_1 ~ m_amount_5: decimal(10,2) → bigint（数据 * 100 转换）
 	if err := m.migrateRFMRuleMAmounts(ctx); err != nil {
 		return fmt.Errorf("migrate rfm_rules.m_amount_* 失败: %w", err)
 	}
 
-	// 3. user_rfms.total_amount & avg_amount: decimal(10,2) → bigint（数据 * 100 转换）
 	if err := m.migrateUserRFMAmounts(ctx); err != nil {
 		return fmt.Errorf("migrate user_rfms.total_amount / avg_amount 失败: %w", err)
 	}
 
-	// 4. sales_personas.avg_deal_amount & total_revenue: decimal → bigint（数据 * 100 转换）
 	if err := m.migrateSalesPersonaAmounts(ctx); err != nil {
 		return fmt.Errorf("migrate sales_personas.avg_deal_amount / total_revenue 失败: %w", err)
 	}
 
-	// 5. external_orders.total_amount / pay_amount / discount_amount: decimal(10,2) → bigint（数据 * 100 转换）
 	if err := m.migrateExternalOrderAmounts(ctx); err != nil {
 		return fmt.Errorf("migrate external_orders.total_amount / pay_amount / discount_amount 失败: %w", err)
 	}
 
-	// 6. external_products.price / original_price: decimal(10,2) → bigint（数据 * 100 转换）
 	if err := m.migrateExternalProductAmounts(ctx); err != nil {
 		return fmt.Errorf("migrate external_products.price / original_price 失败: %w", err)
 	}
 
-	// 7. ab_conversion_events.event_value: decimal(10,2) → bigint（数据 * 100 转换）
 	if err := m.migrateDecimalToBigint(ctx, "ab_conversion_events", "event_value"); err != nil {
 		return fmt.Errorf("migrate ab_conversion_events.event_value 失败: %w", err)
 	}
 
-	// 8. ab_experiment_results.revenue: decimal(10,2) → bigint（数据 * 100 转换）
-	//    average_value 原无 gorm 类型，AutoMigrate 自动建为 bigint，无需数据迁移
 	if err := m.migrateDecimalToBigint(ctx, "ab_experiment_results", "revenue"); err != nil {
 		return fmt.Errorf("migrate ab_experiment_results.revenue 失败: %w", err)
 	}
@@ -195,24 +157,17 @@ func (m *AmountMoneyMigration) migrateDecimalToBigint(ctx context.Context, table
 		return fmt.Errorf("查询 %s.%s 列类型失败: %w", table, column, err)
 	}
 	if dataType == "" {
-		// 列不存在，由 AutoMigrate 创建，无需迁移
 		return nil
 	}
 	if dataType != "numeric" && dataType != "decimal" {
-		// 已是 bigint 或其他类型，跳过
 		return nil
 	}
 
-	// 将 decimal 转为 bigint（数据 * 100 转换为分）
 	newCol := column + "_new"
 	stmts := []string{
-		// 1. 临时列存储 bigint 值
 		fmt.Sprintf(`ALTER TABLE %s ADD COLUMN %s bigint NOT NULL DEFAULT 0`, table, newCol),
-		// 2. 数据迁移：decimal * 100 → bigint（四舍五入）
 		fmt.Sprintf(`UPDATE %s SET %s = ROUND(%s * 100)::bigint`, table, newCol, column),
-		// 3. 删除旧列
 		fmt.Sprintf(`ALTER TABLE %s DROP COLUMN %s`, table, column),
-		// 4. 重命名新列
 		fmt.Sprintf(`ALTER TABLE %s RENAME COLUMN %s TO %s`, table, newCol, column),
 	}
 	return execAll(ctx, m.db, stmts)
@@ -228,3 +183,4 @@ func (m *AmountMoneyMigration) Down(ctx context.Context) error {
 
 // compile-time 接口断言
 var _ migration.Migration = (*AmountMoneyMigration)(nil)
+

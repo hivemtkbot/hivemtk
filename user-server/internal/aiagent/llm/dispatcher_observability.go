@@ -14,14 +14,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// Token 计量三档（actual / estimated / missing）
-// ----------------------------------------------------------------------------
-// 符合项目硬约束：
-//   - token_source=actual   : LLM 响应携带 usage 字段，直接采用
-//   - token_source=estimated: LLM 未返回 usage，本地字符加权估算
-//   - token_source=missing  : LLM 响应为空/异常，无法计量（触发告警）
-// ============================================================================
 
 const (
 	TokenSourceActual    = "actual"
@@ -44,12 +36,9 @@ const (
 var (
 	missingCounter   int64
 	totalCounter     int64
-	missingThreshold = int64(20) // missing 占比 >= 20% 触发告警
+	missingThreshold = int64(20) 
 )
 
-// ============================================================================
-// 厂商/模型类型推断（与 service/llm_routing_service.vendorFromBaseURL 对齐）
-// ============================================================================
 
 // InferVendor 根据 BaseURL 推断厂商
 //
@@ -111,15 +100,6 @@ func ClassifyEstimator(tokenSource string) string {
 	}
 }
 
-// ============================================================================
-// 可观测性补充
-// ----------------------------------------------------------------------------
-//  1. 审计日志落库（SetRouteWithAudit）
-//  2. 路由决策日志落库（每次 Dispatch 命中 provider）
-//  3. 缓存后台清理 ticker
-//  4. 灰度发布决策（canary weight）
-//  5. 场景维度统计聚合（按 (scenario, provider, day) 物化）
-// ============================================================================
 
 // auditDB 全局审计 DB 句柄（由 InitGlobalDispatcher 注入）
 var (
@@ -146,9 +126,6 @@ func AttachAuditDB(d *gorm.DB) {
 	setAuditDB(d)
 }
 
-// ============================================================================
-// 路由决策日志（每次 Dispatch 落一条到 llm_routing_logs）
-// ============================================================================
 
 // LogEntry 路由决策日志条目（包含 v3.6.0 基础字段 + v3.7.0 扩展字段）
 //
@@ -169,23 +146,21 @@ type LogEntry struct {
 	Success          bool             `json:"success"`
 	ErrorMsg         string           `json:"error_msg"`
 	FromCache        bool             `json:"from_cache"`
-	// v3.7.0 扩展字段（本地/云端 token 计量三档、厂商归集、出域审计、降级率统计）
-	ModelType        string  `json:"model_type"`        // local / cloud
-	Vendor           string  `json:"vendor"`            // deepseek/qwen/openai/zhipu/moonshot/local/other
-	BaseURL          string  `json:"base_url"`          // 出域审计
-	IsFallback       bool    `json:"is_fallback"`       // 是否为降级调用（attempted > 1）
-	PromptCost       float64 `json:"prompt_cost"`       // prompt 单价计费
-	CompletionCost   float64 `json:"completion_cost"`   // completion 单价计费
-	TokenSource      string  `json:"token_source"`      // actual / estimated / missing
-	Estimator        string  `json:"estimator"`         // char_weight / empty_fallback
-	Source           string  `json:"source"`            // dispatch / cache / fallback / null
-	ScenarioProvider string  `json:"scenario_provider"` // 聚合键 (scenario|provider)
-	// 多语言方案：跨语言生成元数据（由 DispatchRequest 透传，落库审计）
-	InternalLang    string `json:"internal_lang,omitempty"`    // 商户内部语言（知识库语言）
-	TargetLang      string `json:"target_lang,omitempty"`      // 对外输出语言
-	CrossLingual    bool   `json:"cross_lingual,omitempty"`    // 是否跨语言生成
-	GlossaryVersion string `json:"glossary_version,omitempty"` // 术语表版本
-	CacheHit        bool   `json:"cache_hit,omitempty"`        // 是否命中翻译缓存（简化：有 CacheKey 视为缓存检查）
+	ModelType        string  `json:"model_type"`        
+	Vendor           string  `json:"vendor"`            
+	BaseURL          string  `json:"base_url"`          
+	IsFallback       bool    `json:"is_fallback"`       
+	PromptCost       float64 `json:"prompt_cost"`       
+	CompletionCost   float64 `json:"completion_cost"`   
+	TokenSource      string  `json:"token_source"`      
+	Estimator        string  `json:"estimator"`         
+	Source           string  `json:"source"`            
+	ScenarioProvider string  `json:"scenario_provider"` 
+	InternalLang    string `json:"internal_lang,omitempty"`    
+	TargetLang      string `json:"target_lang,omitempty"`      
+	CrossLingual    bool   `json:"cross_lingual,omitempty"`    
+	GlossaryVersion string `json:"glossary_version,omitempty"` 
+	CacheHit        bool   `json:"cache_hit,omitempty"`        
 }
 
 // NewLogEntry 根据基础信息构造 LogEntry，自动填充扩展字段
@@ -217,10 +192,8 @@ func NewLogEntry(scenario DispatchScenario, provider *ProviderConfig, model stri
 	modelType := InferModelType(baseURL)
 	vendor := InferVendor(baseURL)
 
-	// prompt/completion 成本按 token 比例拆分
 	promptCost, completionCost := splitCost(cost, promptTokens, completionTokens, totalTokens)
 
-	// 缓存命中时强制 source=cache
 	if fromCache {
 		source = SourceCache
 	}
@@ -284,7 +257,6 @@ func LogRoutingDecision(ctx context.Context, entry *LogEntry) {
 	}
 	d := getAuditDB()
 	if d == nil {
-		// DB 未注入，仍更新计数器（用于进程内监控）
 		updateMissingCounter(entry)
 		return
 	}
@@ -301,7 +273,6 @@ func LogRoutingDecision(ctx context.Context, entry *LogEntry) {
 		"success":           entry.Success,
 		"error_msg":         entry.ErrorMsg,
 		"from_cache":        entry.FromCache,
-		// v3.7.0 扩展字段
 		"model_type":        entry.ModelType,
 		"vendor":            entry.Vendor,
 		"base_url":          entry.BaseURL,
@@ -312,7 +283,6 @@ func LogRoutingDecision(ctx context.Context, entry *LogEntry) {
 		"estimator":         entry.Estimator,
 		"source":            entry.Source,
 		"scenario_provider": entry.ScenarioProvider,
-		// 多语言方案字段
 		"internal_lang":    entry.InternalLang,
 		"target_lang":      entry.TargetLang,
 		"cross_lingual":    entry.CrossLingual,
@@ -320,12 +290,8 @@ func LogRoutingDecision(ctx context.Context, entry *LogEntry) {
 		"cache_hit":        entry.CacheHit,
 	}
 	if err := d.WithContext(context.Background()).Table("llm_routing_logs").Create(row).Error; err != nil {
-		// 写日志失败不阻塞主流程，但记录警告便于排查（如建表失败、字段缺失等）
-		// v3.7.0 修复：使用 context.Background() 而非传入的 ctx，避免父请求超时/取消
-		// 导致日志写入也被取消（context canceled），确保即使请求超时，路由日志也能落库
 		logger.Warnf("[LLM] LogRoutingDecision write failed: %v (entry=%+v)", err, entry)
 	}
-	// 更新 missing 计数器（用于占比告警）
 	updateMissingCounter(entry)
 }
 
@@ -347,7 +313,6 @@ func updateMissingCounter(entry *LogEntry) {
 	if entry.TokenSource == TokenSourceMissing {
 		atomic.AddInt64(&missingCounter, 1)
 	}
-	// 每 100 次调用检查一次占比，避免每次调用都计算
 	if total%100 == 0 {
 		missing := atomic.LoadInt64(&missingCounter)
 		if total > 0 {
@@ -382,7 +347,7 @@ type ScenarioStat struct {
 	TotalTokens  int64   `json:"total_tokens"`
 	TotalCost    float64 `json:"total_cost"`
 	AvgLatencyMs int64   `json:"avg_latency_ms"`
-	WindowLabel  string  `json:"window_label"` // "today" / "week" / "month" / "all"
+	WindowLabel  string  `json:"window_label"` 
 }
 
 // QueryScenarioStats 查 llm_routing_logs 按 (scenario, provider) 聚合
@@ -461,9 +426,6 @@ func QueryAuditHistory(ctx context.Context, scenario string, limit int) ([]map[s
 	return rows, nil
 }
 
-// ============================================================================
-// 灰度发布决策
-// ============================================================================
 
 // DecideCanaryRoute 决定本次 Dispatch 走哪个 route（主或灰度）
 //
@@ -495,9 +457,6 @@ func DecideCanaryRoute(route *ScenarioRoute, canaryKey string) *ScenarioRoute {
 	return nil
 }
 
-// ============================================================================
-// 缓存后台清理 ticker
-// ============================================================================
 
 // StartCacheJanitor 启动后台 goroutine 定期清理过期 cache 项
 //
@@ -540,8 +499,8 @@ func (d *Dispatcher) sweepExpiredCache() {}
 func InitGlobalDispatcherWithDB(d *Dispatcher, gormDB *gorm.DB) {
 	InitGlobalDispatcher(d)
 	setAuditDB(gormDB)
-	// 兜底：若用户未传 DB，从全局 db util 取一份
 	if getAuditDB() == nil {
 		setAuditDB(db.GetDB())
 	}
 }
+

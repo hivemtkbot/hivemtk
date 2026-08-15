@@ -22,21 +22,12 @@ type CustomerRepository interface {
 	Delete(ctx context.Context, id string) error
 	List(ctx context.Context, page, limit int, keyword string) ([]*model.Customer, int64, error)
 	FindByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) (*model.Customer, error)
-	// FindByIdentityAll 返回所有匹配任一身份标识的客户（多条），用于合并场景检测历史分裂：
-	// 与 FindByIdentity（返回单条，供 Identify 使用）语义不同，避免破坏单条查询契约。
 	FindByIdentityAll(ctx context.Context, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) ([]*model.Customer, error)
 	CountNotEmpty(ctx context.Context, fieldName string) (int64, error)
 	CountMultiIdentity(ctx context.Context) (int64, error)
-	// ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC- N+1 优化）
 	ListByIDs(ctx context.Context, ids []string) (map[string]*model.Customer, error)
-	// GetByXiaohongshuID 按小红书 ID 查询客户
-	// 五层架构修复：tooluse 包不可直接访问 DB，由 repository 提供 query 接口
 	GetByXiaohongshuID(ctx context.Context, xhsID string) (*model.Customer, error)
-	// SearchByFilter 按过滤条件分页查询客户（用于 customer.segment 工具）
-	// 五层架构修复：将原 tooluse 层的 t.deps.DB.Model().Where() 链下沉到 repository
 	SearchByFilter(ctx context.Context, filter CustomerSearchFilter) (items []*model.Customer, total int64, err error)
-	// ReassignSessionOneID 合并时将次要客户会话聚合到主客户：
-	// 按 one_id 把 customer_sessions 中 oldOneID 的记录改为 newOneID（幂等 UPDATE）。
 	ReassignSessionOneID(ctx context.Context, oldOneID, newOneID string) error
 }
 
@@ -52,7 +43,7 @@ type CustomerSearchFilter struct {
 	Tag           string
 	RFMMin        int
 	RFMMax        int
-	HasRFMMin     bool // 区分零值与未设置
+	HasRFMMin     bool 
 	HasRFMMax     bool
 	ChurnRisk     string
 	CreatedAfter  string
@@ -169,7 +160,6 @@ func (r *customerRepository) FindByIdentity(ctx context.Context, phone, email, w
 	var customer model.Customer
 	query := _db.GetDB().WithContext(ctx)
 
-	// Build OR conditions for identity fields
 	conditions := ""
 	args := []any{}
 
@@ -198,7 +188,6 @@ func (r *customerRepository) FindByIdentity(ctx context.Context, phone, email, w
 		return nil, nil
 	}
 
-	// Remove trailing " OR "
 	conditions = conditions[:len(conditions)-4]
 
 	if err := query.Where(conditions, args...).First(&customer).Error; err != nil {
@@ -256,7 +245,6 @@ func (r *customerRepository) CountNotEmpty(ctx context.Context, fieldName string
 		return 0, nil
 	}
 	var n int64
-	// 列名直接拼接：仅允许白名单字段（防 SQL 注入）
 	allowed := map[string]bool{
 		"phone":          true,
 		"email":          true,
@@ -277,7 +265,6 @@ func (r *customerRepository) CountNotEmpty(ctx context.Context, fieldName string
 // CountMultiIdentity 统计具有 2 个及以上身份标识的客户数
 // 多身份：phone+email / phone+openid 等任意两种以上
 func (r *customerRepository) CountMultiIdentity(ctx context.Context) (int64, error) {
-	// 计算每个客户的"已绑定身份数"，筛选 >= 2 的
 	expr := "(CASE WHEN phone IS NOT NULL AND phone <> '' THEN 1 ELSE 0 END) + " +
 		"(CASE WHEN email IS NOT NULL AND email <> '' THEN 1 ELSE 0 END) + " +
 		"(CASE WHEN wechat_open_id IS NOT NULL AND wechat_open_id <> '' THEN 1 ELSE 0 END) + " +
@@ -425,7 +412,6 @@ func (r *customerRepository) SearchByFilter(ctx context.Context, filter Customer
 // escapeJSONString 转义 JSON 字符串（防止 tag 注入）
 // 内部使用：仅供 SearchByFilter 拼 JSON 数组字面量时转义 tag 值
 func escapeJSONString(s string) string {
-	// 简单转义：双引号和反斜杠
 	out := make([]byte, 0, len(s)+2)
 	for i := 0; i < len(s); i++ {
 		c := s[i]
@@ -440,3 +426,4 @@ func escapeJSONString(s string) string {
 	}
 	return string(out)
 }
+

@@ -24,8 +24,6 @@ type OrderRepository interface {
 	GetByTgID(ctx context.Context, tgID int64) ([]*model.Order, error)
 	GetDistinctPaidTgIDs(ctx context.Context) ([]int64, error)
 	Update(ctx context.Context, order *model.Order) error
-	// ListByAccountIDs 批量按 account_id 查询订单（CC- N+1 优化）
-	// 替代「GetOrderList(1, 10000) + 内存过滤」模式，SQL 一次拉全。
 	ListByAccountIDs(ctx context.Context, accountIDs []string) ([]*model.Order, error)
 }
 
@@ -158,3 +156,4 @@ func (r *orderRepo) ListByAccountIDs(ctx context.Context, accountIDs []string) (
 	}
 	return orders, nil
 }
+

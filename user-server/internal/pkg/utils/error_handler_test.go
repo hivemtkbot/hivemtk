@@ -65,8 +65,6 @@ func TestErrorTypeConstants(t *testing.T) {
 }
 
 func TestHandleValidationError(t *testing.T) {
-	// This is a simple test since the function requires gin.Context
-	// Full integration test would require setting up gin.Context
 	err := NewAppError(ErrorTypeValidation, "Test validation error", 400, "Test details")
 
 	if err.Type != ErrorTypeValidation {
@@ -125,7 +123,6 @@ func TestAppError_WithStackTrace(t *testing.T) {
 		Timestamp: time.Now(),
 	}
 
-	// The StackTrace field is optional and set by LogError
 	if err.StackTrace != "" {
 		t.Logf("StackTrace = %v", err.StackTrace)
 	}
@@ -134,7 +131,6 @@ func TestAppError_WithStackTrace(t *testing.T) {
 func TestAppError_JSONSerialization(t *testing.T) {
 	err := NewAppError(ErrorTypeValidation, "Test error", 400, "Test details")
 
-	// Verify the error can be serialized (basic check)
 	if err.Type == "" {
 		t.Error("Type should be set for JSON serialization")
 	}
@@ -142,3 +138,4 @@ func TestAppError_JSONSerialization(t *testing.T) {
 		t.Error("Code should be set for JSON serialization")
 	}
 }
+

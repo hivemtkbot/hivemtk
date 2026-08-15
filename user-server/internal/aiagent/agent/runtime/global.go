@@ -4,13 +4,6 @@ import (
 	"sync"
 )
 
-// ============================================================================
-// 全局 AgentRuntime 单例
-// ----------------------------------------------------------------------------
-// 生产装配：router.Setup / main 在构建 SalesEngine + SmartCS 后调用
-//   InitGlobalRuntime(NewAgentRuntime(loader, salesBridge, csBridge))
-// 消费方：Event Bus 订阅者、Inbox 触发、同步主链路可选走 GetGlobalRuntime()
-// ============================================================================
 
 var (
 	globalRuntime     AgentRuntime
@@ -24,7 +17,6 @@ func InitGlobalRuntime(rt AgentRuntime) {
 	globalRuntimeMu.Lock()
 	defer globalRuntimeMu.Unlock()
 	globalRuntime = rt
-	// 确保 once 已触发，避免 Get 时再建空壳
 	globalRuntimeOnce.Do(func() {})
 }
 
@@ -43,3 +35,4 @@ func MustGetGlobalRuntime() AgentRuntime {
 	}
 	return rt
 }
+

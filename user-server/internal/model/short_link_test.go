@@ -71,7 +71,6 @@ func TestShortLink_DefaultValues(t *testing.T) {
 }
 
 func TestShortLink_IsExpired(t *testing.T) {
-	// Expired link
 	past := time.Now().Add(-24 * time.Hour)
 	expiredLink := &ShortLink{
 		ExpireTime: &past,
@@ -80,7 +79,6 @@ func TestShortLink_IsExpired(t *testing.T) {
 		t.Error("Expected expired link to return true from IsExpired()")
 	}
 
-	// Active link
 	future := time.Now().Add(24 * time.Hour)
 	activeLink := &ShortLink{
 		ExpireTime: &future,
@@ -89,7 +87,6 @@ func TestShortLink_IsExpired(t *testing.T) {
 		t.Error("Expected active link to return false from IsExpired()")
 	}
 
-	// No expiration
 	noExpireLink := &ShortLink{
 		ExpireTime: nil,
 	}
@@ -99,7 +96,6 @@ func TestShortLink_IsExpired(t *testing.T) {
 }
 
 func TestShortLink_IsActive(t *testing.T) {
-	// Active link
 	future := time.Now().Add(24 * time.Hour)
 	activeLink := &ShortLink{
 		Status:     1,
@@ -109,7 +105,6 @@ func TestShortLink_IsActive(t *testing.T) {
 		t.Error("Expected active link to return true from IsActive()")
 	}
 
-	// Disabled link
 	disabledLink := &ShortLink{
 		Status:     2,
 		ExpireTime: &future,
@@ -118,7 +113,6 @@ func TestShortLink_IsActive(t *testing.T) {
 		t.Error("Expected disabled link to return false from IsActive()")
 	}
 
-	// Expired link
 	past := time.Now().Add(-24 * time.Hour)
 	expiredLink := &ShortLink{
 		Status:     1,
@@ -128,7 +122,6 @@ func TestShortLink_IsActive(t *testing.T) {
 		t.Error("Expected expired link to return false from IsActive()")
 	}
 
-	// No expiration
 	noExpireLink := &ShortLink{
 		Status:     1,
 		ExpireTime: nil,
@@ -177,3 +170,4 @@ func TestShortLink_WithLongURL(t *testing.T) {
 		t.Error("Expected long URL to be stored")
 	}
 }
+

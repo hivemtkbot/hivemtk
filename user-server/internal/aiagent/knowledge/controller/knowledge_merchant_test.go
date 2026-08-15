@@ -33,7 +33,6 @@ func toPgVector(vec []float32) string {
 
 // setupKMSvcTestDB 设置商户 RAG 测试数据库
 func setupKMSvcTestDB(t *testing.T) *gorm.DB {
-	// 使用 PostgreSQL 测试库（testutil.NewTestDB），统一走 Docker 网络中的 postgres-user
 	database := testutil.NewTestDB(t,
 		&model.KBDocument{},
 		&model.KnowledgeDocument{},
@@ -54,19 +53,15 @@ func setupKMRouter(t *testing.T, ctrl *KnowledgeMerchantController) *gin.Engine 
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	db := setupKMSvcTestDB(t)
-	// 预置 RAG 产品,避免 BatchImport 报"产品不存在"
 	seedRagProducts(db)
 	ctrl.svc = knowledgesvc.NewKnowledgeMerchantServiceWithDB(db)
 	group := router.Group("/api")
-	// 模拟登录用户
 	group.Use(func(c *gin.Context) {
 		c.Set("operator", "tester")
 		c.Set("user_id", "u-1")
 		c.Next()
 	})
 	ctrl.RegisterRoutes(group)
-	// 真实路由中 /external/import 由 admin_routes.go 注册为公开路由（无 JWT，用 X-Knowledge-Token 鉴权）
-	// 测试中需要单独注册以便走通 ExternalImport 控制器
 	group.POST("/knowledge-merchant/external/import", ctrl.ExternalImport)
 	return router
 }
@@ -89,7 +84,6 @@ func seedRagProducts(db *gorm.DB) {
 			continue
 		}
 		if err := db.Create(p).Error; err != nil {
-			// UNIQUE 冲突及其他错误静默忽略（其他并发测试可能已插入）
 			_ = err
 		}
 	}
@@ -103,9 +97,6 @@ func mustJSON(t *testing.T, v any) []byte {
 	return b
 }
 
-// ============================================================================
-// 1) 批量导入（JSON 体）
-// ============================================================================
 
 func TestKM_BatchImport_Success(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
@@ -154,9 +145,6 @@ func TestKM_BatchImport_BadJSON(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 1) 批量导入（文件上传 CSV）
-// ============================================================================
 
 func TestKM_BatchUpload_CSV(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
@@ -196,9 +184,6 @@ func TestKM_BatchUpload_NoFile(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 2) Playground 检索调试
-// ============================================================================
 
 func TestKM_Playground_EmptyQuery(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
@@ -228,9 +213,6 @@ func TestKM_Playground_NoBody(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 3) 分段编辑 - 列表
-// ============================================================================
 
 func TestKM_ListDocumentChunks_InvalidID(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
@@ -280,9 +262,6 @@ func TestKM_SplitChunk_InvalidID(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 4) 反馈
-// ============================================================================
 
 func TestKM_SubmitFeedback_OK(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
@@ -310,7 +289,7 @@ func TestKM_SubmitFeedback_BadRating(t *testing.T) {
 	body := mustJSON(t, map[string]any{
 		"product_id": "kb-1",
 		"query":      "如何退货?",
-		"rating":     5, // 非法
+		"rating":     5, 
 	})
 	req, _ := http.NewRequest("POST", "/api/knowledge-merchant/feedback", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -332,9 +311,6 @@ func TestKM_ListFeedbacks_OK(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 5) API Token
-// ============================================================================
 
 func TestKM_CreateToken_OK(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
@@ -391,9 +367,6 @@ func TestKM_RevokeToken_InvalidID(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 6) 外部系统接入
-// ============================================================================
 
 func TestKM_ExternalImport_MissingToken(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
@@ -441,15 +414,10 @@ func TestKM_ListExternalJobs_OK(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 端到端：创建 Token → 使用 Token 外部导入
-// ============================================================================
 
 func TestKM_EndToEnd_ExternalImport_WithToken(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
-	// 1) 创建一个 Token（product_id="*" 表示允许导入任意产品，
-	//    以便越过 IDOR 越权校验，真正走到「产品不存在」的 404 分支）
 	tokBody := mustJSON(t, map[string]any{
 		"name":       "e2e",
 		"product_id": "*",
@@ -474,10 +442,6 @@ func TestKM_EndToEnd_ExternalImport_WithToken(t *testing.T) {
 		t.Fatalf("token_plain empty: %s", tokW.Body.String())
 	}
 
-	// 2) 创建一个 RAG Product（外部导入需要产品存在）
-	// 由于无真实 ragRepo,这里仅验证 Token 校验和参数校验流程:
-	// 实际 Product 校验会失败，Token 校验通过（非 401 鉴权失败），
-	// 产品不存在应返回 404（NotFound）而非 500。
 	body := mustJSON(t, map[string]any{
 		"source":     "custom",
 		"product_id": "kb-not-exists",
@@ -488,19 +452,14 @@ func TestKM_EndToEnd_ExternalImport_WithToken(t *testing.T) {
 	req.Header.Set("X-Knowledge-Token", tokResp.Data.TokenPlain)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	// 产品不存在 → 404（NotFound），证明 Token 校验已通过（非 401 鉴权失败）
 	if w.Code != http.StatusNotFound {
 		t.Errorf("want 404 (product not found), got %d, body=%s", w.Code, w.Body.String())
 	}
 	if !strings.Contains(w.Body.String(), "token") && !strings.Contains(w.Body.String(), "Token") {
-		// 可能是产品不存在错误,只要不是 token 错误就行
 		t.Logf("响应: %s", w.Body.String())
 	}
 }
 
-// ============================================================================
-// 辅助：验证 Nil DB 时 SubmitFeedback 不 panic
-// ============================================================================
 
 func TestKM_SubmitFeedback_NilDB_NoPanic(t *testing.T) {
 	ctrl := &KnowledgeMerchantController{
@@ -528,16 +487,12 @@ func TestKM_SubmitFeedback_NilDB_NoPanic(t *testing.T) {
 // _ 引入 context 避免未使用
 var _ = context.Background
 
-// ============================================================================
-// 补充：成功路径测试 - Playground/Chunk/Token 完整流程
-// ============================================================================
 
 // TestKM_Playground_WithData 测试 Playground 命中数据的场景
 func TestKM_Playground_WithData(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
 	pid := "kb-1"
-	// 预置文档和分段
 	doc := &model.KnowledgeDocument{
 		ProductID:  pid,
 		Title:      "退货政策",
@@ -549,7 +504,6 @@ func TestKM_Playground_WithData(t *testing.T) {
 		{DocumentID: doc.ID, ProductID: pid, ChunkIndex: 0, Content: "退货政策: 请在订单页面申请退货,7天内处理", ContentHash: "h1", CharCount: 30, TokenCount: 10},
 		{DocumentID: doc.ID, ProductID: pid, ChunkIndex: 1, Content: "运费说明: 满99包邮,否则10元运费", ContentHash: "h2", CharCount: 30, TokenCount: 10},
 	}
-	// 生成真实向量并写入 embedding 列（与线上检索一致），否则纯向量检索无命中
 	v := ragretrieval.NewVectorizer(0, nil)
 	for i := range chunks {
 		if err := ctrl.svc.GetDB().Create(&chunks[i]).Error; err != nil {
@@ -607,7 +561,6 @@ func TestKM_Playground_ThresholdFilter(t *testing.T) {
 		DocumentID: doc.ID, ProductID: pid, ChunkIndex: 0,
 		Content: "hello world", ContentHash: "h1", CharCount: 11, TokenCount: 2,
 	})
-	// 阈值 0.99 应该过滤掉所有结果（query "你好世界" 不匹配 "hello world"）
 	body := mustJSON(t, map[string]any{
 		"product_id":           "kb-1",
 		"query":                "你好世界",
@@ -746,7 +699,6 @@ func TestKM_ListDocumentChunks_OK(t *testing.T) {
 func TestKM_RevokeToken_OK(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
-	// 先创建 Token
 	body := mustJSON(t, map[string]any{
 		"name":       "revoke-test",
 		"product_id": "kb-1",
@@ -767,7 +719,6 @@ func TestKM_RevokeToken_OK(t *testing.T) {
 	if resp.Data.ID == 0 {
 		t.Fatalf("token id empty: %s", createW.Body.String())
 	}
-	// 吊销
 	revokeReq, _ := http.NewRequest("POST", fmt.Sprintf("/api/knowledge-merchant/tokens/%d/revoke", resp.Data.ID), nil)
 	revokeW := httptest.NewRecorder()
 	r.ServeHTTP(revokeW, revokeReq)
@@ -786,7 +737,6 @@ func TestKM_RevokeToken_OK(t *testing.T) {
 func TestKM_FullFlow_TokenValidate_ExternalImport(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
-	// 1) 创建 Token
 	body := mustJSON(t, map[string]any{
 		"name":       "full-flow",
 		"product_id": "kb-e2e",
@@ -807,7 +757,6 @@ func TestKM_FullFlow_TokenValidate_ExternalImport(t *testing.T) {
 	if tokResp.Data.TokenPlain == "" {
 		t.Fatalf("token_plain empty")
 	}
-	// 2) 同步导入（避免异步竞态）
 	impBody := mustJSON(t, map[string]any{
 		"source":     "custom",
 		"product_id": "kb-e2e",
@@ -896,8 +845,8 @@ func TestKM_BatchImport_MixedValidAndEmpty(t *testing.T) {
 		"product_id": "kb-test-1",
 		"items": []map[string]any{
 			{"title": "T1", "content": "有效内容"},
-			{"title": "T2", "content": ""},   // 空 - 拒绝
-			{"title": "T3", "content": "  "}, // 空白 - 拒绝
+			{"title": "T2", "content": ""},   
+			{"title": "T3", "content": "  "}, 
 			{"title": "T4", "content": "有效内容2"},
 		},
 	})
@@ -912,3 +861,4 @@ func TestKM_BatchImport_MixedValidAndEmpty(t *testing.T) {
 		t.Errorf("expected rejected field: %s", w.Body.String())
 	}
 }
+

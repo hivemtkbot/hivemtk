@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// ===== NormalizePhone 测试 =====
 
 func TestNormalizePhone_Empty(t *testing.T) {
 	if got := NormalizePhone(""); got != "" {
@@ -91,7 +90,6 @@ func TestNormalizePhone_WithSeparators(t *testing.T) {
 }
 
 func TestNormalizePhone_AllCarriers(t *testing.T) {
-	// 三大运营商号段
 	cases := []string{
 		"13012345678", "13112345678", "13212345678",
 		"13312345678", "13412345678", "13512345678",
@@ -112,7 +110,6 @@ func TestNormalizePhone_AllCarriers(t *testing.T) {
 		if got := NormalizePhone(c); got != c {
 			t.Errorf("plain number changed: %q -> %q", c, got)
 		}
-		// 带 +86 也应该归一为同一个
 		got2 := NormalizePhone("+86 " + c)
 		if got2 != c {
 			t.Errorf("+86 number failed: +86 %s -> %q, want %s", c, got2, c)
@@ -121,16 +118,15 @@ func TestNormalizePhone_AllCarriers(t *testing.T) {
 }
 
 func TestNormalizePhone_Not11Digits(t *testing.T) {
-	// 非 11 位的情况
 	cases := []struct {
 		in   string
 		want string
 	}{
 		{"12345", "12345"},
-		{"abcdefghijk", "abcdefghijk"},   // 没有数字，原样 trim
-		{"1380013800", "1380013800"},     // 10 位
-		{"138001380000", "138001380000"}, // 12 位
-		{"+861380013800", "1380013800"},  // 12 位去除 86 后是 10 位
+		{"abcdefghijk", "abcdefghijk"},   
+		{"1380013800", "1380013800"},     
+		{"138001380000", "138001380000"}, 
+		{"+861380013800", "1380013800"},  
 	}
 	for i, c := range cases {
 		if got := NormalizePhone(c.in); got != c.want {
@@ -139,7 +135,6 @@ func TestNormalizePhone_Not11Digits(t *testing.T) {
 	}
 }
 
-// ===== NormalizeEmail 测试 =====
 
 func TestNormalizeEmail_Empty(t *testing.T) {
 	if got := NormalizeEmail(""); got != "" {
@@ -200,14 +195,13 @@ func TestNormalizeEmail_TrimSpace(t *testing.T) {
 }
 
 func TestNormalizeEmail_InvalidFormat(t *testing.T) {
-	// 不符合邮箱格式时，原样返回 trim（保留观察）
 	cases := []string{
 		"not-an-email",
 		"missing-at.com",
 		"@example.com",
 		"foo@",
-		"foo bar@example.com", // 包含空格
-		"foo@bar",             // 无 TLD
+		"foo bar@example.com", 
+		"foo@bar",             
 	}
 	for _, c := range cases {
 		got := NormalizeEmail(c)
@@ -217,7 +211,6 @@ func TestNormalizeEmail_InvalidFormat(t *testing.T) {
 	}
 }
 
-// ===== NormalizeOpenID 测试 =====
 
 func TestNormalizeOpenID_Trim(t *testing.T) {
 	cases := []struct {
@@ -227,7 +220,7 @@ func TestNormalizeOpenID_Trim(t *testing.T) {
 		{"openid_001", "openid_001"},
 		{"  openid_002  ", "openid_002"},
 		{"\nopenid_003\n", "openid_003"},
-		{"OpenID_CaseSensitive", "OpenID_CaseSensitive"}, // 大小写不改变
+		{"OpenID_CaseSensitive", "OpenID_CaseSensitive"}, 
 		{"", ""},
 		{"   ", ""},
 		{"\t\n\ropenid_007\r\n\t", "openid_007"},
@@ -242,7 +235,6 @@ func TestNormalizeOpenID_Trim(t *testing.T) {
 	}
 }
 
-// ===== Normalize 集成测试 =====
 
 func TestNormalize_AllFields(t *testing.T) {
 	in := Identifiers{
@@ -271,21 +263,18 @@ func TestNormalize_AllFields(t *testing.T) {
 }
 
 func TestNormalize_PartialFields(t *testing.T) {
-	// 只有手机号
 	in := Identifiers{Phone: "  13800138000  "}
 	out := Normalize(in)
 	if out.Phone != "13800138000" {
 		t.Errorf("Phone normalization failed")
 	}
 
-	// 只有邮箱
 	in = Identifiers{Email: "FOO@BAR.COM"}
 	out = Normalize(in)
 	if out.Email != "foo@bar.com" {
 		t.Errorf("Email normalization failed")
 	}
 
-	// 只有微信
 	in = Identifiers{WechatOpenID: "  wx_001  "}
 	out = Normalize(in)
 	if out.WechatOpenID != "wx_001" {
@@ -293,7 +282,6 @@ func TestNormalize_PartialFields(t *testing.T) {
 	}
 }
 
-// ===== HasAny 测试 =====
 
 func TestHasAny(t *testing.T) {
 	cases := []struct {
@@ -318,7 +306,6 @@ func TestHasAny(t *testing.T) {
 	}
 }
 
-// ===== Hash 工具测试 =====
 
 func TestPhoneHash_Deterministic(t *testing.T) {
 	h1 := PhoneHash("13800138000")
@@ -329,13 +316,12 @@ func TestPhoneHash_Deterministic(t *testing.T) {
 	if h1 != h2 {
 		t.Errorf("PhoneHash not deterministic: %s vs %s", h1, h2)
 	}
-	if len(h1) != 64 { // SHA-256 hex
+	if len(h1) != 64 { 
 		t.Errorf("PhoneHash length = %d, want 64", len(h1))
 	}
 }
 
 func TestPhoneHash_AfterNormalize(t *testing.T) {
-	// 不同写法的同一个手机号应该 hash 相同
 	variants := []string{
 		"13800138000",
 		"+86 138-0013-8000",
@@ -415,10 +401,8 @@ func TestEmailHash_Empty(t *testing.T) {
 	}
 }
 
-// ===== 批量等价性测试 =====
 
 func TestNormalizePhone_BatchEquivalent(t *testing.T) {
-	// 同一手机号，10 种写法，期望都归一为同一个 11 位数字
 	base := "13800138000"
 	variants := []string{
 		"13800138000",
@@ -460,7 +444,6 @@ func TestNormalizeEmail_BatchEquivalent(t *testing.T) {
 	}
 }
 
-// ===== 幂等性测试 =====
 
 func TestNormalizePhone_Idempotent(t *testing.T) {
 	inputs := []string{
@@ -493,10 +476,8 @@ func TestNormalizeEmail_Idempotent(t *testing.T) {
 	}
 }
 
-// ===== 边界用例 =====
 
 func TestNormalizePhone_OnlySeparators(t *testing.T) {
-	// 没有数字时，原样返回 trim 后的字符串
 	got := NormalizePhone("+ - . _")
 	if got != "+ - . _" {
 		t.Errorf("only separators should return trimmed raw, got %q", got)
@@ -526,32 +507,19 @@ func TestEmailHash_NeverContainsRawEmail(t *testing.T) {
 	}
 }
 
-// ===== 大批量表驱动测试（保障 100+ 用例） =====
 
 func TestNormalizePhone_TableDriven_Batch(t *testing.T) {
-	// 30+ 等价类
 	equivalenceGroups := [][]string{
-		// 第 1 组：纯数字
 		{"13800138000"},
-		// 第 2 组：带 +86
 		{"+8613800138001"},
-		// 第 3 组：带空格
 		{"138 0013 8002"},
-		// 第 4 组：带横线
 		{"138-0013-8003"},
-		// 第 5 组：组合
 		{"+86 138-0013-8004"},
-		// 第 6 组：0086 前缀
 		{"008613800138005"},
-		// 第 7 组：点号分隔
 		{"138.0013.8006"},
-		// 第 8 组：下划线
 		{"138_0013_8007"},
-		// 第 9 组：括号
 		{"(138) 0013 8008"},
-		// 第 10 组：全 trim 空格
 		{"\n\t  138 0013 8009  \t\n"},
-		// 第 11-30 组：20 个不同号段
 		{"13012345678"}, {"13112345678"}, {"13212345678"},
 		{"13312345678"}, {"13412345678"}, {"13512345678"},
 		{"13612345678"}, {"13712345678"}, {"13812345678"},
@@ -569,7 +537,6 @@ func TestNormalizePhone_TableDriven_Batch(t *testing.T) {
 			continue
 		}
 		expected := NormalizePhone(group[0])
-		// 同组内的所有变体应该都归一为 expected
 		for j, v := range group {
 			got := NormalizePhone(v)
 			if got != expected {
@@ -580,7 +547,6 @@ func TestNormalizePhone_TableDriven_Batch(t *testing.T) {
 }
 
 func TestNormalizeEmail_TableDriven_Batch(t *testing.T) {
-	// 30+ 用例
 	cases := []struct {
 		in   string
 		want string
@@ -626,7 +592,6 @@ func TestNormalizeEmail_TableDriven_Batch(t *testing.T) {
 	}
 }
 
-// ===== 大批量 OpenID 测试 =====
 
 func TestNormalizeOpenID_TableDriven_Batch(t *testing.T) {
 	cases := []struct {
@@ -656,3 +621,4 @@ func TestNormalizeOpenID_TableDriven_Batch(t *testing.T) {
 		}
 	}
 }
+

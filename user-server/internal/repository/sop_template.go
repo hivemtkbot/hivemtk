@@ -1,32 +1,5 @@
 package repository
 
-// sop_template.go SOP 模板 Repository
-//
-// 五层架构归属: L5 数据访问层
-// 设计依据: AI 智能体性能优化
-//   - Layer1 路由依赖 SOP 模板快速匹配
-//   - 当 FAQ 未命中 + SOP 高置信 -> 模板拼接回复 (<50ms, 零 LLM)
-//   - 支持按 (intent, stage) 查询 + 按 priority/confidence 排序
-//
-// 按智能体隔离改造
-//   - 旧方法 MatchByIntent / MatchByIntentStage 保持兼容 (agentID=0)
-//   - 新增 MatchByAgent / MatchByIntentStageForAgent / ListByKB / ListShared / ListByAgent
-//   - 严格隔离语义: agentID > 0 仅匹配 (agent_id=X OR agent_id IS NULL) AND enabled
-//   - 共享 = agent_id IS NULL, 由显式白名单控制
-//
-// 方法:
-//   - Create           新增 SOP 模板
-//   - GetByID          按 ID 查询
-//   - ListEnabled      查询所有启用的模板
-//   - MatchByIntent    按意图匹配 (兼容旧签名, agentID=0 表示共享/全局)
-//   - MatchByIntentStage 按 (intent, stage) 匹配 (兼容旧签名)
-// MatchByAgent 按智能体严格 1:1 匹配
-// MatchByIntentStageForAgent 按 (intent, stage) + agentID 匹配
-// ListByKB 按知识库 ID 列出 (: 查某 KB 下挂载的 SOP 模板)
-//   - ListShared       列出全部共享 SOP 模板 (agent_id IS NULL)
-//   - ListByAgent      列出某智能体的 SOP 模板 (不参与打分)
-//   - MatchByIDs       按 ID 集合匹配 (DEPRECATED, 走 ID 集合过滤)
-//   - IncrementHitCount 命中次数 +1
 
 import (
 	"context"
@@ -94,7 +67,6 @@ func (r *SOPTemplateRepository) MatchByIntentForAgent(ctx context.Context, inten
 	q := r.db.WithContext(ctx).
 		Where("intent = ? AND enabled = ?", intent, true)
 	if agentID > 0 {
-		// 仅匹配该智能体私有 + 共享 (agent_id IS NULL)
 		q = q.Where("agent_id = ? OR agent_id IS NULL", agentID)
 	}
 	err := q.Order("priority DESC, confidence DESC, id ASC").
@@ -260,7 +232,6 @@ func (r *SOPTemplateRepository) ListWithFilter(ctx context.Context, filter SOPTe
 	}
 	if filter.AgentID != nil {
 		if *filter.AgentID == 0 {
-			// AgentID=0 表示查共享
 			q = q.Where("agent_id IS NULL")
 		} else {
 			q = q.Where("agent_id = ?", *filter.AgentID)
@@ -301,3 +272,4 @@ func (r *SOPTemplateRepository) Delete(ctx context.Context, id uint) error {
 //   - &0:   仅查共享 (agent_id IS NULL)
 //   - &X:   仅查该智能体 (agent_id = X)
 type SOPTemplateFilter = dto.SOPTemplateFilter
+

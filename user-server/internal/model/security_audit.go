@@ -7,7 +7,7 @@ import "time"
 type SecurityAudit struct {
 	ID          uint                `gorm:"primaryKey" json:"id"`
 	AuditName   string              `gorm:"column:audit_name;size:128;not null" json:"audit_name"`
-	RiskLevel   string              `gorm:"column:risk_level;size:32" json:"risk_level"` // low/medium/high/critical
+	RiskLevel   string              `gorm:"column:risk_level;size:32" json:"risk_level"` 
 	Score       int                 `gorm:"column:score" json:"score"`
 	TotalChecks int                 `gorm:"column:total_checks" json:"total_checks"`
 	Passed      int                 `gorm:"column:passed" json:"passed"`
@@ -30,11 +30,12 @@ type SecurityAuditItem struct {
 	AuditID   uint      `gorm:"column:audit_id;index;not null" json:"audit_id"`
 	Name      string    `gorm:"column:name;size:128" json:"name"`
 	Category  string    `gorm:"column:category;size:64" json:"category"`
-	Level     string    `gorm:"column:level;size:32" json:"level"`   // critical/high/medium/low
-	Result    string    `gorm:"column:result;size:32" json:"result"` // pass/fail/warn
+	Level     string    `gorm:"column:level;size:32" json:"level"`   
+	Result    string    `gorm:"column:result;size:32" json:"result"` 
 	Message   string    `gorm:"column:message;type:text" json:"message"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 // TableName 指定审计项表名
 func (SecurityAuditItem) TableName() string { return "security_audit_items" }
+

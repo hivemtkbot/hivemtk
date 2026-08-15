@@ -1,12 +1,5 @@
 package controller
 
-// chat_ws_origin_test.go WebSocket CheckOrigin 白名单测试
-//
-// 验证 buildCheckOrigin 在不同白名单 / Origin 组合下的行为:
-//   - 严格匹配 (allowed list 包含 origin -> 放行)
-//   - 严格不匹配 (allowed list 不包含 -> 拒绝)
-//   - 通配符 "*" -> 放行所有
-//   - 空 Origin (无 Origin 头) -> 默认放行 (兼容非浏览器客户端)
 
 import (
 	"net/http"
@@ -27,7 +20,6 @@ func makeOriginReq(origin string) *http.Request {
 func TestBuildCheckOrigin_StrictMatch(t *testing.T) {
 	check := buildCheckOrigin([]string{"https://app.example.com", "https://admin.example.com"})
 
-	// 白名单内: 放行
 	if !check(makeOriginReq("https://app.example.com")) {
 		t.Error("expected allow for whitelisted origin")
 	}
@@ -35,7 +27,6 @@ func TestBuildCheckOrigin_StrictMatch(t *testing.T) {
 		t.Error("expected allow for whitelisted origin")
 	}
 
-	// 不在白名单: 拒绝
 	if check(makeOriginReq("https://evil.com")) {
 		t.Error("expected reject for non-whitelisted origin")
 	}
@@ -91,3 +82,4 @@ func TestBuildCheckOrigin_NoExternalMutation(t *testing.T) {
 		t.Errorf("input slice should not be mutated, got %v", origins)
 	}
 }
+

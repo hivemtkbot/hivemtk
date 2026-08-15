@@ -119,14 +119,12 @@ func (c *MigrationController) CreateUpgradeTask(ctx *gin.Context) {
 		return
 	}
 
-	// 获取当前版本
 	currentVersion, err := c.migrationService.GetCurrentVersion(context.Background())
 	if err != nil {
 		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
-	// 创建迁移任务
 	task, err := c.migrationService.ExecuteUpgrade(context.Background(), currentVersion, req.ToVersion)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, err.Error())
@@ -156,14 +154,12 @@ func (c *MigrationController) Rollback(ctx *gin.Context) {
 
 // GetAvailableUpgrades 获取可执行的迁移列表
 func (c *MigrationController) GetAvailableUpgrades(ctx *gin.Context) {
-	// 获取当前版本
 	currentVersion, err := c.migrationService.GetCurrentVersion(context.Background())
 	if err != nil {
 		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
-	// 获取待执行的迁移
 	pendingMigrations, err := c.migrationService.GetPendingMigrations(context.Background())
 	if err != nil {
 		response.ErrorFromDB(ctx, err, err.Error())
@@ -193,3 +189,4 @@ func (c *MigrationController) GetAvailableUpgrades(ctx *gin.Context) {
 		"available_upgrades": upgrades,
 	}, "获取成功")
 }
+

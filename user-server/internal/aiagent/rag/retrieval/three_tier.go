@@ -19,10 +19,10 @@ import (
 type RAGTier string
 
 const (
-	TierL1HotCache  RAGTier = "L1_hot_cache"  // 内存缓存（高频 query 答案）
-	TierL2WarmIndex RAGTier = "L2_warm_index" // PG 向量检索
-	TierL3ColdIndex RAGTier = "L3_cold_index" // Milvus 远程向量库
-	TierL4Keyword   RAGTier = "L4_keyword"    // 关键词全文检索（兜底）
+	TierL1HotCache  RAGTier = "L1_hot_cache"  
+	TierL2WarmIndex RAGTier = "L2_warm_index" 
+	TierL3ColdIndex RAGTier = "L3_cold_index" 
+	TierL4Keyword   RAGTier = "L4_keyword"    
 )
 
 // RAGThreeTierService 三级 RAG 检索服务
@@ -35,10 +35,8 @@ type RAGThreeTierService struct {
 	vector  VectorizerInterface
 	indexer IndexManagerInterface
 
-	// 冷数据后端（可选，不存在时降级到 L2）
 	coldIndex IndexManagerInterface
 
-	// 关键词检索后端（可选，不存在时降级）
 	keyword KeywordSearcher
 
 	mu      sync.Mutex
@@ -60,10 +58,10 @@ type TierStats struct {
 // TierSearchResult 三级检索的统一结果
 type TierSearchResult struct {
 	Query     string         `json:"query"`
-	Answer    string         `json:"answer,omitempty"` // L1 直接给答案
-	Chunks    []Chunk        `json:"chunks"`           // L2/L3 检索到的分片
-	Source    RAGTier        `json:"source"`           // 实际命中的层
-	Score     float64        `json:"score"`            // 综合得分
+	Answer    string         `json:"answer,omitempty"` 
+	Chunks    []Chunk        `json:"chunks"`           
+	Source    RAGTier        `json:"source"`           
+	Score     float64        `json:"score"`            
 	LatencyMs int64          `json:"latency_ms"`
 	Metadata  map[string]any `json:"metadata,omitempty"`
 	FromCache bool           `json:"from_cache"`
@@ -118,7 +116,6 @@ func (s *RAGThreeTierService) Search(ctx context.Context, kbID, query string, to
 	s.stats.Total++
 	s.mu.Unlock()
 
-	// 1) L1 缓存
 	if s.enabled[TierL1HotCache] {
 		key := s.cacheKey(kbID, query, topK)
 		if v, ok := s.cache.Get(key); ok {
@@ -133,7 +130,6 @@ func (s *RAGThreeTierService) Search(ctx context.Context, kbID, query string, to
 		}
 	}
 
-	// 2) L2 PG 向量
 	if s.enabled[TierL2WarmIndex] {
 		chunks, score, err := s.searchTier(ctx, s.indexer, kbID, query, topK)
 		if err == nil && len(chunks) > 0 {
@@ -150,7 +146,6 @@ func (s *RAGThreeTierService) Search(ctx context.Context, kbID, query string, to
 		}
 	}
 
-	// 3) L3 Milvus 冷数据
 	if s.enabled[TierL3ColdIndex] {
 		chunks, score, err := s.searchTier(ctx, s.coldIndex, kbID, query, topK)
 		if err == nil && len(chunks) > 0 {
@@ -164,7 +159,6 @@ func (s *RAGThreeTierService) Search(ctx context.Context, kbID, query string, to
 		}
 	}
 
-	// 4) L4 关键词兜底
 	if s.enabled[TierL4Keyword] {
 		chunks, err := s.keyword.Search(ctx, kbID, query, topK)
 		if err == nil && len(chunks) > 0 {
@@ -177,7 +171,6 @@ func (s *RAGThreeTierService) Search(ctx context.Context, kbID, query string, to
 		}
 	}
 
-	// 全部未命中
 	s.mu.Lock()
 	s.stats.Misses++
 	s.mu.Unlock()
@@ -194,7 +187,6 @@ func (s *RAGThreeTierService) searchTier(ctx context.Context, mgr IndexManagerIn
 	if mgr == nil {
 		return nil, 0, errors.New("nil indexer")
 	}
-	// 计算 query embedding
 	if s.vector == nil {
 		return nil, 0, errors.New("nil vectorizer")
 	}
@@ -209,7 +201,6 @@ func (s *RAGThreeTierService) searchTier(ctx context.Context, mgr IndexManagerIn
 	if len(chunks) == 0 {
 		return chunks, 0, nil
 	}
-	// 取最高分
 	maxScore := chunks[0].Score
 	for _, c := range chunks {
 		if c.Score > maxScore {
@@ -318,3 +309,4 @@ func (s *RAGThreeTierService) DecodeResult(b []byte) (*TierSearchResult, error) 
 	}
 	return &r, nil
 }
+

@@ -70,7 +70,7 @@ func TestLiveCodeQRRepository_Create(t *testing.T) {
 				QRType:     "wechat",
 				QRContent:  "https://example.com/qr3",
 				QRTitle:    "Disabled QR",
-				Status:     1, // GORM default:1 overrides 0, test update scenario instead
+				Status:     1, 
 			},
 			wantErr: false,
 		},
@@ -96,7 +96,6 @@ func TestLiveCodeQRRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	repo := setupLiveCodeQRRepository(t)
 
-	// 创建测试数据
 	qrCode := &model.LiveCodeQR{
 		LiveCodeID: "live-code-123",
 		QRType:     "wechat",
@@ -107,7 +106,6 @@ func TestLiveCodeQRRepository_Update(t *testing.T) {
 	}
 	repo.Create(ctx, qrCode)
 
-	// 更新
 	qrCode.QRTitle = "Updated Title"
 	qrCode.Priority = 5
 	qrCode.Status = 0
@@ -134,7 +132,6 @@ func TestLiveCodeQRRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	repo := setupLiveCodeQRRepository(t)
 
-	// 创建测试数据
 	qrCode := &model.LiveCodeQR{
 		LiveCodeID: "live-code-123",
 		QRType:     "wechat",
@@ -160,7 +157,6 @@ func TestLiveCodeQRRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupLiveCodeQRRepository(t)
 
-	// 创建测试数据
 	qrCode := &model.LiveCodeQR{
 		LiveCodeID: "live-code-123",
 		QRType:     "wechat",
@@ -209,7 +205,6 @@ func TestLiveCodeQRRepository_GetByLiveCodeID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupLiveCodeQRRepository(t)
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		repo.Create(ctx, &model.LiveCodeQR{
 			LiveCodeID: "live-code-123",
@@ -221,7 +216,6 @@ func TestLiveCodeQRRepository_GetByLiveCodeID(t *testing.T) {
 		})
 	}
 
-	// 创建其他活码的二维码
 	repo.Create(ctx, &model.LiveCodeQR{
 		LiveCodeID: "live-code-456",
 		QRType:     "alipay",
@@ -239,7 +233,6 @@ func TestLiveCodeQRRepository_GetByLiveCodeID(t *testing.T) {
 		t.Errorf("Expected 5 QR codes, got %d", len(results))
 	}
 
-	// 验证按创建时间倒序
 	if results[0].QRTitle != "QR Code 5" {
 		t.Errorf("Expected first result to be 'QR Code 5', got '%s'", results[0].QRTitle)
 	}
@@ -250,7 +243,6 @@ func TestLiveCodeQRRepository_GetAvailableQR(t *testing.T) {
 	ctx := context.Background()
 	repo := setupLiveCodeQRRepository(t)
 
-	// 创建启用的二维码
 	availableQR := &model.LiveCodeQR{
 		LiveCodeID: "live-code-available-test",
 		QRType:     "wechat",
@@ -260,16 +252,14 @@ func TestLiveCodeQRRepository_GetAvailableQR(t *testing.T) {
 	}
 	repo.Create(ctx, availableQR)
 
-	// 创建禁用的二维码 - GORM default:1 会覆盖 Status: 0，所以先创建后更新
 	disabledQR := &model.LiveCodeQR{
 		LiveCodeID: "live-code-available-test",
 		QRType:     "wechat",
 		QRContent:  "https://example.com/disabled",
 		QRTitle:    "Disabled QR",
-		Status:     1, // 先设置为 1 以绕过 GORM 的 default 行为
+		Status:     1, 
 	}
 	repo.Create(ctx, disabledQR)
-	// 更新为禁用状态
 	disabledQR.Status = 0
 	repo.Update(ctx, disabledQR)
 
@@ -291,16 +281,14 @@ func TestLiveCodeQRRepository_GetAvailableQR_NotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := setupLiveCodeQRRepository(t)
 
-	// 只创建禁用的二维码 - GORM default:1 会覆盖 Status: 0，所以先创建后更新
 	disabledQR := &model.LiveCodeQR{
 		LiveCodeID: "live-code-only-disabled-test",
 		QRType:     "wechat",
 		QRContent:  "https://example.com/disabled",
 		QRTitle:    "Only Disabled",
-		Status:     1, // 先设置为 1 以绕过 GORM 的 default 行为
+		Status:     1, 
 	}
 	repo.Create(ctx, disabledQR)
-	// 更新为禁用状态
 	disabledQR.Status = 0
 	repo.Update(ctx, disabledQR)
 
@@ -358,7 +346,6 @@ func TestLiveCodeQRRepository_GetStats(t *testing.T) {
 	ctx := context.Background()
 	repo := setupLiveCodeQRRepository(t)
 
-	// 创建测试数据
 	now := time.Now()
 	repo.CreateStat(ctx, &model.LiveCodeQRStat{
 		QRCodeID:   "qr-code-123",
@@ -381,7 +368,6 @@ func TestLiveCodeQRRepository_GetStats(t *testing.T) {
 		ClickCount: 60,
 	})
 
-	// 创建其他二维码的统计
 	repo.CreateStat(ctx, &model.LiveCodeQRStat{
 		QRCodeID:   "qr-code-456",
 		Date:       now,
@@ -398,7 +384,6 @@ func TestLiveCodeQRRepository_GetStats(t *testing.T) {
 		t.Errorf("Expected 3 stats, got %d", len(results))
 	}
 
-	// 验证按日期倒序
 	if results[0].ViewCount != 100 {
 		t.Errorf("Expected first result ViewCount 100, got %d", results[0].ViewCount)
 	}
@@ -418,3 +403,4 @@ func TestLiveCodeQRRepository_GetStats_Empty(t *testing.T) {
 		t.Errorf("Expected 0 stats, got %d", len(results))
 	}
 }
+

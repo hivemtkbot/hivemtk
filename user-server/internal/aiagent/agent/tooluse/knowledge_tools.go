@@ -18,15 +18,7 @@ import (
 	"hivemtk-user/internal/pkg/db"
 )
 
-// knowledge_tools.go 知识工具实现（PRD §5.2）
-//
-// 4 个知识工具：
-//   1. rag.search           - RAG 检索（向量 + BM25-lite + 阈值过滤 + 检索日志）
-//   2. knowledge.feedback   - 知识反馈（标记答案质量 helpful/bad/补充评论）
-//   3. knowledge.add_doc    - 添加知识文档（文本/URL/批量，触发异步分片+向量化）
-//   4. knowledge.list_kb    - 列出知识库（RagProduct 列表 + 文档/分段统计）
 
-// ===== 知识工具依赖 =====
 
 // KnowledgeToolDeps 知识工具依赖
 type KnowledgeToolDeps struct {
@@ -37,7 +29,7 @@ type KnowledgeToolDeps struct {
 	SearchLogRepo    *knowledgerepo.KnowledgeSearchLogRepository
 	FeedbackRepo     *knowledgerepo.KnowledgeFeedbackRepository
 	ChunkRepo        *knowledgerepo.KnowledgeChunkRepository
-	DB               *gorm.DB // 仅用于 hit_count 批量更新（待重构为 ChunkRepo.IncrementHitCount）
+	DB               *gorm.DB 
 }
 
 // NewKnowledgeToolDeps 创建知识工具依赖（使用全局 DB）
@@ -101,7 +93,6 @@ func MustRegisterKnowledgeTools(registry *ToolRegistry, deps KnowledgeToolDeps) 
 	}
 }
 
-// ===== 工具 1：rag.search =====
 
 // RagSearchTool RAG 检索工具
 type RagSearchTool struct {
@@ -126,8 +117,6 @@ func NewRagSearchTool(deps KnowledgeToolDeps) *RagSearchTool {
 					"session_id":       {Type: "string", Description: "会话 ID（可选，用于关联检索日志与反馈）"},
 					"metadata_filters": {Type: "object", Description: "附加字段过滤（可选）。例如 {\"customer_id\":\"123\",\"order_id\":\"A01\"}，将检索收敛到特定业务上下文（某客户的订单知识等）。"},
 				},
-				// product_id 可选：缺失时检索全量知识库（vector/bm25 检索器在 product_id='' 时不做产品过滤）。
-				// 与 AGENT_TOOLS.md 一致：rag.search 参数为 query(必填) + product_id(可选)。
 				Required: []string{"query"},
 			},
 		},
@@ -168,13 +157,10 @@ func (t *RagSearchTool) Execute(ctx context.Context, args map[string]any) (ToolR
 
 	sessionID := getArgString(args, "session_id")
 
-	// 附加字段过滤：把检索收敛到特定业务上下文（如某客户的订单知识）
 	metadataFilters := parseMetadataFilters(args["metadata_filters"])
 
-	// 1. 直接使用 string UUID 作为产品ID（knowledge_chunks.product_id 现已为 string）
 	productNumericID := productID
 
-	// 2. 调用 RagSearcher.SearchIndex 检索（BM25-lite 排序）
 	start := time.Now()
 	chunks, err := t.deps.RagSearcher.SearchIndex(ctx, productNumericID, query, topK, metadataFilters)
 	if err != nil {
@@ -182,7 +168,6 @@ func (t *RagSearchTool) Execute(ctx context.Context, args map[string]any) (ToolR
 	}
 	latencyMs := int(time.Since(start).Milliseconds())
 
-	// 3. 阈值过滤
 	filtered := make([]knowledgesvc.MerchantRAGChunk, 0, len(chunks))
 	var maxScore, minScore, sumScore float64
 	for _, c := range chunks {
@@ -203,8 +188,6 @@ func (t *RagSearchTool) Execute(ctx context.Context, args map[string]any) (ToolR
 		avgScore = sumScore / float64(len(filtered))
 	}
 
-	// 兜底：阈值把全部候选过滤（多因 rerank 未生效时 chunk.Score 仍是 RRF 量级 ~0.03，或 rerank 全低分），
-	// 为避免"永远空召回"导致 AI 误判"知识库无相关知识"，降级返回原始 topK 候选。
 	if len(filtered) == 0 && len(chunks) > 0 {
 		n := topK
 		if n > len(chunks) {
@@ -227,8 +210,6 @@ func (t *RagSearchTool) Execute(ctx context.Context, args map[string]any) (ToolR
 		log.Printf("[rag.search][降级] 阈值=%.2f 过滤后为空，降级返回原始 topK=%d 候选（产品=%s query=%q）", threshold, n, productNumericID, query)
 	}
 
-	// 4. 命中分段 hit_count +1（异步，失败不影响主流程）
-	// 五层架构合规：通过 ChunkRepo.IncrementHitCount 替代直接 DB 访问
 	if t.deps.ChunkRepo != nil {
 		go func(chunks []knowledgesvc.MerchantRAGChunk) {
 			bgCtx := context.Background()
@@ -242,7 +223,6 @@ func (t *RagSearchTool) Execute(ctx context.Context, args map[string]any) (ToolR
 		}(filtered)
 	}
 
-	// 5. 写入检索日志（同步，失败不阻塞主流程但记录错误）
 	if t.deps.SearchLogRepo != nil {
 		queryHash := hashQuery(query)
 		logEntry := &model.KnowledgeSearchLog{
@@ -266,7 +246,6 @@ func (t *RagSearchTool) Execute(ctx context.Context, args map[string]any) (ToolR
 		_ = t.deps.SearchLogRepo.Create(ctx, logEntry)
 	}
 
-	// 6. 构造响应
 	return SuccessResult(t.Name(), map[string]any{
 		"chunks":     filtered,
 		"total":      len(filtered),
@@ -300,7 +279,6 @@ func parseMetadataFilters(raw any) map[string]string {
 	return out
 }
 
-// ===== 工具 2：knowledge.feedback =====
 
 // KnowledgeFeedbackTool 知识反馈工具
 type KnowledgeFeedbackTool struct {
@@ -327,8 +305,6 @@ func NewKnowledgeFeedbackTool(deps KnowledgeToolDeps) *KnowledgeFeedbackTool {
 					"session_id":  {Type: "string", Description: "会话 ID（可选，用于关联检索日志）"},
 					"operator":    {Type: "string", Description: "操作人（可选，AI Agent 名称或用户 ID）"},
 				},
-				// product_id 可选（与 AGENT_TOOLS.md 一致）；真正必填为 rating（评分）。
-				// session_id 在代码中可选，缺失时仍记录反馈（product_id 留空表示不限定知识库）。
 				Required: []string{"rating"},
 			},
 		},
@@ -384,7 +360,6 @@ func (t *KnowledgeFeedbackTool) Execute(ctx context.Context, args map[string]any
 		chunkID = &u
 	}
 
-	// 写入 knowledge_feedbacks 表（通过 FeedbackRepo，符合五层架构 L4→L3 调用规范）
 	fb := &model.KnowledgeFeedback{
 		ProductID:  productID,
 		Query:      query,
@@ -411,7 +386,6 @@ func (t *KnowledgeFeedbackTool) Execute(ctx context.Context, args map[string]any
 	}), nil
 }
 
-// ===== 工具 3：knowledge.add_doc =====
 
 // KnowledgeAddDocTool 添加知识文档工具
 type KnowledgeAddDocTool struct {
@@ -494,7 +468,6 @@ func (t *KnowledgeAddDocTool) Execute(ctx context.Context, args map[string]any) 
 		return ErrorResult(t.Name(), fmt.Errorf("不支持的 source_type：%s（仅支持 text/url）", sourceType)), fmt.Errorf("不支持的 source_type：%s（仅支持 text/url）", sourceType)
 	}
 
-	// 调用 KnowledgeService.Import
 	req := &knowledgesvc.ImportRequest{
 		ProductID:  productID,
 		SourceType: modelSourceType,
@@ -521,7 +494,6 @@ func (t *KnowledgeAddDocTool) Execute(ctx context.Context, args map[string]any) 
 	}), nil
 }
 
-// ===== 工具 4：knowledge.list_kb =====
 
 // KnowledgeListKBTool 列出知识库工具
 type KnowledgeListKBTool struct {
@@ -558,7 +530,6 @@ func (t *KnowledgeListKBTool) Execute(ctx context.Context, args map[string]any) 
 		includeStats = v
 	}
 
-	// 拉取所有 active 的 RAG 产品
 	products, err := t.deps.RagRepo.ListRagProducts(ctx)
 	if err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -602,7 +573,6 @@ func (t *KnowledgeListKBTool) Execute(ctx context.Context, args map[string]any) 
 			IsActive:            p.IsActive,
 			CreatedAt:           p.CreatedAt,
 		}
-		// 如果不包含统计，清零
 		if !includeStats {
 			item.DocCount = 0
 			item.ChunkCount = 0
@@ -618,3 +588,4 @@ func (t *KnowledgeListKBTool) Execute(ctx context.Context, args map[string]any) 
 		"total":           len(items),
 	}), nil
 }
+

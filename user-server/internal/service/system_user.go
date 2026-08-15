@@ -31,8 +31,6 @@ type CreateUserRequest struct {
 	Status   int    `json:"status"`
 }
 
-// SystemUserResponse 系统用户响应
-// (定义在 auth.go 中)
 
 // UpdateUserRequest 更新用户请求
 type UpdateUserRequest struct {
@@ -89,7 +87,6 @@ func (s *SystemUserService) GetUsers(ctx context.Context, page, pageSize int) ([
 		return nil, 0, errors.New("获取用户列表失败")
 	}
 
-	// 转换为响应格式
 	responses := make([]*SystemUserResponse, 0, len(users))
 	for _, user := range users {
 		responses = append(responses, s.toUserResponse(ctx, user))
@@ -121,23 +118,19 @@ func (s *SystemUserService) GetUserByID(ctx context.Context, id uint) (*SystemUs
 //   - 不允许 system_init 之外的入口直接创建 admin（admin 必须通过初始化流程）
 //     但保留 admin 角色作为合法值，便于 system_init 流程
 func (s *SystemUserService) CreateUser(ctx context.Context, req *CreateUserRequest) (*SystemUserResponse, error) {
-	// 1. 校验用户名
 	if err := validateUsername(req.Username); err != nil {
 		return nil, err
 	}
-	// 2. 校验密码强度（仅当提供了密码时）
 	if req.Password != "" {
 		if err := validatePassword(req.Password); err != nil {
 			return nil, err
 		}
 	}
-	// 3. 校验邮箱
 	if req.Email != "" {
 		if err := validateEmail(req.Email); err != nil {
 			return nil, err
 		}
 	}
-	// 4. 角色白名单
 	if req.Role == "" {
 		req.Role = "user"
 	}
@@ -145,7 +138,6 @@ func (s *SystemUserService) CreateUser(ctx context.Context, req *CreateUserReque
 		return nil, errors.New("角色非法，仅支持 admin/user")
 	}
 
-	// 5. 检查用户名是否已存在
 	exists, err := s.repo.UsernameExists(ctx, req.Username, 0)
 	if err != nil {
 		logger.Error(err, "检查用户名失败")
@@ -155,7 +147,6 @@ func (s *SystemUserService) CreateUser(ctx context.Context, req *CreateUserReque
 		return nil, errors.New("用户名已存在")
 	}
 
-	// 6. 检查邮箱是否已存在
 	if req.Email != "" {
 		exists, err := s.repo.EmailExists(ctx, req.Email, 0)
 		if err != nil {
@@ -167,17 +158,16 @@ func (s *SystemUserService) CreateUser(ctx context.Context, req *CreateUserReque
 		}
 	}
 
-	// 7. 创建用户
 	user := model.SystemUser{
 		Username: req.Username,
-		Password: req.Password, // BeforeCreate 钩子会自动加密
+		Password: req.Password, 
 		Email:    req.Email,
 		RealName: req.RealName,
 		Role:     req.Role,
 		Status:   req.Status,
 	}
 	if user.Status == 0 {
-		user.Status = 1 // 默认启用
+		user.Status = 1 
 	}
 
 	if err := s.repo.Create(ctx, &user); err != nil {
@@ -190,7 +180,6 @@ func (s *SystemUserService) CreateUser(ctx context.Context, req *CreateUserReque
 
 // UpdateUser 更新用户
 func (s *SystemUserService) UpdateUser(ctx context.Context, id uint, req *UpdateUserRequest) (*SystemUserResponse, error) {
-	// 查询用户
 	user, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -200,7 +189,6 @@ func (s *SystemUserService) UpdateUser(ctx context.Context, id uint, req *Update
 		return nil, errors.New("更新用户失败")
 	}
 
-	// 更新字段
 	if req.Email != "" {
 		user.Email = req.Email
 	}
@@ -217,7 +205,6 @@ func (s *SystemUserService) UpdateUser(ctx context.Context, id uint, req *Update
 		user.Status = req.Status
 	}
 
-	// 保存用户
 	if err := s.repo.Update(ctx, user); err != nil {
 		logger.Error(err, "保存用户失败")
 		return nil, errors.New("更新用户失败")
@@ -228,7 +215,6 @@ func (s *SystemUserService) UpdateUser(ctx context.Context, id uint, req *Update
 
 // DeleteUser 删除用户
 func (s *SystemUserService) DeleteUser(ctx context.Context, id uint) error {
-	// 检查用户是否存在
 	if _, err := s.repo.GetByID(ctx, id); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("用户不存在")
@@ -237,7 +223,6 @@ func (s *SystemUserService) DeleteUser(ctx context.Context, id uint) error {
 		return errors.New("删除用户失败")
 	}
 
-	// 删除用户
 	if err := s.repo.Delete(ctx, id); err != nil {
 		logger.Error(err, "删除用户失败")
 		return errors.New("删除用户失败")
@@ -248,7 +233,6 @@ func (s *SystemUserService) DeleteUser(ctx context.Context, id uint) error {
 
 // ResetPassword 重置密码
 func (s *SystemUserService) ResetPassword(ctx context.Context, id uint, newPassword string) error {
-	// 查询用户
 	user, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -258,7 +242,6 @@ func (s *SystemUserService) ResetPassword(ctx context.Context, id uint, newPassw
 		return errors.New("重置密码失败")
 	}
 
-	// 更新密码
 	hashed, err := HashPassword(newPassword)
 	if err != nil {
 		logger.Error(err, "密码加密失败")
@@ -266,7 +249,6 @@ func (s *SystemUserService) ResetPassword(ctx context.Context, id uint, newPassw
 	}
 	user.Password = hashed
 
-	// 保存用户
 	if err := s.repo.Update(ctx, user); err != nil {
 		logger.Error(err, "保存用户失败")
 		return errors.New("重置密码失败")
@@ -292,16 +274,6 @@ func (s *SystemUserService) toUserResponse(_ context.Context, user *model.System
 	}
 }
 
-// ============================================================
-// 阶段 4：人员管理（Personnel / User Management）业务方法
-// ============================================================
-//
-// 设计要点（详见 docs/architecture/MENU_PERMISSION_PLAN.md v3.1 §3.2）：
-//   - controller 不直接传 role，service 通过 actorID 重新查询用户获取 role 做权限校验
-//   - 所有"业务校验失败"返回 fmt.Errorf("语义: %w", ErrInvalidInput)
-//   - "系统级错误"（DB 异常、未知错误）直接返回原始 err
-//   - 启停/改密/创建/删除通过 middleware.LogCustom 写 operation_logs（路由层中间件）
-//   - 不调 db，只调 repository
 
 // GetUsersRequest 人员管理列表查询请求
 type GetUsersRequest struct {
@@ -338,9 +310,6 @@ func (s *SystemUserService) GetUsersAdmin(ctx context.Context, req *GetUsersRequ
 		size = 100
 	}
 
-	// 阶段 4：暂未扩展 repository 的 keyword 搜索，仍用 List 分页
-	// 在 service 层做 keyword LIKE 过滤（数据量小，开销可控）
-	// TODO: 阶段 5 角色管理时下沉到 repository
 	users, total, err := s.repo.List(ctx, page, size)
 	if err != nil {
 		logger.Error(err, "GetUsersAdmin 查询失败")
@@ -445,7 +414,6 @@ type CreateUserByAdminRequest struct {
 //   - 密码 bcrypt 加密（BeforeCreate 钩子自动处理）
 //   - 默认 status=1，enabled=true
 func (s *SystemUserService) CreateByAdmin(ctx context.Context, actorID uint, req *CreateUserByAdminRequest) (*model.SystemUser, error) {
-	// 1. 校验 actor 是 admin（创建 admin 角色时必须）
 	if req.Role == "admin" {
 		actor, err := s.repo.GetByID(ctx, actorID)
 		if err != nil {
@@ -460,7 +428,6 @@ func (s *SystemUserService) CreateByAdmin(ctx context.Context, actorID uint, req
 		}
 	}
 
-	// 2. username 唯一性
 	exists, err := s.repo.UsernameExists(ctx, req.Username, 0)
 	if err != nil {
 		logger.Error(err, "CreateByAdmin 检查 username 失败")
@@ -470,7 +437,6 @@ func (s *SystemUserService) CreateByAdmin(ctx context.Context, actorID uint, req
 		return nil, fmt.Errorf("用户名已存在: %w", ErrInvalidInput)
 	}
 
-	// 3. email 唯一性
 	exists, err = s.repo.EmailExists(ctx, req.Email, 0)
 	if err != nil {
 		logger.Error(err, "CreateByAdmin 检查 email 失败")
@@ -480,7 +446,6 @@ func (s *SystemUserService) CreateByAdmin(ctx context.Context, actorID uint, req
 		return nil, fmt.Errorf("邮箱已被使用: %w", ErrInvalidInput)
 	}
 
-	// 4. 构造记录（BeforeCreate 钩子会自动加密密码）
 	user := &model.SystemUser{
 		Username: req.Username,
 		Password: req.Password,
@@ -513,7 +478,6 @@ type UpdateUserByAdminRequest struct {
 //   - username 唯一性（修改时排除自身）
 //   - email 唯一性（修改时排除自身）
 func (s *SystemUserService) UpdateByAdmin(ctx context.Context, actorID, targetID uint, req *UpdateUserByAdminRequest) (*model.SystemUser, error) {
-	// 1. 查询目标
 	target, err := s.repo.GetByID(ctx, targetID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -523,7 +487,6 @@ func (s *SystemUserService) UpdateByAdmin(ctx context.Context, actorID, targetID
 		return nil, err
 	}
 
-	// 2. role 变更时：自己不能改自己 + 仅 admin 可设置 role='admin'
 	if req.Role != nil && *req.Role != target.Role {
 		if actorID == targetID {
 			return nil, fmt.Errorf("不能修改自己的角色: %w", ErrInvalidInput)
@@ -544,7 +507,6 @@ func (s *SystemUserService) UpdateByAdmin(ctx context.Context, actorID, targetID
 		target.Role = *req.Role
 	}
 
-	// 3. username 唯一性
 	if req.Username != nil && *req.Username != target.Username {
 		exists, err := s.repo.UsernameExists(ctx, *req.Username, targetID)
 		if err != nil {
@@ -557,7 +519,6 @@ func (s *SystemUserService) UpdateByAdmin(ctx context.Context, actorID, targetID
 		target.Username = *req.Username
 	}
 
-	// 4. email 唯一性
 	if req.Email != nil && *req.Email != target.Email {
 		exists, err := s.repo.EmailExists(ctx, *req.Email, targetID)
 		if err != nil {
@@ -570,7 +531,6 @@ func (s *SystemUserService) UpdateByAdmin(ctx context.Context, actorID, targetID
 		target.Email = *req.Email
 	}
 
-	// 5. 姓名
 	if req.Name != nil {
 		target.RealName = *req.Name
 	}
@@ -604,3 +564,4 @@ func (s *SystemUserService) DeleteByAdmin(ctx context.Context, actorID, targetID
 	}
 	return nil
 }
+

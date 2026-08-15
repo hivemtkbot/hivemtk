@@ -5,29 +5,9 @@ import (
 	"time"
 )
 
-// ============================================================================
-// Planner Stage 任务规划器阶段
-// ----------------------------------------------------------------------------
-// 文档依据：方向4 阶段5 任务规划器
-//
-// 决策依据：
-//  1. 意图（决定主工具）
-//  2. 情绪（决定回复语气）
-//  3. 6维对齐（决定回复风格）
-//  4. 知识库挂载（决定是否需要 RAG 检索）
-//  5. SOP 挂载（决定是否套用话术）
-//
-// 输出 ActionPlan：
-//  - PlanType   : sales / customer_service / hybrid
-//  - ToolCalls  : 计划调用的工具（按优先级排序）
-//  - ReplyHint  : 给 LLM 的提示
-//  - SkipLLM    : 是否跳过 LLM（标准化 FAQ 直接回复）
-// ============================================================================
 
 // DefaultTaskPlanner 默认任务规划器
 type DefaultTaskPlanner struct {
-	// FAQLibrary 标准化 FAQ 库（可注入）
-	// 返回 (matched bool, reply string)
 	FAQLibrary func(ctx context.Context, content string) (bool, string)
 }
 
@@ -63,7 +43,6 @@ func (p *DefaultTaskPlanner) Execute(ctx context.Context, ic *InferenceContext) 
 	}
 	ic.Plan = plan
 
-	// 写决策
 	ic.Decision.Plan = plan
 	ic.Decision.Confidence = plan.Confidence
 	ic.Decision.StopReason = "plan_ready"
@@ -86,7 +65,6 @@ func (p *DefaultTaskPlanner) Plan(ctx context.Context, ic *InferenceContext) (*A
 		ToolCalls:  []PlannedToolCall{},
 	}
 
-	// 1. FAQ 优先（如有命中且 SkipLLM=true）
 	if p.FAQLibrary != nil {
 		if matched, reply := p.FAQLibrary(ctx, ic.Payload.Content); matched {
 			plan.SkipLLM = true
@@ -97,16 +75,13 @@ func (p *DefaultTaskPlanner) Plan(ctx context.Context, ic *InferenceContext) (*A
 		}
 	}
 
-	// 2. 根据意图决定工具链
 	switch ic.Intent.Primary {
 	case IntentGreeting, IntentFarewell, IntentChitchat:
-		// 闲聊类：直接 LLM 回复
 		plan.PlanType = "customer_service"
 		plan.ReplyHint = buildChitchatHint(ic)
 		plan.Confidence = 0.85
 
 	case IntentInquiry:
-		// 询价：拉知识库 + 查订单
 		plan.PlanType = "sales"
 		plan.ToolCalls = append(plan.ToolCalls,
 			PlannedToolCall{ToolName: "knowledge.search", Args: map[string]any{"query": ic.Payload.Content, "top_k": 3}, Priority: 1},
@@ -116,7 +91,6 @@ func (p *DefaultTaskPlanner) Plan(ctx context.Context, ic *InferenceContext) (*A
 		plan.Confidence = 0.75
 
 	case IntentOrderStatus:
-		// 查单：查订单 + 查物流
 		plan.PlanType = "customer_service"
 		plan.ToolCalls = append(plan.ToolCalls,
 			PlannedToolCall{ToolName: "order.lookup", Args: map[string]any{"customer_id": ic.Payload.CustomerID}, Priority: 1},
@@ -125,7 +99,6 @@ func (p *DefaultTaskPlanner) Plan(ctx context.Context, ic *InferenceContext) (*A
 		plan.Confidence = 0.80
 
 	case IntentRefund, IntentComplaint:
-		// 退款/投诉：先安抚 + 查订单
 		plan.PlanType = "customer_service"
 		plan.ToolCalls = append(plan.ToolCalls,
 			PlannedToolCall{ToolName: "order.lookup", Args: map[string]any{"customer_id": ic.Payload.CustomerID}, Priority: 1},
@@ -150,7 +123,6 @@ func (p *DefaultTaskPlanner) Plan(ctx context.Context, ic *InferenceContext) (*A
 		plan.Confidence = 0.78
 
 	default:
-		// 未知意图：保守回复 + 知识库检索
 		plan.PlanType = "customer_service"
 		plan.ToolCalls = append(plan.ToolCalls,
 			PlannedToolCall{ToolName: "knowledge.search", Args: map[string]any{"query": ic.Payload.Content, "top_k": 3}, Priority: 1},
@@ -159,9 +131,7 @@ func (p *DefaultTaskPlanner) Plan(ctx context.Context, ic *InferenceContext) (*A
 		plan.Confidence = 0.55
 	}
 
-	// 3. 知识库挂载增强（如未挂载则不调用）
 	if ic.AgentCtx != nil && !ic.AgentCtx.EnableRAG {
-		// 移除所有 knowledge.search 调用
 		filtered := []PlannedToolCall{}
 		for _, tc := range plan.ToolCalls {
 			if tc.ToolName != "knowledge.search" {
@@ -171,9 +141,6 @@ func (p *DefaultTaskPlanner) Plan(ctx context.Context, ic *InferenceContext) (*A
 		plan.ToolCalls = filtered
 	}
 
-	// 4. 跨会话情境记忆增强（E1 补全）：将 InferenceContext 携带的记忆快照
-	//    追加到 ReplyHint，使 LLM 在生成回复时参考历史对话、客户档案、SOP 状态
-	//    等跨会话上下文，从而让情境记忆影响决策。
 	if ic.EpisodicMemory != "" {
 		plan.ReplyHint = plan.ReplyHint + "\n\n【跨会话情境记忆】\n" + ic.EpisodicMemory
 	}
@@ -181,9 +148,6 @@ func (p *DefaultTaskPlanner) Plan(ctx context.Context, ic *InferenceContext) (*A
 	return plan, nil
 }
 
-// ============================================================================
-// Hint 构造助手
-// ============================================================================
 
 func buildChitchatHint(ic *InferenceContext) string {
 	persona := ""
@@ -238,3 +202,4 @@ func boolStr(b bool) string {
 	}
 	return "false"
 }
+

@@ -34,7 +34,6 @@ func (s *MessageService) DeleteMessage(ctx context.Context, id string) error {
 }
 
 func (s *MessageService) InitMessage(ctx context.Context, accountID string, userID string, tgID int64, text string) (string, error) {
-	// 直接使用string类型的ID
 	message := model.Message{
 		AccountID: accountID,
 		UserID:    userID,
@@ -46,3 +45,4 @@ func (s *MessageService) InitMessage(ctx context.Context, accountID string, user
 	}
 	return message.ID, nil
 }
+

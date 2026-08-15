@@ -11,7 +11,6 @@ func TestUser_BeforeCreate(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	// Call BeforeCreate to generate ID and hash password
 	err := user.BeforeCreate(nil)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -19,11 +18,9 @@ func TestUser_BeforeCreate(t *testing.T) {
 	if user.ID == "" {
 		t.Error("Expected non-empty ID after BeforeCreate")
 	}
-	// Verify password was hashed (should be different from original)
 	if user.Password == "password123" {
 		t.Error("Expected password to be hashed")
 	}
-	// Verify hashed password format (bcrypt starts with $2a$)
 	if len(user.Password) < 59 {
 		t.Errorf("Expected bcrypt hash length >= 59, got %d", len(user.Password))
 	}
@@ -58,7 +55,6 @@ func TestUser_BeforeCreate_NoChangeIfExists(t *testing.T) {
 	if user.ID != "existing-id" {
 		t.Errorf("Expected ID to remain 'existing-id', got %s", user.ID)
 	}
-	// Password should still be hashed even if ID exists
 	if user.Password == "password123" {
 		t.Error("Expected password to be hashed")
 	}
@@ -78,7 +74,6 @@ func TestUser_BeforeCreate_EmptyPassword(t *testing.T) {
 	if user.ID == "" {
 		t.Error("Expected non-empty ID after BeforeCreate")
 	}
-	// Password should remain empty when not provided
 	if user.Password != "" {
 		t.Errorf("Expected empty Password, got %s", user.Password)
 	}
@@ -93,10 +88,6 @@ func TestUser_TableName(t *testing.T) {
 }
 
 func TestUserStatusType(t *testing.T) {
-	// Test that UserStatusType constants are defined
-	// UserStatusValid should be 1
-	// UserStatusInvalid should be 0
-	// These are imported from _type package
 }
 
 func TestUser_WithEmptyID(t *testing.T) {
@@ -106,7 +97,6 @@ func TestUser_WithEmptyID(t *testing.T) {
 		ID:       "",
 	}
 
-	// ID should be empty before BeforeCreate is called
 	if user.ID != "" {
 		t.Errorf("Expected empty ID before BeforeCreate, got %s", user.ID)
 	}
@@ -130,10 +120,7 @@ func TestUser_WithDefaultRole(t *testing.T) {
 		Password: "password123",
 	}
 
-	// Default role should be 'user'
-	// Note: This is set by GORM default, not in struct initialization
 	if user.Role != "" {
-		// Role will be empty until saved to database
 		t.Logf("Role is %s (will be 'user' after save)", user.Role)
 	}
 }
@@ -201,3 +188,4 @@ func TestUser_WithAccountID(t *testing.T) {
 		t.Errorf("Expected AccountID 'account-123', got %s", user.AccountID)
 	}
 }
+

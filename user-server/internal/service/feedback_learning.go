@@ -13,21 +13,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// G7 反馈学习闭环服务
-// ----------------------------------------------------------------------------
-// 对应 PRD §5.2 G7：系统自我进化
-//
-// 三大能力：
-//  1. 销冠画像 5 维度提取（从对话记录自动提取能力维度）
-//  2. SOP 节点转化率分析（统计每个节点的进入→推进→流失）
-//  3. 低转化节点优化建议生成（自动生成 prompt 重写 / 分支剪枝等建议）
-//
-// 设计原则：
-//   - 不依赖 LLM（规则 + 关键词提取，便于测试和降级）
-//   - 持久化到 DB，支持周期性快照对比
-//   - 输出可解释（evidence_tags / evidence_data）
-// ============================================================================
 
 // FeedbackLearningService 反馈学习闭环服务
 type FeedbackLearningService struct {
@@ -50,15 +35,12 @@ func NewFeedbackLearningService(db *gorm.DB) *FeedbackLearningService {
 	return s
 }
 
-// ============================================================================
-// 能力 1：销冠画像 5 维度提取
-// ============================================================================
 
 // ChampionDimensionScore 单维度得分
 type ChampionDimensionScore struct {
 	Dimension     model.SalesChampionDimension `json:"dimension"`
 	Name          string                       `json:"name"`
-	Score         float64                      `json:"score"` // 0-100
+	Score         float64                      `json:"score"` 
 	SampleCount   int                          `json:"sample_count"`
 	PositiveCount int                          `json:"positive_count"`
 	NegativeCount int                          `json:"negative_count"`
@@ -69,9 +51,9 @@ type ChampionDimensionScore struct {
 type ChampionProfileReport struct {
 	StaffID      uint                     `json:"staff_id"`
 	StaffName    string                   `json:"staff_name"`
-	Scenario     string                   `json:"scenario"` // ai_champion / staff_xxx
+	Scenario     string                   `json:"scenario"` 
 	Dimensions   []ChampionDimensionScore `json:"dimensions"`
-	OverallScore float64                  `json:"overall_score"` // 5 维度平均
+	OverallScore float64                  `json:"overall_score"` 
 	PeriodStart  time.Time                `json:"period_start"`
 	PeriodEnd    time.Time                `json:"period_end"`
 	GeneratedAt  time.Time                `json:"generated_at"`
@@ -108,13 +90,11 @@ func (s *FeedbackLearningService) ExtractProfile(ctx context.Context, staffID ui
 		periodStart = periodEnd.AddDate(0, 0, -30)
 	}
 
-	// 拉取周期内的 AI 回复消息（SenderType=ai）
 	messages, err := s.feedbackRepo.ListAIMessagesByPeriod(ctx, periodStart, periodEnd, 5000)
 	if err != nil {
 		return nil, fmt.Errorf("query ai messages: %w", err)
 	}
 
-	// 拉取对应的客户消息（用于上下文判断）
 	sessionIDs := extractSessionIDs(messages)
 	customerMsgMap, _ := s.queryCustomerMessages(ctx, sessionIDs, periodStart, periodEnd)
 
@@ -127,14 +107,12 @@ func (s *FeedbackLearningService) ExtractProfile(ctx context.Context, staffID ui
 		GeneratedAt: time.Now(),
 	}
 
-	// 逐维度提取
 	for _, dim := range model.AllSalesChampionDimensions {
 		score := s.extractDimension(ctx, dim, messages, customerMsgMap)
 		score.Name = DimensionName(dim)
 		report.Dimensions = append(report.Dimensions, score)
 	}
 
-	// 计算综合分
 	total := 0.0
 	for _, d := range report.Dimensions {
 		total += d.Score
@@ -143,9 +121,7 @@ func (s *FeedbackLearningService) ExtractProfile(ctx context.Context, staffID ui
 		report.OverallScore = total / float64(len(report.Dimensions))
 	}
 
-	// 持久化快照
 	if err := s.persistProfileSnapshot(ctx, report); err != nil {
-		// 持久化失败不阻断主流程，但必须记录错误（避免 _ = err 静默吞噬）
 		logger.Errorf("feedback_learning: persistProfileSnapshot failed: %v", err)
 	}
 
@@ -185,16 +161,13 @@ func (s *FeedbackLearningService) extractDimension(ctx context.Context, dim mode
 	score.PositiveCount = positive
 	score.NegativeCount = negative
 
-	// 证据标签去重（最多 5 个）
 	score.EvidenceTags = dedupeTags(evidences, 5)
 
-	// 得分计算：正向 / (正向 + 负向) * 100，无样本给 50（中性）
 	if score.SampleCount == 0 {
 		score.Score = 50.0
 	} else {
 		score.Score = float64(positive) / float64(score.SampleCount) * 100
 	}
-	// 四舍五入到 2 位
 	score.Score = roundTo2(score.Score)
 
 	return score
@@ -228,7 +201,6 @@ func classifyDimensionHit(dim model.SalesChampionDimension, aiReply, customerMsg
 // 触发：客户表达异议（太贵/不需要/考虑一下/别人家更便宜）
 // 正向：AI 回复包含解释/对比/价值塑造/让步
 func classifyObjectionHandling(aiReply, customerMsg string) (bool, dimensionEvidence) {
-	// 客户异议关键词
 	objectionWords := []string{"太贵", "贵了", "不需要", "不用了", "考虑一下", "考虑下",
 		"再说吧", "算了", "别人家", "其他家", "竞品", "对比", "不值", "不划算"}
 	hasObjection := false
@@ -242,7 +214,6 @@ func classifyObjectionHandling(aiReply, customerMsg string) (bool, dimensionEvid
 		return false, dimensionEvidence{}
 	}
 
-	// AI 正向处理：解释/对比/价值/让步/限时
 	positiveWords := []string{"理解", "明白", "确实", "其实", "性价比", "价值",
 		"活动", "优惠", "划算", "对比", "适合", "帮您", "值得", "保障", "服务"}
 	negativeWords := []string{"好的，再见", "打扰了", "抱歉打扰", "那算了"}
@@ -256,7 +227,6 @@ func classifyObjectionHandling(aiReply, customerMsg string) (bool, dimensionEvid
 			return true, dimensionEvidence{positive: false, tag: "异议放弃"}
 		}
 	}
-	// 命中异议但 AI 回复过短或无实质内容
 	if len([]rune(aiReply)) < 10 {
 		return true, dimensionEvidence{positive: false, tag: "回应过短"}
 	}
@@ -267,7 +237,6 @@ func classifyObjectionHandling(aiReply, customerMsg string) (bool, dimensionEvid
 // 触发：AI 主动推进下单/到店/体验/预约
 // 正向：客户后续回复包含正向信号（好的/可以/行/试试/预约）
 func classifyClosingInvitation(aiReply, customerMsg string) (bool, dimensionEvidence) {
-	// AI 逼单/邀约关键词
 	closingWords := []string{"下单", "预约", "到店", "体验", "试试", "下单", "购买",
 		"付款", "订金", "锁定", "名额", "限时", "今天", "马上", "安排", "帮您下单"}
 	hasClosing := false
@@ -281,7 +250,6 @@ func classifyClosingInvitation(aiReply, customerMsg string) (bool, dimensionEvid
 		return false, dimensionEvidence{}
 	}
 
-	// 客户正向信号（同一条 AI 回复后的客户反馈，由调用方传入）
 	positiveSignals := []string{"好的", "可以", "行", "试试", "预约", "下单", "安排",
 		"怎么付", "多少钱", "可以试试", "好"}
 	negativeSignals := []string{"不用", "算了", "再看看", "考虑", "不了", "下次"}
@@ -295,7 +263,6 @@ func classifyClosingInvitation(aiReply, customerMsg string) (bool, dimensionEvid
 			return true, dimensionEvidence{positive: false, tag: "逼单被拒"}
 		}
 	}
-	// 无客户反馈，AI 发起逼单算中性正向
 	return true, dimensionEvidence{positive: true, tag: "逼单发起"}
 }
 
@@ -303,7 +270,6 @@ func classifyClosingInvitation(aiReply, customerMsg string) (bool, dimensionEvid
 // 触发：AI 对沉默客户的主动跟进
 // 正向：跟进消息包含关怀/价值/新信息，避免纯催促
 func classifyFollowupActivation(aiReply, customerMsg string) (bool, dimensionEvidence) {
-	// 跟进关键词（AI 主动发起）
 	followupWords := []string{"好久没", "最近", "在吗", "打扰了", "想您", "想到您",
 		"更新", "新品", "到货", "上架", "活动", "优惠", "福利",
 		"怎么不回", "怎么不", "赶紧", "还不", "为什么不回"}
@@ -318,7 +284,6 @@ func classifyFollowupActivation(aiReply, customerMsg string) (bool, dimensionEvi
 		return false, dimensionEvidence{}
 	}
 
-	// 正向：带价值/关怀，非纯催促
 	positiveWords := []string{"活动", "优惠", "新品", "到货", "福利", "适合", "建议", "帮您"}
 	negativeWords := []string{"催", "怎么不回", "为什么不", "还不", "赶紧"}
 	for _, w := range positiveWords {
@@ -338,7 +303,6 @@ func classifyFollowupActivation(aiReply, customerMsg string) (bool, dimensionEvi
 // 触发：长期培育场景（多次互动后的转化推进）
 // 正向：AI 回复体现对客户需求的持续理解 + 推进
 func classifyNurturingConversion(aiReply, customerMsg string) (bool, dimensionEvidence) {
-	// 培育关键词
 	nurturingWords := []string{"之前", "上次", "记得", "了解您", "根据您", "为您",
 		"推荐", "适合", "专属", "定制", "方案"}
 	hasNurturing := false
@@ -352,7 +316,6 @@ func classifyNurturingConversion(aiReply, customerMsg string) (bool, dimensionEv
 		return false, dimensionEvidence{}
 	}
 
-	// 正向：推进转化 + 个性化
 	positiveWords := []string{"推荐", "适合", "专属", "方案", "建议", "帮您", "安排"}
 	for _, w := range positiveWords {
 		if strings.Contains(aiReply, w) {
@@ -388,18 +351,15 @@ func classifyRepurchaseOperation(aiReply, customerMsg string) (bool, dimensionEv
 	return true, dimensionEvidence{positive: true, tag: "复购触达"}
 }
 
-// ============================================================================
-// 能力 2：SOP 节点转化率分析
-// ============================================================================
 
 // SOPNodeConversionStats SOP 节点转化率统计
 type SOPNodeConversionStats struct {
 	SOPID             uint                   `json:"sop_id"`
 	SOPName           string                 `json:"sop_name"`
-	Variant           string                 `json:"variant"` // A/B 测试 variant
+	Variant           string                 `json:"variant"` 
 	Nodes             []NodeConversionDetail `json:"nodes"`
 	TotalExecutions   int64                  `json:"total_executions"`
-	OverallConversion float64                `json:"overall_conversion"` // 端到端转化率
+	OverallConversion float64                `json:"overall_conversion"` 
 	GeneratedAt       time.Time              `json:"generated_at"`
 }
 
@@ -408,14 +368,14 @@ type NodeConversionDetail struct {
 	NodeID         string  `json:"node_id"`
 	NodeName       string  `json:"node_name"`
 	NodeType       string  `json:"node_type"`
-	EnteredCount   int     `json:"entered_count"`   // 进入该节点的执行数
-	SuccessCount   int     `json:"success_count"`   // 成功推进数
-	AbandonedCount int     `json:"abandoned_count"` // 流失数
-	FailedCount    int     `json:"failed_count"`    // 失败数
-	ConversionRate float64 `json:"conversion_rate"` // 转化率 = success / entered * 100
-	DropRate       float64 `json:"drop_rate"`       // 流失率 = abandoned / entered * 100
-	AvgDurationMs  int     `json:"avg_duration_ms"` // 平均停留时长
-	IsBottleneck   bool    `json:"is_bottleneck"`   // 是否瓶颈节点
+	EnteredCount   int     `json:"entered_count"`   
+	SuccessCount   int     `json:"success_count"`   
+	AbandonedCount int     `json:"abandoned_count"` 
+	FailedCount    int     `json:"failed_count"`    
+	ConversionRate float64 `json:"conversion_rate"` 
+	DropRate       float64 `json:"drop_rate"`       
+	AvgDurationMs  int     `json:"avg_duration_ms"` 
+	IsBottleneck   bool    `json:"is_bottleneck"`   
 }
 
 // AnalyzeNodeConversion 分析 SOP 节点转化率
@@ -424,13 +384,11 @@ func (s *FeedbackLearningService) AnalyzeNodeConversion(ctx context.Context, sop
 		return nil, fmt.Errorf("db not configured")
 	}
 
-	// 查询 SOP 信息
 	agent, err := s.sopAgentRepo.GetByID(ctx, sopID)
 	if err != nil {
 		return nil, fmt.Errorf("query sop: %w", err)
 	}
 
-	// 查询节点流转记录
 	transitions, err := s.feedbackRepo.ListNodeTransitionsBySOPAndVariant(ctx, sopID, variant)
 	if err != nil {
 		return nil, fmt.Errorf("query transitions: %w", err)
@@ -443,7 +401,6 @@ func (s *FeedbackLearningService) AnalyzeNodeConversion(ctx context.Context, sop
 		GeneratedAt: time.Now(),
 	}
 
-	// 按节点聚合
 	nodeMap := make(map[string]*NodeConversionDetail)
 	for _, t := range transitions {
 		node := nodeMap[t.ToNode]
@@ -466,13 +423,11 @@ func (s *FeedbackLearningService) AnalyzeNodeConversion(ctx context.Context, sop
 		node.AvgDurationMs = (node.AvgDurationMs*(node.EnteredCount-1) + t.DurationMs) / node.EnteredCount
 	}
 
-	// 计算转化率 + 识别瓶颈
 	for _, node := range nodeMap {
 		if node.EnteredCount > 0 {
 			node.ConversionRate = float64(node.SuccessCount) / float64(node.EnteredCount) * 100
 			node.DropRate = float64(node.AbandonedCount) / float64(node.EnteredCount) * 100
 		}
-		// 瓶颈节点：转化率 < 50% 且样本数 >= 5
 		if node.ConversionRate < 50 && node.EnteredCount >= 5 {
 			node.IsBottleneck = true
 		}
@@ -481,10 +436,8 @@ func (s *FeedbackLearningService) AnalyzeNodeConversion(ctx context.Context, sop
 		stats.Nodes = append(stats.Nodes, *node)
 	}
 
-	// 总执行数（忽略 error，保持等价）
 	stats.TotalExecutions, _ = s.sopExecRepo.CountBySOPID(ctx, sopID)
 
-	// 端到端转化率
 	if stats.TotalExecutions > 0 {
 		successCount, _ := s.sopExecRepo.CountBySOPIDAndStatus(ctx, sopID, SOPStatusSuccess)
 		stats.OverallConversion = float64(successCount) / float64(stats.TotalExecutions) * 100
@@ -494,17 +447,14 @@ func (s *FeedbackLearningService) AnalyzeNodeConversion(ctx context.Context, sop
 	return stats, nil
 }
 
-// ============================================================================
-// 能力 3：低转化节点优化建议生成
-// ============================================================================
 
 // OptimizationSuggestionInput 优化建议生成输入
 type OptimizationSuggestionInput struct {
 	SOPID             uint
 	SOPName           string
 	NodeConversion    *SOPNodeConversionStats
-	LowScoreThreshold float64 // 转化率低于此值生成建议（默认 50）
-	MinSampleCount    int     // 最小样本数（默认 5）
+	LowScoreThreshold float64 
+	MinSampleCount    int     
 }
 
 // GenerateOptimizationSuggestions 为低转化节点生成优化建议
@@ -526,7 +476,6 @@ func (s *FeedbackLearningService) GenerateOptimizationSuggestions(ctx context.Co
 
 	var suggestions []model.OptimizationSuggestion
 	for _, node := range input.NodeConversion.Nodes {
-		// 只对低转化 + 足够样本的节点生成建议
 		if node.ConversionRate >= threshold || node.EnteredCount < minSample {
 			continue
 		}
@@ -534,7 +483,6 @@ func (s *FeedbackLearningService) GenerateOptimizationSuggestions(ctx context.Co
 		suggestions = append(suggestions, sug)
 	}
 
-	// 持久化： 修复，原循环单条 Create 改为 CreateInBatches 批写
 	if len(suggestions) > 0 {
 		if err := s.feedbackRepo.CreateSuggestionsInBatches(ctx, suggestions, 100); err != nil {
 			logger.Ctx(ctx).Warn().Err(err).Int("count", len(suggestions)).
@@ -559,7 +507,6 @@ func buildOptimizationSuggestion(sopID uint, sopName string, node NodeConversion
 		Status:       model.SuggestionStatusPending,
 	}
 
-	// 根据节点类型和流失情况生成建议
 	switch node.NodeType {
 	case "llm":
 		sug.SuggestionType = model.SuggestionTypePromptRewrite
@@ -593,7 +540,6 @@ func buildOptimizationSuggestion(sopID uint, sopName string, node NodeConversion
 		}
 		sug.ExpectedImpact = "预计提升稳定性 10-20%"
 	default:
-		// 通用建议
 		sug.SuggestionType = model.SuggestionTypeAddObjection
 		sug.Priority = 0
 		sug.SuggestionText = fmt.Sprintf(
@@ -602,7 +548,6 @@ func buildOptimizationSuggestion(sopID uint, sopName string, node NodeConversion
 		sug.ExpectedImpact = "预计提升转化率 5-15%"
 	}
 
-	// 证据数据
 	sug.EvidenceData = map[string]any{
 		"entered_count":   node.EnteredCount,
 		"success_count":   node.SuccessCount,
@@ -616,9 +561,6 @@ func buildOptimizationSuggestion(sopID uint, sopName string, node NodeConversion
 	return sug
 }
 
-// ============================================================================
-// 辅助方法
-// ============================================================================
 
 // RecordNodeTransition 记录节点流转
 // 供 SalesEngine / SOPService 在执行 SOP 时调用
@@ -670,16 +612,13 @@ func (s *FeedbackLearningService) GetLatestProfile(ctx context.Context, staffID 
 	if s.feedbackRepo == nil {
 		return nil, fmt.Errorf("db not configured")
 	}
-	list, err := s.feedbackRepo.ListLatestProfileSnapshots(ctx, staffID, scenario, 5) // 每维度最新 1 条，共 5 条
+	list, err := s.feedbackRepo.ListLatestProfileSnapshots(ctx, staffID, scenario, 5) 
 	if err != nil {
 		return nil, fmt.Errorf("query profile: %w", err)
 	}
 	return list, nil
 }
 
-// ============================================================================
-// 内部辅助函数
-// ============================================================================
 
 // persistProfileSnapshot 持久化画像快照
 func (s *FeedbackLearningService) persistProfileSnapshot(ctx context.Context, report *ChampionProfileReport) error {
@@ -775,3 +714,4 @@ func toStringArray(items []string) model.JSONArray {
 func roundTo2(f float64) float64 {
 	return float64(int(f*100+0.5)) / 100
 }
+

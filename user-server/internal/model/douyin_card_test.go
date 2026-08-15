@@ -98,7 +98,7 @@ func TestDouyinCard_IsActiveCard(t *testing.T) {
 func TestDouyinCard_WithEmptyShortLinkID(t *testing.T) {
 	card := &DouyinCard{
 		Title:       "Test Card",
-		ShortLinkID: 0, // 0 表示无短链
+		ShortLinkID: 0, 
 	}
 
 	if card.ShortLinkID != 0 {
@@ -109,7 +109,7 @@ func TestDouyinCard_WithEmptyShortLinkID(t *testing.T) {
 func TestDouyinCard_WithEmptyDomainPoolID(t *testing.T) {
 	card := &DouyinCard{
 		Title:        "Test Card",
-		DomainPoolID: 0, // 0 表示无域名池
+		DomainPoolID: 0, 
 	}
 
 	if card.DomainPoolID != 0 {
@@ -151,3 +151,4 @@ func TestDouyinCard_WithURLs(t *testing.T) {
 		t.Errorf("Expected RedirectURL, got %s", card.RedirectURL)
 	}
 }
+

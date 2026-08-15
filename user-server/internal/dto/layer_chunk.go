@@ -10,45 +10,45 @@ package dto
 
 // Layer 取值
 const (
-	Layer1 = "layer1" // FAQ/SOP 模板快速匹配 (零 LLM, < 100ms)
-	Layer2 = "layer2" // LLM 兜底 (1-3s, 启用 Agent Loop)
+	Layer1 = "layer1" 
+	Layer2 = "layer2" 
 )
 
 // LayerDecisionReason 取值
 const (
-	ReasonFAQHit            = "faq_hit"             // FAQ 命中 (高置信度)
-	ReasonSOPHit            = "sop_hit"             // SOP 模板命中
-	ReasonConfidenceHigh    = "confidence_high"     // 聚合置信度足够高
-	ReasonConfidenceLow     = "confidence_low"      // 聚合置信度不足,降级到 LLM
-	ReasonFallback          = "fallback"            // 通用降级
-	ReasonLayer1Disabled    = "layer1_disabled"     // Layer1 开关关闭
-	ReasonNoFAQ             = "no_faq"              // 无 FAQ 可匹配
-	ReasonNoSOP             = "no_sop"              // 无 SOP 可匹配
-	ReasonIntentUnknown     = "intent_unknown"      // 意图未知
-	ReasonLowConfidenceSkip = "low_confidence_skip" // FAQ 命中但置信度低于阈值
+	ReasonFAQHit            = "faq_hit"             
+	ReasonSOPHit            = "sop_hit"             
+	ReasonConfidenceHigh    = "confidence_high"     
+	ReasonConfidenceLow     = "confidence_low"      
+	ReasonFallback          = "fallback"            
+	ReasonLayer1Disabled    = "layer1_disabled"     
+	ReasonNoFAQ             = "no_faq"              
+	ReasonNoSOP             = "no_sop"              
+	ReasonIntentUnknown     = "intent_unknown"      
+	ReasonLowConfidenceSkip = "low_confidence_skip" 
 )
 
 // LayerDecision 双层架构路由决策
 type LayerDecision struct {
-	Layer      string  `json:"layer"`      // layer1 / layer2
-	SkipLLM    bool    `json:"skip_llm"`   // 是否跳过 LLM
-	Reply      string  `json:"reply"`      // Layer1 命中时的模板回复
-	Reason     string  `json:"reason"`     // 决策原因
-	Confidence float64 `json:"confidence"` // 命中置信度 0-1
-	FAQID      uint    `json:"faq_id"`     // FAQ 命中 ID
-	SOPID      uint    `json:"sop_id"`     // SOP 命中 ID
-	Intent     string  `json:"intent"`     // 当前意图
-	WallMs     int     `json:"wall_ms"`    // 决策耗时 ms
-	Metadata   string  `json:"metadata"`   // 附加元数据 (JSON)
+	Layer      string  `json:"layer"`      
+	SkipLLM    bool    `json:"skip_llm"`   
+	Reply      string  `json:"reply"`      
+	Reason     string  `json:"reason"`     
+	Confidence float64 `json:"confidence"` 
+	FAQID      uint    `json:"faq_id"`     
+	SOPID      uint    `json:"sop_id"`     
+	Intent     string  `json:"intent"`     
+	WallMs     int     `json:"wall_ms"`    
+	Metadata   string  `json:"metadata"`   
 }
 
 // FAQMatchResult FAQ 匹配结果
 type FAQMatchResult struct {
 	Entry     *FAQEntry `json:"entry,omitempty"`
-	Score     float64   `json:"score"`      // 匹配分 (0-1)
-	Rank      int       `json:"rank"`       // 排名 (0=top1)
-	HitCount  int64     `json:"hit_count"`  // 命中次数
-	MatchType string    `json:"match_type"` // keyword / embedding / exact
+	Score     float64   `json:"score"`      
+	Rank      int       `json:"rank"`       
+	HitCount  int64     `json:"hit_count"`  
+	MatchType string    `json:"match_type"` 
 }
 
 // FAQEntry FAQ 简短 DTO (避免直接暴露 model)
@@ -61,10 +61,7 @@ type FAQEntry struct {
 	Intent     string   `json:"intent"`
 	Confidence float64  `json:"confidence"`
 	HitCount   int64    `json:"hit_count"`
-	Enabled    *bool    `json:"enabled,omitempty"` // 前端管理页面需要
-	// Task 15: 强 1对1 改造 - FAQ 归属智能体
-	//   nil  = 共享池 (Match API 兜底)
-	//   &N>0 = 智能体 N 私有
+	Enabled    *bool    `json:"enabled,omitempty"` 
 	AgentID   *uint  `json:"agent_id,omitempty"`
 	CreatedAt string `json:"created_at,omitempty"`
 	UpdatedAt string `json:"updated_at,omitempty"`
@@ -88,11 +85,11 @@ type SOPTemplate struct {
 
 // StreamChunkType 取值
 const (
-	ChunkTypeStart  = "start"  // 流开始 (含 trace_id)
-	ChunkTypeDelta  = "delta"  // 增量文本
-	ChunkTypeFinal  = "final"  // 流结束 (含完整回复 + steps)
-	ChunkTypeError  = "error"  // 错误
-	ChunkTypeCancel = "cancel" // 取消
+	ChunkTypeStart  = "start"  
+	ChunkTypeDelta  = "delta"  
+	ChunkTypeFinal  = "final"  
+	ChunkTypeError  = "error"  
+	ChunkTypeCancel = "cancel" 
 )
 
 // StreamChunk WebSocket 流式输出
@@ -103,16 +100,17 @@ const (
 //   - {"type":"final", "text":"完整回复", "steps":[...], "wall_ms":1234} -> 结束
 //   - {"type":"error", "msg":"llm_timeout"} -> 错误
 type StreamChunk struct {
-	Type     string         `json:"type"`           // start/delta/final/error/cancel
-	TraceID  string         `json:"trace_id"`       // 链路追踪 ID
-	Text     string         `json:"text,omitempty"` // 增量/最终文本
+	Type     string         `json:"type"`           
+	TraceID  string         `json:"trace_id"`       
+	Text     string         `json:"text,omitempty"` 
 	Intent   string         `json:"intent,omitempty"`
-	Step     string         `json:"step,omitempty"` // 当前阶段名
+	Step     string         `json:"step,omitempty"` 
 	Steps    []SalesStepLog `json:"steps,omitempty"`
 	WallMs   int            `json:"wall_ms,omitempty"`
-	Layer    string         `json:"layer,omitempty"`    // layer1/layer2
-	Model    string         `json:"model,omitempty"`    // LLM model
-	Tokens   int            `json:"tokens,omitempty"`   // 累计 tokens
-	Error    string         `json:"error,omitempty"`    // 错误信息
-	Metadata string         `json:"metadata,omitempty"` // 附加元数据 (JSON)
+	Layer    string         `json:"layer,omitempty"`    
+	Model    string         `json:"model,omitempty"`    
+	Tokens   int            `json:"tokens,omitempty"`   
+	Error    string         `json:"error,omitempty"`    
+	Metadata string         `json:"metadata,omitempty"` 
 }
+

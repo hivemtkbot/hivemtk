@@ -42,8 +42,8 @@ type PasswordPolicy struct {
 	ForbidCommon     bool     `json:"forbid_common"`
 	CommonPasswords  []string `json:"common_passwords"`
 	ForbidReuse      bool     `json:"forbid_reuse"`
-	ReuseCount       int      `json:"reuse_count"` // 禁止重复最近 N 个密码
-	ExpiryDays       int      `json:"expiry_days"` // 密码过期天数（0=不过期）
+	ReuseCount       int      `json:"reuse_count"` 
+	ExpiryDays       int      `json:"expiry_days"` 
 }
 
 // DefaultPasswordPolicy 默认密码策略
@@ -116,7 +116,6 @@ func (s *PasswordPolicyService) GetPolicy(ctx context.Context) *PasswordPolicy {
 	policyCacheMutex.Lock()
 	defer policyCacheMutex.Unlock()
 
-	// 双检锁
 	if policyCache != nil {
 		p := *policyCache
 		return &p
@@ -134,7 +133,6 @@ func (s *PasswordPolicyService) loadPolicyFromDB(ctx context.Context) *PasswordP
 
 	jsonStr, err := s.kvRepo.Get(ctx, PolicyKVKey)
 	if err != nil {
-		// 仓储调用失败（非 NotFound），记日志后回退默认策略
 		logger.Errorf("查询密码策略失败: %v", err)
 		return &defaultPolicy
 	}
@@ -148,7 +146,6 @@ func (s *PasswordPolicyService) loadPolicyFromDB(ctx context.Context) *PasswordP
 		return &defaultPolicy
 	}
 
-	// 合并默认值（防止字段缺失）
 	if policy.MinLength <= 0 {
 		policy.MinLength = defaultPolicy.MinLength
 	}
@@ -182,7 +179,6 @@ func (s *PasswordPolicyService) SavePolicy(ctx context.Context, policy *Password
 		return err
 	}
 
-	// 立即更新内存缓存（即使 db 未初始化，调用方也能立即使用新 policy）
 	policyCacheMutex.Lock()
 	cache := *policy
 	policyCache = &cache
@@ -245,7 +241,6 @@ func (s *PasswordPolicyService) validateWithPolicy(ctx context.Context, password
 		return errors.New("密码不能为空")
 	}
 
-	// 长度校验
 	if len(password) < policy.MinLength {
 		return fmt.Errorf("密码长度至少 %d 位", policy.MinLength)
 	}
@@ -253,49 +248,42 @@ func (s *PasswordPolicyService) validateWithPolicy(ctx context.Context, password
 		return fmt.Errorf("密码长度不能超过 %d 位", policy.MaxLength)
 	}
 
-	// 大写字母
 	if policy.RequireUppercase {
 		if !regexp.MustCompile(`[A-Z]`).MatchString(password) {
 			return errors.New("密码必须包含大写字母")
 		}
 	}
 
-	// 小写字母
 	if policy.RequireLowercase {
 		if !regexp.MustCompile(`[a-z]`).MatchString(password) {
 			return errors.New("密码必须包含小写字母")
 		}
 	}
 
-	// 数字
 	if policy.RequireDigit {
 		if !regexp.MustCompile(`[0-9]`).MatchString(password) {
 			return errors.New("密码必须包含数字")
 		}
 	}
 
-	// 特殊字符
 	if policy.RequireSpecial {
 		if !specialCharRegex.MatchString(password) {
 			return errors.New("密码必须包含特殊字符")
 		}
 	}
 
-	// 弱密码检查
 	if policy.ForbidCommon {
 		lowerPwd := strings.ToLower(password)
 		for _, common := range policy.CommonPasswords {
 			if lowerPwd == strings.ToLower(common) {
 				return errors.New("密码过于简单，请使用更复杂的密码")
 			}
-			// 检查是否包含常见弱密码作为子串（如 admin123 含 admin）
 			if len(common) >= 5 && strings.Contains(lowerPwd, strings.ToLower(common)) {
 				return errors.New("密码包含常见弱密码片段，请更换")
 			}
 		}
 	}
 
-	// 历史密码复用检查
 	if policy.ForbidReuse && userID > 0 {
 		if err := s.checkPasswordHistory(ctx, userID, password, policy.ReuseCount); err != nil {
 			return err
@@ -310,7 +298,7 @@ func (s *PasswordPolicyService) checkPasswordHistory(ctx context.Context, userID
 	histories, err := s.historyRepo.ListRecent(ctx, userID, reuseCount)
 	if err != nil {
 		logger.Errorf("查询密码历史失败: %v", err)
-		return nil // 查询失败不阻塞
+		return nil 
 	}
 
 	for _, h := range histories {
@@ -361,7 +349,6 @@ func (s *PasswordPolicyService) IsPasswordExpired(ctx context.Context, userID ui
 		return false, err
 	}
 	if latest == nil {
-		// 无历史记录：检查 user.updated_at（首次创建密码的时间）
 		updatedAt, e := s.systemUserRepo.GetUpdatedAt(ctx, userID)
 		if e != nil {
 			return false, fmt.Errorf("查询用户失败: %w", e)
@@ -383,3 +370,4 @@ func ValidatePasswordStrength(password string) error {
 	s := NewPasswordPolicyService()
 	return s.ValidatePasswordWithPolicy(context.Background(), password, 0, &DefaultPasswordPolicy)
 }
+

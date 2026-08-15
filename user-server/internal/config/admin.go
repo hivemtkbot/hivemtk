@@ -71,7 +71,6 @@ var defaultAdminConfig = AdminConfig{
 func GetAdminConfig() *AdminConfig {
 	config := defaultAdminConfig
 
-	// 可选：读取 .env/admin.json 覆盖 UI 行为配置（不覆盖密码相关字段）
 	cfgPath := os.Getenv("ADMIN_CONFIG_FILE")
 	if cfgPath == "" {
 		cfgPath = filepath.Join(".env", "admin.json")
@@ -99,7 +98,6 @@ func GetAdminConfig() *AdminConfig {
 		}
 	}
 
-	// 环境变量只覆盖非敏感展示字段
 	if username := os.Getenv("ADMIN_USERNAME"); username != "" {
 		config.DefaultAdmin.Username = username
 	}
@@ -110,7 +108,6 @@ func GetAdminConfig() *AdminConfig {
 		config.DefaultAdmin.RealName = realName
 	}
 
-	// 自动登录配置
 	if autoLogin := os.Getenv("AUTO_LOGIN_ENABLED"); autoLogin != "" {
 		if enabled, err := strconv.ParseBool(autoLogin); err == nil {
 			config.AutoLogin.Enabled = enabled
@@ -122,7 +119,6 @@ func GetAdminConfig() *AdminConfig {
 		}
 	}
 
-	// 登录页提示配置
 	if showHint := os.Getenv("SHOW_DEFAULT_CREDENTIALS"); showHint != "" {
 		if show, err := strconv.ParseBool(showHint); err == nil {
 			config.Login.ShowDefaultCredentials = show
@@ -134,3 +130,4 @@ func GetAdminConfig() *AdminConfig {
 
 	return &config
 }
+

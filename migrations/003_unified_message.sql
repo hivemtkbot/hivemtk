@@ -2,7 +2,6 @@
 -- 版本: 1.1.0
 -- 适用于: PostgreSQL 15+ (项目唯一数据库)
 
--- 统一消息表
 CREATE TABLE IF NOT EXISTS unified_messages (
     id BIGSERIAL PRIMARY KEY,
     message_id VARCHAR(50) UNIQUE NOT NULL,
@@ -46,7 +45,6 @@ COMMENT ON COLUMN unified_messages.raw_data IS '原始平台数据(JSON)';
 COMMENT ON COLUMN unified_messages.received_at IS '接收时间';
 COMMENT ON TABLE unified_messages IS '统一消息表';
 
--- 统一回复表
 CREATE TABLE IF NOT EXISTS unified_replies (
     id BIGSERIAL PRIMARY KEY,
     reply_id VARCHAR(50) UNIQUE,
@@ -91,7 +89,6 @@ COMMENT ON COLUMN unified_replies.platform_msg_id IS '平台返回的消息ID';
 COMMENT ON COLUMN unified_replies.sent_at IS '发送时间';
 COMMENT ON TABLE unified_replies IS '统一回复表';
 
--- 平台账号配置表
 CREATE TABLE IF NOT EXISTS platform_accounts (
     id BIGSERIAL PRIMARY KEY,
     platform VARCHAR(20) NOT NULL,
@@ -121,7 +118,6 @@ COMMENT ON COLUMN platform_accounts.last_sync_at IS '最后同步时间';
 COMMENT ON COLUMN platform_accounts.expires_at IS '凭证过期时间';
 COMMENT ON TABLE platform_accounts IS '平台账号配置表';
 
--- updated_at 自动更新触发器
 CREATE OR REPLACE FUNCTION platform_accounts_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

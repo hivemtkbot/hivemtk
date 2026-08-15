@@ -1,19 +1,5 @@
 package repository
 
-// faq_entry.go FAQ 知识库 Repository
-//
-// 五层架构归属: L5 数据访问层
-// 设计依据: AI 智能体性能优化
-//   - Layer1 路由依赖 FAQ 快速匹配 (零 LLM, <100ms)
-//   - MatchByKeyword: 基于中文分词 + 关键词包含打分
-//   - 未来可扩展: pgvector 全文检索 + Embedding 向量召回
-//
-// 方法:
-//   - Create           新增 FAQ
-//   - GetByID          按 ID 查询
-//   - ListEnabled      查询所有启用的 FAQ (用于内存缓存 warmup)
-//   - MatchByKeyword   关键词匹配 (Layer1 核心 API)
-//   - IncrementHitCount 命中次数 +1 (用于优化排序 + 报表)
 
 import (
 	"context"
@@ -127,7 +113,6 @@ func (r *FAQRepository) listEnabledForAgent(ctx context.Context, agentID uint, l
 		Order("hit_count DESC, confidence DESC, id ASC").
 		Limit(limit)
 	if agentID > 0 {
-		// 仅匹配该智能体私有 + 共享 (agent_id IS NULL)
 		q = q.Where("agent_id = ? OR agent_id IS NULL", agentID)
 	}
 	if err := q.Find(&entries).Error; err != nil {
@@ -260,13 +245,11 @@ func (r *FAQRepository) scoreAndRank(ctx context.Context, all []model.FAQEntry, 
 		}
 		faqTokens := tokenize(e.Question + " " + e.Answer)
 		score := jaccardSimilarity(msgTokens, faqTokens)
-		// 关键词精确包含加权
 		for _, kw := range e.Keywords {
 			if kw != "" && strings.Contains(msg, kw) {
 				score += 0.3
 			}
 		}
-		// 基础置信度 + 命中次数加权
 		score = score * (e.Confidence + 0.1*logPlus(e.HitCount))
 		if score < 0.2 {
 			continue
@@ -409,7 +392,6 @@ func tokenize(s string) []string {
 	}
 	runes := []rune(s)
 	tokens := make([]string, 0, len(runes))
-	// 英文按空格切
 	if !hasChinese(s) {
 		for _, w := range strings.Fields(s) {
 			if utf8.RuneCountInString(w) >= 2 {
@@ -418,13 +400,11 @@ func tokenize(s string) []string {
 		}
 		return tokens
 	}
-	// 中文 bigram
 	for i := 0; i < len(runes)-1; i++ {
 		if isCJK(runes[i]) && isCJK(runes[i+1]) {
 			tokens = append(tokens, string(runes[i:i+2]))
 		}
 	}
-	// 单字也算
 	for _, r := range runes {
 		if isCJK(r) {
 			tokens = append(tokens, string(r))
@@ -478,9 +458,6 @@ func logPlus(n int64) float64 {
 		return 0
 	}
 	x := float64(n)
-	// 简化: 使用近似 ln(x+1)/ln(10)
-	// 避免引入 math 包的大开销
-	// ln(1) = 0, ln(10) ≈ 2.3, ln(100) ≈ 4.6
 	if x < 1 {
 		return 0
 	}
@@ -492,3 +469,4 @@ func logPlus(n int64) float64 {
 	}
 	return 1.5
 }
+

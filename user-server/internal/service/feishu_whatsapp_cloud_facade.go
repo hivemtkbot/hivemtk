@@ -8,11 +8,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ============================================================================
-// 飞书 / WhatsApp Cloud 账号管理 DTO 外观方法
-// controller 原先直接持有 repository 并构造 model；此处新增 VO 外观，
-// 将构造/读取 model 的逻辑收敛到 service 层。
-// ============================================================================
 
 // FeishuAccountVO 飞书账号视图（敏感字段掩码）
 type FeishuAccountVO struct {
@@ -306,3 +301,4 @@ func maskSecret(secret string) string {
 	}
 	return fmt.Sprintf("%s****%s", secret[:4], secret[len(secret)-4:])
 }
+

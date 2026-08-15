@@ -5,40 +5,28 @@ import (
 	"time"
 )
 
-// ============================================================================
-// Evaluator 多语言评估流水线
-// ----------------------------------------------------------------------------
-// 组合 ChrFEvaluator（字面匹配）与 LLMJudge（语义评分），提供：
-//   - 批量评估：跑 chrF++ 得到均分 + 每条样本分
-//   - 单条评估：chrF++ 单点分数（LLMJudge 由上层 EvalService 异步触发）
-//
-// 设计：
-//   - chrF 为必选组件（nil 时自动用默认参数构造）
-//   - judge 为可选组件（nil 时仅做 chrF 评估）
-//   - 评估是同步阻塞调用；异步抽样由 service/translation.EvalService 负责
-// ============================================================================
 
 // EvaluationResult 批量评估结果。
 type EvaluationResult struct {
-	ChrF        float64       // 全批次平均 chrF++ 分数
-	SampleCount int           // 样本数
-	PerSample   []SampleScore // 每条样本的分数（顺序与输入一致）
-	LangPair    string        // 语言对，如 "zh-en"
-	Timestamp   time.Time     // 评估时间
+	ChrF        float64       
+	SampleCount int           
+	PerSample   []SampleScore 
+	LangPair    string        
+	Timestamp   time.Time     
 }
 
 // SampleScore 单条样本评分。
 type SampleScore struct {
-	Query     string  // 用户问题
-	Reference string  // 标准答案
-	Candidate string  // LLM 生成
-	ChrF      float64 // chrF++ 分数
+	Query     string  
+	Reference string  
+	Candidate string  
+	ChrF      float64 
 }
 
 // Evaluator 多语言评估器。
 type Evaluator struct {
 	chrF  *ChrFEvaluator
-	judge LLMJudge // 可选
+	judge LLMJudge 
 }
 
 // NewEvaluator 创建评估器。
@@ -102,3 +90,4 @@ func (e *Evaluator) EvaluateBatch(candidates, references []string, langPair stri
 func (e *Evaluator) EvaluateSingle(candidate, reference, query string) (float64, error) {
 	return e.chrF.Score(candidate, reference), nil
 }
+

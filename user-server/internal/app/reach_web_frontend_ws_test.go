@@ -17,16 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ============================================================================
-// reach.web.send 真实前端 WebSocket 连通测试（零 mock，模拟浏览器访客）
-// ----------------------------------------------------------------------------
-// 用真实 gin engine + 真实 VisitorWSHandler + 真实 gorilla 客户端，完整模拟
-// 「浏览器访客」通过 GET /api/ws/visitor 建立连接，再由 智能体 reach.web.send
-// 推送，断言浏览器端真实收到 message 帧。
-//
-// 全程零 mock：真实 PG + 真实 Hub + 真实 WS Handler + 真实 gorilla 客户端
-// + 真实 IntegrationReachAdapter.SendWeb。
-// ============================================================================
 
 func TestReachWebSend_FrontendWebSocket(t *testing.T) {
 	db := testutil.NewTestDB(t,
@@ -54,7 +44,6 @@ func TestReachWebSend_FrontendWebSocket(t *testing.T) {
 		t.Fatalf("插入真实会话失败：%v", err)
 	}
 
-	// ---- 真实 gin engine + 真实 VisitorWSHandler（模拟网页客服后端）----
 	handler := visitorws.NewVisitorWSHandler(db)
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
@@ -69,7 +58,6 @@ func TestReachWebSend_FrontendWebSocket(t *testing.T) {
 	srv := httptest.NewServer(engine)
 	defer srv.Close()
 
-	// ---- 真实 gorilla 客户端（模拟浏览器访客前端）----
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/ws/visitor"
 	conn, _, err := gorilla.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
@@ -78,19 +66,16 @@ func TestReachWebSend_FrontendWebSocket(t *testing.T) {
 	defer conn.Close()
 	t.Logf("✅ 浏览器访客 WebSocket 真实连接成功")
 
-	// 读取 welcome 帧（连接建立后服务端推送）
 	if _, _, err := conn.ReadMessage(); err != nil {
 		t.Fatalf("读取 welcome 帧失败：%v", err)
 	}
 
-	// ---- 真实适配器推送（智能体 reach.web.send）----
 	adapter := NewIntegrationReachAdapterFromDB(db)
 	const pushContent = "【智能体】全自动纸吸管现已上市，下单享 9 折～"
 	if _, err := adapter.SendWeb(context.Background(), sessionID, pushContent); err != nil {
 		t.Fatalf("SendWeb 真实调用失败：%v", err)
 	}
 
-	// ---- 断言浏览器前端（gorilla 客户端）真实收到推送 ----
 	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	_, raw, err := conn.ReadMessage()
 	if err != nil {
@@ -125,3 +110,4 @@ func TestReachWebSend_FrontendWebSocket(t *testing.T) {
 }
 
 var _ = gorm.ErrRecordNotFound
+

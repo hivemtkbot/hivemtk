@@ -13,7 +13,7 @@ type CacheManager struct {
 
 // CacheConfig 缓存配置
 type CacheConfig struct {
-	Type       string        `yaml:"type"` // memory 或 redis
+	Type       string        `yaml:"type"` 
 	Redis      RedisConfig   `yaml:"redis"`
 	DefaultTTL time.Duration `yaml:"default_ttl"`
 }
@@ -27,7 +27,6 @@ func NewCacheManager(config CacheConfig) (*CacheManager, error) {
 	case "redis":
 		cache, err = NewRedisCache(config.Redis)
 		if err != nil {
-			// Redis 连接失败，回退到内存缓存
 			logger.Errorf("Redis 连接失败，使用内存缓存：%v", err)
 			cache = NewMemoryCache()
 		}
@@ -129,7 +128,6 @@ func (m *CacheManager) Clear(ctx context.Context) error {
 
 // getDefaultTTL 获取默认 TTL
 func (m *CacheManager) getDefaultTTL() time.Duration {
-	// 默认 30 分钟
 	return 30 * time.Minute
 }
 
@@ -140,3 +138,4 @@ func (m *CacheManager) Close() error {
 	}
 	return nil
 }
+

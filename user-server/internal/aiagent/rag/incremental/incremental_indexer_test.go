@@ -13,17 +13,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// ============================================================================
-// IncrementalIndexer 单元测试
-// ----------------------------------------------------------------------------
-// 验证:
-//   1. create 事件触发索引并真实持久化 chunks
-//   2. update 事件覆盖旧 chunks
-//   3. delete 事件清除 chunks
-//   4. 非法载荷 / nil 载荷 不 panic
-//   5. unknown change_type 静默忽略
-//   6. hashContent 一致性
-// ============================================================================
 
 // longTestContent 写入临时文件的可切块长内容
 // 长度：~3000 字符 → 至少 2 个 chunk（默认 chunkSize 约 500 字符）
@@ -52,14 +41,12 @@ func setupIndexerTestEnv(t *testing.T) (*IncrementalIndexer, string, uint64) {
 		&knowledgemodel.KnowledgeChunk{},
 	)
 
-	// 写入临时文档文件
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "doc.txt")
 	if err := os.WriteFile(filePath, []byte(longTestContent), 0644); err != nil {
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	// 在 DB 中创建 KnowledgeDocument 记录
 	doc := &knowledgemodel.KnowledgeDocument{
 		Title:      "营销自动化系统介绍",
 		SourceType: "upload",
@@ -104,7 +91,6 @@ func TestIncrementalIndexer_Update(t *testing.T) {
 	indexer, _, docID := setupIndexerTestEnv(t)
 	docIDStr := uintToStr(uint(docID))
 
-	// 先 create
 	if err := indexer.Handle(event.Event{
 		Topic: event.TopicKnowledgeDocumentChanged,
 		Payload: event.KnowledgeDocumentChangePayload{
@@ -118,9 +104,8 @@ func TestIncrementalIndexer_Update(t *testing.T) {
 		t.Fatal("expected chunks after initial create")
 	}
 
-	time.Sleep(10 * time.Millisecond) // 让 IndexedAt 不同
+	time.Sleep(10 * time.Millisecond) 
 
-	// 再 update
 	if err := indexer.Handle(event.Event{
 		Topic: event.TopicKnowledgeDocumentChanged,
 		Payload: event.KnowledgeDocumentChangePayload{
@@ -134,7 +119,6 @@ func TestIncrementalIndexer_Update(t *testing.T) {
 		t.Error("expected chunks after update, got 0")
 	}
 
-	// 验证 indexedAt 是新的
 	chunks := indexer.GetIndexedChunks(docIDStr)
 	hasNew := false
 	for _, c := range chunks {
@@ -153,7 +137,6 @@ func TestIncrementalIndexer_Delete(t *testing.T) {
 	indexer, _, docID := setupIndexerTestEnv(t)
 	docIDStr := uintToStr(uint(docID))
 
-	// 先 create
 	if err := indexer.Handle(event.Event{
 		Topic: event.TopicKnowledgeDocumentChanged,
 		Payload: event.KnowledgeDocumentChangePayload{
@@ -166,7 +149,6 @@ func TestIncrementalIndexer_Delete(t *testing.T) {
 		t.Fatal("expected chunks after create")
 	}
 
-	// 再 delete
 	err := indexer.Handle(event.Event{
 		Topic: event.TopicKnowledgeDocumentChanged,
 		Payload: event.KnowledgeDocumentChangePayload{
@@ -262,7 +244,7 @@ func TestHashContent(t *testing.T) {
 	if h1 == h3 {
 		t.Errorf("different content should produce different hash: %s", h1)
 	}
-	if len(h1) != 64 { // SHA256 hex = 64 chars
+	if len(h1) != 64 { 
 		t.Errorf("hash length = %d, want 64", len(h1))
 	}
 }
@@ -272,7 +254,6 @@ func TestIncrementalIndexer_Stop(t *testing.T) {
 	indexer, _, _ := setupIndexerTestEnv(t)
 	indexer.Stop()
 
-	// Stop 后 Handle 应该 no-op(不 panic,不索引)
 	err := indexer.Handle(event.Event{
 		Topic: event.TopicKnowledgeDocumentChanged,
 		Payload: event.KnowledgeDocumentChangePayload{
@@ -282,7 +263,6 @@ func TestIncrementalIndexer_Stop(t *testing.T) {
 	if err != nil {
 		t.Errorf("Handle after Stop returned error: %v", err)
 	}
-	// 验证 chunksByDoc 已置 nil,GetIndexedChunks 应返回空
 	chunks := indexer.GetIndexedChunks("500")
 	if len(chunks) != 0 {
 		t.Errorf("expected 0 chunks after Stop, got %d", len(chunks))
@@ -298,7 +278,6 @@ func TestIncrementalIndexer_MultipleDocuments(t *testing.T) {
 	tmpDir := t.TempDir()
 	indexer := NewIncrementalIndexer(nil, nil, database)
 
-	// 创建 5 个文档 + 文件
 	docIDs := make([]uint64, 0, 5)
 	for i := 0; i < 5; i++ {
 		filePath := filepath.Join(tmpDir, "doc_"+intToStr(i)+".txt")
@@ -337,7 +316,6 @@ func TestIncrementalIndexer_MultipleDocuments(t *testing.T) {
 func TestIncrementalIndexer_NilDB_Fallback(t *testing.T) {
 	indexer := NewIncrementalIndexer(nil, nil, nil)
 
-	// 不应 panic
 	err := indexer.Handle(event.Event{
 		Topic: event.TopicKnowledgeDocumentChanged,
 		Payload: event.KnowledgeDocumentChangePayload{
@@ -347,8 +325,6 @@ func TestIncrementalIndexer_NilDB_Fallback(t *testing.T) {
 	if err != nil {
 		t.Errorf("nil DB should not return error, got: %v", err)
 	}
-	// 内存中应记录 0 个 chunk（fallback 占位文本太短无法切块）
-	// 这只是验证行为，不强求 chunks>0
 	_ = indexer.ChunkCount("100")
 }
 
@@ -392,7 +368,6 @@ func TestIncrementalIndexer_ChunksPersisted(t *testing.T) {
 	if len(chunks) == 0 {
 		t.Errorf("expected persisted chunks in DB, got 0")
 	}
-	// 验证每个 chunk 都有关键字段
 	for i, c := range chunks {
 		if c.DocumentID != doc.ID {
 			t.Errorf("chunk %d: document_id mismatch: got=%d want=%d", i, c.DocumentID, doc.ID)
@@ -441,3 +416,4 @@ func formatUint(v uint) string {
 	}
 	return string(digits)
 }
+

@@ -101,7 +101,6 @@ func TestSmlistRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupSmlistRepository(t)
 
-	// 创建测试数据
 	smlist := &model.Smlist{
 		QQ:    "12345678",
 		Name:  "GetByID User",
@@ -149,7 +148,6 @@ func TestSmlistRepository_GetSmlistList(t *testing.T) {
 	ctx := context.Background()
 	repo := setupSmlistRepository(t)
 
-	// 创建测试数据
 	for i := 1; i <= 15; i++ {
 		repo.Create(ctx, &model.Smlist{
 			QQ:    "qq" + string(rune('0'+i)),
@@ -220,7 +218,6 @@ func TestSmlistRepository_GetSmlistAllList(t *testing.T) {
 	ctx := context.Background()
 	repo := setupSmlistRepository(t)
 
-	// 创建测试数据
 	for i := 1; i <= 8; i++ {
 		repo.Create(ctx, &model.Smlist{
 			QQ:    "qq" + string(rune('0'+i)),
@@ -249,7 +246,6 @@ func TestSmlistRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	repo := setupSmlistRepository(t)
 
-	// 创建测试数据
 	smlist := &model.Smlist{
 		QQ:    "12345678",
 		Name:  "To Delete",
@@ -274,7 +270,6 @@ func TestSmlistRepository_GetRecentSmlistList(t *testing.T) {
 	ctx := context.Background()
 	repo := setupSmlistRepository(t)
 
-	// 创建最近的数据（48 小时内）
 	repo.Create(ctx, &model.Smlist{
 		QQ:    "recent1",
 		Name:  "Recent User 1",
@@ -289,7 +284,6 @@ func TestSmlistRepository_GetRecentSmlistList(t *testing.T) {
 		City:  "Shanghai",
 	})
 
-	// 创建旧数据（超过 48 小时）
 	oldSmlist := &model.Smlist{
 		QQ:    "old1",
 		Name:  "Old User 1",
@@ -298,7 +292,6 @@ func TestSmlistRepository_GetRecentSmlistList(t *testing.T) {
 	}
 	repo.Create(ctx, oldSmlist)
 
-	// 手动更新旧数据的时间
 	db.GetDB().Model(&model.Smlist{}).Where("id = ?", oldSmlist.ID).Update("created_at", time.Now().Add(-time.Hour*72))
 
 	results, err := repo.GetRecentSmlistList(context.Background())
@@ -306,7 +299,6 @@ func TestSmlistRepository_GetRecentSmlistList(t *testing.T) {
 		t.Errorf("GetRecentSmlistList() error = %v", err)
 	}
 
-	// 应该只返回最近 48 小时的数据
 	if len(results) < 2 {
 		t.Errorf("Expected at least 2 recent results, got %d", len(results))
 	}
@@ -341,3 +333,4 @@ func TestSmlistRepository_GetSmlistList_Empty(t *testing.T) {
 		t.Errorf("Expected total 0, got %d", total)
 	}
 }
+

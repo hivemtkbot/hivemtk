@@ -41,10 +41,8 @@ func (r *CustomReportRepository) GetAll(page, pageSize int) ([]*model.CustomRepo
 
 	offset := (page - 1) * pageSize
 
-	// 获取总数
 	r.db.Model(&model.CustomReport{}).Count(&total)
 
-	// 获取数据
 	err := r.db.
 		Order("created_at DESC").
 		Limit(pageSize).Offset(offset).
@@ -113,3 +111,4 @@ func (r *CustomReportRepository) UseTemplate(templateID uint, createdBy uint) (*
 func NewCustomReportRepositoryWithDB(db *gorm.DB) *CustomReportRepository {
 	return &CustomReportRepository{db: db}
 }
+

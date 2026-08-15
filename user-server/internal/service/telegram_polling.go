@@ -18,35 +18,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// Telegram Polling Fallback（无公网域名场景的自动 fallback）
-// ============================================================================
-//
-// 设计目的：
-//   - 当 user-server 部署在内网且未配置 external.public_base_url / frp 域名时，
-//     Telegram 无法主动向 user-server 推送 webhook（无公网入口）。
-//   - 自动 fallback 到 long polling（getUpdates）：user-server 主动出站拉取消息，
-//     走 TG 官方 API，不需要公网入口。
-//   - 与 webhook 互斥：register-webhook / 启动对账成功 → 停 polling；polling 启动
-//     → 主动清理 TG 侧残留 webhook（避免重复消费）。
-//
-// 适用场景：
-//   - 本地开发 / 内网调试
-//   - 小型客户无 frp 部署
-//   - 公网域名暂不可用时的临时方案
-//
-// 限制（务必明确告知运维）：
-//   - 同一 BotToken 只能有一个进程在 polling，水平扩展会触发 TG 409 Conflict
-//   - 不支持公网灰度 / 蓝绿部署
-//   - 与 webhook 互斥切换存在几秒的消息丢失窗口（TG 侧 update queue 在切换瞬间可能重发）
-//   - 推荐生产环境使用 frp + webhook；polling 仅作 fallback
-//
-// 实现要点：
-//   - 复用 user-server 现有的 /api/webhook/telegram/{id} 入口（通过 127.0.0.1 HTTP POST）
-//     → 完整复用验签 / 幂等 / 落库 / AI 编排，无需重写业务逻辑
-//   - 轮询参数：timeout=25s（避开常见代理 30s 超时），limit=100，allowed_updates 与 webhook 一致
-//   - 失败退避：网络错误指数退避（1s→30s 上限），409 Conflict 立即停（说明其他进程在 polling）
-//   - 重启安全：ReconcileTelegramWebhooks 启动时先 StopAllTelegramPolling 再注册 webhook
 
 // TelegramPollingEnvKey 显式启用 / 禁用 polling 的环境变量
 //   - "1"/"true"/"yes" → 强制启用
@@ -56,8 +27,8 @@ const TelegramPollingEnvKey = "TELEGRAM_POLLING_ENABLED"
 
 // 默认轮询参数（与 Telegram Bot API 官方建议对齐）
 const (
-	tgPollingTimeoutSeconds = 25  // 略小于 30s 通用代理超时
-	tgPollingLimit          = 100 // 单次返回最大 update 数
+	tgPollingTimeoutSeconds = 25  
+	tgPollingLimit          = 100 
 	tgPollingBackoffMin     = 1 * time.Second
 	tgPollingBackoffMax     = 30 * time.Second
 )
@@ -116,15 +87,11 @@ func StopAllTelegramPolling() {
 			sw.state.cancel()
 		}
 	}
-	// 同步等待：所有 worker 真正退出后返回
 	for _, sw := range states {
 		if sw.state != nil && sw.state.done != nil {
 			<-sw.state.done
 		}
 	}
-	// S3-6：worker 已退出，遍历释放本进程持有的所有锁
-	// 五层架构修复：service 不再直接调 db.GetDB()，统一走 service 门面
-	// （service 门面内部转调 repository.TelegramPollingLockRepository）
 	for _, sw := range states {
 		if sw.state != nil && sw.state.lockHeld {
 			if rerr := ReleasePollingLock(context.Background(), nil, sw.id); rerr != nil {
@@ -146,13 +113,8 @@ func StartTelegramPolling(acc *model.TelegramAccount) {
 	if acc == nil || acc.BotToken == "" {
 		return
 	}
-	// 先停旧的（同步等待，确保旧 worker 真正退出再启新的）
 	stopTelegramPollingLocked(acc.ID)
 
-	// S3-6 分布式锁：DB 层抢占
-	// 五层架构修复：service 不再直接调 db.GetDB()，统一走 service 门面
-	// （service 门面内部转调 repository.TelegramPollingLockRepository；DB 未就绪时
-	// repository 内部判 nil 并返回 ErrPollingLockDBNil）
 	acquired, owner, lastHB, lockErr := TryAcquirePollingLock(context.Background(), nil, acc.ID)
 	if lockErr != nil {
 		logger.Warnf("[TG-Polling] 账号 %d(%s) 抢占锁失败: %v", acc.ID, acc.AccountName, lockErr)
@@ -207,8 +169,6 @@ func stopTelegramPollingLocked(accountID uint) {
 	if s.done != nil {
 		<-s.done
 	}
-	// S3-6：worker 已退出，释放分布式锁（best-effort，失败仅记日志）
-	// 五层架构修复：service 不再直接调 db.GetDB()，统一走 service 门面
 	if s.lockHeld {
 		if rerr := ReleasePollingLock(context.Background(), nil, accountID); rerr != nil {
 			logger.Warnf("[TG-Polling] 账号 %d 释放锁失败: %v", accountID, rerr)
@@ -235,8 +195,6 @@ func StopTelegramPolling(accountID uint) {
 	if s.done != nil {
 		<-s.done
 	}
-	// S3-6：worker 已退出，释放分布式锁（best-effort）
-	// 五层架构修复：service 不再直接调 db.GetDB()，统一走 service 门面
 	if s.lockHeld {
 		if rerr := ReleasePollingLock(context.Background(), nil, accountID); rerr != nil {
 			logger.Warnf("[TG-Polling] 账号 %d 释放锁失败: %v", accountID, rerr)
@@ -295,7 +253,6 @@ func EnsureTelegramMode(svc *TelegramService) {
 		if acc.BotToken == "" || acc.Status != 1 {
 			continue
 		}
-		// 停 webhook（清理 TG 侧残留），避免双消费
 		if err := tgbot.DeleteWebhook(acc.BotToken); err != nil {
 			logger.Warnf("[TG-Mode] 账号 %d(%s) 清理 webhook 失败(可忽略): %v", acc.ID, acc.AccountName, err)
 		}
@@ -321,26 +278,21 @@ func runTelegramPollingWorker(ctx context.Context, accountID uint, botToken, acc
 		if r := recover(); r != nil {
 			logger.Errorf("[TG-Polling] 账号 %d(%s) 协程 panic: %v", accountID, accountName, r)
 		}
-		// 退出时从注册中心移除
 		telegramPollingMu.Lock()
 		delete(telegramPollingStates, accountID)
 		telegramPollingMu.Unlock()
-		// 通知 Stop 等待方：worker 真正退出
 		if done != nil {
 			close(done)
 		}
 		logger.Infof("[TG-Polling] 账号 %d(%s) polling 协程已退出", accountID, accountName)
 	}()
 
-	// S3-6：启动心跳协程
 	heartbeatCtx, heartbeatCancel := context.WithCancel(ctx)
 	defer heartbeatCancel()
 	go runPollingHeartbeat(heartbeatCtx, accountID, accountName, state)
 
 	offset := int64(0)
 	backoff := tgPollingBackoffMin
-	// 同进程内多账号共用一个 HTTP 客户端（连接复用）
-	// 支持 HTTP_PROXY / HTTPS_PROXY 环境变量
 	client := &http.Client{
 		Timeout: tgPollingTimeoutSeconds*time.Second + 5*time.Second,
 		Transport: &http.Transport{
@@ -360,7 +312,6 @@ func runTelegramPollingWorker(ctx context.Context, accountID uint, botToken, acc
 
 		updates, err := tgbot.GetUpdates(ctx, botToken, offset, tgPollingLimit, tgPollingTimeoutSeconds)
 		if err != nil {
-			// 409 Conflict：另一实例在 polling；本协程退出
 			if isTelegramConflictError(err) {
 				logger.Warnf("[TG-Polling] 账号 %d(%s) 检测到 409 Conflict（同 token 另一实例在 polling），本协程退出: %v", accountID, accountName, err)
 				return
@@ -369,17 +320,14 @@ func runTelegramPollingWorker(ctx context.Context, accountID uint, botToken, acc
 			if sleepCtx(ctx, backoff) {
 				return
 			}
-			// 指数退避
 			backoff *= 2
 			if backoff > tgPollingBackoffMax {
 				backoff = tgPollingBackoffMax
 			}
 			continue
 		}
-		backoff = tgPollingBackoffMin // 成功后重置
+		backoff = tgPollingBackoffMin 
 
-		// 并发投递本轮所有 update（本地 webhook 幂等，顺序无关）；
-		// 全部投递完成后再推进 offset，避免与下一轮 getUpdates 竞争。
 		maxUID := offset - 1
 		sem := make(chan struct{}, tgPollingDeliverConcurrency)
 		var wg sync.WaitGroup
@@ -416,11 +364,8 @@ func runPollingHeartbeat(ctx context.Context, accountID uint, accountName string
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// 五层架构修复：service 不再直接调 db.GetDB()，统一走 service 门面
-			// （service 门面内部转调 repository.TelegramPollingLockRepository）
 			lockLost, err := HeartbeatPollingLock(ctx, nil, accountID)
 			if err != nil {
-				// DB 未就绪时静默续约（保持原行为：避免抖动告警）
 				if !isPollingLockDBNotReadyError(err) {
 					logger.Warnf("[TG-Polling] 账号 %d(%s) 心跳失败: %v", accountID, accountName, err)
 				}
@@ -428,13 +373,11 @@ func runPollingHeartbeat(ctx context.Context, accountID uint, accountName string
 			}
 			if lockLost {
 				logger.Warnf("[TG-Polling] 账号 %d(%s) 锁已丢失（被其他进程抢占），主动停止 worker", accountID, accountName)
-				// 标记 lockHeld=false，让 Stop 不要再尝试释放（锁已经不是我们的了）
 				telegramPollingMu.Lock()
 				if s, ok := telegramPollingStates[accountID]; ok {
 					s.lockHeld = false
 				}
 				telegramPollingMu.Unlock()
-				// 主动 cancel worker
 				if state != nil && state.cancel != nil {
 					state.cancel()
 				}
@@ -470,10 +413,7 @@ func deliverTelegramUpdate(ctx context.Context, client *http.Client, accountID u
 			return err
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Telegram-Polling-Source", "1") // 标记来源（便于监控 / 调试）
-		// 修复：polling 兜底投递到本地 webhook 入口时，必须携带与 setWebhook
-		// 一致的 X-Telegram-Bot-Api-Secret-Token，否则本地验签 401（消息丢失）。
-		// webhook_secret 为空时（未配置验签）不附加，handler 会跳过验签，向后兼容。
+		req.Header.Set("X-Telegram-Polling-Source", "1") 
 		if webhookSecret != "" {
 			req.Header.Set("X-Telegram-Bot-Api-Secret-Token", webhookSecret)
 		}
@@ -486,13 +426,11 @@ func deliverTelegramUpdate(ctx context.Context, client *http.Client, accountID u
 			}
 			continue
 		}
-		// 必须读完 body 才能复用连接
 		_, _ = io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return nil
 		}
-		// 4xx 业务错误（账号未启用、验签失败等）→ 不重试
 		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
 			return fmt.Errorf("polling → webhook 返回 %d（不重试）", resp.StatusCode)
 		}
@@ -533,3 +471,4 @@ func sleepCtx(ctx context.Context, d time.Duration) bool {
 		return false
 	}
 }
+

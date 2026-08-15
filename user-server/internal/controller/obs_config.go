@@ -174,7 +174,6 @@ func (c *ObsConfigController) GetDefaultConfig(ctx *gin.Context) {
 	config, err := c.service.GetDefaultConfig(context.Background())
 	if err != nil {
 		if isNotFoundError(err) {
-			// 不存在时返回空数据而非 404，便于前端统一处理
 			response.Success(ctx, nil, "暂无默认配置")
 			return
 		}
@@ -184,3 +183,4 @@ func (c *ObsConfigController) GetDefaultConfig(ctx *gin.Context) {
 
 	response.Success(ctx, config, "查询成功")
 }
+

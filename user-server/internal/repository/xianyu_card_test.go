@@ -79,7 +79,6 @@ func TestXianyuCardRepository_GetByID(t *testing.T) {
 	repo := setupXianyuCardRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	card := &model.XianyuCard{
 		Title:       "GetByID Card",
 		Description: "GetByID Description",
@@ -127,11 +126,9 @@ func TestXianyuCardRepository_GetList(t *testing.T) {
 	repo := NewXianyuCardRepository(database)
 	ctx := context.Background()
 
-	// 创建测试数据
 	activeTrue := true
 	activeFalse := false
 
-	// 创建 5 个活跃卡片
 	for i := 1; i <= 5; i++ {
 		card := &model.XianyuCard{
 			Title:    "Active Card " + string(rune('A'+i-1)),
@@ -142,7 +139,6 @@ func TestXianyuCardRepository_GetList(t *testing.T) {
 		}
 	}
 
-	// 创建 1 个不活跃卡片 - 先创建再更新 IsActive 字段
 	inactiveCard := &model.XianyuCard{
 		Title:    "Inactive Card",
 		IsActive: true,
@@ -234,7 +230,6 @@ func TestXianyuCardRepository_Update(t *testing.T) {
 	repo := setupXianyuCardRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	card := &model.XianyuCard{
 		Title:       "Original Title",
 		Description: "Original Description",
@@ -265,7 +260,6 @@ func TestXianyuCardRepository_Delete(t *testing.T) {
 	repo := setupXianyuCardRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	card := &model.XianyuCard{
 		Title:    "To Delete",
 		IsActive: true,
@@ -304,3 +298,4 @@ func TestXianyuCardRepository_GetByID_NotFound(t *testing.T) {
 		t.Error("Expected error when getting non-existing card")
 	}
 }
+

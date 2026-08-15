@@ -7,8 +7,6 @@ import (
 
 func TestKuaishouCard_TableName(t *testing.T) {
 	card := &KuaishouCard{}
-	// KuaishouCard does not have TableName method, it uses default gorm table name
-	// Default table name would be "kuaishou_cards" (pluralized)
 	_ = card
 }
 
@@ -133,7 +131,6 @@ func TestKuaishouCard_EngagementMetrics(t *testing.T) {
 		ShareCount: 2000,
 	}
 
-	// Verify engagement ratios
 	if card.ViewCount < card.LikeCount {
 		t.Error("Expected ViewCount to be >= LikeCount")
 	}
@@ -156,3 +153,4 @@ func TestKuaishouCard_WithEmptyTags(t *testing.T) {
 		t.Errorf("Expected empty Tags, got %s", card.Tags)
 	}
 }
+

@@ -76,3 +76,4 @@ func TestSetAssetBundleResolver(t *testing.T) {
 		t.Errorf("注入后解析失败，got=%q", got)
 	}
 }
+

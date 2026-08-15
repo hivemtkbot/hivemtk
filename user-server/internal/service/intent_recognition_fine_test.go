@@ -1,17 +1,5 @@
 package service
 
-// intent_recognition_fine_test.go 精细意图识别（8 大类 + 7 子类）测试
-//
-// 五层架构归属: L2 服务层测试
-// 设计依据: PRD § 缺口修复
-// 私域独立部署: 无 merchant_id 字段
-//
-// 覆盖范围：
-//   - 8 大意图类规则匹配（consult/price_inquiry/objection/after_sale/complaint/churn/intent_buy/ask_product）
-//   - 每个大类下的 7 子类细分（共 26 个子类）
-//   - confidence < 0.6 触发 LLM 二次识别（用 dispatcher=nil 跳过 LLM）
-//   - IntentLog 持久化
-//   - GetIntentLogs / GetIntentLogStats / QueryIntentLogsByTraceID 查询
 
 import (
 	"context"
@@ -21,7 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ===== 8 大类规则匹配测试（每类至少 3 个用例） =====
 
 // 1. consult - general
 func TestRecognizeIntent_ConsultGeneral(t *testing.T) {
@@ -338,7 +325,6 @@ func TestRecognizeIntent_AskProductSpec(t *testing.T) {
 	}
 }
 
-// ===== 边界场景测试 =====
 
 // 27. 空消息兜底
 func TestRecognizeIntent_EmptyMessage(t *testing.T) {
@@ -362,7 +348,6 @@ func TestRecognizeIntent_EmptyMessage(t *testing.T) {
 func TestRecognizeIntent_NoRuleNoDispatcher(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
 	r, _ := rec.RecognizeIntent(context.Background(), "asdfqwer", "c-1", "s-1")
-	// 未命中规则且无 dispatcher → 兜底 consult/general
 	if r.Major != IntentMajorConsult {
 		t.Errorf("expected consult fallback, got %s", r.Major)
 	}
@@ -389,13 +374,11 @@ func TestRecognizeIntent_LatencyNonNegative(t *testing.T) {
 	}
 }
 
-// ===== IntentLog 持久化测试 =====
 
 // 31. IntentLog 异步落库
 func TestRecognizeIntent_PersistIntentLog(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
 	_, _ = rec.RecognizeIntent(context.Background(), "这个多少钱", "c-persist", "s-persist")
-	// 等待异步落库
 	time.Sleep(200 * time.Millisecond)
 	var logs []model.IntentLog
 	if err := db.Where("customer_id = ?", "c-persist").Find(&logs).Error; err != nil {
@@ -415,12 +398,10 @@ func TestRecognizeIntent_PersistIntentLog(t *testing.T) {
 	}
 }
 
-// ===== GetIntentLogs 查询测试 =====
 
 // 32. GetIntentLogs 按 customer_id 过滤
 func TestGetIntentLogs_ByCustomerID(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
-	// 写入测试数据
 	now := time.Now()
 	db.Create(&model.IntentLog{CustomerID: "c-A", SessionID: "s-A", Message: "msg1",
 		IntentMajor: IntentMajorConsult, IntentMinor: IntentMinorConsultGeneral,
@@ -489,13 +470,11 @@ func TestGetIntentLogs_LimitDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 空表也应返回 0 条
 	if logs == nil {
 		t.Error("expected non-nil logs slice")
 	}
 }
 
-// ===== GetIntentLogStats 统计测试 =====
 
 // 36. GetIntentLogStats 按 major 聚合
 func TestGetIntentLogStats_ByMajor(t *testing.T) {
@@ -515,7 +494,6 @@ func TestGetIntentLogStats_ByMajor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 检查 by_major / by_minor / by_method 均存在（具体类型由 GORM Scan 决定）
 	if stats["by_major"] == nil {
 		t.Error("expected by_major to be non-nil")
 	}
@@ -543,7 +521,6 @@ func TestGetIntentLogStats_DefaultDays(t *testing.T) {
 	}
 }
 
-// ===== QueryIntentLogsByTraceID 测试 =====
 
 // 38. QueryIntentLogsByTraceID 按 trace_id 查询
 func TestQueryIntentLogsByTraceID(t *testing.T) {
@@ -566,7 +543,6 @@ func TestQueryIntentLogsByTraceID(t *testing.T) {
 	if len(logs) != 2 {
 		t.Fatalf("expected 2 logs, got %d", len(logs))
 	}
-	// 应按 timestamp ASC 排序
 	if logs[0].Message != "m1" {
 		t.Errorf("expected m1 first, got %s", logs[0].Message)
 	}
@@ -584,7 +560,6 @@ func TestQueryIntentLogsByTraceID_EmptyTraceID(t *testing.T) {
 	}
 }
 
-// ===== 工具函数测试 =====
 
 // 40. isValidMajor
 func TestIsValidMajor(t *testing.T) {
@@ -628,11 +603,9 @@ func TestIsValidMinor(t *testing.T) {
 	if !isValidMinor(IntentMajorObjection, IntentMinorObjectionCompetitorCmp) {
 		t.Error("objection/competitor_comparison should be valid")
 	}
-	// major 合法但 minor 不属于
 	if isValidMinor(IntentMajorConsult, IntentMinorPriceBudgetCheck) {
 		t.Error("consult/budget_check should be invalid (cross-major)")
 	}
-	// major 非法
 	if isValidMinor("invalid_major", IntentMinorConsultGeneral) {
 		t.Error("invalid_major/* should be invalid")
 	}
@@ -654,7 +627,6 @@ func TestGetDefaultMinor(t *testing.T) {
 	}
 }
 
-// ===== recognizeFineByRule 单元测试 =====
 
 // 43. recognizeFineByRule 空字符串
 func TestRecognizeFineByRule_Empty(t *testing.T) {
@@ -687,12 +659,10 @@ func TestRecognizeFineByRule_HitMinor(t *testing.T) {
 	}
 }
 
-// ===== 多关键词混合测试 =====
 
 // 46. 多关键词同时命中选最高分
 func TestRecognizeFineByRule_MultiKeywordBestScore(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	// 同时含价格+优惠，应命中 price_inquiry/discount_request（weight=3）
 	r, _ := rec.RecognizeIntent(context.Background(), "价格多少有优惠吗", "c-1", "s-1")
 	if r.Major != IntentMajorPriceInquiry {
 		t.Errorf("expected price_inquiry, got %s", r.Major)
@@ -702,7 +672,6 @@ func TestRecognizeFineByRule_MultiKeywordBestScore(t *testing.T) {
 // 47. 大类关键词命中但无子类命中
 func TestRecognizeFineByRule_MajorOnlyFallback(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	// "报价" 是 price_inquiry 大类关键词，未命中具体子类
 	r := rec.recognizeFineByRule(context.Background(), "请给我报价")
 	if r == nil {
 		t.Fatal("expected non-nil result for major-only hit")
@@ -710,8 +679,8 @@ func TestRecognizeFineByRule_MajorOnlyFallback(t *testing.T) {
 	if r.Major != IntentMajorPriceInquiry {
 		t.Errorf("expected price_inquiry, got %s", r.Major)
 	}
-	// 大类命中时应回退到第一个子类
 	if r.Minor != IntentMinorPriceBudgetCheck {
 		t.Errorf("expected budget_check (first minor), got %s", r.Minor)
 	}
 }
+

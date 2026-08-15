@@ -85,7 +85,6 @@ func TestEmailDraftRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailDraftRepository(t)
 
-	// 创建测试数据
 	draft := &model.EmailDraft{
 		Subject: "GetByID Test",
 		Content: "Test content",
@@ -134,7 +133,6 @@ func TestEmailDraftRepository_List(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailDraftRepository(t)
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		repo.Create(ctx, &model.EmailDraft{
 			Subject: "Draft " + string(rune('0'+i)),
@@ -157,14 +155,12 @@ func TestEmailDraftRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailDraftRepository(t)
 
-	// 创建测试数据
 	draft := &model.EmailDraft{
 		Subject: "Original Subject",
 		Content: "Original content",
 	}
 	repo.Create(ctx, draft)
 
-	// 更新
 	draft.Subject = "Updated Subject"
 	draft.Content = "Updated content"
 
@@ -187,7 +183,6 @@ func TestEmailDraftRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailDraftRepository(t)
 
-	// 创建测试数据
 	draft := &model.EmailDraft{
 		Subject: "To Delete",
 		Content: "Delete content",
@@ -236,17 +231,14 @@ func TestEmailDraftRepository_Update_WithUpdatedAt(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailDraftRepository(t)
 
-	// 创建测试数据
 	draft := &model.EmailDraft{
 		Subject: "Timestamp Test",
 		Content: "Content",
 	}
 	repo.Create(ctx, draft)
 
-	// 等待一小段时间
 	time.Sleep(10 * time.Millisecond)
 
-	// 更新
 	draft.Subject = "Updated Subject"
 	err := repo.Update(ctx, draft)
 	if err != nil {
@@ -258,3 +250,4 @@ func TestEmailDraftRepository_Update_WithUpdatedAt(t *testing.T) {
 		t.Error("Expected UpdatedAt to be after CreatedAt")
 	}
 }
+

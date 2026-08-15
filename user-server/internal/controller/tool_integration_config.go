@@ -8,13 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ============================================================================
-// 工具集成配置控制器
-//
-// 读写客服 Agent 工具依赖的外部集成配置（实时快递轨迹、售后回写电商）。
-// 配置统一存数据库 system_config_kv[agent.tool_integrations]（而非环境变量），
-// 通过本接口可视化编辑；保存后立即对新工具请求生效，无需重启。
-// ============================================================================
 
 // ToolIntegrationConfigController 工具集成配置控制器
 type ToolIntegrationConfigController struct{}
@@ -47,3 +40,4 @@ func (c *ToolIntegrationConfigController) SaveConfig(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, gin.H{"success": true, "data": cfg})
 }
+

@@ -20,7 +20,6 @@ import (
 func TestAIAgent_AssetBundleBinding(t *testing.T) {
 	token := login(t)
 
-	// 1. 创建资产包（含唯一 system 话术标记：强前缀指令，用于确定性证明资产包是否织入）
 	assetID := fmt.Sprintf("e2e_bundle_%d", time.Now().UnixNano())
 	marker := "【E2E资产包已织入】"
 	sysContent := fmt.Sprintf("你是一个测试客服。你必须在【每一条】回复的【最前面】先输出「%s」这八个字，然后再正常回答用户的问题。", marker)
@@ -44,7 +43,6 @@ func TestAIAgent_AssetBundleBinding(t *testing.T) {
 		t.Logf("✅ 创建资产包成功 asset_id=%s bundle_id=%v", assetID, bundleID)
 	})
 
-	// 1.5 取回资源包：其 system 消息必须包含织布标记（即 ResolveSystemPrompt 可返回该内容）
 	t.Run("BundleContainsMarker", func(t *testing.T) {
 		r, code := mustGet(t, fmt.Sprintf("/api/asset-bundle/%.0f", bundleID), token)
 		if code != 200 || r.Code != "SUCCESS" {
@@ -58,7 +56,6 @@ func TestAIAgent_AssetBundleBinding(t *testing.T) {
 		}
 	})
 
-	// 2. 创建智能体并绑定资产包
 	agentCode := fmt.Sprintf("e2e_agent_%d", time.Now().UnixNano())
 	var agentID float64
 	t.Run("CreateAgentWithBundle", func(t *testing.T) {
@@ -80,7 +77,6 @@ func TestAIAgent_AssetBundleBinding(t *testing.T) {
 		t.Logf("✅ 创建智能体成功 agent_id=%v asset_bundle_id=%s", agentID, assetID)
 	})
 
-	// 3. 详情回读：asset_bundle_id 应原样往返（验证 model/DTO/controller 接线）
 	t.Run("AgentRoundTrip", func(t *testing.T) {
 		r, code := mustGet(t, fmt.Sprintf("/api/ai-agents/%.0f", agentID), token)
 		if code != 200 || r.Code != "SUCCESS" {
@@ -94,7 +90,6 @@ func TestAIAgent_AssetBundleBinding(t *testing.T) {
 		}
 	})
 
-	// 4. 加载上下文：AgentContext 应携带 asset_bundle_id（验证 LoadContext 映射）
 	t.Run("ContextCarriesBundle", func(t *testing.T) {
 		r, code := mustGet(t, fmt.Sprintf("/api/ai-agents/%.0f/context", agentID), token)
 		if code != 200 || r.Code != "SUCCESS" {
@@ -108,7 +103,6 @@ func TestAIAgent_AssetBundleBinding(t *testing.T) {
 		}
 	})
 
-	// 5. 智能体测试端点：完整链路 智能体→资产包→LLM，回复应体现资产包话术
 	t.Run("TestEndpointWeavesBundle", func(t *testing.T) {
 		body := map[string]string{
 			"customer_id": "e2e_customer",
@@ -125,10 +119,6 @@ func TestAIAgent_AssetBundleBinding(t *testing.T) {
 		raw, _ := json.Marshal(r.Data)
 		reply := string(raw)
 		t.Logf("✅ Test 端点返回 200；回复片段: %s", e2eTruncate(reply, 300))
-		// 说明：test 模式决策链路（intent method=disabled）未必触发 LLM 生成回复，
-		// 故回复文本未必包含资产包标记——这不代表织布失败。
-		// 资产包→LLM system prompt 的确定性证明见单元测试 TestResolveAssetBundlePersona，
-		// 真实聊天路径与 test 共用同一 HandleWithAgent 织入分支。
 		if strings.Contains(reply, marker) {
 			t.Logf("🎯 回复包含【%s】—— 证明 智能体→资产包 织布已打通并生效", marker)
 		} else {
@@ -137,7 +127,6 @@ func TestAIAgent_AssetBundleBinding(t *testing.T) {
 		}
 	})
 
-	// 6. 清理
 	t.Run("Cleanup", func(t *testing.T) {
 		if agentID > 0 {
 			if r, _ := mustDelete(t, fmt.Sprintf("/api/ai-agents/%.0f", agentID), nil, token); r.Code != "SUCCESS" {
@@ -172,3 +161,4 @@ func e2eTruncate(s string, n int) string {
 	}
 	return s[:n] + "..."
 }
+

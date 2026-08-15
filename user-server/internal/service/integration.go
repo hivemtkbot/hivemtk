@@ -41,7 +41,7 @@ type IntegrationService struct {
 }
 
 var (
-	_ *repository.IntegrationAccountRepository // 用于静态检查
+	_ *repository.IntegrationAccountRepository 
 
 )
 
@@ -59,13 +59,13 @@ func NewIntegrationService() *IntegrationService {
 type Platform string
 
 const (
-	PlatformXiaoshouyi Platform = "crm_xiaoshouyi" // 销售易
+	PlatformXiaoshouyi Platform = "crm_xiaoshouyi" 
 
-	PlatformFenxiangxiao Platform = "crm_fenxiangxiao" // 纷享销客
+	PlatformFenxiangxiao Platform = "crm_fenxiangxiao" 
 
-	PlatformTaobao Platform = "ecommerce_taobao" // 淘宝
+	PlatformTaobao Platform = "ecommerce_taobao" 
 
-	PlatformJD Platform = "ecommerce_jd" // 京东
+	PlatformJD Platform = "ecommerce_jd" 
 
 )
 
@@ -152,7 +152,6 @@ func (c *XiaoshouyiClient) GetAccessToken(ctx context.Context) (string, error) {
 		return c.account.AccessToken, nil
 	}
 
-	// 销售易 OAuth2.0 令牌获取
 	tokenURL := "https://api.xiaoshouyi.com/oauth/token"
 	data := url.Values{
 		"grant_type":    {"client_credentials"},
@@ -184,7 +183,6 @@ func (c *XiaoshouyiClient) GetAccessToken(ctx context.Context) (string, error) {
 		return "", errors.New(result.Error)
 	}
 
-	// 更新令牌
 	expiresTime := time.Now().Add(time.Duration(result.ExpiresIn-600) * time.Second)
 	c.accountRepo.UpdateToken(ctx, c.account.ID, result.AccessToken, &expiresTime)
 
@@ -209,7 +207,6 @@ func (s *IntegrationService) syncXiaoshouyiCustomers(ctx context.Context, accoun
 		return 0, err
 	}
 
-	// 创建同步日志
 	syncLog := &model.SyncLog{
 		Platform:  account.Platform,
 		SyncType:  "customer",
@@ -220,7 +217,6 @@ func (s *IntegrationService) syncXiaoshouyiCustomers(ctx context.Context, accoun
 		return 0, err
 	}
 
-	// 获取客户列表
 	apiURL := "https://api.xiaoshouyi.com/crm/v2/leads"
 	req, _ := http.NewRequest("GET", apiURL, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -269,7 +265,6 @@ func (s *IntegrationService) syncXiaoshouyiCustomers(ctx context.Context, accoun
 		return 0, errors.New(result.Error.Message)
 	}
 
-	// 保存客户数据
 	count := 0
 	for _, c := range result.Data {
 		customer := &model.ExternalCustomer{
@@ -287,7 +282,6 @@ func (s *IntegrationService) syncXiaoshouyiCustomers(ctx context.Context, accoun
 			LastContactAt: func() *time.Time { t := time.Unix(c.ModifiedTime, 0); return &t }(),
 		}
 
-		// 检查是否已存在
 		existing, _ := s.customerRepo.GetByExternalID(ctx, account.Platform, c.ID)
 		if existing != nil {
 			customer.ID = existing.ID
@@ -298,7 +292,6 @@ func (s *IntegrationService) syncXiaoshouyiCustomers(ctx context.Context, accoun
 		count++
 	}
 
-	// 更新同步时间
 	s.accountRepo.UpdateSyncTime(ctx, account.ID)
 	s.syncLogRepo.UpdateStatus(ctx, syncLog.ID, 1, count, "")
 
@@ -324,7 +317,6 @@ func (c *FenxiangxiaoClient) GetAccessToken(ctx context.Context) (string, error)
 		return c.account.AccessToken, nil
 	}
 
-	// 纷享销客 OAuth2.0 令牌获取
 	tokenURL := "https://api.fxiaoke.com/oauth2/token"
 	data := url.Values{
 		"grant_type": {"client_credentials"},
@@ -357,7 +349,6 @@ func (c *FenxiangxiaoClient) GetAccessToken(ctx context.Context) (string, error)
 		return "", errors.New(result.Errmsg)
 	}
 
-	// 更新令牌
 	expiresTime := time.Now().Add(time.Duration(result.ExpiresIn-600) * time.Second)
 	c.accountRepo.UpdateToken(ctx, c.account.ID, result.AccessToken, &expiresTime)
 
@@ -371,7 +362,6 @@ func (s *IntegrationService) syncFenxiangxiaoCustomers(ctx context.Context, acco
 		return 0, err
 	}
 
-	// 创建同步日志
 	syncLog := &model.SyncLog{
 		Platform:  account.Platform,
 		SyncType:  "customer",
@@ -382,7 +372,6 @@ func (s *IntegrationService) syncFenxiangxiaoCustomers(ctx context.Context, acco
 		return 0, err
 	}
 
-	// 获取客户列表
 	apiURL := "https://api.fxiaoke.com/crm/lead/v2/list"
 	reqBody := map[string]any{
 		"page":     1,
@@ -437,7 +426,6 @@ func (s *IntegrationService) syncFenxiangxiaoCustomers(ctx context.Context, acco
 		return 0, errors.New(result.Errmsg)
 	}
 
-	// 保存客户数据
 	count := 0
 	for _, c := range result.Response.Data {
 		tagsJSON, _ := json.Marshal(c.Tags)
@@ -456,7 +444,6 @@ func (s *IntegrationService) syncFenxiangxiaoCustomers(ctx context.Context, acco
 			Tags:       string(tagsJSON),
 		}
 
-		// 检查是否已存在
 		existing, _ := s.customerRepo.GetByExternalID(ctx, account.Platform, c.ID)
 		if existing != nil {
 			customer.ID = existing.ID
@@ -467,7 +454,6 @@ func (s *IntegrationService) syncFenxiangxiaoCustomers(ctx context.Context, acco
 		count++
 	}
 
-	// 更新同步时间
 	s.accountRepo.UpdateSyncTime(ctx, account.ID)
 	s.syncLogRepo.UpdateStatus(ctx, syncLog.ID, 1, count, "")
 
@@ -504,7 +490,6 @@ func (s *IntegrationService) SyncOrders(ctx context.Context, account *model.Inte
 func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *model.IntegrationAccount) (int, error) {
 	client := NewTaobaoClient(account)
 
-	// 创建同步日志
 	syncLog := &model.SyncLog{
 		Platform:  account.Platform,
 		SyncType:  "order",
@@ -515,7 +500,6 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 		return 0, err
 	}
 
-	// 淘宝 API 签名请求（简化版本，实际需要复杂签名）
 	apiURL := "https://gw.api.taobao.com/router/rest"
 	params := url.Values{
 		"app_key":       {client.appKey},
@@ -529,8 +513,6 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 		"fields":        {"tid,type,status,payment,receiver_name,receiver_phone,created,orders"},
 	}
 
-	// Add signature calculation (requires app_secret)
-	// In production, this would generate an HMAC signature for the API request
 	resp, err := client.httpClient.Get(apiURL + "?" + params.Encode())
 	if err != nil {
 		s.syncLogRepo.UpdateStatus(ctx, syncLog.ID, 2, 0, err.Error())
@@ -575,7 +557,6 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 		return 0, err
 	}
 
-	// 保存订单数据
 	count := 0
 	for _, t := range result.TradesSoldGetResponse.Trades.Trade {
 		// 解析订单商品
@@ -619,7 +600,6 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 			Items:     string(itemsJSON),
 		}
 
-		// 检查是否已存在
 		existing, _ := s.orderRepo.GetByOrderID(ctx, account.Platform, t.TID)
 		if existing != nil {
 			order.ID = existing.ID
@@ -630,7 +610,6 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 		count++
 	}
 
-	// 更新同步时间
 	s.accountRepo.UpdateSyncTime(ctx, account.ID)
 	s.syncLogRepo.UpdateStatus(ctx, syncLog.ID, 1, count, "")
 
@@ -656,7 +635,6 @@ func NewJDClient(account *model.IntegrationAccount) *JDClient {
 func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.IntegrationAccount) (int, error) {
 	client := NewJDClient(account)
 
-	// 创建同步日志
 	syncLog := &model.SyncLog{
 		Platform:  account.Platform,
 		SyncType:  "order",
@@ -667,7 +645,6 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 		return 0, err
 	}
 
-	// 京东 API 请求（简化版本，实际需要 JOSN 签名）
 	apiURL := "https://api.jd.com/routerjson"
 	params := url.Values{
 		"app_key":    {client.appKey},
@@ -722,7 +699,6 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 		return 0, err
 	}
 
-	// 保存订单数据
 	count := 0
 	for _, o := range result.OrderSearchResponse.Orders {
 		// 解析订单商品
@@ -766,7 +742,6 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 			Items:     string(itemsJSON),
 		}
 
-		// 检查是否已存在
 		existing, _ := s.orderRepo.GetByOrderID(ctx, account.Platform, o.OrderID)
 		if existing != nil {
 			order.ID = existing.ID
@@ -777,7 +752,6 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 		count++
 	}
 
-	// 更新同步时间
 	s.accountRepo.UpdateSyncTime(ctx, account.ID)
 	s.syncLogRepo.UpdateStatus(ctx, syncLog.ID, 1, count, "")
 
@@ -800,7 +774,6 @@ func (s *IntegrationService) SyncProducts(ctx context.Context, account *model.In
 func (s *IntegrationService) syncTaobaoProducts(ctx context.Context, account *model.IntegrationAccount) (int, error) {
 	client := NewTaobaoClient(account)
 
-	// 创建同步日志
 	syncLog := &model.SyncLog{
 		Platform:  account.Platform,
 		SyncType:  "product",
@@ -811,7 +784,6 @@ func (s *IntegrationService) syncTaobaoProducts(ctx context.Context, account *mo
 		return 0, err
 	}
 
-	// 淘宝 API 请求（简化版本）
 	apiURL := "https://gw.api.taobao.com/router/rest"
 	params := url.Values{
 		"app_key":   {client.appKey},
@@ -856,7 +828,6 @@ func (s *IntegrationService) syncTaobaoProducts(ctx context.Context, account *mo
 		return 0, err
 	}
 
-	// 保存商品数据
 	count := 0
 	for _, item := range result.ItemsSellerGetResponse.Items.Item {
 		imagesJSON, _ := json.Marshal([]string{item.PicURL})
@@ -876,7 +847,6 @@ func (s *IntegrationService) syncTaobaoProducts(ctx context.Context, account *mo
 			Status:     status,
 		}
 
-		// 检查是否已存在
 		existing, _ := s.productRepo.GetByProductID(ctx, account.Platform, item.NumIid)
 		if existing != nil {
 			product.ID = existing.ID
@@ -887,7 +857,6 @@ func (s *IntegrationService) syncTaobaoProducts(ctx context.Context, account *mo
 		count++
 	}
 
-	// 更新同步时间
 	s.accountRepo.UpdateSyncTime(ctx, account.ID)
 	s.syncLogRepo.UpdateStatus(ctx, syncLog.ID, 1, count, "")
 
@@ -898,7 +867,6 @@ func (s *IntegrationService) syncTaobaoProducts(ctx context.Context, account *mo
 func (s *IntegrationService) syncJDProducts(ctx context.Context, account *model.IntegrationAccount) (int, error) {
 	client := NewJDClient(account)
 
-	// 创建同步日志
 	syncLog := &model.SyncLog{
 		Platform:  account.Platform,
 		SyncType:  "product",
@@ -909,7 +877,6 @@ func (s *IntegrationService) syncJDProducts(ctx context.Context, account *model.
 		return 0, err
 	}
 
-	// 京东 API 请求（简化版本）
 	apiURL := "https://api.jd.com/routerjson"
 	params := url.Values{
 		"app_key":   {client.appKey},
@@ -952,7 +919,6 @@ func (s *IntegrationService) syncJDProducts(ctx context.Context, account *model.
 		return 0, err
 	}
 
-	// 保存商品数据
 	count := 0
 	for _, sku := range result.SkuListResponse.Skus {
 		imagesJSON, _ := json.Marshal(sku.Images)
@@ -968,7 +934,6 @@ func (s *IntegrationService) syncJDProducts(ctx context.Context, account *model.
 			Status:     sku.Status,
 		}
 
-		// 检查是否已存在
 		existing, _ := s.productRepo.GetByProductID(ctx, account.Platform, sku.SkuId)
 		if existing != nil {
 			product.ID = existing.ID
@@ -979,7 +944,6 @@ func (s *IntegrationService) syncJDProducts(ctx context.Context, account *model.
 		count++
 	}
 
-	// 更新同步时间
 	s.accountRepo.UpdateSyncTime(ctx, account.ID)
 	s.syncLogRepo.UpdateStatus(ctx, syncLog.ID, 1, count, "")
 
@@ -1019,7 +983,6 @@ func (s *IntegrationService) GetExternalOrdersByCustomer(ctx context.Context, ph
 // 本系统记录 WebhookEvent 并 upsert ExternalOrder，使客服看到的订单状态与电商一致（防漂移）。
 // 订单镜像为只读，客服不创建/履约订单。
 func (s *IntegrationService) UpsertOrderFromWebhook(ctx context.Context, platform, orderID, status string, raw map[string]any) error {
-	// 记录订单状态变更事件（best-effort，失败不影响镜像刷新）
 	webhookEvent := &model.WebhookEvent{
 		Platform:  platform,
 		EventID:   fmt.Sprintf("%s:%s:%d", platform, orderID, time.Now().UnixNano()),
@@ -1029,7 +992,6 @@ func (s *IntegrationService) UpsertOrderFromWebhook(ctx context.Context, platfor
 	}
 	_ = s.webhookEventRepo.Create(ctx, webhookEvent)
 	existing, _ := s.orderRepo.GetByOrderID(ctx, platform, orderID)
-	// 基于已存在记录叠加，避免 Save 全量覆盖把未传字段清零（关键：upsert 语义）
 	o := &model.ExternalOrder{
 		Platform: platform,
 		OrderID:  orderID,
@@ -1115,3 +1077,4 @@ func (s *IntegrationService) TestConnection(ctx context.Context, account *model.
 	}
 	return nil
 }
+

@@ -116,24 +116,20 @@ func (c *XiaohongshuCardController) GenerateShortLink(ctx *gin.Context) {
 		return
 	}
 
-	// 先获取卡片信息
 	cardResp, err := c.service.GetByID(ctx, uint(id))
 	if HandleDBError(ctx, err, "获取小红书卡片") {
 		return
 	}
 
-	// 获取完整的卡片模型
 	card, err := c.service.GetCardModelByID(ctx, uint(id))
 	if HandleDBError(ctx, err, "获取小红书卡片") {
 		return
 	}
 
-	// 生成短链
 	if HandleDBError(ctx, c.service.GenerateShortLink(ctx, card), "生成短链") {
 		return
 	}
 
-	// 重新获取卡片信息以获取短链
 	cardResp, err = c.service.GetByID(ctx, uint(id))
 	if HandleDBError(ctx, err, "获取小红书卡片") {
 		return
@@ -152,3 +148,4 @@ func (c *XiaohongshuCardController) SharePage(ctx *gin.Context) {
 	}
 	renderCardChatPage(ctx, c.service.GenerateCardChatPage, uint(id), buildBaseURL(ctx))
 }
+

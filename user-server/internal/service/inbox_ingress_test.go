@@ -44,7 +44,6 @@ func TestInboxIngress_NormalizeEvent_RejectsEmptyChannel(t *testing.T) {
 
 func TestInboxIngress_NormalizeEvent_EmptySenderFallsBack(t *testing.T) {
 	svc := NewInboxIngressServiceWithDB(nil, cache.NewMemoryCache())
-	// 桥接场景：列表视图未进入会话时 sender_id 可能为空，应按兜底规则回落而非报错
 	ev := &model.MessageEvent{Channel: model.ChannelWeb}
 	if err := svc.NormalizeEvent(context.Background(), ev); err != nil {
 		t.Fatalf("空 sender_id 应走兜底而非报错，实际: %v", err)
@@ -60,7 +59,6 @@ func TestInboxIngress_HumanLockCycle(t *testing.T) {
 	svc := NewInboxIngressServiceWithDB(nil, c)
 
 	sessionID := "sess-lock-test"
-	// 未锁定状态
 	locked, err := svc.IsSessionHumanLocked(ctx, sessionID)
 	if err != nil {
 		t.Fatalf("check lock: %v", err)
@@ -69,7 +67,6 @@ func TestInboxIngress_HumanLockCycle(t *testing.T) {
 		t.Fatal("session should not be locked initially")
 	}
 
-	// 锁定
 	if err := svc.LockSessionForHuman(ctx, sessionID, "test"); err != nil {
 		t.Fatalf("lock: %v", err)
 	}
@@ -78,7 +75,6 @@ func TestInboxIngress_HumanLockCycle(t *testing.T) {
 		t.Fatal("session should be locked after LockSessionForHuman")
 	}
 
-	// 解除
 	if err := svc.UnlockSessionForHuman(ctx, sessionID); err != nil {
 		t.Fatalf("unlock: %v", err)
 	}
@@ -95,7 +91,6 @@ func TestInboxIngress_AIProcessingLockSerializes(t *testing.T) {
 
 	sessionID := "sess-ai-lock"
 
-	// 第一次获取成功
 	ok1, err := svc.tryAcquireAILock(ctx, sessionID)
 	if err != nil {
 		t.Fatalf("acquire1: %v", err)
@@ -104,13 +99,11 @@ func TestInboxIngress_AIProcessingLockSerializes(t *testing.T) {
 		t.Fatal("first acquire should succeed")
 	}
 
-	// 第二次应失败（已存在）
 	ok2, _ := svc.tryAcquireAILock(ctx, sessionID)
 	if ok2 {
 		t.Fatal("second acquire should fail (key exists)")
 	}
 
-	// 释放后能再获取
 	svc.ReleaseAILock(ctx, sessionID)
 	ok3, _ := svc.tryAcquireAILock(ctx, sessionID)
 	if !ok3 {
@@ -144,7 +137,6 @@ func TestInboxIngress_PendingQueue(t *testing.T) {
 		t.Fatalf("expected 3 pending, got %d", len(items))
 	}
 
-	// 第二次 pop 应该为空（队列已清）
 	items2, _ := svc.PopPendingMessages(ctx, sessionID)
 	if len(items2) != 0 {
 		t.Fatalf("expected empty after first pop, got %d", len(items2))
@@ -215,7 +207,6 @@ func TestInboxIngress_HandleIngressMessage_TriggersAITrigger(t *testing.T) {
 	if result.HumanLocked {
 		t.Fatal("should not be human_locked")
 	}
-	// 关键：aiTrigger 必须被调用一次
 	if trigger.called != 1 {
 		t.Fatalf("aiTrigger should be invoked once, got %d", trigger.called)
 	}
@@ -231,8 +222,6 @@ func TestInboxIngress_HandleIngressMessage_TriggersAITrigger(t *testing.T) {
 	if trigger.lastEventID != "evt-test-1" {
 		t.Fatalf("eventID mismatch: got %q", trigger.lastEventID)
 	}
-	// 2026-08-05 重构后：AI 锁不再持有（batch 内合并触发，单条入口立即释放）
-	// AI 合并由 HandleIngressBatch 在 batch 末尾统一处理
 }
 
 func TestInboxIngress_HandleIngressMessage_QueuesWhileAIBusy(t *testing.T) {
@@ -240,7 +229,6 @@ func TestInboxIngress_HandleIngressMessage_QueuesWhileAIBusy(t *testing.T) {
 	c := cache.NewMemoryCache()
 	svc := NewInboxIngressServiceWithDB(nil, c)
 
-	// 第一条拿到 AI 锁
 	first := &model.MessageEvent{
 		Channel:  model.ChannelWeb,
 		SenderID: "user-x",
@@ -252,7 +240,6 @@ func TestInboxIngress_HandleIngressMessage_QueuesWhileAIBusy(t *testing.T) {
 	}
 	_ = r1.SessionID
 
-	// 第二条在 AI 忙时应进入 pending
 	second := &model.MessageEvent{
 		Channel:  model.ChannelWeb,
 		SenderID: "user-x",
@@ -297,7 +284,6 @@ func TestInboxIngress_EndToEndScenario(t *testing.T) {
 	c := cache.NewMemoryCache()
 	svc := NewInboxIngressServiceWithDB(nil, c)
 
-	// 场景 1：客户首条消息
 	r1, err := svc.HandleIngressMessage(ctx, &model.MessageEvent{
 		Channel:  model.ChannelTelegram,
 		SenderID: "tg-customer-1",
@@ -310,7 +296,6 @@ func TestInboxIngress_EndToEndScenario(t *testing.T) {
 		t.Fatal("first message should trigger AI")
 	}
 
-	// 场景 2：客户在 AI 推理期间又发一条
 	r2, err := svc.HandleIngressMessage(ctx, &model.MessageEvent{
 		Channel:  model.ChannelTelegram,
 		SenderID: "tg-customer-1",
@@ -323,12 +308,10 @@ func TestInboxIngress_EndToEndScenario(t *testing.T) {
 		t.Fatal("second message should be queued (AI lock held)")
 	}
 
-	// 场景 3：转人工门禁触发
 	if err := svc.LockSessionForHuman(ctx, r1.SessionID, "用户要求转人工"); err != nil {
 		t.Fatalf("scenario step3 lock: %v", err)
 	}
 
-	// 场景 4：转人工后新消息应走人工锁
 	r4, err := svc.HandleIngressMessage(ctx, &model.MessageEvent{
 		Channel:  model.ChannelTelegram,
 		SenderID: "tg-customer-1",
@@ -341,7 +324,6 @@ func TestInboxIngress_EndToEndScenario(t *testing.T) {
 		t.Fatal("after human lock, message should be human-locked")
 	}
 
-	// 场景 5：人工释放后 AI 可恢复
 	if err := svc.UnlockSessionForHuman(ctx, r1.SessionID); err != nil {
 		t.Fatalf("scenario step5 unlock: %v", err)
 	}
@@ -361,3 +343,4 @@ func TestInboxIngress_EndToEndScenario(t *testing.T) {
 		t.Fatal("after unlock, AI should be triggered again")
 	}
 }
+

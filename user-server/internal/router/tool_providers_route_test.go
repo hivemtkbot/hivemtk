@@ -12,7 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ---- 测试用 Mock Provider（P1-1：原 router 侧 HTTP 用例从 app 测试迁回）----
 
 // providersRouteMockProvider 测试用 Provider
 type providersRouteMockProvider struct {
@@ -27,7 +26,6 @@ func (p *providersRouteMockProvider) Provide(ctx tooluse.ProviderContext) ([]too
 	return p.tools, nil
 }
 
-// ===== HTTP API /api/agent/tools/providers 端到端 =====
 
 func TestSetup_ToolProvidersRouteRegistered(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -47,7 +45,6 @@ func TestSetup_ToolProvidersRouteRegistered(t *testing.T) {
 
 func TestHandleToolProviders_HTTP_WithoutInit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	// 临时清空全局 ProviderRegistry
 	orig := app.GetGlobalProviderRegistry()
 	app.SetGlobalProviderRegistryForTest(nil)
 	defer app.SetGlobalProviderRegistryForTest(orig)
@@ -73,7 +70,6 @@ func TestHandleToolProviders_HTTP_WithoutInit(t *testing.T) {
 func TestHandleToolProviders_HTTP_WithProviderRegistry(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	// 构造一个已装配的 ProviderRegistry
 	providerRegistry := tooluse.NewProviderRegistry()
 	_ = providerRegistry.RegisterProvider(&providersRouteMockProvider{
 		name:  "testp",
@@ -104,7 +100,6 @@ func TestHandleToolProviders_HTTP_WithProviderRegistry(t *testing.T) {
 	if resp["success"] != true {
 		t.Errorf("success should be true; body=%s", w.Body.String())
 	}
-	// total_providers 应为 1
 	if int(resp["total_providers"].(float64)) != 1 {
 		t.Errorf("total_providers = %v, want 1", resp["total_providers"])
 	}
@@ -117,3 +112,4 @@ func TestHandleToolProviders_HTTP_WithProviderRegistry(t *testing.T) {
 		t.Errorf("provider_name = %v, want testp", first["provider_name"])
 	}
 }
+

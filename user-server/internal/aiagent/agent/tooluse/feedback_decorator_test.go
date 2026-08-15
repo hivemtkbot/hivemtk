@@ -9,19 +9,7 @@ import (
 	"time"
 )
 
-// feedback_decorator_test.go : 反馈回流装饰器测试
-//
-// 覆盖：
-//   1. FeedbackCollectorDecorator 基础功能：成功/失败/panic
-//   2. FeedbackSink nil 时零开销放行
-//   3. 异步回流不阻塞主链路
-//   4. 参数脱敏（敏感字段值替换为 ***）
-//   5. 上下文信息提取（trace_id/session_id/customer_id/agent_id/source）
-//   6. MemoryFeedbackSink 内存实现
-//   7. NoOpFeedbackSink 空操作实现
-//   8. 装饰器链位置（位于审计之后、handler 之前）
 
-// ===== 1. FeedbackCollectorDecorator 基础功能 =====
 
 func TestFeedbackCollectorDecorator_Success(t *testing.T) {
 	sink := NewMemoryFeedbackSink(100)
@@ -48,7 +36,6 @@ func TestFeedbackCollectorDecorator_Success(t *testing.T) {
 		t.Fatalf("期望 Success=true")
 	}
 
-	// 等待异步回流完成
 	waitForAsync(func() bool { return sink.Count() == 1 }, time.Second)
 
 	if sink.Count() != 1 {
@@ -96,7 +83,6 @@ func TestFeedbackCollectorDecorator_Failure(t *testing.T) {
 	ctx := WithToolName(context.Background(), "fail_tool")
 	result, err := decorated(ctx, map[string]any{})
 
-	// 错误应当透传
 	if err == nil {
 		t.Fatalf("期望非 nil 错误")
 	}
@@ -123,7 +109,6 @@ func TestFeedbackCollectorDecorator_NilSink_NoOp(t *testing.T) {
 	var callCount int32
 	handler := makeHandler("test_tool", &callCount, true, "")
 
-	// sink 为 nil 时应直接放行，零开销
 	decorated := FeedbackCollectorDecorator(nil)(handler)
 
 	ctx := WithToolName(context.Background(), "test_tool")
@@ -140,7 +125,6 @@ func TestFeedbackCollectorDecorator_NilSink_NoOp(t *testing.T) {
 }
 
 func TestFeedbackCollectorDecorator_AsyncNoBlocking(t *testing.T) {
-	// sink 故意慢（200ms），验证主链路不被阻塞
 	slowSink := &slowFeedbackSink{delay: 200 * time.Millisecond}
 	var callCount int32
 	handler := makeHandler("test_tool", &callCount, true, "")
@@ -159,12 +143,10 @@ func TestFeedbackCollectorDecorator_AsyncNoBlocking(t *testing.T) {
 		t.Fatalf("期望 Success=true")
 	}
 
-	// 主链路应在 50ms 内返回（sink 的 200ms 延迟不应阻塞）
 	if elapsed > 50*time.Millisecond {
 		t.Errorf("期望主链路 < 50ms，实际 %v（异步回流被阻塞）", elapsed)
 	}
 
-	// 等待异步回流完成
 	time.Sleep(300 * time.Millisecond)
 	if slowSink.callCount.Load() != 1 {
 		t.Errorf("期望 sink 调用 1 次，实际 %d", slowSink.callCount.Load())
@@ -184,7 +166,6 @@ func (s *slowFeedbackSink) RecordToolCall(ctx context.Context, event ToolCallEve
 	return nil
 }
 
-// ===== 2. 参数脱敏 =====
 
 func TestSanitizeArgsForFeedback_SensitiveFields(t *testing.T) {
 	args := map[string]any{
@@ -235,10 +216,9 @@ func TestSanitizeArgsForFeedback_Empty(t *testing.T) {
 	}
 }
 
-// ===== 3. MemoryFeedbackSink 内存实现 =====
 
 func TestMemoryFeedbackSink_Capacity(t *testing.T) {
-	sink := NewMemoryFeedbackSink(3) // 容量 3
+	sink := NewMemoryFeedbackSink(3) 
 
 	for i := 0; i < 5; i++ {
 		if err := sink.RecordToolCall(context.Background(), ToolCallEvent{
@@ -257,9 +237,6 @@ func TestMemoryFeedbackSink_Capacity(t *testing.T) {
 	if len(events) != 3 {
 		t.Errorf("期望 3 个事件，实际 %d", len(events))
 	}
-	// 验证保留最新的 3 个（滚动覆盖最旧）
-	// 由于实现是 s.events = s.events[1:]，最新的事件在末尾
-	// 这里仅验证数量和容量上限
 }
 
 func TestMemoryFeedbackSink_Reset(t *testing.T) {
@@ -278,7 +255,6 @@ func TestMemoryFeedbackSink_Reset(t *testing.T) {
 	}
 }
 
-// ===== 4. NoOpFeedbackSink 空操作实现 =====
 
 func TestNoOpFeedbackSink(t *testing.T) {
 	var sink NoOpFeedbackSink
@@ -287,10 +263,8 @@ func TestNoOpFeedbackSink(t *testing.T) {
 	}
 }
 
-// ===== 5. 装饰器链位置 =====
 
 func TestFeedbackCollectorDecorator_ChainOrder(t *testing.T) {
-	// 验证：装饰器位于 handler 之外，result 先产生再回流
 	sink := NewMemoryFeedbackSink(100)
 
 	var handlerCalled atomic.Int32
@@ -301,12 +275,9 @@ func TestFeedbackCollectorDecorator_ChainOrder(t *testing.T) {
 		return SuccessResult("test_tool", "data"), nil
 	}
 
-	// 包装 sink，记录被调用时 handler 是否已执行
 	wrapSink := &orderingCheckSink{
 		inner: sink,
 		checkFunc: func() {
-			// 异步 goroutine 中 handler 已执行完
-			// 但我们检查 sink 在 handler 之后被触发
 			sinkRecordedHandlerCalled.Store(handlerCalled.Load())
 		},
 	}
@@ -315,7 +286,6 @@ func TestFeedbackCollectorDecorator_ChainOrder(t *testing.T) {
 	ctx := WithToolName(context.Background(), "test_tool")
 	decorated(ctx, map[string]any{})
 
-	// 等待异步回流
 	waitForAsync(func() bool { return wrapSink.callCount.Load() == 1 }, time.Second)
 
 	if sinkRecordedHandlerCalled.Load() != 1 {
@@ -340,7 +310,6 @@ func (s *orderingCheckSink) RecordToolCall(ctx context.Context, event ToolCallEv
 	return nil
 }
 
-// ===== 6. 并发安全 =====
 
 func TestFeedbackCollectorDecorator_ConcurrentSafe(t *testing.T) {
 	sink := NewMemoryFeedbackSink(1000)
@@ -362,7 +331,6 @@ func TestFeedbackCollectorDecorator_ConcurrentSafe(t *testing.T) {
 	}
 	wg.Wait()
 
-	// 等待所有异步回流完成（50 个 goroutine 异步写入，给足时间）
 	waitForAsync(func() bool { return sink.Count() == concurrency }, 5*time.Second)
 
 	if sink.Count() != concurrency {
@@ -373,7 +341,6 @@ func TestFeedbackCollectorDecorator_ConcurrentSafe(t *testing.T) {
 	}
 }
 
-// ===== 辅助函数 =====
 
 // waitForAsync 等待异步条件满足或超时
 func waitForAsync(cond func() bool, timeout time.Duration) {
@@ -388,3 +355,4 @@ func waitForAsync(cond func() bool, timeout time.Duration) {
 
 // 确保 errors 包被使用
 var _ = errors.New
+

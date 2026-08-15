@@ -7,13 +7,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// ============================================================================
-// 全局依赖持有（P1-1：原 router/globals.go 迁入装配包）
-// ----------------------------------------------------------------------------
-// 启动期由 main.go 通过 SetGlobalDispatcher / SetGlobalProviderFailover 注入，
-// router 层读取后构造 service/controller。
-// 设计取舍：不引入 DI 容器（项目禁用），用最简全局变量 + setter。
-// ============================================================================
 
 var (
 	globalMu               sync.RWMutex
@@ -49,9 +42,6 @@ func GetGlobalProviderFailover() *llm.ProviderFailover {
 	return globalProviderFailover
 }
 
-// ============================================================================
-// 桥接入站服务持有（原 router 包级变量 bridgeIngressSvc，P1-1 随装配收敛迁入）
-// ============================================================================
 
 var globalBridgeIngressSvc *service.InboxIngressService
 
@@ -60,3 +50,4 @@ func SetBridgeIngressSvc(s *service.InboxIngressService) { globalBridgeIngressSv
 
 // GetBridgeIngressSvc 读取桥接入站服务（装配前为 nil）
 func GetBridgeIngressSvc() *service.InboxIngressService { return globalBridgeIngressSvc }
+

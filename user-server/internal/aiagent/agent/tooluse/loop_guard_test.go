@@ -10,23 +10,7 @@ import (
 	"time"
 )
 
-// loop_guard_test.go : 工具级循环检测装饰器测试
-//
-// 覆盖：
-//   1. LoopGuard 基础功能：允许/拦截
-//   2. 不同参数的调用不触发循环检测
-//   3. 不同 trace_id 独立计数
-//   4. 窗口过期后重新允许调用
-//   5. trace_id 为空时退化为 tool_name 维度
-//   6. LoopGuardDecorator 装饰器集成
-//   7. ErrLoopDetected 是不可重试错误
-//   8. 容量保护（MaxTraces）
-//   9. 配置覆盖
-//  10. 并发安全
-//  11. nil guard 零开销
-//  12. disabled 配置时直接放行
 
-// ===== 1. LoopGuard 基础功能 =====
 
 func TestLoopGuard_AllowUnderThreshold(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
@@ -37,14 +21,12 @@ func TestLoopGuard_AllowUnderThreshold(t *testing.T) {
 
 	args := map[string]any{"q": "hello"}
 
-	// 1-3 次允许
 	for i := 1; i <= 3; i++ {
 		if err := guard.CheckAndRecord("trace-001", "test_tool", args); err != nil {
 			t.Errorf("第 %d 次调用应允许，实际 %v", i, err)
 		}
 	}
 
-	// 第 4 次应被拦截
 	if err := guard.CheckAndRecord("trace-001", "test_tool", args); !errors.Is(err, ErrLoopDetected) {
 		t.Errorf("第 4 次调用应返回 ErrLoopDetected，实际 %v", err)
 	}
@@ -63,12 +45,10 @@ func TestLoopGuard_BlockOverThreshold(t *testing.T) {
 	}
 }
 
-// ===== 2. 不同参数的调用不触发循环检测 =====
 
 func TestLoopGuard_DifferentArgsNoLoop(t *testing.T) {
 	guard := NewLoopGuard(DefaultLoopGuardConfig())
 
-	// 相同工具，不同参数，不构成循环
 	for i := 0; i < 10; i++ {
 		args := map[string]any{"q": string(rune('a' + i))}
 		if err := guard.CheckAndRecord("trace-001", "test_tool", args); err != nil {
@@ -77,55 +57,46 @@ func TestLoopGuard_DifferentArgsNoLoop(t *testing.T) {
 	}
 }
 
-// ===== 3. 不同 trace_id 独立计数 =====
 
 func TestLoopGuard_DifferentTraceIndependent(t *testing.T) {
 	guard := NewLoopGuard(DefaultLoopGuardConfig())
 
 	args := map[string]any{"q": "hello"}
 
-	// trace-001 调用 3 次（达到上限）
 	for i := 0; i < 3; i++ {
 		guard.CheckAndRecord("trace-001", "test_tool", args)
 	}
 
-	// trace-002 调用相同工具相同参数，应被允许（独立计数）
 	if err := guard.CheckAndRecord("trace-002", "test_tool", args); err != nil {
 		t.Errorf("不同 trace_id 的调用应允许，实际 %v", err)
 	}
 }
 
-// ===== 4. 窗口过期后重新允许调用 =====
 
 func TestLoopGuard_WindowExpiry(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
 		MaxRepeatCount: 2,
-		WindowSize:     50 * time.Millisecond, // 短窗口便于测试
+		WindowSize:     50 * time.Millisecond, 
 		Enabled:        true,
 	})
 
 	args := map[string]any{"q": "hello"}
 
-	// 调用 2 次（达到上限）
 	for i := 0; i < 2; i++ {
 		guard.CheckAndRecord("trace-001", "test_tool", args)
 	}
 
-	// 第 3 次应被拦截
 	if err := guard.CheckAndRecord("trace-001", "test_tool", args); !errors.Is(err, ErrLoopDetected) {
 		t.Errorf("第 3 次调用应被拦截，实际 %v", err)
 	}
 
-	// 等待窗口过期
 	time.Sleep(80 * time.Millisecond)
 
-	// 窗口过期后应重新允许
 	if err := guard.CheckAndRecord("trace-001", "test_tool", args); err != nil {
 		t.Errorf("窗口过期后应允许调用，实际 %v", err)
 	}
 }
 
-// ===== 5. trace_id 为空时退化为 tool_name 维度 =====
 
 func TestLoopGuard_EmptyTraceFallback(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
@@ -136,20 +107,17 @@ func TestLoopGuard_EmptyTraceFallback(t *testing.T) {
 
 	args := map[string]any{"q": "hello"}
 
-	// trace_id 为空，应退化为 tool_name 维度
 	for i := 0; i < 2; i++ {
 		if err := guard.CheckAndRecord("", "test_tool", args); err != nil {
 			t.Errorf("第 %d 次调用应允许，实际 %v", i, err)
 		}
 	}
 
-	// 第 3 次应被拦截
 	if err := guard.CheckAndRecord("", "test_tool", args); !errors.Is(err, ErrLoopDetected) {
 		t.Errorf("第 3 次调用应被拦截（trace_id 为空时退化），实际 %v", err)
 	}
 }
 
-// ===== 6. LoopGuardDecorator 装饰器集成 =====
 
 func TestLoopGuardDecorator_BlocksLoop(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
@@ -167,14 +135,12 @@ func TestLoopGuardDecorator_BlocksLoop(t *testing.T) {
 	ctx := WithToolName(context.Background(), "test_tool")
 	ctx = WithTraceID(ctx, "trace-001")
 
-	// 前 2 次允许
 	for i := 0; i < 2; i++ {
 		if _, err := decorated(ctx, args); err != nil {
 			t.Errorf("第 %d 次调用应允许，实际 %v", i+1, err)
 		}
 	}
 
-	// 第 3 次应被拦截，handler 不应被调用
 	before := atomic.LoadInt32(&callCount)
 	result, err := decorated(ctx, args)
 	if !errors.Is(err, ErrLoopDetected) {
@@ -193,7 +159,6 @@ func TestLoopGuardDecorator_NilGuard_NoOp(t *testing.T) {
 	var callCount int32
 	handler := makeHandler("test_tool", &callCount, true, "")
 
-	// guard 为 nil 时应直接放行
 	decorated := LoopGuardDecorator(nil)(handler)
 
 	ctx := WithToolName(context.Background(), "test_tool")
@@ -209,7 +174,7 @@ func TestLoopGuardDecorator_NilGuard_NoOp(t *testing.T) {
 
 func TestLoopGuardDecorator_DisabledConfig_NoOp(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
-		Enabled: false, // 禁用
+		Enabled: false, 
 	})
 
 	var callCount int32
@@ -224,7 +189,6 @@ func TestLoopGuardDecorator_DisabledConfig_NoOp(t *testing.T) {
 	}
 }
 
-// ===== 7. ErrLoopDetected 是不可重试错误 =====
 
 func TestErrLoopDetected_NonRetryable(t *testing.T) {
 	if !isNonRetryableError(ErrLoopDetected) {
@@ -233,30 +197,23 @@ func TestErrLoopDetected_NonRetryable(t *testing.T) {
 	if !errors.Is(ErrLoopDetected, ErrLoopDetected) {
 		t.Errorf("errors.Is(ErrLoopDetected, ErrLoopDetected) 应为 true")
 	}
-	// wrapped 错误也应被识别
 	wrapped := errors.New("wrapped: " + ErrLoopDetected.Error())
-	// 注意：errors.New 不保留包装关系，需要用 fmt.Errorf %w
-	// 这里验证 isNonRetryableError 对 wrapped 错误的处理
 	if isNonRetryableError(wrapped) {
-		// 当前实现用 errors.Is 检查，wrapped（非 %w）不会被识别
-		// 这是预期行为：业务代码应使用 fmt.Errorf("...: %w", ErrLoopDetected)
 		t.Logf("wrapped 错误被识别为不可重试（含字符串匹配，但 isNonRetryableError 不依赖字符串匹配）")
 	}
 }
 
-// ===== 8. 容量保护（MaxTraces） =====
 
 func TestLoopGuard_MaxTracesEviction(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
 		MaxRepeatCount: 100,
 		WindowSize:     60 * time.Second,
-		MaxTraces:      3, // 仅保留 3 个 trace
+		MaxTraces:      3, 
 		Enabled:        true,
 	})
 
 	args := map[string]any{"q": "hello"}
 
-	// 创建 5 个不同 trace_id
 	for i := 0; i < 5; i++ {
 		traceID := "trace-" + string(rune('0'+i))
 		guard.CheckAndRecord(traceID, "test_tool", args)
@@ -268,7 +225,6 @@ func TestLoopGuard_MaxTracesEviction(t *testing.T) {
 	}
 }
 
-// ===== 9. 配置覆盖 =====
 
 func TestLoopGuardConfig_Defaults(t *testing.T) {
 	cfg := DefaultLoopGuardConfig()
@@ -285,7 +241,6 @@ func TestLoopGuardConfig_Defaults(t *testing.T) {
 
 func TestNewLoopGuard_ZeroConfig_Defaults(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{})
-	// 零值配置应被默认值填充
 	if guard.config.MaxRepeatCount != 3 {
 		t.Errorf("零值 MaxRepeatCount 应填充为 3，实际 %d", guard.config.MaxRepeatCount)
 	}
@@ -294,11 +249,10 @@ func TestNewLoopGuard_ZeroConfig_Defaults(t *testing.T) {
 	}
 }
 
-// ===== 10. 并发安全 =====
 
 func TestLoopGuard_ConcurrentSafe(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
-		MaxRepeatCount: 1000, // 高阈值，避免触发循环
+		MaxRepeatCount: 1000, 
 		WindowSize:     60 * time.Second,
 		MaxTraces:      10000,
 		Enabled:        true,
@@ -318,14 +272,12 @@ func TestLoopGuard_ConcurrentSafe(t *testing.T) {
 	}
 	wg.Wait()
 
-	// 不应 panic，不应死锁
 	stats := guard.Stats()
 	if stats.ActiveTraces == 0 {
 		t.Errorf("并发后应有活跃 trace")
 	}
 }
 
-// ===== 11. Reset 清空历史 =====
 
 func TestLoopGuard_Reset(t *testing.T) {
 	guard := NewLoopGuard(DefaultLoopGuardConfig())
@@ -345,13 +297,11 @@ func TestLoopGuard_Reset(t *testing.T) {
 		t.Errorf("Reset 后 ActiveTraces 应为 0，实际 %d", stats.ActiveTraces)
 	}
 
-	// Reset 后应重新允许调用
 	if err := guard.CheckAndRecord("trace-001", "test_tool", args); err != nil {
 		t.Errorf("Reset 后应允许调用，实际 %v", err)
 	}
 }
 
-// ===== 12. Stats 统计 =====
 
 func TestLoopGuard_Stats(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
@@ -374,11 +324,8 @@ func TestLoopGuard_Stats(t *testing.T) {
 	}
 }
 
-// ===== 13. 集成测试：反馈回流 + 循环检测协同 =====
 
 func TestLoopGuard_FeedbackRecordsLoopEvent(t *testing.T) {
-	// 验证：当循环检测命中时，反馈回流仍能记录失败事件
-	// 装饰器链顺序：反馈回流（外） → 循环检测（内） → handler
 	guard := NewLoopGuard(LoopGuardConfig{
 		MaxRepeatCount: 2,
 		WindowSize:     60 * time.Second,
@@ -389,7 +336,6 @@ func TestLoopGuard_FeedbackRecordsLoopEvent(t *testing.T) {
 	var callCount int32
 	handler := makeHandler("test_tool", &callCount, true, "")
 
-	// 构造链：先包装循环检测，再包装反馈回流
 	chain := LoopGuardDecorator(guard)(handler)
 	chain = FeedbackCollectorDecorator(sink)(chain)
 
@@ -397,14 +343,12 @@ func TestLoopGuard_FeedbackRecordsLoopEvent(t *testing.T) {
 	ctx = WithTraceID(ctx, "trace-001")
 	args := map[string]any{"q": "hello"}
 
-	// 前 2 次允许
 	for i := 0; i < 2; i++ {
 		if _, err := chain(ctx, args); err != nil {
 			t.Errorf("第 %d 次调用应允许，实际 %v", i+1, err)
 		}
 	}
 
-	// 第 3 次循环命中
 	result, err := chain(ctx, args)
 	if !errors.Is(err, ErrLoopDetected) {
 		t.Errorf("第 3 次调用应返回 ErrLoopDetected，实际 %v", err)
@@ -413,7 +357,6 @@ func TestLoopGuard_FeedbackRecordsLoopEvent(t *testing.T) {
 		t.Errorf("期望 Success=false")
 	}
 
-	// 等待异步回流
 	waitForAsync(func() bool { return sink.Count() == 3 }, 2*time.Second)
 
 	events := sink.Events()
@@ -446,11 +389,8 @@ func TestLoopGuard_FeedbackRecordsLoopEvent(t *testing.T) {
 	}
 }
 
-// ===== 14. 集成测试：循环检测不误判重试 =====
 
 func TestLoopGuard_RetryDoesNotTriggerLoop(t *testing.T) {
-	// 验证：循环检测位于重试之外，重试不触发循环检测
-	// 装饰器链顺序：循环检测（外） → 重试（内） → handler
 	guard := NewLoopGuard(LoopGuardConfig{
 		MaxRepeatCount: 2,
 		WindowSize:     60 * time.Second,
@@ -458,7 +398,6 @@ func TestLoopGuard_RetryDoesNotTriggerLoop(t *testing.T) {
 	})
 
 	var callCount int32
-	// handler 前 2 次失败，第 3 次成功
 	handler := func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		n := atomic.AddInt32(&callCount, 1)
 		if n < 3 {
@@ -467,7 +406,6 @@ func TestLoopGuard_RetryDoesNotTriggerLoop(t *testing.T) {
 		return SuccessResult("test_tool", "ok"), nil
 	}
 
-	// 构造链：先包装重试，再包装循环检测
 	policy := NewExponentialBackoffPolicy(5, 1*time.Millisecond, 10*time.Millisecond)
 	chain := RetryDecorator(policy)(handler)
 	chain = LoopGuardDecorator(guard)(chain)
@@ -476,7 +414,6 @@ func TestLoopGuard_RetryDoesNotTriggerLoop(t *testing.T) {
 	ctx = WithTraceID(ctx, "trace-001")
 	args := map[string]any{"q": "hello"}
 
-	// 第一次逻辑调用：内部重试 3 次后成功，不应触发循环检测
 	result, err := chain(ctx, args)
 	if err != nil {
 		t.Fatalf("第一次调用应成功，实际 %v", err)
@@ -488,7 +425,6 @@ func TestLoopGuard_RetryDoesNotTriggerLoop(t *testing.T) {
 		t.Errorf("期望 handler 被调用 3 次（2 次重试 + 1 次成功），实际 %d", callCount)
 	}
 
-	// 第二次逻辑调用（相同参数）应仍被允许（重试不应消耗循环检测配额）
 	callCount = 0
 	result, err = chain(ctx, args)
 	if err != nil {
@@ -498,3 +434,4 @@ func TestLoopGuard_RetryDoesNotTriggerLoop(t *testing.T) {
 		t.Errorf("期望 Success=true")
 	}
 }
+

@@ -70,7 +70,6 @@ func (ctrl *FeishuAccountController) TestSendQuery(c *gin.Context) {
 	openID := c.Query("open_id")
 	content := c.Query("content")
 	if openID == "" || content == "" {
-		// 探测场景：仅校验账号存在，不真正发送
 		response.Success(c, gin.H{
 			"account_id":        acc.ID,
 			"account_name":      acc.AccountName,
@@ -224,7 +223,6 @@ func (ctrl *FeishuAccountController) Update(c *gin.Context) {
 	}
 	if req.AppSecret != nil && *req.AppSecret != "" {
 		acc.AppSecret = *req.AppSecret
-		// 更新凭据后清空 access_token，强制刷新
 		acc.AccessToken = ""
 		acc.TokenExpires = nil
 	}
@@ -329,3 +327,4 @@ func maskFeishuSecret(s string) string {
 	}
 	return fmt.Sprintf("%s****%s", s[:4], s[len(s)-4:])
 }
+

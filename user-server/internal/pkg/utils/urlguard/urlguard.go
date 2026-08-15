@@ -57,7 +57,6 @@ func ValidateURL(rawURL string) error {
 		return ErrHostInvalid
 	}
 
-	// 先尝试作为 IP 字面量校验（避免 DNS 解析）
 	if ip := net.ParseIP(host); ip != nil {
 		if isBlockedIP(ip) {
 			return ErrHostBlocked
@@ -65,7 +64,6 @@ func ValidateURL(rawURL string) error {
 		return nil
 	}
 
-	// 域名：解析所有 IP，任一为私有则拒绝（DNS rebinding 防护）
 	ips, err := net.LookupIP(host)
 	if err != nil {
 		return fmt.Errorf("urlguard: resolve host %s: %w", host, err)
@@ -84,31 +82,24 @@ func isBlockedIP(ip net.IP) bool {
 		return true
 	}
 
-	// 回环地址 127.0.0.0/8、::1/128
 	if ip.IsLoopback() {
 		return true
 	}
-	// 链路本地 169.254.0.0/16、fe80::/10（含 AWS/GCP/Azure 元数据 169.254.169.254）
 	if ip.IsLinkLocalUnicast() {
 		return true
 	}
-	// 未指定地址 0.0.0.0、::
 	if ip.IsUnspecified() {
 		return true
 	}
-	// 多播地址
 	if ip.IsMulticast() {
 		return true
 	}
 
-	// 私有地址段（RFC1918 + RFC4193）
 	if isPrivateRFC1918(ip) {
 		return true
 	}
 
-	// IPv4-mapped IPv6 (::ffff:x.x.x.x) 透明校验底层 IPv4
 	if v4 := ip.To4(); v4 != nil && !v4.Equal(ip) {
-		// ip 是 IPv6，但 v4 是其映射的 IPv4；额外校验
 		if isPrivateRFC1918(v4) || v4.IsLoopback() {
 			return true
 		}
@@ -119,13 +110,10 @@ func isBlockedIP(ip net.IP) bool {
 
 // isPrivateRFC1918 校验 IPv4 私有段或 IPv6 唯一本地地址
 func isPrivateRFC1918(ip net.IP) bool {
-	// net.IP.IsPrivate 在 Go 1.17+ 涵盖 RFC1918 + RFC4193
-	// 但部分云环境仍使用 100.64.0.0/10（RFC6598，运营商级 NAT）作为内部网络
 	if ip.IsPrivate() {
 		return true
 	}
 
-	// RFC6598 100.64.0.0/10（CGNAT，常用于云内网）
 	if v4 := ip.To4(); v4 != nil {
 		if v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127 {
 			return true
@@ -134,3 +122,4 @@ func isPrivateRFC1918(ip net.IP) bool {
 
 	return false
 }
+

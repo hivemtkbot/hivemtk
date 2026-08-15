@@ -1,27 +1,5 @@
 package feedbackloop
 
-// feedback_collector.go 反馈信号采集器
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十七章 §17.4.1
-//
-// 职责：统一接收三类反馈信号 → 计算奖励 → 写入 feedback_events → 异步聚合到 feedback_signals
-//
-// 架构：
-//   主链路 → Collect() (异步队列, <1ms 返回)
-//                  ↓
-//              [worker goroutine]
-//                  ↓
-//              批量刷盘（每 BatchSize 条或 FlushInterval 间隔）
-//                  ↓
-//              persist() (事务：写 feedback_events + upsert feedback_signals)
-//
-// 关键设计：
-//   1. 异步队列防止阻塞主链路（SalesEngine / API handler）
-//   2. 批量刷盘降低 DB 压力
-//   3. upsert feedback_signals 保证 session 级聚合原子性
-//   4. CollectSync 提供同步持久化路径（测试 / 关键场景）
-//   5. 优雅关闭：Stop() 触发 stopCh，worker 刷盘剩余 batch 后退出
 
 import (
 	"context"
@@ -44,9 +22,9 @@ import (
 type FeedbackCollector struct {
 	repo   *repository.FeedbackLoopRepository
 	config FeedbackCollectorConfig
-	queue  chan *dto.CollectRequest // 异步队列
-	stopCh chan struct{}            // 通知 worker 优雅关闭
-	done   chan struct{}            // worker 退出后关闭
+	queue  chan *dto.CollectRequest 
+	stopCh chan struct{}            
+	done   chan struct{}            
 }
 
 // NewFeedbackCollector 创建采集器（启动后台 worker）
@@ -118,9 +96,6 @@ func (c *FeedbackCollector) Stop() {
 	<-c.done
 }
 
-// ----------------------------------------------------------------------------
-// worker 后台批量刷盘
-// ----------------------------------------------------------------------------
 
 // worker 后台 worker（批量写入 + 信号聚合）
 func (c *FeedbackCollector) worker() {
@@ -139,8 +114,6 @@ func (c *FeedbackCollector) worker() {
 		cancel()
 		batch = batch[:0]
 	}
-	// 修复：flush（flushBatch→persist）panic 不得杀死 worker（否则 done 永不关闭、
-	// Stop() 关机会死锁且反馈采集静默停止）。recover 后仅记日志，循环继续。
 	safeFlush := func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -160,7 +133,6 @@ func (c *FeedbackCollector) worker() {
 		case <-ticker.C:
 			safeFlush()
 		case <-c.stopCh:
-			// 优雅关闭：先排空队列（非阻塞），再刷盘剩余 batch
 			for {
 				select {
 				case req := <-c.queue:
@@ -178,15 +150,11 @@ func (c *FeedbackCollector) worker() {
 func (c *FeedbackCollector) flushBatch(ctx context.Context, batch []*dto.CollectRequest) {
 	for _, req := range batch {
 		if err := c.persist(ctx, req); err != nil {
-			// 单条失败不阻断 batch 其他记录
 			continue
 		}
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 持久化 + 聚合
-// ----------------------------------------------------------------------------
 
 // persist 持久化单条事件 + upsert feedback_signals
 //
@@ -238,9 +206,6 @@ func (c *FeedbackCollector) persist(ctx context.Context, req *dto.CollectRequest
 	return c.repo.PersistFeedback(ctx, event, sig)
 }
 
-// ----------------------------------------------------------------------------
-// 奖励计算
-// ----------------------------------------------------------------------------
 
 // lookupWeight 查找信号权重（未配置则返回 0）
 func (c *FeedbackCollector) lookupWeight(key dto.FeedbackSignalKey) float64 {
@@ -276,7 +241,6 @@ func (c *FeedbackCollector) computeReward(key dto.FeedbackSignalKey, value any, 
 			return weight * normalized
 		}
 	}
-	// 布尔型 / 字符型：weight * 1.0
 	return weight
 }
 
@@ -313,10 +277,8 @@ func (c *FeedbackCollector) genEventID(req *dto.CollectRequest) string {
 	now := time.Now().UnixNano()
 	h := sha256.New()
 	fmt.Fprintf(h, "%s|%s|%s|%d|", req.SessionID, req.SignalKey, req.CustomerMsg, now)
-	// 追加 8 字节随机 nonce（rand.Read 失败时退化为时间戳字节，仍保证大部分场景唯一）
 	nonce := make([]byte, 8)
 	if _, err := rand.Read(nonce); err != nil {
-		// 极罕见情况（OS 熵池异常）；用 now 的字节模式填充
 		for i := 0; i < 8; i++ {
 			nonce[i] = byte(now >> (i * 8))
 		}
@@ -324,3 +286,4 @@ func (c *FeedbackCollector) genEventID(req *dto.CollectRequest) string {
 	h.Write(nonce)
 	return hex.EncodeToString(h.Sum(nil))[:32]
 }
+

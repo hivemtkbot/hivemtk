@@ -162,16 +162,12 @@ func MatchUnsubscribeKeyword(content string) string {
 		return ""
 	}
 
-	// 1. 完全匹配（最高优先级）
 	for _, kw := range smsUnsubscribeKeywords {
 		if strings.EqualFold(content, kw) {
 			return kw
 		}
 	}
 
-	// 2. 单字符/双字符关键词独立词匹配
-	// 例如 "TD" 必须独立出现，不能是 "TD-RFID"
-	// 中文关键词允许子串匹配（"TD退订"包含"TD"和"退订"）
 	lower := strings.ToLower(content)
 	for _, kw := range smsUnsubscribeKeywords {
 		if isAsciiKeyword(kw) {
@@ -179,7 +175,6 @@ func MatchUnsubscribeKeyword(content string) string {
 				return kw
 			}
 		} else {
-			// 中文关键词子串匹配
 			if strings.Contains(content, kw) {
 				return kw
 			}
@@ -206,13 +201,11 @@ func isStandaloneWord(content, kw string) bool {
 	}
 	idx := strings.Index(content, kw)
 	for idx >= 0 {
-		// 检查前一个字符
 		beforeOK := idx == 0
 		if !beforeOK {
 			r := rune(content[idx-1])
 			beforeOK = !isAlnum(r)
 		}
-		// 检查后一个字符
 		afterIdx := idx + len(kw)
 		afterOK := afterIdx >= len(content)
 		if !afterOK {
@@ -244,3 +237,4 @@ func isAlnum(r rune) bool {
 func smsUnsubscribeServiceWithDB(db *gorm.DB) *SmsUnsubscribeService {
 	return NewSmsUnsubscribeService(repository.NewSmsUnsubscribeRepository(db))
 }
+

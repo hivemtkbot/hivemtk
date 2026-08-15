@@ -112,7 +112,6 @@ func TestXianyuCardService_Update_Success(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
 
-	// 先创建卡片
 	createReq := &dto.XianyuCardCreateRequest{
 		Title:        "Original Card",
 		Description:  "Original description",
@@ -127,7 +126,6 @@ func TestXianyuCardService_Update_Success(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 更新卡片
 	updateReq := &dto.XianyuCardUpdateRequest{
 		ID:          createdCard.ID,
 		Title:       "Updated Card",
@@ -499,3 +497,4 @@ func TestXianyuCardService_Create_InactiveCard(t *testing.T) {
 		t.Error("Expected non-zero ID")
 	}
 }
+

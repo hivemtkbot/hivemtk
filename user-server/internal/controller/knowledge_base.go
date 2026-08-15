@@ -1,25 +1,5 @@
 package controller
 
-// knowledge_base_controller.go 知识库 L3 Controller
-//
-// 五层架构归属: L3 API 接入层
-// 设计依据: 强 1对1 改造 (知识库管理)
-//
-// 接口前缀: /api/knowledge-bases
-//   GET    /api/knowledge-bases                列表查询 (前端知识库管理页面)
-//   GET    /api/knowledge-bases/:id            详情
-//   POST   /api/knowledge-bases                新增
-//   PUT    /api/knowledge-bases/:id            更新
-//   DELETE /api/knowledge-bases/:id            删除 (业务级联: 同步删除 agent_kb_bindings)
-//   GET    /api/knowledge-bases/by-agent/:aid  查某智能体可用 KB
-//   GET    /api/knowledge-bases/by-type/:type  按类型查
-//   POST   /api/knowledge-bases/:id/bind       绑定到智能体
-//   POST   /api/knowledge-bases/:id/unbind     从智能体解绑
-//
-// 业务规则:
-//   - owner_type=private 时 owner_agent_id 必填
-//   - owner_type=shared  时 owner_agent_id 必为空
-//   - type 必为 faq / rag / sop
 
 import (
 	"net/http"
@@ -273,3 +253,4 @@ func (c *KnowledgeBaseController) UnbindFromAgent(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"kb_id": kbID, "agent_id": req.AgentID}, "解绑成功")
 }
+

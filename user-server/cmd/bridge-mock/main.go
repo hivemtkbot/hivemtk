@@ -47,7 +47,7 @@ import (
 
 const (
 	defaultPort         = "18080"
-	defaultAIDelayMs    = 1500 // mock AI 推理延迟
+	defaultAIDelayMs    = 1500 
 	mockAIDefaultReply  = "AI 自动回复：你好，很高兴为你服务 :)"
 	mockAccountIDPrefix = "mock"
 )
@@ -102,7 +102,6 @@ func (m *mockInbox) mockHandle(ctx context.Context, ev *model.MessageEvent) (*se
 	log.Printf("[mock] accepted + AI triggered: event=%s ch=%s acc=%s conv=%s content=%q (reply in %v)",
 		ev.EventID, ev.Channel, accountID, ev.ConversationID, ev.Content, m.aiDelay)
 
-	// 异步模拟 AI 推理 + deliverHTTP
 	go func(channel, acc, conv, eventID, reply string) {
 		select {
 		case <-time.After(m.aiDelay):
@@ -160,7 +159,6 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(func(c *gin.Context) {
-		// 入口日志：完整 URL + 全部 query + body 预览（与生产 handler 对齐）
 		body, _ := readBodyPreview(c.Request.Body, 4096)
 		c.Request.Body = readCloser{strings.NewReader(body)}
 		log.Printf("[MOCK-INGEST] POST %s?%s body=%s", c.Request.URL.Path, c.Request.URL.RawQuery, body)
@@ -171,11 +169,9 @@ func main() {
 	h := bridge.NewBridgeIngestHandlerWithMock(m.mockHandle, m.mockPersist)
 	r.POST("/api/bridge/ingest", h.HandleHTTPIngest)
 
-	// 健康检查
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "ai_delay_ms": aiDelay.Milliseconds()})
 	})
-	// 打印当前 mock 状态
 	r.GET("/mock/state", func(c *gin.Context) {
 		m.mu.Lock()
 		defer m.mu.Unlock()
@@ -189,9 +185,6 @@ func main() {
 		})
 	})
 
-	// 注意：2026-08-06 三通道架构后，AI 回复不再经内联长轮询（HTTPReplyPullerRegistry 已移除），
-	// 而是落库 message_hub(status=pending) 由桥接扩展 GET /api/bridge/outbox 拉取。
-	// 本 mock 仅验证 ingest 上行链路；AI 回复的 outbox 下发需真实 DB/AI 引擎，mock 不实现。
 
 	srv := &http.Server{Addr: ":" + port, Handler: r}
 	go func() {
@@ -214,7 +207,6 @@ func main() {
 		}
 	}()
 
-	// 优雅退出
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
@@ -264,3 +256,4 @@ func (rc readCloser) Close() error               { return nil }
 
 // 编译期断言：用到相关包避免被优化
 var _ = json.Marshal
+

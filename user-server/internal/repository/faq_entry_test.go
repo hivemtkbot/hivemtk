@@ -10,9 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// AI 智能体性能优化 - FAQ Repository 测试
-// 使用 testutil.NewTestDB 跑 PG 真实库 (项目唯一允许的测试 DB 模式)
-// 每个 test 用独立 question 前缀 + tx 隔离,避免进程级共享库的数据污染
 
 // boolPtr 工具函数,把 bool 转成 *bool (GORM v2 零值 false 处理)
 func boolPtr(v bool) *bool { return &v }
@@ -20,8 +17,6 @@ func boolPtr(v bool) *bool { return &v }
 func setupFAQTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := testutil.NewTestDB(t, &model.FAQEntry{})
-	// 每次 setup TRUNCATE 表,避免跨 test 数据污染
-	// 用 TRUNCATE RESTART IDENTITY 而非 DELETE: 确保自增 ID 也归零,排查更清晰
 	if err := db.Exec("TRUNCATE TABLE faq_entries RESTART IDENTITY").Error; err != nil {
 		t.Fatalf("truncate faq_entries: %v", err)
 	}
@@ -95,7 +90,7 @@ func TestFAQRepository_MatchByKeyword_Simple(t *testing.T) {
 		{Question: "韵达发货吗", Answer: "韵达不发的哦", Intent: "logistics", Confidence: 0.9, Enabled: boolPtr(true)},
 		{Question: "可以优惠价吗", Answer: "200 把起优惠", Intent: "pricing", Confidence: 0.85, Enabled: boolPtr(true)},
 		{Question: "纸皮核桃好不好", Answer: "是的哦", Intent: "product", Confidence: 0.8, Enabled: boolPtr(true)},
-		{Question: "退换货怎么操作", Answer: "联系客服", Intent: "aftersales", Confidence: 0.9, Enabled: boolPtr(false)}, // 禁用
+		{Question: "退换货怎么操作", Answer: "联系客服", Intent: "aftersales", Confidence: 0.9, Enabled: boolPtr(false)}, 
 	}
 	for _, e := range entries {
 		if err := repo.Create(ctx, e); err != nil {
@@ -103,7 +98,6 @@ func TestFAQRepository_MatchByKeyword_Simple(t *testing.T) {
 		}
 	}
 
-	// 测 1: 用户问"韵达能发吗" -> 应匹配 "韵达发货吗"
 	matches, err := repo.MatchByKeyword(ctx, "韵达能发吗", 3)
 	if err != nil {
 		t.Fatal(err)
@@ -115,7 +109,6 @@ func TestFAQRepository_MatchByKeyword_Simple(t *testing.T) {
 		t.Errorf("expected first match intent=logistics, got %s", matches[0].Intent)
 	}
 
-	// 测 2: 禁用的"退换货"不应被返回
 	matches2, _ := repo.MatchByKeyword(ctx, "退换货", 3)
 	for _, m := range matches2 {
 		if m.Enabled == nil || !*m.Enabled {
@@ -123,7 +116,6 @@ func TestFAQRepository_MatchByKeyword_Simple(t *testing.T) {
 		}
 	}
 
-	// 测 3: 关键词匹配"优惠价"
 	matches3, _ := repo.MatchByKeyword(ctx, "优惠价可以", 3)
 	if len(matches3) == 0 {
 		t.Error("expected at least 1 match for 优惠价")
@@ -173,3 +165,4 @@ func TestFAQRepository_IncrementHitCount(t *testing.T) {
 		t.Errorf("expected hit_count=2, got %d", got.HitCount)
 	}
 }
+

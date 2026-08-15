@@ -1,23 +1,5 @@
 package migrations
 
-// compliance_d_e_migration.go D+E 域合规迁移 v2.10.0
-//
-// 五层架构归属: L5 数据层
-// 设计依据:
-//   - 《互联网电子邮件服务管理办法》第十三条（邮件退订 + 追踪）
-//   - 《通信短消息服务管理规定》第十八条（短信退订 + 追踪）
-// 私域独立部署: 无 merchant_id 字段
-//
-// 本迁移创建 D+E 域（邮件+短信）合规所需的 6 张新表：
-//  1. email_unsubscribes    - 邮件退订名单（email 唯一）
-//  2. email_tracking_events - 邮件打开/点击/退订/退信事件追踪
-//  3. email_job_metrics     - 邮件任务聚合指标（每 job_id 一条）
-//  4. sms_unsubscribes      - 短信退订名单（phone 唯一）
-//  5. sms_delivery_statuses - 短信送达状态记录（每 message_id 一条）
-//  6. sms_job_metrics       - 短信任务聚合指标（每 job_id 一条）
-//
-// 幂等性: 所有 DDL 使用 IF NOT EXISTS，可重入
-// 依赖: 无（独立表）
 
 import (
 	"context"
@@ -57,32 +39,26 @@ func (m *ComplianceDEMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 1. email_unsubscribes 表（邮件退订名单）
 	if err := m.createEmailUnsubscribes(ctx); err != nil {
 		return fmt.Errorf("create email_unsubscribes 失败: %w", err)
 	}
 
-	// 2. email_tracking_events 表（邮件追踪事件）
 	if err := m.createEmailTrackingEvents(ctx); err != nil {
 		return fmt.Errorf("create email_tracking_events 失败: %w", err)
 	}
 
-	// 3. email_job_metrics 表（邮件任务指标）
 	if err := m.createEmailJobMetrics(ctx); err != nil {
 		return fmt.Errorf("create email_job_metrics 失败: %w", err)
 	}
 
-	// 4. sms_unsubscribes 表（短信退订名单）
 	if err := m.createSmsUnsubscribes(ctx); err != nil {
 		return fmt.Errorf("create sms_unsubscribes 失败: %w", err)
 	}
 
-	// 5. sms_delivery_statuses 表（短信送达状态）
 	if err := m.createSmsDeliveryStatuses(ctx); err != nil {
 		return fmt.Errorf("create sms_delivery_statuses 失败: %w", err)
 	}
 
-	// 6. sms_job_metrics 表（短信任务指标）
 	if err := m.createSmsJobMetrics(ctx); err != nil {
 		return fmt.Errorf("create sms_job_metrics 失败: %w", err)
 	}
@@ -290,3 +266,4 @@ func execAllComplianceDE(ctx context.Context, db *gorm.DB, stmts []string) error
 
 // compile-time 接口断言
 var _ migration.Migration = (*ComplianceDEMigration)(nil)
+

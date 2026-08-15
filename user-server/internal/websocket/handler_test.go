@@ -23,7 +23,6 @@ func TestWSHandler_BroadcastMessage(t *testing.T) {
 	handler := NewWSHandler()
 
 	data := map[string]any{"key": "value"}
-	// 私域部署：merchantID 留空
 	err := handler.BroadcastMessage("test_message", data)
 	_ = err
 }
@@ -73,7 +72,6 @@ func TestHandleWebSocket_InvalidAgentID(t *testing.T) {
 func TestHandleMarkRead(t *testing.T) {
 	handler := NewWSHandler()
 	hub := GetHub()
-	// 私域部署：NewClient 不再传 merchantID
 	client := NewWSClient(hub, "agent1", "Agent One")
 
 	msg := map[string]any{
@@ -251,3 +249,4 @@ func TestUpgrader_CheckOrigin(t *testing.T) {
 		t.Error("Expected CheckOrigin to return true")
 	}
 }
+

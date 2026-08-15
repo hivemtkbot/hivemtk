@@ -120,3 +120,4 @@ func TestDomainPool_WithEmptyPurpose(t *testing.T) {
 		t.Errorf("Expected empty Purpose, got %s", pool.Purpose)
 	}
 }
+

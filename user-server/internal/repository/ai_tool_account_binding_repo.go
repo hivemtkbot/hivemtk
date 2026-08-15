@@ -45,14 +45,12 @@ func (r *AIToolAccountBindingRepository) Delete(toolName, accountType, accountID
 
 // SetPrimary 设置主账号
 func (r *AIToolAccountBindingRepository) SetPrimary(toolName, accountType, accountID string) error {
-	// 先取消该工具该类型的所有主账号
 	err := r.db.Model(&model.AIToolAccountBinding{}).
 		Where("tool_name = ? AND account_type = ?", toolName, accountType).
 		Update("is_primary", false).Error
 	if err != nil {
 		return err
 	}
-	// 再设置指定账号为主账号
 	return r.db.Model(&model.AIToolAccountBinding{}).
 		Where("tool_name = ? AND account_type = ? AND account_id = ?", toolName, accountType, accountID).
 		Update("is_primary", true).Error
@@ -74,3 +72,4 @@ func (r *AIToolAccountBindingRepository) ListByAccountType(accountType string) (
 	err := r.db.Where("account_type = ?", accountType).Find(&bindings).Error
 	return bindings, err
 }
+

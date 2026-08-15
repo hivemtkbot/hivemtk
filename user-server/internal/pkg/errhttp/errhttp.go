@@ -42,7 +42,6 @@ func HandleServiceError(ctx *gin.Context, err error) bool {
 		response.NotFound(ctx, "记录不存在")
 		return true
 	}
-	// 业务错误统一返回 400，并透传真实错误原因（避免掩盖业务校验/DB 失败的具体信息）
 	response.Error(ctx, http.StatusBadRequest, err.Error())
 	return true
 }
@@ -50,8 +49,6 @@ func HandleServiceError(ctx *gin.Context, err error) bool {
 // isNotFoundError 判断错误是否表示记录不存在
 // 使用字符串匹配而非 gorm.ErrRecordNotFound，避免 controller 层依赖 gorm
 func isNotFoundError(err error) bool {
-	// 服务层可能使用 errors.New("xxx不存在") 包装错误，检查错误消息
-	// gorm.ErrRecordNotFound 的消息为 "record not found"，同样会被 "not found" 匹配
 	msg := err.Error()
 	return strings.Contains(msg, "不存在") || strings.Contains(msg, "not found")
 }
@@ -60,3 +57,4 @@ func isNotFoundError(err error) bool {
 func IsNotFoundError(err error) bool {
 	return isNotFoundError(err)
 }
+

@@ -24,21 +24,17 @@ func NewRagConfigController(service *service.RagConfigService) *RagConfigControl
 func (ctrl *RagConfigController) RegisterRoutes(router *gin.RouterGroup) {
 	rag := router.Group("/rag-config")
 	{
-		// RAG产品管理
 		rag.POST("/products", ctrl.CreateRagProduct)
 		rag.GET("/products", ctrl.ListRagProducts)
 		rag.GET("/products/:id", ctrl.GetRagProduct)
 		rag.PUT("/products/:id", ctrl.UpdateRagProduct)
 		rag.DELETE("/products/:id", ctrl.DeleteRagProduct)
 
-		// 账号配置管理
 		rag.GET("/accounts/config", ctrl.GetAccountConfig)
 		rag.PUT("/accounts/config", ctrl.UpdateAccountConfig)
 
-		// 消息处理
 		rag.POST("/process-message", ctrl.ProcessMessage)
 
-		// RAG查询
 		rag.POST("/query", ctrl.QueryRAG)
 	}
 }
@@ -97,7 +93,6 @@ func (ctrl *RagConfigController) ListRagProducts(c *gin.Context) {
 		return
 	}
 
-	// 分页处理
 	start := (page - 1) * pageSize
 	end := start + pageSize
 	if start > len(products) {
@@ -204,7 +199,6 @@ func (ctrl *RagConfigController) GetAccountConfig(c *gin.Context) {
 	platform := c.Query("platform")
 
 	if accountID == "" || platform == "" {
-		// 未指定账户/平台时返回空配置，避免页面初次加载 400
 		c.JSON(http.StatusOK, gin.H{
 			"code": 200,
 			"data": nil,
@@ -331,7 +325,6 @@ func (ctrl *RagConfigController) QueryRAG(c *gin.Context) {
 		return
 	}
 
-	// 获取RAG产品配置
 	product, err := ctrl.service.GetRagProduct(c.Request.Context(), req.RAGProductID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -349,7 +342,6 @@ func (ctrl *RagConfigController) QueryRAG(c *gin.Context) {
 		return
 	}
 
-	// 调用真实的 RAG 服务进行查询
 	topK := 5
 	if v, ok := req.Context["top_k"]; ok {
 		switch n := v.(type) {
@@ -366,16 +358,10 @@ func (ctrl *RagConfigController) QueryRAG(c *gin.Context) {
 
 	queryResp, err := ctrl.service.QueryKnowledgeBase(c.Request.Context(), req.RAGProductID, req.Query, topK)
 	if err != nil {
-		// 多级降级策略:
-		//   1) RAG 检索成功 + 命中分数 >= 阈值 → LLM + 检索内容生成回复
-		//   2) RAG 失败 / 分数低 → 降级到 product.SystemPrompt 拼接生成
-		//   3) LLM 不可用 → 默认话术 / 关键词规则
-		// 当前处于第 2 级:使用产品配置的 prompt 进行兜底回复
 		ctrl.respondWithFallback(c, product, req)
 		return
 	}
 
-	// 转换 references 为统一格式
 	references := make([]any, 0, len(queryResp.References))
 	for _, src := range queryResp.References {
 		references = append(references, map[string]any{
@@ -409,7 +395,6 @@ func (ctrl *RagConfigController) QueryRAG(c *gin.Context) {
 
 // respondWithFallback 当真实 RAG 服务不可用时,使用产品系统提示词生成兜底回复
 func (ctrl *RagConfigController) respondWithFallback(c *gin.Context, product *model.RagProduct, req RAGQueryRequest) {
-	// 构造基于配置的兜底回复
 	answer := product.SystemPrompt
 	if answer == "" {
 		answer = product.Description
@@ -433,3 +418,4 @@ func (ctrl *RagConfigController) respondWithFallback(c *gin.Context, product *mo
 		"data": response,
 	})
 }
+

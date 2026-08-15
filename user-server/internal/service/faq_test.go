@@ -1,16 +1,5 @@
 package service
 
-// faq_test.go FAQ Service 单元测试
-//
-// 设计依据: AI 智能体性能优化
-//
-// 测试目标:
-//   - Match: 返回的匹配项数 + 排序 (高分在前)
-//   - ShouldSkipLLM: 高分命中 -> true; 低分不命中 -> false
-//   - 不依赖真实 DB (使用 mock FAQRepository 或 nil 短路)
-//
-// 注意: FAQService.repo == nil 时 Match/Stats 直接返回 nil (不 panic),
-//       可用此特性测试空仓库场景.
 
 import (
 	"context"
@@ -109,7 +98,6 @@ func TestFAQService_ShouldSkipLLM_Empty(t *testing.T) {
 func TestFAQService_ShouldSkipLLM_Boundary(t *testing.T) {
 	svc := &FAQService{repo: nil, db: nil}
 
-	// 恰好等于阈值 -> 应 skip
 	matches := []dto.FAQMatchResult{
 		makeFAQMatchResult("临界", "临界回复", "logistics", faqHitThresh),
 	}
@@ -118,7 +106,6 @@ func TestFAQService_ShouldSkipLLM_Boundary(t *testing.T) {
 		t.Errorf("expected skip=true at exact threshold %f", faqHitThresh)
 	}
 
-	// 略低于阈值 -> 不 skip
 	matches2 := []dto.FAQMatchResult{
 		makeFAQMatchResult("略低", "略低回复", "logistics", faqHitThresh-0.01),
 	}
@@ -131,7 +118,6 @@ func TestFAQService_ShouldSkipLLM_Boundary(t *testing.T) {
 // TestFAQService_IncrementHitCount_NilRepo 测试 id=0 / nil repo 安全
 func TestFAQService_IncrementHitCount_NilRepo(t *testing.T) {
 	svc := &FAQService{repo: nil, db: nil}
-	// 不应 panic
 	svc.IncrementHitCount(nil, 0)
 	svc.IncrementHitCount(nil, 1)
 }
@@ -151,13 +137,9 @@ func TestFAQService_Stats_NilRepo(t *testing.T) {
 // TestFAQService_InvalidateCache_NilSafe 测试 nil cache 也能安全失效
 func TestFAQService_InvalidateCache_NilSafe(t *testing.T) {
 	svc := &FAQService{repo: nil, db: nil}
-	// 不应 panic (agentID=0 表示失效共享池)
 	svc.InvalidateCache(0)
 }
 
-// ----------------------------------------------------------------------------
-// WeekDecay 测试
-// ----------------------------------------------------------------------------
 
 // mockFAQRepoForDecay 专用于 WeekDecay 测试的 mock
 //
@@ -171,7 +153,6 @@ type mockFAQRepoForDecay struct {
 	}
 	listErr  error
 	decayErr error
-	// Task 15: MatchByAgent / ListByAgent 的 mock 状态
 	agentIDSeen     uint
 	msgSeen         string
 	matchByAgentErr error
@@ -194,7 +175,6 @@ func (m *mockFAQRepoForDecay) MatchByAgent(ctx context.Context, agentID uint, ms
 	if m.matchByAgentErr != nil {
 		return nil, m.matchByAgentErr
 	}
-	// 仅返回绑定到指定 agent 的 entries
 	out := make([]model.FAQEntry, 0, len(m.entriesByAgent[agentID]))
 	for _, e := range m.entriesByAgent[agentID] {
 		if e.Enabled != nil && !*e.Enabled {
@@ -370,9 +350,6 @@ func ptrTimeUniq(t time.Time) *time.Time { return &t }
 // ptrUint 构造 *uint (helper, 给 AgentID 字段用)
 func ptrUint(v uint) *uint { return &v }
 
-// ----------------------------------------------------------------------------
-// Task 15: 强 1对1 改造 - MatchByAgent 新签名测试
-// ----------------------------------------------------------------------------
 
 // TestFAQService_MatchByAgent_AgentIDZero 验证 agentID=0 直接返回 nil (移除"空数组=全局"分支)
 func TestFAQService_MatchByAgent_AgentIDZero(t *testing.T) {
@@ -384,7 +361,6 @@ func TestFAQService_MatchByAgent_AgentIDZero(t *testing.T) {
 	}
 	svc := NewFAQServiceWithRepo(repo)
 
-	// agentID=0 必须返回 nil 且不查 repo (移除"空数组=全局"分支)
 	matches, err := svc.MatchByAgent(context.Background(), 0, "test", 3)
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
@@ -505,7 +481,6 @@ func TestFAQService_Create_RequireAgentID(t *testing.T) {
 	repo := &mockFAQRepoForDecay{}
 	svc := NewFAQServiceWithRepo(repo)
 
-	// agentID nil -> 拒绝
 	err := svc.Create(context.Background(), &model.FAQEntry{
 		Question: "q",
 		Answer:   "a",
@@ -514,7 +489,6 @@ func TestFAQService_Create_RequireAgentID(t *testing.T) {
 		t.Error("expected error when AgentID is nil")
 	}
 
-	// agentID=0 -> 拒绝
 	zero := uint(0)
 	err = svc.Create(context.Background(), &model.FAQEntry{
 		Question: "q",
@@ -525,7 +499,6 @@ func TestFAQService_Create_RequireAgentID(t *testing.T) {
 		t.Error("expected error when AgentID=0")
 	}
 
-	// agentID>0 -> 成功
 	one := uint(1)
 	err = svc.Create(context.Background(), &model.FAQEntry{
 		Question: "q",
@@ -558,15 +531,12 @@ func TestFAQService_WarmupCache_PerAgent(t *testing.T) {
 	}
 	svc := NewFAQServiceWithRepo(repo)
 
-	// 预热 agent=1
 	if err := svc.WarmupCache(context.Background(), 1); err != nil {
 		t.Fatalf("warmup agent=1: %v", err)
 	}
-	// 预热 agent=2
 	if err := svc.WarmupCache(context.Background(), 2); err != nil {
 		t.Fatalf("warmup agent=2: %v", err)
 	}
-	// 预热共享池 (agentID=0)
 	if err := svc.WarmupCache(context.Background(), 0); err != nil {
 		t.Fatalf("warmup shared: %v", err)
 	}
@@ -600,7 +570,6 @@ func TestFAQService_InvalidateCache_PerAgent(t *testing.T) {
 	_ = svc.WarmupCache(context.Background(), 1)
 	_ = svc.WarmupCache(context.Background(), 2)
 
-	// 仅失效 agent=1
 	svc.InvalidateCache(1)
 
 	svc.mu.RLock()
@@ -664,7 +633,6 @@ func TestFAQService_MatchByAgent_DefaultTopK(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// 至少不报错
 	if matches == nil {
 		t.Error("expected non-nil matches for valid input")
 	}
@@ -672,3 +640,4 @@ func TestFAQService_MatchByAgent_DefaultTopK(t *testing.T) {
 
 // ptrBoolUniq 构造 *bool (helper, 避免与其他文件冲突)
 func ptrBoolUniq(b bool) *bool { return &b }
+

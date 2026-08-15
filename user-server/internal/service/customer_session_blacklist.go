@@ -11,33 +11,23 @@ import (
 	"time"
 )
 
-// ============================================================================
-// 方向10：坐席实时聊天看板 - 拉黑 / 解除拉黑
-// 文档：docs/企业级架构优化/坐席实时聊天看板.md §四
-//
-// 文件拆分原因：customer_session.go 已超 750 行（含 AgentStatusService / SessionAssignmentService
-// 等多个 Service 类型），将黑名单相关代码独立到本文件，便于：
-//   1. 阅读聚焦：黑名单 CRUD + 校验链单独 review
-//   2. 责任单一：本文件只关心 user_id 维度黑名单
-//   3. 测试隔离：customer_session_blacklist_test.go 独立验证
-// ============================================================================
 
 // BlacklistRequest 拉黑请求
 type BlacklistRequest struct {
 	SessionID    uint   `json:"session_id" binding:"required"`
-	Reason       string `json:"reason"`        // 拉黑原因
-	OperatorID   uint   `json:"operator_id"`   // 操作人（坐席 ID）
-	OperatorName string `json:"operator_name"` // 操作人姓名
-	TTLHours     int    `json:"ttl_hours"`     // 0 = 永久
+	Reason       string `json:"reason"`        
+	OperatorID   uint   `json:"operator_id"`   
+	OperatorName string `json:"operator_name"` 
+	TTLHours     int    `json:"ttl_hours"`     
 }
 
 // BlacklistSource 黑名单来源枚举
 type BlacklistSource string
 
 const (
-	BlacklistSourceManual BlacklistSource = "manual" // 坐席手动
-	BlacklistSourceAuto   BlacklistSource = "auto"   // 系统自动
-	BlacklistSourceRisk   BlacklistSource = "risk"   // 风控引擎
+	BlacklistSourceManual BlacklistSource = "manual" 
+	BlacklistSourceAuto   BlacklistSource = "auto"   
+	BlacklistSourceRisk   BlacklistSource = "risk"   
 )
 
 // BlacklistUser 拉黑当前会话对应的访客（user_id 维度）
@@ -50,7 +40,7 @@ const (
 //
 // 错误：返回业务语义化错误（含中文 message 供前端直接展示）。
 func (s *CustomerSessionService) BlacklistUser(ctx context.Context, req *BlacklistRequest) error {
-	_ = ctx // 当前实现未使用，预留支持 context 超时/链路追踪
+	_ = ctx 
 	if req == nil {
 		return errors.New("请求体不能为空")
 	}
@@ -86,13 +76,10 @@ func (s *CustomerSessionService) BlacklistUser(ctx context.Context, req *Blackli
 		return fmt.Errorf("写入黑名单失败: %w", err)
 	}
 
-	// 关闭该会话，避免继续对话
 	if err := s.sessionRepo.UpdateStatus(ctx, req.SessionID, model.SessionStatusClosed); err != nil {
-		// 关闭失败不阻塞拉黑结果返回（黑名单已生效），但记录错误便于排查
 		_ = err
 	}
 
-	// 通知前端：handler_changed + blacklisted
 	if err := s.notifySessionUpdate(ctx, session, "blacklisted", "human"); err != nil {
 		_ = err
 	}
@@ -168,7 +155,7 @@ func (s *CustomerSessionService) preCreateBlacklistGuard(ctx context.Context, re
 		return errors.New("请求体不能为空")
 	}
 	if req.UserID == "" {
-		return nil // 匿名访客不参与黑名单
+		return nil 
 	}
 	banned, err := s.blacklistRepo.IsBlacklisted(ctx, req.UserID, req.Platform)
 	if err != nil {
@@ -179,3 +166,4 @@ func (s *CustomerSessionService) preCreateBlacklistGuard(ctx context.Context, re
 	}
 	return nil
 }
+

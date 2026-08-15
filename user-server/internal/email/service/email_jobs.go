@@ -57,7 +57,6 @@ func (s *EmailJobsService) IncreaseSendTotal(ctx context.Context, jobs_id uuid.U
 		logger.Error(fmt.Errorf("Failed to get email job: %v", err), "获取邮件任务失败")
 		return err
 	}
-	// Add nil check for jobs
 	if jobs == nil {
 		logger.Error(fmt.Errorf("Email job %s not found", jobs_id), "查找邮件任务失败")
 		return fmt.Errorf("email job not found")
@@ -72,7 +71,6 @@ func (s *EmailJobsService) IncreaseSuccessTotal(ctx context.Context, jobs_id uui
 	if err != nil {
 		return err
 	}
-	// Add nil check for jobs
 	if jobs == nil {
 		logger.Error(fmt.Errorf("Email job %s not found", jobs_id), "查找邮件任务失败")
 		return fmt.Errorf("email job not found")
@@ -87,7 +85,6 @@ func (s *EmailJobsService) IncreaseFailTotal(ctx context.Context, jobs_id uuid.U
 	if err != nil {
 		return err
 	}
-	// Add nil check for jobs
 	if jobs == nil {
 		logger.Error(fmt.Errorf("Email job %s not found", jobs_id), "查找邮件任务失败")
 		return fmt.Errorf("email job not found")
@@ -102,7 +99,6 @@ func (s *EmailJobsService) IncreaseReadTotal(ctx context.Context, jobs_id uuid.U
 	if err != nil {
 		return err
 	}
-	// Add nil check for jobs
 	if jobs == nil {
 		logger.Error(fmt.Errorf("Email job %s not found", jobs_id), "查找邮件任务失败")
 		return fmt.Errorf("email job not found")
@@ -111,7 +107,6 @@ func (s *EmailJobsService) IncreaseReadTotal(ctx context.Context, jobs_id uuid.U
 	return s.repo.Update(ctx, jobs)
 }
 
-// ---- DTO 外观方法：供 controller 调用，避免 controller 直接依赖 model ----
 
 // CreateEmailJobsDTO 通过请求 DTO 创建任务
 func (s *EmailJobsService) CreateEmailJobsDTO(ctx context.Context, req dto.CreateEmailJobsRequest) (*dto.EmailJobsResponse, error) {
@@ -184,3 +179,4 @@ func toEmailJobsResponse(j *model.EmailJobs) *dto.EmailJobsResponse {
 		UpdatedAt:    j.UpdatedAt,
 	}
 }
+

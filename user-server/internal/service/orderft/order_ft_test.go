@@ -26,7 +26,6 @@ func TestOrderWebhookAndCustomerLookup_FT(t *testing.T) {
 		name  = "功能测试客户"
 	)
 
-	// 1) 首次推送（已付款）
 	if err := svc.UpsertOrderFromWebhook(ctx, "taobao", "FT20260723001", "已付款", map[string]any{
 		"order_no":     "NO-FT-001",
 		"user_phone":   phone,
@@ -39,7 +38,6 @@ func TestOrderWebhookAndCustomerLookup_FT(t *testing.T) {
 		t.Fatalf("UpsertOrderFromWebhook(1st) failed: %v", err)
 	}
 
-	// 2) 再次推送同订单，状态变更 -> 触发 upsert 而非新增
 	if err := svc.UpsertOrderFromWebhook(ctx, "taobao", "FT20260723001", "已完成", map[string]any{
 		"user_phone": phone,
 		"user_name":  name,
@@ -47,7 +45,6 @@ func TestOrderWebhookAndCustomerLookup_FT(t *testing.T) {
 		t.Fatalf("UpsertOrderFromWebhook(2nd) failed: %v", err)
 	}
 
-	// 3) 按客户查询，验证 360 视图读取
 	orders, err := svc.GetExternalOrdersByCustomer(ctx, phone, name)
 	if err != nil {
 		t.Fatalf("GetExternalOrdersByCustomer failed: %v", err)
@@ -78,3 +75,4 @@ func TestOrderWebhookAndCustomerLookup_FT(t *testing.T) {
 	t.Logf("PASS: order_id=%s platform=%s status=%s pay=%.2f元 items=%s",
 		found.OrderID, found.Platform, found.Status, float64(found.PayAmount)/100, found.Items)
 }
+

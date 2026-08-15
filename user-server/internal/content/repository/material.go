@@ -46,17 +46,14 @@ func (r *materialRepo) GetList(licenseID string, categoryID string, materialType
 
 	query := r.db.Model(&model.Material{}).Where("license_id = ?", licenseID)
 
-	// 分类筛选
 	if categoryID != "" {
 		query = query.Where("category_id = ?", categoryID)
 	}
 
-	// 类型筛选
 	if materialType != "" {
 		query = query.Where("type = ?", materialType)
 	}
 
-	// 搜索筛选
 	if search != "" {
 		query = query.Where("name LIKE ? OR tags LIKE ? OR description LIKE ?",
 			"%"+search+"%", "%"+search+"%", "%"+search+"%")
@@ -91,3 +88,4 @@ func (r *materialRepo) GetByHash(hash string, licenseID string) (*model.Material
 	err := r.db.Where("hash = ? AND license_id = ?", hash, licenseID).First(&material).Error
 	return &material, err
 }
+

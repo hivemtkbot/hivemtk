@@ -64,7 +64,6 @@ func TestAccountService_GetAccount(t *testing.T) {
 
 	service := NewAccountService()
 
-	// Create an account first
 	account := model.Account{
 		TgName:     "test_account",
 		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
@@ -74,7 +73,6 @@ func TestAccountService_GetAccount(t *testing.T) {
 	}
 	registered, _ := service.CreateAccount(context.Background(), account)
 
-	// Get the account by ID
 	result, err := service.GetAccount(context.Background(), registered.ID)
 	if err != nil {
 		t.Fatalf("GetAccount failed: %v", err)
@@ -101,7 +99,6 @@ func TestAccountService_GetAccountList(t *testing.T) {
 
 	service := NewAccountService()
 
-	// Create multiple accounts
 	for i := 0; i < 5; i++ {
 		account := model.Account{
 			TgName:     "account_" + string(rune('0'+i)),
@@ -113,7 +110,6 @@ func TestAccountService_GetAccountList(t *testing.T) {
 		service.CreateAccount(context.Background(), account)
 	}
 
-	// Get account list
 	accounts, err := service.GetAccountList(context.Background())
 	if err != nil {
 		t.Fatalf("GetAccountList failed: %v", err)
@@ -129,7 +125,6 @@ func TestAccountService_UpdateAccount(t *testing.T) {
 
 	service := NewAccountService()
 
-	// Create an account first
 	account := model.Account{
 		TgName:     "original_name",
 		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
@@ -139,7 +134,6 @@ func TestAccountService_UpdateAccount(t *testing.T) {
 	}
 	registered, _ := service.CreateAccount(context.Background(), account)
 
-	// Update the account
 	registered.TgName = "updated_name"
 	registered.Price = "200.00"
 
@@ -148,7 +142,6 @@ func TestAccountService_UpdateAccount(t *testing.T) {
 		t.Fatalf("UpdateAccount failed: %v", err)
 	}
 
-	// Verify update
 	result, _ := service.GetAccount(context.Background(), registered.ID)
 	if result.TgName != "updated_name" {
 		t.Errorf("Expected TgName 'updated_name', got %s", result.TgName)
@@ -164,7 +157,6 @@ func TestAccountService_DeleteAccount(t *testing.T) {
 
 	service := NewAccountService()
 
-	// Create an account first
 	account := model.Account{
 		TgName:     "account_to_delete",
 		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
@@ -174,13 +166,11 @@ func TestAccountService_DeleteAccount(t *testing.T) {
 	}
 	registered, _ := service.CreateAccount(context.Background(), account)
 
-	// Delete the account
 	err := service.DeleteAccount(context.Background(), registered.ID)
 	if err != nil {
 		t.Fatalf("DeleteAccount failed: %v", err)
 	}
 
-	// Verify account is deleted
 	_, err = service.GetAccount(context.Background(), registered.ID)
 	if err == nil {
 		t.Error("Expected error after delete")
@@ -192,7 +182,6 @@ func TestAccountService_UpdateAccountStatusById(t *testing.T) {
 
 	service := NewAccountService()
 
-	// Create an account first
 	account := model.Account{
 		TgName:     "test_account",
 		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
@@ -203,13 +192,11 @@ func TestAccountService_UpdateAccountStatusById(t *testing.T) {
 	}
 	registered, _ := service.CreateAccount(context.Background(), account)
 
-	// Update account status to inactive
 	err := service.UpdateAccountStatusById(context.Background(), registered.ID, _type.AccountStatusInactive, "Test reason")
 	if err != nil {
 		t.Fatalf("UpdateAccountStatusById failed: %v", err)
 	}
 
-	// Verify status is updated
 	result, _ := service.GetAccount(context.Background(), registered.ID)
 	if result.Status != _type.AccountStatusInactive {
 		t.Errorf("Expected status %d, got %d", _type.AccountStatusInactive, result.Status)
@@ -225,7 +212,6 @@ func TestAccountService_UpdateAccountStatusById_NotFound(t *testing.T) {
 
 	service := NewAccountService()
 
-	// Try to update non-existent account
 	err := service.UpdateAccountStatusById(context.Background(), "non-existent-id", _type.AccountStatusInactive, "Test reason")
 	if err == nil {
 		t.Error("Expected error for non-existent account")
@@ -237,7 +223,6 @@ func TestAccountService_UpdateAccountTgNameById(t *testing.T) {
 
 	service := NewAccountService()
 
-	// Create an account first
 	account := model.Account{
 		TgName:     "original_name",
 		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
@@ -247,13 +232,11 @@ func TestAccountService_UpdateAccountTgNameById(t *testing.T) {
 	}
 	registered, _ := service.CreateAccount(context.Background(), account)
 
-	// Update TgName
 	err := service.UpdateAccountTgNameById(context.Background(), registered.ID, "new_telegram_name")
 	if err != nil {
 		t.Fatalf("UpdateAccountTgNameById failed: %v", err)
 	}
 
-	// Verify TgName is updated
 	result, _ := service.GetAccount(context.Background(), registered.ID)
 	if result.TgName != "new_telegram_name" {
 		t.Errorf("Expected TgName 'new_telegram_name', got %s", result.TgName)
@@ -265,7 +248,6 @@ func TestAccountService_UpdateAccountTgNameById_NotFound(t *testing.T) {
 
 	service := NewAccountService()
 
-	// Try to update non-existent account
 	err := service.UpdateAccountTgNameById(context.Background(), "non-existent-id", "new_name")
 	if err == nil {
 		t.Error("Expected error for non-existent account")
@@ -312,7 +294,6 @@ func TestAccountService_GetAccountList_Empty(t *testing.T) {
 
 	service := NewAccountService()
 
-	// Get account list when empty
 	accounts, err := service.GetAccountList(context.Background())
 	if err != nil {
 		t.Fatalf("GetAccountList failed: %v", err)
@@ -328,7 +309,6 @@ func TestAccountService_CreateAccount_MultipleAccounts(t *testing.T) {
 
 	service := NewAccountService()
 
-	// Create multiple accounts with different settings
 	accounts := []model.Account{
 		{
 			TgName:     "account_1",
@@ -363,7 +343,6 @@ func TestAccountService_CreateAccount_MultipleAccounts(t *testing.T) {
 		}
 	}
 
-	// Verify all accounts are created
 	allAccounts, err := service.GetAccountList(context.Background())
 	if err != nil {
 		t.Fatalf("GetAccountList failed: %v", err)
@@ -379,7 +358,6 @@ func TestAccountService_UpdateAccountStatusById_DifferentStatuses(t *testing.T) 
 
 	service := NewAccountService()
 
-	// Create an account first
 	account := model.Account{
 		TgName:     "status_test_account",
 		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
@@ -390,7 +368,6 @@ func TestAccountService_UpdateAccountStatusById_DifferentStatuses(t *testing.T) 
 	}
 	registered, _ := service.CreateAccount(context.Background(), account)
 
-	// Test different status transitions
 	statuses := []_type.AccountStatusType{
 		_type.AccountStatusInactive,
 		_type.AccountStatusActive,
@@ -414,15 +391,12 @@ func TestAccountService_DeleteAccount_NonExistent(t *testing.T) {
 
 	service := NewAccountService()
 
-	// Try to delete non-existent account
 	err := service.DeleteAccount(context.Background(), "non-existent-id")
 	if err != nil {
-		// GORM may not return error for non-existent delete
 		t.Logf("DeleteAccount returned: %v", err)
 	}
 }
 
-// ============== 边界条件测试 ==============
 
 // TestAccountService_CreateAccount_WithEmptyFields 测试创建账户时空字段处理
 func TestAccountService_CreateAccount_WithEmptyFields(t *testing.T) {
@@ -430,7 +404,6 @@ func TestAccountService_CreateAccount_WithEmptyFields(t *testing.T) {
 
 	service := NewAccountService()
 
-	// 测试仅有必填字段
 	account := model.Account{
 		TgName:     "minimal_account",
 		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
@@ -446,7 +419,6 @@ func TestAccountService_CreateAccount_WithEmptyFields(t *testing.T) {
 		t.Fatal("Expected non-nil result")
 	}
 
-	// 验证默认值
 	if result.ProxyEnableProxy != false {
 		t.Error("Expected ProxyEnableProxy default to be false")
 	}
@@ -570,7 +542,7 @@ func TestAccountService_CreateAccount_WithLargeGroupID(t *testing.T) {
 	account := model.Account{
 		TgName:     "large_group_account",
 		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
-		GroupID:    9223372036854775807, // int64 max
+		GroupID:    9223372036854775807, 
 		Price:      "100.00",
 		URL:        "http://example.com",
 	}
@@ -625,8 +597,6 @@ func TestAccountService_UpdateAccount_NonExistent(t *testing.T) {
 	}
 
 	err := service.UpdateAccount(context.Background(), account)
-	// 注意：GORM 的 Save 方法在记录不存在时会创建新记录或返回空错误
-	// 这里主要验证服务层能正确处理这种情况
 	if err != nil {
 		t.Logf("UpdateAccount returned: %v", err)
 	}
@@ -648,7 +618,6 @@ func TestAccountService_UpdateAccountStatusById_DuplicateStatus(t *testing.T) {
 	}
 	registered, _ := service.CreateAccount(context.Background(), account)
 
-	// 更新为相同的状态
 	err := service.UpdateAccountStatusById(context.Background(), registered.ID, _type.AccountStatusActive, "Same status update")
 	if err != nil {
 		t.Fatalf("UpdateAccountStatusById with same status failed: %v", err)
@@ -675,7 +644,6 @@ func TestAccountService_UpdateAccountTgNameById_WithEmptyName(t *testing.T) {
 	}
 	registered, _ := service.CreateAccount(context.Background(), account)
 
-	// 更新为空名称
 	err := service.UpdateAccountTgNameById(context.Background(), registered.ID, "")
 	if err != nil {
 		t.Fatalf("UpdateAccountTgNameById with empty name failed: %v", err)
@@ -733,9 +701,7 @@ func TestAccountService_GetAccountList_WithLargeDataset(t *testing.T) {
 
 	service := NewAccountService()
 
-	// 创建 100 个账户
 	for i := 0; i < 100; i++ {
-		// 使用 strconv.Itoa 避免 string(rune(0)) 产生 NUL byte（PostgreSQL 拒绝 0x00）
 		idx := strconv.Itoa(i)
 		account := model.Account{
 			TgName:     "account_" + idx + "_large_test",
@@ -775,13 +741,11 @@ func TestAccountService_DeleteAccount_AlreadyDeleted(t *testing.T) {
 	}
 	registered, _ := service.CreateAccount(context.Background(), account)
 
-	// 第一次删除
 	err := service.DeleteAccount(context.Background(), registered.ID)
 	if err != nil {
 		t.Fatalf("First DeleteAccount failed: %v", err)
 	}
 
-	// 第二次删除（GORM 不会报错，但不会有影响）
 	err = service.DeleteAccount(context.Background(), registered.ID)
 	if err != nil {
 		t.Logf("Second DeleteAccount returned: %v", err)
@@ -803,7 +767,6 @@ func TestAccountService_UpdateAccount_WithMinimalFields(t *testing.T) {
 	}
 	registered, _ := service.CreateAccount(context.Background(), account)
 
-	// 只更新一个字段
 	updateAccount := model.Account{
 		ID:    registered.ID,
 		Price: "999.99",
@@ -819,3 +782,4 @@ func TestAccountService_UpdateAccount_WithMinimalFields(t *testing.T) {
 		t.Errorf("Expected Price '999.99', got %s", result.Price)
 	}
 }
+

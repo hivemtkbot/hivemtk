@@ -10,16 +10,13 @@ import (
 
 // setupBatchRoutes 批量操作路由
 func setupBatchRoutes(auth *gin.RouterGroup) {
-	// 批量导入
 	batchImportCtrl := contentctrl.NewBatchImportController()
 	auth.POST("/batch/import", batchImportCtrl.ImportFile)
 	auth.GET("/batch/template", batchImportCtrl.DownloadTemplate)
 
-	// 批量导出
 	batchExportCtrl := contentctrl.NewBatchExportController()
 	auth.POST("/batch/export", batchExportCtrl.ExportData)
 
-	// 批量操作
 	batchOpCtrl := contentctrl.NewBatchOperationController()
 	auth.POST("/batch/delete", batchOpCtrl.BatchDelete)
 	auth.POST("/batch/update", batchOpCtrl.BatchUpdate)
@@ -103,7 +100,6 @@ func setupDashboardRoutes(auth *gin.RouterGroup, public *gin.RouterGroup) {
 	auth.PUT("/dashboards/:id", dashboardCtrl.UpdateScreen)
 	auth.DELETE("/dashboards/:id", dashboardCtrl.DeleteScreen)
 
-	// 公开访问大屏（不需要认证）
 	public.GET("/dashboards/public/:code", dashboardCtrl.PublicViewScreen)
 }
 
@@ -203,9 +199,6 @@ func setupCommunityRoutes(auth *gin.RouterGroup) {
 	auth.POST("/community/export", communityCtrl.ExportData)
 }
 
-// ============================================================================
-// 以下内容合并自 event_routes.go（P1-2 router 文件数收敛）
-// ============================================================================
 
 // setupEventRoutes 客户事件追踪(CDP)路由
 // 提供 8 个事件端点 + 历史查询/统计
@@ -222,3 +215,4 @@ func setupEventRoutes(auth *gin.RouterGroup) {
 	auth.POST("/events/login", eventCtrl.TrackLogin)
 	auth.POST("/events/add-to-cart", eventCtrl.TrackAddToCart)
 }
+

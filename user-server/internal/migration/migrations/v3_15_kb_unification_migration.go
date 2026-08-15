@@ -1,23 +1,5 @@
 package migrations
 
-// v3_15_kb_unification_migration.go 知识库统一迁移 v3.15
-//
-// 背景 (: 智能体 1:N 知识库 隔离架构):
-//   - 现状 1: faq_entries / sop_templates 是全局共享表, 没有 agent_id 隔离
-//   - 现状 2: 知识库(RAG/FAQ/SOP) 没有显式的"知识库容器"概念, 直接散落在各表
-//   - 目标  : 渠道 1:1 智能体 → 智能体 1:N 知识库 → 知识库 1:N 条目
-//   - 原则  : 默认严格隔离, 共享 = 显式白名单
-//
-// 迁移内容:
-//  1. CREATE TABLE knowledge_bases (字段 + UNIQUE(kb_code) + INDEX(type))
-//  2. CREATE TABLE agent_kb_bindings (字段 + UNIQUE(agent_id, kb_id) + INDEX)
-//  3. ALTER TABLE faq_entries ADD COLUMN agent_id BIGINT
-//  4. ALTER TABLE sop_templates ADD COLUMN agent_id BIGINT
-//  5. ALTER TABLE knowledge_documents ADD COLUMN agent_id BIGINT
-//  6. 数据迁移: 现有 FAQ / SOP / RAG 文档归 default_agent (id=0, 即共享)
-//  7. ChannelAgentBinding UNIQUE 约束强化 (channel_type + account_id 强 1:1)
-//
-// 注意: 所有 DDL 都用 IF NOT EXISTS 幂等, 可重复执行。
 
 import (
 	"context"
@@ -60,7 +42,6 @@ func (m *KBUnificationMigration) Up(ctx context.Context) error {
 
 	log.Println("[v3.15] 开始知识库统一迁移 P0-B ...")
 
-	// ---- 1. CREATE TABLE knowledge_bases ----
 	log.Println("[v3.15] 1/7 CREATE TABLE knowledge_bases ...")
 	stmt1 := `
 CREATE TABLE IF NOT EXISTS knowledge_bases (
@@ -87,7 +68,6 @@ CREATE INDEX IF NOT EXISTS idx_kb_enabled       ON knowledge_bases (enabled);
 	}
 	log.Println("[v3.15] ✓ knowledge_bases 表已创建")
 
-	// ---- 2. CREATE TABLE agent_kb_bindings ----
 	log.Println("[v3.15] 2/7 CREATE TABLE agent_kb_bindings ...")
 	stmt2 := `
 CREATE TABLE IF NOT EXISTS agent_kb_bindings (
@@ -112,20 +92,17 @@ CREATE INDEX IF NOT EXISTS idx_agent_kb_enabled  ON agent_kb_bindings (enabled);
 	}
 	log.Println("[v3.15] ✓ agent_kb_bindings 表已创建")
 
-	// ---- 3. ALTER TABLE faq_entries ADD COLUMN agent_id ----
 	log.Println("[v3.15] 3/7 ALTER TABLE faq_entries ADD agent_id ...")
 	stmt3 := `ALTER TABLE faq_entries ADD COLUMN IF NOT EXISTS agent_id BIGINT;`
 	if err := m.db.WithContext(ctx).Exec(stmt3).Error; err != nil {
 		return fmt.Errorf("v3.15 3/7 faq_entries 加 agent_id 失败: %w", err)
 	}
-	// 建索引
 	stmt3idx := `CREATE INDEX IF NOT EXISTS idx_faq_agent_id ON faq_entries (agent_id);`
 	if err := m.db.WithContext(ctx).Exec(stmt3idx).Error; err != nil {
 		return fmt.Errorf("v3.15 3/7 faq_entries agent_id 索引失败: %w", err)
 	}
 	log.Println("[v3.15] ✓ faq_entries.agent_id 已添加 + 索引")
 
-	// ---- 4. ALTER TABLE sop_templates ADD COLUMN agent_id ----
 	log.Println("[v3.15] 4/7 ALTER TABLE sop_templates ADD agent_id ...")
 	stmt4 := `ALTER TABLE sop_templates ADD COLUMN IF NOT EXISTS agent_id BIGINT;`
 	if err := m.db.WithContext(ctx).Exec(stmt4).Error; err != nil {
@@ -137,7 +114,6 @@ CREATE INDEX IF NOT EXISTS idx_agent_kb_enabled  ON agent_kb_bindings (enabled);
 	}
 	log.Println("[v3.15] ✓ sop_templates.agent_id 已添加 + 索引")
 
-	// ---- 5. ALTER TABLE knowledge_documents ADD COLUMN agent_id ----
 	log.Println("[v3.15] 5/7 ALTER TABLE knowledge_documents ADD agent_id ...")
 	stmt5 := `ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS agent_id BIGINT;`
 	if err := m.db.WithContext(ctx).Exec(stmt5).Error; err != nil {
@@ -149,14 +125,8 @@ CREATE INDEX IF NOT EXISTS idx_agent_kb_enabled  ON agent_kb_bindings (enabled);
 	}
 	log.Println("[v3.15] ✓ knowledge_documents.agent_id 已添加 + 索引")
 
-	// ---- 6. 数据迁移: 现有数据归 default_agent (agent_id=NULL, 表示共享) ----
-	// 设计: agent_id IS NULL = 共享 (向后兼容)
-	//       agent_id = X    = X 智能体私有
-	// 因此不需要 UPDATE 任何现有数据, NULL 是默认值
-	// 但需要确保 default_agent 智能体存在 (id=0 占位用)
 	log.Println("[v3.15] 6/7 数据迁移: 现有 FAQ / SOP / RAG 文档已自动归为共享 (agent_id IS NULL)")
 
-	// 验证: 输出每个表的 agent_id 分布 (含 IS NULL)
 	if err := m.reportAgentDistribution(ctx, "faq_entries"); err != nil {
 		log.Printf("[v3.15] WARN: faq_entries 分布查询失败: %v", err)
 	}
@@ -167,9 +137,6 @@ CREATE INDEX IF NOT EXISTS idx_agent_kb_enabled  ON agent_kb_bindings (enabled);
 		log.Printf("[v3.15] WARN: knowledge_documents 分布查询失败: %v", err)
 	}
 
-	// ---- 7. ChannelAgentBinding 强 1:1 唯一 ----
-	// channel_type + account_id 在原 schema 已是 UNIQUE INDEX (idx_channel_binding,unique)
-	// 此处仅检查, 不重复创建
 	log.Println("[v3.15] 7/7 ChannelAgentBinding 1:1 约束检查 ...")
 	stmt7 := `
 DO $$
@@ -187,7 +154,6 @@ BEGIN
 END $$;
 `
 	if err := m.db.WithContext(ctx).Exec(stmt7).Error; err != nil {
-		// 已有同名 index 时报错可忽略
 		log.Printf("[v3.15] WARN: idx_channel_binding 检查失败 (通常无影响): %v", err)
 	}
 	log.Println("[v3.15] ✓ ChannelAgentBinding 1:1 约束已确认")
@@ -258,3 +224,4 @@ func (m *KBUnificationMigration) reportAgentDistribution(ctx context.Context, ta
 
 // Ensure KBUnificationMigration implements Migration interface
 var _ migration.Migration = (*KBUnificationMigration)(nil)
+

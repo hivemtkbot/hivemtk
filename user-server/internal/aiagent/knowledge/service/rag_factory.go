@@ -19,7 +19,6 @@ type RAGStack struct {
 
 func NewRAGStack(db *gorm.DB, glossary ragcustomerservice.GlossaryRenderer, calibrator ragcustomerservice.OutputCalibrator) *RAGStack {
 	embeddingSvc := llm.NewEmbeddingService()
-	// Embedding 走本地 TEI（真实 bge-m3，EmbeddingDim 维）
 	embedder := rag_core.NewRemoteEmbedder(EmbeddingDim)
 	_ = embeddingSvc
 	_ = embedder
@@ -45,7 +44,6 @@ func NewRAGStack(db *gorm.DB, glossary ragcustomerservice.GlossaryRenderer, cali
 
 	retrieval := ragretrieval.NewRagRetrievalService(vectorizer, indexManager, storage, ragCache, retrievalCfg)
 
-	// 重排：本地 TEI + bge-reranker-v2-m3（RERANK_ENABLED=false 时自动跳过）
 	if rc := ragretrieval.DefaultRerankConfig(); rc.Enabled {
 		retrieval.SetReranker(ragretrieval.NewLocalReranker())
 	}
@@ -116,3 +114,4 @@ func NewRAGStack(db *gorm.DB, glossary ragcustomerservice.GlossaryRenderer, cali
 		Customer:  customerService,
 	}
 }
+

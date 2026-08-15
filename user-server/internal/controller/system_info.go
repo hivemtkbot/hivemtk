@@ -34,3 +34,4 @@ func (c *SystemInfoController) GetSystemInfo(ctx *gin.Context) {
 
 	response.Success(ctx, info, "获取系统信息成功")
 }
+

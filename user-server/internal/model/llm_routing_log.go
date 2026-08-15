@@ -43,7 +43,6 @@ type LLMRoutingLog struct {
 	ErrorMsg         string  `gorm:"type:text;column:error_msg" json:"error_msg"`
 	FromCache        bool    `gorm:"column:from_cache;not null;default:false" json:"from_cache"`
 
-	// v3.7.0 扩展字段
 	ModelType        string  `gorm:"type:varchar(16);column:model_type;not null;default:'local'" json:"model_type"`
 	Vendor           string  `gorm:"type:varchar(64);column:vendor;not null;default:'unknown'" json:"vendor"`
 	BaseURL          string  `gorm:"type:varchar(512);column:base_url;not null;default:''" json:"base_url"`
@@ -55,17 +54,17 @@ type LLMRoutingLog struct {
 	Source           string  `gorm:"type:varchar(32);column:source;not null;default:'dispatch'" json:"source"`
 	ScenarioProvider string  `gorm:"type:varchar(160);column:scenario_provider;not null;default:''" json:"scenario_provider"`
 
-	// v3.12.0 多语言扩展字段（v1.2 出海多语言方案）
-	InternalLang     string  `gorm:"type:varchar(8);column:internal_lang" json:"internal_lang"`        // 商户内部语言
-	TargetLang       string  `gorm:"type:varchar(8);column:target_lang" json:"target_lang"`            // 输出目标语言
-	CrossLingual     bool    `gorm:"column:cross_lingual;default:false" json:"cross_lingual"`          // 是否跨语言生成
-	GlossaryVersion  string  `gorm:"type:varchar(32);column:glossary_version" json:"glossary_version"` // 术语表版本
-	CacheHit         bool    `gorm:"column:cache_hit;default:false" json:"cache_hit"`                  // 是否命中翻译缓存
-	QualityScore     float64 `gorm:"type:decimal(4,3);column:quality_score" json:"quality_score"`      // 质量评分（异步回填）
-	ValidationIssues JSONMap `gorm:"type:jsonb;column:validation_issues" json:"validation_issues"`     // PostValidator 输出
+	InternalLang     string  `gorm:"type:varchar(8);column:internal_lang" json:"internal_lang"`        
+	TargetLang       string  `gorm:"type:varchar(8);column:target_lang" json:"target_lang"`            
+	CrossLingual     bool    `gorm:"column:cross_lingual;default:false" json:"cross_lingual"`          
+	GlossaryVersion  string  `gorm:"type:varchar(32);column:glossary_version" json:"glossary_version"` 
+	CacheHit         bool    `gorm:"column:cache_hit;default:false" json:"cache_hit"`                  
+	QualityScore     float64 `gorm:"type:decimal(4,3);column:quality_score" json:"quality_score"`      
+	ValidationIssues JSONMap `gorm:"type:jsonb;column:validation_issues" json:"validation_issues"`     
 
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 }
 
 // TableName 表名
 func (LLMRoutingLog) TableName() string { return "llm_routing_logs" }
+

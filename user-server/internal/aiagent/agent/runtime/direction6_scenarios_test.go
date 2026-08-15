@@ -6,17 +6,6 @@ import (
 	"testing"
 )
 
-// ============================================================================
-// 方向6 文档示例场景测试 (端到端)
-// ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/情绪感知与六维拟人度门禁判定.md
-//
-// 4 个核心场景：
-//  1. "这个产品怎么用？" → 平静 + FAQ + 低危机 → AI 正常知识库检索
-//  2. "我等了3天了，怎么还没发货?" → 焦虑 + 售后查单 + 中危机 → 工具触发查单
-//  3. "你们是不是骗子？赶紧退款！" → 愤怒 + 投诉退款 + 高危机 → 强制转人工
-//  4. "我想找你们人工客服。" → 平静 + 强转人工 + 高危机 → 强制转人工
-// ============================================================================
 
 // TestDirection6_Scenario1_CalmFAQ 场景1: 平静 + FAQ 问答 → AI 正常处理
 func TestDirection6_Scenario1_CalmFAQ(t *testing.T) {
@@ -30,7 +19,6 @@ func TestDirection6_Scenario1_CalmFAQ(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunOnce error: %v", err)
 	}
-	// 期望：情绪平静 / 意图 FAQ / 不转人工 / 走 Planner
 	if decision.HandoffToHuman {
 		t.Errorf("场景1 不应转人工，实际 HandoffToHuman=true (Reason=%s)", decision.HandoffReason)
 	}
@@ -57,14 +45,12 @@ func TestDirection6_Scenario2_AnxiousOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunOnce error: %v", err)
 	}
-	// 期望：情绪焦虑 / 意图 order_status 或 after_sales / 不转人工 / Planner 触发查单工具
 	if decision.HandoffToHuman {
 		t.Errorf("场景2 不应转人工，实际 HandoffToHuman=true")
 	}
 	if decision.Plan == nil {
 		t.Fatal("场景2 期望有 Plan")
 	}
-	// 验证有查单工具调用
 	hasOrderTool := false
 	for _, tc := range decision.Plan.ToolCalls {
 		if strings.Contains(tc.ToolName, "order") || strings.Contains(tc.ToolName, "query") {
@@ -93,7 +79,6 @@ func TestDirection6_Scenario3_AngryRefund(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunOnce error: %v", err)
 	}
-	// 期望：必须转人工 / CrisisHigh / 危机原因为高危关键词
 	if !decision.HandoffToHuman {
 		t.Error("场景3 必须转人工")
 	}
@@ -122,7 +107,6 @@ func TestDirection6_Scenario4_HandoffRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunOnce error: %v", err)
 	}
-	// 期望：必须转人工 / CrisisHigh / 原因 handoff_human
 	if !decision.HandoffToHuman {
 		t.Error("场景4 必须转人工")
 	}
@@ -150,14 +134,12 @@ func TestDirection6_Scenario1_StageTrace(t *testing.T) {
 	if len(ic.Stages) < 3 {
 		t.Fatalf("expected 3 stage records, got %d", len(ic.Stages))
 	}
-	// 验证阶段顺序
 	expected := []string{"perception", "alignment", "gatekeeper"}
 	for i, s := range ic.Stages {
 		if s.Stage != expected[i] {
 			t.Errorf("stage %d = %s, want %s", i, s.Stage, expected[i])
 		}
 	}
-	// 场景1 危机应低
 	if ic.Crisis.Level > CrisisLow {
 		t.Errorf("场景1 crisis level = %d, want <= CrisisLow", ic.Crisis.Level)
 	}
@@ -170,7 +152,6 @@ func TestDirection6_AllScenarios_Batch(t *testing.T) {
 		name     string
 		content  string
 		agentCtx *AgentContext
-		// 验证
 		wantHandoff bool
 	}{
 		{"calm_faq", "这个产品怎么用？", &AgentContext{AgentCode: "default", EnableRAG: true}, false},
@@ -196,9 +177,6 @@ func TestDirection6_AllScenarios_Batch(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 辅助函数
-// ============================================================================
 
 func planType(p *ActionPlan) string {
 	if p == nil {
@@ -213,3 +191,4 @@ func toolCount(p *ActionPlan) int {
 	}
 	return len(p.ToolCalls)
 }
+

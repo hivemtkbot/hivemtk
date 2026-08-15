@@ -6,36 +6,21 @@ import (
 	"github.com/lib/pq"
 )
 
-// ============================================================================
-// 多 AI 智能体架构 - 数据模型
-// ----------------------------------------------------------------------------
-// 设计文档：docs/sales-champion/MULTI_AI_AGENT_DESIGN.md
-//
-// 三个核心实体：
-//  1. AIAgent               - AI 智能体主表（人设/知识库/LLM/SOP/话术）
-//  2. ChannelAgentBinding   - 渠道账号 ↔ 智能体绑定
-//  3. CustomerServiceAgent  - 客服座席 ↔ 智能体挂载
-//
-// 私域独立部署：无 merchant_id 字段
-// 五层架构：仅定义数据结构，业务逻辑在 Service 层
-// ============================================================================
 
 // AgentType 智能体类型（仅作为智能体内部子类型，平台层统一称「智能体」）
 type AgentType string
 
 const (
-	AgentTypeSales           AgentType = "sales"            // 销售型智能体
-	AgentTypeCustomerService AgentType = "customer_service" // 客服型智能体
-	AgentTypeHybrid          AgentType = "hybrid"           // 混合智能体（销售+客服）
+	AgentTypeSales           AgentType = "sales"            
+	AgentTypeCustomerService AgentType = "customer_service" 
+	AgentTypeHybrid          AgentType = "hybrid"           
 )
 
 // AgentMode 智能体工作模式（平台层两大运行范式）
 type AgentMode string
 
 const (
-	// AgentModePassive 被动模式：消息/事件进入系统 → 系统调用智能体完成对话 → 返回用户（智能体/智能体应答主路径）
 	AgentModePassive AgentMode = "passive"
-	// AgentModeActive 主动模式：智能体调用工具链主动触达用户（私信/短信/邮件/卡片），更多用于营销唤起与跟进
 	AgentModeActive AgentMode = "active"
 )
 
@@ -50,41 +35,28 @@ type AIAgent struct {
 	Description string `gorm:"type:text" json:"description"`
 	Avatar      string `gorm:"type:varchar(500)" json:"avatar"`
 	AgentType   string `gorm:"type:varchar(32);not null;default:'sales';index" json:"agent_type"`
-	AgentMode   string `gorm:"type:varchar(32);not null;default:'passive';index" json:"agent_mode"` // passive 被动 / active 主动
+	AgentMode   string `gorm:"type:varchar(32);not null;default:'passive';index" json:"agent_mode"` 
 
-	// 预设背景（核心）
 	Persona      string `gorm:"type:text;not null" json:"persona"`
 	SystemPrompt string `gorm:"type:text" json:"system_prompt"`
 	Greeting     string `gorm:"type:text" json:"greeting"`
 
-	// 知识库挂载（多对一：一个智能体可挂载多个 RAG 产品）
 	RagProductIDs pq.StringArray `gorm:"type:text[];column:rag_product_ids" json:"rag_product_ids"`
 
-	// FAQ 知识库挂载（: 每个智能体可绑专属 FAQ）
-	// 空数组 = 全局共享（向后兼容）；非空 = 仅匹配绑定的 FAQ ID
 	FAQEntryIDs pq.StringArray `gorm:"type:text[];column:faq_entry_ids" json:"faq_entry_ids"`
 
-	// SOP 模板挂载（: 每个智能体可绑专属 SOP 模板）
-	// 空数组 = 全局共享；非空 = 仅匹配绑定的 SOP template ID
 	SOPTemplateIDs pq.StringArray `gorm:"type:text[];column:sop_template_ids" json:"sop_template_ids"`
 
-	// SOP 流程图挂载（已有：智能体可挂载多个 sop_agents 流程图）
 	SOPIDs pq.StringArray `gorm:"type:text[];column:sop_ids" json:"sop_ids"`
 
-	// 话术库挂载
 	ScriptLibraryIDs pq.StringArray `gorm:"type:text[];column:script_library_ids" json:"script_library_ids"`
 
-	// 决策策略挂载 — 新增(§2.3)
 	DecisionStrategyIDs pq.StringArray `gorm:"type:text[];column:decision_strategy_ids" json:"decision_strategy_ids"`
 
-	// A/B 实验挂载 — 新增(§2.3)
 	ABExperimentIDs pq.StringArray `gorm:"type:text[];column:ab_experiment_ids" json:"ab_experiment_ids"`
 
-	// 资产包绑定 — 智能体可绑定一个资产包（AssetBundle.AssetID）
-	// 执行时由 AssetBundleService.ResolveSystemPrompt 织入人设/话术，覆盖原 Persona
 	AssetBundleID string `gorm:"type:varchar(128);column:asset_bundle_id;default:''" json:"asset_bundle_id"`
 
-	// LLM 配置
 	LLMModel          string            `gorm:"type:varchar(100);default:'smollm3-3b-4bit-mlx'" json:"llm_model"`
 	LLMProviderConfig LLMProviderConfig `gorm:"embedded;embeddedPrefix:llm_" json:"llm_provider_config"`
 	Temperature       float64           `gorm:"default:0.7" json:"temperature"`
@@ -93,13 +65,9 @@ type AIAgent struct {
 	FrequencyPenalty  float64           `gorm:"default:0.5" json:"frequency_penalty"`
 	PresencePenalty   float64           `gorm:"default:0.5" json:"presence_penalty"`
 
-	// 多语言配置（v1.2 出海多语言方案）
-	// InternalLanguage 商户内部语言（知识库语言+内部工具prompt语言），默认 zh
-	// TargetLanguage   对外目标语言（空则退化=InternalLanguage）
 	InternalLanguage string `gorm:"type:varchar(8);default:'zh'" json:"internal_language"`
 	TargetLanguage   string `gorm:"type:varchar(8);default:''" json:"target_language"`
 
-	// 销售引擎开关
 	EnableRAG            bool `gorm:"default:true" json:"enable_rag"`
 	EnableScriptMatch    bool `gorm:"default:true" json:"enable_script_match"`
 	EnableHumanizePolish bool `gorm:"default:true" json:"enable_humanize_polish"`
@@ -107,12 +75,10 @@ type AIAgent struct {
 	EnablePlaybook       bool `gorm:"default:true" json:"enable_playbook"`
 	RAGTopK              int  `gorm:"default:3" json:"rag_top_k"`
 
-	// 转人工策略
 	ConfidenceThreshold float64 `gorm:"default:0.7" json:"confidence_threshold"`
-	MaxAIConsecutive    int     `gorm:"default:0" json:"max_ai_consecutive"` // 0=不限制，完全由置信度控制
+	MaxAIConsecutive    int     `gorm:"default:0" json:"max_ai_consecutive"` 
 
-	// 状态
-	Status  int `gorm:"default:1;index" json:"status"` // 1=启用 0=禁用
+	Status  int `gorm:"default:1;index" json:"status"` 
 	Version int `gorm:"default:1" json:"version"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
@@ -138,10 +104,7 @@ const (
 	ChannelTypeKuaishou    ChannelType = "kuaishou"
 	ChannelTypeXianyu      ChannelType = "xianyu"
 	ChannelTypeTikTok      ChannelType = "tiktok"
-	// ChannelTypeWeb 网页客服（web 站点 / H5 嵌入式聊天窗 / 移动端 webview）
 	ChannelTypeWeb ChannelType = "web"
-	// ChannelTypeWebEmbed Web Widget 嵌入（访客端，第三方网站访客）
-	// 区别于 ChannelTypeWeb（商户 B 端后台），对应 model.PlatformWebEmbed="web_embed"
 	ChannelTypeWebEmbed ChannelType = "web_embed"
 )
 
@@ -195,3 +158,4 @@ type CustomerServiceAgent struct {
 func (CustomerServiceAgent) TableName() string {
 	return "customer_service_agents"
 }
+

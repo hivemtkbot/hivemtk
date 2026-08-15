@@ -13,15 +13,14 @@ const (
 	TypeAISuggestion  = "ai_suggestion"
 	TypeHeartbeat     = "heartbeat"
 
-	// 访客端下行消息类型
-	TypeWelcome         = "welcome"          // 接入欢迎
-	TypeMessage         = "message"          // AI/坐席消息
-	TypeAgentJoined     = "agent_joined"     // 坐席接管
-	TypeSessionClosed   = "session_closed"   // 会话关闭
-	TypeAITyping        = "ai_typing"        // AI 正在输入
-	TypeError           = "error"            // 错误通知
-	TypePong            = "pong"             // 心跳响应
-	TypeOfflineMessages = "offline_messages" // 离线消息补发
+	TypeWelcome         = "welcome"          
+	TypeMessage         = "message"          
+	TypeAgentJoined     = "agent_joined"     
+	TypeSessionClosed   = "session_closed"   
+	TypeAITyping        = "ai_typing"        
+	TypeError           = "error"            
+	TypePong            = "pong"             
+	TypeOfflineMessages = "offline_messages" 
 )
 
 // SendToAgent 发送消息给指定客服（坐席 ID 为 uint）
@@ -58,9 +57,6 @@ func BroadcastToAgents(messageType string, payload any) error {
 	return GetHub().BroadcastToAgents(messageType, payload)
 }
 
-// ============================================================================
-// Hub 方法扩展（SendToVisitor / BroadcastToAll / BroadcastToAgents）
-// ============================================================================
 
 // SendToVisitor 发送消息给指定会话的访客
 //
@@ -73,11 +69,9 @@ func (h *Hub) SendToVisitor(sessionID, messageType string, payload any) error {
 
 	visitor := getVisitorClient(sessionID)
 	if visitor == nil {
-		// 访客离线：消息保留在 DB（delivered_at=NULL），待重连通过 onConnect 补发
 		return nil
 	}
 
-	// 走 Envelope 分配 seq，并自动 Track ACK
 	env := MustEnvelope(NextSeq(), messageType, payload)
 	bytes, err := env.MarshalBytes()
 	if err != nil {
@@ -88,7 +82,6 @@ func (h *Hub) SendToVisitor(sessionID, messageType string, payload any) error {
 	select {
 	case visitor.send <- bytes:
 	default:
-		// channel 满：非阻塞丢弃（writePump 仍会处理后续）
 	}
 	return nil
 }
@@ -151,3 +144,4 @@ func (h *Hub) BroadcastToAgents(messageType string, payload any) error {
 	}
 	return nil
 }
+

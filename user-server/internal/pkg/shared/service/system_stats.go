@@ -20,17 +20,17 @@ func NewSystemStatsService() *SystemStatsService {
 
 // SystemInfo 系统信息
 type SystemInfo struct {
-	CPUUsage     float64 `json:"cpu_usage"`     // CPU 使用率 (%)
-	MemoryUsage  float64 `json:"memory_usage"`  // 内存使用率 (%)
-	DiskUsage    float64 `json:"disk_usage"`    // 磁盘使用率 (%)
-	Uptime       int64   `json:"uptime"`        // 运行时间 (秒)
-	ServerTime   string  `json:"server_time"`   // 服务器时间
-	Hostname     string  `json:"hostname"`      // 主机名
-	GoVersion    string  `json:"go_version"`    // Go 版本
-	NumCPU       int     `json:"num_cpu"`       // CPU 核心数
-	NumGoroutine int     `json:"num_goroutine"` // Goroutine 数量
-	AllocMemory  uint64  `json:"alloc_memory"`  // 已分配内存 (字节)
-	SysMemory    uint64  `json:"sys_memory"`    // 系统内存 (字节)
+	CPUUsage     float64 `json:"cpu_usage"`     
+	MemoryUsage  float64 `json:"memory_usage"`  
+	DiskUsage    float64 `json:"disk_usage"`    
+	Uptime       int64   `json:"uptime"`        
+	ServerTime   string  `json:"server_time"`   
+	Hostname     string  `json:"hostname"`      
+	GoVersion    string  `json:"go_version"`    
+	NumCPU       int     `json:"num_cpu"`       
+	NumGoroutine int     `json:"num_goroutine"` 
+	AllocMemory  uint64  `json:"alloc_memory"`  
+	SysMemory    uint64  `json:"sys_memory"`    
 }
 
 // GetSystemInfo 获取系统信息
@@ -38,33 +38,28 @@ func (s *SystemStatsService) GetSystemInfo() (*SystemInfo, error) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	// 获取 CPU 使用率（部分平台首次调用可能返回 not implemented，降级为 0 不报错）
 	cpuPercent, err := cpu.Percent(0, false)
 	cpuUsage := 0.0
 	if err == nil && len(cpuPercent) > 0 {
 		cpuUsage = cpuPercent[0]
 	}
 
-	// 获取磁盘使用率
 	diskUsage, err := disk.Usage("/")
 	diskPct := 0.0
 	if err == nil {
 		diskPct = diskUsage.UsedPercent
 	}
 
-	// 获取主机名
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "unknown"
 	}
 
-	// 获取运行时间
 	uptime, err := host.Uptime()
 	if err != nil {
 		uptime = 0
 	}
 
-	// 计算内存使用率（防止除零）
 	memPct := 0.0
 	if m.Sys > 0 {
 		memPct = float64(m.Alloc) / float64(m.Sys) * 100
@@ -84,3 +79,4 @@ func (s *SystemStatsService) GetSystemInfo() (*SystemInfo, error) {
 		SysMemory:    m.Sys,
 	}, nil
 }
+

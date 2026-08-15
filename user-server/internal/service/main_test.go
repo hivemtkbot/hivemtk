@@ -16,13 +16,12 @@ import (
 
 // TestMain service 包测试统一入口
 func TestMain(m *testing.M) {
-	// 强制设置 IS_TEST_MODE，使 wecom_integration / dispatcher 等模块走"无真实出站"分支
 	if os.Getenv("IS_TEST_MODE") == "" {
 		_ = os.Setenv("IS_TEST_MODE", "1")
 	}
-	// 强制禁用企微真实出站（除非测试明确要求开启）
 	if os.Getenv("WECOM_DISABLE_OUTBOUND") == "" {
 		_ = os.Setenv("WECOM_DISABLE_OUTBOUND", "1")
 	}
 	os.Exit(m.Run())
 }
+

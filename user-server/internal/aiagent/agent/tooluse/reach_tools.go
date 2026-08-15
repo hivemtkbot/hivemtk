@@ -12,57 +12,34 @@ import (
 )
 
 type ReachAdapter interface {
-	// SendSMS 发送短信
 	SendSMS(ctx context.Context, phone, content, templateID string, params map[string]string) (msgID string, err error)
-	// SendEmail 发送邮件
 	SendEmail(ctx context.Context, to, subject, content string, attachments []string) (msgID string, err error)
-	// SendWeCom 企微发送
 	SendWeCom(ctx context.Context, accountID, externalUserID, msgType, content string) (msgID string, err error)
-	// SendWeixin 微信公众号发送
 	SendWeixin(ctx context.Context, openID, msgType, content string) (msgID string, err error)
-	// SendDouyin 抖音私信
 	SendDouyin(ctx context.Context, accountID, openID, msgType, content string) (msgID string, err error)
-	// SendKuaishou 快手私信
 	SendKuaishou(ctx context.Context, accountID, openID, msgType, content string) (msgID string, err error)
-	// SendXHS 小红书私信
 	SendXHS(ctx context.Context, accountID, openID, msgType, content string) (msgID string, err error)
-	// SendTikTok TikTok 私信（仅网页桥接支持，无官方 API）
 	SendTikTok(ctx context.Context, accountID, openID, msgType, content string) (msgID string, err error)
-	// SendXianyu 闲鱼私信（仅网页桥接支持，无官方 API）
 	SendXianyu(ctx context.Context, accountID, openID, msgType, content string) (msgID string, err error)
-	// SendDingTalk 钉钉发送
 	SendDingTalk(ctx context.Context, chatID, msgType, content string) (msgID string, err error)
-	// SendTelegram 通过 Telegram Bot API 发送消息
-	// chatID 私聊为正、群组为负（如 -1001234567890）
 	SendTelegram(ctx context.Context, accountID, chatID, content string) (msgID string, err error)
-	// SendWhatsApp 通过 WhatsApp Cloud API 发送消息
-	// toPhone E.164 国际格式（如 +8613800138000）
 	SendWhatsApp(ctx context.Context, accountID, toPhone, content string) (msgID string, err error)
-	// SendFeishu 通过飞书 Open API 发送消息
-	// openID 飞书用户 open_id（ou_xxx）或群 chat_id（oc_xxx）
 	SendFeishu(ctx context.Context, accountID, openID, content string) (msgID string, err error)
-	// SendWeb 通过网页客服渠道（WebSocket）向访客会话推送消息
-	// sessionID 访客会话 ID（对应 customer_sessions.session_id）
-	// 实时推送给在线访客；访客离线时返回离线提示由调用方决定补发策略
 	SendWeb(ctx context.Context, sessionID, content string) (msgID string, err error)
-	// SendCard 客户卡片
 	SendCard(ctx context.Context, channel, accountID, externalUserID, cardID string) (msgID string, err error)
-	// Recall 撤回
 	Recall(ctx context.Context, channel, msgID string) error
-	// AccountHealth 账号健康度
 	AccountHealth(ctx context.Context, channel, accountID string) (*AccountHealthInfo, error)
-	// ListAccounts 账号列表
 	ListAccounts(ctx context.Context, channel string) ([]AccountInfo, error)
 }
 
 type AccountHealthInfo struct {
 	AccountID   string `json:"account_id"`
 	Channel     string `json:"channel"`
-	Status      string `json:"status"` // healthy / warning / risk / banned
+	Status      string `json:"status"` 
 	DailyQuota  int    `json:"daily_quota"`
 	DailyUsed   int    `json:"daily_used"`
 	DailyRemain int    `json:"daily_remain"`
-	RiskLevel   string `json:"risk_level"` // low / medium / high
+	RiskLevel   string `json:"risk_level"` 
 	LastCheckAt string `json:"last_check_at"`
 }
 
@@ -70,7 +47,7 @@ type AccountInfo struct {
 	AccountID string `json:"account_id"`
 	Channel   string `json:"channel"`
 	Nickname  string `json:"nickname"`
-	Status    string `json:"status"` // online / offline / banned
+	Status    string `json:"status"` 
 	IsHealthy bool   `json:"is_healthy"`
 }
 
@@ -94,9 +71,9 @@ func (NoOpReachAdapter) ListAccounts(ctx context.Context, channel string) ([]Acc
 
 type ReachToolDeps struct {
 	Adapter      ReachAdapter
-	Pipeline     ReachBatchPipelinePort // 用于 batch / schedule / history
-	DB           *gorm.DB               // 用于 history 查询（如未提供 Pipeline）
-	SendPipeline ReachSendPipelinePort  // G4：9 步消息发送 Pipeline
+	Pipeline     ReachBatchPipelinePort 
+	DB           *gorm.DB               
+	SendPipeline ReachSendPipelinePort  
 }
 
 func NewReachToolDeps() ReachToolDeps {
@@ -1206,3 +1183,4 @@ func (t *ReachWebSendTool) Execute(ctx context.Context, args map[string]any) (To
 		"fallback_used": resp.FallbackUsed,
 	}), nil
 }
+

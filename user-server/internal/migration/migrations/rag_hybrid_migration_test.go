@@ -1,15 +1,5 @@
 package migrations
 
-// rag_hybrid_migration_test.go RAG 混合检索迁移 v2.7.0 PG 集成测试
-//
-// 覆盖：
-//  1. Up() 在空库上执行 → 创建所有目标表/索引/触发器
-//  2. Down() 清理 → 删除缓存表/触发器/索引/列
-//  3. Up() 幂等：重复执行不报错
-//  4. 创建后写入 query_rewrite_cache / embedding_cache 验证表结构正确
-//  5. knowledge_chunks 触发器自动维护 content_tsv / contextual_tsv
-//  6. knowledge_search_logs 表可写入监控字段
-//  7. Version() / Name() / Description() 返回值校验
 
 import (
 	"context"
@@ -24,8 +14,6 @@ import (
 // setupMigrationTestDB 创建迁移测试 DB（空库，依赖迁移自己创建表）
 func setupMigrationTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	// 项目规则"不允许跳过"：PG 集成测试必须运行，testutil.NewTestDB 在连接失败时 t.Fatal
-	// 传入空 models 列表 → 仅创建进程级测试库，不 AutoMigrate 任何表
 	return testutil.NewTestDB(t)
 }
 
@@ -85,7 +73,6 @@ func TestRagHybridMigration_UpCreatesAllTables(t *testing.T) {
 		t.Errorf("query_rewrite_cache table should exist after Up(): exists=%v err=%v", exists, err)
 	}
 
-	// 验证 embedding_cache 表存在
 	if err := db.Raw(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'embedding_cache')`).Scan(&exists).Error; err != nil || !exists {
 		t.Errorf("embedding_cache table should exist after Up(): exists=%v err=%v", exists, err)
 	}
@@ -112,11 +99,9 @@ func TestRagHybridMigration_UpIdempotent(t *testing.T) {
 	if err := m.Up(context.Background()); err != nil {
 		t.Fatalf("first Up() failed: %v", err)
 	}
-	// 第二次执行不应报错（所有 DDL 都使用 IF NOT EXISTS）
 	if err := m.Up(context.Background()); err != nil {
 		t.Fatalf("second Up() should be idempotent: %v", err)
 	}
-	// 第三次执行也不应报错
 	if err := m.Up(context.Background()); err != nil {
 		t.Fatalf("third Up() should be idempotent: %v", err)
 	}
@@ -132,15 +117,12 @@ func TestRagHybridMigration_TriggerMaintainsTSV(t *testing.T) {
 		t.Fatalf("Up() failed: %v", err)
 	}
 
-	// 重要：testutil.NewTestDB 设置了 session_replication_role = 'replica' 禁用触发器
-	// 此测试需要触发器实际触发，必须重置为 'origin'
 	if sqlDB, err := db.DB(); err == nil {
 		if _, err := sqlDB.Exec("SET session_replication_role = 'origin'"); err != nil {
 			t.Logf("重置 session_replication_role 提示: %v", err)
 		}
 	}
 
-	// 插入一条 chunk（不显式设置 content_tsv，触发器应自动维护）
 	if err := db.Exec(`INSERT INTO knowledge_chunks (document_id, content) VALUES ($1, $2)`, 100, "如何申请退货退款流程").Error; err != nil {
 		t.Fatalf("insert chunk failed: %v", err)
 	}
@@ -171,7 +153,6 @@ func TestRagHybridMigration_QueryRewriteCacheWritable(t *testing.T) {
 		t.Fatalf("Up() failed: %v", err)
 	}
 
-	// 写入一条缓存
 	err := db.Exec(`
 		INSERT INTO query_rewrite_cache (query_hash, original_query, hyde_doc, multi_queries, rewrite_model, rewrite_type, hit_count, expires_at)
 		VALUES ($1, $2, $3, $4::jsonb, $5, $6, 0, NOW() + INTERVAL '30 days')
@@ -197,7 +178,6 @@ func TestRagHybridMigration_QueryRewriteCacheWritable(t *testing.T) {
 		t.Errorf("rewrite_type=%q want=hyde", row.RewriteType)
 	}
 
-	// 测试 UNIQUE 约束（query_hash 唯一）
 	err = db.Exec(`
 		INSERT INTO query_rewrite_cache (query_hash, original_query) VALUES ($1, $2)
 	`, "abc123", "重复").Error
@@ -205,7 +185,6 @@ func TestRagHybridMigration_QueryRewriteCacheWritable(t *testing.T) {
 		t.Error("should fail on duplicate query_hash (UNIQUE constraint)")
 	}
 
-	// 测试 ON CONFLICT DO UPDATE（同 hash 覆盖）
 	err = db.Exec(`
 		INSERT INTO query_rewrite_cache (query_hash, original_query, hyde_doc, rewrite_type)
 		VALUES ($1, $2, $3, $4)
@@ -239,7 +218,6 @@ func TestRagHybridMigration_EmbeddingCacheWritable(t *testing.T) {
 		t.Fatalf("Up() failed: %v", err)
 	}
 
-	// 构造 1024 维向量（正确格式：[v0,v1,...,v1023]）
 	vecParts := make([]string, 1024)
 	vecParts[0] = "0.1"
 	vecParts[1] = "0.2"
@@ -249,7 +227,6 @@ func TestRagHybridMigration_EmbeddingCacheWritable(t *testing.T) {
 	}
 	vec := "[" + strings.Join(vecParts, ",") + "]"
 
-	// 写入
 	err := db.Exec(`
 		INSERT INTO embedding_cache (text_hash, text_content, model, dimension, embedding, hit_count, expires_at)
 		VALUES ($1, $2, $3, $4, $5::vector, 0, NOW() + INTERVAL '30 days')
@@ -268,7 +245,6 @@ func TestRagHybridMigration_EmbeddingCacheWritable(t *testing.T) {
 		t.Errorf("dimension=%d want=1024", dim)
 	}
 
-	// 测试 UNIQUE (text_hash, model) 约束
 	err = db.Exec(`
 		INSERT INTO embedding_cache (text_hash, text_content, model, dimension, embedding)
 		VALUES ($1, $2, $3, $4, $5::vector)
@@ -306,7 +282,6 @@ func TestRagHybridMigration_DownCleansUp(t *testing.T) {
 		t.Errorf("content_tsv column should be dropped after Down(): hasCol=%v", hasCol)
 	}
 
-	// 验证 knowledge_chunks 基础表仍存在（业务数据保护）
 	if err := db.Raw(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'knowledge_chunks')`).Scan(&exists).Error; err != nil || !exists {
 		t.Errorf("knowledge_chunks base table should still exist after Down(): exists=%v", exists)
 	}
@@ -322,7 +297,6 @@ func TestRagHybridMigration_KnowledgeSearchLogsEnhanced(t *testing.T) {
 		t.Fatalf("Up() failed: %v", err)
 	}
 
-	// 写入一条带监控字段的日志
 	err := db.Exec(`
 		INSERT INTO knowledge_search_logs
 			(query, product_id, top_k, vector_count, bm25_count, fused_count, rerank_count,
@@ -356,3 +330,4 @@ func TestRagHybridMigration_KnowledgeSearchLogsEnhanced(t *testing.T) {
 		t.Error("cache_hit should be true")
 	}
 }
+

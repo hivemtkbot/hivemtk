@@ -36,3 +36,4 @@ type DailyCardUVStats struct {
 func (DailyCardUVStats) TableName() string {
 	return "daily_card_uv_stats"
 }
+

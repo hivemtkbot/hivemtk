@@ -133,7 +133,6 @@ func TestEmailListController_GetEmailListList_MissingPage(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httpReq)
 
-	// DTO 中 page 没有 binding:"required",默认 page=1,返回 200
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK (page defaulted to 1), got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -148,7 +147,6 @@ func TestEmailListController_GetEmailListList_MissingLimit(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httpReq)
 
-	// DTO 中 limit(pageSize) 没有 binding:"required",默认 pageSize=20,返回 200
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK (pageSize defaulted to 20), got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -324,11 +322,6 @@ func TestEmailListController_NewEmailListController(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// 下方测试函数来源于历史遗留的 email_extra_test.go
-// 为遵守命名规范(禁用 _extra 后缀),于 合并到 email_list_test.go
-// 这些测试覆盖 EmailList/EmailSmtp/EmailDraft/EmailJobs 的基础路由可达性
-// =============================================================================
 
 // setupEmailTestDB_Merged 初始化邮件测试数据库(合并自 email_extra_test.go)
 func setupEmailTestDB_Merged(t *testing.T) *gorm.DB {
@@ -498,3 +491,4 @@ func TestEmailJobsController_GetList_MergedSuccess(t *testing.T) {
 		t.Errorf("Expected 200, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
+

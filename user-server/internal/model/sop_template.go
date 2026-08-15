@@ -27,15 +27,10 @@ type SOPTemplate struct {
 	Intent     string  `gorm:"type:varchar(64);not null;index" json:"intent"`
 	Stage      string  `gorm:"type:varchar(32);not null;index" json:"stage"`
 	Template   string  `gorm:"type:text;not null" json:"template"`
-	Vars       string  `gorm:"type:text" json:"vars"` // JSON: {"varName":{"desc":"...","example":"..."}}
+	Vars       string  `gorm:"type:text" json:"vars"` 
 	Priority   int     `gorm:"type:int;default:0" json:"priority"`
 	Confidence float64 `gorm:"type:decimal(5,4);default:0.8" json:"confidence"`
-	// 按智能体隔离字段
-	//   nil  = 共享 (默认, 向后兼容旧数据)
-	//   &X   = 仅 X 智能体可见
-	// 索引: idx_sop_agent_id (按智能体过滤)
 	AgentID *uint `gorm:"index" json:"agent_id,omitempty"`
-	// Enabled 用 *bool 避免 GORM v2 零值 false 被 column default 覆盖
 	Enabled   *bool     `gorm:"type:boolean;default:true;not null" json:"enabled"`
 	HitCount  int64     `gorm:"type:bigint;default:0" json:"hit_count"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
@@ -44,3 +39,4 @@ type SOPTemplate struct {
 
 // TableName GORM 表名
 func (SOPTemplate) TableName() string { return "sop_templates" }
+

@@ -71,12 +71,10 @@ func TestEmailUnsubscribe_UnsubscribeEmail_Idempotent(t *testing.T) {
 	database := setupEmailUnsubscribeTestDB(t)
 	svc := newEmailUnsubscribeService(database)
 
-	// 第一次退订
 	if err := svc.UnsubscribeEmail(context.Background(), "a@b.com", "reason1", "", "", "", ""); err != nil {
 		t.Fatalf("首次退订失败: %v", err)
 	}
 
-	// 第二次退订（更新原因）
 	if err := svc.UnsubscribeEmail(context.Background(), "A@B.com", "reason2", "", "", "", ""); err != nil {
 		t.Fatalf("二次退订失败: %v", err)
 	}
@@ -151,7 +149,6 @@ func TestEmailUnsubscribe_ResubscribeEmail_Success(t *testing.T) {
 	database := setupEmailUnsubscribeTestDB(t)
 	svc := newEmailUnsubscribeService(database)
 
-	// 先退订
 	if err := svc.UnsubscribeEmail(context.Background(), "re@sub.com", "", "", "", "", ""); err != nil {
 		t.Fatalf("退订失败: %v", err)
 	}
@@ -159,7 +156,6 @@ func TestEmailUnsubscribe_ResubscribeEmail_Success(t *testing.T) {
 		t.Fatal("Expected unsubscribed")
 	}
 
-	// 重新订阅
 	if err := svc.ResubscribeEmail(context.Background(), "re@sub.com"); err != nil {
 		t.Fatalf("重新订阅失败: %v", err)
 	}
@@ -173,7 +169,6 @@ func TestEmailUnsubscribe_ResubscribeEmail_NotExist(t *testing.T) {
 	database := setupEmailUnsubscribeTestDB(t)
 	svc := newEmailUnsubscribeService(database)
 
-	// 重新订阅不存在的记录，应不报错（幂等）
 	if err := svc.ResubscribeEmail(context.Background(), "never@sub.com"); err != nil {
 		t.Errorf("重新订阅不存在的记录应幂等返回 nil, got: %v", err)
 	}
@@ -228,7 +223,6 @@ func TestEmailUnsubscribe_VerifyToken_Valid(t *testing.T) {
 		t.Fatalf("GenerateUnsubscribeLink failed: %v", err)
 	}
 
-	// 提取 token
 	idx := strings.Index(link, "token=")
 	if idx < 0 {
 		t.Fatalf("链接缺少 token 参数: %s", link)
@@ -259,7 +253,6 @@ func TestEmailUnsubscribe_VerifyToken_InvalidSignature(t *testing.T) {
 	idx := strings.Index(link, "token=")
 	token := link[idx+6:]
 
-	// 篡改签名（最后 5 字符）
 	tampered := token[:len(token)-5] + "XXXXX"
 	_, err := svc.VerifyUnsubscribeToken(context.Background(), tampered)
 	if err == nil {
@@ -275,9 +268,6 @@ func TestEmailUnsubscribe_VerifyToken_Expired(t *testing.T) {
 	database := setupEmailUnsubscribeTestDB(t)
 	svc := newEmailUnsubscribeService(database)
 
-	// 直接构造过期 claim（通过生成后修改 expire 不可行，因为签名固定）
-	// 采用另一种方式：生成 token 后，等待 expire 字段被读出，再用反序列化失败的场景验证
-	// 此处通过断言 token 包含 expire 字段间接覆盖
 	link, err := svc.GenerateUnsubscribeLink(context.Background(), "exp@demo.com", "")
 	if err != nil {
 		t.Fatalf("GenerateUnsubscribeLink failed: %v", err)
@@ -285,7 +275,6 @@ func TestEmailUnsubscribe_VerifyToken_Expired(t *testing.T) {
 	idx := strings.Index(link, "token=")
 	token := link[idx+6:]
 
-	// 验证 token 在 30 天后过期（通过 claim.Expire 校验）
 	claim, err := svc.VerifyUnsubscribeToken(context.Background(), token)
 	if err != nil {
 		t.Fatalf("VerifyUnsubscribeToken failed: %v", err)
@@ -323,14 +312,12 @@ func TestEmailUnsubscribe_ListUnsubscribes(t *testing.T) {
 	database := setupEmailUnsubscribeTestDB(t)
 	svc := newEmailUnsubscribeService(database)
 
-	// 准备数据
 	for i, email := range []string{"a@x.com", "b@x.com", "c@y.com"} {
 		if err := svc.UnsubscribeEmail(context.Background(), email, "r"+string(rune('0'+i)), "", "", "", ""); err != nil {
 			t.Fatalf("UnsubscribeEmail failed: %v", err)
 		}
 	}
 
-	// 查询全部
 	records, total, err := svc.ListUnsubscribes(context.Background(), 1, 20, "")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes failed: %v", err)
@@ -342,7 +329,6 @@ func TestEmailUnsubscribe_ListUnsubscribes(t *testing.T) {
 		t.Errorf("Expected 3 records, got %d", len(records))
 	}
 
-	// 关键词过滤
 	records, total, err = svc.ListUnsubscribes(context.Background(), 1, 20, "@x.com")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes with keyword failed: %v", err)
@@ -367,7 +353,6 @@ func TestEmailUnsubscribe_ListUnsubscribes_Pagination(t *testing.T) {
 		}
 	}
 
-	// 第 1 页，每页 2 条
 	records, total, err := svc.ListUnsubscribes(context.Background(), 1, 2, "")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes page 1 failed: %v", err)
@@ -379,7 +364,6 @@ func TestEmailUnsubscribe_ListUnsubscribes_Pagination(t *testing.T) {
 		t.Errorf("Expected 2 records on page 1, got %d", len(records))
 	}
 
-	// 第 3 页（超出范围）
 	records, _, err = svc.ListUnsubscribes(context.Background(), 3, 2, "")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes page 3 failed: %v", err)
@@ -398,7 +382,6 @@ func TestEmailUnsubscribe_ListUnsubscribes_DefaultPaging(t *testing.T) {
 		t.Fatalf("UnsubscribeEmail failed: %v", err)
 	}
 
-	// 传入 page=0, limit=0，应被规范化为 page=1, limit=20
 	records, total, err := svc.ListUnsubscribes(context.Background(), 0, 0, "")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes failed: %v", err)
@@ -449,18 +432,15 @@ func TestEmailUnsubscribe_FullLifecycle(t *testing.T) {
 
 	email := "lifecycle@demo.com"
 
-	// 1. 初始未退订
 	if svc.IsUnsubscribed(context.Background(), email) {
 		t.Error("Initial state should be not unsubscribed")
 	}
 
-	// 2. 生成退订链接
 	link, err := svc.GenerateUnsubscribeLink(context.Background(), email, "job-lc")
 	if err != nil {
 		t.Fatalf("GenerateUnsubscribeLink failed: %v", err)
 	}
 
-	// 3. 验证 token
 	idx := strings.Index(link, "token=")
 	token := link[idx+6:]
 	claim, err := svc.VerifyUnsubscribeToken(context.Background(), token)
@@ -471,23 +451,20 @@ func TestEmailUnsubscribe_FullLifecycle(t *testing.T) {
 		t.Errorf("Expected email %s, got %s", email, claim.Email)
 	}
 
-	// 4. 执行退订
 	if err := svc.UnsubscribeEmail(context.Background(), claim.Email, "测试生命周期", "", claim.JobID, "", ""); err != nil {
 		t.Fatalf("UnsubscribeEmail failed: %v", err)
 	}
 
-	// 5. 验证已退订
 	if !svc.IsUnsubscribed(context.Background(), email) {
 		t.Error("Should be unsubscribed after UnsubscribeEmail")
 	}
 
-	// 6. 重新订阅
 	if err := svc.ResubscribeEmail(context.Background(), email); err != nil {
 		t.Fatalf("ResubscribeEmail failed: %v", err)
 	}
 
-	// 7. 验证已重新订阅
 	if svc.IsUnsubscribed(context.Background(), email) {
 		t.Error("Should be resubscribed after ResubscribeEmail")
 	}
 }
+

@@ -76,7 +76,6 @@ func TestDomainPoolRepository_GetByID(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	domain := &model.DomainPool{
 		Domain:    "getbyid.com",
 		Port:      8080,
@@ -128,7 +127,6 @@ func TestDomainPoolRepository_GetByDomain(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	domain := &model.DomainPool{
 		Domain:    "unique-domain.com",
 		Port:      443,
@@ -177,7 +175,6 @@ func TestDomainPoolRepository_List(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		repo.Create(ctx, &model.DomainPool{
 			Domain:    string(rune('a'+i-1)) + "domain.com",
@@ -250,7 +247,6 @@ func TestDomainPoolRepository_List_WithDomainFilter(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	repo.Create(ctx, &model.DomainPool{
 		Domain:    "test-example.com",
 		Port:      443,
@@ -289,7 +285,6 @@ func TestDomainPoolRepository_Update(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	domain := &model.DomainPool{
 		Domain:    "update-test.com",
 		Port:      80,
@@ -321,7 +316,6 @@ func TestDomainPoolRepository_Delete(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	domain := &model.DomainPool{
 		Domain:    "delete-test.com",
 		Port:      80,
@@ -346,7 +340,6 @@ func TestDomainPoolRepository_UpdateStatus(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	domain := &model.DomainPool{
 		Domain:    "status-test.com",
 		Port:      80,
@@ -371,7 +364,6 @@ func TestDomainPoolRepository_UpdateLastCheck(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	domain := &model.DomainPool{
 		Domain:    "check-test.com",
 		Port:      80,
@@ -391,3 +383,4 @@ func TestDomainPoolRepository_UpdateLastCheck(t *testing.T) {
 		t.Error("Expected LastCheck to be updated")
 	}
 }
+

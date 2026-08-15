@@ -90,7 +90,6 @@ func TestSmsTracking_RecordDeliveryReport_ExistingUpdate(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	// 第一次：pending
 	req1 := &DeliveryReportRequest{
 		MessageID: "msg-002",
 		Phone:     "13900139000",
@@ -101,7 +100,6 @@ func TestSmsTracking_RecordDeliveryReport_ExistingUpdate(t *testing.T) {
 		t.Fatalf("首次记录失败: %v", err)
 	}
 
-	// 第二次：delivered（webhook 多次推送同一消息中间状态）
 	req2 := &DeliveryReportRequest{
 		MessageID:   "msg-002",
 		Status:      "DELIVERED",
@@ -137,7 +135,7 @@ func TestSmsTracking_RecordDeliveryReport_FailedWithRetryable(t *testing.T) {
 		Phone:     "13700137000",
 		JobID:     "job-003",
 		Status:    "FAILED",
-		ErrorCode: model.SmsErrorCodeGatewayTimeout, // ERR_6001 可重试
+		ErrorCode: model.SmsErrorCodeGatewayTimeout, 
 		ErrorMsg:  "网关超时",
 	}
 	if err := svc.RecordDeliveryReport(context.Background(), req); err != nil {
@@ -148,7 +146,6 @@ func TestSmsTracking_RecordDeliveryReport_FailedWithRetryable(t *testing.T) {
 	if err := database.Where("message_id = ?", "msg-003").First(&record).Error; err != nil {
 		t.Fatalf("查询记录失败: %v", err)
 	}
-	// 失败但可重试 → 状态置为 retryable
 	if record.Status != model.SmsStatusRetryable {
 		t.Errorf("Expected status 'retryable', got %s", record.Status)
 	}
@@ -170,7 +167,7 @@ func TestSmsTracking_RecordDeliveryReport_FailedNotRetryable(t *testing.T) {
 		Phone:     "13600136000",
 		JobID:     "job-004",
 		Status:    "FAILED",
-		ErrorCode: model.SmsErrorCodeInvalidPhone, // ERR_4001 不可重试
+		ErrorCode: model.SmsErrorCodeInvalidPhone, 
 		ErrorMsg:  "号码无效",
 	}
 	if err := svc.RecordDeliveryReport(context.Background(), req); err != nil {
@@ -233,11 +230,11 @@ func TestSmsTracking_IsRetryable_RetryableCodes(t *testing.T) {
 	svc := newSmsTrackingService(database)
 
 	cases := []string{
-		model.SmsErrorCodeGatewayTimeout,   // ERR_6001
-		model.SmsErrorCodeProviderInternal, // ERR_5001
-		model.SmsErrorCodeRateLimited,      // ERR_5002
-		"ERR_6999",                         // 其他 6xxx
-		"ERR_5999",                         // 其他 5xxx
+		model.SmsErrorCodeGatewayTimeout,   
+		model.SmsErrorCodeProviderInternal, 
+		model.SmsErrorCodeRateLimited,      
+		"ERR_6999",                         
+		"ERR_5999",                         
 	}
 	for _, code := range cases {
 		if !svc.IsRetryable(context.Background(), code) {
@@ -252,11 +249,11 @@ func TestSmsTracking_IsRetryable_NonRetryableCodes(t *testing.T) {
 	svc := newSmsTrackingService(database)
 
 	cases := []string{
-		model.SmsErrorCodeInvalidPhone,     // ERR_4001
-		model.SmsErrorCodeBlacklisted,      // ERR_4002
-		model.SmsErrorCodeContentViolation, // ERR_4003
-		model.SmsErrorCodeSubscriberFreq,   // ERR_4004
-		"ERR_4999",                         // 其他 4xxx
+		model.SmsErrorCodeInvalidPhone,     
+		model.SmsErrorCodeBlacklisted,      
+		model.SmsErrorCodeContentViolation, 
+		model.SmsErrorCodeSubscriberFreq,   
+		"ERR_4999",                         
 	}
 	for _, code := range cases {
 		if svc.IsRetryable(context.Background(), code) {
@@ -270,11 +267,9 @@ func TestSmsTracking_IsRetryable_EmptyAndUnknown(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	// 空错误码 → 不重试（保守策略）
 	if svc.IsRetryable(context.Background(), "") {
 		t.Error("Expected IsRetryable('')=false")
 	}
-	// 未知错误码 → 不重试（保守策略）
 	if svc.IsRetryable(context.Background(), "UNKNOWN_999") {
 		t.Error("Expected IsRetryable('UNKNOWN_999')=false")
 	}
@@ -288,7 +283,6 @@ func TestSmsTracking_RetryFailedMessages_NormalRetry(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	// 准备 2 条可重试记录
 	for i, msgID := range []string{"retry-001", "retry-002"} {
 		req := &DeliveryReportRequest{
 			MessageID: msgID,
@@ -330,7 +324,6 @@ func TestSmsTracking_RetryFailedMessages_MaxRetryReached(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	// 创建一条 retry_count 已达 max_retry 的记录
 	now := time.Now()
 	record := &model.SmsDeliveryStatus{
 		MessageID:   "max-retry-001",
@@ -351,7 +344,6 @@ func TestSmsTracking_RetryFailedMessages_MaxRetryReached(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RetryFailedMessages failed: %v", err)
 	}
-	// 达到最大重试次数的记录不应计入 retried
 	if retried != 0 {
 		t.Errorf("Expected retried=0, got %d", retried)
 	}
@@ -388,7 +380,6 @@ func TestSmsTracking_RetryFailedMessages_DefaultBatchSize(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	// batchSize <= 0 应使用默认值 100，不报错
 	retried, err := svc.RetryFailedMessages(context.Background(), 0)
 	if err != nil {
 		t.Fatalf("RetryFailedMessages failed: %v", err)
@@ -403,7 +394,6 @@ func TestSmsTracking_GetJobMetrics_WithMetrics(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	// 准备数据：3 条 delivered + 1 条 failed + 1 条 retryable
 	statuses := []struct {
 		msgID   string
 		phone   string
@@ -439,18 +429,15 @@ func TestSmsTracking_GetJobMetrics_WithMetrics(t *testing.T) {
 	if metric.TotalDelivered != 3 {
 		t.Errorf("Expected TotalDelivered=3, got %d", metric.TotalDelivered)
 	}
-	// TotalFailed = failed(1) + retryable(1) = 2
 	if metric.TotalFailed != 2 {
 		t.Errorf("Expected TotalFailed=2, got %d", metric.TotalFailed)
 	}
 	if metric.TotalRetried != 1 {
 		t.Errorf("Expected TotalRetried=1, got %d", metric.TotalRetried)
 	}
-	// 3/5 * 100 = 60
 	if metric.DeliveryRate != 60 {
 		t.Errorf("Expected DeliveryRate=60, got %f", metric.DeliveryRate)
 	}
-	// 2/5 * 100 = 40
 	if metric.FailureRate != 40 {
 		t.Errorf("Expected FailureRate=40, got %f", metric.FailureRate)
 	}
@@ -489,7 +476,6 @@ func TestSmsTracking_GetRangeMetrics_WithMetrics(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	// 准备数据
 	for i, s := range []struct {
 		msgID  string
 		phone  string
@@ -539,7 +525,7 @@ func TestSmsTracking_GetRangeMetrics_InvalidRange(t *testing.T) {
 	svc := newSmsTrackingService(database)
 
 	start := time.Now()
-	end := time.Now().Add(-1 * time.Hour) // end < start
+	end := time.Now().Add(-1 * time.Hour) 
 	_, err := svc.GetRangeMetrics(context.Background(), start, end)
 	if err == nil {
 		t.Error("Expected error for invalid range")
@@ -562,7 +548,6 @@ func TestSmsTracking_RefreshJobMetrics(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	// 准备数据
 	req := &DeliveryReportRequest{
 		MessageID: "refresh-001",
 		Phone:     "13800138000",
@@ -573,7 +558,6 @@ func TestSmsTracking_RefreshJobMetrics(t *testing.T) {
 		t.Fatalf("准备数据失败: %v", err)
 	}
 
-	// 刷新指标
 	if err := svc.RefreshJobMetrics(context.Background(), "job-refresh"); err != nil {
 		t.Fatalf("RefreshJobMetrics failed: %v", err)
 	}
@@ -599,7 +583,6 @@ func TestSmsTracking_ListJobStatuses(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	// 准备 5 条数据
 	for i := 0; i < 5; i++ {
 		req := &DeliveryReportRequest{
 			MessageID: "list-" + string(rune('0'+i)),
@@ -612,7 +595,6 @@ func TestSmsTracking_ListJobStatuses(t *testing.T) {
 		}
 	}
 
-	// 第 1 页，每页 3 条
 	statuses, total, err := svc.ListJobStatuses(context.Background(), "job-list", 1, 3)
 	if err != nil {
 		t.Fatalf("ListJobStatuses failed: %v", err)
@@ -624,7 +606,6 @@ func TestSmsTracking_ListJobStatuses(t *testing.T) {
 		t.Errorf("Expected 3 statuses on page 1, got %d", len(statuses))
 	}
 
-	// 第 2 页
 	statuses2, _, err := svc.ListJobStatuses(context.Background(), "job-list", 2, 3)
 	if err != nil {
 		t.Fatalf("ListJobStatuses page 2 failed: %v", err)
@@ -639,7 +620,6 @@ func TestSmsTracking_ListJobStatuses_DefaultPaging(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	// page<1 / limit<1 应使用默认值
 	statuses, _, err := svc.ListJobStatuses(context.Background(), "job-default", 0, 0)
 	if err != nil {
 		t.Fatalf("ListJobStatuses failed: %v", err)
@@ -654,11 +634,10 @@ func TestSmsTracking_ListPhoneStatuses(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	// 为同一手机号创建多条记录（不同 message_id）
 	for i := 0; i < 3; i++ {
 		req := &DeliveryReportRequest{
 			MessageID: "phone-" + string(rune('0'+i)),
-			Phone:     "138-0013-8000", // 含分隔符，应被规范化
+			Phone:     "138-0013-8000", 
 			JobID:     "job-phone-" + string(rune('0'+i)),
 			Status:    "DELIVERED",
 		}
@@ -667,7 +646,6 @@ func TestSmsTracking_ListPhoneStatuses(t *testing.T) {
 		}
 	}
 
-	// 用未规范化的手机号查询，应能匹配
 	statuses, total, err := svc.ListPhoneStatuses(context.Background(), "138-0013-8000", 1, 10)
 	if err != nil {
 		t.Fatalf("ListPhoneStatuses failed: %v", err)
@@ -707,8 +685,8 @@ func TestSmsTracking_NormalizeSmsStatus(t *testing.T) {
 		{"SENT", model.SmsStatusSent},
 		{"ACCEPTD", model.SmsStatusSent},
 		{"ACCEPTED", model.SmsStatusSent},
-		{"  delivered  ", model.SmsStatusDelivered}, // 含空格
-		{"unknown_status", "unknown_status"},        // 未知保持原值小写
+		{"  delivered  ", model.SmsStatusDelivered}, 
+		{"unknown_status", "unknown_status"},        
 	}
 	for _, c := range cases {
 		got := normalizeSmsStatus(c.input)
@@ -720,7 +698,6 @@ func TestSmsTracking_NormalizeSmsStatus(t *testing.T) {
 
 // TestSmsTracking_ParseSmsTime 测试时间字符串解析
 func TestSmsTracking_ParseSmsTime(t *testing.T) {
-	// 空字符串
 	t1, err := parseSmsTime("")
 	if err != nil {
 		t.Errorf("Expected nil error for empty string, got %v", err)
@@ -729,7 +706,6 @@ func TestSmsTracking_ParseSmsTime(t *testing.T) {
 		t.Errorf("Expected nil time for empty string, got %v", t1)
 	}
 
-	// 多种格式
 	cases := []string{
 		"2026-07-21T15:04:05+08:00",
 		"2026-07-21 15:04:05",
@@ -745,7 +721,6 @@ func TestSmsTracking_ParseSmsTime(t *testing.T) {
 		}
 	}
 
-	// 不支持的格式
 	t3, err := parseSmsTime("invalid time")
 	if err == nil {
 		t.Error("Expected error for invalid time format")
@@ -761,7 +736,6 @@ func TestSmsTracking_FullFlow(t *testing.T) {
 	svc := newSmsTrackingService(database)
 	ctx := context.Background()
 
-	// 1. 发送中 → pending
 	req1 := &DeliveryReportRequest{
 		MessageID: "flow-001",
 		Phone:     "13800138000",
@@ -772,7 +746,6 @@ func TestSmsTracking_FullFlow(t *testing.T) {
 		t.Fatalf("step 1 失败: %v", err)
 	}
 
-	// 2. 网关超时 → retryable
 	req2 := &DeliveryReportRequest{
 		MessageID: "flow-001",
 		Status:    "FAILED",
@@ -783,7 +756,6 @@ func TestSmsTracking_FullFlow(t *testing.T) {
 		t.Fatalf("step 2 失败: %v", err)
 	}
 
-	// 3. 触发重试
 	retried, err := svc.RetryFailedMessages(ctx, 100)
 	if err != nil {
 		t.Fatalf("step 3 失败: %v", err)
@@ -792,7 +764,6 @@ func TestSmsTracking_FullFlow(t *testing.T) {
 		t.Errorf("Expected retried=1, got %d", retried)
 	}
 
-	// 4. 重试后送达
 	req3 := &DeliveryReportRequest{
 		MessageID:   "flow-001",
 		Status:      "DELIVERED",
@@ -802,7 +773,6 @@ func TestSmsTracking_FullFlow(t *testing.T) {
 		t.Fatalf("step 4 失败: %v", err)
 	}
 
-	// 5. 刷新指标
 	if err := svc.RefreshJobMetrics(ctx, "job-flow"); err != nil {
 		t.Fatalf("step 5 失败: %v", err)
 	}
@@ -840,7 +810,6 @@ func TestSmsTracking_FullFlow_MaxRetryExhausted(t *testing.T) {
 	svc := newSmsTrackingService(database)
 	ctx := context.Background()
 
-	// 创建可重试失败记录
 	req := &DeliveryReportRequest{
 		MessageID: "exhaust-001",
 		Phone:     "13800138000",
@@ -852,7 +821,6 @@ func TestSmsTracking_FullFlow_MaxRetryExhausted(t *testing.T) {
 		t.Fatalf("创建记录失败: %v", err)
 	}
 
-	// 手动将 RetryCount 设为 MaxRetry，模拟已重试 3 次
 	if err := database.Model(&model.SmsDeliveryStatus{}).
 		Where("message_id = ?", "exhaust-001").
 		Updates(map[string]any{
@@ -862,7 +830,6 @@ func TestSmsTracking_FullFlow_MaxRetryExhausted(t *testing.T) {
 		t.Fatalf("更新重试计数失败: %v", err)
 	}
 
-	// 触发重试 → 应标记为 failed
 	retried, err := svc.RetryFailedMessages(ctx, 100)
 	if err != nil {
 		t.Fatalf("RetryFailedMessages failed: %v", err)
@@ -889,7 +856,6 @@ func TestSmsTracking_RecordDeliveryReport_PhoneNormalization(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	// 含国家码、空格、横线的手机号
 	req := &DeliveryReportRequest{
 		MessageID: "norm-001",
 		Phone:     "+86 138-0013-8000",
@@ -948,3 +914,4 @@ func TestSmsTracking_RecordDeliveryReport_StatusNormalization(t *testing.T) {
 		}
 	}
 }
+

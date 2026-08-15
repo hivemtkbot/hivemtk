@@ -10,24 +10,6 @@ import (
 	_db "hivemtk-user/internal/pkg/db"
 )
 
-// ============================================================================
-// TelegramPollingLockRepository Telegram Polling 分布式锁
-// ----------------------------------------------------------------------------
-// 五层架构归属: L5 数据访问层
-// 设计依据: docs/audit/TELEGRAM_FULLCHAIN_AUDIT_2026_07_28.md §S3-6
-//
-// 背景:
-//   - Telegram Bot API 同一 token 全局只允许一个进程做 getUpdates long polling
-//   - 多实例同时 polling 立即触发 409 Conflict，本地只能退避但无法消除
-//   - 通过 telegram_accounts.polling_owner / polling_heartbeat_at 字段实现：
-//     · TryAcquirePollingLock: 原子抢占（UPDATE WHERE 锁条件）
-//     · HeartbeatPollingLock: worker 周期续约（30s）
-//     · ReleasePollingLock: 进程退出 / 停 polling 时释放
-//   - 锁过期（>60s 无心跳）可被其他进程抢占，避免僵尸锁导致 polling 永久停滞
-//
-// 调用方约束: service 层禁止直接调 db.GetDB()（架构文档 §三.4），
-// 必须通过本仓库的 4 个方法操作锁。
-// ============================================================================
 
 // ErrPollingLockDBNil DB 句柄未初始化（service 启动期或测试中可能遇到）
 var ErrPollingLockDBNil = errors.New("polling lock: db is nil")
@@ -100,9 +82,6 @@ func (r *TelegramPollingLockRepository) TryAcquirePollingLock(
 	}
 	staleBefore := time.Now().Add(-PollingLockStaleThreshold)
 
-	// 原子 UPDATE：
-	// 条件：(id=?) AND (owner='' OR owner=? OR (heartbeat_at IS NOT NULL AND heartbeat_at < ?))
-	// 成功影响 1 行 → 抢占成功；0 行 → 锁被其他活跃实例持有
 	res := r.db.WithContext(ctx).Exec(
 		`UPDATE telegram_accounts
 		 SET polling_owner = ?, polling_heartbeat_at = ?
@@ -116,7 +95,6 @@ func (r *TelegramPollingLockRepository) TryAcquirePollingLock(
 		return false, PollingLockInfo{}, res.Error
 	}
 	if res.RowsAffected == 0 {
-		// 锁被其他活跃实例持有：返回当前 owner + heartbeat 供调用方诊断
 		cur, qErr := r.getLockInfo(ctx, accountID)
 		if qErr != nil {
 			return false, PollingLockInfo{}, nil
@@ -148,7 +126,6 @@ func (r *TelegramPollingLockRepository) HeartbeatPollingLock(
 	if res.Error != nil {
 		return true, res.Error
 	}
-	// RowsAffected=0 → 锁已被其他进程抢占
 	return res.RowsAffected == 0, nil
 }
 
@@ -213,3 +190,4 @@ func (r *TelegramPollingLockRepository) getLockInfo(ctx context.Context, account
 	}
 	return PollingLockInfo{Owner: row.PollingOwner, LastHeartbeat: row.PollingHeartbeatAt}, nil
 }
+

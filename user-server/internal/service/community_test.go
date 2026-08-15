@@ -63,7 +63,6 @@ func TestCommunityService_GetGroups_WithResults(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试数据
 	for i := 0; i < 5; i++ {
 		group := &model.CommunityGroup{
 			ID:          "group-" + string(rune('1'+i)),
@@ -96,7 +95,6 @@ func TestCommunityService_GetGroups_WithSearch(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试数据
 	database.Create(&model.CommunityGroup{ID: "1", Name: "技术交流群", Description: "技术交流"})
 	database.Create(&model.CommunityGroup{ID: "2", Name: "产品讨论群", Description: "产品相关"})
 	database.Create(&model.CommunityGroup{ID: "3", Name: "技术支持群", Description: "技术问题解答"})
@@ -119,7 +117,6 @@ func TestCommunityService_GetGroups_Pagination(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试数据
 	for i := 0; i < 25; i++ {
 		group := &model.CommunityGroup{
 			ID:          "group-" + string(rune('0'+i%10)) + "-" + string(rune('0'+i/10)),
@@ -145,7 +142,6 @@ func TestCommunityService_GetGroups_Pagination(t *testing.T) {
 		t.Errorf("Expected 10 groups (page 1), got %d", len(groups))
 	}
 
-	// 获取第二页
 	groups2, total2, err := service.GetGroups(context.Background(), 2, 10, "")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
@@ -213,7 +209,6 @@ func TestCommunityService_CreateGroup_EmptyName(t *testing.T) {
 
 	_, err := service.CreateGroup(context.Background(), req)
 	if err != nil {
-		// 空名称应该导致错误（由 binding 验证）
 		t.Logf("CreateGroup with empty name returned error: %v", err)
 	}
 
@@ -249,7 +244,6 @@ func TestCommunityService_UpdateGroup(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试群组
 	group := &model.CommunityGroup{
 		ID:          "test-group-id",
 		Name:        "旧名称",
@@ -287,7 +281,6 @@ func TestCommunityService_UpdateGroup_Partial(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试群组
 	group := &model.CommunityGroup{
 		ID:          "test-group-id",
 		Name:        "原名称",
@@ -314,7 +307,6 @@ func TestCommunityService_UpdateGroup_Partial(t *testing.T) {
 	if updatedGroup.Name != "新名称" {
 		t.Errorf("Expected name '新名称', got %s", updatedGroup.Name)
 	}
-	// 描述应该保持不变（因为请求中为空）
 	if updatedGroup.Description != "原描述" {
 		t.Errorf("Expected description '原描述', got %s", updatedGroup.Description)
 	}
@@ -344,7 +336,6 @@ func TestCommunityService_DeleteGroup(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试群组
 	group := &model.CommunityGroup{
 		ID:          "test-group-id",
 		Name:        "待删除群组",
@@ -374,7 +365,6 @@ func TestCommunityService_DeleteGroup_WithMembers(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试群组
 	group := &model.CommunityGroup{
 		ID:          "test-group-id",
 		Name:        "待删除群组",
@@ -385,7 +375,6 @@ func TestCommunityService_DeleteGroup_WithMembers(t *testing.T) {
 	}
 	database.Create(group)
 
-	// 创建成员
 	member1 := &model.CommunityMember{
 		ID:        "member-1",
 		GroupID:   group.ID,
@@ -474,7 +463,6 @@ func TestCommunityService_GetMembers_WithResults(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试群组
 	group := &model.CommunityGroup{
 		ID:          "group-id",
 		Name:        "测试群组",
@@ -485,7 +473,6 @@ func TestCommunityService_GetMembers_WithResults(t *testing.T) {
 	}
 	database.Create(group)
 
-	// 创建成员
 	for i := 0; i < 3; i++ {
 		member := &model.CommunityMember{
 			ID:        "member-" + string(rune('1'+i)),
@@ -522,7 +509,6 @@ func TestCommunityService_GetMembers_WithSearch(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试群组
 	group := &model.CommunityGroup{
 		ID:          "group-id",
 		Name:        "测试群组",
@@ -533,7 +519,6 @@ func TestCommunityService_GetMembers_WithSearch(t *testing.T) {
 	}
 	database.Create(group)
 
-	// 创建成员
 	database.Create(&model.CommunityMember{
 		ID: "1", GroupID: group.ID, Name: "张三", Username: "zhangsan",
 		Role: "admin", Status: "active", JoinDate: time.Now(), LastSeen: time.Now(),
@@ -568,7 +553,6 @@ func TestCommunityService_AddMember(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试群组
 	group := &model.CommunityGroup{
 		ID:          "group-id",
 		Name:        "测试群组",
@@ -621,7 +605,6 @@ func TestCommunityService_AddMember_DuplicateUsername(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试群组
 	group := &model.CommunityGroup{
 		ID:          "group-id",
 		Name:        "测试群组",
@@ -632,7 +615,6 @@ func TestCommunityService_AddMember_DuplicateUsername(t *testing.T) {
 	}
 	database.Create(group)
 
-	// 添加第一个成员
 	member1 := &dto.AddCommunityMemberRequest{
 		GroupID:  group.ID,
 		Name:     "用户 1",
@@ -644,7 +626,6 @@ func TestCommunityService_AddMember_DuplicateUsername(t *testing.T) {
 		t.Fatalf("AddMember failed: %v", err)
 	}
 
-	// 尝试添加相同用户名的成员
 	member2 := &dto.AddCommunityMemberRequest{
 		GroupID:  group.ID,
 		Name:     "用户 2",
@@ -663,7 +644,6 @@ func TestCommunityService_UpdateMember(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试成员
 	member := &model.CommunityMember{
 		ID:        "member-id",
 		GroupID:   "group-id",
@@ -709,7 +689,6 @@ func TestCommunityService_UpdateMember_Partial(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试成员
 	member := &model.CommunityMember{
 		ID:        "member-id",
 		GroupID:   "group-id",
@@ -741,7 +720,6 @@ func TestCommunityService_UpdateMember_Partial(t *testing.T) {
 	if updatedMember.Name != "新名称" {
 		t.Errorf("Expected name '新名称', got %s", updatedMember.Name)
 	}
-	// 角色和状态应该保持不变
 	if updatedMember.Role != "member" {
 		t.Errorf("Expected role 'member', got %s", updatedMember.Role)
 	}
@@ -774,7 +752,6 @@ func TestCommunityService_RemoveMember(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试群组
 	group := &model.CommunityGroup{
 		ID:          "group-id",
 		Name:        "测试群组",
@@ -785,7 +762,6 @@ func TestCommunityService_RemoveMember(t *testing.T) {
 	}
 	database.Create(group)
 
-	// 创建测试成员
 	member := &model.CommunityMember{
 		ID:        "member-id",
 		GroupID:   group.ID,
@@ -862,7 +838,6 @@ func TestCommunityService_GetMessages_WithResults(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试数据
 	for i := 0; i < 5; i++ {
 		message := &model.CommunityMessage{
 			ID:          "msg-" + string(rune('1'+i)),
@@ -897,7 +872,6 @@ func TestCommunityService_GetMessages_Pagination(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试数据
 	for i := 0; i < 25; i++ {
 		message := &model.CommunityMessage{
 			ID:          "msg-" + string(rune('0'+i%10)) + "-" + string(rune('0'+i/10)),
@@ -965,7 +939,6 @@ func TestCommunityService_GetStatistics_WithData(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试数据
 	group1 := &model.CommunityGroup{ID: "g1", Name: "群组 1", MemberCount: 2, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	group2 := &model.CommunityGroup{ID: "g2", Name: "群组 2", MemberCount: 1, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	database.Create(group1)
@@ -1007,14 +980,11 @@ func TestCommunityService_GetStatistics_ActiveGroups(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试数据
 	group1 := &model.CommunityGroup{ID: "g1", Name: "群组 1", MemberCount: 0, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	group2 := &model.CommunityGroup{ID: "g2", Name: "群组 2", MemberCount: 0, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	database.Create(group1)
 	database.Create(group2)
 
-	// 创建今天的消息（活跃群组）
-	// 注意：repository 使用 PG 原生 datetime 函数，这里只验证统计可以正常获取
 	msg1 := &model.CommunityMessage{ID: "msg1", GroupID: "g1", UserID: "u1", UserName: "用户 1", Content: "消息 1", MessageType: "text", Timestamp: time.Now(), CreatedAt: time.Now()}
 	database.Create(msg1)
 
@@ -1023,7 +993,6 @@ func TestCommunityService_GetStatistics_ActiveGroups(t *testing.T) {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}
 
-	// 验证统计可以正常获取（活跃群组数应该 >= 0）
 	if stats.TotalGroups != 2 {
 		t.Errorf("Expected total groups 2, got %d", stats.TotalGroups)
 	}
@@ -1038,11 +1007,9 @@ func TestCommunityService_GetStatistics_NewMembersToday(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 创建测试群组
 	group := &model.CommunityGroup{ID: "g1", Name: "群组 1", MemberCount: 0, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	database.Create(group)
 
-	// 创建今天的成员
 	member1 := &model.CommunityMember{ID: "m1", GroupID: "g1", Name: "成员 1", Username: "user1", Role: "member", Status: "active", JoinDate: time.Now(), LastSeen: time.Now(), CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	member2 := &model.CommunityMember{ID: "m2", GroupID: "g1", Name: "成员 2", Username: "user2", Role: "member", Status: "active", JoinDate: time.Now(), LastSeen: time.Now(), CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	database.Create(member1)
@@ -1053,7 +1020,6 @@ func TestCommunityService_GetStatistics_NewMembersToday(t *testing.T) {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}
 
-	// 验证统计可以正常获取
 	if stats.TotalMembers != 2 {
 		t.Errorf("Expected total members 2, got %d", stats.TotalMembers)
 	}
@@ -1065,7 +1031,6 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 
 	service := NewCommunityService()
 
-	// 1. 获取空列表
 	_, total, err := service.GetGroups(context.Background(), 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
@@ -1074,7 +1039,6 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 		t.Errorf("Expected total 0, got %d", total)
 	}
 
-	// 2. 创建群组
 	createReq := &dto.CreateCommunityGroupRequest{
 		Name:        "技术交流群",
 		Description: "技术交流与分享",
@@ -1084,7 +1048,6 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 		t.Fatalf("CreateGroup failed: %v", err)
 	}
 
-	// 3. 验证列表
 	_, total, err = service.GetGroups(context.Background(), 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
@@ -1093,7 +1056,6 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 		t.Errorf("Expected total 1, got %d", total)
 	}
 
-	// 4. 更新群组
 	updateReq := &dto.UpdateCommunityGroupRequest{
 		Name:        "技术交流群（已更名）",
 		Description: "更新后的描述",
@@ -1103,7 +1065,6 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 		t.Fatalf("UpdateGroup failed: %v", err)
 	}
 
-	// 5. 添加成员
 	for i := 0; i < 3; i++ {
 		memberReq := &dto.AddCommunityMemberRequest{
 			GroupID:  group.ID,
@@ -1117,7 +1078,6 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 		}
 	}
 
-	// 6. 获取成员列表
 	members, memberTotal, err := service.GetMembers(context.Background(), group.ID, 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetMembers failed: %v", err)
@@ -1126,7 +1086,6 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 		t.Errorf("Expected total members 3, got %d", memberTotal)
 	}
 
-	// 7. 更新成员
 	if len(members) > 0 {
 		updateMemberReq := &dto.UpdateCommunityMemberRequest{
 			Role:   "admin",
@@ -1138,7 +1097,6 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 		}
 	}
 
-	// 8. 获取统计
 	stats, err := service.GetStatistics(context.Background())
 	if err != nil {
 		t.Fatalf("GetStatistics failed: %v", err)
@@ -1150,7 +1108,6 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 		t.Errorf("Expected total members 3, got %d", stats.TotalMembers)
 	}
 
-	// 9. 删除成员
 	if len(members) > 0 {
 		err = service.RemoveMember(context.Background(), members[0].ID)
 		if err != nil {
@@ -1158,7 +1115,6 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 		}
 	}
 
-	// 10. 验证成员数量
 	members2, memberTotal2, err := service.GetMembers(context.Background(), group.ID, 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetMembers failed: %v", err)
@@ -1170,13 +1126,11 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 		t.Errorf("Expected 2 members after removal, got %d", len(members2))
 	}
 
-	// 11. 删除群组
 	err = service.DeleteGroup(context.Background(), group.ID)
 	if err != nil {
 		t.Fatalf("DeleteGroup failed: %v", err)
 	}
 
-	// 12. 验证已删除
 	groups2, total2, err := service.GetGroups(context.Background(), 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
@@ -1188,3 +1142,4 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 	_ = database
 	_ = groups2
 }
+

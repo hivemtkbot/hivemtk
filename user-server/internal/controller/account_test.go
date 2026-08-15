@@ -84,7 +84,7 @@ func TestAccountController_CreateAccount_MissingRequiredFields(t *testing.T) {
 	router.POST("/accounts", ctrl.CreateAccount)
 
 	createReq := dto.CreateAccountRequest{
-		TgBotToken: "", // 必填字段为空
+		TgBotToken: "", 
 	}
 	body, _ := json.Marshal(createReq)
 
@@ -105,7 +105,6 @@ func TestAccountController_GetAccounts_Success(t *testing.T) {
 	router := setupGinEngine()
 	router.GET("/accounts", ctrl.GetAccounts)
 
-	// 创建测试账户
 	account := model.Account{
 		ID:         "test-account-id",
 		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
@@ -152,7 +151,6 @@ func TestAccountController_UpdateAccount_Success(t *testing.T) {
 	ctrl := NewAccountController()
 	router := setupGinEngine()
 
-	// 创建测试账户
 	account := model.Account{
 		ID:         "test-account-id",
 		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
@@ -236,7 +234,6 @@ func TestAccountController_DeleteAccount_Success(t *testing.T) {
 	ctrl := NewAccountController()
 	router := setupGinEngine()
 
-	// 创建测试账户
 	account := model.Account{
 		ID:         "test-account-id",
 		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
@@ -265,7 +262,6 @@ func TestAccountController_DeleteAccount_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 删除不存在的账户会返回成功（幂等性）
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -362,7 +358,6 @@ func TestAccountController_GetAccounts_MultipleAccounts(t *testing.T) {
 	router := setupGinEngine()
 	router.GET("/accounts", ctrl.GetAccounts)
 
-	// 创建多个测试账户
 	accounts := []model.Account{
 		{ID: uuid.NewString(), TgName: "account1", Status: 1},
 		{ID: uuid.NewString(), TgName: "account2", Status: 1},
@@ -412,3 +407,4 @@ func TestAccountController_CreateAccount_Default(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
+

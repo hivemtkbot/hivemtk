@@ -1,22 +1,5 @@
 package service
 
-// feedback_loop_cron.go 反馈学习闭环定时任务
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十七章 §17.4
-//
-// 4 个定时任务：
-//   1. ChampionBaseline 月度刷新（每月 1 日 02:00）        → §17.4.2
-//   2. ChampionDialogue 周度分析（每周日 03:00）             → §17.4.2
-//   3. PromptIterator 日度迭代（每日 04:00）                 → §17.4.3
-//   4. BanditAllocator 收敛检查（每 6 小时）                 → §17.4.5
-//
-// 设计：
-//   - 每个任务单独启动 goroutine，sleep + 触发
-//   - 失败仅记录日志，不影响主服务
-//   - Stop() 关闭 stopCh 优雅退出
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -66,14 +49,11 @@ func (c *FeedbackLoopCron) Stop(ctx context.Context) {
 	c.wg.Wait()
 }
 
-// ----------------------------------------------------------------------------
-// 1. ChampionBaseline 月度刷新（每月 1 日 02:00）
-// ----------------------------------------------------------------------------
 
 func (c *FeedbackLoopCron) runChampionBaselineMonthly(ctx context.Context, _ *gorm.DB) {
 	defer c.wg.Done()
 	for {
-		next := nextMonthlyRun(1, 2, 0) // 每月 1 日 02:00
+		next := nextMonthlyRun(1, 2, 0) 
 		select {
 		case <-c.stopCh:
 			return
@@ -81,7 +61,6 @@ func (c *FeedbackLoopCron) runChampionBaselineMonthly(ctx context.Context, _ *go
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 
-		// Step 1: 触发销冠对话分析管道（拉取候选 → 聚类 → 提取话术 → 写 script_templates）
 		report, err := c.components.Analyzer.AnalyzePipeline(ctx, time.Now().AddDate(0, -1, 0))
 		if err != nil {
 			logger.Ctx(ctx).Error().Err(err).Msg("[cron] monthly champion analyze pipeline failed")
@@ -94,8 +73,6 @@ func (c *FeedbackLoopCron) runChampionBaselineMonthly(ctx context.Context, _ *go
 				Msg("[cron] monthly champion analyze pipeline done")
 		}
 
-		// Step 2: 基于最近 30 天 humanize_scores 聚合 5 维基线指标，写入 champion_baselines 表
-		// 注：使用"通用 persona/industry/intent"占位三元组，version 自动递增
 		periodEnd := time.Now()
 		periodStart := periodEnd.AddDate(0, -1, 0)
 		rowsAffected := c.refreshChampionBaselineRows(ctx, "default", "default", "all", periodStart, periodEnd)
@@ -119,11 +96,9 @@ func (c *FeedbackLoopCron) refreshChampionBaselineRows(
 	persona, industry, intent string,
 	periodStart, periodEnd time.Time,
 ) int64 {
-	// sopRepo 在构造函数中仅当 db != nil 时创建，此处复用作为"DB 是否就绪"的判定
 	if c.sopRepo == nil {
 		return 0
 	}
-	// 1) 聚合查询：5 维均值 + 标准差 + 计数（通过 Repository 层）
 	scoreRepo := repository.NewHumanizeScoreRepository()
 	row, err := scoreRepo.AggregateBaselineMetrics(ctx, periodStart, periodEnd)
 	if err != nil {
@@ -135,7 +110,6 @@ func (c *FeedbackLoopCron) refreshChampionBaselineRows(
 		return 0
 	}
 
-	// 2) 查当前最大版本号（通过 Repository 层）
 	baselineRepo := repository.NewChampionBaselineRepository()
 	maxVersion, err := baselineRepo.MaxVersion(ctx, persona, industry, intent)
 	if err != nil {
@@ -143,7 +117,6 @@ func (c *FeedbackLoopCron) refreshChampionBaselineRows(
 		return 0
 	}
 
-	// 3) 插入新版本（version = maxVersion + 1，enabled = true）
 	baseline := model.ChampionBaseline{
 		Persona:         persona,
 		Industry:        industry,
@@ -166,7 +139,6 @@ func (c *FeedbackLoopCron) refreshChampionBaselineRows(
 		return 0
 	}
 
-	// 4) 旧版本自动 disabled（仅保留最新启用）
 	if maxVersion > 0 {
 		if err := baselineRepo.DisableOldVersions(ctx, persona, industry, intent, maxVersion+1); err != nil {
 			logger.Ctx(ctx).Error().Err(err).Msg("[cron] refresh champion baseline: disable old versions failed")
@@ -175,21 +147,17 @@ func (c *FeedbackLoopCron) refreshChampionBaselineRows(
 	return 1
 }
 
-// ----------------------------------------------------------------------------
-// 2. ChampionDialogue 周度分析（每周日 03:00）
-// ----------------------------------------------------------------------------
 
 func (c *FeedbackLoopCron) runChampionDialogueWeekly(ctx context.Context) {
 	defer c.wg.Done()
 	for {
-		next := nextWeeklyRun(time.Sunday, 3, 0) // 每周日 03:00
+		next := nextWeeklyRun(time.Sunday, 3, 0) 
 		select {
 		case <-c.stopCh:
 			return
 		case <-time.After(time.Until(next)):
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
-		// 周度分析：从最近 7 天高奖励对话提取话术
 		_, err := c.components.Analyzer.AnalyzePipeline(ctx, time.Now().AddDate(0, 0, -7))
 		if err != nil {
 			logger.Ctx(ctx).Error().Err(err).Msg("[cron] weekly champion dialogue analyze failed")
@@ -200,27 +168,21 @@ func (c *FeedbackLoopCron) runChampionDialogueWeekly(ctx context.Context) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 3. PromptIterator 日度迭代（每日 04:00）
-// ----------------------------------------------------------------------------
 
 func (c *FeedbackLoopCron) runPromptIteratorDaily(ctx context.Context) {
 	defer c.wg.Done()
 	for {
-		next := nextDailyRun(4, 0) // 每日 04:00
+		next := nextDailyRun(4, 0) 
 		select {
 		case <-c.stopCh:
 			return
 		case <-time.After(time.Until(next)):
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
-		// 日度迭代：拉取所有 status=active 的 SOP 节点，逐个生成 Prompt 候选
-		// 失败仅记录日志，单节点失败不影响其他节点
 		if c.components == nil || c.components.Iterator == nil {
 			cancel()
 			continue
 		}
-		// 1) 查找有 use_bandit=true 的 SOP
 		if c.sopRepo == nil {
 			cancel()
 			continue
@@ -233,13 +195,11 @@ func (c *FeedbackLoopCron) runPromptIteratorDaily(ctx context.Context) {
 		}
 		totalCandidates := 0
 		for _, sop := range sops {
-			// 2) 从 SOPGraph JSON 解析 nodes（兼容 nodes / steps / node_list 三种字段名）
 			nodes := extractSOPNodesFromGraph(sop.SOPGraph)
 			for _, n := range nodes {
 				if n.ID == "" {
 					continue
 				}
-				// 仅对 LLM/Generation/Prompt 类型节点做 Prompt 迭代
 				if !isPromptableNodeType(n.Type) {
 					continue
 				}
@@ -273,7 +233,6 @@ func extractSOPNodesFromGraph(graph model.JSONMap) []sopGraphNode {
 	if len(graph) == 0 {
 		return nil
 	}
-	// 尝试多种字段名
 	for _, key := range []string{"nodes", "steps", "node_list"} {
 		raw, ok := graph[key]
 		if !ok {
@@ -325,9 +284,6 @@ func isPromptableNodeType(t string) bool {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 4. BanditAllocator 收敛检查（每 6 小时）
-// ----------------------------------------------------------------------------
 
 func (c *FeedbackLoopCron) runBanditConvergence(ctx context.Context) {
 	defer c.wg.Done()
@@ -338,8 +294,6 @@ func (c *FeedbackLoopCron) runBanditConvergence(ctx context.Context) {
 		case <-time.After(6 * time.Hour):
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		// 收敛检查：遍历所有 running 状态的 A/B 实验，判定是否收敛到 winner
-		// 若收敛且满足 MinSamplesForPromote，调用 PromoteArm 上线
 		if c.components == nil || c.components.Bandit == nil {
 			cancel()
 			continue
@@ -369,7 +323,6 @@ func (c *FeedbackLoopCron) runBanditConvergence(ctx context.Context) {
 				continue
 			}
 			promoted++
-			// 标记实验为 completed
 			if c.abTestRepo != nil {
 				_ = c.abTestRepo.UpdateABTestByExperimentID(ctx, exp.ExperimentID, map[string]any{
 					"status":       model.PromptABTestStatusCompleted,
@@ -383,9 +336,6 @@ func (c *FeedbackLoopCron) runBanditConvergence(ctx context.Context) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 时间工具
-// ----------------------------------------------------------------------------
 
 // nextMonthlyRun 下一次月跑（day 1, hour 02:00）
 func nextMonthlyRun(day, hour, minute int) time.Time {
@@ -418,3 +368,4 @@ func nextDailyRun(hour, minute int) time.Time {
 	}
 	return next
 }
+

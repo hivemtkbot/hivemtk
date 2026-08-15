@@ -33,26 +33,22 @@ func NewXiaohongshuCardStatsService(db *gorm.DB) XiaohongshuCardStatsService {
 
 // GetCardStats 获取单个卡片的统计数据
 func (s *xiaohongshuCardStatsService) GetCardStats(ctx context.Context, req *dto.XiaohongshuCardStatsRequest) (*dto.XiaohongshuCardStatsResponse, error) {
-	// 查询卡片信息
 	card, err := s.repo.GetCardByID(ctx, req.CardID)
 	if err != nil {
 		return nil, fmt.Errorf("卡片不存在: %v", err)
 	}
 
-	// 统计浏览量
 	views, err := s.repo.CountCardViews(ctx, req.CardID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 按日期分组统计 - 仅支持浏览动作
 	tempStats, err := s.repo.GetCardDailyStats(ctx, req.CardID, req.StartDate, req.EndDate, req.GroupBy)
 	if err != nil {
 		return nil, err
 	}
 	dailyStats := convertXiaohongshuTempStats(tempStats)
 
-	// 获取最近活动记录 - 仅浏览活动
 	recentActivities, err := s.repo.GetRecentActivitiesByCard(ctx, req.CardID, 10)
 	if err != nil {
 		return nil, err
@@ -71,7 +67,6 @@ func (s *xiaohongshuCardStatsService) GetCardStats(ctx context.Context, req *dto
 		})
 	}
 
-	// 构建响应
 	response := &dto.XiaohongshuCardStatsResponse{
 		CardID:         req.CardID,
 		Title:          card.Title,
@@ -85,7 +80,6 @@ func (s *xiaohongshuCardStatsService) GetCardStats(ctx context.Context, req *dto
 
 // convertXiaohongshuTempStats 将仓库返回的临时统计结果转换为 DailyStat
 func convertXiaohongshuTempStats(tempStats []repository.XiaohongshuCardStatsTempStat) []dto.DailyStat {
-	// 先按日期分组
 	dateMap := make(map[string]*dto.DailyStat)
 	for _, stat := range tempStats {
 		if _, exists := dateMap[stat.Date]; !exists {
@@ -95,7 +89,6 @@ func convertXiaohongshuTempStats(tempStats []repository.XiaohongshuCardStatsTemp
 			}
 		}
 
-		// 只处理浏览数据
 		if stat.Action == "view" {
 			dateMap[stat.Date].View = stat.Count
 		}
@@ -111,7 +104,6 @@ func convertXiaohongshuTempStats(tempStats []repository.XiaohongshuCardStatsTemp
 
 // GetOverallStats 获取所有卡片的总体统计数据
 func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *dto.XiaohongshuCardOverallStatsRequest) (*dto.XiaohongshuCardOverallStatsResponse, error) {
-	// 获取卡片总数和激活数
 	totalCards, err := s.repo.CountTotalCards(ctx)
 	if err != nil {
 		return nil, err
@@ -121,13 +113,11 @@ func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *
 		return nil, err
 	}
 
-	// 获取总浏览量
 	totalViews, err := s.repo.CountTotalViews(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取热门卡片 - 仅按浏览量排序
 	topCards, err := s.repo.GetTopCards(ctx, 10)
 	if err != nil {
 		return nil, err
@@ -144,14 +134,12 @@ func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *
 		})
 	}
 
-	// 获取按日期分组的统计数据
 	tempStats, err := s.repo.GetOverallDailyStats(ctx, req.StartDate, req.EndDate, req.GroupBy)
 	if err != nil {
 		return nil, err
 	}
 	dailyStats := convertXiaohongshuTempStats(tempStats)
 
-	// 获取最近的活动 - 仅浏览活动
 	recentActivities, err := s.repo.GetRecentActivities(ctx, 10)
 	if err != nil {
 		return nil, err
@@ -182,7 +170,6 @@ func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *
 
 // RecordActivity 记录卡片活动
 func (s *xiaohongshuCardStatsService) RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error {
-	// 只记录浏览活动
 	if action != "view" {
 		return nil
 	}
@@ -201,6 +188,6 @@ func (s *xiaohongshuCardStatsService) RecordActivity(ctx context.Context, cardID
 		return err
 	}
 
-	// 更新卡片的浏览量统计
 	return s.repo.IncrementCardViewCount(ctx, cardID)
 }
+

@@ -82,7 +82,6 @@ func TestKuaishouCardRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
-	// 创建测试数据
 	card := &model.KuaishouCard{
 		Title:       "GetByID Card",
 		Description: "GetByID Description",
@@ -130,11 +129,9 @@ func TestKuaishouCardRepository_GetList(t *testing.T) {
 	database := setupKuaishouCardTestDB(t)
 	repo := NewKuaishouCardRepository(database)
 
-	// 创建测试数据
 	activeTrue := true
 	activeFalse := false
 
-	// 创建 5 个活跃卡片
 	for i := 1; i <= 5; i++ {
 		card := &model.KuaishouCard{
 			Title:    "Active Card " + string(rune('A'+i-1)),
@@ -145,7 +142,6 @@ func TestKuaishouCardRepository_GetList(t *testing.T) {
 		}
 	}
 
-	// 创建 1 个不活跃卡片 - 先创建再更新 IsActive 字段
 	inactiveCard := &model.KuaishouCard{
 		Title:    "Inactive Card",
 		IsActive: true,
@@ -237,7 +233,6 @@ func TestKuaishouCardRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
-	// 创建测试数据
 	card := &model.KuaishouCard{
 		Title:       "Original Title",
 		Description: "Original Description",
@@ -267,7 +262,6 @@ func TestKuaishouCardRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
-	// 创建测试数据
 	card := &model.KuaishouCard{
 		Title:    "To Delete",
 		IsActive: true,
@@ -290,7 +284,6 @@ func TestKuaishouCardRepository_IncrementViewCount(t *testing.T) {
 	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
-	// 创建测试数据
 	card := &model.KuaishouCard{
 		Title:     "View Count Test",
 		ViewCount: 0,
@@ -312,7 +305,6 @@ func TestKuaishouCardRepository_IncrementLikeCount(t *testing.T) {
 	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
-	// 创建测试数据
 	card := &model.KuaishouCard{
 		Title:     "Like Count Test",
 		LikeCount: 0,
@@ -335,7 +327,6 @@ func TestKuaishouCardRepository_IncrementShareCount(t *testing.T) {
 	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
-	// 创建测试数据
 	card := &model.KuaishouCard{
 		Title:      "Share Count Test",
 		ShareCount: 0,
@@ -358,14 +349,12 @@ func TestKuaishouCardRepository_CreateActivity(t *testing.T) {
 	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
-	// 创建测试卡片
 	card := &model.KuaishouCard{
 		Title:    "Activity Test Card",
 		IsActive: true,
 	}
 	repo.Create(ctx, card)
 
-	// 创建测试数据
 	activity := &model.KuaishouCardActivity{
 		CardID:       card.ID,
 		UserID:       1,
@@ -392,7 +381,6 @@ func TestKuaishouCardRepository_UpdateShortLinkID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
-	// 创建测试数据
 	card := &model.KuaishouCard{
 		Title: "ShortLink Test",
 	}
@@ -409,3 +397,4 @@ func TestKuaishouCardRepository_UpdateShortLinkID(t *testing.T) {
 		t.Errorf("Expected ShortLinkID 456, got %v", updated.ShortLinkID)
 	}
 }
+

@@ -1,24 +1,5 @@
 package migrations
 
-// m_p1_migration.go 缺口修复迁移 v3.1.0
-//
-// 五层架构归属: L5 数据层
-// 设计依据: PRD §/// 缺口修复
-// 私域独立部署: 无 merchant_id 字段
-//
-// 本迁移创建 缺口修复所需的 4 张新表：
-// 1. provider_health - LLM Provider 健康状态
-// 2. system_kv_config - 系统键值配置（降级策略存储）
-// 3. intent_logs - 精细意图识别日志（，8 大类 + 7 子类）
-// 4. trace_events - 全链路追踪事件
-//
-// 注意：
-// SSE Hub使用内存管理 client 连接，无 DB 表
-//   - 所有 DDL 使用 IF NOT EXISTS，可重入
-//   - intent_logs 与现有 intent_records 共存，互不依赖
-//
-// 幂等性: 所有 DDL 使用 IF NOT EXISTS，可重入
-// 依赖: v1.x（无外部表依赖）
 
 import (
 	"context"
@@ -56,29 +37,23 @@ func (m *MP1Migration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 1. system_kv_config 表（其他表依赖，先创建）
 	if err := m.createSystemKVConfig(ctx); err != nil {
 		return fmt.Errorf("create system_kv_config 失败: %w", err)
 	}
 
-	// 2. provider_health 表
 	if err := m.createProviderHealth(ctx); err != nil {
 		return fmt.Errorf("create provider_health 失败: %w", err)
 	}
 
-	// 3. intent_logs 表
 	if err := m.createIntentLogs(ctx); err != nil {
 		return fmt.Errorf("create intent_logs 失败: %w", err)
 	}
 
-	// 4. trace_events 表
 	if err := m.createTraceEvents(ctx); err != nil {
 		return fmt.Errorf("create trace_events 失败: %w", err)
 	}
 
-	// 5. 种子化默认降级策略
 	if err := m.seedDefaultFailoverPolicy(ctx); err != nil {
-		// 种子化失败不阻塞迁移
 		_ = err
 	}
 
@@ -200,7 +175,6 @@ func (m *MP1Migration) Down(ctx context.Context) error {
 		`DROP TABLE IF EXISTS trace_events`,
 		`DROP TABLE IF EXISTS intent_logs`,
 		`DROP TABLE IF EXISTS provider_health`,
-		// 注意：system_kv_config 不删除（可能被其他模块复用）
 	}
 	return execAllMP1(ctx, m.db, stmts)
 }
@@ -220,3 +194,4 @@ func execAllMP1(ctx context.Context, db *gorm.DB, stmts []string) error {
 
 // compile-time 接口断言
 var _ migration.Migration = (*MP1Migration)(nil)
+

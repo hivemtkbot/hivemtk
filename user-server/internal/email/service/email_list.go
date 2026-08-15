@@ -35,7 +35,6 @@ func NewEmailListService() *EmailListService {
 //
 // 直接注入 clue / systemConfig repository（避免 service→tooluse→email/service 循环依赖）。
 func (s *EmailListService) CreateEmailList(ctx context.Context, subject string, content string, attachments string) (total int64, err error) {
-	// 从线索库读取所有线索
 	cluesList, clueTotal, err := s.clueRepo.GetClueAllList(ctx, 1)
 	if err != nil {
 		return 0, err
@@ -44,7 +43,6 @@ func (s *EmailListService) CreateEmailList(ctx context.Context, subject string, 
 		return 0, errors.New("线索库没有线索")
 	}
 
-	// 新建任务
 	jobsService := NewEmailJobsService()
 	jobs := model.EmailJobs{
 		Subject:      subject,
@@ -59,7 +57,6 @@ func (s *EmailListService) CreateEmailList(ctx context.Context, subject string, 
 		return 0, err
 	}
 
-	// 从系统配置库读取系统配置
 	systemConfig, err := s.systemConfigRepo.GetConfig(ctx)
 	if err != nil {
 		return 0, err
@@ -68,16 +65,11 @@ func (s *EmailListService) CreateEmailList(ctx context.Context, subject string, 
 	emailList := make([]*model.EmailList, 0)
 	for _, clue := range cluesList {
 
-		// 获取接收人
 		toAccount := clue.Account
-		// 接收人为空
 		if toAccount == "" {
 			continue
 		}
 
-		// 判断是否qq邮箱 没有拼接@qq.com
-		// 仅当账号不含 @ 时（即纯 QQ 号线索账号）补充 @qq.com 后缀，
-		// 避免把已带域名的邮箱（如 a@163.com）错误地拼接成 a@163.com@qq.com
 		if !strings.Contains(toAccount, "@") {
 			toAccount = toAccount + "@qq.com"
 		}
@@ -89,8 +81,6 @@ func (s *EmailListService) CreateEmailList(ctx context.Context, subject string, 
 			Account: clue.Account,
 		}
 
-		// 替换 subject content 上的自定义变量
-		// 复制  subject  content 避免应用传递
 
 		traceID := uuid.New()
 
@@ -157,23 +147,18 @@ func (s *EmailListService) GetTodayCountByFrom(ctx context.Context, from string)
 
 // UpdateEmailListReadInfo 更新邮件状态
 func (s *EmailListService) UpdateEmailListReadInfo(ctx context.Context, traceID uuid.UUID) error {
-	// 基于trace id 获取 邮件信息
 	emailList, err := s.repo.GetByTraceID(ctx, traceID)
 	if err != nil {
 		return err
 	}
-	// is_read > 0 表示已经阅读
 	if emailList.IsRead > 0 {
 		return nil
 	}
 
-	// 更新 邮件 阅读信息
 	emailList.IsRead = 1
 	emailList.ReadTime = time.Now()
-	// 更新 邮件 状态
 	res := s.repo.Update(ctx, emailList)
 
-	// 更新jobs 统计
 	jobsService := NewEmailJobsService()
 	jobsService.IncreaseReadTotal(ctx, emailList.JobsID)
 
@@ -183,7 +168,6 @@ func (s *EmailListService) UpdateEmailListReadInfo(ctx context.Context, traceID 
 	return nil
 }
 
-// ---- DTO 外观方法：供 controller 调用，避免 controller 直接依赖 model ----
 
 // GetEmailListListDTO 获取邮件列表（返回 DTO）
 func (s *EmailListService) GetEmailListListDTO(ctx context.Context, page, pageSize int) (*dto.GetEmailListResponse, error) {
@@ -255,3 +239,4 @@ func (s *EmailListService) GetTrackingEvents(ctx context.Context, listID uuid.UU
 	trackingRepo := repository.NewEmailTrackingRepository(nil)
 	return trackingRepo.ListEventsByJob(ctx, list.JobsID.String(), page, limit)
 }
+

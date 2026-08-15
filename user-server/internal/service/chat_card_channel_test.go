@@ -11,23 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// ============================================================================
-// 抖音/快手/小红书/闲鱼 4 平台卡片渠道 自动创建 + resolveChannel 接入测试
-// ----------------------------------------------------------------------------
-// 业务背景：
-//   4 平台卡片分享页（card_chat.html）的"联系在线客服"按钮跳转到
-//   /chat/embed/{platform}_card ，该 channel_ref 由 ChatChannelService 首次
-//   访问时自动创建对应渠道，无需管理员手动配置。
-//
-// 测试范围：
-//   1. IsCardChannelRef 4 平台识别 + 非法 ref 拒绝
-//   2. GetOrCreateCardChannel 4 平台品牌字段（ChannelID / ChannelName /
-//      WidgetColor / WidgetTitle / Status）
-//   3. GetOrCreateCardChannel 幂等性（重复调用返回同一渠道）
-//   4. resolveChannel（通过 OpenSession）端到端：卡片渠道自动创建 + 会话打开
-//
-// 依赖：真实 PostgreSQL 测试库（testutil.NewTestDB）。
-// ============================================================================
 
 // 预期的 4 平台品牌元数据（与 cardChannelMetas 保持一致）
 var expectedCardMetas = map[string]struct {
@@ -115,12 +98,10 @@ func TestGetOrCreateCardChannel_Idempotent(t *testing.T) {
 	db.SetTestDB(database)
 	svc := MustNewChatChannelService(database)
 
-	// 第一次创建
 	ch1, err := svc.GetOrCreateCardChannel(context.Background(), "douyin")
 	if err != nil {
 		t.Fatalf("首次创建失败: %v", err)
 	}
-	// 第二次应返回同一渠道
 	ch2, err := svc.GetOrCreateCardChannel(context.Background(), "douyin")
 	if err != nil {
 		t.Fatalf("二次获取失败: %v", err)
@@ -165,10 +146,9 @@ func TestVisitorChatService_ResolveCardChannel(t *testing.T) {
 	)
 	db.SetTestDB(database)
 
-	// 使用真实 SmartCSOrchestrator（不带 LLM，OpenSession 不触发 LLM 调用）
 	engine := NewSalesEngine(
 		database,
-		nil, // LLM dispatcher 不需要（OpenSession 不触发回复）
+		nil, 
 		nil, nil, nil, nil, nil, nil,
 	)
 	orch := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig())
@@ -190,14 +170,12 @@ func TestVisitorChatService_ResolveCardChannel(t *testing.T) {
 			if open == nil || open.Session == nil {
 				t.Fatal("OpenSession 返回空会话")
 			}
-			// 验证会话的 AccountID 字段存的是 channel_id（{platform}_card）
 			if open.Session.AccountID != channelRef {
 				t.Errorf("会话 AccountID 期望 %q，实际 %q", channelRef, open.Session.AccountID)
 			}
 			if !open.IsNewSession {
 				t.Error("首次打开应为新会话")
 			}
-			// 验证渠道已被创建
 			ch, err := channelSvc.GetByChannelID(context.Background(), channelRef)
 			if err != nil {
 				t.Fatalf("渠道创建后查询失败: %v", err)
@@ -298,7 +276,6 @@ func TestVisitorChatService_OpenSessionWithVisitorMeta(t *testing.T) {
 				t.Errorf("标签数量期望 %d，实际 %d (got=%v)", len(tc.wantTags), len(gotTags), gotTags)
 				return
 			}
-			// 逐个比较（顺序敏感）
 			for i, want := range tc.wantTags {
 				if gotTags[i] != want {
 					t.Errorf("标签[%d] 期望 %q，实际 %q", i, want, gotTags[i])
@@ -308,3 +285,4 @@ func TestVisitorChatService_OpenSessionWithVisitorMeta(t *testing.T) {
 		})
 	}
 }
+

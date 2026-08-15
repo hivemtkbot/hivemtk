@@ -16,18 +16,6 @@ import (
 	"hivemtk-user/internal/pkg/httpclient"
 )
 
-// ============================================================================
-// 钉钉服务（DingTalkService）
-// ----------------------------------------------------------------------------
-// 钉钉出站采用「自定义群机器人 webhook」方案（无需创建企业应用/免 AppKey），
-// 由 `reach.dingtalk.send` 工具经 IntegrationReachAdapter 调用：
-//   - chat_id 传完整 webhook URL（含 access_token），或仅传 access_token（自动拼接 base）
-//   - 若机器人开启「加签」安全设置，chat_id 用 `webhook|secret` 形式携带签名密钥
-//   - 支持 text / markdown / link / action_card 四种消息类型
-//
-// 这是 Reach 模块最后一个未实现渠道（todo.md #2），本文件补齐使其从
-// ErrChannelNotImplemented 变为真实可达，与 TG/WA/Feishu/Web/WeCom 并列。
-// ============================================================================
 
 // dingtalkRobotBase 钉钉群机器人发送基础地址；测试可临时覆盖以指向 mock server。
 var dingtalkRobotBase = "https://oapi.dingtalk.com/robot/send"
@@ -52,7 +40,6 @@ func (s *DingTalkService) SendRobot(ctx context.Context, webhookOrToken, secret,
 	if webhookOrToken == "" {
 		return "", fmt.Errorf("dingtalk: webhook/access_token required")
 	}
-	// 支持 `webhook|secret` 内联签名密钥
 	webhook := webhookOrToken
 	if i := strings.Index(webhookOrToken, "|"); i >= 0 {
 		webhook = webhookOrToken[:i]
@@ -92,7 +79,6 @@ func (s *DingTalkService) SendRobot(ctx context.Context, webhookOrToken, secret,
 			"markdown": map[string]string{"title": "消息", "text": content},
 		})
 	default:
-		// link / action_card：content 为对应结构的 JSON 字符串
 		payload, err = json.Marshal(map[string]any{
 			"msgtype": mt,
 			mt:        json.RawMessage(content),
@@ -134,3 +120,4 @@ func dingtalkSign(secret string, timestamp int64) string {
 	mac.Write([]byte(stringToSign))
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
+

@@ -5,58 +5,25 @@ import "time"
 // 主题定义
 // 命名规范：{模块}.{动作}，如 operation.log、health.report
 const (
-	// TopicOperationLog 操作日志主题
-	// 发布者：业务 Service（如 SystemUserService、ContentService 等）
-	// 订阅者：OperationLogSubscriber（写入 operation_logs 表）
 	TopicOperationLog = "operation.log"
 
-	// TopicHealthReport 账号健康度上报主题（预留，待后续落地）
 	TopicHealthReport = "health.report"
 
-	// TopicCustomerMerged 客户合并完成通知主题（预留，待 CustomerMerger 落地）
 	TopicCustomerMerged = "customer.merged"
 
-	// TopicCustomerMessageReceived 客户消息接收主题 — 新增(§2.2)
-	// 发布者:Channel Adapter(webhook 处理完成后)
-	// 订阅者:agent_runtime.EventSubscriber
-	// 用途:解耦渠道层与 AI 引擎,新增渠道无需修改 AI 代码
 	TopicCustomerMessageReceived = "customer.message.received"
 
-	// TopicKnowledgeDocumentChanged 知识库文档变更主题 — 新增(§2.5 子项 2)
-	// 发布者:KnowledgeDocumentService CRUD 后
-	// 订阅者:rag.IncrementalIndexer
-	// 用途:文档增/删/改时触发增量索引更新
 	TopicKnowledgeDocumentChanged = "knowledge.document.changed"
 
-	// ========================================================================
-	// 自我学习机制事件主题（v1.1 §2.4）
-	// 发布者:DialogueEventPublisher / RAGSelfCorrector / AssetBundleLearner
-	// 订阅者:SelfLearningOrchestrator
-	// ========================================================================
 
-	// TopicDialogueStarted 对话开始事件主题
-	// 发布者:DialogueEventPublisher.PublishStarted（OpenSession / 首条访客消息）
-	// 订阅者:Orchestrator.onDialogueStarted → RAGSelfCorrector.Warmup
 	TopicDialogueStarted = "dialogue.started"
 
-	// TopicDialogueEnded 对话结束事件主题
-	// 发布者:DialogueEventPublisher.PublishEnded（UpdateSessionStatus=closed/resolved）
-	// 订阅者:Orchestrator.onDialogueEnded → RAG 反思 / 资产包候选生成 / 5 维监督指标采集
 	TopicDialogueEnded = "dialogue.ended"
 
-	// TopicAssetDegraded 资产包降级事件主题
-	// 发布者:AssetBundleLearner.DegradeInactiveAssets（连续 30 天 use_count=0）
-	// 订阅者:Orchestrator.onAssetDegraded（记录日志，候选生成由 cron 触发）
 	TopicAssetDegraded = "asset.degraded"
 
-	// TopicAssetDegradeWarning 资产包降级预警事件主题（autonomous 模式下 24h 前预警）
-	// 发布者:AssetBundleLearner（降级前 24h 调用 PublishAssetDegradeWarning）
-	// 订阅者:看板告警订阅
 	TopicAssetDegradeWarning = "asset.degrade.warning"
 
-	// TopicRagCorpusUpdated RAG 语料变更事件主题
-	// 发布者:RAGSelfCorrector（销冠补录 / 低质归档 / 降权）
-	// 订阅者:RAG 缓存失效订阅
 	TopicRagCorpusUpdated = "rag.corpus.updated"
 )
 
@@ -66,12 +33,12 @@ const (
 type OperationLogPayload struct {
 	UserID     uint   `json:"user_id"`
 	Username   string `json:"username"`
-	Action     string `json:"action"`   // create, update, delete, login, change_password, reset_password
-	Module     string `json:"module"`   // user, role, card, shortlink 等
-	Resource   string `json:"resource"` // 资源类型（默认等于 Module）
+	Action     string `json:"action"`   
+	Module     string `json:"module"`   
+	Resource   string `json:"resource"` 
 	ResourceID string `json:"resource_id"`
-	OldValue   any    `json:"old_value"` // 旧值（可序列化为 JSON）
-	NewValue   any    `json:"new_value"` // 新值（可序列化为 JSON）
+	OldValue   any    `json:"old_value"` 
+	NewValue   any    `json:"new_value"` 
 	IP         string `json:"ip"`
 }
 
@@ -82,14 +49,14 @@ type OperationLogPayload struct {
 //
 // 关联主题:TopicCustomerMessageReceived
 type CustomerMessagePayload struct {
-	ChannelType string         `json:"channel_type"` // telegram / wecom / feishu / douyin / ...
-	AccountID   string         `json:"account_id"`   // 渠道账号主键
-	CustomerID  string         `json:"customer_id"`  // 客户 OneID（已归一化）
-	SessionID   string         `json:"session_id"`   // 会话唯一 ID（方向8 核心数据流必备；缺省由 channel:customer 构造）
-	Content     string         `json:"content"`      // 消息内容
-	MessageType string         `json:"message_type"` // text / image / voice / event
-	Timestamp   time.Time      `json:"timestamp"`    // 消息时间戳
-	TraceID     string         `json:"trace_id"`     // 全链路追踪 ID
+	ChannelType string         `json:"channel_type"` 
+	AccountID   string         `json:"account_id"`   
+	CustomerID  string         `json:"customer_id"`  
+	SessionID   string         `json:"session_id"`   
+	Content     string         `json:"content"`      
+	MessageType string         `json:"message_type"` 
+	Timestamp   time.Time      `json:"timestamp"`    
+	TraceID     string         `json:"trace_id"`     
 	Raw         map[string]any `json:"raw,omitempty"`
 }
 
@@ -98,18 +65,14 @@ type CustomerMessagePayload struct {
 // 关联主题:TopicKnowledgeDocumentChanged
 // 触发时机:KnowledgeDocumentService.Create/Update/Delete 后 publish
 type KnowledgeDocumentChangePayload struct {
-	WorkspaceID string `json:"workspace_id"` // 知识库工作区 ID
-	DocumentID  uint   `json:"document_id"`  // 文档 ID
-	ChangeType  string `json:"change_type"`  // create / update / delete
-	ContentHash string `json:"content_hash"` // 用于增量检测
-	OperatorID  uint   `json:"operator_id"`  // 操作人 ID
+	WorkspaceID string `json:"workspace_id"` 
+	DocumentID  uint   `json:"document_id"`  
+	ChangeType  string `json:"change_type"`  
+	ContentHash string `json:"content_hash"` 
+	OperatorID  uint   `json:"operator_id"`  
 	TraceID     string `json:"trace_id"`
 }
 
-// ============================================================================
-// 自我学习机制事件载荷（v1.1 §2.4）
-// 设计依据: docs/企业级架构优化/对话驱动自我学习机制.md
-// ============================================================================
 
 // DialogueStartedPayload 对话开始事件载荷
 //
@@ -145,7 +108,7 @@ type DialogueEndedPayload struct {
 	VisitorID        string         `json:"visitor_id"`
 	CustomerID       string         `json:"customer_id"`
 	DurationSec      int64          `json:"duration_sec"`
-	Outcome          string         `json:"outcome"` // converted / resolved / abandoned / ...
+	Outcome          string         `json:"outcome"` 
 	AggregatedReward float64        `json:"aggregated_reward"`
 	SignalBreakdown  map[string]any `json:"signal_breakdown,omitempty"`
 	UsedCorpusIDs    []string       `json:"used_corpus_ids,omitempty"`
@@ -164,7 +127,7 @@ type DialogueEndedPayload struct {
 type AssetDegradedPayload struct {
 	AssetID      string    `json:"asset_id"`
 	AssetTitle   string    `json:"asset_title"`
-	Reason       string    `json:"reason"` // stale_or_low_rating / manual / ...
+	Reason       string    `json:"reason"` 
 	LastUseCount int64     `json:"last_use_count"`
 	LastRating   float64   `json:"last_rating"`
 	Scenario     string    `json:"scenario"`
@@ -194,10 +157,11 @@ type AssetDegradeWarningPayload struct {
 // 触发时机:RAGSelfCorrector 销冠补录 / 低质归档 / 降权
 // 订阅者:RAG 缓存失效订阅
 type RagCorpusUpdatedPayload struct {
-	CorpusID        string    `json:"corpus_id"` // chunk_id 字符串
-	Action          string    `json:"action"`    // champion_upsert / low_quality_mark / archive / ...
+	CorpusID        string    `json:"corpus_id"` 
+	Action          string    `json:"action"`    
 	SourceSessionID string    `json:"source_session_id,omitempty"`
 	NewQualityLabel string    `json:"new_quality_label,omitempty"`
 	TraceID         string    `json:"trace_id"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }
+

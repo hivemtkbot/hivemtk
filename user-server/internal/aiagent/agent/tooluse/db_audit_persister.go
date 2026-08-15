@@ -10,19 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// db_audit_persister.go : 工具调用审计日志 DB 持久化
-// 告警机制（基于阈值触发）
-//
-// 设计目标：
-// 将 AuditEntry 持久化到 PostgreSQL，便于长期保留和查询
-// 当工具失败率/熔断状态超过阈值时触发告警（通过回调通知外部系统）
-//
-// 设计要点：
-//   - DB 写入异步（避免阻塞主流程）
-//   - 写入失败仅记日志（不影响工具调用结果）
-//   - 表结构自管理（AutoMigrate 由调用方在启动时执行）
 
-// ===== DB 模型 =====
 
 // ToolCallAuditRecord 工具调用审计记录（DB 模型）
 //
@@ -51,7 +39,6 @@ func (ToolCallAuditRecord) TableName() string {
 	return "tool_call_audits"
 }
 
-// ===== DB 持久化 AuditLogger =====
 
 // DBAuditLogger DB 持久化 AuditLogger
 //
@@ -63,7 +50,6 @@ type DBAuditLogger struct {
 	wg       sync.WaitGroup
 	stopOnce sync.Once
 	stopCh   chan struct{}
-	// fallback logger：DB 写入失败时降级到内存 logger
 	fallback AuditLogger
 }
 
@@ -95,9 +81,7 @@ func NewDBAuditLogger(db *gorm.DB, queueSize int, fallback AuditLogger) *DBAudit
 func (l *DBAuditLogger) Log(ctx context.Context, entry AuditEntry) {
 	select {
 	case l.queue <- entry:
-		// 成功入队
 	default:
-		// 队列满：降级到 fallback
 		if l.fallback != nil {
 			l.fallback.Log(ctx, entry)
 		}
@@ -134,8 +118,6 @@ func (l *DBAuditLogger) consume() {
 			}
 			timer.Reset(flushInterval)
 		case <-l.stopCh:
-			// 退出前 drain 队列剩余 entry（避免丢日志）
-			// 1. 先 drain queue
 			drained := 0
 			for {
 				select {
@@ -151,12 +133,10 @@ func (l *DBAuditLogger) consume() {
 				}
 			}
 		flushAndExit:
-			// 2. flush 剩余 batch
 			if len(batch) > 0 {
 				l.flushBatch(batch)
 			}
 			if drained > 0 {
-				// 仅用于调试观察（不输出避免依赖 logger）
 				_ = drained
 			}
 			return
@@ -172,7 +152,6 @@ func (l *DBAuditLogger) flushBatch(batch []AuditEntry) {
 	if len(batch) == 0 {
 		return
 	}
-	// DB 未启用：直接降级到 fallback
 	if l.db == nil {
 		if l.fallback != nil {
 			ctx := context.Background()
@@ -182,14 +161,11 @@ func (l *DBAuditLogger) flushBatch(batch []AuditEntry) {
 		}
 		return
 	}
-	// 转换为 DB 模型
 	records := make([]ToolCallAuditRecord, 0, len(batch))
 	for _, e := range batch {
 		records = append(records, auditEntryToRecord(e))
 	}
-	// 批量插入
 	if err := l.db.CreateInBatches(records, 100).Error; err != nil {
-		// DB 写入失败：降级到 fallback
 		if l.fallback != nil {
 			ctx := context.Background()
 			for _, e := range batch {
@@ -235,17 +211,13 @@ func AutoMigrateAuditTable(db *gorm.DB) error {
 	return db.AutoMigrate(&ToolCallAuditRecord{})
 }
 
-// ===== 告警机制 =====
 
 // AlertLevel 告警级别
 type AlertLevel string
 
 const (
-	// AlertInfo 信息级
 	AlertInfo AlertLevel = "info"
-	// AlertWarning 警告级
 	AlertWarning AlertLevel = "warning"
-	// AlertCritical 严重级
 	AlertCritical AlertLevel = "critical"
 )
 
@@ -257,7 +229,6 @@ type AlertEvent struct {
 	ToolName  string     `json:"tool_name,omitempty"`
 	TraceID   string     `json:"trace_id,omitempty"`
 	Timestamp time.Time  `json:"timestamp"`
-	// 扩展字段（便于告警接收方附加业务信息）
 	Extra map[string]any `json:"extra,omitempty"`
 }
 
@@ -288,7 +259,7 @@ func (f AlertHandlerFunc) OnAlert(event AlertEvent) { f(event) }
 type AlertManager struct {
 	mu             sync.Mutex
 	handlers       []AlertHandler
-	failureRateMap map[string]*failureRateTracker // 按 tool_name 统计失败率
+	failureRateMap map[string]*failureRateTracker 
 }
 
 // failureRateTracker 失败率追踪器
@@ -329,7 +300,6 @@ func (a *AlertManager) OnToolCall(entry AuditEntry) {
 		a.failureRateMap[toolName] = tracker
 	}
 
-	// 窗口重置（1 分钟）
 	if time.Since(tracker.windowStart) > time.Minute {
 		tracker.total = 0
 		tracker.failed = 0
@@ -341,7 +311,6 @@ func (a *AlertManager) OnToolCall(entry AuditEntry) {
 		tracker.failed++
 	}
 
-	// 规则 1：失败率 > 50% 且总调用 >= 10
 	if tracker.total >= 10 {
 		rate := float64(tracker.failed) / float64(tracker.total)
 		if rate > 0.5 {
@@ -360,7 +329,6 @@ func (a *AlertManager) OnToolCall(entry AuditEntry) {
 		}
 	}
 
-	// 规则 2：单次调用耗时 > 5s
 	if entry.Duration > 5*time.Second {
 		a.emitAlert(AlertEvent{
 			Level:    AlertWarning,
@@ -415,7 +383,6 @@ func (a *AlertManager) emitAlert(event AlertEvent) {
 	for _, handler := range a.handlers {
 		go func(h AlertHandler) {
 			defer func() {
-				// 防止 handler panic 影响其他 handler
 				_ = recover()
 			}()
 			h.OnAlert(event)
@@ -443,7 +410,6 @@ func (a *AlertManager) Stats() map[string]map[string]any {
 	return out
 }
 
-// ===== DB AuditLogger + AlertManager 集成 =====
 
 // CompositeAuditLogger 复合 AuditLogger
 //
@@ -483,3 +449,4 @@ func (e AlertEvent) MarshalJSON() ([]byte, error) {
 	type alias AlertEvent
 	return json.Marshal(alias(e))
 }
+

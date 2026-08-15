@@ -7,24 +7,10 @@ import (
 	"time"
 )
 
-// ============================================================================
-// Phase 5 端到端测试：完整业务链路（触达 → 智能体 9 步 → 反馈学习闭环）
-// ----------------------------------------------------------------------------
-// 商业产品级验证：一条客户消息从入站到反馈学习的完整链路，
-// 覆盖用户视角的 6 大支柱中的关键链路：
-//   ② 触达（4 渠道入站消息）
-//   ⑥ 智能体（SalesEngine 9 步链路 + 第 9 步反馈学习）
-//
-// 测试策略：
-//   - 使用 NewSalesEngine(nil,...) 创建引擎，依赖为 nil 时走兜底逻辑
-//   - 注入真实 FeedbackLearner，验证第 9 步记录
-//   - 不使用 mock，验证真实业务流程
-// ============================================================================
 
 // TestE2E_FullChain_ReachToSalesFeedback 4 渠道客户消息 → SalesEngine 9 步 → 反馈学习记录
 // 商业产品级核心闭环：客户在 4 个渠道发消息 → 智能体 9 步处理 → 决策快照进入反馈学习
 func TestE2E_FullChain_ReachToSalesFeedback(t *testing.T) {
-	// 1. 构建 智能体引擎（依赖为 nil，走兜底逻辑）+ 注入反馈学习器
 	fl := NewFeedbackLearner(nil)
 	engine := NewSalesEngine(nil, nil, nil, nil, nil, nil, nil, nil)
 	engine.SetFeedbackLearner(context.Background(), fl)
@@ -46,7 +32,6 @@ func TestE2E_FullChain_ReachToSalesFeedback(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
-			// 2. 客户消息入站（触达）
 			resp, err := engine.ProcessIncomingMessage(ctx, &ChannelMessage{
 				Channel:      tc.channel,
 				AccountID:    "1",
@@ -64,12 +49,10 @@ func TestE2E_FullChain_ReachToSalesFeedback(t *testing.T) {
 				t.Errorf("[%s] Reply 不应为空", tc.name)
 			}
 
-			// 3. 验证 9 步链路完整性
 			if len(resp.Steps) < 7 {
 				t.Errorf("[%s] Steps 应 >= 7 个，实际 %d", tc.name, len(resp.Steps))
 			}
 
-			// 4. 验证第 9 步反馈学习被记录
 			hasFeedbackStep := false
 			for _, s := range resp.Steps {
 				if s.Step == "9_feedback_learn" {
@@ -88,7 +71,6 @@ func TestE2E_FullChain_ReachToSalesFeedback(t *testing.T) {
 		})
 	}
 
-	// 5. 验证 FeedbackLearner 累积了 4 个渠道的反馈
 	allStats := fl.GetAllIntentStats(context.Background())
 	totalCount := 0
 	for _, s := range allStats {
@@ -110,7 +92,6 @@ func TestE2E_FullChain_FeedbackAccumulation(t *testing.T) {
 	customer := "cust_accumulation"
 	sessionID := "wecom:chat_001"
 
-	// 模拟同一客户 15 轮对话（超过冷启动阈值 10）
 	for i := 0; i < 15; i++ {
 		_, _ = engine.ProcessIncomingMessage(context.Background(), &ChannelMessage{
 			Channel:      "wecom",
@@ -120,17 +101,14 @@ func TestE2E_FullChain_FeedbackAccumulation(t *testing.T) {
 			Content:      "我想了解光子嫩肤",
 			MsgType:      "text",
 		})
-		// 用 sessionID 避免 engine 内部 customerID 重复
 		_ = sessionID
 	}
 
-	// 验证累积统计
 	stats := fl.GetAllIntentStats(context.Background())
 	if len(stats) == 0 {
 		t.Fatal("应累积意图统计")
 	}
 
-	// 验证 SuggestConfidenceFloor 能给出建议（冷启动后）
 	for _, s := range stats {
 		floor := fl.SuggestConfidenceFloor(context.Background(), s.IntentType)
 		if floor <= 0 {
@@ -162,7 +140,6 @@ func TestE2E_FullChain_StepSequence(t *testing.T) {
 		t.Fatalf("失败: %v", err)
 	}
 
-	// 期望的步骤顺序（依赖为 nil 时部分步骤会 skip/fail，但仍按顺序执行）
 	expectedSteps := []string{
 		"1_resolve_customer",
 		"2_recall_memory",
@@ -179,7 +156,6 @@ func TestE2E_FullChain_StepSequence(t *testing.T) {
 		stepNames = append(stepNames, s.Step)
 	}
 
-	// 验证关键步骤都存在（3.5/5.5/5.6 是条件性的，不强制）
 	for _, expected := range expectedSteps {
 		found := false
 		for _, actual := range stepNames {
@@ -205,12 +181,10 @@ func TestE2E_FullChain_SmartOrchestratorDelegatesToEngine(t *testing.T) {
 
 	orchestrator := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig())
 
-	// 验证 orchestrator 正确包装了 engine
 	if orchestrator.engine == nil {
 		t.Fatal("orchestrator 应持有 engine 引用")
 	}
 
-	// 验证 orchestrator 的配置（字段直接访问）
 	if orchestrator.confidenceThreshold != 0.7 {
 		t.Errorf("confidenceThreshold 应为 0.7，实际 %.2f", orchestrator.confidenceThreshold)
 	}
@@ -244,7 +218,6 @@ func TestE2E_FullChain_ResponseIntegrity(t *testing.T) {
 		t.Fatalf("失败: %v", err)
 	}
 
-	// 验证响应字段完整性
 	if resp.Reply == "" {
 		t.Error("Reply 不应为空")
 	}
@@ -254,7 +227,6 @@ func TestE2E_FullChain_ResponseIntegrity(t *testing.T) {
 	if len(resp.Steps) == 0 {
 		t.Error("Steps 不应为空")
 	}
-	// Intent 应被填充（即使 fallback）
 	if resp.Intent == nil {
 		t.Error("Intent 不应为 nil（即使 fallback 也应填充）")
 	} else if resp.Intent.IntentType == "" {
@@ -264,3 +236,4 @@ func TestE2E_FullChain_ResponseIntegrity(t *testing.T) {
 	t.Logf("✅ 响应完整: reply_len=%d, latency=%dms, steps=%d, intent=%s",
 		len(resp.Reply), resp.LatencyMs, len(resp.Steps), resp.Intent.IntentType)
 }
+

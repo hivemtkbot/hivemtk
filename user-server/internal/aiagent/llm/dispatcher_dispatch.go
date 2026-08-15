@@ -20,26 +20,18 @@ type DispatchRequest struct {
 	MaxTokens      int              `json:"max_tokens"`
 	Temperature    float64          `json:"temperature"`
 	JSONMode       bool             `json:"json_mode"`
-	CacheKey       string           `json:"cache_key"`       // 缓存 key
-	CacheTTL       int              `json:"cache_ttl"`       // 缓存秒数
-	ReturnLogprobs bool             `json:"return_logprobs"` // 请求 LLM 返回 token logprobs
-	TopLogprobs    int              `json:"top_logprobs"`    // 返回 top-N 候选 token logprobs（默认 20）
-	// 智能体 tool_call 支持
-	// Tools: 工具定义列表，非空时 Dispatcher 走 GenerateWithTools 路径
-	// ToolChoice: "auto"/"none"/"required" 或 JSON 对象字符串
+	CacheKey       string           `json:"cache_key"`       
+	CacheTTL       int              `json:"cache_ttl"`       
+	ReturnLogprobs bool             `json:"return_logprobs"` 
+	TopLogprobs    int              `json:"top_logprobs"`    
 	Tools      []ToolDefinition `json:"tools,omitempty"`
 	ToolChoice string           `json:"tool_choice,omitempty"`
-	// Messages: 多轮对话历史（含 tool 角色回灌工具结果）
-	// 非空时 Prompt 字段被忽略，使用 Messages 进行多轮对话
 	Messages []ChatMessage `json:"messages,omitempty"`
-	// CanaryKey: 灰度发布判定 key（如 user_id），空时按权重随机抽样
-	// 让 Dispatch 走灰度路由
 	CanaryKey string `json:"canary_key,omitempty"`
-	// 多语言方案：跨语言生成元数据（由 service/translation 层注入）
-	InternalLang    string `json:"internal_lang,omitempty"`    // 商户内部语言（知识库语言）
-	TargetLang      string `json:"target_lang,omitempty"`      // 对外输出语言
-	CrossLingual    bool   `json:"cross_lingual,omitempty"`    // 是否跨语言生成（InternalLang != TargetLang）
-	GlossaryVersion string `json:"glossary_version,omitempty"` // 术语表版本（落库审计）
+	InternalLang    string `json:"internal_lang,omitempty"`    
+	TargetLang      string `json:"target_lang,omitempty"`      
+	CrossLingual    bool   `json:"cross_lingual,omitempty"`    
+	GlossaryVersion string `json:"glossary_version,omitempty"` 
 }
 
 type DispatchResult struct {
@@ -50,26 +42,17 @@ type DispatchResult struct {
 	Cost        float64 `json:"cost"`
 	LatencyMs   int     `json:"latency_ms"`
 	FromCache   bool    `json:"from_cache"`
-	// 用于置信度计算的 token 级信号
-	// 当前 LLMService 尚未真正透传 logprobs，字段保留供上游 SignalCollector
-	// 在 LLMService 升级（添加 chatResponse.logprobs 解析）后自动填充。
-	// 当前为安全降级：Logprobs/TopTokenEntropy 留空，FinishReason 透传 "stop"/"length" 等。
 	Logprobs        []float64 `json:"logprobs,omitempty"`
 	TopTokenEntropy float64   `json:"top_token_entropy,omitempty"`
 	FinishReason    string    `json:"finish_reason,omitempty"`
-	// 智能体 tool_call 返回结果
 	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
-	// 详细 token 使用量（用于计费/成本分析）
-	// 由 provider 响应中的 usage 字段填充
-	// TokenUsage 类型在下方定义
 	Usage TokenUsage `json:"usage,omitempty"`
-	// v3.7.0 扩展：token 计量元数据（用于 llm_routing_logs 落库）
-	BaseURL        string  `json:"base_url,omitempty"`        // 出域审计
-	IsFallback     bool    `json:"is_fallback,omitempty"`     // 是否为降级调用
-	TokenSource    string  `json:"token_source,omitempty"`    // actual/estimated/missing
-	Estimator      string  `json:"estimator,omitempty"`       // char_weight/empty_fallback
-	PromptCost     float64 `json:"prompt_cost,omitempty"`     // prompt 单价计费
-	CompletionCost float64 `json:"completion_cost,omitempty"` // completion 单价计费
+	BaseURL        string  `json:"base_url,omitempty"`        
+	IsFallback     bool    `json:"is_fallback,omitempty"`     
+	TokenSource    string  `json:"token_source,omitempty"`    
+	Estimator      string  `json:"estimator,omitempty"`       
+	PromptCost     float64 `json:"prompt_cost,omitempty"`     
+	CompletionCost float64 `json:"completion_cost,omitempty"` 
 }
 
 type TokenUsage struct {
@@ -403,3 +386,4 @@ func (d *Dispatcher) MultiModelVote(results []*DispatchResult) string {
 	}
 	return results[bestIdx].Content
 }
+

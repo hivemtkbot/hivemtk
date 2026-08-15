@@ -12,19 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ============================================================================
-// G7 反馈学习闭环测试
-// ----------------------------------------------------------------------------
-// 测试三大能力：
-//  1. 销冠画像 5 维度提取（从对话记录）
-//  2. SOP 节点转化率分析
-//  3. 低转化节点优化建议生成
-//
-// 测试策略：
-//  - 使用 PostgreSQL 测试 DB（testutil.NewTestDB）
-//  - 构造真实的 SessionMessage + SOPNodeTransition 数据
-//  - 验证每个维度的提取逻辑、转化率计算、建议生成
-// ============================================================================
 
 // setupFeedbackLearningDB 初始化测试 DB
 func setupFeedbackLearningDB(t *testing.T) *gorm.DB {
@@ -70,16 +57,12 @@ func seedCustomerMessages(db *gorm.DB, sessionID string, contents []string, base
 	}
 }
 
-// ============================================================================
-// 能力 1：销冠画像 5 维度提取测试
-// ============================================================================
 
 // TestExtractProfile_AllDimensionsPresent 所有 5 维度都被提取
 func TestExtractProfile_AllDimensionsPresent(t *testing.T) {
 	db := setupFeedbackLearningDB(t)
 	svc := NewFeedbackLearningService(db)
 
-	// 构造覆盖各维度的对话
 	baseTime := time.Now().Add(-1 * time.Hour)
 	seedAIMessages(db, "s1", []string{
 		"亲，我理解您的顾虑，这款性价比其实很高，现在有活动优惠很划算。",
@@ -96,7 +79,6 @@ func TestExtractProfile_AllDimensionsPresent(t *testing.T) {
 	if len(report.Dimensions) != len(model.AllSalesChampionDimensions) {
 		t.Errorf("expected %d dimensions, got %d", len(model.AllSalesChampionDimensions), len(report.Dimensions))
 	}
-	// 验证每个维度都有名称
 	for _, d := range report.Dimensions {
 		if d.Name == "" {
 			t.Errorf("dimension %s missing name", d.Dimension)
@@ -110,7 +92,6 @@ func TestExtractProfile_ObjectionHandling(t *testing.T) {
 	svc := NewFeedbackLearningService(db)
 
 	baseTime := time.Now().Add(-1 * time.Hour)
-	// 客户提异议 + AI 正向回应
 	seedCustomerMessages(db, "s1", []string{"太贵了"}, baseTime)
 	seedAIMessages(db, "s1", []string{
 		"我理解您的顾虑，其实这款性价比很高，现在有活动很划算。",
@@ -137,7 +118,7 @@ func TestExtractProfile_ObjectionAbandoned(t *testing.T) {
 	baseTime := time.Now().Add(-1 * time.Hour)
 	seedCustomerMessages(db, "s1", []string{"太贵了，不需要"}, baseTime)
 	seedAIMessages(db, "s1", []string{
-		"好的，再见", // 放弃
+		"好的，再见", 
 	}, baseTime.Add(30*time.Second))
 
 	report, err := svc.ExtractProfile(context.Background(), 0, "智能体", "ai_champion", baseTime, time.Now())
@@ -275,7 +256,7 @@ func TestExtractProfile_PersistSnapshot(t *testing.T) {
 		}
 	}
 
-	_ = report // avoid unused
+	_ = report 
 }
 
 // TestExtractProfile_NoSamples 中性得分（无样本时 50 分）
@@ -300,7 +281,6 @@ func TestExtractProfile_OverallScore(t *testing.T) {
 	svc := NewFeedbackLearningService(db)
 
 	baseTime := time.Now().Add(-1 * time.Hour)
-	// 构造多条消息，触发多个维度
 	seedAIMessages(db, "s1", []string{
 		"理解您的顾虑，性价比很高，建议下单。",
 		"好久没联系，新品到货，活动优惠适合您。",
@@ -316,9 +296,6 @@ func TestExtractProfile_OverallScore(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 能力 2：SOP 节点转化率分析测试
-// ============================================================================
 
 // seedSOPAgent 创建测试 SOP
 func seedSOPAgent(db *gorm.DB, name string) uint {
@@ -356,7 +333,6 @@ func TestAnalyzeNodeConversion_BasicConversion(t *testing.T) {
 	svc := NewFeedbackLearningService(db)
 
 	sopID := seedSOPAgent(db, "test_sop")
-	// node_1: 10 进入，8 成功，1 流失，1 失败
 	for i := 0; i < 8; i++ {
 		seedNodeTransition(db, sopID, uint(i+1), "node_1", "llm", model.NodeOutcomeSuccess, 1000)
 	}
@@ -388,14 +364,12 @@ func TestAnalyzeNodeConversion_BottleneckIdentification(t *testing.T) {
 	svc := NewFeedbackLearningService(db)
 
 	sopID := seedSOPAgent(db, "test_sop")
-	// node_1: 高转化（80%）
 	for i := 0; i < 8; i++ {
 		seedNodeTransition(db, sopID, uint(i+1), "node_1", "llm", model.NodeOutcomeSuccess, 1000)
 	}
 	for i := 0; i < 2; i++ {
 		seedNodeTransition(db, sopID, uint(9+i), "node_1", "llm", model.NodeOutcomeAbandoned, 500)
 	}
-	// node_2: 低转化（30%），应识别为瓶颈
 	for i := 0; i < 3; i++ {
 		seedNodeTransition(db, sopID, uint(11+i), "node_2", "llm", model.NodeOutcomeSuccess, 1000)
 	}
@@ -425,7 +399,6 @@ func TestAnalyzeNodeConversion_WithVariant(t *testing.T) {
 	svc := NewFeedbackLearningService(db)
 
 	sopID := seedSOPAgent(db, "test_sop")
-	// Variant A
 	for i := 0; i < 5; i++ {
 		t := model.SOPNodeTransition{
 			SOPID: sopID, ExecutionID: uint(i + 1), Variant: "A",
@@ -433,7 +406,6 @@ func TestAnalyzeNodeConversion_WithVariant(t *testing.T) {
 		}
 		db.Create(&t)
 	}
-	// Variant B
 	for i := 0; i < 5; i++ {
 		t := model.SOPNodeTransition{
 			SOPID: sopID, ExecutionID: uint(i + 6), Variant: "B",
@@ -442,7 +414,6 @@ func TestAnalyzeNodeConversion_WithVariant(t *testing.T) {
 		db.Create(&t)
 	}
 
-	// 查询 Variant A
 	statsA, err := svc.AnalyzeNodeConversion(context.Background(), sopID, "A")
 	if err != nil {
 		t.Fatalf("analyze A: %v", err)
@@ -463,7 +434,6 @@ func TestAnalyzeNodeConversion_DropRate(t *testing.T) {
 	svc := NewFeedbackLearningService(db)
 
 	sopID := seedSOPAgent(db, "test_sop")
-	// 10 进入，3 流失，7 成功
 	for i := 0; i < 7; i++ {
 		seedNodeTransition(db, sopID, uint(i+1), "node_1", "llm", model.NodeOutcomeSuccess, 1000)
 	}
@@ -481,9 +451,6 @@ func TestAnalyzeNodeConversion_DropRate(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 能力 3：低转化节点优化建议生成测试
-// ============================================================================
 
 // TestGenerateOptimizationSuggestions_LLMNode LLM 节点建议
 func TestGenerateOptimizationSuggestions_LLMNode(t *testing.T) {
@@ -491,7 +458,6 @@ func TestGenerateOptimizationSuggestions_LLMNode(t *testing.T) {
 	svc := NewFeedbackLearningService(db)
 
 	sopID := seedSOPAgent(db, "test_sop")
-	// LLM 节点低转化（30%，10 样本）
 	for i := 0; i < 3; i++ {
 		seedNodeTransition(db, sopID, uint(i+1), "llm_node", "llm", model.NodeOutcomeSuccess, 1000)
 	}
@@ -577,7 +543,6 @@ func TestGenerateOptimizationSuggestions_ActionNode(t *testing.T) {
 	svc := NewFeedbackLearningService(db)
 
 	sopID := seedSOPAgent(db, "test_sop")
-	// 动作节点：流失 > 失败 → timing_adjust
 	for i := 0; i < 2; i++ {
 		seedNodeTransition(db, sopID, uint(i+1), "action_node", "action", model.NodeOutcomeSuccess, 300)
 	}
@@ -619,7 +584,6 @@ func TestGenerateOptimizationSuggestions_HighConversionSkipped(t *testing.T) {
 	svc := NewFeedbackLearningService(db)
 
 	sopID := seedSOPAgent(db, "test_sop")
-	// 90% 转化，不应生成建议
 	for i := 0; i < 9; i++ {
 		seedNodeTransition(db, sopID, uint(i+1), "good_node", "llm", model.NodeOutcomeSuccess, 500)
 	}
@@ -649,7 +613,6 @@ func TestGenerateOptimizationSuggestions_MinSampleFilter(t *testing.T) {
 	svc := NewFeedbackLearningService(db)
 
 	sopID := seedSOPAgent(db, "test_sop")
-	// 仅 2 个样本，低于默认最小 5
 	seedNodeTransition(db, sopID, 1, "small_node", "llm", model.NodeOutcomeSuccess, 500)
 	seedNodeTransition(db, sopID, 2, "small_node", "llm", model.NodeOutcomeAbandoned, 200)
 
@@ -672,9 +635,6 @@ func TestGenerateOptimizationSuggestions_MinSampleFilter(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 建议审核流程测试
-// ============================================================================
 
 // TestReviewSuggestion_Approve 审核通过
 func TestReviewSuggestion_Approve(t *testing.T) {
@@ -782,9 +742,6 @@ func TestReviewSuggestion_InvalidAction(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 节点流转记录测试
-// ============================================================================
 
 // TestRecordNodeTransition 记录节点流转
 func TestRecordNodeTransition(t *testing.T) {
@@ -818,23 +775,18 @@ func TestRecordNodeTransition_Nil(t *testing.T) {
 	db := setupFeedbackLearningDB(t)
 	svc := NewFeedbackLearningService(db)
 
-	// nil transition 不应 panic
 	err := svc.RecordNodeTransition(context.Background(), nil)
 	if err != nil {
 		t.Errorf("nil transition should not return error, got %v", err)
 	}
 }
 
-// ============================================================================
-// 列表查询测试
-// ============================================================================
 
 // TestListPendingSuggestions 列出待审核建议
 func TestListPendingSuggestions(t *testing.T) {
 	db := setupFeedbackLearningDB(t)
 	svc := NewFeedbackLearningService(db)
 
-	// 创建多条建议
 	for i := 0; i < 3; i++ {
 		sug := model.OptimizationSuggestion{
 			SOPID: 1, SOPName: "test", NodeID: "n1",
@@ -844,7 +796,6 @@ func TestListPendingSuggestions(t *testing.T) {
 		}
 		db.Create(&sug)
 	}
-	// 创建一条已审核的
 	applied := model.OptimizationSuggestion{
 		SOPID: 1, SOPName: "test", NodeID: "n2",
 		SuggestionType: model.SuggestionTypeBranchPrune,
@@ -871,7 +822,6 @@ func TestListPendingSuggestions_PriorityOrder(t *testing.T) {
 	db := setupFeedbackLearningDB(t)
 	svc := NewFeedbackLearningService(db)
 
-	// 低优先级先创建
 	for _, p := range []int{0, 2, 1} {
 		sug := model.OptimizationSuggestion{
 			SOPID: 1, SOPName: "test", NodeID: "n1",
@@ -889,7 +839,6 @@ func TestListPendingSuggestions_PriorityOrder(t *testing.T) {
 	if len(list) != 3 {
 		t.Fatalf("expected 3, got %d", len(list))
 	}
-	// 应按 priority DESC 排序
 	if list[0].Priority != 2 {
 		t.Errorf("expected first priority=2, got %d", list[0].Priority)
 	}
@@ -898,16 +847,12 @@ func TestListPendingSuggestions_PriorityOrder(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 画像查询测试
-// ============================================================================
 
 // TestGetLatestProfile 获取最新画像
 func TestGetLatestProfile(t *testing.T) {
 	db := setupFeedbackLearningDB(t)
 	svc := NewFeedbackLearningService(db)
 
-	// 创建两轮画像快照
 	now := time.Now()
 	for _, dim := range model.AllSalesChampionDimensions {
 		s1 := model.SalesChampionProfileSnapshot{
@@ -931,9 +876,6 @@ func TestGetLatestProfile(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 维度分类单元测试（纯逻辑，无 DB）
-// ============================================================================
 
 // TestClassifyObjectionHandling_Positive 异议处理正向
 func TestClassifyObjectionHandling_Positive(t *testing.T) {
@@ -1069,18 +1011,13 @@ func TestClassifyRepurchaseOperation(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// PRD 验收标准测试
-// ============================================================================
 
 // TestPRD_Acceptance_ExtractDimensionsFromDialog 验收：销冠对话可自动提取能力维度
 func TestPRD_Acceptance_ExtractDimensionsFromDialog(t *testing.T) {
 	db := setupFeedbackLearningDB(t)
 	svc := NewFeedbackLearningService(db)
 
-	// 使用足够早的 baseTime，确保所有消息都在 periodEnd 之前
 	baseTime := time.Now().Add(-10 * time.Hour)
-	// 构造一组完整对话，覆盖所有 5 维度
 	seedCustomerMessages(db, "s1", []string{"太贵了，不需要"}, baseTime)
 	seedAIMessages(db, "s1", []string{
 		"我理解您的顾虑，其实性价比很高，活动优惠很划算，值得购买。",
@@ -1108,7 +1045,6 @@ func TestPRD_Acceptance_ExtractDimensionsFromDialog(t *testing.T) {
 		t.Fatalf("extract: %v", err)
 	}
 
-	// 验收：5 维度都有样本
 	for _, dim := range report.Dimensions {
 		if dim.SampleCount == 0 {
 			t.Errorf("验收失败：维度 %s 未提取到样本", dim.Dimension)
@@ -1122,7 +1058,6 @@ func TestPRD_Acceptance_NodeConversionStats(t *testing.T) {
 	svc := NewFeedbackLearningService(db)
 
 	sopID := seedSOPAgent(db, "验收SOP")
-	// 构造多节点多转化数据
 	for i := 0; i < 8; i++ {
 		seedNodeTransition(db, sopID, uint(i+1), "start", "start", model.NodeOutcomeSuccess, 100)
 	}
@@ -1140,7 +1075,6 @@ func TestPRD_Acceptance_NodeConversionStats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("analyze: %v", err)
 	}
-	// 验收：节点统计可计算
 	if len(stats.Nodes) == 0 {
 		t.Errorf("验收失败：未统计到节点")
 	}
@@ -1157,7 +1091,6 @@ func TestPRD_Acceptance_LowConversionSuggestion(t *testing.T) {
 	svc := NewFeedbackLearningService(db)
 
 	sopID := seedSOPAgent(db, "验收SOP")
-	// 低转化 LLM 节点
 	for i := 0; i < 2; i++ {
 		seedNodeTransition(db, sopID, uint(i+1), "bad_llm", "llm", model.NodeOutcomeSuccess, 1000)
 	}
@@ -1178,7 +1111,6 @@ func TestPRD_Acceptance_LowConversionSuggestion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	// 验收：低转化节点生成建议
 	if len(suggestions) == 0 {
 		t.Errorf("验收失败：低转化节点未生成优化建议")
 	}
@@ -1192,9 +1124,6 @@ func TestPRD_Acceptance_LowConversionSuggestion(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 辅助函数
-// ============================================================================
 
 // findDimension 在报告中查找指定维度
 func findDimension(report *ChampionProfileReport, dim model.SalesChampionDimension) ChampionDimensionScore {
@@ -1205,3 +1134,4 @@ func findDimension(report *ChampionProfileReport, dim model.SalesChampionDimensi
 	}
 	return ChampionDimensionScore{}
 }
+

@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// ============================================================================
-// Stream State Machine 测试
-// ============================================================================
 
 // TestStateMachine_NormalText 验证正常文本流
 func TestStateMachine_NormalText(t *testing.T) {
@@ -38,19 +35,15 @@ func TestStateMachine_DetectTrigger(t *testing.T) {
 	sm.SetTrigger("调用工具：")
 	ctx := context.Background()
 
-	// 推正常文本
 	action, _ := sm.Process(ctx, "好的，")
 	if action != ActionForwardToClient {
 		t.Fatal("first chunk should forward")
 	}
 
-	// 推带触发词的 chunk
 	action, _ = sm.Process(ctx, "我需要调用工具：")
 	if action != ActionBuffer {
-		// chunk 内同时包含"前文+触发词"，状态机截断
 	}
 
-	// 推 JSON
 	action, _ = sm.Process(ctx, `{"tool":`)
 	if action != ActionBuffer {
 		t.Errorf("partial JSON should buffer, got %s", action)
@@ -78,11 +71,9 @@ func TestStateMachine_NestedJSON(t *testing.T) {
 	sm.SetTrigger("调用工具：")
 	ctx := context.Background()
 
-	// 前文 + 触发词
 	_, _ = sm.Process(ctx, "好")
 	_, _ = sm.Process(ctx, "调用工具：")
 
-	// 嵌套 JSON（args 包含 object）
 	action, err := sm.Process(ctx, `{"tool":"x","args":{"a":{"b":1},"c":[1,2,3]}}`)
 	if err != nil {
 		t.Fatalf("process error: %v", err)
@@ -115,7 +106,6 @@ func TestStateMachine_ParseError(t *testing.T) {
 	ctx := context.Background()
 
 	_, _ = sm.Process(ctx, "调用工具：")
-	// 输入完整但语法无效的 JSON（带闭合括号，使 matchJSONEnd 返回 balanced=true）
 	action, err := sm.Process(ctx, `{not valid json}`)
 	if err == nil {
 		t.Error("expected parse error")
@@ -192,9 +182,9 @@ func TestMatchJSONEnd(t *testing.T) {
 		endIdx   int
 	}{
 		{`{"a":1}`, 0, true, 6},
-		{`{"a":{"b":2}}`, 0, true, 12}, // 末尾 '}' 在 index 12
-		{`{"a":[1,2,3]}`, 0, true, 12}, // 末尾 '}' 在 index 12
-		{`{"a":"x{y}z"}`, 0, true, 12}, // 字符串内的 { } 不影响
+		{`{"a":{"b":2}}`, 0, true, 12}, 
+		{`{"a":[1,2,3]}`, 0, true, 12}, 
+		{`{"a":"x{y}z"}`, 0, true, 12}, 
 		{`{"a":1`, 0, false, -1},
 		{`{`, 0, false, -1},
 	}
@@ -209,17 +199,12 @@ func TestMatchJSONEnd(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Tool Router 测试
-// ============================================================================
 
 // TestToolRouter_BasicRoute 测试基本路由
 func TestToolRouter_BasicRoute(t *testing.T) {
-	// 准备 registry + executor + router
 	registry := NewToolRegistry()
 	executor := NewToolExecutor(registry, ToolExecutorConfig{})
 
-	// 注册测试工具
 	testTool := &testMockTool{
 		nameVal:   "test.echo",
 		category:  CategoryBusiness,
@@ -270,7 +255,6 @@ func TestToolRouter_CircuitBreaker(t *testing.T) {
 	registry := NewToolRegistry()
 	executor := NewToolExecutor(registry, ToolExecutorConfig{})
 
-	// 注册总是失败的工具
 	failTool := &testMockTool{
 		nameVal:  "fail.always",
 		category: CategoryBusiness,
@@ -285,12 +269,10 @@ func TestToolRouter_CircuitBreaker(t *testing.T) {
 		CooldownDuration: 5 * time.Second,
 	})
 
-	// 触发 3 次失败
 	for i := 0; i < 3; i++ {
 		router.Route(context.Background(), "fail.always", nil, nil)
 	}
 
-	// 第 4 次应被熔断
 	result := router.Route(context.Background(), "fail.always", nil, nil)
 	if !result.CircuitOpen {
 		t.Error("expected circuit open after 3 failures")
@@ -301,7 +283,6 @@ func TestToolRouter_CircuitBreaker(t *testing.T) {
 		t.Error("expected CircuitOpenCalls > 0")
 	}
 
-	// 重置熔断
 	router.ResetCircuit("fail.always")
 	result = router.Route(context.Background(), "fail.always", nil, nil)
 	if result.CircuitOpen {
@@ -316,7 +297,6 @@ func TestToolRouter_RateLimit(t *testing.T) {
 	testTool := &testMockTool{nameVal: "rate.test", category: CategoryBusiness, resultStr: "ok"}
 	registry.Register(testTool)
 
-	// 自定义限流器：第一次返回 error
 	called := 0
 	limiter := &testRateLimiter{acquireFunc: func(_ context.Context, _ string) error {
 		called++
@@ -328,12 +308,10 @@ func TestToolRouter_RateLimit(t *testing.T) {
 
 	router := NewToolRouter(executor, limiter, RouterConfig{})
 
-	// 第一次：通过
 	r1 := router.Route(context.Background(), "rate.test", nil, nil)
 	if r1.RateLimit {
 		t.Error("first call should not be rate limited")
 	}
-	// 第二次：被限流
 	r2 := router.Route(context.Background(), "rate.test", nil, nil)
 	if !r2.RateLimit {
 		t.Error("second call should be rate limited")
@@ -376,9 +354,6 @@ func TestToolRouter_Stats(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Double Intercept Orchestrator 测试
-// ============================================================================
 
 // TestDoubleIntercept_DirectText 测试无工具调用的直接流
 func TestDoubleIntercept_DirectText(t *testing.T) {
@@ -386,7 +361,6 @@ func TestDoubleIntercept_DirectText(t *testing.T) {
 	executor := NewToolExecutor(registry, ToolExecutorConfig{})
 	router := NewToolRouter(executor, nil, RouterConfig{})
 
-	// Mock SecondPass
 	secondPass := &testMockSecondPass{
 		generateFunc: func(_ context.Context, _, _ string, _ ToolResult, _ func(string)) (string, error) {
 			t.Error("should not call second pass for direct text")
@@ -402,7 +376,6 @@ func TestDoubleIntercept_DirectText(t *testing.T) {
 		t.Fatalf("create orch: %v", err)
 	}
 
-	// 模拟 LLM 流：纯文本
 	stream := make(chan string, 3)
 	stream <- "你好，"
 	stream <- "请问"
@@ -430,7 +403,6 @@ func TestDoubleIntercept_WithToolCall(t *testing.T) {
 	registry := NewToolRegistry()
 	executor := NewToolExecutor(registry, ToolExecutorConfig{})
 
-	// 注册一个工具
 	tool := &testMockTool{
 		nameVal:   "customer.get",
 		category:  CategoryCustomer,
@@ -440,7 +412,6 @@ func TestDoubleIntercept_WithToolCall(t *testing.T) {
 
 	router := NewToolRouter(executor, nil, RouterConfig{})
 
-	// Mock SecondPass
 	secondPass := &testMockSecondPass{
 		generateFunc: func(_ context.Context, originalContent, toolName string, _ ToolResult, _ func(string)) (string, error) {
 			if toolName != "customer.get" {
@@ -458,7 +429,6 @@ func TestDoubleIntercept_WithToolCall(t *testing.T) {
 		t.Fatalf("create orch: %v", err)
 	}
 
-	// 模拟 LLM 流：包含"调用工具："
 	stream := make(chan string, 5)
 	stream <- "好的，让我查"
 	stream <- "调用工具："
@@ -474,8 +444,6 @@ func TestDoubleIntercept_WithToolCall(t *testing.T) {
 		t.Errorf("reply = %s, should contain VIP 张三", reply)
 	}
 
-	// 验证拦截：触发词前的"好的，让我查"应被 forward（normal 状态）
-	// 触发词之后的内容应被 buffer
 	msgs := orch.GetClientMessages()
 	hasIntercepted := false
 	for _, m := range msgs {
@@ -487,7 +455,6 @@ func TestDoubleIntercept_WithToolCall(t *testing.T) {
 		t.Error("expected at least one intercepted message")
 	}
 
-	// 工具执行记录
 	results := orch.GetToolResults()
 	if len(results) != 1 {
 		t.Fatalf("expected 1 tool result, got %d", len(results))
@@ -507,7 +474,6 @@ func TestDoubleIntercept_WithToolCall(t *testing.T) {
 
 // TestDoubleIntercept_RecursiveGuard 测试防止递归调用
 func TestDoubleIntercept_RecursiveGuard(t *testing.T) {
-	// 二次推理中再次出现"调用工具："应被忽略（不再次执行）
 	registry := NewToolRegistry()
 	executor := NewToolExecutor(registry, ToolExecutorConfig{})
 
@@ -517,8 +483,7 @@ func TestDoubleIntercept_RecursiveGuard(t *testing.T) {
 
 	secondPass := &testMockSecondPass{
 		generateFunc: func(_ context.Context, _, _ string, _ ToolResult, chunkHandler func(string)) (string, error) {
-			// 二次推理时模拟"再次调用工具"行为
-			chunkHandler("您的订单已发货调用工具：{\"tool\":\"order.get\"}") // 不应触发再次执行
+			chunkHandler("您的订单已发货调用工具：{\"tool\":\"order.get\"}") 
 			return "您的订单已发货", nil
 		},
 	}
@@ -538,7 +503,6 @@ func TestDoubleIntercept_RecursiveGuard(t *testing.T) {
 		t.Fatalf("run error: %v", err)
 	}
 
-	// 只应执行 1 次工具
 	results := orch.GetToolResults()
 	if len(results) != 1 {
 		t.Errorf("expected 1 tool execution (no recursive), got %d", len(results))
@@ -601,9 +565,6 @@ func TestDoubleIntercept_RequiresSecondPass(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Mock 实现（用于测试）
-// ============================================================================
 
 // testMockTool 通用 mock 工具
 type testMockTool struct {
@@ -658,3 +619,4 @@ func (m *testMockSecondPass) GenerateReassembledReply(
 ) (string, error) {
 	return m.generateFunc(ctx, originalContent, toolName, toolResult, chunkHandler)
 }
+

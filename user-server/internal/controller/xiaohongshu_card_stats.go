@@ -30,7 +30,6 @@ func (c *XiaohongshuCardStatsController) GetCardStats(ctx *gin.Context) {
 		return
 	}
 
-	// 构建请求
 	req := &dto.XiaohongshuCardStatsRequest{
 		CardID:    uint(cardID),
 		StartDate: ctx.Query("start_date"),
@@ -38,13 +37,11 @@ func (c *XiaohongshuCardStatsController) GetCardStats(ctx *gin.Context) {
 		GroupBy:   ctx.Query("group_by"),
 	}
 
-	// 设置默认时间范围（最近7天）
 	if req.StartDate == "" || req.EndDate == "" {
 		req.EndDate = time.Now().Format("2006-01-02")
 		req.StartDate = time.Now().AddDate(0, 0, -7).Format("2006-01-02")
 	}
 
-	// 设置默认分组方式
 	if req.GroupBy == "" {
 		req.GroupBy = "day"
 	}
@@ -59,20 +56,17 @@ func (c *XiaohongshuCardStatsController) GetCardStats(ctx *gin.Context) {
 
 // GetOverallStats 获取小红书卡片的总体统计数据
 func (c *XiaohongshuCardStatsController) GetOverallStats(ctx *gin.Context) {
-	// 构建请求
 	req := &dto.XiaohongshuCardOverallStatsRequest{
 		GroupBy:   ctx.Query("group_by"),
 		StartDate: ctx.Query("start_date"),
 		EndDate:   ctx.Query("end_date"),
 	}
 
-	// 设置默认时间范围（最近30天）
 	if req.StartDate == "" || req.EndDate == "" {
 		req.EndDate = time.Now().Format("2006-01-02")
 		req.StartDate = time.Now().AddDate(0, 0, -30).Format("2006-01-02")
 	}
 
-	// 设置默认分组方式
 	if req.GroupBy == "" {
 		req.GroupBy = "day"
 	}
@@ -85,3 +79,4 @@ func (c *XiaohongshuCardStatsController) GetOverallStats(ctx *gin.Context) {
 
 	response.Success(ctx, stats, "获取统计数据成功")
 }
+

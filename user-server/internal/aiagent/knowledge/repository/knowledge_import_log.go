@@ -92,7 +92,6 @@ func (r *KnowledgeImportLogRepository) DailyImportTrend(ctx context.Context, pro
 		return nil, err
 	}
 
-	// 补齐缺失日期
 	trendMap := make(map[string]DailyTrendItem)
 	for _, r := range results {
 		day := r.Day.Format("2006-01-02")
@@ -129,3 +128,4 @@ func (r *KnowledgeImportLogRepository) AvgImportDurationMs(ctx context.Context, 
 	}
 	return avg, nil
 }
+

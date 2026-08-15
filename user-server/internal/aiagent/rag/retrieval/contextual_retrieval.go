@@ -1,23 +1,5 @@
 package ragretrieval
 
-// contextual_retrieval.go Anthropic Contextual Retrieval 索引期增强
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.4.9
-// 论文: Anthropic 2024 "Introducing Contextual Retrieval"
-//
-// 思想: 索引期对每个 chunk 调用 LLM 生成 50-100 token 的上下文，prepend 到 chunk 前
-//       增强后的文本同时用于 embedding 和 BM25 tsvector
-// 效果: 失败检索率 -35%（contextual embedding）→ -49%（contextual + BM25）→ -67%（+ rerank）
-//
-// 成本控制:
-//   - 用本地 LLM Dispatcher（私域部署，不走 Claude API）
-//   - 一次性索引期成本，查询期零成本
-//
-// 设计原则:
-//   - 单 chunk 失败不阻断整个文档（fail-soft，跳过该 chunk 继续）
-//   - 索引期 LLM 不可用时返回错误，由调用方决定是否回退
-//   - 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -34,9 +16,9 @@ import (
 type ContextualRetrievalEnhancer struct {
 	db          *gorm.DB
 	chatClient  LLMChatClient
-	embedding   llm.EmbeddingServiceInterface // 用于索引期重新 embedding
-	batchSize   int                           // 默认 10
-	maxCtxToken int                           // 默认 100
+	embedding   llm.EmbeddingServiceInterface 
+	batchSize   int                           
+	maxCtxToken int                           
 }
 
 // ContextualEnhancerConfig 配置
@@ -132,13 +114,11 @@ func (e *ContextualRetrievalEnhancer) EnhanceDocument(ctx context.Context, docum
 		return nil
 	}
 
-	// 3) 拼接文档摘要（避免 chunk 全量进 prompt 超长）
 	docSummary := fmt.Sprintf("文档标题: %s\n文档来源: %s\n总段数: %d",
 		defaultIfEmpty(doc.Title, "（无标题）"),
 		defaultIfEmpty(doc.Source, "（无来源）"),
 		len(chunks))
 
-	// 4) 分批处理
 	for i := 0; i < len(chunks); i += e.batchSize {
 		end := i + e.batchSize
 		if end > len(chunks) {
@@ -149,7 +129,7 @@ func (e *ContextualRetrievalEnhancer) EnhanceDocument(ctx context.Context, docum
 		type updateItem struct {
 			id      uint64
 			ctx     string
-			content string // 增强后内容 = ctx + "\n\n" + content
+			content string 
 		}
 		updates := make([]updateItem, 0, len(batch))
 		embedInputs := make([]string, 0, len(batch))
@@ -157,7 +137,6 @@ func (e *ContextualRetrievalEnhancer) EnhanceDocument(ctx context.Context, docum
 		for _, c := range batch {
 			ctxText, err := e.generateContext(ctx, docSummary, c.ChunkIndex, len(chunks), c.Content)
 			if err != nil {
-				// 单 chunk 失败仅记录，不阻断
 				ctxText = ""
 			}
 			enhancedContent := c.Content
@@ -179,10 +158,8 @@ func (e *ContextualRetrievalEnhancer) EnhanceDocument(ctx context.Context, docum
 			vectors = v
 		}
 
-		// 4.3) 批量 UPDATE knowledge_chunks
 		for i, u := range updates {
 			if u.ctx == "" {
-				// 跳过未生成上下文的 chunk
 				continue
 			}
 			if e.embedding != nil && i < len(vectors) {
@@ -196,7 +173,6 @@ func (e *ContextualRetrievalEnhancer) EnhanceDocument(ctx context.Context, docum
 					    updated_at = NOW()
 					WHERE id = ?
 				`, u.ctx, vecLiteral, fmt.Sprintf("ctx-%d", u.id), u.id).Error; err != nil {
-					// best-effort：不阻断主流程，但必须记录错误
 					logger.Errorf("contextual_retrieval: update knowledge_chunks (with embedding) failed, chunk_id=%d: %v", u.id, err)
 				}
 			} else {
@@ -232,7 +208,7 @@ func (e *ContextualRetrievalEnhancer) generateContext(ctx context.Context, docSu
 		docSummary, chunkIdx+1, totalChunks, chunkContent)
 
 	resp, err := e.chatClient.Chat(ctx, prompt, LLMChatOptions{
-		Temperature: 0.0, // 0 温度保证稳定
+		Temperature: 0.0, 
 		MaxTokens:   150,
 	})
 	if err != nil {
@@ -248,3 +224,4 @@ func defaultIfEmpty(s, fallback string) string {
 	}
 	return s
 }
+

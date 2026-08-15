@@ -69,14 +69,12 @@ func TestCustomerService_CreateOrUpdate(t *testing.T) {
 func TestCustomerService_CreateOrUpdate_Update(t *testing.T) {
 	service := setupCustomerService(t)
 
-	// 创建客户
 	dto := &CustomerDTO{
 		Phone: "13800138001",
 		Email: "test@example.com",
 	}
 	service.CreateOrUpdate(context.Background(), dto)
 
-	// 更新客户
 	updateDTO := &CustomerDTO{
 		Phone: "13800138001",
 		Email: "updated@example.com",
@@ -95,13 +93,11 @@ func TestCustomerService_CreateOrUpdate_Update(t *testing.T) {
 func TestCustomerService_GetCustomerProfile(t *testing.T) {
 	service := setupCustomerService(t)
 
-	// 创建客户
 	dto := &CustomerDTO{
 		Phone: "13800138002",
 	}
 	customer, _ := service.CreateOrUpdate(context.Background(), dto)
 
-	// 获取档案
 	profile, err := service.GetCustomerProfile(context.Background(), customer.ID)
 	if err != nil {
 		t.Fatalf("GetCustomerProfile failed: %v", err)
@@ -129,7 +125,6 @@ func TestCustomerService_GetCustomerProfile_NotFound(t *testing.T) {
 func TestCustomerService_List(t *testing.T) {
 	service := setupCustomerService(t)
 
-	// 创建多个客户
 	for i := 0; i < 5; i++ {
 		dto := &CustomerDTO{
 			Phone: "1380013800" + string(rune('0'+i)),
@@ -137,7 +132,6 @@ func TestCustomerService_List(t *testing.T) {
 		service.CreateOrUpdate(context.Background(), dto)
 	}
 
-	// 获取列表
 	customers, total, err := service.List(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
@@ -155,20 +149,17 @@ func TestCustomerService_List(t *testing.T) {
 func TestCustomerService_AddTags(t *testing.T) {
 	service := setupCustomerService(t)
 
-	// 创建客户
 	dto := &CustomerDTO{
 		Phone: "13800138003",
 	}
 	customer, _ := service.CreateOrUpdate(context.Background(), dto)
 
-	// 添加标签
 	tags := []string{"VIP", "high-value"}
 	err := service.AddTags(context.Background(), customer.ID, tags)
 	if err != nil {
 		t.Fatalf("AddTags failed: %v", err)
 	}
 
-	// 验证标签已添加
 	updated, _ := service.repo.GetByID(context.Background(), customer.ID)
 	currentTags := model.GetCustomerTags(updated)
 	if len(currentTags) != 2 {
@@ -180,20 +171,17 @@ func TestCustomerService_AddTags(t *testing.T) {
 func TestCustomerService_RemoveTags(t *testing.T) {
 	service := setupCustomerService(t)
 
-	// 创建客户并添加标签
 	dto := &CustomerDTO{
 		Phone: "13800138004",
 	}
 	customer, _ := service.CreateOrUpdate(context.Background(), dto)
 	service.AddTags(context.Background(), customer.ID, []string{"VIP", "high-value", "active"})
 
-	// 移除标签
 	err := service.RemoveTags(context.Background(), customer.ID, []string{"VIP"})
 	if err != nil {
 		t.Fatalf("RemoveTags failed: %v", err)
 	}
 
-	// 验证标签已移除
 	updated, _ := service.repo.GetByID(context.Background(), customer.ID)
 	currentTags := model.GetCustomerTags(updated)
 	if len(currentTags) != 2 {
@@ -210,7 +198,6 @@ func TestCustomerService_RemoveTags(t *testing.T) {
 func TestCustomerService_MergeCustomers(t *testing.T) {
 	service := setupCustomerService(t)
 
-	// 创建两个客户
 	primary, _ := service.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138005",
 		Email: "primary@example.com",
@@ -220,23 +207,18 @@ func TestCustomerService_MergeCustomers(t *testing.T) {
 		WechatOpenID: "wechat456",
 	})
 
-	// 添加不同标签
 	service.AddTags(context.Background(), primary.ID, []string{"primary-tag"})
 	service.AddTags(context.Background(), secondary.ID, []string{"secondary-tag"})
 
-	// 合并
 	err := service.MergeCustomers(context.Background(), primary.ID, secondary.ID)
 	if err != nil {
 		t.Fatalf("MergeCustomers failed: %v", err)
 	}
 
-	// 验证次要客户已删除
 	_, err = service.repo.GetByID(context.Background(), secondary.ID)
 	if err == nil || err.Error() != "记录未找到" {
-		// 历史备注：错误消息格式与具体驱动相关
 	}
 
-	// 验证主要客户有合并的标签
 	merged, _ := service.repo.GetByID(context.Background(), primary.ID)
 	mergedTags := model.GetCustomerTags(merged)
 	hasPrimaryTag := false
@@ -268,7 +250,6 @@ func TestCustomerService_MergeCustomers_SameID(t *testing.T) {
 func TestCustomerService_GetCustomerByIdentity(t *testing.T) {
 	service := setupCustomerService(t)
 
-	// 创建客户
 	dto := &CustomerDTO{
 		Phone:        "13800138006",
 		Email:        "identity@example.com",
@@ -276,13 +257,11 @@ func TestCustomerService_GetCustomerByIdentity(t *testing.T) {
 	}
 	customer, _ := service.CreateOrUpdate(context.Background(), dto)
 
-	// 通过手机号查找
 	found, _ := service.GetCustomerByIdentity(context.Background(), "13800138006", "", "", "", "")
 	if found == nil || found.ID != customer.ID {
 		t.Error("Expected to find customer by phone")
 	}
 
-	// 通过邮箱查找
 	found, _ = service.GetCustomerByIdentity(context.Background(), "", "identity@example.com", "", "", "")
 	if found == nil || found.ID != customer.ID {
 		t.Error("Expected to find customer by email")
@@ -324,3 +303,4 @@ func TestCustomerService_RemoveTags_NotFound(t *testing.T) {
 		t.Errorf("Expected ErrCustomerNotFound, got %v", err)
 	}
 }
+

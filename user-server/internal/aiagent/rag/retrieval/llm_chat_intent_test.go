@@ -1,13 +1,5 @@
 package ragretrieval
 
-// llm_chat_intent_test.go 精细意图识别（7 子类）测试
-//
-// 覆盖范围：
-//   - 7 子类规则匹配（价格异议/质量异议/购买意向/信任异议/竞品异议/折扣请求/退款请求）
-//   - IsKeyIntent 判定
-//   - ExtractKeyIntents 批量
-//   - LLM 模式（mock LLMChatClient）
-//   - 非法输入（空文本/未知 intent）
 
 import (
 	"context"
@@ -19,7 +11,6 @@ func TestKeyIntentConstants(t *testing.T) {
 	if len(AllKeyIntents) != 7 {
 		t.Fatalf("expected 7 key intents, got %d", len(AllKeyIntents))
 	}
-	// 描述映射完整性
 	for _, k := range AllKeyIntents {
 		if KeyIntentDescription[k] == "" {
 			t.Errorf("missing description for %s", k)
@@ -105,7 +96,6 @@ func TestClassifyKeyIntent_RefundRequest(t *testing.T) {
 // 规则未命中（无关键词的随机文本）
 func TestClassifyKeyIntent_NoRuleMatch_NoLLM(t *testing.T) {
 	res := ClassifyKeyIntent(context.Background(), "今天天气真好", nil)
-	// 无 chat → 走 rule 降级
 	if res.Method != "rule" {
 		t.Errorf("expected method rule, got %s", res.Method)
 	}
@@ -163,18 +153,15 @@ func TestClassifyKeyIntent_LLMError(t *testing.T) {
 }
 
 func TestIsKeyIntent(t *testing.T) {
-	// 规则命中
 	if !IsKeyIntent(context.Background(), "太贵了", KeyIntentPriceObjection, nil) {
 		t.Error("expected price_objection match")
 	}
 	if IsKeyIntent(context.Background(), "太贵了", KeyIntentPurchaseIntent, nil) {
 		t.Error("expected not match purchase_intent")
 	}
-	// 规则未命中 + chat=nil → false
 	if IsKeyIntent(context.Background(), "今天天气好", KeyIntentPurchaseIntent, nil) {
 		t.Error("expected false when no rule match and no chat")
 	}
-	// 规则未命中 + LLM 命中
 	chat := &mockLLMChatClient{resp: `{"intent":"purchase_intent","confidence":0.9}`}
 	if !IsKeyIntent(context.Background(), "无关键词文本", KeyIntentPurchaseIntent, chat) {
 		t.Error("expected purchase_intent via LLM")
@@ -237,9 +224,6 @@ func TestMatchKeyIntentByRule_NoMatch(t *testing.T) {
 }
 
 func TestMatchKeyIntentByRule_HighestScore(t *testing.T) {
-	// "骗子" 命中 trust_objection (1*2=2) + "太贵" 命中 price_objection (1*2=2)
-	// 同样长度 → first wins（map 迭代顺序），验证规则匹配不崩溃
-	// 更明显的测试：trust 应比 price 优先（"不放心" 长度 3 > "贵了" 长度 2）
 	res := matchKeyIntentByRule("我不放心，这家店骗人")
 	if res == nil {
 		t.Fatal("expected match")
@@ -248,3 +232,4 @@ func TestMatchKeyIntentByRule_HighestScore(t *testing.T) {
 		t.Errorf("expected trust_objection, got %s", res.Intent)
 	}
 }
+

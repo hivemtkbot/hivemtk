@@ -1,23 +1,5 @@
 package controller
 
-// chat_ws_hub_test.go WebSocket Hub 单元测试
-//
-// 设计依据: AI 智能体性能优化
-//
-// 测试目标:
-//   - TestHub_NewChatWSHub: 初始状态 (ClientCount=0, IsOnline=false)
-//   - TestHub_RegisterUnregister: 注册 + 注销流程
-//   - TestHub_SendToClient: 发送字节到指定 sessionID
-//   - TestHub_Broadcast: 广播字节到所有 Client
-//   - TestHub_ClientCount: 客户端计数
-//   - TestHub_IsOnline: 在线状态查询
-//   - TestHub_SendChunk: 发送 StreamChunk (含 nil chunk + 不存在 sessionID)
-//   - TestHub_BroadcastChunk: 广播 StreamChunk
-//   - TestHub_Run_NotStarted: Run 未启动时 register 通道满 -> 走 addClient 回退
-//   - TestClient_Close: Client.Close 幂等
-//   - TestHub_ConcurrentRegister: 并发注册安全
-//
-// 不依赖 gorilla/websocket: 通过给 Client.Conn 传 nil, 避开 Conn.Close() 调用
 
 import (
 	"sync"
@@ -84,19 +66,14 @@ func TestHub_RegisterUnregister(t *testing.T) {
 	hub := NewChatWSHub()
 	go hub.Run()
 	defer func() {
-		// 注意: 避免调用 Stop, 因为 closeAll 会调用 c.Conn.Close() (nil 会 panic)
-		// 这里直接清空 clients map 即可
 	}()
 
-	// 初始为空
 	if got := hub.ClientCount(); got != 0 {
 		t.Errorf("expected empty hub, got %d clients", got)
 	}
 
-	// 注册 c1
 	c1 := newTestClient("s1", "c1")
 	hub.Register(c1)
-	// 等 Run goroutine 处理
 	time.Sleep(50 * time.Millisecond)
 	if got := hub.ClientCount(); got != 1 {
 		t.Errorf("expected 1 client after Register, got %d", got)
@@ -105,7 +82,6 @@ func TestHub_RegisterUnregister(t *testing.T) {
 		t.Error("expected s1 to be online after Register")
 	}
 
-	// 注册 c2
 	c2 := newTestClient("s2", "c2")
 	hub.Register(c2)
 	time.Sleep(50 * time.Millisecond)
@@ -113,7 +89,6 @@ func TestHub_RegisterUnregister(t *testing.T) {
 		t.Errorf("expected 2 clients, got %d", got)
 	}
 
-	// 注销 c1
 	hub.Unregister(c1)
 	time.Sleep(50 * time.Millisecond)
 	if got := hub.ClientCount(); got != 1 {
@@ -126,7 +101,6 @@ func TestHub_RegisterUnregister(t *testing.T) {
 		t.Error("expected s2 still online")
 	}
 
-	// 注销 c2
 	hub.Unregister(c2)
 	time.Sleep(50 * time.Millisecond)
 	if got := hub.ClientCount(); got != 0 {
@@ -137,7 +111,6 @@ func TestHub_RegisterUnregister(t *testing.T) {
 // TestHub_Unregister_NilClient 测试 nil client 安全
 func TestHub_Unregister_NilClient(t *testing.T) {
 	hub := NewChatWSHub()
-	// 不应 panic
 	hub.Unregister(nil)
 }
 
@@ -153,15 +126,12 @@ func TestHub_SendToClient(t *testing.T) {
 	hub.Register(c2)
 	time.Sleep(50 * time.Millisecond)
 
-	// 启动 drain goroutine
 	drain1 := drainSendChan(c1)
 	drain2 := drainSendChan(c2)
 
-	// 发送到 s1
 	if !hub.SendToClient("s1", []byte("hello s1")) {
 		t.Error("expected SendToClient to succeed for s1")
 	}
-	// 验证 s1 收到, s2 没收到
 	select {
 	case payload := <-drain1:
 		if string(payload) != "hello s1" {
@@ -171,15 +141,12 @@ func TestHub_SendToClient(t *testing.T) {
 		t.Fatal("timeout waiting for s1 to receive")
 	}
 
-	// 验证 s2 没收到
 	select {
 	case payload := <-drain2:
 		t.Errorf("expected s2 not receive, got %q", string(payload))
 	case <-time.After(100 * time.Millisecond):
-		// OK, s2 未收到
 	}
 
-	// 发送到不存在的 sessionID
 	if hub.SendToClient("nonexistent", []byte("nobody")) {
 		t.Error("expected SendToClient to return false for nonexistent sessionID")
 	}
@@ -196,7 +163,6 @@ func TestHub_SendChunk(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	drain := drainSendChan(c1)
 
-	// 正常 chunk
 	chunk := &dto.StreamChunk{
 		Type:    dto.ChunkTypeDelta,
 		Text:    "hello",
@@ -210,7 +176,6 @@ func TestHub_SendChunk(t *testing.T) {
 		if len(payload) == 0 {
 			t.Error("expected non-empty payload")
 		}
-		// 验证 JSON 包含 "hello"
 		if !contains(string(payload), "hello") {
 			t.Errorf("expected payload to contain 'hello', got %q", string(payload))
 		}
@@ -221,12 +186,10 @@ func TestHub_SendChunk(t *testing.T) {
 		t.Fatal("timeout waiting for chunk")
 	}
 
-	// nil chunk
 	if hub.SendChunk("s1", nil) {
 		t.Error("expected SendChunk(nil) to return false")
 	}
 
-	// 不存在的 sessionID
 	if hub.SendChunk("nonexistent", chunk) {
 		t.Error("expected SendChunk to nonexistent to return false")
 	}
@@ -250,12 +213,9 @@ func TestHub_Broadcast(t *testing.T) {
 	drain2 := drainSendChan(c2)
 	drain3 := drainSendChan(c3)
 
-	// 广播 (注意: Broadcast 走 broadcast channel, 由 Run goroutine 处理)
 	hub.Broadcast([]byte("broadcast_msg"))
-	// 等待 fanout
 	time.Sleep(50 * time.Millisecond)
 
-	// 验证所有 client 收到
 	for i, drain := range []<-chan []byte{drain1, drain2, drain3} {
 		select {
 		case payload := <-drain:
@@ -282,7 +242,6 @@ func TestHub_BroadcastChunk(t *testing.T) {
 	drain1 := drainSendChan(c1)
 	drain2 := drainSendChan(c2)
 
-	// 正常 chunk
 	chunk := &dto.StreamChunk{Type: dto.ChunkTypeFinal, Text: "bye"}
 	if !hub.BroadcastChunk(chunk) {
 		t.Error("expected BroadcastChunk to return true")
@@ -300,7 +259,6 @@ func TestHub_BroadcastChunk(t *testing.T) {
 		}
 	}
 
-	// nil chunk
 	if hub.BroadcastChunk(nil) {
 		t.Error("expected BroadcastChunk(nil) to return false")
 	}
@@ -357,17 +315,13 @@ func TestHub_IsOnline(t *testing.T) {
 // TestHub_RegisterNoRun 测试 Run 未启动时, register 通道满后走 addClient 回退
 func TestHub_RegisterNoRun(t *testing.T) {
 	hub := NewChatWSHub()
-	// 不启动 Run goroutine
 
-	// 注册 17 个 client (register channel 容量 16, 第 17 个走 addClient 直接添加)
 	for i := 0; i < 17; i++ {
 		c := newTestClient(string(rune('a'+i)), "c")
 		hub.Register(c)
 	}
 	time.Sleep(20 * time.Millisecond)
 
-	// 注意: 未启动 Run, register channel 中的 16 个 client 不会被 addClient
-	// 只有第 17 个被 addClient 直接添加
 	count := hub.ClientCount()
 	if count < 1 {
 		t.Errorf("expected at least 1 client (direct add path), got %d", count)
@@ -381,14 +335,10 @@ func TestHub_RegisterNoRun(t *testing.T) {
 func TestClient_Close(t *testing.T) {
 	c := newTestClient("s1", "c1")
 
-	// 第一次 Close
 	c.Close()
-	// 第二次 Close (幂等, 不应 panic)
 	c.Close()
-	// 第三次 Close
 	c.Close()
 
-	// close 后 send channel 应关闭
 	select {
 	case _, ok := <-c.send:
 		if ok {
@@ -411,7 +361,6 @@ func TestClient_TraceID(t *testing.T) {
 func TestClient_SendChanRecvChan(t *testing.T) {
 	c := newTestClient("s1", "c1")
 
-	// SendChan 和 RecvChan 应为同一 channel (双向)
 	if c.SendChan() == nil {
 		t.Error("expected non-nil SendChan")
 	}
@@ -419,9 +368,7 @@ func TestClient_SendChanRecvChan(t *testing.T) {
 		t.Error("expected non-nil RecvChan")
 	}
 
-	// 通过 SendChan 写入
 	c.SendChan() <- []byte("test")
-	// 通过 RecvChan 读出
 	select {
 	case payload := <-c.RecvChan():
 		if string(payload) != "test" {
@@ -452,7 +399,6 @@ func TestHub_ConcurrentRegister(t *testing.T) {
 	wg.Wait()
 	time.Sleep(150 * time.Millisecond)
 
-	// 至少应注册 1 个, 不超过 N 个
 	count := hub.ClientCount()
 	if count < 1 {
 		t.Errorf("expected at least 1 client, got %d", count)
@@ -472,9 +418,6 @@ func TestHub_SendToClient_FullChannel(t *testing.T) {
 	hub.Register(c1)
 	time.Sleep(50 * time.Millisecond)
 
-	// 不启动 drain, 手动填满 send channel (容量 64)
-	// 但用阻塞方式不能填满, 改用统计方式验证
-	// 这里验证基本路径: 第 N 次发送在 channel 满时返回 false
 	failCount := int32(0)
 	var wg sync.WaitGroup
 	wg.Add(100)
@@ -488,12 +431,10 @@ func TestHub_SendToClient_FullChannel(t *testing.T) {
 	}
 	wg.Wait()
 
-	// 由于 100 个并发发送 vs 64 容量 channel, 应有不少失败
 	if failCount == 0 {
 		t.Error("expected at least 1 failed send when channel is full")
 	}
 
-	// 清理: 排空 channel
 	go func() {
 		for range c1.send {
 		}
@@ -506,7 +447,6 @@ func TestHub_Broadcast_NoClient(t *testing.T) {
 	go hub.Run()
 	time.Sleep(20 * time.Millisecond)
 
-	// 不应 panic
 	hub.Broadcast([]byte("nobody"))
 	time.Sleep(20 * time.Millisecond)
 	if hub.ClientCount() != 0 {
@@ -514,4 +454,4 @@ func TestHub_Broadcast_NoClient(t *testing.T) {
 	}
 }
 
-// contains 检查 b 中是否包含 sub (helper) - 使用 dashboard_sse_test.go 中已定义的 contains(s, substr string)
+

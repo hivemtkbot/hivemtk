@@ -56,9 +56,6 @@ func (r *AssetResolver) activeAssetID(ctx context.Context, assetType string) (st
 	return aid, true
 }
 
-// ===== 生效资产读取（运行时覆盖默认的核心入口）=====
-// 返回 (资产, true) 表示存在生效中的已购/已同步资产；
-// 返回 (nil, false) 表示无生效资产，调用方应使用自身代码默认。
 
 func (r *AssetResolver) GetActivePersona(ctx context.Context) (*AgentPersona, bool) {
 	if aid, ok := r.activeAssetID(ctx, "agent_persona"); ok {
@@ -105,7 +102,6 @@ func (r *AssetResolver) GetActiveWorkflow(ctx context.Context) (*MarketingWorkfl
 	return nil, false
 }
 
-// ===== 按 asset_id 显式读取（供 UI / 业务按 id 应用资产）=====
 
 func (r *AssetResolver) LoadPersona(ctx context.Context, assetID string) (*AgentPersona, error) {
 	return r.agent.LoadPersona(ctx, assetID)
@@ -127,7 +123,6 @@ func (r *AssetResolver) LoadWorkflow(ctx context.Context, assetID string) (*Mark
 	return r.workflow.LoadWorkflow(ctx, assetID)
 }
 
-// ===== 列表（供资产市场「我的资产 / 应用」视图展示）=====
 
 func (r *AssetResolver) ListPersonas(ctx context.Context) ([]*AgentPersona, error) {
 	return r.agent.ListAllPersonas(ctx)
@@ -148,3 +143,4 @@ func (r *AssetResolver) ListPlans(ctx context.Context) ([]*ABTestPlan, error) {
 func (r *AssetResolver) ListWorkflows(ctx context.Context) ([]*MarketingWorkflow, error) {
 	return r.workflow.ListAllWorkflows(ctx)
 }
+

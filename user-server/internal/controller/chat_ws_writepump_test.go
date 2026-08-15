@@ -1,15 +1,5 @@
 package controller
 
-// chat_ws_writepump_test.go WebSocket writePump 超时测试
-//
-// 验证 writePump 内部 SetWriteDeadline 被正确设置:
-//   - chatWSWriteWait 常量 = 10s (生产化要求)
-//   - 所有 WriteMessage 调用前都设置写超时
-//
-// 测试策略:
-//   - 使用 httptest + websocket.DefaultDialer 构造真实 client/server 连接对
-//   - 启动 writePump, 注入 payload, 验证对端能收到
-//   - 通过 timeout 参数验证 SetWriteDeadline 行为 (hung conn 应在 10s 内被踢掉)
 
 import (
 	"context"
@@ -87,23 +77,19 @@ func TestWritePump_DeliversPayload(t *testing.T) {
 	clientConn, serverConn, cleanup := wsTestSetup(t)
 	defer cleanup()
 
-	// 创建 client (不依赖 conn.Close, writePump 自管)
 	c := NewClient("s1", "c1", clientConn, "trace-1")
 	ctx := context.Background()
 
 	ctrl := &ChatWSController{}
 
-	// 启动 writePump
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		ctrl.writePump(c, clientConn, ctx)
 	}()
 
-	// 注入 payload
 	c.SendChan() <- []byte(`{"hello":"world"}`)
 
-	// server 端应收到 (SetWriteDeadline 保证不被无限阻塞)
 	_ = serverConn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	_, msg, err := serverConn.ReadMessage()
 	if err != nil {
@@ -113,12 +99,10 @@ func TestWritePump_DeliversPayload(t *testing.T) {
 		t.Errorf("expected payload to arrive, got %q", string(msg))
 	}
 
-	// 触发 close 让 writePump 退出
 	c.Close()
 
 	select {
 	case <-done:
-		// writePump 正常退出
 	case <-time.After(2 * time.Second):
 		t.Error("writePump did not exit after client close")
 	}
@@ -142,14 +126,11 @@ func TestWritePump_CloseOnChannelClose(t *testing.T) {
 		ctrl.writePump(c, clientConn, ctx)
 	}()
 
-	// 关闭 send channel (模拟 hub 关闭)
 	c.Close()
 
-	// server 端应收到 close 帧 (或 close error)
 	_ = serverConn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	mt, _, err := serverConn.ReadMessage()
 	if err != nil {
-		// gorilla 库可能直接返回 CloseError 而不是 CloseMessage, 也算正常
 		if ce, ok := err.(*websocket.CloseError); ok {
 			t.Logf("received close frame as error (normal): code=%d", ce.Code)
 		} else {
@@ -161,7 +142,6 @@ func TestWritePump_CloseOnChannelClose(t *testing.T) {
 
 	select {
 	case <-done:
-		// OK
 	case <-time.After(2 * time.Second):
 		t.Error("writePump did not exit after channel close")
 	}
@@ -191,10 +171,8 @@ func TestWritePump_RespectsWriteDeadline(t *testing.T) {
 		ctrl.writePump(c, clientConn, ctx)
 	}()
 
-	// 第一次写入: 成功 (对端 buffer 没满)
 	c.SendChan() <- []byte("first")
 
-	// 让 writePump 短暂 idle
 	time.Sleep(50 * time.Millisecond)
 
 	// 持续注入大量 payload, 让对端 TCP 接收缓冲最终填满, 迫使某次 WriteMessage 阻塞
@@ -218,17 +196,15 @@ func TestWritePump_RespectsWriteDeadline(t *testing.T) {
 		}
 	}()
 
-	// 给 writePump 10s, 期间应触达 deadline 退出
 	select {
 	case <-done:
 		t.Logf("writePump exited (good - means SetWriteDeadline triggered)")
 	case <-time.After(chatWSWriteWait + 2*time.Second):
-		// 15s 还没退出, 说明 SetWriteDeadline 没生效
 		close(stop)
 		wg.Wait()
 		c.Close()
 		t.Error("writePump did not exit after chatWSWriteWait + 2s; SetWriteDeadline may not be effective")
-		return // 直接返回避免下面的二次 close
+		return 
 	}
 
 	close(stop)
@@ -248,3 +224,4 @@ func TestWritePump_PongTimeout(t *testing.T) {
 		t.Errorf("chatWSPongWait should be 60s, got %s", chatWSPongWait)
 	}
 }
+

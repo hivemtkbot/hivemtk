@@ -17,34 +17,34 @@ import (
 
 // Result 单次压测结果
 type Result struct {
-	Name          string        `json:"name"`           // 压测名称
-	URL           string        `json:"url"`            // 目标 URL
-	Method        string        `json:"method"`         // HTTP 方法
-	TotalRequests int           `json:"total_requests"` // 总请求数
-	Concurrency   int           `json:"concurrency"`    // 并发数
-	Duration      time.Duration `json:"duration"`       // 总耗时
-	SuccessCount  int64         `json:"success_count"`  // 成功数
-	FailedCount   int64         `json:"failed_count"`   // 失败数
-	Throughput    float64       `json:"throughput"`     // QPS
-	LatencyAvg    time.Duration `json:"latency_avg"`    // 平均延迟
-	LatencyP50    time.Duration `json:"latency_p50"`    // 50% 分位
-	LatencyP95    time.Duration `json:"latency_p95"`    // 95% 分位
-	LatencyP99    time.Duration `json:"latency_p99"`    // 99% 分位
-	LatencyMax    time.Duration `json:"latency_max"`    // 最大延迟
-	LatencyMin    time.Duration `json:"latency_min"`    // 最小延迟
-	StatusCodes   map[int]int64 `json:"status_codes"`   // 状态码分布
+	Name          string        `json:"name"`           
+	URL           string        `json:"url"`            
+	Method        string        `json:"method"`         
+	TotalRequests int           `json:"total_requests"` 
+	Concurrency   int           `json:"concurrency"`    
+	Duration      time.Duration `json:"duration"`       
+	SuccessCount  int64         `json:"success_count"`  
+	FailedCount   int64         `json:"failed_count"`   
+	Throughput    float64       `json:"throughput"`     
+	LatencyAvg    time.Duration `json:"latency_avg"`    
+	LatencyP50    time.Duration `json:"latency_p50"`    
+	LatencyP95    time.Duration `json:"latency_p95"`    
+	LatencyP99    time.Duration `json:"latency_p99"`    
+	LatencyMax    time.Duration `json:"latency_max"`    
+	LatencyMin    time.Duration `json:"latency_min"`    
+	StatusCodes   map[int]int64 `json:"status_codes"`   
 }
 
 // Config 压测配置
 type Config struct {
-	Name        string            // 压测场景名称
-	URL         string            // 目标 URL
-	Method      string            // HTTP 方法 (GET/POST/PUT/DELETE)
-	Headers     map[string]string // 请求头
-	Body        any               // 请求体（自动 JSON 序列化）
-	Concurrency int               // 并发数
-	Total       int               // 总请求数
-	Timeout     time.Duration     // 单个请求超时
+	Name        string            
+	URL         string            
+	Method      string            
+	Headers     map[string]string 
+	Body        any               
+	Concurrency int               
+	Total       int               
+	Timeout     time.Duration     
 }
 
 // LoadRunner 压测执行器
@@ -86,7 +86,7 @@ func (lr *LoadRunner) Run(ctx context.Context, cfg Config) (*Result, error) {
 		failedCount  int64
 		latencies    = make([]time.Duration, 0, cfg.Total)
 		statusCodes  = make(map[int]int64)
-		mu           sync.Mutex // 保护 latencies 和 statusCodes
+		mu           sync.Mutex 
 	)
 
 	var bodyReader io.Reader
@@ -106,7 +106,6 @@ func (lr *LoadRunner) Run(ctx context.Context, cfg Config) (*Result, error) {
 	}
 	close(jobs)
 
-	// 启动 worker 池
 	for w := 0; w < cfg.Concurrency; w++ {
 		wg.Add(1)
 		go func() {
@@ -171,7 +170,6 @@ func (lr *LoadRunner) Run(ctx context.Context, cfg Config) (*Result, error) {
 		StatusCodes:   statusCodes,
 	}
 
-	// 计算统计指标
 	if len(latencies) > 0 {
 		sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
 		result.LatencyMin = latencies[0]
@@ -229,3 +227,4 @@ func repeat(s string, n int) string {
 	}
 	return string(r)
 }
+

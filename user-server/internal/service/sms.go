@@ -24,19 +24,15 @@ import (
 
 // SmsService 短信服务接口
 type SmsService interface {
-	// 配置相关
 	GetConfig(ctx context.Context) (*dto.SmsConfigResponse, error)
 	SaveConfig(ctx context.Context, req *dto.SmsConfigRequest) error
-	// IsProviderConfigured 检查指定提供商的凭证是否已配置（非空）
 	IsProviderConfigured(ctx context.Context, provider string) (bool, error)
 
-	// 短信记录相关
 	GetSmsList(ctx context.Context, req *dto.SmsListRequest) ([]*model.SmsRecord, int64, error)
 	GetSmsByID(ctx context.Context, id uint) (*model.SmsRecord, error)
 	SendSms(ctx context.Context, req *dto.SmsSendRequest) error
 	ResendSms(ctx context.Context, id uint) error
 
-	// 草稿相关
 	GetDraftList(ctx context.Context, req *dto.SmsDraftListRequest) ([]*model.SmsDraft, int64, error)
 	GetDraftByID(ctx context.Context, id uint) (*model.SmsDraft, error)
 	CreateDraft(ctx context.Context, req *dto.SmsDraftCreateRequest) error
@@ -44,7 +40,6 @@ type SmsService interface {
 	DeleteDraft(ctx context.Context, id uint) error
 	SendDraft(ctx context.Context, id uint, phone string) error
 
-	// 任务相关
 	GetJobList(ctx context.Context, req *dto.SmsJobListRequest) ([]*model.SmsJob, int64, error)
 	GetJobByID(ctx context.Context, id uint) (*model.SmsJob, error)
 	CreateJob(ctx context.Context, req *dto.SmsJobCreateRequest) error
@@ -67,25 +62,21 @@ func NewSmsService(repo repository.SmsRepository) SmsService {
 
 // GetConfig 获取短信配置
 func (s *smsService) GetConfig(ctx context.Context) (*dto.SmsConfigResponse, error) {
-	// 获取基本配置
 	config, err := s.repo.GetConfig(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取阿里云配置
 	aliyunConfig, err := s.repo.GetAliyunConfig(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取腾讯云配置
 	tencentConfig, err := s.repo.GetTencentConfig(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取华为云配置
 	huaweiConfig, err := s.repo.GetHuaweiConfig(context.Background())
 	if err != nil {
 		return nil, err
@@ -118,7 +109,6 @@ func (s *smsService) GetConfig(ctx context.Context) (*dto.SmsConfigResponse, err
 
 // SaveConfig 保存短信配置
 func (s *smsService) SaveConfig(ctx context.Context, req *dto.SmsConfigRequest) error {
-	// 保存基本配置
 	config := &model.SmsConfig{
 		DefaultProvider: req.DefaultProvider,
 		RateLimit:       req.RateLimit,
@@ -129,7 +119,6 @@ func (s *smsService) SaveConfig(ctx context.Context, req *dto.SmsConfigRequest) 
 		return err
 	}
 
-	// 保存阿里云配置
 	aliyunConfig := &model.SmsAliyunConfig{
 		AccessKeyID:     req.Aliyun.AccessKeyId,
 		AccessKeySecret: req.Aliyun.AccessKeySecret,
@@ -139,7 +128,6 @@ func (s *smsService) SaveConfig(ctx context.Context, req *dto.SmsConfigRequest) 
 		return err
 	}
 
-	// 保存腾讯云配置
 	tencentConfig := &model.SmsTencentConfig{
 		SecretID:  req.Tencent.SecretId,
 		SecretKey: req.Tencent.SecretKey,
@@ -150,7 +138,6 @@ func (s *smsService) SaveConfig(ctx context.Context, req *dto.SmsConfigRequest) 
 		return err
 	}
 
-	// 保存华为云配置
 	huaweiConfig := &model.SmsHuaweiConfig{
 		AppKey:    req.Huawei.AppKey,
 		AppSecret: req.Huawei.AppSecret,
@@ -198,13 +185,11 @@ func (s *smsService) GetSmsByID(ctx context.Context, id uint) (*model.SmsRecord,
 
 // SendSms 发送短信
 func (s *smsService) SendSms(ctx context.Context, req *dto.SmsSendRequest) error {
-	// 获取默认提供商
 	config, err := s.repo.GetConfig(context.Background())
 	if err != nil {
 		return err
 	}
 
-	// 创建短信记录
 	record := &model.SmsRecord{
 		Phone:    req.Phone,
 		Content:  req.Content,
@@ -216,7 +201,6 @@ func (s *smsService) SendSms(ctx context.Context, req *dto.SmsSendRequest) error
 		return err
 	}
 
-	// 真实调用三方 SMS API
 	sentTime, errCode, errMsg, err := s.dispatchToProvider(ctx, req.Phone, req.Content, config.DefaultProvider)
 	if err != nil {
 		record.Status = "failed"
@@ -230,7 +214,6 @@ func (s *smsService) SendSms(ctx context.Context, req *dto.SmsSendRequest) error
 	record.SendTime = &sentTime
 	record.Status = "sent"
 
-	// 更新记录
 	return s.repo.UpdateSmsRecord(context.Background(), record)
 }
 
@@ -258,14 +241,12 @@ func (s *smsService) sendAliyun(ctx context.Context, phone, content string) (tim
 		return time.Time{}, "", "", errors.New("aliyun sms config missing")
 	}
 
-	// 阿里云短信 v1 API：使用简单的 HTTP 调用 + 签名
-	// 生产环境建议使用官方 SDK（aliyun-go-sdk-dysmsapi），这里采用 REST 直调以避免引入额外依赖
 	apiURL := "https://dysmsapi.aliyuncs.com/"
 
 	params := url.Values{}
 	params.Set("PhoneNumbers", phone)
 	params.Set("SignName", cfg.SignName)
-	params.Set("TemplateCode", "SMS_000000001") // 通用模板码（应由 config 传入）
+	params.Set("TemplateCode", "SMS_000000001") 
 	params.Set("TemplateParam", `{"content":"`+escapeJSON(content)+`"}`)
 	params.Set("AccessKeyId", cfg.AccessKeyID)
 	params.Set("Timestamp", time.Now().UTC().Format("2006-01-02T15:04:05Z"))
@@ -277,15 +258,12 @@ func (s *smsService) sendAliyun(ctx context.Context, phone, content string) (tim
 	params.Set("Version", "2017-05-25")
 	params.Set("RegionId", "cn-hangzhou")
 
-	// 阿里云签名：按参数排序拼接后 HMAC-SHA1
 	_ = specialURLEncode(apiURL) + "&" + specialURLEncode(percentEncode(params.Encode()))
 	mac := hmac.New(sha256.New, []byte(cfg.AccessKeySecret+"&"))
-	// 阿里云新版短信支持 HMAC-SHA256，但为兼容使用 SHA1 签名（v1 API 规定）
 	_ = mac
 	sign := signAliyun(params, cfg.AccessKeySecret)
 	params.Set("Signature", sign)
 
-	// 使用统一全局 HTTP 客户端（带超时 + 连接池），并做有限重试（网络错误 / 5xx）
 	client := httpclient.NewWithTimeout(30 * time.Second)
 	var resp *http.Response
 	var lastErr error
@@ -335,7 +313,6 @@ func (s *smsService) sendTencent(ctx context.Context, phone, content string) (ti
 		return time.Time{}, "", "", errors.New("tencent sms config missing")
 	}
 
-	// 腾讯云短信 v3 API：使用 TC3-HMAC-SHA256 签名
 	apiHost := "sms.tencentcloudapi.com"
 	apiURL := "https://" + apiHost + "/"
 	service := "sms"
@@ -343,17 +320,15 @@ func (s *smsService) sendTencent(ctx context.Context, phone, content string) (ti
 	action := "SendSms"
 	algorithm := "TC3-HMAC-SHA256"
 
-	// 请求体
 	reqBody := map[string]any{
 		"PhoneNumberSet":   []string{phone},
 		"SmsSdkAppId":      cfg.AppID,
 		"SignName":         cfg.SignName,
-		"TemplateId":       "0000000", // 通用模板（应由 config 传入）
+		"TemplateId":       "0000000", 
 		"TemplateParamSet": []string{content},
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
 
-	// 步骤 1：拼接规范请求串
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	date := time.Now().UTC().Format("2006-01-02")
 	canonicalHeaders := "content-type:application/json; charset=utf-8\n" +
@@ -363,18 +338,15 @@ func (s *smsService) sendTencent(ctx context.Context, phone, content string) (ti
 	hashedRequestPayload := sha256Hex(string(bodyBytes))
 	canonicalRequest := "POST\n/\n\n" + canonicalHeaders + "\n" + signedHeaders + "\n" + hashedRequestPayload
 
-	// 步骤 2：拼接待签名字符串
 	credentialScope := date + "/" + service + "/tc3_request"
 	hashedCanonicalRequest := sha256Hex(canonicalRequest)
 	stringToSign := algorithm + "\n" + timestamp + "\n" + credentialScope + "\n" + hashedCanonicalRequest
 
-	// 步骤 3：计算签名
 	secretDate := hmacSHA256([]byte("TC3"+cfg.SecretKey), date)
 	secretService := hmacSHA256(secretDate, service)
 	secretSigning := hmacSHA256(secretService, "tc3_request")
 	signature := hex.EncodeToString(hmacSHA256(secretSigning, stringToSign))
 
-	// 步骤 4：拼接 Authorization
 	authorization := fmt.Sprintf("%s Credential=%s/%s, SignedHeaders=%s, Signature=%s",
 		algorithm, cfg.SecretID, credentialScope, signedHeaders, signature)
 
@@ -425,14 +397,13 @@ func (s *smsService) sendHuawei(ctx context.Context, phone, content string) (tim
 		return time.Time{}, "", "", errors.New("huawei sms config missing")
 	}
 
-	// 华为云短信 API：HTTP 简单认证
 	apiURL := fmt.Sprintf("https://smsapi.%s.boe-business.huaweicloud.com:443/sms/batchSendSms/v1",
-		"cn-north-4") // region 应可配置
+		"cn-north-4") 
 
 	body := map[string]any{
 		"from":          cfg.Sender,
 		"to":            []string{phone},
-		"templateId":    "0000000", // 通用模板（应由 config 传入）
+		"templateId":    "0000000", 
 		"templateParas": []string{content},
 		"signature":     cfg.Signature,
 	}
@@ -442,7 +413,6 @@ func (s *smsService) sendHuawei(ctx context.Context, phone, content string) (tim
 	if err != nil {
 		return time.Time{}, "", "", err
 	}
-	// 华为云使用 AppKey/AppSecret 作为 Basic Auth
 	auth := base64.StdEncoding.EncodeToString([]byte(cfg.AppKey + ":" + cfg.AppSecret))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Basic "+auth)
@@ -470,18 +440,15 @@ func (s *smsService) sendHuawei(ctx context.Context, phone, content string) (tim
 
 // ResendSms 重发短信
 func (s *smsService) ResendSms(ctx context.Context, id uint) error {
-	// 获取短信记录
 	record, err := s.repo.GetSmsByID(context.Background(), id)
 	if err != nil {
 		return err
 	}
 
-	// 只有失败的短信可以重发
 	if record.Status != "failed" {
 		return errors.New("只有失败的短信可以重发")
 	}
 
-	// 更新状态为发送中
 	record.Status = "sending"
 	record.ErrorCode = ""
 	record.ErrorMsg = ""
@@ -490,7 +457,6 @@ func (s *smsService) ResendSms(ctx context.Context, id uint) error {
 		return err
 	}
 
-	// 获取配置并调用真实 SMS 提供商
 	config, err := s.repo.GetConfig(context.Background())
 	if err != nil {
 		record.Status = "failed"
@@ -535,13 +501,11 @@ func (s *smsService) CreateDraft(ctx context.Context, req *dto.SmsDraftCreateReq
 
 // UpdateDraft 更新草稿
 func (s *smsService) UpdateDraft(ctx context.Context, id uint, req *dto.SmsDraftUpdateRequest) error {
-	// 检查草稿是否存在
 	draft, err := s.repo.GetDraftByID(context.Background(), id)
 	if err != nil {
 		return err
 	}
 
-	// 更新草稿
 	draft.Title = req.Title
 	draft.Content = req.Content
 	return s.repo.UpdateDraft(context.Background(), draft)
@@ -554,13 +518,11 @@ func (s *smsService) DeleteDraft(ctx context.Context, id uint) error {
 
 // SendDraft 发送草稿
 func (s *smsService) SendDraft(ctx context.Context, id uint, phone string) error {
-	// 获取草稿
 	draft, err := s.repo.GetDraftByID(context.Background(), id)
 	if err != nil {
 		return err
 	}
 
-	// 发送短信
 	req := &dto.SmsSendRequest{
 		Phone:   phone,
 		Content: draft.Content,
@@ -580,7 +542,6 @@ func (s *smsService) GetJobByID(ctx context.Context, id uint) (*model.SmsJob, er
 
 // CreateJob 创建任务
 func (s *smsService) CreateJob(ctx context.Context, req *dto.SmsJobCreateRequest) error {
-	// 创建任务
 	job := &model.SmsJob{
 		Name:         req.Name,
 		Total:        len(req.PhoneList),
@@ -594,7 +555,6 @@ func (s *smsService) CreateJob(ctx context.Context, req *dto.SmsJobCreateRequest
 		return err
 	}
 
-	// 创建任务详情
 	details := make([]*model.SmsJobDetail, 0, len(req.PhoneList))
 	for _, phone := range req.PhoneList {
 		detail := &model.SmsJobDetail{
@@ -606,12 +566,10 @@ func (s *smsService) CreateJob(ctx context.Context, req *dto.SmsJobCreateRequest
 		details = append(details, detail)
 	}
 
-	// 批量插入任务详情
 	if err := s.repo.CreateJobDetails(context.Background(), details); err != nil {
 		return err
 	}
 
-	// 如果没有设置计划时间，立即执行
 	if req.ScheduleTime == nil || req.ScheduleTime.Before(time.Now()) {
 		job.Status = "running"
 		return s.repo.UpdateJob(context.Background(), job)
@@ -672,28 +630,24 @@ func (s *smsService) DeleteJob(ctx context.Context, id uint) error {
 		return err
 	}
 
-	// 只能删除已完成或失败的任务
 	if job.Status != "completed" && job.Status != "failed" {
 		return errors.New("只能删除已完成或失败的任务")
 	}
 
-	// 先删除任务详情
 	if err := s.repo.DeleteJobDetails(context.Background(), id); err != nil {
 		return err
 	}
 
-	// 再删除任务
 	return s.repo.DeleteJob(context.Background(), id)
 }
 
 // GetJobRecords 获取任务发送记录
 func (s *smsService) GetJobRecords(ctx context.Context, id uint, page, limit int) ([]*model.SmsJobDetail, int64, error) {
-	// 验证任务是否存在
 	_, err := s.repo.GetJobByID(context.Background(), id)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// 获取任务详情
 	return s.repo.GetJobDetails(context.Background(), id, page, limit)
 }
+

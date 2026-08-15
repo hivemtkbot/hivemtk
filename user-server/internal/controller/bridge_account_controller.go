@@ -66,7 +66,6 @@ func (ctrl *BridgeAccountController) SendManual(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid params: channel/account_id/conversation_id/content required"})
 		return
 	}
-	// 账号归属校验
 	uidAny, _ := c.Get("user_id")
 	uid, _ := uidAny.(uint)
 	if bridge.GlobalOwnershipChecker != nil {
@@ -80,7 +79,6 @@ func (ctrl *BridgeAccountController) SendManual(c *gin.Context) {
 			return
 		}
 	}
-	// 必须最近上报过（HTTP 模式 30s 内有 last_sync_at 更新）才视为在线
 	if bridge.GlobalBridgeAccountRepo == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "bridge account repo not initialized"})
 		return
@@ -94,8 +92,6 @@ func (ctrl *BridgeAccountController) SendManual(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "bridge account offline"})
 		return
 	}
-	// 投递人工回复到 message_hub(outbound, status=pending)，由扩展端 GET /api/bridge/outbox 拉取并回写网页
-	// （2026-08-06 三通道架构；不再走 httpReplyBuffer 长轮询，否则回复会静默丢失）。
 	adapter := bridge.GlobalBridgeReachAdapter()
 	if adapter == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "bridge reach adapter not initialized"})
@@ -107,3 +103,4 @@ func (ctrl *BridgeAccountController) SendManual(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
+

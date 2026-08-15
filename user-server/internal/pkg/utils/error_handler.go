@@ -62,18 +62,15 @@ func LogError(err error, ctx *gin.Context) {
 		}
 	}
 
-	// 获取调用堆栈
 	stackBuf := make([]byte, 4096)
 	n := runtime.Stack(stackBuf, false)
 	stackTrace := string(stackBuf[:n])
 
 	appErr.StackTrace = stackTrace
 
-	// 记录日志
 	logger.Errorf("[ERROR] Type: %s, Code: %d, Message: %s, Details: %s, Time: %s, Trace: %s",
 		appErr.Type, appErr.Code, appErr.Message, appErr.Details, appErr.Timestamp.Format(time.RFC3339), stackTrace)
 
-	// 如果有Gin上下文，也记录相关信息
 	if ctx != nil {
 		logger.Errorf("[CONTEXT] Method: %s, Path: %s, ClientIP: %s", ctx.Request.Method, ctx.Request.URL.Path, ctx.ClientIP())
 	}
@@ -94,10 +91,8 @@ func HandleError(ctx *gin.Context, err error) {
 		}
 	}
 
-	// 记录错误日志
 	LogError(appErr, ctx)
 
-	// 返回错误响应
 	ctx.JSON(appErr.Code, gin.H{
 		"code":      appErr.Code,
 		"message":   appErr.Message,
@@ -130,3 +125,4 @@ func HandleAuthError(ctx *gin.Context, message string) {
 	err := NewAppError(ErrorTypeAuth, message, 401, "")
 	HandleError(ctx, err)
 }
+

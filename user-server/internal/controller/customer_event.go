@@ -19,7 +19,6 @@ type CustomerEventController struct {
 
 // NewCustomerEventController 创建客户事件控制器
 func NewCustomerEventController() *CustomerEventController {
-	// EventTracker 需要 CustomerService 作为依赖
 	customerService := service.NewCustomerService()
 	return &CustomerEventController{
 		tracker: service.NewEventTracker(customerService),
@@ -54,7 +53,6 @@ func (c *CustomerEventController) TrackEvent(ctx *gin.Context) {
 		EventData:   req.EventData,
 	}
 
-	// 如果没有指定事件源，默认为 Website
 	if dto.EventSource == "" {
 		dto.EventSource = model.EventSourceWebsite
 	}
@@ -139,7 +137,6 @@ func (c *CustomerEventController) GetEventStats(ctx *gin.Context) {
 	start := ctx.Query("start")
 	end := ctx.Query("end")
 
-	// 如果没有指定时间范围，使用默认值
 	if start == "" {
 		start = time.Now().AddDate(0, -1, 0).Format("2006-01-02")
 	}
@@ -323,3 +320,4 @@ func (c *CustomerEventController) TrackAddToCart(ctx *gin.Context) {
 
 	response.Success(ctx, nil, "加购事件追踪成功")
 }
+

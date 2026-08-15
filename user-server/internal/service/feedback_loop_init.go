@@ -1,18 +1,5 @@
 package service
 
-// feedback_loop_init.go 反馈学习闭环装配入口
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十七章 §17.4
-//
-// 职责：
-//   1. 构造 FeedbackCollector（异步反馈信号采集）
-//   2. 构造 ChampionDialogueAnalyzer（销冠对话聚类+话术提取）
-//   3. 构造 PromptIterator（基于负反馈生成候选 Prompt）
-//   4. 构造 SOPAutoOptimizer（SOP 自动优化 + A/B）
-//   5. 构造 BanditAllocator（Multi-Armed Bandit 流量分配）
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -124,3 +111,4 @@ type FeedbackLoopComponents struct {
 	LLMAdapter   *feedbackLLMAdapter
 	EmbedAdapter *embeddingAdapter
 }
+

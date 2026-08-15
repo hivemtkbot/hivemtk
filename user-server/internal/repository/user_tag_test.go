@@ -67,13 +67,11 @@ func TestUserTagRepository_AddTag(t *testing.T) {
 			}
 
 			if !tt.wantErr {
-				// 验证标签已添加
 				tags, err := repo.GetTagsByUser(context.Background(), tt.userID)
 				if err != nil {
 					t.Fatalf("GetTagsByUser failed: %v", err)
 				}
 
-				// 检查标签是否在结果中
 				found := false
 				for _, tag := range tags {
 					if tag == tt.tagName {
@@ -117,9 +115,9 @@ func TestUserTagRepository_AddTags(t *testing.T) {
 		{
 			name:      "add tags with duplicates",
 			userID:    "user-2",
-			tags:      []string{"tag4", "tag1"}, // tag1 已存在
+			tags:      []string{"tag4", "tag1"}, 
 			wantErr:   false,
-			wantCount: 2, // 每个子用例使用独立 DB,只有这两个新标签
+			wantCount: 2, 
 		},
 	}
 
@@ -151,7 +149,6 @@ func TestUserTagRepository_AddTags(t *testing.T) {
 func TestUserTagRepository_RemoveTag(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
-	// 先添加一些测试数据
 	repo.AddTags(context.Background(), "user-4", []string{"tag1", "tag2", "tag3"})
 
 	tests := []struct {
@@ -198,7 +195,6 @@ func TestUserTagRepository_RemoveTag(t *testing.T) {
 func TestUserTagRepository_RemoveTags(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
-	// 先添加测试数据
 	repo.AddTags(context.Background(), "user-5", []string{"tag1", "tag2", "tag3", "tag4"})
 
 	tests := []struct {
@@ -245,7 +241,6 @@ func TestUserTagRepository_RemoveTags(t *testing.T) {
 func TestUserTagRepository_GetTagsByUser(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
-	// 准备测试数据
 	repo.AddTags(context.Background(), "user-6", []string{"vip", "active", "high-value"})
 
 	tests := []struct {
@@ -287,7 +282,6 @@ func TestUserTagRepository_GetTagsByUser(t *testing.T) {
 func TestUserTagRepository_GetUsersByTag(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
-	// 准备测试数据
 	repo.AddTag(context.Background(), "user-7", "vip")
 	repo.AddTag(context.Background(), "user-8", "vip")
 	repo.AddTag(context.Background(), "user-9", "active")
@@ -331,7 +325,6 @@ func TestUserTagRepository_GetUsersByTag(t *testing.T) {
 func TestUserTagRepository_DeleteTagsByUser(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
-	// 准备测试数据
 	repo.AddTags(context.Background(), "user-10", []string{"tag1", "tag2", "tag3"})
 
 	tests := []struct {
@@ -368,7 +361,6 @@ func TestUserTagRepository_DeleteTagsByUser(t *testing.T) {
 func TestUserTagRepository_DeleteTagsByName(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
-	// 准备测试数据
 	repo.AddTag(context.Background(), "user-11", "global-tag")
 	repo.AddTag(context.Background(), "user-12", "global-tag")
 	repo.AddTag(context.Background(), "user-13", "other-tag")
@@ -382,7 +374,7 @@ func TestUserTagRepository_DeleteTagsByName(t *testing.T) {
 		{
 			name:      "delete tag by name",
 			tagName:   "global-tag",
-			wantCount: 1, // 只剩下 other-tag
+			wantCount: 1, 
 			wantErr:   false,
 		},
 	}
@@ -410,7 +402,6 @@ func TestUserTagRepository_DeleteTagsByName(t *testing.T) {
 func TestUserTagRepository_HasTag(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
-	// 准备测试数据
 	repo.AddTag(context.Background(), "user-14", "vip")
 
 	tests := []struct {
@@ -450,3 +441,4 @@ func TestUserTagRepository_HasTag(t *testing.T) {
 		})
 	}
 }
+

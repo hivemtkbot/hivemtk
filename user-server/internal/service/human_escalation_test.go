@@ -10,16 +10,6 @@ import (
 	"hivemtk-user/internal/cache"
 )
 
-// ============================================================================
-// 方向7: 转人工门禁数据流向 测试套件
-// ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/转人工门禁数据流向图.md
-//
-// 核心场景：
-//  B4-B5: 后台 Agent 状态机熔断 → TriggerCensorshipEscalation
-//  B8:   前台 Web 接入层调用 IsSessionLockedForHuman 做前置阻断
-//  释放:  坐席主动"解决"会话 → ReleaseHumanLock
-// ============================================================================
 
 // TestHumanEscalation_BasicFlow 完整流程
 func TestHumanEscalation_BasicFlow(t *testing.T) {
@@ -28,33 +18,27 @@ func TestHumanEscalation_BasicFlow(t *testing.T) {
 	mgr := NewHumanEscalationManager(c)
 	sessionID := "session_basic"
 
-	// 初始：未锁定
 	if mgr.IsSessionLockedForHuman(ctx, sessionID) {
 		t.Fatal("session should not be locked initially")
 	}
 
-	// 触发熔断
 	if err := mgr.TriggerCensorshipEscalation(ctx, sessionID, "crisis_high:骗子"); err != nil {
 		t.Fatalf("trigger failed: %v", err)
 	}
 
-	// 验证已锁定
 	if !mgr.IsSessionLockedForHuman(ctx, sessionID) {
 		t.Error("session should be locked after trigger")
 	}
 
-	// 验证原因已记录
 	reason, _ := mgr.GetEscalationReason(ctx, sessionID)
 	if reason != "crisis_high:骗子" {
 		t.Errorf("reason = %s, want 'crisis_high:骗子'", reason)
 	}
 
-	// 释放
 	if err := mgr.ReleaseHumanLock(ctx, sessionID); err != nil {
 		t.Fatalf("release failed: %v", err)
 	}
 
-	// 验证已解锁
 	if mgr.IsSessionLockedForHuman(ctx, sessionID) {
 		t.Error("session should not be locked after release")
 	}
@@ -86,12 +70,10 @@ func TestHumanEscalation_EmptySessionID(t *testing.T) {
 	c := cache.NewMemoryCache()
 	mgr := NewHumanEscalationManager(c)
 
-	// 空 sessionID → 报错
 	if err := mgr.TriggerCensorshipEscalation(ctx, "", "reason"); err == nil {
 		t.Error("expected error for empty sessionID")
 	}
 
-	// 空 sessionID 检查 → 返回 false（不锁定）
 	if mgr.IsSessionLockedForHuman(ctx, "") {
 		t.Error("empty sessionID should return false")
 	}
@@ -108,7 +90,6 @@ func TestHumanEscalation_NotificationPushed(t *testing.T) {
 		t.Fatalf("trigger failed: %v", err)
 	}
 
-	// 检查通知队列
 	items, err := c.LRange(ctx, MerchantNotifQueue, 0, -1)
 	if err != nil {
 		t.Fatalf("lrange failed: %v", err)
@@ -117,7 +98,6 @@ func TestHumanEscalation_NotificationPushed(t *testing.T) {
 		t.Fatal("expected at least one notification in queue")
 	}
 
-	// 验证通知内容含 sessionID 与 reason
 	notif := items[0]
 	if !strings.Contains(notif, sessionID) {
 		t.Errorf("notification should contain sessionID, got: %s", notif)
@@ -143,7 +123,6 @@ func TestHumanEscalation_ReleaseClearsReason(t *testing.T) {
 		t.Fatal("expected reason to be stored")
 	}
 
-	// 释放
 	_ = mgr.ReleaseHumanLock(ctx, sessionID)
 	reason, _ = mgr.GetEscalationReason(ctx, sessionID)
 	if reason != "" {
@@ -186,7 +165,6 @@ func TestHumanEscalation_Concurrent(t *testing.T) {
 	}
 	wg.Wait()
 
-	// 全部 100 个会话都应被锁定
 	locked := 0
 	for i := 0; i < 100; i++ {
 		sid := "concurrent_" + itoa(i)
@@ -230,26 +208,20 @@ func TestHumanEscalation_GatekeeperIntegration(t *testing.T) {
 	mgr := NewHumanEscalationManager(c)
 	sessionID := "session_integration"
 
-	// 模拟方向6 门禁命中
 	if err := mgr.TriggerCensorshipEscalation(ctx, sessionID, "high_risk_keyword:骗子"); err != nil {
 		t.Fatalf("trigger failed: %v", err)
 	}
 
-	// 验证：后续 IsSessionLockedForHuman 返回 true（前置阻断）
 	if !mgr.IsSessionLockedForHuman(ctx, sessionID) {
 		t.Error("session should be locked for AI bypass")
 	}
 
-	// 验证原因可被坐席查询
 	reason, _ := mgr.GetEscalationReason(ctx, sessionID)
 	if !strings.Contains(reason, "high_risk_keyword") {
 		t.Errorf("reason should contain high_risk_keyword, got: %s", reason)
 	}
 }
 
-// ============================================================================
-// 测试辅助
-// ============================================================================
 
 type captureNotifier struct {
 	ch chan *EscalationEvent
@@ -284,3 +256,4 @@ func itoa(n int) string {
 	}
 	return string(buf[i:])
 }
+

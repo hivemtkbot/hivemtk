@@ -41,3 +41,4 @@ type GetEmailSmtpListRequest struct {
 type DeleteEmailSmtpRequest struct {
 	ID string `uri:"id" binding:"required"`
 }
+

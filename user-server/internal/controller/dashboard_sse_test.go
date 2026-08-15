@@ -1,14 +1,5 @@
 package controller
 
-// dashboard_sse_test.go 实时驾驶舱 SSE 单元测试
-//
-// 覆盖范围：
-//   - roundTo 浮点保留
-//   - 缓存机制（cacheTTL 内不重复查询）
-//   - Snapshot 输出结构完整性
-//   - 离线场景（db=nil）安全降级
-//   - EventStream 响应头设置
-//   - 订阅者计数
 
 import (
 	"bufio"
@@ -107,9 +98,6 @@ func TestCollectSnapshot_CacheMiss(t *testing.T) {
 }
 
 func TestCollectFunnel_NoDB(t *testing.T) {
-	// collectFunnel 已下沉到 service.DashboardStatsService.CollectFunnel，
-	// controller 离线模式下通过 collectSnapshot 返回空 FunnelProgress。
-	// 这里通过 collectSnapshot 验证离线场景的 Funnel 默认值。
 	c := NewDashboardSSEController(nil)
 	snap := c.collectSnapshot(context.Background())
 	if snap.Funnel == nil {
@@ -121,9 +109,6 @@ func TestCollectFunnel_NoDB(t *testing.T) {
 }
 
 func TestCollectHumanizeDistribution_NoDB(t *testing.T) {
-	// collectHumanizeDistribution 已下沉到 service.DashboardStatsService.CollectHumanizeDistribution，
-	// controller 离线模式下通过 collectSnapshot 返回默认 HumanizeDistribution。
-	// 这里通过 collectSnapshot 验证离线场景的分布默认值。
 	c := NewDashboardSSEController(nil)
 	snap := c.collectSnapshot(context.Background())
 	if snap.HumanizeDistribution.WindowHours != 1 {
@@ -248,8 +233,6 @@ func TestWriteDashboardEvent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	// httptest.ResponseRecorder 已实现 gin.ResponseWriter 大部分方法
-	// 我们用包装器补齐 CloseNotify / Hijack / Flush
 	c.Writer = &ginTestResponseWriter{ResponseRecorder: w, closeNotify: make(chan bool)}
 
 	err := writeDashboardEvent(c, "test_event", map[string]string{"key": "value"})
@@ -276,16 +259,13 @@ func (g *ginTestResponseWriter) CloseNotify() <-chan bool {
 }
 
 func (g *ginTestResponseWriter) Flush() {
-	// httptest.ResponseRecorder 已实现 Flush
 }
 
 func (g *ginTestResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	// 测试环境不实现真实 hijack
 	return nil, nil, nil
 }
 
 func (g *ginTestResponseWriter) Pusher() http.Pusher {
-	// 测试环境不实现 http2 push
 	return nil
 }
 
@@ -306,7 +286,6 @@ func (g *ginTestResponseWriter) Written() bool {
 }
 
 func (g *ginTestResponseWriter) WriteHeaderNow() {
-	// 立即写入响应头（httptest.ResponseRecorder 已在 WriteHeader 时完成）
 }
 
 func contains(s, substr string) bool {
@@ -317,3 +296,4 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
+

@@ -10,54 +10,22 @@ import (
 	"time"
 )
 
-// react_adapter.go ReAct prompting 适配器
-//
-// 设计目标：
-//   让无 Function Calling（FC）能力的 LLM（如 mtk-llm 本地 Qwen2.5-3B-Instruct、
-//   Llama 系列、ChatGLM 等开源模型）也能接入 Agent Loop，通过文本协议
-//   （Thought/Action/Observation）完成工具调用。
-//
-// 协议设计（ReAct prompting）：
-//   System Prompt 注入工具描述 + ReAct 范例
-//   LLM 输出格式：
-//     Thought: 我需要查询客户信息
-//     Action: customer.search
-//     Action Input: {"phone":"13800138000"}
-//     (调用方解析后执行工具，将结果作为 Observation 回灌)
-//     Observation: {"id":"cust-001","phone":"13800138000",...}
-//     ...
-//     Thought: 我已经获得客户信息，可以回复用户
-//     Final Answer: 您好，客户信息如下...
-//
-// 适用场景：
-//   - 本地 LLM 无 FC 能力（mtk-llm / llama.cpp 等）
-//   - 私域部署不依赖云端 FC 能力
-//   - 测试环境无 API key 时降级使用
-//
-// 与原生 FC 路径的差异：
-//   1. 原生 FC：LLM 直接返回 tool_calls JSON 结构
-//   2. ReAct：LLM 返回文本，需解析 Thought/Action/Action Input
-//   3. 性能：ReAct 多一轮 token 生成，但兼容性更强
 
-// ===== 错误定义 =====
 
 var (
-	// ErrReActParseFailed ReAct 解析失败（LLM 输出不符合协议）
 	ErrReActParseFailed = fmt.Errorf("react parse failed")
-	// ErrReActNoAction LLM 既无 Action 也无 Final Answer
 	ErrReActNoAction = fmt.Errorf("react no action or final answer")
 )
 
-// ===== ReAct 解析器 =====
 
 // ReActParseResult ReAct 解析结果
 type ReActParseResult struct {
-	Thought     string // Thought 文本（可为空）
-	Action      string // 工具名（Action: xxx）
-	ActionInput string // 工具参数 JSON（Action Input: {...}）
-	FinalAnswer string // 最终回复（Final Answer: xxx）
-	IsFinal     bool   // 是否是最终回复（含 Final Answer）
-	RawContent  string // 原始 LLM 输出（用于回灌对话历史）
+	Thought     string 
+	Action      string 
+	ActionInput string 
+	FinalAnswer string 
+	IsFinal     bool   
+	RawContent  string 
 }
 
 // reactActionRe 匹配 Action: xxx
@@ -86,36 +54,28 @@ func ParseReActResponse(content string) (*ReActParseResult, error) {
 
 	result := &ReActParseResult{RawContent: content}
 
-	// 优先匹配 Final Answer（最终回复）
 	if m := reactFinalAnswerRe.FindStringSubmatch(content); m != nil {
 		result.IsFinal = true
 		result.FinalAnswer = strings.TrimSpace(m[1])
-		// 尝试提取 Thought（如有）
 		if tm := reactThoughtRe.FindStringSubmatch(content); tm != nil {
 			result.Thought = strings.TrimSpace(tm[1])
 		}
 		return result, nil
 	}
 
-	// 其次匹配 Action + Action Input（工具调用）
 	if m := reactActionRe.FindStringSubmatch(content); m != nil {
 		result.Action = strings.TrimSpace(m[1])
-		// 提取 Action Input（JSON）
 		if im := reactActionInputRe.FindStringSubmatch(content); im != nil {
 			result.ActionInput = strings.TrimSpace(im[1])
 		} else {
-			// Action 无 Action Input，默认空对象
 			result.ActionInput = "{}"
 		}
-		// 提取 Thought
 		if tm := reactThoughtRe.FindStringSubmatch(content); tm != nil {
 			result.Thought = strings.TrimSpace(tm[1])
 		}
 		return result, nil
 	}
 
-	// 都未匹配：可能是 LLM 直接回复（无 ReAct 协议）
-	// 兼容性处理：将整段作为 Final Answer 返回（不强制要求 LLM 输出 Final Answer 前缀）
 	return &ReActParseResult{
 		IsFinal:     true,
 		FinalAnswer: content,
@@ -141,7 +101,6 @@ func (r *ReActParseResult) ToToolCall(id string) *ToolCall {
 	}
 }
 
-// ===== ReAct 适配器 =====
 
 // ReActAdapter 将无 FC 能力的 LLM 适配为 ReAct 协议
 //
@@ -154,7 +113,7 @@ func (r *ReActParseResult) ToToolCall(id string) *ToolCall {
 // 适配器是无状态的，可安全并发使用
 type ReActAdapter struct {
 	mu          sync.Mutex
-	toolCallSeq uint64 // tool_call ID 生成器（线程安全）
+	toolCallSeq uint64 
 }
 
 // NewReActAdapter 创建 ReAct 适配器
@@ -220,23 +179,18 @@ func (a *ReActAdapter) AdaptResult(result *DispatchResult) *DispatchResult {
 
 	parsed, err := ParseReActResponse(result.Content)
 	if err != nil {
-		// 解析失败：保持原 result 不变（降级为纯文本回复）
 		return result
 	}
 
 	if parsed.IsFinal {
-		// 含 Final Answer：使用 FinalAnswer 替换 Content
-		// FinishReason 保持 "stop"
 		result.Content = parsed.FinalAnswer
 		return result
 	}
 
-	// 含 Action：构造 ToolCall 注入
 	toolCallID := a.nextToolCallID()
 	if tc := parsed.ToToolCall(toolCallID); tc != nil {
 		result.ToolCalls = []ToolCall{*tc}
 		result.FinishReason = "tool_calls"
-		// 保留 Thought 作为 Content（便于上层调试）
 		if parsed.Thought != "" {
 			result.Content = parsed.Thought
 		}
@@ -253,7 +207,6 @@ func (a *ReActAdapter) nextToolCallID() string {
 	return fmt.Sprintf("react_%d_%d", time.Now().UnixNano(), seq)
 }
 
-// ===== 工具：构造 Observation 回灌消息 =====
 
 // BuildObservationMessage 构造 ReAct Observation 消息
 //
@@ -269,7 +222,7 @@ func BuildObservationMessage(toolName, toolCallID, observation string) ChatMessa
 	return ChatMessage{
 		Role:       "user",
 		Content:    content,
-		ToolCallID: toolCallID, // 保留关联（虽然 ReAct LLM 不使用，但便于审计）
+		ToolCallID: toolCallID, 
 		Name:       toolName,
 	}
 }
@@ -288,3 +241,4 @@ func IsReActMode(req *DispatchRequest, providerNoFC bool) bool {
 	}
 	return false
 }
+

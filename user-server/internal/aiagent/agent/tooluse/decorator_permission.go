@@ -6,18 +6,13 @@ import (
 )
 
 type PermissionChecker interface {
-	// Check 返回 nil 表示放行，非 nil 表示拒绝
 	Check(ctx context.Context, toolName string, tc *ToolContext) error
 }
 
 var (
-	// ErrPermissionDenied 权限拒绝
 	ErrPermissionDenied = fmt.Errorf("permission denied")
-	// ErrRateLimited 被限流
 	ErrRateLimited = fmt.Errorf("rate limited")
-	// ErrToolTimeout 工具执行超时
 	ErrToolTimeout = fmt.Errorf("tool execution timeout")
-	// ErrToolPanic 工具 panic
 	ErrToolPanic = fmt.Errorf("tool panic")
 )
 
@@ -40,3 +35,4 @@ func PermissionDecorator(checker PermissionChecker) ToolDecorator {
 }
 
 type NoOpPermissionChecker struct{}
+

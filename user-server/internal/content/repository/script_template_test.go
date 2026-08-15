@@ -99,7 +99,6 @@ func TestScriptTemplateRepository_Create(t *testing.T) {
 func TestScriptTemplateRepository_GetByID(t *testing.T) {
 	templateRepo, _, _ := setupScriptTemplateRepositories(t)
 
-	// 创建测试数据
 	template := &model.ScriptTemplate{
 		Category: "sales",
 		Title:    "GetByID Template",
@@ -145,7 +144,6 @@ func TestScriptTemplateRepository_GetByID(t *testing.T) {
 func TestScriptTemplateRepository_Update(t *testing.T) {
 	templateRepo, _, _ := setupScriptTemplateRepositories(t)
 
-	// 创建测试数据
 	template := &model.ScriptTemplate{
 		Category:   "sales",
 		Title:      "Original Title",
@@ -155,7 +153,6 @@ func TestScriptTemplateRepository_Update(t *testing.T) {
 	}
 	templateRepo.Create(template)
 
-	// 更新
 	template.Title = "Updated Title"
 	template.Content = "Updated content..."
 	template.Rating = 4.5
@@ -178,7 +175,6 @@ func TestScriptTemplateRepository_Update(t *testing.T) {
 func TestScriptTemplateRepository_Delete(t *testing.T) {
 	templateRepo, _, _ := setupScriptTemplateRepositories(t)
 
-	// 创建测试数据
 	template := &model.ScriptTemplate{
 		Category: "sales",
 		Title:    "To Delete",
@@ -201,7 +197,6 @@ func TestScriptTemplateRepository_Delete(t *testing.T) {
 func TestScriptTemplateRepository_IncrementUsage(t *testing.T) {
 	templateRepo, _, _ := setupScriptTemplateRepositories(t)
 
-	// 创建测试数据
 	template := &model.ScriptTemplate{
 		Category:   "sales",
 		Title:      "Usage Test",
@@ -210,7 +205,6 @@ func TestScriptTemplateRepository_IncrementUsage(t *testing.T) {
 	}
 	templateRepo.Create(template)
 
-	// 增加 3 次使用
 	for i := 1; i <= 3; i++ {
 		err := templateRepo.IncrementUsage(template.ID)
 		if err != nil {
@@ -228,7 +222,6 @@ func TestScriptTemplateRepository_IncrementUsage(t *testing.T) {
 func TestScriptTemplateRepository_GetPublicTemplates(t *testing.T) {
 	templateRepo, _, _ := setupScriptTemplateRepositories(t)
 
-	// 创建公开模板
 	for i := 1; i <= 3; i++ {
 		templateRepo.Create(&model.ScriptTemplate{
 			Category:   "general",
@@ -239,7 +232,6 @@ func TestScriptTemplateRepository_GetPublicTemplates(t *testing.T) {
 		})
 	}
 
-	// 创建私有模板
 	templateRepo.Create(&model.ScriptTemplate{
 		Category: "general",
 		Title:    "Private Template",
@@ -265,7 +257,6 @@ func TestScriptTemplateRepository_GetPublicTemplates(t *testing.T) {
 func TestScriptTemplateRepository_SearchTemplates(t *testing.T) {
 	templateRepo, _, _ := setupScriptTemplateRepositories(t)
 
-	// 创建测试数据
 	templateRepo.Create(&model.ScriptTemplate{
 		Category: "sales",
 		Title:    "Welcome Message",
@@ -376,14 +367,12 @@ func TestScriptCategoryRepository_Create(t *testing.T) {
 func TestScriptCategoryRepository_Update(t *testing.T) {
 	_, categoryRepo, _ := setupScriptTemplateRepositories(t)
 
-	// 创建测试数据
 	category := &model.ScriptCategory{
 		Name:      "Original Name",
 		SortOrder: 1,
 	}
 	categoryRepo.Create(category)
 
-	// 更新
 	category.Name = "Updated Name"
 	category.SortOrder = 10
 
@@ -404,7 +393,6 @@ func TestScriptCategoryRepository_Update(t *testing.T) {
 func TestScriptCategoryRepository_Delete(t *testing.T) {
 	_, categoryRepo, _ := setupScriptTemplateRepositories(t)
 
-	// 创建测试数据
 	category := &model.ScriptCategory{
 		Name:      "To Delete",
 		SortOrder: 1,
@@ -478,7 +466,6 @@ func TestScriptRecommendRepository_Create(t *testing.T) {
 func TestScriptRecommendRepository_GetBySessionID(t *testing.T) {
 	_, _, recommendRepo := setupScriptTemplateRepositories(t)
 
-	// 创建测试数据
 	for i := 1; i <= 3; i++ {
 		recommendRepo.Create(&model.ScriptRecommend{
 			SessionID:     "session-123",
@@ -489,7 +476,6 @@ func TestScriptRecommendRepository_GetBySessionID(t *testing.T) {
 		})
 	}
 
-	// 创建另一个会话的记录
 	recommendRepo.Create(&model.ScriptRecommend{
 		SessionID:     "session-999",
 		Message:       "Other session",
@@ -512,7 +498,6 @@ func TestScriptRecommendRepository_GetBySessionID(t *testing.T) {
 func TestScriptRecommendRepository_MarkAsUsed(t *testing.T) {
 	_, _, recommendRepo := setupScriptTemplateRepositories(t)
 
-	// 创建测试数据
 	record := &model.ScriptRecommend{
 		SessionID:     "session-789",
 		Message:       "Test message",
@@ -523,7 +508,6 @@ func TestScriptRecommendRepository_MarkAsUsed(t *testing.T) {
 	}
 	recommendRepo.Create(record)
 
-	// 标记为已使用
 	err := recommendRepo.MarkAsUsed(record.ID)
 	if err != nil {
 		t.Errorf("MarkAsUsed() error = %v", err)
@@ -539,3 +523,4 @@ func TestScriptRecommendRepository_MarkAsUsed(t *testing.T) {
 		t.Error("Expected UsedAt to be set")
 	}
 }
+

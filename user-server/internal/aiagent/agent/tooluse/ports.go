@@ -1,20 +1,8 @@
 package tooluse
 
-// ============================================================================
-// 业务 Port 接口（L4 依赖反转）
-// ----------------------------------------------------------------------------
-// 本文件以 type alias 形式从 `internal/aiagent/agent/portcontract` 重新导出
-// Port 接口 + DTO。
-//
-// 依赖拓扑：
-//   service ──→ portcontract ←── tooluse
-//
-// 文档：docs/企业级架构优化/坐席实时聊天看板.md §七
-// ============================================================================
 
 import "hivemtk-user/internal/aiagent/agent/portcontract"
 
-// ----- 类型别名（保持向後兼容，零侵入） -----
 
 // CustomerIdentity 客户身份投影。
 type CustomerIdentity = portcontract.CustomerIdentity
@@ -48,3 +36,4 @@ type ReachSendInput = portcontract.ReachSendInput
 
 // ReachPipelinePort 触达管线端口。
 type ReachPipelinePort = portcontract.ReachPipelinePort
+

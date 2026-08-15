@@ -18,14 +18,14 @@ import (
 type UserMFA struct {
 	ID           uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	UserID       uint       `gorm:"uniqueIndex;not null" json:"user_id"`
-	MFASecret    string     `gorm:"type:varchar(255);not null" json:"-"`             // base32 编码的 TOTP 密钥（不在 JSON 中返回）
-	MFAEnabled   bool       `gorm:"default:false" json:"mfa_enabled"`                // 是否启用 MFA
-	MFAType      string     `gorm:"type:varchar(20);default:'totp'" json:"mfa_type"` // totp / hotp
-	BackupCodes  string     `gorm:"type:text" json:"-"`                              // JSON 数组（bcrypt 哈希）
-	LastUsedAt   *time.Time `json:"last_used_at"`                                    // 最近一次验证时间
-	LastUsedCode string     `gorm:"type:varchar(20)" json:"-"`                       // 最近一次使用的 TOTP 码（防重放）
-	EnabledAt    *time.Time `json:"enabled_at"`                                      // 启用时间
-	DisabledAt   *time.Time `json:"disabled_at"`                                     // 禁用时间
+	MFASecret    string     `gorm:"type:varchar(255);not null" json:"-"`             
+	MFAEnabled   bool       `gorm:"default:false" json:"mfa_enabled"`                
+	MFAType      string     `gorm:"type:varchar(20);default:'totp'" json:"mfa_type"` 
+	BackupCodes  string     `gorm:"type:text" json:"-"`                              
+	LastUsedAt   *time.Time `json:"last_used_at"`                                    
+	LastUsedCode string     `gorm:"type:varchar(20)" json:"-"`                       
+	EnabledAt    *time.Time `json:"enabled_at"`                                      
+	DisabledAt   *time.Time `json:"disabled_at"`                                     
 	CreatedAt    time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 }
@@ -48,3 +48,4 @@ func (m *UserMFA) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+

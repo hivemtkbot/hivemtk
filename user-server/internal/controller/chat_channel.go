@@ -57,7 +57,6 @@ func (ctrl *ChatChannelController) Get(c *gin.Context) {
 		response.NotFoundError(c, "渠道")
 		return
 	}
-	// 不返回 AppSecretHash
 	response.Success(c, channel, "ok")
 }
 
@@ -70,7 +69,6 @@ func (ctrl *ChatChannelController) Create(c *gin.Context) {
 		return
 	}
 
-	// 获取当前用户（JWT 上下文）
 	createdBy := uint(0)
 	if v, ok := c.Get("user_id"); ok {
 		if uid, ok := v.(uint); ok {
@@ -137,3 +135,4 @@ func (ctrl *ChatChannelController) ResetAppSecret(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"app_secret": newSecret}, "AppSecret 已重置（仅返回一次）")
 }
+

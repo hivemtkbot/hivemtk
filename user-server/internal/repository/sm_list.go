@@ -61,8 +61,8 @@ func (r *smlistRepo) Delete(ctx context.Context, id string) error {
 
 func (r *smlistRepo) GetRecentSmlistList(ctx context.Context) ([]*model.Smlist, error) {
 	var smlists []*model.Smlist
-	// 最近 48 小时的数据
 	startTime := time.Now().Add(-time.Hour * 48)
 	err := r.db.Where("created_at > ?", startTime).Order("created_at desc").Find(&smlists).Error
 	return smlists, err
 }
+

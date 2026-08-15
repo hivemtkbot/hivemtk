@@ -80,7 +80,6 @@ func TestSmlistService_Register(t *testing.T) {
 		t.Errorf("Expected phone '13812345678', got %s", result.Phone)
 	}
 
-	// 验证 ID 已生成
 	if result.ID == "" {
 		t.Error("Expected ID to be generated")
 	}
@@ -112,14 +111,12 @@ func TestSmlistService_GetSmlist(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	// 创建测试数据
 	smlist := &model.Smlist{
 		Name:  "测试名称",
 		Phone: "13812345678",
 	}
 	database.Create(smlist)
 
-	// 获取
 	result, err := service.GetSmlist(context.Background(), smlist.ID)
 	if err != nil {
 		t.Fatalf("GetSmlist failed: %v", err)
@@ -152,7 +149,6 @@ func TestSmlistService_GetSmlistList(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	// 创建多条数据
 	for i := 0; i < 5; i++ {
 		smlist := &model.Smlist{
 			Name:  "测试" + string(rune('0'+i)),
@@ -161,7 +157,6 @@ func TestSmlistService_GetSmlistList(t *testing.T) {
 		database.Create(smlist)
 	}
 
-	// 获取列表
 	list, total, err := service.GetSmlistList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetSmlistList failed: %v", err)
@@ -182,7 +177,6 @@ func TestSmlistService_GetSmlistList_Pagination(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	// 创建 10 条数据
 	for i := 0; i < 10; i++ {
 		smlist := &model.Smlist{
 			Name:  "测试" + string(rune('0'+i)),
@@ -191,7 +185,6 @@ func TestSmlistService_GetSmlistList_Pagination(t *testing.T) {
 		database.Create(smlist)
 	}
 
-	// 第一页，每页 5 条
 	list, total, err := service.GetSmlistList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetSmlistList failed: %v", err)
@@ -205,7 +198,6 @@ func TestSmlistService_GetSmlistList_Pagination(t *testing.T) {
 		t.Errorf("Expected 5 items on first page, got %d", len(list))
 	}
 
-	// 第二页
 	list2, total2, err := service.GetSmlistList(context.Background(), 2, 5)
 	if err != nil {
 		t.Fatalf("GetSmlistList page 2 failed: %v", err)
@@ -246,7 +238,6 @@ func TestSmlistService_GetSmlistAllList(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	// 创建多条数据
 	for i := 0; i < 5; i++ {
 		smlist := &model.Smlist{
 			Name:  "测试" + string(rune('0'+i)),
@@ -255,7 +246,6 @@ func TestSmlistService_GetSmlistAllList(t *testing.T) {
 		database.Create(smlist)
 	}
 
-	// 获取全部列表
 	list, total, err := service.GetSmlistAllList(context.Background())
 	if err != nil {
 		t.Fatalf("GetSmlistAllList failed: %v", err)
@@ -296,14 +286,12 @@ func TestSmlistService_DeleteSmlist(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	// 创建测试数据（使用 UUID 字符串）
 	smlist := &model.Smlist{
 		Name:  "待删除测试",
 		Phone: "13812345678",
 	}
 	database.Create(smlist)
 
-	// 删除
 	err := service.DeleteSmlist(context.Background(), smlist.ID)
 	if err != nil {
 		t.Fatalf("DeleteSmlist failed: %v", err)
@@ -326,7 +314,6 @@ func TestSmlistService_DeleteSmlist_NotFound(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	// 生成一个不存在的 UUID
 	nonExistentID := "00000000-0000-0000-0000-000000000000"
 	err := service.DeleteSmlist(context.Background(), nonExistentID)
 	if err != nil {
@@ -340,7 +327,6 @@ func TestSmlistService_GetRecentSmlistList(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	// 创建多条数据（最近 48 小时内）
 	for i := 0; i < 5; i++ {
 		smlist := &model.Smlist{
 			Name:  "最近测试" + string(rune('0'+i)),
@@ -349,7 +335,6 @@ func TestSmlistService_GetRecentSmlistList(t *testing.T) {
 		database.Create(smlist)
 	}
 
-	// 获取最近列表
 	list, err := service.GetRecentSmlistList(context.Background())
 	if err != nil {
 		t.Fatalf("GetRecentSmlistList failed: %v", err)
@@ -382,7 +367,6 @@ func TestSmlistService_GetRecentSmlistList_OrderByCreateTime(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	// 创建三条数据，间隔短暂
 	smlist1 := &model.Smlist{Name: "第一", Phone: "13800000001"}
 	time.Sleep(10 * time.Millisecond)
 	smlist2 := &model.Smlist{Name: "第二", Phone: "13800000002"}
@@ -403,7 +387,6 @@ func TestSmlistService_GetRecentSmlistList_OrderByCreateTime(t *testing.T) {
 		return
 	}
 
-	// 验证按创建时间降序排列（最新的在前）
 	if list[0].Name != "第三" {
 		t.Logf("Expected first item to be '第三', got %s", list[0].Name)
 	}
@@ -415,7 +398,6 @@ func TestSmlistService_Integration(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	// 1. 注册
 	smlist := model.Smlist{
 		QQ:      "123456789",
 		Name:    "集成测试",
@@ -429,7 +411,6 @@ func TestSmlistService_Integration(t *testing.T) {
 		t.Fatalf("Register failed: %v", err)
 	}
 
-	// 2. 查询
 	retrieved, err := service.GetSmlist(context.Background(), registered.ID)
 	if err != nil {
 		t.Fatalf("GetSmlist failed: %v", err)
@@ -439,7 +420,6 @@ func TestSmlistService_Integration(t *testing.T) {
 		t.Errorf("Expected name '集成测试', got %s", retrieved.Name)
 	}
 
-	// 3. 列表
 	list, total, err := service.GetSmlistList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetSmlistList failed: %v", err)
@@ -453,13 +433,11 @@ func TestSmlistService_Integration(t *testing.T) {
 		t.Errorf("Expected 1 item, got %d", len(list))
 	}
 
-	// 4. 删除
 	err = service.DeleteSmlist(context.Background(), registered.ID)
 	if err != nil {
 		t.Fatalf("DeleteSmlist failed: %v", err)
 	}
 
-	// 5. 验证删除后查询失败
 	_, err = service.GetSmlist(context.Background(), registered.ID)
 	if err == nil {
 		t.Error("Expected error after deletion")
@@ -491,12 +469,10 @@ func TestSmlistService_ConcurrentRegister(t *testing.T) {
 		}(i)
 	}
 
-	// 等待所有 goroutine 完成
 	for i := 0; i < 10; i++ {
 		<-done
 	}
 
-	// 验证数据数量
 	list, total, err := service.GetSmlistList(context.Background(), 1, 20)
 	if err != nil {
 		t.Fatalf("GetSmlistList failed: %v", err)
@@ -517,29 +493,24 @@ func TestSmlistService_BoundaryConditions(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	// 测试分页边界
-	// 创建 1 条数据
 	smlist := &model.Smlist{
 		Name:  "边界测试",
 		Phone: "13812345678",
 	}
 	database.Create(smlist)
 
-	// 第 0 页（边界情况）
 	list, total, err := service.GetSmlistList(context.Background(), 0, 10)
 	if err != nil {
 		t.Fatalf("GetSmlistList page 0 failed: %v", err)
 	}
 	t.Logf("Page 0: total=%d, len=%d", total, len(list))
 
-	// limit 为 0 的情况
 	list2, total2, err := service.GetSmlistList(context.Background(), 1, 0)
 	if err != nil {
 		t.Fatalf("GetSmlistList limit 0 failed: %v", err)
 	}
 	t.Logf("Limit 0: total=%d, len=%d", total2, len(list2))
 
-	// 负数分页
 	list3, total3, err := service.GetSmlistList(context.Background(), -1, -10)
 	if err != nil {
 		t.Fatalf("GetSmlistList negative params failed: %v", err)
@@ -569,7 +540,6 @@ func TestSmlistService_SpecialCharacters(t *testing.T) {
 		t.Errorf("Expected name with special characters, got %s", result.Name)
 	}
 
-	// 验证能正确查询
 	retrieved, err := service.GetSmlist(context.Background(), result.ID)
 	if err != nil {
 		t.Fatalf("GetSmlist with special characters failed: %v", err)
@@ -586,7 +556,6 @@ func TestSmlistService_LongStrings(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	// 创建长字符串
 	longString := ""
 	for i := 0; i < 100; i++ {
 		longString += "长字符串测试"
@@ -608,3 +577,4 @@ func TestSmlistService_LongStrings(t *testing.T) {
 		t.Error("Expected ID to be generated for long string test")
 	}
 }
+

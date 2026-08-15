@@ -20,10 +20,8 @@ func TestInMemoryStorage_DocumentCRUD(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "内容1", doc.Content)
 
-	// 不存在的 KB
 	_, err = s.GetDocument(ctx, "nope", "d1")
 	assert.Error(t, err)
-	// 不存在的文档
 	_, err = s.GetDocument(ctx, "kb1", "nope")
 	assert.Error(t, err)
 
@@ -34,7 +32,6 @@ func TestInMemoryStorage_DocumentCRUD(t *testing.T) {
 	assert.NoError(t, s.DeleteDocument(ctx, "kb1", "d1"))
 	assert.Len(t, s.documents["kb1"], 0)
 
-	// 删除不存在的 KB 的文档
 	assert.Error(t, s.DeleteDocument(ctx, "nope", "d1"))
 }
 
@@ -48,12 +45,10 @@ func TestInMemoryStorage_KnowledgeBaseCRUD(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "KB1", info.Name)
 
-	// 不存在
 	_, err = s.GetKnowledgeBase(ctx, "nope")
 	assert.Error(t, err)
 
 	assert.NoError(t, s.DeleteKnowledgeBase(ctx, "kb1"))
-	// 删除不存在的 KB 也返回错误
 	assert.Error(t, s.DeleteKnowledgeBase(ctx, "nope"))
 }
 
@@ -85,7 +80,6 @@ func TestInMemoryCache_Basic(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "v", val)
 
-	// 未命中
 	_, ok = c.Get("missing")
 	assert.False(t, ok)
 
@@ -93,7 +87,6 @@ func TestInMemoryCache_Basic(t *testing.T) {
 	_, ok = c.Get("k")
 	assert.False(t, ok)
 
-	// 过期
 	c.Set("e", "x", 1*time.Nanosecond)
 	time.Sleep(2 * time.Millisecond)
 	_, ok = c.Get("e")
@@ -126,3 +119,4 @@ func TestNewProductionRagRetrievalService(t *testing.T) {
 	assert.NotNil(t, svc)
 	assert.Equal(t, 5, svc.config.DefaultTopK)
 }
+

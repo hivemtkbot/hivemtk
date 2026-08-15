@@ -15,34 +15,22 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// 本地 LLM 客户端（Ollama / vLLM /v1/chat/completions 兼容协议）
-//
-// 文档依据：docs/企业级架构优化/资产包模式.md §三 运行态 Request Payload
-//
-// 设计：
-//  - 协议完全兼容 OpenAI /v1/chat/completions
-//  - Ollama 默认端口 11434，vLLM 默认端口 8000
-//  - 私域部署不强制鉴权，APIKey 可空
-//  - 单次请求超时 180s（与 LLMService 对齐，支持 Mac M1 跑 1.5B Q4 GGUF）
-//  - 不实现流式（agent_runtime 当前是同步推理模式）
-// ============================================================================
 
 // LocalLLMClient 本地 LLM 客户端（OpenAI /v1/chat/completions 兼容）
 //
 // 实现 portcontract.LLMChatPort 接口
 type LocalLLMClient struct {
-	baseURL string // 例如 http://localhost:11434/v1
-	apiKey  string // 可空（私域部署不鉴权）
-	model   string // 默认模型，例如 qwen2.5:7b
+	baseURL string 
+	apiKey  string 
+	model   string 
 	httpCli *http.Client
 }
 
 // LocalLLMConfig 本地 LLM 客户端配置
 type LocalLLMConfig struct {
-	BaseURL        string // 不含 /v1 后缀；客户端自动追加。例如 http://localhost:11434
-	APIKey         string // 可空
-	DefaultModel   string // 默认模型名
+	BaseURL        string 
+	APIKey         string 
+	DefaultModel   string 
 	RequestTimeout time.Duration
 }
 
@@ -89,7 +77,6 @@ func (c *LocalLLMClient) Chat(ctx context.Context, messages []model.AssetBundleM
 		temperature = 0.7
 	}
 
-	// 转换 messages 为 OpenAI 协议格式
 	openaiMsgs := make([]openaiChatMessage, 0, len(messages))
 	for _, m := range messages {
 		openaiMsgs = append(openaiMsgs, openaiChatMessage{
@@ -148,9 +135,6 @@ func (c *LocalLLMClient) Chat(ctx context.Context, messages []model.AssetBundleM
 	return content, nil
 }
 
-// ============================================================================
-// OpenAI /v1/chat/completions 协议结构
-// ============================================================================
 
 type openaiChatMessage struct {
 	Role    string `json:"role"`
@@ -182,3 +166,4 @@ type openaiUsage struct {
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
 }
+

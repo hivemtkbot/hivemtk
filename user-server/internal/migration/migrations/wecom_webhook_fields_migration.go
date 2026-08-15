@@ -95,3 +95,4 @@ func (m *WecomWebhookFieldsMigration) Down(ctx context.Context) error {
 
 // 编译期接口断言
 var _ migration.Migration = (*WecomWebhookFieldsMigration)(nil)
+

@@ -137,7 +137,6 @@ func (c *UserSegmentController) GetRFMList(ctx *gin.Context) {
 	var err error
 
 	if layer != "" {
-		// 按分层筛选
 		rfms, total, err = c.rfmService.GetUsersByLayer(context.Background(), layer, page, pageSize)
 	} else {
 		rfms, total, err = c.rfmService.GetRFMList(context.Background(), page, pageSize)
@@ -215,3 +214,4 @@ func (c *UserSegmentController) GetLayerDescription(ctx *gin.Context) {
 
 	response.Success(ctx, layers, "获取成功")
 }
+

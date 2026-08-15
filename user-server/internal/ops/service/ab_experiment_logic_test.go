@@ -17,7 +17,6 @@ func TestAB_HashSourceID(t *testing.T) {
 		wantMax  uint
 	}
 	cases := []tc{
-		// 相同输入应得到相同输出（幂等性）
 		{"same_id_1", "user_123", 0, 999999},
 		{"same_id_2", "user_456", 0, 999999},
 		{"empty", "", 0, 999999},
@@ -26,7 +25,6 @@ func TestAB_HashSourceID(t *testing.T) {
 		{"unicode", "🎉_emoji_测试", 0, 999999},
 		{"special_chars", "user!@#$%^&*()", 0, 999999},
 		{"uuid_format", "550e8400-e29b-41d4-a716-446655440000", 0, 999999},
-		// 验证幂等性
 		{"idempotent_a", "test_id", 0, 999999},
 		{"idempotent_b", "test_id", 0, 999999},
 	}
@@ -44,14 +42,12 @@ func TestAB_HashSourceID(t *testing.T) {
 		})
 	}
 
-	// 幂等性验证
 	hash1 := svc.hashSourceID("test_idempotent")
 	hash2 := svc.hashSourceID("test_idempotent")
 	if hash1 != hash2 {
 		t.Errorf("idempotency failed: %d != %d", hash1, hash2)
 	}
 
-	// 不同输入应大概率产生不同输出
 	different := make(map[uint]bool)
 	for i := 0; i < 100; i++ {
 		h := svc.hashSourceID(string(rune('a' + i)))
@@ -74,33 +70,21 @@ func TestAB_CalculateConfidence(t *testing.T) {
 		wantMax float64
 	}
 	cases := []tc{
-		// 零流量 → 0
 		{"zero_traffic", &model.ABExperimentResult{TrafficCount: 0, ConversionCount: 0, ConversionRate: 0}, 0, 0},
-		// 50% 转化率 → 0.5 置信度
 		{"rate_50_n_100", &model.ABExperimentResult{TrafficCount: 100, ConversionCount: 50, ConversionRate: 50}, 0.4, 0.6},
 		{"rate_50_n_10000", &model.ABExperimentResult{TrafficCount: 10000, ConversionCount: 5000, ConversionRate: 50}, 0.49, 0.51},
-		// 高转化率 → 高置信度
 		{"rate_90_n_1000", &model.ABExperimentResult{TrafficCount: 1000, ConversionCount: 900, ConversionRate: 90}, 0.99, 1.0},
-		// 低转化率 → 低置信度
 		{"rate_10_n_1000", &model.ABExperimentResult{TrafficCount: 1000, ConversionCount: 100, ConversionRate: 10}, 0, 0.01},
-		// 极端
 		{"rate_100_n_1", &model.ABExperimentResult{TrafficCount: 1, ConversionCount: 1, ConversionRate: 100}, 0, 1},
 		{"rate_0_n_100", &model.ABExperimentResult{TrafficCount: 100, ConversionCount: 0, ConversionRate: 0}, 0, 1},
-		// 边界
 		{"rate_30_n_100", &model.ABExperimentResult{TrafficCount: 100, ConversionCount: 30, ConversionRate: 30}, 0, 0.05},
 		{"rate_70_n_100", &model.ABExperimentResult{TrafficCount: 100, ConversionCount: 70, ConversionRate: 70}, 0.95, 1.0},
-		// 正常范围
 		{"rate_60_n_500", &model.ABExperimentResult{TrafficCount: 500, ConversionCount: 300, ConversionRate: 60}, 0.95, 1.0},
 		{"rate_40_n_500", &model.ABExperimentResult{TrafficCount: 500, ConversionCount: 200, ConversionRate: 40}, 0, 0.05},
-		// 极小样本
 		{"rate_50_n_2", &model.ABExperimentResult{TrafficCount: 2, ConversionCount: 1, ConversionRate: 50}, 0, 1},
-		// 0% 转化率
 		{"rate_0_n_1", &model.ABExperimentResult{TrafficCount: 1, ConversionCount: 0, ConversionRate: 0}, 0, 1},
-		// 100% 转化率
 		{"rate_100_n_100", &model.ABExperimentResult{TrafficCount: 100, ConversionCount: 100, ConversionRate: 100}, 0, 1},
-		// rate=50, n 很大 → ~0.5
 		{"rate_50_n_100000", &model.ABExperimentResult{TrafficCount: 100000, ConversionCount: 50000, ConversionRate: 50}, 0.49, 0.51},
-		// rate=80, n 适中
 		{"rate_80_n_100", &model.ABExperimentResult{TrafficCount: 100, ConversionCount: 80, ConversionRate: 80}, 0.95, 1.0},
 	}
 
@@ -128,11 +112,8 @@ func TestAB_CalculateConfidenceEdgeCases(t *testing.T) {
 		want   float64
 	}
 	cases := []tc{
-		// 0 流量 → 0
 		{"zero_traffic", &model.ABExperimentResult{}, 0},
-		// 100% 转化率 → se=0 → 0 (因为 (1-p) = 0)
 		{"rate_100_n_100", &model.ABExperimentResult{TrafficCount: 100, ConversionCount: 100, ConversionRate: 100}, 0},
-		// 0% 转化率 → se=0 → 0 (因为 p=0)
 		{"rate_0_n_100", &model.ABExperimentResult{TrafficCount: 100, ConversionCount: 0, ConversionRate: 0}, 0},
 	}
 	passed, failed := 0, 0
@@ -160,28 +141,21 @@ func TestAB_ConversionRate(t *testing.T) {
 		want        float64
 	}
 	cases := []tc{
-		// 边界
 		{"zero_traffic", 0, 0, 0},
 		{"zero_conv", 100, 0, 0},
 		{"full_conv", 100, 100, 100},
-		// 常见
 		{"half", 100, 50, 50},
 		{"quarter", 100, 25, 25},
 		{"three_quarter", 100, 75, 75},
-		// 不整除
 		{"1_of_3", 3, 1, 33.3333333333},
 		{"1_of_7", 7, 1, 14.2857142857},
 		{"2_of_3", 3, 2, 66.6666666666},
-		// 大数
 		{"large_half", 1000000, 500000, 50},
 		{"large_quarter", 1000000, 250000, 25},
-		// 小数
 		{"1_of_1000", 1000, 1, 0.1},
 		{"999_of_1000", 1000, 999, 99.9},
-		// 极小样本
 		{"1_conv_1", 1, 1, 100},
 		{"1_conv_0", 1, 0, 0},
-		// 比例
 		{"5_pct", 1000, 50, 5},
 		{"50_pct_2", 200, 100, 50},
 		{"75_pct", 400, 300, 75},
@@ -216,7 +190,6 @@ func TestAB_VariantSelectionLogic(t *testing.T) {
 		Weight int
 	}
 
-	// 模拟 getVariantFromDB 的核心选择逻辑
 	selectVariant := func(sourceID string, variants []variant) variant {
 		totalWeight := 0
 		for _, v := range variants {
@@ -252,25 +225,16 @@ func TestAB_VariantSelectionLogic(t *testing.T) {
 		wantName string
 	}
 	cases := []tc{
-		// 50/50 split - 验证可重现性（同一 sourceID 始终选同一变体）
-		{"50_50_a", "user_001", []variant{{"A", 50}, {"B", 50}}, ""}, // 不指定,name 由哈希决定
-		{"50_50_b", "user_001", []variant{{"A", 50}, {"B", 50}}, ""}, // 同上,应得相同结果
-		// 70/30
+		{"50_50_a", "user_001", []variant{{"A", 50}, {"B", 50}}, ""}, 
+		{"50_50_b", "user_001", []variant{{"A", 50}, {"B", 50}}, ""}, 
 		{"70_30", "user_test", []variant{{"A", 70}, {"B", 30}}, ""},
-		// 单一变体
 		{"single", "user_x", []variant{{"A", 100}}, "A"},
-		// 三变体
 		{"three_variants", "user_y", []variant{{"A", 33}, {"B", 33}, {"C", 34}}, ""},
-		// 零权重（应该作为 1 处理）
 		{"zero_weight", "user_z", []variant{{"A", 0}, {"B", 100}}, ""},
-		// 负权重
 		{"negative_weight", "user_q", []variant{{"A", -10}, {"B", 100}}, ""},
-		// 全零（totalWeight 会变成 len(variants) 因为每个 0 权重都被算作 1）
-		// 因此会按哈希分配，不再退化为返回第一个
 		{"all_zero", "user_w", []variant{{"A", 0}, {"B", 0}}, ""},
 	}
 
-	// 验证可重现性
 	h1 := selectVariant("user_001", cases[0].variants)
 	h2 := selectVariant("user_001", cases[1].variants)
 	if h1.Name != h2.Name {
@@ -286,7 +250,6 @@ func TestAB_VariantSelectionLogic(t *testing.T) {
 				failed++
 				return
 			}
-			// 验证返回的是合法变体
 			found := false
 			for _, v := range tt.variants {
 				if v.Name == got.Name {
@@ -332,14 +295,12 @@ func TestAB_VariantDistribution(t *testing.T) {
 		return vs[0].Name
 	}
 
-	// 模拟 1000 个用户
 	counts := map[string]int{"A": 0, "B": 0}
 	for i := 0; i < 1000; i++ {
 		name := selectVariant(string(rune('a'+i%26))+string(rune('0'+i%10)), variants)
 		counts[name]++
 	}
 
-	// A 和 B 应近似 50/50（容许 30%-70% 偏差,因哈希有随机性）
 	aPct := float64(counts["A"]) / 1000.0 * 100
 	bPct := float64(counts["B"]) / 1000.0 * 100
 	t.Logf("Distribution: A=%.1f%%, B=%.1f%%", aPct, bPct)
@@ -372,9 +333,7 @@ func TestAB_WeightSumZeroHandling(t *testing.T) {
 		t.Errorf("totalWeight=%d want=2", totalWeight)
 	}
 
-	// 退化路径：totalWeight<=0 → 返回第一个
 	if totalWeight <= 0 {
-		// 实际代码会进入退化分支
 	}
 	_ = svc
 }
@@ -387,24 +346,19 @@ func TestAB_TrafficSplitValidation(t *testing.T) {
 		isValid      bool
 	}
 	cases := []tc{
-		// 正常范围
 		{"split_0", 0, true},
 		{"split_50", 50, true},
 		{"split_100", 100, true},
-		// 边界
-		{"split_neg", -10, true}, // 接受任何 int
+		{"split_neg", -10, true}, 
 		{"split_over_100", 150, true},
-		// 极端
 		{"split_max_int", 2147483647, true},
 		{"split_min_int", -2147483648, true},
-		// 业务上有意义的值
 		{"split_1", 1, true},
 		{"split_10", 10, true},
 		{"split_25", 25, true},
 		{"split_75", 75, true},
 		{"split_90", 90, true},
 		{"split_99", 99, true},
-		// 多种常用分配
 		{"split_30_70_part", 30, true},
 		{"split_20_80_part", 20, true},
 		{"split_5_95_part", 5, true},
@@ -412,9 +366,7 @@ func TestAB_TrafficSplitValidation(t *testing.T) {
 	passed, failed := 0, 0
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			// 只验证类型和值范围可以接受
 			if tt.trafficSplit < 0 || tt.trafficSplit > 100 {
-				// 业务上不允许的范围（虽然代码不强制）
 				_ = tt.isValid
 			}
 			passed++
@@ -460,7 +412,6 @@ func TestAB_VariantWeightCombinations(t *testing.T) {
 	passed, failed := 0, 0
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			// 计算 totalWeight
 			totalWeight := 0
 			for _, v := range tt.variants {
 				if v.Weight <= 0 {
@@ -469,13 +420,11 @@ func TestAB_VariantWeightCombinations(t *testing.T) {
 					totalWeight += v.Weight
 				}
 			}
-			// 验证 totalWeight > 0
 			if totalWeight <= 0 {
 				t.Errorf("[%s] totalWeight=%d, should be > 0", tt.name, totalWeight)
 				failed++
 				return
 			}
-			// 验证哈希选择总是返回合法变体
 			hash := svc.hashSourceID("test_" + tt.name)
 			pick := int(hash) % totalWeight
 			cumulative := 0
@@ -501,3 +450,4 @@ func TestAB_VariantWeightCombinations(t *testing.T) {
 	}
 	t.Logf("VariantWeightCombinations: %d/%d passed", passed, passed+failed)
 }
+

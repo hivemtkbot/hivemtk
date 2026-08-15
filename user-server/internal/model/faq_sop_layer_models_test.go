@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// AI 智能体性能优化 - 双层架构 FAQ Model 测试
 
 func TestFAQEntry_TableName(t *testing.T) {
 	entry := &FAQEntry{}
@@ -106,3 +105,4 @@ func TestLayerDecisionLog_BasicFields(t *testing.T) {
 		t.Errorf("WallMs = %d, want 15", log.WallMs)
 	}
 }
+

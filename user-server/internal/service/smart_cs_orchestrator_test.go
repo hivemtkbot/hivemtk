@@ -11,16 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// ============================================================================
-// SmartCSOrchestrator 智能体统一编排器 单元测试
-// ----------------------------------------------------------------------------
-// 验证 Phase 3 联动核心逻辑：
-//   1. HandleIncoming 空内容/nil 入参安全
-//   2. 置信度提取（extractConfidence）多种场景
-//   3. 紧急投诉识别（isUrgentOrComplaint）
-//   4. 座席接管/回复路径
-//   5. 配置默认值正确
-// ============================================================================
 
 // TestSmartCSOrchestrator_NilSafe nil 入参安全
 func TestSmartCSOrchestrator_NilSafe(t *testing.T) {
@@ -60,12 +50,10 @@ func TestSmartCSOrchestrator_DefaultConfig(t *testing.T) {
 func TestSmartCSOrchestrator_ExtractConfidence(t *testing.T) {
 	o := NewSmartCSOrchestrator(nil, nil)
 
-	// nil 响应
 	if c := o.extractConfidence(context.Background(), nil); c != 0 {
 		t.Errorf("nil 响应置信度应为 0，实际 %.2f", c)
 	}
 
-	// 有意图置信度
 	resp := &SalesResponse{
 		Intent: &dto.RecognizeResult{Confidence: 0.85},
 	}
@@ -73,7 +61,6 @@ func TestSmartCSOrchestrator_ExtractConfidence(t *testing.T) {
 		t.Errorf("意图置信度 0.85 应直接返回，实际 %.2f", c)
 	}
 
-	// 无意图，按链路完整度评估
 	resp2 := &SalesResponse{
 		Reply:     "您好，有什么可以帮您？",
 		Polished:  true,
@@ -129,7 +116,6 @@ func TestSmartCSOrchestrator_EngineNil(t *testing.T) {
 	if o.engine != nil {
 		t.Fatal("引擎应为 nil")
 	}
-	// 验证编排器其他组件已正确初始化
 	if o.sessionSvc == nil {
 		t.Error("sessionSvc 不应为 nil")
 	}
@@ -203,7 +189,6 @@ func TestSmartCSOrchestrator_AgentReply_NoSession(t *testing.T) {
 // TestSmartCSOrchestrator_IsAgentOnline 座席在线检查（nil repo 安全）
 func TestSmartCSOrchestrator_IsAgentOnline_NilRepo(t *testing.T) {
 	o := NewSmartCSOrchestrator(nil, nil)
-	// agentRepo 非 nil（NewSmartCSOrchestrator 会创建），但查询不存在的 agentID
 	if o.isAgentOnline(context.Background(), 99999) {
 		t.Error("不存在的座席应不在线")
 	}
@@ -279,7 +264,6 @@ func TestSmartCSOrchestrator_FindOrCreateSession_DerivesOneIDFromPlatformSender(
 		SenderID:  "visitor-007",
 		Content:   "你好",
 		MessageID: "msg-1",
-		// OneID 故意留空，验证 兜底
 	}
 	sess, err := o.findOrCreateSession(ctx, in)
 	if err != nil {
@@ -309,11 +293,10 @@ func TestSmartCSOrchestrator_FindOrCreateSession_GroupScoped(t *testing.T) {
 	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig())
 	ctx := context.Background()
 
-	// 第一次：成员张三在群 group-1 发消息 → 建群会话
 	in1 := &IncomingContext{
 		Platform:   model.Platform("xhs"),
 		AccountID:  "acct-1",
-		SenderID:   "group-1", // 群聊客户消息 sender_id 聚合为群 id
+		SenderID:   "group-1", 
 		SenderName: "张三",
 		Content:    "@客服 帮我查订单",
 		MessageID:  "g-msg-1",
@@ -336,7 +319,6 @@ func TestSmartCSOrchestrator_FindOrCreateSession_GroupScoped(t *testing.T) {
 		t.Fatalf("群名应作会话名: %q", sess1.UserName)
 	}
 
-	// 第二次：成员李四在同群发消息 → 应命中同一会话（群内成员共享群会话）
 	in2 := &IncomingContext{
 		Platform:   model.Platform("xhs"),
 		AccountID:  "acct-1",
@@ -391,7 +373,6 @@ func TestSmartCSOrchestrator_FindOrCreateSession_DerivedOneIDMergesSameUser(t *t
 	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig())
 	ctx := context.Background()
 
-	// 第一次：建会话（OneID 自动派生为 web:visitor-008）
 	first, err := o.findOrCreateSession(ctx, &IncomingContext{
 		Platform:  model.Platform("web"),
 		AccountID: "acct-1",
@@ -406,7 +387,6 @@ func TestSmartCSOrchestrator_FindOrCreateSession_DerivedOneIDMergesSameUser(t *t
 		t.Fatalf("派生 OneID 错误: got=%q", first.OneID)
 	}
 
-	// 第二次：同 SenderID 再次进入，应命中活跃会话（不新建）
 	second, err := o.findOrCreateSession(ctx, &IncomingContext{
 		Platform:  model.Platform("web"),
 		AccountID: "acct-1",
@@ -421,3 +401,4 @@ func TestSmartCSOrchestrator_FindOrCreateSession_DerivedOneIDMergesSameUser(t *t
 		t.Fatalf("应命中同一会话；first=%s second=%s", first.SessionID, second.SessionID)
 	}
 }
+

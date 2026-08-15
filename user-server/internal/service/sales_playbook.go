@@ -13,23 +13,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// ============================================================================
-// 商业产品级 销冠话术库 + 异议处理模板（Sales Champion Playbook）
-// ----------------------------------------------------------------------------
-// 商业市场需求（按真实销售场景）：
-//   销售每天要应对 50+ 客户的不同异议："太贵了" / "再考虑下" / "别家更便宜"。
-//   销冠 vs 普通销售的核心差距 = 异议处理能力 + 阶段匹配话术。
-//   闭门造车 vs 实际场景的差距：
-//     无话术库时：销售自己凭经验临场发挥，转化率 5-10%。
-//     沉淀销冠话术库，按"行业/产品/阶段/异议类型"四维匹配，
-//           销售一键调用 → 转化率提升至 25-35%。
-//
-// 关键能力：
-//   1. 话术库（Playbook）：按行业×产品×客户阶段组织的话术模板
-//   2. 异议处理（Objection Handling）：常见异议的标准应答
-//   3. 智能推荐：根据客户当前阶段+最近意图推荐最合适的话术
-//   4. 使用统计：记录每次调用，效果跟踪（客户最终是否转化）
-// ============================================================================
 
 // Industry 行业
 // 已迁移至 dto 包，此处保留类型别名以维持向后兼容
@@ -69,10 +52,8 @@ type PlaybookEntry = dto.PlaybookEntry
 type PlaybookService struct {
 	mu sync.RWMutex
 
-	// 话术库
 	entries map[string]*PlaybookEntry
 
-	// 索引（加速查询）
 	byIndustry  map[Industry][]*PlaybookEntry
 	byStage     map[JourneyStage][]*PlaybookEntry
 	byObjection map[ObjectionType][]*PlaybookEntry
@@ -86,7 +67,6 @@ func NewPlaybookService() *PlaybookService {
 		byStage:     make(map[JourneyStage][]*PlaybookEntry),
 		byObjection: make(map[ObjectionType][]*PlaybookEntry),
 	}
-	// 预置基础话术（开箱即用）
 	s.seedDefaults(context.Background())
 	return s
 }
@@ -111,10 +91,9 @@ func (s *PlaybookService) Add(ctx context.Context, entry *PlaybookEntry) (*Playb
 		entry.CreatedAt = time.Now()
 	}
 	entry.UpdatedAt = time.Now()
-	// 系统预设话术默认带一些使用数据，便于冷启动排序
 	if entry.CreatedBy == "系统预设" && entry.UseCount == 0 {
 		entry.UseCount = 5
-		entry.SuccessCount = 3 // 60% 成功率
+		entry.SuccessCount = 3 
 	}
 	s.entries[entry.ID] = entry
 	s.byIndustry[entry.Industry] = append(s.byIndustry[entry.Industry], entry)
@@ -140,7 +119,6 @@ func (s *PlaybookService) Recommend(ctx context.Context, req PlaybookQuery) []*P
 	candidates := make([]*PlaybookEntry, 0)
 	seen := make(map[string]bool)
 
-	// 1) 精确匹配：industry+stage+objection
 	for _, e := range s.entries {
 		if req.Industry != "" && e.Industry != req.Industry {
 			continue
@@ -151,7 +129,6 @@ func (s *PlaybookService) Recommend(ctx context.Context, req PlaybookQuery) []*P
 		if req.Objection != "" && e.Objection != req.Objection {
 			continue
 		}
-		// 产品匹配（如果指定）
 		if req.ProductID != "" && e.ProductID != "" && e.ProductID != req.ProductID {
 			continue
 		}
@@ -161,19 +138,15 @@ func (s *PlaybookService) Recommend(ctx context.Context, req PlaybookQuery) []*P
 		}
 	}
 
-	// 2) 按使用成功率排序
 	sort.Slice(candidates, func(i, j int) bool {
-		// 优先：成功率高的（SuccessCount/UseCount）
 		rateI := successRate(candidates[i])
 		rateJ := successRate(candidates[j])
 		if rateI != rateJ {
 			return rateI > rateJ
 		}
-		// 次之：使用次数多的（更多数据）
 		return candidates[i].UseCount > candidates[j].UseCount
 	})
 
-	// 3) 限制返回数量
 	limit := req.Limit
 	if limit <= 0 {
 		limit = 5
@@ -187,7 +160,6 @@ func (s *PlaybookService) Recommend(ctx context.Context, req PlaybookQuery) []*P
 // RecommendForResponse 根据销售响应推荐（智能场景）
 // 商业产品级业务流：销售点击"获取建议"按钮，系统根据当前客户阶段+最近意图推荐话术
 func (s *PlaybookService) RecommendForResponse(ctx context.Context, industry Industry, productID string, stage JourneyStage, intent string) []*PlaybookEntry {
-	// 1) 推断异议类型
 	objection := inferObjectionFromIntent(intent)
 	return s.Recommend(ctx, PlaybookQuery{
 		Industry:  industry,
@@ -275,11 +247,9 @@ func (s *PlaybookService) List(ctx context.Context, industry Industry, stage Jou
 // seedDefaults 预置基础话术（开箱即用）
 // 商业产品级：每个行业 × 每个阶段 × 常见异议 都有默认话术
 func (s *PlaybookService) seedDefaults(ctx context.
-	// === 医美 行业 ===
 	Context) {
 
 	medicalBeautyDefaults := []*PlaybookEntry{
-		// 开场/破冰
 		{
 			Industry:  IndustryMedicalBeauty,
 			Stage:     StageStranger,
@@ -288,7 +258,6 @@ func (s *PlaybookService) seedDefaults(ctx context.
 			Tags:      []string{"破冰", "开场"},
 			CreatedBy: "系统预设",
 		},
-		// 留资后
 		{
 			Industry:  IndustryMedicalBeauty,
 			Stage:     StageLead,
@@ -297,7 +266,6 @@ func (s *PlaybookService) seedDefaults(ctx context.
 			Tags:      []string{"首次回访", "约面诊"},
 			CreatedBy: "系统预设",
 		},
-		// 价格异议
 		{
 			Industry:  IndustryMedicalBeauty,
 			Stage:     StageInterested,
@@ -308,7 +276,6 @@ func (s *PlaybookService) seedDefaults(ctx context.
 			Tags:      []string{"价格异议", "异议处理"},
 			CreatedBy: "系统预设",
 		},
-		// 信任异议
 		{
 			Industry:  IndustryMedicalBeauty,
 			Stage:     StageContact,
@@ -318,7 +285,6 @@ func (s *PlaybookService) seedDefaults(ctx context.
 			Tags:      []string{"信任异议", "安全"},
 			CreatedBy: "系统预设",
 		},
-		// 逼单
 		{
 			Industry:  IndustryMedicalBeauty,
 			Stage:     StageQuoted,
@@ -327,7 +293,6 @@ func (s *PlaybookService) seedDefaults(ctx context.
 			Tags:      []string{"逼单", "限时优惠"},
 			CreatedBy: "系统预设",
 		},
-		// 决策权异议
 		{
 			Industry:  IndustryMedicalBeauty,
 			Stage:     StageQuoted,
@@ -337,7 +302,6 @@ func (s *PlaybookService) seedDefaults(ctx context.
 			Tags:      []string{"决策权异议", "带家人"},
 			CreatedBy: "系统预设",
 		},
-		// 时间异议（再考虑下）在 StageQuoted
 		{
 			Industry:  IndustryMedicalBeauty,
 			Stage:     StageQuoted,
@@ -352,7 +316,6 @@ func (s *PlaybookService) seedDefaults(ctx context.
 		_, _ = s.Add(ctx, e)
 	}
 
-	// === 教培 行业 ===
 	educationDefaults := []*PlaybookEntry{
 		{
 			Industry:  IndustryEducation,
@@ -393,7 +356,6 @@ func (s *PlaybookService) seedDefaults(ctx context.
 		_, _ = s.Add(ctx, e)
 	}
 
-	// === 电商 行业 ===
 	ecommerceDefaults := []*PlaybookEntry{
 		{
 			Industry:  IndustryEcommerce,
@@ -425,7 +387,6 @@ func (s *PlaybookService) seedDefaults(ctx context.
 		_, _ = s.Add(ctx, e)
 	}
 
-	// === 房产 行业 ===
 	realEstateDefaults := []*PlaybookEntry{
 		{
 			Industry:  IndustryRealEstate,
@@ -476,7 +437,6 @@ func (s *PlaybookService) seedDefaults(ctx context.
 		_, _ = s.Add(ctx, e)
 	}
 
-	// === 汽车 行业 ===
 	autoDefaults := []*PlaybookEntry{
 		{
 			Industry:  IndustryAuto,
@@ -527,7 +487,6 @@ func (s *PlaybookService) seedDefaults(ctx context.
 		_, _ = s.Add(ctx, e)
 	}
 
-	// === 金融 行业 ===
 	financeDefaults := []*PlaybookEntry{
 		{
 			Industry:  IndustryFinance,
@@ -569,7 +528,6 @@ func (s *PlaybookService) seedDefaults(ctx context.
 		_, _ = s.Add(ctx, e)
 	}
 
-	// === B2B 行业 ===
 	b2bDefaults := []*PlaybookEntry{
 		{
 			Industry:  IndustryB2B,
@@ -638,7 +596,6 @@ func (s *PlaybookService) seedDefaults(ctx context.
 		_, _ = s.Add(ctx, e)
 	}
 
-	// === 通用异议处理（跨行业） ===
 	commonDefaults := []*PlaybookEntry{
 		{
 			Stage:     StageInterested,
@@ -682,3 +639,4 @@ func (s *PlaybookService) FormatPlaybook(ctx context.Context, e *PlaybookEntry) 
 	}
 	return sb.String()
 }
+

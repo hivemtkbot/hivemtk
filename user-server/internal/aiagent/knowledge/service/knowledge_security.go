@@ -31,3 +31,4 @@ func stripHTML(html string) string {
 func stripBetween(s, start, end string) string {
 	return text.StripBetween(s, start, end)
 }
+

@@ -7,3 +7,4 @@ func setupGinEngine() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	return gin.New()
 }
+

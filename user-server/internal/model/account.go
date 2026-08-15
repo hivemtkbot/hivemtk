@@ -32,3 +32,4 @@ func (a *Account) BeforeCreate(tx *gorm.DB) error {
 	a.ID = uuid.New().String()
 	return nil
 }
+

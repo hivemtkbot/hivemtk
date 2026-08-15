@@ -125,7 +125,6 @@ func TestLiveCode_BeforeCreate_GeneratesID(t *testing.T) {
 		Name: "Test Live Code",
 	}
 
-	// BeforeCreate should generate an ID if empty
 	err := liveCode.BeforeCreate(nil)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -149,3 +148,4 @@ func TestLiveCode_BeforeCreate_NoChangeIfExists(t *testing.T) {
 		t.Errorf("Expected ID to remain 'existing-id', got %s", liveCode.ID)
 	}
 }
+

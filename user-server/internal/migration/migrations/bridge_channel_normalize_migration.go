@@ -1,17 +1,5 @@
 package migrations
 
-// bridge_channel_normalize_migration.go 归一化旧 bridge channel 数据
-//
-// 背景：早期 bridge 扩展上报的 channel 值可能使用基础渠道名（douyin/xhs/tiktok/xianyu）
-// 而非桥接渠道名（douyin_web/xhs_web/tiktok_web/xianyu_web），导致：
-//   - 前端 getChannelLabel 无法正确映射（返回原始值如 "douyin" 而非 "抖音"）
-//   - webhook 出站 switch 匹配不到桥接渠道，AI 回复被静默丢弃
-//   - channel_agent_bindings 查询不到对应绑定
-//
-// 本迁移将以下表中的旧基础渠道值归一化为桥接渠道值：
-//   - bridge_accounts.channel
-//   - channel_agent_bindings.channel_type
-//   - message_hub.channel（仅当 Extra 包含 bridge:true 标记时）
 
 import (
 	"context"
@@ -53,10 +41,6 @@ func (m *BridgeChannelNormalizeMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 1) bridge_accounts.channel: douyin -> douyin_web 等
-	//    唯一约束 uk_bridge_ch_acc(channel, account_id) 可能已存在新旧值并存的脏数据
-	//    （如同一账号同时有 douyin 与 douyin_web），直接 UPDATE 会 duplicate key 致整批迁移中止。
-	//    故先删除会与目标值冲突的 base 行（保留 bridge 行即规范值），再归一化剩余 base 行。
 	for base, bridge := range baseToBridge {
 		del := m.db.WithContext(ctx).
 			Exec(`DELETE FROM bridge_accounts WHERE channel = $1 AND EXISTS (SELECT 1 FROM bridge_accounts b2 WHERE b2.account_id = bridge_accounts.account_id AND b2.channel = $2)`, base, bridge)
@@ -78,7 +62,6 @@ func (m *BridgeChannelNormalizeMigration) Up(ctx context.Context) error {
 		}
 	}
 
-	// 2) channel_agent_bindings.channel_type: 同理（唯一约束可能为 (channel_type, account_id)）
 	for base, bridge := range baseToBridge {
 		del := m.db.WithContext(ctx).
 			Exec(`DELETE FROM channel_agent_bindings WHERE channel_type = $1 AND EXISTS (SELECT 1 FROM channel_agent_bindings b2 WHERE b2.account_id = channel_agent_bindings.account_id AND b2.channel_type = $2)`, base, bridge)
@@ -100,8 +83,6 @@ func (m *BridgeChannelNormalizeMigration) Up(ctx context.Context) error {
 		}
 	}
 
-	// 3) message_hub: 仅处理 bridge 来源的消息（Extra 包含 bridge:true）
-	//    注意：message_hub 的渠道字段为 platform（无 channel 列），此处用 platform 归一化。
 	for base, bridge := range baseToBridge {
 		result := m.db.WithContext(ctx).
 			Exec(`UPDATE message_hub SET platform = ? WHERE platform = ? AND extra::text LIKE '%"bridge":true%'`, bridge, base)
@@ -117,8 +98,6 @@ func (m *BridgeChannelNormalizeMigration) Up(ctx context.Context) error {
 }
 
 func (m *BridgeChannelNormalizeMigration) Down(ctx context.Context) error {
-	// 回滚：bridge -> base（反向映射）
-	// 注意：tiktok 不再需要回滚（bridge 渠道直接使用 tiktok）
 	bridgeToBase := map[string]string{
 		"douyin_web":   "douyin",
 		"xhs_web":      "xhs",
@@ -135,3 +114,4 @@ func (m *BridgeChannelNormalizeMigration) Down(ctx context.Context) error {
 }
 
 var _ migration.Migration = (*BridgeChannelNormalizeMigration)(nil)
+

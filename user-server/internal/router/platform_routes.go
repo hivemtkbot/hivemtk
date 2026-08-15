@@ -25,11 +25,9 @@ func setupWhatsappRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	auth.GET("/whatsapp/jobs", whatsappCtrl.ListJobs)
 	auth.GET("/whatsapp/jobs/:id", whatsappCtrl.GetJob)
 	auth.DELETE("/whatsapp/jobs/:id", whatsappCtrl.DeleteJob)
-	// 前端兼容路由
 	auth.POST("/whatsapp/accounts/:id/login/start", whatsappCtrl.StartLogin)
 	auth.GET("/whatsapp/accounts/:id/login/status", whatsappCtrl.LoginStatus)
 
-	// WhatsApp 群发消息功能
 	whatsappGroupMsgCtrl := controller.NewGroupMessagingController(
 		whatsappCtrl.GetService(),
 		service.NewClueService(),
@@ -79,10 +77,9 @@ func setupDingTalkAppRoutes(auth *gin.RouterGroup, dingtalkAppSvc *service.DingT
 
 // setupTiktokRoutes TikTok 管理路由
 func setupTiktokRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
-	// TikTok 卡片管理
-	// 五层架构：service 由 router 层注入，controller 不再 import repository / db
 	tiktokCardCtrl := controller.NewTikTokCardController(
 		service.NewTikTokCardServiceWithDB(gormDB),
 	)
 	tiktokCardCtrl.RegisterRoutes(auth)
 }
+

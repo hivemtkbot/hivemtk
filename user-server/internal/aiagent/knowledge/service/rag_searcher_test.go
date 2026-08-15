@@ -34,7 +34,6 @@ func TestRagSearcher_RealVectorSearch(t *testing.T) {
 		t.Fatalf("DB 未初始化")
 	}
 
-	// 预置向量化知识分片（使用与检索查询相同的 embedding service/config，确保同一向量空间）
 	seed := []struct {
 		productID string
 		content   string
@@ -65,7 +64,6 @@ func TestRagSearcher_RealVectorSearch(t *testing.T) {
 		}
 	}
 
-	// inGoBest 计算 query 与各分片的 in-Go 余弦相似度，返回最相似分片，作为 pgvector 正确性的基准。
 	inGoBest := func(qVec []float32) (string, float64) {
 		best, bestSim := "", -1.0
 		for _, item := range seed {
@@ -77,11 +75,6 @@ func TestRagSearcher_RealVectorSearch(t *testing.T) {
 		return best, bestSim
 	}
 
-	// checkVectorSearch 直接校验底层 pgvector 余弦相似度召回（绕过 RRF/rerank 融合）。
-	//
-	// HybridSearcher.Search 返回的 Score 是 RRF 融合分数（k=60，范围 0~2/60≈0.033），
-	// 不是余弦相似度，不能用于 >=0.5 断言。这里直接调用 vectorSearch（其 Score = 1 - (embedding <=> $1)，
-	// 即真实余弦相似度）来验证 pgvector 存储/计算无误。
 	checkVectorSearch := func(t *testing.T, query, keyword string) {
 		qVec, err := s.embeddingService.EmbedOne(ctx, s.embeddingService.DefaultConfig(), query)
 		if err != nil {
@@ -98,16 +91,13 @@ func TestRagSearcher_RealVectorSearch(t *testing.T) {
 		}
 		top := rows[0]
 
-		// (1) pgvector 的 Top1 必须与 in-Go 余弦最相似分片一致（召回顺序正确）
 		if top.row.Content != best {
 			t.Errorf("pgvector Top1=%q 与 in-Go 最相似分片=%q 不一致", top.row.Content, best)
 		}
-		// (2) pgvector 计算的余弦相似度必须与 in-Go 直接计算结果一致（容忍浮点误差，排除存储/计算 bug）
 		want := cosineSim(qVec, seedVecs[top.row.Content])
 		if d := top.score - want; d > 0.05 || d < -0.05 {
 			t.Errorf("pgvector 余弦相似度=%.4f 与 in-Go=%.4f 偏差过大", top.score, want)
 		}
-		// (3) 相似度必须为正的合理值（排除正交/零向量 bug）
 		if top.score < 0.2 {
 			t.Errorf("Top1 余弦相似度过低: %.4f (期望 >= 0.2, in-Go=%.4f)", top.score, bestSim)
 		}
@@ -125,7 +115,6 @@ func TestRagSearcher_RealVectorSearch(t *testing.T) {
 		checkVectorSearch(t, "多久能发货", "发货")
 	})
 
-	// 公共 Search 接口（走 HybridSearcher RRF 融合）也应返回相关内容（仅校验内容相关性，不校验 Score 量纲）
 	t.Run("公共Search返回相关内容", func(t *testing.T) {
 		chunks, err := s.Search(ctx, "你们支持几天无理由退货", 3)
 		if err != nil {
@@ -196,3 +185,4 @@ func cosineSim(a, b []float32) float64 {
 	}
 	return dot / (math.Sqrt(na) * math.Sqrt(nb))
 }
+

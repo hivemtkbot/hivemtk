@@ -29,7 +29,6 @@ func (s *AIToolConfigService) ListTools(category string, enabled *bool, page, pa
 		return nil, err
 	}
 
-	// 加载绑定信息
 	result := make([]model.AIToolWithBinding, 0, len(tools))
 	for _, tool := range tools {
 		bindings, _ := s.bindingRepo.ListByTool(tool.ToolName)
@@ -84,7 +83,6 @@ func (s *AIToolConfigService) BindAccount(toolName, accountType, accountID strin
 		Enabled:     true,
 	}
 
-	// 如果设置为主账号，先取消其他主账号
 	if isPrimary {
 		if err := s.bindingRepo.SetPrimary(toolName, accountType, accountID); err != nil {
 			return err
@@ -109,3 +107,4 @@ func (s *AIToolConfigService) GetStats() (*model.AIToolStats, error) {
 		SuccessRate: float64(enabled) / float64(total),
 	}, nil
 }
+

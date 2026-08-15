@@ -125,7 +125,6 @@ func TestXianyuCard_EngagementMetrics(t *testing.T) {
 		LikeCount:  3000,
 	}
 
-	// Verify metric relationships
 	if card.ViewCount < card.ClickCount {
 		t.Error("Expected ViewCount to be >= ClickCount")
 	}
@@ -164,3 +163,4 @@ func TestXianyuCard_WithHighCounts(t *testing.T) {
 		t.Errorf("Expected ViewCount 1000000, got %d", card.ViewCount)
 	}
 }
+

@@ -1,11 +1,5 @@
 package dto
 
-// humanize.go 拟人度评估器数据传输对象
-//
-// 五层架构归属: L2 网关/L3 业务 之间的传输层
-// 设计依据: docs/核心链路优化.md 第十六章 §16.4.1
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import "time"
 
@@ -13,11 +7,11 @@ import "time"
 type HumanizeDimension string
 
 const (
-	HumanizeDimNaturalness     HumanizeDimension = "naturalness"     // 自然度：口语化、无 AI 痕迹、句长变化
-	HumanizeDimConciseness     HumanizeDimension = "conciseness"     // 简洁性：字数与意图匹配
-	HumanizeDimEmpathy         HumanizeDimension = "empathy"         // 共情度：是否共情客户情绪
-	HumanizeDimProfessionalism HumanizeDimension = "professionalism" // 专业度：行业专业词密度
-	HumanizeDimPersuasiveness  HumanizeDimension = "persuasiveness"  // 说服力：行动召唤、推进交易
+	HumanizeDimNaturalness     HumanizeDimension = "naturalness"     
+	HumanizeDimConciseness     HumanizeDimension = "conciseness"     
+	HumanizeDimEmpathy         HumanizeDimension = "empathy"         
+	HumanizeDimProfessionalism HumanizeDimension = "professionalism" 
+	HumanizeDimPersuasiveness  HumanizeDimension = "persuasiveness"  
 )
 
 // AllHumanizeDimensions 全部 5 维度（遍历用）
@@ -61,7 +55,7 @@ type HumanizeEvalInput struct {
 // HumanizeDimensionScore 单维度得分
 type HumanizeDimensionScore struct {
 	Dimension HumanizeDimension `json:"dimension"`
-	Score     float64           `json:"score"` // 0-1
+	Score     float64           `json:"score"` 
 	Reason    string            `json:"reason,omitempty"`
 }
 
@@ -74,8 +68,8 @@ type HumanizeEvalResult struct {
 	AttemptCount       int                      `json:"attempt_count,omitempty"`
 	FinalReply         string                   `json:"final_reply,omitempty"`
 	AllReplies         []string                 `json:"all_replies,omitempty"`
-	SampleStrategy     string                   `json:"sample_strategy,omitempty"` // full / boundary / sampled / sampled_monitor
-	EvaluatorType      string                   `json:"evaluator_type,omitempty"`  // rule / llm / hybrid
+	SampleStrategy     string                   `json:"sample_strategy,omitempty"` 
+	EvaluatorType      string                   `json:"evaluator_type,omitempty"`  
 	LLMModel           string                   `json:"llm_model,omitempty"`
 	LLMLatencyMs       int                      `json:"llm_latency_ms,omitempty"`
 	Input              *HumanizeEvalInput       `json:"input,omitempty"`
@@ -110,11 +104,11 @@ type ABTestStatsResult struct {
 	MannWhitneyU    float64 `json:"mann_whitney_u"`
 	MannWhitneyP    float64 `json:"mann_whitney_p"`
 	CohensD         float64 `json:"cohens_d"`
-	EffectSizeLabel string  `json:"effect_size_label"` // negligible/small/medium/large
+	EffectSizeLabel string  `json:"effect_size_label"` 
 	BootstrapCILow  float64 `json:"bootstrap_ci_low"`
 	BootstrapCIHigh float64 `json:"bootstrap_ci_high"`
 	Significant     bool    `json:"significant"`
-	Winner          string  `json:"winner"` // control / treatment / inconclusive
+	Winner          string  `json:"winner"` 
 }
 
 // ChampionBaselineDTO 销冠基线 DTO（供 service 层使用，与 model.ChampionBaseline 解耦）
@@ -128,3 +122,4 @@ type ChampionBaselineDTO struct {
 	Professionalism float64 `json:"professionalism"`
 	Persuasiveness  float64 `json:"persuasiveness"`
 }
+

@@ -1,20 +1,5 @@
 package migrations
 
-// rag_hybrid_migration.go RAG 混合检索 SQL 迁移 v2.7.0
-//
-// 五层架构归属: L5 数据层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.3 表结构设计
-// 私域独立部署: 无 merchant_id 字段
-//
-// 本迁移补充 RAG 混合检索所需的数据库基础设施：
-//  1. knowledge_chunks 表增强（tsvector 列 + 索引 + 触发器）
-//  2. query_rewrite_cache 表（查询改写缓存，HyDE/Multi-Query 结果持久化）
-//  3. embedding_cache 表（embedding 结果持久化缓存，避免重复 TEI 调用）
-//  4. knowledge_search_logs 表增强（混合检索各阶段延迟/计数）
-//  5. zhparser 扩展（中文 BM25 分词）
-//
-// 幂等性: 所有 DDL 使用 IF NOT EXISTS / IF NOT EXISTS，可重入
-// 依赖: v2.6.0（KnowledgeVectorMigration，knowledge_chunks.embedding 列已存在）
 
 import (
 	"context"
@@ -53,38 +38,30 @@ func (m *RagHybridMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 0) 安装 pgcrypto 扩展（触发器中 digest() 函数依赖，必须先于 enhanceKnowledgeChunks 安装）
 	if err := m.installPgcrypto(ctx); err != nil {
 		logger.Infof("[RagHybridMigration] pgcrypto 扩展安装提示（content_hash 自动维护将不可用）: %v", err)
 	}
 
-	// 1) 安装 zhparser 扩展（中文分词）
 	if err := m.installZhparser(ctx); err != nil {
-		// zhparser 安装失败不阻断迁移（生产环境镜像已预装，开发环境可用 simple 配置兜底）
 		logger.Infof("[RagHybridMigration] zhparser 扩展安装提示（可忽略，将用 simple 兜底）: %v", err)
 	}
 
-	// 2) 创建 zh_rag 文本搜索配置（基于 zhparser）
 	if err := m.createZhRagConfig(ctx); err != nil {
 		logger.Infof("[RagHybridMigration] zh_rag 配置创建提示: %v", err)
 	}
 
-	// 3) knowledge_chunks 表增强
 	if err := m.enhanceKnowledgeChunks(ctx); err != nil {
 		return fmt.Errorf("enhance knowledge_chunks 失败: %w", err)
 	}
 
-	// 4) query_rewrite_cache 表
 	if err := m.createQueryRewriteCache(ctx); err != nil {
 		return fmt.Errorf("create query_rewrite_cache 失败: %w", err)
 	}
 
-	// 5) embedding_cache 表
 	if err := m.createEmbeddingCache(ctx); err != nil {
 		return fmt.Errorf("create embedding_cache 失败: %w", err)
 	}
 
-	// 6) knowledge_search_logs 表增强
 	if err := m.enhanceKnowledgeSearchLogs(ctx); err != nil {
 		return fmt.Errorf("enhance knowledge_search_logs 失败: %w", err)
 	}
@@ -135,10 +112,9 @@ func (m *RagHybridMigration) createZhRagConfig(ctx context.Context) error {
 	if err := m.db.WithContext(ctx).Raw(
 		`SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'zhparser')`,
 	).Scan(&installed).Error; err != nil || !installed {
-		return nil // zhparser 未安装时跳过，BM25Retriever 会用 simple 兜底
+		return nil 
 	}
 
-	// 创建配置（幂等：CREATE TEXT SEARCH CONFIGURATION 不支持 IF NOT EXISTS，用 DO 块）
 	stmt := `
 		DO $$
 		BEGIN
@@ -172,7 +148,6 @@ func (m *RagHybridMigration) createZhRagConfig(ctx context.Context) error {
 // 新增触发器:
 //   - knowledge_chunks_tsv_update（INSERT/UPDATE 时自动维护 content_tsv / contextual_tsv）
 func (m *RagHybridMigration) enhanceKnowledgeChunks(ctx context.Context) error {
-	// 新增列（幂等）
 	stmts := []string{
 		`ALTER TABLE knowledge_chunks ADD COLUMN IF NOT EXISTS content_tsv tsvector`,
 		`ALTER TABLE knowledge_chunks ADD COLUMN IF NOT EXISTS contextual_context text`,
@@ -186,7 +161,6 @@ func (m *RagHybridMigration) enhanceKnowledgeChunks(ctx context.Context) error {
 		}
 	}
 
-	// 新增索引（幂等）
 	indexes := []string{
 		`CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_content_hash ON knowledge_chunks(content_hash)`,
 		`CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding_id ON knowledge_chunks(embedding_id)`,
@@ -200,9 +174,6 @@ func (m *RagHybridMigration) enhanceKnowledgeChunks(ctx context.Context) error {
 		}
 	}
 
-	// 触发器（幂等：DROP IF EXISTS + CREATE）
-	// content_tsv: 优先用 zh_rag 配置（若存在），否则用 simple
-	// contextual_tsv: 同上，但基于 contextual_context || ' ' || content
 	triggerStmt := `
 		DROP TRIGGER IF EXISTS knowledge_chunks_tsv_update ON knowledge_chunks;
 
@@ -232,7 +203,6 @@ func (m *RagHybridMigration) enhanceKnowledgeChunks(ctx context.Context) error {
 		return fmt.Errorf("create trigger failed: %w", err)
 	}
 
-	// 一次性回填存量 chunk 的 tsvector（不阻塞迁移完成；大表可异步执行）
 	backfill := `
 		UPDATE knowledge_chunks
 		SET content_tsv = CASE
@@ -247,7 +217,7 @@ func (m *RagHybridMigration) enhanceKnowledgeChunks(ctx context.Context) error {
 		END
 		WHERE content_tsv IS NULL
 	`
-	_ = m.db.WithContext(ctx).Exec(backfill).Error // best-effort
+	_ = m.db.WithContext(ctx).Exec(backfill).Error 
 
 	return nil
 }
@@ -297,8 +267,6 @@ func (m *RagHybridMigration) createEmbeddingCache(ctx context.Context) error {
 		}
 	}
 
-	// pgcrypto 已在 Up() 开头通过 installPgcrypto 安装（content_hash 触发器依赖）
-	// 此处不再重复安装
 
 	stmt := `
 		CREATE TABLE IF NOT EXISTS embedding_cache (
@@ -336,7 +304,6 @@ func (m *RagHybridMigration) enhanceKnowledgeSearchLogs(ctx context.Context) err
 		return err
 	}
 	if !tableExists {
-		// 表不存在时创建（首次部署）
 		stmt := `
 			CREATE TABLE knowledge_search_logs (
 				id                  BIGSERIAL PRIMARY KEY,
@@ -361,7 +328,6 @@ func (m *RagHybridMigration) enhanceKnowledgeSearchLogs(ctx context.Context) err
 		return m.db.WithContext(ctx).Exec(stmt).Error
 	}
 
-	// 表已存在时增加列（幂等）
 	stmts := []string{
 		`ALTER TABLE knowledge_search_logs ADD COLUMN IF NOT EXISTS vector_count INT DEFAULT 0`,
 		`ALTER TABLE knowledge_search_logs ADD COLUMN IF NOT EXISTS bm25_count INT DEFAULT 0`,
@@ -379,7 +345,6 @@ func (m *RagHybridMigration) enhanceKnowledgeSearchLogs(ctx context.Context) err
 	for _, sql := range stmts {
 		_ = m.db.WithContext(ctx).Exec(sql).Error
 	}
-	// 新增索引（幂等）
 	_ = m.db.WithContext(ctx).Exec(`CREATE INDEX IF NOT EXISTS idx_knowledge_search_logs_created ON knowledge_search_logs(created_at)`).Error
 	_ = m.db.WithContext(ctx).Exec(`CREATE INDEX IF NOT EXISTS idx_knowledge_search_logs_product ON knowledge_search_logs(product_id)`).Error
 	return nil
@@ -392,11 +357,9 @@ func (m *RagHybridMigration) enhanceKnowledgeSearchLogs(ctx context.Context) err
 //   - 删除 query_rewrite_cache / embedding_cache 缓存表（仅缓存数据，可重建）
 //   - 不删除 knowledge_search_logs 表（历史监控数据）
 func (m *RagHybridMigration) Down(ctx context.Context) error {
-	// 删除触发器
 	_ = m.db.WithContext(ctx).Exec(`DROP TRIGGER IF EXISTS knowledge_chunks_tsv_update ON knowledge_chunks`).Error
 	_ = m.db.WithContext(ctx).Exec(`DROP FUNCTION IF EXISTS knowledge_chunks_tsv_trigger()`).Error
 
-	// 删除索引（按名称幂等删除）
 	indexes := []string{
 		`DROP INDEX IF EXISTS idx_knowledge_chunks_content_hash`,
 		`DROP INDEX IF EXISTS idx_knowledge_chunks_embedding_id`,
@@ -408,7 +371,6 @@ func (m *RagHybridMigration) Down(ctx context.Context) error {
 		_ = m.db.WithContext(ctx).Exec(sql).Error
 	}
 
-	// 删除 knowledge_chunks 新增列
 	cols := []string{
 		`ALTER TABLE knowledge_chunks DROP COLUMN IF EXISTS content_tsv`,
 		`ALTER TABLE knowledge_chunks DROP COLUMN IF EXISTS contextual_context`,
@@ -420,7 +382,6 @@ func (m *RagHybridMigration) Down(ctx context.Context) error {
 		_ = m.db.WithContext(ctx).Exec(sql).Error
 	}
 
-	// 删除缓存表
 	_ = m.db.WithContext(ctx).Exec(`DROP TABLE IF EXISTS query_rewrite_cache`).Error
 	_ = m.db.WithContext(ctx).Exec(`DROP TABLE IF EXISTS embedding_cache`).Error
 
@@ -429,3 +390,4 @@ func (m *RagHybridMigration) Down(ctx context.Context) error {
 
 // compile-time 接口断言
 var _ migration.Migration = (*RagHybridMigration)(nil)
+

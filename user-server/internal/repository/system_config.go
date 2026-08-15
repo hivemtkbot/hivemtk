@@ -12,9 +12,7 @@ import (
 type SystemConfigRepository interface {
 	GetConfig(ctx context.Context) (*model.SystemConfig, error)
 	SaveConfig(ctx context.Context, config *model.SystemConfig) (*model.SystemConfig, error)
-	// CountUsers 统计系统用户数
 	CountUsers(ctx context.Context) (int64, error)
-	// PingDB 检查数据库连通性
 	PingDB(ctx context.Context) bool
 }
 
@@ -55,3 +53,4 @@ func (r *systemConfigRepo) CountUsers(ctx context.Context) (int64, error) {
 func (r *systemConfigRepo) PingDB(ctx context.Context) bool {
 	return r.db.WithContext(ctx).Exec("SELECT 1").Error == nil
 }
+

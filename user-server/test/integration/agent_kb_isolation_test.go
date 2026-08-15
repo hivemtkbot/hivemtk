@@ -37,7 +37,6 @@ func setupIsolationDB(t *testing.T) *gorm.DB {
 		&model.KnowledgeBase{},
 		&model.AgentKBBinding{},
 	)
-	// 清表
 	for _, tbl := range []string{"agent_kb_bindings", "knowledge_bases"} {
 		if err := db.Exec(fmt.Sprintf("TRUNCATE TABLE %s RESTART IDENTITY CASCADE", tbl)).Error; err != nil {
 			t.Fatalf("truncate %s: %v", tbl, err)
@@ -58,9 +57,6 @@ func newIsolationSetup(t *testing.T, db *gorm.DB) (*service.KnowledgeBaseService
 	return kbSvc, bindSvc
 }
 
-// ----------------------------------------------------------------------------
-// 隔离测试用例
-// ----------------------------------------------------------------------------
 
 // TestIsolation_PrivateKB_NotVisibleToOtherAgent 验证私有 KB 严格隔离
 //
@@ -73,7 +69,6 @@ func TestIsolation_PrivateKB_NotVisibleToOtherAgent(t *testing.T) {
 	ctx := context.Background()
 	kbSvc, _ := newIsolationSetup(t, db)
 
-	// 1. agent1 创建 private KB
 	agent1 := uint(101)
 	kb1 := &model.KnowledgeBase{
 		KBCode:       "KB-FAQ-AGENT1-PRI",
@@ -87,7 +82,6 @@ func TestIsolation_PrivateKB_NotVisibleToOtherAgent(t *testing.T) {
 		t.Fatalf("create private kb for agent1: %v", err)
 	}
 
-	// 2. agent2 创建 private KB
 	agent2 := uint(202)
 	kb2 := &model.KnowledgeBase{
 		KBCode:       "KB-FAQ-AGENT2-PRI",
@@ -101,7 +95,6 @@ func TestIsolation_PrivateKB_NotVisibleToOtherAgent(t *testing.T) {
 		t.Fatalf("create private kb for agent2: %v", err)
 	}
 
-	// 3. agent1 列出自己的 KB, 应只有 1 条
 	got1, err := kbSvc.ListByAgent(ctx, agent1)
 	if err != nil {
 		t.Fatalf("ListByAgent(agent1): %v", err)
@@ -113,7 +106,6 @@ func TestIsolation_PrivateKB_NotVisibleToOtherAgent(t *testing.T) {
 		t.Errorf("agent1's KB mismatch: got %q", got1[0].KBCode)
 	}
 
-	// 4. agent2 列出自己的 KB, 应只有 1 条 (隔离验证)
 	got2, err := kbSvc.ListByAgent(ctx, agent2)
 	if err != nil {
 		t.Fatalf("ListByAgent(agent2): %v", err)
@@ -148,7 +140,6 @@ func TestIsolation_PrivateKB_GetByID_OtherAgentShouldStillGetIt(t *testing.T) {
 	if err := kbSvc.CreateKB(ctx, kb1); err != nil {
 		t.Fatal(err)
 	}
-	// GetByID 不做 owner 校验, 是预期行为 (管理 API)
 	got, err := kbSvc.GetKB(ctx, kb1.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -171,7 +162,6 @@ func TestIsolation_SharedKB_NeedsBindingToBeUsed(t *testing.T) {
 	ctx := context.Background()
 	kbSvc, bindSvc := newIsolationSetup(t, db)
 
-	// 1. 创建 shared FAQ KB
 	sharedKB := &model.KnowledgeBase{
 		KBCode:    "KB-FAQ-SHARED",
 		Type:      model.KnowledgeBaseTypeFAQ,
@@ -186,7 +176,6 @@ func TestIsolation_SharedKB_NeedsBindingToBeUsed(t *testing.T) {
 		t.Errorf("shared KB's owner_agent_id should be nil, got %v", *sharedKB.OwnerAgentID)
 	}
 
-	// 2. ListByAgent(任意智能体) 不应看到 shared KB (默认无 binding)
 	got1, err := kbSvc.ListByAgent(ctx, 999)
 	if err != nil {
 		t.Fatal(err)
@@ -195,7 +184,6 @@ func TestIsolation_SharedKB_NeedsBindingToBeUsed(t *testing.T) {
 		t.Errorf("expected no KB for unbound agent, got %d", len(got1))
 	}
 
-	// 3. agent1 显式 binding 后才能看到
 	if err := bindSvc.Bind(ctx, 1001, sharedKB.ID, 0); err != nil {
 		t.Fatalf("bind: %v", err)
 	}
@@ -207,7 +195,6 @@ func TestIsolation_SharedKB_NeedsBindingToBeUsed(t *testing.T) {
 		t.Errorf("expected 1 KB after binding, got %d", len(got2))
 	}
 
-	// 4. agent2 没 binding 仍然看不到
 	got3, err := kbSvc.ListByAgent(ctx, 1002)
 	if err != nil {
 		t.Fatal(err)
@@ -239,14 +226,12 @@ func TestIsolation_SharedKB_VisibleToAllBoundAgents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 5 个智能体全部 binding
 	for i := uint(1); i <= 5; i++ {
 		if err := bindSvc.Bind(ctx, i, sharedKB.ID, int(i)); err != nil {
 			t.Fatalf("bind agent%d: %v", i, err)
 		}
 	}
 
-	// 每个智能体都能看到
 	for i := uint(1); i <= 5; i++ {
 		got, err := kbSvc.ListByAgent(ctx, i)
 		if err != nil {
@@ -267,7 +252,6 @@ func TestIsolation_DeleteKB_CascadesBindings(t *testing.T) {
 	ctx := context.Background()
 	kbSvc, bindSvc := newIsolationSetup(t, db)
 
-	// 1. 创建 shared KB
 	kb := &model.KnowledgeBase{
 		KBCode:    "KB-SOP-SHARED",
 		Type:      model.KnowledgeBaseTypeSOP,
@@ -279,7 +263,6 @@ func TestIsolation_DeleteKB_CascadesBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 2. 3 个智能体 binding
 	for i := uint(1); i <= 3; i++ {
 		if err := bindSvc.Bind(ctx, i, kb.ID, 0); err != nil {
 			t.Fatalf("bind: %v", err)
@@ -292,7 +275,6 @@ func TestIsolation_DeleteKB_CascadesBindings(t *testing.T) {
 		t.Fatalf("expected 3 bindings, got %d", len(before))
 	}
 
-	// 3. 删除 KB, 应级联删 bindings
 	if err := kbSvc.DeleteKB(ctx, kb.ID); err != nil {
 		t.Fatalf("DeleteKB: %v", err)
 	}
@@ -327,13 +309,11 @@ func TestIsolation_PrivateKB_ReassignOwner_NotAllowed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// agent1 看到 1 条
 	got1, _ := kbSvc.ListByAgent(ctx, agent1)
 	if len(got1) != 1 {
 		t.Fatalf("expected 1 KB for agent1, got %d", len(got1))
 	}
 
-	// agent2 看到 0 条 (无 binding, 严格隔离)
 	got2, _ := kbSvc.ListByAgent(ctx, 2)
 	if len(got2) != 0 {
 		t.Errorf("expected 0 KB for agent2 (no binding), got %d", len(got2))
@@ -362,16 +342,13 @@ func TestIsolation_BindDuplicate_UpdatesPriority(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 第一次 bind priority=1
 	if err := bindSvc.Bind(ctx, agentID, kb.ID, 1); err != nil {
 		t.Fatal(err)
 	}
-	// 第二次 bind priority=99
 	if err := bindSvc.Bind(ctx, agentID, kb.ID, 99); err != nil {
 		t.Fatalf("repeat bind should not error: %v", err)
 	}
 
-	// 应只存在 1 条, priority=99
 	bindRepo := repository.NewAgentKBBindingRepository(db)
 	bindings, _ := bindRepo.ListByAgent(ctx, agentID, "")
 	if len(bindings) != 1 {
@@ -407,8 +384,6 @@ func TestIsolation_DisableKB_FilteredOut(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 工具函数
-// ----------------------------------------------------------------------------
 
 func boolPtr(b bool) *bool { return &b }
+

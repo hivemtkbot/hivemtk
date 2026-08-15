@@ -88,8 +88,6 @@ func ChatChannelAllowedOriginsList(c *model.ChatChannel) []string {
 type CreateChannelRequest struct {
 	ChannelName    string   `json:"channel_name" binding:"required,min=1,max=100"`
 	AllowedOrigins []string `json:"allowed_origins" binding:"required,min=1"`
-	// 私域部署修复：RagProduct.ID 是 string（UUID），改为字符串接收，
-	// 服务层再做 hash → uint 转换写入 DB，保证外部 API 友好（前端可直接传产品 UUID）。
 	DefaultRAGProductID string   `json:"default_rag_product_id"`
 	WelcomeMessage      string   `json:"welcome_message"`
 	WidgetColor         string   `json:"widget_color"`
@@ -97,7 +95,6 @@ type CreateChannelRequest struct {
 	WidgetTitle         string   `json:"widget_title"`
 	AutoAssign          *bool    `json:"auto_assign"`
 	ConfidenceThreshold *float64 `json:"confidence_threshold"`
-	// v1.2 出海多语言方案：渠道目标输出语言（空则退化到智能体配置）
 	TargetLanguage string `json:"target_language"`
 }
 
@@ -113,7 +110,6 @@ type UpdateChannelRequest struct {
 	Status              *string   `json:"status"`
 	AutoAssign          *bool     `json:"auto_assign"`
 	ConfidenceThreshold *float64  `json:"confidence_threshold"`
-	// v1.2 出海多语言方案：渠道目标输出语言（传空串清空，nil 不更新）
 	TargetLanguage *string `json:"target_language"`
 }
 
@@ -121,7 +117,7 @@ type UpdateChannelRequest struct {
 type ChannelCreateResult struct {
 	Channel   *model.ChatChannel `json:"channel"`
 	AppKey    string             `json:"app_key"`
-	AppSecret string             `json:"app_secret"` // 仅创建时返回一次
+	AppSecret string             `json:"app_secret"` 
 }
 
 // Create 创建渠道（生成 AppKey + AppSecret）
@@ -173,7 +169,6 @@ func (s *ChatChannelService) Create(ctx context.Context, req *CreateChannelReque
 		return nil, fmt.Errorf("保存渠道失败: %w", err)
 	}
 
-	// 累计访客/会话数初始为 0
 	return &ChannelCreateResult{
 		Channel:   channel,
 		AppKey:    appKey,
@@ -252,8 +247,6 @@ func (s *ChatChannelService) GetByChannelID(ctx context.Context, channelID strin
 	if strings.TrimSpace(channelID) == "" {
 		return nil, errors.New("channel_id 不能为空")
 	}
-	// 兼容查询：前端列表返回的是数字主键 id，这里既支持按字符串 channel_id 查询，
-	// 也支持按数字 id 查询（避免详情/编辑/删除接口因标识符不一致而 404）。
 	if id, err := strconv.ParseUint(channelID, 10, 64); err == nil {
 		if ch, err2 := s.repo.GetByID(ctx, uint(id)); err2 == nil && ch != nil {
 			return ch, nil
@@ -295,7 +288,6 @@ func (s *ChatChannelService) GetOrCreateDefaultChannel(ctx context.Context) (*mo
 	if err == nil {
 		return channel, nil
 	}
-	// 不存在则自动创建
 	channel = &model.ChatChannel{
 		ChannelID:           defaultID,
 		ChannelName:         "默认渠道",
@@ -318,8 +310,8 @@ func (s *ChatChannelService) GetOrCreateDefaultChannel(ctx context.Context) (*mo
 
 // cardChannelMeta 卡片渠道元数据（4 平台统一）
 type cardChannelMeta struct {
-	PlatformLabel string // 抖音 / 快手 / 小红书 / 闲鱼
-	ThemeColor    string // 品牌主题色
+	PlatformLabel string 
+	ThemeColor    string 
 }
 
 var cardChannelMetas = map[string]cardChannelMeta{
@@ -357,8 +349,6 @@ func (s *ChatChannelService) GetOrCreateCardChannel(ctx context.Context, platfor
 	if err == nil {
 		return channel, nil
 	}
-	// 自动创建
-	// AppKey 必须唯一（DB uniqueIndex），为 4 个平台分别设置确定性 AppKey
 	channel = &model.ChatChannel{
 		ChannelID:           channelID,
 		ChannelName:         meta.PlatformLabel + "卡片客服",
@@ -431,9 +421,6 @@ func (s *ChatChannelService) IncrementSessionCount(ctx context.Context, channelI
 	return s.repo.IncrementSessionCount(ctx, channelID)
 }
 
-// ============================================================================
-// 凭证生成与校验
-// ============================================================================
 
 // appKeyAlphabet AppKey 字符表（去歧义字符：0/O/1/l/I）
 const appKeyAlphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"
@@ -449,7 +436,6 @@ func generateAppKey() (string, error) {
 		}
 		result[i] = appKeyAlphabet[n.Int64()]
 	}
-	// 前缀便于识别：ak_live_
 	return "ak_" + string(result[:24]), nil
 }
 
@@ -508,3 +494,4 @@ func defaultIfEmpty(s, def string) string {
 
 // 等待时间以避免 Go vet 警告
 var _ = time.Second
+

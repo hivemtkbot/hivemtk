@@ -33,11 +33,11 @@ const (
 type Message struct {
 	ID         string         `json:"id"`
 	SessionID  string         `json:"session_id"`
-	Role       MessageRole    `json:"role"` // user, assistant, system
+	Role       MessageRole    `json:"role"` 
 	Content    string         `json:"content"`
 	Timestamp  time.Time      `json:"timestamp"`
 	Metadata   map[string]any `json:"metadata"`
-	References []string       `json:"references"` // 引用的文档ID
+	References []string       `json:"references"` 
 }
 
 // MessageRole 消息角色
@@ -60,7 +60,7 @@ type Response struct {
 	Metadata       map[string]any `json:"metadata"`
 	Timestamp      time.Time      `json:"timestamp"`
 	ProcessingTime time.Duration  `json:"processing_time"`
-	Source         string         `json:"source"` // rag, rule, fallback
+	Source         string         `json:"source"` 
 }
 
 // Reference 引用信息
@@ -76,7 +76,7 @@ type Reference struct {
 type Feedback struct {
 	SessionID  string         `json:"session_id"`
 	ResponseID string         `json:"response_id"`
-	Rating     int            `json:"rating"` // 1-5星评分
+	Rating     int            `json:"rating"` 
 	IsHelpful  bool           `json:"is_helpful"`
 	Comment    string         `json:"comment"`
 	Metadata   map[string]any `json:"metadata"`
@@ -84,14 +84,14 @@ type Feedback struct {
 
 // SessionConfig 会话配置
 type SessionConfig struct {
-	MaxHistoryLength int     `json:"max_history_length"` // 最大历史记录长度
-	Timeout          int     `json:"timeout"`            // 会话超时时间(秒)
-	Temperature      float64 `json:"temperature"`        // LLM温度参数
-	MaxTokens        int     `json:"max_tokens"`         // 最大token数
-	SystemPrompt     string  `json:"system_prompt"`      // 系统提示词
-	EnableContextual bool    `json:"enable_contextual"`  // 是否启用上下文理解
-	EnableLearning   bool    `json:"enable_learning"`    // 是否启用学习功能
-	EnableFallback   bool    `json:"enable_fallback"`    // 是否启用回退机制
+	MaxHistoryLength int     `json:"max_history_length"` 
+	Timeout          int     `json:"timeout"`            
+	Temperature      float64 `json:"temperature"`        
+	MaxTokens        int     `json:"max_tokens"`         
+	SystemPrompt     string  `json:"system_prompt"`      
+	EnableContextual bool    `json:"enable_contextual"`  
+	EnableLearning   bool    `json:"enable_learning"`    
+	EnableFallback   bool    `json:"enable_fallback"`    
 }
 
 // Conversation 对话结构
@@ -103,14 +103,14 @@ type Conversation struct {
 
 // Context 对话上下文
 type Context struct {
-	Topic           string              `json:"topic"`            // 当前话题
-	Intent          string              `json:"intent"`           // 用户意图
-	Entities        map[string][]string `json:"entities"`         // 实体识别
-	Sentiment       Sentiment           `json:"sentiment"`        // 情感分析
-	PreviousTopics  []string            `json:"previous_topics"`  // 历史话题
-	UserPreferences map[string]any      `json:"user_preferences"` // 用户偏好
-	SessionContext  map[string]any      `json:"session_context"`  // 会话特定上下文
-	LastInteraction time.Time           `json:"last_interaction"` // 最后交互时间
+	Topic           string              `json:"topic"`            
+	Intent          string              `json:"intent"`           
+	Entities        map[string][]string `json:"entities"`         
+	Sentiment       Sentiment           `json:"sentiment"`        
+	PreviousTopics  []string            `json:"previous_topics"`  
+	UserPreferences map[string]any      `json:"user_preferences"` 
+	SessionContext  map[string]any      `json:"session_context"`  
+	LastInteraction time.Time           `json:"last_interaction"` 
 }
 
 // IntentAnalysis 意图分析结果
@@ -124,14 +124,14 @@ type IntentAnalysis struct {
 
 // Sentiment 情感分析
 type Sentiment struct {
-	Score    float64   `json:"score"` // -1 到 1，负值表示负面情感
-	Label    string    `json:"label"` // positive, negative, neutral
+	Score    float64   `json:"score"` 
+	Label    string    `json:"label"` 
 	Emotions []Emotion `json:"emotions"`
 }
 
 // Emotion 情感
 type Emotion struct {
-	Type  string  `json:"type"` // joy, anger, sadness, fear, surprise
+	Type  string  `json:"type"` 
 	Score float64 `json:"score"`
 }
 
@@ -141,96 +141,70 @@ type SessionMetrics struct {
 	StartTime        time.Time `json:"start_time"`
 	EndTime          time.Time `json:"end_time"`
 	MessageCount     int       `json:"message_count"`
-	AvgResponseTime  float64   `json:"avg_response_time"` // 平均响应时间(毫秒)
-	ResolutionRate   float64   `json:"resolution_rate"`   // 解决率
-	UserSatisfaction float64   `json:"user_satisfaction"` // 用户满意度
+	AvgResponseTime  float64   `json:"avg_response_time"` 
+	ResolutionRate   float64   `json:"resolution_rate"`   
+	UserSatisfaction float64   `json:"user_satisfaction"` 
 	FeedbackCount    int       `json:"feedback_count"`
 }
 
 // RagCustomerService RAG客服服务接口
 type RagCustomerService interface {
-	// ProcessMessage 处理用户消息
 	ProcessMessage(ctx context.Context, session Session, message Message) (Response, error)
 
-	// CreateSession 创建新会话
 	CreateSession(ctx context.Context, userID, platform, kbID string, config SessionConfig) (*Session, error)
 
-	// GetSession 获取会话信息
 	GetSession(ctx context.Context, sessionID string) (*Session, error)
 
-	// UpdateSession 更新会话信息
 	UpdateSession(ctx context.Context, sessionID string, updates map[string]any) error
 
-	// EndSession 结束会话
 	EndSession(ctx context.Context, sessionID string) error
 
-	// GetSessionHistory 获取会话历史
 	GetSessionHistory(ctx context.Context, sessionID string, limit int) ([]Message, error)
 
-	// ProcessBatchMessages 批量处理消息
 	ProcessBatchMessages(ctx context.Context, session Session, messages []Message) ([]Response, error)
 
-	// UpdateKnowledge 更新知识库
 	UpdateKnowledge(ctx context.Context, kbID string, feedback Feedback) error
 
-	// GetSessionMetrics 获取会话指标
 	GetSessionMetrics(ctx context.Context, sessionID string) (*SessionMetrics, error)
 
-	// ListSessions 列出会话
 	ListSessions(ctx context.Context, userID, platform string, status SessionStatus) ([]Session, error)
 
-	// GetUserContext 获取用户上下文
 	GetUserContext(ctx context.Context, userID, platform string) (*Context, error)
 }
 
 // DialogManagerInterface 对话管理器接口
 type DialogManagerInterface interface {
-	// CreateSession 创建会话
 	CreateSession(ctx context.Context, userID, platform, kbID string, config SessionConfig) (*Session, error)
 
-	// GetSession 获取会话
 	GetSession(ctx context.Context, sessionID string) (*Session, error)
 
-	// AddMessage 添加消息到会话
 	AddMessage(ctx context.Context, sessionID string, message Message) error
 
-	// GetConversationHistory 获取对话历史
 	GetConversationHistory(ctx context.Context, sessionID string, limit int) (*Conversation, error)
 
-	// UpdateSessionMetadata 更新会话元数据
 	UpdateSessionMetadata(ctx context.Context, sessionID string, metadata map[string]any) error
 
-	// CloseSession 关闭会话
 	CloseSession(ctx context.Context, sessionID string) error
 
-	// CleanupExpiredSessions 清理会话
 	CleanupExpiredSessions(ctx context.Context) error
 
-	// ListUserSessions 列出用户会话
 	ListUserSessions(ctx context.Context, userID, platform string, status SessionStatus) ([]Session, error)
 }
 
 // ContextUnderstandingInterface 上下文理解器接口
 type ContextUnderstandingInterface interface {
-	// AnalyzeIntent 分析用户意图
 	AnalyzeIntent(ctx context.Context, message string, history []Message) (IntentAnalysis, error)
 
-	// ExtractEntities 提取实体
 	ExtractEntities(ctx context.Context, message string) (map[string][]string, error)
 
-	// AnalyzeSentiment 情感分析
 	AnalyzeSentiment(ctx context.Context, message string) (Sentiment, error)
 
-	// UpdateContext 更新上下文
 	UpdateContext(ctx context.Context, currentContext Context, newMessage Message, intent IntentAnalysis) (Context, error)
 
-	// DetectTopicChange 检测话题变更
 	DetectTopicChange(ctx context.Context, currentTopic string, newMessage Message) (bool, string, error)
 
-	// GetUserPreferences 获取用户偏好
 	GetUserPreferences(ctx context.Context, userID, platform string) (map[string]any, error)
 
-	// UpdateUserPreferences 更新用户偏好
 	UpdateUserPreferences(ctx context.Context, userID, platform string, preferences map[string]any) error
 }
 
@@ -281,10 +255,11 @@ type FeedbackLearningInterface interface {
 
 // LearningInsight 学习洞察
 type LearningInsight struct {
-	Type           string    `json:"type"`           // content_improvement, intent_recognition, context_management
-	Description    string    `json:"description"`    // 洞察描述
-	Confidence     float64   `json:"confidence"`     // 置信度
-	Recommendation string    `json:"recommendation"` // 建议
-	Source         string    `json:"source"`         // 洞察来源
+	Type           string    `json:"type"`           
+	Description    string    `json:"description"`    
+	Confidence     float64   `json:"confidence"`     
+	Recommendation string    `json:"recommendation"` 
+	Source         string    `json:"source"`         
 	CreatedAt      time.Time `json:"created_at"`
 }
+

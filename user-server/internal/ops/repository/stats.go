@@ -13,31 +13,26 @@ import (
 
 // StatsRepository 统计仓库接口
 type StatsRepository interface {
-	// API日志相关
 	CreateAPILog(ctx context.Context, log *sysmodel.APILog) error
 	GetAPILogs(ctx context.Context, licenseID string, startTime, endTime time.Time, limit int) ([]*sysmodel.APILog, error)
 	GetAPICallCount(ctx context.Context, licenseID string, startTime, endTime time.Time) (int64, error)
 	GetAPIErrorCount(ctx context.Context, licenseID string, startTime, endTime time.Time) (int64, error)
 	GetAverageResponseTime(ctx context.Context, licenseID string, startTime, endTime time.Time) (int64, error)
 
-	// 访问日志相关
 	CreateVisitLog(ctx context.Context, log *sysmodel.VisitLog) error
 	GetVisitLogs(ctx context.Context, licenseID string, startTime, endTime time.Time, limit int) ([]*sysmodel.VisitLog, error)
 	GetVisitCount(ctx context.Context, licenseID string, startTime, endTime time.Time) (int64, error)
 	GetUniqueVisitors(ctx context.Context, licenseID string, startTime, endTime time.Time) (int64, error)
 
-	// 每日统计相关
 	GetOrCreateDailyStats(ctx context.Context, licenseID string, date string) (*sysmodel.DailyStats, error)
 	UpdateDailyStats(ctx context.Context, stats *sysmodel.DailyStats) error
 	GetDailyStats(ctx context.Context, licenseID string, startDate, endDate string) ([]*sysmodel.DailyStats, error)
 	GetDailyStatsSummary(ctx context.Context, startDate, endDate string) ([]*sysmodel.DailyStats, error)
 
-	// 系统指标相关
 	CreateSystemMetrics(ctx context.Context, metrics *sysmodel.SystemMetrics) error
 	GetLatestSystemMetrics(ctx context.Context) (*sysmodel.SystemMetrics, error)
 	GetSystemMetrics(ctx context.Context, startTime, endTime time.Time, limit int) ([]*sysmodel.SystemMetrics, error)
 
-	// 统计汇总
 	GetStatsSummary(ctx context.Context, licenseID string, startTime, endTime time.Time) (map[string]any, error)
 }
 
@@ -151,7 +146,6 @@ func (r *statsRepository) GetOrCreateDailyStats(ctx context.Context, licenseID s
 		First(&stats).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// 创建新的每日统计
 		stats = sysmodel.DailyStats{
 			LicenseID:       licenseID,
 			Date:            date,
@@ -225,42 +219,36 @@ func (r *statsRepository) GetSystemMetrics(ctx context.Context, startTime, endTi
 func (r *statsRepository) GetStatsSummary(ctx context.Context, licenseID string, startTime, endTime time.Time) (map[string]any, error) {
 	result := make(map[string]any)
 
-	// API调用统计
 	apiCalls, err := r.GetAPICallCount(ctx, licenseID, startTime, endTime)
 	if err != nil {
 		return nil, err
 	}
 	result["api_calls"] = apiCalls
 
-	// API错误统计
 	apiErrors, err := r.GetAPIErrorCount(ctx, licenseID, startTime, endTime)
 	if err != nil {
 		return nil, err
 	}
 	result["api_errors"] = apiErrors
 
-	// 平均响应时间
 	avgResponseTime, err := r.GetAverageResponseTime(ctx, licenseID, startTime, endTime)
 	if err != nil {
 		return nil, err
 	}
 	result["avg_response_time"] = avgResponseTime
 
-	// 访问统计
 	visits, err := r.GetVisitCount(ctx, licenseID, startTime, endTime)
 	if err != nil {
 		return nil, err
 	}
 	result["visits"] = visits
 
-	// 独立访客统计
 	uniqueVisitors, err := r.GetUniqueVisitors(ctx, licenseID, startTime, endTime)
 	if err != nil {
 		return nil, err
 	}
 	result["unique_visitors"] = uniqueVisitors
 
-	// 错误率
 	errorRate := float64(0)
 	if apiCalls > 0 {
 		errorRate = float64(apiErrors) / float64(apiCalls) * 100
@@ -269,3 +257,4 @@ func (r *statsRepository) GetStatsSummary(ctx context.Context, licenseID string,
 
 	return result, nil
 }
+

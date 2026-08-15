@@ -1,23 +1,5 @@
 package service
 
-// intent_recognition_fine.go 精细意图识别（8 大类 + 7 子类）
-//
-// 五层架构归属: L2 服务层 / L3 编排层
-// 设计依据: PRD § 缺口修复
-// 私域独立部署: 无 merchant_id 字段
-//
-// 功能：
-//   - 8 大意图类：consult / price_inquiry / objection / after_sale / complaint / churn / intent_buy / ask_product
-//   - 7 子类细分（每个大类下的子类，共 26 个子类）
-//   - 规则匹配（快速，毫秒级）
-//   - LLM 识别（慢速，confidence < 0.6 触发二次识别）
-//   - IntentLog 持久化（intent_logs 表）
-//   - API：POST /api/intent/recognize、GET /api/intent/logs、GET /api/intent/stats
-//
-// 与旧版 IntentRecognizer 的关系：
-//   - 旧版 Recognize 方法保留（兼容现有调用方）
-//   - 新版 RecognizeIntent 方法返回 IntentResult（含 major/minor）
-//   - 新旧方法共享 dispatcher/db/cache 依赖
 
 import (
 	"context"
@@ -31,102 +13,100 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ===== 8 大意图类常量 =====
 
 const (
-	IntentMajorConsult      = "consult"       // 咨询
-	IntentMajorPriceInquiry = "price_inquiry" // 询价
-	IntentMajorObjection    = "objection"     // 异议
-	IntentMajorAfterSale    = "after_sale"    // 售后
-	IntentMajorComplaint    = "complaint"     // 投诉
-	IntentMajorChurn        = "churn"         // 流失
-	IntentMajorIntentBuy    = "intent_buy"    // 购买意向
-	IntentMajorAskProduct   = "ask_product"   // 产品咨询
+	IntentMajorConsult      = "consult"       
+	IntentMajorPriceInquiry = "price_inquiry" 
+	IntentMajorObjection    = "objection"     
+	IntentMajorAfterSale    = "after_sale"    
+	IntentMajorComplaint    = "complaint"     
+	IntentMajorChurn        = "churn"         
+	IntentMajorIntentBuy    = "intent_buy"    
+	IntentMajorAskProduct   = "ask_product"   
 )
 
-// ===== 7 子类常量（每个大类下的细分） =====
 
 // consult 子类
 const (
-	IntentMinorConsultGeneral         = "general"          // 一般咨询
-	IntentMinorConsultProductSpecific = "product_specific" // 产品特定咨询
-	IntentMinorConsultComparison      = "comparison"       // 对比咨询
+	IntentMinorConsultGeneral         = "general"          
+	IntentMinorConsultProductSpecific = "product_specific" 
+	IntentMinorConsultComparison      = "comparison"       
 )
 
 // price_inquiry 子类
 const (
-	IntentMinorPriceBudgetCheck  = "budget_check"     // 预算确认
-	IntentMinorPriceDiscountReq  = "discount_request" // 折扣请求
-	IntentMinorPricePaymentTerms = "payment_terms"    // 付款方式
+	IntentMinorPriceBudgetCheck  = "budget_check"     
+	IntentMinorPriceDiscountReq  = "discount_request" 
+	IntentMinorPricePaymentTerms = "payment_terms"    
 )
 
 // objection 子类
 const (
-	IntentMinorObjectionPriceHigh     = "price_too_high"        // 价格太高
-	IntentMinorObjectionTrustIssue    = "trust_issue"           // 信任问题
-	IntentMinorObjectionTimingBad     = "timing_bad"            // 时机不对
-	IntentMinorObjectionCompetitorCmp = "competitor_comparison" // 竞品对比
+	IntentMinorObjectionPriceHigh     = "price_too_high"        
+	IntentMinorObjectionTrustIssue    = "trust_issue"           
+	IntentMinorObjectionTimingBad     = "timing_bad"            
+	IntentMinorObjectionCompetitorCmp = "competitor_comparison" 
 )
 
 // after_sale 子类
 const (
-	IntentMinorAfterSaleQuality  = "quality_issue"  // 质量问题
-	IntentMinorAfterSaleDelivery = "delivery_issue" // 配送问题
-	IntentMinorAfterSaleRefund   = "refund_request" // 退款请求
-	IntentMinorAfterSaleWarranty = "warranty"       // 保修
+	IntentMinorAfterSaleQuality  = "quality_issue"  
+	IntentMinorAfterSaleDelivery = "delivery_issue" 
+	IntentMinorAfterSaleRefund   = "refund_request" 
+	IntentMinorAfterSaleWarranty = "warranty"       
 )
 
 // complaint 子类
 const (
-	IntentMinorComplaintService = "service_complaint" // 服务投诉
-	IntentMinorComplaintProduct = "product_complaint" // 产品投诉
-	IntentMinorComplaintBilling = "billing_complaint" // 账单投诉
+	IntentMinorComplaintService = "service_complaint" 
+	IntentMinorComplaintProduct = "product_complaint" 
+	IntentMinorComplaintBilling = "billing_complaint" 
 )
 
 // churn 子类
 const (
-	IntentMinorChurnCancelSub  = "cancel_subscription" // 取消订阅
-	IntentMinorChurnSwitchComp = "switch_competitor"   // 转投竞品
-	IntentMinorChurnStopUsing  = "stop_using"          // 停止使用
+	IntentMinorChurnCancelSub  = "cancel_subscription" 
+	IntentMinorChurnSwitchComp = "switch_competitor"   
+	IntentMinorChurnStopUsing  = "stop_using"          
 )
 
 // intent_buy 子类
 const (
-	IntentMinorIntentBuyReady    = "ready_to_buy"   // 准备购买
-	IntentMinorIntentBuyNeedInfo = "need_more_info" // 需要更多信息
-	IntentMinorIntentBuyApproval = "need_approval"  // 需要审批
+	IntentMinorIntentBuyReady    = "ready_to_buy"   
+	IntentMinorIntentBuyNeedInfo = "need_more_info" 
+	IntentMinorIntentBuyApproval = "need_approval"  
 )
 
 // ask_product 子类
 const (
-	IntentMinorAskProductFeature = "feature_query" // 功能查询
-	IntentMinorAskProductAvail   = "availability"  // 可用性
-	IntentMinorAskProductSpec    = "spec_query"    // 规格查询
+	IntentMinorAskProductFeature = "feature_query" 
+	IntentMinorAskProductAvail   = "availability"  
+	IntentMinorAskProductSpec    = "spec_query"    
 )
 
 // IntentResult 精细意图识别结果
 type IntentResult struct {
-	Major      string  `json:"major"`                // 8 大意图类之一
-	Minor      string  `json:"minor"`                // 子类细分
-	Confidence float64 `json:"confidence"`           // 0.0-1.0
-	Method     string  `json:"method"`               // rule / llm / hybrid
-	Reasoning  string  `json:"reasoning,omitempty"`  // LLM 推理过程（method=llm 时填充）
-	LatencyMs  int     `json:"latency_ms,omitempty"` // 识别耗时
-	LLMModel   string  `json:"llm_model,omitempty"`  // LLM 模型（method=llm 时填充）
+	Major      string  `json:"major"`                
+	Minor      string  `json:"minor"`                
+	Confidence float64 `json:"confidence"`           
+	Method     string  `json:"method"`               
+	Reasoning  string  `json:"reasoning,omitempty"`  
+	LatencyMs  int     `json:"latency_ms,omitempty"` 
+	LLMModel   string  `json:"llm_model,omitempty"`  
 }
 
 // minorRule 子类规则定义
 type minorRule struct {
 	minor    string
 	keywords []string
-	weight   int // 关键词权重（用于排序）
+	weight   int 
 }
 
 // majorRule 大类规则定义
 type majorRule struct {
 	major    string
 	minors   []minorRule
-	keywords []string // 大类通用关键词（无子类匹配时使用）
+	keywords []string 
 }
 
 // fineIntentRules 精细意图规则表
@@ -230,8 +210,6 @@ func (s *IntentRecognizer) RecognizeIntent(ctx context.Context, message, custome
 		}, nil
 	}
 
-	// 统一开关：总开关关闭直接返回咨询兜底，不进入规则/LLM 流程
-	// 与 Recognize() 行为一致：开关关闭 → 业务链路直接走兜底
 	if !IntentEnabled {
 		return &IntentResult{
 			Major:      IntentMajorConsult,
@@ -241,13 +219,11 @@ func (s *IntentRecognizer) RecognizeIntent(ctx context.Context, message, custome
 		}, nil
 	}
 
-	// 1. 规则匹配
 	ruleResult := s.recognizeFineByRule(ctx, message)
 
 	var final *IntentResult
 	if ruleResult != nil {
 		final = ruleResult
-		// 2. confidence < 0.6 触发 LLM 二次识别
 		if ruleResult.Confidence < minorLLMThreshold && s.dispatcher != nil {
 			if llmResult, err := s.recognizeFineByLLM(ctx, message); err == nil && llmResult != nil {
 				llmResult.Method = "hybrid"
@@ -255,13 +231,11 @@ func (s *IntentRecognizer) RecognizeIntent(ctx context.Context, message, custome
 			}
 		}
 	} else if s.dispatcher != nil {
-		// 3. 规则未命中，直接 LLM 识别
 		if llmResult, err := s.recognizeFineByLLM(ctx, message); err == nil && llmResult != nil {
 			final = llmResult
 		}
 	}
 
-	// 兜底
 	if final == nil {
 		final = &IntentResult{
 			Major:      IntentMajorConsult,
@@ -273,10 +247,8 @@ func (s *IntentRecognizer) RecognizeIntent(ctx context.Context, message, custome
 
 	final.LatencyMs = int(time.Since(start).Milliseconds())
 
-	// 4. 持久化 IntentLog
 	s.saveIntentLog(ctx, customerID, sessionID, message, final)
 
-	// 5. 触发 SOP 联动（复用旧版逻辑：用 Major 作为 intent_type）
 	if customerID != "" {
 		s.triggerSOPByIntent(ctx, customerID, sessionID, final.Major, final.Confidence)
 	}
@@ -299,7 +271,6 @@ func (s *IntentRecognizer) recognizeFineByRule(ctx context.Context, text string)
 	)
 
 	for _, mr := range fineIntentRules {
-		// 先匹配子类
 		for _, mi := range mr.minors {
 			score := 0
 			for _, kw := range mi.keywords {
@@ -313,7 +284,6 @@ func (s *IntentRecognizer) recognizeFineByRule(ctx context.Context, text string)
 				bestMinor = mi.minor
 			}
 		}
-		// 子类未命中但大类通用关键词命中
 		if bestMajor == "" {
 			majorScore := 0
 			for _, kw := range mr.keywords {
@@ -324,7 +294,6 @@ func (s *IntentRecognizer) recognizeFineByRule(ctx context.Context, text string)
 			if majorScore > bestScore {
 				bestScore = majorScore
 				bestMajor = mr.major
-				// 大类命中但无具体子类，使用第一个子类作为默认
 				if len(mr.minors) > 0 {
 					bestMinor = mr.minors[0].minor
 				}
@@ -336,7 +305,6 @@ func (s *IntentRecognizer) recognizeFineByRule(ctx context.Context, text string)
 		return nil
 	}
 
-	// 置信度计算：score 越高 confidence 越高，上限 0.92
 	conf := 0.5 + float64(bestScore)*0.03
 	if conf > 0.92 {
 		conf = 0.92
@@ -402,12 +370,10 @@ func (s *IntentRecognizer) recognizeFineByLLM(ctx context.Context, text string) 
 		return nil, fmt.Errorf("parse llm intent: %w", err)
 	}
 
-	// 校验 major/minor 合法性，非法时回退到 consult/general
 	if !isValidMajor(parsed.Major) {
 		parsed.Major = IntentMajorConsult
 		parsed.Minor = IntentMinorConsultGeneral
 	} else if !isValidMinor(parsed.Major, parsed.Minor) {
-		// major 合法但 minor 非法：使用该 major 的第一个子类
 		parsed.Minor = getDefaultMinor(parsed.Major)
 	}
 
@@ -479,7 +445,6 @@ func (s *IntentRecognizer) saveIntentLog(ctx context.Context, customerID, sessio
 		Reasoning:   result.Reasoning,
 		Timestamp:   time.Now(),
 	}
-	// 异步落库 + panic recover（与旧版 saveRecord 一致）
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -521,19 +486,16 @@ func (s *IntentRecognizer) GetIntentLogStats(ctx context.Context, days int) (map
 	}
 	since := time.Now().AddDate(0, 0, -days)
 
-	// 按 major 聚合
 	majorStats, err := s.logRepo.GetMajorStatsSince(ctx, since)
 	if err != nil {
 		return nil, err
 	}
 
-	// 按 minor 聚合
 	minorStats, err := s.logRepo.GetMinorStatsSince(ctx, since)
 	if err != nil {
 		return nil, err
 	}
 
-	// 按 method 聚合
 	methodStats, err := s.logRepo.GetMethodStatsSince(ctx, since)
 	if err != nil {
 		return nil, err
@@ -556,3 +518,4 @@ func (s *IntentRecognizer) QueryIntentLogsByTraceID(ctx context.Context, traceID
 	}
 	return s.logRepo.ListByTraceID(ctx, traceID)
 }
+

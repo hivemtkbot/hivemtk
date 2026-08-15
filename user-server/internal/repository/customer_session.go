@@ -95,10 +95,6 @@ func (r *CustomerSessionRepository) UpsertByOneID(ctx context.Context, platform,
 	if lastMessageAt == nil {
 		lastMessageAt = &now
 	}
-	// INSERT ... ON CONFLICT (session_id) DO NOTHING 配合稳定 session_id：
-	//   - 首次插入：插入成功
-	//   - 重复插入：冲突 → 不做任何事
-	// 然后再 SELECT session_id 返回（如果刚才是 INSERT，这次就是新行；否则 SELECT 返回旧行）
 	insertSQL := `
 INSERT INTO customer_sessions
   (session_id, platform, account_id, user_id, one_id, user_name, status, handler_type,
@@ -115,7 +111,6 @@ ON CONFLICT (session_id) DO NOTHING
 	if err != nil {
 		return "", fmt.Errorf("upsert insert: %w", err)
 	}
-	// 总是返回稳定 session_id（即使插入因冲突被忽略，stableID 已是数据库中真实存在的）
 	return stableID, nil
 }
 
@@ -358,7 +353,6 @@ func (r *CustomerSessionRepository) GetActiveByOneID(ctx context.Context, oneID 
 	}).Where("COALESCE(last_message_at, created_at) > ?", cutoff).
 		Order("last_message_at DESC, id DESC").First(&session).Error
 	if err != nil {
-		// gorm.ErrRecordNotFound 视为"未找到"，返回 nil 而非 error（与 OneID 为空时的语义对齐）
 		return nil, nil
 	}
 	return &session, nil
@@ -407,7 +401,6 @@ func (r *CustomerSessionRepository) AutoCloseStaleSessions(ctx context.Context, 
 		"closed_at": &now,
 	}
 	if batchSize <= 0 {
-		// 不分批：一次性 UPDATE
 		res := r.db.WithContext(ctx).Model(&model.CustomerSession{}).
 			Where("status IN ?", []model.SessionStatus{
 				model.SessionStatusPending,
@@ -591,3 +584,4 @@ func (r *CustomerSessionRepository) ListRecentClosedByPlatformAccountUser(
 	}
 	return sessions, nil
 }
+

@@ -83,7 +83,6 @@ func TestWeComAccountRepository_GetByID(t *testing.T) {
 	accountRepo, _, _ := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	account := &model.WeComAccount{
 		CorpID: "ww123456",
 		Status: 1,
@@ -129,7 +128,6 @@ func TestWeComAccountRepository_Update(t *testing.T) {
 	accountRepo, _, _ := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	account := &model.WeComAccount{
 		CorpID: "ww123456",
 		Status: 1,
@@ -154,7 +152,6 @@ func TestWeComAccountRepository_UpdateToken(t *testing.T) {
 	accountRepo, _, _ := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	account := &model.WeComAccount{
 		CorpID: "ww123456",
 	}
@@ -176,7 +173,6 @@ func TestWeComAccountRepository_Delete(t *testing.T) {
 	accountRepo, _, _ := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	account := &model.WeComAccount{
 		CorpID: "ww123456",
 	}
@@ -198,7 +194,6 @@ func TestWeComAccountRepository_UpdateSyncTime(t *testing.T) {
 	accountRepo, _, _ := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	account := &model.WeComAccount{
 		CorpID: "ww123456",
 	}
@@ -267,7 +262,6 @@ func TestWeComCustomerRepository_GetByID(t *testing.T) {
 	_, customerRepo, _ := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	customer := &model.WeComCustomer{
 		EmployeeID:     "emp123",
 		ExternalUserID: "ext123",
@@ -314,7 +308,6 @@ func TestWeComCustomerRepository_Update(t *testing.T) {
 	_, customerRepo, _ := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	customer := &model.WeComCustomer{
 		EmployeeID:     "emp123",
 		ExternalUserID: "ext123",
@@ -340,7 +333,6 @@ func TestWeComCustomerRepository_Delete(t *testing.T) {
 	_, customerRepo, _ := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	customer := &model.WeComCustomer{
 		EmployeeID:     "emp123",
 		ExternalUserID: "ext123",
@@ -363,7 +355,6 @@ func TestWeComCustomerRepository_GetByEmployeeID(t *testing.T) {
 	_, customerRepo, _ := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 3; i++ {
 		customerRepo.Create(ctx, &model.WeComCustomer{
 			EmployeeID:     "emp123",
@@ -438,7 +429,6 @@ func TestWeComGroupRepository_GetByID(t *testing.T) {
 	_, _, groupRepo := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	group := &model.WeComGroup{
 		ChatID: "chat123",
 		Name:   "Test Group",
@@ -484,7 +474,6 @@ func TestWeComGroupRepository_GetByChatID(t *testing.T) {
 	_, _, groupRepo := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	group := &model.WeComGroup{
 		ChatID: "chat123",
 		Name:   "Test Group",
@@ -530,7 +519,6 @@ func TestWeComGroupRepository_Update(t *testing.T) {
 	_, _, groupRepo := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	group := &model.WeComGroup{
 		ChatID: "chat123",
 		Name:   "Original Name",
@@ -555,7 +543,6 @@ func TestWeComGroupRepository_Delete(t *testing.T) {
 	_, _, groupRepo := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	group := &model.WeComGroup{
 		ChatID: "chat123",
 	}
@@ -577,7 +564,6 @@ func TestWeComGroupRepository_UpdateMemberCount(t *testing.T) {
 	_, _, groupRepo := setupWeComRepositories(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	group := &model.WeComGroup{
 		ChatID:      "chat123",
 		MemberCount: 5,
@@ -594,3 +580,4 @@ func TestWeComGroupRepository_UpdateMemberCount(t *testing.T) {
 		t.Errorf("Expected MemberCount 15, got %d", updated.MemberCount)
 	}
 }
+

@@ -6,12 +6,13 @@ package dto
 type LeadMiningConfig struct {
 	ID             int64    `json:"id"`
 	Enabled        bool     `json:"enabled"`
-	Keywords       []string `json:"keywords"`    // 关键词（命中任一即加分）
-	Tags           []string `json:"tags"`        // 命中后打给客户的标签
-	Requirement    string   `json:"requirement"` // 线索要求文字描述（判定标准）
-	Channels       []string `json:"channels"`    // 启用的渠道；空=全部渠道
+	Keywords       []string `json:"keywords"`    
+	Tags           []string `json:"tags"`        
+	Requirement    string   `json:"requirement"` 
+	Channels       []string `json:"channels"`    
 	MinIntentScore int      `json:"min_intent_score"`
-	Model          string   `json:"model"` // 可选覆盖模型，空=默认
+	Model          string   `json:"model"` 
 	CreatedAt      int64    `json:"created_at"`
 	UpdatedAt      int64    `json:"updated_at"`
 }
+

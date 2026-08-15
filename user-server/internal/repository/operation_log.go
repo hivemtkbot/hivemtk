@@ -1,10 +1,5 @@
 package repository
 
-// operation_log.go 操作日志仓库
-//
-// 设计依据：
-//   - 从 repository/team_user.go 拆分
-//   - OperationLogRepository 已被 middleware/audit.go 和 service/auth.go 引用
 
 import (
 	"context"
@@ -59,7 +54,6 @@ func (r *operationLogRepo) GetAll(ctx context.Context, page, pageSize int, filte
 
 	query := r.db.WithContext(ctx).Model(&model.OperationLog{})
 
-	// 应用过滤条件
 	if userID, ok := filters["user_id"]; ok && userID != "" {
 		query = query.Where("user_id = ?", userID)
 	}
@@ -114,3 +108,4 @@ func (r *operationLogRepo) DeleteByIDs(ctx context.Context, ids []uint) (int64, 
 	result := r.db.WithContext(ctx).Where("id IN ?", ids).Delete(&model.OperationLog{})
 	return result.RowsAffected, result.Error
 }
+

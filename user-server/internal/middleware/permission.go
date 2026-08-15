@@ -15,7 +15,6 @@ import (
 // PermissionMiddleware 权限中间件
 func PermissionMiddleware(permission string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 获取用户角色
 		role, exists := c.Get("role")
 		if !exists {
 			response.Error(c, utils.ErrorCodeForbidden, "未找到角色信息")
@@ -23,8 +22,6 @@ func PermissionMiddleware(permission string) gin.HandlerFunc {
 			return
 		}
 
-		// 检查权限（独立部署：role 直接用于权限判断）
-		// PermChecker 由装配层注入；未注入时 fail-closed 拒绝访问
 		if !checkPermission(c, role.(string), permission) {
 			response.Error(c, utils.ErrorCodeForbidden, "无权限执行此操作")
 			c.Abort()
@@ -85,7 +82,6 @@ func TeamJWTAuthMiddleware() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		// 从请求头获取 Token
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			response.Error(c, utils.ErrorCodeUnauthorized, "未提供认证令牌")
@@ -93,7 +89,6 @@ func TeamJWTAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 提取 Bearer 令牌
 		parts := strings.SplitN(authHeader, " ", 2)
 		if !(len(parts) == 2 && parts[0] == "Bearer") {
 			response.Error(c, utils.ErrorCodeTokenInvalid, "认证令牌格式错误")
@@ -103,7 +98,6 @@ func TeamJWTAuthMiddleware() gin.HandlerFunc {
 
 		tokenString := parts[1]
 
-		// 解析 Token
 		claims, err := ParseJWTToken(tokenString)
 		if err != nil {
 			response.Error(c, utils.ErrorCodeUnauthorized, "无效的认证令牌")
@@ -111,7 +105,6 @@ func TeamJWTAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 设置用户信息到上下文
 		c.Set("user_id", claims["user_id"])
 		c.Set("username", claims["username"])
 		c.Set("role", claims["role"])
@@ -122,15 +115,12 @@ func TeamJWTAuthMiddleware() gin.HandlerFunc {
 
 // ParseJWTToken 解析 JWT Token
 func ParseJWTToken(tokenString string) (map[string]any, error) {
-	// 获取 JWT 密钥
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		return nil, errors.New("JWT_SECRET 未配置")
 	}
 
-	// 解析 Token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
-		// 验证签名算法
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.ErrSignatureInvalid
 		}
@@ -140,18 +130,15 @@ func ParseJWTToken(tokenString string) (map[string]any, error) {
 		return nil, err
 	}
 
-	// 验证 Token 是否有效
 	if !token.Valid {
 		return nil, jwt.ErrSignatureInvalid
 	}
 
-	// 提取 Claims
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		return nil, errors.New("无效的 Token Claims")
 	}
 
-	// 构建返回结果
 	result := make(map[string]any)
 	if userID, ok := claims["user_id"]; ok {
 		result["user_id"] = userID
@@ -224,3 +211,4 @@ func RequireAllPermissions(permissions ...string) gin.HandlerFunc {
 		c.Next()
 	}
 }
+

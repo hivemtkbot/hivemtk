@@ -39,9 +39,9 @@ func RenderInternalPrompt(templateKey, internalLang string) string {
 	if tpl, ok := templates[internalLang]; ok && tpl != "" {
 		return tpl
 	}
-	// 兜底中文
 	if tpl, ok := templates[string(i18n.ZH)]; ok {
 		return tpl
 	}
 	return ""
 }
+

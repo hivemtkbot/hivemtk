@@ -37,13 +37,12 @@ func NewUserTagRepositoryWithDB(db *gorm.DB) UserTagRepository {
 
 // AddTag 添加单个标签
 func (r *userTagRepo) AddTag(ctx context.Context, userID, tagName string) error {
-	// 检查是否已存在该标签，避免重复
 	exists, err := r.HasTag(ctx, userID, tagName)
 	if err != nil {
 		return err
 	}
 	if exists {
-		return nil // 已存在，不重复添加
+		return nil 
 	}
 
 	tag := &model.UserTag{
@@ -59,13 +58,11 @@ func (r *userTagRepo) AddTags(ctx context.Context, userID string, tagNames []str
 		return nil
 	}
 
-	// 获取用户现有标签
 	existingTags, err := r.GetTagsByUser(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	// 创建标签集合用于快速查找
 	existingTagSet := make(map[string]bool)
 	for _, tag := range existingTags {
 		existingTagSet[tag] = true
@@ -157,3 +154,4 @@ func (r *userTagRepo) HasTag(ctx context.Context, userID, tagName string) (bool,
 		Count(&count).Error
 	return count > 0, err
 }
+

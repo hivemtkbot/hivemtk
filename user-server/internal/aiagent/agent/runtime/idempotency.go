@@ -21,17 +21,11 @@ const replyGuardKeyPrefix = "mtk:reply_guard:"
 // replyGuardBackend 幂等守卫后端抽象。
 // 进程内后端用于单实例部署；Redis 后端用于多实例水平扩展（SETNX 分布式锁）。
 type replyGuardBackend interface {
-	// claim 尝试认领指定 EventID 的回复权。返回 true 表示本调用方为首个认领者。
 	claim(eventID string) (bool, error)
-	// release 释放认领（出站失败后调用，允许重投重试）。
 	release(eventID string)
-	// has 只读判断是否已认领（不修改状态）。
 	has(eventID string) bool
 }
 
-// ============================================================================
-// 进程内后端（单实例 / Redis 降级兜底）
-// ============================================================================
 
 // localReplyGuard 进程内 sync.Map + TTL 惰性清理。
 type localReplyGuard struct {
@@ -82,9 +76,6 @@ func (g *localReplyGuard) has(eventID string) bool {
 	return ok && time.Since(t) < g.ttl
 }
 
-// ============================================================================
-// Redis 分布式后端（多实例水平扩展）
-// ============================================================================
 
 // redisReplyGuard 基于 Redis SETNX 的分布式幂等守卫。
 // 同一 EventID 在集群内任意实例上只会被认领一次，杜绝多实例双发。
@@ -95,7 +86,7 @@ func (g *localReplyGuard) has(eventID string) bool {
 type redisReplyGuard struct {
 	rdb   *redis.Client
 	ttl   time.Duration
-	local *localReplyGuard // 降级兜底
+	local *localReplyGuard 
 }
 
 func (g *redisReplyGuard) claim(eventID string) (bool, error) {
@@ -104,7 +95,6 @@ func (g *redisReplyGuard) claim(eventID string) (bool, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	// SETNX：键不存在才设置并返回 true；已存在返回 false（已被认领）。
 	ok, err := g.rdb.SetNX(ctx, replyGuardKeyPrefix+eventID, "1", g.ttl).Result()
 	if err != nil {
 		logger.Warnf("[reply_guard] redis claim error, degrade to local: %v", err)
@@ -120,7 +110,6 @@ func (g *redisReplyGuard) release(eventID string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_ = g.rdb.Del(ctx, replyGuardKeyPrefix+eventID).Err()
-	// 同步清理降级副本，避免 Redis 恢复后 local 残留误导
 	g.local.release(eventID)
 }
 
@@ -137,9 +126,6 @@ func (g *redisReplyGuard) has(eventID string) bool {
 	return n > 0
 }
 
-// ============================================================================
-// 全局守卫（可切换后端）
-// ============================================================================
 
 var (
 	guardMu       sync.RWMutex
@@ -206,3 +192,4 @@ func MarkReplied(eventID string) {
 	guardMu.RUnlock()
 	b.claim(eventID)
 }
+

@@ -9,10 +9,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// 本文件是「统一日志系统」的兼容层：原 utils 自带的 Logger 实现已统一委托给
-// pkg/utils/logger（基于 zerolog 的全局日志器）。这样项目内无论调用
-// logger.Info / utils.Info / utils.LogErrorWithRequest，最终都走到同一套
-// 级别/格式/落盘/trace 透传逻辑，避免多套互不关联的日志实现。
 
 // LogLevel 日志级别（兼容旧调用方）。
 type LogLevel string
@@ -106,3 +102,4 @@ func LogRequest(method, path, ip string) {
 func LogResponse(status int, path string, cost time.Duration) {
 	logger.Infof("%s %d cost=%s", path, status, cost)
 }
+

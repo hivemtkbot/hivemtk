@@ -11,23 +11,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// marketing_flow_sms_init.go 营销流程 send_sms 动作的 SMS 发送实现注入
-//
-// 背景：
-//   marketing_flow.go 中的 sendActionSendSms 通过包级函数变量 smsSenderFunc 调用 SMS 发送能力。
-//   因 internal/service 反向依赖 internal/content/service（sop_condition / sales_engine_adapters），
-//   本包是 contentsvc.SetSmsSender 的唯一调用方，必须在 init 阶段注册真实实现。
-//
-// 实现策略：
-//   1. init() 阶段调用 contentsvc.SetSmsSender 注册 lazySender
-//   2. lazySender 在第一次调用时延迟初始化 SmsService（避免 init 阶段 DB 未就绪）
-//   3. 复用同一 SmsService 实例以减少对象创建开销
-//   4. 若 DB 未就绪则返回明确错误，便于调用方感知
-//
-// 五层架构合规：
-//   - 本文件不再 import db 包，也不再调用 db 包
-//   - DB 访问完全委托给 SmsRepository（其内部自行获取 db 连接）
-//   - 服务层只通过 repository 暴露的接口完成数据访问
 
 var (
 	smsSvcOnce     sync.Once
@@ -69,8 +52,6 @@ func lazySendSms(phone, content string) error {
 		return fmt.Errorf("初始化短信服务失败：%w", err)
 	}
 
-	// 营销流程异步调用入口（无 controller ctx 透传）→ 使用 background ctx
-	// 异步链路中无法感知上游 ctx，使用 background 隔离
 	ctx := context.Background()
 
 	req := &dto.SmsSendRequest{
@@ -82,3 +63,4 @@ func lazySendSms(phone, content string) error {
 	}
 	return nil
 }
+

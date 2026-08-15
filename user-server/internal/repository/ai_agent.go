@@ -7,21 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// ============================================================================
-// 多 AI 智能体架构 - Repository 层
-// ----------------------------------------------------------------------------
-// 三个 Repository：
-//  1. AIAgentRepository              - 智能体 CRUD
-//  2. ChannelAgentBindingRepository  - 渠道绑定 CRUD + 按渠道账号查询
-//  3. CustomerServiceAgentRepository - 客服挂载 CRUD + 按座席查询
-//
-// 五层架构：纯数据访问，不含业务逻辑
-// 私域独立部署：无 merchant_id 过滤
-// ============================================================================
 
-// ----------------------------------------------------------------------------
-// AIAgentRepository
-// ----------------------------------------------------------------------------
 
 // AIAgentRepository AI 智能体仓库
 type AIAgentRepository struct {
@@ -125,9 +111,6 @@ func (r *AIAgentRepository) CountByIDs(ctx context.Context, ids []uint) (int64, 
 	return count, nil
 }
 
-// ----------------------------------------------------------------------------
-// ChannelAgentBindingRepository
-// ----------------------------------------------------------------------------
 
 // ChannelAgentBindingRepository 渠道绑定仓库
 type ChannelAgentBindingRepository struct {
@@ -218,9 +201,6 @@ func (r *ChannelAgentBindingRepository) DeleteByChannelAccount(ctx context.Conte
 		Delete(&model.ChannelAgentBinding{}).Error
 }
 
-// ----------------------------------------------------------------------------
-// CustomerServiceAgentRepository
-// ----------------------------------------------------------------------------
 
 // CustomerServiceAgentRepository 客服挂载仓库
 type CustomerServiceAgentRepository struct {
@@ -309,3 +289,4 @@ func (r *CustomerServiceAgentRepository) DeleteByAgentStatusID(ctx context.Conte
 	return r.db.Where("agent_status_id = ?", agentStatusID).
 		Delete(&model.CustomerServiceAgent{}).Error
 }
+

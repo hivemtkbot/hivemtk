@@ -97,7 +97,6 @@ func TestLocalEmbedding_DifferentDimensions(t *testing.T) {
 // TestLocalEmbedding_ChineseNgram 中文 2-gram 3-gram 生效
 func TestLocalEmbedding_ChineseNgram(t *testing.T) {
 	eng := NewLocalEmbedding(768, 42)
-	// 包含大量相同 2-gram 的文本
 	v1 := eng.Embed("营销营销营销")
 	v2 := eng.Embed("营销")
 	if cosine(v1, v2) < 0.3 {
@@ -162,3 +161,4 @@ func cosine(a, b []float32) float64 {
 	}
 	return dot / (math.Sqrt(na) * math.Sqrt(nb))
 }
+

@@ -1,17 +1,5 @@
 package migrations
 
-// confidence_migration_test.go 置信度驱动转人工迁移 v2.8.0 PG 集成测试
-//
-// 覆盖：
-//  1. Version / Name / Description 元信息
-//  2. Up() 创建 8 张表 + 11 条默认策略
-//  3. Up() 幂等：重复执行不报错
-//  4. seedDefaultPolicies 幂等：已有数据不覆盖
-//  5. Down() 回滚 6 张表（保留 calibrations / policies）
-//  6. Down() 后 calibrations / policies 仍存在
-//  7. 各表可正常写入数据（验证字段完整）
-//  8. nil db 返回错误
-//  9. 默认策略字段值正确
 
 import (
 	"context"
@@ -25,7 +13,6 @@ import (
 // setupConfidenceMigrationTestDB 创建迁移测试 DB（空库）
 func setupConfidenceMigrationTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	// 项目规则"不允许跳过"：PG 集成测试必须运行，testutil.NewTestDB 在连接失败时 t.Fatal
 	return testutil.NewTestDB(t)
 }
 
@@ -84,11 +71,9 @@ func TestConfidenceMigration_UpIdempotent(t *testing.T) {
 	if err := m.Up(context.Background()); err != nil {
 		t.Fatalf("first Up() failed: %v", err)
 	}
-	// 第二次 Up 不应报错
 	if err := m.Up(context.Background()); err != nil {
 		t.Fatalf("second Up() should be idempotent, got: %v", err)
 	}
-	// 第三次 Up 不应报错
 	if err := m.Up(context.Background()); err != nil {
 		t.Fatalf("third Up() should be idempotent, got: %v", err)
 	}
@@ -125,7 +110,6 @@ func TestConfidenceMigration_SeedPoliciesIdempotent(t *testing.T) {
 	var countAfterFirst int64
 	_ = db.Raw(`SELECT COUNT(*) FROM threshold_policies`).Scan(&countAfterFirst).Error
 
-	// 再次 Up
 	if err := m.Up(context.Background()); err != nil {
 		t.Fatalf("second Up() failed: %v", err)
 	}
@@ -223,7 +207,6 @@ func TestConfidenceMigration_Down(t *testing.T) {
 		t.Fatalf("Down() failed: %v", err)
 	}
 
-	// 应被删除的 6 张表
 	deletedTables := []string{
 		"confidence_signals",
 		"handoff_decisions",
@@ -252,7 +235,6 @@ func TestConfidenceMigration_DownPreservesCalibrationsAndPolicies(t *testing.T) 
 		t.Fatalf("Down() failed: %v", err)
 	}
 
-	// 这两张表应保留
 	preservedTables := []string{
 		"confidence_calibrations",
 		"threshold_policies",
@@ -349,7 +331,6 @@ func TestConfidenceMigration_InsertABTest(t *testing.T) {
 		t.Fatalf("Up() failed: %v", err)
 	}
 
-	// ab_tests
 	if err := db.Exec(`
 		INSERT INTO ab_tests
 			(test_id, test_name, description, status, traffic_split, metrics)
@@ -360,7 +341,6 @@ func TestConfidenceMigration_InsertABTest(t *testing.T) {
 		t.Errorf("插入 ab_tests 失败: %v", err)
 	}
 
-	// ab_test_metrics
 	if err := db.Exec(`
 		INSERT INTO ab_test_metrics
 			(test_id, group_name, metric_name, value)
@@ -412,3 +392,4 @@ func approxEqualFloat(a, b float64) bool {
 	}
 	return diff < 1e-6
 }
+

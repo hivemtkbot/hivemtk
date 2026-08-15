@@ -230,14 +230,12 @@ func TestEmailTracking_GetJobMetrics(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	// 准备：1 个 job，3 个收件人打开，2 个收件人点击
 	jobID := "job-metrics"
 	for _, email := range []string{"a@x.com", "b@x.com", "c@x.com"} {
 		if err := svc.recordEvent(context.Background(), email, jobID, model.EmailEventTypeOpen, "", "", ""); err != nil {
 			t.Fatalf("recordEvent open failed: %v", err)
 		}
 	}
-	// a@x.com 重复打开（应被去重）
 	if err := svc.recordEvent(context.Background(), "a@x.com", jobID, model.EmailEventTypeOpen, "", "", ""); err != nil {
 		t.Fatalf("recordEvent open repeat failed: %v", err)
 	}
@@ -250,7 +248,6 @@ func TestEmailTracking_GetJobMetrics(t *testing.T) {
 		t.Fatalf("recordEvent bounce failed: %v", err)
 	}
 
-	// 设置 TotalSent = 10 用于比率计算
 	if err := svc.repo.UpsertJobMetric(context.Background(), &model.EmailJobMetric{JobID: jobID, TotalSent: 10}); err != nil {
 		t.Fatalf("UpsertJobMetric failed: %v", err)
 	}
@@ -268,7 +265,6 @@ func TestEmailTracking_GetJobMetrics(t *testing.T) {
 	if metric.TotalBounced != 1 {
 		t.Errorf("Expected TotalBounced 1, got %d", metric.TotalBounced)
 	}
-	// 3/10 = 30.00
 	if metric.OpenRate != 30.00 {
 		t.Errorf("Expected OpenRate 30.00, got %f", metric.OpenRate)
 	}
@@ -310,7 +306,6 @@ func TestEmailTracking_GetEmailMetrics(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	// 在当前区间内记录事件
 	now := time.Now()
 	start := now.Add(-1 * time.Hour)
 	end := now.Add(1 * time.Hour)
@@ -349,7 +344,6 @@ func TestEmailTracking_GetEmailMetrics_InvalidRange(t *testing.T) {
 	svc := newEmailTrackingService(database)
 
 	now := time.Now()
-	// end 早于 start
 	_, err := svc.GetEmailMetrics(context.Background(), now, now.Add(-1*time.Hour))
 	if err == nil {
 		t.Error("Expected error for invalid range")
@@ -373,7 +367,6 @@ func TestEmailTracking_RefreshJobMetrics(t *testing.T) {
 	svc := newEmailTrackingService(database)
 
 	jobID := "job-refresh"
-	// 记录事件
 	if err := svc.recordEvent(context.Background(), "a@x.com", jobID, model.EmailEventTypeOpen, "", "", ""); err != nil {
 		t.Fatalf("recordEvent failed: %v", err)
 	}
@@ -381,7 +374,6 @@ func TestEmailTracking_RefreshJobMetrics(t *testing.T) {
 		t.Fatalf("recordEvent failed: %v", err)
 	}
 
-	// 刷新指标：TotalSent=5
 	if err := svc.RefreshJobMetrics(context.Background(), jobID, 5); err != nil {
 		t.Fatalf("RefreshJobMetrics failed: %v", err)
 	}
@@ -408,7 +400,6 @@ func TestEmailTracking_ListJobEvents(t *testing.T) {
 	svc := newEmailTrackingService(database)
 
 	jobID := "job-list"
-	// 记录 5 条不同事件，验证分页
 	emails := []string{"a@x.com", "b@x.com", "c@x.com", "d@x.com", "e@x.com"}
 	for _, e := range emails {
 		if err := svc.recordEvent(context.Background(), e, jobID, model.EmailEventTypeOpen, "", "", ""); err != nil {
@@ -416,7 +407,6 @@ func TestEmailTracking_ListJobEvents(t *testing.T) {
 		}
 	}
 
-	// 幂等去重：同一事件重复记录只落一条
 	if err := svc.recordEvent(context.Background(), "a@x.com", jobID, model.EmailEventTypeOpen, "", "", ""); err != nil {
 		t.Fatalf("recordEvent dup failed: %v", err)
 	}
@@ -428,7 +418,6 @@ func TestEmailTracking_ListJobEvents(t *testing.T) {
 		t.Fatalf("重复记录未被去重，期望 5 条，实际 %d", totalAll)
 	}
 
-	// 第 1 页，每页 2 条
 	events, total, err := svc.ListJobEvents(context.Background(), jobID, 1, 2)
 	if err != nil {
 		t.Fatalf("ListJobEvents failed: %v", err)
@@ -462,24 +451,20 @@ func TestEmailTracking_FullFlow(t *testing.T) {
 	email := "full-flow@demo.com"
 	jobID := "job-full"
 
-	// 1. 生成像素 token
 	pixelToken, err := svc.GenerateTrackingPixelToken(context.Background(), email, jobID)
 	if err != nil {
 		t.Fatalf("GenerateTrackingPixelToken failed: %v", err)
 	}
 
-	// 2. 触发打开事件
 	if err := svc.RecordOpenEvent(context.Background(), pixelToken, "10.0.0.1", "UA-1"); err != nil {
 		t.Fatalf("RecordOpenEvent failed: %v", err)
 	}
 
-	// 3. 生成点击链接
 	clickLink, err := svc.GenerateClickTrackingLink(context.Background(), email, jobID, "https://target.example.com")
 	if err != nil {
 		t.Fatalf("GenerateClickTrackingLink failed: %v", err)
 	}
 
-	// 4. 触发点击事件
 	idx := strings.Index(clickLink, "/click/") + len("/click/")
 	endIdx := strings.Index(clickLink[idx:], "?")
 	if endIdx < 0 {
@@ -495,7 +480,6 @@ func TestEmailTracking_FullFlow(t *testing.T) {
 		t.Errorf("Expected target 'https://target.example.com', got %s", target)
 	}
 
-	// 5. 查询指标
 	metric, err := svc.GetJobMetrics(context.Background(), jobID)
 	if err != nil {
 		t.Fatalf("GetJobMetrics failed: %v", err)
@@ -507,13 +491,12 @@ func TestEmailTracking_FullFlow(t *testing.T) {
 		t.Errorf("Expected TotalClicked 1, got %d", metric.TotalClicked)
 	}
 
-	// 6. 刷新持久化指标
 	if err := svc.RefreshJobMetrics(context.Background(), jobID, 1); err != nil {
 		t.Fatalf("RefreshJobMetrics failed: %v", err)
 	}
-	// OpenRate = 1/1 * 100 = 100
 	metric, _ = svc.GetJobMetrics(context.Background(), jobID)
 	if metric.OpenRate != 100.00 {
 		t.Errorf("Expected OpenRate 100, got %f", metric.OpenRate)
 	}
 }
+

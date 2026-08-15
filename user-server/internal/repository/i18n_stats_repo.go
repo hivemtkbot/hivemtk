@@ -1,20 +1,5 @@
 package repository
 
-// ============================================================================
-// I18nStatsRepository 多语言统计仓库（v1.2 出海多语言方案）
-// ----------------------------------------------------------------------------
-// 五层架构归属：L4 数据访问层
-// 表：llm_routing_logs（多语言扩展字段）+ glossaries
-//
-// 私域独立部署：无 merchant_id 字段
-//
-// 职责：
-//   - 监控看板所需的聚合查询（语言分布 / 缓存命中 / 术语覆盖 / 质量趋势 / 降级率 / 延迟）
-//   - 所有统计查询用 SQL（Raw / Group）在 repository 层完成，service 层不做内存聚合
-//   - 复用 llm_routing_logs 表已建的复合索引：
-//       * idx_llm_routing_logs_target_lang (target_lang, created_at DESC)
-//       * idx_llm_routing_logs_cross_lingual (cross_lingual, created_at DESC)
-// ============================================================================
 
 import (
 	"context"
@@ -28,24 +13,16 @@ import (
 
 // I18nStatsRepository 多语言统计仓库接口
 type I18nStatsRepository interface {
-	// LangDistribution 语言分布统计
-	// 返回 [{internal_lang, target_lang, count, cross_lingual_count}]
 	LangDistribution(ctx context.Context, since time.Time) ([]LangDistRow, error)
 
-	// CacheHitRate 缓存命中率
 	CacheHitRate(ctx context.Context, since time.Time) (hit, miss int64, err error)
 
-	// GlossaryCoverage 术语覆盖率
-	// 返回 [{target_lang, term_count, active_count}]
 	GlossaryCoverage(ctx context.Context) ([]GlossaryCovRow, error)
 
-	// QualityTrend 质量评分趋势（按天聚合）
 	QualityTrend(ctx context.Context, days int) ([]QualityTrendRow, error)
 
-	// FallbackRate 降级率（低资源语言调用占比，按 is_fallback 统计）
 	FallbackRate(ctx context.Context, since time.Time) (total, fallback int64, err error)
 
-	// LatencyStats 延迟统计（按 target_lang 聚合，使用 percentile_cont 近似）
 	LatencyStats(ctx context.Context, since time.Time) ([]LatencyRow, error)
 }
 
@@ -119,7 +96,6 @@ func (r *i18nStatsRepo) LangDistribution(ctx context.Context, since time.Time) (
 	if r.db == nil {
 		return nil, errors.New("i18n_stats: db is nil")
 	}
-	// COALESCE 兼容 NULL（老数据 internal_lang 可能为 NULL）
 	raw := `
 		SELECT
 			COALESCE(internal_lang, '') AS internal_lang,
@@ -173,7 +149,6 @@ func (r *i18nStatsRepo) GlossaryCoverage(ctx context.Context) ([]GlossaryCovRow,
 	if r.db == nil {
 		return nil, errors.New("i18n_stats: db is nil")
 	}
-	// LATERAL 展开 translations 的 keys，得到每个 term 的所有目标语言
 	raw := `
 		SELECT
 			lang AS target_lang,
@@ -271,3 +246,4 @@ func (r *i18nStatsRepo) LatencyStats(ctx context.Context, since time.Time) ([]La
 
 // 编译期接口断言
 var _ I18nStatsRepository = (*i18nStatsRepo)(nil)
+

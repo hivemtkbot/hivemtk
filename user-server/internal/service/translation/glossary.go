@@ -22,18 +22,6 @@ import (
 // service 层引用 gorm 包仅用于错误识别，不直接持有/使用 *gorm.DB（符合五层架构）。
 var ErrGlossaryNotFound = errors.New("glossary: not found")
 
-// ============================================================================
-// GlossaryService 术语表服务（v1.2 出海多语言方案）
-// ----------------------------------------------------------------------------
-// 职责：
-//   1. 加载某目标语言下的术语映射（src → dst）+ 保护模式
-//   2. 渲染为 system prompt 块，供 LLM 调用时注入
-//   3. Redis 缓存（key: glossary:lang:{lang}，TTL 1h）
-//   4. 术语更新时主动失效缓存（保持最终一致）
-//
-// 五层架构归属：L3 业务服务层。本服务不直接访问 db，
-// 通过 GlossaryRepo 接口委托 repository 层。
-// ============================================================================
 
 // GlossaryRepo 术语表仓储接口（由 repository.GlossaryRepository 实现）。
 type GlossaryRepo interface {
@@ -102,21 +90,17 @@ func NewGlossaryService(repo GlossaryRepo, c cache.Cache) *GlossaryService {
 func (s *GlossaryService) LoadByLang(ctx context.Context, lang string) (*GlossaryView, error) {
 	lang = i18npkg.NormalizeLang(lang)
 
-	// 1. 命中缓存直接返回
 	if view, ok := s.loadFromCache(ctx, lang); ok {
 		return view, nil
 	}
 
-	// 2. 加载全量 active 术语
 	list, err := s.repo.ListActive(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("glossary: list active failed: %w", err)
 	}
 
-	// 3. 构建视图
 	view := s.buildView(lang, list)
 
-	// 4. 写缓存（best-effort）
 	s.saveToCache(ctx, view)
 	return view, nil
 }
@@ -186,8 +170,6 @@ func (s *GlossaryService) Render(ctx context.Context, lang string) string {
 func (s *GlossaryService) InvalidateCache(ctx context.Context, lang string) {
 	lang = i18npkg.NormalizeLang(lang)
 	if lang == "" || lang == "*" {
-		// 仅清 glossary:lang:* —— 当前 Cache 接口未提供 SCAN/批量删除，
-		// 退化到清空全部缓存，调用方需自行权衡。
 		if err := s.cache.Clear(ctx); err != nil {
 			logger.Warnf("glossary: clear cache failed: %v", err)
 		}
@@ -206,9 +188,6 @@ func (s *GlossaryService) InvalidateAll(ctx context.Context) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// CRUD 包装方法（供 controller 调用，五层架构：controller → service → repository）
-// ----------------------------------------------------------------------------
 
 // Create 创建术语。写库后失效全量缓存（保证后续 LoadByLang 拉到最新数据）。
 func (s *GlossaryService) Create(ctx context.Context, g *model.Glossary) error {
@@ -256,8 +235,6 @@ func (s *GlossaryService) GetByTermID(ctx context.Context, termID string) (*mode
 	}
 	g, err := s.repo.GetByTermID(ctx, termID)
 	if err != nil {
-		// 五层架构修复：将底层 gorm.ErrRecordNotFound 转为业务 sentinel error，
-		// controller 不再需要直接引用 gorm 包
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrGlossaryNotFound
 		}
@@ -284,9 +261,6 @@ func (s *GlossaryService) ListByCategory(ctx context.Context, category string) (
 	return list, nil
 }
 
-// ----------------------------------------------------------------------------
-// 内部辅助
-// ----------------------------------------------------------------------------
 
 // loadFromCache 从缓存读取视图；未命中或反序列化失败时返回 (nil, false)。
 //
@@ -299,7 +273,6 @@ func (s *GlossaryService) loadFromCache(ctx context.Context, lang string) (*Glos
 	key := glossaryCacheKeyPrefix + lang
 	var view GlossaryView
 	if err := s.cache.GetJSON(ctx, key, &view); err != nil {
-		// 缓存未命中是正常路径，仅 debug 日志
 		logger.Debugf("glossary: cache get key=%s err=%v", key, err)
 		return nil, false
 	}
@@ -338,14 +311,12 @@ func (s *GlossaryService) buildView(lang string, list []*model.Glossary) *Glossa
 		if g == nil {
 			continue
 		}
-		// 保护模式：去重追加
 		if g.Pattern != "" {
 			if _, ok := patternSeen[g.Pattern]; !ok {
 				view.Patterns = append(view.Patterns, g.Pattern)
 				patternSeen[g.Pattern] = struct{}{}
 			}
 		}
-		// Preserve=true：仅作为保护项，不参与 Mappings
 		if g.Preserve {
 			continue
 		}
@@ -355,14 +326,11 @@ func (s *GlossaryService) buildView(lang string, list []*model.Glossary) *Glossa
 			continue
 		}
 
-		// 找出目标语言文本
 		dst := pickTextByLang(translations, lang)
 		if dst == "" {
-			// 目标语言没有翻译条目，跳过此术语
 			continue
 		}
 
-		// 其余语言文本作为"错误形式"映射到目标文本
 		for _, t := range translations {
 			if t.Lang == lang {
 				continue
@@ -370,7 +338,6 @@ func (s *GlossaryService) buildView(lang string, list []*model.Glossary) *Glossa
 			if t.Text == "" || t.Text == dst {
 				continue
 			}
-			// 首次写入优先；后续重复保留首个映射避免抖动
 			if _, exists := view.Mappings[t.Text]; !exists {
 				view.Mappings[t.Text] = dst
 			}
@@ -425,3 +392,4 @@ func pickTextByLang(translations []glossaryTranslation, lang string) string {
 	}
 	return ""
 }
+

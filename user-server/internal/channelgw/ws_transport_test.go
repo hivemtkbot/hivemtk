@@ -16,15 +16,14 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// ───────────────────────── fake pipeline ─────────────────────────
 
 // fakePipeline 内存版 IngressPipeline：记录全部管道调用，供断言。
 type fakePipeline struct {
 	mu       sync.Mutex
-	ingested []*model.MessageEvent // IngestBatch 收到的全部事件
-	history  []*model.MessageEvent // PersistHistory 收到的全部事件
-	claimQue []*model.MessageHub   // ClaimOutbound 待返回队列（取完即空）
-	acked    []string              // AckOutbound 收到的 msg_id
+	ingested []*model.MessageEvent 
+	history  []*model.MessageEvent 
+	claimQue []*model.MessageHub   
+	acked    []string              
 }
 
 func (f *fakePipeline) IngestBatch(_ context.Context, events []*model.MessageEvent) (*service.InboxIngressBatchResult, error) {
@@ -67,7 +66,6 @@ func (f *fakePipeline) AckOutbound(_ context.Context, _, _ string, msgIDs []stri
 	return len(msgIDs), nil
 }
 
-// ───────────────────────── 测试装配 ─────────────────────────
 
 // newTestServer 起 httptest 服务挂载 WS 端点，pushInterval 调小加速测试。
 func newTestServer(t *testing.T, fp IngressPipeline) *httptest.Server {
@@ -109,13 +107,11 @@ func registerFrame(channel, accountID string) *Frame {
 	return &Frame{V: CurrentProtocolVersion, Type: FrameRegister, Channel: channel, AccountID: accountID}
 }
 
-// ───────────────────────── 用例 ─────────────────────────
 
 // TestWS_RegisterReject 握手拒绝路径：首帧非 register / 未注册渠道 / 缺 account_id。
 func TestWS_RegisterReject(t *testing.T) {
 	srv := newTestServer(t, &fakePipeline{})
 
-	// 1) 首帧非 register → 直接断开（读帧应报错）
 	c1 := dialWS(t, srv)
 	_ = c1.WriteJSON(&Frame{Type: FramePing})
 	_ = c1.SetReadDeadline(time.Now().Add(2 * time.Second))
@@ -124,7 +120,6 @@ func TestWS_RegisterReject(t *testing.T) {
 		t.Errorf("首帧非 register 应断开或拒绝, got %+v", f1)
 	}
 
-	// 2) 未注册渠道 → register_rejected
 	c2 := dialWS(t, srv)
 	_ = c2.WriteJSON(registerFrame("unknown_channel", "acc-1"))
 	f2 := readFrame(t, c2, 2*time.Second)
@@ -132,7 +127,6 @@ func TestWS_RegisterReject(t *testing.T) {
 		t.Errorf("未注册渠道应收到拒绝帧, got %+v", f2)
 	}
 
-	// 3) 缺 account_id → register_rejected
 	c3 := dialWS(t, srv)
 	_ = c3.WriteJSON(registerFrame(model.ChannelDouyin, ""))
 	f3 := readFrame(t, c3, 2*time.Second)
@@ -147,10 +141,8 @@ func TestWS_E2E(t *testing.T) {
 	srv := newTestServer(t, fp)
 	conn := dialWS(t, srv)
 
-	// ── register（douyin 支持 websocket） ──
 	_ = conn.WriteJSON(registerFrame(model.ChannelDouyin, "acc-1"))
 
-	// ── 入站：inbound_message（含一条历史回填项） ──
 	_ = conn.WriteJSON(&Frame{
 		V: CurrentProtocolVersion, Type: FrameInbound,
 		Channel: model.ChannelDouyin, AccountID: "acc-1", TraceID: "trace-1",
@@ -165,7 +157,6 @@ func TestWS_E2E(t *testing.T) {
 		},
 	})
 
-	// 服务端回执 ack(results)
 	ack := readFrame(t, conn, 3*time.Second)
 	if ack.Type != FrameAck {
 		t.Fatalf("期望 ack 帧, got %+v", ack)
@@ -177,7 +168,6 @@ func TestWS_E2E(t *testing.T) {
 		t.Errorf("ack results 异常: %+v", ack.Results)
 	}
 
-	// 管道断言：实时事件带 websocket 传输标记；历史仅落一条（同 EventID 项被跳过）
 	fp.mu.Lock()
 	if len(fp.ingested) != 1 || fp.ingested[0].EventID != "ev-1" {
 		t.Errorf("IngestBatch 事件异常: %+v", fp.ingested)
@@ -189,14 +179,12 @@ func TestWS_E2E(t *testing.T) {
 	}
 	fp.mu.Unlock()
 
-	// ── 保活：ping → pong ──
 	_ = conn.WriteJSON(&Frame{V: CurrentProtocolVersion, Type: FramePing})
 	pong := readFrame(t, conn, 3*time.Second)
 	if pong.Type != FramePong {
 		t.Errorf("期望 pong, got %+v", pong)
 	}
 
-	// ── 出站：投递一条待发消息 → 服务端推 outbound_reply 帧 ──
 	fp.mu.Lock()
 	fp.claimQue = append(fp.claimQue, &model.MessageHub{
 		MsgID: "msg-1", ConversationID: "conv-1",
@@ -215,7 +203,6 @@ func TestWS_E2E(t *testing.T) {
 		t.Errorf("出站推帧渠道/账号异常: %+v", reply.Reply)
 	}
 
-	// ── 客户端 ack(msg_ids) → 回写 delivered ──
 	_ = conn.WriteJSON(&Frame{
 		V: CurrentProtocolVersion, Type: FrameAck,
 		Channel: model.ChannelDouyin, AccountID: "acc-1",
@@ -279,3 +266,4 @@ func TestWS_HistoryFrame(t *testing.T) {
 		t.Errorf("history 帧不应触发 IngestBatch: %+v", fp.ingested)
 	}
 }
+

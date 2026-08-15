@@ -6,8 +6,8 @@ import "time"
 type SessionTag struct {
 	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name        string    `gorm:"type:varchar(50);not null" json:"name"`
-	Code        string    `gorm:"type:varchar(50);uniqueIndex" json:"code"` // 英文/拼音标识，如 vip
-	Group       string    `gorm:"type:varchar(50)" json:"group"`            // 分组：客户类型/意向度
+	Code        string    `gorm:"type:varchar(50);uniqueIndex" json:"code"` 
+	Group       string    `gorm:"type:varchar(50)" json:"group"`            
 	Color       string    `gorm:"type:varchar(20)" json:"color"`
 	Description string    `gorm:"type:varchar(200)" json:"description"`
 	SortOrder   int       `gorm:"default:0" json:"sort_order"`
@@ -18,3 +18,4 @@ type SessionTag struct {
 func (SessionTag) TableName() string {
 	return "session_tags"
 }
+

@@ -1,17 +1,5 @@
 package controller
 
-// sop_template_controller.go SOP 模板 L3 Controller
-//
-// 五层架构归属: L3 API 接入层
-// 设计依据: 知识库管理
-//
-// 接口前缀: /api/sop-templates
-//   GET    /api/sop-templates       列表查询 (前端 SOP 模板管理页面)
-//   GET    /api/sop-templates/:id   详情
-//   POST   /api/sop-templates       新增
-//   PUT    /api/sop-templates/:id   更新
-//   DELETE /api/sop-templates/:id   删除
-//   POST   /api/sop-templates/match 按 (intent, stage) 匹配 (Layer1 调试接口)
 
 import (
 	"net/http"
@@ -105,7 +93,6 @@ type sopTemplateCreateReq struct {
 	Priority   int     `json:"priority"`
 	Confidence float64 `json:"confidence"`
 	Enabled    *bool   `json:"enabled"`
-	// Task 16 强 1对1: AgentID 必填
 	AgentID uint `json:"agent_id" binding:"required"`
 }
 
@@ -187,7 +174,7 @@ type sopTemplateMatchReq struct {
 	Intent  string `json:"intent" binding:"required"`
 	Stage   string `json:"stage"`
 	TopK    int    `json:"top_k"`
-	AgentID uint   `json:"agent_id" binding:"required"` // Task 16 强 1对1: 必填
+	AgentID uint   `json:"agent_id" binding:"required"` 
 }
 
 // Match 按 (agent_id, intent, stage) 匹配 (Task 16 强 1对1 改造后)
@@ -197,7 +184,6 @@ func (c *SOPTemplateController) Match(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	// Task 16 强 1对1: agent_id 必填且 > 0
 	if req.AgentID == 0 {
 		response.Error(ctx, http.StatusBadRequest, "agent_id 必填且 > 0 (Task 16 强 1对1)")
 		return
@@ -209,3 +195,4 @@ func (c *SOPTemplateController) Match(ctx *gin.Context) {
 	}
 	response.Success(ctx, matches, "匹配成功")
 }
+

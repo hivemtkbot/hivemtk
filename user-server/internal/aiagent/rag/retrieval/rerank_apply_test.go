@@ -12,7 +12,6 @@ func TestApplyRerankWritesBackScore(t *testing.T) {
 		{ID: "c2", Content: "beta", Score: 0.02},
 		{ID: "c3", Content: "gamma", Score: 0.03},
 	}
-	// reranker 给出的相关性分数（0~1 语义），顺序与原始不同
 	results := []RerankResult{
 		{ID: "c2", Score: 0.91},
 		{ID: "c1", Score: 0.62},
@@ -61,3 +60,4 @@ func TestApplyRerankKeepsUncoveredChunks(t *testing.T) {
 		t.Errorf("out[1]=%s/%v, want c2/0.02 (保留原 RRF score, 不得清零)", out[1].ID, out[1].Score)
 	}
 }
+

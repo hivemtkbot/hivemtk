@@ -1,19 +1,5 @@
 package service
 
-// ============================================================================
-// SOP Outbox 调度器与卡死检测器（SOP 节点执行器完善设计）
-// ----------------------------------------------------------------------------
-// 设计依据：docs/核心链路优化.md 第十三章 §13.2.4 / §13.2.5
-// 私域独立部署：无 merchant_id 字段
-// 五层架构：本文件位于 L3 业务层（Service），所有 DB 操作通过 repository 层完成。
-//
-// 设计要点：
-//   - OutboxDispatcher：独立 goroutine 轮询 sop_timers 表（5s 周期），
-//     扫描到期的 timer 后派发任务给 SOPExecutionDispatcher
-//   - StuckExecutionDetector：独立 goroutine 周期扫描（60s 周期），
-//     检测卡死的 Execution（24h 无 event 且非 waiting 态），自动恢复
-//   - 两个组件均由 SOPScheduler 启动，与 SOPScheduler.tick 解耦
-// ============================================================================
 
 import (
 	"context"
@@ -35,9 +21,6 @@ type SOPDispatchSender interface {
 	DispatchOrLog(task *dispatchTask)
 }
 
-// ============================================================================
-// OutboxDispatcher
-// ============================================================================
 
 // SOPOutboxDispatcher Outbox 调度器
 //
@@ -46,8 +29,8 @@ type SOPDispatchSender interface {
 type SOPOutboxDispatcher struct {
 	timerRepo      *repository.SOPTimerRepository
 	execDispatcher SOPDispatchSender
-	tickInterval   time.Duration // 轮询周期（默认 5s）
-	batchSize      int           // 单次扫描批量（默认 100）
+	tickInterval   time.Duration 
+	batchSize      int           
 	stopCh         chan struct{}
 	wg             sync.WaitGroup
 	runMu          sync.Mutex
@@ -109,7 +92,6 @@ func (o *SOPOutboxDispatcher) loop(ctx context.Context) {
 	ticker := time.NewTicker(o.tickInterval)
 	defer ticker.Stop()
 
-	// 启动时立即执行一次
 	o.processDueTimers(context.Background())
 
 	for {
@@ -135,8 +117,6 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 	ctx = logger.WithModule(ctx, "sop_outbox")
 
 	now := time.Now()
-	// 使用 FOR UPDATE SKIP LOCKED 让多实例并行安全抢占
-	// 第一个拿到行的实例进入事务处理，其他实例立即跳过该行
 	timers, err := o.timerRepo.FindDueForUpdate(ctx, now, o.batchSize)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[outbox] query due timers failed")
@@ -149,7 +129,6 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 
 	firedCount := 0
 	for _, t := range timers {
-		// 原子标记 fired（防多实例重复处理）
 		rowsAffected, err := o.timerRepo.MarkFired(ctx, t.ID, now)
 		if err != nil {
 			logger.Ctx(ctx).Error().Err(err).
@@ -158,11 +137,9 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 			continue
 		}
 		if rowsAffected == 0 {
-			// 已被其他实例处理，跳过
 			continue
 		}
 
-		// 派发任务到 SOPExecutionDispatcher
 		traceID := fmt.Sprintf("timer-%d", t.ID)
 		o.execDispatcher.DispatchOrLog(&dispatchTask{
 			ExecutionID: t.ExecutionID,
@@ -188,9 +165,6 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 	}
 }
 
-// ============================================================================
-// StuckExecutionDetector
-// ============================================================================
 
 // SOPStuckDetector 卡死执行检测器
 //
@@ -207,9 +181,9 @@ type SOPStuckDetector struct {
 	timerRepo      *repository.SOPTimerRepository
 	eventRepo      *repository.SOPExecEventRepository
 	execDispatcher SOPDispatchSender
-	maxIdleTime    time.Duration // 节点级卡死阈值（默认 30min）
-	maxExecTime    time.Duration // Execution 级超时阈值（默认 24h）
-	tickInterval   time.Duration // 扫描周期（默认 60s）
+	maxIdleTime    time.Duration 
+	maxExecTime    time.Duration 
+	tickInterval   time.Duration 
 	stopCh         chan struct{}
 	wg             sync.WaitGroup
 	runMu          sync.Mutex
@@ -312,7 +286,6 @@ func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 	idleThreshold := now.Add(-d.maxIdleTime)
 	execThreshold := now.Add(-d.maxExecTime)
 
-	// 扫描卡死执行（无 pending timer 的 running 执行，且最近无事件）
 	execs, err := d.execRepo.FindStuck(ctx, SOPStatusRunning, execThreshold, idleThreshold, 50)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[stuck] query stuck executions failed")
@@ -325,7 +298,6 @@ func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 
 	recoveredCount := 0
 	for _, exec := range execs {
-		// 检查是否有 pending timer（wait 节点不算卡死）
 		pendingTimerCount, err := d.timerRepo.CountPendingByExecutionID(ctx, exec.ID)
 		if err != nil {
 			logger.Ctx(ctx).Warn().Err(err).
@@ -334,11 +306,9 @@ func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 			continue
 		}
 		if pendingTimerCount > 0 {
-			// 有 pending timer，不算卡死
 			continue
 		}
 
-		// 检查最近是否有 sop_exec_events
 		recentEventCount, err := d.eventRepo.CountRecentByExecutionID(ctx, exec.ID, idleThreshold)
 		if err != nil {
 			logger.Ctx(ctx).Warn().Err(err).
@@ -347,18 +317,15 @@ func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 			continue
 		}
 		if recentEventCount > 0 {
-			// 最近有事件，不算卡死
 			continue
 		}
 
-		// 真正卡死，尝试恢复
 		logger.Ctx(ctx).Warn().
 			Uint("execution_id", exec.ID).
 			Str("current_node", exec.CurrentNode).
 			Time("started_at", exec.StartedAt).
 			Msg("[stuck] detected stuck execution, attempting recovery")
 
-		// 重新派发当前节点
 		if d.execDispatcher != nil && exec.CurrentNode != "" {
 			traceID := fmt.Sprintf("stuck-recovery-%d-%d", exec.ID, now.Unix())
 			d.execDispatcher.DispatchOrLog(&dispatchTask{
@@ -379,9 +346,6 @@ func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 	}
 }
 
-// ============================================================================
-// 全局实例
-// ============================================================================
 
 var (
 	globalOutboxDispatcher *SOPOutboxDispatcher
@@ -417,3 +381,4 @@ func InitSOPStuckDetector(db *gorm.DB, execDispatcher *SOPExecutionDispatcher) *
 func GetSOPStuckDetector() *SOPStuckDetector {
 	return globalStuckDetector
 }
+

@@ -125,7 +125,6 @@ func TestCustomerTagRepository_GetByID(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
 	ctx := context.Background()
 
-	// Create test data
 	tag := &model.CustomerTag{
 		ID:       "test-tag-id",
 		Name:     "Test Tag",
@@ -179,7 +178,6 @@ func TestCustomerTagRepository_ListByMerchant(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
 	ctx := context.Background()
 
-	// Create test tags
 	tags := []*model.CustomerTag{
 		{Name: "Tag A", Category: model.TagCategoryDemographic, Source: model.TagSourceManual},
 		{Name: "Tag B", Category: model.TagCategoryBehavioral, Source: model.TagSourceAuto},
@@ -206,7 +204,6 @@ func TestCustomerTagRepository_ListAutoTags(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
 	ctx := context.Background()
 
-	// Create mix of auto and manual tags
 	tags := []*model.CustomerTag{
 		{Name: "Auto Tag 1", Category: model.TagCategoryDemographic, Source: model.TagSourceAuto},
 		{Name: "Manual Tag 1", Category: model.TagCategoryDemographic, Source: model.TagSourceManual},
@@ -228,7 +225,6 @@ func TestCustomerTagRepository_ListAutoTags(t *testing.T) {
 		t.Errorf("Expected 3 auto tags, got %d", len(result))
 	}
 
-	// Verify all returned tags are auto source
 	for _, tag := range result {
 		if tag.Source != model.TagSourceAuto {
 			t.Errorf("Expected auto tag, got source '%s'", tag.Source)
@@ -241,7 +237,6 @@ func TestCustomerTagRepository_ListAutoTags_WithNoAutoTags(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
 	ctx := context.Background()
 
-	// Create only manual tags
 	tags := []*model.CustomerTag{
 		{Name: "Manual Tag 1", Category: model.TagCategoryDemographic, Source: model.TagSourceManual},
 		{Name: "Manual Tag 2", Category: model.TagCategoryBehavioral, Source: model.TagSourceManual},
@@ -266,7 +261,6 @@ func TestCustomerTagRepository_Delete(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
 	ctx := context.Background()
 
-	// Create test data
 	tag := &model.CustomerTag{
 		ID:       "delete-test-id",
 		Name:     "Tag To Delete",
@@ -275,13 +269,11 @@ func TestCustomerTagRepository_Delete(t *testing.T) {
 	}
 	repo.Create(ctx, tag)
 
-	// Delete tag
 	err := repo.Delete(ctx, tag.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	// Verify deletion
 	deleted, err := repo.GetByID(ctx, tag.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
@@ -303,7 +295,6 @@ func TestCustomerTagRepository_TagRule(t *testing.T) {
 		Source:   model.TagSourceAuto,
 	}
 
-	// Set rule
 	rule := map[string]any{
 		"field":    "total_spent",
 		"operator": "greater_than",
@@ -319,7 +310,6 @@ func TestCustomerTagRepository_TagRule(t *testing.T) {
 		t.Errorf("Create() error = %v", err)
 	}
 
-	// Retrieve and verify rule
 	result, err := repo.GetByID(ctx, tag.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
@@ -351,7 +341,6 @@ func TestCustomerTagRepository_TagRuleString(t *testing.T) {
 		Source:   model.TagSourceAuto,
 	}
 
-	// Set rule as string
 	ruleStr := `{"field":"page_views","operator":"greater_than","value":100}`
 	err := testTagSetRuleString(tag, ruleStr)
 	if err != nil {
@@ -363,7 +352,6 @@ func TestCustomerTagRepository_TagRuleString(t *testing.T) {
 		t.Errorf("Create() error = %v", err)
 	}
 
-	// Retrieve and verify rule
 	result, err := repo.GetByID(ctx, tag.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
@@ -440,7 +428,6 @@ func TestCustomerTagRepository_BothSources(t *testing.T) {
 		}
 	}
 
-	// Verify all tags
 	allTags, err := repo.ListByMerchant(context.Background())
 	if err != nil {
 		t.Errorf("ListByMerchant() error = %v", err)
@@ -450,7 +437,6 @@ func TestCustomerTagRepository_BothSources(t *testing.T) {
 		t.Errorf("Expected 2 tags, got %d", len(allTags))
 	}
 
-	// Verify auto tags
 	autoTags, err := repo.ListAutoTags(context.Background())
 	if err != nil {
 		t.Errorf("ListAutoTags() error = %v", err)
@@ -504,7 +490,6 @@ func TestCustomerTagRepository_ComplexRule(t *testing.T) {
 		Source:   model.TagSourceAuto,
 	}
 
-	// Set complex rule with multiple conditions
 	rule := map[string]any{
 		"conditions": []any{
 			map[string]any{
@@ -551,3 +536,4 @@ func TestCustomerTagRepository_ComplexRule(t *testing.T) {
 		t.Errorf("Expected logic 'AND', got '%v'", retrievedRule["logic"])
 	}
 }
+

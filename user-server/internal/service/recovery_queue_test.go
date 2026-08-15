@@ -10,7 +10,6 @@ import (
 
 func TestRecoveryQueueService_Enqueue_Default(t *testing.T) {
 	svc := NewRecoveryQueueService()
-	// 替换为 mock repo
 	mock := newMockRecoveryRepo()
 	svc.repo = mock
 
@@ -95,9 +94,6 @@ func TestRecoveryQueueService_Cancel(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Mock Repository（无 DB 依赖）
-// ============================================================================
 
 type mockRecoveryRepo struct {
 	items map[uint64]*model.RecoveryQueue
@@ -217,3 +213,4 @@ func (e errAlreadyQueued) Error() string { return e.msg }
 type errNotFound struct{ msg string }
 
 func (e errNotFound) Error() string { return e.msg }
+

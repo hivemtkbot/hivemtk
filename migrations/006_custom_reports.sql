@@ -2,7 +2,6 @@
 -- 版本: 1.1.0
 -- 适用于: PostgreSQL 15+ (项目唯一数据库)
 
--- 自定义报表表
 CREATE TABLE IF NOT EXISTS custom_reports (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -33,7 +32,6 @@ COMMENT ON COLUMN custom_reports.is_public IS '是否公开';
 COMMENT ON COLUMN custom_reports.created_by IS '创建人 ID';
 COMMENT ON TABLE custom_reports IS '自定义报表表';
 
--- updated_at 自动更新触发器 (custom_reports)
 CREATE OR REPLACE FUNCTION custom_reports_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

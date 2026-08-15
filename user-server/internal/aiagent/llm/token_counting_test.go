@@ -20,7 +20,7 @@ func TestInferVendor(t *testing.T) {
 		{"https://api.openai.com", "openai"},
 		{"https://open.bigmodel.cn/api/paas/v4", "zhipu"},
 		{"https://api.moonshot.cn", "moonshot"},
-		{config.DefaultLLMBaseURLDev, "local"}, // 127.0.0.1:8207（ports.go 单一源）
+		{config.DefaultLLMBaseURLDev, "local"}, 
 		{"http://localhost:8080", "local"},
 		{"http://mtk-llm:" + config.DefaultLLMPortStr + "/v1", "local"},
 		{"", "other"},
@@ -42,7 +42,7 @@ func TestInferModelType(t *testing.T) {
 		baseURL string
 		want    string
 	}{
-		{"", ModelTypeLocal}, // 空 BaseURL 视为本地
+		{"", ModelTypeLocal}, 
 		{config.DefaultLLMBaseURLDev, ModelTypeLocal},
 		{"http://localhost:8080", ModelTypeLocal},
 		{"http://mtk-llm:" + config.DefaultLLMPortStr + "/v1", ModelTypeLocal},
@@ -96,28 +96,24 @@ func TestClassifyEstimator(t *testing.T) {
 
 // TestSplitCost 验证成本拆分
 func TestSplitCost(t *testing.T) {
-	// 正常拆分：prompt:completion = 30:10 = 3:1
 	promptCost, completionCost := splitCost(1.0, 30, 10, 40)
 	if abs(promptCost-0.75) > 1e-9 || abs(completionCost-0.25) > 1e-9 {
 		t.Errorf("splitCost(1.0, 30, 10, 40) = (%f, %f), want (0.75, 0.25)",
 			promptCost, completionCost)
 	}
 
-	// totalTokens=0：全部计入 prompt_cost
 	promptCost, completionCost = splitCost(1.0, 0, 0, 0)
 	if promptCost != 1.0 || completionCost != 0 {
 		t.Errorf("splitCost(1.0, 0, 0, 0) = (%f, %f), want (1.0, 0)",
 			promptCost, completionCost)
 	}
 
-	// 本地模型 cost=0：拆分后仍为 0
 	promptCost, completionCost = splitCost(0, 30, 10, 40)
 	if promptCost != 0 || completionCost != 0 {
 		t.Errorf("splitCost(0, ...) = (%f, %f), want (0, 0)",
 			promptCost, completionCost)
 	}
 
-	// 全部是 completion
 	promptCost, completionCost = splitCost(1.0, 0, 50, 50)
 	if abs(promptCost-0) > 1e-9 || abs(completionCost-1.0) > 1e-9 {
 		t.Errorf("splitCost(1.0, 0, 50, 50) = (%f, %f), want (0, 1.0)",
@@ -136,8 +132,8 @@ func abs(x float64) float64 {
 func TestNewLogEntry_Actual(t *testing.T) {
 	provider := &ProviderConfig{
 		Name:      "default",
-		BaseURL:   config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
-		Model:     "Qwen2.5-1.5B-Instruct",     // dev 档契约
+		BaseURL:   config.DefaultLLMBaseURLDev, 
+		Model:     "Qwen2.5-1.5B-Instruct",     
 		CostPer1k: 0,
 	}
 	entry := NewLogEntry(ScenarioSOPReply, provider, "Qwen2.5-1.5B-Instruct",
@@ -173,11 +169,10 @@ func TestNewLogEntry_Actual(t *testing.T) {
 func TestNewLogEntry_Estimated(t *testing.T) {
 	provider := &ProviderConfig{
 		Name:      "default",
-		BaseURL:   config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
-		Model:     "Qwen2.5-1.5B-Instruct",     // dev 档契约
+		BaseURL:   config.DefaultLLMBaseURLDev, 
+		Model:     "Qwen2.5-1.5B-Instruct",     
 		CostPer1k: 0,
 	}
-	// totalTokens=0 但 content 非空 → estimated
 	entry := NewLogEntry(ScenarioIntentRecognize, provider, "Qwen2.5-1.5B-Instruct",
 		0, 0, 0, 0, 200, true, "", false, false, "trace-456", "some content", SourceDispatch)
 
@@ -197,7 +192,6 @@ func TestNewLogEntry_Missing(t *testing.T) {
 		Model:     "deepseek-chat",
 		CostPer1k: 0.01,
 	}
-	// 失败调用：无 content，isFallback=true
 	entry := NewLogEntry(ScenarioObjection, provider, "deepseek-chat",
 		0, 0, 0, 0, 0, false, "timeout", false, true, "trace-789", "", SourceFallback)
 
@@ -228,8 +222,8 @@ func TestNewLogEntry_Missing(t *testing.T) {
 func TestNewLogEntry_CacheSource(t *testing.T) {
 	provider := &ProviderConfig{
 		Name:    "default",
-		BaseURL: config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
-		Model:   "Qwen2.5-1.5B-Instruct",     // dev 档契约
+		BaseURL: config.DefaultLLMBaseURLDev, 
+		Model:   "Qwen2.5-1.5B-Instruct",     
 	}
 	entry := NewLogEntry(ScenarioFriendlyChat, provider, "Qwen2.5-1.5B-Instruct",
 		10, 5, 15, 0, 0, true, "", true, false, "trace-cache", "hi", SourceDispatch)
@@ -268,7 +262,6 @@ func TestNewLogEntry_NilProvider(t *testing.T) {
 func TestMissingCounter(t *testing.T) {
 	ResetTokenSourceStats()
 
-	// 构造 5 个 actual + 3 个 missing
 	for i := 0; i < 5; i++ {
 		entry := &LogEntry{TokenSource: TokenSourceActual}
 		updateMissingCounter(entry)
@@ -296,14 +289,12 @@ func TestMissingCounter(t *testing.T) {
 // TestLogRoutingDecision_NilDB 验证 DB 未注入时不 panic 且计数器正常更新
 func TestLogRoutingDecision_NilDB(t *testing.T) {
 	ResetTokenSourceStats()
-	// 不注入 auditDB，直接调用
 	entry := NewLogEntry(ScenarioSOPReply, &ProviderConfig{
 		Name:    "default",
-		BaseURL: config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
-		Model:   "Qwen2.5-1.5B-Instruct",     // dev 档契约
+		BaseURL: config.DefaultLLMBaseURLDev, 
+		Model:   "Qwen2.5-1.5B-Instruct",     
 	}, "Qwen2.5-1.5B-Instruct", 30, 9, 39, 0, 100, true, "", false, false, "t1", "ok", SourceDispatch)
 
-	// 不应 panic
 	LogRoutingDecision(context.Background(), entry)
 
 	total, _ := GetTokenSourceStats()
@@ -315,6 +306,6 @@ func TestLogRoutingDecision_NilDB(t *testing.T) {
 
 // TestLogRoutingDecision_NilEntry 验证 nil entry 不 panic
 func TestLogRoutingDecision_NilEntry(t *testing.T) {
-	// 不应 panic
 	LogRoutingDecision(context.Background(), nil)
 }
+

@@ -17,7 +17,6 @@ type CommunityService struct {
 }
 
 func NewCommunityService() *CommunityService {
-	// 使用无参仓储构造函数(仓储内部取默认 db 连接),service 层不再持有 *gorm.DB
 	repo := repository.NewCommunityRepositoryDefault()
 	return &CommunityService{repo: repo}
 }
@@ -65,10 +64,8 @@ func (s *CommunityService) GetGroupByID(ctx context.Context, id string) (*dto.Co
 }
 
 func (s *CommunityService) CreateGroup(ctx context.Context, req *dto.CreateCommunityGroupRequest) (*dto.CommunityGroupResponse, error) {
-	// 生成唯一ID
 	id := uuid.New().String()
 
-	// 创建模型
 	group := &model.CommunityGroup{
 		ID:          id,
 		Name:        req.Name,
@@ -77,7 +74,6 @@ func (s *CommunityService) CreateGroup(ctx context.Context, req *dto.CreateCommu
 		UpdatedAt:   time.Now(),
 	}
 
-	// 保存到数据库
 	savedGroup, err := s.repo.CreateGroup(ctx, group)
 	if err != nil {
 		return nil, err
@@ -159,10 +155,8 @@ func (s *CommunityService) GetMemberByID(ctx context.Context, id string) (*dto.C
 }
 
 func (s *CommunityService) AddMember(ctx context.Context, req *dto.AddCommunityMemberRequest) (*dto.CommunityMemberResponse, error) {
-	// 生成唯一ID
 	id := uuid.New().String()
 
-	// 创建模型
 	member := &model.CommunityMember{
 		ID:        id,
 		GroupID:   req.GroupID,
@@ -176,7 +170,6 @@ func (s *CommunityService) AddMember(ctx context.Context, req *dto.AddCommunityM
 		UpdatedAt: time.Now(),
 	}
 
-	// 保存到数据库
 	savedMember, err := s.repo.AddMember(ctx, member)
 	if err != nil {
 		return nil, err
@@ -253,3 +246,4 @@ func (s *CommunityService) GetStatistics(ctx context.Context) (*dto.CommunitySta
 		NewMembersToday: int((*stats)["new_members_today"].(int64)),
 	}, nil
 }
+

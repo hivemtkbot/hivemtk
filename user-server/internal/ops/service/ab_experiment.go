@@ -15,7 +15,7 @@ type ABExperimentService struct {
 	variantRepo    *repository.ABVariantRepository
 	conversionRepo *repository.ABConversionEventRepository
 	resultRepo     *repository.ABExperimentResultRepository
-	variantCache   map[uint]*model.ABVariant // source_id -> variant
+	variantCache   map[uint]*model.ABVariant 
 	cacheMutex     sync.RWMutex
 }
 
@@ -52,7 +52,6 @@ type VariantConfig struct {
 
 // CreateExperiment 创建实验
 func (s *ABExperimentService) CreateExperiment(req *CreateExperimentRequest) (*model.ABExperiment, error) {
-	// 创建实验
 	experiment := &model.ABExperiment{
 		Name:         req.Name,
 		Description:  req.Description,
@@ -66,7 +65,6 @@ func (s *ABExperimentService) CreateExperiment(req *CreateExperimentRequest) (*m
 		return nil, err
 	}
 
-	// 创建变体
 	for i, v := range req.Variants {
 		configJSON, _ := json.Marshal(v.Config)
 		variant := &model.ABVariant{
@@ -77,7 +75,7 @@ func (s *ABExperimentService) CreateExperiment(req *CreateExperimentRequest) (*m
 			Config:       string(configJSON),
 		}
 		if i == 0 {
-			variant.IsControl = true // 第一个默认为对照组
+			variant.IsControl = true 
 		}
 		if err := s.variantRepo.Create(variant); err != nil {
 			return nil, err
@@ -114,7 +112,6 @@ func (s *ABExperimentService) UpdateExperiment(id uint, req *CreateExperimentReq
 		return nil, err
 	}
 
-	// 更新变体
 	s.variantRepo.DeleteByExperiment(id)
 	for i, v := range req.Variants {
 		configJSON, _ := json.Marshal(v.Config)
@@ -157,7 +154,6 @@ func (s *ABExperimentService) StopExperiment(id uint) error {
 	if err := s.experimentRepo.UpdateStatus(id, "completed"); err != nil {
 		return err
 	}
-	// 计算最终结果
 	return s.CalculateResults(id)
 }
 
@@ -171,7 +167,6 @@ func (s *ABExperimentService) GetVariant(sourceID string) (*model.ABVariant, err
 		return variant, nil
 	}
 
-	// 从数据库获取
 	return s.getVariantFromDB(sourceID)
 }
 
@@ -187,19 +182,16 @@ func (s *ABExperimentService) hashSourceID(sourceID string) uint {
 // getVariantFromDB 从数据库获取变体
 // 根据 sourceID 查找运行中的实验，按权重分配变体
 func (s *ABExperimentService) getVariantFromDB(sourceID string) (*model.ABVariant, error) {
-	// 查找运行中的实验
 	experiment, err := s.experimentRepo.GetRunningBySourceID(sourceID)
 	if err != nil {
 		return nil, errors.New("no running experiment for this source")
 	}
 
-	// 获取实验的所有变体
 	variants, err := s.variantRepo.GetByExperiment(experiment.ID)
 	if err != nil || len(variants) == 0 {
 		return nil, errors.New("no variants found for experiment")
 	}
 
-	// 按权重随机选择变体
 	totalWeight := 0
 	for _, v := range variants {
 		if v.Weight <= 0 {
@@ -213,7 +205,6 @@ func (s *ABExperimentService) getVariantFromDB(sourceID string) (*model.ABVarian
 		return variants[0], nil
 	}
 
-	// 使用 sourceID 哈希作为随机种子，确保同一用户始终分配到同一变体
 	seed := s.hashSourceID(sourceID)
 	pick := int(seed) % totalWeight
 
@@ -225,10 +216,8 @@ func (s *ABExperimentService) getVariantFromDB(sourceID string) (*model.ABVarian
 		}
 		cumulative += w
 		if pick < cumulative {
-			// 增加流量计数
 			s.variantRepo.IncrementTraffic(v.ID)
 
-			// 缓存变体
 			s.cacheMutex.Lock()
 			s.variantCache[s.hashSourceID(sourceID)] = v
 			s.cacheMutex.Unlock()
@@ -243,7 +232,6 @@ func (s *ABExperimentService) getVariantFromDB(sourceID string) (*model.ABVarian
 // RecordConversion 记录转化事件
 // eventValue 单位：分（int64），如购买金额 99.99 元应传 9999
 func (s *ABExperimentService) RecordConversion(experimentID, variantID uint, eventName, eventType string, eventValue int64, userID string, metadata map[string]any) error {
-	// 创建转化事件
 	metadataJSON, _ := json.Marshal(metadata)
 	event := &model.ABConversionEvent{
 		ExperimentID: experimentID,
@@ -258,7 +246,6 @@ func (s *ABExperimentService) RecordConversion(experimentID, variantID uint, eve
 		return err
 	}
 
-	// 更新变体转化计数
 	return s.variantRepo.IncrementConversion(variantID)
 }
 
@@ -269,7 +256,6 @@ func (s *ABExperimentService) CalculateResults(experimentID uint) error {
 		return err
 	}
 
-	// 清除旧的统计
 	for _, v := range variants {
 		trafficCount := v.TrafficCount
 		conversionCount := v.ConversionCount
@@ -294,7 +280,6 @@ func (s *ABExperimentService) CalculateResults(experimentID uint) error {
 		}
 	}
 
-	// 计算置信度和获胜者
 	return s.calculateWinner(experimentID)
 }
 
@@ -318,7 +303,6 @@ func (s *ABExperimentService) calculateWinner(experimentID uint) error {
 			maxRate = r.ConversionRate
 			winner = r
 		}
-		// 计算置信度（简化版本）
 		r.ConfidenceLevel = s.calculateConfidence(r)
 		s.resultRepo.Upsert(r)
 	}
@@ -339,17 +323,14 @@ func (s *ABExperimentService) calculateConfidence(result *model.ABExperimentResu
 	p := result.ConversionRate / 100
 	n := float64(result.TrafficCount)
 
-	// 标准误
 	se := math.Sqrt(p * (1 - p) / n)
 
 	if se == 0 {
 		return 0
 	}
 
-	// Z 分数（相对于 50% 的置信度）
 	z := (p - 0.5) / se
 
-	// 转换为置信度 (0-1)，使用简化的误差函数近似
 	confidence := 0.5 * (1 + math.Erf(z/math.Sqrt2))
 
 	return confidence
@@ -364,3 +345,4 @@ func (s *ABExperimentService) GetExperimentResults(experimentID uint) ([]*model.
 func (s *ABExperimentService) GetConversionEvents(experimentID uint, page, pageSize int) ([]*model.ABConversionEvent, int64, error) {
 	return s.conversionRepo.GetByExperiment(experimentID, page, pageSize)
 }
+

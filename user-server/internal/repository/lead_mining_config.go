@@ -67,3 +67,4 @@ func (r *leadMiningConfigRepo) Save(ctx context.Context, cfg *model.LeadMiningCo
 		"updated_at":       time.Now().Unix(),
 	}).Error
 }
+

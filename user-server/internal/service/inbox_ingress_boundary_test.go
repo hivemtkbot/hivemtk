@@ -57,7 +57,6 @@ func TestInboxIngress_ClaimPendingOutbound_ConcurrentNoDuplicate(t *testing.T) {
 		seedPendingOutbound(t, db, channel, accountID, "conv_c", "concurrent outbound "+string(rune('A'+i%26))+strconv.Itoa(i))
 	}
 
-	// 每个 worker 反复认领 limit=10，直到取空；各自结果写入独立切片（无共享写，race-clean）。
 	results := make([][]uint, workers)
 	var wg sync.WaitGroup
 	for w := 0; w < workers; w++ {
@@ -81,7 +80,6 @@ func TestInboxIngress_ClaimPendingOutbound_ConcurrentNoDuplicate(t *testing.T) {
 	}
 	wg.Wait()
 
-	// 聚合：每条 id 必须恰好被一个 worker 认领（零重复），且覆盖全部 total 条。
 	seen := make(map[uint]int)
 	var order []uint
 	for w := 0; w < workers; w++ {
@@ -164,7 +162,6 @@ func TestInboxIngress_ClaimPendingOutbound_RespectsLimit(t *testing.T) {
 	if len(claimedIDs) != total {
 		t.Fatalf("分轮认领应恰好取回 %d 条，实际 %d", total, len(claimedIDs))
 	}
-	// 全部 inflight 后再认领应为 0
 	if extra, err := svc.ClaimPendingOutbound(ctx, channel, accountID, batch); err != nil || len(extra) != 0 {
 		t.Fatalf("耗尽后不应再认领，extra=%d err=%v", len(extra), err)
 	}
@@ -186,7 +183,6 @@ func TestInboxIngress_AckOutboundDelivered_CrossSession(t *testing.T) {
 		content   = "跨会话相同内容"
 	)
 	msgID := ContentHashMsgID(channel, "conv_x1", content)
-	// 同一 msg_id 落在两个会话
 	for _, conv := range []string{"conv_x1", "conv_x2"} {
 		h := &model.MessageHub{
 			MsgID:          msgID,
@@ -205,7 +201,6 @@ func TestInboxIngress_AckOutboundDelivered_CrossSession(t *testing.T) {
 			t.Fatalf("插入跨会话行失败: %v", err)
 		}
 	}
-	// 干扰行：同账号不同 msg_id 不应被翻；不同账号同 msg_id 不应被翻
 	seedPendingOutbound(t, db, channel, accountID, "conv_other", "另一条内容")
 	oth := &model.MessageHub{
 		MsgID:          msgID,
@@ -217,7 +212,7 @@ func TestInboxIngress_AckOutboundDelivered_CrossSession(t *testing.T) {
 		SenderID:       "agent_1",
 		ReceiverID:     "conv_x1b",
 		Content:        content,
-		ConversationID: "conv_x1b", // 用不同会话避免 (msg_id,conversation_id) 唯一约束冲突
+		ConversationID: "conv_x1b", 
 		IsRead:         true,
 	}
 	if err := db.Create(oth).Error; err != nil {
@@ -231,7 +226,6 @@ func TestInboxIngress_AckOutboundDelivered_CrossSession(t *testing.T) {
 	if int(n) != 2 {
 		t.Fatalf("跨会话同 msg_id 应翻转 2 条，实际 %d", n)
 	}
-	// 校验：两个会话行 delivered；干扰行仍 pending
 	assertStatus(t, db, channel, accountID, "conv_x1", msgID, "delivered")
 	assertStatus(t, db, channel, accountID, "conv_x2", msgID, "delivered")
 	assertStatus(t, db, channel, accountID, "conv_other", ContentHashMsgID(channel, "conv_other", "另一条内容"), "pending")
@@ -263,9 +257,8 @@ func TestInboxIngress_AckOutboundDelivered_OwnershipIsolation(t *testing.T) {
 		conv     = "conv_owner"
 	)
 	hA := seedPendingOutbound(t, db, channel, accountA, conv, content)
-	_ = seedPendingOutbound(t, db, channel, accountB, conv, "归属隔离内容_B") // B 的不同内容行（不同 msg_id）
+	_ = seedPendingOutbound(t, db, channel, accountB, conv, "归属隔离内容_B") 
 
-	// B 越权 ack A 的 msg_id：B 名下无该 msg_id 行 → 影响 0
 	n, err := svc.AckOutboundDelivered(ctx, channel, accountB, []string{hA.MsgID})
 	if err != nil {
 		t.Fatalf("AckOutboundDelivered(B) 失败: %v", err)
@@ -273,10 +266,8 @@ func TestInboxIngress_AckOutboundDelivered_OwnershipIsolation(t *testing.T) {
 	if int(n) != 0 {
 		t.Fatalf("越权 ack 应影响 0 条，实际 %d", n)
 	}
-	// A 的 pending 行仍存在
 	assertStatus(t, db, channel, accountA, conv, hA.MsgID, "pending")
 
-	// A 自己 ack 才生效
 	n2, err := svc.AckOutboundDelivered(ctx, channel, accountA, []string{hA.MsgID})
 	if err != nil {
 		t.Fatalf("AckOutboundDelivered(A) 失败: %v", err)
@@ -304,20 +295,16 @@ func TestInboxIngress_AckOutboundDelivered_Idempotent(t *testing.T) {
 	)
 	h := seedPendingOutbound(t, db, channel, accountID, conv, content)
 
-	// 空入参
 	if n, err := svc.AckOutboundDelivered(ctx, channel, accountID, nil); err != nil || n != 0 {
 		t.Fatalf("空 msgIDs 应返回 (0,nil)，实际 (%d,%v)", n, err)
 	}
-	// 不存在的 msg_id
 	if n, err := svc.AckOutboundDelivered(ctx, channel, accountID, []string{"nope"}); err != nil || n != 0 {
 		t.Fatalf("不存在 msg_id 应返回 (0,nil)，实际 (%d,%v)", n, err)
 	}
-	// 首次 ack
 	n, err := svc.AckOutboundDelivered(ctx, channel, accountID, []string{h.MsgID})
 	if err != nil || int(n) != 1 {
 		t.Fatalf("首次 ack 应返回 1，实际 (%d,%v)", n, err)
 	}
-	// 二次 ack（已 delivered）
 	n2, err := svc.AckOutboundDelivered(ctx, channel, accountID, []string{h.MsgID})
 	if err != nil || int(n2) != 0 {
 		t.Fatalf("二次 ack 应幂等返回 0，实际 (%d,%v)", n2, err)
@@ -372,17 +359,14 @@ func TestInboxIngress_ClaimPendingOutbound_AckReclaimRace(t *testing.T) {
 	)
 	h := seedPendingOutbound(t, db, channel, accountID, conv, content)
 
-	// 1) 认领（前端拿到，准备下发）
 	first, err := svc.ClaimPendingOutbound(ctx, channel, accountID, 10)
 	if err != nil || len(first) != 1 {
 		t.Fatalf("首次认领失败 len=%d err=%v", len(first), err)
 	}
-	// 2) 模拟 ack 丢失 + 前端崩溃：claimed_at 拨到超时前（>30s）
 	stale := time.Now().Add(-60 * time.Second)
 	if err := db.Model(&model.MessageHub{}).Where("msg_id = ?", h.MsgID).Update("claimed_at", stale).Error; err != nil {
 		t.Fatalf("拨动 claimed_at 失败: %v", err)
 	}
-	// 3) 下一轮轮询回收并重认领（at-least-once 重下发）
 	again, err := svc.ClaimPendingOutbound(ctx, channel, accountID, 10)
 	if err != nil || len(again) != 1 {
 		t.Fatalf("回收重认领失败 len=%d err=%v", len(again), err)
@@ -391,13 +375,11 @@ func TestInboxIngress_ClaimPendingOutbound_AckReclaimRace(t *testing.T) {
 		t.Fatalf("回收重认领应返回同一行 id=%d，实际 %d", first[0].ID, again[0].ID)
 	}
 	assertStatus(t, db, channel, accountID, conv, h.MsgID, "inflight")
-	// 4) 迟到 ack 命中（此时行处于 inflight，ack 范围覆盖 inflight）
 	n, err := svc.AckOutboundDelivered(ctx, channel, accountID, []string{h.MsgID})
 	if err != nil || int(n) != 1 {
 		t.Fatalf("迟到 ack 应翻转 1 条，实际 (%d,%v)", n, err)
 	}
 	assertStatus(t, db, channel, accountID, conv, h.MsgID, "delivered")
-	// 5) 之后再认领应为 0
 	if extra, err := svc.ClaimPendingOutbound(ctx, channel, accountID, 10); err != nil || len(extra) != 0 {
 		t.Fatalf("已 delivered 不应再认领，extra=%d err=%v", len(extra), err)
 	}
@@ -423,7 +405,6 @@ func TestInboxIngress_ClaimPendingOutbound_GuardZeroNegative(t *testing.T) {
 	}
 }
 
-// ---- helpers ----
 
 func assertStatus(t *testing.T, db *gorm.DB, channel, accountID, conv, msgID, want string) {
 	t.Helper()
@@ -436,3 +417,4 @@ func assertStatus(t *testing.T, db *gorm.DB, channel, accountID, conv, msgID, wa
 		t.Fatalf("状态应为 %q，实际 %q", want, h.Status)
 	}
 }
+

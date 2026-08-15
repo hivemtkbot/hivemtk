@@ -110,7 +110,6 @@ func (c *ClueController) ImportClues(ctx *gin.Context) {
 		})
 	}
 
-	// 批量保存
 	successCount, skipCount, err := c.svc.BatchImportClues(context.Background(), clues)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, "导入线索失败")
@@ -132,3 +131,4 @@ func (c *ClueController) GetClueTypes(ctx *gin.Context) {
 	}
 	response.Success(ctx, types, "获取线索类型成功")
 }
+

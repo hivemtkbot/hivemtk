@@ -105,7 +105,6 @@ func TestRagConfigRepository_GetRagProductByID(t *testing.T) {
 	repo, database := setupRagConfigRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	product := &model.RagProduct{
 		Name:        "GetByID Product",
 		Description: "Test description",
@@ -116,16 +115,14 @@ func TestRagConfigRepository_GetRagProductByID(t *testing.T) {
 	}
 	repo.CreateRagProduct(ctx, product)
 
-	// 创建非激活产品 - GORM default:true 会覆盖 IsActive:false，所以先创建后更新
 	inactiveProduct := &model.RagProduct{
 		Name:        "Inactive Product",
 		Category:    "sales",
 		VectorTable: "vec_inactive_product_getbyid",
 		LLMModel:    "gpt-4",
-		IsActive:    true, // 先设置为 true 以绕过 GORM 的 default 行为
+		IsActive:    true, 
 	}
 	repo.CreateRagProduct(ctx, inactiveProduct)
-	// 更新为非激活状态
 	inactiveProduct.IsActive = false
 	database.Save(inactiveProduct)
 
@@ -176,7 +173,6 @@ func TestRagConfigRepository_GetAccountConfig(t *testing.T) {
 	repo, database := setupRagConfigRepository(t)
 	ctx := context.Background()
 
-	// 创建 RAG 产品
 	product := &model.RagProduct{
 		Name:        "Linked Product",
 		Category:    "customer-service",
@@ -186,7 +182,6 @@ func TestRagConfigRepository_GetAccountConfig(t *testing.T) {
 	}
 	repo.CreateRagProduct(ctx, product)
 
-	// 创建账户配置
 	config := &model.PlatformAccountConfig{
 		ID:                 "config-123",
 		AccountID:          "account-123",
@@ -240,7 +235,6 @@ func TestRagConfigRepository_UpsertAccountConfig(t *testing.T) {
 	repo, _ := setupRagConfigRepository(t)
 	ctx := context.Background()
 
-	// 创建新配置
 	newConfig := &model.PlatformAccountConfig{
 		AccountID:          "account-456",
 		Platform:           "xiaohongshu",
@@ -258,7 +252,6 @@ func TestRagConfigRepository_UpsertAccountConfig(t *testing.T) {
 		t.Error("Expected config ID to be set after creation")
 	}
 
-	// 更新配置
 	newConfig.IsAutoReplyEnabled = true
 	newConfig.MaxDailyQueries = 1000
 
@@ -267,7 +260,6 @@ func TestRagConfigRepository_UpsertAccountConfig(t *testing.T) {
 		t.Errorf("UpsertAccountConfig() update error = %v", err)
 	}
 
-	// 验证更新
 	updated, _ := repo.GetAccountConfig(ctx, "account-456", "xiaohongshu")
 	if !updated.IsAutoReplyEnabled {
 		t.Error("Expected IsAutoReplyEnabled to be true after update")
@@ -282,7 +274,6 @@ func TestRagConfigRepository_ListRagProducts(t *testing.T) {
 	repo, database := setupRagConfigRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 3; i++ {
 		repo.CreateRagProduct(ctx, &model.RagProduct{
 			Name:        "ListTest Product " + string(rune('0'+i)),
@@ -293,16 +284,14 @@ func TestRagConfigRepository_ListRagProducts(t *testing.T) {
 		})
 	}
 
-	// 创建非激活产品 - GORM default:true 会覆盖 IsActive:false，所以先创建后更新
 	inactiveProduct := &model.RagProduct{
 		Name:        "ListTest Inactive Product",
 		Category:    "sales",
 		VectorTable: "vec_listtest_inactive_product",
 		LLMModel:    "gpt-4",
-		IsActive:    true, // 先设置为 true 以绕过 GORM 的 default 行为
+		IsActive:    true, 
 	}
 	repo.CreateRagProduct(ctx, inactiveProduct)
-	// 更新为非激活状态
 	inactiveProduct.IsActive = false
 	database.Save(inactiveProduct)
 
@@ -321,7 +310,6 @@ func TestRagConfigRepository_UpdateRagProduct(t *testing.T) {
 	repo, _ := setupRagConfigRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	product := &model.RagProduct{
 		Name:        "Original Name",
 		Description: "Original description",
@@ -332,7 +320,6 @@ func TestRagConfigRepository_UpdateRagProduct(t *testing.T) {
 	}
 	repo.CreateRagProduct(ctx, product)
 
-	// 更新
 	product.Name = "Updated Name"
 	product.Description = "Updated description"
 	product.LLMModel = "gpt-4"
@@ -356,7 +343,6 @@ func TestRagConfigRepository_DeleteRagProduct(t *testing.T) {
 	repo, _ := setupRagConfigRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	product := &model.RagProduct{
 		Name:        "To Delete",
 		Category:    "customer-service",
@@ -387,3 +373,4 @@ func TestRagConfigRepository_GetRagProductByID_NotFound(t *testing.T) {
 		t.Error("Expected error when getting non-existing product")
 	}
 }
+

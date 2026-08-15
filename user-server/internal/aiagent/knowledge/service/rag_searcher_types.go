@@ -19,7 +19,6 @@ type MerchantRAGChunk struct {
 	Content    string         `json:"content"`
 	Score      float64        `json:"score"`
 	Metadata   map[string]any `json:"metadata"`
-	// Weight 自学习权重（默认 1.0），由 RagSearcher 在检索时回填，作为排名第二依据。
 	Weight float64 `json:"weight"`
 }
 
@@ -153,3 +152,4 @@ func chunkMatchesMetadata(meta map[string]any, filters map[string]string) bool {
 func truncateText(s string, max int) string {
 	return text.Truncate(s, max)
 }
+

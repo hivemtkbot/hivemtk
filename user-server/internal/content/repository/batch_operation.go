@@ -72,3 +72,4 @@ func (r *BatchOperationRepository) CancelHistory(ctx context.Context, id uint) e
 	}
 	return nil
 }
+

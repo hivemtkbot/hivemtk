@@ -125,7 +125,6 @@ func TestLiveCodeController_Create_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// May succeed or fail depending on DB state
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound {
 		t.Errorf("Expected 200 or 404, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -141,7 +140,6 @@ func TestLiveCodeController_GetByID_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Record not found → 404
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound {
 		t.Errorf("Expected 200 or 404, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -173,7 +171,6 @@ func TestLiveCodeController_Delete_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Non-existent ID → 404
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound {
 		t.Errorf("Expected 200 or 404, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -189,7 +186,6 @@ func TestLiveCodeController_GetStats_InvalidID(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Invalid/non-existent ID → 400 or 404
 	if w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound {
 		t.Errorf("Expected 400 or 404, got %d", w.Code)
 	}
@@ -205,7 +201,6 @@ func TestLiveCodeController_GetStats_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Empty DB → 404 (not found), with data → 200
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound {
 		t.Errorf("Expected 200 or 404, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -237,7 +232,6 @@ func TestLiveCodeController_GetQRCodes_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Empty DB → 404 (not found), with data → 200
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound {
 		t.Errorf("Expected 200 or 404, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -253,7 +247,6 @@ func TestLiveCodeController_GetQRStats_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Empty DB → 404 (not found), with data → 200
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound {
 		t.Errorf("Expected 200 or 404, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -270,7 +263,6 @@ func TestLiveCodeController_Share_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Empty DB → 404 (not found), with data → 200
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound {
 		t.Errorf("Expected 200 or 404, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -290,3 +282,4 @@ func TestLiveCodeController_RedirectLiveCode_NotFound(t *testing.T) {
 		t.Errorf("Expected 404, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
+

@@ -30,19 +30,16 @@ type Material struct {
 	Hash        string            `gorm:"type:varchar(64);index" json:"hash"`
 	Width       int               `gorm:"" json:"width"`
 	Height      int               `gorm:"" json:"height"`
-	Duration    int               `gorm:"" json:"duration"` // 视频/音频时长（秒）
+	Duration    int               `gorm:"" json:"duration"` 
 	Provider    string            `gorm:"type:varchar(50)" json:"provider"`
 	StoragePath string            `gorm:"type:varchar(500)" json:"storage_path"`
 
-	// 关联信息
 	LicenseID string `gorm:"type:varchar(36);index" json:"license_id"`
 	UserID    string `gorm:"type:varchar(36);index" json:"user_id"`
 
-	// 使用统计
 	UsageCount int        `gorm:"default:0" json:"usage_count"`
 	LastUsedAt *time.Time `gorm:"" json:"last_used_at"`
 
-	// 状态
 	Status      string `gorm:"type:varchar(20);default:'active'" json:"status"`
 	Tags        string `gorm:"type:text" json:"tags"`
 	Description string `gorm:"type:text" json:"description"`
@@ -90,14 +87,11 @@ type MaterialCategory struct {
 	Sort        int               `gorm:"default:0" json:"sort"`
 	Description string            `gorm:"type:text" json:"description"`
 
-	// 关联信息
 	LicenseID string `gorm:"type:varchar(36);index" json:"license_id"`
 	UserID    string `gorm:"type:varchar(36);index" json:"user_id"`
 
-	// 统计信息
 	MaterialCount int `gorm:"default:0" json:"material_count"`
 
-	// 状态
 	Status string `gorm:"type:varchar(20);default:'active'" json:"status"`
 
 	Children  []MaterialCategory `gorm:"foreignKey:ParentID" json:"children,omitempty"`
@@ -117,3 +111,4 @@ func (c *MaterialCategory) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+

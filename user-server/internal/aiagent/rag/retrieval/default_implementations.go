@@ -16,7 +16,7 @@ import (
 // InMemoryStorage 内存存储实现
 type InMemoryStorage struct {
 	knowledgeBases map[string]*KnowledgeBaseInfo
-	documents      map[string]map[string]*Document // kbID -> docID -> Document
+	documents      map[string]map[string]*Document 
 	mutex          sync.RWMutex
 }
 
@@ -76,7 +76,6 @@ func (s *InMemoryStorage) DeleteDocument(ctx context.Context, kbID, docID string
 
 	delete(docMap, docID)
 
-	// 更新知识库统计信息
 	if kbInfo, kbExists := s.knowledgeBases[kbID]; kbExists {
 		kbInfo.DocCount--
 		kbInfo.UpdatedAt = time.Now()
@@ -148,7 +147,6 @@ func (s *InMemoryStorage) ListKnowledgeBases(ctx context.Context, ownerID string
 
 	var kbs []KnowledgeBaseInfo
 	for _, kbInfo := range s.knowledgeBases {
-		// 根据ownerID和public标志过滤
 		if kbInfo.OwnerID == ownerID || (includePublic && kbInfo.IsPublic) {
 			kbs = append(kbs, *kbInfo)
 		}
@@ -174,7 +172,6 @@ func NewInMemoryCache() *InMemoryCache {
 		items: make(map[string]*cacheItem),
 	}
 
-	// 启动清理过期项的goroutine
 	go cache.startCleanup()
 
 	return cache
@@ -190,7 +187,6 @@ func (c *InMemoryCache) Get(key string) (any, bool) {
 		return nil, false
 	}
 
-	// 检查是否过期
 	if time.Now().After(item.expiration) {
 		return nil, false
 	}
@@ -219,7 +215,7 @@ func (c *InMemoryCache) Delete(key string) {
 
 // startCleanup 启动清理过期项的goroutine
 func (c *InMemoryCache) startCleanup() {
-	ticker := time.NewTicker(5 * time.Minute) // 每5分钟清理一次
+	ticker := time.NewTicker(5 * time.Minute) 
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -297,7 +293,6 @@ func NewConfigurableRagRetrievalService() *RagRetrievalServiceImpl {
 		MaxDocLength:               10000,
 	}
 
-	// 真实 Embedding 注入
 	embedding := llm.NewEmbeddingService()
 	dim := embedding.DefaultConfig().Dimension
 	vectorizer := NewVectorizer(dim, embedding)
@@ -316,9 +311,9 @@ func NewConfigurableRagRetrievalService() *RagRetrievalServiceImpl {
 
 	retrieval := NewRagRetrievalService(vectorizer, indexer, storage, retrievalCache, configObj)
 
-	// 重排：本地 TEI + bge-reranker-v2-m3（RERANK_ENABLED=false 时自动跳过）
 	if rc := DefaultRerankConfig(); rc.Enabled {
 		retrieval.SetReranker(NewLocalReranker())
 	}
 	return retrieval
 }
+

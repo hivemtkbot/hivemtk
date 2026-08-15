@@ -36,7 +36,7 @@ func TestRandomNonce(t *testing.T) {
 	if n1 == n2 {
 		t.Error("randomNonce should be different")
 	}
-	if len(n1) != 32 { // 16 bytes -> 32 hex chars
+	if len(n1) != 32 { 
 		t.Errorf("expected 32 chars, got %d", len(n1))
 	}
 }
@@ -61,7 +61,6 @@ func TestPercentEncode(t *testing.T) {
 		t.Errorf("expected unchanged, got %q", got)
 	}
 	got := percentEncode("a b")
-	// 空格 -> %20
 	if !strings.Contains(got, "%20") {
 		t.Errorf("expected %%20 for space, got %q", got)
 	}
@@ -77,12 +76,10 @@ func TestSignAliyun(t *testing.T) {
 	if sig == "" {
 		t.Error("expected non-empty signature")
 	}
-	// 签名应该稳定
 	sig2 := signAliyun(params, "testsecret")
 	if sig != sig2 {
 		t.Error("signature should be deterministic")
 	}
-	// 不同 secret 应该产生不同签名
 	sig3 := signAliyun(params, "different")
 	if sig == sig3 {
 		t.Error("different secrets should produce different signatures")
@@ -100,7 +97,6 @@ func TestSignAliyun_SkipSignature(t *testing.T) {
 }
 
 func TestSha256Hex(t *testing.T) {
-	// 已知 sha256("") = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 	got := sha256Hex("")
 	if got != "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" {
 		t.Errorf("unexpected sha256 for empty: %s", got)
@@ -131,8 +127,8 @@ func TestBuildWSSE(t *testing.T) {
 	if !strings.Contains(wsse, `Created="`) {
 		t.Error("expected Created")
 	}
-	// 验证时间格式
 	if !strings.Contains(wsse, time.Now().UTC().Format("2006")) {
 		t.Error("expected current year in timestamp")
 	}
 }
+

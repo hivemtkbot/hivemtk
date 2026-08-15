@@ -137,3 +137,4 @@ func (r *MessageQueueRepository) CreateGroupMessage(ctx context.Context, record 
 	}
 	return r.db.WithContext(ctx).Create(record).Error
 }
+

@@ -31,7 +31,7 @@ func (r *KnowledgeFeedbackRepository) Create(ctx context.Context, fb *model.Know
 type FeedbackListFilter struct {
 	ProductID string
 	Rating    int
-	HasRating bool // 是否按 rating 过滤
+	HasRating bool 
 	Page      int
 	PageSize  int
 }
@@ -66,9 +66,6 @@ func (r *KnowledgeFeedbackRepository) List(ctx context.Context, filter FeedbackL
 	return list, total, nil
 }
 
-// ============================================================================
-// KnowledgeAPITokenRepository
-// ============================================================================
 
 // KnowledgeAPITokenRepository 知识库 API Token 仓储
 type KnowledgeAPITokenRepository struct {
@@ -139,9 +136,6 @@ func (r *KnowledgeAPITokenRepository) IncrementUsage(ctx context.Context, id uin
 		}).Error
 }
 
-// ============================================================================
-// ExternalImportJobRepository
-// ============================================================================
 
 // ExternalImportJobRepository 外部导入任务仓储
 type ExternalImportJobRepository struct {
@@ -204,3 +198,4 @@ func (r *ExternalImportJobRepository) List(ctx context.Context, filter ExternalJ
 	}
 	return list, total, nil
 }
+

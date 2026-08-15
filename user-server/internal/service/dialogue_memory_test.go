@@ -28,7 +28,6 @@ func newMemoryService(t *testing.T) (*DialogueMemoryService, *gorm.DB) {
 	return NewDialogueMemoryService(db, nil), db
 }
 
-// ===== GetOrCreateMemory =====
 
 // 1. 第一次创建
 func TestGetOrCreate_New(t *testing.T) {
@@ -74,7 +73,6 @@ func TestGetOrCreate_NilDB(t *testing.T) {
 	}
 }
 
-// ===== AppendMessage =====
 
 // 5. 追加用户消息
 func TestAppendMessage_User(t *testing.T) {
@@ -121,7 +119,7 @@ func TestAppendMessage_AITruncate(t *testing.T) {
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	runes := utf8.RuneCountInString(mem.LastAction)
-	if runes > 110 { // 100 + ...
+	if runes > 110 { 
 		t.Errorf("expected truncated, got %d runes", runes)
 	}
 }
@@ -141,7 +139,6 @@ func TestAppendMessage_Multiple(t *testing.T) {
 	}
 }
 
-// ===== GetShortTermMemory =====
 
 // 9. 短期记忆从 message_hub 取
 func TestShortTerm_FromHub(t *testing.T) {
@@ -252,7 +249,6 @@ func TestShortTerm_Empty(t *testing.T) {
 	}
 }
 
-// ===== GetLongTermMemory =====
 
 // 15. 长期记忆 - 不存在则创建
 func TestLongTerm_NotFoundCreates(t *testing.T) {
@@ -276,7 +272,6 @@ func TestLongTerm_Exists(t *testing.T) {
 	}
 }
 
-// ===== UpdateKeyFacts =====
 
 // 17. 更新 name 事实
 func TestUpdateKeyFacts_Name(t *testing.T) {
@@ -368,7 +363,6 @@ func TestUpdateKeyFacts_Custom(t *testing.T) {
 	}
 }
 
-// ===== RecordObjection =====
 
 // 25. 记录异议
 func TestRecordObjection_Basic(t *testing.T) {
@@ -394,7 +388,6 @@ func TestRecordObjection_Multiple(t *testing.T) {
 	}
 }
 
-// ===== UpdatePurchaseIntent =====
 
 // 27. 购买意向 high
 func TestUpdatePurchaseIntent_High(t *testing.T) {
@@ -440,7 +433,6 @@ func TestUpdatePurchaseIntent_Invalid(t *testing.T) {
 	}
 }
 
-// ===== RecordIntent =====
 
 // 31. 记录意图
 func TestRecordIntent_Basic(t *testing.T) {
@@ -479,7 +471,6 @@ func TestRecordIntent_OverflowTrim(t *testing.T) {
 	}
 }
 
-// ===== RecordSOP =====
 
 // 34. 记录 SOP
 func TestRecordSOP_Basic(t *testing.T) {
@@ -505,7 +496,6 @@ func TestRecordSOP_Multiple(t *testing.T) {
 	}
 }
 
-// ===== ListByCustomer =====
 
 // 36. 客户列表
 func TestListByCustomer_Basic(t *testing.T) {
@@ -574,7 +564,6 @@ func TestListByCustomer_OverLimit(t *testing.T) {
 	}
 }
 
-// ===== BuildContext =====
 
 // 42. 构建上下文
 func TestBuildContext_Basic(t *testing.T) {
@@ -630,7 +619,6 @@ func TestBuildContext_Empty(t *testing.T) {
 	}
 }
 
-// ===== 全局实例 =====
 
 // 46. InitDialogueMemory
 func TestInitDialogueMemory(t *testing.T) {
@@ -642,7 +630,6 @@ func TestInitDialogueMemory(t *testing.T) {
 	}
 }
 
-// ===== 工具函数测试 =====
 
 // 47. truncate 短
 func TestTruncate_Short(t *testing.T) {
@@ -694,7 +681,6 @@ func TestStringMapToIface(t *testing.T) {
 	}
 }
 
-// ===== 完整集成测试 =====
 
 // 53. 完整流程
 func TestFullFlow(t *testing.T) {
@@ -761,7 +747,6 @@ func TestDiffCustomer(t *testing.T) {
 	var mem1, mem2 model.DialogueMemory
 	db.First(&mem1, "session_id = ?", "s-1")
 	_ = mem2
-	// 测试 ListByCustomer 隔离
 	list1, _, _ := svc.ListByCustomerID(context.Background(), "u-1", 10)
 	list2, _, _ := svc.ListByCustomerID(context.Background(), "u-1", 10)
 	_ = list1
@@ -789,7 +774,6 @@ func TestDefaultFields(t *testing.T) {
 // 57. 5轮触发摘要更新
 func TestFiveMessageTriggerSummary(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	// 触发5次 - 因为 dispatcher=nil, 不会真的更新, 但不应 panic
 	for i := 0; i < 5; i++ {
 		svc.AppendMessage(context.Background(), "s-1", "u-1", dto.Message{
 			Role: "user", Content: fmt.Sprintf("msg %d", i), Timestamp: time.Now(),
@@ -836,7 +820,6 @@ func TestShortTerm_DifferentMsgType(t *testing.T) {
 	}
 }
 
-// ===== 100 个测试 =====
 
 // 61-100. 各种事实/异议/意图组合
 func TestFacts_AllFields(t *testing.T) {
@@ -1338,3 +1321,4 @@ func TestListByCustomer_NilDB(t *testing.T) {
 		t.Error("expected nil list and 0 total")
 	}
 }
+

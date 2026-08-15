@@ -85,14 +85,12 @@ func (m *MockIndexManager) SearchIndex(ctx context.Context, kbID string, queryVe
 		return []Chunk{}, nil
 	}
 
-	// 计算查询向量与每个 chunk 的相似度分数
 	scoredChunks := make([]struct {
 		chunk Chunk
 		score float64
 	}, len(chunks))
 
 	for i, chunk := range chunks {
-		// 如果 chunk 有 embedding，计算余弦相似度；否则使用固定分数
 		if len(chunk.Embedding) > 0 && len(queryVec) > 0 {
 			score := cosineSimilarity(queryVec, chunk.Embedding)
 			scoredChunks[i] = struct {
@@ -103,7 +101,6 @@ func (m *MockIndexManager) SearchIndex(ctx context.Context, kbID string, queryVe
 				score: score,
 			}
 		} else {
-			// 退化情况：使用固定分数
 			scoredChunks[i] = struct {
 				chunk Chunk
 				score float64
@@ -114,7 +111,6 @@ func (m *MockIndexManager) SearchIndex(ctx context.Context, kbID string, queryVe
 		}
 	}
 
-	// 按分数降序排序（冒泡排序）
 	for i := 0; i < len(scoredChunks)-1; i++ {
 		for j := i + 1; j < len(scoredChunks); j++ {
 			if scoredChunks[i].score < scoredChunks[j].score {
@@ -123,7 +119,6 @@ func (m *MockIndexManager) SearchIndex(ctx context.Context, kbID string, queryVe
 		}
 	}
 
-	// 返回 topK 结果
 	result := make([]Chunk, 0, topK)
 	for i := 0; i < len(scoredChunks) && i < topK; i++ {
 		chunkCopy := scoredChunks[i].chunk
@@ -414,7 +409,6 @@ func TestRagRetrievalServiceImpl_Search(t *testing.T) {
 		t.Fatalf("Failed to save knowledge base: %v", err)
 	}
 
-	// 验证知识库已保存
 	savedKb, err := storage.GetKnowledgeBase(ctx, "search_kb")
 	if err != nil {
 		t.Fatalf("Failed to get saved knowledge base: %v", err)
@@ -430,21 +424,18 @@ func TestRagRetrievalServiceImpl_Search(t *testing.T) {
 		t.Fatalf("Failed to index documents: %v", err)
 	}
 
-	// 验证索引已建立
 	stats, err := indexer.GetIndexStats(ctx, "search_kb")
 	if err != nil {
 		t.Fatalf("Failed to get index stats: %v", err)
 	}
 	t.Logf("Index stats: %+v", stats)
 
-	// 验证文档已保存
 	docs, err := storage.ListDocuments(ctx, "search_kb")
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
 	t.Logf("Stored documents: %+v", docs)
 
-	// 验证索引中有 chunks (直接访问 MockIndexManager 的indexes 字段)
 	mockIndexer := indexer
 	t.Logf("Indexed chunks count: %d", len(mockIndexer.indexes["search_kb"]))
 	for i, chunk := range mockIndexer.indexes["search_kb"] {
@@ -453,11 +444,8 @@ func TestRagRetrievalServiceImpl_Search(t *testing.T) {
 
 	params := SearchParams{TopK: 5, SimilarityThreshold: 0.3}
 
-	// 清除缓存，避免命中之前的测试结果
-	// 使用固定的 cacheKey 格式清除
 	cache.Delete("search:search_kb:人工智能:{5 0.3 map[] 0}")
 
-	// 先测试 indexer.SearchIndex 直接返回什么
 	queryVec, _ := vectorizer.EmbedText("人工智能")
 	t.Logf("Query vector (first 10): %v", queryVec[:10])
 	chunks, err := indexer.SearchIndex(ctx, "search_kb", queryVec, params.TopK)
@@ -469,16 +457,13 @@ func TestRagRetrievalServiceImpl_Search(t *testing.T) {
 		t.Logf("Chunk %d: ID=%s, Score=%f, Embedding (first 5)=%v", i, chunk.ID, chunk.Score, chunk.Embedding[:5])
 	}
 
-	// 测试 filterResults
 	filteredChunks := service.filterResults(chunks, params.Filters, params.SimilarityThreshold)
 	t.Logf("Filtered chunks: %+v", filteredChunks)
 
-	// 测试 rankResults
 	rankedChunks := service.rankResults(filteredChunks, "人工智能")
 	t.Logf("Ranked chunks count: %d", len(rankedChunks))
 	for i, chunk := range rankedChunks {
 		t.Logf("Ranked chunk %d: DocumentID=%s, Score=%f", i, chunk.DocumentID, chunk.Score)
-		// 测试获取文档
 		doc, err := storage.GetDocument(ctx, "search_kb", chunk.DocumentID)
 		if err != nil {
 			t.Logf("Failed to get document %s: %v", chunk.DocumentID, err)
@@ -492,7 +477,6 @@ func TestRagRetrievalServiceImpl_Search(t *testing.T) {
 		t.Fatalf("Search failed: %v", err)
 	}
 
-	// 调试：检查 service 内部的 indexer 和 storage
 	t.Logf("Service indexer type: %T", service.indexer)
 	t.Logf("Service storage type: %T", service.storage)
 	t.Logf("Service config: %+v", service.config)
@@ -734,13 +718,11 @@ func TestRagRetrievalServiceImpl_CreateKnowledgeBase_Duplicate(t *testing.T) {
 
 	kbInfo := KnowledgeBaseInfo{ID: "dup_kb", Name: "重复知识库"}
 
-	// 第一次创建
 	err := service.CreateKnowledgeBase(ctx, kbInfo)
 	if err != nil {
 		t.Fatalf("Failed to create knowledge base: %v", err)
 	}
 
-	// 验证知识库已创建
 	info, err := service.GetKnowledgeBaseInfo(ctx, "dup_kb")
 	if err != nil {
 		t.Fatalf("Failed to get created knowledge base: %v", err)
@@ -866,3 +848,4 @@ func TestKnowledgeBaseInfo(t *testing.T) {
 		t.Error("Expected IsPublic to be true")
 	}
 }
+

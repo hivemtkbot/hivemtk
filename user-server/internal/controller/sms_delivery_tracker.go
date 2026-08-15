@@ -1,18 +1,5 @@
 package controller
 
-// sms_delivery_tracker_controller.go 短信到达率追踪控制器
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md §15.2 短信到达率追踪
-//
-// 路由（全部鉴权）：
-//   - GET  /api/sms/delivery/metrics          到达率聚合指标
-//   - GET  /api/sms/delivery/portability      携号转网记录列表
-//   - GET  /api/sms/delivery/portability/:phone  查询单号当前运营商
-//   - POST /api/sms/delivery/webhook          统一运营商回执 webhook（兼容阿里云/腾讯云/华为云）
-//   - GET  /api/sms/delivery/carrier/:phone   通过号段识别运营商
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -214,7 +201,6 @@ func (c *SmsDeliveryTrackerController) Webhook(ctx *gin.Context) {
 // RegisterRoutes 注册路由
 func (c *SmsDeliveryTrackerController) RegisterRoutes(public *gin.RouterGroup, authed *gin.RouterGroup) {
 	if public != nil {
-		// 公开 webhook（运营商推送），运维层应配 IP 白名单
 		public.POST("/sms/delivery/webhook", c.Webhook)
 	}
 	if authed != nil {
@@ -227,3 +213,4 @@ func (c *SmsDeliveryTrackerController) RegisterRoutes(public *gin.RouterGroup, a
 		}
 	}
 }
+

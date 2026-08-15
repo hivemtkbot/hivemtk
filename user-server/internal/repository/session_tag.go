@@ -50,3 +50,4 @@ func (r *SessionTagRepository) GetByID(ctx context.Context, id uint) (*model.Ses
 	}
 	return &tag, nil
 }
+

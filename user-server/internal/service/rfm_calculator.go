@@ -35,26 +35,23 @@ type UserStats struct {
 	UserID            uint
 	LastTransactionAt *time.Time
 	TransactionCount  int
-	TotalAmount       int64 // 总消费金额（分）
-	AvgAmount         int64 // 平均消费金额（分）
+	TotalAmount       int64 
+	AvgAmount         int64 
 }
 
 // CalculateRFM 计算单个用户的 RFM 值
 func (s *RFMCalculatorService) CalculateRFM(ctx context.Context, userID uint, rule *model.RFMRule) (*model.UserRFM, error) {
-	// 获取用户统计信息
 	stats, err := s.getUserStats(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 计算 R、F、M 得分
 	rScore := s.calcRScore(ctx, stats.LastTransactionAt, rule)
 	fScore := s.calcFScore(ctx, stats.TransactionCount, rule)
 	mScore := s.calcMScore(ctx, stats.TotalAmount, rule)
 
 	totalScore := rScore + fScore + mScore
 
-	// 确定用户分层
 	layer := s.determineLayer(ctx, rScore, fScore, mScore, stats.LastTransactionAt)
 
 	rfm := &model.UserRFM{
@@ -90,21 +87,16 @@ func (s *RFMCalculatorService) getUserStats(ctx context.Context, userID uint) (*
 	}
 
 	for _, order := range orders {
-		// 仅统计已支付订单（status=1 已支付, status=2 强制成功）
 		if order.Status != 1 && order.Status != 2 {
 			continue
 		}
 		stats.TransactionCount++
 
-		// Price 是 string 类型（单位：元），解析后转换为分（int64）
-		// 规范依据：MASTER_RULES.md「金额一律用 BIGINT 存「分」」
 		amount, err := strconv.ParseFloat(order.Price, 64)
 		if err == nil {
-			// 元 → 分，四舍五入避免精度损失
 			stats.TotalAmount += int64(math.Round(amount * 100))
 		}
 
-		// 记录最后交易时间（CreateTime 为 unix 时间戳）
 		if order.CreateTime > 0 {
 			t := time.Unix(order.CreateTime, 0)
 			if stats.LastTransactionAt == nil || t.After(*stats.LastTransactionAt) {
@@ -185,12 +177,10 @@ func (s *RFMCalculatorService) calcMScore(ctx context.Context, totalAmount int64
 
 // determineLayer 确定用户分层
 func (s *RFMCalculatorService) determineLayer(ctx context.Context, rScore, fScore, mScore int, lastTransactionAt *time.Time) model.RFMLayer {
-	// 检查是否为新用户
 	if fScore == 1 && rScore >= 4 {
 		return model.RFMLayerNew
 	}
 
-	// 检查是否流失
 	if lastTransactionAt != nil {
 		days := int(time.Since(*lastTransactionAt).Hours() / 24)
 		if days > 90 {
@@ -200,8 +190,6 @@ func (s *RFMCalculatorService) determineLayer(ctx context.Context, rScore, fScor
 		}
 	}
 
-	// 根据 RFM 得分确定分层
-	// R 得分高表示最近有消费（<=30 天），F/M 得分高表示频次/金额高
 	isHighR := rScore >= 3
 	isHighF := fScore >= 3
 	isHighM := mScore >= 3
@@ -227,15 +215,11 @@ func (s *RFMCalculatorService) determineLayer(ctx context.Context, rScore, fScor
 // 独立部署版本：单租户，无 merchant_id
 // CalculateAllUsers 计算所有用户的 RFM
 func (s *RFMCalculatorService) CalculateAllUsers(ctx context.Context) (int, error) {
-	// 获取活跃规则
 	rule, err := s.rfmRuleRepo.GetActiveRule(ctx)
 	if err != nil {
-		// 如果没有活跃规则，使用默认规则
 		rule = s.getDefaultRule(ctx)
 	}
 
-	// Get all users with transactions
-	// In production, this would query users who have placed orders
 	users, err := s.getAllUserIDs(ctx)
 	if err != nil {
 		return 0, err
@@ -248,7 +232,6 @@ func (s *RFMCalculatorService) CalculateAllUsers(ctx context.Context) (int, erro
 			continue
 		}
 
-		// 保存或更新 RFM 记录
 		existing, _ := s.userRfmRepo.GetByUserID(ctx, userID)
 		if existing != nil {
 			rfm.ID = existing.ID
@@ -350,7 +333,6 @@ func (s *RFMCalculatorService) SaveRFMRule(ctx context.Context, req *SaveRFMRule
 		IsActive: req.IsActive,
 	}
 
-	// 如果规则无效，使用默认值
 	if rule.RDays1 <= 0 {
 		rule.RDays1 = 7
 	}
@@ -392,7 +374,6 @@ func (s *RFMCalculatorService) UpdateRFMRule(ctx context.Context, id uint, req *
 		return nil, errors.New("规则不存在")
 	}
 
-	// 独立部署版本：无权限校验
 	rule.Name = req.Name
 	rule.RDays1 = req.RDays1
 	rule.RDays2 = req.RDays2
@@ -504,7 +485,6 @@ func (s *RFMCalculatorService) enrichUserData(ctx context.Context, rfms []*model
 			LayerDesc: model.GetLayerDescription(model.RFMLayer(rfm.Layer)),
 		}
 
-		// 通过 TgID 查询用户详情
 		tgID := int64(rfm.UserID)
 		if tgID > 0 {
 			user, err := s.userRepo.GetByTgID(ctx, tgID)
@@ -526,3 +506,4 @@ func (s *RFMCalculatorService) enrichUserData(ctx context.Context, rfms []*model
 
 	return result
 }
+

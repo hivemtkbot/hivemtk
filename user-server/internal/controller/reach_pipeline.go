@@ -13,7 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ReachPipelineController 触达 Pipeline 控制器
 
 // reachHTTPStatus 将触达 service 错误映射到合适的 HTTP 状态码
 //
@@ -257,7 +256,6 @@ func (c *ReachPipelineController) ExecuteJob(ctx *gin.Context) {
 	}
 	job, err := c.svc.ExecuteJob(ctx.Request.Context(), uint(id))
 	if err != nil {
-		// rate_limited 仍返回结果
 		if err == service.ErrReachRateLimited && job != nil {
 			response.Success(ctx, job, "任务被限流")
 			return
@@ -288,3 +286,4 @@ func (c *ReachPipelineController) ResetRateLimit(ctx *gin.Context) {
 	c.svc.ResetRateLimit(context.Background(), channel)
 	response.Success(ctx, gin.H{"channel": channel}, "重置成功")
 }
+

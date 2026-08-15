@@ -1,17 +1,5 @@
 package service
 
-// anomaly_login_detector_test.go A 域 异常登录预警服务测试
-//
-// 测试目标（5+ 核心场景）：
-//  1. NewAnomalyLoginDetector / NewAnomalyLoginDetectorWithConfig - 构造
-//  2. DefaultAnomalyLoginDetectorConfig - 默认配置合理性
-//  3. DetectAndAlert - nil context 报错
-//  4. DetectAndAlert - 正常登录（无风险）→ 不应告警
-//  5. DetectAndAlert - 凌晨异常时段登录 → 风险 medium
-//  6. DetectAndAlert - 异地登录 → 风险 high
-//  7. DetectAndAlert - 频繁失败 → 风险 high
-//  8. SetAdminEmails / SetConfig - 配置修改
-//  9. ListAlerts / ListLoginEvents - 分页查询
 
 import (
 	"context"
@@ -139,7 +127,6 @@ func TestDetectAndAlert_NormalLogin(t *testing.T) {
 	setupAnomalyLoginTestDB(t)
 	d := NewAnomalyLoginDetector()
 
-	// 中午 12 点登录（不在异常时段）
 	lctx := &LoginRiskContext{
 		UserID:    1,
 		Username:  "alice",
@@ -156,19 +143,16 @@ func TestDetectAndAlert_NormalLogin(t *testing.T) {
 	if result == nil {
 		t.Fatal("result 不应为 nil")
 	}
-	// 正常登录 ShouldAlert=false
 	if result.ShouldForceMFA {
 		t.Error("正常登录不应强制 MFA")
 	}
 	if result.RiskLevel != model.RiskLevelLow {
 		t.Errorf("风险等级 = %s, want low", result.RiskLevel)
 	}
-	// 不应触发任何告警通道
 	if len(result.ChannelsSent) > 0 {
 		t.Errorf("正常登录不应触发告警通道: %v", result.ChannelsSent)
 	}
 
-	// login_event 应已写入
 	if result.LoginEventID == 0 {
 		t.Error("LoginEventID 应被赋值")
 	}
@@ -179,7 +163,6 @@ func TestDetectAndAlert_AbnormalHour(t *testing.T) {
 	setupAnomalyLoginTestDB(t)
 	d := NewAnomalyLoginDetector()
 
-	// 凌晨 3 点登录
 	lctx := &LoginRiskContext{
 		UserID:    1,
 		Username:  "bob",
@@ -194,11 +177,9 @@ func TestDetectAndAlert_AbnormalHour(t *testing.T) {
 		t.Fatalf("DetectAndAlert 失败: %v", err)
 	}
 
-	// 凌晨 3 点应至少是 medium 风险
 	if result.RiskLevel == model.RiskLevelLow {
 		t.Error("凌晨 3 点登录应至少为 medium 风险")
 	}
-	// 但可能不告警（medium 不一定 ShouldAlert）
 }
 
 // TestDetectAndAlert_FrequentFailure 测试频繁失败（高风险）
@@ -206,7 +187,6 @@ func TestDetectAndAlert_FrequentFailure(t *testing.T) {
 	database := setupAnomalyLoginTestDB(t)
 	d := NewAnomalyLoginDetector()
 
-	// 预写入 5 条失败事件（1 小时内）
 	now := time.Now()
 	for i := 0; i < 5; i++ {
 		event := &model.LoginEvent{
@@ -220,7 +200,6 @@ func TestDetectAndAlert_FrequentFailure(t *testing.T) {
 		database.Create(event)
 	}
 
-	// 第 6 次失败
 	lctx := &LoginRiskContext{
 		UserID:    99,
 		Username:  "victim",
@@ -235,22 +214,18 @@ func TestDetectAndAlert_FrequentFailure(t *testing.T) {
 		t.Fatalf("DetectAndAlert 失败: %v", err)
 	}
 
-	// 频繁失败应升级为 high
 	if result.RiskLevel != model.RiskLevelHigh && result.RiskLevel != model.RiskLevelCritical {
 		t.Errorf("频繁失败风险等级 = %s, want high/critical", result.RiskLevel)
 	}
-	// 频繁失败应触发告警
 	if !result.ShouldForceMFA {
 		t.Error("频繁失败应强制 MFA")
 	}
-	// 应至少有审计 + 站内信两个通道成功
 	if !result.AuditLogged {
 		t.Error("审计日志应记录")
 	}
 	if !result.InboxCreated {
 		t.Error("站内信应发送")
 	}
-	// 失败通道列表
 	if len(result.ChannelsFailed) > 0 {
 		t.Errorf("失败通道: %v", result.ChannelsFailed)
 	}
@@ -261,23 +236,21 @@ func TestDetectAndAlert_AbnormalLogin(t *testing.T) {
 	database := setupAnomalyLoginTestDB(t)
 	d := NewAnomalyLoginDetector()
 
-	// 预写一条成功登录（北京地区）
 	prev := &model.LoginEvent{
 		UserID:    50,
 		Username:  "traveler",
 		IP:        "1.1.1.1",
-		Location:  "geo(40.0,116.0)", // 北京
+		Location:  "geo(40.0,116.0)", 
 		LoginAt:   time.Now().Add(-1 * time.Hour),
 		Success:   true,
 		RiskLevel: model.RiskLevelLow,
 	}
 	database.Create(prev)
 
-	// 异地登录（用差异巨大的 IP）
 	lctx := &LoginRiskContext{
 		UserID:    50,
 		Username:  "traveler",
-		IP:        "200.200.200.200", // 完全不同的 IP 段
+		IP:        "200.200.200.200", 
 		UserAgent: "Mozilla/5.0",
 		Success:   true,
 		LoginAt:   time.Now(),
@@ -288,7 +261,6 @@ func TestDetectAndAlert_AbnormalLogin(t *testing.T) {
 		t.Fatalf("DetectAndAlert 失败: %v", err)
 	}
 
-	// 异地登录至少是 high
 	if result.RiskLevel == model.RiskLevelLow {
 		t.Error("异地登录风险等级不应为 low")
 	}
@@ -304,7 +276,6 @@ func TestDetectAndAlert_EmailChannel(t *testing.T) {
 	cfg.AdminEmails = []string{"admin@example.com", "security@example.com"}
 	d := NewAnomalyLoginDetectorWithConfig(cfg)
 
-	// 写入 5 条失败
 	now := time.Now()
 	for i := 0; i < 5; i++ {
 		event := &model.LoginEvent{
@@ -332,7 +303,6 @@ func TestDetectAndAlert_EmailChannel(t *testing.T) {
 		t.Fatalf("DetectAndAlert 失败: %v", err)
 	}
 
-	// 应触发邮件
 	if !result.EmailDispatched {
 		t.Error("邮件应被派发")
 	}
@@ -365,7 +335,6 @@ func TestDetectAndAlert_NoEmailWhenDisabled(t *testing.T) {
 	cfg.AdminEmails = []string{"admin@example.com"}
 	d := NewAnomalyLoginDetectorWithConfig(cfg)
 
-	// 强制触发告警
 	database := db.GetDB()
 	now := time.Now()
 	for i := 0; i < 5; i++ {
@@ -403,7 +372,6 @@ func TestListAlerts(t *testing.T) {
 	database := setupAnomalyLoginTestDB(t)
 	d := NewAnomalyLoginDetector()
 
-	// 插入 3 条告警
 	for i := 0; i < 3; i++ {
 		alert := &model.SecurityAlert{
 			UserID:      1,
@@ -565,3 +533,4 @@ func TestAlertChannels(t *testing.T) {
 		}
 	}
 }
+

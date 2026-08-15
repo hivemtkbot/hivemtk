@@ -47,3 +47,4 @@ func (r *AISuggestionRepository) MarkAsUsed(ctx context.Context, id uint, agentI
 		"used_at": &now,
 	}).Error
 }
+

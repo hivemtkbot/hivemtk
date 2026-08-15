@@ -110,7 +110,6 @@ func TestSmsService_SaveConfig(t *testing.T) {
 		t.Fatalf("SaveConfig failed: %v", err)
 	}
 
-	// 验证配置已保存
 	config, err := service.GetConfig(context.Background())
 	if err != nil {
 		t.Fatalf("GetConfig failed: %v", err)
@@ -136,14 +135,12 @@ func TestSmsService_SendSms(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 配置默认 provider
 	database.Create(&model.SmsConfig{
 		DefaultProvider: "aliyun",
 		RateLimit:       100,
 		DailyLimit:      10000,
 		RetryTimes:      3,
 	})
-	// 配置 aliyun 凭据(虽然真实调用会失败,但需要配置存在)
 	database.Create(&model.SmsAliyunConfig{
 		AccessKeyID:     "test-key-id",
 		AccessKeySecret: "test-key-secret",
@@ -156,7 +153,6 @@ func TestSmsService_SendSms(t *testing.T) {
 	}
 
 	err := service.SendSms(context.Background(), req)
-	// 真实 API 调用会因测试凭据失败,这是预期行为
 	if err == nil {
 		t.Log("SendSms succeeded (unexpected for test credentials)")
 	} else {
@@ -177,7 +173,6 @@ func TestSmsService_ResendSms(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建短信配置
 	smsConfig := &model.SmsConfig{
 		DefaultProvider: "aliyun",
 		RateLimit:       100,
@@ -186,7 +181,6 @@ func TestSmsService_ResendSms(t *testing.T) {
 	}
 	database.Create(smsConfig)
 
-	// 创建阿里云短信配置（测试用）
 	aliyunConfig := &model.SmsAliyunConfig{
 		AccessKeyID:     "test-access-key-id",
 		AccessKeySecret: "test-access-key-secret",
@@ -194,7 +188,6 @@ func TestSmsService_ResendSms(t *testing.T) {
 	}
 	database.Create(aliyunConfig)
 
-	// 创建一条失败的短信记录
 	record := &model.SmsRecord{
 		Phone:     "13812345678",
 		Content:   "【测试签名】您的验证码是 123456",
@@ -205,9 +198,7 @@ func TestSmsService_ResendSms(t *testing.T) {
 	}
 	database.Create(record)
 
-	// 重发（由于使用测试凭证，API调用会失败，但应验证逻辑正确性）
 	err := service.ResendSms(context.Background(), record.ID)
-	// 由于使用测试凭证，API调用会失败，这是预期的
 	if err != nil {
 		// 验证记录状态已更新为失败（因为API调用失败）
 		var updatedRecord model.SmsRecord
@@ -215,7 +206,6 @@ func TestSmsService_ResendSms(t *testing.T) {
 		if updatedRecord.Status != "failed" {
 			t.Errorf("Expected status 'failed' after API error, got %s", updatedRecord.Status)
 		}
-		// 验证错误信息已记录
 		if updatedRecord.ErrorMsg == "" {
 			t.Error("Expected ErrorMsg to be set")
 		}
@@ -239,7 +229,6 @@ func TestSmsService_ResendSms_NotFailed(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建一条已成功发送的短信记录
 	record := &model.SmsRecord{
 		Phone:    "13812345678",
 		Content:  "【测试签名】您的验证码是 123456",
@@ -248,7 +237,6 @@ func TestSmsService_ResendSms_NotFailed(t *testing.T) {
 	}
 	database.Create(record)
 
-	// 尝试重发
 	err := service.ResendSms(context.Background(), record.ID)
 	if err == nil {
 		t.Error("Expected error for resending non-failed SMS")
@@ -288,14 +276,12 @@ func TestSmsService_GetDraftByID(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建草稿
 	draft := &model.SmsDraft{
 		Title:   "测试草稿",
 		Content: "【测试签名】这是一条测试短信",
 	}
 	database.Create(draft)
 
-	// 获取草稿
 	retrievedDraft, err := service.GetDraftByID(context.Background(), draft.ID)
 	if err != nil {
 		t.Fatalf("GetDraftByID failed: %v", err)
@@ -324,14 +310,12 @@ func TestSmsService_UpdateDraft(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建草稿
 	draft := &model.SmsDraft{
 		Title:   "旧标题",
 		Content: "旧内容",
 	}
 	database.Create(draft)
 
-	// 更新草稿
 	updateReq := &dto.SmsDraftUpdateRequest{
 		Title:   "新标题",
 		Content: "新内容",
@@ -359,14 +343,12 @@ func TestSmsService_DeleteDraft(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建草稿
 	draft := &model.SmsDraft{
 		Title:   "待删除草稿",
 		Content: "这是待删除的内容",
 	}
 	database.Create(draft)
 
-	// 删除草稿
 	err := service.DeleteDraft(context.Background(), draft.ID)
 	if err != nil {
 		t.Fatalf("DeleteDraft failed: %v", err)
@@ -376,7 +358,6 @@ func TestSmsService_DeleteDraft(t *testing.T) {
 	var count int64
 	database.Unscoped().Model(&model.SmsDraft{}).Where("id = ?", draft.ID).Unscoped().Count(&count)
 	if count != 1 {
-		// 如果没有被软删除，检查是否真的被删除了
 		database.Model(&model.SmsDraft{}).Where("id = ?", draft.ID).Count(&count)
 		if count != 0 {
 			t.Errorf("Expected draft to be soft-deleted, got count %d", count)
@@ -398,7 +379,6 @@ func TestSmsService_SendDraft(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 配置默认 provider 和 aliyun 凭据
 	database.Create(&model.SmsConfig{
 		DefaultProvider: "aliyun",
 		RateLimit:       100,
@@ -411,14 +391,12 @@ func TestSmsService_SendDraft(t *testing.T) {
 		SignName:        "test-sign",
 	})
 
-	// 创建草稿
 	draft := &model.SmsDraft{
 		Title:   "发送草稿",
 		Content: "【测试签名】这是草稿发送的内容",
 	}
 	database.Create(draft)
 
-	// 发送草稿
 	phone := "13812345678"
 	err := service.SendDraft(context.Background(), draft.ID, phone)
 	if err != nil {
@@ -451,7 +429,6 @@ func TestSmsService_GetDraftList(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建多条草稿
 	for i := 0; i < 5; i++ {
 		draft := &model.SmsDraft{
 			Title:   "草稿" + string(rune('0'+i)),
@@ -460,7 +437,6 @@ func TestSmsService_GetDraftList(t *testing.T) {
 		database.Create(draft)
 	}
 
-	// 获取列表
 	req := &dto.SmsDraftListRequest{
 		Page:  1,
 		Limit: 10,
@@ -485,12 +461,10 @@ func TestSmsService_GetDraftList_WithTitleFilter(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建多条草稿
 	database.Create(&model.SmsDraft{Title: "测试草稿 1", Content: "内容 1"})
 	database.Create(&model.SmsDraft{Title: "测试草稿 2", Content: "内容 2"})
 	database.Create(&model.SmsDraft{Title: "其他草稿", Content: "其他内容"})
 
-	// 获取列表
 	req := &dto.SmsDraftListRequest{
 		Page:  1,
 		Limit: 10,
@@ -552,7 +526,6 @@ func TestSmsService_CreateJob_WithScheduleTime(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 设置明天的时间
 	scheduleTime := time.Now().Add(24 * time.Hour)
 
 	req := &dto.SmsJobCreateRequest{
@@ -581,7 +554,6 @@ func TestSmsService_GetJobByID(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建任务
 	job := &model.SmsJob{
 		Name:   "测试任务",
 		Total:  10,
@@ -589,7 +561,6 @@ func TestSmsService_GetJobByID(t *testing.T) {
 	}
 	database.Create(job)
 
-	// 获取任务
 	retrievedJob, err := service.GetJobByID(context.Background(), job.ID)
 	if err != nil {
 		t.Fatalf("GetJobByID failed: %v", err)
@@ -618,12 +589,10 @@ func TestSmsService_GetJobList(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建多个任务
 	database.Create(&model.SmsJob{Name: "任务 1", Status: "pending", Total: 5})
 	database.Create(&model.SmsJob{Name: "任务 2", Status: "running", Total: 10})
 	database.Create(&model.SmsJob{Name: "任务 3", Status: "completed", Total: 15})
 
-	// 获取列表
 	req := &dto.SmsJobListRequest{
 		Page:  1,
 		Limit: 10,
@@ -648,12 +617,10 @@ func TestSmsService_GetJobList_WithStatusFilter(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建多个任务
 	database.Create(&model.SmsJob{Name: "任务 1", Status: "pending", Total: 5})
 	database.Create(&model.SmsJob{Name: "任务 2", Status: "running", Total: 10})
 	database.Create(&model.SmsJob{Name: "任务 3", Status: "completed", Total: 15})
 
-	// 获取列表
 	req := &dto.SmsJobListRequest{
 		Page:   1,
 		Limit:  10,
@@ -680,14 +647,12 @@ func TestSmsService_PauseJob(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建运行中的任务
 	job := &model.SmsJob{
 		Name:   "运行中任务",
 		Status: "running",
 	}
 	database.Create(job)
 
-	// 暂停任务
 	err := service.PauseJob(context.Background(), job.ID)
 	if err != nil {
 		t.Fatalf("PauseJob failed: %v", err)
@@ -707,14 +672,12 @@ func TestSmsService_PauseJob_InvalidStatus(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建已完成的任务
 	job := &model.SmsJob{
 		Name:   "已完成任务",
 		Status: "completed",
 	}
 	database.Create(job)
 
-	// 尝试暂停
 	err := service.PauseJob(context.Background(), job.ID)
 	if err == nil {
 		t.Error("Expected error for pausing non-running job")
@@ -730,14 +693,12 @@ func TestSmsService_ResumeJob(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建暂停的任务
 	job := &model.SmsJob{
 		Name:   "暂停任务",
 		Status: "paused",
 	}
 	database.Create(job)
 
-	// 继续任务
 	err := service.ResumeJob(context.Background(), job.ID)
 	if err != nil {
 		t.Fatalf("ResumeJob failed: %v", err)
@@ -757,14 +718,12 @@ func TestSmsService_ResumeJob_InvalidStatus(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建已完成的任务
 	job := &model.SmsJob{
 		Name:   "已完成任务",
 		Status: "completed",
 	}
 	database.Create(job)
 
-	// 尝试继续
 	err := service.ResumeJob(context.Background(), job.ID)
 	if err == nil {
 		t.Error("Expected error for resuming non-paused job")
@@ -780,14 +739,12 @@ func TestSmsService_StopJob(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建运行中的任务
 	job := &model.SmsJob{
 		Name:   "运行中任务",
 		Status: "running",
 	}
 	database.Create(job)
 
-	// 停止任务
 	err := service.StopJob(context.Background(), job.ID)
 	if err != nil {
 		t.Fatalf("StopJob failed: %v", err)
@@ -807,14 +764,12 @@ func TestSmsService_StopJob_InvalidStatus(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建已完成的任务
 	job := &model.SmsJob{
 		Name:   "已完成任务",
 		Status: "completed",
 	}
 	database.Create(job)
 
-	// 尝试停止
 	err := service.StopJob(context.Background(), job.ID)
 	if err == nil {
 		t.Error("Expected error for stopping completed job")
@@ -830,14 +785,12 @@ func TestSmsService_DeleteJob(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建已完成的任务
 	job := &model.SmsJob{
 		Name:   "已完成任务",
 		Status: "completed",
 	}
 	database.Create(job)
 
-	// 创建任务详情
 	detail := &model.SmsJobDetail{
 		JobID:   job.ID,
 		Phone:   "13812345678",
@@ -846,7 +799,6 @@ func TestSmsService_DeleteJob(t *testing.T) {
 	}
 	database.Create(detail)
 
-	// 删除任务
 	err := service.DeleteJob(context.Background(), job.ID)
 	if err != nil {
 		t.Fatalf("DeleteJob failed: %v", err)
@@ -856,7 +808,6 @@ func TestSmsService_DeleteJob(t *testing.T) {
 	var count int64
 	database.Unscoped().Model(&model.SmsJob{}).Where("id = ?", job.ID).Unscoped().Count(&count)
 	if count != 1 {
-		// 如果没有被软删除，检查是否真的被删除了
 		database.Model(&model.SmsJob{}).Where("id = ?", job.ID).Count(&count)
 		if count != 0 {
 			t.Errorf("Expected job to be soft-deleted, got count %d", count)
@@ -877,14 +828,12 @@ func TestSmsService_DeleteJob_InvalidStatus(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建运行中的任务
 	job := &model.SmsJob{
 		Name:   "运行中任务",
 		Status: "running",
 	}
 	database.Create(job)
 
-	// 尝试删除
 	err := service.DeleteJob(context.Background(), job.ID)
 	if err == nil {
 		t.Error("Expected error for deleting running job")
@@ -900,14 +849,12 @@ func TestSmsService_GetJobRecords(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建任务
 	job := &model.SmsJob{
 		Name:   "测试任务",
 		Status: "running",
 	}
 	database.Create(job)
 
-	// 创建任务详情
 	for i := 0; i < 5; i++ {
 		detail := &model.SmsJobDetail{
 			JobID:   job.ID,
@@ -918,7 +865,6 @@ func TestSmsService_GetJobRecords(t *testing.T) {
 		database.Create(detail)
 	}
 
-	// 获取记录
 	records, total, err := service.GetJobRecords(context.Background(), job.ID, 1, 10)
 	if err != nil {
 		t.Fatalf("GetJobRecords failed: %v", err)
@@ -950,7 +896,6 @@ func TestSmsService_GetSmsList(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建多条短信记录
 	for i := 0; i < 5; i++ {
 		record := &model.SmsRecord{
 			Phone:    "1381234567" + string(rune('0'+i)),
@@ -961,7 +906,6 @@ func TestSmsService_GetSmsList(t *testing.T) {
 		database.Create(record)
 	}
 
-	// 获取列表
 	req := &dto.SmsListRequest{
 		Page:  1,
 		Limit: 10,
@@ -986,7 +930,6 @@ func TestSmsService_GetSmsByID(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 创建短信记录
 	record := &model.SmsRecord{
 		Phone:    "13812345678",
 		Content:  "测试内容",
@@ -995,7 +938,6 @@ func TestSmsService_GetSmsByID(t *testing.T) {
 	}
 	database.Create(record)
 
-	// 获取短信
 	retrievedRecord, err := service.GetSmsByID(context.Background(), record.ID)
 	if err != nil {
 		t.Fatalf("GetSmsByID failed: %v", err)
@@ -1017,3 +959,4 @@ func TestSmsService_GetSmsByID_NotFound(t *testing.T) {
 		t.Error("Expected error for non-existent SMS")
 	}
 }
+

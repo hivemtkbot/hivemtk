@@ -23,7 +23,6 @@ func TestInboxIngress_ClaimPendingOutbound_NoDuplicateForward(t *testing.T) {
 		channel   = "douyin_web"
 		accountID = "acc_claim_1"
 	)
-	// seed 两条待下发出站消息
 	for i, c := range []string{" outbound A", "outbound B"} {
 		conv := "conv_claim_1"
 		h := &model.MessageHub{
@@ -45,7 +44,6 @@ func TestInboxIngress_ClaimPendingOutbound_NoDuplicateForward(t *testing.T) {
 		}
 	}
 
-	// 1) 首次认领：应取回 2 条，状态变为 inflight，claimed_at 已写入
 	claimed1, err := svc.ClaimPendingOutbound(ctx, channel, accountID, 10)
 	if err != nil {
 		t.Fatalf("ClaimPendingOutbound(1) 失败: %v", err)
@@ -62,7 +60,6 @@ func TestInboxIngress_ClaimPendingOutbound_NoDuplicateForward(t *testing.T) {
 		}
 	}
 
-	// 2) 立即二次认领：同一条不应被重复取回（根除重复转发）
 	claimed2, err := svc.ClaimPendingOutbound(ctx, channel, accountID, 10)
 	if err != nil {
 		t.Fatalf("ClaimPendingOutbound(2) 失败: %v", err)
@@ -84,7 +81,6 @@ func TestInboxIngress_ClaimPendingOutbound_NoDuplicateForward(t *testing.T) {
 		t.Fatalf("期望确认 2 条，实际 %d", n)
 	}
 
-	// 4) ack 后再认领仍应为 0
 	claimed3, err := svc.ClaimPendingOutbound(ctx, channel, accountID, 10)
 	if err != nil {
 		t.Fatalf("ClaimPendingOutbound(3) 失败: %v", err)
@@ -127,20 +123,17 @@ func TestInboxIngress_ClaimPendingOutbound_StaleReset(t *testing.T) {
 		t.Fatalf("DeliverOutbound 失败: %v", err)
 	}
 
-	// 认领一次 → inflight
 	first, err := svc.ClaimPendingOutbound(ctx, channel, accountID, 10)
 	if err != nil || len(first) != 1 {
 		t.Fatalf("首次认领应取回 1 条, err=%v len=%d", err, len(first))
 	}
 
-	// 模拟 ack 丢失：把 claimed_at 拨到 60s 前（超过 30s 超时）
 	stale := time.Now().Add(-60 * time.Second)
 	if err := db.Model(&model.MessageHub{}).Where("msg_id = ?", h.MsgID).
 		Update("claimed_at", stale).Error; err != nil {
 		t.Fatalf("拨动 claimed_at 失败: %v", err)
 	}
 
-	// 下一轮认领应回收（inflight→pending）并重认领
 	again, err := svc.ClaimPendingOutbound(ctx, channel, accountID, 10)
 	if err != nil {
 		t.Fatalf("回收后认领失败: %v", err)
@@ -166,12 +159,11 @@ func TestInboxIngress_InterceptEcho_DistinguishesSelfAndCustomer(t *testing.T) {
 
 	const (
 		channel   = "douyin_web"
-		accountID = "acc_echo_1" // 平台/AI 账号身份
+		accountID = "acc_echo_1" 
 		conv      = "conv_echo_1"
 		content   = "您好，请问有什么可以帮您"
 	)
 
-	// 铺设一条 AI 出站（outbound）记录，dedup_hash 以账号身份作为发送者键
 	ob := &model.MessageHub{
 		MsgID:          ContentHashMsgID(channel, conv, content),
 		Platform:       channel,
@@ -190,7 +182,6 @@ func TestInboxIngress_InterceptEcho_DistinguishesSelfAndCustomer(t *testing.T) {
 		t.Fatalf("铺设出站记录失败: %v", err)
 	}
 
-	// 场景1：AI 自己发出的消息经渠道回写成 inbound（self 回显）→ 应拦截
 	selfEvent := &model.MessageEvent{
 		EventID:        "evt_self_echo",
 		Channel:        channel,
@@ -207,7 +198,6 @@ func TestInboxIngress_InterceptEcho_DistinguishesSelfAndCustomer(t *testing.T) {
 		t.Fatalf("self 回显应被拦截(IsSelfEcho)，实际 Blocked=%v IsSelfEcho=%v reason=%q", dec.Blocked, dec.IsSelfEcho, dec.Reason)
 	}
 
-	// 场景2：客户复述了 AI 的原话（other，发送者不同）→ 不应拦截（旧逻辑会误删）
 	customerEvent := &model.MessageEvent{
 		EventID:        "evt_customer_echo",
 		Channel:        channel,
@@ -224,3 +214,4 @@ func TestInboxIngress_InterceptEcho_DistinguishesSelfAndCustomer(t *testing.T) {
 		t.Fatalf("客户复述 AI 原话不应被拦截（否则丢失客户消息），实际 reason=%q", dec2.Reason)
 	}
 }
+

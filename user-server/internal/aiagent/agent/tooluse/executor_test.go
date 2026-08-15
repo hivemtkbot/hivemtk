@@ -11,9 +11,7 @@ import (
 	"time"
 )
 
-// executor_test.go 工具执行引擎测试（PRD §5.2 G3）
 
-// ===== 辅助：构造一个 mock tool =====
 
 // mockTool 通用 mock 工具
 type mockTool struct {
@@ -83,7 +81,6 @@ func countTool(name string, counter *int32) *mockTool {
 	})
 }
 
-// ===== 1. 基本执行测试 =====
 
 func TestToolExecutor_ExecuteSuccess(t *testing.T) {
 	registry := NewToolRegistry()
@@ -157,7 +154,6 @@ func TestToolExecutor_ExecuteByName(t *testing.T) {
 	}
 }
 
-// ===== 2. 装饰器链挂载测试 =====
 
 func TestToolExecutor_DecoratorChainApplied(t *testing.T) {
 	registry := NewToolRegistry()
@@ -170,7 +166,6 @@ func TestToolExecutor_DecoratorChainApplied(t *testing.T) {
 		CostTracker:       tracker,
 		PermissionChecker: allowAllChecker{},
 		RateLimiter:       NoOpRateLimiter{},
-		// 不重试（MaxAttempts=1）
 	})
 
 	r := executor.Execute(context.Background(), ExecuteRequest{
@@ -180,7 +175,6 @@ func TestToolExecutor_DecoratorChainApplied(t *testing.T) {
 	if r.Err == nil {
 		t.Fatalf("应失败")
 	}
-	// 验证审计日志被写入
 	entries := logger.Entries()
 	if len(entries) != 1 {
 		t.Fatalf("期望 1 条审计日志，实际 %d", len(entries))
@@ -188,7 +182,6 @@ func TestToolExecutor_DecoratorChainApplied(t *testing.T) {
 	if entries[0].Success {
 		t.Fatalf("应记录失败")
 	}
-	// 验证计费统计被写入
 	stats := tracker.Stats()
 	if len(stats) != 1 || stats[0].FailedCalls != 1 {
 		t.Fatalf("计费统计错误：%+v", stats)
@@ -206,7 +199,6 @@ func TestToolExecutor_PermissionCheckerApplied(t *testing.T) {
 		DefaultTimeout:    1 * time.Second,
 		PermissionChecker: denyAllChecker{},
 	})
-	// 权限拒绝，不应调用 tool
 	r := executor.Execute(context.Background(), ExecuteRequest{
 		ToolName: "test.count",
 	})
@@ -265,7 +257,6 @@ func TestToolExecutor_PanicRecovery(t *testing.T) {
 	}
 }
 
-// ===== 3. 装饰器 handler 缓存测试 =====
 
 func TestToolExecutor_HandlerCached(t *testing.T) {
 	registry := NewToolRegistry()
@@ -275,13 +266,11 @@ func TestToolExecutor_HandlerCached(t *testing.T) {
 	executor := NewToolExecutor(registry, ToolExecutorConfig{
 		DefaultTimeout: 1 * time.Second,
 	})
-	// 执行 5 次，每次都应使用缓存的 handler
 	for i := 0; i < 5; i++ {
 		_ = executor.Execute(context.Background(), ExecuteRequest{
 			ToolName: "test.count",
 		})
 	}
-	// 验证 handler 缓存中有 1 条
 	executor.mu.RLock()
 	cacheLen := len(executor.cache)
 	executor.mu.RUnlock()
@@ -293,7 +282,6 @@ func TestToolExecutor_HandlerCached(t *testing.T) {
 	}
 }
 
-// ===== 4. 工具级别 override 测试 =====
 
 func TestToolExecutor_SetOverrideDisabled(t *testing.T) {
 	registry := NewToolRegistry()
@@ -301,7 +289,6 @@ func TestToolExecutor_SetOverrideDisabled(t *testing.T) {
 	executor := NewToolExecutor(registry, ToolExecutorConfig{
 		DefaultTimeout: 1 * time.Second,
 	})
-	// 设置 disabled
 	executor.SetOverride(ToolOverride{
 		ToolName: "test.echo",
 		Disabled: true,
@@ -318,9 +305,8 @@ func TestToolExecutor_SetOverrideTimeout(t *testing.T) {
 	registry := NewToolRegistry()
 	registry.MustRegister(slowTool("test.slow", 500*time.Millisecond))
 	executor := NewToolExecutor(registry, ToolExecutorConfig{
-		DefaultTimeout: 1 * time.Second, // 默认 1s 足够慢工具完成
+		DefaultTimeout: 1 * time.Second, 
 	})
-	// 不 override：1s 超时，500ms 完成，应成功
 	r := executor.Execute(context.Background(), ExecuteRequest{
 		ToolName: "test.slow",
 	})
@@ -328,7 +314,6 @@ func TestToolExecutor_SetOverrideTimeout(t *testing.T) {
 		t.Fatalf("应成功：%v", r.Err)
 	}
 
-	// override 为 50ms 超时
 	executor.SetOverride(ToolOverride{
 		ToolName: "test.slow",
 		Timeout:  50 * time.Millisecond,
@@ -347,7 +332,6 @@ func TestToolExecutor_SetOverrideClearsCache(t *testing.T) {
 	executor := NewToolExecutor(registry, ToolExecutorConfig{
 		DefaultTimeout: 1 * time.Second,
 	})
-	// 首次执行，填充缓存
 	_ = executor.Execute(context.Background(), ExecuteRequest{
 		ToolName: "test.echo",
 	})
@@ -357,7 +341,6 @@ func TestToolExecutor_SetOverrideClearsCache(t *testing.T) {
 	if cacheLen1 != 1 {
 		t.Fatalf("期望 1 条缓存，实际 %d", cacheLen1)
 	}
-	// 设置 override 应清除该缓存
 	executor.SetOverride(ToolOverride{
 		ToolName: "test.echo",
 		Timeout:  5 * time.Second,
@@ -380,14 +363,12 @@ func TestToolExecutor_ClearOverride(t *testing.T) {
 		ToolName: "test.echo",
 		Disabled: true,
 	})
-	// disabled 状态应失败
 	r1 := executor.Execute(context.Background(), ExecuteRequest{
 		ToolName: "test.echo",
 	})
 	if r1.Err == nil {
 		t.Fatalf("disabled 状态应失败")
 	}
-	// 清除 override
 	executor.ClearOverride("test.echo")
 	r2 := executor.Execute(context.Background(), ExecuteRequest{
 		ToolName: "test.echo",
@@ -400,7 +381,6 @@ func TestToolExecutor_ClearOverride(t *testing.T) {
 func TestToolExecutor_GetOverride(t *testing.T) {
 	registry := NewToolRegistry()
 	executor := NewToolExecutor(registry, ToolExecutorConfig{})
-	// 未设置时返回 false
 	_, ok := executor.GetOverride("any.tool")
 	if ok {
 		t.Fatalf("未设置时应返回 false")
@@ -418,7 +398,6 @@ func TestToolExecutor_GetOverride(t *testing.T) {
 	}
 }
 
-// ===== 5. 批量执行测试 =====
 
 func TestToolExecutor_BatchExecuteSequential(t *testing.T) {
 	registry := NewToolRegistry()
@@ -495,11 +474,10 @@ func TestToolExecutor_BatchExecuteStopOnError(t *testing.T) {
 		Parallel:    false,
 		StopOnError: true,
 	})
-	// test.a 成功，test.fail 失败，test.b 被跳过
 	if resp.SuccessCount != 1 {
 		t.Fatalf("期望 1 个成功，实际 %d", resp.SuccessCount)
 	}
-	if resp.FailedCount != 2 { // test.fail + test.b 跳过算作失败
+	if resp.FailedCount != 2 { 
 		t.Fatalf("期望 2 个失败，实际 %d", resp.FailedCount)
 	}
 	if atomic.LoadInt32(&calls) != 1 {
@@ -509,7 +487,6 @@ func TestToolExecutor_BatchExecuteStopOnError(t *testing.T) {
 
 func TestToolExecutor_BatchExecuteMaxConcurrency(t *testing.T) {
 	registry := NewToolRegistry()
-	// 用 3 个慢工具测试并发限制
 	registry.MustRegister(slowTool("test.slow1", 100*time.Millisecond))
 	registry.MustRegister(slowTool("test.slow2", 100*time.Millisecond))
 	registry.MustRegister(slowTool("test.slow3", 100*time.Millisecond))
@@ -524,13 +501,12 @@ func TestToolExecutor_BatchExecuteMaxConcurrency(t *testing.T) {
 			{ToolName: "test.slow3"},
 		},
 		Parallel:       true,
-		MaxConcurrency: 1, // 强制顺序（实际并发=1）
+		MaxConcurrency: 1, 
 	})
 	elapsed := time.Since(start)
 	if resp.SuccessCount != 3 {
 		t.Fatalf("期望 3 个成功，实际 %d", resp.SuccessCount)
 	}
-	// MaxConcurrency=1 时 3 个 100ms 任务总耗时 ≥ 300ms
 	if elapsed < 250*time.Millisecond {
 		t.Fatalf("MaxConcurrency=1 应顺序执行，总耗时 ≥ 300ms，实际 %v", elapsed)
 	}
@@ -550,7 +526,6 @@ func TestToolExecutor_BatchExecuteEmpty(t *testing.T) {
 	}
 }
 
-// ===== 6. LLM Function Calling 集成测试 =====
 
 func TestToolExecutor_DispatchByLLMToolCall(t *testing.T) {
 	registry := NewToolRegistry()
@@ -579,7 +554,6 @@ func TestToolExecutor_DispatchByLLMToolCall(t *testing.T) {
 	if len(results) != 2 {
 		t.Fatalf("期望 2 个结果，实际 %d", len(results))
 	}
-	// 验证 tool_call_id 对应
 	resultMap := map[string]LLMToolResult{}
 	for _, r := range results {
 		resultMap[r.ToolCallID] = r
@@ -590,7 +564,6 @@ func TestToolExecutor_DispatchByLLMToolCall(t *testing.T) {
 	if _, ok := resultMap["call-2"]; !ok {
 		t.Fatalf("应包含 call-2 结果")
 	}
-	// 验证 content 是合法 JSON
 	for _, r := range results {
 		var tr ToolResult
 		if err := json.Unmarshal([]byte(r.Content), &tr); err != nil {
@@ -685,7 +658,6 @@ func TestToolExecutor_DispatchByLLMToolCall_WithToolCtx(t *testing.T) {
 	if !results[0].Success {
 		t.Fatalf("应成功")
 	}
-	// 验证 ToolContext 被传递到审计日志
 	entries := logger.Entries()
 	if len(entries) != 1 {
 		t.Fatalf("期望 1 条审计日志，实际 %d", len(entries))
@@ -701,7 +673,6 @@ func TestToolExecutor_DispatchByLLMToolCall_WithToolCtx(t *testing.T) {
 	}
 }
 
-// ===== 7. 便捷方法测试 =====
 
 func TestToolExecutor_ExecuteByNameWithCtx(t *testing.T) {
 	registry := NewToolRegistry()
@@ -738,7 +709,6 @@ func TestToolExecutor_ListAvailableTools(t *testing.T) {
 	executor := NewToolExecutor(registry, ToolExecutorConfig{
 		DefaultTimeout: 1 * time.Second,
 	})
-	// 设置 test.b 为 disabled
 	executor.SetOverride(ToolOverride{
 		ToolName: "test.b",
 		Disabled: true,
@@ -775,13 +745,10 @@ func TestToolExecutor_ListAvailableLLMFunctions(t *testing.T) {
 	}
 }
 
-// ===== 8. ToolResult 字段补全测试 =====
 
 func TestToolExecutor_ToolResultFieldsCompleted(t *testing.T) {
 	registry := NewToolRegistry()
-	// 工具返回部分字段为空
 	emptyResultTool := newMockTool("test.empty", CategoryCustomer, func(ctx context.Context, args map[string]any) (ToolResult, error) {
-		// 故意返回空的 ToolResult（仅设置 Success）
 		return ToolResult{Success: true}, nil
 	})
 	registry.MustRegister(emptyResultTool)
@@ -794,7 +761,6 @@ func TestToolExecutor_ToolResultFieldsCompleted(t *testing.T) {
 	if r.ToolName != "test.empty" {
 		t.Fatalf("ToolName 应被补全为 test.empty，实际 %s", r.ToolName)
 	}
-	// DurationMs 可能为 0（执行 <1ms），仅验证非负
 	if r.Timing.DurationMs < 0 {
 		t.Fatalf("DurationMs 不应为负数，实际 %d", r.Timing.DurationMs)
 	}
@@ -819,10 +785,8 @@ func TestToolExecutor_AuditTracePassedThrough(t *testing.T) {
 	}
 }
 
-// ===== 9. 全局执行器测试 =====
 
 func TestGlobalExecutor(t *testing.T) {
-	// 保存原全局执行器
 	original := globalExecutor
 	defer func() { globalExecutor = original }()
 
@@ -839,7 +803,6 @@ func TestGlobalExecutor(t *testing.T) {
 	if got != executor {
 		t.Fatalf("应返回设置的执行器")
 	}
-	// 通过全局执行器调用
 	result, err := got.ExecuteByName(context.Background(), "test.global", map[string]any{"foo": "bar"})
 	if err != nil {
 		t.Fatalf("应成功：%v", err)
@@ -850,7 +813,6 @@ func TestGlobalExecutor(t *testing.T) {
 }
 
 func TestGetGlobalExecutor_DefaultNil(t *testing.T) {
-	// 保存原全局执行器
 	original := globalExecutor
 	defer func() { globalExecutor = original }()
 	globalExecutor = nil
@@ -859,7 +821,6 @@ func TestGetGlobalExecutor_DefaultNil(t *testing.T) {
 	}
 }
 
-// ===== 10. 并发安全测试 =====
 
 func TestToolExecutor_ConcurrentExecute(t *testing.T) {
 	registry := NewToolRegistry()
@@ -868,7 +829,7 @@ func TestToolExecutor_ConcurrentExecute(t *testing.T) {
 	executor := NewToolExecutor(registry, ToolExecutorConfig{
 		DefaultTimeout:    1 * time.Second,
 		PermissionChecker: allowAllChecker{},
-		RateLimiter:       NewTokenBucketLimiter(10000, 100), // 高 QPS 限流，避免被限
+		RateLimiter:       NewTokenBucketLimiter(10000, 100), 
 	})
 	var wg sync.WaitGroup
 	N := 50
@@ -898,7 +859,6 @@ func TestToolExecutor_ConcurrentSetOverride(t *testing.T) {
 		DefaultTimeout: 1 * time.Second,
 	})
 	var wg sync.WaitGroup
-	// 并发设置 override
 	for i := 0; i < 20; i++ {
 		wg.Add(1)
 		go func(i int) {
@@ -913,7 +873,6 @@ func TestToolExecutor_ConcurrentSetOverride(t *testing.T) {
 			})
 		}(i)
 	}
-	// 并发执行
 	for i := 0; i < 20; i++ {
 		wg.Add(1)
 		go func(i int) {
@@ -928,10 +887,8 @@ func TestToolExecutor_ConcurrentSetOverride(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	// 不应 panic / 死锁
 }
 
-// ===== 11. ClearCache 测试 =====
 
 func TestToolExecutor_ClearCache(t *testing.T) {
 	registry := NewToolRegistry()
@@ -940,7 +897,6 @@ func TestToolExecutor_ClearCache(t *testing.T) {
 	executor := NewToolExecutor(registry, ToolExecutorConfig{
 		DefaultTimeout: 1 * time.Second,
 	})
-	// 执行填充缓存
 	_ = executor.Execute(context.Background(), ExecuteRequest{ToolName: "test.a"})
 	_ = executor.Execute(context.Background(), ExecuteRequest{ToolName: "test.b"})
 	executor.mu.RLock()
@@ -949,7 +905,6 @@ func TestToolExecutor_ClearCache(t *testing.T) {
 	if cacheLen1 != 2 {
 		t.Fatalf("期望 2 条缓存，实际 %d", cacheLen1)
 	}
-	// 清空缓存
 	executor.ClearCache()
 	executor.mu.RLock()
 	cacheLen2 := len(executor.cache)
@@ -957,7 +912,6 @@ func TestToolExecutor_ClearCache(t *testing.T) {
 	if cacheLen2 != 0 {
 		t.Fatalf("清空后应 0 条缓存，实际 %d", cacheLen2)
 	}
-	// 再次执行应重建缓存
 	_ = executor.Execute(context.Background(), ExecuteRequest{ToolName: "test.a"})
 	executor.mu.RLock()
 	cacheLen3 := len(executor.cache)
@@ -967,7 +921,6 @@ func TestToolExecutor_ClearCache(t *testing.T) {
 	}
 }
 
-// ===== 辅助函数 =====
 
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStr(s, substr))
@@ -984,3 +937,4 @@ func containsStr(s, substr string) bool {
 
 // 确保 fmt 包被使用（避免 import 报错）
 var _ = fmt.Sprintf
+

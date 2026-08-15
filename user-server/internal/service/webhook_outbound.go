@@ -146,30 +146,14 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 
 			outMsg.DedupHash = ContentHashWithSender(string(channel), accountID, content)
 
-			// 2026-08-15 修复（P1-4 outbound 场景元数据）：
-			//   原实现：outbound.Extra 完全留空，导致：
-			//     1) 桥接扩展端无法判断「这条 outbox 是回复原会话（conv）还是给某成员私信（dm_target=member）」
-			//     2) 统一收件箱 UI 无法按 scenario / intent 维度聚合（客服回看时一片纯文本，没有上下文标签）
-			//     3) 监控 / trace_learning 无法按 scenario 取数（自学习场景按 scenario 路由失效）
-			//   修复：sendOutbound 调用点构造场景元数据。约定：
-			//     - dm_target   : 必填；"conv"=回复原会话，"member"=给成员私信（lead_outreach 走 member）
-			//     - scenario    : 必填；"auto_reply" / "transfer_respond" / "dm_outreach" / "follow_up"
-			//     - intent      : 选填；SalesResponse.Intent.IntentType（greeting/inquiry/objection/...）
-			//     - confidence  : 选填；HandleResult.Confidence（0-1）
-			//     - agent_id    : 选填；多智能体路由时填充
-			//     - triggered_by: 选填；"ai_dispatch" / "human_reply" / "system"
-			//   私域部署原则：字段缺失必须显式填空（"unknown"），不允许 nil，
-			//     否则 trace_learning / 监控聚合按 Extra 字段 group by 时 key 漂移。
 			outMsg.Extra = model.JSONMap{
-				"dm_target":    "conv", // 回复原会话（区别于 lead_outreach 走 member）
+				"dm_target":    "conv", 
 				"scenario":     "auto_reply",
 				"triggered_by": "ai_dispatch",
 			}
-			// 从 ctx carrier 取 agent_id（多智能体路由时由 loadAgentForChannel 注入）
 			if agentID := extractAgentIDFromCtx(ctx); agentID != "" {
 				outMsg.Extra["agent_id"] = agentID
 			}
-			// result 由调用方（runAIGeneration）通过 ctx 注入，本处尝试取出
 			if result := HandleResultFromContext(ctx); result != nil {
 				if result.Confidence > 0 {
 					outMsg.Extra["confidence"] = result.Confidence
@@ -181,7 +165,6 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 					outMsg.Extra["handler_type"] = string(result.HandlerType)
 				}
 			}
-			// 占位账号/未知账号等 undeliverable 场景：保留原有 undeliverable_reason 并标 scenario
 			if undeliverable, reason := bridgeOutboundUndeliverable(accountID, outMsg.ConversationID); undeliverable {
 				outMsg.Status = "failed"
 				if outMsg.Extra == nil {
@@ -307,17 +290,6 @@ func bridgeOutboundUndeliverable(accountID, conversationID string) (bool, string
 	return false, ""
 }
 
-// ============================================================================
-// 2026-08-15 P1-4 outbound 场景元数据 helper
-// ----------------------------------------------------------------------------
-// 目的：sendOutbound 需要从 ctx 拿到 agent_id 和 HandleResult（用于补 dm_target/scenario/
-//       intent/confidence/handler_type 等字段）。把 helper 与 sendOutbound 放在同一文件，
-//       避免散落到其他位置后被遗忘。
-// 注入方：
-//   - webhook_ai.go runAIGeneration 在 result 拿到后把 HandleResult 注入 ctx
-//   - loadAgentForChannel 在解析后把 agentID 注入 ctx
-// 私域部署原则：ctx 取出为空时按 "unknown" 占位，不允许 nil 字段。
-// ============================================================================
 
 type handleResultCtxKey struct{}
 
@@ -361,3 +333,4 @@ func extractAgentIDFromCtx(ctx context.Context) string {
 	}
 	return "unknown"
 }
+

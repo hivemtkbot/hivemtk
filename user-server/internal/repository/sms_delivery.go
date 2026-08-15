@@ -31,12 +31,10 @@ type SmsDeliveryCarrierStatRow struct {
 // 配套 service.SmsDeliveryTrackerService，封装 sms_number_portability_logs 与
 // sms_delivery_statuses 两张表的所有 DB 操作。service 不再直接持有 *gorm.DB。
 type SmsDeliveryRepository interface {
-	// 携号转网记录
 	CreatePortability(ctx context.Context, rec *model.SmsNumberPortabilityRecord) error
 	LoadLatestPortability(ctx context.Context, limit int) ([]model.SmsNumberPortabilityRecord, error)
 	ListPortability(ctx context.Context, phone string, page, limit int) ([]model.SmsNumberPortabilityRecord, int64, error)
 
-	// 到达率聚合（sms_delivery_statuses 表）
 	GetDeliveryAggregate(ctx context.Context, start, end time.Time) (*SmsDeliveryAggregateRow, error)
 	CountBlacklisted(ctx context.Context, start, end time.Time) (int64, error)
 	CountPortabilityFailure(ctx context.Context, start, end time.Time) (int64, error)
@@ -179,3 +177,4 @@ func (r *smsDeliveryRepo) GetCarrierStats(ctx context.Context, start, end time.T
 	}
 	return rows, nil
 }
+

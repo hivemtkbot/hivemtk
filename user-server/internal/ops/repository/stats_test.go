@@ -85,7 +85,6 @@ func TestStatsRepository_GetAPILogs(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	now := time.Now()
 	for i := 1; i <= 5; i++ {
 		repo.CreateAPILog(ctx, &sysmodel.APILog{
@@ -98,7 +97,6 @@ func TestStatsRepository_GetAPILogs(t *testing.T) {
 		})
 	}
 
-	// 创建不同 license 的日志
 	repo.CreateAPILog(ctx, &sysmodel.APILog{
 		LicenseID:  "license-2",
 		Endpoint:   "/api/other",
@@ -122,7 +120,6 @@ func TestStatsRepository_GetAPICallCount(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 10; i++ {
 		repo.CreateAPILog(ctx, &sysmodel.APILog{
 			LicenseID:  "license-1",
@@ -148,7 +145,6 @@ func TestStatsRepository_GetAPIErrorCount(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据 - 5 个成功，3 个错误
 	for i := 1; i <= 5; i++ {
 		repo.CreateAPILog(ctx, &sysmodel.APILog{
 			LicenseID:  "license-1",
@@ -179,7 +175,6 @@ func TestStatsRepository_GetAverageResponseTime(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据 - 响应时间分别为 100, 200, 300ms
 	for i := 1; i <= 3; i++ {
 		repo.CreateAPILog(ctx, &sysmodel.APILog{
 			LicenseID:  "license-1",
@@ -193,7 +188,6 @@ func TestStatsRepository_GetAverageResponseTime(t *testing.T) {
 		t.Errorf("GetAverageResponseTime() error = %v", err)
 	}
 
-	// 平均响应时间应该是 200ms
 	if avgTime != 200 {
 		t.Errorf("Expected average response time 200, got %d", avgTime)
 	}
@@ -252,7 +246,6 @@ func TestStatsRepository_GetVisitCount(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 8; i++ {
 		repo.CreateVisitLog(ctx, &sysmodel.VisitLog{
 			LicenseID: "license-1",
@@ -276,14 +269,12 @@ func TestStatsRepository_GetUniqueVisitors(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据 - 5 个不同 IP
 	ips := []string{"192.168.1.1", "192.168.1.2", "192.168.1.3", "192.168.1.4", "192.168.1.5"}
 	for _, ip := range ips {
 		repo.CreateVisitLog(ctx, &sysmodel.VisitLog{
 			LicenseID: "license-1",
 			IPAddress: ip,
 		})
-		// 每个 IP 访问 2 次
 		repo.CreateVisitLog(ctx, &sysmodel.VisitLog{
 			LicenseID: "license-1",
 			IPAddress: ip,
@@ -305,7 +296,6 @@ func TestStatsRepository_GetOrCreateDailyStats(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 测试创建新的每日统计
 	stats, err := repo.GetOrCreateDailyStats(ctx, "license-1", "2026-03-19")
 	if err != nil {
 		t.Errorf("GetOrCreateDailyStats() error = %v", err)
@@ -315,7 +305,6 @@ func TestStatsRepository_GetOrCreateDailyStats(t *testing.T) {
 		t.Errorf("Expected license_id 'license-1' and date '2026-03-19', got '%s' and '%s'", stats.LicenseID, stats.Date)
 	}
 
-	// 测试获取已存在的每日统计
 	stats2, err := repo.GetOrCreateDailyStats(ctx, "license-1", "2026-03-19")
 	if err != nil {
 		t.Errorf("GetOrCreateDailyStats() error = %v", err)
@@ -331,7 +320,6 @@ func TestStatsRepository_UpdateDailyStats(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	stats, _ := repo.GetOrCreateDailyStats(ctx, "license-1", "2026-03-19")
 	stats.APICalls = 100
 	stats.Visits = 50
@@ -356,7 +344,6 @@ func TestStatsRepository_GetDailyStats(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		date := "2026-03-1" + string(rune('0'+i))
 		stats := &sysmodel.DailyStats{
@@ -382,7 +369,6 @@ func TestStatsRepository_GetDailyStatsSummary(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据 - 多个 license 的统计
 	for i := 1; i <= 3; i++ {
 		date := "2026-03-1" + string(rune('0'+i))
 		stats := &sysmodel.DailyStats{
@@ -461,7 +447,6 @@ func TestStatsRepository_GetLatestSystemMetrics(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 3; i++ {
 		repo.CreateSystemMetrics(ctx, &sysmodel.SystemMetrics{
 			CPUUsage:    float64(i * 10),
@@ -474,7 +459,6 @@ func TestStatsRepository_GetLatestSystemMetrics(t *testing.T) {
 		t.Errorf("GetLatestSystemMetrics() error = %v", err)
 	}
 
-	// 应该返回最新创建的那个（CPU 30%）
 	if latest.CPUUsage != 30.0 {
 		t.Errorf("Expected CPUUsage 30.0, got %f", latest.CPUUsage)
 	}
@@ -485,7 +469,6 @@ func TestStatsRepository_GetSystemMetrics(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 10; i++ {
 		repo.CreateSystemMetrics(ctx, &sysmodel.SystemMetrics{
 			CPUUsage: float64(i * 5),
@@ -507,7 +490,6 @@ func TestStatsRepository_GetStatsSummary(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		repo.CreateAPILog(ctx, &sysmodel.APILog{
 			LicenseID:  "license-1",
@@ -515,14 +497,12 @@ func TestStatsRepository_GetStatsSummary(t *testing.T) {
 			Duration:   100,
 		})
 	}
-	// 创建 1 个错误
 	repo.CreateAPILog(ctx, &sysmodel.APILog{
 		LicenseID:  "license-1",
 		StatusCode: 500,
 		Duration:   1000,
 	})
 
-	// 创建访问日志
 	for i := 1; i <= 3; i++ {
 		repo.CreateVisitLog(ctx, &sysmodel.VisitLog{
 			LicenseID: "license-1",
@@ -535,7 +515,6 @@ func TestStatsRepository_GetStatsSummary(t *testing.T) {
 		t.Errorf("GetStatsSummary() error = %v", err)
 	}
 
-	// 验证统计结果
 	if summary["api_calls"] != int64(6) {
 		t.Errorf("Expected api_calls 6, got %v", summary["api_calls"])
 	}
@@ -570,7 +549,6 @@ func TestStatsRepository_GetVisitLogs(t *testing.T) {
 	repo := setupStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		repo.CreateVisitLog(ctx, &sysmodel.VisitLog{
 			LicenseID: "license-1",
@@ -588,3 +566,4 @@ func TestStatsRepository_GetVisitLogs(t *testing.T) {
 		t.Errorf("Expected 5 visit logs, got %d", len(logs))
 	}
 }
+

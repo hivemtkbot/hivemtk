@@ -7,41 +7,15 @@ import (
 	"sync"
 )
 
-// ============================================================================
-// 白名单权限检查器
-// ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/认知决策大脑层.md §3.3 工具权限白名单
-//
-// 设计目标：
-//   1. 支持 agent_id 维度的工具白名单（多智能体场景，不同 Agent 可访问不同工具集）
-//   2. 支持全局白名单（所有 Agent 共享的基础工具集）
-//   3. 默认放行策略（defaultAllow=true）：未配置的 Agent 放行所有工具，向后兼容
-//   4. 运行时动态更新（sync.RWMutex 保护，热更新无需重启）
-//   5. 支持 ToolContext.Permissions 的 "*" 通配（超级权限）
-//
-// 检查优先级（从高到低）：
-//   1. ToolContext.Permissions 含 "*" → 放行（超级权限）
-//   2. toolName 在 globalWhitelist → 放行（全局公共工具）
-//   3. agentID 在 agentWhitelist 且 toolName 在其集合 → 放行
-//   4. agentID 不在 agentWhitelist 且 defaultAllow=true → 放行（向后兼容）
-//   5. 否则拒绝（ErrPermissionDenied）
-//
-// 五层架构归属：L3 tooluse 内部组件（不依赖 DB / service）
-// ============================================================================
 
 // WhitelistPermissionChecker 基于 agent_id 维度的工具白名单权限检查器
 type WhitelistPermissionChecker struct {
 	mu sync.RWMutex
 
-	// agentWhitelist: agentID → 允许访问的工具名集合
-	// 若 agentID 不在 map 中，使用 defaultAllow 策略
 	agentWhitelist map[string]map[string]bool
 
-	// globalWhitelist: 全局白名单（所有 Agent 都能访问的工具）
 	globalWhitelist map[string]bool
 
-	// defaultAllow: 未配置的 Agent 是否放行所有工具
-	// 默认 true（向后兼容：未启用白名单时放行所有）
 	defaultAllow bool
 }
 
@@ -57,7 +31,6 @@ func NewWhitelistPermissionChecker() *WhitelistPermissionChecker {
 	return &WhitelistPermissionChecker{
 		agentWhitelist:  make(map[string]map[string]bool),
 		globalWhitelist: make(map[string]bool),
-		// 默认拒绝开关：TOOL_PERMISSION_DEFAULT_DENY=true 时启用严格默认拒绝
 		defaultAllow: os.Getenv("TOOL_PERMISSION_DEFAULT_DENY") != "true",
 	}
 }
@@ -65,7 +38,7 @@ func NewWhitelistPermissionChecker() *WhitelistPermissionChecker {
 // Check 实现 PermissionChecker 接口
 func (c *WhitelistPermissionChecker) Check(ctx context.Context, toolName string, tc *ToolContext) error {
 	if c == nil {
-		return nil // nil 检查器放行（与 PermissionDecorator(nil) 行为一致）
+		return nil 
 	}
 	agentID := ""
 	if tc != nil {
@@ -75,25 +48,19 @@ func (c *WhitelistPermissionChecker) Check(ctx context.Context, toolName string,
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	// 1. 全局白名单
 	if c.globalWhitelist[toolName] {
 		return nil
 	}
 
-	// 2. Agent 维度白名单（若已配置，则其白名单为权威依据）
 	if agentID != "" {
 		if allowed, ok := c.agentWhitelist[agentID]; ok {
 			if allowed[toolName] {
 				return nil
 			}
-			// Agent 已配置但工具不在白名单 → 拒绝。
-			// 即便调用方携带 '*' 超级权限也不放行，防止 '*' 绕过已配置的 Agent 白名单（P1 修复）。
 			return fmt.Errorf("%w: agent=%s tool=%s not in agent whitelist", ErrPermissionDenied, agentID, toolName)
 		}
 	}
 
-	// 3. 超级权限 '*'：仅对【未配置 Agent 白名单】的调用放行
-	//    （多为内部可信调用，agentID 为空），避免覆盖式权限逃逸。
 	if tc != nil {
 		for _, p := range tc.Permissions {
 			if p == "*" {
@@ -102,12 +69,10 @@ func (c *WhitelistPermissionChecker) Check(ctx context.Context, toolName string,
 		}
 	}
 
-	// 4. 未配置的 Agent → defaultAllow
 	if c.defaultAllow {
 		return nil
 	}
 
-	// 5. 拒绝
 	return fmt.Errorf("%w: agent=%s tool=%s (default deny)", ErrPermissionDenied, agentID, toolName)
 }
 
@@ -246,3 +211,4 @@ func (c *WhitelistPermissionChecker) ListConfiguredAgents() []string {
 	}
 	return out
 }
+

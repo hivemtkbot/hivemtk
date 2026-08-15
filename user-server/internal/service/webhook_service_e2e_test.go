@@ -72,9 +72,7 @@ func encryptWeComPlain(t *testing.T, aesKey, receiveID, msg string) string {
 	}
 
 	msgBytes := []byte(msg)
-	// 头部
 	header := make([]byte, 16+4)
-	// 16 字节随机
 	if _, err := rand.Read(header[:16]); err != nil {
 		t.Fatalf("rand: %v", err)
 	}
@@ -94,7 +92,6 @@ func encryptWeComPlain(t *testing.T, aesKey, receiveID, msg string) string {
 	}
 	padded := append(body, pad...)
 
-	// 加密
 	block, err := aes.NewCipher(keyB)
 	if err != nil {
 		t.Fatalf("new cipher: %v", err)
@@ -106,14 +103,10 @@ func encryptWeComPlain(t *testing.T, aesKey, receiveID, msg string) string {
 	enc := make([]byte, len(padded))
 	cipher.NewCBCEncrypter(block, iv).CryptBlocks(enc, padded)
 
-	// 输出 IV + cipher
 	out := append(iv, enc...)
 	return base64.StdEncoding.EncodeToString(out)
 }
 
-// ============================================================================
-// Phase 1.5 - 企微端到端测试
-// ============================================================================
 
 // TestWeCom_VerifyURL_OK 验证 URL 验证挑战
 func TestWeCom_VerifyURL_OK(t *testing.T) {
@@ -126,7 +119,6 @@ func TestWeCom_VerifyURL_OK(t *testing.T) {
 
 	timestamp := "1700000000"
 	nonce := "abc123"
-	// 企微官方规范：使用解密后的明文 echostr 参与签名计算
 	sig := computeWeComSignatureURL(token, timestamp, nonce, echostr)
 
 	plain, err := VerifyURL(token, aesKey, sig, timestamp, nonce, encEcho)
@@ -320,7 +312,6 @@ func TestWeCom_GetWeComSecrets_FromDB(t *testing.T) {
 		t.Errorf("aesKey: %s", aesKey)
 	}
 
-	// 错误 ID 回落到第一个 webhook enabled 账号
 	token2, _, err := svc.GetWeComSecrets(context.Background(), "99999")
 	if err != nil {
 		t.Fatalf("fallback: %v", err)
@@ -361,9 +352,6 @@ func TestWeCom_ReceiveCallback(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 智能体多渠道入口（Phase 1.3）
-// ============================================================================
 
 // TestSalesEngine_ProcessIncomingMessage_AllChannels 4 渠道统一入口
 func TestSalesEngine_ProcessIncomingMessage_AllChannels(t *testing.T) {
@@ -496,9 +484,6 @@ func TestNormalizeChannelMessage_Image(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Webhook 通用测试
-// ============================================================================
 
 // TestWebhook_EmptyBody 拒绝空 body
 func TestWebhook_EmptyBody(t *testing.T) {
@@ -552,7 +537,6 @@ func TestWebhook_DuplicateEvent(t *testing.T) {
 // TestWebhook_MultiChannelConcurrent 多渠道并发
 func TestWebhook_MultiChannelConcurrent(t *testing.T) {
 	svc := NewWebhookService(nil)
-	// 注入 nil-safe 钩子：禁用 secret 校验，避免触发 wecomRepo nil panic
 	svc.accountRepo = nil
 	var wg sync.WaitGroup
 	channels := []WebhookChannel{ChannelWeCom, ChannelWhatsapp, ChannelTelegram, ChannelFeishu}
@@ -632,9 +616,6 @@ func TestWebhookStats(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// HTTP 端到端测试
-// ============================================================================
 
 // TestWeCom_VerifyURL_HTTP HTTP 端到端测试
 func TestWeCom_VerifyURL_HTTP(t *testing.T) {
@@ -649,7 +630,6 @@ func TestWeCom_VerifyURL_HTTP(t *testing.T) {
 		ts := c.Query("timestamp")
 		nonce := c.Query("nonce")
 		echo := c.Query("echostr")
-		// 实际：从 DB 读 token+key（这里用全局 mock）
 		_ = accID
 		plain, err := VerifyURL(token, aesKey, sig, ts, nonce, echo)
 		if err != nil {
@@ -663,7 +643,6 @@ func TestWeCom_VerifyURL_HTTP(t *testing.T) {
 	encEcho := encryptWeComPlain(t, aesKey, "wx", echostr)
 	ts := "1700000001"
 	nonce := "n001"
-	// 官方规范：URL 验签使用解密后的明文
 	sig := computeWeComSignatureURL(token, ts, nonce, echostr)
 
 	url := fmt.Sprintf("/api/webhook/wecom/1?msg_signature=%s&timestamp=%s&nonce=%s&echostr=%s",
@@ -726,7 +705,6 @@ func TestWeChat_Verify(t *testing.T) {
 		t.Error("expected ok")
 	}
 
-	// 错误签名
 	ok = verifyWechat("WToken", body, map[string]string{
 		"X-Wechat-Timestamp": ts,
 		"X-Wechat-Nonce":     nonce,
@@ -744,3 +722,4 @@ func TestWeChat_Verify_Missing(t *testing.T) {
 		t.Error("expected fail on missing params")
 	}
 }
+

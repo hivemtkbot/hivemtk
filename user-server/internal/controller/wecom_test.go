@@ -54,8 +54,6 @@ func TestWeComController_CreateAccount_NoAuth(t *testing.T) {
 	router := gin.New()
 	router.POST("/wecom/accounts", ctrl.CreateAccount)
 
-	// 当前 CreateAccount 未做 user_id 鉴权；
-	// 但请求体 {"name":"test"} 缺少必填字段，应在参数绑定阶段返回 400。
 	body, _ := json.Marshal(map[string]string{"name": "test"})
 	req, _ := http.NewRequest("POST", "/wecom/accounts", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -105,7 +103,6 @@ func TestWeComController_GetAccountByID_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Empty DB → 400/404, with data → 200
 	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound {
 		t.Errorf("Expected 200/400/404, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -120,7 +117,6 @@ func TestWeComController_DeleteAccount_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Empty DB → 200 or 404 (record not found), depends on implementation
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 200, 404 or 500, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -196,3 +192,4 @@ func TestWeComController_SendMessage_InvalidJSON(t *testing.T) {
 		t.Errorf("Expected 400, got %d", w.Code)
 	}
 }
+

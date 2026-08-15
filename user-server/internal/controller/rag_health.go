@@ -1,13 +1,5 @@
 package controller
 
-// rag_health_controller.go RAG 健康度评估控制器
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md §14.6.4 RAG 健康度
-//
-// 路由（全部鉴权）：
-//   - GET /api/rag/health           综合健康度评分（带 30 秒缓存）
-//   - GET /api/rag/health/refresh   强制刷新（不走缓存）
 
 import (
 	"net/http"
@@ -84,3 +76,4 @@ func (c *RagHealthController) RegisterRoutes(auth *gin.RouterGroup) {
 		group.GET("/refresh", c.RefreshHealth)
 	}
 }
+

@@ -22,7 +22,6 @@ func TestSetup_WeComRoutes(t *testing.T) {
 
 	routes := r.Routes()
 
-	// 期望的企业微信路由
 	expectedRoutes := map[string]bool{
 		"/api/wecom/accounts":                    false,
 		"/api/wecom/accounts/:id":                false,
@@ -46,15 +45,14 @@ func TestSetup_WeComRoutes(t *testing.T) {
 		}
 	}
 
-	// 验证至少有 13 个路由（5 个账号 + 2 个客户 + 2 个群 + 2 个消息 + 2 个标签 = 13）
 	if wecomCount < 13 {
 		t.Errorf("Expected at least 13 WeCom routes, got %d", wecomCount)
 	}
 
-	// 验证所有期望的路由都已注册
 	for path, found := range expectedRoutes {
 		if !found {
 			t.Errorf("Expected WeCom route %s to be registered", path)
 		}
 	}
 }
+

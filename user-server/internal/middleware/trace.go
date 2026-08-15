@@ -30,24 +30,18 @@ func TraceMiddleware() gin.HandlerFunc {
 			traceID = logger.GenerateTraceID()
 		}
 
-		// 绑定到 gin.Context，便于 handler 直接读取
 		c.Set("trace_id", traceID)
 
-		// 构造根 TraceContext（trace_id=入站 traceID，parent_span_id=""）
-		// 供 LLM/工具/DB/RAG 等子 span 通过 ChildSpan 串联
 		tc := llm.NewTraceContext(traceID, "")
 		c.Set("trace_ctx", tc)
 
-		// 绑定到 request context，使 service/编排/触达层经 logger.Ctx 透传同一 trace_id
 		c.Request = c.Request.WithContext(logger.WithTraceID(c.Request.Context(), traceID))
 
-		// 回写响应头，便于客户端与日志按 trace_id 关联
 		c.Writer.Header().Set(traceHeader, traceID)
 
 		start := time.Now()
 		c.Next()
 
-		// 发布 HTTP 请求 span 事件（便于 trace 服务聚合请求链路）
 		duration := time.Since(start).Milliseconds()
 		status := "ok"
 		if c.Writer.Status() >= 500 {
@@ -84,3 +78,4 @@ func TraceContextFromGin(c *gin.Context) *llm.TraceContext {
 	}
 	return nil
 }
+

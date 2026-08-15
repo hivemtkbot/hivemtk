@@ -249,3 +249,4 @@ func TestWeComTag_BasicFields(t *testing.T) {
 		t.Errorf("Expected CustomerCount 100, got %d", tag.CustomerCount)
 	}
 }
+

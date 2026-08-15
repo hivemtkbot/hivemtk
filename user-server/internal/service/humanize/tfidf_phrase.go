@@ -1,14 +1,5 @@
 package humanize
 
-// tfidf_phrase.go TF-IDF 短语提取器（纯 Go）
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十六章 §16.4.5
-//
-// 业界对比：F1=0.300，12-18ms（5 文档基准），比 BERT 慢 40 倍但准确率仅低 11pp
-// 对本项目纯 Go + 私域独立部署约束是唯一可行选择（无 Python ML 服务）
-//
-// 用途：从销冠对话集合中提取 top-N 高 TF-IDF 短语，作为销冠基线补充信号
 
 import (
 	"math"
@@ -20,16 +11,16 @@ import (
 type PhraseType string
 
 const (
-	PhraseTypeAction       PhraseType = "action"       // 行动召唤
-	PhraseTypeEmpathy      PhraseType = "empathy"      // 共情
-	PhraseTypeProfessional PhraseType = "professional" // 专业
-	PhraseTypePersuasion   PhraseType = "persuasion"   // 说服
-	PhraseTypeGeneral      PhraseType = "general"      // 通用
+	PhraseTypeAction       PhraseType = "action"       
+	PhraseTypeEmpathy      PhraseType = "empathy"      
+	PhraseTypeProfessional PhraseType = "professional" 
+	PhraseTypePersuasion   PhraseType = "persuasion"   
+	PhraseTypeGeneral      PhraseType = "general"      
 )
 
 // TFIDFPhraseExtractor TF-IDF 短语提取器
 type TFIDFPhraseExtractor struct {
-	stopWords map[string]bool // 停用词表
+	stopWords map[string]bool 
 }
 
 // NewTFIDFPhraseExtractor 构造
@@ -68,8 +59,8 @@ func (e *TFIDFPhraseExtractor) Extract(messages []ChampionMessage, topN int) []T
 		return nil
 	}
 	N := float64(len(messages))
-	tfMap := make(map[string]int) // phrase → 总词频
-	dfMap := make(map[string]int) // phrase → 出现在多少文档
+	tfMap := make(map[string]int) 
+	dfMap := make(map[string]int) 
 	phraseTypeMap := make(map[string]PhraseType)
 	for _, msg := range messages {
 		phrases := e.extractPhrases(msg.Content)
@@ -135,11 +126,9 @@ func (e *TFIDFPhraseExtractor) extractPhrases(text string) []string {
 	for size := 2; size <= 4; size++ {
 		for i := 0; i+size <= len(runes); i++ {
 			phrase := string(runes[i : i+size])
-			// 跳过停用词开头/结尾
 			if e.stopWords[string(runes[i])] || e.stopWords[string(runes[i+size-1])] {
 				continue
 			}
-			// 跳过包含标点的短语
 			if containsPunct(phrase) {
 				continue
 			}
@@ -220,3 +209,4 @@ func containsSubstring(s, sub string) bool {
 	}
 	return false
 }
+

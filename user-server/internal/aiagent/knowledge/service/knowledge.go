@@ -70,9 +70,6 @@ func newKnowledgeServiceWithDB(gdb *gorm.DB) *KnowledgeService {
 	}
 }
 
-// ============================================================================
-// 统一导入入口
-// ============================================================================
 
 // ImportRequest 统一导入请求
 type ImportRequest struct {
@@ -89,9 +86,6 @@ type ImportRequest struct {
 	IP         string
 	UserAgent  string
 	BatchNo    string
-	// Metadata 附加字段：承载业务上下文（订单信息、客户ID、渠道等）。
-	// 入库时写入 KnowledgeDocument.Metadata，并逐片复制到 KnowledgeChunk.Metadata，
-	// 检索时随分片返回，供智能体使用。
 	Metadata map[string]any `json:"metadata"`
 }
 
@@ -110,8 +104,6 @@ func (s *KnowledgeService) Import(ctx context.Context, req *ImportRequest) (*Kno
 		return nil, errors.New("product_id 不能为空")
 	}
 
-	// 解析 ProductID 为 int64(产品 ID 可以是 UUID 字符串,但本系统用 string 存储,需查找 numeric ID)
-	// 由于 RagProduct.ID 是 string UUID,这里需要从数据库获取 numeric ID(暂时使用 0 表示通过 UUID 关联)
 	product, err := s.ragRepo.GetRagProductByID(ctx, req.ProductID)
 	if err != nil {
 		return nil, fmt.Errorf("产品不存在: %w", err)
@@ -119,7 +111,7 @@ func (s *KnowledgeService) Import(ctx context.Context, req *ImportRequest) (*Kno
 	if product == nil {
 		return nil, errors.New("产品不存在")
 	}
-	productNumericID := product.ID // UUID 哈希到 int64,匹配知识库 INTEGER 字段
+	productNumericID := product.ID 
 
 	start := time.Now()
 	var doc *model.KnowledgeDocument
@@ -133,27 +125,20 @@ func (s *KnowledgeService) Import(ctx context.Context, req *ImportRequest) (*Kno
 	case model.SourceTypeURL:
 		doc, err2 = s.importFromURL(ctx, req, product, productNumericID)
 	case model.SourceTypeOpenAPI:
-		// OpenAPI 模式:直接传入 content(已由 OpenAPIService 预解析)
 		doc, err2 = s.importText(ctx, req, product, productNumericID)
 	case model.SourceTypeBatch:
-		// 批量导入: 走 importText 路径,直接使用 content 字段(批量导入的每行内容已经在 BatchImportItem.Content 中)
 		doc, err2 = s.importText(ctx, req, product, productNumericID)
 	default:
 		return nil, fmt.Errorf("不支持的来源类型: %s", req.SourceType)
 	}
 
 	if err2 != nil {
-		// 记录失败日志
 		_ = s.logImport(ctx, req, 0, "failed", int(time.Since(start).Milliseconds()), err2.Error())
 		return nil, err2
 	}
 
-	// 记录成功日志
 	_ = s.logImport(ctx, req, doc.ID, "success", int(time.Since(start).Milliseconds()), "")
 
-	// 启动异步处理
-	// 使用 async.RunWithTimeout 保留原 ctx 的 trace ID 等 Value，但用 Background() 作为 parent，
-	// 施加 AsyncProcessingTimeout 超时兜底：embedding/索引服务不可达时，防止文档永久卡在 processing 状态。
 	async.RunWithTimeout(ctx, AsyncProcessingTimeout, func(procCtx context.Context) {
 		s.processDocumentAsync(procCtx, doc.ID, productNumericID, doc.FilePath, doc.FileName, req.Content, doc.MimeType, doc.Title, req.SourceType, req.Metadata)
 	})
@@ -167,9 +152,6 @@ func (s *KnowledgeService) Import(ctx context.Context, req *ImportRequest) (*Kno
 	}, nil
 }
 
-// ============================================================================
-// 文档管理
-// ============================================================================
 
 // List 列出文档
 func (s *KnowledgeService) List(ctx context.Context, filter repository.ListFilter) ([]*model.KnowledgeDocument, int64, error) {
@@ -213,21 +195,16 @@ func (s *KnowledgeService) Delete(ctx context.Context, productID string, id int6
 		return err
 	}
 	uid := uint64(id)
-	// 删除分段
 	if err := s.chunkRepo.DeleteByDocumentID(ctx, uid); err != nil {
 		logger.Errorf("[knowledge] 删除分段失败: %v", err)
 	}
-	// 删除物理文件
 	if doc.FilePath != "" {
 		_ = os.Remove(doc.FilePath)
 	}
-	// 删除文档记录
 	if err := s.docRepo.Delete(ctx, uid); err != nil {
 		return err
 	}
 
-	// 发布删除事件(§2.5 子项 2)
-	// 触发 rag.IncrementalIndexer 清理内存索引
 	agent_runtime.PublishKnowledgeDocumentDelete(productID, uint(id), 0)
 
 	return nil
@@ -242,8 +219,6 @@ func (s *KnowledgeService) Update(ctx context.Context, doc *model.KnowledgeDocum
 		return err
 	}
 
-	// 发布更新事件(§2.5 子项 2)
-	// KnowledgeDocument 无 Content 字段(分段在 KnowledgeChunk),事件不传 content
 	agent_runtime.PublishKnowledgeDocumentUpdate(doc.ProductID, uint(doc.ID), "", 0)
 
 	return nil
@@ -316,27 +291,20 @@ func (s *KnowledgeService) EmbedAndPersistChunks(ctx context.Context, numericPro
 	return s.persistChunkEmbeddings(ctx, chunks, embeddings)
 }
 
-// ============================================================================
-// 检索
-// ============================================================================
 
 // Search 检索知识库
 func (s *KnowledgeService) Search(ctx context.Context, productID string, query string, topK int, threshold float64) ([]model.KnowledgeChunk, error) {
-	// 1. 向量化 query
 	queryVec, err := s.vectorizer.EmbedText(query)
 	if err != nil {
 		return nil, fmt.Errorf("向量化查询失败: %w", err)
 	}
 
-	// 2. 简化实现:从 knowledge_chunks 获取产品下所有分段,在内存中做相似度匹配
-	// (生产环境应该用 pgvector 的 <=> 操作)
 	total, _ := s.chunkRepo.CountByProductID(ctx, productID)
 	if total == 0 {
 		return nil, nil
 	}
 
-	// 真实检索应该调用 pgvector_index_manager.SearchIndex
-	// 这里返回简化结果,实际由 rag_search_service 处理
 	_ = queryVec
 	return nil, nil
 }
+

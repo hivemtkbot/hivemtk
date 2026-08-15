@@ -207,3 +207,4 @@ func dingTalkDecrypt(aesKey, cipherText string) (string, error) {
 	}
 	return string(plain[:n-pad]), nil
 }
+

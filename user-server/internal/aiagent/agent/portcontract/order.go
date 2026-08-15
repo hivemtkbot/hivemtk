@@ -25,8 +25,7 @@ type OrderView struct {
 // 同步进 user_db.orders（model.ExternalOrder），客服只查询、不写商业订单。
 // 这是 agent 工具层访问订单的唯一合法通道。
 type OrderPort interface {
-	// LookupByOrderID 按 平台+订单号 查询单笔订单（用户问"我的单到哪了"时用）
 	LookupByOrderID(ctx context.Context, platform, orderID string) (*OrderView, error)
-	// LookupByCustomer 按 客户手机/姓名 查询近期订单（客户 360 视图 / 答单上下文用）
 	LookupByCustomer(ctx context.Context, phone, name string) ([]*OrderView, error)
 }
+

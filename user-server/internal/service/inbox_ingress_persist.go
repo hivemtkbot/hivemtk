@@ -360,3 +360,4 @@ func (s *InboxIngressService) persistHistoryMessage(ctx context.Context, event *
 	}
 	return nil
 }
+

@@ -13,15 +13,15 @@ import (
 // InMemoryIndexManager 内存索引管理器实现
 // 注意：在实际生产环境中，这里应该使用专门的向量数据库（如FAISS、Milvus、Pinecone等）
 type InMemoryIndexManager struct {
-	indices   map[string][]Chunk // 按知识库ID存储索引
-	mutex     sync.RWMutex       // 读写锁，保证并发安全
-	dimension int                // 向量维度
+	indices   map[string][]Chunk 
+	mutex     sync.RWMutex       
+	dimension int                
 }
 
 // NewInMemoryIndexManager 创建新的内存索引管理器
 func NewInMemoryIndexManager(dimension int) *InMemoryIndexManager {
 	if dimension <= 0 {
-		dimension = 1024 // 本地 TEI + bge-m3（1024 维）
+		dimension = 1024 
 	}
 
 	return &InMemoryIndexManager{
@@ -43,7 +43,6 @@ func (im *InMemoryIndexManager) BuildIndex(ctx context.Context, kbID string, chu
 	im.mutex.Lock()
 	defer im.mutex.Unlock()
 
-	// 验证所有向量维度是否正确
 	for _, chunk := range chunks {
 		if len(chunk.Embedding) != im.dimension {
 			return fmt.Errorf("chunk %s has invalid embedding dimension: expected %d, got %d",
@@ -51,7 +50,6 @@ func (im *InMemoryIndexManager) BuildIndex(ctx context.Context, kbID string, chu
 		}
 	}
 
-	// 存储索引
 	im.indices[kbID] = make([]Chunk, len(chunks))
 	copy(im.indices[kbID], chunks)
 
@@ -72,12 +70,10 @@ func (im *InMemoryIndexManager) AddToIndex(ctx context.Context, kbID string, chu
 	im.mutex.Lock()
 	defer im.mutex.Unlock()
 
-	// 检查知识库是否存在，不存在则创建
 	if _, exists := im.indices[kbID]; !exists {
 		im.indices[kbID] = make([]Chunk, 0)
 	}
 
-	// 添加到索引
 	im.indices[kbID] = append(im.indices[kbID], chunk)
 
 	return nil
@@ -101,7 +97,6 @@ func (im *InMemoryIndexManager) RemoveFromIndex(ctx context.Context, kbID, chunk
 		return fmt.Errorf("knowledge base %s does not exist", kbID)
 	}
 
-	// 找到要删除的chunk并移除
 	newIndexSlice := make([]Chunk, 0)
 	found := false
 
@@ -134,7 +129,7 @@ func (im *InMemoryIndexManager) SearchIndex(ctx context.Context, kbID string, qu
 	}
 
 	if topK <= 0 {
-		topK = 5 // 默认返回5个结果
+		topK = 5 
 	}
 
 	im.mutex.RLock()
@@ -142,10 +137,9 @@ func (im *InMemoryIndexManager) SearchIndex(ctx context.Context, kbID string, qu
 	im.mutex.RUnlock()
 
 	if !exists {
-		return []Chunk{}, nil // 知识库不存在，返回空结果
+		return []Chunk{}, nil 
 	}
 
-	// 计算查询向量与所有索引向量的相似度
 	scores := make([]struct {
 		chunk Chunk
 		score float64
@@ -162,7 +156,6 @@ func (im *InMemoryIndexManager) SearchIndex(ctx context.Context, kbID string, qu
 		}
 	}
 
-	// 按相似度排序（降序）
 	for i := 0; i < len(scores)-1; i++ {
 		for j := i + 1; j < len(scores); j++ {
 			if scores[i].score < scores[j].score {
@@ -171,7 +164,6 @@ func (im *InMemoryIndexManager) SearchIndex(ctx context.Context, kbID string, qu
 		}
 	}
 
-	// 返回topK结果
 	resultCount := len(scores)
 	if topK < resultCount {
 		resultCount = topK
@@ -180,7 +172,6 @@ func (im *InMemoryIndexManager) SearchIndex(ctx context.Context, kbID string, qu
 	result := make([]Chunk, resultCount)
 	for i := 0; i < resultCount; i++ {
 		result[i] = scores[i].chunk
-		// 设置相似度分数
 		result[i].Score = scores[i].score
 	}
 
@@ -218,9 +209,9 @@ func (im *InMemoryIndexManager) GetIndexStats(ctx context.Context, kbID string) 
 	// 计算内存使用量（粗略估算）
 	var memoryUsage int64
 	for _, chunk := range indexSlice {
-		memoryUsage += int64(len(chunk.Content))        // 内容大小
-		memoryUsage += int64(len(chunk.Embedding) * 4)  // 向量大小（float32为4字节）
-		memoryUsage += int64(len(chunk.Metadata) * 100) // 元数据估算
+		memoryUsage += int64(len(chunk.Content))        
+		memoryUsage += int64(len(chunk.Embedding) * 4)  
+		memoryUsage += int64(len(chunk.Metadata) * 100) 
 	}
 
 	stats := &IndexStats{
@@ -238,13 +229,13 @@ func (im *InMemoryIndexManager) GetIndexStats(ctx context.Context, kbID string) 
 // 使用 InMemoryIndexManager 作为后端，提供完整的向量索引功能
 // 当未来需要接入FAISS C++库时，可替换后端实现
 type FAISSIndexManager struct {
-	backend *InMemoryIndexManager // 委托给内存索引管理器
+	backend *InMemoryIndexManager 
 }
 
 // NewFAISSIndexManager 创建FAISS索引管理器
 func NewFAISSIndexManager(dimension int) *FAISSIndexManager {
 	if dimension <= 0 {
-		dimension = 1024 // 本地 TEI + bge-m3（1024 维）
+		dimension = 1024 
 	}
 	return &FAISSIndexManager{
 		backend: NewInMemoryIndexManager(dimension),
@@ -316,7 +307,7 @@ func NormalizeVector(vec []float32) []float32 {
 
 	magnitude := math.Sqrt(sumSquares)
 	if magnitude == 0 {
-		return vec // 零向量无法归一化，返回原向量
+		return vec 
 	}
 
 	normalized := make([]float32, len(vec))
@@ -326,3 +317,4 @@ func NormalizeVector(vec []float32) []float32 {
 
 	return normalized
 }
+

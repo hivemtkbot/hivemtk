@@ -132,7 +132,6 @@ func (c *ChurnPredictionController) MarkWarningHandled(ctx *gin.Context) {
 		return
 	}
 
-	// 获取处理用户 ID
 	userID, _ := ctx.Get("user_id")
 	handledBy, _ := userID.(uint)
 
@@ -155,7 +154,6 @@ func (c *ChurnPredictionController) InterveneUser(ctx *gin.Context) {
 		return
 	}
 
-	// 获取处理用户 ID
 	userID, _ := ctx.Get("user_id")
 	handledBy, _ := userID.(uint)
 
@@ -231,3 +229,4 @@ func (c *ChurnPredictionController) GetRiskDistribution(ctx *gin.Context) {
 
 	response.Success(ctx, distribution, "获取成功")
 }
+

@@ -9,57 +9,33 @@ import (
 	"time"
 )
 
-// dead_letter.go 工具调用死信队列
-//
-// 设计目标：
-//   当工具调用最终失败（重试耗尽、超时、panic 等）时，将失败请求持久化到死信队列，
-//   便于后续人工介入或自动重放。避免失败请求被默默丢弃，导致业务数据丢失。
-//
-// 适用场景：
-//   - 写入类工具失败（order.create 失败需人工对账）
-//   - 外部 API 调用失败（飞书/企微 send_message 失败需重放）
-//   - 关键业务工具失败（order.create 失败需排查）
-//
-// 设计要点：
-//   1. 内存实现（生产环境可替换为 Redis/DB 持久化）
-//   2. 容量上限（默认 10000 条，超过丢弃最旧）
-//   3. 按 tool_name 分组查询（便于按业务排查）
-//   4. TTL 过期清理（默认 7 天）
-//   5. 支持重放（重新执行失败的 tool_call）
 
-// ===== 死信条目 =====
 
 // DeadLetterEntry 死信条目
 type DeadLetterEntry struct {
-	ID         string           `json:"id"`          // 唯一 ID（用于重放）
-	ToolName   string           `json:"tool_name"`   // 工具名
-	Args       map[string]any   `json:"args"`        // 调用参数（用于重放）
-	Error      string           `json:"error"`       // 错误信息
-	TraceID    string           `json:"trace_id"`    // 追踪 ID（贯穿 Agent Loop）
-	ToolCtx    *ToolContext     `json:"tool_ctx"`    // 工具上下文（含 agent_id/session_id 等）
-	RetryCount int              `json:"retry_count"` // 已重试次数
-	Status     DeadLetterStatus `json:"status"`      // 处理状态
-	CreatedAt  time.Time        `json:"created_at"`  // 创建时间
-	UpdatedAt  time.Time        `json:"updated_at"`  // 最后更新时间
+	ID         string           `json:"id"`          
+	ToolName   string           `json:"tool_name"`   
+	Args       map[string]any   `json:"args"`        
+	Error      string           `json:"error"`       
+	TraceID    string           `json:"trace_id"`    
+	ToolCtx    *ToolContext     `json:"tool_ctx"`    
+	RetryCount int              `json:"retry_count"` 
+	Status     DeadLetterStatus `json:"status"`      
+	CreatedAt  time.Time        `json:"created_at"`  
+	UpdatedAt  time.Time        `json:"updated_at"`  
 }
 
 // DeadLetterStatus 死信处理状态
 type DeadLetterStatus string
 
 const (
-	// DeadLetterPending 待处理
 	DeadLetterPending DeadLetterStatus = "pending"
-	// DeadLetterReplaying 重放中
 	DeadLetterReplaying DeadLetterStatus = "replaying"
-	// DeadLetterReplayed 已重放成功
 	DeadLetterReplayed DeadLetterStatus = "replayed"
-	// DeadLetterReplayFailed 重放失败
 	DeadLetterReplayFailed DeadLetterStatus = "replay_failed"
-	// DeadLetterDiscarded 已丢弃（人工标记不处理）
 	DeadLetterDiscarded DeadLetterStatus = "discarded"
 )
 
-// ===== 死信队列 =====
 
 // DeadLetterQueue 死信队列（内存实现）
 //
@@ -68,7 +44,7 @@ type DeadLetterQueue struct {
 	mu      sync.Mutex
 	entries []*DeadLetterEntry
 	byID    map[string]*DeadLetterEntry
-	byTool  map[string][]*DeadLetterEntry // 按工具名分组索引
+	byTool  map[string][]*DeadLetterEntry 
 	maxSize int
 	ttl     time.Duration
 	idSeq   atomic.Uint64
@@ -138,12 +114,10 @@ func (q *DeadLetterQueue) Push(
 	q.byID[id] = entry
 	q.byTool[toolName] = append(q.byTool[toolName], entry)
 
-	// LRU 淘汰：超过 maxSize 时删除最旧
 	if len(q.entries) > q.maxSize {
 		oldest := q.entries[0]
 		q.entries = q.entries[1:]
 		delete(q.byID, oldest.ID)
-		// 从 byTool 索引删除
 		if toolList, ok := q.byTool[oldest.ToolName]; ok && len(toolList) > 0 {
 			q.byTool[oldest.ToolName] = toolList[1:]
 		}
@@ -188,7 +162,6 @@ func (q *DeadLetterQueue) ListAll() []*DeadLetterEntry {
 	defer q.mu.Unlock()
 	out := make([]*DeadLetterEntry, len(q.entries))
 	copy(out, q.entries)
-	// 倒序（最新在前）
 	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
 		out[i], out[j] = out[j], out[i]
 	}
@@ -224,7 +197,6 @@ func (q *DeadLetterQueue) Cleanup() int {
 		newEntries = append(newEntries, e)
 	}
 	q.entries = newEntries
-	// 重建 byTool 索引
 	q.byTool = make(map[string][]*DeadLetterEntry)
 	for _, e := range q.entries {
 		q.byTool[e.ToolName] = append(q.byTool[e.ToolName], e)
@@ -257,7 +229,6 @@ type DeadLetterStats struct {
 	MaxSize  int                      `json:"max_size"`
 }
 
-// ===== 装饰器：死信队列装饰器 =====
 
 // DeadLetterQueueDecorator 死信队列装饰器
 //
@@ -277,7 +248,6 @@ func DeadLetterQueueDecorator(queue *DeadLetterQueue) ToolDecorator {
 		return func(ctx context.Context, args map[string]any) (ToolResult, error) {
 			result, err := next(ctx, args)
 
-			// 仅在最终失败时推入死信队列
 			if queue == nil {
 				return result, err
 			}
@@ -285,12 +255,10 @@ func DeadLetterQueueDecorator(queue *DeadLetterQueue) ToolDecorator {
 				return result, err
 			}
 
-			// 跳过不可重试的错误（业务错误不需要死信重放）
 			if isNonRetryableError(err) || isNonRetryableResult(result) {
 				return result, err
 			}
 
-			// 推入死信队列
 			toolName := GetToolName(ctx)
 			traceID := GetTraceID(ctx)
 			toolCtx := GetToolContext(ctx)
@@ -301,7 +269,6 @@ func DeadLetterQueueDecorator(queue *DeadLetterQueue) ToolDecorator {
 	}
 }
 
-// ===== 内存死信队列（NoOp）=====
 
 // NoOpDeadLetterQueue 空操作死信队列
 // 用于不需要死信的场景（如单元测试、查询类工具）
@@ -318,7 +285,6 @@ func (NoOpDeadLetterQueue) UpdateStatus(id string, status DeadLetterStatus) erro
 func (NoOpDeadLetterQueue) Cleanup() int                                          { return 0 }
 func (NoOpDeadLetterQueue) Stats() DeadLetterStats                                { return DeadLetterStats{} }
 
-// ===== 死信重放器 =====
 
 // DeadLetterReplayer 死信重放器
 //
@@ -340,7 +306,6 @@ func NewDeadLetterReplayer(queue *DeadLetterQueue, executor *ToolExecutor) *Dead
 //  2. 通过 ToolExecutor 重新执行
 //  3. 成功：标记为 replayed；失败：标记为 replay_failed
 func (r *DeadLetterReplayer) Replay(ctx context.Context, id string) error {
-	// 标记为 replaying
 	if err := r.queue.UpdateStatus(id, DeadLetterReplaying); err != nil {
 		return fmt.Errorf("update status to replaying failed: %w", err)
 	}
@@ -350,14 +315,12 @@ func (r *DeadLetterReplayer) Replay(ctx context.Context, id string) error {
 		return fmt.Errorf("dead letter entry not found: %s", id)
 	}
 
-	// 重新执行
 	execResult := r.executor.Execute(ctx, ExecuteRequest{
 		ToolName: entry.ToolName,
 		Args:     entry.Args,
 		ToolCtx:  entry.ToolCtx,
 	})
 
-	// 更新状态
 	if execResult.Err == nil && execResult.Success {
 		_ = r.queue.UpdateStatus(id, DeadLetterReplayed)
 		return nil
@@ -384,10 +347,10 @@ func (r *DeadLetterReplayer) ReplayAll(ctx context.Context) (succeeded, failed i
 	return
 }
 
-// ===== JSON 序列化（用于持久化）=====
 
 // MarshalJSON 序列化死信条目
 func (e *DeadLetterEntry) MarshalJSON() ([]byte, error) {
 	type alias DeadLetterEntry
 	return json.Marshal((*alias)(e))
 }
+

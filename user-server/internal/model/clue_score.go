@@ -21,22 +21,18 @@ type ClueScore struct {
 	ClueID  string `gorm:"type:varchar(36);not null;uniqueIndex" json:"clue_id"`
 	Account string `gorm:"type:varchar(255);default:'';index" json:"account"`
 
-	// 评分结果
 	TotalScore int    `gorm:"type:int;not null;default:0" json:"total_score"`
-	Grade      string `gorm:"type:varchar(8);not null;default:'D'" json:"grade"` // S/A/B/C/D
-	Confidence int    `gorm:"type:int;not null;default:0" json:"confidence"`     // 0-100，模型置信度
+	Grade      string `gorm:"type:varchar(8);not null;default:'D'" json:"grade"` 
+	Confidence int    `gorm:"type:int;not null;default:0" json:"confidence"`     
 
-	// 评分维度明细（每项 0-100）
 	ChannelScore    int `gorm:"type:int;not null;default:0" json:"channel_score"`
 	VerifyScore     int `gorm:"type:int;not null;default:0" json:"verify_score"`
 	ProfileScore    int `gorm:"type:int;not null;default:0" json:"profile_score"`
 	EngagementScore int `gorm:"type:int;not null;default:0" json:"engagement_score"`
 	RecencyScore    int `gorm:"type:int;not null;default:0" json:"recency_score"`
 
-	// 评分因子（JSON，记录每个维度的具体取值，便于复盘）
 	FactorsJSON string `gorm:"type:text;not null;default:'{}'" json:"factors_json"`
 
-	// 评分元数据
 	ModelVersion string    `gorm:"type:varchar(16);not null;default:'h-score-1'" json:"model_version"`
 	ScoredAt     time.Time `gorm:"not null;default:NOW()" json:"scored_at"`
 	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
@@ -51,7 +47,7 @@ func (ClueScore) TableName() string { return "clue_scores" }
 type ClueEngagementEvent struct {
 	ID        uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
 	ClueID    string    `gorm:"type:varchar(36);not null;index" json:"clue_id"`
-	EventType string    `gorm:"type:varchar(32);not null" json:"event_type"` // reply / click / call / visit
+	EventType string    `gorm:"type:varchar(32);not null" json:"event_type"` 
 	Channel   string    `gorm:"type:varchar(32);not null;default:''" json:"channel"`
 	Payload   string    `gorm:"type:text;default:'{}'" json:"payload"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
@@ -62,11 +58,11 @@ func (ClueEngagementEvent) TableName() string { return "clue_engagement_events" 
 
 // Grade 总分到等级的映射阈值
 const (
-	ClueGradeS = "S" // >= 90
-	ClueGradeA = "A" // >= 75
-	ClueGradeB = "B" // >= 60
-	ClueGradeC = "C" // >= 40
-	ClueGradeD = "D" // < 40
+	ClueGradeS = "S" 
+	ClueGradeA = "A" 
+	ClueGradeB = "B" 
+	ClueGradeC = "C" 
+	ClueGradeD = "D" 
 )
 
 // CalcGradeFromScore 根据总分计算等级
@@ -84,3 +80,4 @@ func CalcGradeFromScore(score int) string {
 		return ClueGradeD
 	}
 }
+

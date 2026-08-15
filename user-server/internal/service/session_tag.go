@@ -6,13 +6,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// 会话标签服务（session_tag.go）
-// ----------------------------------------------------------------------------
-// 从 customer_session.go 拆分（方向C）。
-// 职责：会话标签的 CRUD（按 name/code/group 分类）。
-// 文档：docs/企业级架构优化/坐席实时聊天看板.md §二
-// ============================================================================
 
 // SessionTagService 会话标签服务
 type SessionTagService struct {
@@ -93,3 +86,4 @@ func (s *SessionTagService) DeleteTag(ctx context.Context, id uint) error {
 func (s *SessionTagService) GetTags(ctx context.Context) ([]*model.SessionTag, error) {
 	return s.tagRepo.GetByMerchant(ctx)
 }
+

@@ -1,11 +1,3 @@
-// 验证 2026-08-05 小红书 2268 现场修复：AI 链路 4 个 silent 失败点全部拦截
-//
-// 4 个修复点：
-//   1. inbox_ingress.HandleIngressMessage 调用 aiTrigger.TriggerInboundAI 入口 panic recover
-//   2. WebhookService.TriggerInboundAI 入口 panic recover
-//   3. WebhookService.triggerSmartOrchestrator smartOrchestrator==nil 升级为 Error 日志
-//   4. WebhookService.runAIGeneration goroutine panic recover
-//   5. NormalizeChannelType 桥接渠道 *_web 归一化到基础渠道
 
 package service
 
@@ -24,16 +16,13 @@ func TestNormalizeChannelType_BridgeWebChannels(t *testing.T) {
 		input    string
 		expected string
 	}{
-		// 桥接渠道 *_web 必须归一化到基础渠道
 		{"xiaohongshu", "xiaohongshu"},
 		{"douyin", "douyin"},
 		{"kuaishou", "kuaishou"},
 		{"xianyu", "xianyu"},
 		{"tiktok", "tiktok"},
-		// 兼容历史 input
 		{"xiaohongshu", "xiaohongshu"},
 		{"xhs", "xiaohongshu"},
-		// 大小写
 		{"XHS_WEB", "xiaohongshu"},
 		{"  xhs_web  ", "xiaohongshu"},
 	}
@@ -52,16 +41,13 @@ func TestNormalizeChannelType_BridgeWebChannels(t *testing.T) {
 // 修复后 nil orchestrator 转为 Error 日志 + 进程不挂、message_hub 仍能入站。
 func TestTriggerInboundAI_NoPanicOnNilOrchestrator(t *testing.T) {
 	svc := &WebhookService{
-		// smartOrchestrator 故意不设置，模拟"装配缺失"bug
 		smartOrchestrator: nil,
 		db:                nil,
-		// cache 为 nil 时 isDuplicate / allowRate 直接放行
 	}
 
 	ctx := context.Background()
 	ctx = logger.WithModule(ctx, "test")
 
-	// 不期望 panic
 	defer func() {
 		if r := recover(); r != nil {
 			t.Fatalf("TriggerInboundAI 入口 panic: %v（修复目标：恢复后只输出 Error 日志）", r)
@@ -78,10 +64,8 @@ func TestTriggerInboundAI_NoPanicOnNilOrchestrator(t *testing.T) {
 // 内部任意 panic（LLM 客户端 NPE / DB 连接重置 / nil 指针）会冒泡到 runtime 杀掉整个进程。
 // 修复后 panic 转 Error 日志，进程存活。
 func TestRunAIGeneration_RecoverPanic(t *testing.T) {
-	// 构造一个会 panic 的 fake 编排器：通过 reflection 或在 setup 时注入 nil
-	// 这里直接验证 panic recover 的 defer 已就位（即使内部 nil 也不会让进程挂）
 	svc := &WebhookService{
-		smartOrchestrator: nil, // 触发 silent path，runAIGeneration 即使被调用也是 no-op
+		smartOrchestrator: nil, 
 		db:                nil,
 		replySem:          make(chan struct{}, 1),
 	}
@@ -96,15 +80,12 @@ func TestRunAIGeneration_RecoverPanic(t *testing.T) {
 		SenderID:       "sender-1",
 	}
 
-	// runAIGeneration 的 defer recover 应捕获任何 panic
 	defer func() {
 		if r := recover(); r != nil {
 			t.Fatalf("runAIGeneration goroutine panic 漏出: %v（修复目标：defer recover 必须捕获）", r)
 		}
 	}()
 
-	// smartOrchestrator nil 不会 panic（triggerSmartOrchestrator 已 silent return 前就检查）
-	// 真正想验证 recover 存在：调用 runAIGeneration 不应让进程挂
 	_ = svc
 	_ = ctx
 	_ = hubMsg
@@ -114,7 +95,6 @@ func TestRunAIGeneration_RecoverPanic(t *testing.T) {
 // TestInboxIngress_TriggerLogStart 验证 [Inbox] start 日志 + aiTrigger=nil 升级 Error
 func TestInboxIngress_TriggerLogStart(t *testing.T) {
 	svc := NewInboxIngressServiceWithDB(nil, nil)
-	// 故意不设 aiTrigger，验证 Error 日志路径
 
 	ev := &model.MessageEvent{
 		EventID:        "evt-1",
@@ -125,7 +105,6 @@ func TestInboxIngress_TriggerLogStart(t *testing.T) {
 		Extra:          map[string]any{"account_id": "acc-1"},
 	}
 
-	// 不期望 panic
 	defer func() {
 		if r := recover(); r != nil {
 			t.Fatalf("HandleIngressMessage panic: %v", r)
@@ -139,10 +118,9 @@ func TestInboxIngress_TriggerLogStart(t *testing.T) {
 	if res == nil {
 		t.Fatal("result 不能为 nil")
 	}
-	// aiTrigger 缺失时 result.Reason 应有标识（2026-08-05 重构后 reason="trigger AI customer service"，
-	// 但实际 AI 不会运行——这是文档化行为，测试只验不 panic + 不阻塞 WS）。
 	if !strings.Contains(res.Reason, "trigger AI") {
 		t.Errorf("result.Reason 异常: %q", res.Reason)
 	}
 	t.Log("✅ HandleIngressMessage 在 aiTrigger=nil 时不 panic、不阻塞")
 }
+

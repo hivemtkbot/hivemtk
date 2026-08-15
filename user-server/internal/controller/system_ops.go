@@ -76,7 +76,6 @@ func (c *SystemOpsController) GetSystemLogs(ctx *gin.Context) {
 
 	content, err := os.ReadFile(logPath)
 	if err != nil {
-		// 文件不存在时返回空内容，保证运维接口可用而非报错
 		content = []byte{}
 	}
 	response.Success(ctx, gin.H{
@@ -190,7 +189,6 @@ func resolveLogPath(p string) (string, error) {
 		return "", fmt.Errorf("路径超出允许的日志目录")
 	}
 
-	// 相对路径仅允许位于 logs/ 下
 	if !strings.HasPrefix(cleaned, "logs"+string(os.PathSeparator)) {
 		return "", fmt.Errorf("相对路径必须位于 logs/ 下")
 	}
@@ -200,3 +198,4 @@ func resolveLogPath(p string) (string, error) {
 	}
 	return abs, nil
 }
+

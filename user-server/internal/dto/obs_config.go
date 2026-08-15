@@ -40,7 +40,7 @@ type ObsConfigResponse struct {
 	Provider     string     `json:"provider"`
 	ProviderName string     `json:"provider_name"`
 	AccessKey    string     `json:"access_key"`
-	SecretKey    string     `json:"secret_key"` // 返回掩码
+	SecretKey    string     `json:"secret_key"` 
 	Bucket       string     `json:"bucket"`
 	Region       string     `json:"region"`
 	Endpoint     string     `json:"endpoint"`
@@ -76,3 +76,4 @@ type TestConnectionRequest struct {
 type SetDefaultRequest struct {
 	ID string `json:"id" binding:"required"`
 }
+

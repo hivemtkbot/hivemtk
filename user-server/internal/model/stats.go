@@ -70,3 +70,4 @@ type SystemMetrics struct {
 func (SystemMetrics) TableName() string {
 	return "system_metrics"
 }
+

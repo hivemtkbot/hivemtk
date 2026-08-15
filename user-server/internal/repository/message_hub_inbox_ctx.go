@@ -216,3 +216,4 @@ func (r *MessageHubRepository) NormalizePollutedTraceConversationIDs(ctx context
 		tsPat)
 	return res.RowsAffected, res.Error
 }
+

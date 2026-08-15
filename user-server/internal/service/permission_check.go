@@ -1,17 +1,5 @@
 package service
 
-// permission_check.go SystemUser 权限检查工具
-//
-// 五层架构归属: L3 业务服务层
-// 设计依据：
-//   - 依赖 model.SystemRoleList
-//   - 原 service/team_user.go 内的 PermissionService 已迁移至本文件
-//   - 角色定义：system_users.role 仅有 3 档 admin/customer_service/staff
-//
-// 使用场景：
-//   - middleware/permission.go 通过 NewPermissionService().CheckPermission 实现细粒度权限
-//   - Service 业务方法通过 RequireRole/RequireAdmin 等做断言
-//   - 兼容历史 AssertCanOperateTeamUser（语义改为基于 system_user）
 
 import (
 	"context"
@@ -133,15 +121,12 @@ func AssertCanOperateSystemUser(operatorID uint, operatorRole, action string, ta
 	if operatorRole == "" {
 		return ErrServiceRoleMissing
 	}
-	// staff/viewer 在任何场景下都不能进行 CRUD/重置
 	if operatorRole == SystemUserRoleStaff || operatorRole == LegacyTeamUserRoleViewer {
 		return ErrServicePermissionDenied
 	}
-	// admin 拥有所有操作权限
 	if operatorRole == SystemUserRoleAdmin {
 		return nil
 	}
-	// customer_service/manager 仅能更新（不能 create/delete/reset）
 	if operatorRole == SystemUserRoleCustomerService || operatorRole == LegacyTeamUserRoleManager {
 		switch action {
 		case "update":
@@ -153,7 +138,6 @@ func AssertCanOperateSystemUser(operatorID uint, operatorRole, action string, ta
 	return ErrServicePermissionDenied
 }
 
-// ============== PermissionService 细粒度权限（从 service/team_user.go 迁移） ==============
 
 // PermissionService 权限服务
 //
@@ -168,12 +152,10 @@ func NewPermissionService() *PermissionService {
 // CheckPermission 检查权限
 // 独立部署版本：仅根据 role 检查权限，移除 merchantID 作用域参数。
 func (s *PermissionService) CheckPermission(ctx context.Context, roleCode, permission string) bool {
-	// 管理员拥有所有权限
 	if roleCode == SystemUserRoleAdmin || roleCode == LegacyTeamUserRoleAdmin {
 		return true
 	}
 
-	// 系统内置的细粒度权限映射
 	rolePerms := defaultRolePermissions(roleCode)
 	if rolePerms == nil {
 		return false
@@ -188,12 +170,10 @@ func defaultRolePermissions(roleCode string) []string {
 	case SystemUserRoleAdmin:
 		return []string{"*"}
 	case SystemUserRoleCustomerService, LegacyTeamUserRoleManager:
-		// 原 manager 权限（卡片/短链/线索/自动回复）
 		return []string{
 			"cards.*", "shortlinks.*", "clues.*", "autoreply.*",
 		}
 	case SystemUserRoleStaff, LegacyTeamUserRoleViewer:
-		// 原 viewer 只读权限
 		return []string{
 			"cards.view", "shortlinks.view", "clues.view",
 		}
@@ -232,3 +212,4 @@ func (s *PermissionService) GetUserPermissions(ctx context.Context, roleCode str
 	}
 	return nil, errors.New("角色权限未定义")
 }
+

@@ -33,7 +33,6 @@ func setupDashboardRepositories(t *testing.T) (*DashboardScreenRepository, *Dash
 		&MarketTemplateDownloadRepository{db: db.GetDB()}
 }
 
-// ============= DashboardScreenRepository Tests =============
 
 // TestDashboardScreenRepository_Create 测试创建大屏
 func TestDashboardScreenRepository_Create(t *testing.T) {
@@ -86,7 +85,6 @@ func TestDashboardScreenRepository_Create(t *testing.T) {
 func TestDashboardScreenRepository_GetByID(t *testing.T) {
 	screenRepo, _, _, _ := setupDashboardRepositories(t)
 
-	// 创建测试数据
 	screen := &model.DashboardScreen{
 		Name:      "GetByID Dashboard",
 		Code:      "getbyid_001",
@@ -133,7 +131,6 @@ func TestDashboardScreenRepository_GetByID(t *testing.T) {
 func TestDashboardScreenRepository_GetByCode(t *testing.T) {
 	screenRepo, _, _, _ := setupDashboardRepositories(t)
 
-	// 创建测试数据
 	screen := &model.DashboardScreen{
 		Name: "Code Test Dashboard",
 		Code: "unique_code_123",
@@ -178,7 +175,6 @@ func TestDashboardScreenRepository_GetByCode(t *testing.T) {
 func TestDashboardScreenRepository_Update(t *testing.T) {
 	screenRepo, _, _, _ := setupDashboardRepositories(t)
 
-	// 创建测试数据
 	screen := &model.DashboardScreen{
 		Name:  "Original Name",
 		Code:  "original_code",
@@ -186,7 +182,6 @@ func TestDashboardScreenRepository_Update(t *testing.T) {
 	}
 	screenRepo.Create(screen)
 
-	// 更新
 	screen.Name = "Updated Name"
 	screen.Theme = "dark"
 
@@ -208,7 +203,6 @@ func TestDashboardScreenRepository_Update(t *testing.T) {
 func TestDashboardScreenRepository_Delete(t *testing.T) {
 	screenRepo, _, _, _ := setupDashboardRepositories(t)
 
-	// 创建测试数据
 	screen := &model.DashboardScreen{
 		Name: "To Delete",
 		Code: "delete_code",
@@ -230,7 +224,6 @@ func TestDashboardScreenRepository_Delete(t *testing.T) {
 func TestDashboardScreenRepository_IncrementViewCount(t *testing.T) {
 	screenRepo, _, _, _ := setupDashboardRepositories(t)
 
-	// 创建测试数据
 	screen := &model.DashboardScreen{
 		Name:      "View Count Test",
 		Code:      "view_test",
@@ -238,7 +231,6 @@ func TestDashboardScreenRepository_IncrementViewCount(t *testing.T) {
 	}
 	screenRepo.Create(screen)
 
-	// 增加 3 次访问
 	for i := 1; i <= 3; i++ {
 		err := screenRepo.IncrementViewCount(screen.ID)
 		if err != nil {
@@ -252,13 +244,11 @@ func TestDashboardScreenRepository_IncrementViewCount(t *testing.T) {
 	}
 }
 
-// ============= DashboardWidgetRepository Tests =============
 
 // TestDashboardWidgetRepository_Create 测试创建 Widget
 func TestDashboardWidgetRepository_Create(t *testing.T) {
 	_, widgetRepo, _, _ := setupDashboardRepositories(t)
 
-	// 先创建大屏
 	screenRepo := &DashboardScreenRepository{db: db.GetDB()}
 	screen := &model.DashboardScreen{
 		Name: "Widget Test Dashboard",
@@ -292,7 +282,6 @@ func TestDashboardWidgetRepository_Create(t *testing.T) {
 func TestDashboardWidgetRepository_GetByScreenID(t *testing.T) {
 	_, widgetRepo, _, _ := setupDashboardRepositories(t)
 
-	// 先创建大屏
 	screenRepo := &DashboardScreenRepository{db: db.GetDB()}
 	screen := &model.DashboardScreen{
 		Name: "GetWidgets Dashboard",
@@ -300,7 +289,6 @@ func TestDashboardWidgetRepository_GetByScreenID(t *testing.T) {
 	}
 	screenRepo.Create(screen)
 
-	// 创建多个 Widgets
 	for i := 1; i <= 3; i++ {
 		widgetRepo.Create(&model.DashboardWidget{
 			ScreenID:   screen.ID,
@@ -324,7 +312,6 @@ func TestDashboardWidgetRepository_GetByScreenID(t *testing.T) {
 func TestDashboardWidgetRepository_DeleteByScreenID(t *testing.T) {
 	_, widgetRepo, _, _ := setupDashboardRepositories(t)
 
-	// 先创建大屏
 	screenRepo := &DashboardScreenRepository{db: db.GetDB()}
 	screen := &model.DashboardScreen{
 		Name: "Delete Widgets Dashboard",
@@ -332,7 +319,6 @@ func TestDashboardWidgetRepository_DeleteByScreenID(t *testing.T) {
 	}
 	screenRepo.Create(screen)
 
-	// 创建 Widgets
 	for i := 1; i <= 3; i++ {
 		widgetRepo.Create(&model.DashboardWidget{
 			ScreenID:   screen.ID,
@@ -352,7 +338,6 @@ func TestDashboardWidgetRepository_DeleteByScreenID(t *testing.T) {
 	}
 }
 
-// ============= MarketTemplateRepository Tests =============
 
 // TestMarketTemplateRepository_GetList 测试获取模板列表
 func TestMarketTemplateRepository_GetList(t *testing.T) {
@@ -360,7 +345,6 @@ func TestMarketTemplateRepository_GetList(t *testing.T) {
 
 	db := db.GetDB()
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		db.Create(&contentmodel.MarketTemplate{
 			Name:          "Template " + string(rune('0'+i)),
@@ -442,7 +426,6 @@ func TestMarketTemplateRepository_GetByID(t *testing.T) {
 
 	db := db.GetDB()
 
-	// 创建测试数据
 	template := &contentmodel.MarketTemplate{
 		Name:     "GetByID Template",
 		Category: "dashboard",
@@ -490,7 +473,6 @@ func TestMarketTemplateRepository_IncrementDownload(t *testing.T) {
 
 	db := db.GetDB()
 
-	// 创建测试数据
 	template := &contentmodel.MarketTemplate{
 		Name:          "Download Test",
 		Category:      "dashboard",
@@ -498,7 +480,6 @@ func TestMarketTemplateRepository_IncrementDownload(t *testing.T) {
 	}
 	db.Create(template)
 
-	// 增加 5 次下载
 	for i := 1; i <= 5; i++ {
 		err := templateRepo.IncrementDownload(template.ID)
 		if err != nil {
@@ -518,7 +499,6 @@ func TestMarketTemplateRepository_GetOfficialTemplates(t *testing.T) {
 
 	db := db.GetDB()
 
-	// 创建官方模板
 	for i := 1; i <= 3; i++ {
 		db.Create(&contentmodel.MarketTemplate{
 			Name:       "Official Template " + string(rune('0'+i)),
@@ -527,7 +507,6 @@ func TestMarketTemplateRepository_GetOfficialTemplates(t *testing.T) {
 		})
 	}
 
-	// 创建非官方模板
 	db.Create(&contentmodel.MarketTemplate{
 		Name:       "Community Template",
 		Category:   "dashboard",
@@ -554,7 +533,6 @@ func TestMarketTemplateRepository_SearchTemplates(t *testing.T) {
 
 	db := db.GetDB()
 
-	// 创建测试数据
 	db.Create(&contentmodel.MarketTemplate{
 		Name:        "Sales Dashboard",
 		Description: "Dashboard for sales tracking",
@@ -610,7 +588,6 @@ func TestMarketTemplateRepository_SearchTemplates(t *testing.T) {
 	}
 }
 
-// ============= MarketTemplateDownloadRepository Tests =============
 
 // TestMarketTemplateDownloadRepository_Create 测试创建下载记录
 func TestMarketTemplateDownloadRepository_Create(t *testing.T) {
@@ -630,3 +607,4 @@ func TestMarketTemplateDownloadRepository_Create(t *testing.T) {
 		t.Error("Expected download record ID to be set after creation")
 	}
 }
+

@@ -39,14 +39,11 @@ func NewKnowledgeWorkspaceController(openapiPort OpenAPISourcePort) *KnowledgeWo
 func (ctrl *KnowledgeWorkspaceController) RegisterRoutes(router *gin.RouterGroup) {
 	kb := router.Group("/knowledge")
 	{
-		// === 文档导入 ===
 		kb.POST("/import/upload", ctrl.UploadImport)
 		kb.POST("/import/text", ctrl.TextImport)
 		kb.POST("/import/url", ctrl.URLImport)
-		// 企业级文档导入 API：其他系统直接以 JSON 推送内容 + 附加字段
 		kb.POST("/import/document", ctrl.DocumentImport)
 
-		// === 文档管理 ===
 		kb.GET("/documents", ctrl.ListDocuments)
 		kb.GET("/documents/:id", ctrl.GetDocument)
 		kb.GET("/documents/:id/progress", ctrl.GetDocumentProgress)
@@ -55,17 +52,13 @@ func (ctrl *KnowledgeWorkspaceController) RegisterRoutes(router *gin.RouterGroup
 		kb.DELETE("/documents/:id", ctrl.DeleteDocument)
 		kb.POST("/documents/:id/reindex", ctrl.ReindexDocument)
 
-		// === 产品级操作 ===
 		kb.POST("/products/:product_id/rebuild-index", ctrl.RebuildProductIndex)
 		kb.GET("/products/:product_id/overview", ctrl.GetProductOverview)
 
-		// === 检索 ===
 		kb.POST("/search", ctrl.Search)
 
-		// === 导入日志 ===
 		kb.GET("/import-logs", ctrl.ListImportLogs)
 
-		// === OpenAPI 数据源 ===
 		kb.GET("/openapi/sources", ctrl.ListOpenAPISources)
 		kb.POST("/openapi/sources", ctrl.CreateOpenAPISource)
 		kb.GET("/openapi/sources/:id", ctrl.GetOpenAPISource)
@@ -75,7 +68,6 @@ func (ctrl *KnowledgeWorkspaceController) RegisterRoutes(router *gin.RouterGroup
 		kb.POST("/openapi/sources/:id/test", ctrl.TestOpenAPISource)
 		kb.POST("/openapi/sources/:id/toggle", ctrl.ToggleOpenAPISource)
 
-		// === 统计 ===
 		kb.GET("/stats/overview", ctrl.GetOverviewStats)
 		kb.GET("/stats/documents", ctrl.GetDocumentStats)
 		kb.GET("/stats/searches", ctrl.GetSearchStats)
@@ -84,9 +76,6 @@ func (ctrl *KnowledgeWorkspaceController) RegisterRoutes(router *gin.RouterGroup
 	}
 }
 
-// ============================================================================
-// 文档导入
-// ============================================================================
 
 // UploadImport 上传文件导入
 func (ctrl *KnowledgeWorkspaceController) UploadImport(c *gin.Context) {
@@ -212,7 +201,7 @@ func (ctrl *KnowledgeWorkspaceController) DocumentImport(c *gin.Context) {
 		ProductID string         `json:"product_id" binding:"required"`
 		Title     string         `json:"title" binding:"required"`
 		Content   string         `json:"content" binding:"required"`
-		Format    string         `json:"format"` // 内容格式: text/markdown/html，默认 text
+		Format    string         `json:"format"` 
 		Category  string         `json:"category"`
 		Tags      []string       `json:"tags"`
 		BatchNo   string         `json:"batch_no"`
@@ -244,9 +233,6 @@ func (ctrl *KnowledgeWorkspaceController) DocumentImport(c *gin.Context) {
 	response.Success(c, result, "文档已接收，切片/向量化/入库处理已启动")
 }
 
-// ============================================================================
-// 文档管理
-// ============================================================================
 
 // ListDocuments 列出文档
 func (ctrl *KnowledgeWorkspaceController) ListDocuments(c *gin.Context) {
@@ -437,9 +423,6 @@ func (ctrl *KnowledgeWorkspaceController) GetProductOverview(c *gin.Context) {
 	response.Success(c, overview, "获取成功")
 }
 
-// ============================================================================
-// 检索
-// ============================================================================
 
 // Search 检索知识库
 // 兼容字段名:threshold / similarity_threshold, top_k / limit
@@ -456,7 +439,6 @@ func (ctrl *KnowledgeWorkspaceController) Search(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	// 兼容不同字段名(默认 threshold, 旧版 Playground 用 similarity_threshold)
 	if body.Threshold <= 0 {
 		body.Threshold = body.SimThres
 	}
@@ -473,7 +455,6 @@ func (ctrl *KnowledgeWorkspaceController) Search(c *gin.Context) {
 	start := time.Now()
 	chunks, err := ctrl.kbService.Search(c.Request.Context(), productID, body.Query, body.TopK, body.Threshold)
 	latencyMs := int(time.Since(start).Milliseconds())
-	// 记录日志
 	hit := 0
 	if chunks != nil {
 		hit = 1
@@ -499,9 +480,6 @@ func (ctrl *KnowledgeWorkspaceController) Search(c *gin.Context) {
 	}, "检索成功")
 }
 
-// ============================================================================
-// 导入日志
-// ============================================================================
 
 // ListImportLogs 列出导入日志
 func (ctrl *KnowledgeWorkspaceController) ListImportLogs(c *gin.Context) {
@@ -527,9 +505,6 @@ func (ctrl *KnowledgeWorkspaceController) ListImportLogs(c *gin.Context) {
 	}, "获取成功")
 }
 
-// ============================================================================
-// OpenAPI 数据源
-// ============================================================================
 
 // requireOpenAPIPort 端口未注入时 fail-closed（P2-3）
 func (ctrl *KnowledgeWorkspaceController) requireOpenAPIPort(c *gin.Context) bool {
@@ -565,7 +540,6 @@ func (ctrl *KnowledgeWorkspaceController) CreateOpenAPISource(c *gin.Context) {
 		return
 	}
 
-	// 兼容从表单提交 product_id 的场景(直接作为字符串 productID)
 	if src.ProductID == "" {
 		if pID := c.PostForm("product_id"); pID != "" {
 			src.ProductID = pID
@@ -702,9 +676,6 @@ func (ctrl *KnowledgeWorkspaceController) ToggleOpenAPISource(c *gin.Context) {
 	response.Success(c, nil, "切换成功")
 }
 
-// ============================================================================
-// 统计
-// ============================================================================
 
 // GetOverviewStats 总览统计
 func (ctrl *KnowledgeWorkspaceController) GetOverviewStats(c *gin.Context) {
@@ -773,9 +744,6 @@ func (ctrl *KnowledgeWorkspaceController) GetOpenAPIStats(c *gin.Context) {
 	response.Success(c, data, "获取成功")
 }
 
-// ============================================================================
-// 辅助
-// ============================================================================
 
 // getOperator 从 gin Context 提取操作者标识（按 user_id → username → anonymous 顺序回退）
 func (ctrl *KnowledgeWorkspaceController) getOperator(c *gin.Context) string {
@@ -793,3 +761,4 @@ func (ctrl *KnowledgeWorkspaceController) getOperator(c *gin.Context) string {
 func (ctrl *KnowledgeWorkspaceController) resolveProductID(raw string) string {
 	return raw
 }
+

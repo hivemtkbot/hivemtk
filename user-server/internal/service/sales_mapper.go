@@ -5,8 +5,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// sales_mapper.go 销售链路 model ↔ dto 转换
-// 转换属业务层职责（P0-7：dto 层不再引用 model，转换统一收口在 service）
 
 // LLMProviderConfigToDTO model 嵌入式配置 → dto 镜像
 func LLMProviderConfigToDTO(c model.LLMProviderConfig) dto.LLMProviderConfig {
@@ -126,3 +124,4 @@ func richCardToDTO(c model.RichCard) dto.RichCard {
 	}
 	return dc
 }
+

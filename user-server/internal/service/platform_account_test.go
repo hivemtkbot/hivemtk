@@ -42,7 +42,6 @@ func TestNewPlatformAccountService(t *testing.T) {
 func TestPlatformAccountService_GetAccounts(t *testing.T) {
 	database := setupPlatformAccountServiceTestDB(t)
 	_ = repository.NewPlatformAccountRepository()
-	// 直接使用 db 写入测试数据并通过 service 读取
 	db := database
 	for i := 0; i < 3; i++ {
 		db.Create(&model.PlatformAccount{
@@ -53,7 +52,6 @@ func TestPlatformAccountService_GetAccounts(t *testing.T) {
 		})
 	}
 
-	// 重新创建 service 以使用测试 db
 	repo := newPlatformAccountRepoForTest(db)
 	service := NewPlatformAccountServiceWithRepo(repo)
 
@@ -260,3 +258,4 @@ func (r *platformAccountRepoForTest) UpdateStatus(ctx context.Context, id uint, 
 func (r *platformAccountRepoForTest) UpdateLastSync(ctx context.Context, id uint) error {
 	return r.db.Model(&model.PlatformAccount{}).Where("id = ?", id).Update("last_sync_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
 }
+

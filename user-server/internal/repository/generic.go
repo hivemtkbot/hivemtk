@@ -89,13 +89,11 @@ func (r *BaseRepository[T]) GetList(ctx context.Context, page, pageSize int, ord
 
 	query := r.withCtx(ctx).Model(new(T))
 
-	// 获取总数
 	err := query.Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
 	if orderBy == "" {
 		orderBy = "created_at DESC"
 	}
@@ -116,18 +114,15 @@ func (r *BaseRepository[T]) GetListByCondition(ctx context.Context, page, pageSi
 
 	query := r.withCtx(ctx).Model(new(T))
 
-	// 添加查询条件
 	for key, value := range condition {
 		query = query.Where(key+" = ?", value)
 	}
 
-	// 获取总数
 	err := query.Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
 	if orderBy == "" {
 		orderBy = "created_at DESC"
 	}
@@ -148,13 +143,11 @@ func (r *BaseRepository[T]) GetListByQuery(ctx context.Context, page, pageSize i
 
 	query := queryFunc(r.withCtx(ctx).Model(new(T)))
 
-	// 获取总数
 	err := query.Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
 	if orderBy == "" {
 		orderBy = "created_at DESC"
 	}
@@ -257,3 +250,4 @@ func (r *BaseRepository[T]) Log(ctx context.Context, format string, args ...any)
 	msg := fmt.Sprintf(format, args...)
 	logger.Info(msg)
 }
+

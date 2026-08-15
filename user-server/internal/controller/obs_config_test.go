@@ -79,8 +79,8 @@ func TestObsConfigController_GetDefaultConfig_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Empty DB → 500 (not found), with data → 200
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 200 or 500, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
+

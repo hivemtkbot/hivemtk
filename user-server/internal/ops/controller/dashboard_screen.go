@@ -206,3 +206,4 @@ func (c *DashboardScreenController) fetchRealtimeActivities() []gin.H {
 	}
 	return result
 }
+

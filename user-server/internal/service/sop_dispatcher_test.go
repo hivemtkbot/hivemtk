@@ -1,16 +1,5 @@
 package service
 
-// sop_dispatcher_test.go SOP 调度器与 Outbox/StuckDetector 集成测试（§13.6 验收）
-//
-// 覆盖：
-//  1. SOPRetryPolicy.Backoff 指数退避计算（纯单元测试）
-//  2. SOPExecutionDispatcher Dispatch/DispatchOrLog/Stop（不需要 DB）
-//  3. SOPOutboxDispatcher.processDueTimers timer 到期派发（需要 PG）
-//  4. SOPOutboxDispatcher 多实例幂等性（需要 PG）
-//  5. SOPStuckDetector.scanStuckExecutions 卡死检测（需要 PG）
-//
-// 需要 PG 的测试通过 testutil.NewTestDB 初始化，PG 不可用时自动 t.Skip。
-// 私域独立部署：无 merchant_id 字段。
 
 import (
 	"context"
@@ -23,19 +12,15 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// ===== SOPRetryPolicy 单元测试 =====
 
 func TestSOPRetryPolicy_Backoff(t *testing.T) {
 	p := DefaultSOPRetryPolicy()
-	// attempt=1 应返回 InitialBackoff=1s
 	if d := p.Backoff(context.Background(), 1); d != 1*time.Second {
 		t.Errorf("Backoff(1)=%v want=1s", d)
 	}
-	// attempt=2 应返回 2s
 	if d := p.Backoff(context.Background(), 2); d != 2*time.Second {
 		t.Errorf("Backoff(2)=%v want=2s", d)
 	}
-	// attempt=3 应返回 4s
 	if d := p.Backoff(context.Background(), 3); d != 4*time.Second {
 		t.Errorf("Backoff(3)=%v want=4s", d)
 	}
@@ -48,7 +33,6 @@ func TestSOPRetryPolicy_BackoffCappedAtMax(t *testing.T) {
 		MaxBackoff:     5 * time.Second,
 		Multiplier:     2.0,
 	}
-	// attempt=10 应被 cap 在 MaxBackoff=5s
 	if d := p.Backoff(context.Background(), 10); d != 5*time.Second {
 		t.Errorf("Backoff(10)=%v want=5s (capped)", d)
 	}
@@ -56,7 +40,6 @@ func TestSOPRetryPolicy_BackoffCappedAtMax(t *testing.T) {
 
 func TestSOPRetryPolicy_BackoffAttemptZeroOrNegative(t *testing.T) {
 	p := DefaultSOPRetryPolicy()
-	// attempt<=1 应返回 InitialBackoff
 	if d := p.Backoff(context.Background(), 0); d != 1*time.Second {
 		t.Errorf("Backoff(0)=%v want=1s", d)
 	}
@@ -65,10 +48,8 @@ func TestSOPRetryPolicy_BackoffAttemptZeroOrNegative(t *testing.T) {
 	}
 }
 
-// ===== SOPExecutionDispatcher Dispatch/Stop 测试（不需要 DB）=====
 
 func TestSOPExecutionDispatcher_DispatchQueued(t *testing.T) {
-	// 测试任务能被放入队列
 	d := &SOPExecutionDispatcher{
 		dispatchQueue: make(chan *dispatchTask, 10),
 		stopCh:        make(chan struct{}),
@@ -78,21 +59,18 @@ func TestSOPExecutionDispatcher_DispatchQueued(t *testing.T) {
 	if err := d.Dispatch(context.Background(), task); err != nil {
 		t.Fatalf("Dispatch failed: %v", err)
 	}
-	// 队列中应有 1 个任务
 	if len(d.dispatchQueue) != 1 {
 		t.Errorf("queue len=%d want=1", len(d.dispatchQueue))
 	}
 }
 
 func TestSOPExecutionDispatcher_DispatchQueueFull(t *testing.T) {
-	// 队列满时 Dispatch 应返回错误（背压）
 	d := &SOPExecutionDispatcher{
-		dispatchQueue: make(chan *dispatchTask, 1), // 容量 1
+		dispatchQueue: make(chan *dispatchTask, 1), 
 		stopCh:        make(chan struct{}),
 		retryPolicy:   DefaultSOPRetryPolicy(),
 	}
 	d.dispatchQueue <- &dispatchTask{ExecutionID: 1, NodeID: "n1"}
-	// 再 Dispatch 应失败
 	err := d.Dispatch(context.Background(), &dispatchTask{ExecutionID: 2, NodeID: "n2"})
 	if err == nil {
 		t.Error("expected error when queue full")
@@ -100,7 +78,6 @@ func TestSOPExecutionDispatcher_DispatchQueueFull(t *testing.T) {
 }
 
 func TestSOPExecutionDispatcher_DispatchAfterStop(t *testing.T) {
-	// 停止后 Dispatch 应返回错误
 	d := &SOPExecutionDispatcher{
 		dispatchQueue: make(chan *dispatchTask, 10),
 		stopCh:        make(chan struct{}),
@@ -114,9 +91,8 @@ func TestSOPExecutionDispatcher_DispatchAfterStop(t *testing.T) {
 }
 
 func TestSOPExecutionDispatcher_DispatchOrLogNoPanic(t *testing.T) {
-	// DispatchOrLog 失败时不应 panic，仅记录日志
 	d := &SOPExecutionDispatcher{
-		dispatchQueue: make(chan *dispatchTask, 0), // 容量 0，必然满
+		dispatchQueue: make(chan *dispatchTask, 0), 
 		stopCh:        make(chan struct{}),
 		retryPolicy:   DefaultSOPRetryPolicy(),
 	}
@@ -128,7 +104,6 @@ func TestSOPExecutionDispatcher_DispatchOrLogNoPanic(t *testing.T) {
 	d.DispatchOrLog(&dispatchTask{ExecutionID: 1, NodeID: "n1"})
 }
 
-// ===== SOPOutboxDispatcher / SOPStuckDetector 集成测试（需要 PG）=====
 
 func TestSOPOutboxDispatcher_ProcessDueTimers_FiresPendingTimers(t *testing.T) {
 	db := testutil.NewTestDB(t,
@@ -138,7 +113,6 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_FiresPendingTimers(t *testing.T) {
 		&model.SOPOutbox{},
 	)
 
-	// 创建一个已过期的 pending timer
 	exec := &model.SOPExecution{
 		SOPID:       1,
 		CustomerID:  "cust_001",
@@ -154,7 +128,7 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_FiresPendingTimers(t *testing.T) {
 		ExecutionID: exec.ID,
 		NodeID:      "wait_node",
 		WaitEvent:   WaitEventTimer,
-		WaitUntil:   time.Now().Add(-1 * time.Second), // 已过期
+		WaitUntil:   time.Now().Add(-1 * time.Second), 
 		Status:      "pending",
 	}
 	if err := db.Create(timer).Error; err != nil {
@@ -206,7 +180,6 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_SkipsFutureTimers(t *testing.T) {
 	}
 	db.Create(exec)
 
-	// 未来 1 小时才到期的 timer
 	futureTimer := &model.SOPTimer{
 		ExecutionID: exec.ID,
 		NodeID:      "wait",
@@ -239,7 +212,6 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_SkipsFutureTimers(t *testing.T) {
 }
 
 func TestSOPOutboxDispatcher_ProcessDueTimers_MultiInstanceIdempotent(t *testing.T) {
-	// 验收标准：多实例并发时同一 timer 只被派发一次
 	db := testutil.NewTestDB(t,
 		&model.SOPExecution{},
 		&model.SOPTimer{},
@@ -286,7 +258,6 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_MultiInstanceIdempotent(t *testing
 }
 
 func TestSOPStuckDetector_ScanSkipsRunningExecution(t *testing.T) {
-	// 正常 running 且最近有事件的 Execution 不应被恢复
 	db := testutil.NewTestDB(t,
 		&model.SOPExecution{},
 		&model.SOPExecEvent{},
@@ -294,7 +265,7 @@ func TestSOPStuckDetector_ScanSkipsRunningExecution(t *testing.T) {
 	)
 
 	now := time.Now()
-	recentEvent := now.Add(-1 * time.Minute) // 1 分钟前有事件
+	recentEvent := now.Add(-1 * time.Minute) 
 
 	exec := &model.SOPExecution{
 		SOPID: 1, CustomerID: "c1", Status: SOPStatusRunning,
@@ -321,7 +292,6 @@ func TestSOPStuckDetector_ScanSkipsRunningExecution(t *testing.T) {
 }
 
 func TestSOPStuckDetector_ScanSkipsWaitNodeWithPendingTimer(t *testing.T) {
-	// 有 pending timer 的 wait 节点不算卡死
 	db := testutil.NewTestDB(t,
 		&model.SOPExecution{},
 		&model.SOPExecEvent{},
@@ -329,22 +299,21 @@ func TestSOPStuckDetector_ScanSkipsWaitNodeWithPendingTimer(t *testing.T) {
 	)
 
 	now := time.Now()
-	oldEvent := now.Add(-2 * time.Hour) // 2 小时前事件
+	oldEvent := now.Add(-2 * time.Hour) 
 
 	exec := &model.SOPExecution{
 		SOPID: 1, CustomerID: "c1", Status: SOPStatusRunning,
-		CurrentNode: "wait", StartedAt: now.Add(-48 * time.Hour), // 超过 24h
+		CurrentNode: "wait", StartedAt: now.Add(-48 * time.Hour), 
 		LastEventAt: &oldEvent,
 		WaitEvent:   WaitEventCustomerReply,
 	}
 	db.Create(exec)
 
-	// 创建 pending timer
 	timer := &model.SOPTimer{
 		ExecutionID: exec.ID,
 		NodeID:      "wait",
 		WaitEvent:   WaitEventCustomerReply,
-		WaitUntil:   now.Add(20 * time.Hour), // 还没到期
+		WaitUntil:   now.Add(20 * time.Hour), 
 		Status:      "pending",
 	}
 	db.Create(timer)
@@ -367,7 +336,6 @@ func TestSOPStuckDetector_ScanSkipsWaitNodeWithPendingTimer(t *testing.T) {
 }
 
 func TestSOPStuckDetector_ScanRecoversTrulyStuckExecution(t *testing.T) {
-	// 真正卡死的 Execution（无 pending timer + 无近期事件 + 超 24h）应被恢复
 	db := testutil.NewTestDB(t,
 		&model.SOPExecution{},
 		&model.SOPExecEvent{},
@@ -384,7 +352,6 @@ func TestSOPStuckDetector_ScanRecoversTrulyStuckExecution(t *testing.T) {
 		UpdatedAt:   oldEvent,
 	}
 	db.Create(exec)
-	// 无 pending timer、无近期 sop_exec_events
 
 	var dispatchedCount int32
 	var dispatchedNodeID string
@@ -413,7 +380,6 @@ func TestSOPStuckDetector_ScanRecoversTrulyStuckExecution(t *testing.T) {
 	}
 }
 
-// ===== mockExecDispatcher 用于测试，模拟 SOPExecutionDispatcher 的 DispatchOrLog =====
 
 type mockExecDispatcher struct {
 	dispatchFn func(task *dispatchTask)
@@ -427,3 +393,4 @@ func (m *mockExecDispatcher) DispatchOrLog(task *dispatchTask) {
 
 // 引用 context 包以避免 unused import（在测试函数未用到时）
 var _ = context.Background
+

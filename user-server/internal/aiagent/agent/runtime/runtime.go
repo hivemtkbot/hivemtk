@@ -5,9 +5,6 @@ import (
 	"time"
 )
 
-// ============================================================================
-// 11. defaultAgentRuntime 方法实现（骨架）
-// ============================================================================
 
 // HandleCustomerMessage 处理客户消息事件
 //
@@ -18,13 +15,11 @@ func (r *defaultAgentRuntime) HandleCustomerMessage(ctx context.Context, payload
 		return nil, ErrRuntimeStopped
 	}
 
-	// 1. 加载智能体上下文
 	agentCtx, err := r.LoadAgentContext(ctx, payload.ChannelType, payload.AccountID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. 构造请求
 	req := &SalesRequest{
 		Channel:    payload.ChannelType,
 		AccountID:  payload.AccountID,
@@ -34,7 +29,6 @@ func (r *defaultAgentRuntime) HandleCustomerMessage(ctx context.Context, payload
 		Raw:        payload.Raw,
 	}
 
-	// 3. 根据 AgentType 路由
 	switch agentCtx.AgentType {
 	case "sales":
 		if r.salesSales == nil {
@@ -47,7 +41,6 @@ func (r *defaultAgentRuntime) HandleCustomerMessage(ctx context.Context, payload
 		}
 		return r.csBridge.HandleIncomingWithAgent(ctx, agentCtx, req)
 	case "hybrid":
-		// 混合类型：优先销售，失败转客服
 		if r.salesSales != nil {
 			resp, err := r.salesSales.HandleWithAgent(ctx, agentCtx, req)
 			if err == nil && !resp.HandoffToHuman {
@@ -66,7 +59,6 @@ func (r *defaultAgentRuntime) HandleCustomerMessage(ctx context.Context, payload
 // LoadAgentContext 加载智能体上下文（带缓存）
 func (r *defaultAgentRuntime) LoadAgentContext(ctx context.Context, channelType, accountID string) (*AgentContext, error) {
 	if r.loader == nil {
-		// 骨架阶段：返回默认上下文
 		return &AgentContext{
 			AgentID:   0,
 			AgentCode: "default",
@@ -80,7 +72,6 @@ func (r *defaultAgentRuntime) LoadAgentContext(ctx context.Context, channelType,
 
 	key := cacheKey{Channel: channelType, AccountID: accountID}
 
-	// 读缓存
 	r.mu.RLock()
 	if cached, ok := r.cache[key]; ok {
 		if time.Since(cached.cachedAt) < r.cacheTTL {
@@ -90,7 +81,6 @@ func (r *defaultAgentRuntime) LoadAgentContext(ctx context.Context, channelType,
 	}
 	r.mu.RUnlock()
 
-	// 加载
 	agentCtx, err := r.loader.LoadByChannelAccount(ctx, channelType, accountID)
 	if err != nil {
 		return nil, err
@@ -99,7 +89,6 @@ func (r *defaultAgentRuntime) LoadAgentContext(ctx context.Context, channelType,
 	agentCtx.Channel = channelType
 	agentCtx.AccountID = accountID
 
-	// 写缓存
 	r.mu.Lock()
 	r.cache[key] = &cachedContext{ctx: agentCtx, cachedAt: time.Now()}
 	r.mu.Unlock()
@@ -117,7 +106,6 @@ func (r *defaultAgentRuntime) RefreshCache(ctx context.Context, agentID uint) er
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	// 失效所有引用该 agentID 的缓存
 	for k, c := range r.cache {
 		if c.ctx.AgentID == agentID {
 			delete(r.cache, k)
@@ -151,9 +139,6 @@ func (r *defaultAgentRuntime) fallbackResponse(payload CustomerMessagePayload, a
 	}
 }
 
-// ============================================================================
-// 12. 错误定义
-// ============================================================================
 
 // ErrRuntimeStopped 运行时已停止
 var ErrRuntimeStopped = &RuntimeError{Code: "stopped", Message: "agent runtime stopped"}
@@ -167,3 +152,4 @@ type RuntimeError struct {
 func (e *RuntimeError) Error() string {
 	return e.Code + ": " + e.Message
 }
+

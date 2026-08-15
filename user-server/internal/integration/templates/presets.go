@@ -13,7 +13,6 @@ import (
 
 // 通用字段定义（与本地系统对齐）
 const (
-	// 客户
 	srcCustomerName      = "customer.name"
 	srcCustomerPhone     = "customer.phone"
 	srcCustomerEmail     = "customer.email"
@@ -23,13 +22,11 @@ const (
 	srcCustomerSource    = "customer.source"
 	srcCustomerUnifiedID = "customer.unified_id"
 
-	// 线索
 	srcClueAccount = "clue.account"
 	srcClueType    = "clue.type"
 	srcClueName    = "clue.name"
 	srcClueCity    = "clue.city"
 
-	// 订单
 	srcOrderID    = "order.id"
 	srcOrderPrice = "order.price"
 	srcOrderTime  = "order.create_time"
@@ -332,3 +329,4 @@ func mustJSON(v any) string {
 	}
 	return string(b)
 }
+

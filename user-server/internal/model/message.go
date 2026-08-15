@@ -13,7 +13,7 @@ type Message struct {
 	TgID       int64                `gorm:"tg_id" json:"tg_id"`
 	CreateTime int64                `gorm:"autoCreateTime" json:"create_time"`
 	AccountID  string               `gorm:"type:varchar(36)" json:"account_id"`
-	UserID     string               `gorm:"type:varchar(36)" json:"user_id"` // 改为string类型，与User模型一致
+	UserID     string               `gorm:"type:varchar(36)" json:"user_id"` 
 	Text       string               `gorm:"type:varchar(255)" json:"text"`
 }
 
@@ -25,3 +25,4 @@ func (m *Message) BeforeCreate(tx *gorm.DB) error {
 	m.ID = uuid.New().String()
 	return nil
 }
+

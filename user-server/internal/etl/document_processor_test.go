@@ -15,7 +15,6 @@ import (
 func TestProcessDocument_NoInfiniteLoop(t *testing.T) {
 	dp := NewDocumentProcessor(nil)
 
-	// 模拟真实中文知识文档：长文本、句末标点后无空格（无 \s+ 跟随标点）
 	text := strings.Repeat(
 		"智能体营销系统是一套面向企业的多渠道客户触达与转化平台。它通过统一的对话引擎连接微信和企业微信等渠道，帮助企业自动接待客户咨询并引导成交。系统的核心能力包括知识库检索增强生成、意图识别、私信自动回复以及主动触达召回。知识库支持导入产品手册和常见问题等长文本，经过自动分片与向量化后存入向量数据库。在客户提问时通过语义检索召回最相关的片段，再由大语言模型生成准确自然的回复。管理员可在后台配置不同知识库的专属模型参数，实现按业务场景灵活切换的检索质量与回答风格。",
 		5,
@@ -38,7 +37,6 @@ func TestProcessDocument_NoInfiniteLoop(t *testing.T) {
 
 	select {
 	case <-done:
-		// 预期：返回且不死循环
 		if err != nil {
 			t.Fatalf("ProcessDocument 返回错误: %v", err)
 		}
@@ -58,3 +56,4 @@ func TestProcessDocument_NoInfiniteLoop(t *testing.T) {
 		t.Fatal("ProcessDocument 在 5s 内未返回，疑似死循环（splitByFixedLength 推进失败）")
 	}
 }
+

@@ -1,18 +1,5 @@
 package humanize
 
-// rule_scorer_test.go RuleScorer 单元测试
-//
-// 覆盖：
-//  1. 5 维评分基本输出
-//  2. AI 痕迹词触发 Naturalness 重罚
-//  3. burstiness 计算
-//  4. 字数与意图匹配（Conciseness）
-//  5. 投诉场景必须共情（Empathy ≤ 0.4）
-//  6. 专业词密度提升 Professionalism
-//  7. 行动召唤 + 利益词提升 Persuasiveness
-//  8. 边界用例（空输入、超长回复、单字符）
-//  9. 加权综合分计算
-//  10. 各意图期望字数
 
 import (
 	"context"
@@ -21,9 +8,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// ============================================================================
-// 基础评估测试
-// ============================================================================
 
 // TestRuleScorer_Evaluate_Basic 基本 5 维评分输出
 func TestRuleScorer_Evaluate_Basic(t *testing.T) {
@@ -45,7 +29,6 @@ func TestRuleScorer_Evaluate_Basic(t *testing.T) {
 	if len(result.Scores) != 5 {
 		t.Errorf("应有 5 维评分, got %d", len(result.Scores))
 	}
-	// 每维 ∈ [0, 1]
 	for _, s := range result.Scores {
 		if s.Score < 0 || s.Score > 1 {
 			t.Errorf("维度 %s 分数超出 [0,1]: %v", s.Dimension, s.Score)
@@ -81,9 +64,6 @@ func TestRuleScorer_Evaluate_EmptyReply(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Naturalness 测试
-// ============================================================================
 
 // TestRuleScorer_Naturalness_AITrace AI 痕迹词触发重罚
 func TestRuleScorer_Naturalness_AITrace(t *testing.T) {
@@ -108,7 +88,6 @@ func TestRuleScorer_Naturalness_AITrace(t *testing.T) {
 // TestRuleScorer_Naturalness_Humanlike 真人风格回复得分较高
 func TestRuleScorer_Naturalness_Humanlike(t *testing.T) {
 	scorer := NewRuleScorer()
-	// 包含语气词、句长有变化、无 AI 痕迹
 	input := &dto.HumanizeEvalInput{
 		AIReply:         "亲，这款产品超好用呢！我自己也在用。下单试试嘛。",
 		CustomerMessage: "这个产品怎么样？",
@@ -126,12 +105,10 @@ func TestRuleScorer_Naturalness_Humanlike(t *testing.T) {
 // TestRuleScorer_Naturalness_Burstiness 句长方差影响 burstiness
 func TestRuleScorer_Naturalness_Burstiness(t *testing.T) {
 	scorer := NewRuleScorer()
-	// 等长短句：burstiness 低
 	equalLen := &dto.HumanizeEvalInput{
 		AIReply:         "好的呢。可以的哦。没问题啊。我看看呢。下单吧。",
 		CustomerMessage: "可以吗？",
 	}
-	// 变长句：burstiness 高
 	variedLen := &dto.HumanizeEvalInput{
 		AIReply:         "好的呢。这个产品我们可以详细聊聊，因为里面有不少您可能感兴趣的细节。下单吧！",
 		CustomerMessage: "可以吗？",
@@ -143,7 +120,6 @@ func TestRuleScorer_Naturalness_Burstiness(t *testing.T) {
 	if b1 >= b2 {
 		t.Logf("等长句 burstiness=%v, 变长句 burstiness=%v（等长应低于变长）", b1, b2)
 	}
-	// 变长句应得到更高的 Naturalness
 	n1, _ := dto.ScoreHumanizeEvalByDimension(r1, dto.HumanizeDimNaturalness)
 	n2, _ := dto.ScoreHumanizeEvalByDimension(r2, dto.HumanizeDimNaturalness)
 	if n2 < n1-0.1 {
@@ -151,14 +127,10 @@ func TestRuleScorer_Naturalness_Burstiness(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Conciseness 测试
-// ============================================================================
 
 // TestRuleScorer_Conciseness_InRange 字数在期望范围内得高分
 func TestRuleScorer_Conciseness_InRange(t *testing.T) {
 	scorer := NewRuleScorer()
-	// greeting 期望 5-50 字
 	input := &dto.HumanizeEvalInput{
 		AIReply:         "您好，欢迎光临！",
 		CustomerMessage: "你好",
@@ -174,7 +146,6 @@ func TestRuleScorer_Conciseness_InRange(t *testing.T) {
 // TestRuleScorer_Conciseness_TooShort 过短回复扣分
 func TestRuleScorer_Conciseness_TooShort(t *testing.T) {
 	scorer := NewRuleScorer()
-	// complaint 期望 20-200 字，回复 1 字 = 极敷衍
 	input := &dto.HumanizeEvalInput{
 		AIReply:         "好",
 		CustomerMessage: "我要投诉你们的产品质量太差了！",
@@ -190,7 +161,6 @@ func TestRuleScorer_Conciseness_TooShort(t *testing.T) {
 // TestRuleScorer_Conciseness_TooLong 过长回复扣分
 func TestRuleScorer_Conciseness_TooLong(t *testing.T) {
 	scorer := NewRuleScorer()
-	// greeting 期望 5-50 字，回复 200+ 字 = 冗长
 	longReply := "您好欢迎光临我们的店铺"
 	for i := 0; i < 30; i++ {
 		longReply += "，这里有非常多的产品供您选择"
@@ -222,9 +192,6 @@ func TestRuleScorer_Conciseness_UnknownIntent(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Empathy 测试
-// ============================================================================
 
 // TestRuleScorer_Empathy_ComplaintNoEmpathy 投诉场景无共情直接 ≤ 0.4
 func TestRuleScorer_Empathy_ComplaintNoEmpathy(t *testing.T) {
@@ -271,9 +238,6 @@ func TestRuleScorer_Empathy_NonComplaint(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Professionalism 测试
-// ============================================================================
 
 // TestRuleScorer_Professionalism_WithProWords 专业词密度提升得分
 func TestRuleScorer_Professionalism_WithProWords(t *testing.T) {
@@ -303,9 +267,6 @@ func TestRuleScorer_Professionalism_NoProWords(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Persuasiveness 测试
-// ============================================================================
 
 // TestRuleScorer_Persuasiveness_WithActionAndBenefit 行动召唤+利益词得高分
 func TestRuleScorer_Persuasiveness_WithActionAndBenefit(t *testing.T) {
@@ -335,9 +296,6 @@ func TestRuleScorer_Persuasiveness_NoCallToAction(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 综合分计算测试
-// ============================================================================
 
 // TestRuleScorer_TotalScore_WeightedSum 综合分 = Σ w_i * s_i
 func TestRuleScorer_TotalScore_WeightedSum(t *testing.T) {
@@ -348,20 +306,15 @@ func TestRuleScorer_TotalScore_WeightedSum(t *testing.T) {
 		Intent:          "ask_product",
 	}
 	result, _ := scorer.Evaluate(context.Background(), input)
-	// 手动验证
 	expected := 0.0
 	for _, s := range result.Scores {
 		expected += dto.HumanizeDimensionWeight[s.Dimension] * s.Score
 	}
-	// 保留 4 位小数
 	if !approxEqualTol(result.TotalScore, expected, 1e-3) {
 		t.Errorf("综合分=%v want %v", result.TotalScore, expected)
 	}
 }
 
-// ============================================================================
-// 辅助函数测试
-// ============================================================================
 
 // TestCountRunes 字符计数
 func TestCountRunes(t *testing.T) {
@@ -372,7 +325,7 @@ func TestCountRunes(t *testing.T) {
 		{"", 0},
 		{"hello", 5},
 		{"你好世界", 4},
-		{"  a b  ", 2}, // 空格不计（仅 a、b 两个非空白字符）
+		{"  a b  ", 2}, 
 		{"a b c", 3},
 	}
 	for _, tt := range tests {
@@ -408,9 +361,8 @@ func TestComputeBurstiness(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
-		// 不严格校验具体值，只校验是否合理
 		expectNonNeg bool
-		expectLow    bool // 期望较低
+		expectLow    bool 
 	}{
 		{"empty", "", true, true},
 		{"single sentence", "你好。", true, true},
@@ -466,9 +418,6 @@ func TestClampScore(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 各意图期望字数表测试
-// ============================================================================
 
 // TestIntentExpectedLength 各意图字数范围
 func TestIntentExpectedLength(t *testing.T) {
@@ -501,9 +450,6 @@ func TestIntentExpectedLength(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 端到端场景测试
-// ============================================================================
 
 // TestRuleScorer_Evaluate_ComplaintScenario 投诉场景端到端
 func TestRuleScorer_Evaluate_ComplaintScenario(t *testing.T) {
@@ -519,12 +465,10 @@ func TestRuleScorer_Evaluate_ComplaintScenario(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Evaluate failed: %v", err)
 	}
-	// 投诉场景 empathy 应较高
 	emp, _ := dto.ScoreHumanizeEvalByDimension(result, dto.HumanizeDimEmpathy)
 	if emp < 0.5 {
 		t.Errorf("投诉场景 Empathy 应 ≥ 0.5, got %v", emp)
 	}
-	// 综合
 	if result.TotalScore < 0.5 {
 		t.Errorf("合理回复综合分应 ≥ 0.5, got %v", result.TotalScore)
 	}
@@ -544,13 +488,12 @@ func TestRuleScorer_Evaluate_SalesScenario(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Evaluate failed: %v", err)
 	}
-	// 销售场景 persuasiveness 应较高
 	per, _ := dto.ScoreHumanizeEvalByDimension(result, dto.HumanizeDimPersuasiveness)
 	if per < 0.6 {
 		t.Errorf("销售场景 Persuasiveness 应 ≥ 0.6, got %v", per)
 	}
-	// 综合
 	if result.TotalScore < 0.6 {
 		t.Errorf("合理销售回复综合分应 ≥ 0.6, got %v", result.TotalScore)
 	}
 }
+

@@ -53,10 +53,6 @@ var (
 	memoLR  *Lock
 	memoExp time.Time
 
-	// adminProbe 由 main 启动后注入：探测数据库是否已存在超管账号。
-	// inject 目的是将"是否已初始化"的真相源从易丢失的本地 install.lock 文件
-	// 兜底到数据库——只要库中有超管，重启/重建/卷异常导致 install.lock 丢失时
-	// 仍判定为已初始化，避免"每次重启都要重新初始化"。
 	adminProbeMu sync.RWMutex
 	adminProbe   func(ctx context.Context) (string, error)
 )
@@ -186,7 +182,6 @@ func EnsureInstallID(version string) (*Lock, error) {
 		}
 		return lr, nil
 	}
-	// 已存在：若 version 缺失则补一下
 	if lr.Version == "" && version != "" {
 		lr.Version = version
 		_ = Save(lr)
@@ -213,9 +208,7 @@ type Status struct {
 func GetStatus() *Status {
 	lr, err := Load()
 	if err != nil || lr == nil {
-		// 文件缺失：用数据库兜底
 		if name := probeDBAdmin(); name != "" {
-			// 补写 install.lock，避免每次都查库
 			_ = MarkAdminInitialized(name)
 			lr = &Lock{AdminUsername: name, Initialized: true}
 		} else {
@@ -235,7 +228,6 @@ func GetStatus() *Status {
 		st.State = "INITIALIZED"
 		st.Initialized = true
 	} else if lr.AdminUsername != "" {
-		// 文件记了超管但 initialized 仍为 false：以 DB 兜底再确认一次
 		if name := probeDBAdmin(); name != "" {
 			_ = MarkAdminInitialized(name)
 			st.State = "INITIALIZED"
@@ -244,7 +236,6 @@ func GetStatus() *Status {
 			st.State = "HAS_ADMIN"
 		}
 	} else {
-		// 文件无超管：若 DB 有超管则兜底
 		if name := probeDBAdmin(); name != "" {
 			_ = MarkAdminInitialized(name)
 			st.State = "INITIALIZED"
@@ -283,7 +274,6 @@ func GetAdminUsername() string {
 func newInstallID() string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
-		// 极小概率失败：用时间戳兜底
 		ts := time.Now().UnixNano()
 		return "ins-" + hex.EncodeToString([]byte{
 			byte(ts >> 56), byte(ts >> 48), byte(ts >> 40), byte(ts >> 32),
@@ -292,3 +282,4 @@ func newInstallID() string {
 	}
 	return "ins-" + hex.EncodeToString(b[:])
 }
+

@@ -13,7 +13,6 @@ import (
 func TestAuditMiddleware_Enabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	// 保存原始配置
 	originalEnabled := DefaultAuditConfig.Enabled
 	originalExcludePaths := DefaultAuditConfig.ExcludePaths
 	defer func() {
@@ -21,7 +20,6 @@ func TestAuditMiddleware_Enabled(t *testing.T) {
 		DefaultAuditConfig.ExcludePaths = originalExcludePaths
 	}()
 
-	// 启用审计，排除测试路径
 	DefaultAuditConfig.Enabled = true
 	DefaultAuditConfig.ExcludePaths = []string{"/api/health"}
 
@@ -30,7 +28,6 @@ func TestAuditMiddleware_Enabled(t *testing.T) {
 	req, _ := http.NewRequest("POST", "http://test.com/api/test", bytes.NewBuffer([]byte(`{"key":"value"}`)))
 	ctx.Request = req
 
-	// 设置用户信息
 	ctx.Set("user_id", uint(1))
 	ctx.Set("username", "testuser")
 
@@ -60,7 +57,6 @@ func TestAuditMiddleware_NoUserInfo(t *testing.T) {
 	ctx, _ := gin.CreateTestContext(w)
 	req, _ := http.NewRequest("POST", "http://test.com/api/test", bytes.NewBuffer([]byte(`{"key":"value"}`)))
 	ctx.Request = req
-	// 不设置用户信息
 
 	middleware := AuditMiddleware()
 	middleware(ctx)
@@ -142,20 +138,16 @@ func TestGetActionFromMethod_PATCH(t *testing.T) {
 
 // TestGetModuleFromPath_Team 测试 team 模块的路径解析
 func TestGetModuleFromPath_Team(t *testing.T) {
-	// 根据实现，只有当 parts[2] == "team" 时才会返回 "team_"+parts[3]
-	// /api/team/users -> parts=[api, team, users], parts[2]="users" != "team"，返回 "users"
 	result := getModuleFromPath("/api/team/users")
 	if result != "users" {
 		t.Errorf("Expected module 'users' for /api/team/users, got %s", result)
 	}
 
-	// /api/team -> parts=[api, team], len=2 < 3，返回 "unknown"
 	result = getModuleFromPath("/api/team")
 	if result != "unknown" {
 		t.Errorf("Expected module 'unknown' for /api/team, got %s", result)
 	}
 
-	// /api/users -> parts=[api, users], len=2 < 3，返回 "unknown"
 	result = getModuleFromPath("/api/users")
 	if result != "unknown" {
 		t.Errorf("Expected module 'unknown' for /api/users, got %s", result)
@@ -164,14 +156,11 @@ func TestGetModuleFromPath_Team(t *testing.T) {
 
 // TestGetResourceFromPath 测试资源类型解析
 func TestGetResourceFromPath(t *testing.T) {
-	// getResourceFromPath 返回的是 parts[2]
-	// /api/users/123 -> parts=[api, users, 123], parts[2]=123
 	result := getResourceFromPath("/api/users/123")
 	if result != "123" {
 		t.Errorf("Expected resource '123', got %s", result)
 	}
 
-	// /api/users -> parts=[api, users], len=2 < 3，返回 "unknown"
 	result = getResourceFromPath("/api/users")
 	if result != "unknown" {
 		t.Errorf("Expected resource 'unknown', got %s", result)
@@ -188,14 +177,11 @@ func TestGetResourceFromPath_Unknown(t *testing.T) {
 
 // TestGetResourceIDFromPath_Numeric 测试数字 ID 解析
 func TestGetResourceIDFromPath_Numeric(t *testing.T) {
-	// getResourceIDFromPath 从 parts[3:] 开始查找数字 ID
-	// /api/users/123 -> parts=[api, users, 123], len=3，不满足 >= 4，返回 ""
 	result := getResourceIDFromPath("/api/users/123")
 	if result != "" {
 		t.Errorf("Expected empty resource ID for /api/users/123, got %s", result)
 	}
 
-	// /api/users/1/123 -> parts=[api, users, 1, 123], parts[3:]=[123]，找到 "123"
 	result = getResourceIDFromPath("/api/users/1/123")
 	if result != "123" {
 		t.Errorf("Expected resource ID '123', got %s", result)
@@ -332,21 +318,18 @@ func TestIsSensitiveField_Extended(t *testing.T) {
 
 // TestLogLogin 测试登录日志记录
 func TestLogLogin(t *testing.T) {
-	// 这个测试主要是确保 LogLogin 函数不 panic
 	LogLogin(1, "testuser", "127.0.0.1", "test-agent")
 	t.Log("LogLogin completed without panic")
 }
 
 // TestLogLogout 测试登出日志记录
 func TestLogLogout(t *testing.T) {
-	// 这个测试主要是确保 LogLogout 函数不 panic
 	LogLogout(1, "testuser", "127.0.0.1")
 	t.Log("LogLogout completed without panic")
 }
 
 // TestLogCustom 测试自定义日志记录
 func TestLogCustom(t *testing.T) {
-	// 这个测试主要是确保 LogCustom 函数不 panic
 	LogCustom(1, "testuser", "test_action", "test_module", "test_resource", "123", map[string]string{"key": "value"})
 	t.Log("LogCustom completed without panic")
 }
@@ -427,3 +410,4 @@ func TestSaveAuditBatch_Empty(t *testing.T) {
 	saveAuditBatch(logs)
 	t.Log("saveAuditBatch with empty slice completed without panic")
 }
+

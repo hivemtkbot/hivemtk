@@ -1,17 +1,5 @@
 package controller
 
-// role.go 角色管理控制器
-//
-// 五层架构归属：L2 控制层
-// 路由：/api/system/roles/*（由 router/role_routes.go 注册）
-//
-// 阶段 5 范围：
-//   - ListRoles  GET  /api/system/roles
-//   - GetRole    GET  /api/system/roles/:code
-//   - ListMembers GET /api/system/roles/:code/members
-//
-// 全部受 RequireAdminMiddleware 保护（路由层）。
-// 业务校验失败（service 返回的 *ErrInvalidInput 包装）→ 400。
 
 import (
 	"net/http"
@@ -81,7 +69,6 @@ func (ctrl *RoleController) ListMembers(c *gin.Context) {
 		return
 	}
 
-	// 分页参数兜底（与 service 层一致）
 	if page < 1 {
 		page = 1
 	}
@@ -93,3 +80,4 @@ func (ctrl *RoleController) ListMembers(c *gin.Context) {
 	}
 	response.SuccessWithPage(c, members, int64(page), int64(size), total)
 }
+

@@ -27,7 +27,7 @@ func NewNotificationService(db *gorm.DB) *NotificationService {
 
 // ListRequest 列表请求
 type NotificationListRequest struct {
-	UserID  uint // 当前用户 ID（用于过滤 user_id=0 或 =userID）
+	UserID  uint 
 	Page    int
 	Size    int
 	Type    string
@@ -164,3 +164,4 @@ func parseUint(s string) uint {
 	v, _ := strconv.ParseUint(s, 10, 64)
 	return uint(v)
 }
+

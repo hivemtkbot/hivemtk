@@ -92,7 +92,6 @@ func HealthCheck(redisClient Pinger, gormDB *gorm.DB) gin.HandlerFunc {
 		checks := result["checks"].(gin.H)
 		overallOK := true
 
-		// 1. 数据库健康检查
 		dbStatus := "ok"
 		dbErr := ""
 		if database := gormDB; database != nil {
@@ -106,7 +105,6 @@ func HealthCheck(redisClient Pinger, gormDB *gorm.DB) gin.HandlerFunc {
 		}
 		checks["database"] = gin.H{"status": dbStatus, "error": dbErr}
 
-		// 2. Redis 健康检查
 		redisStatus := "not_configured"
 		redisErr := ""
 		if redisClient != nil {
@@ -119,7 +117,6 @@ func HealthCheck(redisClient Pinger, gormDB *gorm.DB) gin.HandlerFunc {
 		}
 		checks["redis"] = gin.H{"status": redisStatus, "error": redisErr}
 
-		// 3. 推理栈健康检查（LLM 供应商）
 		infStatus := inferenceStatus()
 		infErr := ""
 		if infStatus == "down" {
@@ -128,11 +125,8 @@ func HealthCheck(redisClient Pinger, gormDB *gorm.DB) gin.HandlerFunc {
 		}
 		checks["inference"] = gin.H{"status": infStatus, "error": infErr}
 
-		// 4. Embedding 可达性探针（P1-6 新增）
 		embStatus, embErr := embeddingStatus()
 		checks["embedding"] = gin.H{"status": embStatus, "error": embErr}
-		// 默认作为观测维度（不阻断整体健康），避免未部署独立 embedding 服务时误杀运行态；
-		// 设置 HEALTH_EMBEDDING_CRITICAL=true 时纳入阻断（严格模式）。
 		if embStatus == "down" && os.Getenv("HEALTH_EMBEDDING_CRITICAL") == "true" {
 			overallOK = false
 		}
@@ -185,7 +179,6 @@ func ReadinessCheck(redisClient Pinger, gormDB *gorm.DB) gin.HandlerFunc {
 				return
 			}
 		}
-		// 推理栈就绪性：无可用 LLM 供应商时视为未就绪，避免网关投流量后全部回复失败
 		if infStatus := inferenceStatus(); infStatus == "down" {
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"status": "not_ready",
@@ -193,7 +186,6 @@ func ReadinessCheck(redisClient Pinger, gormDB *gorm.DB) gin.HandlerFunc {
 			})
 			return
 		}
-		// Embedding 就绪性探针（P1-6 新增）：默认观测，仅 HEALTH_EMBEDDING_CRITICAL=true 时阻断
 		if embStatus, embErr := embeddingStatus(); embStatus == "down" && os.Getenv("HEALTH_EMBEDDING_CRITICAL") == "true" {
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"status": "not_ready",
@@ -207,3 +199,4 @@ func ReadinessCheck(redisClient Pinger, gormDB *gorm.DB) gin.HandlerFunc {
 		})
 	}
 }
+

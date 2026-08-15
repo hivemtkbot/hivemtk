@@ -22,15 +22,15 @@ import (
 
 // AssetBundleFilter 列表过滤
 type AssetBundleFilter struct {
-	Keyword  string                  // 模糊查询 Title / Description
-	Author   string                  // 精确作者
-	Industry string                  // 行业
-	Language string                  // 语言
-	Scope    model.AssetBundleScope  // 作用域
-	Status   model.AssetBundleStatus // 状态
-	Tags     []string                // 至少命中一个 tag
-	Page     int                     // 1-based
-	Size     int                     // default 20
+	Keyword  string                  
+	Author   string                  
+	Industry string                  
+	Language string                  
+	Scope    model.AssetBundleScope  
+	Status   model.AssetBundleStatus 
+	Tags     []string                
+	Page     int                     
+	Size     int                     
 }
 
 // AssetBundleRepository 资产包仓储接口
@@ -112,7 +112,6 @@ func (r *assetBundleRepo) FindByAssetID(ctx context.Context, assetID string) (*m
 func (r *assetBundleRepo) List(ctx context.Context, f AssetBundleFilter) ([]*model.AssetBundle, int64, error) {
 	var list []*model.AssetBundle
 	var total int64
-	// 显式排除软删除行（防御性，避免 deleted_at 非 NULL 的已删记录泄漏到列表）
 	q := r.db.WithContext(ctx).Model(&model.AssetBundle{}).Where("deleted_at IS NULL")
 
 	if strings.TrimSpace(f.Keyword) != "" {
@@ -135,7 +134,6 @@ func (r *assetBundleRepo) List(ctx context.Context, f AssetBundleFilter) ([]*mod
 		q = q.Where("status = ?", f.Status)
 	}
 	if len(f.Tags) > 0 {
-		// 用 && 数组包含查询（PostgreSQL text[] 包含语义）
 		q = q.Where("tags && ?", f.Tags)
 	}
 	if f.Page <= 0 {
@@ -189,3 +187,4 @@ func (r *assetBundleRepo) ExistsByAssetID(ctx context.Context, assetID string) (
 	}
 	return c > 0, nil
 }
+

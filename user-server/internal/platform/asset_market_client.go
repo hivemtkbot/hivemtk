@@ -59,8 +59,6 @@ func (c *AssetMarketClient) doData(method, path string, req any, out any) error 
 }
 
 func (c *AssetMarketClient) ListAssets(ctx context.Context, assetType, industry string, page, size int) ([]map[string]any, int64, error) {
-	// 修复：query 参数经 url.Values.Encode() 编码，防止 assetType/industry 含 &/#/换行
-	// 等字符造成参数注入或拼接越权资产
 	q := url.Values{}
 	q.Set("page", fmt.Sprintf("%d", page))
 	q.Set("size", fmt.Sprintf("%d", size))
@@ -83,7 +81,6 @@ func (c *AssetMarketClient) ListAssets(ctx context.Context, assetType, industry 
 
 func (c *AssetMarketClient) GetAssetDetail(ctx context.Context, assetID string) (map[string]any, error) {
 	var resp map[string]any
-	// 修复：assetID 经 PathEscape 编码，防止含 / 或 .. 造成路径穿越拼接越权资产
 	detailPath := "/merchant-api/asset-market/detail/" + url.PathEscape(assetID)
 	if err := c.doData("GET", detailPath, nil, &resp); err != nil {
 		return nil, err
@@ -116,3 +113,4 @@ func (c *AssetMarketClient) ReportUsage(ctx context.Context, assetID string, del
 	return c.doData("POST", "/merchant-api/asset-market/report-usage",
 		map[string]any{"asset_id": assetID, "delta": delta}, nil)
 }
+

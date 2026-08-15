@@ -14,13 +14,11 @@ import (
 )
 
 type WhatsAppTemplateService struct {
-	db   *gorm.DB // 保留以维持签名兼容（controller 直接传入）
+	db   *gorm.DB 
 	repo *repository.WhatsappTemplateRepository
 }
 
 func NewWhatsAppTemplateService(db *gorm.DB) *WhatsAppTemplateService {
-	// 即使 db 为 nil 也初始化 repo（依赖全局 DB，由 SetTestDB 设置）
-	// 避免测试场景下 ts.repo 为 nil 导致 panic
 	if db != nil {
 		return &WhatsAppTemplateService{db: db, repo: repository.NewWhatsappTemplateRepositoryWithDB(db)}
 	}
@@ -78,3 +76,4 @@ func (ts *WhatsAppTemplateService) DeleteTemplate(ctx context.Context, templateI
 func generateTemplateID() string {
 	return fmt.Sprintf("tmpl_%d", time.Now().UnixNano())
 }
+

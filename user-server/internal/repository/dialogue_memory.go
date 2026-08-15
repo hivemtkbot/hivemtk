@@ -1,13 +1,5 @@
 package repository
 
-// dialogue_memory_repository.go 对话长期记忆仓储
-//
-// 五层架构归属: L4 数据访问层
-// 设计依据: service/dialogue_memory.go 历史直连 DB 操作下沉
-//
-// 覆盖 model:
-//   - DialogueMemory (对话长期记忆主表)
-//   - MessageHub (短期记忆来源：按 conversation_id 取最近 N 条)
 
 import (
 	"context"
@@ -20,13 +12,11 @@ import (
 
 // DialogueMemoryRepository 对话记忆仓储接口
 type DialogueMemoryRepository interface {
-	// DialogueMemory 主表
 	GetDialogueMemoryBySession(ctx context.Context, sessionID string) (*model.DialogueMemory, error)
 	CreateDialogueMemory(ctx context.Context, mem *model.DialogueMemory) error
 	SaveDialogueMemory(ctx context.Context, mem *model.DialogueMemory) error
 	ListDialogueMemoriesByCustomer(ctx context.Context, customerID string, limit int) ([]*model.DialogueMemory, int64, error)
 
-	// MessageHub 短期记忆来源
 	ListMessageHubByConversation(ctx context.Context, conversationID string, limit int) ([]model.MessageHub, error)
 }
 
@@ -92,3 +82,4 @@ func (r *dialogueMemoryRepository) ListMessageHubByConversation(ctx context.Cont
 	}
 	return records, nil
 }
+

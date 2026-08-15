@@ -82,21 +82,18 @@ func (s *CustomerService) CreateOrUpdate(ctx context.Context, dto *CustomerDTO) 
 		return nil, ErrInvalidDTO
 	}
 
-	// 检查是否已存在（通过任意身份标识）
 	existing, err := s.repo.FindByIdentity(ctx, dto.Phone, dto.Email, dto.WechatOpenID, dto.DouyinOpenID, dto.XiaohongshuID)
 	if err != nil {
 		return nil, err
 	}
 
 	if existing != nil {
-		// 更新现有客户
 		existing.Phone = dto.Phone
 		existing.Email = dto.Email
 		existing.WechatOpenID = dto.WechatOpenID
 		existing.DouyinOpenID = dto.DouyinOpenID
 		existing.XiaohongshuID = dto.XiaohongshuID
 
-		// 注意：UnifiedID 在建档时确定，作为跨业务稳定主键，更新时严禁重算。
 
 		if err := s.repo.Update(ctx, existing); err != nil {
 			return nil, err
@@ -104,7 +101,6 @@ func (s *CustomerService) CreateOrUpdate(ctx context.Context, dto *CustomerDTO) 
 		return existing, nil
 	}
 
-	// 创建新客户
 	customer := &model.Customer{
 		Phone:         dto.Phone,
 		Email:         dto.Email,
@@ -132,14 +128,12 @@ func (s *CustomerService) GetCustomerProfile(ctx context.Context, customerID str
 		return nil, ErrCustomerNotFound
 	}
 
-	// 获取最近事件
 	eventRepo := repository.NewCustomerEventRepository()
 	events, err := eventRepo.GetByCustomerID(ctx, customerID, 50)
 	if err != nil {
 		events = []*model.CustomerEvent{}
 	}
 
-	// 获取标签
 	tags := GetCustomerTags(customer)
 
 	return &CustomerProfile{
@@ -178,10 +172,8 @@ func (s *CustomerService) AddTags(ctx context.Context, customerID string, tags [
 		return ErrCustomerNotFound
 	}
 
-	// 获取现有标签
 	existingTags := GetCustomerTags(customer)
 
-	// 合并标签（去重）
 	tagSet := make(map[string]bool)
 	for _, tag := range existingTags {
 		tagSet[tag] = true
@@ -192,7 +184,6 @@ func (s *CustomerService) AddTags(ctx context.Context, customerID string, tags [
 		}
 	}
 
-	// 转换回切片
 	newTags := make([]string, 0, len(tagSet))
 	for tag := range tagSet {
 		newTags = append(newTags, tag)
@@ -219,10 +210,8 @@ func (s *CustomerService) RemoveTags(ctx context.Context, customerID string, tag
 		return ErrCustomerNotFound
 	}
 
-	// 获取现有标签
 	existingTags := GetCustomerTags(customer)
 
-	// 创建移除标签集合
 	removeSet := make(map[string]bool)
 	for _, tag := range tags {
 		if tag != "" {
@@ -230,7 +219,6 @@ func (s *CustomerService) RemoveTags(ctx context.Context, customerID string, tag
 		}
 	}
 
-	// 过滤保留的标签
 	newTags := make([]string, 0)
 	for _, tag := range existingTags {
 		if !removeSet[tag] {
@@ -267,7 +255,6 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 		return errors.New("次要客户不存在")
 	}
 
-	// 合并身份标识（保留非空值）
 	if secondary.Phone != "" && primary.Phone == "" {
 		primary.Phone = secondary.Phone
 	}
@@ -284,7 +271,6 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 		primary.XiaohongshuID = secondary.XiaohongshuID
 	}
 
-	// 合并标签
 	primaryTags := GetCustomerTags(primary)
 	secondaryTags := GetCustomerTags(secondary)
 	tagSet := make(map[string]bool)
@@ -302,33 +288,24 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 		return err
 	}
 
-	// 注意：主档案的 UnifiedID 在建档时即由 BeforeCreate 钩子确定，且作为跨业务
-	// （会话/事件/标签/触达）的稳定主键，合并时严禁重新生成，否则会导致所有外键
-	// 引用失效。副档案的标识已回填到主档案，OneID 保持不变。
 
-	// 更新主要客户（OneID 不变）
 	if err := s.repo.Update(ctx, primary); err != nil {
 		return err
 	}
 
-	// 迁移关联数据，保证 360 视图完整性：
-	// 1) 会话：按 OneID 聚合（customer_sessions.one_id 指向 UnifiedID）
 	if secondary.UnifiedID != "" && secondary.UnifiedID != primary.UnifiedID {
 		if err := s.repo.ReassignSessionOneID(ctx, secondary.UnifiedID, primary.UnifiedID); err != nil {
 			return fmt.Errorf("迁移会话失败: %w", err)
 		}
 	}
-	// 2) 事件：将 customer_events.customer_id 指向主档案
 	if err := s.migrateCustomerEvents(ctx, secondaryID, primaryID); err != nil {
 		return err
 	}
 
-	// 删除次要客户
 	if err := s.repo.Delete(ctx, secondaryID); err != nil {
 		return err
 	}
 
-	// 合并审计：记录不可逆合并操作，便于追溯"谁被并入谁"。
 	s.writeMergeAuditLog(ctx, primary, secondary)
 
 	return nil
@@ -356,8 +333,6 @@ func (s *CustomerService) writeMergeAuditLog(ctx context.Context, primary, secon
 		ResourceID: primary.ID,
 		Detail:     string(detail),
 	}
-	// 审计失败不阻断合并主流程，但必须可观测（静默吞错会掩盖审计丢失）。
-	// 防御性：auditRepo 未注入时降级到全局仓库，避免 nil panic。
 	auditRepo := s.auditRepo
 	if auditRepo == nil {
 		auditRepo = repository.NewOperationLogRepository()
@@ -382,7 +357,7 @@ func (s *CustomerService) migrateCustomerEvents(ctx context.Context, secondaryID
 		data["merged_from_secondary"] = true
 		data["original_customer_id"] = secondaryID
 		_ = SetCustomerEventData(event, data)
-		event.ID = "" // 重新插入，避免主键冲突
+		event.ID = "" 
 		migrated = append(migrated, event)
 	}
 	return eventRepo.RecordBatch(ctx, migrated)
@@ -405,7 +380,6 @@ func SerializeTags(tags []string) (string, error) {
 	return string(data), nil
 }
 
-// ============== 包级辅助函数（业务方法集中在 service 层） ==============
 
 // GetCustomerTags 获取客户标签数组
 func GetCustomerTags(c *model.Customer) []string {
@@ -421,3 +395,4 @@ func SetCustomerTags(c *model.Customer, tags []string) error {
 func GenerateCustomerUnifiedID(c *model.Customer) string {
 	return model.GenerateCustomerUnifiedID(c)
 }
+

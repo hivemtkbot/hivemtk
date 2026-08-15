@@ -1,21 +1,5 @@
 package migrations
 
-// confidence_migration.go 置信度驱动转人工迁移 v2.8.0
-//
-// 五层架构归属: L5 数据层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.3 表结构设计
-// 私域独立部署: 无 merchant_id 字段
-//
-// 本迁移创建 置信度驱动转人工所需的 6 张表：
-//  1. confidence_signals       - 每次 5 维信号快照
-//  2. confidence_calibrations  - 温度缩放校准参数历史
-//  3. handoff_decisions        - 转人工决策记录
-//  4. threshold_policies       - 动态阈值策略配置
-//  5. ab_tests                 - A/B 测试配置与统计
-//  6. ab_test_metrics          - A/B 测试单条指标样本（独立时序表）
-//
-// 幂等性: 所有 DDL 使用 IF NOT EXISTS，可重入
-// 依赖: 无（独立表）
 
 import (
 	"context"
@@ -54,37 +38,30 @@ func (m *ConfidenceMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 1. confidence_signals 表
 	if err := m.createConfidenceSignals(ctx); err != nil {
 		return fmt.Errorf("create confidence_signals 失败: %w", err)
 	}
 
-	// 2. confidence_calibrations 表
 	if err := m.createConfidenceCalibrations(ctx); err != nil {
 		return fmt.Errorf("create confidence_calibrations 失败: %w", err)
 	}
 
-	// 3. handoff_decisions 表
 	if err := m.createHandoffDecisions(ctx); err != nil {
 		return fmt.Errorf("create handoff_decisions 失败: %w", err)
 	}
 
-	// 4. threshold_policies 表
 	if err := m.createThresholdPolicies(ctx); err != nil {
 		return fmt.Errorf("create threshold_policies 失败: %w", err)
 	}
 
-	// 5. ab_tests 表
 	if err := m.createABTests(ctx); err != nil {
 		return fmt.Errorf("create ab_tests 失败: %w", err)
 	}
 
-	// 8. ab_test_metrics 表
 	if err := m.createABTestMetrics(ctx); err != nil {
 		return fmt.Errorf("create ab_test_metrics 失败: %w", err)
 	}
 
-	// 9. 插入默认 threshold_policies（幂等：仅当表为空时）
 	if err := m.seedDefaultPolicies(ctx); err != nil {
 		logger.Infof("[ConfidenceMigration] 默认策略种子化提示: %v", err)
 	}
@@ -268,7 +245,7 @@ func (m *ConfidenceMigration) seedDefaultPolicies(ctx context.Context) error {
 		return err
 	}
 	if count > 0 {
-		return nil // 已有数据，不覆盖
+		return nil 
 	}
 
 	policies := []struct {
@@ -314,7 +291,6 @@ func (m *ConfidenceMigration) Down(ctx context.Context) error {
 		`DROP TABLE IF EXISTS ab_tests`,
 		`DROP TABLE IF EXISTS handoff_decisions`,
 		`DROP TABLE IF EXISTS confidence_signals`,
-		// 保留 confidence_calibrations / threshold_policies
 	}
 	return execAll(ctx, m.db, stmts)
 }
@@ -334,3 +310,4 @@ func execAll(ctx context.Context, db *gorm.DB, stmts []string) error {
 
 // compile-time 接口断言
 var _ migration.Migration = (*ConfidenceMigration)(nil)
+

@@ -42,7 +42,7 @@ func TestReasonOf_LowConfidence_ConfAboveOldMagic(t *testing.T) {
 	h := newHandoffDecisionServiceForTest()
 	dec := &dto.ConfidenceDecision{
 		AggregatedConf: 0.50,
-		DecisionBand:   dto.BandHandoff, // 由 policy.BandHandoffUpper(=0.55) 决定的真实区间
+		DecisionBand:   dto.BandHandoff, 
 	}
 	if got := h.reasonOf(context.Background(), dec); got != "low_confidence" {
 		t.Fatalf("band-driven handoff must be low_confidence even if conf>0.4; want=low_confidence got=%q", got)
@@ -59,3 +59,4 @@ func TestReasonOf_BandHandoff_WhenBandNotHandoff(t *testing.T) {
 		t.Fatalf("non-handoff band with no veto must fall back to band_handoff; want=band_handoff got=%q", got)
 	}
 }
+

@@ -20,10 +20,10 @@ type TraceEvalLog struct {
 	DimensionsJSON string `gorm:"type:jsonb;default:'{}'" json:"dimensions"`
 	Reason         string `gorm:"type:text" json:"reason"`
 	Bad            bool   `gorm:"not null;default:false" json:"bad"`
-	// AdjustedChunks 本次调整的 chunk 权重明细：[{"id":,"old":,"new":}]
 	AdjustedChunks string    `gorm:"type:jsonb;default:'[]'" json:"adjusted_chunks"`
 	CreatedAt      time.Time `gorm:"autoCreateTime;index" json:"created_at"`
 }
 
 // TableName 指定审计日志表名
 func (TraceEvalLog) TableName() string { return "trace_eval_log" }
+

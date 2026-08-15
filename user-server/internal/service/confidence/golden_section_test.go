@@ -1,15 +1,5 @@
 package confidence
 
-// golden_section_test.go 黄金分割搜索单元测试
-//
-// 覆盖：
-//  1. 二次函数最小值（理论可解析）
-//  2. 常数函数
-//  3. a >= b 边界
-//  4. 默认参数（tolerance/maxIter <= 0）
-//  5. 正弦函数最小值
-//  6. 收敛精度
-//  7. 单峰凸函数（Guo 2017 NLL 对 T 满足）
 
 import (
 	"math"
@@ -44,7 +34,6 @@ func TestGoldenSection_Minimize_ConstantFunction(t *testing.T) {
 	g := NewGoldenSectionSearcher(1e-4, 100)
 	f := func(x float64) float64 { return 42.0 }
 	xStar := g.Minimize(f, 0.0, 10.0)
-	// 应在区间内
 	if xStar < 0 || xStar > 10 {
 		t.Errorf("常数函数最小值应在 [0,10], got %v", xStar)
 	}
@@ -76,8 +65,6 @@ func TestGoldenSection_Minimize_Sinusoidal(t *testing.T) {
 	g := NewGoldenSectionSearcher(1e-6, 200)
 	f := func(x float64) float64 { return math.Sin(x) }
 	xStar := g.Minimize(f, 0.0, 2*math.Pi)
-	// 注意：黄金分割要求单峰，sin 在 [0, 2π] 不是严格单峰
-	// 但在 [π/2, 2π] 区间内是单峰的
 	if math.Abs(xStar-3*math.Pi/2) > 0.5 {
 		t.Logf("提示：sin 在 [0,2π] 非单峰，结果可能非全局最优: x*=%v (理论 3π/2=%v)",
 			xStar, 3*math.Pi/2)
@@ -140,10 +127,8 @@ func TestGoldenSection_Minimize_RegionShrinkRatio(t *testing.T) {
 		return (x - 5.0) * (x - 5.0)
 	}
 	_ = g.Minimize(f, 0.0, 10.0)
-	// 初始区间 10，tolerance 1e-4
-	// 每次缩小 0.618，需要 log(1e-4/10)/log(0.618) ≈ 21 次迭代
-	// 每次迭代 1 次函数调用，加上初始 2 次
 	if callCount < 5 || callCount > 50 {
 		t.Errorf("函数调用次数应在 [5, 50], got %d", callCount)
 	}
 }
+

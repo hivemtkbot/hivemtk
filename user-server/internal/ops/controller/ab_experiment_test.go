@@ -94,7 +94,7 @@ func TestABExperimentController_CreateExperiment_MissingRequiredFields(t *testin
 	router.POST("/experiments", ctrl.CreateExperiment)
 
 	createReq := service.CreateExperimentRequest{
-		Name: "", // 必填字段为空
+		Name: "", 
 	}
 	body, _ := json.Marshal(createReq)
 
@@ -119,7 +119,6 @@ func TestABExperimentController_GetExperiment_Success(t *testing.T) {
 		ctx.Next()
 	})
 
-	// 创建测试实验
 	experiment := model.ABExperiment{
 		Name:        "Test Experiment",
 		Description: "Test Description",
@@ -173,7 +172,6 @@ func TestABExperimentController_GetExperimentList_Success(t *testing.T) {
 	database := setupABExperimentTestDB(t)
 	ctrl, router := setupABExperimentController(t)
 
-	// 创建测试实验（私域部署：单租户无 MerchantID）
 	experiments := []model.ABExperiment{
 		{Name: "Experiment 1", Status: "running"},
 		{Name: "Experiment 2", Status: "draft"},
@@ -219,7 +217,6 @@ func TestABExperimentController_UpdateExperiment_Success(t *testing.T) {
 		ctx.Next()
 	})
 
-	// 创建测试实验
 	experiment := model.ABExperiment{
 		Name:        "Test Experiment",
 		Description: "Test Description",
@@ -297,7 +294,6 @@ func TestABExperimentController_DeleteExperiment_Success(t *testing.T) {
 	database := setupABExperimentTestDB(t)
 	ctrl, router := setupABExperimentController(t)
 
-	// 创建测试实验
 	experiment := model.ABExperiment{
 		Name:   "Test Experiment",
 		Status: "draft",
@@ -334,7 +330,6 @@ func TestABExperimentController_StartExperiment_Success(t *testing.T) {
 	database := setupABExperimentTestDB(t)
 	ctrl, router := setupABExperimentController(t)
 
-	// 创建测试实验
 	experiment := model.ABExperiment{
 		Name:   "Test Experiment",
 		Status: "draft",
@@ -371,7 +366,6 @@ func TestABExperimentController_PauseExperiment_Success(t *testing.T) {
 	database := setupABExperimentTestDB(t)
 	ctrl, router := setupABExperimentController(t)
 
-	// 创建测试实验
 	experiment := model.ABExperiment{
 		Name:   "Test Experiment",
 		Status: "running",
@@ -408,7 +402,6 @@ func TestABExperimentController_StopExperiment_Success(t *testing.T) {
 	database := setupABExperimentTestDB(t)
 	ctrl, router := setupABExperimentController(t)
 
-	// 创建测试实验
 	experiment := model.ABExperiment{
 		Name:   "Test Experiment",
 		Status: "running",
@@ -445,7 +438,6 @@ func TestABExperimentController_GetExperimentResults_Success(t *testing.T) {
 	database := setupABExperimentTestDB(t)
 	ctrl, router := setupABExperimentController(t)
 
-	// 创建测试实验
 	experiment := model.ABExperiment{
 		Name:   "Test Experiment",
 		Status: "completed",
@@ -482,7 +474,6 @@ func TestABExperimentController_GetConversionEvents_Success(t *testing.T) {
 	database := setupABExperimentTestDB(t)
 	ctrl, router := setupABExperimentController(t)
 
-	// 创建测试实验
 	experiment := model.ABExperiment{
 		Name:   "Test Experiment",
 		Status: "completed",
@@ -575,7 +566,6 @@ func TestABExperimentController_GetExperimentList_WithPagination(t *testing.T) {
 	database := setupABExperimentTestDB(t)
 	ctrl, router := setupABExperimentController(t)
 
-	// 创建多个测试实验
 	for i := 0; i < 25; i++ {
 		experiment := model.ABExperiment{
 			Name:   "Experiment " + string(rune(i)),
@@ -594,3 +584,4 @@ func TestABExperimentController_GetExperimentList_WithPagination(t *testing.T) {
 		t.Errorf("Expected status OK, got %d", w.Code)
 	}
 }
+

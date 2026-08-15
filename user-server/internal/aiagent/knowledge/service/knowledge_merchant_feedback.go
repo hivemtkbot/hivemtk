@@ -10,9 +10,6 @@ import (
 	"hivemtk-user/internal/aiagent/knowledge/repository"
 )
 
-// ============================================================================
-// 4) 反馈标注
-// ============================================================================
 
 // SubmitFeedbackRequest 反馈请求
 type SubmitFeedbackRequest struct {
@@ -20,7 +17,7 @@ type SubmitFeedbackRequest struct {
 	Query      string `json:"query"`
 	DocumentID uint64 `json:"document_id"`
 	ChunkID    uint64 `json:"chunk_id"`
-	Rating     int    `json:"rating"` // 1=good 0=neutral -1=bad
+	Rating     int    `json:"rating"` 
 	Comment    string `json:"comment"`
 	Operator   string `json:"operator"`
 	SessionID  string `json:"session_id"`
@@ -40,7 +37,7 @@ func (s *KnowledgeMerchantService) SubmitFeedback(ctx context.Context, req *Subm
 	s.ensureReposFromDB()
 	h := sha256.Sum256([]byte(req.Query))
 	fb := &model.KnowledgeFeedback{
-		ProductID: req.ProductID, // 直接存储字符串 ProductID
+		ProductID: req.ProductID, 
 		Query:     req.Query,
 		QueryHash: hex.EncodeToString(h[:]),
 		Rating:    req.Rating,
@@ -84,3 +81,4 @@ func (s *KnowledgeMerchantService) ListFeedbacks(ctx context.Context, req *ListF
 	}
 	return s.feedbackRepo.List(ctx, filter)
 }
+

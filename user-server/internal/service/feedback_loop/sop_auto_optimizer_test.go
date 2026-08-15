@@ -1,18 +1,5 @@
 package feedbackloop
 
-// sop_auto_optimizer_test.go SOP 自动优化器测试
-//
-// 覆盖：
-//  B. PG 集成测试
-//     1. ProcessPendingSuggestions 空建议
-//     2. ProcessPendingSuggestions 高 priority 自动应用（branch_prune）
-//     3. ProcessPendingSuggestions 低 priority 不自动应用
-//     4. ProcessPendingSuggestions 未知建议类型失败
-//     5. checkAndPromote 收敛触发选优
-//     6. checkAndRollback 转化率下降触发回滚
-//     7. rollbackTest 回滚 A/B 测试
-//     8. fetchConversionRates 拉取转化率
-//     9. fetchComplaintRates 拉取投诉率
 
 import (
 	"context"
@@ -23,9 +10,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ============================================================================
-// B. PG 集成测试
-// ============================================================================
 
 // TestSOPAutoOptimizer_ProcessPending_NoSuggestions 无建议
 func TestSOPAutoOptimizer_ProcessPending_NoSuggestions(t *testing.T) {
@@ -57,7 +41,6 @@ func TestSOPAutoOptimizer_ProcessPending_BranchPrune(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	ctx := context.Background()
 
-	// 插入 SOP
 	sop := model.SOPAgent{
 		Name: "test-sop", Scenario: "test", IsActive: true,
 		SOPGraph: model.JSONMap{"nodes": []any{}},
@@ -65,7 +48,6 @@ func TestSOPAutoOptimizer_ProcessPending_BranchPrune(t *testing.T) {
 	if err := db.Create(&sop).Error; err != nil {
 		t.Fatalf("seed sop: %v", err)
 	}
-	// 插入 pending suggestion（priority=2）
 	sug := model.OptimizationSuggestion{
 		SOPID: sop.ID, SOPName: "test-sop",
 		NodeID: "node_1", NodeName: "test-node",
@@ -154,7 +136,7 @@ func TestSOPAutoOptimizer_ProcessPending_LowPriorityNotApplied(t *testing.T) {
 		SOPID: sop.ID, SOPName: "test-sop-low",
 		SuggestionType: model.SuggestionTypeBranchPrune,
 		SuggestionText: "低 priority 建议",
-		Priority:       1, // < 2
+		Priority:       1, 
 		Status:         model.SuggestionStatusPending,
 	}
 	if err := db.Create(&sug).Error; err != nil {
@@ -189,9 +171,9 @@ func TestSOPAutoOptimizer_ProcessPending_UnknownSuggestionType(t *testing.T) {
 	}
 	sug := model.OptimizationSuggestion{
 		SOPID: sop.ID, SOPName: "test",
-		SuggestionType: "unknown_type", // 未知类型
+		SuggestionType: "unknown_type", 
 		SuggestionText: "未知类型建议",
-		Priority:       3, // 高 priority
+		Priority:       3, 
 		Status:         model.SuggestionStatusPending,
 	}
 	if err := db.Create(&sug).Error; err != nil {
@@ -223,7 +205,6 @@ func TestSOPAutoOptimizer_CheckAndPromote_Converged(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	ctx := context.Background()
 
-	// 创建 1 个 running A/B 测试
 	expID := "test_promote_converged"
 	now := time.Now()
 	abTest := model.PromptABTest{
@@ -238,7 +219,6 @@ func TestSOPAutoOptimizer_CheckAndPromote_Converged(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	// bandit stub 返回已收敛（winner = arm_a）
 	bandit := newStubBanditAllocator()
 	bandit.SetConverged(expID, "arm_a")
 
@@ -261,7 +241,6 @@ func TestSOPAutoOptimizer_CheckAndPromote_Converged(t *testing.T) {
 		t.Errorf("WinnerArmKey = %q want arm_a", updated.WinnerArmKey)
 	}
 
-	// 验证 bandit.PromoteArm 被调用
 	promotes := bandit.PromoteCalls()
 	if len(promotes) != 1 {
 		t.Errorf("PromoteArm calls = %d want 1", len(promotes))
@@ -289,7 +268,6 @@ func TestSOPAutoOptimizer_CheckAndRollback_ConversionDrop(t *testing.T) {
 	ctx := context.Background()
 
 	sopID := uint(100)
-	// 创建 A/B 测试
 	expID := "test_rollback_conversion"
 	now := time.Now()
 	abTest := model.PromptABTest{
@@ -304,7 +282,6 @@ func TestSOPAutoOptimizer_CheckAndRollback_ConversionDrop(t *testing.T) {
 		t.Fatalf("seed abTest: %v", err)
 	}
 
-	// 创建 bandit arms
 	arms := []model.BanditArm{
 		{ExperimentID: expID, ExperimentType: model.BanditExperimentTypeSOPVariant, ArmKey: "arm_a_original", SOPID: sopID, Variant: "A", Status: model.BanditArmStatusExploring},
 		{ExperimentID: expID, ExperimentType: model.BanditExperimentTypeSOPVariant, ArmKey: "arm_b_variant", SOPID: sopID, Variant: "B", Status: model.BanditArmStatusExploring},
@@ -313,8 +290,6 @@ func TestSOPAutoOptimizer_CheckAndRollback_ConversionDrop(t *testing.T) {
 		t.Fatalf("seed arms: %v", err)
 	}
 
-	// 插入 feedback_signals
-	// variant A: 10 条，5 条 success
 	for i := 0; i < 10; i++ {
 		outcome := model.FeedbackSignalOutcomePending
 		if i < 5 {
@@ -329,7 +304,6 @@ func TestSOPAutoOptimizer_CheckAndRollback_ConversionDrop(t *testing.T) {
 			t.Fatalf("seed signal A %d: %v", i, err)
 		}
 	}
-	// variant B: 10 条，1 条 success
 	for i := 0; i < 10; i++ {
 		outcome := model.FeedbackSignalOutcomePending
 		if i < 1 {
@@ -345,7 +319,7 @@ func TestSOPAutoOptimizer_CheckAndRollback_ConversionDrop(t *testing.T) {
 		}
 	}
 
-	bandit := newStubBanditAllocator() // 不收敛，确保不触发 promote
+	bandit := newStubBanditAllocator() 
 	o := NewSOPAutoOptimizer(db, bandit, DefaultSOPAutoOptimizerConfig())
 	report, err := o.ProcessPendingSuggestions(ctx)
 	if err != nil {
@@ -387,7 +361,6 @@ func TestSOPAutoOptimizer_FetchConversionRates(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	// variant A: 4 条，2 条 success → 50%
 	for i := 0; i < 4; i++ {
 		outcome := model.FeedbackSignalOutcomePending
 		if i < 2 {
@@ -398,7 +371,6 @@ func TestSOPAutoOptimizer_FetchConversionRates(t *testing.T) {
 			Outcome: outcome, CreatedAt: now, UpdatedAt: now,
 		}).Error
 	}
-	// variant B: 5 条，1 条 success → 20%
 	for i := 0; i < 5; i++ {
 		outcome := model.FeedbackSignalOutcomePending
 		if i < 1 {
@@ -437,7 +409,6 @@ func TestSOPAutoOptimizer_FetchComplaintRates(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	// variant A: 10 条 event，1 条 complaint → 10%
 	for i := 0; i < 10; i++ {
 		key := "like"
 		if i < 1 {
@@ -452,7 +423,6 @@ func TestSOPAutoOptimizer_FetchComplaintRates(t *testing.T) {
 			CreatedAt: now,
 		}).Error
 	}
-	// variant B: 10 条 event，5 条 complaint → 50%
 	for i := 0; i < 10; i++ {
 		key := "like"
 		if i < 5 {
@@ -523,3 +493,4 @@ func TestSOPAutoOptimizer_RollbackTest(t *testing.T) {
 		t.Errorf("retired arms = %d want 2", retiredCount)
 	}
 }
+

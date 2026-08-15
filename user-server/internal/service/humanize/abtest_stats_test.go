@@ -1,15 +1,5 @@
 package humanize
 
-// abtest_stats_test.go A/B 测试统计三件套单元测试
-//
-// 覆盖：
-//  1. Mann-Whitney U 检验（含结修正、与 R wilcox.test 对比）
-//  2. Bootstrap CI 差值置信区间（配对/独立）
-//  3. Bootstrap CI 单组置信区间
-//  4. Cohen's d 效应量（0.2/0.5/0.8 阈值）
-//  5. ABTestStatsService.Compute 端到端
-//  6. normalCDF 标准正态 CDF
-//  7. 描述性统计辅助函数
 
 import (
 	"context"
@@ -19,9 +9,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// ============================================================================
-// Mann-Whitney U 检验测试
-// ============================================================================
 
 // TestMannWhitneyU_Basic 基本检验：两组完全分离 → 极显著
 func TestMannWhitneyU_Basic(t *testing.T) {
@@ -31,7 +18,6 @@ func TestMannWhitneyU_Basic(t *testing.T) {
 	if u < 0 {
 		t.Errorf("U=%v 应 ≥ 0", u)
 	}
-	// 完全分离，p 值应极小（< 0.05）
 	if p >= 0.05 {
 		t.Errorf("完全分离的两组 p=%v 应 < 0.05", p)
 	}
@@ -45,7 +31,6 @@ func TestMannWhitneyU_Identical(t *testing.T) {
 	if p < 0.05 {
 		t.Errorf("完全相同的两组 p=%v 应 ≥ 0.05", p)
 	}
-	// U 在完全相同时应等于 muU = nA*nB/2 = 25/2 = 12.5
 	if math.Abs(u-12.5) > 0.1 {
 		t.Errorf("完全相同 U=%v want ≈ 12.5", u)
 	}
@@ -53,7 +38,6 @@ func TestMannWhitneyU_Identical(t *testing.T) {
 
 // TestMannWhitneyU_TieCorrection 含结的方差修正
 func TestMannWhitneyU_TieCorrection(t *testing.T) {
-	// 两组都有重复值
 	groupA := []float64{0.8, 0.8, 0.85, 0.85, 0.9}
 	groupB := []float64{0.7, 0.75, 0.75, 0.8, 0.8}
 	u, p := MannWhitneyUTest(groupA, groupB)
@@ -91,7 +75,6 @@ func TestMannWhitneyU_LargeSamples(t *testing.T) {
 		0.70, 0.72, 0.74, 0.76, 0.78, 0.80, 0.65, 0.67, 0.69, 0.71,
 	}
 	_, p := MannWhitneyUTest(groupA, groupB)
-	// groupA 显著高于 groupB
 	if p >= 0.05 {
 		t.Errorf("显著差异的两组 p=%v 应 < 0.05", p)
 	}
@@ -103,7 +86,6 @@ func TestMannWhitneyU_Symmetric(t *testing.T) {
 	groupB := []float64{7, 8, 9, 10, 11, 12}
 	uAB, pAB := MannWhitneyUTest(groupA, groupB)
 	uBA, pBA := MannWhitneyUTest(groupB, groupA)
-	// min(uA, uB) = min(uB, uA) → 相同
 	if math.Abs(uAB-uBA) > 1e-9 {
 		t.Errorf("U_AB=%v 应等于 U_BA=%v (min 对称)", uAB, uBA)
 	}
@@ -112,9 +94,6 @@ func TestMannWhitneyU_Symmetric(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// normalCDF 测试
-// ============================================================================
 
 // TestNormalCDF_Basic 标准正态 CDF 关键值
 func TestNormalCDF_Basic(t *testing.T) {
@@ -148,16 +127,12 @@ func TestNormalCDF_Range(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Bootstrap CI 测试
-// ============================================================================
 
 // TestBootstrapCIDifference_Paired 配对 bootstrap
 func TestBootstrapCIDifference_Paired(t *testing.T) {
 	control := []float64{0.7, 0.75, 0.8, 0.85, 0.9, 0.82, 0.78, 0.88}
 	treatment := []float64{0.8, 0.85, 0.9, 0.92, 0.95, 0.88, 0.85, 0.93}
 	low, high := BootstrapCIDifference(control, treatment, 5000, 0.05)
-	// treatment 普遍比 control 高约 0.05-0.10，CI 应 > 0
 	if low <= 0 {
 		t.Logf("warning: 配对 CI low=%v 应 > 0（bootstrap 随机性）", low)
 	}
@@ -181,7 +156,6 @@ func TestBootstrapCIDifference_NoDifference(t *testing.T) {
 	control := []float64{0.8, 0.82, 0.78, 0.85, 0.81, 0.83, 0.79, 0.84}
 	treatment := []float64{0.81, 0.80, 0.82, 0.79, 0.83, 0.80, 0.82, 0.81}
 	low, high := BootstrapCIDifference(control, treatment, 10000, 0.05)
-	// CI 应包含 0
 	if low > 0 || high < 0 {
 		t.Errorf("无差异组 CI=[%v, %v] 应包含 0", low, high)
 	}
@@ -209,12 +183,10 @@ func TestBootstrapCIDifference_NBootZero(t *testing.T) {
 func TestBootstrapCIDifference_AlphaInvalid(t *testing.T) {
 	control := []float64{0.8, 0.85, 0.82, 0.83, 0.81}
 	treatment := []float64{0.9, 0.95, 0.92, 0.93, 0.91}
-	// alpha=0 应退化为 0.05
 	low, high := BootstrapCIDifference(control, treatment, 1000, 0)
 	if low > high {
 		t.Errorf("alpha=0 CI=[%v,%v] low 应 ≤ high", low, high)
 	}
-	// alpha=1 应退化为 0.05
 	low2, high2 := BootstrapCIDifference(control, treatment, 1000, 1)
 	if low2 > high2 {
 		t.Errorf("alpha=1 CI=[%v,%v] low 应 ≤ high", low2, high2)
@@ -228,7 +200,6 @@ func TestBootstrapCI_SingleGroup(t *testing.T) {
 	if low > high {
 		t.Errorf("CI low=%v 应 ≤ high=%v", low, high)
 	}
-	// 均值约 0.813，CI 应包含此值
 	mean := meanValue(data)
 	if low > mean || high < mean {
 		t.Errorf("CI=[%v,%v] 应包含均值 %v", low, high, mean)
@@ -243,16 +214,12 @@ func TestBootstrapCI_Empty(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Cohen's d 测试
-// ============================================================================
 
 // TestCohensD_Basic 基本 Cohen's d 计算
 func TestCohensD_Basic(t *testing.T) {
 	group1 := []float64{0.7, 0.75, 0.8, 0.85, 0.9, 0.82, 0.78, 0.88}
 	group2 := []float64{0.6, 0.65, 0.7, 0.75, 0.8, 0.72, 0.68, 0.78}
 	d := CohensD(group1, group2)
-	// group1 > group2 → d > 0
 	if d <= 0 {
 		t.Errorf("group1 > group2 时 d=%v 应 > 0", d)
 	}
@@ -280,15 +247,12 @@ func TestCohensD_Identical(t *testing.T) {
 
 // TestCohensD_SmallEffect 小效应（|d| ∈ [0.2, 0.5)）
 func TestCohensD_SmallEffect(t *testing.T) {
-	// 构造差异约为 0.3 标准差的两组
 	group1 := []float64{0.80, 0.82, 0.83, 0.84, 0.85, 0.81, 0.82, 0.83, 0.84, 0.85,
 		0.82, 0.83, 0.84, 0.85, 0.86, 0.82, 0.83, 0.84, 0.85, 0.86}
 	group2 := []float64{0.77, 0.79, 0.80, 0.81, 0.82, 0.78, 0.79, 0.80, 0.81, 0.82,
 		0.79, 0.80, 0.81, 0.82, 0.83, 0.79, 0.80, 0.81, 0.82, 0.83}
 	d := CohensD(group1, group2)
 	label := InterpretCohensD(d)
-	// 差异约 0.03，标准差约 0.018，d ≈ 1.5 → 实际上可能是 large
-	// 这里只校验标签是四种之一
 	validLabels := map[string]bool{
 		"negligible": true, "small": true, "medium": true, "large": true,
 	}
@@ -299,7 +263,6 @@ func TestCohensD_SmallEffect(t *testing.T) {
 
 // TestCohensD_ZeroVariance 零方差
 func TestCohensD_ZeroVariance(t *testing.T) {
-	// 两组各自所有值相同 → 方差为 0 → d = 0
 	group1 := []float64{0.8, 0.8, 0.8, 0.8, 0.8}
 	group2 := []float64{0.9, 0.9, 0.9, 0.9, 0.9}
 	d := CohensD(group1, group2)
@@ -318,9 +281,6 @@ func TestCohensD_TooSmall(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// InterpretCohensD 测试
-// ============================================================================
 
 // TestInterpretCohensD_Boundaries 阈值边界
 func TestInterpretCohensD_Boundaries(t *testing.T) {
@@ -353,9 +313,6 @@ func TestInterpretCohensD_Boundaries(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// ABTestStatsService.Compute 端到端测试
-// ============================================================================
 
 // TestABTestStatsService_Compute_Significant 端到端：显著差异
 func TestABTestStatsService_Compute_Significant(t *testing.T) {
@@ -420,7 +377,6 @@ func TestABTestStatsService_Compute_NotSignificant(t *testing.T) {
 	if result.Winner != "inconclusive" {
 		t.Errorf("无差异 Winner=%q want inconclusive", result.Winner)
 	}
-	// CI 应包含 0
 	if result.BootstrapCILow > 0 || result.BootstrapCIHigh < 0 {
 		t.Logf("warning: 无差异组 CI=[%v, %v] 应包含 0（bootstrap 随机性）", result.BootstrapCILow, result.BootstrapCIHigh)
 	}
@@ -440,7 +396,7 @@ func TestABTestStatsService_Compute_InsufficientSamples(t *testing.T) {
 	svc := NewABTestStatsService()
 	_, err := svc.Compute(context.Background(), &dto.ABTestStatsInput{
 		ExperimentID: "exp_test_003",
-		Control:      []float64{0.8, 0.85, 0.82, 0.83}, // 仅 4 个
+		Control:      []float64{0.8, 0.85, 0.82, 0.83}, 
 		Treatment:    []float64{0.9, 0.95, 0.92, 0.93, 0.91},
 	})
 	if err == nil {
@@ -504,9 +460,6 @@ func TestABTestStatsService_Chaining_Invalid(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 描述性统计辅助函数测试
-// ============================================================================
 
 // TestMeanValue 均值
 func TestMeanValue(t *testing.T) {
@@ -537,9 +490,9 @@ func TestVarianceValue(t *testing.T) {
 	}{
 		{[]float64{1, 2, 3, 4, 5}, 3.0, 2.5, 1e-9},
 		{[]float64{0.8, 0.9, 0.85, 0.95}, 0.875, 0.004167, 1e-5},
-		{[]float64{1}, 1.0, 0, 0},          // 单元素
-		{[]float64{}, 0, 0, 0},             // 空数组
-		{[]float64{5, 5, 5, 5}, 5.0, 0, 0}, // 零方差
+		{[]float64{1}, 1.0, 0, 0},          
+		{[]float64{}, 0, 0, 0},             
+		{[]float64{5, 5, 5, 5}, 5.0, 0, 0}, 
 	}
 	for _, tt := range tests {
 		got := varianceValue(tt.data, tt.mean)
@@ -569,3 +522,4 @@ func TestRound4(t *testing.T) {
 		}
 	}
 }
+

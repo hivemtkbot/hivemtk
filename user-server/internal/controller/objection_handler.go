@@ -74,3 +74,4 @@ func (c *ObjectionHandlerController) RecordUsage(ctx *gin.Context) {
 	}
 	response.Success(ctx, nil, "记录成功")
 }
+

@@ -44,7 +44,6 @@ func waitForIntentCount(t *testing.T, rec *IntentRecognizer, customerID string, 
 	}
 }
 
-// ===== 意图识别 规则测试 - 价格 =====
 
 // 1. 完全匹配 - 询价
 func TestRecognizeRule_PriceInquiryExact(t *testing.T) {
@@ -97,7 +96,6 @@ func TestRecognizeRule_PriceInquiryQuote(t *testing.T) {
 	}
 }
 
-// ===== 意图识别 规则测试 - 价格异议 =====
 
 // 6. 价格异议 - 太贵了
 func TestRecognizeRule_PriceObjectionExpensive(t *testing.T) {
@@ -138,7 +136,6 @@ func TestRecognizeRule_PriceObjectionNotCost(t *testing.T) {
 	}
 }
 
-// ===== 需求异议 =====
 
 // 10. 需求异议 - 不需要
 func TestRecognizeRule_NeedObjectionNo(t *testing.T) {
@@ -167,7 +164,6 @@ func TestRecognizeRule_NeedObjectionLook(t *testing.T) {
 	}
 }
 
-// ===== 信任异议 =====
 
 // 13. 信任异议 - 骗子
 func TestRecognizeRule_TrustObjectionCheat(t *testing.T) {
@@ -196,7 +192,6 @@ func TestRecognizeRule_TrustObjectionBelieve(t *testing.T) {
 	}
 }
 
-// ===== 竞品异议 =====
 
 // 16. 竞品异议 - 别家
 func TestRecognizeRule_CompetitorObjectionOther(t *testing.T) {
@@ -216,7 +211,6 @@ func TestRecognizeRule_CompetitorObjectionCompare(t *testing.T) {
 	}
 }
 
-// ===== 时机异议 =====
 
 // 18. 时机异议 - 过段时间
 func TestRecognizeRule_TimingObjectionLater(t *testing.T) {
@@ -245,7 +239,6 @@ func TestRecognizeRule_TimingObjectionBusy(t *testing.T) {
 	}
 }
 
-// ===== 购买意向 =====
 
 // 21. 购买意向 - 怎么买
 func TestRecognizeRule_PurchaseHowToBuy(t *testing.T) {
@@ -286,7 +279,6 @@ func TestRecognizeRule_PurchasePlaced(t *testing.T) {
 	}
 }
 
-// ===== 产品咨询 =====
 
 // 25. 产品咨询 - 功能
 func TestRecognizeRule_ProductFeature(t *testing.T) {
@@ -315,7 +307,6 @@ func TestRecognizeRule_ProductHowToUse(t *testing.T) {
 	}
 }
 
-// ===== 服务咨询 =====
 
 // 28. 服务咨询 - 售后
 func TestRecognizeRule_ServiceAfterSale(t *testing.T) {
@@ -344,7 +335,6 @@ func TestRecognizeRule_ServiceLogistics(t *testing.T) {
 	}
 }
 
-// ===== 售后问题 =====
 
 // 31. 售后问题 - 坏了
 func TestRecognizeRule_AfterSaleBroken(t *testing.T) {
@@ -373,7 +363,6 @@ func TestRecognizeRule_AfterSaleFault(t *testing.T) {
 	}
 }
 
-// ===== 流失倾向 =====
 
 // 34. 流失倾向 - 别再发了
 func TestRecognizeRule_ChurnStop(t *testing.T) {
@@ -405,7 +394,6 @@ func TestRecognizeRule_ChurnUnsubscribe(t *testing.T) {
 	}
 }
 
-// ===== 社交寒暄 =====
 
 // 37. 社交 - 在吗
 func TestRecognizeRule_SocialHello(t *testing.T) {
@@ -434,7 +422,6 @@ func TestRecognizeRule_SocialHi(t *testing.T) {
 	}
 }
 
-// ===== 投诉 =====
 
 // 40. 投诉 - 投诉
 func TestRecognizeRule_ComplaintBasic(t *testing.T) {
@@ -466,7 +453,6 @@ func TestRecognizeRule_ComplaintTrash(t *testing.T) {
 	}
 }
 
-// ===== 边界测试 =====
 
 // 43. 空文本
 func TestRecognize_EmptyText(t *testing.T) {
@@ -529,13 +515,11 @@ func TestRecognize_MultipleIntents(t *testing.T) {
 	if r == nil {
 		t.Fatal("expected non-nil result")
 	}
-	// 应识别出最匹配的
 	if r.IntentType == "" {
 		t.Error("expected non-empty intent")
 	}
 }
 
-// ===== 置信度测试 =====
 
 // 49. 完全匹配高置信度
 func TestRecognize_ExactHighConfidence(t *testing.T) {
@@ -567,13 +551,11 @@ func TestRecognize_MultipleKeywordConfidence(t *testing.T) {
 	}
 }
 
-// ===== 持久化测试 =====
 
 // 52. 识别记录入库
 func TestRecognize_Persist(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
 	rec.Recognize(context.Background(), "s-1", "u-1", "多少钱")
-	// 等待异步写入
 	time.Sleep(200 * time.Millisecond)
 	var count int64
 	db.Model(&model.IntentRecord{}).Count(&count)
@@ -618,7 +600,6 @@ func TestRecognize_RecordFields(t *testing.T) {
 	}
 }
 
-// ===== 统计测试 =====
 
 // 55. 统计为空
 func TestIntentStats_Empty(t *testing.T) {
@@ -654,7 +635,6 @@ func TestStats_ZeroDays(t *testing.T) {
 	_ = stats
 }
 
-// ===== Recent Intents =====
 
 // 59. 客户近期意图
 func TestRecentIntents_Basic(t *testing.T) {
@@ -706,7 +686,6 @@ func TestRecentIntents_OrderDesc(t *testing.T) {
 	}
 }
 
-// ===== inferSentiment 间接测试 =====
 
 // 63. 情感 - 流失
 func TestSentiment_Churn(t *testing.T) {
@@ -757,7 +736,6 @@ func TestSentiment_Unknown(t *testing.T) {
 	}
 }
 
-// ===== extractJSONFromStr =====
 
 // 70. extractJSON - 标准JSON
 func TestExtractJSON_Normal(t *testing.T) {
@@ -804,7 +782,6 @@ func TestExtractJSON_Nested(t *testing.T) {
 	}
 }
 
-// ===== entitiesToMap =====
 
 // 75. entitiesToMap - 空
 func TestEntitiesToMap_Empty(t *testing.T) {
@@ -830,7 +807,6 @@ func TestEntitiesToMap_BadJSON(t *testing.T) {
 	}
 }
 
-// ===== recognizeByRule 直接测试 =====
 
 // 78. recognizeByRule 优先级 - 完全匹配
 func TestRecognizeByRule_ExactPriority(t *testing.T) {
@@ -883,7 +859,6 @@ func TestRecognizeByRule_ConfCapped(t *testing.T) {
 	}
 }
 
-// ===== DefaultIntents 测试 =====
 
 // 83. 默认意图数量
 func TestDefaultIntents_Count(t *testing.T) {
@@ -918,7 +893,6 @@ func TestDefaultIntents_Unique(t *testing.T) {
 	}
 }
 
-// ===== IntentType 常量测试 =====
 
 // 86. 意图常量
 func TestIntentConstants(t *testing.T) {
@@ -953,7 +927,6 @@ func TestIntentConstants_Different(t *testing.T) {
 	}
 }
 
-// ===== LLM 兜底测试 =====
 
 // 88. LLM 不可用时 兜底 unknown
 func TestRecognize_LLMUnavailableFallback(t *testing.T) {
@@ -967,7 +940,6 @@ func TestRecognize_LLMUnavailableFallback(t *testing.T) {
 	}
 }
 
-// ===== 全局实例 =====
 
 // 89. 初始化
 func TestInitIntentRecognizer(t *testing.T) {
@@ -1003,7 +975,6 @@ func TestRecognize_NilCache(t *testing.T) {
 	}
 }
 
-// ===== 边界与稳健性 =====
 
 // 92. 极长文本
 func TestRecognize_LongText(t *testing.T) {
@@ -1114,10 +1085,8 @@ func TestRecognizeResult_Fields(t *testing.T) {
 // 102. records 同步写入
 func TestRecognize_RecordSync(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
-	// 触发多条
 	rec.Recognize(context.Background(), "s-1", "u-1", "多少钱")
 	rec.Recognize(context.Background(), "s-1", "u-1", "太贵了")
-	// 等待
 	for i := 0; i < 20; i++ {
 		time.Sleep(50 * time.Millisecond)
 		var c int64
@@ -1137,7 +1106,6 @@ func TestRecognize_RecordSync(t *testing.T) {
 func TestRecognize_EntitiesField(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
 	r, _ := rec.Recognize(context.Background(), "s-1", "u-1", "多少钱？")
-	// rule 模式不返回 entities（rule 识别不写entities）
 	if r.Method != "rule" {
 		t.Logf("method=%s", r.Method)
 	}
@@ -1163,7 +1131,6 @@ func TestRecognize_IntentSubtypeField(t *testing.T) {
 	if r == nil {
 		t.Fatal("expected non-nil")
 	}
-	// rule 模式不设置 subtype
 	if r.IntentSubtype != "" {
 		t.Logf("subtype=%s", r.IntentSubtype)
 	}
@@ -1180,3 +1147,4 @@ func TestRecognize_MultiSession(t *testing.T) {
 		t.Errorf("expected 2 across sessions, got %d", len(list))
 	}
 }
+

@@ -31,9 +31,6 @@ func setupBackupController(t *testing.T) (*BackupController, *RestoreController,
 	return ctrl, restoreCtrl, router, database
 }
 
-// ============================================================================
-// BackupController 测试
-// ============================================================================
 
 // TestBackupController_CreateBackup_Success 测试创建备份成功
 func TestBackupController_CreateBackup_Success(t *testing.T) {
@@ -58,7 +55,6 @@ func TestBackupController_CreateBackup_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -113,7 +109,6 @@ func TestBackupController_CreateBackup_NoUser(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
-		// 不设置 user_id
 		ctx.Next()
 	})
 
@@ -147,7 +142,6 @@ func TestBackupController_GetBackupList_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -183,7 +177,6 @@ func TestBackupController_GetBackupList_DefaultPagination(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -205,7 +198,6 @@ func TestBackupController_GetBackupByID_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200、404 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -250,7 +242,6 @@ func TestBackupController_GetBackupByID_NoMerchant(t *testing.T) {
 func TestBackupController_DeleteBackup_Success(t *testing.T) {
 	ctrl, _, router, database := setupBackupController(t)
 
-	// 先创建一条备份记录，确保删除时能找到
 	backup := &model.Backup{
 		BackupName: "test-backup",
 		Status:     "completed",
@@ -269,7 +260,6 @@ func TestBackupController_DeleteBackup_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -323,9 +313,6 @@ func TestBackupController_NewBackupController(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// RestoreController 测试
-// ============================================================================
 
 // TestRestoreController_RestoreBackup_Success 测试恢复备份成功
 func TestRestoreController_RestoreBackup_Success(t *testing.T) {
@@ -349,7 +336,6 @@ func TestRestoreController_RestoreBackup_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200、404 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -413,7 +399,6 @@ func TestRestoreController_GetRestoreList_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -449,7 +434,6 @@ func TestRestoreController_GetRestoreList_DefaultPagination(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -471,7 +455,6 @@ func TestRestoreController_GetLastRestore_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于服务层依赖外部系统，接受 200、404 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK, Not Found or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -498,3 +481,4 @@ func TestRestoreController_NewRestoreController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

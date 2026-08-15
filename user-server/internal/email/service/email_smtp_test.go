@@ -75,7 +75,6 @@ func TestEmailSmtpService_GetEmailSmtp(t *testing.T) {
 	database := setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()
 
-	// 创建 SMTP 配置
 	emailSmtp := model.EmailSmtp{
 		ID:       "test-id-123",
 		Name:     "test@qq.com",
@@ -87,7 +86,6 @@ func TestEmailSmtpService_GetEmailSmtp(t *testing.T) {
 	}
 	database.Create(&emailSmtp)
 
-	// 获取 SMTP 配置
 	retrieved, err := service.GetEmailSmtp(context.Background(), emailSmtp.ID)
 	if err != nil {
 		t.Fatalf("GetEmailSmtp failed: %v", err)
@@ -118,7 +116,6 @@ func TestEmailSmtpService_GetEmailSmtpList(t *testing.T) {
 	database := setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()
 
-	// 创建多个 SMTP 配置
 	for i := 0; i < 3; i++ {
 		emailSmtp := model.EmailSmtp{
 			Name:     "test" + string(rune('0'+i)) + "@qq.com",
@@ -131,7 +128,6 @@ func TestEmailSmtpService_GetEmailSmtpList(t *testing.T) {
 		database.Create(&emailSmtp)
 	}
 
-	// 获取列表
 	list, err := service.GetEmailSmtpList(context.Background())
 	if err != nil {
 		t.Fatalf("GetEmailSmtpList failed: %v", err)
@@ -162,7 +158,6 @@ func TestEmailSmtpService_UpdateEmailSmtp(t *testing.T) {
 	database := setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()
 
-	// 创建 SMTP 配置
 	emailSmtp := model.EmailSmtp{
 		ID:       "test-update-id",
 		Name:     "old@qq.com",
@@ -174,7 +169,6 @@ func TestEmailSmtpService_UpdateEmailSmtp(t *testing.T) {
 	}
 	database.Create(&emailSmtp)
 
-	// 更新 SMTP 配置
 	emailSmtp.Name = "new@qq.com"
 	emailSmtp.Limit = 200
 	err := service.UpdateEmailSmtp(context.Background(), emailSmtp)
@@ -198,7 +192,6 @@ func TestEmailSmtpService_DeleteEmailSmtp(t *testing.T) {
 	database := setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()
 
-	// 创建 SMTP 配置
 	emailSmtp := model.EmailSmtp{
 		ID:       "test-delete-id",
 		Name:     "delete@qq.com",
@@ -210,7 +203,6 @@ func TestEmailSmtpService_DeleteEmailSmtp(t *testing.T) {
 	}
 	database.Create(&emailSmtp)
 
-	// 删除 SMTP 配置
 	err := service.DeleteEmailSmtp(context.Background(), emailSmtp.ID)
 	if err != nil {
 		t.Fatalf("DeleteEmailSmtp failed: %v", err)
@@ -229,7 +221,6 @@ func TestEmailSmtpService_GetRandEmailSmtp(t *testing.T) {
 	database := setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()
 
-	// 创建 SMTP 配置
 	emailSmtp := model.EmailSmtp{
 		ID:       "test-rand-id",
 		Name:     "rand@qq.com",
@@ -241,7 +232,6 @@ func TestEmailSmtpService_GetRandEmailSmtp(t *testing.T) {
 	}
 	database.Create(&emailSmtp)
 
-	// 获取随机 SMTP
 	retrieved, err := service.GetRandEmailSmtp(context.Background())
 	if err != nil {
 		t.Fatalf("GetRandEmailSmtp failed: %v", err)
@@ -257,7 +247,6 @@ func TestEmailSmtpService_GetRandEmailSmtp_EmptyList(t *testing.T) {
 	setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()
 
-	// 获取随机 SMTP，应该返回错误
 	_, err := service.GetRandEmailSmtp(context.Background())
 	if err == nil {
 		t.Error("Expected error for empty SMTP list")
@@ -269,7 +258,6 @@ func TestEmailSmtpService_GetRandEmailSmtp_NoAvailable(t *testing.T) {
 	database := setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()
 
-	// 创建 SMTP 配置，limit 设置为 0
 	emailSmtp := model.EmailSmtp{
 		ID:       "test-no-available-id",
 		Name:     "nolimit@qq.com",
@@ -281,7 +269,6 @@ func TestEmailSmtpService_GetRandEmailSmtp_NoAvailable(t *testing.T) {
 	}
 	database.Create(&emailSmtp)
 
-	// 获取随机 SMTP，应该返回错误
 	_, err := service.GetRandEmailSmtp(context.Background())
 	if err == nil {
 		t.Error("Expected error for no available SMTP")
@@ -293,7 +280,6 @@ func TestEmailSmtpService_GetRandEmailSmtp_WithLimit(t *testing.T) {
 	database := setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()
 
-	// 创建第一个 SMTP 配置，limit 为 2
 	emailSmtp1 := model.EmailSmtp{
 		ID:       "test-limit-1",
 		Name:     "limit1@qq.com",
@@ -305,7 +291,6 @@ func TestEmailSmtpService_GetRandEmailSmtp_WithLimit(t *testing.T) {
 	}
 	database.Create(&emailSmtp1)
 
-	// 创建第二个 SMTP 配置，limit 为 10
 	emailSmtp2 := model.EmailSmtp{
 		ID:       "test-limit-2",
 		Name:     "limit2@qq.com",
@@ -317,13 +302,11 @@ func TestEmailSmtpService_GetRandEmailSmtp_WithLimit(t *testing.T) {
 	}
 	database.Create(&emailSmtp2)
 
-	// 获取随机 SMTP，应该返回第一个 SMTP（因为都没有达到限制）
 	retrieved, err := service.GetRandEmailSmtp(context.Background())
 	if err != nil {
 		t.Fatalf("GetRandEmailSmtp failed: %v", err)
 	}
 
-	// 应该返回第一个 SMTP
 	if retrieved.Name != "limit1@qq.com" {
 		t.Errorf("Expected name 'limit1@qq.com', got %s", retrieved.Name)
 	}
@@ -369,7 +352,6 @@ func TestEmailSmtpService_UpdateEmailSmtp_NotFound(t *testing.T) {
 		Limit:    100,
 	}
 
-	// GORM Save 会插入新记录，不应该报错
 	err := service.UpdateEmailSmtp(context.Background(), emailSmtp)
 	if err != nil {
 		t.Errorf("UpdateEmailSmtp should not fail: %v", err)
@@ -393,3 +375,4 @@ func TestEmailSmtpService_DeleteEmailSmtp_NotFound(t *testing.T) {
 		t.Errorf("DeleteEmailSmtp should not fail for non-existent ID: %v", err)
 	}
 }
+

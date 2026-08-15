@@ -66,3 +66,4 @@ func (r *AfterSaleRepository) ListByCustomer(ctx context.Context, phone string) 
 	err := q.Order("id DESC").Find(&list).Error
 	return list, err
 }
+

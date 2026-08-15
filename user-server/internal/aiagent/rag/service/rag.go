@@ -15,8 +15,6 @@ type RAGService struct {
 	llmService *llm.LLMService
 	ragEngine  *rag_core.RAGEngine
 
-	// threeTier 可选：三级检索服务（L1 缓存 + L2/L3/L4 降级）
-	// 当注入后，Query/StructuredQuery 优先走三级检索，未注入时走原 RAGEngine
 	threeTier ThreeTierSearcher
 }
 
@@ -73,7 +71,6 @@ func (r *RAGService) retrieve(ctx context.Context, kbID, query string, topK int)
 		if err == nil {
 			return res.Chunks, res.Source, nil
 		}
-		// 降级到 RAGEngine
 	}
 	chunks, err := r.ragEngine.Search(ctx, query, topK)
 	if err != nil {
@@ -87,9 +84,9 @@ type QueryRequest struct {
 	Query     string              `json:"query"`
 	RAGConfig *rag_core.RAGConfig `json:"rag_config,omitempty"`
 	LLMConfig *llm.LLMConfig      `json:"llm_config,omitempty"`
-	Context   map[string]any      `json:"context,omitempty"` // 额外上下文信息
-	KBID      string              `json:"kb_id,omitempty"`   // 知识库 ID（启用三级检索时必填）
-	TopK      int                 `json:"top_k,omitempty"`   // 检索 TopK（0 则使用默认）
+	Context   map[string]any      `json:"context,omitempty"` 
+	KBID      string              `json:"kb_id,omitempty"`   
+	TopK      int                 `json:"top_k,omitempty"`   
 }
 
 // QueryResponse RAG查询响应
@@ -104,7 +101,6 @@ type QueryResponse struct {
 func (r *RAGService) Query(ctx context.Context, req *QueryRequest) (*QueryResponse, error) {
 	startTime := time.Now()
 
-	// 如果提供了RAG配置，则更新引擎配置
 	if req.RAGConfig != nil {
 		err := r.ragEngine.UpdateConfig(req.RAGConfig)
 		if err != nil {
@@ -112,35 +108,29 @@ func (r *RAGService) Query(ctx context.Context, req *QueryRequest) (*QueryRespon
 		}
 	}
 
-	// 获取LLM配置，如果未提供则使用默认配置
 	llmConfig := req.LLMConfig
 	if llmConfig == nil {
 		llmConfig = r.llmService.GetDefaultConfig()
 	}
 
-	// 验证LLM配置
 	err := r.llmService.ValidateConfig(llmConfig)
 	if err != nil {
 		return nil, fmt.Errorf("invalid LLM config: %w", err)
 	}
 
-	// 检索相关文档片段（优先走三级，未注入时回退到 RAGEngine）
 	topK := req.TopK
 	if topK <= 0 {
-		topK = 0 // 让 retrieve 内部用默认值
+		topK = 0 
 	}
 	chunks, source, err := r.retrieve(ctx, req.KBID, req.Query, topK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search documents: %w", err)
 	}
 
-	// 构建上下文
 	contextStr := buildContextString(chunks)
 
-	// 构建提示词
 	prompt := buildRAGPrompt(req.Query, contextStr, req.Context)
 
-	// 调用LLM生成答案
 	answer, err := r.llmService.Generate(ctx, llmConfig, prompt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate answer: %w", err)
@@ -153,7 +143,6 @@ func (r *RAGService) Query(ctx context.Context, req *QueryRequest) (*QueryRespon
 		ExecTime:   time.Since(startTime),
 	}
 
-	// 添加执行元数据
 	response.Metadata["query_time"] = response.ExecTime.Seconds()
 	response.Metadata["retrieved_chunks"] = len(chunks)
 	response.Metadata["llm_model"] = llmConfig.Model
@@ -194,7 +183,6 @@ func buildRAGPrompt(query, contextStr string, contextData map[string]any) string
 
 回答:`, contextStr, query)
 
-	// 如果有额外上下文信息，也可以加入
 	if contextData != nil && len(contextData) > 0 {
 		contextJSON, _ := json.Marshal(contextData)
 		prompt += fmt.Sprintf("\n\n额外上下文: %s", string(contextJSON))
@@ -223,7 +211,6 @@ func (r *RAGService) DeleteKnowledgeBaseDocument(ctx context.Context, docID stri
 func (r *RAGService) StructuredQuery(ctx context.Context, req *QueryRequest, responseSchema any) (any, error) {
 	startTime := time.Now()
 
-	// 如果提供了RAG配置，则更新引擎配置
 	if req.RAGConfig != nil {
 		err := r.ragEngine.UpdateConfig(req.RAGConfig)
 		if err != nil {
@@ -231,34 +218,27 @@ func (r *RAGService) StructuredQuery(ctx context.Context, req *QueryRequest, res
 		}
 	}
 
-	// 获取LLM配置，如果未提供则使用默认配置
 	llmConfig := req.LLMConfig
 	if llmConfig == nil {
 		llmConfig = r.llmService.GetDefaultConfig()
 	}
 
-	// 设置响应格式为JSON
 	llmConfig.ResponseFormat = "json_object"
 
-	// 验证LLM配置
 	err := r.llmService.ValidateConfig(llmConfig)
 	if err != nil {
 		return nil, fmt.Errorf("invalid LLM config: %w", err)
 	}
 
-	// 检索相关文档片段（优先走三级）
 	chunks, source, err := r.retrieve(ctx, req.KBID, req.Query, req.TopK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search documents: %w", err)
 	}
 
-	// 构建上下文
 	contextStr := buildContextString(chunks)
 
-	// 构建结构化提示词
 	prompt := buildStructuredRAGPrompt(req.Query, contextStr, req.Context, responseSchema)
 
-	// 调用LLM生成结构化答案
 	result, err := r.llmService.GenerateStructured(ctx, llmConfig, prompt, responseSchema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate structured answer: %w", err)
@@ -275,7 +255,6 @@ func (r *RAGService) StructuredQuery(ctx context.Context, req *QueryRequest, res
 		metadata["retrieval_mode"] = "engine"
 	}
 
-	// 添加元数据到结果
 	if resultMap, ok := result.(map[string]any); ok {
 		resultMap["_metadata"] = metadata
 		result = resultMap
@@ -308,7 +287,6 @@ func buildStructuredRAGPrompt(query, contextStr string, contextData map[string]a
 
 回答:`, contextStr, query, string(schemaJSON))
 
-	// 如果有额外上下文信息，也可以加入
 	if contextData != nil && len(contextData) > 0 {
 		contextJSON, _ := json.Marshal(contextData)
 		prompt += fmt.Sprintf("\n\n额外上下文: %s", string(contextJSON))
@@ -316,3 +294,4 @@ func buildStructuredRAGPrompt(query, contextStr string, contextData map[string]a
 
 	return prompt
 }
+

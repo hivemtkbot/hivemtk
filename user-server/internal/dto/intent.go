@@ -1,10 +1,5 @@
 package dto
 
-// intent.go 销冠域 - 意图识别 DTO
-//
-// 从 service 包迁入（DTO 层补全）：
-//   - RecognizeResult：意图识别结果，由 IntentRecognizer.Recognize 返回，
-//     被 SalesResponse.Intent 引用，被 controller/intent_controller.go 使用
 
 // RecognizeResult 识别结果
 type RecognizeResult struct {
@@ -15,8 +10,9 @@ type RecognizeResult struct {
 	IntentSubtype   string         `json:"intent_subtype"`
 	Entities        map[string]any `json:"entities"`
 	Sentiment       string         `json:"sentiment"`
-	Method          string         `json:"method"` // rule / llm
+	Method          string         `json:"method"` 
 	LLMModel        string         `json:"llm_model,omitempty"`
 	CostTokens      int            `json:"cost_tokens"`
 	LatencyMs       int            `json:"latency_ms"`
 }
+

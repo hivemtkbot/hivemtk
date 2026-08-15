@@ -9,15 +9,14 @@ import (
 )
 
 type Config struct {
-	Host     string // 自动推断无需赋值
-	Port     int    // 自动推断无需赋值
-	From     string `json:"from"`     // 发件邮箱
-	Password string `json:"password"` // SMTP授权码
-	SSL      bool   `json:"ssl"`      // 是否启用SSL
+	Host     string 
+	Port     int    
+	From     string `json:"from"`     
+	Password string `json:"password"` 
+	SSL      bool   `json:"ssl"`      
 }
 
 func SendMail(cfg Config, to []string, subject, body string, isHTML bool) error {
-	// 自动推断SMTP配置
 	if cfg.Host == "" || cfg.Port == 0 {
 		autoConfig(&cfg)
 	}
@@ -27,19 +26,13 @@ func SendMail(cfg Config, to []string, subject, body string, isHTML bool) error 
 	m.SetHeader("To", to...)
 	m.SetHeader("Subject", subject)
 
-	// 设置内容类型
 	contentType := "text/plain"
 	if isHTML {
 		contentType = "text/html"
 	}
 	m.SetBody(contentType, body)
 
-	// 添加附件
-	// for _, file := range attachments {
-	// 	m.Attach(file)
-	// }
 
-	// 创建带超时的连接池
 	d := &gomail.Dialer{
 		Host:      cfg.Host,
 		Port:      cfg.Port,
@@ -49,7 +42,6 @@ func SendMail(cfg Config, to []string, subject, body string, isHTML bool) error 
 		TLSConfig: &tls.Config{ServerName: cfg.Host},
 	}
 
-	// 测试连接可用性
 	if conn, err := d.Dial(); err == nil {
 		conn.Close()
 	} else {
@@ -63,7 +55,6 @@ func SendMail(cfg Config, to []string, subject, body string, isHTML bool) error 
 func autoConfig(cfg *Config) {
 	domain := strings.Split(cfg.From, "@")
 
-	// 主机名推断
 	switch {
 	case len(domain) > 1 && strings.Contains(domain[1], "qq.com"):
 		cfg.Host = "smtp.qq.com"
@@ -91,15 +82,15 @@ func autoConfig(cfg *Config) {
 		cfg.Host = ""
 	}
 
-	// 端口与加密策略
 	switch cfg.Host {
 	case "smtp.gmail.com", "smtp.live.com":
-		cfg.Port = 587 // 强制STARTTLS
+		cfg.Port = 587 
 		cfg.SSL = false
 	case "":
-		cfg.Port = 587 // 默认安全端口
+		cfg.Port = 587 
 	default:
-		cfg.Port = 465 // 标准SSL端口
+		cfg.Port = 465 
 		cfg.SSL = true
 	}
 }
+

@@ -44,7 +44,6 @@ func setupChurnPredictionRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 		c.Next()
 	})
 
-	// 流失预测相关路由
 	router.GET("/api/churn/prediction", controller.GetChurnPrediction)
 	router.GET("/api/churn/predictions", controller.GetChurnPredictions)
 	router.GET("/api/churn/high-risk", controller.GetHighRiskUsers)
@@ -79,7 +78,7 @@ func TestChurnPredictionController_GetChurnPrediction(t *testing.T) {
 		{
 			name:           "user_not_found",
 			url:            "/api/churn/prediction?user_id=user-nonexistent",
-			expectedStatus: 200, // 服务返回默认零风险预测
+			expectedStatus: 200, 
 			expectSuccess:  true,
 		},
 	}
@@ -563,3 +562,4 @@ func TestChurnPredictionController_GetRiskDistribution(t *testing.T) {
 		})
 	}
 }
+

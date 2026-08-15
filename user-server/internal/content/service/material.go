@@ -277,7 +277,6 @@ func (s *materialService) CreateMaterial(req *contentdto.CreateMaterialRequest) 
 		return nil, err
 	}
 
-	// 更新分类的素材数量
 	if req.CategoryID != "" {
 		s.categoryRepo.UpdateMaterialCount(req.CategoryID)
 	}
@@ -326,7 +325,6 @@ func (s *materialService) DeleteMaterial(id string) error {
 		return err
 	}
 
-	// 更新分类的素材数量
 	if material.CategoryID != "" {
 		s.categoryRepo.UpdateMaterialCount(material.CategoryID)
 	}
@@ -335,52 +333,43 @@ func (s *materialService) DeleteMaterial(id string) error {
 }
 
 func (s *materialService) UploadMaterial(file multipart.File, header *multipart.FileHeader, req *contentdto.UploadMaterialRequest) (*contentdto.MaterialResponse, error) {
-	// 检查文件类型
 	mimeType := header.Header.Get("Content-Type")
 	if mimeType == "" {
 		mimeType = "application/octet-stream"
 	}
 
-	// 计算文件哈希
 	hash := md5.New()
 	if _, err := io.Copy(hash, file); err != nil {
 		return nil, err
 	}
 	fileHash := hex.EncodeToString(hash.Sum(nil))
 
-	// 检查是否已存在相同文件
 	existing, err := s.materialRepo.GetByHash(fileHash, req.LicenseID)
 	if err == nil && existing != nil {
 		return s.convertMaterialToDTO(existing), nil
 	}
 
-	// 重置文件指针
 	if _, err := file.(io.Seeker).Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
 
-	// 生成文件名
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	fileName := fmt.Sprintf("materials/%s%s", time.Now().Format("20060102150405"), ext)
 
-	// 上传到云存储
 	fileURL, err := s.obsService.UploadFile(file, header, req.LicenseID, "materials")
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取文件信息（图片尺寸等）
 	width, height := 0, 0
 	duration := 0
 	if strings.HasPrefix(mimeType, "image/") {
-		// 获取图片尺寸
 		config, _, err := image.DecodeConfig(file)
 		if err == nil {
 			width, height = config.Width, config.Height
 		}
 	}
 
-	// 创建素材记录
 	createMaterial := &contentdto.CreateMaterialRequest{
 		Name:        req.Name,
 		Type:        getMaterialTypeByMimeType(mimeType),
@@ -404,13 +393,11 @@ func (s *materialService) UploadMaterial(file multipart.File, header *multipart.
 }
 
 func (s *materialService) GetMaterialSelector(licenseID string, materialType string) (*contentdto.MaterialSelectorResponse, error) {
-	// 获取分类树
 	categories, err := s.GetCategoryTree(licenseID, materialType)
 	if err != nil {
 		return nil, err
 	}
 
-	// 获取素材列表
 	materials, err := s.GetMaterialList(licenseID, "", materialType, "", 1, 50)
 	if err != nil {
 		return nil, err
@@ -526,7 +513,6 @@ func (s *materialService) UpdateMaterialUsage(id string) error {
 
 // GetMaterialStats 获取素材统计信息
 func (s *materialService) GetMaterialStats(licenseID string) (*contentdto.MaterialStatsResponse, error) {
-	// 获取素材列表来统计
 	materials, _, err := s.materialRepo.GetList(licenseID, "", "", "", 1, 1000)
 	if err != nil {
 		return nil, err
@@ -536,7 +522,6 @@ func (s *materialService) GetMaterialStats(licenseID string) (*contentdto.Materi
 		TotalMaterials: int64(len(materials)),
 	}
 
-	// 统计各种类型的数量
 	for _, material := range materials {
 		switch material.Type {
 		case "image":
@@ -551,12 +536,10 @@ func (s *materialService) GetMaterialStats(licenseID string) (*contentdto.Materi
 		stats.TotalSize += material.Size
 		stats.TotalUsageCount += int64(material.UsageCount)
 
-		// 检查是否是今天添加的
 		if material.CreatedAt.Format("2006-01-02") == time.Now().Format("2006-01-02") {
 			stats.TodayAddedCount++
 		}
 
-		// 检查是否是今天使用的
 		if material.LastUsedAt != nil && material.LastUsedAt.Format("2006-01-02") == time.Now().Format("2006-01-02") {
 			stats.TodayUsageCount++
 		}
@@ -564,3 +547,4 @@ func (s *materialService) GetMaterialStats(licenseID string) (*contentdto.Materi
 
 	return stats, nil
 }
+

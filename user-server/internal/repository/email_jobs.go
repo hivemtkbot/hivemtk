@@ -46,7 +46,6 @@ func (r *emailJobsRepo) List(ctx context.Context, page int, pageSize int) ([]*mo
 	var jobsLists []*model.EmailJobs
 	var total int64
 	db := r.db.WithContext(ctx)
-	// 分别查询list 和 total
 	err := db.Model(&model.EmailJobs{}).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
@@ -67,3 +66,4 @@ func (r *emailJobsRepo) Update(ctx context.Context, jobs *model.EmailJobs) error
 func (r *emailJobsRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).Delete(&model.EmailJobs{}, "id = ?", id).Error
 }
+

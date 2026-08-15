@@ -28,7 +28,6 @@ func TestDefaultPortDocsConsistency(t *testing.T) {
 		}
 	})
 	t.Run("NonSoftStartup", func(t *testing.T) {
-		// 禁止空值兜底
 		if DefaultListenPort == "" {
 			t.Error("DefaultListenPort 不允许为空（禁软启动）")
 		}
@@ -37,11 +36,9 @@ func TestDefaultPortDocsConsistency(t *testing.T) {
 		}
 	})
 	t.Run("AlignWithBridge", func(t *testing.T) {
-		// 与 bridge constants.DEFAULT_USER_SERVER.port 隐式一致：
-		// bridge 端 port=8204（number），此处 DefaultListenPort="8204"（string）。
-		// 此断言以字符串字面量形式验证两侧数字一致，防止文档漂移。
 		if DefaultListenPort != "8204" {
 			t.Error("DefaultListenPort 与 bridge DEFAULT_USER_SERVER.port(8204) 不一致")
 		}
 	})
 }
+

@@ -200,3 +200,4 @@ func (c *WeComHealthController) UpdateAccountStatus(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"id": accID, "login_state": req.LoginState}, "更新成功")
 }
+

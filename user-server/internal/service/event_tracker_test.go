@@ -28,7 +28,7 @@ func setupEventTracker(t *testing.T) *EventTracker {
 	setupEventTrackerTestDB(t)
 	customerService := NewCustomerService()
 	tracker := NewEventTracker(customerService)
-	tracker.DisableAsync(context.Background()) // 禁用异步处理避免测试冲突
+	tracker.DisableAsync(context.Background()) 
 	return tracker
 }
 
@@ -45,7 +45,6 @@ func TestNewEventTracker(t *testing.T) {
 func TestEventTracker_Track(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	// 先创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138010",
@@ -63,7 +62,6 @@ func TestEventTracker_Track(t *testing.T) {
 		t.Fatalf("Track failed: %v", err)
 	}
 
-	// 验证事件已记录
 	events, err := tracker.repo.GetByCustomerID(context.Background(), customer.ID, 10)
 	if err != nil {
 		t.Fatalf("GetByCustomerID failed: %v", err)
@@ -92,7 +90,6 @@ func TestEventTracker_Track_InvalidDTO(t *testing.T) {
 func TestEventTracker_TrackPageView(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	// 先创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138011",
@@ -103,7 +100,6 @@ func TestEventTracker_TrackPageView(t *testing.T) {
 		t.Fatalf("TrackPageView failed: %v", err)
 	}
 
-	// 验证事件
 	events, _ := tracker.repo.GetByCustomerID(context.Background(), customer.ID, 10)
 	if len(events) != 1 {
 		t.Errorf("Expected 1 event, got %d", len(events))
@@ -122,7 +118,6 @@ func TestEventTracker_TrackPageView(t *testing.T) {
 func TestEventTracker_TrackClick(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	// 先创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138012",
@@ -146,7 +141,6 @@ func TestEventTracker_TrackClick(t *testing.T) {
 func TestEventTracker_TrackPurchase(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	// 先创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138013",
@@ -177,18 +171,15 @@ func TestEventTracker_TrackPurchase(t *testing.T) {
 func TestEventTracker_GetEventHistory(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	// 先创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138014",
 	})
 
-	// 创建多个事件
 	for i := 0; i < 5; i++ {
 		tracker.TrackPageView(context.Background(), customer.ID, "/page"+string(rune('0'+i)), "Page "+string(rune('0'+i)))
 	}
 
-	// 获取历史
 	events, err := tracker.GetEventHistory(context.Background(), customer.ID, 10)
 	if err != nil {
 		t.Fatalf("GetEventHistory failed: %v", err)
@@ -202,18 +193,15 @@ func TestEventTracker_GetEventHistory(t *testing.T) {
 func TestEventTracker_GetEventHistory_Limit(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	// 先创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138015",
 	})
 
-	// 创建多个事件
 	for i := 0; i < 20; i++ {
 		tracker.TrackPageView(context.Background(), customer.ID, "/page"+string(rune('0'+i)), "Page "+string(rune('0'+i)))
 	}
 
-	// 获取前 10 条
 	events, err := tracker.GetEventHistory(context.Background(), customer.ID, 10)
 	if err != nil {
 		t.Fatalf("GetEventHistory failed: %v", err)
@@ -227,17 +215,14 @@ func TestEventTracker_GetEventHistory_Limit(t *testing.T) {
 func TestEventTracker_GetStats(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	// 先创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138016",
 	})
 
-	// 创建事件
 	tracker.TrackPageView(context.Background(), customer.ID, "/home", "Home")
 	tracker.TrackPurchase(context.Background(), customer.ID, 99.99, []string{"item-1"})
 
-	// 获取统计
 	start := time.Now().AddDate(0, -1, 0).Format("2006-01-02")
 	end := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
 	stats, err := tracker.GetStats(context.Background(), start, end)
@@ -254,7 +239,6 @@ func TestEventTracker_GetStats(t *testing.T) {
 func TestEventTracker_TrackSignup(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	// 先创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138017",
@@ -278,7 +262,6 @@ func TestEventTracker_TrackSignup(t *testing.T) {
 func TestEventTracker_TrackLogin(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	// 先创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138018",
@@ -299,7 +282,6 @@ func TestEventTracker_TrackLogin(t *testing.T) {
 func TestEventTracker_TrackAddToCart(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	// 先创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138019",
@@ -326,13 +308,11 @@ func TestEventTracker_TrackAddToCart(t *testing.T) {
 func TestEventTracker_GetEventCount(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	// 先创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138020",
 	})
 
-	// 创建 3 个事件
 	tracker.TrackPageView(context.Background(), customer.ID, "/page1", "Page 1")
 	tracker.TrackPageView(context.Background(), customer.ID, "/page2", "Page 2")
 	tracker.TrackPurchase(context.Background(), customer.ID, 50.00, []string{"item"})
@@ -350,7 +330,6 @@ func TestEventTracker_GetEventCount(t *testing.T) {
 func TestEventTracker_TrackWithEventData(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	// 先创建客户
 	customerService := NewCustomerService()
 	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138021",
@@ -387,7 +366,6 @@ func TestSerializeEventData(t *testing.T) {
 		t.Error("Expected non-empty serialized data")
 	}
 
-	// 测试 nil 数据
 	empty, err := SerializeEventData(nil)
 	if err != nil {
 		t.Fatalf("SerializeEventData with nil failed: %v", err)
@@ -396,3 +374,4 @@ func TestSerializeEventData(t *testing.T) {
 		t.Errorf("Expected {} for nil data, got %s", empty)
 	}
 }
+

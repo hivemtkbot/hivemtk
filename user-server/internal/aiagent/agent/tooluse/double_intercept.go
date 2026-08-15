@@ -8,32 +8,12 @@ import (
 	"time"
 )
 
-// ============================================================================
-// Double Intercept Orchestrator 双拦截编排器
-// ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/工具链调用逻辑.md §1
-//
-// 工作流（严格按照文档）：
-//  1. 第一次 LLM 推理（流式）：逐 chunk 进入状态机
-//  2. 状态机识别"调用工具：" → 触发 Detected → Parsing
-//  3. JSON 完整 → 状态机返回 ActionExecuteTool
-//  4. 编排器通过 Router 执行工具 → 拿结果
-//  5. 编排器把工具结果喂给第二次 LLM 推理（"二进宫"）→ 流式输出最终回复
-//  6. 第二次推理产生的回复，状态机处于 StateReassembling，忽略任何再触发的"调用工具："
-//     （防止循环调用）→ 直接拼接到 buffer
-//  7. LLM 流结束 → 状态机 MarkDone
-//  8. 输出最终回复给客户端
-//
-// 拦截（掐断）的两个关键点：
-//  - 第一次拦截：Detected 后所有 chunk 不再 forward 到客户端
-//  - 第二次拦截：Reassembling 阶段即使再检测到"调用工具："也忽略（防递归）
-// ============================================================================
 
 // DoubleInterceptOrchestrator 双拦截编排器
 type DoubleInterceptOrchestrator struct {
 	stateMachine *StreamStateMachine
 	router       *ToolRouter
-	secondPass   SecondPassLLM // 二进宫 LLM 调用接口
+	secondPass   SecondPassLLM 
 
 	mu          sync.Mutex
 	clientMsgs  []ClientMessage
@@ -54,7 +34,7 @@ type OrchestratorStats struct {
 // ClientMessage 客户端消息（推送或缓存）
 type ClientMessage struct {
 	Content   string
-	Forwarded bool // true=已推送 / false=被拦截
+	Forwarded bool 
 	Timestamp time.Time
 }
 
@@ -71,15 +51,6 @@ type ToolExecutionRecord struct {
 //
 // 编排器在工具执行完毕后调用，传入工具结果，让 LLM 重新生成最终回复
 type SecondPassLLM interface {
-	// GenerateReassembledReply 二进宫推理
-	//
-	// 入参：
-	//   - originalContent: 第一次推理的原始用户消息
-	//   - toolName: 调用的工具名
-	//   - toolResult: 工具结果
-	//   - chunkHandler: chunk 回调（用于流式推送）
-	//
-	// 返回：最终回复完整文本
 	GenerateReassembledReply(
 		ctx context.Context,
 		originalContent string,
@@ -93,7 +64,7 @@ type SecondPassLLM interface {
 type OrchestratorConfig struct {
 	Trigger      string
 	Router       *ToolRouter
-	StateMachine *StreamStateMachine // 可选；nil 则创建默认
+	StateMachine *StreamStateMachine 
 	SecondPass   SecondPassLLM
 }
 
@@ -145,7 +116,6 @@ func (o *DoubleInterceptOrchestrator) Run(ctx context.Context, originalContent s
 		o.mu.Unlock()
 	}()
 
-	// Phase 1: 第一次推理 + 流式状态机
 	for chunk := range firstPassStream {
 		o.stats.FirstPassChunks++
 		action, err := o.stateMachine.Process(ctx, chunk)
@@ -160,19 +130,16 @@ func (o *DoubleInterceptOrchestrator) Run(ctx context.Context, originalContent s
 			o.stats.InterceptedChunks++
 			o.recordClientMessage(chunk, false)
 		case ActionExecuteTool:
-			// 工具调用触发，执行工具
 			o.stats.InterceptedChunks++
 			if err := o.executeToolCall(ctx, originalContent); err != nil {
 				return "", err
 			}
 		case ActionDone:
-			// 流结束
 		case ActionFail:
 			return "", errors.New("state machine failed")
 		}
 	}
 
-	// Phase 2: 二次推理（二进宫）
 	if o.stateMachine.State() == StateReassembling || o.hasToolExecution() {
 		reply, err := o.runSecondPass(ctx, originalContent)
 		if err != nil {
@@ -183,7 +150,6 @@ func (o *DoubleInterceptOrchestrator) Run(ctx context.Context, originalContent s
 		return reply, nil
 	}
 
-	// Phase 3: 没有工具调用，整理 clientMsgs 作为最终回复
 	return o.assembleDirectReply(), nil
 }
 
@@ -198,7 +164,6 @@ func (o *DoubleInterceptOrchestrator) executeToolCall(ctx context.Context, origi
 		ExecutedAt: time.Now(),
 	}
 
-	// 通过 Router 执行（带审计/限流/重试/计费）
 	result := o.router.Route(ctx, toolName, toolArgs, &ToolContext{
 		CallerID:   "agent_runtime",
 		AgentID:    "default",
@@ -214,9 +179,7 @@ func (o *DoubleInterceptOrchestrator) executeToolCall(ctx context.Context, origi
 
 	o.stateMachine.MarkToolExecuted(result.Result, result.Err)
 
-	// 失败时降级：返回友好提示
 	if result.Err != nil || !result.Result.Success {
-		// 仍然进入 Reassembling，由 LLM 处理 fallback
 	}
 
 	return nil
@@ -224,7 +187,6 @@ func (o *DoubleInterceptOrchestrator) executeToolCall(ctx context.Context, origi
 
 // runSecondPass 二次推理
 func (o *DoubleInterceptOrchestrator) runSecondPass(ctx context.Context, originalContent string) (string, error) {
-	// 取最后一次工具结果
 	o.mu.Lock()
 	var lastRecord ToolExecutionRecord
 	if len(o.toolResults) > 0 {
@@ -247,9 +209,8 @@ func (o *DoubleInterceptOrchestrator) runSecondPass(ctx context.Context, origina
 	if err != nil {
 		return "", err
 	}
-	_ = sb.String() // sb 是为了 future 流式记录
+	_ = sb.String() 
 
-	// 二次推理的回复全部 forward 到客户端
 	o.recordClientMessage(reply, true)
 	return reply, nil
 }
@@ -314,3 +275,4 @@ func (o *DoubleInterceptOrchestrator) GetStats() OrchestratorStats {
 func (o *DoubleInterceptOrchestrator) StateMachine() *StreamStateMachine {
 	return o.stateMachine
 }
+

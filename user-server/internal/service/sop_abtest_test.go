@@ -6,12 +6,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// sop_abtest_test.go SOP A/B 测试流量分配与统计测试（PRD §5.2 G2）
-// 覆盖：
-//  1. ValidateSOPABTestConfig 校验逻辑
-//  2. SelectVariant 一致性哈希 + 权重分配
-//  3. ParseSOPABTestConfig 解析（含空配置/损坏配置）
-//  4. 分布均匀性（统计 1000 个客户的 variant 分布）
 
 func TestSOPABTestConfig_Validate(t *testing.T) {
 	cases := []struct {
@@ -133,7 +127,6 @@ func TestSelectVariant_Consistency(t *testing.T) {
 		},
 	}
 
-	// 同一 customer_id 多次调用必须返回相同 variant
 	customerID := "customer_12345"
 	first := SelectSOPABTestVariant(cfg, customerID)
 	for i := 0; i < 100; i++ {
@@ -153,7 +146,6 @@ func TestSelectVariant_Disabled(t *testing.T) {
 }
 
 func TestSelectVariant_Distribution(t *testing.T) {
-	// 50/50 分配，1000 个客户应该接近 500/500（容差 ±100）
 	cfg := SOPABTestConfig{
 		Enabled: true,
 		Variants: []SOPABTestVariant{
@@ -172,7 +164,6 @@ func TestSelectVariant_Distribution(t *testing.T) {
 		counts[v.Name]++
 	}
 
-	// 容差 ±150（哈希分布有偏差）
 	if intAbs(counts["A"]-500) > 150 {
 		t.Errorf("A 分布偏差过大：%d（期望 500±150）", counts["A"])
 	}
@@ -183,7 +174,6 @@ func TestSelectVariant_Distribution(t *testing.T) {
 }
 
 func TestSelectVariant_ThreeWayDistribution(t *testing.T) {
-	// 70/20/10 分配
 	cfg := SOPABTestConfig{
 		Enabled: true,
 		Variants: []SOPABTestVariant{
@@ -200,7 +190,6 @@ func TestSelectVariant_ThreeWayDistribution(t *testing.T) {
 		counts[v.Name]++
 	}
 
-	// 期望：A≈700, B≈200, C≈100，容差 ±150
 	if intAbs(counts["A"]-700) > 150 {
 		t.Errorf("A 分布偏差过大：%d（期望 700±150）", counts["A"])
 	}
@@ -214,7 +203,6 @@ func TestSelectVariant_ThreeWayDistribution(t *testing.T) {
 }
 
 func TestSelectVariant_DifferentSalts(t *testing.T) {
-	// 不同的 salt 应该产生不同的分流结果（但各自内部仍一致）
 	cfg1 := SOPABTestConfig{
 		Enabled: true,
 		Salt:    "customer_id",
@@ -242,7 +230,6 @@ func TestSelectVariant_DifferentSalts(t *testing.T) {
 		}
 	}
 
-	// 不同 salt 应该产生显著不同的分布（至少 20 个不同）
 	if differentCount < 20 {
 		t.Errorf("不同 salt 应产生更多不同分流：仅 %d/100 不同", differentCount)
 	}
@@ -287,7 +274,6 @@ func TestParseSOPABTestConfig_Valid(t *testing.T) {
 		t.Errorf("variant B mismatch: %+v", cfg.Variants[1])
 	}
 
-	// 校验通过
 	if err := ValidateSOPABTestConfig(cfg); err != nil {
 		t.Errorf("validation failed: %v", err)
 	}
@@ -300,3 +286,4 @@ func intAbs(x int) int {
 	}
 	return x
 }
+

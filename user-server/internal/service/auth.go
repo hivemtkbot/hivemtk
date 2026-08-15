@@ -27,8 +27,8 @@ type LoginResponse struct {
 	Token     string              `json:"token,omitempty"`
 	User      *SystemUserResponse `json:"user,omitempty"`
 	Expires   int64               `json:"expires,omitempty"`
-	NeedMFA   bool                `json:"need_mfa,omitempty"`   // 是否需要 MFA 二次验证
-	TempToken string              `json:"temp_token,omitempty"` // 临时令牌（MFA 验证用）
+	NeedMFA   bool                `json:"need_mfa,omitempty"`   
+	TempToken string              `json:"temp_token,omitempty"` 
 }
 
 // SystemUserResponse 系统用户响应
@@ -41,7 +41,7 @@ type SystemUserResponse struct {
 	Role        string     `json:"role"`
 	Status      int        `json:"status"`
 	LastLogin   *time.Time `json:"last_login"`
-	LastLoginAt *time.Time `json:"last_login_at"` // 兼容前端驼峰命名
+	LastLoginAt *time.Time `json:"last_login_at"` 
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 }
@@ -106,8 +106,6 @@ func (s *AuthService) Login(ctx context.Context, req *LoginRequest) (*LoginRespo
 
 // loginWithUser 使用用户对象完成登录流程
 func (s *AuthService) loginWithUser(ctx context.Context, user *model.SystemUser) (*LoginResponse, error) {
-	// 修复：MFA 启用检查
-	// 用户名密码验证 OK 后，若启用了 MFA，则返回 need_mfa + temp_token，等待二次验证
 	mfaSvc := NewMFAService()
 	mfaEnabled, err := mfaSvc.IsMFAEnabled(ctx, user.ID)
 	if err != nil {
@@ -130,15 +128,12 @@ func (s *AuthService) loginWithUser(ctx context.Context, user *model.SystemUser)
 		return nil, errors.New("登录失败，请稍后重试")
 	}
 
-	// 更新最后登录时间
 	now := time.Now()
 	user.LastLogin = &now
 	if err := s.systemUserRepo.Update(ctx, user); err != nil {
 		logger.Error(err, "更新用户最后登录时间失败")
-		// 不影响登录流程，只记录日志
 	}
 
-	// 构建响应
 	response := &LoginResponse{
 		Token:   token,
 		User:    s.toUserResponse(ctx, user),
@@ -150,7 +145,6 @@ func (s *AuthService) loginWithUser(ctx context.Context, user *model.SystemUser)
 
 // RefreshToken 刷新令牌
 func (s *AuthService) RefreshToken(ctx context.Context, tokenString string) (string, error) {
-	// 刷新令牌
 	newToken, err := s.jwtUtils.RefreshToken(tokenString)
 	if err != nil {
 		return "", err
@@ -161,7 +155,6 @@ func (s *AuthService) RefreshToken(ctx context.Context, tokenString string) (str
 
 // GetCurrentUser 获取当前用户信息
 func (s *AuthService) GetCurrentUser(ctx context.Context, userID uint) (*SystemUserResponse, error) {
-	// 查找用户
 	user, err := s.systemUserRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -177,7 +170,6 @@ func (s *AuthService) GetCurrentUser(ctx context.Context, userID uint) (*SystemU
 // ChangePassword 修改密码
 // 修复：强制走密码策略校验 + 记录历史
 func (s *AuthService) ChangePassword(ctx context.Context, userID uint, req *ChangePasswordRequest) error {
-	// 查找用户
 	user, err := s.systemUserRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -187,18 +179,15 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID uint, req *Chan
 		return errors.New("修改密码失败")
 	}
 
-	// 验证旧密码
 	if !CheckPassword(user, req.OldPassword) {
 		return errors.New("原密码不正确")
 	}
 
-	// 修复：强制走密码策略校验
 	policySvc := NewPasswordPolicyService()
 	if err := policySvc.ValidatePassword(ctx, req.NewPassword, userID); err != nil {
 		return err
 	}
 
-	// 更新密码
 	hashed, err := HashPassword(req.NewPassword)
 	if err != nil {
 		logger.Error(err, "密码加密失败")
@@ -206,13 +195,11 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID uint, req *Chan
 	}
 	user.Password = hashed
 
-	// 保存用户
 	if err := s.systemUserRepo.Update(ctx, user); err != nil {
 		logger.Error(err, "保存用户失败")
 		return errors.New("修改密码失败")
 	}
 
-	// 修复：记录密码历史
 	if err := policySvc.RecordPasswordHistory(ctx, userID, req.NewPassword, model.PasswordSourceChangePassword); err != nil {
 		logger.Errorf("记录密码历史失败（不影响改密流程）: %v", err)
 	}
@@ -237,7 +224,6 @@ func (s *AuthService) toUserResponse(ctx context.Context, user *model.SystemUser
 	}
 }
 
-// ============== 包级辅助函数（五层架构：业务方法集中在 service 层） ==============
 
 // CheckPassword 校验 SystemUser 密码
 func CheckPassword(u *model.SystemUser, password string) bool {
@@ -249,7 +235,6 @@ func HashPassword(password string) (string, error) {
 	return bcrypt.HashPassword(password)
 }
 
-// ============== 阶段 3：系统初始化 InitAdmin ==============
 
 // InitAdmin 初始化系统首个超管（公开，无 JWT）
 //
@@ -270,22 +255,18 @@ func (s *AuthService) InitAdmin(ctx context.Context, username, password, email s
 		return errors.New("username/password/email 均不能为空")
 	}
 
-	// 密码强度校验（与 system_init.go 一致：≥8 位 + 大小写 + 数字）
 	if err := validatePassword(password); err != nil {
 		return err
 	}
 
-	// 3. 邮箱格式校验
 	if err := validateEmail(email); err != nil {
 		return err
 	}
 
-	// 4. 用户名格式校验（3-20 位字母数字下划线）
 	if err := validateUsername(username); err != nil {
 		return err
 	}
 
-	// 5. 唯一性预检：username / email
 	if exists, _ := s.systemUserRepo.UsernameExists(ctx, username, 0); exists {
 		return errors.New("用户名已存在")
 	}
@@ -293,7 +274,6 @@ func (s *AuthService) InitAdmin(ctx context.Context, username, password, email s
 		return errors.New("邮箱已被使用")
 	}
 
-	// 6. 创建超管（BeforeCreate 钩子自动 bcrypt 加密 + DataScope 初始化）
 	user := &model.SystemUser{
 		Username: username,
 		Password: password,
@@ -307,13 +287,11 @@ func (s *AuthService) InitAdmin(ctx context.Context, username, password, email s
 		return errors.New("创建超管失败: " + err.Error())
 	}
 
-	// 7. 同步 install.lock：标记 AdminUsername + Initialized=true
-	// 开源版：直接走 install 包（不依赖中间件避免 import cycle）
 	if err := install.MarkAdminInitialized(username); err != nil {
-		// 标记失败不阻塞主流程（用户已创建成功），仅记日志
 		logger.Error(err, "InitAdmin 写 install.lock 失败")
 	}
 
 	logger.Info("InitAdmin 超管创建成功: " + username)
 	return nil
 }
+

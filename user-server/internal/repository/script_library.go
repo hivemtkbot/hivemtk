@@ -1,11 +1,5 @@
 package repository
 
-// script_library_repository.go 话术库仓储
-//
-// 五层架构归属: L4 数据访问层
-//
-// 覆盖：ScriptLibrary 表的查询与使用统计更新，
-// 服务于 ObjectionHandlerService（异议处理服务）。
 
 import (
 	"context"
@@ -71,3 +65,4 @@ func (r *ScriptLibraryRepository) IncrementUsageStats(ctx context.Context, templ
 		Where("id = ?", templateID).
 		Updates(updates).Error
 }
+

@@ -67,7 +67,6 @@ func (mq *MessageQueueService) AddBatch(ctx context.Context, messages []model.Qu
 		})
 	}
 	if err := mq.repo.CreateMessages(ctx, dbMessages); err != nil {
-		// 回滚已写入的队列状态记录
 		_ = mq.repo.DeleteQueueStatusByQueueID(ctx, queueID)
 		return "", fmt.Errorf("持久化队列消息失败: %w", err)
 	}
@@ -123,17 +122,14 @@ func (mq *MessageQueueService) UpdateStatus(ctx context.Context, queueID, messag
 		msgStatus = "failed"
 	}
 
-	// 1) 更新单条消息状态（不同表，必须独立语句）
 	if err := mq.repo.UpdateMessageStatus(ctx, queueID, messageID, msgStatus); err != nil {
 		logger.Errorf("更新队列消息状态失败 queueID=%s messageID=%s: %v", queueID, messageID, err)
 	}
 
-	// 单条原子 UPDATE，DB 侧自增 sent/failed 并判定完成态，消除竞态与额外查询。
 	if err := mq.repo.UpdateQueueStatusAtomic(ctx, queueID, success); err != nil {
 		logger.Errorf("更新队列聚合状态失败 queueID=%s: %v", queueID, err)
 	}
 
-	// 内存缓存同步（仅用于实时查询，非强一致；DB 为真相源）
 	mq.mu.Lock()
 	if qs, ok := mq.status[queueID]; ok {
 		if success {
@@ -210,3 +206,4 @@ func (mq *MessageQueueService) RecordGroupMessage(ctx context.Context, message m
 		logger.Errorf("写入群发记录失败: %v", err)
 	}
 }
+

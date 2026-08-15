@@ -41,7 +41,6 @@ type CreateInitAdminParams struct {
 //   - 邮箱格式正确
 //   - role='admin'，创建后直接可用（开源版不再强制首登改密）
 func (s *SystemInitService) CreateInitAdmin(ctx context.Context, p *CreateInitAdminParams) error {
-	// 1. 系统已有任何用户 → 拒绝
 	count, err := s.userService.CountUsers(ctx)
 	if err != nil {
 		logger.Error(err, "SystemInitService 检查用户总数失败")
@@ -51,22 +50,18 @@ func (s *SystemInitService) CreateInitAdmin(ctx context.Context, p *CreateInitAd
 		return errors.New("超管已存在，无法重复创建")
 	}
 
-	// 2. 校验用户名
 	if err := validateUsername(p.Username); err != nil {
 		return err
 	}
 
-	// 3. 校验密码强度
 	if err := validatePassword(p.Password); err != nil {
 		return err
 	}
 
-	// 4. 校验邮箱
 	if err := validateEmail(p.Email); err != nil {
 		return err
 	}
 
-	// 5. 创建超管
 	_, err = s.userService.CreateUser(ctx, &CreateUserRequest{
 		Username: p.Username,
 		Password: p.Password,
@@ -131,3 +126,4 @@ func validateEmail(e string) error {
 	}
 	return nil
 }
+

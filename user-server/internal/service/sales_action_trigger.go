@@ -8,17 +8,6 @@ import (
 	"time"
 )
 
-// ============================================================================
-// 商业产品级 销售动作触发器（Sales Action Trigger）
-// ----------------------------------------------------------------------------
-// 商业市场需求（按真实用户使用场景）：
-//   销售每天接触 50+ 客户，每条对话涉及多个连锁动作：
-//     1. AI 识别"询价" → 自动打"价格敏感"标签 + 推进到"意向"阶段
-//     2. AI 识别"准备购买" → 推进到"报价" + 自动生成跟进
-//     3. AI 提取到"产品+价格" → 自动生成订单意向
-//     4. 销售完成跟进 → 推进到下一阶段
-//     5. 订单创建 → 推进到"成交"+ 触发售后 SOP
-// ============================================================================
 
 // SalesActionTrigger 销售动作触发器
 // 把 AI 谈单 / 跟进完成 / 订单创建 三个核心事件
@@ -26,36 +15,33 @@ import (
 type SalesActionTrigger struct {
 	mu sync.Mutex
 
-	// 五个下游组件（依赖注入）
 	tagger       *AITagger
 	journey      *CustomerJourneyService
 	followup     *FollowUpService
 	extractor    *OrderIntentExtractor
 	dashboard    *SalesDashboard
-	draftService *OrderDraftService // 11 订单草稿
+	draftService *OrderDraftService 
 
-	// 默认销售（可被业务 owner 覆盖）
 	defaultOwnerID string
 
-	// 触发历史（用于审计 + 测试）
 	history []TriggerRecord
 }
 
 // TriggerRecord 触发记录
 type TriggerRecord struct {
-	EventType  string          `json:"event_type"` // sales_response / followup_completed / order_created
+	EventType  string          `json:"event_type"` 
 	CustomerID string          `json:"customer_id"`
-	Actions    []TriggerAction `json:"actions"` // 触发的具体动作
+	Actions    []TriggerAction `json:"actions"` 
 	OccurredAt time.Time       `json:"occurred_at"`
 	Metadata   map[string]any  `json:"metadata,omitempty"`
 }
 
 // TriggerAction 单个触发动作
 type TriggerAction struct {
-	Action     string `json:"action"`     // tag_applied / stage_advanced / followup_scheduled / order_intent_extracted / dashboard_recorded
-	Target     string `json:"target"`     // 目标对象（如"behavior:price_sensitive" / "interested"）
-	Confidence int    `json:"confidence"` // 0-100
-	Result     string `json:"result"`     // ok / skip / fail
+	Action     string `json:"action"`     
+	Target     string `json:"target"`     
+	Confidence int    `json:"confidence"` 
+	Result     string `json:"result"`     
 	Message    string `json:"message,omitempty"`
 }
 
@@ -115,7 +101,6 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 		OccurredAt: time.Now(),
 	}
 
-	// === 1. 自动打标签 ===
 	if t.tagger != nil {
 		tags := t.tagger.TagFromSalesResponse(ctx, customerID, resp)
 		for _, tag := range tags {
@@ -134,7 +119,6 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 		}
 	}
 
-	// === 2. 自动推进客户旅程 ===
 	if t.journey != nil {
 		newStage := t.advanceJourneyByIntent(ctx, customerID, resp)
 		rec.Actions = append(rec.Actions, TriggerAction{
@@ -143,11 +127,7 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 		})
 	}
 
-	// === 3. 自动提取订单意向 → 自动生成订单草稿 ===
-	// 11 关键升级：不再只是记录"提取到意图"的动作，
-	// 而是真正生成"待确认草稿"，销售一键确认即可下单
 	if t.extractor != nil {
-		// 优先从记忆中的客户信息提取，最后兜底用 reply
 		textToExtract := resp.Reply
 		if resp.Memory != nil {
 			if resp.Memory.Demand != "" {
@@ -166,7 +146,6 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 				Result:     "ok",
 				Message:    fmt.Sprintf("amount=%.2f qty=%d", in.TotalAmount, in.Quantity),
 			})
-			// 3.1 关键：自动创建草稿（-11）
 			if t.draftService != nil {
 				draft := t.draftService.CreateFromIntent(ctx, &in, ownerID)
 				if draft != nil {
@@ -188,7 +167,6 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 		}
 	}
 
-	// === 4. 自动安排跟进（仅当旅程到达关键阶段或转人工时） ===
 	if t.followup != nil {
 		shouldSchedule := false
 		scheduleType := ReminderFirstContact
@@ -196,7 +174,6 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 		priority := PriorityNormal
 
 		if resp.TransferredToHuman {
-			// 转人工 → 销售必须在 30 分钟内接管
 			shouldSchedule = true
 			scheduleType = ReminderFirstContact
 			scheduleIn = 30 * time.Minute
@@ -204,19 +181,16 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 		} else if resp.Intent != nil {
 			switch resp.Intent.IntentType {
 			case IntentPurchase:
-				// 客户已表示想买 → 1 小时内逼单
 				shouldSchedule = true
 				scheduleType = ReminderQuoteFollowup
 				scheduleIn = 1 * time.Hour
 				priority = PriorityHigh
 			case IntentPriceInquiry, IntentAskProduct:
-				// 客户在咨询 → 2 小时内提供报价
 				shouldSchedule = true
 				scheduleType = ReminderQuoteFollowup
 				scheduleIn = 2 * time.Hour
 				priority = PriorityHigh
 			case IntentObjectionPrice:
-				// 价格异议 → 4 小时内异议处理
 				shouldSchedule = true
 				scheduleType = ReminderFirstContact
 				scheduleIn = 4 * time.Hour
@@ -244,7 +218,6 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 		}
 	}
 
-	// === 5. 记录到销售仪表盘 ===
 	if t.dashboard != nil {
 		t.dashboard.RecordAIDeal(ctx, AIDealEvent{
 			CustomerID:  customerID,
@@ -261,7 +234,6 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 		})
 	}
 
-	// 记录到历史
 	t.mu.Lock()
 	t.history = append(t.history, *rec)
 	if len(t.history) > 1000 {
@@ -299,7 +271,6 @@ func (t *SalesActionTrigger) advanceJourneyByIntent(ctx context.Context, custome
 	var target JourneyStage
 	switch intent {
 	case IntentPurchase:
-		// 准备购买 → 推进到"意向"或"报价"（取决于当前）
 		if current == StageStranger || current == StageLead {
 			target = StageInterested
 		} else if current == StageContact {
@@ -308,7 +279,6 @@ func (t *SalesActionTrigger) advanceJourneyByIntent(ctx context.Context, custome
 			target = current
 		}
 	case IntentPriceInquiry, IntentAskProduct, IntentObjectionPrice:
-		// 咨询 → 推进到"意向"
 		switch current {
 		case StageStranger:
 			target = StageLead
@@ -318,27 +288,21 @@ func (t *SalesActionTrigger) advanceJourneyByIntent(ctx context.Context, custome
 			target = current
 		}
 	case IntentGreeting, IntentSocial:
-		// 闲聊 → 至少从"陌生"到"留资"
 		if current == StageStranger {
 			target = StageLead
 		} else {
 			target = current
 		}
 	case IntentChurn, IntentComplaint:
-		// 流失/投诉 → 推进到"留资"标记+告警，不进入流失（仍需销售挽留）
-		// 实际转入由销售人工操作
 		target = current
 	default:
-		// 未知意图不推进
 		target = current
 	}
 
-	// 目标 = 当前 → 跳过
 	if target == current {
 		return current
 	}
 
-	// 推进旅程
 	_, err := t.journey.Transition(ctx, customerID, target, "ai_chat", "ai",
 		"AI 意图自动推进: "+intent, map[string]any{
 			"intent":      intent,
@@ -368,7 +332,6 @@ func (t *SalesActionTrigger) TriggerAfterFollowUp(ctx context.Context, reminderI
 		OccurredAt: time.Now(),
 	}
 
-	// 1. 推进客户旅程（记录互动 + 根据 result 推进阶段）
 	if t.journey != nil {
 		t.journey.Touch(ctx, customerID, "followup")
 		target := t.advanceJourneyByFollowUpResult(ctx, customerID, result)
@@ -378,7 +341,6 @@ func (t *SalesActionTrigger) TriggerAfterFollowUp(ctx context.Context, reminderI
 		})
 	}
 
-	// 2. 记录到销售仪表盘
 	if t.dashboard != nil {
 		t.dashboard.RecordFollowUp(ctx, FollowUpEvent{
 			CustomerID: customerID,
@@ -393,7 +355,6 @@ func (t *SalesActionTrigger) TriggerAfterFollowUp(ctx context.Context, reminderI
 		})
 	}
 
-	// 3. 成交 → 自动触发售后跟进
 	if result == "converted" && t.followup != nil {
 		r, err := t.followup.Schedule(ctx, customerID, ownerID, ReminderAfterSaleCare, 7*24*time.Hour, &ScheduleOptions{
 			Title:       "售后回访",
@@ -409,14 +370,11 @@ func (t *SalesActionTrigger) TriggerAfterFollowUp(ctx context.Context, reminderI
 		}
 	}
 
-	// 4. 推进到成交 → 把客户旅程也推到"成交"（不依赖销售手动）
 	if result == "converted" && t.journey != nil {
 		_, _ = t.journey.Transition(ctx, customerID, StageWon, "followup", ownerID,
 			"销售跟进成交", nil)
 	}
 
-	// 5. 成交 → 在仪表盘记录订单（销售跟进→成单）
-	// 跟进结果=converted 时，自动补一条订单事件（金额/产品从上下文推断）
 	if result == "converted" && t.dashboard != nil {
 		amount, productName := t.inferOrderFromJourney(ctx, customerID)
 		t.dashboard.RecordOrder(ctx, OrderEvent{
@@ -434,7 +392,6 @@ func (t *SalesActionTrigger) TriggerAfterFollowUp(ctx context.Context, reminderI
 		})
 	}
 
-	// 记录历史
 	t.mu.Lock()
 	t.history = append(t.history, *rec)
 	if len(t.history) > 1000 {
@@ -455,13 +412,10 @@ func (t *SalesActionTrigger) advanceJourneyByFollowUpResult(ctx context.Context,
 	var target JourneyStage
 	switch result {
 	case "converted":
-		// 成交：推到 Won
 		target = StageWon
 	case "lost", "rejected":
-		// 流失：推到 Lost
 		target = StageLost
 	case "no_reply", "objection":
-		// 无回复/异议：保持当前阶段（让 SOP 继续）
 		target = current
 	default:
 		target = current
@@ -494,7 +448,6 @@ func (t *SalesActionTrigger) TriggerAfterOrder(ctx context.Context, orderID, cus
 		OccurredAt: time.Now(),
 	}
 
-	// 1. 推进到"成交"
 	if t.journey != nil {
 		_, _ = t.journey.Transition(ctx, customerID, StageWon, "order", ownerID,
 			"订单创建自动推进: "+productName, map[string]any{
@@ -505,7 +458,6 @@ func (t *SalesActionTrigger) TriggerAfterOrder(ctx context.Context, orderID, cus
 		})
 	}
 
-	// 2. 触发售后跟进（7 天后）
 	if t.followup != nil {
 		r, err := t.followup.Schedule(ctx, customerID, ownerID, ReminderAfterSaleCare, 7*24*time.Hour, &ScheduleOptions{
 			Title:       "售后回访: " + productName,
@@ -520,7 +472,6 @@ func (t *SalesActionTrigger) TriggerAfterOrder(ctx context.Context, orderID, cus
 		}
 	}
 
-	// 3. 记录到销售仪表盘
 	if t.dashboard != nil {
 		t.dashboard.RecordOrder(context.Background(), OrderEvent{
 			OrderID:     orderID,
@@ -536,7 +487,6 @@ func (t *SalesActionTrigger) TriggerAfterOrder(ctx context.Context, orderID, cus
 		})
 	}
 
-	// 记录历史
 	t.mu.Lock()
 	t.history = append(t.history, *rec)
 	if len(t.history) > 1000 {
@@ -572,7 +522,6 @@ func (t *SalesActionTrigger) inferOrderFromJourney(ctx context.Context, customer
 	state := t.journey.GetState(ctx, customerID)
 	amount := 0.0
 	product := "未指定产品"
-	// 从最近事件中提取金额/产品（如果有）
 	for i := len(state.StageHistory) - 1; i >= 0; i-- {
 		ev := state.StageHistory[i]
 		if ev.Metadata != nil {
@@ -587,7 +536,6 @@ func (t *SalesActionTrigger) inferOrderFromJourney(ctx context.Context, customer
 	return amount, product
 }
 
-// ===== 工具函数 =====
 
 func safeIntent(resp *SalesResponse) string {
 	if resp == nil || resp.Intent == nil {
@@ -607,6 +555,6 @@ func safeConf(resp *SalesResponse) float64 {
 }
 
 func init() {
-	// 保证不引入额外 import 报错
 	_ = strings.TrimSpace
 }
+

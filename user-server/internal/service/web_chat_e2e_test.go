@@ -19,31 +19,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// ============================================================================
-// 网页端客服 端到端集成测试（Web Chat Full-Chain E2E）
-// ----------------------------------------------------------------------------
-// 目标：打通「网页端这条链路」的完整业务线，验证从访客接入到 AI 回复/RAG 召回、
-// 关键词转人工、坐席回复的全链路接线正确（零 mock 核心编排，仅替换外部依赖）：
-//
-//   访客 OpenSession(默认渠道自动创建)
-//     → SendMessage(正常问) → SmartCSOrchestrator → SalesEngine(9 步)
-//       → recallRAG（假 RAG，断言被调用且召回片段进入 LLM prompt）
-//       → Dispatcher.Dispatch → 本地 httptest 仿 OpenAI 服务（断言请求/响应协议）
-//       → AI 自动回复（置信度 > 阈值）
-//     → SendMessage("我要转人工") → 关键词命中自动转人工（AutoAssign）
-//     → AgentReply（坐席回复落库）
-//
-// 说明：
-//   - 真实向量正确性由 docker-compose 的 TEI 容器（bge-m3）保证，
-//     本测试用假 RAGSearcher 验证「RAG 召回→LLM 回复」的接线，不依赖外部服务。
-//   - LLM 用真实 *llm.Dispatcher + 本地 httptest 仿 OpenAI /v1/chat/completions，
-//     验证调度器→厂商请求→响应解析的完整路径。
-//   - 需要真实 PostgreSQL 测试库（见 testutil.NewTestDB / POSTGRES_TEST_*）。
-// ============================================================================
 
-// --------------------------------------------------------------------------
-// 假协作者（仅替换外部依赖；核心 9 步编排/编排器全部真实执行）
-// --------------------------------------------------------------------------
 
 // fakeRAGSearcher 记录是否被调用，并返回带唯一标记的知识库片段（用于断言 RAG→回复 接线）
 type fakeRAGSearcher struct {
@@ -176,9 +152,6 @@ func newFakeLLMDispatcher(t *testing.T) *llm.Dispatcher {
 	return disp
 }
 
-// --------------------------------------------------------------------------
-// 测试装配
-// --------------------------------------------------------------------------
 
 func setupWebChatE2E(t *testing.T) (*VisitorChatService, *SmartCSOrchestrator, *fakeRAGSearcher, *gorm.DB) {
 	t.Helper()
@@ -191,7 +164,6 @@ func setupWebChatE2E(t *testing.T) (*VisitorChatService, *SmartCSOrchestrator, *
 		&model.QuickReply{},
 		&model.SessionTag{},
 	)
-	// 关键：所有内部 repository 走全局 DB（VisitorChatService / SmartCSOrchestrator 内部 repo 均从全局取）
 	db.SetTestDB(database)
 
 	rag := newFakeRAG()
@@ -212,14 +184,10 @@ func setupWebChatE2E(t *testing.T) (*VisitorChatService, *SmartCSOrchestrator, *
 	return visitorSvc, orch, rag, database
 }
 
-// --------------------------------------------------------------------------
-// 场景 A：访客发问 → RAG 召回 → AI 自动回复（全链路接线）
-// --------------------------------------------------------------------------
 
 func TestE2E_WebChat_VisitorAsk_AIReplyWithRAG(t *testing.T) {
 	visitorSvc, _, rag, _ := setupWebChatE2E(t)
 
-	// 1. 访客打开会话（默认渠道自动创建）
 	open, err := visitorSvc.OpenSession(context.Background(), &VisitorOpenSessionRequest{
 		ChannelID:   "default",
 		VisitorID:   "v_e2e_001",
@@ -235,7 +203,6 @@ func TestE2E_WebChat_VisitorAsk_AIReplyWithRAG(t *testing.T) {
 		t.Logf("✅ 默认渠道已自动创建，欢迎语: %q", open.WelcomeMessage)
 	}
 
-	// 2. 访客发送正常咨询（触发 AI 自动回复）
 	send, err := visitorSvc.SendMessage(context.Background(), &VisitorSendMessageRequest{
 		ChannelID: "default",
 		VisitorID: "v_e2e_001",
@@ -246,7 +213,6 @@ func TestE2E_WebChat_VisitorAsk_AIReplyWithRAG(t *testing.T) {
 		t.Fatalf("SendMessage(AI) 失败: %v", err)
 	}
 
-	// 3. 断言：RAG 召回被真实调用，且查询词来自访客消息
 	if rag.calls < 1 {
 		t.Error("❌ RAG 召回未被调用（recallRAG 接线断裂）")
 	}
@@ -254,7 +220,6 @@ func TestE2E_WebChat_VisitorAsk_AIReplyWithRAG(t *testing.T) {
 		t.Errorf("❌ RAG 查询词异常: %q", rag.lastQuery)
 	}
 
-	// 4. 断言：AI 自动回复成功，且回复内容引用了 RAG 知识库片段（RAG→LLM→回复 接线打通）
 	if !send.AIReplied {
 		t.Error("❌ 未触发 AI 自动回复")
 	}
@@ -274,9 +239,6 @@ func TestE2E_WebChat_VisitorAsk_AIReplyWithRAG(t *testing.T) {
 		send.AIResponse.Content, send.Confidence, rag.calls)
 }
 
-// --------------------------------------------------------------------------
-// 场景 B：访客发送转人工关键词 → 自动转人工（关键词命中 + 自动分配）
-// --------------------------------------------------------------------------
 
 func TestE2E_WebChat_KeywordTransferToHuman(t *testing.T) {
 	visitorSvc, _, _, _ := setupWebChatE2E(t)
@@ -289,7 +251,6 @@ func TestE2E_WebChat_KeywordTransferToHuman(t *testing.T) {
 		t.Fatalf("OpenSession 失败: %v", err)
 	}
 
-	// 发送含"转人工"关键词的消息
 	send, err := visitorSvc.SendMessage(context.Background(), &VisitorSendMessageRequest{
 		ChannelID: "default",
 		VisitorID: "v_e2e_002",
@@ -309,9 +270,6 @@ func TestE2E_WebChat_KeywordTransferToHuman(t *testing.T) {
 	t.Logf("✅ 场景B通过：转人工原因=%q", send.TransferReason)
 }
 
-// --------------------------------------------------------------------------
-// 场景 C：转人工会话 → 坐席回复落库（人工协同闭环）
-// --------------------------------------------------------------------------
 
 func TestE2E_WebChat_AgentReplyAfterTransfer(t *testing.T) {
 	visitorSvc, orch, _, _ := setupWebChatE2E(t)
@@ -323,7 +281,6 @@ func TestE2E_WebChat_AgentReplyAfterTransfer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenSession 失败: %v", err)
 	}
-	// 先触发转人工
 	if _, err := visitorSvc.SendMessage(context.Background(), &VisitorSendMessageRequest{
 		ChannelID: "default",
 		VisitorID: "v_e2e_003",
@@ -333,13 +290,11 @@ func TestE2E_WebChat_AgentReplyAfterTransfer(t *testing.T) {
 		t.Fatalf("SendMessage(transfer) 失败: %v", err)
 	}
 
-	// 坐席回复
 	agentID := uint(1)
 	if err := orch.AgentReply(context.Background(), open.Session.SessionID, agentID, "您好，我是人工客服，已为您接入，请问还有什么可以帮您？"); err != nil {
 		t.Fatalf("AgentReply 失败: %v", err)
 	}
 
-	// 断言坐席消息已落库
 	msgs, _, err := visitorSvc.GetMessages(context.Background(), "default", "v_e2e_003", open.Session.SessionID, 1, 50)
 	if err != nil {
 		t.Fatalf("GetMessages 失败: %v", err)
@@ -359,9 +314,6 @@ func TestE2E_WebChat_AgentReplyAfterTransfer(t *testing.T) {
 	t.Logf("✅ 场景C通过：坐席回复已落库，会话消息数=%d", len(msgs))
 }
 
-// --------------------------------------------------------------------------
-// 场景 D：完整业务线串联（单次测试覆盖 A+B+C 顺序，验证状态机不串台）
-// --------------------------------------------------------------------------
 
 func TestE2E_WebChat_FullBusinessLine(t *testing.T) {
 	visitorSvc, orch, rag, database := setupWebChatE2E(t)
@@ -375,7 +327,6 @@ func TestE2E_WebChat_FullBusinessLine(t *testing.T) {
 	}
 	sid := open.Session.SessionID
 
-	// 步骤1：AI 回复（RAG 命中）
 	s1, err := visitorSvc.SendMessage(context.Background(), &VisitorSendMessageRequest{
 		ChannelID: "default", VisitorID: "v_e2e_004", SessionID: sid,
 		Content: "请问你们的套餐价格？",
@@ -387,7 +338,6 @@ func TestE2E_WebChat_FullBusinessLine(t *testing.T) {
 		t.Error("步骤1 回复未引用 RAG 知识库")
 	}
 
-	// 步骤2：转人工
 	s2, err := visitorSvc.SendMessage(context.Background(), &VisitorSendMessageRequest{
 		ChannelID: "default", VisitorID: "v_e2e_004", SessionID: sid,
 		Content: "我要转人工",
@@ -396,7 +346,6 @@ func TestE2E_WebChat_FullBusinessLine(t *testing.T) {
 		t.Fatalf("步骤2 转人工失败: err=%v transferred=%v", err, s2 != nil && s2.Transferred)
 	}
 
-	// 步骤3：坐席回复（复用场景C 逻辑）
 	if err := orch.AgentReply(context.Background(), sid, 1, "您好，人工客服已接入，正在为您处理价格问题。"); err != nil {
 		t.Fatalf("步骤3 坐席回复失败: %v", err)
 	}
@@ -412,3 +361,4 @@ func TestE2E_WebChat_FullBusinessLine(t *testing.T) {
 	_ = rag
 	t.Logf("✅ 场景D（完整业务线）通过：AI回复→转人工→坐席回复 状态机正确")
 }
+

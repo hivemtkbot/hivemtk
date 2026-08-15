@@ -43,31 +43,24 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 		return nil, errors.New("线索不能为空")
 	}
 
-	// 1. 渠道分 (0-100)
 	channelScore := scoreChannel(clue.Type)
 
-	// 2. 验证分 (0-100)
 	verifyScore := 0
 	if clue.IsVerify == 1 {
 		verifyScore = 100
 	} else if clue.IsVerify == 0 {
-		verifyScore = 20 // 未验证给基础分
+		verifyScore = 20 
 	}
 
-	// 3. 资料完整度 (0-100)
 	profileScore := scoreProfile(clue)
 
-	// 4. 行为参与度 (0-100)
 	engagementScore, err := s.scoreEngagement(ctx, clue.ID)
 	if err != nil {
-		// 互动事件查询失败不阻塞评分
 		engagementScore = 0
 	}
 
-	// 5. 时效性 (0-100)
 	recencyScore := clueScoreRecency(clue.CreateTime)
 
-	// 加权汇总：25% / 20% / 20% / 25% / 10%
 	total := int(math.Round(
 		float64(channelScore)*0.25 +
 			float64(verifyScore)*0.20 +
@@ -82,7 +75,6 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 		total = 100
 	}
 
-	// 置信度：维度完整度（5 维度，0-100）
 	confidence := calcConfidence(channelScore, verifyScore, profileScore, engagementScore, recencyScore)
 
 	factors := map[string]any{
@@ -140,7 +132,6 @@ func (s *ClueScoreService) ScoreAll(ctx context.Context, limit int) (int, error)
 		return 0, nil
 	}
 
-	// 1) 一次性 batch 拉所有线索的近 7 天互动计数
 	since := time.Now().Add(-7 * 24 * time.Hour)
 	clueIDs := make([]string, 0, len(clues))
 	for _, c := range clues {
@@ -148,7 +139,6 @@ func (s *ClueScoreService) ScoreAll(ctx context.Context, limit int) (int, error)
 	}
 	engagementMap, err := s.engageRepo.CountByClueIDsBatch(ctx, clueIDs, since)
 	if err != nil {
-		// 互动查询失败不阻塞评分，使用空 map 走 0 分路径
 		engagementMap = make(map[string]int64, len(clues))
 	}
 
@@ -179,7 +169,6 @@ func (s *ClueScoreService) scoreClueWithEngagement(ctx context.Context, clue *mo
 
 	profileScore := scoreProfile(clue)
 
-	// 直接用 batch 预拉的 count，不再查 DB
 	c := engagementCount
 	if c > 8 {
 		c = 8
@@ -282,7 +271,6 @@ func (s *ClueScoreService) LoadClueForScoring(ctx context.Context, clueID string
 	if clueID == "" {
 		return nil, errors.New("clue_id 不能为空")
 	}
-	// 通过 list 全量查找（数据量小，性能可接受）
 	clues, _, err := s.clueRepo.GetClueList(ctx, 1, 500)
 	if err != nil {
 		return nil, err
@@ -299,17 +287,17 @@ func (s *ClueScoreService) LoadClueForScoring(ctx context.Context, clueID string
 // 依据：电话/微信/Whatsapp 触达成功率高于纯社交账号
 func scoreChannel(clueType int64) int {
 	switch clueType {
-	case 1: // QQ
+	case 1: 
 		return 60
-	case 2: // 微信
+	case 2: 
 		return 85
-	case 3: // 电话
+	case 3: 
 		return 95
-	case 4: // Telegram
+	case 4: 
 		return 80
-	case 5: // Whatsapp
+	case 5: 
 		return 90
-	case 6: // twitter
+	case 6: 
 		return 55
 	default:
 		return 50
@@ -376,7 +364,6 @@ func clueScoreRecency(createTime int64) int {
 
 // calcConfidence 置信度（基于维度数据完整度）
 func calcConfidence(channel, verify, profile, engagement, recency int) int {
-	// 每维度 20 分（5 维度）
 	score := 0
 	if channel > 0 {
 		score += 20
@@ -404,3 +391,4 @@ func FormatCreateTime(s string) int64 {
 	}
 	return v
 }
+

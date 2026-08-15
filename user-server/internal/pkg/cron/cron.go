@@ -46,7 +46,6 @@ func (tm *TaskManager) RemoveTask(id cron.EntryID) {
 
 func InitCron() {
 	mgr := GetTaskManager()
-	// 每分钟执行一次
 	_, err := mgr.AddTask("0 * * * * *", func() {
 		EmailListCron()
 	})
@@ -55,7 +54,6 @@ func InitCron() {
 		panic(err)
 	}
 
-	// 每小时执行一次活码轮询任务
 	_, err = mgr.AddTask("0 0 * * * *", func() {
 		LiveCodeRotateCron()
 	})
@@ -64,7 +62,6 @@ func InitCron() {
 		panic(err)
 	}
 
-	// 每日基于真实 customer_events 数据执行流失预测计算
 	_, err = mgr.AddTask("0 30 3 * * *", func() {
 		ChurnCalculationCron()
 	})
@@ -91,10 +88,8 @@ func ChurnCalculationCron() {
 func LiveCodeRotateCron() {
 	logger.Info("开始执行活码轮询定时任务...")
 
-	// 创建活码服务实例
 	liveCodeService := service.NewLiveCodeService(db.GetDB())
 
-	// 执行轮询
 	err := liveCodeService.RotateLiveCodes(context.Background())
 	if err != nil {
 		logger.Error(err, "活码轮询定时任务执行失败")
@@ -103,3 +98,4 @@ func LiveCodeRotateCron() {
 
 	logger.Info("活码轮询定时任务执行完成")
 }
+

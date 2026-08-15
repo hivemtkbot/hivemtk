@@ -1,18 +1,5 @@
 package service
 
-// rag_metrics.go RAG 召回率监控服务（C 域 缺口 #2）
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.6 召回率监控
-//
-// 职责:
-//   1. RecordQuery(query, retrieved, relevant, latency) - 异步批量写入 rag_query_logs
-//   2. GetRecallMetrics(start, end) - 查询时间窗口内的召回指标均值
-//   3. GetLowRecallQueries(threshold, limit) - 查询召回率低于阈值的样本（调优用）
-//   4. AggregateWindow(windowStart, windowEnd) - 把 rag_query_logs 聚合到 rag_metrics_daily
-//   5. 后台 cron 每 5 分钟聚合一次
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -31,31 +18,20 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ----------------------------------------------------------------------------
-// 常量与配置
-// ----------------------------------------------------------------------------
 
 const (
-	// RagMetricsAggregationInterval 聚合窗口间隔（5 分钟）
 	RagMetricsAggregationInterval = 5 * time.Minute
-	// RagMetricsBatchSize 异步写入批次大小
 	RagMetricsBatchSize = 100
-	// RagMetricsFlushInterval 异步刷写间隔
 	RagMetricsFlushInterval = 2 * time.Second
-	// RagMetricsLowRecallDefault 默认低召回阈值
 	RagMetricsLowRecallDefault = 0.3
 )
 
-// ----------------------------------------------------------------------------
-// 服务结构
-// ----------------------------------------------------------------------------
 
 // RagMetricsService RAG 召回率监控服务
 type RagMetricsService struct {
 	db   *gorm.DB
 	repo repository.RagMetricsRepository
 
-	// 异步批量写入队列
 	mu      sync.Mutex
 	queue   []*model.RagQueryLog
 	flushCh chan struct{}
@@ -106,13 +82,11 @@ func (s *RagMetricsService) Stop(ctx context.Context) {
 	s.mu.Unlock()
 
 	close(s.stopCh)
-	// 触发最后一次 flush
 	select {
 	case s.flushCh <- struct{}{}:
 	default:
 	}
 	s.wg.Wait()
-	// 兜底再 flush 一次（防止 race）
 	_ = s.flush(ctx)
 }
 
@@ -134,9 +108,6 @@ func (s *RagMetricsService) flushLoop(ctx context.Context) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// RecordQuery 异步记录查询
-// ----------------------------------------------------------------------------
 
 // RecordQueryRequest 记录查询请求
 type RecordQueryRequest struct {
@@ -149,7 +120,6 @@ type RecordQueryRequest struct {
 	TopK            int
 	Source          string
 
-	// Top-1 命中与最高相似度，供 RagRecallMonitor 计算 Top-K / Top-1 命中率与平均相似度
 	Top1DocID     string
 	HitInTop1     bool
 	TopSimilarity float64
@@ -259,9 +229,6 @@ func (s *RagMetricsService) flush(ctx context.Context) error {
 	return nil
 }
 
-// ----------------------------------------------------------------------------
-// GetRecallMetrics 查询时间窗口内的召回指标
-// ----------------------------------------------------------------------------
 
 // RecallMetrics 召回指标聚合结果
 type RecallMetrics struct {
@@ -290,7 +257,6 @@ func (s *RagMetricsService) GetRecallMetrics(ctx context.Context, start, end tim
 	metrics.WindowStart = start
 	metrics.WindowEnd = end
 
-	// 1) 基础聚合：count / avg recall / avg precision / avg latency
 	row, err := s.repo.AggregateQueryLogs(ctx, start, end, RagMetricsLowRecallDefault)
 	if err != nil {
 		return nil, fmt.Errorf("query recall metrics: %w", err)
@@ -302,10 +268,6 @@ func (s *RagMetricsService) GetRecallMetrics(ctx context.Context, start, end tim
 	metrics.ZeroHitCount = row.ZeroHit
 	metrics.LowRecallCount = row.LowRecall
 
-	// 2) 延迟：取延迟升序排列后第 99 百分位
-	// PostgreSQL 没有原生 PERCENTILE_CONT 在所有版本支持，这里用偏移法
-	// offset = floor(total * 0.99)，升序排列后跳过 offset 条取下一条
-	// 例：10 条数据，offset=9，升序第 10 条 = 最大值
 	if row.Total > 0 {
 		p99Offset := int(float64(row.Total) * 0.99)
 		if p99Offset >= int(row.Total) {
@@ -325,9 +287,6 @@ func (s *RagMetricsService) GetRecallMetrics(ctx context.Context, start, end tim
 	return &metrics, nil
 }
 
-// ----------------------------------------------------------------------------
-// GetLowRecallQueries 查询召回率低于阈值的样本
-// ----------------------------------------------------------------------------
 
 // LowRecallQuery 低召回样本
 type LowRecallQuery struct {
@@ -381,9 +340,6 @@ func (s *RagMetricsService) GetLowRecallQueries(ctx context.Context, threshold f
 	return rows, nil
 }
 
-// ----------------------------------------------------------------------------
-// AggregateWindow 聚合窗口数据到 rag_metrics_daily
-// ----------------------------------------------------------------------------
 
 // AggregateWindow 把 rag_query_logs 聚合到 rag_metrics_daily
 //
@@ -409,10 +365,8 @@ func (s *RagMetricsService) AggregateWindow(ctx context.Context, windowStart, wi
 		LowRecallCount: metrics.LowRecallCount,
 		CreatedAt:      time.Now(),
 	}
-	// 幂等：先查再决定 Create/Update
 	existing, err := s.repo.FindDailyByWindow(ctx, windowStart, windowEnd)
 	if err == nil {
-		// 更新
 		daily.ID = existing.ID
 		if err := s.repo.SaveDaily(ctx, daily); err != nil {
 			return nil, fmt.Errorf("update rag_metrics_daily: %w", err)
@@ -422,7 +376,6 @@ func (s *RagMetricsService) AggregateWindow(ctx context.Context, windowStart, wi
 	if !repository.IsRecordNotFound(err) {
 		return nil, fmt.Errorf("query existing rag_metrics_daily: %w", err)
 	}
-	// 新建
 	if err := s.repo.CreateDaily(ctx, daily); err != nil {
 		return nil, fmt.Errorf("create rag_metrics_daily: %w", err)
 	}
@@ -438,9 +391,6 @@ func (s *RagMetricsService) AggregateLastWindow(ctx context.Context) (*model.Rag
 	return s.AggregateWindow(ctx, start, end)
 }
 
-// ----------------------------------------------------------------------------
-// GetLatestMetrics 获取最近 N 个聚合窗口
-// ----------------------------------------------------------------------------
 
 // GetLatestMetrics 获取最近 N 个聚合窗口（用于趋势图）
 func (s *RagMetricsService) GetLatestMetrics(ctx context.Context, limit int) ([]model.RagMetricsDaily, error) {
@@ -454,16 +404,12 @@ func (s *RagMetricsService) GetLatestMetrics(ctx context.Context, limit int) ([]
 	if err != nil {
 		return nil, fmt.Errorf("query latest metrics: %w", err)
 	}
-	// 按 window_start 升序返回（图表 X 轴顺序）
 	sort.Slice(rows, func(i, j int) bool {
 		return rows[i].WindowStart.Before(rows[j].WindowStart)
 	})
 	return rows, nil
 }
 
-// ----------------------------------------------------------------------------
-// 工具函数
-// ----------------------------------------------------------------------------
 
 // toStringSet 把字符串切片转为集合（去重）
 func toStringSet(ids []string) map[string]struct{} {
@@ -495,9 +441,6 @@ func hashQueryShort(query string) string {
 	return hex.EncodeToString(h[:])[:16]
 }
 
-// ----------------------------------------------------------------------------
-// RagMetricsCron 召回指标聚合 cron
-// ----------------------------------------------------------------------------
 
 // RagMetricsCron 召回指标聚合定时任务
 type RagMetricsCron struct {
@@ -542,3 +485,4 @@ func (c *RagMetricsCron) run(ctx context.Context) {
 		}
 	}
 }
+

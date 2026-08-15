@@ -1,16 +1,5 @@
 package service
 
-// humanize_init.go 拟人度评估器装配入口
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十六章 §16.4.10
-//
-// 职责：
-//   1. 构造 HumanizeEvalService（RuleScorer 全量 + LLMScorer 边界采样 + 重生成 + 转人工）
-//   2. 提供全局单例访问器
-//   3. 提供 SetHumanizeRegenerateFn 重生成回调（让 SalesEngine 在拟人不达标时调用 dispatcher 重新生成）
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -46,7 +35,7 @@ func (a *humanizeLLMAdapter) ChatSend(ctx context.Context, prompt string) (strin
 		return "", "", nil
 	}
 	result, err := a.dispatcher.Dispatch(ctx, llm.DispatchRequest{
-		Scenario:  llm.ScenarioObjection, // 复用通用场景
+		Scenario:  llm.ScenarioObjection, 
 		Prompt:    prompt,
 		MaxTokens: 256,
 	})
@@ -81,18 +70,12 @@ var HumanizeEvaluatorEnabled = true
 //   - dispatcher: LLM 调度器
 func InitHumanizeEvalService(db *gorm.DB, dispatcher *llm.Dispatcher) *humanizesvc.HumanizeEvalService {
 	humanizeEvalServiceOnce.Do(func() {
-		// 1. 读取 env 开关（私域本地 LLM 部署下应禁用 评估）
 		if v := os.Getenv("MTK_HUMANIZE_EVAL_DISABLED"); v != "" {
 			if disabled, _ := strconv.ParseBool(v); disabled {
 				HumanizeEvaluatorEnabled = false
 				logger.Info("[humanize] MTK_HUMANIZE_EVAL_DISABLED=true，拟人度评估器已禁用（私域本地 LLM 模式）")
 			}
 		}
-		// 2. 自动检测：未显式禁用时，若 LLM base_url 指向本地推理服务
-		//    （127.0.0.1/localhost/mtk-llm），自动禁用拟人度评估。
-		//    原因：1.5B/3B q4 本地模型在 CPU 上拟人度普遍 < 0.85，
-		//    硬走 0.85 阈值会触发 3 次重生成仍失败 → 转人工，AI 实际无自动回复。
-		//    线上 SaaS（base_url 指向云端 API）不受影响，保持启用。
 		if HumanizeEvaluatorEnabled {
 			llmBaseURL := config.GetAppConfig().Inference.LLM.BaseURL
 			if isLocalLLMBaseURL(llmBaseURL) {
@@ -103,16 +86,13 @@ func InitHumanizeEvalService(db *gorm.DB, dispatcher *llm.Dispatcher) *humanizes
 		if HumanizeEvaluatorEnabled {
 			logger.Info("[humanize] 拟人度评估器已启用（线上模式）")
 		}
-		// 1. 双引擎评估器
 		ruleScorer := humanizesvc.NewRuleScorer()
 		llmScorer := humanizesvc.NewLLMScorer(&humanizeLLMAdapter{dispatcher: dispatcher})
 
-		// 2. 仓储
 		baselineRepo := repository.NewChampionBaselineRepository()
 		scoreRepo := repository.NewHumanizeScoreRepository()
 		sampleCollector := repository.NewHumanizeLowQualitySampleCollector()
 
-		// 3. 主编排服务
 		svc := humanizesvc.NewHumanizeEvalService(
 			ruleScorer,
 			llmScorer,
@@ -120,7 +100,6 @@ func InitHumanizeEvalService(db *gorm.DB, dispatcher *llm.Dispatcher) *humanizes
 			scoreRepo,
 			sampleCollector,
 		)
-		// 自定义阈值：MTK_HUMANIZE_EVAL_THRESHOLD（注释长期声明却从未被读取，此处补接）。
 		if v := os.Getenv("MTK_HUMANIZE_EVAL_THRESHOLD"); v != "" {
 			if thr, perr := strconv.ParseFloat(strings.TrimSpace(v), 64); perr == nil && thr > 0 && thr <= 1 {
 				svc = svc.WithThreshold(context.Background(), thr)
@@ -237,10 +216,11 @@ func SetHumanizeRegenerateDispatcher(dispatcher *llm.Dispatcher) {
 // 其在 CPU 上的拟人度普遍 < 0.85，应自动禁用拟人度评估避免无效重生成。
 func isLocalLLMBaseURL(baseURL string) bool {
 	if baseURL == "" {
-		return true // 未配置 base_url 视为本地默认
+		return true 
 	}
 	lower := strings.ToLower(baseURL)
 	return strings.Contains(lower, "127.0.0.1") ||
 		strings.Contains(lower, "localhost") ||
 		strings.Contains(lower, "mtk-llm")
 }
+

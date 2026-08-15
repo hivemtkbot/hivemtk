@@ -8,9 +8,9 @@ import (
 type SecurityAlertStatus string
 
 const (
-	SecurityAlertStatusOpen     SecurityAlertStatus = "open"     // 未处理
-	SecurityAlertStatusResolved SecurityAlertStatus = "resolved" // 已解决
-	SecurityAlertStatusIgnored  SecurityAlertStatus = "ignored"  // 已忽略
+	SecurityAlertStatusOpen     SecurityAlertStatus = "open"     
+	SecurityAlertStatusResolved SecurityAlertStatus = "resolved" 
+	SecurityAlertStatusIgnored  SecurityAlertStatus = "ignored"  
 )
 
 // IsValidSecurityAlertStatus 校验告警状态
@@ -29,19 +29,19 @@ func IsValidSecurityAlertStatus(s SecurityAlertStatus) bool {
 //   - resolved_at / resolved_by: 处理轨迹
 type SecurityAlert struct {
 	ID           uint                `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID       uint                `gorm:"index" json:"user_id"`                              // 关联用户（0=未知用户/匿名攻击）
-	Username     string              `gorm:"type:varchar(50);index" json:"username"`            // 关联用户名
-	AlertType    string              `gorm:"type:varchar(50);index;not null" json:"alert_type"` // abnormal_login / brute_force / device_change / location_change / frequent_failure
+	UserID       uint                `gorm:"index" json:"user_id"`                              
+	Username     string              `gorm:"type:varchar(50);index" json:"username"`            
+	AlertType    string              `gorm:"type:varchar(50);index;not null" json:"alert_type"` 
 	RiskLevel    RiskLevel           `gorm:"type:varchar(20);index;not null" json:"risk_level"`
 	Title        string              `gorm:"type:varchar(255);not null" json:"title"`
 	Description  string              `gorm:"type:text" json:"description"`
 	IP           string              `gorm:"type:varchar(50);index" json:"ip"`
 	Location     string              `gorm:"type:varchar(255)" json:"location"`
-	LoginEventID uint                `gorm:"index" json:"login_event_id"` // 关联 LoginEvent.ID
+	LoginEventID uint                `gorm:"index" json:"login_event_id"` 
 	Notified     bool                `gorm:"default:false" json:"notified"`
 	Status       SecurityAlertStatus `gorm:"type:varchar(20);default:'open';index" json:"status"`
 	ResolvedAt   *time.Time          `json:"resolved_at"`
-	ResolvedBy   uint                `json:"resolved_by"` // 处理人 user_id
+	ResolvedBy   uint                `json:"resolved_by"` 
 	ResolveNote  string              `gorm:"type:text" json:"resolve_note"`
 	CreatedAt    time.Time           `gorm:"autoCreateTime;index" json:"created_at"`
 	UpdatedAt    time.Time           `gorm:"autoUpdateTime" json:"updated_at"`
@@ -54,10 +54,11 @@ func (SecurityAlert) TableName() string {
 
 // 告警类型常量
 const (
-	AlertTypeAbnormalLogin   = "abnormal_login"   // 异地登录
-	AlertTypeBruteForce      = "brute_force"      // 暴力破解
-	AlertTypeDeviceChange    = "device_change"    // 设备指纹变更
-	AlertTypeLocationChange  = "location_change"  // 登录地变更
-	AlertTypeFrequentFailure = "frequent_failure" // 频繁失败
-	AlertTypeAbnormalTime    = "abnormal_time"    // 异常时段
+	AlertTypeAbnormalLogin   = "abnormal_login"   
+	AlertTypeBruteForce      = "brute_force"      
+	AlertTypeDeviceChange    = "device_change"    
+	AlertTypeLocationChange  = "location_change"  
+	AlertTypeFrequentFailure = "frequent_failure" 
+	AlertTypeAbnormalTime    = "abnormal_time"    
 )
+

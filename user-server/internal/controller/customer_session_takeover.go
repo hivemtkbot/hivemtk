@@ -26,7 +26,6 @@ func (c *CustomerSessionController) Takeover(ctx *gin.Context) {
 	}
 	_ = ctx.ShouldBindJSON(&req)
 
-	// agent_id 从登录态推导（与 SendMessage 一致，禁止客户端伪造）
 	agentID := getUserIDFromContext(ctx)
 	if agentID == 0 {
 		response.Error(ctx, http.StatusUnauthorized, "未登录或无权操作", "missing user_id")
@@ -115,3 +114,4 @@ func (c *CustomerSessionController) SwitchHandler(ctx *gin.Context) {
 		"handler_type": req.HandlerType,
 	}, "切换成功")
 }
+

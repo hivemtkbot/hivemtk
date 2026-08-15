@@ -1,20 +1,5 @@
 package ragretrieval
 
-// rrf_fusion.go Reciprocal Rank Fusion 融合器
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.4.4
-// 论文: Cormack, Clarke, Büttcher 2009 SIGIR "Reciprocal Rank Fusion outperforms Condorcet
-//       and individual Rank Learning Methods"（k=60 推导）
-//
-// 公式: score(d) = Σ_r 1 / (k + rank_r(d))
-// 参数: k=60（Cormack 2009 SIGIR 推荐，OpenSearch/Elasticsearch 默认）
-//
-// 特性:
-//   - 只用 rank 不用 score，避免 BM25 与 cosine 量纲不可比问题
-//   - 文档在两路都出现则双倍加分（鼓励一致性）
-//   - 文档只出现在一路也不丢弃（保留单路命中）
-//   - 私域独立部署: 无 merchant_id 字段
 
 import (
 	"sort"
@@ -60,7 +45,6 @@ func (f *RRFFusion) Fuse(vecResults, bm25Results []Chunk, topN int) []Chunk {
 	}
 	merged := make(map[string]*rrfEntry, len(vecResults)+len(bm25Results))
 
-	// 向量路：rank 从 1 开始（i+1）
 	for i, c := range vecResults {
 		id := c.ID
 		rrfScore := 1.0 / float64(f.k+i+1)
@@ -70,7 +54,6 @@ func (f *RRFFusion) Fuse(vecResults, bm25Results []Chunk, topN int) []Chunk {
 			merged[id] = &rrfEntry{chunk: c, score: rrfScore}
 		}
 	}
-	// BM25 路
 	for i, c := range bm25Results {
 		id := c.ID
 		rrfScore := 1.0 / float64(f.k+i+1)
@@ -81,7 +64,6 @@ func (f *RRFFusion) Fuse(vecResults, bm25Results []Chunk, topN int) []Chunk {
 		}
 	}
 
-	// 排序取 topN（按 RRF score 降序；同分时按 chunk ID 稳定排序）
 	list := make([]*rrfEntry, 0, len(merged))
 	for _, e := range merged {
 		list = append(list, e)
@@ -98,7 +80,6 @@ func (f *RRFFusion) Fuse(vecResults, bm25Results []Chunk, topN int) []Chunk {
 
 	out := make([]Chunk, 0, len(list))
 	for _, e := range list {
-		// 用 RRF score 覆盖原始 score
 		e.chunk.Score = e.score
 		out = append(out, e.chunk)
 	}
@@ -153,7 +134,6 @@ func mergeChunksByMaxScore(base, extra []Chunk) []Chunk {
 		contentByID[c.ID] = c.Content
 	}
 	for _, c := range extra {
-		// 仅在 base 未提供内容时用 extra 的（通常是同一分片，内容一致）
 		if _, ok := contentByID[c.ID]; !ok {
 			contentByID[c.ID] = c.Content
 		}
@@ -164,3 +144,4 @@ func mergeChunksByMaxScore(base, extra []Chunk) []Chunk {
 	}
 	return out
 }
+

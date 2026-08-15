@@ -6,14 +6,10 @@ import "strings"
 // 整合 chat_visitor.transferKeywords / veto_rule.explicitKeywords / smart_cs_orchestrator.urgentKeywords
 // 避免三套独立关键词列表不一致的问题
 var NLPKeywords = struct {
-	Transfer []string // 触发转人工
-	Explicit []string // 显式转人工（veto 规则）
-	Urgent   []string // 紧急/投诉
+	Transfer []string 
+	Explicit []string 
+	Urgent   []string 
 }{
-	// 仅匹配「显式要求人工」的短语，避免误伤：
-	//   - 去掉裸词 "客服"（"你们的客服系统怎么用" 是产品问题，不应转人工）
-	//   - 去掉裸词 "人工"（与 "人工智能" 子串冲突，会误转）
-	//   - 去掉英文裸词 operator/human/agent（"agent 怎么用" 是问 AI 本身）
 	Transfer: []string{
 		"转人工", "转接人工", "人工客服", "真人客服", "找人工",
 		"找客服", "人工服务", "真人", "找人",
@@ -71,3 +67,4 @@ func MatchUrgentKeywords(content string) bool {
 	}
 	return false
 }
+

@@ -32,3 +32,4 @@ func DeliverBridgeOutbound(ctx context.Context, channel, accountID, conversation
 	}
 	return bridgeOutbound(ctx, channel, accountID, conversationID, msgType, content, eventID)
 }
+

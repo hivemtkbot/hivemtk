@@ -1,16 +1,5 @@
 package humanize
 
-// rule_scorer.go 规则评估器（RuleScorerImpl）
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十六章 §16.4.2
-//
-// 5 维评分体系（纯 Go，无 LLM 调用，<1ms）：
-//  1. Naturalness:     1 - AI 痕迹词惩罚 - burstiness 惩罚
-//  2. Conciseness:     字数与意图匹配（投诉/价格/购买等不同意图期望字数不同）
-//  3. Empathy:         投诉场景必须共情；其他场景按共情词密度
-//  4. Professionalism: 行业专业词密度 + 人设一致性
-//  5. Persuasiveness:  行动召唤 + 利益词密度
 
 import (
 	"context"
@@ -24,9 +13,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// ============================================================================
-// 词典（行业无关通用词典，可后续扩展按行业分词典）
-// ============================================================================
 
 // aiTraces AI 痕迹词（命中则 Naturalness 重罚）
 var aiTraces = []string{
@@ -59,15 +45,11 @@ var empathyWords = []string{
 
 // professionalWords 行业专业词（多行业混合，后续可按 industry 拆分）
 var professionalWords = []string{
-	// 美妆
 	"成分", "肤质", "保湿", "补水", "美白", "抗老", "维C", "烟酰胺",
 	"玻尿酸", "修护", "防晒", "清洁", "控油",
-	// 3C
 	"续航", "性能", "处理器", "内存", "屏幕", "像素", "快充", "电池",
 	"参数", "配置", "型号", "保修", "售后",
-	// 服饰
 	"面料", "版型", "尺码", "剪裁", "质地", "透气", "垂坠",
-	// 通用
 	"专业", "认证", "权威", "标准", "工艺",
 }
 
@@ -99,24 +81,23 @@ var complaintKeywords = []string{
 
 // intentExpectedLength 各意图期望字数范围（用于 Conciseness 评分）
 var intentExpectedLength = map[string][2]int{
-	"complaint":     {20, 200}, // 投诉需要充分共情，字数较多
-	"churn":         {30, 250}, // 流失挽回需要详细解释
-	"objection":     {20, 180}, // 异议处理
-	"ask_product":   {10, 150}, // 产品咨询
-	"ask_service":   {15, 180}, // 服务咨询
-	"price_inquiry": {10, 100}, // 价格咨询简洁
-	"purchase":      {10, 120}, // 购买引导
-	"after_sale":    {20, 200}, // 售后
-	"social":        {5, 60},   // 闲聊极简
-	"greeting":      {5, 50},   // 问候极简
-	"default":       {10, 150}, // 默认
+	"complaint":     {20, 200}, 
+	"churn":         {30, 250}, 
+	"objection":     {20, 180}, 
+	"ask_product":   {10, 150}, 
+	"ask_service":   {15, 180}, 
+	"price_inquiry": {10, 100}, 
+	"purchase":      {10, 120}, 
+	"after_sale":    {20, 200}, 
+	"social":        {5, 60},   
+	"greeting":      {5, 50},   
+	"default":       {10, 150}, 
 }
 
 // RuleScorerImpl 规则评估器实现
 //
 // 全量执行 <1ms，无 LLM 调用
 type RuleScorerImpl struct {
-	// 可扩展字段：按行业加载不同词典
 }
 
 // NewRuleScorer 构造规则评估器
@@ -142,7 +123,6 @@ func (s *RuleScorerImpl) Evaluate(ctx context.Context, input *dto.HumanizeEvalIn
 	}
 
 	total := computeHumanizeWeightedScore(scores)
-	// 保留 4 位小数
 	total = math.Round(total*10000) / 10000
 
 	return &dto.HumanizeEvalResult{
@@ -155,9 +135,6 @@ func (s *RuleScorerImpl) Evaluate(ctx context.Context, input *dto.HumanizeEvalIn
 	}, nil
 }
 
-// ============================================================================
-// 5 维评分实现
-// ============================================================================
 
 // computeNaturalness 自然度评分
 //
@@ -179,7 +156,6 @@ func (s *RuleScorerImpl) computeNaturalness(reply string) float64 {
 	if burstiness < 0.3 {
 		score -= 0.15
 	}
-	// 语气词密度奖励
 	runeCount := countRunes(reply)
 	if runeCount > 0 {
 		particleCount := 0
@@ -211,28 +187,25 @@ func (s *RuleScorerImpl) computeConciseness(reply, intent string) float64 {
 	var score float64
 	switch {
 	case runeCount >= low && runeCount <= high:
-		// 范围内：0.85-1.00（按位置插值）
 		if high == low {
 			score = 0.95
 		} else {
 			ratio := float64(runeCount-low) / float64(high-low)
-			score = 0.85 + 0.15*(1-math.Abs(ratio-0.5)*2) // 中间值最优
+			score = 0.85 + 0.15*(1-math.Abs(ratio-0.5)*2) 
 		}
 	case runeCount < low:
-		// 太短：按比例扣分
 		ratio := float64(runeCount) / float64(low)
 		if ratio < 0.5 {
-			score = 0.30 // 极敷衍
+			score = 0.30 
 		} else {
-			score = 0.30 + 0.55*(ratio-0.5)*2 // 0.30 - 0.85
+			score = 0.30 + 0.55*(ratio-0.5)*2 
 		}
 	default:
-		// 太长：按比例扣分
 		ratio := float64(runeCount) / float64(high)
 		if ratio > 2.0 {
 			score = 0.30
 		} else {
-			score = 0.85 - 0.55*(ratio-1.0) // 0.85 - 0.30
+			score = 0.85 - 0.55*(ratio-1.0) 
 		}
 	}
 	return clampScore(score)
@@ -254,7 +227,6 @@ func (s *RuleScorerImpl) computeEmpathy(reply, customerMessage string) float64 {
 	}
 	density := float64(empathyCount) / float64(runeCount) * 100.0
 
-	// 投诉场景强制共情
 	isComplaint := false
 	lowered := strings.ToLower(customerMessage)
 	for _, kw := range complaintKeywords {
@@ -265,13 +237,11 @@ func (s *RuleScorerImpl) computeEmpathy(reply, customerMessage string) float64 {
 	}
 	if isComplaint {
 		if empathyCount == 0 {
-			return 0.30 // 投诉无共情直接低分
+			return 0.30 
 		}
-		// 投诉场景共情权重更高
 		score := 0.40 + math.Min(density*0.20, 0.60)
 		return clampScore(score)
 	}
-	// 非投诉场景：按密度评分
 	score := 0.50 + math.Min(density*0.15, 0.50)
 	return clampScore(score)
 }
@@ -335,9 +305,6 @@ func (s *RuleScorerImpl) computePersuasiveness(reply string) float64 {
 	return clampScore(score)
 }
 
-// ============================================================================
-// 辅助函数
-// ============================================================================
 
 // normalizeIntent 归一化意图标签
 func normalizeIntent(intent string) string {
@@ -404,3 +371,4 @@ func computeBurstiness(s string) float64 {
 	variance /= float64(len(sentences))
 	return math.Sqrt(variance) / mean
 }
+

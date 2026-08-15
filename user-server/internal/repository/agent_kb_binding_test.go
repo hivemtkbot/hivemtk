@@ -61,7 +61,6 @@ func TestAgentKBBindingRepository_CreateAndCheckExists(t *testing.T) {
 	if !exists {
 		t.Error("expected exists=true")
 	}
-	// 不存在的组合
 	exists, _ = repo.CheckExists(ctx, 1, 999)
 	if exists {
 		t.Error("expected exists=false for non-existing")
@@ -76,7 +75,6 @@ func TestAgentKBBindingRepository_DuplicateConflict(t *testing.T) {
 	if err := repo.Create(ctx, newTestBinding(1, 100, "faq", "primary")); err != nil {
 		t.Fatal(err)
 	}
-	// 重复 (agent, kb) 应失败
 	err := repo.Create(ctx, newTestBinding(1, 100, "faq", "primary"))
 	if err == nil {
 		t.Error("expected duplicate error")
@@ -109,7 +107,6 @@ func TestAgentKBBindingRepository_ListByAgent(t *testing.T) {
 		t.Errorf("expected 3 bindings for agent=1, got %d", len(got))
 	}
 
-	// 按类型过滤
 	faqs, _ := repo.ListByAgent(ctx, 1, "faq")
 	if len(faqs) != 1 {
 		t.Errorf("expected 1 FAQ binding, got %d", len(faqs))
@@ -194,9 +191,6 @@ func TestAgentKBBindingRepository_GetByAgentKB_NotFound(t *testing.T) {
 	}
 }
 
-// =====================================================================
-// 补充测试: 边界条件 / 级联删除 / 业务级联 (Task 38)
-// =====================================================================
 
 // TestAgentKBBindingRepository_DeleteByID 验证按 ID 删除
 func TestAgentKBBindingRepository_DeleteByID(t *testing.T) {
@@ -237,7 +231,6 @@ func TestAgentKBBindingRepository_DeleteByAgent(t *testing.T) {
 	if len(got) != 0 {
 		t.Errorf("expected 0 for agent=1, got %d", len(got))
 	}
-	// agent=2 不受影响
 	got2, _ := repo.ListByAgentAll(ctx, 2)
 	if len(got2) != 1 {
 		t.Errorf("expected 1 for agent=2, got %d", len(got2))
@@ -250,7 +243,6 @@ func TestAgentKBBindingRepository_DeleteByAgent_ZeroAgentID(t *testing.T) {
 	defer done()
 	ctx := context.Background()
 
-	// 0 不应执行 (业务保护)
 	if err := repo.DeleteByAgent(ctx, 0); err != nil {
 		t.Errorf("expected nil error for agentID=0, got %v", err)
 	}
@@ -276,7 +268,6 @@ func TestAgentKBBindingRepository_DeleteByKB(t *testing.T) {
 	if len(got) != 0 {
 		t.Errorf("expected 0 bindings for KB=100, got %d", len(got))
 	}
-	// KB=200 不受影响
 	got2, _ := repo.ListByKB(ctx, 200)
 	if len(got2) != 1 {
 		t.Errorf("expected 1 binding for KB=200, got %d", len(got2))
@@ -310,7 +301,6 @@ func TestAgentKBBindingRepository_ListByAgentAll(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 应包含 disabled 的 binding
 	if len(got) != 2 {
 		t.Errorf("expected 2 (including disabled), got %d", len(got))
 	}
@@ -371,7 +361,6 @@ func TestAgentKBBindingRepository_ListByAgent_PriorityOrdering(t *testing.T) {
 	if len(got) != 4 {
 		t.Fatalf("expected 4, got %d", len(got))
 	}
-	// 期望 priority DESC: 10, 7, 5, 1
 	expected := []int{10, 7, 5, 1}
 	for i, b := range got {
 		if b.Priority != expected[i] {
@@ -379,3 +368,4 @@ func TestAgentKBBindingRepository_ListByAgent_PriorityOrdering(t *testing.T) {
 		}
 	}
 }
+

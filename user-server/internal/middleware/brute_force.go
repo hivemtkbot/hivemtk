@@ -51,13 +51,9 @@ func SetBruteForceLockCallback(cb BruteForceLockCallback) {
 
 // BruteForceConfig 防爆破配置
 type BruteForceConfig struct {
-	// 端点标识（建议传递函数名或路由路径）
 	Endpoint string
-	// 窗口时长（默认 15 分钟）
 	Window time.Duration
-	// 失败次数阈值（默认 5）
 	MaxFailures int
-	// 锁定时长（默认 30 分钟）
 	LockDuration time.Duration
 }
 
@@ -84,7 +80,6 @@ func BruteForceGuard(endpoint string) gin.HandlerFunc {
 
 		now := time.Now()
 
-		// 检查是否仍处于锁定状态
 		globalBruteForce.mu.RLock()
 		locked := !entry.lockedUntil.IsZero() && now.Before(entry.lockedUntil)
 		globalBruteForce.mu.RUnlock()
@@ -95,7 +90,6 @@ func BruteForceGuard(endpoint string) gin.HandlerFunc {
 				retryAfter = 1
 			}
 			c.Header("Retry-After", itoa(retryAfter))
-			// 扩展：触发暴力破解告警回调（如果已注册）
 			if globalBruteForceOnLock != nil {
 				globalBruteForceOnLock(c, endpoint, retryAfter)
 			}
@@ -124,7 +118,6 @@ func RecordBruteForceFailure(c *gin.Context, endpoint string) {
 		globalBruteForce.entries[clientKey] = entry
 	}
 
-	// 窗口已过期，重置
 	if now.Sub(entry.firstAt) > cfg.Window {
 		entry.failures = 0
 		entry.firstAt = now
@@ -133,9 +126,7 @@ func RecordBruteForceFailure(c *gin.Context, endpoint string) {
 
 	entry.failures++
 
-	// 超过阈值则锁定
 	if entry.failures >= cfg.MaxFailures {
-		// 失败次数越多，锁定时间越长（1x, 2x, 4x 指数退避）
 		multiplier := 1
 		switch {
 		case entry.failures >= cfg.MaxFailures*8:
@@ -225,3 +216,4 @@ func itoa(i int) string {
 	}
 	return string(buf[pos:])
 }
+

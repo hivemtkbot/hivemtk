@@ -1,14 +1,5 @@
 package service
 
-// sop_node_executor_test.go SOP 节点执行器接口与注册中心单元测试（§13.6 验收）
-//
-// 覆盖：
-//  1. NodeExecutorRegistry：Register / Get / MustGet / AllRegistered / 重复注册 panic
-//  2. NoopExecutor：NodeType / Execute / IsAsync
-//  3. 幂等性工具：hasSideEffect / extractSideEffects / appendSideEffect / appendSideEffect 去重
-//  4. ExecutionContext / NodeExecResult 结构体字段可访问性
-//
-// 不依赖数据库，纯内存单元测试。
 
 import (
 	"context"
@@ -18,7 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ===== NodeExecutorRegistry 测试 =====
 
 func TestNodeExecutorRegistry_RegisterAndGet(t *testing.T) {
 	r := NewNodeExecutorRegistry()
@@ -44,7 +34,6 @@ func TestNodeExecutorRegistry_GetNotFound(t *testing.T) {
 
 func TestNodeExecutorRegistry_MustGetFallbackToNoop(t *testing.T) {
 	r := NewNodeExecutorRegistry()
-	// 未注册类型应返回 NoopExecutor 兜底
 	got := r.MustGet(context.Background(), "non_existent_type")
 	if got == nil {
 		t.Fatal("MustGet returned nil")
@@ -90,7 +79,6 @@ func TestNodeExecutorRegistry_AllRegistered(t *testing.T) {
 	if len(all) != 2 {
 		t.Errorf("expected 2 registered, got %d", len(all))
 	}
-	// 应包含 start 和 end
 	hasStart, hasEnd := false, false
 	for _, typ := range all {
 		if typ == SOPNodeTypeStart {
@@ -105,7 +93,6 @@ func TestNodeExecutorRegistry_AllRegistered(t *testing.T) {
 	}
 }
 
-// ===== NoopExecutor 测试 =====
 
 func TestNoopExecutor_NodeType(t *testing.T) {
 	n := &NoopExecutor{nodeType: "custom_type"}
@@ -139,7 +126,6 @@ func TestNoopExecutor_ExecuteReturnsCompleted(t *testing.T) {
 	}
 }
 
-// ===== 幂等性工具测试 =====
 
 func TestHasSideEffect_EmptyExecution(t *testing.T) {
 	if hasSideEffect(nil, "msg:1:n1") {
@@ -189,7 +175,7 @@ func TestExtractSideEffects_ValidData(t *testing.T) {
 
 func TestExtractSideEffects_InvalidType(t *testing.T) {
 	data := model.JSONMap{
-		"_side_effects": "not_an_array", // 错误类型
+		"_side_effects": "not_an_array", 
 	}
 	effects := extractSideEffects(data)
 	if effects != nil {
@@ -209,7 +195,7 @@ func TestAppendSideEffect_NewEffect(t *testing.T) {
 func TestAppendSideEffect_DuplicateDeduplicated(t *testing.T) {
 	data := model.JSONMap{}
 	data = appendSideEffect(data, "effect1")
-	data = appendSideEffect(data, "effect1") // 重复应被去重
+	data = appendSideEffect(data, "effect1") 
 	data = appendSideEffect(data, "effect2")
 	effects := extractSideEffects(data)
 	if len(effects) != 2 {
@@ -228,7 +214,6 @@ func TestAppendSideEffect_NilData(t *testing.T) {
 	}
 }
 
-// ===== ExecutionContext / NodeExecResult 结构体测试 =====
 
 func TestExecutionContext_FieldsAccessible(t *testing.T) {
 	ec := &ExecutionContext{
@@ -282,10 +267,8 @@ func TestNodeExecResult_FieldsAccessible(t *testing.T) {
 	}
 }
 
-// ===== 常量完整性测试 =====
 
 func TestNodeStatusConstants(t *testing.T) {
-	// 确保状态常量值符合预期，防止后续被改动破坏序列化协议
 	cases := []struct{ name, value string }{
 		{"NodeStatusCompleted", NodeStatusCompleted},
 		{"NodeStatusWaiting", NodeStatusWaiting},
@@ -337,3 +320,4 @@ func TestWaitEventConstants(t *testing.T) {
 		t.Errorf("WaitEventExternal=%s want=external", WaitEventExternal)
 	}
 }
+

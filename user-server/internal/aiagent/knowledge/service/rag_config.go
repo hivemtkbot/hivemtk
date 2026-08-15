@@ -21,7 +21,6 @@ type RagConfigService struct {
 	ragService        *rag_service.RAGService
 	documentProcessor *etl.DocumentProcessor
 	vectorProcessor   *vector.VectorProcessor
-	// ragSearcher 让 QueryKnowledgeBase 走真实 pgvector
 	ragSearcher *RagSearcher
 }
 
@@ -37,7 +36,6 @@ func NewRagConfigService(
 		ragService:        ragService,
 		documentProcessor: documentProcessor,
 		vectorProcessor:   vectorProcessor,
-		// 自动初始化向量检索器（pgvector + TEI bge-m3）
 		ragSearcher: NewRagSearcher(),
 	}
 }
@@ -52,7 +50,6 @@ func (s *RagConfigService) CreateRagProduct(ctx context.Context, req *model.RagP
 		return nil, errors.New("product category is required")
 	}
 
-	// 设置默认值
 	if req.Temperature == 0 {
 		req.Temperature = DefaultTemperature
 	}
@@ -72,7 +69,6 @@ func (s *RagConfigService) CreateRagProduct(ctx context.Context, req *model.RagP
 		req.ResponseFormat = "json_object"
 	}
 
-	// 设置默认的LLM提供者配置
 	if req.LLMProviderConfig.APIType == "" {
 		req.LLMProviderConfig.APIType = "openai"
 	}
@@ -86,7 +82,6 @@ func (s *RagConfigService) CreateRagProduct(ctx context.Context, req *model.RagP
 		req.LLMProviderConfig.RequestTimeout = DefaultRequestTimeoutSeconds
 	}
 
-	// 设置默认的 text-embedding / rerank 配置（per 知识库，可被后台覆盖）
 	if req.EmbeddingProviderConfig.APIType == "" {
 		req.EmbeddingProviderConfig.APIType = "openai"
 	}
@@ -108,8 +103,6 @@ func (s *RagConfigService) CreateRagProduct(ctx context.Context, req *model.RagP
 	}
 	req.RerankProviderConfig.Enabled = true
 
-	// vector_table 有 uniqueIndex，未提供时 PG 会因空串重复导致 duplicate key 错误
-	// 兜底用 Name 生成 deterministic 的 table 名（kebab-case + 随机后缀）
 	if req.VectorTable == "" {
 		req.VectorTable = sanitizeVectorTableName(req.Name) + "_" + randomHex(4)
 	}
@@ -171,7 +164,6 @@ func (s *RagConfigService) ListRagProducts(ctx context.Context) ([]*model.RagPro
 //   - VectorTable 字段必须保留原值（不能被空串覆盖，否则 uniqueIndex 会冲突）。
 //   - 实际修改采用 SELECT-then-MERGE 模式，确保未指定字段不会被清空。
 func (s *RagConfigService) UpdateRagProduct(ctx context.Context, req *model.RagProduct) error {
-	// 验证必填字段
 	if req.ID == "" {
 		return errors.New("product ID is required")
 	}
@@ -179,7 +171,6 @@ func (s *RagConfigService) UpdateRagProduct(ctx context.Context, req *model.RagP
 		return errors.New("product name is required")
 	}
 
-	// 加载原始产品，做 merge（避免 PATCH 语义下覆盖问题）
 	original, err := s.repo.GetRagProductByID(ctx, req.ID)
 	if err != nil {
 		return fmt.Errorf("failed to load original product: %w", err)
@@ -188,7 +179,6 @@ func (s *RagConfigService) UpdateRagProduct(ctx context.Context, req *model.RagP
 		return errors.New("rag product not found")
 	}
 
-	// 数值字段：仅在 > 0 时覆盖（避免 0 误清空已有值）
 	if req.Temperature > 0 {
 		if req.Temperature < 0 || req.Temperature > 2 {
 			return errors.New("temperature must be between 0 and 2")
@@ -220,7 +210,6 @@ func (s *RagConfigService) UpdateRagProduct(ctx context.Context, req *model.RagP
 		original.PresencePenalty = req.PresencePenalty
 	}
 
-	// 文本字段：非空时覆盖
 	if req.Name != "" {
 		original.Name = req.Name
 	}
@@ -240,7 +229,6 @@ func (s *RagConfigService) UpdateRagProduct(ctx context.Context, req *model.RagP
 		original.SystemPrompt = req.SystemPrompt
 	}
 	if req.ResponseFormat != "" {
-		// 验证响应格式
 		validResponseFormat := map[string]bool{
 			"json_object": true,
 			"text":        true,
@@ -251,7 +239,6 @@ func (s *RagConfigService) UpdateRagProduct(ctx context.Context, req *model.RagP
 		original.ResponseFormat = req.ResponseFormat
 	}
 	if req.LLMProviderConfig.APIType != "" {
-		// 验证API类型
 		validAPIType := map[string]bool{
 			"openai":    true,
 			"anthropic": true,
@@ -273,7 +260,6 @@ func (s *RagConfigService) UpdateRagProduct(ctx context.Context, req *model.RagP
 		original.LLMProviderConfig.BaseURL = req.LLMProviderConfig.BaseURL
 	}
 
-	// 文本向量(text-embedding)供应商配置合并（per 知识库覆盖全局）
 	if req.EmbeddingProviderConfig.APIType != "" {
 		original.EmbeddingProviderConfig.APIType = req.EmbeddingProviderConfig.APIType
 	}
@@ -291,7 +277,6 @@ func (s *RagConfigService) UpdateRagProduct(ctx context.Context, req *model.RagP
 	}
 	original.EmbeddingProviderConfig.Enabled = req.EmbeddingProviderConfig.Enabled
 
-	// 重排(rerank)供应商配置合并（per 知识库覆盖全局）
 	if req.RerankProviderConfig.APIType != "" {
 		original.RerankProviderConfig.APIType = req.RerankProviderConfig.APIType
 	}
@@ -306,8 +291,6 @@ func (s *RagConfigService) UpdateRagProduct(ctx context.Context, req *model.RagP
 	}
 	original.RerankProviderConfig.Enabled = req.RerankProviderConfig.Enabled
 
-	// 关键：VectorTable 永远保留原值（uniqueIndex 不能被空串覆盖）
-	// 这里不需要赋值，original 已有原值
 
 	original.UpdatedAt = time.Now()
 
@@ -318,3 +301,4 @@ func (s *RagConfigService) UpdateRagProduct(ctx context.Context, req *model.RagP
 func (s *RagConfigService) DeleteRagProduct(ctx context.Context, id string) error {
 	return s.repo.DeleteRagProduct(ctx, id)
 }
+

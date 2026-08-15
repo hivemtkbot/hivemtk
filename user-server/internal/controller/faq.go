@@ -1,18 +1,5 @@
 package controller
 
-// faq_controller.go FAQ 知识库 L3 Controller
-//
-// 五层架构归属: L3 API 接入层
-// 设计依据: 知识库管理
-//
-// 接口前缀: /api/faqs
-//   GET    /api/faqs                列表查询 (前端 FAQ 管理页面)
-//   GET    /api/faqs/:id            详情
-//   POST   /api/faqs                新增
-//   PUT    /api/faqs/:id            更新
-//   DELETE /api/faqs/:id            删除
-//   POST   /api/faqs/match          关键词匹配 (Layer1 调试接口)
-//   GET    /api/faqs/stats          统计
 
 import (
 	"net/http"
@@ -102,7 +89,6 @@ type faqCreateReq struct {
 	Intent     string   `json:"intent"`
 	Confidence float64  `json:"confidence"`
 	Enabled    *bool    `json:"enabled"`
-	// Task 15 强 1对1: AgentID 必填
 	AgentID uint `json:"agent_id" binding:"required"`
 }
 
@@ -181,7 +167,7 @@ func (c *FAQController) Delete(ctx *gin.Context) {
 type faqMatchReq struct {
 	Msg     string `json:"msg" binding:"required"`
 	TopK    int    `json:"top_k"`
-	AgentID uint   `json:"agent_id" binding:"required"` // Task 15 强 1对1: 必填
+	AgentID uint   `json:"agent_id" binding:"required"` 
 }
 
 // Match 关键词匹配 (调试接口 + 未来 RAG 引擎调用)
@@ -191,7 +177,6 @@ func (c *FAQController) Match(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	// Task 15 强 1对1: agent_id 必填且 > 0
 	if req.AgentID == 0 {
 		response.Error(ctx, http.StatusBadRequest, "agent_id 必填且 > 0 (Task 15 强 1对1)")
 		return
@@ -216,3 +201,4 @@ func (c *FAQController) Stats(ctx *gin.Context) {
 		"enabled": enabled,
 	}, "查询成功")
 }
+

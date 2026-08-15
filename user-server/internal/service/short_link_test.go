@@ -39,7 +39,6 @@ func newTestShortLinkAccessRepository(db *gorm.DB) repository.ShortLinkAccessRep
 	return repository.NewShortLinkAccessRepository(db)
 }
 
-// ==================== TestNewShortLinkService ====================
 
 // TestNewShortLinkService 测试创建短链服务
 func TestNewShortLinkService(t *testing.T) {
@@ -51,7 +50,6 @@ func TestNewShortLinkService(t *testing.T) {
 	}
 }
 
-// ==================== TestShortLinkService_Create ====================
 
 // TestShortLinkService_Create 测试创建短链
 func TestShortLinkService_Create(t *testing.T) {
@@ -90,7 +88,6 @@ func TestShortLinkService_Create_DuplicateShortCode(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建第一条短链
 	req1 := &dto.CreateShortLinkRequest{
 		ShortCode:   "duplicate",
 		OriginalURL: "https://example.com/1",
@@ -100,7 +97,6 @@ func TestShortLinkService_Create_DuplicateShortCode(t *testing.T) {
 		t.Fatalf("First Create failed: %v", err)
 	}
 
-	// 尝试创建重复短码的短链
 	req2 := &dto.CreateShortLinkRequest{
 		ShortCode:   "duplicate",
 		OriginalURL: "https://example.com/2",
@@ -119,7 +115,6 @@ func TestShortLinkService_Create_WithDomain(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建可用域名
 	domain := &model.DomainPool{
 		Domain: "test.com",
 		Status: 1,
@@ -147,7 +142,6 @@ func TestShortLinkService_Create_WithInvalidDomain(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 尝试创建带不存在域名的短链
 	req := &dto.CreateShortLinkRequest{
 		ShortCode:   "invaliddomain",
 		OriginalURL: "https://example.com",
@@ -168,10 +162,9 @@ func TestShortLinkService_Create_WithUnavailableDomain(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建不可用域名
 	domain := &model.DomainPool{
 		Domain: "unavailable.com",
-		Status: 2, // 不可用
+		Status: 2, 
 	}
 	database.Create(domain)
 
@@ -219,15 +212,12 @@ func TestShortLinkService_Create_EmptyShortCode(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 空短码在服务层会被创建，但应该允许空短码
-	// 实际场景中应由 DTO 验证拦截
 	req := &dto.CreateShortLinkRequest{
 		ShortCode:   "",
 		OriginalURL: "https://example.com",
 	}
 
 	_, err := service.Create(context.Background(), req)
-	// 服务层允许创建，但短码为空字符串
 	if err != nil {
 		t.Logf("Create with empty short code: %v", err)
 	}
@@ -239,28 +229,23 @@ func TestShortLinkService_Create_EmptyOriginalURL(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 空原始 URL 在服务层会被创建，但应该允许空 URL
-	// 实际场景中应由 DTO 验证拦截
 	req := &dto.CreateShortLinkRequest{
 		ShortCode:   "emptyurl",
 		OriginalURL: "",
 	}
 
 	_, err := service.Create(context.Background(), req)
-	// 服务层允许创建，但原始 URL 为空字符串
 	if err != nil {
 		t.Logf("Create with empty original URL: %v", err)
 	}
 }
 
-// ==================== TestShortLinkService_Update ====================
 
 // TestShortLinkService_Update 测试更新短链
 func TestShortLinkService_Update(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "original",
 		OriginalURL: "https://example.com/original",
@@ -271,7 +256,6 @@ func TestShortLinkService_Update(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 更新短链
 	expireTime := time.Now().Add(24 * time.Hour)
 	updateReq := &dto.UpdateShortLinkRequest{
 		ID:          createResp.ID,
@@ -326,7 +310,6 @@ func TestShortLinkService_Update_DuplicateShortCode(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建两条短链
 	req1 := &dto.CreateShortLinkRequest{
 		ShortCode:   "short1",
 		OriginalURL: "https://example.com/1",
@@ -345,7 +328,6 @@ func TestShortLinkService_Update_DuplicateShortCode(t *testing.T) {
 		t.Fatalf("Create second failed: %v", err)
 	}
 
-	// 尝试将第二条短链的短码更新为第一条的短码
 	updateReq := &dto.UpdateShortLinkRequest{
 		ID:          resp2.ID,
 		ShortCode:   "short1",
@@ -366,7 +348,6 @@ func TestShortLinkService_Update_SameShortCode(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "samecode",
 		OriginalURL: "https://example.com",
@@ -376,7 +357,6 @@ func TestShortLinkService_Update_SameShortCode(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 更新为相同的短码
 	updateReq := &dto.UpdateShortLinkRequest{
 		ID:          createResp.ID,
 		ShortCode:   "samecode",
@@ -394,7 +374,6 @@ func TestShortLinkService_Update_WithInvalidDomain(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "updatedomain",
 		OriginalURL: "https://example.com",
@@ -404,7 +383,6 @@ func TestShortLinkService_Update_WithInvalidDomain(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 更新为不存在的域名
 	updateReq := &dto.UpdateShortLinkRequest{
 		ID:          createResp.ID,
 		OriginalURL: "https://example.com",
@@ -420,14 +398,12 @@ func TestShortLinkService_Update_WithInvalidDomain(t *testing.T) {
 	}
 }
 
-// ==================== TestShortLinkService_Delete ====================
 
 // TestShortLinkService_Delete 测试删除短链
 func TestShortLinkService_Delete(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "todelete",
 		OriginalURL: "https://example.com",
@@ -437,13 +413,11 @@ func TestShortLinkService_Delete(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 删除短链
 	err = service.Delete(context.Background(), createResp.ID)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	// 验证已删除
 	_, err = service.GetByID(context.Background(), createResp.ID)
 	if err == nil {
 		t.Error("Expected error for deleted short link")
@@ -464,14 +438,12 @@ func TestShortLinkService_Delete_NotFound(t *testing.T) {
 	}
 }
 
-// ==================== TestShortLinkService_GetByID ====================
 
 // TestShortLinkService_GetByID 测试根据 ID 获取短链
 func TestShortLinkService_GetByID(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "getbyid",
 		OriginalURL: "https://example.com/getbyid",
@@ -482,7 +454,6 @@ func TestShortLinkService_GetByID(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 获取短链
 	resp, err := service.GetByID(context.Background(), createResp.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
@@ -516,14 +487,12 @@ func TestShortLinkService_GetByID_NotFound(t *testing.T) {
 	}
 }
 
-// ==================== TestShortLinkService_GetByShortCode ====================
 
 // TestShortLinkService_GetByShortCode 测试根据短码获取短链
 func TestShortLinkService_GetByShortCode(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "getbysc",
 		OriginalURL: "https://example.com/getbysc",
@@ -534,7 +503,6 @@ func TestShortLinkService_GetByShortCode(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 获取短链
 	resp, err := service.GetByShortCode(context.Background(), "getbysc")
 	if err != nil {
 		t.Fatalf("GetByShortCode failed: %v", err)
@@ -562,14 +530,12 @@ func TestShortLinkService_GetByShortCode_NotFound(t *testing.T) {
 	}
 }
 
-// ==================== TestShortLinkService_GetList ====================
 
 // TestShortLinkService_GetList 测试获取短链列表
 func TestShortLinkService_GetList(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建多条短链
 	for i := 0; i < 5; i++ {
 		req := &dto.CreateShortLinkRequest{
 			ShortCode:   "list" + string(rune('0'+i)),
@@ -582,7 +548,6 @@ func TestShortLinkService_GetList(t *testing.T) {
 		}
 	}
 
-	// 获取列表
 	listReq := &dto.ListShortLinkRequest{
 		Page:     1,
 		PageSize: 10,
@@ -606,7 +571,6 @@ func TestShortLinkService_GetList_WithPagination(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建 10 条短链
 	for i := 0; i < 10; i++ {
 		req := &dto.CreateShortLinkRequest{
 			ShortCode:   "page" + string(rune('0'+i)),
@@ -618,7 +582,6 @@ func TestShortLinkService_GetList_WithPagination(t *testing.T) {
 		}
 	}
 
-	// 获取第一页
 	listReq1 := &dto.ListShortLinkRequest{
 		Page:     1,
 		PageSize: 5,
@@ -628,7 +591,6 @@ func TestShortLinkService_GetList_WithPagination(t *testing.T) {
 		t.Fatalf("GetList page 1 failed: %v", err)
 	}
 
-	// 获取第二页
 	listReq2 := &dto.ListShortLinkRequest{
 		Page:     2,
 		PageSize: 5,
@@ -654,12 +616,10 @@ func TestShortLinkService_GetList_WithShortCodeFilter(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "test1", OriginalURL: "https://example.com/1"})
 	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "test2", OriginalURL: "https://example.com/2"})
 	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "other", OriginalURL: "https://example.com/3"})
 
-	// 获取列表
 	listReq := &dto.ListShortLinkRequest{
 		Page:      1,
 		PageSize:  10,
@@ -681,15 +641,12 @@ func TestShortLinkService_GetList_WithStatusFilter(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建不同状态的短链
 	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "status1", OriginalURL: "https://example.com/1"})
 	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "status2", OriginalURL: "https://example.com/2"})
 	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "status3", OriginalURL: "https://example.com/3"})
 
-	// 手动设置状态
 	database.Model(&model.ShortLink{}).Where("short_code = ?", "status3").Update("status", 2)
 
-	// 获取正常状态的列表
 	listReq := &dto.ListShortLinkRequest{
 		Page:     1,
 		PageSize: 10,
@@ -734,11 +691,9 @@ func TestShortLinkService_GetList_DefaultPagination(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "default1", OriginalURL: "https://example.com/1"})
 
 	listReq := &dto.ListShortLinkRequest{
-		// 不指定分页参数
 	}
 
 	resp, err := service.GetList(context.Background(), listReq)
@@ -751,14 +706,12 @@ func TestShortLinkService_GetList_DefaultPagination(t *testing.T) {
 	}
 }
 
-// ==================== TestShortLinkService_AccessShortLink ====================
 
 // TestShortLinkService_AccessShortLink 测试访问短链
 func TestShortLinkService_AccessShortLink(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "access",
 		OriginalURL: "https://example.com/access",
@@ -769,7 +722,6 @@ func TestShortLinkService_AccessShortLink(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 访问短链
 	accessReq := &dto.AccessShortLinkRequest{
 		ShortCode: "access",
 		IP:        "192.168.1.1",
@@ -789,7 +741,6 @@ func TestShortLinkService_AccessShortLink(t *testing.T) {
 		t.Errorf("Expected Title '测试访问', got %s", resp.Title)
 	}
 
-	// 验证点击次数已增加
 	link, err := service.GetByShortCode(context.Background(), "access")
 	if err != nil {
 		t.Fatalf("GetByShortCode failed: %v", err)
@@ -822,7 +773,6 @@ func TestShortLinkService_AccessShortLink_Expired(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建已过期的短链
 	expireTime := time.Now().Add(-24 * time.Hour)
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "expired",
@@ -852,7 +802,6 @@ func TestShortLinkService_AccessShortLink_Disabled(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建已禁用的短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "disabled",
 		OriginalURL: "https://example.com/disabled",
@@ -862,7 +811,6 @@ func TestShortLinkService_AccessShortLink_Disabled(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 更新为禁用状态
 	updateReq := &dto.UpdateShortLinkRequest{
 		ID:          createResp.ID,
 		OriginalURL: "https://example.com/disabled",
@@ -873,7 +821,6 @@ func TestShortLinkService_AccessShortLink_Disabled(t *testing.T) {
 		t.Fatalf("Update failed: %v", err)
 	}
 
-	// 手动更新状态
 	database.Model(&model.ShortLink{}).Where("id = ?", createResp.ID).Update("status", 2)
 
 	accessReq := &dto.AccessShortLinkRequest{
@@ -894,7 +841,6 @@ func TestShortLinkService_AccessShortLink_WithPassword(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建带密码的短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "password",
 		OriginalURL: "https://example.com/password",
@@ -905,7 +851,6 @@ func TestShortLinkService_AccessShortLink_WithPassword(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 密码错误
 	accessReqWrong := &dto.AccessShortLinkRequest{
 		ShortCode: "password",
 		Password:  "wrong",
@@ -919,7 +864,6 @@ func TestShortLinkService_AccessShortLink_WithPassword(t *testing.T) {
 		t.Errorf("Expected '密码错误', got %s", err.Error())
 	}
 
-	// 密码正确
 	accessReqCorrect := &dto.AccessShortLinkRequest{
 		ShortCode: "password",
 		Password:  "secret123",
@@ -940,7 +884,6 @@ func TestShortLinkService_AccessShortLink_WithDeviceParsing(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "device",
 		OriginalURL: "https://example.com/device",
@@ -950,7 +893,6 @@ func TestShortLinkService_AccessShortLink_WithDeviceParsing(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 移动端访问
 	mobileReq := &dto.AccessShortLinkRequest{
 		ShortCode: "device",
 		UserAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)",
@@ -960,7 +902,6 @@ func TestShortLinkService_AccessShortLink_WithDeviceParsing(t *testing.T) {
 		t.Fatalf("Mobile access failed: %v", err)
 	}
 
-	// 验证访问记录
 	accessRepo := newTestShortLinkAccessRepository(database)
 	accesses, _, err := accessRepo.GetByShortLinkID(context.Background(), 1, 1, 10)
 	if err != nil {
@@ -975,7 +916,6 @@ func TestShortLinkService_AccessShortLink_WithDeviceParsing(t *testing.T) {
 	}
 }
 
-// ==================== TestShortLinkService_GenerateShortCode ====================
 
 // TestShortLinkService_GenerateShortCode 测试生成短码
 func TestShortLinkService_GenerateShortCode(t *testing.T) {
@@ -1002,7 +942,6 @@ func TestShortLinkService_GenerateShortCode_DefaultLength(t *testing.T) {
 	service := newTestShortLinkService(database)
 
 	req := &dto.GenerateShortCodeRequest{
-		// 不指定长度
 	}
 
 	resp, err := service.GenerateShortCode(context.Background(), req)
@@ -1020,7 +959,6 @@ func TestShortLinkService_GenerateShortCode_Uniqueness(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 生成多个短码并验证唯一性
 	shortCodes := make(map[string]bool)
 	for i := 0; i < 100; i++ {
 		req := &dto.GenerateShortCodeRequest{
@@ -1043,7 +981,6 @@ func TestShortLinkService_GenerateShortCode_WithExistingShortCodes(t *testing.T)
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建一些短链
 	for i := 0; i < 10; i++ {
 		req := &dto.CreateShortLinkRequest{
 			ShortCode:   "existing" + string(rune('0'+i)),
@@ -1055,7 +992,6 @@ func TestShortLinkService_GenerateShortCode_WithExistingShortCodes(t *testing.T)
 		}
 	}
 
-	// 生成短码
 	genReq := &dto.GenerateShortCodeRequest{
 		Length: 8,
 	}
@@ -1064,21 +1000,18 @@ func TestShortLinkService_GenerateShortCode_WithExistingShortCodes(t *testing.T)
 		t.Fatalf("GenerateShortCode failed: %v", err)
 	}
 
-	// 验证生成的短码不与已存在的短码重复
 	_, err = service.GetByShortCode(context.Background(), resp.ShortCode)
 	if err == nil {
 		t.Error("Generated short code should not exist")
 	}
 }
 
-// ==================== TestShortLinkService_GetStats ====================
 
 // TestShortLinkService_GetStats 测试获取短链统计
 func TestShortLinkService_GetStats(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "stats",
 		OriginalURL: "https://example.com/stats",
@@ -1089,7 +1022,6 @@ func TestShortLinkService_GetStats(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 访问短链多次
 	for i := 0; i < 5; i++ {
 		accessReq := &dto.AccessShortLinkRequest{
 			ShortCode: "stats",
@@ -1099,7 +1031,6 @@ func TestShortLinkService_GetStats(t *testing.T) {
 		_, _ = service.AccessShortLink(context.Background(), accessReq)
 	}
 
-	// 获取统计
 	statsReq := &dto.ShortLinkStatsRequest{
 		ID: createResp.ID,
 	}
@@ -1143,7 +1074,6 @@ func TestShortLinkService_GetStats_InvalidDateFormat(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "statsdate",
 		OriginalURL: "https://example.com",
@@ -1172,7 +1102,6 @@ func TestShortLinkService_GetStats_WithDateRange(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "statsrange",
 		OriginalURL: "https://example.com",
@@ -1182,14 +1111,12 @@ func TestShortLinkService_GetStats_WithDateRange(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 访问短链
 	accessReq := &dto.AccessShortLinkRequest{
 		ShortCode: "statsrange",
 		UserAgent: "Mozilla/5.0",
 	}
 	_, _ = service.AccessShortLink(context.Background(), accessReq)
 
-	// 获取统计（使用今天作为日期范围）
 	today := time.Now().Format("2006-01-02")
 	statsReq := &dto.ShortLinkStatsRequest{
 		ID:        createResp.ID,
@@ -1212,7 +1139,6 @@ func TestShortLinkService_GetStats_DeviceTypeStats(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "statsdevice",
 		OriginalURL: "https://example.com",
@@ -1222,7 +1148,6 @@ func TestShortLinkService_GetStats_DeviceTypeStats(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 从不同设备访问
 	mobileReq := &dto.AccessShortLinkRequest{
 		ShortCode: "statsdevice",
 		UserAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)",
@@ -1236,7 +1161,6 @@ func TestShortLinkService_GetStats_DeviceTypeStats(t *testing.T) {
 	_, _ = service.AccessShortLink(context.Background(), desktopReq)
 	_, _ = service.AccessShortLink(context.Background(), desktopReq)
 
-	// 获取统计
 	statsReq := &dto.ShortLinkStatsRequest{
 		ID: createResp.ID,
 	}
@@ -1251,14 +1175,12 @@ func TestShortLinkService_GetStats_DeviceTypeStats(t *testing.T) {
 	}
 }
 
-// ==================== TestShortLinkService_GetAllStats ====================
 
 // TestShortLinkService_GetAllStats 测试获取所有短链统计
 func TestShortLinkService_GetAllStats(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建多个短链
 	for i := 0; i < 3; i++ {
 		req := &dto.CreateShortLinkRequest{
 			ShortCode:   "allstats" + string(rune('0'+i)),
@@ -1271,7 +1193,6 @@ func TestShortLinkService_GetAllStats(t *testing.T) {
 		}
 	}
 
-	// 访问短链
 	for i := 0; i < 3; i++ {
 		accessReq := &dto.AccessShortLinkRequest{
 			ShortCode: "allstats" + string(rune('0'+i)),
@@ -1280,7 +1201,6 @@ func TestShortLinkService_GetAllStats(t *testing.T) {
 		_, _ = service.AccessShortLink(context.Background(), accessReq)
 	}
 
-	// 获取所有统计
 	allStatsReq := &dto.AllShortLinksStatsRequest{}
 
 	allStats, err := service.GetAllStats(context.Background(), allStatsReq)
@@ -1298,7 +1218,6 @@ func TestShortLinkService_GetAllStats_WithDateRange(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	req := &dto.CreateShortLinkRequest{
 		ShortCode:   "allstatsrange",
 		OriginalURL: "https://example.com",
@@ -1308,14 +1227,12 @@ func TestShortLinkService_GetAllStats_WithDateRange(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 访问短链
 	accessReq := &dto.AccessShortLinkRequest{
 		ShortCode: "allstatsrange",
 		UserAgent: "Mozilla/5.0",
 	}
 	_, _ = service.AccessShortLink(context.Background(), accessReq)
 
-	// 获取统计（使用今天作为日期范围）
 	today := time.Now().Format("2006-01-02")
 	allStatsReq := &dto.AllShortLinksStatsRequest{
 		StartDate: today,
@@ -1367,14 +1284,12 @@ func TestShortLinkService_GetAllStats_EmptyStats(t *testing.T) {
 	}
 }
 
-// ==================== TestShortLinkService_ShareShortLink ====================
 
 // TestShortLinkService_ShareShortLink 测试分享短链
 func TestShortLinkService_ShareShortLink(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "share",
 		OriginalURL: "https://example.com/share",
@@ -1385,7 +1300,6 @@ func TestShortLinkService_ShareShortLink(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 分享短链
 	shareReq := &dto.ShareShortLinkRequest{
 		ID: createResp.ID,
 	}
@@ -1426,14 +1340,12 @@ func TestShortLinkService_ShareShortLink_NotFound(t *testing.T) {
 	}
 }
 
-// ==================== 边界条件和错误处理测试 ====================
 
 // TestShortLinkService_Create_VeryLongURL 测试创建超长 URL 的短链
 func TestShortLinkService_Create_VeryLongURL(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建一个很长的 URL
 	longURL := "https://example.com/"
 	for i := 0; i < 50; i++ {
 		longURL += "very/long/path/"
@@ -1476,7 +1388,6 @@ func TestShortLinkService_Update_PartialUpdate(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "partial",
 		OriginalURL: "https://example.com/original",
@@ -1487,7 +1398,6 @@ func TestShortLinkService_Update_PartialUpdate(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 只更新标题
 	updateReq := &dto.UpdateShortLinkRequest{
 		ID:          createResp.ID,
 		OriginalURL: "https://example.com/original",
@@ -1512,7 +1422,6 @@ func TestShortLinkService_AccessShortLink_MultipleTimes(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "multiaccess",
 		OriginalURL: "https://example.com",
@@ -1522,7 +1431,6 @@ func TestShortLinkService_AccessShortLink_MultipleTimes(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 多次访问
 	for i := 0; i < 10; i++ {
 		accessReq := &dto.AccessShortLinkRequest{
 			ShortCode: "multiaccess",
@@ -1531,7 +1439,6 @@ func TestShortLinkService_AccessShortLink_MultipleTimes(t *testing.T) {
 		_, _ = service.AccessShortLink(context.Background(), accessReq)
 	}
 
-	// 验证点击次数
 	link, err := service.GetByID(context.Background(), createResp.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
@@ -1547,7 +1454,6 @@ func TestShortLinkService_GetStats_TodayAccess(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
 		ShortCode:   "todaystats",
 		OriginalURL: "https://example.com",
@@ -1557,7 +1463,6 @@ func TestShortLinkService_GetStats_TodayAccess(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 访问短链
 	for i := 0; i < 3; i++ {
 		accessReq := &dto.AccessShortLinkRequest{
 			ShortCode: "todaystats",
@@ -1566,7 +1471,6 @@ func TestShortLinkService_GetStats_TodayAccess(t *testing.T) {
 		_, _ = service.AccessShortLink(context.Background(), accessReq)
 	}
 
-	// 获取统计
 	statsReq := &dto.ShortLinkStatsRequest{
 		ID: createResp.ID,
 	}
@@ -1609,7 +1513,6 @@ func TestShortLinkService_StatusStr(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建正常状态的短链
 	createReq1 := &dto.CreateShortLinkRequest{
 		ShortCode:   "status1",
 		OriginalURL: "https://example.com/1",
@@ -1623,7 +1526,6 @@ func TestShortLinkService_StatusStr(t *testing.T) {
 		t.Errorf("Expected StatusStr '正常', got %s", resp1.StatusStr)
 	}
 
-	// 创建禁用状态的短链 - 需要通过 Update 来设置状态
 	createReq2 := &dto.CreateShortLinkRequest{
 		ShortCode:   "status2",
 		OriginalURL: "https://example.com/2",
@@ -1633,7 +1535,6 @@ func TestShortLinkService_StatusStr(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	// 更新为禁用状态
 	updateReq2 := &dto.UpdateShortLinkRequest{
 		ID:          resp2.ID,
 		OriginalURL: "https://example.com/2",
@@ -1649,7 +1550,6 @@ func TestShortLinkService_StatusStr(t *testing.T) {
 		t.Errorf("Expected StatusStr '禁用', got %s", resp2Updated.StatusStr)
 	}
 
-	// 创建已过期的短链
 	expireTime := time.Now().Add(-24 * time.Hour)
 	createReq3 := &dto.CreateShortLinkRequest{
 		ShortCode:   "status3",
@@ -1671,7 +1571,6 @@ func TestShortLinkService_Create_WithAllFields(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	// 创建域名
 	domain := &model.DomainPool{
 		Domain: "test.com",
 		Status: 1,
@@ -1717,3 +1616,4 @@ func TestShortLinkService_Create_WithAllFields(t *testing.T) {
 		t.Error("Expected ExpireTime to be set")
 	}
 }
+

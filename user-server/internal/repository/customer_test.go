@@ -92,7 +92,6 @@ func TestCustomerRepository_GetByID(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-	// Create test data
 	customer := &model.Customer{
 		ID:           "test-customer-id",
 		Phone:        "13800138000",
@@ -147,7 +146,6 @@ func TestCustomerRepository_GetByPhone(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-	// Create test data
 	customer := &model.Customer{
 		Phone: "13900139000",
 		Email: "phone_test@example.com",
@@ -272,7 +270,6 @@ func TestCustomerRepository_Update(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-	// Create test data
 	customer := &model.Customer{
 		ID:           "update-test-id",
 		Phone:        "13800138000",
@@ -281,7 +278,6 @@ func TestCustomerRepository_Update(t *testing.T) {
 	}
 	repo.Create(ctx, customer)
 
-	// Update customer
 	customer.Email = "updated@example.com"
 	customer.WechatOpenID = "wechat_updated"
 	customer.RFMScore = 5
@@ -291,7 +287,6 @@ func TestCustomerRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	// Verify update
 	updated, err := repo.GetByID(ctx, customer.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
@@ -313,20 +308,17 @@ func TestCustomerRepository_Delete(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-	// Create test data
 	customer := &model.Customer{
 		ID:    "delete-test-id",
 		Phone: "13800138000",
 	}
 	repo.Create(ctx, customer)
 
-	// Delete customer
 	err := repo.Delete(ctx, customer.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	// Verify deletion
 	deleted, err := repo.GetByID(ctx, customer.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
@@ -342,7 +334,6 @@ func TestCustomerRepository_List(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-	// Create test data
 
 	for i := 1; i <= 25; i++ {
 		customer := &model.Customer{
@@ -352,8 +343,7 @@ func TestCustomerRepository_List(t *testing.T) {
 		repo.Create(ctx, customer)
 	}
 
-	// Test first page
-	customers, total, err := repo.List(context.Background(), 1, 10)
+	customers, total, err := repo.List(context.Background(), 1, 10, "")
 	if err != nil {
 		t.Errorf("List() error = %v", err)
 	}
@@ -366,8 +356,7 @@ func TestCustomerRepository_List(t *testing.T) {
 		t.Errorf("Expected 10 customers on first page, got %d", len(customers))
 	}
 
-	// Test second page
-	customers2, total2, err := repo.List(context.Background(), 2, 10)
+	customers2, total2, err := repo.List(context.Background(), 2, 10, "")
 	if err != nil {
 		t.Errorf("List() error = %v", err)
 	}
@@ -380,8 +369,7 @@ func TestCustomerRepository_List(t *testing.T) {
 		t.Errorf("Expected 10 customers on second page, got %d", len(customers2))
 	}
 
-	// Test third page
-	customers3, _, err := repo.List(context.Background(), 3, 10)
+	customers3, _, err := repo.List(context.Background(), 3, 10, "")
 	if err != nil {
 		t.Errorf("List() error = %v", err)
 	}
@@ -396,7 +384,6 @@ func TestCustomerRepository_FindByIdentity(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-	// Create test data
 	customer := &model.Customer{
 		ID:           "identity-test-id",
 		Phone:        "13800138000",
@@ -407,12 +394,13 @@ func TestCustomerRepository_FindByIdentity(t *testing.T) {
 	repo.Create(ctx, customer)
 
 	tests := []struct {
-		name         string
-		phone        string
-		email        string
-		wechatOpenID string
-		douyinOpenID string
-		wantFound    bool
+		name          string
+		phone         string
+		email         string
+		wechatOpenID  string
+		douyinOpenID  string
+		xiaohongshuID string
+		wantFound     bool
 	}{
 		{
 			name:      "find by phone",
@@ -443,7 +431,7 @@ func TestCustomerRepository_FindByIdentity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.FindByIdentity(context.Background(), tt.phone, tt.email, tt.wechatOpenID, tt.douyinOpenID)
+			result, err := repo.FindByIdentity(context.Background(), tt.phone, tt.email, tt.wechatOpenID, tt.douyinOpenID, tt.xiaohongshuID)
 
 			if err != nil {
 				t.Errorf("FindByIdentity() error = %v", err)
@@ -474,7 +462,6 @@ func TestCustomerRepository_GetByUnifiedID(t *testing.T) {
 	}
 	repo.Create(ctx, customer)
 
-	// Phone-based unified ID should be "phone:13800138000"
 	result, err := repo.GetByUnifiedID(context.Background(), "phone:13800138000")
 	if err != nil {
 		t.Errorf("GetByUnifiedID() error = %v", err)
@@ -498,7 +485,6 @@ func TestCustomerRepository_Tags(t *testing.T) {
 		Phone: "13800138000",
 	}
 
-	// Set tags
 	err := model.SetCustomerTags(customer, []string{"vip", "high-value", "frequent-buyer"})
 	if err != nil {
 		t.Errorf("SetTags() error = %v", err)
@@ -506,7 +492,6 @@ func TestCustomerRepository_Tags(t *testing.T) {
 
 	repo.Create(ctx, customer)
 
-	// Retrieve and verify tags
 	result, err := repo.GetByID(ctx, customer.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
@@ -517,7 +502,6 @@ func TestCustomerRepository_Tags(t *testing.T) {
 		t.Errorf("Expected 3 tags, got %d", len(tags))
 	}
 
-	// Check for specific tags
 	foundTags := make(map[string]bool)
 	for _, tag := range tags {
 		foundTags[tag] = true
@@ -559,7 +543,6 @@ func TestCustomerRepository_ChurnRiskAndRFM(t *testing.T) {
 		t.Errorf("Expected ChurnRisk 'high', got '%s'", result.ChurnRisk)
 	}
 
-	// Update churn risk
 	result.ChurnRisk = "low"
 	result.RFMScore = 10
 	err = repo.Update(ctx, result)
@@ -606,3 +589,4 @@ func TestCustomerRepository_Timestamps(t *testing.T) {
 			customer.UpdatedAt, beforeCreate, afterCreate)
 	}
 }
+

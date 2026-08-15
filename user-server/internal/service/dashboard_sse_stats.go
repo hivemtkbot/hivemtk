@@ -14,23 +14,18 @@ import (
 
 // DashboardSnapshot 实时驾驶舱数据快照
 type DashboardSnapshot struct {
-	// 时间戳
 	GeneratedAt time.Time `json:"generated_at"`
 
-	// 1. 在线会话数
-	OnlineSessions  int `json:"online_sessions"`   // 在线会话总数
-	AISessions      int `json:"ai_sessions"`       // AI 处理中
-	HumanSessions   int `json:"human_sessions"`    // 人工处理中
-	WaitingSessions int `json:"waiting_sessions"`  // 等待用户回复
-	InFlightReplies int `json:"in_flight_replies"` // 正在生成的回复
+	OnlineSessions  int `json:"online_sessions"`   
+	AISessions      int `json:"ai_sessions"`       
+	HumanSessions   int `json:"human_sessions"`    
+	WaitingSessions int `json:"waiting_sessions"`  
+	InFlightReplies int `json:"in_flight_replies"` 
 
-	// 2. 拟人度分布（最近 1h）
 	HumanizeDistribution HumanizeDistribution `json:"humanize_distribution"`
 
-	// 3. 转化漏斗进度
 	Funnel *FunnelProgress `json:"funnel"`
 
-	// 4. LLM 实时指标
 	LLMMetrics *LLMRealTimeMetrics `json:"llm_metrics"`
 }
 
@@ -38,11 +33,11 @@ type DashboardSnapshot struct {
 type HumanizeDistribution struct {
 	WindowHours      int     `json:"window_hours"`
 	TotalScored      int     `json:"total_scored"`
-	LowScoreCount    int     `json:"low_score_count"`    // < 0.7（需要重生成）
-	MediumScoreCount int     `json:"medium_score_count"` // 0.7 - 0.85（边界）
-	HighScoreCount   int     `json:"high_score_count"`   // >= 0.85（达标）
+	LowScoreCount    int     `json:"low_score_count"`    
+	MediumScoreCount int     `json:"medium_score_count"` 
+	HighScoreCount   int     `json:"high_score_count"`   
 	AvgScore         float64 `json:"avg_score"`
-	PassRate         float64 `json:"pass_rate"` // >= 0.85 占比
+	PassRate         float64 `json:"pass_rate"` 
 }
 
 // FunnelProgress 转化漏斗进度
@@ -50,25 +45,25 @@ type FunnelProgress struct {
 	Stages       []FunnelStage `json:"stages"`
 	TotalEntered int           `json:"total_entered"`
 	TotalWon     int           `json:"total_won"`
-	OverallRate  float64       `json:"overall_rate"` // 端到端转化率（won / entered）
+	OverallRate  float64       `json:"overall_rate"` 
 }
 
 // FunnelStage 漏斗单个阶段
 type FunnelStage struct {
-	Name      string  `json:"name"`       // 阶段名
-	Code      string  `json:"code"`       // 阶段编码
-	Count     int     `json:"count"`      // 当前阶段客户数
-	StageRate float64 `json:"stage_rate"` // 占总数比例（%）
-	StepRate  float64 `json:"step_rate"`  // 上一步到本步的转化率（%）
+	Name      string  `json:"name"`       
+	Code      string  `json:"code"`       
+	Count     int     `json:"count"`      
+	StageRate float64 `json:"stage_rate"` 
+	StepRate  float64 `json:"step_rate"`  
 }
 
 // LLMRealTimeMetrics LLM 实时指标
 type LLMRealTimeMetrics struct {
-	ActiveProviders int     `json:"active_providers"` // 启用的 provider 数
-	DownProviders   int     `json:"down_providers"`   // 熔断 / down 的 provider 数
-	CircuitOpen     int     `json:"circuit_open"`     // 熔断器开启数
-	AvgLatencyMs    float64 `json:"avg_latency_ms"`   // 平均延迟
-	FailureRate     float64 `json:"failure_rate"`     // 失败率
+	ActiveProviders int     `json:"active_providers"` 
+	DownProviders   int     `json:"down_providers"`   
+	CircuitOpen     int     `json:"circuit_open"`     
+	AvgLatencyMs    float64 `json:"avg_latency_ms"`   
+	FailureRate     float64 `json:"failure_rate"`     
 }
 
 // DashboardStatsService 实时驾驶舱统计服务
@@ -77,13 +72,9 @@ type LLMRealTimeMetrics struct {
 // 职责：聚合 customer_sessions / humanize_scores / customer_journey 等表的实时指标，
 // 供 controller 层 SSE 流式推送使用。controller 不再直接访问 db。
 type DashboardStatsService interface {
-	// Available 表示底层 db 是否可用（离线场景返回 false，调用方据此降级）
 	Available(ctx context.Context) bool
-	// CollectSessionStats 采集会话统计（在线 / AI / 人工 / 等待）
 	CollectSessionStats(ctx context.Context, snap *DashboardSnapshot)
-	// CollectHumanizeDistribution 采集拟人度分布（最近 1h）
 	CollectHumanizeDistribution(ctx context.Context) HumanizeDistribution
-	// CollectFunnel 采集转化漏斗（基于 customer_journey，兜底 customer_sessions）
 	CollectFunnel(ctx context.Context) *FunnelProgress
 }
 
@@ -110,10 +101,8 @@ func (s *dashboardStatsService) CollectSessionStats(ctx context.Context, snap *D
 	if s.repo == nil {
 		return
 	}
-	// 5 分钟内有消息视为"在线"
 	onlineThreshold := time.Now().Add(-5 * time.Minute)
 
-	// 在线会话：status IN active set 且 last_message_at > threshold
 	if onlineCount, err := s.repo.CountSessionsByStatus(ctx, []model.SessionStatus{
 		model.SessionStatusAIHandling,
 		model.SessionStatusHumanHandling,
@@ -122,22 +111,18 @@ func (s *dashboardStatsService) CollectSessionStats(ctx context.Context, snap *D
 		snap.OnlineSessions = int(onlineCount)
 	}
 
-	// AI 处理中
 	if aiCount, err := s.repo.CountSessionsBySingleStatus(ctx, model.SessionStatusAIHandling); err == nil {
 		snap.AISessions = int(aiCount)
 	}
 
-	// 人工处理中
 	if humanCount, err := s.repo.CountSessionsBySingleStatus(ctx, model.SessionStatusHumanHandling); err == nil {
 		snap.HumanSessions = int(humanCount)
 	}
 
-	// 等待用户回复
 	if waitingCount, err := s.repo.CountSessionsBySingleStatus(ctx, model.SessionStatusWaiting); err == nil {
 		snap.WaitingSessions = int(waitingCount)
 	}
 
-	// 正在生成的回复 = AI 处理中
 	snap.InFlightReplies = snap.AISessions
 }
 
@@ -148,8 +133,6 @@ func (s *dashboardStatsService) CollectHumanizeDistribution(ctx context.Context)
 		return dist
 	}
 	since := time.Now().Add(-1 * time.Hour)
-	// 假设表名：humanize_scores，含 score 字段
-	// 不依赖具体 schema：尝试查询，失败时返回空分布
 	row, err := s.repo.QueryHumanizeDistribution(ctx, since)
 	if err != nil || row == nil {
 		if err != nil {
@@ -180,10 +163,8 @@ func (s *dashboardStatsService) CollectFunnel(ctx context.Context) *FunnelProgre
 		return funnel
 	}
 
-	// 尝试查询 customer_journey 表（如果存在）
 	rows, err := s.repo.QueryJourneyFunnel(ctx, time.Now().AddDate(0, 0, -30))
 	if err != nil || len(rows) == 0 {
-		// 兜底：使用 customer_sessions 状态作为简化的 5 阶段漏斗
 		return s.collectFunnelFromSessions(ctx)
 	}
 
@@ -250,7 +231,6 @@ func (s *dashboardStatsService) collectFunnelFromSessions(ctx context.Context) *
 	for _, r := range rows {
 		statusMap[r.Status] = r.Count
 	}
-	// 5 阶段映射（状态 → 阶段）
 	stageMapping := []struct {
 		Stage   FunnelStage
 		Sources []string
@@ -302,3 +282,4 @@ func roundToFloat(v float64, n int) float64 {
 	mult := math.Pow(10, float64(n))
 	return math.Round(v*mult) / mult
 }
+

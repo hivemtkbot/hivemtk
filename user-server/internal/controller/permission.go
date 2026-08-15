@@ -1,17 +1,5 @@
 package controller
 
-// permission.go 授权管理控制器
-//
-// 五层架构归属：L2 控制层
-// 路由：/api/system/permissions/*（由 router/permission_routes.go 注册）
-//
-// 阶段 6 范围：
-//   - SetEnabled    PUT  /api/system/permissions/:id/enabled
-//   - ResetPassword PUT  /api/system/permissions/:id/password
-//   - ListAuditLogs GET  /api/system/permissions/audit-logs
-//
-// 全部受 RequireAdminMiddleware 保护（路由层）。
-// 业务校验失败（service 返回的 *ErrInvalidInput 包装）→ 400。
 
 import (
 	"errors"
@@ -121,7 +109,6 @@ func (ctrl *PermissionController) ListAuditLogs(c *gin.Context) {
 		return
 	}
 
-	// 分页参数兜底
 	p := req.Page
 	if p < 1 {
 		p = 1
@@ -149,3 +136,4 @@ func writePermissionServiceError(c *gin.Context, err error) {
 	}
 	response.ErrorFromDB(c, err, err.Error())
 }
+

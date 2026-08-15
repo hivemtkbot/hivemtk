@@ -1,21 +1,5 @@
 package migrations
 
-// customer_session_updated_at_migration.go customer_sessions 补齐 updated_at 列 (v2.12.0)
-//
-// 五层架构归属: L5 数据层
-// 问题: model.CustomerSession 演进后应有 UpdatedAt 字段（与全库其他模型一致，
-//       GORM 的 Save/Update 会自动维护 updated_at），但历史 initial_schema 创建的
-//       customer_sessions 表缺少该列，导致：
-//         1) repository.UpsertByOneID 的 raw INSERT 显式写入 updated_at →
-//            `column "updated_at" of relation "customer_sessions" does not exist` (SQLSTATE 42703)
-//         2) SmartCSOrchestrator 降级路径 r.db.Save(session) 也引用 updated_at → 同样报错，
-//            被迫降级用 stale session_id（会话实体不稳定）。
-//       会话 upsert 在所有渠道（TG/网页/企微...）入站时都会触发，故影响全渠道。
-//
-// 本迁移要点（幂等，可重入）：
-//   ALTER TABLE customer_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP
-//
-// 幂等性：ADD COLUMN 使用 IF NOT EXISTS；表不存在则跳过。
 
 import (
 	"context"
@@ -86,3 +70,4 @@ func execAllCS(ctx context.Context, db *gorm.DB, stmts []string) error {
 
 // compile-time 接口断言
 var _ migration.Migration = (*CustomerSessionUpdatedAtMigration)(nil)
+

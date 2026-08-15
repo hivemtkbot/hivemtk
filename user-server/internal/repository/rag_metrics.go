@@ -1,16 +1,5 @@
 package repository
 
-// rag_metrics_repository.go RAG 召回率监控仓储（C 域 缺口 #2）
-//
-// 五层架构归属: L3 Repository 层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.6 召回率监控
-//
-// 职责:
-//   - 写入 rag_query_logs（单条 / 批量）
-// 聚合 rag_query_logs（基础指标 + 延迟偏移取值）
-//   - 查询低召回样本
-//   - upsert rag_metrics_daily（按 window_start + window_end 幂等）
-//   - 查询最近 N 条聚合记录
 
 import (
 	"context"
@@ -22,9 +11,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ----------------------------------------------------------------------------
-// 聚合行结构
-// ----------------------------------------------------------------------------
 
 // RagQueryLogAggRow rag_query_logs 基础聚合行
 //
@@ -38,35 +24,20 @@ type RagQueryLogAggRow struct {
 	LowRecall    int64
 }
 
-// ----------------------------------------------------------------------------
-// 仓储接口
-// ----------------------------------------------------------------------------
 
 // RagMetricsRepository RAG 召回率监控仓储接口
 type RagMetricsRepository interface {
-	// CreateQueryLog 创建单条 RAG 查询日志（同步写入）
 	CreateQueryLog(ctx context.Context, log *model.RagQueryLog) error
-	// CreateQueryLogsInBatches 批量创建 RAG 查询日志
 	CreateQueryLogsInBatches(ctx context.Context, logs []*model.RagQueryLog, batchSize int) error
-	// AggregateQueryLogs 聚合时间窗口内的查询日志（基础指标）
 	AggregateQueryLogs(ctx context.Context, start, end time.Time, lowRecallThreshold float64) (*RagQueryLogAggRow, error)
-	// PluckP99Latency 取 延迟（按 latency_ms 升序偏移取一条）
 	PluckP99Latency(ctx context.Context, start, end time.Time, offset int) (int64, error)
-	// FindLowRecallQueryLogs 查询召回率低于阈值的样本（按 created_at DESC）
 	FindLowRecallQueryLogs(ctx context.Context, threshold float64, limit int) ([]model.RagQueryLog, error)
-	// FindDailyByWindow 按 window_start + window_end 查找聚合记录（不存在返回 gorm.ErrRecordNotFound）
 	FindDailyByWindow(ctx context.Context, start, end time.Time) (*model.RagMetricsDaily, error)
-	// SaveDaily 保存（更新）聚合记录
 	SaveDaily(ctx context.Context, daily *model.RagMetricsDaily) error
-	// CreateDaily 创建聚合记录
 	CreateDaily(ctx context.Context, daily *model.RagMetricsDaily) error
-	// FindLatestDailies 查询最近 N 条聚合记录（按 window_start DESC，limit 已校验）
 	FindLatestDailies(ctx context.Context, limit int) ([]model.RagMetricsDaily, error)
 }
 
-// ----------------------------------------------------------------------------
-// 实现
-// ----------------------------------------------------------------------------
 
 type ragMetricsRepo struct {
 	db *gorm.DB
@@ -188,3 +159,4 @@ func IsRecordNotFound(err error) bool {
 
 // 编译期断言
 var _ RagMetricsRepository = (*ragMetricsRepo)(nil)
+

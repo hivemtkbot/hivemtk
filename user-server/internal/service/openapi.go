@@ -58,9 +58,6 @@ func NewOpenAPIServiceWithDB(gdb *gorm.DB) *OpenAPIService {
 	}
 }
 
-// ============================================================================
-// 数据源 CRUD
-// ============================================================================
 
 // CreateSource 创建 OpenAPI 数据源
 func (s *OpenAPIService) CreateSource(ctx context.Context, src *model.KnowledgeOpenAPISource) error {
@@ -73,7 +70,6 @@ func (s *OpenAPIService) CreateSource(ctx context.Context, src *model.KnowledgeO
 	if !strings.HasPrefix(src.Endpoint, "http://") && !strings.HasPrefix(src.Endpoint, "https://") {
 		return errors.New("数据源端点必须以 http:// 或 https:// 开头")
 	}
-	// 商户隔离:productID 不能为空(必须为已存在的 numeric product_id)
 	if src.ProductID == "" {
 		return errors.New("product_id 不能为空")
 	}
@@ -95,7 +91,6 @@ func (s *OpenAPIService) UpdateSource(ctx context.Context, src *model.KnowledgeO
 	if src.ID == 0 {
 		return errors.New("数据源 ID 不能为空")
 	}
-	// 加密 auth_config(如果存在敏感字段)
 	if err := s.encryptAuthConfig(ctx, src); err != nil {
 		return fmt.Errorf("加密认证配置失败: %w", err)
 	}
@@ -121,9 +116,6 @@ func (s *OpenAPIService) ToggleEnabled(ctx context.Context, productID string, id
 	return s.srcRepo.Update(ctx, src)
 }
 
-// ============================================================================
-// 数据同步
-// ============================================================================
 
 // SyncResult 同步结果
 type SyncResult struct {
@@ -149,14 +141,12 @@ func (s *OpenAPIService) SyncSource(ctx context.Context, productID string, sourc
 		SourceID: uint64(sourceID),
 	}
 
-	// 1. 构建请求
 	body, headers, err := s.buildRequest(ctx, src)
 	if err != nil {
 		s.recordSyncError(ctx, src, err.Error(), result, start)
 		return result, err
 	}
 
-	// 2. 发起请求
 	req, err := http.NewRequestWithContext(ctx, src.Method, src.Endpoint, bytes.NewReader(body))
 	if err != nil {
 		s.recordSyncError(ctx, src, fmt.Sprintf("构建请求失败: %v", err), result, start)
@@ -184,7 +174,6 @@ func (s *OpenAPIService) SyncSource(ctx context.Context, productID string, sourc
 		return result, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 
-	// 3. 解析响应
 	rawBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		s.recordSyncError(ctx, src, fmt.Sprintf("读取响应失败: %v", err), result, start)
@@ -197,7 +186,6 @@ func (s *OpenAPIService) SyncSource(ctx context.Context, productID string, sourc
 	}
 	result.TotalItems = len(items)
 
-	// 4. 字段映射 + 导入
 	mapping := parseFieldMapping(src.FieldMapping)
 	for _, item := range items {
 		title, content, ref := mapFields(item, mapping)
@@ -222,7 +210,6 @@ func (s *OpenAPIService) SyncSource(ctx context.Context, productID string, sourc
 		result.ImportedNum++
 	}
 
-	// 5. 更新同步状态
 	result.Status = "success"
 	result.DurationMs = time.Since(start).Milliseconds()
 	_ = s.srcRepo.UpdateSyncStatus(ctx, uint64(sourceID), "success", "", int64(result.ImportedNum))
@@ -248,9 +235,6 @@ func (s *OpenAPIService) SyncAllEnabled(ctx context.Context) ([]SyncResult, erro
 	return results, nil
 }
 
-// ============================================================================
-// 测试连接
-// ============================================================================
 
 // TestConnection 测试数据源连接
 func (s *OpenAPIService) TestConnection(ctx context.Context, src *model.KnowledgeOpenAPISource) (map[string]any, error) {
@@ -287,15 +271,11 @@ func (s *OpenAPIService) TestConnection(ctx context.Context, src *model.Knowledg
 	}, nil
 }
 
-// ============================================================================
-// 内部辅助
-// ============================================================================
 
 // buildRequest 构建请求体与请求头
 func (s *OpenAPIService) buildRequest(ctx context.Context, src *model.KnowledgeOpenAPISource) ([]byte, map[string]string, error) {
 	headers := make(map[string]string)
 
-	// 解析 auth_config
 	authConfig := parseJSONField(src.AuthConfig)
 	switch src.AuthType {
 	case "bearer":
@@ -311,7 +291,6 @@ func (s *OpenAPIService) buildRequest(ctx context.Context, src *model.KnowledgeO
 			headers[headerName] = key
 		}
 	case "hmac":
-		// HMAC 签名(简化)
 		if secret, ok := authConfig["secret"].(string); ok && secret != "" {
 			timestamp := fmt.Sprintf("%d", time.Now().Unix())
 			mac := hmac.New(sha256.New, []byte(secret))
@@ -357,7 +336,6 @@ func (s *OpenAPIService) extractItems(ctx context.Context, rawBody []byte, respo
 		return nil, fmt.Errorf("JSON 解析失败: %w", err)
 	}
 
-	// 如果指定了 response_path,按路径导航
 	if responsePath != "" {
 		node, err := navigateJSONPath(root, responsePath)
 		if err != nil {
@@ -366,10 +344,8 @@ func (s *OpenAPIService) extractItems(ctx context.Context, rawBody []byte, respo
 		root = node
 	}
 
-	// 期望 root 是数组
 	arr, ok := root.([]any)
 	if !ok {
-		// 如果是单个对象,包装成数组
 		if obj, ok2 := root.(map[string]any); ok2 {
 			return []map[string]any{obj}, nil
 		}
@@ -391,7 +367,6 @@ func mapFields(item map[string]any, mapping map[string]string) (title, content, 
 		if mp, ok := mapping[field]; ok && mp != "" {
 			return getNestedString(item, mp)
 		}
-		// 默认映射
 		switch field {
 		case "title":
 			return getNestedString(item, "title", "name", "subject")
@@ -418,8 +393,6 @@ func (s *OpenAPIService) encryptAuthConfig(ctx context.Context, src *model.Knowl
 	if src.AuthConfig == "" {
 		return nil
 	}
-	// 实际生产应该用 AES 加密
-	// 这里简化:仅确保非空
 	cfg := parseJSONField(src.AuthConfig)
 	if _, ok := cfg["encrypted"]; ok {
 		return nil
@@ -456,7 +429,6 @@ func getNestedString(m map[string]any, keys ...string) string {
 			if s, ok := v.(string); ok && s != "" {
 				return s
 			}
-			// 支持 float 数字等
 			return fmt.Sprintf("%v", v)
 		}
 	}
@@ -464,7 +436,6 @@ func getNestedString(m map[string]any, keys ...string) string {
 }
 
 func navigateJSONPath(node any, path string) (any, error) {
-	// 简化:支持 "data.items" 这样的点路径
 	parts := strings.Split(path, ".")
 	current := node
 	for _, part := range parts {
@@ -531,3 +502,4 @@ func truncateString(s string, n int) string {
 	}
 	return string(runes[:n]) + "..."
 }
+

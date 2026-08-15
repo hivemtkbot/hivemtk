@@ -38,7 +38,7 @@ func StructToMap(v any, opts ...StructToMapData) map[string]any {
 	ignoreNilFlag := data.IgnoreNilFlag
 
 	resultMap := make(map[string]any)
-	vValue := reflect.Indirect(reflect.ValueOf(v)) // Automatically handles pointers
+	vValue := reflect.Indirect(reflect.ValueOf(v)) 
 
 	for i := 0; i < vValue.NumField(); i++ {
 		field := vValue.Field(i)
@@ -48,19 +48,14 @@ func StructToMap(v any, opts ...StructToMapData) map[string]any {
 		jsonKey := tagParts[0]
 
 		if ignoreNilFlag {
-			//跳过值为nil,判断前要判断是否为指针
-			//1.用于请求参数，为EditProduct handler在用，同一个edit，用于切换开关和修改内容
-			//2.用于返回参数，有这个跳过nil会导致值为nil的kv缺失，如果这里出问题，希望给上order_id:null这种返回值，则函数加一个参数切换
 			if field.Kind() == reflect.Ptr && field.IsNil() {
 				continue
 			}
 		}
 
-		//跳过jsongtag为空
 		if jsonTag == "" {
 			continue
 		}
-		//排除模式、包括模式
 		if mode == StructToMapIncludeMode {
 			if !SliceContainString(keys, jsonKey) {
 				continue
@@ -71,14 +66,12 @@ func StructToMap(v any, opts ...StructToMapData) map[string]any {
 			}
 		}
 
-		// 跳过含有omitempty的,但保留输入include为最优先
 		if len(tagParts) >= 2 && SliceContainString(tagParts[1:], "omitempty") {
 			if !(mode == StructToMapIncludeMode && SliceContainString(keys, jsonKey)) {
 				continue
 			}
 		}
 
-		// 重置uuid默认值,这里是用于返回请求有关外键的参数,有些外键为null,但是默认值是00000
 		if field.Type() == reflect.TypeOf(uuid.UUID{}) && field.Interface() == uuid.Nil {
 			resultMap[jsonKey] = nil
 
@@ -106,3 +99,4 @@ func ParseUUID(idString string) (uuid.UUID, error) {
 	}
 	return myUUID, nil
 }
+

@@ -42,7 +42,6 @@ type KuaishouCardStatsRepository interface {
 	GetRecentActivitiesWithJoin(ctx context.Context, limit int) ([]KuaishouRecentActivity, error)
 	CreateActivity(ctx context.Context, activity *model.KuaishouCardActivity) error
 	SaveCard(ctx context.Context, card *model.KuaishouCard) error
-	// IncrementViewCount 原子自增浏览数，避免 service 层 read-modify-write 并发丢失更新
 	IncrementViewCount(ctx context.Context, id uint) error
 }
 
@@ -159,3 +158,4 @@ func (r *kuaishouCardStatsRepository) IncrementViewCount(ctx context.Context, id
 		Where("id = ?", id).
 		UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
 }
+

@@ -27,3 +27,4 @@ func TestSystemStatsService_GetSystemInfo(t *testing.T) {
 		t.Error("Expected non-empty Hostname")
 	}
 }
+

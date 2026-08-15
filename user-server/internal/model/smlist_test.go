@@ -80,7 +80,6 @@ func TestSmlist_WithEmptyID(t *testing.T) {
 		ID:   "",
 	}
 
-	// ID should be empty before BeforeCreate is called
 	if smlist.ID != "" {
 		t.Errorf("Expected empty ID before BeforeCreate, got %s", smlist.ID)
 	}
@@ -116,7 +115,6 @@ func TestSmlist_WithPartialFields(t *testing.T) {
 	if smlist.Phone != "+1234567890" {
 		t.Errorf("Expected Phone '+1234567890', got %s", smlist.Phone)
 	}
-	// Other fields should be empty
 	if smlist.Tg != "" {
 		t.Errorf("Expected empty Tg, got %s", smlist.Tg)
 	}
@@ -177,3 +175,4 @@ func TestSmlist_BeforeCreate_NoChangeIfExists(t *testing.T) {
 		t.Errorf("Expected ID to remain %s, got %s", existingID, smlist.ID)
 	}
 }
+

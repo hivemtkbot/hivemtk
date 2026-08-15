@@ -19,7 +19,6 @@ func TestReplyGuard_ExactlyOnce(t *testing.T) {
 	if !HasReplied("evt-1") {
 		t.Fatal("evt-1 should be marked replied")
 	}
-	// 不同事件仍可认领，互不干扰
 	if !ClaimReply("evt-2") {
 		t.Fatal("different event should still be claimable")
 	}
@@ -57,7 +56,6 @@ func TestReplyGuard_Release(t *testing.T) {
 	if !ClaimReply("rel-1") {
 		t.Fatal("after release, claim should succeed again (enables retry on failed outbound)")
 	}
-	// 空 EventID 释放为 no-op，不应 panic
 	ReleaseReply("")
 }
 
@@ -77,12 +75,11 @@ func TestReplyGuard_RedisNilStaysLocal(t *testing.T) {
 // 保证单实例下消息不丢、出站不被阻断（优雅降级核心语义）。
 func TestReplyGuard_RedisUnavailableFallsBackToLocal(t *testing.T) {
 	bad := redis.NewClient(&redis.Options{
-		Addr:        "127.0.0.1:1", // 必然拒绝连接
+		Addr:        "127.0.0.1:1", 
 		DialTimeout: 500 * time.Millisecond,
 	})
 	defer bad.Close()
-	SetReplyGuardRedis(bad) // Ping 失败 → 保持进程内守卫
-	// 降级后行为应与纯进程内一致
+	SetReplyGuardRedis(bad) 
 	if !ClaimReply("deg-1") {
 		t.Fatal("degraded mode should still claim successfully")
 	}
@@ -95,3 +92,4 @@ func TestReplyGuard_RedisUnavailableFallsBackToLocal(t *testing.T) {
 	}
 	ReleaseReply("deg-1")
 }
+

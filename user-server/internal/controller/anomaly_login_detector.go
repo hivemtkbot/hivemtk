@@ -1,18 +1,5 @@
 package controller
 
-// anomaly_login_detector_controller.go A 域 异常登录预警控制器
-//
-// 五层架构归属: L3 业务编排（薄层 controller）
-// 设计依据: docs/standards/MASTER_RULES.md「Controller 仅参数解析 / 调 service / 统一响应」
-// A 域 缺口修复
-//
-// 职责：暴露异常登录告警的查询/处理接口，复用 service.AnomalyLoginDetector
-//
-// 路由（由 router 层注册）：
-//   GET  /api/auth/anomaly/login-events        查询登录事件
-//   GET  /api/auth/anomaly/alerts             查询安全告警
-//   POST /api/auth/anomaly/alerts/:id/resolve 处理告警
-//   POST /api/auth/anomaly/alerts/:id/ignore  忽略告警
 
 import (
 	"context"
@@ -182,3 +169,4 @@ func (c *AnomalyLoginDetectorController) IgnoreAlert(ctx *gin.Context) {
 
 	response.Success(ctx, nil, "告警已忽略")
 }
+

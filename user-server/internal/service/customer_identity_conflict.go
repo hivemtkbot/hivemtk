@@ -9,11 +9,11 @@ import (
 // IdentityConflict 身份冲突记录
 // 表示同一身份标识(手机号/邮箱/各平台 OpenID)被多个客户记录持有
 type IdentityConflict struct {
-	IdentityType  string             `json:"identity_type"`  // phone / email / wechat_open_id / douyin_open_id / xiaohongshu_id
-	IdentityValue string             `json:"identity_value"` // 身份标识值
-	CustomerIDs   []string           `json:"customer_ids"`   // 关联到的客户ID列表
+	IdentityType  string             `json:"identity_type"`  
+	IdentityValue string             `json:"identity_value"` 
+	CustomerIDs   []string           `json:"customer_ids"`   
 	Customers     []ConflictCustomer `json:"customers"`
-	MatchScore    float64            `json:"match_score"` // 冲突置信度 0-1，恒为1表示精确命中
+	MatchScore    float64            `json:"match_score"` 
 }
 
 // ConflictCustomer 冲突中涉及的客户摘要
@@ -105,7 +105,6 @@ func DetectIdentityConflicts(ctx context.Context, repo repository.CustomerReposi
 	collect(douyinMap, "douyin_open_id")
 	collect(xhsMap, "xiaohongshu_id")
 
-	// 稳定排序：按冲突客户数降序
 	for i := 0; i < len(conflicts); i++ {
 		for j := i + 1; j < len(conflicts); j++ {
 			if len(conflicts[j].CustomerIDs) > len(conflicts[i].CustomerIDs) {
@@ -135,7 +134,7 @@ type OneIDCustomer struct {
 	DouyinOpenID  string  `json:"douyin_open_id"`
 	XiaohongshuID string  `json:"xiaohongshu_id"`
 	IdentityCount int     `json:"identity_count"`
-	MatchScore    float64 `json:"match_score"` // 身份完整度：已绑定身份数 / 5
+	MatchScore    float64 `json:"match_score"` 
 	CreatedAt     string  `json:"created_at"`
 	UpdatedAt     string  `json:"updated_at"`
 }
@@ -188,3 +187,4 @@ func ListOneIDCustomers(ctx context.Context, repo repository.CustomerRepository,
 	_ = keyword
 	return result, total
 }
+

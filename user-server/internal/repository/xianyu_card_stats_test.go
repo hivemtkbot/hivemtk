@@ -96,7 +96,6 @@ func TestXianyuCardStatsRepository_GetCardStats(t *testing.T) {
 	repo := setupXianyuCardStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试卡片
 	card := &model.XianyuCard{
 		Title:       "Test Card",
 		Description: "Test description",
@@ -104,7 +103,6 @@ func TestXianyuCardStatsRepository_GetCardStats(t *testing.T) {
 	}
 	db.GetDB().Create(card)
 
-	// 创建浏览活动
 	for i := 1; i <= 5; i++ {
 		db.GetDB().Create(&model.XianyuCardActivity{
 			CardID:       card.ID,
@@ -114,7 +112,6 @@ func TestXianyuCardStatsRepository_GetCardStats(t *testing.T) {
 		})
 	}
 
-	// 创建点击活动
 	for i := 1; i <= 3; i++ {
 		db.GetDB().Create(&model.XianyuCardActivity{
 			CardID:       card.ID,
@@ -124,7 +121,6 @@ func TestXianyuCardStatsRepository_GetCardStats(t *testing.T) {
 		})
 	}
 
-	// 创建分享活动
 	for i := 1; i <= 2; i++ {
 		db.GetDB().Create(&model.XianyuCardActivity{
 			CardID:       card.ID,
@@ -164,7 +160,6 @@ func TestXianyuCardStatsRepository_GetCardStats_WithDateRange(t *testing.T) {
 	repo := setupXianyuCardStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试卡片
 	card := &model.XianyuCard{
 		Title:       "Date Range Card",
 		Description: "Test with date range",
@@ -172,7 +167,6 @@ func TestXianyuCardStatsRepository_GetCardStats_WithDateRange(t *testing.T) {
 	}
 	db.GetDB().Create(card)
 
-	// 创建今日的活动
 	for i := 1; i <= 3; i++ {
 		db.GetDB().Create(&model.XianyuCardActivity{
 			CardID:       card.ID,
@@ -182,7 +176,6 @@ func TestXianyuCardStatsRepository_GetCardStats_WithDateRange(t *testing.T) {
 		})
 	}
 
-	// 创建很久以前的活动
 	oldDate := time.Now().AddDate(0, 0, -30)
 	for i := 1; i <= 10; i++ {
 		db.GetDB().Create(&model.XianyuCardActivity{
@@ -193,7 +186,6 @@ func TestXianyuCardStatsRepository_GetCardStats_WithDateRange(t *testing.T) {
 		})
 	}
 
-	// 只查询最近 7 天的数据
 	startDate := time.Now().AddDate(0, 0, -7)
 	endDate := time.Now()
 
@@ -202,7 +194,6 @@ func TestXianyuCardStatsRepository_GetCardStats_WithDateRange(t *testing.T) {
 		t.Errorf("GetCardStats() error = %v", err)
 	}
 
-	// 应该只包含最近的数据，不包含 30 天前的
 	if stats.Views != 3 {
 		t.Errorf("Expected 3 views (recent only), got %d", stats.Views)
 	}
@@ -213,7 +204,6 @@ func TestXianyuCardStatsRepository_GetCardStats_EmptyResult(t *testing.T) {
 	repo := setupXianyuCardStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建没有活动的卡片
 	card := &model.XianyuCard{
 		Title:       "Empty Stats Card",
 		Description: "No activities",
@@ -243,7 +233,6 @@ func TestXianyuCardStatsRepository_GetOverallStats(t *testing.T) {
 	repo := setupXianyuCardStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试卡片
 	card1 := &model.XianyuCard{
 		Title:       "Popular Card",
 		Description: "Most viewed card",
@@ -258,7 +247,6 @@ func TestXianyuCardStatsRepository_GetOverallStats(t *testing.T) {
 	}
 	db.GetDB().Create(card2)
 
-	// 为卡片 1 创建活动
 	for i := 1; i <= 10; i++ {
 		db.GetDB().Create(&model.XianyuCardActivity{
 			CardID:       card1.ID,
@@ -275,7 +263,6 @@ func TestXianyuCardStatsRepository_GetOverallStats(t *testing.T) {
 		})
 	}
 
-	// 为卡片 2 创建活动
 	for i := 1; i <= 5; i++ {
 		db.GetDB().Create(&model.XianyuCardActivity{
 			CardID:       card2.ID,
@@ -318,7 +305,6 @@ func TestXianyuCardStatsRepository_GetOverallStats_WithTopCards(t *testing.T) {
 	repo := setupXianyuCardStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建多张卡片
 	for i := 1; i <= 3; i++ {
 		db.GetDB().Create(&model.XianyuCard{
 			Title:       "Card " + string(rune('0'+i)),
@@ -327,7 +313,6 @@ func TestXianyuCardStatsRepository_GetOverallStats_WithTopCards(t *testing.T) {
 		})
 	}
 
-	// 为卡片 1 创建大量浏览
 	for i := 1; i <= 100; i++ {
 		db.GetDB().Create(&model.XianyuCardActivity{
 			CardID:       1,
@@ -336,7 +321,6 @@ func TestXianyuCardStatsRepository_GetOverallStats_WithTopCards(t *testing.T) {
 		})
 	}
 
-	// 为卡片 2 创建中等浏览
 	for i := 1; i <= 50; i++ {
 		db.GetDB().Create(&model.XianyuCardActivity{
 			CardID:       2,
@@ -345,7 +329,6 @@ func TestXianyuCardStatsRepository_GetOverallStats_WithTopCards(t *testing.T) {
 		})
 	}
 
-	// 为卡片 3 创建少量浏览
 	for i := 1; i <= 10; i++ {
 		db.GetDB().Create(&model.XianyuCardActivity{
 			CardID:       3,
@@ -366,7 +349,6 @@ func TestXianyuCardStatsRepository_GetOverallStats_WithTopCards(t *testing.T) {
 		t.Error("Expected top cards to be returned")
 	}
 
-	// 验证热门卡片按浏览量排序
 	if len(stats.TopCards) > 0 && stats.TopCards[0].ID != 1 {
 		t.Errorf("Expected most popular card to be card 1, got card %d", stats.TopCards[0].ID)
 	}
@@ -403,7 +385,6 @@ func TestXianyuCardStatsRepository_RecordActivity_WithDeviceType(t *testing.T) {
 	repo := setupXianyuCardStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试卡片
 	card := &model.XianyuCard{
 		Title:       "Device Test Card",
 		Description: "Test device tracking",
@@ -411,7 +392,6 @@ func TestXianyuCardStatsRepository_RecordActivity_WithDeviceType(t *testing.T) {
 	}
 	db.GetDB().Create(card)
 
-	// 记录不同设备的活动
 	repo.RecordActivity(ctx, card.ID, "view", "192.168.1.1", "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)", "")
 	repo.RecordActivity(ctx, card.ID, "view", "192.168.1.2", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "")
 	repo.RecordActivity(ctx, card.ID, "view", "192.168.1.3", "Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X)", "")
@@ -431,7 +411,6 @@ func TestXianyuCardStatsRepository_GetCardStats_StatsByDate(t *testing.T) {
 	repo := setupXianyuCardStatsRepository(t)
 	ctx := context.Background()
 
-	// 创建测试卡片
 	card := &model.XianyuCard{
 		Title:       "Daily Stats Card",
 		Description: "Test daily stats",
@@ -439,7 +418,6 @@ func TestXianyuCardStatsRepository_GetCardStats_StatsByDate(t *testing.T) {
 	}
 	db.GetDB().Create(card)
 
-	// 创建今天的数据
 	for i := 1; i <= 3; i++ {
 		db.GetDB().Create(&model.XianyuCardActivity{
 			CardID:       card.ID,
@@ -449,7 +427,6 @@ func TestXianyuCardStatsRepository_GetCardStats_StatsByDate(t *testing.T) {
 		})
 	}
 
-	// 创建昨天的数据
 	yesterday := time.Now().AddDate(0, 0, -1)
 	for i := 1; i <= 5; i++ {
 		db.GetDB().Create(&model.XianyuCardActivity{
@@ -472,7 +449,6 @@ func TestXianyuCardStatsRepository_GetCardStats_StatsByDate(t *testing.T) {
 		t.Error("Expected daily stats to be returned")
 	}
 
-	// 总数据应该是 8 条
 	if stats.Views != 8 {
 		t.Errorf("Expected 8 total views, got %d", stats.Views)
 	}
@@ -484,9 +460,8 @@ func TestXianyuCardStatsRepository_RecordActivity_WithContext(t *testing.T) {
 	ctx := context.Background()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // 取消 context
+	cancel() 
 
-	// 创建测试卡片
 	card := &model.XianyuCard{
 		Title:       "Context Test Card",
 		Description: "Test context cancellation",
@@ -494,9 +469,9 @@ func TestXianyuCardStatsRepository_RecordActivity_WithContext(t *testing.T) {
 	}
 	db.GetDB().Create(card)
 
-	// 使用已取消的 context 应该失败
 	err := repo.RecordActivity(ctx, card.ID, "view", "192.168.1.1", "Mozilla/5.0", "")
 	if err == nil {
 		t.Error("Expected error when context is cancelled")
 	}
 }
+

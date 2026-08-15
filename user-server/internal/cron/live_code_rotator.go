@@ -22,10 +22,8 @@ func NewLiveCodeRotator(liveCodeService service.LiveCodeService) *LiveCodeRotato
 
 // Start 启动活码轮询任务
 func (r *LiveCodeRotator) Start() {
-	// 立即执行一次
 	go r.rotate()
 
-	// 设置定时器，每小时执行一次
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
 
@@ -49,3 +47,4 @@ func (r *LiveCodeRotator) rotate() {
 
 	logger.Info("活码轮询任务执行完成")
 }
+

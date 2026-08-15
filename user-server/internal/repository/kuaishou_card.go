@@ -71,7 +71,6 @@ func (r *kuaishouCardRepository) GetList(ctx context.Context, req CardListFilter
 
 	query := r.db.Model(&model.KuaishouCard{})
 
-	// 应用搜索条件
 	if req.Keyword != "" {
 		query = query.Where("title LIKE ? OR tags LIKE ?", "%"+req.Keyword+"%", "%"+req.Keyword+"%")
 	}
@@ -79,12 +78,10 @@ func (r *kuaishouCardRepository) GetList(ctx context.Context, req CardListFilter
 		query = query.Where("is_active = ?", *req.IsActive)
 	}
 
-	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
 	offset := (req.Page - 1) * req.PageSize
 	if err := query.Order("created_at DESC").Offset(offset).Limit(req.PageSize).Find(&cards).Error; err != nil {
 		return nil, 0, err
@@ -126,3 +123,4 @@ func (r *kuaishouCardRepository) CreateActivity(ctx context.Context, activity *m
 func (r *kuaishouCardRepository) UpdateShortLinkID(ctx context.Context, id uint, shortLinkID *uint) error {
 	return r.db.Model(&model.KuaishouCard{}).Where("id = ?", id).Update("short_link_id", shortLinkID).Error
 }
+

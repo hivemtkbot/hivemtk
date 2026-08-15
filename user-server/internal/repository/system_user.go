@@ -1,17 +1,5 @@
 package repository
 
-// system_user.go 系统用户仓储
-//
-// 五层架构归属：L4 数据访问层
-// 表：system_users
-// 私域独立部署：无 merchant_id 字段
-//
-// 扩展方法：
-//   - ListByRole / CountByRole / CountAdmins
-//   - DeleteSafe（拒绝删除最后一个 admin）
-//   - SetEnabled（启用/禁用账号）
-//
-// 本文件独立承载 SystemUserRepository 接口与实现。
 
 import (
 	"context"
@@ -40,27 +28,20 @@ type SystemUserRepository interface {
 	Delete(ctx context.Context, id uint) error
 	GetByID(ctx context.Context, id uint) (*model.SystemUser, error)
 	GetByUsername(ctx context.Context, username string) (*model.SystemUser, error)
+	GetByEmail(ctx context.Context, email string) (*model.SystemUser, error)
 	List(ctx context.Context, page, pageSize int) ([]*model.SystemUser, int64, error)
 	Count(ctx context.Context) (int64, error)
 	UsernameExists(ctx context.Context, username string, excludeID uint) (bool, error)
 	EmailExists(ctx context.Context, email string, excludeID uint) (bool, error)
 	GetFirstAdminUsername(ctx context.Context) (string, error)
-	// GetUpdatedAt 查询用户的 updated_at（密码过期回退时使用）
 	GetUpdatedAt(ctx context.Context, userID uint) (*time.Time, error)
 
-	// ListByRole 按 role 查询（分页 + 总数），供角色管理模块使用
 	ListByRole(ctx context.Context, role string, page, size int) ([]*model.SystemUser, int64, error)
-	// CountByRole 统计某角色成员数（角色管理模块使用）
 	CountByRole(ctx context.Context, role string) (int64, error)
-	// CountAdmins 统计 admin 数量（DeleteSafe 业务前置判断用）
 	CountAdmins(ctx context.Context) (int64, error)
-	// DeleteSafe 删除账号（拒绝删除最后一个 admin），返回 ErrLastAdmin
 	DeleteSafe(ctx context.Context, id uint) error
-	// SetEnabled 启用/禁用账号（按 id 写 enabled 字段）
 	SetEnabled(ctx context.Context, id uint, enabled bool) error
-	// CountEnabledAdmins 统计当前启用的 admin 数量（授权管理模块启停/禁用守卫）
 	CountEnabledAdmins(ctx context.Context) (int64, error)
-	// UpdatePassword 直接以 bcrypt 密文更新密码（授权管理重置密码）
 	UpdatePassword(ctx context.Context, id uint, hashedPassword string) error
 }
 
@@ -101,6 +82,18 @@ func (r *systemUserRepo) GetByID(ctx context.Context, id uint) (*model.SystemUse
 func (r *systemUserRepo) GetByUsername(ctx context.Context, username string) (*model.SystemUser, error) {
 	var u model.SystemUser
 	if err := r.db.WithContext(ctx).Where("username = ?", username).First(&u).Error; err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// GetByEmail 按邮箱查询系统用户（SSO 邮箱关联 / 找回密码场景）
+func (r *systemUserRepo) GetByEmail(ctx context.Context, email string) (*model.SystemUser, error) {
+	if email == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var u model.SystemUser
+	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&u).Error; err != nil {
 		return nil, err
 	}
 	return &u, nil
@@ -299,3 +292,4 @@ func (r *systemUserRepo) UpdatePassword(ctx context.Context, id uint, hashedPass
 }
 
 var _ SystemUserRepository = (*systemUserRepo)(nil)
+

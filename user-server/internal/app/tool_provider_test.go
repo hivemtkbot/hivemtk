@@ -9,21 +9,7 @@ import (
 	"hivemtk-user/internal/aiagent/agent/tooluse"
 )
 
-// ============================================================================
-// ToolProvider 统一扩展入口测试（+ 优化验证）
-// ----------------------------------------------------------------------------
-// 测试覆盖：
-//   1. ToolProvider 接口契约（Name/Category/Description/Provide）
-//   2. ProviderRegistry 注册/注销/查询
-//   3. RegisterAll 批量装配（含 Enabled=false 跳过 / DisabledTools 过滤 / Provide 失败处理）
-//   4. 自注册机制（RegisterToolProvider / GetAutoRegisteredProviders / ClearAutoRegisteredProviders）
-//   5. 5 个内置 Provider 的 Provide() 返回正确工具数
-//   6. 第三方 Provider 通过自注册接入
-//   7. HTTP API /api/agent/tools/providers 端到端
-//   8. 并发安全（多 goroutine 同时 RegisterProvider）
-// ============================================================================
 
-// ---- 测试用 Mock Provider ----
 
 // mockProvider 测试用 Provider
 type mockProvider struct {
@@ -58,7 +44,6 @@ func newMockProviderWithTools(name string, toolCount int) *mockProvider {
 	}
 }
 
-// ===== 1. ProviderRegistry 基本功能 =====
 
 func TestProviderRegistry_RegisterAndGet(t *testing.T) {
 	registry := tooluse.NewProviderRegistry()
@@ -82,12 +67,10 @@ func TestProviderRegistry_RegisterAndGet(t *testing.T) {
 		t.Errorf("got.Name = %s, want test1", got.Name())
 	}
 
-	// 重复注册应失败
 	if err := registry.RegisterProvider(p); err == nil {
 		t.Error("duplicate RegisterProvider should fail")
 	}
 
-	// 注销
 	if err := registry.UnregisterProvider("test1"); err != nil {
 		t.Fatalf("UnregisterProvider failed: %v", err)
 	}
@@ -121,14 +104,12 @@ func TestProviderRegistry_ListProvidersOrder(t *testing.T) {
 	if len(providers) != 3 {
 		t.Fatalf("ListProviders len = %d, want 3", len(providers))
 	}
-	// 应按注册顺序，不是字母序
 	if providers[0].Name() != "c" || providers[1].Name() != "a" || providers[2].Name() != "b" {
 		t.Errorf("order = %s,%s,%s; want c,a,b",
 			providers[0].Name(), providers[1].Name(), providers[2].Name())
 	}
 }
 
-// ===== 2. RegisterAll 批量装配 =====
 
 func TestProviderRegistry_RegisterAll_Success(t *testing.T) {
 	providerRegistry := tooluse.NewProviderRegistry()
@@ -151,7 +132,6 @@ func TestProviderRegistry_RegisterAll_Success(t *testing.T) {
 		t.Errorf("tool registry Count = %d, want 5", toolRegistry.Count())
 	}
 
-	// 检查每个 Provider 的结果
 	for _, r := range results {
 		if r.ToolCount == 0 {
 			t.Errorf("provider %s ToolCount = 0", r.ProviderName)
@@ -169,18 +149,14 @@ func TestProviderRegistry_RegisterAll_SkippedByConfig(t *testing.T) {
 	_ = providerRegistry.RegisterProvider(newMockProviderWithTools("enabled", 2))
 	_ = providerRegistry.RegisterProvider(newMockProviderWithTools("disabled", 2))
 
-	// 通过 Custom 配置触发 configProvided = true，并设 Enabled=false
-	// 但 ProviderConfig 是全局的，无法按 Provider 单独配置
-	// 这里测试整体 Enabled=false 的场景
 	ctx := tooluse.ProviderContext{
 		DB: nil,
 		Config: tooluse.ProviderConfig{
 			Enabled: false,
-			Custom:  map[string]any{"test": true}, // 触发 configProvided
+			Custom:  map[string]any{"test": true}, 
 		},
 	}
 	results, err := providerRegistry.RegisterAll(ctx, toolRegistry)
-	// 整体 Enabled=false，所有 Provider 应该被跳过
 	if err != nil {
 		t.Logf("RegisterAll err (expected when all skipped): %v", err)
 	}
@@ -198,7 +174,6 @@ func TestProviderRegistry_RegisterAll_DisabledTools(t *testing.T) {
 	providerRegistry := tooluse.NewProviderRegistry()
 	toolRegistry := tooluse.NewToolRegistry()
 
-	// 构造一个含 3 个工具的 Provider，禁用其中 1 个
 	p := &mockProvider{
 		name:     "p",
 		category: tooluse.CategoryBusiness,
@@ -271,7 +246,6 @@ func TestProviderRegistry_RegisterAll_ProvideError(t *testing.T) {
 	if failResult.ToolCount != 0 {
 		t.Errorf("fail provider ToolCount = %d, want 0", failResult.ToolCount)
 	}
-	// ok Provider 仍应正常注册
 	if toolRegistry.Count() != 1 {
 		t.Errorf("tool registry Count = %d, want 1 (only ok provider)", toolRegistry.Count())
 	}
@@ -288,14 +262,12 @@ func TestProviderRegistry_RegisterAll_NilToolRegistry(t *testing.T) {
 	}
 }
 
-// ===== 3. Results 缓存 =====
 
 func TestProviderRegistry_Results(t *testing.T) {
 	providerRegistry := tooluse.NewProviderRegistry()
 	toolRegistry := tooluse.NewToolRegistry()
 	_ = providerRegistry.RegisterProvider(newMockProviderWithTools("p1", 1))
 
-	// 未调用 RegisterAll 时 Results 应为空
 	if len(providerRegistry.Results()) != 0 {
 		t.Error("Results should be empty before RegisterAll")
 	}
@@ -309,10 +281,8 @@ func TestProviderRegistry_Results(t *testing.T) {
 	}
 }
 
-// ===== 4. 自注册机制 =====
 
 func TestAutoRegister_BasicFlow(t *testing.T) {
-	// 清理状态（避免其他测试污染）
 	tooluse.ClearAutoRegisteredProviders()
 	defer tooluse.ClearAutoRegisteredProviders()
 
@@ -333,7 +303,7 @@ func TestAutoRegister_DuplicateName(t *testing.T) {
 	defer tooluse.ClearAutoRegisteredProviders()
 
 	p1 := newMockProviderWithTools("dup", 1)
-	p2 := newMockProviderWithTools("dup", 2) // 同名，应覆盖
+	p2 := newMockProviderWithTools("dup", 2) 
 
 	tooluse.RegisterToolProvider(p1)
 	tooluse.RegisterToolProvider(p2)
@@ -348,7 +318,7 @@ func TestAutoRegister_Nil(t *testing.T) {
 	tooluse.ClearAutoRegisteredProviders()
 	defer tooluse.ClearAutoRegisteredProviders()
 
-	tooluse.RegisterToolProvider(nil) // 应静默忽略
+	tooluse.RegisterToolProvider(nil) 
 	if len(tooluse.GetAutoRegisteredProviders()) != 0 {
 		t.Error("nil provider should be ignored")
 	}
@@ -360,7 +330,6 @@ func TestAutoRegister_GetReturnsCopy(t *testing.T) {
 
 	tooluse.RegisterToolProvider(newMockProviderWithTools("p", 1))
 	got := tooluse.GetAutoRegisteredProviders()
-	// 修改返回的切片不应影响内部状态
 	got[0] = nil
 
 	got2 := tooluse.GetAutoRegisteredProviders()
@@ -369,23 +338,20 @@ func TestAutoRegister_GetReturnsCopy(t *testing.T) {
 	}
 }
 
-// ===== 5. 内置 Provider Provide() 验证 =====
 
 func TestBuiltinProviders_ProvideToolCount(t *testing.T) {
-	// 注：本测试不依赖 DB（除了 ReachToolProvider 需要 DB 装配 adapter）
-	// 通过 mock ProviderContext 验证 Provide() 返回的工具数量
 
 	cases := []struct {
 		name        string
 		provider    tooluse.ToolProvider
-		expectDBErr bool // 是否期望返回 DB 必需错误
-		expectCount int  // 不期望错误时，应返回的工具数
+		expectDBErr bool 
+		expectCount int  
 		requireDB   bool
 	}{
 		{
 			name:        "ReachToolProvider",
 			provider:    &ReachToolProvider{},
-			expectDBErr: true, // 没有 DB
+			expectDBErr: true, 
 			requireDB:   true,
 		},
 		{
@@ -462,19 +428,15 @@ func TestBuiltinProviders_MetaData(t *testing.T) {
 	}
 }
 
-// ===== 6. 第三方 Provider 通过自注册接入端到端 =====
 
 func TestAutoRegister_IntegrationWithProviderRegistry(t *testing.T) {
 	tooluse.ClearAutoRegisteredProviders()
 	defer tooluse.ClearAutoRegisteredProviders()
 
-	// 模拟第三方包自注册一个 Provider
 	thirdPartyProvider := newMockProviderWithTools("thirdparty", 2)
 	tooluse.RegisterToolProvider(thirdPartyProvider)
 
-	// 模拟 registerAllAgentToolsViaProviders 的流程
 	providerRegistry := tooluse.NewProviderRegistry()
-	// 内置 Provider（这里跳过，仅测试第三方）
 	for _, p := range tooluse.GetAutoRegisteredProviders() {
 		if err := providerRegistry.RegisterProvider(p); err != nil {
 			t.Errorf("RegisterProvider %s failed: %v", p.Name(), err)
@@ -500,7 +462,6 @@ func TestAutoRegister_IntegrationWithProviderRegistry(t *testing.T) {
 	}
 }
 
-// ===== 7. 并发安全 =====
 
 func TestProviderRegistry_ConcurrentRegister(t *testing.T) {
 	providerRegistry := tooluse.NewProviderRegistry()
@@ -526,13 +487,11 @@ func TestProviderRegistry_ConcurrentRegister(t *testing.T) {
 			t.Logf("concurrent register err: %v", err)
 		}
 	}
-	// 应该所有注册都成功（名字不同）
 	if errCount > 0 {
 		t.Errorf("concurrent register err count = %d, want 0", errCount)
 	}
 }
 
-// ===== 9. initBuiltinToolProviders 验证 =====
 
 func TestInitBuiltinToolProviders_RegistersAll(t *testing.T) {
 	registry := tooluse.NewProviderRegistry()
@@ -549,24 +508,18 @@ func TestInitBuiltinToolProviders_RegistersAll(t *testing.T) {
 	}
 }
 
-// ===== 10. ProviderContext 兼容性 =====
 
 func TestProviderContext_ZeroValue(t *testing.T) {
 	var ctx tooluse.ProviderContext
-	// 零值 DB 应为 nil
 	if ctx.DB != nil {
 		t.Error("zero value DB should be nil")
 	}
-	// 零值 Enabled 应为 false
 	if ctx.Config.Enabled {
 		t.Error("zero value Enabled should be false")
 	}
 }
 
-// ---- 辅助：mock 工具实现（避免依赖 tool_debug_routes_test.go 中的同名类型）----
 
-// 注意：mockTool 定义于本包 mock_tool_test.go
-// 通过 newMockEchoTool 函数构造
 
 // 确保 mockProvider 实现 tooluse.ToolProvider 接口
 var _ tooluse.ToolProvider = (*mockProvider)(nil)
@@ -580,3 +533,4 @@ var _ tooluse.ToolProvider = (*BusinessToolProvider)(nil)
 
 // 占位：避免 import "context" 未使用（如果未来添加 ctx 相关测试）
 var _ = context.Background
+

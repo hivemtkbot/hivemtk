@@ -44,12 +44,8 @@ func RegisterWSRoutes(engine *gin.Engine, hub *controller.ChatWSHub, engine_ *se
 		return
 	}
 
-	// 构造 Controller（通过 StreamEngineInterface 注入，依赖倒置）
-	// *service.SalesEngine 自动满足 controller.StreamEngineInterface（Go 鸭子类型）
 	ctrl := controller.NewChatWSController(hub, engine_)
 
-	// 注册 WebSocket 端点
-	//   - GET /ws/chat
-	//   - query param 必填: session_id, customer_id
 	engine.GET("/ws/chat", ctrl.HandleChatWS)
 }
+

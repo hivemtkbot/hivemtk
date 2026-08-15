@@ -43,7 +43,6 @@ func (r *aiGenerationRecordRepo) GetByMerchantAndUser(userID uint, page, pageSiz
 
 	query := r.db.Model(&model.AIGenerationRecord{}).Where("user_id = ?", userID)
 
-	// 应用过滤条件
 	if recordType, ok := filters["type"]; ok && recordType != "" {
 		query = query.Where("type = ?", recordType)
 	}
@@ -121,7 +120,6 @@ func (r *promptTemplateRepo) ListByType(templateType string) ([]*model.PromptTem
 
 	query := r.db.Model(&model.PromptTemplate{}).Where("status = ?", 1)
 
-	// 独立部署：直接返回所有模板（系统模板 + 用户自有模板）
 	if templateType != "" {
 		query = query.Where("type = ?", templateType)
 	}
@@ -151,3 +149,4 @@ func (r *promptTemplateRepo) IncrementUseCount(id uint) error {
 	return r.db.Model(&model.PromptTemplate{}).Where("id = ?", id).
 		UpdateColumn("use_count", gorm.Expr("use_count + ?", 1)).Error
 }
+

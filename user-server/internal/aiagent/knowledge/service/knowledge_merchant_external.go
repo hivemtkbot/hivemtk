@@ -19,22 +19,17 @@ import (
 	"github.com/google/uuid"
 )
 
-// ============================================================================
-// 6) 外部系统接入（飞书/Notion/钉钉/通用 JSON）
-// ============================================================================
 
 // ExternalImportRequest 外部导入请求
 type ExternalImportRequest struct {
-	Source    string            `json:"source"` // feishu/notion/dingtalk/custom
+	Source    string            `json:"source"` 
 	ProductID string            `json:"product_id"`
-	Token     string            `json:"-"`     // API Token 鉴权
-	Items     []BatchImportItem `json:"items"` // 通用 JSON
-	// 飞书专用
+	Token     string            `json:"-"`     
+	Items     []BatchImportItem `json:"items"` 
 	FeishuDocID string `json:"feishu_doc_id,omitempty"`
-	// Notion 专用
 	NotionPageID string `json:"notion_page_id,omitempty"`
 	Operator     string `json:"operator"`
-	Sync         bool   `json:"sync"` // 同步返回结果（默认 false，异步任务）
+	Sync         bool   `json:"sync"` 
 }
 
 // ExternalImportResponse 外部导入响应
@@ -59,7 +54,6 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 		return nil, errors.New("product_id 不能为空")
 	}
 
-	// 1) 校验 Token
 	tok, err := s.ValidateToken(ctx, req.Token)
 	if err != nil {
 		return nil, err
@@ -68,19 +62,14 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 		return nil, fmt.Errorf("%w: token 缺少 write 权限", utils.ErrForbidden)
 	}
 
-	// 越权(IDOR)防护：Token 仅能导入其授权产品，禁止跨产品导入
 	if tok.ProductID != "" && tok.ProductID != "*" && tok.ProductID != req.ProductID {
 		return nil, fmt.Errorf("%w: token 无权操作产品 %s（授权范围: %s）", utils.ErrForbidden, req.ProductID, tok.ProductID)
 	}
 
-	// 2) 校验产品
 	if _, err := s.prodRepo.GetRagProductByID(ctx, req.ProductID); err != nil {
-		// 透传底层错误（多为 gorm.ErrRecordNotFound），由控制器映射为 404，
-		// 而非笼统的 500，便于调用方区分「产品不存在」与「服务内部错误」。
 		return nil, err
 	}
 
-	// 3) 准备 items
 	items := req.Items
 	if len(items) == 0 {
 		switch req.Source {
@@ -107,14 +96,12 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 		}
 	}
 
-	// 4) 异步或同步
 	jobNo := "EXT-" + time.Now().Format("20060102150405") + "-" + uuid.New().String()[:8]
 	if !req.Sync {
 		s.ensureReposFromDB()
-		// 落库为 pending 任务
 		job := &model.ExternalImportJob{
 			JobNo:      jobNo,
-			ProductID:  req.ProductID, // 直接存储字符串 ProductID
+			ProductID:  req.ProductID, 
 			Source:     req.Source,
 			TotalItems: len(items),
 			Status:     "pending",
@@ -123,9 +110,7 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 		payload, _ := json.Marshal(req)
 		job.Payload = string(payload)
 		_ = s.externalRepo.Create(ctx, job)
-		// 异步处理
 		go func(productID string, items []BatchImportItem, op string) {
-			// 整体超时兜底:批量遍历外部导入可能耗时较长,防止 goroutine 永久阻塞
 			bg, bgCancel := context.WithTimeout(context.Background(), ExternalImportTimeout)
 			defer bgCancel()
 			started := time.Now()
@@ -157,7 +142,6 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 		}, nil
 	}
 
-	// 同步模式
 	return s.runExternalImport(ctx, req.ProductID, items, req.Operator, jobNo)
 }
 
@@ -234,17 +218,14 @@ func (s *KnowledgeMerchantService) fetchFeishu(ctx context.Context, docID string
 		return nil, errors.New("飞书 docID 不能为空")
 	}
 
-	// 1) 凭证获取
 	appID := os.Getenv("FEISHU_APP_ID")
 	appSecret := os.Getenv("FEISHU_APP_SECRET")
 	if appID == "" || appSecret == "" {
 		return nil, errors.New("飞书抓取未配置凭证 (FEISHU_APP_ID/FEISHU_APP_SECRET)，请通过 items 字段直接传入结构化数据")
 	}
 
-	// 2) HTTP 客户端（短超时，避免阻塞 RAG 主流程）
 	client := &http.Client{Timeout: 15 * time.Second}
 
-	// 2.1 获取 tenant_access_token
 	form := url.Values{}
 	form.Set("app_id", appID)
 	form.Set("app_secret", appSecret)
@@ -273,7 +254,6 @@ func (s *KnowledgeMerchantService) fetchFeishu(ctx context.Context, docID string
 		return nil, fmt.Errorf("飞书鉴权失败: code=%d msg=%s", tokenBody.Code, tokenBody.Msg)
 	}
 
-	// 2.2 拉取文档原始内容
 	docURL := fmt.Sprintf("https://open.feishu.cn/open-apis/docx/v1/documents/%s/raw_content", docID)
 	docReq, err := http.NewRequestWithContext(ctx, http.MethodGet, docURL, nil)
 	if err != nil {
@@ -293,7 +273,7 @@ func (s *KnowledgeMerchantService) fetchFeishu(ctx context.Context, docID string
 		Code int    `json:"code"`
 		Msg  string `json:"msg"`
 		Data struct {
-			Content string `json:"content"` // markdown
+			Content string `json:"content"` 
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(docResp.Body).Decode(&docBody); err != nil {
@@ -307,7 +287,6 @@ func (s *KnowledgeMerchantService) fetchFeishu(ctx context.Context, docID string
 		return nil, errors.New("飞书文档内容为空")
 	}
 
-	// 3) 切分为多个 BatchImportItem（按二级标题或 2000 字符硬切）
 	items := splitMarkdownToItems(markdown, docID, "feishu")
 	return items, nil
 }
@@ -332,7 +311,7 @@ func (s *KnowledgeMerchantService) fetchNotion(ctx context.Context, pageID strin
 	if pageID == "" {
 		return nil, errors.New("Notion pageID 不能为空")
 	}
-	_ = tok // 当前 model 未携带 metadata，预留未来扩展
+	_ = tok 
 
 	apiKey := os.Getenv("NOTION_API_KEY")
 	if apiKey == "" {
@@ -473,7 +452,6 @@ func (s *KnowledgeMerchantService) fetchNotionBlocksRecursive(ctx context.Contex
 		}
 		_ = text
 
-		// H1/H2: flush 旧段落，开启新段落
 		if isSectionBoundary {
 			flush()
 			currentTitle = strings.TrimSpace(text)
@@ -482,7 +460,6 @@ func (s *KnowledgeMerchantService) fetchNotionBlocksRecursive(ctx context.Contex
 			}
 		}
 
-		// 递归拉取子块
 		if b.HasChildren {
 			childItems, err := s.fetchNotionBlocksRecursive(ctx, client, apiKey, b.ID, depth+1, maxDepth)
 			if err != nil {
@@ -560,7 +537,6 @@ func softSplitParagraphs(body string, maxLen int) []string {
 		if p == "" {
 			continue
 		}
-		// 单段超过 maxLen 硬切
 		if len([]rune(p)) > maxLen {
 			if buf.Len() > 0 {
 				chunks = append(chunks, strings.TrimSpace(buf.String()))
@@ -588,3 +564,4 @@ func softSplitParagraphs(body string, maxLen int) []string {
 	}
 	return chunks
 }
+

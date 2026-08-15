@@ -16,13 +16,9 @@ import (
 // SetAdminInit / GetInstallLock / CurrentVersion / GetAdminUsername / MarkAdminInitialized），
 // 但内部已不再请求平台获取授权。
 type LicenseChecker struct {
-	// ServerURL 平台上报地址（保留字段以兼容 InitLicenseChecker(serverURL, licenseKey) 调用方）
-	// 开源版实际不再用于授权校验，仅作为心跳 / 安装上报的 base_url。
 	ServerURL string
-	// LicenseKey 保留字段，调用方传 "" 即可，开源版不校验
 	LicenseKey string
 
-	// mu 保护并发：标记初始化时
 	mu sync.Mutex
 }
 
@@ -108,3 +104,4 @@ func (c *LicenseChecker) GetAdminUsername() string {
 func (c *LicenseChecker) MarkAdminInitialized() error {
 	return install.MarkAdminInitializedStandalone()
 }
+

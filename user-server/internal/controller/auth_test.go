@@ -28,7 +28,6 @@ func TestAuthController_Login_Success(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/login", authCtrl.Login)
 
-	// 直接创建用户（让 BeforeCreate hook 自动 hash 密码）
 	admin := &model.SystemUser{
 		Username: "admin",
 		Password: "Admin@123",
@@ -132,7 +131,6 @@ func TestAuthController_Login_WrongCredentials(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/login", authCtrl.Login)
 
-	// 先创建第一个用户
 	firstUser := model.SystemUser{
 		Username: "testuser",
 		Password: "correctpassword",
@@ -163,9 +161,7 @@ func TestAuthController_RefreshToken_Success(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/refresh", authCtrl.RefreshToken)
 
-	// 生成有效令牌
 	jwtUtils := service.NewAuthService().JwtUtils(context.Background())
-	// 私域部署：GenerateToken 只接受 3 个参数（无 merchantID）
 	validToken, _ := jwtUtils.GenerateToken(1, "testuser", "admin")
 
 	req, _ := http.NewRequest("POST", "/refresh", nil)
@@ -217,7 +213,6 @@ func TestAuthController_GetCurrentUser_Success(t *testing.T) {
 	authCtrl := NewAuthController()
 	router := setupGinEngine()
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Email:    "test@example.com",
@@ -262,7 +257,6 @@ func TestAuthController_ChangePassword_Success(t *testing.T) {
 	authCtrl := NewAuthController()
 	router := setupGinEngine()
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Password: "oldpassword123",
@@ -353,7 +347,6 @@ func TestSystemUserController_GetUsers_Success(t *testing.T) {
 	router := setupGinEngine()
 	router.GET("/users", ctrl.GetUsers)
 
-	// 创建测试用户
 	user := model.SystemUser{
 		Username: "testuser",
 		Email:    "test@example.com",
@@ -527,7 +520,6 @@ func TestSystemUserController_CreateDefaultAdmin(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/admin/init", ctrl.CreateDefaultAdmin)
 
-	// 请求体需携带 InitAdminRequest
 	createReq := map[string]string{
 		"username": "admin",
 		"password": "Admin@123456",
@@ -544,3 +536,4 @@ func TestSystemUserController_CreateDefaultAdmin(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
+

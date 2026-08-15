@@ -24,10 +24,10 @@ type Handler func(evt Event) error
 
 // Event 事件结构
 type Event struct {
-	Topic     string    // 事件主题
-	Payload   any       // 事件载荷
-	Timestamp time.Time // 事件时间（零值自动填充）
-	Source    string    // 事件来源（可选，用于调试）
+	Topic     string    
+	Payload   any       
+	Timestamp time.Time 
+	Source    string    
 }
 
 // EventBus 进程内事件总线
@@ -40,8 +40,8 @@ type Event struct {
 type EventBus struct {
 	subscribers    map[string][]Handler
 	mu             sync.RWMutex
-	queue          chan Event // 普通(旁路)事件队列
-	criticalQueue  chan Event // 关键(客户消息)事件队列，独立 worker 池，与旁路事件隔离
+	queue          chan Event 
+	criticalQueue  chan Event 
 	criticalTopics map[string]bool
 	stopCh         chan struct{}
 	wg             sync.WaitGroup
@@ -72,13 +72,10 @@ func New(workerCount, queueSize int) *EventBus {
 		criticalTopics: map[string]bool{TopicCustomerMessageReceived: true},
 		stopCh:         make(chan struct{}),
 	}
-	// 普通(旁路)事件 worker 池
 	for i := 0; i < workerCount; i++ {
 		b.wg.Add(1)
 		go b.worker(b.queue, i)
 	}
-	// 关键(客户消息)事件独立 worker 池（V2 修复：与旁路事件隔离，
-	// 避免 operation.log 等洪峰挤掉客户消息的处理）。
 	for i := 0; i < criticalWorkers; i++ {
 		b.wg.Add(1)
 		go b.worker(b.criticalQueue, workerCount+i)
@@ -133,18 +130,15 @@ func (b *EventBus) Publish(evt Event) {
 		evt.Timestamp = time.Now()
 	}
 
-	// V2 修复：关键 topic 路由到独立队列，避免被旁路事件洪峰挤掉。
 	target := b.queue
 	if b.criticalTopics[evt.Topic] {
 		target = b.criticalQueue
 	}
 	select {
 	case target <- evt:
-		// success
 	default:
 		logger.Warnf("[EventBus] queue full, dropping event topic=%s critical=%v", evt.Topic, target == b.criticalQueue)
 	}
-	// 可观测性: 实时队列深度 (无 Prometheus 端点暴露, 仅日志审计)
 	_ = len(b.queue)
 	_ = len(b.criticalQueue)
 }
@@ -157,7 +151,6 @@ func (b *EventBus) worker(q chan Event, id int) {
 		case evt := <-q:
 			b.dispatch(evt)
 		case <-b.stopCh:
-			// 优雅关闭：排空自己负责的队列中剩余事件
 			b.drainFrom(q)
 			return
 		}
@@ -181,7 +174,6 @@ func (b *EventBus) drainFrom(q chan Event) {
 func (b *EventBus) dispatch(evt Event) {
 	b.mu.RLock()
 	handlers := b.subscribers[evt.Topic]
-	// 复制一份避免 handler 执行期间被修改
 	handlersCopy := make([]Handler, len(handlers))
 	copy(handlersCopy, handlers)
 	b.mu.RUnlock()
@@ -219,9 +211,6 @@ func (b *EventBus) HasSubscribers(topic string) bool {
 	return len(b.subscribers[topic]) > 0
 }
 
-// ============================================================================
-// 全局单例（与 db.GetDB() / llm.GetGlobalDispatcher() 保持一致）
-// ============================================================================
 
 var (
 	globalBus *EventBus
@@ -264,3 +253,4 @@ func StopGlobal() {
 		globalBus = nil
 	}
 }
+

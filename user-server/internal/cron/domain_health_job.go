@@ -29,7 +29,6 @@ func NewDomainHealthCheckJob(healthSvc service.DomainHealthService, repo reposit
 func (j *DomainHealthCheckJob) Start() {
 	logger.Info("[domain-health] 启动域名健康度定时探测任务")
 
-	// 启动后立即探测一次
 	go j.runOnce()
 
 	ticker := time.NewTicker(j.interval)
@@ -45,8 +44,6 @@ func (j *DomainHealthCheckJob) Start() {
 
 // runOnce 单次执行探测
 func (j *DomainHealthCheckJob) runOnce() {
-	// 修复：探测 goroutine（Start 中 go j.runOnce()）未 recover，若 CheckAll 内层 panic
-	// 会直接击穿进程。recover 后仅记日志，不影响下一次 ticker 触发。
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("[domain-health] runOnce panic recovered: %v", r)
@@ -68,3 +65,4 @@ func (j *DomainHealthCheckJob) runOnce() {
 	}
 	logger.Infof("[domain-health] 探测完成 total=%d healthy=%d unhealthy=%d", len(results), healthy, unhealthy)
 }
+

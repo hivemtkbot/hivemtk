@@ -58,9 +58,6 @@ func (r *SopAgentRepository) ListByUseBandit(ctx context.Context, useBandit bool
 	return list, nil
 }
 
-// ============================================================================
-// SopExecutionRepository
-// ============================================================================
 
 // SopExecutionRepository SOP 执行记录仓储
 type SopExecutionRepository struct {
@@ -173,9 +170,6 @@ func (r *SopExecutionRepository) FindStuck(ctx context.Context, runningStatus st
 	return execs, nil
 }
 
-// ============================================================================
-// SopAgentRepository 扩展方法
-// ============================================================================
 
 // IncrementSuccessCount 增加指定 SOP 的成功执行计数
 // 用于 SOP 执行成功后异步更新 SOPAgent 的 success_count 统计
@@ -315,9 +309,6 @@ func (r *SopAgentRepository) IncrementExecutionCount(ctx context.Context, sopID 
 		UpdateColumn("execution_count", gorm.Expr("execution_count + 1")).Error
 }
 
-// ============================================================================
-// SopExecutionRepository 扩展方法
-// ============================================================================
 
 // Create 创建 SOP 执行记录
 func (r *SopExecutionRepository) Create(ctx context.Context, exec *model.SOPExecution) error {
@@ -431,3 +422,4 @@ func (r *SopExecutionRepository) CountBySOPID(ctx context.Context, sopID uint) (
 	}
 	return count, nil
 }
+

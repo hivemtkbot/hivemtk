@@ -10,12 +10,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// Customer 领域 Facade 服务（供 controller 调用，避免 controller 直接依赖
-// repository / model）。
-// 这些方法是"门面方法"，在 service 层内部组装 repository + model，保持原有
-// 以 model 为签名的底层方法不变（供测试与其他调用方使用）。
-// ============================================================================
 
 // customerTagGetRule 获取标签规则对象（从 model.CustomerTag 迁出，五层架构合规）
 func customerTagGetRule(t *model.CustomerTag) map[string]any {
@@ -52,9 +46,6 @@ func customerTagSetRuleString(t *model.CustomerTag, ruleStr string) error {
 	return nil
 }
 
-// ----------------------------------------------------------------------------
-// 用户标签（UserTag）
-// ----------------------------------------------------------------------------
 
 // UserTagService 用户标签门面服务
 type UserTagService struct {
@@ -105,9 +96,6 @@ func (s *UserTagService) GetUserTags(ctx context.Context, userID string) ([]stri
 	return tags, nil
 }
 
-// ----------------------------------------------------------------------------
-// 客户档案（User）更新
-// ----------------------------------------------------------------------------
 
 // UserProfileService 客户档案门面服务
 type UserProfileService struct {
@@ -181,9 +169,6 @@ type UserBasicView struct {
 	UpdateTime int64                `json:"update_time"`
 }
 
-// ----------------------------------------------------------------------------
-// 自动标签规则（CustomerTag）
-// ----------------------------------------------------------------------------
 
 // TagRuleService 自动标签规则门面服务
 type TagRuleService struct {
@@ -355,9 +340,6 @@ func (s *TagRuleService) GetTagStats(ctx context.Context) (*TagStatsResult, erro
 	}, nil
 }
 
-// ----------------------------------------------------------------------------
-// OneID 客户查询（封装 repository.CustomerRepository）
-// ----------------------------------------------------------------------------
 
 // CustomerQueryService OneID 客户查询门面服务
 type CustomerQueryService struct {
@@ -441,7 +423,6 @@ type OneIDStatsView struct {
 
 // OneIDStats OneID 体系统计：总数、关联各渠道数、多身份客户数
 func (s *CustomerQueryService) OneIDStats(ctx context.Context) *OneIDStatsView {
-	// 总数直接取 ListCustomers 第 1 页 size=1 的 total
 	_, total := s.ListCustomers(ctx, 1, 1, "")
 	withPhone, _ := s.custRepo.CountNotEmpty(ctx, "phone")
 	withEmail, _ := s.custRepo.CountNotEmpty(ctx, "email")
@@ -457,3 +438,4 @@ func (s *CustomerQueryService) OneIDStats(ctx context.Context) *OneIDStatsView {
 		MultiIdentity: multi,
 	}
 }
+

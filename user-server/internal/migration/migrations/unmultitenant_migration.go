@@ -121,7 +121,6 @@ var businessTablesWithMerchantID = []string{
 // Up 执行升级
 func (m *UnmultitenantSchemaMigration) Up(ctx context.Context) error {
 	for _, table := range businessTablesWithMerchantID {
-		// PostgreSQL: 使用 IF EXISTS 防止列不存在时报错
 		m.db.Exec("ALTER TABLE " + table + " DROP COLUMN IF EXISTS merchant_id")
 	}
 
@@ -130,15 +129,14 @@ func (m *UnmultitenantSchemaMigration) Up(ctx context.Context) error {
 	m.db.Exec("DROP TABLE IF EXISTS platform_licenses")
 	m.db.Exec("DROP TABLE IF EXISTS platform_installs")
 
-	// team_users / team_roles / team_user_permissions 已在 025 迁移中 DROP
 
 	return nil
 }
 
 // Down 执行降级
 func (m *UnmultitenantSchemaMigration) Down(ctx context.Context) error {
-	// 独立部署版本：降级操作无意义，保留空实现
 	return nil
 }
 
 var _ migration.Migration = (*UnmultitenantSchemaMigration)(nil)
+

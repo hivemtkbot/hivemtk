@@ -13,19 +13,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// 活跃会话历史（Redis 后端）
-//
-// 文档依据：docs/企业级架构优化/资产包模式.md §二 Weave 织布算法
-//
-// 设计：
-//  - 数据源：cache.GetGlobalCache()（Redis 优先，进程内存兜底）
-//  - 存储结构：Redis List（key=chat_history:{session_id}）
-//  - 写入：AppendHistory 用 RPush 追加（按时间正序）
-//  - 读取：FetchHistory 用 LRange 取最近 N 条（Redis List 是左→右正序）
-//  - TTL：7 天（活跃会话保留期，超时自动清理）
-//  - 序列化：每条消息 JSON 编码后存为一个 List 元素
-// ============================================================================
 
 // ChatHistoryRedisAdapter 基于 Redis 的会话历史适配器
 //
@@ -73,7 +60,6 @@ func (a *ChatHistoryRedisAdapter) FetchHistory(ctx context.Context, sessionID st
 	}
 	c := cache.GetGlobalCache()
 	key := chatHistoryKey(sessionID)
-	// LRange 负索引：-limit 到 -1（取最后 limit 条）
 	start := int64(-limit)
 	stop := int64(-1)
 	rawList, err := c.LRange(ctx, key, start, stop)
@@ -125,3 +111,4 @@ func (a *ChatHistoryRedisAdapter) AppendHistory(ctx context.Context, sessionID s
 
 // 编译期断言：ChatHistoryRedisAdapter 实现 portcontract.ChatHistoryPort
 var _ portcontract.ChatHistoryPort = (*ChatHistoryRedisAdapter)(nil)
+

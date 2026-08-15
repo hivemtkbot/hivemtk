@@ -13,13 +13,13 @@ type ToolHandler func(ctx context.Context, args map[string]any) (ToolResult, err
 type ToolDecorator func(next ToolHandler) ToolHandler
 
 type ToolContext struct {
-	CallerID    string   // 调用者ID（如智能体ID / 座席ID）
-	AgentID     string   // 智能体ID
-	CustomerID  string   // 客户ID
-	SessionID   string   // 会话ID
-	Permissions []string // 调用者拥有的权限列表
-	AuditTrace  string   // 审计追踪ID（贯穿整条链路）
-	Source      string   // 调用来源（agent/sop/manual/api）
+	CallerID    string   
+	AgentID     string   
+	CustomerID  string   
+	SessionID   string   
+	Permissions []string 
+	AuditTrace  string   
+	Source      string   
 }
 
 type toolContextKey struct{}
@@ -175,10 +175,10 @@ func (l *TokenBucketLimiter) Acquire(ctx context.Context, key string) error {
 
 // ExponentialBackoffPolicy 指数退避重试策略
 type ExponentialBackoffPolicy struct {
-	MaxAttemptsValue int           // 最大重试次数（含首次）
-	BaseDelay        time.Duration // 基础延迟
-	MaxDelay         time.Duration // 最大延迟
-	Jitter           bool          // 是否添加随机抖动
+	MaxAttemptsValue int           
+	BaseDelay        time.Duration 
+	MaxDelay         time.Duration 
+	Jitter           bool          
 }
 
 // NewExponentialBackoffPolicy 创建指数退避策略
@@ -312,3 +312,4 @@ func (t *MemoryCostTracker) Reset() {
 	defer t.mu.Unlock()
 	t.records = make(map[string]*costRecord)
 }
+

@@ -1,19 +1,5 @@
 package llm
 
-// provider_failover.go LLM 多 Provider 降级
-//
-// 五层架构归属: L2 服务层 / L3 编排层
-// 设计依据: PRD §
-// 私域独立部署: 无 merchant_id 字段
-//
-// 功能：
-//   - Provider 健康检查（每 30 秒 ping 一次）
-//   - Provider 状态表 ProviderHealth（up/down/degraded + 熔断器状态）
-//   - 熔断器：连续 5 次失败 → 熔断 60 秒
-//   - 降级策略：主 Provider 失败 → 备用 Provider → 本地小模型 → 模板回复
-//   - 配置：从 system_kv_config 表 key=llm_provider_failover 读取策略
-//   - API：GET /api/llm/providers/health
-//   - API：POST /api/llm/providers/circuit/reset
 
 import (
 	"context"
@@ -57,28 +43,18 @@ type ProviderHealth struct {
 	LastError           string         `json:"last_error,omitempty"`
 	ConsecutiveFailures int            `json:"consecutive_failures"`
 	CircuitOpenUntil    time.Time      `json:"circuit_open_until,omitempty"`
-	// LatencyP95Ms 最近一次健康检查的延迟（毫秒），用于 degraded 判定
 	LatencyP95Ms int64 `json:"latency_p95_ms,omitempty"`
 }
 
-// IsZero 判断 CircuitOpenUntil 是否未设置（兼容 Zero 检查）
-// time.Time.IsZero 已存在；此处 helper 用于业务语义清晰。
 
 // FailoverConfig 降级策略配置（从 system_kv_config 表 key=llm_provider_failover 读取）
 type FailoverConfig struct {
-	// HealthCheckInterval 健康检查间隔（秒）
 	HealthCheckInterval int `json:"health_check_interval"`
-	// FailureThreshold 触发熔断的连续失败次数
 	FailureThreshold int `json:"failure_threshold"`
-	// CircuitOpenDuration 熔断持续时间（秒）
 	CircuitOpenDuration int `json:"circuit_open_duration"`
-	// DegradedLatencyMs 延迟超过该阈值标记 degraded（毫秒）
 	DegradedLatencyMs int64 `json:"degraded_latency_ms"`
-	// LocalFallbackProvider 本地兜底 provider 名（如 default）
 	LocalFallbackProvider string `json:"local_fallback_provider"`
-	// TemplateReply 全部失败时的模板回复
 	TemplateReply string `json:"template_reply"`
-	// HealthCheckPath 健康检查子路径（默认 /health）
 	HealthCheckPath string `json:"health_check_path"`
 }
 
@@ -98,7 +74,7 @@ func DefaultFailoverConfig() FailoverConfig {
 // FailoverPolicy 降级策略（从 system_kv_config 读取的完整 JSON）
 type FailoverPolicy struct {
 	Config    FailoverConfig      `json:"config"`
-	Scenarios map[string][]string `json:"scenarios"` // scenario -> ordered provider list
+	Scenarios map[string][]string `json:"scenarios"` 
 }
 
 // DefaultFailoverPolicy 默认降级策略（注入到 system_kv_config 表的种子数据）
@@ -119,7 +95,6 @@ func DefaultFailoverPolicy() FailoverPolicy {
 
 // HealthChecker Provider 健康检查器
 type HealthChecker interface {
-	// Ping 检查 provider 健康（返回延迟毫秒与错误）
 	Ping(ctx context.Context, provider *ProviderConfig, config FailoverConfig) (int64, error)
 }
 
@@ -142,7 +117,6 @@ func (h *HTTPHealthChecker) Ping(ctx context.Context, provider *ProviderConfig, 
 		return 0, fmt.Errorf("provider is nil")
 	}
 	if provider.BaseURL == "" {
-		// 无 BaseURL 视为本地 provider，直接返回成功（本地服务由其他方式监控）
 		return 0, nil
 	}
 	path := config.HealthCheckPath
@@ -165,7 +139,6 @@ func (h *HTTPHealthChecker) Ping(ctx context.Context, provider *ProviderConfig, 
 		return latency, fmt.Errorf("health check %s: %w", url, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	// 2xx 视为健康，5xx 视为故障，其他视为 degraded
 	if resp.StatusCode >= 500 {
 		return latency, fmt.Errorf("health check %s returned status %d", url, resp.StatusCode)
 	}
@@ -211,11 +184,8 @@ func (f *ProviderFailover) LoadPolicy(ctx context.Context) FailoverPolicy {
 		return policy
 	}
 	var raw string
-	// system_kv_config 表由 llm_failover_migration 创建
-	// 用 Raw SQL 兼容表存在/不存在场景
 	tx := f.db.WithContext(ctx).Raw(`SELECT value FROM system_kv_config WHERE key = 'llm_provider_failover' LIMIT 1`).Scan(&raw)
 	if tx.Error != nil {
-		// 表不存在或查询失败时使用默认策略
 		return policy
 	}
 	if raw == "" {
@@ -226,7 +196,6 @@ func (f *ProviderFailover) LoadPolicy(ctx context.Context) FailoverPolicy {
 		logger.Warnf("[ProviderFailover] 解析 llm_provider_failover 配置失败: %v", err)
 		return policy
 	}
-	// 合并：保留默认值的零字段
 	if loaded.Config.HealthCheckInterval > 0 {
 		policy.Config.HealthCheckInterval = loaded.Config.HealthCheckInterval
 	}
@@ -285,13 +254,11 @@ func (f *ProviderFailover) Stop() {
 
 // healthCheckLoop 周期性执行健康检查
 func (f *ProviderFailover) healthCheckLoop(ctx context.Context) {
-	// 先加载策略
 	policy := f.LoadPolicy(ctx)
 	f.ApplyPolicy(policy)
 
 	ticker := time.NewTicker(f.interval())
 	defer ticker.Stop()
-	// 立即执行一次
 	f.checkAll(ctx)
 	for {
 		select {
@@ -301,7 +268,6 @@ func (f *ProviderFailover) healthCheckLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			f.checkAll(ctx)
-			// 重新加载策略（管理员可能更新了配置）
 			policy := f.LoadPolicy(ctx)
 			f.ApplyPolicy(policy)
 			ticker.Reset(f.interval())
@@ -365,7 +331,6 @@ func (f *ProviderFailover) checkOne(ctx context.Context, provider *ProviderConfi
 		}
 		return
 	}
-	// 成功：重置失败计数
 	h.ConsecutiveFailures = 0
 	h.LastError = ""
 	h.CircuitOpenUntil = time.Time{}
@@ -390,9 +355,6 @@ func (f *ProviderFailover) IsCircuitOpen(providerName string) bool {
 	if time.Now().Before(h.CircuitOpenUntil) {
 		return true
 	}
-	// 熔断时间已过，恢复探测
-	// 集群级熔断：若其他实例已开启该 provider 熔断（REDIS_HOST 配置时），
-	// 本实例也应跟随跳过，避免短时内多实例共同锤击故障 provider（雪崩）。
 	if cache.GlobalIsRedis() {
 		if open, e := cache.GetGlobalCache().Exists(context.Background(), "mtk:circuit:open:"+providerName); e == nil && open {
 			return true
@@ -484,7 +446,6 @@ func (f *ProviderFailover) RecordFailure(providerName string, err error) {
 		h.Status = ProviderStatusDown
 		dur := time.Duration(cfg.CircuitOpenDuration) * time.Second
 		h.CircuitOpenUntil = time.Now().Add(dur)
-		// 跨实例共享熔断开启信号（集群级熔断：避免其他实例短时内继续锤击故障 provider）
 		if cache.GlobalIsRedis() {
 			cache.GetGlobalCache().SetNX(context.Background(), "mtk:circuit:open:"+providerName, "1", dur)
 		}
@@ -500,11 +461,9 @@ func (f *ProviderFailover) DispatchWithFailover(ctx context.Context, req Dispatc
 		return nil, fmt.Errorf("dispatcher is nil")
 	}
 
-	// 加载降级策略
 	policy := f.LoadPolicy(ctx)
 	f.ApplyPolicy(policy)
 
-	// 构建候选 provider 列表
 	candidates := f.buildCandidates(req.Scenario, policy)
 	cfg := f.Config()
 
@@ -517,7 +476,6 @@ func (f *ProviderFailover) DispatchWithFailover(ctx context.Context, req Dispatc
 		if provider == nil || !provider.Enabled {
 			continue
 		}
-		// 创建单 provider 路由的 dispatch 请求
 		start := time.Now()
 		result, err := f.callSingleProvider(ctx, provider, req, cfg)
 		latency := time.Since(start).Milliseconds()
@@ -531,7 +489,6 @@ func (f *ProviderFailover) DispatchWithFailover(ctx context.Context, req Dispatc
 		return result, nil
 	}
 
-	// 全部失败 → 返回降级响应（模板回复）
 	if lastErr == nil {
 		lastErr = fmt.Errorf("no available provider for scenario: %s", req.Scenario)
 	}
@@ -543,7 +500,6 @@ func (f *ProviderFailover) DispatchWithFailover(ctx context.Context, req Dispatc
 func (f *ProviderFailover) buildCandidates(scenario DispatchScenario, policy FailoverPolicy) []string {
 	seen := make(map[string]bool)
 	out := make([]string, 0, 8)
-	// 1) 策略中场景指定的列表
 	if list, ok := policy.Scenarios[string(scenario)]; ok {
 		for _, name := range list {
 			if !seen[name] {
@@ -552,7 +508,6 @@ func (f *ProviderFailover) buildCandidates(scenario DispatchScenario, policy Fai
 			}
 		}
 	}
-	// 2) Dispatcher 路由的主 + 备选
 	if route := f.dispatcher.GetRoute(scenario); route != nil {
 		if !seen[route.Provider] {
 			seen[route.Provider] = true
@@ -565,7 +520,6 @@ func (f *ProviderFailover) buildCandidates(scenario DispatchScenario, policy Fai
 			}
 		}
 	}
-	// 3) 本地兜底 provider 放到最后
 	if policy.Config.LocalFallbackProvider != "" && !seen[policy.Config.LocalFallbackProvider] {
 		out = append(out, policy.Config.LocalFallbackProvider)
 	}
@@ -575,14 +529,12 @@ func (f *ProviderFailover) buildCandidates(scenario DispatchScenario, policy Fai
 // callSingleProvider 通过 Dispatcher.callProvider 调用单个 provider
 // 通过临时构造 ScenarioRoute 复用现有调度逻辑
 func (f *ProviderFailover) callSingleProvider(ctx context.Context, provider *ProviderConfig, req DispatchRequest, cfg FailoverConfig) (*DispatchResult, error) {
-	// 复用 dispatcher.callProvider，需要构造 ScenarioRoute（用于 MaxLatency）
 	route := &ScenarioRoute{
 		Scenario:   req.Scenario,
 		Provider:   provider.Name,
 		MaxLatency: 0,
 		MinQuality: 0,
 	}
-	// 直接调用未导出的 callProvider（同包内可访问）
 	return f.dispatcher.callProvider(ctx, provider, req, route)
 }
 
@@ -597,9 +549,6 @@ func (f *ProviderFailover) degradedResponse(req DispatchRequest, cfg FailoverCon
 		Model:        "template",
 		Content:      reply,
 		FinishReason: "degraded",
-		// 标记降级原因
-		// 注意：DispatchResult 无 dedicated 字段，复用 Logprobs[0] 不合适；
-		// 通过新增 Usage.TotalTokens=0 + 自定义日志体现
 		Usage: TokenUsage{
 			PromptTokens:     estimateTokens(req.Prompt),
 			CompletionTokens: estimateTokens(reply),
@@ -613,7 +562,6 @@ func IsDegraded(result *DispatchResult) bool {
 	return result != nil && result.Provider == "degraded" && result.Model == "template"
 }
 
-// ====== 全局单例 ======
 
 var (
 	globalFailover     *ProviderFailover
@@ -632,3 +580,4 @@ func InitGlobalFailover(dispatcher *Dispatcher, db *gorm.DB) *ProviderFailover {
 func GetGlobalFailover() *ProviderFailover {
 	return globalFailover
 }
+

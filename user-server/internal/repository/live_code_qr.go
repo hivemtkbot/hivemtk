@@ -19,13 +19,9 @@ type LiveCodeQRRepository interface {
 	GetAvailableQR(ctx context.Context, liveCodeID string) (*model.LiveCodeQR, error)
 	CreateStat(ctx context.Context, stat *model.LiveCodeQRStat) error
 	GetStats(ctx context.Context, qrID string) ([]*model.LiveCodeQRStat, error)
-	// IncrementViewStat 累加指定二维码当天的展示次数（按天 upsert）
 	IncrementViewStat(ctx context.Context, qrID string) error
-	// IncrementClickStat 累加指定二维码当天的点击次数（按天 upsert）
 	IncrementClickStat(ctx context.Context, qrID string) error
-	// SumStats 汇总单个二维码历史展示/点击总数
 	SumStats(ctx context.Context, qrID string) (views int64, clicks int64, err error)
-	// SumLiveCodeStats 汇总活码下所有二维码历史展示/点击总数
 	SumLiveCodeStats(ctx context.Context, liveCodeID string) (views int64, clicks int64, err error)
 }
 
@@ -162,3 +158,4 @@ func (r *liveCodeQRRepository) SumLiveCodeStats(ctx context.Context, liveCodeID 
 	}
 	return views, clicks, nil
 }
+

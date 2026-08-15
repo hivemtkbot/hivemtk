@@ -10,7 +10,6 @@ import (
 
 // setupCardRoutes 卡片管理路由（抖音、快手、小红书、闲鱼）
 func setupCardRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
-	// 抖音卡片
 	douyinCardCtrl := controller.NewDouyinCardController(service.NewDouyinCardService(gormDB))
 	auth.GET("/douyin-card/list", douyinCardCtrl.GetList)
 	auth.POST("/douyin-card", douyinCardCtrl.Create)
@@ -25,7 +24,6 @@ func setupCardRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	auth.GET("/douyin/view/:id", douyinCardCtrl.GetByID)
 	auth.POST("/douyin/:id/generate-short-link", douyinCardCtrl.GenerateShortLink)
 
-	// 快手卡片
 	kuaishouCardCtrl := controller.NewKuaishouCardController(service.NewKuaishouCardService(gormDB))
 	auth.GET("/kuaishou-card/list", kuaishouCardCtrl.GetList)
 	auth.POST("/kuaishou-card", kuaishouCardCtrl.Create)
@@ -42,7 +40,6 @@ func setupCardRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	auth.POST("/kuaishou/share/:id", kuaishouCardCtrl.ShareCard)
 	auth.POST("/kuaishou/:id/generate-short-link", kuaishouCardCtrl.GenerateShortLink)
 
-	// 小红书卡片
 	xiaohongshuCardCtrl := controller.NewXiaohongshuCardController(service.NewXiaohongshuCardService(gormDB))
 	auth.GET("/xiaohongshu-card/list", xiaohongshuCardCtrl.GetList)
 	auth.POST("/xiaohongshu-card", xiaohongshuCardCtrl.Create)
@@ -57,7 +54,6 @@ func setupCardRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	auth.GET("/xiaohongshu/view/:id", xiaohongshuCardCtrl.GetByID)
 	auth.POST("/xiaohongshu/:id/generate-short-link", xiaohongshuCardCtrl.GenerateShortLink)
 
-	// 闲鱼卡片
 	xianyuCardCtrl := controller.NewXianyuCardController(service.NewXianyuCardService(gormDB), service.NewXianyuCardStatsService(gormDB))
 	auth.GET("/xianyu-card/list", xianyuCardCtrl.GetList)
 	auth.POST("/xianyu-card", xianyuCardCtrl.Create)
@@ -75,35 +71,30 @@ func setupCardRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 
 // setupCardStatsRoutes 卡片统计路由
 func setupCardStatsRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
-	// 抖音统计
 	douyinStatsCtrl := controller.NewDouyinCardStatsController(service.NewDouyinCardStatsService(gormDB))
 	auth.GET("/douyin-card/stats/:id", douyinStatsCtrl.GetCardStats)
 	auth.GET("/douyin-card/overall-stats", douyinStatsCtrl.GetOverallStats)
 	auth.GET("/douyin/stats/card/:id", douyinStatsCtrl.GetCardStats)
 	auth.GET("/douyin/stats/overall", douyinStatsCtrl.GetOverallStats)
 
-	// 快手统计
 	kuaishouStatsCtrl := controller.NewKuaishouCardStatsController(service.NewKuaishouCardStatsService(gormDB))
 	auth.GET("/kuaishou-card/stats/:id", kuaishouStatsCtrl.GetCardStats)
 	auth.GET("/kuaishou-card/overall-stats", kuaishouStatsCtrl.GetOverallStats)
 	auth.GET("/kuaishou/stats/card/:id", kuaishouStatsCtrl.GetCardStats)
 	auth.GET("/kuaishou/stats/overall", kuaishouStatsCtrl.GetOverallStats)
 
-	// 小红书统计
 	xiaohongshuStatsCtrl := controller.NewXiaohongshuCardStatsController(service.NewXiaohongshuCardStatsService(gormDB))
 	auth.GET("/xiaohongshu-card/stats/:id", xiaohongshuStatsCtrl.GetCardStats)
 	auth.GET("/xiaohongshu-card/overall-stats", xiaohongshuStatsCtrl.GetOverallStats)
 	auth.GET("/xiaohongshu/stats/card/:id", xiaohongshuStatsCtrl.GetCardStats)
 	auth.GET("/xiaohongshu/stats/overall", xiaohongshuStatsCtrl.GetOverallStats)
 
-	// 闲鱼统计
 	xianyuStatsCtrl := controller.NewXianyuCardStatsController(service.NewXianyuCardStatsService(gormDB))
 	auth.GET("/xianyu-card/stats/:id", xianyuStatsCtrl.GetCardStats)
 	auth.GET("/xianyu-card/overall-stats", xianyuStatsCtrl.GetOverallStats)
 	auth.GET("/xianyu/stats/card/:id", xianyuStatsCtrl.GetCardStats)
 	auth.GET("/xianyu/stats/overall", xianyuStatsCtrl.GetOverallStats)
 
-	// LM-：统一平台路由（card_stats_factory）— 通过 :platform 路径参数选择 service
 	factory := controller.NewCardStatsFactoryController(
 		service.NewPlatformDouyinCardStatsAdapter(service.NewDouyinCardStatsService(gormDB)),
 		service.NewPlatformKuaishouCardStatsAdapter(service.NewKuaishouCardStatsService(gormDB)),
@@ -114,3 +105,4 @@ func setupCardStatsRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	auth.GET("/card-stats/:platform/stats/:id", factory.GetCardStats)
 	auth.GET("/card-stats/:platform/overall", factory.GetOverallStats)
 }
+

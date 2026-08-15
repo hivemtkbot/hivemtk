@@ -16,7 +16,7 @@ import (
 type FeedbackLearner struct {
 	db          *gorm.DB
 	mu          sync.RWMutex
-	intentCache map[string]*IntentStats // 意图 → 表现统计
+	intentCache map[string]*IntentStats 
 	sopCache    map[string]*SOPStats
 }
 
@@ -47,9 +47,9 @@ type FeedbackRecord struct {
 	Confidence     float64   `json:"confidence"`
 	SOPName        string    `json:"sop_name"`
 	AIReply        string    `json:"ai_reply"`
-	HumanReply     string    `json:"human_reply,omitempty"` // 人工修订
-	CustomerAccept bool      `json:"customer_accept"`       // 客户是否接受
-	Transferred    bool      `json:"transferred"`           // 是否转人工
+	HumanReply     string    `json:"human_reply,omitempty"` 
+	CustomerAccept bool      `json:"customer_accept"`       
+	Transferred    bool      `json:"transferred"`           
 	TransferReason string    `json:"transfer_reason,omitempty"`
 	Tokens         int       `json:"tokens"`
 	LatencyMs      int       `json:"latency_ms"`
@@ -78,7 +78,6 @@ func (f *FeedbackLearner) RecordFeedback(ctx context.Context, record *FeedbackRe
 	if record.CreatedAt.IsZero() {
 		record.CreatedAt = time.Now()
 	}
-	// 1. 落库（db 不为空时持久化；db 为空仅内存聚合，兼容测试/无 DB 场景）
 	if f.db != nil {
 		orm := &model.FeedbackRecordORM{
 			SessionID:      record.SessionID,
@@ -96,12 +95,10 @@ func (f *FeedbackLearner) RecordFeedback(ctx context.Context, record *FeedbackRe
 			CreatedAt:      record.CreatedAt,
 		}
 		if err := f.db.WithContext(ctx).Create(orm).Error; err != nil {
-			// 落库失败不阻断内存聚合（降级），但必须告警以便感知数据丢失
 			logger.Ctx(ctx).Warn().Err(err).Str("session_id", record.SessionID).
 				Msg("[feedback_learner] persist feedback record failed, fallback to in-memory only")
 		}
 	}
-	// 2. 更新内存缓存
 	f.updateIntentCache(ctx, record)
 	f.updateSOPCache(ctx, record)
 	return nil
@@ -187,8 +184,6 @@ func (f *FeedbackLearner) GetSOPStats(ctx context.Context, sopName string) *SOPS
 
 // SuggestBestSOP 建议最佳 SOP（基于历史表现）
 func (f *FeedbackLearner) SuggestBestSOP(ctx context.Context, intentType string) string {
-	// 实际生产：根据 sopCache 中 positiveRate 排序，返回 Top1
-	// 当前简化：返回空，让 SOPService.MatchByIntent 决定
 	return ""
 }
 
@@ -197,10 +192,9 @@ func (f *FeedbackLearner) SuggestBestSOP(ctx context.Context, intentType string)
 func (f *FeedbackLearner) SuggestConfidenceFloor(ctx context.Context, intentType string) float64 {
 	stats := f.GetIntentStats(ctx, intentType)
 	if stats == nil || stats.TotalCount < 10 {
-		return 0.5 // 冷启动默认 0.5
+		return 0.5 
 	}
 	successRate := float64(stats.SuccessCount) / float64(stats.TotalCount)
-	// 成功率越高 → 阈值可降低；成功率低 → 阈值提高
 	if successRate >= 0.8 {
 		return 0.4
 	} else if successRate >= 0.6 {
@@ -209,3 +203,4 @@ func (f *FeedbackLearner) SuggestConfidenceFloor(ctx context.Context, intentType
 		return 0.7
 	}
 }
+

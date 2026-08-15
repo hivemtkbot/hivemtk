@@ -63,7 +63,7 @@ func TestAccount_DefaultProxyValues(t *testing.T) {
 
 func TestAccount_Status(t *testing.T) {
 	account := &Account{
-		Status: 1, // Active
+		Status: 1, 
 	}
 
 	if account.Status != 1 {
@@ -109,7 +109,6 @@ func TestAccount_BeforeCreate(t *testing.T) {
 		TgName: "testbot",
 	}
 
-	// BeforeCreate should generate an ID
 	err := account.BeforeCreate(nil)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -117,8 +116,8 @@ func TestAccount_BeforeCreate(t *testing.T) {
 	if account.ID == "" {
 		t.Error("Expected non-empty ID after BeforeCreate")
 	}
-	// Verify it's a valid UUID format
 	if len(account.ID) != 36 {
 		t.Errorf("Expected ID length 36 (UUID), got %d", len(account.ID))
 	}
 }
+

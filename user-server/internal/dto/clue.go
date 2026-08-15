@@ -43,3 +43,4 @@ type ImportClueRequest struct {
 	City    string `json:"city"`
 	Address string `json:"address"`
 }
+

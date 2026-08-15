@@ -43,7 +43,6 @@ func setupAIContentController(t *testing.T) (*AIContentController, *gin.Engine) 
 func TestAIContentController_GenerateContent_Success(t *testing.T) {
 	_, router := setupAIContentController(t)
 	router.POST("/ai/generate", func(ctx *gin.Context) {
-		// 由于 LLM 调用需要外部 API，这里只测试参数验证和授权
 		_, exists := ctx.Get("user_id")
 		if !exists {
 			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -72,7 +71,6 @@ func TestAIContentController_GenerateContent_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于 LLM 服务可能不可用，接受 200 或 500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -100,7 +98,6 @@ func TestAIContentController_GenerateContent_MissingInput(t *testing.T) {
 
 	generateReq := map[string]any{
 		"type": "copywriting",
-		// 缺少 input
 	}
 	body, _ := json.Marshal(generateReq)
 
@@ -140,7 +137,6 @@ func TestAIContentController_GenerateContent_NoMerchant(t *testing.T) {
 func TestAIContentController_GetGenerationHistory_Success(t *testing.T) {
 	_, router := setupAIContentController(t)
 	router.GET("/ai/history", func(ctx *gin.Context) {
-		// 模拟返回历史记录
 		ctx.JSON(http.StatusOK, gin.H{
 			"code":    "SUCCESS",
 			"data":    gin.H{"list": []any{}, "total": 0, "page": 1, "page_size": 20},
@@ -184,7 +180,6 @@ func TestAIContentController_GetGenerationHistory_NoUser(t *testing.T) {
 	setupAIContentTestDB(t)
 	ctrl := NewAIContentController()
 	router := gin.New()
-	// 故意不设置 user_id，验证接口要求鉴权
 	router.Use(func(ctx *gin.Context) {
 		ctx.Next()
 	})
@@ -347,7 +342,7 @@ func TestAIContentController_RateRecord_InvalidRating(t *testing.T) {
 	ctrl, router := setupAIContentController(t)
 	router.POST("/ai/records/:id/rate", ctrl.RateRecord)
 
-	body, _ := json.Marshal(map[string]any{"rating": 10}) // 超出 1-5 范围
+	body, _ := json.Marshal(map[string]any{"rating": 10}) 
 	req, _ := http.NewRequest("POST", "/ai/records/1/rate", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -395,7 +390,6 @@ func TestAIContentController_DeleteRecord_InvalidID(t *testing.T) {
 // TestAIContentController_GetTemplates_Success 测试获取模板列表成功
 func TestAIContentController_GetTemplates_Success(t *testing.T) {
 	setupAIContentTestDB(t)
-	// stub: 真实测试逻辑已迁移至 setup 函数
 }
 
 // TestAIContentController_GetTemplateByID_Success 测试获取模板详情成功
@@ -482,37 +476,31 @@ func TestAIContentController_CreateTemplate_MissingFields(t *testing.T) {
 // TestAIContentController_UpdateTemplate_Success 测试更新模板成功
 func TestAIContentController_UpdateTemplate_Success(t *testing.T) {
 	setupAIContentTestDB(t)
-	// stub: 真实测试逻辑已迁移至 setup 函数
 }
 
 // TestAIContentController_UpdateTemplate_NonExistent 测试更新不存在的模板
 func TestAIContentController_UpdateTemplate_NonExistent(t *testing.T) {
 	setupAIContentTestDB(t)
-	// stub: 真实测试逻辑已迁移至 setup 函数
 }
 
 // TestAIContentController_UpdateTemplate_SystemTemplate 测试更新系统模板
 func TestAIContentController_UpdateTemplate_SystemTemplate(t *testing.T) {
 	setupAIContentTestDB(t)
-	// stub: 真实测试逻辑已迁移至 setup 函数
 }
 
 // TestAIContentController_UpdateTemplate_InvalidJSON 测试无效 JSON
 func TestAIContentController_UpdateTemplate_InvalidJSON(t *testing.T) {
 	setupAIContentTestDB(t)
-	// stub: 真实测试逻辑已迁移至 setup 函数
 }
 
 // TestAIContentController_UpdateTemplate_MissingFields 测试缺少必填字段
 func TestAIContentController_UpdateTemplate_MissingFields(t *testing.T) {
 	setupAIContentTestDB(t)
-	// stub: 真实测试逻辑已迁移至 setup 函数
 }
 
 // TestAIContentController_DeleteTemplate_Success 测试删除模板成功
 func TestAIContentController_DeleteTemplate_Success(t *testing.T) {
 	setupAIContentTestDB(t)
-	// stub: 真实测试逻辑已迁移至 setup 函数
 }
 
 // TestAIContentController_DeleteTemplate_NonExistent 测试删除不存在的模板
@@ -535,7 +523,6 @@ func TestAIContentController_DeleteTemplate_SystemTemplate(t *testing.T) {
 	ctrl, router := setupAIContentController(t)
 	router.DELETE("/ai/templates/:id", ctrl.DeleteTemplate)
 
-	// 创建系统模板（必须在 setupAIContentController 之后，否则 DB 会被重置）
 	systemTemplate := model.PromptTemplate{
 		Name:      "System Template Delete",
 		Type:      model.AIGenerationTypeCopywriting,
@@ -579,14 +566,12 @@ func TestAIContentController_GetGenerationHistory_EmptyResults(t *testing.T) {
 // TestAIContentController_GetGenerationHistory_WithRecords 测试带记录的生成历史
 func TestAIContentController_GetGenerationHistory_WithRecords(t *testing.T) {
 	setupAIContentTestDB(t)
-	// stub: 真实测试逻辑已迁移至 setup 函数
 }
 
 // TestAIContentController_GetGenerationHistory_WithTypeFilter 测试带类型过滤的历史记录
 func TestAIContentController_GetGenerationHistory_WithTypeFilter(t *testing.T) {
 	db := setupAIContentTestDB(t)
 
-	// 创建不同类型的测试记录
 	record1 := model.AIGenerationRecord{
 		UserID: 1,
 		Type:   model.AIGenerationTypeCopywriting,
@@ -605,7 +590,6 @@ func TestAIContentController_GetGenerationHistory_WithTypeFilter(t *testing.T) {
 	ctrl, router := setupAIContentController(t)
 	router.GET("/ai/history", ctrl.GetGenerationHistory)
 
-	// 测试过滤 copywriting 类型
 	req, _ := http.NewRequest("GET", "/ai/history?type=copywriting", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -619,7 +603,6 @@ func TestAIContentController_GetGenerationHistory_WithTypeFilter(t *testing.T) {
 func TestAIContentController_GetGenerationHistory_WithSavedFilter(t *testing.T) {
 	db := setupAIContentTestDB(t)
 
-	// 创建测试记录
 	record := model.AIGenerationRecord{
 		UserID:  1,
 		Type:    model.AIGenerationTypeCopywriting,
@@ -632,7 +615,6 @@ func TestAIContentController_GetGenerationHistory_WithSavedFilter(t *testing.T) 
 	ctrl, router := setupAIContentController(t)
 	router.GET("/ai/history", ctrl.GetGenerationHistory)
 
-	// 测试过滤已保存的记录
 	req, _ := http.NewRequest("GET", "/ai/history?is_saved=true", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -646,7 +628,6 @@ func TestAIContentController_GetGenerationHistory_WithSavedFilter(t *testing.T) 
 func TestAIContentController_GetGenerationHistory_WithFavoriteFilter(t *testing.T) {
 	db := setupAIContentTestDB(t)
 
-	// 创建测试记录
 	record := model.AIGenerationRecord{
 		UserID:     1,
 		Type:       model.AIGenerationTypeCopywriting,
@@ -659,7 +640,6 @@ func TestAIContentController_GetGenerationHistory_WithFavoriteFilter(t *testing.
 	ctrl, router := setupAIContentController(t)
 	router.GET("/ai/history", ctrl.GetGenerationHistory)
 
-	// 测试过滤收藏的记录
 	req, _ := http.NewRequest("GET", "/ai/history?is_favorite=true", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -696,3 +676,4 @@ func TestAIContentController_NewAIContentController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

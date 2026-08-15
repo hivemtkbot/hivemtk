@@ -49,7 +49,6 @@ func TestMessage_WithEmptyID(t *testing.T) {
 		ID:   "",
 	}
 
-	// ID should be empty before BeforeCreate is called
 	if message.ID != "" {
 		t.Errorf("Expected empty ID before BeforeCreate, got %s", message.ID)
 	}
@@ -104,7 +103,6 @@ func TestMessage_BeforeCreate(t *testing.T) {
 		Text: "Test message",
 	}
 
-	// BeforeCreate should generate an ID
 	err := message.BeforeCreate(nil)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -112,8 +110,8 @@ func TestMessage_BeforeCreate(t *testing.T) {
 	if message.ID == "" {
 		t.Error("Expected non-empty ID after BeforeCreate")
 	}
-	// Verify it's a valid UUID format
 	if len(message.ID) != 36 {
 		t.Errorf("Expected ID length 36 (UUID), got %d", len(message.ID))
 	}
 }
+

@@ -45,7 +45,6 @@ func TestMemorySystem_L1Trim(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
-	// 写 15 条，应自动裁剪到 10
 	for i := 0; i < 15; i++ {
 		if err := m.L1Append(ctx, "s-1", "c-1", "user", "msg-"); err != nil {
 			t.Fatalf("append: %v", err)
@@ -97,7 +96,6 @@ func TestMemorySystem_L2SaveAndListFact(t *testing.T) {
 	if len(facts) != 2 {
 		t.Errorf("expected 2 facts, got %d", len(facts))
 	}
-	// 重要性高排在前面
 	if facts[0].Content != "张三" {
 		t.Errorf("expected 张三 first, got %s", facts[0].Content)
 	}
@@ -109,7 +107,7 @@ func TestMemorySystem_L2SaveAndGetSummary(t *testing.T) {
 	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
 	m.L2SaveSummary(ctx, "c-1", "客户对价格敏感")
-	m.L2SaveSummary(ctx, "c-1", "客户已购买") // 更新
+	m.L2SaveSummary(ctx, "c-1", "客户已购买") 
 
 	summary, _ := m.L2GetLatestSummary(ctx, "c-1")
 	if summary != "客户已购买" {
@@ -120,13 +118,12 @@ func TestMemorySystem_L2SaveAndGetSummary(t *testing.T) {
 func TestMemorySystem_L2ImportanceDefault(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
-	m.L2SaveFact(context.Background(), "c-1", "k", "v", 0) // 0 应被设置为 default
+	m.L2SaveFact(context.Background(), "c-1", "k", "v", 0) 
 	facts, _ := m.L2ListFacts(context.Background(), "c-1", 10)
 	if facts[0].Importance != defaultImp {
 		t.Errorf("expected default importance %d, got %d", defaultImp, facts[0].Importance)
 	}
 
-	// 11 也应被裁剪
 	m.L2SaveFact(context.Background(), "c-1", "k2", "v2", 11)
 	facts, _ = m.L2ListFacts(context.Background(), "c-1", 10)
 	if facts[0].Importance != defaultImp {
@@ -221,7 +218,6 @@ func TestMemorySystem_L4MaxPerCustTrim(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
-	// 写 L4MaxPerCust + 5 条
 	for i := 0; i < L4MaxPerCust+5; i++ {
 		m.L4Record(ctx, "c-1", "order", "order-", "", i%10+1, nil)
 	}
@@ -262,7 +258,6 @@ func TestMemorySystem_BuildFullContext_WithData(t *testing.T) {
 	if out == "" {
 		t.Error("expected non-empty context")
 	}
-	// 应包含 4 层标识
 	for _, tag := range []string{"L1", "L2", "L3", "L4"} {
 		if !memContains(out, tag) {
 			t.Errorf("expected tag %s in context", tag)
@@ -304,7 +299,7 @@ func TestMemorySystem_SyncFromDialogueMemory(t *testing.T) {
 
 func TestMemorySystem_SyncFromDialogueMemory_NilDB(t *testing.T) {
 	m := &MemorySystem{}
-	m.SyncFromDialogueMemory(context.Background(), &model.DialogueMemory{CustomerID: "c-1"}) // 不应 panic
+	m.SyncFromDialogueMemory(context.Background(), &model.DialogueMemory{CustomerID: "c-1"}) 
 }
 
 func TestMemorySystem_BuildFullContext_NilDB(t *testing.T) {
@@ -368,7 +363,6 @@ func TestMemorySystem_L1Trim_NoOp(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
 	m := InitMemorySystem(db)
-	// 不足窗口不应裁剪
 	for i := 0; i < 3; i++ {
 		m.L1Append(ctx, "s-1", "c-1", "user", "m")
 	}
@@ -398,3 +392,4 @@ func TestMemorySystem_L1Append_UpdatedAt(t *testing.T) {
 		t.Error("ExpiresAt should be in future")
 	}
 }
+

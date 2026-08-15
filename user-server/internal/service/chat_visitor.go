@@ -100,9 +100,6 @@ func (s *VisitorChatService) SetOrchestrator(ctx context.Context, o *SmartCSOrch
 	s.orchestrator = o
 }
 
-// ============================================================================
-// 会话管理
-// ============================================================================
 
 // VisitorOpenSessionRequest 访客打开会话请求
 //
@@ -117,8 +114,7 @@ type VisitorOpenSessionRequest struct {
 	VisitorName  string `json:"visitor_name"`
 	VisitorPhone string `json:"visitor_phone"`
 	VisitorEmail string `json:"visitor_email"`
-	VisitorMeta  string `json:"visitor_meta"` // JSON 字符串：来源页面、UA 等
-	// Resume 控制：true=续接最近未结束会话；false=总是创建新会话
+	VisitorMeta  string `json:"visitor_meta"` 
 	Resume bool `json:"resume"`
 }
 
@@ -139,26 +135,21 @@ type VisitorOpenSessionResult struct {
 func (s *VisitorChatService) resolveChannel(ctx context.Context, channelRef string) (*model.ChatChannel, error) {
 	ref := strings.TrimSpace(channelRef)
 	if ref == "" {
-		// 缺失时使用 default
 		return s.channelSvc.GetOrCreateDefaultChannel(ctx)
 	}
 	if channel, err := s.channelSvc.GetByChannelID(ctx, ref); err == nil {
 		return channel, nil
 	} else if !strings.Contains(err.Error(), "渠道不存在") && !strings.Contains(err.Error(), "channel_id 不能为空") {
-		// 非"不存在"错误：透传
 		return nil, err
 	}
 	if channel, err := s.channelSvc.GetByAppKey(ctx, ref); err == nil {
 		return channel, nil
 	} else if !strings.Contains(err.Error(), "AppKey 无效") {
-		// 非"无效"错误：透传
 		return nil, err
 	}
 	if ref == "default" {
 		return s.channelSvc.GetOrCreateDefaultChannel(ctx)
 	}
-	// 抖音/快手/小红书/闲鱼 4 平台卡片渠道自动创建
-	// channel_ref 形如 "douyin_card" / "kuaishou_card" / "xiaohongshu_card" / "xianyu_card"
 	if platform, ok := IsCardChannelRef(ref); ok {
 		return s.channelSvc.GetOrCreateCardChannel(ctx, platform)
 	}
@@ -174,9 +165,6 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 		return nil, errors.New("channel_id 和 visitor_id 必填")
 	}
 
-	// 1. 查询渠道
-	// 私域部署：channel_id == "default" 时，若 DB 不存在则自动创建
-	//    其他 channel_id 仍按正常流程（必须先在管理后台创建）
 	channel, err := s.resolveChannel(ctx, req.ChannelID)
 	if err != nil {
 		return nil, err
@@ -185,14 +173,12 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 		return nil, errors.New("渠道已禁用")
 	}
 
-	// 2. 续接最近会话
 	if req.Resume {
 		existing, err := s.sessionRepo.GetLatestActiveByPlatformAccountUser(ctx,
 			model.PlatformWebEmbed, channel.ChannelID, req.VisitorID,
 			[]model.SessionStatus{model.SessionStatusResolved, model.SessionStatusClosed},
 		)
 		if err == nil && existing != nil {
-			// 找到未结束会话，复用
 			online, _ := s.countOnlineAgents(ctx)
 			return &VisitorOpenSessionResult{
 				Session:        existing,
@@ -201,15 +187,11 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 				WelcomeMessage: channel.WelcomeMessage,
 			}, nil
 		}
-		// gorm.ErrRecordNotFound 时继续创建
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("查询历史会话失败: %w", err)
 		}
 	}
 
-	// 3. 创建新会话
-	//    卡片客服：解析 visitor_meta 中的 source/card_id，
-	//    作为来源标签追加到 session.Tags（JSON 数组），便于客服工作台按来源筛选
 	sessionTags := []string{"web_visitor"}
 	if meta := strings.TrimSpace(req.VisitorMeta); meta != "" {
 		var mv map[string]string
@@ -226,13 +208,13 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 	session := &model.CustomerSession{
 		SessionID:   generateSessionID(),
 		Platform:    model.PlatformWebEmbed,
-		AccountID:   channel.ChannelID, // AccountID 存 channel_id
+		AccountID:   channel.ChannelID, 
 		UserID:      req.VisitorID,
 		UserName:    defaultIfEmpty(req.VisitorName, "访客"),
 		UserPhone:   req.VisitorPhone,
 		UserEmail:   req.VisitorEmail,
 		Status:      model.SessionStatusPending,
-		HandlerType: model.HandlerTypeAI, // 默认 AI
+		HandlerType: model.HandlerTypeAI, 
 		Priority:    0,
 		Tags:        string(tagsJSON),
 	}
@@ -240,14 +222,11 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 		return nil, fmt.Errorf("创建会话失败: %w", err)
 	}
 
-	// 4. 累计 channel 计数
 	_ = s.channelSvc.IncrementVisitorCount(ctx, channel.ChannelID)
 	_ = s.channelSvc.IncrementSessionCount(ctx, channel.ChannelID)
 
-	// 5. 推送新会话通知到所有在线坐席
 	online, _ := s.countOnlineAgents(ctx)
 	if online > 0 {
-		// 广播给所有坐席客户端（不广播给访客，避免干扰）
 		_ = websocket.BroadcastToAgents(websocket.TypeNewSession, map[string]any{
 			"session": session,
 			"channel": map[string]any{
@@ -286,9 +265,6 @@ func (s *VisitorChatService) GetSessionByVisitorSessionID(ctx context.Context, c
 	return session, nil
 }
 
-// ============================================================================
-// 消息收发
-// ============================================================================
 
 // VisitorSendMessageRequest 访客发送消息请求
 type VisitorSendMessageRequest struct {
@@ -297,11 +273,6 @@ type VisitorSendMessageRequest struct {
 	SessionID   string `json:"session_id" binding:"required"`
 	Content     string `json:"content" binding:"required"`
 	ContentType string `json:"content_type"`
-	// 附件支持（走七牛直传）
-	//   - MediaURL: 访客上传到七牛后获得的 CDN URL
-	//   - MediaType: image / file / audio / video
-	//   - MediaName: 原始文件名
-	//   - MediaSize: 文件大小（字节）
 	MediaURL  string `json:"media_url"`
 	MediaType string `json:"media_type"`
 	MediaName string `json:"media_name"`
@@ -313,7 +284,6 @@ type VisitorSendMessageResult struct {
 	UserMessage *model.SessionMessage `json:"user_message"`
 	AIReplied   bool                  `json:"ai_replied"`
 	AIResponse  *model.SessionMessage `json:"ai_response,omitempty"`
-	// AICards 会话内结构化富卡片（商品卡/订单卡/优惠卡等），随 HTTP 响应一并下发给访客
 	AICards        []model.RichCard `json:"ai_cards,omitempty"`
 	Transferred    bool             `json:"transferred"`
 	TransferReason string           `json:"transfer_reason,omitempty"`
@@ -331,24 +301,20 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 		return nil, errors.New("消息内容不能为空")
 	}
 
-	// 1. 校验会话归属
 	session, err := s.GetSessionByVisitorSessionID(ctx, req.ChannelID, req.VisitorID, req.SessionID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. 校验渠道
 	channel, err := s.resolveChannel(ctx, req.ChannelID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. 落库访客消息
 	contentType := model.MessageTypeText
 	if req.ContentType != "" {
 		contentType = model.MessageType(req.ContentType)
 	}
-	// 附件消息（image/file/audio/video）
 	if req.MediaURL != "" {
 		switch req.MediaType {
 		case "image":
@@ -375,17 +341,12 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 	}
 	_ = s.sessionRepo.UpdateLastMessage(ctx, session.ID, req.Content, "user")
 
-	// 3.5 访客首次发消息自动建档（CDP 客户中心）：保证 customers 表随真实访客对话增长
 	if err := s.ensureVisitorCustomer(ctx, req, session); err != nil {
 		logger.Warnf("[Visitor] 访客建档失败（不影响消息发送）: %v", err)
 	}
 
-	// 3.6 同步到统一收件箱（商户坐席可见）：此前 web_embed 会话只写 customer_sessions，
-	// 未写入 inbox_conversations，导致商户「统一收件箱」看不到网页客服消息、核心链路断点。
-	// 这里补齐同步（与 WebhookService.upsertInboxFromHub 保持一致的幂等 upsert 语义）。
 	s.syncToInbox(ctx, session, req.Content)
 
-	// 4. 通过 WebSocket 实时推送给坐席
 	if session.AgentID > 0 {
 		_ = websocket.SendToAgent(websocket.TypeNewMessage, map[string]any{
 			"session_id": session.SessionID,
@@ -393,39 +354,23 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 		}, session.AgentID)
 	}
 
-	// 5. 调用 SmartCSOrchestrator
 	if s.orchestrator == nil {
-		// 编排器未注入，返回降级结果（仅消息已保存）
 		return &VisitorSendMessageResult{
 			UserMessage: userMsg,
 			HandlerType: string(session.HandlerType),
 		}, nil
 	}
 
-	// 5.1 NLP 关键词自动转人工
-	//   前端不再暴露"转人工"按钮。对用户永远显示"在线客服"。
-	//   后端基于关键词命中（"人工"/"真人"/"转人工" 等）自动触发转人工流程。
-	//   命中后：
-	//     - 跳过 orchestrator AI 推理
-	//     - 直接走自动分配（session.AutoAssign）
-	//     - 推送 agent_joined WebSocket 通知给访客
-	//     - 广播给所有坐席
 	if shouldForceTransferByKeywords(req.Content) {
-		// 1) 自动分配（如果失败则标记为 waiting）
 		if err := s.sessionSvc.AutoAssign(ctx, session.ID); err != nil {
 			_ = s.sessionRepo.UpdateStatus(ctx, session.ID, model.SessionStatusWaiting)
-			// 分配失败时也要更新 handler_type 为 human
-			//   只改 status 时 session.handler_type 仍是 "ai"，会导致前端列表展示错误
 			_ = s.sessionRepo.UpdateHandlerType(ctx, session.ID, model.HandlerTypeHuman)
 		}
-		// 2) 推送转人工通知给坐席（仅坐席侧需要 new_session，避免推给所有访客造成信息泄漏）
-		//   访客侧的 agent_joined 通知由下方 AutoAssign→AssignSession 统一发送，避免重复推送
 		_ = websocket.BroadcastToAgents(websocket.TypeNewSession, map[string]any{
 			"session":    session,
 			"need_human": true,
 			"reason":     "关键词命中自动转人工：" + req.Content,
 		})
-		// 4) 系统消息落库
 		sysMsg := &model.SessionMessage{
 			SessionID:  session.SessionID,
 			Content:    "【系统】访客请求人工客服，正在为您接入...",
@@ -443,8 +388,6 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 		}, nil
 	}
 
-	// 5.2 通知访客「AI 正在思考」，避免 RAG+推理耗时期间用户以为卡死
-	// 配合前端 typing 指示器；defer 确保正常返回与编排出错提前返回时都会清除
 	_ = websocket.SendToVisitor(websocket.TypeAITyping, map[string]any{"typing": true}, session.SessionID)
 	defer websocket.SendToVisitor(websocket.TypeAITyping, map[string]any{"typing": false}, session.SessionID)
 
@@ -470,7 +413,6 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 	defer aiCancel()
 	handleResult, err := s.orchestrator.HandleIncomingWithAgent(aiCtx, in, agentCtxFromChannel)
 	if err != nil {
-		// 编排失败不影响访客消息已保存
 		return &VisitorSendMessageResult{
 			UserMessage: userMsg,
 			HandlerType: string(model.HandlerTypeAI),
@@ -487,16 +429,10 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 		SuggestionID:   handleResult.SuggestionID,
 	}
 
-	// 6. 推送 / 落库 AI 回复
 	if handleResult.AIReplied && handleResult.Reply != "" {
 		now := time.Now()
-		// 复用编排器已落库的 AI 回复（默认 enableAutoReply=true 时编排器已 saveOutboundMessage）：
-		// 复用可避免双写（历史重复 + ListOfflineBySessionID 把 DeliveredAt=nil 的副本重复下发），
-		// 并避免与编排器重复自增 AIReplyCount（编排器 step 9 已自增，双自增会让 maxAIConsecutive 提前一倍触发转人工）。
-		// 仅当编排器未落库（enableAutoReply=false）时才新建并自增。
 		existing, _ := s.messageRepo.FindRecentDuplicate(ctx, session.SessionID, "ai", "ai_assistant", handleResult.Reply, 5*time.Second)
 		if existing != nil {
-			// 编排器已落库：仅标记已投递，防止 offline-messages 把 DeliveredAt=nil 的副本重发
 			_ = s.messageRepo.MarkDelivered(ctx, session.SessionID, []uint{existing.ID}, now)
 			result.AIResponse = existing
 		} else {
@@ -515,11 +451,9 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 			_ = s.sessionRepo.IncrementAIReplyCount(ctx, session.ID)
 			result.AIResponse = aiMsg
 		}
-		// 会话 LastMessage 无论哪条路径都需更新（编排器 saveOutboundMessage 不更新会话 last message）
 		_ = s.sessionRepo.UpdateLastMessage(ctx, session.ID, handleResult.Reply, "ai")
 	}
 
-	// 6.1 会话内结构化富卡片：落库并随 HTTP 响应一并下发给访客
 	if len(handleResult.Cards) > 0 {
 		result.AICards = handleResult.Cards
 		now := time.Now()
@@ -547,13 +481,7 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 		}
 	}
 
-	// 不再通过 WebSocket 推送 AI 回复给访客：
-	//   - HTTP 响应已带 ai_response，前端可立即渲染
-	//   - 重复推送会导致访客侧 UI 出现两条相同 AI 消息
-	//   - 如访客已离线，AI 消息已落库且 delivered_at 已置，
-	//     重连时 offline-messages 接口会过滤掉 delivered_at NOT NULL
 
-	// 7. 推送会话状态变化给坐席
 	if session.AgentID > 0 {
 		_ = websocket.SendToAgent(websocket.TypeSessionUpdate, map[string]any{
 			"session_id":   session.SessionID,
@@ -598,9 +526,6 @@ func (s *VisitorChatService) syncToInbox(ctx context.Context, session *model.Cus
 	_ = s.inboxConvRepo.Create(ctx, newConv)
 }
 
-// ============================================================================
-// 离线消息 / 历史
-// ============================================================================
 
 // GetMessages 访客获取历史消息
 func (s *VisitorChatService) GetMessages(ctx context.Context, channelID, visitorID, sessionID string, page, pageSize int) ([]*model.SessionMessage, int64, error) {
@@ -617,7 +542,7 @@ func (s *VisitorChatService) GetMessages(ctx context.Context, channelID, visitor
 func (s *VisitorChatService) GetLatestActiveSession(ctx context.Context, channelID, visitorID string) (*model.CustomerSession, error) {
 	channel, err := s.resolveChannel(ctx, channelID)
 	if err != nil {
-		return nil, nil // 渠道不存在视为无活跃会话
+		return nil, nil 
 	}
 	session, err := s.sessionRepo.GetLatestActiveByPlatformAccountUser(ctx,
 		model.PlatformWebEmbed, channel.ChannelID, visitorID,
@@ -625,7 +550,7 @@ func (s *VisitorChatService) GetLatestActiveSession(ctx context.Context, channel
 	)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil // 无活跃会话不视为错误
+			return nil, nil 
 		}
 		return nil, err
 	}
@@ -641,7 +566,7 @@ func (s *VisitorChatService) GetRecentClosedSessions(ctx context.Context, channe
 	}
 	channel, err := s.resolveChannel(ctx, channelID)
 	if err != nil {
-		return []*model.CustomerSession{}, nil // 渠道不存在视为无历史
+		return []*model.CustomerSession{}, nil 
 	}
 	sevenDaysAgo := time.Now().AddDate(0, 0, -7)
 	return s.sessionRepo.ListRecentClosedByPlatformAccountUser(ctx,
@@ -673,9 +598,6 @@ func (s *VisitorChatService) MarkMessagesDelivered(ctx context.Context, sessionI
 	return s.messageRepo.MarkDelivered(ctx, sessionID, messageIDs, now)
 }
 
-// ============================================================================
-// 访客主动操作
-// ============================================================================
 
 // RequestHumanTransfer 访客主动转人工
 func (s *VisitorChatService) RequestHumanTransfer(ctx context.Context, channelID, visitorID, sessionID, reason string) error {
@@ -684,7 +606,6 @@ func (s *VisitorChatService) RequestHumanTransfer(ctx context.Context, channelID
 		return err
 	}
 
-	// 落库访客消息
 	transferMsg := &model.SessionMessage{
 		SessionID:  session.SessionID,
 		Content:    "【访客请求转人工】" + defaultIfEmpty(reason, ""),
@@ -694,16 +615,9 @@ func (s *VisitorChatService) RequestHumanTransfer(ctx context.Context, channelID
 	}
 	_ = s.messageRepo.Create(ctx, transferMsg)
 
-	// 尝试自动分配
-	//   - 成功时由 AutoAssign→AssignSession 负责通知：给坐席推 new_session、给访客推 agent_joined（前端显示"客服已接入"）
-	//   - 失败（无在线坐席）才在此兜底：标记待人工 + 修正 handler_type + 提示访客"正在转接"
-	// 注意：new_session 仅发给坐席（AutoAssign 内部通过 NotifyNewSession 单播），不会泄漏给其它访客
 	if err := s.sessionSvc.AutoAssign(ctx, session.ID); err != nil {
-		// 无在线坐席，标记待人工
 		_ = s.sessionRepo.UpdateStatus(ctx, session.ID, model.SessionStatusWaiting)
-		// 分配失败时也要更新 handler_type 为 human，否则前端列表展示为 ai
 		_ = s.sessionRepo.UpdateHandlerType(ctx, session.ID, model.HandlerTypeHuman)
-		// 提示访客正在转接（前端 onMessage 的 system_msg 分支渲染）
 		_ = websocket.SendToVisitor(websocket.TypeMessage, map[string]any{
 			"session_id": session.SessionID,
 			"system_msg": "正在为您转接人工客服，请稍候...",
@@ -734,9 +648,6 @@ func (s *VisitorChatService) RateSession(ctx context.Context, channelID, visitor
 	return s.sessionSvc.RateSession(ctx, session.ID, rating, comment)
 }
 
-// ============================================================================
-// 辅助方法
-// ============================================================================
 
 // countOnlineAgents 统计在线坐席数
 func (s *VisitorChatService) countOnlineAgents(ctx context.Context) (int, error) {
@@ -748,9 +659,6 @@ func (s *VisitorChatService) CountAvailableAgents(ctx context.Context) (int, err
 	return s.countOnlineAgents(ctx)
 }
 
-// ============================================================================
-// NLP 关键词自动转人工
-// ============================================================================
 
 // shouldForceTransferByKeywords 判断用户消息是否命中"转人工"关键词
 //
@@ -761,3 +669,4 @@ func (s *VisitorChatService) CountAvailableAgents(ctx context.Context) (int, err
 func shouldForceTransferByKeywords(content string) bool {
 	return MatchTransferKeywords(content)
 }
+

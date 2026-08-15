@@ -1,17 +1,5 @@
 package repository
 
-// humanize_repositories.go 拟人度评估器仓储实现
-//
-// 五层架构归属: L4 数据访问层
-// 设计依据: docs/核心链路优化.md 第十六章 §16.3 表结构设计
-//
-// 4 个 Repository：
-//  1. HumanizeScoreRepository         - 评分主表 + 维度明细
-//  2. HumanizeDimensionRepository     - 维度得分明细独立查询
-//  3. ChampionBaselineRepository      - 销冠基线 + 短语库
-//  4. ABTestStatRepository            - A/B 测试统计结果
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -24,9 +12,6 @@ import (
 	"hivemtk-user/internal/pkg/db"
 )
 
-// ============================================================================
-// 1. HumanizeScoreRepository 评分主表 + 维度明细
-// ============================================================================
 
 // HumanizeScoreRepository 评分仓储
 type HumanizeScoreRepository struct{}
@@ -49,7 +34,6 @@ func (r *HumanizeScoreRepository) Save(ctx context.Context, score *model.Humaniz
 	if err := gormDB.Create(score).Error; err != nil {
 		return fmt.Errorf("create humanize_score: %w", err)
 	}
-	// 写入维度明细
 	if len(dimensions) > 0 {
 		for i := range dimensions {
 			dimensions[i].ScoreID = score.ScoreID
@@ -107,9 +91,6 @@ func (r *HumanizeScoreRepository) ListDimensionsByScoreID(ctx context.Context, s
 	return list, err
 }
 
-// ============================================================================
-// 2. ChampionBaselineRepository 销冠基线 + 短语库
-// ============================================================================
 
 // ChampionBaselineRepositoryImpl 销冠基线仓储
 type ChampionBaselineRepositoryImpl struct{}
@@ -156,7 +137,6 @@ func (r *ChampionBaselineRepositoryImpl) Save(
 	if err := db.GetDB().WithContext(ctx).Create(b).Error; err != nil {
 		return 0, fmt.Errorf("create champion_baseline: %w", err)
 	}
-	// 旧版本禁用（保留历史）
 	db.GetDB().WithContext(ctx).
 		Model(&model.ChampionBaseline{}).
 		Where("persona = ? AND industry = ? AND intent = ? AND id != ?",
@@ -185,11 +165,9 @@ func (r *ChampionBaselineRepositoryImpl) RefreshPhrases(ctx context.Context, bas
 		return nil
 	}
 	gormDB := db.GetDB().WithContext(ctx)
-	// 删除旧短语
 	if err := gormDB.Where("baseline_id = ?", baselineID).Delete(&model.ChampionPhrase{}).Error; err != nil {
 		return fmt.Errorf("delete old phrases: %w", err)
 	}
-	// 设置 BaselineID
 	for i := range phrases {
 		phrases[i].BaselineID = baselineID
 	}
@@ -212,9 +190,6 @@ func (r *ChampionBaselineRepositoryImpl) ListPhrases(ctx context.Context, baseli
 	return list, err
 }
 
-// ============================================================================
-// 3. ABTestStatRepository A/B 测试统计结果
-// ============================================================================
 
 // ABTestStatRepository A/B 测试统计仓储
 type ABTestStatRepository struct{}
@@ -243,9 +218,6 @@ func (r *ABTestStatRepository) ListByExperiment(ctx context.Context, experimentI
 	return list, err
 }
 
-// ============================================================================
-// 辅助函数
-// ============================================================================
 
 // generateScoreID 生成评分 ID
 //
@@ -254,9 +226,6 @@ func generateScoreID() string {
 	return fmt.Sprintf("hs_%d", time.Now().UnixNano())
 }
 
-// ============================================================================
-// 管理面扩展方法（TuningController 使用，按业务域下沉，不新建上帝 service）
-// ============================================================================
 
 // HumanizeScoreStat 拟人度统计聚合
 type HumanizeScoreStat struct {
@@ -305,13 +274,13 @@ func (r *HumanizeScoreRepository) Stats(ctx context.Context, since time.Time) (*
 
 // BaselineMetricAggregate 基线聚合结果（5 维均值 + 标准差 + 计数）
 type BaselineMetricAggregate struct {
-	AvgN   float64 // AVG(naturalness)
-	AvgC   float64 // AVG(conciseness)
-	AvgE   float64 // AVG(empathy)
-	AvgP   float64 // AVG(professionalism)
-	AvgR   float64 // AVG(persuasiveness)
-	Stddev float64 // STDDEV(total_score)
-	Count  int64   // COUNT(*)
+	AvgN   float64 
+	AvgC   float64 
+	AvgE   float64 
+	AvgP   float64 
+	AvgR   float64 
+	Stddev float64 
+	Count  int64   
 }
 
 // AggregateBaselineMetrics 聚合指定时间窗口内 humanize_scores 的 5 维均值 + 标准差 + 计数
@@ -389,3 +358,4 @@ func (r *ChampionBaselineRepositoryImpl) CreateBaseline(
 ) error {
 	return db.GetDB().WithContext(ctx).Create(baseline).Error
 }
+

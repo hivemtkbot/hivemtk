@@ -226,3 +226,4 @@ func (c *RestoreController) GetLastRestore(ctx *gin.Context) {
 
 	response.Success(ctx, record, "获取成功")
 }
+

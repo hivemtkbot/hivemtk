@@ -1,17 +1,5 @@
 package router
 
-// frontend_aliases.go
-// 前端 API 路径别名（兼容前端调用习惯）
-//
-// 背景：
-//   - 前端代码（user-web）使用复数路径（如 /api/notifications、/api/clues）
-//   - 后端早期实现使用单数/不同形态（如 /api/clue、/api/notification）
-//   - 此文件集中提供别名路由，确保前端调用全部命中后端
-//
-// 规则：
-//   1. 别名路由直接挂到 /api 路径下，无前缀
-//   2. 真正的业务实现仍走原有 route（保持单一实现源）
-//   3. 别名只在 path 层面转发，不改变参数/响应格式
 
 import (
 	"hivemtk-user/internal/app"
@@ -31,13 +19,10 @@ import (
 // 此函数必须在其他 setup* 函数之后调用，避免被更具体的路由抢先匹配。
 // 通过 recover 机制捕获 Gin 在重复注册时的 panic，保证已存在路由不影响其他别名。
 func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gorm.DB) {
-	// 构造本地 aiAgentSvc 供 agent_status controller 使用，避免 controller 直接调 dbutil.GetDB()。
 	aiAgentSvc := service.NewAIAgentServiceWithDB(gormDB)
-	// 通用 helper：注册时捕获重复注册的 panic
 	doReg := func(method, path string, handlers ...gin.HandlerFunc) {
 		defer func() {
 			if r := recover(); r != nil {
-				// 已被其他 setup* 函数注册 - 静默跳过
 				_ = r
 			}
 		}()
@@ -55,9 +40,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 		}
 	}
 
-	// ============================================================
-	// 通用占位响应辅助
-	// ============================================================
 	emptyList := func(c *gin.Context) {
 		response.SuccessWithList(c, []any{}, 0)
 	}
@@ -65,16 +47,9 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 		c.JSON(200, gin.H{"code": "SUCCESS", "message": "ok", "data": gin.H{}})
 	}
 
-	// ============================================================
-	// 1. 通知中心 - 别名（前端用 /api/notifications）
-	// 已在 auth_routes.go 中注册基础路由
-	// ============================================================
 	notifCtrl := controller.NewNotificationController(service.NewNotificationService(gormDB))
 	doReg("GET", "/notifications/list", notifCtrl.List)
 
-	// ============================================================
-	// 2. 线索 - 别名（前端用 /api/clues, /api/clue-statistics）
-	// ============================================================
 	clueCtrl := controller.NewClueController()
 	doReg("GET", "/clues", clueCtrl.GetClueList)
 	doReg("GET", "/clues/list", clueCtrl.GetClueList)
@@ -85,30 +60,22 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/clue-statistics/overview", clueCtrl.GetClueStatistics)
 	doReg("DELETE", "/clues/:id", clueCtrl.DeleteClue)
 
-	// ============================================================
-	// 3. 客户 360 - 别名
-	// ============================================================
 	customer360Ctrl := controller.NewCustomer360Controller()
 	doReg("GET", "/customer-360/list", customer360Ctrl.GetCustomerList)
 	doReg("GET", "/customer-360/stats", customer360Ctrl.GetCustomerStats)
 	doReg("GET", "/customer-360/tags", customer360Ctrl.GetCustomerTags)
 	doReg("GET", "/customer-360", customer360Ctrl.GetCustomer360)
 	doReg("PUT", "/customer-360/tags", customer360Ctrl.UpdateCustomerTags)
-	// 客户 360 - 兼容路径（前端 /api/customer-360/list → /api/customer/list）
 	doReg("GET", "/customer/list", customer360Ctrl.GetCustomerList)
 	doReg("GET", "/customer/360/:id", customer360Ctrl.GetCustomer360ByID)
 	doReg("GET", "/customer/:id", customer360Ctrl.GetCustomerDetail)
 	doReg("PUT", "/customer/:id", customer360Ctrl.UpdateCustomer)
 
-	// 客户标签 - 别名
 	doReg("GET", "/customer-tags", customer360Ctrl.GetCustomerTags)
 	doReg("PUT", "/customer-tags", customer360Ctrl.UpdateCustomerTags)
 	doReg("GET", "/tag-segments", customer360Ctrl.GetTagStats)
 	doReg("GET", "/tag-segmentation/list", customer360Ctrl.GetTagStats)
 
-	// ============================================================
-	// 4. 客户事件 - 别名（前端用 /api/customer-events）
-	// ============================================================
 	customerEventCtrl := controller.NewCustomerEventController()
 	doReg("GET", "/customer-events", customerEventCtrl.GetEventStats)
 	doReg("GET", "/customer-events/list", customerEventCtrl.GetEventStats)
@@ -123,9 +90,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/customer-events/add-to-cart", customerEventCtrl.TrackAddToCart)
 	doReg("DELETE", "/customer-events/customer/:customer_id", customerEventCtrl.DeleteEvent)
 
-	// ============================================================
-	// 5. 用户分层 RFM - 别名
-	// ============================================================
 	userSegmentCtrl := controller.NewUserSegmentController()
 	doReg("GET", "/user-segments", userSegmentCtrl.ListRFMRules)
 	doReg("GET", "/user-segments/list", userSegmentCtrl.ListRFMRules)
@@ -133,18 +97,12 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/user-segments/rfm/stats", userSegmentCtrl.GetRFMStats)
 	doReg("GET", "/user-segments/layers", userSegmentCtrl.GetLayerDescription)
 
-	// ============================================================
-	// 6. 统一消息 - 别名
-	// ============================================================
 	unifiedMsgCtrl := controller.NewUnifiedMessageController()
 	doReg("GET", "/unified-messages", unifiedMsgCtrl.GetMessages)
 	doReg("GET", "/unified-messages/list", unifiedMsgCtrl.GetMessages)
 	doReg("GET", "/unified-messages/:id", unifiedMsgCtrl.GetMessageByID)
 	doReg("GET", "/unified-messages/:id/replies", unifiedMsgCtrl.GetReplies)
 
-	// ============================================================
-	// 8. OneID - 别名（前端用 /api/oneid/*）
-	// ============================================================
 	oneIDCtrl := controller.NewCustomerOneIDController()
 	doReg("GET", "/oneid/identities", oneIDCtrl.ListOneID)
 	doReg("GET", "/oneid/conflicts", oneIDCtrl.ListConflicts)
@@ -152,9 +110,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/oneid/resolve", oneIDCtrl.ResolveIdentity)
 	doReg("POST", "/oneid/conflicts/:id/resolve", oneIDCtrl.ResolveConflict)
 
-	// ============================================================
-	// 9. 统一收件箱 - 别名（前端用 /api/inbox/conversations）
-	// ============================================================
 	inboxCtrl := controller.NewInboxController(service.NewInboxService())
 	doReg("GET", "/inbox/conversations", inboxCtrl.List)
 	doReg("GET", "/inbox/conversations/list", inboxCtrl.List)
@@ -163,9 +118,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/inbox", inboxCtrl.List)
 	doReg("GET", "/inbox/:id", inboxCtrl.GetByID)
 
-	// ============================================================
-	// 10. 客服会话 - 别名（前端用 /api/customer-sessions）
-	// ============================================================
 	customerSessionCtrl := controller.NewCustomerSessionController()
 	doReg("GET", "/customer-sessions", customerSessionCtrl.GetSessions)
 	doReg("GET", "/customer-sessions/list", customerSessionCtrl.GetSessions)
@@ -178,9 +130,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/customer-sessions/:id/rate", customerSessionCtrl.RateSession)
 	doReg("PUT", "/customer-sessions/:id/status", customerSessionCtrl.UpdateSessionStatus)
 
-	// ============================================================
-	// 11. 意图识别 - 别名（前端用 /api/intent-records）
-	// ============================================================
 	intentRec := service.GetIntentRecognizer()
 	if intentRec == nil {
 		intentRec = service.NewIntentRecognizer(gormDB, app.GetGlobalDispatcher(), nil)
@@ -192,13 +141,9 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/intent-records/dict", intentCtrl.Intents)
 	doReg("POST", "/intent-records/recognize", intentCtrl.Recognize)
 	doReg("POST", "/intent-records/recognize/batch", intentCtrl.BatchRecognize)
-	// 意图识别配置管理（前端 user-web 意图识别页面在线开关）
 	doReg("GET", "/intent-records/config", intentCtrl.GetConfig)
 	doReg("PUT", "/intent-records/config", intentCtrl.UpdateConfig)
 
-	// ============================================================
-	// 12. 对话记忆 - 别名（前端用 /api/dialogue-memories）
-	// ============================================================
 	memCtrl := controller.NewDialogueMemoryController(service.NewDialogueMemoryService(gormDB, nil))
 	doReg("GET", "/dialogue-memories", memCtrl.Stats)
 	doReg("GET", "/dialogue-memories/list", memCtrl.Stats)
@@ -214,16 +159,12 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/dialogue-memories/sop-history", memCtrl.RecordSOP)
 	doReg("GET", "/dialogue-memories/context", memCtrl.BuildContext)
 
-	// ============================================================
-	// 13. LLM 路由 - 别名
-	// ============================================================
 	routingSvc := service.NewLLMRoutingService(app.GetGlobalDispatcher())
 	llmCtrl := controller.NewLLMRoutingController(routingSvc)
 	doReg("GET", "/llm-routing/rules", llmCtrl.ListStrategies)
 	doReg("GET", "/llm-routing/models", llmCtrl.ListModels)
 	doReg("PUT", "/llm-routing/strategies", llmCtrl.UpdateStrategies)
 
-	// 兼容前端 /api/llm/* 路径（页面 LlmRoutingApi 实际使用）
 	doReg("GET", "/llm/models", llmCtrl.ListModels)
 	doReg("GET", "/llm/models/:id", llmCtrl.ListModels)
 	doReg("POST", "/llm/models", llmCtrl.CreateModel)
@@ -237,9 +178,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/llm/fallback", llmCtrl.UpdateStrategies)
 	doReg("GET", "/llm/cost-stats", llmCtrl.Usage)
 
-	// ============================================================
-	// 14. 触达 Pipeline - 别名（前端用 /api/reach-pipelines）
-	// ============================================================
 	reachCtrl := controller.NewReachPipelineController(service.NewReachPipelineService(gormDB))
 	doReg("GET", "/reach-pipelines", reachCtrl.ListPipelines)
 	doReg("GET", "/reach-pipelines/list", reachCtrl.ListPipelines)
@@ -248,9 +186,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/reach-pipelines/:id", reachCtrl.UpdatePipeline)
 	doReg("DELETE", "/reach-pipelines/:id", reachCtrl.DeletePipeline)
 
-	// ============================================================
-	// 15. 营销流程 - 别名（content controller）
-	// ============================================================
 	marketingFlowCtrl := contentctrl.NewMarketingFlowController()
 	doReg("GET", "/marketing-flows", marketingFlowCtrl.GetFlowList)
 	doReg("GET", "/marketing-flows/list", marketingFlowCtrl.GetFlowList)
@@ -264,15 +199,9 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/marketing-flows/executions", marketingFlowCtrl.GetExecutionList)
 	doReg("GET", "/marketing-flows/executions/stats", marketingFlowCtrl.GetExecutionStats)
 
-	// ============================================================
-	// 16. 批量操作 - 别名
-	// ============================================================
 	doReg("GET", "/batch-operations", emptyList)
 	doReg("GET", "/batch-operations/list", emptyList)
 
-	// ============================================================
-	// 17. SOP 智能体 - 别名
-	// ============================================================
 	sopCtrl := controller.NewSOPController(service.NewSOPService(gormDB, nil))
 	doReg("GET", "/sop-agents", sopCtrl.List)
 	doReg("GET", "/sop-agents/list", sopCtrl.List)
@@ -287,9 +216,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/sop-agents/:id/step", sopCtrl.Step)
 	doReg("POST", "/sop-agents/:id/pause", sopCtrl.Pause)
 
-	// ============================================================
-	// 18. 销冠话术库 - 别名（前端用 /api/script-templates）
-	// ============================================================
 	scriptCtrl := contentctrl.NewScriptTemplateController()
 	doReg("GET", "/script-templates", scriptCtrl.GetTemplateList)
 	doReg("GET", "/script-templates/list", scriptCtrl.GetTemplateList)
@@ -302,9 +228,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/script-templates/public", scriptCtrl.GetPublicTemplates)
 	doReg("POST", "/script-templates/recommend", scriptCtrl.RecommendScript)
 
-	// ============================================================
-	// 19. 坐席状态 - 别名（前端用 /api/agent-statuses）
-	// ============================================================
 	agentStatusCtrl := controller.NewAgentStatusController(aiAgentSvc)
 	doReg("GET", "/agent-statuses", agentStatusCtrl.GetOnlineAgents)
 	doReg("GET", "/agent-statuses/online", agentStatusCtrl.GetOnlineAgents)
@@ -316,9 +239,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/agent-statuses/available", agentStatusCtrl.GetOnlineAgents)
 	doReg("GET", "/agent-statuses/:id/sessions", agentStatusCtrl.GetAgentSessions)
 
-	// ============================================================
-	// 20. 快捷回复 - 别名
-	// ============================================================
 	quickReplyCtrl := controller.NewQuickReplyController()
 	doReg("GET", "/quick-replies", quickReplyCtrl.GetReplies)
 	doReg("GET", "/quick-replies/list", quickReplyCtrl.GetReplies)
@@ -327,9 +247,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/quick-replies/:id", quickReplyCtrl.UpdateReply)
 	doReg("DELETE", "/quick-replies/:id", quickReplyCtrl.DeleteReply)
 
-	// ============================================================
-	// 21. 会话标签 - 别名
-	// ============================================================
 	sessionTagCtrl := controller.NewSessionTagController()
 	doReg("GET", "/session-tags", sessionTagCtrl.GetTags)
 	doReg("GET", "/session-tags/list", sessionTagCtrl.GetTags)
@@ -337,18 +254,12 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/session-tags/:id", sessionTagCtrl.UpdateTag)
 	doReg("DELETE", "/session-tags/:id", sessionTagCtrl.DeleteTag)
 
-	// ============================================================
-	// 22. AI 建议 - 别名（前端用 /api/ai-suggestions）
-	// ============================================================
 	aiSuggestionCtrl := controller.NewAISuggestionController()
 	doReg("GET", "/ai-suggestions", aiSuggestionCtrl.GetSuggestions)
 	doReg("GET", "/ai-suggestions/list", aiSuggestionCtrl.GetSuggestions)
 	doReg("GET", "/ai-suggestions/:session_id", aiSuggestionCtrl.GetSuggestions)
 	doReg("POST", "/ai-suggestions/:id/use", aiSuggestionCtrl.UseSuggestion)
 
-	// ============================================================
-	// 23. 异议处理 - 别名（前端用 /api/objection-templates）
-	// ============================================================
 	objCtrl := controller.NewObjectionHandlerController()
 	doReg("GET", "/objection-templates", objCtrl.ListCategories)
 	doReg("GET", "/objection-templates/list", objCtrl.ListCategories)
@@ -356,17 +267,11 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/objection-templates/classify", objCtrl.Classify)
 	doReg("POST", "/objection-templates/usage", objCtrl.RecordUsage)
 
-	// ============================================================
-	// 24. 销冠画像 - 别名（前端用 /api/sales-champions）
-	// ============================================================
 	personaCtrl := controller.NewSalesPersonaController()
 	doReg("GET", "/sales-champions", personaCtrl.ListStaffs)
 	doReg("GET", "/sales-champions/list", personaCtrl.ListStaffs)
 	doReg("GET", "/sales-champions/:id", personaCtrl.GetReport)
 
-	// ============================================================
-	// 25. 邮件 - 别名
-	// ============================================================
 	emailListCtrl := controller.NewEmailListController()
 	doReg("GET", "/email/lists", emailListCtrl.GetEmailListList)
 	doReg("GET", "/email/lists/list", emailListCtrl.GetEmailListList)
@@ -385,9 +290,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/email/smtps/:id", emailSmtpCtrl.UpdateEmailSmtp)
 	doReg("DELETE", "/email/smtps/:id", emailSmtpCtrl.DeleteEmailSmtp)
 
-	// ============================================================
-	// 26. 短信 - 别名（前端用 /api/sms/*）
-	// ============================================================
 	smsCtrl := controller.NewSmsController(service.NewSmsService(repository.NewSmsRepository()))
 	doReg("GET", "/sms/records", smsCtrl.GetSmsList)
 	doReg("GET", "/sms/records/list", smsCtrl.GetSmsList)
@@ -410,9 +312,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/sms/configs/list", smsCtrl.GetConfig)
 	doReg("POST", "/sms/configs", smsCtrl.SaveConfig)
 
-	// ============================================================
-	// 27-30. 抖音/快手/小红书/闲鱼 卡片 - 别名
-	// ============================================================
 	{
 		douyinCtrl := controller.NewDouyinCardController(service.NewDouyinCardService(gormDB))
 		doReg("GET", "/douyin-cards", douyinCtrl.GetList)
@@ -450,10 +349,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 		doReg("DELETE", "/xianyu-cards/:id", xianyuCtrl.Delete)
 	}
 
-	// ============================================================
-	// 31. TikTok 卡片 - 别名
-	// ============================================================
-	// 五层架构：service 由 router 层注入，controller 不再 import repository / db
 	tiktokCtrl := controller.NewTikTokCardController(
 		service.NewTikTokCardServiceWithDB(gormDB),
 	)
@@ -464,9 +359,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/tiktok-cards/:id", tiktokCtrl.Update)
 	doReg("DELETE", "/tiktok-cards/:id", tiktokCtrl.Delete)
 
-	// ============================================================
-	// 32. 飞书 - 别名
-	// ============================================================
 	feishuCtrl := controller.NewFeishuAccountController(service.NewFeishuService(gormDB), service.NewFeishuIntegrationService(gormDB))
 	doReg("GET", "/feishu/accounts", feishuCtrl.List)
 	doReg("GET", "/feishu/accounts/list", feishuCtrl.List)
@@ -475,9 +367,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/feishu/accounts/:id", feishuCtrl.Update)
 	doReg("DELETE", "/feishu/accounts/:id", feishuCtrl.Delete)
 
-	// ============================================================
-	// 33. Telegram - 别名
-	// ============================================================
 	tgCtrl := controller.NewTelegramAccountController(service.NewTelegramService(gormDB))
 	doReg("GET", "/telegram/accounts", tgCtrl.List)
 	doReg("GET", "/telegram/accounts/list", tgCtrl.List)
@@ -486,9 +375,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/telegram/accounts/:id", tgCtrl.Update)
 	doReg("DELETE", "/telegram/accounts/:id", tgCtrl.Delete)
 
-	// ============================================================
-	// 34. 短链 - 别名（前端用 /api/short-links）
-	// ============================================================
 	shortLinkCtrl := controller.NewShortLinkController(service.NewShortLinkService(gormDB))
 	doReg("GET", "/short-links", shortLinkCtrl.GetList)
 	doReg("GET", "/short-links/list", shortLinkCtrl.GetList)
@@ -497,9 +383,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/short-links/:id", shortLinkCtrl.Update)
 	doReg("DELETE", "/short-links/:id", shortLinkCtrl.Delete)
 
-	// ============================================================
-	// 35. 活码 - 别名（前端用 /api/live-codes）
-	// ============================================================
 	liveCodeCtrl := controller.NewLiveCodeController(service.NewLiveCodeService(gormDB))
 	doReg("GET", "/live-codes", liveCodeCtrl.GetList)
 	doReg("GET", "/live-codes/list", liveCodeCtrl.GetList)
@@ -508,15 +391,9 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/live-codes/:id", liveCodeCtrl.Update)
 	doReg("DELETE", "/live-codes/:id", liveCodeCtrl.Delete)
 
-	// ============================================================
-	// 36. RAG - 别名（前端用 /api/rag-product-configs）
-	// ============================================================
 	doReg("GET", "/rag-product-configs", emptyObj)
 	doReg("GET", "/rag-product-configs/list", emptyList)
 
-	// ============================================================
-	// 37. AI 内容创作 - 别名
-	// ============================================================
 	aiContentCtrl := contentctrl.NewAIContentController()
 	doReg("GET", "/ai-content/list", aiContentCtrl.GetGenerationHistory)
 	doReg("GET", "/ai-content/history", aiContentCtrl.GetGenerationHistory)
@@ -530,9 +407,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/ai-content/:id/rate", aiContentCtrl.RateRecord)
 	doReg("DELETE", "/ai-content/:id", aiContentCtrl.DeleteRecord)
 
-	// ============================================================
-	// 38. 模板市场 - 别名
-	// ============================================================
 	templateCtrl := contentctrl.NewTemplateMarketController()
 	doReg("GET", "/market-templates", templateCtrl.GetTemplateList)
 	doReg("GET", "/market-templates/list", templateCtrl.GetTemplateList)
@@ -544,9 +418,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/market-templates/:id/download", templateCtrl.DownloadTemplate)
 	doReg("POST", "/market-templates/:id/rate", templateCtrl.RateTemplate)
 
-	// ============================================================
-	// 39. 数据大屏 - 别名
-	// ============================================================
 	dashCtrl := opsctrl.NewDashboardScreenController()
 	doReg("GET", "/dashboard-screens", dashCtrl.GetScreenList)
 	doReg("GET", "/dashboard-screens/list", dashCtrl.GetScreenList)
@@ -556,7 +427,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("DELETE", "/dashboard-screens/:id", dashCtrl.DeleteScreen)
 	doReg("GET", "/dashboard-screens/:id/data", dashCtrl.GetDashboardData)
 	doReg("GET", "/dashboard-screens/:id/activities", dashCtrl.GetRealtimeActivities)
-	// 兼容前端 /api/dashboards/* 路径
 	doReg("GET", "/dashboards", dashCtrl.GetScreenList)
 	doReg("GET", "/dashboards/list", dashCtrl.GetScreenList)
 	doReg("GET", "/dashboards/:id", dashCtrl.GetScreenByID)
@@ -567,34 +437,23 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/dashboards/data", dashCtrl.GetDashboardData)
 	doReg("GET", "/dashboards/activities", dashCtrl.GetRealtimeActivities)
 	doReg("GET", "/dashboards/public/:code", dashCtrl.PublicViewScreen)
-	// 兼容单数形式 /api/dashboard-screen/list
 	doReg("GET", "/dashboard-screen/list", dashCtrl.GetScreenList)
 	doReg("GET", "/dashboard-screen", dashCtrl.GetScreenList)
 
-	// ============================================================
-	// 40. 转化漏斗 - 别名
-	// ============================================================
 	funnelCtrl := opsctrl.NewConversionFunnelController()
 	doReg("GET", "/conversion-funnels", funnelCtrl.GetFunnel)
 	doReg("GET", "/conversion-funnels/list", funnelCtrl.GetFunnel)
 	doReg("GET", "/conversion-funnels/stage", funnelCtrl.GetStageDetails)
-	// 兼容前端 /api/analytics/funnel 与 /api/conversion-funnel/* 路径
 	doReg("GET", "/analytics/funnel", funnelCtrl.GetFunnel)
 	doReg("GET", "/analytics/funnel/stage", funnelCtrl.GetStageDetails)
 	doReg("GET", "/conversion-funnel", funnelCtrl.GetFunnel)
 	doReg("GET", "/conversion-funnel/list", funnelCtrl.GetFunnel)
 	doReg("GET", "/conversion-funnel/stage", funnelCtrl.GetStageDetails)
 
-	// ============================================================
-	// 41. AI 产能 - 别名
-	// ============================================================
 	aiProdCtrl := opsctrl.NewAIProductivityController()
 	doReg("GET", "/ai-productivity/overview", aiProdCtrl.GetReport)
 	doReg("GET", "/ai-productivity/trend", aiProdCtrl.GetDailyTrend)
 
-	// ============================================================
-	// 42. 客户旅程 - 别名
-	// ============================================================
 	journeyCtrl := controller.NewCustomerJourneyController()
 	doReg("GET", "/customer-journey/dashboard", journeyCtrl.GetOverview)
 	doReg("GET", "/customer-journey/overview", journeyCtrl.GetOverview)
@@ -603,19 +462,12 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/customer-journey/touch", journeyCtrl.TouchCustomer)
 	doReg("POST", "/customer-journey/transition", journeyCtrl.TransitionStage)
 
-	// ============================================================
-	// 43. 站点设置 - 别名
-	// 已有 system/configs 在 system_routes.go 中
-	// ============================================================
 	sysCfgCtrl := controller.NewSystemConfigController()
 	doReg("GET", "/system/configs", sysCfgCtrl.GetConfig)
 	doReg("GET", "/system/configs/list", sysCfgCtrl.GetConfig)
 	doReg("GET", "/system/configs/:key", sysCfgCtrl.GetConfig)
 	doReg("PUT", "/system/configs/:key", sysCfgCtrl.SaveConfig)
 
-	// ============================================================
-	// 44. 存储配置 - 别名
-	// ============================================================
 	obsCtrl := controller.NewObsConfigController()
 	doReg("GET", "/obs-configs", obsCtrl.GetConfigList)
 	doReg("GET", "/obs-configs/list", obsCtrl.GetConfigList)
@@ -627,23 +479,14 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/obs-configs/:id/test", obsCtrl.TestConnection)
 	doReg("POST", "/obs-configs/:id/default", obsCtrl.SetDefault)
 
-	// ============================================================
-	// 45. 素材库 - 别名
-	// ============================================================
 	doReg("GET", "/material-library/list", emptyList)
 	doReg("GET", "/material-library", emptyList)
 	doReg("GET", "/material-library/categories", emptyList)
 	doReg("GET", "/material-library/stats", emptyObj)
 
-	// ============================================================
-	// 46. 系统监控 - 别名
-	// ============================================================
 	doReg("GET", "/system-monitor/metrics", emptyObj)
 	doReg("GET", "/system-monitor/health", emptyObj)
 
-	// ============================================================
-	// 47. 域名池 - 别名
-	// ============================================================
 	domainDB := gormDB
 	domainPoolRepo := repository.NewDomainPoolRepository(domainDB)
 	domainCtrl := controller.NewDomainPoolController(
@@ -657,23 +500,9 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/domain-pool/:id", domainCtrl.Update)
 	doReg("DELETE", "/domain-pool/:id", domainCtrl.Delete)
 
-	// ============================================================
-	// 49. 授权管理 - 别名
-	// ============================================================
-	// License 相关路由全部下线（License 模型未启用）。
 
-	// ============================================================
-	// 50. OTA 升级 - 别名（OTA 未启用）
-	// ============================================================
-	// 开源版：以下 OTA 升级路由全部下线（OTA 模型删除，升级流程移除）。
-	// 保留注释作为历史变更记录，前端对应入口已通过页面级删除清理。
 
-	// 注意：原 /api/platform/version/* 由 setupPlatformRoutes 负责注册（平台端路由组）。
-	// 平台端 version 路由已在 setupPlatformRoutes 中同步删除。
 
-	// ============================================================
-	// 52. 第三方对接 - 别名
-	// ============================================================
 	integrationCtrl := controller.NewIntegrationController()
 	doReg("GET", "/integrations/list", integrationCtrl.GetAccountList)
 	doReg("GET", "/integrations/:id", integrationCtrl.GetAccountByID)
@@ -685,26 +514,17 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/integrations/:id/sync/customers", integrationCtrl.SyncCustomers)
 	doReg("POST", "/integrations/:id/sync/products", integrationCtrl.SyncProducts)
 
-	// ============================================================
-	// 53. 操作日志 - 别名
-	// ============================================================
 	opLogCtrl := controller.NewOperationLogController()
 	doReg("GET", "/operation-logs", opLogCtrl.GetList)
 	doReg("GET", "/operation-logs/list", opLogCtrl.GetList)
 	doReg("GET", "/operation-logs/:id", opLogCtrl.GetByID)
 	doReg("GET", "/operation-logs/statistics", opLogCtrl.GetStatistics)
 
-	// ============================================================
-	// 54. 备份恢复 - 别名
-	// ============================================================
 	backupCtrl := controller.NewBackupController()
 	doReg("GET", "/backups", backupCtrl.GetBackupList)
 	doReg("GET", "/backups/list", backupCtrl.GetBackupList)
 	doReg("GET", "/backups/:id", backupCtrl.GetBackupByID)
 
-	// ============================================================
-	// 55. 流失预测 - 别名
-	// ============================================================
 	churnCtrl := opsctrl.NewChurnPredictionController()
 	doReg("GET", "/churn-prediction", churnCtrl.GetChurnPredictions)
 	doReg("GET", "/churn-prediction/list", churnCtrl.GetChurnPredictions)
@@ -715,7 +535,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/churn-prediction/risk-distribution", churnCtrl.GetRiskDistribution)
 	doReg("GET", "/churn-prediction/model-config", churnCtrl.GetModelConfig)
 	doReg("POST", "/churn-prediction/model-config", churnCtrl.SaveModelConfig)
-	// 兼容前端 /api/churn/* 路径
 	doReg("GET", "/churn/prediction", churnCtrl.GetChurnPrediction)
 	doReg("GET", "/churn/predictions", churnCtrl.GetChurnPredictions)
 	doReg("GET", "/churn/high-risk-users", churnCtrl.GetHighRiskUsers)
@@ -728,3 +547,4 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/backups", backupCtrl.CreateBackup)
 	doReg("DELETE", "/backups/:id", backupCtrl.DeleteBackup)
 }
+

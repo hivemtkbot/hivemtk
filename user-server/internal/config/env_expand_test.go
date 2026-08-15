@@ -6,7 +6,6 @@ import (
 )
 
 func TestExpandEnvWithDefault(t *testing.T) {
-	// 备份可能影响测试的 env vars
 	oldVars := map[string]string{
 		"LLM_BASE_URL":        os.Getenv("LLM_BASE_URL"),
 		"EMBEDDING_BASE_URL":  os.Getenv("EMBEDDING_BASE_URL"),
@@ -110,3 +109,4 @@ host: "localhost"`,
 		})
 	}
 }
+

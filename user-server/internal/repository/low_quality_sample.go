@@ -38,3 +38,4 @@ func (r *LowQualitySampleRepository) List(ctx context.Context, sampleType string
 	}
 	return rows, total, nil
 }
+

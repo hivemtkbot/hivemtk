@@ -1,14 +1,5 @@
 package confidence
 
-// signal_collector_test.go 5 维信号采集器单元测试
-//
-// 覆盖：
-//  1. EntityComp：实体完整性（空 expected / 全命中 / 部分命中 / 不命中 / 值不匹配）
-//  2. CtxRelev：上下文相关性（nil embedder / 空对话 / 空 query / 相同向量 / 正交向量）
-//  3. RAGQual：RAG 检索质量（空 / 部分覆盖 / 完全覆盖）
-//  4. LLMEntropy：LLM 生成熵（空 / 单元素 / 均匀分布 / 极端分布）
-//  5. Collect 端到端
-//  6. 辅助函数：cosineSim / clamp01
 
 import (
 	"context"
@@ -18,9 +9,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// ============================================================================
-// mockEmbedder 测试用 Embedder 实现
-// ============================================================================
 
 type mockEmbedder struct {
 	vectors map[string][]float32
@@ -34,13 +22,9 @@ func (m *mockEmbedder) Embed(_ context.Context, text string) ([]float32, error) 
 	if v, ok := m.vectors[text]; ok {
 		return v, nil
 	}
-	// 默认返回单位向量
 	return []float32{1.0, 0.0, 0.0}, nil
 }
 
-// ============================================================================
-// EntityComp 测试
-// ============================================================================
 
 func TestSignalCollector_EntityComp_EmptyExpected(t *testing.T) {
 	c := NewSignalCollector(nil)
@@ -69,7 +53,6 @@ func TestSignalCollector_EntityComp_PartialMatch(t *testing.T) {
 	extracted := map[string]any{"product": "iPhone", "price": 999}
 	expected := map[string]any{"product": "iPhone", "price": 999, "color": "black"}
 	got := c.computeEntityComp(extracted, expected)
-	// 2/3 命中
 	if !approxEqual(got, 2.0/3.0) {
 		t.Errorf("部分命中应返回 2/3 ≈ 0.667, got %v", got)
 	}
@@ -87,7 +70,6 @@ func TestSignalCollector_EntityComp_NoMatch(t *testing.T) {
 
 func TestSignalCollector_EntityComp_ValueMismatch(t *testing.T) {
 	c := NewSignalCollector(nil)
-	// key 存在但值不匹配
 	extracted := map[string]any{"product": "iPad"}
 	expected := map[string]any{"product": "iPhone"}
 	got := c.computeEntityComp(extracted, expected)
@@ -96,12 +78,9 @@ func TestSignalCollector_EntityComp_ValueMismatch(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// CtxRelev 测试
-// ============================================================================
 
 func TestSignalCollector_CtxRelev_NilEmbedder(t *testing.T) {
-	c := NewSignalCollector(nil) // embedder 为 nil
+	c := NewSignalCollector(nil) 
 	got, err := c.computeCtxRelev(context.Background(), "hello", []string{"hi"})
 	if err != nil {
 		t.Fatalf("nil embedder 不应返回错误: %v", err)
@@ -134,7 +113,6 @@ func TestSignalCollector_CtxRelev_EmptyQuery(t *testing.T) {
 }
 
 func TestSignalCollector_CtxRelev_IdenticalVectors(t *testing.T) {
-	// query 与历史对话向量相同，cosine=1.0
 	emb := &mockEmbedder{
 		vectors: map[string][]float32{
 			"hello": {1.0, 0.0, 0.0},
@@ -152,7 +130,6 @@ func TestSignalCollector_CtxRelev_IdenticalVectors(t *testing.T) {
 }
 
 func TestSignalCollector_CtxRelev_OrthogonalVectors(t *testing.T) {
-	// 正交向量 cosine=0
 	emb := &mockEmbedder{
 		vectors: map[string][]float32{
 			"hello": {1.0, 0.0, 0.0},
@@ -167,9 +144,6 @@ func TestSignalCollector_CtxRelev_OrthogonalVectors(t *testing.T) {
 }
 
 func TestSignalCollector_CtxRelev_MeanOfMultipleTurns(t *testing.T) {
-	// 多轮对话均值：[1,0,0] 和 [0,1,0] 的均值 [0.5,0.5,0]
-	// query [1,1,0]/sqrt(2) 与 [0.5,0.5,0]/sqrt(0.5) 的 cosine
-	// = (0.5+0.5) / (sqrt(2) * sqrt(0.5)) = 1 / sqrt(1) = 1.0
 	emb := &mockEmbedder{
 		vectors: map[string][]float32{
 			"q":  {1.0, 1.0, 0.0},
@@ -184,17 +158,12 @@ func TestSignalCollector_CtxRelev_MeanOfMultipleTurns(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// RAGQual 测试
-// ============================================================================
 
 func TestSignalCollector_RAGQual_Empty(t *testing.T) {
 	c := NewSignalCollector(nil)
-	// RAG 未执行且无 chunks（handoff 预检场景）：未知维度，中性 0.5，不惩罚
 	if got := c.computeRAGQual(&dto.SignalCollectionInput{}); !approxEqual(got, 0.5) {
 		t.Errorf("未执行+空 chunks 应返回中性 0.5, got %v", got)
 	}
-	// RAG 已执行但无命中：确实低质量 → 0.0
 	if got := c.computeRAGQual(&dto.SignalCollectionInput{RAGExecuted: true}); !approxEqual(got, 0.0) {
 		t.Errorf("已执行+空 chunks 应返回 0.0, got %v", got)
 	}
@@ -202,9 +171,6 @@ func TestSignalCollector_RAGQual_Empty(t *testing.T) {
 
 func TestSignalCollector_RAGQual_PartialCoverage(t *testing.T) {
 	c := NewSignalCollector(nil)
-	// 3 个 chunks（期望 5），coverage = 3/5 = 0.6
-	// mean(score) = (0.8+0.6+0.4)/3 = 0.6
-	// RAGQual = 0.6 * 0.6 = 0.36
 	chunks := []dto.RAGChunk{
 		{Score: 0.8},
 		{Score: 0.6},
@@ -218,9 +184,6 @@ func TestSignalCollector_RAGQual_PartialCoverage(t *testing.T) {
 
 func TestSignalCollector_RAGQual_FullCoverage(t *testing.T) {
 	c := NewSignalCollector(nil)
-	// 5 个 chunks, coverage = 1.0
-	// mean(score) = 0.6
-	// RAGQual = 0.6 * 1.0 = 0.6
 	chunks := []dto.RAGChunk{
 		{Score: 0.8},
 		{Score: 0.7},
@@ -236,7 +199,6 @@ func TestSignalCollector_RAGQual_FullCoverage(t *testing.T) {
 
 func TestSignalCollector_RAGQual_MoreThanExpected(t *testing.T) {
 	c := NewSignalCollector(nil)
-	// 8 个 chunks，coverage 被 clip 到 1.0
 	chunks := []dto.RAGChunk{
 		{Score: 1.0}, {Score: 1.0}, {Score: 1.0}, {Score: 1.0},
 		{Score: 1.0}, {Score: 1.0}, {Score: 1.0}, {Score: 1.0},
@@ -247,9 +209,6 @@ func TestSignalCollector_RAGQual_MoreThanExpected(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// LLMEntropy 测试
-// ============================================================================
 
 func TestSignalCollector_LLMEntropy_EmptyLogprobs(t *testing.T) {
 	c := NewSignalCollector(nil)
@@ -268,9 +227,7 @@ func TestSignalCollector_LLMEntropy_SingleLogprob(t *testing.T) {
 }
 
 func TestSignalCollector_LLMEntropy_UniformDistribution(t *testing.T) {
-	// 均匀分布熵最大，归一化熵=1，LLMEntropy = 1 - 1 = 0
 	c := NewSignalCollector(nil)
-	// 4 个相等的 logprobs → 均匀分布
 	got := c.computeLLMEntropy([]float64{-1.0, -1.0, -1.0, -1.0})
 	if got > 0.05 {
 		t.Errorf("均匀分布 LLMEntropy 应接近 0, got %v", got)
@@ -278,7 +235,6 @@ func TestSignalCollector_LLMEntropy_UniformDistribution(t *testing.T) {
 }
 
 func TestSignalCollector_LLMEntropy_PeakedDistribution(t *testing.T) {
-	// 极端分布（一个 logprob 极大），熵接近 0，LLMEntropy 接近 1
 	c := NewSignalCollector(nil)
 	got := c.computeLLMEntropy([]float64{100.0, -100.0, -100.0, -100.0})
 	if got < 0.95 {
@@ -287,20 +243,13 @@ func TestSignalCollector_LLMEntropy_PeakedDistribution(t *testing.T) {
 }
 
 func TestSignalCollector_LLMEntropy_TwoEqualLargeValues(t *testing.T) {
-	// 两个相等的大值 + 一个小值
 	c := NewSignalCollector(nil)
 	got := c.computeLLMEntropy([]float64{10.0, 10.0, -10.0})
-	// 前两个概率各占约 0.5，熵 = -2*0.5*log(0.5) = log(2)
-	// 归一化熵 = log(2) / log(3) ≈ 0.631
-	// LLMEntropy = 1 - 0.631 ≈ 0.369
 	if got < 0.30 || got > 0.45 {
 		t.Errorf("两个相等大值 LLMEntropy 应在 [0.30, 0.45], got %v", got)
 	}
 }
 
-// ============================================================================
-// Collect 端到端测试
-// ============================================================================
 
 func TestSignalCollector_Collect_Full(t *testing.T) {
 	emb := &mockEmbedder{
@@ -335,11 +284,9 @@ func TestSignalCollector_Collect_Full(t *testing.T) {
 	if !approxEqual(signals.CtxRelev, 1.0) {
 		t.Errorf("CtxRelev=%v want 1.0", signals.CtxRelev)
 	}
-	// RAGQual = mean(0.9,0.8,0.7,0.6,0.5) * 1.0 = 0.7
 	if !approxEqual(signals.RAGQual, 0.7) {
 		t.Errorf("RAGQual=%v want 0.7", signals.RAGQual)
 	}
-	// LLMEntropy 应在 (0, 1) 区间
 	if signals.LLMEntropy <= 0 || signals.LLMEntropy >= 1 {
 		t.Errorf("LLMEntropy=%v 应在 (0,1)", signals.LLMEntropy)
 	}
@@ -348,23 +295,20 @@ func TestSignalCollector_Collect_Full(t *testing.T) {
 func TestSignalCollector_Collect_IntentConfClamped(t *testing.T) {
 	c := NewSignalCollector(nil)
 	in := &dto.SignalCollectionInput{
-		RawIntentConf: 1.5, // 超过 1 应被 clip
+		RawIntentConf: 1.5, 
 	}
 	signals, _ := c.Collect(context.Background(), in)
 	if !approxEqual(signals.IntentConf, 1.0) {
 		t.Errorf("IntentConf 应被 clip 到 1.0, got %v", signals.IntentConf)
 	}
 
-	in.RawIntentConf = -0.5 // 负值应被 clip
+	in.RawIntentConf = -0.5 
 	signals, _ = c.Collect(context.Background(), in)
 	if !approxEqual(signals.IntentConf, 0.0) {
 		t.Errorf("IntentConf 应被 clip 到 0.0, got %v", signals.IntentConf)
 	}
 }
 
-// ============================================================================
-// 辅助函数测试
-// ============================================================================
 
 func TestCosineSim_SameVector(t *testing.T) {
 	a := []float32{1.0, 2.0, 3.0}
@@ -410,7 +354,7 @@ func TestClamp01(t *testing.T) {
 		{0.5, 0.5},
 		{1.0, 1.0},
 		{1.5, 1.0},
-		{math.NaN(), 0.0}, // NaN < 0 为 false，0 < NaN < 1 也为 false，返回原值 NaN，但我们的实现会返回原值
+		{math.NaN(), 0.0}, 
 	}
 	c := NewSignalCollector(nil)
 	_ = c
@@ -421,3 +365,4 @@ func TestClamp01(t *testing.T) {
 		}
 	}
 }
+

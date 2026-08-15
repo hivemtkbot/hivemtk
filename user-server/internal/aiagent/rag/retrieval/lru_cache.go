@@ -48,12 +48,10 @@ func (c *LRUCache) Get(key string) (any, bool) {
 	}
 	entry := el.Value.(*lruEntry)
 	if time.Now().After(entry.expireAt) {
-		// 已过期
 		c.order.Remove(el)
 		delete(c.items, key)
 		return nil, false
 	}
-	// 移到队首
 	c.order.MoveToFront(el)
 	return entry.value, true
 }
@@ -65,7 +63,6 @@ func (c *LRUCache) Set(key string, value any, ttl time.Duration) {
 	if ttl <= 0 {
 		ttl = c.ttl
 	}
-	// 已存在则更新
 	if el, ok := c.items[key]; ok {
 		c.order.Remove(el)
 		delete(c.items, key)
@@ -76,7 +73,6 @@ func (c *LRUCache) Set(key string, value any, ttl time.Duration) {
 		expireAt: time.Now().Add(ttl),
 	})
 	c.items[key] = el
-	// 超出容量则淘汰
 	for c.order.Len() > c.capacity {
 		oldest := c.order.Back()
 		if oldest == nil {
@@ -133,3 +129,4 @@ func (c *LRUCache) CleanupExpired() int {
 	}
 	return removed
 }
+

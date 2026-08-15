@@ -8,38 +8,19 @@ import (
 	"time"
 )
 
-// ============================================================================
-// 商业产品级 销售工作台（Sales Workbench）
-// ----------------------------------------------------------------------------
-// 销售工作台首页 —— 一次调用聚合全部"今日要做什么"
-//
-// 商业市场需求：销售每天打开 SCRM 第一眼看到什么？真实场景：
-//   - 微信群里被客户@  → 进 SCRM 工作台 → 应该一眼看到"待回复评论"+"今日跟进"
-//   - 主管晨会要报数  → 应该看到"昨日成交"+"本月业绩"+"团队排名"
-//   - 销售对账时  → 应该看到"待确认草稿"+"本周成单"
-//
-// 商业产品级必备字段：
-//   1. 待办（草稿 + 跟进 + 评论，按优先级排序）
-//   2. 今日业绩（订单、跟进、转化）
-//   3. 本月业绩（订单、收入、转化率）
-//   4. AI 产能（谈单数、独立成单率、节省成本）
-//   5. 销冠排行（团队前 5 名 + 自己排名）
-//   6. 客户漏斗（各阶段客户数）
-//   7. 关键指标（续约率、客单价、复购率）
-// ============================================================================
 
 // WorkbenchTodo 待办事项（销售工作台首页核心）
 type WorkbenchTodo struct {
-	Type        string    `json:"type"`     // draft / followup / comment
-	Priority    int       `json:"priority"` // 1-5,5 最高
+	Type        string    `json:"type"`     
+	Priority    int       `json:"priority"` 
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
-	TargetID    string    `json:"target_id"`   // 关联 ID
-	TargetType  string    `json:"target_type"` // customer/post/order
+	TargetID    string    `json:"target_id"`   
+	TargetType  string    `json:"target_type"` 
 	CustomerID  string    `json:"customer_id"`
 	DueAt       time.Time `json:"due_at"`
 	CreatedAt   time.Time `json:"created_at"`
-	URL         string    `json:"url"` // 跳转 URL
+	URL         string    `json:"url"` 
 }
 
 // WorkbenchToday 今日业绩
@@ -55,7 +36,7 @@ type WorkbenchToday struct {
 
 // WorkbenchMonth 本月业绩
 type WorkbenchMonth struct {
-	Month          string  `json:"month"` // YYYY-MM
+	Month          string  `json:"month"` 
 	TotalOrders    int     `json:"total_orders"`
 	TotalRevenue   float64 `json:"total_revenue"`
 	FollowUps      int     `json:"follow_ups"`
@@ -67,13 +48,13 @@ type WorkbenchMonth struct {
 
 // WorkbenchKeyMetrics 关键指标
 type WorkbenchKeyMetrics struct {
-	RenewalRate      float64 `json:"renewal_rate"`      // 续约率
-	AvgDealAmount    float64 `json:"avg_deal_amount"`   // 客单价
-	RepurchaseRate   float64 `json:"repurchase_rate"`   // 复购率
-	ChurnRate        float64 `json:"churn_rate"`        // 流失率
-	AIAssistRate     float64 `json:"ai_assist_rate"`    // AI 辅助率
-	ActiveCustomers  int     `json:"active_customers"`  // 活跃客户
-	DormantCustomers int     `json:"dormant_customers"` // 沉睡客户
+	RenewalRate      float64 `json:"renewal_rate"`      
+	AvgDealAmount    float64 `json:"avg_deal_amount"`   
+	RepurchaseRate   float64 `json:"repurchase_rate"`   
+	ChurnRate        float64 `json:"churn_rate"`        
+	AIAssistRate     float64 `json:"ai_assist_rate"`    
+	ActiveCustomers  int     `json:"active_customers"`  
+	DormantCustomers int     `json:"dormant_customers"` 
 }
 
 // WorkbenchOverview 工作台首页综合数据
@@ -96,7 +77,6 @@ type WorkbenchOverview struct {
 type SalesWorkbenchService struct {
 	mu sync.RWMutex
 
-	// 下游依赖
 	dashboard *SalesDashboard
 	journey   *CustomerJourneyService
 	followup  *FollowUpService
@@ -165,35 +145,27 @@ func (s *SalesWorkbenchService) GetOverview(ctx context.Context, salesID string)
 		Todos:       []*WorkbenchTodo{},
 	}
 
-	// 1. 待办清单（核心）
 	overview.Todos = s.aggregateTodos(ctx, salesID, dash, followup, draft)
 
-	// 2. 今日业绩
 	overview.Today = s.aggregateToday(ctx, salesID, dash, todayStart)
 
-	// 3. 本月业绩
 	overview.Month = s.aggregateMonth(ctx, salesID, dash, monthStart)
 
-	// 4. AI 产能
 	if dash != nil {
 		overview.AIProduct = dash.GetAIProductivity(context.Background(), monthStart)
 	}
 
-	// 5. 客户漏斗（使用 dashboard 的旅程漏斗，纯内存）
 	if dash != nil {
 		overview.Funnel = dash.FunnelByJourney(context.Background())
 	}
 
-	// 6. 销冠排行
 	if dash != nil {
 		overview.Leaderboard = dash.GetTeamRanking(context.Background(), monthStart, 5)
 		overview.MyRank = s.findMyRank(ctx, overview.Leaderboard, salesID)
 	}
 
-	// 7. 关键指标
 	overview.Metrics = s.aggregateMetrics(ctx, salesID, dash, journey, tagger, monthStart)
 
-	// 8. 销售档案
 	if dash != nil {
 		perf := dash.GetSalesPerformance(context.Background(), salesID, time.Time{})
 		if perf != nil {
@@ -210,7 +182,6 @@ func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID stri
 	todos := make([]*WorkbenchTodo, 0)
 	now := time.Now()
 
-	// 1) 待确认草稿（优先级 5：直接关系收入）
 	if draft != nil {
 		for _, d := range draft.ListPending(context.Background(), salesID, 0) {
 			todos = append(todos, &WorkbenchTodo{
@@ -228,10 +199,8 @@ func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID stri
 		}
 	}
 
-	// 2) 今日待跟进（优先级 4）
 	if followup != nil {
 		for _, r := range followup.ListPending(context.Background(), salesID, 0) {
-			// 只取今日的
 			if r.DueAt.Before(todayStart(now)) || r.Status != "pending" {
 				continue
 			}
@@ -254,7 +223,6 @@ func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID stri
 				URL:         "/dashboard/followups/" + r.ID,
 			})
 		}
-		// 逾期未完成也展示（优先级 5）
 		for _, r := range followup.ListOverdue(context.Background(), salesID) {
 			todos = append(todos, &WorkbenchTodo{
 				Type:        "followup",
@@ -271,7 +239,6 @@ func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID stri
 		}
 	}
 
-	// 排序：优先级降序 + DueAt 升序
 	sort.Slice(todos, func(i, j int) bool {
 		if todos[i].Priority != todos[j].Priority {
 			return todos[i].Priority > todos[j].Priority
@@ -279,7 +246,6 @@ func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID stri
 		return todos[i].DueAt.Before(todos[j].DueAt)
 	})
 
-	// 限制数量（避免一次返回太多）
 	if len(todos) > 50 {
 		todos = todos[:50]
 	}
@@ -384,7 +350,6 @@ func (s *SalesWorkbenchService) aggregateMetrics(ctx context.Context, salesID st
 	}
 	dash.mu.RLock()
 	defer dash.mu.RUnlock()
-	// 复购率 = 复购订单 / 总订单
 	totalOrders := 0
 	repurchaseOrders := 0
 	uniqueCustomers := make(map[string]bool)
@@ -397,7 +362,6 @@ func (s *SalesWorkbenchService) aggregateMetrics(ctx context.Context, salesID st
 		}
 		totalOrders++
 		uniqueCustomers[o.CustomerID] = true
-		// 简单逻辑：客户已有 2+ 订单视为复购
 		count := 0
 		for _, oo := range dash.orders {
 			if oo.CustomerID == o.CustomerID && oo.OwnerID == salesID {
@@ -410,11 +374,10 @@ func (s *SalesWorkbenchService) aggregateMetrics(ctx context.Context, salesID st
 	}
 	if totalOrders > 0 {
 		metrics.RepurchaseRate = float64(repurchaseOrders) / float64(totalOrders) * 100
-		metrics.AvgDealAmount = 0 // 月业绩里有
+		metrics.AvgDealAmount = 0 
 	}
 	metrics.ActiveCustomers = len(uniqueCustomers)
 
-	// 沉睡客户数
 	if journey != nil {
 		journey.mu.RLock()
 		dormant := 0
@@ -427,7 +390,6 @@ func (s *SalesWorkbenchService) aggregateMetrics(ctx context.Context, salesID st
 		metrics.DormantCustomers = dormant
 	}
 
-	// AI 辅助率
 	aiCount := 0
 	totalCount := 0
 	for _, f := range dash.followups {
@@ -463,9 +425,6 @@ func todayStart(now time.Time) time.Time {
 	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 }
 
-// ============================================================================
-// 子页面：工作台各模块独立查询
-// ============================================================================
 
 // GetTodosOnly 仅查询待办（前端轮询使用）
 func (s *SalesWorkbenchService) GetTodosOnly(ctx context.Context, salesID string) []*WorkbenchTodo {
@@ -497,3 +456,4 @@ type QuickAction struct {
 	URL   string `json:"url"`
 	Badge int    `json:"badge"`
 }
+

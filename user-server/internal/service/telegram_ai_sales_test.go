@@ -29,16 +29,12 @@ func setupTelegramTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// =============================================================================
-// dispatchTelegram: 入群事件解析 + 写入 MessageHub
-// =============================================================================
 
 // TestDispatchTelegram_JoinEvent_NewChatMembers 验证 TG 入群事件被正确解析并写入消息中台
 func TestDispatchTelegram_JoinEvent_NewChatMembers(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	svc := &WebhookService{db: db}
 
-	// 构造 Telegram new_chat_members webhook payload
 	payload := []byte(`{
 		"update_id": 1001,
 		"message": {
@@ -73,7 +69,6 @@ func TestDispatchTelegram_JoinEvent_NewChatMembers(t *testing.T) {
 	if hub.AccountID != "1" {
 		t.Errorf("expected account_id=1, got %s", hub.AccountID)
 	}
-	// 验证 MsgID 包含 chat_id 和 user_id（用于幂等去重）
 	expectedMsgID := fmt.Sprintf("tg_join_%d_%d", -1001234567890, 8888)
 	if hub.MsgID != expectedMsgID {
 		t.Errorf("expected msg_id=%s, got %s", expectedMsgID, hub.MsgID)
@@ -87,7 +82,6 @@ func TestDispatchTelegram_JoinEvent_NewChatMembers(t *testing.T) {
 	if hub.GroupID != "-1001234567890" {
 		t.Errorf("expected group_id=-1001234567890, got %s", hub.GroupID)
 	}
-	// 验证事件内容包含用户名
 	if hub.Content == "" {
 		t.Error("expected non-empty event content")
 	}
@@ -123,8 +117,6 @@ func TestDispatchTelegram_JoinEvent_OnlyBotsSkipped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
-	// 仅 bot 入群时不应写入"入群事件"类型的消息
-	// 代码会 fallthrough 到普通消息处理，可能产生一条 text 类型记录，但不应有 event 类型
 	if hub != nil && hub.MsgType == "event" {
 		t.Errorf("expected no event-type hub when only bots joined, got event: %+v", hub)
 	}
@@ -264,9 +256,6 @@ func TestDispatchTelegram_SystemNotification_Skipped(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// shouldTriggerAI: TG 账号 智能体开关判定
-// =============================================================================
 
 // TestShouldTriggerAI_TelegramAccountStates 验证不同状态的 TG 账号触发判定
 func TestShouldTriggerAI_TelegramAccountStates(t *testing.T) {
@@ -309,7 +298,7 @@ func TestShouldTriggerAI_TelegramAccountStates(t *testing.T) {
 				AccountName:    "disabled-bot",
 				BotToken:       "token-3",
 				AIAgentEnabled: true,
-				Status:         2, // 停用
+				Status:         2, 
 			},
 			accountID:       "3",
 			expectedTrigger: false,
@@ -327,7 +316,6 @@ func TestShouldTriggerAI_TelegramAccountStates(t *testing.T) {
 		},
 	}
 
-	// 插入前 3 个测试账号
 	for i, c := range cases {
 		if i == 3 {
 			break
@@ -342,7 +330,7 @@ func TestShouldTriggerAI_TelegramAccountStates(t *testing.T) {
 			svc := &WebhookService{
 				db:           db,
 				telegramRepo: tgRepo,
-				salesEngine:  &SalesEngine{}, // 非 nil 即可触发判定
+				salesEngine:  &SalesEngine{}, 
 			}
 			got := svc.shouldTriggerAI(context.Background(), ChannelTelegram, c.accountID)
 			if got != c.expectedTrigger {
@@ -388,29 +376,22 @@ func TestShouldTriggerAI_InvalidAccountIDReturnsFalse(t *testing.T) {
 		telegramRepo: tgRepo,
 		salesEngine:  &SalesEngine{},
 	}
-	// 非数字
 	if svc.shouldTriggerAI(context.Background(), ChannelTelegram, "abc") {
 		t.Error("expected false for non-numeric accountID")
 	}
-	// 0
 	if svc.shouldTriggerAI(context.Background(), ChannelTelegram, "0") {
 		t.Error("expected false for accountID=0")
 	}
-	// 空
 	if svc.shouldTriggerAI(context.Background(), ChannelTelegram, "") {
 		t.Error("expected false for empty accountID")
 	}
 }
 
-// =============================================================================
-// triggerTelegramJoinSales: 入群触发 智能体流程
-// =============================================================================
 
 // TestTriggerTelegramJoinSales_NilSalesEngineNoCrash 验证 salesEngine 为 nil 时安全返回
 func TestTriggerTelegramJoinSales_NilSalesEngineNoCrash(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	svc := &WebhookService{db: db, salesEngine: nil}
-	// 不应 panic
 	svc.triggerTelegramJoinSales(context.Background(), "1", "-1001234567890", "8888", "新用户加入群组")
 }
 
@@ -419,7 +400,6 @@ func TestTriggerTelegramJoinSales_ShouldNotTriggerWhenAIDisabled(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	tgRepo := repository.NewTelegramAccountRepository()
 	tgRepo.SetDB(context.Background(), db)
-	// 创建一个 AI 关闭的账号
 	acc := &model.TelegramAccount{
 		AccountName:    "ai-off",
 		BotToken:       "tok",
@@ -432,15 +412,11 @@ func TestTriggerTelegramJoinSales_ShouldNotTriggerWhenAIDisabled(t *testing.T) {
 	svc := &WebhookService{
 		db:           db,
 		telegramRepo: tgRepo,
-		salesEngine:  &SalesEngine{}, // 非 nil 但 AI 关闭
+		salesEngine:  &SalesEngine{}, 
 	}
-	// 不应 panic，也不应调用 salesEngine.Handle
 	svc.triggerTelegramJoinSales(context.Background(), "1", "-1001234567890", "8888", "新用户加入群组")
 }
 
-// =============================================================================
-// WebhookService 入站接收：TG 入群事件完整链路（不依赖外部 Telegram）
-// =============================================================================
 
 // TestWebhookService_Receive_TelegramJoinEvent 验证完整 Receive 链路处理 TG 入群事件
 // 跳过验签（无 secret 时直接通过）→ 解析 → 入队 → 处理
@@ -479,9 +455,6 @@ func TestWebhookService_Receive_TelegramJoinEvent(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// TelegramAccount 仓库 CRUD：确保数据持久化正常
-// =============================================================================
 
 // TestTelegramAccountRepository_CRUD 验证 TG 账号仓库 CRUD 操作
 func TestTelegramAccountRepository_CRUD(t *testing.T) {
@@ -489,7 +462,6 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 	repo := repository.NewTelegramAccountRepository()
 	repo.SetDB(context.Background(), db)
 
-	// Create
 	acc := &model.TelegramAccount{
 		AccountName:    "crud-test-bot",
 		BotToken:       "123456:ABC-DEF",
@@ -506,7 +478,6 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 		t.Fatal("expected ID populated after create")
 	}
 
-	// GetByID
 	got, err := repo.GetByID(context.Background(), acc.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
@@ -518,7 +489,6 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 		t.Error("expected flags preserved")
 	}
 
-	// GetAll
 	all, err := repo.GetAll(context.Background())
 	if err != nil {
 		t.Fatalf("all: %v", err)
@@ -527,7 +497,6 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 		t.Errorf("expected 1 account, got %d", len(all))
 	}
 
-	// Update
 	got.AIAgentEnabled = false
 	got.LastErrorMsg = "test error"
 	if err := repo.Update(context.Background(), got); err != nil {
@@ -541,7 +510,6 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 		t.Errorf("expected last_error_msg=test error, got %s", updated.LastErrorMsg)
 	}
 
-	// Delete
 	if err := repo.Delete(context.Background(), acc.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
@@ -550,3 +518,4 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 		t.Errorf("expected 0 after delete, got %d", len(all2))
 	}
 }
+

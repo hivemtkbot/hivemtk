@@ -116,13 +116,11 @@ func TestLiveCodeService_Create_DuplicateShortLink(t *testing.T) {
 		Status:          1,
 	}
 
-	// 创建第一个活码
 	_, err := service.Create(context.Background(), req)
 	if err != nil {
 		t.Fatalf("First Create failed: %v", err)
 	}
 
-	// 尝试创建重复短链的活码
 	_, err = service.Create(context.Background(), req)
 	if err == nil {
 		t.Error("Expected error for duplicate short link")
@@ -141,7 +139,7 @@ func TestLiveCodeService_Create_InvalidShortDomain(t *testing.T) {
 	req := &dto.CreateLiveCodeRequest{
 		Name:            "测试活码",
 		ShortLink:       "test-link",
-		ShortDomainID:   99999, // 不存在的域名 ID
+		ShortDomainID:   99999, 
 		EntryDomainID:   entryDomain.ID,
 		LandingDomainID: landingDomain.ID,
 		Status:          1,
@@ -166,7 +164,7 @@ func TestLiveCodeService_Create_InvalidEntryDomain(t *testing.T) {
 		Name:            "测试活码",
 		ShortLink:       "test-link",
 		ShortDomainID:   shortDomain.ID,
-		EntryDomainID:   99999, // 不存在的域名 ID
+		EntryDomainID:   99999, 
 		LandingDomainID: landingDomain.ID,
 		Status:          1,
 	}
@@ -191,7 +189,7 @@ func TestLiveCodeService_Create_InvalidLandingDomain(t *testing.T) {
 		ShortLink:       "test-link",
 		ShortDomainID:   shortDomain.ID,
 		EntryDomainID:   entryDomain.ID,
-		LandingDomainID: 99999, // 不存在的域名 ID
+		LandingDomainID: 99999, 
 		Status:          1,
 	}
 
@@ -209,7 +207,6 @@ func TestLiveCodeService_Create_DisabledDomain(t *testing.T) {
 	database := setupLiveCodeServiceTestDB(t)
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 
-	// 将短链域名设置为不可用
 	shortDomain.Status = 2
 	database.Save(shortDomain)
 
@@ -239,7 +236,6 @@ func TestLiveCodeService_Update(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "旧名称",
 		ShortLink:       "old-link",
@@ -250,7 +246,6 @@ func TestLiveCodeService_Update(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 更新活码
 	updateReq := &dto.UpdateLiveCodeRequest{
 		Name:      "新名称",
 		ShortLink: "new-link",
@@ -294,7 +289,6 @@ func TestLiveCodeService_Update_DuplicateShortLink(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建第一个活码
 	createReq1 := &dto.CreateLiveCodeRequest{
 		Name:            "活码 1",
 		ShortLink:       "link-1",
@@ -305,7 +299,6 @@ func TestLiveCodeService_Update_DuplicateShortLink(t *testing.T) {
 	}
 	_, _ = service.Create(context.Background(), createReq1)
 
-	// 创建第二个活码
 	createReq2 := &dto.CreateLiveCodeRequest{
 		Name:            "活码 2",
 		ShortLink:       "link-2",
@@ -316,7 +309,6 @@ func TestLiveCodeService_Update_DuplicateShortLink(t *testing.T) {
 	}
 	response2, _ := service.Create(context.Background(), createReq2)
 
-	// 尝试将第二个活码的短链更新为第一个活码的短链
 	updateReq := &dto.UpdateLiveCodeRequest{
 		ShortLink: "link-1",
 	}
@@ -336,7 +328,6 @@ func TestLiveCodeService_Update_SameShortLink(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "活码 1",
 		ShortLink:       "link-1",
@@ -347,10 +338,9 @@ func TestLiveCodeService_Update_SameShortLink(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 更新时使用相同的短链（应该成功）
 	updateReq := &dto.UpdateLiveCodeRequest{
 		Name:      "新名称",
-		ShortLink: "link-1", // 相同的短链
+		ShortLink: "link-1", 
 	}
 
 	_, err := service.Update(context.Background(), response.ID, updateReq)
@@ -365,7 +355,6 @@ func TestLiveCodeService_Delete(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "待删除活码",
 		ShortLink:       "to-delete",
@@ -376,13 +365,11 @@ func TestLiveCodeService_Delete(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 删除活码
 	err := service.Delete(context.Background(), response.ID)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	// 验证已删除
 	_, err = service.GetByID(context.Background(), response.ID)
 	if err == nil {
 		t.Error("Expected error for deleted live code")
@@ -409,7 +396,6 @@ func TestLiveCodeService_GetByID(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "测试活码",
 		ShortLink:       "test-get",
@@ -420,7 +406,6 @@ func TestLiveCodeService_GetByID(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 获取活码
 	retrieved, err := service.GetByID(context.Background(), response.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
@@ -455,7 +440,6 @@ func TestLiveCodeService_GetByShortLink(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "测试活码",
 		ShortLink:       "test-short-link",
@@ -466,7 +450,6 @@ func TestLiveCodeService_GetByShortLink(t *testing.T) {
 	}
 	_, _ = service.Create(context.Background(), createReq)
 
-	// 获取活码
 	retrieved, err := service.GetByShortLink(context.Background(), "test-short-link")
 	if err != nil {
 		t.Fatalf("GetByShortLink failed: %v", err)
@@ -497,7 +480,6 @@ func TestLiveCodeService_GetList(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建多个活码
 	for i := 0; i < 5; i++ {
 		createReq := &dto.CreateLiveCodeRequest{
 			Name:            "活码" + string(rune('0'+i)),
@@ -510,7 +492,6 @@ func TestLiveCodeService_GetList(t *testing.T) {
 		_, _ = service.Create(context.Background(), createReq)
 	}
 
-	// 获取列表
 	list, total, err := service.GetList(context.Background(), 1, 10, "", "")
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
@@ -531,7 +512,6 @@ func TestLiveCodeService_GetList_WithNameFilter(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建多个活码
 	createReq1 := &dto.CreateLiveCodeRequest{
 		Name:            "测试活码 1",
 		ShortLink:       "test-link-1",
@@ -562,7 +542,6 @@ func TestLiveCodeService_GetList_WithNameFilter(t *testing.T) {
 	}
 	_, _ = service.Create(context.Background(), createReq3)
 
-	// 获取列表（带名称过滤）
 	_, total, err := service.GetList(context.Background(), 1, 10, "测试", "")
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
@@ -579,7 +558,6 @@ func TestLiveCodeService_GetList_WithStatusFilter(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建启用的活码
 	createReq1 := &dto.CreateLiveCodeRequest{
 		Name:            "启用活码",
 		ShortLink:       "enabled-link",
@@ -590,7 +568,6 @@ func TestLiveCodeService_GetList_WithStatusFilter(t *testing.T) {
 	}
 	_, _ = service.Create(context.Background(), createReq1)
 
-	// 创建禁用的活码
 	createReq2 := &dto.CreateLiveCodeRequest{
 		Name:            "禁用活码",
 		ShortLink:       "disabled-link",
@@ -601,19 +578,15 @@ func TestLiveCodeService_GetList_WithStatusFilter(t *testing.T) {
 	}
 	_, _ = service.Create(context.Background(), createReq2)
 
-	// 获取列表（带状态过滤）- 注意：status 参数是字符串，但 repository 中会直接与数据库比较
-	// 在 PostgreSQL 中，需要确保类型一致
 	list, total, err := service.GetList(context.Background(), 1, 10, "", "1")
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
 
-	// 验证总数（类型相关行为，PG 下需保持一致）
 	if len(list) < 1 {
 		t.Errorf("Expected at least 1 enabled item, got %d", len(list))
 	}
 
-	// 验证所有返回的项都是启用状态
 	for _, item := range list {
 		if item.Status != 1 {
 			t.Errorf("Expected all items to have status 1, got %d", item.Status)
@@ -628,7 +601,6 @@ func TestLiveCodeService_GetStats(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "统计测试活码",
 		ShortLink:       "stats-link",
@@ -639,10 +611,8 @@ func TestLiveCodeService_GetStats(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 直接通过 SQL 更新统计数据
 	database.Exec("UPDATE live_codes SET total_views = 100, today_views = 20, total_clicks = 50, daily_clicks = 10 WHERE id = ?", response.ID)
 
-	// 获取统计
 	stats, err := service.GetStats(context.Background(), response.ID)
 	if err != nil {
 		t.Fatalf("GetStats failed: %v", err)
@@ -685,7 +655,6 @@ func TestLiveCodeService_GenerateQRCode(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "二维码测试活码",
 		ShortLink:       "qr-test-link",
@@ -696,7 +665,6 @@ func TestLiveCodeService_GenerateQRCode(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 生成二维码
 	generateReq := &dto.GenerateQRCodeRequest{
 		ExpireDays: 7,
 		Status:     1,
@@ -749,7 +717,6 @@ func TestLiveCodeService_GetQRCodes(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "二维码列表测试活码",
 		ShortLink:       "qr-list-link",
@@ -760,7 +727,6 @@ func TestLiveCodeService_GetQRCodes(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 生成多个二维码
 	for i := 0; i < 3; i++ {
 		generateReq := &dto.GenerateQRCodeRequest{
 			ExpireDays: 7,
@@ -769,7 +735,6 @@ func TestLiveCodeService_GetQRCodes(t *testing.T) {
 		_, _ = service.GenerateQRCode(context.Background(), response.ID, generateReq)
 	}
 
-	// 获取二维码列表
 	qrCodes, err := service.GetQRCodes(context.Background(), response.ID)
 	if err != nil {
 		t.Fatalf("GetQRCodes failed: %v", err)
@@ -800,7 +765,6 @@ func TestLiveCodeService_GetQRStats(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "二维码统计测试活码",
 		ShortLink:       "qr-stats-link",
@@ -811,14 +775,12 @@ func TestLiveCodeService_GetQRStats(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 生成二维码
 	generateReq := &dto.GenerateQRCodeRequest{
 		ExpireDays: 7,
 		Status:     1,
 	}
 	qrResponse, _ := service.GenerateQRCode(context.Background(), response.ID, generateReq)
 
-	// 获取统计
 	stats, err := service.GetQRStats(context.Background(), qrResponse.ID)
 	if err != nil {
 		t.Fatalf("GetQRStats failed: %v", err)
@@ -857,7 +819,6 @@ func TestLiveCodeService_Share(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "分享测试活码",
 		ShortLink:       "share-link",
@@ -868,14 +829,12 @@ func TestLiveCodeService_Share(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 生成二维码
 	generateReq := &dto.GenerateQRCodeRequest{
 		ExpireDays: 7,
 		Status:     1,
 	}
 	qrResponse, _ := service.GenerateQRCode(context.Background(), response.ID, generateReq)
 
-	// 分享活码
 	shareReq := &dto.ShareLiveCodeRequest{
 		IPAddress: "192.168.1.1",
 		UserAgent: "Mozilla/5.0",
@@ -920,7 +879,6 @@ func TestLiveCodeService_Share_NoAvailableQR(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "分享测试活码",
 		ShortLink:       "share-no-qr-link",
@@ -931,7 +889,6 @@ func TestLiveCodeService_Share_NoAvailableQR(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 不生成二维码，直接分享
 	shareReq := &dto.ShareLiveCodeRequest{
 		IPAddress: "192.168.1.1",
 		UserAgent: "Mozilla/5.0",
@@ -952,7 +909,6 @@ func TestLiveCodeService_DeleteQRCode(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "删除二维码测试活码",
 		ShortLink:       "delete-qr-link",
@@ -963,20 +919,17 @@ func TestLiveCodeService_DeleteQRCode(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 生成二维码
 	generateReq := &dto.GenerateQRCodeRequest{
 		ExpireDays: 7,
 		Status:     1,
 	}
 	qrResponse, _ := service.GenerateQRCode(context.Background(), response.ID, generateReq)
 
-	// 删除二维码
 	err := service.DeleteQRCode(context.Background(), qrResponse.ID)
 	if err != nil {
 		t.Fatalf("DeleteQRCode failed: %v", err)
 	}
 
-	// 验证已删除
 	_, err = service.GetQRStats(context.Background(), qrResponse.ID)
 	if err == nil {
 		t.Error("Expected error for deleted QR code")
@@ -1003,7 +956,6 @@ func TestLiveCodeService_UpdateQRCode(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "更新二维码测试活码",
 		ShortLink:       "update-qr-link",
@@ -1014,14 +966,12 @@ func TestLiveCodeService_UpdateQRCode(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 生成二维码
 	generateReq := &dto.GenerateQRCodeRequest{
 		ExpireDays: 7,
 		Status:     1,
 	}
 	qrResponse, _ := service.GenerateQRCode(context.Background(), response.ID, generateReq)
 
-	// 更新二维码
 	newStatus := 0
 	newExpireDays := 30
 	updateReq := &dto.UpdateLiveCodeQRRequest{
@@ -1069,7 +1019,6 @@ func TestLiveCodeService_RotateLiveCodes(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "轮询测试活码",
 		ShortLink:       "rotate-link",
@@ -1080,7 +1029,6 @@ func TestLiveCodeService_RotateLiveCodes(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 轮询活码
 	err := service.RotateLiveCodes(context.Background())
 	if err != nil {
 		t.Fatalf("RotateLiveCodes failed: %v", err)
@@ -1100,7 +1048,6 @@ func TestLiveCodeService_RotateLiveCodes_DailyLimitReached(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码并设置每日点击量超过限制
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "轮询限制测试活码",
 		ShortLink:       "rotate-limit-link",
@@ -1117,7 +1064,6 @@ func TestLiveCodeService_RotateLiveCodes_DailyLimitReached(t *testing.T) {
 	liveCode.DailyClicks = 200
 	database.Save(&liveCode)
 
-	// 轮询活码
 	err := service.RotateLiveCodes(context.Background())
 	if err != nil {
 		t.Fatalf("RotateLiveCodes failed: %v", err)
@@ -1126,8 +1072,6 @@ func TestLiveCodeService_RotateLiveCodes_DailyLimitReached(t *testing.T) {
 	// 验证没有生成新的二维码（因为达到每日限制）
 	var count int64
 	database.Model(&model.LiveCodeQR{}).Where("live_code_id = ?", response.ID).Count(&count)
-	// 注意：由于模型中 DailyClicks 字段可能存在，但轮询逻辑检查的是 DailyClicks >= 200
-	// 所以这里应该没有新的二维码生成
 	_ = count
 }
 
@@ -1137,7 +1081,6 @@ func TestLiveCodeService_RecordClick(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "点击测试活码",
 		ShortLink:       "click-link",
@@ -1148,14 +1091,12 @@ func TestLiveCodeService_RecordClick(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 生成二维码
 	generateReq := &dto.GenerateQRCodeRequest{
 		ExpireDays: 7,
 		Status:     1,
 	}
 	qrResponse, _ := service.GenerateQRCode(context.Background(), response.ID, generateReq)
 
-	// 记录点击
 	err := service.RecordClick(context.Background(), qrResponse.ID, "203.0.113.7", "Mozilla/5.0", "https://referrer.com")
 	if err != nil {
 		t.Fatalf("RecordClick failed: %v", err)
@@ -1182,7 +1123,6 @@ func TestLiveCodeService_RecordClick(t *testing.T) {
 		t.Errorf("Expected 1 QR code click audit log, got %d", qrClickLog)
 	}
 
-	// 验证 GetStats 返回真实非零的二维码点击数
 	stats, err := service.GetStats(context.Background(), response.ID)
 	if err != nil {
 		t.Fatalf("GetStats failed: %v", err)
@@ -1191,7 +1131,6 @@ func TestLiveCodeService_RecordClick(t *testing.T) {
 		t.Errorf("Expected TotalQRClicks >= 1, got %d", stats.TotalQRClicks)
 	}
 
-	// 验证 GetQRStats 返回真实非零点击数
 	qrStats, err := service.GetQRStats(context.Background(), qrResponse.ID)
 	if err != nil {
 		t.Fatalf("GetQRStats failed: %v", err)
@@ -1217,7 +1156,6 @@ func TestLiveCodeService_RecordClick_LiveCodeNotFound(t *testing.T) {
 	database := setupLiveCodeServiceTestDB(t)
 	service := newTestLiveCodeService(database)
 
-	// 创建一个不存在的活码 ID 对应的二维码记录（用于模拟场景）
 	qrCode := &model.LiveCodeQR{
 		ID:         "test-qr-id",
 		LiveCodeID: "non-existent-live-code-id",
@@ -1263,7 +1201,6 @@ func TestLiveCodeService_GetList_Pagination(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建 15 个活码
 	for i := 0; i < 15; i++ {
 		createReq := &dto.CreateLiveCodeRequest{
 			Name:            "活码" + string(rune('A'+i)),
@@ -1276,7 +1213,6 @@ func TestLiveCodeService_GetList_Pagination(t *testing.T) {
 		_, _ = service.Create(context.Background(), createReq)
 	}
 
-	// 获取第一页（10 条）
 	list1, total1, err := service.GetList(context.Background(), 1, 10, "", "")
 	if err != nil {
 		t.Fatalf("GetList page 1 failed: %v", err)
@@ -1290,7 +1226,6 @@ func TestLiveCodeService_GetList_Pagination(t *testing.T) {
 		t.Errorf("Expected 10 items on page 1, got %d", len(list1))
 	}
 
-	// 获取第二页（5 条）
 	list2, total2, err := service.GetList(context.Background(), 2, 10, "", "")
 	if err != nil {
 		t.Fatalf("GetList page 2 failed: %v", err)
@@ -1309,7 +1244,6 @@ func TestLiveCodeService_GetList_Pagination(t *testing.T) {
 func TestLiveCodeService_FullShortLink_HTTP(t *testing.T) {
 	database := setupLiveCodeServiceTestDB(t)
 
-	// 创建 HTTP 端口的域名
 	shortDomain := &model.DomainPool{
 		Domain: "http.example.com",
 		Port:   80,
@@ -1331,7 +1265,6 @@ func TestLiveCodeService_FullShortLink_HTTP(t *testing.T) {
 
 	service := newTestLiveCodeService(database)
 
-	// 创建活码
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "HTTP 测试活码",
 		ShortLink:       "http-link",
@@ -1342,7 +1275,6 @@ func TestLiveCodeService_FullShortLink_HTTP(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 验证基本信息
 	if response.Name != "HTTP 测试活码" {
 		t.Errorf("Expected name 'HTTP 测试活码', got %s", response.Name)
 	}
@@ -1366,7 +1298,6 @@ func TestLiveCodeService_EmptyResponseFields(t *testing.T) {
 	shortDomain, entryDomain, landingDomain := createTestDomains(t, database)
 	service := newTestLiveCodeService(database)
 
-	// 创建活码时使用空值
 	createReq := &dto.CreateLiveCodeRequest{
 		Name:            "空字段测试活码",
 		ShortLink:       "empty-fields-link",
@@ -1395,3 +1326,4 @@ func TestLiveCodeService_EmptyResponseFields(t *testing.T) {
 		t.Errorf("Expected empty LandingURL, got %s", response.LandingURL)
 	}
 }
+

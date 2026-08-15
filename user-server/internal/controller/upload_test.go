@@ -122,10 +122,6 @@ func TestUploadFile_Success_ZIP(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// ZIP and DOCX share the same magic number (PK format).
-	// The function may detect this as ".zip" or ".docx" non-deterministically.
-	// If detected as ".docx", the type mismatch check rejects it.
-	// This is a known limitation of magic-number-based detection for ZIP-based formats.
 	if w.Code != http.StatusOK {
 		t.Logf("NOTE: ZIP upload may fail due to magic number overlap with DOCX: %s", w.Body.String())
 	}
@@ -337,7 +333,6 @@ func TestDetectFileTypeByMagicNumber(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if strings.Contains(tt.want, "|") {
-				// Multiple possible results (e.g., ZIP magic matches both .zip and .docx)
 				parts := strings.Split(tt.want, "|")
 				got := detectFileTypeByMagicNumber(tt.data)
 				found := false
@@ -498,10 +493,6 @@ func TestScanFileContent_NotFound(t *testing.T) {
 }
 
 func TestUploadFile_Docx_Uses_ZIP_Format(t *testing.T) {
-	// BUG: Real .docx files are ZIP archives. The magic number detection
-	// returns ".zip" for .docx content, but the validation incorrectly
-	// rejects it despite having an isOfficeDocument() exception check.
-	// This test documents the expected behavior (should pass).
 	setupUploadTestDir(t)
 	router := newUploadRouter(t)
 	zipMagic := []byte{0x50, 0x4B, 0x03, 0x04, 0x00, 0x00, 0x00, 0x00}
@@ -509,8 +500,6 @@ func TestUploadFile_Docx_Uses_ZIP_Format(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Expected: should accept (docx is a ZIP-based format)
-	// Actual: rejects with "文件类型与内容不匹配"
 	if w.Code == http.StatusOK {
 		t.Log("PASS: .docx with ZIP magic accepted")
 	} else {
@@ -519,10 +508,6 @@ func TestUploadFile_Docx_Uses_ZIP_Format(t *testing.T) {
 }
 
 func TestUploadFile_DangerousExtensions_AreDeadCode(t *testing.T) {
-	// BUG: dangerousExtensions check (step 4) is unreachable because
-	// the extension whitelist (step 3) rejects all dangerous extensions first.
-	// All entries in dangerousExtensions (.exe, .bat, .cmd, .sh, .php, etc.)
-	// are NOT in allowedExtensions, so they fail step 3 before reaching step 4.
 	dangerousExts := []string{".exe", ".bat", ".cmd", ".sh", ".php", ".jsp", ".asp", ".py", ".rb"}
 	for _, ext := range dangerousExts {
 		if isValidExtension(ext) {
@@ -532,9 +517,6 @@ func TestUploadFile_DangerousExtensions_AreDeadCode(t *testing.T) {
 }
 
 func TestUploadFile_MP4_NotInAllowedMIME(t *testing.T) {
-	// BUG: MP4 files are in allowedExtensions but video/mp4 is NOT in
-	// DefaultUploadConfig.AllowedTypes. The MIME check rejects them.
-	// The AllowedTypes string is missing video/* types.
 	allowed := DefaultUploadConfig.AllowedTypes
 	if strings.Contains(allowed, "video/mp4") {
 		t.Log("video/mp4 is in allowed types")
@@ -544,8 +526,6 @@ func TestUploadFile_MP4_NotInAllowedMIME(t *testing.T) {
 }
 
 func TestUploadFile_SVG_NotInAllowedMIME(t *testing.T) {
-	// BUG: SVG files are in allowedExtensions but image/svg+xml is not in
-	// DefaultUploadConfig.AllowedTypes. The MIME check rejects them.
 	allowed := DefaultUploadConfig.AllowedTypes
 	if strings.Contains(allowed, "image/svg+xml") {
 		t.Log("image/svg+xml is in allowed types")
@@ -555,8 +535,6 @@ func TestUploadFile_SVG_NotInAllowedMIME(t *testing.T) {
 }
 
 func TestUploadFile_RAR_NotInAllowedMIME(t *testing.T) {
-	// BUG: RAR files are in allowedExtensions but application/x-rar-compressed
-	// is not in DefaultUploadConfig.AllowedTypes. The MIME check rejects them.
 	allowed := DefaultUploadConfig.AllowedTypes
 	if strings.Contains(allowed, "rar") {
 		t.Log("rar type is in allowed types")
@@ -564,3 +542,4 @@ func TestUploadFile_RAR_NotInAllowedMIME(t *testing.T) {
 		t.Log("KNOWN BUG: rar MIME type not in allowed types but .rar is in allowed extensions")
 	}
 }
+

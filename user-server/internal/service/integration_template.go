@@ -68,7 +68,6 @@ func (s *IntegrationTemplateService) Update(ctx context.Context, id uint64, t *m
 		return err
 	}
 	if existing.BuiltIn {
-		// 内置模板：仅允许更新 auth_config / remark / enabled
 		updates := map[string]any{}
 		if t.AuthConfig != "" {
 			updates["auth_config"] = t.AuthConfig
@@ -77,7 +76,6 @@ func (s *IntegrationTemplateService) Update(ctx context.Context, id uint64, t *m
 			updates["remark"] = t.Remark
 		}
 		updates["enabled"] = t.Enabled
-		// 通过 repo.Update 不能走 map，这里改用 Update 走完整结构
 		existing.AuthConfig = t.AuthConfig
 		existing.Remark = t.Remark
 		existing.Enabled = t.Enabled
@@ -150,7 +148,6 @@ func (s *IntegrationTemplateService) Import(ctx context.Context, data []byte) (i
 	//  2) {"templates": [...]}  集合
 	var single model.IntegrationTemplate
 	if err := json.Unmarshal(data, &single); err == nil && single.Code != "" {
-		// 单个模板
 		single.ID = 0
 		if single.BuiltIn {
 			return 1, s.repo.UpsertBuiltIn(ctx, &single)
@@ -195,3 +192,4 @@ func (s *IntegrationTemplateService) SeedBuiltIn(ctx context.Context) (int, erro
 	}
 	return success, nil
 }
+

@@ -1,19 +1,5 @@
 package service
 
-// role.go 角色管理服务
-//
-// 五层架构归属：L3 业务逻辑层
-//
-// 设计依据（详见 docs/architecture/MENU_PERMISSION_PLAN.md v3.1 §3.2）：
-//   - 角色定义为 model.SystemRoles 常量（不持久化为独立表）
-//   - 角色管理 = 只读展示 + 成员数统计 + 成员列表
-//   - 业务校验失败返回 fmt.Errorf("...: %w", ErrInvalidInput)
-//   - 不调 db，只调 repository
-//
-// 业务能力：
-//   - ListRoles：列出 3 档系统角色（带成员数）
-//   - GetRole：按 code 取角色详情
-//   - ListMembersByRole：按角色分页查询成员
 
 import (
 	"context"
@@ -57,7 +43,6 @@ func (s *RoleService) ListRoles(ctx context.Context) ([]*RoleWithCount, error) {
 	for _, r := range model.SystemRoleList {
 		count, err := s.userRepo.CountByRole(ctx, r.Code)
 		if err != nil {
-			// 降级：统计失败不阻断列表，展示为 0
 			count = 0
 		}
 		roles = append(roles, &RoleWithCount{
@@ -114,3 +99,4 @@ func (s *RoleService) ListMembersByRole(ctx context.Context, code string, page, 
 	}
 	return users, total, nil
 }
+

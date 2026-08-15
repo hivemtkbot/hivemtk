@@ -12,7 +12,7 @@ type AuditLogger interface {
 }
 
 type AuditEntry struct {
-	TraceID       string        `json:"trace_id,omitempty"` // 贯穿 Agent Loop 的 trace_id
+	TraceID       string        `json:"trace_id,omitempty"` 
 	ToolName      string        `json:"tool_name"`
 	CallerID      string        `json:"caller_id"`
 	AgentID       string        `json:"agent_id,omitempty"`
@@ -23,13 +23,12 @@ type AuditEntry struct {
 	Duration      time.Duration `json:"duration_ms"`
 	RetryCount    int           `json:"retry_count"`
 	AuditTrace    string        `json:"audit_trace,omitempty"`
-	ArgsSummary   string        `json:"args_summary,omitempty"`   // 参数摘要（脱敏后）
-	ResultSummary string        `json:"result_summary,omitempty"` // 结果摘要（前 200 字符）
+	ArgsSummary   string        `json:"args_summary,omitempty"`   
+	ResultSummary string        `json:"result_summary,omitempty"` 
 	ExecutedAt    time.Time     `json:"executed_at"`
 }
 
 type CostTracker interface {
-	// Record 记录一次工具调用的成本
 	Record(ctx context.Context, toolName string, success bool, duration time.Duration) error
 }
 
@@ -184,3 +183,4 @@ type CostStats struct {
 	SuccessRate     float64 `json:"success_rate"`
 	AvgDurationMs   float64 `json:"avg_duration_ms"`
 }
+

@@ -61,27 +61,27 @@ const (
 
 	SOPNodeTypeSendOffer = "send_offer"
 
-	SOPNodeTypeGreeting = "greeting" // 问候
+	SOPNodeTypeGreeting = "greeting" 
 
-	SOPNodeTypeInquire = "inquire" // 询问需求
+	SOPNodeTypeInquire = "inquire" 
 
-	SOPNodeTypeIntroduce = "introduce" // 介绍产品
+	SOPNodeTypeIntroduce = "introduce" 
 
-	SOPNodeTypeHandle = "handle" // 异议处理
+	SOPNodeTypeHandle = "handle" 
 
-	SOPNodeTypeClose = "close" // 促单
+	SOPNodeTypeClose = "close" 
 
-	SOPNodeTypeInvite = "invite" // 邀约
+	SOPNodeTypeInvite = "invite" 
 
-	SOPNodeTypeFollowUp = "follow_up" // 跟进
+	SOPNodeTypeFollowUp = "follow_up" 
 
-	SOPNodeTypeActivate = "activate" // 激活沉默客户
+	SOPNodeTypeActivate = "activate" 
 
-	SOPNodeTypeNurture = "nurture" // 培育线索
+	SOPNodeTypeNurture = "nurture" 
 
-	SOPNodeTypeCondition = "condition" // 条件分支（替代旧 branch）
+	SOPNodeTypeCondition = "condition" 
 
-	SOPNodeTypeLLM = "llm" // LLM 决策节点
+	SOPNodeTypeLLM = "llm" 
 
 	SOPTriggerManual = "manual"
 
@@ -144,7 +144,6 @@ func (s *SOPService) TemplateFromActiveAsset(ctx context.Context, scenario strin
 }
 
 func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOPAgent, error) {
-	// M2 运行时覆盖默认：请求未携带 SOP 图时，回退到「生效中」的已购 industry_sop 资产作为默认模板。
 	if len(req.SOPGraph.Nodes) == 0 {
 		if tpl, ok := s.TemplateFromActiveAsset(ctx, req.Scenario); ok && tpl != nil {
 			req = tpl
@@ -153,8 +152,6 @@ func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOP
 	if err := s.validateGraph(ctx, &req.SOPGraph); err != nil {
 		return nil, err
 	}
-	// M2 运行时覆盖默认：请求未配置 A/B 测试时，回退到「生效中」的已购 ab_test_plan 资产
-	// 作为默认方案（仅当方案校验通过，避免引入非法配置）。
 	if !req.ABTestConfig.Enabled && len(req.ABTestConfig.Variants) == 0 {
 		if r := GetAssetResolver(); r != nil {
 			if plan, ok := r.GetActiveABPlan(ctx); ok && plan != nil {
@@ -164,7 +161,6 @@ func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOP
 			}
 		}
 	}
-	// 校验 A/B 测试配置（如启用）
 	if err := ValidateSOPABTestConfig(req.ABTestConfig); err != nil {
 		return nil, fmt.Errorf("A/B 测试配置非法：%w", err)
 	}
@@ -204,7 +200,6 @@ func (s *SOPService) Update(ctx context.Context, id uint, req *CreateRequest) (*
 	if err := s.validateGraph(ctx, &req.SOPGraph); err != nil {
 		return nil, err
 	}
-	// 校验 A/B 测试配置（如启用）
 	if err := ValidateSOPABTestConfig(req.ABTestConfig); err != nil {
 		return nil, fmt.Errorf("A/B 测试配置非法：%w", err)
 	}
@@ -293,13 +288,11 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 		return nil, errors.New("sop is not active")
 	}
 
-	// 解析 A/B 测试 variant（未启用时返回空，使用主图）
 	variantName, variantGraphID, err := s.resolveABTestVariant(context.Background(), agent, req.CustomerID)
 	if err != nil {
 		return nil, fmt.Errorf("A/B 测试分流失败：%w", err)
 	}
 
-	// 生成 trace_id（用于全链路追踪）
 	traceID := logger.TraceIDFromContext(ctx)
 	if traceID == "" {
 		traceID = logger.GenerateTraceID()
@@ -322,7 +315,6 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 	if err := s.execRepo.Create(ctx, exec); err != nil {
 		return nil, err
 	}
-	// 根据 variant 加载对应 SOP 图
 	graph, err := s.loadSOPGraph(context.Background(), agent, variantGraphID)
 	if err != nil {
 		return nil, err
@@ -338,11 +330,8 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 	if err := s.execRepo.Save(ctx, exec); err != nil {
 		return nil, err
 	}
-	// 累加 execution_count
 	_ = s.agentRepo.IncrementExecutionCount(ctx, agent.ID)
 
-	// 派发 start 节点到 SOPExecutionDispatcher
-	// 若调度器未初始化（如测试场景），仅返回 Execution，节点流转由调用方 Step 推进（向后兼容）
 	if dispatcher := GetSOPExecutionDispatcher(); dispatcher != nil {
 		dispatcher.DispatchOrLog(&dispatchTask{
 			ExecutionID: exec.ID,
@@ -366,7 +355,6 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 		return nil, ErrSOPExecNotRunning
 	}
 
-	// 输出合并到执行数据
 	if exec.ExecutionData == nil {
 		exec.ExecutionData = model.JSONMap{}
 	}
@@ -374,18 +362,14 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 		exec.ExecutionData[k] = v
 	}
 
-	// 清除 wait_event（客户回复唤醒）
 	if exec.WaitEvent != "" {
 		exec.WaitEvent = ""
 	}
 
-	// 持久化合并后的 ExecutionData
 	if err := s.execRepo.Save(ctx, exec); err != nil {
 		return nil, err
 	}
 
-	// 派发当前节点任务给调度器（客户回复唤醒场景）
-	// 调度器会重新执行当前 wait 节点，由 WaitExecutor 检测到 timer 已 fired 后推进下一节点
 	if dispatcher := GetSOPExecutionDispatcher(); dispatcher != nil {
 		traceID := exec.TraceID
 		if traceID == "" {
@@ -400,7 +384,6 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 		return exec, nil
 	}
 
-	// 调度器未初始化：保持原有同步推进逻辑（向后兼容）
 	agent, err := s.Get(ctx, exec.SOPID)
 	if err != nil {
 		return nil, err
@@ -425,7 +408,6 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 		return nil, err
 	}
 
-	// 找到当前节点
 	current := findNodeByID(&graph, exec.CurrentNode)
 	if current == nil {
 		exec.Status = SOPStatusFailed
@@ -433,7 +415,6 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 		_ = s.execRepo.Save(ctx, exec)
 		return exec, nil
 	}
-	// 决定下一个节点
 	next := nextNode(&graph, current, exec.ExecutionData)
 	if next == nil {
 		exec.Status = SOPStatusSuccess
@@ -494,7 +475,6 @@ func (s *SOPService) MatchByIntent(ctx context.Context, intentType string) ([]mo
 	if err != nil {
 		return nil, err
 	}
-	// 简单的匹配规则：trigger_config 中包含 intent 字段
 	matched := []model.SOPAgent{}
 	for _, a := range list {
 		if a.TriggerType != SOPTriggerIntent {
@@ -520,7 +500,6 @@ func (s *SOPService) Stats(ctx context.Context) (map[string]int64, error) {
 		"success": 0,
 		"failed":  0,
 	}
-	// 统计 SOP 智能体总数与活跃数
 	totalAgents, err := s.agentRepo.CountAll(ctx)
 	if err != nil {
 		return stats, err
@@ -529,7 +508,6 @@ func (s *SOPService) Stats(ctx context.Context) (map[string]int64, error) {
 	if err != nil {
 		return stats, err
 	}
-	// 统计执行记录：运行中、已完成、失败
 	runningExecs, err := s.execRepo.CountByStatus(ctx, SOPStatusRunning)
 	if err != nil {
 		return stats, err
@@ -568,14 +546,12 @@ func (s *SOPService) validateGraph(ctx context.Context, graph *SOPGraph) error {
 			return fmt.Errorf("duplicate node id: %s", n.ID)
 		}
 		ids[n.ID] = true
-		// 节点类型校验（支持 start/greeting/inquire/introduce/handle/close/invite/follow_up/activate/nurture/condition/llm/旧版类型）
 		if !SOPNodeSupportedTypes[n.Type] {
 			return fmt.Errorf("node %s has unsupported type: %s", n.ID, n.Type)
 		}
 		if n.Type == SOPNodeTypeStart {
 			hasStart = true
 		}
-		// condition 节点：校验 Conditions 分支的 Next 引用
 		if n.Type == SOPNodeTypeCondition {
 			for _, br := range n.Conditions {
 				if br.Next == "" {
@@ -593,7 +569,6 @@ func (s *SOPService) validateGraph(ctx context.Context, graph *SOPGraph) error {
 				return fmt.Errorf("node %s references missing node %s", n.ID, nextID)
 			}
 		}
-		// condition 节点的分支 Next 引用校验
 		if n.Type == SOPNodeTypeCondition {
 			for _, br := range n.Conditions {
 				if !ids[br.Next] {
@@ -602,7 +577,6 @@ func (s *SOPService) validateGraph(ctx context.Context, graph *SOPGraph) error {
 			}
 		}
 	}
-	// 边引用校验
 	for _, e := range graph.Edges {
 		if !ids[e.From] {
 			return fmt.Errorf("edge from missing node %s", e.From)
@@ -640,9 +614,7 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 		return nil
 	}
 
-	// condition 节点：优先级路由
 	if current.Type == SOPNodeTypeCondition {
-		// 优先用 Conditions 字段
 		if len(current.Conditions) > 0 {
 			br, err := SOPEvaluateConditionBranches(current.Conditions, data)
 			if err == nil && br.Matched && br.NextNode != "" {
@@ -650,14 +622,12 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 					return n
 				}
 			}
-			// 不匹配或失败时，退回到 Next[0]（兜底）
 			if len(current.Next) > 0 {
 				return findNodeByID(graph, current.Next[0])
 			}
 			return nil
 		}
 
-		// fallback：使用旧 Condition 字段（兼容旧版数据）
 		condStr := current.Condition
 		if condStr == "" {
 			if c, ok := current.Config["condition"].(string); ok {
@@ -674,37 +644,30 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 				}
 			}
 		}
-		// 兜底
 		if len(current.Next) > 0 {
 			return findNodeByID(graph, current.Next[0])
 		}
 		return nil
 	}
 
-	// llm 节点：LLM 决策结果
 	if current.Type == SOPNodeTypeLLM {
-		// 优先从执行数据读取 LLM 决策结果
 		if decision, ok := data["_llm_decision"].(string); ok && decision != "" {
 			if n := findNodeByID(graph, decision); n != nil {
 				return n
 			}
 		}
-		// 退化：从 Config.next 读取
 		if nextID, ok := current.Config["next"].(string); ok && nextID != "" {
 			if n := findNodeByID(graph, nextID); n != nil {
 				return n
 			}
 		}
-		// 再退回到 Next[0]
 		if len(current.Next) > 0 {
 			return findNodeByID(graph, current.Next[0])
 		}
 		return nil
 	}
 
-	// 旧版 branch 节点：Edges + when 字段
 	if current.Type == SOPNodeTypeBranch {
-		// 优先看是否有 Conditions（兼容升级）
 		if len(current.Conditions) > 0 {
 			br, err := SOPEvaluateConditionBranches(current.Conditions, data)
 			if err == nil && br.Matched && br.NextNode != "" {
@@ -713,7 +676,6 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 				}
 			}
 		}
-		// 旧版 Edges 评估
 		for _, e := range graph.Edges {
 			if e.From == current.ID {
 				if v, ok := data["_branch_result"].(string); ok {
@@ -723,14 +685,12 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 				}
 			}
 		}
-		// 退回到 Next
 		if len(current.Next) > 0 {
 			return findNodeByID(graph, current.Next[0])
 		}
 		return nil
 	}
 
-	// 旧版 ai_decide 节点：等价 llm 节点（向后兼容）
 	if current.Type == SOPNodeTypeAIDecide {
 		if decision, ok := data["_ai_decision"].(string); ok && decision != "" {
 			if n := findNodeByID(graph, decision); n != nil {
@@ -748,7 +708,6 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 		return nil
 	}
 
-	// 通用节点：按 Next[0] 顺序流转
 	if len(current.Next) > 0 {
 		return findNodeByID(graph, current.Next[0])
 	}
@@ -808,3 +767,4 @@ func NewWelcomeSOP() *CreateRequest {
 		},
 	}
 }
+

@@ -216,7 +216,7 @@ func (r *MessageHubRepository) MarkReadByIDs(ctx context.Context, ids []uint) er
 
 type HubListQuery struct {
 	Platform       string
-	Status         string // 可选：按消息状态过滤（如 "failed" 待补发）
+	Status         string 
 	AccountID      string
 	ConversationID string
 	SenderID       string
@@ -657,9 +657,6 @@ func (r *InboxConversationRepository) attachLatestMessages(ctx context.Context, 
 			c.LastMessageFrom = "staff"
 		}
 	}
-	// 兜底：message_hub 无记录（如 web_embed 渠道消息仅落 session_messages）
-	// 且 inbox_conversations.last_message_preview 仍为空时，从 session_messages
-	// 取该会话最新一条消息内容补全，避免统一收件箱「最新内容」一栏空白。
 	r.attachSessionMessageFallback(ctx, list)
 }
 
@@ -814,8 +811,8 @@ func (r *InboxConversationRepository) CountByAssignedToStatus(ctx context.Contex
 // AssignTxInput 分配事务入参
 type AssignTxInput struct {
 	ConversationID uint
-	Action         string // assign/reassign/release/close/reopen
-	ToType         string // human/sop/ai
+	Action         string 
+	ToType         string 
 	ToUserID       string
 	ToSOPID        uint
 	OperatorID     string
@@ -1099,3 +1096,4 @@ func firstNonEmpty(a, b string) string {
 	}
 	return b
 }
+

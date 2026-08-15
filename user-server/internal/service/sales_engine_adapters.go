@@ -9,17 +9,7 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// SalesEngine 依赖适配器
-// ----------------------------------------------------------------------------
-// 为 SalesEngine 的 ScriptLookup / CustomerLookup 接口提供生产级实现，
-// 让 router.go 不再 nil 注入，使 智能体 8 步链路真正落地。
-// 适配器遵循五层架构：本文件位于 Service 层，依赖 Repository 层，不直接访问 DB。
-// ============================================================================
 
-// ----------------------------------------------------------------------------
-// ScriptLookup 适配器：包装 ScriptTemplateService + ScriptTemplateRepository
-// ----------------------------------------------------------------------------
 
 // scriptLookupAdapter 话术库查询适配器
 // 实现 SalesEngine.ScriptLookup 接口
@@ -46,21 +36,18 @@ func (a *scriptLookupAdapter) MatchScript(ctx context.Context, intent string, sc
 		return nil, nil
 	}
 
-	// 优先按场景分类查询
 	category := scenario
 	if category == "" {
 		category = intent
 	}
 	templates, _, err := a.scriptSvc.GetTemplateList(category, 1, 20)
 	if err != nil || len(templates) == 0 {
-		// 场景没命中，退化为全量推荐
 		templates, err = a.scriptSvc.RecommendScript("", intent)
 		if err != nil || len(templates) == 0 {
 			return nil, nil
 		}
 	}
 
-	// 在候选中按 intent 关键词评分
 	best := templates[0]
 	bestScore := 0.0
 	intentLower := strings.ToLower(intent)
@@ -76,7 +63,6 @@ func (a *scriptLookupAdapter) MatchScript(ctx context.Context, intent string, sc
 				score += 0.3
 			}
 		}
-		// 使用次数越多，越靠谱（轻微加权）
 		if t.UsageCount > 0 {
 			score += 0.01 * float64(t.UsageCount)
 		}
@@ -86,7 +72,6 @@ func (a *scriptLookupAdapter) MatchScript(ctx context.Context, intent string, sc
 		}
 	}
 
-	// 转换为 SalesEngine 的 ScriptTemplate DTO
 	tags := []string{}
 	if best.Tags != "" {
 		for _, tag := range strings.Split(best.Tags, ",") {
@@ -121,9 +106,6 @@ func uintToString(n uint) string {
 	return string(buf[i:])
 }
 
-// ----------------------------------------------------------------------------
-// CustomerLookup 适配器：包装 CustomerRepository
-// ----------------------------------------------------------------------------
 
 // customerLookupAdapter 客户信息查询适配器
 // 实现 SalesEngine.CustomerLookup 接口
@@ -155,3 +137,4 @@ func (a *customerLookupAdapter) GetByID(ctx context.Context, id string) (*model.
 	}
 	return a.customerRepo.GetByID(ctx, id)
 }
+

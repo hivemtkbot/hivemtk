@@ -78,7 +78,6 @@ func TestMarketingFlowRepository_Create(t *testing.T) {
 func TestMarketingFlowRepository_GetByID(t *testing.T) {
 	flowRepo, _ := setupMarketingFlowRepositories(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:        "Get By ID Test",
 		Status:      model.FlowStatusActive,
@@ -127,7 +126,6 @@ func TestMarketingFlowRepository_GetByID(t *testing.T) {
 func TestMarketingFlowRepository_Update(t *testing.T) {
 	flowRepo, _ := setupMarketingFlowRepositories(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:        "Original Name",
 		Status:      model.FlowStatusDraft,
@@ -183,7 +181,6 @@ func TestMarketingFlowRepository_Update(t *testing.T) {
 func TestMarketingFlowRepository_Delete(t *testing.T) {
 	flowRepo, _ := setupMarketingFlowRepositories(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:   "To Be Deleted",
 		Status: model.FlowStatusDraft,
@@ -205,7 +202,6 @@ func TestMarketingFlowRepository_Delete(t *testing.T) {
 func TestMarketingFlowRepository_GetByStatus(t *testing.T) {
 	flowRepo, _ := setupMarketingFlowRepositories(t)
 
-	// 创建测试数据
 	flowRepo.Create(&model.MarketingFlow{
 		Name:   "Draft Flow 1",
 		Status: model.FlowStatusDraft,
@@ -274,7 +270,6 @@ func TestMarketingFlowRepository_GetByStatus(t *testing.T) {
 func TestMarketingFlowRepository_UpdateStatus(t *testing.T) {
 	flowRepo, _ := setupMarketingFlowRepositories(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:   "Status Update Test",
 		Status: model.FlowStatusDraft,
@@ -374,7 +369,6 @@ func TestFlowExecutionRepository_Create(t *testing.T) {
 func TestFlowExecutionRepository_GetByID(t *testing.T) {
 	_, execRepo := setupMarketingFlowRepositories(t)
 
-	// 创建测试数据
 	execution := &model.FlowExecution{
 		FlowID:      1,
 		UserID:      "user-123",
@@ -424,7 +418,6 @@ func TestFlowExecutionRepository_GetByID(t *testing.T) {
 func TestFlowExecutionRepository_GetByFlowID(t *testing.T) {
 	_, execRepo := setupMarketingFlowRepositories(t)
 
-	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		execRepo.Create(&model.FlowExecution{
 			FlowID: 1,
@@ -433,7 +426,6 @@ func TestFlowExecutionRepository_GetByFlowID(t *testing.T) {
 		})
 	}
 
-	// 创建另一个流程的数据
 	execRepo.Create(&model.FlowExecution{
 		FlowID: 999,
 		UserID: "user-other",
@@ -505,7 +497,6 @@ func TestFlowExecutionRepository_GetByFlowID(t *testing.T) {
 func TestFlowExecutionRepository_Update(t *testing.T) {
 	_, execRepo := setupMarketingFlowRepositories(t)
 
-	// 创建测试数据
 	execution := &model.FlowExecution{
 		FlowID:      1,
 		UserID:      "user-123",
@@ -532,7 +523,6 @@ func TestFlowExecutionRepository_Update(t *testing.T) {
 func TestFlowExecutionRepository_GetRunningExecutions(t *testing.T) {
 	_, execRepo := setupMarketingFlowRepositories(t)
 
-	// 创建测试数据
 	execRepo.Create(&model.FlowExecution{
 		FlowID: 1,
 		UserID: "user-1",
@@ -568,7 +558,6 @@ func TestFlowExecutionRepository_GetRunningExecutions(t *testing.T) {
 func TestFlowExecutionRepository_GetByUser(t *testing.T) {
 	_, execRepo := setupMarketingFlowRepositories(t)
 
-	// 创建测试数据
 	execRepo.Create(&model.FlowExecution{
 		FlowID: 1,
 		UserID: "user-123",
@@ -637,7 +626,6 @@ func TestFlowExecutionRepository_GetByUser(t *testing.T) {
 func TestFlowExecutionRepository_GetStats(t *testing.T) {
 	_, execRepo := setupMarketingFlowRepositories(t)
 
-	// 创建测试数据
 	for i := 0; i < 3; i++ {
 		execRepo.Create(&model.FlowExecution{
 			FlowID: 1,
@@ -678,8 +666,7 @@ func TestFlowExecutionRepository_GetStats(t *testing.T) {
 func TestFlowExecutionRepository_CleanupOldExecutions(t *testing.T) {
 	_, execRepo := setupMarketingFlowRepositories(t)
 
-	// 创建测试数据 - 旧的执行记录
-	oldTime := time.Now().AddDate(0, 0, -31) // 31 天前
+	oldTime := time.Now().AddDate(0, 0, -31) 
 	execRepo.Create(&model.FlowExecution{
 		FlowID:      1,
 		UserID:      "user-old-1",
@@ -688,7 +675,6 @@ func TestFlowExecutionRepository_CleanupOldExecutions(t *testing.T) {
 		CompletedAt: &oldTime,
 	})
 
-	// 创建新的执行记录
 	newTime := time.Now()
 	execRepo.Create(&model.FlowExecution{
 		FlowID:      1,
@@ -703,9 +689,9 @@ func TestFlowExecutionRepository_CleanupOldExecutions(t *testing.T) {
 		t.Errorf("CleanupOldExecutions() error = %v", err)
 	}
 
-	// 验证旧的记录被删除，新的记录保留
 	results, _, _ := execRepo.GetByFlowID(1, 1, 10)
 	if len(results) != 1 {
 		t.Errorf("Expected 1 execution remaining, got %d", len(results))
 	}
 }
+

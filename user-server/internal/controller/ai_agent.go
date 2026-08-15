@@ -14,7 +14,7 @@ import (
 
 type AIAgentController struct {
 	svc    *service.AIAgentService
-	engine *service.SalesEngine // 用于 TestAgent，可能为 nil
+	engine *service.SalesEngine 
 }
 
 func NewAIAgentController() *AIAgentController {
@@ -43,7 +43,6 @@ func (ctrl *AIAgentController) RegisterRoutes(router *gin.RouterGroup) {
 		g.POST("/:id/test", ctrl.Test)
 		g.GET("/:id/context", ctrl.GetContext)
 	}
-	// 启用智能体列表（供下拉选择）
 	router.GET("/ai-agents-enabled", ctrl.ListEnabled)
 }
 
@@ -98,10 +97,9 @@ type aiAgentCreateReq struct {
 	SystemPrompt  string   `json:"system_prompt"`
 	Greeting      string   `json:"greeting"`
 	RagProductIDs []string `json:"rag_product_ids"`
-	// 知识库绑定 - FAQ / SOP 模板
 	FAQEntryIDs          []string                `json:"faq_entry_ids"`
 	SOPTemplateIDs       []string                `json:"sop_template_ids"`
-	SOPIDs               []string                `json:"sop_ids"` // SOP 流程图
+	SOPIDs               []string                `json:"sop_ids"` 
 	ScriptLibraryIDs     []string                `json:"script_library_ids"`
 	LLMModel             string                  `json:"llm_model"`
 	LLMProviderConfig    model.LLMProviderConfig `json:"llm_provider_config"`
@@ -119,9 +117,8 @@ type aiAgentCreateReq struct {
 	ConfidenceThreshold  float64                 `json:"confidence_threshold"`
 	MaxAIConsecutive     int                     `json:"max_ai_consecutive"`
 	Status               int                     `json:"status"`
-	// v1.2 出海多语言方案
-	InternalLanguage string `json:"internal_language"` // 商户内部语言（知识库语言），默认 zh
-	TargetLanguage   string `json:"target_language"`   // 对外目标语言（空则退化=InternalLanguage）
+	InternalLanguage string `json:"internal_language"` 
+	TargetLanguage   string `json:"target_language"`   
 }
 
 func (ctrl *AIAgentController) Create(c *gin.Context) {
@@ -163,7 +160,6 @@ func (ctrl *AIAgentController) Create(c *gin.Context) {
 		InternalLanguage:     req.InternalLanguage,
 		TargetLanguage:       req.TargetLanguage,
 	}
-	// 应用默认值
 	if agent.AgentType == "" {
 		agent.AgentType = string(model.AgentTypeSales)
 	}
@@ -171,8 +167,6 @@ func (ctrl *AIAgentController) Create(c *gin.Context) {
 		agent.Status = 1
 	}
 	if agent.LLMModel == "" {
-		// 展示默认值：实际调用走 dispatcher 场景路由（llm_providers 表），
-		// 与本地推理栈实际模型保持一致（2026-08-10 切 MLX 栈 SmolLM3）
 		agent.LLMModel = "smollm3-3b-4bit-mlx"
 	}
 	if agent.Temperature == 0 {
@@ -187,8 +181,6 @@ func (ctrl *AIAgentController) Create(c *gin.Context) {
 	if agent.ConfidenceThreshold == 0 {
 		agent.ConfidenceThreshold = 0.5
 	}
-	// MaxAIConsecutive: 0=不限制，由置信度阈值控制转人工
-	// 默认开启所有引擎开关
 	if !agent.EnableRAG && !req.EnableRAG {
 		agent.EnableRAG = true
 	}
@@ -220,7 +212,6 @@ func (ctrl *AIAgentController) Update(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "智能体不存在", err.Error())
 		return
 	}
-	// 解析原始 JSON 以判断哪些字段被显式提供
 	raw, _ := c.GetRawData()
 	_ = c.Request.Body.Close()
 	var reqMap map[string]any
@@ -231,7 +222,6 @@ func (ctrl *AIAgentController) Update(c *gin.Context) {
 	var req aiAgentCreateReq
 	_ = json.Unmarshal(raw, &req)
 
-	// 必填字段：缺失时保持原值
 	if hasKey("agent_code") {
 		existing.AgentCode = req.AgentCode
 	}
@@ -259,7 +249,6 @@ func (ctrl *AIAgentController) Update(c *gin.Context) {
 	if hasKey("rag_product_ids") {
 		existing.RagProductIDs = req.RagProductIDs
 	}
-	// 知识库绑定
 	if hasKey("faq_entry_ids") {
 		existing.FAQEntryIDs = req.FAQEntryIDs
 	}
@@ -320,7 +309,6 @@ func (ctrl *AIAgentController) Update(c *gin.Context) {
 	if hasKey("status") && req.Status != 0 {
 		existing.Status = req.Status
 	}
-	// v1.2 出海多语言方案：内部语言 / 目标语言
 	if hasKey("internal_language") {
 		existing.InternalLanguage = req.InternalLanguage
 	}
@@ -365,7 +353,6 @@ func (ctrl *AIAgentController) Toggle(c *gin.Context) {
 			newStatus = 1
 		}
 	} else {
-		// 未指定时按当前状态取反
 		agent, err := ctrl.svc.GetByID(c.Request.Context(), uint(id))
 		if err != nil {
 			response.Error(c, http.StatusNotFound, "智能体不存在", err.Error())
@@ -577,7 +564,6 @@ func (ctrl *CustomerServiceAgentController) RegisterRoutes(router *gin.RouterGro
 		g.PUT("/:id", ctrl.Update)
 		g.DELETE("/:id", ctrl.Delete)
 		g.GET("/by-ai-agent/:ai_agent_id", ctrl.ListByAIAgent)
-		// 按用户ID便捷查询/创建挂载（团队成员即座席）
 		g.GET("/by-user/:user_id", ctrl.ListByUser)
 		g.POST("/by-user/:user_id", ctrl.CreateByUser)
 	}
@@ -731,3 +717,4 @@ func (ctrl *CustomerServiceAgentController) CreateByUser(c *gin.Context) {
 	}
 	response.Success(c, m, "创建成功")
 }
+

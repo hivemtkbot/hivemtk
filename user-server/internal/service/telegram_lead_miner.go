@@ -43,20 +43,16 @@ var (
 
 // tgHighIntentKeywords 高意向关键词（每命中一次 +25），覆盖中英双语典型购买/合作信号
 var tgHighIntentKeywords = []string{
-	// 中文
 	"多少钱", "价格", "报价", "怎么买", "购买", "下单", "批发", "代理", "加盟",
 	"求购", "现货", "有货", "联系方式", "合作", "预算", "采购", "招商",
-	// 英文
 	"how much", "price", "cost", "quote", "quotation", "buy", "purchase",
 	"order", "wholesale", "budget", "procurement", "distributor", "reseller",
 }
 
 // tgMediumIntentKeywords 中意向关键词（每命中一次 +12）
 var tgMediumIntentKeywords = []string{
-	// 中文
 	"咨询", "了解", "需要", "想要", "请问", "怎么卖", "优惠", "折扣", "试用",
 	"方案", "效果", "质量", "发货", "物流", "功能", "多少",
-	// 英文
 	"interested", "need", "want", "looking for", "how to", "discount",
 	"trial", "demo", "solution", "feature", "quality", "shipping",
 }
@@ -70,7 +66,7 @@ func DetectTelegramIntent(text string) (score int, signals []string, isOpportuni
 		return 0, nil, false
 	}
 	lower := strings.ToLower(t)
-	score = 8 // 任意有效发言的基础意向分（发言即潜在线索）
+	score = 8 
 	seen := map[string]bool{}
 	add := func(sig string, w int) {
 		if seen[sig] {
@@ -91,7 +87,6 @@ func DetectTelegramIntent(text string) (score int, signals []string, isOpportuni
 		}
 	}
 	if tgEmailRe.MatchString(t) || tgLinkRe.MatchString(t) || tgPhoneRe.MatchString(t) {
-		// 出现/索要联系方式（电话/邮箱/微信/wa.me 等）是最强的购买/合作信号，直接推过商机阈值
 		add("联系方式", 35)
 	}
 	if score > 100 {
@@ -180,10 +175,10 @@ func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.M
 		return false
 	}
 	t := strings.TrimSpace(text)
-	if t == "" || strings.HasPrefix(t, "/") { // 空消息 / 命令(含 /callback) 不作为线索
+	if t == "" || strings.HasPrefix(t, "/") { 
 		return false
 	}
-	if !tgMeaningfulRe.MatchString(t) { // 纯表情 / 纯标点 过滤
+	if !tgMeaningfulRe.MatchString(t) { 
 		return false
 	}
 	account := telegramLeadAccountKey(username, fromID)
@@ -205,12 +200,11 @@ func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.M
 	}
 	desc := formatTelegramLeadDesc(chatLabel, t, score, signals, isOpp)
 
-	// 会话关联字段：让销售在CRM里一键回到该线索的聊天上下文
 	msgID, convID, oneID := "", "", ""
 	if hub != nil {
 		msgID = hub.MsgID
 		convID = hub.ConversationID
-		oneID = hub.SenderID // 入站消息的 sender 即统一客户（OneID）在 TG 侧的标识
+		oneID = hub.SenderID 
 	}
 
 	existing, err := s.clueRepo.FindByTypeAndAccount(ctx, ClueTypeTelegram, account)
@@ -233,8 +227,6 @@ func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.M
 			OneID:          oneID,
 		}
 		if cerr := s.clueRepo.Create(ctx, clue); cerr != nil {
-			// 并发下另一条 goroutine 可能已抢先插入（唯一键冲突），或任意写入异常：
-			// 重新查询，若已存在则按「已存在」逻辑增量更新，保证最终一致、不丢线索。
 			if re, rerr := s.clueRepo.FindByTypeAndAccount(ctx, ClueTypeTelegram, account); rerr == nil && re != nil {
 				existing = re
 			} else {
@@ -245,14 +237,12 @@ func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.M
 			}
 		} else {
 			logger.Infof("[LeadMiner] 新增 TG 线索 account=%s 意向分=%d 商机=%v 群=%s", account, score, isOpp, groupTitle)
-			newOpportunity = isOpp // 新线索即达到商机阈值 → 新晋商机
+			newOpportunity = isOpp 
 			s.recordTelegramLeadScore(ctx, clue, isOpp)
 			return newOpportunity
 		}
 	}
 
-	// 已存在（初次查询命中，或并发冲突后回查命中）：仅当本条意向分更高时增量更新。
-	// 意向分以结构化列 intent_score 为准（不再依赖解析 Desc 文本，避免脆弱的正则往返）。
 	if int64(score) > existing.IntentScore {
 		wasOpp := existing.IsOpportunity != 0
 		updates := map[string]any{
@@ -272,7 +262,6 @@ func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.M
 			existing.Desc = desc
 			existing.SourceID = groupID
 			logger.Infof("[LeadMiner] 更新 TG 线索意向分 account=%s → %d 商机=%v", account, score, isOpp)
-			// 仅当本次跨过阈值（非商机 → 商机）时记为「新晋商机」，已为商机的更高分不算新晋
 			newOpportunity = isOpp && !wasOpp
 		}
 	}
@@ -302,3 +291,4 @@ func (s *WebhookService) recordTelegramLeadScore(ctx context.Context, clue *mode
 	_ = scoreSvc.RecordEngagement(context.Background(), clue.ID, "group_message", "telegram", map[string]any{"is_opportunity": isOpp})
 	_, _ = scoreSvc.ScoreClue(context.Background(), clue)
 }
+

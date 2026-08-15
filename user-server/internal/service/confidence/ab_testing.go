@@ -1,18 +1,5 @@
 package confidence
 
-// ab_test.go A/B 测试服务
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.4.14
-//
-// 支持流量分桶、定向规则、Mann-Whitney U 检验、Bootstrap CI
-//
-// 统计方法：
-//   1. Mann-Whitney U 检验：非参数检验，不要求数据正态分布
-//      H0: 两个样本来自相同分布
-//      U = Σ_{i∈A,j∈B} [x_i < y_j] + 0.5*[x_i == y_j]
-//      p 值通过正态近似计算（n > 20 时）
-//   2. Bootstrap CI：重采样 10000 次估计均值差的 95% 置信区间
 
 import (
 	"context"
@@ -50,7 +37,6 @@ func (s *ABTestService) Assign(ctx context.Context, testID, customerID string) (
 	if err != nil || test == nil || test.Status != "running" {
 		return "control", nil
 	}
-	// 一致性哈希
 	h := stableHash(customerID)
 	controlRatio := getFloat(test.TrafficSplit, "control")
 	if h < controlRatio {
@@ -91,13 +77,10 @@ func (s *ABTestService) Analyze(ctx context.Context, testID, metricName string) 
 		return nil, ErrInsufficientSamples
 	}
 
-	// 1. Mann-Whitney U
 	u, p := mannWhitneyU(controlSamples, treatmentSamples)
 
-	// 2. Bootstrap CI（treatment - control 的均值差）
 	ciLower, ciUpper := bootstrapDifferenceCI(controlSamples, treatmentSamples, 10000, s.rng)
 
-	// 3. 更新测试记录
 	test, _ := s.repo.GetByTestID(ctx, testID)
 	if test != nil {
 		test.MannWhitneyU = u
@@ -123,9 +106,6 @@ func (s *ABTestService) Analyze(ctx context.Context, testID, metricName string) 
 // ErrInsufficientSamples 样本不足
 var ErrInsufficientSamples = errors.New("insufficient samples for analysis (need >=10 per group)")
 
-// ============================================================================
-// 统计函数
-// ============================================================================
 
 // mannWhitneyU Mann-Whitney U 检验
 //
@@ -144,7 +124,7 @@ func mannWhitneyU(a, b []float64) (u, p float64) {
 	// 合并排序
 	type pair struct {
 		val   float64
-		group int // 0=a, 1=b
+		group int 
 	}
 	combined := make([]pair, 0, n1+n2)
 	for _, v := range a {
@@ -157,7 +137,6 @@ func mannWhitneyU(a, b []float64) (u, p float64) {
 		return combined[i].val < combined[j].val
 	})
 
-	// 计算每个元素的 rank（处理 ties 用平均 rank）
 	ranks := make([]float64, len(combined))
 	i := 0
 	for i < len(combined) {
@@ -165,14 +144,13 @@ func mannWhitneyU(a, b []float64) (u, p float64) {
 		for j+1 < len(combined) && combined[j+1].val == combined[i].val {
 			j++
 		}
-		avgRank := float64(i+j+2) / 2 // rank 从 1 开始
+		avgRank := float64(i+j+2) / 2 
 		for k := i; k <= j; k++ {
 			ranks[k] = avgRank
 		}
 		i = j + 1
 	}
 
-	// = A 组 rank 之和
 	r1 := 0.0
 	for k, pr := range combined {
 		if pr.group == 0 {
@@ -183,7 +161,6 @@ func mannWhitneyU(a, b []float64) (u, p float64) {
 	u2 := float64(n1*n2) - u1
 	u = math.Min(u1, u2)
 
-	// 正态近似
 	mu := float64(n1*n2) / 2
 	sigma := math.Sqrt(float64(n1*n2*(n1+n2+1)) / 12)
 	if sigma == 0 {
@@ -282,3 +259,4 @@ func getFloat(m map[string]any, key string) float64 {
 	}
 	return 0.5
 }
+

@@ -62,22 +62,15 @@ func (c *WebhookController) Stop() {
 
 // RegisterRoutes 注册路由（公开，不需要鉴权）
 func (c *WebhookController) RegisterRoutes(r *gin.Engine) {
-	// 多渠道统一入口
 	wh := r.Group("/api/webhook")
 	{
-		// 公开渠道
 		wh.POST("/:channel/:account_id", c.Receive)
 		wh.POST("/:channel", c.ReceiveWithoutAccount)
-		// 业务查询
 		wh.GET("/stats", c.Stats)
 		wh.GET("/health", c.Health)
-		// 企微 GET 验证（URL 验证挑战）
 		wh.GET("/wecom/:account_id", c.WeComVerify)
-		// 飞书 GET 验证
 		wh.GET("/feishu/:account_id", c.FeishuVerify)
-		// WhatsApp Cloud GET 验证（Meta 回调 URL 挑战）
 		wh.GET("/whatsapp/:account_id", c.WhatsAppVerify)
-		// 钉钉企业内部应用 GET 验证 + POST 收消息
 		wh.GET("/dingtalk/:account_id", c.DingTalkVerify)
 		wh.POST("/dingtalk/:account_id", c.DingTalkReceive)
 	}
@@ -98,10 +91,6 @@ func (c *WebhookController) Receive(ctx *gin.Context) {
 		return
 	}
 
-	// v1.2 出海方案：注入双语言到 ctx（多层兜底，永不中断）。
-	// Webhook 入站的 channel 是平台类型（wecom/whatsapp/...），不是 ChatChannel.ChannelID，
-	// 故传空 channel_id；resolver 走 agent_id 兜底（此处亦无）→ 最终默认 zh。
-	// 真正按渠道语言的细粒度解析由 service 层在加载渠道账号后完成。
 	reqCtx := middleware.InjectLangToCtx(ctx.Request.Context(), c.langResolver, "", 0)
 
 	req := &service.ReceiveRequest{
@@ -141,10 +130,8 @@ func (c *WebhookController) ReceiveWithoutAccount(ctx *gin.Context) {
 		return
 	}
 
-	// 从 body 解析 account_id（如果提供）
 	accountID := extractAccountID(body)
 
-	// v1.2 出海方案：注入双语言到 ctx（多层兜底，永不中断）。参见 Receive 注释。
 	reqCtx := middleware.InjectLangToCtx(ctx.Request.Context(), c.langResolver, "", 0)
 
 	req := &service.ReceiveRequest{
@@ -178,7 +165,6 @@ func (c *WebhookController) WeComVerify(ctx *gin.Context) {
 		return
 	}
 
-	// 从 wecom_accounts 读取 token + EncodingAESKey
 	token, aesKey, err := c.svc.GetWeComSecrets(context.Background(), accountID)
 	if err != nil || token == "" {
 		ctx.String(http.StatusUnauthorized, "account not found or token missing")
@@ -315,7 +301,6 @@ func (c *WebhookController) DingTalkReceive(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"accepted": false, "reason": "read body: " + err.Error()})
 		return
 	}
-	// v1.2 出海方案：注入双语言到 ctx（多层兜底，永不中断）。
 	reqCtx := middleware.InjectLangToCtx(ctx.Request.Context(), c.langResolver, "", 0)
 	if err := c.dtAppSvc.ReceiveMessage(reqCtx, uint(accountID), body); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"accepted": false, "reason": err.Error()})
@@ -346,7 +331,6 @@ func extractHeaders(ctx *gin.Context) map[string]string {
 		"X-Signature", "Signature", "X-Hub-Signature-256",
 		"X-Douyin-Signature", "X-Lark-Signature",
 		"X-Wechat-Timestamp", "X-Wechat-Nonce", "X-Wechat-Signature",
-		// Telegram Bot API 通过此头传递 webhook secret（setWebhook 时配置 secret_token 后必带）
 		"X-Telegram-Bot-Api-Secret-Token",
 	} {
 		if v := ctx.GetHeader(k); v != "" {
@@ -418,3 +402,4 @@ func (c *WebhookController) SetAgentBindingService(svc *service.ChannelAgentBind
 		c.svc.SetAgentBindingService(context.Background(), svc)
 	}
 }
+

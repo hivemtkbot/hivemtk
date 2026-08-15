@@ -6,9 +6,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ----------------------------------------------------------------------------
-// Customer 域：客户档案 / 身份 / 标签
-// ----------------------------------------------------------------------------
 
 // ErrCustomerNotFound 客户不存在错误（sentinel）
 //
@@ -46,14 +43,10 @@ type CustomerProfileView struct {
 // 实现方：service.CustomerService（见 service/tool_ports_adapter.go:CustomerPortAdapter）
 // 消费方：tooluse/customer_tools.go 等客户相关工具
 type CustomerPort interface {
-	// GetCustomerProfile 获取客户 360° 档案（客户 + 最近事件 + 标签）
 	GetCustomerProfile(customerID string) (*CustomerProfileView, error)
-	// CreateOrUpdate 通过身份字段创建或更新客户，返回最新客户记录
 	CreateOrUpdate(identity *CustomerIdentity) (*model.Customer, error)
-	// MergeCustomers 合并两个客户记录（primaryID 保留，secondaryID 软删除）
 	MergeCustomers(primaryID, secondaryID string) error
-	// AddTags 给客户添加标签
 	AddTags(customerID string, tags []string) error
-	// RemoveTags 移除客户标签
 	RemoveTags(customerID string, tags []string) error
 }
+

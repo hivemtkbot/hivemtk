@@ -7,21 +7,11 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// ============================================================================
-// Phase 4 单元测试：FeedbackLearner 接入 SalesEngine 主链路第 9 步
-// ----------------------------------------------------------------------------
-// 验证 AI 自我进化闭环：
-//   1. feedbackLearner=nil 时静默跳过，不 panic（向后兼容）
-//   2. 注入 learner 后，recordFeedback 正确填充 FeedbackRecord 各字段
-//   3. 转人工场景下 Transferred=true 被记录
-//   4. IntentType/Confidence/SOPName 从 resp 正确提取
-//   5. 第 9 步日志被追加到 resp.Steps
-// ============================================================================
 
 // TestSalesEngine_RecordFeedback_NilLearner feedbackLearner=nil 时静默跳过
 // 商业产品级：未注入反馈学习器时不能影响主链路
 func TestSalesEngine_RecordFeedback_NilLearner(t *testing.T) {
-	engine := &SalesEngine{} // feedbackLearner 默认 nil
+	engine := &SalesEngine{} 
 	resp := &SalesResponse{
 		Reply: "您好，请问有什么可以帮您？",
 		Steps: make([]dto.SalesStepLog, 0, 9),
@@ -36,7 +26,6 @@ func TestSalesEngine_RecordFeedback_NilLearner(t *testing.T) {
 func TestSalesEngine_RecordFeedback_NilArgs(t *testing.T) {
 	fl := NewFeedbackLearner(nil)
 	engine := &SalesEngine{feedbackLearner: fl}
-	// 不应 panic
 	engine.recordFeedback(context.Background(), nil, nil)
 	engine.recordFeedback(context.Background(), &SalesRequest{}, nil)
 	engine.recordFeedback(context.Background(), nil, &SalesResponse{})
@@ -57,7 +46,7 @@ func TestSalesEngine_RecordFeedback_RecordSuccess(t *testing.T) {
 			IntentType: IntentAskProduct,
 			Confidence: 0.85,
 		},
-		MatchedSOP: nil, // 无 SOP 匹配
+		MatchedSOP: nil, 
 		Steps:      make([]dto.SalesStepLog, 0, 9),
 	}
 	req := &SalesRequest{
@@ -67,7 +56,6 @@ func TestSalesEngine_RecordFeedback_RecordSuccess(t *testing.T) {
 
 	engine.recordFeedback(context.Background(), req, resp)
 
-	// 验证第 9 步被追加
 	if len(resp.Steps) != 1 {
 		t.Fatalf("应追加 1 个 step，实际 %d", len(resp.Steps))
 	}
@@ -78,7 +66,6 @@ func TestSalesEngine_RecordFeedback_RecordSuccess(t *testing.T) {
 		t.Errorf("status 应为 ok: %s", resp.Steps[0].Status)
 	}
 
-	// 验证 FeedbackLearner 收到记录
 	stats := fl.GetIntentStats(context.Background(), IntentAskProduct)
 	if stats == nil {
 		t.Fatal("FeedbackLearner 应记录 intent 统计")
@@ -89,7 +76,6 @@ func TestSalesEngine_RecordFeedback_RecordSuccess(t *testing.T) {
 	if stats.AvgConfidence != 0.85 {
 		t.Errorf("AvgConfidence 应为 0.85，实际 %.2f", stats.AvgConfidence)
 	}
-	// CustomerAccept 默认 false → FailCount
 	if stats.FailCount != 1 {
 		t.Errorf("FailCount 应为 1（CustomerAccept 默认 false），实际 %d", stats.FailCount)
 	}
@@ -126,12 +112,10 @@ func TestSalesEngine_RecordFeedback_Transferred(t *testing.T) {
 
 	engine.recordFeedback(context.Background(), req, resp)
 
-	// 验证第 9 步被追加
 	if len(resp.Steps) != 1 {
 		t.Fatalf("应追加 1 个 step，实际 %d", len(resp.Steps))
 	}
 
-	// 验证 FeedbackLearner 记录了投诉意图
 	stats := fl.GetIntentStats(context.Background(), IntentComplaint)
 	if stats == nil {
 		t.Fatal("应记录投诉意图")
@@ -139,7 +123,6 @@ func TestSalesEngine_RecordFeedback_Transferred(t *testing.T) {
 	if stats.TotalCount != 1 {
 		t.Errorf("TotalCount 应为 1，实际 %d", stats.TotalCount)
 	}
-	// 转人工 → FailCount
 	if stats.FailCount != 1 {
 		t.Errorf("转人工应记为 FailCount，实际 %d", stats.FailCount)
 	}
@@ -170,7 +153,6 @@ func TestSalesEngine_RecordFeedback_WithSOP(t *testing.T) {
 
 	engine.recordFeedback(context.Background(), req, resp)
 
-	// 验证 SOP 统计
 	sopStats := fl.GetSOPStats(context.Background(), sopName)
 	if sopStats == nil {
 		t.Fatal("应记录 SOP 统计")
@@ -178,7 +160,6 @@ func TestSalesEngine_RecordFeedback_WithSOP(t *testing.T) {
 	if sopStats.TotalUsed != 1 {
 		t.Errorf("TotalUsed 应为 1，实际 %d", sopStats.TotalUsed)
 	}
-	// CustomerAccept 默认 false → PositiveRate=0
 	if sopStats.PositiveRate != 0 {
 		t.Errorf("PositiveRate 应为 0（CustomerAccept 默认 false），实际 %.2f", sopStats.PositiveRate)
 	}
@@ -192,7 +173,6 @@ func TestSalesEngine_RecordFeedback_MultipleCalls(t *testing.T) {
 	fl := NewFeedbackLearner(nil)
 	engine := &SalesEngine{feedbackLearner: fl}
 
-	// 模拟 12 次对话（超过冷启动阈值 10）
 	for i := 0; i < 12; i++ {
 		resp := &SalesResponse{
 			Reply: "您好...",
@@ -213,7 +193,6 @@ func TestSalesEngine_RecordFeedback_MultipleCalls(t *testing.T) {
 		t.Errorf("TotalCount 应为 12，实际 %d", stats.TotalCount)
 	}
 
-	// 验证 SuggestConfidenceFloor 能基于历史数据给出建议
 	floor := fl.SuggestConfidenceFloor(context.Background(), IntentAskProduct)
 	if floor <= 0 {
 		t.Errorf("SuggestConfidenceFloor 应 > 0，实际 %.2f", floor)
@@ -248,7 +227,6 @@ func TestSalesEngine_RecordFeedback_StepDetail(t *testing.T) {
 		t.Fatalf("应追加 1 个 step")
 	}
 	detail := resp.Steps[0].Detail
-	// 详情应包含关键字段
 	checks := []string{"intent=", "conf=", "sop=", "transferred=", "tokens="}
 	for _, kw := range checks {
 		if !containsStr(detail, kw) {
@@ -270,3 +248,4 @@ func containsStr(s, sub string) bool {
 	}
 	return false
 }
+

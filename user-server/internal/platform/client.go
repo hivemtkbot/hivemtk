@@ -20,7 +20,6 @@ import (
 type Client struct {
 	merchantKey string
 	httpClient  *http.Client
-	// JWT token 缓存（用于调用 /platform/* 路由）
 	jwtToken    string
 	jwtExpireAt time.Time
 	jwtMu       sync.Mutex
@@ -35,8 +34,6 @@ func NewPlatformClient(merchantKey string) *Client {
 
 func (c *Client) sign(method, path string, body []byte) (string, string, error) {
 	timestamp := fmt.Sprintf("%d", time.Now().Unix())
-	// 平台 MerchantAuth 使用 c.Request.URL.Path（不含 query）参与签名，
-	// 这里必须把 query 去掉，否则 GET 列表等带参数的请求会签名不一致返回 401。
 	pathNoQuery := path
 	if i := strings.IndexByte(path, '?'); i >= 0 {
 		pathNoQuery = path[:i]
@@ -67,7 +64,6 @@ func (c *Client) ensureJWTToken() error {
 	c.jwtMu.Lock()
 	defer c.jwtMu.Unlock()
 
-	// token 仍有 60 秒以上有效期，直接复用
 	if c.jwtToken != "" && time.Now().Before(c.jwtExpireAt.Add(-60*time.Second)) {
 		return nil
 	}
@@ -127,7 +123,6 @@ func (c *Client) ensureJWTToken() error {
 	}
 
 	c.jwtToken = loginResp.Data.Token
-	// expires 字段是 unix 时间戳；若缺失则默认 1 小时后过期
 	expireAt := loginResp.Data.Expires
 	if expireAt > 0 {
 		c.jwtExpireAt = time.Unix(expireAt, 0)
@@ -145,7 +140,6 @@ func (c *Client) do(method, path string, reqData, respData any) error {
 // doRetry 执行平台 HTTP 请求。retried=true 表示已重试过一次（用于 401 自愈），
 // 避免无限重试。
 func (c *Client) doRetry(method, path string, reqData, respData any, retried bool) error {
-	// 检查配置是否初始化，避免空指针异常
 	if config.PlatformCfg == nil {
 		logger.Error(fmt.Errorf("平台配置未初始化"), "商户上报请求失败")
 		return fmt.Errorf("平台配置未初始化")
@@ -160,7 +154,6 @@ func (c *Client) doRetry(method, path string, reqData, respData any, retried boo
 		}
 	}
 
-	// 记录请求开始日志
 	reqLog := fmt.Sprintf("商户上报请求: %s %s", method, url)
 	if len(body) > 0 {
 		reqLog += fmt.Sprintf(" 请求数据: %s", string(body))
@@ -170,9 +163,7 @@ func (c *Client) doRetry(method, path string, reqData, respData any, retried boo
 	req, _ := http.NewRequest(method, url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	// 根据路由前缀选择认证方式
 	if strings.HasPrefix(path, "/platform/") {
-		// /platform/* 路由使用 JWT 认证
 		if err := c.ensureJWTToken(); err != nil {
 			logger.Error(err, "获取平台 JWT token 失败")
 			return err
@@ -199,14 +190,11 @@ func (c *Client) doRetry(method, path string, reqData, respData any, retried boo
 	}
 	defer resp.Body.Close()
 
-	// V6: 401 表示 JWT 失效，清掉本地 token 并重试一次（自愈），避免座席被踢下线。
 	if resp.StatusCode == http.StatusUnauthorized && !retried {
 		c.jwtMu.Lock()
 		c.jwtToken = ""
 		c.jwtExpireAt = time.Time{}
 		c.jwtMu.Unlock()
-		// 可观测性：记录 401 自愈触发次数
-		// 私域: 无 Prometheus 端点, 仅日志追踪 JWT 刷新
 		logger.Debugf("[platform-client] JWT refreshed path=%s", path)
 		logger.Warn(fmt.Sprintf("平台 JWT 失效(401)，清空缓存并重试一次: %s %s", method, url))
 		return c.doRetry(method, path, reqData, respData, true)
@@ -224,8 +212,6 @@ func (c *Client) doRetry(method, path string, reqData, respData any, retried boo
 		}
 		logger.Error(fmt.Errorf("平台接口返回 %d", resp.StatusCode),
 			fmt.Sprintf("商户上报请求失败: %s %s, 状态码: %d, 耗时: %v, 响应: %s", method, url, resp.StatusCode, duration, bodyStr))
-		// 透传状态码与响应体，交由调用方按结构化 code 分支处理，
-		// 不再吞掉 body，也不再依赖 strings.Contains(err, "404") 这种脆弱匹配。
 		return &PlatformError{StatusCode: resp.StatusCode, RawBody: bodyStr, Resp: &baseResp}
 	}
 
@@ -238,9 +224,7 @@ func (c *Client) doRetry(method, path string, reqData, respData any, retried boo
 			logger.Error(err, "读取响应体失败")
 			return err
 		}
-		// 记录响应日志
 		logger.Info(fmt.Sprintf("商户上报请求成功: %s %s, 状态码: %d, 耗时: %v, 响应数据: %s", method, url, resp.StatusCode, duration, string(respBody)))
-		// 解析响应
 		return json.Unmarshal(respBody, respData)
 	}
 	return nil
@@ -369,10 +353,10 @@ func ReportInstallDefault(req *ReportInstallReq) error {
 type ReportHeartbeatReq struct {
 	InstallID         string          `json:"install_id"`
 	Version           string          `json:"version"`
-	HostInfo          json.RawMessage `json:"host_info"`          // 主机信息（JSON）
-	Metrics           json.RawMessage `json:"metrics"`            // 运行指标（JSON）
-	DeviceFingerprint string          `json:"device_fingerprint"` // 设备指纹（用户端生成，稳定标识部署实例）
-	ClientIP          string          `json:"client_ip"`          // 兜底 IP，平台侧以服务端采集为准
+	HostInfo          json.RawMessage `json:"host_info"`          
+	Metrics           json.RawMessage `json:"metrics"`            
+	DeviceFingerprint string          `json:"device_fingerprint"` 
+	ClientIP          string          `json:"client_ip"`          
 	Timestamp         time.Time       `json:"timestamp"`
 }
 
@@ -406,3 +390,4 @@ func (c *Client) ReportHeartbeat(req *ReportHeartbeatReq) error {
 func ReportHeartbeatDefault(req *ReportHeartbeatReq) error {
 	return NewPlatformClient("").ReportHeartbeat(req)
 }
+

@@ -1,6 +1,5 @@
 package ragretrieval
 
-// vec_pg_test.go pgvector 序列化与文本归一化工具测试
 
 import (
 	"strings"
@@ -13,7 +12,6 @@ func TestVecToPGString(t *testing.T) {
 	if len(s) < 2 || s[0] != '[' || s[len(s)-1] != ']' {
 		t.Errorf("invalid pgvector literal: %q", s)
 	}
-	// 解析回来应一致
 	parsed, err := parsePGVector(s)
 	if err != nil {
 		t.Fatalf("parsePGVector failed: %v", err)
@@ -86,18 +84,15 @@ func TestEncodeDecodeVec_RoundTrip(t *testing.T) {
 }
 
 func TestSha256Hex(t *testing.T) {
-	// 相同输入应输出相同哈希
 	h1 := sha256Hex("hello")
 	h2 := sha256Hex("hello")
 	if h1 != h2 {
 		t.Errorf("sha256Hex not deterministic")
 	}
-	// 不同输入应输出不同哈希
 	h3 := sha256Hex("world")
 	if h1 == h3 {
 		t.Errorf("sha256Hex should differ for different inputs")
 	}
-	// 长度应为 64（SHA256 hex）
 	if len(h1) != 64 {
 		t.Errorf("sha256Hex length=%d want=64", len(h1))
 	}
@@ -109,10 +104,10 @@ func TestNormalizeQuery(t *testing.T) {
 		want  string
 	}{
 		{"Hello World", "hello world"},
-		{"  Hello   World  ", "hello world"}, // 多余空白合并
-		{"HELLO\tWORLD\n", "hello world"},    // 制表符/换行合并
+		{"  Hello   World  ", "hello world"}, 
+		{"HELLO\tWORLD\n", "hello world"},    
 		{"", ""},
-		{"Hello世界", "hello世界"}, // 中文保留
+		{"Hello世界", "hello世界"}, 
 	}
 	for _, c := range cases {
 		got := normalizeQuery(c.input)
@@ -123,20 +118,18 @@ func TestNormalizeQuery(t *testing.T) {
 }
 
 func TestTruncateContent(t *testing.T) {
-	// 短文本不截断
 	short := "短文本"
 	if got := truncateContent(short, 100); got != short {
 		t.Errorf("short text should not truncate, got=%q", got)
 	}
-	// 长文本截断（按 rune）
 	long := strings.Repeat("中", 200)
 	got := truncateContent(long, 100)
 	if !strings.HasSuffix(got, "…") {
 		t.Errorf("truncated text should end with …, got=%q", got[len(got)-5:])
 	}
-	// 截断后长度应为 100 + 1（省略号）
 	runes := []rune(got)
 	if len(runes) != 101 {
 		t.Errorf("truncated rune len=%d want=101", len(runes))
 	}
 }
+

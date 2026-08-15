@@ -12,11 +12,11 @@ import "time"
 // Name 为全局唯一标识，与 dispatcher.ProviderConfig.Name 一一对应。
 type LLMProvider struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
-	Name         string    `gorm:"column:name;uniqueIndex;size:128" json:"name"` // deepseek / qwen / gpt-4o ...
+	Name         string    `gorm:"column:name;uniqueIndex;size:128" json:"name"` 
 	DisplayName  string    `gorm:"column:display_name;size:255" json:"display_name"`
 	BaseURL      string    `gorm:"column:base_url;size:512" json:"base_url"`
 	Model        string    `gorm:"column:model;size:128" json:"model"`
-	APIKey       string    `gorm:"column:api_key;type:text" json:"-"` // 密钥不序列化出 API
+	APIKey       string    `gorm:"column:api_key;type:text" json:"-"` 
 	APIType      string    `gorm:"column:api_type;size:32;default:'openai'" json:"api_type"`
 	Enabled      bool      `gorm:"column:enabled;default:false" json:"enabled"`
 	QualityScore float64   `gorm:"column:quality_score;default:0.8" json:"quality_score"`
@@ -26,7 +26,7 @@ type LLMProvider struct {
 	AvgLatencyMs int       `gorm:"column:avg_latency_ms;default:0" json:"avg_latency_ms"`
 	NoFC         bool      `gorm:"column:no_fc;default:false" json:"no_fc"`
 	Vendor       string    `gorm:"column:vendor;size:64" json:"vendor"`
-	Tags         string    `gorm:"column:tags;type:text" json:"-"` // JSON 数组文本，逗号分隔旧格式兼容
+	Tags         string    `gorm:"column:tags;type:text" json:"-"` 
 	SortOrder    int       `gorm:"column:sort_order;default:0" json:"sort_order"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
@@ -34,3 +34,4 @@ type LLMProvider struct {
 
 // TableName 指定表名
 func (LLMProvider) TableName() string { return "llm_providers" }
+

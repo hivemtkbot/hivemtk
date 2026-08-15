@@ -11,9 +11,6 @@ import (
 	"hivemtk-user/internal/aiagent/knowledge/model"
 )
 
-// ============================================================================
-// 2) 检索 Playground（商户调试用：自定义 topK/阈值/重排/过滤）
-// ============================================================================
 
 // PlaygroundRequest 检索 Playground 请求
 type PlaygroundRequest struct {
@@ -26,8 +23,6 @@ type PlaygroundRequest struct {
 	UseRerank           bool           `json:"use_rerank"`
 	Tags                []string       `json:"tags"`
 	Extra               map[string]any `json:"extra"`
-	// MetadataFilters 附加字段过滤（如 {"customer_id":"123","order_id":"A01"}），
-	// 把检索收敛到特定业务上下文（某客户的订单知识等）。
 	MetadataFilters map[string]string `json:"metadata_filters"`
 }
 
@@ -38,7 +33,7 @@ type PlaygroundChunk struct {
 	Title      string         `json:"title"`
 	Content    string         `json:"content"`
 	Score      float64        `json:"score"`
-	Source     string         `json:"source"` // 来自 L1/L2/L3/L4
+	Source     string         `json:"source"` 
 	FromCache  bool           `json:"from_cache"`
 	Metadata   map[string]any `json:"metadata"`
 }
@@ -83,7 +78,6 @@ func (s *KnowledgeMerchantService) Playground(ctx context.Context, req *Playgrou
 	if err != nil {
 		return nil, err
 	}
-	// 应用阈值
 	filtered := chunks[:0]
 	for _, c := range chunks {
 		if c.Score >= req.SimilarityThreshold {
@@ -128,7 +122,6 @@ func (s *KnowledgeMerchantService) Playground(ctx context.Context, req *Playgrou
 		avg = sum / float64(len(chunks))
 	}
 
-	// 记录 search log
 	_ = s.recordSearchLog(ctx, productNumericID, req.Query, req.TopK, req.SimilarityThreshold, len(chunks), max, min, avg, time.Since(start).Milliseconds())
 
 	return &PlaygroundResult{
@@ -172,3 +165,4 @@ func (s *KnowledgeMerchantService) recordSearchLog(ctx context.Context, productI
 	}
 	return s.searchLogRepo.Create(ctx, logEntry)
 }
+

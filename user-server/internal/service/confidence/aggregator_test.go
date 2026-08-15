@@ -1,16 +1,5 @@
 package confidence
 
-// aggregator_test.go 置信度总聚合器单元测试
-//
-// 覆盖：
-//  1. nil 聚合器返回 ErrAggregatorNotInitialized
-//  2. Aggregate 无否决：正常决策
-//  3. Aggregate 触发否决：conf=0 + band=handoff
-//  4. Aggregate 带 RawLogits 校准
-//  5. inferCustomerLevel
-//  6. inferAgentAvailability
-//  7. saveSignalAsync nil repo 不报错
-//  8. 端到端：5 维信号 → 聚合 → 决策
 
 import (
 	"context"
@@ -38,7 +27,7 @@ func makeTestAggregator() *ConfidenceAggregator {
 
 // TestAggregator_Aggregate_NilAggregator nil 聚合器返回错误
 func TestAggregator_Aggregate_NilAggregator(t *testing.T) {
-	var a *ConfidenceAggregator // nil
+	var a *ConfidenceAggregator 
 	_, err := a.Aggregate(context.Background(), &dto.SignalCollectionInput{})
 	if err != ErrAggregatorNotInitialized {
 		t.Errorf("nil 聚合器应返回 ErrAggregatorNotInitialized, got %v", err)
@@ -55,7 +44,6 @@ func TestAggregator_Aggregate_NoVeto_HighConf(t *testing.T) {
 		MessageID:  "msg-1",
 		Text:       "hello",
 		IntentType: "ask_product",
-		// 高信号
 		RawIntentConf:     0.95,
 		ExpectedEntities:  map[string]any{"product": "iPhone"},
 		ExtractedEntities: map[string]any{"product": "iPhone"},
@@ -90,9 +78,9 @@ func TestAggregator_Aggregate_NoVeto_LowConf(t *testing.T) {
 	in := &dto.SignalCollectionInput{
 		Text:          "hello",
 		IntentType:    "ask_product",
-		RawIntentConf: 0.20,                              // 低意图置信度
-		RAGChunks:     []dto.RAGChunk{{Score: 0.3}},      // 低 RAGQual
-		LLMLogprobs:   []float64{-1.0, -1.0, -1.0, -1.0}, // 均匀分布，低 LLMEntropy
+		RawIntentConf: 0.20,                              
+		RAGChunks:     []dto.RAGChunk{{Score: 0.3}},      
+		LLMLogprobs:   []float64{-1.0, -1.0, -1.0, -1.0}, 
 	}
 	dec, err := a.Aggregate(context.Background(), in)
 	if err != nil {
@@ -101,7 +89,6 @@ func TestAggregator_Aggregate_NoVeto_LowConf(t *testing.T) {
 	if dec.AggregatedConf > 0.40 {
 		t.Errorf("低置信度场景 conf 应 <= 0.40, got %v", dec.AggregatedConf)
 	}
-	// 低 conf 应进 handoff 或 llm_fallback
 	if dec.DecisionBand != dto.BandHandoff && dec.DecisionBand != dto.BandLLMFallback {
 		t.Errorf("低置信度应为 handoff 或 llm_fallback, got %v", dec.DecisionBand)
 	}
@@ -113,7 +100,7 @@ func TestAggregator_Aggregate_VetoExplicit(t *testing.T) {
 	in := &dto.SignalCollectionInput{
 		Text:          "我要转人工",
 		IntentType:    "ask_product",
-		RawIntentConf: 0.95, // 即使高置信度
+		RawIntentConf: 0.95, 
 		RAGChunks:     []dto.RAGChunk{{Score: 0.9}, {Score: 0.9}, {Score: 0.9}, {Score: 0.9}, {Score: 0.9}},
 		LLMLogprobs:   []float64{10.0, -1.0, -2.0},
 	}
@@ -168,21 +155,18 @@ func TestAggregator_Aggregate_VetoLowEntity(t *testing.T) {
 // TestAggregator_Aggregate_WithCalibration 带 RawLogits 校准
 func TestAggregator_Aggregate_WithCalibration(t *testing.T) {
 	a := makeTestAggregator()
-	// 设置温度 T=2.0（软化）
 	a.calibrator.SetTemperature(2.0)
 	in := &dto.SignalCollectionInput{
 		Text:          "hello",
 		IntentType:    "ask_product",
-		RawIntentConf: 0.5,                      // 原始低
-		RawLogits:     []float64{2.0, 1.0, 0.5}, // 校准后会替换 IntentConf
+		RawIntentConf: 0.5,                      
+		RawLogits:     []float64{2.0, 1.0, 0.5}, 
 		RAGChunks:     []dto.RAGChunk{{Score: 0.9}, {Score: 0.9}, {Score: 0.9}, {Score: 0.9}, {Score: 0.9}},
 	}
 	dec, err := a.Aggregate(context.Background(), in)
 	if err != nil {
 		t.Fatalf("Aggregate 失败: %v", err)
 	}
-	// 校准后 IntentConf 应为 softmax([2,1,0.5]/2.0) 的 top-1
-	// 而非原始 0.5
 	if dec.Signals.IntentConf == 0.5 {
 		t.Errorf("IntentConf 应被校准替换，不应仍为 0.5")
 	}
@@ -194,8 +178,7 @@ func TestAggregator_Aggregate_NoCalibration(t *testing.T) {
 	in := &dto.SignalCollectionInput{
 		Text:          "hello",
 		IntentType:    "ask_product",
-		RawIntentConf: 0.80, // 原始置信度
-		// 无 RawLogits
+		RawIntentConf: 0.80, 
 	}
 	dec, _ := a.Aggregate(context.Background(), in)
 	if dec.Signals.IntentConf != 0.80 {
@@ -212,7 +195,7 @@ func TestAggregator_inferCustomerLevel(t *testing.T) {
 		{"vip", "vip"},
 		{"normal", "normal"},
 		{"low", "low"},
-		{"", "normal"}, // 空时默认 normal
+		{"", "normal"}, 
 	}
 	for _, tc := range cases {
 		in := &dto.SignalCollectionInput{CustomerLevel: tc.input}
@@ -231,8 +214,8 @@ func TestAggregator_inferAgentAvailability(t *testing.T) {
 	}{
 		{0.8, 0.8},
 		{0.3, 0.3},
-		{0.0, 0.5},  // 0 时默认 0.5
-		{-0.1, 0.5}, // 负数时默认 0.5
+		{0.0, 0.5},  
+		{-0.1, 0.5}, 
 	}
 	for _, tc := range cases {
 		in := &dto.SignalCollectionInput{AgentAvailability: tc.input}
@@ -245,11 +228,10 @@ func TestAggregator_inferAgentAvailability(t *testing.T) {
 
 // TestAggregator_saveSignalAsync_NilRepo nil repo 不应 panic
 func TestAggregator_saveSignalAsync_NilRepo(t *testing.T) {
-	a := makeTestAggregator() // signalRepo=nil
+	a := makeTestAggregator() 
 	in := &dto.SignalCollectionInput{SessionID: "s1"}
 	dec := &dto.ConfidenceDecision{SignalID: "sig-1"}
 	sig := &dto.FiveSignals{IntentConf: 0.5}
-	// 不应 panic
 	a.saveSignalAsync(context.Background(), in, dec, sig, 0.5)
 }
 
@@ -278,7 +260,6 @@ func TestAggregator_Aggregate_FullPipeline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Aggregate 失败: %v", err)
 	}
-	// 验证决策字段完整
 	if dec.SignalID == "" {
 		t.Errorf("SignalID 不应为空")
 	}
@@ -288,7 +269,6 @@ func TestAggregator_Aggregate_FullPipeline(t *testing.T) {
 	if dec.DynamicThreshold < 0.40 || dec.DynamicThreshold > 0.95 {
 		t.Errorf("DynamicThreshold 应在 [0.40, 0.95], got %v", dec.DynamicThreshold)
 	}
-	// 5 维信号应有值
 	if dec.Signals.IntentConf <= 0 {
 		t.Errorf("IntentConf 应 > 0, got %v", dec.Signals.IntentConf)
 	}
@@ -298,7 +278,6 @@ func TestAggregator_Aggregate_FullPipeline(t *testing.T) {
 	if dec.Signals.RAGQual <= 0 {
 		t.Errorf("RAGQual 应 > 0, got %v", dec.Signals.RAGQual)
 	}
-	// 决策区间应是 4 个之一
 	validBands := map[string]bool{
 		dto.BandHandoff: true, dto.BandLLMFallback: true,
 		dto.BandReview: true, dto.BandAuto: true,
@@ -311,20 +290,18 @@ func TestAggregator_Aggregate_FullPipeline(t *testing.T) {
 // TestAggregator_Aggregate_ReviewBand 中等置信度进 review 队列
 func TestAggregator_Aggregate_ReviewBand(t *testing.T) {
 	a := makeTestAggregator()
-	// 构造中等置信度场景：conf ∈ [0.6, 0.75)
 	in := &dto.SignalCollectionInput{
 		Text:              "hello",
 		IntentType:        "ask_product",
-		RawIntentConf:     0.70, // 中等
+		RawIntentConf:     0.70, 
 		ExpectedEntities:  map[string]any{"k": "v"},
 		ExtractedEntities: map[string]any{"k": "v"},
 		RAGChunks: []dto.RAGChunk{
 			{Score: 0.7}, {Score: 0.7}, {Score: 0.7}, {Score: 0.7}, {Score: 0.7},
 		},
-		LLMLogprobs: []float64{2.0, -1.0, -1.0}, // 中等熵
+		LLMLogprobs: []float64{2.0, -1.0, -1.0}, 
 	}
 	dec, _ := a.Aggregate(context.Background(), in)
-	// 由于权重聚合，conf 可能在 review 区间
 	if dec.AggregatedConf < 0.40 {
 		t.Errorf("中等置信度场景 conf 应 >= 0.40, got %v", dec.AggregatedConf)
 	}
@@ -335,13 +312,12 @@ func TestAggregator_Aggregate_ReviewBand(t *testing.T) {
 func TestAggregator_Aggregate_ContextCancelled(t *testing.T) {
 	a := makeTestAggregator()
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // 立即取消
+	cancel() 
 	in := &dto.SignalCollectionInput{
 		Text:          "hello",
 		IntentType:    "ask_product",
 		RawIntentConf: 0.85,
 	}
-	// 即使上下文取消，主流程应仍能完成（signal collector 不依赖 ctx）
 	dec, err := a.Aggregate(ctx, in)
 	if err != nil {
 		t.Fatalf("上下文取消时 Aggregate 不应报错: %v", err)
@@ -372,7 +348,6 @@ func TestAggregate_RAGNotExecuted_SignalNeutral(t *testing.T) {
 		Text:          "hello",
 		IntentType:    "ask_product",
 		RawIntentConf: 0.6,
-		// 故意不置 RAGExecuted、不提供 RAGChunks —— 模拟 RAG 跑之前的 handoff 预检
 	}
 	dec, err := a.Aggregate(context.Background(), in)
 	if err != nil {
@@ -387,19 +362,16 @@ func TestAggregate_RAGNotExecuted_SignalNeutral(t *testing.T) {
 func TestComputeRAGQual_NeutralVsExecuted(t *testing.T) {
 	c := NewSignalCollector(nil)
 
-	// 1) 未执行且无 chunks → 中性 0.5
 	neutral := c.computeRAGQual(&dto.SignalCollectionInput{})
 	if neutral != 0.5 {
 		t.Errorf("未执行+无 chunks 应返回中性 0.5, got %v", neutral)
 	}
 
-	// 2) 已执行但无命中 → 0（确实低质量）
 	executedEmpty := c.computeRAGQual(&dto.SignalCollectionInput{RAGExecuted: true})
 	if executedEmpty != 0.0 {
 		t.Errorf("已执行无命中应返回 0, got %v", executedEmpty)
 	}
 
-	// 3) 提供 chunks → 按质量计算（>0）
 	withChunks := c.computeRAGQual(&dto.SignalCollectionInput{
 		RAGExecuted: true,
 		RAGChunks:   []dto.RAGChunk{{Score: 0.9}, {Score: 0.8}},
@@ -408,3 +380,4 @@ func TestComputeRAGQual_NeutralVsExecuted(t *testing.T) {
 		t.Errorf("提供 chunks 应返回 (0,1] 的质量分, got %v", withChunks)
 	}
 }
+

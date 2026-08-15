@@ -32,23 +32,13 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// 常量
-// ============================================================================
 
 const (
-	// chatWSClientSendBuffer 单个 Client 发送通道缓冲区大小
-	// LLM 流式 chunk 量大（每秒数十条），但单条 chunk 体积小；64 可应对瞬时突发
 	chatWSClientSendBuffer = 64
 
-	// chatWSBroadcastBuffer 全局广播通道缓冲区大小
-	// 用于系统级公告、运维指令等；常规业务不推荐走广播
 	chatWSBroadcastBuffer = 256
 )
 
-// ============================================================================
-// Client
-// ============================================================================
 
 // Client 单个 WebSocket 连接客户端
 //
@@ -66,7 +56,7 @@ type Client struct {
 	send       chan []byte
 	traceID    string
 
-	mu sync.Mutex // 保护 conn 关闭、send 关闭等状态
+	mu sync.Mutex 
 }
 
 // NewClient 创建 Client 实例
@@ -93,18 +83,13 @@ func (c *Client) TraceID() string { return c.traceID }
 func (c *Client) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	// 幂等关闭：使用 select-default 防止 double close 崩溃
 	select {
 	case <-c.send:
-		// 已关闭
 	default:
 		close(c.send)
 	}
 }
 
-// ============================================================================
-// Hub
-// ============================================================================
 
 // ChatWSHub WebSocket 连接管理 Hub
 //
@@ -124,11 +109,9 @@ type ChatWSHub struct {
 	broadcast   chan []byte
 	mu          sync.RWMutex
 	done        chan struct{}
-	startedCh   chan struct{} // 关闭表示 Run 已执行 wg.Add(1), Stop 须等其关闭再 Wait
+	startedCh   chan struct{} 
 	closeOnce   sync.Once
 	startedOnce sync.Once
-	// wg : 用于 Stop 阻塞等待 Run goroutine 退出
-	// 防止 Hub 关闭后仍有 goroutine 残留（goleak 检测）
 	wg sync.WaitGroup
 }
 
@@ -159,8 +142,6 @@ func NewChatWSHub() *ChatWSHub {
 func (h *ChatWSHub) Run() {
 	h.startedOnce.Do(func() {
 		h.wg.Add(1)
-		// 标记 Run 已开始( wg.Add 已完成 ), 让 Stop 的 wg.Wait 建立 happens-before,
-		// 避免 WaitGroup 的 Add 与 Wait 并发触发 data race。
 		close(h.startedCh)
 		defer h.wg.Done()
 		for {
@@ -191,14 +172,11 @@ func (h *ChatWSHub) Stop() {
 	h.closeOnce.Do(func() {
 		close(h.done)
 	})
-	// 等待 Run 真正开始 (wg.Add(1) 已执行) 后再 Wait, 否则 Add 与 Wait 可能并发 (data race)。
-	// 若 Run 从未启动 (startedOnce 未触发), startedCh 不会关闭, 此时直接返回即可 (wg 计数为 0)。
 	select {
 	case <-h.startedCh:
 	case <-h.done:
 		return
 	}
-	// 等待 Run goroutine 真正退出
 	h.wg.Wait()
 }
 
@@ -209,7 +187,6 @@ func (h *ChatWSHub) Register(c *Client) {
 	select {
 	case h.register <- c:
 	default:
-		// 通道已满，回退为直接添加（保证可用性）
 		h.addClient(c)
 	}
 }
@@ -221,7 +198,6 @@ func (h *ChatWSHub) Unregister(c *Client) {
 	select {
 	case h.unregister <- c:
 	default:
-		// 通道已满，回退为直接移除
 		h.removeClient(c)
 	}
 }
@@ -240,7 +216,6 @@ func (h *ChatWSHub) SendToClient(sessionID string, payload []byte) bool {
 	case client.send <- payload:
 		return true
 	default:
-		// 通道已满，丢弃本次消息（Client 已异常或网络阻塞）
 		return false
 	}
 }
@@ -298,9 +273,6 @@ func (h *ChatWSHub) IsOnline(sessionID string) bool {
 	return ok
 }
 
-// ============================================================================
-// 内部方法（仅 Run 调用，无需加锁）
-// ============================================================================
 
 // addClient 内部方法：加入 clients map（不幂等；已存在则覆盖）
 func (h *ChatWSHub) addClient(c *Client) {
@@ -310,7 +282,6 @@ func (h *ChatWSHub) addClient(c *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if old, ok := h.clients[c.SessionID]; ok {
-		// 同一 session 重复连接，关闭旧连接
 		old.Close()
 		_ = old.Conn.Close()
 	}
@@ -364,9 +335,6 @@ func (h *ChatWSHub) closeAll() {
 	h.clients = make(map[string]*Client)
 }
 
-// ============================================================================
-// 错误工具（chat_ws.go 复用）
-// ============================================================================
 
 // WrapErr 统一错误包装（避免 chat_ws.go / chat_ws_hub.go 重复 fmt.Errorf）
 //
@@ -382,3 +350,4 @@ func WrapErr(op string, err error) error {
 func nowMs() int64 {
 	return time.Now().UnixMilli()
 }
+

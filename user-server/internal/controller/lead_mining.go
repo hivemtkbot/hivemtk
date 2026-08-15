@@ -41,3 +41,4 @@ func (c *LeadMiningController) SaveConfig(ctx *gin.Context) {
 	}
 	response.Success(ctx, cfg, "success")
 }
+

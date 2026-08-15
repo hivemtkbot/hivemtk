@@ -60,11 +60,11 @@ const (
 const InboxOverdueThreshold = 30 * time.Minute
 
 const (
-	ReconcileModeUnread = "unread" // 以 message_hub 最后一条消息为事实源，重算未读/状态（修正历史数据）
+	ReconcileModeUnread = "unread" 
 
-	ReconcileModeOverdue = "overdue" // 超时未响应：转在线人工坐席处理（否则默认 AI 处理）
+	ReconcileModeOverdue = "overdue" 
 
-	ReconcileModeBackfill = "backfill" // 回填：修正 NULL/空 conversation_id 脏数据 + 为历史会话补建 inbox_conversations（消除 sync_gap 缺口）
+	ReconcileModeBackfill = "backfill" 
 
 )
 
@@ -100,12 +100,9 @@ func inboxCustomerID(msg *model.MessageHub) string {
 	if msg == nil {
 		return ""
 	}
-	// 群聊：以会话本身作为归属实体
 	if msg.IsGroup && msg.ConversationID != "" {
 		return msg.ConversationID
 	}
-	// 群聊 / 聚合会话：sender_id（入站）或 receiver_id（出站）被写成
-	// "conversation_id <时间后缀>"，并非稳定参与方 ID → 归一为 conversation_id
 	if msg.ConversationID != "" {
 		if msg.SenderID != "" && strings.HasPrefix(msg.SenderID, msg.ConversationID+" ") {
 			return msg.ConversationID
@@ -114,7 +111,6 @@ func inboxCustomerID(msg *model.MessageHub) string {
 			return msg.ConversationID
 		}
 	}
-	// 常规：出站取 receiver，入站取 sender
 	if msg.Direction == "outbound" {
 		if msg.ReceiverID != "" {
 			return msg.ReceiverID
@@ -150,7 +146,7 @@ type InboxService struct {
 	hubRepo        *repository.MessageHubRepository
 	sessionMsgRepo *repository.SessionMessageRepository
 	mu             sync.RWMutex
-	staffLoadCache map[string]int // staffUserID -> 当前承接数（缓存）
+	staffLoadCache map[string]int 
 }
 
 func NewInboxService() *InboxService {
@@ -190,13 +186,13 @@ type InboxQuery struct {
 	Muted       *bool
 	Page        int
 	PageSize    int
-	OrderBy     string // pinned_desc, latest_desc, unread_desc
+	OrderBy     string 
 }
 
 type InboxAssignRequest struct {
 	ConversationID uint
-	Action         string // assign/reassign/release/close/reopen
-	ToType         string // human/sop/ai
+	Action         string 
+	ToType         string 
 	ToUserID       string
 	ToSOPID        uint
 	OperatorID     string
@@ -242,7 +238,6 @@ func (s *InboxService) UpsertFromHubMessage(ctx context.Context, msg *model.Mess
 	if err := s.upsertInternal(ctx, msg); err != nil {
 		return nil, err
 	}
-	// 取出会话（归属键与 monitor sync_gap 判定一致）
 	cid := inboxCustomerID(msg)
 	conv, err := s.inboxRepo.FindByPlatformAccountCustomer(ctx, msg.Platform, msg.AccountID, cid)
 	if err != nil {
@@ -256,10 +251,8 @@ func (s *InboxService) UpsertFromHubMessageTx(ctx context.Context, msg *model.Me
 		return nil, nil
 	}
 	if hubRepo == nil {
-		// 兜底：无 hubRepo 时退化为非事务版本
 		return s.UpsertFromHubMessage(ctx, msg)
 	}
-	// 复用 upsertInternal 的 input 构造逻辑
 	if msg.Platform == "" || msg.AccountID == "" {
 		return nil, ErrInboxEmptyMerchant
 	}
@@ -295,11 +288,9 @@ func (s *InboxService) UpsertFromHubMessageTx(ctx context.Context, msg *model.Me
 		LastMessageAt:      lastMsgAt,
 		LastMessageFrom:    from,
 	}
-	// 跨表事务：hubRepo.CreateWithInboxTx 内部开 tx，先 Create(hub)，再调 inboxRepo.UpsertFromMessageTx(tx, input)
 	if err := hubRepo.CreateWithInboxTx(ctx, msg, s.inboxRepo, input); err != nil {
 		return nil, err
 	}
-	// 事务提交后取出会话快照（msg.ID 此时已填充）
 	conv, err := s.inboxRepo.FindByPlatformAccountCustomer(ctx, msg.Platform, msg.AccountID, customerID)
 	if err != nil {
 		return nil, err
@@ -314,7 +305,6 @@ func (s *InboxService) upsertInternal(ctx context.Context, msg *model.MessageHub
 	if msg.Platform == "" || msg.AccountID == "" {
 		return ErrInboxEmptyMerchant
 	}
-	// 默认以 sender 作为 customerId。群聊/聚合消息统一以 conversation_id 归属（见 inboxCustomerID）。
 	customerID := inboxCustomerID(msg)
 	if customerID == "" {
 		return ErrInboxInvalidCustomer
@@ -500,7 +490,6 @@ func (s *InboxService) Assign(ctx context.Context, req InboxAssignRequest) (*mod
 		return nil, nil
 	}
 
-	// 缓存同步：释放旧负载 + 增加新负载（事务已提交，DB 与缓存一致）
 	if out.OldAssignedTo != "" {
 		s.releaseLoad(ctx, out.OldAssignedTo)
 	}
@@ -608,11 +597,11 @@ type ReconcileResult struct {
 	OverdueFound         int    `json:"overdue_found"`
 	OverdueAssigned      int    `json:"overdue_assigned"`
 	AssignedTo           string `json:"assigned_to,omitempty"`
-	FixedNullConv        int64  `json:"fixed_null_conv_id"`     // backfill：修正的 NULL/空 conversation_id 行数
-	Backfilled           int64  `json:"backfilled"`             // backfill：补建的 inbox_conversations 会话数
-	NormalizedConv       int64  `json:"normalized_conv"`        // backfill：归一的时间戳污染 conversation_id 数
-	PollutedInboxDeleted int64  `json:"polluted_inbox_deleted"` // backfill：删除的时间戳污染孤儿收件箱行数
-	SyncGapFixed         int64  `json:"sync_gap_fixed"`         // backfill：修复的 sync_gap 会话数
+	FixedNullConv        int64  `json:"fixed_null_conv_id"`     
+	Backfilled           int64  `json:"backfilled"`             
+	NormalizedConv       int64  `json:"normalized_conv"`        
+	PollutedInboxDeleted int64  `json:"polluted_inbox_deleted"` 
+	SyncGapFixed         int64  `json:"sync_gap_fixed"`         
 	Message              string `json:"message"`
 }
 
@@ -637,7 +626,6 @@ func (s *InboxService) Reconcile(ctx context.Context, mode string) (*ReconcileRe
 			res.Message = "无在线坐席，超时会话保留等待 AI/人工处理"
 			return res, nil
 		}
-		// 轮询分配给在线坐席（默认集中转给同一在线坐席，便于其统一跟进）
 		target := agents[0]
 		res.AssignedTo = target
 		for _, conv := range due {
@@ -660,7 +648,7 @@ func (s *InboxService) Reconcile(ctx context.Context, mode string) (*ReconcileRe
 		return res, nil
 	case ReconcileModeBackfill:
 		return s.reconcileBackfill(ctx)
-	default: // ReconcileModeUnread
+	default: 
 		n, err := s.inboxRepo.ReconcileUnread(ctx)
 		if err != nil {
 			return nil, err
@@ -693,7 +681,6 @@ func (s *InboxService) reconcileBackfill(ctx context.Context) (*ReconcileResult,
 		return nil, ErrInboxRepoNotReady
 	}
 
-	// 步骤 1：修正 NULL/空 conversation_id 脏数据
 	nullRows, err := s.hubRepo.FindNullConversationIDRows(ctx)
 	if err != nil {
 		return nil, err
@@ -708,9 +695,6 @@ func (s *InboxService) reconcileBackfill(ctx context.Context) (*ReconcileResult,
 		res.FixedNullConv++
 	}
 
-	// 步骤 2：归一被时间戳污染的 conversation_id（如 "conv:群标题 29分钟前" → "conv:群标题"）。
-	// 同一会话被拆成多条带时间戳变体的 message_hub 记录因此合并到规范会话键，从根上消除碎片化；
-	// message_trace 同步归一，避免链路追踪树按旧键分裂。
 	normN, err := s.hubRepo.NormalizePollutedConversationIDs(ctx)
 	if err != nil {
 		return nil, err
@@ -723,21 +707,16 @@ func (s *InboxService) reconcileBackfill(ctx context.Context) (*ReconcileResult,
 		res.NormalizedConv += normT
 	}
 
-	// 步骤 3：清理归一后失效的收件箱孤儿行。
-	// 3a) 删带空格后缀的污染行（防御性，当前数据已无空格行）。
 	delN, err := s.inboxRepo.DeletePollutedInboxRows(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// 3b) 删不再被 message_hub 引用的 conv: 短键孤儿行（早期 split_part 错切合并残留，
-	// 如 "conv:AI"——归一后 message_hub 已无此键，须清除以免收件箱出现陈旧/重复会话）。
 	orphanN, err := s.inboxRepo.DeleteOrphanConvInboxRows(ctx)
 	if err != nil {
 		return nil, err
 	}
 	res.PollutedInboxDeleted = delN + orphanN
 
-	// 步骤 4：回填缺失的 inbox_conversations 历史会话
 	missing, err := s.hubRepo.FindConversationIDsMissingInbox(ctx)
 	if err != nil {
 		return nil, err
@@ -754,7 +733,6 @@ func (s *InboxService) reconcileBackfill(ctx context.Context) (*ReconcileResult,
 		res.Backfilled++
 	}
 
-	// 步骤 5：全量修复 sync_gap（与 monitor 判定一致的规范客户键）。
 	gapConvs, err := s.hubRepo.FindSyncGapConversations(ctx, time.Now().AddDate(0, 0, -90))
 	if err != nil {
 		return nil, err
@@ -782,7 +760,6 @@ func (s *InboxService) reconcileBackfill(ctx context.Context) (*ReconcileResult,
 func (s *InboxService) reconcileSyncGapConversation(ctx context.Context, platform, accountID, conversationID, customerID string) error {
 	latest, err := s.hubRepo.FindLatestByConversation(ctx, conversationID)
 	if err != nil || latest == nil {
-		// 无代表消息时仍写入一行空预览记录，确保 monitor 不再报缺口
 		uerr := s.inboxRepo.UpsertFromMessage(ctx, repository.UpsertFromMessageInput{
 			Platform:       platform,
 			AccountID:      accountID,
@@ -909,7 +886,6 @@ func (s *InboxService) GetMessagesByConversation(ctx context.Context, conversati
 		})
 	}
 
-	// 按时间倒序（最新消息在前）
 	sort.SliceStable(merged, func(i, j int) bool {
 		return merged[i].ts.After(merged[j].ts)
 	})
@@ -961,7 +937,6 @@ func (s *InboxService) DeleteMessage(ctx context.Context, conversationID, messag
 	return nil
 }
 
-// ---- 内部辅助 ----
 
 // pickStaff 选择负载最小的客服
 func (s *InboxService) pickStaff(ctx context.Context, candidates []string) (string, error) {
@@ -974,7 +949,6 @@ func (s *InboxService) pickStaff(ctx context.Context, candidates []string) (stri
 		loads[i] = s.staffLoadCache[c]
 	}
 	s.mu.RUnlock()
-	// 优先采用缓存值；若都 0，则查 DB
 	allZero := true
 	for _, v := range loads {
 		if v > 0 {
@@ -994,7 +968,6 @@ func (s *InboxService) pickStaff(ctx context.Context, candidates []string) (stri
 			minIdx = i
 		}
 	}
-	// 检查阈值
 	if loads[minIdx] >= InboxDefaultStaffLoadLimit {
 		return "", fmt.Errorf("all staff at capacity")
 	}
@@ -1018,7 +991,6 @@ func (s *InboxService) pickRoundRobin(ctx context.Context, candidates []string) 
 		return got[candidates[i]] < got[candidates[j]]
 	})
 	if got[candidates[0]] == 0 {
-		// 避免所有人都没分配过：按原顺序
 		return candidates[0], nil
 	}
 	return candidates[0], nil
@@ -1060,3 +1032,4 @@ func firstNonEmpty(a, b string) string {
 	}
 	return b
 }
+

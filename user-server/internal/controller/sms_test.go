@@ -44,7 +44,6 @@ func setupSmsController() *SmsController {
 	return NewSmsController(svc)
 }
 
-// ==================== 配置相关测试 ====================
 
 // TestSmsController_GetConfig_Success 测试获取配置成功
 func TestSmsController_GetConfig_Success(t *testing.T) {
@@ -53,7 +52,6 @@ func TestSmsController_GetConfig_Success(t *testing.T) {
 	router := setupGinEngine()
 	router.GET("/sms/config", ctrl.GetConfig)
 
-	// 先创建测试配置
 	config := model.SmsConfig{
 		DefaultProvider: "aliyun",
 		RateLimit:       100,
@@ -185,7 +183,7 @@ func TestSmsController_SaveConfig_RateLimitOutOfRange(t *testing.T) {
 
 	saveReq := dto.SmsConfigRequest{
 		DefaultProvider: "aliyun",
-		RateLimit:       2000, // 超出最大值 1000
+		RateLimit:       2000, 
 	}
 	body, _ := json.Marshal(saveReq)
 
@@ -199,7 +197,6 @@ func TestSmsController_SaveConfig_RateLimitOutOfRange(t *testing.T) {
 	}
 }
 
-// ==================== 短信记录相关测试 ====================
 
 // TestSmsController_GetSmsList_Success 测试获取短信列表成功
 func TestSmsController_GetSmsList_Success(t *testing.T) {
@@ -208,7 +205,6 @@ func TestSmsController_GetSmsList_Success(t *testing.T) {
 	router := setupGinEngine()
 	router.GET("/sms/list", ctrl.GetSmsList)
 
-	// 创建测试记录
 	now := time.Now()
 	db.GetDB().Create(&model.SmsRecord{
 		Phone:    "13800138000",
@@ -278,12 +274,10 @@ func TestSmsController_GetSmsList_InvalidStatus(t *testing.T) {
 	router := setupGinEngine()
 	router.GET("/sms/list", ctrl.GetSmsList)
 
-	// 无效状态会被忽略，返回 200 但会查询所有状态
 	req, _ := http.NewRequest("GET", "/sms/list?status=invalid_status", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于 omitempty，无效状态会被忽略，返回 200
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK (invalid status ignored due to omitempty), got %d", w.Code)
 	}
@@ -362,14 +356,12 @@ func TestSmsController_SendSms_Success(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/sms/send", ctrl.SendSms)
 
-	// 创建默认配置
 	db.GetDB().Create(&model.SmsConfig{
 		DefaultProvider: "aliyun",
 		RateLimit:       100,
 		DailyLimit:      10000,
 		RetryTimes:      3,
 	})
-	// 创建 aliyun 子配置(实际发送需要)
 	db.GetDB().Create(&model.SmsAliyunConfig{
 		AccessKeyID:     "test-key-id",
 		AccessKeySecret: "test-key-secret",
@@ -397,7 +389,6 @@ func TestSmsController_SendSms_Success(t *testing.T) {
 	if record.Provider != "aliyun" {
 		t.Errorf("Expected provider=aliyun, got %s", record.Provider)
 	}
-	// 状态应为 sending 或 failed(取决于 API 调用时序)
 	if record.Status != "sending" && record.Status != "failed" && record.Status != "sent" {
 		t.Errorf("Expected status in [sending, failed, sent], got %s", record.Status)
 	}
@@ -451,7 +442,7 @@ func TestSmsController_SendSms_WrongPhoneLength(t *testing.T) {
 	router.POST("/sms/send", ctrl.SendSms)
 
 	sendReq := dto.SmsSendRequest{
-		Phone:   "1380013800", // 少一位
+		Phone:   "1380013800", 
 		Content: "测试短信",
 	}
 	body, _ := json.Marshal(sendReq)
@@ -498,21 +489,18 @@ func TestSmsController_ResendSms_Success(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/sms/resend/:id", ctrl.ResendSms)
 
-	// 创建默认配置
 	db.GetDB().Create(&model.SmsConfig{
 		DefaultProvider: "aliyun",
 		RateLimit:       100,
 		DailyLimit:      10000,
 		RetryTimes:      3,
 	})
-	// 创建 aliyun 子配置(实际发送需要)
 	db.GetDB().Create(&model.SmsAliyunConfig{
 		AccessKeyID:     "test-key-id",
 		AccessKeySecret: "test-key-secret",
 		SignName:        "test-sign",
 	})
 
-	// 创建一条失败的短信记录
 	record := model.SmsRecord{
 		Phone:    "13800138000",
 		Content:  "重发测试",
@@ -532,7 +520,6 @@ func TestSmsController_ResendSms_Success(t *testing.T) {
 	if err := db.GetDB().Where("phone = ?", "13800138000").First(&updated).Error; err != nil {
 		t.Errorf("Expected sms record to exist, got error: %v", err)
 	}
-	// 状态应为 sending 或 failed(取决于 API 调用时序)
 	if updated.Status != "sending" && updated.Status != "failed" && updated.Status != "sent" {
 		t.Errorf("Expected status in [sending, failed, sent], got %s", updated.Status)
 	}
@@ -575,13 +562,11 @@ func TestSmsController_ResendSms_NotFailedStatus(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// service 返回"只有失败的短信可以重发"业务错误,ResendSms 走 HandleServiceError 返回 400
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status Bad Request, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
 
-// ==================== 草稿相关测试 ====================
 
 // TestSmsController_GetDraftList_Success 测试获取草稿列表成功
 func TestSmsController_GetDraftList_Success(t *testing.T) {
@@ -850,28 +835,24 @@ func TestSmsController_SendDraft_Form_Success(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/sms/draft/send/:id", ctrl.SendDraft)
 
-	// 创建草稿
 	draft := model.SmsDraft{
 		Title:   "发送测试",
 		Content: "草稿发送内容",
 	}
 	db.GetDB().Create(&draft)
 
-	// 创建默认配置
 	db.GetDB().Create(&model.SmsConfig{
 		DefaultProvider: "aliyun",
 		RateLimit:       100,
 		DailyLimit:      10000,
 		RetryTimes:      3,
 	})
-	// 创建 aliyun 子配置
 	db.GetDB().Create(&model.SmsAliyunConfig{
 		AccessKeyID:     "test-key-id",
 		AccessKeySecret: "test-key-secret",
 		SignName:        "test-sign",
 	})
 
-	// 使用表单形式发送
 	req, _ := http.NewRequest("POST", "/sms/draft/send/1", bytes.NewReader([]byte("phone=13800138000")))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
@@ -906,7 +887,6 @@ func TestSmsController_SendDraft_JSON_Success(t *testing.T) {
 		DailyLimit:      10000,
 		RetryTimes:      3,
 	})
-	// 创建 aliyun 子配置
 	db.GetDB().Create(&model.SmsAliyunConfig{
 		AccessKeyID:     "test-key-id",
 		AccessKeySecret: "test-key-secret",
@@ -953,7 +933,6 @@ func TestSmsController_SendDraft_EmptyPhone(t *testing.T) {
 	}
 }
 
-// ==================== 任务相关测试 ====================
 
 // TestSmsController_GetJobList_Success 测试获取任务列表成功
 func TestSmsController_GetJobList_Success(t *testing.T) {
@@ -1031,12 +1010,10 @@ func TestSmsController_GetJobList_InvalidStatus(t *testing.T) {
 	router := setupGinEngine()
 	router.GET("/sms/job/list", ctrl.GetJobList)
 
-	// 无效状态会被忽略，返回 200 但会查询所有状态
 	req, _ := http.NewRequest("GET", "/sms/job/list?status=invalid", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于 omitempty，无效状态会被忽略，返回 200
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK (invalid status ignored due to omitempty), got %d", w.Code)
 	}
@@ -1424,16 +1401,11 @@ func TestSmsController_GetJobRecords_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// HandleDBError 对记录不存在返回 404
 	if w.Code != http.StatusNotFound {
 		t.Errorf("Expected status Not Found, got %d", w.Code)
 	}
 }
 
-// =============================================================================
-// 下方测试函数来源于历史遗留的 sms_extra_test.go
-// 为遵守命名规范(禁用 _extra 后缀),于 合并到 sms_controller_test.go
-// =============================================================================
 
 // setupSMSTestDB_Merged 短信精简测试数据库(合并自 sms_extra_test.go)
 func setupSMSTestDB_Merged(t *testing.T) *gorm.DB {
@@ -1480,3 +1452,4 @@ func TestSMSController_GetList_MergedSuccess(t *testing.T) {
 		t.Errorf("Expected 200, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
+

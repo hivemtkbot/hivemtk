@@ -23,12 +23,10 @@ func TestFingerprintFormat(t *testing.T) {
 		t.Fatalf("GenerateFingerprint failed: %v", err)
 	}
 
-	// MD5 hash should be 32 characters (hex encoded)
 	if len(fp) != 32 {
 		t.Errorf("Expected fingerprint length 32, got %d", len(fp))
 	}
 
-	// Should only contain hex characters
 	for _, c := range fp {
 		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
 			t.Errorf("Invalid character in fingerprint: %c", c)
@@ -47,14 +45,12 @@ func TestFingerprintConsistency(t *testing.T) {
 		t.Fatalf("GenerateFingerprint failed: %v", err)
 	}
 
-	// Fingerprints from same machine should be identical
 	if fp1 != fp2 {
 		t.Error("Fingerprints from same machine should be identical")
 	}
 }
 
 func TestFingerprintUniqueness(t *testing.T) {
-	// Generate multiple fingerprints
 	fingerprints := make(map[string]bool)
 
 	for i := 0; i < 10; i++ {
@@ -65,8 +61,8 @@ func TestFingerprintUniqueness(t *testing.T) {
 		fingerprints[fp] = true
 	}
 
-	// All should be the same (same machine)
 	if len(fingerprints) != 1 {
 		t.Error("All fingerprints from same machine should be identical")
 	}
 }
+

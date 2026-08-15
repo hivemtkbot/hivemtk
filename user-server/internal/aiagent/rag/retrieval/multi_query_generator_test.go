@@ -1,6 +1,5 @@
 package ragretrieval
 
-// multi_query_generator_test.go Multi-Query 生成器单元测试
 
 import (
 	"context"
@@ -44,14 +43,12 @@ func TestMultiQueryGenerator_Success(t *testing.T) {
 			t.Errorf("out[%d]=%q want=%q", i, out[i], v)
 		}
 	}
-	// 验证 temperature=0.5
 	if m.lastOpts.Temperature != 0.5 {
 		t.Errorf("Temperature=%.2f want=0.5", m.lastOpts.Temperature)
 	}
 }
 
 func TestMultiQueryGenerator_MarkdownWrapped(t *testing.T) {
-	// LLM 输出可能被 ```json ... ``` 包裹
 	rawResp := "```json\n[\"变体1\",\"变体2\"]\n```"
 	m := &mockLLMChatClient{resp: rawResp}
 	g := NewMultiQueryGenerator(m, nil)
@@ -95,7 +92,6 @@ func TestMultiQueryGenerator_EmptyArray(t *testing.T) {
 }
 
 func TestMultiQueryGenerator_Deduplication(t *testing.T) {
-	// 重复变体应去重
 	rawResp := `["退货流程","退货流程","如何退款"]`
 	m := &mockLLMChatClient{resp: rawResp}
 	g := NewMultiQueryGenerator(m, nil)
@@ -128,7 +124,6 @@ func TestMultiQueryGenerator_CustomVariantN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Generate failed: %v", err)
 	}
-	// prompt 应包含 "5 个查询变体"
 	if !strings.Contains(m.lastPrompt, "5 个查询变体") {
 		t.Errorf("prompt should mention 5 variants: %s", m.lastPrompt)
 	}
@@ -159,7 +154,6 @@ func TestExtractJSONArray_NoArray(t *testing.T) {
 }
 
 func TestExtractJSONArray_ArrayWithPrefix(t *testing.T) {
-	// LLM 输出前可能有文字
 	out := extractJSONArray(`好的，这是结果：["v1","v2"]`)
 	if out != `["v1","v2"]` {
 		t.Errorf("got=%q", out)
@@ -172,3 +166,4 @@ func TestExtractJSONArray_UnclosedArray(t *testing.T) {
 		t.Errorf("unclosed array should return empty, got=%q", out)
 	}
 }
+

@@ -208,3 +208,4 @@ func (c *MessageHubController) PushFromChannel(ctx *gin.Context) {
 	}
 	response.Success(ctx, msg, "推送成功")
 }
+

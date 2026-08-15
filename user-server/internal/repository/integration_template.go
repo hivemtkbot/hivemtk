@@ -18,7 +18,7 @@ type IntegrationTemplateRepository interface {
 	GetByCode(ctx context.Context, code string) (*model.IntegrationTemplate, error)
 	List(ctx context.Context, platform, category string, enabled *bool, page, pageSize int) ([]*model.IntegrationTemplate, int64, error)
 	ListBuiltIn(ctx context.Context) ([]*model.IntegrationTemplate, error)
-	UpsertBuiltIn(ctx context.Context, t *model.IntegrationTemplate) error // 用于种子化预置模板
+	UpsertBuiltIn(ctx context.Context, t *model.IntegrationTemplate) error 
 }
 
 type integrationTemplateRepo struct {
@@ -37,7 +37,6 @@ func (r *integrationTemplateRepo) Create(ctx context.Context, t *model.Integrati
 	if t.Code == "" {
 		return errors.New("模板编码不能为空")
 	}
-	// 唯一性检查
 	if existing, _ := r.GetByCode(ctx, t.Code); existing != nil {
 		return errors.New("模板编码已存在")
 	}
@@ -128,7 +127,6 @@ func (r *integrationTemplateRepo) UpsertBuiltIn(ctx context.Context, t *model.In
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return r.db.Create(t).Error
 	}
-	// 内置模板：仅更新可变字段（auth_config / field_maps / endpoints / api_base / doc_url / remark / enabled）
 	t.ID = existing.ID
 	t.CreatedAt = existing.CreatedAt
 	return r.db.Model(&model.IntegrationTemplate{}).Where("id = ?", existing.ID).Updates(map[string]any{
@@ -141,3 +139,4 @@ func (r *integrationTemplateRepo) UpsertBuiltIn(ctx context.Context, t *model.In
 		"remark":      t.Remark,
 	}).Error
 }
+

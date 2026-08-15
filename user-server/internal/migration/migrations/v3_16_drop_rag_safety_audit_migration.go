@@ -1,25 +1,5 @@
 package migrations
 
-// v3_16_drop_rag_safety_audit_migration.go 清理孤儿表 rag_safety_audit_logs
-//
-// 背景 (深度审查发现 风险):
-//   - rag_safety_audit_logs 表于 018_cde_p1_gap_fixes.sql 创建, 包含
-//     tenant_id VARCHAR(64) 字段
-//   - 全项目 grep `rag_safety_audit` / `RagSafetyAudit` → 0 匹配
-//   - 表无任何 Go 代码引用, 2 个索引 (idx_rag_safety_audit_tenant /
-//     idx_rag_safety_audit_blocked) 全是孤儿
-//   - commit 1 + commit 2 已完成:
-//     - SafetyCheckRequest.AgentID 改为 uint
-//     - 移除 HTTP controller, service 仅保留 3 个词检 (纯内存)
-//   - 后续无计划重建该表 (越权检测已删除, 词检不需要 DB 落库)
-//
-// 迁移内容:
-//   1. DROP INDEX IF EXISTS idx_rag_safety_audit_tenant
-//   2. DROP INDEX IF EXISTS idx_rag_safety_audit_blocked
-//   3. DROP TABLE IF EXISTS rag_safety_audit_logs
-//
-// 幂等: IF EXISTS 保护, 重复执行无副作用。
-// 私域部署: 孤儿表清理, 释放存储 + 简化 schema 维护。
 
 import (
 	"context"
@@ -62,7 +42,6 @@ func (m *RagSafetyAuditDropMigration) Up(ctx context.Context) error {
 
 	log.Println("[v3.16] 开始清理孤儿表 rag_safety_audit_logs ...")
 
-	// ---- 1. DROP 孤儿索引 ----
 	log.Println("[v3.16] 1/3 DROP INDEX idx_rag_safety_audit_tenant ...")
 	if err := m.db.WithContext(ctx).Exec(
 		`DROP INDEX IF EXISTS idx_rag_safety_audit_tenant`,
@@ -79,7 +58,6 @@ func (m *RagSafetyAuditDropMigration) Up(ctx context.Context) error {
 	}
 	log.Println("[v3.16] ✓ idx_rag_safety_audit_blocked 已删除")
 
-	// ---- 2. DROP 孤儿表 ----
 	log.Println("[v3.16] 3/3 DROP TABLE rag_safety_audit_logs ...")
 	if err := m.db.WithContext(ctx).Exec(
 		`DROP TABLE IF EXISTS rag_safety_audit_logs`,
@@ -120,3 +98,4 @@ CREATE INDEX IF NOT EXISTS idx_rag_safety_audit_blocked ON rag_safety_audit_logs
 
 // Ensure RagSafetyAuditDropMigration implements Migration interface
 var _ migration.Migration = (*RagSafetyAuditDropMigration)(nil)
+

@@ -56,7 +56,6 @@ func TestClue_WithEmptyID(t *testing.T) {
 		ID:   "",
 	}
 
-	// ID should be empty before BeforeCreate is called
 	if clue.ID != "" {
 		t.Errorf("Expected empty ID before BeforeCreate, got %s", clue.ID)
 	}
@@ -121,7 +120,6 @@ func TestClue_BeforeCreate(t *testing.T) {
 		Name: "Test Lead",
 	}
 
-	// BeforeCreate should generate an ID
 	err := clue.BeforeCreate(nil)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -129,8 +127,8 @@ func TestClue_BeforeCreate(t *testing.T) {
 	if clue.ID == "" {
 		t.Error("Expected non-empty ID after BeforeCreate")
 	}
-	// Verify it's a valid UUID format
 	if len(clue.ID) != 36 {
 		t.Errorf("Expected ID length 36 (UUID), got %d", len(clue.ID))
 	}
 }
+

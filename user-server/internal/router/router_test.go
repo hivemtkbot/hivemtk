@@ -10,7 +10,6 @@ import (
 )
 
 func TestSetup_HealthEndpoint(t *testing.T) {
-	// 注入 test DB（避免 Setup() 内部 service.NewXxxService(db.GetDB()) panic）
 	database := testutil.NewTestDB(t)
 	dbutil.SetTestDB(database)
 	defer dbutil.SetTestDB(nil)
@@ -19,7 +18,6 @@ func TestSetup_HealthEndpoint(t *testing.T) {
 	r := gin.New()
 	Setup(r, database)
 
-	// Verify the engine has routes registered
 	routes := r.Routes()
 	if len(routes) == 0 {
 		t.Error("Expected routes to be registered")
@@ -35,7 +33,6 @@ func TestSetup_PublicRoutes(t *testing.T) {
 	r := gin.New()
 	Setup(r, database)
 
-	// Check that health endpoint exists
 	routes := r.Routes()
 	foundHealth := false
 	foundLogin := false
@@ -203,3 +200,4 @@ func TestSetup_UploadRoute(t *testing.T) {
 		t.Error("Expected /api/upload route to be registered")
 	}
 }
+

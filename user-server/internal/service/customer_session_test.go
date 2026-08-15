@@ -22,7 +22,7 @@ func setupCustomerSessionServiceTestDB(t *testing.T) *gorm.DB {
 		&model.AISuggestion{},
 		&model.QuickReply{},
 		&model.SessionTag{},
-		&model.UserBlacklist{}, // S3-7 配套：preCreateBlacklistGuard 需要此表
+		&model.UserBlacklist{}, 
 	)
 	db.SetTestDB(database)
 	return database
@@ -89,7 +89,6 @@ func TestCustomerSessionService_CreateSession_Success(t *testing.T) {
 func TestCustomerSessionService_GetSessions_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 创建会话
 	for i := 0; i < 5; i++ {
 		req := &CreateSessionRequest{
 			Platform:  model.PlatformDouyin,
@@ -99,7 +98,6 @@ func TestCustomerSessionService_GetSessions_Success(t *testing.T) {
 		service.CreateSession(context.Background(), req)
 	}
 
-	// 获取列表
 	sessions, total, err := service.GetSessions(context.Background(), model.SessionStatusPending, 1, 10)
 	if err != nil {
 		t.Fatalf("GetSessions failed: %v", err)
@@ -117,7 +115,6 @@ func TestCustomerSessionService_GetSessions_Success(t *testing.T) {
 func TestCustomerSessionService_GetSessionByID_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 创建会话
 	req := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -125,7 +122,6 @@ func TestCustomerSessionService_GetSessionByID_Success(t *testing.T) {
 	}
 	created, _ := service.CreateSession(context.Background(), req)
 
-	// 获取会话详情
 	session, err := service.GetSessionByID(context.Background(), created.ID)
 	if err != nil {
 		t.Fatalf("GetSessionByID failed: %v", err)
@@ -141,7 +137,6 @@ func TestCustomerSessionService_GetSessionByID_Success(t *testing.T) {
 func TestCustomerSessionService_GetSessionByID_SingleTenant(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 创建会话
 	req := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -152,7 +147,6 @@ func TestCustomerSessionService_GetSessionByID_SingleTenant(t *testing.T) {
 		t.Fatalf("CreateSession failed: %v", err)
 	}
 
-	// 正常访问应返回会话
 	got, err := service.GetSessionByID(context.Background(), created.ID)
 	if err != nil {
 		t.Fatalf("GetSessionByID failed: %v", err)
@@ -166,7 +160,6 @@ func TestCustomerSessionService_GetSessionByID_SingleTenant(t *testing.T) {
 func TestCustomerSessionService_AssignSession_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 创建客服
 	agent := &model.AgentStatus{
 		AgentID:        123,
 		AgentName:      "客服 A",
@@ -176,7 +169,6 @@ func TestCustomerSessionService_AssignSession_Success(t *testing.T) {
 	}
 	service.agentRepo.Create(context.Background(), agent)
 
-	// 创建会话
 	sessionReq := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -184,7 +176,6 @@ func TestCustomerSessionService_AssignSession_Success(t *testing.T) {
 	}
 	session, _ := service.CreateSession(context.Background(), sessionReq)
 
-	// 分配会话
 	assignReq := &AssignSessionRequest{
 		SessionID: session.ID,
 		AgentID:   123,
@@ -194,7 +185,6 @@ func TestCustomerSessionService_AssignSession_Success(t *testing.T) {
 		t.Fatalf("AssignSession failed: %v", err)
 	}
 
-	// 验证会话已分配
 	updated, _ := service.GetSessionByID(context.Background(), session.ID)
 	if updated.AgentID != 123 {
 		t.Errorf("Expected agent_id 123, got %d", updated.AgentID)
@@ -205,7 +195,6 @@ func TestCustomerSessionService_AssignSession_Success(t *testing.T) {
 func TestCustomerSessionService_AssignSession_AgentNotFound(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 创建会话
 	req := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -213,7 +202,6 @@ func TestCustomerSessionService_AssignSession_AgentNotFound(t *testing.T) {
 	}
 	session, _ := service.CreateSession(context.Background(), req)
 
-	// 分配会话给不存在的客服
 	assignReq := &AssignSessionRequest{
 		SessionID: session.ID,
 		AgentID:   999999,
@@ -228,7 +216,6 @@ func TestCustomerSessionService_AssignSession_AgentNotFound(t *testing.T) {
 func TestCustomerSessionService_AssignSession_AgentOffline(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 创建离线客服
 	agent := &model.AgentStatus{
 		AgentID:        123,
 		AgentName:      "客服 A",
@@ -238,7 +225,6 @@ func TestCustomerSessionService_AssignSession_AgentOffline(t *testing.T) {
 	}
 	service.agentRepo.Create(context.Background(), agent)
 
-	// 创建会话
 	req := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -246,7 +232,6 @@ func TestCustomerSessionService_AssignSession_AgentOffline(t *testing.T) {
 	}
 	session, _ := service.CreateSession(context.Background(), req)
 
-	// 分配会话
 	assignReq := &AssignSessionRequest{
 		SessionID: session.ID,
 		AgentID:   123,
@@ -262,7 +247,6 @@ func TestCustomerSessionService_AutoAssign_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 	now := time.Now()
 
-	// 创建在线客服（刷新 last_active_at 以模拟上线心跳）
 	agent := &model.AgentStatus{
 		AgentID:        123,
 		AgentName:      "客服 A",
@@ -273,7 +257,6 @@ func TestCustomerSessionService_AutoAssign_Success(t *testing.T) {
 	}
 	service.agentRepo.Create(context.Background(), agent)
 
-	// 创建会话
 	req := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -281,13 +264,11 @@ func TestCustomerSessionService_AutoAssign_Success(t *testing.T) {
 	}
 	session, _ := service.CreateSession(context.Background(), req)
 
-	// 自动分配
 	err := service.AutoAssign(context.Background(), session.ID)
 	if err != nil {
 		t.Fatalf("AutoAssign failed: %v", err)
 	}
 
-	// 验证会话已分配
 	updated, _ := service.GetSessionByID(context.Background(), session.ID)
 	if updated.AgentID != 123 {
 		t.Errorf("Expected agent_id 123, got %d", updated.AgentID)
@@ -298,7 +279,6 @@ func TestCustomerSessionService_AutoAssign_Success(t *testing.T) {
 func TestCustomerSessionService_AutoAssign_NoAgents(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 创建会话
 	req := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -306,7 +286,6 @@ func TestCustomerSessionService_AutoAssign_NoAgents(t *testing.T) {
 	}
 	session, _ := service.CreateSession(context.Background(), req)
 
-	// 自动分配
 	err := service.AutoAssign(context.Background(), session.ID)
 	if err == nil {
 		t.Error("Expected error for no available agents")
@@ -317,7 +296,6 @@ func TestCustomerSessionService_AutoAssign_NoAgents(t *testing.T) {
 func TestCustomerSessionService_SendMessage_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 创建会话
 	req := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -325,7 +303,6 @@ func TestCustomerSessionService_SendMessage_Success(t *testing.T) {
 	}
 	session, _ := service.CreateSession(context.Background(), req)
 
-	// 发送消息
 	msgReq := &SendMessageRequest{
 		SessionID:  session.SessionID,
 		Content:    "Hello, World!",
@@ -349,7 +326,6 @@ func TestCustomerSessionService_SendMessage_Success(t *testing.T) {
 func TestCustomerSessionService_SendMessage_SessionNotFound(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 发送消息到不存在的会话
 	req := &SendMessageRequest{
 		SessionID:  "non_existent_session",
 		Content:    "Hello",
@@ -365,7 +341,6 @@ func TestCustomerSessionService_SendMessage_SessionNotFound(t *testing.T) {
 func TestCustomerSessionService_GetMessages_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 创建会话
 	sessionReq := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -373,7 +348,6 @@ func TestCustomerSessionService_GetMessages_Success(t *testing.T) {
 	}
 	session, _ := service.CreateSession(context.Background(), sessionReq)
 
-	// 发送消息
 	for i := 0; i < 5; i++ {
 		msgReq := &SendMessageRequest{
 			SessionID:  session.SessionID,
@@ -383,7 +357,6 @@ func TestCustomerSessionService_GetMessages_Success(t *testing.T) {
 		service.SendMessage(context.Background(), msgReq)
 	}
 
-	// 获取消息
 	messages, total, err := service.GetMessages(context.Background(), session.SessionID, 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessages failed: %v", err)
@@ -401,7 +374,6 @@ func TestCustomerSessionService_GetMessages_Success(t *testing.T) {
 func TestCustomerSessionService_UpdateSessionStatus_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 创建会话
 	req := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -409,7 +381,6 @@ func TestCustomerSessionService_UpdateSessionStatus_Success(t *testing.T) {
 	}
 	session, _ := service.CreateSession(context.Background(), req)
 
-	// 分配客服
 	agent := &model.AgentStatus{
 		AgentID:        123,
 		AgentName:      "客服 A",
@@ -420,13 +391,11 @@ func TestCustomerSessionService_UpdateSessionStatus_Success(t *testing.T) {
 	service.agentRepo.Create(context.Background(), agent)
 	service.sessionRepo.AssignAgent(context.Background(), session.ID, 123, "客服 A")
 
-	// 更新状态为已解决
 	err := service.UpdateSessionStatus(context.Background(), session.ID, model.SessionStatusResolved)
 	if err != nil {
 		t.Fatalf("UpdateSessionStatus failed: %v", err)
 	}
 
-	// 验证状态已更新
 	updated, _ := service.GetSessionByID(context.Background(), session.ID)
 	if updated.Status != model.SessionStatusResolved {
 		t.Errorf("Expected status resolved, got %v", updated.Status)
@@ -437,7 +406,6 @@ func TestCustomerSessionService_UpdateSessionStatus_Success(t *testing.T) {
 func TestCustomerSessionService_RateSession_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 创建会话
 	req := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -445,13 +413,11 @@ func TestCustomerSessionService_RateSession_Success(t *testing.T) {
 	}
 	session, _ := service.CreateSession(context.Background(), req)
 
-	// 评价会话
 	err := service.RateSession(context.Background(), session.ID, 5, "Excellent service!")
 	if err != nil {
 		t.Fatalf("RateSession failed: %v", err)
 	}
 
-	// 验证评价
 	updated, _ := service.GetSessionByID(context.Background(), session.ID)
 	if updated.Rating != 5 {
 		t.Errorf("Expected rating 5, got %d", updated.Rating)
@@ -465,7 +431,6 @@ func TestCustomerSessionService_RateSession_Success(t *testing.T) {
 func TestCustomerSessionService_TransferSession_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 创建两个客服
 	agent1 := &model.AgentStatus{
 		AgentID:        123,
 		AgentName:      "客服 A",
@@ -483,7 +448,6 @@ func TestCustomerSessionService_TransferSession_Success(t *testing.T) {
 	service.agentRepo.Create(context.Background(), agent1)
 	service.agentRepo.Create(context.Background(), agent2)
 
-	// 创建会话并分配给客服 A
 	sessionReq := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -492,13 +456,11 @@ func TestCustomerSessionService_TransferSession_Success(t *testing.T) {
 	session, _ := service.CreateSession(context.Background(), sessionReq)
 	service.sessionRepo.AssignAgent(context.Background(), session.ID, 123, "客服 A")
 
-	// 转接给客服 B
 	err := service.TransferSession(context.Background(), session.ID, 456)
 	if err != nil {
 		t.Fatalf("TransferSession failed: %v", err)
 	}
 
-	// 验证会话已转接
 	updated, _ := service.GetSessionByID(context.Background(), session.ID)
 	if updated.AgentID != 456 {
 		t.Errorf("Expected agent_id 456, got %d", updated.AgentID)
@@ -509,7 +471,6 @@ func TestCustomerSessionService_TransferSession_Success(t *testing.T) {
 func TestCustomerSessionService_TagSession_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 
-	// 创建会话
 	req := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -517,14 +478,12 @@ func TestCustomerSessionService_TagSession_Success(t *testing.T) {
 	}
 	session, _ := service.CreateSession(context.Background(), req)
 
-	// 标记会话
 	tags := []string{"urgent", "vip", "complaint"}
 	err := service.TagSession(context.Background(), session.ID, tags)
 	if err != nil {
 		t.Fatalf("TagSession failed: %v", err)
 	}
 
-	// 验证标签
 	updated, _ := service.GetSessionByID(context.Background(), session.ID)
 	if updated.Tags == "" {
 		t.Error("Expected tags to be set")
@@ -563,7 +522,6 @@ func TestAgentStatusService_GetAgentStatus_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 	agentService := NewAgentStatusService()
 
-	// 创建客服
 	agent := &model.AgentStatus{
 		AgentID:        123,
 		AgentName:      "客服 A",
@@ -573,7 +531,6 @@ func TestAgentStatusService_GetAgentStatus_Success(t *testing.T) {
 	}
 	service.agentRepo.Create(context.Background(), agent)
 
-	// 获取客服状态
 	retrieved, err := agentService.GetAgentStatus(context.Background(), 123)
 	if err != nil {
 		t.Fatalf("GetAgentStatus failed: %v", err)
@@ -592,7 +549,6 @@ func TestAgentStatusService_GetOnlineAgents_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 	agentService := NewAgentStatusService()
 
-	// 创建在线客服
 	agent1 := &model.AgentStatus{
 		AgentID:     123,
 		AgentName:   "客服 A",
@@ -608,12 +564,10 @@ func TestAgentStatusService_GetOnlineAgents_Success(t *testing.T) {
 	service.agentRepo.Create(context.Background(), agent1)
 	service.agentRepo.Create(context.Background(), agent2)
 
-	// 模拟上线心跳：刷新 last_active_at（GetOnlineAgents 仅返回最近有心跳的在线坐席）
 	if err := agentService.GoOnline(context.Background(), 123); err != nil {
 		t.Fatalf("GoOnline failed: %v", err)
 	}
 
-	// 获取在线客服
 	agents, err := agentService.GetOnlineAgents(context.Background())
 	if err != nil {
 		t.Fatalf("GetOnlineAgents failed: %v", err)
@@ -632,7 +586,6 @@ func TestAgentStatusService_GoOnline_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 	agentService := NewAgentStatusService()
 
-	// 创建客服
 	agent := &model.AgentStatus{
 		AgentID:     123,
 		AgentName:   "客服 A",
@@ -641,13 +594,11 @@ func TestAgentStatusService_GoOnline_Success(t *testing.T) {
 	}
 	service.agentRepo.Create(context.Background(), agent)
 
-	// 上线
 	err := agentService.GoOnline(context.Background(), 123)
 	if err != nil {
 		t.Fatalf("GoOnline failed: %v", err)
 	}
 
-	// 验证状态
 	updated, _ := agentService.GetAgentStatus(context.Background(), 123)
 	if updated.Status != "online" {
 		t.Errorf("Expected status 'online', got '%s'", updated.Status)
@@ -659,7 +610,6 @@ func TestAgentStatusService_GoOffline_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 	agentService := NewAgentStatusService()
 
-	// 创建客服
 	agent := &model.AgentStatus{
 		AgentID:        123,
 		AgentName:      "客服 A",
@@ -669,13 +619,11 @@ func TestAgentStatusService_GoOffline_Success(t *testing.T) {
 	}
 	service.agentRepo.Create(context.Background(), agent)
 
-	// 下线
 	err := agentService.GoOffline(context.Background(), 123)
 	if err != nil {
 		t.Fatalf("GoOffline failed: %v", err)
 	}
 
-	// 验证状态
 	updated, _ := agentService.GetAgentStatus(context.Background(), 123)
 	if updated.Status != "offline" {
 		t.Errorf("Expected status 'offline', got '%s'", updated.Status)
@@ -687,7 +635,6 @@ func TestAgentStatusService_GoOffline_WithActiveSessions(t *testing.T) {
 	service := setupCustomerSessionService(t)
 	agentService := NewAgentStatusService()
 
-	// 创建客服
 	agent := &model.AgentStatus{
 		AgentID:        123,
 		AgentName:      "客服 A",
@@ -697,7 +644,6 @@ func TestAgentStatusService_GoOffline_WithActiveSessions(t *testing.T) {
 	}
 	service.agentRepo.Create(context.Background(), agent)
 
-	// 下线
 	err := agentService.GoOffline(context.Background(), 123)
 	if err == nil {
 		t.Error("Expected error for active sessions")
@@ -709,7 +655,6 @@ func TestAISuggestionService_CreateSuggestion_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 	suggestionService := NewAISuggestionService()
 
-	// 创建会话
 	sessionReq := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -717,7 +662,6 @@ func TestAISuggestionService_CreateSuggestion_Success(t *testing.T) {
 	}
 	session, _ := service.CreateSession(context.Background(), sessionReq)
 
-	// 分配客服
 	agent := &model.AgentStatus{
 		AgentID:        123,
 		AgentName:      "客服 A",
@@ -728,7 +672,6 @@ func TestAISuggestionService_CreateSuggestion_Success(t *testing.T) {
 	service.agentRepo.Create(context.Background(), agent)
 	service.sessionRepo.AssignAgent(context.Background(), session.ID, 123, "客服 A")
 
-	// 创建消息
 	message := &model.SessionMessage{
 		SessionID:  session.SessionID,
 		Content:    "用户消息",
@@ -736,7 +679,6 @@ func TestAISuggestionService_CreateSuggestion_Success(t *testing.T) {
 	}
 	service.messageRepo.Create(context.Background(), message)
 
-	// 创建 AI 建议
 	suggestion, err := suggestionService.CreateSuggestion(context.Background(), session.SessionID,
 		message.ID,
 		"这是建议回复",
@@ -760,7 +702,6 @@ func TestAISuggestionService_GetSuggestions_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 	suggestionService := NewAISuggestionService()
 
-	// 创建会话
 	sessionReq := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -768,7 +709,6 @@ func TestAISuggestionService_GetSuggestions_Success(t *testing.T) {
 	}
 	session, _ := service.CreateSession(context.Background(), sessionReq)
 
-	// 创建 AI 建议
 	for i := 0; i < 3; i++ {
 		suggestionService.CreateSuggestion(context.Background(), session.SessionID,
 			1,
@@ -778,7 +718,6 @@ func TestAISuggestionService_GetSuggestions_Success(t *testing.T) {
 		)
 	}
 
-	// 获取建议
 	suggestions, err := suggestionService.GetSuggestions(context.Background(), session.SessionID)
 	if err != nil {
 		t.Fatalf("GetSuggestions failed: %v", err)
@@ -794,7 +733,6 @@ func TestAISuggestionService_UseSuggestion_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
 	suggestionService := NewAISuggestionService()
 
-	// 创建会话
 	sessionReq := &CreateSessionRequest{
 		Platform:  model.PlatformDouyin,
 		AccountID: "account_123",
@@ -802,7 +740,6 @@ func TestAISuggestionService_UseSuggestion_Success(t *testing.T) {
 	}
 	session, _ := service.CreateSession(context.Background(), sessionReq)
 
-	// 创建 AI 建议
 	suggestion, _ := suggestionService.CreateSuggestion(context.Background(), session.SessionID,
 		1,
 		"这是建议",
@@ -810,13 +747,11 @@ func TestAISuggestionService_UseSuggestion_Success(t *testing.T) {
 		"ai-model",
 	)
 
-	// 使用建议
 	err := suggestionService.UseSuggestion(context.Background(), suggestion.ID, 123)
 	if err != nil {
 		t.Fatalf("UseSuggestion failed: %v", err)
 	}
 
-	// 验证已使用 - use GetBySessionID since GetByID doesn't exist
 	suggestions, _ := suggestionService.suggestionRepo.GetBySessionID(context.Background(), session.SessionID)
 	if len(suggestions) == 0 || !suggestions[0].IsUsed {
 		t.Error("Expected suggestion to be marked as used")
@@ -857,7 +792,6 @@ func TestQuickReplyService_UpdateReply_Success(t *testing.T) {
 	setupCustomerSessionService(t)
 	replyService := NewQuickReplyService()
 
-	// 创建快捷回复
 	createReq := &CreateReplyRequest{
 		Category: "问候语",
 		Title:    "你好",
@@ -866,7 +800,6 @@ func TestQuickReplyService_UpdateReply_Success(t *testing.T) {
 	}
 	created, _ := replyService.CreateReply(context.Background(), 123, createReq)
 
-	// 更新快捷回复
 	updateReq := &CreateReplyRequest{
 		Category: "常用语",
 		Title:    "您好！",
@@ -891,7 +824,6 @@ func TestQuickReplyService_DeleteReply_Success(t *testing.T) {
 	setupCustomerSessionService(t)
 	replyService := NewQuickReplyService()
 
-	// 创建快捷回复
 	req := &CreateReplyRequest{
 		Category: "问候语",
 		Title:    "你好",
@@ -900,13 +832,11 @@ func TestQuickReplyService_DeleteReply_Success(t *testing.T) {
 	}
 	created, _ := replyService.CreateReply(context.Background(), 123, req)
 
-	// 删除快捷回复
 	err := replyService.DeleteReply(context.Background(), created.ID)
 	if err != nil {
 		t.Fatalf("DeleteReply failed: %v", err)
 	}
 
-	// 验证已删除
 	_, err = replyService.replyRepo.GetByID(context.Background(), created.ID)
 	if err == nil {
 		t.Error("Expected error after deletion")
@@ -918,7 +848,6 @@ func TestQuickReplyService_GetReplies_Success(t *testing.T) {
 	setupCustomerSessionService(t)
 	replyService := NewQuickReplyService()
 
-	// 创建快捷回复
 	for i := 0; i < 3; i++ {
 		req := &CreateReplyRequest{
 			Category: "问候语",
@@ -929,7 +858,6 @@ func TestQuickReplyService_GetReplies_Success(t *testing.T) {
 		replyService.CreateReply(context.Background(), 123, req)
 	}
 
-	// 获取列表
 	replies, err := replyService.GetReplies(context.Background(), "问候语")
 	if err != nil {
 		t.Fatalf("GetReplies failed: %v", err)
@@ -945,7 +873,6 @@ func TestQuickReplyService_GetCategories_Success(t *testing.T) {
 	setupCustomerSessionService(t)
 	replyService := NewQuickReplyService()
 
-	// 创建快捷回复
 	req1 := &CreateReplyRequest{
 		Category: "问候语",
 		Title:    "你好",
@@ -961,7 +888,6 @@ func TestQuickReplyService_GetCategories_Success(t *testing.T) {
 	replyService.CreateReply(context.Background(), 123, req1)
 	replyService.CreateReply(context.Background(), 123, req2)
 
-	// 获取分类
 	categories, err := replyService.GetCategories(context.Background())
 	if err != nil {
 		t.Fatalf("GetCategories failed: %v", err)
@@ -1021,7 +947,6 @@ func TestSessionTagService_UpdateTag_Success(t *testing.T) {
 	setupCustomerSessionService(t)
 	tagService := NewSessionTagService()
 
-	// 创建标签
 	createReq := &CreateTagRequest{
 		Name:      "旧标签",
 		Color:     "#1890ff",
@@ -1029,7 +954,6 @@ func TestSessionTagService_UpdateTag_Success(t *testing.T) {
 	}
 	created, _ := tagService.CreateTag(context.Background(), createReq)
 
-	// 更新标签
 	updateReq := &CreateTagRequest{
 		Name:      "新标签",
 		Color:     "#FF0000",
@@ -1053,7 +977,6 @@ func TestSessionTagService_DeleteTag_Success(t *testing.T) {
 	setupCustomerSessionService(t)
 	tagService := NewSessionTagService()
 
-	// 创建标签
 	req := &CreateTagRequest{
 		Name:      "测试标签",
 		Color:     "#1890ff",
@@ -1061,13 +984,11 @@ func TestSessionTagService_DeleteTag_Success(t *testing.T) {
 	}
 	created, _ := tagService.CreateTag(context.Background(), req)
 
-	// 删除标签
 	err := tagService.DeleteTag(context.Background(), created.ID)
 	if err != nil {
 		t.Fatalf("DeleteTag failed: %v", err)
 	}
 
-	// 验证已删除
 	_, err = tagService.tagRepo.GetByID(context.Background(), created.ID)
 	if err == nil {
 		t.Error("Expected error after deletion")
@@ -1079,7 +1000,6 @@ func TestSessionTagService_GetTags_Success(t *testing.T) {
 	setupCustomerSessionService(t)
 	tagService := NewSessionTagService()
 
-	// 创建标签（Code 必须唯一，否则 uniqueIndex 约束会让后续 Create 静默失败）
 	codes := []string{"tag_a", "tag_b", "tag_c"}
 	for i := 0; i < 3; i++ {
 		req := &CreateTagRequest{
@@ -1093,7 +1013,6 @@ func TestSessionTagService_GetTags_Success(t *testing.T) {
 		}
 	}
 
-	// 获取列表
 	tags, err := tagService.GetTags(context.Background())
 	if err != nil {
 		t.Fatalf("GetTags failed: %v", err)
@@ -1120,9 +1039,6 @@ func TestGenerateSessionID(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// TTL 自动关闭测试（S2-3）
-// ----------------------------------------------------------------------------
 
 // TestAutoCloseStaleSessions_OnlyStaleActiveClosed 验证只有「活跃但超过 TTL」的会话被关闭
 //
@@ -1134,7 +1050,6 @@ func TestGenerateSessionID(t *testing.T) {
 func TestAutoCloseStaleSessions_OnlyStaleActiveClosed(t *testing.T) {
 	db := setupCustomerSessionServiceTestDB(t)
 	repo := repository.NewCustomerSessionRepositoryWithDB(db)
-	// 显式构造 service（不通过 init 启动 cron）
 	svc := NewCustomerSessionServiceWithDB(db)
 
 	now := time.Now()
@@ -1159,11 +1074,10 @@ func TestAutoCloseStaleSessions_OnlyStaleActiveClosed(t *testing.T) {
 		return s
 	}
 
-	// 4 个测试样本
-	sA := mk("A", model.SessionStatusAIHandling, &veryOld) // 25h 前活跃 → 应关
-	sB := mk("B", model.SessionStatusAIHandling, &recent)  // 1h 前活跃 → 保留
-	sC := mk("C", model.SessionStatusPending, nil)         // 25h 前创建 + 无消息 → 应关（用 COALESCE(created_at)）
-	sD := mk("D", model.SessionStatusClosed, &veryOld)     // 已关 → 不动
+	sA := mk("A", model.SessionStatusAIHandling, &veryOld) 
+	sB := mk("B", model.SessionStatusAIHandling, &recent)  
+	sC := mk("C", model.SessionStatusPending, nil)         
+	sD := mk("D", model.SessionStatusClosed, &veryOld)     
 
 	for _, s := range []*model.CustomerSession{sA, sB, sC, sD} {
 		if err := repo.Create(context.Background(), s); err != nil {
@@ -1171,17 +1085,14 @@ func TestAutoCloseStaleSessions_OnlyStaleActiveClosed(t *testing.T) {
 		}
 	}
 
-	// 执行自动关闭
 	closed, err := svc.AutoCloseStaleSessions(context.Background())
 	if err != nil {
 		t.Fatalf("AutoCloseStaleSessions failed: %v", err)
 	}
-	// 应关 A + C = 2 条
 	if closed != 2 {
 		t.Errorf("expected 2 closed, got %d", closed)
 	}
 
-	// 重新拉取验证
 	verify := func(userID string, wantStatus model.SessionStatus) {
 		got, err := repo.GetByUserID(context.Background(), userID)
 		if err != nil || len(got) == 0 {
@@ -1194,7 +1105,7 @@ func TestAutoCloseStaleSessions_OnlyStaleActiveClosed(t *testing.T) {
 	verify("A", model.SessionStatusClosed)
 	verify("B", model.SessionStatusAIHandling)
 	verify("C", model.SessionStatusClosed)
-	verify("D", model.SessionStatusClosed) // 原本就是 closed
+	verify("D", model.SessionStatusClosed) 
 }
 
 // TestGetActiveByUserID_RespectsTTL 验证 GetActiveByUserID 受 24h TTL 约束
@@ -1209,7 +1120,6 @@ func TestGetActiveByUserID_RespectsTTL(t *testing.T) {
 	veryOld := now.Add(-25 * time.Hour)
 	recent := now.Add(-1 * time.Hour)
 
-	// 25h 前的会话（按 last_message_at COALESCE 已超 TTL）
 	old := &model.CustomerSession{
 		SessionID:     "sess_old",
 		Platform:      model.PlatformDouyin,
@@ -1221,7 +1131,6 @@ func TestGetActiveByUserID_RespectsTTL(t *testing.T) {
 		LastMessage:   "old",
 		LastMessageBy: "user",
 	}
-	// 1h 前的会话（在 TTL 内）
 	newer := &model.CustomerSession{
 		SessionID:     "sess_new",
 		Platform:      model.PlatformDouyin,
@@ -1261,7 +1170,6 @@ func TestGetActiveByOneID_CrossPlatformMerge(t *testing.T) {
 	repo := repository.NewCustomerSessionRepositoryWithDB(db)
 
 	now := time.Now()
-	// 已有会话：web 端用户（OneID=phone:138xxx）
 	web := &model.CustomerSession{
 		SessionID:     "sess_web",
 		Platform:      model.PlatformWebEmbed,
@@ -1278,7 +1186,6 @@ func TestGetActiveByOneID_CrossPlatformMerge(t *testing.T) {
 		t.Fatalf("seed web session failed: %v", err)
 	}
 
-	// 通过 OneID 应能命中
 	got, err := repo.GetActiveByOneID(context.Background(), "phone:13800001234")
 	if err != nil {
 		t.Fatalf("GetActiveByOneID failed: %v", err)
@@ -1290,11 +1197,9 @@ func TestGetActiveByOneID_CrossPlatformMerge(t *testing.T) {
 		t.Errorf("expected sess_web, got %s", got.SessionID)
 	}
 
-	// 通过 OneID 为空时返回 nil（不让 user_id 路径被打扰）
 	if got, _ := repo.GetActiveByOneID(context.Background(), ""); got != nil {
 		t.Errorf("empty OneID should return nil, got %+v", got)
 	}
-	// 通过不存在的 OneID 返回 nil
 	if got, _ := repo.GetActiveByOneID(context.Background(), "phone:99999999"); got != nil {
 		t.Errorf("unknown OneID should return nil, got %+v", got)
 	}
@@ -1317,3 +1222,4 @@ func TestCreateSession_StoresOneID(t *testing.T) {
 		t.Errorf("expected OneID stored, got %q", sess.OneID)
 	}
 }
+

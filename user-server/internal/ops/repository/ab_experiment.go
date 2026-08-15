@@ -197,11 +197,10 @@ func (r *ABExperimentResultRepository) GetByExperiment(experimentID uint) ([]*mo
 
 // UpdateWinner 更新获胜者
 func (r *ABExperimentResultRepository) UpdateWinner(experimentID uint, winnerVariantID uint) error {
-	// 先清除所有获胜者标记
 	r.db.Model(&model.ABExperimentResult{}).Where("experiment_id = ?", experimentID).
 		Update("is_winner", false)
 
-	// 设置新的获胜者
 	return r.db.Model(&model.ABExperimentResult{}).Where("experiment_id = ? AND variant_id = ?", experimentID, winnerVariantID).
 		Update("is_winner", true).Error
 }
+

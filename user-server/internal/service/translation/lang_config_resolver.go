@@ -17,17 +17,6 @@ import (
 	i18npkg "hivemtk-user/internal/pkg/i18n"
 )
 
-// ============================================================================
-// LangConfigResolver 双语言配置读取器（替代旧版 LanguageRouter）
-// ----------------------------------------------------------------------------
-// 设计原则：
-//   - 不检测、不切换、零状态
-//   - 纯配置读取 + 多层兜底，永不报错（保证返回有效语言）
-//   - 优先级：channel.target_language > ai_agents.target_language
-//             > ai_agents.internal_language > "zh"
-//   - 当 target_language == internal_language 时，CrossLingual=false
-//     走同语种快捷路径（可省略跨语种 prompt / 术语校准）
-// ============================================================================
 
 // ChannelReader 渠道读取接口（避免 service 层直接依赖 repository 包）。
 // 由 repository.ChatChannelRepository 实现。
@@ -48,11 +37,11 @@ type AgentReader interface {
 //   - InternalSrc / TargetSrc  ：配置来源标记，便于排查与日志
 //   - CrossLingual              ：是否需要跨语言生成
 type LangResolveResult struct {
-	InternalLang string // 商户内部语言（知识库语言）
-	TargetLang   string // 对外输出语言
-	CrossLingual bool   // 是否跨语言生成
-	InternalSrc  string // "agent" / "default"
-	TargetSrc    string // "channel" / "agent" / "internal" / "default"
+	InternalLang string 
+	TargetLang   string 
+	CrossLingual bool   
+	InternalSrc  string 
+	TargetSrc    string 
 	ChannelID    string
 	AgentID      uint
 }
@@ -83,7 +72,6 @@ func (r *LangConfigResolver) Resolve(ctx context.Context, channelID string, agen
 		AgentID:      agentID,
 	}
 
-	// A. 解析 internal_language（从智能体读取，兜底 "zh"）
 	if agentID > 0 && r.agentRepo != nil {
 		if ag, err := r.agentRepo.GetByID(ctx, agentID); err == nil && ag != nil {
 			if lang := i18npkg.NormalizeLang(ag.InternalLanguage); lang != "" {
@@ -93,11 +81,9 @@ func (r *LangConfigResolver) Resolve(ctx context.Context, channelID string, agen
 		}
 	}
 
-	// B. 解析 target_language（渠道 > 智能体 > 退化 = internal_language）
-	targetLang := result.InternalLang // 默认退化
+	targetLang := result.InternalLang 
 	targetSrc := "internal"
 
-	// B1. 渠道级配置（最高优先级）
 	if channelID != "" && r.channelRepo != nil {
 		if ch, err := r.channelRepo.GetByChannelID(ctx, channelID); err == nil && ch != nil {
 			if lang := i18npkg.NormalizeLang(ch.TargetLanguage); lang != "" && ch.TargetLanguage != "" {
@@ -107,7 +93,6 @@ func (r *LangConfigResolver) Resolve(ctx context.Context, channelID string, agen
 		}
 	}
 
-	// B2. 智能体级配置（仅当渠道未命中时）
 	if targetSrc == "internal" && agentID > 0 && r.agentRepo != nil {
 		if ag, err := r.agentRepo.GetByID(ctx, agentID); err == nil && ag != nil {
 			if ag.TargetLanguage != "" {
@@ -150,3 +135,4 @@ func (r *LangConfigResolver) ResolveAndInject(ctx context.Context, channelID str
 	result, _ := r.Resolve(ctx, channelID, agentID)
 	return r.InjectToCtx(ctx, result), result
 }
+

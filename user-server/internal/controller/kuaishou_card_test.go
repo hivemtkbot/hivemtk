@@ -151,7 +151,6 @@ func TestKuaishouCardController_Update_Success(t *testing.T) {
 	ctrl := NewKuaishouCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	card, _ := svc.Create(context.Background(), &dto.KuaishouCardCreateRequest{
 		Title:        "Original Card",
 		Description:  "Original description",
@@ -210,7 +209,7 @@ func TestKuaishouCardController_Update_IDMismatch(t *testing.T) {
 	router.PUT("/kuaishou/cards/:id", ctrl.Update)
 
 	updateReq := dto.KuaishouCardUpdateRequest{
-		ID:    999, // 与 URL 中的 ID 不匹配
+		ID:    999, 
 		Title: "Test",
 	}
 	body, _ := json.Marshal(updateReq)
@@ -232,7 +231,6 @@ func TestKuaishouCardController_Delete_Success(t *testing.T) {
 	ctrl := NewKuaishouCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.KuaishouCardCreateRequest{
 		Title:        "Card to Delete",
 		Description:  "This card will be deleted",
@@ -275,7 +273,6 @@ func TestKuaishouCardController_GetByID_Success(t *testing.T) {
 	ctrl := NewKuaishouCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.KuaishouCardCreateRequest{
 		Title:        "Test Card",
 		Description:  "Test description",
@@ -306,7 +303,6 @@ func TestKuaishouCardController_GetByID_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Service returns record not found error which results in 404 or 500
 	if w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status Internal Server Error or Not Found, got %d", w.Code)
 	}
@@ -335,7 +331,6 @@ func TestKuaishouCardController_GetList_Success(t *testing.T) {
 	ctrl := NewKuaishouCardController(svc)
 	router := setupGinEngine()
 
-	// 创建多个卡片
 	for i := 1; i <= 5; i++ {
 		svc.Create(context.Background(), &dto.KuaishouCardCreateRequest{
 			Title:        "Card " + string(rune('0'+i)),
@@ -364,7 +359,6 @@ func TestKuaishouCardController_GetList_DefaultPagination(t *testing.T) {
 	ctrl := NewKuaishouCardController(svc)
 	router := setupGinEngine()
 
-	// 创建测试卡片
 	svc.Create(context.Background(), &dto.KuaishouCardCreateRequest{
 		Title:        "Card",
 		Description:  "Description",
@@ -408,7 +402,6 @@ func TestKuaishouCardController_ViewCard_Success(t *testing.T) {
 	ctrl := NewKuaishouCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.KuaishouCardCreateRequest{
 		Title:        "Card to View",
 		Description:  "This card will be viewed",
@@ -451,7 +444,6 @@ func TestKuaishouCardController_LikeCard_Success(t *testing.T) {
 	ctrl := NewKuaishouCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.KuaishouCardCreateRequest{
 		Title:        "Card to Like",
 		Description:  "This card will be liked",
@@ -494,7 +486,6 @@ func TestKuaishouCardController_ShareCard_Success(t *testing.T) {
 	ctrl := NewKuaishouCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.KuaishouCardCreateRequest{
 		Title:        "Card to Share",
 		Description:  "This card will be shared",
@@ -537,7 +528,6 @@ func TestKuaishouCardController_GenerateShortLink_Success(t *testing.T) {
 	ctrl := NewKuaishouCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	card, err := svc.Create(context.Background(), &dto.KuaishouCardCreateRequest{
 		Title:        "Card with Short Link",
 		Description:  "This card will have a short link",
@@ -559,7 +549,6 @@ func TestKuaishouCardController_GenerateShortLink_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 短链生成依赖外部域名，测试环境无数据时接受 200/500
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -592,7 +581,6 @@ func TestKuaishouCardController_GenerateShortLink_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Service returns record not found error which results in 404 or 500
 	if w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status Not Found or Internal Server Error, got %d", w.Code)
 	}
@@ -658,7 +646,6 @@ func TestKuaishouCardController_Update_ViewCount(t *testing.T) {
 	ctrl := NewKuaishouCardController(svc)
 	router := setupGinEngine()
 
-	// 先创建卡片
 	svc.Create(context.Background(), &dto.KuaishouCardCreateRequest{
 		Title:        "Card",
 		Description:  "Description",
@@ -688,3 +675,4 @@ func TestKuaishouCardController_Update_ViewCount(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
+

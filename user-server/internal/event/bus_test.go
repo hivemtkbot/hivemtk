@@ -103,7 +103,6 @@ func TestEventBus_HandlerError(t *testing.T) {
 
 // TestEventBus_QueueFull 队列满丢弃：不阻塞调用方
 func TestEventBus_QueueFull(t *testing.T) {
-	// 队列容量 2，1 个 worker 阻塞消费
 	bus := New(1, 2)
 	defer bus.Stop()
 
@@ -111,31 +110,25 @@ func TestEventBus_QueueFull(t *testing.T) {
 	workerStarted := make(chan struct{})
 	blockCh := make(chan struct{})
 	bus.Subscribe("topic.full", func(evt Event) error {
-		// 第一次调用时通知测试：worker 已开始处理
 		select {
 		case workerStarted <- struct{}{}:
 		default:
 		}
-		<-blockCh // 阻塞直到测试释放
+		<-blockCh 
 		processed.Add(1)
 		return nil
 	})
 
-	// 发布第 1 个事件，worker 拿走后阻塞
 	bus.Publish(Event{Topic: "topic.full"})
 
-	// 等待 worker 确认已开始处理（此时队列为空）
 	<-workerStarted
 
-	// 再发布 3 个事件：2 个进队列，1 个被丢弃（队列容量 2）
 	for i := 0; i < 3; i++ {
 		bus.Publish(Event{Topic: "topic.full"})
 	}
 
-	// 释放阻塞，让 worker 处理剩余事件
 	close(blockCh)
 
-	// 最终处理数应为 3（第 1 个 + 队列中 2 个），第 4 个被丢弃
 	waitForCondition(t, func() bool { return processed.Load() == 3 }, 500*time.Millisecond)
 	if processed.Load() != 3 {
 		t.Errorf("expected 3 processed (1 initial + 2 queued, 1 dropped), got %d", processed.Load())
@@ -152,12 +145,10 @@ func TestEventBus_StopGraceful(t *testing.T) {
 		return nil
 	})
 
-	// 发布 10 个事件
 	for i := 0; i < 10; i++ {
 		bus.Publish(Event{Topic: "topic.stop"})
 	}
 
-	// Stop 应等待所有事件处理完成
 	bus.Stop()
 
 	if processed.Load() != 10 {
@@ -169,14 +160,14 @@ func TestEventBus_StopGraceful(t *testing.T) {
 func TestEventBus_StopIdempotent(t *testing.T) {
 	bus := New(1, 16)
 	bus.Stop()
-	bus.Stop() // 不应 panic
-	bus.Stop() // 不应 panic
+	bus.Stop() 
+	bus.Stop() 
 }
 
 // TestEventBus_NilSafe nil 安全：nil 总线方法不 panic
 func TestEventBus_NilSafe(t *testing.T) {
 	var nilBus *EventBus
-	nilBus.Publish(Event{Topic: "nil"}) // 不应 panic
+	nilBus.Publish(Event{Topic: "nil"}) 
 	nilBus.Subscribe("nil", func(evt Event) error { return nil })
 	nilBus.Stop()
 	if nilBus.HasSubscribers("nil") {
@@ -214,7 +205,7 @@ func TestEventBus_AutoTimestamp(t *testing.T) {
 	})
 
 	before := time.Now()
-	bus.Publish(Event{Topic: "topic.ts", Timestamp: time.Time{}}) // 零值
+	bus.Publish(Event{Topic: "topic.ts", Timestamp: time.Time{}}) 
 	wg.Wait()
 
 	if ts.IsZero() {
@@ -254,15 +245,13 @@ func TestEventBus_ConcurrentPublish(t *testing.T) {
 
 // TestGlobalBus 全局单例
 func TestGlobalBus(t *testing.T) {
-	// 初始状态可能为 nil 或其他测试残留，先清理
 	SetGlobalBus(nil)
 
 	if GetGlobalBus() != nil {
 		t.Error("expected nil global bus after SetGlobalBus(nil)")
 	}
 
-	// Publish 在全局总线为 nil 时应为 no-op
-	Publish("topic.nil", "payload") // 不应 panic
+	Publish("topic.nil", "payload") 
 
 	bus := New(1, 16)
 	SetGlobalBus(bus)
@@ -283,7 +272,6 @@ func TestGlobalBus(t *testing.T) {
 		return nil
 	})
 
-	// 使用全局 Publish 函数
 	Publish("topic.global", "test")
 	wg.Wait()
 
@@ -291,14 +279,12 @@ func TestGlobalBus(t *testing.T) {
 		t.Errorf("expected 1 event via global Publish, got %d", received.Load())
 	}
 
-	// StopGlobal 应停止全局总线
 	StopGlobal()
 	if GetGlobalBus() != nil {
 		t.Error("expected nil global bus after StopGlobal")
 	}
 }
 
-// === 辅助 ===
 
 var ErrTestHandlerFailure = newTestError("handler failure")
 
@@ -319,3 +305,4 @@ func waitForCondition(t *testing.T, cond func() bool, timeout time.Duration) {
 		time.Sleep(time.Millisecond)
 	}
 }
+

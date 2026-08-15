@@ -112,15 +112,12 @@ func verifyWebhookInfo(acc *model.TelegramAccount) {
 	if info == nil {
 		return
 	}
-	// url 不一致 → 另一进程可能在我们 setWebhook 之后又注册了
 	if gotURL, _ := info["url"].(string); gotURL != "" && gotURL != acc.WebhookURL {
 		logger.Warnf("[TG-Bootstrap] 账号 %d(%s) webhook URL 已被覆盖: 期望=%s 实际=%s (另一进程可能正在 polling/注册)", acc.ID, acc.AccountName, acc.WebhookURL, gotURL)
 	}
-	// pending_update_count > 0 → TG 推送堆积（可能上次重启遗留 / 持续失败）
 	if pending, ok := info["pending_update_count"].(float64); ok && pending > 0 {
 		logger.Warnf("[TG-Bootstrap] 账号 %d(%s) 存在 %v 条 pending update (建议检查 webhook 端点健康度 / 上次重启前是否有未处理消息)", acc.ID, acc.AccountName, pending)
 	}
-	// last_error_message → 最近一次推送失败的诊断（SSL/路径/5xx 等）
 	if lastErr, _ := info["last_error_message"].(string); lastErr != "" {
 		logger.Warnf("[TG-Bootstrap] 账号 %d(%s) 最近 webhook 推送失败: %s", acc.ID, acc.AccountName, lastErr)
 	}
@@ -145,16 +142,12 @@ func ReconcileTelegramWebhooks(svc *TelegramService) {
 		logger.Warnf("[TG-Bootstrap] 列举 Telegram 账号失败: %v", err)
 		return
 	}
-	// 启动期：先停掉所有 polling（如果有），避免和 webhook 重复消费
 	StopAllTelegramPolling()
 	for _, acc := range accs {
 		enabled := acc.Status == 1 && acc.WebhookEnabled
 		resolved, hasPublic := ResolveTelegramWebhookURL(acc)
 		ready := acc.BotToken != "" && resolved != ""
 		if enabled && ready {
-			// S3-5：本地校验 URL 格式（scheme=https + path 前缀），
-			// 拦截误填的 http://localhost、/api/hook 等无效 URL，
-			// 避免把明显错误的 URL 推到 Telegram 侧，浪费 setWebhook 配额。
 			if vErr := ValidateTelegramWebhookURL(resolved); vErr != nil {
 				now := time.Now()
 				acc.LastErrorAt = &now
@@ -163,11 +156,9 @@ func ReconcileTelegramWebhooks(svc *TelegramService) {
 				logger.Warnf("[TG-Bootstrap] 账号 %d(%s) webhook URL 校验失败: %v (url=%s)", acc.ID, acc.AccountName, vErr, resolved)
 				continue
 			}
-			// 把推导出的 URL 落库（仅在原值为空时）—— 重启后启动期对账能直接命中
 			if acc.WebhookURL == "" && hasPublic {
 				acc.WebhookURL = resolved
 			}
-			// secret 缺失时自动生成并落库，确保生产环境（GIN_MODE=release）入站验签可通过
 			if acc.WebhookSecret == "" {
 				acc.WebhookSecret = GenTGWebhookSecret()
 				if err := svc.UpdateAccount(context.Background(), acc); err != nil {
@@ -179,9 +170,7 @@ func ReconcileTelegramWebhooks(svc *TelegramService) {
 				continue
 			}
 			logger.Infof("[TG-Bootstrap] 账号 %d(%s) webhook 已重新注册: %s", acc.ID, acc.AccountName, acc.WebhookURL)
-			// S2-1 自检：立即 getWebhookInfo 验证 TG 侧确实接收到了正确配置
 			verifyWebhookInfo(acc)
-			// 注册成功即经 getMe 回填机器人 @username（供群内「@机器人 才回复」识别），best-effort 不阻断主流程
 			if acc.BotUsername == "" {
 				if uname, gerr := tgbot.GetBotUsername(acc.BotToken); gerr == nil && uname != "" {
 					acc.BotUsername = uname
@@ -192,8 +181,6 @@ func ReconcileTelegramWebhooks(svc *TelegramService) {
 			}
 			continue
 		}
-		// 未启用 / 配置不全：若仍有 BotToken，主动清理 Telegram 侧可能残留的陈旧 webhook，
-		// 避免「曾启用后禁用 / 改坏 URL」的账号继续被投递、造成无效入站与潜在重复处理。
 		if acc.BotToken != "" {
 			if err := tgbot.DeleteWebhook(acc.BotToken); err != nil {
 				logger.Warnf("[TG-Bootstrap] 账号 %d(%s) 清理陈旧 webhook 失败(可忽略): %v", acc.ID, acc.AccountName, err)
@@ -202,7 +189,6 @@ func ReconcileTelegramWebhooks(svc *TelegramService) {
 			}
 		}
 	}
-	// 启动期最后一步：若部署未配置公网域名（无 frp 暴露），自动启动 polling 协程
-	// 已有公网域名 → 上面的 webhook 注册已生效，无需 polling
 	EnsureTelegramMode(svc)
 }
+

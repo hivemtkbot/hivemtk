@@ -1,19 +1,5 @@
 package ragretrieval
 
-// hyde_generator.go HyDE（Hypothetical Document Embeddings）假设文档生成器
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.4.7
-// 论文: "Precise Zero-Shot Dense Retrieval without Relevance Labels" (Gao et al., 2022)
-//
-// 思想: LLM 生成假设答案文档 → embed 假设文档 → 用假设文档向量检索
-//       （因为假设文档与真实文档都是"文档风格"，比 question-document 匹配更准）
-// TREC RAG 2025 UTokyo-HitU 冠军方案采用 HyDE + 150 词假设文档
-//
-// 设计原则:
-//   - LLM 调用失败时返回错误，由 QueryRewriter 决定是否降级（不在此处静默吞错）
-//   - 假设文档过短（<20 字符）视为 LLM 输出无效，返回错误
-//   - 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -25,8 +11,8 @@ import (
 type HyDEGenerator struct {
 	chatClient   LLMChatClient
 	enabled      bool
-	maxDocTokens int // 默认 150 词
-	minDocLength int // 默认 20 字符（过短视为无效）
+	maxDocTokens int 
+	minDocLength int 
 }
 
 // HyDEGeneratorConfig HyDE 配置
@@ -96,7 +82,7 @@ func (g *HyDEGenerator) Generate(ctx context.Context, query string) (string, err
 假设性答案文档:`, g.maxDocTokens, query)
 
 	resp, err := g.chatClient.Chat(ctx, prompt, LLMChatOptions{
-		Temperature: 0.3, // 低温度保证稳定
+		Temperature: 0.3, 
 		MaxTokens:   g.maxDocTokens * 2,
 	})
 	if err != nil {
@@ -108,3 +94,4 @@ func (g *HyDEGenerator) Generate(ctx context.Context, query string) (string, err
 	}
 	return hydeDoc, nil
 }
+

@@ -32,7 +32,6 @@ func NewLocalAssetService(
 	pc repository.PlatformAPIClient,
 	db *gorm.DB,
 ) *LocalAssetService {
-	// 事务由 repository 层管理，service 不持有 *gorm.DB；db 参数仅用于签名兼容。
 	_ = db
 	return &LocalAssetService{assetRepo: ar, dataRepo: dr, syncLogRepo: sr, platformClient: pc}
 }
@@ -58,7 +57,7 @@ func platformNameIntoData(raw json.RawMessage, name string) json.RawMessage {
 		return raw
 	}
 	if _, ok := m["name"]; ok {
-		return raw // 已含 name，不覆盖
+		return raw 
 	}
 	nameJSON, err := json.Marshal(name)
 	if err != nil {
@@ -95,9 +94,6 @@ func (s *LocalAssetService) PurchaseAndSync(ctx context.Context, platformAssetID
 	if err != nil {
 		return bizerr.Wrap(bizerr.CodeSyncFailed, "拉取平台数据失败", err)
 	}
-	// 平台返回的 data 不含 name（name 位于 payload 顶层），而本地校验约定 data 含
-	// name（与前端自建资产一致）。把顶层 name 合并进 data，避免校验失败并保持数据
-	// 结构与自建资产一致。
 	payload.Data = platformNameIntoData(payload.Data, payload.Name)
 
 	if err := asset.ValidateAssetData(asset.AssetType(payload.AssetType), payload.Data); err != nil {
@@ -140,7 +136,6 @@ func (s *LocalAssetService) SyncFromPlatform(ctx context.Context, assetID string
 		})
 		return bizerr.Wrap(bizerr.CodeSyncFailed, "拉取失败", err)
 	}
-	// 与购买同步保持一致：顶层 name 合并进 data。
 	payload.Data = platformNameIntoData(payload.Data, payload.Name)
 
 	la.Version = payload.Version
@@ -256,7 +251,6 @@ func (s *LocalAssetService) LoadByType(ctx context.Context, assetType string) ([
 		if err == nil {
 			datas = append(datas, lad.Data)
 		}
-		// 闭环：每次运行时被实际加载使用，累加本地使用次数，并 best-effort 回传平台。
 		if la.PurchaseID != nil {
 			_ = s.assetRepo.IncrementUseCount(ctx, la.ID, 1)
 			go s.reportUsageAsync(la.AssetID)
@@ -280,7 +274,6 @@ func (s *LocalAssetService) LoadOne(ctx context.Context, assetID string) (*model
 	if err != nil || lad == nil {
 		return la, nil, nil
 	}
-	// telemetry：仅平台来源资产回传用量到平台
 	if la.PurchaseID != nil {
 		_ = s.assetRepo.IncrementUseCount(ctx, la.ID, 1)
 		go s.reportUsageAsync(la.AssetID)
@@ -320,3 +313,4 @@ func (s *LocalAssetService) reportUsageAsync(assetID string) {
 	defer cancel()
 	_ = s.ReportUsage(ctx, assetID)
 }
+

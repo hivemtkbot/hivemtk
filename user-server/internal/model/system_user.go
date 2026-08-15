@@ -58,20 +58,20 @@ func DefaultDataScopeForRole(role string) string {
 // SystemUser 系统用户模型
 type SystemUser struct {
 	ID           uint       `json:"id" gorm:"primaryKey"`
-	Username     string     `json:"username" gorm:"size:50;uniqueIndex;not null"`        // 用户名
-	Password     string     `json:"-" gorm:"size:100;not null"`                          // 密码，不在JSON中返回
-	Email        string     `json:"email" gorm:"size:100"`                               // 邮箱
-	Phone        string     `json:"phone" gorm:"size:20;index"`                          // 手机号（：用于 Profile 资料维护 + 短信验证）
-	RealName     string     `json:"real_name" gorm:"size:50"`                            // 真实姓名
-	Role         string     `json:"role" gorm:"size:20;default:'staff'"`                 // 角色：admin(超管) / customer_service(客服) / staff(员工)
-	Status       int        `json:"status" gorm:"default:1"`                             // 状态：1-启用，0-禁用（审计保留）
-	Enabled      bool       `json:"enabled" gorm:"column:enabled;default:true;not null"` // 启用/禁用开关（阶段 1 新增）
-	LastLogin    *time.Time `json:"last_login"`                                          // 最后登录时间
-	DataScope    string     `json:"data_scope" gorm:"size:20;default:'self'"`            // 数据范围 all/department/team/self
-	DepartmentID uint       `json:"department_id" gorm:"index;default:0"`                // 所属部门 ID（0=未分配）
-	TeamID       uint       `json:"team_id" gorm:"index;default:0"`                      // 所属团队 ID（0=未分配）
-	CreatedAt    time.Time  `json:"created_at" gorm:"autoCreateTime"`                    // 创建时间
-	UpdatedAt    time.Time  `json:"updated_at" gorm:"autoUpdateTime"`                    // 更新时间
+	Username     string     `json:"username" gorm:"size:50;uniqueIndex;not null"`        
+	Password     string     `json:"-" gorm:"size:100;not null"`                          
+	Email        string     `json:"email" gorm:"size:100"`                               
+	Phone        string     `json:"phone" gorm:"size:20;index"`                          
+	RealName     string     `json:"real_name" gorm:"size:50"`                            
+	Role         string     `json:"role" gorm:"size:20;default:'staff'"`                 
+	Status       int        `json:"status" gorm:"default:1"`                             
+	Enabled      bool       `json:"enabled" gorm:"column:enabled;default:true;not null"` 
+	LastLogin    *time.Time `json:"last_login"`                                          
+	DataScope    string     `json:"data_scope" gorm:"size:20;default:'self'"`            
+	DepartmentID uint       `json:"department_id" gorm:"index;default:0"`                
+	TeamID       uint       `json:"team_id" gorm:"index;default:0"`                      
+	CreatedAt    time.Time  `json:"created_at" gorm:"autoCreateTime"`                    
+	UpdatedAt    time.Time  `json:"updated_at" gorm:"autoUpdateTime"`                    
 }
 
 // TableName 返回表名
@@ -81,7 +81,6 @@ func (SystemUser) TableName() string {
 
 // BeforeCreate GORM钩子，在创建前加密密码
 func (u *SystemUser) BeforeCreate(tx *gorm.DB) error {
-	// 未显式指定 data_scope 时，根据 role 设置默认值
 	if u.DataScope == "" {
 		u.DataScope = DefaultDataScopeForRole(u.Role)
 	}
@@ -108,3 +107,4 @@ func CheckSystemUserPassword(u *SystemUser, password string) bool {
 func IsSystemUserAdmin(u *SystemUser) bool {
 	return u.Role == SystemUserRoleAdmin
 }
+

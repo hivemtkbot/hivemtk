@@ -28,7 +28,7 @@ func (s *InboxIngressService) ListFailedOutbound(ctx context.Context, channel, a
 		Platform:  channel,
 		AccountID: accountID,
 		Direction: "outbound",
-		Status:    "failed",
+		Status:    model.BridgeAckStatusFailed,
 	})
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (s *InboxIngressService) MarkOutboundDelivered(ctx context.Context, hub *mo
 	if s.hubRepo == nil || hub == nil {
 		return nil
 	}
-	hub.Status = "delivered"
+	hub.Status = model.BridgeAckStatusDelivered
 	return s.hubRepo.Update(ctx, hub)
 }
 
@@ -209,7 +209,7 @@ func (s *InboxIngressService) AckOutboundDelivered(ctx context.Context, channel,
 				"msg_id":     id,
 			},
 			Output: map[string]any{
-				"status": "delivered",
+				"status": model.BridgeAckStatusDelivered,
 			},
 			DurationMs: ackTimer.ElapsedMs(),
 			Expected:   "pending → delivered（桥接已成功转发到网页）",
@@ -236,7 +236,7 @@ func (s *InboxIngressService) AckOutboundDelivered(ctx context.Context, channel,
 //   - "client_error"     客户端未捕获的发送异常
 type AckOutboundItem struct {
 	MsgID  string `json:"msg_id"`
-	Status string `json:"status"` // acked | failed | duplicate | not_found | not_in_scope
+	Status string `json:"status"` 
 	Error  string `json:"error,omitempty"`
 }
 
@@ -251,12 +251,12 @@ type AckOutboundItem struct {
 //   - NotInScopeCount: 存在但归属其他 (channel, account_id) 或 direction≠outbound 的 msg_id 数
 //   - Items: 按入参 msgIDs 顺序逐条结果（顺序契约由代码保证并由 p3d-contract.test.js 验证）
 type AckOutboundResult struct {
-	AffectedCount   int               `json:"affected_count"`     // SQL 行级受影响（= len(updatedIDs)）
-	AckedItemsCount int               `json:"acked_items_count"`  // msg_id 维度 ack 命中数
-	FailedItemsCount int              `json:"failed_items_count"` // P0-3：failed 命中数
-	DuplicateCount  int               `json:"duplicate_count"`    // 幂等跳过
-	NotFoundCount   int               `json:"not_found_count"`    // 不存在
-	NotInScopeCount int               `json:"not_in_scope_count"` // P0-8：归属错
+	AffectedCount   int               `json:"affected_count"`     
+	AckedItemsCount int               `json:"acked_items_count"`  
+	FailedItemsCount int              `json:"failed_items_count"` 
+	DuplicateCount  int               `json:"duplicate_count"`    
+	NotFoundCount   int               `json:"not_found_count"`    
+	NotInScopeCount int               `json:"not_in_scope_count"` 
 	Items           []AckOutboundItem `json:"items"`
 }
 
@@ -298,12 +298,11 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 	msgIDs []string,
 	conversationID string,
 	terminalStatus string,
-	perItem map[string]BridgeOutboundAckInput, // 可选：v2 协议入参，key=msg_id
+	perItem map[string]BridgeOutboundAckInput, 
 ) (*AckOutboundResult, error) {
 	result := &AckOutboundResult{
 		Items: make([]AckOutboundItem, 0, len(msgIDs)),
 	}
-	// P4-3.1：hubRepo nil 必须返 error（前端 ackRes.status !== 'ok' → retriable）
 	if s.hubRepo == nil {
 		return nil, errors.New("ack failed: hub repo not configured")
 	}
@@ -311,15 +310,13 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 		return result, nil
 	}
 
-	// P0-3：归一化终态（缺省 delivered）
 	if terminalStatus == "" {
-		terminalStatus = "delivered"
+		terminalStatus = model.BridgeAckStatusDelivered
 	}
-	if terminalStatus != "delivered" && terminalStatus != "failed" {
+	if terminalStatus != model.BridgeAckStatusDelivered && terminalStatus != model.BridgeAckStatusFailed {
 		return nil, fmt.Errorf("invalid terminal status: %q (must be delivered or failed)", terminalStatus)
 	}
 
-	// P4-7.4：入参 msg_id 去重（保留首次出现顺序）
 	seen := make(map[string]struct{}, len(msgIDs))
 	deduped := make([]string, 0, len(msgIDs))
 	for _, id := range msgIDs {
@@ -336,9 +333,6 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 		return result, nil
 	}
 
-	// 1) 拉取所有目标 msg_id 在 (channel, account_id, direction=outbound) 下的当前 status
-	//    P4-1.1：GetByMsgIDsInScope 已加 direction='outbound' 过滤
-	//    P0-1：当 conversationID != "" 时，进一步在 SQL 端 WHERE 限定 conversation_id
 	rows, err := s.hubRepo.GetByMsgIDsInScopeWithConv(ctx, channel, accountID, conversationID, deduped)
 	if err != nil {
 		return nil, err
@@ -349,28 +343,22 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 		hubByMsgID[h.MsgID] = &h
 	}
 
-	// 2) 分类：可翻转的（pending/inflight） vs 已 delivered（幂等跳过） vs 不存在
-	//    P0-3：可翻转的最终落到 toAck，按 terminalStatus 翻转
 	toAck := make([]string, 0, len(deduped))
 	for _, id := range deduped {
 		h, exists := hubByMsgID[id]
 		if !exists {
-			result.Items = append(result.Items, AckOutboundItem{MsgID: id, Status: "not_found"})
+			result.Items = append(result.Items, AckOutboundItem{MsgID: id, Status: model.BridgeAckStatusNotFound})
 			result.NotFoundCount++
 			continue
 		}
 		if h.Status == terminalStatus {
-			// 已为终态（幂等跳过）
-			result.Items = append(result.Items, AckOutboundItem{MsgID: id, Status: "duplicate"})
+			result.Items = append(result.Items, AckOutboundItem{MsgID: id, Status: model.BridgeAckStatusDuplicate})
 			result.DuplicateCount++
 			continue
 		}
-		// pending / inflight 等其他状态都翻转为 terminalStatus
 		toAck = append(toAck, id)
 	}
 
-	// 3) 原子 RETURNING 单 SQL（修复 2.1：消除"先查后更"非原子性）
-	//    P0-3：传 terminalStatus 决定 UPDATE 的目标终态
 	updatedIDSet := make(map[string]struct{}, len(toAck))
 	if len(toAck) > 0 {
 		updatedIDs, affected, err := s.hubRepo.AckOutboundDeliveredBatchReturningWithStatus(ctx, channel, accountID, conversationID, terminalStatus, toAck)
@@ -383,19 +371,14 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 		}
 	}
 
-	// 4) 精确分类（基于 RETURNING 真实结果，而非查询时的 status）
-	//    之前误分类为 "acked" 但实际未翻转的 msg_id（被其他 worker 抢先）现在归为 duplicate
-	//    P0-3：terminalStatus=failed 时归为 "failed" 状态
-	//    P0-2：Error 字段从 perItem[msg_id].Error 透传
 	finalItems := make([]AckOutboundItem, 0, len(result.Items))
 	ackedItemsCount := 0
 	failedItemsCount := 0
 	for _, item := range result.Items {
 		switch item.Status {
-		case "acked", "failed":
+		case model.BridgeAckStatusAcked, model.BridgeAckStatusFailed:
 			if _, ok := updatedIDSet[item.MsgID]; ok {
-				// 确实翻了 → 保持原 status，附加 Error（如果有）
-				if item.Status == "failed" {
+				if item.Status == model.BridgeAckStatusFailed {
 					failedItemsCount++
 				} else {
 					ackedItemsCount++
@@ -407,12 +390,10 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 				}
 				finalItems = append(finalItems, item)
 			} else {
-				// 翻失败（被抢先）→ 降级为 duplicate
-				finalItems = append(finalItems, AckOutboundItem{MsgID: item.MsgID, Status: "duplicate"})
+				finalItems = append(finalItems, AckOutboundItem{MsgID: item.MsgID, Status: model.BridgeAckStatusDuplicate})
 				result.DuplicateCount++
 			}
 		default:
-			// not_found / duplicate / not_in_scope 直接保留
 			finalItems = append(finalItems, item)
 		}
 	}
@@ -420,13 +401,10 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 	result.AckedItemsCount = ackedItemsCount
 	result.FailedItemsCount = failedItemsCount
 
-	// 5) P0-8 not_in_scope 检测：v1 模式（无 conversationID 过滤）下，
-	//    收集所有 not_found 的 msg_id，查"本渠道下任何账号是否存在"，
-	//    存在但不在本账号范围 → not_in_scope（防越权探测：发现即告警但不告知具体归属）
 	if conversationID == "" && len(deduped) > 0 {
 		var suspected []string
 		for _, it := range result.Items {
-			if it.Status == "not_found" {
+			if it.Status == model.BridgeAckStatusNotFound {
 				suspected = append(suspected, it.MsgID)
 			}
 		}
@@ -436,8 +414,8 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 				newItems := make([]AckOutboundItem, 0, len(result.Items))
 				notInScope := 0
 				for _, it := range result.Items {
-					if it.Status == "not_found" && anyExists[it.MsgID] {
-						it.Status = "not_in_scope"
+					if it.Status == model.BridgeAckStatusNotFound && anyExists[it.MsgID] {
+						it.Status = model.BridgeAckStatusNotInScope
 						notInScope++
 						result.NotFoundCount--
 					}
@@ -449,10 +427,9 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 		}
 	}
 
-	// 6) tracing 节点：每条已处理 msg_id 记一条（修复 2.3：duplicate 记 StatusSkipped 不再 StatusOk）
 	ackTimer := tracing.StartSpan()
 	for _, item := range result.Items {
-		if item.Status == "not_found" || item.Status == "not_in_scope" {
+		if item.Status == model.BridgeAckStatusNotFound || item.Status == model.BridgeAckStatusNotInScope {
 			continue
 		}
 		h := hubByMsgID[item.MsgID]
@@ -462,11 +439,11 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 		}
 		var traceStatus string
 		switch item.Status {
-		case "acked":
+		case model.BridgeAckStatusAcked:
 			traceStatus = tracing.StatusOk
-		case "failed":
-			traceStatus = tracing.StatusAbnormal // 2026-08-15 P0-3：failed 显式标 abnormal（业务失败）
-		case "duplicate":
+		case model.BridgeAckStatusFailed:
+			traceStatus = tracing.StatusAbnormal
+		case model.BridgeAckStatusDuplicate:
 			traceStatus = tracing.StatusSkipped
 		default:
 			traceStatus = tracing.StatusOk
@@ -507,3 +484,4 @@ type BridgeOutboundAckInput struct {
 	Status         string
 	Error          string
 }
+

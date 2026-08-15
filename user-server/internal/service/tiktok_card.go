@@ -120,7 +120,6 @@ func (s *tiktokCardService) Update(ctx context.Context, req *dto.TikTokCardUpdat
 
 // Delete 删除 TikTok 卡片
 func (s *tiktokCardService) Delete(ctx context.Context, id uint) error {
-	// 先检查卡片是否存在
 	_, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("卡片不存在: %w", err)
@@ -135,7 +134,6 @@ func (s *tiktokCardService) GetByID(ctx context.Context, id uint) (*dto.TikTokCa
 		return nil, err
 	}
 
-	// 获取短链信息(通过 ShortLinkRepository,避免 service 直接持有 db)
 	shortCode := ""
 	if card.ShortLinkID != 0 {
 		sl, err := s.shortLinkRepo.GetByID(context.Background(), card.ShortLinkID)
@@ -183,10 +181,8 @@ func (s *tiktokCardService) GenerateShortLink(ctx context.Context, cardID uint) 
 		return nil, fmt.Errorf("卡片不存在: %w", err)
 	}
 
-	// 真实生成短码
 	shortCode := generateRandomCode(8)
 
-	// 如果已有关联短链,先删除
 	if card.ShortLinkID != 0 {
 		_ = s.shortLinkRepo.Delete(context.Background(), card.ShortLinkID)
 	}
@@ -220,7 +216,6 @@ func (s *tiktokCardService) StatsOverall(ctx context.Context) (*dto.TikTokCardSt
 		return nil, err
 	}
 
-	// 构造每日统计(基于近 7 天活动)
 	daily := make([]dto.TikTokCardDailyStat, 0, 7)
 	for i := 6; i >= 0; i-- {
 		day := time.Now().AddDate(0, 0, -i).Format("2006-01-02")
@@ -228,10 +223,8 @@ func (s *tiktokCardService) StatsOverall(ctx context.Context) (*dto.TikTokCardSt
 		daily = append(daily, dto.TikTokCardDailyStat{Date: day, ViewCount: dayCount})
 	}
 
-	// 最近活动(取最新 10 条)
 	activities, _ := s.repo.ListRecentActivities(ctx, 10)
 
-	// 构造卡片标题映射
 	titleMap := make(map[uint]string, len(popular))
 	for _, c := range popular {
 		titleMap[c.ID] = c.Title
@@ -269,7 +262,6 @@ func (s *tiktokCardService) Stats(ctx context.Context, cardID uint) (*dto.TikTok
 		return nil, err
 	}
 
-	// 每日浏览统计
 	daily := make([]dto.TikTokCardDailyStat, 0, 7)
 	for i := 6; i >= 0; i-- {
 		day := time.Now().AddDate(0, 0, -i).Format("2006-01-02")
@@ -348,3 +340,4 @@ func generateRandomCode(length int) string {
 	}
 	return string(b)
 }
+

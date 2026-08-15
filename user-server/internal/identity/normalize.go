@@ -23,9 +23,7 @@ type Identifiers struct {
 }
 
 var (
-	// 仅保留数字
 	phoneDigits = regexp.MustCompile(`\D+`)
-	// 邮箱白名单字符：TLD 至少 2 字符，但允许 a.b@c.d.e.f 这类多级 TLD
 	emailValid = regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9](?:[a-z0-9.\-]*[a-z0-9])?\.[a-z]{2,}$`)
 )
 
@@ -45,8 +43,6 @@ func NormalizePhone(raw string) string {
 	if digits == "" {
 		return trimmed
 	}
-	// 去除 86 / 0086 / +86 等国际区号前缀
-	// +86xxxxxxxxxx（13 位）/ 0086xxxxxxxxxx（15 位）/ 86xxxxxxxxxx（>=12 位）
 	if strings.HasPrefix(digits, "0086") && len(digits) >= 15 {
 		digits = digits[4:]
 	} else if strings.HasPrefix(digits, "86") && len(digits) >= 12 {
@@ -114,3 +110,4 @@ func HasAny(in Identifiers) bool {
 		strings.TrimSpace(in.DouyinOpenID) != "" ||
 		strings.TrimSpace(in.XiaohongshuID) != ""
 }
+

@@ -36,15 +36,14 @@ type MemorySystem struct {
 }
 
 const (
-	L1WindowSize = 10             // L1 保留消息数
-	L1TTLHours   = 24 * time.Hour // L1 过期时间
-	L4MaxPerCust = 500            // L4 每客户最大条数（防爆）
+	L1WindowSize = 10             
+	L1TTLHours   = 24 * time.Hour 
+	L4MaxPerCust = 500            
 	defaultImp   = 5
 
-	// G5 L2 长期记忆 pgvector 相关常量
-	longTermMemoryRecallMultiplier = 3                   // 粗召回倍数：limit * 3，避免重排序后错过重要记忆
-	longTermMemoryMaxFetch         = 50                  // 单次召回最大条数
-	longTermMemoryDecayDuration    = 30 * 24 * time.Hour // 30 天衰减为 0
+	longTermMemoryRecallMultiplier = 3                   
+	longTermMemoryMaxFetch         = 50                  
+	longTermMemoryDecayDuration    = 30 * 24 * time.Hour 
 )
 
 var (
@@ -95,7 +94,6 @@ func (m *MemorySystem) WithEmbeddingService(ctx context.Context, svc llm.Embeddi
 	return m
 }
 
-// =================== L1 短期记忆 ===================
 
 // L1Append 追加一条短期消息
 func (m *MemorySystem) L1Append(ctx context.Context, sessionID, customerID, role, content string) error {
@@ -115,7 +113,6 @@ func (m *MemorySystem) L1Append(ctx context.Context, sessionID, customerID, role
 	if err := m.memoryRepo.CreateMemoryItem(ctx, item); err != nil {
 		return err
 	}
-	// 滑动窗口裁剪：保留最近 L1WindowSize 条
 	m.l1Trim(ctx, sessionID)
 	return nil
 }
@@ -144,7 +141,6 @@ func (m *MemorySystem) l1Trim(ctx context.Context, sessionID string) {
 	if m.memoryRepo == nil {
 		return
 	}
-	// 计算当前总数
 	count, err := m.memoryRepo.CountShortTermMemoryBySession(ctx, sessionID)
 	if err != nil {
 		return
@@ -152,7 +148,6 @@ func (m *MemorySystem) l1Trim(ctx context.Context, sessionID string) {
 	if count <= int64(L1WindowSize) {
 		return
 	}
-	// 删除超出窗口的旧消息
 	exceed := count - int64(L1WindowSize)
 	oldIDs, err := m.memoryRepo.PluckOldestShortTermMemoryIDs(ctx, sessionID, int(exceed))
 	if err != nil {
@@ -163,7 +158,6 @@ func (m *MemorySystem) l1Trim(ctx context.Context, sessionID string) {
 	}
 }
 
-// =================== L2 长期记忆 ===================
 
 // L2SaveFact 保存一条长期事实
 func (m *MemorySystem) L2SaveFact(ctx context.Context, customerID, key, value string, importance int) error {
@@ -225,7 +219,6 @@ func (m *MemorySystem) L2GetLatestSummary(ctx context.Context, customerID string
 	return item.Content, nil
 }
 
-// =================== L3 SOP 状态 ===================
 
 // L3SaveSOPState 保存 SOP 状态
 func (m *MemorySystem) L3SaveSOPState(ctx context.Context, state *model.SOPStateMemory) error {
@@ -255,7 +248,6 @@ func (m *MemorySystem) L3ListByCustomer(ctx context.Context, customerID string, 
 	return m.memoryRepo.ListSOPStatesByCustomer(ctx, customerID, limit)
 }
 
-// =================== L4 业务记忆 ===================
 
 // L4Record 记录业务记忆
 func (m *MemorySystem) L4Record(ctx context.Context, customerID, memoryType, content, relatedID string, importance int, metadata map[string]any) error {
@@ -268,7 +260,6 @@ func (m *MemorySystem) L4Record(ctx context.Context, customerID, memoryType, con
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// 限额裁剪：超过 L4MaxPerCust 删旧的
 	count, _ := m.memoryRepo.CountBusinessMemoriesByCustomer(ctx, customerID)
 	if count >= int64(L4MaxPerCust) {
 		exceed := count - int64(L4MaxPerCust) + 1
@@ -306,7 +297,6 @@ func (m *MemorySystem) L4ListByCustomer(ctx context.Context, customerID string, 
 	return m.memoryRepo.ListBusinessMemories(ctx, customerID, memoryType, limit)
 }
 
-// =================== 跨层聚合 ===================
 
 // BuildFullContext 构造 4 层汇总上下文（用于 LLM 提示）
 func (m *MemorySystem) BuildFullContext(ctx context.Context, sessionID, customerID string) (string, error) {
@@ -315,11 +305,9 @@ func (m *MemorySystem) BuildFullContext(ctx context.Context, sessionID, customer
 	}
 	var sb strings.Builder
 
-	// L1 短期
 	l1, _ := m.L1List(ctx, sessionID, L1WindowSize)
 	if len(l1) > 0 {
 		sb.WriteString("【L1 短期记忆（最近对话）】\n")
-		// l1 是倒序的，需要反向
 		for i := len(l1) - 1; i >= 0; i-- {
 			role := "客户"
 			if l1[i].Role == "ai" || l1[i].Role == "agent" {
@@ -330,7 +318,6 @@ func (m *MemorySystem) BuildFullContext(ctx context.Context, sessionID, customer
 		sb.WriteString("\n")
 	}
 
-	// L2 长期
 	if customerID != "" {
 		if summary, _ := m.L2GetLatestSummary(ctx, customerID); summary != "" {
 			sb.WriteString("【L2 长期摘要】\n")
@@ -346,7 +333,6 @@ func (m *MemorySystem) BuildFullContext(ctx context.Context, sessionID, customer
 		}
 	}
 
-	// L3 SOP 状态
 	if sessionID != "" {
 		state, _ := m.L3GetSOPState(ctx, sessionID)
 		if state != nil {
@@ -356,7 +342,6 @@ func (m *MemorySystem) BuildFullContext(ctx context.Context, sessionID, customer
 		}
 	}
 
-	// L4 业务
 	if customerID != "" {
 		biz, _ := m.L4ListByCustomer(ctx, customerID, "", 10)
 		if len(biz) > 0 {
@@ -379,7 +364,6 @@ func (m *MemorySystem) SyncFromDialogueMemory(ctx context.Context, mem *model.Di
 	if mem.CustomerID == "" {
 		return
 	}
-	// L2 关键事实
 	if len(mem.KeyFacts) > 0 {
 		for k, v := range mem.KeyFacts {
 			if s, ok := v.(string); ok && s != "" {
@@ -387,20 +371,16 @@ func (m *MemorySystem) SyncFromDialogueMemory(ctx context.Context, mem *model.Di
 			}
 		}
 	}
-	// L2 摘要
 	if mem.Summary != "" {
 		m.L2SaveSummary(ctx, mem.CustomerID, mem.Summary)
 	}
-	// L4 异议
 	if len(mem.Objections) > 0 {
 		objs, _ := json.Marshal(mem.Objections)
 		m.L4Record(ctx, mem.CustomerID, "objection", string(objs), "", 7, nil)
 	}
-	// L4 购买意向
 	if mem.PurchaseIntent != "" {
 		m.L4Record(ctx, mem.CustomerID, "intent", "购买意向="+mem.PurchaseIntent, "", 8, nil)
 	}
-	// L4 偏好
 	if mem.Budget != "" {
 		m.L4Record(ctx, mem.CustomerID, "preference", "预算="+mem.Budget, "", 6, nil)
 	}
@@ -410,13 +390,12 @@ func (m *MemorySystem) SyncFromDialogueMemory(ctx context.Context, mem *model.Di
 	logger.Infof("[MemorySystem] 同步 DialogueMemory customer=%s 完成", mem.CustomerID)
 }
 
-// =================== G5 L2 长期记忆（pgvector 增强） ===================
 
 // LongTermMemoryRecallResult Recall 结果
 type LongTermMemoryRecallResult struct {
 	Memory     *model.CustomerLongTermMemory
-	Similarity float64 // 0-1, 越大越相似
-	Score      float64 // 综合得分：similarity * 0.6 + importance_score * 0.3 + recency_score * 0.1
+	Similarity float64 
+	Score      float64 
 }
 
 // Remember 记录一条长期记忆（自动 Embedding + 存储）
@@ -441,7 +420,6 @@ func (m *MemorySystem) Remember(ctx context.Context, customerID string, memType 
 	switch memType {
 	case model.LongTermMemoryPreference, model.LongTermMemoryHabit,
 		model.LongTermMemoryFeedback, model.LongTermMemoryEvent, model.LongTermMemoryFact:
-		// ok
 	default:
 		return nil, fmt.Errorf("invalid memory_type: %s", memType)
 	}
@@ -533,10 +511,6 @@ func (m *MemorySystem) recallPostgres(ctx context.Context, customerID string, qu
 	if fetchN > longTermMemoryMaxFetch {
 		fetchN = longTermMemoryMaxFetch
 	}
-	// pgvector 的 ?::vector 期望 text 通道传入 '[v1,v2,...]' 格式。
-	// 若传入 []byte，PG 驱动会按 bytea 发送，::vector 无法从 bytea 转换，
-	// 报 "invalid input syntax for type vector"。
-	// 因此必须使用 string 形式（embeddingToString 输出 JSON 数组文本）。
 	queryVecStr := embeddingToString(queryVec)
 	rows, err := m.memoryRepo.SearchLongTermMemoriesByVector(ctx, queryVecStr, customerID, fetchN)
 	if err != nil {
@@ -678,7 +652,6 @@ func embeddingToString(vec []float32) string {
 	if len(vec) == 0 {
 		return ""
 	}
-	// 复用 float32SliceToBytes 的 JSON 序列化结果
 	return string(float32SliceToBytes(vec))
 }
 
@@ -701,3 +674,4 @@ func cosineSimilarity(a, b []float32) float64 {
 	}
 	return dot / (math.Sqrt(na) * math.Sqrt(nb))
 }
+

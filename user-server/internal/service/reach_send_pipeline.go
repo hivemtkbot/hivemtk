@@ -1,20 +1,3 @@
-// reach_send_pipeline.go 触达消息发送 9 步 Pipeline（PRD §5.2 G4）
-//
-// 9 步装饰器链（外层 → 内层顺序）：
-//  1. 权限校验（PermissionChecker）
-//  2. 限流（RateLimiter，按渠道+账号）
-//  3. 重试（RetryPolicy，指数退避，最多 3 次）
-//  5. 降级（FallbackPolicy，主渠道失败 → 备用渠道）
-//  6. 审计（AuditLogger，全量留痕到 reach_audit_logs）
-//  7. 计费（CostTracker，按渠道计费 + 余额检查）
-//  8. 客户轨迹更新（JourneyTracker，写入 customer_journey）
-//  9. 实际发送（ChannelAdapter，渠道适配器）
-//
-// 验收标准（PRD §5.2 G4）：
-//   - 高并发下消息不丢失（限流 + 重试保障）
-//   - 敏感词消息被拦截并记录
-//   - 主渠道失败自动降级到备用渠道
-//   - 每条触达有完整审计记录
 
 package service
 
@@ -38,21 +21,21 @@ import (
 )
 
 const (
-	SendStepPermission = "permission" // 1. 权限校验
+	SendStepPermission = "permission" 
 
-	SendStepRateLimit = "rate_limit" // 2. 限流
+	SendStepRateLimit = "rate_limit" 
 
-	SendStepRetry = "retry" // 3. 重试（包裹 4-8）
+	SendStepRetry = "retry" 
 
-	SendStepFallback = "fallback" // 5. 降级
+	SendStepFallback = "fallback" 
 
-	SendStepAudit = "audit" // 6. 审计
+	SendStepAudit = "audit" 
 
-	SendStepCost = "cost" // 7. 计费
+	SendStepCost = "cost" 
 
-	SendStepJourney = "journey" // 8. 客户轨迹
+	SendStepJourney = "journey" 
 
-	SendStepSend = "send" // 9. 实际发送
+	SendStepSend = "send" 
 
 )
 
@@ -80,27 +63,27 @@ var (
 )
 
 type ReachSendRequest struct {
-	Channel     string            // sms/email/wecom/weixin/douyin/kuaishou/xhs/dingtalk/card
-	AccountID   string            // 发送账号 ID
-	RecipientID string            // 接收者 ID（手机号/openid/external_user_id 等）
-	CustomerID  string            // 客户 ID（用于轨迹 / 限流维度）
-	OperatorID  string            // 操作员 ID（用于权限校验）
-	MsgType     string            // 消息类型（text/image/link/card 等）
-	Content     string            // 消息内容
-	Subject     string            // 邮件主题
-	TemplateID  string            // 模板 ID
-	Params      map[string]string // 模板参数
-	Attachments []string          // 附件
-	CardID      string            // 卡片 ID（card 渠道）
-	Fallback    *FallbackConfig   // 降级配置（可选）
-	Metadata    map[string]string // 额外元数据
+	Channel     string            
+	AccountID   string            
+	RecipientID string            
+	CustomerID  string            
+	OperatorID  string            
+	MsgType     string            
+	Content     string            
+	Subject     string            
+	TemplateID  string            
+	Params      map[string]string 
+	Attachments []string          
+	CardID      string            
+	Fallback    *FallbackConfig   
+	Metadata    map[string]string 
 }
 
 type FallbackConfig struct {
 	Enabled       bool
-	BackupChannel string // 备用渠道
-	BackupAccount string // 备用账号
-	MaxAttempts   int    // 最大降级次数（默认 1）
+	BackupChannel string 
+	BackupAccount string 
+	MaxAttempts   int    
 }
 
 type SendResponse struct {
@@ -109,7 +92,7 @@ type SendResponse struct {
 	Channel        string        `json:"channel"`
 	AccountID      string        `json:"account_id"`
 	FallbackUsed   bool          `json:"fallback_used"`
-	PrimaryChannel string        `json:"primary_channel"` // 原始渠道
+	PrimaryChannel string        `json:"primary_channel"` 
 	RetryCount     int           `json:"retry_count"`
 	StepResults    []SendStepLog `json:"step_results"`
 	Error          string        `json:"error,omitempty"`
@@ -123,7 +106,7 @@ type SendStepLog struct {
 	StartedAt  time.Time `json:"started_at"`
 	EndedAt    time.Time `json:"ended_at"`
 	DurationMs int64     `json:"duration_ms"`
-	Output     []any     `json:"output,omitempty"` // 中间产物
+	Output     []any     `json:"output,omitempty"` 
 	Error      string    `json:"error,omitempty"`
 	Skipped    bool      `json:"skipped,omitempty"`
 }
@@ -146,7 +129,7 @@ type RateLimitSpec struct {
 type SendRetryPolicy struct {
 	MaxRetries      int
 	IntervalMs      int
-	Backoff         string // fixed/exponential
+	Backoff         string 
 	MaxIntervalMs   int
 	RetryableErrors []string
 }
@@ -207,7 +190,7 @@ type sendRateBucket struct {
 const (
 	rateLimiterShards = 64
 
-	rateLimiterBucketIdleTTL = 10 * time.Minute // 桶空闲超过此值视为可重置（返回客户重置 burst 额度）
+	rateLimiterBucketIdleTTL = 10 * time.Minute 
 
 )
 
@@ -239,11 +222,8 @@ func (l *MemorySendRateLimiter) Allow(ctx context.Context, key string, limit Rat
 
 	now := time.Now()
 	b, ok := s.buckets[key]
-	// !ok 优先短路，保证下方 b.lastFill 访问不空指针；
-	// 规格变更或空闲过久 → 重建（空闲过久的桶重置 burst，等价于失效）
 	if !ok || b.qps != limit.QPS || b.burst != limit.Burst || now.Sub(b.lastFill) > rateLimiterBucketIdleTTL {
 		if !ok {
-			// 缓存未命中且分片已满：驱逐最久未用的桶，限制每分片桶数上限，杜绝无限增长（内存泄漏）
 			if len(s.buckets) >= rateLimiterMaxBuckets {
 				s.evictStalestLocked()
 			}
@@ -367,7 +347,7 @@ func (NoOpSendCostTracker) Charge(ctx context.Context, channel string, req *Reac
 type MemorySendCostTracker struct {
 	mu        sync.Mutex
 	balance   float64
-	costs     map[string]float64 // channel → unit cost
+	costs     map[string]float64 
 	totalUsed float64
 }
 
@@ -448,9 +428,9 @@ type SendPipelineConfig struct {
 	AuditLogger       SendAuditLogger
 	CostTracker       SendCostTracker
 	JourneyTracker    SendJourneyTracker
-	Adapter           ChannelAdapter            // 主渠道适配器
-	FallbackAdapters  map[string]ChannelAdapter // 备用渠道适配器（key = channel）
-	Steps             []string                  // 启用的步骤（默认全部）
+	Adapter           ChannelAdapter            
+	FallbackAdapters  map[string]ChannelAdapter 
+	Steps             []string                  
 }
 
 func DefaultSendPipelineConfig(adapter ChannelAdapter) SendPipelineConfig {
@@ -470,7 +450,6 @@ func DefaultSendPipelineConfig(adapter ChannelAdapter) SendPipelineConfig {
 var defaultThirdPartyRateLimitByChannel = map[string]RateLimitSpec{
 	"sms":   {QPS: 50, Burst: 100},
 	"email": {QPS: 30, Burst: 60},
-	// 即时通讯类第三方渠道
 	"wecom":        {QPS: 30, Burst: 60},
 	"weixin":       {QPS: 30, Burst: 60},
 	"douyin":       {QPS: 30, Burst: 60},
@@ -526,7 +505,6 @@ func LogComplianceReminder(channel, recipientID string) {
 }
 
 func (p *defaultSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *SendResponse {
-	// 核心敏感接口：每次主动触达发送强制输出合规提示
 	LogComplianceReminder(req.Channel, req.RecipientID)
 
 	start := time.Now()
@@ -537,7 +515,6 @@ func (p *defaultSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *
 		StepResults:    []SendStepLog{},
 	}
 
-	// 步骤映射
 	stepFuncs := map[string]func(ctx context.Context, req *ReachSendRequest, resp *SendResponse) SendStepLog{
 		SendStepPermission: p.runPermission,
 		SendStepRateLimit:  p.runRateLimit,
@@ -549,7 +526,6 @@ func (p *defaultSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *
 		SendStepSend:       p.runSend,
 	}
 
-	// 9 步串行执行
 	for _, step := range p.config.Steps {
 		fn, ok := stepFuncs[step]
 		if !ok {
@@ -562,7 +538,6 @@ func (p *defaultSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *
 			resp.Error = log.Error
 			resp.DurationMs = time.Since(start).Milliseconds()
 			resp.SentAt = time.Now()
-			// PRD §5.2 G4：失败也必须记录审计日志（"每条触达有完整审计记录"）
 			if p.config.AuditLogger != nil {
 				p.config.AuditLogger.LogSend(ctx, req, resp)
 			}
@@ -573,7 +548,6 @@ func (p *defaultSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *
 	resp.Success = true
 	resp.DurationMs = time.Since(start).Milliseconds()
 	resp.SentAt = time.Now()
-	// 成功时记录最终审计日志（带 message_id 等结果字段）
 	if p.config.AuditLogger != nil {
 		p.config.AuditLogger.LogSend(ctx, req, resp)
 	}
@@ -614,7 +588,6 @@ func (p *defaultSendPipeline) runRateLimit(ctx context.Context, req *ReachSendRe
 	key := fmt.Sprintf("%s:%s:%s", req.Channel, req.AccountID, req.CustomerID)
 	spec := p.config.RateLimitSpec
 	if spec.QPS <= 0 && spec.Burst <= 0 {
-		// 未显式配置全局限流时，按渠道套用三方渠道保守默认规格（短信/邮件/即时通讯）。
 		spec = DefaultThirdPartyRateLimitSpec(req.Channel)
 	}
 	if !p.config.RateLimiter.Allow(ctx, key, spec) {
@@ -638,7 +611,6 @@ func (p *defaultSendPipeline) runRetry(ctx context.Context, req *ReachSendReques
 
 	var lastErr error
 	for attempt := 0; attempt <= policy.MaxRetries; attempt++ {
-		// 执行实际发送（包含降级）
 		msgID, err := p.executeSendWithFallback(ctx, req)
 		if err == nil {
 			lastErr = nil
@@ -654,17 +626,14 @@ func (p *defaultSendPipeline) runRetry(ctx context.Context, req *ReachSendReques
 			return log
 		}
 		lastErr = err
-		// 检查错误是否可重试
 		if !p.isRetryable(ctx, err, policy.RetryableErrors) {
 			break
 		}
-		// 上下文已取消/超时：立即停止重试，不再重发（break 跳出 for 循环）
 		if ctx.Err() != nil {
 			lastErr = ctx.Err()
 			resp.RetryCount = attempt
 			break
 		}
-		// 计算退避时间
 		if attempt < policy.MaxRetries {
 			wait := p.computeBackoff(ctx, policy, attempt)
 			select {
@@ -672,8 +641,6 @@ func (p *defaultSendPipeline) runRetry(ctx context.Context, req *ReachSendReques
 			case <-ctx.Done():
 				lastErr = ctx.Err()
 			}
-			// 等待期间上下文取消：停止重试。此处 break 位于 for 循环体内，跳出整个重试循环；
-			// 原有的 break 误置于 select 内，仅跳出 select，导致 ctx 取消后仍继续重发直至 MaxRetries 耗尽。
 			if ctx.Err() != nil {
 				resp.RetryCount = attempt
 				break
@@ -689,7 +656,6 @@ func (p *defaultSendPipeline) runRetry(ctx context.Context, req *ReachSendReques
 }
 
 func (p *defaultSendPipeline) executeSendWithFallback(ctx context.Context, req *ReachSendRequest) (string, error) {
-	// 主渠道
 	if p.config.Adapter == nil {
 		return "", ErrSendChannelNotConfig
 	}
@@ -697,7 +663,6 @@ func (p *defaultSendPipeline) executeSendWithFallback(ctx context.Context, req *
 	if err == nil {
 		return msgID, nil
 	}
-	// 主渠道失败 → 检查降级配置
 	if req.Fallback == nil || !req.Fallback.Enabled || req.Fallback.BackupChannel == "" {
 		return "", err
 	}
@@ -712,7 +677,7 @@ func (p *defaultSendPipeline) executeSendWithFallback(ctx context.Context, req *
 		backupReq := *req
 		backupReq.Channel = req.Fallback.BackupChannel
 		backupReq.AccountID = req.Fallback.BackupAccount
-		backupReq.Fallback = nil // 防止递归
+		backupReq.Fallback = nil 
 		msgID, err2 := backupAdapter.Send(ctx, &backupReq)
 		if err2 == nil {
 			return msgID, nil
@@ -727,7 +692,6 @@ func (p *defaultSendPipeline) isRetryable(ctx context.Context, err error, retrya
 		return false
 	}
 	if len(retryableErrors) == 0 {
-		// 默认所有错误都重试
 		return true
 	}
 	errStr := err.Error()
@@ -758,7 +722,6 @@ func (p *defaultSendPipeline) runFallback(ctx context.Context, req *ReachSendReq
 	start := time.Now()
 	log := SendStepLog{Step: SendStepFallback, StartedAt: start}
 	if req.Fallback != nil && req.Fallback.Enabled && req.Fallback.BackupChannel != "" {
-		// 标记降级可用（实际降级在 runRetry 中执行）
 		log.Success = true
 		log.Output = []any{map[string]any{
 			"backup_channel": req.Fallback.BackupChannel,
@@ -783,7 +746,6 @@ func (p *defaultSendPipeline) runAudit(ctx context.Context, req *ReachSendReques
 		log.DurationMs = time.Since(start).Milliseconds()
 		return log
 	}
-	// 审计步骤已启用，标记成功；实际日志记录在 Send 方法返回前统一执行
 	log.Success = true
 	log.Output = []any{map[string]any{
 		"note": "audit log will be recorded at pipeline finalize",
@@ -860,7 +822,6 @@ func (p *defaultSendPipeline) runSend(ctx context.Context, req *ReachSendRequest
 	return log
 }
 
-// ===== 统计 =====
 
 // SendPipelineStats Pipeline 统计（用于运维监控）
 type SendPipelineStats struct {
@@ -918,7 +879,6 @@ func (p *countedSendPipeline) Stats(ctx context.Context) SendPipelineStats {
 	return p.stats
 }
 
-// ===== 测试辅助：FuncChannelAdapter =====
 
 // FuncChannelAdapter 将普通发送函数适配为 ChannelAdapter 接口（真实实现，非 mock）。
 type FuncChannelAdapter struct {
@@ -998,3 +958,4 @@ func (a *FlakyAdapter) Send(ctx context.Context, req *ReachSendRequest) (string,
 func (a *FlakyAdapter) Count(ctx context.Context) int32 {
 	return atomic.LoadInt32(&a.CallCnt)
 }
+

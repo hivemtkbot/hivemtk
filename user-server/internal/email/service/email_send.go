@@ -19,9 +19,9 @@ import (
 
 // 邮件状态常量
 const (
-	EmailStatusPending = 0 // 待发送
-	EmailStatusSent    = 1 // 已发送
-	EmailStatusFailed  = 2 // 发送失败
+	EmailStatusPending = 0 
+	EmailStatusSent    = 1 
+	EmailStatusFailed  = 2 
 )
 
 type EmailSendService struct {
@@ -39,7 +39,6 @@ func NewEmailSendService() *EmailSendService {
 // 发送邮件
 func (s *EmailSendService) SendEmail(ctx context.Context, req dto.SendEmailRequest) (*model.EmailSend, error) {
 
-	// 创建邮件记录
 	emailSend := &model.EmailSend{
 		ID:          uuid.New().String(),
 		To:          req.To,
@@ -50,7 +49,6 @@ func (s *EmailSendService) SendEmail(ctx context.Context, req dto.SendEmailReque
 		Status:      EmailStatusPending,
 	}
 
-	// 设置发送时间：立即发送或计划发送
 	if req.ImmediateSend {
 		now := time.Now()
 		emailSend.SendTime = &now
@@ -58,21 +56,17 @@ func (s *EmailSendService) SendEmail(ctx context.Context, req dto.SendEmailReque
 		emailSend.SendTime = req.SendTime
 	}
 
-	// 保存到数据库
 	if err := s.repo.Create(ctx, emailSend); err != nil {
 		return nil, err
 	}
 
-	// 如果是立即发送，立即发送邮件（异步，避免阻塞请求）
 	if req.ImmediateSend {
 		go func() {
-			// panic 兜底：异步发送异常（如 SMTP 配置为空）不能拖垮主流程/进程
 			defer func() {
 				if r := recover(); r != nil {
 					logger.Errorf("邮件发送异步协程 panic [%s]: %v", emailSend.ID, r)
 				}
 			}()
-			// 脱离请求 ctx：HTTP 请求结束不应取消仍在进行的邮件发送
 			sendCtx := context.WithoutCancel(ctx)
 			err := s.sendActualEmail(sendCtx, emailSend)
 			emailUUID, parseErr := uuid.Parse(emailSend.ID)
@@ -94,13 +88,11 @@ func (s *EmailSendService) SendEmail(ctx context.Context, req dto.SendEmailReque
 
 // 处理待发送邮件的定时任务
 func (s *EmailSendService) ProcessPendingEmails(ctx context.Context) error {
-	// 获取所有待发送的邮件（status=0 且 sendTime <= 现在）
 	pendingEmails, err := s.repo.GetPendingEmails(ctx)
 	if err != nil {
 		return err
 	}
 
-	// 遍历发送
 	for _, email := range pendingEmails {
 		err := s.sendActualEmail(ctx, email)
 		emailUUID, parseErr := uuid.Parse(email.ID)
@@ -132,26 +124,22 @@ func (s *EmailSendService) sendActualEmail(ctx context.Context, email *model.Ema
 		}
 	}
 
-	// 2) DB 配置缺失时，尝试从环境变量构造发信配置（容器部署常见：EMAIL_163_*/QQ_EMAIL_*/SMTP_*）
 	if smtpConfig == nil {
 		smtpConfig = resolveSmtpFromEnv()
 	}
 
-	// 3) 仍无可用配置：显式返回错误并记录日志，禁止静默返回 nil 伪装成功
 	if smtpConfig == nil {
 		logger.Errorf("邮件发送失败 [%s]: 无任何可用 SMTP 配置（SmtpID=%q 且未配置 EMAIL_163_*/QQ_EMAIL_*/SMTP_* 环境变量）",
 			email.ID, email.SmtpID)
 		return fmt.Errorf("邮件发送失败：未找到可用的 SMTP 配置（请配置 SmtpID 或 EMAIL_163_*/QQ_EMAIL_*/SMTP_* 环境变量）")
 	}
 
-	// 创建 gomail 消息
 	m := gomail.NewMessage()
 	m.SetHeader("From", smtpConfig.Username)
 	m.SetHeader("To", email.To)
 	m.SetHeader("Subject", email.Subject)
 	m.SetBody("text/html", email.Content)
 
-	// 添加附件
 	if email.Attachments != "" {
 		attachments := strings.Split(email.Attachments, ",")
 		for _, attachment := range attachments {
@@ -161,12 +149,8 @@ func (s *EmailSendService) sendActualEmail(ctx context.Context, email *model.Ema
 		}
 	}
 
-	// 创建拨号器
 	d := gomail.NewDialer(smtpConfig.Server, smtpConfig.Port, smtpConfig.Username, smtpConfig.Password)
 
-	// 发送邮件
-	// 注意：在实际生产环境中，这里会真正连接 SMTP 服务器发送邮件
-	// 在测试环境中，由于 SMTP 服务器不可达，会返回连接错误
 	return d.DialAndSend(m)
 }
 
@@ -178,7 +162,6 @@ func (s *EmailSendService) sendActualEmail(ctx context.Context, email *model.Ema
 // 任一来源字段完整即返回配置；都不完整返回 nil（由调用方显式报错）。
 // 此为基于 SmtpID 的 DB 路径的兼容兜底，不取代原有路径。
 func resolveSmtpFromEnv() *model.EmailSmtp {
-	// 1) 163 邮箱
 	if user := os.Getenv("EMAIL_163_USER"); user != "" {
 		if pwd := os.Getenv("EMAIL_163_PASSWORD"); pwd != "" {
 			host := os.Getenv("EMAIL_163_SMTP_HOST")
@@ -194,7 +177,6 @@ func resolveSmtpFromEnv() *model.EmailSmtp {
 			}
 		}
 	}
-	// 2) QQ 邮箱
 	if qq := os.Getenv("QQ_EMAIL"); qq != "" {
 		if pwd := os.Getenv("QQ_EMAIL_PASSWORD"); pwd != "" {
 			return &model.EmailSmtp{
@@ -206,7 +188,6 @@ func resolveSmtpFromEnv() *model.EmailSmtp {
 			}
 		}
 	}
-	// 3) 通用 SMTP_* 兜底
 	if host := os.Getenv("SMTP_HOST"); host != "" {
 		if user := os.Getenv("SMTP_USER"); user != "" {
 			if pwd := os.Getenv("SMTP_PASSWORD"); pwd != "" {
@@ -228,3 +209,4 @@ func resolveSmtpFromEnv() *model.EmailSmtp {
 	}
 	return nil
 }
+

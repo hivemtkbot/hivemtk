@@ -1,16 +1,5 @@
 package llm
 
-// trace_context.go LLM 调用全链路 TraceId 传递
-//
-// 五层架构归属: L2 服务层 / L3 编排层
-// 设计依据: PRD §
-// 私域独立部署: 无 merchant_id 字段
-//
-// 功能：
-//   - 在 LLM 调用元数据中携带 trace_id（与 middleware/trace.go 联动）
-//   - LLM 调用事件通过 TraceEventPublisher 发布（供 trace 服务持久化）
-//   - 工具调用（tool_use）传递 trace_id
-//   - 服务 TraceQuery(traceId) 查询该 trace 的所有事件
 
 import (
 	"context"
@@ -28,13 +17,13 @@ import (
 type TraceSpanKind string
 
 const (
-	TraceSpanKindLLMCall   TraceSpanKind = "llm_call"  // LLM 调用
-	TraceSpanKindToolCall  TraceSpanKind = "tool_call" // 工具调用
-	TraceSpanKindDBOp      TraceSpanKind = "db_op"     // DB 操作
-	TraceSpanKindLog       TraceSpanKind = "log"       // 日志事件
-	TraceSpanKindRAGQuery  TraceSpanKind = "rag_query" // RAG 检索
-	TraceSpanKindAgent     TraceSpanKind = "agent"     // 智能体动作
-	TraceSpanKindWebSocket TraceSpanKind = "websocket" // WebSocket 消息
+	TraceSpanKindLLMCall   TraceSpanKind = "llm_call"  
+	TraceSpanKindToolCall  TraceSpanKind = "tool_call" 
+	TraceSpanKindDBOp      TraceSpanKind = "db_op"     
+	TraceSpanKindLog       TraceSpanKind = "log"       
+	TraceSpanKindRAGQuery  TraceSpanKind = "rag_query" 
+	TraceSpanKindAgent     TraceSpanKind = "agent"     
+	TraceSpanKindWebSocket TraceSpanKind = "websocket" 
 )
 
 // TraceEvent 全链路追踪事件（对应 trace_events 表）
@@ -46,7 +35,7 @@ type TraceEvent struct {
 	Service      string         `json:"service" gorm:"type:varchar(64);not null"`
 	Operation    string         `json:"operation" gorm:"type:varchar(128);not null"`
 	DurationMs   int64          `json:"duration_ms" gorm:"default:0"`
-	Status       string         `json:"status" gorm:"type:varchar(16);default:'ok'"` // ok / error
+	Status       string         `json:"status" gorm:"type:varchar(16);default:'ok'"` 
 	Metadata     map[string]any `json:"metadata,omitempty" gorm:"type:text;serializer:json"`
 	Timestamp    time.Time      `json:"timestamp" gorm:"index"`
 }
@@ -166,7 +155,6 @@ func generateTraceID() string {
 
 // generateSpanID 生成 span_id（16 位 hex）
 func generateSpanID() string {
-	// 使用 uuid 前 16 位作为 span_id
 	id := uuid.NewString()
 	if len(id) >= 16 {
 		return id[:16]
@@ -174,7 +162,6 @@ func generateSpanID() string {
 	return id
 }
 
-// ====== TraceEventPublisher 全局事件总线 ======
 
 // TraceEventPublisher 追踪事件发布器接口
 type TraceEventPublisher interface {
@@ -253,14 +240,12 @@ func (b *InMemoryTraceBus) dispatch() {
 	}
 }
 
-// ====== TraceRecorder 用于记录 trace 事件到 DB（由调用方注入）======
 
 // TraceRecorder 追踪事件记录器接口
 type TraceRecorder interface {
 	Record(event TraceEvent) error
 }
 
-// ====== 全局追踪事件总线 ======
 
 var (
 	globalTraceBus     *InMemoryTraceBus
@@ -384,3 +369,4 @@ func UnmarshalMetadata(raw string) map[string]any {
 	}
 	return m
 }
+

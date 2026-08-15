@@ -8,18 +8,6 @@ import (
 	"time"
 )
 
-// ============================================================================
-// 方向8: 核心数据流向编排器 测试
-// ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/核心数据流向.md
-//
-// 覆盖 5 个核心场景：
-//  A1-A2: 入站标准化
-//  A5:    资产上下文加载
-//  A6-A9: 推理闭环
-//  B4:    转人工触发
-//  A11:   裁剪 + 发布
-// ============================================================================
 
 // TestDataFlow_DirectReply 场景1: 寒暄直答
 func TestDataFlow_DirectReply(t *testing.T) {
@@ -84,7 +72,6 @@ func TestDataFlow_HandoffTriggered(t *testing.T) {
 		t.Errorf("crisis level = %d, want >= High", result.CrisisLevel)
 	}
 
-	// 验证 Escalation 触发
 	select {
 	case <-escalated:
 	case <-time.After(2 * time.Second):
@@ -170,7 +157,6 @@ func TestDataFlow_Publisher(t *testing.T) {
 	select {
 	case <-pub.ch:
 	case <-time.After(2 * time.Second):
-		// 寒暄可能没有 plan → 不会 publish，可以接受
 	}
 }
 
@@ -282,9 +268,6 @@ func TestDataFlow_EndToEndPipeline(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 测试辅助
-// ============================================================================
 
 type captureAssetLoader struct {
 	captured chan *CustomerMessagePayload
@@ -316,3 +299,4 @@ func (p *capturePublisher) Publish(_ context.Context, _, _, content string) erro
 	}
 	return nil
 }
+

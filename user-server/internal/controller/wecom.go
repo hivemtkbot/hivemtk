@@ -269,7 +269,6 @@ func (c *WeComController) RefreshAccount(ctx *gin.Context) {
 		return
 	}
 
-	// 清空本地 token 缓存，强制向企微重新换取
 	account.AccessToken = ""
 	account.TokenExpires = time.Time{}
 	if _, err := c.wecomService.GetAccessToken(context.Background(), account); err != nil {
@@ -340,3 +339,4 @@ func (c *WeComController) SyncTags(ctx *gin.Context) {
 
 	response.Success(ctx, gin.H{"count": count}, "同步成功")
 }
+

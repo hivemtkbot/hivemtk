@@ -1,13 +1,5 @@
 package repository
 
-// intent_recognition.go 意图识别记录仓储
-//
-// 五层架构归属：L4 数据访问层
-// 表：
-//   - intent_records: 旧版规则+LLM 识别记录（IntentRecord 模型）
-//   - intent_logs:    新版 8 大类+7 子类精细识别记录（IntentLog 模型）
-//
-// 用途：将 service 层直接 db 调用收敛到 repository，service 不再持有 *gorm.DB。
 
 import (
 	"context"
@@ -19,9 +11,6 @@ import (
 	_db "hivemtk-user/internal/pkg/db"
 )
 
-// ============================================================================
-// IntentRecordRepository 旧版意图识别记录仓储（intent_records 表）
-// ============================================================================
 
 // IntentRecordRepository 意图识别记录仓储
 type IntentRecordRepository struct {
@@ -110,9 +99,6 @@ func (r *IntentRecordRepository) GetMethodLevelStatsSince(ctx context.Context, s
 	return rows, nil
 }
 
-// ============================================================================
-// IntentLogRepository 精细意图识别日志仓储（intent_logs 表）
-// ============================================================================
 
 // IntentLogRepository 精细意图识别日志仓储
 type IntentLogRepository struct {
@@ -223,3 +209,4 @@ func (r *IntentLogRepository) GetMethodStatsSince(ctx context.Context, since tim
 	}
 	return stats, nil
 }
+

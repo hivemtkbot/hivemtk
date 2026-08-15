@@ -16,20 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ============================================================================
-// 营销流程 6 个新增 ActionType 的单元测试
-//   - sendActionRemoveTag
-//   - sendActionAssignAgent
-//   - sendActionCreateTask
-//   - sendActionSendSms
-//   - sendActionUpdateLead
-//   - sendActionCreateOrder
-//
-// 测试策略：
-//   1. 复用 setupMarketingFlowService 初始化 PG 测试库（与现有测试一致）
-//   2. 每个动作分别覆盖：参数校验、错误路径、成功路径
-//   3. 成功路径下断言 DB 状态变更（避免纯 mock）
-// ============================================================================
 
 // setupMarketingFlowServiceTestDBWithCDP 在测试库中创建 CDP 相关表
 func setupMarketingFlowServiceTestDBWithCDP(t *testing.T) *gorm.DB {
@@ -46,16 +32,12 @@ func setupMarketingFlowServiceTestDBWithCDP(t *testing.T) *gorm.DB {
 	return database
 }
 
-// ====================================================================
-// sendActionRemoveTag
-// ====================================================================
 
 // TestMarketingFlowService_sendActionRemoveTag 测试移除标签动作
 func TestMarketingFlowService_sendActionRemoveTag(t *testing.T) {
 	database := setupMarketingFlowServiceTestDBWithCDP(t)
 	service := NewMarketingFlowServiceWithDB(database)
 
-	// 先为用户添加标签
 	if err := service.userTagRepo.AddTags(context.Background(), "user-remove-1", []string{"vip", "active", "trial"}); err != nil {
 		t.Fatalf("预设标签失败：%v", err)
 	}
@@ -145,7 +127,6 @@ func TestMarketingFlowService_sendActionRemoveTag(t *testing.T) {
 					t.Errorf("Expected success=true, got %v", result["success"])
 				}
 
-				// 验证数据库中标签已被移除
 				if len(tt.wantRemoved) > 0 {
 					tags, terr := service.userTagRepo.GetTagsByUser(context.Background(), tt.userID)
 					if terr != nil {
@@ -166,17 +147,12 @@ func TestMarketingFlowService_sendActionRemoveTag(t *testing.T) {
 	}
 }
 
-// ====================================================================
-// sendActionAssignAgent
-// ====================================================================
 
 // TestMarketingFlowService_sendActionAssignAgent 测试分配客服动作
 func TestMarketingFlowService_sendActionAssignAgent(t *testing.T) {
 	database := setupMarketingFlowServiceTestDBWithCDP(t)
 	service := NewMarketingFlowServiceWithDB(database)
 
-	// 预设：在线客服（GetOnlineAgents 仅返回最近 5 分钟内有心跳的在线坐席，
-	// 故必须设置 LastActiveAt，否则会被过滤掉导致「当前没有可用的在线客服」）
 	now := time.Now()
 	agent1 := &reachmodel.AgentStatus{
 		AgentID:        1001,
@@ -191,7 +167,7 @@ func TestMarketingFlowService_sendActionAssignAgent(t *testing.T) {
 		AgentName:      "客服B",
 		Status:         "online",
 		MaxSessions:    5,
-		ActiveSessions: 2, // 已有 2 个会话，负载更高
+		ActiveSessions: 2, 
 		LastActiveAt:   &now,
 	}
 	if err := database.Create(agent1).Error; err != nil {
@@ -201,7 +177,6 @@ func TestMarketingFlowService_sendActionAssignAgent(t *testing.T) {
 		t.Fatalf("创建客服B 失败：%v", err)
 	}
 
-	// 预设：用户活跃会话
 	session := &reachmodel.CustomerSession{
 		SessionID: "sess-assign-1",
 		UserID:    "user-assign-1",
@@ -219,7 +194,7 @@ func TestMarketingFlowService_sendActionAssignAgent(t *testing.T) {
 		data        map[string]any
 		userID      string
 		wantErr     bool
-		wantAgentID uint // 期望分配的客服 ID
+		wantAgentID uint 
 	}{
 		{
 			name:    "auto select agent (lowest load)",
@@ -227,7 +202,6 @@ func TestMarketingFlowService_sendActionAssignAgent(t *testing.T) {
 			data:    map[string]any{},
 			userID:  "user-assign-1",
 			wantErr: false,
-			// 应选择客服A (ActiveSessions=0 < 客服B 的 2)
 			wantAgentID: 1001,
 		},
 		{
@@ -267,7 +241,6 @@ func TestMarketingFlowService_sendActionAssignAgent(t *testing.T) {
 			data:    map[string]any{},
 			userID:  "user-no-agents",
 			wantErr: true,
-			// 此测试需要清空 agents，但因为是按用户ID查找会话，会先在 GetActiveByUserID 失败
 		},
 	}
 
@@ -304,7 +277,6 @@ func TestMarketingFlowService_sendActionAssignAgent_NoAgents(t *testing.T) {
 	database := setupMarketingFlowServiceTestDBWithCDP(t)
 	service := NewMarketingFlowServiceWithDB(database)
 
-	// 仅创建会话，不创建客服
 	session := &reachmodel.CustomerSession{
 		SessionID: "sess-no-agent",
 		UserID:    "user-no-agent",
@@ -315,16 +287,12 @@ func TestMarketingFlowService_sendActionAssignAgent_NoAgents(t *testing.T) {
 		t.Fatalf("创建会话失败：%v", err)
 	}
 
-	// 不指定 agent_id，自动选择时应失败（无在线客服）
 	_, err := service.sendActionAssignAgent(context.Background(), map[string]any{}, "user-no-agent", nil)
 	if err == nil {
 		t.Error("Expected error when no agents available, got nil")
 	}
 }
 
-// ====================================================================
-// sendActionCreateTask
-// ====================================================================
 
 // TestMarketingFlowService_sendActionCreateTask 测试创建任务动作
 func TestMarketingFlowService_sendActionCreateTask(t *testing.T) {
@@ -363,12 +331,12 @@ func TestMarketingFlowService_sendActionCreateTask(t *testing.T) {
 				"title":       "默认责任人任务",
 				"description": "未指定 assignee_id 时使用 user_id",
 			},
-			userID:         "300", // 可解析为 uint
+			userID:         "300", 
 			data:           map[string]any{},
 			wantErr:        false,
 			wantTitle:      "默认责任人任务",
 			wantAssigneeID: 300,
-			wantModule:     "marketing_flow", // 默认值
+			wantModule:     "marketing_flow", 
 		},
 		{
 			name: "missing title",
@@ -384,7 +352,7 @@ func TestMarketingFlowService_sendActionCreateTask(t *testing.T) {
 			config: map[string]any{
 				"title": "任务",
 			},
-			userID:  "not-a-number", // 无法解析
+			userID:  "not-a-number", 
 			data:    map[string]any{},
 			wantErr: true,
 		},
@@ -430,7 +398,6 @@ func TestMarketingFlowService_sendActionCreateTask(t *testing.T) {
 					return
 				}
 
-				// 验证数据库中 OperationLog 记录
 				logEntry, lerr := service.operationLogRepo.GetByID(ctx, taskID)
 				if lerr != nil {
 					t.Fatalf("GetByID(%d) failed: %v", taskID, lerr)
@@ -455,18 +422,13 @@ func TestMarketingFlowService_sendActionCreateTask(t *testing.T) {
 	}
 }
 
-// ====================================================================
-// sendActionSendSms
-// ====================================================================
 
 // TestMarketingFlowService_sendActionSendSms 测试发送短信动作
 func TestMarketingFlowService_sendActionSendSms(t *testing.T) {
 	database := setupMarketingFlowServiceTestDBWithCDP(t)
 	service := NewMarketingFlowServiceWithDB(database)
 
-	// 1. 测试未注册 SMS 发送器时的错误
 	t.Run("sms sender not registered", func(t *testing.T) {
-		// 保存原值并清空
 		origSender := smsSenderFunc
 		smsSenderFunc = nil
 		defer func() { smsSenderFunc = origSender }()
@@ -479,7 +441,6 @@ func TestMarketingFlowService_sendActionSendSms(t *testing.T) {
 		}
 	})
 
-	// 2. 测试参数校验
 	t.Run("validation", func(t *testing.T) {
 		// 注入 mock 发送器（仅用于参数校验测试，不会真正发送）
 		var callCount int32
@@ -491,8 +452,6 @@ func TestMarketingFlowService_sendActionSendSms(t *testing.T) {
 		smsSenderFunc = mockSender
 		defer func() { smsSenderFunc = origSender }()
 
-		// 注：项目规则禁止 mock 数据/测试，此处使用函数注入机制验证参数校验逻辑。
-		// 实际 SMS 发送由 internal/service 的真实 SmsService 实现，集成测试在 service 包覆盖。
 
 		tests := []struct {
 			name    string
@@ -539,7 +498,6 @@ func TestMarketingFlowService_sendActionSendSms(t *testing.T) {
 				if (err != nil) != tt.wantErr {
 					t.Errorf("sendActionSendSms() error = %v, wantErr %v", err, tt.wantErr)
 				}
-				// 成功路径下应调用发送器
 				if !tt.wantErr && atomic.LoadInt32(&callCount) != 1 {
 					t.Errorf("Expected sender to be called once, got %d", atomic.LoadInt32(&callCount))
 				}
@@ -547,7 +505,6 @@ func TestMarketingFlowService_sendActionSendSms(t *testing.T) {
 		}
 	})
 
-	// 3. 测试发送器返回错误时透传
 	t.Run("sender error propagation", func(t *testing.T) {
 		origSender := smsSenderFunc
 		smsSenderFunc = func(phone, content string) error {
@@ -564,16 +521,12 @@ func TestMarketingFlowService_sendActionSendSms(t *testing.T) {
 	})
 }
 
-// ====================================================================
-// sendActionUpdateLead
-// ====================================================================
 
 // TestMarketingFlowService_sendActionUpdateLead 测试更新线索动作
 func TestMarketingFlowService_sendActionUpdateLead(t *testing.T) {
 	database := setupMarketingFlowServiceTestDBWithCDP(t)
 	service := NewMarketingFlowServiceWithDB(database)
 
-	// 预设：创建测试线索
 	clue := &reachmodel.Clue{
 		SourceID: "src-1",
 		Account:  "test-account",
@@ -724,7 +677,6 @@ func TestMarketingFlowService_sendActionUpdateLead(t *testing.T) {
 					t.Errorf("Expected success=true, got %v", result["success"])
 				}
 
-				// 验证数据库中的更新
 				if len(tt.wantUpdates) > 0 {
 					var updated reachmodel.Clue
 					if err := database.First(&updated, "id = ?", clue.ID).Error; err != nil {
@@ -760,9 +712,6 @@ func TestMarketingFlowService_sendActionUpdateLead(t *testing.T) {
 	}
 }
 
-// ====================================================================
-// sendActionCreateOrder
-// ====================================================================
 
 // TestMarketingFlowService_sendActionCreateOrder 测试创建订单动作
 func TestMarketingFlowService_sendActionCreateOrder(t *testing.T) {
@@ -793,7 +742,7 @@ func TestMarketingFlowService_sendActionCreateOrder(t *testing.T) {
 			wantPrice:   "99.50",
 			wantTgID:    1001,
 			wantAccount: "acc-1",
-			wantStatus:  0, // 默认待支付
+			wantStatus:  0, 
 		},
 		{
 			name: "create order with float64 price",
@@ -908,7 +857,6 @@ func TestMarketingFlowService_sendActionCreateOrder(t *testing.T) {
 					return
 				}
 
-				// 验证数据库中的订单
 				order, oerr := service.orderRepo.GetByStringID(ctx, orderID)
 				if oerr != nil {
 					t.Fatalf("GetByStringID(%q) failed: %v", orderID, oerr)
@@ -930,13 +878,9 @@ func TestMarketingFlowService_sendActionCreateOrder(t *testing.T) {
 	}
 }
 
-// ====================================================================
-// 辅助：测试 SMS 发送器注入与调用计数
-// ====================================================================
 
 // TestSetSmsSender 测试 SetSmsSender 函数注入机制
 func TestSetSmsSender(t *testing.T) {
-	// 保存原值
 	origSender := smsSenderFunc
 	defer func() { smsSenderFunc = origSender }()
 
@@ -959,7 +903,6 @@ func TestSetSmsSender(t *testing.T) {
 		t.Fatal("Expected smsSenderFunc to be set after SetSmsSender")
 	}
 
-	// 调用一次
 	if err := smsSenderFunc("13800138000", "hello"); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -974,7 +917,6 @@ func TestSetSmsSender(t *testing.T) {
 	}
 	mu.Unlock()
 
-	// 测试注入 nil（应被允许，但后续调用会触发 nil 检查）
 	SetSmsSender(nil)
 	if smsSenderFunc != nil {
 		t.Error("Expected smsSenderFunc to be nil after SetSmsSender(nil)")
@@ -1009,3 +951,4 @@ func TestFirstNonEmpty(t *testing.T) {
 
 // 兼容 time 包引用（避免 import 报错）
 var _ = time.Now
+

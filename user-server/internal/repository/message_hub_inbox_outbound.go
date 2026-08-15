@@ -2,9 +2,8 @@ package repository
 
 import (
 	"context"
-
+	"errors"
 	"fmt"
-
 	"time"
 
 	"hivemtk-user/internal/model"
@@ -19,7 +18,7 @@ func (r *MessageHubRepository) AckOutboundDeliveredBatch(ctx context.Context, ch
 	res := r.db.WithContext(ctx).
 		Model(&model.MessageHub{}).
 		Where("platform = ? AND account_id = ? AND direction = 'outbound' AND msg_id IN ? AND status IN ('pending','inflight')", channel, accountID, msgIDs).
-		Update("status", "delivered")
+		Update("status", model.BridgeAckStatusDelivered)
 	return res.RowsAffected, res.Error
 }
 
@@ -50,9 +49,7 @@ func (r *MessageHubRepository) AckOutboundDeliveredBatchReturning(ctx context.Co
 	if err = tx.Scan(&updatedIDs).Error; err != nil {
 		return nil, 0, err
 	}
-	// 1 个 msg_id 可能命中多行（跨会话同名），affected = 实际行数
 	affectedRows = int64(len(updatedIDs))
-	// PG Scan 不会按行号反馈 RowsAffected，但通过 RETURNING 集合大小可以等价得到"行级受影响"
 	return updatedIDs, affectedRows, nil
 }
 
@@ -131,6 +128,33 @@ func (r *MessageHubRepository) GetByMsgIDsInScopeWithConv(ctx context.Context, p
 	return rows, nil
 }
 
+// GetOutboundByPlatformSenderContent 按「平台 + 发送者名称 + 内容」三元组查询服务端下发的 outbound 行（自回显权威判据）。
+//
+// 2026-08-15 补齐（fix 61af7bb 遗漏的仓储方法）：
+//   - 桥接扩展把本账号 AI 出站回复从 DOM 抓取后重发，自/他声明不可信；
+//     服务端以「真实下发的 outbound 内容」为唯一权威事实源，命中即判定为自身回显，拦截不落库。
+//   - sender_name 为空时（极小概率）降级为 platform+content 兜底匹配。
+//   - 仅匹配 direction='outbound'，避免把客户 inbound 消息误判为自身回显。
+func (r *MessageHubRepository) GetOutboundByPlatformSenderContent(ctx context.Context, platform, senderName, content string) (*model.MessageHub, error) {
+	if r == nil || r.db == nil || platform == "" || content == "" {
+		return nil, nil
+	}
+	var row model.MessageHub
+	q := r.db.WithContext(ctx).
+		Where("platform = ? AND direction = 'outbound' AND content = ?", platform, content).
+		Order("id DESC")
+	if senderName != "" {
+		q = q.Where("sender_name = ?", senderName)
+	}
+	if err := q.First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &row, nil
+}
+
 // AckOutboundDeliveredBatchReturningWithStatus 原子 RETURNING + 可配置终态（2026-08-15 P0-3 + P0-1）。
 //
 // 与 AckOutboundDeliveredBatchReturning 区别：
@@ -148,7 +172,7 @@ func (r *MessageHubRepository) AckOutboundDeliveredBatchReturningWithStatus(
 	if r.db == nil || len(msgIDs) == 0 {
 		return nil, 0, nil
 	}
-	if terminalStatus != "delivered" && terminalStatus != "failed" {
+	if terminalStatus != model.BridgeAckStatusDelivered && terminalStatus != model.BridgeAckStatusFailed {
 		return nil, 0, fmt.Errorf("invalid terminal status: %q", terminalStatus)
 	}
 	updatedIDs = make([]string, 0, len(msgIDs))
@@ -208,3 +232,4 @@ func (r *MessageHubRepository) AnyExistsByMsgIDs(ctx context.Context, channel st
 	}
 	return out, nil
 }
+

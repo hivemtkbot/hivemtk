@@ -35,10 +35,8 @@ func ExtractText(filename string, data []byte) (string, error) {
 	case ".pdf":
 		return extractPDF(data)
 	case ".doc":
-		// 旧版 .doc 为私有二进制格式，Go 无零依赖可靠解析方案，明确报错引导转换。
 		return "", fmt.Errorf("不支持的旧版 .doc 二进制格式，请先转换为 .docx 或 .pdf 后再导入")
 	default:
-		// 未知扩展名：退化为 UTF-8 文本，避免直接丢失内容。
 		return string(data), nil
 	}
 }
@@ -146,7 +144,6 @@ func extractPDF(data []byte) (string, error) {
 	pages := reader.NumPage()
 	for i := 1; i <= pages; i++ {
 		page := reader.Page(i)
-		// VanityErr 在某些版本的 pdf 库不存在；忽略以保持向后兼容
 		_ = i
 		text, err := page.GetPlainText(nil)
 		if err != nil {
@@ -171,3 +168,4 @@ func collapseSpaces(s string) string {
 	}
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
+

@@ -1,19 +1,5 @@
 package migrations
 
-// knowledge_search_log_product_optional_migration.go knowledge_search_logs.product_id 改为可空 (v2.13.0)
-//
-// 五层架构归属: L5 数据层
-// 问题: rag.search 在全量检索（product_id == ""）时把 product_id 置为 NULL 写入
-//       knowledge_search_logs，但历史 initial_schema 经 GORM AutoMigrate 后该列被建成
-//       `varchar NOT NULL default ''`，导致：
-//         `null value in column "product_id" of relation "knowledge_search_logs"
-//          violates not-null constraint` (SQLSTATE 23502)
-//       该错误每次 RAG 检索都会打印（best-effort 不阻断主流程，但污染日志且掩盖真实异常）。
-//
-// 本迁移要点（幂等，可重入）：
-//   ALTER TABLE knowledge_search_logs ALTER COLUMN product_id DROP NOT NULL
-//
-// 幂等性：列不存在则跳过；已可空则为 no-op。
 
 import (
 	"context"
@@ -75,3 +61,4 @@ func (m *KnowledgeSearchLogProductOptionalMigration) Down(ctx context.Context) e
 
 // compile-time 接口断言
 var _ migration.Migration = (*KnowledgeSearchLogProductOptionalMigration)(nil)
+

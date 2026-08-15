@@ -60,7 +60,6 @@ func (s *WhatsappService) GetAccount(ctx context.Context, id uuid.UUID) (*model.
 
 // Login
 func (s *WhatsappService) StartLogin(ctx context.Context, accountID uuid.UUID, timeout time.Duration) (string, error) {
-	// create connection
 	wac, err := whatsapp.NewConn(timeout)
 	if err != nil {
 		return "", err
@@ -75,10 +74,8 @@ func (s *WhatsappService) StartLogin(ctx context.Context, accountID uuid.UUID, t
 		if err != nil {
 			return
 		}
-		// persist session
 		b, _ := json.Marshal(sess)
 		_ = s.repo.UpsertSession(ctx, &model.WhatsappSession{AccountID: accountID.String(), SessionJSON: string(b)})
-		// update account status
 		acc, _ := s.repo.GetAccount(ctx, accountID)
 		if acc != nil {
 			acc.Status = model.WhatsappStatusOnline
@@ -86,7 +83,6 @@ func (s *WhatsappService) StartLogin(ctx context.Context, accountID uuid.UUID, t
 		}
 	})
 
-	// capture first QR code string
 	qr := <-qrChan
 	s.qrMu.Lock()
 	s.qrs[accountID] = qr
@@ -116,7 +112,6 @@ func (s *WhatsappService) ensureConn(ctx context.Context, accountID uuid.UUID, t
 	if c != nil {
 		return c, nil
 	}
-	// try restore
 	sess, err := s.repo.GetSession(ctx, accountID)
 	if err != nil {
 		return nil, err
@@ -153,7 +148,6 @@ func (s *WhatsappService) SendTextMessage(ctx context.Context, accountID uuid.UU
 	if err != nil {
 		return "", err
 	}
-	// go-whatsapp 库返回 msgID 字符串,空字符串表示发送未返回 ID
 	return resp, nil
 }
 
@@ -194,7 +188,6 @@ func (s *WhatsappService) CreateBulkJob(ctx context.Context, draftID uuid.UUID) 
 		return nil, err
 	}
 
-	// load contacts
 	clues, total, err := s.clueRepo.GetClueAllList(ctx, ClueTypeWhatsapp)
 	if err != nil {
 		return nil, err
@@ -202,7 +195,6 @@ func (s *WhatsappService) CreateBulkJob(ctx context.Context, draftID uuid.UUID) 
 	job.Total = total
 	_ = s.repo.UpdateJob(ctx, job)
 
-	// round-robin accounts
 	accounts, err := s.repo.ListAccounts(ctx)
 	if err != nil {
 		return nil, err
@@ -211,7 +203,6 @@ func (s *WhatsappService) CreateBulkJob(ctx context.Context, draftID uuid.UUID) 
 		return nil, errors.New("no accounts available")
 	}
 
-	// start sending in background
 	utils.SafeGo(ctx, "whatsapp.SendBulk", func(ctx context.Context) {
 		job.Status = model.WhatsappJobRunning
 		_ = s.repo.UpdateJob(ctx, job)
@@ -222,7 +213,6 @@ func (s *WhatsappService) CreateBulkJob(ctx context.Context, draftID uuid.UUID) 
 			toJid := fmt.Sprintf("%s@s.whatsapp.net", clue.Account)
 			detail := &model.WhatsappJobDetail{JobID: job.ID, AccountID: acc.ID, ToJid: toJid}
 			_ = s.repo.CreateJobDetail(ctx, detail)
-			// ensure conn
 			wac, err := s.ensureConn(ctx, acc.ID, 30*time.Second)
 			if err != nil {
 				detail.Status = model.WhatsappJobDetailFailed
@@ -232,7 +222,6 @@ func (s *WhatsappService) CreateBulkJob(ctx context.Context, draftID uuid.UUID) 
 				_ = s.repo.UpdateJob(ctx, job)
 				continue
 			}
-			// send
 			msg := whatsapp.TextMessage{Info: whatsapp.MessageInfo{RemoteJid: toJid}, Text: draft.Content}
 			_, err = wac.Send(msg)
 			if err != nil {
@@ -270,3 +259,4 @@ func (s *WhatsappService) GetJob(ctx context.Context, id uuid.UUID) (*model.What
 func (s *WhatsappService) DeleteJob(ctx context.Context, id uuid.UUID) error {
 	return s.repo.DeleteJob(ctx, id)
 }
+

@@ -1,15 +1,5 @@
 package service
 
-// knowledge_base_test.go KnowledgeBaseService 单元测试
-//
-// 覆盖: service.KnowledgeBaseService 的全部业务方法
-//   - CreateKB: 校验 (name/type/owner_type)
-//   - GetKB / ListKBs / ListByType / ListByAgent / UpdateKB / DeleteKB
-//   - BindToAgent / UnbindFromAgent
-//   - IsValidKBType 工具方法
-//
-// 不依赖真实 DB (使用 nil repo/service + 边界值测试)
-// 需要 DB 的部分走 test/integration/knowledge_base_crud_test.go
 
 import (
 	"strings"
@@ -18,9 +8,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ----------------------------------------------------------------------------
-// IsValidKBType 工具方法
-// ----------------------------------------------------------------------------
 
 func TestIsValidKBType_AllValid(t *testing.T) {
 	cases := []struct {
@@ -30,8 +17,8 @@ func TestIsValidKBType_AllValid(t *testing.T) {
 		{"faq", true},
 		{"rag", true},
 		{"sop", true},
-		{"FAQ", true},     // 大小写不敏感
-		{"  faq  ", true}, // 前后空格
+		{"FAQ", true},     
+		{"  faq  ", true}, 
 		{"RAG", true},
 		{"", false},
 		{"invalid", false},
@@ -44,14 +31,10 @@ func TestIsValidKBType_AllValid(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// CreateKB 校验测试
-// ----------------------------------------------------------------------------
 
 // TestCreateKB_NilInput 验证 nil 输入 (在 nil repo 之前)
 func TestCreateKB_NilInput(t *testing.T) {
-	svc := &KnowledgeBaseService{repo: nil} // 即使 nil repo, nil kb 也应触发 "kb is nil" (因 nil repo 会先报)
-	// 实际行为: nil repo 先返回 "repo not initialized"
+	svc := &KnowledgeBaseService{repo: nil} 
 	err := svc.CreateKB(nil, nil)
 	if err == nil {
 		t.Error("expected error for nil kb")
@@ -74,13 +57,7 @@ func TestCreateKB_NilRepo(t *testing.T) {
 	}
 }
 
-// 注: name/type/owner_type 等业务校验需要在 nil repo 校验之后才能命中,
-// 这些业务校验的覆盖在 test/integration/knowledge_base_crud_test.go
-// (TestKBCRUD_EmptyName / TestKBCRUD_InvalidType / TestKBCRUD_PrivateRequiresOwner 等)
 
-// ----------------------------------------------------------------------------
-// GetKB / ListKBs 等查询方法 - nil repo 测试
-// ----------------------------------------------------------------------------
 
 // TestGetKB_NilRepo 测试 nil repo 下的安全行为
 func TestGetKB_NilRepo(t *testing.T) {
@@ -130,9 +107,6 @@ func TestListByAgent_NilRepo(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// UpdateKB 校验测试 (nil repo 场景, 业务校验先于 repo 调用)
-// ----------------------------------------------------------------------------
 
 // TestUpdateKB_NilRepo 验证 nil repo 报错
 func TestUpdateKB_NilRepo(t *testing.T) {
@@ -145,8 +119,7 @@ func TestUpdateKB_NilRepo(t *testing.T) {
 
 // TestUpdateKB_ZeroID 验证 id=0 报错
 func TestUpdateKB_ZeroID(t *testing.T) {
-	svc := &KnowledgeBaseService{repo: nil} // 跳过 nil check
-	// 用 nil repo, 但 id=0 应在 repo check 之前
+	svc := &KnowledgeBaseService{repo: nil} 
 	svc.repo = nil
 	err := svc.UpdateKB(nil, 0, &model.KnowledgeBase{Name: "x"})
 	if err == nil {
@@ -201,7 +174,6 @@ func TestUpdateKB_SharedWithOwner(t *testing.T) {
 // TestUpdateKB_SharedClearsOwner 验证 shared 改 owner_type 时清空 owner_agent_id
 func TestUpdateKB_SharedClearsOwner(t *testing.T) {
 	svc := &KnowledgeBaseService{repo: nil}
-	// nil repo 校验先, 因此不走到 owner_type 校验
 	err := svc.UpdateKB(nil, 1, &model.KnowledgeBase{
 		Name:         "x",
 		OwnerType:    model.KnowledgeBaseOwnerShared,
@@ -212,9 +184,6 @@ func TestUpdateKB_SharedClearsOwner(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// DeleteKB 测试
-// ----------------------------------------------------------------------------
 
 // TestDeleteKB_NilRepo
 func TestDeleteKB_NilRepo(t *testing.T) {
@@ -225,15 +194,11 @@ func TestDeleteKB_NilRepo(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// BindToAgent / UnbindFromAgent 测试
-// ----------------------------------------------------------------------------
 
 // TestUnbindFromAgent_NilBindingRepo 测试 nil repo 下的安全行为
 func TestUnbindFromAgent_NilBindingRepo(t *testing.T) {
-	svc := &KnowledgeBaseService{} // bindingRepo 为 nil
+	svc := &KnowledgeBaseService{} 
 	err := svc.UnbindFromAgent(nil, 1, 1)
-	// nil bindingRepo.DeleteByAgentAndKB 返回 nil
 	if err != nil {
 		t.Errorf("expected nil error for nil binding repo, got %v", err)
 	}
@@ -245,23 +210,15 @@ func TestUnbindFromAgent_NilBindingRepo(t *testing.T) {
 //
 //	即使 svc.bindingRepo = nil, BindToAgent 仍能工作 (它构造新 service)
 func TestBindToAgent_NilBindingRepo(t *testing.T) {
-	svc := &KnowledgeBaseService{} // bindingRepo = nil
-	// BindToAgent 需要 kbSvc 调内部 bindingSvc.Bind, 但 bindingSvc 构造时 bindingRepo 是 nil
-	// 然后 s.bindingRepo.DeleteByAgentAndKB 在 Bind 内部被调, 会 panic
-	// 因此 BindToAgent 在 svc.bindingRepo=nil 时会失败 (或 panic)
-	// 这里仅验证不 panic 即可 (defer recover)
+	svc := &KnowledgeBaseService{} 
 	defer func() {
 		if r := recover(); r != nil {
-			// 允许 panic, 但不应导致整个测试失败
 			t.Logf("BindToAgent panicked (expected with nil repo): %v", r)
 		}
 	}()
-	_ = svc.BindToAgent(nil, 999, 1) // 不存在的 KB
+	_ = svc.BindToAgent(nil, 999, 1) 
 }
 
-// ----------------------------------------------------------------------------
-// 构造函数 / 注入测试
-// ----------------------------------------------------------------------------
 
 // TestNewKnowledgeBaseService 测试构造函数
 //
@@ -272,17 +229,14 @@ func TestNewKnowledgeBaseService(t *testing.T) {
 	if svc == nil {
 		t.Fatal("expected non-nil service")
 	}
-	// svc.repo 不会是 nil (它是 typed nil pointer), 但实际 db 为 nil
-	// 调用 repo 上的方法会因 nil db 而 panic
-	// 这里仅验证 svc 不为 nil
 }
 
 // TestSetRepositories 测试 repo 注入
 func TestSetRepositories(t *testing.T) {
 	svc := &KnowledgeBaseService{}
-	// nil 输入保留 nil
 	svc.SetRepositories(nil, nil)
 	if svc.repo != nil || svc.bindingRepo != nil {
 		t.Error("nil inputs should not set repos")
 	}
 }
+

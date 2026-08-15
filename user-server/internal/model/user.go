@@ -18,7 +18,7 @@ type User struct {
 	RealName   string               `gorm:"type:varchar(50)" json:"real_name"`
 	Phone      string               `gorm:"type:varchar(20)" json:"phone"`
 	Avatar     string               `gorm:"type:varchar(255)" json:"avatar"`
-	Role       string               `gorm:"type:varchar(20);default:'user'" json:"role"` // admin, user
+	Role       string               `gorm:"type:varchar(20);default:'user'" json:"role"` 
 	Status     _type.UserStatusType `gorm:"status;default:1" json:"status"`
 	TgID       int64                `gorm:"tg_id" json:"tg_id"`
 	CreateTime int64                `gorm:"autoCreateTime" json:"create_time"`
@@ -34,12 +34,10 @@ func (u *User) TableName() string {
 }
 
 func (u *User) BeforeCreate(tx *gorm.DB) error {
-	// 生成 UUID
 	if u.ID == "" {
 		u.ID = uuid.New().String()
 	}
 
-	// 加密密码
 	if u.Password != "" {
 		hashedPassword, err := bcrypt.HashPassword(u.Password)
 		if err != nil {
@@ -63,3 +61,4 @@ type UserTag struct {
 func (UserTag) TableName() string {
 	return "user_tags"
 }
+

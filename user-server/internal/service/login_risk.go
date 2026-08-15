@@ -17,20 +17,15 @@ import (
 
 // 异常登录阈值
 const (
-	// abnormalHourStart / abnormalHourEnd: 凌晨异常时段（2-5 点）
 	abnormalHourStart = 2
 	abnormalHourEnd   = 5
 
-	// frequentFailureThreshold: 1 小时内失败次数阈值
 	frequentFailureThreshold = 5
 
-	// frequentFailureWindow: 失败计数窗口
 	frequentFailureWindow = 1 * time.Hour
 
-	// locationDistanceThreshold: 异地登录距离阈值（千米）
 	locationDistanceThreshold = 1000.0
 
-	// deviceFingerprintChangeWindow: 设备指纹变更检查窗口（7 天）
 	deviceFingerprintChangeWindow = 7 * 24 * time.Hour
 )
 
@@ -44,21 +39,21 @@ type LoginRiskContext struct {
 	DeviceFingerprint string
 	Success           bool
 	LoginAt           time.Time
-	Reason            string // 失败原因
+	Reason            string 
 }
 
 // LoginRiskResult 风险评估结果
 type LoginRiskResult struct {
 	RiskLevel        model.RiskLevel
-	ShouldAlert      bool   // 是否需要触发告警
-	ShouldForceMFA   bool   // 是否需要强制二次验证
-	AlertType        string // 告警类型（ShouldAlert=true 时有效）
+	ShouldAlert      bool   
+	ShouldForceMFA   bool   
+	AlertType        string 
 	AlertTitle       string
 	AlertDescription string
-	Reasons          []string // 触发风险的原因列表
-	Location         string   // IP 地理位置（暂用 IP 段模拟）
-	LoginEventID     uint     // 写入的 LoginEvent.ID
-	SecurityAlertID  uint     // 写入的 SecurityAlert.ID（如有）
+	Reasons          []string 
+	Location         string   
+	LoginEventID     uint     
+	SecurityAlertID  uint     
 }
 
 // LoginRiskService 登录风险评估服务
@@ -100,10 +95,8 @@ func (s *LoginRiskService) Evaluate(ctx context.Context, riskCtx *LoginRiskConte
 
 	rctx := context.Background()
 
-	// 解析 IP 地理位置（私域部署简化版：基于 IP 前缀模拟，生产环境对接 IP 库）
 	result.Location = s.resolveLocation(rctx, riskCtx.IP)
 
-	// 1. 异常时段检查（凌晨 2-5 点）
 	if s.isAbnormalHour(rctx, riskCtx.LoginAt) {
 		result.Reasons = append(result.Reasons, fmt.Sprintf("异常时段登录（%02d:00-%02d:00）", abnormalHourStart, abnormalHourEnd))
 		if result.RiskLevel == model.RiskLevelLow {
@@ -111,19 +104,16 @@ func (s *LoginRiskService) Evaluate(ctx context.Context, riskCtx *LoginRiskConte
 		}
 	}
 
-	// 2. 频次异常检查（1 小时内 ≥5 次失败）
 	failureCount, err := s.countRecentFailures(rctx, riskCtx.UserID, riskCtx.Username, riskCtx.LoginAt)
 	if err != nil {
 		logger.Errorf("查询最近失败次数失败: %v", err)
 	}
 	if failureCount >= frequentFailureThreshold {
 		result.Reasons = append(result.Reasons, fmt.Sprintf("1 小时内失败 %d 次（阈值 %d）", failureCount, frequentFailureThreshold))
-		// 频繁失败属于高风险信号
 		result.RiskLevel = s.upgradeRisk(rctx, result.RiskLevel, model.RiskLevelHigh)
 		result.AlertType = model.AlertTypeFrequentFailure
 	}
 
-	// 3. 异地登录检查（与上次成功登录 IP 距离 > 1000km）
 	prevLocation, prevIP, hasPrev := s.getPreviousLoginLocation(rctx, riskCtx.UserID)
 	if hasPrev {
 		distance := s.calculateDistance(rctx, result.Location, prevLocation)
@@ -137,7 +127,6 @@ func (s *LoginRiskService) Evaluate(ctx context.Context, riskCtx *LoginRiskConte
 		}
 	}
 
-	// 4. 设备指纹变更检查（7 天内首次出现的新指纹）
 	if riskCtx.DeviceFingerprint != "" {
 		if s.isDeviceFingerprintChanged(rctx, riskCtx.UserID, riskCtx.DeviceFingerprint, riskCtx.LoginAt) {
 			result.Reasons = append(result.Reasons, "设备指纹变更（7 天内首次出现）")
@@ -150,12 +139,10 @@ func (s *LoginRiskService) Evaluate(ctx context.Context, riskCtx *LoginRiskConte
 		}
 	}
 
-	// 5. 严重程度判定：两个以上高风险信号 → critical
 	if len(result.Reasons) >= 2 && result.RiskLevel == model.RiskLevelHigh {
 		result.RiskLevel = model.RiskLevelCritical
 	}
 
-	// high/critical 触发告警 + 强制二次验证
 	if result.RiskLevel == model.RiskLevelHigh || result.RiskLevel == model.RiskLevelCritical {
 		result.ShouldAlert = true
 		result.ShouldForceMFA = true
@@ -166,7 +153,6 @@ func (s *LoginRiskService) Evaluate(ctx context.Context, riskCtx *LoginRiskConte
 		result.AlertDescription = s.buildAlertDescription(ctx, riskCtx, result)
 	}
 
-	// 写入 login_events
 	loginEvent := &model.LoginEvent{
 		UserID:            riskCtx.UserID,
 		Username:          riskCtx.Username,
@@ -186,7 +172,6 @@ func (s *LoginRiskService) Evaluate(ctx context.Context, riskCtx *LoginRiskConte
 	}
 	result.LoginEventID = created.ID
 
-	// high/critical 写入 security_alerts
 	if result.ShouldAlert {
 		alert := &model.SecurityAlert{
 			UserID:       riskCtx.UserID,
@@ -205,7 +190,6 @@ func (s *LoginRiskService) Evaluate(ctx context.Context, riskCtx *LoginRiskConte
 			logger.Errorf("写入 security_alerts 失败: %v", err)
 		} else {
 			result.SecurityAlertID = savedAlert.ID
-			// 推送站内通知
 			s.pushNotification(rctx, savedAlert)
 		}
 	}
@@ -252,7 +236,6 @@ func (s *LoginRiskService) isDeviceFingerprintChanged(ctx context.Context, userI
 		logger.Errorf("查询设备指纹失败: %v", err)
 		return false
 	}
-	// 之前没人用此指纹登录过 → 新设备
 	return count == 0
 }
 
@@ -263,18 +246,14 @@ func (s *LoginRiskService) resolveLocation(ctx context.Context, ip string) strin
 	if ip == "" {
 		return "unknown"
 	}
-	// 简化版：本地回环 / 私网 / 公网
 	if ip == "127.0.0.1" || ip == "::1" {
 		return "localhost"
 	}
 	if strings.HasPrefix(ip, "192.168.") || strings.HasPrefix(ip, "10.") || strings.HasPrefix(ip, "172.") {
 		return "private-network"
 	}
-	// 真实场景应通过 IP 库查询国家/省/市
-	// 此处使用 IP 哈希模拟稳定的地理位置（同一 IP 总是返回相同 location，便于异地检测）
 	h := sha256.Sum256([]byte(ip))
 	hashStr := hex.EncodeToString(h[:])
-	// 从哈希中取 4 字节作为虚拟地理坐标
 	lat := float64(int(hashStr[0])<<8|int(hashStr[1]))/65535.0*180.0 - 90.0
 	lon := float64(int(hashStr[2])<<8|int(hashStr[3]))/65535.0*360.0 - 180.0
 	return fmt.Sprintf("geo(%.4f,%.4f)", lat, lon)
@@ -372,7 +351,6 @@ func (s *LoginRiskService) pushNotification(ctx context.Context, alert *model.Se
 		logger.Errorf("推送安全告警通知失败: %v", err)
 	}
 
-	// 标记告警已通知
 	if err := s.repo.MarkAlertNotified(ctx, alert.ID); err != nil {
 		logger.Errorf("更新告警 notified 状态失败: %v", err)
 	}
@@ -382,7 +360,6 @@ func (s *LoginRiskService) pushNotification(ctx context.Context, alert *model.Se
 // 简化版：SHA-256(UA + "|" + IP 前 3 段)
 // 真实场景应加入更多维度：屏幕分辨率、时区、语言、Canvas 指纹等
 func ComputeDeviceFingerprint(userAgent, ip string) string {
-	// 取 IP 前 3 段（/24 网段），避免同一内网不同 IP 被判为新设备
 	ipPrefix := ip
 	parts := strings.Split(ip, ".")
 	if len(parts) >= 3 {
@@ -425,3 +402,4 @@ func (s *LoginRiskService) IgnoreSecurityAlert(ctx context.Context, alertID, res
 	}
 	return s.repo.ResolveSecurityAlert(context.Background(), alertID, resolverUserID, note, time.Now(), string(model.SecurityAlertStatusIgnored))
 }
+

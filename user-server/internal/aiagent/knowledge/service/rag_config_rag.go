@@ -14,7 +14,6 @@ import (
 
 // AddKnowledgeBaseDocument 添加知识库文档
 func (s *RagConfigService) AddKnowledgeBaseDocument(ctx context.Context, productID string, doc rag_core.Document) error {
-	// 验证产品是否存在
 	product, err := s.repo.GetRagProductByID(ctx, productID)
 	if err != nil {
 		return fmt.Errorf("failed to get rag product: %w", err)
@@ -23,13 +22,11 @@ func (s *RagConfigService) AddKnowledgeBaseDocument(ctx context.Context, product
 		return errors.New("rag product not found")
 	}
 
-	// 处理文档
 	chunks, err := s.documentProcessor.ProcessDocument(ctx, doc)
 	if err != nil {
 		return fmt.Errorf("failed to process document: %w", err)
 	}
 
-	// 将分片转换为向量并存储
 	texts := make([]string, len(chunks))
 	metadatas := make([]map[string]any, len(chunks))
 
@@ -42,7 +39,6 @@ func (s *RagConfigService) AddKnowledgeBaseDocument(ctx context.Context, product
 		}
 	}
 
-	// 使用向量处理器存储
 	err = s.vectorProcessor.ProcessAndStore(ctx, texts, metadatas)
 	if err != nil {
 		return fmt.Errorf("failed to store document vectors: %w", err)
@@ -56,7 +52,6 @@ func (s *RagConfigService) AddKnowledgeBaseDocument(ctx context.Context, product
 // 直接走 pgvector + TEI bge-m3 向量检索。
 // 这样 RAG 召回与 RAG 产品实际写入的 knowledge_chunks 数据保持一致。
 func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, query string, topK int) (*rag_service.QueryResponse, error) {
-	// 验证产品是否存在
 	product, err := s.repo.GetRagProductByID(ctx, productID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rag product: %w", err)
@@ -68,7 +63,6 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 		topK = DefaultTopK
 	}
 
-	// 1) 走 pgvector + TEI 真实向量检索
 	productNumericID := productID
 
 	// per 知识库覆盖：若配置了 text-embedding 或 rerank，构造临时 HybridSearcher（不碰共享单例，避免竞态）
@@ -108,11 +102,9 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 		merchantChunks, vecErr = s.ragSearcher.SearchIndex(ctx, productNumericID, query, topK, nil)
 	}
 	if vecErr != nil {
-		// 记录但不直接失败（与既有兜底语义一致）
 		logger.Errorf("[QueryKnowledgeBase] vector search failed: %v", vecErr)
 	}
 
-	// 2) 把 MerchantRAGChunk 转为 rag_core.Chunk
 	references := make([]rag_core.Chunk, 0, len(merchantChunks))
 	var maxScore float64
 	for _, mc := range merchantChunks {
@@ -131,11 +123,9 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 		}
 	}
 
-	// 3) 构造 Answer：优先 LLM（如果配置了），否则拼装 chunk 摘要
 	answer := ""
 	if len(references) > 0 {
 		if s.llmServiceConfigured(product) {
-			// 走 LLM 生成（与既有 RAGService 行为一致）
 			llmConfig := &llm.LLMConfig{
 				APIKey:           product.LLMProviderConfig.APIKey,
 				BaseURL:          product.LLMProviderConfig.BaseURL,
@@ -172,7 +162,6 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 				logger.Errorf("[QueryKnowledgeBase] LLM 调用失败: %v,使用 chunk 摘要兜底", qErr)
 			}
 		}
-		// 兜底:用 chunk 内容拼接
 		if answer == "" {
 			answer = "根据知识库：\n" + references[0].Content
 		}
@@ -195,3 +184,4 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 		ExecTime: 0,
 	}, nil
 }
+

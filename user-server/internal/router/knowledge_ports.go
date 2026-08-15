@@ -62,3 +62,4 @@ func (a *openAPISourceAdapter) SyncSource(ctx context.Context, productID string,
 func (a *openAPISourceAdapter) TestConnection(ctx context.Context, src *knowledgemodel.KnowledgeOpenAPISource) (map[string]any, error) {
 	return a.svc.TestConnection(ctx, src)
 }
+

@@ -167,17 +167,17 @@ func customerNameOf(c *model.Customer) string {
 
 // ChannelMessage 渠道无关的入站消息（WebhookService → SalesEngine 桥接）
 type ChannelMessage struct {
-	Channel      string `json:"channel"`       // 渠道标识：wecom/whatsapp/telegram/feishu
-	AccountID    string `json:"account_id"`    // 渠道账号 ID
-	ExternalUser string `json:"external_user"` // 外部用户 ID
-	Nickname     string `json:"nickname"`      // 用户昵称（可选）
-	Content      string `json:"content"`       // 消息文本
-	MsgType      string `json:"msg_type"`      // text/image/event/...
-	ChatID       string `json:"chat_id"`       // 会话 ID（群为 group_id）
-	IsGroup      bool   `json:"is_group"`      // 是否群消息
-	MediaURL     string `json:"media_url"`     // 媒体 URL（可选）
-	RawData      string `json:"raw_data"`      // 原始 payload（可选）
-	ReceivedAt   int64  `json:"received_at"`   // 毫秒时间戳
+	Channel      string `json:"channel"`       
+	AccountID    string `json:"account_id"`    
+	ExternalUser string `json:"external_user"` 
+	Nickname     string `json:"nickname"`      
+	Content      string `json:"content"`       
+	MsgType      string `json:"msg_type"`      
+	ChatID       string `json:"chat_id"`       
+	IsGroup      bool   `json:"is_group"`      
+	MediaURL     string `json:"media_url"`     
+	RawData      string `json:"raw_data"`      
+	ReceivedAt   int64  `json:"received_at"`   
 }
 
 // normalizeChannelMessage 渠道特定清洗 → 通用字段
@@ -209,3 +209,4 @@ func (e *SalesEngine) normalizeChannelMessage(ctx context.Context, msg *ChannelM
 	customerID = msg.Channel + ":" + msg.ExternalUser
 	return
 }
+

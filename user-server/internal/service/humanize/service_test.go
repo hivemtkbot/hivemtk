@@ -1,20 +1,5 @@
 package humanize
 
-// service_test.go HumanizeEvalService 主编排服务单元测试
-//
-// 覆盖：
-//  1. RuleScorer 全量评估直接通过（不触发 LLM）
-//  2. 边界样本 [0.70, 0.85) 100% 触发 LLM
-//  3. 低分样本按 sampleRate 采样触发 LLM
-//  4. LLM 返回通过 → 直接返回
-//  5. LLM 返回不达标 → 重生成循环
-//  6. 重生成后通过
-//  7. 重生成 3 次仍不达标 → 转人工 + 收集低质样本
-//  8. LLM 失败降级到规则结果
-//  9. nil/空输入、nil ruleScorer 报错
-// 10. decideLowQualitySampleType 维度决策
-// 11. 链式配置
-// 12. 持久化调用
 
 import (
 	"context"
@@ -26,9 +11,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ============================================================================
-// 辅助：构造带固定 rng 的 HumanizeEvalService
-// ============================================================================
 
 // newServiceWithStubs 构造测试用 HumanizeEvalService
 //
@@ -43,7 +25,7 @@ func newServiceWithStubs(
 	sampleCollector LowQualitySampleCollector,
 ) *HumanizeEvalService {
 	svc := NewHumanizeEvalService(rule, llm, baselineRepo, scoreRepo, sampleCollector)
-	svc.rng = rand.New(rand.NewSource(1)) // 固定种子
+	svc.rng = rand.New(rand.NewSource(1)) 
 	return svc
 }
 
@@ -66,13 +48,10 @@ func makeResult(total float64) *dto.HumanizeEvalResult {
 	}
 }
 
-// ============================================================================
-// 基本评估流程测试
-// ============================================================================
 
 // TestHumanizeEvalService_Evaluate_RuleOnlyPass 规则评估直接通过
 func TestHumanizeEvalService_Evaluate_RuleOnlyPass(t *testing.T) {
-	rule := newStubEvaluator(makeResult(0.90)) // >= threshold
+	rule := newStubEvaluator(makeResult(0.90)) 
 	repo := newStubScoreRepo()
 	svc := newServiceWithStubs(rule, nil, nil, repo, nil)
 	input := &dto.HumanizeEvalInput{
@@ -105,8 +84,8 @@ func TestHumanizeEvalService_Evaluate_RuleOnlyPass(t *testing.T) {
 
 // TestHumanizeEvalService_Evaluate_LLM_BoundaryTrigger 边界样本触发 LLM
 func TestHumanizeEvalService_Evaluate_LLM_BoundaryTrigger(t *testing.T) {
-	rule := newStubEvaluator(makeResult(0.78)) // 0.78 ∈ [0.70, 0.85) → boundary
-	llm := newStubEvaluator(makeResult(0.88))  // LLM 返回通过
+	rule := newStubEvaluator(makeResult(0.78)) 
+	llm := newStubEvaluator(makeResult(0.88))  
 	repo := newStubScoreRepo()
 	svc := newServiceWithStubs(rule, llm, nil, repo, nil)
 	input := &dto.HumanizeEvalInput{
@@ -136,11 +115,11 @@ func TestHumanizeEvalService_Evaluate_LLM_BoundaryTrigger(t *testing.T) {
 
 // TestHumanizeEvalService_Evaluate_LLM_SampledTrigger 低分样本按 sampleRate=1.0 采样触发
 func TestHumanizeEvalService_Evaluate_LLM_SampledTrigger(t *testing.T) {
-	rule := newStubEvaluator(makeResult(0.65)) // < 0.70 → 走采样分支
-	llm := newStubEvaluator(makeResult(0.90))  // LLM 返回通过
+	rule := newStubEvaluator(makeResult(0.65)) 
+	llm := newStubEvaluator(makeResult(0.90))  
 	repo := newStubScoreRepo()
 	svc := newServiceWithStubs(rule, llm, nil, repo, nil)
-	svc.WithSampleRate(context.Background(), 1.0) // 100% 采样
+	svc.WithSampleRate(context.Background(), 1.0) 
 	input := &dto.HumanizeEvalInput{
 		AIReply:         "测试",
 		CustomerMessage: "问题",
@@ -162,11 +141,11 @@ func TestHumanizeEvalService_Evaluate_LLM_SampledTrigger(t *testing.T) {
 
 // TestHumanizeEvalService_Evaluate_LLM_NotSampled 低分样本 sampleRate=0 不触发
 func TestHumanizeEvalService_Evaluate_LLM_NotSampled(t *testing.T) {
-	rule := newStubEvaluator(makeResult(0.65)) // < 0.70 → 走采样分支
+	rule := newStubEvaluator(makeResult(0.65)) 
 	llm := newStubEvaluator(makeResult(0.90))
 	repo := newStubScoreRepo()
 	svc := newServiceWithStubs(rule, llm, nil, repo, nil)
-	svc.WithSampleRate(context.Background(), 0.0) // 0% 采样
+	svc.WithSampleRate(context.Background(), 0.0) 
 	input := &dto.HumanizeEvalInput{
 		AIReply:         "测试",
 		CustomerMessage: "问题",
@@ -175,8 +154,6 @@ func TestHumanizeEvalService_Evaluate_LLM_NotSampled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Evaluate failed: %v", err)
 	}
-	// sampleRate=0 → 不触发 LLM → 走规则结果 → 0.65 < 0.85 → 重生成
-	// 没有 regenerateFn → 直接转人工
 	if result.Passed {
 		t.Errorf("Passed=true want false (0.65 < 0.85)")
 	}
@@ -187,7 +164,7 @@ func TestHumanizeEvalService_Evaluate_LLM_NotSampled(t *testing.T) {
 
 // TestHumanizeEvalService_Evaluate_LLMFail_DegradeToRule LLM 失败降级
 func TestHumanizeEvalService_Evaluate_LLMFail_DegradeToRule(t *testing.T) {
-	rule := newStubEvaluator(makeResult(0.78)) // 边界 → 触发 LLM
+	rule := newStubEvaluator(makeResult(0.78)) 
 	llm := newStubEvaluator()
 	llm.err = errors.New("LLM service unavailable")
 	repo := newStubScoreRepo()
@@ -203,7 +180,6 @@ func TestHumanizeEvalService_Evaluate_LLMFail_DegradeToRule(t *testing.T) {
 	if result == nil {
 		t.Fatal("result is nil")
 	}
-	// LLM 失败 → 降级到规则结果（0.78 < 0.85 → 转人工）
 	if result.Passed {
 		t.Errorf("Passed=true want false (规则 0.78 < 0.85)")
 	}
@@ -215,16 +191,9 @@ func TestHumanizeEvalService_Evaluate_LLMFail_DegradeToRule(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 重生成循环测试
-// ============================================================================
 
 // TestHumanizeEvalService_Evaluate_RetryPass 重生成后通过
 func TestHumanizeEvalService_Evaluate_RetryPass(t *testing.T) {
-	// 规则评分序列：
-	//   call 1 (initial): 0.80 → 进入 retry
-	//   call 2 (after regen 1): 0.82 → 继续 retry
-	//   call 3 (after regen 2): 0.90 → 通过
 	rule := newStubEvaluator(
 		makeResult(0.80),
 		makeResult(0.82),
@@ -232,7 +201,6 @@ func TestHumanizeEvalService_Evaluate_RetryPass(t *testing.T) {
 	)
 	repo := newStubScoreRepo()
 	svc := newServiceWithStubs(rule, nil, nil, repo, nil)
-	// 重生成回调：返回新的回复
 	svc.WithRegenerateFn(context.Background(), func(ctx context.Context, input *dto.HumanizeEvalInput, feedback *dto.HumanizeEvalResult) (string, error) {
 		return "regenerated reply", nil
 	})
@@ -263,7 +231,6 @@ func TestHumanizeEvalService_Evaluate_RetryPass(t *testing.T) {
 
 // TestHumanizeEvalService_Evaluate_RetryFail 重生成 3 次仍不达标 → 转人工
 func TestHumanizeEvalService_Evaluate_RetryFail(t *testing.T) {
-	// 规则评分序列：3 次都 < 0.85
 	rule := newStubEvaluator(
 		makeResult(0.80),
 		makeResult(0.82),
@@ -289,7 +256,6 @@ func TestHumanizeEvalService_Evaluate_RetryFail(t *testing.T) {
 	if result.AttemptCount != 3 {
 		t.Errorf("AttemptCount=%d want 3", result.AttemptCount)
 	}
-	// 应收集低质样本
 	if collector.collected != 1 {
 		t.Errorf("collector.collected=%d want 1", collector.collected)
 	}
@@ -297,11 +263,10 @@ func TestHumanizeEvalService_Evaluate_RetryFail(t *testing.T) {
 
 // TestHumanizeEvalService_Evaluate_RetryNoRegenerateFn 无重生成回调 → 直接转人工
 func TestHumanizeEvalService_Evaluate_RetryNoRegenerateFn(t *testing.T) {
-	rule := newStubEvaluator(makeResult(0.80)) // < 0.85
+	rule := newStubEvaluator(makeResult(0.80)) 
 	repo := newStubScoreRepo()
 	collector := newStubSampleCollector()
 	svc := newServiceWithStubs(rule, nil, nil, repo, collector)
-	// 不设置 regenerateFn
 	input := &dto.HumanizeEvalInput{
 		AIReply:         "测试",
 		CustomerMessage: "问题",
@@ -345,12 +310,9 @@ func TestHumanizeEvalService_Evaluate_RegenerateFail(t *testing.T) {
 
 // TestHumanizeEvalService_Evaluate_LLM_RetryAfterLLMFail LLM 不达标后重生成
 func TestHumanizeEvalService_Evaluate_LLM_RetryAfterLLMFail(t *testing.T) {
-	// RuleScorer: 0.78 (边界) → 触发 LLM
-	// LLM: 0.80 (< 0.85) → 进入 retry
-	// retry: rule call 2 = 0.92 (>= 0.85) → 通过
 	rule := newStubEvaluator(
-		makeResult(0.78), // initial
-		makeResult(0.92), // after regen
+		makeResult(0.78), 
+		makeResult(0.92), 
 	)
 	llm := newStubEvaluator(makeResult(0.80))
 	repo := newStubScoreRepo()
@@ -374,9 +336,6 @@ func TestHumanizeEvalService_Evaluate_LLM_RetryAfterLLMFail(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 错误输入测试
-// ============================================================================
 
 // TestHumanizeEvalService_Evaluate_NilInput nil 输入
 func TestHumanizeEvalService_Evaluate_NilInput(t *testing.T) {
@@ -424,16 +383,13 @@ func TestHumanizeEvalService_Evaluate_RuleScorerError(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// decideLowQualitySampleType 测试
-// ============================================================================
 
 // TestDecideLowQualitySampleType_NaturalnessLow naturalness 最低
 func TestDecideLowQualitySampleType_NaturalnessLow(t *testing.T) {
 	svc := &HumanizeEvalService{}
 	result := &dto.HumanizeEvalResult{
 		Scores: []dto.HumanizeDimensionScore{
-			{Dimension: dto.HumanizeDimNaturalness, Score: 0.40}, // 最低
+			{Dimension: dto.HumanizeDimNaturalness, Score: 0.40}, 
 			{Dimension: dto.HumanizeDimConciseness, Score: 0.80},
 			{Dimension: dto.HumanizeDimEmpathy, Score: 0.80},
 			{Dimension: dto.HumanizeDimProfessionalism, Score: 0.80},
@@ -455,7 +411,7 @@ func TestDecideLowQualitySampleType_PersuasivenessLow(t *testing.T) {
 			{Dimension: dto.HumanizeDimConciseness, Score: 0.80},
 			{Dimension: dto.HumanizeDimEmpathy, Score: 0.80},
 			{Dimension: dto.HumanizeDimProfessionalism, Score: 0.80},
-			{Dimension: dto.HumanizeDimPersuasiveness, Score: 0.30}, // 最低
+			{Dimension: dto.HumanizeDimPersuasiveness, Score: 0.30}, 
 		},
 	}
 	got := svc.decideLowQualitySampleType(context.Background(), result)
@@ -470,7 +426,7 @@ func TestDecideLowQualitySampleType_OtherDim(t *testing.T) {
 	result := &dto.HumanizeEvalResult{
 		Scores: []dto.HumanizeDimensionScore{
 			{Dimension: dto.HumanizeDimNaturalness, Score: 0.80},
-			{Dimension: dto.HumanizeDimConciseness, Score: 0.30}, // 最低，但不是 nat/per
+			{Dimension: dto.HumanizeDimConciseness, Score: 0.30}, 
 			{Dimension: dto.HumanizeDimEmpathy, Score: 0.80},
 			{Dimension: dto.HumanizeDimProfessionalism, Score: 0.80},
 			{Dimension: dto.HumanizeDimPersuasiveness, Score: 0.80},
@@ -501,9 +457,6 @@ func TestDecideLowQualitySampleType_EmptyScores(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 链式配置测试
-// ============================================================================
 
 // TestHumanizeEvalService_Chaining 链式配置方法
 func TestHumanizeEvalService_Chaining(t *testing.T) {
@@ -534,13 +487,9 @@ func TestHumanizeEvalService_Chaining_Invalid(t *testing.T) {
 	origBoundaryLow := svc.boundaryLow
 	origBoundaryHigh := svc.boundaryHigh
 	origMaxRetry := svc.maxRetry
-	// threshold 无效
 	svc.WithThreshold(context.Background(), 0).WithThreshold(context.Background(), -0.1).WithThreshold(context.Background(), 1.5)
-	// sampleRate 无效
 	svc.WithSampleRate(context.Background(), -0.1).WithSampleRate(context.Background(), 1.5)
-	// boundary 无效（low < 0, high <= low, high > 1）
 	svc.WithBoundary(context.Background(), -0.1, 0.5).WithBoundary(context.Background(), 0.5, 0.5).WithBoundary(context.Background(), 0.5, 1.5)
-	// maxRetry 无效
 	svc.WithMaxRetry(context.Background(), 0).WithMaxRetry(context.Background(), -1)
 	if svc.threshold != origThreshold {
 		t.Errorf("invalid threshold 不应修改: %v want %v", svc.threshold, origThreshold)
@@ -574,9 +523,6 @@ func TestHumanizeEvalService_WithRegenerateFn(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 持久化测试
-// ============================================================================
 
 // TestHumanizeEvalService_PersistCalled 评估通过后应调用持久化
 func TestHumanizeEvalService_PersistCalled(t *testing.T) {
@@ -643,7 +589,7 @@ func TestHumanizeEvalService_NilScoreRepo(t *testing.T) {
 // 回归：buildScoreFromResult / buildLowQualitySample 曾硬编码 DefaultThreshold(0.85)，
 // 一旦 WithThreshold 定制阈值，落库的 humanize_scores.threshold 与真实判定阈值脱节（数据失真）。
 func TestHumanizeEvalService_Evaluate_PersistsEffectiveThreshold(t *testing.T) {
-	rule := newStubEvaluator(makeResult(0.92)) // 高于自定义阈值
+	rule := newStubEvaluator(makeResult(0.92)) 
 	repo := newStubScoreRepo()
 	svc := newServiceWithStubs(rule, nil, nil, repo, nil)
 	svc.WithThreshold(context.Background(), 0.50)
@@ -666,7 +612,7 @@ func TestHumanizeEvalService_Evaluate_PersistsEffectiveThreshold(t *testing.T) {
 func TestHumanizeEvalService_Evaluate_PersistsDefaultThreshold(t *testing.T) {
 	rule := newStubEvaluator(makeResult(0.92))
 	repo := newStubScoreRepo()
-	svc := newServiceWithStubs(rule, nil, nil, repo, nil) // 未 WithThreshold
+	svc := newServiceWithStubs(rule, nil, nil, repo, nil) 
 	input := &dto.HumanizeEvalInput{AIReply: "测试", CustomerMessage: "问题"}
 	if _, err := svc.Evaluate(context.Background(), input); err != nil {
 		t.Fatalf("Evaluate failed: %v", err)
@@ -681,7 +627,7 @@ func TestHumanizeEvalService_Evaluate_PersistsDefaultThreshold(t *testing.T) {
 
 // TestHumanizeEvalService_NilSampleCollector nil sampleCollector 不应 panic
 func TestHumanizeEvalService_NilSampleCollector(t *testing.T) {
-	rule := newStubEvaluator(makeResult(0.80)) // < 0.85 → 转人工
+	rule := newStubEvaluator(makeResult(0.80)) 
 	repo := newStubScoreRepo()
 	svc := newServiceWithStubs(rule, nil, nil, repo, nil)
 	input := &dto.HumanizeEvalInput{
@@ -695,7 +641,6 @@ func TestHumanizeEvalService_NilSampleCollector(t *testing.T) {
 	if result.Passed {
 		t.Errorf("Passed=true want false")
 	}
-	// nil sampleCollector 不应 panic
 }
 
 // TestHumanizeEvalService_CollectError 收集低质样本失败不应影响主流程
@@ -718,13 +663,10 @@ func TestHumanizeEvalService_CollectError(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 销冠基线注入测试
-// ============================================================================
 
 // TestHumanizeEvalService_BaselineInjection 销冠基线应被查询
 func TestHumanizeEvalService_BaselineInjection(t *testing.T) {
-	rule := newStubEvaluator(makeResult(0.78)) // 边界 → 触发 LLM
+	rule := newStubEvaluator(makeResult(0.78)) 
 	llm := newStubEvaluator(makeResult(0.90))
 	baseline := &model.ChampionBaseline{
 		Persona:         "美妆顾问",
@@ -750,9 +692,6 @@ func TestHumanizeEvalService_BaselineInjection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Evaluate failed: %v", err)
 	}
-	// 基线查询被调用（通过 FindByPersonaIndustryIntent）
-	// 注意：由于 llmScorer 是 stub（非 *LLMScorerImpl），WithBaseline 不会被注入
-	// 但 baselineRepo.FindByPersonaIndustryIntent 仍会被调用
 }
 
 // TestHumanizeEvalService_BaselineFindError 基线查询失败不应影响主流程
@@ -777,13 +716,9 @@ func TestHumanizeEvalService_BaselineFindError(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 端到端场景测试
-// ============================================================================
 
 // TestHumanizeEvalService_E2E_HighQualityReply 高质量回复直接通过
 func TestHumanizeEvalService_E2E_HighQualityReply(t *testing.T) {
-	// 使用真实 RuleScorer
 	rule := NewRuleScorer()
 	repo := newStubScoreRepo()
 	svc := newServiceWithStubs(rule, nil, nil, repo, nil)
@@ -799,7 +734,6 @@ func TestHumanizeEvalService_E2E_HighQualityReply(t *testing.T) {
 		t.Fatalf("Evaluate failed: %v", err)
 	}
 	t.Logf("TotalScore=%v Passed=%v Strategy=%v", result.TotalScore, result.Passed, result.SampleStrategy)
-	// 不验证具体分数（RuleScorer 计算复杂），只验证流程正常
 	if result.EvaluatorType != "rule" {
 		t.Errorf("EvaluatorType=%q want rule", result.EvaluatorType)
 	}
@@ -821,15 +755,14 @@ func TestHumanizeEvalService_E2E_AITraceReply(t *testing.T) {
 		t.Fatalf("Evaluate failed: %v", err)
 	}
 	t.Logf("TotalScore=%v Passed=%v", result.TotalScore, result.Passed)
-	// AI 痕迹词应被重罚 → 总分低
 	if result.TotalScore > 0.70 {
 		t.Errorf("AI 痕迹回复 TotalScore=%v 应 ≤ 0.70", result.TotalScore)
 	}
 	if result.Passed {
 		t.Errorf("Passed=true want false（AI 痕迹应不达标）")
 	}
-	// 应收集低质样本
 	if collector.collected != 1 {
 		t.Errorf("collector.collected=%d want 1", collector.collected)
 	}
 }
+

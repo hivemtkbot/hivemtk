@@ -51,8 +51,8 @@ type CommunityMemberResponse struct {
 	GroupID  string    `json:"group_id"`
 	Name     string    `json:"name"`
 	Username string    `json:"username"`
-	Role     string    `json:"role"`   // admin, member, moderator
-	Status   string    `json:"status"` // active, inactive, banned
+	Role     string    `json:"role"`   
+	Status   string    `json:"status"` 
 	JoinDate time.Time `json:"join_date"`
 	LastSeen time.Time `json:"last_seen"`
 }
@@ -68,14 +68,14 @@ type AddCommunityMemberRequest struct {
 	GroupID  string `json:"group_id" binding:"required"`
 	Name     string `json:"name" binding:"required"`
 	Username string `json:"username" binding:"required"`
-	Role     string `json:"role"` // admin, member, moderator
+	Role     string `json:"role"` 
 }
 
 // UpdateCommunityMemberRequest 更新社群成员请求
 type UpdateCommunityMemberRequest struct {
 	Name   string `json:"name"`
-	Role   string `json:"role"`   // admin, member, moderator
-	Status string `json:"status"` // active, inactive, banned
+	Role   string `json:"role"`   
+	Status string `json:"status"` 
 }
 
 // GetCommunityMessagesRequest 获取社群消息请求
@@ -93,7 +93,7 @@ type CommunityMessageResponse struct {
 	UserName    string    `json:"user_name"`
 	Content     string    `json:"content"`
 	Timestamp   time.Time `json:"timestamp"`
-	MessageType string    `json:"message_type"` // text, image, video, file
+	MessageType string    `json:"message_type"` 
 }
 
 // GetCommunityMessagesResponse 获取社群消息响应
@@ -110,3 +110,4 @@ type CommunityStatisticsResponse struct {
 	ActiveGroups    int `json:"active_groups"`
 	NewMembersToday int `json:"new_members_today"`
 }
+

@@ -1,17 +1,5 @@
 package confidence
 
-// calibrator.go 置信度校准器
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.4.5
-//
-// 职责：
-//   1. 离线：在标注集上拟合温度参数 T*（黄金分割搜索最小化 NLL）
-//   2. 在线：用 T* 对原始 logits 做温度缩放
-//   3. 持久化：把每次拟合的 T* / ECE / NLL 写入 confidence_calibrations 表
-//
-// ECE (Expected Calibration Error) = Σ (|B_m|/N) * |acc(B_m) - conf(B_m)|
-// NLL (Negative Log-Likelihood)     = -(1/N) Σ log(p_{y_i})
 
 import (
 	"context"
@@ -37,7 +25,7 @@ type Calibrator struct {
 // repo 可为 nil（用于无 DB 场景，仅做内存校准）
 func NewCalibrator(repo *repository.ConfidenceCalibrationRepository) *Calibrator {
 	return &Calibrator{
-		scaler:          NewTemperatureScaler(1.0), // 初始 T=1（无缩放）
+		scaler:          NewTemperatureScaler(1.0), 
 		searcher:        NewGoldenSectionSearcher(1e-4, 100),
 		calibrationRepo: repo,
 	}
@@ -53,20 +41,16 @@ func (c *Calibrator) FitOnDataset(ctx context.Context, samples []CalibrationSamp
 		return nil, ErrEmptyCalibrationSet
 	}
 
-	// 校准前 ECE / NLL（T=1）
 	eceBefore, nllBefore := c.evaluate(samples, 1.0)
 
-	// 黄金分割搜索 T* ∈ [0.05, 5.0]，最小化 NLL
 	nllFn := func(t float64) float64 {
 		_, nll := c.evaluate(samples, t)
 		return nll
 	}
 	tStar := c.searcher.Minimize(nllFn, 0.05, 5.0)
 
-	// 校准后 ECE / NLL
 	eceAfter, nllAfter := c.evaluate(samples, tStar)
 
-	// 应用新温度（热重载）
 	c.scaler.SetTemperature(tStar)
 
 	result := &CalibrationResult{
@@ -78,7 +62,6 @@ func (c *Calibrator) FitOnDataset(ctx context.Context, samples []CalibrationSamp
 		SampleSize:  len(samples),
 	}
 
-	// 持久化到 DB
 	if c.calibrationRepo != nil && ctx != nil {
 		now := time.Now()
 		record := &model.ConfidenceCalibration{
@@ -161,15 +144,11 @@ func (c *Calibrator) evaluate(samples []CalibrationSample, t float64) (ece, nll 
 				topIdx = i
 			}
 		}
-		// NLL：使用真实标签 y_i 的概率（不是 top-1）
-		// Guo 2017 标准 NLL 定义：-Σ log(p_{y_i})
 		if s.CorrectIdx >= 0 && s.CorrectIdx < len(probs) && probs[s.CorrectIdx] > 0 {
 			nll -= math.Log(probs[s.CorrectIdx])
 		} else if topProb > 0 {
-			// 兜底：用 top-1 概率
 			nll -= math.Log(topProb)
 		}
-		// 分桶（按 top-1 概率）
 		binIdx := int(topProb * float64(bins))
 		if binIdx >= bins {
 			binIdx = bins - 1
@@ -184,7 +163,6 @@ func (c *Calibrator) evaluate(samples []CalibrationSample, t float64) (ece, nll 
 		binCount[binIdx]++
 	}
 
-	// ECE
 	n := float64(len(samples))
 	if n == 0 {
 		return 0, 0
@@ -204,8 +182,8 @@ func (c *Calibrator) evaluate(samples []CalibrationSample, t float64) (ece, nll 
 
 // CalibrationSample 校准样本
 type CalibrationSample struct {
-	Logits     []float64 // 意图分类器原始 logits
-	CorrectIdx int       // 真实意图在 logits 中的索引
+	Logits     []float64 
+	CorrectIdx int       
 }
 
 // CalibrationResult 校准结果
@@ -220,3 +198,4 @@ type CalibrationResult struct {
 
 // ErrEmptyCalibrationSet 标注集为空
 var ErrEmptyCalibrationSet = errors.New("calibration sample set is empty")
+

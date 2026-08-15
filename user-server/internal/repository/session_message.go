@@ -83,7 +83,6 @@ func (r *SessionMessageRepository) ListBySessionIDsBatch(ctx context.Context, se
 	if perSessionLimit <= 0 {
 		perSessionLimit = 100
 	}
-	// 去重，避免 IN 列表出现重复 session_id
 	unique := make([]string, 0, len(sessionIDs))
 	seen := make(map[string]struct{}, len(sessionIDs))
 	for _, id := range sessionIDs {
@@ -107,7 +106,6 @@ func (r *SessionMessageRepository) ListBySessionIDsBatch(ctx context.Context, se
 	if err != nil {
 		return nil, err
 	}
-	// 按 session_id 分桶 + 单 session 限流
 	for _, m := range rows {
 		bucket := result[m.SessionID]
 		if len(bucket) >= perSessionLimit {
@@ -208,3 +206,4 @@ func (r *SessionMessageRepository) Delete(ctx context.Context, id uint) error {
 
 // ensure errors package is used to avoid import removal during splits
 var _ = errors.New
+

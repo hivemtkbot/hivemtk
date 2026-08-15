@@ -12,17 +12,11 @@ import (
 // LiveCodeClickLogRepository 活码点击日志仓储接口
 // 提供点击日志写入与按活码/二维码维度的真实聚合能力
 type LiveCodeClickLogRepository interface {
-	// CreateLiveCodeClick 写入一条活码维度的点击日志
 	CreateLiveCodeClick(ctx context.Context, log *model.LiveCodeClickLog) error
-	// CreateQRCodeClick 写入一条二维码维度的点击日志
 	CreateQRCodeClick(ctx context.Context, log *model.QRCodeClickLog) error
-	// CountByLiveCode 统计指定活码的总点击数
 	CountByLiveCode(ctx context.Context, liveCodeID string) (int64, error)
-	// CountTodayByLiveCode 统计指定活码今日的点击数
 	CountTodayByLiveCode(ctx context.Context, liveCodeID string) (int64, error)
-	// CountByQRCode 统计指定二维码的总点击数
 	CountByQRCode(ctx context.Context, qrCodeID string) (int64, error)
-	// CountTodayByQRCode 统计指定二维码今日的点击数
 	CountTodayByQRCode(ctx context.Context, qrCodeID string) (int64, error)
 }
 
@@ -83,3 +77,4 @@ func (r *liveCodeClickLogRepository) CountTodayByQRCode(ctx context.Context, qrC
 		Count(&count).Error
 	return count, err
 }
+

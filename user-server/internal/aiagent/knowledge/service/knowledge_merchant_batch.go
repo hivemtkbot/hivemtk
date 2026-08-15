@@ -16,9 +16,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// ============================================================================
-// 1) 批量导入（CSV / JSON / Excel-text）
-// ============================================================================
 
 // BatchImportItem 批量导入的单条记录
 type BatchImportItem struct {
@@ -26,14 +23,14 @@ type BatchImportItem struct {
 	Content  string   `json:"content"`
 	Category string   `json:"category"`
 	Tags     []string `json:"tags"`
-	Source   string   `json:"source"` // 数据来源描述（可选）
+	Source   string   `json:"source"` 
 }
 
 // BatchImportRequest 批量导入请求
 type BatchImportRequest struct {
 	ProductID string                `json:"product_id"`
 	Operator  string                `json:"operator"`
-	Format    string                `json:"format"` // csv / json / auto
+	Format    string                `json:"format"` 
 	Items     []BatchImportItem     `json:"items,omitempty"`
 	File      multipart.File        `json:"-"`
 	FileHead  *multipart.FileHeader `json:"-"`
@@ -62,7 +59,6 @@ func (s *KnowledgeMerchantService) BatchImport(ctx context.Context, req *BatchIm
 	}
 	productNumericID := req.ProductID
 
-	// 收集 items
 	items := req.Items
 	if len(items) == 0 && req.File != nil {
 		parsed, ferr := s.parseBatchFile(ctx, req.File, req.FileHead, req.Format)
@@ -92,7 +88,6 @@ func (s *KnowledgeMerchantService) BatchImport(ctx context.Context, req *BatchIm
 		if title == "" {
 			title = fmt.Sprintf("批量导入_%d", idx+1)
 		}
-		// 复用 KnowledgeService.Import 处理
 		imp, err := s.kbService.Import(ctx, &ImportRequest{
 			ProductID:  req.ProductID,
 			SourceType: model.SourceTypeBatch,
@@ -110,7 +105,7 @@ func (s *KnowledgeMerchantService) BatchImport(ctx context.Context, req *BatchIm
 		}
 		result.Accepted++
 		result.DocumentIDs = append(result.DocumentIDs, imp.DocumentID)
-		_ = productNumericID // 引用以避免未使用变量
+		_ = productNumericID 
 	}
 	return result, nil
 }
@@ -151,7 +146,7 @@ func (s *KnowledgeMerchantService) parseBatchFile(ctx context.Context, file mult
 
 func parseCSV(data []byte) ([]BatchImportItem, error) {
 	r := csv.NewReader(strings.NewReader(string(data)))
-	r.FieldsPerRecord = -1 // 允许变长
+	r.FieldsPerRecord = -1 
 	rows, err := r.ReadAll()
 	if err != nil {
 		return nil, fmt.Errorf("CSV 解析失败: %w", err)
@@ -245,3 +240,4 @@ func parseJSON(data []byte) ([]BatchImportItem, error) {
 func ParseJSON(data []byte) ([]BatchImportItem, error) {
 	return parseJSON(data)
 }
+

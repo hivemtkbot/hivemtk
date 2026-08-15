@@ -30,10 +30,9 @@ type AgentKBBinding struct {
 	ID       uint   `gorm:"primaryKey;autoIncrement" json:"id"`
 	AgentID  uint   `gorm:"not null;uniqueIndex:idx_agent_kb_unique,priority:1;index" json:"agent_id"`
 	KBID     uint   `gorm:"not null;uniqueIndex:idx_agent_kb_unique,priority:2;index" json:"kb_id"`
-	KBType   string `gorm:"type:varchar(16);not null;index" json:"kb_type"` // faq / rag / sop
+	KBType   string `gorm:"type:varchar(16);not null;index" json:"kb_type"` 
 	Role     string `gorm:"type:varchar(16);not null;default:'primary'" json:"role"`
 	Priority int    `gorm:"type:integer;default:0" json:"priority"`
-	// Enabled 用 *bool 避免 GORM v2 零值 false 被 column default 覆盖
 	Enabled   *bool     `gorm:"type:boolean;default:true;not null;index" json:"enabled"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
@@ -44,6 +43,7 @@ func (AgentKBBinding) TableName() string { return "agent_kb_bindings" }
 
 // AgentKBBindingRole 绑定角色枚举
 const (
-	AgentKBBindingRolePrimary   = "primary"   // 主知识库
-	AgentKBBindingRoleReference = "reference" // 参考知识库
+	AgentKBBindingRolePrimary   = "primary"   
+	AgentKBBindingRoleReference = "reference" 
 )
+

@@ -125,7 +125,6 @@ func (s *IndustrySOP) ToCreateRequest(ctx context.Context, scenario string) *dto
 			Name:   name,
 			Prompt: name,
 		}
-		// 上一节点连线到本节点
 		for idx := range nodes {
 			if nodes[idx].ID == prevID {
 				nodes[idx].Next = []string{node.ID}
@@ -153,3 +152,4 @@ func (s *IndustrySOP) ToCreateRequest(ctx context.Context, scenario string) *dto
 		SOPGraph:    dto.SOPGraph{Entry: "start", Nodes: nodes},
 	}
 }
+

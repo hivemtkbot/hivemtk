@@ -16,7 +16,7 @@ import (
 // 由外部电商负责，客服绝不触碰。
 type AfterSaleService struct {
 	repo   *repository.AfterSaleRepository
-	client AfterSaleExternalClient // 可选：回写电商平台的客户端（注入覆盖；缺省时按 DB 配置按需构造）
+	client AfterSaleExternalClient 
 }
 
 // NewAfterSaleService 构造（无回写客户端，走 best-effort 本地落库）
@@ -62,10 +62,8 @@ func (s *AfterSaleService) Create(ctx context.Context, req *portcontract.AfterSa
 	if err := s.repo.Create(ctx, as); err != nil {
 		return nil, err
 	}
-	// 集成回写：注入的客户端优先；缺省时按数据库配置按需构造。
 	if client := s.resolveClient(ctx); client != nil && client.Configured() {
 		if res, err := client.Create(ctx, req); err != nil {
-			// 回写失败不阻断本地落库，仅记录（状态仍等待 Webhook/拉取刷新）。
 			fmt.Printf("[aftersale] 回写电商失败（本地已落库，状态待刷新）：%v\n", err)
 		} else if res != nil && res.ExternalID != "" {
 			as.ExternalID = res.ExternalID
@@ -128,3 +126,4 @@ func afterSaleToView(as *model.AfterSale) *portcontract.AfterSaleView {
 		ExternalID:    as.ExternalID,
 	}
 }
+

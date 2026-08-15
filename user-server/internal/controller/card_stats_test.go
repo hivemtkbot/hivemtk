@@ -72,7 +72,6 @@ func TestDouyinCardStatsController_GetCardStats_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Empty DB → 404 (card not found) or 500, with card → 200
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 200, 404 or 500, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -124,7 +123,6 @@ func TestKuaishouCardStatsController_GetCardStats_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Empty DB → 404 (card not found) or 500, with card → 200
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 200, 404 or 500, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -176,7 +174,6 @@ func TestShortLinkStatsController_GetStats_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Empty DB → 404 (short link not found) or 500, with data → 200
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 200, 404 or 500, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -198,3 +195,4 @@ func TestShortLinkStatsController_GetAllStats_Success(t *testing.T) {
 		t.Errorf("Expected 200, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
+

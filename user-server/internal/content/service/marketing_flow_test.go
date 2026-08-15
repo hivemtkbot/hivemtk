@@ -86,7 +86,6 @@ func TestMarketingFlowService_CreateFlow(t *testing.T) {
 func TestMarketingFlowService_CreateFlow_InvalidFlowData(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// Invalid flow data: has nodes but missing trigger node
 	req := &CreateFlowRequest{
 		Name:          "Test Flow",
 		Description:   "Test Description",
@@ -123,7 +122,6 @@ func TestMarketingFlowService_CreateFlow_EmptyNodes(t *testing.T) {
 func TestMarketingFlowService_GetFlowList(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	for i := 0; i < 3; i++ {
 		db.GetDB().Create(&model.MarketingFlow{
 			Name:   "Flow",
@@ -148,14 +146,12 @@ func TestMarketingFlowService_GetFlowList(t *testing.T) {
 func TestMarketingFlowService_GetFlowByID(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:   "Test Flow",
 		Status: model.FlowStatusDraft,
 	}
 	db.GetDB().Create(flow)
 
-	// 获取流程
 	result, err := service.GetFlowByID(flow.ID)
 	if err != nil {
 		t.Fatalf("GetFlowByID failed: %v", err)
@@ -171,14 +167,12 @@ func TestMarketingFlowService_GetFlowByID(t *testing.T) {
 func TestMarketingFlowService_GetFlowByID_SingleTenant(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:   "Test Flow",
 		Status: model.FlowStatusDraft,
 	}
 	db.GetDB().Create(flow)
 
-	// 单租户下正常访问
 	got, err := service.GetFlowByID(flow.ID)
 	if err != nil {
 		t.Fatalf("GetFlowByID should succeed in single-tenant mode, got: %v", err)
@@ -192,14 +186,12 @@ func TestMarketingFlowService_GetFlowByID_SingleTenant(t *testing.T) {
 func TestMarketingFlowService_UpdateFlow(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:   "Old Name",
 		Status: model.FlowStatusDraft,
 	}
 	db.GetDB().Create(flow)
 
-	// 更新流程
 	req := &UpdateFlowRequest{
 		Name:        "New Name",
 		Description: "New Description",
@@ -223,14 +215,12 @@ func TestMarketingFlowService_UpdateFlow(t *testing.T) {
 func TestMarketingFlowService_UpdateFlow_SingleTenant(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:   "Test Flow",
 		Status: model.FlowStatusDraft,
 	}
 	db.GetDB().Create(flow)
 
-	// 单租户下正常更新
 	req := &UpdateFlowRequest{
 		Name: "Updated",
 	}
@@ -247,20 +237,17 @@ func TestMarketingFlowService_UpdateFlow_SingleTenant(t *testing.T) {
 func TestMarketingFlowService_DeleteFlow(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:   "Test Flow",
 		Status: model.FlowStatusDraft,
 	}
 	db.GetDB().Create(flow)
 
-	// 删除流程
 	err := service.DeleteFlow(flow.ID)
 	if err != nil {
 		t.Fatalf("DeleteFlow failed: %v", err)
 	}
 
-	// 验证已删除
 	_, err = service.GetFlowByID(flow.ID)
 	if err == nil {
 		t.Error("Expected flow to be deleted")
@@ -272,14 +259,12 @@ func TestMarketingFlowService_DeleteFlow(t *testing.T) {
 func TestMarketingFlowService_DeleteFlow_SingleTenant(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:   "Test Flow",
 		Status: model.FlowStatusDraft,
 	}
 	db.GetDB().Create(flow)
 
-	// 单租户下正常删除
 	if err := service.DeleteFlow(flow.ID); err != nil {
 		t.Fatalf("DeleteFlow should succeed in single-tenant mode, got: %v", err)
 	}
@@ -294,7 +279,6 @@ func TestMarketingFlowService_DeleteFlow_SingleTenant(t *testing.T) {
 func TestMarketingFlowService_ActivateFlow(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据 - 需要有效的 FlowData 包含触发器节点
 	flowData, _ := json.Marshal(map[string]any{
 		"nodes": []map[string]any{
 			{"id": "trigger_1", "type": "trigger"},
@@ -308,7 +292,6 @@ func TestMarketingFlowService_ActivateFlow(t *testing.T) {
 	}
 	db.GetDB().Create(flow)
 
-	// 激活流程
 	err := service.ActivateFlow(flow.ID)
 	if err != nil {
 		t.Fatalf("ActivateFlow failed: %v", err)
@@ -325,14 +308,12 @@ func TestMarketingFlowService_ActivateFlow(t *testing.T) {
 func TestMarketingFlowService_ActivateFlow_InvalidStatus(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:   "Test Flow",
 		Status: model.FlowStatusInactive,
 	}
 	db.GetDB().Create(flow)
 
-	// 尝试激活
 	err := service.ActivateFlow(flow.ID)
 	if err == nil {
 		t.Error("Expected error for invalid status")
@@ -343,14 +324,12 @@ func TestMarketingFlowService_ActivateFlow_InvalidStatus(t *testing.T) {
 func TestMarketingFlowService_PauseFlow(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:   "Test Flow",
 		Status: model.FlowStatusActive,
 	}
 	db.GetDB().Create(flow)
 
-	// 暂停流程
 	err := service.PauseFlow(flow.ID)
 	if err != nil {
 		t.Fatalf("PauseFlow failed: %v", err)
@@ -367,14 +346,12 @@ func TestMarketingFlowService_PauseFlow(t *testing.T) {
 func TestMarketingFlowService_StopFlow(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:   "Test Flow",
 		Status: model.FlowStatusActive,
 	}
 	db.GetDB().Create(flow)
 
-	// 停止流程
 	err := service.StopFlow(flow.ID)
 	if err != nil {
 		t.Fatalf("StopFlow failed: %v", err)
@@ -391,7 +368,6 @@ func TestMarketingFlowService_StopFlow(t *testing.T) {
 func TestMarketingFlowService_TriggerFlow(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	flowData, _ := json.Marshal(map[string]any{
 		"nodes": []map[string]any{
 			{
@@ -413,7 +389,6 @@ func TestMarketingFlowService_TriggerFlow(t *testing.T) {
 	}
 	db.GetDB().Create(flow)
 
-	// 触发流程
 	err := service.TriggerFlow(context.Background(), flow, "trigger_123", "user_123", nil)
 	if err != nil {
 		t.Fatalf("TriggerFlow failed: %v", err)
@@ -437,14 +412,12 @@ func TestMarketingFlowService_TriggerFlow(t *testing.T) {
 func TestMarketingFlowService_TriggerFlow_InactiveFlow(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	flow := &model.MarketingFlow{
 		Name:   "Test Flow",
 		Status: model.FlowStatusDraft,
 	}
 	db.GetDB().Create(flow)
 
-	// 尝试触发
 	err := service.TriggerFlow(context.Background(), flow, "trigger_123", "user_123", nil)
 	if err == nil {
 		t.Error("Expected error for inactive flow")
@@ -455,7 +428,6 @@ func TestMarketingFlowService_TriggerFlow_InactiveFlow(t *testing.T) {
 func TestMarketingFlowService_GetExecutionList(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	for i := 0; i < 3; i++ {
 		db.GetDB().Create(&model.FlowExecution{
 			FlowID: 1,
@@ -481,7 +453,6 @@ func TestMarketingFlowService_GetExecutionList(t *testing.T) {
 func TestMarketingFlowService_GetExecutionStats(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	for i := 0; i < 5; i++ {
 		status := "completed"
 		if i%2 == 0 {
@@ -508,7 +479,6 @@ func TestMarketingFlowService_GetExecutionStats(t *testing.T) {
 func TestMarketingFlowService_GetActiveFlows(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试数据
 	for i := 0; i < 3; i++ {
 		db.GetDB().Create(&model.MarketingFlow{
 			Name:   "Active Flow",
@@ -651,17 +621,11 @@ func TestMarketingFlowService_handleDelay(t *testing.T) {
 			if (err != nil) != tt.wantError {
 				t.Fatalf("handleDelay() error = %v, wantError %v", err, tt.wantError)
 			}
-			// Result can be nil or map depending on implementation
 			_ = result
 		})
 	}
 }
 
-// TestMarketingFlowService_sendActionSendMessage 测试发送消息动作
-//
-// 注：原实现依赖已删除的 CDP 无头浏览器适配器（BrowserAdapter）下发消息（创建
-// AutoReplyAccount、走服务端无头浏览器）。该通道已移除，sendActionSendMessage 现在
-// 对这些平台统一返回“不支持，请通过桥接模块下发”。故此处不再覆盖 CDP 发送路径。
 
 // TestMarketingFlowService_sendActionAddTag 测试添加标签动作
 func TestMarketingFlowService_sendActionAddTag(t *testing.T) {
@@ -707,7 +671,7 @@ func TestMarketingFlowService_sendActionAddTag(t *testing.T) {
 			userID:      "user-3",
 			wantErr:     false,
 			wantSuccess: true,
-			wantTags:    []string{"vip", "active"}, // 重复标签会被过滤
+			wantTags:    []string{"vip", "active"}, 
 		},
 		{
 			name: "empty tags",
@@ -757,13 +721,11 @@ func TestMarketingFlowService_sendActionAddTag(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := service.sendActionAddTag(context.Background(), tt.config, tt.userID, nil)
 
-			// 1. 校验错误预期
 			if (err != nil) != tt.wantErr {
 				t.Errorf("sendActionAddTag() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			// 2. 成功路径下校验结果与标签
 			if !tt.wantErr && tt.wantSuccess {
 				if result == nil {
 					t.Fatal("Expected non-nil result on success")
@@ -772,7 +734,6 @@ func TestMarketingFlowService_sendActionAddTag(t *testing.T) {
 					t.Errorf("Expected success=true, got %v", result["success"])
 				}
 
-				// 校验数据库中的标签
 				if len(tt.wantTags) > 0 {
 					tags, terr := service.userTagRepo.GetTagsByUser(context.Background(), tt.userID)
 					if terr != nil {
@@ -801,19 +762,16 @@ func TestMarketingFlowService_sendActionAddTag_Idempotency(t *testing.T) {
 		"tags": []any{"vip", "active"},
 	}
 
-	// 第一次添加
 	_, err := service.sendActionAddTag(context.Background(), config, "user-idempotent", nil)
 	if err != nil {
 		t.Fatalf("First add failed: %v", err)
 	}
 
-	// 第二次添加相同标签
 	_, err = service.sendActionAddTag(context.Background(), config, "user-idempotent", nil)
 	if err != nil {
 		t.Fatalf("Second add failed: %v", err)
 	}
 
-	// 验证标签数量没有重复
 	tags, err := service.userTagRepo.GetTagsByUser(context.Background(), "user-idempotent")
 	if err != nil {
 		t.Fatalf("GetTagsByUser failed: %v", err)
@@ -828,7 +786,6 @@ func TestMarketingFlowService_sendActionAddTag_Idempotency(t *testing.T) {
 func TestMarketingFlowService_sendActionWebhook(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 启动一个真实的 HTTP 测试服务器
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
@@ -915,3 +872,4 @@ func TestMarketingFlowService_sendActionSendEmail(t *testing.T) {
 		})
 	}
 }
+

@@ -1,18 +1,5 @@
 package repository
 
-// confidence_repositories.go 置信度驱动转人工 7 个 Repository
-//
-// 五层架构归属: L4 数据访问层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.3 表结构设计
-//
-// 7 个 Repository：
-//  1. ConfidenceSignalRepository      - 5 维信号快照读写
-//  2. ConfidenceCalibrationRepository - 校准参数历史 + active 切换
-//  3. HandoffDecisionRepository       - 转人工决策记录
-//  4. ThresholdPolicyRepository       - 动态阈值策略 CRUD
-//  5. ABTestRepository                - A/B 测试配置 + 指标样本
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -24,9 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/db"
 )
 
-// ============================================================================
-// 1. ConfidenceSignalRepository
-// ============================================================================
 
 // ConfidenceSignalRepository 5 维信号快照读写
 type ConfidenceSignalRepository struct{}
@@ -74,9 +58,6 @@ func (r *ConfidenceSignalRepository) ListBySession(ctx context.Context, sessionI
 	return list, err
 }
 
-// ============================================================================
-// 2. ConfidenceCalibrationRepository
-// ============================================================================
 
 // ConfidenceCalibrationRepository 校准参数历史
 type ConfidenceCalibrationRepository struct{}
@@ -89,13 +70,11 @@ func NewConfidenceCalibrationRepository() *ConfidenceCalibrationRepository {
 // SaveActive 保存校准结果并标记为 active（同 signal_type 其他记录置 inactive）
 func (r *ConfidenceCalibrationRepository) SaveActive(ctx context.Context, c *model.ConfidenceCalibration) error {
 	return db.GetDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 1) 同 signal_type 其他记录置 inactive
 		if err := tx.Model(&model.ConfidenceCalibration{}).
 			Where("signal_type = ? AND is_active = true", c.SignalType).
 			Update("is_active", false).Error; err != nil {
 			return err
 		}
-		// 2) 插入新记录（active=true）
 		c.IsActive = true
 		return tx.Create(c).Error
 	})
@@ -127,9 +106,6 @@ func (r *ConfidenceCalibrationRepository) ListBySignalType(ctx context.Context, 
 	return list, err
 }
 
-// ============================================================================
-// 3. HandoffDecisionRepository
-// ============================================================================
 
 // HandoffDecisionRepository 转人工决策记录
 type HandoffDecisionRepository struct{}
@@ -206,9 +182,6 @@ func (r *HandoffDecisionRepository) MarkResolved(ctx context.Context, decisionID
 		}).Error
 }
 
-// ============================================================================
-// 4. ThresholdPolicyRepository
-// ============================================================================
 
 // ThresholdPolicyRepository 动态阈值策略
 type ThresholdPolicyRepository struct{}
@@ -254,9 +227,6 @@ func (r *ThresholdPolicyRepository) Deactivate(ctx context.Context, intentType s
 		Update("is_active", false).Error
 }
 
-// ============================================================================
-// 7. ABTestRepository
-// ============================================================================
 
 // ABTestRepository A/B 测试配置与统计
 type ABTestRepository struct{}
@@ -327,9 +297,6 @@ func (r *ABTestRepository) CountMetricSamples(ctx context.Context, testID, group
 	return int(count), err
 }
 
-// ============================================================================
-// 管理面扩展方法（TuningController 使用，按业务域下沉，不新建上帝 service）
-// ============================================================================
 
 // ConfidenceBandStat 置信度决策带聚合结果
 type ConfidenceBandStat struct {
@@ -406,3 +373,4 @@ func (r *ThresholdPolicyRepository) ListActivePolicies(ctx context.Context) ([]m
 	}
 	return list, nil
 }
+

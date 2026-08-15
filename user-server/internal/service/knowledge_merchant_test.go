@@ -156,7 +156,6 @@ func TestMerchantRAGChunk_Structure(t *testing.T) {
 
 func TestPlaygroundRequest_Defaults(t *testing.T) {
 	req := knowledgesvc.PlaygroundRequest{Query: "test", ProductID: "kb1"}
-	// 模拟默认值检查
 	if req.Query == "" {
 		t.Error("query should not be empty")
 	}
@@ -197,8 +196,6 @@ func TestSubmitFeedback_ValidatesRating(t *testing.T) {
 }
 
 func TestContextCheck(t *testing.T) {
-	// 确保在 nil db 上能正常返回（不依赖全局 DB 状态，避免与其他测试串扰）
-	// 显式注入 nil DB 构造服务实例，使 s.db == nil 分支被触发，SubmitFeedback 应直接返回 nil。
 	svc := knowledgesvc.NewKnowledgeMerchantServiceWithDB(nil)
 	err := svc.SubmitFeedback(context.Background(), &knowledgesvc.SubmitFeedbackRequest{Query: "q", Rating: 1})
 	if err != nil {
@@ -206,9 +203,6 @@ func TestContextCheck(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 补充单测:覆盖更多边界场景,确保商户 RAG 能力稳定
-// ============================================================================
 
 func TestParseCSV_OnlyContentColumn(t *testing.T) {
 	csv := "content\nhello world\nfoo bar"
@@ -262,7 +256,6 @@ func TestParseCSV_SkipEmptyContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseCSV: %v", err)
 	}
-	// 行为:CSV 解析时不去过滤空 content,留给服务层处理
 	if len(items) != 2 {
 		t.Errorf("expected 2 items (parse 不过滤), got %d", len(items))
 	}
@@ -332,7 +325,7 @@ func TestHashToken_ConsistentForSameInput(t *testing.T) {
 		if h1 != h2 {
 			t.Errorf("inconsistent hash for %s", input)
 		}
-		if len(h1) != 64 { // SHA256 hex = 64 chars
+		if len(h1) != 64 { 
 			t.Errorf("hash length should be 64, got %d", len(h1))
 		}
 	}
@@ -409,7 +402,6 @@ func TestSubmitFeedbackRequest_Fields(t *testing.T) {
 }
 
 func TestPlaygroundRequest_ThresholdBounds(t *testing.T) {
-	// 验证 threshold 可以是任意 [0, 1] 浮点
 	req := knowledgesvc.PlaygroundRequest{
 		ProductID:           "p1",
 		Query:               "q",
@@ -449,12 +441,10 @@ func TestExternalImportRequest_SourceValidation(t *testing.T) {
 }
 
 func TestKnowledgeChunk_EmbeddingIDReset(t *testing.T) {
-	// 模拟 UpdateChunk 后 EmbeddingID 应被清空
 	chunk := model.KnowledgeChunk{
 		EmbeddingID: "vec_old_123",
 	}
 	if chunk.EmbeddingID != "" {
-		// 业务逻辑会清空它
 		chunk.EmbeddingID = ""
 	}
 	if chunk.EmbeddingID != "" {
@@ -505,3 +495,4 @@ func TestUpdateChunkRequest_RequiresContent(t *testing.T) {
 		t.Error("chunk_id required")
 	}
 }
+

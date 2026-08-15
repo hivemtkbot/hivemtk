@@ -124,7 +124,6 @@ func TestEmailDraftService_GetEmailDraftByID(t *testing.T) {
 	repo := newTestEmailDraftRepository(database)
 	service := &EmailDraftService{repo: repo}
 
-	// 创建草稿
 	draft := &model.EmailDraft{
 		Subject:     "测试主题",
 		Content:     "测试内容",
@@ -132,7 +131,6 @@ func TestEmailDraftService_GetEmailDraftByID(t *testing.T) {
 	}
 	database.Create(draft)
 
-	// 获取草稿
 	retrievedDraft, err := service.GetEmailDraftByID(context.Background(), draft.ID)
 	if err != nil {
 		t.Fatalf("GetEmailDraftByID failed: %v", err)
@@ -169,7 +167,6 @@ func TestEmailDraftService_GetEmailDraftList(t *testing.T) {
 	repo := newTestEmailDraftRepository(database)
 	service := &EmailDraftService{repo: repo}
 
-	// 创建多条草稿
 	for i := 0; i < 5; i++ {
 		draft := &model.EmailDraft{
 			Subject:     "测试主题" + string(rune('0'+i)),
@@ -177,10 +174,9 @@ func TestEmailDraftService_GetEmailDraftList(t *testing.T) {
 			Attachments: "",
 		}
 		database.Create(draft)
-		time.Sleep(10 * time.Millisecond) // 确保 created_at 不同
+		time.Sleep(10 * time.Millisecond) 
 	}
 
-	// 获取列表
 	drafts, err := service.GetEmailDraftList(context.Background())
 	if err != nil {
 		t.Fatalf("GetEmailDraftList failed: %v", err)
@@ -190,7 +186,6 @@ func TestEmailDraftService_GetEmailDraftList(t *testing.T) {
 		t.Errorf("Expected 5 drafts, got %d", len(drafts))
 	}
 
-	// 验证按 created_at DESC 排序
 	for i := 0; i < len(drafts)-1; i++ {
 		if drafts[i].CreatedAt.Before(drafts[i+1].CreatedAt) {
 			t.Errorf("Expected drafts to be sorted by created_at DESC")
@@ -220,7 +215,6 @@ func TestEmailDraftService_UpdateEmailDraft(t *testing.T) {
 	repo := newTestEmailDraftRepository(database)
 	service := &EmailDraftService{repo: repo}
 
-	// 创建草稿
 	draft := &model.EmailDraft{
 		Subject:     "旧主题",
 		Content:     "旧内容",
@@ -228,7 +222,6 @@ func TestEmailDraftService_UpdateEmailDraft(t *testing.T) {
 	}
 	database.Create(draft)
 
-	// 更新草稿
 	draft.Subject = "新主题"
 	draft.Content = "新内容"
 	draft.Attachments = `["new.pdf"]`
@@ -267,8 +260,6 @@ func TestEmailDraftService_UpdateEmailDraft_NotFound(t *testing.T) {
 	}
 
 	err := service.UpdateEmailDraft(context.Background(), draft)
-	// GORM Save 行为：对于不存在的记录可能不会返回错误
-	// 这里我们只验证方法可以调用
 	t.Logf("UpdateEmailDraft for non-existent draft returned: %v", err)
 }
 
@@ -278,7 +269,6 @@ func TestEmailDraftService_DeleteEmailDraft(t *testing.T) {
 	repo := newTestEmailDraftRepository(database)
 	service := &EmailDraftService{repo: repo}
 
-	// 创建草稿
 	draft := &model.EmailDraft{
 		Subject:     "待删除草稿",
 		Content:     "这是待删除的内容",
@@ -286,7 +276,6 @@ func TestEmailDraftService_DeleteEmailDraft(t *testing.T) {
 	}
 	database.Create(draft)
 
-	// 删除草稿
 	err := service.DeleteEmailDraft(context.Background(), draft.ID)
 	if err != nil {
 		t.Fatalf("DeleteEmailDraft failed: %v", err)
@@ -325,7 +314,6 @@ func TestEmailDraftService_CreateAndGet(t *testing.T) {
 	repo := newTestEmailDraftRepository(database)
 	service := &EmailDraftService{repo: repo}
 
-	// 创建草稿
 	draft := model.EmailDraft{
 		Subject:     "完整测试主题",
 		Content:     "这是一封完整的测试邮件，包含详细的内容。",
@@ -337,7 +325,6 @@ func TestEmailDraftService_CreateAndGet(t *testing.T) {
 		t.Fatalf("CreateEmailDraft failed: %v", err)
 	}
 
-	// 根据 ID 获取
 	retrievedDraft, err := service.GetEmailDraftByID(context.Background(), createdDraft.ID)
 	if err != nil {
 		t.Fatalf("GetEmailDraftByID failed: %v", err)
@@ -360,7 +347,6 @@ func TestEmailDraftService_CreateUpdateDelete(t *testing.T) {
 	repo := newTestEmailDraftRepository(database)
 	service := &EmailDraftService{repo: repo}
 
-	// 创建
 	draft := model.EmailDraft{
 		Subject:     "CRUD 测试",
 		Content:     "初始内容",
@@ -371,14 +357,12 @@ func TestEmailDraftService_CreateUpdateDelete(t *testing.T) {
 		t.Fatalf("CreateEmailDraft failed: %v", err)
 	}
 
-	// 更新
 	createdDraft.Content = "更新后的内容"
 	err = service.UpdateEmailDraft(context.Background(), *createdDraft)
 	if err != nil {
 		t.Fatalf("UpdateEmailDraft failed: %v", err)
 	}
 
-	// 验证更新
 	updatedDraft, err := service.GetEmailDraftByID(context.Background(), createdDraft.ID)
 	if err != nil {
 		t.Fatalf("GetEmailDraftByID failed: %v", err)
@@ -387,13 +371,11 @@ func TestEmailDraftService_CreateUpdateDelete(t *testing.T) {
 		t.Errorf("Expected updated content '更新后的内容', got %s", updatedDraft.Content)
 	}
 
-	// 删除
 	err = service.DeleteEmailDraft(context.Background(), createdDraft.ID)
 	if err != nil {
 		t.Fatalf("DeleteEmailDraft failed: %v", err)
 	}
 
-	// 验证删除后无法获取
 	_, err = service.GetEmailDraftByID(context.Background(), createdDraft.ID)
 	if err == nil {
 		t.Error("Expected error for getting deleted draft")
@@ -406,7 +388,6 @@ func TestEmailDraftService_LongContent(t *testing.T) {
 	repo := newTestEmailDraftRepository(database)
 	service := &EmailDraftService{repo: repo}
 
-	// 创建长内容（超过 1000 字符）
 	longContent := ""
 	for i := 0; i < 100; i++ {
 		longContent += "这是一行测试内容，用于测试长文本的处理能力。\n"
@@ -462,3 +443,4 @@ func TestEmailDraftService_SpecialCharacters(t *testing.T) {
 		t.Errorf("Content with special characters mismatch")
 	}
 }
+

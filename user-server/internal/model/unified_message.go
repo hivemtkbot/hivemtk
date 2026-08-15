@@ -15,8 +15,6 @@ const (
 	PlatformTiktok      Platform = "tiktok"
 	PlatformWeChat      Platform = "wechat"
 	PlatformWeb         Platform = "web"
-	// PlatformWebEmbed Web Widget 嵌入（访客端）
-	// 区别于 PlatformWeb（商户 B 端后台），PlatformWebEmbed 用于第三方网站访客
 	PlatformWebEmbed Platform = "web_embed"
 )
 
@@ -68,7 +66,7 @@ type UnifiedMessage struct {
 	MediaURL     string        `gorm:"type:varchar(500)" json:"media_url"`
 	ReplyToID    string        `gorm:"type:varchar(50)" json:"reply_to_id"`
 	Status       MessageStatus `gorm:"type:varchar(20);default:'pending'" json:"status"`
-	RawData      string        `gorm:"type:text" json:"-"` // 原始平台数据(JSON)
+	RawData      string        `gorm:"type:text" json:"-"` 
 	ReceivedAt   time.Time     `gorm:"autoCreateTime" json:"received_at"`
 	CreatedAt    time.Time     `gorm:"autoCreateTime" json:"created_at"`
 }
@@ -89,14 +87,14 @@ type UnifiedReply struct {
 	Content       string      `gorm:"type:text" json:"content"`
 	ContentType   MessageType `gorm:"type:varchar(20)" json:"content_type"`
 	MediaURL      string      `gorm:"type:varchar(500)" json:"media_url"`
-	ReplyType     string      `gorm:"type:varchar(20)" json:"reply_type"` // rule, rag, llm, human
+	ReplyType     string      `gorm:"type:varchar(20)" json:"reply_type"` 
 	Confidence    float64     `gorm:"type:decimal(5,2)" json:"confidence"`
 	RuleID        uint        `json:"rule_id"`
 	KnowledgeID   uint        `json:"knowledge_id"`
 	AgentID       uint        `json:"agent_id"`
 	Status        ReplyStatus `gorm:"type:varchar(20)" json:"status"`
 	ErrorMessage  string      `gorm:"type:text" json:"error_message"`
-	PlatformMsgID string      `gorm:"type:varchar(50)" json:"platform_msg_id"` // 平台返回的消息ID
+	PlatformMsgID string      `gorm:"type:varchar(50)" json:"platform_msg_id"` 
 	SentAt        *time.Time  `json:"sent_at"`
 	CreatedAt     time.Time   `gorm:"autoCreateTime" json:"created_at"`
 }
@@ -123,10 +121,10 @@ type PlatformAccount struct {
 	AccountID     string     `gorm:"type:varchar(50)" json:"account_id"`
 	AccountName   string     `gorm:"type:varchar(100)" json:"account_name"`
 	AccountAvatar string     `gorm:"type:varchar(500)" json:"account_avatar"`
-	Config        string     `gorm:"type:text" json:"config"` // JSON格式的平台特定配置
-	Cookie        string     `gorm:"type:text" json:"-"`      // 加密存储的Cookie
-	Token         string     `gorm:"type:text" json:"-"`      // 加密存储的Token
-	Status        int        `gorm:"default:1" json:"status"` // 1-正常, 0-禁用
+	Config        string     `gorm:"type:text" json:"config"` 
+	Cookie        string     `gorm:"type:text" json:"-"`      
+	Token         string     `gorm:"type:text" json:"-"`      
+	Status        int        `gorm:"default:1" json:"status"` 
 	LastSyncAt    *time.Time `json:"last_sync_at"`
 	ExpiresAt     *time.Time `json:"expires_at"`
 	CreatedAt     time.Time  `gorm:"autoCreateTime" json:"created_at"`
@@ -141,7 +139,7 @@ func (PlatformAccount) TableName() string {
 // ReplyDecision 回复决策
 type ReplyDecision struct {
 	ShouldReply  bool              `json:"should_reply"`
-	ReplyType    string            `json:"reply_type"` // rule, rag, llm, human
+	ReplyType    string            `json:"reply_type"` 
 	Content      string            `json:"content"`
 	Confidence   float64           `json:"confidence"`
 	Reason       string            `json:"reason"`
@@ -161,25 +159,20 @@ type KnowledgeHit struct {
 
 // PlatformAdapter 平台适配器接口
 type PlatformAdapter interface {
-	// 基本信息
 	GetPlatform() Platform
 
-	// 消息操作
 	GetMessages(accountID string, opts *MessageQueryOptions) ([]*UnifiedMessage, error)
 	SendMessage(accountID, chatID, content string, opts *SendOptions) (*UnifiedReply, error)
 	SendImage(accountID, chatID, imageURL string) (*UnifiedReply, error)
 
-	// 账号操作
 	Login(credentials map[string]string) (*PlatformAccount, error)
 	CheckLoginStatus(accountID string) (bool, error)
 	Logout(accountID string) error
 	RefreshToken(accountID string) error
 
-	// 用户信息
 	GetUserInfo(accountID, userID string) (*PlatformUser, error)
 	GetChatInfo(accountID, chatID string) (*ChatInfo, error)
 
-	// Webhook
 	ParseWebhook(data []byte) (*UnifiedMessage, error)
 	GetWebhookURL(accountID string) string
 }
@@ -220,3 +213,4 @@ type ChatInfo struct {
 	MemberCount int       `json:"member_count"`
 	CreatedAt   time.Time `json:"created_at"`
 }
+

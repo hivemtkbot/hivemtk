@@ -93,7 +93,6 @@ func TestMaterialCategoryRepository_Create(t *testing.T) {
 func TestMaterialCategoryRepository_GetByID(t *testing.T) {
 	_, repo := setupMaterialCategoryRepository(t)
 
-	// 创建测试数据
 	category := &model.MaterialCategory{
 		Name:        "GetByID Category",
 		Type:        model.MaterialTypeImage,
@@ -141,7 +140,6 @@ func TestMaterialCategoryRepository_GetByID(t *testing.T) {
 func TestMaterialCategoryRepository_GetList(t *testing.T) {
 	_, repo := setupMaterialCategoryRepository(t)
 
-	// 创建测试数据 - 不同层级的分类
 	rootCategory1 := &model.MaterialCategory{
 		Name:      "Root Category 1",
 		Type:      model.MaterialTypeImage,
@@ -158,7 +156,6 @@ func TestMaterialCategoryRepository_GetList(t *testing.T) {
 	}
 	repo.Create(rootCategory2)
 
-	// 创建子分类
 	repo.Create(&model.MaterialCategory{
 		Name:      "Child Category 1",
 		Type:      model.MaterialTypeImage,
@@ -175,7 +172,6 @@ func TestMaterialCategoryRepository_GetList(t *testing.T) {
 		Sort:      2,
 	})
 
-	// 创建不同类型的分类
 	repo.Create(&model.MaterialCategory{
 		Name:      "Video Category",
 		Type:      model.MaterialTypeVideo,
@@ -183,7 +179,6 @@ func TestMaterialCategoryRepository_GetList(t *testing.T) {
 		Sort:      3,
 	})
 
-	// 创建不同 license 的分类
 	repo.Create(&model.MaterialCategory{
 		Name:      "Other License Category",
 		Type:      model.MaterialTypeImage,
@@ -202,8 +197,6 @@ func TestMaterialCategoryRepository_GetList(t *testing.T) {
 		wantTotal    int64
 	}{
 		{
-			// parentID="" 不过滤 parent 字段：返回 license-1 下所有分类
-			// 数据集：Root1+Root2+Child1+Child2+Video = 5 条
 			name:         "get all license-1 categories",
 			licenseID:    "license-1",
 			parentID:     "",
@@ -214,7 +207,6 @@ func TestMaterialCategoryRepository_GetList(t *testing.T) {
 			wantTotal:    5,
 		},
 		{
-			// license-1 + image：Root1, Root2, Child1, Child2 = 4 条（Video 排除）
 			name:         "get image type categories",
 			licenseID:    "license-1",
 			parentID:     "",
@@ -225,7 +217,6 @@ func TestMaterialCategoryRepository_GetList(t *testing.T) {
 			wantTotal:    4,
 		},
 		{
-			// license-1 全部 5 条（与第一个 case 相同参数，验证可重复调用一致）
 			name:         "get all license-1 categories repeat",
 			licenseID:    "license-1",
 			parentID:     "",
@@ -236,7 +227,6 @@ func TestMaterialCategoryRepository_GetList(t *testing.T) {
 			wantTotal:    5,
 		},
 		{
-			// license-1 + video：仅 Video = 1 条
 			name:         "get video categories",
 			licenseID:    "license-1",
 			parentID:     "",
@@ -247,7 +237,6 @@ func TestMaterialCategoryRepository_GetList(t *testing.T) {
 			wantTotal:    1,
 		},
 		{
-			// license-1 全部 5 条，第 1 页 limit=2
 			name:         "pagination first page",
 			licenseID:    "license-1",
 			parentID:     "",
@@ -258,7 +247,6 @@ func TestMaterialCategoryRepository_GetList(t *testing.T) {
 			wantTotal:    5,
 		},
 		{
-			// license-1 全部 5 条，第 2 页 limit=2，返回 2 条
 			name:         "pagination second page",
 			licenseID:    "license-1",
 			parentID:     "",
@@ -293,7 +281,6 @@ func TestMaterialCategoryRepository_GetList(t *testing.T) {
 func TestMaterialCategoryRepository_GetList_WithParentFilter(t *testing.T) {
 	_, repo := setupMaterialCategoryRepository(t)
 
-	// 创建父分类
 	parent := &model.MaterialCategory{
 		Name:      "Parent Category",
 		Type:      model.MaterialTypeImage,
@@ -302,7 +289,6 @@ func TestMaterialCategoryRepository_GetList_WithParentFilter(t *testing.T) {
 	}
 	repo.Create(parent)
 
-	// 创建多个子分类
 	for i := 1; i <= 5; i++ {
 		repo.Create(&model.MaterialCategory{
 			Name:      "Child " + string(rune('0'+i)),
@@ -313,7 +299,6 @@ func TestMaterialCategoryRepository_GetList_WithParentFilter(t *testing.T) {
 		})
 	}
 
-	// 创建另一个父分类的子分类
 	otherParent := &model.MaterialCategory{
 		Name:      "Other Parent",
 		Type:      model.MaterialTypeImage,
@@ -347,7 +332,6 @@ func TestMaterialCategoryRepository_GetList_WithParentFilter(t *testing.T) {
 func TestMaterialCategoryRepository_Update(t *testing.T) {
 	_, repo := setupMaterialCategoryRepository(t)
 
-	// 创建测试数据
 	category := &model.MaterialCategory{
 		Name:        "Original Name",
 		Type:        model.MaterialTypeImage,
@@ -357,7 +341,6 @@ func TestMaterialCategoryRepository_Update(t *testing.T) {
 	}
 	repo.Create(category)
 
-	// 更新
 	category.Name = "Updated Name"
 	category.Sort = 10
 	category.Description = "Updated description"
@@ -383,7 +366,6 @@ func TestMaterialCategoryRepository_Update(t *testing.T) {
 func TestMaterialCategoryRepository_Delete(t *testing.T) {
 	_, repo := setupMaterialCategoryRepository(t)
 
-	// 创建测试数据
 	category := &model.MaterialCategory{
 		Name:      "To Delete",
 		Type:      model.MaterialTypeImage,
@@ -406,7 +388,6 @@ func TestMaterialCategoryRepository_Delete(t *testing.T) {
 func TestMaterialCategoryRepository_Delete_WithChildren(t *testing.T) {
 	_, repo := setupMaterialCategoryRepository(t)
 
-	// 创建父分类
 	parent := &model.MaterialCategory{
 		Name:      "Parent with Children",
 		Type:      model.MaterialTypeImage,
@@ -414,7 +395,6 @@ func TestMaterialCategoryRepository_Delete_WithChildren(t *testing.T) {
 	}
 	repo.Create(parent)
 
-	// 创建子分类
 	repo.Create(&model.MaterialCategory{
 		Name:      "Child Category",
 		Type:      model.MaterialTypeImage,
@@ -432,7 +412,6 @@ func TestMaterialCategoryRepository_Delete_WithChildren(t *testing.T) {
 func TestMaterialCategoryRepository_Delete_WithMaterials(t *testing.T) {
 	database, repo := setupMaterialCategoryRepository(t)
 
-	// 创建分类
 	category := &model.MaterialCategory{
 		Name:      "Category with Materials",
 		Type:      model.MaterialTypeImage,
@@ -440,7 +419,6 @@ func TestMaterialCategoryRepository_Delete_WithMaterials(t *testing.T) {
 	}
 	repo.Create(category)
 
-	// 创建关联素材 - 使用数据库直接创建
 	database.Create(&model.Material{
 		Name:       "Test Material",
 		Type:       model.MaterialTypeImage,
@@ -460,7 +438,6 @@ func TestMaterialCategoryRepository_Delete_WithMaterials(t *testing.T) {
 func TestMaterialCategoryRepository_GetTree(t *testing.T) {
 	_, repo := setupMaterialCategoryRepository(t)
 
-	// 创建根分类
 	root1 := &model.MaterialCategory{
 		Name:      "Root 1",
 		Type:      model.MaterialTypeImage,
@@ -477,7 +454,6 @@ func TestMaterialCategoryRepository_GetTree(t *testing.T) {
 	}
 	repo.Create(root2)
 
-	// 创建子分类
 	repo.Create(&model.MaterialCategory{
 		Name:      "Child 1-1",
 		Type:      model.MaterialTypeImage,
@@ -502,7 +478,6 @@ func TestMaterialCategoryRepository_GetTree(t *testing.T) {
 		Sort:      1,
 	})
 
-	// 创建不同类型的分类（不应该出现在结果中）
 	repo.Create(&model.MaterialCategory{
 		Name:      "Video Root",
 		Type:      model.MaterialTypeVideo,
@@ -515,7 +490,6 @@ func TestMaterialCategoryRepository_GetTree(t *testing.T) {
 		t.Errorf("GetTree() error = %v", err)
 	}
 
-	// 应该返回 2 个根分类
 	if len(results) != 2 {
 		t.Errorf("Expected 2 root categories, got %d", len(results))
 	}
@@ -525,7 +499,6 @@ func TestMaterialCategoryRepository_GetTree(t *testing.T) {
 func TestMaterialCategoryRepository_UpdateMaterialCount(t *testing.T) {
 	database, repo := setupMaterialCategoryRepository(t)
 
-	// 创建分类
 	category := &model.MaterialCategory{
 		Name:          "Category for Count",
 		Type:          model.MaterialTypeImage,
@@ -534,7 +507,6 @@ func TestMaterialCategoryRepository_UpdateMaterialCount(t *testing.T) {
 	}
 	repo.Create(category)
 
-	// 创建 3 个素材 - 使用数据库直接创建
 	for i := 1; i <= 3; i++ {
 		database.Create(&model.Material{
 			Name:       "Material " + string(rune('0'+i)),
@@ -584,3 +556,4 @@ func TestMaterialCategoryRepository_GetList_EmptyResult(t *testing.T) {
 		t.Errorf("Expected total 0, got %d", total)
 	}
 }
+

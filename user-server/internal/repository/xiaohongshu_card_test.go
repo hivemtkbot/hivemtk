@@ -82,7 +82,6 @@ func TestXiaohongshuCardRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupXiaohongshuCardRepository(t)
 
-	// 创建测试数据
 	card := &model.XiaohongshuCard{
 		Title:       "GetByID Card",
 		Description: "GetByID Description",
@@ -130,11 +129,9 @@ func TestXiaohongshuCardRepository_GetList(t *testing.T) {
 	database := setupXiaohongshuCardTestDB(t)
 	repo := NewXiaohongshuCardRepository(database)
 
-	// 创建测试数据
 	activeTrue := true
 	activeFalse := false
 
-	// 创建 5 个活跃卡片
 	for i := 1; i <= 5; i++ {
 		card := &model.XiaohongshuCard{
 			Title:    "Active Card " + string(rune('A'+i-1)),
@@ -145,7 +142,6 @@ func TestXiaohongshuCardRepository_GetList(t *testing.T) {
 		}
 	}
 
-	// 创建 1 个不活跃卡片 - 先创建再更新 IsActive 字段
 	inactiveCard := &model.XiaohongshuCard{
 		Title:    "Inactive Card",
 		IsActive: true,
@@ -237,7 +233,6 @@ func TestXiaohongshuCardRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	repo := setupXiaohongshuCardRepository(t)
 
-	// 创建测试数据
 	card := &model.XiaohongshuCard{
 		Title:       "Original Title",
 		Description: "Original Description",
@@ -267,7 +262,6 @@ func TestXiaohongshuCardRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	repo := setupXiaohongshuCardRepository(t)
 
-	// 创建测试数据
 	card := &model.XiaohongshuCard{
 		Title:    "To Delete",
 		IsActive: true,
@@ -290,7 +284,6 @@ func TestXiaohongshuCardRepository_IncrementViewCount(t *testing.T) {
 	ctx := context.Background()
 	repo := setupXiaohongshuCardRepository(t)
 
-	// 创建测试数据
 	card := &model.XiaohongshuCard{
 		Title:     "View Count Test",
 		ViewCount: 0,
@@ -312,14 +305,12 @@ func TestXiaohongshuCardRepository_CreateActivity(t *testing.T) {
 	ctx := context.Background()
 	repo := setupXiaohongshuCardRepository(t)
 
-	// 创建测试卡片
 	card := &model.XiaohongshuCard{
 		Title:    "Activity Test Card",
 		IsActive: true,
 	}
 	repo.Create(ctx, card)
 
-	// 创建测试数据
 	activity := &model.XiaohongshuCardActivity{
 		CardID:       card.ID,
 		UserID:       1,
@@ -347,7 +338,6 @@ func TestXiaohongshuCardRepository_UpdateShortLinkID(t *testing.T) {
 	ctx := context.Background()
 	repo := setupXiaohongshuCardRepository(t)
 
-	// 创建测试数据
 	card := &model.XiaohongshuCard{
 		Title: "ShortLink Test",
 	}
@@ -364,3 +354,4 @@ func TestXiaohongshuCardRepository_UpdateShortLinkID(t *testing.T) {
 		t.Errorf("Expected ShortLinkID 456, got %v", updated.ShortLinkID)
 	}
 }
+

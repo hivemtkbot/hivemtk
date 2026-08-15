@@ -24,19 +24,19 @@ const nodeHealthWindow = 24 * time.Hour
 // ───────────────────────────────────────────────────────────────────────────
 type HealthOverviewData struct {
 	GeneratedAt        time.Time `json:"generated_at"`
-	InboundRatePerMin  float64   `json:"inbound_rate_per_min"`  // 近 1h 入站速率
-	OutboundRatePerMin float64   `json:"outbound_rate_per_min"` // 近 1h 出站速率
-	PendingCount       int64     `json:"pending_count"`         // 下行出库队列深度
-	OldestPendingMin   int64     `json:"oldest_pending_min"`    // 最旧 pending 年龄（分钟）
-	DeliveredCount     int64     `json:"delivered_count"`       // delivered 总数
-	FailedCount        int64     `json:"failed_count"`          // failed 总数
-	SyncGapCount       int64     `json:"sync_gap_count"`        // 消息有记录但收件箱无同步
-	StuckReachable     int64     `json:"stuck_reachable"`       // 卡住-可达（会话存在，永久 pending）
-	StuckUnreachable   int64     `json:"stuck_unreachable"`     // 卡住-不可达（占位账号 failed）
-	TotalTraces        int64     `json:"total_traces"`          // 链路节点总数
-	AbnormalCount      int64     `json:"abnormal_count"`        // 异常节点数（status=abnormal）
-	TracePublished     int64     `json:"trace_published"`       // 链路 span 累计投递（异步 sink 吸收）
-	TraceDropped       int64     `json:"trace_dropped"`         // 链路 span 因背压丢弃（>0 表示追踪在丢数据，需告警）
+	InboundRatePerMin  float64   `json:"inbound_rate_per_min"`  
+	OutboundRatePerMin float64   `json:"outbound_rate_per_min"` 
+	PendingCount       int64     `json:"pending_count"`         
+	OldestPendingMin   int64     `json:"oldest_pending_min"`    
+	DeliveredCount     int64     `json:"delivered_count"`       
+	FailedCount        int64     `json:"failed_count"`          
+	SyncGapCount       int64     `json:"sync_gap_count"`        
+	StuckReachable     int64     `json:"stuck_reachable"`       
+	StuckUnreachable   int64     `json:"stuck_unreachable"`     
+	TotalTraces        int64     `json:"total_traces"`          
+	AbnormalCount      int64     `json:"abnormal_count"`        
+	TracePublished     int64     `json:"trace_published"`       
+	TraceDropped       int64     `json:"trace_dropped"`         
 }
 
 // HealthOverview 汇总核心业务链路健康指标。
@@ -80,11 +80,6 @@ func HealthOverview(ctx context.Context) (*HealthOverviewData, error) {
 		Where("direction = ? AND status = ?", "outbound", "failed").
 		Count(&h.FailedCount)
 
-	// 同步缺口：message_hub 有记录但 inbox_conversations 无同步（平台收件箱看不到）。
-	// 注意：inbox_conversations 按 (platform, account_id, customer_id) 去重，一个客户只保留一行，
-	// 因此多 conversation_id 共享同一客户时，仅按 conversation_id 左连接会误报“缺口”。此处以
-	// (platform, account_id, customer_id) 是否存在收件箱行判定真实缺口（与统一收件箱实际代表粒度一致）。
-	// 同步缺口查询：必须接 .Error 检查并打印，否则 DB 异常会被静默吞掉（SyncGapCount 恒为 0 且不可观测）。
 	if err := d.Raw(`
 		SELECT count(DISTINCT m.conversation_id)
 		FROM message_hub m
@@ -103,7 +98,6 @@ func HealthOverview(ctx context.Context) (*HealthOverviewData, error) {
 		log.Printf("[monitor] HealthOverview sync_gap query failed: %v", err)
 	}
 
-	// 卡住消息：status=pending 且超过阈值（可达会话）或 failed（不可达占位账号）
 	threshold := time.Now().Add(-15 * time.Minute)
 	d.Model(&model.MessageHub{}).
 		Where("direction = ? AND status = ? AND sent_at < ?", "outbound", "pending", threshold).
@@ -115,7 +109,6 @@ func HealthOverview(ctx context.Context) (*HealthOverviewData, error) {
 	d.Model(&model.MessageTrace{}).Count(&h.TotalTraces)
 	d.Model(&model.MessageTrace{}).Where("status = ?", "abnormal").Count(&h.AbnormalCount)
 
-	// 异步 sink 投递/丢弃统计：dropped>0 说明追踪在背压丢数据（监控盲区），必须暴露出来。
 	pub, drop := tracing.Stats()
 	h.TracePublished = pub
 	h.TraceDropped = drop
@@ -145,11 +138,11 @@ type NodeAbnormalRow struct {
 
 // AnomalyGroups 按异常类别分组，前端对应 5 个折叠区块。
 type AnomalyGroups struct {
-	SyncGap          []SyncGapRow      `json:"sync_gap"`          // 数据缺口（hub 有记录但 inbox 无同步）
-	StuckReachable   []StuckRow        `json:"stuck_reachable"`   // 卡住-可达（会话存在，pending 超 15 分）
-	StuckUnreachable []StuckRow        `json:"stuck_unreachable"` // 卡住-不可达（pending 超 15 分且无激活会话）
-	Unreachable      []StuckRow        `json:"unreachable"`       // 不可达（出站 failed，目标不可达）
-	NodeAbnormal     []NodeAbnormalRow `json:"node_abnormal"`     // 节点异常率偏高（近 24h > 5%）
+	SyncGap          []SyncGapRow      `json:"sync_gap"`          
+	StuckReachable   []StuckRow        `json:"stuck_reachable"`   
+	StuckUnreachable []StuckRow        `json:"stuck_unreachable"` 
+	Unreachable      []StuckRow        `json:"unreachable"`       
+	NodeAbnormal     []NodeAbnormalRow `json:"node_abnormal"`     
 }
 
 // Anomalies 返回当前业务链路异常分组清单。
@@ -254,7 +247,6 @@ func Anomalies(ctx context.Context) (*AnomalyGroups, error) {
 		})
 	}
 
-	// 节点异常率偏高：复用按渠道节点健康聚合（近 24h 异常率 > 5%）
 	nh, err := NodeHealthByChannel(ctx)
 	if err == nil {
 		for _, n := range nh {
@@ -339,7 +331,6 @@ func NodeHealthByChannel(ctx context.Context) ([]NodeHealth, error) {
 		}
 		out = append(out, nh)
 	}
-	// 排序：渠道 → 节点顺序
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Channel != out[j].Channel {
 			return out[i].Channel < out[j].Channel
@@ -369,7 +360,7 @@ type LifecycleNode struct {
 	Abnormal       string    `json:"abnormal"`
 	Error          string    `json:"error"`
 	CreatedAt      time.Time `json:"created_at"`
-	GapMs          *int64    `json:"gap_ms_from_prev"` // 与上一节点的时延（毫秒）
+	GapMs          *int64    `json:"gap_ms_from_prev"` 
 }
 
 type LifecycleData struct {
@@ -377,7 +368,7 @@ type LifecycleData struct {
 	ConversationID string          `json:"conversation_id"`
 	Channel        string          `json:"channel"`
 	Nodes          []LifecycleNode `json:"nodes"`
-	EndToEndMs     *int64          `json:"end_to_end_ms"` // ingest → delivered 端到端时延
+	EndToEndMs     *int64          `json:"end_to_end_ms"` 
 	HasAbnormal    bool            `json:"has_abnormal"`
 	AbnormalDetail string          `json:"abnormal_detail,omitempty"`
 }
@@ -402,7 +393,7 @@ func Lifecycle(ctx context.Context, conversationID, traceID string, limit int) (
 	}
 	var traces []model.MessageTrace
 	if err := q.Order("trace_id, node_order, id").
-		Limit(limit * 12). // 每轮约 6 个节点
+		Limit(limit * 12). 
 		Find(&traces).Error; err != nil {
 		return nil, err
 	}
@@ -410,7 +401,6 @@ func Lifecycle(ctx context.Context, conversationID, traceID string, limit int) (
 		return []LifecycleData{}, nil
 	}
 
-	// 按 trace_id 分组
 	groups := map[string][]model.MessageTrace{}
 	order := []string{}
 	for _, t := range traces {
@@ -473,7 +463,6 @@ func Lifecycle(ctx context.Context, conversationID, traceID string, limit int) (
 		}
 		out = append(out, lc)
 	}
-	// 仅返回最近的 limit 轮
 	if len(out) > limit {
 		out = out[:limit]
 	}
@@ -526,7 +515,6 @@ func Traces(ctx context.Context, limit int) ([]TraceSummary, error) {
 	for _, t := range rows {
 		groups[t.TraceID] = append(groups[t.TraceID], t)
 	}
-	// 按最近顺序（recent 已是 max(id) DESC）聚合
 	out := make([]TraceSummary, 0, len(recent))
 	for _, tid := range recent {
 		rs := groups[tid]
@@ -551,10 +539,6 @@ func Traces(ctx context.Context, limit int) ([]TraceSummary, error) {
 	return out, nil
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// 完整链路明细：任意一条消息 / 一轮对话的完整调用树
-//   （生命周期节点 + agent 多轮 + 多工具调用，含入参/出参/耗时/预期/异常）
-// ───────────────────────────────────────────────────────────────────────────
 
 // TraceTreeData 单条消息 / 单轮对话的完整链路（层级 span 已排序）。
 type TraceTreeData struct {
@@ -562,7 +546,7 @@ type TraceTreeData struct {
 	ConversationID string               `json:"conversation_id"`
 	Channel        string               `json:"channel"`
 	AccountID      string               `json:"account_id"`
-	Spans          []model.MessageTrace `json:"spans"` // 按 node_order→turn_index→created_at 排序
+	Spans          []model.MessageTrace `json:"spans"` 
 }
 
 // TraceTree 取一条消息 / 单轮对话的完整链路明细。
@@ -688,7 +672,6 @@ func PurgeOld(ctx context.Context, olderThan time.Duration) (int64, error) {
 	return res.RowsAffected, res.Error
 }
 
-// ── 工具函数 ──
 
 func percentile(sorted []int64, p int) int64 {
 	if len(sorted) == 0 {
@@ -700,3 +683,4 @@ func percentile(sorted []int64, p int) int64 {
 	}
 	return sorted[idx]
 }
+

@@ -29,7 +29,6 @@ type EventStats struct {
 // CustomerEventRepository defines the interface for customer event data access
 type CustomerEventRepository interface {
 	Record(ctx context.Context, event *model.CustomerEvent) error
-	// RecordBatch 批量插入事件，单次 SQL 替代「for event → Record」（CC- N+1 优化）
 	RecordBatch(ctx context.Context, events []*model.CustomerEvent) error
 	GetByCustomerID(ctx context.Context, customerID string, limit int) ([]*model.CustomerEvent, error)
 	GetByTimeRange(ctx context.Context, start, end time.Time) ([]*model.CustomerEvent, error)
@@ -59,7 +58,6 @@ func (r *customerEventRepository) RecordBatch(ctx context.Context, events []*mod
 	if len(events) == 0 {
 		return nil
 	}
-	// 过滤 nil 元素，避免 gorm 报 invalid value
 	filtered := make([]*model.CustomerEvent, 0, len(events))
 	for _, e := range events {
 		if e != nil {
@@ -167,3 +165,4 @@ func (r *customerEventRepository) GetStats(ctx context.Context, start, end time.
 
 	return stats, nil
 }
+

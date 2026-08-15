@@ -8,12 +8,12 @@ import (
 type LowQualitySampleType string
 
 const (
-	LowQualitySamplePersona        LowQualitySampleType = "persona"         // 拟人度不达标
-	LowQualitySampleCompliance     LowQualitySampleType = "compliance"      // 合规不达标
-	LowQualitySampleNaturalness    LowQualitySampleType = "naturalness"     // 自然度不达标
-	LowQualitySampleRelevance      LowQualitySampleType = "relevance"       // 相关性不达标
-	LowQualitySampleManualReview   LowQualitySampleType = "manual_review"   // 转人工
-	LowQualitySampleRetryExhausted LowQualitySampleType = "retry_exhausted" // 重试耗尽
+	LowQualitySamplePersona        LowQualitySampleType = "persona"         
+	LowQualitySampleCompliance     LowQualitySampleType = "compliance"      
+	LowQualitySampleNaturalness    LowQualitySampleType = "naturalness"     
+	LowQualitySampleRelevance      LowQualitySampleType = "relevance"       
+	LowQualitySampleManualReview   LowQualitySampleType = "manual_review"   
+	LowQualitySampleRetryExhausted LowQualitySampleType = "retry_exhausted" 
 )
 
 // LowQualitySample G6 低质样本（用于后续训练 / 人工分析）
@@ -30,14 +30,12 @@ type LowQualitySample struct {
 	Industry        string               `gorm:"type:varchar(64)" json:"industry"`
 	Platform        string               `gorm:"type:varchar(32)" json:"platform"`
 	Intent          string               `gorm:"type:varchar(32)" json:"intent"`
-	// 维度得分（JSON 字符串）：{"naturalness":0.6,"relevance":0.9,...}
 	DimensionScores string  `gorm:"type:jsonb;default:'{}'" json:"dimension_scores"`
 	TotalScore      float64 `gorm:"default:0" json:"total_score"`
 	Threshold       float64 `gorm:"default:0.85" json:"threshold"`
 	AttemptCount    int     `gorm:"default:1" json:"attempt_count"`
-	// 所有候选回复（JSON 数组字符串）：["reply1","reply2","reply3"]
 	CandidateReplies string     `gorm:"type:jsonb;default:'[]'" json:"candidate_replies"`
-	Handled          bool       `gorm:"default:false;index" json:"handled"` // 是否已人工处理
+	Handled          bool       `gorm:"default:false;index" json:"handled"` 
 	HandledBy        string     `gorm:"type:varchar(64)" json:"handled_by"`
 	HandledAt        *time.Time `gorm:"index" json:"handled_at"`
 	HandledNote      string     `gorm:"type:text" json:"handled_note"`
@@ -46,3 +44,4 @@ type LowQualitySample struct {
 
 // TableName 表名
 func (LowQualitySample) TableName() string { return "low_quality_samples" }
+

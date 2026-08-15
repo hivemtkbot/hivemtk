@@ -59,3 +59,4 @@ func (r *emailDraftRepo) Update(ctx context.Context, draft *model.EmailDraft) er
 func (r *emailDraftRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).Delete(&model.EmailDraft{}, "id = ?", id).Error
 }
+

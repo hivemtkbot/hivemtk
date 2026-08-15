@@ -27,19 +27,14 @@ func NewAppConfigController() *AppConfigController {
 
 // AppConfigReq 应用配置请求
 type AppConfigReq struct {
-	// 数据库配置
 	DBConfig DBConfig `json:"db_config"`
 
-	// Redis配置
 	RedisConfig RedisConfig `json:"redis_config"`
 
-	// 基本配置
 	BasicConfig BasicConfig `json:"basic_config"`
 
-	// 平台同步信息
 	PlatformSync PlatformSyncInfo `json:"platform_sync"`
 
-	// 使用信息上报
 	UsageReport UsageReportInfo `json:"usage_report"`
 }
 
@@ -95,21 +90,17 @@ type AppConfigResp struct {
 
 // GetAppConfig 获取应用配置
 func (c *AppConfigController) GetAppConfig(ctx *gin.Context) {
-	// 获取当前系统配置
 	sysConfig, err := c.sysConfigSvc.GetConfig(context.Background())
 	if err != nil {
 		response.ErrorFromDB(ctx, err, "获取系统配置失败", err.Error())
 		return
 	}
 
-	// 获取平台同步状态
 	licenseStatus, err := platform.GetLicenseStatus()
 	if err != nil {
-		// 如果平台同步失败，仍然返回基础配置
 		logger.Errorf("获取授权状态失败: %v", err)
 	}
 
-	// 构造响应
 	resp := AppConfigResp{
 		Config: AppConfigReq{
 			BasicConfig: BasicConfig{
@@ -124,9 +115,8 @@ func (c *AppConfigController) GetAppConfig(ctx *gin.Context) {
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 
-	// 如果有许可证信息，添加到响应中
 	if licenseStatus != nil {
-		resp.Config.PlatformSync.MerchantKey = "HIDDEN_FOR_SECURITY" // 实际应用中不应返回明文密钥
+		resp.Config.PlatformSync.MerchantKey = "HIDDEN_FOR_SECURITY" 
 		resp.Config.PlatformSync.PlatformURL = sysConfig.WebsiteURL
 	}
 
@@ -141,14 +131,12 @@ func (c *AppConfigController) UpdateAppConfig(ctx *gin.Context) {
 		return
 	}
 
-	// 更新系统配置（由 service 负责组装并持久化，controller 不感知 model）
 	_, err := c.sysConfigSvc.SaveBasicConfig(context.Background(), req.BasicConfig.AppName, req.PlatformSync.PlatformURL)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, "保存配置失败", err.Error())
 		return
 	}
 
-	// 开源版：仅依赖 ReportInstall + ReportHeartbeat，不再上报 API 日志
 	response.Success(ctx, gin.H{
 		"status":    "success",
 		"message":   "配置更新成功",
@@ -165,24 +153,20 @@ func (c *AppConfigController) SyncWithPlatform(ctx *gin.Context) {
 		return
 	}
 
-	// 获取当前配置
 	sysConfig, err := c.sysConfigSvc.GetConfig(context.Background())
 	if err != nil {
 		response.ErrorFromDB(ctx, err, "获取系统配置失败", err.Error())
 		return
 	}
 
-	// 单租户模式：平台不可用时降级处理，不返回 500
 	platformAvailable := true
 	if _, licErr := platform.GetLicenseStatus(); licErr != nil {
 		platformAvailable = false
 		logger.Errorf("[app-config/sync] 平台不可用，降级处理: %v", licErr)
 	}
 
-	// 从 service 获取真实用量统计（用户数、请求数近似值）
 	userCount, requestCount := c.sysConfigSvc.GetUsageStats(context.Background())
 
-	// 构造上报数据
 	usageReport := UsageReportInfo{
 		UserCount:      int(userCount),
 		RequestCount:   int(requestCount),
@@ -190,12 +174,10 @@ func (c *AppConfigController) SyncWithPlatform(ctx *gin.Context) {
 		LastUpdateTime: time.Now().Format("2006-01-02 15:04:05"),
 	}
 
-	// 开源版：仅依赖 ReportInstall + ReportHeartbeat，平台不可用时不阻塞主流程
 	if !platformAvailable {
 		logger.Info("[app-config/sync] 平台不可用，跳过 API 日志上报")
 	}
 
-	// 返回同步结果
 	syncStatus := "success"
 	syncMsg := "应用配置与平台同步成功"
 	if !platformAvailable {
@@ -225,13 +207,11 @@ func (c *AppConfigController) SyncWithPlatform(ctx *gin.Context) {
 
 // HealthCheck 健康检查
 func (c *AppConfigController) HealthCheck(ctx *gin.Context) {
-	// 实际检查与平台的连接状态
 	platformConnection := "disconnected"
 	if _, err := platform.GetLicenseStatus(); err == nil {
 		platformConnection = "connected"
 	}
 
-	// 实际检查数据库连接状态（经 service，controller 不直连 DB）
 	dbStatus := "disconnected"
 	if c.sysConfigSvc.PingDB(context.Background()) {
 		dbStatus = "connected"
@@ -252,3 +232,4 @@ func (c *AppConfigController) HealthCheck(ctx *gin.Context) {
 
 	response.Success(ctx, healthInfo, "健康检查成功")
 }
+

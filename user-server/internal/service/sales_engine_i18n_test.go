@@ -23,21 +23,18 @@ func (s *stubCalibrator) Calibrate(ctx context.Context, text, targetLang string)
 func TestSalesEngineResolveTargetLang(t *testing.T) {
 	e := &SalesEngine{}
 
-	// 内部=zh，未配置 target（==内部），客户日语 → 自动检测 ja
 	ctx := i18npkg.WithInternalLang(context.Background(), "zh")
 	ctx = i18npkg.WithTargetLang(ctx, "zh")
 	if got := e.resolveTargetLang(ctx, "こんにちは、商品について教えて"); got != "ja" {
 		t.Fatalf("auto-detect want ja, got %q", got)
 	}
 
-	// 配置了 target=en（!=内部zh）→ 严格遵循配置，不被客户中文覆盖
 	ctx2 := i18npkg.WithInternalLang(context.Background(), "zh")
 	ctx2 = i18npkg.WithTargetLang(ctx2, "en")
 	if got := e.resolveTargetLang(ctx2, "你好"); got != "en" {
 		t.Fatalf("config priority want en, got %q", got)
 	}
 
-	// 纯拉丁（无目标配置）→ 回退内部 zh，避免中文坐席场景误判
 	ctx3 := i18npkg.WithInternalLang(context.Background(), "zh")
 	ctx3 = i18npkg.WithTargetLang(ctx3, "zh")
 	if got := e.resolveTargetLang(ctx3, "hello there"); got != "zh" {
@@ -59,7 +56,6 @@ func TestSalesEnginePersonaWithLang(t *testing.T) {
 		t.Fatalf("missing instruction/glossary: %q", out)
 	}
 
-	// 同语种 → 原样返回，不附加任何指令
 	ctxZ := i18npkg.WithInternalLang(context.Background(), "zh")
 	ctxZ = i18npkg.WithTargetLang(ctxZ, "zh")
 	if out := e.personaWithLang(ctxZ, "你是客服", "zh"); out != "你是客服" {
@@ -79,3 +75,4 @@ func TestSalesEngineCalibrate(t *testing.T) {
 		t.Fatalf("no calibrator should return unchanged, got %q", got)
 	}
 }
+

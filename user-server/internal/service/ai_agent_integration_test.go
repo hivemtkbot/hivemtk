@@ -15,12 +15,6 @@ import (
 	"hivemtk-user/internal/config"
 )
 
-// ============================================================================
-// 测试配置
-// 禁止账号/密码硬编码（DEVELOPMENT.md §2.4 单一源约束 §6）：
-//   - baseURL 派生自 config.DefaultUserServerBaseURL（ports.go 单一源）
-//   - user/pass 通过环境变量 TEST_ADMIN_USERNAME / TEST_ADMIN_PASSWORD 显式注入
-// ============================================================================
 
 var (
 	baseURL = config.DefaultUserServerBaseURL
@@ -44,9 +38,6 @@ type loginResp struct {
 
 var globalToken string
 
-// ============================================================================
-// 工具函数
-// ============================================================================
 
 func mustPost(t *testing.T, path string, body any, token string) (apiResp, int) {
 	return mustRequest(t, "POST", path, body, token)
@@ -91,7 +82,6 @@ func login(t *testing.T) string {
 	if globalToken != "" {
 		return globalToken
 	}
-	// 集成测试：先探测服务器可达性，避免在无 user-server 环境下失败
 	client := &http.Client{Timeout: 1 * time.Second}
 	if _, err := client.Get(baseURL + "/health"); err != nil {
 		t.Skipf("集成测试跳过：user-server 未运行于 %s (%v)", baseURL, err)
@@ -108,14 +98,10 @@ func login(t *testing.T) string {
 	return globalToken
 }
 
-// ============================================================================
-// AI 智能体模块测试
-// ============================================================================
 
 func TestAIAgent_FullChain(t *testing.T) {
 	token := login(t)
 
-	// ---- 1. 列表查询 ----
 	t.Run("List", func(t *testing.T) {
 		r, code := mustGet(t, "/api/ai-agents", token)
 		if code != 200 || r.Code != "SUCCESS" {
@@ -124,7 +110,6 @@ func TestAIAgent_FullChain(t *testing.T) {
 		t.Logf("✅ List 智能体成功，共 %v 个", r.Data["total"])
 	})
 
-	// ---- 2. 启用列表 ----
 	t.Run("ListEnabled", func(t *testing.T) {
 		r, code := mustGet(t, "/api/ai-agents-enabled", token)
 		if code != 200 || r.Code != "SUCCESS" {
@@ -166,7 +151,6 @@ func TestAIAgent_FullChain(t *testing.T) {
 		t.Fatal("智能体未创建成功，跳过后续测试")
 	}
 
-	// ---- 4. 获取详情 ----
 	t.Run("Get", func(t *testing.T) {
 		r, code := mustGet(t, fmt.Sprintf("/api/ai-agents/%.0f", agentID), token)
 		if code != 200 || r.Code != "SUCCESS" {
@@ -176,7 +160,6 @@ func TestAIAgent_FullChain(t *testing.T) {
 		}
 	})
 
-	// ---- 5. 部分更新（只更新 name） — 验证 BUG 修复 ----
 	t.Run("Update_Partial", func(t *testing.T) {
 		body := map[string]any{
 			"agent_code": agentCode,
@@ -188,7 +171,6 @@ func TestAIAgent_FullChain(t *testing.T) {
 		if code != 200 || r.Code != "SUCCESS" {
 			t.Errorf("Update 失败: code=%d resp=%+v", code, r)
 		} else {
-			// 验证未提供的 enable_xxx 字段应该保持不变(已知 BUG)
 			enableRAG := r.Data["enable_rag"]
 			t.Logf("✅ Update 部分更新成功，enable_rag=%v (期望: true)", enableRAG)
 			if enableRAG != true {
@@ -197,7 +179,6 @@ func TestAIAgent_FullChain(t *testing.T) {
 		}
 	})
 
-	// ---- 6. 切换状态 ----
 	t.Run("Toggle_Disable", func(t *testing.T) {
 		body := map[string]int{"status": 0}
 		r, code := mustPost(t, fmt.Sprintf("/api/ai-agents/%.0f/toggle", agentID), body, token)
@@ -248,7 +229,6 @@ func TestAIAgent_FullChain(t *testing.T) {
 		})
 	}
 
-	// ---- 8. 加载上下文 ----
 	t.Run("Context", func(t *testing.T) {
 		r, code := mustGet(t, fmt.Sprintf("/api/ai-agents/%.0f/context", agentID), token)
 		if code != 200 || r.Code != "SUCCESS" {
@@ -258,14 +238,12 @@ func TestAIAgent_FullChain(t *testing.T) {
 		}
 	})
 
-	// ---- 9. 测试执行（不期望成功，因未配置 LLM API Key） ----
 	t.Run("Test", func(t *testing.T) {
 		body := map[string]string{
 			"customer_id": "test_customer",
 			"message":     "你好",
 		}
 		r, code := mustPost(t, fmt.Sprintf("/api/ai-agents/%.0f/test", agentID), body, token)
-		// 测试可能因 LLM 未配置失败（503），但接口本身可达
 		if code >= 500 {
 			t.Logf("ℹ️ Test 接口可达，但执行失败（无 LLM 凭证）: %s", r.Message)
 		} else if code == 200 {
@@ -275,16 +253,13 @@ func TestAIAgent_FullChain(t *testing.T) {
 		}
 	})
 
-	// ---- 10. 清理 ----
 	t.Run("Cleanup", func(t *testing.T) {
-		// 删除绑定
 		if bindingID > 0 {
 			r, _ := mustDelete(t, fmt.Sprintf("/api/channel-agent-bindings/%.0f", bindingID), nil, token)
 			if r.Code != "SUCCESS" {
 				t.Logf("⚠️ Binding Delete 失败: %s", r.Message)
 			}
 		}
-		// 删除智能体
 		r, _ := mustDelete(t, fmt.Sprintf("/api/ai-agents/%.0f", agentID), nil, token)
 		if r.Code != "SUCCESS" {
 			t.Errorf("Agent Delete 失败: %s", r.Message)
@@ -296,3 +271,4 @@ func TestAIAgent_FullChain(t *testing.T) {
 
 // 防止 os 引用
 var _ = os.Getenv
+

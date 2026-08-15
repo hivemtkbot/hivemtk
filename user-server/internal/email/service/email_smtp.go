@@ -40,15 +40,12 @@ func (s *EmailSmtpService) DeleteEmailSmtp(ctx context.Context, id string) error
 }
 
 func (s *EmailSmtpService) GetRandEmailSmtp(ctx context.Context) (*model.EmailSmtp, error) {
-	// 读取所有列表
 	emailSmtpList, err := s.repo.GetEmailSmtpList(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// 循环判断今日发送个数 超过limit 查找下一个
 	emailListService := NewEmailListService()
 	for _, emailSmtp := range emailSmtpList {
-		// 从email list 统计 今日发送格式
 		todayCount, err := emailListService.GetTodayCountByFrom(ctx, emailSmtp.Name)
 		if err != nil {
 			return nil, err
@@ -57,11 +54,9 @@ func (s *EmailSmtpService) GetRandEmailSmtp(ctx context.Context) (*model.EmailSm
 			return emailSmtp, nil
 		}
 	}
-	// 没有找到 随机返回一个
 	return nil, errors.New("没有找到可用的smtp")
 }
 
-// ---- DTO 外观方法：供 controller 调用，避免 controller 直接依赖 model ----
 
 // CreateEmailSmtpDTO 通过请求 DTO 创建 SMTP 配置
 func (s *EmailSmtpService) CreateEmailSmtpDTO(ctx context.Context, req dto.CreateEmailSmtpRequest) (*dto.EmailSmtpResponse, error) {
@@ -127,3 +122,4 @@ func toEmailSmtpResponse(s *model.EmailSmtp) *dto.EmailSmtpResponse {
 		Limit:    s.Limit,
 	}
 }
+

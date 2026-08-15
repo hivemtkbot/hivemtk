@@ -172,7 +172,7 @@ func (e *SalesEngine) runAgentLoop(
 
 	var lastResult *llm.DispatchResult
 	totalToolCalls := 0
-	var firstLLMError error // 记录首次 LLM 调用错误（用于最终降级返回）
+	var firstLLMError error 
 	curMaxTokens := req.Config.MaxTokens
 	if curMaxTokens <= 0 {
 
@@ -180,7 +180,7 @@ func (e *SalesEngine) runAgentLoop(
 	}
 	curTools := toolDefs
 	lengthRetryDone := false
-	var collectedCards []model.RichCard // 收集工具产出的结构化卡片，随最终回复一并下发
+	var collectedCards []model.RichCard 
 	for iter := 1; iter <= maxIter; iter++ {
 
 		if agentLoopCtx.Err() != nil {
@@ -579,3 +579,4 @@ func safeID(c *model.Customer) string {
 	}
 	return c.ID
 }
+

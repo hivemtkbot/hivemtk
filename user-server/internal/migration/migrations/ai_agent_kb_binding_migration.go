@@ -1,15 +1,5 @@
 package migrations
 
-// ai_agent_kb_binding_migration.go AI 智能体知识库绑定
-//
-// 背景：
-// 1. 现状：faq_entries / sop_templates 是全局共享表，未与 ai_agents 建立绑定关系。
-// 2. 同一 FAQ（"包邮吗"）淘宝客服 / WhatsApp 英文客服需要不同答案，但共享同一条。
-// 3. 设计：把 FAQ / SOP 模板视为「知识库资产」，在 ai_agents 上加 faq_entry_ids / sop_template_ids 数组字段。
-//    - 与现有 rag_product_ids / sop_ids / script_library_ids / decision_strategy_ids / ab_experiment_ids 统一模式
-//    - 一个智能体可绑多个 FAQ / SOP 模板，一个 FAQ / SOP 模板可被多个智能体共享（多对多关系）
-//    - 数组为空 = 全局共享（向后兼容旧数据）
-// 4. Layer1 匹配时按 agent_id 过滤：未绑定 = 全局命中；绑定了 = 只在绑定的 IDs 内匹配。
 
 import (
 	"context"
@@ -49,8 +39,6 @@ func (m *AIAgentKBBindingMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 	stmts := []string{
-		// ai_agents 表新增 2 个绑定字段
-		// 数组为空表示"全局共享"（向后兼容旧 agent），非空表示"专属绑定"
 		`ALTER TABLE ai_agents ADD COLUMN IF NOT EXISTS faq_entry_ids TEXT[] NOT NULL DEFAULT '{}'`,
 		`ALTER TABLE ai_agents ADD COLUMN IF NOT EXISTS sop_template_ids TEXT[] NOT NULL DEFAULT '{}'`,
 	}
@@ -81,3 +69,4 @@ func (m *AIAgentKBBindingMigration) Down(ctx context.Context) error {
 
 // Ensure AIAgentKBBindingMigration implements Migration interface
 var _ migration.Migration = (*AIAgentKBBindingMigration)(nil)
+

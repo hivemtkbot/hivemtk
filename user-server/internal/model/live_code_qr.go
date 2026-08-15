@@ -9,18 +9,18 @@ import (
 
 // LiveCodeQR 活码二维码模型
 type LiveCodeQR struct {
-	ID         string    `json:"id" gorm:"primaryKey;size:36"`         // 主键
-	LiveCodeID string    `json:"live_code_id" gorm:"size:36;not null"` // 活码ID
-	QRType     string    `json:"qr_type" gorm:"size:50;not null"`      // 二维码类型
-	QRContent  string    `json:"qr_content" gorm:"not null"`           // 二维码内容
-	QRTitle    string    `json:"qr_title" gorm:"size:255"`             // 二维码标题
-	ImageURL   string    `json:"image_url" gorm:"size:255"`            // 二维码图片URL
-	Priority   int       `json:"priority" gorm:"default:1"`            // 优先级
-	DailyLimit int       `json:"daily_limit" gorm:"default:200"`       // 每日展示限制
-	ExpireDays int       `json:"expire_days" gorm:"default:7"`         // 过期天数
-	Status     int       `json:"status" gorm:"default:1"`              // 状态：1-启用，0-禁用
-	CreatedAt  time.Time `json:"created_at" gorm:"autoCreateTime"`     // 创建时间
-	UpdatedAt  time.Time `json:"updated_at" gorm:"autoUpdateTime"`     // 更新时间
+	ID         string    `json:"id" gorm:"primaryKey;size:36"`         
+	LiveCodeID string    `json:"live_code_id" gorm:"size:36;not null"` 
+	QRType     string    `json:"qr_type" gorm:"size:50;not null"`      
+	QRContent  string    `json:"qr_content" gorm:"not null"`           
+	QRTitle    string    `json:"qr_title" gorm:"size:255"`             
+	ImageURL   string    `json:"image_url" gorm:"size:255"`            
+	Priority   int       `json:"priority" gorm:"default:1"`            
+	DailyLimit int       `json:"daily_limit" gorm:"default:200"`       
+	ExpireDays int       `json:"expire_days" gorm:"default:7"`         
+	Status     int       `json:"status" gorm:"default:1"`              
+	CreatedAt  time.Time `json:"created_at" gorm:"autoCreateTime"`     
+	UpdatedAt  time.Time `json:"updated_at" gorm:"autoUpdateTime"`     
 }
 
 // TableName 返回表名
@@ -35,3 +35,4 @@ func (l *LiveCodeQR) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+

@@ -6,34 +6,6 @@ import (
 	"strings"
 )
 
-// ============================================================================
-// PostValidator LLM 输出后置校准器（v1.3 出海多语言方案）
-// ----------------------------------------------------------------------------
-// 职责：在 LLM 生成文本返回业务层之前，做"低成本 + 高确定性"的校准：
-//
-//   1. 术语校准（glossary_corrected）
-//      当 LLM 输出了"错误形式"的术语时，替换为 GlossaryView.Mappings 中
-//      指定的目标语言正确形式。
-//
-//   2. 内部敏感脱敏（pattern_redacted）  ← v1.3 新增，真正替换
-//      命中身份证/银行卡/内网IP/密钥/内部成本价等**绝对不应外泄**的内部信息
-//      时，整段替换为 [REDACTED]。与"业务令牌保留"严格区分：
-//        - 脱敏（redact）  ：内部敏感信息，命中即替换
-//        - 保留（protect） ：SKU/价格/URL/email 等客服回复中须原样送达客户的业务内容
-//      脱敏执行前会先定位 protect 命中区间，落入该区间的片段不被脱敏，
-//      避免误伤 URL/email/价格中的长数字（如 URL 内的资源 ID）。
-//
-//   3. 正则保护（pattern_protected）
-//      把 LLM 可能"翻译过头"的内容（SKU/金额/URL/email）还原并保留原样，
-//      记录 ValidationIssue。这里的"保护"语义是**保留**（防止 LLM 把业务令牌翻译/篡改），
-//      而非脱敏——因为邮箱/价格/URL 是客服回复中应当原样送达客户的业务内容
-//      （既有单测 TestValidate_EmailProtected 即断言 email 不应被修改）。
-//
-// 设计原则：
-//   - 纯函数，无副作用，无 IO（不读缓存、不调 repo）
-//   - 校准是"保守"的：仅在能确定正确形式时才替换，否则原样返回
-//   - 校准记录通过 []ValidationIssue 返回，供可观测性 / A/B 调试用
-// ============================================================================
 
 // ValidationIssue 单条校准记录。
 //
@@ -154,19 +126,14 @@ func (v *PostValidator) Validate(text string, targetLang string, glossary *Gloss
 	var issues []ValidationIssue
 	out := text
 
-	// 1. 术语校准（仅当 glossary 非空且有映射）
 	if glossary != nil && len(glossary.Mappings) > 0 {
 		out, issues = v.applyGlossary(out, glossary.Mappings, issues)
 	}
 
-	// 2. 脱敏排除区间：仅 email/URL/SKU（防止 id_card/bank_card 误伤 URL/email 内长数字）
-	//    价格不在此排除集合，以便 internal_cost 等内部敏感模式可覆盖"成本价/利润"等金额
 	protected := v.findProtectSpans(out, compiledRedactExcludePatterns)
 
-	// 3. 内部敏感真正脱敏（排除 email/URL/SKU 区间，但不排除价格——内部成本优先）
 	out, issues = v.applyRedact(out, compiledRedactPatterns, protected, issues)
 
-	// 4. 业务令牌保护记录（价格/SKU/URL/email），文本不变
 	allPatterns := compiledProtectPatterns
 	if glossary != nil && len(glossary.Patterns) > 0 {
 		extra := compileUserPatterns(glossary.Patterns)
@@ -290,7 +257,7 @@ func (v *PostValidator) applyRedact(text string, patterns []*regexp.Regexp, prot
 	var sb strings.Builder
 	last := 0
 	for _, h := range hits {
-		if h.s < last { // 与已写入区间重叠，跳过
+		if h.s < last { 
 			continue
 		}
 		sb.WriteString(text[last:h.s])
@@ -327,3 +294,4 @@ func compileUserPatterns(patterns []string) []*regexp.Regexp {
 	}
 	return out
 }
+

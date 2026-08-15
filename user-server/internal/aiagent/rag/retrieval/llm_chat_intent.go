@@ -1,31 +1,5 @@
 package ragretrieval
 
-// llm_chat_intent.go 基于 LLM 的精细意图识别（7 关键子类）
-//
-// 五层架构归属: L4 能力层
-// 设计依据: PRD §（精细意图识别 7 子类）
-// 私域独立部署: 无 merchant_id 字段
-//
-// 设计目标：
-//   - 在现有 8 大意图类（consult/price_inquiry/objection/...）基础上，
-//     把销售场景中最高频的 7 个子类做成可独立识别的精细类别：
-//       1. 价格异议   price_objection   （objection 下的 price_too_high）
-//       2. 质量异议   quality_objection （after_sale 下的 quality_issue）
-//       3. 购买意向   purchase_intent   （intent_buy 下的 ready_to_buy）
-//       4. 信任异议   trust_objection   （objection 下的 trust_issue）
-//       5. 竞品异议   competitor_objection（objection 下的 competitor_comparison）
-//       6. 折扣请求   discount_request  （price_inquiry 下的 discount_request）
-//       7. 退款请求   refund_request    （after_sale 下的 refund_request）
-//   - 这些子类是 SOP 联动 / 异议处理 / 转化漏斗的核心信号
-//   - 提供 3 个公开 API：
-//       ClassifyKeyIntent(ctx, text, chat) -> KeyIntentResult
-//       IsKeyIntent(ctx, text, intentType, chat) -> bool
-//       ExtractKeyIntents(ctx, texts, chat) -> []KeyIntentResult  （批量）
-//
-// 与 service.IntentRecognizer.RecognizeIntent 的关系：
-//   - service 层是规则 + LLM 二段式（粗 + 精），落库 intent_logs
-//   - 本文件提供 ragretrieval 层的 LLM 精细识别（仅 7 个核心子类），
-//     供 HyDE / Multi-Query / Contextual Retrieval 检索时使用
 
 import (
 	"context"
@@ -40,13 +14,13 @@ import (
 type KeyIntentType string
 
 const (
-	KeyIntentPriceObjection      KeyIntentType = "price_objection"      // 价格异议
-	KeyIntentQualityObjection    KeyIntentType = "quality_objection"    // 质量异议
-	KeyIntentPurchaseIntent      KeyIntentType = "purchase_intent"      // 购买意向
-	KeyIntentTrustObjection      KeyIntentType = "trust_objection"      // 信任异议
-	KeyIntentCompetitorObjection KeyIntentType = "competitor_objection" // 竞品异议
-	KeyIntentDiscountRequest     KeyIntentType = "discount_request"     // 折扣请求
-	KeyIntentRefundRequest       KeyIntentType = "refund_request"       // 退款请求
+	KeyIntentPriceObjection      KeyIntentType = "price_objection"      
+	KeyIntentQualityObjection    KeyIntentType = "quality_objection"    
+	KeyIntentPurchaseIntent      KeyIntentType = "purchase_intent"      
+	KeyIntentTrustObjection      KeyIntentType = "trust_objection"      
+	KeyIntentCompetitorObjection KeyIntentType = "competitor_objection" 
+	KeyIntentDiscountRequest     KeyIntentType = "discount_request"     
+	KeyIntentRefundRequest       KeyIntentType = "refund_request"       
 )
 
 // KeyIntentDescription 7 子类中文名映射
@@ -73,17 +47,11 @@ var AllKeyIntents = []KeyIntentType{
 
 // KeyIntentResult 精细意图识别结果
 type KeyIntentResult struct {
-	// Intent 命中的核心意图（7 子类之一）
 	Intent KeyIntentType `json:"intent"`
-	// Confidence 置信度 0.0-1.0
 	Confidence float64 `json:"confidence"`
-	// Evidence 关键证据短语（从客户消息中提取的子串，便于审计）
 	Evidence string `json:"evidence,omitempty"`
-	// Reasoning LLM 推理过程（method=llm 时填充）
 	Reasoning string `json:"reasoning,omitempty"`
-	// Method 识别方法：rule / llm
 	Method string `json:"method"`
-	// LatencyMs 识别耗时
 	LatencyMs int `json:"latency_ms,omitempty"`
 }
 
@@ -110,17 +78,14 @@ func ClassifyKeyIntent(ctx context.Context, text string, chat LLMChatClient) Key
 	if strings.TrimSpace(text) == "" {
 		return KeyIntentResult{Method: "rule", Confidence: 0.0}
 	}
-	// 1. 规则匹配
 	if r := matchKeyIntentByRule(text); r != nil {
 		return *r
 	}
-	// 2. LLM 识别
 	if chat == nil {
 		return KeyIntentResult{Method: "rule", Confidence: 0.4}
 	}
 	llmResult, err := classifyKeyIntentByLLM(ctx, text, chat)
 	if err != nil || llmResult == nil {
-		// LLM 失败 → 返回 rule 降级结果（不吞错：err 由调用方通过 Result.Reasoning 区分）
 		return KeyIntentResult{Method: "rule", Confidence: 0.4}
 	}
 	return *llmResult
@@ -181,7 +146,6 @@ func matchKeyIntentByRule(text string) *KeyIntentResult {
 	if bestIntent == "" {
 		return nil
 	}
-	// 置信度：score 越高 confidence 越高，上限 0.92
 	conf := 0.6 + float64(bestScore)*0.02
 	if conf > 0.92 {
 		conf = 0.92
@@ -295,3 +259,4 @@ func ClassifyKeyIntentWithDispatcher(ctx context.Context, text string, dispatche
 	adapter := NewDispatcherChatAdapter(dispatcher)
 	return ClassifyKeyIntent(ctx, text, adapter)
 }
+

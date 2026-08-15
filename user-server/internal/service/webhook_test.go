@@ -40,18 +40,15 @@ func TestContentHashMsgID_StableContract(t *testing.T) {
 	if got != "mh:00550fed" {
 		t.Fatalf("ContentHashMsgID 契约值漂移: got=%s want=mh:00550fed", got)
 	}
-	// 隔离性：channel / content 不同 → 值不同
 	if ContentHashMsgID("xhs", conv, content) == got {
 		t.Fatalf("channel 不同应哈希不同")
 	}
 	if ContentHashMsgID(channel, conv, "你好吗") == got {
 		t.Fatalf("content 不同应哈希不同")
 	}
-	// conversationID 不参与哈希（跨会话同内容回环去重需要相同 msg_id）→ 不同 conv 必须哈希相同
 	if ContentHashMsgID(channel, "c2", content) != got {
 		t.Fatalf("conversationID 不参与哈希：不同 conv 应哈希相同")
 	}
-	// 首尾空白被 trim：不应影响结果
 	if ContentHashMsgID(channel, conv, "  你好  ") != got {
 		t.Fatalf("首尾空白应被 trim，不影响哈希")
 	}
@@ -89,7 +86,6 @@ func TestWebhookService_ParsePayload_AliasKeys(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			// 至少有一个匹配别名
 			if p.EventID == "" && p.EventType == "" {
 				t.Errorf("expected alias match for %s", c.name)
 			}
@@ -123,7 +119,6 @@ func TestWebhookService_ParsePayload_NestedJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	// 顶层取不到，Extra 应该有 raw
 	if p.Extra == nil {
 		t.Error("expected Extra")
 	}
@@ -179,7 +174,6 @@ func TestWebhookService_VerifyHMAC_MultiHeaders(t *testing.T) {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(body)
 	sig := hex.EncodeToString(mac.Sum(nil))
-	// X-Hub-Signature-256 应被识别
 	hdr := map[string]string{"X-Hub-Signature-256": sig}
 	if !verifyHMAC(secret, body, hdr, "X-Signature", "X-Hub-Signature-256") {
 		t.Error("expected multi header match")
@@ -279,7 +273,7 @@ func TestWebhookService_Receive_GeneratedEventID(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
 	defer s.Stop(context.Background())
-	body := []byte(`{"content":"hi"}`) // 没有 event_id
+	body := []byte(`{"content":"hi"}`) 
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
 	if !r.Accepted {
 		t.Errorf("expected accepted, got %+v", r)
@@ -296,10 +290,8 @@ func TestWebhookService_Receive_DefaultEventType(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
 	defer s.Stop(context.Background())
-	// event_id 必须唯一：isDuplicate 走全局 Redis 去重（TTL 5 分钟），固定 id 会在多次
-	// go test 调用间与持久化去重键碰撞，导致误判重复、EventType 为空。
 	eventID := fmt.Sprintf("e1-%d", time.Now().UnixNano())
-	body := []byte(fmt.Sprintf(`{"event_id":"%s","content":"hi"}`, eventID)) // 没有 event_type
+	body := []byte(fmt.Sprintf(`{"event_id":"%s","content":"hi"}`, eventID)) 
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
 	if !r.Accepted {
 		t.Errorf("expected accepted, got %+v", r)
@@ -321,7 +313,6 @@ func TestWebhookService_Receive_InvalidJSON(t *testing.T) {
 
 func TestWebhookService_Receive_HMAC_Douyin(t *testing.T) {
 	db := setupWebhookTestDB(t)
-	// 注入 secret
 	db.Create(&model.IntegrationAccount{Platform: "douyin", APISecret: "secret123", Status: 1})
 	s := NewWebhookService(db)
 	defer s.Stop(context.Background())
@@ -392,13 +383,10 @@ func TestWebhookService_Receive_HMAC_Xiaohongshu(t *testing.T) {
 }
 
 func TestWebhookService_Receive_Wechat(t *testing.T) {
-	// 当前实现里 getWechatSecrets 返回空 => 验签失败
-	// 但 verify 函数的逻辑要求 token 非空
 	s := &WebhookService{}
 	body := []byte(`{"event_id":"w1","msg_signature":"x","timestamp":"1","nonce":"2"}`)
 	hdr := map[string]string{"X-Wechat-Timestamp": "1", "X-Wechat-Nonce": "2", "X-Wechat-Signature": "x"}
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelWechat, AccountID: "a1", Body: body, Headers: hdr})
-	// 没有 token 注入 => 验签失败
 	if r.Accepted {
 		t.Error("expected rejected (no token configured)")
 	}
@@ -417,14 +405,11 @@ func TestWebhookService_Receive_RateLimit(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
 	defer s.Stop(context.Background())
-	// 创建专用 key 走独立限流桶
 	key := "custom:rl-test"
-	// 强行清空 token
 	b := &tokenBucket{capacity: 5, refillRate: 0, tokens: 0, lastRefill: time.Now()}
 	s.mu.Lock()
 	s.rlBuckets[key] = b
 	s.mu.Unlock()
-	// 注入 secret 让验签通过（custom 渠道无 secret）
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "rl-test", Body: []byte(`{"event_id":"rl1","content":"hi"}`)})
 	if r.Accepted {
 		t.Error("expected rate limited")
@@ -454,12 +439,10 @@ func TestWebhookService_ToUnifiedMessage(t *testing.T) {
 
 func TestWebhookService_TruncateForStore(t *testing.T) {
 	s := &WebhookService{}
-	// 短字符串不截断
 	short := []byte("hello")
 	if s.TruncateForStore(context.Background(), short) != "hello" {
 		t.Error("short should not truncate")
 	}
-	// 长字符串截断
 	long := make([]byte, 70*1024)
 	for i := range long {
 		long[i] = 'a'
@@ -556,14 +539,12 @@ func TestWebhookService_PendingCount(t *testing.T) {
 
 func TestWebhookService_Dedup_ExpiresAfterTTL(t *testing.T) {
 	s := &WebhookService{}
-	// 全局缓存 SetNX 幂等：同一 eventID 首次出现视为非重复，二次视为重复
 	if s.isDuplicate(context.Background(), "dup-evt-A") {
 		t.Error("expected first occurrence not duplicate")
 	}
 	if !s.isDuplicate(context.Background(), "dup-evt-A") {
 		t.Error("expected second occurrence duplicate")
 	}
-	// 不同 eventID 互不干扰
 	if s.isDuplicate(context.Background(), "dup-evt-B") {
 		t.Error("expected distinct eventID not duplicate")
 	}
@@ -583,14 +564,12 @@ func TestWebhookService_TokenBucket(t *testing.T) {
 			t.Errorf("expected allow at iter %d", i)
 		}
 	}
-	// 第 6 次应被拒
 	if b.allow(context.Background()) {
 		t.Error("expected reject after exhaustion")
 	}
 }
 
 func TestWebhookService_AllChannels(t *testing.T) {
-	// 验证所有渠道都经过 Verify 逻辑（不 panic）
 	s := &WebhookService{}
 	for _, ch := range []WebhookChannel{
 		ChannelDouyin, ChannelKuaishou, ChannelXiaohongshu, ChannelXianyu,
@@ -632,3 +611,4 @@ func TestWebhookService_PayloadSize_Large(t *testing.T) {
 func fmtKey(i int) string {
 	return "key_" + string(rune('a'+i%26)) + "_" + string(rune('0'+i/26%10))
 }
+

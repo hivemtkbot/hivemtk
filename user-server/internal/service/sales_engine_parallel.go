@@ -1,32 +1,5 @@
 package service
 
-// sales_engine_parallel.go SalesEngine 并行化重构
-//
-// 设计依据: AI 智能体性能优化
-//
-// 目标: 9 步串行 → 5 阶段混合 (Phase 0 并行 + Phase 1 串行 + Phase 2 异步收割)
-//
-// 数据流:
-//
-//	Phase 0 (并行, 目标 < 100ms):
-//	  - resolveCustomer  ←─┐
-//	  - recallMemory      ←─┤ errgroup.WithContext
-//	  - IntentSpeculative ←─┤ (规则立即返回, LLM 后台)
-//	  - recallRAG         ←─┘
-//
-//	Phase 1 (串行, 目标 < 1.5s):
-//	  - 3.5 shouldTransfer
-//	  - 4    matchSOP
-//	  - 5.5  matchScript
-//	  - 5.6  playbook
-//	  - 6    generateCandidate (LLM 1 次)
-//
-//	Phase 2 (异步收割, 10ms 超时):
-//	  - 收割 IntentSpeculative 的 LLM 结果 (用于 cache upgrade)
-//
-// Phase 3 (WebSocket 流式, 接入):
-//	  - chunk 1 (LCP 100ms)
-//	  - chunk 2-N (LLM stream delta)
 
 import (
 	"context"
@@ -43,9 +16,9 @@ import (
 
 // 5 阶段阶段名常量 (用于 Steps 日志)
 const (
-	PhaseParallel = "0_phase_parallel" // Phase 0 并行
-	PhaseSerial   = "1_phase_serial"   // Phase 1 串行
-	PhaseAsync    = "2_phase_async"    // Phase 2 异步收割
+	PhaseParallel = "0_phase_parallel" 
+	PhaseSerial   = "1_phase_serial"   
+	PhaseAsync    = "2_phase_async"    
 )
 
 // phase0Result Phase 0 并行执行结果聚合
@@ -54,8 +27,8 @@ const (
 // 注释中所谓"避免循环依赖"的借口不成立 — service → model 是允许的方向,
 // model → service 才是循环依赖, 两者方向不同。
 type phase0Result struct {
-	customer  *model.Customer       // 客户实体
-	memCtx    *model.DialogueMemory // 对话长期记忆
+	customer  *model.Customer       
+	memCtx    *model.DialogueMemory 
 	intent    *dto.RecognizeResult
 	intentCh  <-chan *dto.RecognizeResult
 	ragChunks []RAGChunk
@@ -89,11 +62,9 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 	defer func() {
 		resp.LatencyMs = int(time.Since(start).Milliseconds())
 		e.recordFeedback(ctx, req, resp)
-		// 私域: 无 Prometheus 端点, 指标已落库 (layer_decision_logs)
 		_ = phase0Ptr
 	}()
 
-	// ========== Phase 0: 并行执行 resolveCustomer + recallMemory + intent + RAG ==========
 	phase0Start := time.Now()
 	phase0 := e.runPhase0Parallel(ctx, req)
 	phase0Ptr = phase0
@@ -107,9 +78,6 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 	resp.Memory = DialogueMemoryToDTO(phase0.memCtx)
 	resp.RAGChunks = phase0.ragChunks
 
-	// ========== Phase 0.5: Layer1 双层路由 fastPath ==========
-	// 命中 Layer1 (SkipLLM=true) -> 立即构造最终回复, 不再走 9 步剩余流程
-	// 目的: FAQ / SOP 高分命中场景 LCP < 100ms 返回, 节省 1.5B q4 LLM 推理 5-15s
 	if e.layerRouter != nil {
 		phase05Start := time.Now()
 		decision := e.layerRouter.Route(ctx, &RouteRequest{
@@ -119,7 +87,6 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 			Intent:      phase0.intent,
 			RAGChunks:   phase0.ragChunks,
 			Stage:       "",
-			// 传 agentID 实现按智能体隔离的 FAQ/SOP 匹配
 			AgentID: agentIDFromCtx(req),
 		})
 		if decision != nil && decision.SkipLLM && decision.Reply != "" {
@@ -131,16 +98,13 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 				Detail: fmt.Sprintf("layer1 hit (reason=%s faq_id=%d sop_id=%d) wall=%dms",
 					decision.Reason, decision.FAQID, decision.SOPID, decision.WallMs),
 			})
-			// 立即返回, 跳过 Phase 1/2
 			return resp, nil
 		}
 	}
 
-	// ========== Phase 1: 串行决策 (3.5 transfer + 4 SOP + 5.5 script + 5.6 playbook + 6 generateCandidate) ==========
 	phase1Start := time.Now()
 	transferred := e.runPhase1Serial(ctx, req, resp, phase0)
 	if transferred {
-		// 已转人工, 跳过 Phase 2/3
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{
 			Step:      PhaseSerial,
 			Status:    "skip",
@@ -156,13 +120,11 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 		Detail:    fmt.Sprintf("phase1 (3.5+4+5.5+5.6+6 serial) wall=%dms", ms(phase1Start)),
 	})
 
-	// ========== Phase 2: 异步收割 LLM intent (10ms 超时, 不阻塞) ==========
 	phase2Start := time.Now()
 	if phase0.intentCh != nil {
 		select {
 		case llmIntent, ok := <-phase0.intentCh:
 			if ok && llmIntent != nil && llmIntent.Confidence > phase0.intent.Confidence {
-				// LLM 识别置信度更高, 升级 intent (用于下一轮 cache)
 				if featureflag.Get("debug_log").Bool() {
 					resp.Steps = append(resp.Steps, dto.SalesStepLog{
 						Step: PhaseAsync, Status: "ok", LatencyMs: ms(phase2Start),
@@ -173,7 +135,6 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 				}
 			}
 		case <-time.After(10 * time.Millisecond):
-			// 10ms 内未收到 LLM 结果, 不阻塞主流程
 			if featureflag.Get("debug_log").Bool() {
 				resp.Steps = append(resp.Steps, dto.SalesStepLog{
 					Step: PhaseAsync, Status: "timeout", LatencyMs: ms(phase2Start),
@@ -195,17 +156,14 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 func (e *SalesEngine) runPhase0Parallel(ctx context.Context, req *SalesRequest) *phase0Result {
 	out := &phase0Result{}
 
-	// 兼容旧版: 如果 intent 不可识别 Speculative, 回退到 sync
 	speculative, hasSpeculative := e.intent.(interface {
 		RecognizeSpeculative(ctx context.Context, sessionID, customerID, text string) (*dto.RecognizeResult, <-chan *dto.RecognizeResult, error)
 	})
 
 	var mu sync.Mutex
 	g, gctx := errgroup.WithContext(ctx)
-	// 并发上限 4, 与当前 Phase 0 任务数一致, 防止 DB pool 耗尽
 	g.SetLimit(4)
 
-	// 1) resolveCustomer
 	g.Go(func() error {
 		c, err := e.resolveCustomer(gctx, req)
 		if err == nil {
@@ -213,10 +171,9 @@ func (e *SalesEngine) runPhase0Parallel(ctx context.Context, req *SalesRequest) 
 			out.customer = c
 			mu.Unlock()
 		}
-		return nil // 不中断其他 goroutine
+		return nil 
 	})
 
-	// 2) recallMemory
 	g.Go(func() error {
 		m, err := e.recallMemory(gctx, req)
 		if err == nil {
@@ -227,7 +184,6 @@ func (e *SalesEngine) runPhase0Parallel(ctx context.Context, req *SalesRequest) 
 		return nil
 	})
 
-	// 3) IntentSpeculative (或回退到 sync Recognize)
 	g.Go(func() error {
 		if hasSpeculative && speculative != nil {
 			intent, ch, err := speculative.RecognizeSpeculative(gctx, req.SessionID, req.CustomerID, req.UserMessage)
@@ -238,7 +194,6 @@ func (e *SalesEngine) runPhase0Parallel(ctx context.Context, req *SalesRequest) 
 				mu.Unlock()
 			}
 		} else if e.intent != nil {
-			// 回退: 同步 Recognize
 			intent, err := e.intent.Recognize(gctx, req.SessionID, req.CustomerID, req.UserMessage)
 			if err == nil && intent != nil {
 				mu.Lock()
@@ -256,14 +211,11 @@ func (e *SalesEngine) runPhase0Parallel(ctx context.Context, req *SalesRequest) 
 		return nil
 	})
 
-	// 4) recallRAG (RAG 不依赖 intent, 可与 intent 并行)
 	g.Go(func() error {
-		// 读取 out.intent 必须在锁内，避免与 func3 的写入产生数据竞态
 		mu.Lock()
 		intentReady := out.intent
 		mu.Unlock()
 		if intentReady == nil {
-			// RAG 在 intent 出来前可以先跑
 			r, err := e.recallRAG(gctx, req, &dto.RecognizeResult{IntentType: IntentUnknown, Confidence: 0})
 			if err == nil {
 				mu.Lock()
@@ -295,7 +247,6 @@ func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, re
 	_ = memCtx
 	_ = customer
 
-	// 步骤 3.5: 判断是否转人工
 	stepStart := time.Now()
 	transfer, reason := e.shouldTransferToHuman(ctx, intent, nil, req)
 	if transfer {
@@ -309,7 +260,6 @@ func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, re
 		return true
 	}
 
-	// 步骤 4: SOP 匹配
 	stepStart = time.Now()
 	sopAgent, stage, err := e.matchSOP(ctx, intent, nil)
 	if err != nil {
@@ -323,7 +273,6 @@ func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, re
 		})
 	}
 
-	// 步骤 5.5: 话术匹配
 	stepStart = time.Now()
 	scriptTpl, err := e.matchScript(ctx, intent)
 	if err != nil {
@@ -337,7 +286,6 @@ func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, re
 		_ = scriptTpl
 	}
 
-	// 步骤 5.6: Playbook 推荐
 	stepStart = time.Now()
 	if e.playbook != nil {
 		_ = e.RecommendPlaybook(ctx, "", "", "", intent.IntentType)
@@ -346,7 +294,6 @@ func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, re
 		})
 	}
 
-	// 步骤 6: 生成候选回复 (LLM)
 	stepStart = time.Now()
 	reply, dispatchResult, cards, err := e.generateCandidate(ctx, req, intent, nil, sopAgent, stage, phase0.ragChunks, nil, nil)
 	if err != nil {
@@ -388,3 +335,4 @@ func (e *SalesEngine) shouldUseParallel() bool {
 func msForParallel(start time.Time) int {
 	return int(time.Since(start).Milliseconds())
 }
+

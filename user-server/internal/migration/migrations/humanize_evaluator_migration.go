@@ -1,23 +1,5 @@
 package migrations
 
-// humanize_evaluator_migration.go 拟人度评估器迁移 v2.9.0
-//
-// 五层架构归属: L5 数据层
-// 设计依据: docs/核心链路优化.md 第十六章 §16.3 表结构设计
-// 私域独立部署: 无 merchant_id 字段
-//
-// 本迁移创建 拟人度评估器所需的 5 张新表：
-//  1. humanize_scores      - 拟人度评估主表（每次评估一条记录）
-//  2. humanize_dimensions  - 维度得分明细
-//  3. champion_baselines   - 销冠基线（persona+industry+intent 三元组）
-//  4. champion_phrases     - 销冠短语（TF-IDF 提取）
-//  5. ab_test_stats        - A/B 测试统计结果
-//
-// 第 6 张表 low_quality_samples 已由 创建，本迁移不修改其结构，
-// 仅通过 model 层 LowQualitySampleType 枚举扩展新增类型（naturalness_low 等）
-//
-// 幂等性: 所有 DDL 使用 IF NOT EXISTS，可重入
-// 依赖: 无（独立表）
 
 import (
 	"context"
@@ -55,27 +37,22 @@ func (m *HumanizeEvaluatorMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 1. humanize_scores 表
 	if err := m.createHumanizeScores(ctx); err != nil {
 		return fmt.Errorf("create humanize_scores 失败: %w", err)
 	}
 
-	// 2. humanize_dimensions 表
 	if err := m.createHumanizeDimensions(ctx); err != nil {
 		return fmt.Errorf("create humanize_dimensions 失败: %w", err)
 	}
 
-	// 3. champion_baselines 表
 	if err := m.createChampionBaselines(ctx); err != nil {
 		return fmt.Errorf("create champion_baselines 失败: %w", err)
 	}
 
-	// 4. champion_phrases 表
 	if err := m.createChampionPhrases(ctx); err != nil {
 		return fmt.Errorf("create champion_phrases 失败: %w", err)
 	}
 
-	// 5. ab_test_stats 表
 	if err := m.createABTestStats(ctx); err != nil {
 		return fmt.Errorf("create ab_test_stats 失败: %w", err)
 	}
@@ -244,3 +221,4 @@ func execAllHumanize(ctx context.Context, db *gorm.DB, stmts []string) error {
 
 // compile-time 接口断言
 var _ migration.Migration = (*HumanizeEvaluatorMigration)(nil)
+

@@ -1,13 +1,5 @@
 package ragcustomerservice
 
-// prompt_templates_test.go 多语言 system prompt 模板渲染单元测试
-//
-// 覆盖：
-//  1. renderMultilingualSystemPrompt(zh, en, "GLOSSARY", "FEW_SHOT") → 包含 "English"（target）和 "简体中文"（source）
-//  2. renderMultilingualSystemPrompt(en, zh, ...) → 包含 "简体中文"（target）和 "English"（source）
-//  3. 包含 "Knowledge base context below is in"
-//  4. 包含 GlossaryBlock 内容
-//  5. 包含 FewShotBlock 内容
 
 import (
 	"strings"
@@ -33,7 +25,6 @@ func TestRenderMultilingualSystemPrompt_EnToZh(t *testing.T) {
 // TestRenderMultilingualSystemPrompt_KnowledgeBaseHint 包含知识库语种提示
 func TestRenderMultilingualSystemPrompt_KnowledgeBaseHint(t *testing.T) {
 	out := renderMultilingualSystemPrompt("zh", "en", "", "")
-	// 模板原文："The knowledge base context below is in **{{.SourceLangName}}**"
 	assert.Contains(t, out, "knowledge base context below is in")
 }
 
@@ -42,7 +33,6 @@ func TestRenderMultilingualSystemPrompt_GlossaryBlock(t *testing.T) {
 	glossary := "# Glossary\n- 顺丰国际 → SF International"
 	out := renderMultilingualSystemPrompt("zh", "en", glossary, "")
 	assert.Contains(t, out, glossary, "应包含 GlossaryBlock 原文")
-	// 占位符应已被替换
 	assert.NotContains(t, out, "{{.GlossaryBlock}}")
 }
 
@@ -66,7 +56,6 @@ func TestRenderMultilingualSystemPrompt_AllPlaceholdersReplaced(t *testing.T) {
 // TestRenderMultilingualSystemPrompt_EmptyBlocks 空块也允许
 func TestRenderMultilingualSystemPrompt_EmptyBlocks(t *testing.T) {
 	out := renderMultilingualSystemPrompt("zh", "en", "", "")
-	// 仍应包含语种名
 	assert.Contains(t, out, "English")
 	assert.Contains(t, out, "简体中文")
 }
@@ -81,16 +70,15 @@ func TestRenderMultilingualSystemPrompt_OtherLanguages(t *testing.T) {
 // TestRenderMultilingualSystemPrompt_UnknownLang_FallbackEnglish 未知语种应兜底 English
 func TestRenderMultilingualSystemPrompt_UnknownLang_FallbackEnglish(t *testing.T) {
 	out := renderMultilingualSystemPrompt("xx", "yy", "", "")
-	// 未知语种都应兜底为 English（LangName 行为）
 	count := strings.Count(out, "English")
 	assert.GreaterOrEqual(t, count, 1, "未知语种应兜底 English")
 }
 
 // TestMultilingualSystemPromptTemplate_StringConstant 模板常量本身合规
 func TestMultilingualSystemPromptTemplate_StringConstant(t *testing.T) {
-	// 模板应包含所有 4 个占位符
 	assert.Contains(t, MultilingualSystemPromptTemplate, "{{.TargetLangName}}")
 	assert.Contains(t, MultilingualSystemPromptTemplate, "{{.SourceLangName}}")
 	assert.Contains(t, MultilingualSystemPromptTemplate, "{{.GlossaryBlock}}")
 	assert.Contains(t, MultilingualSystemPromptTemplate, "{{.FewShotBlock}}")
 }
+

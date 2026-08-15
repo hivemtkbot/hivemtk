@@ -13,26 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ============================================================================
-// 工具链调试与可观测 API
-// ----------------------------------------------------------------------------
-// 本文件提供 5 个 HTTP 端点，覆盖工具链的"列表 / 执行 / 统计 / 审计 / 计费"5 个面：
-//
-//	GET    /api/agent/tools/list            列出所有已注册工具（含 schema）
-//	GET    /api/agent/tools/get             按 name 查询单个工具详情
-//	POST   /api/agent/tools/execute         执行单个工具（人工调试 / 外部集成入口）
-//	GET    /api/agent/tools/stats           获取 ToolRouter 全局统计（含熔断计数）
-//	GET    /api/agent/tools/audit           获取最近 N 条审计日志
-//	GET    /api/agent/tools/cost            获取计费统计（按工具名聚合）
-//	POST   /api/agent/tools/circuit/reset   重置指定工具的熔断状态
-//
-// 设计要点：
-//   - 所有端点都走 auth 路由组（已有 JWTAuthMiddleware + InitGuard）
-//   - /execute 端点复用全局 ToolExecutor（走完整 8 层装饰器链）
-//   - /execute 限单工具单次调用，不暴露批量执行（防止被滥用打爆下游）
-//   - /audit /cost 仅返回内存版数据（重启丢失，未来可替换为 DB 持久化）
-//   - /stats 优先返回 ToolRouter 统计；ToolRouter 未装配时降级返回 executor 的 ListAvailableTools 数量
-// ============================================================================
 
 // setupToolDebugRoutes 注册工具链调试与可观测 API 路由
 //
@@ -45,11 +25,9 @@ func setupToolDebugRoutes(auth *gin.RouterGroup) {
 	auth.GET("/agent/tools/audit", handleToolAudit)
 	auth.GET("/agent/tools/cost", handleToolCost)
 	auth.POST("/agent/tools/circuit/reset", handleToolCircuitReset)
-	// + 优化：统一扩展入口可视化
 	auth.GET("/agent/tools/providers", handleToolProviders)
 }
 
-// ---- 工具列表 ----
 
 // handleToolList 列出所有已注册工具
 //
@@ -91,7 +69,6 @@ func handleToolList(c *gin.Context) {
 	})
 }
 
-// ---- 单工具详情 ----
 
 // handleToolGet 按 name 查询单个工具详情
 //
@@ -123,17 +100,15 @@ func handleToolGet(c *gin.Context) {
 	})
 }
 
-// ---- 工具执行（人工调试入口） ----
 
 // toolExecuteRequest 执行工具请求体
 type toolExecuteRequest struct {
 	ToolName string         `json:"tool_name" binding:"required"`
 	Args     map[string]any `json:"args"`
-	// 可选执行上下文
 	AgentID    string `json:"agent_id"`
 	SessionID  string `json:"session_id"`
 	CustomerID string `json:"customer_id"`
-	Source     string `json:"source"` // agent/sop/manual/api
+	Source     string `json:"source"` 
 }
 
 // handleToolExecute 执行单个工具
@@ -160,7 +135,6 @@ func handleToolExecute(c *gin.Context) {
 	if req.Args == nil {
 		req.Args = map[string]any{}
 	}
-	// 构造 ToolContext
 	toolCtx := &tooluse.ToolContext{
 		AgentID:    req.AgentID,
 		SessionID:  req.SessionID,
@@ -171,11 +145,9 @@ func handleToolExecute(c *gin.Context) {
 	if toolCtx.Source == "" {
 		toolCtx.Source = "manual"
 	}
-	// 执行（context 默认 35s 超时，比工具超时 30s 略长，保证装饰器能正常兜底）
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 35*time.Second)
 	defer cancel()
 
-	// 复用全局 ToolRouter（走熔断 + 限流 + 成本统计），未装配时降级走 ToolExecutor
 	router := app.GetGlobalToolRouter()
 	var routeResult tooluse.RouteResult
 	if router != nil {
@@ -206,7 +178,6 @@ func handleToolExecute(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// ---- 全局统计 ----
 
 // handleToolStats 获取 ToolRouter 全局统计
 //
@@ -239,7 +210,6 @@ func handleToolStats(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// ---- 审计日志 ----
 
 // handleToolAudit 获取最近 N 条审计日志
 //
@@ -259,18 +229,12 @@ func handleToolAudit(c *gin.Context) {
 	}
 	toolName := c.Query("tool")
 
-	// 从全局 Executor 配置中拿到 AuditLogger（内存版）
-	// 由于 ToolExecutor 未暴露 AuditLogger 访问器，这里直接 type-assert
-	// 内存版 AuditLogger 暴露 Entries() 方法
-	// 若未来替换为 DBAuditLogger，需通过依赖注入访问
 	exec := tooluse.GetGlobalExecutor()
 	if exec == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "error": "tool executor not initialized"})
 		return
 	}
 
-	// 尝试通过反射或接口获取 AuditLogger 的内存实例
-	// 这里通过 router 包级别的便利方法（见下文 tool_executor_wiring.go 中的内存 AuditLogger 持有）
 	memLogger := app.GetGlobalMemoryAuditLogger()
 	if memLogger == nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -282,7 +246,6 @@ func handleToolAudit(c *gin.Context) {
 		return
 	}
 	entries := memLogger.Entries()
-	// 倒序（最新在前）+ 过滤 + 截断
 	out := make([]tooluse.AuditEntry, 0, limit)
 	for i := len(entries) - 1; i >= 0 && len(out) < limit; i-- {
 		e := entries[i]
@@ -298,7 +261,6 @@ func handleToolAudit(c *gin.Context) {
 	})
 }
 
-// ---- 计费统计 ----
 
 // handleToolCost 获取计费统计
 func handleToolCost(c *gin.Context) {
@@ -320,7 +282,6 @@ func handleToolCost(c *gin.Context) {
 	})
 }
 
-// ---- 熔断重置 ----
 
 // toolCircuitResetRequest 重置熔断请求体
 type toolCircuitResetRequest struct {
@@ -354,7 +315,6 @@ func handleToolCircuitReset(c *gin.Context) {
 	})
 }
 
-// ---- 辅助函数 ----
 
 // atoiSafe 安全字符串转 int
 func atoiSafe(s string) (int, error) {
@@ -378,7 +338,6 @@ type simpleError struct{ msg string }
 
 func (e *simpleError) Error() string { return e.msg }
 
-// ---- 统一扩展入口：Provider 可视化 ----
 
 // handleToolProviders 列出所有 ToolProvider 及其装配状态
 //
@@ -410,7 +369,6 @@ func handleToolProviders(c *gin.Context) {
 	results := app.GetGlobalProviderRegistry().Results()
 	providers := app.GetGlobalProviderRegistry().ListProviders()
 
-	// 合并 Provider 元信息与最近一次注册结果
 	providerInfo := make([]gin.H, 0, len(providers))
 	resultMap := make(map[string]tooluse.ProviderRegistrationResult, len(results))
 	for _, r := range results {
@@ -447,3 +405,4 @@ func handleToolProviders(c *gin.Context) {
 		"results":          providerInfo,
 	})
 }
+

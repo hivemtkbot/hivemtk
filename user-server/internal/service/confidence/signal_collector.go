@@ -1,18 +1,5 @@
 package confidence
 
-// signal_collector.go 5 维置信度信号采集器
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.4.2
-//
-// 5 维信号：
-//   - IntentConf:  意图分类器置信度（外部传入，本采集器透传）
-//   - EntityComp:  实体完整性 = |extracted ∩ expected| / |expected|
-//   - CtxRelev:    上下文相关性 = cosine(query_embed, last_3_turns_mean_embed)
-//   - RAGQual:     RAG 检索质量 = mean(top-k chunk score) * coverage_ratio
-//   - LLMEntropy:  LLM 生成熵 = 1 - normalize(ShannonEntropy(top-20 logprobs))
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -27,7 +14,6 @@ import (
 // SignalCollector 仅需要 Embed(text) → []float32 能力
 // 生产环境注入 llm.EmbeddingService；测试注入 mock
 type Embedder interface {
-	// Embed 返回文本的 1024 维向量
 	Embed(ctx context.Context, text string) ([]float32, error)
 }
 
@@ -56,21 +42,17 @@ func (c *SignalCollector) Collect(ctx context.Context, in *dto.SignalCollectionI
 		IntentConf: clamp01(in.RawIntentConf),
 	}
 
-	// 2. EntityComp
 	signals.EntityComp = c.computeEntityComp(in.ExtractedEntities, in.ExpectedEntities)
 
-	// 3. CtxRelev
 	ctxRelev, err := c.computeCtxRelev(ctx, in.Text, in.LastTurns)
 	if err == nil {
 		signals.CtxRelev = ctxRelev
 	} else {
-		signals.CtxRelev = 0.5 // 降级
+		signals.CtxRelev = 0.5 
 	}
 
-	// 4. RAGQual
 	signals.RAGQual = c.computeRAGQual(in)
 
-	// 5. LLMEntropy
 	signals.LLMEntropy = c.computeLLMEntropy(in.LLMLogprobs)
 
 	return signals, nil
@@ -113,7 +95,6 @@ func (c *SignalCollector) computeCtxRelev(ctx context.Context, query string, las
 		return 0.5, nil
 	}
 
-	// 取最近 3 轮的均值向量
 	meanVec := make([]float32, len(queryVec))
 	validCount := 0
 	for _, turn := range lastTurns {
@@ -176,7 +157,6 @@ func (c *SignalCollector) computeLLMEntropy(logprobs []float64) float64 {
 	if len(logprobs) == 0 {
 		return 0.5
 	}
-	// softmax 归一化 logprobs
 	maxLp := logprobs[0]
 	for _, lp := range logprobs {
 		if lp > maxLp {
@@ -192,7 +172,6 @@ func (c *SignalCollector) computeLLMEntropy(logprobs []float64) float64 {
 	if expSum == 0 {
 		return 0.5
 	}
-	// Shannon 熵
 	entropy := 0.0
 	for _, e := range expLp {
 		p := e / expSum
@@ -200,7 +179,6 @@ func (c *SignalCollector) computeLLMEntropy(logprobs []float64) float64 {
 			entropy -= p * math.Log(p)
 		}
 	}
-	// 归一化到 [0, 1]
 	k := float64(len(logprobs))
 	if k <= 1 {
 		return 1.0
@@ -238,3 +216,4 @@ func clamp01(v float64) float64 {
 	}
 	return v
 }
+

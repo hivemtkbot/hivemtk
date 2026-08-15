@@ -43,3 +43,4 @@ func ModeOf(a *model.AIAgent) model.AgentMode {
 func IsActive(a *model.AIAgent) bool {
 	return ModeOf(a) == model.AgentModeActive
 }
+

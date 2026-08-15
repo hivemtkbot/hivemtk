@@ -27,17 +27,14 @@ func NewSmsController(service service.SmsService) *SmsController {
 func (c *SmsController) RegisterRoutes(router *gin.RouterGroup) {
 	sms := router.Group("/sms")
 	{
-		// 配置相关
 		sms.GET("/config", c.GetConfig)
 		sms.POST("/config", c.SaveConfig)
 
-		// 短信记录相关
 		sms.GET("/list", c.GetSmsList)
 		sms.GET("/detail/:id", c.GetSmsDetail)
 		sms.POST("/send", c.SendSms)
 		sms.POST("/resend/:id", c.ResendSms)
 
-		// 草稿相关
 		sms.GET("/draft/list", c.GetDraftList)
 		sms.GET("/draft/:id", c.GetDraft)
 		sms.POST("/draft", c.CreateDraft)
@@ -46,7 +43,6 @@ func (c *SmsController) RegisterRoutes(router *gin.RouterGroup) {
 		sms.POST("/draft/send/:id", c.SendDraft)
 		sms.POST("/draft/:id/send", c.SendDraft)
 
-		// 任务相关
 		sms.GET("/job/list", c.GetJobList)
 		sms.GET("/job/:id", c.GetJob)
 		sms.POST("/job", c.CreateJob)
@@ -61,7 +57,6 @@ func (c *SmsController) RegisterRoutes(router *gin.RouterGroup) {
 	}
 }
 
-// 移除自定义响应结构，使用统一的响应工具函数
 
 // GetConfig 获取短信配置
 func (c *SmsController) GetConfig(ctx *gin.Context) {
@@ -115,7 +110,6 @@ func (c *SmsController) GetJobRecords(ctx *gin.Context) {
 		return
 	}
 
-	// 解析分页参数
 	page, limit, err := pagination.Parse(ctx)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
@@ -137,7 +131,6 @@ func (c *SmsController) GetJobRecords(ctx *gin.Context) {
 func (c *SmsController) GetSmsList(ctx *gin.Context) {
 	var req dto.SmsListRequest
 
-	// 解析分页参数
 	page, limit, err := pagination.Parse(ctx)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
@@ -194,7 +187,6 @@ func (c *SmsController) SendSms(ctx *gin.Context) {
 		return
 	}
 
-	// 在调用外部短信服务前，验证短信提供商凭证是否已配置
 	config, err := c.service.GetConfig(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, "SMS service not configured")
@@ -234,7 +226,6 @@ func (c *SmsController) ResendSms(ctx *gin.Context) {
 func (c *SmsController) GetDraftList(ctx *gin.Context) {
 	var req dto.SmsDraftListRequest
 
-	// 解析分页参数
 	page, limit, err := pagination.Parse(ctx)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
@@ -340,7 +331,6 @@ func (c *SmsController) SendDraft(ctx *gin.Context) {
 		return
 	}
 
-	// 获取手机号参数
 	phone := ctx.PostForm("phone")
 	if phone == "" {
 		// 尝试从JSON体中获取
@@ -365,7 +355,6 @@ func (c *SmsController) SendDraft(ctx *gin.Context) {
 func (c *SmsController) GetJobList(ctx *gin.Context) {
 	var req dto.SmsJobListRequest
 
-	// 解析分页参数
 	page, limit, err := pagination.Parse(ctx)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
@@ -473,3 +462,4 @@ func (c *SmsController) StopJob(ctx *gin.Context) {
 
 	response.Success(ctx, nil, "success")
 }
+

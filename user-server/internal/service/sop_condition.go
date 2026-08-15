@@ -9,17 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// sop_condition.go SOP 条件表达式引擎（PRD §5.2 G2 缺口修复）
-//
-// 设计目标：
-//  1. 复用 marketing_flow.go 中已通过 100+ 用例验证的 parseCondition / evaluateOperator
-//  2. 新增 AND/OR 逻辑组合，支持 "cond1 AND cond2" / "cond1 OR cond2"
-//  3. 新增 SOPEvaluateConditionBranches，用于 condition 节点的优先级路由
-//  4. SOPService 通过本文件统一调用，避免跨模块私有方法依赖混乱
-//
-// 注：parseCondition/evaluateOperator/evalEq/evalNe/evalGt/evalLt/evalGte/evalLte/evalContains/evalIn
-//     仍保留在 marketing_flow.go 中（已被 condition_evaluator_test.go 100+ 用例覆盖），
-//     本文件仅做包装与扩展，不重复实现，确保测试基线稳定。
 
 // SOPSupportedOperators SOP 支持的运算符集合
 var SOPSupportedOperators = map[string]bool{
@@ -35,8 +24,8 @@ const (
 
 // SOPConditionResult 条件评估结果
 type SOPConditionResult struct {
-	Matched  bool   // 是否匹配
-	NextNode string // 匹配后跳转的节点 ID（可为空）
+	Matched  bool   
+	NextNode string 
 }
 
 // SOPParseCondition 解析单个条件表达式（包装 ParseCondition，方便统一调用）
@@ -56,7 +45,6 @@ func SOPEvaluateOperator(fieldValue any, operator, value string) (bool, error) {
 func SOPEvaluateSingleCondition(condition string, data map[string]any) (bool, error) {
 	condition = strings.TrimSpace(condition)
 	if condition == "" {
-		// 空条件视为始终匹配
 		return true, nil
 	}
 
@@ -89,7 +77,6 @@ func SOPEvaluateCompoundCondition(condition string, data map[string]any) (bool, 
 
 	upper := strings.ToUpper(condition)
 
-	// 检查 AND/OR 混用（简化策略：不允许同时出现）
 	hasAnd := strings.Contains(upper, " "+SOPLogicAnd+" ")
 	hasOr := strings.Contains(upper, " "+SOPLogicOr+" ")
 	if hasAnd && hasOr {
@@ -104,7 +91,7 @@ func SOPEvaluateCompoundCondition(condition string, data map[string]any) (bool, 
 				return false, err
 			}
 			if !matched {
-				return false, nil // AND 短路
+				return false, nil 
 			}
 		}
 		return true, nil
@@ -118,13 +105,12 @@ func SOPEvaluateCompoundCondition(condition string, data map[string]any) (bool, 
 				return false, err
 			}
 			if matched {
-				return true, nil // OR 短路
+				return true, nil 
 			}
 		}
 		return false, nil
 	}
 
-	// 单条件
 	return SOPEvaluateSingleCondition(condition, data)
 }
 
@@ -142,12 +128,9 @@ func SOPEvaluateConditionBranches(branches []SOPConditionBranch, data map[string
 		return SOPConditionResult{Matched: false}, nil
 	}
 
-	// 复制一份避免污染原数组
 	sorted := make([]SOPConditionBranch, len(branches))
 	copy(sorted, branches)
 
-	// 稳定排序：Priority 降序（相同 Priority 保持原序）
-	// 使用插入排序确保稳定性
 	for i := 1; i < len(sorted); i++ {
 		for j := i; j > 0 && sorted[j].Priority > sorted[j-1].Priority; j-- {
 			sorted[j], sorted[j-1] = sorted[j-1], sorted[j]
@@ -157,7 +140,6 @@ func SOPEvaluateConditionBranches(branches []SOPConditionBranch, data map[string
 	for _, br := range sorted {
 		cond := strings.TrimSpace(br.Condition)
 		if cond == "" {
-			// catch-all 分支
 			return SOPConditionResult{Matched: true, NextNode: br.Next}, nil
 		}
 
@@ -194,7 +176,6 @@ func SOPEvaluateNodeCondition(node *SOPNode, data model.JSONMap) (map[string]any
 		return result, nil
 	}
 
-	// condition 节点优先走 Conditions 优先级路由
 	if node.Type == SOPNodeTypeCondition && len(node.Conditions) > 0 {
 		br, err := SOPEvaluateConditionBranches(node.Conditions, data)
 		if err != nil {
@@ -207,17 +188,14 @@ func SOPEvaluateNodeCondition(node *SOPNode, data model.JSONMap) (map[string]any
 		return result, nil
 	}
 
-	// 旧 branch 节点 + condition 节点 fallback：使用 Condition 字段
 	condStr := strings.TrimSpace(node.Condition)
 	if condStr == "" {
-		// 退化：从 Config.condition 读取
 		if c, ok := node.Config["condition"].(string); ok {
 			condStr = strings.TrimSpace(c)
 		}
 	}
 
 	if condStr == "" {
-		// 无条件视为始终匹配
 		result["_condition_matched"] = true
 		if len(node.Next) > 0 {
 			result["_next_node"] = node.Next[0]
@@ -231,7 +209,6 @@ func SOPEvaluateNodeCondition(node *SOPNode, data model.JSONMap) (map[string]any
 	}
 	result["_condition_matched"] = matched
 
-	// 路由：match 走 Next[0]，nomatch 走 Next[1]（或 Next[0] 兜底）
 	if matched {
 		if len(node.Next) > 0 {
 			result["_next_node"] = node.Next[0]
@@ -251,7 +228,6 @@ func SOPEvaluateNodeCondition(node *SOPNode, data model.JSONMap) (map[string]any
 // op 必须是 SOPLogicAnd 或 SOPLogicOr
 // 例如 "a eq 1 AND b eq 2" → ["a eq 1", "b eq 2"]
 func splitByOperator(condition, op string) []string {
-	// 大小写不敏感切分
 	upper := strings.ToUpper(condition)
 	opToken := " " + op + " "
 	opLen := len(opToken)
@@ -268,7 +244,6 @@ func splitByOperator(condition, op string) []string {
 	}
 	parts = append(parts, strings.TrimSpace(condition[start:]))
 
-	// 过滤空串
 	filtered := parts[:0]
 	for _, p := range parts {
 		if p != "" {
@@ -277,3 +252,4 @@ func splitByOperator(condition, op string) []string {
 	}
 	return filtered
 }
+

@@ -1,6 +1,5 @@
 package ragretrieval
 
-// hyde_generator_test.go HyDE 生成器单元测试
 
 import (
 	"context"
@@ -54,11 +53,9 @@ func TestHyDEGenerator_Success(t *testing.T) {
 	if out != hydeDoc {
 		t.Errorf("output mismatch: got=%q want=%q", out, hydeDoc)
 	}
-	// 验证 prompt 包含查询
 	if !strings.Contains(m.lastPrompt, "如何退货") {
 		t.Errorf("prompt should contain query: %s", m.lastPrompt)
 	}
-	// 验证 temperature=0.3
 	if m.lastOpts.Temperature != 0.3 {
 		t.Errorf("Temperature=%.2f want=0.3", m.lastOpts.Temperature)
 	}
@@ -77,8 +74,7 @@ func TestHyDEGenerator_LLMError(t *testing.T) {
 }
 
 func TestHyDEGenerator_DocTooShort(t *testing.T) {
-	// 默认 minDocLength=20，输出短于 20 字符应报错
-	m := &mockLLMChatClient{resp: "短文档"} // 3 字符
+	m := &mockLLMChatClient{resp: "短文档"} 
 	g := NewHyDEGenerator(m, nil)
 	_, err := g.Generate(context.Background(), "如何退货")
 	if err == nil {
@@ -90,7 +86,6 @@ func TestHyDEGenerator_DocTooShort(t *testing.T) {
 }
 
 func TestHyDEGenerator_CustomMinLength(t *testing.T) {
-	// 自定义 minDocLength=2，"短文档"（3 字符）应通过
 	m := &mockLLMChatClient{resp: "短文档"}
 	g := NewHyDEGenerator(m, &HyDEGeneratorConfig{Enabled: true, MinDocLength: 2})
 	out, err := g.Generate(context.Background(), "如何退货")
@@ -106,8 +101,8 @@ func TestHyDEGenerator_MaxTokensFromConfig(t *testing.T) {
 	m := &mockLLMChatClient{resp: "假设文档内容"}
 	g := NewHyDEGenerator(m, &HyDEGeneratorConfig{Enabled: true, MaxDocTokens: 300})
 	_, _ = g.Generate(context.Background(), "如何退货")
-	// MaxTokens 应为 MaxDocTokens * 2 = 600
 	if m.lastOpts.MaxTokens != 600 {
 		t.Errorf("MaxTokens=%d want=600", m.lastOpts.MaxTokens)
 	}
 }
+

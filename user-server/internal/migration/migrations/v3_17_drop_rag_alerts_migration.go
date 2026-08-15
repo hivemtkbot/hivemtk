@@ -1,29 +1,5 @@
 package migrations
 
-// v3_17_drop_rag_alerts_migration.go 清理孤儿表 rag_alerts
-//
-// 背景 (二次深度审查 风险):
-//   - rag_alerts 表于 rag_monitoring_migration.go (v2.8.0) 创建, 用于
-//     外部告警通道 (RagAlertService.CheckAndAlert)
-//   - commit 1 私域清理时已删除 RagAlertService / RagAlert 模型 / RagAlertController
-//   - 全项目 grep `rag_alerts` / `RagAlert` → 0 业务代码引用
-//   - rag_query_logs / rag_metrics_daily 仍被 RagMetricsService 活跃使用
-//   - 4 个索引全是孤儿: idx_rag_alerts_type / idx_rag_alerts_severity
-//     / idx_rag_alerts_resolved / idx_rag_alerts_created
-//
-// 私域部署: 异常指标由应用层日志 + rag_query_logs 落库审计,
-//   巡检方式: scripts/post_deploy_check.sh + SQL 查询,
-//   不再需要外部告警通道, 该表为历史残留。
-//
-// 迁移内容:
-//  1. DROP INDEX IF EXISTS idx_rag_alerts_type
-//  2. DROP INDEX IF EXISTS idx_rag_alerts_severity
-//  3. DROP INDEX IF EXISTS idx_rag_alerts_resolved
-//  4. DROP INDEX IF EXISTS idx_rag_alerts_created
-//  5. DROP TABLE IF EXISTS rag_alerts
-//
-// 幂等: IF EXISTS 保护, 重复执行无副作用。
-// 历史: v2.8.0 创建 (rag_monitoring_migration.go) → v3.17 删除 (本迁移)。
 
 import (
 	"context"
@@ -131,3 +107,4 @@ CREATE INDEX IF NOT EXISTS idx_rag_alerts_created  ON rag_alerts (created_at);
 
 // Ensure RagAlertsDropMigration implements Migration interface
 var _ migration.Migration = (*RagAlertsDropMigration)(nil)
+

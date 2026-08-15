@@ -5,7 +5,6 @@ import "strings"
 
 // StripHTML 简单 HTML 标签剥离(含移除 script/style 块)
 func StripHTML(html string) string {
-	// 移除 script/style
 	html = StripBetween(html, "<script", "</script>")
 	html = StripBetween(html, "<style", "</style>")
 	// 移除所有标签
@@ -51,3 +50,4 @@ func Truncate(s string, max int) string {
 	}
 	return string(r[:max]) + "…"
 }
+

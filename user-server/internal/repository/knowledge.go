@@ -33,7 +33,6 @@ func NewKnowledgeRepositoryWithDB(db *gorm.DB) *KnowledgeRepository {
 func (r *KnowledgeRepository) Search(ctx context.Context, query string, topK int) ([]*model.KnowledgeHit, error) {
 	var hits []*model.KnowledgeHit
 
-	// 私域独立部署:无 merchant_id 字段
 	err := r.db.Table("knowledge_articles").
 		Select("id, title, content, 1.0 as score, 'article' as source, category_id").
 		Where("title LIKE ? OR content LIKE ?", "%"+query+"%", "%"+query+"%").
@@ -42,7 +41,6 @@ func (r *KnowledgeRepository) Search(ctx context.Context, query string, topK int
 		Scan(&hits).Error
 
 	if err != nil {
-		// 如果表不存在,返回空结果而不是错误
 		if strings.Contains(err.Error(), "doesn't exist") {
 			return []*model.KnowledgeHit{}, nil
 		}
@@ -51,3 +49,4 @@ func (r *KnowledgeRepository) Search(ctx context.Context, query string, topK int
 
 	return hits, nil
 }
+

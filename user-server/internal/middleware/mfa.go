@@ -30,7 +30,6 @@ func MarkMFAVerified(userID uint) {
 	defer mfaRecentVerifyMutex.Unlock()
 	mfaRecentVerify[userID] = time.Now()
 
-	// 异步清理过期项
 	go cleanupExpiredMFAVerified()
 }
 
@@ -124,3 +123,4 @@ func RequireMFAEnabled(mfaEnabledFunc func(userID uint) (bool, error)) gin.Handl
 		c.Next()
 	}
 }
+

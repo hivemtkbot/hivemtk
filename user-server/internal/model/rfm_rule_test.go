@@ -26,8 +26,8 @@ func TestRFMRule_BasicFields(t *testing.T) {
 		FCount3:  5,
 		FCount4:  10,
 		FCount5:  20,
-		MAmount1: 10000, // 100 元 = 10000 分
-		MAmount2: 50000, // 500 元 = 50000 分
+		MAmount1: 10000, 
+		MAmount2: 50000, 
 		MAmount3: 100000,
 		MAmount4: 500000,
 		MAmount5: 1000000,
@@ -83,8 +83,8 @@ func TestUserRFM_BasicFields(t *testing.T) {
 		TotalScore:       12,
 		Layer:            "important_value",
 		TransactionCount: 10,
-		TotalAmount:      500000, // 5000 元 = 500000 分
-		AvgAmount:        50000,  // 500 元 = 50000 分
+		TotalAmount:      500000, 
+		AvgAmount:        50000,  
 	}
 
 	if userRFM.ID != 1 {
@@ -164,3 +164,4 @@ func TestUserRFM_ScoreValues(t *testing.T) {
 		}
 	}
 }
+

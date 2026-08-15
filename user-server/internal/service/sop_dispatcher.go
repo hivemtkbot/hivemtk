@@ -1,19 +1,5 @@
 package service
 
-// ============================================================================
-// SOP 执行调度器（SOP 节点执行器完善设计）
-// ----------------------------------------------------------------------------
-// 设计依据：docs/核心链路优化.md 第十三章 §13.2.3 / §13.2.5
-// 私域独立部署：无 merchant_id 字段
-// 五层架构：本文件位于 L3 业务层（Service），调用 NodeExecutorRegistry
-//
-// 设计要点：
-//   - Worker Pool 默认 16 个 goroutine，dispatchQueue 容量 1000
-//   - LLM 节点全局信号量默认 4（防打爆 LLM 厂商 RPM 限制）
-//   - Worker 流程：加载 Execution → 加载执行器 → 构造 ExecutionContext → Execute → 写 sop_exec_events → handleResult
-//   - 失败按指数退避重试（MaxAttempts=3）
-//   - 卡死检测由 StuckExecutionDetector 独立 goroutine 负责（见 sop_outbox_dispatcher.go）
-// ============================================================================
 
 import (
 	"context"
@@ -32,13 +18,13 @@ import (
 
 // SOPDispatcherConfig 调度器配置
 type SOPDispatcherConfig struct {
-	WorkerCount       int           // Worker Pool 大小（默认 16）
-	QueueCapacity     int           // dispatchQueue 容量（默认 1000）
-	LLMConcurrency    int           // LLM 全局并发上限（默认 4）
-	MaxAttempts       int           // 节点失败最大重试次数（默认 3）
-	InitialBackoff    time.Duration // 初始退避（默认 1s）
-	MaxBackoff        time.Duration // 最大退避（默认 30s）
-	BackoffMultiplier float64       // 退避倍数（默认 2.0）
+	WorkerCount       int           
+	QueueCapacity     int           
+	LLMConcurrency    int           
+	MaxAttempts       int           
+	InitialBackoff    time.Duration 
+	MaxBackoff        time.Duration 
+	BackoffMultiplier float64       
 }
 
 // DefaultSOPDispatcherConfig 默认配置
@@ -74,7 +60,7 @@ type SOPExecutionDispatcher struct {
 	eventRepo   *repository.SOPExecEventRepository
 	msgRepo     *repository.SessionMessageRepository
 	sessionRepo *repository.CustomerSessionRepository
-	sopService  *SOPService // 用于加载 SOP 图与节点查找
+	sopService  *SOPService 
 
 	dispatchQueue chan *dispatchTask
 	workerCount   int
@@ -170,10 +156,9 @@ func NewSOPExecutionDispatcher(db *gorm.DB, sopSvc *SOPService, registry *NodeEx
 		stopCh: make(chan struct{}),
 	}
 
-	// 注册所有节点执行器
 	deps := &SOPNodeExecutorDeps{
 		DB:          db,
-		WSHub:       nil, // TODO: 由外部注入（避免循环依赖）
+		WSHub:       nil, 
 		MsgRepo:     d.msgRepo,
 		SessionRepo: d.sessionRepo,
 		LLMSem:      d.llmSem,
@@ -253,13 +238,11 @@ func (d *SOPExecutionDispatcher) Stop(ctx context.Context) {
 // 队列满时返回错误（背压），调用方应处理（如重试或记录日志）。
 // 停止信号（stopCh 关闭）优先于入队，确保停止语义明确。
 func (d *SOPExecutionDispatcher) Dispatch(ctx context.Context, task *dispatchTask) error {
-	// 优先检查停止信号（避免 stopCh 关闭后仍入队任务）
 	select {
 	case <-d.stopCh:
 		return fmt.Errorf("dispatcher stopped")
 	default:
 	}
-	// 尝试入队，同时监听 stopCh 防止永久阻塞
 	select {
 	case d.dispatchQueue <- task:
 		return nil
@@ -310,7 +293,6 @@ func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, 
 		Int("attempt", task.Attempt).
 		Msg("[worker] processing task")
 
-	// 1. 加载 Execution
 	exec, err := d.loadExecution(ctx, task.ExecutionID)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).
@@ -325,7 +307,6 @@ func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, 
 		return
 	}
 
-	// 2. 加载 SOP 图与当前节点
 	graph, err := d.loadGraph(ctx, exec)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[worker] load sop graph failed")
@@ -339,10 +320,8 @@ func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, 
 		return
 	}
 
-	// 3. 写 started 事件
 	d.writeExecEvent(ctx, exec, node, NodeEventStarted, task.Attempt, nil, nil, "")
 
-	// 4. 构造 ExecutionContext
 	execCtx := &ExecutionContext{
 		Execution:     exec,
 		Node:          node,
@@ -357,21 +336,17 @@ func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, 
 		Attempt:       task.Attempt,
 	}
 
-	// 5. 获取执行器并执行
 	executor := d.registry.MustGet(ctx, node.Type)
 	result, err := executor.Execute(ctx, execCtx)
 	latencyMs := time.Since(start).Milliseconds()
 
-	// 6. 处理结果
 	if err != nil || result == nil {
 		d.handleNodeFailure(ctx, exec, node, task, err, latencyMs)
 		return
 	}
 
-	// 7. 写 executed 事件
 	d.writeExecEvent(ctx, exec, node, NodeEventExecuted, task.Attempt, result.Output, result.SideEffects, "")
 
-	// 8. 根据状态处理
 	switch result.Status {
 	case NodeStatusCompleted, NodeStatusSkipped:
 		d.handleNodeSuccess(ctx, exec, node, graph, result, task, latencyMs)
@@ -424,42 +399,34 @@ func (d *SOPExecutionDispatcher) loadGraph(ctx context.Context, exec *model.SOPE
 
 // handleNodeSuccess 处理节点执行成功
 func (d *SOPExecutionDispatcher) handleNodeSuccess(ctx context.Context, exec *model.SOPExecution, node *dto.SOPNode, graph *dto.SOPGraph, result *NodeExecResult, task *dispatchTask, latencyMs int64) {
-	// 合并 Output 到 ExecutionData
 	if exec.ExecutionData == nil {
 		exec.ExecutionData = model.JSONMap{}
 	}
 	for k, v := range result.Output {
 		exec.ExecutionData[k] = v
 	}
-	// 追加副作用标识
 	for _, effect := range result.SideEffects {
 		exec.ExecutionData = appendSideEffect(exec.ExecutionData, effect)
 	}
 
-	// 决定下一节点
 	nextNodeID := result.NextNodeID
 	if nextNodeID == "" {
-		// 用 nextNode 默认逻辑
 		nextNode := nextNode(graph, node, exec.ExecutionData)
 		if nextNode == nil {
-			// 流程结束
 			d.completeExecution(ctx, exec)
 			return
 		}
 		nextNodeID = nextNode.ID
 	} else if nextNodeID == "_end_" {
-		// 显式结束
 		d.completeExecution(ctx, exec)
 		return
 	}
 
-	// 更新 Execution
 	now := time.Now()
 	exec.CurrentNode = nextNodeID
 	exec.LastEventAt = &now
 	exec.AttemptCount = 0
 	exec.WaitEvent = ""
-	// 更新 CurrentNodeIdx
 	for i, n := range graph.Nodes {
 		if n.ID == nextNodeID {
 			exec.CurrentNodeIdx = i
@@ -471,10 +438,8 @@ func (d *SOPExecutionDispatcher) handleNodeSuccess(ctx context.Context, exec *mo
 		return
 	}
 
-	// 写 completed 事件
 	d.writeExecEvent(ctx, exec, node, NodeEventCompleted, task.Attempt, result.Output, result.SideEffects, "")
 
-	// 派发下一节点
 	d.DispatchOrLog(&dispatchTask{
 		ExecutionID: exec.ID,
 		NodeID:      nextNodeID,
@@ -500,7 +465,6 @@ func (d *SOPExecutionDispatcher) handleNodeWaiting(ctx context.Context, exec *mo
 		return
 	}
 
-	// 写 waiting 事件
 	d.writeExecEvent(ctx, exec, node, NodeEventWaiting, 0, result.Output, nil, "")
 
 	logger.Ctx(ctx).Info().
@@ -517,12 +481,9 @@ func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *mo
 		errMsg = err.Error()
 	}
 
-	// 写 failed 事件
 	d.writeExecEvent(ctx, exec, node, NodeEventFailed, task.Attempt, nil, nil, errMsg)
 
-	// 判断是否可重试
 	if task.Attempt+1 < d.retryPolicy.MaxAttempts {
-		// 指数退避重试
 		backoff := d.retryPolicy.Backoff(context.Background(), task.Attempt+1)
 		logger.Ctx(ctx).Warn().
 			Str("node_id", node.ID).
@@ -532,7 +493,6 @@ func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *mo
 			Err(err).
 			Msg("[worker] node failed, will retry")
 
-		// 更新 attempt_count
 		exec.AttemptCount = task.Attempt + 1
 		if err := d.execRepo.UpdateAttemptCount(ctx, exec.ID, exec.AttemptCount); err != nil {
 			logger.Ctx(ctx).Warn().
@@ -542,10 +502,8 @@ func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *mo
 				Msg("[worker] update attempt_count failed")
 		}
 
-		// 写 retried 事件
 		d.writeExecEvent(ctx, exec, node, NodeEventRetried, task.Attempt+1, nil, nil, errMsg)
 
-		// 定时派发重试任务
 		time.AfterFunc(backoff, func() {
 			d.DispatchOrLog(&dispatchTask{
 				ExecutionID: exec.ID,
@@ -557,7 +515,6 @@ func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *mo
 		return
 	}
 
-	// 达到最大重试次数，标记 Execution 失败
 	logger.Ctx(ctx).Error().
 		Str("node_id", node.ID).
 		Int("attempts", task.Attempt+1).
@@ -582,7 +539,6 @@ func (d *SOPExecutionDispatcher) completeExecution(ctx context.Context, exec *mo
 		logger.Ctx(ctx).Error().Err(err).Msg("[worker] mark execution success failed")
 		return
 	}
-	// 累加 success_count
 	_ = d.agentRepo.IncrementSuccessCount(ctx, exec.SOPID)
 
 	logger.Ctx(ctx).Info().
@@ -628,7 +584,6 @@ func (d *SOPExecutionDispatcher) writeExecEvent(ctx context.Context, exec *model
 		TraceID:      logger.TraceIDFromContext(ctx),
 	}
 	if err := d.eventRepo.Create(ctx, event); err != nil {
-		// 唯一约束冲突（重复事件）忽略
 		logger.Ctx(ctx).Debug().Err(err).
 			Str("node_id", node.ID).
 			Str("event_type", eventType).
@@ -651,7 +606,6 @@ func sopToJSONArray(s []string) model.JSONArray {
 	return out
 }
 
-// ===== 全局实例 =====
 
 var (
 	globalSOPDispatcher *SOPExecutionDispatcher
@@ -672,3 +626,4 @@ func InitSOPExecutionDispatcher(db *gorm.DB, sopSvc *SOPService, cfg *SOPDispatc
 func GetSOPExecutionDispatcher() *SOPExecutionDispatcher {
 	return globalSOPDispatcher
 }
+

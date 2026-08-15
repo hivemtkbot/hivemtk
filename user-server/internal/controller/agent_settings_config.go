@@ -8,13 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ============================================================================
-// Agent Loop 运行期调参控制器
-//
-// 读写智能体运行期调参（单轮最多工具迭代次数、未配置白名单时注入工具数上限）。
-// 配置统一存数据库 system_config_kv[agent.settings]（而非环境变量），通过本接口可视化编辑；
-// 保存后立即对新对话轮生效，无需重启。
-// ============================================================================
 
 // AgentSettingsController Agent Loop 运行期调参控制器
 type AgentSettingsController struct{}
@@ -51,3 +44,4 @@ func (c *AgentSettingsController) SaveConfig(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, gin.H{"success": true, "data": cfg})
 }
+

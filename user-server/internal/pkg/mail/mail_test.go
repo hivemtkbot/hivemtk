@@ -52,23 +52,17 @@ func TestAutoConfig(t *testing.T) {
 }
 
 func TestSendMail(t *testing.T) {
-	// 测试自动配置推断（使用 QQ 邮箱）
 	cfg := Config{
 		From:     "test@qq.com",
 		Password: "test_password",
 	}
 
-	// 由于需要真实的 SMTP 服务器，这里只测试 autoConfig 被调用的逻辑
-	// SendMail 会调用 autoConfig 当 Host 或 Port 为空时
-	// 实际测试中，SMTP 连接会失败，但这验证了 autoConfig 被调用
 
 	err := SendMail(cfg, []string{"recipient@example.com"}, "Test Subject", "Test Body", false)
-	// 预计会失败，因为 SMTP 凭证是假的
 	if err == nil {
 		t.Log("Expected SMTP connection to fail with fake credentials")
 	}
 
-	// 测试 HTML 邮件
 	err = SendMail(cfg, []string{"recipient@example.com"}, "Test Subject", "<h1>Test Body</h1>", true)
 	if err == nil {
 		t.Log("Expected SMTP connection to fail with fake credentials")
@@ -76,7 +70,6 @@ func TestSendMail(t *testing.T) {
 }
 
 func TestSendMailWithProvidedConfig(t *testing.T) {
-	// 测试提供完整配置的情况（不调用 autoConfig）
 	cfg := Config{
 		Host:     "smtp.example.com",
 		Port:     587,
@@ -86,7 +79,6 @@ func TestSendMailWithProvidedConfig(t *testing.T) {
 	}
 
 	err := SendMail(cfg, []string{"recipient@example.com"}, "Test Subject", "Test Body", false)
-	// 预计会失败，因为 SMTP 服务器不存在
 	if err == nil {
 		t.Log("Expected SMTP connection to fail with fake server")
 	}
@@ -101,14 +93,12 @@ func TestSendMailEmptyTo(t *testing.T) {
 	}
 
 	err := SendMail(cfg, []string{}, "Test Subject", "Test Body", false)
-	// 预计会失败，因为没有收件人
 	if err == nil {
 		t.Log("Expected SendMail to fail with empty recipients")
 	}
 }
 
 func TestConfigStruct(t *testing.T) {
-	// 测试 Config 结构体
 	cfg := Config{
 		Host:     "smtp.test.com",
 		Port:     587,
@@ -222,7 +212,6 @@ func TestBuildTrace(t *testing.T) {
 		t.Errorf("BuildTrace() = %v, want %v", result, expected)
 	}
 
-	// 验证结果包含追踪图片
 	if !strings.Contains(result, "img src") {
 		t.Error("BuildTrace() should contain tracking image")
 	}
@@ -243,3 +232,4 @@ func TestBuildTraceEmptyHTML(t *testing.T) {
 		t.Errorf("BuildTrace() with empty HTML = %v, want %v", result, expectedImage)
 	}
 }
+

@@ -30,12 +30,12 @@ import (
 type EmbeddingConfig struct {
 	APIKey         string
 	BaseURL        string
-	APIType        string // openai（TEI 兼容 OpenAI /v1/embeddings）
-	Model          string // 默认 bge-m3
-	Dimension      int    // 期望向量维度（用于校验，默认 1024）
-	RequestTimeout int    // 秒
+	APIType        string 
+	Model          string 
+	Dimension      int    
+	RequestTimeout int    
 	MaxRetries     int
-	AllowFallback  bool // 是否允许 hash 伪向量降级（仅单测，默认 false）
+	AllowFallback  bool 
 }
 
 // EmbeddingServiceInterface Embedding 服务接口
@@ -60,8 +60,8 @@ type EmbeddingServiceInterface interface {
 type EmbeddingService struct {
 	httpClient    *http.Client
 	mu            sync.RWMutex
-	fallback      EmbeddingServiceInterface // 仅在 EMBEDDING_ALLOW_FALLBACK=true 时启用
-	defaultConfig *EmbeddingConfig          // 可选：per 知识库显式覆盖全局默认
+	fallback      EmbeddingServiceInterface 
+	defaultConfig *EmbeddingConfig          
 }
 
 // sharedEmbeddingTransport 进程级共享 Transport，避免每次请求 new http.Client 导致连接不复用、
@@ -127,11 +127,9 @@ func NewEmbeddingServiceWithConfig(cfg *EmbeddingConfig) *EmbeddingService {
 // 注意：必须以配置文件为准，否则宿主机会被 docker 专用的 mtk-embedding 服务名带偏
 // （宿主机无法解析该名，导致 embedding 不可达并静默降级哈希伪向量）。
 func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
-	// per 知识库覆盖：实例被显式赋予配置时优先返回（不读全局 config.yaml）
 	if s.defaultConfig != nil {
 		return s.defaultConfig
 	}
-	// 1) 配置文件为准（按环境提供正确的本地服务地址）
 	fileCfg := config.GetAppConfig().Inference.Embedding
 	baseURL := fileCfg.BaseURL
 	model := fileCfg.Model
@@ -139,7 +137,6 @@ func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 	allowFallback := fileCfg.AllowFallback
 	apiKey := fileCfg.APIKey
 
-	// 2) 环境变量仅在配置文件未指定时回退读取（便于部署层/调试显式覆盖）
 	if baseURL == "" {
 		baseURL = os.Getenv("EMBEDDING_BASE_URL")
 	}
@@ -153,25 +150,16 @@ func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 			}
 		}
 	}
-	// 环境变量显式控制哈希降级开关：true/1/yes 开启；false/0/no 关闭（覆盖配置文件）
 	if v := strings.ToLower(strings.TrimSpace(os.Getenv("EMBEDDING_ALLOW_FALLBACK"))); v != "" {
 		allowFallback = v == "true" || v == "1" || v == "yes"
 	}
 
-	// 3) 内置默认（docker 网络内本地 embedding 服务名，端口 8208；仅当配置与环境都缺失时生效）
 	if baseURL == "" {
-		// 单一源：config.DefaultEmbeddingBaseURLDocker（user-server/internal/pkg/utils/config/ports.go）
-		// 文档源：DEVELOPMENT.md §2.4 + docker-compose-host.yml mtk-embedding 服务
-		// 行为：仅在容器内可解析 mtk-embedding；host 部署会失败并回退到 hash 实现（需 EMBEDDING_ALLOW_FALLBACK=true）
 		baseURL = config.DefaultEmbeddingBaseURLDocker
 	}
 	if model == "" {
-		// 单一源：config.DefaultEmbeddingModel()（user-server/internal/pkg/utils/config/server.go）
-		// 文档源：DEVELOPMENT.md §2.4 + config.yaml inference.embedding.model
-		// 行为：dev 档默认为 bge-m3（1024 维，与 pgvector vector(1024) 对齐）
 		model = config.DefaultEmbeddingModel()
 	}
-	// 按模型名推断默认维度（仅当维度未显式指定时生效）
 	if dim <= 0 {
 		switch model {
 		case "text-embedding-3-large":
@@ -182,7 +170,6 @@ func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 			dim = 1024
 		}
 	}
-	// 硬约束：文本向量维度必须与 pgvector vector(1024) 一致；非 1024 一律回落 1024 并告警
 	if dim != 1024 {
 		logger.Warnf("[embedding] WARN: configured dimension=%d != 1024, force reset to 1024 (pgvector vector(1024) compatible)", dim)
 		dim = 1024
@@ -194,7 +181,7 @@ func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 	return &EmbeddingConfig{
 		APIKey:         apiKey,
 		BaseURL:        baseURL,
-		APIType:        "openai", // TEI 兼容
+		APIType:        "openai", 
 		Model:          model,
 		Dimension:      dim,
 		RequestTimeout: 60,
@@ -218,17 +205,13 @@ func (s *EmbeddingService) Embed(ctx context.Context, cfg *EmbeddingConfig, text
 		cfg = s.DefaultConfig()
 	}
 
-	// 私域部署基线：禁止静默降级
-	// 除非显式开启 EMBEDDING_ALLOW_FALLBACK=true（仅供单元测试）
 	if !cfg.AllowFallback {
-		// 大批量分片：超过 embeddingMaxBatch 时串行分批，避免 OOM/超时
 		if len(texts) <= embeddingMaxBatch {
 			return s.callProviderWithRetry(ctx, cfg, texts)
 		}
 		return s.embedInBatches(ctx, cfg, texts)
 	}
 
-	// 显式允许降级（单测场景）：打 ERROR 日志后回退
 	logger.Errorf("[Embedding] ERROR: EMBEDDING_ALLOW_FALLBACK=true,降级为本地哈希向量(仅供离线/单测,严禁生产环境使用)")
 	return s.fallback.Embed(ctx, cfg, texts)
 }
@@ -270,9 +253,6 @@ func (s *EmbeddingService) callProviderWithRetry(ctx context.Context, cfg *Embed
 		attemptCfg.BaseURL = baseURL
 		for attempt := 0; attempt < maxRetries; attempt++ {
 			if attempt > 0 {
-				// 限流/过载（429、no permits available、Model is overloaded）时采用更长退避，
-				// 因为本地 Qwen3-Embedding-0.6B 单次推理约 10s，短退避（1/2/4s）仍会撞上在飞的请求。
-				// 其余错误用指数退避。两者均以 30s 封顶。
 				if isRateLimited(lastErr) {
 					backoff := min(time.Duration(2<<uint(attempt))*time.Second, 30*time.Second)
 					logger.Warnf("[Embedding] 限流/过载，退避 %.0fs 后重试 (baseURL=%s attempt %d/%d): %v", backoff.Seconds(), baseURL, attempt+1, maxRetries, lastErr)
@@ -290,8 +270,6 @@ func (s *EmbeddingService) callProviderWithRetry(ctx context.Context, cfg *Embed
 					}
 				}
 			}
-			// 串行占用 embedding 闸门（容量=1），确保同一时刻仅 1 个请求打到 TEI，
-			// 彻底避免自竞争 429。
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
@@ -303,7 +281,6 @@ func (s *EmbeddingService) callProviderWithRetry(ctx context.Context, cfg *Embed
 				return vectors, nil
 			}
 			lastErr = err
-			// 连接类错误（服务名无法解析/拒绝连接）且仍有候选时，立即切换候选，避免无谓退避
 			if ci < len(candidates)-1 && isConnError(err) {
 				logger.Warnf("[Embedding] %s 不可达，回退候选 BaseURL: %v", baseURL, err)
 				break
@@ -401,8 +378,6 @@ func (s *EmbeddingService) callProvider(ctx context.Context, cfg *EmbeddingConfi
 		return nil, fmt.Errorf("EMBEDDING_BASE_URL 未配置")
 	}
 
-	// 兼容 baseURL 已含 /v1 后缀的情况（如 http://mtk-embedding:8208/v1）
-	// 私域部署基线：BaseURL 默认就是 /v1 结尾的 OpenAI 兼容根路径
 	if !strings.HasSuffix(baseURL, "/v1") && !strings.HasSuffix(baseURL, "/v1/") {
 		baseURL = baseURL + "/v1"
 	}
@@ -411,8 +386,6 @@ func (s *EmbeddingService) callProvider(ctx context.Context, cfg *EmbeddingConfi
 	if timeout <= 0 {
 		timeout = 60 * time.Second
 	}
-	// 复用 s.httpClient（共享 Transport 连接池），通过 context.WithTimeout 控制超时
-	// 避免每次请求创建新 http.Client 对象增加 GC 压力
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -471,3 +444,4 @@ func (s *EmbeddingService) callProvider(ctx context.Context, cfg *EmbeddingConfi
 	}
 	return vectors, nil
 }
+

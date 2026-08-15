@@ -17,7 +17,6 @@ func TestInboxIngress_OutboundRoundTrip(t *testing.T) {
 	svc := NewInboxIngressServiceWithDB(db, nil)
 	ctx := context.Background()
 
-	// 插入一条 pending 出站（模拟 AI 占位 → 入下发队列）
 	if err := db.Create(&model.MessageHub{
 		MsgID:          "ob1",
 		Platform:       "douyin",
@@ -31,7 +30,6 @@ func TestInboxIngress_OutboundRoundTrip(t *testing.T) {
 		t.Fatalf("插入下发消息失败: %v", err)
 	}
 
-	// 通道C·拉取下发队列
 	msgs, err := svc.ListPendingOutbound(ctx, "douyin", "1")
 	if err != nil {
 		t.Fatalf("ListPendingOutbound 失败: %v", err)
@@ -40,7 +38,6 @@ func TestInboxIngress_OutboundRoundTrip(t *testing.T) {
 		t.Fatalf("下发队列应返回 1 条 ob1, 实际 %+v", msgs)
 	}
 
-	// 通道B·确认已下发
 	n, err := svc.AckOutboundDelivered(ctx, "douyin", "1", []string{"ob1"})
 	if err != nil {
 		t.Fatalf("AckOutboundDelivered 失败: %v", err)
@@ -49,7 +46,6 @@ func TestInboxIngress_OutboundRoundTrip(t *testing.T) {
 		t.Fatalf("ack 应标记 1 条, 实际 %d", n)
 	}
 
-	// 确认后队列清空
 	msgs2, _ := svc.ListPendingOutbound(ctx, "douyin", "1")
 	if len(msgs2) != 0 {
 		t.Fatalf("ack 后下发队列应清空, 实际 %d", len(msgs2))
@@ -73,7 +69,6 @@ func TestInboxIngress_AckOutboundScopeIsolation(t *testing.T) {
 		Content:        "AI 回复",
 	})
 
-	// 用 account=2 确认 account=1 的消息 → 应不生效
 	n, err := svc.AckOutboundDelivered(ctx, "douyin", "2", []string{"ob2"})
 	if err != nil {
 		t.Fatalf("AckOutboundDelivered 失败: %v", err)
@@ -81,9 +76,9 @@ func TestInboxIngress_AckOutboundScopeIsolation(t *testing.T) {
 	if n != 0 {
 		t.Fatalf("越权 ack 不应生效, 实际 %d", n)
 	}
-	// 原消息仍在队列
 	msgs, _ := svc.ListPendingOutbound(ctx, "douyin", "1")
 	if len(msgs) != 1 {
 		t.Fatalf("越权 ack 不应清除原账号消息, 实际 %d", len(msgs))
 	}
 }
+

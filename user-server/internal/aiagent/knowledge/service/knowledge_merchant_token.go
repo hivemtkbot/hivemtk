@@ -15,9 +15,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// 5) API Token 管理（外部系统通过 Token 推送文档）
-// ============================================================================
 
 // CreateTokenRequest 创建 Token
 type CreateTokenRequest struct {
@@ -70,7 +67,6 @@ func (s *KnowledgeMerchantService) ListTokens(ctx context.Context, productID str
 	if err != nil {
 		return nil, err
 	}
-	// 隐藏 hashed token 明文
 	for i := range list {
 		list[i].Token = ""
 		list[i].TokenPlain = ""
@@ -104,8 +100,6 @@ func (s *KnowledgeMerchantService) ValidateToken(ctx context.Context, plain stri
 	if tok.ExpiresAt != nil && tok.ExpiresAt.Before(time.Now()) {
 		return nil, fmt.Errorf("%w: token 已过期", utils.ErrUnauthorized)
 	}
-	// 异步更新使用统计
-	// goroutine 内含 recover + 错误日志，避免错误被静默吞噬。
 	tokID := tok.ID
 	go func(id uint64) {
 		defer func() {
@@ -120,9 +114,6 @@ func (s *KnowledgeMerchantService) ValidateToken(ctx context.Context, plain stri
 	return tok, nil
 }
 
-// ============================================================================
-// 辅助函数
-// ============================================================================
 
 func generateToken() (string, error) {
 	b := make([]byte, 32)
@@ -176,3 +167,4 @@ func boolToInt(b bool) int {
 func BoolToInt(b bool) int {
 	return boolToInt(b)
 }
+

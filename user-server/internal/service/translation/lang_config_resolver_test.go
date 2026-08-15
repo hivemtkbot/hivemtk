@@ -1,19 +1,5 @@
 package translation
 
-// lang_config_resolver_test.go LangConfigResolver 单元测试
-//
-// 用 mock 实现 ChannelReader / AgentReader 接口，完全不打数据库。
-//
-// 覆盖：
-//  1. 渠道优先：channel.target_language=en, agent.target_language=ja → result=zh, target=en, src=channel
-//  2. 智能体次之：channel 为空，agent.target_language=en → target=en, src=agent
-//  3. 退化=internal：channel/agent 都未配置 → target=internal_lang, src=internal
-//  4. 全部缺失兜底：agentID=0, channelID="" → internal=zh, target=zh, cross_lingual=false
-//  5. CrossLingual 标志：internal=zh, target=en → cross_lingual=true
-//  6. 同语种：internal=zh, target=zh → cross_lingual=false
-//  7. 容错：agentRepo.GetByID 报错 → 兜底 zh
-//  8. 容错：channelRepo.GetByChannelID 报错 → 跳过渠道配置
-//  9. InjectToCtx / ResolveAndInject
 
 import (
 	"context"
@@ -27,9 +13,6 @@ import (
 	i18npkg "hivemtk-user/internal/pkg/i18n"
 )
 
-// ============================================================================
-// Mock 实现
-// ============================================================================
 
 // mockChannelReader 可配置返回结果或错误。
 type mockChannelReader struct {
@@ -60,9 +43,6 @@ func (m *mockAgentReader) GetByID(_ context.Context, _ uint) (*model.AIAgent, er
 // errSentinel 测试用哨兵错误。
 var errSentinel = errors.New("mock repo error")
 
-// ============================================================================
-// 测试用例
-// ============================================================================
 
 // TestResolve_ChannelPriority 渠道优先级最高
 // channel.target_language=en, agent.target_language=ja, agent.internal=zh
@@ -114,7 +94,6 @@ func TestResolve_AgentWhenChannelEmpty(t *testing.T) {
 	}}
 	r := NewLangConfigResolver(chRepo, agRepo)
 
-	// channelID="" → 不调用 channelRepo，走 agent
 	res, _ := r.Resolve(context.Background(), "", 1)
 	assert.Equal(t, "zh", res.InternalLang)
 	assert.Equal(t, "ja", res.TargetLang)
@@ -127,7 +106,7 @@ func TestResolve_DegradeToInternal(t *testing.T) {
 	chRepo := &mockChannelReader{ch: &model.ChatChannel{TargetLanguage: ""}}
 	agRepo := &mockAgentReader{ag: &model.AIAgent{
 		InternalLanguage: "ja",
-		TargetLanguage:   "", // 未配置
+		TargetLanguage:   "", 
 	}}
 	r := NewLangConfigResolver(chRepo, agRepo)
 
@@ -187,7 +166,6 @@ func TestResolve_AgentRepoError(t *testing.T) {
 	require.NoError(t, err, "Resolve 永不报错（保证返回有效语言）")
 	assert.Equal(t, "zh", res.InternalLang, "agent 报错时 internal 兜底 zh")
 	assert.Equal(t, "default", res.InternalSrc)
-	// channel 仍能命中（target=en 来自 channel）
 	assert.Equal(t, "en", res.TargetLang)
 	assert.Equal(t, "channel", res.TargetSrc)
 	assert.True(t, res.CrossLingual)
@@ -244,7 +222,7 @@ func TestResolve_ChannelReturnsNil(t *testing.T) {
 // TestResolve_AgentIDZero_NoAgentLookup agentID=0 不应调用 agentRepo
 func TestResolve_AgentIDZero_NoAgentLookup(t *testing.T) {
 	agRepo := &mockAgentReader{ag: &model.AIAgent{
-		InternalLanguage: "ja", // 不应被读取
+		InternalLanguage: "ja", 
 		TargetLanguage:   "ja",
 	}}
 	r := NewLangConfigResolver(nil, agRepo)
@@ -263,9 +241,6 @@ func TestResolve_NormalizesLangCodes(t *testing.T) {
 	assert.Equal(t, "en", res.TargetLang)
 }
 
-// ============================================================================
-// InjectToCtx / ResolveAndInject
-// ============================================================================
 
 func TestInjectToCtx(t *testing.T) {
 	r := NewLangConfigResolver(nil, nil)
@@ -283,7 +258,6 @@ func TestInjectToCtx(t *testing.T) {
 func TestInjectToCtx_NilResult_NoOp(t *testing.T) {
 	r := NewLangConfigResolver(nil, nil)
 	ctx := r.InjectToCtx(context.Background(), nil)
-	// 应不修改 ctx，读取仍为默认值
 	assert.Equal(t, "zh", i18npkg.GetInternalLang(ctx))
 	assert.Equal(t, "zh", i18npkg.GetTargetLang(ctx))
 	assert.False(t, i18npkg.GetCrossLingual(ctx))
@@ -298,8 +272,8 @@ func TestResolveAndInject(t *testing.T) {
 	require.NotNil(t, res)
 	assert.Equal(t, "zh", res.InternalLang)
 	assert.Equal(t, "en", res.TargetLang)
-	// ctx 应已注入
 	assert.Equal(t, "zh", i18npkg.GetInternalLang(ctx))
 	assert.Equal(t, "en", i18npkg.GetTargetLang(ctx))
 	assert.True(t, i18npkg.GetCrossLingual(ctx))
 }
+

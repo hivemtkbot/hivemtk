@@ -1,17 +1,5 @@
 package confidence
 
-// calibrator_test.go 校准器单元测试
-//
-// 覆盖：
-//  1. FitOnDataset 空样本集
-//  2. FitOnDataset 完美校准
-//  3. FitOnDataset 改善 ECE
-//  4. FitOnDataset 改善 NLL
-//  5. Calibrate 返回 top-1
-//  6. SetTemperature 热重载
-//  7. CurrentTemperature
-//  8. LoadActiveFromDB nil repo
-//  9. evaluate ECE/NLL 计算
 
 import (
 	"context"
@@ -45,7 +33,6 @@ func TestCalibrator_FitOnDataset_PerfectCalibration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FitOnDataset 失败: %v", err)
 	}
-	// 完美校准：ECE_before ≈ 0
 	if result.ECEBefore > 0.05 {
 		t.Errorf("完美校准 ECE_before 应 < 0.05, got %v", result.ECEBefore)
 	}
@@ -58,26 +45,18 @@ func TestCalibrator_FitOnDataset_PerfectCalibration(t *testing.T) {
 // 构造一个过度自信的样本集：所有预测都 80% 自信，但只有 50% 准确
 func TestCalibrator_FitOnDataset_ImprovesECE(t *testing.T) {
 	c := NewCalibrator(nil)
-	// logits=[2, -2] → softmax ≈ [0.98, 0.02]，top-1 conf ≈ 0.98
-	// 但准确率只有 50%（一半 correct=0，一半 correct=1 但 top-1=0 错误）
-	// 这意味着 conf=0.98 但 acc=0.5 → ECE 较大
-	// 校准后 T 应该 > 1，使 conf 降低
 	samples := make([]CalibrationSample, 0, 40)
 	for i := 0; i < 20; i++ {
-		// 一半预测正确（correct=0，top-1=0）
 		samples = append(samples, CalibrationSample{Logits: []float64{2.0, -2.0}, CorrectIdx: 0})
-		// 一半预测错误（correct=1，top-1=0）
 		samples = append(samples, CalibrationSample{Logits: []float64{2.0, -2.0}, CorrectIdx: 1})
 	}
 	result, err := c.FitOnDataset(context.Background(), samples)
 	if err != nil {
 		t.Fatalf("FitOnDataset 失败: %v", err)
 	}
-	// 校准后 ECE 应 <= 校准前
 	if result.ECEAfter > result.ECEBefore+1e-9 {
 		t.Errorf("校准后 ECE (%v) 应 <= 校准前 (%v)", result.ECEAfter, result.ECEBefore)
 	}
-	// 温度应 > 1（需要软化）
 	if result.Temperature < 1.0 {
 		t.Errorf("过度自信样本应使 T > 1, got T=%v", result.Temperature)
 	}
@@ -138,11 +117,9 @@ func TestCalibrator_FitOnDataset_SampleSize(t *testing.T) {
 // TestCalibrator_Calibrate_ReturnsTop1 Calibrate 返回 top-1 概率
 func TestCalibrator_Calibrate_ReturnsTop1(t *testing.T) {
 	c := NewCalibrator(nil)
-	// T=1, logits=[2,1,0] → top-1 = exp(2)/sum
 	c.SetTemperature(1.0)
 	logits := []float64{2.0, 1.0, 0.0}
 	got := c.Calibrate(logits)
-	// 手算：exp(2)/(exp(2)+exp(1)+exp(0)) = 7.389/11.107 ≈ 0.665
 	expected := math.Exp(2.0) / (math.Exp(2.0) + math.Exp(1.0) + math.Exp(0.0))
 	if !approxEqual(got, expected) {
 		t.Errorf("Calibrate=%v want %v", got, expected)
@@ -177,11 +154,9 @@ func TestCalibrator_SetTemperature_AfterFit(t *testing.T) {
 		{Logits: []float64{0.0, 1.0}, CorrectIdx: 1},
 	}
 	result, _ := c.FitOnDataset(context.Background(), samples)
-	// 拟合后温度 = result.Temperature
 	if !approxEqual(c.CurrentTemperature(), result.Temperature) {
 		t.Errorf("拟合后温度=%v want %v", c.CurrentTemperature(), result.Temperature)
 	}
-	// 手动覆盖
 	c.SetTemperature(3.0)
 	if !approxEqual(c.CurrentTemperature(), 3.0) {
 		t.Errorf("SetTemperature(3.0) 后温度=%v want 3.0", c.CurrentTemperature())
@@ -207,7 +182,6 @@ func TestCalibrator_LoadActiveFromDB_NilRepo(t *testing.T) {
 // TestCalibrator_Evaluate_ECE_Perfect 完美预测 ECE=0
 func TestCalibrator_Evaluate_ECE_Perfect(t *testing.T) {
 	c := NewCalibrator(nil)
-	// 所有样本预测都 100% 准确
 	samples := []CalibrationSample{
 		{Logits: []float64{100.0, -100.0}, CorrectIdx: 0},
 		{Logits: []float64{100.0, -100.0}, CorrectIdx: 0},
@@ -238,10 +212,9 @@ func TestCalibrator_Evaluate_ECE_Worst(t *testing.T) {
 	samples := make([]CalibrationSample, 0, 40)
 	for i := 0; i < 20; i++ {
 		samples = append(samples, CalibrationSample{Logits: []float64{4.0, -4.0}, CorrectIdx: 0})
-		samples = append(samples, CalibrationSample{Logits: []float64{4.0, -4.0}, CorrectIdx: 1}) // 预测错
+		samples = append(samples, CalibrationSample{Logits: []float64{4.0, -4.0}, CorrectIdx: 1}) 
 	}
 	ece, _ := c.evaluate(samples, 1.0)
-	// conf≈0.98, acc=0.5, ECE ≈ |0.98-0.5| = 0.48
 	if ece < 0.3 {
 		t.Errorf("最差校准 ECE 应 > 0.3, got %v", ece)
 	}
@@ -274,8 +247,8 @@ func TestCalibrator_FitOnDataset_SingleClass(t *testing.T) {
 	if err != nil {
 		t.Fatalf("单类样本不应报错: %v", err)
 	}
-	// 单类样本 NLL = -avg(log(p_0))，校准后应 <= 校准前
 	if result.NLLAfter > result.NLLBefore+1e-9 {
 		t.Errorf("单类样本 NLL_after (%v) 应 <= NLL_before (%v)", result.NLLAfter, result.NLLBefore)
 	}
 }
+

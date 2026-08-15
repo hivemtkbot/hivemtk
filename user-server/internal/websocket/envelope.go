@@ -5,12 +5,6 @@ import (
 	"time"
 )
 
-// ============================================================================
-// Envelope 构造与下发辅助（envelope.go）
-// ----------------------------------------------------------------------------
-// 把"业务 SendXxx → Envelope JSON → wire"这条链路收口到同一组函数，
-// 避免在 hub / handler / visitor_handler 中重复序列化逻辑。
-// ============================================================================
 
 // NewEnvelope 构造一个带 seq + ts 的 Envelope
 //
@@ -66,7 +60,7 @@ func sendEnvelope(client *Client, env *Envelope) bool {
 	case <-time.After(500 * time.Millisecond):
 		return false
 	default:
-		// channel 满：非阻塞丢弃（保证 writePump 不被阻塞）
 		return false
 	}
 }
+

@@ -11,37 +11,17 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// 方向8: 核心数据流向编排器 (Core Data Flow Orchestrator)
-// ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/核心数据流向.md
-//
-// 端到端数据流向：
-//  客户消息 → InboxIngress 标准化 → AssetBundle 织布 (L1/L2/Prompt)
-//           → InferenceCycle (感知→对齐→门禁→规划)
-//           → 若转人工：HumanEscalation
-//           → 若工具调用：StreamStateMachine → ToolRouter → 二进宫
-//           → 裁剪 + 发布 → 客户
-//
-// 职责：
-//  1. 把分散的子组件（感知/对齐/门禁/规划/工具/裁剪/发布）编排成一条数据流
-//  2. 阶段间数据通过 InferenceContext 透传
-//  3. 错误隔离：单阶段失败不阻塞整体
-//  4. 全链路可观测：每阶段记录耗时与决策
-// ============================================================================
 
 // CoreDataFlowOrchestrator 核心数据流编排器
 type CoreDataFlowOrchestrator struct {
 	cycle    *InferenceCycle
 	escalate EscalationTrigger
 
-	// 可选组件（不注入则用 NoOp）
 	assetLoader AssetLoader
 	toolRouter  ToolRouterExecutor
 	trimmer     ResponseTrimmer
 	publisher   ResponsePublisher
 
-	// 内部统计
 	mu    sync.RWMutex
 	stats DataFlowStats
 }
@@ -68,10 +48,10 @@ type AssetLoader interface {
 
 // AssetContext 资产上下文
 type AssetContext struct {
-	L1ShortTerm map[string]string // L1 短期（Redis）
-	L2Profile   map[string]string // L2 长期画像（PG）
-	PromptText  string            // 资产包 Prompt
-	SystemTools []string          // 可用工具列表
+	L1ShortTerm map[string]string 
+	L2Profile   map[string]string 
+	PromptText  string            
+	SystemTools []string          
 }
 
 // ToolRouterExecutor 工具路由执行器（解耦方向5 的 ToolRouter）
@@ -180,12 +160,10 @@ func (o *CoreDataFlowOrchestrator) Process(ctx context.Context, payload Customer
 		SessionID: payload.SessionID,
 	}
 
-	// 0. 解析 SessionID（若缺失则从 CustomerID 构造）
 	if result.SessionID == "" {
 		result.SessionID = payload.ChannelType + ":" + payload.CustomerID
 	}
 
-	// 1. A5: 加载资产上下文（L1 短期 + L2 画像 + Prompt）
 	if o.assetLoader != nil {
 		assetCtx, err := o.assetLoader.LoadContext(ctx, payload, agentCtx)
 		if err != nil {
@@ -195,7 +173,6 @@ func (o *CoreDataFlowOrchestrator) Process(ctx context.Context, payload Customer
 		}
 	}
 
-	// 2. A6-A9: 推理闭环
 	decision, err := o.cycle.RunOnce(ctx, payload, agentCtx)
 	if err != nil {
 		o.recordError()
@@ -210,7 +187,6 @@ func (o *CoreDataFlowOrchestrator) Process(ctx context.Context, payload Customer
 	result.CrisisLevel = decision.Crisis.Level
 	result.TotalDuration = time.Since(start)
 
-	// 3. B4: 若转人工 → 触发 HumanEscalation
 	if decision.HandoffToHuman {
 		if o.escalate != nil {
 			if err := o.escalate.Trigger(ctx, result.SessionID, decision.HandoffReason); err != nil {
@@ -220,7 +196,6 @@ func (o *CoreDataFlowOrchestrator) Process(ctx context.Context, payload Customer
 		o.recordHandoff()
 	}
 
-	// 4. A9-A11: 裁剪 + 发布
 	finalReply := decision.Reply
 	if finalReply == "" && decision.Plan != nil {
 		finalReply = decision.Plan.ReplyHint
@@ -236,15 +211,10 @@ func (o *CoreDataFlowOrchestrator) Process(ctx context.Context, payload Customer
 		}
 	}
 
-	// 5. 统计
-	result.Stages = nil // 由调用方从 cycle 取
+	result.Stages = nil 
 	if decision.Plan != nil {
 		result.ToolCallCount = len(decision.Plan.ToolCalls)
 		if result.ToolCallCount > 0 {
-			// 链路要求执行工具调用，但未注入 ToolRouter 执行器：
-			// 禁止静默统计「假装执行」。明确告警并返回错误，提示调用方必须先
-			// 通过 SetToolRouter 注入真实工具执行器（如全局 ToolRouter 适配器）
-			// 或 SetEscalationTrigger 配置转人工，否则决策中的工具计划无法落地。
 			if o.toolRouter == nil {
 				err := errors.New("tool router not configured: decision requests " +
 					toolCallsSummary(decision.Plan.ToolCalls) +
@@ -303,9 +273,6 @@ func (o *CoreDataFlowOrchestrator) recordError() {
 	o.mu.Unlock()
 }
 
-// ============================================================================
-// NoOp 默认实现
-// ============================================================================
 
 type noopAssetLoader struct{}
 
@@ -344,40 +311,31 @@ func (defaultTrimmer) Trim(reply string) string {
 		return reply
 	}
 
-	// 1. 裁掉末尾 ```json ... ``` 代码块
 	for {
 		idx := strings.LastIndex(reply, "```json")
 		if idx < 0 {
 			break
 		}
-		// 从 idx 起找下一个 ```
 		rest := reply[idx+len("```json"):]
-		// 跳过 json 后的语言提示行（如 ```json\n）
 		if nl := strings.Index(rest, "\n"); nl == 0 {
 			rest = rest[1:]
 		} else if nl > 0 {
-			// 注意：若 nl 之前没有内容且整段只是 ```json
-			// 跳到 nl 之后
 			rest = rest[nl+1:]
 		}
 		closeIdx := strings.Index(rest, "```")
 		if closeIdx < 0 {
-			// 没有闭合，放弃裁剪
 			break
 		}
-		// 裁掉 [idx, idx+len("```json")+nl+1+closeIdx+3) 这段
 		before := reply[:idx]
 		after := rest[closeIdx+3:]
 		reply = strings.TrimRight(before, "\n") + after
 	}
 
-	// 2. 裁掉末尾 {"intent":...} JSON 段
 	for {
 		idx := strings.LastIndex(reply, "{\"intent\"")
 		if idx < 0 {
 			break
 		}
-		// 找匹配的右大括号
 		depth := 0
 		end := -1
 		for i := idx; i < len(reply); i++ {
@@ -394,18 +352,13 @@ func (defaultTrimmer) Trim(reply string) string {
 		if end < 0 {
 			break
 		}
-		// 裁掉 [idx, end+1)
 		before := reply[:idx]
-		// 留下一个换行，避免被前面字符粘住
 		reply = strings.TrimRight(before, "\n")
 	}
 
 	return reply
 }
 
-// ============================================================================
-// 适配方向7 的 HumanEscalationManager
-// ============================================================================
 
 // EscalationAdapter 把 HumanEscalationManager 适配成 EscalationTrigger
 type EscalationAdapter struct {
@@ -435,3 +388,4 @@ func toolCallsSummary(calls []PlannedToolCall) string {
 	}
 	return strconv.Itoa(len(calls)) + " tool call(s): " + strings.Join(names, ", ")
 }
+

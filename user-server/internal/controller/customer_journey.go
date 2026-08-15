@@ -27,13 +27,11 @@ func (c *CustomerJourneyController) GetOverview(ctx *gin.Context) {
 	customerID := ctx.Query("customer_id")
 
 	if customerID != "" {
-		// 单客户旅程查询
 		state := c.svc.GetState(context.Background(), customerID)
 		response.Success(ctx, state, "查询成功")
 		return
 	}
 
-	// 全量阶段总览
 	overview := c.svc.GetOverview(context.Background())
 	response.Success(ctx, overview, "查询成功")
 }
@@ -109,3 +107,4 @@ func (c *CustomerJourneyController) ListStages(ctx *gin.Context) {
 	}
 	response.Success(ctx, result, "查询成功")
 }
+

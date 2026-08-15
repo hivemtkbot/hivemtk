@@ -182,7 +182,6 @@ func (c *CustomReportController) QueryReportData(ctx *gin.Context) {
 		return
 	}
 
-	// 解析查询参数
 	params := make(map[string]any)
 	if startTime := ctx.Query("start_time"); startTime != "" {
 		if t, err := time.Parse("2006-01-02", startTime); err == nil {
@@ -212,3 +211,4 @@ func (c *CustomReportController) QueryReportData(ctx *gin.Context) {
 
 	response.Success(ctx, data, "获取成功")
 }
+

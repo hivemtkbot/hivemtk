@@ -466,3 +466,4 @@ func (r *WebhookEventRepository) CountUnprocessed(ctx context.Context) (int64, e
 	err := r.db.Model(&model.WebhookEvent{}).Where("processed = ?", false).Count(&c).Error
 	return c, err
 }
+

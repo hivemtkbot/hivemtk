@@ -1,21 +1,5 @@
 package ragretrieval
 
-// vector_retriever.go pgvector HNSW 向量召回
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.4.2
-//
-// SQL 关键:
-//   - SET LOCAL hnsw.ef_search = $efSearch  → 查询期动态调整 HNSW 候选
-//   - WHERE embedding IS NOT NULL          → 跳过未向量化的 chunk
-//   - ORDER BY embedding <=> $1::vector     → 命中 HNSW 索引（vector_cosine_ops）
-//   - 1 - (embedding <=> $1::vector) AS score → 转相似度（0~1，pgvector 余弦距离 0=完全相同 2=完全相反）
-//
-// 设计原则:
-//   - embedding 通过 CachedEmbeddingClient 装饰，命中 Redis/DB 缓存直接返回
-//   - 维度强约束 1024（与 TEI bge-m3 一致），不匹配直接报错
-//   - SET LOCAL 包在事务内，不污染连接池
-//   - 私域独立部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -31,7 +15,7 @@ import (
 // VectorRetriever pgvector HNSW 向量召回器
 type VectorRetriever struct {
 	db              *gorm.DB
-	embeddingClient llm.EmbeddingServiceInterface // 通常为 *CachedEmbeddingClient
+	embeddingClient llm.EmbeddingServiceInterface 
 	efSearch        int
 }
 
@@ -81,12 +65,10 @@ func (r *VectorRetriever) Retrieve(ctx context.Context, productID string, query 
 	}
 	cfg := r.embeddingClient.DefaultConfig()
 
-	// 走 CachedEmbeddingClient 装饰器（命中 Redis 直接返回）
 	queryVec, err := r.embeddingClient.EmbedOne(ctx, cfg, query)
 	if err != nil {
 		return nil, fmt.Errorf("embedding 失败: %w", err)
 	}
-	// 维度强约束：与 TEI bge-m3 一致（1024 维）
 	expectDim := 1024
 	if cfg != nil && cfg.Dimension > 0 {
 		expectDim = cfg.Dimension
@@ -123,8 +105,6 @@ func (r *VectorRetriever) Retrieve(ctx context.Context, productID string, query 
 		return nil, err
 	}
 
-	// 空召回告警：向量路返回 0 行，但库里仍存在未向量化（embed_status='pending' 或
-	// embedding IS NULL）的 chunk 时，说明存在回填缺失，打印 Warn 便于发现，不改变正常返回。
 	if len(rows) == 0 {
 		if n := r.countUnembeddedChunks(ctx, productID); n > 0 {
 			logger.Warnf("[VectorRetriever] 向量召回为空，但存在 %d 个未向量化 chunk (embed_status='pending' 或 embedding IS NULL)，疑似回填缺失；query=%q product_id=%q",
@@ -168,3 +148,4 @@ func rowsToChunks(rows []chunkScanRow) []Chunk {
 	}
 	return out
 }
+

@@ -1,20 +1,5 @@
 package service
 
-// rag_health_test.go RAG 健康度服务测试（C 域 缺口 #4）
-//
-// 测试覆盖：
-//   1) NewRagHealthService 构造
-//   2) GetHealth 空数据场景
-//   3) GetHealth 完美场景（A 级）
-//   4) GetHealth 各种维度评分
-//   5) GetHealth 自定义窗口
-//   6) GetHealthCached 缓存命中
-//   7) scoreToGrade 分级
-//   8) buildHealthSummary 摘要
-//   9) computeDimensions 6 维度计算
-//  10) ClearCache 清缓存
-//  11) 边界：nil db / nil receiver / window≤0
-//  12) 综合场景：多个维度评分
 
 import (
 	"context"
@@ -33,8 +18,6 @@ import (
 // setupRagHealthTestDB 创建健康度测试库
 func setupRagHealthTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	// 私域部署: 已移除 RagAlert 模型 (原 alert 通道服务已删除)
-	// 健康度评分不再纳入 alert 维度, 数据库表保持兼容
 	return testutil.NewTestDB(t,
 		&model.RagQueryLog{},
 		&model.RagMetricsDaily{},
@@ -43,9 +26,6 @@ func setupRagHealthTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// ----------------------------------------------------------------------------
-// 1. 构造测试
-// ----------------------------------------------------------------------------
 
 // TestRagHealth_NewService 测试服务构造
 func TestRagHealth_NewService(t *testing.T) {
@@ -60,7 +40,6 @@ func TestRagHealth_NewService(t *testing.T) {
 	if svc.metric == nil {
 		t.Error("Expected non-nil metric")
 	}
-	// 私域部署: 已移除 alert 维度 (RagAlertService 已删除), 不再断言 svc.alert
 }
 
 // TestRagHealth_NewService_NilDB 测试 nil db 构造
@@ -84,9 +63,6 @@ func TestRagHealth_NewService_NilReceiver(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 2. GetHealth 空数据场景
-// ----------------------------------------------------------------------------
 
 // TestRagHealth_GetHealth_Empty 测试空数据（应为 D 级低分）
 func TestRagHealth_GetHealth_Empty(t *testing.T) {
@@ -108,7 +84,6 @@ func TestRagHealth_GetHealth_Empty(t *testing.T) {
 	if len(r.Dimensions) != 6 {
 		t.Errorf("Expected 6 dimensions, got %d", len(r.Dimensions))
 	}
-	// 空数据所有维度都应是 critical
 	for _, d := range r.Dimensions {
 		if d.Status != "critical" {
 			t.Errorf("Expected status=critical for %s, got %s", d.Key, d.Status)
@@ -116,16 +91,12 @@ func TestRagHealth_GetHealth_Empty(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 3. GetHealth 完美场景（A 级）
-// ----------------------------------------------------------------------------
 
 // TestRagHealth_GetHealth_Perfect 测试完美场景（A 级）
 func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil)
 
-	// 1) 写入高召回查询日志
 	for i := 0; i < 10; i++ {
 		log := &model.RagQueryLog{
 			Query:          fmt.Sprintf("q%d", i),
@@ -134,7 +105,7 @@ func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 			HitCount:       5,
 			Recall:         1.0,
 			Precision:      1.0,
-			LatencyMs:      50, // 低延迟
+			LatencyMs:      50, 
 			Source:         "hybrid",
 			CreatedAt:      time.Now().Add(-30 * time.Minute),
 		}
@@ -143,7 +114,6 @@ func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 		}
 	}
 
-	// 2) 写入已索引的文档（无 failed）
 	for i := 0; i < 5; i++ {
 		doc := &kbmodel.KnowledgeDocument{
 			Title:       fmt.Sprintf("doc-%d", i),
@@ -154,7 +124,6 @@ func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 		}
 	}
 
-	// 3) 写入大量 chunk
 	for i := 0; i < 1100; i++ {
 		chunk := &kbmodel.KnowledgeChunk{
 			DocumentID: 1,
@@ -170,14 +139,12 @@ func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetHealth failed: %v", err)
 	}
-	// 应达到 A 级（≥90）
 	if r.Score < 90 {
 		t.Errorf("Expected score>=90 (A), got %d", r.Score)
 	}
 	if r.Grade != RagHealthGradeA {
 		t.Errorf("Expected grade=A, got %s", r.Grade)
 	}
-	// 验证维度
 	dimMap := map[string]RagHealthDimension{}
 	for _, d := range r.Dimensions {
 		dimMap[d.Key] = d
@@ -202,16 +169,12 @@ func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 4. GetHealth 各种维度评分
-// ----------------------------------------------------------------------------
 
 // TestRagHealth_GetHealth_LowRecall 测试低召回场景
 func TestRagHealth_GetHealth_LowRecall(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil)
 
-	// 写入低召回数据
 	log := &model.RagQueryLog{
 		Query:          "low",
 		RetrievedCount: 5,
@@ -255,7 +218,7 @@ func TestRagHealth_GetHealth_HighLatency(t *testing.T) {
 		HitCount:       1,
 		Recall:         1.0,
 		Precision:      1.0,
-		LatencyMs:      3000, // > 2000ms
+		LatencyMs:      3000, 
 		Source:         "hybrid",
 		CreatedAt:      time.Now().Add(-30 * time.Minute),
 	}
@@ -281,7 +244,6 @@ func TestRagHealth_GetHealth_EmbeddingFailure(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil)
 
-	// 写入 5 个文档：3 failed（60% > 10%）
 	for i := 0; i < 5; i++ {
 		status := kbmodel.EmbedStatusIndexed
 		if i < 3 {
@@ -315,7 +277,6 @@ func TestRagHealth_GetHealth_ActiveAlerts(t *testing.T) {
 	svc := NewRagHealthService(db, nil)
 	now := time.Now()
 
-	// 先写入查询日志，使 recall.TotalQueries > 0（告警维度评分前置条件）
 	for i := 0; i < 5; i++ {
 		log := &model.RagQueryLog{
 			Query:          fmt.Sprintf("q%d", i),
@@ -333,9 +294,7 @@ func TestRagHealth_GetHealth_ActiveAlerts(t *testing.T) {
 		}
 	}
 
-	// 私域部署: 已移除 alert 维度 (RagAlert 模型 + RagAlertService 已删除),
-	// 健康度评分不再依赖告警表, 此处直接断言 RagHealthDimAlerts 分数为 0
-	_ = now // 保留变量以维持测试用例结构
+	_ = now 
 
 	r, err := svc.GetHealth(context.Background(), time.Hour)
 	if err != nil {
@@ -345,22 +304,17 @@ func TestRagHealth_GetHealth_ActiveAlerts(t *testing.T) {
 	for _, d := range r.Dimensions {
 		dimMap[d.Key] = d
 	}
-	// 私域部署: alert 维度固定为 100 分 (无活跃预警, 视为合格)
 	if got := dimMap[RagHealthDimAlerts].Score; got != 100 {
 		t.Errorf("Expected alerts score=100 (私域: 无告警通道, 默认满分), got %d", got)
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 5. GetHealth 自定义窗口
-// ----------------------------------------------------------------------------
 
 // TestRagHealth_GetHealth_CustomWindow 测试自定义窗口
 func TestRagHealth_GetHealth_CustomWindow(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil)
 
-	// 写入 2 小时前的数据（不在 1 小时窗口内）
 	log := &model.RagQueryLog{
 		Query:          "old",
 		RetrievedCount: 1,
@@ -376,7 +330,6 @@ func TestRagHealth_GetHealth_CustomWindow(t *testing.T) {
 		t.Fatalf("create log failed: %v", err)
 	}
 
-	// 用 1 小时窗口 → 不包含 2 小时前的数据
 	r1, err := svc.GetHealth(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealth 1 failed: %v", err)
@@ -389,7 +342,6 @@ func TestRagHealth_GetHealth_CustomWindow(t *testing.T) {
 		t.Errorf("Expected retrieval score=0 for 1h window (data is 2h old), got %d", dimMap[RagHealthDimRetrieval].Score)
 	}
 
-	// 用 3 小时窗口 → 包含 2 小时前的数据
 	r2, err := svc.GetHealth(context.Background(), 3*time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealth 2 failed: %v", err)
@@ -403,22 +355,17 @@ func TestRagHealth_GetHealth_CustomWindow(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 6. GetHealthCached 缓存命中
-// ----------------------------------------------------------------------------
 
 // TestRagHealth_GetHealthCached 测试缓存命中
 func TestRagHealth_GetHealthCached(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil)
 
-	// 第一次调用 → 未命中缓存
 	r1, err := svc.GetHealthCached(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealthCached 1 failed: %v", err)
 	}
 
-	// 写入新数据（应在第二次缓存命中时不反映）
 	log := &model.RagQueryLog{
 		Query:          "new",
 		RetrievedCount: 1,
@@ -434,7 +381,6 @@ func TestRagHealth_GetHealthCached(t *testing.T) {
 		t.Fatalf("create log failed: %v", err)
 	}
 
-	// 第二次调用（缓存未过期） → 应命中缓存，返回相同结果
 	r2, err := svc.GetHealthCached(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealthCached 2 failed: %v", err)
@@ -443,13 +389,11 @@ func TestRagHealth_GetHealthCached(t *testing.T) {
 		t.Errorf("Expected cached score=%d, got %d (cache miss)", r1.Score, r2.Score)
 	}
 
-	// 清缓存后再调
 	svc.ClearCache(context.Background())
 	r3, err := svc.GetHealthCached(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealthCached 3 failed: %v", err)
 	}
-	// 写入新数据后 score 应变化（retrieval 维度从 0 → 100）
 	if r3.Score == r1.Score {
 		t.Logf("Note: scores are equal after cache clear, r1=%d r3=%d", r1.Score, r3.Score)
 	}
@@ -480,9 +424,6 @@ func TestRagHealth_GetHealthCached_ConcurrentSafe(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 7. scoreToGrade 分级
-// ----------------------------------------------------------------------------
 
 // TestRagHealth_ScoreToGrade 测试分数转分级
 func TestRagHealth_ScoreToGrade(t *testing.T) {
@@ -498,7 +439,7 @@ func TestRagHealth_ScoreToGrade(t *testing.T) {
 		{60, RagHealthGradeC},
 		{59, RagHealthGradeD},
 		{0, RagHealthGradeD},
-		{-1, RagHealthGradeD}, // 防御
+		{-1, RagHealthGradeD}, 
 	}
 	for _, c := range cases {
 		g := scoreToGrade(c.score)
@@ -508,9 +449,6 @@ func TestRagHealth_ScoreToGrade(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 8. buildHealthSummary 摘要
-// ----------------------------------------------------------------------------
 
 // TestRagHealth_BuildHealthSummary 测试摘要生成
 func TestRagHealth_BuildHealthSummary(t *testing.T) {
@@ -551,9 +489,6 @@ func TestRagHealth_BuildHealthSummary(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 9. computeDimensions 6 维度计算
-// ----------------------------------------------------------------------------
 
 // TestRagHealth_ComputeDimensions_AllHealthy 测试全健康维度
 func TestRagHealth_ComputeDimensions_AllHealthy(t *testing.T) {
@@ -567,7 +502,6 @@ func TestRagHealth_ComputeDimensions_AllHealthy(t *testing.T) {
 	if len(dims) != 6 {
 		t.Fatalf("Expected 6 dims, got %d", len(dims))
 	}
-	// 全部维度都应 healthy
 	for _, d := range dims {
 		if d.Status != "healthy" {
 			t.Errorf("Expected %s status=healthy, got %s", d.Key, d.Status)
@@ -582,13 +516,12 @@ func TestRagHealth_ComputeDimensions_AllHealthy(t *testing.T) {
 func TestRagHealth_ComputeDimensions_AllCritical(t *testing.T) {
 	svc := NewRagHealthService(setupRagHealthTestDB(t), nil)
 	recall := &RecallMetrics{
-		TotalQueries: 0, // 空数据
+		TotalQueries: 0, 
 	}
-	dims := svc.computeDimensions(context.Background(), recall, 0.0, 0, 0, 20) // 20 个预警
+	dims := svc.computeDimensions(context.Background(), recall, 0.0, 0, 0, 20) 
 	if len(dims) != 6 {
 		t.Fatalf("Expected 6 dims, got %d", len(dims))
 	}
-	// alerts 维度应 critical（20 个预警）
 	for _, d := range dims {
 		if d.Key == RagHealthDimAlerts {
 			if d.Status != "critical" {
@@ -616,7 +549,6 @@ func TestRagHealth_MakeDimension(t *testing.T) {
 	if d.Weight != 0.15 {
 		t.Errorf("Expected weight=0.15, got %f", d.Weight)
 	}
-	// WeightedScore = Score * Weight = 80 * 0.15 = 12.0
 	if absFloat(d.WeightedScore-12.0) > 1e-4 {
 		t.Errorf("Expected weighted_score=12.0, got %f", d.WeightedScore)
 	}
@@ -628,31 +560,23 @@ func TestRagHealth_MakeDimension(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 10. ClearCache 清缓存
-// ----------------------------------------------------------------------------
 
 // TestRagHealth_ClearCache 测试清缓存
 func TestRagHealth_ClearCache(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil)
 
-	// 第一次调用填充缓存
 	_, _ = svc.GetHealthCached(context.Background(), time.Hour)
 	if svc.cached == nil {
 		t.Fatal("Expected non-nil cache after GetHealthCached")
 	}
 
-	// 清缓存
 	svc.ClearCache(context.Background())
 	if svc.cached != nil {
 		t.Error("Expected nil cache after ClearCache")
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 11. 边界场景
-// ----------------------------------------------------------------------------
 
 // TestRagHealth_GetHealth_NegativeWindow 测试负窗口（应使用默认）
 func TestRagHealth_GetHealth_NegativeWindow(t *testing.T) {
@@ -667,16 +591,12 @@ func TestRagHealth_GetHealth_NegativeWindow(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// 12. 综合场景：B 级
-// ----------------------------------------------------------------------------
 
 // TestRagHealth_GetHealth_BGrade 测试 B 级场景
 func TestRagHealth_GetHealth_BGrade(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil)
 
-	// 写入中等召回数据（recall=0.5）
 	log := &model.RagQueryLog{
 		Query:          "mid",
 		RetrievedCount: 4,
@@ -684,7 +604,7 @@ func TestRagHealth_GetHealth_BGrade(t *testing.T) {
 		HitCount:       1,
 		Recall:         0.5,
 		Precision:      0.25,
-		LatencyMs:      800, // 中等延迟
+		LatencyMs:      800, 
 		Source:         "hybrid",
 		CreatedAt:      time.Now().Add(-30 * time.Minute),
 	}
@@ -692,7 +612,6 @@ func TestRagHealth_GetHealth_BGrade(t *testing.T) {
 		t.Fatalf("create log failed: %v", err)
 	}
 
-	// 写入 5 个 indexed 文档
 	for i := 0; i < 5; i++ {
 		doc := &kbmodel.KnowledgeDocument{
 			Title:       fmt.Sprintf("doc-%d", i),
@@ -703,7 +622,6 @@ func TestRagHealth_GetHealth_BGrade(t *testing.T) {
 		}
 	}
 
-	// 写入 100 个 chunk
 	for i := 0; i < 100; i++ {
 		chunk := &kbmodel.KnowledgeChunk{
 			DocumentID: 1,
@@ -720,8 +638,8 @@ func TestRagHealth_GetHealth_BGrade(t *testing.T) {
 		t.Fatalf("GetHealth failed: %v", err)
 	}
 	t.Logf("Score=%d, Grade=%s", r.Score, r.Grade)
-	// 预期分数应在合理范围（不强制 B，但应 ≥ 30）
 	if r.Score < 30 {
 		t.Errorf("Expected score>=30, got %d", r.Score)
 	}
 }
+

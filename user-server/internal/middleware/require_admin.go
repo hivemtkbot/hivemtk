@@ -44,3 +44,4 @@ func RequireAdminMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+

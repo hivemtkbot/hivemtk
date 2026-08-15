@@ -39,15 +39,12 @@ func TestUnifiedMessageController_GetMessages_NoAuth(t *testing.T) {
 	ctrl := NewUnifiedMessageController()
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	// GetMessages 控制器当前没有 user_id 鉴权,未传 user_id 时 service 默认 merchant_id=""
-	// 直接查询并返回空列表
 	router.GET("/messages", ctrl.GetMessages)
 
 	req, _ := http.NewRequest("GET", "/messages", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 当前 GetMessages 实现未做 user_id 鉴权,直接查询空 DB 并返回 200
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected 200 (no auth check), got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -90,8 +87,8 @@ func TestUnifiedMessageController_GetMessageByID_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Empty DB → 404, with data → 200
 	if w.Code != http.StatusOK && w.Code != http.StatusNotFound {
 		t.Errorf("Expected 200 or 404, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
+

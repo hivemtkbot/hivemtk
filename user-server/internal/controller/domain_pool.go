@@ -72,12 +72,10 @@ func (c *DomainPoolController) Delete(ctx *gin.Context) {
 
 	err = c.domainPoolService.Delete(context.Background(), id)
 	if err != nil {
-		// 外键约束（live_codes.short_domain_id/entry_domain_id/landing_domain_id 引用）时返回 400 友好提示
 		if strings.Contains(err.Error(), "violates foreign key") || strings.Contains(err.Error(), "constraint") {
 			response.Error(ctx, http.StatusBadRequest, "该域名仍被活码引用，请先解绑或删除相关活码后再删除域名")
 			return
 		}
-		// 五层架构合规：controller 不直接引用 gorm，通过 IsNotFoundError 字符串匹配判断
 		if IsNotFoundError(err) {
 			response.Error(ctx, http.StatusNotFound, "域名不存在")
 			return
@@ -171,7 +169,6 @@ func (c *DomainPoolController) CheckAllDomains(ctx *gin.Context) {
 	response.Success(ctx, results, "检查完成")
 }
 
-// ============== G 域 健康度自动切换 ==============
 
 // HealthCheck 单个域名健康度探测（含评分）
 // @Summary 健康度探测
@@ -320,7 +317,7 @@ type AddBlacklistRequest struct {
 	Platform string `json:"platform"`
 	Reason   string `json:"reason"`
 	Source   string `json:"source"`
-	TTLHours int    `json:"ttl_hours"` // 0 表示永久
+	TTLHours int    `json:"ttl_hours"` 
 }
 
 // AddBlacklist 添加平台黑名单
@@ -377,7 +374,6 @@ func (c *DomainPoolController) ListBlacklist(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"list": rows, "total": total, "page": page, "page_size": pageSize}, "")
 }
 
-// ============== 工具函数 ==============
 
 // toDomainResponse model → dto
 func toDomainResponse(dp *model.DomainPool) dto.DomainPoolResponse {
@@ -444,3 +440,4 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
+

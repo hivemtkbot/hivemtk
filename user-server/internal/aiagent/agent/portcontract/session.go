@@ -6,9 +6,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ----------------------------------------------------------------------------
-// Session 域：私信 / 客户会话
-// ----------------------------------------------------------------------------
 
 // CreateSessionInput 开启会话请求投影。
 //
@@ -39,10 +36,8 @@ type SendMessageInput struct {
 // 注意：所有"发送者身份"必须由 service 层在 controller 鉴权上下文派生，
 // 工具层不得伪造 sender_type 字段（与方向10 安全加固一致）。
 type SessionPort interface {
-	// CreateSession 开启新会话（不写消息）
 	CreateSession(ctx context.Context, in *CreateSessionInput) (*model.CustomerSession, error)
-	// GetMessages 分页拉取会话消息
 	GetMessages(sessionID string, page, pageSize int) ([]*model.SessionMessage, int64, error)
-	// SendMessage 发送一条会话消息
 	SendMessage(ctx context.Context, in *SendMessageInput) (*model.SessionMessage, error)
 }
+

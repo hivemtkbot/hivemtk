@@ -16,12 +16,12 @@ import (
 // 统一日志系统以 zerolog 为唯一实现，所有模块（HTTP/WebSocket/编排/触达）
 // 都通过本包输出日志，从而保证级别、格式、落盘、trace 透传一致。
 type LoggingConfig struct {
-	Level     string `yaml:"level"`     // debug | info | warn | error
-	Format    string `yaml:"format"`    // json | console
-	Output    string `yaml:"output"`    // stdout | file | both
-	File      string `yaml:"file"`      // output 为 file/both 时生效
-	MaxSizeMB int    `yaml:"max_size"`  // 单文件最大体积(MB)，超过则滚动
-	Component string `yaml:"component"` // 服务标识，写入每条日志的 component 字段
+	Level     string `yaml:"level"`     
+	Format    string `yaml:"format"`    
+	Output    string `yaml:"output"`    
+	File      string `yaml:"file"`      
+	MaxSizeMB int    `yaml:"max_size"`  
+	Component string `yaml:"component"` 
 }
 
 // DefaultConfig 返回生产友好的默认配置：info 级、控制台、组件名 user-server。
@@ -96,7 +96,7 @@ func InitLogger(c LoggingConfig) {
 			consoleWriter(c.Format),
 			newRotatingWriter(c.File, int64(c.MaxSizeMB)*1024*1024),
 		)
-	default: // stdout
+	default: 
 		writer = consoleWriter(c.Format)
 	}
 
@@ -134,7 +134,6 @@ func GetLogger() *zerolog.Logger {
 	return l
 }
 
-// ---- 追踪上下文（trace） ----
 
 type ctxKey int
 
@@ -213,7 +212,6 @@ func Ctx(ctx context.Context) *zerolog.Logger {
 	return &c
 }
 
-// ---- 全局便捷方法（无 context 时使用，例如启动引导） ----
 
 // Debug 记录 debug 级日志。
 func Debug(msg string) { GetLogger().Debug().Msg(msg) }
@@ -239,7 +237,6 @@ func Error(err error, msg string) { GetLogger().Error().Err(err).Msg(msg) }
 // Errorf 格式化记录 error 级日志。
 func Errorf(format string, args ...any) { GetLogger().Error().Msgf(format, args...) }
 
-// ---- 文件滚动写入器（依赖零外部库） ----
 
 type rotatingWriter struct {
 	mu       sync.Mutex
@@ -299,3 +296,4 @@ func (w *rotatingWriter) Write(p []byte) (int, error) {
 	w.size += int64(n)
 	return n, err
 }
+

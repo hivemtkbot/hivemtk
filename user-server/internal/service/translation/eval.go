@@ -11,29 +11,10 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// EvalService 多语言质量评估服务（v1.2 出海多语言方案）
-// ----------------------------------------------------------------------------
-// 职责：
-//   - 异步抽样（默认 5%）LLM 调用进行 chrF++ + LLM-as-Judge 评估
-//   - 综合分回填到 llm_routing_logs.quality_score
-//   - 不阻塞主流程（goroutine + recover + 超时保护）
-//
-// 五层架构归属：L2 业务服务层。组合 aiagent/eval（评估能力）+
-// EvalLogRepository（仓储接口），不直接访问 db。
-//
-// 综合分规则：
-//   - 仅 chrF 可用：finalScore = chrFScore
-//   - chrF + judge 都可用：finalScore = (chrFScore + judgeScore) / 2
-//   - judge 失败：降级为仅 chrF
-// ============================================================================
 
 // EvalLogRepository 评估日志仓储接口（由 repository 层实现）。
 type EvalLogRepository interface {
-	// ListRecentCalls 拉取指定目标语言的最近 N 条 LLM 调用日志（离线评估用）。
 	ListRecentCalls(ctx context.Context, lang string, limit int) ([]*model.LLMRoutingLog, error)
-	// UpdateQualityScore 回填质量分到 llm_routing_logs.quality_score。
-	// issues 为评分理由 / 问题摘要（写入 validation_issues 或独立字段，由实现决定）。
 	UpdateQualityScore(ctx context.Context, logID int64, score float64, issues string) error
 }
 
@@ -42,12 +23,11 @@ type EvalService struct {
 	chrF       *eval.ChrFEvaluator
 	judge      eval.LLMJudge
 	logRepo    EvalLogRepository
-	sampleRate float64 // 抽样率，0.05 = 5%
+	sampleRate float64 
 	enabled    bool
 
-	// 观测统计（原子读写，无需加锁）
-	sampledCount   int64 // 抽样命中次数
-	evaluatedCount int64 // 评估完成次数
+	sampledCount   int64 
+	evaluatedCount int64 
 }
 
 // NewEvalService 创建评估服务。
@@ -134,7 +114,6 @@ func (s *EvalService) evaluate(ctx context.Context, log *model.LLMRoutingLog, qu
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	// 1. chrF++ 评估
 	chrFScore := s.chrF.Score(candidate, reference)
 
 	// 2. LLM-as-Judge（若注入）
@@ -157,13 +136,11 @@ func (s *EvalService) evaluate(ctx context.Context, log *model.LLMRoutingLog, qu
 		}
 	}
 
-	// 3. 综合分（chrF 50% + judge 50%；judge 缺失时全用 chrF）
 	finalScore := chrFScore
 	if judgeScore > 0 {
 		finalScore = (chrFScore + judgeScore) / 2
 	}
 
-	// 4. 回填到 llm_routing_logs（仅有真实 log ID 时）
 	if s.logRepo != nil && log.ID > 0 {
 		if err := s.logRepo.UpdateQualityScore(ctx, log.ID, finalScore, issues); err != nil {
 			logger.Warnf("eval service: update quality score failed (log_id=%d): %v", log.ID, err)
@@ -172,3 +149,4 @@ func (s *EvalService) evaluate(ctx context.Context, log *model.LLMRoutingLog, qu
 
 	atomic.AddInt64(&s.evaluatedCount, 1)
 }
+

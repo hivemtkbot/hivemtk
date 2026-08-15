@@ -6,10 +6,10 @@ import "time"
 type SmsCarrier string
 
 const (
-	SmsCarrierMobile  SmsCarrier = "mobile"  // 中国移动
-	SmsCarrierUnicom  SmsCarrier = "unicom"  // 中国联通
-	SmsCarrierTelecom SmsCarrier = "telecom" // 中国电信
-	SmsCarrierUnknown SmsCarrier = "unknown" // 未知 / 携号转网过渡
+	SmsCarrierMobile  SmsCarrier = "mobile"  
+	SmsCarrierUnicom  SmsCarrier = "unicom"  
+	SmsCarrierTelecom SmsCarrier = "telecom" 
+	SmsCarrierUnknown SmsCarrier = "unknown" 
 )
 
 // SmsNumberPortabilityRecord 携号转网记录
@@ -36,3 +36,4 @@ type SmsNumberPortabilityRecord struct {
 func (SmsNumberPortabilityRecord) TableName() string {
 	return "sms_number_portability_logs"
 }
+

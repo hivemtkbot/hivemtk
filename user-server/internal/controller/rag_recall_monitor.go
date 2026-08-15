@@ -1,16 +1,5 @@
 package controller
 
-// rag_recall_monitor_controller.go RAG 召回率监控控制器
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md §14.6 召回率监控
-//
-// 路由（全部鉴权）：
-//   - GET  /api/rag/recall/snapshot           获取最近一次监控快照（内存）
-//   - GET  /api/rag/recall/snapshots          列出最近 N 条监控快照（DB）
-//   - POST /api/rag/recall/collect            手动触发一次采集
-//   - POST /api/rag/recall/start              启动后台定时采集
-//   - POST /api/rag/recall/stop               停止后台定时采集
 
 import (
 	"context"
@@ -86,7 +75,7 @@ func (c *RagRecallMonitorController) ListSnapshots(ctx *gin.Context) {
 
 // CollectRequest 手动触发采集的请求体
 type CollectRequest struct {
-	WindowSeconds int `json:"window_seconds"` // 评估窗口（秒），默认 3600（1 小时）
+	WindowSeconds int `json:"window_seconds"` 
 }
 
 // Collect godoc
@@ -104,7 +93,7 @@ func (c *RagRecallMonitorController) Collect(ctx *gin.Context) {
 		return
 	}
 	var req CollectRequest
-	_ = ctx.ShouldBindJSON(&req) // body 可选，绑定失败不致命
+	_ = ctx.ShouldBindJSON(&req) 
 
 	window := time.Duration(req.WindowSeconds) * time.Second
 	if window <= 0 {
@@ -165,3 +154,4 @@ func (c *RagRecallMonitorController) RegisterRoutes(auth *gin.RouterGroup) {
 		group.POST("/stop", c.Stop)
 	}
 }
+

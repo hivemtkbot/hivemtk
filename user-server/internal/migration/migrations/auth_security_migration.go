@@ -1,20 +1,5 @@
 package migrations
 
-// auth_security_migration.go 认证与安全相关表结构迁移 v2.10.0
-//
-// 五层架构归属: L5 数据层
-// 设计依据: docs/standards/MASTER_RULES.md「私域独立部署，无 merchant_id 字段」
-// MFA / 异常登录预警 / 密码策略 / 行级权限
-//
-// 本迁移创建 4 张表：
-//  1. user_mfa          用户 MFA 配置（TOTP/HOTP）
-//  2. login_events      登录事件审计（含风险评估）
-//  3. security_alerts   安全告警（high/critical 风险触发）
-//  4. password_history  密码历史（forbid_reuse 策略）
-//
-// 幂等性: 全部使用 CREATE TABLE IF NOT EXISTS，可重入
-// 依赖: system_users 表已存在（由 initial_schema 创建）
-// 私域部署: 无 merchant_id 字段
 
 import (
 	"context"
@@ -52,27 +37,22 @@ func (m *AuthSecurityMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 1. user_mfa 表（MFA 多因素认证）
 	if err := m.createUserMFATable(ctx); err != nil {
 		return fmt.Errorf("创建 user_mfa 表失败: %w", err)
 	}
 
-	// 2. login_events 表（异常登录预警 - 事件审计）
 	if err := m.createLoginEventsTable(ctx); err != nil {
 		return fmt.Errorf("创建 login_events 表失败: %w", err)
 	}
 
-	// 3. security_alerts 表（异常登录预警 - 告警）
 	if err := m.createSecurityAlertsTable(ctx); err != nil {
 		return fmt.Errorf("创建 security_alerts 表失败: %w", err)
 	}
 
-	// 4. password_history 表（密码策略 - 历史密码复用检查）
 	if err := m.createPasswordHistoryTable(ctx); err != nil {
 		return fmt.Errorf("创建 password_history 表失败: %w", err)
 	}
 
-	// 5. system_config_kv 表（密码策略 - 存储密码策略配置 JSON）
 	if err := m.createSystemConfigKVTable(ctx); err != nil {
 		return fmt.Errorf("创建 system_config_kv 表失败: %w", err)
 	}
@@ -205,3 +185,4 @@ func (m *AuthSecurityMigration) Down(ctx context.Context) error {
 
 // compile-time 接口断言
 var _ migration.Migration = (*AuthSecurityMigration)(nil)
+

@@ -8,17 +8,17 @@ import (
 
 // Config 自学习模块配置
 type Config struct {
-	Scenario      llm.DispatchScenario // LLM 打分场景
-	BadThreshold  int                  // 低于此分视为差回复 → 降权
-	GoodThreshold int                  // 高于此分视为好回复 → 升权
-	Decay         float64              // 差回复降权系数（<1）
-	Boost         float64              // 好回复升权系数（>1）
-	MinWeight     float64              // 权重下限
-	MaxWeight     float64              // 权重上限
-	MeanReversion float64              // 均值回归强度（0~1）：每次调权后向 BaseWeight(1.0) 回归，防止永久锚定上下限
-	BatchSize     int                  // 单次批量评估条数（仅 RunBatch 分批参考）
-	Concurrency   int                  // 批量评估并发度（LLM 调用为瓶颈，并行打分提升吞吐；权重调整由全局锁串行化）
-	SinceHours    int                  // opt-in 时间窗：仅评估该小时内的 trace（0=评估全部未评估 trace，避免漏评）
+	Scenario      llm.DispatchScenario 
+	BadThreshold  int                  
+	GoodThreshold int                  
+	Decay         float64              
+	Boost         float64              
+	MinWeight     float64              
+	MaxWeight     float64              
+	MeanReversion float64              
+	BatchSize     int                  
+	Concurrency   int                  
+	SinceHours    int                  
 }
 
 // DefaultConfig 默认配置（可直接调参）
@@ -31,10 +31,10 @@ func DefaultConfig() Config {
 		Boost:         1.12,
 		MinWeight:     0.1,
 		MaxWeight:     3.0,
-		MeanReversion: 0.1, // 轻度回归：好 chunk 不会永远停在 3.0、差 chunk 不会永远停在 0.1
+		MeanReversion: 0.1, 
 		BatchSize:     200,
-		Concurrency:   4, // 4 路并发 LLM 打分；权重调整为快路径，由 adjustMu 串行化，不影响吞吐
-		SinceHours:    0, // 默认处理全部未评估 trace（不漏评）
+		Concurrency:   4, 
+		SinceHours:    0, 
 	}
 }
 
@@ -82,3 +82,4 @@ func ensureCtx(ctx context.Context) context.Context {
 	}
 	return ctx
 }
+

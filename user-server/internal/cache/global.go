@@ -11,10 +11,6 @@ var (
 	globalMu    sync.RWMutex
 	globalCache Cache
 	globalRedis bool
-	// defaultOnce + defaultCache：未调用 InitGlobalCache 时，
-	// GetGlobalCache 返回惰性创建的「稳定」内存缓存单例（而非每次新建实例）。
-	// 这保证同进程内读写一致（MFA 令牌、Webhook 去重、限流器、熔断信号等都依赖此不变量），
-	// 也避免测试或未初始化场景下的 nil/不一致问题。
 	defaultOnce  sync.Once
 	defaultCache Cache
 )
@@ -85,3 +81,4 @@ func CloseGlobalCache(_ context.Context) error {
 	}
 	return nil
 }
+

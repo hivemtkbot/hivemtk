@@ -332,7 +332,7 @@ func TestEvaluateCondition_InvalidConditions(t *testing.T) {
 			name:      "empty condition",
 			condition: "",
 			context:   map[string]any{},
-			wantErr:   false, // Empty condition is treated as always true
+			wantErr:   false, 
 		},
 		{
 			name:      "invalid operator",
@@ -374,7 +374,6 @@ func TestEvaluateCondition_InvalidConditions(t *testing.T) {
 func TestEvaluateCondition_ConditionBranches(t *testing.T) {
 	service := setupConditionEvaluatorService(t)
 
-	// Test that condition result affects next node selection
 	node := contentmodel.FlowNode{
 		ID:        "test_condition",
 		Type:      "condition",
@@ -383,7 +382,6 @@ func TestEvaluateCondition_ConditionBranches(t *testing.T) {
 		NextNodes: []string{"active_branch", "inactive_branch"},
 	}
 
-	// Test true branch
 	context := map[string]any{"status": "active"}
 	result, _ := service.EvaluateCondition(node, context)
 
@@ -394,7 +392,6 @@ func TestEvaluateCondition_ConditionBranches(t *testing.T) {
 		t.Errorf("Expected next_node 'active_branch', got '%s'", result["_next_node"])
 	}
 
-	// Test false branch
 	context = map[string]any{"status": "inactive"}
 	result, _ = service.EvaluateCondition(node, context)
 
@@ -419,7 +416,6 @@ func TestEvaluateCondition_FullMatrix(t *testing.T) {
 		wantErr   bool
 	}
 	cases := []tc{
-		// ========== eq 字符串 15 例 ==========
 		{"eq_str_exact", "name eq John", map[string]any{"name": "John"}, true, false},
 		{"eq_str_case_upper", "name eq JOHN", map[string]any{"name": "john"}, true, false},
 		{"eq_str_diff", "name eq John", map[string]any{"name": "Jane"}, false, false},
@@ -436,7 +432,6 @@ func TestEvaluateCondition_FullMatrix(t *testing.T) {
 		{"eq_str_newline", "note eq line1\nline2", map[string]any{"note": "line1\nline2"}, true, false},
 		{"eq_str_mix_chinese_english", "msg eq 你好world", map[string]any{"msg": "你好world"}, true, false},
 
-		// ========== eq 数字 12 例 ==========
 		{"eq_num_int", "count eq 5", map[string]any{"count": float64(5)}, true, false},
 		{"eq_num_int_diff", "count eq 5", map[string]any{"count": float64(6)}, false, false},
 		{"eq_num_float", "price eq 99.99", map[string]any{"price": float64(99.99)}, true, false},
@@ -450,19 +445,17 @@ func TestEvaluateCondition_FullMatrix(t *testing.T) {
 		{"eq_num_neg_zero", "val eq -0", map[string]any{"val": float64(0)}, true, false},
 		{"eq_num_inf", "val eq inf", map[string]any{"val": math.Inf(1)}, true, false},
 
-		// ========== ne 10 例 ==========
 		{"ne_str_diff", "status ne inactive", map[string]any{"status": "active"}, true, false},
 		{"ne_str_same", "status ne inactive", map[string]any{"status": "inactive"}, false, false},
 		{"ne_str_case", "name ne JOHN", map[string]any{"name": "john"}, false, false},
 		{"ne_num_diff", "count ne 10", map[string]any{"count": float64(5)}, true, false},
 		{"ne_num_same", "count ne 10", map[string]any{"count": float64(10)}, false, false},
 		{"ne_num_zero", "count ne 0", map[string]any{"count": float64(1)}, true, false},
-		{"ne_missing_field", "missing ne x", map[string]any{}, false, false}, // 字段不存在直接返回 false，不调 evalNe
+		{"ne_missing_field", "missing ne x", map[string]any{}, false, false}, 
 		{"ne_unicode", "city ne 上海", map[string]any{"city": "北京"}, true, false},
 		{"ne_empty", "name ne", map[string]any{"name": "x"}, false, true},
 		{"ne_invalid_num", "count ne abc", map[string]any{"count": float64(5)}, false, true},
 
-		// ========== gt 10 例 ==========
 		{"gt_pos", "amount gt 100", map[string]any{"amount": float64(150)}, true, false},
 		{"gt_neg", "amount gt 100", map[string]any{"amount": float64(50)}, false, false},
 		{"gt_equal", "amount gt 100", map[string]any{"amount": float64(100)}, false, false},
@@ -474,7 +467,6 @@ func TestEvaluateCondition_FullMatrix(t *testing.T) {
 		{"gt_huge_num", "x gt 1e10", map[string]any{"x": 1e11}, true, false},
 		{"gt_inf", "x gt 1e308", map[string]any{"x": math.Inf(1)}, true, false},
 
-		// ========== lt 10 例 ==========
 		{"lt_pos", "age lt 18", map[string]any{"age": float64(15)}, true, false},
 		{"lt_neg", "age lt 18", map[string]any{"age": float64(25)}, false, false},
 		{"lt_equal", "age lt 18", map[string]any{"age": float64(18)}, false, false},
@@ -486,27 +478,24 @@ func TestEvaluateCondition_FullMatrix(t *testing.T) {
 		{"lt_int_type", "age lt 18", map[string]any{"age": 15}, true, false},
 		{"lt_min_int", "x lt 0", map[string]any{"x": math.MinInt64}, true, false},
 
-		// ========== gte 8 例 ==========
 		{"gte_equal", "score gte 90", map[string]any{"score": float64(90)}, true, false},
 		{"gte_greater", "score gte 90", map[string]any{"score": float64(95)}, true, false},
 		{"gte_less", "score gte 90", map[string]any{"score": float64(85)}, false, false},
 		{"gte_zero", "x gte 0", map[string]any{"x": float64(0)}, true, false},
 		{"gte_neg", "x gte -5", map[string]any{"x": float64(-5)}, true, false},
 		{"gte_invalid", "score gte abc", map[string]any{"score": float64(90)}, false, true},
-		{"gte_string", "score gte 90", map[string]any{"score": "90"}, false, true}, // gte 先调 gt，字符串触发错误
+		{"gte_string", "score gte 90", map[string]any{"score": "90"}, false, true}, 
 		{"gte_int", "score gte 90", map[string]any{"score": 100}, true, false},
 
-		// ========== lte 8 例 ==========
 		{"lte_equal", "score lte 100", map[string]any{"score": float64(100)}, true, false},
 		{"lte_less", "score lte 100", map[string]any{"score": float64(80)}, true, false},
 		{"lte_greater", "score lte 100", map[string]any{"score": float64(120)}, false, false},
 		{"lte_zero", "x lte 0", map[string]any{"x": float64(0)}, true, false},
 		{"lte_invalid", "score lte abc", map[string]any{"score": float64(100)}, false, true},
-		{"lte_string", "score lte 100", map[string]any{"score": "100"}, false, true}, // lte 先调 lt，字符串触发错误
+		{"lte_string", "score lte 100", map[string]any{"score": "100"}, false, true}, 
 		{"lte_int", "score lte 100", map[string]any{"score": 50}, true, false},
 		{"lte_neg_inf", "x lte 0", map[string]any{"x": math.Inf(-1)}, true, false},
 
-		// ========== contains 10 例 ==========
 		{"contains_match", "email contains @gmail", map[string]any{"email": "user@gmail.com"}, true, false},
 		{"contains_nomatch", "email contains @gmail", map[string]any{"email": "user@yahoo.com"}, false, false},
 		{"contains_case", "name contains john", map[string]any{"name": "Johnny"}, true, false},
@@ -518,7 +507,6 @@ func TestEvaluateCondition_FullMatrix(t *testing.T) {
 		{"contains_at_start", "url contains https", map[string]any{"url": "https://example.com"}, true, false},
 		{"contains_at_end", "url contains .com", map[string]any{"url": "https://example.com"}, true, false},
 
-		// ========== in 15 例 ==========
 		{"in_str_match", "status in [active,pending,review]", map[string]any{"status": "active"}, true, false},
 		{"in_str_nomatch", "status in [active,pending,review]", map[string]any{"status": "rejected"}, false, false},
 		{"in_str_with_space", "tier in [gold, silver, platinum]", map[string]any{"tier": "gold"}, true, false},
@@ -526,7 +514,7 @@ func TestEvaluateCondition_FullMatrix(t *testing.T) {
 		{"in_num_nomatch", "count in [1,5,10]", map[string]any{"count": float64(7)}, false, false},
 		{"in_single", "status in [only]", map[string]any{"status": "only"}, true, false},
 		{"in_missing_field", "status in [a,b]", map[string]any{}, false, false},
-		{"in_empty_list", "status in []", map[string]any{"status": "x"}, false, false}, // 空列表→ split(",") 返回 [""],遍历不匹配,无 error
+		{"in_empty_list", "status in []", map[string]any{"status": "x"}, false, false}, 
 		{"in_no_bracket", "status in active,pending", map[string]any{"status": "active"}, false, true},
 		{"in_only_open_bracket", "status in [active", map[string]any{"status": "active"}, false, true},
 		{"in_only_close_bracket", "status in active]", map[string]any{"status": "active"}, false, true},
@@ -535,9 +523,8 @@ func TestEvaluateCondition_FullMatrix(t *testing.T) {
 		{"in_num_str", "count in [1,2,3]", map[string]any{"count": "2"}, true, false},
 		{"in_with_empty_item", "tag in [a,,b]", map[string]any{"tag": ""}, true, false},
 
-		// ========== parseCondition 边界 6 例 ==========
 		{"parse_no_operator", "justfield", map[string]any{"justfield": "x"}, false, true},
-		{"parse_only_spaces", "   ", map[string]any{}, false, true}, // 全空白 → parseCondition 找不到运算符 → 错误
+		{"parse_only_spaces", "   ", map[string]any{}, false, true}, 
 		{"parse_field_with_spaces", "field name eq value", map[string]any{"field name": "value"}, true, false},
 		{"parse_trailing_space", "name eq  John ", map[string]any{"name": "John"}, true, false},
 		{"parse_unknown_op", "name ~= John", map[string]any{"name": "John"}, false, true},
@@ -587,23 +574,18 @@ func TestEvaluateCondition_NextNodeRouting(t *testing.T) {
 		nextNodes []string
 		condition string
 		context   map[string]any
-		wantNext  any // string 或 nil
+		wantNext  any 
 		wantMatch bool
 	}
 	cases := []tc{
-		// 0 个 next 节点
 		{"zero_next_match", []string{}, "x eq 1", map[string]any{"x": float64(1)}, nil, true},
 		{"zero_next_nomatch", []string{}, "x eq 1", map[string]any{"x": float64(2)}, nil, false},
-		// 1 个 next 节点（match/nomatch 都走同一条）
 		{"one_next_match", []string{"only"}, "x eq 1", map[string]any{"x": float64(1)}, "only", true},
 		{"one_next_nomatch", []string{"only"}, "x eq 1", map[string]any{"x": float64(2)}, "only", false},
-		// 2 个 next 节点（match 走第 0 个，nomatch 走第 1 个）
 		{"two_next_match", []string{"yes", "no"}, "x eq 1", map[string]any{"x": float64(1)}, "yes", true},
 		{"two_next_nomatch", []string{"yes", "no"}, "x eq 1", map[string]any{"x": float64(2)}, "no", false},
-		// 3 个 next 节点（match 走第 0，nomatch 走第 1）
 		{"three_next_match", []string{"a", "b", "c"}, "x eq 1", map[string]any{"x": float64(1)}, "a", true},
 		{"three_next_nomatch", []string{"a", "b", "c"}, "x eq 1", map[string]any{"x": float64(0)}, "b", false},
-		// 字段不存在：nomatch 走第 1 个（fallback）
 		{"missing_field_two_next", []string{"yes", "fallback"}, "x eq 1", map[string]any{}, "fallback", false},
 		{"missing_field_one_next", []string{"only"}, "x eq 1", map[string]any{}, "only", false},
 		{"missing_field_zero_next", []string{}, "x eq 1", map[string]any{}, nil, false},
@@ -690,10 +672,10 @@ func TestParseCondition_Unit(t *testing.T) {
 		{"contains", "msg contains hello", "msg", "contains", "hello", false},
 		{"in", "tag in [a,b,c]", "tag", "in", "[a,b,c]", false},
 		{"with_extra_spaces", " name   eq   John ", "name", "eq", "John", false},
-		{"empty", "", "", "", "", true}, // 空字符串 → parseCondition 找不到运算符
+		{"empty", "", "", "", "", true}, 
 		{"no_operator", "justtext", "", "", "", true},
 		{"unknown_op", "x foo y", "", "", "", true},
-		{"trailing_op_no_value", "x eq", "x", "eq", "", true}, // parseCondition 解析 "x eq" → 末尾无值但有 " eq" 模式，trim 后 "x" 找不到 " eq" → err
+		{"trailing_op_no_value", "x eq", "x", "eq", "", true}, 
 	}
 
 	for _, tt := range cases {
@@ -718,3 +700,4 @@ func TestParseCondition_Unit(t *testing.T) {
 		})
 	}
 }
+

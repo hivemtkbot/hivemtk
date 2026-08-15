@@ -11,10 +11,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// reach_tool_wiring.go P2-3：触达工具端口装配。
-//
-// tooluse 只定义端口（ReachSendPipelinePort / ReachBatchPipelinePort）与镜像 DTO；
-// 本文件负责把 service 实现转换为端口实现并注入，确保 tooluse 不 import service。
 
 // NewReachToolDepsWithAdapter 创建触达工具依赖（带真实 Adapter，打通全部业务渠道）。
 //
@@ -134,7 +130,6 @@ func (b *reachChannelAdapterBridge) Send(ctx context.Context, req *service.Reach
 	case "web":
 		return b.adapter.SendWeb(ctx, req.RecipientID, req.Content)
 	case "card":
-		// 卡片渠道：实际子渠道通过 Metadata["subchannel"] 传递（douyin/kuaishou/wecom/weixin）
 		subchannel := "douyin"
 		if req.Metadata != nil {
 			if sc, ok := req.Metadata["subchannel"]; ok && sc != "" {
@@ -212,3 +207,4 @@ func fromServiceSendResponse(resp *service.SendResponse) *tooluse.ReachSendRespo
 	}
 	return out
 }
+

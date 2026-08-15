@@ -1,16 +1,5 @@
 package controller
 
-// sse_dashboard.go SSE 实时驾驶舱控制器
-//
-// 五层架构归属: L1 控制器层
-// 设计依据: PRD § 缺口修复
-// 私域独立部署: 无 merchant_id 字段
-//
-// 路由：
-//   - GET  /api/dashboard/sse?topics=llm_calls,intent_recognition  SSE 连接
-//   - GET  /api/dashboard/clients                                   客户端列表
-//   - POST /api/dashboard/broadcast                                 广播事件（管理员测试用）
-//   - GET  /api/dashboard/topics                                    可用 topic 列表
 
 import (
 	"context"
@@ -52,7 +41,6 @@ func (c *SSEDashboardController) Stream(ctx *gin.Context) {
 		return
 	}
 
-	// 解析 topics
 	topicsStr := ctx.Query("topics")
 	topics := service.ParseTopics(topicsStr)
 	if len(topics) == 0 {
@@ -60,19 +48,16 @@ func (c *SSEDashboardController) Stream(ctx *gin.Context) {
 		return
 	}
 
-	// 创建客户端
 	clientID := uuid.NewString()
 	clientIP := ctx.ClientIP()
 	client := service.NewSSEClient(clientID, clientIP, topics)
 
-	// 注册到 Hub
 	if err := c.hub.Register(context.Background(), client); err != nil {
 		response.Error(ctx, http.StatusTooManyRequests, fmt.Sprintf("register failed: %v", err))
 		return
 	}
 	defer c.hub.Unregister(context.Background(), clientID)
 
-	// 进入 SSE 流处理（阻塞直到断开）
 	service.SSEStreamHandler(ctx, c.hub, client)
 }
 
@@ -198,3 +183,4 @@ func parseLimit(s string, def, max int) int {
 	}
 	return n
 }
+

@@ -1,19 +1,5 @@
 package humanize
 
-// abtest_stats.go A/B 测试统计服务（业界三件套）
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十六章 §16.4.6 ~ §16.4.9
-//
-// 业界三件套：
-//   1. Mann-Whitney U 检验（非参数，不假设正态分布，§16.4.7）
-//   2. Bootstrap CI 置信区间（差值/单组，§16.4.8）
-//   3. Cohen's d 效应量（§16.4.9）
-//
-// 参考：
-//   - BooStSa (ACL 2022)
-//   - TACL 2021 Summarization Resampling
-//   - Cohen 1988
 
 import (
 	"context"
@@ -25,14 +11,11 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// ============================================================================
-// ABTestStatsService A/B 测试统计服务
-// ============================================================================
 
 // ABTestStatsService A/B 测试统计服务
 type ABTestStatsService struct {
-	bootstrapN int     // Bootstrap 重采样次数（默认 10000）
-	alpha      float64 // 显著性水平（默认 0.05）
+	bootstrapN int     
+	alpha      float64 
 }
 
 // NewABTestStatsService 构造
@@ -75,27 +58,15 @@ func (s *ABTestStatsService) Compute(ctx context.Context, input *dto.ABTestStats
 	if len(input.Control) < 5 || len(input.Treatment) < 5 {
 		return nil, ErrInsufficientSamples
 	}
-	// 1. Mann-Whitney U 检验
 	u, p := MannWhitneyUTest(input.Control, input.Treatment)
-	// 2. Cohen's d
 	d := CohensD(input.Control, input.Treatment)
-	// 3. Bootstrap CI（差值的 95% 置信区间）
 	ciLow, ciHigh := BootstrapCIDifference(input.Control, input.Treatment, s.bootstrapN, s.alpha)
-	// 4. 描述性统计
 	controlMean := meanValue(input.Control)
 	treatmentMean := meanValue(input.Treatment)
-	// 5. 决策
 	significant := p < s.alpha
 	effectLabel := InterpretCohensD(d)
 	winner := "inconclusive"
 	if significant {
-		// d > 0 表示 group1（control）> group2（treatment）
-		// 但我们的语义是：d = (control_mean - treatment_mean) / pooled_sd
-		// d > 0 → control 高 → winner = control
-		// d < 0 → treatment 高 → winner = treatment
-		// 但 CohensD 实现传入 (group1=control, group2=treatment)，d > 0 → control 高
-		// 用户期望：d > 0 → treatment 优（因为通常 treatment 是新版本）
-		// 所以翻转：d < 0 → treatment 优
 		if d < 0 {
 			winner = "treatment"
 		} else {
@@ -117,9 +88,6 @@ func (s *ABTestStatsService) Compute(ctx context.Context, input *dto.ABTestStats
 	}, nil
 }
 
-// ============================================================================
-// Mann-Whitney U 检验（§16.4.7）
-// ============================================================================
 
 // MannWhitneyUTest Mann-Whitney U 检验（非参数，不假设正态分布）
 //
@@ -142,13 +110,12 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 	nA := len(groupA)
 	nB := len(groupB)
 	if nA < 5 || nB < 5 {
-		// 样本不足，返回不显著
 		return 0, 1.0
 	}
 	// 1. 合并排序
 	type pair struct {
 		value float64
-		group int // 0=A, 1=B
+		group int 
 	}
 	combined := make([]pair, 0, nA+nB)
 	for _, v := range groupA {
@@ -160,7 +127,6 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 	sort.Slice(combined, func(i, j int) bool {
 		return combined[i].value < combined[j].value
 	})
-	// 2. 赋秩（处理结：平均秩）
 	ranks := make([]float64, len(combined))
 	i := 0
 	for i < len(combined) {
@@ -168,7 +134,6 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 		for j+1 < len(combined) && combined[j+1].value == combined[i].value {
 			j++
 		}
-		// [i, j] 是同一值，平均秩 = (i+1 + j+1) / 2 = (i+j+2)/2
 		avgRank := float64(i+j+2) / 2
 		for k := i; k <= j; k++ {
 			ranks[k] = avgRank
@@ -184,13 +149,10 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 			rankB += ranks[k]
 		}
 	}
-	// 4. U 统计量
 	uA := rankA - float64(nA*(nA+1))/2
 	uB := rankB - float64(nB*(nB+1))/2
 	uStat = math.Min(uA, uB)
-	// 5. 正态近似计算 p 值
 	muU := float64(nA*nB) / 2
-	// 含结修正的方差
 	tieTerm := 0.0
 	i = 0
 	for i < len(combined) {
@@ -199,7 +161,7 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 			j++
 		}
 		t := float64(j - i + 1)
-		tieTerm += (t*t - t) * t // t³ - t
+		tieTerm += (t*t - t) * t 
 		i = j + 1
 	}
 	totalN := float64(nA + nB)
@@ -209,7 +171,6 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 		return uStat, 1.0
 	}
 	z := (uStat - muU) / sigmaU
-	// 双侧 p 值
 	pValue = 2 * (1 - normalCDF(math.Abs(z)))
 	if pValue < 0 {
 		pValue = 0
@@ -225,9 +186,6 @@ func normalCDF(x float64) float64 {
 	return 0.5 * (1 + math.Erf(x/math.Sqrt2))
 }
 
-// ============================================================================
-// Bootstrap CI 置信区间（§16.4.8）
-// ============================================================================
 
 // BootstrapCIDifference Bootstrap 置信区间（差值）
 //
@@ -246,7 +204,6 @@ func BootstrapCIDifference(control, treatment []float64, nBoot int, alpha float6
 	if alpha <= 0 || alpha >= 1 {
 		alpha = 0.05
 	}
-	// 两组样本量不等时退化为独立 bootstrap（不再配对）
 	paired := len(control) == len(treatment)
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	diffs := make([]float64, nBoot)
@@ -254,7 +211,6 @@ func BootstrapCIDifference(control, treatment []float64, nBoot int, alpha float6
 	nT := len(treatment)
 	for i := 0; i < nBoot; i++ {
 		if paired {
-			// 配对：按相同索引重采样
 			sumC := 0.0
 			sumT := 0.0
 			for j := 0; j < nC; j++ {
@@ -264,7 +220,6 @@ func BootstrapCIDifference(control, treatment []float64, nBoot int, alpha float6
 			}
 			diffs[i] = sumT/float64(nC) - sumC/float64(nC)
 		} else {
-			// 独立：分别重采样
 			sumC := 0.0
 			for j := 0; j < nC; j++ {
 				sumC += control[rng.Intn(nC)]
@@ -320,9 +275,6 @@ func BootstrapCI(data []float64, nBoot int, alpha float64) (low, high float64) {
 	return means[lowIdx], means[highIdx]
 }
 
-// ============================================================================
-// Cohen's d 效应量（§16.4.9）
-// ============================================================================
 
 // CohensD Cohen's d 效应量
 //
@@ -351,7 +303,6 @@ func CohensD(group1, group2 []float64) float64 {
 	mean2 := meanValue(group2)
 	var1 := varianceValue(group1, mean1)
 	var2 := varianceValue(group2, mean2)
-	// 合并方差
 	pooledVar := (float64(n1-1)*var1 + float64(n2-1)*var2) / float64(n1+n2-2)
 	if pooledVar == 0 {
 		return 0
@@ -376,9 +327,6 @@ func InterpretCohensD(d float64) string {
 	}
 }
 
-// ============================================================================
-// 描述性统计辅助
-// ============================================================================
 
 // meanValue 均值
 func meanValue(data []float64) float64 {
@@ -410,3 +358,4 @@ func varianceValue(data []float64, m float64) float64 {
 func round4(v float64) float64 {
 	return math.Round(v*10000) / 10000
 }
+

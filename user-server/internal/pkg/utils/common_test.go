@@ -60,7 +60,7 @@ func TestContainsKeyword(t *testing.T) {
 		{"single keyword match", "Hello world", "Hello", true},
 		{"multiple keywords match", "Hello world", "Hi,Hello,Greetings", true},
 		{"no keyword match", "Hello world", "Goodbye,Bye", false},
-		{"empty keywords", "Hello world", "", true}, // 空关键词列表时，Split 返回 [""]，Contains("", "") 为 true
+		{"empty keywords", "Hello world", "", true}, 
 		{"empty message", "", "Hello", false},
 		{"case sensitive", "Hello World", "hello", false},
 		{"partial match", "Say Hello to everyone", "Hello", true},
@@ -97,3 +97,4 @@ func TestContainsKeyword_NoMatch(t *testing.T) {
 		t.Errorf("Expected ContainsKeyword to return false")
 	}
 }
+

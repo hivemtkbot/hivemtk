@@ -34,10 +34,6 @@ func NewAssetMarketController(localSvc *service.LocalAssetService, marketSvc *se
 func assetFail(c *gin.Context, err error) {
 	var be *bizerr.BizError
 	if errors.As(err, &be) {
-		// 业务错误码（如 5001/6001）只能放在响应体 code 字段，不能作为 HTTP 状态码
-		// 传给 response.Error（gin 会 panic: invalid WriteHeader code）。前端按响应体
-		// code 判断成功/失败，与平台返回约定一致，故统一以 HTTP 200 返回业务码。
-		// 携带 data:gin.H{} 避免 data:null 占位符。
 		response.ErrorWithBusinessCode(c, be.Code, be.Message, gin.H{})
 		return
 	}
@@ -55,8 +51,6 @@ func (h *AssetMarketController) ListMarket(c *gin.Context) {
 	list, total, err := h.marketSvc.ListMarketAssets(c.Request.Context(),
 		c.Query("asset_type"), c.Query("industry"), page, size)
 	if err != nil {
-		// 平台端不可达（未部署/未配置）时优雅降级：返回空列表而非业务错误，
-		// 避免前端弹出硬性报错，页面以「暂无数据」呈现。平台异常由 service 层记录日志。
 		response.SuccessWithList(c, []map[string]any{}, 0)
 		return
 	}
@@ -67,8 +61,6 @@ func (h *AssetMarketController) ListMarket(c *gin.Context) {
 func (h *AssetMarketController) MarketDetail(c *gin.Context) {
 	detail, err := h.marketSvc.GetMarketAssetDetail(c.Request.Context(), c.Param("asset_id"))
 	if err != nil {
-		// 平台不可用或资产不存在时返回业务错误码（5001）+ data:gin.H{}，
-		// 既保留业务语义又避免 data:null 占位符。
 		assetFail(c, err)
 		return
 	}
@@ -127,8 +119,6 @@ func (h *AssetMarketController) GetLocal(c *gin.Context) {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 	la, data, err := h.localSvc.Get(c.Request.Context(), id)
 	if err != nil {
-		// 资产不存在（含软删）时返回业务错误码（6001）+ data:gin.H{}，
-		// 既保留业务语义又避免 data:null 占位符。
 		assetFail(c, err)
 		return
 	}
@@ -147,7 +137,6 @@ func (h *AssetMarketController) CreateLocal(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "JSON 解析失败")
 		return
 	}
-	// data 可能是对象
 	if len(in.Data) == 0 {
 		var raw map[string]json.RawMessage
 		if err := json.Unmarshal(body, &raw); err == nil {
@@ -272,3 +261,4 @@ func (h *AssetMarketController) BindToAgent(c *gin.Context) {
 	}
 	assetOK(c, gin.H{"message": "绑定成功"})
 }
+

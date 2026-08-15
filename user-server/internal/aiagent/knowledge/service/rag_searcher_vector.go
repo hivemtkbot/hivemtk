@@ -26,13 +26,10 @@ func (s *RagSearcher) vectorSearch(ctx context.Context, productID string, query 
 		return nil, fmt.Errorf("TEI 编码失败: %w", err)
 	}
 
-	// 关键:把 []float32 序列化为 pgvector 字面量字符串 '[0.1,0.2,...]'
 	vecLiteral := vecToPGString(queryVec)
 
 	// 用 GORM Raw + 参数绑定（防止 SQL 注入）
 	var rows []chunkRow
-	// 注意：HNSW 索引建在 embedding 列上
-	// 余弦距离 <=> 范围 [0,2]，转换为相似度 = 1 - distance
 	if productID != "" {
 		sql := `
 			SELECT id, document_id, content,
@@ -59,7 +56,6 @@ func (s *RagSearcher) vectorSearch(ctx context.Context, productID string, query 
 			return nil, err
 		}
 	}
-	// 转 scored
 	pairs := make([]scored, 0, len(rows))
 	for _, r := range rows {
 		pairs = append(pairs, scored{row: r, score: r.Score})
@@ -79,9 +75,9 @@ func vecToPGString(v []float32) string {
 		if i > 0 {
 			b.WriteByte(',')
 		}
-		// 'g' 格式：根据数值大小自动选择定点或科学计数，无尾随零
 		b.WriteString(strconv.FormatFloat(float64(f), 'g', -1, 32))
 	}
 	b.WriteByte(']')
 	return b.String()
 }
+

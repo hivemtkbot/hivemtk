@@ -18,31 +18,26 @@ func TestChurn_CalculateInactiveScore(t *testing.T) {
 		want      float64
 	}
 	cases := []tc{
-		// threshold=30 边界
 		{"th30_d0", 0, 30, 0},
-		{"th30_d15", 15, 30, 25},                 // 15*50/30 = 25
-		{"th30_d29", 29, 30, 48.333333333333336}, // 29*50/30 ≈ 48.33
-		{"th30_d30", 30, 30, 50},                 // 30>=30 → 50+(30-30)*50/30 = 50
-		{"th30_d45", 45, 30, 75},                 // 50+(45-30)*50/30 = 50+25 = 75
-		{"th30_d60", 60, 30, 100},                // 60>=60 → 100
+		{"th30_d15", 15, 30, 25},                 
+		{"th30_d29", 29, 30, 48.333333333333336}, 
+		{"th30_d30", 30, 30, 50},                 
+		{"th30_d45", 45, 30, 75},                 
+		{"th30_d60", 60, 30, 100},                
 		{"th30_d90", 90, 30, 100},
 		{"th30_d365", 365, 30, 100},
-		// threshold=60
 		{"th60_d0", 0, 60, 0},
-		{"th60_d30", 30, 60, 25}, // 30*50/60
-		{"th60_d60", 60, 60, 50}, // 60>=60 → 50
-		{"th60_d90", 90, 60, 75}, // 50+(90-60)*50/60 ≈ 75
+		{"th60_d30", 30, 60, 25}, 
+		{"th60_d60", 60, 60, 50}, 
+		{"th60_d90", 90, 60, 75}, 
 		{"th60_d120", 120, 60, 100},
-		// threshold=7（极严格）
 		{"th7_d0", 0, 7, 0},
 		{"th7_d7", 7, 7, 50},
 		{"th7_d14", 14, 7, 100},
-		// threshold=1（边界值）
 		{"th1_d0", 0, 1, 0},
 		{"th1_d1", 1, 1, 50},
 		{"th1_d2", 2, 1, 100},
-		// 大阈值
-		{"th365_d100", 100, 365, 13.6986301369863}, // 100*50/365
+		{"th365_d100", 100, 365, 13.6986301369863}, 
 		{"th365_d365", 365, 365, 50},
 		{"th365_d730", 730, 365, 100},
 	}
@@ -80,8 +75,7 @@ func TestChurn_CalculatePurchaseFreqScore(t *testing.T) {
 		{"pf90", 90, 60, 75},
 		{"pf120", 120, 60, 100},
 		{"pf365", 365, 60, 100},
-		// 缺字段
-		{"missing", 0, 60, 0}, // 缺字段时默认 0
+		{"missing", 0, 60, 0}, 
 	}
 
 	passed, failed := 0, 0
@@ -126,7 +120,6 @@ func TestChurn_CalculateOrderValueScore(t *testing.T) {
 		{"aov_500", 500, 10},
 		{"aov_1000", 1000, 10},
 		{"aov_10000", 10000, 10},
-		// 缺失字段
 		{"missing", 0, 100},
 	}
 
@@ -168,9 +161,7 @@ func TestChurn_CalculateEngagementScore(t *testing.T) {
 		{"ten", 10, 20},
 		{"twenty", 20, 20},
 		{"hundred", 100, 20},
-		// 缺失字段
 		{"missing", 0, 100},
-		// 负数（异常）→ 70（因为 interactions=-5 不等于 0，落入 <3 分支）
 		{"negative", -5, 70},
 	}
 
@@ -204,24 +195,19 @@ func TestChurn_DetermineRiskLevel(t *testing.T) {
 		want  string
 	}
 	cases := []tc{
-		// critical >= 85
 		{"crit_85", 85, "critical"},
 		{"crit_90", 90, "critical"},
 		{"crit_100", 100, "critical"},
-		// high: 70-84.99
 		{"high_70", 70, "high"},
 		{"high_75", 75, "high"},
 		{"high_84", 84.99, "high"},
 		{"high_84_99", 84.99, "high"},
-		// medium: 50-69.99
 		{"med_50", 50, "medium"},
 		{"med_60", 60, "medium"},
 		{"med_69", 69.99, "medium"},
-		// low: <50
 		{"low_0", 0, "low"},
 		{"low_25", 25, "low"},
 		{"low_49", 49.99, "low"},
-		// 边界
 		{"boundary_50", 50, "medium"},
 		{"boundary_69_99", 69.99, "medium"},
 		{"boundary_70", 70, "high"},
@@ -267,21 +253,16 @@ func TestChurn_IdentifyRiskFactors(t *testing.T) {
 		expectedFactors []string
 	}
 	cases := []tc{
-		// 全低分 → 无因素
 		{"all_low", 10, 10, 10, 10, []string{}},
-		// 单一高
 		{"inactive_high", 80, 10, 10, 10, []string{"长期未活跃"}},
 		{"purchase_high", 10, 80, 10, 10, []string{"购买频率下降"}},
 		{"order_high", 10, 10, 80, 10, []string{"订单金额偏低"}},
 		{"engagement_high", 10, 10, 10, 80, []string{"互动频率降低"}},
-		// 边界
 		{"inactive_70", 70, 10, 10, 10, []string{"长期未活跃"}},
 		{"inactive_69", 69, 10, 10, 10, []string{}},
-		// 多高
 		{"two_high", 80, 80, 10, 10, []string{"长期未活跃", "购买频率下降"}},
 		{"three_high", 80, 80, 80, 10, []string{"长期未活跃", "购买频率下降", "订单金额偏低"}},
 		{"all_high", 80, 80, 80, 80, []string{"长期未活跃", "购买频率下降", "订单金额偏低", "互动频率降低"}},
-		// 极端值
 		{"all_100", 100, 100, 100, 100, []string{"长期未活跃", "购买频率下降", "订单金额偏低", "互动频率降低"}},
 		{"all_0", 0, 0, 0, 0, []string{}},
 	}
@@ -320,7 +301,7 @@ func TestChurn_GenerateSuggestion(t *testing.T) {
 		name      string
 		factors   []string
 		wantEmpty bool
-		wantSub   string // mustContain
+		wantSub   string 
 	}
 	cases := []tc{
 		{"empty", []string{}, true, ""},
@@ -388,7 +369,7 @@ func TestChurn_CalculateConfidence(t *testing.T) {
 		wantMax    float64
 	}
 	cases := []tc{
-		{"zero_sample", 50, 0, 0, 0}, // sampleSize=0 → 0
+		{"zero_sample", 50, 0, 0, 0}, 
 		{"rate_50_n_1", 50, 1, 0, 1},
 		{"rate_50_n_100", 50, 100, 0.4, 0.6},
 		{"rate_50_n_10000", 50, 10000, 0.49, 0.51},
@@ -478,7 +459,6 @@ func TestChurn_GetDefaultConfig(t *testing.T) {
 	if cfg.CriticalRiskScore != 85 {
 		t.Errorf("CriticalRiskScore=%g want=85", cfg.CriticalRiskScore)
 	}
-	// 权重和应为 1.0
 	sum := cfg.InactiveDaysWeight + cfg.PurchaseFreqWeight + cfg.OrderValueWeight + cfg.EngagementWeight
 	if math.Abs(sum-1.0) > 0.001 {
 		t.Errorf("weight sum=%g want=1.0", sum)
@@ -509,8 +489,6 @@ func TestChurn_FullCalculationEndToEnd(t *testing.T) {
 		},
 		{
 			"inactive_medium",
-			// inactive=35→58.3; purchase=80→75; aov=300→30; eng=5→40
-			// score=58.3*0.3+75*0.3+30*0.2+40*0.2=17.5+22.5+6+8=54 → medium
 			map[string]any{
 				"days_since_active": 35, "days_since_purchase": 80,
 				"average_order_value": 300.0, "interactions_30d": 5,
@@ -519,8 +497,6 @@ func TestChurn_FullCalculationEndToEnd(t *testing.T) {
 		},
 		{
 			"high_risk",
-			// inactive=50→66.7; purchase=80→75; aov=20→80; eng=1→70
-			// score=66.7*0.3+75*0.3+80*0.2+70*0.2=20+22.5+16+14=72.5 → high
 			map[string]any{
 				"days_since_active": 50, "days_since_purchase": 80,
 				"average_order_value": 20.0, "interactions_30d": 1,
@@ -529,8 +505,6 @@ func TestChurn_FullCalculationEndToEnd(t *testing.T) {
 		},
 		{
 			"critical",
-			// inactive=90→100; purchase=180→100; aov=0→100; eng=0→100
-			// score=100*0.3+100*0.3+100*0.2+100*0.2=100 → critical
 			map[string]any{
 				"days_since_active": 90, "days_since_purchase": 180,
 				"average_order_value": 0.0, "interactions_30d": 0,
@@ -539,8 +513,6 @@ func TestChurn_FullCalculationEndToEnd(t *testing.T) {
 		},
 		{
 			"empty_user",
-			// inactive=0→0; purchase=0→0; aov缺失→100; eng缺失→100
-			// score=0*0.3+0*0.3+100*0.2+100*0.2=40 → low
 			map[string]any{},
 			"low", 30, 50,
 		},
@@ -586,3 +558,4 @@ func TestChurn_FullCalculationEndToEnd(t *testing.T) {
 	}
 	t.Logf("FullCalculationEndToEnd: %d/%d passed", passed, passed+failed)
 }
+

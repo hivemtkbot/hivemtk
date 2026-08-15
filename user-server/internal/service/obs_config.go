@@ -69,7 +69,6 @@ func (s *obsConfigService) GetConfig(ctx context.Context, id string) (*dto.ObsCo
 }
 
 func (s *obsConfigService) CreateConfig(ctx context.Context, req *dto.CreateObsConfigRequest) (*dto.ObsConfigResponse, error) {
-	// 验证请求
 	if err := s.validateCreateRequest(ctx, req); err != nil {
 		return nil, err
 	}
@@ -90,7 +89,6 @@ func (s *obsConfigService) CreateConfig(ctx context.Context, req *dto.CreateObsC
 		Status:     model.ObsStatusActive,
 	}
 
-	// 如果这是第一个配置，设为默认
 	count, err := s.repo.Count(ctx)
 	if err != nil {
 		return nil, err
@@ -113,7 +111,6 @@ func (s *obsConfigService) UpdateConfig(ctx context.Context, id string, req *dto
 		return nil, err
 	}
 
-	// 更新字段
 	if req.Name != "" {
 		config.Name = req.Name
 	}
@@ -166,7 +163,6 @@ func (s *obsConfigService) DeleteConfig(ctx context.Context, id string) error {
 	}
 	_ = ctx
 
-	// 不能删除默认配置
 	if config.IsDefault {
 		return errors.New("不能删除默认配置")
 	}
@@ -179,12 +175,10 @@ func (s *obsConfigService) SetDefaultConfig(ctx context.Context, id string) erro
 		return err
 	}
 
-	// 清除当前默认配置
 	if err := s.repo.ClearDefault(ctx); err != nil {
 		return err
 	}
 
-	// 设置新的默认配置
 	return s.repo.SetDefault(ctx, id)
 }
 
@@ -222,23 +216,19 @@ func (s *obsConfigService) TestConnection(ctx context.Context, config *dto.ObsCo
 }
 
 func (s *obsConfigService) UploadFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, folder string) (string, error) {
-	// 获取默认配置
 	config, err := s.repo.GetDefault(ctx)
 	if err != nil {
 		return "", errors.New("未找到默认存储配置")
 	}
 
-	// 检查文件大小限制
 	if !obsConfigIsFileSizeAllowed(config, header.Size) {
 		return "", fmt.Errorf("文件大小超过限制: %d bytes (最大: %d bytes)", header.Size, config.MaxSize)
 	}
 
-	// 检查文件数量限制
 	if !obsConfigIsFileCountAllowed(config) {
 		return "", fmt.Errorf("已达到最大文件数量限制: %d", config.MaxCount)
 	}
 
-	// 生成文件名
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	fileName := fmt.Sprintf("%s/%s%s", folder, time.Now().Format("20060102150405"), ext)
 
@@ -254,7 +244,6 @@ func (s *obsConfigService) UploadFile(ctx context.Context, file multipart.File, 
 		fileURL = obsConfigAccessURL(config, fileName)
 	}
 
-	// 更新统计信息
 	config.FileCount++
 	config.TotalSize += header.Size
 	s.repo.Update(ctx, config)
@@ -296,7 +285,7 @@ func (s *obsConfigService) convertToDTO(ctx context.Context, config *model.ObsCo
 		Provider:     string(config.Provider),
 		ProviderName: obsConfigProviderName(config),
 		AccessKey:    config.AccessKey,
-		SecretKey:    "***", // 不返回完整的SecretKey
+		SecretKey:    "***", 
 		Bucket:       config.Bucket,
 		Region:       config.Region,
 		Endpoint:     config.Endpoint,
@@ -375,3 +364,4 @@ func obsConfigIsFileSizeAllowed(c *model.ObsConfig, size int64) bool {
 func obsConfigIsFileCountAllowed(c *model.ObsConfig) bool {
 	return c.FileCount < c.MaxCount
 }
+

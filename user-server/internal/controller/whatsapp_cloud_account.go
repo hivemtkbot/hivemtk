@@ -265,3 +265,4 @@ func maskAppSecret(s string) string {
 	}
 	return fmt.Sprintf("%s****%s", s[:4], s[len(s)-4:])
 }
+

@@ -52,18 +52,11 @@ func newReachJobReq(pipelineID uint) *EnqueueJobRequest {
 		Channel:    "wecom",
 		CustomerID: fmt.Sprintf("customer-%d", n),
 		AccountID:  fmt.Sprintf("acc-%d", n),
-		// V3 整改：StepContentPrepare 现在要求 payload.content 非空，
-		// 原有 helper 只设置 text 会导致 ContentPrepare 失败、Job 转 failed，
-		// 进而破坏下游所有依赖 success/rate_limited 计数的测试。
-		// 此处统一加 content 字段以保持现有测试期望。
 		Payload:  map[string]any{"content": "hello {{customer_id}}", "text": "hello"},
 		MaxRetry: 3,
 	}
 }
 
-// ===========================================
-// 1. ReachChannels 白名单
-// ===========================================
 
 func TestReachChannels_AllSupported(t *testing.T) {
 	channels := []string{"wecom", "sms", "email", "card", "dingtalk", "douyin", "kuaishou", "xiaohongshu", "telegram", "whatsapp", "feishu"}
@@ -83,9 +76,6 @@ func TestReachChannels_Unsupported(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 2. DefaultPipelineSteps 完整性
-// ===========================================
 
 func TestDefaultPipelineSteps_Complete(t *testing.T) {
 	if len(DefaultPipelineSteps) != 9 {
@@ -107,9 +97,6 @@ func TestDefaultPipelineSteps_Complete(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 3. DefaultRetryPolicy
-// ===========================================
 
 func TestDefaultRetryPolicy_Fields(t *testing.T) {
 	rp := DefaultRetryPolicy()
@@ -124,9 +111,6 @@ func TestDefaultRetryPolicy_Fields(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 4. DefaultRateLimit
-// ===========================================
 
 func TestDefaultRateLimit_Fields(t *testing.T) {
 	rl := DefaultRateLimit()
@@ -141,9 +125,6 @@ func TestDefaultRateLimit_Fields(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 5. validateSteps
-// ===========================================
 
 func TestValidateSteps_AllDefault(t *testing.T) {
 	svc := &ReachPipelineService{}
@@ -184,9 +165,6 @@ func TestValidateSteps_MixedValid(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 6. computeNextRunTime
-// ===========================================
 
 func TestComputeNextRunTime_Fixed(t *testing.T) {
 	rp := RetryPolicy{MaxRetries: 3, IntervalMs: 1000, Backoff: "fixed"}
@@ -216,7 +194,6 @@ func TestComputeNextRunTime_ExponentialCapped(t *testing.T) {
 	rp := RetryPolicy{MaxRetries: 10, IntervalMs: 1000, Backoff: "exponential", MaxIntervalMs: 5000}
 	t1 := computeNextRunTime(rp, 10)
 	t2 := computeNextRunTime(rp, 20)
-	// 都应不超过 5s
 	if t1.Sub(time.Now()) > 6*time.Second {
 		t.Errorf("expected capped, got %v", t1.Sub(time.Now()))
 	}
@@ -225,9 +202,6 @@ func TestComputeNextRunTime_ExponentialCapped(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 7. rateBucket 令牌桶
-// ===========================================
 
 func TestRateBucket_InitialBurst(t *testing.T) {
 	b := &rateBucket{tokens: 5, lastFill: time.Now(), burst: 5, qps: 1}
@@ -250,7 +224,6 @@ func TestRateBucket_Refill(t *testing.T) {
 
 func TestRateBucket_BurstBounded(t *testing.T) {
 	b := &rateBucket{tokens: 5, lastFill: time.Now().Add(-10 * time.Second), burst: 3, qps: 100}
-	// 长时间不调用，token 不应超过 burst
 	for i := 0; i < 10; i++ {
 		b.allow(context.Background())
 	}
@@ -259,9 +232,6 @@ func TestRateBucket_BurstBounded(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 8. CreatePipeline
-// ===========================================
 
 func TestCreatePipeline_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -346,9 +316,6 @@ func TestCreatePipeline_VersionIncrement(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 9. UpdatePipeline
-// ===========================================
 
 func TestUpdatePipeline_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -386,9 +353,6 @@ func TestUpdatePipeline_InvalidChannel(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 10. GetPipeline
-// ===========================================
 
 func TestGetPipeline_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -427,9 +391,6 @@ func TestGetPipeline_SingleTenant(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 11. ListPipelines
-// ===========================================
 
 func TestListPipelines_All(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -500,7 +461,6 @@ func TestListPipelines_EmptyMerchant(t *testing.T) {
 func TestListPipelines_PageBounds(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
-	// page=0 应修正为 1，pageSize=0 应修正为 20
 	_, _, err := svc.ListPipelines(context.Background(), "", "", 0, 0)
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
@@ -510,16 +470,12 @@ func TestListPipelines_PageBounds(t *testing.T) {
 func TestListPipelines_LargePageSize(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
-	// pageSize=300 应被截断为 200
 	_, _, err := svc.ListPipelines(context.Background(), "", "", 1, 300)
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
 }
 
-// ===========================================
-// 12. DeletePipeline
-// ===========================================
 
 func TestDeletePipeline_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -540,9 +496,6 @@ func TestDeletePipeline_NotFound(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 13. Pause/Resume/Archive
-// ===========================================
 
 func TestPausePipeline(t *testing.T) {
 	svc, db := newReachTestService(t)
@@ -584,9 +537,6 @@ func TestArchivePipeline(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 14. EnqueueJob
-// ===========================================
 
 func TestEnqueueJob_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -699,9 +649,6 @@ func TestEnqueueJob_DefaultNextRunAt(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 15. GetJob
-// ===========================================
 
 func TestGetJob_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -724,9 +671,6 @@ func TestGetJob_NotFound(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 16. ListJobs
-// ===========================================
 
 func TestListJobs_All(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -763,11 +707,9 @@ func TestListJobs_ByChannel(t *testing.T) {
 	req1 := newReachPipelineReq("m-001")
 	req1.Channel = "sms"
 	pipe2, _ := svc.CreatePipeline(context.Background(), req1)
-	// 第一个 job 走 wecom pipeline
 	j1 := newReachJobReq(pipe1.ID)
 	j1.Channel = "wecom"
 	svc.EnqueueJob(context.Background(), j1)
-	// 第二个 job 走 sms pipeline，channel 显式设为 sms
 	j2 := newReachJobReq(pipe2.ID)
 	j2.Channel = "sms"
 	svc.EnqueueJob(context.Background(), j2)
@@ -800,9 +742,6 @@ func TestListJobs_EmptyMerchant(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 17. CancelJob
-// ===========================================
 
 func TestCancelJob_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -839,15 +778,11 @@ func TestCancelJob_AlreadySucceeded(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 18. RetryJob
-// ===========================================
 
 func TestRetryJob_Success(t *testing.T) {
 	svc, db := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
 	job, _ := svc.EnqueueJob(context.Background(), newReachJobReq(pipe.ID))
-	// 手动改为 failed
 	db.Model(&model.ReachJob{}).Where("id = ?", job.ID).Update("state", JobStateFailed)
 	if err := svc.RetryJob(context.Background(), job.ID); err != nil {
 		t.Fatalf("retry: %v", err)
@@ -876,9 +811,6 @@ func TestRetryJob_NotFound(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 19. ExecuteJob
-// ===========================================
 
 func TestExecuteJob_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -953,7 +885,6 @@ func TestExecuteJob_PipelineNotFound(t *testing.T) {
 	svc, db := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
 	job, _ := svc.EnqueueJob(context.Background(), newReachJobReq(pipe.ID))
-	// 删除 pipeline（GORM Delete 第一参数须为模型，context 应通过 WithContext 注入）
 	db.WithContext(context.Background()).Delete(pipe)
 	_, err := svc.ExecuteJob(context.Background(), job.ID)
 	if err == nil {
@@ -963,16 +894,13 @@ func TestExecuteJob_PipelineNotFound(t *testing.T) {
 
 func TestExecuteJob_RateLimited(t *testing.T) {
 	svc, _ := newReachTestService(t)
-	// 使用 DailyQuota=1 + 强制同一 accountID 让第二个 job 触发限流
 	req := newReachPipelineReq("m-001")
 	req.RateLimit.DailyQuota = 1
 	pipe, _ := svc.CreatePipeline(context.Background(), req)
-	// 第一个 job 消耗每日配额
 	j1 := newReachJobReq(pipe.ID)
 	j1.AccountID = "shared-acc"
 	job1, _ := svc.EnqueueJob(context.Background(), j1)
 	svc.ExecuteJob(context.Background(), job1.ID)
-	// 第二个 job 使用同一账号，触发每日配额上限
 	j2 := newReachJobReq(pipe.ID)
 	j2.AccountID = "shared-acc"
 	job2, _ := svc.EnqueueJob(context.Background(), j2)
@@ -985,9 +913,6 @@ func TestExecuteJob_RateLimited(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 20. 限流
-// ===========================================
 
 func TestCheckRateLimit_NoLimit(t *testing.T) {
 	svc := NewReachPipelineService(nil)
@@ -1011,7 +936,6 @@ func TestCheckRateLimit_DailyReset(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{DailyQuota: 1}
 	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
-	// 模拟跨日
 	svc.dailyQuotaMu.Lock()
 	for k := range svc.dailyQuota {
 		svc.dailyQuota[k] = &dailyCounter{date: "2020-01-01", count: 0}
@@ -1040,11 +964,9 @@ func TestCheckRateLimit_PerUserDifferent(t *testing.T) {
 	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected allow for first call")
 	}
-	// 同一用户第 2 次：应被限流
 	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected deny for same user second call")
 	}
-	// 不同用户：应被允许
 	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-2", &rl) {
 		t.Error("expected allow for different user")
 	}
@@ -1054,7 +976,6 @@ func TestCheckRateLimit_PerUserCooldown(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{PerUserLimit: 1, CooldownSecs: 0}
 	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
-	// 冷却 0 秒 -> 立即过期
 	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected allow after cooldown=0")
 	}
@@ -1066,7 +987,6 @@ func TestCheckRateLimit_QPSExceeded(t *testing.T) {
 	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected allow for first call")
 	}
-	// 同一秒内第二次
 	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected deny for second call in same second")
 	}
@@ -1104,9 +1024,6 @@ func TestConsumeDailyQuota(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 21. runStep 单元测试
-// ===========================================
 
 func TestRunStep_Audience_NoCustomer(t *testing.T) {
 	svc := NewReachPipelineService(nil)
@@ -1212,7 +1129,6 @@ func TestRunStep_TrackResult(t *testing.T) {
 	if !res.Success {
 		t.Errorf("expected success, got %v", res)
 	}
-	// 验证 _tracking 已写入
 	tracking, _ := job.Payload["_tracking"].(map[string]any)
 	if tracking == nil {
 		t.Errorf("expected _tracking in payload, got %v", job.Payload)
@@ -1290,9 +1206,6 @@ func TestRunStep_RateLimit_Deny(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 22. Stats
-// ===========================================
 
 func TestStats_ReachEmpty(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -1362,9 +1275,6 @@ func TestStats_CanceledCount(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 23. Pipeline 状态机
-// ===========================================
 
 func TestPipelineStateMachine_ActiveToPausedToActive(t *testing.T) {
 	svc, db := newReachTestService(t)
@@ -1391,16 +1301,12 @@ func TestPipelineStateMachine_ActiveToArchived(t *testing.T) {
 	if got.Status != PipelineStatusArchived {
 		t.Errorf("expected archived, got %s", got.Status)
 	}
-	// 归档后无法入队
 	_, err := svc.EnqueueJob(context.Background(), newReachJobReq(pipe.ID))
 	if err == nil {
 		t.Error("expected error when enqueuing to archived pipeline")
 	}
 }
 
-// ===========================================
-// 24. Job 状态机
-// ===========================================
 
 func TestJobStateMachine_PendingToSuccess(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -1452,7 +1358,6 @@ func TestJobStateMachine_RateLimitedToPending(t *testing.T) {
 	if got.State != JobStateRateLimited {
 		t.Errorf("expected rate_limited, got %s", got.State)
 	}
-	// pending 并可执行
 	db.Model(&model.ReachJob{}).Where("id = ?", job.ID).Update("state", JobStatePending)
 	svc.ResetRateLimit(context.Background(), "wecom")
 	got2, _ := svc.GetJob(context.Background(), job.ID)
@@ -1461,9 +1366,6 @@ func TestJobStateMachine_RateLimitedToPending(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 25. 并发
-// ===========================================
 
 func TestExecuteJob_Concurrent(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -1540,15 +1442,11 @@ func TestCheckRateLimit_Concurrent(t *testing.T) {
 	wg.Wait()
 }
 
-// ===========================================
-// 26. 边界情况
-// ===========================================
 
 func TestCreatePipeline_EmptyName(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	req := newReachPipelineReq("m-001")
 	req.Name = ""
-	// 业务上不强制 name 非空（具体由 binding 控制），这里只验证可创建
 	pipe, err := svc.CreatePipeline(context.Background(), req)
 	if err != nil {
 		t.Errorf("expected create to succeed, got %v", err)
@@ -1599,7 +1497,6 @@ func TestExecuteJob_PipelineNotFoundRace(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
 	job, _ := svc.EnqueueJob(context.Background(), newReachJobReq(pipe.ID))
-	// 模拟在执行前 pipeline 被删除（不会真正发生但要测错误处理）
 	_, err := svc.ExecuteJob(context.Background(), job.ID+999)
 	if err == nil {
 		t.Error("expected error")
@@ -1622,7 +1519,6 @@ func TestEnqueueJob_NilDB(t *testing.T) {
 func TestEnqueueJob_ZeroMaxRetry_Fallback(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
-	// retry_policy 已设置默认，但 request 也设 0
 	req := newReachJobReq(pipe.ID)
 	req.MaxRetry = 0
 	job, err := svc.EnqueueJob(context.Background(), req)
@@ -1638,7 +1534,6 @@ func TestListJobs_PageBoundaries(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
 	svc.EnqueueJob(context.Background(), newReachJobReq(pipe.ID))
-	// page < 1, pageSize 异常
 	_, _, err := svc.ListJobs(context.Background(), "", "", 0, 0)
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
@@ -1648,20 +1543,15 @@ func TestListJobs_PageBoundaries(t *testing.T) {
 func TestListPipelines_PageBoundaries(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
-	// page < 1, pageSize > 200
 	_, _, err := svc.ListPipelines(context.Background(), "", "", -1, 500)
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
 }
 
-// ===========================================
-// 27. 错误恢复
-// ===========================================
 
 func TestResetRateLimit_EmptyChannel(t *testing.T) {
 	svc := NewReachPipelineService(nil)
-	// 不应 panic
 	svc.ResetRateLimit(context.Background(), "")
 }
 
@@ -1686,9 +1576,6 @@ func TestExecuteJob_AfterPipelineDeleted(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 28. 时间相关
-// ===========================================
 
 func TestComputeNextRunTime_FirstRetry(t *testing.T) {
 	rp := RetryPolicy{MaxRetries: 3, IntervalMs: 500, Backoff: "fixed"}
@@ -1716,9 +1603,6 @@ func TestExecuteJob_StartEndTime(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 29. Step 顺序
-// ===========================================
 
 func TestExecuteJob_StepOrder(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -1752,16 +1636,12 @@ func TestExecuteJob_AllStepsSuccessful(t *testing.T) {
 	}
 }
 
-// ===========================================
-// 30. 辅助
-// ===========================================
 
 func TestAppendStepResult(t *testing.T) {
 	svc, db := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
 	job, _ := svc.EnqueueJob(context.Background(), newReachJobReq(pipe.ID))
 	svc.appendStepResult(context.Background(), job, StepResult{Step: "test", Success: true})
-	// 重新获取
 	got, _ := svc.GetJob(context.Background(), job.ID)
 	if len(got.StepResults) == 0 {
 		t.Error("expected step results appended")
@@ -1780,11 +1660,6 @@ func jsonUnmarshal(data []byte, v any) error {
 	return json.Unmarshal(data, v)
 }
 
-// ===========================================
-// V3 整改测试：runStep 真实实现
-// 覆盖 prepareContent / generateMessage / dispatchOutbound /
-// trackSendResult / aggregateReport 五个新方法
-// ===========================================
 
 func TestPrepareContent_NilJob(t *testing.T) {
 	svc := NewReachPipelineService(nil)
@@ -1834,7 +1709,6 @@ func TestPrepareContent_FromPayloadVars(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// 数字 code 会被 %v 格式化为 12345
 	if got != "Hi Alice, your code is 12345" {
 		t.Errorf("got %q", got)
 	}
@@ -1849,7 +1723,6 @@ func TestPrepareContent_UnfilledKeyPreserved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// 未命中的 key 保留原始 {{key}} 形式
 	if got != "Hello {{unknown_key}}" {
 		t.Errorf("expected unfilled key preserved, got %q", got)
 	}
@@ -1999,7 +1872,6 @@ func TestTrackSendResult_WritesTracking(t *testing.T) {
 		CustomerID: "u-1",
 		State:      "running",
 		Payload: model.JSONMap{
-			// 模拟 StepSend 已写入的 _last_send
 			"_last_send": map[string]any{
 				"message_id": "msg_test_1",
 				"channel":    "wecom",
@@ -2147,7 +2019,6 @@ func TestRenderReachTemplate_NoPlaceholder(t *testing.T) {
 }
 
 func TestRenderReachTemplate_UnclosedPlaceholder(t *testing.T) {
-	// 未闭合的 {{ 应当保留原文
 	job := &model.ReachJob{}
 	got := renderReachTemplate("Hello {{ unclosed", job)
 	if got != "Hello {{ unclosed" {
@@ -2155,9 +2026,6 @@ func TestRenderReachTemplate_UnclosedPlaceholder(t *testing.T) {
 	}
 }
 
-// ===========================================
-// V3 端到端：完整 9 步 pipeline 跑通
-// ===========================================
 
 func TestFullPipeline_RenderAndTrack(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -2189,7 +2057,6 @@ func TestFullPipeline_RenderAndTrack(t *testing.T) {
 		t.Errorf("expected state=success, got %s (error: %s)", executed.State, executed.ErrorMessage)
 	}
 	t.Logf("executed.Payload: %+v", executed.Payload)
-	// 验证 _tracking 已写入
 	tracking, _ := executed.Payload["_tracking"].(map[string]any)
 	if tracking == nil {
 		t.Error("expected _tracking in payload")
@@ -2212,7 +2079,6 @@ func TestFullPipeline_FailOnEmptyContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute returned error: %v", err)
 	}
-	// ContentPrepare 失败时，job 应该是 failed
 	if executed.State != JobStateFailed {
 		t.Errorf("expected state=failed, got %s", executed.State)
 	}
@@ -2224,7 +2090,7 @@ func TestFullPipeline_FailOnEmptyContent(t *testing.T) {
 func TestFullPipeline_FailOnUnimplementedChannel(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	req := newReachPipelineReq("m-1")
-	req.Channel = "douyin" // V3 标记未实现的渠道
+	req.Channel = "douyin" 
 	pipe, _ := svc.CreatePipeline(context.Background(), req)
 	jobReq := &EnqueueJobRequest{
 		PipelineID: pipe.ID,
@@ -2244,3 +2110,4 @@ func TestFullPipeline_FailOnUnimplementedChannel(t *testing.T) {
 		t.Errorf("expected error message about douyin, got %q", executed.ErrorMessage)
 	}
 }
+

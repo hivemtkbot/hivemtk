@@ -30,14 +30,13 @@ import "time"
 type KnowledgeBase struct {
 	ID           uint   `gorm:"primaryKey;autoIncrement" json:"id"`
 	KBCode       string `gorm:"type:varchar(64);uniqueIndex;not null" json:"kb_code"`
-	Type         string `gorm:"type:varchar(16);not null;index" json:"type"` // faq / rag / sop
+	Type         string `gorm:"type:varchar(16);not null;index" json:"type"` 
 	Name         string `gorm:"type:varchar(128);not null" json:"name"`
 	Description  string `gorm:"type:text" json:"description"`
-	OwnerType    string `gorm:"type:varchar(16);not null;default:private" json:"owner_type"` // private / shared
+	OwnerType    string `gorm:"type:varchar(16);not null;default:private" json:"owner_type"` 
 	OwnerAgentID *uint  `gorm:"index" json:"owner_agent_id,omitempty"`
 	MemberCount  int    `gorm:"type:integer;default:0" json:"member_count"`
 	DocCount     int    `gorm:"type:integer;default:0" json:"doc_count"`
-	// Enabled 用 *bool 避免 GORM v2 零值 false 被 column default 覆盖
 	Enabled   *bool     `gorm:"type:boolean;default:true;not null;index" json:"enabled"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
@@ -58,3 +57,4 @@ const (
 	KnowledgeBaseOwnerPrivate = "private"
 	KnowledgeBaseOwnerShared  = "shared"
 )
+

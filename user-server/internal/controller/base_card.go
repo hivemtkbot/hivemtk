@@ -50,7 +50,6 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) C
 		return
 	}
 
-	// 通过类型断言调用服务方法
 	service, ok := any(c.service).(interface {
 		Create(*gin.Context, *CreateReq) (*Response, error)
 	})
@@ -81,7 +80,6 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) U
 		return
 	}
 
-	// 通过类型断言调用服务方法
 	service, ok := any(c.service).(interface {
 		Update(*gin.Context, *UpdateReq) (*Response, error)
 	})
@@ -166,7 +164,6 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) G
 		return
 	}
 
-	// 设置默认分页参数
 	listReq, ok := any(req).(interface {
 		GetPage() int
 		GetPageSize() int
@@ -218,11 +215,10 @@ func ParseIDWithValidation(ctx *gin.Context, reqID uint) (uint, bool, error) {
 		return 0, false, err
 	}
 
-	// 如果请求体中 ID 为 0，使用 URL 中的 ID
 	if reqID == 0 {
 		return uint(idFromURI), true, nil
 	}
 
-	// 验证 ID 一致性
 	return uint(idFromURI), reqID == uint(idFromURI), nil
 }
+

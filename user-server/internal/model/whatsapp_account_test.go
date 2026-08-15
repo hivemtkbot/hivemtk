@@ -51,7 +51,6 @@ func TestWhatsappAccount_BeforeCreate_GeneratesID(t *testing.T) {
 		Name: "Test Account",
 	}
 
-	// BeforeCreate should generate UUID
 	err := account.BeforeCreate(nil)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -121,7 +120,6 @@ func TestWhatsappAccount_StatusValues(t *testing.T) {
 func TestWhatsappJob_BeforeCreate_GeneratesID(t *testing.T) {
 	job := &WhatsappJob{}
 
-	// BeforeCreate should generate UUID
 	err := job.BeforeCreate(nil)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -165,7 +163,6 @@ func TestWhatsappJob_BasicFields(t *testing.T) {
 	if job.ID != id {
 		t.Errorf("Expected ID %s, got %s", id, job.ID)
 	}
-	// 私域部署：WhatsappJob 不含 MerchantID 字段
 	if job.Total != 100 {
 		t.Errorf("Expected Total 100, got %d", job.Total)
 	}
@@ -197,7 +194,6 @@ func TestWhatsappJobDetail_BeforeCreate_GeneratesID(t *testing.T) {
 		ToJid: "1234567890@c.us",
 	}
 
-	// BeforeCreate should generate UUID
 	err := detail.BeforeCreate(nil)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -273,7 +269,6 @@ func TestWhatsappSession_BeforeCreate_GeneratesID(t *testing.T) {
 		SessionJSON: `{"session": "data"}`,
 	}
 
-	// BeforeCreate should generate UUID
 	err := session.BeforeCreate(nil)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -315,7 +310,6 @@ func TestWhatsappSession_BasicFields(t *testing.T) {
 	if session.ID != id {
 		t.Errorf("Expected ID %s, got %s", id, session.ID)
 	}
-	// 私域部署：WhatsappSession 不含 MerchantID 字段
 	if session.SessionJSON != `{"session": "data"}` {
 		t.Errorf("Expected SessionJSON, got %s", session.SessionJSON)
 	}
@@ -326,7 +320,6 @@ func TestWhatsappDraft_BeforeCreate_GeneratesID(t *testing.T) {
 		Title: "Test Draft",
 	}
 
-	// BeforeCreate should generate UUID
 	err := draft.BeforeCreate(nil)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -374,3 +367,4 @@ func TestWhatsappDraft_BasicFields(t *testing.T) {
 		t.Errorf("Expected Content 'Draft content here', got %s", draft.Content)
 	}
 }
+

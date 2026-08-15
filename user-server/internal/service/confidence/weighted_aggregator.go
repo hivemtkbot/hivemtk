@@ -1,17 +1,5 @@
 package confidence
 
-// weighted_aggregator.go 5 维信号加权聚合器
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.4.6
-//
-// 公式：conf = Σ w_i * signal_i（权重已归一化 Σw_i = 1）
-// 默认权重：
-//   - IntentConf:  0.30
-//   - EntityComp:  0.15
-//   - CtxRelev:    0.15
-//   - RAGQual:     0.20
-//   - LLMEntropy:  0.20
 
 import (
 	"hivemtk-user/internal/dto"
@@ -19,11 +7,11 @@ import (
 
 // SignalWeights 5 维信号权重
 type SignalWeights struct {
-	IntentConf float64 // 0.30
-	EntityComp float64 // 0.15
-	CtxRelev   float64 // 0.15
-	RAGQual    float64 // 0.20
-	LLMEntropy float64 // 0.20
+	IntentConf float64 
+	EntityComp float64 
+	CtxRelev   float64 
+	RAGQual    float64 
+	LLMEntropy float64 
 }
 
 // DefaultSignalWeights 默认权重（来自设计文档 §15.2.2）
@@ -95,3 +83,4 @@ func normalizeWeights(w *SignalWeights) {
 		w.LLMEntropy /= sum
 	}
 }
+

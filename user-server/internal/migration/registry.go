@@ -7,15 +7,10 @@ import (
 
 // Migration 迁移接口
 type Migration interface {
-	// Version 返回版本号
 	Version() string
-	// Name 返回迁移名称
 	Name() string
-	// Description 返回迁移描述
 	Description() string
-	// Up 执行升级
 	Up(ctx context.Context) error
-	// Down 执行降级
 	Down(ctx context.Context) error
 }
 
@@ -80,3 +75,4 @@ func (r *MigrationRegistry) Validate() error {
 	}
 	return nil
 }
+

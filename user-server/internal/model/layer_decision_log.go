@@ -30,16 +30,17 @@ type LayerDecisionLog struct {
 	TraceID    string    `gorm:"type:varchar(64);index" json:"trace_id"`
 	SessionID  string    `gorm:"type:varchar(50);index" json:"session_id"`
 	CustomerID string    `gorm:"type:varchar(64);index" json:"customer_id"`
-	Layer      string    `gorm:"type:varchar(32);not null;index" json:"layer"` // layer1 / layer2 / fallback_template / fallback_cache
-	Reason     string    `gorm:"type:varchar(64);not null" json:"reason"`      // faq_match / sop_template / llm_response / 7b_fail_3b / cache_hit / template_default
+	Layer      string    `gorm:"type:varchar(32);not null;index" json:"layer"` 
+	Reason     string    `gorm:"type:varchar(64);not null" json:"reason"`      
 	Intent     string    `gorm:"type:varchar(64);index" json:"intent"`
 	ConfIn     float64   `gorm:"type:decimal(5,4);default:0" json:"conf_in"`
 	ConfOut    float64   `gorm:"type:decimal(5,4);default:0" json:"conf_out"`
 	WallMs     int       `gorm:"type:int;default:0" json:"wall_ms"`
 	LLMSkipped *bool     `gorm:"type:boolean;default:false;not null" json:"llm_skipped"`
-	Extra      string    `gorm:"type:text" json:"extra,omitempty"` // JSON: 额外上下文
+	Extra      string    `gorm:"type:text" json:"extra,omitempty"` 
 	CreatedAt  time.Time `gorm:"autoCreateTime;index" json:"created_at"`
 }
 
 // TableName GORM 表名
 func (LayerDecisionLog) TableName() string { return "layer_decision_logs" }
+

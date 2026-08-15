@@ -38,3 +38,4 @@ func NewReachWeComSendTool(deps ReachToolDeps) *ReachWeComSendTool {
 		deps: deps,
 	}
 }
+

@@ -38,7 +38,6 @@ func setupE2EDB(t *testing.T) *gorm.DB {
 		&model.KnowledgeBase{},
 		&model.AgentKBBinding{},
 	)
-	// 清表
 	for _, tbl := range []string{"agent_kb_bindings", "knowledge_bases"} {
 		if err := db.Exec(fmt.Sprintf("TRUNCATE TABLE %s RESTART IDENTITY CASCADE", tbl)).Error; err != nil {
 			t.Fatalf("truncate %s: %v", tbl, err)
@@ -65,9 +64,6 @@ func newE2ESetup(t *testing.T, db *gorm.DB) (
 
 func boolPtrE2E(b bool) *bool { return &b }
 
-// =====================================================================
-// 业务故事 1: 多智能体严格隔离（每智能体独立 FAQ + 共享 SOP 库）
-// =====================================================================
 
 // TestE2E_MultiAgent_KnowledgeIsolation 验证多智能体场景下, 知识库严格隔离
 //
@@ -81,7 +77,6 @@ func TestE2E_MultiAgent_KnowledgeIsolation(t *testing.T) {
 	ctx := context.Background()
 	kbSvc, bindSvc, _, _ := newE2ESetup(t, db)
 
-	// 1. 三个品牌创建各自的私有 FAQ
 	brands := map[uint]string{
 		1001: "brand-A 客服 FAQ",
 		1002: "brand-B 客服 FAQ",
@@ -102,7 +97,6 @@ func TestE2E_MultiAgent_KnowledgeIsolation(t *testing.T) {
 		}
 	}
 
-	// 2. 创建共享的"平台规则" SOP 库
 	platformKB := &model.KnowledgeBase{
 		KBCode:    "KB-SOP-PLATFORM-RULES",
 		Type:      model.KnowledgeBaseTypeSOP,
@@ -114,14 +108,12 @@ func TestE2E_MultiAgent_KnowledgeIsolation(t *testing.T) {
 		t.Fatalf("create shared platform KB: %v", err)
 	}
 
-	// 3. 三品牌全部绑定共享 SOP
 	for aid := range brands {
 		if err := bindSvc.Bind(ctx, aid, platformKB.ID, 0); err != nil {
 			t.Fatalf("bind agent %d to platform KB: %v", aid, err)
 		}
 	}
 
-	// 4. 验证: agent 1001 可见 2 个 KB (自己私有的 + 平台共享)
 	gotA, err := kbSvc.ListByAgent(ctx, 1001)
 	if err != nil {
 		t.Fatal(err)
@@ -130,7 +122,6 @@ func TestE2E_MultiAgent_KnowledgeIsolation(t *testing.T) {
 		t.Errorf("expected agent 1001 sees 2 KB (private + platform), got %d", len(gotA))
 	}
 
-	// 5. 验证: agent 1001 看不到 agent 1002/1003 的私有 KB
 	for _, kb := range gotA {
 		if strings.HasPrefix(kb.KBCode, "KB-FAQ-BRAND-100") || strings.HasPrefix(kb.KBCode, "KB-FAQ-BRAND-1002") || strings.HasPrefix(kb.KBCode, "KB-FAQ-BRAND-1003") {
 			if kb.OwnerAgentID != nil && *kb.OwnerAgentID != 1001 {
@@ -140,9 +131,6 @@ func TestE2E_MultiAgent_KnowledgeIsolation(t *testing.T) {
 	}
 }
 
-// =====================================================================
-// 业务故事 2: 客服工作流 (创建 → 绑定 → 命中 → 解绑 → 失效)
-// =====================================================================
 
 // TestE2E_AgentWorkflow_FullLifecycle 验证客服智能体全生命周期
 //
@@ -159,7 +147,6 @@ func TestE2E_AgentWorkflow_FullLifecycle(t *testing.T) {
 
 	agent := uint(2001)
 
-	// 1. 创建 SOP 库 A
 	kbA := &model.KnowledgeBase{
 		KBCode:       "KB-SOP-WORKFLOW-A",
 		Type:         model.KnowledgeBaseTypeSOP,
@@ -172,12 +159,10 @@ func TestE2E_AgentWorkflow_FullLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 2. 绑定 (虽然 private 的 KB 也会被 ListByAgent 看到, 但显式 binding 用于跨 agent 共享场景)
 	if err := bindSvc.Bind(ctx, agent, kbA.ID, 10); err != nil {
 		t.Fatalf("bind: %v", err)
 	}
 
-	// 3. 查询
 	got, err := kbSvc.ListByAgent(ctx, agent)
 	if err != nil {
 		t.Fatal(err)
@@ -189,17 +174,14 @@ func TestE2E_AgentWorkflow_FullLifecycle(t *testing.T) {
 		t.Errorf("expected workflow-A, got %q", got[0].KBCode)
 	}
 
-	// 4. 解绑
 	if err := bindSvc.Unbind(ctx, agent, kbA.ID); err != nil {
 		t.Fatal(err)
 	}
 	got2, _ := kbSvc.ListByAgent(ctx, agent)
 	if len(got2) != 1 {
-		// 注意: private KB 始终可见, 这里只验证 binding 已删除
 		t.Logf("private KB still visible (expected), got %d", len(got2))
 	}
 
-	// 5. 创建另一个 KB B 并绑定
 	kbB := &model.KnowledgeBase{
 		KBCode:       "KB-SOP-WORKFLOW-B",
 		Type:         model.KnowledgeBaseTypeSOP,
@@ -215,7 +197,6 @@ func TestE2E_AgentWorkflow_FullLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 6. 此时 agent 应有 2 个 private KB (A 和 B), 1 个 binding (B)
 	bindings, _ := bindSvc.ListByAgent(ctx, agent)
 	if len(bindings) != 1 || bindings[0].KBID != kbB.ID {
 		t.Errorf("expected 1 binding (to B), got %v", bindings)
@@ -225,9 +206,6 @@ func TestE2E_AgentWorkflow_FullLifecycle(t *testing.T) {
 	}
 }
 
-// =====================================================================
-// 业务故事 3: 删除知识库 → 级联清理 bindings
-// =====================================================================
 
 // TestE2E_KBDelete_CascadeBindingCleanup 验证删除 KB 时级联清理所有 binding
 //
@@ -237,7 +215,6 @@ func TestE2E_KBDelete_CascadeBindingCleanup(t *testing.T) {
 	ctx := context.Background()
 	kbSvc, bindSvc, _, bindRepo := newE2ESetup(t, db)
 
-	// 1. 共享 KB
 	sharedKB := &model.KnowledgeBase{
 		KBCode:    "KB-E2E-CASCADE",
 		Type:      model.KnowledgeBaseTypeRAG,
@@ -249,40 +226,32 @@ func TestE2E_KBDelete_CascadeBindingCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 2. 5 个 agent 绑定
 	for i := uint(1); i <= 5; i++ {
 		if err := bindSvc.Bind(ctx, i, sharedKB.ID, int(i)); err != nil {
 			t.Fatalf("bind agent %d: %v", i, err)
 		}
 	}
 
-	// 3. 验证 5 个 binding 存在
 	bindings, _ := bindRepo.ListByKB(ctx, sharedKB.ID)
 	if len(bindings) != 5 {
 		t.Fatalf("expected 5 bindings, got %d", len(bindings))
 	}
 
-	// 4. 删除 KB
 	if err := kbSvc.DeleteKB(ctx, sharedKB.ID); err != nil {
 		t.Fatal(err)
 	}
 
-	// 5. 验证: bindings 应被级联删除
 	bindingsAfter, _ := bindRepo.ListByKB(ctx, sharedKB.ID)
 	if len(bindingsAfter) != 0 {
 		t.Errorf("expected 0 bindings after KB delete (cascade), got %d", len(bindingsAfter))
 	}
 
-	// 6. 验证: KB 本身也消失
 	got, _ := kbSvc.GetKB(ctx, sharedKB.ID)
 	if got != nil {
 		t.Error("expected KB to be deleted")
 	}
 }
 
-// =====================================================================
-// 业务故事 4: 共享知识库的"白名单"分发
-// =====================================================================
 
 // TestE2E_SharedKB_WhitelistDistribution 验证共享 KB 仅对白名单 agent 可见
 //
@@ -295,7 +264,6 @@ func TestE2E_SharedKB_WhitelistDistribution(t *testing.T) {
 	ctx := context.Background()
 	kbSvc, bindSvc, _, _ := newE2ESetup(t, db)
 
-	// 1. 共享 KB
 	sharedKB := &model.KnowledgeBase{
 		KBCode:    "KB-E2E-WHITELIST",
 		Type:      model.KnowledgeBaseTypeSOP,
@@ -307,7 +275,6 @@ func TestE2E_SharedKB_WhitelistDistribution(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 2. 10 个 agent, 3 个白名单
 	whitelist := map[uint]bool{1: true, 5: true, 9: true}
 	for i := uint(1); i <= 10; i++ {
 		if whitelist[i] {
@@ -317,7 +284,6 @@ func TestE2E_SharedKB_WhitelistDistribution(t *testing.T) {
 		}
 	}
 
-	// 3. 验证: 3 个白名单 agent 可见
 	for i := uint(1); i <= 10; i++ {
 		got, _ := kbSvc.ListByAgent(ctx, i)
 		found := false
@@ -336,9 +302,6 @@ func TestE2E_SharedKB_WhitelistDistribution(t *testing.T) {
 	}
 }
 
-// =====================================================================
-// 业务故事 5: 批量绑定 (管理员一次性配置)
-// =====================================================================
 
 // TestE2E_AdminBatchConfig 验证管理员批量配置多 agent × 多 KB
 //
@@ -348,7 +311,6 @@ func TestE2E_AdminBatchConfig(t *testing.T) {
 	ctx := context.Background()
 	kbSvc, bindSvc, _, _ := newE2ESetup(t, db)
 
-	// 1. 创建 2 个 shared KB
 	sop := &model.KnowledgeBase{
 		KBCode:    "KB-SOP-NEW-HIRE",
 		Type:      model.KnowledgeBaseTypeSOP,
@@ -382,7 +344,6 @@ func TestE2E_AdminBatchConfig(t *testing.T) {
 		t.Fatalf("batch bind: %v", err)
 	}
 
-	// 3. 验证: 每个新员工都绑定了 2 个 KB
 	for i := uint(3001); i < 3001+newHireCount; i++ {
 		bindings, _ := bindSvc.ListByAgent(ctx, i)
 		if len(bindings) != 2 {
@@ -391,9 +352,6 @@ func TestE2E_AdminBatchConfig(t *testing.T) {
 	}
 }
 
-// =====================================================================
-// 业务故事 6: 业务规则反向验证 (校验失败的复合场景)
-// =====================================================================
 
 // TestE2E_BusinessRules_CompositeValidation 验证多层业务规则的复合场景
 //
@@ -406,34 +364,30 @@ func TestE2E_BusinessRules_CompositeValidation(t *testing.T) {
 	ctx := context.Background()
 	kbSvc, _, _, _ := newE2ESetup(t, db)
 
-	// Case 1: shared KB 携带 owner_agent_id -> 失败
 	agent := uint(99)
 	bad1 := &model.KnowledgeBase{
 		KBCode:       "KB-SHARED-BAD",
 		Type:         model.KnowledgeBaseTypeFAQ,
 		Name:         "bad",
 		OwnerType:    model.KnowledgeBaseOwnerShared,
-		OwnerAgentID: &agent, // 违反 shared 规则
+		OwnerAgentID: &agent, 
 		Enabled:      boolPtrE2E(true),
 	}
 	if err := kbSvc.CreateKB(ctx, bad1); err == nil {
 		t.Error("expected error for shared KB with owner")
 	}
 
-	// Case 2: private KB 不带 owner -> 失败
 	bad2 := &model.KnowledgeBase{
 		KBCode:    "KB-PRIVATE-BAD",
 		Type:      model.KnowledgeBaseTypeFAQ,
 		Name:      "bad",
 		OwnerType: model.KnowledgeBaseOwnerPrivate,
-		// OwnerAgentID: nil
 		Enabled: boolPtrE2E(true),
 	}
 	if err := kbSvc.CreateKB(ctx, bad2); err == nil {
 		t.Error("expected error for private KB without owner")
 	}
 
-	// Case 3: 非法 type -> 失败
 	bad3 := &model.KnowledgeBase{
 		KBCode:       "KB-BAD-TYPE",
 		Type:         "INVALID_TYPE",
@@ -447,9 +401,6 @@ func TestE2E_BusinessRules_CompositeValidation(t *testing.T) {
 	}
 }
 
-// =====================================================================
-// 业务故事 7: owner 切换 (private ↔ shared)
-// =====================================================================
 
 // TestE2E_OwnerTypeTransition 验证 owner_type 从 private 切到 shared 的过渡
 //
@@ -461,7 +412,6 @@ func TestE2E_OwnerTypeTransition(t *testing.T) {
 	kbSvc, bindSvc, _, _ := newE2ESetup(t, db)
 
 	agent1 := uint(7777)
-	// 1. 起初是 private
 	kb := &model.KnowledgeBase{
 		KBCode:       "KB-OWNER-TRANSITION",
 		Type:         model.KnowledgeBaseTypeRAG,
@@ -474,7 +424,6 @@ func TestE2E_OwnerTypeTransition(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 2. 切到 shared (清除 owner)
 	updated := &model.KnowledgeBase{
 		Name:         "transition (now shared)",
 		Type:         model.KnowledgeBaseTypeRAG,
@@ -486,7 +435,6 @@ func TestE2E_OwnerTypeTransition(t *testing.T) {
 		t.Fatalf("update to shared: %v", err)
 	}
 
-	// 3. 验证: agent1 不能再看到 (因为不再是 private owner)
 	got1, _ := kbSvc.ListByAgent(ctx, agent1)
 	found := false
 	for _, k := range got1 {
@@ -498,7 +446,6 @@ func TestE2E_OwnerTypeTransition(t *testing.T) {
 		t.Error("agent1 should NOT see KB after transition to shared")
 	}
 
-	// 4. agent2 通过 binding 看到
 	agent2 := uint(8888)
 	if err := bindSvc.Bind(ctx, agent2, kb.ID, 0); err != nil {
 		t.Fatal(err)
@@ -514,3 +461,4 @@ func TestE2E_OwnerTypeTransition(t *testing.T) {
 		t.Error("agent2 should see KB after binding")
 	}
 }
+

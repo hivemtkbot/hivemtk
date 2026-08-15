@@ -9,11 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ============================================================================
-// 多 AI 智能体（AIAgent / ChannelAgentBinding / CustomerServiceAgent）门面服务
-// 提供以"DTO + 原始 JSON"为入参的创建/更新方法，供 controller 调用，避免
-// controller 直接构造 model.AIAgent 等模型。底层以 model 为签名的方法保持不变。
-// ============================================================================
 
 // AIAgentCreateDTO 智能体创建/更新 DTO（脱离 model 的入参）
 type AIAgentCreateDTO struct {
@@ -48,8 +43,6 @@ type AIAgentCreateDTO struct {
 
 // CreateAIAgent 创建智能体（组装 model 并应用默认值）
 func (s *AIAgentService) CreateAIAgent(ctx context.Context, req *AIAgentCreateDTO) (*model.AIAgent, error) {
-	// M2 运行时覆盖默认：Persona 指向已购/已同步的 agent_persona 资产且未提供 SystemPrompt 时，
-	// 应用资产内置人设（系统提示词 / 问候语）。
 	systemPrompt := req.SystemPrompt
 	greeting := req.Greeting
 	if r := GetAssetResolver(); r != nil && req.Persona != "" && systemPrompt == "" {
@@ -96,7 +89,6 @@ func (s *AIAgentService) CreateAIAgent(ctx context.Context, req *AIAgentCreateDT
 		}
 	}
 
-	// 应用默认值
 	if agent.AgentType == "" {
 		agent.AgentType = string(model.AgentTypeSales)
 	}
@@ -104,18 +96,12 @@ func (s *AIAgentService) CreateAIAgent(ctx context.Context, req *AIAgentCreateDT
 		agent.Status = 1
 	}
 	if agent.LLMModel == "" {
-		// 展示默认值：实际调用走 dispatcher 场景路由（llm_providers 表），
-		// 与本地推理栈实际模型保持一致（2026-08-10 切 MLX 栈 SmolLM3）
 		agent.LLMModel = "smollm3-3b-4bit-mlx"
 	}
 	if agent.Temperature == 0 {
 		agent.Temperature = 0.7
 	}
 	if agent.MaxTokens == 0 {
-		// 默认 2048：推理模型（如 deepseek-v4-flash）在 reasoning 阶段需占用较多 token，
-		// 过小的上限会导致 reasoning 耗尽 token 后无法产出 content/tool_calls，
-		// 触发 Agent Loop 的 length 重试（翻倍 tokens 重算），单次问答延迟翻倍且偶发空回复转人工。
-		// 与 sales_engine.runAgentLoop 的安全兜底上限保持一致。
 		agent.MaxTokens = 2048
 	}
 	if agent.RAGTopK == 0 {
@@ -124,7 +110,6 @@ func (s *AIAgentService) CreateAIAgent(ctx context.Context, req *AIAgentCreateDT
 	if agent.ConfidenceThreshold == 0 {
 		agent.ConfidenceThreshold = 0.5
 	}
-	// MaxAIConsecutive: 0=不限制，由置信度阈值控制转人工
 	if !agent.EnableRAG && !req.EnableRAG {
 		agent.EnableRAG = true
 	}
@@ -353,3 +338,4 @@ func (s *CustomerServiceAgentService) UpdateCSAgentMountFromJSON(ctx context.Con
 	}
 	return existing, nil
 }
+

@@ -1,17 +1,5 @@
 package migrations
 
-// ai_perf_faq_sop_layer_migration.go AI 智能体性能优化
-//
-// 背景：
-// 1. 当前 user-server 客服对话 wall time 平均 19.6s（7B Q5 本地 LLM 实测），主要由 Step 3
-//    意图识别 LLM 串行阻塞造成。
-// 2. 改造方案：双层架构 (Layer1 FAQ/SOP 模板 <100ms → SkipLLM / Layer2 LLM 兜底 1-3s)
-//    + Go 并行化 (errgroup Phase 0 fan-out) + WebSocket 流式输出 (LCP <500ms)。
-// 3. 本次迁移新增 3 张表支撑该方案：
-//    - faq_entries          Layer1 FAQ 知识库
-//    - sop_templates        Layer1 SOP 模板（Go text/template 变量替换）
-//    - layer_decision_logs  Layer 决策可观测性日志（私域: 落库审计 + SQL 巡检）
-// 4. 3 张表均带 GIN 索引或常规索引，PG AutoMigrate 友好，幂等可重入。
 
 import (
 	"context"
@@ -52,7 +40,6 @@ func (m *AIPerfFAQSOPLayerMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 	stmts := []string{
-		// 1. faq_entries - Layer1 FAQ 知识库
 		`CREATE TABLE IF NOT EXISTS faq_entries (
 			id          BIGSERIAL PRIMARY KEY,
 			question    TEXT            NOT NULL,
@@ -70,10 +57,8 @@ func (m *AIPerfFAQSOPLayerMigration) Up(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS idx_faq_entries_intent ON faq_entries (intent)`,
 		`CREATE INDEX IF NOT EXISTS idx_faq_entries_category ON faq_entries (category)`,
 		`CREATE INDEX IF NOT EXISTS idx_faq_entries_hit_count ON faq_entries (hit_count DESC) WHERE enabled = TRUE`,
-		// GIN 索引: 全文检索 (MatchByKeyword 兜底)
 		`CREATE INDEX IF NOT EXISTS idx_faq_entries_question_gin ON faq_entries USING gin(to_tsvector('simple', question))`,
 
-		// 2. sop_templates - Layer1 SOP 模板
 		`CREATE TABLE IF NOT EXISTS sop_templates (
 			id          BIGSERIAL PRIMARY KEY,
 			name        VARCHAR(100)    NOT NULL,
@@ -93,7 +78,6 @@ func (m *AIPerfFAQSOPLayerMigration) Up(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS idx_sop_templates_enabled ON sop_templates (enabled)`,
 		`CREATE INDEX IF NOT EXISTS idx_sop_templates_priority ON sop_templates (priority DESC) WHERE enabled = TRUE`,
 
-		// 3. layer_decision_logs - Layer 决策可观测性
 		`CREATE TABLE IF NOT EXISTS layer_decision_logs (
 			id           BIGSERIAL PRIMARY KEY,
 			trace_id     VARCHAR(64)     NOT NULL,
@@ -129,19 +113,16 @@ func (m *AIPerfFAQSOPLayerMigration) Down(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 	stmts := []string{
-		// layer_decision_logs 索引 + 表
 		"DROP INDEX IF EXISTS idx_layer_decision_logs_intent",
 		"DROP INDEX IF EXISTS idx_layer_decision_logs_layer",
 		"DROP INDEX IF EXISTS idx_layer_decision_logs_created_at",
 		"DROP INDEX IF EXISTS idx_layer_decision_logs_session_id",
 		"DROP INDEX IF EXISTS idx_layer_decision_logs_trace_id",
 		"DROP TABLE IF EXISTS layer_decision_logs",
-		// sop_templates 索引 + 表
 		"DROP INDEX IF EXISTS idx_sop_templates_priority",
 		"DROP INDEX IF EXISTS idx_sop_templates_enabled",
 		"DROP INDEX IF EXISTS idx_sop_templates_intent_stage",
 		"DROP TABLE IF EXISTS sop_templates",
-		// faq_entries 索引 + 表
 		"DROP INDEX IF EXISTS idx_faq_entries_question_gin",
 		"DROP INDEX IF EXISTS idx_faq_entries_hit_count",
 		"DROP INDEX IF EXISTS idx_faq_entries_category",
@@ -159,3 +140,4 @@ func (m *AIPerfFAQSOPLayerMigration) Down(ctx context.Context) error {
 
 // compile-time 接口断言
 var _ migration.Migration = (*AIPerfFAQSOPLayerMigration)(nil)
+

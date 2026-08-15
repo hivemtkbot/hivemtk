@@ -27,7 +27,6 @@ import (
 
 // Polling 锁相关常量（service 层复用）
 const (
-	// PollingLockHeartbeatInterval worker 心跳间隔
 	PollingLockHeartbeatInterval = 30 * time.Second
 )
 
@@ -73,11 +72,10 @@ func getPollingLockRepo() *repository.TelegramPollingLockRepository {
 // 返回值：
 //   - acquired=true → 抢占成功，调用方应启动 worker 并周期性调用 HeartbeatPollingLock
 //   - acquired=false → 抢占失败（被其他进程持有且未过期），调用方应放弃启动 polling
-func TryAcquirePollingLock(ctx context.Context, _ /* db 兼容旧签名, 已忽略 */ interface{}, accountID uint) (acquired bool, owner string, lastHeartbeat *time.Time, err error) {
+func TryAcquirePollingLock(ctx context.Context, _  interface{}, accountID uint) (acquired bool, owner string, lastHeartbeat *time.Time, err error) {
 	repo := getPollingLockRepo()
 	acq, info, repoErr := repo.TryAcquirePollingLock(ctx, GetPollingWorkerID(), accountID)
 	if repoErr != nil {
-		// DB 未初始化（repository 内部判 nil）→ 当作「未拿到锁」处理，不让 service panic
 		if repoErr == repository.ErrPollingLockDBNil {
 			return false, "", nil, fmt.Errorf("polling lock: db is nil")
 		}
@@ -90,7 +88,7 @@ func TryAcquirePollingLock(ctx context.Context, _ /* db 兼容旧签名, 已忽�
 //
 // 转发到 repository.TelegramPollingLockRepository.HeartbeatPollingLock。
 // lockLost=true 表示锁已被其他进程抢占，调用方应停止 worker。
-func HeartbeatPollingLock(ctx context.Context, _ /* db 兼容旧签名 */ interface{}, accountID uint) (lockLost bool, err error) {
+func HeartbeatPollingLock(ctx context.Context, _  interface{}, accountID uint) (lockLost bool, err error) {
 	lockLost, err = getPollingLockRepo().HeartbeatPollingLock(ctx, GetPollingWorkerID(), accountID)
 	if err != nil {
 		if err == repository.ErrPollingLockDBNil {
@@ -104,7 +102,7 @@ func HeartbeatPollingLock(ctx context.Context, _ /* db 兼容旧签名 */ interf
 // ReleasePollingLock 释放锁：仅当 owner 仍是本进程时才清空（service 门面）
 //
 // 转发到 repository.TelegramPollingLockRepository.ReleasePollingLock。
-func ReleasePollingLock(ctx context.Context, _ /* db 兼容旧签名 */ interface{}, accountID uint) error {
+func ReleasePollingLock(ctx context.Context, _  interface{}, accountID uint) error {
 	if err := getPollingLockRepo().ReleasePollingLock(ctx, GetPollingWorkerID(), accountID); err != nil {
 		if err == repository.ErrPollingLockDBNil {
 			return fmt.Errorf("polling lock release: db is nil")
@@ -117,6 +115,7 @@ func ReleasePollingLock(ctx context.Context, _ /* db 兼容旧签名 */ interfac
 // IsPollingLockHeldByMe 检查某账号的 polling 锁是否由本进程持有（service 门面）
 //
 // 用于状态端点 / 调试。
-func IsPollingLockHeldByMe(ctx context.Context, _ /* db 兼容旧签名 */ interface{}, accountID uint) bool {
+func IsPollingLockHeldByMe(ctx context.Context, _  interface{}, accountID uint) bool {
 	return getPollingLockRepo().IsPollingLockHeldByMe(ctx, GetPollingWorkerID(), accountID)
 }
+

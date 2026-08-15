@@ -40,3 +40,4 @@ func New(code int, msg string) *BizError {
 func Wrap(code int, msg string, cause error) *BizError {
 	return &BizError{Code: code, Message: msg, Cause: cause}
 }
+

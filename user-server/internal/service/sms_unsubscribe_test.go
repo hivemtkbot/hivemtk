@@ -70,12 +70,10 @@ func TestSmsUnsubscribe_UnsubscribePhone_Idempotent(t *testing.T) {
 	database := setupSmsUnsubscribeTestDB(t)
 	svc := newSmsUnsubscribeService(database)
 
-	// 第一次退订
 	if err := svc.UnsubscribePhone(context.Background(), "13900139000", "reason1", "msg-1", "TD"); err != nil {
 		t.Fatalf("首次退订失败: %v", err)
 	}
 
-	// 第二次退订（更新原因和关键词）
 	if err := svc.UnsubscribePhone(context.Background(), "13900139000", "reason2", "msg-2", "退订"); err != nil {
 		t.Fatalf("二次退订失败: %v", err)
 	}
@@ -116,7 +114,6 @@ func TestSmsUnsubscribe_UnsubscribePhone_WithCountryCode(t *testing.T) {
 	database := setupSmsUnsubscribeTestDB(t)
 	svc := newSmsUnsubscribeService(database)
 
-	// 带 +86 前缀
 	if err := svc.UnsubscribePhone(context.Background(), "+86 13800138001", "", "", "TD"); err != nil {
 		t.Fatalf("UnsubscribePhone failed: %v", err)
 	}
@@ -140,7 +137,6 @@ func TestSmsUnsubscribe_IsUnsubscribed_True(t *testing.T) {
 	if !svc.IsUnsubscribed(context.Background(), "13700137000") {
 		t.Error("Expected IsUnsubscribed=true")
 	}
-	// 带格式也应当命中
 	if !svc.IsUnsubscribed(context.Background(), "+86-137-0013-7000") {
 		t.Error("Expected IsUnsubscribed=true for formatted phone")
 	}
@@ -171,7 +167,6 @@ func TestSmsUnsubscribe_ResubscribePhone_Success(t *testing.T) {
 	database := setupSmsUnsubscribeTestDB(t)
 	svc := newSmsUnsubscribeService(database)
 
-	// 先退订
 	if err := svc.UnsubscribePhone(context.Background(), "13500135000", "", "", "TD"); err != nil {
 		t.Fatalf("退订失败: %v", err)
 	}
@@ -179,7 +174,6 @@ func TestSmsUnsubscribe_ResubscribePhone_Success(t *testing.T) {
 		t.Fatal("Expected unsubscribed")
 	}
 
-	// 重新订阅
 	if err := svc.ResubscribePhone(context.Background(), "13500135000"); err != nil {
 		t.Fatalf("重新订阅失败: %v", err)
 	}
@@ -193,7 +187,6 @@ func TestSmsUnsubscribe_ResubscribePhone_NotExist(t *testing.T) {
 	database := setupSmsUnsubscribeTestDB(t)
 	svc := newSmsUnsubscribeService(database)
 
-	// 重新订阅不存在的记录，应不报错（幂等）
 	if err := svc.ResubscribePhone(context.Background(), "13400134000"); err != nil {
 		t.Errorf("重新订阅不存在的记录应幂等返回 nil, got: %v", err)
 	}
@@ -255,7 +248,7 @@ func TestSmsUnsubscribe_ProcessReply_NotMatched(t *testing.T) {
 
 	cases := []string{
 		"好的", "yes", "OK", "我同意", "继续",
-		"NT999", "N200", // 容易误判的回复
+		"NT999", "N200", 
 	}
 	for i, content := range cases {
 		phone := "1320013200" + string(rune('0'+i))
@@ -318,9 +311,8 @@ func TestSmsUnsubscribe_MatchKeyword_Comprehensive(t *testing.T) {
 		{"stop", "stop"},
 		{"Unsubscribe", "Unsubscribe"},
 		{"unsubscribe", "unsubscribe"},
-		// 子串匹配：包含关键词
-		{"TD退订", "TD"}, // 完全匹配不命中，子串命中 TD
-		{"我要退订", "退订"}, // 中文子串匹配
+		{"TD退订", "TD"}, 
+		{"我要退订", "退订"}, 
 		{"回复TD退订", "TD"},
 	}
 	for _, c := range positive {
@@ -347,7 +339,7 @@ func TestSmsUnsubscribe_MatchKeyword_Negative(t *testing.T) {
 		"我想订阅", "请发送", "TDown", "TD12345",
 		"", " ", "   ",
 		"NT", "QT", "123",
-		"NTDT", // 注意：NTDT 中 "TD" 紧跟 "N" 字母，又被 "T" 字母跟随，应不命中
+		"NTDT", 
 	}
 	for _, content := range negative {
 		m := MatchUnsubscribeKeyword(content)
@@ -372,7 +364,6 @@ func TestSmsUnsubscribe_NormalizePhone(t *testing.T) {
 		{"  13800138000  ", "13800138000"},
 		{"", ""},
 		{"  ", ""},
-		// customer_identity_normalize.go 的 NormalizePhone 对含字母但无数字的输入保留 trim 字符串（观察用）
 		{"abc", "abc"},
 	}
 	for _, c := range cases {
@@ -388,14 +379,12 @@ func TestSmsUnsubscribe_ListUnsubscribes(t *testing.T) {
 	database := setupSmsUnsubscribeTestDB(t)
 	svc := newSmsUnsubscribeService(database)
 
-	// 准备数据
 	for i, phone := range []string{"13800138001", "13800138002", "13800138003"} {
 		if err := svc.UnsubscribePhone(context.Background(), phone, "reason"+string(rune('0'+i)), "", "TD"); err != nil {
 			t.Fatalf("UnsubscribePhone failed: %v", err)
 		}
 	}
 
-	// 查询全部
 	records, total, err := svc.ListUnsubscribes(context.Background(), 1, 20, "")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes failed: %v", err)
@@ -407,7 +396,6 @@ func TestSmsUnsubscribe_ListUnsubscribes(t *testing.T) {
 		t.Errorf("Expected 3 records, got %d", len(records))
 	}
 
-	// 关键词过滤（手机号）
 	records, total, err = svc.ListUnsubscribes(context.Background(), 1, 20, "13800138001")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes with keyword failed: %v", err)
@@ -432,7 +420,6 @@ func TestSmsUnsubscribe_ListUnsubscribes_Pagination(t *testing.T) {
 		}
 	}
 
-	// 第 1 页，每页 2 条
 	records, total, err := svc.ListUnsubscribes(context.Background(), 1, 2, "")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes page 1 failed: %v", err)
@@ -444,7 +431,6 @@ func TestSmsUnsubscribe_ListUnsubscribes_Pagination(t *testing.T) {
 		t.Errorf("Expected 2 records on page 1, got %d", len(records))
 	}
 
-	// 第 3 页（超出范围）
 	records, _, err = svc.ListUnsubscribes(context.Background(), 3, 2, "")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes page 3 failed: %v", err)
@@ -463,7 +449,6 @@ func TestSmsUnsubscribe_ListUnsubscribes_DefaultPaging(t *testing.T) {
 		t.Fatalf("UnsubscribePhone failed: %v", err)
 	}
 
-	// 传入 page=0, limit=0，应被规范化为 page=1, limit=20
 	records, total, err := svc.ListUnsubscribes(context.Background(), 0, 0, "")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes failed: %v", err)
@@ -504,12 +489,10 @@ func TestSmsUnsubscribe_FullLifecycle(t *testing.T) {
 
 	phone := "13500135001"
 
-	// 1. 初始未退订
 	if svc.IsUnsubscribed(context.Background(), phone) {
 		t.Error("Initial state should be not unsubscribed")
 	}
 
-	// 2. 用户回复 TD 关键词
 	matched, err := svc.ProcessUnsubscribeReply(context.Background(), phone, "TD", "msg-lc")
 	if err != nil {
 		t.Fatalf("ProcessUnsubscribeReply failed: %v", err)
@@ -518,22 +501,18 @@ func TestSmsUnsubscribe_FullLifecycle(t *testing.T) {
 		t.Error("Expected matched keyword for 'TD'")
 	}
 
-	// 3. 验证已退订
 	if !svc.IsUnsubscribed(context.Background(), phone) {
 		t.Error("Should be unsubscribed after ProcessUnsubscribeReply")
 	}
 
-	// 4. 重新发送会被 IsUnsubscribed 拦截
 	if !svc.IsUnsubscribed(context.Background(), phone) {
 		t.Error("SendSms pre-check should block unsubscribed phone")
 	}
 
-	// 5. 客服处理重新订阅
 	if err := svc.ResubscribePhone(context.Background(), phone); err != nil {
 		t.Fatalf("ResubscribePhone failed: %v", err)
 	}
 
-	// 6. 验证已重新订阅
 	if svc.IsUnsubscribed(context.Background(), phone) {
 		t.Error("Should be resubscribed after ResubscribePhone")
 	}
@@ -544,7 +523,6 @@ func TestSmsUnsubscribe_FullFlow_AllKeywords(t *testing.T) {
 	database := setupSmsUnsubscribeTestDB(t)
 	svc := newSmsUnsubscribeService(database)
 
-	// 所有关键词都应被识别并加入退订名单
 	keywords := []string{"TD", "td", "退订", "T退", "取消", "N", "Q", "0", "STOP", "stop"}
 	for i, kw := range keywords {
 		phone := "1340013400" + string(rune('0'+i%10)) + string(rune('0'+i/10))
@@ -561,3 +539,4 @@ func TestSmsUnsubscribe_FullFlow_AllKeywords(t *testing.T) {
 		}
 	}
 }
+

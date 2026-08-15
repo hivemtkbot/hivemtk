@@ -99,7 +99,6 @@ func (c *XianyuCardController) GetList(ctx *gin.Context) {
 		return
 	}
 
-	// 设置默认值
 	if req.Page == 0 {
 		req.Page = 1
 	}
@@ -125,7 +124,6 @@ func (c *XianyuCardController) GenerateShortLink(ctx *gin.Context) {
 		return
 	}
 
-	// 获取卡片信息
 	card, err := c.service.GetByIDWithRefresh(ctx, uint(id))
 	if HandleDBError(ctx, err, "获取闲鱼卡片") {
 		return
@@ -260,3 +258,4 @@ func (c *XianyuCardController) SharePage(ctx *gin.Context) {
 	}
 	renderCardChatPage(ctx, c.service.GenerateCardChatPage, uint(id), buildBaseURL(ctx))
 }
+

@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ===== 测试辅助 =====
 
 // fakeChecker 模拟健康检查器
 type fakeChecker struct {
@@ -54,7 +53,6 @@ func newTestFailover(t *testing.T, dispatcher *Dispatcher, db *gorm.DB) *Provide
 	return f
 }
 
-// ===== 测试用例 =====
 
 // 1. 默认配置 - 字段正确
 func TestDefaultFailoverConfig(t *testing.T) {
@@ -237,7 +235,6 @@ func TestCircuitExpiry(t *testing.T) {
 	f := newTestFailover(t, d, nil)
 	f.RecordFailure("p1", errors.New("err"))
 	h := f.GetHealth("p1")
-	// 手动设置过去时间
 	h.CircuitOpenUntil = time.Now().Add(-time.Second)
 	if f.IsCircuitOpen("p1") {
 		t.Error("expected circuit closed after expiry")
@@ -257,7 +254,6 @@ func TestLoadPolicyNoDB(t *testing.T) {
 // 13. LoadPolicy 从 DB 读取
 func TestLoadPolicyFromDB(t *testing.T) {
 	db := setupFailoverDB(t)
-	// 创建 system_kv_config 表并插入配置
 	if err := db.Exec(`CREATE TABLE IF NOT EXISTS system_kv_config (
 		id BIGSERIAL PRIMARY KEY,
 		key VARCHAR(128) NOT NULL UNIQUE,
@@ -299,8 +295,6 @@ func TestBuildCandidatesIncludesFallback(t *testing.T) {
 	f := newTestFailover(t, d, nil)
 	policy := DefaultFailoverPolicy()
 	list := f.buildCandidates(ScenarioIntentRecognize, policy)
-	// 期望: policy.Scenarios[intent_recognize]=[default,deepseek,qwen] + 路由主备 = [default, deepseek, qwen]
-	// 本地兜底 default 已在 policy.Scenarios 中，不再重复添加
 	found := false
 	for _, n := range list {
 		if n == "default" {
@@ -385,10 +379,7 @@ func TestApplyConfig(t *testing.T) {
 func TestDispatchWithFailoverAllFailed(t *testing.T) {
 	d := newTestDispatcher()
 	d.AddProvider(ProviderConfig{Name: "p1", BaseURL: "http://nonexist.invalid", Enabled: true})
-	// 不注册路由，policy 中的 provider 都不存在或未启用
 	f := newTestFailover(t, d, nil)
-	// 注入会失败的 checker 不影响 dispatch（dispatch 直接走 LLMService）
-	// 此处用空 dispatcher 测试降级路径：因为 p1 实际不可达
 	result, err := f.DispatchWithFailover(context.Background(), DispatchRequest{
 		Scenario: ScenarioIntentRecognize,
 		Prompt:   "hello",
@@ -410,7 +401,7 @@ func TestFailoverStop(t *testing.T) {
 	d := newTestDispatcher()
 	f := newTestFailover(t, d, nil)
 	f.Stop()
-	f.Stop() // 应该不 panic
+	f.Stop() 
 }
 
 // 23. Start 后 Stop 优雅关闭
@@ -438,7 +429,6 @@ func TestLoadPolicyBadJSON(t *testing.T) {
 	)`).Error; err != nil {
 		t.Fatalf("create table: %v", err)
 	}
-	// 幂等写入：若同 key 已被其他测试写入，则覆盖为非法 JSON，避免 unique 冲突导致偶发失败
 	if err := db.Exec(`INSERT INTO system_kv_config (key, value) VALUES ('llm_provider_failover', 'not-json')
 		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`).Error; err != nil {
 		t.Fatalf("insert: %v", err)
@@ -446,7 +436,6 @@ func TestLoadPolicyBadJSON(t *testing.T) {
 	d := newTestDispatcher()
 	f := newTestFailover(t, d, db)
 	p := f.LoadPolicy(context.Background())
-	// 应使用默认策略
 	if p.Config.HealthCheckInterval != 30 {
 		t.Errorf("expected default 30, got %d", p.Config.HealthCheckInterval)
 	}
@@ -465,9 +454,7 @@ func TestIntervalDefault(t *testing.T) {
 func TestSetHealthCheckerNil(t *testing.T) {
 	d := newTestDispatcher()
 	f := newTestFailover(t, d, nil)
-	f.SetHealthChecker(nil) // 不应覆盖默认 checker
-	// 检查 checker 仍非 nil（通过间接调用）
-	// ping 一个本地 provider 应不报错
+	f.SetHealthChecker(nil) 
 	latency, err := f.checker.Ping(context.Background(), &ProviderConfig{Name: "local"}, f.Config())
 	if err != nil {
 		t.Errorf("expected nil err, got %v", err)
@@ -481,13 +468,11 @@ func TestSetHealthCheckerNil(t *testing.T) {
 func TestRecoverFromDegraded(t *testing.T) {
 	d := newTestDispatcher()
 	f := newTestFailover(t, d, nil)
-	// 1) 失败一次 → degraded
 	f.SetHealthChecker(newFakeChecker(0, errors.New("err")))
 	f.checkOne(context.Background(), &ProviderConfig{Name: "p1", BaseURL: "http://example.com", Enabled: true}, f.Config())
 	if f.GetHealth("p1").Status != ProviderStatusDegraded {
 		t.Fatal("expected degraded")
 	}
-	// 2) 成功 → up
 	f.SetHealthChecker(newFakeChecker(100, nil))
 	f.checkOne(context.Background(), &ProviderConfig{Name: "p1", BaseURL: "http://example.com", Enabled: true}, f.Config())
 	if f.GetHealth("p1").Status != ProviderStatusUp {
@@ -500,7 +485,6 @@ func TestCircuitOpenSkipsProvider(t *testing.T) {
 	d := newTestDispatcher()
 	d.AddProvider(ProviderConfig{Name: "p1", BaseURL: "http://example.com", Enabled: true})
 	f := newTestFailover(t, d, nil)
-	// 模拟熔断打开
 	f.mu.Lock()
 	f.health["p1"] = &ProviderHealth{
 		ProviderName:     "p1",
@@ -536,3 +520,4 @@ func TestDefaultHealthCheckPath(t *testing.T) {
 		t.Errorf("expected /health, got %s", cfg.HealthCheckPath)
 	}
 }
+

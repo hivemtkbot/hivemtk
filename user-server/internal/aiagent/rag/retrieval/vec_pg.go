@@ -1,10 +1,5 @@
 package ragretrieval
 
-// vec_pg.go pgvector 序列化与文本归一化工具
-//
-// 五层架构归属: L4 能力层（被 VectorRetriever / CachedEmbeddingClient 共用）
-// 设计依据: docs/核心链路优化.md 第十四章 §14.4.2 / §14.4.10
-// 私域独立部署: 无 merchant_id 字段
 
 import (
 	"crypto/sha256"
@@ -27,7 +22,6 @@ func vecToPGString(v []float32) string {
 		if i > 0 {
 			b.WriteByte(',')
 		}
-		// 'g' 格式：根据数值大小自动选择定点或科学计数，无尾随零
 		b.WriteString(strconv.FormatFloat(float64(f), 'g', -1, 32))
 	}
 	b.WriteByte(']')
@@ -66,7 +60,6 @@ func parsePGVector(s string) ([]float32, error) {
 func encodeVec(v []float32) string {
 	data, err := json.Marshal(v)
 	if err != nil {
-		// 极不可能失败（[]float32 永远可序列化）；fallback 到占位以避免缓存写入 panic
 		return "[]"
 	}
 	return string(data)
@@ -120,3 +113,4 @@ func truncateContent(s string, max int) string {
 	}
 	return string(r[:max]) + "…"
 }
+

@@ -27,7 +27,6 @@ func (a *RAGThreeTierAdapter) Search(ctx context.Context, kbID, query string, to
 	if err != nil {
 		return nil, err
 	}
-	// 将 rag_retrieval.Chunk 转为 rag_core.Chunk（结构兼容，逐字段拷贝）
 	chunks := make([]rag_core.Chunk, 0, len(res.Chunks))
 	for _, c := range res.Chunks {
 		chunks = append(chunks, rag_core.Chunk{
@@ -66,3 +65,4 @@ func (a *RAGThreeTierAdapter) Stats() rag_service.ThreeTierStats {
 		AvgMs:  stats.AvgMs,
 	}
 }
+

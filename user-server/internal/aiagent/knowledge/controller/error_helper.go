@@ -14,3 +14,4 @@ func isNotFoundError(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "不存在") || strings.Contains(msg, "not found")
 }
+

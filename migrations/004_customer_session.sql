@@ -2,7 +2,6 @@
 -- 版本: 1.1.0
 -- 适用于: PostgreSQL 15+ (项目唯一数据库)
 
--- 客服会话表
 CREATE TABLE IF NOT EXISTS customer_sessions (
     id BIGSERIAL PRIMARY KEY,
     session_id VARCHAR(50) UNIQUE NOT NULL,
@@ -64,7 +63,6 @@ COMMENT ON COLUMN customer_sessions.resolved_at IS '解决时间';
 COMMENT ON COLUMN customer_sessions.closed_at IS '关闭时间';
 COMMENT ON TABLE customer_sessions IS '客服会话表';
 
--- 会话消息表
 CREATE TABLE IF NOT EXISTS session_messages (
     id BIGSERIAL PRIMARY KEY,
     session_id VARCHAR(50) NOT NULL,
@@ -97,7 +95,6 @@ COMMENT ON COLUMN session_messages.is_read IS '是否已读';
 COMMENT ON COLUMN session_messages.read_at IS '已读时间';
 COMMENT ON TABLE session_messages IS '会话消息表';
 
--- 客服状态表
 CREATE TABLE IF NOT EXISTS agent_statuses (
     id BIGSERIAL PRIMARY KEY,
     agent_id BIGINT UNIQUE NOT NULL,
@@ -127,7 +124,6 @@ COMMENT ON COLUMN agent_statuses.offline_at IS '下线时间';
 COMMENT ON COLUMN agent_statuses.last_active_at IS '最后活跃时间';
 COMMENT ON TABLE agent_statuses IS '客服状态表';
 
--- updated_at 自动更新触发器 (agent_statuses)
 CREATE OR REPLACE FUNCTION agent_statuses_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -140,7 +136,6 @@ CREATE TRIGGER trg_agent_statuses_updated_at
     BEFORE UPDATE ON agent_statuses
     FOR EACH ROW EXECUTE FUNCTION agent_statuses_set_updated_at();
 
--- AI建议表
 CREATE TABLE IF NOT EXISTS ai_suggestions (
     id BIGSERIAL PRIMARY KEY,
     session_id VARCHAR(50),
@@ -164,7 +159,6 @@ COMMENT ON COLUMN ai_suggestions.used_by IS '使用的客服ID';
 COMMENT ON COLUMN ai_suggestions.used_at IS '使用时间';
 COMMENT ON TABLE ai_suggestions IS 'AI建议表';
 
--- 快捷回复表
 CREATE TABLE IF NOT EXISTS quick_replies (
     id BIGSERIAL PRIMARY KEY,
     category VARCHAR(50),
@@ -185,7 +179,6 @@ COMMENT ON COLUMN quick_replies.is_public IS '是否公开';
 COMMENT ON COLUMN quick_replies.created_by IS '创建者ID';
 COMMENT ON TABLE quick_replies IS '快捷回复表';
 
--- updated_at 自动更新触发器 (quick_replies)
 CREATE OR REPLACE FUNCTION quick_replies_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

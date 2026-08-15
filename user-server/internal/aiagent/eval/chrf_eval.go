@@ -10,31 +10,12 @@ package eval
 
 import "strings"
 
-// ============================================================================
-// ChrFEvaluator chrF++ 评估器（参考 sacrebleu 的 chrF++ 算法）
-// ----------------------------------------------------------------------------
-// chrF++ = 字符 n-gram F-beta（默认 1..6 阶）+ 词 n-gram F-beta（默认 1..2 阶）的均值
-//
-// 默认参数：CharN=6, WordN=2, Beta=2.0（F2 偏重 recall）
-//
-// 算法步骤：
-//  1. 对候选译文与参考译文分别提取字符 n-gram 与词 n-gram
-//  2. 对每一阶 n-gram 计算 precision / recall，再算 F-beta
-//  3. chrF++ = (sum(char F) + sum(word F)) / (CharN + WordN)
-//
-// 字符 n-gram 提取规则（与 sacrebleu 对齐）：
-//   - 先合并多空白为单个空格
-//   - 前后各补一个空格作为边界
-//   - 按 rune 切片（兼容中文等多字节字符）
-//
-// 词 n-gram 提取规则：按空白分词后取连续 n 个词
-// ============================================================================
 
 // ChrFEvaluator chrF++ 评估器。无状态、可并发调用。
 type ChrFEvaluator struct {
-	CharN int     // 字符 n-gram 阶数，默认 6
-	WordN int     // 词 n-gram 阶数，默认 2
-	Beta  float64 // F-beta 的 beta，默认 2.0
+	CharN int     
+	WordN int     
+	Beta  float64 
 }
 
 // NewChrFEvaluator 创建带默认参数的 chrF++ 评估器。
@@ -55,8 +36,6 @@ func (e *ChrFEvaluator) Score(candidate, reference string) float64 {
 	var sum float64
 	var count int
 
-	// 字符 n-gram 各阶 F-beta
-	// 双方均无该阶 n-gram（文本过短）时跳过，不计入均值
 	for n := 1; n <= charN; n++ {
 		candNG := e.charNgrams(candidate, n)
 		refNG := e.charNgrams(reference, n)
@@ -68,8 +47,6 @@ func (e *ChrFEvaluator) Score(candidate, reference string) float64 {
 		count++
 	}
 
-	// 词 n-gram 各阶 F-beta
-	// 双方均无该阶 n-gram（词数不足）时跳过，不计入均值
 	for n := 1; n <= wordN; n++ {
 		candNG := e.wordNgrams(candidate, n)
 		refNG := e.wordNgrams(reference, n)
@@ -131,9 +108,7 @@ func (e *ChrFEvaluator) charNgrams(text string, n int) map[string]int {
 	if text == "" {
 		return nil
 	}
-	// 合并多空白为单个空格
 	normalized := strings.Join(strings.Fields(text), " ")
-	// 前后补空格作为边界（sacrebleu 行为）
 	normalized = " " + normalized + " "
 	runes := []rune(normalized)
 	if len(runes) < n {
@@ -210,3 +185,4 @@ func (e *ChrFEvaluator) fScore(p, r, beta float64) float64 {
 	beta2 := beta * beta
 	return (1 + beta2) * (p * r) / (beta2*p + r)
 }
+

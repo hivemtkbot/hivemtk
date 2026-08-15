@@ -184,3 +184,4 @@ func (c *RecoveryQueueController) ListReadyForAttempt(ctx *gin.Context) {
 	}
 	response.Success(ctx, resp, "ok")
 }
+

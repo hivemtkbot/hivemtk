@@ -44,3 +44,4 @@ func (c *SystemConfigController) SaveConfig(ctx *gin.Context) {
 	}
 	response.Success(ctx, config, "success")
 }
+

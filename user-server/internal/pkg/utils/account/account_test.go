@@ -10,7 +10,6 @@ import (
 )
 
 func TestSetAccount(t *testing.T) {
-	// 清理全局状态
 	globalAccounts = make(map[string]accountData)
 
 	token := "test_token_123"
@@ -23,14 +22,12 @@ func TestSetAccount(t *testing.T) {
 
 	SetAccount(token, data)
 
-	// 验证设置成功
 	if len(globalAccounts) != 1 {
 		t.Errorf("SetAccount() should add one account, got %d", len(globalAccounts))
 	}
 }
 
 func TestGetAccount_Success(t *testing.T) {
-	// 清理并设置测试数据
 	globalAccounts = make(map[string]accountData)
 
 	token := "test_token_get"
@@ -42,7 +39,6 @@ func TestGetAccount_Success(t *testing.T) {
 	}
 	globalAccounts[token] = data
 
-	// 获取账户
 	result, err := GetAccount(token)
 	if err != nil {
 		t.Errorf("GetAccount() unexpected error: %v", err)
@@ -53,10 +49,8 @@ func TestGetAccount_Success(t *testing.T) {
 }
 
 func TestGetAccount_NotFound(t *testing.T) {
-	// 清理全局状态
 	globalAccounts = make(map[string]accountData)
 
-	// 尝试获取不存在的账户
 	_, err := GetAccount("non_existent_token")
 	if err == nil {
 		t.Error("GetAccount() expected error for non-existent token, got nil")
@@ -67,10 +61,8 @@ func TestGetAccount_NotFound(t *testing.T) {
 }
 
 func TestGetAccount_Concurrent(t *testing.T) {
-	// 清理全局状态
 	globalAccounts = make(map[string]accountData)
 
-	// 设置测试数据
 	token := "concurrent_token"
 	data := accountData{
 		BotToken:    token,
@@ -92,7 +84,6 @@ func TestGetAccount_Concurrent(t *testing.T) {
 }
 
 func TestSetAccount_Concurrent(t *testing.T) {
-	// 清理全局状态
 	globalAccounts = make(map[string]accountData)
 
 	// 并发写入
@@ -116,14 +107,13 @@ func TestSetAccount_Concurrent(t *testing.T) {
 func TestFormateAccountDictData_InvalidPrice(t *testing.T) {
 	account := &model.Account{
 		TgBotToken: "test_token",
-		Price:      "invalid_price", // 无效的价格
+		Price:      "invalid_price", 
 		ID:         "acc_123",
 		GroupID:    12345678,
 		TgName:     "TestBot",
 		URL:        "http://example.com",
 	}
 
-	// 直接测试价格解析逻辑，不依赖 bot
 	price, err := decimal.NewFromString(account.Price)
 	if err == nil {
 		t.Error("Expected error for invalid price, got nil")
@@ -133,14 +123,12 @@ func TestFormateAccountDictData_InvalidPrice(t *testing.T) {
 
 func TestBuildAccountStartNoticeMsg(t *testing.T) {
 	msg := BuildAccountStartNoticeMsg("TestBot")
-	// 验证消息包含关键内容，不比较完整字符串以避免编码问题
 	if msg == "" {
 		t.Error("BuildAccountStartNoticeMsg() should not return empty string")
 	}
 }
 
 func TestSendMsgBYBootToken_Success(t *testing.T) {
-	// 清理并设置测试数据
 	globalAccounts = make(map[string]accountData)
 
 	token := "test_token_send"
@@ -148,13 +136,9 @@ func TestSendMsgBYBootToken_Success(t *testing.T) {
 		BotToken:    token,
 		AccountID:   "acc_send",
 		AccountName: "SendBot",
-		// 注意：不设置 Bot，因为需要真实的 Telegram API
 	}
-	// 这个测试只是为了覆盖 GetAccount 的成功路径
 	globalAccounts[token] = data
 
-	// 由于 Bot 是 nil，调用 SendTgMsg 会 panic
-	// 所以我们只测试 GetAccount 部分
 	_, err := GetAccount(token)
 	if err != nil {
 		t.Errorf("GetAccount() unexpected error: %v", err)
@@ -180,3 +164,4 @@ func TestAccountDataStruct(t *testing.T) {
 		t.Error("accountData.BotToken not set correctly")
 	}
 }
+

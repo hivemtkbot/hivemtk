@@ -15,7 +15,7 @@ type Document struct {
 	ID        string         `json:"id"`
 	Content   string         `json:"content"`
 	Metadata  map[string]any `json:"metadata"`
-	Embedding []float32      `json:"-"` // 嵌入向量，不序列化到JSON
+	Embedding []float32      `json:"-"` 
 	CreatedAt time.Time      `json:"created_at"`
 }
 
@@ -25,18 +25,18 @@ type Chunk struct {
 	DocumentID string         `json:"document_id"`
 	Content    string         `json:"content"`
 	Metadata   map[string]any `json:"metadata"`
-	Embedding  []float32      `json:"-"`     // 嵌入向量
-	Score      float64        `json:"score"` // 相似度分数
+	Embedding  []float32      `json:"-"`     
+	Score      float64        `json:"score"` 
 	TokenCount int            `json:"token_count"`
 }
 
 // RAGConfig RAG引擎配置
 type RAGConfig struct {
-	ChunkSize           int     `json:"chunk_size"`             // 分片大小
-	ChunkOverlap        int     `json:"chunk_overlap"`          // 分片重叠大小
-	MaxChunksToRetrieve int     `json:"max_chunks_to_retrieve"` // 检索的最大分片数
-	SimilarityThreshold float64 `json:"similarity_threshold"`   // 相似度阈值
-	VectorDimension     int     `json:"vector_dimension"`       // 向量维度
+	ChunkSize           int     `json:"chunk_size"`             
+	ChunkOverlap        int     `json:"chunk_overlap"`          
+	MaxChunksToRetrieve int     `json:"max_chunks_to_retrieve"` 
+	SimilarityThreshold float64 `json:"similarity_threshold"`   
+	VectorDimension     int     `json:"vector_dimension"`       
 }
 
 // RAGEngineInterface RAG引擎接口
@@ -167,9 +167,6 @@ func NewRAGEngine(config *RAGConfig) *RAGEngine {
 			ChunkOverlap:        50,
 			MaxChunksToRetrieve: 5,
 			SimilarityThreshold: 0.5,
-			// 与本地 TEI bge-m3 真实输出一致
-			// 严禁在此硬编码 768（BAAI/bge-base-zh-v1.5），否则会导致
-			// pgvector 入库维度不匹配运行时崩溃（参见 V7 维度不一致）。
 			VectorDimension: 1024,
 		}
 	}
@@ -207,10 +204,8 @@ func NewRAGEngineWithEmbedder(config *RAGConfig, embedder EmbedderInterface) *RA
 // AddDocuments 添加文档到知识库
 func (r *RAGEngine) AddDocuments(ctx context.Context, docs []Document) error {
 	for _, doc := range docs {
-		// 分片处理
 		chunks := r.splitDocument(doc)
 
-		// 为每个分片生成嵌入向量
 		for _, chunk := range chunks {
 			embedding, err := r.embedder.EmbedText(chunk.Content)
 			if err != nil {
@@ -219,7 +214,6 @@ func (r *RAGEngine) AddDocuments(ctx context.Context, docs []Document) error {
 			chunk.Embedding = embedding
 		}
 
-		// 存储文档和分片
 		r.documents[doc.ID] = &doc
 		r.chunks = append(r.chunks, chunks...)
 	}
@@ -237,28 +231,24 @@ func (r *RAGEngine) splitDocument(doc Document) []*Chunk {
 	for start < len(content) {
 		end := start + r.config.ChunkSize
 
-		// 确保不超过内容长度
 		if end > len(content) {
 			end = len(content)
 		}
 
-		// 尝试在句子边界处分割
 		actualEnd := r.findSentenceBoundary(content, start, end)
 
-		// 创建分片
 		chunk := &Chunk{
 			ID:         fmt.Sprintf("%s_chunk_%d", doc.ID, len(chunks)),
 			DocumentID: doc.ID,
 			Content:    content[start:actualEnd],
 			Metadata:   doc.Metadata,
-			TokenCount: len(strings.Fields(content[start:actualEnd])), // 简单估算token数
+			TokenCount: len(strings.Fields(content[start:actualEnd])), 
 		}
 
 		chunks = append(chunks, chunk)
 
-		// 更新起始位置，考虑重叠
 		start = actualEnd - r.config.ChunkOverlap
-		if start < actualEnd { // 确保进度
+		if start < actualEnd { 
 			start = actualEnd
 		}
 	}
@@ -272,7 +262,6 @@ func (r *RAGEngine) findSentenceBoundary(content string, start, suggestedEnd int
 		return len(content)
 	}
 
-	// 尝试在标点符号或空格处分割
 	for i := suggestedEnd; i > start; i-- {
 		char := content[i-1]
 		if char == '.' || char == '!' || char == '?' || char == ' ' || char == '\n' || char == '\t' {
@@ -280,16 +269,13 @@ func (r *RAGEngine) findSentenceBoundary(content string, start, suggestedEnd int
 		}
 	}
 
-	// 如果找不到合适的边界，则使用建议的位置
 	return suggestedEnd
 }
 
 // DeleteDocument 删除文档
 func (r *RAGEngine) DeleteDocument(ctx context.Context, docID string) error {
-	// 从文档映射中删除
 	delete(r.documents, docID)
 
-	// 从分片列表中移除相关的分片
 	newChunks := make([]*Chunk, 0, len(r.chunks))
 	for _, chunk := range r.chunks {
 		if chunk.DocumentID != docID {
@@ -312,7 +298,6 @@ func (r *RAGEngine) Search(ctx context.Context, query string, topK int) ([]Chunk
 		return nil, fmt.Errorf("failed to embed query: %w", err)
 	}
 
-	// 计算查询与所有分片的相似度
 	scores := make([]struct {
 		chunk *Chunk
 		score float64
@@ -326,7 +311,6 @@ func (r *RAGEngine) Search(ctx context.Context, query string, topK int) ([]Chunk
 		}{chunk: chunk, score: score}
 	}
 
-	// 按相似度排序
 	for i := 0; i < len(scores)-1; i++ {
 		for j := i + 1; j < len(scores); j++ {
 			if scores[i].score < scores[j].score {
@@ -403,3 +387,4 @@ func (r *RAGEngine) UpdateConfig(config *RAGConfig) error {
 func (r *RAGEngine) GetConfig() *RAGConfig {
 	return r.config
 }
+

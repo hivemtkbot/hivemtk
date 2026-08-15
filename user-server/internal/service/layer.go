@@ -1,17 +1,5 @@
 package service
 
-// layer_router.go 双层架构路由决策器
-//
-// 五层架构归属: L4 业务编排层
-// 设计依据: AI 智能体性能优化
-//
-// 决策流程:
-//   1. FF_LAYER1 关闭 -> 直接返回 Layer2 (LLM 兜底)
-//   2. 查 FAQ 库, 高分命中 (>= faqHitThresh) -> Layer1 SkipLLM
-//   3. 查 SOP 模板, 高分命中 (>= sopHitThresh) -> Layer1 SkipLLM
-//   4. 否则 -> Layer2 (LLM 兜底)
-//
-// 输出: *dto.LayerDecision (供 SalesEngine.generateCandidate 使用)
 
 import (
 	"context"
@@ -29,7 +17,6 @@ import (
 )
 
 const (
-	// sopHitThresh SOP 模板命中阈值 (高于此值进 Layer1)
 	sopHitThresh = 0.65
 )
 
@@ -50,7 +37,7 @@ type LayerRouter struct {
 	logRepo   *repository.LayerDecisionLogRepository
 	faqSvc    *FAQService
 	sopSvc    *SOPTemplateService
-	traceFunc func() string // trace_id 生成函数 (注入避免强耦合)
+	traceFunc func() string 
 }
 
 // NewLayerRouter 创建 LayerRouter
@@ -62,7 +49,6 @@ func NewLayerRouter(
 	faqSvc *FAQService,
 	sopSvc *SOPTemplateService,
 ) *LayerRouter {
-	// 兼容旧 API: 允许传入 *repository.FAQRepository, Go 鸭子类型自动适配 FAQMatcher
 	if faqRepo == nil && db != nil {
 		faqRepo = repository.NewFAQRepository(db)
 	}
@@ -94,11 +80,7 @@ type RouteRequest struct {
 	Intent      *dto.RecognizeResult
 	RAGChunks   []RAGChunk
 	Stage       string
-	// Task 15 强 1对1: 智能体 ID (uint); 0 = 无 agent (走 Layer2)
 	AgentID uint
-	// 旧字段保留 (向后兼容), 后续移除
-	// 智能体绑定的 FAQ / SOP 模板 ID 集合
-	// 空切片 = 全局共享, 非空 = 仅在绑定的 ID 集合内匹配
 	AgentFAQIDs         []string
 	AgentSOPTemplateIDs []string
 }
@@ -116,31 +98,20 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 	defer func() {
 		decision.WallMs = int(time.Since(start).Milliseconds())
 		r.record(ctx, req, decision)
-		// 私域: 无 Prometheus 端点, 决策记录已落库 (layer_decision_logs 表)
 		_ = decision.Layer
 		_ = decision.Reason
 	}()
 
-	// 1. FeatureFlag: 关闭时直接 Layer2
 	if !featureflag.Get("layer1").Bool() {
 		decision.Layer = dto.Layer2
 		decision.Reason = dto.ReasonLayer1Disabled
 		return decision
 	}
 
-	// 2. 意图为未知 -> Layer2
 	if req.Intent != nil && (req.Intent.IntentType == "" || req.Intent.IntentType == IntentUnknown) {
-		// 也允许 FAQ 命中跳过 (FAQ 不依赖 intent)
 	}
 
-	// 3. FAQ 匹配 (Task 15 强 1对1: 按 agentID 匹配)
-	// agentID == 0: 跳过 FAQ, 走 Layer2 (移除"空数组=全局"分支)
-	// agentID > 0: 走 MatchByAgent 强匹配
-	//
-	// 优先用 faqSvc (L4 Service 封装, 含缓存/业务策略);
-	// 单测可直接注入 faqRepo (FAQMatcher) 走快速路径, 不依赖 DB/Service
 	if req.AgentID == 0 {
-		// Task 15: 无 agentID 不再触发 FAQ 匹配, 直接跳到 SOP / Layer2
 	} else if r.faqSvc != nil && strings.TrimSpace(req.UserMessage) != "" {
 		matches, err := r.faqSvc.MatchByAgent(ctx, req.AgentID, req.UserMessage, 3)
 		if err == nil && len(matches) > 0 {
@@ -160,7 +131,6 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 				if intentType(req.Intent) == "" && top.Entry != nil {
 					decision.Intent = top.Entry.Intent
 				}
-				// 命中计数 (异步, 不阻塞)
 				if top.Entry != nil {
 					go func(id uint) {
 						_ = r.faqRepo.IncrementHitCount(context.Background(), id)
@@ -168,12 +138,9 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 				}
 				return decision
 			}
-			// 命中但置信度低, 仍记录以供分析
 			decision.Reason = dto.ReasonLowConfidenceSkip
 		}
 	} else if r.faqRepo != nil && strings.TrimSpace(req.UserMessage) != "" {
-		// 单测回退路径: 直接用 FAQMatcher (跳过 faqSvc 业务封装)
-		// Task 15: agentID > 0 时走 MatchByAgent; agentID == 0 时不再兜底
 		if req.AgentID > 0 {
 			entries, err := r.faqRepo.MatchByAgent(ctx, req.AgentID, req.UserMessage, 3)
 			if err == nil && len(entries) > 0 {
@@ -189,24 +156,16 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 					if intentType(req.Intent) == "" {
 						decision.Intent = top.Intent
 					}
-					// 命中计数 (异步, 不阻塞)
 					go func(id uint) {
 						_ = r.faqRepo.IncrementHitCount(context.Background(), id)
 					}(top.ID)
 					return decision
 				}
-				// 命中但置信度低, 仍记录以供分析
 				decision.Reason = dto.ReasonLowConfidenceSkip
 			}
 		}
 	}
 
-	// 4. SOP 模板匹配 (Task 16 强 1对1: 按 (agentID, intent, stage) 严格匹配)
-	//
-	// 行为:
-	//   - agentID == 0: 跳过 SOP 匹配, 走 Layer2 (强 1对1: 移除"空数组=全局"分支)
-	//   - agentID > 0: 走 MatchByAgent(ctx, agentID, intent, stage, topK) 强匹配
-	//   - 命中且 confidence >= sopHitThresh: 模板渲染后返回 Layer1
 	if r.sopSvc != nil && req.AgentID > 0 && req.Intent != nil && req.Intent.IntentType != "" && req.Intent.IntentType != IntentUnknown {
 		tpls, err := r.sopSvc.MatchByAgent(ctx, req.AgentID, req.Intent.IntentType, req.Stage, sopTopK)
 		if err == nil && len(tpls) > 0 {
@@ -218,7 +177,6 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 				decision.Confidence = top.Confidence
 				decision.SOPID = top.ID
 				decision.Intent = top.Intent
-				// 模板渲染 (vars 来自 customer / memCtx)
 				rendered, rErr := r.sopSvc.BuildLayer1Reply(&top, map[string]any{
 					"customer_id":  req.CustomerID,
 					"intent":       req.Intent.IntentType,
@@ -229,7 +187,6 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 				if rErr == nil && rendered != "" {
 					decision.Reply = rendered
 				} else {
-					// 渲染失败 -> 回退到 Layer2
 					decision.Layer = dto.Layer2
 					decision.SkipLLM = false
 					decision.Reason = dto.ReasonFallback
@@ -246,7 +203,6 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 		}
 	}
 
-	// 5. 默认 Layer2
 	decision.Layer = dto.Layer2
 	decision.SkipLLM = false
 	if decision.Reason == "" {
@@ -302,3 +258,4 @@ func intentType(r *dto.RecognizeResult) string {
 	}
 	return r.IntentType
 }
+

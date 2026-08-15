@@ -13,39 +13,35 @@ import (
 type DispatchScenario string
 
 const (
-	ScenarioIntentRecognize DispatchScenario = "intent_recognize" // 意图识别
+	ScenarioIntentRecognize DispatchScenario = "intent_recognize" 
 
-	ScenarioSOPReply DispatchScenario = "sop_reply" // SOP 销冠回复
+	ScenarioSOPReply DispatchScenario = "sop_reply" 
 
-	ScenarioObjection DispatchScenario = "objection" // 异议处理
+	ScenarioObjection DispatchScenario = "objection" 
 
-	ScenarioFriendlyChat DispatchScenario = "friendly_chat" // 拟人寒暄
+	ScenarioFriendlyChat DispatchScenario = "friendly_chat" 
 
-	ScenarioLongSummary DispatchScenario = "long_summary" // 长文本总结
+	ScenarioLongSummary DispatchScenario = "long_summary" 
 
-	ScenarioHighQuality DispatchScenario = "high_quality" // 高质量回复
+	ScenarioHighQuality DispatchScenario = "high_quality" 
 
-	ScenarioLowCost DispatchScenario = "low_cost" // 低成本批量
+	ScenarioLowCost DispatchScenario = "low_cost" 
 
 )
 
 type ProviderConfig struct {
-	Name         string  `json:"name"` // deepseek / qwen / gpt-4o / glm-4
+	Name         string  `json:"name"` 
 	APIKey       string  `json:"api_key"`
 	BaseURL      string  `json:"base_url"`
-	APIType      string  `json:"api_type"` // openai / anthropic
+	APIType      string  `json:"api_type"` 
 	Model        string  `json:"model"`
 	CostPer1k    float64 `json:"cost_per_1k"`
 	AvgLatencyMs int     `json:"avg_latency_ms"`
 	QualityScore float64 `json:"quality_score"`
-	MaxRPM       int     `json:"max_rpm"` // 每分钟请求数
-	MaxTPM       int     `json:"max_tpm"` // 每分钟 token 数
+	MaxRPM       int     `json:"max_rpm"` 
+	MaxTPM       int     `json:"max_tpm"` 
 	Enabled      bool    `json:"enabled"`
-	// NoFC 标记该 provider 不支持 OpenAI Function Calling
-	// 为 true 时，Dispatcher 会启用 ReAct 适配器，通过文本协议完成工具调用
-	// 适用场景：本地 LLM（llama.cpp / mtk-llm / 部分 ChatGLM 版本）不支持 FC
 	NoFC bool `json:"no_fc,omitempty"`
-	// DisplayName/Vendor/Tags 为可视化展示与分类元数据，随 provider 落库
 	DisplayName string   `json:"display_name,omitempty"`
 	Vendor      string   `json:"vendor,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
@@ -70,12 +66,8 @@ type Dispatcher struct {
 	routes     map[DispatchScenario]*ScenarioRoute
 	llmService *LLMService
 	rpmCounter map[string]*rpmBucket
-	// ReAct 适配器（让无 FC 能力的 LLM 通过文本协议接入 Agent Loop）
-	// 懒初始化，首次需要时创建（避免无工具调用场景的开销）
 	reactAdapter   *ReActAdapter
 	reactAdapterMu sync.Once
-	// testMode: 当为 true 时，callProvider 跳过所有告警/统计/AvgLatency 更新副作用
-	// 仅供 CallProviderForTest 临时置位
 	testMode atomic.Bool
 }
 
@@ -417,3 +409,4 @@ func (s *InMemoryAlertSink) Snapshot() []AlertEvent {
 	copy(out, s.buffer)
 	return out
 }
+

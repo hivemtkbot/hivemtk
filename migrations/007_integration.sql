@@ -3,7 +3,6 @@
 -- 版本: 1.1.0
 -- 适用于: PostgreSQL 15+ (项目唯一数据库)
 
--- 第三方对接账号表
 CREATE TABLE IF NOT EXISTS integration_accounts (
     id BIGSERIAL PRIMARY KEY,
     platform VARCHAR(50) NOT NULL,  -- crm_xiaoshouyi, crm_fenxiangxiao, ecommerce_taobao, ecommerce_jd
@@ -22,7 +21,6 @@ CREATE TABLE IF NOT EXISTS integration_accounts (
 );
 CREATE INDEX IF NOT EXISTS idx_integration_accounts_platform ON integration_accounts(platform);
 
--- updated_at 自动更新触发器
 CREATE OR REPLACE FUNCTION integration_accounts_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -35,7 +33,6 @@ CREATE TRIGGER trg_integration_accounts_updated_at
     BEFORE UPDATE ON integration_accounts
     FOR EACH ROW EXECUTE FUNCTION integration_accounts_set_updated_at();
 
--- 同步日志表
 CREATE TABLE IF NOT EXISTS sync_logs (
     id BIGSERIAL PRIMARY KEY,
     platform VARCHAR(50) NOT NULL,

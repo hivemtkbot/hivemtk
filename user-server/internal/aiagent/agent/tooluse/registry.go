@@ -7,13 +7,6 @@ import (
 	"sync"
 )
 
-// registry.go 工具注册中心（PRD §5.2）
-//
-// 设计目标：
-//  1. 全局唯一 ToolRegistry 单例
-//  2. 支持按 name 查询 / 按 category 列表
-//  3. 支持导出为 LLM Function Calling 格式
-//  4. 线程安全（sync.RWMutex）
 
 // ErrToolNotFound 工具未找到
 var ErrToolNotFound = errors.New("tool not found")
@@ -181,7 +174,6 @@ func (r *ToolRegistry) ListNames() []string {
 	return names
 }
 
-// ===== 全局注册中心 =====
 
 var (
 	globalRegistry     *ToolRegistry
@@ -205,3 +197,4 @@ func RegisterGlobal(t Tool) error {
 func MustRegisterGlobal(t Tool) {
 	GetGlobalRegistry().MustRegister(t)
 }
+

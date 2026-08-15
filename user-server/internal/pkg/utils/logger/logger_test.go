@@ -61,3 +61,4 @@ func TestTraceIDRoundTrip(t *testing.T) {
 		t.Error("WithTraceID should auto-generate a trace id")
 	}
 }
+

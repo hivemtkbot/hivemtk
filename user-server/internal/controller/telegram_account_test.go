@@ -74,9 +74,6 @@ func waitForWorker(t *testing.T, database *gorm.DB, query string, args ...any) {
 	t.Logf("⚠️ worker 处理超时，查询: %s args: %v", query, args)
 }
 
-// =============================================================================
-// A. Bot 账号 CRUD HTTP 端到端
-// =============================================================================
 
 // TestTelegramAccountController_CreateAndList 创建账号并列表查询
 func TestTelegramAccountController_CreateAndList(t *testing.T) {
@@ -84,7 +81,6 @@ func TestTelegramAccountController_CreateAndList(t *testing.T) {
 	ctrl := NewTelegramAccountController(nil)
 	router := setupTelegramAccountRouter(ctrl)
 
-	// 1. 创建账号
 	createBody := map[string]any{
 		"account_name":     "销售助手Bot",
 		"bot_token":        "123456789:abcdefghijklmnopqrstuvwxyz123456789",
@@ -116,7 +112,6 @@ func TestTelegramAccountController_CreateAndList(t *testing.T) {
 	if createResp.Data["account_name"] != "销售助手Bot" {
 		t.Errorf("account_name 错误: %v", createResp.Data["account_name"])
 	}
-	// Bot Token 应被掩码
 	masked, _ := createResp.Data["bot_token_masked"].(string)
 	if masked == "123456789:abcdefghijklmnopqrstuvwxyz123456789" {
 		t.Error("Bot Token 应被掩码处理")
@@ -126,7 +121,6 @@ func TestTelegramAccountController_CreateAndList(t *testing.T) {
 	}
 	t.Logf("✅ 创建账号成功: id=%v, masked_token=%s", createResp.Data["id"], masked)
 
-	// 2. 列表查询
 	req, _ = http.NewRequest("GET", "/api/telegram/accounts", nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -141,7 +135,6 @@ func TestTelegramAccountController_CreateAndList(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &listResp); err != nil {
 		t.Fatalf("解析列表响应失败: %v", err)
 	}
-	// 列表可能返回在 data.list 或 data 中
 	list := listResp.List
 	if len(list) == 0 {
 		if dataList, ok := listResp.Data["list"].([]any); ok && len(dataList) > 0 {
@@ -164,7 +157,6 @@ func TestTelegramAccountController_GetAndGetByID(t *testing.T) {
 	ctrl := NewTelegramAccountController(nil)
 	router := setupTelegramAccountRouter(ctrl)
 
-	// 创建
 	bodyBytes, _ := json.Marshal(map[string]any{
 		"account_name": "测试Bot",
 		"bot_token":    "123456789:abcdefghijklmnopqrstuvwxyz123456789",
@@ -178,7 +170,6 @@ func TestTelegramAccountController_GetAndGetByID(t *testing.T) {
 		t.Fatalf("创建失败: %d %s", w.Code, w.Body.String())
 	}
 
-	// 列表拿到 ID
 	req, _ = http.NewRequest("GET", "/api/telegram/accounts", nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -187,14 +178,12 @@ func TestTelegramAccountController_GetAndGetByID(t *testing.T) {
 	}
 	json.Unmarshal(w.Body.Bytes(), &listResp)
 
-	// 直接用 service 查 ID（避免列表结构差异）
 	accs, _ := ctrl.svc.ListAccounts(context.Background())
 	if len(accs) != 1 {
 		t.Fatalf("应有 1 条记录, 实际 %d", len(accs))
 	}
 	accID := accs[0].ID
 
-	// 按 ID 查询
 	req, _ = http.NewRequest("GET", "/api/telegram/accounts/"+uintToStr(accID), nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -210,7 +199,6 @@ func TestTelegramAccountController_Update(t *testing.T) {
 	ctrl := NewTelegramAccountController(nil)
 	router := setupTelegramAccountRouter(ctrl)
 
-	// 创建
 	bodyBytes, _ := json.Marshal(map[string]any{
 		"account_name": "原名称",
 		"bot_token":    "123456789:abcdefghijklmnopqrstuvwxyz123456789",
@@ -227,7 +215,6 @@ func TestTelegramAccountController_Update(t *testing.T) {
 	}
 	accID := accs[0].ID
 
-	// 更新（Bot Token 为空时保持原值，但 binding:"required" 要求非空，所以传原值）
 	updateBody, _ := json.Marshal(map[string]any{
 		"account_name":     "新名称",
 		"bot_token":        "123456789:abcdefghijklmnopqrstuvwxyz123456789",
@@ -242,7 +229,6 @@ func TestTelegramAccountController_Update(t *testing.T) {
 		t.Errorf("更新期望 200, 实际 %d, body: %s", w.Code, w.Body.String())
 	}
 
-	// 验证更新后名称
 	updated, _ := ctrl.svc.GetAccount(context.Background(), accID)
 	if updated.AccountName != "新名称" {
 		t.Errorf("名称应更新为 '新名称', 实际 '%s'", updated.AccountName)
@@ -250,7 +236,6 @@ func TestTelegramAccountController_Update(t *testing.T) {
 	if !updated.AIAgentEnabled {
 		t.Error("AIAgentEnabled 应为 true")
 	}
-	// Bot Token 应为传入的值
 	if updated.BotToken != "123456789:abcdefghijklmnopqrstuvwxyz123456789" {
 		t.Errorf("Bot Token 错误, 实际 '%s'", updated.BotToken)
 	}
@@ -263,7 +248,6 @@ func TestTelegramAccountController_Delete(t *testing.T) {
 	ctrl := NewTelegramAccountController(nil)
 	router := setupTelegramAccountRouter(ctrl)
 
-	// 创建
 	bodyBytes, _ := json.Marshal(map[string]any{
 		"account_name": "待删除",
 		"bot_token":    "123456789:abcdefghijklmnopqrstuvwxyz123456789",
@@ -280,7 +264,6 @@ func TestTelegramAccountController_Delete(t *testing.T) {
 	}
 	accID := accs[0].ID
 
-	// 删除
 	req, _ = http.NewRequest("DELETE", "/api/telegram/accounts/"+uintToStr(accID), nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -288,7 +271,6 @@ func TestTelegramAccountController_Delete(t *testing.T) {
 		t.Errorf("删除期望 200, 实际 %d", w.Code)
 	}
 
-	// 验证已删除
 	accs, _ = ctrl.svc.ListAccounts(context.Background())
 	if len(accs) != 0 {
 		t.Errorf("删除后应有 0 条, 实际 %d", len(accs))
@@ -296,22 +278,18 @@ func TestTelegramAccountController_Delete(t *testing.T) {
 	t.Logf("✅ 删除成功")
 }
 
-// =============================================================================
-// B. Webhook 入群事件 HTTP 端到端
-// =============================================================================
 
 // TestTelegramWebhook_JoinEvent_E2E 完整链路：
 // HTTP POST /api/webhook/telegram/:account_id → dispatchTelegram → MessageHub
 func TestTelegramWebhook_JoinEvent_E2E(t *testing.T) {
 	database := setupTelegramControllerTestDB(t)
 
-	// 1. 先创建 Bot 账号（通过 repo 直接创建，避免 controller 路由差异）
 	repo := repository.NewTelegramAccountRepository()
 	repo.SetDB(context.Background(), database)
 	acc := &model.TelegramAccount{
 		AccountName:    "E2E测试Bot",
 		BotToken:       "123456789:abcdefghijklmnopqrstuvwxyz123456789",
-		WebhookSecret:  "", // 未配置 secret，跳过验签
+		WebhookSecret:  "", 
 		AIAgentEnabled: false,
 		Status:         1,
 	}
@@ -320,11 +298,9 @@ func TestTelegramWebhook_JoinEvent_E2E(t *testing.T) {
 	}
 	accID := acc.ID
 
-	// 2. 设置 webhook 路由
 	router, svc := setupTelegramWebhookRouter(database)
 	defer svc.Stop(context.Background())
 
-	// 3. 发送 TG 入群事件 payload
 	joinPayload := `{
 		"update_id": 2001,
 		"message": {
@@ -358,7 +334,6 @@ func TestTelegramWebhook_JoinEvent_E2E(t *testing.T) {
 	}
 	t.Logf("✅ Webhook 入群事件接收成功: event_id=%s, type=%s", resp.EventID, resp.EventType)
 
-	// 4. 等待异步 worker 处理完成，验证 MessageHub 中有入群事件记录
 	waitForWorker(t, database, "platform = ? AND msg_type = ?", "telegram", "event")
 	var hub model.MessageHub
 	if err := database.Where("platform = ? AND msg_type = ?", "telegram", "event").First(&hub).Error; err != nil {
@@ -395,7 +370,6 @@ func TestTelegramWebhook_RegularMessage_E2E(t *testing.T) {
 	router, svc := setupTelegramWebhookRouter(database)
 	defer svc.Stop(context.Background())
 
-	// 发送普通消息
 	msgPayload := `{
 		"update_id": 3001,
 		"message": {
@@ -422,7 +396,6 @@ func TestTelegramWebhook_RegularMessage_E2E(t *testing.T) {
 		t.Errorf("accepted 应为 true, body: %s", w.Body.String())
 	}
 
-	// 等待异步 worker 处理完成，验证 MessageHub 中有 text 类型记录
 	waitForWorker(t, database, "platform = ? AND msg_type = ?", "telegram", "text")
 	var hub model.MessageHub
 	if err := database.Where("platform = ? AND msg_type = ?", "telegram", "text").First(&hub).Error; err != nil {
@@ -473,7 +446,6 @@ func TestTelegramWebhook_LeftEvent_E2E(t *testing.T) {
 		t.Fatalf("Webhook 请求期望 200, 实际 %d", w.Code)
 	}
 
-	// 等待异步 worker 处理完成，验证有 left 事件记录
 	waitForWorker(t, database, "platform = ? AND msg_id LIKE ?", "telegram", "tg_left_%")
 	var count int64
 	database.Model(&model.MessageHub{}).Where("platform = ? AND msg_id LIKE ?", "telegram", "tg_left_%").Count(&count)
@@ -500,7 +472,6 @@ func TestTelegramWebhook_BotMembersSkipped(t *testing.T) {
 	router, svc := setupTelegramWebhookRouter(database)
 	defer svc.Stop(context.Background())
 
-	// 仅 bot 成员入群
 	botOnlyPayload := `{
 		"update_id": 5001,
 		"message": {
@@ -527,9 +498,6 @@ func TestTelegramWebhook_BotMembersSkipped(t *testing.T) {
 	t.Logf("✅ 仅 bot 入群正确跳过: event 记录 %d 条", eventCount)
 }
 
-// =============================================================================
-// C. Webhook 幂等去重
-// =============================================================================
 
 // TestTelegramWebhook_Idempotent 相同 update_id 重复请求应被去重
 func TestTelegramWebhook_Idempotent(t *testing.T) {
@@ -560,7 +528,6 @@ func TestTelegramWebhook_Idempotent(t *testing.T) {
 	}`
 	body := bytes.NewReader([]byte(payload))
 
-	// 第一次请求
 	req, _ := http.NewRequest("POST", "/api/webhook/telegram/"+uintToStr(accID), body)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -577,7 +544,6 @@ func TestTelegramWebhook_Idempotent(t *testing.T) {
 		t.Errorf("第一次应 accepted=true, duplicate=false, body: %s", w.Body.String())
 	}
 
-	// 第二次相同请求（重新创建 body reader）
 	req2, _ := http.NewRequest("POST", "/api/webhook/telegram/"+uintToStr(accID), bytes.NewReader([]byte(payload)))
 	req2.Header.Set("Content-Type", "application/json")
 	w2 := httptest.NewRecorder()
@@ -596,9 +562,6 @@ func TestTelegramWebhook_Idempotent(t *testing.T) {
 	t.Logf("✅ 幂等去单: 第一次 duplicate=%v, 第二次 duplicate=%v", firstResp.Duplicate, secondResp.Duplicate)
 }
 
-// =============================================================================
-// helpers
-// =============================================================================
 
 func uintToStr(n uint) string {
 	return fmtUint(n)
@@ -622,3 +585,4 @@ func min(a, b int) int {
 	}
 	return b
 }
+

@@ -9,17 +9,14 @@ import (
 
 // TestInMemoryIndexManager_NewInMemoryIndexManager tests the constructor
 func TestInMemoryIndexManager_NewInMemoryIndexManager(t *testing.T) {
-	// Test with valid dimension
 	manager := NewInMemoryIndexManager(128)
 	assert.NotNil(t, manager)
 	assert.Equal(t, 128, manager.dimension)
 
-	// Test with invalid dimension (should use default)
 	managerDefault := NewInMemoryIndexManager(0)
 	assert.NotNil(t, managerDefault)
 	assert.Equal(t, 1024, managerDefault.dimension)
 
-	// Test with negative dimension (should use default)
 	managerNegative := NewInMemoryIndexManager(-100)
 	assert.NotNil(t, managerNegative)
 	assert.Equal(t, 1024, managerNegative.dimension)
@@ -81,7 +78,6 @@ func TestInMemoryIndexManager_BuildIndex(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.errorMsg)
 			} else {
 				assert.NoError(t, err)
-				// Verify index was built
 				stats, err := manager.GetIndexStats(ctx, tt.kbID)
 				assert.NoError(t, err)
 				assert.Equal(t, len(tt.chunks), stats.VectorCount)
@@ -124,7 +120,7 @@ func TestInMemoryIndexManager_AddToIndex(t *testing.T) {
 			kbID:        "test_kb",
 			chunk:       Chunk{ID: "chunk1", Content: "test", Embedding: []float32{0.1, 0.2, 0.3}},
 			setupKB:     false,
-			expectError: false, // Should create KB if not exists
+			expectError: false, 
 		},
 		{
 			name:        "add_to_existing_kb",
@@ -137,7 +133,6 @@ func TestInMemoryIndexManager_AddToIndex(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Setup KB if needed
 			if tt.setupKB {
 				err := manager.BuildIndex(ctx, tt.kbID, []Chunk{{ID: "chunk1", Content: "initial", Embedding: []float32{0.1, 0.2, 0.3}}})
 				assert.NoError(t, err)
@@ -150,7 +145,6 @@ func TestInMemoryIndexManager_AddToIndex(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.errorMsg)
 			} else {
 				assert.NoError(t, err)
-				// Verify chunk was added
 				stats, err := manager.GetIndexStats(ctx, tt.kbID)
 				assert.NoError(t, err)
 				if tt.setupKB {
@@ -168,7 +162,6 @@ func TestInMemoryIndexManager_RemoveFromIndex(t *testing.T) {
 	ctx := context.Background()
 	manager := NewInMemoryIndexManager(3)
 
-	// Setup test KB
 	testChunks := []Chunk{
 		{ID: "chunk1", Content: "test1", Embedding: []float32{0.1, 0.2, 0.3}},
 		{ID: "chunk2", Content: "test2", Embedding: []float32{0.4, 0.5, 0.6}},
@@ -229,10 +222,9 @@ func TestInMemoryIndexManager_RemoveFromIndex(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.errorMsg)
 			} else {
 				assert.NoError(t, err)
-				// Verify chunk was removed
 				stats, err := manager.GetIndexStats(ctx, tt.kbID)
 				assert.NoError(t, err)
-				assert.Equal(t, 2, stats.VectorCount) // Should have 2 chunks left
+				assert.Equal(t, 2, stats.VectorCount) 
 			}
 		})
 	}
@@ -243,7 +235,6 @@ func TestInMemoryIndexManager_SearchIndex(t *testing.T) {
 	ctx := context.Background()
 	manager := NewInMemoryIndexManager(3)
 
-	// Setup test KB with chunks
 	testChunks := []Chunk{
 		{ID: "chunk1", Content: "test content 1", Embedding: []float32{0.1, 0.2, 0.3}},
 		{ID: "chunk2", Content: "test content 2", Embedding: []float32{0.4, 0.5, 0.6}},
@@ -297,9 +288,9 @@ func TestInMemoryIndexManager_SearchIndex(t *testing.T) {
 			name:        "search_with_default_topK",
 			kbID:        "test_kb",
 			queryVec:    []float32{0.1, 0.2, 0.3},
-			topK:        0, // Should use default (5)
+			topK:        0, 
 			expectError: false,
-			expectedLen: 3, // Only 3 chunks available
+			expectedLen: 3, 
 		},
 		{
 			name:        "search_with_negative_topK",
@@ -307,7 +298,7 @@ func TestInMemoryIndexManager_SearchIndex(t *testing.T) {
 			queryVec:    []float32{0.1, 0.2, 0.3},
 			topK:        -1,
 			expectError: false,
-			expectedLen: 3, // Should use default
+			expectedLen: 3, 
 		},
 	}
 
@@ -321,7 +312,6 @@ func TestInMemoryIndexManager_SearchIndex(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Len(t, results, tt.expectedLen)
-				// Verify results are sorted by score (descending)
 				for i := 1; i < len(results); i++ {
 					assert.GreaterOrEqual(t, results[i-1].Score, results[i].Score)
 				}
@@ -335,7 +325,6 @@ func TestInMemoryIndexManager_DropIndex(t *testing.T) {
 	ctx := context.Background()
 	manager := NewInMemoryIndexManager(3)
 
-	// Setup test KB
 	testChunks := []Chunk{{ID: "chunk1", Content: "test", Embedding: []float32{0.1, 0.2, 0.3}}}
 	err := manager.BuildIndex(ctx, "test_kb", testChunks)
 	assert.NoError(t, err)
@@ -360,7 +349,7 @@ func TestInMemoryIndexManager_DropIndex(t *testing.T) {
 		{
 			name:        "drop_nonexistent_kb",
 			kbID:        "nonexistent_kb",
-			expectError: false, // Should not error for nonexistent KB
+			expectError: false, 
 		},
 	}
 
@@ -373,7 +362,6 @@ func TestInMemoryIndexManager_DropIndex(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.errorMsg)
 			} else {
 				assert.NoError(t, err)
-				// Verify KB was dropped
 				_, err := manager.GetIndexStats(ctx, tt.kbID)
 				assert.Error(t, err)
 			}
@@ -386,7 +374,6 @@ func TestInMemoryIndexManager_GetIndexStats(t *testing.T) {
 	ctx := context.Background()
 	manager := NewInMemoryIndexManager(3)
 
-	// Setup test KB
 	testChunks := []Chunk{
 		{ID: "chunk1", Content: "test content", Metadata: map[string]any{"key": "value"}, Embedding: []float32{0.1, 0.2, 0.3}},
 		{ID: "chunk2", Content: "test content 2", Embedding: []float32{0.4, 0.5, 0.6}},
@@ -443,12 +430,10 @@ func TestFAISSIndexManager(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("NewFAISSIndexManager", func(t *testing.T) {
-		// Test with valid dimension
 		manager := NewFAISSIndexManager(128)
 		assert.NotNil(t, manager)
 		assert.Equal(t, 128, manager.backend.dimension)
 
-		// Test with invalid dimension
 		managerDefault := NewFAISSIndexManager(0)
 		assert.NotNil(t, managerDefault)
 		assert.Equal(t, 1024, managerDefault.backend.dimension)
@@ -615,3 +600,4 @@ func isZeroVector(vec []float32) bool {
 	}
 	return true
 }
+

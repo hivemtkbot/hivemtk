@@ -11,16 +11,6 @@ import (
 	"hivemtk-user/internal/aiagent/agent/portcontract"
 )
 
-// ============================================================================
-// 快递轨迹外部客户端（HTTP，配置驱动）
-//
-// 凭证/基地址来自数据库 system_config_kv[agent.tool_integrations].logistics（见
-// tool_integration_config.go），由 NewCourierClientFromConfig 按配置构造。
-// 未配置（baseURL 为空）时 Configured()=false，端口适配器自动降级到本地订单状态。
-//
-// 期望响应体：{ "tracks": [ { "time","status","location","description" } ] }
-// 具体字段以所接入的快递/聚合平台为准；此处为通用契约，可针对平台实现替换本客户端。
-// ============================================================================
 
 // CourierClient 标准快递轨迹 HTTP 客户端，实现 portcontract.CourierClient
 type CourierClient struct {
@@ -48,8 +38,6 @@ func (c *CourierClient) Query(ctx context.Context, carrier, trackingNo string) (
 	if !c.Configured() || trackingNo == "" {
 		return nil, nil
 	}
-	// 修复：carrier/trackingNo 经 url.QueryEscape 编码，防止运单号含特殊字符（空格/&/#）
-	// 拼接进查询串导致参数注入或请求错乱（日志/配置泄露）
 	reqURL := fmt.Sprintf("%s/api/track?carrier=%s&no=%s", c.baseURL, url.QueryEscape(carrier), url.QueryEscape(trackingNo))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
@@ -93,3 +81,4 @@ func (c *CourierClient) Query(ctx context.Context, carrier, trackingNo string) (
 	}
 	return tracks, nil
 }
+

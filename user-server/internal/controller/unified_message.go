@@ -262,3 +262,4 @@ func (c *PlatformAccountController) GetSupportedPlatforms(ctx *gin.Context) {
 
 	response.Success(ctx, result, "获取成功")
 }
+

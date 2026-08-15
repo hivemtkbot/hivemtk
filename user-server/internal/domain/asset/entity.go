@@ -41,7 +41,6 @@ const (
 	IndustryYiMei     Industry = "医美"
 	IndustryQiChe     Industry = "汽车"
 	IndustryJinRong   Industry = "金融"
-	// 7 行业资产包扩展
 	IndustryECig      Industry = "电子烟"
 	IndustryAdult     Industry = "成人用品"
 	IndustrySexHealth Industry = "两性健康"
@@ -100,3 +99,4 @@ type Asset struct {
 	SyncedAt    time.Time
 	UpdatedAt   time.Time
 }
+

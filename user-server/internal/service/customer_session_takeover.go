@@ -11,24 +11,12 @@ import (
 	"hivemtk-user/internal/websocket"
 )
 
-// ============================================================================
-// 客服会话接管 / 释放 / 切换（customer_session_takeover.go）
-// ----------------------------------------------------------------------------
-// 负责 AI ↔ 人工 handler_type 的切换、Redis 人工锁、WebSocket 通知。
-// 文档：docs/企业级架构优化/坐席实时聊天看板.md §三
-//
-// 设计原则：
-//   - 幂等：同一坐席重复接管直接返回成功
-//   - 越权防护：释放回 AI 必须校验 session.AgentID == req.AgentID
-//   - 锁与通知分离：lockHumanSession / unlockHumanSession 仅做 Redis 副作用，
-//     notifySessionUpdate 仅做 WebSocket 副作用，便于测试 mock
-// ============================================================================
 
 // TakeoverRequest 坐席接管请求
 type TakeoverRequest struct {
 	SessionID uint   `json:"session_id" binding:"required"`
 	AgentID   uint   `json:"agent_id" binding:"required"`
-	Reason    string `json:"reason"` // 接管原因：AI 答非所问 / 客户要求 / 投诉升级
+	Reason    string `json:"reason"` 
 }
 
 // TakeoverByAgent 坐席接管 AI 会话
@@ -49,21 +37,17 @@ func (s *CustomerSessionService) TakeoverByAgent(ctx context.Context, req *Takeo
 		return errors.New("会话不存在")
 	}
 
-	// 校验坐席存在
 	agent, err := s.agentRepo.GetByAgentID(ctx, req.AgentID)
 	if err != nil || agent == nil {
 		return errors.New("坐席不存在")
 	}
-	// 校验坐席状态：仅 online/busy 可接管
 	if agent.Status == "offline" {
 		return errors.New("坐席已离线，无法接管")
 	}
-	// 容量校验
 	if agent.ActiveSessions >= agent.MaxSessions {
 		return errors.New("坐席会话已满")
 	}
 
-	// 幂等：会话已分配给该坐席 → 直接锁定 + 切状态
 	if session.AgentID == req.AgentID {
 		session.HandlerType = model.HandlerTypeHuman
 		session.Status = model.SessionStatusHumanHandling
@@ -77,17 +61,14 @@ func (s *CustomerSessionService) TakeoverByAgent(ctx context.Context, req *Takeo
 		return nil
 	}
 
-	// 接管：减少原坐席活跃数（如有）
 	if session.AgentID > 0 {
 		_ = s.agentRepo.DecrementActiveSessions(ctx, session.AgentID)
 	}
-	// 分配新坐席
 	if err := s.sessionRepo.AssignAgent(ctx, req.SessionID, req.AgentID, agent.AgentName); err != nil {
 		return err
 	}
 	_ = s.agentRepo.IncrementActiveSessions(ctx, req.AgentID)
 
-	// 切 handler / status
 	updated, err := s.sessionRepo.GetByID(ctx, req.SessionID)
 	if err != nil {
 		return err
@@ -99,7 +80,6 @@ func (s *CustomerSessionService) TakeoverByAgent(ctx context.Context, req *Takeo
 	if err := s.sessionRepo.Update(ctx, updated); err != nil {
 		return err
 	}
-	// 写 Redis 人工锁 + 推 WebSocket + 访客提示
 	_ = s.lockHumanSession(ctx, updated.SessionID, req.Reason)
 	_ = s.notifySessionUpdate(ctx, updated, "handler_changed", "human")
 	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
@@ -161,7 +141,7 @@ func (s *CustomerSessionService) ReleaseToAI(ctx context.Context, req *ReleaseTo
 type SwitchHandlerRequest struct {
 	SessionID   uint              `json:"session_id" binding:"required"`
 	AgentID     uint              `json:"agent_id"`
-	HandlerType model.HandlerType `json:"handler_type" binding:"required"` // ai / human
+	HandlerType model.HandlerType `json:"handler_type" binding:"required"` 
 	Reason      string            `json:"reason"`
 }
 
@@ -184,8 +164,6 @@ func (s *CustomerSessionService) SwitchHandler(ctx context.Context, req *SwitchH
 		})
 	case model.HandlerTypeAI:
 		if req.AgentID == 0 {
-			// agent_id=0 表示仅切 handler（保留原 AgentID 字段不动，仅切类型）。
-			// 通过临时读出会话来取 AgentID
 			sess, err := s.sessionRepo.GetByID(ctx, req.SessionID)
 			if err != nil {
 				return errors.New("会话不存在")
@@ -237,3 +215,4 @@ func (s *CustomerSessionService) notifySessionUpdate(ctx context.Context, sessio
 		"updated_at":   time.Now().Unix(),
 	})
 }
+

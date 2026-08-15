@@ -83,8 +83,7 @@ func TestParseInt64(t *testing.T) {
 
 // TestIntegrationReachAdapter_SentinelErrors 验证 IntegrationReachAdapter 返回 sentinel error
 func TestIntegrationReachAdapter_SentinelErrors(t *testing.T) {
-	// 无 IntegrationService 注入时，三个新方法应返回 ErrIntegrationServiceNotConfigured
-	a := &IntegrationReachAdapter{} // 全部为 nil
+	a := &IntegrationReachAdapter{} 
 	_, err := a.SendTelegram(nil, "1", "123", "x")
 	if !errors.Is(err, ErrIntegrationServiceNotConfigured) {
 		t.Errorf("SendTelegram 应返回 ErrIntegrationServiceNotConfigured, got %v", err)
@@ -98,7 +97,6 @@ func TestIntegrationReachAdapter_SentinelErrors(t *testing.T) {
 		t.Errorf("SendFeishu 应返回 ErrIntegrationServiceNotConfigured, got %v", err)
 	}
 
-	// 已实现方法（服务注入后真实出站）：服务未注入时返回 ErrIntegrationServiceNotConfigured
 	_, err = a.SendSMS(nil, "1", "x", "", nil)
 	if !errors.Is(err, ErrIntegrationServiceNotConfigured) {
 		t.Errorf("SendSMS 应返回 ErrIntegrationServiceNotConfigured, got %v", err)
@@ -107,7 +105,6 @@ func TestIntegrationReachAdapter_SentinelErrors(t *testing.T) {
 	if !errors.Is(err, ErrIntegrationServiceNotConfigured) {
 		t.Errorf("SendEmail 应返回 ErrIntegrationServiceNotConfigured, got %v", err)
 	}
-	// 其余未实现方法应返回 ErrChannelNotImplemented
 	err = a.Recall(nil, "sms", "x")
 	if !errors.Is(err, ErrChannelNotImplemented) {
 		t.Errorf("Recall 应返回 ErrChannelNotImplemented, got %v", err)
@@ -138,3 +135,4 @@ func TestNewIntegrationReachAdapterFromDB_NilDB(t *testing.T) {
 		t.Error("nil db 时所有 IntegrationService 应为 nil")
 	}
 }
+

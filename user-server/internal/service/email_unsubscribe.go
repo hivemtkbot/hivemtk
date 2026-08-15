@@ -104,7 +104,6 @@ func (s *EmailUnsubscribeService) IsUnsubscribed(ctx context.Context, email stri
 	exists, err := s.repo.ExistsByEmail(ctx, email)
 	if err != nil {
 		logger.Errorf("查询邮件退订状态失败 email=%s: %v", email, err)
-		// 查询失败时为安全起见不发送，但记录错误
 		return false
 	}
 	return exists
@@ -225,3 +224,4 @@ func normalizeEmail(email string) string {
 func emailUnsubscribeServiceWithDB(db *gorm.DB) *EmailUnsubscribeService {
 	return NewEmailUnsubscribeService(repository.NewEmailUnsubscribeRepository(db))
 }
+

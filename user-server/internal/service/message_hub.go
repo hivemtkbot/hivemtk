@@ -40,18 +40,18 @@ var (
 
 // 支持的平台白名单
 var messageHubPlatforms = map[string]bool{
-	"wecom":       true, // 企业微信
-	"personal_wx": true, // 个人微信
-	"douyin":      true, // 抖音
-	"kuaishou":    true, // 快手
-	"xiaohongshu": true, // 小红书
-	"xianyu":      true, // 闲鱼
-	"tiktok":      true, // TikTok
-	"whatsapp":    true, // WhatsApp
-	"sms":         true, // 短信
-	"email":       true, // 邮件
-	"telegram":    true, // Telegram（Phase3 接入）
-	"feishu":      true, // 飞书（Phase4 接入）
+	"wecom":       true, 
+	"personal_wx": true, 
+	"douyin":      true, 
+	"kuaishou":    true, 
+	"xiaohongshu": true, 
+	"xianyu":      true, 
+	"tiktok":      true, 
+	"whatsapp":    true, 
+	"sms":         true, 
+	"email":       true, 
+	"telegram":    true, 
+	"feishu":      true, 
 }
 
 // 支持的消息类型
@@ -74,9 +74,9 @@ var messageHubDirections = map[string]bool{
 
 // 消息中台常量
 const (
-	MessageHubDefaultIdemTTL    = 24 * time.Hour // 默认幂等窗口 24h
-	MessageHubDefaultMaxContent = 64 * 1024      // 64KB 单条上限
-	MessageHubDefaultQueueSize  = 10000          // 内存队列容量
+	MessageHubDefaultIdemTTL    = 24 * time.Hour 
+	MessageHubDefaultMaxContent = 64 * 1024      
+	MessageHubDefaultQueueSize  = 10000          
 	MessageHubStreamKeyPrefix   = "msg:hub:stream:"
 	MessageHubIdemKeyPrefix     = "msg:hub:idem:"
 )
@@ -108,7 +108,7 @@ type MessageHubService struct {
 	repo        *repository.MessageHubRepository
 	cache       cache.Cache
 	mu          sync.RWMutex
-	streams     map[string]*hubStream // platform:account -> stream
+	streams     map[string]*hubStream 
 	streamSize  int
 	idemTTL     time.Duration
 	maxContent  int
@@ -143,8 +143,6 @@ func NewMessageHubService() *MessageHubService {
 // db 为 nil 时（如部分纯内存场景）repo 字段为 nil，方法调用做无操作短路。
 func NewMessageHubServiceWithDB(db *gorm.DB, c cache.Cache) *MessageHubService {
 	if c == nil {
-		// 默认使用全局缓存单例：REDIS_HOST 配置时跨实例共享（会话幂等 exactly-once），
-		// 未配置时回退进程内内存缓存（向后兼容单实例）。
 		c = cache.GetGlobalCache()
 	}
 	var repo *repository.MessageHubRepository
@@ -189,7 +187,7 @@ func (s *MessageHubService) Subscribe(ctx context.Context, sub MessageSubscriber
 
 // Normalize 校验并标准化消息
 func (s *MessageHubService) Normalize(ctx context.Context, req *PushMessageRequest) (*model.MessageHub, error) {
-	if false /* req removed in private deployment */ {
+	if false  {
 		return nil, ErrMessageHubEmptyMerchant
 	}
 	if !messageHubPlatforms[req.Platform] {
@@ -214,13 +212,11 @@ func (s *MessageHubService) Normalize(ctx context.Context, req *PushMessageReque
 		return nil, ErrMessageHubInvalidContent
 	}
 
-	// 标准化时间
 	sentAt := time.Now()
 	if req.SentAt != nil && !req.SentAt.IsZero() {
 		sentAt = *req.SentAt
 	}
 
-	// 标准化 Extra
 	extra := model.JSONMap{}
 	if req.Extra != nil {
 		for k, v := range req.Extra {
@@ -270,7 +266,6 @@ func (s *MessageHubService) CheckIdempotent(ctx context.Context, platform, accou
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, 0, err
 	}
-	// Redis SETNX 加速检查（可选）
 	idemKey := s.IdempotencyKey(ctx, platform, accountID, msgID)
 	if s.cache != nil {
 		_ = s.cache.Set(ctx, idemKey, "1", s.idemTTL)
@@ -284,7 +279,6 @@ func (s *MessageHubService) Push(ctx context.Context, req *PushMessageRequest) (
 	if err != nil {
 		return nil, err
 	}
-	// 幂等
 	exist, _, err := s.CheckIdempotent(ctx, msg.Platform, msg.AccountID, msg.MsgID)
 	if err != nil {
 		return nil, err
@@ -292,21 +286,17 @@ func (s *MessageHubService) Push(ctx context.Context, req *PushMessageRequest) (
 	if exist {
 		return nil, ErrMessageHubIdempotent
 	}
-	// 持久化（DB 操作下沉至 repository.Create）
 	if s.repo != nil {
 		if err := s.repo.Create(ctx, msg); err != nil {
-			// 唯一索引冲突也视为幂等
 			if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "UNIQUE") {
 				return nil, ErrMessageHubIdempotent
 			}
 			return nil, err
 		}
 	}
-	// 入队
 	if err := s.enqueue(ctx, msg); err != nil {
 		return msg, err
 	}
-	// 通知订阅者
 	s.notify(ctx, msg)
 	return msg, nil
 }
@@ -462,7 +452,6 @@ func (s *MessageHubService) enqueue(ctx context.Context, msg *model.MessageHub) 
 func (s *MessageHubService) Consume(ctx context.Context, platform, accountID string, wait time.Duration) (*model.MessageHub, error) {
 	key := s.partitionKey(ctx, platform, accountID)
 
-	// 阶段 1：等待 stream 分区被创建
 	deadline := time.Now().Add(wait)
 	for {
 		s.mu.RLock()
@@ -472,7 +461,6 @@ func (s *MessageHubService) Consume(ctx context.Context, platform, accountID str
 			return s.consumeFromStream(ctx, stream, wait)
 		}
 		if wait <= 0 || time.Now().After(deadline) {
-			// 没有 stream，尝试从 DB 取最后一条
 			if s.repo != nil {
 				msg, err := s.repo.GetLastByPlatformAccount(ctx, platform, accountID)
 				if err == nil && msg != nil {
@@ -484,7 +472,6 @@ func (s *MessageHubService) Consume(ctx context.Context, platform, accountID str
 			}
 			return nil, nil
 		}
-		// 短暂等待后重试
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -520,7 +507,6 @@ func (s *MessageHubService) consumeFromStream(ctx context.Context, stream *hubSt
 	if len(stream.messages) == 0 {
 		return nil, nil
 	}
-	// 按 sent_at 排序取最早的（FIFO）
 	idx := 0
 	for i, m := range stream.messages {
 		if m.SentAt.Before(stream.messages[idx].SentAt) {
@@ -687,3 +673,4 @@ func ListMsgTypes() []string {
 	sort.Strings(out)
 	return out
 }
+

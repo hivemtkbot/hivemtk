@@ -57,7 +57,6 @@ func (ctrl *ChatPublicController) GetChannelInfoByAppKey(c *gin.Context) {
 		response.NotFoundError(c, "渠道")
 		return
 	}
-	// 只返回公开字段（不暴露 AppSecretHash）
 	response.Success(c, gin.H{
 		"channel_id":           channel.ChannelID,
 		"channel_name":         channel.ChannelName,
@@ -90,12 +89,9 @@ func (ctrl *ChatPublicController) OpenSession(c *gin.Context) {
 		return
 	}
 
-	// 渠道 ID 软解析（中间件已注入；如果缺失则用 body 里的）
 	if req.ChannelID == "" {
 		req.ChannelID = resolveChannelID(c, &req)
 	}
-	// visitor_id 也走软解析，从 X-Chat-Visitor-Id header / query 兜底，
-	// 访客 SDK 只需发 header，不必在 body 里传 visitor_id。
 	if req.VisitorID == "" {
 		req.VisitorID = c.GetHeader("X-Chat-Visitor-Id")
 		if req.VisitorID == "" {
@@ -167,7 +163,6 @@ func (ctrl *ChatPublicController) SendMessage(c *gin.Context) {
 	var body struct {
 		Content     string `json:"content" binding:"required"`
 		ContentType string `json:"content_type"`
-		// 附件支持（访客直传七牛后带 CDN URL 发消息）
 		MediaURL  string `json:"media_url"`
 		MediaType string `json:"media_type"`
 		MediaName string `json:"media_name"`
@@ -360,15 +355,6 @@ func (ctrl *ChatPublicController) CountAvailableAgents(c *gin.Context) {
 	response.Success(c, gin.H{"available": count}, "ok")
 }
 
-// ============================================================================
-// 附件上传
-// ============================================================================
-//
-// 设计：访客 → 后端拿上传 token → 访客直传七牛 → 拿到 CDN URL → 发消息带 media_url
-//   - 不经过后端中转文件流，节省带宽
-//   - 后端只签发带策略的 token（限定 key 前缀、有效期、文件大小）
-//   - 上传地址由 config.yaml 的 storage.qiniu.upload_domain 配置
-// ============================================================================
 
 // GetUploadToken 生成七牛上传凭证
 // GET /api/chat/public/upload-token?file_type=image&ext=jpg&size=102400
@@ -398,7 +384,6 @@ func (ctrl *ChatPublicController) GetUploadToken(c *gin.Context) {
 		return
 	}
 
-	// 2. 限制文件类型
 	allowedExts := map[string][]string{
 		"image": {"jpg", "jpeg", "png", "gif", "webp"},
 		"file":  {"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "zip", "rar"},
@@ -424,12 +409,10 @@ func (ctrl *ChatPublicController) GetUploadToken(c *gin.Context) {
 		}
 	}
 
-	// 3. 构造 key: chat/yyyy/MM/<uuid>.<ext>
 	now := time.Now()
 	uid := uuid.NewString()
 	key := fmt.Sprintf("chat/%04d/%02d/%s.%s", now.Year(), now.Month(), uid, extLower)
 
-	// 4. 构造上传策略（base64 url-encoded JSON）
 	expires := now.Add(1 * time.Hour).Unix()
 	policy := map[string]any{
 		"scope":      cfg.Storage.Qiniu.Bucket + ":" + key,
@@ -438,25 +421,18 @@ func (ctrl *ChatPublicController) GetUploadToken(c *gin.Context) {
 		"returnBody": `{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"fname":"$(fname)"}`,
 	}
 	policyBytes, _ := json.Marshal(policy)
-	// 七牛 token 格式严格要求 AK:Signature:Policy（签名在前，策略在后）
-	//   - 反例：AK:Policy:Signature → 七牛返回 BadToken
-	//   - 参考：qiniu/go-sdk Mac.UploadToken 拼接顺序
 	policyEncoded := base64.URLEncoding.EncodeToString(policyBytes)
 
-	// 5. 用 SecretKey 对 policy 签名（HMAC-SHA1）
 	mac := hmac.New(sha1.New, []byte(cfg.Storage.Qiniu.SecretKey))
 	mac.Write([]byte(policyEncoded))
 	signature := base64.URLEncoding.EncodeToString(mac.Sum(nil))
-	// 七牛 token 拼接顺序：AccessKey : Signature : PolicyEncoded
 	token := cfg.Storage.Qiniu.AccessKey + ":" + signature + ":" + policyEncoded
 
-	// 6. 构造返回
 	uploadDomain := cfg.Storage.Qiniu.UploadDomain
 	if uploadDomain == "" {
 		uploadDomain = "up-z2.qiniup.com"
 	}
 	uploadURL := fmt.Sprintf("https://%s", uploadDomain)
-	// 返回完整 URL（含 https://），方便前端直接使用，避免遗漏协议
 	publicURL := "https://" + strings.TrimSuffix(cfg.Storage.Qiniu.Domain, "/") + "/" + key
 
 	response.Success(c, gin.H{
@@ -467,3 +443,4 @@ func (ctrl *ChatPublicController) GetUploadToken(c *gin.Context) {
 		"expires_in": 3600,
 	}, "ok")
 }
+

@@ -49,7 +49,6 @@ func (s *ChurnPredictionService) GetChurnPrediction(userID string) (*model.Churn
 	prediction, err := s.predictionRepo.GetByUserID(userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// 用户尚未生成流失预测时，返回默认的零风险预测，而不是 404
 			return &model.ChurnPrediction{
 				UserID:            userID,
 				ChurnScore:        0,
@@ -77,20 +76,16 @@ func (s *ChurnPredictionService) GetHighRiskUsers(limit int) ([]*model.ChurnPred
 
 // CalculateChurnPrediction 计算用户流失分数
 func (s *ChurnPredictionService) CalculateChurnPrediction(userID string, userData map[string]any) error {
-	// 获取配置
 	config, err := s.configRepo.GetCurrent()
 	if err != nil || !isValidChurnConfig(config) {
-		// 配置缺失或无效（如权重全 0、阈值 <=0）时回退到默认配置，避免算出全 0/全 critical 的失真结果
 		config = s.getDefaultConfig()
 	}
 
-	// 计算各维度分数
 	inactiveScore := s.calculateInactiveScore(userData, config.InactiveThreshold)
 	purchaseFreqScore := s.calculatePurchaseFreqScore(userData, config.PurchaseThreshold)
 	orderValueScore := s.calculateOrderValueScore(userData)
 	engagementScore := s.calculateEngagementScore(userData)
 
-	// 加权计算总分
 	churnScore := inactiveScore*config.InactiveDaysWeight +
 		purchaseFreqScore*config.PurchaseFreqWeight +
 		orderValueScore*config.OrderValueWeight +
@@ -108,11 +103,9 @@ func (s *ChurnPredictionService) CalculateChurnPrediction(userID string, userDat
 		churnRisk = "low"
 	}
 
-	// 识别风险因素
 	riskFactors := s.identifyRiskFactors(inactiveScore, purchaseFreqScore, orderValueScore, engagementScore)
 	riskFactorsJSON, _ := json.Marshal(riskFactors)
 
-	// 保存预测
 	prediction := &model.ChurnPrediction{
 		UserID:            userID,
 		ChurnScore:        churnScore,
@@ -123,7 +116,6 @@ func (s *ChurnPredictionService) CalculateChurnPrediction(userID string, userDat
 		AverageOrderValue: orderValueScore,
 	}
 
-	// 从 userData 中提取时间信息
 	if lastActivity, ok := userData["last_activity_at"].(time.Time); ok {
 		prediction.LastActivityAt = &lastActivity
 	}
@@ -141,7 +133,6 @@ func (s *ChurnPredictionService) calculateInactiveScore(userData map[string]any,
 		days = d
 	}
 
-	// 超过阈值天数为 100 分
 	if days >= threshold*2 {
 		return 100
 	}
@@ -174,7 +165,6 @@ func (s *ChurnPredictionService) calculateOrderValueScore(userData map[string]an
 		aov = v
 	}
 
-	// 订单金额越低，流失风险越高（简化逻辑）
 	if aov <= 0 {
 		return 100
 	}
@@ -197,7 +187,6 @@ func (s *ChurnPredictionService) calculateEngagementScore(userData map[string]an
 		interactions = i
 	}
 
-	// 互动越少，流失风险越高
 	if interactions == 0 {
 		return 100
 	}
@@ -251,7 +240,7 @@ func (s *ChurnPredictionService) CreateChurnWarning(userID string, prediction *m
 		description = "用户存在一定的流失风险"
 		suggestion = "建议关注用户行为，适时进行用户触达"
 	default:
-		return nil // 低风险不创建预警
+		return nil 
 	}
 
 	warning := &model.ChurnWarning{
@@ -341,7 +330,6 @@ func (s *ChurnPredictionService) GetChurnStatistics(startDate, endDate string) (
 
 // CalculateDailyStatistics 计算每日统计
 func (s *ChurnPredictionService) CalculateDailyStatistics(date string) error {
-	// 获取当天的预测数据
 	predictions, _, _ := s.predictionRepo.GetAll(1, 10000)
 
 	totalUsers := len(predictions)
@@ -385,23 +373,18 @@ func (s *ChurnPredictionService) RunChurnCalculation(users []map[string]any) err
 			continue
 		}
 
-		// 计算流失分数
 		if err := s.CalculateChurnPrediction(userID, user); err != nil {
 			continue
 		}
 
-		// 获取预测结果
 		prediction, _ := s.predictionRepo.GetByUserID(userID)
 		if prediction != nil {
-			// 创建预警
 			s.CreateChurnWarning(userID, prediction)
 		}
 	}
 
-	// 更新配置的最后计算时间
 	s.configRepo.UpdateCalcTime()
 
-	// 计算统计
 	date := time.Now().Format("2006-01-02")
 	s.CalculateDailyStatistics(date)
 
@@ -465,7 +448,6 @@ func (s *ChurnPredictionService) aggregateCustomerBehavior(ctx context.Context) 
 			LastActivityAt:  r.LastActivityAt,
 			Interactions30d: int(r.Interactions30d),
 			PurchaseFreq:    int(r.PurchaseCount90d),
-			// 无金额事实源时，用近 90 天购买事件数作为订单价值代理信号（>=1 表示有真实购买行为）
 			AverageOrderValue: float64(r.PurchaseCount90d),
 		}
 		if !r.LastActivityAt.IsZero() {
@@ -475,7 +457,7 @@ func (s *ChurnPredictionService) aggregateCustomerBehavior(ctx context.Context) 
 			snap.LastPurchaseAt = *r.LastPurchaseAt
 			snap.DaysSincePurchase = int(now.Sub(*r.LastPurchaseAt).Hours() / 24)
 		} else {
-			snap.DaysSincePurchase = 9999 // 从未购买
+			snap.DaysSincePurchase = 9999 
 		}
 		snaps = append(snaps, snap)
 	}
@@ -585,18 +567,16 @@ func CalculateConfidence(rate float64, sampleSize int) float64 {
 	p := rate / 100
 	n := float64(sampleSize)
 
-	// 标准误
 	se := math.Sqrt(p * (1 - p) / n)
 
 	if se == 0 {
 		return 0
 	}
 
-	// Z 分数
 	z := (p - 0.5) / se
 
-	// 置信度
 	confidence := 0.5 * (1 + math.Erf(z/math.Sqrt2))
 
 	return confidence
 }
+

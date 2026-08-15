@@ -1,16 +1,5 @@
 package humanize
 
-// service.go 拟人度评估主编排服务
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十六章 §16.4.10
-//
-// 职责：
-//  1. 调用 RuleScorer 全量评估
-//  2. 边界样本 / 10% 采样 → 调用 LLMScorer
-//  3. 不达标 → 重生成（最多 maxRetry 次）
-//  4. 3 次仍不达标 → 转人工 + 收集低质样本
-//  5. 持久化到 humanize_scores 表
 
 import (
 	"context"
@@ -135,21 +124,18 @@ func (s *HumanizeEvalService) Evaluate(ctx context.Context, input *dto.HumanizeE
 		return nil, ErrAggregatorNotInitialized
 	}
 
-	// 1. RuleScorer 全量评估
 	ruleResult, err := s.ruleScorer.Evaluate(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("rule scorer: %w", err)
 	}
 	ruleResult.SampleStrategy = "full"
 
-	// 2. 决定是否触发 LLMScorer
 	decision := decideLLMSample(
 		ruleResult.TotalScore, s.threshold,
 		s.boundaryLow, s.boundaryHigh, s.sampleRate, s.rng,
 	)
 
 	if decision.NeedLLM && s.llmScorer != nil {
-		// 注入销冠基线（如可用）
 		if s.baselineRepo != nil && input.Persona != "" {
 			baseline, berr := s.baselineRepo.FindByPersonaIndustryIntent(ctx, input.Persona, input.Industry, input.Intent)
 			if berr == nil && baseline != nil {
@@ -170,10 +156,8 @@ func (s *HumanizeEvalService) Evaluate(ctx context.Context, input *dto.HumanizeE
 			llmResult.FinalReply = input.AIReply
 			return llmResult, nil
 		}
-		// LLM 失败则降级到规则结果
 	}
 
-	// 3. 持久化规则结果
 	s.persist(ctx, ruleResult)
 	if ruleResult.TotalScore < s.threshold {
 		return s.evaluateWithRetry(ctx, input, ruleResult)
@@ -205,7 +189,6 @@ func (s *HumanizeEvalService) evaluateWithRetry(ctx context.Context, input *dto.
 		}
 		input.AIReply = newReply
 		allReplies = append(allReplies, newReply)
-		// 重评估（用 RuleScorer 快速评估）
 		newResult, err := s.ruleScorer.Evaluate(ctx, input)
 		if err != nil {
 			break
@@ -213,12 +196,10 @@ func (s *HumanizeEvalService) evaluateWithRetry(ctx context.Context, input *dto.
 		result = newResult
 		result.SampleStrategy = "full"
 	}
-	// 仍不达标 → 转人工 + 收集低质样本
 	result.Passed = false
 	result.FinalReply = input.AIReply
 	result.AllReplies = allReplies
 	result.AttemptCount = s.maxRetry
-	// 收集低质样本（复用 接口）
 	if s.sampleCollector != nil {
 		sampleType := s.decideLowQualitySampleType(ctx, result)
 		sample := s.buildLowQualitySample(ctx, input, result, sampleType)
@@ -235,7 +216,6 @@ func (s *HumanizeEvalService) decideLowQualitySampleType(ctx context.Context, re
 	if result == nil || len(result.Scores) == 0 {
 		return "retry_exhausted"
 	}
-	// 找最低分维度
 	minScore := 1.0
 	minDim := ""
 	for _, sc := range result.Scores {
@@ -331,7 +311,6 @@ func (s *HumanizeEvalService) buildLowQualitySample(ctx context.Context, input *
 	if input == nil || result == nil {
 		return nil
 	}
-	// 校验 sampleType
 	validTypes := map[string]bool{
 		"persona": true, "compliance": true, "naturalness": true, "relevance": true,
 		"manual_review": true, "retry_exhausted": true,
@@ -341,7 +320,6 @@ func (s *HumanizeEvalService) buildLowQualitySample(ctx context.Context, input *
 	if !validTypes[sampleType] {
 		sampleType = "retry_exhausted"
 	}
-	// 序列化维度得分
 	scoresMap := make(map[string]float64, len(result.Scores))
 	for _, sc := range result.Scores {
 		scoresMap[string(sc.Dimension)] = sc.Score
@@ -371,3 +349,4 @@ var (
 	_ HumanizeEvaluator = (*RuleScorerImpl)(nil)
 	_ HumanizeEvaluator = (*LLMScorerImpl)(nil)
 )
+

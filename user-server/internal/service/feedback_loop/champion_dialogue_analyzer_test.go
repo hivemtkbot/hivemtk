@@ -1,19 +1,5 @@
 package feedbackloop
 
-// champion_dialogue_analyzer_test.go 销冠对话分析器测试
-//
-// 覆盖：
-//  A. 纯函数单元测试（不需 PG）
-//     1. cosineSimilarity 相同/正交/相似向量
-//     2. takeTopK 按 reward 排序取 Top-K
-//     3. extractJSON 提取 JSON（含 markdown 围栏）
-//     4. formatEmbeddingForPgVector 格式化
-//  B. PG 集成测试
-//     1. AnalyzePipeline 完整管道（4 阶段）
-//     2. AnalyzePipeline 空候选
-//     3. AnalyzePipeline LLM 失败不阻断
-//     4. persistDialogue 持久化 + ON CONFLICT 更新
-//     5. saveScriptsToTemplate 写入 script_templates
 
 import (
 	"context"
@@ -28,9 +14,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// A. 纯函数单元测试
-// ============================================================================
 
 // TestCosineSimilarity_SameVector 相同向量相似度 = 1.0
 func TestCosineSimilarity_SameVector(t *testing.T) {
@@ -56,7 +39,6 @@ func TestCosineSimilarity_Similar(t *testing.T) {
 	v1 := []float32{1.0, 1.0, 0.0}
 	v2 := []float32{1.0, 0.0, 0.0}
 	sim := cosineSimilarity(v1, v2)
-	// cos = 1/sqrt(2) ≈ 0.707
 	if sim <= 0 || sim >= 1 {
 		t.Errorf("cosineSimilarity(similar) = %v 应在 (0,1)", sim)
 	}
@@ -94,7 +76,6 @@ func TestTakeTopK(t *testing.T) {
 		{ChampionDialogueRow: repository.ChampionDialogueRow{SessionID: "s3", Reward: 2.0}},
 		{ChampionDialogueRow: repository.ChampionDialogueRow{SessionID: "s4", Reward: 0.5}},
 	}
-	// 取 Top-2
 	top2 := a.takeTopK(dialogues, 2)
 	if len(top2) != 2 {
 		t.Fatalf("takeTopK len = %d want 2", len(top2))
@@ -177,30 +158,23 @@ func TestExtractJSON_JSONWithSurroundingText(t *testing.T) {
 
 // TestFormatEmbeddingForPgVector 格式化为 pgvector 字面量
 func TestFormatEmbeddingForPgVector(t *testing.T) {
-	// 空向量
 	if got := formatEmbeddingForPgVector(nil); got != "[]" {
 		t.Errorf("formatEmbeddingForPgVector(nil) = %q want []", got)
 	}
-	// 单元素
 	got := formatEmbeddingForPgVector([]float32{0.5})
 	if got != "[0.500000]" {
 		t.Errorf("formatEmbeddingForPgVector([0.5]) = %q want [0.500000]", got)
 	}
-	// 多元素
 	got = formatEmbeddingForPgVector([]float32{1.0, 0.5, -0.25})
 	want := "[1.000000,0.500000,-0.250000]"
 	if got != want {
 		t.Errorf("formatEmbeddingForPgVector = %q want %q", got, want)
 	}
-	// 验证以 [ 开头 ] 结尾
 	if !strings.HasPrefix(got, "[") || !strings.HasSuffix(got, "]") {
 		t.Errorf("format 结果应以 [] 包裹: %q", got)
 	}
 }
 
-// ============================================================================
-// B. PG 集成测试
-// ============================================================================
 
 // TestChampionAnalyzer_AnalyzePipeline_EmptyCandidates 空候选返回空报告
 func TestChampionAnalyzer_AnalyzePipeline_EmptyCandidates(t *testing.T) {
@@ -209,7 +183,6 @@ func TestChampionAnalyzer_AnalyzePipeline_EmptyCandidates(t *testing.T) {
 	llm := newFeedbackLoopStubLLMDispatcher(nil)
 	a := NewChampionDialogueAnalyzer(db, emb, llm, DefaultChampionAnalyzerConfig())
 
-	// 无任何 feedback_signals，候选为 0
 	report, err := a.AnalyzePipeline(context.Background(), time.Now().Add(-24*time.Hour))
 	if err != nil {
 		t.Fatalf("AnalyzePipeline: %v", err)
@@ -243,7 +216,6 @@ func TestChampionAnalyzer_AnalyzePipeline_FullPipeline(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	ctx := context.Background()
 
-	// 准备 5 条相似对话（聚类应产生 1 簇，簇大小 5 >= MinClusterSize=3）
 	dialogues := []struct {
 		sessionID, customerMsg, aiReply string
 	}{
@@ -255,7 +227,6 @@ func TestChampionAnalyzer_AnalyzePipeline_FullPipeline(t *testing.T) {
 	}
 	now := time.Now()
 	for _, d := range dialogues {
-		// 插入 feedback_signals
 		signal := model.FeedbackSignal{
 			SessionID:        d.sessionID,
 			CustomerID:       "cust-1",
@@ -270,7 +241,6 @@ func TestChampionAnalyzer_AnalyzePipeline_FullPipeline(t *testing.T) {
 		if err := db.Create(&signal).Error; err != nil {
 			t.Fatalf("seed signal %s: %v", d.sessionID, err)
 		}
-		// 插入 feedback_events（关联 session）
 		event := model.FeedbackEvent{
 			EventID:     fmt.Sprintf("evt-%s-%d", d.sessionID, now.UnixNano()),
 			SessionID:   d.sessionID,
@@ -289,7 +259,6 @@ func TestChampionAnalyzer_AnalyzePipeline_FullPipeline(t *testing.T) {
 		}
 	}
 
-	// LLM stub 返回 1 条话术 JSON
 	scripts := []dto.ExtractedScriptDTO{{
 		Title: "逼单话术", Content: "下单试试，限时优惠",
 		Scenario: "closing", TriggerKeywords: []string{"下单", "优惠"},
@@ -298,7 +267,6 @@ func TestChampionAnalyzer_AnalyzePipeline_FullPipeline(t *testing.T) {
 	scriptJSON, _ := json.Marshal(scripts)
 	llm := newFeedbackLoopStubLLMDispatcher([]string{string(scriptJSON)})
 
-	// 使用 1024 维 stub embedder（与 champion_dialogues.embedding vector(1024) 一致）
 	emb := newStubEmbedder(1024)
 	a := NewChampionDialogueAnalyzer(db, emb, llm, DefaultChampionAnalyzerConfig())
 
@@ -333,7 +301,6 @@ func TestChampionAnalyzer_AnalyzePipeline_FullPipeline(t *testing.T) {
 func TestChampionAnalyzer_AnalyzePipeline_LLMFailure(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 
-	// 准备 3 条相似对话
 	dialogues := []struct {
 		sessionID, customerMsg, aiReply string
 	}{
@@ -360,12 +327,10 @@ func TestChampionAnalyzer_AnalyzePipeline_LLMFailure(t *testing.T) {
 		_ = db.Create(&event).Error
 	}
 
-	// LLM stub 配置失败
 	llm := newFeedbackLoopStubLLMDispatcher(nil)
 	llm.failOn = 1
 	llm.err = fmt.Errorf("LLM service unavailable")
 
-	// 1024 维 stub embedder（与表 schema vector(1024) 一致）
 	emb := newStubEmbedder(1024)
 	a := NewChampionDialogueAnalyzer(db, emb, llm, DefaultChampionAnalyzerConfig())
 	ctx := context.Background()
@@ -374,15 +339,12 @@ func TestChampionAnalyzer_AnalyzePipeline_LLMFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AnalyzePipeline 应不返回错误（LLM 失败不阻断）: %v", err)
 	}
-	// 应有错误记录
 	if len(report.Errors) == 0 {
 		t.Errorf("Errors 应记录 LLM 失败")
 	}
-	// persistDialogue 仍应执行
 	if report.PersistedCount == 0 {
 		t.Errorf("PersistedCount = %d want > 0 (LLM 失败不影响 persist)", report.PersistedCount)
 	}
-	// extracted scripts 应为空
 	if len(report.ExtractedScripts) != 0 {
 		t.Errorf("ExtractedScripts 应为空 (LLM 失败)")
 	}
@@ -398,7 +360,6 @@ func TestChampionAnalyzer_PersistDialogue_OnConflictUpdate(t *testing.T) {
 		embedder: newStubEmbedder(1024),
 	}
 
-	// 构造 1024 维向量（与 champion_dialogues.embedding vector(1024) 一致）
 	emb := make([]float32, 1024)
 	for i := range emb {
 		emb[i] = 0.5
@@ -412,7 +373,6 @@ func TestChampionAnalyzer_PersistDialogue_OnConflictUpdate(t *testing.T) {
 		},
 		Embedding: emb,
 	}
-	// 第一次写入
 	if err := a.persistDialogue(ctx, d, 1); err != nil {
 		t.Fatalf("first persistDialogue: %v", err)
 	}
@@ -422,12 +382,10 @@ func TestChampionAnalyzer_PersistDialogue_OnConflictUpdate(t *testing.T) {
 		t.Errorf("first write: count = %d want 1", count)
 	}
 
-	// 第二次写入（相同 fingerprint，不同 reward）
 	d.Reward = 3.0
 	if err := a.persistDialogue(ctx, d, 1); err != nil {
 		t.Fatalf("second persistDialogue: %v", err)
 	}
-	// 应仍为 1 条（ON CONFLICT 更新）
 	db.Model(&model.ChampionDialogue{}).Where("session_id = ?", "sess-dup").Count(&count)
 	if count != 1 {
 		t.Errorf("after duplicate: count = %d want 1 (ON CONFLICT)", count)
@@ -439,3 +397,4 @@ func TestChampionAnalyzer_PersistDialogue_OnConflictUpdate(t *testing.T) {
 		t.Errorf("reward = %v want 3.0 (updated)", updated.Reward)
 	}
 }
+

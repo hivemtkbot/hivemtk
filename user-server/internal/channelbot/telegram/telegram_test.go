@@ -28,7 +28,7 @@ func TestSplitMessage(t *testing.T) {
 		},
 		{
 			name:    "long text splits at paragraph boundary",
-			in:      strings.Repeat("段落内容。", 1000), // 5000 runes（5 rune × 1000）
+			in:      strings.Repeat("段落内容。", 1000), 
 			limit:   500,
 			wantCnt: 10,
 			check: func(t *testing.T, chunks []string) {
@@ -41,13 +41,13 @@ func TestSplitMessage(t *testing.T) {
 		},
 		{
 			name:    "long text without paragraph splits at line boundary",
-			in:      strings.Repeat("行内容\n", 1000), // 4000 runes（4 rune × 1000）
+			in:      strings.Repeat("行内容\n", 1000), 
 			limit:   200,
 			wantCnt: 20,
 		},
 		{
 			name:    "long text without line breaks splits at sentence",
-			in:      strings.Repeat("句子内容。", 2000), // 10000 runes
+			in:      strings.Repeat("句子内容。", 2000), 
 			limit:   100,
 			wantCnt: 100,
 		},
@@ -90,10 +90,8 @@ func TestSplitMessage(t *testing.T) {
 			if tc.check != nil {
 				tc.check(t, got)
 			}
-			// 验证：拼接后 == 原文（不能丢字）
 			if len(got) > 0 && tc.in != "" {
 				joined := strings.Join(got, "")
-				// 由于 trimRight 末尾空白，joined 可能比原文本略短 → 检查拼接后所有非空字符都在
 				if !strings.Contains(strings.TrimSpace(tc.in), strings.TrimSpace(joined[:min(50, len(joined))])) &&
 					len(joined) < len(tc.in)-10 {
 					t.Errorf("joined chunks len=%d, original len=%d (差值过大)", len(joined), len(tc.in))
@@ -204,7 +202,6 @@ func TestBuildInlineKeyboard(t *testing.T) {
 				}
 				return
 			}
-			// 比较：只检查 inline_keyboard 字段
 			if got == nil {
 				t.Errorf("got nil, want %v", tc.want)
 				return
@@ -273,12 +270,10 @@ func TestSendMessage_RetryOn429(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		n := atomic.AddInt32(&attempts, 1)
 		if n < 3 {
-			// 前两次返回 429 + retry_after=1
 			w.WriteHeader(429)
 			_, _ = w.Write([]byte(`{"ok":false,"error_code":429,"parameters":{"retry_after":1},"description":"Too Many Requests"}`))
 			return
 		}
-		// 第三次成功
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte(`{"ok":true,"result":{"message_id":42}}`))
 	}))
@@ -288,7 +283,6 @@ func TestSendMessage_RetryOn429(t *testing.T) {
 		token:   "test_token",
 		apiBase: srv.URL,
 	}
-	// 使用短超时（http.Client 默认无超时但 context 控制）
 	c.BaseClient = core.NewBaseClient(core.WithTimeout(3 * time.Second))
 
 	id, err := c.SendMessage(t.Context(), 123, "hi", SendMessageOptions{ParseMode: ""})
@@ -371,7 +365,6 @@ func TestSendMessage_SplitLongMessage(t *testing.T) {
 	c := &Client{token: "test_token", apiBase: srv.URL}
 	c.BaseClient = core.NewBaseClient(core.WithTimeout(2 * time.Second))
 
-	// 8000 字符应至少切 2 段
 	long := strings.Repeat("字", 8000)
 	_, err := c.SendMessage(t.Context(), 123, long)
 	if err != nil {
@@ -406,3 +399,4 @@ func TestSendMessage_ExhaustedRetries(t *testing.T) {
 		t.Errorf("expected 3 attempts (max), got %d", got)
 	}
 }
+

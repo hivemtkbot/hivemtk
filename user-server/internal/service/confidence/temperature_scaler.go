@@ -1,16 +1,5 @@
 package confidence
 
-// temperature_scaler.go 温度缩放校准（Guo 2017）
-//
-// 五层架构归属: L3 业务层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.4.3
-//
-// 公式：p_i = softmax(logits / T)
-// T > 1 软化分布（降低 over-confidence）
-// T < 1 锐化分布
-// T = 1 无缩放（原始 softmax）
-//
-// 数值稳定：减去 max(logits/T) 防止 exp 溢出
 
 import "math"
 
@@ -89,3 +78,4 @@ func (ts *TemperatureScaler) SetTemperature(t float64) {
 func (ts *TemperatureScaler) Temperature() float64 {
 	return ts.temperature
 }
+

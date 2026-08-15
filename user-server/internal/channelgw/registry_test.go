@@ -35,13 +35,11 @@ func TestRegistry_RegisterAndQuery(t *testing.T) {
 		t.Errorf("Names = %v, want [demo]", names)
 	}
 
-	// 同名覆盖
 	r.Register(ChannelSpec{Name: "demo", Transports: []Transport{TransportHTTP, TransportWebSocket}})
 	if !r.Supports("demo", TransportWebSocket) {
 		t.Error("同名覆盖后应支持 websocket")
 	}
 
-	// 空名注册应被忽略
 	r.Register(ChannelSpec{Name: ""})
 	if r.IsChannel("") {
 		t.Error("空名注册应被忽略")
@@ -73,3 +71,4 @@ func TestDefaultRegistry(t *testing.T) {
 		t.Errorf("Default 渠道数 = %d, want %d", len(Default.Names()), len(want))
 	}
 }
+

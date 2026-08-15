@@ -28,12 +28,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ============================================================================
-// 四渠道用户全链路 e2e 测试 (Phase 5)
-// ----------------------------------------------------------------------------
-// 覆盖：Feishu / Telegram / WhatsApp Cloud 三个新渠道的入站分发、智能体触发
-// 出站、限流、去重、错误恢复等关键路径。
-// ============================================================================
 
 func setupChannelFullDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
@@ -51,9 +45,6 @@ func setupChannelFullDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// ============================================================================
-// Feishu 飞书渠道 e2e
-// ============================================================================
 
 func TestE2E_Feishu_AccountCreateAndList(t *testing.T) {
 	db := setupChannelFullDB(t)
@@ -76,7 +67,6 @@ func TestE2E_Feishu_AccountCreateAndList(t *testing.T) {
 		t.Error("expected ID > 0")
 	}
 
-	// 列出
 	all, err := svc.ListAccounts(context.Background())
 	if err != nil {
 		t.Fatalf("list: %v", err)
@@ -85,7 +75,6 @@ func TestE2E_Feishu_AccountCreateAndList(t *testing.T) {
 		t.Errorf("expected 1, got %d", len(all))
 	}
 
-	// 凭据按 accountID 取出
 	appID, vToken, eKey, err := svc.GetSecretsByAccountID(context.Background(), "1")
 	if err != nil {
 		t.Fatalf("secrets: %v", err)
@@ -99,7 +88,6 @@ func TestE2E_Feishu_IngestMessage(t *testing.T) {
 	db := setupChannelFullDB(t)
 	svc := NewFeishuIntegrationService(db)
 
-	// 准备账号
 	acc := &model.FeishuAccount{
 		AccountName: "测试飞书账号",
 		AppID:       "cli_yyyy",
@@ -111,7 +99,6 @@ func TestE2E_Feishu_IngestMessage(t *testing.T) {
 		t.Fatalf("create acc: %v", err)
 	}
 
-	// 入站消息
 	hub, conv, err := svc.IngestMessage(context.Background(), &FeishuIngestRequest{
 		AccountID: 100,
 		OpenID:    "ou_openid_001",
@@ -171,9 +158,8 @@ func TestE2E_Feishu_IngestMessage_GroupChat(t *testing.T) {
 }
 
 func TestE2E_Feishu_DecryptEvent(t *testing.T) {
-	// 用 32 字节 key 加密后解密（AES-256-CBC）
 	plain := `{"event":{"message":{"message_id":"m1","chat_id":"c1","chat_type":"p2p","message_type":"text","content":"{\"text\":\"hi\"}"}}}`
-	ek := "12345678901234567890123456789012" // 32 bytes
+	ek := "12345678901234567890123456789012" 
 	enc := encryptFeishuForTest(t, ek, plain)
 	out, err := DecryptFeishuEvent(ek, enc)
 	if err != nil {
@@ -194,7 +180,6 @@ func encryptFeishuForTest(t *testing.T, key, plaintext string) string {
 		k = make([]byte, 32)
 		copy(k, key)
 	}
-	// PKCS#7 填充
 	pt := []byte(plaintext)
 	padLen := 16 - (len(pt) % 16)
 	if padLen == 0 {
@@ -206,13 +191,11 @@ func encryptFeishuForTest(t *testing.T, key, plaintext string) string {
 	}
 	pt = append(pt, pad...)
 
-	// 随机 IV
 	iv := make([]byte, 16)
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
 		t.Fatalf("rand iv: %v", err)
 	}
 
-	// AES-256-CBC 加密
 	block, err := aes.NewCipher(k)
 	if err != nil {
 		t.Fatalf("new cipher: %v", err)
@@ -221,7 +204,6 @@ func encryptFeishuForTest(t *testing.T, key, plaintext string) string {
 	mode := cipher.NewCBCEncrypter(block, iv)
 	mode.CryptBlocks(cipherText, pt)
 
-	// IV + cipher
 	combined := append(iv, cipherText...)
 	return base64.StdEncoding.EncodeToString(combined)
 }
@@ -258,9 +240,6 @@ func base64StdEncode(b []byte) string {
 	return string(out)
 }
 
-// ============================================================================
-// Telegram 渠道 e2e
-// ============================================================================
 
 func TestE2E_Telegram_AccountCreateAndGet(t *testing.T) {
 	db := setupChannelFullDB(t)
@@ -347,9 +326,6 @@ func TestE2E_Telegram_IngestMessage_Group(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// WhatsApp Cloud 渠道 e2e
-// ============================================================================
 
 func TestE2E_WhatsApp_AccountCreate(t *testing.T) {
 	db := setupChannelFullDB(t)
@@ -435,12 +411,8 @@ func TestE2E_WhatsApp_VerifySignature(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 跨渠道：消息中台白名单校验
-// ============================================================================
 
 func TestE2E_MessageHub_Whitelist_FourChannels(t *testing.T) {
-	// 验证 4 渠道都在白名单
 	for _, p := range []string{"wecom", "whatsapp", "telegram", "feishu"} {
 		if !messageHubPlatforms[p] {
 			t.Errorf("expected platform %s in whitelist", p)
@@ -448,13 +420,9 @@ func TestE2E_MessageHub_Whitelist_FourChannels(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 跨渠道：WebHookService 端到端 dispatch 验证
-// ============================================================================
 
 func TestE2E_WebhookService_DispatchWhatsApp(t *testing.T) {
 	db := setupChannelFullDB(t)
-	// 准备 WhatsApp 账号
 	acc := &model.WhatsAppCloudAccount{
 		AccountName: "WA", PhoneNumberID: "1", WhatsAppBusinessID: "W",
 		AccessToken: "tk", WebhookEnabled: true, AIAgentEnabled: false, Status: 1,
@@ -538,7 +506,6 @@ func TestE2E_WebhookService_DispatchFeishu_Challenge(t *testing.T) {
 	svc := NewWebhookService(db)
 	defer svc.Stop(context.Background())
 
-	// URL 验证挑战：返回 challenge 即可，不应入库
 	body := []byte(`{"challenge":"abc123","type":"url_verification"}`)
 	hub, err := svc.dispatchFeishu(context.Background(), "1", &ParsedPayload{EventID: "ch1"}, body)
 	if err != nil {
@@ -558,7 +525,6 @@ func TestE2E_WebhookService_DispatchFeishu_Challenge(t *testing.T) {
 func TestE2E_WebhookService_ShouldTriggerAI_FourChannels(t *testing.T) {
 	db := setupChannelFullDB(t)
 
-	// 各准备一个 AI 开关为 true 的账号
 	db.Create(&model.WeComAccount{
 		CorpID: "w1", CorpSecret: "s", AgentID: 1,
 		CallbackToken: "t", EncodingAESKey: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFG",
@@ -578,7 +544,6 @@ func TestE2E_WebhookService_ShouldTriggerAI_FourChannels(t *testing.T) {
 	})
 
 	svc := NewWebhookService(db)
-	// shouldTriggerAI 前置检查要求 salesEngine != nil，注入空引擎让开关识别逻辑可被测试
 	svc.SetSalesEngine(context.Background(), &SalesEngine{})
 	defer svc.Stop(context.Background())
 
@@ -591,8 +556,8 @@ func TestE2E_WebhookService_ShouldTriggerAI_FourChannels(t *testing.T) {
 		{ChannelWhatsapp, "1", true},
 		{ChannelTelegram, "1", true},
 		{ChannelFeishu, "1", true},
-		{ChannelWeCom, "999", false}, // 不存在
-		{ChannelDouyin, "1", false},  // 未实现
+		{ChannelWeCom, "999", false}, 
+		{ChannelDouyin, "1", false},  
 	}
 	for _, c := range cases {
 		got := svc.shouldTriggerAI(context.Background(), c.ch, c.acc)
@@ -602,24 +567,11 @@ func TestE2E_WebhookService_ShouldTriggerAI_FourChannels(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 工具：时间
-// ============================================================================
 
 func init() {
-	// 让 test 启动时区固定（避免时区相关抖动）
 	_ = time.Now
 }
 
-// ============================================================================
-// 出站发送：4 渠道 sendOutbound 真实调用（真实 httptest 本地服务，零 mock）
-// ----------------------------------------------------------------------------
-// 启动一个真实 HTTP 服务（httptest.NewServer），并通过代理 Transport 把出站请求
-// 【真实转发】到该本地服务（真实 TCP/HTTP 往返，非 fake/stub）。原始请求的
-// host/path 通过 X-Orig-* 请求头透传给 handler，用于按渠道返回对应成功 JSON 并
-// 原样记录到 calls 供断言。验证 sendOutbound -> Integration.SendMessage ->
-// MessageHub 出库完整路径，全程无 mock。
-// ============================================================================
 
 type capturedHTTP struct {
 	URL    string
@@ -631,7 +583,7 @@ type capturedHTTP struct {
 // outboundCaptureTransport 是真实 HTTP Transport：把出站请求转发到本地 httptest
 // 服务，同时把原始 URL/host 透传（X-Orig-* 头），供 handler 记录与按渠道判定响应。
 type outboundCaptureTransport struct {
-	target string // 本地 httptest 服务地址
+	target string 
 }
 
 func (t *outboundCaptureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -639,7 +591,6 @@ func (t *outboundCaptureTransport) RoundTrip(req *http.Request) (*http.Response,
 	if err != nil {
 		return nil, err
 	}
-	// 复制请求并改写目标地址为本地 httptest 服务，保留原始 path/query
 	out := req.Clone(req.Context())
 	out.URL = &url.URL{
 		Scheme:   target.Scheme,
@@ -648,7 +599,6 @@ func (t *outboundCaptureTransport) RoundTrip(req *http.Request) (*http.Response,
 		RawQuery: req.URL.RawQuery,
 	}
 	out.Host = target.Host
-	// 透传原始 host/URL，确保断言可校验原始地址、handler 能按渠道返回正确 JSON
 	out.Header.Set("X-Orig-URL", req.URL.String())
 	out.Header.Set("X-Orig-Host", req.URL.Host)
 	return http.DefaultTransport.RoundTrip(out)
@@ -679,13 +629,10 @@ func withCaptureHTTPClient(t *testing.T) (*[]capturedHTTP, *int64, func()) {
 		origHost := r.Header.Get("X-Orig-Host")
 		switch {
 		case strings.Contains(r.URL.Path, "tenant_access_token"):
-			// 飞书 token 接口
 			w.Write([]byte(`{"code":0,"msg":"ok","tenant_access_token":"t-mock-token","expire":7200}`))
 		case strings.Contains(origHost, "graph.facebook.com"):
-			// WhatsApp Cloud
 			w.Write([]byte(`{"messaging_product":"whatsapp","contacts":[{"input":"+86","wa_id":"+86"}],"messages":[{"id":"wamid.mock"}]}`))
 		case strings.Contains(origHost, "open.feishu.cn"):
-			// 飞书发消息
 			w.Write([]byte(`{"code":0,"msg":"ok","data":{"message_id":"om_mock"}}`))
 		default:
 			w.Write([]byte(`{"ok":true,"result":{"message_id":1}}`))
@@ -705,7 +652,6 @@ func TestE2E_SendOutbound_Feishu_RealPath(t *testing.T) {
 	calls, counter, restore := withCaptureHTTPClient(t)
 	defer restore()
 	db := setupChannelFullDB(t)
-	// 准备账号：access_token 预置，避开 token 刷新路径
 	now := time.Now()
 	exp := now.Add(time.Hour)
 	acc := &model.FeishuAccount{
@@ -761,7 +707,6 @@ func TestE2E_SendOutbound_Feishu_RealPath(t *testing.T) {
 	if fsOut < 1 {
 		t.Errorf("expected feishu_messages outbound record, got %d", fsOut)
 	}
-	// 校验至少有一次 im/v1/messages 请求
 	sent := false
 	for _, c := range *calls {
 		if strings.Contains(c.URL, "im/v1/messages") {
@@ -888,20 +833,12 @@ func TestE2E_SendOutbound_WhatsApp_RealPath(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 4 渠道：handleJob 完整入站 → 业务分发 → AI 触发判断（不开 AI） 集成测试
-// ----------------------------------------------------------------------------
-// 验证 WebhookService.handleJob 在 4 个渠道都能完成：
-//   1) ToUnifiedMessage 写 UnifiedMessage
-//   2) dispatchToChannel 写 MessageHub
-//   3) 因 AIAgentEnabled=false 不触发 AI
-// ============================================================================
 
 func TestE2E_HandleJob_FourChannels_AIDisabled(t *testing.T) {
 	cases := []struct {
 		name    string
 		channel WebhookChannel
-		setup   func(db *gorm.DB) string // 返回 accountID
+		setup   func(db *gorm.DB) string 
 		body    []byte
 		verify  func(t *testing.T, db *gorm.DB, accountID string)
 	}{
@@ -1018,12 +955,6 @@ func TestE2E_HandleJob_FourChannels_AIDisabled(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 4 渠道：统一消息模型验证
-// ----------------------------------------------------------------------------
-// 确保 ToUnifiedMessage 把不同渠道的入站消息都规整到同一模型，
-// 这是后续 智能体 / 收件箱 / Dashboard 共用的数据基础。
-// ============================================================================
 
 func TestE2E_WebhookService_ToUnifiedMessage_4Channels(t *testing.T) {
 	db := setupChannelFullDB(t)
@@ -1061,3 +992,4 @@ func TestE2E_WebhookService_ToUnifiedMessage_4Channels(t *testing.T) {
 		}
 	}
 }
+

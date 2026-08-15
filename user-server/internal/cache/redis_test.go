@@ -62,13 +62,11 @@ func TestRedisCache_Get(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 先设置缓存
 	err = cache.Set(ctx, "test_key", "test_value", time.Minute)
 	if err != nil {
 		t.Fatalf("Set() 返回错误：%v", err)
 	}
 
-	// 获取缓存
 	result, err := cache.Get(ctx, "test_key")
 	if err != nil {
 		t.Fatalf("Get() 返回错误：%v", err)
@@ -120,13 +118,11 @@ func TestRedisCache_Set(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 设置带过期时间的缓存
 	err = cache.Set(ctx, "key1", "value1", 5*time.Minute)
 	if err != nil {
 		t.Fatalf("Set() 返回错误：%v", err)
 	}
 
-	// 验证缓存存在
 	result, err := cache.Get(ctx, "key1")
 	if err != nil {
 		t.Fatalf("Get() 返回错误：%v", err)
@@ -153,19 +149,16 @@ func TestRedisCache_Delete(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 先设置缓存
 	err = cache.Set(ctx, "to_delete", "delete_value", time.Minute)
 	if err != nil {
 		t.Fatalf("Set() 返回错误：%v", err)
 	}
 
-	// 删除缓存
 	err = cache.Delete(ctx, "to_delete")
 	if err != nil {
 		t.Fatalf("Delete() 返回错误：%v", err)
 	}
 
-	// 验证已删除（应该返回错误）
 	_, err = cache.Get(ctx, "to_delete")
 	if err == nil {
 		t.Error("Delete() 后 Get() 应该返回错误")
@@ -189,13 +182,11 @@ func TestRedisCache_Exists(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 设置缓存
 	err = cache.Set(ctx, "exists_key", "exists_value", time.Minute)
 	if err != nil {
 		t.Fatalf("Set() 返回错误：%v", err)
 	}
 
-	// 检查存在
 	exists, err := cache.Exists(ctx, "exists_key")
 	if err != nil {
 		t.Fatalf("Exists() 返回错误：%v", err)
@@ -204,7 +195,6 @@ func TestRedisCache_Exists(t *testing.T) {
 		t.Error("Exists() 应该返回 true")
 	}
 
-	// 检查不存在
 	exists, err = cache.Exists(ctx, "non_existent")
 	if err != nil {
 		t.Fatalf("Exists() 返回错误：%v", err)
@@ -235,7 +225,6 @@ func TestRedisCache_GetJSON(t *testing.T) {
 		"age":  25,
 	}
 
-	// 设置 JSON 缓存
 	err = cache.SetJSON(ctx, "json_key", value, time.Minute)
 	if err != nil {
 		t.Fatalf("SetJSON() 返回错误：%v", err)
@@ -283,7 +272,6 @@ func TestRedisCache_SetJSON(t *testing.T) {
 		Value: 42,
 	}
 
-	// 设置 JSON 缓存
 	err = cache.SetJSON(ctx, "struct_key", value, time.Minute)
 	if err != nil {
 		t.Fatalf("SetJSON() 返回错误：%v", err)
@@ -311,7 +299,7 @@ func TestRedisCache_Clear(t *testing.T) {
 	config := RedisConfig{
 		Host: "localhost",
 		Port: 6379,
-		DB:   1, // 使用不同的 DB 避免影响其他数据
+		DB:   1, 
 	}
 
 	cache, err := NewRedisCache(config)
@@ -322,7 +310,6 @@ func TestRedisCache_Clear(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 设置多个缓存
 	err = cache.Set(ctx, "key1", "value1", time.Minute)
 	if err != nil {
 		t.Fatalf("Set() 返回错误：%v", err)
@@ -332,13 +319,11 @@ func TestRedisCache_Clear(t *testing.T) {
 		t.Fatalf("Set() 返回错误：%v", err)
 	}
 
-	// 清空
 	err = cache.Clear(ctx)
 	if err != nil {
 		t.Fatalf("Clear() 返回错误：%v", err)
 	}
 
-	// 验证已清空
 	exists, _ := cache.Exists(ctx, "key1")
 	if exists {
 		t.Error("Clear() 后 key1 应该不存在")
@@ -363,7 +348,6 @@ func TestRedisCache_Close(t *testing.T) {
 		t.Fatalf("NewRedisCache() 返回错误：%v", err)
 	}
 
-	// 关闭不应该 panic
 	err = cache.Close()
 	if err != nil {
 		t.Errorf("Close() 返回错误：%v", err)
@@ -397,7 +381,6 @@ func TestRedisCache_StructConversion(t *testing.T) {
 		Name: "test_user",
 	}
 
-	// 设置 JSON 缓存
 	err = cache.SetJSON(ctx, "user_key", user, time.Minute)
 	if err != nil {
 		t.Fatalf("SetJSON() 返回错误：%v", err)
@@ -435,13 +418,11 @@ func TestRedisCache_WithExpiration(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 设置 100ms 过期
 	err = cache.Set(ctx, "expiring_key", "expiring_value", 100*time.Millisecond)
 	if err != nil {
 		t.Fatalf("Set() 返回错误：%v", err)
 	}
 
-	// 立即获取应该成功
 	result, err := cache.Get(ctx, "expiring_key")
 	if err != nil {
 		t.Fatalf("Get() 返回错误：%v", err)
@@ -450,12 +431,11 @@ func TestRedisCache_WithExpiration(t *testing.T) {
 		t.Errorf("Get() = %v, 期望 expiring_value", result)
 	}
 
-	// 等待过期
 	time.Sleep(200 * time.Millisecond)
 
-	// 获取应该返回错误（key 不存在）
 	_, err = cache.Get(ctx, "expiring_key")
 	if err == nil {
 		t.Error("Get() 过期后应该返回错误")
 	}
 }
+

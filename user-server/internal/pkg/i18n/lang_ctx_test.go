@@ -1,14 +1,5 @@
 package i18n
 
-// lang_ctx_test.go 多语言 ctx 工具单元测试
-//
-// 覆盖：
-//  1. WithInternalLang / GetInternalLang（含空值兜底 zh）
-//  2. WithTargetLang / GetTargetLang（含空值兜底 zh）
-//  3. WithCrossLingual / GetCrossLingual（默认 false）
-//  4. LangName（已知 / 未知语言）
-//  5. IsValidLang（zh/en/ja/de → true；xx/空/中文 → false）
-//  6. NormalizeLang（en-US / ZH / 空 / 非法 → zh）
 
 import (
 	"context"
@@ -17,9 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// ============================================================================
-// WithInternalLang / GetInternalLang
-// ============================================================================
 
 func TestWithInternalLang_InjectAndRead(t *testing.T) {
 	ctx := WithInternalLang(context.Background(), "en")
@@ -32,7 +20,6 @@ func TestWithInternalLang_EmptyFallbackZh(t *testing.T) {
 }
 
 func TestGetInternalLang_NoInjection_DefaultZh(t *testing.T) {
-	// 未注入时也应兜底 zh
 	assert.Equal(t, "zh", GetInternalLang(context.Background()))
 }
 
@@ -42,9 +29,6 @@ func TestGetInternalLang_Overwrite(t *testing.T) {
 	assert.Equal(t, "ja", GetInternalLang(ctx), "二次注入应覆盖前者")
 }
 
-// ============================================================================
-// WithTargetLang / GetTargetLang
-// ============================================================================
 
 func TestWithTargetLang_InjectAndRead(t *testing.T) {
 	ctx := WithTargetLang(context.Background(), "ja")
@@ -60,9 +44,6 @@ func TestGetTargetLang_NoInjection_DefaultZh(t *testing.T) {
 	assert.Equal(t, "zh", GetTargetLang(context.Background()))
 }
 
-// ============================================================================
-// WithCrossLingual / GetCrossLingual
-// ============================================================================
 
 func TestWithCrossLingual_True(t *testing.T) {
 	ctx := WithCrossLingual(context.Background(), true)
@@ -78,9 +59,6 @@ func TestGetCrossLingual_NoInjection_DefaultFalse(t *testing.T) {
 	assert.False(t, GetCrossLingual(context.Background()))
 }
 
-// ============================================================================
-// LangName
-// ============================================================================
 
 func TestLangName_KnownLanguages(t *testing.T) {
 	cases := map[string]string{
@@ -103,9 +81,6 @@ func TestLangName_UnknownFallbackEnglish(t *testing.T) {
 	assert.Equal(t, "English", LangName("中文"), "非 ISO 码应兜底 English")
 }
 
-// ============================================================================
-// IsValidLang
-// ============================================================================
 
 func TestIsValidLang_ValidCodes(t *testing.T) {
 	for _, code := range []string{"zh", "en", "ja", "de"} {
@@ -119,9 +94,6 @@ func TestIsValidLang_InvalidCodes(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// NormalizeLang
-// ============================================================================
 
 func TestNormalizeLang_RegionStripped(t *testing.T) {
 	assert.Equal(t, "en", NormalizeLang("en-US"))
@@ -150,3 +122,4 @@ func TestNormalizeLang_AlreadyNormalized(t *testing.T) {
 		assert.Equal(t, code, NormalizeLang(code))
 	}
 }
+

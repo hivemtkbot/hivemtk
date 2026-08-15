@@ -8,18 +8,9 @@ import (
 	"strings"
 )
 
-// 商业产品级 OneID 规范化工具
-// 目标：让"138 0013 8000"、"+86 13800138000"、"138-0013-8000"等不同写法都能归一为同一个客户。
-//
-// 设计原则：
-//  1. 不做模糊匹配：手机号/邮箱/ID 必须是精确归一，不引入概率风险；
-//  2. 业务可解释：归一规则公开、可在管理后台查看；
-//  3. 可逆：normalizePhone 输出可直接落库作为展示值。
 
 var (
-	// 仅保留数字
 	phoneDigits = regexp.MustCompile(`\D+`)
-	// 邮箱白名单字符
 	emailValid = regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$`)
 )
 
@@ -35,29 +26,19 @@ func NormalizePhone(raw string) string {
 	if trimmed == "" {
 		return ""
 	}
-	// 仅保留数字
 	digits := phoneDigits.ReplaceAllString(trimmed, "")
-	// 去除 86 前缀（兼容 +86 / 86 / 0086 / 86 等多种国际区号写法）
 	switch {
 	case len(digits) == 13 && strings.HasPrefix(digits, "86"):
-		// 8613800138000 (13 位) → 13800138000
 		digits = digits[2:]
 	case len(digits) == 15 && strings.HasPrefix(digits, "0086"):
-		// 008613800138000 (15 位) → 13800138000
 		digits = digits[4:]
 	case len(digits) == 15 && strings.HasPrefix(digits, "+86"):
-		// 保险：若 phoneDigits 没把 + 去掉导致 15 位
 		digits = digits[3:]
 	case len(digits) == 14 && strings.HasPrefix(digits, "0086"):
-		// 00861380013800 (14 位) 防御性保留
 		digits = digits[4:]
 	}
-	// 归一后非 11 位视为非国内手机号，原样返回 trim 字符串（保留观察）
 	if len(digits) != 11 {
-		// 若原输入中完全不包含数字（仅含分隔符/字母/标点），返回空字符串
-		// 字母场景如 "abcdefghijk" 仍视为非有效手机号，但保留观察用 trimmed
 		if digits == "" {
-			// 仅当原输入完全是分隔符/标点（无任何字母数字）时返回空
 			if hasAnyAlnum(trimmed) {
 				return trimmed
 			}
@@ -140,3 +121,4 @@ func HasAnyIdentifier(in identity.Identifiers) bool {
 		strings.TrimSpace(in.DouyinOpenID) != "" ||
 		strings.TrimSpace(in.XiaohongshuID) != ""
 }
+

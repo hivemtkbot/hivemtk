@@ -43,7 +43,6 @@ const LogFieldParentSpanId = "parent_span_id"
 // LogFieldOperation 日志 JSON 中 operation 字段名
 const LogFieldOperation = "operation"
 
-// ====== context key ======
 
 type ctxKey int
 
@@ -229,7 +228,6 @@ func TraceIDFromContext(ctx context.Context) string {
 	return logger.TraceIDFromContext(ctx)
 }
 
-// ====== Gin 中间件 ======
 
 // GinTraceMiddleware Gin 追踪中间件
 //
@@ -251,16 +249,13 @@ func GinTraceMiddleware() gin.HandlerFunc {
 		}
 		spanID := GenerateSpanID()
 
-		// 写入 gin.Context
 		c.Set(LogFieldTraceId, traceID)
 		c.Set(LogFieldSpanId, spanID)
 
-		// 写入 request context（供 service / repository 使用）
 		ctx := logger.WithTraceID(c.Request.Context(), traceID)
 		ctx = context.WithValue(ctx, spanIDKey, spanID)
 		c.Request = c.Request.WithContext(ctx)
 
-		// 响应头回写
 		c.Writer.Header().Set(HeaderName, traceID)
 
 		c.Next()
@@ -309,7 +304,6 @@ func TraceIDFromGin(c *gin.Context) string {
 	return ""
 }
 
-// ====== JSON 日志字段辅助 ======
 
 // LogFields 返回结构化日志字段（trace_id / span_id / parent_span_id）
 // 用于 service 层手动构建结构化日志：
@@ -327,3 +321,4 @@ func (t *Tracer) LogFields() map[string]any {
 		LogFieldParentSpanId: t.parentID,
 	}
 }
+

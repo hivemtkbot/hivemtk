@@ -1,14 +1,5 @@
 package ragretrieval
 
-// redis_client.go Redis 客户端抽象与 go-redis 适配
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.4.6 / §14.4.10
-//
-// 设计原则:
-//   - L4 不直接依赖 *redis.Client 具体类型，通过 RedisClient 接口解耦
-//   - 测试可注入 mock；生产用 GoRedisAdapter 包装 github.com/redis/go-redis/v9 *redis.Client
-//   - nil Redis 客户端表示禁用缓存（直接走 DB / TEI）
 
 import (
 	"context"
@@ -21,9 +12,7 @@ import (
 //
 // 仅暴露 ragretrieval 包需要的 Get / Set 方法，避免全量 redis.Cmdable 泄漏。
 type RedisClient interface {
-	// Get 读取字符串缓存；key 不存在时返回 ("", redis.Nil)
 	Get(ctx context.Context, key string) (string, error)
-	// Set 写入字符串缓存带 TTL
 	Set(ctx context.Context, key, value string, ttl time.Duration) error
 }
 
@@ -63,4 +52,4 @@ func IsRedisNil(err error) bool {
 	return err == redis.Nil
 }
 
-// Compile-time 接口断言
+

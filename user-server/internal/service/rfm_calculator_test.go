@@ -50,7 +50,6 @@ func TestRFMCalculatorService_calcRScore(t *testing.T) {
 	service := setupRFMCalculatorService(t)
 	now := time.Now()
 
-	// 测试默认规则
 	rule := &model.RFMRule{
 		RDays1: 7, RDays2: 14, RDays3: 30, RDays4: 60, RDays5: 90,
 	}
@@ -190,7 +189,6 @@ func TestRFMCalculatorService_CalculateRFM(t *testing.T) {
 		MAmount1: 10000, MAmount2: 50000, MAmount3: 100000, MAmount4: 500000, MAmount5: 1000000,
 	}
 
-	// 由于 getUserStats 返回空数据，测试主要验证结构
 	rfm, err := service.CalculateRFM(context.Background(), 1, rule)
 	if err != nil {
 		t.Fatalf("CalculateRFM failed: %v", err)
@@ -203,7 +201,6 @@ func TestRFMCalculatorService_CalculateRFM(t *testing.T) {
 	if rfm.UserID != 1 {
 		t.Errorf("Expected user_id 1, got %d", rfm.UserID)
 	}
-	// 由于没有交易数据，R/F/M 得分应该为 1
 	if rfm.RScore != 1 {
 		t.Errorf("Expected R score 1, got %d", rfm.RScore)
 	}
@@ -248,7 +245,6 @@ func TestRFMCalculatorService_getDefaultRule(t *testing.T) {
 func TestRFMCalculatorService_CalculateAllUsers(t *testing.T) {
 	service := setupRFMCalculatorService(t)
 
-	// 创建规则
 	rule := &model.RFMRule{
 		Name:   "Test Rule",
 		RDays1: 7, RDays2: 14, RDays3: 30, RDays4: 60, RDays5: 90,
@@ -258,7 +254,6 @@ func TestRFMCalculatorService_CalculateAllUsers(t *testing.T) {
 	}
 	db.GetDB().Create(rule)
 
-	// 由于 getAllUserIDs 返回空列表，应该返回 0
 	count, err := service.CalculateAllUsers(context.Background())
 	if err != nil {
 		t.Fatalf("CalculateAllUsers failed: %v", err)
@@ -299,7 +294,6 @@ func TestRFMCalculatorService_SaveRFMRule_DefaultValues(t *testing.T) {
 
 	req := &SaveRFMRuleRequest{
 		Name: "Test Rule",
-		// RDays1 为 0，应该使用默认值 7
 	}
 
 	rule, err := service.SaveRFMRule(context.Background(), req)
@@ -316,14 +310,12 @@ func TestRFMCalculatorService_SaveRFMRule_DefaultValues(t *testing.T) {
 func TestRFMCalculatorService_GetRFMRule(t *testing.T) {
 	service := setupRFMCalculatorService(t)
 
-	// 创建规则
 	rule := &model.RFMRule{
 		Name:     "Test Rule",
 		IsActive: true,
 	}
 	db.GetDB().Create(rule)
 
-	// 获取规则
 	result, err := service.GetRFMRule(context.Background())
 	if err != nil {
 		t.Fatalf("GetRFMRule failed: %v", err)
@@ -341,13 +333,11 @@ func TestRFMCalculatorService_GetRFMRule(t *testing.T) {
 func TestRFMCalculatorService_UpdateRFMRule(t *testing.T) {
 	service := setupRFMCalculatorService(t)
 
-	// 创建规则
 	rule := &model.RFMRule{
 		Name: "Old Name",
 	}
 	db.GetDB().Create(rule)
 
-	// 更新规则
 	req := &SaveRFMRuleRequest{
 		Name:   "New Name",
 		RDays1: 10,
@@ -388,8 +378,6 @@ func TestRFMCalculatorService_UpdateRFMRule_NotFound(t *testing.T) {
 func TestRFMCalculatorService_UpdateRFMRule_NoPermission(t *testing.T) {
 	service := setupRFMCalculatorService(t)
 
-	// 独立部署模式（无多租户）：无权限校验，所有合法操作都允许
-	// 此测试场景：使用不存在的规则 ID，验证返回规则不存在错误
 	req := &SaveRFMRuleRequest{
 		Name: "Updated",
 	}
@@ -421,7 +409,6 @@ func TestRFMCalculatorService_GetRFMStats(t *testing.T) {
 func TestRFMCalculatorService_GetUsersByLayer(t *testing.T) {
 	service := setupRFMCalculatorService(t)
 
-	// 创建测试数据
 	rfm := &model.UserRFM{
 		UserID: 1,
 		Layer:  "important_value",
@@ -449,7 +436,6 @@ func TestRFMCalculatorService_GetUsersByLayer(t *testing.T) {
 func TestRFMCalculatorService_GetRFMList(t *testing.T) {
 	service := setupRFMCalculatorService(t)
 
-	// 创建测试数据
 	rfm := &model.UserRFM{
 		UserID: 1,
 		Layer:  "important_value",
@@ -473,7 +459,6 @@ func TestRFMCalculatorService_GetRFMList(t *testing.T) {
 func TestRFMCalculatorService_GetUserRFM(t *testing.T) {
 	service := setupRFMCalculatorService(t)
 
-	// 创建测试数据
 	rfm := &model.UserRFM{
 		UserID: 1,
 		Layer:  "important_value",
@@ -524,3 +509,4 @@ func TestRFMCalculatorService_enrichUserData(t *testing.T) {
 		t.Error("Expected layer description to be populated")
 	}
 }
+

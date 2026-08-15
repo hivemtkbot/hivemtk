@@ -57,28 +57,20 @@ func NewCustomer360Service() *Customer360Service {
 }
 
 type Customer360DTO struct {
-	// 基本信息
 	BasicInfo *CustomerBasicInfo `json:"basic_info"`
 
-	// 会话统计
 	SessionStats *SessionStatistics `json:"session_stats"`
 
-	// 会话历史
 	SessionHistory []*SessionHistoryItem `json:"session_history"`
 
-	// 消息记录
 	MessageHistory []*MessageHistoryItem `json:"message_history"`
 
-	// 线索信息
 	ClueInfo *ClueInfo `json:"clue_info,omitempty"`
 
-	// 订单信息
 	OrderInfo *OrderInfo `json:"order_info,omitempty"`
 
-	// 互动统计
 	InteractionStats *InteractionStats `json:"interaction_stats"`
 
-	// 用户画像
 	UserProfile *UserProfile `json:"user_profile"`
 }
 
@@ -98,11 +90,11 @@ type SessionStatistics struct {
 	ActiveSessions  int64 `json:"active_sessions"`
 	ClosedSessions  int64 `json:"closed_sessions"`
 	TotalMessages   int64 `json:"total_messages"`
-	AvgResponseTime int   `json:"avg_response_time"` // 平均响应时间（秒）
+	AvgResponseTime int   `json:"avg_response_time"` 
 	AIReplies       int64 `json:"ai_replies"`
 	HumanReplies    int64 `json:"human_replies"`
-	UserRating      int   `json:"user_rating"`  // 用户评分
-	RatingCount     int64 `json:"rating_count"` // 评分次数
+	UserRating      int   `json:"user_rating"`  
+	RatingCount     int64 `json:"rating_count"` 
 }
 
 type SessionHistoryItem struct {
@@ -120,7 +112,7 @@ type SessionHistoryItem struct {
 type MessageHistoryItem struct {
 	SessionID    string  `json:"session_id"`
 	Content      string  `json:"content"`
-	SenderType   string  `json:"sender_type"` // user, ai, agent
+	SenderType   string  `json:"sender_type"` 
 	SenderName   string  `json:"sender_name"`
 	ContentType  string  `json:"content_type"`
 	CreatedAt    string  `json:"created_at"`
@@ -133,8 +125,8 @@ type ClueInfo struct {
 	Name      string `json:"name"`
 	Phone     string `json:"phone"`
 	Email     string `json:"email"`
-	Status    string `json:"status"` // new, contacted, qualified, converted, lost
-	Level     string `json:"level"`  // hot, warm, cold
+	Status    string `json:"status"` 
+	Level     string `json:"level"`  
 	Owner     string `json:"owner"`
 	CreatedAt string `json:"created_at"`
 }
@@ -168,15 +160,15 @@ type InteractionStats struct {
 	Last30Days int64 `json:"last_30_days"`
 
 	AvgMessagesPerSession float64 `json:"avg_messages_per_session"`
-	FirstResponseTime     int     `json:"first_response_time"` // 首次响应时间（秒）
+	FirstResponseTime     int     `json:"first_response_time"` 
 }
 
 type UserProfile struct {
 	Tags              []string `json:"tags"`
 	Interests         []string `json:"interests"`
-	PurchasePower     string   `json:"purchase_power"` // high, medium, low
-	ActivityLevel     string   `json:"activity_level"` // active, normal, silent
-	RiskLevel         string   `json:"risk_level"`     // high, normal, low
+	PurchasePower     string   `json:"purchase_power"` 
+	ActivityLevel     string   `json:"activity_level"` 
+	RiskLevel         string   `json:"risk_level"`     
 	PreferredPlatform string   `json:"preferred_platform"`
 	PreferredTime     string   `json:"preferred_time"`
 }
@@ -184,7 +176,6 @@ type UserProfile struct {
 func (s *Customer360Service) GetCustomer360(ctx context.Context, userID string) (*Customer360DTO, error) {
 	dto := &Customer360DTO{}
 
-	// 1. 获取该用户的会话（GetByUserID 直接走 user_id 索引，单 SQL 拉全该用户会话）
 	userSessions, err := s.sessionRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -194,28 +185,20 @@ func (s *Customer360Service) GetCustomer360(ctx context.Context, userID string) 
 		return nil, ErrCustomerNotFound
 	}
 
-	// 2. 填充基本信息
 	dto.BasicInfo = s.buildBasicInfo(ctx, userSessions)
 
-	// 3. 填充会话统计
 	dto.SessionStats = s.buildSessionStats(ctx, userSessions)
 
-	// 4. 填充会话历史
 	dto.SessionHistory = s.buildSessionHistory(ctx, userSessions)
 
-	// 5. 填充消息历史（批量拉所有 session 消息，按 session_id 分桶）
 	dto.MessageHistory, _ = s.buildMessageHistory(ctx, userSessions)
 
-	// 6. 填充线索信息（单次 SQL 拉取）
 	dto.ClueInfo, _ = s.buildClueInfo(ctx, userID, userSessions)
 
-	// 7. 填充订单信息（单次 SQL 拉取）
 	dto.OrderInfo, _ = s.buildOrderInfo(ctx, userID, userSessions)
 
-	// 8. 填充互动统计
 	dto.InteractionStats = s.buildInteractionStats(ctx, userSessions)
 
-	// 9. 填充用户画像
 	dto.UserProfile = s.buildUserProfile(ctx, userSessions, dto.InteractionStats, dto.OrderInfo)
 
 	return dto, nil
@@ -243,42 +226,32 @@ func (s *Customer360Service) GetCustomer360ByCustomerID(ctx context.Context, cus
 
 	dto := &Customer360DTO{}
 
-	// 用客户的 OneID 查关联会话（会话 one_id = customers.unified_id）
 	sessions, err := s.sessionRepo.GetByOneID(ctx, cust.UnifiedID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 基本信息：优先从客户档案填充（不依赖会话是否存在）
 	dto.BasicInfo = s.buildBasicInfoFromCustomer(cust, sessions)
 
 	if len(sessions) == 0 {
-		// 无会话时仍返回客户档案，仅会话相关字段留空，避免误报 404
 		dto.SessionStats = &SessionStatistics{}
 		dto.InteractionStats = &InteractionStats{}
 		dto.UserProfile = &UserProfile{}
 		return dto, nil
 	}
 
-	// 2. 填充会话统计
 	dto.SessionStats = s.buildSessionStats(ctx, sessions)
 
-	// 3. 填充会话历史
 	dto.SessionHistory = s.buildSessionHistory(ctx, sessions)
 
-	// 4. 填充消息历史（批量拉所有 session 消息，按 session_id 分桶）
 	dto.MessageHistory, _ = s.buildMessageHistory(ctx, sessions)
 
-	// 5. 填充线索信息（单次 SQL 拉取）
 	dto.ClueInfo, _ = s.buildClueInfo(ctx, cust.UnifiedID, sessions)
 
-	// 6. 填充订单信息（单次 SQL 拉取）
 	dto.OrderInfo, _ = s.buildOrderInfo(ctx, cust.UnifiedID, sessions)
 
-	// 7. 填充互动统计
 	dto.InteractionStats = s.buildInteractionStats(ctx, sessions)
 
-	// 8. 填充用户画像
 	dto.UserProfile = s.buildUserProfile(ctx, sessions, dto.InteractionStats, dto.OrderInfo)
 
 	return dto, nil
@@ -326,7 +299,6 @@ func (s *Customer360Service) buildBasicInfo(ctx context.Context, sessions []*mod
 		return nil
 	}
 
-	// 取第一个会话的信息
 	first := sessions[0]
 	var firstSeenAt, lastSeenAt string
 
@@ -428,7 +400,6 @@ func (s *Customer360Service) buildMessageHistory(ctx context.Context, sessions [
 		return history, nil
 	}
 
-	// 收集所有 sessionID（按出现顺序去重）
 	sessionIDs := make([]string, 0, len(sessions))
 	seen := make(map[string]struct{}, len(sessions))
 	for _, session := range sessions {
@@ -445,13 +416,11 @@ func (s *Customer360Service) buildMessageHistory(ctx context.Context, sessions [
 		return history, nil
 	}
 
-	// 单次 SQL 拉所有 session 的消息
 	messageMap, err := s.messageRepo.ListBySessionIDsBatch(ctx, sessionIDs, 100)
 	if err != nil {
 		return history, err
 	}
 
-	// 按 sessions 顺序拼接，保证 message_history 与 session_history 顺序对齐
 	for _, session := range sessions {
 		messages := messageMap[session.SessionID]
 		for _, msg := range messages {
@@ -486,7 +455,6 @@ func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string, u
 		return nil, nil
 	}
 
-	// 单次 SQL 拉取所有线索（按 type 内存去重）
 	clues, err := s.clueRepo.ListByAccounts(ctx, []string{accountID, userPhone, userEmail})
 	if err != nil {
 		return nil, err
@@ -496,7 +464,6 @@ func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string, u
 		return nil, nil
 	}
 
-	// 复用 listByAccounts 的 create_time DESC 排序，取首条即最新
 	latestClue := clues[0]
 	clueInfo := &ClueInfo{
 		ClueID:    latestClue.ID,
@@ -508,7 +475,6 @@ func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string, u
 		CreatedAt: time.Unix(latestClue.CreateTime, 0).Format("2006-01-02 15:04:05"),
 	}
 
-	// 根据 IsVerify 设置状态
 	if latestClue.IsVerify == 1 {
 		clueInfo.Status = "qualified"
 	}
@@ -532,7 +498,6 @@ func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string, 
 		}, nil
 	}
 
-	// 单次 SQL 拉取所有订单
 	userOrders, err := s.orderRepo.ListByAccountIDs(ctx, []string{accountID})
 	if err != nil {
 		return &OrderInfo{
@@ -560,7 +525,7 @@ func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string, 
 			Amount:      amount,
 			Status:      orderStatusToString(order.Status),
 			CreatedAt:   time.Unix(order.CreateTime, 0).Format("2006-01-02 15:04:05"),
-			ProductName: "平台商品", // In production, this would query the product table for actual name
+			ProductName: "平台商品", 
 		})
 	}
 
@@ -570,7 +535,6 @@ func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string, 
 		Orders:      orderItems,
 	}
 
-	// 填充最新订单信息
 	if lastOrder != nil {
 		orderInfo.LastOrderID = lastOrder.ID
 		orderInfo.LastOrderAt = time.Unix(lastOrder.CreateTime, 0).Format("2006-01-02 15:04:05")
@@ -584,15 +548,15 @@ func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string, 
 func orderStatusToString(status _type.OrderStatusType) string {
 	switch status {
 	case _type.OrderStatusPending:
-		return "pending" // 待支付
+		return "pending" 
 	case _type.OrderStatusSuccess:
-		return "success" // 已支付/成功
+		return "success" 
 	case _type.OrderStatusForceSuccess:
-		return "success" // 强制成功
+		return "success" 
 	case _type.OrderStatusTimeout:
-		return "timeout" // 超时
+		return "timeout" 
 	case _type.OrderStatusForceClose:
-		return "closed" // 强制关闭
+		return "closed" 
 	default:
 		return "unknown"
 	}
@@ -641,24 +605,19 @@ func (s *Customer360Service) buildUserProfile(ctx context.Context, sessions []*m
 		RiskLevel:     "normal",
 	}
 
-	// 根据互动频率判断活跃度
 	if interactionStats.TotalInteractions > 20 {
 		profile.ActivityLevel = "active"
 	} else if interactionStats.TotalInteractions < 5 {
 		profile.ActivityLevel = "silent"
 	}
 
-	// 根据订单金额判断购买力
 	if orderInfo != nil && orderInfo.TotalAmount > 10000 {
 		profile.PurchasePower = "high"
 	} else if orderInfo != nil && orderInfo.TotalAmount < 1000 {
 		profile.PurchasePower = "low"
 	}
 
-	// Analyze conversation content for interests and tags
-	// In production, this would use AI to extract interests and tags from conversation content
 
-	// 判断首选平台
 	maxCount := int64(0)
 	for platform, count := range map[string]int64{
 		"douyin":      interactionStats.DouyinCount,
@@ -682,13 +641,11 @@ func (s *Customer360Service) GetCustomerList(ctx context.Context, page, pageSize
 		return nil, 0, err
 	}
 
-	// 按用户分组
 	userSessionsMap := make(map[string][]*model.CustomerSession)
 	for _, session := range sessions {
 		userSessionsMap[session.UserID] = append(userSessionsMap[session.UserID], session)
 	}
 
-	// 收集该页所有 sessionID / userID / accountID
 	allSessionIDs := make([]string, 0, len(sessions))
 	seenSess := make(map[string]struct{}, len(sessions))
 	userIDs := make([]string, 0, len(userSessionsMap))
@@ -713,10 +670,8 @@ func (s *Customer360Service) GetCustomerList(ctx context.Context, page, pageSize
 		userIDs = append(userIDs, uid)
 	}
 
-	// 单次 SQL 拉所有 session 的消息
 	messageMap, _ := s.messageRepo.ListBySessionIDsBatch(ctx, allSessionIDs, 100)
 
-	// 单次 SQL 拉所有相关线索（按 account / phone / email 三类 key）
 	allAccounts := make([]string, 0, len(accountIDs)+len(userSessionsMap))
 	allAccounts = append(allAccounts, accountIDs...)
 	for _, ss := range sessions {
@@ -724,14 +679,12 @@ func (s *Customer360Service) GetCustomerList(ctx context.Context, page, pageSize
 	}
 	clueMap := s.indexCluesByAccount(ctx, allAccounts)
 
-	// 单次 SQL 拉所有相关订单
 	orders, _ := s.orderRepo.ListByAccountIDs(ctx, accountIDs)
 	orderMap := make(map[string][]*model.Order, len(accountIDs))
 	for _, o := range orders {
 		orderMap[o.AccountID] = append(orderMap[o.AccountID], o)
 	}
 
-	// 内存组装每个客户的 360 视图
 	result := make(map[string]*Customer360DTO, len(userSessionsMap))
 	for userID, userSessions := range userSessionsMap {
 		dto := s.assembleCustomer360DTO(userSessions, messageMap, clueMap, orderMap)
@@ -814,7 +767,6 @@ func (s *Customer360Service) buildClueInfoFromMap(userSessions []*model.Customer
 		return nil
 	}
 	first := userSessions[0]
-	// 合并查询的 keys：accountID / phone / email
 	keys := []string{first.AccountID, first.UserPhone, first.UserEmail}
 	var latest *model.Clue
 	for _, k := range keys {
@@ -855,7 +807,7 @@ func (s *Customer360Service) buildOrderInfoFromMap(userSessions []*model.Custome
 		return &OrderInfo{Orders: make([]*OrderItem, 0)}
 	}
 	var totalAmount float64
-	lastOrder := userOrders[0] // ListByAccountIDs 已按 create_time DESC 排序
+	lastOrder := userOrders[0] 
 	orderItems := make([]*OrderItem, 0, len(userOrders))
 	for _, order := range userOrders {
 		amount, _ := strconv.ParseFloat(order.Price, 64)
@@ -917,3 +869,4 @@ func (s *Customer360ServiceForTest) GetCustomerList(ctx context.Context, page, p
 	}
 	return realService.GetCustomerList(ctx, page, pageSize, filters)
 }
+

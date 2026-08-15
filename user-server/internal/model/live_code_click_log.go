@@ -35,3 +35,4 @@ type QRCodeClickLog struct {
 func (QRCodeClickLog) TableName() string {
 	return "qr_code_click_log"
 }
+

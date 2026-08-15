@@ -40,9 +40,9 @@ func TestIsUrgentOrComplaint_Normal(t *testing.T) {
 func TestIsUrgentOrComplaint_CaseInsensitive(t *testing.T) {
 	s := &SessionAssignmentService{}
 	if !s.isUrgentOrComplaint(context.Background(), "URGENT") {
-		// 中文不会被小写化，所以测试正常中文
 	}
 	if !s.isUrgentOrComplaint(context.Background(), "投诉") {
 		t.Error("expected urgent for 投诉")
 	}
 }
+

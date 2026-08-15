@@ -16,7 +16,7 @@ type CreateUserRequest struct {
 }
 
 type UpdateUserRequest struct {
-	ID       string `json:"id" binding:"omitempty"` // ID 由 URL path 提供，body 内的 id 字段为可选冗余
+	ID       string `json:"id" binding:"omitempty"` 
 	Username string `json:"username"`
 	Email    string `json:"email"`
 	RealName string `json:"real_name"`
@@ -63,3 +63,4 @@ type GetUserListRequest struct {
 type DeleteUserRequest struct {
 	ID string `uri:"id" binding:"required"`
 }
+

@@ -1,18 +1,5 @@
 package model
 
-// role.go 系统角色定义
-//
-// 五层架构归属：L5 数据模型层
-//
-// 设计依据（详见 docs/architecture/MENU_PERMISSION_PLAN.md v3.1 §3.2）：
-//   - user-web 是单租户、单角色商户端，3 档系统角色为只读常量
-//   - 角色不持久化为独立表，由 model 层硬编码
-//   - 业务模块（service / controller）通过 SystemRoles 切片做展示与校验
-//   - 任何"自定义角色"功能属于 v3.1 之后的独立规划
-//
-// 数据落点：
-//   - 实际账号的 role 字段仍存在 model.SystemUser.Role
-//   - 此文件仅描述"角色字典"，与 system_users 表不直接 JOIN
 
 // SystemRoleCode 系统角色 code（与 model.SystemUser.Role 的合法值保持一致）
 //
@@ -25,11 +12,11 @@ const (
 
 // SystemRole 系统角色定义（只读展示用）
 type SystemRole struct {
-	Code        string `json:"code"`        // 角色 code（与 SystemUser.Role 对应）
-	Name        string `json:"name"`        // 中文展示名
-	TagType     string `json:"tag_type"`    // el-tag 类型（success/warning/info/danger/primary）
-	Description string `json:"description"` // 角色说明
-	IsSystem    bool   `json:"is_system"`   // 是否系统角色（系统角色不可删改）
+	Code        string `json:"code"`        
+	Name        string `json:"name"`        
+	TagType     string `json:"tag_type"`    
+	Description string `json:"description"` 
+	IsSystem    bool   `json:"is_system"`   
 }
 
 // SystemRoles 系统角色列表（按 v3.1 收口为 3 档）
@@ -100,9 +87,9 @@ func NormalizeRole(code string) string {
 	case SystemRoleCodeAdmin, SystemRoleCodeCustomerService, SystemRoleCodeStaff:
 		return code
 	case "user":
-		// 兼容 v1 的 "user" 角色
 		return SystemRoleCodeStaff
 	default:
 		return ""
 	}
 }
+

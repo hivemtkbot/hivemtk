@@ -27,12 +27,11 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 	ctx := context.Background()
 
 	c := cache.NewMemoryCache()
-	svc := NewInboxIngressServiceWithDB(nil, c) // hubRepo=nil 时 persistMessage 直接返回 nil
+	svc := NewInboxIngressServiceWithDB(nil, c) 
 
 	trigger := &fakeAITrigger{}
 	svc.SetAITrigger(trigger)
 
-	// 辅助函数：构造一条入站消息
 	makeEvent := func(channel, accountID, convID, content string, seq int) *model.MessageEvent {
 		return &model.MessageEvent{
 			Channel:        channel,
@@ -45,12 +44,10 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		}
 	}
 
-	// ========== 场景 1：相同会话多条消息 → batch 末尾合并一次 AI 回复 ==========
 	t.Run("场景1_相同会话多条消息_合并一次AI回复", func(t *testing.T) {
 		trigger.called = 0
 		convID := "conv-batch-1"
 
-		// 一次 batch 上报 3 条同会话消息
 		events := []*model.MessageEvent{
 			makeEvent(model.ChannelXHS, "xhs-acct-1", convID, "你好", 0),
 			makeEvent(model.ChannelXHS, "xhs-acct-1", convID, "请问这个商品还在吗？", 1),
@@ -61,19 +58,16 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		if err != nil {
 			t.Fatalf("HandleIngressBatch: %v", err)
 		}
-		// 关键：3 条消息合并一次 AI 回复
 		if trigger.called != 1 {
 			t.Fatalf("3 条同会话消息应合并触发 1 次 AI，实际: %d", trigger.called)
 		}
 		if !result.TriggeredAI {
 			t.Fatal("TriggeredAI 应为 true")
 		}
-		// 验证合并内容包含 3 条消息
 		expectedMerged := "你好\n请问这个商品还在吗？\n多少钱？"
 		if trigger.lastContent != expectedMerged {
 			t.Fatalf("合并内容应为 %q，实际: %q", expectedMerged, trigger.lastContent)
 		}
-		// 验证每条消息都被接受
 		if len(result.PerEvent) != 3 {
 			t.Fatalf("应返回 3 个 PerEvent，实际: %d", len(result.PerEvent))
 		}
@@ -85,7 +79,6 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		t.Logf("✅ 3 条同会话消息合并触发 1 次 AI: merged_content=%q", trigger.lastContent)
 	})
 
-	// ========== 场景 2：不同会话消息 → 各自触发 AI ==========
 	t.Run("场景2_不同会话_各自触发AI", func(t *testing.T) {
 		trigger.called = 0
 
@@ -98,7 +91,6 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		if err != nil {
 			t.Fatalf("HandleIngressBatch: %v", err)
 		}
-		// 不同会话各自触发 AI
 		if trigger.called != 2 {
 			t.Fatalf("2 个不同会话应触发 2 次 AI，实际: %d", trigger.called)
 		}
@@ -108,7 +100,6 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		t.Logf("✅ 2 个不同会话各自触发 AI: 调用次数=%d", trigger.called)
 	})
 
-	// ========== 场景 3：不同渠道相同会话 → 同 conversation 分组合并 ==========
 	t.Run("场景3_不同渠道相同会话_合并触发", func(t *testing.T) {
 		trigger.called = 0
 		convID := "conv-cross-channel"
@@ -122,7 +113,6 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		if err != nil {
 			t.Fatalf("HandleIngressBatch: %v", err)
 		}
-		// 相同 conversation_id，不同渠道 → 合并一次 AI
 		if trigger.called != 1 {
 			t.Fatalf("相同会话不同渠道应合并触发 1 次 AI，实际: %d", trigger.called)
 		}
@@ -133,7 +123,6 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		t.Logf("✅ 不同渠道相同会话合并触发: merged=%q", trigger.lastContent)
 	})
 
-	// ========== 场景 4：不同账号不同会话 → 各自触发 AI ==========
 	t.Run("场景4_不同账号不同会话_各自触发AI", func(t *testing.T) {
 		trigger.called = 0
 
@@ -171,10 +160,6 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		t.Logf("✅ 不同账号不同会话各自触发 AI: 调用次数=%d", trigger.called)
 	})
 
-	// ========== 场景 5：sender_type 不再区分，所有消息同等对待 ==========
-	// 2026-08-07 删除 isPlatformMessage：msg_id(contentHash) 为唯一去重键，
-	// sender_type 统一视为 customer（前端不判定自/他）。
-	// 本条测试验证：不同 sender_type 的"新消息"（GetByMsgID 未命中）均触发 AI。
 	t.Run("场景5_sender_type平等处理", func(t *testing.T) {
 		trigger.called = 0
 
@@ -195,7 +180,7 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 				Content:        "自己发的消息",
 				EventID:        "evt-self-1",
 				ConversationID: "conv-filter-1",
-				SenderType:     "customer", // 前端统一 customer，self/agent 已废弃
+				SenderType:     "customer", 
 				MsgType:        model.MsgTypeText,
 				Extra:          map[string]interface{}{"account_id": "xhs-acct-1"},
 			},
@@ -205,8 +190,6 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		if err != nil {
 			t.Fatalf("HandleIngressBatch: %v", err)
 		}
-		// 两条消息的 EventID 均未在 DB 中命中 → 视为新消息。
-		// 批次合并会将同会话多条消息合并为 1 次 AI 触发调用。
 		if trigger.called != 1 {
 			t.Fatalf("同会话 2 条消息应合并触发 1 次 AI，实际: %d", trigger.called)
 		}
@@ -219,7 +202,6 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		t.Logf("✅ sender_type 不再区分：两条消息同等对待，批次合并触发 1 次 AI")
 	})
 
-	// ========== 场景 6：系统消息仅落库不触发 AI ==========
 	t.Run("场景6_系统消息仅落库", func(t *testing.T) {
 		trigger.called = 0
 
@@ -249,7 +231,6 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		t.Logf("✅ 系统消息仅落库不触发 AI")
 	})
 
-	// ========== 场景 7：空 batch 不触发 AI ==========
 	t.Run("场景7_空batch", func(t *testing.T) {
 		trigger.called = 0
 
@@ -266,7 +247,6 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		t.Logf("✅ 空 batch 不触发 AI")
 	})
 
-	// ========== 场景 8：内容 hash 计算验证（函数仍保留，兼容性） ==========
 	t.Run("场景8_内容hash计算验证", func(t *testing.T) {
 		h1 := contentHashOf("你好")
 		h2 := contentHashOf("你好")
@@ -291,3 +271,4 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		t.Logf("✅ 空内容返回空 hash")
 	})
 }
+

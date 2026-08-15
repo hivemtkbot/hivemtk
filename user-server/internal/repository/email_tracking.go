@@ -170,3 +170,4 @@ func (r *emailTrackingRepo) ListJobMetricsByRange(ctx context.Context, start, en
 	err := r.db.Where("updated_at BETWEEN ? AND ?", start, end).Find(&metrics).Error
 	return metrics, err
 }
+

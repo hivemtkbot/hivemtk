@@ -221,3 +221,4 @@ func TestCommunityMessage_WithLongContent(t *testing.T) {
 		t.Error("Expected long content to be stored")
 	}
 }
+

@@ -166,7 +166,7 @@ func TestMaterial_WithVideoType(t *testing.T) {
 func TestMaterial_WithLargeSize(t *testing.T) {
 	material := &Material{
 		Name: "Large Video",
-		Size: 1073741824, // 1GB
+		Size: 1073741824, 
 	}
 
 	if material.Size != 1073741824 {
@@ -331,3 +331,4 @@ func TestMaterialCategory_WithNilParent(t *testing.T) {
 		t.Errorf("Expected nil ParentID, got %v", category.ParentID)
 	}
 }
+

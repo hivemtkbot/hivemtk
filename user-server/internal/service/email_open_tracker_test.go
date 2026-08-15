@@ -1,18 +1,5 @@
 package service
 
-// email_open_tracker_test.go 邮件打开率追踪服务测试
-//
-// 测试覆盖：
-//  1) 构造
-//  2) GenerateOpenPixelURL
-//  3) RenderPixel 返回 1×1 透明 PNG
-//  4) RenderPixel 无效 token 仍返回像素（不暴露错误）
-//  5) Postmark 事件映射
-//  6) SendCloud 事件映射
-//  7) GetOpenRateMetrics
-//  8) MarkOpenSeen 防重
-//  9) PrettyPrintJSON
-// 10) 边界：nil event
 
 import (
 	"context"
@@ -64,7 +51,6 @@ func TestEmailOpenTracker_RenderPixel(t *testing.T) {
 	if len(pix) != len(EmailOpenPixel) {
 		t.Errorf("Pixel size mismatch: got %d, want %d", len(pix), len(EmailOpenPixel))
 	}
-	// PNG 签名校验
 	if pix[0] != 0x89 || pix[1] != 'P' || pix[2] != 'N' || pix[3] != 'G' {
 		t.Errorf("Invalid PNG signature: %x", pix[:4])
 	}
@@ -88,7 +74,6 @@ func TestEmailOpenTracker_RenderPixel_EmptyToken(t *testing.T) {
 // 5) Postmark 事件映射
 func TestEmailOpenTracker_Postmark_Open(t *testing.T) {
 	s := newOpenTracker(t)
-	// 落库会失败（repo nil），但函数不应 panic
 	err := s.RecordPostmarkEvent(context.Background(), &PostmarkOpenEvent{
 		RecordType: "Open",
 		Recipient:  "user@demo.com",
@@ -97,7 +82,6 @@ func TestEmailOpenTracker_Postmark_Open(t *testing.T) {
 		UserAgent:  "Mozilla/5.0",
 	})
 	if err == nil {
-		// 没有 db 时 repo.CreateEvent 会失败
 		t.Log("expected failure with nil repo:", err)
 	}
 }
@@ -230,7 +214,6 @@ func TestEmailOpenTracker_MarkOpenSeen(t *testing.T) {
 		t.Error("Different token should return true")
 	}
 	if !MarkOpenSeen("") {
-		// 空 token 返回 false
 	}
 }
 
@@ -252,3 +235,4 @@ func TestEmailOpenTracker_EmailEventSummary(t *testing.T) {
 		t.Errorf("Unexpected summary: %s", out)
 	}
 }
+

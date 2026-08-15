@@ -35,31 +35,23 @@ type ObsConfig struct {
 	Bucket     string      `gorm:"type:varchar(100);not null" json:"bucket"`
 	Region     string      `gorm:"type:varchar(50)" json:"region"`
 	Endpoint   string      `gorm:"type:varchar(500)" json:"endpoint"`
-	Domain     string      `gorm:"type:varchar(500)" json:"domain"`      // 自定义域名
-	PathPrefix string      `gorm:"type:varchar(100)" json:"path_prefix"` // 路径前缀
+	Domain     string      `gorm:"type:varchar(500)" json:"domain"`      
+	PathPrefix string      `gorm:"type:varchar(100)" json:"path_prefix"` 
 
-	// 高级配置（JSON格式）
 	Config string `gorm:"type:text" json:"config"`
 
-	// 使用限制
-	MaxSize  int64 `gorm:"default:104857600" json:"max_size"` // 单个文件最大大小（默认100MB）
-	MaxCount int   `gorm:"default:1000" json:"max_count"`     // 最大文件数量
+	MaxSize  int64 `gorm:"default:104857600" json:"max_size"` 
+	MaxCount int   `gorm:"default:1000" json:"max_count"`     
 
-	// 状态
 	Status     ObsStatus  `gorm:"type:varchar(20);default:'active'" json:"status"`
 	LastError  string     `gorm:"type:text" json:"last_error"`
 	LastTestAt *time.Time `gorm:"" json:"last_test_at"`
 
-	// 统计信息
 	TotalSize int64 `gorm:"default:0" json:"total_size"`
 	FileCount int   `gorm:"default:0" json:"file_count"`
 
-	// 是否默认配置
 	IsDefault bool `gorm:"default:false" json:"is_default"`
 
-	// 开源版无 License 关联字段
-	// LicenseID string   `gorm:"type:varchar(36)" json:"license_id"`
-	// License   *License `gorm:"foreignKey:LicenseID" json:"license,omitempty"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
@@ -75,3 +67,4 @@ func (o *ObsConfig) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+

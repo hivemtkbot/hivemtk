@@ -77,21 +77,20 @@ func WithGroup(groupID, groupName string) TriggerInboundOption {
 }
 
 type InboxIngressResult struct {
-	Accepted    bool   `json:"accepted"`      // 是否接受处理
-	HumanLocked bool   `json:"human_locked"`  // 是否命中人工接管锁
-	QueuedForAI bool   `json:"queued_for_ai"` // 是否已入队（拿到 AI 处理锁或加入待处理队列）
+	Accepted    bool   `json:"accepted"`      
+	HumanLocked bool   `json:"human_locked"`  
+	QueuedForAI bool   `json:"queued_for_ai"` 
 	SessionID   string `json:"session_id"`
-	Reason      string `json:"reason,omitempty"` // 决策原因
+	Reason      string `json:"reason,omitempty"` 
 }
 
 type InboxIngressService struct {
 	hubRepo   *repository.MessageHubRepository
 	cache     cache.Cache
 	mu        sync.Mutex
-	triggerCh chan string   // 触发 AgentRuntime 处理通知（可选，保留兼容）
-	aiTrigger AITrigger     // 入站消息触发 AI 客服的实现（桥接场景为 WebhookService）
-	inboxSvc  *InboxService // 统一收件箱会话同步（桥接消息落库后同步到 inbox_conversations）
-	// leadMiningSvc 线索发掘服务（非侵入异步）：消息落库成功后投递，绝不阻塞/入侵核心业务
+	triggerCh chan string   
+	aiTrigger AITrigger     
+	inboxSvc  *InboxService 
 	leadMiningSvc *Service
 }
 
@@ -573,8 +572,8 @@ func (s *InboxIngressService) RecheckUnrepliedAndTrigger(ctx context.Context, co
 }
 
 type InboxIngressBatchResult struct {
-	PerEvent    []*InboxIngressResult `json:"per_event"`    // 每条消息处理结果（与入参 events 索引对齐）
-	TriggeredAI bool                  `json:"triggered_ai"` // 是否触发了 AI（batch 内合并触发）
+	PerEvent    []*InboxIngressResult `json:"per_event"`    
+	TriggeredAI bool                  `json:"triggered_ai"` 
 	Reason      string                `json:"reason,omitempty"`
 }
 
@@ -606,7 +605,7 @@ func (s *InboxIngressService) HandleIngressBatch(ctx context.Context, events []*
 
 	for convID, groupEvents := range groups {
 		var newInboundContents []string
-		var firstInboundEvent *model.MessageEvent // 用于 AI 触发的元数据（channel/accountID/senderID 等）
+		var firstInboundEvent *model.MessageEvent 
 		for _, ie := range groupEvents {
 			ev := ie.event
 
@@ -775,3 +774,4 @@ func truncateForLog(s string, maxLen int) string {
 	}
 	return s[:maxLen] + "..."
 }
+

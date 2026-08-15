@@ -2,7 +2,6 @@
 -- 版本: 1.1.0
 -- 适用于: PostgreSQL 15+ (项目唯一数据库)
 
--- AI生成记录表
 CREATE TABLE IF NOT EXISTS ai_generation_records (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -32,7 +31,6 @@ COMMENT ON COLUMN ai_generation_records.is_favorite IS '是否收藏';
 COMMENT ON COLUMN ai_generation_records.rating IS '评分(1-5)';
 COMMENT ON TABLE ai_generation_records IS 'AI生成记录表';
 
--- 提示词模板表
 CREATE TABLE IF NOT EXISTS prompt_templates (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -60,7 +58,6 @@ COMMENT ON COLUMN prompt_templates.status IS '状态: 0-禁用, 1-启用';
 COMMENT ON COLUMN prompt_templates.use_count IS '使用次数';
 COMMENT ON TABLE prompt_templates IS '提示词模板表';
 
--- updated_at 自动更新触发器
 CREATE OR REPLACE FUNCTION prompt_templates_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

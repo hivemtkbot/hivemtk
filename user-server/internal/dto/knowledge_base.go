@@ -1,16 +1,5 @@
 package dto
 
-// knowledge_base.go 知识库 + 智能体知识库绑定 + 渠道智能体绑定 DTO
-//
-// 五层架构归属: L5 横向 DTO 层
-// 设计依据: 强 1对1 改造 (知识库管理)
-//
-// DTO 三件套:
-//   - KnowledgeBase     知识库主表 DTO (避免直接暴露 model)
-//   - AgentKBBinding    智能体 × 知识库 绑定 DTO
-//   - ChannelBinding    渠道账号 × 智能体 绑定 DTO (强 1对1)
-//
-// 所有 DTO 均不包含业务方法, 仅为数据传输结构 (与五层架构 §三 DTO 层职责一致)
 
 // KnowledgeBaseType 知识库类型 (与 model.KnowledgeBaseType 保持一致)
 const (
@@ -42,10 +31,10 @@ func IsValidKBTypeDTO(t string) bool {
 type KnowledgeBase struct {
 	ID           uint   `json:"id"`
 	KBCode       string `json:"kb_code"`
-	Type         string `json:"type"` // faq / rag / sop
+	Type         string `json:"type"` 
 	Name         string `json:"name"`
 	Description  string `json:"description"`
-	OwnerType    string `json:"owner_type"` // private / shared
+	OwnerType    string `json:"owner_type"` 
 	OwnerAgentID *uint  `json:"owner_agent_id,omitempty"`
 	MemberCount  int    `json:"member_count"`
 	DocCount     int    `json:"doc_count"`
@@ -59,8 +48,8 @@ type AgentKBBinding struct {
 	ID        uint   `json:"id"`
 	AgentID   uint   `json:"agent_id"`
 	KBID      uint   `json:"knowledge_base_id"`
-	KBType    string `json:"kb_type"` // faq / rag / sop (冗余, 加速查询)
-	Role      string `json:"role"`    // primary / reference
+	KBType    string `json:"kb_type"` 
+	Role      string `json:"role"`    
 	Priority  int    `json:"priority"`
 	Enabled   *bool  `json:"enabled,omitempty"`
 	CreatedAt string `json:"created_at,omitempty"`
@@ -89,3 +78,4 @@ const (
 	AgentKBBindingRolePrimary   = "primary"
 	AgentKBBindingRoleReference = "reference"
 )
+

@@ -12,10 +12,10 @@ func toOrderModel(draft *OrderDraft, priceStr string) *model.Order {
 		return nil
 	}
 	return &model.Order{
-		// ID 由 BeforeCreate 自动生成 uuid
 		Status:    _type.OrderStatusPending,
 		Price:     priceStr,
-		TgID:      0,                // 不绑定 TG ID（草稿来源可以是任意渠道）
-		AccountID: draft.CustomerID, // AccountID 字段用于存储 customerID
+		TgID:      0,                
+		AccountID: draft.CustomerID, 
 	}
 }
+

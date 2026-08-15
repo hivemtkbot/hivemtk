@@ -51,7 +51,6 @@ func (c *BatchImportController) ImportFile(ctx *gin.Context) {
 		return
 	}
 
-	// 校验文件大小限制 50MB
 	if fileHeader.Size > 50*1024*1024 {
 		response.Error(ctx, http.StatusBadRequest, "文件大小超过 50MB 限制")
 		return
@@ -70,7 +69,6 @@ func (c *BatchImportController) ImportFile(ctx *gin.Context) {
 		return
 	}
 
-	// 转换为对外响应
 	resp := &ImportResult{
 		ImportType: string(result.ImportType),
 		Total:      result.Total,
@@ -99,7 +97,6 @@ func (c *BatchImportController) DownloadTemplate(ctx *gin.Context) {
 		format = "csv"
 	}
 
-	// 目前只支持 CSV 格式模板下载
 	tmpl, err := c.svc.GetTemplate(service.ImportType(importType))
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, "获取模板失败："+err.Error())
@@ -150,7 +147,6 @@ func NewBatchExportController() *BatchExportController {
 
 // ExportData 导出数据
 func (c *BatchExportController) ExportData(ctx *gin.Context) {
-	// 单租户模式：无需商户检查
 	_ = ctx
 
 	exportType := ctx.PostForm("type")
@@ -163,7 +159,6 @@ func (c *BatchExportController) ExportData(ctx *gin.Context) {
 		format = "csv"
 	}
 
-	// 获取 ID 筛选
 	idsStr := ctx.PostForm("ids")
 	var ids []string
 	if idsStr != "" {
@@ -210,7 +205,6 @@ type BatchDeleteRequest struct {
 
 // BatchDelete 批量删除
 func (c *BatchOperationController) BatchDelete(ctx *gin.Context) {
-	// 单租户模式：无需商户检查
 	_ = ctx
 
 	var req BatchDeleteRequest
@@ -244,7 +238,6 @@ type BatchUpdateRequest struct {
 
 // BatchUpdate 批量更新
 func (c *BatchOperationController) BatchUpdate(ctx *gin.Context) {
-	// 单租户模式：无需商户检查
 	_ = ctx
 
 	var req BatchUpdateRequest
@@ -267,7 +260,6 @@ func (c *BatchOperationController) BatchUpdate(ctx *gin.Context) {
 		Fields: req.Fields,
 	})
 	if err != nil {
-		// 区分业务错误与系统错误：业务错误返回 400
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "更新字段不能为空") || strings.Contains(errMsg, "无可更新字段") {
 			response.Error(ctx, http.StatusBadRequest, errMsg)
@@ -369,7 +361,6 @@ func (c *BatchOperationController) Preview(ctx *gin.Context) {
 		return
 	}
 
-	// 校验操作类型
 	validOps := map[string]bool{
 		"import": true, "export": true, "delete": true, "update": true,
 	}
@@ -378,7 +369,6 @@ func (c *BatchOperationController) Preview(ctx *gin.Context) {
 		return
 	}
 
-	// 校验数据类型
 	validTypes := map[string]bool{
 		"clue": true, "user": true, "account": true,
 	}
@@ -387,7 +377,6 @@ func (c *BatchOperationController) Preview(ctx *gin.Context) {
 		return
 	}
 
-	// 对于删除/更新/导出操作，需要提供 IDs
 	if (req.OperationType == "delete" || req.OperationType == "update" || req.OperationType == "export") && len(req.IDs) == 0 {
 		response.Error(ctx, http.StatusBadRequest, "请选择要操作的记录")
 		return
@@ -400,3 +389,4 @@ func (c *BatchOperationController) Preview(ctx *gin.Context) {
 		"preview":        true,
 	}, "预览成功")
 }
+

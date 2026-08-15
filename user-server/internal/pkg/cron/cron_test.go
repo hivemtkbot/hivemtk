@@ -21,9 +21,7 @@ func TestGetTaskManager(t *testing.T) {
 func TestTaskManager_AddTask(t *testing.T) {
 	mgr := GetTaskManager()
 
-	// Test adding a task
 	entryID, err := mgr.AddTask("* * * * * *", func() {
-		// Empty task
 	})
 	if err != nil {
 		t.Fatalf("AddTask failed: %v", err)
@@ -36,24 +34,19 @@ func TestTaskManager_AddTask(t *testing.T) {
 func TestTaskManager_RemoveTask(t *testing.T) {
 	mgr := GetTaskManager()
 
-	// Add a task
 	entryID, err := mgr.AddTask("* * * * * *", func() {
-		// Empty task
 	})
 	if err != nil {
 		t.Fatalf("AddTask failed: %v", err)
 	}
 
-	// Remove the task
 	mgr.RemoveTask(entryID)
 }
 
 func TestTaskManager_AddTaskWithInvalidSpec(t *testing.T) {
 	mgr := GetTaskManager()
 
-	// Test adding a task with invalid cron spec
 	_, err := mgr.AddTask("invalid spec", func() {
-		// Empty task
 	})
 	if err == nil {
 		t.Error("Expected error for invalid cron spec")
@@ -63,7 +56,6 @@ func TestTaskManager_AddTaskWithInvalidSpec(t *testing.T) {
 func TestTaskManager_ConcurrentAccess(t *testing.T) {
 	mgr := GetTaskManager()
 
-	// Add multiple tasks concurrently
 	done := make(chan bool, 10)
 	for i := 0; i < 10; i++ {
 		go func() {
@@ -79,14 +71,12 @@ func TestTaskManager_ConcurrentAccess(t *testing.T) {
 		}()
 	}
 
-	// Wait for all goroutines to complete
 	for i := 0; i < 10; i++ {
 		<-done
 	}
 }
 
 func TestGetTaskManager_Singleton(t *testing.T) {
-	// GetTaskManager should return the same instance
 	mgr1 := GetTaskManager()
 	mgr2 := GetTaskManager()
 
@@ -119,7 +109,6 @@ func TestTaskManager_AddTaskAndVerify(t *testing.T) {
 		t.Fatalf("AddTask failed: %v", err)
 	}
 
-	// Wait for the task to execute
 	time.Sleep(1100 * time.Millisecond)
 
 	mu.Lock()
@@ -138,7 +127,6 @@ func TestTaskManager_MultipleTasks(t *testing.T) {
 	executionCount := 0
 	var mu sync.Mutex
 
-	// Add multiple tasks
 	for i := 0; i < 5; i++ {
 		_, err := mgr.AddTask("* * * * * *", func() {
 			mu.Lock()
@@ -150,7 +138,6 @@ func TestTaskManager_MultipleTasks(t *testing.T) {
 		}
 	}
 
-	// Wait for tasks to execute
 	time.Sleep(1100 * time.Millisecond)
 
 	mu.Lock()
@@ -165,12 +152,12 @@ func TestCronSpec_Validity(t *testing.T) {
 	mgr := GetTaskManager()
 
 	validSpecs := []string{
-		"*/1 * * * * *", // 每秒
-		"0 * * * * *",   // 每分钟
-		"0 0 * * * *",   // 每小时
-		"0 0 2 * * *",   // 每天凌晨 2 点
-		"0 0 * * 1-5 *", // 工作日（6 字段）
-		"0 30 8 * * *",  // 每天早上 8:30
+		"*/1 * * * * *", 
+		"0 * * * * *",   
+		"0 0 * * * *",   
+		"0 0 2 * * *",   
+		"0 0 * * 1-5 *", 
+		"0 30 8 * * *",  
 	}
 
 	for _, spec := range validSpecs {
@@ -189,9 +176,9 @@ func TestCronSpec_Invalid(t *testing.T) {
 		"",
 		"invalid",
 		"* * * *",
-		"* * * * *",      // 5 字段（不支持）
-		"60 * * * * *",   // 秒数超出范围
-		"* 25 * * * * *", // 小时数超出范围（6 字段）
+		"* * * * *",      
+		"60 * * * * *",   
+		"* 25 * * * * *", 
 	}
 
 	for _, spec := range invalidSpecs {
@@ -206,6 +193,6 @@ func TestCronSpec_Invalid(t *testing.T) {
 func TestTaskManager_RemoveNonExistentTask(t *testing.T) {
 	mgr := GetTaskManager()
 
-	// Should not panic
 	mgr.RemoveTask(cron.EntryID(99999))
 }
+

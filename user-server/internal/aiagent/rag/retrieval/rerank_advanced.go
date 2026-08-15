@@ -1,26 +1,5 @@
 package ragretrieval
 
-// rerank_advanced.go Re-rank 重排序器（C 域 缺口 #1）
-//
-// 五层架构归属: L4 能力层
-// 设计依据: docs/核心链路优化.md 第十四章 §14.4.5 重排策略
-//
-// 在已有 LocalReranker（rerank.go，调用本地 TEI /rerank）基础上扩展三种重排策略：
-//   a) Cross-Encoder 重排序（通过 RerankerInterface 调用本地推理服务，复用 LocalReranker）
-//   b) RRF 融合（复用 rrf_fusion.go 的 RRFFusion）
-//   c) 混合策略：先 RRF 融合再 Cross-Encoder 重排（默认推荐）
-//
-// 设计原则:
-//   - 接口 Reranker.Rerank(ctx, query, docs, topK) 返回 []RankedDoc
-//   - 提供 DefaultReranker（混合策略），开箱即用
-//   - 缓存优化：相同 query+doc_id 的分数缓存 1 小时（LRU + TTL）
-//   - 限制：topK ≤ 20，docs ≤ 100（超出截断，避免 LLM 调用爆炸）
-//   - 私域独立部署: 无 merchant_id 字段
-//
-// 与已有 LocalReranker 关系:
-//   - LocalReranker（rerank.go）保留为底层"分数评估器"
-//   - 本文件提供更高级别的 Reranker 接口和策略组合
-//   - 不破坏 LocalReranker 已有 API（HybridSearcher 仍依赖 RerankerInterface）
 
 import (
 	"context"
@@ -34,16 +13,13 @@ import (
 	"time"
 )
 
-// ----------------------------------------------------------------------------
-// 类型定义
-// ----------------------------------------------------------------------------
 
 // RetrievedDoc 检索得到的候选文档（含来源/原始分数，便于多路融合）
 type RetrievedDoc struct {
-	ID       string  // 文档/分片 ID（唯一）
-	Content  string  // 文档内容
-	Score    float64 // 原始检索分数（来自向量/BM25/RRF 等）
-	Source   string  // 来源（vector / bm25 / rrf），用于多路融合
+	ID       string  
+	Content  string  
+	Score    float64 
+	Source   string  
 	Metadata map[string]any
 }
 
@@ -51,11 +27,11 @@ type RetrievedDoc struct {
 type RankedDoc struct {
 	ID         string
 	Content    string
-	Score      float64 // 重排后最终分数
-	Rank       int     // 1-based 排名
-	Original   float64 // 原始分数（保留便于对比）
-	Strategy   string  // 命中的重排策略（cross_encoder / rrf / hybrid）
-	Recomputed bool    // 是否真正经过 LLM 评估（false 表示走缓存/降级）
+	Score      float64 
+	Rank       int     
+	Original   float64 
+	Strategy   string  
+	Recomputed bool    
 }
 
 // Reranker 高级别重排接口（C 域）
@@ -64,21 +40,11 @@ type RankedDoc struct {
 //   - RerankerInterface（rerank.go）只做单路打分（LocalReranker 调 TEI /rerank）
 //   - Reranker 在其上封装多策略组合（RRF / Cross-Encoder / Hybrid）+ 缓存 + 限制
 type Reranker interface {
-	// Rerank 对候选文档按与 query 的相关性重排，返回按分数降序的 topK 结果
-	//
-	// 限制:
-	//   - topK ≤ 20（超出截断为 20）
-	//   - len(docs) ≤ 100（超出截断为 100，保留原始前 100 个）
-	//   - docs 为空时返回 nil, nil
 	Rerank(ctx context.Context, query string, docs []RetrievedDoc, topK int) ([]RankedDoc, error)
 
-	// Strategy 返回策略名（cross_encoder / rrf / hybrid）
 	Strategy() string
 }
 
-// ----------------------------------------------------------------------------
-// 缓存：相同 query+doc_id 的分数缓存 1 小时
-// ----------------------------------------------------------------------------
 
 // rerankScoreCache 进程内 LRU+TTL 缓存：key=queryHash+":"+docID → score
 //
@@ -132,12 +98,10 @@ func (c *rerankScoreCache) Get(key string) (float64, bool) {
 func (c *rerankScoreCache) Set(key string, score float64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	// 已存在则更新（不增加容量）
 	if _, ok := c.items[key]; ok {
 		c.items[key] = rerankCacheEntry{score: score, expires: time.Now().Add(c.ttl)}
 		return
 	}
-	// 容量满时按写入顺序淘汰一个最早的（用 map 迭代取一个最旧 expires）
 	if len(c.items) >= c.capacity {
 		var oldestKey string
 		var oldestExp time.Time
@@ -175,7 +139,7 @@ func (c *rerankScoreCache) Len() int {
 // hashQuery 计算 query 哈希（用作缓存 key 的一部分）
 func hashQuery(query string) string {
 	h := sha256.Sum256([]byte(query))
-	return hex.EncodeToString(h[:])[:16] // 16 字符足够避免碰撞，控制 key 长度
+	return hex.EncodeToString(h[:])[:16] 
 }
 
 // cacheKey 构造缓存键
@@ -183,32 +147,23 @@ func cacheKey(query, docID string) string {
 	return hashQuery(query) + ":" + docID
 }
 
-// ----------------------------------------------------------------------------
-// 策略枚举
-// ----------------------------------------------------------------------------
 
 // RerankStrategy 重排策略
 type RerankStrategy string
 
 const (
-	// StrategyCrossEncoder Cross-Encoder 重排（调用 LLM/dispatcher 给 query-doc 对打分）
 	StrategyCrossEncoder RerankStrategy = "cross_encoder"
-	// StrategyRRF RRF 融合（复用 rrf_fusion.go）
 	StrategyRRF RerankStrategy = "rrf"
-	// StrategyHybrid 混合策略（先 RRF 后 Cross-Encoder，默认推荐）
 	StrategyHybrid RerankStrategy = "hybrid"
 )
 
-// ----------------------------------------------------------------------------
-// Cross-Encoder 评分器（基于已有 LocalReranker）
-// ----------------------------------------------------------------------------
 
 // CrossEncoderScorer 通过 RerankerInterface（LocalReranker）给 query-doc 对打分
 //
 // LocalReranker.Rerank(ctx, query, []RerankDoc) 返回 []RerankResult{ID, Score}
 // 内部走本地 TEI /rerank 端点（bge-reranker-v2-m3 跨编码器）
 type CrossEncoderScorer struct {
-	delegate RerankerInterface // 通常是 *LocalReranker
+	delegate RerankerInterface 
 	cache    *rerankScoreCache
 }
 
@@ -237,7 +192,6 @@ func (s *CrossEncoderScorer) Score(ctx context.Context, query string, docs []Ret
 		return map[string]float64{}, nil
 	}
 
-	// 1) 先查缓存，筛出未命中的 doc
 	scores := make(map[string]float64, len(docs))
 	var pending []RetrievedDoc
 	for _, d := range docs {
@@ -252,7 +206,6 @@ func (s *CrossEncoderScorer) Score(ctx context.Context, query string, docs []Ret
 		return scores, nil
 	}
 
-	// 2) 批量调用 Cross-Encoder（LocalReranker.Rerank 一次性传所有 texts）
 	rerankDocs := make([]RerankDoc, 0, len(pending))
 	for _, d := range pending {
 		rerankDocs = append(rerankDocs, RerankDoc{ID: d.ID, Content: d.Content})
@@ -262,7 +215,6 @@ func (s *CrossEncoderScorer) Score(ctx context.Context, query string, docs []Ret
 		return scores, fmt.Errorf("cross-encoder 调用失败: %w", err)
 	}
 
-	// 3) 回填缓存
 	for _, r := range results {
 		scores[r.ID] = r.Score
 		s.cache.Set(cacheKey(query, r.ID), r.Score)
@@ -270,9 +222,6 @@ func (s *CrossEncoderScorer) Score(ctx context.Context, query string, docs []Ret
 	return scores, nil
 }
 
-// ----------------------------------------------------------------------------
-// 三种 Reranker 实现
-// ----------------------------------------------------------------------------
 
 // CrossEncoderReranker 纯 Cross-Encoder 重排
 type CrossEncoderReranker struct {
@@ -304,7 +253,6 @@ func (r *CrossEncoderReranker) Rerank(ctx context.Context, query string, docs []
 
 	scores, err := r.scorer.Score(ctx, query, docs)
 	if err != nil {
-		// Cross-Encoder 失败：降级为按原始分数排序（不报错，保证可用性）
 		return fallbackByOriginal(docs, topK, string(StrategyCrossEncoder)), nil
 	}
 
@@ -312,7 +260,6 @@ func (r *CrossEncoderReranker) Rerank(ctx context.Context, query string, docs []
 	for _, d := range docs {
 		score, ok := scores[d.ID]
 		if !ok {
-			// 未拿到分数（可能 LocalReranker 跳过该 ID）：保留原始分数
 			score = d.Score
 		}
 		ranked = append(ranked, RankedDoc{
@@ -368,7 +315,6 @@ func (r *RRFReranker) Rerank(ctx context.Context, query string, docs []Retrieved
 		return nil, nil
 	}
 
-	// 1) 按 Source 分组
 	bySource := make(map[string][]RetrievedDoc, 4)
 	for _, d := range docs {
 		src := d.Source
@@ -385,7 +331,6 @@ func (r *RRFReranker) Rerank(ctx context.Context, query string, docs []Retrieved
 	}
 	merged := make(map[string]*entry, len(docs))
 	for src, list := range bySource {
-		// 复制后排序，不影响原切片
 		sorted := make([]RetrievedDoc, len(list))
 		copy(sorted, list)
 		sort.SliceStable(sorted, func(i, j int) bool {
@@ -399,13 +344,11 @@ func (r *RRFReranker) Rerank(ctx context.Context, query string, docs []Retrieved
 				merged[d.ID] = &entry{doc: d, score: rrfScore}
 			}
 		}
-		_ = src // src 不影响公式（rank 仅在路内计算）
+		_ = src 
 	}
 
-	// 3) 转换并排序
 	ranked := make([]RankedDoc, 0, len(merged))
 	for _, e := range merged {
-		// 缓存 RRF 分数（同 query+doc_id 一致）
 		r.cache.Set(cacheKey(query, e.doc.ID), e.score)
 		ranked = append(ranked, RankedDoc{
 			ID:         e.doc.ID,
@@ -420,7 +363,7 @@ func (r *RRFReranker) Rerank(ctx context.Context, query string, docs []Retrieved
 		if ranked[i].Score != ranked[j].Score {
 			return ranked[i].Score > ranked[j].Score
 		}
-		return ranked[i].ID < ranked[j].ID // 同分按 ID 稳定
+		return ranked[i].ID < ranked[j].ID 
 	})
 	return finalize(ranked, topK), nil
 }
@@ -435,7 +378,7 @@ type HybridReranker struct {
 	rrf        *RRFReranker
 	crossEnc   *CrossEncoderReranker
 	cache      *rerankScoreCache
-	crossRatio int // Cross-Encoder 候选数 = min(topK*crossRatio, maxCross)
+	crossRatio int 
 	maxCross   int
 }
 
@@ -474,7 +417,6 @@ func (r *HybridReranker) Rerank(ctx context.Context, query string, docs []Retrie
 		return nil, nil
 	}
 
-	// 1) RRF 粗排：取 topK*3 候选
 	rrfTopN := topK * r.crossRatio
 	if rrfTopN > r.maxCross {
 		rrfTopN = r.maxCross
@@ -484,51 +426,42 @@ func (r *HybridReranker) Rerank(ctx context.Context, query string, docs []Retrie
 	}
 	rrfRanked, err := r.rrf.Rerank(ctx, query, docs, rrfTopN)
 	if err != nil {
-		// RRF 不应失败（纯算法）；若失败则降级为按 Original 排序
 		return fallbackByOriginal(docs, topK, string(StrategyHybrid)), nil
 	}
 	if len(rrfRanked) == 0 {
 		return nil, nil
 	}
 
-	// 2) 无 Cross-Encoder 时直接返回 RRF 结果
 	if r.crossEnc == nil {
-		// 标记策略为 hybrid（即使没走 cross-encoder，保持策略名一致）
 		for i := range rrfRanked {
 			rrfRanked[i].Strategy = string(StrategyHybrid)
 		}
 		return finalize(rrfRanked, topK), nil
 	}
 
-	// 3) Cross-Encoder 精排：把 RRF top N 转换为 RetrievedDoc 送入
 	candidates := make([]RetrievedDoc, 0, len(rrfRanked))
 	for _, rd := range rrfRanked {
 		candidates = append(candidates, RetrievedDoc{
 			ID:      rd.ID,
 			Content: rd.Content,
-			Score:   rd.Score, // RRF 分数作为原始分数
+			Score:   rd.Score, 
 			Source:  "rrf",
 		})
 	}
 	ceRanked, err := r.crossEnc.Rerank(ctx, query, candidates, topK)
 	if err != nil || len(ceRanked) == 0 {
-		// Cross-Encoder 失败：回退 RRF 排序
 		for i := range rrfRanked {
 			rrfRanked[i].Strategy = string(StrategyHybrid)
 		}
 		return finalize(rrfRanked, topK), nil
 	}
 
-	// 4) 标记最终策略为 hybrid（虽然最终分数来自 Cross-Encoder，但整体流程是混合）
 	for i := range ceRanked {
 		ceRanked[i].Strategy = string(StrategyHybrid)
 	}
 	return finalize(ceRanked, topK), nil
 }
 
-// ----------------------------------------------------------------------------
-// DefaultReranker 默认混合策略重排器
-// ----------------------------------------------------------------------------
 
 // DefaultReranker 默认 Reranker（混合策略）
 //
@@ -536,7 +469,7 @@ func (r *HybridReranker) Rerank(ctx context.Context, query string, docs []Retrie
 // 当 LocalReranker 配置不可达（DefaultRerankConfig().Enabled=false）时，
 // 自动降级为纯 RRF 策略（仍可用，只是不走 LLM 精排）
 func DefaultReranker() Reranker {
-	delegate := NewLocalReranker() // 不调 DefaultRerankConfig，避免构造期失败
+	delegate := NewLocalReranker() 
 	cache := newRerankScoreCache(2048, time.Hour)
 	return NewHybridReranker(60, delegate, cache)
 }
@@ -549,9 +482,6 @@ func NewDefaultRerankerWithConfig(delegate RerankerInterface) Reranker {
 	return NewHybridReranker(60, delegate, cache)
 }
 
-// ----------------------------------------------------------------------------
-// 工具函数
-// ----------------------------------------------------------------------------
 
 const (
 	maxTopK             = 20
@@ -613,9 +543,6 @@ func fallbackByOriginal(docs []RetrievedDoc, topK int, strategy string) []Ranked
 	return finalize(ranked, topK)
 }
 
-// ----------------------------------------------------------------------------
-// 适配器：把 Reranker 适配为 RerankerInterface（供 HybridSearcher 使用）
-// ----------------------------------------------------------------------------
 
 // RerankerToInterfaceAdapter 把高级 Reranker 适配为旧的 RerankerInterface
 //
@@ -657,9 +584,6 @@ var (
 	_ RerankerInterface = (*RerankerToInterfaceAdapter)(nil)
 )
 
-// ----------------------------------------------------------------------------
-// 辅助：从 Chunks 转换为 RetrievedDoc
-// ----------------------------------------------------------------------------
 
 // ChunksToRetrievedDocs 把 []Chunk 转为 []RetrievedDoc
 //
@@ -690,7 +614,6 @@ func RankedDocsToChunks(ranked []RankedDoc, original map[string]Chunk) []Chunk {
 	for _, r := range ranked {
 		c, ok := original[r.ID]
 		if !ok {
-			// 未找到原始 chunk，构造一个最小可用 Chunk
 			c = Chunk{ID: r.ID, Content: r.Content}
 		}
 		c.Score = r.Score
@@ -719,3 +642,4 @@ func TrimStrategyName(s string) string {
 	}
 	return strings.TrimSpace(s)
 }
+

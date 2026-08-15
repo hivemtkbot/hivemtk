@@ -50,12 +50,11 @@ func TestGetEnvDir_PathStructure(t *testing.T) {
 
 // Test that directories are created if they don't exist
 func TestGetEnvDir_CreatesDirectory(t *testing.T) {
-	// This test mainly verifies that the function doesn't fail
 	envDir := GetEnvDir()
 
-	// The env dir should be accessible
 	_, err := os.Stat(filepath.Dir(envDir))
 	if err != nil {
 		t.Errorf("Expected env directory to exist, got error: %v", err)
 	}
 }
+

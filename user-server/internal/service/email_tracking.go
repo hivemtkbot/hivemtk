@@ -35,8 +35,8 @@ const emailTrackingDefaultSecret = "marketing-tools-kit-email-tracking-dev-secre
 type EmailTrackingClaim struct {
 	Email  string `json:"email"`
 	JobID  string `json:"job_id"`
-	Type   string `json:"type"`             // open / click
-	Target string `json:"target,omitempty"` // click 事件跳转目标 URL
+	Type   string `json:"type"`             
+	Target string `json:"target,omitempty"` 
 	Expire int64  `json:"expire"`
 	Nonce  string `json:"nonce"`
 }
@@ -84,7 +84,7 @@ func (s *EmailTrackingService) generateToken(ctx context.Context, email, jobID, 
 		JobID:  jobID,
 		Type:   tokenType,
 		Target: target,
-		Expire: time.Now().Add(90 * 24 * time.Hour).Unix(), // 追踪 token 90 天有效
+		Expire: time.Now().Add(90 * 24 * time.Hour).Unix(), 
 		Nonce:  fmt.Sprintf("track-%s", uuid.NewString()),
 	}
 	payload, err := json.Marshal(claim)
@@ -172,7 +172,6 @@ func (s *EmailTrackingService) recordEvent(ctx context.Context, email, jobID, ev
 		return errors.New("event_type 不能为空")
 	}
 
-	// 同一去重维度只记一次：相同 (email,job,type,target) 复用同一 eventID，第二次直接幂等跳过
 	eventID := deriveTrackingEventID(email, jobID, eventType, target)
 	exists, err := s.repo.EventExists(ctx, eventID)
 	if err != nil {
@@ -192,7 +191,6 @@ func (s *EmailTrackingService) recordEvent(ctx context.Context, email, jobID, ev
 		Timestamp: time.Now(),
 	}
 	if err := s.repo.CreateEvent(ctx, event); err != nil {
-		// 并发场景下可能已被其它协程抢先写入，幂等忽略唯一键冲突
 		if exists2, e2 := s.repo.EventExists(ctx, eventID); e2 == nil && exists2 {
 			return nil
 		}
@@ -215,7 +213,6 @@ func (s *EmailTrackingService) GetJobMetrics(ctx context.Context, jobID string) 
 		return nil, errors.New("job_id 不能为空")
 	}
 
-	// 优先读取已聚合的指标
 	metric, err := s.repo.GetJobMetric(ctx, jobID)
 	if err != nil {
 		return nil, err
@@ -224,7 +221,6 @@ func (s *EmailTrackingService) GetJobMetrics(ctx context.Context, jobID string) 
 		metric = &model.EmailJobMetric{JobID: jobID}
 	}
 
-	// 实时统计（保证数据新鲜）
 	opened, err := s.repo.CountUniqueEmailsByJob(ctx, jobID, model.EmailEventTypeOpen)
 	if err != nil {
 		return nil, err
@@ -361,3 +357,4 @@ func round2(v float64) float64 {
 func emailTrackingServiceWithDB(db *gorm.DB) *EmailTrackingService {
 	return NewEmailTrackingService(repository.NewEmailTrackingRepository(db))
 }
+

@@ -138,7 +138,6 @@ func TestParseWithMax_StricterLimit(t *testing.T) {
 		t.Errorf("pageSize = %d, want 50", pageSize)
 	}
 
-	// 51 should be rejected when max=50
 	c = newCtx("page_size=51")
 	_, _, err = ParseWithMax(c, 50)
 	if err != ErrInvalidPageSize {
@@ -147,7 +146,6 @@ func TestParseWithMax_StricterLimit(t *testing.T) {
 }
 
 func TestParseWithMax_InvalidInputClampedToGlobalMax(t *testing.T) {
-	// maxPageSize > MaxPageSize should be clamped
 	c := newCtx("page_size=100")
 	_, pageSize, err := ParseWithMax(c, 500)
 	if err != nil {
@@ -185,3 +183,4 @@ func TestParseOffset_PageOne(t *testing.T) {
 		t.Errorf("limit = %d, want %d", limit, DefaultPageSize)
 	}
 }
+

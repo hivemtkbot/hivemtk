@@ -1,24 +1,10 @@
 package humanize
 
-// tfidf_phrase_test.go TF-IDF 短语提取器单元测试
-//
-// 覆盖：
-//  1. 基本提取流程（多文档）
-//  2. TF-IDF 计算
-//  3. 短语分类（action/empathy/professional/persuasion/general）
-//  4. 停用词过滤
-//  5. 标点过滤
-//  6. 空输入与边界用例
-//  7. top-N 截断
-//  8. 滑窗大小（2-4 字）
 
 import (
 	"testing"
 )
 
-// ============================================================================
-// 基本提取测试
-// ============================================================================
 
 // TestTFIDF_Extract_Basic 基本提取
 func TestTFIDF_Extract_Basic(t *testing.T) {
@@ -32,14 +18,12 @@ func TestTFIDF_Extract_Basic(t *testing.T) {
 	if len(phrases) == 0 {
 		t.Fatal("应提取出短语")
 	}
-	// 验证 TF-IDF 降序
 	for i := 1; i < len(phrases); i++ {
 		if phrases[i-1].TFIDFScore < phrases[i].TFIDFScore {
 			t.Errorf("短语应按 TF-IDF 降序: phrases[%d]=%v < phrases[%d]=%v",
 				i-1, phrases[i-1].TFIDFScore, i, phrases[i].TFIDFScore)
 		}
 	}
-	// 验证 rank 从 1 开始
 	for i, p := range phrases {
 		if p.Rank != i+1 {
 			t.Errorf("phrases[%d].Rank=%d want %d", i, p.Rank, i+1)
@@ -84,15 +68,9 @@ func TestTFIDF_Extract_TopNTruncation(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// TF-IDF 计算测试
-// ============================================================================
 
 // TestTFIDF_TFIDFScoreCalculation TF-IDF 计算正确性
 func TestTFIDF_TFIDFScoreCalculation(t *testing.T) {
-	// 3 个文档，"成分" 出现在 1 个文档中
-	// TF=1, DF=1, N=3, IDF=log(3/1)≈1.0986
-	// TF-IDF = 1 * 1.0986 ≈ 1.0986
 	messages := []ChampionMessage{
 		{Content: "成分是关键"},
 		{Content: "测试文档二"},
@@ -117,7 +95,6 @@ func TestTFIDF_TFIDFScoreCalculation(t *testing.T) {
 	if found.DF != 1 {
 		t.Errorf("'成分' DF=%d want 1", found.DF)
 	}
-	// TF-IDF ≈ 1.0986
 	if !approxEqualTol(found.TFIDFScore, 1.0986, 1e-3) {
 		t.Errorf("'成分' TF-IDF=%v want ≈ 1.0986", found.TFIDFScore)
 	}
@@ -125,7 +102,6 @@ func TestTFIDF_TFIDFScoreCalculation(t *testing.T) {
 
 // TestTFIDF_DocumentFrequency DF 计算
 func TestTFIDF_DocumentFrequency(t *testing.T) {
-	// "测试" 出现在 3 个文档中，总文档数 4 → IDF = log(4/3) ≈ 0.288
 	messages := []ChampionMessage{
 		{Content: "测试一"},
 		{Content: "测试二"},
@@ -147,7 +123,6 @@ func TestTFIDF_DocumentFrequency(t *testing.T) {
 	if found.DF != 3 {
 		t.Errorf("'测试' DF=%d want 3", found.DF)
 	}
-	// IDF = log(4/3) ≈ 0.288，TF-IDF > 0 应保留
 	if found.TFIDFScore <= 0 {
 		t.Errorf("'测试' TF-IDF=%v 应 > 0", found.TFIDFScore)
 	}
@@ -170,9 +145,6 @@ func TestTFIDF_DocumentFrequency_AllDocuments(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 短语分类测试
-// ============================================================================
 
 // TestTFIDF_ClassifyPhrase 短语分类
 func TestTFIDF_ClassifyPhrase(t *testing.T) {
@@ -215,19 +187,14 @@ func TestTFIDF_Extract_PhraseTypeInResult(t *testing.T) {
 	for _, p := range phrases {
 		typeCount[p.PhraseType]++
 	}
-	// 至少有一种分类
 	if len(typeCount) == 0 {
 		t.Error("应至少有一种短语分类")
 	}
 }
 
-// ============================================================================
-// 停用词与标点过滤测试
-// ============================================================================
 
 // TestTFIDF_StopWordFilter 停用词过滤
 func TestTFIDF_StopWordFilter(t *testing.T) {
-	// "的" 是停用词，开头的短语应被过滤
 	messages := []ChampionMessage{
 		{Content: "的产品"},
 		{Content: "的产品"},
@@ -262,7 +229,7 @@ func TestContainsPunct(t *testing.T) {
 		{"a，b", true},
 		{"a；b", true},
 		{"a:b", true},
-		{"a b", true}, // 空格也算
+		{"a b", true}, 
 	}
 	for _, tt := range tests {
 		got := containsPunct(tt.input)
@@ -302,7 +269,7 @@ func TestContainsSubstring(t *testing.T) {
 		{"hello world", "world", true},
 		{"hello world", "hello", true},
 		{"hello world", "o w", true},
-		{"hello", "hello world", false}, // sub 比 s 长
+		{"hello", "hello world", false}, 
 		{"hello", "", false},
 		{"你好世界", "好世", true},
 		{"你好世界", "世界", true},
@@ -317,19 +284,14 @@ func TestContainsSubstring(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 滑窗大小测试
-// ============================================================================
 
 // TestTFIDF_SlidingWindowSize 2-4 字滑窗
 func TestTFIDF_SlidingWindowSize(t *testing.T) {
-	// 单个长文档
 	messages := []ChampionMessage{
 		{Content: "成分是烟酰胺保湿提亮肤色"},
 	}
 	extractor := NewTFIDFPhraseExtractor()
 	phrases := extractor.Extract(messages, 100)
-	// 所有短语长度应在 [2, 4]
 	for _, p := range phrases {
 		runeCount := len([]rune(p.Phrase))
 		if runeCount < 2 || runeCount > 4 {
@@ -341,19 +303,15 @@ func TestTFIDF_SlidingWindowSize(t *testing.T) {
 // TestTFIDF_Extract_ShortText 短文本（< 2 字）
 func TestTFIDF_Extract_ShortText(t *testing.T) {
 	messages := []ChampionMessage{
-		{Content: "a"}, // 单字符
+		{Content: "a"}, 
 	}
 	extractor := NewTFIDFPhraseExtractor()
 	phrases := extractor.Extract(messages, 10)
-	// 单字符无法形成 2-4 字短语
 	if len(phrases) != 0 {
 		t.Errorf("单字符应无短语, got %d", len(phrases))
 	}
 }
 
-// ============================================================================
-// 多样化文档测试
-// ============================================================================
 
 // TestTFIDF_Extract_RealisticScenario 真实销冠对话场景
 func TestTFIDF_Extract_RealisticScenario(t *testing.T) {
@@ -369,7 +327,6 @@ func TestTFIDF_Extract_RealisticScenario(t *testing.T) {
 	if len(phrases) == 0 {
 		t.Fatal("应提取出短语")
 	}
-	// top 短语应有较高的 TF-IDF
 	if phrases[0].TFIDFScore <= 0 {
 		t.Errorf("top-1 短语 TF-IDF 应 > 0, got %v", phrases[0].TFIDFScore)
 	}
@@ -379,3 +336,4 @@ func TestTFIDF_Extract_RealisticScenario(t *testing.T) {
 			phrases[i].Rank, phrases[i].Phrase, phrases[i].TF, phrases[i].DF, phrases[i].TFIDFScore, phrases[i].PhraseType)
 	}
 }
+

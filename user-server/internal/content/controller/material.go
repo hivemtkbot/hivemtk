@@ -22,7 +22,6 @@ func NewMaterialController(service service.MaterialService) *MaterialController 
 
 // GetMaterialList 获取素材列表
 func (c *MaterialController) GetMaterialList(ctx *gin.Context) {
-	// 获取查询参数
 	categoryID := ctx.Query("category_id")
 	if categoryID == "" {
 		categoryID = ctx.Query("categoryId")
@@ -35,7 +34,6 @@ func (c *MaterialController) GetMaterialList(ctx *gin.Context) {
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
 
-	// 获取用户许可证ID
 	licenseID := ctx.GetString("license_id")
 	if licenseID == "" {
 		response.Error(ctx, http.StatusUnauthorized, "未授权访问")
@@ -119,21 +117,18 @@ func (c *MaterialController) GetMaterialStats(ctx *gin.Context) {
 
 // UploadMaterial 上传素材
 func (c *MaterialController) UploadMaterial(ctx *gin.Context) {
-	// 获取用户许可证ID
 	licenseID := ctx.GetString("license_id")
 	if licenseID == "" {
 		response.Error(ctx, http.StatusUnauthorized, "未授权访问")
 		return
 	}
 
-	// 获取分类ID
 	categoryID := ctx.PostForm("category_id")
 	if categoryID == "" {
 		response.Error(ctx, http.StatusBadRequest, "请选择素材分类")
 		return
 	}
 
-	// 获取上传的文件
 	file, header, err := ctx.Request.FormFile("file")
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, "请上传文件")
@@ -141,13 +136,11 @@ func (c *MaterialController) UploadMaterial(ctx *gin.Context) {
 	}
 	defer file.Close()
 
-	// 验证文件大小 (最大10MB)
 	if header.Size > 10*1024*1024 {
 		response.Error(ctx, http.StatusBadRequest, "文件大小不能超过10MB")
 		return
 	}
 
-	// 构建上传请求
 	userID := ""
 	if uid, exists := ctx.Get("user_id"); exists {
 		if v, ok := uid.(uint); ok {
@@ -163,7 +156,6 @@ func (c *MaterialController) UploadMaterial(ctx *gin.Context) {
 		UserID:     userID,
 	}
 
-	// 上传文件
 	material, err := c.service.UploadMaterial(file, header, uploadReq)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "上传失败: "+err.Error())
@@ -293,3 +285,4 @@ func (c *MaterialController) GetMaterialSelector(ctx *gin.Context) {
 	}
 	response.Success(ctx, resp, "success")
 }
+

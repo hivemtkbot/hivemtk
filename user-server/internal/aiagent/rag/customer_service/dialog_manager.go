@@ -27,7 +27,6 @@ func NewInMemoryDialogManager(config *DialogManagerConfig) *InMemoryDialogManage
 	if config == nil {
 		config = &DialogManagerConfig{}
 	}
-	// 兜底默认值,避免 time.NewTicker(0) panic
 	if config.DefaultMaxHistoryLength <= 0 {
 		config.DefaultMaxHistoryLength = 10
 	}
@@ -43,7 +42,6 @@ func NewInMemoryDialogManager(config *DialogManagerConfig) *InMemoryDialogManage
 		config:   config,
 	}
 
-	// 启动会话清理定时任务
 	go manager.startSessionCleanup()
 
 	return manager
@@ -114,7 +112,6 @@ func (dm *InMemoryDialogManager) GetSession(ctx context.Context, sessionID strin
 		return nil, fmt.Errorf("session %s not found", sessionID)
 	}
 
-	// 更新最后活动时间
 	dm.updateLastActivity(sessionID)
 
 	return session, nil
@@ -138,20 +135,16 @@ func (dm *InMemoryDialogManager) AddMessage(ctx context.Context, sessionID strin
 		return fmt.Errorf("session %s is not active", sessionID)
 	}
 
-	// 更新消息时间戳
 	if message.Timestamp.IsZero() {
 		message.Timestamp = time.Now()
 	}
 
-	// 添加消息到会话
 	session.Conversation.Messages = append(session.Conversation.Messages, message)
 
-	// 限制历史消息数量
 	if len(session.Conversation.Messages) > session.Config.MaxHistoryLength {
 		session.Conversation.Messages = session.Conversation.Messages[len(session.Conversation.Messages)-session.Config.MaxHistoryLength:]
 	}
 
-	// 更新会话时间
 	session.UpdatedAt = time.Now()
 	session.Conversation.Metadata["last_message_time"] = message.Timestamp
 
@@ -180,13 +173,11 @@ func (dm *InMemoryDialogManager) GetConversationHistory(ctx context.Context, ses
 
 	copy(history.Messages, session.Conversation.Messages)
 
-	// 应用限制
 	if limit > 0 && limit < len(history.Messages) {
 		startIdx := len(history.Messages) - limit
 		history.Messages = history.Messages[startIdx:]
 	}
 
-	// 更新最后活动时间
 	dm.updateLastActivity(sessionID)
 
 	return history, nil
@@ -210,7 +201,6 @@ func (dm *InMemoryDialogManager) UpdateSessionMetadata(ctx context.Context, sess
 		return fmt.Errorf("session %s not found", sessionID)
 	}
 
-	// 合并元数据
 	if session.Metadata == nil {
 		session.Metadata = make(map[string]any)
 	}
@@ -354,12 +344,10 @@ func (cus *ContextUnderstandingServiceImpl) AnalyzeIntent(ctx context.Context, m
 		return IntentAnalysis{}, errors.New("message cannot be empty")
 	}
 
-	// 简单的意图识别实现
 	intent := IntentAnalysis{
-		Confidence: 0.8, // 默认高置信度
+		Confidence: 0.8, 
 	}
 
-	// 基于关键词的意图识别
 	lowerMsg := toLower(message)
 
 	if containsAny(lowerMsg, []string{"你好", "您好", "hi", "hello"}) {
@@ -380,10 +368,9 @@ func (cus *ContextUnderstandingServiceImpl) AnalyzeIntent(ctx context.Context, m
 	} else {
 		intent.PrimaryIntent = "general_inquiry"
 		intent.Categories = []string{"general"}
-		intent.Confidence = 0.6 // 一般置信度
+		intent.Confidence = 0.6 
 	}
 
-	// 从消息中提取参数
 	parameters := extractParameters(message)
 	intent.Parameters = parameters
 
@@ -402,22 +389,18 @@ func (cus *ContextUnderstandingServiceImpl) ExtractEntities(ctx context.Context,
 		return entities, nil
 	}
 
-	// 简单的实体提取
 	lowerMsg := toLower(message)
 
-	// 提取时间相关实体
 	timeEntities := extractTimeEntities(lowerMsg)
 	if len(timeEntities) > 0 {
 		entities["time"] = timeEntities
 	}
 
-	// 提取商品相关实体
 	productEntities := extractProductEntities(lowerMsg)
 	if len(productEntities) > 0 {
 		entities["product"] = productEntities
 	}
 
-	// 提取品牌相关实体
 	brandEntities := extractBrandEntities(lowerMsg)
 	if len(brandEntities) > 0 {
 		entities["brand"] = brandEntities
@@ -452,7 +435,6 @@ func (cus *ContextUnderstandingServiceImpl) AnalyzeSentiment(ctx context.Context
 func (cus *ContextUnderstandingServiceImpl) UpdateContext(ctx context.Context, currentContext Context, newMessage Message, intent IntentAnalysis) (Context, error) {
 	updatedContext := currentContext
 
-	// 更新话题
 	if cus.config.TopicDetectionEnabled {
 		changed, newTopic, err := cus.DetectTopicChange(ctx, currentContext.Topic, newMessage)
 		if err == nil && changed {
@@ -461,12 +443,10 @@ func (cus *ContextUnderstandingServiceImpl) UpdateContext(ctx context.Context, c
 		}
 	}
 
-	// 更新意图
 	if intent.PrimaryIntent != "" {
 		updatedContext.Intent = intent.PrimaryIntent
 	}
 
-	// 更新实体
 	if len(intent.Parameters) > 0 {
 		if updatedContext.Entities == nil {
 			updatedContext.Entities = make(map[string][]string)
@@ -476,13 +456,11 @@ func (cus *ContextUnderstandingServiceImpl) UpdateContext(ctx context.Context, c
 		}
 	}
 
-	// 更新情感
 	sentiment, err := cus.AnalyzeSentiment(ctx, newMessage.Content)
 	if err == nil {
 		updatedContext.Sentiment = sentiment
 	}
 
-	// 更新最后交互时间
 	updatedContext.LastInteraction = time.Now()
 
 	return updatedContext, nil
@@ -494,13 +472,11 @@ func (cus *ContextUnderstandingServiceImpl) DetectTopicChange(ctx context.Contex
 		return false, currentTopic, nil
 	}
 
-	// 简单的话题检测：如果新消息涉及不同类别的意图，则认为话题改变了
 	intent, err := cus.AnalyzeIntent(ctx, newMessage.Content, []Message{})
 	if err != nil {
 		return false, currentTopic, err
 	}
 
-	// 如果意图类别与当前话题相关性较低，则认为话题改变
 	isTopicChange := !isRelatedTopic(currentTopic, intent.PrimaryIntent)
 
 	if isTopicChange {
@@ -512,23 +488,17 @@ func (cus *ContextUnderstandingServiceImpl) DetectTopicChange(ctx context.Contex
 
 // GetUserPreferences 获取用户偏好
 func (cus *ContextUnderstandingServiceImpl) GetUserPreferences(ctx context.Context, userID, platform string) (map[string]any, error) {
-	// 在实际实现中，这里应该从数据库或缓存中获取用户偏好
-	// 现在返回空的偏好映射
 	return make(map[string]any), nil
 }
 
 // UpdateUserPreferences 更新用户偏好
 func (cus *ContextUnderstandingServiceImpl) UpdateUserPreferences(ctx context.Context, userID, platform string, preferences map[string]any) error {
-	// 在实际实现中，这里应该将用户偏好保存到数据库或缓存中
-	// 现在什么都不做
 	return nil
 }
 
-// Helper functions
 
 // toLower 转换为小写
 func toLower(s string) string {
-	// 简单的转小写实现，实际应用中可能需要更复杂的国际化处理
 	result := ""
 	for _, r := range s {
 		if r >= 'A' && r <= 'Z' {
@@ -585,9 +555,7 @@ func extractParameters(message string) map[string]string {
 
 	lowerMsg := toLower(message)
 
-	// 简单的参数提取示例
 	if idx := findSubstring(lowerMsg, "订单号"); idx != -1 {
-		// 尝试提取订单号
 		orderNum := extractOrderNumber(lowerMsg[idx:])
 		if orderNum != "" {
 			parameters["order_number"] = orderNum
@@ -595,7 +563,6 @@ func extractParameters(message string) map[string]string {
 	}
 
 	if idx := findSubstring(lowerMsg, "商品"); idx != -1 {
-		// 尝试提取商品名
 		productName := extractProductName(lowerMsg[idx:])
 		if productName != "" {
 			parameters["product_name"] = productName
@@ -609,7 +576,6 @@ func extractParameters(message string) map[string]string {
 func extractTimeEntities(message string) []string {
 	var entities []string
 
-	// 简单的时间实体提取
 	timePatterns := []string{"今天", "明天", "后天", "昨天", "前天", "本周", "下周", "本月", "下月"}
 
 	for _, pattern := range timePatterns {
@@ -625,7 +591,6 @@ func extractTimeEntities(message string) []string {
 func extractProductEntities(message string) []string {
 	var entities []string
 
-	// 简单的商品实体提取
 	productKeywords := []string{"裙子", "衣服", "鞋子", "包包", "手机", "电脑", "书籍", "食品"}
 
 	for _, keyword := range productKeywords {
@@ -641,7 +606,6 @@ func extractProductEntities(message string) []string {
 func extractBrandEntities(message string) []string {
 	var entities []string
 
-	// 简单的品牌实体提取
 	brandKeywords := []string{"苹果", "华为", "小米", "耐克", "阿迪达斯", "优衣库", "星巴克"}
 
 	for _, keyword := range brandKeywords {
@@ -734,12 +698,10 @@ func hasAnyWords(text string, words []string) bool {
 
 // isRelatedTopic 检查话题是否相关
 func isRelatedTopic(currentTopic, newIntent string) bool {
-	// 简单的相关性检查
 	if currentTopic == "" {
 		return false
 	}
 
-	// 如果新意图和当前话题属于同一类别，则认为相关
 	salesTopics := []string{"product_inquiry", "order_inquiry", "pricing", "sales"}
 	supportTopics := []string{"complaint_support", "technical_support", "troubleshooting"}
 
@@ -754,10 +716,7 @@ func isRelatedTopic(currentTopic, newIntent string) bool {
 
 // extractOrderNumber 提取订单号
 func extractOrderNumber(text string) string {
-	// 简单的订单号提取（实际应用中需要更复杂的正则表达式）
-	// 这里只是示例
 	if contains(text, "号") {
-		// 实际应用中需要实现更复杂的逻辑
 		return "ORDER123456"
 	}
 	return ""
@@ -765,12 +724,11 @@ func extractOrderNumber(text string) string {
 
 // extractProductName 提取商品名
 func extractProductName(text string) string {
-	// 简单的商品名提取
 	if contains(text, "裙子") {
 		return "裙子"
 	} else if contains(text, "手机") {
 		return "手机"
 	}
-	// 实际应用中需要实现更复杂的逻辑
 	return ""
 }
+

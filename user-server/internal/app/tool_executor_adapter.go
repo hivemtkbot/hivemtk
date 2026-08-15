@@ -9,16 +9,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// ============================================================================
-// ToolExecutorAdapter 适配 *tooluse.ToolExecutor → service.AgentToolExecutor
-// ----------------------------------------------------------------------------
-// 作用：打破 service ↔ tooluse 循环依赖。
-//   - service 包定义 AgentToolExecutor 接口（不依赖 tooluse）
-//   - tooluse 包的 reach_integration_adapter.go 反向依赖 service（持有 *service.XxxIntegrationService）
-//   - 本适配器位于 router 层（依赖 service 和 tooluse 都合法），将两者解耦
-//
-// 调用方：buildSalesEngine 注入到 SalesEngine.SetToolExecutor
-// ============================================================================
 
 // ToolExecutorAdapter 适配器实现
 type ToolExecutorAdapter struct {
@@ -39,7 +29,6 @@ func (a *ToolExecutorAdapter) ListTools() []service.AgentToolDef {
 	fns := a.executor.ListAvailableLLMFunctions()
 	out := make([]service.AgentToolDef, 0, len(fns))
 	for _, fn := range fns {
-		// 将 ToolParameters 结构体转为 map[string]any（OpenAI JSON Schema 格式）
 		paramsMap, err := structToMap(fn.Parameters)
 		if err != nil {
 			logger.Errorf("[ToolExecutorAdapter] 跳过工具 %s：参数序列化失败 err=%v", fn.Name, err)
@@ -60,7 +49,6 @@ func (a *ToolExecutorAdapter) DispatchToolCalls(ctx context.Context, calls []ser
 	if a.executor == nil || len(calls) == 0 {
 		return nil
 	}
-	// 转换 calls
 	llmCalls := make([]tooluse.LLMToolCall, 0, len(calls))
 	for _, c := range calls {
 		llmCalls = append(llmCalls, tooluse.LLMToolCall{
@@ -71,16 +59,13 @@ func (a *ToolExecutorAdapter) DispatchToolCalls(ctx context.Context, calls []ser
 			},
 		})
 	}
-	// 转换 toolCtx
 	tooluseCtx := &tooluse.ToolContext{
 		AgentID:    toolCtx.AgentID,
 		SessionID:  toolCtx.SessionID,
 		CustomerID: toolCtx.CustomerID,
 		Source:     toolCtx.Source,
 	}
-	// 执行
 	results := a.executor.DispatchByLLMToolCall(ctx, llmCalls, tooluseCtx)
-	// 转换结果
 	out := make([]service.AgentToolResult, 0, len(results))
 	for _, r := range results {
 		out = append(out, service.AgentToolResult{
@@ -109,3 +94,4 @@ func structToMap(v any) (map[string]any, error) {
 	}
 	return m, nil
 }
+

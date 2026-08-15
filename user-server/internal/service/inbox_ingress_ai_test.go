@@ -50,7 +50,6 @@ func TestInbox_NewMessageTriggersAI_HistoryDoesNot(t *testing.T) {
 	tr := &fakeAITrigger{}
 	svc.SetAITrigger(tr)
 
-	// 1) 实时新消息（inbound）必须触发 AI
 	inEv := &model.MessageEvent{
 		EventID:        "e1",
 		Channel:        "douyin",
@@ -70,7 +69,6 @@ func TestInbox_NewMessageTriggersAI_HistoryDoesNot(t *testing.T) {
 		t.Fatalf("AI 触发参数错误: %+v", tr)
 	}
 
-	// 2) 历史消息（history）必须不触发 AI，仅落库
 	histEv := &model.MessageEvent{
 		EventID:        "e2",
 		Channel:        "douyin",
@@ -99,8 +97,8 @@ func TestInbox_GroupMessage_TriggersAI_WithMeta(t *testing.T) {
 		EventID:        "g1",
 		Channel:        "xiaohongshu",
 		ConversationID: "group-1",
-		SenderID:       "group-1", // 群聊客户消息 sender_id 聚合为群 id
-		SenderName:     "张三",      // 成员昵称（成员身份）
+		SenderID:       "group-1", 
+		SenderName:     "张三",      
 		Content:        "@客服 帮我查一下订单",
 		IsGroup:        true,
 		GroupID:        "group-1",
@@ -125,7 +123,6 @@ func TestInbox_GroupMessage_TriggersAI_WithMeta(t *testing.T) {
 	if tr.lastMeta.GroupID != "group-1" || tr.lastMeta.GroupName != "产品交流群" {
 		t.Fatalf("群元数据透传错误: %+v", tr.lastMeta)
 	}
-	// 1:1 对照：无群属性时不带群 meta
 	tr.called = 0
 	tr.lastMeta = nil
 	oneEv := &model.MessageEvent{
@@ -166,3 +163,4 @@ func TestIsDuplicateKey(t *testing.T) {
 		})
 	}
 }
+

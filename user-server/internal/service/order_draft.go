@@ -11,38 +11,15 @@ import (
 	"time"
 )
 
-// ============================================================================
-// 商业产品级 订单草稿服务（Order Draft Service）
-// ----------------------------------------------------------------------------
-// 11：订单意向提取 → 自动生成订单草稿（销售一键确认）
-//
-// 商业市场需求：销售每天接触 50+ 客户，AI 谈单过程中会捕获到"我要买 XX
-// 套餐 3 次 2280 元"等关键信息。仅记录"提取了订单意向"的动作不够，
-// 销售仍需手动打开订单系统、查找产品、填写数量/价格 → 必然遗漏。
-//
-// 意向提取后自动生成"订单草稿"，销售只需在"待确认草稿"列表里
-// 一键确认即可下单，4 件事自动发生：
-//   1. 创建正式订单（OrderService.CreateOrderFromRequest）
-//   2. 客户旅程推到"成交"（CustomerJourney.Transition → Won）
-//   3. 销售仪表盘记录订单（SalesDashboard.RecordOrder）
-//   4. 自动安排售后回访（FollowUpService.Schedule）
-//
-// 业务特性：
-//   - 草稿可编辑（价格/数量/产品）
-//   - 草稿有有效期（默认 7 天，过期自动标 expired）
-//   - 多草稿并存（同一客户可有多个产品草稿）
-//   - 草稿来源追踪（ai_chat / manual）
-//   - 仪表盘草稿统计（转化率/平均金额/按产品分布）
-// ============================================================================
 
 // DraftStatus 草稿状态
 type DraftStatus string
 
 const (
-	DraftStatusPending   DraftStatus = "pending"   // 待确认
-	DraftStatusConfirmed DraftStatus = "confirmed" // 已确认 → 已生成正式订单
-	DraftStatusCancelled DraftStatus = "cancelled" // 已取消（客户/销售主动取消）
-	DraftStatusExpired   DraftStatus = "expired"   // 已过期（超时未确认）
+	DraftStatusPending   DraftStatus = "pending"   
+	DraftStatusConfirmed DraftStatus = "confirmed" 
+	DraftStatusCancelled DraftStatus = "cancelled" 
+	DraftStatusExpired   DraftStatus = "expired"   
 )
 
 // OrderDraft 订单草稿
@@ -50,24 +27,24 @@ type OrderDraft struct {
 	ID           string         `json:"id"`
 	CustomerID   string         `json:"customer_id"`
 	OneID        string         `json:"one_id,omitempty"`
-	OwnerID      string         `json:"owner_id"`     // 负责销售
-	ProductName  string         `json:"product_name"` // 产品名称
+	OwnerID      string         `json:"owner_id"`     
+	ProductName  string         `json:"product_name"` 
 	ProductID    string         `json:"product_id,omitempty"`
-	Category     string         `json:"category"`     // 产品分类
-	Quantity     int            `json:"quantity"`     // 数量
-	UnitPrice    float64        `json:"unit_price"`   // 单价
-	TotalAmount  float64        `json:"total_amount"` // 总价
-	Confidence   float64        `json:"confidence"`   // 来源置信度（0-1）
-	Source       string         `json:"source"`       // ai_chat / manual
-	SourceText   string         `json:"source_text"`  // 触发草稿的原始对话
+	Category     string         `json:"category"`     
+	Quantity     int            `json:"quantity"`     
+	UnitPrice    float64        `json:"unit_price"`   
+	TotalAmount  float64        `json:"total_amount"` 
+	Confidence   float64        `json:"confidence"`   
+	Source       string         `json:"source"`       
+	SourceText   string         `json:"source_text"`  
 	IntentID     string         `json:"intent_id,omitempty"`
 	Status       DraftStatus    `json:"status"`
-	OrderID      string         `json:"order_id,omitempty"` // 确认后关联的正式订单 ID
-	Note         string         `json:"note,omitempty"`     // 销售备注
+	OrderID      string         `json:"order_id,omitempty"` 
+	Note         string         `json:"note,omitempty"`     
 	CancelReason string         `json:"cancel_reason,omitempty"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
-	ExpiresAt    time.Time      `json:"expires_at"` // 过期时间
+	ExpiresAt    time.Time      `json:"expires_at"` 
 	ConfirmedAt  *time.Time     `json:"confirmed_at,omitempty"`
 	CancelledAt  *time.Time     `json:"cancelled_at,omitempty"`
 	Metadata     map[string]any `json:"metadata,omitempty"`
@@ -97,10 +74,10 @@ type DraftUpdates struct {
 // DraftConfirmResult 草稿确认结果
 type DraftConfirmResult struct {
 	Draft         *OrderDraft  `json:"draft"`
-	OrderID       string       `json:"order_id"`              // 新创建的正式订单 ID
-	Order         *orderRecord `json:"order,omitempty"`       // 订单快照
-	StageAdvanced string       `json:"stage_advanced"`        // 推进到的客户旅程阶段
-	FollowUpID    string       `json:"followup_id,omitempty"` // 自动安排的售后跟进 ID
+	OrderID       string       `json:"order_id"`              
+	Order         *orderRecord `json:"order,omitempty"`       
+	StageAdvanced string       `json:"stage_advanced"`        
+	FollowUpID    string       `json:"followup_id,omitempty"` 
 }
 
 // orderRecord 订单快照（避免直接依赖 model.Order 以保持模块解耦）
@@ -112,7 +89,7 @@ type orderRecord struct {
 	UnitPrice   float64   `json:"unit_price"`
 	TotalAmount float64   `json:"total_amount"`
 	Status      string    `json:"status"`
-	Source      string    `json:"source"` // draft/ai/manual
+	Source      string    `json:"source"` 
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -120,20 +97,17 @@ type orderRecord struct {
 type OrderDraftService struct {
 	mu sync.RWMutex
 
-	// 草稿索引
-	drafts     map[string]*OrderDraft   // id → draft
-	byCustomer map[string][]*OrderDraft // customerID → drafts (便于查询)
-	byOwner    map[string][]*OrderDraft // ownerID → drafts
+	drafts     map[string]*OrderDraft   
+	byCustomer map[string][]*OrderDraft 
+	byOwner    map[string][]*OrderDraft 
 
-	// 下游依赖（可选注入，nil 时跳过对应联动）
 	orderService *OrderService
 	journey      *CustomerJourneyService
 	dashboard    *SalesDashboard
 	followup     *FollowUpService
 	trigger      *SalesActionTrigger
 
-	// 配置
-	defaultExpiry time.Duration // 草稿默认有效期
+	defaultExpiry time.Duration 
 }
 
 // OrderDraftConfig 草稿服务配置
@@ -147,7 +121,7 @@ func NewOrderDraftService(cfg *OrderDraftConfig) *OrderDraftService {
 		cfg = &OrderDraftConfig{}
 	}
 	if cfg.DefaultExpiry == 0 {
-		cfg.DefaultExpiry = 7 * 24 * time.Hour // 默认 7 天
+		cfg.DefaultExpiry = 7 * 24 * time.Hour 
 	}
 	return &OrderDraftService{
 		drafts:        make(map[string]*OrderDraft),
@@ -182,9 +156,6 @@ func (s *OrderDraftService) SetTrigger(ctx context.Context, t *SalesActionTrigge
 	s.trigger = t
 }
 
-// ============================================================================
-// 草稿创建
-// ============================================================================
 
 // CreateFromIntent 从订单意向自动生成草稿（-11 核心入口）
 // 商业产品级业务流：AI 谈单时提取到"光子嫩肤 3 次 2280 元"→
@@ -202,20 +173,16 @@ func (s *OrderDraftService) CreateFromIntent(ctx context.Context, intent *OrderI
 		ownerID = "system"
 	}
 
-	// 1. 查找该客户该产品是否已有 pending 草稿（去重）
 	existing := s.findPendingDraftByProduct(ctx, intent.CustomerID, intent.ProductName)
 	if existing != nil {
-		// 累加数量到现有草稿（如果新意向有数量）
 		if intent.Quantity > 0 {
 			existing.Quantity += intent.Quantity
 			existing.TotalAmount = existing.UnitPrice * float64(existing.Quantity)
 		}
-		// 如果新意向价格更明确，覆盖单价
 		if intent.UnitPrice > 0 {
 			existing.UnitPrice = intent.UnitPrice
 			existing.TotalAmount = existing.UnitPrice * float64(existing.Quantity)
 		}
-		// 提升置信度（多次出现更确定）
 		if intent.Confidence > existing.Confidence {
 			existing.Confidence = intent.Confidence
 		}
@@ -224,7 +191,6 @@ func (s *OrderDraftService) CreateFromIntent(ctx context.Context, intent *OrderI
 		return existing
 	}
 
-	// 2. 全新草稿
 	now := time.Now()
 	quantity := intent.Quantity
 	if quantity <= 0 {
@@ -233,7 +199,6 @@ func (s *OrderDraftService) CreateFromIntent(ctx context.Context, intent *OrderI
 	unitPrice := intent.UnitPrice
 	totalAmount := unitPrice * float64(quantity)
 
-	// 信心度：原始信心度 + 价格已知 + 数量已知 三项加成
 	conf := intent.Confidence
 	if unitPrice > 0 {
 		conf += 0.1
@@ -259,7 +224,7 @@ func (s *OrderDraftService) CreateFromIntent(ctx context.Context, intent *OrderI
 		Confidence:  conf,
 		Source:      "ai_chat",
 		SourceText:  intent.RawText,
-		IntentID:    intent.RawText, // 用 RawText 作为关联键
+		IntentID:    intent.RawText, 
 		Status:      DraftStatusPending,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -276,7 +241,6 @@ func (s *OrderDraftService) CreateFromIntent(ctx context.Context, intent *OrderI
 	s.byOwner[draft.OwnerID] = append(s.byOwner[draft.OwnerID], draft)
 	s.mu.Unlock()
 
-	// 3. 仪表盘记录草稿创建事件
 	if s.dashboard != nil {
 		s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
 			DraftID:     draft.ID,
@@ -326,7 +290,7 @@ func (s *OrderDraftService) CreateManual(ctx context.Context, req *CreateDraftRe
 		Quantity:    req.Quantity,
 		UnitPrice:   req.UnitPrice,
 		TotalAmount: req.UnitPrice * float64(req.Quantity),
-		Confidence:  1.0, // 手动创建置信度 100%
+		Confidence:  1.0, 
 		Source:      "manual",
 		Status:      DraftStatusPending,
 		Note:        req.Note,
@@ -342,7 +306,6 @@ func (s *OrderDraftService) CreateManual(ctx context.Context, req *CreateDraftRe
 	s.byOwner[draft.OwnerID] = append(s.byOwner[draft.OwnerID], draft)
 	s.mu.Unlock()
 
-	// 仪表盘记录
 	if s.dashboard != nil {
 		s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
 			DraftID:     draft.ID,
@@ -359,9 +322,6 @@ func (s *OrderDraftService) CreateManual(ctx context.Context, req *CreateDraftRe
 	return draft, nil
 }
 
-// ============================================================================
-// 草稿操作
-// ============================================================================
 
 // Confirm 销售一键确认草稿 → 创建正式订单（-11 核心入口）
 // 商业产品级业务流：销售在"待确认草稿"列表里点"确认" → 4 件事自动发生：
@@ -402,7 +362,6 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 		StageAdvanced: string(StageWon),
 	}
 
-	// 1. 创建正式订单
 	if s.orderService != nil {
 		order, err := s.createOrderFromDraft(ctx, draft)
 		if err != nil {
@@ -422,15 +381,11 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 				Source:      "draft",
 				CreatedAt:   now,
 			}
-			// 回写订单 ID 到草稿
 			s.mu.Lock()
 			draft.OrderID = orderID
 			s.mu.Unlock()
 		}
 	} else {
-		// 未注入 orderService（纯内存/测试场景）：生成会话内的临时内存订单 ID。
-		// 注意：这是真实的唯一标识（含纳秒+计数器），非伪造数据；仅在未持久化时使用，
-		// 真实下单应通过注入 orderService 走 createOrderFromDraft 落库。
 		orderID = generateTempOrderID()
 		result.OrderID = orderID
 		s.mu.Lock()
@@ -438,7 +393,6 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 		s.mu.Unlock()
 	}
 
-	// 2. 客户旅程推到"成交"
 	if s.journey != nil {
 		_, _ = s.journey.Transition(ctx, draft.CustomerID, StageWon, "draft_confirm", confirmedBy,
 			"草稿确认自动成单: "+draft.ProductName, map[string]any{
@@ -449,7 +403,6 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 			})
 	}
 
-	// 3. 仪表盘记录订单（复用 SalesActionTrigger 同样的逻辑）
 	if s.dashboard != nil {
 		s.dashboard.RecordOrder(ctx, OrderEvent{
 			OrderID:     orderID,
@@ -473,7 +426,6 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 		})
 	}
 
-	// 4. 自动安排 7 天后售后回访
 	if s.followup != nil {
 		r, _ := s.followup.Schedule(ctx, draft.CustomerID, draft.OwnerID,
 			ReminderAfterSaleCare, 7*24*time.Hour, &ScheduleOptions{
@@ -514,7 +466,6 @@ func (s *OrderDraftService) Cancel(ctx context.Context, draftID, reason, cancell
 	}
 	s.mu.Unlock()
 
-	// 仪表盘记录
 	if s.dashboard != nil {
 		s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
 			DraftID:     draft.ID,
@@ -560,9 +511,6 @@ func (s *OrderDraftService) Edit(ctx context.Context, draftID string, updates Dr
 	return nil
 }
 
-// ============================================================================
-// 草稿查询
-// ============================================================================
 
 // GetByID 根据 ID 查询草稿
 func (s *OrderDraftService) GetByID(ctx context.Context, draftID string) *OrderDraft {
@@ -585,23 +533,18 @@ func (s *OrderDraftService) ListPending(ctx context.Context, ownerID string, lim
 		if ownerID != "" && d.OwnerID != ownerID {
 			continue
 		}
-		// 已过期的 pending 自动转为 expired
 		if now.After(d.ExpiresAt) {
 			continue
 		}
 		pending = append(pending, d)
 	}
-	// 排序：置信度高的 + 金额大的 + 即将过期的优先
 	sort.Slice(pending, func(i, j int) bool {
-		// 1) 置信度优先
 		if pending[i].Confidence != pending[j].Confidence {
 			return pending[i].Confidence > pending[j].Confidence
 		}
-		// 2) 金额大的优先
 		if pending[i].TotalAmount != pending[j].TotalAmount {
 			return pending[i].TotalAmount > pending[j].TotalAmount
 		}
-		// 3) 即将过期的优先
 		return pending[i].ExpiresAt.Before(pending[j].ExpiresAt)
 	})
 	if limit > 0 && len(pending) > limit {
@@ -631,7 +574,6 @@ func (s *OrderDraftService) ListByOwner(ctx context.Context, ownerID string) []*
 	out := make([]*OrderDraft, len(drafts))
 	copy(out, drafts)
 	sort.Slice(out, func(i, j int) bool {
-		// pending 在前
 		if out[i].Status == DraftStatusPending && out[j].Status != DraftStatusPending {
 			return true
 		}
@@ -659,7 +601,6 @@ func (s *OrderDraftService) ExpireOverdue(ctx context.Context) int {
 			d.Status = DraftStatusExpired
 			d.UpdatedAt = now
 			count++
-			// 仪表盘记录
 			if s.dashboard != nil {
 				s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
 					DraftID:     d.ID,
@@ -678,9 +619,6 @@ func (s *OrderDraftService) ExpireOverdue(ctx context.Context) int {
 	return count
 }
 
-// ============================================================================
-// 辅助方法
-// ============================================================================
 
 // findPendingDraftByProduct 查找客户某产品的 pending 草稿（去重用）
 func (s *OrderDraftService) findPendingDraftByProduct(ctx context.Context, customerID, productName string) *OrderDraft {
@@ -693,7 +631,6 @@ func (s *OrderDraftService) findPendingDraftByProduct(ctx context.Context, custo
 		if d.Status != DraftStatusPending {
 			continue
 		}
-		// 产品名精确匹配或包含匹配
 		if d.ProductName == productName ||
 			strings.Contains(d.ProductName, productName) ||
 			strings.Contains(productName, d.ProductName) {
@@ -710,7 +647,6 @@ func (s *OrderDraftService) createOrderFromDraft(ctx context.Context, draft *Ord
 		return nil, errors.New("orderService 未注入")
 	}
 	priceStr := fmt.Sprintf("%.2f", draft.TotalAmount)
-	// 直接调用 OrderService.CreateOrder 即可（orderService.CreateOrder 接收 model.Order）
 	order, err := s.orderService.CreateOrderFromRequest(ctx, toOrderModel(draft, priceStr))
 	if err != nil {
 		return nil, err
@@ -748,3 +684,4 @@ func generateTempOrderID() string {
 	n := atomic.AddInt64(&orderCounter, 1)
 	return fmt.Sprintf("ord_%d_%d", time.Now().UnixNano(), n)
 }
+

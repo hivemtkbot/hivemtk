@@ -68,3 +68,4 @@ func (c *PerformanceTestController) ListResults(ctx *gin.Context) {
 	}
 	response.SuccessWithPage(ctx, list, int64(page), int64(pageSize), total)
 }
+

@@ -35,14 +35,10 @@ func setupGinEngineForShortLink() *gin.Engine {
 	return gin.New()
 }
 
-// ============================================================================
-// Create 方法测试
-// ============================================================================
 
 // TestShortLinkController_Create_BasicSuccess 测试创建短链基本成功场景
 func TestShortLinkController_Create_BasicSuccess(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -161,7 +157,6 @@ func TestShortLinkController_Create_InvalidURL(t *testing.T) {
 // TestShortLinkController_Create_DuplicateShortCode 测试重复短码
 func TestShortLinkController_Create_DuplicateShortCode(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -173,7 +168,6 @@ func TestShortLinkController_Create_DuplicateShortCode(t *testing.T) {
 	router := setupGinEngineForShortLink()
 	router.POST("/shortlinks", ctrl.Create)
 
-	// 先创建一个短链
 	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "duplicate",
 		OriginalURL: "https://www.example.com/first",
@@ -181,7 +175,6 @@ func TestShortLinkController_Create_DuplicateShortCode(t *testing.T) {
 		DomainID:    1,
 	})
 
-	// 尝试创建相同短码的短链
 	createReq := dto.CreateShortLinkRequest{
 		ShortCode:   "duplicate",
 		OriginalURL: "https://www.example.com/second",
@@ -209,7 +202,7 @@ func TestShortLinkController_Create_InvalidDomain(t *testing.T) {
 	createReq := dto.CreateShortLinkRequest{
 		ShortCode:   "abc123",
 		OriginalURL: "https://www.example.com",
-		DomainID:    999, // 不存在的域名 ID
+		DomainID:    999, 
 	}
 	body, _ := json.Marshal(createReq)
 
@@ -218,7 +211,6 @@ func TestShortLinkController_Create_InvalidDomain(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 域名不存在时 service 报"记录不存在"业务错误，走 HandleDBError 转为 404
 	if w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status Internal Server Error or Not Found, got %d", w.Code)
 	}
@@ -227,7 +219,6 @@ func TestShortLinkController_Create_InvalidDomain(t *testing.T) {
 // TestShortLinkController_Create_WithPassword 测试创建带密码的短链
 func TestShortLinkController_Create_WithPassword(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -260,7 +251,6 @@ func TestShortLinkController_Create_WithPassword(t *testing.T) {
 // TestShortLinkController_Create_WithExpireTime 测试创建带过期时间的短链
 func TestShortLinkController_Create_WithExpireTime(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -318,7 +308,6 @@ func TestShortLinkController_Create_WithoutDomain(t *testing.T) {
 // TestShortLinkController_Create_LongURL 测试超长 URL
 func TestShortLinkController_Create_LongURL(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -329,7 +318,6 @@ func TestShortLinkController_Create_LongURL(t *testing.T) {
 	router := setupGinEngineForShortLink()
 	router.POST("/shortlinks", ctrl.Create)
 
-	// 创建一个较长的有效 URL
 	longURL := "https://www.example.com/" + string(bytes.Repeat([]byte("a"), 500))
 
 	createReq := dto.CreateShortLinkRequest{
@@ -353,7 +341,6 @@ func TestShortLinkController_Create_LongURL(t *testing.T) {
 // TestShortLinkController_Create_SpecialCharacters 测试特殊字符
 func TestShortLinkController_Create_SpecialCharacters(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -386,7 +373,6 @@ func TestShortLinkController_Create_SpecialCharacters(t *testing.T) {
 // TestShortLinkController_Create_UnicodeCharacters 测试 Unicode 字符
 func TestShortLinkController_Create_UnicodeCharacters(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -419,7 +405,6 @@ func TestShortLinkController_Create_UnicodeCharacters(t *testing.T) {
 // TestShortLinkController_Create_VeryLongTitle 测试超长标题
 func TestShortLinkController_Create_VeryLongTitle(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -433,7 +418,7 @@ func TestShortLinkController_Create_VeryLongTitle(t *testing.T) {
 	createReq := dto.CreateShortLinkRequest{
 		ShortCode:   "long-title-test",
 		OriginalURL: "https://www.example.com",
-		Title:       string(bytes.Repeat([]byte("a"), 255)), // 最大长度标题
+		Title:       string(bytes.Repeat([]byte("a"), 255)), 
 		DomainID:    1,
 	}
 	body, _ := json.Marshal(createReq)
@@ -448,14 +433,10 @@ func TestShortLinkController_Create_VeryLongTitle(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Update 方法测试
-// ============================================================================
 
 // TestShortLinkController_Update_BasicSuccess 测试更新短链基本成功
 func TestShortLinkController_Update_BasicSuccess(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -466,7 +447,6 @@ func TestShortLinkController_Update_BasicSuccess(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 先创建短链
 	link, _ := svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "abc123",
 		OriginalURL: "https://www.example.com/original",
@@ -530,7 +510,7 @@ func TestShortLinkController_Update_IDMismatch(t *testing.T) {
 	router.PUT("/shortlinks/:id", ctrl.Update)
 
 	updateReq := dto.UpdateShortLinkRequest{
-		ID:          999, // 与 URL 中的 ID 不匹配
+		ID:          999, 
 		ShortCode:   "abc",
 		OriginalURL: "https://example.com",
 	}
@@ -602,7 +582,7 @@ func TestShortLinkController_Update_EmptyID(t *testing.T) {
 	router.PUT("/shortlinks/:id", ctrl.Update)
 
 	updateReq := dto.UpdateShortLinkRequest{
-		ID:          0, // 空 ID
+		ID:          0, 
 		ShortCode:   "abc",
 		OriginalURL: "https://example.com",
 	}
@@ -613,7 +593,6 @@ func TestShortLinkController_Update_EmptyID(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// ID=0 时 binding:"required" 直接返回 400；其他无效 ID 在服务层抛错
 	if w.Code != http.StatusBadRequest && w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound && w.Code != http.StatusOK {
 		t.Errorf("Expected 200/400/404/500, got %d. Body: %s", w.Code, w.Body.String())
 	}
@@ -626,7 +605,6 @@ func TestShortLinkController_Update_InvalidURL(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 先创建短链
 	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "abc123",
 		OriginalURL: "https://www.example.com",
@@ -656,7 +634,6 @@ func TestShortLinkController_Update_InvalidURL(t *testing.T) {
 // TestShortLinkController_Update_DisabledStatus 测试更新为禁用状态
 func TestShortLinkController_Update_DisabledStatus(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -667,7 +644,6 @@ func TestShortLinkController_Update_DisabledStatus(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 先创建短链
 	link, _ := svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "to-disable",
 		OriginalURL: "https://www.example.com",
@@ -688,8 +664,8 @@ func TestShortLinkController_Update_DisabledStatus(t *testing.T) {
 	}
 	updateReq := dto.UpdateShortLinkRequest{
 		ID:          link.ID,
-		OriginalURL: "https://www.example.com", // Required field
-		Status:      2,                         // 禁用状态
+		OriginalURL: "https://www.example.com", 
+		Status:      2,                         
 	}
 	body, _ := json.Marshal(updateReq)
 
@@ -703,14 +679,10 @@ func TestShortLinkController_Update_DisabledStatus(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Delete 方法测试
-// ============================================================================
 
 // TestShortLinkController_Delete_BasicSuccess 测试删除短链基本成功
 func TestShortLinkController_Delete_BasicSuccess(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -721,7 +693,6 @@ func TestShortLinkController_Delete_BasicSuccess(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 先创建短链
 	link, _ := svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "to-delete",
 		OriginalURL: "https://www.example.com",
@@ -813,14 +784,10 @@ func TestShortLinkController_Delete_NegativeID(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// GetByID 方法测试
-// ============================================================================
 
 // TestShortLinkController_GetByID_BasicSuccess 测试根据 ID 获取短链基本成功
 func TestShortLinkController_GetByID_BasicSuccess(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -831,7 +798,6 @@ func TestShortLinkController_GetByID_BasicSuccess(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 先创建短链
 	link, _ := svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "abc123",
 		OriginalURL: "https://www.example.com",
@@ -910,7 +876,6 @@ func TestShortLinkController_GetByID_ZeroID(t *testing.T) {
 // TestShortLinkController_GetByID_WithAllFields 测试获取包含所有字段的短链
 func TestShortLinkController_GetByID_WithAllFields(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -952,9 +917,6 @@ func TestShortLinkController_GetByID_WithAllFields(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// GetList 方法测试
-// ============================================================================
 
 // TestShortLinkController_GetList_BasicSuccess 测试获取短链列表基本成功
 func TestShortLinkController_GetList_BasicSuccess(t *testing.T) {
@@ -963,7 +925,6 @@ func TestShortLinkController_GetList_BasicSuccess(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 创建多个短链
 	for i := 1; i <= 5; i++ {
 		svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 			ShortCode:   "code" + string(rune('0'+i)),
@@ -1008,7 +969,6 @@ func TestShortLinkController_GetList_WithShortCodeFilter(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 创建多个短链
 	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "test123",
 		OriginalURL: "https://www.example.com",
@@ -1040,7 +1000,6 @@ func TestShortLinkController_GetList_WithStatusFilter(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 创建多个短链
 	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "active1",
 		OriginalURL: "https://www.example.com",
@@ -1114,7 +1073,6 @@ func TestShortLinkController_GetList_LargePageSize(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 创建多个短链
 	for i := 1; i <= 100; i++ {
 		svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 			ShortCode:   "large" + string(rune(i)),
@@ -1147,7 +1105,6 @@ func TestShortLinkController_GetList_NegativePage(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 应该能处理，可能使用默认值或返回空列表
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK, got %d", w.Code)
 	}
@@ -1165,20 +1122,15 @@ func TestShortLinkController_GetList_NegativePageSize(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 应该能处理，可能使用默认值或返回空列表
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK, got %d", w.Code)
 	}
 }
 
-// ============================================================================
-// AccessShortLink 方法测试
-// ============================================================================
 
 // TestShortLinkController_AccessShortLink_BasicSuccess 测试访问短链基本成功
 func TestShortLinkController_AccessShortLink_BasicSuccess(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -1189,7 +1141,6 @@ func TestShortLinkController_AccessShortLink_BasicSuccess(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 先创建短链
 	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "access-test",
 		OriginalURL: "https://www.example.com/target",
@@ -1278,7 +1229,6 @@ func TestShortLinkController_AccessShortLink_EmptyShortCode(t *testing.T) {
 // TestShortLinkController_AccessShortLink_WithPassword 测试带密码访问
 func TestShortLinkController_AccessShortLink_WithPassword(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -1289,7 +1239,6 @@ func TestShortLinkController_AccessShortLink_WithPassword(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 先创建带密码的短链
 	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "protected-access",
 		OriginalURL: "https://www.example.com/protected",
@@ -1319,7 +1268,6 @@ func TestShortLinkController_AccessShortLink_WithPassword(t *testing.T) {
 // TestShortLinkController_AccessShortLink_WrongPassword 测试错误密码
 func TestShortLinkController_AccessShortLink_WrongPassword(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -1330,7 +1278,6 @@ func TestShortLinkController_AccessShortLink_WrongPassword(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 先创建带密码的短链
 	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "wrong-pass-test",
 		OriginalURL: "https://www.example.com/protected",
@@ -1360,7 +1307,6 @@ func TestShortLinkController_AccessShortLink_WrongPassword(t *testing.T) {
 // TestShortLinkController_AccessShortLink_WithMetadata 测试带元数据访问
 func TestShortLinkController_AccessShortLink_WithMetadata(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -1371,7 +1317,6 @@ func TestShortLinkController_AccessShortLink_WithMetadata(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 先创建短链
 	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "metadata-test",
 		OriginalURL: "https://www.example.com/metadata",
@@ -1406,13 +1351,12 @@ func TestShortLinkController_AccessShortLink_DisabledLink(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 先创建禁用的短链
 	shortLink := &model.ShortLink{
 		ShortCode:   "disabled-access",
 		OriginalURL: "https://www.example.com/disabled",
 		Title:       "Disabled Access Test",
 		DomainID:    1,
-		Status:      2, // 禁用状态
+		Status:      2, 
 	}
 	database.Create(shortLink)
 
@@ -1428,7 +1372,6 @@ func TestShortLinkController_AccessShortLink_DisabledLink(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 禁用的短链应该返回错误
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status Internal Server Error, got %d", w.Code)
 	}
@@ -1437,7 +1380,6 @@ func TestShortLinkController_AccessShortLink_DisabledLink(t *testing.T) {
 // TestShortLinkController_AccessShortLink_ExpiredLink 测试访问过期的短链
 func TestShortLinkController_AccessShortLink_ExpiredLink(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
-	// 预先创建域名池记录
 	database.Create(&model.DomainPool{
 		Domain:  "example.com",
 		Port:    80,
@@ -1448,8 +1390,7 @@ func TestShortLinkController_AccessShortLink_ExpiredLink(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	// 创建已过期的短链
-	expiredTime := time.Now().Add(-24 * time.Hour) // 24 小时前
+	expiredTime := time.Now().Add(-24 * time.Hour) 
 	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "expired-access",
 		OriginalURL: "https://www.example.com/expired",
@@ -1470,15 +1411,11 @@ func TestShortLinkController_AccessShortLink_ExpiredLink(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 过期的短链应该返回错误
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status Internal Server Error, got %d", w.Code)
 	}
 }
 
-// ============================================================================
-// GenerateShortCode 方法测试
-// ============================================================================
 
 // TestShortLinkController_GenerateShortCode_BasicSuccess 测试生成短码基本成功
 func TestShortLinkController_GenerateShortCode_BasicSuccess(t *testing.T) {
@@ -1527,7 +1464,7 @@ func TestShortLinkController_GenerateShortCode_MinLength(t *testing.T) {
 	router.POST("/shortlinks/generate-code", ctrl.GenerateShortCode)
 
 	generateReq := dto.GenerateShortCodeRequest{
-		Length: 4, // 最小长度
+		Length: 4, 
 	}
 	body, _ := json.Marshal(generateReq)
 
@@ -1549,7 +1486,7 @@ func TestShortLinkController_GenerateShortCode_MaxLength(t *testing.T) {
 	router.POST("/shortlinks/generate-code", ctrl.GenerateShortCode)
 
 	generateReq := dto.GenerateShortCodeRequest{
-		Length: 10, // 最大长度
+		Length: 10, 
 	}
 	body, _ := json.Marshal(generateReq)
 
@@ -1571,7 +1508,7 @@ func TestShortLinkController_GenerateShortCode_TooShortLength(t *testing.T) {
 	router.POST("/shortlinks/generate-code", ctrl.GenerateShortCode)
 
 	generateReq := dto.GenerateShortCodeRequest{
-		Length: 2, // 小于最小长度 4
+		Length: 2, 
 	}
 	body, _ := json.Marshal(generateReq)
 
@@ -1593,7 +1530,7 @@ func TestShortLinkController_GenerateShortCode_TooLongLength(t *testing.T) {
 	router.POST("/shortlinks/generate-code", ctrl.GenerateShortCode)
 
 	generateReq := dto.GenerateShortCodeRequest{
-		Length: 15, // 大于最大长度 10
+		Length: 15, 
 	}
 	body, _ := json.Marshal(generateReq)
 
@@ -1619,7 +1556,6 @@ func TestShortLinkController_GenerateShortCode_MultipleGenerations(t *testing.T)
 	}
 	body, _ := json.Marshal(generateReq)
 
-	// 多次生成，验证都能成功返回
 	for i := 0; i < 10; i++ {
 		req, _ := http.NewRequest("POST", "/shortlinks/generate-code", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
@@ -1631,3 +1567,4 @@ func TestShortLinkController_GenerateShortCode_MultipleGenerations(t *testing.T)
 		}
 	}
 }
+

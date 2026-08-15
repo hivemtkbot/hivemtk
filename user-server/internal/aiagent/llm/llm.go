@@ -19,7 +19,7 @@ import (
 type LLMConfig struct {
 	APIKey           string
 	BaseURL          string
-	APIType          string // openai, anthropic, custom, azure
+	APIType          string 
 	Model            string
 	MaxRetries       int
 	RequestTimeout   int
@@ -28,29 +28,18 @@ type LLMConfig struct {
 	TopP             float64
 	FrequencyPenalty float64
 	PresencePenalty  float64
-	ResponseFormat   string // json_object, text
+	ResponseFormat   string 
 	SystemPrompt     string
-	// 用于置信度计算（§15.5.4 LLMEntropy 信号）
-	// - Logprobs: 请求 LLM 返回每个 token 的 log 概率
-	// - TopLogprobs: 返回 top-N 候选 token 的 log 概率（用于计算 TopTokenEntropy）
-	// 实现 chatResponse.choices[0].logprobs 解析。
 	Logprobs    bool
 	TopLogprobs int
-	// ===== 智能体 tool_call 支持 =====
-	// Tools: OpenAI Function Calling 工具定义；非空时 chatRequest 会携带 tools 字段
-	//        并设置 tool_choice=auto（除非 ToolChoice 显式指定）
-	// ToolChoice: "auto"/"none"/"required" 或 "{\"type\":\"function\",\"function\":{\"name\":\"xxx\"}}"
-	//             留空且 Tools 非空时默认 "auto"
 	Tools      []ToolDefinition
 	ToolChoice string
-	// Messages: 多轮对话历史（含 tool 角色回灌工具结果）
-	// 留空时使用 SystemPrompt+Prompt 两段式（向后兼容）
 	Messages []ChatMessage
 }
 
 // ToolDefinition OpenAI 兼容的工具定义
 type ToolDefinition struct {
-	Type     string             `json:"type"` // 固定 "function"
+	Type     string             `json:"type"` 
 	Function ToolFunctionSchema `json:"function"`
 }
 
@@ -58,29 +47,29 @@ type ToolDefinition struct {
 type ToolFunctionSchema struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description"`
-	Parameters  map[string]any `json:"parameters"` // JSON Schema（直接用 map[string]any 灵活透传）
+	Parameters  map[string]any `json:"parameters"` 
 }
 
 // ChatMessage 通用对话消息（支持 user/assistant/tool/system 角色）
 type ChatMessage struct {
-	Role       string     `json:"role"`                   // system / user / assistant / tool
-	Content    string     `json:"content,omitempty"`      // 文本内容（assistant 角色在返回 tool_calls 时可为空）
-	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`   // assistant 角色携带的工具调用
-	ToolCallID string     `json:"tool_call_id,omitempty"` // role=tool 时关联的 tool_call ID
-	Name       string     `json:"name,omitempty"`         // role=tool 时关联的工具名
+	Role       string     `json:"role"`                   
+	Content    string     `json:"content,omitempty"`      
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`   
+	ToolCallID string     `json:"tool_call_id,omitempty"` 
+	Name       string     `json:"name,omitempty"`         
 }
 
 // ToolCall OpenAI 兼容的工具调用结构
 type ToolCall struct {
-	ID       string           `json:"id"`   // 调用 ID（用于回传 tool result 给 LLM）
-	Type     string           `json:"type"` // 固定 "function"
+	ID       string           `json:"id"`   
+	Type     string           `json:"type"` 
 	Function ToolCallFunction `json:"function"`
 }
 
 // ToolCallFunction 工具调用 function 部分
 type ToolCallFunction struct {
-	Name      string `json:"name"`      // 工具名
-	Arguments string `json:"arguments"` // JSON 字符串参数
+	Name      string `json:"name"`      
+	Arguments string `json:"arguments"` 
 }
 
 // LLMServiceInterface LLM服务接口
@@ -116,7 +105,6 @@ func setDefaultHTTPTimeout(d time.Duration) {
 // NewLLMService 创建新的LLM服务
 func NewLLMService() *LLMService {
 	return &LLMService{
-		// 单次 HTTP 超时由 defaultHTTPTimeout 控制（默认 180s，可由配置注入）
 		httpClient: &http.Client{
 			Timeout: defaultHTTPTimeout,
 		},
@@ -134,9 +122,8 @@ type chatRequest struct {
 	PresencePenalty  float64        `json:"presence_penalty,omitempty"`
 	ResponseFormat   map[string]any `json:"response_format,omitempty"`
 	Stream           bool           `json:"stream"`
-	// 智能体 tool_call 字段
-	Tools      []map[string]any `json:"tools,omitempty"`       // OpenAI tools 数组
-	ToolChoice any              `json:"tool_choice,omitempty"` // "auto"/"none"/"required" 或 {type:function,function:{name:xxx}}
+	Tools      []map[string]any `json:"tools,omitempty"`       
+	ToolChoice any              `json:"tool_choice,omitempty"` 
 }
 
 // chatMessage OpenAI 兼容的聊天消息
@@ -144,22 +131,22 @@ type chatRequest struct {
 type chatMessage struct {
 	Role       string         `json:"role"`
 	Content    string         `json:"content,omitempty"`
-	ToolCalls  []chatToolCall `json:"tool_calls,omitempty"`   // assistant 携带的工具调用
-	ToolCallID string         `json:"tool_call_id,omitempty"` // role=tool 时关联的 tool_call ID
-	Name       string         `json:"name,omitempty"`         // role=tool 时关联的工具名
+	ToolCalls  []chatToolCall `json:"tool_calls,omitempty"`   
+	ToolCallID string         `json:"tool_call_id,omitempty"` 
+	Name       string         `json:"name,omitempty"`         
 }
 
 // chatToolCall OpenAI 兼容的 tool_call 结构
 type chatToolCall struct {
-	ID       string           `json:"id"`   // 调用 ID
-	Type     string           `json:"type"` // 固定 "function"
+	ID       string           `json:"id"`   
+	Type     string           `json:"type"` 
 	Function chatToolCallFunc `json:"function"`
 }
 
 // chatToolCallFunc 工具调用 function 部分
 type chatToolCallFunc struct {
 	Name      string `json:"name"`
-	Arguments string `json:"arguments"` // JSON 字符串参数
+	Arguments string `json:"arguments"` 
 }
 
 // chatResponse OpenAI 兼容的聊天响应
@@ -173,11 +160,11 @@ type chatResponse struct {
 		Message struct {
 			Role              string         `json:"role"`
 			Content           string         `json:"content"`
-			ReasoningContent  string         `json:"reasoning,omitempty"`         // 推理模型（如 sensenova-6.7-flash-lite）的链式思考
-			ReasoningContent2 string         `json:"reasoning_content,omitempty"` // DeepSeek-R1 等用此键
-			ToolCalls         []chatToolCall `json:"tool_calls,omitempty"`        // 解析 LLM 返回的 tool_calls
+			ReasoningContent  string         `json:"reasoning,omitempty"`         
+			ReasoningContent2 string         `json:"reasoning_content,omitempty"` 
+			ToolCalls         []chatToolCall `json:"tool_calls,omitempty"`        
 		} `json:"message"`
-		FinishReason string `json:"finish_reason"` // "stop"/"length"/"tool_calls"/"content_filter"
+		FinishReason string `json:"finish_reason"` 
 	} `json:"choices"`
 	Usage struct {
 		PromptTokens     int `json:"prompt_tokens"`
@@ -207,7 +194,6 @@ func applyEnvDefaults(cfg *LLMConfig) {
 		}
 	}
 	if cfg.Model == "" || cfg.Model == "gpt-3.5-turbo" {
-		// 用户通过 LLM_MODEL 指定的模型优先于内置默认（gpt-3.5-turbo 在部分账号已弃用）
 		if v := os.Getenv("LLM_MODEL"); v != "" {
 			cfg.Model = v
 		}
@@ -229,8 +215,6 @@ type GenerateResult struct {
 	Usage        TokenUsage
 }
 
-// TokenUsage 类型定义见 dispatcher.go（同包内共享）。
-// 本文件不重复声明。
 
 // Generate 生成文本回复（向后兼容）。
 //
@@ -321,8 +305,6 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 		reqBody.ResponseFormat = map[string]any{"type": "json_object"}
 	}
 
-	// 序列化 Tools / ToolChoice 到请求体
-	// toolNameMap 记录 合规化名->原始名，用于响应时还原（云端 API 仅接受合规名）
 	toolNameMap := make(map[string]string)
 	if len(config.Tools) > 0 {
 		reqBody.Tools = make([]map[string]any, 0, len(config.Tools))
@@ -348,7 +330,6 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 		if choice == "" {
 			choice = "auto"
 		}
-		// 支持字符串 "auto"/"none"/"required" 或 JSON 对象字符串
 		if choice == "auto" || choice == "none" || choice == "required" {
 			reqBody.ToolChoice = choice
 		} else if strings.HasPrefix(choice, "{") {
@@ -373,10 +354,8 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	// 调试日志：记录 tools 数量
 	logger.Infof("[LLM] request: model=%s tools=%d tool_choice=%v messages=%d body_len=%d config_tools=%d config_toolchoice=%q",
 		config.Model, len(reqBody.Tools), reqBody.ToolChoice, len(messages), len(bodyBytes), len(config.Tools), config.ToolChoice)
-	// DEBUG: 写入带 tools 的请求
 	if len(reqBody.Tools) > 0 {
 		os.WriteFile("/tmp/llm_with_tools.json", bodyBytes, 0644)
 	}
@@ -391,9 +370,6 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 	}
 
 	choice := resp.Choices[0]
-	// 推理模型（sensenova-6.7-flash-lite 等）把最终答案放在 content，但链式思考放在
-	// reasoning/reasoning_content；极少数被 max_tokens 截断时 content 可能为空而 reasoning 有内容。
-	// 此处做兜底：content 为空时回退到 reasoning，避免上层（自学习评分 / Agent 回复）拿到空串。
 	content := choice.Message.Content
 	if content == "" {
 		content = choice.Message.ReasoningContent
@@ -410,11 +386,9 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 			TotalTokens:      resp.Usage.TotalTokens,
 		},
 	}
-	// 解析 tool_calls（finish_reason=tool_calls 时 LLM 要求调用工具）
 	if len(choice.Message.ToolCalls) > 0 {
 		result.ToolCalls = make([]ToolCall, 0, len(choice.Message.ToolCalls))
 		for _, tc := range choice.Message.ToolCalls {
-			// 还原合规化前的原始工具名，保证 Agent 工具分发正确
 			name := tc.Function.Name
 			if orig, ok := toolNameMap[name]; ok {
 				name = orig
@@ -454,11 +428,9 @@ func toChatToolCalls(tcs []ToolCall) []chatToolCall {
 
 // GenerateStructured 生成结构化回复
 func (s *LLMService) GenerateStructured(ctx context.Context, config *LLMConfig, prompt string, responseSchema any) (any, error) {
-	// 追加 JSON 模式指令到提示
 	schemaJSON, _ := json.Marshal(responseSchema)
 	structuredPrompt := fmt.Sprintf("%s\n\n请严格按照以下 JSON Schema 输出响应（仅输出合法 JSON，不要其他说明文字）：\n%s", prompt, string(schemaJSON))
 
-	// 强制使用 JSON 输出
 	cfg := *config
 	if cfg.ResponseFormat != "json_object" {
 		cfg.ResponseFormat = "json_object"
@@ -469,13 +441,11 @@ func (s *LLMService) GenerateStructured(ctx context.Context, config *LLMConfig, 
 		return nil, err
 	}
 
-	// 提取 JSON 子串
 	rawJSON = extractJSON(rawJSON)
 	if rawJSON == "" {
 		return nil, fmt.Errorf("no JSON content in LLM response")
 	}
 
-	// 反序列化为 responseSchema 类型
 	result := responseSchema
 	if result == nil {
 		var generic map[string]any
@@ -504,17 +474,12 @@ func (s *LLMService) callProvider(ctx context.Context, config *LLMConfig, body [
 		}
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
-	// 规范化：去掉可能已存在的 /v1 后缀，避免与环境变量（如 https://api.openai.com/v1）
-	// 拼接出 /v1/v1/chat/completions 双斜杠导致 404。
 	baseURL = strings.TrimSuffix(baseURL, "/v1")
 
-	// OpenAI 兼容接口（OpenAI/Azure/DeepSeek/通义千问/Moonshot 均使用 /v1/chat/completions）
 	endpoint := baseURL + "/v1/chat/completions"
 	if config.APIType == "azure" {
-		// Azure OpenAI 路径不同
 		endpoint = fmt.Sprintf("%s/openai/deployments/%s/chat/completions?api-version=2024-02-01", baseURL, config.Model)
 	} else if config.APIType == "anthropic" {
-		// Anthropic Messages API 路径
 		endpoint = baseURL + "/v1/messages"
 	}
 
@@ -594,8 +559,6 @@ func (s *LLMService) ValidateConfig(config *LLMConfig) error {
 		return fmt.Errorf("config is required")
 	}
 	if config.APIKey == "" {
-		// 本地模型（llama.cpp / mtk-llm）无需密钥；云端缺密钥由请求层返回 401。
-		// 仅做提示性日志，不阻断（优化三：本地优先，默认无密钥）。
 		logger.Warnf("[llm] WARN: APIKey empty for base_url=%s (local model is fine; cloud will 401)", config.BaseURL)
 	}
 	if config.Model == "" {
@@ -611,7 +574,6 @@ func (s *LLMService) ValidateConfig(config *LLMConfig) error {
 		return fmt.Errorf("temperature must be between 0 and 2")
 	}
 	if config.MaxTokens <= 0 {
-		// 推理模型 reasoning 阶段占用较多 token，过小上限会截断到空回复；基线 2048。
 		config.MaxTokens = 2048
 	}
 	return nil
@@ -630,9 +592,6 @@ func (s *LLMService) GetDefaultConfig() *LLMConfig {
 		baseURL = os.Getenv("LLM_BASE_URL")
 	}
 	if baseURL == "" {
-		// 内置本地默认（host 部署走 127.0.0.1; docker 部署由 config-docker.yaml 显式设置 mtk-llm:8207）
-		// 单一源：config.DefaultLLMBaseURLDev（user-server/internal/pkg/utils/config/ports.go）
-		// 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8207 | LLM（llama.cpp）
 		baseURL = config.DefaultLLMBaseURLDev
 	}
 	if model == "" {
@@ -641,9 +600,6 @@ func (s *LLMService) GetDefaultConfig() *LLMConfig {
 		}
 	}
 	if model == "" {
-		// 单一源：config.defaultLLMModel（user-server/internal/pkg/utils/config/server.go）
-		// 文档源：DEVELOPMENT.md §2.4 + config.yaml inference.llm.model
-		// 行为：dev 档默认为 Qwen2.5-1.5B-Instruct（CPU 推理优化档），与 config.yaml 严格对齐
 		model = config.DefaultLLMModel()
 	}
 	if apiKey == "" {
@@ -685,7 +641,6 @@ func extractJSON(s string) string {
 		start = startArr
 	}
 
-	// 找匹配的结束位置
 	openCount := 0
 	openCh := byte(s[start])
 	var closeCh byte
@@ -725,3 +680,4 @@ func extractJSON(s string) string {
 	}
 	return s[start:]
 }
+

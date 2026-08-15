@@ -35,3 +35,4 @@ func FromCustomerRFMModel(rfm *model.CustomerRFM) *dto.CustomerRFMResponse {
 	}
 	return resp
 }
+

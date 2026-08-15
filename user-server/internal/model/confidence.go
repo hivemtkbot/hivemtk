@@ -1,18 +1,5 @@
 package model
 
-// confidence_signal.go 置信度驱动转人工 模型层
-//
-// 五层架构归属: L5 数据层
-// 设计依据: docs/核心链路优化.md 第十五章 §15.3 表结构设计
-//
-// 包含 7 张表对应的 GORM 模型：
-//  1. ConfidenceSignal       - 每次 5 维信号快照
-//  2. ConfidenceCalibration  - 温度缩放校准参数历史
-//  3. HandoffDecision        - 转人工决策记录
-//  4. ThresholdPolicy        - 动态阈值策略配置
-//  5. ABTest                 - A/B 测试配置与统计
-//
-// 私域独立部署: 无 merchant_id 字段
 
 import "time"
 
@@ -147,7 +134,7 @@ func (ABTest) TableName() string { return "ab_tests" }
 type ABTestMetric struct {
 	ID         int64     `gorm:"primaryKey;autoIncrement" json:"id"`
 	TestID     string    `gorm:"column:test_id;size:64;not null;index:idx_abm_test,priority:1" json:"test_id"`
-	Group      string    `gorm:"column:group_name;size:16;not null;index:idx_abm_test,priority:2" json:"group_name"` // control / treatment
+	Group      string    `gorm:"column:group_name;size:16;not null;index:idx_abm_test,priority:2" json:"group_name"` 
 	MetricName string    `gorm:"column:metric_name;size:64;not null;index:idx_abm_test,priority:3" json:"metric_name"`
 	Value      float64   `gorm:"column:value;type:decimal(15,6);not null" json:"value"`
 	CreatedAt  time.Time `gorm:"column:created_at;not null;default:now();index:idx_abm_test,priority:4" json:"created_at"`
@@ -155,3 +142,4 @@ type ABTestMetric struct {
 
 // TableName 表名
 func (ABTestMetric) TableName() string { return "ab_test_metrics" }
+

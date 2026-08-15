@@ -377,3 +377,4 @@ func TestDashboardScreenController_NewDashboardScreenController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

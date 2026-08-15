@@ -82,3 +82,4 @@ func (r *ConversionFunnelRepository) GetClueSourceStats(ctx context.Context, sta
 		Scan(&rows).Error
 	return rows, err
 }
+

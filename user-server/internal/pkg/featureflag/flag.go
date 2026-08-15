@@ -35,9 +35,6 @@ type Flag struct {
 	mu           sync.RWMutex
 	lastReload   time.Time
 
-	// 缓存上一次解析结果, 配合后台轮询实现热加载
-	// resolve() 直接返回缓存, 由 background poller 定期刷新。
-	// 这样业务热路径 (每次 Handle 调用 f.Bool() 数十次) 不会触发重复的 os.Getenv 系统调用。
 	cachedValue bool
 }
 
@@ -59,13 +56,11 @@ var (
 func DefaultManager() *FlagManager {
 	defaultOnce.Do(func() {
 		defaultManager = &FlagManager{flags: make(map[string]*Flag)}
-		// 注册 5 个核心开关 (默认 false)
 		defaultManager.register("parallel", false)
 		defaultManager.register("stream", false)
 		defaultManager.register("layer1", false)
 		defaultManager.register("fallback_chain", false)
 		defaultManager.register("debug_log", false)
-		// 启动后台轮询 goroutine 实现热加载
 		defaultManager.startPoller()
 	})
 	return defaultManager
@@ -80,10 +75,9 @@ func (m *FlagManager) register(name string, defaultValue bool) *Flag {
 		f = &Flag{
 			name:         name,
 			defaultValue: defaultValue,
-			cachedValue:  defaultValue, // 初始值 = default
+			cachedValue:  defaultValue, 
 		}
 		f.lastReload = time.Now()
-		// 首次加载: 立即读一次 env
 		f.cachedValue = f.readEnv()
 		m.flags[name] = f
 	}
@@ -163,7 +157,6 @@ func (f *Flag) readEnv() bool {
 	}
 	b, err := strconv.ParseBool(v)
 	if err != nil {
-		// 容错: "yes" / "no"
 		switch strings.ToLower(v) {
 		case "yes", "y", "on":
 			return true
@@ -238,3 +231,4 @@ func (m *FlagManager) Snapshot() map[string]bool {
 func AllFlagSnapshot() map[string]bool {
 	return DefaultManager().Snapshot()
 }
+

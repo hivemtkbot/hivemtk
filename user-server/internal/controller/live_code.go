@@ -191,20 +191,17 @@ func (c *LiveCodeController) RedirectLiveCode(ctx *gin.Context) {
 		return
 	}
 
-	// 根据短链获取活码
 	liveCode, err := c.liveCodeService.GetByShortLink(context.Background(), code)
 	if err != nil {
 		ctx.String(http.StatusNotFound, "活码不存在")
 		return
 	}
 
-	// 检查活码状态
 	if liveCode.Status != 1 {
 		ctx.String(http.StatusNotFound, "活码已停用")
 		return
 	}
 
-	// 分享活码（增加访问量等）
 	req := &dto.ShareLiveCodeRequest{
 		IPAddress: ctx.ClientIP(),
 		UserAgent: ctx.GetHeader("User-Agent"),
@@ -216,46 +213,38 @@ func (c *LiveCodeController) RedirectLiveCode(ctx *gin.Context) {
 		return
 	}
 
-	// 根据User-Agent判断设备类型，决定重定向到入口链接还是落地链接
 	userAgent := strings.ToLower(ctx.GetHeader("User-Agent"))
 
-	// 如果是微信浏览器，重定向到入口链接
 	if strings.Contains(userAgent, "micromessenger") {
 		ctx.Redirect(http.StatusMovedPermanently, response.EntryLink)
 		return
 	}
 
-	// 其他浏览器重定向到落地链接
 	ctx.Redirect(http.StatusMovedPermanently, response.LandingLink)
 }
 
 // RenderLiveCodePage 渲染活码页面
 func (c *LiveCodeController) RenderLiveCodePage(ctx *gin.Context) {
-	// 获取活码ID
 	idStr := ctx.Param("id")
 
-	// 获取活码信息
 	liveCode, err := c.liveCodeService.GetByID(context.Background(), idStr)
 	if err != nil {
 		ctx.String(http.StatusNotFound, "活码不存在")
 		return
 	}
 
-	// 获取活码统计
 	stats, err := c.liveCodeService.GetStats(context.Background(), idStr)
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "获取活码统计失败")
 		return
 	}
 
-	// 获取二维码数量
 	qrCodes, err := c.liveCodeService.GetQRCodes(context.Background(), idStr)
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "获取二维码列表失败")
 		return
 	}
 
-	// 准备模板数据
 	templateData := &template.LiveCodeTemplateData{
 		ID:          liveCode.ID,
 		Title:       liveCode.Name,
@@ -270,29 +259,24 @@ func (c *LiveCodeController) RenderLiveCodePage(ctx *gin.Context) {
 		QRCount:     len(qrCodes),
 	}
 
-	// 如果有二维码，使用第一个二维码的图片
 	if len(qrCodes) > 0 {
 		templateData.QRImageURL = qrCodes[0].QRImageURL
 	}
 
-	// 创建模板服务
 	templateService := template.NewTemplateService("internal/template")
 
-	// 生成HTML页面
 	html, err := templateService.GenerateLiveCodePage(templateData)
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "生成页面失败")
 		return
 	}
 
-	// 返回HTML页面
 	ctx.Header("Content-Type", "text/html; charset=utf-8")
 	ctx.String(http.StatusOK, html)
 }
 
 // RecordClick 记录点击统计
 func (c *LiveCodeController) RecordClick(ctx *gin.Context) {
-	// 获取活码ID
 	idStr := ctx.Param("id")
 
 	// 获取请求数据
@@ -306,7 +290,6 @@ func (c *LiveCodeController) RecordClick(ctx *gin.Context) {
 		return
 	}
 
-	// 记录点击统计
 	err := c.liveCodeService.RecordClick(context.Background(), idStr, ctx.ClientIP(), req.UserAgent, req.Referrer)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, "记录点击统计失败")
@@ -358,3 +341,4 @@ func (c *LiveCodeController) UpdateLiveCodeQR(ctx *gin.Context) {
 
 	response.Success(ctx, nil, "更新成功")
 }
+

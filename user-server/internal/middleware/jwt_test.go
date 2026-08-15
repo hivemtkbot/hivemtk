@@ -208,7 +208,6 @@ func TestOptionalAuthMiddleware(t *testing.T) {
 }
 
 func TestParseJWTToken(t *testing.T) {
-	// 设置测试用的 JWT 密钥
 	os.Setenv("JWT_SECRET", "test-secret-key")
 	defer os.Unsetenv("JWT_SECRET")
 
@@ -233,7 +232,6 @@ func TestParseJWTToken(t *testing.T) {
 	})
 
 	t.Run("Valid token", func(t *testing.T) {
-		// 创建有效的 JWT token（私域部署：无 merchantID 字段）
 		claims := jwt.MapClaims{
 			"user_id":  float64(123),
 			"username": "testuser",
@@ -268,12 +266,11 @@ func TestParseJWTToken(t *testing.T) {
 	})
 
 	t.Run("Expired token", func(t *testing.T) {
-		// 创建过期的 JWT token（私域部署：无 merchantID 字段）
 		claims := jwt.MapClaims{
 			"user_id":  float64(123),
 			"username": "testuser",
 			"role":     "user",
-			"exp":      time.Now().Add(-time.Hour).Unix(), // 已过时
+			"exp":      time.Now().Add(-time.Hour).Unix(), 
 		}
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 		tokenString, err := token.SignedString([]byte("test-secret-key"))
@@ -288,7 +285,6 @@ func TestParseJWTToken(t *testing.T) {
 	})
 
 	t.Run("Token with wrong signature", func(t *testing.T) {
-		// 使用错误的密钥签名（私域部署：无 merchantID）
 		claims := jwt.MapClaims{
 			"user_id": float64(123),
 			"exp":     time.Now().Add(time.Hour).Unix(),
@@ -341,7 +337,6 @@ func TestTeamJWTAuthMiddleware(t *testing.T) {
 	})
 
 	t.Run("Valid Bearer token", func(t *testing.T) {
-		// 创建有效的 JWT token（私域部署：无 merchantID）
 		claims := jwt.MapClaims{
 			"user_id":  float64(123),
 			"username": "testuser",
@@ -705,3 +700,4 @@ func TestDataChangeMiddleware(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 }
+

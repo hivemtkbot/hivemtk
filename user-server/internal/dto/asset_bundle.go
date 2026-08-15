@@ -16,11 +16,9 @@ import (
 // AssetBundleMessage 资产包内的单条消息（OpenAI ChatML 协议，dto 自有类型）
 // 与 model.AssetBundleMessage 字段一致，由 service 层 mapper 互转
 type AssetBundleMessage struct {
-	Role    string `json:"role"`    // system / user / assistant / tool
-	Content string `json:"content"` // 纯文本内容
-	// 可选：tool_call_id（tool 角色使用）
+	Role    string `json:"role"`    
+	Content string `json:"content"` 
 	ToolCallID string `json:"tool_call_id,omitempty"`
-	// 可选：name（多角色同名区分）
 	Name string `json:"name,omitempty"`
 }
 
@@ -31,7 +29,7 @@ type AssetBundleCreateRequest struct {
 	Description string               `json:"description"`
 	Author      string               `json:"author"`
 	Version     string               `json:"version"`
-	Scope       string               `json:"scope"` // private / shared / official
+	Scope       string               `json:"scope"` 
 	Industry    string               `json:"industry"`
 	Language    string               `json:"language"`
 	Tags        []string             `json:"tags"`
@@ -50,7 +48,7 @@ type AssetBundleUpdateRequest struct {
 	Language    string               `json:"language"`
 	Tags        []string             `json:"tags"`
 	Messages    []AssetBundleMessage `json:"messages"`
-	Status      string               `json:"status"` // draft / active / inactive / archived
+	Status      string               `json:"status"` 
 	ChangeNote  string               `json:"change_note"`
 }
 
@@ -98,9 +96,6 @@ type AssetBundleListResponse struct {
 	Size  int                `json:"size"`
 }
 
-// ============================================================================
-// 商户低代码模式 DTO（方向9 §六）
-// ============================================================================
 
 // MerchantFormSaveRequest 商户低代码表单保存请求
 //
@@ -111,36 +106,31 @@ type MerchantFormSaveRequest struct {
 	AssetID string `json:"asset_id" binding:"required"`
 	Title   string `json:"title"`
 	Author  string `json:"author"`
-	// 基础经营策略（注入到 system 末尾）
 	ShopName       string `json:"shop_name"`
 	CampaignName   string `json:"campaign_name"`
 	DiscountPct    string `json:"discount_pct"`
 	SupportContact string `json:"support_contact"`
-	// 6 维拟人门禁
-	CrisisThreshold string   `json:"crisis_threshold"` // 危机感触发阈值
-	ToneLevel       string   `json:"tone_level"`       // 语气词等级
-	CensorshipLevel string   `json:"censorship_level"` // 反审查尺度
+	CrisisThreshold string   `json:"crisis_threshold"` 
+	ToneLevel       string   `json:"tone_level"`       
+	CensorshipLevel string   `json:"censorship_level"` 
 	EnabledIntents  []string `json:"enabled_intents"`
-	// 常见问答卡片（商户自定义的 Few-Shots）
 	QACards []MerchantQACard `json:"qa_cards"`
-	// 乐高卡片
 	CardConfig MerchantCardConfig `json:"card_config"`
-	// 模板包（开发者原始 messages；商户可在此基础上覆盖）
 	TemplateAssetID string `json:"template_asset_id"`
 }
 
 // MerchantQACard 常见问答卡片
 type MerchantQACard struct {
-	ID          string `json:"id"`           // 卡片 ID（前端生成）
-	Trigger     string `json:"trigger"`      // 触发关键词/场景描述
-	UserExample string `json:"user_example"` // Few-Shot 中 user 的示例
-	Reply       string `json:"reply"`        // Few-Shot 中 assistant 的回复
-	Order       int    `json:"order"`        // 显示顺序
+	ID          string `json:"id"`           
+	Trigger     string `json:"trigger"`      
+	UserExample string `json:"user_example"` 
+	Reply       string `json:"reply"`        
+	Order       int    `json:"order"`        
 }
 
 // MerchantCardConfig 乐高卡片配置
 type MerchantCardConfig struct {
-	IntentType   string               `json:"intent_type"` // button_card / coupon / handoff
+	IntentType   string               `json:"intent_type"` 
 	ProductImage string               `json:"product_image"`
 	Buttons      []MerchantCardButton `json:"buttons"`
 }
@@ -148,10 +138,10 @@ type MerchantCardConfig struct {
 // MerchantCardButton 卡片按钮
 type MerchantCardButton struct {
 	Title   string `json:"title"`
-	Action  string `json:"action"` // open_url / call_api
+	Action  string `json:"action"` 
 	URL     string `json:"url,omitempty"`
-	APIName string `json:"api_name,omitempty"` // 当 action=call_api
-	APIArgs string `json:"api_args,omitempty"` // JSON 字符串
+	APIName string `json:"api_name,omitempty"` 
+	APIArgs string `json:"api_args,omitempty"` 
 	Order   int    `json:"order"`
 }
 
@@ -168,7 +158,6 @@ type MerchantFormParseResponse struct {
 	QACards        []MerchantQACard   `json:"qa_cards"`
 	CardConfig     MerchantCardConfig `json:"card_config"`
 	EnabledIntents []string           `json:"enabled_intents"`
-	// 6 维拟人门禁指标阀门（保存时写入 system 快照，编辑回显时还原）
 	CrisisThreshold string `json:"crisis_threshold"`
 	ToneLevel       string `json:"tone_level"`
 	CensorshipLevel string `json:"censorship_level"`
@@ -182,7 +171,6 @@ type WeaveRequest struct {
 	ChatHistory  []AssetBundleMessage `json:"chat_history"`
 	MerchantVars map[string]string    `json:"merchant_vars"`
 	Options      *WeaveOptionsDTO     `json:"options"`
-	// 沙箱/预览模式：开发者 Playground 本地试运行置 true，跳过热插拔门禁与用量累加
 	Sandbox bool `json:"sandbox"`
 }
 
@@ -218,3 +206,4 @@ type WeaveOptionsDTO struct {
 	StripFewShotJSON    bool   `json:"strip_few_shot_json"`
 	IncludeMerchantVars bool   `json:"include_merchant_vars"`
 }
+

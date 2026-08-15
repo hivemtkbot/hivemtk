@@ -13,14 +13,6 @@ import (
 	"hivemtk-user/internal/pkg/tracing"
 )
 
-// executor.go 工具执行引擎（PRD §5.2 G3）
-//
-// 设计目标：
-//  1. 从 ToolRegistry 取工具 → 包装为 handler → 应用 5 装饰器链 → 执行
-//  2. 缓存装饰后 handler（避免每次重建链）
-//  3. 支持工具级别配置覆盖（如某些工具需要更长超时 / 不同重试策略）
-//  4. 支持批量执行（顺序 / 并发）
-//  5. 集成 LLM Function Calling：DispatchByLLMToolCall 接收 OpenAI tool_call 格式
 
 // ===== 可观测性 observer（与追踪系统解耦：默认 nil，由 router 在启动时接线） =====
 //
@@ -33,7 +25,7 @@ var ToolTraceSink func(ctx context.Context, ev tracing.ToolTraceEvent)
 // turnIndexKey / turnCounters 用于在单次 Agent Loop 内为每一轮 LLM 推理分配自增序号。
 type turnIndexKey struct{}
 
-var turnCounters sync.Map // trace_id -> *int64
+var turnCounters sync.Map 
 
 // WithTurnIndex 把当前 agent 轮次序号注入 context，供其下所有 tool_call 继承。
 func WithTurnIndex(ctx context.Context, idx int) context.Context {
@@ -58,32 +50,27 @@ func nextTurnIndex(ctx context.Context) int {
 	return int(atomic.AddInt64(v.(*int64), 1))
 }
 
-// ===== 配置类型 =====
 
 // ToolExecutorConfig 执行器全局配置
 type ToolExecutorConfig struct {
-	DefaultTimeout time.Duration // 默认单次执行超时
-	// 可选：全局默认装饰器依赖（也可通过 ToolOverride 覆盖）
+	DefaultTimeout time.Duration 
 	PermissionChecker PermissionChecker
 	RateLimiter       RateLimiter
 	RetryPolicy       RetryPolicy
 	AuditLogger       AuditLogger
 	CostTracker       CostTracker
-	// 熔断器注册中心（可选，nil 表示不启用熔断）
-	// 当配置非 nil 时，工具执行链会插入 CircuitBreakerDecorator
 	CircuitBreaker *CircuitBreakerRegistry
 }
 
 // ToolOverride 工具级别配置覆盖
 type ToolOverride struct {
-	ToolName   string        // 工具名
-	Timeout    time.Duration // 覆盖超时（0 表示用默认）
-	MaxRetries int           // 覆盖重试次数（< 0 表示用默认）
-	BaseDelay  time.Duration // 重试基础延迟
-	Disabled   bool          // 是否禁用该工具
+	ToolName   string        
+	Timeout    time.Duration 
+	MaxRetries int           
+	BaseDelay  time.Duration 
+	Disabled   bool          
 }
 
-// ===== 工具执行器 =====
 
 // ToolExecutor 工具执行引擎
 // 线程安全；缓存每个工具的装饰后 handler
@@ -92,8 +79,8 @@ type ToolExecutor struct {
 	config   ToolExecutorConfig
 
 	mu        sync.RWMutex
-	overrides map[string]ToolOverride // toolName → override
-	cache     map[string]ToolHandler  // toolName → 装饰后 handler（缓存）
+	overrides map[string]ToolOverride 
+	cache     map[string]ToolHandler  
 }
 
 // NewToolExecutor 创建工具执行器
@@ -146,13 +133,11 @@ func (e *ToolExecutor) Registry() *ToolRegistry {
 	return e.registry
 }
 
-// ===== 核心执行入口 =====
 
 // ExecuteRequest 执行请求
 type ExecuteRequest struct {
 	ToolName string         `json:"tool_name"`
 	Args     map[string]any `json:"args"`
-	// 可选：执行上下文（不传则使用空 ToolContext）
 	ToolCtx *ToolContext `json:"-"`
 }
 
@@ -176,7 +161,6 @@ func (e *ToolExecutor) Execute(ctx context.Context, req ExecuteRequest) ExecuteR
 			Err:        fmt.Errorf("tool_name 不能为空"),
 		}
 	}
-	// 1. 取工具
 	tool, err := e.registry.Get(req.ToolName)
 	if err != nil {
 		return ExecuteResult{
@@ -184,7 +168,6 @@ func (e *ToolExecutor) Execute(ctx context.Context, req ExecuteRequest) ExecuteR
 			Err:        err,
 		}
 	}
-	// 2. 检查 disabled
 	if o, ok := e.GetOverride(req.ToolName); ok && o.Disabled {
 		err := fmt.Errorf("tool %s is disabled", req.ToolName)
 		return ExecuteResult{
@@ -192,28 +175,19 @@ func (e *ToolExecutor) Execute(ctx context.Context, req ExecuteRequest) ExecuteR
 			Err:        err,
 		}
 	}
-	// 3. 取出（或构造）装饰后 handler
 	handler := e.getOrBuildHandler(tool)
-	// 4. 注入 context
 	execCtx := WithToolName(ctx, req.ToolName)
 	if req.ToolCtx != nil {
 		execCtx = WithToolContext(execCtx, req.ToolCtx)
 	}
-	// 5. 执行
 	start := time.Now()
 	result, err := handler(execCtx, req.Args)
-	// 补全 Timing.DurationMs（装饰器内部各自计算耗时，外层再做一次总耗时统计）
 	if result.Timing.DurationMs == 0 {
 		result.Timing.DurationMs = time.Since(start).Milliseconds()
 	}
 	if result.AuditTrace == "" && req.ToolCtx != nil {
 		result.AuditTrace = req.ToolCtx.AuditTrace
 	}
-	// 错误数据契约对齐（彻底修复脏数据根因，而非仅在 trace 层兜底）：
-	// 当 Go 层 err 非空或执行失败时，保证返回的 ToolResult 自身完整
-	// （ToolName / Error / Success 一致）。否则工具或装饰器在 ctx 取消等提前返回路径
-	// 可能产出「Success=false / err!=nil 但 Error 为空」的零值结果，导致监控出现
-	// status=abnormal 却 abnormal/error 两列皆空的脏 span，且调用方也拿不到错误详情。
 	if err != nil || !result.Success {
 		if result.ToolName == "" {
 			result.ToolName = req.ToolName
@@ -227,14 +201,11 @@ func (e *ToolExecutor) Execute(ctx context.Context, req ExecuteRequest) ExecuteR
 		}
 		result.Success = false
 	}
-	// 可观测性：把单次工具调用作为 tool_call 子 span 上报（observer 默认 nil，非阻塞）。
 	if ToolTraceSink != nil {
 		status := "ok"
 		if !result.Success || err != nil {
 			status = "abnormal"
 		}
-		// 此时 result.Error 已在边界对齐为完整错误详情（优先工具业务错误，回退 Go 层 err），
-		// 不再需要在 trace 层单独兜底。
 		ev := tracing.ToolTraceEvent{
 			Kind:       model.SpanKindToolCall,
 			TraceID:    trace.TraceIDFromContext(execCtx),
@@ -269,7 +240,6 @@ func (e *ToolExecutor) getOrBuildHandler(tool Tool) ToolHandler {
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	// 双检
 	if h, ok := e.cache[name]; ok {
 		return h
 	}
@@ -280,12 +250,10 @@ func (e *ToolExecutor) getOrBuildHandler(tool Tool) ToolHandler {
 
 // buildHandler 构造装饰后 handler
 func (e *ToolExecutor) buildHandler(tool Tool) ToolHandler {
-	// 原始 handler：调用 tool.Execute
 	raw := func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		start := time.Now()
 		r, err := tool.Execute(ctx, args)
 		dur := time.Since(start)
-		// 补全 ToolResult 字段
 		if r.ToolName == "" {
 			r.ToolName = tool.Name()
 		}
@@ -298,7 +266,6 @@ func (e *ToolExecutor) buildHandler(tool Tool) ToolHandler {
 		return r, err
 	}
 
-	// 解析该工具的 override
 	timeout := e.config.DefaultTimeout
 	policy := e.config.RetryPolicy
 	if o, ok := e.overrides[tool.Name()]; ok {
@@ -306,9 +273,8 @@ func (e *ToolExecutor) buildHandler(tool Tool) ToolHandler {
 			timeout = o.Timeout
 		}
 		if o.MaxRetries >= 0 {
-			// 用 override 的重试策略
 			policy = NewExponentialBackoffPolicy(
-				o.MaxRetries+1, // MaxRetries 是"重试次数"，MaxAttempts = 重试次数 + 1（首次）
+				o.MaxRetries+1, 
 				func() time.Duration {
 					if o.BaseDelay > 0 {
 						return o.BaseDelay
@@ -331,26 +297,20 @@ func (e *ToolExecutor) buildHandler(tool Tool) ToolHandler {
 	)
 }
 
-// ===== 批量执行 =====
 
 // BatchExecuteRequest 批量执行请求
 type BatchExecuteRequest struct {
 	Requests []ExecuteRequest `json:"requests"`
-	// 是否并发执行（false = 顺序执行）
 	Parallel bool `json:"parallel"`
-	// 并发执行时的最大并发数（0 = 不限）
 	MaxConcurrency int `json:"max_concurrency,omitempty"`
-	// 是否遇到第一个错误就停止（仅顺序模式生效）
 	StopOnError bool `json:"stop_on_error,omitempty"`
 }
 
 // BatchExecuteResponse 批量执行响应
 type BatchExecuteResponse struct {
 	Results []ExecuteResult `json:"results"`
-	// 成功数 / 失败数
 	SuccessCount int `json:"success_count"`
 	FailedCount  int `json:"failed_count"`
-	// 总耗时
 	TotalDurationMs int64 `json:"total_duration_ms"`
 }
 
@@ -386,11 +346,9 @@ func (e *ToolExecutor) BatchExecute(ctx context.Context, req BatchExecuteRequest
 		}
 		wg.Wait()
 	} else {
-		// 顺序模式
 		for i, r := range req.Requests {
 			results[i] = e.Execute(ctx, r)
 			if req.StopOnError && results[i].Err != nil {
-				// 填充剩余为空结果
 				for j := i + 1; j < n; j++ {
 					results[j] = ExecuteResult{
 						ToolResult: ErrorResult(r.ToolName, fmt.Errorf("skipped due to previous error")),
@@ -416,26 +374,25 @@ func (e *ToolExecutor) BatchExecute(ctx context.Context, req BatchExecuteRequest
 	return resp
 }
 
-// ===== LLM Function Calling 集成 =====
 
 // LLMToolCall LLM 返回的 tool_call（OpenAI 兼容格式）
 type LLMToolCall struct {
-	ID       string          `json:"id"` // 调用 ID（用于回传 tool result 给 LLM）
+	ID       string          `json:"id"` 
 	Function LLMToolFunction `json:"function"`
 }
 
 // LLMToolFunction LLM 工具调用 function 部分
 type LLMToolFunction struct {
 	Name      string `json:"name"`
-	Arguments string `json:"arguments"` // JSON 字符串
+	Arguments string `json:"arguments"` 
 }
 
 // LLMToolResult 工具执行结果（回传给 LLM 的格式）
 type LLMToolResult struct {
 	ToolCallID string          `json:"tool_call_id"`
-	Content    string          `json:"content"` // 工具结果文本（通常是 ToolResult.Data 的 JSON）
+	Content    string          `json:"content"` 
 	Success    bool            `json:"success"`
-	Card       *model.RichCard `json:"card,omitempty"` // 工具产出的结构化富卡片
+	Card       *model.RichCard `json:"card,omitempty"` 
 }
 
 // DispatchByLLMToolCall 根据 LLM 返回的 tool_call 调度执行
@@ -449,7 +406,6 @@ func (e *ToolExecutor) DispatchByLLMToolCall(ctx context.Context, toolCalls []LL
 	if len(toolCalls) == 0 {
 		return nil
 	}
-	// 本轮 LLM 推理序号（1-based），其下所有 tool_call 继承该序号，便于 UI 归并到同一 agent_turn。
 	turnIdx := nextTurnIndex(ctx)
 	dispatchCtx := WithTurnIndex(ctx, turnIdx)
 	agentID := ""
@@ -465,18 +421,14 @@ func (e *ToolExecutor) DispatchByLLMToolCall(ctx context.Context, toolCalls []LL
 	var wg sync.WaitGroup
 	for i, call := range toolCalls {
 		wg.Add(1)
-		sem <- struct{}{} // 获取信号量（阻塞时等待）
+		sem <- struct{}{} 
 		go func(idx int, c LLMToolCall) {
 			defer wg.Done()
-			defer func() { <-sem }() // 释放信号量
+			defer func() { <-sem }() 
 			results[idx] = e.executeSingleLLMToolCall(dispatchCtx, c, toolCtx)
 		}(i, call)
 	}
 	wg.Wait()
-	// agent_turn 子 span：覆盖整轮 LLM 工具编排耗时（observer 默认 nil，非阻塞）。
-	// 真实状态（彻底修复观测缺口）：上下文被取消（客户端断开 / turn 截止）或任一工具失败
-	// 都标记 abnormal 并带上首个错误详情，否则 monitor 会把「失败的 turn」误报为 ok，
-	// 导致 node_abnormal 对 agent_turn 维度永远为 0、隐藏真实异常 turn。
 	turnStatus := tracing.StatusOk
 	turnErr := ""
 	if dispatchCtx.Err() != nil {
@@ -501,7 +453,6 @@ func (e *ToolExecutor) DispatchByLLMToolCall(ctx context.Context, toolCalls []LL
 			Status:     turnStatus,
 			Error:      turnErr,
 		}
-		// 工具失败导致的异常 turn：把首个失败工具的错误详情带给监控，便于定位根因。
 		if turnStatus == tracing.StatusAbnormal && turnErr == "" {
 			for _, r := range results {
 				if !r.Success {
@@ -537,7 +488,6 @@ func extractToolError(r LLMToolResult) string {
 
 // executeSingleLLMToolCall 执行单个 LLM tool_call
 func (e *ToolExecutor) executeSingleLLMToolCall(ctx context.Context, call LLMToolCall, toolCtx *ToolContext) LLMToolResult {
-	// 解析 arguments JSON
 	args := make(map[string]any)
 	if call.Function.Arguments != "" {
 		if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
@@ -548,13 +498,11 @@ func (e *ToolExecutor) executeSingleLLMToolCall(ctx context.Context, call LLMToo
 			}
 		}
 	}
-	// 执行
 	execResult := e.Execute(ctx, ExecuteRequest{
 		ToolName: call.Function.Name,
 		Args:     args,
 		ToolCtx:  toolCtx,
 	})
-	// 序列化结果为 JSON 字符串
 	content, _ := json.Marshal(execResult.ToolResult)
 	contentStr := string(content)
 
@@ -574,7 +522,6 @@ func (e *ToolExecutor) executeSingleLLMToolCall(ctx context.Context, call LLMToo
 	}
 }
 
-// ===== 便捷方法 =====
 
 // ExecuteByName 便捷执行：直接传 toolName + args
 func (e *ToolExecutor) ExecuteByName(ctx context.Context, toolName string, args map[string]any) (ToolResult, error) {
@@ -618,7 +565,6 @@ func (e *ToolExecutor) ListAvailableLLMFunctions() []LLMFunction {
 	return out
 }
 
-// ===== 全局执行器（可选使用） =====
 
 var (
 	globalExecutor     *ToolExecutor
@@ -642,3 +588,4 @@ func GetGlobalExecutor() *ToolExecutor {
 func SetGlobalExecutor(exec *ToolExecutor) {
 	globalExecutor = exec
 }
+

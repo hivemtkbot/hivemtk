@@ -1,15 +1,5 @@
 package repository
 
-// persona_repository.go 拟人度评估低质样本仓储
-//
-// 五层架构归属: L4 数据访问层
-// 设计依据: service/persona_evaluator.go DBLowQualitySampleCollector 历史直连 DB 操作下沉
-//
-// 与 low_quality_sample_repository.go / humanize_low_quality_collector.go 的关系：
-//   - low_quality_sample_repository.go：管理面列表查询（List）
-// humanize_low_quality_collector.go： 拟人化链路写入（HumanizeLowQualitySampleCollector）
-// 本文件： 拟人度评估链路写入（DBLowQualitySampleCollector）
-//   - 三者共享 low_quality_samples 表，通过 sample_type 区分来源
 
 import (
 	"context"
@@ -57,3 +47,4 @@ func (r *personaLowQualitySampleRepository) Create(ctx context.Context, sample *
 	}
 	return nil
 }
+

@@ -1,18 +1,5 @@
 package feedbackloop
 
-// prompt_iterator_test.go Prompt 迭代器测试
-//
-// 覆盖：
-//  A. 纯函数单元测试（不需 PG）
-//     1. nextVersion 版本号递增规则
-//     2. armKeysToInterface []string → []interface{}
-//     3. extractJSON（已在 champion 测试中覆盖，此处不重复）
-//  B. PG 集成测试
-//     1. IterateForNode 完整流程（拉取 active → 拉取负样本 → LLM 生成 → 入库 → 创建 A/B）
-//     2. IterateForNode 无 active prompt 报错
-//     3. IterateForNode 样本不足报错
-//     4. IterateForNode LLM 失败报错
-//     5. IterateForNode AutoApprove=false 仅入库不创建 A/B
 
 import (
 	"context"
@@ -26,9 +13,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ============================================================================
-// A. 纯函数单元测试
-// ============================================================================
 
 // TestNextVersion 版本号递增
 func TestNextVersion(t *testing.T) {
@@ -38,13 +22,13 @@ func TestNextVersion(t *testing.T) {
 	}{
 		{"v1.0", "v1.1"},
 		{"v1.1", "v1.2"},
-		{"v1.9", "v2.0"}, // minor 进位
+		{"v1.9", "v2.0"}, 
 		{"v2.9", "v3.0"},
 		{"v9.9", "v10.0"},
-		{"", "v1.1"},       // 空输入
-		{"v1", "v1.1"},     // 无 minor 附加 .1
-		{"1.0", "1.1"},     // 无 v 前缀（仍能递增 minor）
-		{"v1.x", "v1.x.1"}, // 非法 minor 附加 .1
+		{"", "v1.1"},       
+		{"v1", "v1.1"},     
+		{"1.0", "1.1"},     
+		{"v1.x", "v1.x.1"}, 
 	}
 	for _, c := range cases {
 		got := nextVersion(c.input)
@@ -80,12 +64,9 @@ func TestArmKeysToInterface_Empty(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// B. PG 集成测试
-// ============================================================================
 
 // seedActivePrompt 在 PG 中插入 active prompt candidate
-func seedActivePrompt(t *testing.T, db any, /* gorm.DB methods */
+func seedActivePrompt(t *testing.T, db any, 
 ) {
 	t.Helper()
 }
@@ -108,12 +89,10 @@ func TestPromptIterator_IterateForNode_InvalidInput(t *testing.T) {
 	llm := newFeedbackLoopStubLLMDispatcher(nil)
 	p := NewPromptIterator(db, llm, DefaultPromptIteratorConfig())
 
-	// sopID = 0
 	_, err := p.IterateForNode(context.Background(), 0, "node_1")
 	if !errors.Is(err, ErrInvalidInput) {
 		t.Errorf("sopID=0 应返回 ErrInvalidInput, got %v", err)
 	}
-	// nodeID = ""
 	_, err = p.IterateForNode(context.Background(), 1, "")
 	if !errors.Is(err, ErrInvalidInput) {
 		t.Errorf("nodeID=空 应返回 ErrInvalidInput, got %v", err)
@@ -128,7 +107,6 @@ func TestPromptIterator_IterateForNode_InsufficientSamples(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	ctx := context.Background()
 
-	// 插入 active prompt
 	cand := model.PromptCandidate{
 		SOPNodeID: "node_1", SOPID: 1, Scenario: "sop_reply", Version: "v1.0",
 		Title: "active", SystemPrompt: "sys", UserPromptTemplate: "user",
@@ -138,7 +116,6 @@ func TestPromptIterator_IterateForNode_InsufficientSamples(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	// 插入 5 条负反馈样本（< 50）
 	now := time.Now()
 	for i := 0; i < 5; i++ {
 		event := model.FeedbackEvent{
@@ -176,7 +153,6 @@ func TestPromptIterator_IterateForNode_FullFlowWithAutoApprove(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	ctx := context.Background()
 
-	// 插入 active prompt
 	cand := model.PromptCandidate{
 		SOPNodeID: "node_1", SOPID: 1, Scenario: "sop_reply", Version: "v1.0",
 		Title: "active", SystemPrompt: "sys", UserPromptTemplate: "user",
@@ -186,7 +162,6 @@ func TestPromptIterator_IterateForNode_FullFlowWithAutoApprove(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	// 插入 60 条负反馈样本
 	now := time.Now()
 	for i := 0; i < 60; i++ {
 		event := model.FeedbackEvent{
@@ -204,7 +179,6 @@ func TestPromptIterator_IterateForNode_FullFlowWithAutoApprove(t *testing.T) {
 		}
 	}
 
-	// LLM stub 返回 2 个候选
 	candidates := []struct {
 		Title              string `json:"title"`
 		SystemPrompt       string `json:"system_prompt"`
@@ -243,14 +217,12 @@ func TestPromptIterator_IterateForNode_FullFlowWithAutoApprove(t *testing.T) {
 		t.Errorf("应自动创建 A/B 测试")
 	}
 
-	// 验证 bandit arms（arm_0_original + 2 个新 arm）
 	if len(abTests) > 0 {
 		var arms []model.BanditArm
 		db.Where("experiment_id = ?", abTests[0].ExperimentID).Find(&arms)
 		if len(arms) != 3 {
 			t.Errorf("bandit arms 数 = %d want 3 (arm_0 + 2 new)", len(arms))
 		}
-		// 验证 arm_0_original 存在
 		hasArm0 := false
 		for _, a := range arms {
 			if a.ArmKey == "arm_0_original" {
@@ -273,7 +245,6 @@ func TestPromptIterator_IterateForNode_NoAutoApprove(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	ctx := context.Background()
 
-	// 插入 active prompt
 	cand := model.PromptCandidate{
 		SOPNodeID: "node_1", SOPID: 1, Scenario: "sop_reply", Version: "v1.0",
 		Title: "active", SystemPrompt: "sys", UserPromptTemplate: "user",
@@ -283,7 +254,6 @@ func TestPromptIterator_IterateForNode_NoAutoApprove(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	// 插入 60 条负反馈
 	now := time.Now()
 	for i := 0; i < 60; i++ {
 		event := model.FeedbackEvent{
@@ -301,12 +271,11 @@ func TestPromptIterator_IterateForNode_NoAutoApprove(t *testing.T) {
 		}
 	}
 
-	// LLM 返回 1 个候选
 	respJSON := `[{"title":"v1.1","system_prompt":"sys1","user_prompt_template":"user1","improvement_notes":"note1"}]`
 	llm := newFeedbackLoopStubLLMDispatcher([]string{respJSON})
 
 	cfg := DefaultPromptIteratorConfig()
-	cfg.AutoApprove = false // 不自动审核
+	cfg.AutoApprove = false 
 	p := NewPromptIterator(db, llm, cfg)
 
 	got, err := p.IterateForNode(ctx, 1, "node_1")
@@ -337,7 +306,6 @@ func TestPromptIterator_IterateForNode_LLMFailure(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	ctx := context.Background()
 
-	// 插入 active prompt
 	cand := model.PromptCandidate{
 		SOPNodeID: "node_1", SOPID: 1, Scenario: "sop_reply", Version: "v1.0",
 		Title: "active", SystemPrompt: "sys", UserPromptTemplate: "user",
@@ -347,7 +315,6 @@ func TestPromptIterator_IterateForNode_LLMFailure(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	// 插入 60 条负反馈
 	now := time.Now()
 	for i := 0; i < 60; i++ {
 		event := model.FeedbackEvent{
@@ -365,7 +332,6 @@ func TestPromptIterator_IterateForNode_LLMFailure(t *testing.T) {
 		}
 	}
 
-	// LLM stub 配置失败
 	llm := newFeedbackLoopStubLLMDispatcher(nil)
 	llm.failOn = 1
 	llm.err = fmt.Errorf("LLM service error")
@@ -409,7 +375,6 @@ func TestPromptIterator_IterateForNode_LLMInvalidJSON(t *testing.T) {
 		_ = db.Create(&event).Error
 	}
 
-	// LLM 返回非 JSON
 	llm := newFeedbackLoopStubLLMDispatcher([]string{"这不是 JSON 内容"})
 	p := NewPromptIterator(db, llm, DefaultPromptIteratorConfig())
 	_, err := p.IterateForNode(ctx, 1, "node_1")
@@ -417,3 +382,4 @@ func TestPromptIterator_IterateForNode_LLMInvalidJSON(t *testing.T) {
 		t.Errorf("LLM 返回非 JSON 应报错")
 	}
 }
+

@@ -1,17 +1,5 @@
 package service
 
-// sse_hub_test.go SSE Hub 测试
-//
-// 五层架构归属: L2 服务层测试
-// 设计依据: PRD § 缺口修复
-// 私域独立部署: 无 merchant_id 字段
-//
-// 覆盖范围：
-//   - SSEClient 创建/订阅/发送/关闭
-//   - SSEHub 注册/注销/广播/IP 限制/停止
-//   - ParseTopics / IsValidSSETopic
-//   - 全局 Hub 单例
-//   - 事件广播到多个订阅者
 
 import (
 	"context"
@@ -20,7 +8,6 @@ import (
 	"time"
 )
 
-// ===== SSEClient 测试 =====
 
 // 1. 创建客户端
 func TestSSEClient_New(t *testing.T) {
@@ -67,13 +54,11 @@ func TestSSEClient_SendSuccess(t *testing.T) {
 // 4. Send 缓冲区满返回 false
 func TestSSEClient_SendBufferFull(t *testing.T) {
 	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
-	// 填满缓冲区
 	for i := 0; i < SSEClientBufferSize; i++ {
 		if !c.Send(context.Background(), SSEEvent{Topic: SSETopicLLMCalls, EventType: "test"}) {
 			t.Fatalf("expected send success on iteration %d", i)
 		}
 	}
-	// 第 101 次应失败
 	if c.Send(context.Background(), SSEEvent{Topic: SSETopicLLMCalls, EventType: "overflow"}) {
 		t.Error("expected send fail on buffer full")
 	}
@@ -100,7 +85,6 @@ func TestSSEClient_CloseCh(t *testing.T) {
 	}()
 	select {
 	case <-c.CloseCh(context.Background()):
-		// 成功接收到关闭信号
 	case <-time.After(500 * time.Millisecond):
 		t.Error("timeout waiting for close signal")
 	}
@@ -110,11 +94,10 @@ func TestSSEClient_CloseCh(t *testing.T) {
 func TestSSEClient_CloseIdempotent(t *testing.T) {
 	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
 	c.Close(context.Background())
-	c.Close(context.Background()) // 不应 panic
+	c.Close(context.Background()) 
 	c.Close(context.Background())
 }
 
-// ===== SSEHub 测试 =====
 
 // 8. Register / Unregister
 func TestSSEHub_RegisterUnregister(t *testing.T) {
@@ -166,7 +149,6 @@ func TestSSEHub_MaxConnPerIP(t *testing.T) {
 			t.Fatalf("register %d failed: %v", i, err)
 		}
 	}
-	// 第 6 个应失败
 	c := NewSSEClient("c-6", "127.0.0.1", []string{SSETopicLLMCalls})
 	if err := hub.Register(context.Background(), c); err == nil {
 		t.Error("expected error for exceeded max conn per IP")
@@ -199,16 +181,13 @@ func TestSSEHub_Publish(t *testing.T) {
 
 	hub.Publish(context.Background(), SSEEvent{Topic: SSETopicLLMCalls, EventType: "test"})
 
-	// c1 和 c2 应收到，c3 不应收到
 	select {
 	case <-c1.Events(context.Background()):
-		// 成功
 	case <-time.After(100 * time.Millisecond):
 		t.Error("c1 timeout")
 	}
 	select {
 	case <-c2.Events(context.Background()):
-		// 成功
 	case <-time.After(100 * time.Millisecond):
 		t.Error("c2 timeout")
 	}
@@ -216,7 +195,6 @@ func TestSSEHub_Publish(t *testing.T) {
 	case <-c3.Events(context.Background()):
 		t.Error("c3 should NOT receive event")
 	case <-time.After(100 * time.Millisecond):
-		// 成功（无事件）
 	}
 }
 
@@ -243,7 +221,7 @@ func TestSSEHub_PublishSetsTimestamp(t *testing.T) {
 func TestSSEHub_UnregisterNonExistent(t *testing.T) {
 	hub := NewSSEHub()
 	defer hub.Stop(context.Background())
-	hub.Unregister(context.Background(), "nonexistent") // 不应 panic
+	hub.Unregister(context.Background(), "nonexistent") 
 }
 
 // 16. Stop 关闭所有客户端
@@ -269,7 +247,7 @@ func TestSSEHub_StopAllClients(t *testing.T) {
 func TestSSEHub_PublishAfterStop(t *testing.T) {
 	hub := NewSSEHub()
 	hub.Stop(context.Background())
-	hub.Publish(context.Background(), SSEEvent{Topic: SSETopicLLMCalls}) // 不应 panic
+	hub.Publish(context.Background(), SSEEvent{Topic: SSETopicLLMCalls}) 
 }
 
 // 18. Stop 幂等
@@ -324,7 +302,6 @@ func TestSSEHub_ListClients(t *testing.T) {
 	}
 }
 
-// ===== ParseTopics / IsValidSSETopic 测试 =====
 
 // 22. ParseTopics 正常解析
 func TestParseTopics_Normal(t *testing.T) {
@@ -379,11 +356,9 @@ func TestIsValidSSETopic(t *testing.T) {
 	}
 }
 
-// ===== 全局 SSE Hub 单例测试 =====
 
 // 27. InitGlobalSSEHub 单例
 func TestInitGlobalSSEHub_Singleton(t *testing.T) {
-	// 注意：全局单例由 sync.Once 保证，这里只测试返回非 nil
 	hub := InitGlobalSSEHub()
 	if hub == nil {
 		t.Fatal("expected non-nil hub")
@@ -396,18 +371,15 @@ func TestInitGlobalSSEHub_Singleton(t *testing.T) {
 
 // 28. PublishSSEEvent 不 panic（全局 Hub）
 func TestPublishSSEEvent_NoPanic(t *testing.T) {
-	// 不应 panic
 	PublishSSEEvent(SSETopicLLMCalls, "test", "data", "trace-1")
 }
 
-// ===== 并发测试 =====
 
 // 29. 并发 Register / Unregister / Publish
 func TestSSEHub_Concurrent(t *testing.T) {
 	hub := NewSSEHub()
 	defer hub.Stop(context.Background())
 	var wg sync.WaitGroup
-	// 并发注册
 	for i := 0; i < 20; i++ {
 		wg.Add(1)
 		go func(idx int) {
@@ -416,7 +388,6 @@ func TestSSEHub_Concurrent(t *testing.T) {
 			_ = hub.Register(context.Background(), c)
 		}(i)
 	}
-	// 并发 Publish
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
@@ -425,7 +396,6 @@ func TestSSEHub_Concurrent(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	// 不应 panic，hub 仍可用
 	if hub.Stopped(context.Background()) {
 		t.Error("hub should not be stopped")
 	}
@@ -443,10 +413,8 @@ func TestSSEClient_ConcurrentSend(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	// 不应 panic，缓冲区最多 SSEClientBufferSize 条
 }
 
-// ===== 缓冲区/边界测试 =====
 
 // 31. 客户端缓冲区大小校验
 func TestSSEClient_BufferSize(t *testing.T) {
@@ -471,7 +439,6 @@ func TestSSEClient_EmptyTopics(t *testing.T) {
 func TestSSEHub_PublishNoSubscribers(t *testing.T) {
 	hub := NewSSEHub()
 	defer hub.Stop(context.Background())
-	// 不应 panic
 	hub.Publish(context.Background(), SSEEvent{Topic: SSETopicLLMCalls, EventType: "no-listeners"})
 }
 
@@ -503,3 +470,4 @@ func TestSSEClient_CreatedAt(t *testing.T) {
 		t.Errorf("createdAt %v not in [%v, %v]", c.createdAt, before, after)
 	}
 }
+

@@ -105,7 +105,6 @@ func TestDomainPoolController_Update_Success(t *testing.T) {
 	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
-	// 先创建一条记录
 	domainPool := model.DomainPool{
 		Domain:  "test.example.com",
 		Port:    8080,
@@ -156,7 +155,6 @@ func TestDomainPoolController_Delete_Success(t *testing.T) {
 	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
-	// 先创建一条记录
 	domainPool := model.DomainPool{
 		Domain:  "test.example.com",
 		Port:    8080,
@@ -196,7 +194,6 @@ func TestDomainPoolController_GetByID_Success(t *testing.T) {
 	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
-	// 先创建一条记录
 	domainPool := model.DomainPool{
 		Domain:  "test.example.com",
 		Port:    8080,
@@ -238,7 +235,6 @@ func TestDomainPoolController_GetByID_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 返回 500 是因为 GetByID 返回错误
 	if w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
 		t.Errorf("Expected status Not Found or Internal Server Error, got %d", w.Code)
 	}
@@ -251,7 +247,6 @@ func TestDomainPoolController_List_Success(t *testing.T) {
 	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
-	// 创建测试数据
 	domainPools := []model.DomainPool{
 		{Domain: "test1.example.com", Port: 8080, Purpose: "测试域名 1"},
 		{Domain: "test2.example.com", Port: 9090, Purpose: "测试域名 2"},
@@ -293,7 +288,6 @@ func TestDomainPoolController_List_WithFilters(t *testing.T) {
 	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
-	// 创建测试数据
 	domainPools := []model.DomainPool{
 		{Domain: "test1.example.com", Port: 8080, Purpose: "测试域名 1", Status: 1},
 		{Domain: "test2.example.com", Port: 9090, Purpose: "测试域名 2", Status: 2},
@@ -320,7 +314,6 @@ func TestDomainPoolController_CheckDomain_Success(t *testing.T) {
 	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
-	// 先创建一条记录
 	domainPool := model.DomainPool{
 		Domain:  "invalid.example.com",
 		Port:    8080,
@@ -334,7 +327,6 @@ func TestDomainPoolController_CheckDomain_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 由于域名不可访问，应该返回 OK 但状态为 2
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -361,7 +353,6 @@ func TestDomainPoolController_CheckAllDomains_Success(t *testing.T) {
 	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
-	// 先创建一条记录
 	domainPool := model.DomainPool{
 		Domain:  "invalid.example.com",
 		Port:    8080,
@@ -375,7 +366,6 @@ func TestDomainPoolController_CheckAllDomains_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 应该返回 OK
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
@@ -390,3 +380,4 @@ func TestDomainPoolController_NewDomainPoolController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
+

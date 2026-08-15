@@ -78,9 +78,6 @@ func (s *MarketingFlowService) sendActionSendMessage(ctx context.Context, config
 		return nil, errors.New("content 未指定")
 	}
 
-	// 原实现依赖 internal/platform 的 CDP 无头浏览器适配器（BrowserAdapter）下发消息，
-	// 该通道已删除。抖音/快手/小红书/咸鱼/tiktok 的消息下发现由独立桥接模块对接
-	// （前端扩展实际收发），营销流发送动作不再经此路径。故返回不支持，调用方应改用桥接下发。
 	return nil, fmt.Errorf("平台 %s 不支持服务端无头发送（CDP 自动回复通道已移除，请通过桥接模块下发）", platformName)
 }
 
@@ -708,3 +705,4 @@ func (s *MarketingFlowService) sendActionSendEmail(ctx context.Context, config m
 		"to":   to,
 	}, nil
 }
+

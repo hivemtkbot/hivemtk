@@ -34,14 +34,13 @@ func TestRedisBackedCacheSearchResultRoundTrip(t *testing.T) {
 		t.Fatalf("metadata lost: %+v", out[0].Metadata)
 	}
 
-	// 未命中
 	if _, ok := c.Get("missing"); ok {
 		t.Fatal("expected miss for missing key")
 	}
 
-	// 删除
 	c.Delete("k1")
 	if _, ok := c.Get("k1"); ok {
 		t.Fatal("expected miss after delete")
 	}
 }
+

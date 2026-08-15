@@ -23,52 +23,37 @@ import (
 )
 
 type WebhookService struct {
-	db          *gorm.DB // 保留以维持与外部组件（如 WeComIntegrationService）的兼容
+	db          *gorm.DB 
 	eventRepo   *repository.WebhookEventRepository
 	accountRepo *repository.IntegrationAccountRepository
 
-	// Phase 1：企业微信完整入站链路
 	wecomRepo   *repository.WeComAccountRepository
 	integration *WeComIntegrationService
 
-	// Phase 2-4：WhatsApp Cloud / Telegram / 飞书 集成服务
 	feishuIntegration *FeishuIntegrationService
 	tgIntegration     *TelegramIntegrationService
 	waIntegration     *WhatsAppCloudIntegrationService
 
-	// TG 账号仓库（用于查询 Bot Token + AIAgentEnabled）
 	telegramRepo *repository.TelegramAccountRepository
 
-	// 渠道账号仓库缓存：避免在每条消息的 shouldTriggerAI 中重复构造
 	feishuRepo *repository.FeishuAccountRepository
 	waRepo     *repository.WhatsAppCloudAccountRepository
 
-	// 消息中台 / 收件箱会话 / 统一消息 仓库
 	messageHubRepo *repository.MessageHubRepository
 	inboxConvRepo  *repository.InboxConversationRepository
 	unifiedMsgRepo repository.UnifiedMessageRepository
 
-	// 线索仓库：Telegram 群发言自动挖掘为销售线索/商机（去重 + 意向分增量更新）
 	clueRepo repository.ClueRepository
 
-	// 渠道入站消息中台：各渠道适配器（telegram/whatsapp）经 core.IngressHandler 统一走
-	// InboxIngressService.HandleIngressMessage（标准化 + 人工锁 + AI 串行锁 + 落库 + 触发 AgentRuntime）
 	ingressSvc *InboxIngressService
 
-	// Phase 1：智能体引擎（可选注入，nil 时仅入库不入 AI）
 	salesEngine *SalesEngine
-	// 智能体统一编排器（LLM + 客服座席结合体）
-	// 注入后优先走 HandleIncoming 9 步编排（会话/消息/AI决策/转人工/建议保存）
-	// 未注入时回退到 salesEngine.Handle 直接调用
 	smartOrchestrator *SmartCSOrchestrator
 
-	// 多 AI 智能体路由：按渠道账号查询绑定的智能体上下文
-	// 注入后 triggerSalesEngine 会先加载智能体上下文，再调用 engine.HandleWithAgent
-	// 未注入时回退到默认配置（DefaultSalesEngineConfig）
 	agentBindingSvc *ChannelAgentBindingService
 
-	mu        sync.Mutex // 仅用于 Stop 的 stopped 标志保护
-	rlMu      sync.Mutex // 限流桶专用锁
+	mu        sync.Mutex 
+	rlMu      sync.Mutex 
 	rlBuckets map[string]*tokenBucket
 
 	workerCount int
@@ -77,7 +62,6 @@ type WebhookService struct {
 	stopCh      chan struct{}
 	stopped     bool
 
-	// 推理并发信号量：限制同时进行的本地 LLM 生成数，保护单节点推理栈。
 	replySem chan struct{}
 }
 
@@ -294,7 +278,6 @@ type ReceiveRequest struct {
 	Body      []byte
 	Headers   map[string]string
 	SourceIP  string
-	// WeCom 加解密使用：加密的 body 解析时使用
 	Query map[string]string
 }
 
@@ -306,7 +289,6 @@ type ReceiveResult struct {
 	VerifyFail bool   `json:"verify_failed"`
 	Reason     string `json:"reason,omitempty"`
 	EventType  string `json:"event_type,omitempty"`
-	// 业务分发结果（用于 智能体异步触发）
 	Dispatched   bool   `json:"dispatched,omitempty"`
 	HubMessageID string `json:"hub_message_id,omitempty"`
 }
@@ -586,3 +568,4 @@ func (s *WebhookService) dispatchToChannel(ctx context.Context, channel WebhookC
 		return nil, nil, nil
 	}
 }
+

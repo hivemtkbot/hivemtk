@@ -175,14 +175,12 @@ func (r *UserRFMRepository) BatchUpsert(ctx context.Context, rfms []*model.UserR
 			var existing model.UserRFM
 			err := tx.Where("user_id = ?", rfm.UserID).First(&existing).Error
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				// 不存在则创建
 				if err := tx.Create(rfm).Error; err != nil {
 					return err
 				}
 			} else if err != nil {
 				return err
 			} else {
-				// 已存在则更新(保留 ID,更新其他字段)
 				rfm.ID = existing.ID
 				if err := tx.Save(rfm).Error; err != nil {
 					return err
@@ -208,3 +206,4 @@ func (r *UserRFMRepository) GetNeedUpdateUsers(ctx context.Context, days int) ([
 func NewUserRFMRepositoryWithDB(db *gorm.DB) *UserRFMRepository {
 	return &UserRFMRepository{db: db}
 }
+
