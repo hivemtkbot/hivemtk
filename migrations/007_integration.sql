@@ -46,7 +46,6 @@ CREATE TABLE IF NOT EXISTS sync_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_sync_logs_platform ON sync_logs(platform);
 
--- 外部客户表（CRM 对接）
 CREATE TABLE IF NOT EXISTS external_customers (
     id BIGSERIAL PRIMARY KEY,
     platform VARCHAR(50) NOT NULL,
@@ -71,7 +70,6 @@ CREATE INDEX IF NOT EXISTS idx_external_customers_platform ON external_customers
 CREATE INDEX IF NOT EXISTS idx_external_customers_external_id ON external_customers(external_id);
 CREATE INDEX IF NOT EXISTS idx_external_customers_phone ON external_customers(phone);
 
--- updated_at 自动更新触发器 (external_customers)
 CREATE OR REPLACE FUNCTION external_customers_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -84,7 +82,6 @@ CREATE TRIGGER trg_external_customers_updated_at
     BEFORE UPDATE ON external_customers
     FOR EACH ROW EXECUTE FUNCTION external_customers_set_updated_at();
 
--- 外部订单表（电商对接）
 CREATE TABLE IF NOT EXISTS external_orders (
     id BIGSERIAL PRIMARY KEY,
     platform VARCHAR(50) NOT NULL,
