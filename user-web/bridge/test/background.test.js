@@ -1,11 +1,3 @@
-// background service worker 单测（2026-08-05 HTTP-only 重构后）
-//
-// 覆盖：
-//   1) 模块加载：onMessage 监听器已注册；不再有 onConnect
-//   2) setConfig：成功 / lastError 失败
-//   3) getStatus：读 storage 中 activeByChannel
-//   4) injectContentScript：tabId 校验 + 透传
-//   5) 未知 type：返回 false
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 function makeChrome({ storage = {} } = {}) {
@@ -184,8 +176,7 @@ describe('background DEFAULT_USER_SERVER 默认值', () => {
 describe('background HTTP-only 模式', () => {
   it('不再监听 chrome.runtime.onConnect', async () => {
     await loadBackground();
-    // 整个 mock 中没有 onConnect 字段 → 即便 background 试图 addListener 也会抛错
-    // 这里通过 require background 加载完成（未抛错）来验证
     expect(currentMock.chrome.runtime.onConnect).toBeUndefined();
   });
 });
+

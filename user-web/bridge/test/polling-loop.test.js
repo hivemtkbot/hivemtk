@@ -1,13 +1,3 @@
-// PollingLoop 单测（2026-08-06 三通道重构）
-//
-// 覆盖：
-//   1. 生命周期：start/stop 设置/清除 patrol + downlink 定时器，幂等
-//   2. _patrol：空配置 / 无 serverUrl / 无账号 / 无适配器 / 空会话 静默
-//   3. _patrol：抓消息后通过 Uplink → POST /api/bridge/ingest（body 字段对齐）
-//   4. 纯桥接：每轮都上报（去重交给后端），Uplink 短窗口合并需 flushAll 才真正发出
-//   5. _patrol 游标：遍历会话列表、逐会话切换随机 1-2s（由 BRIDGE_THREE_CHANNEL 控制）
-//
-// 设计：使用 fake timer + mock fetch，绕开真实网络。Uplink 合并窗口用 flushAll 强制刷新。
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PollingLoop } from '../src/core/polling-loop.js';
 import { BRIDGE_THREE_CHANNEL } from '../src/core/constants.js';
@@ -90,7 +80,7 @@ describe('polling-loop / _patrol 异常路径', () => {
 
   it('无适配器时静默', async () => {
     const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
-    await loop._patrol(); // 不抛
+    await loop._patrol(); 
   });
 
   it('会话列表为空时不上报', async () => {
@@ -131,14 +121,15 @@ describe('polling-loop / _patrol 抓消息 → 上报（通道A·上报）', () 
     expect(captured.url).toContain('channel=xiaohongshu');
     expect(captured.url).toContain('account_id=acc-1');
     expect(captured.url).toContain('conversation_id=conv-1');
-    expect(captured.url).toContain('token=tkn-1');
+    // token 通过 Authorization header 传输（P0-A），不在 URL 中
+    expect(captured.init.headers).toBeTruthy();
     const body = JSON.parse(captured.init.body);
     expect(body.v).toBe(2);
     expect(body.messages).toHaveLength(1);
     expect(body.messages[0].event_id).toBe('msg-1');
     expect(body.messages[0].sender_name).toBe('小红');
     expect(body.messages[0].content).toBe('你好');
-    expect(body.expect_reply).toBeUndefined(); // 纯桥接：不设 expect_reply
+    expect(body.expect_reply).toBeUndefined(); 
   });
 
   it('无消息时不调用 fetch', async () => {
@@ -172,13 +163,7 @@ describe('polling-loop / _patrol 抓消息 → 上报（通道A·上报）', () 
   });
 });
 
-describe('polling-loop / 巡检配置（要求⑤：3s 一轮，切换随机 1-2s）', () => {
-  it('patrolIntervalMs=3000', () => { expect(BRIDGE_THREE_CHANNEL.patrolIntervalMs).toBe(3000); });
-  it('switch 区间 [1000,2000]', () => {
-    expect(BRIDGE_THREE_CHANNEL.patrolSwitchMinMs).toBe(1000);
-    expect(BRIDGE_THREE_CHANNEL.patrolSwitchMaxMs).toBe(2000);
-    expect(BRIDGE_THREE_CHANNEL.patrolSwitchMaxMs).toBeGreaterThanOrEqual(BRIDGE_THREE_CHANNEL.patrolSwitchMinMs);
-  });
+describe('polling-loop / 巡检配置（PATROL_DEFAULTS 单一源）', () => {
   it('outboxPollIntervalMs=1500（下发轮询独立）', () => { expect(BRIDGE_THREE_CHANNEL.outboxPollIntervalMs).toBe(1500); });
 });
 
@@ -187,7 +172,8 @@ describe('polling-loop / _patrolSafe 防护', () => {
     const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
     loop.start();
     loop.stop();
-    await loop._patrolSafe(); // 不抛
+    await loop._patrolSafe(); 
     expect(loop._patrolInFlight).toBe(false);
   });
 });
+

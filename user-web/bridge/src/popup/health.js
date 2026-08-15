@@ -1,30 +1,12 @@
-// Bridge 健康面板（2026-08-15 M2-P1-产品1）
-//
-// 设计目标：让 popup 能实时观察桥接架构每个渠道的运行健康度，包括：
-//   - 熔断器状态（CLOSED / OPEN / HALF_OPEN）+ 失败原因 + 最近成功/失败时间
-//   - 下行 pendingAck 队列长度、deadLetters 数量
-//   - 上行成功/失败/限流计数
-//   - 延迟分位（P50 / P95 / max）
-//   - 错码分布（4xx / 5xx / net / abort / other）
-//   - 死开关（dead-man's switch）：超 5 分钟无成功 → unhealthy
-//
-// 单一数据源原则：
-//   - background 持有聚合 health（来自各 content script 的 reportHealth）
-//   - popup 拉 health 后渲染面板；不直接持有熔断器实例（避免跨脚本状态漂移）
-//
-// 使用：
-//   import { healthPanel, renderHealthPanel, startHealthPanelPolling, stopHealthPanelPolling } from './health.js';
-//   // 启动：startHealthPanelPolling({ containerId: 'healthPanelOut', intervalMs: 5000 });
-//   // 停止：stopHealthPanelPolling();
 
 import { CHANNEL_DISPLAY, UI_DEFAULTS } from '../core/constants.js';
 
 // 状态机颜色映射（与 popup banner 风格统一）
 const STATE_COLORS = {
-  CLOSED: '#16a34a',     // 绿：健康
-  OPEN: '#dc2626',       // 红：熔断
-  HALF_OPEN: '#d97706',  // 橙：探测中
-  unknown: '#6b7280',    // 灰：无数据
+  CLOSED: '#16a34a',     
+  OPEN: '#dc2626',       
+  HALF_OPEN: '#d97706',  
+  unknown: '#6b7280',    
 };
 
 const STATE_LABELS = {
@@ -192,12 +174,11 @@ export function fetchHealth() {
     try {
       chrome.runtime.sendMessage({ type: 'getStatus' }, (res) => {
         try {
-          // 兜底 lastError
           if (chrome.runtime.lastError) {
             resolve({});
             return;
           }
-        } catch (_) { /* noop */ }
+        } catch (_) {  }
         if (!res || typeof res !== 'object') {
           resolve({});
           return;
@@ -229,7 +210,6 @@ export function startHealthPanelPolling(opts) {
       el.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:8px;">健康面板拉取失败：${e && e.message ? e.message : String(e)}</div>`;
     }
   };
-  // 立即拉一次
   tick();
   const timer = setInterval(tick, intervalMs);
   return () => {
@@ -243,7 +223,6 @@ export function stopHealthPanelPolling(stop) {
   if (typeof stop === 'function') stop();
 }
 
-// 健康面板测试钩子
 if (typeof window !== 'undefined') {
   window.__healthPanel = {
     renderHealthPanel,
@@ -256,3 +235,4 @@ if (typeof window !== 'undefined') {
     STATE_LABELS,
   };
 }
+

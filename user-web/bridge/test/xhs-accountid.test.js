@@ -1,8 +1,3 @@
-// xhs getAccountId / getConversationId / normalizeContactId 兜底回归测试
-// 根因：小红书私信页左侧会话是虚拟滚动，header「我的」链接在浮层/改版下可能缺失，
-// 旧版 getAccountId 只取单个 a[href*="/user/profile/"]，取不到时返回空串 →
-// WS 握手持空 account_id → 服务端 401 → 历史/实时全不上行。
-// 修复后：侧栏/header「我的」链接 → 任意 profile/`/user/` 链接 → localStorage 缓存 → 稳定 unknown（绝不空串）。
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { getAccountId, getConversationId, normalizeContactId, isXhsMessagePage } from '../src/channels/xhs.js';
 
@@ -20,7 +15,7 @@ describe('xhs normalizeContactId', () => {
 describe('xhs getAccountId 兜底', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
-    try { localStorage.removeItem('hivebridge:account:xiaohongshu'); } catch (e) { /* noop */ }
+    try { localStorage.removeItem('hivebridge:account:xiaohongshu'); } catch (e) {  }
   });
   afterEach(() => { document.body.innerHTML = ''; });
 

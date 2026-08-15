@@ -1,14 +1,3 @@
-// content script 公共引导：把适配器捕获的消息通过 HTTP 上报到 user-server。
-// 协议常量/字段与服务端 handler_http.go 严格对齐（详见 bridge.md §17）。
-//
-// 2026-08-06 架构重构（下发三通道分离，详见 docs/bridge/REDESIGN-2026-08-06.md）：
-//   - Bridge 只做桥接：上报消息 + 下发转发，不做任何业务判断
-//   - 通道A·上报：所有消息（customer / agent）统一走 onMessage 回调 → Uplink.enqueue → POST /api/bridge/ingest
-//   - 通道C·下发：AI 回复落库后由 downlink 独立轮询 GET /api/bridge/outbox 拉取，转发到网页
-//   - 通道B·状态：转发成功后 ackOutbox（POST /api/bridge/outbox/ack）标记 delivered
-//   - 上报即时返回，reply 不再随响应返回；三通道相互独立，各自并发、有同步确认
-//   - 消息 hash（event_id）在前端完成（Uplink 兜底补全），后端按 event_id 去重入库
-//   - 完整 URL + 解析后的 query 参数 + body 预览由 http-ingest._logRequest 统一打印
 import { DEFAULT_USER_SERVER } from '../core/constants.js';
 import { createLogger } from '../core/logger.js';
 import { hydrateSelectors, SELECTOR_UPDATE_MSG } from '../core/selector-ai.js';
@@ -18,7 +7,7 @@ import { PollingLoop } from '../core/polling-loop.js';
 const log = createLogger('content', 'bridge');
 
 // 下行限速告警去抖：被全局最小间隔拦截时每轮轮询都会触发，去抖避免刷屏。
-const _rateLimitWarnAt = new Map(); // reason -> lastLogAt(ms)
+const _rateLimitWarnAt = new Map(); 
 const RATE_LIMIT_WARN_INTERVAL_MS = 15000;
 
 // B6 修复：popup -> content 的 selfcheck 用 chrome.tabs.sendMessage 触发，
@@ -38,14 +27,12 @@ function handleSelfcheck(adapter, sendResponse, diag) {
     sendResponse({
       channel: adapter.channel,
       matched: adapter.match(),
-      matchMode: adapter.matchMode(), // 'strict' | 'fallback' | null
+      matchMode: adapter.matchMode(), 
       accountId: adapter.getAccountId() || '',
       conversationId: adapter.getConversationId() || null,
       msgItemCount: items.length,
       selectors: adapter.SEL || null,
       sample: parsed.map((p) => ({ sender: p.sender_type, text: (p.text || '').slice(0, 60) })),
-      // 上报链路诊断：桥接是否激活 / 各计数（定位「解析到了但不上报」）
-      // 2026-08-05 HTTP-only 重构：移除 portAlive（无 port 概念）。
       bridgeActive: diag ? diag.active : null,
       stats: diag ? diag.stats : null,
     });
@@ -65,16 +52,12 @@ function handleSelfcheck(adapter, sendResponse, diag) {
 // 改为异步模式：return true 保持 port 打开，把 scan 放进 microtask 让出事件循环，
 // sendResponse 包 try/catch 防止 port 已关闭时二次抛错。
 function handleDeepSelfcheck(sendResponse) {
-  // 走微任务而不是直接同步执行；这样 chrome.tabs.sendMessage 收到消息后
-  // 立刻 return true 拿到的 port 在下一次事件循环 turn 之前不会被关闭。
   Promise.resolve()
     .then(() => scanDomSnapshot())
     .then((snapshot) => {
       try {
         sendResponse({ ok: true, ...snapshot });
       } catch (e) {
-        // port 可能在扫描过程中被关闭（页面刷新 / 标签关闭 / 长时间无响应）
-        // 此处无法把错误传回 popup，仅记录
         log.warn('deepSelfcheck sendResponse 失败（port 已关闭？）', e);
       }
     })
@@ -205,7 +188,6 @@ export function scanDomSnapshot() {
       if (!el || depth > 4 || threadTree.length >= 12) return;
       const cls = (el.className && typeof el.className === 'string') ? el.className.trim().slice(0, 60) : '';
       const txt = (el.textContent || '').trim().slice(0, 24);
-      // 只记录「有 class 且含文本」的节点，跳过纯容器骨架
       if (cls && txt) {
         threadTree.push({ depth, cls, txt });
       }
@@ -225,7 +207,6 @@ export function scanDomSnapshot() {
     listRootCount: visibleListRoots.length,
     listRootSample: visibleListRoots.map((el) => elementSummary(el)),
     accountHints,
-    // 推荐操作：让用户能根据真实 DOM 修正 SEL
     recommendedSelector: pickRecommendedSelector(visibleInputs),
     msgItemCount: msgItems.length,
     msgItemSample,
@@ -242,7 +223,6 @@ function uniqueQueryAll(root, sels) {
       const list = root.querySelectorAll(sel);
       for (const n of list) out.add(n);
     } catch (_) {
-      // 忽略非法选择器
     }
   }
   return Array.from(out);
@@ -269,7 +249,7 @@ export function isVisible(el) {
 
 function isLikelySendButton(el) {
   const cls = (el.getAttribute('class') || '').toLowerCase();
-  if (/e2e-send-msg-btn|send-msg|sendmsg/.test(cls)) return true; // 抖音 svg 发送按钮
+  if (/e2e-send-msg-btn|send-msg|sendmsg/.test(cls)) return true; 
   const aria = (el.getAttribute('aria-label') || '').toLowerCase();
   const text = (el.textContent || '').trim().toLowerCase();
   if (/发送|send|发 送|發送/.test(aria) || /发送|send|发 送/.test(text)) return true;
@@ -300,7 +280,6 @@ function elementSummary(el) {
 
 function pickRecommendedSelector(visibleInputs) {
   if (!visibleInputs.length) return null;
-  // 优先级：textarea > 带 placeholder > role=textbox > contenteditable
   for (const el of visibleInputs) {
     if (el.tagName.toLowerCase() === 'textarea') {
       const ph = el.getAttribute('placeholder');
@@ -321,7 +300,6 @@ function pickRecommendedSelector(visibleInputs) {
       if (cls) return `.${cls}`;
     }
   }
-  // 兜底：第一个 contenteditable
   for (const el of visibleInputs) {
     if (el.getAttribute('contenteditable') === 'true') {
       return 'div[contenteditable="true"]';
@@ -336,12 +314,9 @@ export function startBridge(channel, buildAdapter) {
   // 2026-08-05 HTTP-only 重构：移除 portAlive/connectError（无 port 概念），
   // 移除 register 计数（HTTP 模式无 REGISTER 帧）。
   const diag = { active: false, stats: { inbound: 0, history: 0, outbound: 0, dropped: 0 } };
-  // 注入即打印（任何页面都会出现）——用户可据此判断 content script 是否真的运行，
-  // 区分「脚本没注入」vs「注入了但选择器没匹配」。
-  try { log.info('已注入 content script', channel, location.host, 'match=' + adapter.match()); } catch (_) { /* noop */ }
+  try { log.info('已注入 content script', channel, location.host, 'match=' + adapter.match()); } catch (_) {  }
 
-  // 启动时从 chrome.storage 水合选择器配置到本页 localStorage 镜像（popup 保存后立即生效的基础）
-  try { hydrateSelectors(); } catch (_) { /* noop */ }
+  try { hydrateSelectors(); } catch (_) {  }
 
   // 配置读取：每次 submitIngest 提交前调一次，从 chrome.storage 拿 serverUrl/token。
   // chrome.storage 在 content script 不可用（需要 background 转发）— 但实测可用，
@@ -371,10 +346,6 @@ export function startBridge(channel, buildAdapter) {
     }
   });
 
-  // X 修复：ping/selfcheck 监听器必须在 match 检查之前注册。
-  // 早期版本在 adapter.match() 失败时直接 return，导致用户在抖音首页
-  // （不是私信/消息页）时 popup 永远拿不到任何响应，显示 "undefined"。
-  // 现在统一处理：未匹配页只回 ping/selfcheck 诊断，不启动 background 端口/observer。
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (!msg || !msg.type) return false;
     // match() 安全包装：任何异常都视为「未匹配」并带错误信息返回，不中断监听器
@@ -392,7 +363,6 @@ export function startBridge(channel, buildAdapter) {
       let m = safeMatch();
       const isObj = m && typeof m === 'object' && !Array.isArray(m);
       if (m !== true) {
-        // 已注入但不是私信/消息页：返回 matched=false + 引导，不报错
         sendResponse({
           channel,
           matched: false,
@@ -410,36 +380,26 @@ export function startBridge(channel, buildAdapter) {
       handleSelfcheck(adapter, sendResponse, diag);
       return false;
     }
-    // 深度自检：无论 match() 成功与否都可触发，给出真实 DOM 快照
-    // 用于诊断"match() 失败但页面看着像私信页"（平台改版 / 选择器过期）
-    //
-    // 必须 return true：handleDeepSelfcheck 内部走 Promise 微任务，扫描是异步的。
-    // 若 return false，Chrome 会在当前 tick 结束就关闭 port，popup 收到
-    // "The message port closed before a response was received" 错误。
     if (msg.type === 'deepSelfcheck') {
       handleDeepSelfcheck(sendResponse);
       return true;
     }
-    // 全量遍历同步所有私信会话（一个私信=一个会话=统一收信中心一条记录；遍历所有私信上报）。
-    // 仅在已匹配私信页时有效；异步返回 { ok, synced, total, failures }。
     if (msg.type === 'syncAllConversations') {
       if (!adapter.match()) {
         sendResponse({ ok: false, error: '当前页面不是私信页，无法遍历' });
         return false;
       }
       adapter.syncAllConversations({ throttleMs: 1000 }).then((r) => {
-        try { sendResponse({ ok: true, ...r }); } catch (_) { /* noop */ }
+        try { sendResponse({ ok: true, ...r }); } catch (_) {  }
       }).catch((e) => {
-        try { sendResponse({ ok: false, error: String((e && e.message) || e) }); } catch (_) { /* noop */ }
+        try { sendResponse({ ok: false, error: String((e && e.message) || e) }); } catch (_) {  }
       });
       return true;
     }
-    // popup 保存选择器后广播 → content script 重新从 chrome.storage 水合到本页 localStorage 镜像
     if (msg.type === SELECTOR_UPDATE_MSG) {
-      hydrateSelectors().then(() => { try { sendResponse({ ok: true }); } catch (_) { /* noop */ } });
+      hydrateSelectors().then(() => { try { sendResponse({ ok: true }); } catch (_) {  } });
       return true;
     }
-    // 巡检制度（需求上行②）：启动/停止/立即巡检一轮/查状态
     if (msg.type === 'patrolStart') {
       if (!adapter.startPatrol) { sendResponse({ ok: false, error: '适配器不支持巡检' }); return false; }
       const r = adapter.startPatrol({ intervalMs: msg.intervalMs });
@@ -454,9 +414,9 @@ export function startBridge(channel, buildAdapter) {
     if (msg.type === 'patrolNow') {
       if (!adapter.patrol) { sendResponse({ ok: false, error: '适配器不支持巡检' }); return false; }
       adapter.patrol().then((r) => {
-        try { sendResponse({ ok: true, ...r }); } catch (_) { /* noop */ }
+        try { sendResponse({ ok: true, ...r }); } catch (_) {  }
       }).catch((e) => {
-        try { sendResponse({ ok: false, error: String((e && e.message) || e) }); } catch (_) { /* noop */ }
+        try { sendResponse({ ok: false, error: String((e && e.message) || e) }); } catch (_) {  }
       });
       return true;
     }
@@ -484,15 +444,11 @@ export function startBridge(channel, buildAdapter) {
   //   HTTP 长轮询无状态、每次请求独立，无需重连计数。保留 sync() 限速用于
   //   「SPA 浮层打开/关闭」时频繁调用 activateBridge 的去抖。
   let lastSyncAt = 0;
-  const SYNC_THROTTLE_MS = 3000;      // sync 节流：至少 3 秒间隔
+  const SYNC_THROTTLE_MS = 3000;      
 
   const activateBridge = () => {
-    let closed = false;       // 主动清理（页面卸载）标记
+    let closed = false;       
 
-    // 2026-08-06 架构重构：下行回复不再随 ingest HTTP 响应返回。
-    // 改为独立通道：PollingLoop 内的 downlink 轮询 GET /api/bridge/outbox 拉取待发消息，
-    // 调 adapter.sendOutbound 转发到网页，成功后经 ackOutbox 确认 delivered（通道B·状态）。
-    // 因此此处不再需要 dispatchOutboundReply（outbound_replies 响应字段已废弃）。
 
     // 通过 postIngest 批量上报消息（纯桥接：不设 expect_reply，后端根据 sender_type 判断）。
     //
@@ -507,13 +463,10 @@ export function startBridge(channel, buildAdapter) {
     const uplink = new Uplink({ channel, getConfig });
     const submitIngest = (message) => {
       if (!message) return;
-      // 统一账号归属：确保上报与下发轮询（downlink）使用同一 accountId，outbox 查询才能匹配
       if (!message.account_id) message.account_id = accountId;
       uplink.enqueue(message);
     };
 
-    // 上行：所有消息（customer / self / agent）统一走 onMessage 回调上报。
-    // 纯桥接：bridge 不区分消息类型，是否入库 / 是否回复由后端根据 sender_type 判断。
     adapter.start({
       onMessage: (message) => {
         stats.inbound++;
@@ -523,7 +476,6 @@ export function startBridge(channel, buildAdapter) {
           sender: message && message.sender_type,
           len,
         });
-        // fire-and-forget：postIngest 自带退避重试 + 完整 URL/参数日志
         submitIngest(message);
       },
       onRateLimited: (decision) => {
@@ -551,7 +503,7 @@ export function startBridge(channel, buildAdapter) {
     // 页面卸载 / SPA 路由切换时清理
     const cleanup = () => {
       closed = true;
-      try { pollingLoop.stop(); } catch (_) { /* noop */ }
+      try { pollingLoop.stop(); } catch (_) {  }
       adapter.stop();
     };
     window.addEventListener('beforeunload', cleanup, { once: true });
@@ -584,7 +536,6 @@ export function startBridge(channel, buildAdapter) {
     }
   };
 
-  // 立即尝试一次；不匹配则轮询，覆盖「面板稍后打开 / 关闭」两种场景（抖音 SPA 浮层）
   sync();
   if (!active) {
     log.info('当前页面不匹配', channel, '，启动轮询等待私信面板打开…');
@@ -611,3 +562,4 @@ export function startBridge(channel, buildAdapter) {
   window.addEventListener('beforeunload', stopPoll, { once: true });
   window.addEventListener('pagehide', stopPoll, { once: true });
 }
+

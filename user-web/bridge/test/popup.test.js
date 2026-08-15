@@ -1,29 +1,9 @@
-// popup 单元测试：覆盖 normalizeServerUrl / testConnection / showBanner / lastError
-//                / diagnoseUninjected / selfCheck 全流程
-//
-// 设计要点：
-//   - popup 源码含 ESM `import { ... } from '../core/constants.js'`，`new Function`
-//     不能解析 import 语句，所以用 esbuild 把入口打成 IIFE，再注入到测试桩
-//   - 这样测试跑的是"实际跑在扩展里"的那段代码，避免 mock 偏离实现
-//   - 全部 it() 改为 async，因 esbuild.build 是异步；首次调用会缓存打包结果
-//   - 注入 chrome / document / window / AbortController / fetch 五个全局桩
-//
-// 环境约束：
-//   - 强制 node 环境而非默认 jsdom：esbuild 内部依赖 `new TextEncoder().encode(...) instanceof Uint8Array`
-//     的不变量，jsdom 重写了 TextEncoder 会导致 esbuild 直接抛 "Invariant violation"。
-//     popup 本身只用 document/window/chrome 三个全局，本测试在 new Function 中自注入，不依赖 jsdom。
-//
-// 测试场景（与 popup.js 协议严格对齐）：
-//   1) normalizeServerUrl：空 / 空格 / 自动补 http / https / 尾斜杠
-//   2) testConnection：空 / 2xx / 5xx 降级 / 404 试下一路径 / 4xx 立即返回 / 网络错
-//   3) showBanner / clearBanner：DOM 写入与 className 切换
-//   4) lastError：null / 有 message / message=undefined 兜底 / chrome 抛错
-//   5) diagnoseUninjected：典型 Chrome 错 + 抖音域名 / 非支持域名 / 非典型错 / null
-//   6) selfCheck 两步探活：A. 域名不在白名单 / A. ping 失败 / 极端 lastError 兜底
-//                         B. ping OK + matched=false / C. ping OK + matched=true
-//
-// @vitest-environment node
 
+// @vitest-environment node
+//
+// popup.test.js 自建 mock DOM（new Function 注入），不依赖 jsdom 全局。
+// 强制 node 环境：jsdom 的 TextEncoder/Uint8Array 跨 realm 会让 esbuild 的
+// `encode("") instanceof Uint8Array` 不变量校验失败（Invariant violation）。
 import { describe, it, expect, vi } from 'vitest';
 import { build } from 'esbuild';
 import { resolve, dirname } from 'path';
@@ -49,8 +29,6 @@ function bundlePopup() {
   return _bundledPromise;
 }
 
-// 加载 popup 模块（暴露 window.__popup）
-// globals: { chrome, fetch, AbortController? } —— 不传则用默认桩
 async function loadPopup(globals = {}) {
   const popupSrc = await bundlePopup();
   // 构造 jsdom 风格的 window/document
@@ -68,7 +46,6 @@ async function loadPopup(globals = {}) {
         children: [],
         addEventListener: () => {},
         appendChild: function (n) {
-          // 同步更新 children + textContent（便于断言）
           this.children.push(n);
           if (n && typeof n.textContent === 'string') {
             this.textContent = (this.textContent || '') + n.textContent;
@@ -199,7 +176,7 @@ describe('popup testConnection', () => {
     expect(r.ok).toBe(false);
     expect(r.reason).toBe('unreachable');
     expect(r.detail).toContain('Failed to fetch');
-    expect(fetchMock).toHaveBeenCalledTimes(4); // 4 个候选
+    expect(fetchMock).toHaveBeenCalledTimes(4); 
   });
 
   it('第一个失败第二个成功', async () => {
@@ -220,7 +197,6 @@ describe('popup showBanner', () => {
     const el = elements['banner'];
     expect(el.className).toContain('show');
     expect(el.className).toContain('success');
-    // children appended
     expect(el.children.length).toBe(2);
     expect(el.children[0].className).toBe('title');
     expect(el.children[0].textContent).toBe('标题');
@@ -245,7 +221,6 @@ describe('popup showBanner', () => {
   });
 });
 
-// ---- 新增：lastError / diagnoseUninjected / selfcheck 两步探活 ----
 
 describe('popup lastError', () => {
   it('无 lastError 时返回 null', async () => {
@@ -260,7 +235,6 @@ describe('popup lastError', () => {
     expect(exported.lastError()).toBe('Could not establish connection. Receiving end does not exist.');
   });
 
-  // 修复回归：早期 lastError 返回整个对象，调用方又取 .message → undefined。
   it('lastError.message 为 undefined 时返回 "(无错误详情)" 兜底，避免 popup 显示 "undefined"', async () => {
     const { exported } = await loadPopup({
       chrome: { runtime: { lastError: { message: undefined } } },
@@ -320,7 +294,6 @@ describe('popup selfCheck 流程', () => {
           calls.push({ id, msg });
           if (msg.type === 'ping') {
             if (pingError) {
-              // 模拟 lastError 状态在回调前被设置
               setTimeout(() => {
                 Object.defineProperty(fake.runtime, 'lastError', { value: pingError, configurable: true });
                 cb(undefined);
@@ -450,7 +423,6 @@ describe('popup selfCheck 流程', () => {
     const out = elements['selfOut'].textContent;
     expect(out).toContain('adapter.match() 返回 false');
     expect(out).toContain('deepSelfcheck 失败');
-    // port closed 场景应给"重负载/标签后台/SPA 切换"明确引导
     expect(out).toContain('DOM 极重');
     expect(out).toContain('标签页处于后台');
     expect(out).toContain('Ctrl+Shift+R');
@@ -462,7 +434,6 @@ describe('popup selfCheck 流程', () => {
       tab,
       pingResp: { pong: true, channel: 'douyin_web', matched: false },
       selfcheckResp: { channel: 'douyin_web', matched: false, hint: '请打开私信页' },
-      // 非 port-closed 错误：模拟接收端不存在
       deepError: { message: 'Could not establish connection. Receiving end does not exist.' },
     });
     const { exported, elements } = await loadPopup({ chrome });
@@ -471,7 +442,6 @@ describe('popup selfCheck 流程', () => {
     const out = elements['selfOut'].textContent;
     expect(out).toContain('adapter.match() 返回 false');
     expect(out).toContain('deepSelfcheck 失败');
-    // 非 port-closed 错误：应提示"未注入"而非"重负载"
     expect(out).toContain('content script 未注入');
     expect(out).not.toContain('DOM 极重');
   });
@@ -567,9 +537,6 @@ describe('popup selfCheck 流程', () => {
   });
 });
 
-// =============================================================
-// formatDeepSnapshot 单元测试：把 DOM 快照渲染成易读文本
-// =============================================================
 describe('popup formatDeepSnapshot', () => {
   it('完整快照：所有字段都渲染', async () => {
     const { exported } = await loadPopup({});
@@ -666,3 +633,4 @@ describe('popup formatDeepSnapshot', () => {
     expect(out).toContain('https://x.com/user/abc');
   });
 });
+

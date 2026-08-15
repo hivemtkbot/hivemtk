@@ -1,13 +1,7 @@
-// 聊天对象昵称抽取单测 —— 需求③/修复
-// 问题1：小红书 1v1 私信发件人没有正确显示（历史是字符串 hash），没有像抖音一样抓对方昵称或群聊名。
-// 问题3：抖音、小红书获取对象昵称都不太对，应在聊天对象页通过 class 获取。
-// 修复：新增 getPeerName() 从聊天 header class 抽取对方昵称/群名；parseMessageItem 把它作为
-//       1v1 客户消息的 sender_name；群聊时作为 group_name。
 import { describe, it, expect, beforeEach } from 'vitest';
 import { JSDOM } from 'jsdom';
 
 beforeEach(() => {
-  // 重置 DOM + location，避免上一个测试残留
   document.body.innerHTML = '';
   const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', { url: 'https://www.xiaohongshu.com/chat' });
   global.window = dom.window;
@@ -29,7 +23,6 @@ describe('xhs.getPeerName 从聊天 header class 抽取对方昵称', () => {
     title.textContent = '买家小明';
     makeVisible(title);
     document.body.appendChild(title);
-    // 避免账号链路干扰（设 localStorage 兜底）
     localStorage.setItem('hivebridge:account:xhs_web', 'me123');
 
     const { getPeerName } = await import('../src/channels/xhs.js');
@@ -78,7 +71,7 @@ describe('xhs.getPeerName 从聊天 header class 抽取对方昵称', () => {
     document.body.innerHTML = '';
     const title = document.createElement('div');
     title.className = 'xhs-im-chat-title';
-    title.textContent = '私信'; // 通用词，应跳过
+    title.textContent = '私信'; 
     document.body.appendChild(title);
     localStorage.setItem('hivebridge:account:xhs_web', 'me123');
     const { getPeerName } = await import('../src/channels/xhs.js');
@@ -131,7 +124,6 @@ describe('douyin.getPeerName 从聊天 header class 抽取对方昵称', () => {
     expect(getPeerName()).toBe('');
   });
 });
-// 回归测试：parseMessageItem 给 1v1 客户消息装上 sender_name（对方昵称），需求③核心
 describe('xhs.parseMessageItem 把对方昵称装到 sender_name', () => {
   it('1v1 客户消息 → sender_name = 聊天 header 的对方昵称', async () => {
     document.body.innerHTML = '';
@@ -162,7 +154,6 @@ describe('xhs.parseMessageItem 把对方昵称装到 sender_name', () => {
     expect(parsed).toBeTruthy();
     expect(parsed.sender_type).toBe('customer');
     expect(parsed.sender_name).toBe('咨询客户阿珍');
-    // group_name 在 1v1 时应为空（非群）
     expect(parsed.is_group).toBe(false);
     expect(parsed.group_name).toBe('');
   });
@@ -191,9 +182,8 @@ describe('xhs.parseMessageItem 把对方昵称装到 sender_name', () => {
     const adapter = buildXhsAdapter();
     const parsed = adapter.parseMessageItem(msg);
     expect(parsed).toBeTruthy();
-    // 2026-08-06：前端不再计算 self/other，所有非 system/recall 消息一律 customer
     expect(parsed.sender_type).toBe('customer');
-    // 1v1 一律取对方昵称（前端无法区分自己/对方，后端负责权威重判）
     expect(parsed.sender_name).toBe('咨询客户阿珍');
   });
 });
+

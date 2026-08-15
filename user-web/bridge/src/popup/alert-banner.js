@@ -1,20 +1,9 @@
-// Bridge Popup 告警横幅监听器（2026-08-15 M2-P1-产品5）
-//
-// 目标：popup 打开时持续监听 health 状态，熔断器 OPEN / 死开关触发时
-//       自动在顶部展示红色横幅，避免用户看不到"桥接已挂"的信号。
-//
-// 与 health.js 联动：复用 fetchHealth() + detectHealthAlert()。
-//
-// 使用：
-//   import { startAlertPolling, stopAlertPolling } from './alert-banner.js';
-//   const stop = startAlertPolling({ onAlert: (alert) => showBanner(alert.level, alert.title, alert.body) });
-//   // 关闭 popup 时：stopAlertPolling(stop);
 
 import { fetchHealth, detectHealthAlert } from './health.js';
 import { UI_DEFAULTS } from '../core/constants.js';
 
 let _stopFn = null;
-let _lastAlertKey = null; // 用于去重：相同告警不重复弹
+let _lastAlertKey = null; 
 
 // 启动告警轮询
 // opts: { onAlert, onClear, intervalMs? }
@@ -22,9 +11,8 @@ let _lastAlertKey = null; // 用于去重：相同告警不重复弹
 //   onClear():      告警消除时调用（之前有告警，现在无）
 // 返回 stop 函数
 export function startAlertPolling(opts) {
-  // 清理旧轮询
   if (_stopFn) {
-    try { _stopFn(); } catch (_) { /* noop */ }
+    try { _stopFn(); } catch (_) {  }
     _stopFn = null;
   }
   const { onAlert, onClear, intervalMs = UI_DEFAULTS.popupAlertPollMs } = opts || {};
@@ -46,7 +34,7 @@ export function startAlertPolling(opts) {
         _lastAlertKey = null;
         if (typeof onClear === 'function') onClear();
       }
-    } catch (_) { /* noop */ }
+    } catch (_) {  }
   };
   tick();
   const timer = setInterval(tick, intervalMs);
@@ -63,12 +51,11 @@ export function startAlertPolling(opts) {
 export function stopAlertPolling(stop) {
   if (typeof stop === 'function') stop();
   if (_stopFn) {
-    try { _stopFn(); } catch (_) { /* noop */ }
+    try { _stopFn(); } catch (_) {  }
     _stopFn = null;
   }
 }
 
-// 测试钩子
 if (typeof window !== 'undefined') {
   window.__alertBanner = {
     startAlertPolling,
@@ -76,3 +63,4 @@ if (typeof window !== 'undefined') {
     _getLastAlertKey: () => _lastAlertKey,
   };
 }
+

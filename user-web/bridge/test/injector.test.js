@@ -1,12 +1,3 @@
-// injector.js 单测
-//
-// 覆盖：
-//   1) URL → content script 文件 路由（纯函数，无副作用）
-//   2) scriptingAvailable 探测
-//   3) injectContentScript 主流程（含错误兜底、dedup、透传参数）
-//   4) isSupportedHost 运行时域名白名单（2026-08-05 审计 P0）
-//
-// 文档源：user-server/docs/dev/DEVELOPMENT.md 端口对照表 + bridge/bridge.md §17
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   pickContentScriptFile,
@@ -17,9 +8,6 @@ import {
   __resetInjectState,
 } from '../src/background/injector.js';
 
-// =============================================================
-// 1) pickContentScriptFile —— 纯函数路由表
-// =============================================================
 describe('pickContentScriptFile / URL 路由', () => {
   it('抖音主站 → content-douyin.js', () => {
     expect(pickContentScriptFile('https://www.douyin.com/follow')).toBe('content-douyin.js');
@@ -53,7 +41,6 @@ describe('pickContentScriptFile / URL 路由', () => {
     expect(pickContentScriptFile('HTTPS://WWW.DOUYIN.COM/')).toBe('content-douyin.js');
   });
 
-  // 2026-08-05 审计 P0 修复：补全 xianyu/goofish 路由（原实现遗漏）
   it('闲鱼 goofish.com → content-xianyu.js', () => {
     expect(pickContentScriptFile('https://www.goofish.com/im')).toBe('content-xianyu.js');
   });
@@ -67,9 +54,6 @@ describe('pickContentScriptFile / URL 路由', () => {
   });
 });
 
-// =============================================================
-// 1b) isSupportedHost / SUPPORTED_HOSTS —— 2026-08-05 审计 P0 运行时白名单
-// =============================================================
 describe('isSupportedHost / 运行时白名单', () => {
   it('SUPPORTED_HOSTS 包含 5 个平台', () => {
     expect(SUPPORTED_HOSTS).toContain('douyin.com');
@@ -96,8 +80,8 @@ describe('isSupportedHost / 运行时白名单', () => {
   it('非支持域名 → false', () => {
     expect(isSupportedHost('https://example.com/')).toBe(false);
     expect(isSupportedHost('https://baidu.com/')).toBe(false);
-    expect(isSupportedHost('https://evil-douyin.com/')).toBe(false); // 不能前缀匹配绕过
-    expect(isSupportedHost('https://douyin.com.evil.com/')).toBe(false); // 不能后缀匹配绕过
+    expect(isSupportedHost('https://evil-douyin.com/')).toBe(false); 
+    expect(isSupportedHost('https://douyin.com.evil.com/')).toBe(false); 
   });
 
   it('无效输入 → false', () => {
@@ -113,9 +97,6 @@ describe('isSupportedHost / 运行时白名单', () => {
   });
 });
 
-// =============================================================
-// 2) scriptingAvailable —— 探测 chrome API 存在性
-// =============================================================
 describe('scriptingAvailable / 探测', () => {
   it('chrome.scripting.executeScript 存在 → true', () => {
     const saved = globalThis.chrome;
@@ -139,12 +120,6 @@ describe('scriptingAvailable / 探测', () => {
   });
 });
 
-// =============================================================
-// 3) injectContentScript —— 主流程
-// =============================================================
-// 关键设计：chrome.scripting.executeScript 第二个参数 callback 是异步触发的，
-// 真实 Chrome 实现里 callback 在下一个 microtask 才会触发。
-// 测试用 setTimeout(..., 0) 模拟这个延迟。
 describe('injectContentScript / 主流程', () => {
   let executeScriptMock;
 
@@ -275,9 +250,9 @@ describe('injectContentScript / 主流程', () => {
   it('opts 位置传函数（兼容旧调用）→ opts 视为空', async () => {
     mockSuccess();
     await new Promise((resolve) => {
-      // 旧式调用：injectContentScript(tabId, url, cb)
       injectContentScript(1, 'https://www.douyin.com/', resolve);
     });
     expect(executeScriptMock).toHaveBeenCalledTimes(1);
   });
 });
+

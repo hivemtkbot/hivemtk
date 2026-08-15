@@ -1,11 +1,3 @@
-// bridge 默认值与 DEFAULTS.md 一致性测试
-//
-// 目的：
-//   1) 验证 constants.js 的所有值都有意义（非空、合法）
-//   2) 验证前端/后端数值对齐（防止 client/server 数字漂移）
-//   3) 防止后续改动时遗漏文档源引用
-//
-// 参考模式：user-server/internal/pkg/utils/config/inference_load_test.go
 
 import { describe, it, expect } from 'vitest';
 import {
@@ -73,7 +65,6 @@ describe('RATE_LIMIT_DEFAULTS', () => {
   });
 
   it('accountCapacity 必须 ≤ 后端兜底 60/min（前端更严格）', () => {
-    // 后端 hub.go DeliverRateLimitPerMin = 60；前端必须 <= 60
     expect(RATE_LIMIT_DEFAULTS.accountCapacity).toBeLessThanOrEqual(60);
   });
 
@@ -120,7 +111,6 @@ describe('PROTOCOL', () => {
   });
 
   it('FRAME 名称必须与 user-server/internal/bridge/frames.go 严格一致', () => {
-    // 协议即契约，禁改字面量（DEVELOPMENT.md 强约束）
     expect(PROTOCOL.FRAME).toEqual({
       REGISTER: 'register',
       INBOUND: 'inbound_message',
@@ -140,8 +130,6 @@ describe('PROTOCOL', () => {
 
 describe('SECURITY', () => {
   it('maxReplyContentBytes 必须与服务端 handler.go maxReplyContentBytes 一致', () => {
-    // 服务端：4 * 1024 = 4096
-    // 前端必须严格相等（避免服务端截断后用户看到残缺）
     expect(SECURITY.maxReplyContentBytes).toBe(4 * 1024);
   });
 
@@ -163,7 +151,6 @@ describe('DEFAULTS 文档源完整性', () => {
       'PROTOCOL',
       'SECURITY',
     ];
-    // 运行时检查：每个常量都已 import
     expect(typeof DEFAULT_USER_SERVER).toBe('object');
     expect(typeof PLATFORM_ENTRY_URLS).toBe('object');
     expect(typeof RATE_LIMIT_DEFAULTS).toBe('object');
@@ -174,3 +161,4 @@ describe('DEFAULTS 文档源完整性', () => {
     expect(expected.length).toBe(7);
   });
 });
+

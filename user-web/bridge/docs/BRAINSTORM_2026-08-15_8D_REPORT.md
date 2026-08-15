@@ -170,17 +170,21 @@ $ npm test
 
 ## 五·B、P0 全面升级（2026-08-15 10/10 任务清单 1-9）
 
-| ID | 维度 | 修复 | 文件 | 测试 |
-|----|------|------|------|------|
-| P0-1 | 协议 | 强制 conversation_id 入参（v2 推荐，v1 兼容） | handler_http.go / inbox_ingress_outbound.go | 4 用例 |
-| P0-2 | 协议 | AckOutboundItem.Error 字段透传 | inbox_ingress_outbound.go | 1 用例 |
-| P0-3 | 协议 | req.Status 决定终态（delivered/failed） | handler_http.go / repository | 4 用例 |
-| P0-4 | 数据 | 单 SQL `UPDATE...RETURNING` 原子化（合并 Get+Update） | message_hub_inbox_outbound.go | 复用 P4-2.1 |
-| P0-5 | 性能 | 500 条 IN P95 < 200ms 基准 + bench | message_hub_inbox_outbound_p0_5_bench_test.go | bench + 阈值测试 |
-| P0-6 | 安全 | 跨账号探测 → not_in_scope（不告知归属，防越权信息泄露） | inbox_ingress_outbound.go / repository | 5 用例（service+handler+repo） |
-| P0-7 | 协议 | PROTOCOL 常量共享（消除 handler 字面量） | channelgw/protocol.go | -- |
-| P0-8 | 协议 | not_found 与 not_in_scope 区分（GC 回收 vs 归属错） | inbox_ingress_outbound.go | 复用 P0-6 |
-| P0-9 | 可靠性 | _pendingAck 最大重试 + 指数退避（10 次/1s→60s cap/24h TTL） | downlink.js | 14 用例 |
+> **commit**：`e3fee13`（feat(bridge): P0 全面升级 1-9 全部完成）
+> **commit**：`eb95896`（feat(bridge): M2-P1 popup 增强·健康度面板/告警/紧急停止/多账号/错误码友好化）
+> **commit**：`待回填`（终稿收尾：测试修复 + 8D 报告补 commit hash + 任务清单 100%）
+
+| ID | 维度 | 修复 | 文件 | 测试 | commit |
+|----|------|------|------|------|--------|
+| P0-1 | 协议 | 强制 conversation_id 入参（v2 推荐，v1 兼容） | handler_http.go / inbox_ingress_outbound.go | 4 用例 | e3fee13 |
+| P0-2 | 协议 | AckOutboundItem.Error 字段透传 | inbox_ingress_outbound.go | 1 用例 | e3fee13 |
+| P0-3 | 协议 | req.Status 决定终态（delivered/failed） | handler_http.go / repository | 4 用例 | e3fee13 |
+| P0-4 | 数据 | 单 SQL `UPDATE...RETURNING` 原子化（合并 Get+Update） | message_hub_inbox_outbound.go | 复用 P4-2.1 | e3fee13 |
+| P0-5 | 性能 | 500 条 IN P95 < 200ms 基准 + bench | message_hub_inbox_outbound_p0_5_bench_test.go | bench + 阈值测试 | e3fee13 |
+| P0-6 | 安全 | 跨账号探测 → not_in_scope（不告知归属，防越权信息泄露） | inbox_ingress_outbound.go / repository | 5 用例（service+handler+repo） | e3fee13 |
+| P0-7 | 协议 | PROTOCOL 常量共享（消除 handler 字面量） | constants.js BRIDGE_PROTOCOL_V2 / channelgw/protocol.go | 常量测试 | e3fee13 |
+| P0-8 | 协议 | not_found 与 not_in_scope 区分（GC 回收 vs 归属错） | inbox_ingress_outbound.go | 复用 P0-6 | e3fee13 |
+| P0-9 | 可靠性 | _pendingAck 最大重试 + 指数退避（10 次/1s→60s cap/24h TTL） | downlink.js | 14 用例 | e3fee13 |
 
 ### 5B.1 P0 测试覆盖率
 

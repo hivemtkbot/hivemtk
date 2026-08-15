@@ -1,15 +1,6 @@
-// Bridge 下发轮询 + 状态确认（通道C·下发 / 通道B·状态，2026-08-06 架构重构）
-//
-// 设计目标（用户诉求）：
-//   - 前端独立轮询 GET /api/bridge/outbox 拉取待发消息（多条），转发到对应渠道；
-//   - 转发成功后通过 POST /api/bridge/outbox/ack 上报 delivered，服务端标记数据库状态；
-//   - 本地已发缓存（持久化到 chrome.storage.local）：严重消息绝不允许重复发给用户；
-//   - 服务端下发队列去重：仅 status=pending 出站消息入队，确认 delivered 后排除。
-//
-// 与通道A·上报（core/uplink.js）完全独立：上报即时返回，回复经下发队列异步拉取。
 import { getOutbox, ackOutbox } from './http-ingest.js';
 import { sanitizeForDisplay } from './sanitize.js';
-import { BRIDGE_THREE_CHANNEL, RATE_LIMIT_DEFAULTS } from './constants.js';
+import { BRIDGE_THREE_CHANNEL, RATE_LIMIT_DEFAULTS, BRIDGE_PROTOCOL_V2 } from './constants.js';
 import { createLogger } from './logger.js';
 
 const log = createLogger('downlink');
@@ -32,7 +23,6 @@ class SentCache {
       const arr = v && v[this.key];
       if (Array.isArray(arr)) this.mem = new Set(arr);
     } catch (_) {
-      /* storage 不可用时退化为内存缓存 */
     }
     this.loaded = true;
   }
@@ -56,7 +46,6 @@ class SentCache {
       await chrome.storage.local.set({ [this.key]: [...this.mem] });
       this.dirty = false;
     } catch (_) {
-      /* 持久化失败不影响内存去重 */
     }
   }
 }
@@ -82,9 +71,9 @@ function getCache(channel) {
 //   - 加入条目级 TTL（MAX_ACK_ENTRY_AGE_MS=24h），超过则清理（防永久残留）
 const MAX_ACK_RETRY_ATTEMPTS = 10;
 const MAX_PENDING_ACK_PER_CHANNEL = 1000;
-const ACK_RETRY_BACKOFF_BASE_MS = 1000;     // 首次退避 1s
-const ACK_RETRY_BACKOFF_CAP_MS = 60_000;    // 退避上限 60s
-const MAX_ACK_ENTRY_AGE_MS = 24 * 60 * 60 * 1000; // 单条 msg_id 在 pendingAck 中最长存活 24h
+const ACK_RETRY_BACKOFF_BASE_MS = 1000;     
+const ACK_RETRY_BACKOFF_CAP_MS = 60_000;    
+const MAX_ACK_ENTRY_AGE_MS = 24 * 60 * 60 * 1000; 
 const _pendingAckByChannel = {};
 function this_pendingAckFor(channel) {
   if (!_pendingAckByChannel[channel]) _pendingAckByChannel[channel] = new Map();
@@ -118,7 +107,6 @@ export function addPendingAck(channel, msgId, lastError) {
   const now = Date.now();
   const entry = { attempts: 0, firstSeenAt: now, lastTryAt: 0, lastError: lastError || '' };
   m.set(msgId, entry);
-  // 容量保护：超过上限时按 firstSeenAt 升序淘汰最早的条目（FIFO）
   if (m.size > MAX_PENDING_ACK_PER_CHANNEL) {
     const sorted = [...m.entries()].sort((a, b) => a[1].firstSeenAt - b[1].firstSeenAt);
     const evictCount = m.size - MAX_PENDING_ACK_PER_CHANNEL;
@@ -183,7 +171,7 @@ export function getPendingAckStats(channel) {
 export async function initDownlink(channels) {
   for (const ch of channels) {
     await getCache(ch).load();
-    this_pendingAckFor(ch); // 确保 _pendingAckByChannel[ch] 已建空 Set
+    this_pendingAckFor(ch); 
   }
 }
 
@@ -235,9 +223,9 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
           [msgId],
           { label: `[下行 ack 重试] ${channel}:${msgId}` }
         );
-        // 详细 ack 响应：acked/duplicate 视为成功，not_found 也视为"已处理（无需再发）"
+        // 详细 ack 响应：acked/duplicate 视为成功，not_found/not_in_scope 也视为"已处理（无需再发）"
         const handled = processAckDetailedResult(reAck, [msgId], channel, 'reAck');
-        const ok = handled.acked + handled.duplicate + handled.not_found;
+        const ok = handled.acked + handled.duplicate + handled.not_found + handled.not_in_scope;
         if (ok > 0) {
           markPendingAckTried(channel, msgId, true);
           successCount++;
@@ -263,13 +251,10 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
     { label: `[下行 outbox] ${channel}`, batchSize: outboxBatchSize }
   );
   const messages = (res && res.messages) || [];
-  // 2026-08-14 用户诉求：下发拉取到的 messages 完整打 console（content 不截断）。
-  // pollDownlink 是通道C·下发的入口；http-ingest.getOutbox 已打 request/response，
-  // 此处再补一段"分组前全量 messages"——便于排查"服务端拉到了 N 条但本地分组后只下发了 M 条"的对账。
   console.log('[bridge FULL] 下发分组前 messages =', JSON.parse(JSON.stringify(messages)));
 
   // —— 按 conversation_id 分组（同会话内保留原顺序以维持单会话限速语义）——
-  const groups = new Map(); // conversation_id -> [{ msg, sanitized }]
+  const groups = new Map(); 
   for (const m of messages) {
     if (!m || !m.msg_id) continue;
     // SentCache key 必须用 msg_id|conversation_id 复合键：
@@ -286,9 +271,9 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
       if (ex && ex.dm_target === 'member') convId = m.receiver_id;
     }
     const cacheKey = `${m.msg_id}|${convId}`;
-    if (cache.has(cacheKey)) continue; // 已发过，绝不重复
+    if (cache.has(cacheKey)) continue; 
     const raw = m.content || '';
-    if (!raw) continue; // 空内容不下发（避免占位空消息打给用户）
+    if (!raw) continue; 
     // XSS 防护：净化内容（控制长度、去控制字符）
     const safeContent = sanitizeForDisplay ? sanitizeForDisplay(raw) : raw;
     if (!groups.has(convId)) groups.set(convId, []);
@@ -304,10 +289,10 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
   // 限速处理：全局 minInterval 会让"紧接其后的另一会话"首条被 rateLimited。此时就地等待后
   //   重试（有限次），而非 break 丢弃——既保留拟人限速，又确保每会话都最终下发（不丢消息）。
   const allAckIds = [];
-  const MAX_RATE_RETRIES = 3; // 单条消息限速重试上限（防单会话卡死整轮）
+  const MAX_RATE_RETRIES = 3; 
   for (const [convId, group] of groups) {
     const sentIds = [];
-    let convAbort = false; // 本会话因持续限速放弃剩余，全部留 pending 下轮再试
+    let convAbort = false; 
     for (const { msg, sanitized } of group) {
       if (convAbort) break;
       let result = null;
@@ -327,18 +312,15 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
       const ok = !!(result && result.ok);
       const rateLimited = !!(result && result.rateLimited);
       const notFound = !!(result && result.notFound);
-      // 2026-08-14 用户诉求：每条 sendOutbound 结果完整打 console（content 不截断）。
       console.log('[bridge FULL] sendOutbound 结果', {
         channel, conv_id: convId, msg_id: msg.msg_id,
         content: msg.content, sanitized, result,
       });
       if (ok) { sentIds.push(msg.msg_id); continue; }
-      // 目标会话在页面左侧列表不存在：放弃本条（留 pending，下次巡检/换端可能拉到），不重试。
       if (notFound) {
         log.debug(`下行目标会话不存在，跳过并留 pending: ${convId}`, { msg_id: msg.msg_id });
         continue;
       }
-      // 拟人限速（全局 minInterval / 会话冷却 / 账号桶）：就地等待后重试本条，有限次。
       if (rateLimited) {
         let delivered = false;
         for (let attempt = 0; attempt < MAX_RATE_RETRIES && !delivered; attempt++) {
@@ -352,13 +334,11 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
               `sendOutbound-retry(${channel}:${convId})`
             );
             if (r2 && r2.ok) { delivered = true; sentIds.push(msg.msg_id); }
-            else if (r2 && r2.notFound) break;      // 目标会话不存在：停止重试本条
-            else if (r2 && !r2.rateLimited) break;   // 其它失败（非限速）：停止重试本条
-          } catch (e) { /* 超时等：受 MAX_RATE_RETRIES 约束继续重试 */ }
+            else if (r2 && r2.notFound) break;      
+            else if (r2 && !r2.rateLimited) break;   
+          } catch (e) {  }
         }
         if (delivered) continue;
-        // 重试耗尽仍受限：放弃本会话剩余消息（它们大概率也受限），全部留 pending 下轮再试。
-        // 关键：不污染其它会话——因为已按会话串行，当前会话的导航竞争不会波及后续会话。
         log.warn(`下行会话持续限速，放弃本会话剩余并留 pending`, {
           channel, convId, pending: group.length - sentIds.length,
         });
@@ -366,24 +346,7 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
         break;
       }
     }
-    // 关键顺序（2026-08-07 修复消息丢失边界 + 2026-08-14 修复重发边界）：
-    //   1) 先转发成功 → 2) ack 服务端 → 3) 写本地已发缓存。
-    //
-    //   2026-08-14 修复（用户诉求 "不要兜底逻辑会导致垃圾数据" 的反例——这里必须"兜底"）：
-    //     sendOutbound 成功 = 消息已到达用户手机/聊天框。这一事实是"用户已收到"的唯一权威。
-    //     ack 服务端只是后端记账的副作用，绝对不能因为 ack 失败就让前端"装作没发过"——
-    //     那会导致：下个轮询周期 server 仍是 pending → 前端又拉到 → 再发给用户 = 重发。
-    //     "用户收两条" 比 "后端状态机不一致" 严重得多。
-    //
-    //     正确策略：
-    //       - sendOutbound 成功 → 立刻 cache.add(本地权威防重发)
-    //       - 同时尝试 ack 失败 → 记入 _pendingAckIds 队列，本轮仍继续
-    //       - 下轮 pollDownlink 进入时先重发 _pendingAckIds 队列（不重发内容，仅重发 ack）
-    //       - 重发 N 次后放弃 → 仍保留 cache（用户已收到，后端不一致无影响）
-    //
-    //   反向兜底禁止：sendOutbound 失败 = 消息没发出 → 不能写 cache（否则永远不下发）。
     if (sentIds.length) {
-      // 第 1 步：先写本地已发缓存（不依赖 ack 成功，与"用户是否收到"对齐）
       for (const id of sentIds) cache.add(`${id}|${convId}`);
       // 第 2 步：尝试 ack 服务端（副作用：让 server 知道这条已下发）
       const ackRes = await ackOutbox(
@@ -404,27 +367,25 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
           for (const id of sentIds) {
             const it = itemByMsgID.get(id);
             if (!it) {
-              // 响应不完整（无对应 item）→ 保守入 pending 下轮重试
               addPendingAck(channel, id, 'ack_response_missing_item');
               log.warn(`下行 ack 详情缺失 item: 入 _pendingAck 下轮重试`, { channel, conv_id: convId, msg_id: id });
               continue;
             }
-            if (it.status === 'acked' || it.status === 'duplicate') {
-              // 已处理 → 不入 pending
-            } else if (it.status === 'not_found') {
-              // 明确停止重发（不重试 ack，但 cache 仍保留以防重发）
+            if (it.status === BRIDGE_PROTOCOL_V2.RESPONSE_STATUS.ACKED || it.status === BRIDGE_PROTOCOL_V2.RESPONSE_STATUS.DUPLICATE) {
+              // acked / duplicate：已确认送达，无需任何动作，移出重试队列
+            } else if (it.status === BRIDGE_PROTOCOL_V2.RESPONSE_STATUS.NOT_FOUND) {
               log.warn(`下行 ack 详情: not_found 停止重发`, { channel, conv_id: convId, msg_id: id });
+            } else if (it.status === BRIDGE_PROTOCOL_V2.RESPONSE_STATUS.NOT_IN_SCOPE) {
+              // P0-6：存在但归属其他账号/方向 → 服务端明确"不归我管"，立即停止重发（防越权探测）
+              log.warn(`下行 ack 详情: not_in_scope 停止重发（归属他账号/方向）`, { channel, conv_id: convId, msg_id: id });
             } else {
-              // status 缺失或未知 → 保守入 pending 下轮重试
               addPendingAck(channel, id, `unknown_status_${it.status}`);
               log.warn(`下行 ack 详情未知 status: 入 _pendingAck`, { channel, conv_id: convId, msg_id: id, status: it.status });
             }
           }
         }
-        // 老版本响应：全量视为成功，不入 pending（保持兼容）
         allAckIds.push(...sentIds);
       } else {
-        // ack 失败但 cache 已写：用户已收到（绝对不重发）。记入 _pendingAckIds 等下轮重发 ack。
         for (const id of sentIds) {
           addPendingAck(channel, id, 'ack_request_failed');
         }
@@ -438,7 +399,6 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
   if (allAckIds.length) log.info(`下行完成: ${channel} 共 ${allAckIds.length} 条已 ack`, { convs: groups.size });
 }
 
-// withTimeout 给 promise 加超时保护（不修改原 promise，仅 race）。
 async function withTimeout(promise, ms, label) {
   if (!ms || ms <= 0) return promise;
   let timer = null;
@@ -463,30 +423,29 @@ function rateRetryBaseMs() {
   return minIntervalMs + jitter;
 }
 
-// processAckDetailedResult 处理服务端详细 ack 响应（P3-D 2026-08-15）。
+// processAckDetailedResult 处理服务端详细 ack 响应（P3-D 2026-08-15 + P0-6 2026-08-15）。
 //
 // 输入：ackRes（{status, acked, duplicate_count, not_found_count, items: [...]}}）+ ackIds（请求的 msg_ids）
-// 输出：{ acked: number, duplicate: number, not_found: number, retriable: number }
-//   - acked       本次成功翻转行数（status='acked'）
-//   - duplicate   幂等跳过行数（status='duplicate'，本地无需重发）
-//   - not_found   不存在行数（status='not_found'，本地无需再尝试）
-//   - retriable   需进入下轮 _pendingAck 重试的行数（status 缺失或响应未含详情）
+// 输出：{ acked, duplicate, not_found, not_in_scope, retriable }
+//   - acked        本次成功翻转行数（status='acked'）
+//   - duplicate    幂等跳过行数（status='duplicate'，本地无需重发）
+//   - not_found    不存在行数（status='not_found'，本地无需再尝试）
+//   - not_in_scope 归属其他账号/方向行数（status='not_in_scope'，本地无需再尝试，防越权探测）
+//   - retriable    需进入下轮 _pendingAck 重试的行数（status 缺失或响应未含详情）
 //
 // 设计原则：
 //   - status='acked' / 'duplicate' 都视为"已处理"，不应再入 pendingAck
-//   - status='not_found' 视为"不可能再 ack 成功"，也不应入 pendingAck
+//   - status='not_found' / 'not_in_scope' 视为"不可能再 ack 成功"，也不应入 pendingAck
 //   - 响应无 items 字段（老版本）按"全量成功"处理（保持兼容）
 //   - 响应 ok 但部分 msg_id 没有对应 item（极少见）→ 入 pendingAck 下轮重试
 export function processAckDetailedResult(ackRes, ackIds, channel = '', label = 'ack') {
-  const result = { acked: 0, duplicate: 0, not_found: 0, retriable: 0 };
+  const result = { acked: 0, duplicate: 0, not_found: 0, not_in_scope: 0, retriable: 0 };
   if (!ackRes || ackRes.status !== 'ok') {
-    // 整体失败：所有 msg_id 都需重试
     result.retriable = Array.isArray(ackIds) ? ackIds.length : 0;
     return result;
   }
   const items = Array.isArray(ackRes.items) ? ackRes.items : null;
   if (!items) {
-    // 老版本响应：无 items 详情，按"全量成功"处理
     result.acked = Array.isArray(ackIds) ? ackIds.length : 0;
     return result;
   }
@@ -499,10 +458,12 @@ export function processAckDetailedResult(ackRes, ackIds, channel = '', label = '
       result.retriable++;
       continue;
     }
-    if (it.status === 'acked') result.acked++;
-    else if (it.status === 'duplicate') result.duplicate++;
-    else if (it.status === 'not_found') result.not_found++;
-    else result.retriable++; // 未知状态：保守处理为可重试
+    if (it.status === BRIDGE_PROTOCOL_V2.RESPONSE_STATUS.ACKED) result.acked++;
+    else if (it.status === BRIDGE_PROTOCOL_V2.RESPONSE_STATUS.DUPLICATE) result.duplicate++;
+    else if (it.status === BRIDGE_PROTOCOL_V2.RESPONSE_STATUS.NOT_FOUND) result.not_found++;
+    else if (it.status === BRIDGE_PROTOCOL_V2.RESPONSE_STATUS.NOT_IN_SCOPE) result.not_in_scope++;
+    else result.retriable++; 
   }
   return result;
 }
+

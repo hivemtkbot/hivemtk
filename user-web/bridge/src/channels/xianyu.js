@@ -1,25 +1,3 @@
-// 闲鱼网页私信适配器 —— 纯 CSS 选择器架构。
-// 设计原则：所有选择器均基于真实 DOM 验证，不使用 LLM 动态生成。
-// 平台改版时通过 UI 配置面板(chrome.storage)更新选择器即可，无需发版。
-//
-// 参考 DOM 结构（2026-08 验证）：
-//   - 私信页入口：https://www.goofish.com/im
-//   - 会话列表：#conv-list-scrollable / .ant-layout-sider
-//   - 会话项：[class*="conversation-item"]（ant-design 风格）
-//   - 消息列表：#message-list-scrollable（ID 明确）
-//   - 消息气泡：li.ant-list-item .message-row
-//   - 输入框：.sendbox textarea.ant-input
-//   - 发送按钮：.sendbox button.ant-btn
-//
-// 自/他判定已移交后端（服务端权威），前端只负责抽取文本/系统消息。
-//
-// 系统消息识别漏斗（5 层）：
-//   ① 居中对齐（textAlign/justifyContent=center）
-//   ② class 关键词（system-msg / notice / divider / time-stamp）
-//   ③ role / aria-live
-//   ④ 内容模式（纯时间 / 交易提示 / 撤回 / 输入中）
-//   ⑤ 结构特征（无头像 + 无气泡）
-//   命中 → msg_type='system' / sender_type=SENDER.SYSTEM，不触发 AI
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
 import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
@@ -48,29 +26,17 @@ function mergedSelectors() {
 // —— 选择器定义（2026-08 验证可用）——
 // ⚠️ [class*="..."] 均带 i 标志（大小写不敏感），否则 CSS module 大写类名全失配。
 export const SEL = {
-  // 左侧会话列表容器
   CHAT_LIST: '#conv-list-scrollable, .ant-layout-sider',
-  // 会话项（CSS module: conversation-item--xxx / ConvItem 等）
   CONV_ITEM: '[class*="conversation-item" i], [class*="conv-item" i]',
-  // 消息线程容器
   MSG_LIST: '#message-list-scrollable, [class*="chat-main" i]',
-  // 消息气泡（ant-design 风格：li.ant-list-item > .message-row + 气泡兜底）
   MSG_ITEM: 'li.ant-list-item .message-row, li.ant-list-item, [class*="msg-item" i], [class*="bubble" i]',
-  // 系统消息 class 关键词
   SYSTEM: '[class*="msg-tips" i], [class*="divider" i], [class*="notice" i], [class*="system-msg" i]',
-  // 未读新消息标记 ⚠️ 必须带 i 标志
   UNREAD: '[class*="unread" i], [data-unread="1"], .ant-badge-count',
-  // 气泡文本
   TEXT: '[class*="message-text" i], [class*="msg-content" i]',
-  // 消息类型 data 属性
   MSG_TYPE: '[data-msg-type], [data-message-type]',
-  // 交易卡片
   CARD: '[class*="msg-text-card" i], [class*="card-container" i]',
-  // 输入框（.sendbox 内 textarea.ant-input）
   INPUT: '.sendbox textarea.ant-input, textarea[placeholder*="请输入消息"]',
-  // 发送按钮（.sendbox 内 button）
   SEND: '.sendbox button.ant-btn, [class*="send-btn" i]',
-  // 聊天对象昵称
   PEER_NAME: '[class*="message-topbar" i] [class*="text1" i], [class*="chat-header" i] [class*="title" i]',
 };
 
@@ -94,7 +60,7 @@ function strictInputEl() {
     try {
       const el = qs(sel);
       if (el) return el;
-    } catch (_) { /* 非法选择器跳过 */ }
+    } catch (_) {  }
   }
   return null;
 }
@@ -142,7 +108,7 @@ function getConversationIdFromUrl() {
       const norm = normalizeContactId(pathMatch[1]);
       if (norm) return norm;
     }
-  } catch (_) { /* noop */ }
+  } catch (_) {  }
   return null;
 }
 
@@ -165,36 +131,30 @@ function getAccountId() {
         const m = a.getAttribute('href')?.match(/\/user\/([\w.-]+)/);
         if (m && m[1] && m[1] !== 'self') candidates.push(m[1]);
       });
-    } catch (_) { /* 非法选择器跳过 */ }
+    } catch (_) {  }
   }
-  // 2) 「我的」主页链接（侧边栏/header/nav）
   qsa('aside a[href*="/user/"], header a[href*="/user/"], nav a[href*="/user/"]').forEach((a) => {
     const m = a.getAttribute('href')?.match(/\/user\/([\w.-]+)/);
     if (m && m[1] && m[1] !== 'self') candidates.push(m[1]);
   });
-  // 2b) 闲鱼 personal?userId= 格式
   qsa('a[href*="personal?userId="], a[href*="personal?userId="]').forEach((a) => {
     const m = a.getAttribute('href')?.match(/userId=([\w.-]+)/);
     if (m && m[1] && m[1] !== 'self') candidates.push(m[1]);
   });
-  // 3) 任意 /user/ 链接（最后手段）
   qsa('a[href*="/user/"]').forEach((a) => {
     const m = a.getAttribute('href')?.match(/\/user\/([\w.-]+)/);
     if (m && m[1] && m[1] !== 'self') candidates.push(m[1]);
   });
   for (const c of candidates) {
     if (c && c.trim()) {
-      try { localStorage.setItem(`hivebridge:account:${CHANNELS.XIANYU}`, c.trim()); } catch (e) { /* noop */ }
+      try { localStorage.setItem(`hivebridge:account:${CHANNELS.XIANYU}`, c.trim()); } catch (e) {  }
       return c.trim();
     }
   }
-  // 3) 同步兜底：localStorage 缓存
   try {
     const ls = localStorage.getItem(`hivebridge:account:${CHANNELS.XIANYU}`);
     if (ls) return ls;
-  } catch (e) { /* noop */ }
-  // 4) 兜底空串（2026-08-14 治本）：旧逻辑回退 `${CHANNELS.XIANYU}-unknown` 污染后端入库
-  //    与按 account_id 关联 outbound 的查询链路。改为空串，后端层0 用三元组命中 outbound。
+  } catch (e) {  }
   return '';
 }
 
@@ -240,10 +200,6 @@ function getConversationId() {
     if (myAccount && m[1] === myAccount) continue;
     return m[1];
   }
-  // 5) 活动会话项昵称派生
-  // ⚠️ 2026-08-07 第十一轮修复：sanitizePeerName 剥离会话项内的订单状态徽章（"交易成功" /
-  // "有新交易评价" 等）和时间戳，否则同会话不同时刻 conversation_id 不同 → 下行永远找不到
-  // 目标会话 → pending 永久堆积（实测闲鱼 23 条 pending 全是 "name 交易成功" 形式）。
   if (activeItem) {
     const nameEl = activeItem.querySelector(
       '[class*="nickname" i], [class*="nick-name" i], div[style*="font-weight: 500"]',
@@ -261,7 +217,7 @@ function findInputEl() {
     try {
       const el = qs(sel);
       if (el) return el;
-    } catch (_) { /* 非法选择器跳过 */ }
+    } catch (_) {  }
   }
   return findAnyMessageInput();
 }
@@ -273,11 +229,10 @@ function findSendButton() {
     try {
       const el = qs(sel);
       if (el) {
-        // SVG 发送按钮需回溯到最近可交互祖先（否则 click 冒泡可能失效）
         if (el.tagName === 'SVG') return el.closest('button, [role="button"], div, span') || el;
         return el;
       }
-    } catch (_) { /* 非法选择器跳过 */ }
+    } catch (_) {  }
   }
   // 兜底1：ant-design 风格发送按钮（闲鱼使用 ant-input-search-button / ant-btn-primary 等）
   const antBtn = qs('.ant-input-search-button, .ant-btn-primary[class*="send"], .ant-btn-primary[class*="Send"]');
@@ -314,7 +269,7 @@ function isCenterAligned(el) {
       const jc = getComputedStyle(parent).justifyContent;
       if (jc === 'center') return true;
     }
-  } catch (_) { /* jsdom 等无 getComputedStyle 时跳过 */ }
+  } catch (_) {  }
   return false;
 }
 
@@ -345,7 +300,6 @@ const SYSTEM_TEXT_PATTERNS = [
   /^-{3,}$/,
   /我已收到你的消息/,
   /请等待卖家回复/,
-  // 闲鱼交易类系统消息（来自 HTML 快照）
   /订单已创建/,
   /已下单/,
   /已发货/,
@@ -381,14 +335,11 @@ function isSystemText(text) {
 // 命中任一层即视为系统消息，返回 true
 function isSystemMessage(item) {
   if (!item) return false;
-  // ① 居中对齐
   if (isCenterAligned(item)) return true;
-  // ② class 关键词
   try {
     if (item.matches && item.matches(SEL.SYSTEM)) return true;
     if (item.querySelector && item.querySelector(SEL.SYSTEM)) return true;
-  } catch (_) { /* 非法选择器跳过 */ }
-  // ③ role / aria-live
+  } catch (_) {  }
   try {
     if (item.matches && (
       item.matches('[role="status"]') ||
@@ -396,11 +347,10 @@ function isSystemMessage(item) {
       item.matches('[aria-live="polite"]') ||
       item.matches('[aria-live="assertive"]')
     )) return true;
-  } catch (_) { /* noop */ }
+  } catch (_) {  }
   // ④ 内容模式（纯时间 / 系统文本）
   const text = cleanText(item);
   if (isTimeText(text) || isSystemText(text)) return true;
-  // ⑤ 结构特征：无头像 + 无气泡（弱信号，仅当 text 极短时）
   if (text && text.length < 60) {
     const hasAvatar = !!item.querySelector('[class*="avatar" i]');
     const hasBubble = !!item.querySelector('[class*="bubble" i], [class*="Bubble" i], [class*="msg-content" i]');
@@ -409,17 +359,14 @@ function isSystemMessage(item) {
   return false;
 }
 
-// 自/他判定已移交后端（统一 customer 占位，回环防护由后端承担）。
 
 // —— 非文字消息提取 ——
 function extractMessageContent(item) {
   const typeAttr = (item.getAttribute('data-msg-type') || item.querySelector(SEL.MSG_TYPE)?.getAttribute('data-msg-type') || '').toUpperCase();
   const text = cleanText(item.querySelector(SEL.TEXT) || item);
-  // 时间过滤（与 XHS extractMessageContent 同款）
   if (text && isTimeText(text)) {
     return { msgType: 'system', mediaUrl: '', text: '' };
   }
-  // 系统文本过滤（非好友提示等）
   if (text && isSystemText(text)) {
     return { msgType: 'system', mediaUrl: '', text };
   }
@@ -431,7 +378,6 @@ function extractMessageContent(item) {
     const img = card?.querySelector('img');
     return { msgType: 'card', mediaUrl: img?.getAttribute('src') || '', text: info || title || '商品卡片' };
   }
-  // 撤回
   if (/撤回了?一条消息|撤回了一条|recalled a message/i.test(text)) {
     return { msgType: 'recall', mediaUrl: '', text };
   }
@@ -461,7 +407,6 @@ function extractMessageContent(item) {
 
 // 聊天对象昵称（1v1 私信时作为 sender_name）
 function getPeerName() {
-  // 1) SEL.PEER_NAME 命中
   for (const sel of String(SEL.PEER_NAME || '').split(',').map((s) => s.trim()).filter(Boolean)) {
     try {
       const el = qs(sel);
@@ -469,7 +414,7 @@ function getPeerName() {
         const t = cleanText(el);
         if (t && !/闲鱼|消息|聊天|contact|会话/i.test(t)) return t;
       }
-    } catch (_) { /* 非法选择器忽略 */ }
+    } catch (_) {  }
   }
   // 2) 聊天 header 内任意 /user/ 链接的可见文字
   const myAccount = getAccountId();
@@ -564,11 +509,10 @@ function getConversationList() {
     for (const sel of customSels) {
       try {
         items = items.concat(qsa(sel));
-      } catch (_) { /* 非法选择器跳过 */ }
+      } catch (_) {  }
     }
   }
   if (!items.length) items = qsa(SEL.CONV_ITEM);
-  // 闲鱼兜底：直接从 conv-list-scrollable 内找 conversation-item
   if (!items.length) {
     const container = document.getElementById('conv-list-scrollable');
     if (container) items = Array.from(container.querySelectorAll('[class*="conversation-item" i]'));
@@ -589,7 +533,6 @@ function getConversationList() {
       item.id ||
       null;
     id = normalizeContactId(raw);
-    // 2) 会话项内 /user/ 链接（如果未来有）
     if (!id) {
       const link = item.querySelector('a[href*="/user/"]');
       if (link) {
@@ -620,7 +563,7 @@ function detectUnread(item) {
   try {
     if (item.matches && item.matches(SEL.UNREAD)) return true;
     if (item.querySelector && item.querySelector(SEL.UNREAD)) return true;
-  } catch (_) { /* 非法选择器忽略 */ }
+  } catch (_) {  }
   return false;
 }
 
@@ -648,7 +591,7 @@ const hooks = {
       try {
         const el = qs(sel);
         if (el) return el;
-      } catch (_) { /* 非法选择器跳过 */ }
+      } catch (_) {  }
     }
     return qs(SEL.MSG_LIST) || qs('[class*="chat-content" i]') || qs('[class*="message-list" i]') || null;
   },
@@ -682,11 +625,8 @@ const hooks = {
   },
   parseMessageItem(item) {
     if (isListNoise(item)) return null;
-    // ① 系统消息识别（漏斗 5 层）—— 优先判定，不消耗 AI 配额
     if (isSystemMessage(item)) {
       const sysText = cleanText(item);
-      // 2026-08-05 修复：去掉 Date.now()——同一系统消息每轮扫描生成不同 msg_id
-      //   → 后端无法幂等去重 → 不断当新消息入库。系统消息文本本身稳定，无需时间戳后缀。
       return {
         message_id: item.getAttribute('data-message-id') || item.getAttribute('data-id') || item.id || `sys:${sysText}`,
         sender_type: SENDER.SYSTEM,
@@ -758,14 +698,12 @@ const hooks = {
       enhancedClick(sendBtn);
       return;
     }
-    // 兜底：回车发送
     log.warn('未找到闲鱼发送按钮，改用回车发送');
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
     input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
   },
 };
 
-// 导出供单测验证
 export {
   getAccountId, getConversationId, getConversationList,
   normalizeContactId, isXianyuMessagePage, isXianyuChatUrl, getPeerName,
@@ -783,3 +721,4 @@ export function buildXianyuAdapter() {
     rateLimiter: undefined,
   });
 }
+

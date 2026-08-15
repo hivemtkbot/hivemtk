@@ -1,13 +1,3 @@
-// P3-H e2e Playwright 测试（2026-08-15）
-//
-// 端到端验证：浏览器/Node 模拟扩展端，对真实启动的 user-server 三通道做完整 HTTP 流程：
-//   1) ingest 上报一条 customer 消息（含 auth header + X-Request-Id）
-//   2) poll outbox 拉取 AI 出站（mock AI 直接落库 outbound）
-//   3) ack 出站（验证 P3-D 详细响应：acked/duplicate/not_found）
-//   4) 二次 ack 同 msg_id 验证 duplicate
-//
-// 前置：user-server 在 localhost:8080 运行（docker compose up），本测试仅依赖 HTTP，
-// 不依赖浏览器 DOM。可作为 Playwright 的 request fixture 跑，也可直接 node 跑。
 import { describe, it, expect, beforeAll } from 'vitest';
 import { processAckDetailedResult } from '../src/core/downlink.js';
 
@@ -16,7 +6,7 @@ const CHANNEL = 'douyin';
 const ACCOUNT = 'e2e_p3h_' + Date.now();
 
 let serverAvailable = false;
-let aiSeedId = null; // 用来测试的 msg_id
+let aiSeedId = null; 
 
 beforeAll(async () => {
   try {
@@ -26,7 +16,6 @@ beforeAll(async () => {
     serverAvailable = false;
   }
   if (!serverAvailable) {
-    // eslint-disable-next-line no-console
     console.warn(`[P3-H e2e] server ${BASE_URL}/healthz 不可达，相关测试将跳过`);
   }
 });
@@ -39,7 +28,7 @@ async function postJSON(path, body, headers = {}) {
   });
   const text = await r.text();
   let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch (_) { /* noop */ }
+  try { json = text ? JSON.parse(text) : null; } catch (_) {  }
   return { status: r.status, headers: r.headers, body: json, raw: text };
 }
 
@@ -50,7 +39,7 @@ async function getJSON(path, headers = {}) {
   });
   const text = await r.text();
   let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch (_) { /* noop */ }
+  try { json = text ? JSON.parse(text) : null; } catch (_) {  }
   return { status: r.status, body: json, raw: text };
 }
 
@@ -75,7 +64,6 @@ describe('P3-H e2e: 三通道端到端 (douyin/e2e)', () => {
       },
       { 'X-Request-Id': reqId }
     );
-    // ingest 即时返回（不依赖 AI 同步）
     expect([200, 400]).toContain(r.status);
     if (r.status === 200) {
       expect(r.body.ok).toBe(true);
@@ -88,11 +76,9 @@ describe('P3-H e2e: 三通道端到端 (douyin/e2e)', () => {
     expect(r.body).toBeTruthy();
     if (r.body && r.body.messages && r.body.messages.length > 0) {
       const m = r.body.messages[0];
-      // 验证 schema 与前端 outbox 协议一致
       expect(m).toHaveProperty('msg_id');
       expect(m).toHaveProperty('conversation_id');
       expect(m).toHaveProperty('content');
-      // 记录第一条用于后续 ack 测试
       aiSeedId = m.msg_id;
     }
   });
@@ -109,7 +95,6 @@ describe('P3-H e2e: 三通道端到端 (douyin/e2e)', () => {
     );
     expect(r.status).toBe(200);
     expect(r.body.status).toBe('ok');
-    // 验证 P3-D 详细响应字段
     expect(r.body).toHaveProperty('acked');
     expect(r.body).toHaveProperty('duplicate_count');
     expect(r.body).toHaveProperty('not_found_count');
@@ -127,7 +112,7 @@ describe('P3-H e2e: 三通道端到端 (douyin/e2e)', () => {
   });
 
   it.skipIf(!serverAvailable)('二次 ack 同一 msg_id → 验证 duplicate', async () => {
-    if (!aiSeedId) return; // 跳过：没拉到测试 msg
+    if (!aiSeedId) return; 
     const r = await postJSON(
       `/api/bridge/outbox/ack?channel=${CHANNEL}&account_id=${ACCOUNT}`,
       { msg_ids: [aiSeedId], status: 'delivered' }
@@ -179,7 +164,6 @@ describe('P3-H e2e: 三通道端到端 (douyin/e2e)', () => {
       { channel: CHANNEL, account_id: ACCOUNT, conversation_id: 'c', messages: [] },
       { 'X-Request-Id': reqId }
     );
-    // 即使 400，请求头已被服务端接收（可从服务端日志中查 reqId 验证）
     expect([200, 400]).toContain(r.status);
   });
 });
@@ -197,3 +181,4 @@ describe('P3-H e2e 端到端健壮性（即使 server 不可达，本地协议�
     expect(r.acked).toBe(1);
   });
 });
+

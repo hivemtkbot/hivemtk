@@ -1,6 +1,3 @@
-// 诊断相关单测：重点回归「SVG 发送按钮被 isVisible 误判不可见」导致自检报 0 发送按钮。
-// 真实背景：抖音发送按钮是 svg.messageMsgInputpublishBtn.e2e-send-msg-btn，
-// SVG 的 offsetParent 恒为 null，旧 isVisible 据此判隐藏 → 自检「发送按钮 0 个」。
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { isVisible, scanDomSnapshot } from '../src/content/common.js';
 
@@ -71,7 +68,7 @@ describe('scanDomSnapshot（抖音 /jingxuan 浮层）', () => {
     const snap = scanDomSnapshot();
     expect(snap.inputCount).toBeGreaterThanOrEqual(1);
     expect(snap.listRootCount).toBeGreaterThanOrEqual(1);
-    // 关键回归：svg 发送按钮须被纳入「发送按钮」计数（旧版会因 offsetParent=null 漏掉）
     expect(snap.sendBtnCount).toBeGreaterThanOrEqual(1);
   });
 });
+

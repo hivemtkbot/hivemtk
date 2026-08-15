@@ -1,9 +1,7 @@
-// 验证 2026-08-05 OOM 巡检 + 巡检机制优化 + 抖音自他识别 修复
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { BaseAdapter } from '../src/core/channel-adapter.js';
 import { PATROL_DEFAULTS } from '../src/core/types.js';
 
-// mock DOM
 global.document = {
   body: { tagName: 'BODY' },
   querySelector: () => null,
@@ -68,14 +66,11 @@ describe('OOM 巡检 修复', () => {
         getConversationId: () => 'cid',
       },
     });
-    // 2026-08-15 P1-3 修复：首次 patrol 限 20 条,非首次恢复 80 条。
-    //   这里验证"非首次"封顶 80（防 OOM），先模拟"刚 patrol 过 30s 前"→ 走非首次路径。
     adapter._lastPatrolAt = Date.now() - 30 * 1000;
     const batch = adapter._collectUnseenText();
     expect(batch.length).toBe(80);
     expect(batch[0].text).toBe('msg0');
     expect(batch[79].text).toBe('msg79');
-    // 剩下的 seenNodes 已标记，下轮扫描跳过
   });
 
   it('_collectUnseenText 首次 patrol 限速 20 条（P1-3 修复）', async () => {
@@ -106,7 +101,6 @@ describe('OOM 巡检 修复', () => {
         getConversationId: () => 'cid',
       },
     });
-    // 关键:_lastPatrolAt 未设置(默认 0)→ 首次 patrol → 限 20
     expect(adapter._isFirstPatrolRun()).toBe(true);
     const batch = adapter._collectUnseenText();
     expect(batch.length).toBe(20);
@@ -127,7 +121,7 @@ describe('巡检机制优化', () => {
           { id: 'c4', name: '客户4', unread: true },
           { id: 'c5', name: '客户5', unread: false },
         ],
-        getConversationId: () => 'c0', // 用户当前在别的会话
+        getConversationId: () => 'c0', 
         getMessageItems: () => [],
         parseMessageItem: () => null,
         openConversation: vi.fn(async (id) => ({ id })),
@@ -145,16 +139,13 @@ describe('巡检机制优化', () => {
   });
 
   it('默认模式：遍历所有会话（2026-08-05 修复：不再过滤未读，直接遍历）', async () => {
-    // 拦截 _patrolVisit：模拟无新消息
     adapter._patrolVisit = vi.fn(async (conv) => ({ ok: true, newCount: 0 }));
     const result = await adapter.patrol(adapter._patrolOpts);
     expect(result.scannedTotal).toBe(5);
-    // 巡检不再过滤未读，直接遍历所有会话 = 5 个
     expect(adapter._patrolVisit).toHaveBeenCalledTimes(5);
   });
 
   it('用户已停留的会话：自动跳过（不重复点开）', async () => {
-    // 用户已停留在 c2
     adapter.hooks.getConversationId = () => 'c2';
     adapter._patrolVisit = vi.fn(async (conv) => ({ ok: true, newCount: 0 }));
     await adapter.patrol(adapter._patrolOpts);
@@ -172,7 +163,6 @@ describe('巡检机制优化', () => {
     ];
     adapter._patrolVisit = vi.fn(async () => ({ ok: true, newCount: 0 }));
     const result = await adapter.patrol(adapter._patrolOpts);
-    // 巡检不再判断未读，直接遍历所有会话 = 2 个
     expect(result.visited).toBe(2);
     expect(adapter._patrolVisit).toHaveBeenCalledTimes(2);
   });
@@ -181,11 +171,10 @@ describe('巡检机制优化', () => {
 describe('抖音选择器（2026-08-06：自他判定已移交后端）', () => {
   it('MSG_ITEM 仍覆盖显式自/他 class（仅用于元素选取，不再用于 self/other 判定）', async () => {
     const { SEL } = await import('../src/channels/douyin.js');
-    // 前端仅按 MSG_ITEM 选取元素；self/other 由后端基于内容 hash + DB 权威判定。
     expect(SEL.MSG_ITEM).toContain('chatMessageItemSelf');
     expect(SEL.MSG_ITEM).toContain('chatMessageItemOther');
-    // 前端不再暴露 SELF_ITEM / OTHER_ITEM 自他标记字段
     expect(SEL.SELF_ITEM).toBeUndefined();
     expect(SEL.OTHER_ITEM).toBeUndefined();
   });
 });
+

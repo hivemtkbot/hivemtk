@@ -1,7 +1,3 @@
-// DOM 交互工具：逐行移植自三个开源仓库的真实交互逻辑。
-// - simulateRealClick / humanType：来自 DY-auto（抖音）
-// - enhancedClickWithVerification / setValue：来自 XHS-YYDS（小红书）
-// - simulateTyping / simulateEnterKey / simulateRealClick：来自 tiktok-auto-plugin
 import { createLogger } from './logger.js';
 
 export { createLogger };
@@ -97,24 +93,19 @@ export function fillContentEditable(el, text, { clearBefore = false } = {}) {
   if (!el) return;
   el.focus();
   if (clearBefore) {
-    // 1) 清空现有内容（DOM 层面）
     try {
       if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
         el.value = '';
       } else {
-        // contenteditable：清空所有子节点，再保留或建立一个 <br> 占位（否则某些平台会认为输入框为空不可发）
         while (el.firstChild) el.removeChild(el.firstChild);
         el.dispatchEvent(new InputEvent('input', { bubbles: true }));
       }
-    } catch (_) { /* noop */ }
+    } catch (_) {  }
   }
-  // 1) 原生 execCommand 输入（最贴近真人，抖音/小红书 contenteditable 均认）
   try {
     document.execCommand('insertText', false, text);
   } catch (e) {
-    /* noop */
   }
-  // 2) 兜底：直接写 innerText + 派发 input 事件
   if ((el.innerText || el.value || '').toString().trim() !== text.trim()) {
     if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
       el.value = text;
@@ -213,29 +204,20 @@ export function cleanText(el) {
 export function sanitizePeerName(text) {
   if (!text) return '';
   let s = String(text).replace(/\s+/g, ' ').trim();
-  // 整串本身就是易变文本（纯时间/相对时间/订单状态/日期）→ 直接返回空，
-  // 避免派生 "conv:12:31" / "conv:交易成功" 这种垃圾会话 id。
   if (isVolatileToken(s)) return '';
   // 反复剥离后缀，直到稳定（防多层后缀如 "昨天 18:20"：先剥 HH:MM 再剥 昨天）
   let prev;
   let iter = 0;
   do {
     prev = s;
-    // 相对时间：刚刚 / N 分钟前 / N 小时前 / N 天前
     s = s.replace(/\s+(刚刚|\d+分钟前|\d+小时前|\d+天前)$/i, '');
-    // 昨天/前天/今天 + 可选 HH:MM
     s = s.replace(/\s+(昨天|前天|今天)(\s+\d{1,2}:\d{2})?$/i, '');
-    // 纯时间 HH:MM（仅作后缀剥离；昵称本身极少以纯时间结尾）
     s = s.replace(/\s+\d{1,2}:\d{2}$/, '');
-    // 完整日期：YYYY/MM/DD | YYYY-MM-DD | YYYY年MM月DD日
     s = s.replace(/\s+\d{4}[/年\-]\d{1,2}[/月\-]\d{1,2}日?$/, '');
     s = s.replace(/\s+\d{1,2}月\d{1,2}日$/, '');
-    // 闲鱼订单状态徽章
     s = s.replace(/\s+(交易成功|有新交易评价|已发货|待发货|待付款|等待买家付款|交易关闭|退款成功|退款中|已退款|已读|未读)$/i, '');
-    // 通用未读数字标记 [N]
     s = s.replace(/\s+\[\d+\]$/, '');
     s = s.replace(/\s+$/, '');
-    // 剥离后整串变易变文本（如 "name 18:20" 剥成 "18:20"）→ 继续清空
     if (s && isVolatileToken(s)) s = '';
     iter++;
   } while (s !== prev && iter < 8 && s.length > 0);
@@ -246,16 +228,11 @@ export function sanitizePeerName(text) {
 // 用作 sanitizePeerName 的"清空触发器"：若剩余文本全是易变信息则放弃派生会话 id。
 function isVolatileToken(s) {
   if (!s) return false;
-  // 纯时间 HH:MM
   if (/^\d{1,2}:\d{2}$/.test(s)) return true;
-  // 纯相对时间
   if (/^(刚刚|\d+分钟前|\d+小时前|\d+天前)$/i.test(s)) return true;
-  // 昨天/前天/今天 + 可选 HH:MM
   if (/^(昨天|前天|今天)(\s+\d{1,2}:\d{2})?$/i.test(s)) return true;
-  // 纯完整日期
   if (/^\d{4}[/年\-]\d{1,2}[/月\-]\d{1,2}日?$/.test(s)) return true;
   if (/^\d{1,2}月\d{1,2}日$/.test(s)) return true;
-  // 纯订单状态徽章
   if (/^(交易成功|有新交易评价|已发货|待发货|待付款|等待买家付款|交易关闭|退款成功|退款中|已退款|已读|未读)$/i.test(s)) return true;
   return false;
 }
@@ -268,19 +245,10 @@ export function observe(root, cb, options = { childList: true, subtree: true }) 
   return obs;
 }
 
-// =============================================================
-// 平台改版 / 严格选择器失效时的通用容错（findAnyMessageInput / looksLikeMessagePage）
-// 场景：抖音/小红书/TikTok 偶尔会改 className / data-e2e / role，导致
-//       channels/*.js 里硬编码的 SEL.EDITOR / SEL.INPUT 失效，桥接整体瘫掉。
-// 解决：match() 失败时先扫描 DOM 看是否有「看起来像消息输入框」的元素，
-//       配合「页面像是私信/消息页」的启发式判断，给出降级匹配。
-//       这样能避免「打开私信页但 adapter.match() 永远返回 false」的全量错误。
-// =============================================================
 
 /** 元素是否在视觉上可见（offsetParent + 尺寸 + 非 display:none） */
 export function isLikelyVisible(el) {
   if (!el) return false;
-  // offsetParent === null 时表示 display:none（但 fixed 元素例外）
   if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
   const rect = el.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) return false;
@@ -334,10 +302,9 @@ export function findAnyMessageInput() {
 
   const score = (el) => {
     if (!isLikelyVisible(el)) return -1;
-    if (hasExcludedAncestor(el)) return -1; // 评论/搜索框继承排除
+    if (hasExcludedAncestor(el)) return -1; 
     const r = el.getBoundingClientRect();
     if (r.width < 20 || r.height < 10) return -1;
-    // 排除 textarea 多行但特别小（评论框、用户名框通常宽 < 100）
     if (el.tagName === 'TEXTAREA' && r.width < 60) return -1;
     // 在视口下半部分加分
     const lowerHalfBonus = r.top > vh * 0.4 ? 2 : 0;
@@ -350,15 +317,12 @@ export function findAnyMessageInput() {
     candidates.push({ el, score: base + s });
   };
 
-  // 1) contenteditable=true / ''  （最高优先级）
   for (const el of all('div[contenteditable="true"], div[contenteditable=""], [contenteditable="true"], [contenteditable=""]')) {
     push(el, 10);
   }
-  // 2) role=textbox
   for (const el of all('[role="textbox"]')) {
     push(el, 8);
   }
-  // 3) textarea + placeholder/aria-label 命中关键词
   for (const el of all('textarea')) {
     const ph = (el.getAttribute('placeholder') || '').toLowerCase();
     const aria = (el.getAttribute('aria-label') || '').toLowerCase();
@@ -366,7 +330,6 @@ export function findAnyMessageInput() {
       push(el, 7);
     }
   }
-  // 4) data-e2e
   for (const sel of [
     '[data-e2e*="message-input"]',
     '[data-e2e*="chat-input"]',
@@ -375,7 +338,6 @@ export function findAnyMessageInput() {
   ]) {
     for (const el of all(sel)) push(el, 6);
   }
-  // 5) data-testid
   for (const sel of [
     '[data-testid*="message"]',
     '[data-testid*="input"]',
@@ -383,7 +345,6 @@ export function findAnyMessageInput() {
   ]) {
     for (const el of all(sel)) push(el, 5);
   }
-  // 6) aria-label 中文/英文
   for (const el of all('[aria-label]')) {
     const aria = (el.getAttribute('aria-label') || '');
     if (/消息|留言|回复|send a message|type a message|new message/.test(aria.toLowerCase() + ' ' + aria)) {
@@ -392,7 +353,6 @@ export function findAnyMessageInput() {
   }
 
   if (!candidates.length) return null;
-  // 按分数降序，相同分数时尺寸大的优先
   candidates.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     const ar = a.el.getBoundingClientRect();
@@ -422,30 +382,29 @@ export function looksLikeMessagePage() {
     // ---- 1. URL 反例黑名单（首页/feed/精选/搜索/个人主页/帖子详情 等） ----
     // 即便 URL 包含聊天关键词，若同时包含反例词，仍按反例处理
     const EXCLUDE_URL_PATTERNS = [
-      /\/jingxuan\b/i,           // 抖音精选 https://www.douyin.com/jingxuan
-      /\/discover\b/i,           // 抖音/小红书 发现页
-      /\/explore\b/i,            // 小红书 explore
-      /\/search\b/i,             // 搜索结果页
-      /\/hot\b/i,                // 热门榜
-      /\/follow\b/i,             // 关注列表（小红书 follow 不是 IM）
-      /\/recommend\b/i,          // 推荐流
-      /\/feed\b/i,               // 信息流
-      /\/trending\b/i,           // 趋势
-      /\/user\/[^/?#]+/,         // 个人主页 https://www.douyin.com/user/xxx（兼容 ?query/#hash）
-      /\/video\/\d+/,            // 单个视频详情页 /video/7123456789
-      /\/note\//,                // 小红书笔记详情 /note/xxx
-      /\/explore\?/,             // 显式搜索 explore query
+      /\/jingxuan\b/i,           
+      /\/discover\b/i,           
+      /\/explore\b/i,            
+      /\/search\b/i,             
+      /\/hot\b/i,                
+      /\/follow\b/i,             
+      /\/recommend\b/i,          
+      /\/feed\b/i,               
+      /\/trending\b/i,           
+      /\/user\/[^/?#]+/,         
+      /\/video\/\d+/,            
+      /\/note\//,                
+      /\/explore\?/,             
     ];
     for (const re of EXCLUDE_URL_PATTERNS) {
       if (re.test(url)) return false;
     }
 
-    // ---- 2. URL 正向匹配（最权威） ----
     if (/\/(messages?|chats?|msg|direct|im|inbox|conversation|private|dm)(\/|\?|$|#)/.test(url)) return true;
     if (/[?&](conversation_id|message_id|session_id|chat_id|user_id)=/.test(url)) return true;
-    if (/\/messages\/@?[\w.]+/.test(url)) return true;            // TikTok /messages/@user
-    if (/\/im\b/.test(url)) return true;                          // 小红书 /im
-    if (/\/im\/chat\b/.test(url)) return true;                    // 抖音 /im/chat
+    if (/\/messages\/@?[\w.]+/.test(url)) return true;            
+    if (/\/im\b/.test(url)) return true;                          
+    if (/\/im\/chat\b/.test(url)) return true;                    
 
     // ---- 3. DOM 启发式（URL 不匹配时的兜底，必须多特征同时命中） ----
     // 要求「消息列表根」+「会话容器」类名同时存在
@@ -458,7 +417,6 @@ export function looksLikeMessagePage() {
       '[class*="ChatWindow"], [class*="chat-window"], [class*="chatWindow"], ' +
       '[class*="ImChat"], [class*="im-chat"], [class*="IMChat"]'
     );
-    // 至少 2 个特征才算（防单点误判）
     if (hasMessageList && hasChatContainer) return true;
 
     // 强特征：data-e2e 含 chat-item / message-item 列表项（不算 comment）
@@ -472,3 +430,4 @@ export function looksLikeMessagePage() {
     return false;
   }
 }
+

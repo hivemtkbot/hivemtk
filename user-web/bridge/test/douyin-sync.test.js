@@ -1,6 +1,3 @@
-// 抖音私信同步回归测试：验证「多候选选择器 + 结构启发式」能在旧版与改版 DOM 下
-// 都抓全消息；并验证旧版单一写死选择器在改版 DOM 下会大量漏抓（复现「几十个只上行 2 个」）。
-// 环境：vite.config.js 已设 environment: 'jsdom'，全局 document / window / location 可用。
 import { describe, it, expect, beforeEach } from 'vitest';
 import { locateMessages, locateMessagesWithDiagnose, SelectorEngine } from '../src/core/selector-engine.js';
 import { SEL } from '../src/channels/douyin.js';
@@ -54,7 +51,7 @@ describe('SelectorEngine 多候选 + 启发式定位', () => {
   it('对比：旧单一选择器在改版 DOM 上完全失效（复现漏抓根因）', () => {
     document.body.innerHTML = NEW_DOM;
     const legacy = document.querySelectorAll('[data-e2e="msg-item-content"]');
-    expect(legacy.length).toBe(0); // 改版后旧选择器命中 0 → 旧逻辑只抓 2 条（甚至 0）
+    expect(legacy.length).toBe(0); 
   });
 
   it('非文字消息（图片/撤回）被保留，不被结构过滤丢弃', () => {
@@ -75,3 +72,4 @@ describe('输入框定位（结构启发式，不依赖 data-e2e）', () => {
     expect(input.getAttribute('contenteditable')).toBe('true');
   });
 });
+

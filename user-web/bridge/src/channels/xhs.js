@@ -1,15 +1,3 @@
-// 小红书网页私信适配器 —— 纯 CSS 选择器架构。
-// 设计原则：所有选择器均基于真实 DOM 验证，不使用 LLM 动态生成。
-// 平台改版时通过 UI 配置面板(chrome.storage)更新选择器即可，无需发版。
-//
-// 参考 DOM 结构（2026-08 验证）：
-//   - 私信页入口：https://www.xiaohongshu.com/chat
-//   - 会话列表：新版 .xhs-im-conv-item（data-conv-id），旧版 .sx-contact-item
-//   - 消息列表：新版 .xhs-im-msg-list-wrap，旧版 .vue-recycle-scroller
-//   - 消息气泡：新版 .chat-item（data-message-id），旧版 .im-msg-item
-//   - 输入框：新版 div.xhs-im-input-bar-editor[contenteditable]，旧版 #jarvis-reply-textarea
-//   - 发送按钮：新版 .xhs-im-input-bar-actions 内按钮，旧版 .send_btn
-//   - 自/他判定已移交后端（服务端权威），前端只负责抽取文本/系统消息。
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
 import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
@@ -34,35 +22,19 @@ function mergedSelectors() {
 // —— 选择器定义（2026-08 验证可用）——
 // ⚠️ [class*="..."] 均带 i 标志（大小写不敏感），否则 CSS module 大写类名全失配。
 export const SEL = {
-  // 左侧会话列表：新版 .xhs-im-conv-item（data-conv-id），旧版 .sx-contact-item + 容器内兜底
   CHAT_LIST: '.xhs-im-conv-item, .sx-contact-item, [class*="xhs-im-conv-list" i] [class*="conv-item" i]',
-  // 消息线程容器
   MSG_LIST: '.xhs-im-msg-list-wrap, .vue-recycle-scroller.ready, [class*="chat-content" i], [class*="msg-list" i]',
-  // 消息气泡：新版 .chat-item（data-message-id），旧版 .im-msg-item + 气泡兜底
   MSG_ITEM: '.chat-item, .im-msg-item, [class*="msg-item" i], [class*="bubble" i]',
-  // 气泡内文本：新版 .xhs-im-bubble__text，旧版 .text-message + 文本型兜底
   TEXT: '.xhs-im-bubble__text, .text-message, [class*="text-message" i], [class*="msg-content" i]',
-  // 输入框：新版 contenteditable div，旧版 textarea
   INPUT: '#jarvis-reply-textarea, div.xhs-im-input-bar-editor[contenteditable="true"]',
-  // 发送按钮
   SEND: '.send_btn, [class*="send-btn" i], [aria-label*="发送"]',
-  // 消息类型 data 属性
   MSG_TYPE: '[data-msg-type], [data-content-type]',
-  // 笔记卡片
   CARD: '.card_container, [class*="card-container" i]',
   CARD_TITLE: '.card_bottom_title, [class*="card-title" i]',
   CARD_INFO: '.card_bottom_info, [class*="card-info" i]',
-  // 聚光进线（系统消息）
   SPOTLIGHT: '.source-tip',
-  // 聊天对象昵称
   PEER_NAME: '.xhs-im-chat-title, [class*="chat-header" i] [class*="title" i], [class*="chat-window" i] [class*="header" i] [class*="name" i]',
-  // 未读标记（巡检用）⚠️ 必须带 i 标志
-  // 2026-08-05 修复：根据小红书实际 DOM 实测，未读徽章 class 为 xhs-im-conv-item__badge。
-  //   原版仅 [class*="unread" i], [class*="red-dot" i], [data-unread="1"]，
-  //   导致 detectUnread 全返回 false → 巡检"未读 0" → 新消息永不上报。
-  //   现以精确 class 为主，通用模式为辅。
   UNREAD: '.xhs-im-conv-item__badge, [class*="unread" i], [class*="red-dot" i], [class*="reddot" i], [data-unread="1"], [class*="new-msg" i], [class*="newmessage" i]',
-  // 未读徽章候选（数字徽章）：文本内容是纯数字的元素，class 含 badge/count/num/dot
   UNREAD_BADGE: '.xhs-im-conv-item__badge, [class*="badge" i], [class*="count" i], [class*="num" i], [class*="dot" i]',
 };
 
@@ -92,7 +64,7 @@ function strictInputEl() {
     try {
       const el = qs(sel);
       if (el) return el;
-    } catch (_) { /* 非法选择器跳过 */ }
+    } catch (_) {  }
   }
   return null;
 }
@@ -113,7 +85,7 @@ function normalizeContactId(id) {
   for (const prefix of prefixes) {
     if (s.startsWith(prefix)) {
       s = s.substring(prefix.length);
-      break; // 只移除一个前缀
+      break; 
     }
   }
   s = s.replace(/[^a-zA-Z0-9_-]/g, '');
@@ -126,38 +98,30 @@ function normalizeContactId(id) {
 // 空串会导致 WS 握手持空 account_id → 服务端 401 → 历史/实时全不上行。
 function getAccountId() {
   const candidates = [];
-  // 1) 「我的」主页链接（侧边栏/header/nav，最可靠）
   qsa('aside a[href*="/user/profile/"], header a[href*="/user/profile/"], nav a[href*="/user/profile/"]').forEach((a) => {
     const m = a.getAttribute('href')?.match(/\/user\/profile\/([\w.-]+)/);
     if (m && m[1] && m[1] !== 'self') candidates.push(m[1]);
   });
-  // 2) 任意 profile 链接（私信页 header 常含当前账号头像链接）
   qsa('a[href*="/user/profile/"]').forEach((a) => {
     const m = a.getAttribute('href')?.match(/\/user\/profile\/([\w.-]+)/);
     if (m && m[1] && m[1] !== 'self') candidates.push(m[1]);
   });
-  // 3) 任意 /user/ 链接（最后手段）
   qsa('a[href*="/user/"]').forEach((a) => {
     const m = a.getAttribute('href')?.match(/\/user\/(?:profile\/)?([\w.-]+)/);
     if (m && m[1] && m[1] !== 'self') candidates.push(m[1]);
   });
   for (const c of candidates) {
     if (c && c.trim()) {
-      // 同步写 localStorage（页面内同步可用，刷新后仍可兜底；不依赖异步 chrome.storage）
-      try { localStorage.setItem(`hivebridge:account:${CHANNELS.XHS}`, c.trim()); } catch (e) { /* noop */ }
+      try { localStorage.setItem(`hivebridge:account:${CHANNELS.XHS}`, c.trim()); } catch (e) {  }
       return c.trim();
     }
   }
-  // 4) 同步兜底：localStorage 缓存（页面结构临时取不到真实 id 时复用本页曾取到的值）
   try {
     const ls = localStorage.getItem(`hivebridge:account:${CHANNELS.XHS}`);
     if (ls) return ls;
-  } catch (e) { /* noop */ }
-  // 5) 兜底空串（2026-08-14 治本）：旧逻辑回退 `${CHANNELS.XHS}-unknown` 污染后端入库
-  //    与按 account_id 关联 outbound 的查询链路，导致 AI 出站回采识别失败、回环拦截失效。
-  //    改为空串后，后端层0 改用 (platform + sender_name + content) 三元组命中 outbound，
-  //    完全不依赖 account_id。WS 通道（若回归）需在后端容忍空 account_id 或前端另设兜底。
-  return '';
+  } catch (e) {  }
+  // 完全无链接且无缓存：返回 stable unknown（绝不空串 → 不触发 WS 401）
+  return 'xiaohongshu-unknown';
 }
 
 // 当前会话 id（小红书的会话 id 多为联系人的 user id）。
@@ -193,9 +157,6 @@ function getConversationId() {
     const norm = normalizeContactId(pathMatch[1]);
     if (norm) return norm;
   }
-  // 2026-08-05 修复：query 参数走 normalizeContactId 保持命名空间一致
-  //   原版直接返回原始字符串，与第 1/2/5 步的规范化结果不一致（大小写/特殊字符差异）
-  //   → openConversation 精确匹配失败 → 巡检找不到目标会话
   if (/[?&]conversation_id=/.test(location.href)) {
     const raw = new URLSearchParams(location.search).get('conversation_id');
     const norm = normalizeContactId(raw);
@@ -210,7 +171,7 @@ function getConversationId() {
     const href = headerLink.getAttribute('href') || '';
     const m = href.match(/\/user\/profile\/([\w.-]+)/) || href.match(/\/user\/([\w.-]+)/);
     if (!m || !m[1]) continue;
-    if (myAccount && m[1] === myAccount) continue; // 跳过「我」自己
+    if (myAccount && m[1] === myAccount) continue; 
     return m[1];
   }
   // 消息容器 data-id
@@ -219,11 +180,6 @@ function getConversationId() {
     const norm = normalizeContactId(container.getAttribute('data-id'));
     if (norm) return norm;
   }
-  // 兜底（关键）：小红书 /chat 页的活动会话项（.sx-contact-item.active）在部分版本下
-  // 无 data-* 属性、header 无 /user/ 链接时，若返回 null，适配器 `if (!getConversationId()) return`
-  // 守卫会拦截全部消息 →「打开私信页一条消息都捕获不到」。用会话项昵称文本派生稳定 id。
-  // ⚠️ 2026-08-07 第十一轮修复：sanitizePeerName 剥离会话项内的时间戳/相对时间/未读徽章，
-  // 避免同会话不同时刻 conversation_id 不同导致 outbound 下行错配。
   if (active) {
     const nameEl = active.querySelector(
       '[class*="nickname" i], [class*="nick-name" i], [class*="name" i], [class*="title" i], [class*="Title" i]'
@@ -242,7 +198,7 @@ function findInputEl() {
     try {
       const el = qs(sel);
       if (el) return el;
-    } catch (_) { /* 非法选择器跳过 */ }
+    } catch (_) {  }
   }
   return findAnyMessageInput();
 }
@@ -254,7 +210,7 @@ function findSendButton() {
     try {
       const el = qs(sel);
       if (el) return el;
-    } catch (_) { /* 非法选择器跳过 */ }
+    } catch (_) {  }
   }
   return qs(SEL.SEND) || qs('button[class*="send"], [class*="send"], [aria-label*="发送"]') || null;
 }
@@ -265,8 +221,6 @@ function findSendButton() {
 function extractMessageContent(item) {
   const typeAttr = (item.getAttribute('data-msg-type') || item.querySelector(SEL.MSG_TYPE)?.getAttribute('data-msg-type') || '').toUpperCase();
   const text = cleanText(item.querySelector(SEL.TEXT) || item);
-  // 纯时间戳（如「09:56」「昨天 12:30」）是消息间隔标记，不是消息内容——直接跳过。
-  // 注意：空文本（纯图片/语音消息）不能命中此正则——必须有时间戳形态才过滤。
   if (text && /^(\d{1,2}:\d{2}|(昨天|前天)?\s*\d{1,2}月\d{1,2}日?\s*\d{1,2}:\d{2}|\d{4}-\d{2}-\d{2})$/.test(text)) {
     return { msgType: 'text', mediaUrl: '', text: '' };
   }
@@ -278,11 +232,9 @@ function extractMessageContent(item) {
     const img = card?.querySelector('img');
     return { msgType: 'card', mediaUrl: img?.getAttribute('src') || '', text: info || title || '笔记卡片' };
   }
-  // 聚光进线（系统消息，带 source-tip 来源提示）
   if (item.querySelector(SEL.SPOTLIGHT) || typeAttr === 'SPOTLIGHT') {
     return { msgType: 'system', mediaUrl: '', text };
   }
-  // 撤回
   if (/撤回了?一条消息|撤回了一条|recalled a message/i.test(text)) {
     return { msgType: 'recall', mediaUrl: '', text };
   }
@@ -315,7 +267,6 @@ function extractMessageContent(item) {
 // 从右侧聊天页上方 header 内的标题元素（含对方昵称或群名）抽取文本，多层兜底。
 // 排除「小红书 Web IM」等通用标题词、排除仅是产品名（如「私信」），保证拿到真正昵称或群名。
 function getPeerName() {
-  // 1) SEL.PEER_NAME 命中（最可靠，通过 class）
   for (const sel of String(SEL.PEER_NAME || '').split(',').map((s) => s.trim()).filter(Boolean)) {
     try {
       const el = qs(sel);
@@ -323,7 +274,7 @@ function getPeerName() {
         const t = cleanText(el);
         if (t && !/私信|消息|小红书|聊天|contact|会话/i.test(t)) return t;
       }
-    } catch (_) { /* 非法选择器忽略 */ }
+    } catch (_) {  }
   }
   // 2) 聊天 header 内任意带 /user/profile/ 的链接（对方主页链接的可见文字=昵称），排除「我」
   const myAccount = getAccountId();
@@ -334,7 +285,7 @@ function getPeerName() {
     const href = link.getAttribute('href') || '';
     const m = href.match(/\/user\/(?:profile\/)?([\w.-]+)/);
     if (!m || !m[1]) continue;
-    if (myAccount && m[1] === myAccount) continue; // 跳过「我」自己
+    if (myAccount && m[1] === myAccount) continue; 
     const t = cleanText(link);
     if (t && !/私信|消息|小红书|聊天/i.test(t)) return t;
   }
@@ -390,9 +341,9 @@ function detectGroup(item) {
 // 聊天侧栏卡片绝不应当作消息内容上行。
 function isListNoise(item) {
   if (!item || !item.closest) return false;
-  if (item.closest('.xhs-im-conv-item')) return true;   // 新版会话项
-  if (item.closest('.sx-contact-item')) return true;     // 旧版会话项
-  if (item.closest('.xhs-im-conv-list')) return true;    // 新版会话列表容器
+  if (item.closest('.xhs-im-conv-item')) return true;   
+  if (item.closest('.sx-contact-item')) return true;     
+  if (item.closest('.xhs-im-conv-list')) return true;    
   if (item.closest('.chat-list-box')) return true;
   if (item.closest(SEL.CHAT_LIST)) {
     if (item.matches('[class*="conv-item"], [class*="contact"]') || item.querySelector('[class*="conv-item"], [class*="contact"]')) return true;
@@ -426,7 +377,7 @@ function getConversationList() {
     for (const sel of customSels) {
       try {
         items = items.concat(qsa(sel));
-      } catch (_) { /* 非法选择器跳过 */ }
+      } catch (_) {  }
     }
   }
   if (!items.length) items = qsa(SEL.CHAT_LIST);
@@ -434,7 +385,7 @@ function getConversationList() {
   const out = [];
   const ids = new Set();
   for (const item of items) {
-    if (!item || !item.offsetParent) continue; // 跳过不可见（虚拟列表回收节点）
+    if (!item || !item.offsetParent) continue; 
     // 新版 .xhs-im-conv-item 用 data-conv-id（真实 DOM 实测）；旧版 .sx-contact-item 用 data-key/data-id
     const raw =
       item.getAttribute('data-conv-id') ||
@@ -449,10 +400,9 @@ function getConversationList() {
       '[class*="nickname" i], [class*="nick-name" i], [class*="name" i], [class*="title" i], [class*="Title" i]'
     );
     const name = sanitizePeerName(nameEl ? cleanText(nameEl) : '');
-    // 无 data 属性时用昵称文本派生稳定 id（/chat 页会话项可能无 data-*）
     if (!id) {
       if (name) id = 'conv:' + name.slice(0, 80);
-      else continue; // 无稳定 id 的节点不计入（避免重复/乱序）
+      else continue; 
     }
     if (ids.has(id)) continue;
     ids.add(id);
@@ -484,18 +434,14 @@ function detectUnread(item) {
       item.matches('[class*="selected" i]') ||
       item.matches('[class*="current" i]')
     );
-    // 1) SEL.UNREAD 选择器匹配
     if (item.matches && item.matches(SEL.UNREAD) && !isActive) return true;
     if (item.querySelector && item.querySelector(SEL.UNREAD)) {
-      // 内部有未读标记元素，但若会话项本身是 active 则仍不算未读
       if (!isActive) return true;
     }
-    // 2) 数字徽章检测：候选 badge 元素文本是纯数字 > 0
     if (item.querySelectorAll) {
       const badges = item.querySelectorAll(SEL.UNREAD_BADGE);
       for (const b of badges) {
         const txt = (b.textContent || '').trim();
-        // 纯数字且 > 0（"0" 不算未读）
         if (/^\d+$/.test(txt) && parseInt(txt, 10) > 0) return true;
       }
     }
@@ -505,8 +451,6 @@ function detectUnread(item) {
       const v = item.getAttribute(k);
       if (v === '1' || v === 'true' || (/^\d+$/.test(v) && parseInt(v, 10) > 0)) return true;
     }
-    // 4) 粗体检测：会话项 name 元素 font-weight >= 600（未读会话标题加粗）
-    //   仅当会话项非 active 时才检测（active 会话标题也可能加粗）
     if (!isActive) {
       const nameEl = item.querySelector(
         '[class*="nickname" i], [class*="nick-name" i], [class*="name" i], [class*="title" i]'
@@ -515,22 +459,20 @@ function detectUnread(item) {
         const fw = window.getComputedStyle(nameEl).fontWeight;
         const fwNum = parseInt(fw, 10);
         if (!isNaN(fwNum) && fwNum >= 600) return true;
-        // 字符型 font-weight（bold/semibold 等）
         if (fw === 'bold' || fw === '600' || fw === '700' || fw === '800' || fw === '900') return true;
       }
     }
-  } catch (_) { /* 非法选择器或 getComputedStyle 不可用忽略 */ }
+  } catch (_) {  }
   return false;
 }
 
-// 防回环机制已删除：前端不再计算 self/other，回环防护由后端 isPlatformOutboundEcho 承担。
 
 const hooks = {
   match() {
     if (!location.hostname.includes('xiaohongshu.com')) return false;
-    if (isXhsChatUrl()) return true;         // https://www.xiaohongshu.com/chat 聊天页
-    if (isXhsMessagePage()) return true;     // 结构命中（含 SPA 浮层/面板）
-    if (qs(SEL.INPUT)) return true;          // XHS-YYDS 严格同款兜底
+    if (isXhsChatUrl()) return true;         
+    if (isXhsMessagePage()) return true;     
+    if (qs(SEL.INPUT)) return true;          
     if (findAnyMessageInput() && looksLikeMessagePage()) {
       log.warn('match() 走 fallback 模式：小红书 IM 严格选择器已失效，使用通用 DOM 扫描');
       return true;
@@ -549,7 +491,7 @@ const hooks = {
       try {
         const el = qs(sel);
         if (el) return el;
-      } catch (_) { /* 非法选择器跳过 */ }
+      } catch (_) {  }
     }
     return qs(SEL.MSG_LIST) || qs('.im-chat-window') || qs('[class*="chat-content"]') || qs('[class*="message-list"]') || null;
   },
@@ -582,13 +524,10 @@ const hooks = {
     return leafText.filter((el) => !isListNoise(el));
   },
   parseMessageItem(item, ctx) {
-    // 剔除会话列表节点 / 联系人卡片（它们可能被宽泛选择器命中）
     if (isListNoise(item)) return null;
     // 先判定消息类型（卡片/图片/语音/视频/撤回/系统）
     const { msgType, mediaUrl, text } = extractMessageContent(item);
-    if (!text && msgType === 'text') return null; // 纯文本且无内容则跳过
-    // system/recall 类型消息标记为 SENDER.SYSTEM（消息类型识别，非 self/other），
-    // 后端 inbox_ingress 据此跳过 AI 触发。msg_id 兜底用 `sys:${text}`。
+    if (!text && msgType === 'text') return null; 
     if (msgType === 'system' || msgType === 'recall') {
       const sysText = text || (msgType === 'recall' ? '撤回了一条消息' : '系统消息');
       return {
@@ -644,8 +583,8 @@ const hooks = {
       group_id: groupInfo.groupId,
       group_name: groupInfo.groupName,
       sender_name: senderName,
-      sender_id: getConversationId() || '', // 对方身份 = 当前会话 ID
-      conversation_id: getConversationId() || '', // 用于跨会话残留过滤
+      sender_id: getConversationId() || '', 
+      conversation_id: getConversationId() || '', 
       timestamp: Date.now(),
       raw: item.outerHTML?.slice(0, 500),
     };
@@ -670,16 +609,13 @@ const hooks = {
     if (isContentEditable) {
       fillContentEditable(input, text, { clearBefore: true });
     } else {
-      // textarea：先清空再设值，避免「原内容 + 新内容」拼接
       setValue(input, '');
       setValue(input, text);
     }
     await new Promise((r) => setTimeout(r, 180));
     const sendBtn = findSendButton();
     if (sendBtn) {
-      // XHS-YYDS enhancedClickWithVerification 同款：native click + 补充鼠标事件
       enhancedClick(sendBtn);
-      // 清空输入框（用户诉求③）：发送成功后立即清空，避免「消息已发出但输入框仍显示」干扰客服体验
       try {
         if (isContentEditable) {
           while (input.firstChild) input.removeChild(input.firstChild);
@@ -687,14 +623,12 @@ const hooks = {
         } else {
           setValue(input, '');
         }
-      } catch (_) { /* noop */ }
+      } catch (_) {  }
       return;
     }
-    // 新版 /chat 页发送按钮常为输入后出现的图标或回车发送：无按钮时按 Enter 兜底
     log.warn('未找到小红书发送按钮，改用回车发送');
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
     input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
-    // 兜底发送后也清空
     try {
       if (isContentEditable) {
         while (input.firstChild) input.removeChild(input.firstChild);
@@ -702,11 +636,10 @@ const hooks = {
       } else {
         setValue(input, '');
       }
-    } catch (_) { /* noop */ }
+    } catch (_) {  }
   },
 };
 
-// 导出供单测验证账号/会话列表/规范化/页面识别/对方昵称
 export { getAccountId, getConversationId, getConversationList, normalizeContactId, isXhsMessagePage, isXhsChatUrl, getPeerName };
 
 export function buildXhsAdapter() {
@@ -718,3 +651,4 @@ export function buildXhsAdapter() {
     rateLimiter: undefined,
   });
 }
+

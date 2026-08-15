@@ -1,8 +1,3 @@
-// 统一协议常量与消息工厂（与服务端 user-server/internal/bridge/frames.go 严格一致）
-//
-// ⚠️ 协议即契约：服务端是稳定方（还承担 ingress/AI 流水线），扩展作为客户端必须对齐服务端。
-// 历史教训：首版曾因常量/字段名不一致（inbound vs inbound_message、text vs content）
-// 导致消息流端到端不通。本文件是唯一真相源，任何改动需同步校验 server 端 frames.go。
 
 import { PROTOCOL, RATE_LIMIT_DEFAULTS, PATROL_DEFAULTS } from './constants.js';
 
@@ -18,11 +13,8 @@ export const SENDER = PROTOCOL.SENDER;
 // 消息方向（history 帧专用；inbound_message 由服务端固定为 inbound）
 export const DIRECTION = PROTOCOL.DIRECTION;
 
-// 默认风控/限速参数：从 constants.js 单源 re-export，禁止就地修改
-// 文档源：docs/bridge/DEFAULTS.md，详见 bridge.md §17.3
 export { RATE_LIMIT_DEFAULTS };
 
-// 巡检制度默认参数：从 constants.js 单源 re-export
 export { PATROL_DEFAULTS };
 
 // 实时 inbound 帧携带的「会话上下文窗口」长度：让「一条消息 = 一个会话、内含多轮历史」成立，
@@ -81,7 +73,7 @@ export function makeUnifiedMessage({
     content: content || '',
     media_url: media_url || '',
     timestamp: timestamp || Date.now(),
-    direction, // 仅 history 帧使用；inbound_message 服务端忽略
+    direction, 
     is_group: !!is_group,
     group_id: group_id || '',
     group_name: group_name || '',
@@ -160,3 +152,4 @@ export function parseUnifiedReply(reply) {
     truncated: reply.truncated === true,
   };
 }
+

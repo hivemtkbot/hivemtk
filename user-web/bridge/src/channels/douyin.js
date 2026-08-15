@@ -1,15 +1,3 @@
-// 抖音网页私信适配器 —— 纯 CSS 选择器架构。
-// 设计原则：所有选择器均基于真实 DOM 验证，不使用 LLM 动态生成。
-// 平台改版时通过 UI 配置面板(chrome.storage)更新选择器即可，无需发版。
-//
-// 参考 DOM 结构（2026-08 验证）：
-//   - 私信页入口：https://www.douyin.com/chat
-//   - 会话列表：左侧 island #island_b69f5，项含 data-e2e="conversation-item"
-//   - 消息列表：线程容器含 class*="messageList" / data-e2e="chat-msg-list"
-//   - 消息气泡：div[data-e2e="msg-item-content"]（新版）/ class*="messageMessageItem"（/chat路由）
-//   - 输入框：div.messageEditorinputArea.editor-kit-container（contenteditable）
-//   - 发送按钮：svg[class*="e2e-send-msg-btn"]
-//   - 自/他判定已移交后端（服务端权威），前端只负责抽取文本/系统消息。
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
 import { qs, qsa, cleanText, simulateRealClick, fillContentEditable, createLogger, findAnyMessageInput, looksLikeMessagePage, sanitizePeerName } from '../core/dom.js';
@@ -37,38 +25,18 @@ function mergedSelectors() {
 // 因为平台常用 CSS module 大写类名（如 Unread / ConversationItem 等）。
 // 平台改版导致选择器失效时，通过 UI 配置面板覆盖对应字段即可，无需修改代码。
 export const SEL = {
-  // 左侧会话列表容器
   CHAT_LIST: '#island_b69f5, [data-e2e="conversation-list"]',
-  // 消息线程容器（MutationObserver 根）
   MSG_LIST: '[class*="messageList" i], [data-e2e="chat-msg-list"], [class*="chat-content" i]',
-  // 消息气泡（2026-08 验证）
-  // 抖音最新结构实测：
-  //   - 自方气泡：div[data-e2e="msg-item-content"][class*="chatMessageItemSelf" i]
-  //   - 对方气泡：div[data-e2e="msg-item-content"][class*="chatMessageItemOther" i]
-  //   - 旧版：[class*="messageMessageItem" i]（已不带自他标识）
-  // 注意：去掉旧版 [class*="bubble" i] —— 太宽泛，会命中内层 bubble-body 节点，
-  // 被 SelectorEngine.containsAnother 滤掉、且被 isSystemMessage 结构特征误判。
-  // 自/他判定已移交后端，前端不依据这些 class 区分自己/对方。
   MSG_ITEM: 'div[data-e2e="msg-item-content"], [class*="chatMessageItemSelf" i], [class*="chatMessageItemOther" i], [class*="messageMessageItem" i], [class*="chatMessageItem" i], [class*="msg-content" i]',
-  // 聊天气泡内文本
   TEXT: '[data-e2e="msg-item-content"], [class*="msg-content" i]',
-  // 输入框（严格：同时含 messageEditorinputArea + editor-kit-container 两 class）
   INPUT: 'div.messageEditorinputArea.editor-kit-container, div[contenteditable="true"][role="textbox"]',
-  // 发送按钮（svg 形式，需回溯到最近可交互祖先）
   SEND: '[class*="e2e-send-msg-btn" i], button[aria-label*="发送"]',
-  // 消息类型 data 属性
   MSG_TYPE: '[data-msg-type], [data-message-type]',
-  // 卡片消息（商品/作品）
   CARD: '[class*="card-container" i], [class*="goods-card" i]',
-  // 会话列表项（遍历用，与 CHAT_LIST 容器区分）
   CONV_ITEM: '[data-e2e="conversation-item"], [class*="conversation-item" i], [class*="conv-item" i]',
-  // 系统消息 class 关键词（配合内容模式双重识别）
   SYSTEM: '[class*="system-msg" i], [class*="notice" i], [class*="divider" i], [class*="time-stamp" i], [class*="recalled" i]',
-  // 聊天对象昵称（右侧 header 标题元素）
   PEER_NAME: '[data-e2e="chat-header-title"], [class*="chat-header" i] [class*="title" i]',
-  // 未读红点标记（巡检用）⚠️ 必须带 i 标志，否则 Unread 失配导致 patrol 全静默
   UNREAD: '[class*="unread" i], [class*="red-dot" i], [data-unread="1"]',
-  // 输入框（兼容旧引用）
   EDITOR: 'div.messageEditorinputArea.editor-kit-container, div[contenteditable="true"][role="textbox"]',
 };
 
@@ -79,7 +47,7 @@ function strictEditorBox() {
     try {
       const el = qs(sel);
       if (el) return el;
-    } catch (_) { /* 非法选择器跳过 */ }
+    } catch (_) {  }
   }
   return qs(SEL.INPUT) || qs(SEL.EDITOR);
 }
@@ -109,12 +77,10 @@ function getRealSendButton() {
         if (el.tagName === 'SVG') return el.closest('button, [role="button"], div, span') || el;
         return el;
       }
-    } catch (_) { /* 非法选择器跳过 */ }
+    } catch (_) {  }
   }
   let btn = qs('[class*="e2e-send-msg-btn"]');
   if (btn) {
-    // 发送按钮为 svg 时，点击须落到最近的可交互祖先（带 click 监听的
-    // button/div/span），否则直接 dispatch 在 svg 上的 click 未必冒泡触发发送。
     if (btn.tagName === 'SVG') {
       return btn.closest('button, [role="button"], div, span') || btn;
     }
@@ -140,7 +106,6 @@ function closestScrollable(el) {
   return null;
 }
 
-// 自/他判定已移交后端（统一 customer 占位，回环防护由后端承担）。
 
 // 当前登录的抖音账号 id。
 // 多层兜底：浮层（/jingxuan 等）下左导航/header 的个人链接常缺失或指向 /user/self（占位），
@@ -166,7 +131,7 @@ function getAccountId() {
         const m = a.getAttribute('href')?.match(/\/user\/([^/?#]+)/);
         if (m && m[1] && m[1] !== 'self') candidates.push(m[1]);
       });
-    } catch (_) { /* 非法选择器跳过 */ }
+    } catch (_) {  }
   }
   // 2) 左导航/header 「我的」链接
   const self = qs('aside a[href*="/user/"], header a[href*="/user/"]') || qs('a[href*="/user/"]');
@@ -174,28 +139,22 @@ function getAccountId() {
     const m = self.getAttribute('href')?.match(/\/user\/([^/?#]+)/);
     if (m && m[1] && m[1] !== 'self') candidates.push(m[1]);
   }
-  // 3) 任意 /user/ 链接（最后手段）
   qsa('a[href*="/user/"]').forEach((a) => {
     const m = a.getAttribute('href')?.match(/\/user\/([^/?#]+)/);
     if (m && m[1] && m[1] !== 'self') candidates.push(m[1]);
   });
   for (const c of candidates) {
     if (c && c.trim()) {
-      // 同步写 localStorage（页面内同步可用，刷新后仍可兜底；不依赖异步 chrome.storage）
-      try { localStorage.setItem(`hivebridge:account:${CHANNELS.DOUYIN}`, c.trim()); } catch (e) { /* noop */ }
+      try { localStorage.setItem(`hivebridge:account:${CHANNELS.DOUYIN}`, c.trim()); } catch (e) {  }
       return c.trim();
     }
   }
-  // 4) 同步兜底：localStorage 缓存（浮层取不到真实 id 时，复用本页曾取到的真实 id）
   try {
     const ls = localStorage.getItem(`hivebridge:account:${CHANNELS.DOUYIN}`);
     if (ls) return ls;
-  } catch (e) { /* noop */ }
-  // 5) 兜底空串（2026-08-14 治本）：旧逻辑回退 `${CHANNELS.DOUYIN}-unknown` 污染后端入库
-  //    与按 account_id 关联 outbound 的查询链路，导致 AI 出站回采识别失败、回环拦截失效。
-  //    改为空串后，后端层0 改用 (platform + sender_name + content) 三元组命中 outbound，
-  //    完全不依赖 account_id。
-  return '';
+  } catch (e) {  }
+  // 完全无 /user/ 链接且无缓存：返回稳定 unknown（绝不空串 → 不触发 WS 401）
+  return 'douyin-unknown';
 }
 
 // —— 非文字消息提取（问题 3）——
@@ -204,7 +163,6 @@ function getAccountId() {
 // 文本优先；含 <img>/视频则记为 image/video（content 留可读描述或 media_url）。
 function extractMessageContent(item) {
   const text = cleanText(item.querySelector(SEL.TEXT) || item);
-  // 纯时间戳（如「09:56」「昨天 12:30」）是消息间隔标记，不是消息内容——直接跳过
   if (text && /^(\d{1,2}:\d{2}|(昨天|前天)?\s*\d{1,2}月\d{1,2}日?\s*\d{1,2}:\d{2}|\d{4}-\d{2}-\d{2})$/.test(text)) {
     return { msgType: 'text', mediaUrl: '', text: '' };
   }
@@ -219,7 +177,6 @@ function extractMessageContent(item) {
     return { msgType: 'recall', mediaUrl: '', text: sysTxt };
   }
   if (/^((你|他|她|对方)?(已?)?(添加|关注|拍了拍|邀请).*|系统|system)/i.test(sysTxt) && !vids.length && !imgs.length) {
-    // 宽松系统消息（仅纯文本且无媒体时）
     return { msgType: 'system', mediaUrl: '', text: sysTxt };
   }
   let mediaUrl = '';
@@ -285,19 +242,16 @@ function isCenterAligned(el) {
       const jc = getComputedStyle(parent).justifyContent;
       if (jc === 'center') return true;
     }
-  } catch (_) { /* jsdom 等无 getComputedStyle 时跳过 */ }
+  } catch (_) {  }
   return false;
 }
 function isSystemMessage(item) {
   if (!item) return false;
-  // ① 居中对齐
   if (isCenterAligned(item)) return true;
-  // ② class 关键词
   try {
     if (item.matches && item.matches(SEL.SYSTEM)) return true;
     if (item.querySelector && item.querySelector(SEL.SYSTEM)) return true;
-  } catch (_) { /* 非法选择器跳过 */ }
-  // ③ role / aria-live
+  } catch (_) {  }
   try {
     if (item.matches && (
       item.matches('[role="status"]') ||
@@ -305,11 +259,10 @@ function isSystemMessage(item) {
       item.matches('[aria-live="polite"]') ||
       item.matches('[aria-live="assertive"]')
     )) return true;
-  } catch (_) { /* noop */ }
+  } catch (_) {  }
   // ④ 内容模式
   const text = cleanText(item);
   if (isTimeText(text) || isSystemText(text)) return true;
-  // ⑤ 结构特征：无头像 + 无气泡（弱信号）
   if (text && text.length < 60) {
     const hasAvatar = !!item.querySelector('[class*="avatar" i]');
     const hasBubble = !!item.querySelector('[class*="bubble" i], [class*="Bubble" i], [class*="msg-content" i]');
@@ -322,7 +275,6 @@ function isSystemMessage(item) {
 // 需求③/修复：1v1 私信「一个会话=一条消息」需把对方昵称作为系统客户名称/发件人。
 // 从右侧聊天页上方 header 内的标题元素（含对方昵称或群名）抽取文本，多层兜底。
 function getPeerName() {
-  // 1) SEL.PEER_NAME 命中（最可靠，通过 class）
   for (const sel of String(SEL.PEER_NAME || '').split(',').map((s) => s.trim()).filter(Boolean)) {
     try {
       const el = qs(sel);
@@ -330,7 +282,7 @@ function getPeerName() {
         const t = cleanText(el);
         if (t && !/私信|消息|抖音|聊天|会话|contact/i.test(t)) return t;
       }
-    } catch (_) { /* 非法选择器忽略 */ }
+    } catch (_) {  }
   }
   // 2) 聊天 header 内带 /user/ 链接的可见文字（对方昵称），排除「我」
   const myAccount = getAccountId();
@@ -339,7 +291,7 @@ function getPeerName() {
     const href = link.getAttribute('href') || '';
     const m = href.match(/\/user\/([^/?#]+)/);
     if (!m || !m[1]) continue;
-    if (myAccount && m[1] === myAccount) continue; // 跳过「我」自己
+    if (myAccount && m[1] === myAccount) continue; 
     const t = cleanText(link);
     if (t && !/私信|消息|抖音|聊天/i.test(t)) return t;
   }
@@ -416,17 +368,6 @@ function getConversationId() {
   // 兼容 /user/<数字id> 与 /user/MS4w...（token 形式）；命中后切换会话会重新回填历史
   const m = link?.getAttribute('href')?.match(/\/user\/([^/?#]+)/);
   if (m && m[1]) return m[1];
-  // 兜底（关键）：抖音 /chat 专用路由的活动会话项常无 /user/ 链接、无 data-id 属性
-  // （实测 DOM：conversationConversationItemcurConversation[data-e2e="conversation-item"]）。
-  // 若此处返回 null，适配器 `if (!getConversationId()) return` 守卫会拦截全部消息，
-  // 表现为「打开私信页却一条消息都捕获不到」。故用活动项标题文本派生稳定会话 id：
-  // 昵称/群名在同一会话内恒定，足以作为会话聚合键（重名冲突概率低，且优先于完全不捕获）。
-  //
-  // ⚠️ 2026-08-07 第十一轮修复：必须 sanitizePeerName 剥离会话项内的时间戳/相对时间/
-  // 状态徽章等易变后缀，否则 patrol 每次扫描 conversation_id 都不同 → outbound 永远找不到
-  // 目标会话 → 大量 pending 永久堆积（实测 287 条）。例：
-  //   "好吃嘴辰辰 12:31" → "好吃嘴辰辰"
-  //   "AI 修炼场 5 昨天 18:20" → "AI 修炼场 5"
   if (active) {
     const nameEl = active.querySelector(
       '[class*="title" i], [class*="Title" i], [class*="name" i], [class*="nickname" i], [class*="Nickname" i]'
@@ -494,25 +435,19 @@ function getConversationList() {
     for (const sel of customSels) {
       try {
         items = items.concat(qsa(sel));
-      } catch (_) { /* 非法选择器跳过 */ }
+      } catch (_) {  }
     }
   }
   if (!items.length) {
-    // 不依赖 container 存在：/chat 专用路由无 #island_b69f5 island 时，
-    // 仍按全局 conversation-item 特征枚举会话项（见下方 items 选择器）。
-    // 直接按会话项特征选择（避免 SEL.CHAT_LIST 含逗号时与后代选择器拼接出错）；
-    // 仅会话列表项带 conversation-item 类 / data-e2e，消息气泡（message-item）不会命中。
     items = qsa(
       '#island_b69f5 li, [data-e2e="conversation-item"], [class*="conversation-item"], [data-e2e="conversation-list-item"], [class*="conversationListItem"], [class*="ConversationListItem"]'
     );
   }
-  // 容器缺失(如 /chat 专用路由无 #island_b69f5)时，上面选择器仍按全局
-  // conversation-item 特征命中，故不依赖 container；无命中则回空。
   if (!items.length) return [];
   const out = [];
   const ids = new Set();
   for (const item of items) {
-    if (!item || !item.offsetParent) continue; // 跳过不可见（虚拟列表回收节点）
+    if (!item || !item.offsetParent) continue; 
     // 会话 id：优先会话项内 /user/<id> 链接（最可靠）；其次 data-conversation-id / data-sec_uid；
     // 最后用昵称文本派生（/chat 专用路由的会话项常无链接与 data 属性，实测需此兜底）。
     let id = null;
@@ -530,7 +465,7 @@ function getConversationList() {
     const name = sanitizePeerName(nameEl ? cleanText(nameEl) : '');
     if (!id) {
       if (name && name !== 'self') id = 'conv:' + name.slice(0, 80);
-      else continue; // 无稳定 id 的节点不计入（避免重复/乱序）
+      else continue; 
     }
     if (ids.has(id)) continue;
     ids.add(id);
@@ -548,21 +483,19 @@ function detectUnread(item) {
   try {
     if (item.matches && item.matches(SEL.UNREAD)) return true;
     if (item.querySelector && item.querySelector(SEL.UNREAD)) return true;
-  } catch (_) { /* 非法选择器忽略 */ }
+  } catch (_) {  }
   return false;
 }
 
 const hooks = {
   match() {
     if (!location.hostname.includes('douyin.com')) return false;
-    // 显式优先 /chat 专用聊天路由（会话列表 + 线程同屏，结构最稳定，
-    // 适合全量遍历同步私信）：只要存在会话列表项即判定为私信页。
     if (location.pathname.startsWith('/chat')) {
       const hasConvList = !!document.querySelector('[data-e2e="conversation-item"], [class*="conversation-item"], #island_b69f5 li');
       if (hasConvList) return true;
     }
-    if (isDouyinMessagePage()) return true; // 结构命中（含浮层 / 无 role=textbox）
-    if (strictEditorBox()) return true; // DY-auto 严格同款兜底
+    if (isDouyinMessagePage()) return true; 
+    if (strictEditorBox()) return true; 
     if (findAnyMessageInput() && looksLikeMessagePage()) {
       log.warn('match() 走 fallback 模式：抖音 IM 严格选择器已失效，使用通用 DOM 扫描');
       return true;
@@ -605,7 +538,6 @@ const hooks = {
       if (!anchor) return null;
       const sc = closestScrollable(anchor);
       if (sc) return sc;
-      // 否则取 IM 面板主容器
       return anchor.closest('[class*="im"], [class*="message"], [class*="chat"], [class*="Im"], [class*="Message"]') || null;
     })();
     if (!thread) return [];
@@ -626,12 +558,9 @@ const hooks = {
     return leafText.filter((el) => !isListNoise(el) && !isSystemMessage(el));
   },
   parseMessageItem(item) {
-    // item 已是消息气泡（文本/媒体元素）。先判定是否系统消息（漏斗 5 层）—— 优先判定，不消耗 AI 配额
     if (isListNoise(item)) return null;
     if (isSystemMessage(item)) {
       const sysText = cleanText(item);
-      // 2026-08-05 修复：去掉 Date.now()——同一系统消息每轮扫描生成不同 msg_id
-      //   → 后端无法幂等去重 → 不断当新消息入库。系统消息文本本身稳定，无需时间戳后缀。
       return {
         message_id: item.getAttribute('data-id') || item.getAttribute('data-msg-id') || item.id || `sys:${sysText}`,
         sender_type: SENDER.SYSTEM,
@@ -648,7 +577,7 @@ const hooks = {
     }
     // 先判定消息类型（问题 3：非文字消息）。
     const { msgType, mediaUrl, text } = extractMessageContent(item);
-    if (!text && msgType === 'text') return null; // 纯文本且无内容则跳过
+    if (!text && msgType === 'text') return null; 
     // 自/他判定已移交后端（统一 customer 占位，回环防护由后端承担）。
     const sender_type = FRONTEND_DEFAULT_SENDER_TYPE;
     // 群聊识别（问题 2）：检测群特征（群标题 / @全员 / 多人昵称前缀）
@@ -705,7 +634,6 @@ const hooks = {
   },
 };
 
-// 导出供单测验证（与其他三渠道对齐命名）
 export { getAccountId, getConversationId, getConversationList, getPeerName, isListNoise, detectUnread, isSystemMessage, isTimeText, isSystemText, isCenterAligned, isDouyinMessagePage, isConversationListNode, hasUserProfileLink };
 
 export function buildDouyinAdapter() {
@@ -714,6 +642,7 @@ export function buildDouyinAdapter() {
     channel: CHANNELS.DOUYIN,
     SEL,
     hooks,
-    rateLimiter: undefined, // 使用默认 RateLimiter
+    rateLimiter: undefined, 
   });
 }
+

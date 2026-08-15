@@ -1,18 +1,7 @@
-// 2026-08-15 M2-P1：popup 增强测试
-//
-// 覆盖：
-//   - health.js: renderHealthPanel、detectHealthAlert、fmtAgoMs
-//   - alert-banner.js: startAlertPolling 告警检测 / 去重
-//   - emergency-stop.js: isEmergencyStop / triggerEmergencyStop / resumeBridge
-//   - error-messages.js: explainError / classifyError / formatErrorBanner
-//
-// 隔离：mock chrome.storage / chrome.runtime
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
 beforeEach(() => {
-  // 模拟 chrome 全局（popup 模块依赖 chrome.storage / chrome.runtime / chrome.tabs）
-  // 同时支持 callback 风格（emergency-stop 使用）和 promise 风格（health fetch 使用）
   globalThis.chrome = {
     storage: {
       local: {
@@ -33,7 +22,6 @@ beforeEach(() => {
           return Promise.resolve();
         },
         get(keys, cb) {
-          // callback 风格：第 2 个参数为 callback
           if (typeof cb === 'function') {
             const out = {};
             const list = Array.isArray(keys) ? keys : [keys];
@@ -41,7 +29,6 @@ beforeEach(() => {
             setTimeout(() => cb(out), 0);
             return;
           }
-          // promise 风格
           return this._asyncGet(keys);
         },
         set(obj, cb) {
@@ -67,7 +54,6 @@ beforeEach(() => {
       _listeners: [],
       _lastError: null,
       sendMessage: vi.fn((msg, cb) => {
-        // 默认无响应
         if (cb) setTimeout(() => cb && cb(undefined), 0);
       }),
       addListener(fn) { this._listeners.push(fn); },
@@ -89,9 +75,6 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// =============================================================
-// 1) error-messages.js
-// =============================================================
 describe('M2-P1 error-messages explainError', () => {
   it('HTTP 4xx 错误码分类', async () => {
     const { explainError } = await import('../src/popup/error-messages.js');
@@ -190,9 +173,6 @@ describe('M2-P1 error-messages explainError', () => {
   });
 });
 
-// =============================================================
-// 2) health.js
-// =============================================================
 describe('M2-P1 health renderHealthPanel', () => {
   it('空数据返回占位文案', async () => {
     const { renderHealthPanel } = await import('../src/popup/health.js');
@@ -223,7 +203,7 @@ describe('M2-P1 health renderHealthPanel', () => {
       },
     });
     expect(html).toContain('抖音');
-    expect(html).toContain('正常');  // CLOSED → 正常
+    expect(html).toContain('正常');  
     expect(html).toContain('● 健康');
   });
 
@@ -357,9 +337,6 @@ describe('M2-P1 health fmtAgoMs', () => {
   });
 });
 
-// =============================================================
-// 3) emergency-stop.js
-// =============================================================
 describe('M2-P1 emergency-stop', () => {
   it('初始未停止', async () => {
     const { isEmergencyStop } = await import('../src/popup/emergency-stop.js');
@@ -394,13 +371,9 @@ describe('M2-P1 emergency-stop', () => {
   });
 });
 
-// =============================================================
-// 4) alert-banner.js
-// =============================================================
 describe('M2-P1 alert-banner startAlertPolling', () => {
   it('无告警时不调用 onAlert', async () => {
     const { startAlertPolling } = await import('../src/popup/alert-banner.js');
-    // 模拟 getStatus 返回空 health
     chrome.runtime.sendMessage = vi.fn((msg, cb) => {
       if (msg.type === 'getStatus') cb({ statuses: {}, health: {} });
       else if (cb) cb({});
@@ -408,7 +381,6 @@ describe('M2-P1 alert-banner startAlertPolling', () => {
     const onAlert = vi.fn();
     const onClear = vi.fn();
     const stop = startAlertPolling({ onAlert, onClear, intervalMs: 100000 });
-    // 等一帧
     await new Promise(r => setTimeout(r, 30));
     expect(onAlert).not.toHaveBeenCalled();
     stop();
@@ -463,7 +435,6 @@ describe('M2-P1 alert-banner startAlertPolling', () => {
     const stop = startAlertPolling({ onAlert, onClear, intervalMs: 10 });
     await new Promise(r => setTimeout(r, 30));
     expect(onAlert).toHaveBeenCalled();
-    // 模拟恢复健康
     healthState = { douyin: { state: 'CLOSED', healthy: true } };
     await new Promise(r => setTimeout(r, 50));
     expect(onClear).toHaveBeenCalled();
@@ -471,9 +442,6 @@ describe('M2-P1 alert-banner startAlertPolling', () => {
   });
 });
 
-// =============================================================
-// 5) health.js fetchHealth
-// =============================================================
 describe('M2-P1 health fetchHealth', () => {
   it('通过 chrome.runtime.sendMessage 拉取 health', async () => {
     const { fetchHealth } = await import('../src/popup/health.js');
@@ -496,3 +464,4 @@ describe('M2-P1 health fetchHealth', () => {
     expect(h).toEqual({});
   });
 });
+

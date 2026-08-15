@@ -1,10 +1,3 @@
-// Uplink 单测（通道A·上报：父层统一上报 + 消息 hash 前端完成）
-//
-// 覆盖：
-//   1. computeMsgID 幂等稳定（同输入同输出，不同输入不同输出）
-//   2. Uplink.enqueue 兜底补全 event_id（消息 hash 前端完成）
-//   3. Uplink 短窗口合并：同 (accountId|conversationId) 多条消息合并为一次 POST
-//   4. 上报 body 字段与 user-server handler_http.go HTTPIngestRequest 对齐
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { computeMsgID, Uplink } from '../src/core/uplink.js';
 import { contentHash } from '../src/core/types.js';
@@ -23,18 +16,14 @@ describe('uplink / computeMsgID（消息 hash 前端完成，与后端 ContentHa
   it('hash 以 mh: 前缀（与后端 ContentHashMsgID 同源 FNV-1a），长度稳定', () => {
     const id = computeMsgID({ channel: 'xhs', conversationId: 'c', content: 'x' });
     expect(id.startsWith('mh:')).toBe(true);
-    expect(id.length).toBe(11); // mh: + 8位hex
+    expect(id.length).toBe(11); 
   });
   it('channel / conversationId / content 任一不同 → hash 不同（隔离会话与渠道）', () => {
     const base = { channel: 'douyin', conversationId: 'c1', content: 'x' };
     expect(computeMsgID(base)).not.toBe(computeMsgID({ ...base, channel: 'xhs' }));
-    // conversationId 不再参与 contentHash —— 同一文本跨会话哈希一致（跨会话去重 patrol 回声）
     expect(computeMsgID(base)).not.toBe(computeMsgID({ ...base, content: 'y' }));
   });
   it('跨语言契约锚点：contentHash("douyin","c1","你好") === mh:00550fed（与 Go ContentHashMsgID 逐字节一致）', () => {
-    // 后端 webhook.go::ContentHashMsgID 对 "douyin|你好" 的 FNV-1a 32 位 UTF-8 字节哈希。
-    // conversationID 不参与哈希 —— 同一文本跨会话哈希一致。
-    // 算法漂移会破坏回环去重钩子2（content_hash 匹配）。此处作为跨语言契约锚点。
     expect(contentHash('douyin', 'c1', '你好')).toBe('mh:00550fed');
   });
   it('content 首尾空白被 trim，不影响哈希（与后端 strings.TrimSpace 对齐）', () => {
@@ -54,8 +43,8 @@ describe('uplink / enqueue + flushAll', () => {
     uplink.enqueue({ channel: 'douyin', account_id: 'acc1', conversation_id: 'c1', sender_type: 'customer', content: '你好', timestamp: 1 });
     await uplink.flushAll();
     const body = JSON.parse(captured);
-    expect(body.messages[0].event_id).toMatch(/^mh:/); // 兜底 hash 已生成（与后端同源）
-    expect(body.messages[0].content_hash).toBe(body.messages[0].event_id); // 回环去重兜底字段已附带
+    expect(body.messages[0].event_id).toMatch(/^mh:/); 
+    expect(body.messages[0].content_hash).toBe(body.messages[0].event_id); 
   });
 
   it('合并窗口：同会话 3 条消息合并为一次 POST', async () => {
@@ -82,3 +71,4 @@ describe('uplink / enqueue + flushAll', () => {
     expect(fetchCount).toBe(2);
   });
 });
+

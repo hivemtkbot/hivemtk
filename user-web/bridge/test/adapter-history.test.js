@@ -1,7 +1,3 @@
-// 历史消息同步回归测试（需求：打开私信只读历史、同步到系统，不自动回复）
-//   - getMessageRoot 缺失时回退 getMessageListRoot（否则历史回填/Observer 永不生效）
-//   - _backfill：存量消息走 onMessage（纯桥接：是否落库/是否回复由后端判断）
-//   - 所有消息（customer/self/agent）统一走 onMessage（2026-08-05 架构重构）
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BaseAdapter } from '../src/core/channel-adapter.js';
 import { SENDER, DIRECTION } from '../src/core/types.js';
@@ -21,7 +17,6 @@ function makeAdapter(items) {
   document.body.appendChild(root);
   const hooks = {
     match: () => true,
-    // 注意：故意不提供 getMessageRoot，验证回退到 getMessageListRoot
     getMessageListRoot: () => root,
     getMessageItems: () => items,
     getAccountId: () => 'acc1',
@@ -60,7 +55,6 @@ describe('历史回填 _backfill', () => {
     a.start({
       onMessage: (m) => messages.push(m),
     });
-    // 点3：回填只发一条会话级帧，多轮历史内嵌 history[]
     expect(messages.length).toBe(1);
     const frame = messages[0];
     expect(frame.conversation_id).toBe('conv1');
@@ -83,8 +77,8 @@ describe('历史回填 _backfill', () => {
     a.start({
       onMessage: (m) => messages.push(m),
     });
-    expect(messages.length).toBe(1); // 首次回填：1 条会话级帧
-    a._backfill(); // 二次回填：同批消息已被 seenNodes 去重 → 不发帧
+    expect(messages.length).toBe(1); 
+    a._backfill(); 
     expect(messages.length).toBe(1);
   });
 });
@@ -97,7 +91,6 @@ describe('纯桥接：所有消息统一走 onMessage', () => {
     a.start({
       onMessage: (m) => messages.push(m),
     });
-    // 2026-08-05 架构重构：所有客户消息统一走 onMessage
     a._handleIncremental(msgEl('客户新消息', SENDER.CUSTOMER, 'm3', Date.now()));
     expect(messages.length).toBe(1);
     expect(messages[0].content).toBe('客户新消息');
@@ -110,12 +103,10 @@ describe('纯桥接：所有消息统一走 onMessage', () => {
     a.start({
       onMessage: (m) => messages.push(m),
     });
-    // 模拟切换会话：会话 id 变化 → 重新挂载（复刻 _startConvPolling 的切换逻辑）
     a.conversationId = 'conv1';
     a.hooks.getConversationId = () => 'conv2';
     a.conversationId = 'conv2';
     a._attachConversation();
-    // 2026-08-05 架构重构：所有消息统一走 onMessage
     a._handleIncremental(msgEl('切回会话后的客户消息', SENDER.CUSTOMER, 'm5', Date.now()));
     expect(messages.length).toBe(1);
     expect(messages[0].content).toBe('切回会话后的客户消息');
@@ -165,14 +156,13 @@ describe('群聊 + 实时上下文窗口（点3）', () => {
     current = a;
     const messages = [];
     a.start({ onMessage: (m) => messages.push(m) });
-    expect(messages.length).toBe(1); // 一个会话 = 一条消息
+    expect(messages.length).toBe(1); 
     const frame = messages[0];
     expect(frame.is_group).toBe(true);
     expect(frame.group_id).toBe('group-1');
     expect(frame.group_name).toBe('产品交流群');
     expect(frame.history.length).toBe(3);
     expect(frame.history.map((h) => h.sender_name)).toEqual(['张三', '客服小王', '李四']);
-    // 群聊消息 sender_id 聚合到群 id
     expect(frame.sender_id).toBe('group-1');
   });
 
@@ -194,7 +184,6 @@ describe('群聊 + 实时上下文窗口（点3）', () => {
     current = a;
     const messages = [];
     a.start({ onMessage: (m) => messages.push(m) });
-    // 两个不同成员都发「好的」：两条都上行（内容去重交给服务端）
     a._ingest(groupParsed('好的', SENDER.CUSTOMER, 'g1', '张三'));
     a._ingest(groupParsed('好的', SENDER.CUSTOMER, 'g2', '李四'));
     expect(messages.length).toBe(2);
@@ -208,11 +197,9 @@ describe('群聊 + 实时上下文窗口（点3）', () => {
     current = a;
     const messages = [];
     a.start({ onMessage: (m) => messages.push(m) });
-    // 2026-08-05 架构重构：seen Set 已移除，同一成员重复发相同文本都走 _emitMessage，
-    // 内容 hash 去重 + 回复判断交给服务端统一收信中心
     a._ingest(groupParsed('好的', SENDER.CUSTOMER, 'g1', '张三'));
     a._ingest(groupParsed('好的', SENDER.CUSTOMER, 'g2', '张三'));
-    expect(messages.length).toBe(2); // 两条都上行，去重交给服务端
+    expect(messages.length).toBe(2); 
     expect(messages[0].content).toBe('好的');
     expect(messages[1].content).toBe('好的');
   });
@@ -222,20 +209,17 @@ describe('群聊 + 实时上下文窗口（点3）', () => {
     current = a;
     const messages = [];
     a.start({ onMessage: (m) => messages.push(m) });
-    // 先来 3 轮（进窗口），再来新消息；每条消息均走 onMessage
     a._ingest(groupParsed('第一轮', SENDER.CUSTOMER, 'w1', '张三'));
     a._ingest(groupParsed('我方回复', SENDER.AGENT, 'w2', '客服小王'));
     a._ingest(groupParsed('第二轮', SENDER.CUSTOMER, 'w3', '李四'));
     a._ingest(groupParsed('第三轮请回复', SENDER.CUSTOMER, 'w4', '王五'));
-    // 纯桥接：所有消息都走 onMessage（4 条）
     expect(messages.length).toBe(4);
     const frame = messages[3];
     expect(frame.content).toBe('第三轮请回复');
-    // 最新一条消息帧内含该会话最近多轮（含刚触发消息）
     expect(frame.history.length).toBe(4);
     expect(frame.history[0].content).toBe('第一轮');
     expect(frame.history[0].direction).toBe(DIRECTION.INBOUND);
-    expect(frame.history[1].direction).toBe(DIRECTION.OUTBOUND); // 我方回复方向 outbound
+    expect(frame.history[1].direction).toBe(DIRECTION.OUTBOUND); 
     expect(frame.history[3].direction).toBe(DIRECTION.INBOUND);
   });
 });
@@ -296,7 +280,7 @@ describe('纯规则架构（无 LLM 抽取器）', () => {
         message_id: 'm-' + (it.__id || Math.random()),
         timestamp: Date.now(),
       }),
-      extractMessages: () => [{ text: 'should-be-ignored', sender_type: 'customer' }], // 残留 hook：纯规则架构下忽略
+      extractMessages: () => [{ text: 'should-be-ignored', sender_type: 'customer' }], 
     };
     return new BaseAdapter({ name: 't', channel: 'xhs', SEL: {}, hooks });
   }
@@ -313,7 +297,6 @@ describe('纯规则架构（无 LLM 抽取器）', () => {
     msgEl.textContent = '来自选择器路径的消息';
     a.hooks.getMessageItems = () => [msgEl];
     a._scanIncremental();
-    // extractMessages 返回的假数据不参与；真实消息来自 getMessageItems
     expect(messages.length).toBe(1);
     expect(messages[0].content).toBe('来自选择器路径的消息');
   });
@@ -327,8 +310,8 @@ describe('纯规则架构（无 LLM 抽取器）', () => {
     current = a;
     const messages = [];
     a.start({ onMessage: (m) => messages.push(m) });
-    // start() 已回填一次；再手动触发一次验证走 selector
     a._backfill();
     expect(messages.length).toBeGreaterThan(0);
   });
 });
+

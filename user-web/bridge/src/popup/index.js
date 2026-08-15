@@ -1,12 +1,3 @@
-// popup 逻辑：配置后端地址/鉴权、测试连接、查看连接状态、自检私信页。
-//
-// 设计要点：
-//   - 状态用 banner（持久可见）而非按钮文字闪烁；不再让用户看不到反馈
-//   - 所有 chrome.runtime.sendMessage / tabs.sendMessage 都有 lastError 兜底
-//   - "测试连接"：fetch /api/health 验证 URL 真实可达
-//   - "打开私信页"：直接开新标签，免去用户手动导航
-//   - 输入框支持回车提交
-//   - 所有默认值/端口/URL 统一从 ../core/constants.js 单源导入（DEVELOPMENT.md 端口对照表）
 import {
   DEFAULT_USER_SERVER,
   PLATFORM_ENTRY_URLS,
@@ -20,12 +11,10 @@ import {
   SELECTOR_FIELDS,
   SELECTOR_CONFIG_KEY,
 } from '../core/selector-ai.js';
-// 静态导入各渠道 SEL 默认值（展示当前生效值用，不触发 DOM 探测）
 import { SEL as DOUYIN_SEL } from '../channels/douyin.js';
 import { SEL as XHS_SEL } from '../channels/xhs.js';
 import { SEL as XIANYU_SEL } from '../channels/xianyu.js';
 import { SEL as TIKTOK_SEL } from '../channels/tiktok.js';
-// 2026-08-15 M2-P1-产品1/3/4/5：健康面板 / 告警 / 紧急停止 / 多账号 / 错误码
 import {
   renderHealthPanel,
   startHealthPanelPolling,
@@ -114,7 +103,6 @@ function normalizeServerUrl(raw) {
   let s = String(raw).trim();
   if (!s) return '';
   if (!/^https?:\/\//i.test(s)) s = 'http://' + s;
-  // 去掉尾斜杠
   s = s.replace(/\/+$/, '');
   return s;
 }
@@ -182,14 +170,13 @@ function saveConfig(cfg, cb) {
 let _healthAbortCtl = null;
 function abortInFlightHealth() {
   if (_healthAbortCtl) {
-    try { _healthAbortCtl.abort(); } catch (_) { /* noop */ }
+    try { _healthAbortCtl.abort(); } catch (_) {  }
     _healthAbortCtl = null;
   }
 }
 async function testConnection(serverUrl) {
   const base = normalizeServerUrl(serverUrl);
   if (!base) return { ok: false, reason: 'empty' };
-  // 取消上一轮 in-flight 请求（用户重新点击 / 重新触发）
   abortInFlightHealth();
   // 本轮共享 controller：所有候选路径 fetch 共用此 signal
   // 任何路径超时只 abort 自己的子 controller；用户重新点击 / popup 关闭时 abort 父 controller
@@ -213,18 +200,15 @@ async function testConnection(serverUrl) {
         });
         clearTimeout(t);
         if (res.ok) return { ok: true, url, status: res.status, degraded: false };
-        if (res.status === 404) continue; // 路径不存在，尝试下一个候选
+        if (res.status === 404) continue; 
         if (res.status >= 500 && res.status < 600) return { ok: true, url, status: res.status, degraded: true };
         if (res.status >= 400 && res.status < 500) return { ok: false, url, status: res.status, reason: 'http_' + res.status };
-        // 其他 3xx：跟随重定向或视为不可达
         return { ok: false, url, status: res.status, reason: 'http_' + res.status };
       } catch (e) {
         clearTimeout(t);
-        // 父 controller abort（用户重新点击 / popup 关闭）→ 立即返回 aborted
         if (parentCtl.signal.aborted) {
           return { ok: false, url: base, reason: 'aborted' };
         }
-        // 子 controller 超时 / 网络错误：尝试下一个候选
         lastNetErr = e && e.message ? e.message : String(e);
       } finally {
         parentCtl.signal.removeEventListener('abort', onParentAbort);
@@ -232,7 +216,6 @@ async function testConnection(serverUrl) {
     }
     return { ok: false, url: base, reason: 'unreachable', detail: lastNetErr };
   } finally {
-    // 清理引用（仅当仍持有本轮 controller 时）
     if (_healthAbortCtl === parentCtl) _healthAbortCtl = null;
   }
 }
@@ -307,27 +290,20 @@ function selfCheck() {
         $('selfOut').textContent = `当前标签页不是抖音/小红书/TikTok/闲鱼：\n${tab.url}\n\n请在对应平台网页（已登录）上点击。`;
         return;
       }
-      // 第二道闸：ping 探活
       pingContentScript(tab, (pingErr) => {
         if (pingErr) {
-          // ---- 自愈：尝试 programmatic 注入 ----
-          // 标签页在扩展加载/更新前已打开，content script 不会自动加载。
-          // 这里主动请求 background 注入，注入成功后再重试一次 ping。
           $('selfOut').textContent = `未检测到桥接，正在自动注入…`;
           tryAutoInject(tab, (injectResult) => {
             if (!injectResult.ok) {
-              // 注入失败：仍展示原错误 + 原因
               $('selfOut').textContent = `该页面未注入桥接：${pingErr.msg}\n\n自动注入失败：${injectResult.reason}${injectResult.error ? '（' + injectResult.error + '）' : ''}\n\n可能原因：\n${pingErr.hints}`;
               return;
             }
-            // 注入成功：等 200ms 让 content script 注册监听器，然后重试 ping
             setTimeout(() => {
               pingContentScript(tab, (retryErr) => {
                 if (retryErr) {
                   $('selfOut').textContent = `自动注入 ${injectResult.file} 成功但 ping 仍失败：${retryErr.msg}\n\n请手动按 Ctrl+Shift+R 刷新一次。\n（注入后 content script 需页面重新加载才能完全生效）`;
                   return;
                 }
-                // 自愈成功
                 $('selfOut').textContent = `✅ 已自动注入 ${injectResult.file}，桥接已恢复。\n正在拉取详细数据…`;
                 runSelfcheck(tab);
               });
@@ -335,7 +311,6 @@ function selfCheck() {
           });
           return;
         }
-        // 第三道闸：selfcheck 详细数据
         runSelfcheck(tab);
       });
     });
@@ -372,7 +347,6 @@ function pingContentScript(tab, cb) {
     chrome.tabs.sendMessage(tab.id, { type: 'ping' }, (resp) => {
       const err = lastError();
       if (err) {
-        // lastError 已经是字符串；err.message 必然 undefined
         cb({ msg: err, hints: diagnoseUninjected(err, tab.url) });
         return;
       }
@@ -404,7 +378,6 @@ function runSelfcheck(tab) {
         // 自动降级到 deepSelfcheck 拿真实 DOM 快照，便于用户定位问题
         const header = `内容脚本已注入，但 adapter.match() 返回 false。\n\nURL: ${tab.url}\n频道: ${resp.channel}\n提示: ${resp.hint || '请打开目标会话的【私信/聊天】界面'}\n\n正在拉取真实 DOM 快照…`;
         $('selfOut').textContent = header;
-        // 缓存 header，deepSelfcheck 失败时仍要保留 selfcheck 上下文
         runDeepSelfcheck(tab, header);
         return;
       }
@@ -471,7 +444,6 @@ function formatDeepSnapshot(s) {
   lines.push(`【输入框】共 ${s.inputCount} 个可见：`);
   for (const it of s.inputSample || []) {
     lines.push(`  - <${it.tag}>  ${it.selectorHint}`);
-    // 截断 placeholder 到 50 字符防止输出过大
     if (it.placeholder) lines.push(`      placeholder="${String(it.placeholder).slice(0, 50)}"`);
     if (it.text) lines.push(`      text="${String(it.text).slice(0, 50)}"`);
   }
@@ -633,7 +605,7 @@ const SEL_FIELD_TO_PROP = {
   messageList: 'MSG_LIST',
   messageItem: 'MSG_ITEM',
   text: 'TEXT',
-  input: 'INPUT',  // 抖音叫 EDITOR，小红书叫 INPUT；后面取值时两者都尝试
+  input: 'INPUT',  
   send: 'SEND',
 };
 
@@ -663,7 +635,7 @@ function readAllSelectors() {
   try {
     const raw = localStorage.getItem(SELECTOR_CONFIG_KEY);
     if (raw) return JSON.parse(raw) || {};
-  } catch (_) { /* noop */ }
+  } catch (_) {  }
   return {};
 }
 
@@ -703,11 +675,11 @@ function broadcastSelectorsUpdated() {
         if (!t || !t.id || !t.url) continue;
         if (!/douyin\.com|xiaohongshu\.com|tiktok\.com|goofish\.com|xianyu\.com/i.test(t.url)) continue;
         try {
-          chrome.tabs.sendMessage(t.id, { type: 'selectorsUpdated' }, () => { /* 忽略 lastError：未注入/已关闭均正常 */ try { void chrome.runtime.lastError; } catch (_) {} });
-        } catch (_) { /* 接收端不存在：忽略 */ }
+          chrome.tabs.sendMessage(t.id, { type: 'selectorsUpdated' }, () => {  try { void chrome.runtime.lastError; } catch (_) {} });
+        } catch (_) {  }
       }
     });
-  } catch (_) { /* chrome.tabs 不可用：忽略 */ }
+  } catch (_) {  }
 }
 
 let selActiveChannel = 'douyin';
@@ -873,7 +845,6 @@ function wirePatrol() {
   }
 }
 
-// ---- DOM ready ----
 document.addEventListener('DOMContentLoaded', () => {
   $('serverUrl').placeholder = DEFAULT_PLACEHOLDER;
   $('token').placeholder = '留空也可正常使用（桥接 WS 不要求 JWT）';
@@ -882,7 +853,6 @@ document.addEventListener('DOMContentLoaded', () => {
     $('token').value = cfg.token || '';
   });
 
-  // 保存按钮
   $('save').addEventListener('click', async () => {
     const btn = $('save');
     const serverUrl = normalizeServerUrl($('serverUrl').value);
@@ -902,7 +872,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 测试连接
   $('test').addEventListener('click', async () => {
     const btn = $('test');
     const serverUrl = normalizeServerUrl($('serverUrl').value);
@@ -928,11 +897,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 回车提交
   $('serverUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('save').click(); });
   $('token').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('save').click(); });
 
-  // 状态/自检
   $('status').addEventListener('click', refreshStatus);
   $('selfcheck').addEventListener('click', selfCheck);
   const deepBtn = $('deepSelfcheck');
@@ -942,22 +909,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const copyBtn = $('copySelfOut');
   if (copyBtn) copyBtn.addEventListener('click', copySelfOut);
 
-  // ---- 选择器配置（切换 抖音/小红书/闲鱼 分别配置；需求①）----
-  // 现场识别 HTML 后，按渠道 Tab 切换 → 填入对应选择器 → 保存（立即生效，广播给 content script）。
   wireSelectorConfig();
 
-  // ---- 巡检制度（需求上行②）----
-  // 启动/停止/立即巡检 + 状态展示。间隔可配置（默认 PATROL_DEFAULTS.intervalMs=3s）。
-  // 2026-08-14 注释修正：原 60s 注释已过时，实际值 3000ms（与 channel-adapter.js _startPatrolAuto 对齐）。
   wirePatrol();
 
-  // 打开私信页快捷入口（URL 来源：constants.js PLATFORM_ENTRY_URLS）
   $('openDouyin').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.douyin));
   $('openXhs').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.xiaohongshu));
   $('openTiktok').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.tiktok));
   $('openXianyu').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.xianyu));
 
-  // 首次打开时拉一次状态
   refreshStatus();
 
   // ---- 2026-08-15 M2-P1-产品1：健康度面板（实时轮询）----
@@ -969,11 +929,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const isOpen = healthPanel.style.display !== 'none';
       healthPanel.style.display = isOpen ? 'none' : 'block';
       if (!isOpen) {
-        // 启动轮询
         if (_healthStop) { try { _healthStop(); } catch (_) {} _healthStop = null; }
         _healthStop = startHealthPanelPolling({ containerId: 'healthOut', intervalMs: UI_DEFAULTS.popupHealthPanelPollMs });
       } else {
-        // 关闭轮询
         if (_healthStop) { stopHealthPanelPolling(_healthStop); _healthStop = null; }
       }
     });
@@ -1007,7 +965,6 @@ document.addEventListener('DOMContentLoaded', () => {
           showBanner('error', '恢复失败', r.error || '未知');
         }
       } else {
-        // 二次确认
         if (!window.confirm('确认紧急停止所有桥接？\n\n这将停止所有抖音/小红书/TikTok/闲鱼 私信页的：\n  · 自动巡检\n  · 下行回复\n  · ack 重试\n\n用户已收到的消息不受影响（已 cache），但服务端不会收到 ack。')) {
           return;
         }
@@ -1032,7 +989,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await new Promise((resolve) => {
           try {
             chrome.runtime.sendMessage({ type: 'getAccounts' }, (resp) => {
-              try { if (chrome.runtime.lastError) { resolve({ accounts: {}, health: {} }); return; } } catch (_) { /* noop */ }
+              try { if (chrome.runtime.lastError) { resolve({ accounts: {}, health: {} }); return; } } catch (_) {  }
               if (!resp) { resolve({ accounts: {}, health: {} }); return; }
               resolve(resp);
             });
@@ -1127,7 +1084,6 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('beforeunload', _abortOnUnload, { once: true });
 });
 
-// 暴露到全局便于单测
 if (typeof window !== 'undefined') {
   window.__popup = {
     normalizeServerUrl,
@@ -1147,13 +1103,12 @@ if (typeof window !== 'undefined') {
     formatDeepSnapshot,
     tryAutoInject,
     syncAllConversations,
-    // 2026-08-05 审计 P1：共享 AbortController 测试入口
     abortInFlightHealth,
     _getHealthAbortCtl: () => _healthAbortCtl,
-    // 2026-08-15 M2-P1：新增模块入口（健康/告警/紧急停止）
     health: { renderHealthPanel, startHealthPanelPolling, stopHealthPanelPolling },
     alert: { startAlertPolling, stopAlertPolling },
     emergency: { isEmergencyStop, triggerEmergencyStop, resumeBridge },
     errors: { explainError, formatErrorBanner },
   };
 }
+

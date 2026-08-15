@@ -1,24 +1,5 @@
-// Bridge 错误码 → 用户可读消息映射（2026-08-15 M2-P1-产品5）
-//
-// 目标：把 4xx / 5xx / 网络错误 / 平台限流 / 鉴权失败 等技术性错误码
-//       翻译为"为什么没工作 + 该怎么修"，并提供：
-//         - 中文用户消息
-//         - 英文用户消息
-//         - 解决建议（action）
-//         - 文档/issue 链接（docUrl）
-//
-// 使用：
-//   import { explainError, formatErrorBanner } from './error-messages.js';
-//   const { title, body, level, action, docUrl } = explainError({ status: 503, code: '...' });
-//
-// 错误码字典按"严重度"由高到低排序：
-//   1) 4xx 客户端错（鉴权/参数/限流）— 用户可修复
-//   2) 5xx 服务端错（依赖/过载）— 通常需运维介入
-//   3) 网络错（CORS/DNS/timeout）— 客户端网络
-//   4) 协议错（ack 失败 / pendingAck 超限 / 死信）— 桥接自身
 
 const ERROR_CATALOG = {
-  // === 4xx 客户端错误 ===
   'http_400': {
     level: 'error',
     title_zh: '请求格式错误',
@@ -74,7 +55,6 @@ const ERROR_CATALOG = {
     docUrl: null,
   },
 
-  // === 5xx 服务端错误 ===
   'http_500': {
     level: 'error',
     title_zh: '服务端内部错误',
@@ -112,7 +92,6 @@ const ERROR_CATALOG = {
     docUrl: null,
   },
 
-  // === 网络/连接错误 ===
   'net_abort': {
     level: 'info',
     title_zh: '请求已取消',
@@ -150,7 +129,6 @@ const ERROR_CATALOG = {
     docUrl: 'https://github.com/hivemtk/hivemtk/blob/master/hivemtk/user-server/docs/dev/DEVELOPMENT.md#cors',
   },
 
-  // === 桥接自身错误 ===
   'ack_failed': {
     level: 'warn',
     title_zh: '下行状态确认失败',
@@ -236,7 +214,6 @@ function classifyError(err) {
     }
     return 'unknown';
   }
-  // err 是对象 { status, code, message, ... }
   if (err.status) {
     const s = String(err.status);
     if (/^4\d\d$/.test(s)) return 'http_' + s;
@@ -305,7 +282,6 @@ export function showErrorBanner(showBannerFn, err) {
   showBannerFn(r.level, '', r.html);
 }
 
-// 测试钩子
 if (typeof window !== 'undefined') {
   window.__errorMessages = {
     explainError,
@@ -315,3 +291,4 @@ if (typeof window !== 'undefined') {
     ERROR_CATALOG,
   };
 }
+

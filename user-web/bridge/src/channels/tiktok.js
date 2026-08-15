@@ -1,16 +1,3 @@
-// TikTok 网页私信适配器 —— 纯 CSS 选择器架构。
-// 设计原则：所有选择器均基于真实 DOM 验证，不使用 LLM 动态生成。
-// 平台改版时通过 UI 配置面板(chrome.storage)更新选择器即可，无需发版。
-//
-// 参考 DOM 结构（2026-08 验证，基于 data-e2e 属性体系）：
-//   - 私信页入口：https://www.tiktok.com/messages
-//   - 会话列表：[data-e2e="dm-new-conversation-list"]
-//   - 会话项：[data-e2e="dm-new-conversation-item"]（data-conversation-id）
-//   - 消息列表：[data-e2e="dm-new-message-list"]
-//   - 消息气泡：[data-e2e="dm-new-chat-item"]
-//   - 消息文本：[data-e2e="dm-new-message-text"]
-//   - 输入框：[data-e2e="dm-new-input-editor"] div[contenteditable]（Draft.js）
-//   - 发送：Draft.js 靠 Enter 发送，SVG 飞机按钮兜底
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
 import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
@@ -39,31 +26,18 @@ function mergedSelectors() {
 // —— 选择器定义（2026-08 验证可用，全部基于 data-e2e 属性）——
 // TikTok 以 data-e2e 为主键，class 选择器带 i 标志兜底大小写。
 export const SEL = {
-  // 左侧会话列表容器
   CHAT_LIST: '[data-e2e="dm-new-conversation-list"]',
-  // 会话项
   CONV_ITEM: '[data-e2e="dm-new-conversation-item"]',
-  // 消息列表容器
   MSG_LIST: '[data-e2e="dm-new-message-list"], [class*="DivChatMain" i], [class*="chat-main" i]',
-  // 消息气泡
   MSG_ITEM: '[data-e2e="dm-new-chat-item"], [class*="DivChatItemWrapper" i], [class*="bubble" i]',
-  // 消息文本
   TEXT: '[data-e2e="dm-new-message-text"], [class*="DivTextContainer" i]',
-  // 时间分隔
   TIME: '[data-e2e="dm-new-time-separator"]',
-  // 系统消息 class 关键词
   SYSTEM: '[class*="system-msg" i], [class*="notice" i], [class*="divider" i], [data-e2e="dm-new-time-separator"]',
-  // 未读标记 ⚠️ 必须带 i 标志
   UNREAD: '[class*="unread" i], [data-unread="1"]',
-  // 消息类型 data 属性
   MSG_TYPE: '[data-msg-type], [data-message-type]',
-  // 卡片消息
   CARD: '[class*="card-container" i], [class*="share-card" i]',
-  // 聊天对象昵称
   PEER_NAME: '[data-e2e="dm-new-chat-nickname"], [data-e2e="chat-uniqueid"]',
-  // 输入框（DraftEditor contenteditable）
   INPUT: '[data-e2e="dm-new-input-editor"] div[contenteditable="true"], div.DraftEditor-root div[contenteditable="true"]',
-  // 发送按钮（SVG 飞机按钮兜底）
   SEND: 'button[aria-label*="Send"], [data-e2e="message-button"]',
 };
 
@@ -88,7 +62,7 @@ function strictGetInputEl() {
     try {
       const el = qs(sel);
       if (el && el.offsetParent !== null) return el;
-    } catch (_) { /* 非法选择器跳过 */ }
+    } catch (_) {  }
   }
   return null;
 }
@@ -98,7 +72,7 @@ function getInputEl() {
     try {
       const el = qs(sel);
       if (el && el.offsetParent !== null) return el;
-    } catch (_) { /* 非法选择器跳过 */ }
+    } catch (_) {  }
   }
   return null;
 }
@@ -150,11 +124,10 @@ function normalizeContactId(id) {
 //   - 消息气泡内的头像链接指向发送者（自己或对方）
 // 策略：从消息气泡头像提取所有 /@username，排除对方（header 中的），剩下的就是自己
 function getAccountId() {
-  // 1) localStorage 缓存（最快）
   try {
     const ls = localStorage.getItem(`hivebridge:account:${CHANNELS.TIKTOK}`);
     if (ls) return ls;
-  } catch (e) { /* noop */ }
+  } catch (e) {  }
 
   // 2) 从消息气泡头像提取自己（排除对方）
   const peerUsername = (() => {
@@ -172,10 +145,9 @@ function getAccountId() {
     const m = a.getAttribute('href')?.match(/@([\w.]+)/);
     if (m && m[1]) allUsernames.add(m[1]);
   });
-  // 排除对方，剩下的就是自己
   for (const u of allUsernames) {
     if (peerUsername && u === peerUsername) continue;
-    try { localStorage.setItem(`hivebridge:account:${CHANNELS.TIKTOK}`, u); } catch (e) { /* noop */ }
+    try { localStorage.setItem(`hivebridge:account:${CHANNELS.TIKTOK}`, u); } catch (e) {  }
     return u;
   }
 
@@ -187,13 +159,11 @@ function getAccountId() {
   });
   for (const c of sidebarCandidates) {
     if (c && c.trim()) {
-      try { localStorage.setItem(`hivebridge:account:${CHANNELS.TIKTOK}`, c.trim()); } catch (e) { /* noop */ }
+      try { localStorage.setItem(`hivebridge:account:${CHANNELS.TIKTOK}`, c.trim()); } catch (e) {  }
       return c.trim();
     }
   }
 
-  // 4) 兜底空串（2026-08-14 治本）：旧逻辑回退 `${CHANNELS.TIKTOK}-unknown` 污染后端入库
-  //    与按 account_id 关联 outbound 的查询链路。改为空串，后端层0 用三元组命中 outbound。
   return '';
 }
 
@@ -202,7 +172,7 @@ function getConversationIdFromUrl() {
   try {
     const pathMatch = (location.pathname || '').match(/\/messages\/@?([\w.]+)/);
     if (pathMatch && pathMatch[1]) return normalizeContactId(pathMatch[1]);
-  } catch (_) { /* noop */ }
+  } catch (_) {  }
   return null;
 }
 
@@ -233,8 +203,6 @@ function getConversationId() {
     if (myAccount && m[1] === myAccount) continue;
     return m[1];
   }
-  // 4) 活动会话项昵称派生（sanitizePeerName 剥离时间戳/相对时间等易变后缀，
-  // 避免同会话不同时刻 conversation_id 不同导致 outbound 下行错配）
   if (activeItem) {
     const nameEl = activeItem.querySelector('[data-e2e="dm-new-conversation-nickname"], [class*="PInfoNickname"]');
     const raw = nameEl ? cleanText(nameEl) : cleanText(activeItem);
@@ -246,7 +214,6 @@ function getConversationId() {
 
 // —— 聊天对象昵称 ——
 function getPeerName() {
-  // 1) SEL.PEER_NAME 候选
   for (const sel of String(SEL.PEER_NAME || '').split(',').map((s) => s.trim()).filter(Boolean)) {
     try {
       const el = qs(sel);
@@ -254,7 +221,7 @@ function getPeerName() {
         const t = cleanText(el);
         if (t && !/messages|message|chat|消息|聊天/i.test(t)) return t;
       }
-    } catch (_) { /* 非法选择器忽略 */ }
+    } catch (_) {  }
   }
   // 2) header 内 /@ 链接文字（排除自己）
   const myAccount = getAccountId();
@@ -290,7 +257,7 @@ function findSendButton() {
         if (el.tagName === 'SVG') return el.closest('button, [role="button"], div, span') || el;
         return el;
       }
-    } catch (_) { /* 非法选择器跳过 */ }
+    } catch (_) {  }
   }
   // 兜底：TikTok 可能有 SVG 飞机发送按钮
   const sendBtns = qsa('[data-e2e="message-button"], [class*="send-btn" i], [class*="SendBtn" i]');
@@ -323,7 +290,7 @@ function isCenterAligned(el) {
       const jc = getComputedStyle(parent).justifyContent;
       if (jc === 'center') return true;
     }
-  } catch (_) { /* jsdom 等无 getComputedStyle 时跳过 */ }
+  } catch (_) {  }
   return false;
 }
 
@@ -337,7 +304,6 @@ const TIME_PATTERNS = [
   /^(上午|下午|凌晨|AM|PM)\s*\d{1,2}:\d{2}$/i,
   /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*$/i,
   /^\d{1,2}:\d{2}\s*(AM|PM)$/i,
-  // 从抖音补全
   /^\d{1,2}月\d{1,2}日(\s+\d{1,2}:\d{2})?$/,
 ];
 
@@ -359,7 +325,6 @@ const SYSTEM_TEXT_PATTERNS = [
   /^-{3,}$/,
   /blocked/i,
   /reported/i,
-  // 从抖音补全
   /你(已)?添加.*为好友/,
   /已添加.*为好友/,
   /对方正在输入/,
@@ -386,14 +351,11 @@ function isSystemText(text) {
 // —— 系统消息识别（漏斗 5 层）——
 function isSystemMessage(item) {
   if (!item) return false;
-  // ① 居中对齐
   if (isCenterAligned(item)) return true;
-  // ② class 关键词
   try {
     if (item.matches && item.matches(SEL.SYSTEM)) return true;
     if (item.querySelector && item.querySelector(SEL.SYSTEM)) return true;
-  } catch (_) { /* 非法选择器跳过 */ }
-  // ③ role / aria-live
+  } catch (_) {  }
   try {
     if (item.matches && (
       item.matches('[role="status"]') ||
@@ -401,11 +363,10 @@ function isSystemMessage(item) {
       item.matches('[aria-live="polite"]') ||
       item.matches('[aria-live="assertive"]')
     )) return true;
-  } catch (_) { /* noop */ }
+  } catch (_) {  }
   // ④ 内容模式
   const text = cleanText(item);
   if (isTimeText(text) || isSystemText(text)) return true;
-  // ⑤ 结构特征：无头像 + 无气泡（弱信号）
   if (text && text.length < 60) {
     const hasAvatar = !!item.querySelector('[class*="avatar" i], [class*="Avatar" i]');
     const hasBubble = !!item.querySelector('[class*="bubble" i], [class*="Bubble" i], [class*="text-container" i]');
@@ -414,17 +375,14 @@ function isSystemMessage(item) {
   return false;
 }
 
-// 自/他判定已移交后端（统一 customer 占位，回环防护由后端承担）。
 
 // —— 非文字消息提取 ——
 function extractMessageContent(item) {
   const typeAttr = (item.getAttribute('data-msg-type') || item.querySelector(SEL.MSG_TYPE)?.getAttribute('data-msg-type') || '').toUpperCase();
   const text = cleanText(item.querySelector(SEL.TEXT) || item);
-  // 时间过滤
   if (text && isTimeText(text)) {
     return { msgType: 'system', mediaUrl: '', text: '' };
   }
-  // 系统文本
   if (text && isSystemText(text)) {
     return { msgType: 'system', mediaUrl: '', text };
   }
@@ -436,7 +394,6 @@ function extractMessageContent(item) {
     const img = card?.querySelector('img');
     return { msgType: 'card', mediaUrl: img?.getAttribute('src') || '', text: info || title || '卡片消息' };
   }
-  // 撤回
   if (/recalled? a message|撤回了一?条消息/i.test(text)) {
     return { msgType: 'recall', mediaUrl: '', text };
   }
@@ -507,7 +464,7 @@ function detectUnread(item) {
   try {
     if (item.matches && item.matches(SEL.UNREAD)) return true;
     if (item.querySelector && item.querySelector(SEL.UNREAD)) return true;
-  } catch (_) { /* 非法选择器忽略 */ }
+  } catch (_) {  }
   // TikTok 未读通常有红色 badge 数字
   const badge = item.querySelector('[class*="badge" i], [class*="Badge" i], [class*="count" i]');
   if (badge && badge.textContent && /\d/.test(badge.textContent)) return true;
@@ -520,11 +477,10 @@ function getConversationList() {
   let items = [];
   if (customSels.length) {
     for (const sel of customSels) {
-      try { items = items.concat(qsa(sel)); } catch (_) { /* 非法选择器跳过 */ }
+      try { items = items.concat(qsa(sel)); } catch (_) {  }
     }
   }
   if (!items.length) items = qsa(SEL.CONV_ITEM);
-  // TikTok 兜底：从 conversation-list 容器内找
   if (!items.length) {
     const container = qs('[data-e2e="dm-new-conversation-list"]');
     if (container) items = Array.from(container.querySelectorAll('[data-e2e="dm-new-conversation-item"], [class*="DivItemWrapper"]'));
@@ -584,7 +540,7 @@ const hooks = {
       try {
         const el = qs(sel);
         if (el) return el;
-      } catch (_) { /* 非法选择器跳过 */ }
+      } catch (_) {  }
     }
     return qs(SEL.MSG_LIST) || qs('[class*="DivChatMain"]') || qs('[role="log"]') || null;
   },
@@ -618,11 +574,8 @@ const hooks = {
   },
   parseMessageItem(item) {
     if (isListNoise(item)) return null;
-    // ① 系统消息识别
     if (isSystemMessage(item)) {
       const sysText = cleanText(item);
-      // 2026-08-05 修复：去掉 Date.now()——同一系统消息每轮扫描生成不同 msg_id
-      //   → 后端无法幂等去重 → 不断当新消息入库。系统消息文本本身稳定，无需时间戳后缀。
       return {
         message_id: item.getAttribute('data-message-id') || item.getAttribute('data-id') || item.id || `sys:${sysText}`,
         sender_type: SENDER.SYSTEM,
@@ -684,7 +637,6 @@ const hooks = {
       log.error('未找到 TikTok 输入框（strict + fallback 均失败）');
       throw new Error('tiktok input not found');
     }
-    // TikTok 使用 Draft.js contenteditable
     if (input.isContentEditable || input.getAttribute('contenteditable') === 'true' || input.tagName !== 'TEXTAREA') {
       fillContentEditable(input, text);
     } else {
@@ -696,14 +648,12 @@ const hooks = {
       enhancedClick(btn);
       return;
     }
-    // 兜底：回车发送
     log.warn('未找到 TikTok 发送按钮，改用回车发送');
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
     input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
   },
 };
 
-// 导出供单测验证
 export {
   getAccountId, getConversationId, getConversationList,
   normalizeContactId, isTiktokMessagePage, isTiktokChatUrl, getPeerName,
@@ -721,3 +671,4 @@ export function buildTiktokAdapter() {
     rateLimiter: undefined,
   });
 }
+

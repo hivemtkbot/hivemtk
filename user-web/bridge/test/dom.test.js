@@ -1,13 +1,3 @@
-// dom.js 工具测试：findAnyMessageInput / looksLikeMessagePage / isLikelyVisible
-//
-// 覆盖目标：
-//   1. findAnyMessageInput 命中各优先级候选（contenteditable / role=textbox / textarea / data-e2e / aria-label）
-//   2. findAnyMessageInput 排除过小、不可见、非消息输入的元素
-//   3. findAnyMessageInput 视口下半部分加分
-//   4. looksLikeMessagePage 命中 URL 路径 / URL 参数 / DOM 线索
-//   5. looksLikeMessagePage 不命中首页 / 帖子详情页
-//
-// 环境：vitest 默认 happy-dom 提供 window / document / getComputedStyle / innerHeight
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { findAnyMessageInput, looksLikeMessagePage, isLikelyVisible, sanitizePeerName } from '../src/core/dom.js';
 
@@ -21,7 +11,6 @@ function makeEl({
 } = {}) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-  // happy-dom 不一定实现 offsetParent；用 getComputedStyle stub
   Object.defineProperty(el, 'offsetParent', { configurable: true, get: () => (visible ? {} : null) });
   el.getBoundingClientRect = () => ({
     x: rect.x,
@@ -33,7 +22,6 @@ function makeEl({
     right: rect.right,
     bottom: rect.bottom,
   });
-  // 用 inline style + spy on getComputedStyle
   if (!visible) {
     el.style.display = 'none';
   }
@@ -44,9 +32,7 @@ function makeEl({
 }
 
 beforeEach(() => {
-  // 每次测试前清空 body
   document.body.innerHTML = '';
-  // innerHeight 默认 768（happy-dom 行为）
   if (window.innerHeight === 0) {
     Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true, writable: true });
   }
@@ -155,7 +141,6 @@ describe('dom findAnyMessageInput', () => {
     const bottom = makeEl({ tag: 'div', attrs: { contenteditable: 'true' }, rect: { x: 0, y: 0, width: 200, height: 40, top: 600, left: 0, right: 200, bottom: 640 } });
     document.body.appendChild(top);
     document.body.appendChild(bottom);
-    // 视口 800px，bottom 在 40% (320) 之后应加分
     expect(findAnyMessageInput()).toBe(bottom);
   });
 
@@ -164,7 +149,6 @@ describe('dom findAnyMessageInput', () => {
     const el = makeEl({ tag: 'div', attrs: { contenteditable: 'true' } });
     document.body.appendChild(el);
     expect(() => findAnyMessageInput()).not.toThrow();
-    // 兜底 vh=800，el 在 100px < 320 → 不加分，但仍能命中
     expect(findAnyMessageInput()).toBe(el);
   });
 });
@@ -204,7 +188,6 @@ describe('dom looksLikeMessagePage', () => {
   });
 
   it('命中 URL 查询 user_id', () => {
-    // 注意：/explore 在 URL 黑名单中，user_id 命中要选非反例 URL
     setUrl('https://www.douyin.com/?user_id=abc');
     expect(looksLikeMessagePage()).toBe(true);
   });
@@ -215,7 +198,6 @@ describe('dom looksLikeMessagePage', () => {
   });
 
   it('命中 DOM：双特征（chat-window + message-list）同时存在', () => {
-    // 新逻辑要求多特征同时存在，避免单点误判
     setUrl('https://www.douyin.com/');
     document.body.appendChild(makeEl({ tag: 'div', attrs: { class: 'chat-window' } }));
     document.body.appendChild(makeEl({ tag: 'div', attrs: { class: 'message-list' } }));
@@ -236,9 +218,6 @@ describe('dom looksLikeMessagePage', () => {
   });
 });
 
-// =============================================================
-// 误判回归测试：jingxuan / 视频评论 / 个人主页 等非私信页
-// =============================================================
 describe('looksLikeMessagePage 误判回归（jingxuan / 视频详情 / 个人主页）', () => {
   function setUrl(href) {
     Object.defineProperty(window, 'location', {
@@ -375,7 +354,6 @@ describe('findAnyMessageInput 误判回归（评论框 / 搜索框）', () => {
     Object.defineProperty(good, 'offsetParent', { configurable: true, get: () => ({}) });
     chatWrap.appendChild(good);
     document.body.appendChild(chatWrap);
-    // 应该命中 chatWindow 里的，不命中 editor-kit 里的
     expect(findAnyMessageInput()).toBe(good);
   });
 
@@ -424,14 +402,11 @@ describe('findAnyMessageInput 误判回归（评论框 / 搜索框）', () => {
   });
 });
 
-// 2026-08-07 修复（用户诉求③）：fillContentEditable 新增 clearBefore 选项，
-//   下发场景必须先清空输入框旧内容再写入新内容。
 import { fillContentEditable } from '../src/core/dom.js';
 
 describe('fillContentEditable / clearBefore 下发场景先清空', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
-    // happy-dom 不一定实现 execCommand，mock 之避免抛错
     if (typeof document.execCommand !== 'function') {
       document.execCommand = () => true;
     }
@@ -445,7 +420,6 @@ describe('fillContentEditable / clearBefore 下发场景先清空', () => {
 
     fillContentEditable(ce, 'AI 回复', { clearBefore: true });
 
-    // 旧内容必须清空（不应出现"用户正在打的字AI 回复"或"AI 回复用户正在打的字"）
     expect(ce.innerText).toBe('AI 回复');
     expect(ce.innerText).not.toContain('用户正在打的字');
   });
@@ -467,7 +441,6 @@ describe('fillContentEditable / clearBefore 下发场景先清空', () => {
     document.body.appendChild(ce);
 
     fillContentEditable(ce, '新文本');
-    // 兼容历史行为：不清空 → 新内容追加
     expect(ce.innerText).toContain('新文本');
   });
 
@@ -483,18 +456,9 @@ describe('fillContentEditable / clearBefore 下发场景先清空', () => {
   });
 });
 
-// =============================================================
-// sanitizePeerName：会话列表项文本净化为稳定昵称
-// 2026-08-07 第十一轮修复：兜底用 cleanText(activeItem) 派生 conversation_id 时，
-// 元素文本常含时间戳/状态徽章/相对时间等易变文本，导致同会话不同时刻 conversation_id 不同 →
-// outbound 永远找不到目标会话 → 大量 pending 永久堆积（实测 287 条）。
-// 用例数据全部来自 DB 真实脏数据（douyin + xianyu pending 列表）。
-// =============================================================
 describe('sanitizePeerName 剥离易变后缀（第十一轮修复回归）', () => {
   // 直接对文本调用，模拟 cleanText(activeItem) 的输出
   const cases = [
-    // [raw, expected, 来源备注]
-    // —— 抖音：纯时间后缀 ——
     ['好吃嘴辰辰 12:31', '好吃嘴辰辰', 'douyin pending 35 条'],
     ['好吃嘴辰辰 06:48', '好吃嘴辰辰', 'douyin pending 9 条'],
     ['jack 09:08', 'jack', 'douyin pending 6 条'],
@@ -502,7 +466,6 @@ describe('sanitizePeerName 剥离易变后缀（第十一轮修复回归）', ()
     ['AI 证据链管理 13:15', 'AI 证据链管理', 'douyin pending 4 条'],
     ['防止被割韭菜1群 02:32', '防止被割韭菜1群', 'douyin pending 3 条'],
     ['AI 修炼场 5 01:01', 'AI 修炼场 5', 'douyin pending 2 条'],
-    // —— 抖音：相对时间后缀 ——
     ['好吃嘴辰辰 刚刚', '好吃嘴辰辰', 'douyin pending 21 条'],
     ['好吃嘴辰辰 18分钟前', '好吃嘴辰辰', 'douyin pending 18 条'],
     ['好吃嘴辰辰 20分钟前', '好吃嘴辰辰', 'douyin pending 16 条'],
@@ -510,29 +473,23 @@ describe('sanitizePeerName 剥离易变后缀（第十一轮修复回归）', ()
     ['AI 造价实验室 41分钟前', 'AI 造价实验室', 'douyin pending 3 条'],
     ['AI 证据链管理 57分钟前', 'AI 证据链管理', 'douyin pending 2 条'],
     ['AI 修炼场 5 刚刚', 'AI 修炼场 5', 'douyin pending 3 条'],
-    // —— 抖音：昨天 + HH:MM ——
     ['AI 修炼场 5 昨天 18:20', 'AI 修炼场 5', 'douyin pending 31 条'],
     ['猎洞时刻网络安全群 昨天 22:08', '猎洞时刻网络安全群', 'douyin pending 14 条'],
     ['四川-宝宝巴士2️⃣ 昨天 18:21', '四川-宝宝巴士2️⃣', 'douyin pending 4 条'],
-    // —— 抖音：完整日期 ——
     ['kfcfourv40 2025/10/29', 'kfcfourv40', 'douyin pending 4 条'],
     ['AIGC小年 智能体2裙 2025/08/30', 'AIGC小年 智能体2裙', 'douyin pending 4 条'],
     ['广东巨龙(龙华)律师事务所官方号 2025/08/09', '广东巨龙(龙华)律师事务所官方号', 'douyin pending 4 条'],
     ['成都嘉贝乐游乐设备 2025/09/19', '成都嘉贝乐游乐设备', 'douyin pending 3 条'],
-    // —— 闲鱼：订单状态徽章 ——
     ['淘淘达人软件商城 交易成功', '淘淘达人软件商城', 'xianyu pending 11 条'],
     ['该用户已注销 有新交易评价', '该用户已注销', 'xianyu pending 6 条'],
     ['小鱼票票龙 有新交易评价', '小鱼票票龙', 'xianyu pending 4 条'],
     ['x***1 交易成功', 'x***1', 'xianyu pending 2 条'],
     ['交易成功', '', 'xianyu pending 1 条（纯状态文本应返回空，调用方放弃派生）'],
-    // —— 多层后缀（同会话不同时刻叠加） ——
     ['好吃嘴辰辰 昨天 18:20', '好吃嘴辰辰', '多层后缀：先剥 HH:MM 再剥 昨天'],
-    // —— 纯昵称（无后缀，不应误删） ——
     ['炫e小枫', '炫e小枫', 'xianyu pending 8 条，无后缀'],
     ['C0123', 'C0123', 'xianyu pending 5 条，无后缀'],
     ['专业电脑手机数码与电器', '专业电脑手机数码与电器', 'xianyu pending 4 条，无后缀'],
     ['陛下的心旅游小店', '陛下的心旅游小店', 'xianyu pending 1 条，无后缀'],
-    // —— 边界：空/纯空白/纯时间 ——
     ['', '', '空输入'],
     [null, '', 'null 输入'],
     [undefined, '', 'undefined 输入'],
@@ -541,7 +498,6 @@ describe('sanitizePeerName 剥离易变后缀（第十一轮修复回归）', ()
     ['刚刚', '', '纯相对时间应返回空'],
     ['昨天 18:20', '', '纯昨天+时间应返回空'],
     ['交易成功', '', '纯订单状态应返回空'],
-    // —— 未读数字标记 [N] ——
     ['钓点王 [3]', '钓点王', '未读数字标记'],
   ];
 
@@ -556,7 +512,6 @@ describe('sanitizePeerName 剥离易变后缀（第十一轮修复回归）', ()
     const raw = '某群 昨天 18:20';
     const result = sanitizePeerName(raw);
     expect(result).toBe('某群');
-    // 再次调用结果不变（幂等）
     expect(sanitizePeerName(result)).toBe('某群');
   });
 
@@ -565,3 +520,4 @@ describe('sanitizePeerName 剥离易变后缀（第十一轮修复回归）', ()
     expect(sanitizePeerName('user_2025')).toBe('user_2025');
   });
 });
+

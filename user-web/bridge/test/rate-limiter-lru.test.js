@@ -1,5 +1,3 @@
-// 2026-08-14 头脑风暴二次论证·P1-F 单元测试
-// 覆盖 RateLimiter 桶的 LRU + TTL
 import { describe, it, expect, beforeEach } from 'vitest';
 import { RateLimiter } from '../src/core/rate-limiter.js';
 
@@ -19,7 +17,6 @@ describe('RateLimiter LRU + TTL（2026-08-14 P1-F）', () => {
   });
 
   it('accountBuckets 触顶 200 时驱逐最久未访问', () => {
-    // 用 201 个不同账号填满
     for (let i = 0; i < 201; i++) {
       rl.tryAcquire('douyin', `acc-${i}`, 'conv-1', '');
     }
@@ -29,17 +26,11 @@ describe('RateLimiter LRU + TTL（2026-08-14 P1-F）', () => {
   });
 
   it('accountBuckets LRU：访问后保持不淘汰', () => {
-    // 填 200 个
     for (let i = 0; i < 200; i++) rl.tryAcquire('douyin', `acc-${i}`, 'c1', '');
-    // 再访问 acc-0（最久未访问的）→ 移到末尾
     rl.tryAcquire('douyin', 'acc-0', 'c1', '');
-    // 再加 1 个 → 触顶 → 应该淘汰 acc-1（现在最久未访问的）
     rl.tryAcquire('douyin', 'acc-200', 'c1', '');
-    // acc-0 仍在（最近访问过），acc-1 已淘汰
-    // 通过 tryAcquire 是否被限流来间接验证（acc-1 不在桶中 → 新建 → 满 tokens）
     rl.__reset();
     const rl2 = new RateLimiter({ accountCapacity: 1, accountRefillPerMin: 60, conversationPerHour: 100, conversationCooldownMs: 1000, dedupWindowMs: 5000, minIntervalMs: 0, jitterMinMs: 0, jitterMaxMs: 0 });
-    // 不直接验证 LRU 顺序（黑盒），只验证容量上限
     for (let i = 0; i < 300; i++) {
       rl2.tryAcquire('douyin', `acc-${i}`, 'c1', '');
     }
@@ -47,12 +38,10 @@ describe('RateLimiter LRU + TTL（2026-08-14 P1-F）', () => {
   });
 
   it('convBuckets 触顶 1000 时先按 TTL 淘汰再 LRU', () => {
-    // 填 1500 个不同会话
     for (let i = 0; i < 1500; i++) {
       rl.tryAcquire('douyin', 'acc-1', `conv-${i}`, '');
     }
     const stats = rl.bucketStats();
-    // 不会无限增长（容量保护生效）
     expect(stats.convBuckets).toBeLessThanOrEqual(1000);
   });
 
@@ -83,7 +72,7 @@ describe('RateLimiter LRU + TTL（2026-08-14 P1-F）', () => {
     const r1 = rl.tryAcquire('douyin', 'acc-1', 'conv-1', 'hello2');
     expect(r1.allowed).toBe(false);
     expect(r1.reason).toMatch(/cooldown/);
-    // 验证 LRU 状态保留：bucket 仍存在、convBuckets 计数不变（被 LRU 移动到末尾，不增不减）
     expect(rl.bucketStats().convBuckets).toBe(1);
   });
 });
+

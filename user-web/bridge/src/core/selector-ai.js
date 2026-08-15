@@ -1,16 +1,3 @@
-// selector-ai.js — 选择器配置中心（纯规则，无 LLM）
-//
-// 设计决策（用户诉求）：去掉抖音/小红书的 LLM 抽取结构逻辑，改回「人工配置选择器」：
-//   1) 平台网页改版 → 开发者/用户从 DevTools 人工识别关键 HTML 结构（class/data 属性）
-//   2) 把关键节点选择器填写进 popup 的「选择器配置」（存 chrome.storage.local）
-//   3) 扩展运行时读配置 → 合并各渠道默认 SEL → 命中即用，无需发版
-//
-// 数据流：
-//   chrome.storage.local['hivebridge:selectors'] （用户配置，可编辑）
-//     → getCustomSelectors(channel)（同步读，会话内缓存）
-//     → mergeSelectors(channel, domain, ruleFallbacks)（用户配置优先，SEL 默认兜底）
-//
-// 移除：LLM 抽取器（extractor）、云端快照、自愈刷新——全部废弃，保持接口兼容。
 
 // 存储 key（与 popup / content 共用）
 export const SELECTOR_CONFIG_KEY = 'hivebridge:selectors';
@@ -20,12 +7,12 @@ export const SELECTOR_UPDATE_MSG = 'selectorsUpdated';
 
 // 各渠道可配置的关键节点字段（供 popup 编辑表单 + mergeSelectors 读取）
 export const SELECTOR_FIELDS = [
-  'conversationList', // 左侧会话列表项
-  'messageList',      // 消息列表容器
-  'messageItem',      // 消息气泡
-  'text',             // 气泡内文本
-  'input',            // 输入框
-  'send',             // 发送按钮
+  'conversationList', 
+  'messageList',      
+  'messageItem',      
+  'text',             
+  'input',            
+  'send',             
 ];
 
 // 会话内配置缓存（跨重载靠 chrome.storage）
@@ -34,8 +21,6 @@ const _customCache = new Map();
 function _readFromStorage() {
   try {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      // 同步读 storage（content script 里 chrome.storage.local.get 是异步的；
-      // 为保持 mergeSelectors 同步契约，先用同步 localStorage 镜像 + 异步 storage 双写）
       if (typeof localStorage !== 'undefined') {
         const raw = localStorage.getItem(SELECTOR_CONFIG_KEY);
         if (raw) return JSON.parse(raw);
@@ -45,7 +30,7 @@ function _readFromStorage() {
       const raw = localStorage.getItem(SELECTOR_CONFIG_KEY);
       if (raw) return JSON.parse(raw);
     }
-  } catch (_) { /* 存储不可用/损坏，忽略 */ }
+  } catch (_) {  }
   return null;
 }
 
@@ -56,15 +41,15 @@ export function saveSelectors(config) {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(SELECTOR_CONFIG_KEY, JSON.stringify(payload));
     }
-  } catch (_) { /* noop */ }
-  _customCache.clear(); // 配置已更新，丢弃会话内缓存（下一次 mergeSelectors 重读）
+  } catch (_) {  }
+  _customCache.clear(); 
   return new Promise((resolve) => {
     try {
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
         chrome.storage.local.set({ [SELECTOR_CONFIG_KEY]: payload }, () => resolve({ ok: true }));
         return;
       }
-    } catch (_) { /* noop */ }
+    } catch (_) {  }
     resolve({ ok: true });
   });
 }
@@ -121,7 +106,6 @@ export function mergeSelectors(channel, ruleFallbacks) {
   out.textSelectors = pick('text');
   out.inputSelectors = pick('input');
   out.sendSelectors = pick('send');
-  // 规则兜底追加在后（用户配置在前，SEL 默认在后）
   if (ruleFallbacks) {
     out.itemSelectors = out.itemSelectors.concat(ruleFallbacks.itemSelectors || []);
     out.listSelectors = out.listSelectors.concat(ruleFallbacks.listSelectors || []);
@@ -153,10 +137,9 @@ export async function hydrateSelectors() {
     if (payload && typeof payload === 'object') {
       try {
         if (typeof localStorage !== 'undefined') localStorage.setItem(SELECTOR_CONFIG_KEY, JSON.stringify(payload));
-      } catch (_) { /* noop */ }
+      } catch (_) {  }
     } else {
-      // chrome.storage 无配置：清空 localStorage 镜像，避免旧配置残留
-      try { if (typeof localStorage !== 'undefined') localStorage.removeItem(SELECTOR_CONFIG_KEY); } catch (_) { /* noop */ }
+      try { if (typeof localStorage !== 'undefined') localStorage.removeItem(SELECTOR_CONFIG_KEY); } catch (_) {  }
     }
     _invalidateCustom(null);
     return payload || null;
@@ -178,7 +161,8 @@ export function _resetMemoryCache() {
   _customCache.clear();
   try {
     if (typeof localStorage !== 'undefined') localStorage.removeItem(SELECTOR_CONFIG_KEY);
-  } catch (_) { /* noop */ }
+  } catch (_) {  }
 }
 
 export const _internal = { SELECTOR_FIELDS };
+

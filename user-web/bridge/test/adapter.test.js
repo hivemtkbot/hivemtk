@@ -1,11 +1,3 @@
-// 渠道适配器单测（I4 补充覆盖）
-//
-// 验证目标：
-//   1. 回归 B1：三渠道 buildXxxAdapter 构造后字段正确填充（channel/name/SEL/hooks.match），
-//      match() 不再返回 false（需 mock location）
-//   2. hooks 透传：getMessageItems / parseMessageItem / getAccountId / getConversationId / sendText 被正确委托
-//   3. sendOutbound 在风控通过时调用 hooks.sendText 并上报 outbound 消息
-//   4. _handleIncremental 统一走 onMessage：CUSTOMER / SELF / AGENT 均通过 onMessage 上报
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BaseAdapter } from '../src/core/channel-adapter.js';
 import { CHANNELS, SENDER, DIRECTION, FRAME } from '../src/core/types.js';
@@ -40,7 +32,6 @@ describe('B1 回归：三渠道 buildXxxAdapter 构造正确', () => {
     const a = buildXhsAdapter();
     expect(a.channel).toBe(CHANNELS.XHS);
     expect(a.name).toBe('xhs');
-    // 输入框候选须同时覆盖旧版 #jarvis-reply-textarea 与新版 xhs-im-input-bar-editor
     expect(a.SEL.INPUT).toContain('#jarvis-reply-textarea');
     expect(a.SEL.INPUT).toContain('xhs-im-input-bar-editor');
   });
@@ -112,7 +103,7 @@ describe('BaseAdapter sendOutbound 风控通过则回写并上报 outbound 消�
     adapter.start({ onMessage });
     // sendOutbound 内有 sleep(waitHintMs) 用于拟人延迟，fake timers 下需异步推进
     const p = adapter.sendOutbound('hello');
-    await vi.advanceTimersByTimeAsync(4000); // jitter 最大 2600 + 余量
+    await vi.advanceTimersByTimeAsync(4000); 
     const ok = await p;
     expect(ok.ok).toBe(true);
     expect(sendText).toHaveBeenCalledWith('hello');
@@ -153,7 +144,6 @@ describe('BaseAdapter _handleIncremental 统一走 onMessage', () => {
     });
     const onMessage = vi.fn();
     adapter.start({ onMessage });
-    // 直接调用内部方法（纯桥接：所有消息统一走 onMessage，不区分 inbound/history）
     adapter._handleIncremental({});
     expect(onMessage).toHaveBeenCalled();
     const msg = onMessage.mock.calls[0][0];
@@ -196,8 +186,6 @@ describe('BaseAdapter _handleIncremental 统一走 onMessage', () => {
     });
     const onMessage = vi.fn();
     adapter.start({ onMessage });
-    // 2026-08-06：稳定键去重（key=会话|发送者|文本）。模拟虚拟列表重渲染——
-    // 每次都是新的 DOM 节点对象（seenNodes 必然失效），但内容相同 → 只上行一次。
     adapter._handleIncremental({});
     adapter._handleIncremental({});
     expect(onMessage).toHaveBeenCalledTimes(1);
@@ -220,7 +208,7 @@ describe('BaseAdapter _handleIncremental 统一走 onMessage', () => {
     const sameNode = {};
     adapter._handleIncremental(sameNode);
     adapter._handleIncremental(sameNode);
-    expect(onMessage).toHaveBeenCalledTimes(1); // 仅首次（节点级去重）
+    expect(onMessage).toHaveBeenCalledTimes(1); 
   });
 
   it('不同内容正常上行（稳定键按文本区分，不误删）', () => {
@@ -243,7 +231,7 @@ describe('BaseAdapter _handleIncremental 统一走 onMessage', () => {
     adapter.start({ onMessage });
     adapter._handleIncremental({});
     adapter._handleIncremental({});
-    expect(onMessage).toHaveBeenCalledTimes(2); // 两条不同内容 → 各上行一次
+    expect(onMessage).toHaveBeenCalledTimes(2); 
   });
 });
 
@@ -265,24 +253,16 @@ describe('BaseAdapter 会话切换重挂载', () => {
     });
     adapter.start({});
     attachSpy.mockClear();
-    // 切换会话
     currentConv = 'c2';
-    // 去抖动：连续 2 次相同 cid 才确认切换（2s × 2 = 4s）
-    vi.advanceTimersByTime(2000); // 第 1 次读到 c2，暂存 _pendingCid
+    vi.advanceTimersByTime(2000); 
     expect(attachSpy).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(2000); // 第 2 次读到 c2，确认切换
+    vi.advanceTimersByTime(2000); 
     expect(attachSpy).toHaveBeenCalled();
   });
 });
 
-// =============================================================
-// 校准私信页：3 个渠道 adapter 在严格选择器失效时的 fallback 匹配
-// 场景：平台改版导致 SEL.EDITOR / SEL.INPUT 选择器失效，但 findAnyMessageInput + looksLikeMessagePage 仍能命中
-// 期望：match() 返回 true，matchMode() 返回 'fallback'
-// =============================================================
 describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效）', () => {
   beforeEach(() => {
-    // 每个测试前清空 body，避免前一个用例的 input 残留干扰
     document.body.innerHTML = '';
   });
 
@@ -320,7 +300,6 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
 
   it('抖音：strict 选择器失效 + fallback 命中 → match=true, matchMode=fallback', () => {
     mockLocationPath('https://www.douyin.com/im/chat/');
-    // 不放 role=textbox 的 contenteditable，只放一个普通 contenteditable（fallback 命中）
     addInput({ tag: 'div', attrs: { contenteditable: 'true' }, rect: { width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 } });
     addContextHint();
     const a = buildDouyinAdapter();
@@ -330,7 +309,6 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
 
   it('抖音：strict 失效 + 页面不像私信页 → match=false', () => {
     mockLocationPath('https://www.douyin.com/');
-    // 只放输入框，不放 chat-* 类的 DOM 线索
     addInput({ tag: 'div', attrs: { contenteditable: 'true' } });
     const a = buildDouyinAdapter();
     expect(a.match()).toBe(false);
@@ -339,7 +317,6 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
 
   it('小红书：strict 选择器失效 + fallback 命中 → match=true, matchMode=fallback', () => {
     mockLocationPath('https://www.xiaohongshu.com/im/');
-    // #jarvis-reply-textarea 不存在；放一个 textarea + 关键词 placeholder
     addInput({ tag: 'textarea', attrs: { placeholder: '请输入消息' }, rect: { width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 } });
     addContextHint();
     const a = buildXhsAdapter();
@@ -357,10 +334,7 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
   });
 
   it('TikTok：strict INPUT_FALLBACKS 都失效 + 通用 DOM 命中 → matchMode=fallback', () => {
-    // 使用含 /inbox 的 TikTok URL，保证 looksLikeMessagePage() 通过但 isTiktokChatUrl()≠true
-    // isTiktokChatUrl() 仅对 /messages /messages/ 返回 strict；/inbox 走 DOM fallback
     mockLocationPath('https://www.tiktok.com/inbox');
-    // 不放任何严格选择器对应的元素，放一个普通 contenteditable
     addInput({ tag: 'div', attrs: { contenteditable: 'true' }, rect: { width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 } });
     addContextHint();
     const a = buildTiktokAdapter();
@@ -376,13 +350,6 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
     expect(a.matchMode()).toBeNull();
   });
 
-  // =============================================================
-  // 真实回归：抖音精选 jingxuan 页面的误判
-  // 现象：jingxuan 页面 DOM 含 messageEditorinputArea（评论框） +
-  //       conversationConversationListwrapper（侧栏推荐列表）
-  //       → 早期版本 looksLikeMessagePage 误判 true
-  // 期望：match() 返回 false，matchMode=null（fallback 不该误启动）
-  // =============================================================
   it('抖音 jingxuan 页面（评论/推荐）→ match=false, matchMode=null', () => {
     mockLocationPath('https://www.douyin.com/jingxuan');
     // 模拟 jingxuan DOM：editor-kit-container > messageEditorinputArea（评论框）
@@ -404,10 +371,6 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
     expect(a.matchMode()).toBeNull();
   });
 
-  // 真实回归：jingxuan 浮层私信（用户实际场景）
-  // 现象：用户在 /jingxuan 点击私信，抖音以浮层打开 IM，URL 不切 /message
-  // 真实 IM DOM：编辑器同元素含 messageEditorinputArea + editor-kit-container，会话列表含 conversation-item 行
-  // 期望：match()=true, matchMode=strict（此前因 URL 守卫 + 缺 role=textbox 判为 false）
   it('抖音 jingxuan 浮层私信（真实 IM DOM）→ match=true, matchMode=strict', () => {
     mockLocationPath('https://www.douyin.com/jingxuan');
     const editor = document.createElement('div');
@@ -427,9 +390,6 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
     expect(a.matchMode()).toBe('strict');
   });
 
-  // 真实回归：/user/self 个人主页浮层私信（用户实际场景）
-  // 现象：在「我的」主页打开私信，抖音以浮层打开 IM，URL 仍是 /user/self?from_tab_name=main
-  // 真实 IM DOM：editor(messageEditorinputArea+editor-kit-container) + conversation-item + svg 发送按钮
   it('抖音 /user/self 个人主页浮层私信（svg 发送按钮）→ match=true, 发送按钮/气泡可定位', () => {
     mockLocationPath('https://www.douyin.com/user/self?from_tab_name=main');
     const editor = document.createElement('div');
@@ -460,8 +420,6 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
     const a = buildDouyinAdapter();
     expect(a.match()).toBe(true);
     expect(a.matchMode()).toBe('strict');
-    // 真实发送按钮为 svg.messageMsgInputpublishBtn.e2e-send-msg-btn，
-    // 适配器 getRealSendButton 经 [class*="e2e-send-msg-btn"] 选择器定位（点击时落到最近可交互祖先）
     expect(document.querySelector('[class*="e2e-send-msg-btn"]')).toBeTruthy();
     expect(a.getMessageItems().length).toBe(1);
   });
@@ -477,7 +435,6 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
   it('抖音 /im/chat/ + 严格选择器失效 + messageList + chatWindow → match=true, matchMode=fallback', () => {
     mockLocationPath('https://www.douyin.com/im/chat/abc/');
     addInput({ tag: 'div', attrs: { contenteditable: 'true' } });
-    // fallback 多特征 DOM 启发式：消息列表 + 聊天容器同时存在
     document.body.appendChild(addInput({ tag: 'div', attrs: { class: 'messageList' }, rect: { width: 200, height: 30, top: 100, left: 0, right: 200, bottom: 130 } }));
     document.body.appendChild(addInput({ tag: 'div', attrs: { class: 'chatWindow' }, rect: { width: 200, height: 30, top: 200, left: 0, right: 200, bottom: 230 } }));
     const a = buildDouyinAdapter();
@@ -520,3 +477,4 @@ describe('BaseAdapter matchMode 透传', () => {
     expect(a1.matchMode()).toBeNull();
   });
 });
+

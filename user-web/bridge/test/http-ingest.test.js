@@ -1,13 +1,3 @@
-// HTTP Transport 单测 (2026-08-05)
-//
-// 覆盖：
-//   1. buildIngestUrl：URL 构造（参数拼装、ws→http 归一、token 空处理）
-//   2. describeIngestParams：URL 解析（query 提取、token 脱敏、解析失败兜底）
-//   3. previewBody：body 预览（截断、size 统计）
-//   4. fetchWithRetry：重试退避（成功无重试、4xx 抛错、5xx 重试、退避时长）
-//   5. postIngest：完整流程（请求体 + 响应解析 + 失败抛出）
-//
-// 设计：纯函数 / 静态方法为主，无需 jsdom。
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   buildIngestUrl,
@@ -379,7 +369,6 @@ describe('http-ingest / postIngest', () => {
     expect(captured.url).toContain('channel=xiaohongshu');
     expect(captured.url).toContain('account_id=acc-x');
     expect(captured.url).toContain('conversation_id=conv-x');
-    // 2026-08-14 P0-A：token 走 Authorization Header，不再放 URL query
     expect(captured.url).not.toContain('token=');
     expect(captured.init.headers['Authorization']).toBe('Bearer tkn-xyz');
     expect(captured.init.method).toBe('POST');
@@ -401,7 +390,6 @@ describe('http-ingest / postIngest', () => {
 
   it('服务端 5xx 抛错（走 fetchWithRetry 退避后失败）', async () => {
     globalThis.fetch = vi.fn(async () => new Response('err', { status: 500 }));
-    // maxRetries=0 立即抛错，避免 1s+2s+4s 退避拖慢测试
     await expect(
       postIngest(
         { serverUrl: 'http://x', channel: 'c', accountId: 'a', token: 't' },
@@ -454,3 +442,4 @@ describe('http-ingest / postIngest', () => {
     expect(resp.outbound_replies[0].reply_to_event_id).toBe('e1');
   });
 });
+

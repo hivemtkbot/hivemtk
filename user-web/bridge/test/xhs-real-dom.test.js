@@ -1,11 +1,3 @@
-// 回归测试：复现「左侧会话列表已获取，但右侧聊天内容未上报」——用用户实测的真实 .chat-item DOM。
-// 真实结构（用户贴的 HTML）：
-//   .xhs-im-conv-item.xhs-im-conv-item--active[data-conv-id]  ← 左侧活动会话（已能枚举）
-//   .xhs-im-msg-list > .xhs-im-msg-list__time-divider + .chat-item[data-message-id]
-//     .chat-item__content.chat-item__content--left            ← 对方消息
-//       .chat-item__bubble.chat-item__bubble--text.chat-item__bubble--other
-//         .xhs-im-bubble__text  (文本)
-//   .xhs-im-input-bar-editor[contenteditable]                  ← 输入框
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { buildXhsAdapter, getConversationId, getConversationList } from '../src/channels/xhs.js';
 
@@ -111,11 +103,12 @@ describe('小红书真实 .chat-item DOM：右侧消息上报', () => {
       if (m.history && m.history.length) return m.history.map((h) => h.content);
       return [m.content || ''];
     });
-    expect(allTexts).toContain('95878728570');      // 真实消息内容被捕获
-    expect(allTexts).not.toContain('12:14');        // 时间分隔被过滤
+    expect(allTexts).toContain('95878728570');      
+    expect(allTexts).not.toContain('12:14');        
     // 会话 id 正确（来自活动项 data-conv-id）
     const frame = captured[0];
     const convId = frame.conversation_id;
     expect(convId).toBe('63bd52380000000027029f4d');
   });
 });
+

@@ -1,4 +1,3 @@
-// 限速器/风控单测（需求④ 论证）：拟人最小间隔 + 会话冷却 + 相同文案去重 + 令牌桶。
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { RateLimiter } from '../src/core/rate-limiter.js';
 import { SENDER, DIRECTION } from '../src/core/types.js';
@@ -11,7 +10,7 @@ describe('RateLimiter 风控', () => {
     const rl = new RateLimiter();
     const d = rl.tryAcquire('douyin_web', 'A', 'C', 'hi');
     expect(d.allowed).toBe(true);
-    expect(d.waitHintMs).toBeGreaterThanOrEqual(800); // jitter 下限
+    expect(d.waitHintMs).toBeGreaterThanOrEqual(800); 
     rl.markSent('douyin_web', 'A', 'C', 'hi');
   });
 
@@ -19,7 +18,7 @@ describe('RateLimiter 风控', () => {
     const rl = new RateLimiter();
     rl.tryAcquire('douyin_web', 'A', 'C', 'hi');
     rl.markSent('douyin_web', 'A', 'C', 'hi');
-    vi.advanceTimersByTime(200); // < minIntervalMs(1500)
+    vi.advanceTimersByTime(200); 
     const d = rl.tryAcquire('douyin_web', 'A', 'C', 'hi2');
     expect(d.allowed).toBe(false);
     expect(d.reason).toContain('minInterval');
@@ -29,7 +28,7 @@ describe('RateLimiter 风控', () => {
     const rl = new RateLimiter();
     rl.tryAcquire('douyin_web', 'A', 'C', 'hi');
     rl.markSent('douyin_web', 'A', 'C', 'hi');
-    vi.advanceTimersByTime(2000); // > minInterval(1500) 但 < cooldown(3000)
+    vi.advanceTimersByTime(2000); 
     const d = rl.tryAcquire('douyin_web', 'A', 'C', 'hi2');
     expect(d.allowed).toBe(false);
     expect(d.reason).toContain('cooldown');
@@ -39,7 +38,7 @@ describe('RateLimiter 风控', () => {
     const rl = new RateLimiter();
     rl.tryAcquire('douyin_web', 'A', 'C', 'same');
     rl.markSent('douyin_web', 'A', 'C', 'same');
-    vi.advanceTimersByTime(3500); // 跨过 cooldown
+    vi.advanceTimersByTime(3500); 
     const d = rl.tryAcquire('douyin_web', 'A', 'C', 'same');
     expect(d.allowed).toBe(false);
     expect(d.reason).toContain('dedup');
@@ -49,7 +48,7 @@ describe('RateLimiter 风控', () => {
     const rl = new RateLimiter();
     rl.tryAcquire('douyin_web', 'A', 'C', 'same');
     rl.markSent('douyin_web', 'A', 'C', 'same');
-    vi.advanceTimersByTime(61000); // > dedupWindowMs(60000)
+    vi.advanceTimersByTime(61000); 
     const d = rl.tryAcquire('douyin_web', 'A', 'C', 'same');
     expect(d.allowed).toBe(true);
   });
@@ -61,9 +60,9 @@ describe('RateLimiter 风控', () => {
     // 立即再获取：账户桶空 -> 拦截，但应退款（令牌恢复）
     const d2 = rl.tryAcquire('x', 'A', 'C', 'm2');
     expect(d2.allowed).toBe(false);
-    // 账户桶被退款，补满后再次可用（用假时间推进补充）
     vi.advanceTimersByTime(60000);
     const d3 = rl.tryAcquire('x', 'A', 'C', 'm3');
     expect(d3.allowed).toBe(true);
   });
 });
+

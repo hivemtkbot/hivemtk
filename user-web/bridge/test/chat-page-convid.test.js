@@ -1,13 +1,3 @@
-// 回归测试：修复「抖音/小红书 /chat 聊天页一条消息都捕获不到」。
-//
-// 根因（来自真实 DOM 快照）：/chat 专用路由的活动会话项
-//   douyin:  div.conversationConversationItemwrapper.conversationConversationItemcurConversation[data-e2e="conversation-item"]
-//   xhs:     .sx-contact-item.active
-// 常既无 /user/ 链接（账号线索 0 个）、也无任何 data-id / data-* 属性。
-// 旧版 getConversationId() 兜底链（URL→data 属性→/user/ 链接）全部落空 → 返回 null →
-// 适配器 `if (!getConversationId()) return` 守卫拦截全部消息（表现为“打开私信页却零捕获”）。
-//
-// 修复：增加「活动会话项标题文本派生稳定 id」（conv:<昵称>）兜底。
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BaseAdapter } from '../src/core/channel-adapter.js';
 import { SENDER } from '../src/core/types.js';
@@ -54,7 +44,7 @@ describe('douyin /chat 页活动会话无链接/无 data 属性时 getConversati
     document.body.appendChild(wrapper);
 
     const id = getConversationId();
-    expect(id).toBe('conv:张三'); // 关键：非 null，消息捕获不再被守卫拦截
+    expect(id).toBe('conv:张三'); 
   });
 
   it('活动项无链接/无 data 且无昵称时仍返回 null（保持安全：不凭空造会话）', () => {
@@ -126,7 +116,7 @@ describe('xhs /chat 页活动会话无链接/无 data 属性时 getConversationI
         </div>
       </div>`;
     const id = xhs.getConversationId();
-    expect(id).toBe('conv:王五'); // 非 null → 消息捕获不被拦截
+    expect(id).toBe('conv:王五'); 
   });
 
   it('getConversationList 对无 data-* 的会话项用昵称派生 id', () => {
@@ -190,9 +180,6 @@ describe('xhs /chat 页活动会话无链接/无 data 属性时 getConversationI
   });
 });
 
-// 端到端回归：复现「打开 /chat 聊天页却一条消息都捕获不到」——
-// 用真实深检快照的抖音 /chat DOM（活动会话项无 /user/ 链接、无 data-id），
-// 验证适配器完整捕获实时消息（修复前 getConversationId()===null 全部被守卫拦截）。
 describe('douyin /chat 快照 DOM 端到端消息捕获', () => {  function makeVisible(el) {
     Object.defineProperty(el, 'offsetParent', { configurable: true, get: () => ({}) });
     return el;
@@ -205,9 +192,6 @@ describe('douyin /chat 快照 DOM 端到端消息捕获', () => {  function make
 
   it('复现深检快照结构：无链接/无 data 活动会话 → 客户消息被捕获并上行', () => {
     stubLocation('/chat');
-    // 真实 /chat 结构（来自用户深检快照）：
-    //   会话列表 wrapper + 活动项(curConversation, data-e2e=conversation-item, 无链接无data)
-    //   消息线程：气泡带 data-e2e="msg-item-content" + bubble-body 结构标识（避免 isSystemMessage ⑤误杀）
     document.body.innerHTML = `
       <div class="conversationConversationListwrapper">
         <div class="conversationConversationItemwrapper conversationConversationItemcurConversation" data-e2e="conversation-item">
@@ -222,15 +206,12 @@ describe('douyin /chat 快照 DOM 端到端消息捕获', () => {  function make
       <svg class="messageMsgInputpublishBtn e2e-send-msg-btn"></svg>`;
 
     const adapter = buildDouyinAdapter();
-    // 可见性（jsdom offsetParent 恒 null）
     document.querySelectorAll('div[data-e2e="conversation-item"], div[data-e2e="msg-item-content"], .messageEditorinputArea').forEach((el) => makeVisible(el));
 
     const inbound = [];
     adapter.start({
       onMessage: (m) => inbound.push(m),
     });
-    // 2026-08-05 架构重构：所有消息统一走 onMessage（纯桥接，不区分 inbound/history）
-    // 关键：消息已被捕获（修复前 getConversationId()===null 全被拦截）
     adapter._scanIncremental();
 
     const captured = inbound;
@@ -261,9 +242,6 @@ describe('douyin /chat 快照 DOM 端到端消息捕获', () => {  function make
 });
 
 
-// 端到端回归：小红书新版 /chat 页（xhs-im-* BEM）消息捕获 + 时间戳过滤。
-// 复现用户深检快照：会话 id 来自 /chat/{id} 路径，header 有「我」的链接需跳过，
-// 消息气泡为 xhs-im-msg-item（含时间戳标记 09:56 不应被当作消息）。
 describe('xhs /chat 快照 DOM 端到端消息捕获', () => {
   function makeVisible(el) {
     Object.defineProperty(el, 'offsetParent', { configurable: true, get: () => ({}) });
@@ -283,8 +261,6 @@ describe('xhs /chat 快照 DOM 端到端消息捕获', () => {
       hostname: 'www.xiaohongshu.com',
       host: 'www.xiaohongshu.com',
     });
-    // 用户实测真实 DOM：左侧 .xhs-im-conv-item（--active 活动项，data-conv-id），
-    // 右侧 .xhs-im-msg-list 内 .chat-item（data-message-id，--left=对方，.xhs-im-bubble__text）
     document.body.innerHTML = `
       <div class="xhs-im-view">
         <div class="xhs-im-view__sidebar">
@@ -351,10 +327,8 @@ describe('xhs /chat 快照 DOM 端到端消息捕获', () => {
       if (m.history && m.history.length) return m.history.map((h) => h.content);
       return [m.content || ''];
     });
-    // 真实消息被捕获
     expect(allTexts).toContain('在吗');
     expect(allTexts).toContain('这件多少钱');
-    // 时间戳 09:56 不被当作消息
     expect(allTexts).not.toContain('09:56');
     // 会话 id 来自活动项 data-conv-id
     const frame = captured[0];
@@ -362,3 +336,4 @@ describe('xhs /chat 快照 DOM 端到端消息捕获', () => {
     expect(convId || frame.history).toBeTruthy();
   });
 });
+

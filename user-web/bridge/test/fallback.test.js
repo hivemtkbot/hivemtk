@@ -1,5 +1,3 @@
-// fallback 工具测试
-//   - deriveAccountId 派生顺序
 import { describe, it, expect, vi } from 'vitest';
 import { deriveAccountId } from '../src/core/fallback.js';
 
@@ -14,3 +12,4 @@ describe('fallback / deriveAccountId', () => {
     expect(deriveAccountId('douyin_web', ['  user-1  '])).toBe('user-1');
   });
 });
+

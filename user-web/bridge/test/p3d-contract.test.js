@@ -1,15 +1,3 @@
-// P3-D contract test（2026-08-15）
-//
-// 协议契约（前后端严格一致）：
-//   POST /api/bridge/outbox/ack
-//   请求：{ msg_ids: [...], status: 'delivered' }
-//   响应：{ status, acked, duplicate_count, not_found_count, items: [{msg_id, status}] }
-//     - items[].status ∈ { "acked", "duplicate", "not_found" }
-//
-// 作用：
-//   1) 验证前端 processAckDetailedResult 与后端响应字段 1:1 对齐
-//   2) 给两端各自测试提供"协议常量"，防止一端改字段名后另一端未同步
-//   3) 覆盖典型 ack 场景：纯成功、混合、纯 not_found
 import { describe, it, expect } from 'vitest';
 import { processAckDetailedResult } from '../src/core/downlink.js';
 
@@ -54,7 +42,7 @@ describe('P3-D contract（前后端 ack 协议 2026-08-15）', () => {
       ],
     };
     const r = processAckDetailedResult(ackRes, ackIds, 'douyin');
-    expect(r).toEqual({ acked: 3, duplicate: 0, not_found: 0, retriable: 0 });
+    expect(r).toEqual({ acked: 3, duplicate: 0, not_found: 0, not_in_scope: 0, retriable: 0 });
   });
 
   it('混合场景：acked + duplicate + not_found', () => {
@@ -72,7 +60,7 @@ describe('P3-D contract（前后端 ack 协议 2026-08-15）', () => {
       ],
     };
     const r = processAckDetailedResult(ackRes, ackIds, 'douyin');
-    expect(r).toEqual({ acked: 1, duplicate: 1, not_found: 2, retriable: 0 });
+    expect(r).toEqual({ acked: 1, duplicate: 1, not_found: 2, not_in_scope: 0, retriable: 0 });
   });
 
   it('纯 not_found 场景', () => {
@@ -88,21 +76,21 @@ describe('P3-D contract（前后端 ack 协议 2026-08-15）', () => {
       ],
     };
     const r = processAckDetailedResult(ackRes, ackIds, 'douyin');
-    expect(r).toEqual({ acked: 0, duplicate: 0, not_found: 2, retriable: 0 });
+    expect(r).toEqual({ acked: 0, duplicate: 0, not_found: 2, not_in_scope: 0, retriable: 0 });
   });
 
   it('响应 ok 但无 items 字段（兼容老版本服务端）→ 全量视为 acked', () => {
     const ackIds = ['m1', 'm2', 'm3'];
     const ackRes = { status: 'ok', acked: 3 };
     const r = processAckDetailedResult(ackRes, ackIds, 'douyin');
-    expect(r).toEqual({ acked: 3, duplicate: 0, not_found: 0, retriable: 0 });
+    expect(r).toEqual({ acked: 3, duplicate: 0, not_found: 0, not_in_scope: 0, retriable: 0 });
   });
 
   it('响应 status=error 整体失败 → 全部 retriable', () => {
     const ackIds = ['m1', 'm2'];
     const ackRes = { status: 'error', message: 'internal' };
     const r = processAckDetailedResult(ackRes, ackIds, 'douyin');
-    expect(r).toEqual({ acked: 0, duplicate: 0, not_found: 0, retriable: 2 });
+    expect(r).toEqual({ acked: 0, duplicate: 0, not_found: 0, not_in_scope: 0, retriable: 2 });
   });
 
   it('响应为 null/undefined → 全部 retriable', () => {
@@ -134,7 +122,6 @@ describe('P3-D contract（前后端 ack 协议 2026-08-15）', () => {
       acked: 1,
       items: [
         { msg_id: 'm1', status: 'acked' },
-        // m2 / m3 缺失
       ],
     };
     const r = processAckDetailedResult(ackRes, ackIds);
@@ -144,7 +131,7 @@ describe('P3-D contract（前后端 ack 协议 2026-08-15）', () => {
 
   it('空 msg_ids 数组：返回全 0', () => {
     const r = processAckDetailedResult({ status: 'ok', items: [] }, []);
-    expect(r).toEqual({ acked: 0, duplicate: 0, not_found: 0, retriable: 0 });
+    expect(r).toEqual({ acked: 0, duplicate: 0, not_found: 0, not_in_scope: 0, retriable: 0 });
   });
 
   it('空字符串 msg_id 跳过不计', () => {
@@ -196,3 +183,4 @@ describe('P3-D contract invariants（业务不变量）', () => {
     expect(r.acked).toBe(ackRes.acked);
   });
 });
+

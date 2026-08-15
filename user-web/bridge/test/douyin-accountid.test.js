@@ -1,7 +1,3 @@
-// douyin getAccountId 浮层兜底回归测试
-// 根因：/jingxuan 浮层下左导航/header 个人链接缺失或指向 /user/self（占位），
-// 旧版返回空串 → WS 握手持空 account_id → 服务端 401 → 历史/实时全不上行。
-// 修复后：优先会话项真实用户链接(token 形式) → localStorage 缓存 → 稳定 unknown（绝不空串）。
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 vi.stubGlobal('chrome', { storage: { local: { get() {}, set() {} } } });
@@ -11,7 +7,7 @@ const { getAccountId } = await import('../src/channels/douyin.js');
 describe('douyin getAccountId 浮层兜底', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
-    try { localStorage.clear(); } catch (e) { /* noop */ }
+    try { localStorage.clear(); } catch (e) {  }
   });
   afterEach(() => { document.body.innerHTML = ''; });
 
@@ -31,7 +27,7 @@ describe('douyin getAccountId 浮层兜底', () => {
   it('仅「我的」链接指向 /user/self 占位时，仍返回空串以外的稳定值（不触发 WS 401）', () => {
     document.body.innerHTML = `<a href="//www.douyin.com/user/self?from_nav=1">我的</a>`;
     const id = getAccountId();
-    expect(id).not.toBe(''); // 关键：绝不能空串，否则 WS 401
+    expect(id).not.toBe(''); 
     expect(id).toContain('unknown');
   });
 
@@ -46,3 +42,4 @@ describe('douyin getAccountId 浮层兜底', () => {
     expect(getAccountId()).toBe('MS4wCachedId');
   });
 });
+

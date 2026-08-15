@@ -1,21 +1,6 @@
-// 选择器引擎：用「多候选选择器 + 结构启发式评分」定位消息列表 / 消息项 / 输入框，
-// 取代单一写死选择器，从架构上避免「平台改版就抓不到消息」。
-//
-// 设计原则：
-//   1. 任何单一选择器失效都不致命 —— 维护候选表，运行时逐个尝试，命中即用。
-//   2. 用「结构特征」做最终裁决：一个 DOM 节点若同时具备
-//        - 是某容器（div/ul/section）的后代
-//        - 内部含「发送者标识 + 气泡文本/媒体」结构
-//      则高概率是一条消息，不依赖具体 class 名。
-//   3. 零外部依赖、零延迟、零成本：纯规则引擎。
-//
-// 跨渠道复用：抖音 / 小红书 / 闲鱼 / TikTok 私信 DOM 同构（左会话列表 + 右消息流 + 底部输入框），
-// 因此引擎本身是渠道无关的；渠道特定候选选择器由各 adapter 的 SEL 提供。
 
 const log = (() => {
   try {
-    // 避免在纯单测环境（无 chrome）下 import 失败
-    // eslint-disable-next-line global-require
     const { createLogger } = require('./logger.js');
     return createLogger('selector', 'bridge');
   } catch (_) {
@@ -30,7 +15,6 @@ function looksLikeMessageBubble(el) {
   const hasMedia = !!el.querySelector('img, video, audio, [class*="image"], [class*="Image"], [class*="picture"], [class*="Picture"], a[href*="http"]');
   const text = (el.textContent || '').trim();
   if (hasMedia) return true;
-  // 纯文本也接受，但需有最小长度，避免把空容器当消息
   return text.length > 0;
 }
 
@@ -43,7 +27,7 @@ export function collectCandidates(root, selectors) {
     try {
       nodes = root.querySelectorAll(sel);
     } catch (_) {
-      continue; // 忽略非法选择器
+      continue; 
     }
     nodes.forEach((n) => {
       if (seen.has(n)) return;
@@ -106,7 +90,6 @@ export function locateMessages({ root, itemSelectors, listSelectors }) {
   if (!root) return { container: null, items: [] };
   let container = null;
   if (listSelectors && listSelectors.length) {
-    // 优先：渠道显式提供的列表容器候选
     for (const sel of listSelectors) {
       try {
         const el = root.querySelector(sel);
@@ -114,7 +97,7 @@ export function locateMessages({ root, itemSelectors, listSelectors }) {
           container = el;
           break;
         }
-      } catch (_) { /* noop */ }
+      } catch (_) {  }
     }
   }
   const candidates = collectCandidates(root, itemSelectors);
@@ -133,16 +116,12 @@ export function locateMessages({ root, itemSelectors, listSelectors }) {
       }
     }
   }
-  // 过滤掉「非消息气泡」的容器型节点：保留叶子级气泡或含媒体的节点
   items = items.filter((el) => {
     // 若某候选内部还包含其它候选（它是容器而非单条），剔除，避免重复计数
     const containsAnother = items.some((other) => other !== el && el.contains(other));
     if (containsAnother) return false;
     return looksLikeMessageBubble(el);
   });
-  // 2026-08-05 修复：移除 debug 日志（每 3s 被 fallbackTimer 调用，刷屏）
-  //   locateMessages 信息量低（仅容器 tag + item 数量），且 _backfill/_scanIncremental
-  //   的上层日志已足够诊断。
   return { container, items };
 }
 
@@ -179,3 +158,4 @@ export const SelectorEngine = {
   locateInput,
   looksLikeMessageBubble,
 };
+

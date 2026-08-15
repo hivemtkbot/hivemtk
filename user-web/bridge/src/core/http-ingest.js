@@ -1,23 +1,4 @@
-// Bridge HTTP Transport (2026-08-05 架构重构)
-//
-// 用户诉求：bridge 模块不再维护 WebSocket 长连接，改用 HTTP 长轮询上报到
-//   POST /api/bridge/ingest。所有渠道（douyin/xiaohongshu/tiktok/xianyu/kuaishou）
-//   共用同一 HTTP client + 同一 URL 构造 + 同一日志打印复用层。
-//
-// 设计要点：
-//   1. 0 状态：每次调用 buildIngestUrl / logRequest 都是纯函数；
-//      无 reconnect 状态机、无 zombie 检测、无 SW 冻结适配
-//   2. fetch 自动重试：浏览器 fetch 失败由 transport 层捕获并按 1s/2s/4s 退避重试
-//   3. 集中打印：所有渠道的"上行 URL + 全部 query + body"经由 _logRequest
-//      统一格式打印，与 user-server 侧 [Bridge HTTP] 收到 ingest 请求 日志对照
-//   4. 500s 长轮询：长轮询时服务端处理 AI 推理后直接返回 reply，
-//      transport 端点拿到后 dispatch 到对应 content script 触发 sendOutbound
-//
-// 替换关系：原 bridge-client.js (WS) + registry.js 被本文件 + polling-loop.js 替代
-//   - buildIngestUrl：等价于原 _buildUpstreamUrl
-//   - describeIngestParams：等价于原 describeUpstreamParams
-//   - logRequest：等价于原 _logUpstream
-import { DEFAULT_USER_SERVER } from './constants.js';
+import { DEFAULT_USER_SERVER, BRIDGE_PROTOCOL_V2 } from './constants.js';
 import { createLogger } from './logger.js';
 
 const log = createLogger('http', 'bridge');
@@ -27,14 +8,10 @@ const INGEST_PATH = '/api/bridge/ingest';
 
 // 长轮询/连接默认参数
 const HTTP_INGEST_DEFAULTS = Object.freeze({
-  // 长轮询默认等待时间：500 秒（与 user-server HTTPPollingMaxTimeout 对齐）
   longPollTimeoutMs: 500000,
-  // 长轮询时长（每次请求实际等待的毫秒，扩展侧主动控制更短，便于定期回写心跳）
   requestTimeoutMs: 30000,
-  // fetch 重试：最多 3 次，退避 1s/2s/4s
   maxRetries: 3,
   retryBaseMs: 1000,
-  // 单条消息最大体积：4KB（与 user-server maxReplyContentBytes 对齐）
   maxContentBytes: 4 * 1024,
 });
 
@@ -43,21 +20,31 @@ function toHttpUrl(serverUrl) {
   return serverUrl.replace(/^ws/, 'http');
 }
 
-// 构造完整的上行 URL（HTTP ingest 端点 + channel/account_id/conversation_id/token 全部 query 参数）。
+// 构造带认证的请求头（2026-08-14 P0-A：token 一律走 Header，绝不放 URL query）。
+// 有 token → Authorization: Bearer <token>；空 token → 不设 Authorization（服务端走匿名/默认分支）。
+export function buildAuthHeaders(token) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token && token.trim()) {
+    headers['Authorization'] = `Bearer ${token.trim()}`;
+  }
+  return headers;
+}
+
+// 构造完整的上行 URL（HTTP ingest 端点 + channel/account_id/conversation_id 全部 query 参数）。
 //
 // 文档源：DEFAULT_USER_SERVER.baseUrl（用户配置或默认）与 user-server internal/router/router.go:337
 // （POST /api/bridge/ingest）严格对齐。
 //
 // 入参：
 //   - serverUrl: 用户配置的 baseUrl（http/https/ws/wss 都接受，自动归一为 http(s)）
-//   - params: { channel, accountId, conversationId, token }
+//   - params: { channel, accountId, conversationId }
+//   - token 一律走 Authorization Header（2026-08-14 P0-A），绝不进 URL query。
 // 返回：完整 URL 字符串，可直接传给 fetch。
 function buildIngestUrl(serverUrl, params) {
   const u = new URL(`${toHttpUrl(serverUrl)}${INGEST_PATH}`);
   u.searchParams.set('channel', params.channel || '');
   u.searchParams.set('account_id', params.accountId || '');
   if (params.conversationId) u.searchParams.set('conversation_id', params.conversationId);
-  if (params.token) u.searchParams.set('token', params.token);
   return u.toString();
 }
 
@@ -68,7 +55,6 @@ function describeIngestParams(url) {
     const u = new URL(url);
     const out = {};
     for (const [k, v] of u.searchParams.entries()) {
-      // token 不在日志里明文输出（私域部署仍按隐私基线脱敏）
       if (k === 'token') {
         out[k] = v ? `${v.slice(0, 4)}***(${v.length} chars)` : '';
       } else {
@@ -129,23 +115,10 @@ function _logRequest(label, serverUrl, params, body, extra) {
     messages_summary: messagesSummary,
     ...(extra || {}),
   };
-  // 关键：URL/对象作为 console 第二参数传入，避免 logger.sanitizeArgs 对第一个字符串
-  // 参数按 24 字符截断（"addr=http://..."）。对象内的 url 字段是完整 URL，
-  // 用户可从 console 展开对象查看全部参数。
   log.info(label, payload);
   return { url, payload };
 }
 
-// fetchWithRetry 带指数退避的 fetch。
-// 失败重试：1s → 2s → 4s（封顶 8s），最多 maxRetries 次。
-// 超时由外部 AbortController 控制（每个 fetch 用同一个 controller）。
-//
-// 重试语义（HTTP 标准）：
-//   - 429 Too Many Requests：可重试（限流，退避后通常可恢复；尊重 Retry-After）
-//   - 408 Request Timeout：可重试（服务端忙，下次可能 OK）
-//   - 5xx 服务端错误：可重试
-//   - 网络错误（fetch reject）：可重试
-//   - 其余 4xx（400/401/403/404...）：不可重试，直接抛错（客户端错误，重试无意义）
 async function fetchWithRetry(url, options, retryOpts = {}) {
   const maxRetries = retryOpts.maxRetries ?? HTTP_INGEST_DEFAULTS.maxRetries;
   const retryBaseMs = retryOpts.retryBaseMs ?? HTTP_INGEST_DEFAULTS.retryBaseMs;
@@ -164,7 +137,6 @@ async function fetchWithRetry(url, options, retryOpts = {}) {
         const err = new Error(
           `HTTP ${res.status} ${res.statusText}: ${text.slice(0, 200)}`
         );
-        // 透传 Retry-After（服务端限流可携带），供上层退避参考
         if (res.status === 429) {
           const ra = res.headers.get('Retry-After');
           if (ra) {
@@ -178,7 +150,6 @@ async function fetchWithRetry(url, options, retryOpts = {}) {
       return res;
     } catch (e) {
       lastErr = e;
-      // 不可重试的 4xx 客户端错误：直接跳出重试循环
       if (e && e.nonRetryable) break;
       if (attempt >= maxRetries) break;
       // 退避：优先用服务端 Retry-After（429 场景），否则指数退避 + 抖动
@@ -193,19 +164,6 @@ async function fetchWithRetry(url, options, retryOpts = {}) {
   throw lastErr || new Error('fetch failed');
 }
 
-// postIngest 上报一条 ingest 请求（带统一日志 + 退避重试）。
-//
-// 入参：
-//   - serverUrl, channel, accountId, conversationId, token：URL 参数
-//   - body: 已构造的请求体（HTTPIngestRequest，与 user-server 端严格对齐）
-//   - opts: { timeoutMs, expectReply, label }
-// 返回：HTTPIngestResponse
-//
-// 行为：
-//   1) 先调 _logRequest 打印 URL + body 预览
-//   2) 调 fetchWithRetry 实际请求（带超时）
-//   3) 解析响应后打印响应日志
-//   4) 错误向上抛，由调用方决定重试/降级
 async function postIngest({ serverUrl, channel, accountId, conversationId, token }, body, opts = {}) {
   const params = { channel, accountId, conversationId, token };
   const label = opts.label || '[HTTP ingest]';
@@ -226,9 +184,8 @@ async function postIngest({ serverUrl, channel, accountId, conversationId, token
   const startedAt = Date.now();
   let responsePayload = null;
   try {
-    // 只在 traceId 非空时才加 X-Trace-Id 头：空字符串仍算自定义头，
-    // 会触发 CORS preflight 且要求服务端 ACAH 白名单包含该头。
-    const headers = { 'Content-Type': 'application/json' };
+    // 认证头（P0-A：token 走 Header 不进 URL）+ traceId（仅非空时添加，避免无谓 CORS preflight）
+    const headers = buildAuthHeaders(token);
     if (opts.traceId) headers['X-Trace-Id'] = opts.traceId;
     const res = await fetchWithRetry(url, {
       method: 'POST',
@@ -251,7 +208,6 @@ async function postIngest({ serverUrl, channel, accountId, conversationId, token
     throw e;
   } finally {
     clearTimeout(timer);
-    // 响应日志（成功/失败均打）
     if (responsePayload) {
       const out = responsePayload.outbound_replies || [];
       log.info('ingest 响应', {
@@ -273,27 +229,14 @@ async function postIngest({ serverUrl, channel, accountId, conversationId, token
   }
 }
 
-// ───────────────────────── 桥接下发三通道（2026-08-06 架构重构） ─────────────────────────
-//
-// 通道A·上报:  postIngest          → POST /api/bridge/ingest
-// 通道B·状态:  ackOutbox           → POST /api/bridge/outbox/ack
-// 通道C·下发:  getOutbox           → GET  /api/bridge/outbox
-//
-// 设计：4 渠道把聊天内容推到上报队列（ingest），AI 回复落库为待下发消息；
-// 扩展独立轮询 getOutbox 拉取并转发网页，成功后 ackOutbox 确认 delivered。
-// 详见 docs/bridge/REDESIGN-2026-08-06.md。
 
 const OUTBOX_PATH = '/api/bridge/outbox';
 
-// getOutbox 通道C·下发轮询：拉取本渠道/账号下待下发的消息（message_hub status=pending 出站）。
-// 返回 { status, messages: BridgeOutboxMessage[] }。
-// 支持 opts.batchSize（对应 BRIDGE_THREE_CHANNEL.outboxBatchSize）：控制单次拉取条数上限。
 async function getOutbox({ serverUrl, channel, accountId, token }, opts = {}) {
   const acct = accountId || 'default';
   const u = new URL(`${toHttpUrl(serverUrl)}${OUTBOX_PATH}`);
   u.searchParams.set('channel', channel || '');
   u.searchParams.set('account_id', acct);
-  if (token) u.searchParams.set('token', token);
   // 拉取条数：默认 50，可由配置覆盖（与后端 GetBridgeOutbox limit query 对齐）
   const batchSize = opts.batchSize && opts.batchSize > 0 ? opts.batchSize : 50;
   u.searchParams.set('limit', String(batchSize));
@@ -303,7 +246,11 @@ async function getOutbox({ serverUrl, channel, accountId, token }, opts = {}) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = Date.now();
   try {
-    const res = await fetchWithRetry(u.toString(), { method: 'GET', signal: controller.signal }, {
+    const res = await fetchWithRetry(u.toString(), {
+      method: 'GET',
+      headers: buildAuthHeaders(token),
+      signal: controller.signal,
+    }, {
       maxRetries: opts.maxRetries ?? HTTP_INGEST_DEFAULTS.maxRetries,
       retryBaseMs: opts.retryBaseMs ?? HTTP_INGEST_DEFAULTS.retryBaseMs,
     });
@@ -318,23 +265,20 @@ async function getOutbox({ serverUrl, channel, accountId, token }, opts = {}) {
   }
 }
 
-// ackOutbox 通道B·状态上报：把已成功转发到网页的消息批量确认 delivered。
-// body: { msg_ids: [...], status: 'delivered' }。
 async function ackOutbox({ serverUrl, channel, accountId, token }, msgIds, opts = {}) {
   const acct = accountId || 'default';
   const u = new URL(`${toHttpUrl(serverUrl)}${OUTBOX_PATH}/ack`);
   u.searchParams.set('channel', channel || '');
   u.searchParams.set('account_id', acct);
-  if (token) u.searchParams.set('token', token);
   const label = opts.label || '[HTTP outbox-ack]';
-  const body = { msg_ids: msgIds, status: 'delivered' };
+  const body = { [BRIDGE_PROTOCOL_V2.FIELD.MSG_IDS]: msgIds, [BRIDGE_PROTOCOL_V2.FIELD.STATUS]: BRIDGE_PROTOCOL_V2.TERMINAL.DELIVERED };
   const timeoutMs = opts.timeoutMs ?? HTTP_INGEST_DEFAULTS.requestTimeoutMs;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetchWithRetry(u.toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildAuthHeaders(token),
       body: JSON.stringify(body),
       signal: controller.signal,
     }, {
@@ -365,3 +309,4 @@ export {
   getOutbox,
   ackOutbox,
 };
+

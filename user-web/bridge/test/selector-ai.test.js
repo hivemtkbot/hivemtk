@@ -1,8 +1,3 @@
-// selector-ai 单元测试：选择器配置中心（纯规则，无 LLM）
-//
-// 设计（用户诉求）：去掉 LLM 抽取结构逻辑，改回「人工配置选择器」——
-// 开发者从 DevTools 识别 HTML 关键 class，填写进 popup 配置（chrome.storage/localStorage），
-// 扩展运行时用户配置优先、渠道默认 SEL 兜底。无需发版、无云端依赖。
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   mergeSelectors,
@@ -25,7 +20,7 @@ const FB = {
 };
 
 beforeEach(() => {
-  try { localStorage.removeItem(SELECTOR_CONFIG_KEY); } catch (_) { /* noop */ }
+  try { localStorage.removeItem(SELECTOR_CONFIG_KEY); } catch (_) {  }
   clearExtractorResultCache(CHANNEL);
 });
 
@@ -47,15 +42,12 @@ describe('mergeSelectors 纯规则合并', () => {
       },
     });
     const m = mergeSelectors(CHANNEL, FB);
-    // 用户配置在前
     expect(m.itemSelectors[0]).toBe('.xhs-im-msg-item');
     expect(m.itemSelectors[1]).toBe('.chat-item');
-    // 规则兜底在后
     expect(m.itemSelectors).toContain('.bubble');
     expect(m.listSelectors[0]).toBe('.xhs-im-msg-list');
     expect(m.inputSelectors[0]).toBe('div.xhs-im-input-bar-editor[contenteditable]');
     expect(m.sendSelectors[0]).toBe('.xhs-im-send');
-    // 未填字段仍用默认
     expect(m.textSelectors).toEqual(['.text']);
   });
 
@@ -77,7 +69,7 @@ describe('mergeSelectors 纯规则合并', () => {
   it('清空配置后回退默认（删除存储键）', async () => {
     await saveSelectors({ [CHANNEL]: { messageItem: '.custom-item' } });
     expect(mergeSelectors(CHANNEL, FB).itemSelectors[0]).toBe('.custom-item');
-    try { localStorage.removeItem(SELECTOR_CONFIG_KEY); } catch (_) { /* noop */ }
+    try { localStorage.removeItem(SELECTOR_CONFIG_KEY); } catch (_) {  }
     clearExtractorResultCache(CHANNEL);
     expect(mergeSelectors(CHANNEL, FB).itemSelectors[0]).toBe('[data-e2e="msg-item-content"]');
   });
@@ -92,7 +84,7 @@ describe('选择器配置持久化', () => {
   });
 
   it('无配置 → getCustomSelectors 返回 null', () => {
-    try { localStorage.removeItem(SELECTOR_CONFIG_KEY); } catch (_) { /* noop */ }
+    try { localStorage.removeItem(SELECTOR_CONFIG_KEY); } catch (_) {  }
     clearExtractorResultCache(CHANNEL);
     expect(getCustomSelectors(CHANNEL)).toBeNull();
   });
@@ -106,3 +98,4 @@ describe('选择器配置持久化', () => {
     expect(SELECTOR_FIELDS).toContain('send');
   });
 });
+

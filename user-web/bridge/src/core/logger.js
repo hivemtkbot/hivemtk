@@ -1,15 +1,3 @@
-// 轻量日志（按频道着色，便于真机校准时排查）
-//
-// 默认参数：MAX_LOG_CHARS = SECURITY.logMaskMaxChars（见 constants.js / DEFAULTS.md）
-//   - 调整后仅改 constants.js 即可
-//
-// 2026-08-05 修复：debug 默认静默。
-//   根因：Chrome DevTools 默认显示 console.debug（需手动切到 Info 级别才隐藏），
-//   导致巡检/回填抑制等高频路径降级为 debug 后仍刷屏（一分钟上万次）。
-//   修复：
-//   1. debug 默认 no-op（不打印任何东西）
-//   2. 仅当 localStorage 设置 `hivebridge:verbose` = "1" 时才真正输出
-//   3. 这样生产/真机现场默认安静，开发调试时一行 localStorage 即可开启
 import { SECURITY } from './constants.js';
 
 const COLORS = {
@@ -76,7 +64,6 @@ export function createLogger(tag, channel) {
   const prefix = `%c[bridge:${tag}]`;
   const style = `color:${color};font-weight:bold`;
   return {
-    // debug 默认静默：仅 verbose 标志开启时才输出（避免 Chrome DevTools 默认显示 console.debug 刷屏）
     debug: (...a) => {
       if (!isVerboseEnabled()) return;
       console.debug(prefix, style, ...sanitizeArgs(a));
@@ -86,3 +73,4 @@ export function createLogger(tag, channel) {
     error: (...a) => console.error(prefix, style, ...sanitizeArgs(a)),
   };
 }
+

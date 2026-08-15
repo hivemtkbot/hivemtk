@@ -1,7 +1,3 @@
-// sanitize 工具测试
-//   - 覆盖 escapeHTML 字符替换
-//   - 覆盖 sanitizeForDisplay 控制字符剥离 + 长度截断
-//   - 覆盖 safeSetValue/safeSetContent 入口可被 mock 节点调用
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { escapeHTML, sanitizeForDisplay, safeSetValue, safeSetContent } from '../src/core/sanitize.js';
 
@@ -45,7 +41,6 @@ describe('sanitize / safeSetValue', () => {
       value: 'old',
       dispatchEvent: vi.fn(),
     };
-    // mock HTMLTextAreaElement.prototype.value setter
     Object.defineProperty(globalThis, 'HTMLTextAreaElement', {
       value: { prototype: { value: {} } },
       writable: true,
@@ -62,7 +57,6 @@ describe('sanitize / safeSetValue', () => {
       set: (v) => { el.value = v; },
     });
     safeSetValue(el, 'hello\u0000world');
-    // sanitizeForDisplay 去掉了 \u0000
     expect(el.value).toBe('helloworld');
     expect(el.dispatchEvent).toHaveBeenCalled();
   });
@@ -101,8 +95,6 @@ describe('sanitize / safeSetContent', () => {
       set: (v) => { assigned = v; },
     });
     safeSetContent(el, '<img src=x onerror=alert(1)>');
-    // sanitizeForDisplay 只剥离控制字符 + 限制长度，不做 HTML escape；
-    // 真正的 XSS 防护来自 textContent 注入（不解析 HTML）
     expect(assigned).toBe('<img src=x onerror=alert(1)>');
     expect(el.dispatchEvent).toHaveBeenCalled();
   });
@@ -110,3 +102,4 @@ describe('sanitize / safeSetContent', () => {
     expect(() => safeSetContent(null, 'x')).not.toThrow();
   });
 });
+

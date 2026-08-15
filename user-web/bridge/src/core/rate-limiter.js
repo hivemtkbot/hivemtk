@@ -1,13 +1,3 @@
-// 限速器 + 风控（防封号）
-//
-// 设计动机（详见 bridge.md §17.3）：平台对自动化回复极敏感，盲目高频回写会触发风控。
-// 策略分三层，全部在“回写网页（最贴近平台）之前”拦截：
-//   1) 拟人节奏：发送前随机等待 jitter，并强制任意两次下行的最小间隔 minIntervalMs。
-//   2) Token 桶：单账号每分钟容量上限；单会话每小时上限。
-//   3) 防回环/去重：同会话冷却期内不重复回复；相同文案去重窗口内不重复发送。
-//
-// 所有上限均为“软失败”：超限时本次下行被丢弃并记录原因，等待下次调度，绝不堆积重试。
-// 所有默认参数从 ./constants.js 单源导入（见 docs/bridge/DEFAULTS.md），禁止就地写死。
 
 import { RATE_LIMIT_DEFAULTS } from './constants.js';
 
@@ -28,7 +18,6 @@ class TokenBucket {
     }
     return false;
   }
-  // 预计多少毫秒后至少有 1 个 token
   retryAfterMs() {
     if (this.tokens >= 1) return 0;
     return Math.ceil((1 - this.tokens) / this.refillPerMs);
@@ -41,21 +30,38 @@ function hashStr(s) {
   return (h >>> 0).toString(36);
 }
 
+// 2026-08-15 P1-F：桶上限与 TTL（LRU 淘汰阈值）
+const ACCOUNT_BUCKETS_MAX = 200;
+const CONV_BUCKETS_MAX = 1000;
+const CONV_BUCKETS_TTL_MS = 30 * 24 * 3600 * 1000;
+
 export class RateLimiter {
   constructor(cfg = {}) {
     this.cfg = { ...RATE_LIMIT_DEFAULTS, ...cfg };
-    this.accountBuckets = new Map();   // channel:account -> TokenBucket
-    this.convBuckets = new Map();      // channel:account:conv -> {bucket, hourly:[ts...], lastSentAt, lastHash}
+    this.accountBuckets = new Map();   
+    this.convBuckets = new Map();      
     this.lastGlobalSendAt = 0;
   }
 
   _accountKey(channel, account) { return `${channel}:${account}`; }
   _convKey(channel, account, conv) { return `${channel}:${account}:${conv || '_'}`; }
 
+  // Map 的 delete+re-set 把 key 移到队尾 = 标记为最近访问（LRU）。
+  _touch(map, key) {
+    if (map.has(key)) {
+      const v = map.get(key);
+      map.delete(key);
+      map.set(key, v);
+    }
+  }
+
   _accountBucket(channel, account) {
     const k = this._accountKey(channel, account);
     if (!this.accountBuckets.has(k)) {
       this.accountBuckets.set(k, new TokenBucket(this.cfg.accountCapacity, this.cfg.accountRefillPerMin));
+      this._evictIfNeeded();
+    } else {
+      this._touch(this.accountBuckets, k);
     }
     return this.accountBuckets.get(k);
   }
@@ -69,13 +75,56 @@ export class RateLimiter {
         lastSentAt: 0,
         lastHash: '',
         lastHashAt: 0,
+        lastAccessAt: Date.now(),
       });
+      this._evictIfNeeded();
+    } else {
+      const cs = this.convBuckets.get(k);
+      cs.lastAccessAt = Date.now();
+      this._touch(this.convBuckets, k);
     }
     return this.convBuckets.get(k);
   }
 
-  // 尝试获取一次下行许可。返回 { allowed, reason, retryAfterMs, waitHintMs }
-  // waitHintMs：建议发送前等待的拟人延迟（jitter + 最小间隔），调用方 await 后再真正回写。
+  // P1-F：accountBuckets 超 200 → LRU 淘汰最久未访问；
+  // convBuckets 超 1000 → 先按 TTL（30 天未访问）淘汰，再 LRU。
+  _evictIfNeeded() {
+    while (this.accountBuckets.size > ACCOUNT_BUCKETS_MAX) {
+      const oldest = this.accountBuckets.keys().next().value;
+      if (oldest === undefined) break;
+      this.accountBuckets.delete(oldest);
+    }
+    if (this.convBuckets.size > CONV_BUCKETS_MAX) {
+      const now = Date.now();
+      for (const [k, cs] of this.convBuckets) {
+        if (now - (cs.lastAccessAt || 0) > CONV_BUCKETS_TTL_MS) this.convBuckets.delete(k);
+      }
+    }
+    while (this.convBuckets.size > CONV_BUCKETS_MAX) {
+      const oldest = this.convBuckets.keys().next().value;
+      if (oldest === undefined) break;
+      this.convBuckets.delete(oldest);
+    }
+  }
+
+  // P1-F：暴露桶统计（账户桶/会话桶数量 + 上限 + TTL），供状态面板与巡检诊断。
+  bucketStats() {
+    return {
+      accountBuckets: this.accountBuckets.size,
+      accountBucketsMax: ACCOUNT_BUCKETS_MAX,
+      convBuckets: this.convBuckets.size,
+      convBucketsMax: CONV_BUCKETS_MAX,
+      convBucketsTtlMs: CONV_BUCKETS_TTL_MS,
+    };
+  }
+
+  // 测试/自检辅助：清空所有状态
+  __reset() {
+    this.accountBuckets.clear();
+    this.convBuckets.clear();
+    this.lastGlobalSendAt = 0;
+  }
+
   tryAcquire(channel, account, conversation, text) {
     const now = Date.now();
     const reasons = [];
@@ -114,7 +163,6 @@ export class RateLimiter {
     }
 
     if (reasons.length || !accountOk || !convOk || !cooldownOk || !dedupOk) {
-      // 退款已扣的桶（本次未真正发送）
       if (accountOk) ab.tokens = Math.min(ab.capacity, ab.tokens + 1);
       if (convOk) cs.bucket.tokens = Math.min(cs.bucket.capacity, cs.bucket.tokens + 1);
       return {
@@ -133,7 +181,6 @@ export class RateLimiter {
     return { allowed: true, reason: 'ok', retryAfterMs: 0, waitHintMs: Math.round(waitHintMs) };
   }
 
-  // 真正发送成功后登记（调用方在回写网页成功后调用）
   markSent(channel, account, conversation, text) {
     const now = Date.now();
     this.lastGlobalSendAt = now;
@@ -146,3 +193,4 @@ export class RateLimiter {
     }
   }
 }
+

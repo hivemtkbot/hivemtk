@@ -1,4 +1,3 @@
-// 协议对齐测试：证明扩展端帧/字段与服务端 frames.go 严格一致（需求③ 论证）。
 import { describe, it, expect } from 'vitest';
 import { FRAME, makeUnifiedMessage, parseUnifiedReply, SENDER, DIRECTION, RATE_LIMIT_DEFAULTS } from '../src/core/types.js';
 
@@ -21,14 +20,14 @@ describe('makeUnifiedMessage 字段对齐 UnifiedMessage', () => {
       event_id: 'M1', sender_type: SENDER.CUSTOMER, content: '你好',
       timestamp: 1700000000000,
     });
-    expect(m.content).toBe('你好');      // 服务端读 Content
-    expect(m.event_id).toBe('M1');        // 服务端读 EventID
-    expect(m.sender_id).toBe('C1');       // 客户消息 sender_id = conversation_id
+    expect(m.content).toBe('你好');      
+    expect(m.event_id).toBe('M1');        
+    expect(m.sender_id).toBe('C1');       
     expect(m.channel).toBe('douyin_web');
     expect(m.account_id).toBe('A1');
     expect(m.conversation_id).toBe('C1');
     expect(m.timestamp).toBe(1700000000000);
-    expect(m.text).toBeUndefined();       // 不应出现旧字段
+    expect(m.text).toBeUndefined();       
     expect(m.message_id).toBeUndefined();
   });
 
@@ -60,3 +59,4 @@ describe('默认风控参数存在', () => {
     }
   });
 });
+

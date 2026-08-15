@@ -1,11 +1,3 @@
-// 抖音私信「全量遍历同步」单测（对应需求：一个私信=一个会话=统一收信中心一条记录；遍历所有私信上报）
-//
-// 覆盖：
-//   1. douyin.getConversationList()：从会话列表 DOM 枚举出 [{ id, name, el }]，id 取自 /user/<id> 链接
-//   2. BaseAdapter.syncAllConversations()：逐个点击 → 等待线程渲染 → 回填历史 → 持久化续传
-//      - 每个会话触发一次历史回填（统一收信中心一条记录）
-//      - 已同步集合生效，二次调用不再重复回填
-//      - 无 getConversationList 钩子时安全回退
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BaseAdapter } from '../src/core/channel-adapter.js';
 import { SENDER, DIRECTION, CHANNELS } from '../src/core/types.js';
@@ -60,7 +52,7 @@ describe('douyin.getConversationList 枚举会话列表', () => {
     const self = makeVisible(document.createElement('div'));
     self.setAttribute('data-e2e', 'conversation-item');
     const a = document.createElement('a');
-    a.href = '/user/self'; // 占位，忽略
+    a.href = '/user/self'; 
     self.appendChild(a);
     wrapper.appendChild(self);
     document.body.appendChild(wrapper);
@@ -77,7 +69,7 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
 
   // 模拟「点击会话项 → 活动会话变为该会话」的 DOM 行为
   function buildAdapter(convList, clickSpy) {
-    let currentActive = null; // 初始不在任何会话
+    let currentActive = null; 
     const hooks = {
       match: () => true,
       getAccountId: () => 'acc1',
@@ -90,11 +82,10 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
         message_id: 'm-' + Math.random(),
         timestamp: Date.now(),
       }),
-      extractMessages: () => null, // 强制走选择器路径
+      extractMessages: () => null, 
       getConversationList: () => convList,
     };
     const adapter = new BaseAdapter({ name: 'test', channel: 'douyin_web', SEL: {}, hooks });
-    // 点击会话项时切换 currentActive（真实 DOM 中点击会打开线程）
     convList.forEach((conv) => {
       conv.el.addEventListener('click', () => {
         currentActive = conv.id;
@@ -116,11 +107,9 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
     expect(result.synced).toBe(3);
     expect(result.failures).toBe(0);
     expect(clickSpy).toHaveBeenCalledTimes(3);
-    // 每个会话回填一次历史 → 统一收信中心 3 条记录（纯桥接：统一走 onMessage）
     expect(onMessage).toHaveBeenCalledTimes(3);
     const ids = onMessage.mock.calls.map((c) => c[0].conversation_id);
     expect(ids).toEqual(expect.arrayContaining(['MS4wA1', 'MS4wB2', 'MS4wC3']));
-    // 客户消息回填方向（纯桥接：direction 字段在消息对象上，是否触发 AI 由后端判断）→ inbound
     expect(onMessage.mock.calls[0][0].direction).toBe(DIRECTION.INBOUND);
   });
 
@@ -146,7 +135,7 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
     const hooks = {
       match: () => true,
       getAccountId: () => 'acc1',
-      getConversationId: () => 'SAME', // 点击前后活动会话不变 → 触发跳过分支（不走 5s 等待）
+      getConversationId: () => 'SAME', 
       getMessageRoot: () => null,
       getMessageItems: () => [],
       parseMessageItem: () => ({ sender_type: SENDER.CUSTOMER, text: 'x', message_id: 'm', timestamp: 1 }),
@@ -170,7 +159,7 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
     const hooks = {
       match: () => true,
       getAccountId: () => 'acc1',
-      getConversationId: () => 'MS4wA1', // 活动会话恒为列表首项
+      getConversationId: () => 'MS4wA1', 
       getMessageRoot: () => null,
       getMessageItems: () => [makeVisible(document.createElement('div'))],
       parseMessageItem: () => ({
@@ -187,7 +176,7 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
     adapter.callbacks.onMessage = onMessage;
 
     const r = await adapter.syncAllConversations({ throttleMs: 1 });
-    expect(r.synced).toBe(1); // 已打开会话正常回填，不算失败
+    expect(r.synced).toBe(1); 
     expect(r.failures).toBe(0);
     expect(onMessage).toHaveBeenCalledTimes(1);
     expect(onMessage.mock.calls[0][0].conversation_id).toBe('MS4wA1');
@@ -205,7 +194,7 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
     const hooks = {
       match: () => true,
       getAccountId: () => 'acc1',
-      getConversationId: () => current, // 初始 null → 点击后变为 data-* 形式 id
+      getConversationId: () => current, 
       getMessageRoot: () => null,
       getMessageItems: () => [makeVisible(document.createElement('div'))],
       parseMessageItem: () => ({
@@ -218,7 +207,6 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
       getConversationList: () => convList,
     };
     const adapter = new BaseAdapter({ name: 'test', channel: 'douyin_web', SEL: {}, hooks });
-    // 点击后 getConversationId 返回 data-* 形式（与列表链接 id 不同）
     convList.forEach((conv) => {
       conv.el.addEventListener('click', () => { current = 'total-' + conv.id.replace('MS4w', ''); });
     });
@@ -228,8 +216,8 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
     const r1 = await adapter.syncAllConversations({ throttleMs: 1 });
     expect(r1.synced).toBe(2);
     expect(r1.failures).toBe(0);
-    expect(adapter._syncedConvIds.has('MS4wA1')).toBe(true); // conv.id 也被记录
-    expect(adapter._syncedConvIds.has('total-A1')).toBe(true); // realCid 也被记录
+    expect(adapter._syncedConvIds.has('MS4wA1')).toBe(true); 
+    expect(adapter._syncedConvIds.has('total-A1')).toBe(true); 
 
     // 二次调用：无论按 conv.id 还是 realCid 过滤都不重复回填
     const r2 = await adapter.syncAllConversations({ throttleMs: 1 });
@@ -272,7 +260,7 @@ describe('openConversation / sendOutbound 目标会话切换（左侧找用户�
 
   it('openConversation：目标会话≠当前时，点击左侧列表项并切到目标', async () => {
     const convList = [makeConvItem('a1', '张三'), makeConvItem('b2', '李四')];
-    const { adapter } = buildCtx(convList, 'a1'); // 当前在 a1
+    const { adapter } = buildCtx(convList, 'a1'); 
     const opened = await adapter.openConversation('b2', { waitActiveMs: 100 });
     expect(opened).toBe('b2');
   });
@@ -296,7 +284,7 @@ describe('openConversation / sendOutbound 目标会话切换（左侧找用户�
     const { adapter } = buildCtx(convList, 'a1');
     const ok = await adapter.sendOutbound('您好，请问有什么可以帮您？', 'b2');
     expect(ok.ok).toBe(true);
-    expect(adapter.getConversationId()).toBe('b2'); // 已切到目标会话
+    expect(adapter.getConversationId()).toBe('b2'); 
     expect(adapter.hooks.sendText).toHaveBeenCalledWith('您好，请问有什么可以帮您？');
   });
 
@@ -316,3 +304,4 @@ describe('openConversation / sendOutbound 目标会话切换（左侧找用户�
     expect(adapter.hooks.sendText).toHaveBeenCalledWith('在的');
   });
 });
+

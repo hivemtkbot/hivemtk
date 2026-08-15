@@ -1,11 +1,11 @@
-# ESLint v9 flat config（2026-08-15 P0-CI：开启前端 ESLint）
-#
-# 目标：
-#   - 在 CI 中阻断明显错误（no-undef / no-unused-vars / no-empty）
-#   - 风格约束宽松（与既有 ESM 写法兼容，不强制 import order 等过度规则）
-#   - 不阻断开发（缺依赖时降级为 warn）
-#
-# 规则集：eslint:recommended 基础 + 适配 ESM/Node 环境
+// ESLint v9 flat config（2026-08-15 P0-CI：开启前端 ESLint）
+//
+// 目标：
+//   - 在 CI 中阻断明显错误（no-undef / no-unused-vars / no-empty）
+//   - 风格约束宽松（与既有 ESM 写法兼容，不强制 import order 等过度规则）
+//   - 不阻断开发（缺依赖时降级为 warn）
+//
+// 规则集：eslint:recommended 基础 + 适配 ESM/Node 环境
 import js from '@eslint/js';
 import globals from 'globals';
 
@@ -43,7 +43,13 @@ export default [
     rules: {
       // 安全红线
       'no-undef': 'error',
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        // eslint:recommended 默认 caughtErrors: 'all'，显式忽略 `catch (_)` 占位参数
+        caughtErrorsIgnorePattern: '^_',
+        caughtErrors: 'all',
+      }],
       'no-empty': ['error', { allowEmptyCatch: true }],
       'no-constant-condition': ['error', { checkLoops: false }],
       'no-prototype-builtins': 'off',

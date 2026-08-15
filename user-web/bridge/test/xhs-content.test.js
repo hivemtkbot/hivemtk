@@ -1,15 +1,8 @@
-// xhs 消息解析与噪音过滤单测（对齐 douyin 的能力边界）
-// 覆盖：
-//   1. parseMessageItem 消息类型提取：文本 / 卡片(笔记) / 图片 / 语音 / 撤回 / 聚光系统消息
-//   2. 自/他判定（2026-08-06 已废弃：前端不再计算 self/other，统一 customer；后端权威重判）
-//   3. 噪音过滤：会话列表项 .sx-contact-item 绝不当聊天内容解析
-//   4. 头像图不误判为消息图片（每条私信都带发送者头像）
 import { describe, it, expect, beforeEach } from 'vitest';
 import { buildXhsAdapter } from '../src/channels/xhs.js';
 
 function setup(activeContact = true) {
   const adapter = buildXhsAdapter();
-  // 固定活动会话：让 parseMessageItem 的 conversation_id 兜底稳定
   if (activeContact) {
     const c = document.createElement('div');
     c.className = 'sx-contact-item active';
@@ -77,10 +70,8 @@ describe('xhs parseMessageItem 消息类型提取', () => {
   it('撤回消息 → msg_type=system, sender_type=system（不再触发 AI）', () => {
     const a = setup();
     const parsed = a.parseMessageItem(msgItem('<div class="left"><div class="text-message">撤回了一条消息</div></div>'));
-    // 2026-08-05 修复：撤回消息统一标记为 system 类型，sender_type=system
     expect(parsed.msg_type).toBe('system');
     expect(parsed.sender_type).toBe('system');
-    // msg_id 兜底应为 sys:${text}，不依赖 textContent.length / Date.now()
     expect(parsed.message_id).toBe('sys:撤回了一条消息');
     expect(parsed.media_url).toBe('');
   });
@@ -92,7 +83,6 @@ describe('xhs parseMessageItem 消息类型提取', () => {
     );
     expect(parsed.msg_type).toBe('system');
     expect(parsed.sender_type).toBe('system');
-    // extractMessageContent 的 text 取自 .text-message 元素 = "你好"
     expect(parsed.text).toBe('你好');
     expect(parsed.message_id).toBe(`sys:${parsed.text}`);
   });
@@ -121,8 +111,6 @@ describe('xhs parseMessageItem 消息类型提取', () => {
 });
 
 describe('xhs 系统消息 msg_id 跨轮询稳定性', () => {
-  // 2026-08-05 修复回归测试：同一 DOM 系统消息节点每轮扫描应生成相同 message_id，
-  // 后端 GetByMsgID 才能正确幂等去重，避免「无新消息仍不断回复 AI」的根因复发。
   it('同一系统消息 DOM 节点两次解析 → message_id 完全相同', () => {
     const a = setup();
     const el = msgItem('<div class="left"><div class="source-tip">来自聚光</div><div class="text-message">你好</div></div>');
@@ -138,9 +126,8 @@ describe('xhs 系统消息 msg_id 跨轮询稳定性', () => {
     const a = setup();
     const el = msgItem('<div class="left"><div class="source-tip">来自聚光</div><div class="text-message">你好</div></div>');
     const parsed = a.parseMessageItem(el);
-    // message_id 应为 sys:${text}，不应包含纯数字串（Date.now）或数字后缀
     expect(parsed.message_id).toMatch(/^sys:/);
-    expect(parsed.message_id).not.toMatch(/\d{10,}/); // 不含 unix timestamp
+    expect(parsed.message_id).not.toMatch(/\d{10,}/); 
   });
 
   it('不同文本的系统消息 → message_id 不同（避免误合并）', () => {
