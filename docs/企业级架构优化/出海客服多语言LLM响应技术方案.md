@@ -343,7 +343,11 @@ type Glossary struct {
 **实现方式**：内部工具的 prompt 模板提取为 `InternalLangPromptTemplate`，运行时根据 `ctx.Value(ctxKeyInternalLang)` 选择语言版本。
 
 ```go
-// internal/aiagent/agent/runtime/prompt_templates.go
+// 2026-08-15 标记: 本文件 (prompt_templates.go) 已于 358c618 删除
+// 原因: 0 代码引用, 未来多语言扩展点 (commit 358c618)
+// 如需恢复, 需重新评估"内部工具多语言化"是否进入当前路线图
+
+// internal/aiagent/agent/runtime/prompt_templates.go (已删除)
 
 // InternalLangPromptTemplate 内部工具 prompt 模板（按 internal_language 渲染）
 // 每个内部工具提供多语言版本，由 internal_language 选择
