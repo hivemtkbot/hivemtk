@@ -197,7 +197,11 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	}
 	tk, err := s.getAccessToken(ctx, acc)
 	if err != nil {
-		return fmt.Errorf("get access token: %w", err)
+		// v3 审计 P3-40 修复：不要把飞书原始 msg 透传
+		// 原：fmt.Errorf("get access token: %w", err) → err 含飞书 app_id/租户名/IP
+		// 新：仅 log 详细 + 返回通用 error
+		logger.Errorf("[feishu] 拉 token 失败（accountID=%d）: %v", accountID, err)
+		return errors.New("get feishu access token failed")
 	}
 	idType := receiveIDType
 	if idType == "" {
