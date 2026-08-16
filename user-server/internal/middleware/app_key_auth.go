@@ -71,15 +71,14 @@ func AppKeyResolve(resolver ChatChannelResolver) gin.HandlerFunc {
 
 		channel, err := resolver.ResolveByChannelID(c.Request.Context(), channelID)
 		if err != nil {
-			placeholder := &ChatChannelView{
-				ChannelID:   channelID,
-				ChannelName: channelID,
-				Status:      "active",
-				Active:      true,
-			}
-			c.Set("chat_channel", placeholder)
-			c.Set("chat_channel_id", channelID)
-			c.Next()
+			// v3 审计 P0-02 修复：渠道解析失败必须拒绝而非伪造放行
+			// 防止攻击者通过任意 X-Chat-Channel-Id 注入 channel 上下文
+			// 绕过按 channel 维度做的限流 / 风控 / 归属统计
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"code":    401,
+				"message": "渠道未配置或不可用: " + channelID,
+			})
+			c.Abort()
 			return
 		}
 

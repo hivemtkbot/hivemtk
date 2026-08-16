@@ -2,7 +2,9 @@ package service
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
@@ -12,14 +14,31 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"context"
 )
 
 // BackupService 备份服务
 type BackupService struct {
 	backupRepo     *repository.BackupRepository
 	backupDataRepo repository.BackupDataRepository
+}
+
+// validateBackupName 校验 backup_name 仅允许 [A-Za-z0-9_-]+
+// v3 审计 P0-06 修复：防止路径穿越
+func validateBackupName(name string) error {
+	if name == "" {
+		return errors.New("backup_name 不能为空")
+	}
+	if len(name) > 128 {
+		return errors.New("backup_name 长度不能超过 128")
+	}
+	for _, c := range name {
+		isSafe := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+			(c >= '0' && c <= '9') || c == '_' || c == '-'
+		if !isSafe {
+			return fmt.Errorf("backup_name 包含非法字符 %q（仅允许 [A-Za-z0-9_-]）", c)
+		}
+	}
+	return nil
 }
 
 // NewBackupService 创建备份服务实例
@@ -51,6 +70,11 @@ func (s *BackupService) CreateBackup(ctx context.Context, createdBy uint, req *C
 	}
 	if backup.BackupName == "" {
 		backup.BackupName = fmt.Sprintf("backup_%s", time.Now().Format("20060102_150405"))
+	}
+	// v3 审计 P0-06 修复：校验 backup_name 防止路径穿越
+	// 风险：传 "../../etc/cron.d/evil" 可写到任意目录
+	if err := validateBackupName(backup.BackupName); err != nil {
+		return nil, err
 	}
 
 	if err := s.backupRepo.Create(ctx, backup); err != nil {
@@ -179,12 +203,14 @@ func (s *BackupService) exportData(ctx context.Context) ([]byte, error) {
 		return nil, err
 	}
 
-	users, err := s.backupDataRepo.DumpUsers(ctx, 1000)
+	// v3 审计 P0-07 修复：分页全量 dump，不再 1000 硬上限
+	// 原：DumpUsers(ctx, 1000) / DumpShortLinks(ctx, 1000) → 超过 1000 静默丢失
+	users, err := s.dumpAllUsers(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	links, err := s.backupDataRepo.DumpShortLinks(ctx, 1000)
+	links, err := s.dumpAllShortLinks(ctx)
 	if err != nil {
 		links = []byte("[]")
 	}
@@ -214,6 +240,61 @@ func rawMessage(b []byte) json.RawMessage {
 		return json.RawMessage("[]")
 	}
 	return json.RawMessage(b)
+}
+
+// backupPageSize 备份分页大小（v3 审计 P0-07 修复）
+const backupPageSize = 1000
+
+// dumpAllUsers 分页全量 dump users
+func (s *BackupService) dumpAllUsers(ctx context.Context) ([]byte, error) {
+	var all []json.RawMessage
+	for offset := 0; ; offset += backupPageSize {
+		batch, err := s.backupDataRepo.DumpUsers(ctx, backupPageSize, offset)
+		if err != nil {
+			return nil, err
+		}
+		var arr []json.RawMessage
+		if err := json.Unmarshal(batch, &arr); err != nil {
+			return nil, fmt.Errorf("unmarshal users batch: %w", err)
+		}
+		if len(arr) == 0 {
+			break
+		}
+		all = append(all, arr...)
+		if len(arr) < backupPageSize {
+			break
+		}
+	}
+	if all == nil {
+		return []byte("[]"), nil
+	}
+	return json.Marshal(all)
+}
+
+// dumpAllShortLinks 分页全量 dump short_links
+func (s *BackupService) dumpAllShortLinks(ctx context.Context) ([]byte, error) {
+	var all []json.RawMessage
+	for offset := 0; ; offset += backupPageSize {
+		batch, err := s.backupDataRepo.DumpShortLinks(ctx, backupPageSize, offset)
+		if err != nil {
+			return nil, err
+		}
+		var arr []json.RawMessage
+		if err := json.Unmarshal(batch, &arr); err != nil {
+			return nil, fmt.Errorf("unmarshal short_links batch: %w", err)
+		}
+		if len(arr) == 0 {
+			break
+		}
+		all = append(all, arr...)
+		if len(arr) < backupPageSize {
+			break
+		}
+	}
+	if all == nil {
+		return []byte("[]"), nil
+	}
+	return json.Marshal(all)
 }
 
 // jsonArrayLen 粗略统计 JSON 数组内元素数量(用于 stats 统计)

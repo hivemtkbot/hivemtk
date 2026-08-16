@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 	"hivemtk-user/internal/identity"
 	"hivemtk-user/internal/model"
@@ -215,16 +216,32 @@ func (s *CustomerIdentityService) MergeByIdentity(ctx context.Context, identifie
 	}
 
 	primary := matchedCustomers[0]
-	for i := 1; i < len(matchedCustomers); i++ {
-		secondary := matchedCustomers[i]
-		if secondary.ID != primary.ID {
-			if err := s.customerSvc.MergeCustomers(ctx, primary.ID, secondary.ID); err != nil {
-				return nil, err
+	// v3 审计 P0-03 修复：外层加事务包整个 merge 循环
+	// 原：每个 MergeCustomers 独立事务，并发下两个请求互为 primary 导致"主-次-主"循环
+	// 新：在一个事务里串行 merge，失败回滚
+	if err := s.repo.WithTransaction(ctx, func(txCtx context.Context) error {
+		for i := 1; i < len(matchedCustomers); i++ {
+			secondary := matchedCustomers[i]
+			if secondary.ID != primary.ID {
+				if err := s.customerSvc.MergeCustomers(txCtx, primary.ID, secondary.ID); err != nil {
+					return err
+				}
 			}
 		}
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("merge customers tx: %w", err)
 	}
 
-	updatedPrimary, _ := s.repo.GetByID(ctx, primary.ID)
+	updatedPrimary, err := s.repo.GetByID(ctx, primary.ID)
+	// v3 审计 P0-04 修复：nil 解引用 panic
+	// 原：updatedPrimary, _ := s.repo.GetByID(...) 错误吞掉
+	if err != nil {
+		return nil, fmt.Errorf("get primary after merge: %w", err)
+	}
+	if updatedPrimary == nil {
+		return nil, fmt.Errorf("primary customer %s not found after merge", primary.ID)
+	}
 	s.updateCustomerIdentifiers(ctx, updatedPrimary, identifiers)
 	return updatedPrimary, s.repo.Update(ctx, updatedPrimary)
 }

@@ -13,16 +13,16 @@ import (
 // BackupDataRepository 备份数据仓储
 //
 // 用于 BackupService 跨表 dump / restore:
-//   - DumpClues:导出最近 24h 的线索
-//   - DumpUsers:导出最多 1000 个用户
-//   - DumpShortLinks:导出最多 1000 个短链
+//   - DumpClues:导出最近 sinceUnix 之后的线索
+//   - DumpUsers:导出 limit 个用户（从 offset 开始，用于分页全量 dump）
+//   - DumpShortLinks:导出 limit 个短链（从 offset 开始）
 //   - RestoreClue/RestoreUser/RestoreShortLink:按 ID 去重写入
 //
 // 五层架构合规:封装对多张表的直接访问,避免 service 层持有 *gorm.DB。
 type BackupDataRepository interface {
 	DumpClues(ctx context.Context, sinceUnix int64) (json.RawMessage, error)
-	DumpUsers(ctx context.Context, limit int) (json.RawMessage, error)
-	DumpShortLinks(ctx context.Context, limit int) (json.RawMessage, error)
+	DumpUsers(ctx context.Context, limit, offset int) (json.RawMessage, error)
+	DumpShortLinks(ctx context.Context, limit, offset int) (json.RawMessage, error)
 	ClueExists(ctx context.Context, id string) (bool, error)
 	RestoreClue(ctx context.Context, row map[string]any) error
 	UserExistsByUsername(ctx context.Context, username string) (bool, error)
@@ -67,8 +67,8 @@ func (r *backupDataRepo) DumpClues(ctx context.Context, sinceUnix int64) (json.R
 	return json.Marshal(rows)
 }
 
-// DumpUsers 导出最多 limit 个用户
-func (r *backupDataRepo) DumpUsers(ctx context.Context, limit int) (json.RawMessage, error) {
+// DumpUsers 导出 limit 个用户（v3 审计 P0-07 修复：分页支持）
+func (r *backupDataRepo) DumpUsers(ctx context.Context, limit, offset int) (json.RawMessage, error) {
 	type userRow struct {
 		ID       string `json:"id"`
 		Username string `json:"username"`
@@ -76,21 +76,21 @@ func (r *backupDataRepo) DumpUsers(ctx context.Context, limit int) (json.RawMess
 		Phone    string `json:"phone"`
 	}
 	var rows []userRow
-	if err := r.db.WithContext(ctx).Table("user").Limit(limit).Find(&rows).Error; err != nil {
+	if err := r.db.WithContext(ctx).Table("user").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	return json.Marshal(rows)
 }
 
-// DumpShortLinks 导出最多 limit 个短链
-func (r *backupDataRepo) DumpShortLinks(ctx context.Context, limit int) (json.RawMessage, error) {
+// DumpShortLinks 导出 limit 个短链（v3 审计 P0-07 修复：分页支持）
+func (r *backupDataRepo) DumpShortLinks(ctx context.Context, limit, offset int) (json.RawMessage, error) {
 	type row struct {
 		ID        uint   `json:"id"`
 		ShortCode string `json:"short_code"`
 		URL       string `json:"url"`
 	}
 	var rows []row
-	if err := r.db.WithContext(ctx).Table("short_links").Limit(limit).Find(&rows).Error; err != nil {
+	if err := r.db.WithContext(ctx).Table("short_links").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	return json.Marshal(rows)

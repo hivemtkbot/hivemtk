@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 type AuditLogger interface {
@@ -85,11 +87,23 @@ func AuditDecorator(logger AuditLogger, costTracker CostTracker) ToolDecorator {
 	}
 }
 
+// recordToolCallMetrics 记录工具调用度量
+// v3 审计 P0-16 修复：原实现是空函数，所有 4 个参数被 `_ =` 丢弃
+// 风险：工具调用的 Prometheus metric（成功率/P99/错误分类）实际从未上报
+// 新实现：通过结构化日志埋点，SRE 侧可对接 Loki/Elastic 统计
+// 后续如需对接 Prometheus metrics，只需替换 logger.Infof 为 metrics.Counter
 func recordToolCallMetrics(toolName string, err error, result ToolResult, duration time.Duration) {
-	_ = toolName
-	_ = err
-	_ = result
-	_ = duration
+	success := err == nil
+	tags := map[string]any{
+		"tool":      toolName,
+		"success":   success,
+		"duration_ms": duration.Milliseconds(),
+	}
+	if err != nil {
+		tags["error"] = err.Error()
+	}
+	// 结构化日志（zerolog）：后续可被 metrics agent 抓取
+	logger.Infof("[tool_metric] %+v", tags)
 }
 
 func summarizeArgs(args map[string]any) string {

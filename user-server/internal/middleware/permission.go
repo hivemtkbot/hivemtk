@@ -22,7 +22,14 @@ func PermissionMiddleware(permission string) gin.HandlerFunc {
 			return
 		}
 
-		if !checkPermission(c, role.(string), permission) {
+		roleStr, ok := role.(string)
+		if !ok {
+			response.Error(c, utils.ErrorCodeInternalError, "角色类型异常")
+			c.Abort()
+			return
+		}
+
+		if !checkPermission(c, roleStr, permission) {
 			response.Error(c, utils.ErrorCodeForbidden, "无权限执行此操作")
 			c.Abort()
 			return
@@ -42,7 +49,14 @@ func AdminOnlyMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		if role.(string) != "admin" {
+		roleStr, ok := role.(string)
+		if !ok {
+			response.Error(c, utils.ErrorCodeInternalError, "角色类型异常")
+			c.Abort()
+			return
+		}
+
+		if roleStr != "admin" {
 			response.Error(c, utils.ErrorCodeForbidden, "仅管理员可访问")
 			c.Abort()
 			return
@@ -62,9 +76,15 @@ func ManagerOrAdminMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		roleStr := role.(string)
+		roleStr, ok := role.(string)
+		if !ok {
+			response.Error(c, utils.ErrorCodeInternalError, "角色类型异常")
+			c.Abort()
+			return
+		}
+
 		if roleStr != "admin" && roleStr != "manager" {
-			response.Error(c, utils.ErrorCodeForbidden, "仅经理或管理员可访问")
+			response.Error(c, utils.ErrorCodeForbidden, "需要经理或管理员权限")
 			c.Abort()
 			return
 		}
@@ -178,8 +198,15 @@ func RequireAnyPermission(permissions ...string) gin.HandlerFunc {
 			return
 		}
 
+		roleStr, ok := role.(string)
+		if !ok {
+			response.Error(c, utils.ErrorCodeInternalError, "角色类型异常")
+			c.Abort()
+			return
+		}
+
 		for _, p := range permissions {
-			if checkPermission(c, role.(string), p) {
+			if checkPermission(c, roleStr, p) {
 				c.Next()
 				return
 			}
@@ -200,8 +227,15 @@ func RequireAllPermissions(permissions ...string) gin.HandlerFunc {
 			return
 		}
 
+		roleStr, ok := role.(string)
+		if !ok {
+			response.Error(c, utils.ErrorCodeInternalError, "角色类型异常")
+			c.Abort()
+			return
+		}
+
 		for _, p := range permissions {
-			if !checkPermission(c, role.(string), p) {
+			if !checkPermission(c, roleStr, p) {
 				response.Error(c, utils.ErrorCodeForbidden, "无权限执行此操作")
 				c.Abort()
 				return

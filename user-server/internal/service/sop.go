@@ -137,7 +137,10 @@ type CreateRequest = dto.CreateRequest
 func (s *SOPService) TemplateFromActiveAsset(ctx context.Context, scenario string) (*CreateRequest, bool) {
 	if r := GetAssetResolver(); r != nil {
 		if sop, ok := r.GetActiveSOP(ctx); ok && sop != nil {
-			return sop.ToCreateRequest(context.Background(), scenario), true
+			// v3 审计 P0-10 修复：保留 ctx 透传
+			// 原：return sop.ToCreateRequest(context.Background(), scenario), true
+			// 风险：trace_id 链路断裂，cancel 无法传播
+			return sop.ToCreateRequest(ctx, scenario), true
 		}
 	}
 	return nil, false
@@ -155,7 +158,8 @@ func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOP
 	if !req.ABTestConfig.Enabled && len(req.ABTestConfig.Variants) == 0 {
 		if r := GetAssetResolver(); r != nil {
 			if plan, ok := r.GetActiveABPlan(ctx); ok && plan != nil {
-				if cfg := plan.ToSOPABTestConfig(context.Background()); ValidateSOPABTestConfig(cfg) == nil {
+				// v3 审计 P0-10 修复：保留 ctx 透传
+				if cfg := plan.ToSOPABTestConfig(ctx); ValidateSOPABTestConfig(cfg) == nil {
 					req.ABTestConfig = cfg
 				}
 			}
@@ -583,6 +587,64 @@ func (s *SOPService) validateGraph(ctx context.Context, graph *SOPGraph) error {
 		}
 		if !ids[e.To] {
 			return fmt.Errorf("edge to missing node %s", e.To)
+		}
+	}
+	// v3 审计 P0-09 修复：DFS 环检测
+	// 原：只验证节点 ID 唯一 + 边终点存在 → 构造 A→B→A 死循环
+	// 风险：循环派发同一 ExecutionID，烧光 LLM 配额 + DoS
+	if err := detectSOPCycles(graph); err != nil {
+		return err
+	}
+	return nil
+}
+
+// detectSOPCycles DFS 三色标记检测 SOP 是否有环
+// v3 审计 P0-09 修复
+func detectSOPCycles(graph *SOPGraph) error {
+	const (
+		white = 0 // 未访问
+		gray  = 1 // DFS 栈中
+		black = 2 // 完成
+	)
+	color := make(map[string]int, len(graph.Nodes))
+	for _, n := range graph.Nodes {
+		color[n.ID] = white
+	}
+
+	// 构造邻接表：每个节点的 next + condition.next
+	adj := make(map[string][]string, len(graph.Nodes))
+	for _, n := range graph.Nodes {
+		nexts := append([]string{}, n.Next...)
+		if n.Type == SOPNodeTypeCondition {
+			for _, br := range n.Conditions {
+				nexts = append(nexts, br.Next)
+			}
+		}
+		adj[n.ID] = nexts
+	}
+
+	var dfs func(id string) error
+	dfs = func(id string) error {
+		color[id] = gray
+		for _, next := range adj[id] {
+			switch color[next] {
+			case gray:
+				return fmt.Errorf("SOP 存在环：%s -> %s（环检测拒绝保存）", id, next)
+			case white:
+				if err := dfs(next); err != nil {
+					return err
+				}
+			}
+		}
+		color[id] = black
+		return nil
+	}
+
+	for _, n := range graph.Nodes {
+		if color[n.ID] == white {
+			if err := dfs(n.ID); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -356,8 +357,14 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 
 	logger.Infof("[LLM] request: model=%s tools=%d tool_choice=%v messages=%d body_len=%d config_tools=%d config_toolchoice=%q",
 		config.Model, len(reqBody.Tools), reqBody.ToolChoice, len(messages), len(bodyBytes), len(config.Tools), config.ToolChoice)
-	if len(reqBody.Tools) > 0 {
-		os.WriteFile("/tmp/llm_with_tools.json", bodyBytes, 0644)
+	// v3 审计 P0-13 修复：删除 /tmp/llm_with_tools.json 调试落盘
+	// 风险：含 PII / 业务机密的对话上下文持久化到 /tmp 模式 0644
+	//       任何同主机用户可读、容器内不会自动清理
+	// 如需调试请用 LLM_DEBUG_DUMP_DIR 环境变量，且目录权限 0700
+	if debugDir := os.Getenv("LLM_DEBUG_DUMP_DIR"); debugDir != "" && len(reqBody.Tools) > 0 {
+		if err := os.MkdirAll(debugDir, 0700); err == nil {
+			_ = os.WriteFile(filepath.Join(debugDir, "llm_with_tools.json"), bodyBytes, 0600)
+		}
 	}
 
 	resp, err := s.callProvider(ctx, config, bodyBytes)
@@ -564,8 +571,11 @@ func (s *LLMService) ValidateConfig(config *LLMConfig) error {
 	if config.Model == "" {
 		return fmt.Errorf("model is required")
 	}
-	if config.MaxRetries <= 0 {
-		config.MaxRetries = 3
+	// v3 审计 P0-14 修复：不再覆盖 caller 设置的 MaxRetries
+	// 原行为：dispatcher 设 1 → ValidateConfig 改回 3 → 实际 3 × N_providers 次
+	// 新行为：caller 必须显式设置；≤0 视为"用默认 1"（dispatcher 默认）
+	if config.MaxRetries < 0 {
+		config.MaxRetries = 1
 	}
 	if config.RequestTimeout <= 0 {
 		config.RequestTimeout = 60

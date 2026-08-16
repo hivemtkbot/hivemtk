@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"hivemtk-user/internal/aiagent/llm"
 	"math"
-	"strings"
+	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 // Document 表示知识库中的文档
@@ -55,6 +56,9 @@ type RAGEngine struct {
 	documents map[string]*Document
 	chunks    []*Chunk
 	embedder  EmbedderInterface
+	// v3 审计 P0-19 修复：保护 documents/chunks 并发读写
+	// 原：AddDocuments/Search/DeleteDocument 全字段无锁 → fatal error: concurrent map read and map write
+	mu sync.RWMutex
 }
 
 // EmbedderInterface 嵌入器接口
@@ -203,6 +207,8 @@ func NewRAGEngineWithEmbedder(config *RAGConfig, embedder EmbedderInterface) *RA
 
 // AddDocuments 添加文档到知识库
 func (r *RAGEngine) AddDocuments(ctx context.Context, docs []Document) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for _, doc := range docs {
 		chunks := r.splitDocument(doc)
 
@@ -227,6 +233,7 @@ func (r *RAGEngine) splitDocument(doc Document) []*Chunk {
 
 	var chunks []*Chunk
 	start := 0
+	prevStart := -1
 
 	for start < len(content) {
 		end := start + r.config.ChunkSize
@@ -242,15 +249,27 @@ func (r *RAGEngine) splitDocument(doc Document) []*Chunk {
 			DocumentID: doc.ID,
 			Content:    content[start:actualEnd],
 			Metadata:   doc.Metadata,
-			TokenCount: len(strings.Fields(content[start:actualEnd])), 
+			// v3 审计 P0-20 修复：使用 rune 计数（中文友好）
+			// 原：len(strings.Fields(...)) 中文无空格整段算 1 个词
+			TokenCount: utf8.RuneCountInString(content[start:actualEnd]),
 		}
 
 		chunks = append(chunks, chunk)
 
-		start = actualEnd - r.config.ChunkOverlap
-		if start < actualEnd { 
-			start = actualEnd
+		// v3 审计 P0-17 修复：overlap 真正生效
+		// 原：start = actualEnd - overlap; if start < actualEnd { start = actualEnd }
+		//     (overlap > 0 时恒等，overlap 永远失效)
+		// 新：取 max(0, actualEnd - overlap)
+		newStart := actualEnd - r.config.ChunkOverlap
+		if newStart < 0 {
+			newStart = 0
 		}
+		// 防止死循环：如果新 start == 旧 start（overlap>=chunk size），强制推进
+		if newStart == start || newStart == prevStart {
+			newStart = actualEnd
+		}
+		prevStart = start
+		start = newStart
 	}
 
 	return chunks
@@ -274,6 +293,8 @@ func (r *RAGEngine) findSentenceBoundary(content string, start, suggestedEnd int
 
 // DeleteDocument 删除文档
 func (r *RAGEngine) DeleteDocument(ctx context.Context, docID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	delete(r.documents, docID)
 
 	newChunks := make([]*Chunk, 0, len(r.chunks))
@@ -292,6 +313,9 @@ func (r *RAGEngine) Search(ctx context.Context, query string, topK int) ([]Chunk
 	if topK <= 0 {
 		topK = r.config.MaxChunksToRetrieve
 	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	queryEmbedding, err := r.embedder.EmbedQuery(query)
 	if err != nil {

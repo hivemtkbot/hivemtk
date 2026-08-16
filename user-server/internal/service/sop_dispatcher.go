@@ -59,7 +59,7 @@ type SOPExecutionDispatcher struct {
 	eventRepo   *repository.SOPExecEventRepository
 	msgRepo     *repository.SessionMessageRepository
 	sessionRepo *repository.CustomerSessionRepository
-	sopService  *SOPService 
+	sopService  *SOPService
 
 	dispatchQueue chan *dispatchTask
 	workerCount   int
@@ -71,6 +71,39 @@ type SOPExecutionDispatcher struct {
 	stopCh  chan struct{}
 	runMu   sync.Mutex
 	running bool
+
+	// v3 审计 P0-12 修复：跟踪所有重试 timer 以便 Stop 时全部释放
+	retryTimersMu sync.Mutex
+	retryTimers   map[*time.Timer]struct{}
+}
+
+// registerRetryTimer 注册 timer（v3 审计 P0-12 修复）
+func (d *SOPExecutionDispatcher) registerRetryTimer(t *time.Timer) {
+	d.retryTimersMu.Lock()
+	defer d.retryTimersMu.Unlock()
+	if d.retryTimers == nil {
+		d.retryTimers = make(map[*time.Timer]struct{})
+	}
+	d.retryTimers[t] = struct{}{}
+}
+
+// unregisterRetryTimer 注销 timer（v3 审计 P0-12 修复）
+func (d *SOPExecutionDispatcher) unregisterRetryTimer(t *time.Timer) {
+	d.retryTimersMu.Lock()
+	defer d.retryTimersMu.Unlock()
+	if d.retryTimers != nil {
+		delete(d.retryTimers, t)
+	}
+}
+
+// stopAllRetryTimers 停止所有 timer（v3 审计 P0-12 修复）
+func (d *SOPExecutionDispatcher) stopAllRetryTimers() {
+	d.retryTimersMu.Lock()
+	defer d.retryTimersMu.Unlock()
+	for t := range d.retryTimers {
+		t.Stop()
+	}
+	d.retryTimers = make(map[*time.Timer]struct{})
 }
 
 // SOPRetryPolicy SOP 节点执行指数退避重试策略
@@ -227,6 +260,9 @@ func (d *SOPExecutionDispatcher) Stop(ctx context.Context) {
 	d.running = false
 	close(d.stopCh)
 	d.runMu.Unlock()
+
+	// v3 审计 P0-12 修复：停止所有重试 timer
+	d.stopAllRetryTimers()
 
 	d.wg.Wait()
 	logger.GetLogger().Info().Msg("[SOPExecutionDispatcher] stopped")
@@ -503,14 +539,27 @@ func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *mo
 
 		d.writeExecEvent(ctx, exec, node, NodeEventRetried, task.Attempt+1, nil, nil, errMsg)
 
-		time.AfterFunc(backoff, func() {
-			d.DispatchOrLog(&dispatchTask{
-				ExecutionID: exec.ID,
-				NodeID:      node.ID,
-				Attempt:     task.Attempt + 1,
-				TraceID:     task.TraceID,
-			})
-		})
+		// v3 审计 P0-12 修复：timer 关联 ctx 实现可停止
+		// 原：time.AfterFunc(backoff, func() { d.DispatchOrLog(...) })
+		//      Stop 后仍 dispatch；timer 资源不释放
+		// 新：time.NewTimer + Stop()，并把 stop 注册到 dispatcher
+		retryTimer := time.NewTimer(backoff)
+		d.registerRetryTimer(retryTimer)
+		go func(t *time.Timer) {
+			defer d.unregisterRetryTimer(t)
+			select {
+			case <-t.C:
+				d.DispatchOrLog(&dispatchTask{
+					ExecutionID: exec.ID,
+					NodeID:      node.ID,
+					Attempt:     task.Attempt + 1,
+					TraceID:     task.TraceID,
+				})
+			case <-d.stopCh:
+				t.Stop()
+				return
+			}
+		}(retryTimer)
 		return
 	}
 
