@@ -294,7 +294,13 @@ func (s *FeishuIntegrationService) getAccessToken(ctx context.Context, acc *mode
 		return "", err
 	}
 	if out.Code != 0 {
-		return "", errors.New(out.Msg)
+		// v3 审计 P1-48 修复：Code != 0 时清空 token 让下次重新拉
+		// 原：保留旧 token → secret 错误被永久缓存
+		// 新：清空 + log + 显式 token 错误
+		acc.AccessToken = ""
+		acc.TokenExpires = nil
+		logger.Errorf("[feishu] 拉 token 失败 code=%d msg=%s（已清空旧 token）", out.Code, out.Msg)
+		return "", fmt.Errorf("feishu token code=%d: %s", out.Code, out.Msg)
 	}
 	expires := time.Now().Add(time.Duration(out.Expire-300) * time.Second)
 	acc.AccessToken = out.TenantAccessToken

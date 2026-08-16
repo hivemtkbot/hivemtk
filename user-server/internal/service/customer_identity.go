@@ -7,6 +7,7 @@ import (
 	"time"
 	"hivemtk-user/internal/identity"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
 
@@ -139,7 +140,14 @@ func (s *CustomerIdentityService) LinkIdentity(ctx context.Context, customerID, 
 	}
 
 	if phone != "" {
-		existing, _ := s.repo.GetByPhone(ctx, phone)
+		// v3 审计 P2-21 修复：DB 错误必须可见
+		// 原：existing, _ := s.repo.GetByPhone(...) 静默吞错
+		// 新：捕获 + log，DB 故障时拒绝操作（防写入重复 phone）
+		existing, err := s.repo.GetByPhone(ctx, phone)
+		if err != nil {
+			logger.Errorf("[OneID LinkIdentity] 查 phone=%s 失败: %v", phone, err)
+			return fmt.Errorf("查 phone 失败: %w", err)
+		}
 		if existing != nil && existing.ID != customerID {
 			return errors.New("该手机号已被其他客户使用")
 		}
