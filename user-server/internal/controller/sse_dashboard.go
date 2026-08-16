@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -169,18 +168,5 @@ func (c *SSEDashboardController) Stats(ctx *gin.Context) {
 	response.Success(ctx, stats, "ok")
 }
 
-// parseLimit 解析 limit 参数（私有辅助）
-func parseLimit(s string, def, max int) int {
-	if s == "" {
-		return def
-	}
-	n, err := strconv.Atoi(s)
-	if err != nil || n <= 0 {
-		return def
-	}
-	if n > max {
-		return max
-	}
-	return n
-}
+
 

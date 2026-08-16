@@ -27,8 +27,3 @@ func stripHTML(html string) string {
 	return text.StripHTML(html)
 }
 
-// stripBetween 移除 start..end(含)之间所有成对出现的段落
-func stripBetween(s, start, end string) string {
-	return text.StripBetween(s, start, end)
-}
-

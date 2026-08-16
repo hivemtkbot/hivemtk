@@ -38,7 +38,20 @@ func (c *FAQController) RegisterRoutes(router *gin.RouterGroup) {
 	}
 }
 
-// List 列表查询
+// List godoc
+// @Summary      FAQ 列表
+// @Description  按关键词/分类/意图分页查询 FAQ 词条
+// @Tags         FAQ
+// @Produce      json
+// @Security     BearerAuth
+// @Param        keyword  query  string  false  "关键词"
+// @Param        category query  string  false  "分类"
+// @Param        intent   query  string  false  "意图编码"
+// @Param        enabled  query  bool    false  "是否启用"
+// @Param        page     query  int     false  "页码"  default(1)
+// @Param        page_size query int    false  "每页"  default(20)
+// @Success      200  {object}  response.Response  "成功"
+// @Router       /api/faqs [get]
 func (c *FAQController) List(ctx *gin.Context) {
 	page, pageSize, err := pagination.Parse(ctx)
 	if err != nil {
@@ -65,7 +78,16 @@ func (c *FAQController) List(ctx *gin.Context) {
 	response.SuccessWithPage(ctx, list, int64(page), int64(pageSize), total)
 }
 
-// Get 详情
+// Get godoc
+// @Summary      FAQ 详情
+// @Description  根据 ID 返回 FAQ 词条完整内容
+// @Tags         FAQ
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "FAQ ID"
+// @Success      200  {object}  response.Response  "成功"
+// @Failure      404  {object}  response.Response  "未找到"
+// @Router       /api/faqs/{id} [get]
 func (c *FAQController) Get(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	if err != nil {
@@ -92,7 +114,16 @@ type faqCreateReq struct {
 	AgentID uint `json:"agent_id" binding:"required"`
 }
 
-// Create 新增
+// Create godoc
+// @Summary      新增 FAQ
+// @Description  创建一个 FAQ 词条并绑定到指定智能体
+// @Tags         FAQ
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  faqCreateReq  true  "FAQ 内容"
+// @Success      200   {object}  response.Response  "创建成功"
+// @Router       /api/faqs [post]
 func (c *FAQController) Create(ctx *gin.Context) {
 	var req faqCreateReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -117,7 +148,17 @@ func (c *FAQController) Create(ctx *gin.Context) {
 	response.Success(ctx, entry, "创建成功")
 }
 
-// Update 更新
+// Update godoc
+// @Summary      更新 FAQ
+// @Description  更新 FAQ 词条内容或绑定
+// @Tags         FAQ
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  int            true  "FAQ ID"
+// @Param        body  body  faqCreateReq   true  "更新内容"
+// @Success      200   {object}  response.Response  "更新成功"
+// @Router       /api/faqs/{id} [put]
 func (c *FAQController) Update(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	if err != nil {

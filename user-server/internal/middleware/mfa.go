@@ -1,10 +1,14 @@
 package middleware
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
+	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/pkg/utils/response"
 
 	"github.com/gin-gonic/gin"
@@ -13,28 +17,57 @@ import (
 // MFAVerifyContextKey 上下文键：表示请求已通过 MFA 验证
 const MFAVerifyContextKey = "mfa_verified"
 
-// mfaRecentVerify 记录某用户最近一次 MFA 验证时间
-// 用于敏感操作（如修改密码、修改邮箱）要求近期 MFA 验证
-// 单进程内存，5 分钟有效期；多实例需迁移 Redis
+const (
+	mfaRecentVerifyTTL    = 5 * time.Minute
+	mfaRecentVerifyKeyFmt = "mfa:verified:%d" // key: mfa:verified:<user_id>
+)
+
+// mfaRecentVerify 内存缓存（OPT-ARC-12 二期：与 Redis 双写）
+// 多副本部署时，优先读 Redis，Redis 不可达时回退内存
 var (
 	mfaRecentVerify      = make(map[uint]time.Time)
 	mfaRecentVerifyMutex sync.RWMutex
 )
 
-const mfaRecentVerifyTTL = 5 * time.Minute
-
 // MarkMFAVerified 标记用户在当前时刻通过 MFA 验证
-// 在 MFA 验证成功、敏感操作前置验证成功时调用
+// OPT-ARC-12 + OPT-SEC-02：多副本兼容
+// 1) 写 Redis（多实例共享，TTL 5min）
+// 2) 写内存（Redis 不可达时回退）
+// 3) 异步清理过期内存项
 func MarkMFAVerified(userID uint) {
-	mfaRecentVerifyMutex.Lock()
-	defer mfaRecentVerifyMutex.Unlock()
-	mfaRecentVerify[userID] = time.Now()
+	now := time.Now()
+
+	// 1) Redis 主写
+	key := fmt.Sprintf(mfaRecentVerifyKeyFmt, userID)
+	if err := cache.GetGlobalCache().Set(context.Background(), key, now.Unix(), mfaRecentVerifyTTL); err != nil {
+		logger.Warnf("MarkMFAVerified Redis Set failed, fallback to memory: %v", err)
+		// 2) Redis 失败时内存回退
+		mfaRecentVerifyMutex.Lock()
+		mfaRecentVerify[userID] = now
+		mfaRecentVerifyMutex.Unlock()
+	}
 
 	go cleanupExpiredMFAVerified()
 }
 
 // IsMFAVerifiedRecently 检查用户最近 5 分钟内是否通过 MFA 验证
+// OPT-ARC-12：优先读 Redis（多副本共享），失败回退内存
 func IsMFAVerifiedRecently(userID uint) bool {
+	// 1) Redis 优先
+	key := fmt.Sprintf(mfaRecentVerifyKeyFmt, userID)
+	val, err := cache.GetGlobalCache().Get(context.Background(), key)
+	if err == nil && val != "" {
+		// 解析时间戳
+		var ts int64
+		if _, scanErr := fmt.Sscanf(val, "%d", &ts); scanErr == nil {
+			verifiedAt := time.Unix(ts, 0)
+			if time.Since(verifiedAt) < mfaRecentVerifyTTL {
+				return true
+			}
+		}
+	}
+
+	// 2) Redis 失败/未命中 → 内存回退
 	mfaRecentVerifyMutex.RLock()
 	t, ok := mfaRecentVerify[userID]
 	mfaRecentVerifyMutex.RUnlock()
@@ -44,7 +77,7 @@ func IsMFAVerifiedRecently(userID uint) bool {
 	return time.Since(t) < mfaRecentVerifyTTL
 }
 
-// cleanupExpiredMFAVerified 清理过期记录
+// cleanupExpiredMFAVerified 清理过期内存记录（仅在 Redis 失败的实例上累积）
 func cleanupExpiredMFAVerified() {
 	mfaRecentVerifyMutex.Lock()
 	defer mfaRecentVerifyMutex.Unlock()
@@ -110,12 +143,12 @@ func RequireMFAEnabled(mfaEnabledFunc func(userID uint) (bool, error)) gin.Handl
 
 		enabled, err := mfaEnabledFunc(userID)
 		if err != nil {
-			response.Error(c, http.StatusInternalServerError, "MFA 状态查询失败")
+			response.Error(c, http.StatusInternalServerError, "查询 MFA 状态失败")
 			c.Abort()
 			return
 		}
 		if !enabled {
-			response.Error(c, http.StatusForbidden, "此操作要求启用 MFA（多因素认证）")
+			response.Error(c, http.StatusForbidden, "此操作要求启用 MFA")
 			c.Abort()
 			return
 		}
@@ -123,4 +156,3 @@ func RequireMFAEnabled(mfaEnabledFunc func(userID uint) (bool, error)) gin.Handl
 		c.Next()
 	}
 }
-

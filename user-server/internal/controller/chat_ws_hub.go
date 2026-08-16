@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -346,8 +345,5 @@ func WrapErr(op string, err error) error {
 	return fmt.Errorf("%s: %w", op, err)
 }
 
-// nowMs 返回当前时间戳（毫秒），供心跳/超时场景使用
-func nowMs() int64 {
-	return time.Now().UnixMilli()
-}
+
 

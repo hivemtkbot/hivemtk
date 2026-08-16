@@ -36,16 +36,6 @@ func customerTagSetRule(t *model.CustomerTag, rule map[string]any) error {
 	return nil
 }
 
-// customerTagSetRuleString 设置标签规则为字符串（从 model.CustomerTag 迁出）
-func customerTagSetRuleString(t *model.CustomerTag, ruleStr string) error {
-	var tmp map[string]any
-	if err := json.Unmarshal([]byte(ruleStr), &tmp); err != nil {
-		return err
-	}
-	t.Rule = ruleStr
-	return nil
-}
-
 
 // UserTagService 用户标签门面服务
 type UserTagService struct {

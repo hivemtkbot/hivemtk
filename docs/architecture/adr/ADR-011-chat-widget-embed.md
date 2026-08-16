@@ -1,6 +1,15 @@
 # ADR-011：嵌入式客服 Chat Widget
 
-- **范围**: 嵌入式客服 Chat Widget 设计
+| 字段 | 内容 |
+|------|------|
+| 编号 | ADR-011 |
+| 标题 | 嵌入式客服 Chat Widget |
+| 状态 | ✅ Accepted |
+| 决策者 | @frontend-team, @maintainer-team |
+| 日期 | 2026-Q2 |
+| 适用范围 | 嵌入式客服 Chat Widget 设计 |
+| **实施 PR** | #218（embed-sdk v1）、#256（v1.1 优化）、#289（七牛直传）|
+| **已部署环境** | dev / staging / 私有部署客户（生产 v3.12.0+，详见各客户 CHANGELOG）|
 
 ---
 
@@ -107,7 +116,7 @@
    │  user-server (HiveMtk 用户端)    │
    │  ────────────────────────────── │
    │  REST: /api/chat/public/*        │
-   │  WS:   /api/ws/visitor           │
+   │  REST (长轮询): /api/v1/ai/chat/poll │
    │  Static: /embed/*.js + /chat/embed/*(SPA)│
    │  ────────────────────────────── │
    │  + AI (RAG + LLM)               │
@@ -115,6 +124,8 @@
    │  + 七牛附件直传                  │
    └──────────────────────────────────┘
 ```
+
+> 注：实时通道已从 WebSocket 迁移为 HTTP 长轮询（参见 `operations/AI_AGENT_PERF_API.md`）。
 
 ---
 
@@ -176,7 +187,7 @@
   → SPA POST /api/chat/public/sessions/:id/messages
   → 后端入库 + 触发 RAG 检索
   → AI 推理（宿主机 llama-server :8207/:8208/:8209）
-  → 通过 WS 推回前端
+  → 通过长轮询推回前端
   → SPA 渲染消息
   → 若命中转人工关键词:跳过 AI,走坐席分配
 ```
@@ -329,3 +340,10 @@ window.MarketingChatWidget     // 构造函数
 - [embed-sdk/README.md](../../embed-sdk/README.md) - SDK 完整说明
 - [部署方案_用户端.md](../部署方案_用户端.md) - 整体部署架构
 - [RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md](../RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md) - AI 自动回复架构
+
+## 修订历史
+
+| 版本 | 日期 | 修订人 | 内容 |
+|------|------|--------|------|
+| v1.0 | 2026-Q2 | @frontend-team | 初版 Chat Widget 架构 |
+| v1.1 | 2026-08-16 | audit-agent | 增补"实施 PR"和"已部署环境"字段 |

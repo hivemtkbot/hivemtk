@@ -771,7 +771,7 @@ bash ../../scripts/api-inventory.sh                # API 一致性报告
 | 主题 | 文档路径 |
 | --- | --- |
 | 架构图（模块 / 时序 / 子系统） | [./ARCHITECTURE.md](./ARCHITECTURE.md) |
-| 代码规范（五层约束 / 命名 / 错误处理 / 日志） | [./CONVENTIONS.md](./CONVENTIONS.md) |
+| 代码规范（分层约束 / 命名 / 错误处理 / 日志） | [./CONVENTIONS.md](./CONVENTIONS.md) |
 | 功能清单（按业务域分组） | [./FEATURES.md](./FEATURES.md) |
 | 五层架构硬约束 + 编码模板 | [../../docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md](../../docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md) |
 | 系统级 C4 / Container / Deployment | [../../docs/architecture/ARCHITECTURE_DIAGRAM.md](../../docs/architecture/ARCHITECTURE_DIAGRAM.md) |

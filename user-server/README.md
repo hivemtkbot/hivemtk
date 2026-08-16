@@ -20,7 +20,7 @@
 ### 平台与安全能力
 
 - **认证与权限**：JWT + MFA（双因素）、细粒度 RBAC、操作审计、敏感数据脱敏日志
-- **可观测性**：TraceID 全链路追踪 + 健康检查（`/health` `/healthz` `/readyz`）；私域无 Prometheus 端点，关键指标落库 `layer_decision_logs` / `audit_logs`，巡检通过 SQL + `scripts/post_deploy_check.sh`
+- **可观测性**：TraceID 全链路追踪 + 健康检查（`/health` `/healthz` `/readyz`）；私域无外部监控端点，关键指标落库 `layer_decision_logs` / `audit_logs`，巡检通过 SQL + `scripts/post_deploy_check.sh`
 - **限流与防滥用**：IP 限流、API Key 限流、登录暴力破解防御
 - **运营能力**：数据库备份 / 恢复、域名池健康巡检、活码轮询、活码统计
 
@@ -45,15 +45,15 @@
 | LLM（dev 档） | Qwen2.5-3B-Instruct（Q4_K_M，`llama.cpp` 启动） |
 | LLM（prod 档） | Qwen2.5-14B-Instruct（Q4_K_M，`llama.cpp` 启动） |
 | 日志 | zerolog |
-| 监控 | TraceID 中间件 + 应用层日志（私域无 Prometheus 端点） |
+| 监控 | TraceID 中间件 + 应用层日志（私域无外部监控端点） |
 | API 文档 | swaggo/gin-swagger |
 | 浏览器自动化 | chromedp（卡片自动回复） |
 
 > dev / prod 档完整模型定义见 [`../scripts/inference-host/models.env`](../scripts/inference-host/models.env)。
 
-## 🏛 五层架构
+## 🧱 架构分层
 
-严格遵循 **Controller → Service → Repository → Model → DTO** 五层分层，禁止跨层调用（如 Controller 直接访问 Repository、Service 直接返回 GORM Model 等）。完整规范见 [`../docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md`](../docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md)。
+严格遵循 **Controller → Service → Repository → Model → DTO** 分层，禁止跨层调用。完整规范见 [`../docs/standards/MASTER_RULES.md`](../docs/standards/MASTER_RULES.md)。
 
 | 层 | 目录 | 职责 | 依赖方向 |
 |---|---|---|---|

@@ -30,7 +30,17 @@ func NewAuthController() *AuthController {
 	}
 }
 
-// Login 用户登录
+// Login godoc
+// @Summary      用户登录
+// @Description  使用用户名+密码登录，支持 MFA 第二步验证；登录成功返回 JWT token
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  service.LoginRequest  true  "登录请求"
+// @Success      200   {object}  response.Response  "登录成功，返回 token"
+// @Failure      400   {object}  response.Response  "参数错误"
+// @Failure      401   {object}  response.Response  "认证失败"
+// @Router       /api/auth/login [post]
 func (c *AuthController) Login(ctx *gin.Context) {
 	var req service.LoginRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -49,12 +59,16 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	response.Success(ctx, resp, "登录成功")
 }
 
-// RefreshToken 刷新令牌
-// 修复：
-//   - 校验 Bearer 前缀
-//   - token 为空直接拒绝
-//   - 使用安全的 trim 前缀而非裸切片
-//   - token 通过 gin Context 解析后调用 JWT 工具刷新
+// RefreshToken godoc
+// @Summary      刷新 JWT 令牌
+// @Description  使用旧 Bearer token 换发新 token，旧 token 会被加入黑名单
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response  "刷新成功"
+// @Failure      401  {object}  response.Response  "认证失败"
+// @Router       /api/auth/refresh [post]
 func (c *AuthController) RefreshToken(ctx *gin.Context) {
 	authHeader := ctx.GetHeader("Authorization")
 	if authHeader == "" {
@@ -85,7 +99,16 @@ func (c *AuthController) RefreshToken(ctx *gin.Context) {
 	}, "刷新令牌成功")
 }
 
-// GetCurrentUser 获取当前用户信息
+// GetCurrentUser godoc
+// @Summary      获取当前登录用户信息
+// @Description  从 JWT token 解析 user_id 并返回用户基本信息
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response  "成功"
+// @Failure      401  {object}  response.Response  "未登录"
+// @Router       /api/auth/me [get]
 func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
 	userID, exists := ctx.Get("user_id")
 	if !exists {
@@ -111,7 +134,17 @@ func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
 	response.Success(ctx, user, "获取用户信息成功")
 }
 
-// ChangePassword 修改密码
+// ChangePassword godoc
+// @Summary      修改当前用户密码
+// @Description  修改成功后旧 token 会被加入黑名单
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  service.ChangePasswordRequest  true  "修改密码请求"
+// @Success      200   {object}  response.Response  "成功"
+// @Failure      400   {object}  response.Response  "参数错误"
+// @Router       /api/auth/password [put]
 func (c *AuthController) ChangePassword(ctx *gin.Context) {
 	userID, exists := ctx.Get("user_id")
 	if !exists {

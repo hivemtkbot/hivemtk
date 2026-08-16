@@ -33,6 +33,7 @@ const MAX_RECONNECT_DELAY_MS = 30000
 const INITIAL_RECONNECT_DELAY_MS = 1000
 const PING_INTERVAL_MS = 25000
 const ACK_BATCH_INTERVAL_MS = 200 // 批量 ack 合并窗口
+const MAX_RECONNECT_ATTEMPTS_DEFAULT = 50 // 私域长连接上限（防无限重连）
 
 export class ChatSocket {
   constructor(options) {
@@ -125,6 +126,7 @@ export class ChatSocket {
     this.ws.onopen = () => {
       this.connected = true
       this.reconnectDelay = INITIAL_RECONNECT_DELAY_MS
+      this.reconnectAttempts = 0 // 重连成功后清零
       this.onConnected()
       this.startPing()
       // 鲁棒性：连接成功后立即 flush pending acks（防丢）

@@ -12,15 +12,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// fakeFAQEntry 用于测试的 FAQ 匹配项
-type fakeFAQEntry struct {
-	entry *dto.FAQEntry
-	score float64
-	rank  int
-	hits  int64
-	mType string
-}
-
 // makeFAQMatchResult 构造测试用 FAQMatchResult
 func makeFAQMatchResult(q, a, intent string, score float64) dto.FAQMatchResult {
 	return dto.FAQMatchResult{
@@ -346,9 +337,6 @@ func TestFAQService_WeekDecay_ListErr(t *testing.T) {
 
 // ptrTimeUniq 构造 *time.Time (helper, 避开 service.ptrTime 重定义)
 func ptrTimeUniq(t time.Time) *time.Time { return &t }
-
-// ptrUint 构造 *uint (helper, 给 AgentID 字段用)
-func ptrUint(v uint) *uint { return &v }
 
 
 // TestFAQService_MatchByAgent_AgentIDZero 验证 agentID=0 直接返回 nil (移除"空数组=全局"分支)

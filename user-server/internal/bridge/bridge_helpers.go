@@ -94,15 +94,5 @@ func historyItemToEvent(m *UnifiedMessage, it *HistoryItem) *model.MessageEvent 
 	return gw.HistoryToEvent(m, it)
 }
 
-// toMessageEvent 将 UnifiedMessage 映射为 model.MessageEvent。
-//
-// 2026-08-10 协议单源化：委托 channelgw 规范化转换器 ToEventFull（含 History 拷贝），
-// 保留本函数以兼容 (1) 老的统一收信中心读取路径 (2) 旧扩展帧格式 fallback。
-func toMessageEvent(m *UnifiedMessage) *model.MessageEvent {
-	if m == nil {
-		return nil
-	}
-	m.Channel = ToBridgeChannel(m.Channel)
-	return m.ToEventFull("http")
-}
+
 

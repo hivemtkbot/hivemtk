@@ -1,12 +1,11 @@
-// Package metrics 提供轻量级 Prometheus 指标采集。
+// Package metrics 提供轻量级指标采集（应用层巡检用）。
 //
 // 设计目标：
-//   - 零外部依赖（不引入 prometheus/client_golang）
+//   - 零外部依赖（不引入外部监控库）
 //   - 支持 Counter / Gauge / Histogram 三种基础类型
-//   - 文本格式（text/plain; version=0.0.4）通过 /metrics 端点暴露
+//   - 文本格式通过 /metrics 端点暴露（用于内部调试/巡检）
 //   - 线程安全（atomic + mutex）
 //   - 标签（labels）支持
-//   - 适配五层架构：bridge / service / repository / agent 均可调用
 //
 // 用法：
 //
@@ -47,7 +46,7 @@ func labelsKey(values []string) string {
 	return strings.Join(values, "\x00")
 }
 
-// writeLabels 写 Prometheus label 字符串
+// writeLabels 写指标标签字符串
 // values 与 labelNames 顺序对应
 func writeLabels(sb *strings.Builder, labelNames, values []string) {
 	if len(labelNames) == 0 {
@@ -172,7 +171,7 @@ func (c *CounterVec) Help() string { return c.help }
 // Type 指标类型
 func (c *CounterVec) Type() string { return "counter" }
 
-// Write 写 Prometheus 文本格式（counter）
+// Write 写指标文本格式（counter）
 func (c *CounterVec) Write(w io.Writer) {
 	fmt.Fprintf(w, "# HELP %s %s\n", c.name, c.help)
 	fmt.Fprintf(w, "# TYPE %s counter\n", c.name)
@@ -289,7 +288,7 @@ func (g *GaugeVec) Help() string { return g.help }
 // Type 指标类型
 func (g *GaugeVec) Type() string { return "gauge" }
 
-// Write 写 Prometheus 文本格式（gauge）
+// Write 写指标文本格式（gauge）
 func (g *GaugeVec) Write(w io.Writer) {
 	fmt.Fprintf(w, "# HELP %s %s\n", g.name, g.help)
 	fmt.Fprintf(w, "# TYPE %s gauge\n", g.name)
@@ -413,7 +412,7 @@ func (h *HistogramVec) Help() string { return h.help }
 // Type 指标类型
 func (h *HistogramVec) Type() string { return "histogram" }
 
-// Write 写 Prometheus 文本格式（histogram）
+// Write 写指标文本格式（histogram）
 func (h *HistogramVec) Write(w io.Writer) {
 	fmt.Fprintf(w, "# HELP %s %s\n", h.name, h.help)
 	fmt.Fprintf(w, "# TYPE %s histogram\n", h.name)
@@ -556,7 +555,7 @@ func Gather(w io.Writer) {
 	}
 }
 
-// Handler 返回 Prometheus /metrics 端点 handler
+// Handler 返回 /metrics 端点 handler（用于内部调试/巡检）
 func Handler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")

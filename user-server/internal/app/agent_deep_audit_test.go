@@ -102,7 +102,7 @@ func TestD3_LLMFailureFallback(t *testing.T) {
 
 
 // TestD4_ToolCallObservability 验证工具调用后可观测性已记录
-// 场景：执行 customer.search，验证 audit_logs 表已写入 (私域部署: 已移除 Prometheus,
+// 场景：执行 customer.search，验证 audit_logs 表已写入 (私域部署: 无外部监控，
 // 工具调用指标通过 agent_tool_audit_logs 表审计 + 应用层 logger 记录)
 func TestD4_ToolCallObservability(t *testing.T) {
 	db := setupAgentLoopTestDB(t)

@@ -1,11 +1,11 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 自定义报表 - 匹配后端 /api/custom-reports/* 路径
 export function getReportList(params) {
   return request({ url: '/api/custom-reports', method: 'get', params })
 }
 export function getReport(id) {
-  return request({ url: `/api/custom-reports/${id}`, method: 'get' })
+  return http.get(`/api/custom-reports/${id}`)
 }
 export function createReport(data) {
   return request({ url: '/api/custom-reports', method: 'post', data })
@@ -14,13 +14,13 @@ export function updateReport(id, data) {
   return request({ url: `/api/custom-reports/${id}`, method: 'put', data })
 }
 export function deleteReport(id) {
-  return request({ url: `/api/custom-reports/${id}`, method: 'delete' })
+  return http.delete(`/api/custom-reports/${id}`)
 }
 export function getPublicTemplates() {
-  return request({ url: '/api/custom-reports/templates', method: 'get' })
+  return http.get('/api/custom-reports/templates')
 }
 export function useReportTemplate(id) {
-  return request({ url: `/api/custom-reports/templates/${id}/use`, method: 'post' })
+  return http.post(`/api/custom-reports/templates/${id}/use`)
 }
 export function queryReportData(id, params) {
   return request({ url: `/api/custom-reports/${id}/data`, method: 'get', params })
@@ -40,8 +40,8 @@ export function deleteCustomReport(id) {
   return deleteReport(id)
 }
 export function exportCustomReport(id) {
-  return request({ url: `/api/custom-reports/${id}/data?format=export`, method: 'get' })
+  return http.get(`/api/custom-reports/${id}/data?format=export`)
 }
 export function runCustomReport(id) {
-  return request({ url: `/api/custom-reports/${id}/data?format=run`, method: 'get' })
+  return http.get(`/api/custom-reports/${id}/data?format=run`)
 }

@@ -367,12 +367,6 @@ func (m *mockSOPBindingRepoForTask16) ListByAgent(ctx context.Context, agentID u
 	return nil, nil
 }
 
-// ptrBoolSOP helper: 构造 *bool
-func ptrBoolSOP(b bool) *bool { return &b }
-
-// ptrUintSOP helper: 构造 *uint
-func ptrUintSOP(v uint) *uint { return &v }
-
 // TestSOPTemplate_MatchByAgent_AgentIDZero Task 16: agentID=0 直接返回 nil
 func TestSOPTemplate_MatchByAgent_AgentIDZero(t *testing.T) {
 	enabled := true

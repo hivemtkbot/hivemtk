@@ -340,8 +340,7 @@ func TestHybridSearcher_RerankerFailed_FallbackToFused(t *testing.T) {
 
 // mockReranker mock RerankerInterface
 type mockReranker struct {
-	results []RerankResult
-	err     error
+	err error
 }
 
 func (m *mockReranker) Rerank(_ context.Context, _ string, docs []RerankDoc) ([]RerankResult, error) {

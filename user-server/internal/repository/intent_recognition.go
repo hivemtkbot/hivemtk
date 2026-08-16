@@ -31,6 +31,11 @@ func (r *IntentRecordRepository) SetDB(ctx context.Context, db *gorm.DB) {
 	}
 }
 
+// GetDB 获取 db（OPT-ARC-01：service.withDB 走 repository 注入）
+func (r *IntentRecordRepository) GetDB(ctx context.Context) *gorm.DB {
+	return r.db
+}
+
 // Create 创建意图识别记录
 func (r *IntentRecordRepository) Create(ctx context.Context, rec *model.IntentRecord) error {
 	return r.db.WithContext(ctx).Create(rec).Error

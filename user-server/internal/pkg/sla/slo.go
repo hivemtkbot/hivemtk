@@ -300,7 +300,7 @@ func boolStr(b bool) string {
 
 var initOnce sync.Once
 
-// InitMetrics 注册 SLO 指标到 prometheus
+// InitMetrics 注册 SLO 指标（私域部署用于应用层日志与巡检）
 func InitMetrics() {
 	initOnce.Do(func() {
 		metrics.NewCounter("slo_events_total", "Total SLO events by SLO name and result",

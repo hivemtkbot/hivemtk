@@ -1,11 +1,11 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 话术库 - 匹配后端 /api/scripts/* 路径
 export function getScriptTemplateList(params) {
   return request({ url: '/api/scripts', method: 'get', params })
 }
 export function getScriptTemplate(id) {
-  return request({ url: `/api/scripts/${id}`, method: 'get' })
+  return http.get(`/api/scripts/${id}`)
 }
 export function createScriptTemplate(data) {
   return request({ url: '/api/scripts', method: 'post', data })
@@ -14,16 +14,16 @@ export function updateScriptTemplate(id, data) {
   return request({ url: `/api/scripts/${id}`, method: 'put', data })
 }
 export function deleteScriptTemplate(id) {
-  return request({ url: `/api/scripts/${id}`, method: 'delete' })
+  return http.delete(`/api/scripts/${id}`)
 }
 export function getScriptCategories() {
-  return request({ url: '/api/scripts/categories', method: 'get' })
+  return http.get('/api/scripts/categories')
 }
 export function searchScriptTemplates(params) {
   return request({ url: '/api/scripts/search', method: 'get', params })
 }
 export function getPublicScriptTemplates() {
-  return request({ url: '/api/scripts/public', method: 'get' })
+  return http.get('/api/scripts/public')
 }
 export function recommendScript(data) {
   return request({ url: '/api/scripts/recommend', method: 'post', data })

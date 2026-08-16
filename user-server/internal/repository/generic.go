@@ -6,7 +6,6 @@ import (
 	"fmt"
 	_db "hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/logger"
-	"sync"
 
 	"gorm.io/gorm"
 )
@@ -15,7 +14,6 @@ import (
 // 五层架构内（Controller → Service → Repository）禁止调用此函数，
 // 应通过对应 Repository 操作数据库。
 var (
-	dbOnce sync.Once
 	dbInst *gorm.DB
 )
 

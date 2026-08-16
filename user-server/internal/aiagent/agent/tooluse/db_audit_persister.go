@@ -235,11 +235,10 @@ type AlertEvent struct {
 // AlertHandler 告警处理回调
 //
 // 接收告警事件，由调用方实现具体通知逻辑
-//   - 邮件通知
+//   - 应用层日志
 //   - 钉钉机器人
 //   - 飞书群机器人
 //   - Slack
-//   - Prometheus AlertManager
 type AlertHandler interface {
 	OnAlert(event AlertEvent)
 }
@@ -249,14 +248,14 @@ type AlertHandlerFunc func(event AlertEvent)
 
 func (f AlertHandlerFunc) OnAlert(event AlertEvent) { f(event) }
 
-// AlertManager 告警管理器
+// ToolAlertManager 工具调用告警管理器
 //
 // 基于规则触发告警：
 //  1. 工具失败率超过阈值
 //  2. 熔断器开启
 //  3. 死信队列堆积
 //  4. 单次工具调用耗时过长
-type AlertManager struct {
+type ToolAlertManager struct {
 	mu             sync.Mutex
 	handlers       []AlertHandler
 	failureRateMap map[string]*failureRateTracker 
@@ -269,15 +268,15 @@ type failureRateTracker struct {
 	windowStart time.Time
 }
 
-// NewAlertManager 创建告警管理器
-func NewAlertManager() *AlertManager {
-	return &AlertManager{
+// NewToolAlertManager 创建工具调用告警管理器
+func NewToolAlertManager() *ToolAlertManager {
+	return &ToolAlertManager{
 		failureRateMap: make(map[string]*failureRateTracker),
 	}
 }
 
 // AddHandler 添加告警处理回调
-func (a *AlertManager) AddHandler(handler AlertHandler) {
+func (a *ToolAlertManager) AddHandler(handler AlertHandler) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.handlers = append(a.handlers, handler)
@@ -289,7 +288,7 @@ func (a *AlertManager) AddHandler(handler AlertHandler) {
 //   - 失败率超过 50%（窗口 1 分钟，至少 10 次调用）
 //   - 熔断器开启（由 CircuitBreakerDecorator 直接触发）
 //   - 单次调用耗时 > 5s
-func (a *AlertManager) OnToolCall(entry AuditEntry) {
+func (a *ToolAlertManager) OnToolCall(entry AuditEntry) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -344,7 +343,7 @@ func (a *AlertManager) OnToolCall(entry AuditEntry) {
 }
 
 // AlertCircuitOpen 触发熔断器开启告警（由 CircuitBreakerDecorator 调用）
-func (a *AlertManager) AlertCircuitOpen(toolName string, state CircuitState) {
+func (a *ToolAlertManager) AlertCircuitOpen(toolName string, state CircuitState) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.emitAlert(AlertEvent{
@@ -359,7 +358,7 @@ func (a *AlertManager) AlertCircuitOpen(toolName string, state CircuitState) {
 }
 
 // AlertDeadLetterBacklog 触发死信队列堆积告警
-func (a *AlertManager) AlertDeadLetterBacklog(toolName string, backlogCount int) {
+func (a *ToolAlertManager) AlertDeadLetterBacklog(toolName string, backlogCount int) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	level := AlertWarning
@@ -378,7 +377,7 @@ func (a *AlertManager) AlertDeadLetterBacklog(toolName string, backlogCount int)
 }
 
 // emitAlert 内部触发告警（异步通知所有 handler）
-func (a *AlertManager) emitAlert(event AlertEvent) {
+func (a *ToolAlertManager) emitAlert(event AlertEvent) {
 	event.Timestamp = time.Now()
 	for _, handler := range a.handlers {
 		go func(h AlertHandler) {
@@ -391,7 +390,7 @@ func (a *AlertManager) emitAlert(event AlertEvent) {
 }
 
 // Stats 返回各工具的失败率统计（用于 /metrics endpoint）
-func (a *AlertManager) Stats() map[string]map[string]any {
+func (a *ToolAlertManager) Stats() map[string]map[string]any {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	out := make(map[string]map[string]any, len(a.failureRateMap))
@@ -416,14 +415,14 @@ func (a *AlertManager) Stats() map[string]map[string]any {
 // 同时将审计日志写入多个目标：
 //   - 内存（NewMemoryAuditLogger，便于即时查询）
 //   - DB（DBAuditLogger，便于持久化）
-//   - 告警管理器（AlertManager，触发告警）
+//   - 告警管理器（ToolAlertManager，触发告警）
 type CompositeAuditLogger struct {
 	loggers []AuditLogger
-	alert   *AlertManager
+	alert   *ToolAlertManager
 }
 
 // NewCompositeAuditLogger 创建复合 AuditLogger
-func NewCompositeAuditLogger(memory AuditLogger, dbLogger *DBAuditLogger, alert *AlertManager) *CompositeAuditLogger {
+func NewCompositeAuditLogger(memory AuditLogger, dbLogger *DBAuditLogger, alert *ToolAlertManager) *CompositeAuditLogger {
 	c := &CompositeAuditLogger{alert: alert}
 	if memory != nil {
 		c.loggers = append(c.loggers, memory)

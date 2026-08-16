@@ -464,24 +464,6 @@ func ensureCardShowPresent(all, selected []AgentToolDef, maxTools int) []AgentTo
 	return res
 }
 
-// structToMap 将结构体（或任意值）转为 map[string]any
-// 用于将 ToolParameters 序列化为 OpenAI 兼容的 JSON Schema map
-func structToMap(v any) (map[string]any, error) {
-	if v == nil {
-		return map[string]any{"type": "object"}, nil
-	}
-
-	bytes, err := json.Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-	var m map[string]any
-	if err := json.Unmarshal(bytes, &m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 // buildPrompt 构造 LLM prompt
 func (e *SalesEngine) buildPrompt(
 	req *SalesRequest,

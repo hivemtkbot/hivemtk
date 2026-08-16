@@ -761,13 +761,6 @@ func (s *ReachPipelineService) dispatchDueJobs(ctx context.Context) {
 	}
 }
 
-func (s *ReachPipelineService) shouldRunStep(ctx context.Context, step string, job *model.ReachJob, rl *RateLimitConfig) bool {
-	if step != StepSend {
-		return true
-	}
-	return s.checkRateLimit(ctx, job.Channel, job.AccountID, job.CustomerID, rl)
-}
-
 func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *model.ReachJob, rl *RateLimitConfig) StepResult {
 	start := time.Now()
 	res := StepResult{Step: step, StartedAt: start}

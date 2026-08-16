@@ -235,11 +235,18 @@ export default class AgentSocket {
   scheduleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) return
     this.reconnectAttempts++
-    // 指数退避：2s → 4s → 8s → 16s → 30s（封顶 5 次倍增）
-    const delay = Math.min(this.reconnectDelay * Math.min(this.reconnectAttempts, 5), MAX_RECONNECT_DELAY_MS)
+    // 指数退避 + Full-Jitter（参考 https://websocket.org/guides/reconnection/）
+    // base*2^n 封顶 5 次倍增 = 10s；jitter = random(0, base*2^n) 避免雷鸣群
+    const baseDelay = Math.min(this.reconnectDelay * Math.min(this.reconnectAttempts, 5), MAX_RECONNECT_DELAY_MS)
+    const delay = Math.floor(baseDelay * (0.5 + Math.random() * 0.5))
     setTimeout(() => {
       if (this.shouldReconnect) this.connect()
     }, delay)
+  }
+
+  // 公开：当前重连尝试次数（供 UI 展示）
+  getReconnectAttempts() {
+    return this.reconnectAttempts
   }
 
   close() {

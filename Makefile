@@ -269,7 +269,7 @@ docker-logs:
 lint-install:
 	@which golangci-lint >/dev/null 2>&1 || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
 
-# 架构护栏：五层依赖方向 + depguard 规则（提交前必跑）
+# 架构护栏：分层依赖方向 + depguard 规则（提交前必跑）
 lint: lint-install
 	cd user-server && golangci-lint run ./...
 

@@ -35,12 +35,12 @@
 │       └──────────┬───────────┘                    │
 │                  │                                │
 └──────────────────┼────────────────────────────────┘
-                   │ HTTPS / WebSocket
+                   │ HTTPS / HTTP 长轮询
                    ▼
    ┌──────────────────────────────────┐
    │  user-server (HiveMtk 用户端)    │
    │  - RESTful API: /api/chat/public/*│
-   │  - WebSocket: /api/ws/visitor    │
+   │  - 长轮询: /api/v1/ai/chat/poll  │
    │  - AI 自动回复（LLM + RAG）       │
    │  - 触发转人工后接管               │
    └──────────────────────────────────┘
@@ -129,8 +129,8 @@
 ## 五、用户端域名要求
 
 - 浮标脚本 URL 域名 **必须** 与 `user-server` 部署域名一致（同源部署）
-- WebSocket 走同一域名（由 SDK 自动推断）
-- 外部反代（CDN / 云负载均衡）需透传 `/api/chat/public/*` 与 `/api/ws/visitor` 路径
+- 长轮询走同一域名（由 SDK 自动推断）
+- 外部反代（CDN / 云负载均衡）需透传 `/api/chat/public/*` 与 `/api/v1/ai/chat/poll` 路径
 - 跨域部署场景：详见 [embed-sdk/README.md](../../embed-sdk/README.md) "跨域部署"小节
 
 ---
@@ -149,7 +149,7 @@
 
 | 功能 | 说明 |
 |------|------|
-| 实时消息 | WebSocket 长连接 |
+| 实时消息 | HTTP 长轮询 |
 | 消息历史 | localStorage 缓存 + API 拉取 |
 | 快捷回复 | 内置常见问题模板 |
 | 文件上传 | 七牛直传，支持图片/文档/音频/视频 |
@@ -242,7 +242,7 @@ aws s3 sync dist/ s3://cdn.example.com/embed/ \
 - `embed-sdk/src/` - SDK 源代码
 - `user-server/internal/router/chat_routes.go` - `/api/chat/public/*` 路由
 - `user-server/internal/router/embed_static_routes.go` - `/embed/*` 静态服务 + `/chat/embed/*` SPA 路由
-- `user-server/internal/websocket/handler.go` - `/api/ws/visitor` 端点
+- `user-server/internal/service/ai_chat_poll.go` - `/api/v1/ai/chat/poll` 长轮询端点
 - `user-server/internal/service/chat_visitor_service.go` - 访客聊天服务
 - `user-web/src/views/chat/embed/Index.vue` - 嵌入聊天窗 SPA 入口
 - `migrations/004_customer_session.sql` - customer_sessions 表（platform=web_embed）

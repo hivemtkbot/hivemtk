@@ -40,7 +40,7 @@ func SafeGo(ctx context.Context, name string, fn func(ctx context.Context)) {
 }
 
 // SafeGoWithRecover 自定义 recover 行为的版本，调用方可以传入自己的处理函数。
-// 适用于需要上报监控系统 / 上报 Sentry 等扩展场景。
+// 适用于需要上报自定义日志 / webhook 等扩展场景。
 func SafeGoWithRecover(ctx context.Context, name string, fn func(ctx context.Context), onPanic func(name string, r interface{}, stack []byte)) {
 	if fn == nil {
 		return

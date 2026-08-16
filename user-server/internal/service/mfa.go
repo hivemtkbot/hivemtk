@@ -339,9 +339,6 @@ func (s *MFAService) ConsumeTempToken(ctx context.Context, token string) {
 	_ = cache.GetGlobalCache().Delete(ctx, tempTokenCachePrefix+token)
 }
 
-// cleanupExpiredTempTokens 全局缓存已按 TTL 自动过期，无需手动清理（保留签名以兼容既有调用点）。
-func (s *MFAService) cleanupExpiredTempTokens(ctx context.Context) {}
-
 // VerifyMFALogin MFA 登录验证
 // 步骤：校验临时令牌 → 校验 TOTP 码 → 检查重放 → 更新 last_used_at → 返回用户 ID
 func (s *MFAService) VerifyMFALogin(ctx context.Context, tempToken, code string) (uint, string, string, error) {

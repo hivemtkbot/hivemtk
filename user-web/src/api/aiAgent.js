@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // ============================================================================
 // AI 智能体管理 API
@@ -17,18 +17,12 @@ export function listAgents(params) {
 
 // 启用的智能体列表（下拉选择用）
 export function listEnabledAgents() {
-  return request({
-    url: '/api/ai-agents-enabled',
-    method: 'get'
-  })
+  return http.get('/api/ai-agents-enabled')
 }
 
 // 智能体详情
 export function getAgent(id) {
-  return request({
-    url: `/api/ai-agents/${id}`,
-    method: 'get'
-  })
+  return http.get(`/api/ai-agents/${id}`)
 }
 
 // 创建智能体
@@ -51,10 +45,7 @@ export function updateAgent(id, data) {
 
 // 删除智能体
 export function deleteAgent(id) {
-  return request({
-    url: `/api/ai-agents/${id}`,
-    method: 'delete'
-  })
+  return http.delete(`/api/ai-agents/${id}`)
 }
 
 // 启用/禁用智能体
@@ -77,8 +68,5 @@ export function testAgent(id, data) {
 
 // 获取智能体执行上下文（调试用）
 export function getAgentContext(id) {
-  return request({
-    url: `/api/ai-agents/${id}/context`,
-    method: 'get'
-  })
+  return http.get(`/api/ai-agents/${id}/context`)
 }

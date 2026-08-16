@@ -16,7 +16,7 @@ cd "$(dirname "$0")/.."
 MODULE="$(head -1 go.mod | awk '{print $2}')"
 OUT="${1:-../docs/architecture/dependency-matrix-$(date +%Y-%m-%d).md}"
 
-# 关键审计对象：五层 + app 装配 + aiagent 域 + 基础包
+# 关键审计对象：分层 + app 装配 + aiagent 域 + 基础包
 TARGETS=(
   "internal/controller"
   "internal/service"

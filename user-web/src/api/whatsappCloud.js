@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 const BASE = '/api/whatsapp-cloud/accounts'
 
@@ -9,7 +9,7 @@ export function listWhatsappCloud(params) {
 
 // 详情
 export function getWhatsappCloud(id) {
-  return request({ url: `${BASE}/${id}`, method: 'get' })
+  return http.get(`${BASE}/${id}`)
 }
 
 // 创建
@@ -24,7 +24,7 @@ export function updateWhatsappCloud(id, data) {
 
 // 删除
 export function deleteWhatsappCloud(id) {
-  return request({ url: `${BASE}/${id}`, method: 'delete' })
+  return http.delete(`${BASE}/${id}`)
 }
 
 // 测试发送

@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import VueI18n from '@intlify/unplugin-vue-i18n/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import { VitePWA } from 'vite-plugin-pwa'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { resolve } from 'path'
 
@@ -78,6 +79,45 @@ export default defineConfig({
       ],
       dts: 'src/types/components.d.ts',
     }),
+    // PWA（OPT-FE-12）
+    // 仅对 5 个关键页面（首屏/工作台/对话/客户/数据大屏）做 precache；
+    // 其他路由采用 NetworkFirst / 路由懒加载，避免 SW 体积过大。
+    // 注意：vite-plugin-pwa 0.21.x 的 workbox 模式不支持 precacheAndRoute 数组传参
+    // 应使用 additionalManifestEntries 注入额外资源清单
+    VitePWA({
+      registerType: 'autoUpdate',
+      injectRegister: 'auto',
+      manifest: 'manifest.webmanifest',
+      devOptions: { enabled: false },
+      workbox: {
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api\//, /^\/chat\/embed/],
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // 仅 5 张关键页面 precache（additionalManifestEntries 追加）
+        additionalManifestEntries: [
+          { url: '/', revision: 'pwa-v1' },
+          { url: '/unifiedInbox/list', revision: 'pwa-v1' },
+          { url: '/workspace', revision: 'pwa-v1' },
+          { url: '/customer360', revision: 'pwa-v1' },
+          { url: '/dashboardScreen', revision: 'pwa-v1' },
+        ],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/static/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'api-static-v1',
+              expiration: { maxEntries: 64, maxAgeSeconds: 60 * 60 * 24 * 7 },
+            },
+          },
+          {
+            urlPattern: ({ request }) => request.destination === 'image',
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'images-v1' },
+          },
+        ],
+      },
+    }),
   ],
   resolve: {
     alias: {
@@ -102,8 +142,10 @@ export default defineConfig({
       output: {
         manualChunks: {
           vue: ['vue', 'vue-router', 'pinia'],
-          elementPlus: ['element-plus'],
-          utils: ['axios']
+          elementPlus: ['element-plus', '@element-plus/icons-vue'],
+          echarts: ['echarts'],
+          tinymce: ['tinymce', '@tinymce/tinymce-vue'],
+          utils: ['axios', 'dompurify']
         }
       }
     }

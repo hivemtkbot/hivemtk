@@ -190,14 +190,6 @@ func (s *Customer360Service) batchResolveSessions(ctx context.Context, customers
 	return result
 }
 
-// resolveSessionsForCustomer 解析单个客户的关联会话（详情页复用同一套关联规则）
-func (s *Customer360Service) resolveSessionsForCustomer(ctx context.Context, c *model.Customer) []*model.CustomerSession {
-	if c == nil {
-		return nil
-	}
-	return s.batchResolveSessions(ctx, []*model.Customer{c})[c.ID]
-}
-
 // parseCustomerTags 解析 customers.tags（JSON 数组字符串），非法内容按逗号分隔兜底
 func parseCustomerTags(raw string) []string {
 	raw = strings.TrimSpace(raw)

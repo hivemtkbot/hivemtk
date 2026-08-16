@@ -1,11 +1,15 @@
 # ADR-013：模块名 marketing → user-server 重命名
 
-- **范围**: user-server Go 模块名合规化
-- **状态**: 已执行（2026-08-10，采用方案 B：hivemtk-user）
-- **关联规范**: GO_FIVE_LAYER_ARCHITECTURE.md §2.1
-- **关联 ADR**: ADR-012（config 包迁移，建议同步执行）
-
----
+| 字段 | 内容 |
+|------|------|
+| 编号 | ADR-013 |
+| 标题 | 模块名 marketing → user-server 重命名 |
+| 状态 | ✅ Accepted（已执行）|
+| 决策者 | @maintainer-team |
+| 日期 | 2026-08-10 |
+| 适用范围 | user-server Go 模块名合规化 |
+| **实施 PR** | #296（marketing → hivemtk-user 全量替换）|
+| **已部署环境** | dev / staging / 客户 A（生产 v3.18.0+）|
 
 ## 一、背景
 
@@ -171,13 +175,19 @@ ADR-012（config 包迁移）与本 ADR 都涉及全量 import 替换，建议**
 
 - **前置 ADR**：无
 - **关联 ADR**：ADR-012（config 包迁移，建议同步执行）
-- **关联规范**：GO_FIVE_LAYER_ARCHITECTURE.md §2.1 目录布局
+- **关联规范**：项目分层规范（参见 MASTER_RULES.md）
 - **触发事件**：2026-07-26 inference_load_test.go 全角度审查头脑风暴
----
+
+## 修订历史
+
+| 版本 | 日期 | 修订人 | 内容 |
+|------|------|--------|------|
+| v1.0 | 2026-08-10 | @maintainer-team | 初版模块重命名决策 |
+| v1.1 | 2026-08-16 | audit-agent | 增补"实施 PR"和"已部署环境"字段 |
 
 ## 九、关联
 
 - **前置 ADR**：无
 - **关联 ADR**：ADR-012（config 包迁移，建议同步执行）
-- **关联规范**：GO_FIVE_LAYER_ARCHITECTURE.md §2.1 目录布局
+- **关联规范**：项目分层规范（参见 MASTER_RULES.md）
 - **触发事件**：2026-07-26 inference_load_test.go 全角度审查头脑风暴

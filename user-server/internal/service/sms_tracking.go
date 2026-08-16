@@ -9,8 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
-
-	"gorm.io/gorm"
 )
 
 // smsMaxRetryCount 最大重试次数（合规要求：避免无限重试骚扰用户）
@@ -364,10 +362,5 @@ func parseSmsTime(s string) (*time.Time, error) {
 	}
 
 	return nil, errors.New("unsupported time format")
-}
-
-// smsTrackingServiceWithDB 内部辅助：使用指定 db 创建服务（测试用）
-func smsTrackingServiceWithDB(db *gorm.DB) *SmsTrackingService {
-	return NewSmsTrackingService(repository.NewSmsTrackingRepository(db))
 }
 

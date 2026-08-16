@@ -331,8 +331,3 @@ func (e *SalesEngine) shouldUseParallel() bool {
 	return featureflag.Get("parallel").Bool()
 }
 
-// ms 毫秒辅助函数 (与 sales_engine.go 中现有同名函数一致)
-func msForParallel(start time.Time) int {
-	return int(time.Since(start).Milliseconds())
-}
-

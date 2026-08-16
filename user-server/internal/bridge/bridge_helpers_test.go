@@ -282,45 +282,5 @@ func TestHistoryItemToEvent_ToChannelConversion(t *testing.T) {
 	}
 }
 
-// TestToMessageEvent_HistoryPropagation 验证 UnifiedMessage 的多轮 history 窗口被透传到
-// MessageEvent.History 并冗余进 Extra。
-func TestToMessageEvent_HistoryPropagation(t *testing.T) {
-	m := &UnifiedMessage{
-		EventID:        "in-1",
-		Channel:        "xiaohongshu",
-		AccountID:      "acc1",
-		ConversationID: "conv1",
-		SenderID:       "conv1",
-		SenderName:     "张三",
-		MsgType:        "text",
-		Content:        "@客服 在吗",
-		Timestamp:      time.Now().UnixMilli(),
-		IsGroup:        true,
-		GroupID:        "group-1",
-		GroupName:      "产品交流群",
-		History: []*HistoryItem{
-			{EventID: "h1", SenderType: "customer", SenderID: "group-1", SenderName: "李四", MsgType: "text", Content: "有人在吗", Timestamp: 1700000000000, Direction: "inbound"},
-			{EventID: "h2", SenderType: "agent", SenderID: "acc1", SenderName: "客服小王", MsgType: "text", Content: "在的，请讲", Timestamp: 1700000001000, Direction: "outbound"},
-		},
-	}
-	ev := toMessageEvent(m)
-	if len(ev.History) != 2 {
-		t.Fatalf("History 应透传 2 条，实际 %d", len(ev.History))
-	}
-	if ev.History[0].Content != "有人在吗" || ev.History[0].SenderName != "李四" {
-		t.Fatalf("history[0] 映射错误: %+v", ev.History[0])
-	}
-	if ev.History[1].Direction != "outbound" {
-		t.Fatalf("history[1] direction 错误: %q", ev.History[1].Direction)
-	}
-	if ev.Extra["history"] == nil {
-		t.Fatal("history 应冗余进 Extra")
-	}
-	if ev.Extra["group_name"] != "产品交流群" {
-		t.Fatalf("群名应冗余进 Extra: %+v", ev.Extra)
-	}
-	if !ev.IsGroup || ev.GroupID != "group-1" {
-		t.Fatalf("群属性透传错误: %+v", ev)
-	}
-}
+
 

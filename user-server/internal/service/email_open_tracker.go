@@ -167,15 +167,6 @@ func (s *EmailOpenTrackerService) recordOpenByEmail(ctx context.Context, email, 
 	return s.repo.CreateEvent(ctx, evt)
 }
 
-// buildClickTokenFromPostmark 由于 Postmark 点击事件中不携带我们自签 token，
-// 这里采用退化路径：直接走 click 事件记录（target 字段写入 OriginalLink）。
-//
-// 由于原 tracking.RecordClickEvent 强依赖自签 token，这里不复用，
-// 而是直接落库一筆 click 事件。
-func buildClickTokenFromPostmark(evt *PostmarkOpenEvent) string {
-	return fmt.Sprintf("pm-click:%s:%s", evt.MessageID, evt.Recipient)
-}
-
 
 // SendCloudOpenEvent SendCloud webhook payload
 //

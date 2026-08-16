@@ -4,7 +4,7 @@
 > **日期:** 2026-07-31  
 > **维护:** HiveMTK 团队
 
-本文档描述企业级 AI 智能体性能优化（5 阶段并行 + 双层架构 + WebSocket 流式）的部署步骤、灰度发布节奏和紧急回滚方案。
+本文档描述企业级 AI 智能体性能优化（5 阶段并行 + 双层架构 + HTTP 长轮询）的部署步骤、灰度发布节奏和紧急回滚方案。
 
 ---
 
@@ -28,7 +28,7 @@ graph TB
 
     subgraph App["user-server (Go 1.22+)"]
         REST[REST Controller<br/>/api/v1/ai/chat]
-        WS[ChatWSController<br/>/ws/chat]
+        POLL[LongPollController<br/>/api/v1/ai/chat/poll]
         SE[SalesEngine<br/>5 阶段并行]
         LR[LayerRouter]
         FAQ[FAQService]
@@ -53,9 +53,9 @@ graph TB
 
     W & TG & WC & FS & XY --> NGX
     NGX --> REST
-    NGX --> WS
+    NGX --> POLL
     REST --> SE
-    WS --> SE
+    POLL --> SE
     SE --> LR
     LR --> FAQ
     LR --> SOP
@@ -137,7 +137,7 @@ llama-server \
 | 开关 | 默认值 | 说明 |
 |------|--------|------|
 | `FF_PARALLEL` | `1` | 启用 5 阶段并行化 |
-| `FF_STREAM` | `1` | 启用 WebSocket 流式输出 |
+| `FF_STREAM` | `0` | WebSocket 流式输出（已弃用，使用 HTTP 长轮询） |
 | `FF_LAYER1` | `1` | 启用 Layer1 FAQ/SOP SkipLLM |
 | `FF_FALLBACK_CHAIN` | `1` | 启用 4 级降级链 |
 | `FF_DEBUG_LOG` | `0` | 关闭 phase 详细日志（生产默认关闭） |
@@ -213,7 +213,7 @@ curl http://prod:8080/healthz | jq
 
 ### 2.4 指标审计 (私域: 无外部监控)
 
-> 私域部署版本: 不接入 Prometheus / Grafana / 告警通道。
+> 私域部署版本: 不接入外部监控/告警通道。
 > 关键指标 (wall_ms / LCP / Layer1 命中率) 通过 `layer_decision_logs` / `rag_query_logs` /
 > `audit_logs` 表落库审计, 巡检通过 `scripts/post_deploy_check.sh` SQL 查询实现。
 
@@ -246,15 +246,10 @@ WHERE created_at > NOW() - INTERVAL '1 hour';
 # Phase 1 (5% 流量)
 export FF_LAYER1=1
 export FF_PARALLEL=0   # 先开 Layer1, 观察 P50
-export FF_STREAM=0
 systemctl reload user-server
 
 # Phase 2 (加 Parallel)
 export FF_PARALLEL=1
-systemctl reload user-server
-
-# Phase 3 (加 Stream)
-export FF_STREAM=1
 systemctl reload user-server
 ```
 
@@ -277,7 +272,6 @@ systemctl reload user-server
 ```bash
 # Step 1: 立即关停所有新功能 (5 秒)
 export FF_PARALLEL=0
-export FF_STREAM=0
 export FF_LAYER1=0
 export FF_FALLBACK_CHAIN=0
 
@@ -286,7 +280,7 @@ systemctl reload user-server  # 通过 SIGHUP 触发 viper.WatchConfig
 
 # Step 3: 验证回滚 (10 秒)
 curl -s http://prod:8080/healthz | jq '.feature_flags'
-# 期望: { "parallel": false, "stream": false, "layer1": false }
+# 期望: { "parallel": false, "layer1": false }
 
 # Step 4: 必要时 git revert (5 分钟)
 git revert HEAD~N..HEAD
@@ -474,7 +468,7 @@ inference:
 # 1. 压测 100 QPS, 持续 5min
 wrk -t 4 -c 50 -d 5m --latency http://user-server:8080/api/v1/ai/chat
 
-# 2. 检查 P99 延迟 (私域: SQL 巡检 layer_decision_logs, 无 Prometheus 端点)
+# 2. 检查 P99 延迟 (私域: SQL 巡检 layer_decision_logs)
 psql -h postgres -U hivemtk -d hivemtk -c "
   SELECT
     PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY wall_ms) AS wall_p99_ms
@@ -497,7 +491,7 @@ ssh user-server "uptime"
 
 ## 六、关键指标巡检 (私域: 无外部告警)
 
-> 私域部署版本: 不接入 Prometheus Alertmanager / 钉钉 / 短信告警通道。
+> 私域部署版本: 不接入外部告警通道。
 > 关键指标 (wall_ms / LCP / Layer1 命中率 / Fallback 触发率 / LLM 错误率)
 > 通过应用层日志 + 数据库审计表 (`layer_decision_logs`) 落库,
 > 巡检通过 `scripts/post_deploy_check.sh` 脚本实现。

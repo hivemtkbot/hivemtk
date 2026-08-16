@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // ============================================================================
 // 术语表（Glossary）管理 API
@@ -28,10 +28,7 @@ export function listGlossaries(params) {
 
 // 术语详情
 export function getGlossary(termId) {
-  return request({
-    url: `/api/glossaries/${termId}`,
-    method: 'get'
-  })
+  return http.get(`/api/glossaries/${termId}`)
 }
 
 // 更新术语
@@ -45,10 +42,7 @@ export function updateGlossary(termId, data) {
 
 // 删除术语
 export function deleteGlossary(termId) {
-  return request({
-    url: `/api/glossaries/${termId}`,
-    method: 'delete'
-  })
+  return http.delete(`/api/glossaries/${termId}`)
 }
 
 // 校验预览：检测文本中违规/命中术语的情况

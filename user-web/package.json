@@ -5,6 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/i18n-extract.cjs",
+    "prebuild:strict": "node scripts/i18n-extract.cjs --strict",
+    "i18n:check": "node scripts/i18n-extract.cjs",
+    "i18n:report": "node scripts/i18n-extract.cjs --json i18n-report.json",
+    "i18n:coverage": "node scripts/check-i18n-coverage.cjs",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -12,33 +17,49 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "storybook": "storybook dev -p 6006",
+    "storybook:build": "storybook build",
+    "lint": "eslint . --fix",
+    "lint:check": "eslint ."
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
     "@tinymce/tinymce-vue": "^5.1.0",
+    "@vue-flow/background": "^1.45.0", // USR-AI-01: 可视化 Chatflow
+    "@vue-flow/controls": "^1.45.0",
+    "@vue-flow/core": "^1.45.0",
+    "@vue-flow/minimap": "^1.45.0",
     "@vue/compiler-sfc": "^3.5.22",
     "axios": "^1.9.0",
     "dompurify": "^3.4.12",
     "echarts": "^6.0.0",
     "element-plus": "^2.9.11",
+    "mjml-browser": "^4.15.3", // USR-RC-02: 邮件拖拽编辑器
     "pinia": "^3.0.2",
     "sass": "^1.89.1",
     "tinymce": "^6.8.3",
     "vue": "^3.5.13",
     "vue-i18n": "^9.14.4",
-    "vue-router": "^4.5.1"
+    "vue-router": "^4.5.1",
+    "web-vitals": "^4.2.4"
   },
   "devDependencies": {
     "@intlify/unplugin-vue-i18n": "^4.0.0",
     "@playwright/test": "^1.61.1",
+    "@storybook/addon-a11y": "^8.0.0",
+    "@storybook/addon-essentials": "^8.0.0",
+    "@storybook/addon-interactions": "^8.0.0",
+    "@storybook/vue3-vite": "^8.0.0",
     "@vitejs/plugin-vue": "^5.2.3",
     "@vitest/coverage-v8": "^4.1.10",
     "@vue/test-utils": "^2.4.11",
+    "eslint-plugin-vuejs-accessibility": "^2.4.1",
     "jsdom": "^29.1.1",
     "unplugin-auto-import": "^21.0.0",
     "unplugin-vue-components": "^32.1.0",
     "vite": "^6.3.5",
+    "vite-plugin-pwa": "^0.21.1",
     "vitest": "^4.1.10"
   }
 }

@@ -140,12 +140,6 @@ func TestAutoMigrate_ConcurrentAccess(t *testing.T) {
 	}
 }
 
-type concurrentError struct {
-	msg string
-}
-
-func (e *concurrentError) Error() string { return e.msg }
-
 // TestAutoMigrate_VeryLargeNumberOfModels 测试较多模型同时迁移
 func TestAutoMigrate_VeryLargeNumberOfModels(t *testing.T) {
 	testDB := testutil.NewTestDB(t,

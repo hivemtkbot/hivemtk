@@ -252,23 +252,6 @@ func (s *douyinCardService) GenerateCardChatPage(ctx context.Context, id uint, b
 	return s.templateService.RenderCardChatPage("douyin", card.ID, card.Title, card.Description, card.ImageURL, card.Tags, baseURL)
 }
 
-// toResponse 将模型转换为响应DTO
-func (s *douyinCardService) toResponse(ctx context.Context, card *model.DouyinCard) *dto.DouyinCardResponse {
-	return &dto.DouyinCardResponse{
-		ID:           card.ID,
-		Title:        card.Title,
-		Description:  card.Description,
-		ImageURL:     card.ImageURL,
-		RedirectURL:  card.RedirectURL,
-		DomainPoolID: &card.DomainPoolID, 
-		Tags:         card.Tags,
-		ViewCount:    card.ViewCount,
-		IsActive:     card.IsActive,
-		CreatedAt:    card.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:    card.UpdatedAt.Format(time.RFC3339),
-	}
-}
-
 // toResponseWithShortLink 将模型转换为响应DTO，包含短链信息
 func (s *douyinCardService) toResponseWithShortLink(ctx context.Context, card *model.DouyinCard, shortCode string) *dto.DouyinCardResponse {
 	shortLinkURL := ""

@@ -18,24 +18,9 @@ const (
 	ChannelXianyuWeb   = "xianyu"   
 )
 
-// apiToBridge 平台基础渠道 -> 网页桥接渠道（统一后为 identity：已是全名）
-// 保留是为兼容外部仍传基础渠道名的旧路径/数据（迁移期兼容），实际直接返回 ch。
-var apiToBridge = map[string]string{
-	model.ChannelDouyin:   ChannelDouyinWeb,
-	model.ChannelXHS:      ChannelXHSWeb,
-	model.ChannelTikTok:   ChannelTikTok,
-	model.ChannelKuaishou: ChannelKuaishouWeb,
-	model.ChannelXianyu:   ChannelXianyuWeb,
-}
 
-// bridgeToAPI 网页桥接渠道 -> 平台基础渠道（统一后为 identity）
-var bridgeToAPI = map[string]string{
-	ChannelDouyinWeb:   model.ChannelDouyin,
-	ChannelXHSWeb:      model.ChannelXHS,
-	ChannelTikTok:      model.ChannelTikTok,
-	ChannelKuaishouWeb: model.ChannelKuaishou,
-	ChannelXianyuWeb:   model.ChannelXianyu,
-}
+
+
 
 // NormalizeBridgeChannel 归一化网页桥接渠道标识（历史简写 → 全名）。
 //

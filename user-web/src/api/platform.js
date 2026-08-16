@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 平台相关API
 export const platformAPI = {
@@ -13,10 +13,7 @@ export const platformAPI = {
 
   // 标记消息已读
   markMessageRead(messageId) {
-    return request({
-      url: `/api/platform/message/${messageId}/read`,
-      method: 'post'
-    })
+    return http.post(`/api/platform/message/${messageId}/read`)
   },
 
   // 获取授权状态（开源版无授权概念，返回默认值）

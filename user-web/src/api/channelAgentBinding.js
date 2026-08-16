@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // ============================================================================
 // 渠道账号绑定智能体 API
@@ -17,10 +17,7 @@ export function listBindings(params) {
 
 // 反查智能体被哪些渠道使用
 export function listBindingsByAgent(agentId) {
-  return request({
-    url: `/api/channel-agent-bindings/by-agent/${agentId}`,
-    method: 'get'
-  })
+  return http.get(`/api/channel-agent-bindings/by-agent/${agentId}`)
 }
 
 // 创建绑定
@@ -43,8 +40,5 @@ export function updateBinding(id, data) {
 
 // 删除绑定
 export function deleteBinding(id) {
-  return request({
-    url: `/api/channel-agent-bindings/${id}`,
-    method: 'delete'
-  })
+  return http.delete(`/api/channel-agent-bindings/${id}`)
 }

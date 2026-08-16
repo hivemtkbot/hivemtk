@@ -53,23 +53,9 @@ func (s *ClueService) GetClueAllList(ctx context.Context, clueType int64) ([]*mo
 }
 
 // BatchImportClues 批量导入线索，返回成功数量和跳过数量
+// OPT-ARC-07：从 N+1（每条 1 SELECT + 1 INSERT）重构为 3 次 DB 往返
 func (s *ClueService) BatchImportClues(ctx context.Context, clues []*model.Clue) (successCount, skipCount int64, err error) {
-	for _, clue := range clues {
-		exists, err := s.repo.ExistsByTypeAndAccount(ctx, clue.Type, clue.Account)
-		if err != nil {
-			return successCount, skipCount, err
-		}
-		if exists {
-			skipCount++
-			continue
-		}
-
-		if err := s.repo.Create(ctx, clue); err != nil {
-			return successCount, skipCount, err
-		}
-		successCount++
-	}
-	return successCount, skipCount, nil
+	return s.repo.BatchCreateWithDedup(ctx, clues)
 }
 
 // ClueType 线索类型
@@ -80,17 +66,6 @@ type ClueType struct {
 
 // ClueTypeLeadMining 智能线索发掘（由线索发掘服务写入 clues 表，type=8）
 const ClueTypeLeadMining int64 = 8
-
-// clueTypeMap 预定义的线索类型映射（与前端 utils/map.js 保持一致）
-var clueTypeMap = map[int64]string{
-	1: "QQ",
-	2: "微信",
-	3: "电话",
-	4: "Telegram",
-	5: "Whatsapp",
-	6: "twitter",
-	8: "智能线索发掘",
-}
 
 // defaultClueTypes 默认线索类型列表
 var defaultClueTypes = []ClueType{

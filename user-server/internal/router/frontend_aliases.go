@@ -109,6 +109,9 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/oneid/merge", oneIDCtrl.MergeIdentity)
 	doReg("POST", "/oneid/resolve", oneIDCtrl.ResolveIdentity)
 	doReg("POST", "/oneid/conflicts/:id/resolve", oneIDCtrl.ResolveConflict)
+	// OPT-UX-04: OneID 合并规则 CRUD
+	doReg("GET", "/oneid/merge-rules", oneIDCtrl.GetMergeRules)
+	doReg("POST", "/oneid/merge-rules", oneIDCtrl.SaveMergeRules)
 
 	inboxCtrl := controller.NewInboxController(service.NewInboxService())
 	doReg("GET", "/inbox/conversations", inboxCtrl.List)

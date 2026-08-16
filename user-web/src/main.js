@@ -28,4 +28,27 @@ updateRequestConfig().catch(error => {
   console.error('初始化API配置失败:', error)
 })
 
+// OPT-SEC-07：根据当前路由动态调整 CSP frame-ancestors
+// /chat/embed 路由需要被第三方网站嵌入（embed-sdk 场景）
+// 其他路由必须 frame-ancestors 'none' 防止点击劫持
+router.afterEach((to) => {
+  const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]')
+  if (!cspMeta) return
+
+  if (to.path.startsWith('/chat/embed')) {
+    // 允许被任意 origin 嵌入（embed-sdk 业务场景）
+    // 限制:仅 /chat/embed 路由开放,其他路由保持 'none'
+    const csp = cspMeta.getAttribute('content')
+    const newCsp = csp.replace(/frame-ancestors\s+[^;]+/, "frame-ancestors *")
+    cspMeta.setAttribute('content', newCsp)
+  } else {
+    // 默认严格模式:禁止嵌入
+    const csp = cspMeta.getAttribute('content')
+    if (csp && !csp.includes("frame-ancestors 'none'")) {
+      const newCsp = csp.replace(/frame-ancestors\s+[^;]+/, "frame-ancestors 'none'")
+      cspMeta.setAttribute('content', newCsp)
+    }
+  }
+})
+
 app.mount('#app')

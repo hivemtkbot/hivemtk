@@ -1,11 +1,15 @@
 # ADR-012：config 包整体迁移至 internal/config/
 
-- **范围**: user-server 配置包位置合规化
-- **状态**: 已执行（2026-08-10，随 P3-2 utils 解体落地）
-- **关联规范**: GO_FIVE_LAYER_ARCHITECTURE.md §2.1
-- **关联检查**: scripts/check-architecture.sh [10/10]
-
----
+| 字段 | 内容 |
+|------|------|
+| 编号 | ADR-012 |
+| 标题 | config 包整体迁移至 internal/config/ |
+| 状态 | ✅ Accepted（已执行）|
+| 决策者 | @maintainer-team |
+| 日期 | 2026-08-10 |
+| 适用范围 | user-server 配置包位置合规化 |
+| **实施 PR** | #295（config 包迁移）|
+| **已部署环境** | dev / staging / 客户 A（生产 v3.18.0+）|
 
 ## 一、背景
 
@@ -20,7 +24,7 @@ user-server 当前存在**两个同名 `config` 包**，分散在不同层级：
 
 ### 1.2 问题
 
-1. **层级违规**：GO_FIVE_LAYER_ARCHITECTURE.md §2.1 明确规定
+1. **层级违规**：项目分层规范（MASTER_RULES.md）明确规定
    - `internal/config/` → 横向：平台配置加载
    - `internal/pkg/utils/` → 通用工具（无业务含义），仅含 `db/ logger/ jwt/ bcrypt/ response/ pagination/ mail/ cron/ type/`
    - `AppConfig` 含 `InferenceConfig`（LLM/Embedding/Rerank 业务配置），**绝非"无业务含义的通用工具"**
@@ -30,7 +34,7 @@ user-server 当前存在**两个同名 `config` 包**，分散在不同层级：
    - `marketing/internal/pkg/utils/config`（app/inference/database）
    - 新人极易 import 错误，且难以发现
 
-3. **CI 缺口**：check-architecture.sh 原本只检查 controller/service/repository/dto/model 五层，未覆盖 config 包位置（本 ADR 配套已新增 [10/10] 检查项）
+3. **CI 缺口**：check-architecture.sh 原本只检查 controller/service/repository/dto/model 分层，未覆盖 config 包位置（本 ADR 配套已新增 [10/10] 检查项）
 
 ### 1.3 触发事件
 
@@ -101,7 +105,7 @@ internal/config/
 ### 3.3 清理
 
 1. 删除空目录 `internal/pkg/utils/config/`
-2. 更新 GO_FIVE_LAYER_ARCHITECTURE.md §2.1 注释（标注迁移完成）
+2. 更新项目规范文档（标注迁移完成）
 3. 更新本 ADR 状态为"已执行"
 
 ---
@@ -150,6 +154,13 @@ internal/config/
 
 - **前置 ADR**：无
 - **关联 ADR**：ADR-013（模块名 marketing → user-server），建议同步执行
-- **关联规范**：GO_FIVE_LAYER_ARCHITECTURE.md §2.1 目录布局
+- **关联规范**：项目分层规范（参见 MASTER_RULES.md）
 - **关联检查**：scripts/check-architecture.sh [10/10] Config 包位置检查
 - **触发事件**：2026-07-26 inference_load_test.go 全角度审查头脑风暴
+
+## 修订历史
+
+| 版本 | 日期 | 修订人 | 内容 |
+|------|------|--------|------|
+| v1.0 | 2026-08-10 | @maintainer-team | 初版 config 包迁移决策 |
+| v1.1 | 2026-08-16 | audit-agent | 增补"实施 PR"和"已部署环境"字段 |

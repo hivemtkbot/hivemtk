@@ -13,7 +13,7 @@ import (
 // BridgeMetricsMigration 补齐桥接指标落库表：
 //   - bridge_metrics：指标定时落库（追加式时间序列），供 SQL 巡检按 (metric_name, ts) 查询趋势。
 //
-// 私域部署无外部监控（不接 Prometheus / Grafana），指标通过「应用层日志 + 数据库表查询」
+// 私域部署无外部监控，指标通过「应用层日志 + 数据库表查询」
 // 两条通道使用；本迁移与 migrations/038_bridge_metrics.sql 严格对齐，AutoMigrate 幂等创建，
 // 已部署库与全新库均安全。
 type BridgeMetricsMigration struct {

@@ -22,6 +22,10 @@ export class IframePanel {
     this.height = options.height || 560
     this.allowedOrigins = options.allowedOrigins || []
     this.onClose = options.onClose || (() => {})
+    // USR-EM-01: Embedded 模式（容器内渲染，参考 Zendesk Web Widget）
+    this.mode = options.mode || 'floating' // 'floating' | 'embedded'
+    this.targetElement = options.targetElement || null
+    this.cspNonce = options.cspNonce || ''
 
     this.iframe = null
     this.shown = false
@@ -93,8 +97,26 @@ export class IframePanel {
     const channelRef = this.getChannelRef()
     iframe.src = `${this.apiBaseURL}/chat/embed/${encodeURIComponent(channelRef)}#/chat/embed/${encodeURIComponent(channelRef)}`
     iframe.allow = 'clipboard-write'
+    // USR-EM-03: CSP nonce
+    if (this.cspNonce) {
+      iframe.setAttribute('nonce', this.cspNonce)
+    }
     iframe.style.cssText = this.getStyle('none')
-    document.body.appendChild(iframe)
+
+    // USR-EM-01: Embedded 模式挂到目标容器
+    if (this.mode === 'embedded' && this.targetElement) {
+      const target = typeof this.targetElement === 'string'
+        ? document.querySelector(this.targetElement)
+        : this.targetElement
+      if (target) {
+        target.appendChild(iframe)
+      } else {
+        console.warn('[MarketingChatWidget] targetElement 不存在，回退到 body')
+        document.body.appendChild(iframe)
+      }
+    } else {
+      document.body.appendChild(iframe)
+    }
     this.iframe = iframe
 
     this.messageHandler = (event) => {
@@ -123,6 +145,20 @@ export class IframePanel {
   }
 
   getStyle(display) {
+    // USR-EM-01: Embedded 模式用 100% 容器尺寸
+    if (this.mode === 'embedded') {
+      return [
+        'border: none',
+        'width: 100%',
+        'height: 100%',
+        'min-height: 400px',
+        `z-index: ${this.zIndex}`,
+        `display: ${display}`,
+        'background: #fff',
+        'border-radius: 8px'
+      ].join(';')
+    }
+
     const isLeft = this.position === 'bottom-left'
     const isMobile = (typeof window !== 'undefined') && window.innerWidth <= 480
 
@@ -142,10 +178,11 @@ export class IframePanel {
       ].join(';')
     }
 
+    // USR-EM-02: 用逻辑属性（inset-inline-*）自动 RTL 镜像
     return [
       'position: fixed',
       `bottom: ${this.offsetY}px`,
-      isLeft ? `left: ${this.offsetX}px` : `right: ${this.offsetX}px`,
+      isLeft ? `inset-inline-start: ${this.offsetX}px` : `inset-inline-end: ${this.offsetX}px`,
       `width: ${this.width}px`,
       `height: ${this.height}px`,
       `z-index: ${this.zIndex + 1}`,

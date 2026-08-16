@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 启动安全审计
 export function runSecurityAudit(data) {
@@ -12,5 +12,5 @@ export function getSecurityAuditList(params) {
 
 // 审计详情
 export function getSecurityAuditDetail(id) {
-  return request({ url: `/api/security/audit/${id}`, method: 'get' })
+  return http.get(`/api/security/audit/${id}`)
 }

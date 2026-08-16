@@ -2,7 +2,7 @@
  * TikTok卡片API
  */
 
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 获取TikTok卡片列表
 export function getTikTokCardList(params) {
@@ -15,10 +15,7 @@ export function getTikTokCardList(params) {
 
 // 获取TikTok卡片详情
 export function getTikTokCard(id) {
-  return request({
-    url: `/api/tiktok-card/${id}`,
-    method: 'get'
-  })
+  return http.get(`/api/tiktok-card/${id}`)
 }
 
 // 创建TikTok卡片
@@ -41,10 +38,7 @@ export function updateTikTokCard(data) {
 
 // 删除TikTok卡片
 export function deleteTikTokCard(id) {
-  return request({
-    url: `/api/tiktok-card/${id}`,
-    method: 'delete'
-  })
+  return http.delete(`/api/tiktok-card/${id}`)
 }
 
 // 生成短链接

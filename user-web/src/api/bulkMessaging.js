@@ -2,7 +2,7 @@
  * 批量消息发送API
  */
 
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 获取消息模板列表
 export function getTemplates(params = {}) {
@@ -33,10 +33,7 @@ export function updateTemplate(id, data) {
 
 // 删除消息模板
 export function deleteTemplate(id) {
-  return request({
-    url: `/api/whatsapp/templates/${id}`,
-    method: 'delete'
-  })
+  return http.delete(`/api/whatsapp/templates/${id}`)
 }
 
 // 发送批量消息
@@ -50,10 +47,7 @@ export function sendBulkMessage(data) {
 
 // 获取发送状态
 export function getMessageStatus(queueId) {
-  return request({
-    url: `/api/whatsapp/group-messaging/status/${queueId}`,
-    method: 'get'
-  })
+  return http.get(`/api/whatsapp/group-messaging/status/${queueId}`)
 }
 
 // 获取发送记录

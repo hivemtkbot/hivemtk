@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 const BASE = '/api/dingtalk-app/accounts'
 
@@ -9,7 +9,7 @@ export function listDingtalkApp(params) {
 
 // 详情
 export function getDingtalkApp(id) {
-  return request({ url: `${BASE}/${id}`, method: 'get' })
+  return http.get(`${BASE}/${id}`)
 }
 
 // 创建
@@ -24,10 +24,10 @@ export function updateDingtalkApp(id, data) {
 
 // 删除
 export function deleteDingtalkApp(id) {
-  return request({ url: `${BASE}/${id}`, method: 'delete' })
+  return http.delete(`${BASE}/${id}`)
 }
 
 // 测试配置（校验必填项）
 export function testDingtalkApp(id) {
-  return request({ url: `${BASE}/${id}/test`, method: 'post' })
+  return http.post(`${BASE}/${id}/test`)
 }

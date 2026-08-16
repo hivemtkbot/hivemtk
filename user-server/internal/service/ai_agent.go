@@ -52,7 +52,7 @@ func NewAIAgentServiceWithDB(db *gorm.DB) *AIAgentService {
 		repo:     repo,
 		db:       db,
 		cache:    make(map[uint]*agentCacheEntry),
-		cacheTTL: 30 * time.Second, 
+		cacheTTL: 30 * time.Second,
 	}
 }
 
@@ -61,6 +61,19 @@ func (s *AIAgentService) SetRepository(ctx context.Context, repo *repository.AIA
 	if repo != nil {
 		s.repo = repo
 	}
+}
+
+// OPT-ARC-01: withDB 统一返回 GORM 执行器，优先走 repository，
+// 在 repository 暂未覆盖的查询路径上回退到 s.db 字段。
+// 这样既保留了 repository 解耦的红利，又不会一次性改完所有调用。
+func (s *AIAgentService) withDB(ctx context.Context) *gorm.DB {
+	if s.repo != nil {
+		return s.repo.GetDB(ctx)
+	}
+	if s.db == nil {
+		return dbUtil.GetDB().WithContext(ctx)
+	}
+	return s.db.WithContext(ctx)
 }
 
 // Create 创建智能体
@@ -133,14 +146,14 @@ func (s *AIAgentService) UpdateStatus(ctx context.Context, id uint, status int) 
 // Delete 删除智能体
 // 业务约束：若智能体被渠道绑定或客服挂载引用，应先解绑
 func (s *AIAgentService) Delete(ctx context.Context, id uint) error {
-	// 校验是否被引用
+	// 校验是否被引用（OPT-ARC-01：经 withDB 走 repository，回退 db）
 	var bindings int64
-	s.repo.GetDB(ctx).Model(&model.ChannelAgentBinding{}).Where("agent_id = ?", id).Count(&bindings)
+	s.withDB(ctx).Model(&model.ChannelAgentBinding{}).Where("agent_id = ?", id).Count(&bindings)
 	if bindings > 0 {
 		return fmt.Errorf("智能体被 %d 个渠道账号绑定，请先解绑", bindings)
 	}
 	var mounts int64
-	s.repo.GetDB(ctx).Model(&model.CustomerServiceAgent{}).Where("ai_agent_id = ?", id).Count(&mounts)
+	s.withDB(ctx).Model(&model.CustomerServiceAgent{}).Where("ai_agent_id = ?", id).Count(&mounts)
 	if mounts > 0 {
 		return fmt.Errorf("智能体被 %d 个客服座席挂载，请先解挂", mounts)
 	}

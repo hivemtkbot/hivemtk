@@ -323,19 +323,6 @@ func obsConfigProviderName(c *model.ObsConfig) string {
 	}
 }
 
-// obsConfigIsActive 检查是否活跃
-func obsConfigIsActive(c *model.ObsConfig) bool {
-	return c.Status == model.ObsStatusActive
-}
-
-// obsConfigFullPath 获取完整的上传路径
-func obsConfigFullPath(c *model.ObsConfig, fileName string) string {
-	if c.PathPrefix != "" {
-		return c.PathPrefix + "/" + fileName
-	}
-	return fileName
-}
-
 // obsConfigAccessURL 获取访问URL
 func obsConfigAccessURL(c *model.ObsConfig, filePath string) string {
 	if c.Domain != "" {

@@ -30,22 +30,7 @@ func drainSendChan(c *Client) <-chan []byte {
 	return out
 }
 
-// drainSendChanN 消费 N 条消息后返回 (用于精准断言)
-func drainSendChanN(c *Client, n int) [][]byte {
-	out := make([][]byte, 0, n)
-	for i := 0; i < n; i++ {
-		select {
-		case payload, ok := <-c.send:
-			if !ok {
-				return out
-			}
-			out = append(out, payload)
-		case <-time.After(2 * time.Second):
-			return out
-		}
-	}
-	return out
-}
+
 
 // TestHub_NewChatWSHub 验证 Hub 初始状态
 func TestHub_NewChatWSHub(t *testing.T) {

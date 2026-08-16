@@ -18,7 +18,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 
-	"gorm.io/gorm"
 )
 
 // 邮件退订 token 有效期（30 天），合规要求退订链接在合理时长内可用
@@ -218,10 +217,5 @@ func (s *EmailUnsubscribeService) baseURL(ctx context.Context) string {
 // normalizeEmail 规范化邮箱地址（小写 + 去空格）
 func normalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
-}
-
-// emailUnsubscribeServiceWithDB 内部辅助：使用指定 db 创建服务（测试用）
-func emailUnsubscribeServiceWithDB(db *gorm.DB) *EmailUnsubscribeService {
-	return NewEmailUnsubscribeService(repository.NewEmailUnsubscribeRepository(db))
 }
 

@@ -48,7 +48,16 @@ func (r *RecognizeRequest) resolveText() string {
 	return r.Message
 }
 
-// Recognize 单条识别
+// Recognize godoc
+// @Summary      单条意图识别
+// @Description  对单条用户消息做意图分类，返回意图编码与置信度
+// @Tags         Intent
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  RecognizeRequest  true  "识别请求（text 或 message 二选一）"
+// @Success      200   {object}  response.Response  "成功"
+// @Router       /api/intent/recognize [post]
 func (c *IntentController) Recognize(ctx *gin.Context) {
 	var req RecognizeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -78,7 +87,16 @@ type BatchRecognizeRequest struct {
 	Messages []string           `json:"messages"`
 }
 
-// BatchRecognize 批量识别
+// BatchRecognize godoc
+// @Summary      批量意图识别
+// @Description  支持 items 或 messages 两种入参风格
+// @Tags         Intent
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  BatchRecognizeRequest  true  "批量请求"
+// @Success      200   {object}  response.Response  "成功"
+// @Router       /api/intent/batch [post]
 func (c *IntentController) BatchRecognize(ctx *gin.Context) {
 	var req BatchRecognizeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {

@@ -24,7 +24,16 @@ func NewShortLinkController(shortLinkService service.ShortLinkService) *ShortLin
 	}
 }
 
-// Create 创建短链
+// Create godoc
+// @Summary      创建短链
+// @Description  生成短码并指向长链，支持 UTM 参数自动追加
+// @Tags         Short Link
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  dto.CreateShortLinkRequest  true  "创建短链请求"
+// @Success      200   {object}  response.Response  "成功"
+// @Router       /api/short-links [post]
 func (c *ShortLinkController) Create(ctx *gin.Context) {
 	var req dto.CreateShortLinkRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -40,7 +49,17 @@ func (c *ShortLinkController) Create(ctx *gin.Context) {
 	response.Success(ctx, resp, "创建成功")
 }
 
-// Update 更新短链
+// Update godoc
+// @Summary      更新短链
+// @Description  修改短链指向、过期时间
+// @Tags         Short Link
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  int                          true  "短链 ID"
+// @Param        body  body  dto.UpdateShortLinkRequest   true  "更新参数"
+// @Success      200   {object}  response.Response  "成功"
+// @Router       /api/short-links/{id} [put]
 func (c *ShortLinkController) Update(ctx *gin.Context) {
 	var req dto.UpdateShortLinkRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {

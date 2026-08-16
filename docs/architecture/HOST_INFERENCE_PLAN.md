@@ -1,7 +1,7 @@
 # HiveMtk 宿主机 llama.cpp 推理栈 —— 架构规范与部署指南
 
 > 适用项目：hivemtk 用户端（user-server + user-web）
-> 关联文档：[部署方案_用户端.md](./部署方案_用户端.md)、[GO_FIVE_LAYER_ARCHITECTURE.md](./GO_FIVE_LAYER_ARCHITECTURE.md)
+> 关联文档：[部署方案_用户端.md](./部署方案_用户端.md)、[项目规则](../standards/MASTER_RULES.md)
 
 ---
 

@@ -411,7 +411,7 @@ make down                 # 停止旧版全栈
 | 文档 | 入口 |
 |------|------|
 | ⭐⭐⭐ Go 五层架构编码规范 | [docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md](docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md) |
-| 系统架构图(C4 + 五层 + 模块依赖) | [docs/architecture/ARCHITECTURE_DIAGRAM.md](docs/architecture/ARCHITECTURE_DIAGRAM.md) |
+| 系统架构图(C4 + 分层 + 模块依赖) | [docs/architecture/ARCHITECTURE_DIAGRAM.md](docs/architecture/ARCHITECTURE_DIAGRAM.md) |
 | AI Agent 41 工具注册表 | [docs/architecture/agent-tools-inventory.md](docs/architecture/agent-tools-inventory.md) |
 | 用户系统(统一 system_users) | [docs/architecture/USER_SYSTEM.md](docs/architecture/USER_SYSTEM.md) |
 | 菜单权限实施计划 | [docs/architecture/MENU_PERMISSION_PLAN.md](docs/architecture/MENU_PERMISSION_PLAN.md) |

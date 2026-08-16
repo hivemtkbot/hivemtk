@@ -33,7 +33,6 @@ type ToolInfo struct {
 type DefaultToolDiscovery struct {
 	registry *ToolRegistry
 	index    *ToolIndex
-	mu       sync.RWMutex
 }
 
 // ToolIndex 工具索引（支持快速搜索）

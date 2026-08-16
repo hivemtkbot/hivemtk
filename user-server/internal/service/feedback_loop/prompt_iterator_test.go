@@ -65,12 +65,6 @@ func TestArmKeysToInterface_Empty(t *testing.T) {
 }
 
 
-// seedActivePrompt 在 PG 中插入 active prompt candidate
-func seedActivePrompt(t *testing.T, db any, 
-) {
-	t.Helper()
-}
-
 // TestPromptIterator_IterateForNode_NoActivePrompt 无 active prompt 报错
 func TestPromptIterator_IterateForNode_NoActivePrompt(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)

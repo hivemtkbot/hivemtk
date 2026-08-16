@@ -28,14 +28,6 @@ type apiResp struct {
 	Data    map[string]any `json:"data"`
 }
 
-type loginResp struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Data    struct {
-		Token string `json:"token"`
-	} `json:"data"`
-}
-
 var globalToken string
 
 

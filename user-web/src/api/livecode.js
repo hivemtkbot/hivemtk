@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 获取活码列表
 export function getLiveCodes(params) {
@@ -11,10 +11,7 @@ export function getLiveCodes(params) {
 
 // 获取活码详情
 export function getLiveCode(id) {
-  return request({
-    url: `/api/live-codes/${id}`,
-    method: 'get'
-  })
+  return http.get(`/api/live-codes/${id}`)
 }
 
 // 创建活码
@@ -46,18 +43,12 @@ export function deleteLiveCode(id) {
 
 // 获取活码统计
 export function getLiveCodeStats(id) {
-  return request({
-    url: `/api/live-codes/${id}/stats`,
-    method: 'get'
-  })
+  return http.get(`/api/live-codes/${id}/stats`)
 }
 
 // 获取活码二维码列表
 export function getLiveCodeQRs(liveCodeId) {
-  return request({
-    url: `/api/live-codes/${liveCodeId}/qrcodes`,
-    method: 'get'
-  })
+  return http.get(`/api/live-codes/${liveCodeId}/qrcodes`)
 }
 
 // 生成活码二维码
@@ -71,10 +62,7 @@ export function generateLiveCodeQR(liveCodeId, data) {
 
 // 获取活码二维码统计
 export function getLiveCodeQRStats(qrId) {
-  return request({
-    url: `/api/live-codes/qrcodes/${qrId}/stats`,
-    method: 'get'
-  })
+  return http.get(`/api/live-codes/qrcodes/${qrId}/stats`)
 }
 
 // 分享活码
@@ -88,10 +76,7 @@ export function shareLiveCode(id, data) {
 
 // 删除活码二维码
 export function deleteLiveCodeQR(id) {
-  return request({
-    url: `/api/live-codes/qrcodes/${id}/delete`,
-    method: 'delete'
-  })
+  return http.delete(`/api/live-codes/qrcodes/${id}/delete`)
 }
 
 // 更新活码二维码

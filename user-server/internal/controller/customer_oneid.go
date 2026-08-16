@@ -36,7 +36,17 @@ type mergeRequest struct {
 	SecondaryID string `json:"secondary_id" binding:"required"`
 }
 
-// MergeIdentity 合并客户身份
+// MergeIdentity godoc
+// @Summary      合并 OneID 客户身份
+// @Description  把两个 OneID 合并为一个，保留主 ID 全部行为轨迹
+// @Tags         OneID
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  mergeRequest  true  "合并请求"
+// @Success      200   {object}  response.Response  "合并成功"
+// @Failure      400   {object}  response.Response  "参数错误"
+// @Router       /api/oneid/merge [post]
 func (c *CustomerOneIDController) MergeIdentity(ctx *gin.Context) {
 	var req mergeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -60,7 +70,17 @@ func (c *CustomerOneIDController) MergeIdentity(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"primary": primary, "merged_id": req.SecondaryID}, "合并成功")
 }
 
-// ListOneID OneID 列表
+// ListOneID godoc
+// @Summary      OneID 列表
+// @Description  分页查询客户 OneID 及其身份
+// @Tags         OneID
+// @Produce      json
+// @Security     BearerAuth
+// @Param        page      query  int     false  "页码"   default(1)
+// @Param        page_size query  int     false  "每页"   default(20)
+// @Param        keyword   query  string  false  "关键词"
+// @Success      200  {object}  response.Response  "成功"
+// @Router       /api/oneid [get]
 func (c *CustomerOneIDController) ListOneID(ctx *gin.Context) {
 	page := parsePage(ctx.Query("page"))
 	pageSize := parsePageSize(ctx.Query("page_size"), 20)
@@ -74,7 +94,14 @@ func (c *CustomerOneIDController) ListOneID(ctx *gin.Context) {
 	}, "获取成功")
 }
 
-// OneIDStats OneID 统计
+// OneIDStats godoc
+// @Summary      OneID 统计
+// @Description  返回 OneID 总数、冲突数、合并率等
+// @Tags         OneID
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response  "成功"
+// @Router       /api/oneid/stats [get]
 func (c *CustomerOneIDController) OneIDStats(ctx *gin.Context) {
 	stats := c.custQuerySvc.OneIDStats(ctx.Request.Context())
 	response.Success(ctx, stats, "获取成功")
@@ -238,6 +265,33 @@ func parsePage(s string) int {
 		return 1
 	}
 	return n
+}
+
+// GetMergeRules 获取 OneID 合并规则集（OPT-UX-04）
+func (c *CustomerOneIDController) GetMergeRules(ctx *gin.Context) {
+	mergeRuleSvc := service.NewOneIDMergeRuleService()
+	set, err := mergeRuleSvc.GetRules(ctx.Request.Context())
+	if err != nil {
+		response.ErrorFromDB(ctx, err, "获取合并规则失败")
+		return
+	}
+	response.Success(ctx, set, "获取成功")
+}
+
+// SaveMergeRules 保存 OneID 合并规则集（OPT-UX-04）
+func (c *CustomerOneIDController) SaveMergeRules(ctx *gin.Context) {
+	var set service.MergeRuleSet
+	if err := ctx.ShouldBindJSON(&set); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		return
+	}
+	mergeRuleSvc := service.NewOneIDMergeRuleService()
+	out, err := mergeRuleSvc.SaveRules(ctx.Request.Context(), &set)
+	if err != nil {
+		response.ErrorFromDB(ctx, err, "保存合并规则失败")
+		return
+	}
+	response.Success(ctx, out, "保存成功")
 }
 
 // parsePageSize 解析页大小

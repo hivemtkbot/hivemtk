@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"hivemtk-user/internal/model"
 	_db "hivemtk-user/internal/pkg/db"
 	"time"
@@ -12,13 +13,14 @@ import (
 
 type ClueRepository interface {
 	Create(ctx context.Context, user *model.Clue) error
+	BatchCreateWithDedup(ctx context.Context, clues []*model.Clue) (successCount, skipCount int64, err error)
 	GetByID(ctx context.Context, id uint) (*model.Clue, error)
 	GetClueList(ctx context.Context, page int, limit int) ([]*model.Clue, int64, error)
 	Delete(ctx context.Context, id string) error
 	GetRecentClueList(ctx context.Context) ([]*model.Clue, error)
 	GetClueStatistics(ctx context.Context) ([]map[string]any, error)
 	GetClueAllList(ctx context.Context, clueType int64) ([]*model.Clue, int64, error)
-	ExistsByTypeAndAccount(ctx context.Context, clueType int64, account string) (bool, error) 
+	ExistsByTypeAndAccount(ctx context.Context, clueType int64, account string) (bool, error)
 	FindByTypeAndAccount(ctx context.Context, clueType int64, account string) (*model.Clue, error)
 	GetDistinctTypes(ctx context.Context) ([]int64, error)
 	UpdateByID(ctx context.Context, id string, updates map[string]any) error
@@ -51,6 +53,101 @@ func (r *clueRepo) Create(ctx context.Context, clue *model.Clue) error {
 		return errors.New("重复数据")
 	}
 	return db.Create(clue).Error
+}
+
+// BatchCreateWithDedup 批量创建线索并去重（解决 OPT-ARC-07 N+1）
+// 旧实现：每条线索 1 次 SELECT + 1 次 INSERT，N 条 = 2N 次 DB 往返
+// 新实现：
+//   1. 1 次 SELECT 查询已存在的 (type, account) 对
+//   2. 在内存去重 input 中的重复项
+//   3. 1 次 Bulk INSERT 新数据
+// 总 DB 往返：3 次（与 N 无关）
+func (r *clueRepo) BatchCreateWithDedup(ctx context.Context, clues []*model.Clue) (successCount, skipCount int64, err error) {
+	if len(clues) == 0 {
+		return 0, 0, nil
+	}
+
+	// 1) 内存去重 input（保留首次出现）
+	seen := make(map[string]struct{}, len(clues))
+	deduped := make([]*model.Clue, 0, len(clues))
+	for _, c := range clues {
+		key := fmt.Sprintf("%d|%s", c.Type, c.Account)
+		if _, ok := seen[key]; ok {
+			skipCount++
+			continue
+		}
+		seen[key] = struct{}{}
+		deduped = append(deduped, c)
+	}
+
+	// 2) 1 次 SELECT 查出 DB 已存在的 (type, account)
+	keys := make([]string, 0, len(deduped))
+	typeKey := make(map[string]struct{}, len(deduped))
+	for _, c := range deduped {
+		k := fmt.Sprintf("%d|%s", c.Type, c.Account)
+		if _, ok := typeKey[k]; !ok {
+			keys = append(keys, k)
+			typeKey[k] = struct{}{}
+		}
+	}
+
+	// 提取 (type, account) 对用于批量 EXISTS 查询
+	type pair struct {
+		Type    int64
+		Account string
+	}
+	pairs := make([]pair, 0, len(deduped))
+	for _, c := range deduped {
+		pairs = append(pairs, pair{Type: c.Type, Account: c.Account})
+	}
+
+	// 一次性查出所有已存在的 (type, account)
+	existsSet := make(map[string]struct{})
+	if len(pairs) > 0 {
+		db := r.db.WithContext(ctx)
+		// 使用 GORM 链式 OR 构造 IN 查询
+		conds := db.Model(&model.Clue{})
+		for i, p := range pairs {
+			if i == 0 {
+				conds = conds.Where("(type = ? AND account = ?)", p.Type, p.Account)
+			} else {
+				conds = conds.Or("(type = ? AND account = ?)", p.Type, p.Account)
+			}
+		}
+		type resultRow struct {
+			Type    int64
+			Account string
+		}
+		var rows []resultRow
+		if err := conds.Distinct("type, account").Find(&rows).Error; err != nil {
+			return 0, 0, err
+		}
+		for _, r := range rows {
+			existsSet[fmt.Sprintf("%d|%s", r.Type, r.Account)] = struct{}{}
+		}
+	}
+
+	// 3) 过滤出真正需要插入的
+	toInsert := make([]*model.Clue, 0, len(deduped))
+	for _, c := range deduped {
+		k := fmt.Sprintf("%d|%s", c.Type, c.Account)
+		if _, ok := existsSet[k]; ok {
+			skipCount++
+			continue
+		}
+		toInsert = append(toInsert, c)
+	}
+
+	if len(toInsert) == 0 {
+		return 0, skipCount, nil
+	}
+
+	// 4) 1 次 Bulk INSERT（按 100 条/批）
+	if err := r.db.WithContext(ctx).CreateInBatches(toInsert, 100).Error; err != nil {
+		return 0, skipCount, err
+	}
+	successCount = int64(len(toInsert))
+	return successCount, skipCount, nil
 }
 
 func (r *clueRepo) GetByID(ctx context.Context, id uint) (*model.Clue, error) {

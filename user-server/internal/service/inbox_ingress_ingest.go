@@ -144,14 +144,3 @@ func groupNameOf(event *model.MessageEvent) string {
 	return ""
 }
 
-// isBridgeRelayChannel 判断是否为网页桥接上报渠道（xiaohongshu/douyin）。
-// 仅这两个渠道的桥接扩展会硬编码回采消息 sender_id=会话ID（见 xhs.js:644），
-// 据此指纹判定 AI 回采时不误伤 web_embed / telegram 等 sender_id 语义不同的渠道。
-func isBridgeRelayChannel(ch string) bool {
-	switch strings.ToLower(strings.TrimSpace(ch)) {
-	case "xiaohongshu", "douyin":
-		return true
-	}
-	return false
-}
-

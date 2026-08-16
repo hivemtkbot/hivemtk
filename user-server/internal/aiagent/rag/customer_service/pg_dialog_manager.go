@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -15,7 +14,6 @@ import (
 type PgDialogManager struct {
 	db     *gorm.DB
 	config *DialogManagerConfig
-	mu     sync.RWMutex
 }
 
 func NewPgDialogManager(db *gorm.DB, config *DialogManagerConfig) *PgDialogManager {

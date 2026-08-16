@@ -4,21 +4,20 @@
 > **日期:** 2026-07-31  
 > **维护:** HiveMTK 团队
 
-本文档描述 `user-server` AI 智能体性能优化（5 阶段并行 + 双层架构 + WebSocket 流式）的 API 接口、DTO 协议、FeatureFlag 配置、性能指标、鉴权方式和限流规则。
+本文档描述 `user-server` AI 智能体性能优化（5 阶段并行 + 双层架构 + HTTP 长轮询）的 API 接口、DTO 协议、FeatureFlag 配置、性能指标、鉴权方式和限流规则。
 
 ---
 
 ## 一、接口列表
 
-AI 智能体性能优化交付两类对外接口：REST 兼容旧通道 + WebSocket 新增流式通道。
+AI 智能体性能优化交付两类对外接口：REST 同步返回 + HTTP 长轮询增量获取。
 
 | 通道 | Method | Path | 用途 | 状态 |
 |------|--------|------|------|------|
-| REST | POST | `/api/v1/ai/chat` | 兼容旧接口（同步返回完整回复） | **保留** |
-| WebSocket | GET (Upgrade) | `/ws/chat` | 新增流式接口（增量推送 chunk） | **新增** |
+| REST | POST | `/api/v1/ai/chat` | 同步返回完整回复 | **保留** |
+| REST | GET | `/api/v1/ai/chat/poll?session_id=xxx` | 长轮询增量获取（30s 超时） | **保留** |
 | REST | GET | `/api/v1/ai/health` | AI Agent 健康检查 | 新增 |
 | REST | GET | `/api/v1/ai/features` | 查询当前 FeatureFlag 状态 | 新增 |
-| WebSocket | GET (Upgrade) | `/ws/admin/metrics` | 运维订阅实时指标流 | 新增 |
 
 > TG / WeCom / Feishu / Xianyu 等外部渠道 webhook 继续走 `controller/ai_agent.go` 老路径，不受本次改造影响。
 
@@ -48,7 +47,7 @@ AI 智能体性能优化交付两类对外接口：REST 兼容旧通道 + WebSoc
 | 开关 | 含义 | **默认值** | 推荐灰度 | 紧急回滚 |
 |------|------|---------|----------|----------|
 | `FF_PARALLEL` | 启用 SalesEngine 5 阶段并行化 | `1` (开启) | 0% → 5% → 25% → 50% → 100% | `FF_PARALLEL=0` |
-| `FF_STREAM` | 启用 WebSocket 流式输出 (LCP < 500ms) | `1` (开启) | 同上 | `FF_STREAM=0` |
+| `FF_STREAM` | 启用 WebSocket 流式输出 (已弃用, 使用 HTTP 长轮询) | `0` (关闭) | - | 已下线 |
 | `FF_LAYER1` | 启用 Layer1 FAQ/SOP 模板 SkipLLM | `1` (开启) | 同上 | `FF_LAYER1=0` |
 | `FF_FALLBACK_CHAIN` | 启用 4 级降级链 (7B→3B→缓存→模板) | `1` (开启) | 50% 起步 | `FF_FALLBACK_CHAIN=0` |
 | `FF_DEBUG_LOG` | 输出 phase 详细日志 (Steps 含 debug) | `0` (关闭) | 内部观察用 | `FF_DEBUG_LOG=0` |
@@ -61,7 +60,7 @@ AI 智能体性能优化交付两类对外接口：REST 兼容旧通道 + WebSoc
 ```bash
 # /etc/hivemtk/ai-agent.env
 FF_PARALLEL=1
-FF_STREAM=1
+FF_STREAM=0  # 已弃用, 使用 HTTP 长轮询
 FF_LAYER1=1
 FF_FALLBACK_CHAIN=1
 FF_DEBUG_LOG=0
@@ -71,7 +70,6 @@ FF_DEBUG_LOG=0
 
 ```bash
 export FF_PARALLEL=0
-export FF_STREAM=0
 export FF_LAYER1=0
 export FF_FALLBACK_CHAIN=0
 systemctl reload user-server  # SIGHUP 触发 viper 热加载
@@ -239,87 +237,80 @@ curl -X POST http://localhost:8080/api/v1/ai/chat \
 }
 ```
 
-### 6.2 WebSocket `/ws/chat` (wscat)
+### 6.2 HTTP 长轮询 `/api/v1/ai/chat/poll`
 
-**安装 wscat（如未装）：**
-
-```bash
-npm install -g wscat
-```
-
-**连接 + 鉴权 + 收发：**
+**发起长轮询请求（同步返回首包，后续增量通过轮询获取）：**
 
 ```bash
-# 1. 连接 (Header 携带 Token + 协议子协议)
-wscat -c "ws://localhost:8080/ws/chat" \
+# 1. 发起对话 (POST /api/v1/ai/chat)
+curl -X POST http://localhost:8080/api/v1/ai/chat \
   -H "X-Auth-Token: tk_live_abc123" \
-  -H "X-Request-Id: req-20260731-0002" \
-  -s "ai-agent-v1"
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "s-20260731-001",
+    "customer_id": "c-9988",
+    "text": "你好,有什么推荐吗",
+    "stream_mode": true
+  }'
+# 返回: {"session_id":"s-20260731-001","response":"...","wall_ms":1843,"...}
 
-# 2. 发送用户消息 (在 wscat > 提示符下)
-> {"type":"message","session_id":"s-20260731-001","customer_id":"c-9988","text":"你好,有什么推荐吗","stream_mode":true}
+# 2. 长轮询获取增量 (最多 30s 超时)
+curl http://localhost:8080/api/v1/ai/chat/poll?session_id=s-20260731-001 \
+  -H "X-Auth-Token: tk_live_abc123"
+# 返回增量 chunks:
+# {"type":"start","trace_id":"t-20260731-xyz789","session_id":"s-20260731-001","intent":"product_recommend","layer":"layer2"}
+# {"type":"delta","text":"亲，您好！"}
+# {"type":"delta","text":"推荐您看看热销款 #A102"}
+# {"type":"final","text":"亲，您好！推荐您看看热销款 #A102","wall_ms":1843,"layer":"layer2","model":"qwen-7b-q5","tokens":42,"steps":3}
 
-# 3. 服务端流式响应 (依次出现)
-< {"type":"start","trace_id":"t-20260731-xyz789","session_id":"s-20260731-001","intent":"product_recommend","layer":"layer2","ts":"2026-07-31T10:00:00.123Z"}
-< {"type":"delta","text":"亲，您好！","ts":"2026-07-31T10:00:00.523Z"}
-< {"type":"delta","text":"推荐您看看","ts":"2026-07-31T10:00:00.612Z"}
-< {"type":"delta","text":"热销款 #A102","ts":"2026-07-31T10:00:00.781Z"}
-< {"type":"final","text":"亲，您好！推荐您看看热销款 #A102","wall_ms":1843,"layer":"layer2","model":"qwen-7b-q5","tokens":42,"steps":3,"llm_skipped":false,"ts":"2026-07-31T10:00:01.965Z"}
-
-# 4. 主动取消
-> {"type":"cancel","session_id":"s-20260731-001"}
-
-# 5. 心跳 (推荐 30s 一次)
-> {"type":"ping","ts":"2026-07-31T10:01:00.000Z"}
-< {"type":"pong","ts":"2026-07-31T10:01:00.001Z"}
-
-# 6. 关闭
-> {"type":"close","session_id":"s-20260731-001"}
+# 3. 主动取消
+curl -X POST http://localhost:8080/api/v1/ai/chat/cancel \
+  -H "X-Auth-Token: tk_live_abc123" \
+  -d '{"session_id":"s-20260731-001"}'
 ```
 
-**Python 客户端示例（requests + websocket-client）：**
+**Python 客户端示例（requests 长轮询）：**
 
 ```python
-import websocket, json, threading
+import requests, json, time
 
-def on_message(ws, msg):
-    chunk = json.loads(msg)
-    if chunk["type"] == "delta":
-        print(chunk["text"], end="", flush=True)
-    elif chunk["type"] == "final":
-        print(f"\n[wall_ms={chunk['wall_ms']}] done")
-
-def on_open(ws):
-    ws.send(json.dumps({
-        "type": "message",
-        "session_id": "s-001",
+def chat_with_poll(session_id, text, token):
+    # 发起对话
+    resp = requests.post("http://localhost:8080/api/v1/ai/chat", json={
+        "session_id": session_id,
         "customer_id": "c-9988",
-        "text": "你好",
+        "text": text,
         "stream_mode": True,
-    }))
-
-ws = websocket.WebSocketApp(
-    "ws://localhost:8080/ws/chat",
-    header={"X-Auth-Token": "tk_live_abc123"},
-    on_message=on_message,
-    on_open=on_open,
-)
-ws.run_forever()
+    }, headers={"X-Auth-Token": token})
+    
+    # 长轮询获取增量
+    while True:
+        poll = requests.get(
+            "http://localhost:8080/api/v1/ai/chat/poll",
+            params={"session_id": session_id},
+            headers={"X-Auth-Token": token},
+            timeout=30
+        )
+        for chunk in poll.json().get("chunks", []):
+            if chunk["type"] == "delta":
+                print(chunk["text"], end="", flush=True)
+            elif chunk["type"] == "final":
+                print(f"\n[wall_ms={chunk['wall_ms']}] done")
+                return
 ```
 
 ---
 
 ## 七、鉴权方式
 
-AI Agent 通道对**前端 ChatWidget**、**内部微服务**、**第三方渠道** 三类调用方采用不同鉴权策略。
+AI Agent 通道对**前端 ChatWidget**、**内部服务**、**第三方渠道** 三类调用方采用不同鉴权策略。
 
 ### 7.1 Token 类型矩阵
 
 | 调用方 | Token 类型 | 传递方式 | 鉴权位置 |
 |--------|-----------|---------|----------|
 | 网页 ChatWidget (REST) | `tk_live_xxx` (会话级 JWT) | `X-Auth-Token` Header | 边缘网关 + user-server 中间件 |
-| 网页 ChatWidget (WebSocket) | `tk_live_xxx` | `X-Auth-Token` Header (WS 握手) | WS Hub 握手阶段 |
-| 内部微服务 (TG/WeCom) | `tk_svc_xxx` (服务级) | `X-Auth-Token` Header | internal middleware |
+| 内部服务 (TG/WeCom) | `tk_svc_xxx` (服务级) | `X-Auth-Token` Header | internal middleware |
 | 运维查询 (`/api/v1/ai/features`) | `tk_ops_xxx` (RBAC) | `X-Auth-Token` Header | admin middleware |
 | 平台心跳上报 | `tk_platform_xxx` (固定) | mTLS + Header | 平台端独立监听 |
 
@@ -333,21 +324,17 @@ tk_ops_<user>_<role>_<signature>
 
 > 所有 token 由 `auth-service` 签发，HS256 签名，TTL 默认 1h，过期自动 401。
 
-### 7.3 WebSocket 鉴权握手
+### 7.3 HTTP 鉴权方式
 
 ```http
-GET /ws/chat HTTP/1.1
+POST /api/v1/ai/chat HTTP/1.1
 Host: api.hivemtk.com
-Upgrade: websocket
-Connection: Upgrade
-Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
-Sec-WebSocket-Version: 13
+Content-Type: application/json
 X-Auth-Token: tk_live_user001_s9988_eyJhbGciOiJIUzI1NiJ9...
 X-Request-Id: req-20260731-0001
-Sec-WebSocket-Protocol: ai-agent-v1
 ```
 
-握手成功返回 `101 Switching Protocols`，失败返回：
+鉴权失败返回：
 
 | HTTP Code | 含义 | 处理 |
 |-----------|------|------|
@@ -373,7 +360,6 @@ Sec-WebSocket-Protocol: ai-agent-v1
 |------|------|------|---------|----------|
 | **L7 边缘** | 每 IP 每秒 | 令牌桶 (token bucket) | 20 req/s | `429` + `Retry-After: 1s` |
 | **L4 网关** | 每 Token 每秒 | 滑动窗口 (sliding window) | 10 req/s | `429` + 退避 2s |
-| **L4 网关** | 每 Token 并发 WS | 信号量 (semaphore) | 5 并发 | WS 关闭 + 1008 |
 | **L1 进程** | 全局 LLM 调用 | 漏桶 (leaky bucket) | 5 req/s | 排队 + 60s 超时 |
 | **L1 进程** | 单 session 60s 请求 | 计数器 (counter) | 30 req/60s | `429` + 锁定 60s |
 
@@ -390,15 +376,7 @@ X-RateLimit-Reset: 1722441600
 {"error":"rate_limited","scope":"token","retry_after_ms":2000}
 ```
 
-### 8.3 WebSocket 限流
-
-WebSocket 通道在握手时检查 Token 级别限流，**握手成功后仍受单 session 60s 30 req 计数限制**。超限流程：
-
-1. 服务端主动发送 `{"type":"error","error":"rate_limited","retry_after_ms":5000}`
-2. 等待 1s 后关闭连接 (Close Code `1008` Policy Violation)
-3. 客户端需等待 5s 后重新连接
-
-### 8.4 内部降级开关
+### 8.3 内部降级开关
 
 ```bash
 # 全局限流熔断 (P0 故障时启用)
@@ -410,24 +388,31 @@ systemctl reload user-server
 
 ---
 
-## 九、WebSocket 流式输出协议
+## 九、HTTP 长轮询增量协议
 
 ### 9.1 端点
 
-`/ws/chat` (WebSocket Upgrade)
+- `POST /api/v1/ai/chat` — 发起对话
+- `GET /api/v1/ai/chat/poll?session_id=xxx` — 长轮询获取增量（30s 超时）
 
-### 9.2 协议 (JSON over WS)
+### 9.2 协议 (JSON over HTTP)
 
 ```json
-// 客户端发送
-{"type":"message","text":"你好","session_id":"s1","customer_id":"c1"}
+// 客户端请求
+POST /api/v1/ai/chat
+{"session_id":"s1","customer_id":"c1","text":"你好","stream_mode":true}
 
-// 服务端流式响应
-{"type":"start","trace_id":"t-123","intent":"greeting","layer":"layer1"}
-{"type":"delta","text":"你好"}
-{"type":"delta","text":"，" }
-{"type":"delta","text":"有什么能帮你？"}
-{"type":"final","text":"完整回复","steps":[...],"wall_ms":1234,"layer":"layer2","model":"qwen-7b","tokens":42}
+// 同步响应
+{"session_id":"s1","response":"...","wall_ms":null}
+
+// 长轮询增量响应 (GET /api/v1/ai/chat/poll?session_id=s1)
+{"chunks":[
+  {"type":"start","trace_id":"t-123","intent":"greeting","layer":"layer1"},
+  {"type":"delta","text":"你好"},
+  {"type":"delta","text":"，" },
+  {"type":"delta","text":"有什么能帮你？"},
+  {"type":"final","text":"完整回复","steps":[...],"wall_ms":1234,"layer":"layer2","model":"qwen-7b","tokens":42}
+]}
 ```
 
 ### 9.3 Chunk 类型
@@ -439,13 +424,12 @@ systemctl reload user-server
 | `final` | 流结束 | `text`, `steps`, `wall_ms`, `model`, `tokens` |
 | `error` | 错误 | `error`, `retry_after_ms`(可选) |
 | `cancel` | 取消 | - |
-| `ping` / `pong` | 心跳 | `ts` |
 
 ### 9.4 LCP 优化
 
-- **chunk 1** (LCP): Layer1 命中 → `<100ms` 返回 start + final
-- **chunk 2-N**: Layer2 LLM → 流式 delta (每 50ms 一批)
-- **fallback**: 60s 仍无 LLM 响应 → 推送 `default_template` chunk
+- **首包** (LCP): Layer1 命中 → `<100ms` 返回完整响应
+- **增量**: Layer2 LLM → 长轮询分批返回（每 50ms 一批，客户端轮询间隔 200ms）
+- **fallback**: 60s 仍无 LLM 响应 → 返回 `default_template` 兜底
 
 ---
 
@@ -478,7 +462,7 @@ systemctl reload user-server
 | 指标名 | 类型 | 标签 |
 |--------|------|------|
 | `ai_agent_wall_time_seconds` | Histogram | agent_type, layer, intent |
-| `ai_agent_lcp_time_seconds` | Histogram | agent_type, stream_mode |
+| `ai_agent_lcp_time_seconds` | Histogram | agent_type, poll_mode |
 | `ai_agent_layer_decision_total` | Counter | layer, reason |
 | `ai_agent_llm_call_total` | Counter | scenario, model, result |
 | `ai_agent_fallback_total` | Counter | from_layer, to_layer, reason |
@@ -529,7 +513,7 @@ go run cmd/importfaq/main.go -input ../scripts/faq_seed.json
 - ✅ `SalesResponse` 字段全部保留
 - ✅ `llm_routing_logs` 落库格式不变
 - ✅ PG schema 新增 3 表，不改现有表
-- ✅ Controller 路由新增 `/ws/chat`，REST 端点保留
+- ✅ Controller 路由新增 `/api/v1/ai/chat/poll`，REST 端点保留
 - ✅ FeatureFlag 默认全开启，关闭时回退到旧版 9 步串行
 
 ### 13.2 升级路径
@@ -538,8 +522,7 @@ go run cmd/importfaq/main.go -input ../scripts/faq_seed.json
 2. 跑 FAQ 提取 + 导入 → 验证 Layer1 命中
 3. 灰度 5% `FF_PARALLEL=1` → 观察 P50/P90
 4. 灰度 5% `FF_LAYER1=1` → 观察 P50/Layer1 命中率
-5. 灰度 5% `FF_STREAM=1` → 观察 LCP
-6. 逐步放量到 100%
+5. 逐步放量到 100%
 
 ---
 
@@ -554,7 +537,6 @@ go run cmd/importfaq/main.go -input ../scripts/faq_seed.json
 | `AI_ALL_FALLBACK_FAIL` | 4 级全失败 | 返回默认错误模板 |
 | `AI_RATE_LIMITED` | 触发限流 | 客户端按 `Retry-After` 退避 |
 | `AI_AGENT_MISMATCH` | 越权访问其他智能体数据 | 拒绝 + 审计日志 |
-| `AI_WS_AUTH_FAIL` | WS 鉴权失败 | 关闭连接 (1008) |
 
 ---
 

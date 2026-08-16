@@ -39,17 +39,6 @@ func makeCtxWithToolNameAndTrace(name, traceID string) context.Context {
 	return ctx
 }
 
-// makeCtxWithToolCtx 构造带完整 ToolContext 的 ctx
-func makeCtxWithToolCtx(name string, tc *ToolContext) context.Context {
-	ctx := context.Background()
-	ctx = WithToolName(ctx, name)
-	if tc != nil {
-		ctx = WithToolContext(ctx, tc)
-	}
-	return ctx
-}
-
-
 // TestD9_1_CircuitBreaker_StateMachine 验证熔断器状态机：
 //
 //	CLOSED → 失败累计 ≥ threshold → OPEN → 冷却 → HALF_OPEN → 成功 → CLOSED
@@ -954,9 +943,9 @@ func TestD14_6_ToolCallAuditRecord_TableName(t *testing.T) {
 }
 
 
-// TestD15_1_AlertManager_FailureRate 验证失败率告警
-func TestD15_1_AlertManager_FailureRate(t *testing.T) {
-	manager := NewAlertManager()
+// TestD15_1_ToolAlertManager_FailureRate 验证失败率告警
+func TestD15_1_ToolAlertManager_FailureRate(t *testing.T) {
+	manager := NewToolAlertManager()
 	var alerts []AlertEvent
 	var mu sync.Mutex
 	manager.AddHandler(AlertHandlerFunc(func(event AlertEvent) {
@@ -989,9 +978,9 @@ func TestD15_1_AlertManager_FailureRate(t *testing.T) {
 	}
 }
 
-// TestD15_2_AlertManager_LatencyAlert 验证耗时告警
-func TestD15_2_AlertManager_LatencyAlert(t *testing.T) {
-	manager := NewAlertManager()
+// TestD15_2_ToolAlertManager_LatencyAlert 验证耗时告警
+func TestD15_2_ToolAlertManager_LatencyAlert(t *testing.T) {
+	manager := NewToolAlertManager()
 	var alert AlertEvent
 	var got sync.WaitGroup
 	got.Add(1)
@@ -1018,9 +1007,9 @@ func TestD15_2_AlertManager_LatencyAlert(t *testing.T) {
 	}
 }
 
-// TestD15_3_AlertManager_CircuitOpen 验证熔断告警
-func TestD15_3_AlertManager_CircuitOpen(t *testing.T) {
-	manager := NewAlertManager()
+// TestD15_3_ToolAlertManager_CircuitOpen 验证熔断告警
+func TestD15_3_ToolAlertManager_CircuitOpen(t *testing.T) {
+	manager := NewToolAlertManager()
 	var alert AlertEvent
 	var got sync.WaitGroup
 	got.Add(1)
@@ -1043,9 +1032,9 @@ func TestD15_3_AlertManager_CircuitOpen(t *testing.T) {
 	}
 }
 
-// TestD15_4_AlertManager_DeadLetterBacklog 验证死信堆积告警
-func TestD15_4_AlertManager_DeadLetterBacklog(t *testing.T) {
-	manager := NewAlertManager()
+// TestD15_4_ToolAlertManager_DeadLetterBacklog 验证死信堆积告警
+func TestD15_4_ToolAlertManager_DeadLetterBacklog(t *testing.T) {
+	manager := NewToolAlertManager()
 	var alert AlertEvent
 	var got sync.WaitGroup
 	got.Add(1)
@@ -1068,9 +1057,9 @@ func TestD15_4_AlertManager_DeadLetterBacklog(t *testing.T) {
 	}
 }
 
-// TestD15_5_AlertManager_DeadLetterBacklog_Warning 验证 <100 死信为 warning
-func TestD15_5_AlertManager_DeadLetterBacklog_Warning(t *testing.T) {
-	manager := NewAlertManager()
+// TestD15_5_ToolAlertManager_DeadLetterBacklog_Warning 验证 <100 死信为 warning
+func TestD15_5_ToolAlertManager_DeadLetterBacklog_Warning(t *testing.T) {
+	manager := NewToolAlertManager()
 	var alert AlertEvent
 	var got sync.WaitGroup
 	got.Add(1)
@@ -1087,9 +1076,9 @@ func TestD15_5_AlertManager_DeadLetterBacklog_Warning(t *testing.T) {
 	}
 }
 
-// TestD15_6_AlertManager_WindowReset 验证 1 分钟窗口重置
-func TestD15_6_AlertManager_WindowReset(t *testing.T) {
-	manager := NewAlertManager()
+// TestD15_6_ToolAlertManager_WindowReset 验证 1 分钟窗口重置
+func TestD15_6_ToolAlertManager_WindowReset(t *testing.T) {
+	manager := NewToolAlertManager()
 
 	for i := 0; i < 10; i++ {
 		manager.OnToolCall(AuditEntry{
@@ -1127,9 +1116,9 @@ func TestD15_6_AlertManager_WindowReset(t *testing.T) {
 	}
 }
 
-// TestD15_7_AlertManager_HandlerPanicRecovery 验证 handler panic 不影响其他 handler
-func TestD15_7_AlertManager_HandlerPanicRecovery(t *testing.T) {
-	manager := NewAlertManager()
+// TestD15_7_ToolAlertManager_HandlerPanicRecovery 验证 handler panic 不影响其他 handler
+func TestD15_7_ToolAlertManager_HandlerPanicRecovery(t *testing.T) {
+	manager := NewToolAlertManager()
 
 	panicHandler := AlertHandlerFunc(func(event AlertEvent) {
 		panic("intentional panic in handler")
@@ -1176,7 +1165,7 @@ func TestD15_8_AlertEvent_MarshalJSON(t *testing.T) {
 // TestD15_9_CompositeAuditLogger 验证复合 logger 同时写入 + 触发告警
 func TestD15_9_CompositeAuditLogger(t *testing.T) {
 	memoryLogger := NewMemoryAuditLogger(100)
-	manager := NewAlertManager()
+	manager := NewToolAlertManager()
 	var alertCount int32
 	manager.AddHandler(AlertHandlerFunc(func(event AlertEvent) {
 		atomic.AddInt32(&alertCount, 1)

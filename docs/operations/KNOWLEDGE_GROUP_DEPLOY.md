@@ -266,7 +266,7 @@ spec:
 > 步骤:
 > 1. `docker compose pull` 拉取新镜像
 > 2. `docker compose up -d` 触发滚动重启 (1 个实例先停, 1 个起来, 验证健康)
-> 3. `bash scripts/post_deploy_check.sh` SQL 巡检 P99 延迟 / 错误率
+> 3. 执行文档第 7.1 节提供的验收脚本，SQL 巡检 P99 延迟 / 错误率
 > 4. 异常回滚: `git checkout HEAD~1 && docker compose up -d` 立即回退到上一镜像
 
 ---
@@ -295,20 +295,22 @@ curl -X POST http://user-server:8080/api/v1/knowledge-bases \
 
 ### 6.2 关键监控指标
 
-> 私域部署: 不引入 Prometheus / Grafana / 告警通道。
+> 私域部署: 不引入外部监控/告警通道。
 > 关键指标 (KB 创建数 / ListByAgent 延迟 / 级联删除计数 / 越权访问计数) 通过 `audit_logs` 表落库,
-> 巡检通过 `scripts/post_deploy_check.sh` SQL 查询实现。
+> 巡检通过文档第 7.1 节提供的验收脚本（SQL 查询实现）。
 
 ### 6.3 关键指标审计 (无外部告警)
 
 > 私域部署版本: 关键指标 (越权访问、级联删除延迟) 通过应用层日志 + `audit_logs` 表行数变化人工巡检,
-> 巡检脚本见 `scripts/post_deploy_check.sh`。
+> 详见文档第 7.1 节验收脚本。
 
 ---
 
 ## 7. 部署后验收 (Post-Deploy Acceptance)
 
 ### 7.1 自动化验收脚本
+
+> **注意**: 以下脚本内容需保存为 `scripts/post_deploy_check.sh` 后执行。
 
 ```bash
 #!/bin/bash
@@ -413,7 +415,7 @@ kb_list_duration_seconds P99 > 200ms
 - `docs/architecture/adr/ADR-014-knowledge-group-isolation.md` - ADR
 - `docs/operations/KNOWLEDGE_GROUP_API.md` - API 参考
 - `docs/operations/KNOWLEDGE_GROUP_MONITORING.md` - 监控
-- `docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md` - 五层架构
+- `docs/standards/MASTER_RULES.md` - 项目核心规则
 
 ---
 

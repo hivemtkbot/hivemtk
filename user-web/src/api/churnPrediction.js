@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 流失预警 - 匹配后端真实路由 /api/churn-prediction/*
 export function getChurnPrediction(params) {
@@ -20,7 +20,7 @@ export function markWarningHandled(id, data) {
   return request({ url: `/api/churn/warnings/${id}/handle`, method: 'post', data })
 }
 export function getChurnModelConfig() {
-  return request({ url: '/api/churn-prediction/model-config', method: 'get' })
+  return http.get('/api/churn-prediction/model-config')
 }
 export function saveChurnModelConfig(data) {
   return request({ url: '/api/churn-prediction/model-config', method: 'post', data })
@@ -29,7 +29,7 @@ export function getChurnStatistics(params) {
   return request({ url: '/api/churn-prediction/statistics', method: 'get', params })
 }
 export function getRiskDistribution() {
-  return request({ url: '/api/churn/risk-distribution', method: 'get' })
+  return http.get('/api/churn/risk-distribution')
 }
 
 // 兼容旧接口

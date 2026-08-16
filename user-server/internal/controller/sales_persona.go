@@ -22,7 +22,16 @@ func NewSalesPersonaController() *SalesPersonaController {
 	return &SalesPersonaController{svc: service.NewSalesPersonaService()}
 }
 
-// GetReport 获取员工能力画像
+// GetReport godoc
+// @Summary      销冠能力画像
+// @Description  根据员工 ID 生成多维度能力画像报告（沟通力/转化力/产品力等）
+// @Tags         Sales Persona
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "员工 ID"
+// @Success      200  {object}  response.Response  "成功"
+// @Failure      400  {object}  response.Response  "参数错误"
+// @Router       /api/sales-persona/{id} [get]
 func (c *SalesPersonaController) GetReport(ctx *gin.Context) {
 	staffIDStr := ctx.Param("id")
 	staffID, err := strconv.ParseUint(staffIDStr, 10, 32)
@@ -38,7 +47,14 @@ func (c *SalesPersonaController) GetReport(ctx *gin.Context) {
 	response.Success(ctx, rep, "报告生成成功")
 }
 
-// ListStaffs 列出员工
+// ListStaffs godoc
+// @Summary      销冠员工列表
+// @Description  返回所有员工 ID 和基础信息
+// @Tags         Sales Persona
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response  "成功"
+// @Router       /api/sales-persona/staffs [get]
 func (c *SalesPersonaController) ListStaffs(ctx *gin.Context) {
 	staffs, err := c.svc.ListStaffs(context.Background())
 	if err != nil {

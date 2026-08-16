@@ -285,6 +285,14 @@ func (ctrl *KnowledgeMerchantController) ExternalImport(c *gin.Context) {
 	if req.Operator == "" {
 		req.Operator = c.GetString("operator")
 	}
+	if req.Source == "" {
+		response.Error(c, http.StatusBadRequest, "source 不能为空")
+		return
+	}
+	if req.ProductID == "" {
+		response.Error(c, http.StatusBadRequest, "product_id 不能为空")
+		return
+	}
 	resp, err := ctrl.svc.ExternalImport(c.Request.Context(), &req)
 	if err != nil {
 		response.ErrorFromDB(c, err, "外部系统导入失败")

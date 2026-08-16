@@ -18,7 +18,17 @@ func NewEmailSendController() *EmailSendController {
 	return &EmailSendController{svc: email.NewEmailSendService()}
 }
 
-// 发送邮件
+// SendEmail godoc
+// @Summary      发送单封邮件
+// @Description  提交一封邮件到发送队列，支持模板变量替换与排程发送
+// @Tags         Email Send
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  dto.SendEmailRequest  true  "邮件发送请求"
+// @Success      200   {object}  response.Response  "提交成功"
+// @Failure      400   {object}  response.Response  "参数错误"
+// @Router       /api/email/send [post]
 func (c *EmailSendController) SendEmail(ctx *gin.Context) {
 	var req dto.SendEmailRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {

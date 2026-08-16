@@ -4,6 +4,8 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // MessageHub 消息中台 - 多账号聚合消息
@@ -303,21 +305,22 @@ func (SalesPersona) TableName() string { return "sales_personas" }
 
 // AISalesLog AI 谈单日志
 type AISalesLog struct {
-	ID               uint   `gorm:"primaryKey;autoIncrement" json:"id"`
-	SessionID        string `gorm:"type:varchar(50);not null;index" json:"session_id"`
-	CustomerID       string `gorm:"type:varchar(64)" json:"customer_id"`
-	SOPID            uint   `json:"sop_id"`
-	LLMModel         string `gorm:"type:varchar(50)" json:"llm_model"`
-	Scenario         string `gorm:"type:varchar(50);index" json:"scenario"`
-	PromptTokens     int    `gorm:"default:0" json:"prompt_tokens"`
-	CompletionTokens int    `gorm:"default:0" json:"completion_tokens"`
-	TotalTokens      int    `gorm:"default:0" json:"total_tokens"`
-	Cost         float64   `gorm:"type:decimal(10,4);default:0" json:"cost"`
-	LatencyMs    int       `gorm:"default:0" json:"latency_ms"`
-	Success      bool      `gorm:"default:true" json:"success"`
-	ErrorMessage string    `gorm:"type:text" json:"error_message"`
-	Extra        JSONMap   `gorm:"type:text" json:"extra"`
-	CreatedAt    time.Time `gorm:"autoCreateTime;index" json:"created_at"`
+	ID               uint           `gorm:"primaryKey;autoIncrement" json:"id"`
+	SessionID        string         `gorm:"type:varchar(50);not null;index" json:"session_id"`
+	CustomerID       string         `gorm:"type:varchar(64)" json:"customer_id"`
+	SOPID            uint           `json:"sop_id"`
+	LLMModel         string         `gorm:"type:varchar(50)" json:"llm_model"`
+	Scenario         string         `gorm:"type:varchar(50);index" json:"scenario"`
+	PromptTokens     int            `gorm:"default:0" json:"prompt_tokens"`
+	CompletionTokens int            `gorm:"default:0" json:"completion_tokens"`
+	TotalTokens      int            `gorm:"default:0" json:"total_tokens"`
+	Cost             float64        `gorm:"type:decimal(10,4);default:0" json:"cost"`
+	LatencyMs        int            `gorm:"default:0" json:"latency_ms"`
+	Success          bool           `gorm:"default:true" json:"success"`
+	ErrorMessage     string         `gorm:"type:text" json:"error_message"`
+	Extra            JSONMap        `gorm:"type:text" json:"extra"`
+	CreatedAt        time.Time      `gorm:"autoCreateTime;index" json:"created_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 
 func (AISalesLog) TableName() string { return "ai_sales_logs" }

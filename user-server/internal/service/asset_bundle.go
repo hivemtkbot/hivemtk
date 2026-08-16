@@ -16,8 +16,6 @@ import (
 
 	"sync"
 
-	"time"
-
 	"hivemtk-user/internal/dto"
 
 	"hivemtk-user/internal/model"
@@ -627,8 +625,6 @@ func (stubVersionLogRepo) Create(_ context.Context, m *model.AssetBundleVersionL
 func (stubVersionLogRepo) List(_ context.Context, _ string, _ int) ([]*model.AssetBundleVersionLog, error) {
 	return nil, nil
 }
-
-var weaverNow = time.Now
 
 func BuildBundleFromMerchantForm(req dto.MerchantFormSaveRequest) (*model.AssetBundle, error) {
 	if req.AssetID == "" {

@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 置信度/拟人度/反馈学习 统一管理 API（/api/admin/tuning/*）
 // 依据：docs/核心链路优化.md 第十五/十六/十七章
@@ -11,7 +11,7 @@ export function getConfidenceSignals(params) {
 }
 // 置信度信号详情
 export function getConfidenceSignal(id) {
-  return request({ url: `/api/admin/tuning/confidence/signals/${id}`, method: 'get' })
+  return http.get(`/api/admin/tuning/confidence/signals/${id}`)
 }
 // 置信度信号统计
 export function getConfidenceSignalStats(params) {

@@ -1,12 +1,12 @@
 <template>
-  <div class="breadcrumb-bar">
-    <el-breadcrumb separator="/">
+  <nav class="breadcrumb-bar" role="navigation" aria-label="面包屑导航">
+    <el-breadcrumb separator="/" :aria-label="'面包屑：' + (items[items.length - 1]?.title || '')">
       <el-breadcrumb-item v-for="(item, idx) in items" :key="idx" :to="item.to">
-        <el-icon v-if="item.icon" class="bc-icon"><component :is="resolveIcon(item.icon)" /></el-icon>
+        <el-icon v-if="item.icon" class="bc-icon" aria-hidden="true"><component :is="resolveIcon(item.icon)" /></el-icon>
         {{ item.title }}
       </el-breadcrumb-item>
     </el-breadcrumb>
-  </div>
+  </nav>
 </template>
 
 <script setup>

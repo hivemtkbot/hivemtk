@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/bcrypt"
+	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
 )
@@ -18,13 +20,38 @@ import (
 //
 // 注意：本审计为管理员手动触发（前端点「立即审计」），不默认后台静默扫描，
 // 符合「无默认开启内容/安全扫描」的私域部署约束。
+//
+// OPT-ARC-01：保留 db 字段作 fallback，引入 securityAuditRepo 提供
+// repository 注入；withDB 优先走 repository，无覆盖时回退到 db 字段。
 type SecurityAuditService struct {
-	db *gorm.DB
+	db   *gorm.DB
+	repo *repository.SecurityAuditRepository
 }
 
 // NewSecurityAuditService 构造安全审计服务
-func NewSecurityAuditService(db *gorm.DB) *SecurityAuditService {
-	return &SecurityAuditService{db: db}
+func NewSecurityAuditService(gdb *gorm.DB) *SecurityAuditService {
+	repo := repository.NewSecurityAuditRepository()
+	repo.SetDB(context.Background(), gdb)
+	return &SecurityAuditService{db: gdb, repo: repo}
+}
+
+// SetRepository 注入 repository（用于测试或多租户场景）
+func (s *SecurityAuditService) SetRepository(ctx context.Context, repo *repository.SecurityAuditRepository) {
+	if repo != nil {
+		s.repo = repo
+	}
+}
+
+// withDB 统一返回 GORM 执行器，优先走 repository，缺失时回退 db 字段。
+// 这样既保留 repository 解耦红利，又不强制一次性迁移所有查询。
+func (s *SecurityAuditService) withDB(ctx context.Context) *gorm.DB {
+	if s.repo != nil {
+		return s.repo.GetDB(ctx)
+	}
+	if s.db == nil {
+		return db.GetDB().WithContext(ctx)
+	}
+	return s.db.WithContext(ctx)
 }
 
 type auditCheck struct {
@@ -96,7 +123,7 @@ func (s *SecurityAuditService) RunAudit(ctx context.Context, auditName string) (
 		Items:       items,
 	}
 
-	if err := s.db.WithContext(ctx).Create(audit).Error; err != nil {
+	if err := s.withDB(ctx).Create(audit).Error; err != nil {
 		return nil, err
 	}
 	return audit, nil
@@ -105,12 +132,12 @@ func (s *SecurityAuditService) RunAudit(ctx context.Context, auditName string) (
 // ListAudits 分页列出审计记录（不含 items，减少载荷）。
 func (s *SecurityAuditService) ListAudits(ctx context.Context, page, pageSize int) ([]model.SecurityAudit, int64, error) {
 	var total int64
-	if err := s.db.WithContext(ctx).Model(&model.SecurityAudit{}).Count(&total).Error; err != nil {
+	if err := s.withDB(ctx).Model(&model.SecurityAudit{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 	var list []model.SecurityAudit
 	offset := (page - 1) * pageSize
-	if err := s.db.WithContext(ctx).Order("id DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
+	if err := s.withDB(ctx).Order("id DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil
@@ -119,7 +146,7 @@ func (s *SecurityAuditService) ListAudits(ctx context.Context, page, pageSize in
 // GetAuditDetail 获取审计明细（含 items）。
 func (s *SecurityAuditService) GetAuditDetail(ctx context.Context, id uint) (*model.SecurityAudit, error) {
 	var a model.SecurityAudit
-	if err := s.db.WithContext(ctx).Preload("Items").First(&a, id).Error; err != nil {
+	if err := s.withDB(ctx).Preload("Items").First(&a, id).Error; err != nil {
 		return nil, err
 	}
 	return &a, nil

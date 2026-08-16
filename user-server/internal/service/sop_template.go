@@ -457,18 +457,3 @@ func (s *SOPTemplateService) ShouldSkipLLM(tpl *model.SOPTemplate) bool {
 	return tpl.Confidence >= 0.7
 }
 
-// sopToLayer 转 DTO (供 LayerRouter 决策使用)
-func sopToLayer(tpl *model.SOPTemplate) *dto.LayerDecision {
-	if tpl == nil {
-		return nil
-	}
-	return &dto.LayerDecision{
-		Layer:      dto.Layer1,
-		SkipLLM:    true,
-		Reason:     dto.ReasonSOPHit,
-		SOPID:      tpl.ID,
-		Intent:     tpl.Intent,
-		Confidence: tpl.Confidence,
-	}
-}
-

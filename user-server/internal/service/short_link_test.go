@@ -31,10 +31,6 @@ func newTestShortLinkService(db *gorm.DB) ShortLinkService {
 }
 
 // newTestRepositories 创建测试仓库
-func newTestShortLinkRepository(db *gorm.DB) repository.ShortLinkRepository {
-	return repository.NewShortLinkRepository(db)
-}
-
 func newTestShortLinkAccessRepository(db *gorm.DB) repository.ShortLinkAccessRepository {
 	return repository.NewShortLinkAccessRepository(db)
 }

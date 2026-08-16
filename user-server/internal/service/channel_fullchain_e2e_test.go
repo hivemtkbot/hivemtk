@@ -208,38 +208,6 @@ func encryptFeishuForTest(t *testing.T, key, plaintext string) string {
 	return base64.StdEncoding.EncodeToString(combined)
 }
 
-func base64StdEncode(b []byte) string {
-	// 简单实现避免引入 encoding/base64
-	const tbl = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-	out := make([]byte, 0, ((len(b)+2)/3)*4)
-	for i := 0; i < len(b); i += 3 {
-		var v uint32
-		var n int
-		switch len(b) - i {
-		case 1:
-			v = uint32(b[i]) << 16
-			n = 2
-		case 2:
-			v = uint32(b[i])<<16 | uint32(b[i+1])<<8
-			n = 3
-		default:
-			v = uint32(b[i])<<16 | uint32(b[i+1])<<8 | uint32(b[i+2])
-			n = 4
-		}
-		out = append(out, tbl[(v>>18)&0x3F], tbl[(v>>12)&0x3F])
-		if n >= 3 {
-			out = append(out, tbl[(v>>6)&0x3F])
-		}
-		if n == 4 {
-			out = append(out, tbl[v&0x3F])
-		}
-		for j := n; j < 4; j++ {
-			out = append(out, '=')
-		}
-	}
-	return string(out)
-}
-
 
 func TestE2E_Telegram_AccountCreateAndGet(t *testing.T) {
 	db := setupChannelFullDB(t)

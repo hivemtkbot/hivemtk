@@ -1,14 +1,11 @@
 package controller
 
 import (
-	sysmodel "hivemtk-user/internal/model"
 	"hivemtk-user/internal/ops/service"
 	"hivemtk-user/internal/pkg/errhttp"
 	"hivemtk-user/internal/pkg/utils/response"
-	sysrepo "hivemtk-user/internal/repository"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -165,45 +162,9 @@ func (c *DashboardScreenController) GetRealtimeActivities(ctx *gin.Context) {
 	response.Success(ctx, activities, "获取实时活动成功")
 }
 
-// aggregateDashboardData 聚合大屏数据(基于真实数据库)
-// 架构修复：已迁移到 service.DashboardScreenService.AggregateDashboardData
-// 此方法保留为空实现以避免破坏其他调用方；新代码应直接使用 service
-func (c *DashboardScreenController) aggregateDashboardData() gin.H {
-	data, err := c.screenService.AggregateDashboardData()
-	if err != nil {
-		return gin.H{"error": err.Error()}
-	}
-	return gin.H{"kpis": data}
-}
 
-// weeklyClueCount 获取最近 N 天每天的线索数
-// 架构修复：已迁移到 service
-func (c *DashboardScreenController) weeklyClueCount(days int) []int {
-	gormDB := sysrepo.GetDB()
-	now := time.Now()
-	result := make([]int, days)
-	for i := 0; i < days; i++ {
-		dayStart := time.Date(now.Year(), now.Month(), now.Day()-i, 0, 0, 0, 0, now.Location()).Unix()
-		dayEnd := dayStart + 86400
-		var count int64
-		gormDB.Model(&sysmodel.Clue{}).Where("create_time >= ? AND create_time < ?", dayStart, dayEnd).Count(&count)
-		result[days-1-i] = int(count)
-	}
-	return result
-}
 
-// fetchRealtimeActivities 获取最近活动
-// 架构修复：已迁移到 service.DashboardScreenService.FetchRealtimeActivities
-func (c *DashboardScreenController) fetchRealtimeActivities() []gin.H {
-	activities, _ := c.screenService.FetchRealtimeActivities(20)
-	result := make([]gin.H, 0, len(activities))
-	for _, a := range activities {
-		result = append(result, gin.H{
-			"text": a.Title,
-			"time": a.CreatedAt.Format("15:04"),
-			"type": a.Type,
-		})
-	}
-	return result
-}
+
+
+
 

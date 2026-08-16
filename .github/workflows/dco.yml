@@ -1,9 +1,16 @@
-# DCO（Developer Certificate of Origin）检查
+# DCO（Developer Certificate of Origin）检查 + Conventional Commits
 #
-# 要求每个 commit 都包含 "Signed-off-by: Name <email>" 行。
-# 参考 https://developercertificate.org/
+# 强制要求（v2，2026-08-16 升级）：
+#   1. 每个 commit 必须包含 "Signed-off-by: Name <email>"
+#   2. Commit subject 必须符合 Conventional Commits 格式（首期仅警告）
+#   3. Commit body 至少 10 字符（首期仅警告）
+#   4. v3.21.0 起：subject/body 不合规将阻断合并
+#
+# 参考：
+#   - https://developercertificate.org/
+#   - https://www.conventionalcommits.org/
 
-name: DCO Check
+name: DCO Check + Conventional Commits
 
 on:
   - pull_request
@@ -13,7 +20,7 @@ permissions:
 
 jobs:
   dco:
-    name: DCO Sign-off
+    name: DCO + Commits Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,11 +28,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check Signed-off-by
+      - name: Check Signed-off-by (硬阻断)
         run: |
-          echo "检查 PR 中的每个 commit 是否包含 Signed-off-by..."
-
-          # 获取 PR 中所有 commit 的 sha
+          echo "=== [1/3] 检查 Signed-off-by 签名 ==="
           COMMITS=$(git rev-list --no-merges "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}")
 
           if [ -z "$COMMITS" ]; then
@@ -35,7 +40,6 @@ jobs:
 
           MISSING=""
           for COMMIT in $COMMITS; do
-            # 检查 commit message 中是否有 Signed-off-by
             MESSAGE=$(git log -1 --format=%B "$COMMIT")
             if ! echo "$MESSAGE" | grep -qE '^Signed-off-by: .+ <.+>$'; then
               MISSING="$MISSING $COMMIT"
@@ -49,7 +53,7 @@ jobs:
           if [ -n "$MISSING" ]; then
             echo ""
             echo "============================================"
-            echo "以下 commit 缺少 Signed-off-by:"
+            echo "以下 commit 缺少 Signed-off-by（已阻断）:"
             echo "$MISSING"
             echo ""
             echo "如何修复："
@@ -63,3 +67,112 @@ jobs:
 
           echo ""
           echo "✅ 所有 commit 都包含 Signed-off-by"
+          echo ""
+
+      - name: Check Conventional Commits subject (首期警告)
+        run: |
+          echo "=== [2/3] 检查 commit subject 格式 (Conventional Commits) ==="
+          echo "允许的类型：feat / fix / docs / style / refactor / perf / test / build / ci / chore / revert"
+          echo ""
+
+          COMMITS=$(git rev-list --no-merges "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}")
+
+          if [ -z "$COMMITS" ]; then
+            echo "未发现 commit"
+            exit 0
+          fi
+
+          WARNINGS=""
+          for COMMIT in $COMMITS; do
+            SUBJECT=$(git log -1 --format=%s "$COMMIT")
+            # Conventional Commits 格式：<type>(<scope>)?: <subject>
+            if ! echo "$SUBJECT" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9_-]+\))?!?: .+'; then
+              WARNINGS="$WARNINGS $COMMIT"
+              echo "⚠️  不符合 Conventional Commits: $COMMIT"
+              echo "    subject: $SUBJECT"
+              echo "    期望格式: <type>(<scope>): <subject>"
+              echo "    修复: git commit --amend -m \"feat(scope): $SUBJECT\""
+            else
+              echo "✅ $COMMIT"
+              echo "    $SUBJECT"
+            fi
+          done
+
+          if [ -n "$WARNINGS" ]; then
+            echo ""
+            echo "============================================"
+            echo "以下 commit subject 不符合 Conventional Commits："
+            echo "$WARNINGS"
+            echo ""
+            echo "⚠️ 当前为警告，不阻断（v2 软实施）"
+            echo "⚠️ v3.21.0 起将升级为硬阻断"
+            echo ""
+            echo "完整规范：https://www.conventionalcommits.org/"
+            echo "============================================"
+            # 不 exit 1，首期仅警告
+          else
+            echo ""
+            echo "✅ 所有 commit subject 都符合 Conventional Commits"
+          fi
+
+      - name: Check commit body length (首期警告)
+        run: |
+          echo "=== [3/3] 检查 commit body 长度 (≥ 10 字符) ==="
+          echo ""
+
+          COMMITS=$(git rev-list --no-merges "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}")
+
+          if [ -z "$COMMITS" ]; then
+            echo "未发现 commit"
+            exit 0
+          fi
+
+          WARNINGS=""
+          for COMMIT in $COMMITS; do
+            # body = subject 之后的所有行
+            BODY=$(git log -1 --format=%B "$COMMIT" | tail -n +2 | sed '/^$/d' | sed '/^Signed-off-by:/d')
+            BODY_LEN=${#BODY}
+            if [ "$BODY_LEN" -lt 10 ]; then
+              WARNINGS="$WARNINGS $COMMIT"
+              echo "⚠️  body 字符数 < 10: $COMMIT (实际: $BODY_LEN)"
+              git log -1 --format='    %h %s' "$COMMIT"
+            else
+              echo "✅ $COMMIT (body: $BODY_LEN chars)"
+            fi
+          done
+
+          if [ -n "$WARNINGS" ]; then
+            echo ""
+            echo "============================================"
+            echo "以下 commit body 过短（< 10 字符）："
+            echo "$WARNINGS"
+            echo ""
+            echo "⚠️ 当前为警告，不阻断（v2 软实施）"
+            echo "⚠️ v3.21.0 起将升级为硬阻断"
+            echo ""
+            echo "修复示例："
+            echo "  git commit --amend -m \"feat(api): add user endpoint\" \\"
+            echo "    -m \"Implement GET /api/users with pagination\" \\"
+            echo "    -m \"Signed-off-by: Name <email>\""
+            echo "============================================"
+            # 不 exit 1，首期仅警告
+          else
+            echo ""
+            echo "✅ 所有 commit body 长度符合要求"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo ""
+          echo "============================================"
+          echo "DCO + Commits Lint 总结"
+          echo "============================================"
+          echo "✅ 硬阻断: Signed-off-by 缺失"
+          echo "⚠️ 软警告: Conventional Commits subject 格式"
+          echo "⚠️ 软警告: Commit body 长度 (≥ 10 chars)"
+          echo ""
+          echo "状态演进路线："
+          echo "  v3.20.0 (当前) - 1 硬阻断 + 2 软警告"
+          echo "  v3.21.0 (建议) - 3 硬阻断"
+          echo "============================================"

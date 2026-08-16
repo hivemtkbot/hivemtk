@@ -71,7 +71,7 @@ func NewHumanEscalationManager(c cache.Cache) *HumanEscalationManager {
 	}
 }
 
-// SetNotifier 自定义通知实现（如 Kafka / RocketMQ）
+// SetNotifier 自定义通知实现（如 邮件 / 钉钉 / 飞书 webhook）
 func (h *HumanEscalationManager) SetNotifier(ctx context.Context, n Notifier) {
 	h.mu.Lock()
 	defer h.mu.Unlock()

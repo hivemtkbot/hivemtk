@@ -326,7 +326,7 @@
 
 > ℹ️ **Swagger 当前未注册**：`router.Setup()` 未挂载任何 `gin-swagger` 路由，故无 `/swagger/*` 端点。如需开启，请在 `router.go` 中自行添加 `gin-swagger` 中间件并生成 swagger doc。
 
-> 私域部署: 无 `/metrics` Prometheus 端点。关键指标 (LLM 调用 / RAG 检索 / Fallback 触发) 落库 `layer_decision_logs` / `audit_logs`，通过 SQL + `scripts/post_deploy_check.sh` 巡检。
+> 私域部署: 无 `/metrics` 外部监控端点。关键指标 (LLM 调用 / RAG 检索 / Fallback 触发) 落库 `layer_decision_logs` / `audit_logs`，通过 SQL + `scripts/post_deploy_check.sh` 巡检。
 
 ---
 
@@ -349,7 +349,7 @@
 | --- | --- |
 | 架构图（模块 / 时序 / 子系统） | [./ARCHITECTURE.md](./ARCHITECTURE.md) |
 | 代码开发手册（环境 / 启动 / 调试 / 部署） | [./DEVELOPMENT.md](./DEVELOPMENT.md) |
-| 代码规范（五层约束 / 命名 / 错误处理 / 日志） | [./CONVENTIONS.md](./CONVENTIONS.md) |
+| 代码规范（分层约束 / 命名 / 错误处理 / 日志） | [./CONVENTIONS.md](./CONVENTIONS.md) |
 | 营销功能模块索引（94+ 子模块详细文档） | [../../docs/marketing-features/README.md](../../docs/marketing-features/README.md) |
 | AI Agent 41 工具注册表 | [../../docs/architecture/agent-tools-inventory.md](../../docs/architecture/agent-tools-inventory.md) |
 | 系统级 C4 / Container / Deployment | [../../docs/architecture/ARCHITECTURE_DIAGRAM.md](../../docs/architecture/ARCHITECTURE_DIAGRAM.md) |

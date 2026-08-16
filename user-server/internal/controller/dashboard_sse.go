@@ -41,17 +41,14 @@ func NewDashboardSSEController(statsSvc service.DashboardStatsService) *Dashboar
 	}
 }
 
-// StreamEventStream 实时数据流
-//
-// EventStream:
-//
-//	event: dashboard_update
-//	data: {...}
-//
-//	event: heartbeat
-//	data: {"ts":"..."}
-//
-// 每 2s 推送一次 dashboard_update，每 15s 推送一次 heartbeat
+// StreamEventStream godoc
+// @Summary      实时驾驶舱 SSE 数据流
+// @Description  保持长连接，每 2 秒推送 dashboard_update，每 15 秒推送 heartbeat
+// @Tags         Dashboard
+// @Produce      text/event-stream
+// @Security     BearerAuth
+// @Success      200  {string}  string  "event: dashboard_update / heartbeat"
+// @Router       /api/dashboards/stream [get]
 func (c *DashboardSSEController) StreamEventStream(ctx *gin.Context) {
 	c.subscriberCount.Add(1)
 	defer c.subscriberCount.Add(-1)

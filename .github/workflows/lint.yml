@@ -56,6 +56,9 @@ jobs:
 
   arch-check:
     name: 五层架构检查
+    # OPT-CI-07：与 user-server-ci.yml 重复，但保留为防御层
+    # 原因：lint.yml 在仓库根目录运行，user-server-ci.yml 在 user-server 子目录
+    # 两处都能捕获到架构违规，互为冗余防御
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

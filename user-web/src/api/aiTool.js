@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // ============================================================================
 // AI 工具配置 API
@@ -15,10 +15,7 @@ export function listTools(params) {
 
 // 获取工具详情
 export function getTool(name) {
-  return request({
-    url: `/api/ai-tools/${name}`,
-    method: 'get'
-  })
+  return http.get(`/api/ai-tools/${name}`)
 }
 
 // 更新工具启用状态
@@ -45,10 +42,7 @@ export function batchUpdateToolStatus(tools, enabled) {
 
 // 获取工具绑定的账号
 export function getToolAccounts(toolName) {
-  return request({
-    url: `/api/ai-tools/${toolName}/accounts`,
-    method: 'get'
-  })
+  return http.get(`/api/ai-tools/${toolName}/accounts`)
 }
 
 // 绑定账号到工具
@@ -66,8 +60,5 @@ export function bindToolAccount(toolName, accountType, accountId, isPrimary) {
 
 // 解绑账号
 export function unbindToolAccount(toolName, accountType, accountId) {
-  return request({
-    url: `/api/ai-tools/${toolName}/accounts/${accountType}/${accountId}`,
-    method: 'delete'
-  })
+  return http.delete(`/api/ai-tools/${toolName}/accounts/${accountType}/${accountId}`)
 }

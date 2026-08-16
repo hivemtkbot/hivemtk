@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 备份列表
 export function getBackupList(params) {
@@ -7,7 +7,7 @@ export function getBackupList(params) {
 
 // 备份详情
 export function getBackupByID(id) {
-  return request({ url: `/api/backups/${id}`, method: 'get' })
+  return http.get(`/api/backups/${id}`)
 }
 
 // 创建备份
@@ -17,7 +17,7 @@ export function createBackup(data) {
 
 // 删除备份
 export function deleteBackup(id) {
-  return request({ url: `/api/backups/${id}`, method: 'delete' })
+  return http.delete(`/api/backups/${id}`)
 }
 
 // 触发恢复
@@ -32,5 +32,5 @@ export function getRestoreList(params) {
 
 // 最近一次恢复
 export function getLastRestore() {
-  return request({ url: '/api/restore/last', method: 'get' })
+  return http.get('/api/restore/last')
 }

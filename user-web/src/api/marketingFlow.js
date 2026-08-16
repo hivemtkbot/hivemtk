@@ -1,11 +1,11 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 营销流程 - 匹配后端 /api/marketing-flows/* 路径
 export function getMarketingFlowList(params) {
   return request({ url: '/api/marketing-flows', method: 'get', params })
 }
 export function getMarketingFlow(id) {
-  return request({ url: `/api/marketing-flows/${id}`, method: 'get' })
+  return http.get(`/api/marketing-flows/${id}`)
 }
 export function createMarketingFlow(data) {
   return request({ url: '/api/marketing-flows', method: 'post', data })
@@ -14,22 +14,22 @@ export function updateMarketingFlow(id, data) {
   return request({ url: `/api/marketing-flows/${id}`, method: 'put', data })
 }
 export function deleteMarketingFlow(id) {
-  return request({ url: `/api/marketing-flows/${id}`, method: 'delete' })
+  return http.delete(`/api/marketing-flows/${id}`)
 }
 export function activateFlow(id) {
-  return request({ url: `/api/marketing-flows/${id}/activate`, method: 'post' })
+  return http.post(`/api/marketing-flows/${id}/activate`)
 }
 export function pauseMarketingFlow(id) {
-  return request({ url: `/api/marketing-flows/${id}/pause`, method: 'post' })
+  return http.post(`/api/marketing-flows/${id}/pause`)
 }
 export function stopMarketingFlow(id) {
-  return request({ url: `/api/marketing-flows/${id}/stop`, method: 'post' })
+  return http.post(`/api/marketing-flows/${id}/stop`)
 }
 export function getFlowExecutions(id) {
-  return request({ url: `/api/marketing-flows/${id}/executions`, method: 'get' })
+  return http.get(`/api/marketing-flows/${id}/executions`)
 }
 export function getFlowStats(id) {
-  return request({ url: `/api/marketing-flows/${id}/stats`, method: 'get' })
+  return http.get(`/api/marketing-flows/${id}/stats`)
 }
 
 // 兼容旧接口

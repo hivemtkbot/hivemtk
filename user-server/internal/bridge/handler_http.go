@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"hivemtk-user/internal/channelgw"
@@ -54,8 +53,6 @@ type HTTPIngestResult = channelgw.IngestResult
 // 当前实现：单条消息的 AI 回复即时在请求内完成；本结构为预留，便于将来"批量合并推理"
 // （同会话多条消息 → 合并为单次 AI 调用 → 统一返回）。当前不写、不读，保留接口稳定。
 type HTTPIngestPending struct {
-	mu      sync.Mutex
-	waiters map[string]chan *HTTPIngestResponse 
 }
 
 // collectHTTPRequestInfo 收集 HTTP 请求的"完整 URL + 全部 query + headers + body"快照。
@@ -170,13 +167,7 @@ func NewBridgeIngestHandlerWithMock(
 	return &BridgeIngestHandler{mockHandle: mockHandle, mockPersist: mockPersist}
 }
 
-// callHandleIngress 走 mock 优先，否则真实 ingress
-func (h *BridgeIngestHandler) callHandleIngress(ctx context.Context, ev *model.MessageEvent) (*service.InboxIngressResult, error) {
-	if h.mockHandle != nil {
-		return h.mockHandle(ctx, ev)
-	}
-	return h.ingress.HandleIngressMessage(ctx, ev)
-}
+
 
 // callPersistHistory 走 mock 优先，否则真实 ingress
 func (h *BridgeIngestHandler) callPersistHistory(ctx context.Context, ev *model.MessageEvent, direction string) error {

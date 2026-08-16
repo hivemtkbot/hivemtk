@@ -8,8 +8,6 @@ import (
 
 	"hivemtk-user/internal/aiagent/agent/tooluse"
 	"hivemtk-user/internal/pkg/utils/logger"
-	"hivemtk-user/internal/repository"
-	"hivemtk-user/internal/service"
 )
 
 
@@ -131,15 +129,7 @@ func SetGlobalToolRouterForTest(r *tooluse.ToolRouter) { globalToolRouter = r }
 // 工具层不再持有 *service.CustomerService 字段依赖。
 //
 // 调用方：router.Setup()
-func registerAgentCustomerTools(gormDB *gorm.DB) {
-	customerPort := service.NewCustomerPortAdapter(service.NewCustomerService())
-	deps := tooluse.NewCustomerToolDepsWithPort(customerPort, gormDB, NewCustomerDataStore())
-	if err := tooluse.RegisterCustomerTools(tooluse.GetGlobalRegistry(), deps); err != nil {
-		logger.Errorf("[agent] 注册客户工具失败（customer.* 将不可用）：%v", err)
-		return
-	}
-	logger.Info("[agent] ✅ 客户工具（customer.search/get/create/update/merge/add_tag/remove_tag/segment）已接入全局注册中心")
-}
+
 
 // registerAgentKnowledgeTools 生产接线：把 4 个知识工具接入全局注册中心
 //
@@ -150,14 +140,7 @@ func registerAgentCustomerTools(gormDB *gorm.DB) {
 //  4. knowledge.list_kb    - 列出知识库（RagProduct 列表 + 文档/分段统计）
 //
 // 调用方：router.Setup()
-func registerAgentKnowledgeTools(gormDB *gorm.DB) {
-	deps := tooluse.NewKnowledgeToolDepsWithDB(gormDB)
-	if err := tooluse.RegisterKnowledgeTools(tooluse.GetGlobalRegistry(), deps); err != nil {
-		logger.Errorf("[agent] 注册知识工具失败（rag.search 等将不可用）：%v", err)
-		return
-	}
-	logger.Info("[agent] ✅ 知识工具（rag.search/knowledge.feedback/add_doc/list_kb）已接入全局注册中心")
-}
+
 
 // registerAgentBusinessTools 生产接线：把业务工具接入全局注册中心
 //
@@ -170,23 +153,7 @@ func registerAgentKnowledgeTools(gormDB *gorm.DB) {
 //  6. logistics.track     - 查快递/物流轨迹（本地订单状态兜底 + 可选实时快递 API）
 //
 // 调用方：router.Setup()
-func registerAgentBusinessTools(gormDB *gorm.DB) {
-	orderPort := service.NewOrderPortAdapter(repository.NewExternalOrderRepository())
-	afterSalePort := service.NewAfterSalePortAdapter(service.NewAfterSaleService())
-	logisticsPort := service.NewLogisticsPortAdapter(orderPort)
-	deps := tooluse.NewBusinessToolDepsWithLogistics(
-		service.NewFollowUpPortAdapter(service.NewFollowUpService(service.NewCustomerJourneyService())),
-		orderPort,
-		afterSalePort,
-		logisticsPort,
-		gormDB,
-	)
-	if err := tooluse.RegisterBusinessTools(tooluse.GetGlobalRegistry(), deps); err != nil {
-		logger.Errorf("[agent] 注册业务工具失败（follow_task.*/order.lookup/aftersale.*/logistics.track 将不可用）：%v", err)
-		return
-	}
-	logger.Info("[agent] ✅ 业务工具（follow_task.create/update、order.lookup、aftersale.create/query、logistics.track）已接入全局注册中心")
-}
+
 
 // registerAllAgentTools 一次性注册全部智能体工具到全局注册中心
 //

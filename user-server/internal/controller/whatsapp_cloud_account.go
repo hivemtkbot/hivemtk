@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -255,14 +254,5 @@ func (ctrl *WhatsAppCloudAccountController) TestSend(c *gin.Context) {
 	response.Success(c, nil, "发送成功")
 }
 
-// maskAppSecret WA 专用掩码（用 fmt 包装以避免和 Feishu 重名）
-func maskAppSecret(s string) string {
-	if s == "" {
-		return ""
-	}
-	if len(s) <= 8 {
-		return fmt.Sprintf("****")
-	}
-	return fmt.Sprintf("%s****%s", s[:4], s[len(s)-4:])
-}
+
 

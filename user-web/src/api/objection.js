@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 异议处理 - 匹配后端 objection_handler_controller
 // 路由: /api/objection/*
@@ -15,7 +15,7 @@ export function classifyObjection(data) {
 
 // 列出所有异议类别
 export function listObjectionCategories() {
-  return request({ url: '/api/objection/categories', method: 'get' })
+  return http.get('/api/objection/categories')
 }
 
 // 记录异议模板使用结果

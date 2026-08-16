@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -112,8 +111,7 @@ func (r *ReActParseResult) ToToolCall(id string) *ToolCall {
 //
 // 适配器是无状态的，可安全并发使用
 type ReActAdapter struct {
-	mu          sync.Mutex
-	toolCallSeq uint64 
+	toolCallSeq uint64
 }
 
 // NewReActAdapter 创建 ReAct 适配器

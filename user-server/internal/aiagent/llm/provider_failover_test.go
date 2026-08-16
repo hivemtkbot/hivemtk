@@ -36,12 +36,6 @@ func (f *fakeChecker) Ping(ctx context.Context, provider *ProviderConfig, config
 	return f.latency, f.err
 }
 
-func (f *fakeChecker) callsFor(name string) int {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.calls[name]
-}
-
 // setupFailoverDB 构建测试 DB（仅 system_kv_config 表）
 func setupFailoverDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t)

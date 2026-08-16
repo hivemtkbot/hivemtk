@@ -54,7 +54,6 @@ type dispatchTask struct {
 // 由 SOPService.Execute / Step 派发任务，由 OutboxDispatcher 派发 timer 唤醒任务。
 type SOPExecutionDispatcher struct {
 	registry    *NodeExecutorRegistry
-	db          *gorm.DB
 	execRepo    *repository.SopExecutionRepository
 	agentRepo   *repository.SopAgentRepository
 	eventRepo   *repository.SOPExecEventRepository

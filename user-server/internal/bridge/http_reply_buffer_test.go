@@ -2,7 +2,6 @@ package bridge
 
 import (
 	"testing"
-	"time"
 )
 
 func TestHTTPReplyBuffer_Basic(t *testing.T) {
@@ -72,37 +71,6 @@ func TestHTTPReplyBuffer_Basic(t *testing.T) {
 		}
 		if count > b.maxLen {
 			t.Errorf("Pull 总数 = %d, 应 <= maxLen = %d", count, b.maxLen)
-		}
-	})
-
-	t.Run("waitForReply 超时返回 nil", func(t *testing.T) {
-		b := newHTTPReplyBuffer()
-		start := time.Now()
-		got := b.waitForReply("empty_ch", "", "", 300*time.Millisecond)
-		elapsed := time.Since(start)
-		if got != nil {
-			t.Errorf("空 buffer waitForReply 应返回 nil，实际 %+v", got)
-		}
-		if elapsed < 300*time.Millisecond {
-			t.Errorf("waitForReply 提前返回：elapsed=%v", elapsed)
-		}
-		if elapsed > 600*time.Millisecond {
-			t.Errorf("waitForReply 超时过长：elapsed=%v", elapsed)
-		}
-	})
-
-	t.Run("waitForReply 命中立即返回", func(t *testing.T) {
-		b := newHTTPReplyBuffer()
-		b.Push(&UnifiedReply{Channel: "fast", AccountID: "a", ConversationID: "c", Content: "hi"})
-
-		start := time.Now()
-		got := b.waitForReply("fast", "c", "", 5*time.Second)
-		elapsed := time.Since(start)
-		if got == nil {
-			t.Fatal("应命中")
-		}
-		if elapsed > 500*time.Millisecond {
-			t.Errorf("命中耗时过长：elapsed=%v", elapsed)
 		}
 	})
 }

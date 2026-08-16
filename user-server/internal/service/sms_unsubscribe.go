@@ -9,8 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
-
-	"gorm.io/gorm"
 )
 
 // smsUnsubscribeKeywords 短信退订关键词列表
@@ -231,10 +229,5 @@ func isStandaloneWord(content, kw string) bool {
 // isAlnum 判断 rune 是否为字母或数字
 func isAlnum(r rune) bool {
 	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
-}
-
-// smsUnsubscribeServiceWithDB 内部辅助：使用指定 db 创建服务（测试用）
-func smsUnsubscribeServiceWithDB(db *gorm.DB) *SmsUnsubscribeService {
-	return NewSmsUnsubscribeService(repository.NewSmsUnsubscribeRepository(db))
 }
 

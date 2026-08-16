@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 客户事件追踪 - 匹配后端 events 路由
 export function trackEvent(data) {
@@ -39,5 +39,5 @@ export function getEventDetail(id) {
   return getCustomerEventHistory(String(id))
 }
 export function deleteEvent(id) {
-  return request({ url: `/api/events/customer/${id}`, method: 'delete' })
+  return http.delete(`/api/events/customer/${id}`)
 }

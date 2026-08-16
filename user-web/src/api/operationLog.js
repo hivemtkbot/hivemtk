@@ -1,10 +1,10 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 export function getOperationLogs(params) {
   return request({ url: '/api/operation-logs', method: 'get', params })
 }
 export function getOperationLogDetail(id) {
-  return request({ url: `/api/operation-logs/${id}`, method: 'get' })
+  return http.get(`/api/operation-logs/${id}`)
 }
 export function getOperationLogStatistics(params) {
   return request({ url: '/api/operation-logs/statistics', method: 'get', params })

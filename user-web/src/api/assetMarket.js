@@ -1,11 +1,11 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 市场
 export const listAssets = (params) =>
   request({ url: '/api/v1/asset-market/list', method: 'get', params })
 
 export const assetDetail = (id) =>
-  request({ url: `/api/v1/asset-market/detail/${id}`, method: 'get' })
+  http.get(`/api/v1/asset-market/detail/${id}`)
 
 export const purchaseAsset = (data) =>
   request({ url: '/api/v1/asset-market/purchase', method: 'post', data })
@@ -21,7 +21,7 @@ export const listLocalAssets = (params) =>
   request({ url: '/api/v1/local-assets', method: 'get', params })
 
 export const getLocalAsset = (id) =>
-  request({ url: `/api/v1/local-assets/${id}`, method: 'get' })
+  http.get(`/api/v1/local-assets/${id}`)
 
 export const createLocalAsset = (data) =>
   request({ url: '/api/v1/local-assets', method: 'post', data })
@@ -30,7 +30,7 @@ export const updateLocalAsset = (id, data) =>
   request({ url: `/api/v1/local-assets/${id}`, method: 'put', data })
 
 export const deleteLocalAsset = (id) =>
-  request({ url: `/api/v1/local-assets/${id}`, method: 'delete' })
+  http.delete(`/api/v1/local-assets/${id}`)
 
 export const toggleLocalAsset = (id, active) =>
   request({ url: `/api/v1/local-assets/${id}/toggle-active`, method: 'put', data: { active } })

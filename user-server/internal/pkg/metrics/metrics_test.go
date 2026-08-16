@@ -5,7 +5,7 @@
 //   - Gauge 增减
 //   - Histogram Observe
 //   - 标签隔离
-//   - Prometheus 文本格式输出
+//   - 指标文本格式输出
 //   - 全局注册表 / Handler
 package metrics
 
@@ -62,7 +62,7 @@ func TestHistogram_Observe(t *testing.T) {
 	h.WithLabel("a").Observe(20)
 }
 
-func TestPrometheusOutput_Format(t *testing.T) {
+func TestMetricsOutput_Format(t *testing.T) {
 	c := NewCounter("test_prom_output_counter", "Test output", []string{"foo"})
 	c.WithLabel("bar").Inc()
 	c.WithLabel("bar").Add(5)

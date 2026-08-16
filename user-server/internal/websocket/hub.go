@@ -37,7 +37,6 @@ type Client struct {
 	clientType ClientType
 	agentID    string
 	agentName  string
-	merchantID string
 	sessionID string 
 	visitorID string 
 	channelID string 

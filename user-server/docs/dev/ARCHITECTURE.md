@@ -6,7 +6,7 @@
 > - C4 系统架构图: [../../docs/architecture/ARCHITECTURE_DIAGRAM.md](../../docs/architecture/ARCHITECTURE_DIAGRAM.md)
 > - 用户体系规范: [../../docs/architecture/USER_SYSTEM.md](../../docs/architecture/USER_SYSTEM.md)
 
-本文档面向 `user-server` 工程内部开发，描述**代码级模块结构、五层调用时序、关键子系统、外部依赖**四类视图。
+本文档面向 `user-server` 工程内部开发，描述**代码级模块结构、分层调用时序、关键子系统、外部依赖**四类视图。
 对系统级 Context / Container / Deployment 拓扑请直接阅读 [ARCHITECTURE_DIAGRAM.md](../../docs/architecture/ARCHITECTURE_DIAGRAM.md)；
 对每一层的硬约束与编码模板请阅读 [GO_FIVE_LAYER_ARCHITECTURE.md](../../docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md)。
 
@@ -14,7 +14,7 @@
 
 ## 一、模块结构图
 
-`user-server` 工程目录采用 Go 标准布局：`cmd/` 装配进程入口，`internal/` 强制五层 + 横向能力包。
+`user-server` 工程目录采用 Go 标准布局：`cmd/` 装配进程入口，`internal/` 强制分层 + 横向能力包。
 所有业务模块都遵循 `cmd → router → controller → service → repository → model/dto` 单向依赖。
 
 ```mermaid
@@ -163,7 +163,7 @@ user-server/
 
 ---
 
-## 二、五层调用时序图
+## 二、分层调用时序图
 
 下图为标准 HTTP 请求（带 JWT 鉴权）从入口到 DB 的全链路时序。
 其中 trace_id 由 `middleware/trace.go` 注入，跨 Service / Repository / LLM 全链路复用。

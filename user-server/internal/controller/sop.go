@@ -22,7 +22,17 @@ func NewSOPController(svc *service.SOPService) *SOPController {
 	return &SOPController{svc: svc}
 }
 
-// Create 创建 SOP
+// Create godoc
+// @Summary      创建 SOP 智能体
+// @Description  创建一个新的销冠 SOP 智能体，关联场景、动作链、知识库
+// @Tags         SOP
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  service.CreateRequest  true  "SOP 创建参数"
+// @Success      200   {object}  response.Response  "创建成功"
+// @Failure      400   {object}  response.Response  "参数错误"
+// @Router       /api/sops [post]
 func (c *SOPController) Create(ctx *gin.Context) {
 	var req service.CreateRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -38,7 +48,17 @@ func (c *SOPController) Create(ctx *gin.Context) {
 	response.Success(ctx, agent, "创建成功")
 }
 
-// Update 更新 SOP
+// Update godoc
+// @Summary      更新 SOP 智能体
+// @Description  更新指定 ID 的 SOP 智能体配置
+// @Tags         SOP
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path   int                       true  "SOP ID"
+// @Param        body  body   service.CreateRequest  true  "更新参数"
+// @Success      200   {object}  response.Response  "更新成功"
+// @Router       /api/sops/{id} [put]
 func (c *SOPController) Update(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
@@ -58,7 +78,17 @@ func (c *SOPController) Update(ctx *gin.Context) {
 	response.Success(ctx, agent, "更新成功")
 }
 
-// Get 详情
+// Get godoc
+// @Summary      获取 SOP 详情
+// @Description  根据 ID 返回 SOP 完整定义
+// @Tags         SOP
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "SOP ID"
+// @Success      200  {object}  response.Response  "成功"
+// @Failure      404  {object}  response.Response  "未找到"
+// @Router       /api/sops/{id} [get]
 func (c *SOPController) Get(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
@@ -73,7 +103,18 @@ func (c *SOPController) Get(ctx *gin.Context) {
 	response.Success(ctx, agent, "查询成功")
 }
 
-// List 列表
+// List godoc
+// @Summary      SOP 智能体列表
+// @Description  按场景分页查询 SOP 智能体
+// @Tags         SOP
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        scenario  query  string  false  "场景编码"
+// @Param        page      query  int     false  "页码"  default(1)
+// @Param        page_size query  int     false  "每页"   default(20)
+// @Success      200  {object}  response.Response  "成功"
+// @Router       /api/sops [get]
 func (c *SOPController) List(ctx *gin.Context) {
 	scenario := ctx.Query("scenario")
 	page, pageSize, err := pagination.Parse(ctx)

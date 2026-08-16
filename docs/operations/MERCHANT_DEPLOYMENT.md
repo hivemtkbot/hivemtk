@@ -110,7 +110,7 @@ docker compose up -d
 
 | 端口 | 服务 | 说明 |
 |------|------|------|
-| 8204 | user-server API | RESTful + WebSocket |
+| 8204 | user-server API | RESTful + HTTP 长轮询 |
 | 8202 | PostgreSQL (user_db) | 容器内端口 |
 | 8203 | Redis | 容器内端口 |
 | 8207 | llama-server (LLM) | 宿主机 llama.cpp 推理 |

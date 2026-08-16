@@ -7,7 +7,6 @@ import (
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
-	"hivemtk-user/internal/repository"
 
 	"hivemtk-user/internal/pkg/testutil"
 
@@ -21,11 +20,6 @@ func setupDomainPoolServiceTestDB(t *testing.T) *gorm.DB {
 	)
 	db.SetTestDB(database)
 	return database
-}
-
-// newTestDomainPoolRepository 创建测试仓库
-func newTestDomainPoolRepository(database *gorm.DB) repository.DomainPoolRepository {
-	return repository.NewDomainPoolRepository(database)
 }
 
 // TestNewDomainPoolService 测试创建域名池服务

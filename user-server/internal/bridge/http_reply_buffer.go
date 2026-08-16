@@ -2,7 +2,6 @@ package bridge
 
 import (
 	"sync"
-	"time"
 )
 
 // httpReplyBuffer HTTP 模式下的 AI 回复缓冲（遗留）
@@ -119,18 +118,5 @@ func drainNonBlocking(q chan *UnifiedReply) []*UnifiedReply {
 	}
 }
 
-// waitForReply 带超时的非阻塞拉取（遗留：原由已移除的 waitForAIReply 调用）
-func (b *httpReplyBuffer) waitForReply(channel, conversationID, replyToEventID string, timeout time.Duration) *UnifiedReply {
-	deadline := time.Now().Add(timeout)
-	pollInterval := 200 * time.Millisecond
-	for {
-		if r := b.Pull(channel, conversationID, replyToEventID); r != nil {
-			return r
-		}
-		if time.Now().After(deadline) {
-			return nil
-		}
-		time.Sleep(pollInterval)
-	}
-}
+
 

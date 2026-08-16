@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -87,7 +86,6 @@ type InboxIngressResult struct {
 type InboxIngressService struct {
 	hubRepo   *repository.MessageHubRepository
 	cache     cache.Cache
-	mu        sync.Mutex
 	triggerCh chan string   
 	aiTrigger AITrigger     
 	inboxSvc  *InboxService 
@@ -764,14 +762,5 @@ func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, e
 	result.QueuedForAI = true
 	result.Reason = "batched; will be merged and triggered at batch end"
 	return result, nil
-}
-
-// truncateForLog 截断字符串用于日志输出（避免日志过长）。
-func truncateForLog(s string, maxLen int) string {
-	s = strings.TrimSpace(s)
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
 }
 

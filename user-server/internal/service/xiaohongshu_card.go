@@ -7,7 +7,6 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/reach/card/template"
 	"hivemtk-user/internal/repository"
-	"time"
 
 	"gorm.io/gorm"
 )
@@ -230,17 +229,6 @@ func (s *xiaohongshuCardService) ShareCard(ctx context.Context, id uint, platfor
 	_ = s.repo.CreateActivity(ctx, activity)
 
 	return s.toResponse(ctx, card), nil
-}
-
-// recordActivity 记录卡片活动
-func (s *xiaohongshuCardService) recordActivity(ctx context.Context, cardID uint, activityType string) error {
-	activity := &model.XiaohongshuCardActivity{
-		CardID:       cardID,
-		ActivityType: activityType,
-		CreatedAt:    time.Now(),
-	}
-
-	return s.repo.CreateActivity(ctx, activity)
 }
 
 // GenerateHTMLPage 生成小红书卡片HTML页面

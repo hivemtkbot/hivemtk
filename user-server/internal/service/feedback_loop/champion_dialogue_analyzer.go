@@ -357,14 +357,6 @@ func (a *ChampionDialogueAnalyzer) saveScriptsToTemplate(ctx context.Context, sc
 	}
 }
 
-// absFloat32 绝对值（保留供未来扩展使用）
-func absFloat32(f float32) float32 {
-	if f < 0 {
-		return -f
-	}
-	return f
-}
-
 // _ 确保 math 包被引用（未来 sqrtF32 等函数可能扩展）
 var _ = math.Pi
 

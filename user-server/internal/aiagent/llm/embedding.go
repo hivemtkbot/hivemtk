@@ -11,7 +11,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"hivemtk-user/internal/config"
@@ -59,9 +58,8 @@ type EmbeddingServiceInterface interface {
 //     允许降级到 hash 实现并打 ERROR 日志。
 type EmbeddingService struct {
 	httpClient    *http.Client
-	mu            sync.RWMutex
-	fallback      EmbeddingServiceInterface 
-	defaultConfig *EmbeddingConfig          
+	fallback      EmbeddingServiceInterface
+	defaultConfig *EmbeddingConfig
 }
 
 // sharedEmbeddingTransport 进程级共享 Transport，避免每次请求 new http.Client 导致连接不复用、

@@ -76,8 +76,18 @@ func (c *WebhookController) RegisterRoutes(r *gin.Engine) {
 	}
 }
 
-// Receive 接收渠道回调（需要 accountID）
-// 路由: POST /api/webhook/{channel}/{account_id}
+// Receive godoc
+// @Summary      接收渠道 Webhook 回调
+// @Description  通用渠道回调入口，按 channel 路由到不同处理逻辑
+// @Tags         Webhook
+// @Accept       json
+// @Produce      json
+// @Param        channel     path   string  true   "渠道：wechat/wecom/douyin/xiaohongshu/email"
+// @Param        account_id  path   string  true   "账号 ID"
+// @Param        body        body   object  true   "渠道原始 payload"
+// @Success      200  {object}  response.Response  "处理成功"
+// @Failure      400  {object}  response.Response  "参数错误"
+// @Router       /api/webhook/{channel}/{account_id} [post]
 func (c *WebhookController) Receive(ctx *gin.Context) {
 	channel := service.WebhookChannel(strings.ToLower(ctx.Param("channel")))
 	accountID := ctx.Param("account_id")
@@ -116,8 +126,16 @@ func (c *WebhookController) Receive(ctx *gin.Context) {
 	ctx.JSON(status, result)
 }
 
-// ReceiveWithoutAccount 不带 account_id 的入口
-// 路由: POST /api/webhook/{channel}
+// ReceiveWithoutAccount godoc
+// @Summary      接收渠道 Webhook 回调（无 account_id）
+// @Description  某些渠道不需要账号上下文，如飞书事件订阅
+// @Tags         Webhook
+// @Accept       json
+// @Produce      json
+// @Param        channel  path   string  true  "渠道"
+// @Param        body     body   object  true  "原始 payload"
+// @Success      200  {object}  response.Response  "成功"
+// @Router       /api/webhook/{channel} [post]
 func (c *WebhookController) ReceiveWithoutAccount(ctx *gin.Context) {
 	channel := service.WebhookChannel(strings.ToLower(ctx.Param("channel")))
 
@@ -184,6 +202,16 @@ func (c *WebhookController) WeComVerify(ctx *gin.Context) {
 // 飞书 URL 验证：先校验 query 的 token 与账号存储的 VerificationToken 一致，
 // 一致才回显 challenge（与 WhatsAppVerify / DingTalkVerify 同模式，避免任意第三方
 // 伪造挑战完成回调地址绑定）。
+// FeishuVerify godoc
+// @Summary      飞书回调 URL 验证
+// @Description  飞书事件订阅 URL 配置时调用，回显 challenge 完成验证
+// @Tags         Webhook
+// @Produce      json
+// @Param        account_id  path   string  true  "账号 ID"
+// @Param        challenge   query  string  true  "飞书 challenge"
+// @Param        token       query  string  true  "VerificationToken"
+// @Success      200  {object}  map[string]string  "验证通过"
+// @Router       /api/webhook/feishu/{account_id} [get]
 func (c *WebhookController) FeishuVerify(ctx *gin.Context) {
 	accountIDStr := ctx.Param("account_id")
 	accountID, err := strconv.ParseUint(accountIDStr, 10, 64)
@@ -224,6 +252,17 @@ func (c *WebhookController) FeishuVerify(ctx *gin.Context) {
 //	hub.mode=subscribe & hub.verify_token=<配置的 token> & hub.challenge=<随机串>
 //
 // 仅当 hub.verify_token 与账号存储的 VerifyToken 一致时才回显 hub.challenge。
+// WhatsAppVerify godoc
+// @Summary      WhatsApp Cloud 回调 URL 验证
+// @Description  Meta 配置 Webhook 时调用，校验 verify_token 后回显 challenge
+// @Tags         Webhook
+// @Produce      plain
+// @Param        account_id      path  string  true  "账号 ID"
+// @Param        hub.mode        query string true  "固定 subscribe"
+// @Param        hub.verify_token query string true  "校验 token"
+// @Param        hub.challenge   query string true  "回显 challenge"
+// @Success      200  {string}  string  "challenge"
+// @Router       /api/webhook/whatsapp/{account_id} [get]
 func (c *WebhookController) WhatsAppVerify(ctx *gin.Context) {
 	accountIDStr := ctx.Param("account_id")
 	accountID, err := strconv.ParseUint(accountIDStr, 10, 64)

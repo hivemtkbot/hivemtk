@@ -144,13 +144,13 @@ BEGIN
         metadata, imported_by, status, created_at, updated_at
     ) VALUES (
         pid, 'text', 'HiveMTK 架构说明', 'architecture.md', 'architecture.md', 'md',
-        5, 'indexed', '["架构","五层","私域","RAG"]', 'architecture', 95,
+        5, 'indexed', '["架构","分层","私域","RAG"]', 'architecture', 95,
         '{"source":"seed"}', 'system_seed', 1, NOW(), NOW()
     ) RETURNING id INTO doc_id_bigint;
 
     INSERT INTO knowledge_chunks (document_id, product_id, chunk_index, content, char_count, metadata, created_at) VALUES
     (doc_id_bigint, pid, 0, 'HiveMTK 整体架构：访客浏览器（公网）经 HTTPS/WSS（FRP/公网 IP/反代）→ 客户本地用户端（user-server Go+Gin :8204，含 PostgreSQL user_db :8202、Redis 7 :8203、mtk-llm :8207 Qwen2.5-1.5B-Instruct、mtk-embedding :8208 Qwen3-Embedding-0.6B、mtk-rerank :8209 bge-reranker-base）→ 平台端（独立仓库 hivemtk-platform，提供版本检查/商户标识校验/官方支持，不碰业务数据）。', 208, '{"doc":"architecture","section":"整体架构"}', NOW()),
-    (doc_id_bigint, pid, 1, 'HiveMTK Go 代码严格遵守五层架构规范：Controller（接口层）→ Service（业务层）→ Repository（数据访问层）→ Model（数据模型层）→ Infra（基础设施层）。禁止：controller 直访 db/repository、service 直访 db、model 含业务方法、dto 反向引用 service。检查脚本 hivemtk/scripts/check-architecture.sh 已集成 CI。主文档 hivemtk/docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md。', 207, '{"doc":"architecture","section":"五层架构"}', NOW()),
+    (doc_id_bigint, pid, 1, 'HiveMTK Go 代码严格遵守分层架构规范：Controller（接口层）→ Service（业务层）→ Repository（数据访问层）→ Model（数据模型层）→ Infra（基础设施层）。禁止：controller 直访 db/repository、service 直访 db、model 含业务方法、dto 反向引用 service。检查脚本 hivemtk/scripts/check-architecture.sh 已集成 CI。主文档 hivemtk/docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md。', 207, '{"doc":"architecture","section":"分层架构"}', NOW()),
     (doc_id_bigint, pid, 2, 'HiveMTK RAG 智能问答架构（2026-07-16 私域基线）：LLM 走外部 API（按业务需求出域），Embedding 走本地 docker 容器（私域数据不出域）。数据流：客户消息 → Embedding（本地 TEI+BAAI/bge-m3，dim=1024）→ pgvector 向量检索 → Top-K 知识片段 → 拼装 Prompt → LLM 调用（外部 API：Qwen/Claude/GPT）→ 后处理（敏感词过滤）→ 返回 reply+sources。', 196, '{"doc":"architecture","section":"RAG架构"}', NOW()),
     (doc_id_bigint, pid, 3, 'HiveMTK 三级 RAG 检索：1) 粗排——向量召回（pgvector + bge-m3 embedding，1024 维）；2) 精排——bge-reranker-v2-m3 重排（多语言跨编码器）；3) LLM 改写——HyDE/Query Rewriter 优化查询。置信度阈值默认 0.7，低于阈值降级到通用 LLM。多轮对话保留 3-5 轮上下文。转人工策略：MaxAIConsecutive=5（连续 5 次 AI 回复后建议转人工），ConfidenceThreshold=0.7。', 199, '{"doc":"architecture","section":"三级检索"}', NOW()),
     (doc_id_bigint, pid, 4, 'HiveMTK 数据安全：100% 私域零出域。本地 AI 推理栈（llama.cpp + TEI）三个 OpenAI 兼容服务跑在客户内网；所有对话、知识库、向量化、检索增强全程在客户内网完成，零外网可跑；FRP 私域穿透时访客从公网进、数据经隧道回本地，云端不落一条对话；满足等保、数据出境管控、私有化部署基线。可选云端 LLM：把 LLM_BASE_URL 改成 DeepSeek/OpenAI 即可，但 Embedding/Rerank 仍强制本地。', 208, '{"doc":"architecture","section":"数据安全"}', NOW());

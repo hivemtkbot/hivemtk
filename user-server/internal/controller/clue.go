@@ -2,14 +2,13 @@ package controller
 
 import (
 	"context"
-	"hivemtk-user/internal/dto"
-	"hivemtk-user/internal/model"
-	"hivemtk-user/internal/pkg/utils/response"
-	"hivemtk-user/internal/service"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 )
 
 type ClueController struct {
@@ -20,7 +19,19 @@ func NewClueController() *ClueController {
 	return &ClueController{svc: service.NewClueService()}
 }
 
-// GetClueList 获取线索列表
+// GetClueList godoc
+// @Summary      获取线索列表
+// @Description  分页查询线索池，支持按来源/状态筛选
+// @Tags         Clue
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        page      query  int  false  "页码"  default(1)
+// @Param        page_size query  int  false  "每页数量"  default(20)
+// @Param        source    query  int  false  "来源 ID"
+// @Param        status    query  int  false  "状态"
+// @Success      200  {object}  response.Response  "成功"
+// @Router       /api/clues [get]
 func (c *ClueController) GetClueList(ctx *gin.Context) {
 	var req dto.GetClueRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
@@ -58,7 +69,17 @@ func (c *ClueController) GetClueList(ctx *gin.Context) {
 	response.Success(ctx, resp, "获取线索列表成功")
 }
 
-// DeleteClue 删除线索
+// DeleteClue godoc
+// @Summary      删除线索
+// @Description  通过 ID 软删除线索
+// @Tags         Clue
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "线索 ID"
+// @Success      200  {object}  response.Response  "删除成功"
+// @Failure      400  {object}  response.Response  "参数错误"
+// @Router       /api/clues/{id} [delete]
 func (c *ClueController) DeleteClue(ctx *gin.Context) {
 	var req dto.DeleteClueRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
@@ -73,7 +94,15 @@ func (c *ClueController) DeleteClue(ctx *gin.Context) {
 	response.Success(ctx, nil, "删除线索成功")
 }
 
-// GetClueStatistics 获取线索统计
+// GetClueStatistics godoc
+// @Summary      获取线索统计数据
+// @Description  返回线索总数、转化率、来源分布
+// @Tags         Clue
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response  "成功"
+// @Router       /api/clues/statistics [get]
 func (c *ClueController) GetClueStatistics(ctx *gin.Context) {
 	statistics, err := c.svc.GetClueStatistics(context.Background())
 	if err != nil {
@@ -84,6 +113,7 @@ func (c *ClueController) GetClueStatistics(ctx *gin.Context) {
 }
 
 // ImportClues 导入线索
+// OPT-ARC-04：DTO→Model 转换下沉到 service（controller 仅做参数绑定）
 func (c *ClueController) ImportClues(ctx *gin.Context) {
 	var req []dto.ImportClueRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -91,34 +121,24 @@ func (c *ClueController) ImportClues(ctx *gin.Context) {
 		return
 	}
 
-	// 转换为model.Clue
-	var clues []*model.Clue
+	// 1) 参数预校验（轻量）
 	for _, item := range req {
-		clueType, err := strconv.ParseInt(item.Type, 10, 64)
-		if err != nil {
+		if _, err := strconv.ParseInt(item.Type, 10, 64); err != nil {
 			response.Error(ctx, http.StatusBadRequest, "线索类型格式错误")
 			return
 		}
-
-		clues = append(clues, &model.Clue{
-			Name:     item.Name,
-			Account:  item.Account,
-			City:     item.City,
-			Address:  item.Address,
-			Type:     clueType,
-			IsVerify: 0,
-		})
 	}
 
-	successCount, skipCount, err := c.svc.BatchImportClues(context.Background(), clues)
+	// 2) 调用 service，转换在 service 内部完成
+	successCount, skipCount, err := c.svc.BatchImportCluesFromDTO(ctx.Request.Context(), req)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, "导入线索失败")
 		return
 	}
 
 	response.Success(ctx, map[string]int64{
-		"successCount": successCount,
-		"skipCount":    skipCount,
+		"success_count": successCount,
+		"skip_count":    skipCount,
 	}, "导入线索成功")
 }
 

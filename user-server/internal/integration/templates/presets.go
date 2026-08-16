@@ -22,10 +22,6 @@ const (
 	srcCustomerSource    = "customer.source"
 	srcCustomerUnifiedID = "customer.unified_id"
 
-	srcClueAccount = "clue.account"
-	srcClueType    = "clue.type"
-	srcClueName    = "clue.name"
-	srcClueCity    = "clue.city"
 
 	srcOrderID    = "order.id"
 	srcOrderPrice = "order.price"

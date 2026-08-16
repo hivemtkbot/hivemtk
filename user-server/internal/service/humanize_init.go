@@ -48,15 +48,15 @@ func (a *humanizeLLMAdapter) ChatSend(ctx context.Context, prompt string) (strin
 // HumanizeEvaluatorSwitch 拟人度评估器开关（私域本地 LLM 部署下应禁用）
 //
 // 背景（私域部署 修复）：
-// 拟人度评估器在 SaaS/线上场景用于拦截 AI 痕迹过重的回复
+// 拟人度评估器设计用于商业 SaaS 场景，用于拦截 AI 痕迹过重的回复
 //   - 但 1.5B q4 本地 LLM 推理在 CPU 上的回复拟人度普遍 < 0.85
 //     （受模型能力、生成 token 长度限制），硬走 0.85 阈值会导致
 //     "3 次重生成仍失败 → 转人工"，AI 实际无自动回复
 //   - 私域场景客户期望：LLM 推理成功即应自动回复，由真实人工按需接管
 //
 // 用法：
-// 线上 SaaS: 不设 env（默认 true 启用 评估）
-//   - 私域本地 LLM: docker compose 设 MTK_HUMANIZE_EVAL_DISABLED=true
+// 私域本地 LLM 部署：设 MTK_HUMANIZE_EVAL_DISABLED=true 强制禁用（或自动检测本地 base_url 后禁用）
+//   - 商业云端 SaaS：默认启用（保持商业场景的回复质量拦截）
 //   - 自定义阈值: 设 MTK_HUMANIZE_EVAL_THRESHOLD=0.50
 //
 // 5 层架构：本开关在 Service 层，Router/Factory 层读取 env 后通过

@@ -2,7 +2,6 @@ package service
 
 import (
 	"errors"
-	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -157,11 +156,5 @@ func (s *NotificationService) SeedIfEmpty(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-// parseUint 安全解析 uint
-func parseUint(s string) uint {
-	v, _ := strconv.ParseUint(s, 10, 64)
-	return uint(v)
 }
 

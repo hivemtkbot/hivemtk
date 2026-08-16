@@ -82,7 +82,8 @@
     "login": "Log in",
     "unknown": "Unknown",
     "collapseMenu": "Collapse menu",
-    "expandMenu": "Expand menu"
+    "expandMenu": "Expand menu",
+    "licenseActive": "License Active"
   },
   "role": {
     "title": "Role Management",
@@ -236,7 +237,6 @@
     "ragAccount": "RAG Account Config",
     "ragProduct": "RAG Product Management",
     "ragOverview": "RAG Overview",
-
     "analytics": "Data Analytics",
     "dashboardScreen": "Data Dashboard",
     "conversionFunnel": "Conversion Funnel",
@@ -272,7 +272,10 @@
     "syncLog": "Sync Log",
     "i18nManage": "Localization",
     "glossary": "Glossary",
-    "i18nDashboard": "i18n Monitoring"
+    "i18nDashboard": "i18n Monitoring",
+    "faqKb": "FAQ Knowledge Base",
+    "sopTemplate": "SOP Templates",
+    "systemTrace": "System Trace"
   },
   "保存": "Save",
   "提交": "Submit",
@@ -1786,11 +1789,16 @@
     "user": "User",
     "ai": "AI",
     "system": "System",
-      "customer_service": "Customer Service",
-      "staff": "Staff"
+    "customer_service": "Customer Service",
+    "staff": "Staff"
   },
   "enabledLabel": {
     "enabled": "Enabled",
     "disabled": "Disabled"
-  }
+  },
+  "事件总量": "Total Events",
+  "事件来源": "事件来源",
+  "总事件数": "总事件数",
+  "请先选择客户": "请先选择客户",
+  "请至少填写一个身份标识（手机号/邮箱/微信/抖音）": "请至少填写一个身份标识（手机号/邮箱/微信/抖音）"
 }

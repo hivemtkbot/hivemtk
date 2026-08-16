@@ -39,28 +39,3 @@ func (e *Envelope) MarshalBytes() ([]byte, error) {
 	return json.Marshal(e)
 }
 
-// sendEnvelope 内部统一：分配 seq（可选）+ 序列化 + 投递到 client.send channel
-//
-// 行为：
-//   - assignSeq=true 时调用 NextSeq() 分配新序号
-//   - 投递失败（channel 满）返回 false，调用方应记录 dropped
-//
-// 注意：ack 跟踪由调用方决定，SendEnvelope 不自动 track，避免污染 heartbeat 等
-func sendEnvelope(client *Client, env *Envelope) bool {
-	if client == nil || env == nil {
-		return false
-	}
-	bytes, err := env.MarshalBytes()
-	if err != nil {
-		return false
-	}
-	select {
-	case client.send <- bytes:
-		return true
-	case <-time.After(500 * time.Millisecond):
-		return false
-	default:
-		return false
-	}
-}
-

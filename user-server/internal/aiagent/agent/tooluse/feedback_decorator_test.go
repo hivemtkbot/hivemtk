@@ -155,9 +155,8 @@ func TestFeedbackCollectorDecorator_AsyncNoBlocking(t *testing.T) {
 
 // slowFeedbackSink 慢速 FeedbackSink（用于测试异步性）
 type slowFeedbackSink struct {
-	delay      time.Duration
-	callCount  atomic.Int32
-	errorCount atomic.Int32
+	delay     time.Duration
+	callCount atomic.Int32
 }
 
 func (s *slowFeedbackSink) RecordToolCall(ctx context.Context, event ToolCallEvent) error {

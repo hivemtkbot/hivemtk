@@ -29,17 +29,31 @@ export class FloatingButton {
     if (this.button) return
     const btn = document.createElement('div')
     btn.className = 'mcw-floating-btn'
+    btn.setAttribute('role', 'button')
+    btn.setAttribute('tabindex', '0')
     btn.setAttribute('aria-label', '打开在线客服')
+    btn.setAttribute('aria-expanded', 'false')
+    btn.setAttribute('aria-haspopup', 'dialog')
     btn.style.cssText = this.getStyle()
-    btn.innerHTML = `<span class="mcw-fab-icon">${ICON_SVG}</span><span class="mcw-fab-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:9px;background:#f56c6c;color:#fff;font-size:12px;line-height:18px;text-align:center;align-items:center;justify-content:center">0</span>`
-    btn.addEventListener('click', () => {
-      const opened = btn.classList.toggle('mcw-open')
-      const icon = btn.querySelector('.mcw-fab-icon')
-      if (icon) icon.innerHTML = opened ? CLOSE_SVG : ICON_SVG
-      this.onClick(opened)
+    btn.innerHTML = `<span class="mcw-fab-icon" aria-hidden="true">${ICON_SVG}</span><span class="mcw-fab-badge" aria-hidden="true" style="display:none;position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:9px;background:#f56c6c;color:#fff;font-size:12px;line-height:18px;text-align:center;align-items:center;justify-content:center">0</span>`
+    btn.addEventListener('click', () => this.toggle())
+    btn.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault()
+        this.toggle()
+      }
     })
     document.body.appendChild(btn)
     this.button = btn
+  }
+
+  toggle() {
+    if (!this.button) return
+    const opened = this.button.classList.toggle('mcw-open')
+    this.button.setAttribute('aria-expanded', String(opened))
+    const icon = this.button.querySelector('.mcw-fab-icon')
+    if (icon) icon.innerHTML = opened ? CLOSE_SVG : ICON_SVG
+    this.onClick(opened)
   }
 
   unmount() {
@@ -72,11 +86,12 @@ export class FloatingButton {
   }
 
   getStyle() {
+    // USR-EM-02: 改用逻辑属性 inset-inline-* 自动 RTL 镜像
     const isLeft = this.position === 'bottom-left'
     return [
       'position: fixed',
       `bottom: ${this.offsetY}px`,
-      isLeft ? `left: ${this.offsetX}px` : `right: ${this.offsetX}px`,
+      isLeft ? `inset-inline-start: ${this.offsetX}px` : `inset-inline-end: ${this.offsetX}px`,
       `z-index: ${this.zIndex}`,
       `background: ${this.color}`,
       'color: #fff',

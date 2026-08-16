@@ -248,17 +248,25 @@ for i in $(seq 1 1000); do
 done > /tmp/test-tokens.txt
 ```
 
-### 附录 B：prometheus 指标查询
+### 附录 B：性能指标 SQL 查询
 
-```promql
-# P95 latency
-histogram_quantile(0.95, sum by (le, channel) (rate(bridge_ingest_duration_ms_bucket[5m])))
+> 私域部署版本无外部监控面板，性能指标通过 PostgreSQL 查询 `bridge_ingest_duration_ms_bucket` 聚合表获取。
 
-# 错误率
-sum(rate(bridge_ingest_errors_total[5m])) / sum(rate(bridge_ingest_total[5m]))
+```sql
+-- P95 latency (最近 5 分钟)
+SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) AS p95
+FROM bridge_ingest_duration_ms
+WHERE created_at > NOW() - INTERVAL '5 minutes';
 
-# 吞吐量
-sum(rate(bridge_ingest_total[5m]))
+-- 错误率 (最近 5 分钟)
+SELECT COUNT(*) FILTER (WHERE status >= 500)::float / COUNT(*) AS error_rate
+FROM bridge_ingest_logs
+WHERE created_at > NOW() - INTERVAL '5 minutes';
+
+-- 吞吐量 (最近 5 分钟)
+SELECT COUNT(*) AS throughput
+FROM bridge_ingest_logs
+WHERE created_at > NOW() - INTERVAL '5 minutes';
 ```
 
 ---

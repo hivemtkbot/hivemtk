@@ -347,12 +347,5 @@ func TestJaccardSimilarity(t *testing.T) {
 	}
 }
 
-func isZeroVectorFloat(vec []float32) bool {
-	for _, v := range vec {
-		if v != 0 {
-			return false
-		}
-	}
-	return true
-}
+
 

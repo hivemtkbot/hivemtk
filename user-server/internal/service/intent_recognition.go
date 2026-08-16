@@ -14,6 +14,7 @@ import (
 	"hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
@@ -79,6 +80,19 @@ func NewIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.C
 // SetSOPService 注入 SOP 服务用于意图→SOP 联动
 func (s *IntentRecognizer) SetSOPService(ctx context.Context, svc *SOPService) {
 	s.sopService = svc
+}
+
+// OPT-ARC-01: withDB 统一返回 GORM 执行器，优先走 recordRepo，
+// 在 repository 暂未覆盖的查询路径上回退到 s.db 字段。
+// 这样既保留 repository 解耦红利，又不强制一次性迁移所有调用。
+func (s *IntentRecognizer) withDB(ctx context.Context) *gorm.DB {
+	if s.recordRepo != nil {
+		return s.recordRepo.GetDB(ctx)
+	}
+	if s.db == nil {
+		return db.GetDB().WithContext(ctx)
+	}
+	return s.db.WithContext(ctx)
 }
 
 // IntentType 销售意图类型常量

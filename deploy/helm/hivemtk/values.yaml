@@ -1,0 +1,112 @@
+# =============================================================================
+# hivemtk Helm Chart 默认配置 (OPT-MISC-01)
+# 用法:
+#   helm install hivemtk ./deploy/helm/hivemtk -f my-values.yaml
+#   helm template hivemtk ./deploy/helm/hivemtk > rendered.yaml
+#   helm lint ./deploy/helm/hivemtk
+# =============================================================================
+
+# 副本数 (生产 3+, 测试 1)
+replicaCount: 2
+
+# 镜像配置
+image:
+  repository: hivemtk/user-server
+  tag: ""          # 留空则用 .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+# - name: regcred
+
+# 资源限制 (生产推荐)
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+# 容器端口
+service:
+  type: ClusterIP
+  port: 80          # K8s Service 端口
+  targetPort: 8080  # user-server 监听端口
+
+# Ingress 配置
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+  hosts:
+    - host: api.hivemtk.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # - secretName: hivemtk-tls
+  #   hosts:
+  #     - api.hivemtk.io
+
+# 环境变量 (注入到 user-server)
+env:
+  - name: GIN_MODE
+    value: release
+  - name: LOG_LEVEL
+    value: info
+  # 数据库/Redis 由 Secret 注入, 见 secrets 部分
+  - name: DB_HOST
+    valueFrom:
+      secretKeyRef:
+        name: hivemtk-secrets
+        key: db-host
+  - name: DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: hivemtk-secrets
+        key: db-password
+
+# 密钥 (skeleton, 生产应通过 ExternalSecrets / Vault 注入)
+secrets:
+  enabled: true
+  name: hivemtk-secrets
+  # 真实密钥应从 Vault/SecretsManager 同步, 不在 values 写明文
+  keys:
+    - db-host
+    - db-password
+    - jwt-secret
+    - field-encryption-key
+
+# 健康检查
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+# Pod 中断预算 (skeleton 默认不开启)
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# HPA (skeleton 默认不开启)
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+# 调度约束
+nodeSelector: {}
+tolerations: []
+affinity: {}

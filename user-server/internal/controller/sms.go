@@ -58,7 +58,14 @@ func (c *SmsController) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 
-// GetConfig 获取短信配置
+// GetConfig godoc
+// @Summary      获取短信配置
+// @Description  读取当前商户的短信通道配置（签名、通道、限流）
+// @Tags         SMS
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response  "成功"
+// @Router       /api/sms/config [get]
 func (c *SmsController) GetConfig(ctx *gin.Context) {
 	config, err := c.service.GetConfig(context.Background())
 	if err != nil {
@@ -69,7 +76,16 @@ func (c *SmsController) GetConfig(ctx *gin.Context) {
 	response.Success(ctx, config, "success")
 }
 
-// SaveConfig 保存短信配置
+// SaveConfig godoc
+// @Summary      保存短信配置
+// @Description  更新商户的短信通道配置
+// @Tags         SMS
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  dto.SmsConfigRequest  true  "短信配置"
+// @Success      200   {object}  response.Response  "保存成功"
+// @Router       /api/sms/config [post]
 func (c *SmsController) SaveConfig(ctx *gin.Context) {
 	var req dto.SmsConfigRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -85,7 +101,15 @@ func (c *SmsController) SaveConfig(ctx *gin.Context) {
 	response.Success(ctx, nil, "success")
 }
 
-// DeleteJob 删除任务
+// DeleteJob godoc
+// @Summary      删除短信任务
+// @Description  根据 ID 软删除短信任务
+// @Tags         SMS
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "任务 ID"
+// @Success      200  {object}  response.Response  "删除成功"
+// @Router       /api/sms/job/{id} [delete]
 func (c *SmsController) DeleteJob(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -101,7 +125,17 @@ func (c *SmsController) DeleteJob(ctx *gin.Context) {
 	response.Success(ctx, nil, "success")
 }
 
-// GetJobRecords 获取任务记录
+// GetJobRecords godoc
+// @Summary      短信任务执行记录
+// @Description  分页查询任务下每条短信的发送结果
+// @Tags         SMS
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  int  true   "任务 ID"
+// @Param        page  query int  false  "页码"  default(1)
+// @Param        limit query int  false  "每页"  default(20)
+// @Success      200   {object}  response.Response  "成功"
+// @Router       /api/sms/job/{id}/records [get]
 func (c *SmsController) GetJobRecords(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)

@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // ============================================================================
 // 资产包（AssetBundle）API 客户端
@@ -24,11 +24,11 @@ export const updateBundle = (id, data) =>
 
 // 按 ID 查询
 export const getBundle = (id) =>
-  request({ url: `/api/asset-bundle/${id}`, method: 'get' })
+  http.get(`/api/asset-bundle/${id}`)
 
 // 按 AssetID（业务键）查询
 export const getBundleByAssetID = (aid) =>
-  request({ url: `/api/asset-bundle/by-aid/${aid}`, method: 'get' })
+  http.get(`/api/asset-bundle/by-aid/${aid}`)
 
 // 分页查询
 export const listBundles = (data) =>
@@ -36,19 +36,19 @@ export const listBundles = (data) =>
 
 // 启用资产包（draft → active）
 export const publishBundle = (id) =>
-  request({ url: `/api/asset-bundle/${id}/publish`, method: 'post' })
+  http.post(`/api/asset-bundle/${id}/publish`)
 
 // 提交平台审核上架（开发者上架链路）
 export const submitToPlatform = (id) =>
-  request({ url: `/api/asset-bundle/${id}/submit-platform`, method: 'post' })
+  http.post(`/api/asset-bundle/${id}/submit-platform`)
 
 // 归档资产包
 export const archiveBundle = (id) =>
-  request({ url: `/api/asset-bundle/${id}/archive`, method: 'post' })
+  http.post(`/api/asset-bundle/${id}/archive`)
 
 // 软删除
 export const deleteBundle = (id) =>
-  request({ url: `/api/asset-bundle/${id}`, method: 'delete' })
+  http.delete(`/api/asset-bundle/${id}`)
 
 // ==================== Weave 织布算法 ====================
 
@@ -64,18 +64,18 @@ export const merchantSave = (data) =>
 
 // 商户表单解析（messages 数组 → 前端表单回显）
 export const merchantParse = (aid) =>
-  request({ url: `/api/asset-bundle/merchant-parse/${aid}`, method: 'post' })
+  http.post(`/api/asset-bundle/merchant-parse/${aid}`)
 
 // ==================== 热插拔（方向 D1，立即生效） ====================
 
 // 热启用资产包
 export const enableBundle = (id) =>
-  request({ url: `/api/asset-bundle/${id}/enable`, method: 'post' })
+  http.post(`/api/asset-bundle/${id}/enable`)
 
 // 热禁用资产包
 export const disableBundle = (id) =>
-  request({ url: `/api/asset-bundle/${id}/disable`, method: 'post' })
+  http.post(`/api/asset-bundle/${id}/disable`)
 
 // 查询已热启用的资产包列表
 export const listEnabledBundles = () =>
-  request({ url: '/api/asset-bundle/enabled/list', method: 'post' })
+  http.post('/api/asset-bundle/enabled/list')

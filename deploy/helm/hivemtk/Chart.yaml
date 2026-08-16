@@ -1,0 +1,42 @@
+# =============================================================================
+# HiveMtk Helm Chart (OPT-MISC-01)
+# 创建日期: 2026-08-16
+# 适用范围: Kubernetes 1.24+ / Helm 3.10+
+# 状态: 骨架 (skeleton), 仅覆盖 user-server Deployment + Service + Ingress
+# 待办 (后续 OPT-MISC-04 ~ OPT-MISC-06 实施):
+#   - platform-server chart
+#   - user-web (Nginx) chart
+#   - PostgreSQL / Redis 依赖
+#   - HPA / PDB / ServiceAccount
+# =============================================================================
+apiVersion: v2
+name: hivemtk
+description: |
+  HiveMtk 用户端核心服务 (user-server) Helm Chart 骨架。
+  包含 Deployment + Service + Ingress 三件套, 通过 values.yaml 注入配置。
+type: application
+version: 0.1.0    # Chart 版本 (SemVer)
+appVersion: "0.1.0"  # 应用版本, 跟随 hivemtk/user-server 版本
+
+# Chart 维护信息
+maintainers:
+  - name: HiveMtk SRE
+    email: sre@hivemtk.io
+
+# 关键字 (用于 helm search hub)
+keywords:
+  - hivemtk
+  - user-server
+  - marketing
+  - chatbot
+  - saas
+
+# Chart 主页/源
+home: https://hivemtk.io
+sources:
+  - https://github.com/hivemtk/hivemtk
+
+# 注解: 用于 artifact hub 分类
+annotations:
+  category: Application
+  licenses: AGPL-3.0

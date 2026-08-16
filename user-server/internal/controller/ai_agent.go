@@ -46,6 +46,18 @@ func (ctrl *AIAgentController) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/ai-agents-enabled", ctrl.ListEnabled)
 }
 
+// List godoc
+// @Summary      AI 智能体列表
+// @Description  分页/筛选查询 AI 智能体
+// @Tags         AI Agent
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        type    query  string  false  "类型：sales/sop/faq"
+// @Param        status  query  int     false  "状态：1-启用 0-禁用"
+// @Param        keyword query  string  false  "关键词"
+// @Success      200  {object}  response.Response  "成功"
+// @Router       /api/ai-agents [get]
 func (ctrl *AIAgentController) List(c *gin.Context) {
 	agentType := c.Query("type")
 	statusStr := c.Query("status")
@@ -64,6 +76,13 @@ func (ctrl *AIAgentController) List(c *gin.Context) {
 	response.SuccessWithList(c, list, int64(len(list)))
 }
 
+// ListEnabled godoc
+// @Summary      启用的 AI 智能体列表
+// @Description  仅返回启用状态的智能体，用于前台展示
+// @Tags         AI Agent
+// @Produce      json
+// @Success      200  {object}  response.Response  "成功"
+// @Router       /api/ai-agents-enabled [get]
 func (ctrl *AIAgentController) ListEnabled(c *gin.Context) {
 	list, err := ctrl.svc.ListEnabled(c.Request.Context())
 	if err != nil {
@@ -73,6 +92,16 @@ func (ctrl *AIAgentController) ListEnabled(c *gin.Context) {
 	response.SuccessWithList(c, list, int64(len(list)))
 }
 
+// Get godoc
+// @Summary      AI 智能体详情
+// @Description  根据 ID 返回智能体完整配置
+// @Tags         AI Agent
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "智能体 ID"
+// @Success      200  {object}  response.Response  "成功"
+// @Failure      404  {object}  response.Response  "未找到"
+// @Router       /api/ai-agents/{id} [get]
 func (ctrl *AIAgentController) Get(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

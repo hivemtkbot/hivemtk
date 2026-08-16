@@ -19,18 +19,19 @@ const (
 
 // Customer 客户模型 - CDP 统一客户数据
 type Customer struct {
-	ID            string    `gorm:"type:varchar(36);primaryKey" json:"id"`
-	UnifiedID     string    `gorm:"type:varchar(64);uniqueIndex" json:"unified_id"`
-	Phone         string    `gorm:"type:varchar(20);index" json:"phone"`
-	Email         string    `gorm:"type:varchar(100);index" json:"email"`
-	WechatOpenID  string    `gorm:"type:varchar(64);index" json:"wechat_open_id"`
-	DouyinOpenID  string    `gorm:"type:varchar(64);index" json:"douyin_open_id"`
-	XiaohongshuID string    `gorm:"type:varchar(64);index" json:"xiaohongshu_id"`
-	Tags          string    `gorm:"type:text" json:"tags"` 
-	RFMScore      int       `gorm:"default:0" json:"rfm_score"`
-	ChurnRisk     string    `gorm:"type:varchar(20);default:'low'" json:"churn_risk"` 
-	CreatedAt     time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt     time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ID            string         `gorm:"type:varchar(36);primaryKey" json:"id"`
+	UnifiedID     string         `gorm:"type:varchar(64);uniqueIndex" json:"unified_id"`
+	Phone         string         `gorm:"type:varchar(20);index" json:"phone"`
+	Email         string         `gorm:"type:varchar(100);index" json:"email"`
+	WechatOpenID  string         `gorm:"type:varchar(64);index" json:"wechat_open_id"`
+	DouyinOpenID  string         `gorm:"type:varchar(64);index" json:"douyin_open_id"`
+	XiaohongshuID string         `gorm:"type:varchar(64);index" json:"xiaohongshu_id"`
+	Tags          string         `gorm:"type:text" json:"tags"`
+	RFMScore      int            `gorm:"default:0" json:"rfm_score"`
+	ChurnRisk     string         `gorm:"type:varchar(20);default:'low'" json:"churn_risk"`
+	CreatedAt     time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt     time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 
 // TableName 返回表名

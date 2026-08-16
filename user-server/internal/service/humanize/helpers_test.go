@@ -20,19 +20,6 @@ func approxEqualTol(a, b, tol float64) bool {
 	return math.Abs(a-b) < tol
 }
 
-// approxSlice 切片近似相等
-func approxSlice(a, b []float64) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if !approxEqual(a[i], b[i]) {
-			return false
-		}
-	}
-	return true
-}
-
 
 // stubLLMDispatcher 测试用 LLM 调度器
 type stubLLMDispatcher struct {

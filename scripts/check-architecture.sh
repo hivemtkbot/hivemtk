@@ -127,6 +127,27 @@ else
   log_pass "[L4] service 未直接调 db"
 fi
 
+# 2.2.1 service struct 持有 *gorm.DB 字段（架构反模式警告）
+# OPT-ARC-02：审计发现 12+ service struct 仍持 db *gorm.DB 字段。
+# 建议重构为「构造函数接收 repository.XxxRepository 接口」。
+# 本检查为 WARN 级别（不阻断），用于推动渐进式重构。
+SERVICE_DB_FIELDS=$(grep -rnE --include="*.go" --exclude="*_test.go" \
+  "^\s*db\s+\*gorm\.DB" \
+  "$TARGET/internal/service/" 2>/dev/null \
+  | grep -vE '://' \
+  || true)
+if [ -n "$SERVICE_DB_FIELDS" ]; then
+  log_warn "[L4] 以下 service struct 持有 *gorm.DB 字段(应重构为 Repository 注入,OPT-ARC-01):"
+  echo "$SERVICE_DB_FIELDS" | sed 's/^/    /' | head -20
+  COUNT=$(echo "$SERVICE_DB_FIELDS" | wc -l | tr -d ' ')
+  if [ "$COUNT" -gt 20 ]; then
+    echo "    ... 还有 $((COUNT-20)) 处(总 $COUNT 处)"
+  fi
+  log_warn "[L4] 参考: 架构文档 GO_FIVE_LAYER_ARCHITECTURE.md §三 L3 职责"
+else
+  log_pass "[L4] service struct 未持有 *gorm.DB 字段"
+fi
+
 # 2.3 service 不应写 SQL 字符串拼接
 if grep -rn '\.Raw(.*+.*)' "$TARGET/internal/service/" 2>/dev/null; then
   log_fail "[L4] service 含 SQL 字符串拼接,应封装到 repository"

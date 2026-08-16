@@ -21,7 +21,6 @@ import (
 	"hivemtk-user/internal/repository"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // 邮件追踪 token 签名密钥（仅来自环境变量 EMAIL_TRACKING_SECRET，源码不含硬编码密钥）
@@ -351,10 +350,5 @@ func (s *EmailTrackingService) baseURL(ctx context.Context) string {
 // round2 保留 2 位小数
 func round2(v float64) float64 {
 	return math.Round(v*100) / 100
-}
-
-// emailTrackingServiceWithDB 内部辅助：使用指定 db 创建服务（测试用）
-func emailTrackingServiceWithDB(db *gorm.DB) *EmailTrackingService {
-	return NewEmailTrackingService(repository.NewEmailTrackingRepository(db))
 }
 

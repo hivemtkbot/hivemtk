@@ -14,7 +14,7 @@
  * 新增：配合 reach.feishu.send 工具，实现完整销售流程
  */
 
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 列出所有飞书账号
 export function listAccounts(params = {}) {
@@ -27,10 +27,7 @@ export function listAccounts(params = {}) {
 
 // 获取账号详情
 export function getAccount(id) {
-  return request({
-    url: `/api/feishu/accounts/${id}`,
-    method: 'get'
-  })
+  return http.get(`/api/feishu/accounts/${id}`)
 }
 
 // 创建飞书账号
@@ -53,10 +50,7 @@ export function updateAccount(id, data) {
 
 // 删除飞书账号
 export function deleteAccount(id) {
-  return request({
-    url: `/api/feishu/accounts/${id}`,
-    method: 'delete'
-  })
+  return http.delete(`/api/feishu/accounts/${id}`)
 }
 
 // 测试发送消息（验证 App 凭据）
@@ -70,8 +64,5 @@ export function testSend(id, data) {
 
 // 刷新 Access Token
 export function refreshToken(id) {
-  return request({
-    url: `/api/feishu/accounts/${id}/refresh-token`,
-    method: 'post'
-  })
+  return http.post(`/api/feishu/accounts/${id}/refresh-token`)
 }

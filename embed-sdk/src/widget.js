@@ -114,9 +114,21 @@ class MarketingChatWidget {
   }
 
   _bindMessageListener() {
+    // OPT-SEC-03：统一跨域策略
+    // - 强制要求配置 allowedOrigins（防御性）
+    // - 任何 postMessage 都必须通过 origin 校验
+    // - 与 IframePanel 保持一致的策略
+    const allowedOrigins = (this.config && this.config.allowedOrigins) || []
     this._onWindowMessage = (e) => {
-      if (this.config.allowedOrigins && this.config.allowedOrigins.length > 0) {
-        if (!this.config.allowedOrigins.includes(e.origin)) return
+      // 1) 必须配置 allowedOrigins
+      if (!allowedOrigins || allowedOrigins.length === 0) {
+        // 没有白名单时拒绝接收任何跨源消息
+        // 单实例部署可显式设置 allowedOrigins: [window.location.origin]
+        return
+      }
+      // 2) origin 必须在白名单中
+      if (!allowedOrigins.includes(e.origin)) {
+        return
       }
       const data = e.data
       if (!data || typeof data !== 'object') return

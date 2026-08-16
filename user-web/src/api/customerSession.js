@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 客户会话管理 - 匹配后端 customer-sessions 路由 (service_routes.go)
 // 注意：后端前缀为 /api/customer-sessions（连字符），旧版 /api/customer/session 不存在
@@ -25,7 +25,7 @@ export function createSession(data) {
   return request({ url: '/api/customer-sessions', method: 'post', data })
 }
 export function closeSession(id) {
-  return request({ url: `/api/customer-sessions/${id}/close`, method: 'post' })
+  return http.post(`/api/customer-sessions/${id}/close`)
 }
 export function transferSession(id, data) {
   return request({ url: `/api/customer-sessions/${id}/transfer`, method: 'post', data })
@@ -57,7 +57,7 @@ export function takeoverSession(id, reason = '') {
  * @param {number|string} id 会话 ID
  */
 export function releaseSession(id) {
-  return request({ url: `/api/customer-sessions/${id}/release`, method: 'post' })
+  return http.post(`/api/customer-sessions/${id}/release`)
 }
 
 /**
@@ -128,18 +128,18 @@ export function listBlacklist(params = {}) {
 
 // 客户 360° 画像（用于右栏渲染客户信息 + SOP 阶段）
 export function getCustomer360(id) {
-  return request({ url: `/api/customer-360?user_id=${id}`, method: 'get' })
+  return http.get(`/api/customer-360?user_id=${id}`)
 }
 export function getCustomerBasic(id) {
-  return request({ url: `/api/customer-360/basic?user_id=${id}`, method: 'get' })
+  return http.get(`/api/customer-360/basic?user_id=${id}`)
 }
 export function getCustomerStats(id) {
-  return request({ url: `/api/customer-360/stats?user_id=${id}`, method: 'get' })
+  return http.get(`/api/customer-360/stats?user_id=${id}`)
 }
 export function getCustomerSessions(id) {
-  return request({ url: `/api/customer-360/sessions?user_id=${id}`, method: 'get' })
+  return http.get(`/api/customer-360/sessions?user_id=${id}`)
 }
 export function getCustomerTags(id) {
-  return request({ url: `/api/customer-360/tags?user_id=${id}`, method: 'get' })
+  return http.get(`/api/customer-360/tags?user_id=${id}`)
 }
 

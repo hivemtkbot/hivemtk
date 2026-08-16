@@ -50,6 +50,7 @@ type AgentToolResult struct {
 }
 
 type SalesEngine struct {
+	// db 字段用于 agent_loop 中的 session_messages 历史读取（OPT-ARC-03 二期：迁移到 SessionMessageRepository）
 	db              *gorm.DB
 	dispatcher      *llm.Dispatcher
 	intent          IntentRecognizerInterface
@@ -587,17 +588,6 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 		return ctx.Err()
 	}
 	return nil
-}
-
-func layerOfResponse(resp *SalesResponse) string {
-	if resp == nil {
-		return dto.Layer2
-	}
-	if resp.Confidence != nil && resp.Confidence.DecisionBand != "" {
-
-		return dto.Layer2
-	}
-	return dto.Layer2
 }
 
 // agentLoopMaxIterations Agent Loop 最大迭代次数

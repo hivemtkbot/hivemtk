@@ -69,7 +69,7 @@ jobs:
         working-directory: user-server
         run: go mod download
 
-      - name: 架构合规检查(五层)
+      - name: 架构合规检查(分层)
         # 对应 docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md
         # 阻断模式：违规直接 fail，强制修复而非 warn-only 放行
         run: |
@@ -81,7 +81,7 @@ jobs:
         run: go vet ./...
 
       - name: golangci-lint（架构护栏 depguard）
-        # P0-1：五层依赖方向护栏，规则见 user-server/.golangci.yml
+        # P0-1：分层依赖方向护栏，规则见 user-server/.golangci.yml
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1.6
@@ -109,6 +109,34 @@ jobs:
           go test ./... -count=1 -timeout 300s -p 1 -short -coverprofile=coverage/go-cover.out -covermode=atomic
           go tool cover -func=coverage/go-cover.out | tail -1
         continue-on-error: false
+
+      - name: Coverage threshold (P1-CI-06)
+        # OPT-CI-06：coverage 软门槛 50%（首期），下个迭代提升到 60%
+        working-directory: user-server
+        run: |
+          TOTAL=$(go tool cover -func=coverage/go-cover.out | tail -1 | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: ${TOTAL}%"
+          THRESHOLD=50
+          if awk "BEGIN {exit !($TOTAL < $THRESHOLD)}"; then
+            echo "::warning::Coverage ${TOTAL}% < ${THRESHOLD}% threshold"
+          fi
+
+      - name: Go dependency audit (govulncheck)
+        # OPT-CI-04：依赖漏洞审计（2026-08-16 审计任务）
+        working-directory: user-server
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+        continue-on-error: true
+
+      - name: Secret scan (gitleaks)
+        # OPT-CI-05：密钥扫描（2026-08-16 审计任务）
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: true
+          GITLEAKS_ENABLE_SUMMARY: true
+        continue-on-error: true  # 首次启用，不阻断
 
       - name: Upload coverage to Codecov
         # 2026-08-15 P0-CI：Codecov 集成（需在仓库 settings 配置 CODECOV_TOKEN）
@@ -182,6 +210,42 @@ jobs:
       - name: npm ci
         working-directory: user-web
         run: npm ci
+
+      - name: ESLint (OPT-FE-01)
+        # OPT-FE-01：user-web 主项目 ESLint 接入 CI
+        # 首次启用，allow warnings，下个迭代改为阻断
+        working-directory: user-web
+        run: npm run lint:check --if-present
+        continue-on-error: true
+
+      - name: npm audit (OPT-CI-10)
+        # OPT-CI-10：NPM 依赖漏洞扫描 (--audit-level=high)
+        # 仅阻断 high/critical 级别；中等/低先警告
+        # 首次启用，只警告不阻断 (continue-on-error)，下个迭代改为阻断
+        working-directory: user-web
+        run: |
+          echo "::group::Running npm audit (high+ critical)"
+          npm audit --audit-level=high --json 2>/dev/null > npm-audit.json || AUDIT_EXIT=$?
+          if [ -f npm-audit.json ]; then
+            # 解析 JSON 报告摘要
+            HIGH_CRIT=$(node -e "const r=require('./npm-audit.json');const m=r.metadata?.vulnerabilities||{};console.log('high:',m.high||0,'critical:',m.critical||0,'total:',r.metadata?.totalDependencies||0);" 2>/dev/null || echo "JSON 解析失败")
+            echo "  ${HIGH_CRIT}"
+          fi
+          # 重新跑一次非 JSON 模式输出可读报告
+          npm audit --audit-level=high || echo "::warning::npm audit 发现 high/critical 级别漏洞，但首次启用不阻断"
+        continue-on-error: true
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      - name: Upload npm audit report
+        # 将 JSON 报告上传为 artifact，便于 review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-web-npm-audit
+          path: user-web/npm-audit.json
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Build
         working-directory: user-web

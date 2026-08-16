@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 转化漏斗：后端实际路由 /api/conversion-funnels（GET 漏斗报告）、/api/conversion-funnels/stage（阶段详情）
 const ConversionFunnelApi = {

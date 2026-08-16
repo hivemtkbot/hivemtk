@@ -106,7 +106,11 @@ const moduleNames = [
   // 阶段 6：授权管理（v3.1 §3.4）
   'permission',
   // 多语言方案：术语表管理 + 多语言监控看板
-  'glossary', 'i18nStats'
+  'glossary', 'i18nStats',
+  // OPT-UX-03: 跨平台一键发布
+  'crossPublish',
+  // OPT-UX-01/02: 运维总览 + AI 销冠驾驶舱
+  'ops',
 ]
 
 // 同步注册的路由 (始终加载 - 用于 SSR / 初始 SEO)
@@ -196,7 +200,12 @@ const pathToModule = {
   // 多语言：/i18n/* 路径首段与模块名 i18nStats 不一致，需显式映射
   'i18n': 'i18nStats',
   // 知识库管理模块 URL 路径首段与模块名不一致映射
-  'sop-template': 'sopTemplateKb'
+  'sop-template': 'sopTemplateKb',
+  // OPT-UX-01/02: 运维总览 / AI 销冠驾驶舱
+  'ops-overview': 'ops',
+  'sales-cockpit': 'ops',
+  // OPT-UX-03: 跨平台一键发布
+  'cards': 'crossPublish',
 }
 
 async function ensureRouteLoaded(path) {
@@ -284,7 +293,14 @@ router.beforeEach(async (to, from, next) => {
   if (routeLoaded) {
     next({ path: to.path, replace: true })
   } else {
-    next()
+    // OPT-FE-10：ensureRouteLoaded 失败时跳转 NotFound
+    // 旧行为：放行 → 用户看到空白页
+    // 新行为：放行但路径不存在则跳 NotFound
+    if (to.matched.length === 0) {
+      next({ name: 'NotFound', replace: true })
+    } else {
+      next()
+    }
   }
 })
 export default router

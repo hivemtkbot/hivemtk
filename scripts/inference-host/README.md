@@ -160,7 +160,7 @@ bash scripts/inference-host/start-llm.sh
 | `--flash-attn on` | `FLASH_ATTN` | `on` | Flash Attention 2，加速推理 2-4x，减 KV cache 内存 50%+ |
 | `--mlock` | `USE_MLOCK` | `true` | 锁定模型在 RAM，防止换页导致延迟飙升 |
 | `--timeout 300` | `SERVER_TIMEOUT` | `300` | HTTP 读写超时 300s，防止慢请求占用资源 |
-| `--metrics` | `ENABLE_METRICS` | `false` | llama.cpp 内置 /metrics 端点 (私域: 默认关闭, 无外部 Prometheus 抓取) |
+| `--metrics` | `ENABLE_METRICS` | `false` | llama.cpp 内置 /metrics 端点 (私域: 默认关闭) |
 | `--alias` | `USE_ALIAS` | `true` | 模型别名，确保 API 的 `model` 字段与 config.yaml 一致 |
 | `--ubatch` | `UBATCH_SIZE` | `512` | 物理批处理大小（GPU 可调到 1024） |
 | LLM `--cont-batching` | `LLM_CONT_BATCHING` | `true` | 连续批处理，新请求插入正在处理的批次 |

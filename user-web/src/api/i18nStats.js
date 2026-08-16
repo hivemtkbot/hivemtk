@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // ============================================================================
 // 多语言（I18n）监控统计 API
@@ -8,10 +8,7 @@ import request from '@/utils/request'
 
 // 总览：{ total_calls, cross_lingual_calls, cache_hit_rate, fallback_rate, avg_quality }
 export function getI18nStats() {
-  return request({
-    url: '/api/i18n/stats',
-    method: 'get'
-  })
+  return http.get('/api/i18n/stats')
 }
 
 // 语言分布：[{ internal_lang, target_lang, count, cross_lingual_count }]
@@ -36,10 +33,7 @@ export function getCacheHitRate(days = 7) {
 
 // 术语覆盖率：[{ target_lang, term_count, active_count }]
 export function getGlossaryCoverage() {
-  return request({
-    url: '/api/i18n/stats/glossary',
-    method: 'get'
-  })
+  return http.get('/api/i18n/stats/glossary')
 }
 
 // 质量评分趋势：[{ date, avg_score, total_count }]

@@ -197,28 +197,6 @@ func (s *WebhookService) ingressHandler(ctx context.Context) webhookIngressAdapt
 	return webhookIngressAdapter{svc: s.ingressSvc}
 }
 
-type webhookEventRepo struct {
-	db *gorm.DB
-}
-
-func newWebhookEventRepoWithDB(db *gorm.DB) *repository.WebhookEventRepository {
-
-	r := repository.NewWebhookEventRepository()
-	if db != nil {
-
-		repository.SetWebhookEventRepoDB(r, db)
-	}
-	return r
-}
-
-func newIntegrationAccountRepoWithDB(db *gorm.DB) *repository.IntegrationAccountRepository {
-	r := repository.NewIntegrationAccountRepository()
-	if db != nil {
-		repository.SetIntegrationAccountRepoDB(r, db)
-	}
-	return r
-}
-
 func (s *WebhookService) Stop(ctx context.Context) {
 	s.mu.Lock()
 	if s.stopped {

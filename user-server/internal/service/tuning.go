@@ -181,11 +181,3 @@ func (s *tuningService) ListLowQualitySamples(ctx context.Context, sampleType st
 	return s.lowQRepo.List(ctx, sampleType, page, pageSize)
 }
 
-// safeDiv 安全除法(避免除 0 触发 panic)
-func safeDiv(a, b float64) float64 {
-	if b == 0 {
-		return 0
-	}
-	return a / b
-}
-

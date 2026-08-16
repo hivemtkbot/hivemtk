@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 获取素材列表
 export function getMaterialList(params = {}) {
@@ -23,18 +23,12 @@ export function uploadMaterial(data) {
 
 // 删除素材
 export function deleteMaterial(id) {
-  return request({
-    url: `/api/material/${id}`,
-    method: 'delete'
-  })
+  return http.delete(`/api/material/${id}`)
 }
 
 // 获取素材分类列表
 export function getMaterialCategories() {
-  return request({
-    url: '/api/material/categories',
-    method: 'get'
-  })
+  return http.get('/api/material/categories')
 }
 
 // 创建素材分类
@@ -57,10 +51,7 @@ export function updateMaterialCategory(id, data) {
 
 // 删除素材分类
 export function deleteMaterialCategory(id) {
-  return request({
-    url: `/api/material/categories/${id}`,
-    method: 'delete'
-  })
+  return http.delete(`/api/material/categories/${id}`)
 }
 
 // 获取素材选择器数据
@@ -74,16 +65,10 @@ export function getMaterialSelector(params = {}) {
 
 // 更新素材使用次数
 export function updateMaterialUsage(id) {
-  return request({
-    url: `/api/material/${id}/usage`,
-    method: 'post'
-  })
+  return http.post(`/api/material/${id}/usage`)
 }
 
 // 获取素材统计信息
 export function getMaterialStats() {
-  return request({
-    url: '/api/material/stats',
-    method: 'get'
-  })
+  return http.get('/api/material/stats')
 }

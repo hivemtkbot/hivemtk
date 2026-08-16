@@ -40,10 +40,6 @@ func DetectIdentityConflicts(ctx context.Context, repo repository.CustomerReposi
 	}
 
 	// 按各身份字段聚合
-	type bucket struct {
-		value  string
-		owners []*model.Customer
-	}
 	phoneMap := map[string][]*model.Customer{}
 	emailMap := map[string][]*model.Customer{}
 	wechatMap := map[string][]*model.Customer{}

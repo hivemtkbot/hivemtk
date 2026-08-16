@@ -432,17 +432,3 @@ func (s *CustomerRFMService) enqueueRecovery(ctx context.Context, rfm *model.Cus
 	_ = s.recoveryRepo.Create(ctx, item)
 }
 
-// daysSinceUnix 计算 unix 时间戳距今的天数
-// 保留以备外部调用方使用（_ 前缀避免 unused 告警）
-func _daysSinceUnix(unixSec int64) int {
-	if unixSec <= 0 {
-		return 9999
-	}
-	t := time.Unix(unixSec, 0)
-	days := int(time.Since(t).Hours() / 24)
-	if days < 0 {
-		return 0
-	}
-	return days
-}
-

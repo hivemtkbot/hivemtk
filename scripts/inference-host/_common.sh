@@ -125,7 +125,7 @@ start_role() {
   #   --flash-attn on  : Flash Attention 2，加速推理 2-4x，减 KV cache 内存 50%+
   #   --mlock           : 锁定模型在 RAM，防止换页导致延迟飙升
   #   --timeout         : HTTP 读写超时（默认 300s，防止慢请求占用资源）
-  #   --metrics         : llama.cpp 内置 /metrics 端点 (私域: 默认禁用, 无外部 Prometheus 抓取)
+  #   --metrics         : llama.cpp 内置 /metrics 端点 (私域: 默认禁用)
   #   --alias           : 模型别名，确保 API 的 model 字段与 config.yaml 一致
   #   LLM 专属：
   #     --cont-batching : 连续批处理，允许新请求插入正在处理的批次，提高吞吐

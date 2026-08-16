@@ -39,7 +39,6 @@ import (
 
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"encoding/base64"
 	"hivemtk-user/internal/channelbot/whatsapp"
 	"hivemtk-user/internal/repository"
@@ -797,15 +796,6 @@ func DecryptFeishuEvent(encryptKey, encrypted string) ([]byte, error) {
 	}
 	plain = plain[:len(plain)-padLen]
 	return plain, nil
-}
-
-// 随机 IV（PKCS#7 填充，标准做法）
-func randomBytes(n int) []byte {
-	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		logger.Errorf("rand failed: %v", err)
-	}
-	return b
 }
 
 // timePtr 工具

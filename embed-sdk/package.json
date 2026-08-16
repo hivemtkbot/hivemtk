@@ -4,6 +4,7 @@
   "description": "marketing-tools-kit 客服 Web Widget 嵌入 SDK（ADR-011）",
   "main": "dist/marketing-chat-widget.iife.js",
   "module": "dist/marketing-chat-widget.esm.js",
+  "types": "src/index.d.ts",
   "unpkg": "dist/marketing-chat-widget.iife.js",
   "jsdelivr": "dist/marketing-chat-widget.iife.js",
   "files": [

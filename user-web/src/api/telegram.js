@@ -10,7 +10,7 @@
  * 商业场景：商户配置 TG Bot 后，TG 入站消息和入群事件会自动触发 智能体流程
  */
 
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 // 列出所有 Bot 账号
 export function listAccounts(params = {}) {
@@ -23,10 +23,7 @@ export function listAccounts(params = {}) {
 
 // 获取账号详情
 export function getAccount(id) {
-  return request({
-    url: `/api/telegram/accounts/${id}`,
-    method: 'get'
-  })
+  return http.get(`/api/telegram/accounts/${id}`)
 }
 
 // 创建 Bot 账号
@@ -49,10 +46,7 @@ export function updateAccount(id, data) {
 
 // 删除 Bot 账号
 export function deleteAccount(id) {
-  return request({
-    url: `/api/telegram/accounts/${id}`,
-    method: 'delete'
-  })
+  return http.delete(`/api/telegram/accounts/${id}`)
 }
 
 // 注册 Webhook（调用 Telegram setWebhook）

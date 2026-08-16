@@ -72,7 +72,9 @@ var ErrInvalidDTO = errors.New("无效的客戶 DTO")
 // 分页常量
 const (
 	DefaultLimit = 50
-	MaxLimit     = 1000
+	// OPT-ARC-11：MaxLimit 1000 → 100，防止恶意/误用全表扫描
+	// 大数据集查询请走 cursor-based 分页（OPT-ARC-10 二期）
+	MaxLimit = 100
 	DefaultPage  = 1
 )
 
@@ -234,6 +236,7 @@ func (s *CustomerService) RemoveTags(ctx context.Context, customerID string, tag
 }
 
 // MergeCustomers 合并两个客户（将 secondary 合并到 primary）
+// OPT-ARC-06：全部写操作包在事务中，部分失败回滚避免孤儿数据
 func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, secondaryID string) error {
 	if primaryID == secondaryID {
 		return errors.New("不能合并同一个客户")
@@ -255,6 +258,7 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 		return errors.New("次要客户不存在")
 	}
 
+	// 1) 在内存中合并字段（仅写，不持久化）
 	if secondary.Phone != "" && primary.Phone == "" {
 		primary.Phone = secondary.Phone
 	}
@@ -288,26 +292,36 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 		return err
 	}
 
-
-	if err := s.repo.Update(ctx, primary); err != nil {
-		return err
-	}
-
-	if secondary.UnifiedID != "" && secondary.UnifiedID != primary.UnifiedID {
-		if err := s.repo.ReassignSessionOneID(ctx, secondary.UnifiedID, primary.UnifiedID); err != nil {
-			return fmt.Errorf("迁移会话失败: %w", err)
+	// 2) OPT-ARC-06：事务保护 — 全部 4 步写在一个事务中
+	//    任意一步失败回滚，避免出现"主已更新但次未删除"或"会话迁移但客户未更新"
+	return s.repo.WithTransaction(ctx, func(txCtx context.Context) error {
+		// 2.1 更新主客户（合并字段 + 标签）
+		if err := s.repo.Update(txCtx, primary); err != nil {
+			return fmt.Errorf("更新主客户失败: %w", err)
 		}
-	}
-	if err := s.migrateCustomerEvents(ctx, secondaryID, primaryID); err != nil {
-		return err
-	}
 
-	if err := s.repo.Delete(ctx, secondaryID); err != nil {
-		return err
-	}
+		// 2.2 迁移 OneID 关联的会话
+		if secondary.UnifiedID != "" && secondary.UnifiedID != primary.UnifiedID {
+			if err := s.repo.ReassignSessionOneID(txCtx, secondary.UnifiedID, primary.UnifiedID); err != nil {
+				return fmt.Errorf("迁移会话失败: %w", err)
+			}
+		}
 
+		// 2.3 迁移事件流水
+		if err := s.migrateCustomerEvents(txCtx, secondaryID, primaryID); err != nil {
+			return fmt.Errorf("迁移事件失败: %w", err)
+		}
+
+		// 2.4 删除次要客户
+		if err := s.repo.Delete(txCtx, secondaryID); err != nil {
+			return fmt.Errorf("删除次要客户失败: %w", err)
+		}
+
+		return nil
+	})
+
+	// 2.5 审计日志（事务外，best-effort）
 	s.writeMergeAuditLog(ctx, primary, secondary)
-
 	return nil
 }
 

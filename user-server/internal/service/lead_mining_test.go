@@ -87,6 +87,9 @@ func (f *fakeCustRepo) ListByIDs(context.Context, []string) (map[string]*model.C
 func (f *fakeCustRepo) SearchByFilter(context.Context, repository.CustomerSearchFilter) ([]*model.Customer, int64, error) {
 	return nil, 0, nil
 }
+func (f *fakeCustRepo) WithTransaction(_ context.Context, fn func(ctx context.Context) error) error {
+	return fn(context.Background())
+}
 
 type fakeClueRepo struct {
 	mu         sync.Mutex
@@ -162,6 +165,9 @@ func (f *fakeClueRepo) ListByAccounts(context.Context, []string) ([]*model.Clue,
 }
 func (f *fakeClueRepo) BatchUpdateInTx(context.Context, []string, map[string]any) (int, error) {
 	return 0, nil
+}
+func (f *fakeClueRepo) BatchCreateWithDedup(context.Context, []*model.Clue) (int64, int64, error) {
+	return 0, 0, nil
 }
 
 type fakeCfgRepo struct {

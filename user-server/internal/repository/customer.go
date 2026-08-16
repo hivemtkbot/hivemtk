@@ -7,7 +7,12 @@ import (
 
 	"hivemtk-user/internal/model"
 	_db "hivemtk-user/internal/pkg/db"
+
+	"gorm.io/gorm"
 )
+
+// txContextKey 事务上下文 key（OPT-ARC-06）
+type txContextKey struct{}
 
 // CustomerRepository defines the interface for customer data access
 type CustomerRepository interface {
@@ -29,6 +34,8 @@ type CustomerRepository interface {
 	GetByXiaohongshuID(ctx context.Context, xhsID string) (*model.Customer, error)
 	SearchByFilter(ctx context.Context, filter CustomerSearchFilter) (items []*model.Customer, total int64, err error)
 	ReassignSessionOneID(ctx context.Context, oldOneID, newOneID string) error
+	// OPT-ARC-06：事务支持（OPT-ARC-06 全量写操作原子化）
+	WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
 // CustomerSearchFilter 客户搜索过滤条件（CustomerRepository.SearchByFilter 入参）
@@ -289,6 +296,16 @@ func (r *customerRepository) ReassignSessionOneID(ctx context.Context, oldOneID,
 		Table("customer_sessions").
 		Where("one_id = ?", oldOneID).
 		Update("one_id", newOneID).Error
+}
+
+// WithTransaction 事务封装（OPT-ARC-06）
+// 在事务中执行 fn，fn 内部应使用 txCtx 而非原 ctx。
+// 任意 return err 自动 Rollback，nil 自动 Commit。
+func (r *customerRepository) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	return _db.GetDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txCtx := context.WithValue(ctx, txContextKey{}, tx)
+		return fn(txCtx)
+	})
 }
 
 // ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC- N+1 优化）

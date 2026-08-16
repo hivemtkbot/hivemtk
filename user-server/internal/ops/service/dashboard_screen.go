@@ -17,7 +17,6 @@ import (
 type DashboardScreenService struct {
 	screenRepo *opsrepo.DashboardScreenRepository
 	widgetRepo *opsrepo.DashboardWidgetRepository
-	db         any
 }
 
 // NewDashboardScreenService 创建数据大屏服务实例

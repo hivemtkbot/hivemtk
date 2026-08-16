@@ -40,7 +40,19 @@ func (c *KnowledgeBaseController) RegisterRoutes(router *gin.RouterGroup) {
 	}
 }
 
-// List 列表查询
+// List godoc
+// @Summary      知识库列表
+// @Description  按类型/所有者/关键词分页查询知识库
+// @Tags         Knowledge Base
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        type        query  string  false  "知识库类型：product/faq/policy"
+// @Param        owner_type  query  string  false  "所有者类型"
+// @Param        agent_id    query  int     false  "绑定的智能体 ID"
+// @Param        keyword     query  string  false  "关键词"
+// @Success      200  {object}  response.Response  "成功"
+// @Router       /api/knowledge-bases [get]
 func (c *KnowledgeBaseController) List(ctx *gin.Context) {
 	kbType := ctx.Query("type")
 	ownerType := ctx.Query("owner_type")
@@ -65,7 +77,17 @@ func (c *KnowledgeBaseController) List(ctx *gin.Context) {
 	}, "查询成功")
 }
 
-// Get 详情
+// Get godoc
+// @Summary      知识库详情
+// @Description  根据 ID 返回知识库完整定义
+// @Tags         Knowledge Base
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "知识库 ID"
+// @Success      200  {object}  response.Response  "成功"
+// @Failure      404  {object}  response.Response  "未找到"
+// @Router       /api/knowledge-bases/{id} [get]
 func (c *KnowledgeBaseController) Get(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	if err != nil {

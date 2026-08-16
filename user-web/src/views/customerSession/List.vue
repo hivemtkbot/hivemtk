@@ -532,6 +532,19 @@ const blacklistItems = ref([])
 const blacklistLoading = ref(false)
 const blacklistedSessionIds = ref([])
 
+// ===== 会话状态元数据（USR-WB-01b：与后端 CustomerSession.SessionStatus 对齐）=====
+const SESSION_STATUS_META = {
+  pending: { label: '待处理', tagType: 'info' },
+  ai_handling: { label: 'AI处理', tagType: 'primary' },
+  human_handling: { label: '人工', tagType: 'success' },
+  waiting: { label: '等待', tagType: 'warning' },
+  resolved: { label: '已解决', tagType: 'success' },
+  closed: { label: '已关闭', tagType: 'info' }
+}
+
+const getSessionStatusLabel = (status) => SESSION_STATUS_META[status]?.label || status
+const getSessionStatusTagType = (status) => SESSION_STATUS_META[status]?.tagType || 'info'
+
 // ===== 过滤会话 =====
 const filteredSessions = computed(() => {
   if (!filterStatus.value) return sessions.value

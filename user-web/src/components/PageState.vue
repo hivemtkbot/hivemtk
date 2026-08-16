@@ -1,9 +1,16 @@
 <template>
-  <div class="page-state" :class="`page-state--${state}`" :style="containerStyle">
+  <div
+    class="page-state"
+    :class="`page-state--${state}`"
+    :style="containerStyle"
+    :role="state === 'error' ? 'alert' : 'status'"
+    :aria-live="state === 'error' ? 'assertive' : 'polite'"
+    :aria-busy="state === 'loading' ? 'true' : 'false'"
+  >
     <!-- 加载态 -->
     <template v-if="state === 'loading'">
       <div v-if="loadingIcon === 'spinner'" class="page-state__spinner" :style="spinnerStyle" aria-hidden="true"></div>
-      <el-icon v-else-if="loadingIcon" :size="iconSize" class="is-loading">
+      <el-icon v-else-if="loadingIcon" :size="iconSize" class="is-loading" aria-hidden="true">
         <component :is="loadingIcon" />
       </el-icon>
       <p v-if="loadingText" class="page-state__text">{{ loadingText }}</p>
@@ -11,7 +18,7 @@
 
     <!-- 错误态 -->
     <template v-else-if="state === 'error'">
-      <el-icon v-if="!hideIcon" :size="iconSize" class="page-state__icon page-state__icon--error">
+      <el-icon v-if="!hideIcon" :size="iconSize" class="page-state__icon page-state__icon--error" aria-hidden="true">
         <CircleCloseFilled />
       </el-icon>
       <p v-if="errorTitle" class="page-state__title">{{ errorTitle }}</p>
@@ -23,7 +30,7 @@
 
     <!-- 空态 -->
     <template v-else-if="state === 'empty'">
-      <el-icon v-if="!hideIcon && emptyIcon" :size="iconSize" class="page-state__icon page-state__icon--empty">
+      <el-icon v-if="!hideIcon && emptyIcon" :size="iconSize" class="page-state__icon page-state__icon--empty" aria-hidden="true">
         <component :is="emptyIcon" />
       </el-icon>
       <p v-if="emptyTitle" class="page-state__title">{{ emptyTitle }}</p>

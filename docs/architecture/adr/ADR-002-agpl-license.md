@@ -1,6 +1,15 @@
 # ADR-002: 开源协议统一为 AGPL-3.0-or-later
 
-- **范围**：hivemtk + hivemtk-platform 全仓库
+| 字段 | 内容 |
+|------|------|
+| 编号 | ADR-002 |
+| 标题 | 开源协议统一为 AGPL-3.0-or-later |
+| 状态 | ✅ Accepted |
+| 决策者 | @legal-team, @maintainer-team |
+| 日期 | 2026-Q1 |
+| 适用范围 | hivemtk + hivemtk-platform 全仓库 |
+| **实施 PR** | #15（LICENSE 替换）、#22（SPDX 批量注入）|
+| **已部署环境** | 所有版本（自 v3.0.0 起）|
 
 ## 背景
 
@@ -26,3 +35,10 @@
 - 商业集成必须以 AGPL-3.0 协议发布衍生作品
 - 私有修改 + 公网部署的合规义务更明确
 - 与上游 `vercel/next.js` / `element-plus` 等 AGPL 生态组件兼容
+
+## 修订历史
+
+| 版本 | 日期 | 修订人 | 内容 |
+|------|------|--------|------|
+| v1.0 | 2026-Q1 | @legal-team | 初版协议统一决策 |
+| v1.1 | 2026-08-16 | audit-agent | 增补"实施 PR"和"已部署环境"字段 |

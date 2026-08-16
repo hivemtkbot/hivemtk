@@ -24,15 +24,15 @@ jobs:
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Generate SBOM (SPDX, Go)
+        # OPT-CI-02：移除重复的 syft scan（原 L29/L30 都跑同一命令）
         working-directory: user-server
         run: |
           syft scan dir:. -o spdx-json=../sbom-go.spdx.json
-          syft scan dir:. -o spdx-json=../sbom-go.spdx.json
 
       - name: Generate SBOM (SPDX, Bridge)
+        # OPT-CI-02：移除重复的 syft scan
         working-directory: user-web/bridge
         run: |
-          syft scan dir:. -o spdx-json=../../sbom-bridge.spdx.json
           syft scan dir:. -o spdx-json=../../sbom-bridge.spdx.json
 
       - name: Generate SBOM (SPDX, Frontend)

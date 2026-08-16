@@ -1,11 +1,8 @@
-import request from '@/utils/request'
+import { http } from '@/utils/request';
 
 /**
  * 获取授权状态信息
  */
 export function getLicenseStatus() {
-  return request({
-    url: '/api/license/status',
-    method: 'get'
-  })
+  return http.get('/api/license/status')
 }
