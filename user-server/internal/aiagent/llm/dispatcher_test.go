@@ -14,19 +14,21 @@ func newTestDispatcher() *Dispatcher {
 
 func TestDispatchCacheSetGet(t *testing.T) {
 	d := newTestDispatcher()
-	d.setCache("k1", 10, "v1")
-	if c, ok := d.getCache("k1"); !ok || c != "v1" {
+	ctx := context.Background()
+	d.setCache(ctx, "k1", 10, "v1")
+	if c, ok := d.getCache(ctx, "k1"); !ok || c != "v1" {
 		t.Fatalf("expected v1, got %q ok=%v", c, ok)
 	}
 }
 
 func TestDispatchCacheExpiry(t *testing.T) {
 	d := newTestDispatcher()
-	d.setCache("k1", 60, "v1")
-	if v, ok := d.getCache("k1"); !ok || v != "v1" {
+	ctx := context.Background()
+	d.setCache(ctx, "k1", 60, "v1")
+	if v, ok := d.getCache(ctx, "k1"); !ok || v != "v1" {
 		t.Fatal("expected cache hit for k1")
 	}
-	if _, ok := d.getCache("missing"); ok {
+	if _, ok := d.getCache(ctx, "missing"); ok {
 		t.Fatal("expected miss for missing key")
 	}
 }

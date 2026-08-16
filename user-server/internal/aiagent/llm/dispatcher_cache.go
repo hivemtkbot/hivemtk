@@ -23,22 +23,24 @@ type rpmBucket struct {
 	resetAt time.Time
 }
 
-func (d *Dispatcher) getCache(key string) (string, bool) {
+func (d *Dispatcher) getCache(ctx context.Context, key string) (string, bool) {
 	if key == "" {
 		return "", false
 	}
-	raw, err := cache.GetGlobalCache().Get(context.Background(), key)
+	// v3 审计 P3-2 修复：ctx 透传 trace_id
+	raw, err := cache.GetGlobalCache().Get(ctx, key)
 	if err != nil || raw == "" {
 		return "", false
 	}
 	return raw, true
 }
 
-func (d *Dispatcher) setCache(key string, ttl int, content string) {
+func (d *Dispatcher) setCache(ctx context.Context, key string, ttl int, content string) {
 	if ttl <= 0 || key == "" {
 		return
 	}
-	_ = cache.GetGlobalCache().Set(context.Background(), key, content, time.Duration(ttl)*time.Second)
+	// v3 审计 P3-2 修复：ctx 透传
+	_ = cache.GetGlobalCache().Set(ctx, key, content, time.Duration(ttl)*time.Second)
 }
 
 // allowRequest RPM 限流（全局，跨实例一致）

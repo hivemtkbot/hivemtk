@@ -130,7 +130,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 	}
 
 	if req.CacheKey != "" && req.CacheTTL > 0 {
-		if c, hit := d.getCache(req.CacheKey); hit {
+		if c, hit := d.getCache(ctx, req.CacheKey); hit {
 
 			if !d.testMode.Load() {
 				cacheEntry := &LogEntry{
@@ -231,7 +231,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 			fo.RecordSuccess(providerName, int64(result.LatencyMs))
 		}
 		if req.CacheKey != "" && req.CacheTTL > 0 {
-			d.setCache(req.CacheKey, req.CacheTTL, result.Content)
+			d.setCache(ctx, req.CacheKey, req.CacheTTL, result.Content)
 		}
 
 		isFallback := attempted > 1
@@ -263,7 +263,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 					}
 					AlertProviderSuccess(string(req.Scenario), fb, traceID)
 					if req.CacheKey != "" && req.CacheTTL > 0 {
-						d.setCache(req.CacheKey, req.CacheTTL, result.Content)
+						d.setCache(ctx, req.CacheKey, req.CacheTTL, result.Content)
 					}
 					fallbackEntry := NewLogEntry(req.Scenario, provider, result.Model,
 						result.Usage.PromptTokens, result.Usage.CompletionTokens, result.Usage.TotalTokens,
