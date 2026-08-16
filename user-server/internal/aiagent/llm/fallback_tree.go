@@ -3,6 +3,7 @@ package llm
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"time"
 
@@ -230,7 +231,15 @@ func (t *DecisionTree) ExecuteWithFallback(
 
 	if t.cacheEnabled && queryCache != nil {
 		levelStart = time.Now()
-		cacheKey := fmt.Sprintf("llm_fallback:%x", prompt)
+		// v3 审计 P1-39 修复：缓存键加 provider + 提示前 32 字符 fingerprint
+		// 原：fmt.Sprintf("llm_fallback:%x", prompt) → 跨 scenario/模型串台
+		// 新：cacheKey 包含 provider + prompt 哈希 + 短前缀
+		hash := sha256.Sum256([]byte(prompt))
+		prefix := prompt
+		if len(prefix) > 32 {
+			prefix = prefix[:32]
+		}
+		cacheKey := fmt.Sprintf("llm_fallback:%s:%x:%s", t.primaryProvider, hash, prefix)
 		if cached, found := queryCache(ctx, cacheKey); found {
 			logger.Infof("[FallbackTree] level=%s hit, latency=%dms",
 				LevelCache.String(), time.Since(levelStart).Milliseconds())

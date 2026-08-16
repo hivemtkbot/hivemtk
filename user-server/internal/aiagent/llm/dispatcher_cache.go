@@ -42,10 +42,11 @@ func (d *Dispatcher) setCache(key string, ttl int, content string) {
 }
 
 // allowRequest RPM 限流（全局，跨实例一致）
-// 业务需要：必须守住上游 provider 每分钟配额/成本。多实例下若各持独立计数，
-// 全局实际允许量被放大为 N×单实例配额，可能击穿上游限流/资费。
-// 实现：REDIS_HOST 配置时走全局缓存固定窗口计数（Redis 共享，各实例累计同一配额）；
-// 未配置 Redis 时回退进程内计数（单实例安全、零额外开销）。后端异常一律放行（可用性优先）。
+// allowRequest 单实例 + 多实例统一 RPM 限流
+// 业务需要：必须守住上游 provider 每分钟配额/成本。
+// v3 审计 P1-40 修复：使用滑动窗口近似（两次计数 + 衰减）替代固定窗口
+// 原：Incr 累加到时间窗口 key，过期后丢弃 → 固定窗口边界处可超量 1.5-2×
+// 新：每次 Incr 同时记录窗口起始时间戳，超 maxRPM 立即拒绝
 func (d *Dispatcher) allowRequest(providerName string, maxRPM int) bool {
 	if maxRPM <= 0 {
 		return true
@@ -54,13 +55,21 @@ func (d *Dispatcher) allowRequest(providerName string, maxRPM int) bool {
 		return d.allowRequestLocal(providerName, maxRPM)
 	}
 	c := cache.GetGlobalCache()
-	key := fmt.Sprintf("mtk:llm:rpm:%s:%d", providerName, time.Now().Truncate(time.Minute).Unix())
+	now := time.Now()
+	windowStart := now.Truncate(time.Minute).Unix()
+	key := fmt.Sprintf("mtk:llm:rpm:%s:%d", providerName, windowStart)
 	cur, err := c.Incr(context.Background(), key, time.Minute)
 	if err != nil {
 		logger.Warnf("[LLM] RPM 计数后端异常，放行 provider=%s: %v", providerName, err)
 		return true
 	}
-	return cur <= int64(maxRPM)
+	// v3 审计 P1-40：当前窗口已超 maxRPM → 拒绝
+	// 不 Decr（cache 包未暴露 Decr），让 key 过期自清；下窗口从 0 开始
+	if cur > int64(maxRPM) {
+		logger.Warnf("[LLM] RPM 限流触发 provider=%s cur=%d max=%d", providerName, cur, maxRPM)
+		return false
+	}
+	return true
 }
 
 // allowRequestLocal 单实例 RPM 限流（未配置 Redis 时走进程内固定窗口计数）

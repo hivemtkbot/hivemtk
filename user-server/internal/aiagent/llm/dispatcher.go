@@ -283,8 +283,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 	}
 
 	if lastErr == nil {
-
+		// v3 审计 P1-38 修复：无兜底 provider 时也必须告警
+		// 原：直接 return degradedReply(req), nil → 业务以为成功，告警永远不触发
+		// 新：显式告警 "no providers available" + 返回降级回复
 		logger.Warnf("[LLM] scenario=%s 无可用 provider（全部被熔断/限流跳过），返回降级回复 trace_id=%s", req.Scenario, traceID)
+		AlertAllProvidersFailed(string(req.Scenario), fmt.Errorf("no available provider"), traceID)
 		return degradedReply(req), nil
 	}
 
