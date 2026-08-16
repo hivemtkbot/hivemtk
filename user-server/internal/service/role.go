@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
 
@@ -37,12 +38,15 @@ func NewRoleServiceWithRepo(repo repository.SystemUserRepository) *RoleService {
 // 业务规则：
 //   - 按 model.SystemRoleList 的固定顺序返回（admin → customer_service → staff）
 //   - 成员数通过 CountByRole 实时统计
-//   - 统计失败时记 0，不阻断列表（部分失败降级）
+//   - 统计失败时记 0 + log，不阻断列表（部分失败降级）
+// v3 审计 P2-14 修复：记 0 掩盖真实错误 → 补 log
 func (s *RoleService) ListRoles(ctx context.Context) ([]*RoleWithCount, error) {
 	roles := make([]*RoleWithCount, 0, len(model.SystemRoleList))
 	for _, r := range model.SystemRoleList {
 		count, err := s.userRepo.CountByRole(ctx, r.Code)
 		if err != nil {
+			// v3 审计 P2-14：记 0 掩盖真实错误
+			logger.Warnf("[RoleService] 统计角色 %s 成员数失败，记 0: %v", r.Code, err)
 			count = 0
 		}
 		roles = append(roles, &RoleWithCount{
