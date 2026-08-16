@@ -196,6 +196,11 @@ func NewLogEntry(scenario DispatchScenario, provider *ProviderConfig, model stri
 
 	if fromCache {
 		source = SourceCache
+	} else if isFallback {
+		// v3 审计 P2-6 修复：isFallback 路径 source 应为 SourceFallback
+		// 原：仅 fromCache 改 source，isFallback 路径仍记 SourceDispatch
+		//      降级占比无法统计
+		source = SourceFallback
 	}
 
 	return &LogEntry{
