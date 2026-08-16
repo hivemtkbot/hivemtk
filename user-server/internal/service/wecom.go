@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
 	"hivemtk-user/internal/model"
 	dbUtil "hivemtk-user/internal/pkg/db"
@@ -18,6 +19,15 @@ import (
 
 	"gorm.io/gorm"
 )
+
+// v3 审计 P1-47 修复：token 击穿保护
+// 同 account_id 并发请求时只允许一个真正去 WeChat 拉 token，其余等待
+var wecomTokenLocks sync.Map // accountID(uint) -> *sync.Mutex
+
+func wecomTokenLock(accountID uint) *sync.Mutex {
+	v, _ := wecomTokenLocks.LoadOrStore(accountID, &sync.Mutex{})
+	return v.(*sync.Mutex)
+}
 
 type WeComService struct {
 	accountRepo  *repository.WeComAccountRepository
@@ -54,11 +64,23 @@ type WeComTokenResponse struct {
 }
 
 // GetAccessToken 获取访问令牌
+// v3 审计 P1-47 修复：同 account 加锁防击穿
 func (s *WeComService) GetAccessToken(ctx context.Context, account *model.WeComAccount) (string, error) {
 	if account == nil {
 		return "", errors.New("账户不能为空")
 	}
 
+	// 1. 快速路径：未过期直接返回
+	if account.AccessToken != "" && time.Now().Before(account.TokenExpires) {
+		return account.AccessToken, nil
+	}
+
+	// 2. 慢路径：加锁防同 account 击穿
+	lock := wecomTokenLock(account.ID)
+	lock.Lock()
+	defer lock.Unlock()
+
+	// 3. 双重检查：锁内再次确认
 	if account.AccessToken != "" && time.Now().Before(account.TokenExpires) {
 		return account.AccessToken, nil
 	}
