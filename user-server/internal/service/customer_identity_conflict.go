@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
 
@@ -34,8 +35,26 @@ func DetectIdentityConflicts(ctx context.Context, repo repository.CustomerReposi
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	all, _, err := repo.List(ctx, 1, 1000, "")
-	if err != nil || len(all) == 0 {
+	// v3 审计 P1-29 修复：分页拉取避免 1000 硬上限
+	// 原：repo.List(ctx, 1, 1000, "") → 客户量 >1000 时漏检
+	// 新：分页拉取所有客户
+	const fetchPageSize = 500
+	all := make([]*model.Customer, 0, fetchPageSize*2)
+	for offset := 0; ; offset += fetchPageSize {
+		batch, _, err := repo.List(ctx, offset+1, fetchPageSize, "")
+		if err != nil {
+			logger.Warnf("[OneID conflict] 拉取客户失败 offset=%d: %v", offset, err)
+			break
+		}
+		if len(batch) == 0 {
+			break
+		}
+		all = append(all, batch...)
+		if len(batch) < fetchPageSize {
+			break
+		}
+	}
+	if len(all) == 0 {
 		return []*IdentityConflict{}, 0
 	}
 

@@ -81,9 +81,13 @@ func (s *BackupService) CreateBackup(ctx context.Context, createdBy uint, req *C
 		return nil, err
 	}
 
-	go func(src model.Backup) {
-		s.executeBackup(context.WithoutCancel(ctx), &src)
-	}(*backup)
+	// v3 审计 P1-31 修复：async 执行改用 pointer-to-pointer
+	// 原：go func(src model.Backup) { ... }(*backup) 传值拷贝
+	//      executeBackup 内部修改的 Status 不会写回 controller 拿到的对象
+	// 新：用 pointer 索引，再由 executeBackup 通过 DB 改写真实记录
+	go func(b *model.Backup) {
+		s.executeBackup(context.WithoutCancel(ctx), b)
+	}(backup)
 
 	return backup, nil
 }
@@ -596,13 +600,14 @@ func NewScheduleBackupService() *ScheduleBackupService {
 
 // CreateDailyBackup 创建每日备份
 // 独立部署模式:每个商户端为单租户,直接创建一个全局备份
+// v3 审计 P1-30 修复：加时间戳避免同日重名撞库
 func (s *ScheduleBackupService) CreateDailyBackup(ctx context.Context) error {
 	logger.Info("执行定时备份任务...")
 
 	successCount := 0
 	failCount := 0
 	req := &CreateBackupRequest{
-		BackupName: fmt.Sprintf("daily_backup_%s", time.Now().Format("20060102")),
+		BackupName: fmt.Sprintf("daily_backup_%s_%d", time.Now().Format("20060102"), time.Now().UnixNano()%1000000),
 		BackupType: model.BackupTypeFull,
 	}
 	if _, err := s.backupService.CreateBackup(ctx, 0, req); err != nil {

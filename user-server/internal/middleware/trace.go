@@ -47,7 +47,12 @@ func TraceMiddleware() gin.HandlerFunc {
 		if c.Writer.Status() >= 500 {
 			status = "error"
 		}
-		llm.PublishTraceEvent(llm.TraceEvent{
+		// v3 审计 P1-12 修复：异步发布防止 trace 慢订阅污染 P99
+		// 原：sync PublishTraceEvent → 订阅者慢/满会阻塞请求
+		// 新：go 异步
+		go func(evt llm.TraceEvent) {
+			llm.PublishTraceEvent(evt)
+		}(llm.TraceEvent{
 			TraceID:    traceID,
 			SpanID:     tc.SpanID(),
 			Kind:       llm.TraceSpanKindLog,
