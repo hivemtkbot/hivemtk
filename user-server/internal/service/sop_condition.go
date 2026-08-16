@@ -225,8 +225,9 @@ func SOPEvaluateNodeCondition(node *SOPNode, data model.JSONMap) (map[string]any
 }
 
 // splitByOperator 按逻辑运算符切分条件字符串（保留运算符两侧的条件不损坏）
-// op 必须是 SOPLogicAnd 或 SOPLogicOr
-// 例如 "a eq 1 AND b eq 2" → ["a eq 1", "b eq 2"]
+// splitByOperator 按 op 拆分 condition
+// v3 审计 P2-45 修复：原裸字符串切分会被 value 中的 " AND " 误导
+// 修复方案：仅在引号外（unquoted）区域查找 operator
 func splitByOperator(condition, op string) []string {
 	upper := strings.ToUpper(condition)
 	opToken := " " + op + " "
@@ -234,13 +235,28 @@ func splitByOperator(condition, op string) []string {
 
 	var parts []string
 	start := 0
-	for {
-		idx := strings.Index(upper[start:], opToken)
-		if idx == -1 {
-			break
+	// v3 审计 P2-45：在引号外才拆分（避免 value 中含 " AND " 被误切）
+	inQuote := false
+	quoteChar := byte(0)
+	for i := 0; i < len(condition); i++ {
+		c := condition[i]
+		if inQuote {
+			if c == quoteChar {
+				inQuote = false
+			}
+			continue
 		}
-		parts = append(parts, strings.TrimSpace(condition[start:start+idx]))
-		start = start + idx + opLen
+		if c == '"' || c == '\'' {
+			inQuote = true
+			quoteChar = c
+			continue
+		}
+		// 不在引号内 → 查找 operator（要求 upper[idx:i+opLen] == opToken）
+		if i+opLen <= len(upper) && upper[i:i+opLen] == opToken {
+			parts = append(parts, strings.TrimSpace(condition[start:i]))
+			start = i + opLen
+			i += opLen - 1
+		}
 	}
 	parts = append(parts, strings.TrimSpace(condition[start:]))
 
