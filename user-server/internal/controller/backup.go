@@ -21,8 +21,26 @@ func NewBackupController() *BackupController {
 	}
 }
 
+// isAdmin 校验当前用户是否为 admin（v3 审计 P2-30 修复）
+func isAdmin(ctx *gin.Context) bool {
+	role, exists := ctx.Get("role")
+	if !exists {
+		return false
+	}
+	roleStr, ok := role.(string)
+	if !ok {
+		return false
+	}
+	return roleStr == "admin"
+}
+
 // CreateBackup 创建备份
 func (c *BackupController) CreateBackup(ctx *gin.Context) {
+	// v3 审计 P2-30 修复：备份操作需 admin 权限
+	if !isAdmin(ctx) {
+		response.Error(ctx, http.StatusForbidden, "仅管理员可执行备份操作")
+		return
+	}
 
 	userID, exists := ctx.Get("user_id")
 	if !exists {

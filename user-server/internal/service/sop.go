@@ -529,6 +529,9 @@ func (s *SOPService) MatchByIntent(ctx context.Context, intentType string) ([]mo
 	return matched, nil
 }
 
+// Stats SOP 看板统计
+// v3 审计 P2-44 修复：5 个独立 SQL 任意失败整体返回 error → 看板一次性拿不到
+// 新：每个 Count 失败独立处理（log warn + 保留 0），部分降级而非整体失败
 func (s *SOPService) Stats(ctx context.Context) (map[string]int64, error) {
 	stats := map[string]int64{
 		"total":   0,
@@ -539,23 +542,33 @@ func (s *SOPService) Stats(ctx context.Context) (map[string]int64, error) {
 	}
 	totalAgents, err := s.agentRepo.CountAll(ctx)
 	if err != nil {
-		return stats, err
+		logger.Warnf("[SOP Stats] CountAll 失败，记 0: %v", err)
+	} else {
+		stats["total"] = totalAgents
 	}
 	activeAgents, err := s.agentRepo.CountActive(ctx)
 	if err != nil {
-		return stats, err
+		logger.Warnf("[SOP Stats] CountActive 失败，记 0: %v", err)
+	} else {
+		stats["active"] = activeAgents
 	}
 	runningExecs, err := s.execRepo.CountByStatus(ctx, SOPStatusRunning)
 	if err != nil {
-		return stats, err
+		logger.Warnf("[SOP Stats] CountByStatus(running) 失败，记 0: %v", err)
+	} else {
+		stats["running"] = runningExecs
 	}
 	successExecs, err := s.execRepo.CountByStatus(ctx, SOPStatusSuccess)
 	if err != nil {
-		return stats, err
+		logger.Warnf("[SOP Stats] CountByStatus(success) 失败，记 0: %v", err)
+	} else {
+		stats["success"] = successExecs
 	}
 	failedExecs, err := s.execRepo.CountByStatus(ctx, SOPStatusFailed)
 	if err != nil {
-		return stats, err
+		logger.Warnf("[SOP Stats] CountByStatus(failed) 失败，记 0: %v", err)
+	} else {
+		stats["failed"] = failedExecs
 	}
 
 	stats["total"] = totalAgents
