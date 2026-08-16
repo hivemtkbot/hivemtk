@@ -139,7 +139,10 @@ func (h *HTTPHealthChecker) Ping(ctx context.Context, provider *ProviderConfig, 
 		return latency, fmt.Errorf("health check %s: %w", url, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode >= 500 {
+	// v3 审计 P2-7 修复：4xx 也应视为健康检查失败
+	// 原：只把 5xx 当失败 → 401/403/404 永远 success → 永远不熔断
+	// 新：>= 400 全部视为失败
+	if resp.StatusCode >= 400 {
 		return latency, fmt.Errorf("health check %s returned status %d", url, resp.StatusCode)
 	}
 	return latency, nil
