@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"hivemtk-user/internal/channelbot/core"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 const (
@@ -413,10 +415,18 @@ func (c *Client) DeleteWebhook(ctx context.Context) error {
 }
 
 // VerifyWebhook 校验 X-Telegram-Bot-Api-Secret-Token（明文常量比较，非 HMAC）。
-// secret 为空表示未配置，跳过验签（与项目既有行为一致）。
+//
+// v3 审计 P1-49 修复：secret 为空时强制按环境变量判断
+// 原：secret == "" → return true（无条件放行）
+// 新：必须显式 ALLOW_INSECURE_TELEGRAM_WEBHOOK=true 才放行；否则 401
 func VerifyWebhook(secret, headerSecret string) bool {
 	if secret == "" {
-		return true
+		// 必须显式开启才能放行（避免 GIN_MODE 拼错导致绕过）
+		if os.Getenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK") == "true" {
+			logger.Warnf("[telegram] ALLOW_INSECURE_TELEGRAM_WEBHOOK=true 启用，跳过 secret 校验")
+			return true
+		}
+		return false
 	}
 	return core.SecureEqual(secret, headerSecret)
 }

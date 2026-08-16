@@ -238,6 +238,13 @@ func (c *WebhookController) FeishuVerify(ctx *gin.Context) {
 		ctx.String(http.StatusNotFound, "account not found")
 		return
 	}
+	// v3 审计 P1-50/P2-39 修复：VerificationToken 为空时也必须拒绝
+	// 原：subtle.ConstantTimeCompare([]byte(""), []byte("")) == 1 → 空 token 也能通过
+	// 新：空 token 一律 403
+	if acc.VerificationToken == "" {
+		ctx.String(http.StatusForbidden, "account not configured for verification")
+		return
+	}
 	if subtle.ConstantTimeCompare([]byte(token), []byte(acc.VerificationToken)) != 1 {
 		ctx.String(http.StatusForbidden, "verification failed")
 		return
