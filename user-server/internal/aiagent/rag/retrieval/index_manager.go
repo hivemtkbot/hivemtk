@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"math"
+	"sort"
 	"sync"
 	"time"
 )
@@ -156,13 +157,11 @@ func (im *InMemoryIndexManager) SearchIndex(ctx context.Context, kbID string, qu
 		}
 	}
 
-	for i := 0; i < len(scores)-1; i++ {
-		for j := i + 1; j < len(scores); j++ {
-			if scores[i].score < scores[j].score {
-				scores[i], scores[j] = scores[j], scores[i]
-			}
-		}
-	}
+	// v3 审计 P2-29 修复：原 O(n²) 冒泡 → sort.Slice O(n log n)
+	// 10K chunks: 50M → 130K 次比较 (380x 加速)
+	sort.Slice(scores, func(i, j int) bool {
+		return scores[i].score > scores[j].score
+	})
 
 	resultCount := len(scores)
 	if topK < resultCount {
