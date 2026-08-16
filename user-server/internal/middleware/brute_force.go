@@ -80,12 +80,25 @@ func BruteForceGuard(endpoint string) gin.HandlerFunc {
 
 		now := time.Now()
 
-		globalBruteForce.mu.RLock()
+		// v3 审计 P1-22 修复：使用单一写锁覆盖整个判定+记录流程
+		// 原：RLock 读 + RUnlock 之后才 RecordFailure → TOCTOU 窗口
+		// 新：全程持有 Lock 串行化，同一 clientKey 不会并行判定
+		globalBruteForce.mu.Lock()
 		locked := !entry.lockedUntil.IsZero() && now.Before(entry.lockedUntil)
-		globalBruteForce.mu.RUnlock()
+		if !locked {
+			// 在锁内做完整"检查 + 自增"原子序列
+			entry.failures++
+			if entry.failures >= DefaultBruteForceConfig.MaxFailures {
+				entry.lockedUntil = now.Add(DefaultBruteForceConfig.LockDuration)
+				entry.failures = 0
+			}
+		}
+		lockedUntil := entry.lockedUntil
+		failures := entry.failures
+		globalBruteForce.mu.Unlock()
 
 		if locked {
-			retryAfter := int(time.Until(entry.lockedUntil).Seconds())
+			retryAfter := int(time.Until(lockedUntil).Seconds())
 			if retryAfter < 1 {
 				retryAfter = 1
 			}
@@ -97,6 +110,7 @@ func BruteForceGuard(endpoint string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		_ = failures // 计数已自增，仅用于未来 metric
 
 		c.Next()
 	}
