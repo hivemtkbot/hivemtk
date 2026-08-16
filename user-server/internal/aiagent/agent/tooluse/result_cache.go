@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
@@ -98,13 +99,30 @@ func (c *ResultCache) IsDisabled(toolName string) bool {
 
 // cacheKey 生成缓存 key
 //
-// key = tool_name + ":" + sha256(args JSON)
-// sha256 避免长参数导致 key 过长；同时确保相同参数 → 相同 key
+// key = tool_name + ":" + sha256(args sorted JSON)
+// v3 审计 P1-43 修复：map 序列化顺序非决定 → 缓存命中率腰斩
+// 新：先按 key 排序再 JSON 化，确保相同参数 → 相同 key
 func cacheKey(toolName string, args map[string]any) string {
 	if len(args) == 0 {
 		return toolName + ":empty"
 	}
-	b, _ := json.Marshal(args)
+	// 排序所有 key 后编码
+	sortedKeys := make([]string, 0, len(args))
+	for k := range args {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Strings(sortedKeys)
+	ordered := make([]struct {
+		Key string
+		Val any
+	}, 0, len(args))
+	for _, k := range sortedKeys {
+		ordered = append(ordered, struct {
+			Key string
+			Val any
+		}{k, args[k]})
+	}
+	b, _ := json.Marshal(ordered)
 	h := sha256.Sum256(b)
 	return fmt.Sprintf("%s:%s", toolName, hex.EncodeToString(h[:16])) 
 }

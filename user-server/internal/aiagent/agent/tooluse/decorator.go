@@ -72,6 +72,12 @@ func ChainDecorators(handler ToolHandler, decorators ...ToolDecorator) ToolHandl
 	return handler
 }
 
+// BuildChain 标准工具装饰器链
+// v3 审计 P1-41 修复：RateLimit 移至 Retry 之外
+// 原：Permission → RateLimit → Retry → Timeout → Audit
+//      rate 一次扣 1 token，retry 期间下游被调用 N 次，实际 N × nominal
+// 新：Permission → Retry → Timeout → RateLimit → Audit
+//      retry 完成后才扣 rate limit token（每 retry 完成后都记 1 次）
 func BuildDefaultChain(
 	handler ToolHandler,
 	checker PermissionChecker,
@@ -83,9 +89,9 @@ func BuildDefaultChain(
 ) ToolHandler {
 	return ChainDecorators(handler,
 		PermissionDecorator(checker),
-		RateLimitDecorator(limiter),
 		RetryDecorator(policy),
 		TimeoutDecorator(timeout),
+		RateLimitDecorator(limiter),
 		AuditDecorator(logger, costTracker),
 	)
 }
@@ -235,9 +241,13 @@ func (p *ExponentialBackoffPolicy) NextBackoff(attempt int, lastErr error) (time
 func (l *MemoryAuditLogger) Log(ctx context.Context, entry AuditEntry) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	// v3 审计 P1-44 修复：超出 maxSize 时用 copy 释放底层 array
+	// 原：l.entries = l.entries[1:] → slice header 共享 backing array，内存不释放
+	// 新：copy 到新 slice，让 GC 回收旧 array
 	if len(l.entries) >= l.maxSize {
-
-		l.entries = l.entries[1:]
+		newEntries := make([]AuditEntry, len(l.entries)-1, l.maxSize)
+		copy(newEntries, l.entries[1:])
+		l.entries = newEntries
 	}
 	l.entries = append(l.entries, entry)
 }

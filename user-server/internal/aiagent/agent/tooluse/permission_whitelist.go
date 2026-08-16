@@ -48,17 +48,22 @@ func (c *WhitelistPermissionChecker) Check(ctx context.Context, toolName string,
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	if c.globalWhitelist[toolName] {
-		return nil
-	}
-
+	// v3 审计 P1-42 修复：agent 白名单优先级必须高于 global
+	// 原：global 直接 return nil → 绕过 agent 严格白名单
+	// 新：先看 agent 配置（若有），再 fallback 到 global
 	if agentID != "" {
 		if allowed, ok := c.agentWhitelist[agentID]; ok {
 			if allowed[toolName] {
 				return nil
 			}
+			// agent 显式配置过白名单（即使是空集）→ 严格按 agent 配置
 			return fmt.Errorf("%w: agent=%s tool=%s not in agent whitelist", ErrPermissionDenied, agentID, toolName)
 		}
+	}
+
+	// 未配置 agent 白名单 → 走 global
+	if c.globalWhitelist[toolName] {
+		return nil
 	}
 
 	if tc != nil {
