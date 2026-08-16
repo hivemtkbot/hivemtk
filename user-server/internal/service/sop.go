@@ -175,8 +175,15 @@ func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOP
 	triggerMap := toJSONMap(req.TriggerConfig)
 	abMap := model.JSONMap{}
 	if req.ABTestConfig.Enabled {
-		abData, _ := json.Marshal(req.ABTestConfig)
-		_ = json.Unmarshal(abData, &abMap)
+		// v3 审计 P1-33 修复：Marshal/Unmarshal 错误必须捕获并返回
+		// 原：_ = json.Marshal/Unmarshal 静默吞错
+		abData, err := json.Marshal(req.ABTestConfig)
+		if err != nil {
+			return nil, fmt.Errorf("marshal ABTestConfig: %w", err)
+		}
+		if err := json.Unmarshal(abData, &abMap); err != nil {
+			return nil, fmt.Errorf("unmarshal ABTestConfig: %w", err)
+		}
 	}
 	agent := &model.SOPAgent{
 
@@ -214,11 +221,19 @@ func (s *SOPService) Update(ctx context.Context, id uint, req *CreateRequest) (*
 		}
 		return nil, err
 	}
-	graphData, _ := json.Marshal(req.SOPGraph)
+	graphData, err := json.Marshal(req.SOPGraph)
+	if err != nil {
+		return nil, fmt.Errorf("marshal SOPGraph: %w", err)
+	}
 	abMap := model.JSONMap{}
 	if req.ABTestConfig.Enabled {
-		abData, _ := json.Marshal(req.ABTestConfig)
-		_ = json.Unmarshal(abData, &abMap)
+		abData, err := json.Marshal(req.ABTestConfig)
+		if err != nil {
+			return nil, fmt.Errorf("marshal ABTestConfig: %w", err)
+		}
+		if err := json.Unmarshal(abData, &abMap); err != nil {
+			return nil, fmt.Errorf("unmarshal ABTestConfig: %w", err)
+		}
 	}
 	agent.Name = req.Name
 	agent.Scenario = req.Scenario
