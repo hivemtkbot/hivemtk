@@ -196,6 +196,9 @@ func (s *SOPScheduler) dispatchScheduledSOPs(ctx context.Context) {
 }
 
 // tryExecute 尝试为该 SOP 启动一次执行
+// v3 审计 P1-36 修复：节流同 SOP 同一客户并发执行
+// 原：count > 0 return → 只挡一条；customers 含 100 人且 1 人 in running，仍启动剩下 99 个
+// 新：循环内查 running count，超阈值则跳过该客户
 func (s *SOPScheduler) tryExecute(ctx context.Context, agent model.SOPAgent) {
 	if s.execRepo == nil {
 		return
@@ -205,7 +208,10 @@ func (s *SOPScheduler) tryExecute(ctx context.Context, agent model.SOPAgent) {
 		logger.Errorf("[SOPScheduler] 检查运行中执行失败: %v", err)
 		return
 	}
-	if count > 0 {
+	// v3 审计 P1-36：阈值（同一 SOP 在跑数 > maxRunningPerSOP 则全部跳过）
+	const maxRunningPerSOP = 50
+	if count >= maxRunningPerSOP {
+		logger.Warnf("[SOPScheduler] SOP %d 已在跑 %d 个，超过阈值 %d，跳过本轮调度", agent.ID, count, maxRunningPerSOP)
 		return
 	}
 

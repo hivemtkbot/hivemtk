@@ -27,11 +27,17 @@ var ErrServicePermissionDenied = errors.New("无权限执行此操作")
 // ErrServiceRoleMissing Service 层缺少角色信息
 var ErrServiceRoleMissing = errors.New("缺少操作者角色信息")
 
-// IsValidSystemUserRoleCode 校验 system_user 角色是否合法（3 档）
+// IsValidSystemUserRoleCode 校验 system_user 角色是否合法
+// v3 审计 P1-27 修复：兼容旧角色名
+// 原：仅 3 档 admin/customer_service/staff
+// 新：加 LegacyTeamUserRoleManager / LegacyTeamUserRoleViewer 兼容迁移期
 func IsValidSystemUserRoleCode(role string) bool {
-	return role == SystemUserRoleAdmin ||
-		role == SystemUserRoleCustomerService ||
-		role == SystemUserRoleStaff
+	switch role {
+	case SystemUserRoleAdmin, SystemUserRoleCustomerService, SystemUserRoleStaff,
+		LegacyTeamUserRoleManager, LegacyTeamUserRoleViewer:
+		return true
+	}
+	return false
 }
 
 // RequireRole 要求操作者具备指定角色之一（任一即可）
