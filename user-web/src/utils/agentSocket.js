@@ -92,7 +92,21 @@ export default class AgentSocket {
     if (this.agentName) url.searchParams.set('agent_name', this.agentName)
     const token = localStorage.getItem('token')
     if (token) url.searchParams.set('token', token)
+    // USR-RT-03: Sticky Session（基于 agentId 哈希到节点 ID）
+    const sticky = this._deriveSticky()
+    if (sticky) url.searchParams.set('node_id', sticky)
     return url.toString()
+  }
+
+  // USR-RT-03: 基于 agentId 派生 sticky 节点（无需服务端分配）
+  _deriveSticky() {
+    if (!this.agentId) return null
+    let h = 0
+    const s = String(this.agentId)
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
+    const nodeId = `n${(h % 100).toString().padStart(2, '0')}` // 100 节点桶
+    try { sessionStorage.setItem('agentSocket:stickyNodeId', nodeId) } catch (_) {}
+    return nodeId
   }
 
   connect() {

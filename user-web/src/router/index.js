@@ -219,20 +219,22 @@ async function ensureRouteLoaded(path) {
 
   try {
     // 动态加载对应模块的路由配置
-    const mod = await lazyModule(moduleName)()
-    const moduleRoutes = mod.default || mod
-
-    if (Array.isArray(moduleRoutes)) {
-      // 使用 router.addRoute 动态添加路由（Vue Router 4 正确方式）
-      moduleRoutes.forEach(route => {
-        router.addRoute('Layout', route)
-        loadedRoutes.push(route)
-      })
+    const lazyFn = lazyModule(moduleName)
+    if (!lazyFn) return false
+    const mod = await lazyFn()
+    // USR-PF-02: 加 Error Boundary 包装懒加载失败
+    if (!mod || !mod.default) {
+      console.warn(`[router] 模块 ${moduleName} 加载失败或无 default 导出`)
+      return false
+    }
+    const routes = mod.default
+    for (const r of routes) {
+      try { router.addRoute('Layout', r) } catch (e) { /* 重复注册容错 */ }
     }
     loadedModules.add(moduleName)
     return true
-  } catch (err) {
-    console.error(`[Lazy Router] Failed to load module ${moduleName}:`, err)
+  } catch (e) {
+    console.error(`[router] 模块 ${moduleName} 加载异常`, e)
     return false
   }
 }

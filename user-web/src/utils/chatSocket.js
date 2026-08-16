@@ -58,6 +58,8 @@ export class ChatSocket {
     this.reconnectDelay = INITIAL_RECONNECT_DELAY_MS
     this.connected = false
     this.shouldReconnect = true
+    this.reconnectAttempts = 0
+    this.maxReconnectAttempts = options.maxReconnectAttempts || MAX_RECONNECT_ATTEMPTS_DEFAULT
 
     // 鲁棒性：seq 跟踪 + 乱序去重
     this.lastSeq = this._loadLastSeq()
@@ -66,6 +68,10 @@ export class ChatSocket {
     // 鲁棒性：批量 ack 合并（reduce traffic）
     this.pendingAcks = new Set()
     this.ackFlushTimer = null
+
+    // USR-RT-02: 帧缓冲（重连后批量回填）
+    this.frameBuffer = new Map() // seq -> frame
+    this.maxBufferSize = options.maxBufferSize || 500 // ~100KB @ 200B/frame
   }
 
   // ------------------------------------------------------------------------
@@ -131,6 +137,8 @@ export class ChatSocket {
       this.startPing()
       // 鲁棒性：连接成功后立即 flush pending acks（防丢）
       this._flushAcks(true)
+      // USR-RT-02: 重连后增量补发（since_seq 已带在 URL 上，此处再 flush 缓冲兜底）
+      this.postConnectRecovery()
     }
 
     this.ws.onmessage = (event) => {
@@ -151,10 +159,38 @@ export class ChatSocket {
       this.connected = false
       this.stopPing()
       this._flushAcks(true) // 关闭前最后一次尝试
-      this.onDisconnected(event)
-      if (this.shouldReconnect) {
-        this.scheduleReconnect()
+      // USR-RT-05: 401 未授权时尝试 token 刷新后重连（私域 token 走 refresh_token）
+      if (event.code === 1006 || event.code === 4001) {
+        this._tryRefreshTokenAndReconnect()
+      } else {
+        this.onDisconnected(event)
+        if (this.shouldReconnect) {
+          this.scheduleReconnect()
+        }
       }
+    }
+  }
+
+  // USR-RT-05: 异步 token 刷新
+  async _tryRefreshTokenAndReconnect() {
+    try {
+      const newToken = localStorage.getItem('token')
+      if (!newToken) {
+        // 没有 token，触发登录跳转（由 onError 回调处理）
+        this.onError(new Error('auth_required'))
+        return
+      }
+      // 走 request.js 的 refresh 端点
+      const { http } = await import('@/utils/request')
+      const resp = await http.post('/api/auth/refresh', undefined, { _silent: true })
+      if (resp && resp.token) {
+        localStorage.setItem('token', resp.token)
+        console.info('[ChatSocket] token 已刷新，重连')
+        this.connect()
+      }
+    } catch (err) {
+      console.warn('[ChatSocket] token 刷新失败，需重新登录', err)
+      this.onError(new Error('auth_required'))
     }
   }
 
@@ -173,6 +209,8 @@ export class ChatSocket {
       if (seq > this.lastSeq) {
         this._saveLastSeq(seq)
       }
+      // USR-RT-02: 把每条收到的 frame 暂存到环形缓冲（按 seq 排序淘汰）
+      this._bufferFrame(seq, msg)
       // 控制帧不参与 ack（welcome/offline_messages/missed_ack/pong/error 不算）
       if (this._isAckable(type)) {
         this._enqueueAck(seq)
@@ -222,6 +260,44 @@ export class ChatSocket {
     if (!type) return false
     // 控制帧不需要 ack
     return type !== 'pong' && type !== 'error' && type !== 'welcome' && type !== 'missed_ack'
+  }
+
+  // USR-RT-02: 帧缓冲（环形，按 seq 淘汰）
+  _bufferFrame(seq, frame) {
+    if (this.frameBuffer.size >= this.maxBufferSize) {
+      // 淘汰最早 seq
+      const oldestSeq = Math.min(...this.frameBuffer.keys())
+      this.frameBuffer.delete(oldestSeq)
+    }
+    this.frameBuffer.set(seq, frame)
+  }
+
+  /**
+   * USR-RT-02: 重连后批量回填未确认帧
+   * 服务端会判断这些 seq 是否在 GlobalPendingAck 中：
+   *   - 若已 ACK → 不推送（避免重复）
+   *   - 若未推送 → 重新推送
+   */
+  flushBuffer() {
+    if (this.frameBuffer.size === 0) return
+    const sorted = Array.from(this.frameBuffer.keys()).sort((a, b) => a - b)
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+    try {
+      this.ws.send(JSON.stringify({
+        type: 'recovery',
+        last_seq: this.lastSeq,
+        frames: sorted
+      }))
+      console.debug(`[ChatSocket] flushBuffer sent ${sorted.length} frames`)
+    } catch (err) {
+      console.warn('[ChatSocket] flushBuffer 失败：', err)
+    }
+  }
+
+  // 重连成功后调用：先 resume 再 flush 缓冲
+  postConnectRecovery() {
+    this.resume()
+    this.flushBuffer()
   }
 
   // ------------------------------------------------------------------------

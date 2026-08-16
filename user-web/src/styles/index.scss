@@ -181,6 +181,14 @@ body {
 .el-button {
   font-weight: 500;
   transition: all 0.2s ease;
+  // USR-I18N-02: 文本膨胀（最大 +50%）
+  min-width: 0;
+  padding: 8px 16px;
+  white-space: nowrap;
+}
+.el-button--small {
+  padding: 6px 12px;
+  min-width: 0;
 }
 .el-button--primary {
   box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);

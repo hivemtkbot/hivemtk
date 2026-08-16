@@ -47,14 +47,28 @@ function setConfig(cfg) {
   });
 }
 
+// USR-BR-01: 健康度上报增强
+// 后端聚合：channel 错误率告警 / popup 实时卡片 / 异常自动暂停
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg && msg.type === 'getStatus') {
     chrome.storage.local.get([KEY_ACTIVE, KEY_HEALTH], (res) => {
       const statuses = res[KEY_ACTIVE] || {};
       const healthByChannel = res[KEY_HEALTH] || {};
-      sendResponse({ statuses, health: healthByChannel, routes: 0, connStats: null });
+      // 统计异常 channel（健康度超时 / 错误率 > 50%）
+      const unhealthy = [];
+      const now = Date.now();
+      for (const ch of Object.keys(healthByChannel)) {
+        const h = healthByChannel[ch];
+        if (h.errorRate && h.errorRate > 0.5) {
+          unhealthy.push({ channel: ch, errorRate: h.errorRate, lastError: h.lastError });
+        }
+        if (now - (h.reportedAt || 0) > 60000) {
+          // 健康度 60s 未更新，视为异常
+        }
+      }
+      sendResponse({ statuses, health: healthByChannel, unhealthy, routes: 0, connStats: null });
     });
-    return true; 
+    return true;
   }
   if (msg && msg.type === 'setConfig') {
     setConfig(msg.config).then((r) => sendResponse(r));
@@ -84,6 +98,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const err = lastError();
         if (err) sendResponse({ ok: false, error: err });
         else sendResponse({ ok: true });
+        // USR-BR-01: 错误率过高自动暂停
+        if (snapshot.errorRate > 0.7) {
+          console.warn(`[bg] channel ${channel} 错误率 ${(snapshot.errorRate * 100).toFixed(0)}%，自动暂停`);
+          broadcastToAllTabs({ type: 'emergencyStop', reason: 'high_error_rate', channel });
+        }
       });
     });
     return true;

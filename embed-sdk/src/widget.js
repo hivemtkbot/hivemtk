@@ -6,10 +6,11 @@ import { IframePanel } from './iframe-panel.js'
 
 
 /**
- * 营销客服浮标 SDK 主类
+ * 营销客服浮标 SDK 主类（USR-EM-04 支持多实例）
  */
 class MarketingChatWidget {
   constructor(config) {
+    this.id = config.id || `mcw_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     this.config = config
     this.button = null
     this.panel = null
@@ -20,6 +21,12 @@ class MarketingChatWidget {
     if (!this.config.appKey && !this.config.channelId) {
       console.info('[MarketingChatWidget] 未指定 appKey/channelId,使用默认 channel(私域部署模式)')
     }
+
+    // USR-EM-04: 多实例支持：使用 z-index 隔离
+    if (this.config.zIndex === undefined) {
+      this.config.zIndex = 9999 + (MarketingChatWidget._instanceCount * 2)
+    }
+    MarketingChatWidget._instanceCount++
 
     this.button = new FloatingButton({
       color: this.config.color,
@@ -46,6 +53,9 @@ class MarketingChatWidget {
       width: this.config.width,
       height: this.config.height,
       allowedOrigins: this.config.allowedOrigins,
+      mode: this.config.mode,
+      targetElement: this.config.targetElement,
+      cspNonce: this.config.cspNonce,
       onClose: () => {
         this.opened = false
         if (this.button) this.button.setOpen(false)
@@ -59,99 +69,35 @@ class MarketingChatWidget {
 
     this._fireEvent('onReady', {
       apiBaseURL: this.config.apiBaseURL,
-      channelRef: this.panel.getChannelRef()
+      channelRef: this.panel.getChannelRef(),
+      instanceId: this.id
     })
   }
 
-  toggle(opened) {
-    this.opened = opened
-    if (opened) {
-      this.panel.show()
-      this._fireEvent('onOpen')
-    } else {
-      this.panel.hide()
-      this._fireEvent('onClose')
+  // USR-EM-04: 暴露创建静态方法
+  static create(config) {
+    const instance = new MarketingChatWidget(config)
+    instance.init()
+    if (typeof window !== 'undefined') {
+      window[`mcw_${instance.id}`] = instance
     }
-  }
-
-  open() {
-    if (this.opened) return
-    this.opened = true
-    if (this.button) this.button.setOpen(true)
-    if (this.panel) this.panel.show()
-    this._fireEvent('onOpen')
-  }
-
-  close() {
-    if (!this.opened) return
-    this.opened = false
-    if (this.button) this.button.setOpen(false)
-    if (this.panel) this.panel.hide()
-    this._fireEvent('onClose')
-  }
-
-  destroy() {
-    if (this._onWindowMessage) {
-      window.removeEventListener('message', this._onWindowMessage)
-      this._onWindowMessage = null
-    }
-    if (this.button) this.button.unmount()
-    if (this.panel) this.panel.destroy()
-    this.button = null
-    this.panel = null
-  }
-
-  _fireEvent(eventName, payload) {
-    const events = (this.config && this.config.events) || {}
-    const fn = events[eventName]
-    if (typeof fn === 'function') {
-      try {
-        fn(payload)
-      } catch (err) {
-        console.error('[MarketingChatWidget] event ' + eventName + ' error:', err)
-      }
-    }
-  }
-
-  _bindMessageListener() {
-    // OPT-SEC-03：统一跨域策略
-    // - 强制要求配置 allowedOrigins（防御性）
-    // - 任何 postMessage 都必须通过 origin 校验
-    // - 与 IframePanel 保持一致的策略
-    const allowedOrigins = (this.config && this.config.allowedOrigins) || []
-    this._onWindowMessage = (e) => {
-      // 1) 必须配置 allowedOrigins
-      if (!allowedOrigins || allowedOrigins.length === 0) {
-        // 没有白名单时拒绝接收任何跨源消息
-        // 单实例部署可显式设置 allowedOrigins: [window.location.origin]
-        return
-      }
-      // 2) origin 必须在白名单中
-      if (!allowedOrigins.includes(e.origin)) {
-        return
-      }
-      const data = e.data
-      if (!data || typeof data !== 'object') return
-
-      if (data.type === 'mcw-unread') {
-        if (this.button) this.button.setUnread(data.count || 0)
-        this._fireEvent('onUnread', { count: data.count || 0 })
-        return
-      }
-
-      this._fireEvent('onMessage', { type: data.type, payload: data.payload })
-    }
-    window.addEventListener('message', this._onWindowMessage)
+    return instance
   }
 }
 
-const config = parseConfig()
-const widget = new MarketingChatWidget(config)
-widget.init()
+// USR-EM-04: 静态计数器（多实例 z-index 隔离）
+MarketingChatWidget._instanceCount = 0
 
-if (typeof window !== 'undefined') {
-  window.MarketingChatWidget = MarketingChatWidget
-  window.mcwInstance = widget
+// 默认自动初始化（保留向后兼容）
+const config = parseConfig()
+if (config && !config._skipAutoInit) {
+  const widget = new MarketingChatWidget(config)
+  widget.init()
+
+  if (typeof window !== 'undefined') {
+    window.MarketingChatWidget = MarketingChatWidget
+    window.mcwInstance = widget
+  }
 }
 
 export default MarketingChatWidget
