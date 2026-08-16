@@ -89,6 +89,13 @@ func (c *toolCircuit) Allow(now time.Time, cfg CircuitBreakerConfig) bool {
 			if c.state.CompareAndSwap(int32(CircuitOpen), int32(CircuitHalfOpen)) {
 				c.halfOpenAttempts.Store(0)
 			}
+			// v3 审计 P2-20 修复：CAS 失败重新读 state
+			// 原：fallthrough 到 HalfOpen 但 state 可能已被并发改回
+			// 新：重新读 state 决定走 Open 还是 HalfOpen
+			state = CircuitState(c.state.Load())
+			if state == CircuitOpen {
+				return false
+			}
 		} else {
 			return false
 		}
