@@ -14,6 +14,7 @@ import (
 
 	"hivemtk-user/internal/config"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/httpclient"
 	"hivemtk-user/internal/pkg/tgbot"
 	"hivemtk-user/internal/pkg/utils/logger"
 )
@@ -293,12 +294,10 @@ func runTelegramPollingWorker(ctx context.Context, accountID uint, botToken, acc
 
 	offset := int64(0)
 	backoff := tgPollingBackoffMin
-	client := &http.Client{
-		Timeout: tgPollingTimeoutSeconds*time.Second + 5*time.Second,
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-		},
-	}
+	// v3 审计 P2-34 修复：使用全局 http.Client + connection pool
+	// 原：每个 worker 独立 &http.Client + &http.Transport → 连接数随 worker 线性增长
+	// 新：复用 httpclient.Client（全局共享连接池）
+	client := httpclient.Client
 
 	// 并发投递本轮 update 的 worker 上限（本地 webhook 幂等，顺序无关）
 	const tgPollingDeliverConcurrency = 16
