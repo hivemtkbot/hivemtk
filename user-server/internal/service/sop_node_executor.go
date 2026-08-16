@@ -99,14 +99,17 @@ func NewNodeExecutorRegistry() *NodeExecutorRegistry {
 
 // Register 注册节点执行器
 //
-// 同一节点类型重复注册会 panic（启动期错误，及早暴露配置问题）。
-func (r *NodeExecutorRegistry) Register(ctx context.Context, e NodeExecutor) {
+// v3 审计 P1-34 修复：原 panic 改为 log+return error
+// 理由：启动期 init 顺序错乱或 hot reload 时 panic 会拖垮整个进程
+//      改返回 error 让 caller 决定如何处理
+func (r *NodeExecutorRegistry) Register(ctx context.Context, e NodeExecutor) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, exists := r.executors[e.NodeType()]; exists {
-		panic(fmt.Sprintf("node executor already registered: %s", e.NodeType()))
+		return fmt.Errorf("node executor already registered: %s", e.NodeType())
 	}
 	r.executors[e.NodeType()] = e
+	return nil
 }
 
 // Get 获取节点执行器
