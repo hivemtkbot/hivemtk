@@ -163,7 +163,14 @@ func (s *CustomerIdentityService) LinkIdentity(ctx context.Context, customerID, 
 	}
 
 	if wechatOpenID != "" {
-		existing, _ := s.repo.GetByWechatOpenID(ctx, wechatOpenID)
+		// v3 审计 P2-22 修复：DB 错误必须可见
+		// 原：existing, _ := s.repo.GetByWechatOpenID(...) 静默吞错
+		// 新：捕获 + log
+		existing, err := s.repo.GetByWechatOpenID(ctx, wechatOpenID)
+		if err != nil {
+			logger.Errorf("[OneID LinkIdentity] 查 wechat=%s 失败: %v", wechatOpenID, err)
+			return fmt.Errorf("查 wechat openid 失败: %w", err)
+		}
 		if existing != nil && existing.ID != customerID {
 			return errors.New("该微信 OpenID 已被其他客户使用")
 		}
@@ -171,7 +178,11 @@ func (s *CustomerIdentityService) LinkIdentity(ctx context.Context, customerID, 
 	}
 
 	if douyinOpenID != "" {
-		existing, _ := s.repo.GetByDouyinOpenID(ctx, douyinOpenID)
+		existing, err := s.repo.GetByDouyinOpenID(ctx, douyinOpenID)
+		if err != nil {
+			logger.Errorf("[OneID LinkIdentity] 查 douyin=%s 失败: %v", douyinOpenID, err)
+			return fmt.Errorf("查 douyin openid 失败: %w", err)
+		}
 		if existing != nil && existing.ID != customerID {
 			return errors.New("该抖音 OpenID 已被其他客户使用")
 		}
