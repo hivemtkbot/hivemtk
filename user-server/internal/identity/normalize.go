@@ -9,9 +9,29 @@ package identity
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"os"
 	"regexp"
 	"strings"
+	"sync"
 )
+
+// oneidSalt 读取 env ONEID_SALT（一次性初始化，运行时不再读 env）
+// v3 审计 P0-05 修复：盐从 env 注入
+// 未设置时 fallback 到硬编码默认值（仅兼容老数据，warning 提示）
+var (
+	oneidSaltOnce sync.Once
+	oneidSaltVal  string
+)
+
+func oneidSalt(kind string) string {
+	oneidSaltOnce.Do(func() {
+		oneidSaltVal = os.Getenv("ONEID_SALT")
+		if oneidSaltVal == "" {
+			oneidSaltVal = "oneid_salt::"
+		}
+	})
+	return oneidSaltVal + kind + "_salt::"
+}
 
 // 渠道身份标识（不引入 service 包，避免循环依赖）
 type Identifiers struct {
@@ -81,13 +101,16 @@ func Normalize(in Identifiers) Identifiers {
 	}
 }
 
-// PhoneHash 返回手机号 SHA-256 哈希（用于脱敏匹配、日志审计）。
+// PhoneHash 返回手机号 SHA-256 哈希。
+// v3 审计 P0-05 修复：盐从环境变量注入（避免硬编码）
+// 原：sha256.Sum256([]byte("oneid_phone_salt::" + normalized)) → 硬编码
+// 新：env ONEID_SALT（未设置时 fallback 到硬编码，warning）
 func PhoneHash(phone string) string {
 	normalized := NormalizePhone(phone)
 	if normalized == "" {
 		return ""
 	}
-	sum := sha256.Sum256([]byte("oneid_phone_salt::" + normalized))
+	sum := sha256.Sum256([]byte(oneidSalt("phone") + normalized))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -97,7 +120,7 @@ func EmailHash(email string) string {
 	if normalized == "" {
 		return ""
 	}
-	sum := sha256.Sum256([]byte("oneid_email_salt::" + normalized))
+	sum := sha256.Sum256([]byte(oneidSalt("email") + normalized))
 	return hex.EncodeToString(sum[:])
 }
 
