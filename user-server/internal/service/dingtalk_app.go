@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"hivemtk-user/internal/pkg/utils/logger"
+
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/repository"
 
@@ -157,7 +159,14 @@ func (s *DingTalkAppService) ReceiveMessage(ctx context.Context, accountID uint,
 	if s.webhookSvc == nil {
 		return errors.New("webhook service not configured")
 	}
-	return s.webhookSvc.ingressHandler(ctx).HandleIngressMessage(ctx, event)
+	// v3 审计 P2-37 修复：捕获错误 + 显式日志
+	// 原：直接 return，调用方不知道是 dedup 还是真错误
+	// 新：捕获 + log 真实错误（避免钉钉重试风暴）
+	if err := s.webhookSvc.ingressHandler(ctx).HandleIngressMessage(ctx, event); err != nil {
+		logger.Errorf("[dingtalk] 入站消息处理失败 accountID=%d eventID=%s: %v", accountID, event.EventID, err)
+		return err
+	}
+	return nil
 }
 
 // dingTalkDecrypt 钉钉回调 AES 解密（AES/CBC/PKCS7）。
