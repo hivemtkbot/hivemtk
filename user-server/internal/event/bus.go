@@ -130,10 +130,15 @@ func (b *EventBus) Publish(evt Event) {
 		evt.Timestamp = time.Now()
 	}
 
+	// v3 审计 P1-32 修复：criticalTopics 读写也需加锁
+	// 原：Publish 路径不持 b.mu，并发 MarkCritical 改 map 会 panic
+	// 新：临界区扩到 criticalTopics 查询
+	b.mu.RLock()
 	target := b.queue
 	if b.criticalTopics[evt.Topic] {
 		target = b.criticalQueue
 	}
+	b.mu.RUnlock()
 	select {
 	case target <- evt:
 	default:
