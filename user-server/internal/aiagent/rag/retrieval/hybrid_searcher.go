@@ -2,10 +2,24 @@ package ragretrieval
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"fmt"
 	"sort"
+	"strings"
 
+	"hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/pkg/utils/logger"
+
+	"gorm.io/gorm"
 )
+
+// makeRRFKey 生成 RRF key（v3 审计 P1-45 修复）
+// 用 sha256 + base64 短前缀，避免原 DocumentID+"_"+ID 字符串拼接的碰撞风险
+func makeRRFKey(docID, chunkID string) string {
+	h := sha256.Sum256([]byte(docID + "\x00" + chunkID))
+	return "rrf:" + base64.RawURLEncoding.EncodeToString(h[:8])
+}
 
 // HybridSearcher Hybrid 检索器（USR-AI-02）
 // 借鉴：Qdrant Hybrid Search + 2026 RAG 最佳实践
@@ -15,11 +29,16 @@ import (
 //   3. 融合（RRF / 加权）
 //   4. Rerank (topK=5)
 type HybridSearcher struct {
-	vectorSearcher  VectorSearcher
-	keywordSearcher KeywordSearcher
-	reranker        RerankerInterface
-	vectorWeight    float64
-	keywordWeight   float64
+	db               *gorm.DB
+	embeddingClient  llm.EmbeddingServiceInterface
+	vectorSearcher   VectorSearcher
+	keywordSearcher  KeywordSearcher
+	reranker         RerankerInterface
+	redisClient      RedisClient
+	llmChatClient    LLMChatClient
+	vectorWeight     float64
+	keywordWeight    float64
+	config           *HybridSearcherConfig
 }
 
 // VectorSearcher 向量检索接口
@@ -32,7 +51,66 @@ type KeywordSearcher interface {
 	SearchKeyword(ctx context.Context, kbID string, query string, topK int) ([]Chunk, error)
 }
 
-func NewHybridSearcher(vs VectorSearcher, ks KeywordSearcher, r RerankerInterface, vectorW, keywordW float64) *HybridSearcher {
+// HybridSearcherConfig 混合检索配置
+type HybridSearcherConfig struct {
+	EnableRerank     bool
+	EnableHyDE       bool
+	EnableMultiQuery bool
+	VectorTopK       int
+	KeywordTopK      int
+	FinalTopK        int
+	DefaultTopK      int
+	CandidatePool    int
+	FusedTopN        int
+	RRFK             int
+	EfSearch         int
+	VectorWeight     float64
+	KeywordWeight    float64
+}
+
+// DefaultHybridSearcherConfig 默认配置
+func DefaultHybridSearcherConfig() *HybridSearcherConfig {
+	return &HybridSearcherConfig{
+		EnableRerank:     true,
+		EnableHyDE:       false,
+		EnableMultiQuery: false,
+		VectorTopK:       50,
+		KeywordTopK:      30,
+		FinalTopK:        5,
+		DefaultTopK:      5,
+		CandidatePool:    100,
+		FusedTopN:        20,
+		RRFK:             60,
+		EfSearch:         128,
+		VectorWeight:     0.7,
+		KeywordWeight:    0.3,
+	}
+}
+
+// NewHybridSearcher 创建混合检索器
+func NewHybridSearcher(db *gorm.DB, embeddingClient llm.EmbeddingServiceInterface, reranker RerankerInterface, llmChatClient LLMChatClient, redisClient RedisClient, cfg *HybridSearcherConfig) *HybridSearcher {
+	if cfg == nil {
+		cfg = DefaultHybridSearcherConfig()
+	}
+	h := &HybridSearcher{
+		db:              db,
+		embeddingClient: embeddingClient,
+		reranker:        reranker,
+		llmChatClient:   llmChatClient,
+		redisClient:     redisClient,
+		vectorWeight:    cfg.VectorWeight,
+		keywordWeight:   cfg.KeywordWeight,
+		config:          cfg,
+	}
+	if db != nil {
+		h.vectorSearcher = NewVectorRetriever(db, embeddingClient, cfg.EfSearch)
+		h.keywordSearcher = NewBM25Retriever(db)
+	}
+	return h
+}
+
+// NewHybridSearcherWithInterfaces 基于接口创建（兼容旧接口）
+func NewHybridSearcherWithInterfaces(vs VectorSearcher, ks KeywordSearcher, r RerankerInterface, vectorW, keywordW float64) *HybridSearcher {
 	if vectorW == 0 {
 		vectorW = 0.7
 	}
@@ -45,68 +123,232 @@ func NewHybridSearcher(vs VectorSearcher, ks KeywordSearcher, r RerankerInterfac
 		reranker:        r,
 		vectorWeight:    vectorW,
 		keywordWeight:   keywordW,
+		config:          DefaultHybridSearcherConfig(),
 	}
 }
 
-// HybridSearch 混合检索
-func (h *HybridSearcher) HybridSearch(ctx context.Context, kbID string, query string, queryVec []float32, topK int) ([]Chunk, error) {
-	// 1. 向量检索（更多候选）
-	vecTopK := topK * 10
-	if vecTopK < 50 {
-		vecTopK = 50
+// Search 全产品检索
+func (h *HybridSearcher) Search(ctx context.Context, query string, topK int) ([]Chunk, error) {
+	return h.SearchIndex(ctx, "", query, topK)
+}
+
+// SearchIndex 带 productID 过滤的检索
+func (h *HybridSearcher) SearchIndex(ctx context.Context, productID string, query string, topK int) ([]Chunk, error) {
+	if topK <= 0 {
+		topK = h.config.DefaultTopK
 	}
-	vecResults, err := h.vectorSearcher.SearchVector(ctx, kbID, queryVec, vecTopK)
+	if topK <= 0 {
+		topK = 5
+	}
+	if strings.TrimSpace(query) == "" {
+		return nil, nil
+	}
+
+	queryVec, err := h.embedQuery(ctx, query)
 	if err != nil {
-		logger.Ctx(ctx).Warn().Err(err).Msg("[Hybrid] 向量检索失败，仅用关键词")
-		vecResults = nil
+		return nil, fmt.Errorf("embedding query: %w", err)
 	}
 
-	// 2. 关键词检索
-	kwTopK := topK * 6
-	if kwTopK < 30 {
-		kwTopK = 30
-	}
-	kwResults, err := h.keywordSearcher.SearchKeyword(ctx, kbID, query, kwTopK)
-	if err != nil {
-		logger.Ctx(ctx).Warn().Err(err).Msg("[Hybrid] 关键词检索失败，仅用向量")
-		kwResults = nil
-	}
+	vecResults, kwResults := make([]Chunk, 0), make([]Chunk, 0)
 
-	// 3. 融合（RRF）
-	fused := h.reciprocalRankFusion(vecResults, kwResults)
-
-	// 4. Rerank
-	if h.reranker != nil && len(fused) > topK {
-		reranked, rerr := h.reranker.Rerank(ctx, query, toRerankDocs(fused))
-		if rerr == nil {
-			fused = applyRerank(fused, reranked)
+	vecTopK := h.config.VectorTopK
+	if vecTopK <= 0 {
+		vecTopK = topK * 10
+		if vecTopK < 50 {
+			vecTopK = 50
+		}
+	}
+	if h.vectorSearcher != nil {
+		if res, err := h.vectorSearcher.SearchVector(ctx, productID, queryVec, vecTopK); err == nil {
+			vecResults = res
+		} else {
+			logger.Ctx(ctx).Warn().Err(err).Msg("[Hybrid] vector search failed, continuing with empty results")
+		}
+	} else if h.db != nil {
+		if res, err := h.vectorSearchPG(ctx, productID, queryVec, vecTopK); err == nil {
+			vecResults = res
+		} else {
+			logger.Ctx(ctx).Warn().Err(err).Msg("[Hybrid] vectorSearchPG failed, continuing with empty results")
 		}
 	}
 
-	if len(fused) > topK {
-		fused = fused[:topK]
+	kwTopK := h.config.KeywordTopK
+	if kwTopK <= 0 {
+		kwTopK = topK * 6
+		if kwTopK < 30 {
+			kwTopK = 30
+		}
+	}
+	if h.keywordSearcher != nil {
+		if res, err := h.keywordSearcher.SearchKeyword(ctx, productID, query, kwTopK); err == nil {
+			kwResults = res
+		} else {
+			logger.Ctx(ctx).Warn().Err(err).Msg("[Hybrid] keyword search failed, continuing with empty results")
+		}
+	} else if h.db != nil {
+		if res, err := h.keywordSearchPG(ctx, productID, query, kwTopK); err == nil {
+			kwResults = res
+		} else {
+			logger.Ctx(ctx).Warn().Err(err).Msg("[Hybrid] keywordSearchPG failed, continuing with empty results")
+		}
+	}
+
+	fused := h.reciprocalRankFusion(vecResults, kwResults)
+
+	if h.config.EnableRerank && h.reranker != nil && len(fused) > topK {
+		rerankTopN := h.config.FusedTopN
+		if rerankTopN <= 0 {
+			rerankTopN = topK * 4
+		}
+		if rerankTopN > len(fused) {
+			rerankTopN = len(fused)
+		}
+		rerankPool := fused[:rerankTopN]
+		reranked, rerr := h.reranker.Rerank(ctx, query, toRerankDocs(rerankPool))
+		// v3 审计 P1-46 修复：rerank 失败必须告警
+		// 原：if rerr == nil → 失败时 fused 不变但调用方完全无感知
+		// 新：记 error + 告警 + 仍走降级路径（用原始 fused）
+		if rerr == nil {
+			fused = applyRerank(fused, reranked)
+		} else {
+			logger.Warnf("[Hybrid] rerank 失败，降级使用原始融合结果: %v", rerr)
+		}
+	}
+
+	if h.config.CandidatePool > 0 && len(fused) > h.config.CandidatePool {
+		fused = fused[:h.config.CandidatePool]
+	}
+
+	finalK := topK
+	if h.config.FinalTopK > 0 {
+		finalK = h.config.FinalTopK
+	}
+	if len(fused) > finalK {
+		fused = fused[:finalK]
 	}
 	return fused, nil
+}
+
+// embedQuery 将 query 转为向量
+func (h *HybridSearcher) embedQuery(ctx context.Context, query string) ([]float32, error) {
+	if h.embeddingClient == nil {
+		return nil, fmt.Errorf("embedding client not configured")
+	}
+	cfg := h.embeddingClient.DefaultConfig()
+	vec, err := h.embeddingClient.EmbedOne(ctx, cfg, query)
+	if err != nil {
+		return nil, err
+	}
+	if len(vec) == 0 {
+		return nil, fmt.Errorf("empty embedding returned")
+	}
+	return vec, nil
+}
+
+// vectorSearchPG 直接用 pgvector 做向量检索
+func (h *HybridSearcher) vectorSearchPG(ctx context.Context, productID string, queryVec []float32, topK int) ([]Chunk, error) {
+	if h.db == nil {
+		return nil, fmt.Errorf("db not configured")
+	}
+	vecStr := vecToPGString(queryVec)
+	sql := `
+		SELECT id, document_id, content, embedding <=> $1::vector AS score
+		FROM knowledge_chunks
+		WHERE embedding IS NOT NULL
+	`
+	args := []any{vecStr}
+	if productID != "" {
+		sql += " AND product_id = $2"
+		args = append(args, productID)
+	}
+	limitPos := len(args) + 1
+	sql += fmt.Sprintf(" ORDER BY score ASC LIMIT $%d", limitPos)
+	args = append(args, topK)
+
+	var rows []chunkScanRow
+	if err := h.db.WithContext(ctx).Raw(sql, args...).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rowsToChunks(rows), nil
+}
+
+// keywordSearchPG 直接用 pg tsvector 做关键词检索
+func (h *HybridSearcher) keywordSearchPG(ctx context.Context, productID string, query string, topK int) ([]Chunk, error) {
+	if h.db == nil {
+		return nil, fmt.Errorf("db not configured")
+	}
+	for _, tsConfig := range []string{"zh_rag", "simple"} {
+		for _, tsvCol := range []string{"contextual_tsv", "content_tsv"} {
+			sql := fmt.Sprintf(`
+				SELECT id, document_id, content,
+				       ts_rank(%s, plainto_tsquery(?, ?))::float8 AS score
+				FROM knowledge_chunks
+				WHERE %s @@ plainto_tsquery(?, ?)
+			`, tsvCol, tsvCol)
+			args := []any{tsConfig, query, tsConfig, query}
+			if productID != "" {
+				sql += " AND product_id = ?"
+				args = append(args, productID)
+			}
+			sql += " ORDER BY score DESC LIMIT ?"
+			args = append(args, topK)
+
+			var rows []chunkScanRow
+			if err := h.db.WithContext(ctx).Raw(sql, args...).Scan(&rows).Error; err == nil && len(rows) > 0 {
+				return rowsToChunks(rows), nil
+			}
+		}
+	}
+	return h.keywordSearchPGFallback(ctx, productID, query, topK)
+}
+
+// keywordSearchPGFallback ILIKE 兜底
+func (h *HybridSearcher) keywordSearchPGFallback(ctx context.Context, productID string, query string, topK int) ([]Chunk, error) {
+	escaped := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(query)
+	pattern := "%" + escaped + "%"
+	sql := `
+		SELECT id, document_id, content, 1.0::float8 AS score
+		FROM knowledge_chunks
+		WHERE content ILIKE ?
+	`
+	args := []any{pattern}
+	if productID != "" {
+		sql += " AND product_id = ?"
+		args = append(args, productID)
+	}
+	sql += " ORDER BY id DESC LIMIT ?"
+	args = append(args, topK)
+
+	var rows []chunkScanRow
+	if err := h.db.WithContext(ctx).Raw(sql, args...).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rowsToChunks(rows), nil
 }
 
 // reciprocalRankFusion 倒数排名融合（RRF）
 // score = sum(weight / (k + rank))
 // RRF 公式来源：https://plg.uwaterloo.ca/~gvcormac/cormacksal.j.pdf
 func (h *HybridSearcher) reciprocalRankFusion(vecResults, kwResults []Chunk) []Chunk {
-	const k = 60 // RRF 标准 k 值
+	k := h.config.RRFK
+	if k <= 0 {
+		k = 60
+	}
 	scores := make(map[string]float64)
 	chunkMap := make(map[string]Chunk)
 
 	// 向量结果排名
+	// v3 审计 P1-45 修复：RRF key 用 base64(sha256) 避免 "_" 碰撞
+	// 原：c.DocumentID + "_" + c.ID → 跨段碰撞（如 doc="a_b" id="c" 与 doc="a" id="b_c" 撞同 key）
 	for rank, c := range vecResults {
-		key := c.DocumentID + "_" + c.ID
+		key := makeRRFKey(c.DocumentID, c.ID)
 		scores[key] += h.vectorWeight / float64(k+rank+1)
 		chunkMap[key] = c
 	}
 
 	// 关键词结果排名
 	for rank, c := range kwResults {
-		key := c.DocumentID + "_" + c.ID
+		key := makeRRFKey(c.DocumentID, c.ID)
 		scores[key] += h.keywordWeight / float64(k+rank+1)
 		if _, exists := chunkMap[key]; !exists {
 			chunkMap[key] = c
