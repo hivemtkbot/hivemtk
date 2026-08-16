@@ -7,10 +7,19 @@ import (
 	"io"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+// auditDroppedCounterValue 审计降级计数（v3 审计 P1-24）
+var auditDroppedCounterValue int64
+
+// GetAuditDroppedCount 暴露给监控/可观测层
+func GetAuditDroppedCount() int64 {
+	return atomic.LoadInt64(&auditDroppedCounterValue)
+}
 
 // 审计日志通道
 var (
@@ -389,13 +398,21 @@ func convertToString(v any) string {
 }
 
 // saveAuditLog 保存审计日志（发送到异步通道）
+// v3 审计 P1-24 修复：高负载时 channel 满会降级到 sync save
+// 原：default 分支静默丢日志
+// 新：记录降级次数 + 强制 sync save 不丢
 func saveAuditLog(entry *AuditEntry) {
 	initAuditLogger()
 	select {
 	case auditLogChan <- entry:
+		// 入队成功
 	default:
+		// v3 审计 P1-24：channel 满时同步落库而非丢弃
+		atomic.AddInt64(&auditDroppedCounterValue, 1)
 		if sink := getAuditSink(); sink != nil {
-			sink.Save(context.Background(), entry)
+			if err := sink.Save(context.Background(), entry); err != nil {
+				log.Printf("[audit] 同步落库失败（已记入降级计数）: %v", err)
+			}
 		}
 	}
 }

@@ -47,7 +47,24 @@ func MarkMFAVerified(userID uint) {
 		mfaRecentVerifyMutex.Unlock()
 	}
 
-	go cleanupExpiredMFAVerified()
+	// v3 审计 P1-23 修复：cleanup 改为启动期单次 + 周期触发
+	// 原：每次 MarkMFAVerified 都 go func()，高频下产生大量 goroutine 阻塞持锁清理
+	// 新：sync.Once + 周期 ticker，所有实例共享同一个 cleanup goroutine
+	mfaCleanupTrigger.Do(func() {
+		go mfaCleanupLoop()
+	})
+}
+
+// mfaCleanupTrigger 防止重复启动 cleanup goroutine
+var mfaCleanupTrigger sync.Once
+
+// mfaCleanupLoop 周期清理过期 MFA 记录（启动期一次性启动）
+func mfaCleanupLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		cleanupExpiredMFAVerified()
+	}
 }
 
 // IsMFAVerifiedRecently 检查用户最近 5 分钟内是否通过 MFA 验证

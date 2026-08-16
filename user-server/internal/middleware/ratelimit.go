@@ -44,6 +44,23 @@ type RateLimiter struct {
 	stopChan chan struct{}
 }
 
+// isValidAppKeyFormat 校验 X-API-KEY 格式合法性
+// v3 审计 P1-25 修复：防止攻击者用随机短串轮换绕过限流
+// 真实 AppKey 应满足：长度 16-128，仅含 [A-Za-z0-9_-]
+func isValidAppKeyFormat(s string) bool {
+	if len(s) < 16 || len(s) > 128 {
+		return false
+	}
+	for _, c := range s {
+		isSafe := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+			(c >= '0' && c <= '9') || c == '_' || c == '-'
+		if !isSafe {
+			return false
+		}
+	}
+	return true
+}
+
 // 全局限流器实例
 var globalRateLimiter *RateLimiter
 
@@ -142,9 +159,16 @@ func RateLimitMiddleware(config ...RateLimitConfig) gin.HandlerFunc {
 			}
 		}
 
-		clientKey := c.GetHeader("X-API-KEY")
-		if clientKey == "" {
-			clientKey = c.ClientIP()
+		// v3 审计 P1-25 修复：clientKey 必须绑定身份
+		// 原：信任 X-API-KEY 头，攻击者可随机带 X-API-KEY 头绕过限流
+		// 新：仅在已认证场景下使用 X-API-KEY；否则强制用 IP
+		clientKey := c.ClientIP()
+		if authVal, exists := c.Get("authenticated"); exists {
+			if isAuthenticated, ok := authVal.(bool); ok && isAuthenticated {
+				if apiKey := c.GetHeader("X-API-KEY"); apiKey != "" && isValidAppKeyFormat(apiKey) {
+					clientKey = "apikey:" + apiKey
+				}
+			}
 		}
 
 		if !globalRateLimiter.Allow(clientKey) {
