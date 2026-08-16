@@ -374,15 +374,22 @@ func (s *MFAService) VerifyMFALogin(ctx context.Context, tempToken, code string)
 
 // GenerateBackupCodes 生成 10 个一次性恢复码
 // 返回明文（仅展示给用户一次）+ bcrypt 哈希（存储到数据库）
+// v3 审计 P2-15 修复：使用 const-dict 字符集（去除 0/O/1/l 等易混字符）
 func (s *MFAService) GenerateBackupCodes(ctx context.Context, userID uint) ([]string, error) {
+	// Crockford base32 字符集（去除 0/O/1/l/I 等易混淆字符）
+	const charset = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 	codes := make([]string, 10)
 	hashedCodes := make([]string, 10)
 	for i := 0; i < 10; i++ {
-		raw := make([]byte, 8)
-		if _, err := rand.Read(raw); err != nil {
+		buf := make([]byte, 10)
+		if _, err := rand.Read(buf); err != nil {
 			return nil, err
 		}
-		code := fmt.Sprintf("%x", raw)
+		out := make([]byte, 10)
+		for j, b := range buf {
+			out[j] = charset[int(b)%len(charset)]
+		}
+		code := string(out)
 		codes[i] = code
 		hashed, err := bcrypt.HashPassword(code)
 		if err != nil {

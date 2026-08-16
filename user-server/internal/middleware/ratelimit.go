@@ -171,7 +171,7 @@ func RateLimitMiddleware(config ...RateLimitConfig) gin.HandlerFunc {
 			}
 		}
 
-		if !globalRateLimiter.Allow(clientKey) {
+		if !globalRateLimiter.Allow(c.Request.Context(), clientKey) {
 			c.JSON(429, gin.H{
 				"code":        429,
 				"msg":         "请求过于频繁，请稍后再试",
@@ -190,14 +190,17 @@ func RateLimitMiddleware(config ...RateLimitConfig) gin.HandlerFunc {
 // 全局实际允许量被放大为 N×单实例配额，等于架空限流。
 // 实现：REDIS_HOST 配置时走全局缓存固定窗口计数（Redis 共享，各实例累计同一配额）；
 // 未配置 Redis 时回退进程内令牌桶（单实例平滑限流）。后端异常一律放行（可用性优先）。
-func (rl *RateLimiter) Allow(clientKey string) bool {
+// v3 审计 P2-16 修复：ctx 透传
+// 原：context.Background() 丢失 trace_id
+// 新：ctx 由调用方传入
+func (rl *RateLimiter) Allow(ctx context.Context, clientKey string) bool {
 	if !cache.GlobalIsRedis() {
 		return rl.getLimiter(clientKey).Allow()
 	}
 	c := cache.GetGlobalCache()
 	minute := time.Now().Truncate(time.Minute).Unix()
 	key := fmt.Sprintf("mtk:ratelimit:%s:%d", clientKey, minute)
-	cur, err := c.Incr(context.Background(), key, time.Minute)
+	cur, err := c.Incr(ctx, key, time.Minute)
 	if err != nil {
 		logger.Warnf("[ratelimit] 计数后端异常，放行 client=%s: %v", clientKey, err)
 		return true
