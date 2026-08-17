@@ -120,8 +120,10 @@ function getAccountId() {
     const ls = localStorage.getItem(`hivebridge:account:${CHANNELS.XHS}`);
     if (ls) return ls;
   } catch (e) {  }
-  // 完全无链接且无缓存：返回 stable unknown（绝不空串 → 不触发 WS 401）
-  return 'xiaohongshu-unknown';
+  // 2026-08-17 治本：DOM 兜底失败时返回空串（不返回 xiaohongshu-unknown 占位值）。
+  // types.js buildMessage 在 account_id 为空时 delete 该字段，后端层0 改用
+  // (platform+sender_name+content) 三元组命中 outbound，避免占位值污染入库链路。
+  return '';
 }
 
 // 当前会话 id（小红书的会话 id 多为联系人的 user id）。

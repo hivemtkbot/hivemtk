@@ -34,10 +34,9 @@ describe('xhs getAccountId 兜底', () => {
     expect(getAccountId()).toBe('xyz789');
   });
 
-  it('完全无链接时返回 stable unknown（绝不空串 → 不触发 WS 401）', () => {
+  it('完全无链接时返回空串（DOM 兜底失败，后端用三元组命中）', () => {
     document.body.innerHTML = `<div class="empty">无账号线索</div>`;
-    expect(getAccountId()).toBe('xiaohongshu-unknown');
-    expect(getAccountId()).not.toBe('');
+    expect(getAccountId()).toBe('');
   });
 
   it('结构链接取不到真实 id 时，复用 localStorage 缓存', () => {

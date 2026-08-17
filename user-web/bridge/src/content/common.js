@@ -459,11 +459,14 @@ export function startBridge(channel, buildAdapter) {
     // 4 个渠道的聊天内容都经 uplink.enqueue 推入上报队列；Uplink 负责短窗口合并 + POST /api/bridge/ingest。
     // 消息 hash（event_id）在前端完成：渠道已给则沿用，否则 Uplink 兜底补全（后端按 event_id 去重）。
     // AI 回复不再随 ingest 响应返回，改由 downlink 独立轮询 GET /api/bridge/outbox 拉取下发。
-    const accountId = (typeof adapter.getAccountId === 'function' && adapter.getAccountId()) || 'default';
+    // account_id 必须每次实时从 DOM 抓取：bridge 初始化时 SPA 可能尚未渲染账号链接，
+    // 若一次性固化（旧实现 const accountId = ...），后续 outbox 拉取恒为 'default'，
+    // 与 inbound 入库的真实 account_id 不匹配 → ClaimPendingOutbound 精确查询返回空 → 下行卡 inflight。
+    const resolveAccountId = () => (typeof adapter.getAccountId === 'function' && adapter.getAccountId()) || 'default';
     const uplink = new Uplink({ channel, getConfig });
     const submitIngest = (message) => {
       if (!message) return;
-      if (!message.account_id) message.account_id = accountId;
+      if (!message.account_id) message.account_id = resolveAccountId();
       uplink.enqueue(message);
     };
 
@@ -495,7 +498,7 @@ export function startBridge(channel, buildAdapter) {
     const pollingLoop = new PollingLoop({
       getAdapter: () => adapter,
       getConfig,
-      getMeta: () => ({ accountId }),
+      getMeta: () => ({ accountId: resolveAccountId() }),
       channels: [channel],
     });
     pollingLoop.start();

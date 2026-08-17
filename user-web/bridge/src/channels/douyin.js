@@ -153,16 +153,53 @@ function getAccountId() {
     const ls = localStorage.getItem(`hivebridge:account:${CHANNELS.DOUYIN}`);
     if (ls) return ls;
   } catch (e) {  }
-  // 完全无 /user/ 链接且无缓存：返回稳定 unknown（绝不空串 → 不触发 WS 401）
-  return 'douyin-unknown';
+  // 2026-08-17 治本：DOM 兜底失败时返回空串（不返回 douyin-unknown 占位值）。
+  // types.js buildMessage 在 account_id 为空时 delete 该字段，后端层0 改用
+  // (platform+sender_name+content) 三元组命中 outbound，避免占位值污染入库链路。
+  return '';
 }
 
 // —— 非文字消息提取（问题 3）——
 // 抖音气泡可能含图片 / 视频 / 语音 / 表情 / 链接。统一归为 msg_type：
 //   text | image | voice | video | emoji | link | recall | system
 // 文本优先；含 <img>/视频则记为 image/video（content 留可读描述或 media_url）。
+//
+// 防拼接重复保护（2026-08-17 回环止血）：
+//   cleanText(item) 在 item 粒度过大（SelectorEngine 返回线程容器而非单气泡）时，
+//   会把整个会话线程的所有气泡文本拼成一整条，导致同一句子重复 N 次 →
+//   dedupKey 每次不同（重复次数随会话增长）→ 绕过前端去重 + 后端 self-echo →
+//   AI 收到超长重复消息再生成新回复 → DOM 新增气泡 → 下次拼接更多 → 无限回环。
+//   修复1：按句切分，保留每种句子的首次出现。
+//   修复2（2026-08-17 深查）：DOM 把同一段无标点块（如 CSS/JS 注入代码）抓取两次
+//   拼接成 inbound → content 长度翻倍但无句号分隔 → 修复1 切不动 →
+//   后端 self-echo 精确匹配 content = ? 失败 → AI 回环。增加"前半==后半"折叠。
+function dedupeRepeatedText(raw) {
+  if (!raw) return '';
+  const parts = raw.split(/(?<=[。！？!?\n])\s*/).map((s) => s.trim()).filter(Boolean);
+  let text;
+  if (parts.length <= 1) {
+    text = raw.trim();
+  } else {
+    const seen = new Set();
+    const out = [];
+    for (const p of parts) {
+      const key = p.replace(/\s+/g, '');
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(p);
+    }
+    text = out.length ? out.join('') : raw.trim();
+  }
+  const half = Math.floor(text.length / 2);
+  if (half >= 20 && text.slice(0, half) === text.slice(half, half * 2)) {
+    return text.slice(0, half);
+  }
+  return text;
+}
+
 function extractMessageContent(item) {
-  const text = cleanText(item.querySelector(SEL.TEXT) || item);
+  const rawText = cleanText(item.querySelector(SEL.TEXT) || item);
+  const text = dedupeRepeatedText(rawText);
   if (text && /^(\d{1,2}:\d{2}|(昨天|前天)?\s*\d{1,2}月\d{1,2}日?\s*\d{1,2}:\d{2}|\d{4}-\d{2}-\d{2})$/.test(text)) {
     return { msgType: 'text', mediaUrl: '', text: '' };
   }

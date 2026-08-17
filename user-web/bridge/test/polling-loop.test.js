@@ -2,40 +2,28 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PollingLoop } from '../src/core/polling-loop.js';
 import { BRIDGE_THREE_CHANNEL } from '../src/core/constants.js';
 
-// 桩适配器
-function makeAdapter({ convs, messages }) {
-  return {
-    getConversationList: vi.fn(async () => convs),
-    openConversation: vi.fn(async () => {}),
-    getMessages: vi.fn(async () => messages),
-    sendText: vi.fn(async () => true),
-  };
-}
+// PollingLoop 现在只负责 downlink 下发轮询；巡检由 ChannelAdapter.startPatrol 自循环负责。
 
 const getMeta = () => ({ accountId: 'acc-1' });
 const getConfig = async () => ({ serverUrl: 'http://localhost:8204', token: 'tkn-1' });
 
 describe('polling-loop / 生命周期', () => {
-  it('start() 设置 patrol + downlink 定时器，stop() 清除', () => {
+  it('start() 设置 downlink 定时器，stop() 清除', () => {
     const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
-    expect(loop._patrolTimer).toBeNull();
     expect(loop._downlinkTimer).toBeNull();
     loop.start();
-    expect(loop._patrolTimer).not.toBeNull();
     expect(loop._downlinkTimer).not.toBeNull();
+    expect(loop._patrolTimer).toBeUndefined();
     loop.stop();
-    expect(loop._patrolTimer).toBeNull();
     expect(loop._downlinkTimer).toBeNull();
   });
 
   it('start() 幂等：重复调用不创建多个 timer', () => {
     const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
     loop.start();
-    const t1 = loop._patrolTimer;
-    const t2 = loop._downlinkTimer;
+    const t1 = loop._downlinkTimer;
     loop.start();
-    expect(loop._patrolTimer).toBe(t1);
-    expect(loop._downlinkTimer).toBe(t2);
+    expect(loop._downlinkTimer).toBe(t1);
     loop.stop();
   });
 
@@ -47,133 +35,23 @@ describe('polling-loop / 生命周期', () => {
   });
 });
 
-describe('polling-loop / _patrol 异常路径', () => {
-  it('无 config 时静默', async () => {
-    const adapter = makeAdapter({ convs: [], messages: [] });
-    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => adapter, getConfig: () => null, getMeta });
-    await loop._patrol();
-    expect(adapter.getConversationList).not.toHaveBeenCalled();
-  });
-
-  it('无 serverUrl 时静默', async () => {
-    const adapter = makeAdapter({ convs: [], messages: [] });
-    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => adapter, getConfig: async () => ({}), getMeta });
-    await loop._patrol();
-    expect(adapter.getConversationList).not.toHaveBeenCalled();
-  });
-
-  it('无显式账号时回退 default 并继续巡检', async () => {
-    const adapter = makeAdapter({ convs: [{ id: 'c1' }], messages: [{ message_id: 'm1', text: 'hi', sender_id: 'p', sender_name: '小红', sender_type: 'customer', msg_type: 'text', timestamp: 1 }] });
-    let captured;
-    const realFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn(async (url) => { captured = url; return new Response('{"ok":true,"ingested":[],"outbound_replies":[]}', { status: 200 }); });
-    try {
-      const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => adapter, getConfig: async () => ({ serverUrl: 'http://localhost:8204' }), getMeta: () => ({}) });
-      await loop._patrol();
-      await loop.uplinks.get('douyin').flushAll();
-    } finally {
-      globalThis.fetch = realFetch;
-    }
-    expect(adapter.getConversationList).toHaveBeenCalled();
-    expect(captured).toContain('account_id=default');
-  });
-
-  it('无适配器时静默', async () => {
-    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
-    await loop._patrol(); 
-  });
-
-  it('会话列表为空时不上报', async () => {
-    const adapter = makeAdapter({ convs: [], messages: [] });
-    const loop = new PollingLoop({ channels: ['xiaohongshu'], getAdapter: () => adapter, getConfig, getMeta });
-    let fetchCalled = false;
-    const realFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn(() => { fetchCalled = true; return Promise.resolve(new Response('{}', { status: 200 })); });
-    try {
-      await loop._patrol();
-      await loop.uplinks.get('xiaohongshu').flushAll();
-    } finally {
-      globalThis.fetch = realFetch;
-    }
-    expect(fetchCalled).toBe(false);
+describe('polling-loop / 下发轮询配置', () => {
+  it('outboxPollIntervalMs=1500（下发轮询独立）', () => {
+    expect(BRIDGE_THREE_CHANNEL.outboxPollIntervalMs).toBe(1500);
   });
 });
 
-describe('polling-loop / _patrol 抓消息 → 上报（通道A·上报）', () => {
-  let realFetch;
-  beforeEach(() => { realFetch = globalThis.fetch; });
-  afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
-
-  it('抓到的消息通过 Uplink → POST /api/bridge/ingest，body 字段对齐', async () => {
-    let captured;
-    globalThis.fetch = vi.fn(async (url, init) => {
-      captured = { url, init };
-      return new Response(JSON.stringify({ ok: true, ingested: [], outbound_replies: [] }), { status: 200 });
-    });
-    const adapter = makeAdapter({
-      convs: [{ id: 'conv-1' }],
-      messages: [{ message_id: 'msg-1', sender_id: 'peer-1', sender_name: '小红', sender_type: 'customer', text: '你好', msg_type: 'text', timestamp: 1700000000 }],
-    });
-    const loop = new PollingLoop({ channels: ['xiaohongshu'], getAdapter: () => adapter, getConfig, getMeta });
-    await loop._patrol();
-    await loop.uplinks.get('xiaohongshu').flushAll();
-    expect(captured).toBeTruthy();
-    expect(captured.url).toContain('channel=xiaohongshu');
-    expect(captured.url).toContain('account_id=acc-1');
-    expect(captured.url).toContain('conversation_id=conv-1');
-    // token 通过 Authorization header 传输（P0-A），不在 URL 中
-    expect(captured.init.headers).toBeTruthy();
-    const body = JSON.parse(captured.init.body);
-    expect(body.v).toBe(2);
-    expect(body.messages).toHaveLength(1);
-    expect(body.messages[0].event_id).toBe('msg-1');
-    expect(body.messages[0].sender_name).toBe('小红');
-    expect(body.messages[0].content).toBe('你好');
-    expect(body.expect_reply).toBeUndefined(); 
-  });
-
-  it('无消息时不调用 fetch', async () => {
-    const adapter = makeAdapter({ convs: [{ id: 'c' }], messages: [] });
-    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => adapter, getConfig, getMeta });
-    let fetchCalled = false;
-    globalThis.fetch = vi.fn(() => { fetchCalled = true; return Promise.resolve(new Response('{}', { status: 200 })); });
-    await loop._patrol();
-    await loop.uplinks.get('douyin').flushAll();
-    expect(fetchCalled).toBe(false);
-  });
-
-  it('纯桥接：同一 message_id 每轮都上报（内容去重交给后端）', async () => {
-    const adapter = makeAdapter({ convs: [{ id: 'conv-A' }], messages: [{ message_id: 'm1', text: 'hi', sender_id: 'p', msg_type: 'text', timestamp: 1 }] });
-    let fetchCount = 0;
-    globalThis.fetch = vi.fn(async () => { fetchCount += 1; return new Response('{"ok":true,"ingested":[],"outbound_replies":[]}', { status: 200 }); });
-    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => adapter, getConfig, getMeta });
-    await loop._patrol(); await loop.uplinks.get('douyin').flushAll();
-    await loop._patrol(); await loop.uplinks.get('douyin').flushAll();
-    expect(fetchCount).toBe(2);
-  });
-
-  it('ingest 失败时不崩溃，下一轮仍可上报', async () => {
-    const adapter = makeAdapter({ convs: [{ id: 'conv-D' }], messages: [{ message_id: 'm1', text: '1', sender_id: 'p', msg_type: 'text', timestamp: 1 }] });
-    let callCount = 0;
-    globalThis.fetch = vi.fn(async () => { callCount += 1; if (callCount === 1) return new Response('boom', { status: 500 }); return new Response('{"ok":true,"ingested":[],"outbound_replies":[]}', { status: 200 }); });
-    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => adapter, getConfig, getMeta, retryOpts: { maxRetries: 0, retryBaseMs: 1 } });
-    await loop._patrol(); await loop.uplinks.get('douyin').flushAll();
-    await loop._patrol(); await loop.uplinks.get('douyin').flushAll();
-    expect(callCount).toBe(2);
-  });
-});
-
-describe('polling-loop / 巡检配置（PATROL_DEFAULTS 单一源）', () => {
-  it('outboxPollIntervalMs=1500（下发轮询独立）', () => { expect(BRIDGE_THREE_CHANNEL.outboxPollIntervalMs).toBe(1500); });
-});
-
-describe('polling-loop / _patrolSafe 防护', () => {
-  it('stop() 后 _patrolSafe 立即返回', async () => {
+describe('polling-loop / _downlinkSafe 防护', () => {
+  it('stop() 后 _downlinkSafe 立即返回', async () => {
     const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
     loop.start();
     loop.stop();
-    await loop._patrolSafe(); 
-    expect(loop._patrolInFlight).toBe(false);
+    await loop._downlinkSafe();
+    expect(loop._downlinkInFlight).toBe(false);
+  });
+
+  it('无 config 时 _downlink 静默返回', async () => {
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig: () => null, getMeta });
+    await loop._downlink();
   });
 });
-

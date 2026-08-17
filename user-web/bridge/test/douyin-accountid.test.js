@@ -24,16 +24,15 @@ describe('douyin getAccountId 浮层兜底', () => {
     expect(id).not.toContain('unknown');
   });
 
-  it('仅「我的」链接指向 /user/self 占位时，仍返回空串以外的稳定值（不触发 WS 401）', () => {
+  it('仅「我的」链接指向 /user/self 占位时，返回空串（DOM 兜底失败，后端用三元组命中）', () => {
     document.body.innerHTML = `<a href="//www.douyin.com/user/self?from_nav=1">我的</a>`;
     const id = getAccountId();
-    expect(id).not.toBe(''); 
-    expect(id).toContain('unknown');
+    expect(id).toBe('');
   });
 
-  it('完全无 /user/ 链接时，返回 unknown 兜底（非空串）', () => {
+  it('完全无 /user/ 链接时，返回空串（DOM 兜底失败，后端用三元组命中）', () => {
     document.body.innerHTML = `<div class="some-page">无账号线索</div>`;
-    expect(getAccountId()).toBe('douyin-unknown');
+    expect(getAccountId()).toBe('');
   });
 
   it('浮层下取不到真实 id 时，复用 localStorage 缓存的真实 id', () => {

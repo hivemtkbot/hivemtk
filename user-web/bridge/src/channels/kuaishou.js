@@ -82,7 +82,10 @@ function getAccountId() {
     const cached = localStorage.getItem(`hivebridge:account:${CHANNELS.KUAISHOU}`);
     if (cached) return cached;
   } catch (_) {}
-  return 'kuaishou-unknown';
+  // 2026-08-17 治本：DOM 兜底失败时返回空串（不返回 kuaishou-unknown 占位值）。
+  // types.js buildMessage 在 account_id 为空时 delete 该字段，后端层0 改用
+  // (platform+sender_name+content) 三元组命中 outbound，避免占位值污染入库链路。
+  return '';
 }
 
 // 消息内容提取
