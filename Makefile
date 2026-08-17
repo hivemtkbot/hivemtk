@@ -1,27 +1,25 @@
 # =============================================================================
-# HiveMtk 用户端 - Makefile（2026-07-24 宿主机推理栈重构版）
+# HiveMtk 用户端 - Makefile（2026-08-17 宿主机部署重构版）
 # =============================================================================
-
-# 默认 compose 文件（仅 PG + Redis；推理栈走宿主机 llama.cpp，见 inference-host-up）
-COMPOSE_HOST = docker-compose-host.yml
+# 架构：Docker 仅提供数据层（PG + Redis）；user-server / 推理栈 / 前端均跑宿主机。
+# LLM 配置通过后台「LLM 路由」页面写入数据库表 llm_providers，不落配置文件。
 
 .PHONY: help install init up down restart logs ps build user-build web-build
 .PHONY: db-up db-down db-logs db-ps db-backup db-restore
 .PHONY: inference-host-install inference-host-models inference-host-up inference-host-down
 .PHONY: inference-host-warmup inference-host-logs inference-host-ps inference-host-test inference-host-status
 .PHONY: dev dev-install dev-stop dev-all dev-down
-.PHONY: docker-up docker-dev docker-down docker-logs
 
 # 默认目标
 help:
 	@echo "==================================="
-	@echo "HiveMtk 用户端 - 命令清单（2026-07-24 宿主机推理栈）"
+	@echo "HiveMtk 用户端 - 命令清单（2026-08-17 宿主机部署）"
 	@echo "==================================="
 	@echo ""
 	@echo "【首次部署】"
-	@echo "  make install              - 一键安装：生成 .env + compose + 下载模型 + 拉起全栈"
+	@echo "  make install              - 一键安装：生成 .env + 拉起数据层 + 下载模型 + 启动推理栈"
 	@echo ""
-	@echo "【数据层（Docker）】"
+	@echo "【数据层（Docker：仅 PG + Redis）】"
 	@echo "  make db-up                - 启动 PG + Redis 容器"
 	@echo "  make db-down              - 停止 PG + Redis 容器"
 	@echo "  make db-ps                - 查看 PG + Redis 容器状态"
@@ -29,34 +27,35 @@ help:
 	@echo "  make db-backup            - 备份 PG"
 	@echo "  make db-restore FILE=...  - 恢复 PG（指定 .sql 文件）"
 	@echo ""
-	@echo "【宿主机推理栈（llama.cpp）】"
+	@echo "【宿主机推理栈（llama.cpp / MLX）】"
 	@echo "  make inference-host-install  - 安装 llama.cpp 二进制（首次）"
 	@echo "  make inference-host-models   - 下载 dev 档模型（首次）"
-	@echo "  make inference-host-up       - 启动 LLM + Embedding + Rerank 三个 llama-server"
+	@echo "  make inference-host-up       - 启动 LLM + Embedding + Rerank 三个推理服务"
 	@echo "  make inference-host-down     - 停止三服务"
 	@echo "  make inference-host-warmup   - 预热三端点（避免首请求慢）"
 	@echo "  make inference-host-test     - 端到端 smoke test"
 	@echo "  make inference-host-status   - 统一查看数据层+推理栈+user-server 状态"
-	@echo "  make inference-host-logs     - tail 三个 llama-server 日志"
+	@echo "  make inference-host-logs     - tail 三个推理服务日志"
 	@echo "  make inference-host-ps       - ps aux | grep llama-server"
 	@echo "  make inference-host-models-prod  - 下载 prod 档模型（16G+ 内存机器）"
 	@echo ""
-	@echo "【本地开发（热更新）】"
-	@echo "  make dev-install          - 安装 air 热更新工具（如未安装）"
-	@echo "  make dev                  - 启动 user-server 热更新（air）"
+	@echo "【user-server（宿主机 Go 服务）】"
+	@echo "  make user-build           - 编译 user-server 二进制到 user-server/bin/"
+	@echo "  make dev                  - 启动 user-server 热更新（air，开发用）"
 	@echo "  make dev-stop             - 停止 air 进程"
-	@echo "  make dev-all              - 一键全栈（数据层 + 推理栈 + air 提示）"
+	@echo ""
+	@echo "【一键全栈】"
+	@echo "  make dev-all              - 拉起数据层 + 推理栈（再手动 make dev）"
 	@echo "  make dev-down             - 停止数据层 + 推理栈 + air"
 	@echo ""
 	@echo "【前端构建】"
 	@echo "  make web-build            - 构建 user-web 前端"
 	@echo "  make sdk-build            - 构建 embed-sdk"
 	@echo ""
-	@echo "【Docker 全栈】"
-	@echo "  make docker-up            - 生产模式（PG + Redis + user-server 二进制）"
-	@echo "  make docker-dev           - 开发模式（PG + Redis + user-server air 热更新）"
-	@echo "  make docker-down          - 停止所有 Docker 服务"
-	@echo "  make docker-logs          - 查看 user-server 日志"
+	@echo "【代码质量】"
+	@echo "  make lint                 - golangci-lint 架构护栏"
+	@echo "  make vet                  - go vet"
+	@echo "  make test-go              - go test ./..."
 
 # =============================================================================
 # 首次安装
@@ -68,12 +67,6 @@ install:
 		echo "🔑 生成密钥: openssl rand -hex 32"; \
 	else \
 		echo "⚠️  .env 已存在，跳过生成"; \
-	fi
-	@if [ ! -f docker-compose.yml ]; then \
-		cp docker-compose-host.yml docker-compose.yml; \
-		echo "✅ 已生成 docker-compose.yml（仅 PG+Redis 宿主机版）"; \
-	else \
-		echo "⚠️  docker-compose.yml 已存在，跳过生成"; \
 	fi
 	@make web-build
 	@make sdk-build
@@ -91,8 +84,8 @@ install:
 	@echo "  LLM        : 127.0.0.1:8207/v1"
 	@echo "  Embedding  : 127.0.0.1:8208/v1"
 	@echo "  Rerank     : 127.0.0.1:8209"
-	@echo "  user-server: 127.0.0.1:8204（air 启动后）"
-	@echo "  user-web   : 127.0.0.1:5173（npm run dev 启动后）"
+	@echo "  user-server: 127.0.0.1:8204（make dev 或 make user-build 后启动）"
+	@echo "  user-web   : 127.0.0.1:5173（cd user-web && npm run dev）"
 	@echo "=========================================="
 	@echo "下一步："
 	@echo "  make dev           # 启动 user-server 热更新"
@@ -102,19 +95,19 @@ install:
 # 数据层（PG + Redis，Docker）
 # =============================================================================
 db-up:
-	docker compose -f $(COMPOSE_HOST) up -d
+	docker compose up -d
 
 db-down:
-	docker compose -f $(COMPOSE_HOST) down
+	docker compose down
 
 db-logs:
-	docker compose -f $(COMPOSE_HOST) logs -f
+	docker compose logs -f
 
 db-ps:
-	docker compose -f $(COMPOSE_HOST) ps
+	docker compose ps
 
 db-backup:
-	docker compose -f $(COMPOSE_HOST) exec -T mtk-postgres \
+	docker compose exec -T mtk-postgres \
 		pg_dump -U $${POSTGRES_USER:-admin} $${USER_DB_NAME:-user_db} > backup_$$(date +%Y%m%d_%H%M%S).sql
 	@echo "✅ 备份完成"
 
@@ -123,7 +116,7 @@ db-restore:
 		echo "用法: make db-restore FILE=backup_20260101_120000.sql"; \
 		exit 1; \
 	fi
-	docker compose -f $(COMPOSE_HOST) exec -T mtk-postgres \
+	docker compose exec -T mtk-postgres \
 		psql -U $${POSTGRES_USER:-admin} -d $${USER_DB_NAME:-user_db} < $(FILE)
 	@echo "✅ 恢复完成"
 
@@ -176,6 +169,16 @@ inference-host-status: db-ps inference-host-ps
 	else \
 		echo "  ❌ 127.0.0.1:8204 user-server ($$code)"; \
 	fi
+
+# =============================================================================
+# user-server 宿主机二进制构建
+# =============================================================================
+user-build:
+	@echo "🔨 编译 user-server 二进制..."
+	@mkdir -p user-server/bin
+	cd user-server && CGO_ENABLED=0 go build -o bin/user-server ./cmd/api
+	@echo "✅ user-server 二进制已构建到 user-server/bin/user-server"
+	@echo "运行：cd user-server && ./bin/user-server"
 
 # =============================================================================
 # 前端构建
@@ -238,28 +241,6 @@ dev-down:
 	@make db-down || true
 	@make dev-stop || true
 	@echo "✅ 全栈已停止"
-
-# =============================================================================
-# Docker 全栈（生产 / 开发）
-# =============================================================================
-docker-up:
-	@echo "🚀 启动 Docker 全栈（生产模式：二进制）"
-	docker compose up -d --build
-	@echo "✅ 全栈已启动（PG + Redis + user-server）"
-
-docker-dev:
-	@echo "🚀 启动 Docker 全栈（开发模式：air 热更新）"
-	docker compose --profile dev up -d --build mtk-user-server-dev
-	@echo "✅ 全栈已启动（PG + Redis + user-server-dev air）"
-	@echo "📝 修改 user-server/ 下 .go/.yaml 文件后容器内自动重编+重启"
-	@echo "📝 查看日志：make docker-logs"
-
-docker-down:
-	docker compose --profile dev down
-	@echo "✅ Docker 全栈已停止"
-
-docker-logs:
-	docker compose --profile dev logs -f mtk-user-server-dev
 
 # =============================================================================
 # 代码质量护栏（P0-1：架构依赖规则见 user-server/.golangci.yml depguard）

@@ -1,24 +1,25 @@
 # ============================================================
-# HiveMtk 用户端 - 宿主机部署版 Docker Compose（推荐）
+# HiveMtk 用户端 - 宿主机部署版 Docker Compose（仅数据层）
 # ------------------------------------------------------------
-# 部署定位（2026-07-24 重构）：
-#   - 仅包含【数据层】两个服务：PostgreSQL(user_db) + Redis
-#   - 推理栈（llm / embedding / rerank）已迁移到宿主机 llama.cpp
-#     （见 scripts/inference-host/），容器不再承载推理，节省 CPU/内存
-#   - user-server 与 user-web 在宿主机运行（user-server 用 air 热更新）
-#   - 端口通过 127.0.0.1:8202/8203 暴露，user-server 走 127.0.0.1 访问
+# 部署定位（2026-08-17 重构）：
+#   - Docker 只负责提供数据库：PostgreSQL(user_db) + Redis
+#   - user-server（Go 代码）在【宿主机】运行，不再容器化
+#   - 本地推理栈（LLM / Embedding / Rerank）由宿主机 llama.cpp / MLX 直接运行
+#     （见 scripts/inference-host/），容器不再承载推理
+#   - 前端（user-web）与嵌入 SDK（embed-sdk）在【宿主机】构建后由 user-server 直接托管
+#   - 用户端由各商户/用户自行部署，与【平台端】物理隔离
 #
 # 端口：
 #   - mtk-postgres：容器内 8202 → 宿主机 127.0.0.1:8202
 #   - mtk-redis：容器内 8203 → 宿主机 127.0.0.1:8203
-#   - LLM       ：宿主机 127.0.0.1:8207（llama-server，scripts/inference-host/start-llm.sh）
+#   - LLM       ：宿主机 127.0.0.1:8207（llama-server / mlx_lm.server，scripts/inference-host/start-llm.sh）
 #   - Embedding ：宿主机 127.0.0.1:8208（llama-server，scripts/inference-host/start-embedding.sh）
 #   - Rerank    ：宿主机 127.0.0.1:8209（llama-server，scripts/inference-host/start-rerank.sh）
 #
 # 启动：
-#   docker compose -f docker-compose-host.yml up -d
+#   docker compose up -d
 # 停止：
-#   docker compose -f docker-compose-host.yml down
+#   docker compose down
 # 一键全栈（PG+Redis+推理+user-server+user-web）：
 #   make dev-all
 # ============================================================
@@ -39,18 +40,14 @@ networks:
         - subnet: 172.32.0.0/16
 
 volumes:
+  mtk_user_pg_data:
+    name: mtk_user_pg_data
   mtk_user_redis_data:
     name: mtk_user_redis_data
-  mtk_user_logs:
-    name: mtk_user_logs
-  mtk_user_uploads:
-    name: mtk_user_uploads
-  mtk_user_data:
-    name: mtk_user_data
 
 services:
   # ============================================================
-  # 用户端 PostgreSQL 15+ + pgvector
+  # 用户端 PostgreSQL 15+ + pgvector（独立容器，库名 user_db）
   # ============================================================
   mtk-postgres:
     image: pgvector/pgvector:pg15
@@ -77,12 +74,11 @@ services:
       - maintenance_work_mem=64MB
       - -c
       - port=8202
-    # 关键：宿主机部署版把端口直接绑到 127.0.0.1
-    # user-server 走 127.0.0.1:8202 访问，避免容器网络解析
+    # 关键：端口绑到 127.0.0.1，user-server 走 127.0.0.1:8202 访问，避免容器网络解析
     ports:
       - "127.0.0.1:${USER_POSTGRES_HOST_PORT:-8202}:8202"
     volumes:
-      - ./pg_data:/var/lib/postgresql/data
+      - mtk_user_pg_data:/var/lib/postgresql/data
       - ./migrations/init-user-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     networks:
       mtk-user-network:
@@ -116,7 +112,7 @@ services:
     environment:
       TZ: Asia/Shanghai
       LANG: C.UTF-8
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required (>=32 chars). Generate with: openssl rand -hex 32}"
     command:
       - redis-server
       - --port
@@ -126,10 +122,10 @@ services:
       - --maxmemory
       - 1gb
       - --maxmemory-policy
-      - "allkeys-lru"
+      - allkeys-lru
       - --requirepass
-      - ${REDIS_PASSWORD:-}
-    # 关键：宿主机部署版绑到 127.0.0.1
+      - "${REDIS_PASSWORD:?REDIS_PASSWORD is required (>=32 chars). Generate with: openssl rand -hex 32}"
+    # 关键：端口绑到 127.0.0.1
     ports:
       - "127.0.0.1:${REDIS_HOST_PORT:-8203}:8203"
     volumes:
@@ -140,7 +136,7 @@ services:
           - mtk-redis
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "-p", "8203", "ping"]
+      test: ["CMD-SHELL", "redis-cli -p 8203 -a \"$REDIS_PASSWORD\" ping >/dev/null 2>&1 || redis-cli -p 8203 ping"]
       interval: 15s
       timeout: 5s
       retries: 5

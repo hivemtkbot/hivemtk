@@ -108,8 +108,8 @@ models/
 
 # ---------- Docker ----------
 docker-compose.override.yml
-# 说明：docker-compose.yml 为本地真实编排（忽略）；docker-compose-example.yml 为示例模板，纳入版本追踪。
-docker-compose.yml
+# 说明：docker-compose.yml 为宿主机部署版编排（仅数据层 PG+Redis），纳入版本追踪。
+#       真实密钥通过 .env（被忽略）注入，编排文件不保留敏感配置。
 
 # ---------- 证书和密钥 ----------
 *.pem
