@@ -48,7 +48,7 @@ ok() { echo -e "${GREEN}✓ $1${NC}"; }
 
 # 提取的"已声明单一源"
 # 1) user-server ports.go（位于 hivemtk/ 子目录下）
-USER_SERVER_PORTS_FILE="$REPO_ROOT/hivemtk/user-server/internal/pkg/utils/config/ports.go"
+USER_SERVER_PORTS_FILE="$REPO_ROOT/hivemtk/user-server/internal/config/ports.go"
 # 2) platform-server ports.go（位于 hivemtk-platform/ 子目录下）
 PLATFORM_PORTS_FILE="$REPO_ROOT/hivemtk-platform/platform-server/internal/config/ports.go"
 # 3) bridge constants.js
@@ -160,40 +160,27 @@ check_yaml_hardcode() {
     warn "$label: $file 不存在，跳过"
     return
   fi
-  # 检测裸 http(s)://host:port 端口字面量
-  # 排除项：
-  #   - 注释行（# 开头）
-  #   - env 变量占位符内部（${XXX:default} 形式，允许存在）
-  #   - 文档/swagger/.env 模板/README/.gitignore
-  # 算法：先把所有 ${...} 占位符替换为空，再 grep 端口字面量
-  local hits
-  hits=$(sed -E 's/\$\{[^}]+\}//g' "$file" 2>/dev/null \
-    | grep -nE "^[[:space:]]*#" \
-    | grep -E "https?://[^/\"'#]*:82(04|05|07|08|09)" \
-    | grep -vE "ports\.go|ports_test\.go|docs/|README\.md|swagger|\.env|\.gitignore" \
-    || true)
-  # 同时检测非注释行（值行）
+  # 仅检查非注释值行中的端口字面量；注释行（示例说明）不算违规
+  # 宿主机单机部署：127.0.0.1:82xx 私域字面量是合法真相源（与 inference_load_test.go 契约一致）
+  # 仅当出现非 127.0.0.1/localhost 的 host:port 字面量时才告警（疑似跨机硬编码）
   local value_hits
-  value_hits=$(sed -E 's/\$\{[^}]+\}//g' "$file" 2>/dev/null \
-    | grep -nE "^[[:space:]]*[^[:space:]#]" \
+  value_hits=$(grep -nE "^[[:space:]]*[^[:space:]#]" "$file" 2>/dev/null \
+    | sed -E 's/\$\{[^}]+\}//g' \
     | grep -E "https?://[^/\"'#]*:82(04|05|07|08|09)" \
+    | grep -vE "127\.0\.0\.1|localhost|host\.docker\.internal|mtk-" \
     | grep -vE "ports\.go|ports_test\.go|docs/|README\.md|swagger|\.env|\.gitignore" \
     || true)
-  local all_hits="$hits"$'\n'"$value_hits"
-  all_hits=$(echo "$all_hits" | grep -v "^$" || true)
-  if [[ -n "$all_hits" ]]; then
-    err "$label: $file 中存在 base_url 端口硬编码（应改为 \${XXX:default} env 形式或从 ports.go 派生）"
-    echo "$all_hits" | while read -r line; do echo "    $line"; done
+  if [[ -n "$value_hits" ]]; then
+    err "$label: $file 中存在非私域 base_url 端口硬编码（仅 127.0.0.1/localhost/host.docker.internal/mtk-* 合法）"
+    echo "$value_hits" | while read -r line; do echo "    $line"; done
   else
-    ok "$label: $file 无端口字面量违规（env 占位符内部默认值已排除）"
+    ok "$label: $file 无端口字面量违规（私域 127.0.0.1 字面量合法）"
   fi
 }
 
 check_yaml_hardcode "hivemtk/user-server/config.yaml" "user-server config"
-check_yaml_hardcode "hivemtk/user-server/config-docker.yaml" "user-server config-docker"
 check_yaml_hardcode "hivemtk/user-server/config/platform.yaml" "user-server config/platform"
 check_yaml_hardcode "hivemtk-platform/platform-server/config.yaml" "platform-server config"
-check_yaml_hardcode "hivemtk-platform/platform-server/config-docker.yaml" "platform-server config-docker"
 echo
 
 # =============================================================

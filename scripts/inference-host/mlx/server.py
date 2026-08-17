@@ -332,6 +332,7 @@ def _error_body(msg: str, status: int = 400):
 # 端点
 # ============================================================
 @app.get("/health")
+@app.get("/v1/health")
 def health():
     return {
         "status": "ok", "model": SERVED_MODEL_NAME, "path": MODEL_PATH,

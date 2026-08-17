@@ -3,17 +3,22 @@
 # HiveMtk 用户端 线上发布脚本
 #
 # 部署目标：hiveuserapi.xapptool.cn (118.25.236.101)
+# 部署架构（2026-08-17 重构：宿主机部署）：
+#   - 云端（118.25.236.101）：仅 nginx + user-web 静态资源 + frps 隧道服务端
+#   - 本地（宿主机）：user-server 二进制 + PG + Redis + LLM 推理栈
+#   - API 路径：客户端 → 云端 nginx /api → frps(8280) → 本地 frpc → 本地 user-server:8204
+#
 # 部署内容：
-#   - user-web 前端 → /www/wwwroot/hivemtk/user-web/dist/        (商户演示前端 hiveuser.xapptool.cn 站点根)
-#   - embed-sdk → /www/wwwroot/hivemtk/user-web/embed-sdk-dist/
-#   - user-server Docker 容器（PG + Redis + user-server）
+#   - user-web 前端 → 云端 /www/wwwroot/hivemtk/user-web/dist/        (商户演示前端 hiveuser.xapptool.cn 站点根)
+#   - embed-sdk   → 云端 /www/wwwroot/hivemtk/user-web/embed-sdk-dist/
+#   - user-server → 本地二进制（go build → nohup 重启，127.0.0.1:8204）
 #
 # 用法:
-#   ./deploy-user.sh                    # 全量发布
-#   ./deploy-user.sh --web-only         # 只发布前端
-#   ./deploy-user.sh --api-only         # 只发布 API（跳过前端构建）
+#   ./deploy-user.sh                    # 全量发布（前端推送云端 + 本地 user-server 重启）
+#   ./deploy-user.sh --web-only         # 只发布前端到云端
+#   ./deploy-user.sh --api-only         # 只重启本地 user-server（跳过前端构建）
 #   ./deploy-user.sh --skip-build       # 跳过本地前端构建
-#   ./deploy-user.sh --nginx-only       # 只更新 nginx 反代配置（不动前端/后端）
+#   ./deploy-user.sh --nginx-only       # 只更新云端 nginx 反代配置
 #   ./deploy-user.sh --dry-run          # 仅打印命令
 # =============================================================
 set -euo pipefail
@@ -84,7 +89,7 @@ run_remote() {
 preflight() {
   log "########## 预检 ##########"
 
-  for cmd in ssh scp rsync git; do
+  for cmd in ssh scp rsync git go; do
     command -v "$cmd" >/dev/null 2>&1 || die "本地命令缺失: $cmd"
   done
   log "  本地命令: ok"
@@ -93,18 +98,22 @@ preflight() {
     $REMOTE "echo ok" >/dev/null 2>&1 || die "无法 SSH 到 $DEPLOY_USER@$DEPLOY_HOST"
     log "  SSH 连通: ok"
 
-    for cmd in docker; do
-      run_remote "远端命令 $cmd" "command -v $cmd >/dev/null 2>&1 || { echo MISSING; exit 1; }; echo ok" >/dev/null \
-        || die "远端命令缺失: $cmd"
-    done
-    log "  远端命令: ok"
+    # 本地 docker（PG + Redis 在本地宿主机运行）
+    command -v docker >/dev/null 2>&1 || die "本地命令缺失: docker（数据层 PG+Redis 需要）"
+    log "  本地 docker: ok"
 
-    # 检查远端 .env
-    run_remote "远端 .env 检查" \
-      "test -f $REMOTE_DEPLOY_DIR/.env && echo present || echo missing" \
-      | grep -q present || log_warn "远端 $REMOTE_DEPLOY_DIR/.env 不存在，将使用本地 .env 上传"
+    # 本地 go（user-server 二进制编译需要）
+    command -v go >/dev/null 2>&1 || die "本地命令缺失: go（user-server 编译需要）"
+    log "  本地 go: ok"
+
+    # 本地 .env（user-server 与 docker compose 均依赖）
+    if [[ -f "$ROOT/.env" ]]; then
+      log "  本地 .env: ok"
+    else
+      log_warn "本地 $ROOT/.env 不存在，user-server 启动可能失败（DB 密码等缺失）"
+    fi
   else
-    log "  跳过 SSH/远端预检（dry-run）"
+    log "  跳过 SSH/本地预检（dry-run）"
   fi
 }
 
@@ -147,53 +156,50 @@ push_web() {
   log "  前端资源推送完成"
 }
 
-# ---------- 远端部署 user-server Docker ----------
+# ---------- 本地部署 user-server（宿主机二进制） ----------
 deploy_api() {
-  log "########## 部署 user-server Docker 容器 ##########"
+  log "########## 部署 user-server（本地宿主机二进制）##########"
 
-  # 1) 上传 .env 文件
-  if [[ -f "$ROOT/.env" ]]; then
-    log "==> 上传 .env"
-    run "scp $ROOT/.env $DEPLOY_USER@$DEPLOY_HOST:$REMOTE_DEPLOY_DIR/.env"
-  else
-    die ".env 文件不存在，请先创建"
-  fi
+  # 0) 确保数据层（PG + Redis）在本地运行
+  log "==> 检查本地数据层（PG + Redis）"
+  run "cd \"$ROOT\" && docker compose up -d"
+  log "  本地 PG(127.0.0.1:8202) + Redis(127.0.0.1:8203) 已就绪"
 
-  # 2) 上传 docker-compose.yml 和相关配置
-  log "==> 上传 docker-compose.yml"
-  run "scp $ROOT/docker-compose.yml $DEPLOY_USER@$DEPLOY_HOST:$REMOTE_DEPLOY_DIR/docker-compose.yml"
+  # 1) 编译 user-server 二进制（本地宿主机原生）
+  log "==> 编译 user-server 二进制"
+  run "cd \"$ROOT/user-server\" && mkdir -p bin && CGO_ENABLED=0 go build -o bin/user-server ./cmd/api"
+  [[ -f "$ROOT/user-server/bin/user-server" ]] || die "user-server 编译失败"
+  log "  二进制已生成：$ROOT/user-server/bin/user-server"
 
-  # 3) 上传 Dockerfile 和配置文件
-  log "==> 上传 user-server 源码和配置"
-  run_remote "创建远端 user-server 目录" "mkdir -p $REMOTE_DEPLOY_DIR/user-server"
-  run "scp $ROOT/user-server/Dockerfile $DEPLOY_USER@$DEPLOY_HOST:$REMOTE_DEPLOY_DIR/user-server/Dockerfile"
-  run "scp $ROOT/user-server/config-docker.yaml $DEPLOY_USER@$DEPLOY_HOST:$REMOTE_DEPLOY_DIR/user-server/config-docker.yaml"
-  run "scp $ROOT/user-server/config/platform.yaml $DEPLOY_USER@$DEPLOY_HOST:$REMOTE_DEPLOY_DIR/user-server/config/platform.yaml"
+  # 2) 停止旧的 user-server 进程
+  log "==> 停止旧 user-server 进程"
+  run "pkill -f 'user-server/bin/user-server' 2>/dev/null || true"
+  run "sleep 1"
 
-  # 4) 上传 go.mod go.sum（构建需要）
-  run "scp $ROOT/user-server/go.mod $DEPLOY_USER@$DEPLOY_HOST:$REMOTE_DEPLOY_DIR/user-server/go.mod"
-  run "scp $ROOT/user-server/go.sum $DEPLOY_USER@$DEPLOY_HOST:$REMOTE_DEPLOY_DIR/user-server/go.sum"
+  # 3) 启动新 user-server 进程（nohup，加载本地 .env）
+  # cwd 必须是 user-server/ —— config.yaml 用相对路径 os.ReadFile("config.yaml")，
+  # 否则读不到配置文件会回落到 docker 服务名 postgres-user:8202 导致 DB 连接失败。
+  log "==> 启动 user-server（nohup，端口 8204）"
+  run "mkdir -p \"$ROOT/user-server/logs\""
+  run "cd \"$ROOT\" && set -a && [ -f .env ] && source .env; set +a && cd user-server && nohup ../user-server/bin/user-server > logs/user-server.log 2>&1 &"
+  run "sleep 2"
 
-  # 5) 上传完整 user-server 源码（Docker 构建需要）
-  log "==> 同步 user-server 源码（用于 docker build）"
-  run "rsync -az --delete --exclude='tmp' --exclude='.air' --exclude='*.exe' $ROOT/user-server/ $DEPLOY_USER@$DEPLOY_HOST:$REMOTE_DEPLOY_DIR/user-server/"
-
-  # 6) 上传 migrations
-  run_remote "创建远端 migrations 目录" "mkdir -p $REMOTE_DEPLOY_DIR/migrations"
-  run "rsync -az $ROOT/migrations/ $DEPLOY_USER@$DEPLOY_HOST:$REMOTE_DEPLOY_DIR/migrations/"
-
-  # 7) 上传 template 目录（HTML 模板）
-  run_remote "确认 template 目录" "mkdir -p $REMOTE_DEPLOY_DIR/user-server/internal/template"
-  if [[ -d "$ROOT/user-server/internal/template" ]]; then
-    run "rsync -az $ROOT/user-server/internal/template/ $DEPLOY_USER@$DEPLOY_HOST:$REMOTE_DEPLOY_DIR/user-server/internal/template/"
-  fi
-
-  # 8) 远端 docker compose 构建并启动
-  log "==> 远端 docker compose up -d --build"
-  run_remote "docker compose 停止旧容器" \
-    "cd $REMOTE_DEPLOY_DIR && docker compose down 2>/dev/null || true"
-  run_remote "docker compose 构建并启动" \
-    "cd $REMOTE_DEPLOY_DIR && docker compose up -d --build mtk-user-server mtk-postgres mtk-redis"
+  # 4) 本地健康检查
+  log "==> 本地健康检查 127.0.0.1:8204"
+  local i=0
+  while (( i < 30 )); do
+    # 用 /api/health（非 /health）并校验 Content-Type: application/json，
+    # 避免 user-server NoRoute 或 nginx SPA 兜底返回 200+HTML 导致假通过
+    local ct
+    ct=$(curl -fsS -o /dev/null -w "%{content_type}" "http://127.0.0.1:8204/api/health" 2>/dev/null) && \
+      [[ "$ct" == application/json* ]] && {
+      log "  ✅ user-server 已启动（127.0.0.1:8204，${i}s，Content-Type: $ct）"
+      return 0
+    }
+    sleep 1
+    i=$((i+1))
+  done
+  log_warn "user-server 本地健康检查超时，请查看 user-server/logs/user-server.log"
 
   log "  user-server 部署完成"
 }
@@ -322,10 +328,14 @@ healthcheck() {
   local max_wait=60
   local i=0
   while (( i < max_wait )); do
-    if curl -fsS "https://$DOMAIN_USER_API/health" >/dev/null 2>&1; then
-      log "  ✅ https://$DOMAIN_USER_API/health 通过（${i}s）"
+    # 用 /api/health（非 /health）并校验 Content-Type: application/json，
+    # 避免 nginx SPA 兜底返回 200+HTML（前端 index.html）导致假通过
+    local ct
+    ct=$(curl -fsS -o /dev/null -w "%{content_type}" "https://$DOMAIN_USER_API/api/health" 2>/dev/null) && \
+      [[ "$ct" == application/json* ]] && {
+      log "  ✅ https://$DOMAIN_USER_API/api/health 通过（${i}s，Content-Type: $ct）"
       return 0
-    fi
+    }
     sleep 3
     i=$((i+3))
   done
