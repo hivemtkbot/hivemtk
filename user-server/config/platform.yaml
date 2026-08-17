@@ -3,14 +3,13 @@
 # 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8205 | platform-server
 # 需求：hivemtk 初始化后直接将安装信息上报到该平台。
 #
-# 重要：本文件【禁止】硬编码任何具体域名作为默认（原 hivepaltformapi.xapptool.cn 已移除）。
+# 重要：本文件【禁止】硬编码任何具体域名作为默认。
 # 实际地址必须由环境变量注入，解析优先级（见 internal/config/platform.go LoadPlatform）：
-#   1. PLATFORM_API_HOST   （容器/宿主必填，容器内须 http://host.docker.internal:8205）
-#   2. PLATFORM_API_URL    （兼容别名）
-#   3. 本字段 api_url（支持 ${VAR} 展开，留空则由环境变量决定）
-# 三者皆空 → 启动报错（避免容器内误连 127.0.0.1/localhost 失败）。
-# 本地联调：在 .env 中设 PLATFORM_API_HOST=http://host.docker.internal:8205
-api_url: "${PLATFORM_API_URL}"
+#   1. PLATFORM_API_HOST   （宿主机部署：同机 http://127.0.0.1:8205，跨机 https://api.example.com）
+#   2. 本字段 api_url（支持 ${VAR} 展开，留空则由环境变量决定）
+# 两者皆空 → 启动报错。
+# 本地联调：在 .env 中设 PLATFORM_API_HOST=http://127.0.0.1:8205
+api_url: "${PLATFORM_API_HOST}"
 # 商户端密钥（32 位，与平台端配置一致）
 # 私域合规基线 §7.2：通过环境变量 MERCHANT_API_SECRET 注入，禁止明文落库
 secret: "${MERCHANT_API_SECRET}"

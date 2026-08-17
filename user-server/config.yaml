@@ -1,11 +1,11 @@
 platform_api:
-  # 平台端 API 网关（user-server 跑在容器内，跨网络物理隔离）
+  # 平台端 API 网关（user-server 与 platform-server 均跑在宿主机，本机回环访问）
   # 单一源：internal/config/ports.go → DefaultPlatformPort=8205
-  # 文档源：DEVELOPMENT.md §2.4 + docker-compose.yml 中 platform-server 端口映射
+  # 文档源：DEVELOPMENT.md §2.4 + docker-compose.yml 中 postgres-platform 端口映射
   # 调整流程：先改 ports.go 常量 → 同步本字段 → 同步 docker-compose.yml
   # 覆盖优先级：环境变量 PLATFORM_API_URL > 本默认值
   # 字段名统一为 api_url（与 internal/config/platform.go LoadPlatform / server.go PlatformAPI 一致）
-  api_url: "${PLATFORM_API_URL:http://host.docker.internal:8205}"
+  api_url: "${PLATFORM_API_URL:http://127.0.0.1:8205}"
 
 # 外部可达基座 URL（用于自动推导 Telegram / 飞书 / 钉钉等被动渠道的 Webhook 回调地址）
 # 背景：user-server 部署在反代/frp/云函数之后，渠道回调所需的公网 URL
@@ -33,15 +33,17 @@ logging:
   max_size: 200
   component: "user-server"
 
+# ============================================================
+# 数据库配置（配置文件唯一保留的运行时配置）
+# ============================================================
+# 私域合规基线 §7.2：密码不落配置文件。docker 部署时由 .env 注入，
+# 宿主机运行时由环境变量 DB_PASSWORD 注入，app 启动直接读取。
 database:
   type: postgres
   postgres:
-    host: "${DB_HOST:mtk-postgres}"
+    host: "${DB_HOST:127.0.0.1}"
     port: ${DB_PORT:8202}
     user: admin
-    # 私域合规基线 §7.2：密码不落配置文件。docker 部署时由 docker-compose 的
-    # env_file / 密钥管理注入 POSTGRES_PASSWORD，app 启动直接读取，
-    # 配置文件不保留 password 字段。
     dbname: user_db
     sslmode: disable
 
@@ -52,49 +54,46 @@ vector_database:
     # 2026-07-24：本地 llama.cpp + bge-m3（1024 维），与 pgvector vector(1024) 对齐
     dimension: 1024
 
-# 本地推理栈（embedding / rerank / llm）统一配置
-# 设计详见 docs/architecture/HOST_INFERENCE_PLAN.md
-# 三个能力走宿主机 llama.cpp（host.docker.internal），容器不再承载推理。
-# 覆盖优先级：环境变量 > config > 默认
+# ============================================================
+# LLM / 推理栈配置
+# ============================================================
+# 设计原则（2026-08-17 重构）：
+#   - 本节提供本地推理栈（llama.cpp / MLX）的回落默认值，必须与
+#     internal/config/server.go DefaultInferenceConfig() 严格一致（测试断言）。
+#   - LLM 运行时配置（提供商 / base_url / model / api_key / temperature 等）通过
+#     后台「LLM 路由」页面 → POST /api/llm/models 写入数据库表 llm_providers，
+#     user-server 启动时经 LoadProvidersFromDB 加载，覆盖本节默认值。
+#   - 合规基线：API Key 不落配置文件；cloud_providers 必须为空（禁止云端 fallback）。
+#   - 场景路由规则持久化到 llm_routing_rules 表，由 /api/llm/scene-routing 管理。
 inference:
   profile: dev
   embedding:
     mode: local
-    base_url: "${EMBEDDING_BASE_URL:http://host.docker.internal:8208/v1}"
+    base_url: "http://127.0.0.1:8208/v1"
     model: "bge-m3"
     dimension: 1024
     allow_fallback: false
   rerank:
     mode: local
-    base_url: "${RERANK_BASE_URL:http://host.docker.internal:8209/v1}"
+    base_url: "http://127.0.0.1:8209/v1"
     model: "bge-reranker-v2-m3"
     enabled: true
   llm:
-    mode: remote
-    base_url: "${LLM_BASE_URL:http://host.docker.internal:8207/v1}"
-    # 2026-08-10：切换为宿主机 MLX 栈 SmolLM3-3B 4bit（ModelScope 下载 + mlx_lm.convert，
-    # 见 scripts/inference-host/mlx/），经 host.docker.internal:8207 直连。
-    # 此前为 llama.cpp qwen2.5-7b-instruct GGUF；DB llm_providers（default 行）为运行时真相。
-    model: "smollm3-3b-4bit-mlx"
-    api_key: ""
+    mode: local
+    base_url: "http://127.0.0.1:8207/v1"
+    model: "Qwen2.5-1.5B-Instruct"
     temperature: 0.7
-    # 调优（2026-07-31 03:10）：1024 在 RAG 长答案上 finish_reason=length 截断，
-    #   → orchestrator 判定低质量转人工（ai_replied=false）→ 客户端收到空回复。
-    #   提到 2048 让 9B 完整输出一段含 RAG 引用的业务答案（实测首条 content_len=910，
-    #   SOP + 知识库组合后普遍 1300-1700 token）。7B 同样适用。
-    max_tokens: 2048
-    # 调优记录（2026-07-30 → 2026-07-31 02:45）：
-    #   - 300s 实测不够：9B + 完整 RAG 链路（intent + sop + 拟人润色）经常 250-300s，
-    #     context canceled 后被判定为 LLM 失败，触发转人工（conf=0）
-    #   - 提到 600s 适配 9B 长链路（单条最多 2-3 个 LLM 调用 × 60-150s）
-    timeout_seconds: 600
+    max_tokens: 1024
+    timeout_seconds: 720
     max_retries: 1
-    # 主推理 provider：当前以云端 deepseek 为主（本地 default 作为兜底 fallback，本机 8207 未运行）。
-    # 注意：provider 的 API 定义（api_key/base_url/model 等）现已持久化到数据库表 llm_providers，
-    # 由后台「LLM路由」页面 / 脚本经 POST /api/llm/models 写入，容器启动经 LoadProvidersFromDB 加载，
-    # 不再硬编码在配置中（合规基线：密钥不落配置文件）。本环境经脚本/页面注册了 deepseek（enabled）。
-    primary_provider: deepseek
+    primary_provider: ""
+    api_key: ""
+    cloud_providers: []
 
+# ============================================================
+# 对象存储配置（密钥通过环境变量注入，不落配置文件）
+# ============================================================
+# 七牛云 AK/SK 由 QINIU_ACCESS_KEY / QINIU_SECRET_KEY 环境变量提供。
 storage:
   type: qiniu
   qiniu:
