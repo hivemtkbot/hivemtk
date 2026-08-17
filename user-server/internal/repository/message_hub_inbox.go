@@ -72,18 +72,26 @@ func (r *MessageHubRepository) CreateWithInboxTx(
 		return nil
 	}
 	if inboxRepo == nil {
-
 		return r.Create(ctx, hub)
 	}
+
+	// 幂等预检查：已落库的消息直接返回，避免并发竞态下事务内 INSERT 触发
+	// duplicate key → PostgreSQL 将事务置为 aborted 状态 → commit 阶段报
+	// "commit unexpectedly resulted in rollback"（即使代码 return nil 也救不回来）。
+	if hub.MsgID != "" {
+		var existing model.MessageHub
+		if err := r.db.WithContext(ctx).Where("msg_id = ?", hub.MsgID).First(&existing).Error; err == nil {
+			return nil
+		}
+	}
+
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(hub).Error; err != nil {
-
 			if isDuplicateKeyErr(err) {
 				return nil
 			}
 			return err
 		}
-
 		return inboxRepo.UpsertFromMessageTx(tx, input)
 	})
 }

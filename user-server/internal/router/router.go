@@ -28,10 +28,11 @@ import (
 
 // HealthRedis 供健康检查/就绪检查探测的 Redis 客户端；未配置（REDIS_HOST 为空）时为 nil，
 // 此时健康检查 redis 状态显示 not_configured（与单实例默认行为一致）。
-// allowedCORSOrigins 允许的 Web 源白名单（逗号分隔），来自环境变量 CORS_ALLOW_ORIGINS。
+// allowedCORSOrigins 允许的 Web 源白名单（逗号分隔），来自环境变量 CORS_ALLOW_ORIGINS_USER。
+// 命名与 platform-server 的 CORS_ALLOW_ORIGINS_PLATFORM 对称（user 端后缀 _USER）。
 // 未配置时仅放行 Chrome 扩展源（见 corsMiddleware），拒绝任意 Web 源携带凭据，
 // 修复"反射任意 Origin + 凭据"导致的 CSRF/凭据窃取漏洞（P1）。
-var allowedCORSOrigins = parseCORSOrigins(os.Getenv("CORS_ALLOW_ORIGINS"))
+var allowedCORSOrigins = parseCORSOrigins(os.Getenv("CORS_ALLOW_ORIGINS_USER"))
 
 func parseCORSOrigins(s string) []string {
 	if s == "" {
@@ -51,7 +52,7 @@ func parseCORSOrigins(s string) []string {
 //
 // 安全策略（P1 修复）：
 //   - 浏览器扩展从 chrome-extension://<id> 源发起请求，按源反射放行（扩展为预期调用方）。
-//   - 配置在 CORS_ALLOW_ORIGINS 中的 Web 源放行。
+//   - 配置在 CORS_ALLOW_ORIGINS_USER 中的 Web 源放行。
 //   - 其余任意 Origin 一律不返回 ACAO（浏览器将阻止带凭据的跨域调用），杜绝任意网页
 //     借用户浏览器凭据调用敏感 API。
 //

@@ -89,7 +89,7 @@ func (s *InboxIngressService) interceptInbound(ctx context.Context, event *model
 		return &IngressDecision{}, nil
 	}
 
-	if ob, oerr := s.hubRepo.GetOutboundByPlatformSenderContent(ctx, event.Channel, event.SenderName, content); oerr == nil && ob != nil {
+	if ob, oerr := s.hubRepo.GetOutboundByPlatformSenderContentConv(ctx, event.Channel, event.SenderName, content, event.ConversationID); oerr == nil && ob != nil {
 		return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(matched outbound by platform+sender_name+content)"}, nil
 	}
 
@@ -106,6 +106,11 @@ func (s *InboxIngressService) interceptInbound(ctx context.Context, event *model
 
 // isDuplicateKey 判断是否为唯一键冲突（Postgres: duplicate key value on ...）。
 // 用于消息落库幂等：同一 MsgID（event_id）重发/重扫时视为已落库，不报错。
+//
+// 2026-08-17 补充：并发竞态下，两个请求都通过 GetByMsgID 预检查（都看到 0 行），
+// 然后都进入事务 INSERT。第二个请求的 INSERT 报 duplicate key，但 PostgreSQL 已把
+// 事务标记为 aborted → GORM 在 commit 阶段抛出 "commit unexpectedly resulted in rollback"。
+// 这个包装错误不含 "duplicate key" 字样，需额外识别，否则整批 batch 误判为持久化失败。
 func isDuplicateKey(err error) bool {
 	if err == nil {
 		return false
@@ -113,6 +118,7 @@ func isDuplicateKey(err error) bool {
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "duplicate key") ||
 		strings.Contains(msg, "unique constraint") ||
+		strings.Contains(msg, "commit unexpectedly resulted in rollback") ||
 		errors.Is(err, gorm.ErrDuplicatedKey)
 }
 

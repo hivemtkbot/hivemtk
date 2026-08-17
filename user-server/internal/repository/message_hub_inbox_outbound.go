@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"hivemtk-user/internal/model"
@@ -42,7 +43,7 @@ func (r *MessageHubRepository) AckOutboundDeliveredBatchReturning(ctx context.Co
 	}
 	updatedIDs = make([]string, 0, len(msgIDs))
 	const q = `UPDATE message_hub
-		SET status = 'delivered', updated_at = now()
+		SET status = 'delivered', sent_at = now()
 		WHERE platform = ? AND account_id = ? AND direction = 'outbound' AND msg_id IN ? AND status IN ('pending','inflight')
 		RETURNING msg_id`
 	tx := r.db.WithContext(ctx).Raw(q, channel, accountID, msgIDs)
@@ -128,31 +129,69 @@ func (r *MessageHubRepository) GetByMsgIDsInScopeWithConv(ctx context.Context, p
 	return rows, nil
 }
 
-// GetOutboundByPlatformSenderContent 按「平台 + 发送者名称 + 内容」三元组查询服务端下发的 outbound 行（自回显权威判据）。
+// GetOutboundByPlatformSenderContent 按「平台 + 发送者名称 + 内容」查询服务端下发的 outbound 行（自回显权威判据）。
 //
 // 2026-08-15 补齐（fix 61af7bb 遗漏的仓储方法）：
 //   - 桥接扩展把本账号 AI 出站回复从 DOM 抓取后重发，自/他声明不可信；
 //     服务端以「真实下发的 outbound 内容」为唯一权威事实源，命中即判定为自身回显，拦截不落库。
 //   - sender_name 为空时（极小概率）降级为 platform+content 兜底匹配。
 //   - 仅匹配 direction='outbound'，避免把客户 inbound 消息误判为自身回显。
+//   - 2026-08-17 修复回环漏判：AI 回复落库时 sender_name 恒为空（见 webhook_outbound.go），
+//     而 bridge 回显上报时 sender_name 为对方昵称（getPeerName），二者 sender_name 必不相同 →
+//     原精确匹配永久漏判 → 回环。修复：senderName 非空时匹配 (sender_name = ? OR sender_name = ''),
+//     即 outbound 自身空 sender_name 也算命中；并加 2 小时窗口避免历史消息误杀。
+//   - 2026-08-17 深查：精确 content = ? 仍漏判 DOM 拼接场景（同一 outbound 被抓两次拼成 2 倍长度，
+//     或多条 AI 回复拼接）。增加包含匹配兜底：拉同会话近期 outbound，若 inbound content 完整包含
+//     某条 outbound content 且长度差显著（inbound 更长），判定为回显拼接，拦截。
 func (r *MessageHubRepository) GetOutboundByPlatformSenderContent(ctx context.Context, platform, senderName, content string) (*model.MessageHub, error) {
+	return r.GetOutboundByPlatformSenderContentConv(ctx, platform, senderName, content, "")
+}
+
+// GetOutboundByPlatformSenderContentConv 同上但按 conversation_id 限定范围（包含匹配兜底必需）。
+func (r *MessageHubRepository) GetOutboundByPlatformSenderContentConv(ctx context.Context, platform, senderName, content, conversationID string) (*model.MessageHub, error) {
 	if r == nil || r.db == nil || platform == "" || content == "" {
 		return nil, nil
 	}
 	var row model.MessageHub
 	q := r.db.WithContext(ctx).
 		Where("platform = ? AND direction = 'outbound' AND content = ?", platform, content).
+		Where("created_at > now() - interval '2 hours'").
 		Order("id DESC")
-	if senderName != "" {
-		q = q.Where("sender_name = ?", senderName)
+	if conversationID != "" {
+		q = q.Where("conversation_id = ?", conversationID)
 	}
-	if err := q.First(&row).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
+	if senderName != "" {
+		q = q.Where("(sender_name = ? OR sender_name = '' OR sender_name IS NULL)", senderName)
+	}
+	if err := q.First(&row).Error; err == nil {
+		return &row, nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
-	return &row, nil
+
+	// 包含匹配兜底：inbound content 完整包含某条近期 outbound content。
+	// 仅在 conversationID 非空时执行（避免跨会话误杀）；要求 outbound content 长度 >= 10
+	// 且 inbound content 长度 > outbound content 长度（即 inbound 是 outbound 的超集）。
+	if conversationID == "" || len(content) < 20 {
+		return nil, nil
+	}
+	var rows []model.MessageHub
+	subQ := r.db.WithContext(ctx).
+		Where("platform = ? AND direction = 'outbound' AND conversation_id = ?", platform, conversationID).
+		Where("created_at > now() - interval '2 hours'").
+		Where("length(content) >= 10").
+		Order("id DESC").
+		Limit(20)
+	if err := subQ.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for i := range rows {
+		oc := rows[i].Content
+		if len(oc) >= 10 && len(content) > len(oc) && strings.Contains(content, oc) {
+			return &rows[i], nil
+		}
+	}
+	return nil, nil
 }
 
 // AckOutboundDeliveredBatchReturningWithStatus 原子 RETURNING + 可配置终态（2026-08-15 P0-3 + P0-1）。
@@ -179,7 +218,7 @@ func (r *MessageHubRepository) AckOutboundDeliveredBatchReturningWithStatus(
 
 	// SQL 拼接：conversation_id 过滤可选
 	const qBase = `UPDATE message_hub
-		SET status = ?, updated_at = now()
+		SET status = ?, sent_at = now()
 		WHERE platform = ? AND account_id = ? AND direction = 'outbound'
 		  AND msg_id IN ? AND status IN ('pending','inflight')`
 	q := qBase

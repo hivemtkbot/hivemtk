@@ -631,30 +631,6 @@ func (s *InboxIngressService) HandleIngressBatch(ctx context.Context, events []*
 			continue
 		}
 
-		if s.hubRepo != nil {
-			unreplied, withinWindow, err := s.hubRepo.HasUnrepliedCustomerMessage(ctx, convID, InboxReplyWindow)
-			if err != nil {
-				logger.Ctx(ctx).Error().Err(err).
-					Str("conv_id", convID).
-					Msg("[Inbox][Batch] 查询最后一条消息方向失败，保守不触发 AI")
-				continue
-			}
-			if !unreplied {
-				logger.Ctx(ctx).Info().
-					Str("conv_id", convID).
-					Int("new_inbound_count", len(newInboundContents)).
-					Msg("[Inbox][Batch] 最后一条是平台自己发的（outbound），不触发 AI")
-				continue
-			}
-			if !withinWindow {
-				logger.Ctx(ctx).Info().
-					Str("conv_id", convID).
-					Int("new_inbound_count", len(newInboundContents)).
-					Msg("[Inbox][Batch] 最后一条 inbound 超过 5 分钟，历史消息不触发 AI")
-				continue
-			}
-		}
-
 		if s.cache != nil {
 			aiKey := InboxAIProcessingKey + convID
 			if exists, _ := s.cache.Exists(ctx, aiKey); exists {
