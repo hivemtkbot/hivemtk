@@ -105,7 +105,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { getSalesCockpit } from '@/api/cockpit'
 import * as echarts from 'echarts'
@@ -118,13 +118,31 @@ const cockpit = ref({
   reach: { sentToday: 0 },
   llmRoutes: [],
   channelHealth: [],
-  topTools: []
+  topTools: [],
+  intentDistribution: []
 })
+
+function mapHealthToCockpit(h) {
+  const data = h || {}
+  return {
+    react: { totalRuns: 0 },
+    sop: { executions: 0 },
+    rag: { queries: 0 },
+    reach: { sentToday: Math.round((data.outbound_rate_per_min || 0) * 60 * 24) },
+    llmRoutes: [],
+    channelHealth: [],
+    topTools: [],
+    intentDistribution: []
+  }
+}
+
+let chartInstance = null
+let timer = null
 
 async function loadCockpit() {
   try {
     const res = await getSalesCockpit()
-    cockpit.value = res.data
+    cockpit.value = mapHealthToCockpit(res.data)
     await nextTick()
     renderIntentChart()
   } catch (err) {
@@ -134,14 +152,18 @@ async function loadCockpit() {
 
 function renderIntentChart() {
   if (!intentChart.value) return
-  const chart = echarts.init(intentChart.value)
-  chart.setOption({
+  if (chartInstance) {
+    chartInstance.dispose()
+    chartInstance = null
+  }
+  chartInstance = echarts.init(intentChart.value)
+  chartInstance.setOption({
     tooltip: { trigger: 'item' },
     legend: { bottom: 0 },
     series: [{
       type: 'pie',
       radius: ['40%', '70%'],
-      data: cockpit.value.intentDistribution || [],
+      data: cockpit.value.intentDistribution,
       label: { formatter: '{b}: {c} ({d}%)' }
     }]
   })
@@ -149,7 +171,14 @@ function renderIntentChart() {
 
 onMounted(() => {
   loadCockpit()
-  setInterval(loadCockpit, 60000) // 1 分钟刷新
+  timer = setInterval(loadCockpit, 60000)
+})
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+  if (chartInstance) {
+    chartInstance.dispose()
+    chartInstance = null
+  }
 })
 </script>
 

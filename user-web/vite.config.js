@@ -9,7 +9,7 @@ import { resolve } from 'path'
 
 // =============================================================
 // 单一源约束（user-web / user-server 端口对齐）
-// 单一代码源：user-server/internal/pkg/utils/config/ports.go
+// 单一代码源：user-server/internal/config/ports.go
 // 单一文档源：user-server/docs/dev/DEVELOPMENT.md §2.4 端口对照表
 // 跨包对齐：
 //   - user-server DefaultListenPort="8204"（本文件 proxy target）
