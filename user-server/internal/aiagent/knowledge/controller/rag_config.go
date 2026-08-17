@@ -230,43 +230,28 @@ type RAGQueryResponse struct {
 func (ctrl *RagConfigController) QueryRAG(c *gin.Context) {
 	var req RAGQueryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "Invalid request body: " + err.Error(),
-		})
+		response.Error(c, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
 	if req.Query == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "query 不能为空",
-		})
+		response.Error(c, http.StatusBadRequest, "query 不能为空")
 		return
 	}
 
 	if req.RAGProductID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "rag_product_id 不能为空",
-		})
+		response.Error(c, http.StatusBadRequest, "rag_product_id 不能为空")
 		return
 	}
 
 	product, err := ctrl.service.GetRagProduct(c.Request.Context(), req.RAGProductID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "Failed to get RAG product: " + err.Error(),
-		})
+		response.Error(c, http.StatusBadRequest, "Failed to get RAG product: "+err.Error())
 		return
 	}
 
 	if product == nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"code":    404,
-			"message": "RAG product not found",
-		})
+		response.Error(c, http.StatusNotFound, "RAG product not found")
 		return
 	}
 
@@ -309,16 +294,13 @@ func (ctrl *RagConfigController) QueryRAG(c *gin.Context) {
 		"source_count": len(references),
 	}
 
-	response := RAGQueryResponse{
+	queryResponse := RAGQueryResponse{
 		Answer:     queryResp.Answer,
 		References: references,
 		Metadata:   metadata,
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": response,
-	})
+	response.Success(c, queryResponse, "RAG query completed successfully")
 }
 
 // respondWithFallback 当真实 RAG 服务不可用时,使用产品系统提示词生成兜底回复
@@ -330,7 +312,7 @@ func (ctrl *RagConfigController) respondWithFallback(c *gin.Context, product *mo
 	if answer == "" {
 		answer = fmt.Sprintf("已收到查询: %s。该 RAG 产品 [%s] 当前无可用知识库,后续将为该产品补充文档后即可获得完整回复。", req.Query, product.Name)
 	}
-	response := RAGQueryResponse{
+	queryResponse := RAGQueryResponse{
 		Answer:     answer,
 		References: []any{},
 		Metadata: map[string]any{
@@ -341,9 +323,6 @@ func (ctrl *RagConfigController) respondWithFallback(c *gin.Context, product *mo
 			"fallback":     true,
 		},
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": response,
-	})
+	response.Success(c, queryResponse, "RAG query completed with fallback")
 }
 

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 	"net/http"
@@ -393,15 +394,20 @@ func (c *Customer360Controller) GetCustomerBehaviors(ctx *gin.Context) {
 
 // GetCustomerCommunications 获取客户沟通记录（兼容前端 GET /api/customer/:id/communications）
 func (c *Customer360Controller) GetCustomerCommunications(ctx *gin.Context) {
-	userID := ctx.Param("id")
-	if userID == "" {
+	customerID := ctx.Param("id")
+	if customerID == "" {
 		response.Error(ctx, http.StatusBadRequest, "缺少客户ID")
 		return
 	}
 
-	dto, err := c.customer360Service.GetCustomer360(context.Background(), userID)
+	// 使用 GetCustomer360ByCustomerID 按客户档案主键查询
+	dto, err := c.customer360Service.GetCustomer360ByCustomerID(context.Background(), customerID)
 	if err != nil {
-		response.Error(ctx, http.StatusNotFound, err.Error())
+		if errors.Is(err, service.ErrCustomerNotFound) {
+			response.Error(ctx, http.StatusNotFound, "客户不存在")
+			return
+		}
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
