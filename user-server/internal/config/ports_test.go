@@ -14,7 +14,7 @@ import (
 //   - user-server/docs/dev/DEVELOPMENT.md §2.4 端口对照表
 //   - user-server/docs/dev/DEVELOPMENT.md §2.4 各应用启动描述
 //   - user-web/bridge/src/core/constants.js DEFAULT_USER_SERVER.port
-//   - user-server/Dockerfile:57 ENV SERVER_PORT=8204
+//   - user-server/cmd/api/main.go DefaultListenPort=8204
 func TestPortsConstants(t *testing.T) {
 	t.Run("PortValues", func(t *testing.T) {
 		cases := []struct {

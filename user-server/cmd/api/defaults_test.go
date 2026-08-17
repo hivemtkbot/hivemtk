@@ -8,18 +8,18 @@ import "testing"
 //   - user-server/docs/dev/DEVELOPMENT.md §2.4 端口对照表
 //     | 8204 | user-server | Gin HTTP |
 //     | 8203 | Redis       |
-//   - user-server/Dockerfile:57 ENV SERVER_PORT=8204
+//   - user-server/cmd/api/main.go DefaultListenPort=8204
 //   - user-web/bridge/src/core/constants.js DEFAULT_USER_SERVER.port=8204
 //
 // 调整请同步：
 //   - DEVELOPMENT.md §2.4
-//   - user-server/Dockerfile ENV SERVER_PORT
+//   - user-server/cmd/api/main.go DefaultListenPort
 //   - user-web/bridge/src/core/constants.js DEFAULT_USER_SERVER.port
 //   - user-web/bridge/docs/DEFAULTS.md §2.1
 func TestDefaultPortDocsConsistency(t *testing.T) {
 	t.Run("DefaultListenPort", func(t *testing.T) {
 		if DefaultListenPort != "8204" {
-			t.Errorf("DefaultListenPort 应为 8204（DEVELOPMENT.md §2.4 + Dockerfile ENV），实际 %s", DefaultListenPort)
+			t.Errorf("DefaultListenPort 应为 8204（DEVELOPMENT.md §2.4 + main.go），实际 %s", DefaultListenPort)
 		}
 	})
 	t.Run("DefaultRedisPort", func(t *testing.T) {

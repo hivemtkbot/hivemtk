@@ -152,8 +152,8 @@ func NewTestDBOrSkip(t *testing.T, models ...any) *gorm.DB {
 }
 
 // getTestDSN 读取测试数据库连接串
-// 优先级：POSTGRES_TEST_DSN > 组合 POSTGRES_* 默认值（docker-compose-example.yml 默认值）
-// 默认端口 8202 对应 docker-compose-example.yml 中 postgres-user 服务的 port=8202 配置
+// 优先级：POSTGRES_TEST_DSN > 组合 POSTGRES_* 默认值（docker-compose.yml 默认值）
+// 默认端口 8202 对应 docker-compose.yml 中 mtk-postgres 服务的 port=8202 配置
 // 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8202 | PostgreSQL | Docker 部署映射端口
 func getTestDSN() string {
 	if v := os.Getenv("POSTGRES_TEST_DSN"); v != "" {

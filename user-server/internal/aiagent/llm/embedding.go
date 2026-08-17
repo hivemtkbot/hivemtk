@@ -113,17 +113,16 @@ func NewEmbeddingServiceWithConfig(cfg *EmbeddingConfig) *EmbeddingService {
 	}
 }
 
-// DefaultConfig 读取配置得到默认配置（配置文件为准，其次环境变量，最后内置 docker 默认）
+// DefaultConfig 读取配置得到默认配置（配置文件为准，其次环境变量，最后内置默认）
 //
-// 优先级（私域部署基线 修订）：
-//  1. config.yaml / config-docker.yaml 的 embedding 段（按环境提供正确的本地服务地址，为准）：
-//     - 宿主机：http://127.0.0.1:8208/v1（宿主机 llama.cpp，端口 8208）
-//     - docker：http://mtk-embedding:8208/v1（容器内服务名，端口 8208）
+// 优先级（私域部署基线）：
+//  1. config.yaml 的 embedding 段（为准）：
+//     - 宿主机：http://127.0.0.1:8208/v1（llama.cpp / MLX，端口 8208）
 //  2. 环境变量（EMBEDDING_*）仅在配置文件未指定时回退读取，便于部署层/调试显式覆盖
-//  3. 内置默认：http://mtk-embedding:8208/v1（docker 网络，仅当配置与环境都缺失时生效）
+//  3. 内置默认：http://127.0.0.1:8208/v1（仅当配置与环境都缺失时生效）
 //
-// 注意：必须以配置文件为准，否则宿主机会被 docker 专用的 mtk-embedding 服务名带偏
-// （宿主机无法解析该名，导致 embedding 不可达并静默降级哈希伪向量）。
+// 注意：必须以配置文件为准，否则被错误的服务名带偏
+// （宿主机无法解析容器服务名，导致 embedding 不可达并静默降级哈希伪向量）。
 func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 	if s.defaultConfig != nil {
 		return s.defaultConfig

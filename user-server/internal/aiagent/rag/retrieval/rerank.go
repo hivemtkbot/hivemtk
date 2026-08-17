@@ -97,16 +97,15 @@ const (
 	RerankModelBgeV2M3  = "bge-reranker-v2-m3"
 )
 
-// DefaultRerankConfig 读取重排配置（配置文件为准，其次环境变量，最后内置 docker 默认）
+// DefaultRerankConfig 读取重排配置（配置文件为准，其次环境变量，最后内置默认）
 //
-// 优先级（与 Embedding 一致的私域基线）：
-//  1. config.yaml / config-docker.yaml 的 rerank 段（为准）
-//     - 宿主机：http://127.0.0.1:8209/v1（宿主机 llama.cpp，端口 8209）
-//     - docker：http://mtk-rerank:8209/v1（容器内服务名，端口 8209）
+// 优先级（私域基线）：
+//  1. config.yaml 的 rerank 段（为准）
+//     - 宿主机：http://127.0.0.1:8209/v1（llama.cpp / MLX，端口 8209）
 //  2. 环境变量（RERANK_*）仅在配置文件未指定时回退读取
-//  3. 内置默认：http://mtk-rerank:8209/v1（docker 网络，仅当配置与环境都缺失时生效）
+//  3. 内置默认：http://127.0.0.1:8209/v1（仅当配置与环境都缺失时生效）
 //
-// 必须以配置文件为准，否则宿主机被 docker 专用的 mtk-rerank 服务名带偏（宿主机无法解析）。
+// 必须以配置文件为准，否则被错误的服务名带偏（宿主机无法解析容器服务名）。
 func DefaultRerankConfig() *RerankConfig {
 	fileCfg := config.GetAppConfig().Inference.Rerank
 	baseURL := fileCfg.BaseURL

@@ -217,7 +217,7 @@ func main() {
 	scheduler := service.InitSOPScheduler(db.GetDB(), nil)
 	defer scheduler.Stop(context.Background())
 
-	execDispatcher := service.InitSOPExecutionDispatcher(db.GetDB(), nil, nil)
+	execDispatcher := service.InitSOPExecutionDispatcher(db.GetDB(), scheduler.SOPService(context.Background()), nil)
 	defer execDispatcher.Stop(context.Background())
 	execDispatcher.SetWSHub(context.Background(), websocket.GetHub())
 
