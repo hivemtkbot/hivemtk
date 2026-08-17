@@ -1,25 +1,20 @@
 import { http } from '@/utils/request';
 
 export function getOperationLogs(params) {
-  return request({ url: '/api/operation-logs', method: 'get', params })
+  return http.get('/api/operation-logs', params)
 }
 export function getOperationLogDetail(id) {
   return http.get(`/api/operation-logs/${id}`)
 }
 export function getOperationLogStatistics(params) {
-  return request({ url: '/api/operation-logs/statistics', method: 'get', params })
+  return http.get('/api/operation-logs/statistics', params)
 }
 export function exportOperationLogs(params) {
-  return request({
-    url: '/api/operation-logs/export',
-    method: 'get',
-    params,
-    responseType: 'blob'
-  })
+  return http.get('/api/operation-logs/export', { params, responseType: 'blob' })
 }
 export function deleteOperationLogs(ids) {
-  return request({ url: '/api/operation-logs', method: 'delete', data: { ids } })
+  return http.delete('/api/operation-logs', { data: { ids } })
 }
 export function cleanOperationLogs(beforeDate) {
-  return request({ url: '/api/operation-logs/clean', method: 'post', data: { beforeDate } })
+  return http.post('/api/operation-logs/clean', { beforeDate })
 }

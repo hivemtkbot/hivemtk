@@ -313,9 +313,13 @@ func (a *IntegrationReachAdapter) SendWeCom(ctx context.Context, accountID, exte
 	return hubMsg.MsgID, nil
 }
 
-// SendWeixin 未实现
+// SendWeixin 微信公众号（客服消息，通过 GlobalServiceRegistry 获取 WechatService）
 func (a *IntegrationReachAdapter) SendWeixin(ctx context.Context, openID, msgType, content string) (string, error) {
-	return "", fmt.Errorf("weixin: %w", ErrChannelNotImplemented)
+	svc, err := tooluse.GlobalServiceRegistry().Wechat()
+	if err != nil {
+		return "", fmt.Errorf("weixin: %w", err)
+	}
+	return svc.SendCustomMessage(ctx, 0, openID, msgType, content)
 }
 
 // SendDouyin 未实现

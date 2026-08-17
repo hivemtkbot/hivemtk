@@ -8,11 +8,7 @@ import { http } from '@/utils/request';
 
 // 渠道列表
 export function listChannels(params) {
-  return request({
-    url: '/api/chat-channels',
-    method: 'get',
-    params
-  })
+  return http.get('/api/chat-channels', params)
 }
 
 // 渠道详情
@@ -22,20 +18,12 @@ export function getChannel(channelId) {
 
 // 创建渠道（返回 AppKey + AppSecret，仅创建时返回一次）
 export function createChannel(data) {
-  return request({
-    url: '/api/chat-channels',
-    method: 'post',
-    data
-  })
+  return http.post('/api/chat-channels', data)
 }
 
 // 更新渠道
 export function updateChannel(channelId, data) {
-  return request({
-    url: `/api/chat-channels/${channelId}`,
-    method: 'put',
-    data
-  })
+  return http.put(`/api/chat-channels/${channelId}`, data)
 }
 
 // 禁用渠道

@@ -62,7 +62,7 @@ func (s *KnowledgeBaseService) SetRepositories(kbRepo *repository.KnowledgeBaseR
 // 业务规则:
 //   - name 必填
 //   - type 必填且为 faq/rag/sop
-//   - owner_type=private 时 owner_agent_id 必填
+//   - owner_type=private 时 owner_agent_id 必填, 自动创建 agent_kb_bindings 绑定
 //   - owner_type=shared  时 owner_agent_id 必为空
 func (s *KnowledgeBaseService) CreateKB(ctx context.Context, kb *model.KnowledgeBase) error {
 	if s.repo == nil {
@@ -83,11 +83,13 @@ func (s *KnowledgeBaseService) CreateKB(ctx context.Context, kb *model.Knowledge
 	if kb.OwnerType == "" {
 		kb.OwnerType = model.KnowledgeBaseOwnerPrivate
 	}
+	var ownerAgentID uint
 	switch kb.OwnerType {
 	case model.KnowledgeBaseOwnerPrivate:
 		if kb.OwnerAgentID == nil || *kb.OwnerAgentID == 0 {
 			return errors.New("owner_type=private 时 owner_agent_id 必填")
 		}
+		ownerAgentID = *kb.OwnerAgentID
 	case model.KnowledgeBaseOwnerShared:
 		if kb.OwnerAgentID != nil && *kb.OwnerAgentID != 0 {
 			return errors.New("owner_type=shared 时 owner_agent_id 必为空")
@@ -99,6 +101,22 @@ func (s *KnowledgeBaseService) CreateKB(ctx context.Context, kb *model.Knowledge
 	if kb.Enabled == nil {
 		t := true
 		kb.Enabled = &t
+	}
+
+	if ownerAgentID > 0 {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := tx.Create(kb).Error; err != nil {
+				return err
+			}
+			binding := &model.AgentKBBinding{
+				AgentID: ownerAgentID,
+				KBID:    kb.ID,
+				KBType:  kb.Type,
+				Role:    model.AgentKBBindingRolePrimary,
+				Enabled: boolPtr(true),
+			}
+			return tx.Create(binding).Error
+		})
 	}
 	return s.repo.Create(ctx, kb)
 }
@@ -177,7 +195,12 @@ func (s *KnowledgeBaseService) ListByAgent(ctx context.Context, agentID uint) ([
 	return out, nil
 }
 
-// UpdateKB 更新知识库
+// UpdateKB 更新知识库 (支持部分更新)
+//
+// 业务规则:
+//   - 先加载现有记录, 仅覆盖请求中显式提供的字段
+//   - owner_type=private 时 owner_agent_id 必填 (最终校验)
+//   - owner_type=shared  时 owner_agent_id 必为空 (最终校验)
 func (s *KnowledgeBaseService) UpdateKB(ctx context.Context, id uint, kb *model.KnowledgeBase) error {
 	if s.repo == nil {
 		return errors.New("repo not initialized")
@@ -185,27 +208,67 @@ func (s *KnowledgeBaseService) UpdateKB(ctx context.Context, id uint, kb *model.
 	if id == 0 {
 		return errors.New("id 不能为空")
 	}
-	if kb.Name == "" {
+
+	existing, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		return errors.New("知识库不存在")
+	}
+
+	merged := mergeKBForUpdate(existing, kb)
+
+	if merged.Name == "" {
 		return fmt.Errorf("%w: name 不能为空", utils.ErrInvalidInput)
 	}
-	if kb.Type != "" && !IsValidKBType(kb.Type) {
-		return fmt.Errorf("%w: type 非法: %s", utils.ErrInvalidInput, kb.Type)
+	if merged.Type != "" && !IsValidKBType(merged.Type) {
+		return fmt.Errorf("%w: type 非法: %s", utils.ErrInvalidInput, merged.Type)
 	}
-	if kb.OwnerType != "" {
-		ot := strings.ToLower(strings.TrimSpace(kb.OwnerType))
-		if ot == model.KnowledgeBaseOwnerPrivate {
-			if kb.OwnerAgentID == nil || *kb.OwnerAgentID == 0 {
-				return errors.New("owner_type=private 时 owner_agent_id 必填")
-			}
+
+	ot := strings.ToLower(strings.TrimSpace(merged.OwnerType))
+	switch ot {
+	case model.KnowledgeBaseOwnerPrivate:
+		if merged.OwnerAgentID == nil || *merged.OwnerAgentID == 0 {
+			return errors.New("owner_type=private 时 owner_agent_id 必填")
 		}
-		if ot == model.KnowledgeBaseOwnerShared {
-			if kb.OwnerAgentID != nil && *kb.OwnerAgentID != 0 {
-				return errors.New("owner_type=shared 时 owner_agent_id 必为空")
-			}
-			kb.OwnerAgentID = nil
+	case model.KnowledgeBaseOwnerShared:
+		if merged.OwnerAgentID != nil && *merged.OwnerAgentID != 0 {
+			return errors.New("owner_type=shared 时 owner_agent_id 必为空")
 		}
+		merged.OwnerAgentID = nil
 	}
-	return s.repo.Update(ctx, id, kb)
+
+	return s.repo.Update(ctx, id, merged)
+}
+
+// mergeKBForUpdate 合并现有 KB 与更新请求, 仅覆盖非零/非 nil 字段
+func mergeKBForUpdate(dst *model.KnowledgeBase, src *model.KnowledgeBase) *model.KnowledgeBase {
+	if src.Type != "" {
+		dst.Type = src.Type
+	}
+	if src.Name != "" {
+		dst.Name = src.Name
+	}
+	if src.Description != "" {
+		dst.Description = src.Description
+	}
+	if src.OwnerType != "" {
+		dst.OwnerType = src.OwnerType
+	}
+	if src.OwnerAgentID != nil {
+		dst.OwnerAgentID = src.OwnerAgentID
+	}
+	if src.Enabled != nil {
+		dst.Enabled = src.Enabled
+	}
+	if src.MemberCount != 0 {
+		dst.MemberCount = src.MemberCount
+	}
+	if src.DocCount != 0 {
+		dst.DocCount = src.DocCount
+	}
+	return dst
 }
 
 // DeleteKB 删除知识库 (业务级联: 同步删除所有 agent_kb_bindings)

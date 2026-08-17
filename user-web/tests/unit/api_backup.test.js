@@ -5,8 +5,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // hoisted 后可在 vi.mock 工厂中访问
-const { request } = vi.hoisted(() => ({ request: vi.fn() }))
-vi.mock('@/utils/request', () => ({ default: request }))
+const { request, http } = vi.hoisted(() => {
+  const request = vi.fn()
+  const http = {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn()
+  }
+  return { request, http }
+})
+vi.mock('@/utils/request', () => ({ default: request, http }))
 
 import {
   getBackupList,
@@ -22,6 +31,12 @@ describe('备份 API', () => {
   beforeEach(() => {
     request.mockReset()
     request.mockResolvedValue({ code: 'SUCCESS', data: {} })
+    http.get.mockReset()
+    http.get.mockResolvedValue({ code: 'SUCCESS', data: {} })
+    http.post.mockReset()
+    http.post.mockResolvedValue({ code: 'SUCCESS', data: {} })
+    http.delete.mockReset()
+    http.delete.mockResolvedValue({ code: 'SUCCESS', data: {} })
   })
 
   it('getBackupList 传入分页参数', async () => {
@@ -37,9 +52,7 @@ describe('备份 API', () => {
 
   it('getBackupByID 拼接 ID', async () => {
     await getBackupByID(7)
-    expect(request).toHaveBeenCalledWith(
-      expect.objectContaining({ url: '/api/backups/7', method: 'get' })
-    )
+    expect(http.get).toHaveBeenCalledWith('/api/backups/7')
   })
 
   it('createBackup 提交 JSON body', async () => {
@@ -55,9 +68,7 @@ describe('备份 API', () => {
 
   it('deleteBackup 调用 DELETE', async () => {
     await deleteBackup(99)
-    expect(request).toHaveBeenCalledWith(
-      expect.objectContaining({ url: '/api/backups/99', method: 'delete' })
-    )
+    expect(http.delete).toHaveBeenCalledWith('/api/backups/99')
   })
 
   it('restoreBackup 提交 backup_id', async () => {
@@ -80,8 +91,6 @@ describe('备份 API', () => {
 
   it('getLastRestore 路径正确', async () => {
     await getLastRestore()
-    expect(request).toHaveBeenCalledWith(
-      expect.objectContaining({ url: '/api/restore/last', method: 'get' })
-    )
+    expect(http.get).toHaveBeenCalledWith('/api/restore/last')
   })
 })

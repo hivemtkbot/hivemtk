@@ -2,11 +2,7 @@ import { http } from '@/utils/request';
 
 // 获取OBS配置列表
 export function getObsConfigList(params = {}) {
-  return request({
-    url: '/api/obs/config',
-    method: 'get',
-    params
-  })
+  return http.get('/api/obs/config', params)
 }
 
 // 获取OBS配置详情
@@ -16,20 +12,12 @@ export function getObsConfig(id) {
 
 // 创建OBS配置
 export function createObsConfig(data) {
-  return request({
-    url: '/api/obs/config',
-    method: 'post',
-    data
-  })
+  return http.post('/api/obs/config', data)
 }
 
 // 更新OBS配置
 export function updateObsConfig(id, data) {
-  return request({
-    url: `/api/obs/config/${id}`,
-    method: 'put',
-    data
-  })
+  return http.put(`/api/obs/config/${id}`, data)
 }
 
 // 删除OBS配置

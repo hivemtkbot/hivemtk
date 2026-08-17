@@ -8,11 +8,7 @@ import { http } from '@/utils/request';
 
 // 按座席查询挂载列表
 export function listMounts(params) {
-  return request({
-    url: '/api/customer-service-agents',
-    method: 'get',
-    params
-  })
+  return http.get('/api/customer-service-agents', params)
 }
 
 // 反查智能体被哪些客服使用
@@ -22,20 +18,12 @@ export function listMountsByAIAgent(aiAgentId) {
 
 // 创建挂载
 export function createMount(data) {
-  return request({
-    url: '/api/customer-service-agents',
-    method: 'post',
-    data
-  })
+  return http.post('/api/customer-service-agents', data)
 }
 
 // 更新挂载
 export function updateMount(id, data) {
-  return request({
-    url: `/api/customer-service-agents/${id}`,
-    method: 'put',
-    data
-  })
+  return http.put(`/api/customer-service-agents/${id}`, data)
 }
 
 // 删除挂载
@@ -50,9 +38,5 @@ export function listMountsByUser(userId) {
 
 // 按用户ID创建挂载（自动创建座席状态）
 export function createMountByUser(userId, data) {
-  return request({
-    url: `/api/customer-service-agents/by-user/${userId}`,
-    method: 'post',
-    data
-  })
+  return http.post(`/api/customer-service-agents/by-user/${userId}`, data)
 }

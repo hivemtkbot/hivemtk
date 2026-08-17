@@ -24,10 +24,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ClueTypeTelegram 线索来源类型：Telegram
-// 与 clue.go 的 clueTypeMap、clue_score.go 的 scoreChannel(case 4) 保持一致。
-const ClueTypeTelegram int64 = 4
-
 // tgLeadOpportunityThreshold 意向分达到该值即判定为「商机」
 const tgLeadOpportunityThreshold = 40
 
@@ -166,7 +162,7 @@ func telegramLeadAccountKey(username, fromID string) string {
 //
 // 返回值 newOpportunity：本次挖掘是否让该发言者「新晋为商机」（首次达到阈值，或意向分跨过
 // 阈值由非商机→商机）。用于上层在群里做「发现线索即主动触达」的精准触发（仅新晋时发一次，避免刷屏）。
-func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.MessageHub, groupID, groupTitle, fromID, username, fromName, text string) (newOpportunity bool) {
+func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.MessageHub, accountID, groupID, groupTitle, fromID, username, fromName, text string) (newOpportunity bool) {
 	if s == nil {
 		return false
 	}
@@ -237,10 +233,20 @@ func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.M
 			}
 		} else {
 			logger.Infof("[LeadMiner] 新增 TG 线索 account=%s 意向分=%d 商机=%v 群=%s", account, score, isOpp, groupTitle)
-			newOpportunity = isOpp 
+			newOpportunity = isOpp
 			s.recordTelegramLeadScore(ctx, clue, isOpp)
+			if isOpp && score >= tgDMOutreachMinScore {
+				s.triggerTGDMOutreach(ctx, accountID, fromID, groupID, groupTitle, score, text)
+			}
 			return newOpportunity
 		}
+	}
+
+	// 已存在线索首次晋级为商机时也要触发私信（防止首次打分未达阈值、后续升级的情况漏触达）
+	if existing != nil && existing.IsOpportunity == 0 && isOpp && score >= tgDMOutreachMinScore {
+		logger.Infof("[LeadMiner] TG 线索首次升级为商机，触发私信 account=%s", account)
+		newOpportunity = true
+		s.triggerTGDMOutreach(ctx, accountID, fromID, groupID, groupTitle, score, text)
 	}
 
 	if int64(score) > existing.IntentScore {
@@ -263,6 +269,9 @@ func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.M
 			existing.SourceID = groupID
 			logger.Infof("[LeadMiner] 更新 TG 线索意向分 account=%s → %d 商机=%v", account, score, isOpp)
 			newOpportunity = isOpp && !wasOpp
+			if isOpp && score >= tgDMOutreachMinScore && newOpportunity {
+				s.triggerTGDMOutreach(ctx, accountID, fromID, groupID, groupTitle, score, text)
+			}
 		}
 	}
 	s.recordTelegramLeadScore(ctx, existing, isOpp)

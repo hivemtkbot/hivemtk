@@ -38,6 +38,7 @@ func NewClueScoreServiceWithRepos(s repository.ClueScoreRepository, e repository
 }
 
 // ScoreClue 评分单条线索（基础信息+互动事件）
+// 群聊线索：若来自活跃群聊，engagement 维度加成 10%
 func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*model.ClueScore, error) {
 	if clue == nil {
 		return nil, errors.New("线索不能为空")
@@ -57,6 +58,11 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 	engagementScore, err := s.scoreEngagement(ctx, clue.ID)
 	if err != nil {
 		engagementScore = 0
+	}
+
+	// 群聊线索 engagement 维度加成
+	if clue.IsGroup {
+		engagementScore = int(math.Min(100, float64(engagementScore)*1.10))
 	}
 
 	recencyScore := clueScoreRecency(clue.CreateTime)
@@ -83,6 +89,7 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 		"profile":    profileScore,
 		"engagement": engagementScore,
 		"recency":    recencyScore,
+		"is_group":   clue.IsGroup,
 		"weights": map[string]float64{
 			"channel":    0.25,
 			"verify":     0.20,
@@ -175,6 +182,11 @@ func (s *ClueScoreService) scoreClueWithEngagement(ctx context.Context, clue *mo
 	}
 	engagementScore := int(c) * 12
 
+	// 群聊线索 engagement 维度加成
+	if clue.IsGroup {
+		engagementScore = int(math.Min(100, float64(engagementScore)*1.10))
+	}
+
 	recencyScore := clueScoreRecency(clue.CreateTime)
 
 	total := int(math.Round(
@@ -199,6 +211,7 @@ func (s *ClueScoreService) scoreClueWithEngagement(ctx context.Context, clue *mo
 		"profile":    profileScore,
 		"engagement": engagementScore,
 		"recency":    recencyScore,
+		"is_group":   clue.IsGroup,
 		"weights": map[string]float64{
 			"channel":    0.25,
 			"verify":     0.20,
@@ -283,22 +296,45 @@ func (s *ClueScoreService) LoadClueForScoring(ctx context.Context, clueID string
 	return nil, errors.New("线索不存在")
 }
 
-// scoreChannel 渠道质量评分（按 6 种类型给定基础分）
-// 依据：电话/微信/Whatsapp 触达成功率高于纯社交账号
+// scoreChannel 渠道质量评分
+// 依据：电话/微信/WhatsApp 触达成功率高于纯社交账号
+// 新增渠道类型: 企业微信、抖音、快手、小红书、闲鱼、飞书、TikTok、网页组件、邮件、短信
 func scoreChannel(clueType int64) int {
 	switch clueType {
-	case 1: 
+	case ClueTypeQQ:
 		return 60
-	case 2: 
+	case ClueTypeWeChat:
 		return 85
-	case 3: 
+	case ClueTypePhone:
 		return 95
-	case 4: 
+	case ClueTypeTelegram:
 		return 80
-	case 5: 
+	case ClueTypeWhatsapp:
 		return 90
-	case 6: 
+	case ClueTypeTwitter:
 		return 55
+	case ClueTypeWeCom:
+		return 85
+	case ClueTypeDouyin:
+		return 65
+	case ClueTypeKuaishou:
+		return 65
+	case ClueTypeXiaohongshu:
+		return 60
+	case ClueTypeXianyu:
+		return 55
+	case ClueTypeFeishu:
+		return 80
+	case ClueTypeTikTok:
+		return 60
+	case ClueTypeWebWidget:
+		return 75
+	case ClueTypeEmail:
+		return 55
+	case ClueTypeSMS:
+		return 70
+	case ClueTypeLeadMining:
+		return 60
 	default:
 		return 50
 	}

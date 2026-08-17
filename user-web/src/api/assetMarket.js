@@ -2,38 +2,38 @@ import { http } from '@/utils/request';
 
 // 市场
 export const listAssets = (params) =>
-  request({ url: '/api/v1/asset-market/list', method: 'get', params })
+  http.get('/api/v1/asset-market/list', params)
 
 export const assetDetail = (id) =>
   http.get(`/api/v1/asset-market/detail/${id}`)
 
 export const purchaseAsset = (data) =>
-  request({ url: '/api/v1/asset-market/purchase', method: 'post', data })
+  http.post('/api/v1/asset-market/purchase', data)
 
 export const syncAsset = (data) =>
-  request({ url: '/api/v1/asset-market/sync', method: 'post', data })
+  http.post('/api/v1/asset-market/sync', data)
 
 export const reportUsage = (data) =>
-  request({ url: '/api/v1/asset-market/report-usage', method: 'post', data })
+  http.post('/api/v1/asset-market/report-usage', data)
 
 // 本地资产（同源同构）
 export const listLocalAssets = (params) =>
-  request({ url: '/api/v1/local-assets', method: 'get', params })
+  http.get('/api/v1/local-assets', params)
 
 export const getLocalAsset = (id) =>
   http.get(`/api/v1/local-assets/${id}`)
 
 export const createLocalAsset = (data) =>
-  request({ url: '/api/v1/local-assets', method: 'post', data })
+  http.post('/api/v1/local-assets', data)
 
 export const updateLocalAsset = (id, data) =>
-  request({ url: `/api/v1/local-assets/${id}`, method: 'put', data })
+  http.put(`/api/v1/local-assets/${id}`, data)
 
 export const deleteLocalAsset = (id) =>
   http.delete(`/api/v1/local-assets/${id}`)
 
 export const toggleLocalAsset = (id, active) =>
-  request({ url: `/api/v1/local-assets/${id}/toggle-active`, method: 'put', data: { active } })
+  http.put(`/api/v1/local-assets/${id}/toggle-active`, { active })
 
 export const syncLog = (params) =>
-  request({ url: '/api/v1/local-assets/sync-log', method: 'get', params })
+  http.get('/api/v1/local-assets/sync-log', params)

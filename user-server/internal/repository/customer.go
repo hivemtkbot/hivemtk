@@ -99,6 +99,15 @@ func (r *customerRepository) GetByPhone(ctx context.Context, phone string) (*mod
 	return &customer, nil
 }
 
+// GetByPhoneHash retrieves a customer by phone hash (P0-05 隐私合规)
+func (r *customerRepository) GetByPhoneHash(ctx context.Context, phoneHash string) (*model.Customer, error) {
+	var customer model.Customer
+	if err := _db.GetDB().WithContext(ctx).First(&customer, "phone_hash = ?", phoneHash).Error; err != nil {
+		return nil, nil
+	}
+	return &customer, nil
+}
+
 // GetByEmail retrieves a customer by email
 func (r *customerRepository) GetByEmail(ctx context.Context, email string) (*model.Customer, error) {
 	var customer model.Customer

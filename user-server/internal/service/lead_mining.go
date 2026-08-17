@@ -201,13 +201,19 @@ func (s *Service) process(ctx context.Context, hub *model.MessageHub) {
 		return
 	}
 
+	// debounceKey: 群聊用 platform:convID:senderID，单聊用 platform:senderID
+	// 同一用户在不同群聊中的行为应独立判定
 	account := fmt.Sprintf("%s:%s", hub.Platform, hub.SenderID)
+	debounceKey := account
+	if hub.IsGroup && hub.ConversationID != "" {
+		debounceKey = fmt.Sprintf("%s:%s:%s", hub.Platform, hub.ConversationID, hub.SenderID)
+	}
 	s.mu.Lock()
-	if last, ok := s.lastJudge[account]; ok && time.Since(last) < leadMiningDebounce {
+	if last, ok := s.lastJudge[debounceKey]; ok && time.Since(last) < leadMiningDebounce {
 		s.mu.Unlock()
 		return
 	}
-	s.lastJudge[account] = time.Now()
+	s.lastJudge[debounceKey] = time.Now()
 	s.mu.Unlock()
 
 	history := s.fetchHistory(ctx, hub)
@@ -293,20 +299,29 @@ func (s *Service) persistLead(ctx context.Context, cfg *model.LeadMiningConfig, 
 		}
 	}
 
+	// 根据平台映射线索类型，Web Widget 也映射到对应的渠道类型
+	clueType := PlatformToClueType(hub.Platform)
+	if hub.Platform == "lead_mining" {
+		clueType = ClueTypeLeadMining
+	}
+
 	clue := &model.Clue{
-		Type:           ClueTypeLeadMining,
+		Type:           clueType,
 		Account:        account,
-		Name:           "潜在线索: " + displayName(customer, hub),
+		Name:           displayName(customer, hub),
 		Desc:           jd.Summary,
 		IntentScore:    int64(jd.IntentScore),
 		IsOpportunity:  boolToInt(jd.IntentScore >= leadMiningHighOpportunity),
 		ConversationID: hub.ConversationID,
 		OneID:          customer.UnifiedID,
-		SourceID:       "lead_mining",
+		SourceID:       hub.Platform,
 		MessageID:      fmt.Sprintf("%d", hub.ID),
+		OwnerAccount:   hub.AccountID,
+		IsGroup:        hub.IsGroup,
+		GroupID:        hub.GroupID,
 	}
 
-	existing, gerr := s.clueRepo.FindByTypeAndAccount(ctx, ClueTypeLeadMining, account)
+	existing, gerr := s.clueRepo.FindByTypeAndAccount(ctx, clueType, account)
 	if gerr == nil && existing != nil {
 		_ = s.clueRepo.UpdateByID(ctx, existing.ID, map[string]any{
 			"intent_score":    int64(jd.IntentScore),
@@ -314,6 +329,8 @@ func (s *Service) persistLead(ctx context.Context, cfg *model.LeadMiningConfig, 
 			"is_opportunity":  boolToInt(jd.IntentScore >= leadMiningHighOpportunity),
 			"conversation_id": hub.ConversationID,
 			"message_id":      fmt.Sprintf("%d", hub.ID),
+			"is_group":        hub.IsGroup,
+			"group_id":        hub.GroupID,
 		})
 		return
 	}
@@ -329,9 +346,16 @@ func (s *Service) resolveCustomer(ctx context.Context, platform, senderID, name 
 	}
 	key := "lm:" + platform + ":" + senderID
 	if c, gerr := s.custRepo.GetByUnifiedID(ctx, key); gerr == nil && c != nil {
+		// 仅当 name 有值且客户名称为空/占位时才补充更新
+		if c.Name == "" || c.Name == key {
+			if name != "" {
+				c.Name = name
+				_ = s.custRepo.Update(ctx, c)
+			}
+		}
 		return c, nil
 	}
-	c := &model.Customer{UnifiedID: key}
+	c := &model.Customer{UnifiedID: key, Name: name}
 	if cerr := s.custRepo.Create(ctx, c); cerr != nil {
 		if c2, g2 := s.custRepo.GetByUnifiedID(ctx, key); g2 == nil && c2 != nil {
 			return c2, nil

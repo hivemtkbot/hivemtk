@@ -8,11 +8,7 @@ import { http } from '@/utils/request';
 
 // 智能体列表
 export function listAgents(params) {
-  return request({
-    url: '/api/ai-agents',
-    method: 'get',
-    params
-  })
+  return http.get('/api/ai-agents', params)
 }
 
 // 启用的智能体列表（下拉选择用）
@@ -27,20 +23,12 @@ export function getAgent(id) {
 
 // 创建智能体
 export function createAgent(data) {
-  return request({
-    url: '/api/ai-agents',
-    method: 'post',
-    data
-  })
+  return http.post('/api/ai-agents', data)
 }
 
 // 更新智能体
 export function updateAgent(id, data) {
-  return request({
-    url: `/api/ai-agents/${id}`,
-    method: 'put',
-    data
-  })
+  return http.put(`/api/ai-agents/${id}`, data)
 }
 
 // 删除智能体
@@ -50,20 +38,12 @@ export function deleteAgent(id) {
 
 // 启用/禁用智能体
 export function toggleAgent(id, status) {
-  return request({
-    url: `/api/ai-agents/${id}/toggle`,
-    method: 'post',
-    data: { status }
-  })
+  return http.post(`/api/ai-agents/${id}/toggle`, { status })
 }
 
 // 测试智能体执行
 export function testAgent(id, data) {
-  return request({
-    url: `/api/ai-agents/${id}/test`,
-    method: 'post',
-    data
-  })
+  return http.post(`/api/ai-agents/${id}/test`, data)
 }
 
 // 获取智能体执行上下文（调试用）

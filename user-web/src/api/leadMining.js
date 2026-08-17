@@ -6,9 +6,5 @@ export function getLeadMiningConfig() {
 }
 
 export function saveLeadMiningConfig(data) {
-  return request({
-    url: '/api/lead-mining/config',
-    method: 'post',
-    data
-  })
+  return http.post('/api/lead-mining/config', data)
 }

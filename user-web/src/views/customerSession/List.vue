@@ -42,10 +42,15 @@
           <template #header>
             <div class="card-header">
               <span>{{ $t('会话列表') }}</span>
-              <el-select v-model="filterStatus" size="small" style="width: 100px">
+              <el-select v-model="filterStatus" size="small" style="width: 120px">
                 <el-option :label="$t('全部')" value="" />
-                <el-option :label="$t('进行中')" value="active" />
-                <el-option :label="$t('已结束')" value="closed" />
+                <el-option :label="$t('进行中')" value="__active__" />
+                <el-option :label="$t('待处理')" value="pending" />
+                <el-option :label="$t('AI处理')" value="ai_handling" />
+                <el-option :label="$t('人工')" value="human_handling" />
+                <el-option :label="$t('等待')" value="waiting" />
+                <el-option :label="$t('已解决')" value="resolved" />
+                <el-option :label="$t('已关闭')" value="closed" />
               </el-select>
             </div>
           </template>
@@ -546,8 +551,13 @@ const getSessionStatusLabel = (status) => SESSION_STATUS_META[status]?.label || 
 const getSessionStatusTagType = (status) => SESSION_STATUS_META[status]?.tagType || 'info'
 
 // ===== 过滤会话 =====
+const ACTIVE_STATUSES = ['pending', 'ai_handling', 'human_handling', 'waiting']
+
 const filteredSessions = computed(() => {
   if (!filterStatus.value) return sessions.value
+  if (filterStatus.value === '__active__') {
+    return sessions.value.filter((s) => ACTIVE_STATUSES.includes(s.status))
+  }
   return sessions.value.filter((s) => s.status === filterStatus.value)
 })
 

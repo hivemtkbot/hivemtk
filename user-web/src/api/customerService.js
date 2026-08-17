@@ -9,7 +9,7 @@ import { http } from '@/utils/request';
 
 // ========== 坐席状态 ==========
 export function createAgent(data) {
-  return request({ url: '/api/agents', method: 'post', data })
+  return http.post('/api/agents', data)
 }
 export function getAgentStatus(id) {
   return http.get(`/api/agents/${id}`)
@@ -21,7 +21,7 @@ export function listAllAgents() {
   return http.get('/api/agents/all')
 }
 export function updateAgentStatus(id, data) {
-  return request({ url: `/api/agents/${id}/status`, method: 'put', data })
+  return http.put(`/api/agents/${id}/status`, data)
 }
 export function goOnline(id) {
   return http.post(`/api/agents/${id}/online`)
@@ -39,16 +39,16 @@ export function getMyAgent() {
 
 // ========== 快捷回复 ==========
 export function getQuickReplies(params) {
-  return request({ url: '/api/quick-replies', method: 'get', params })
+  return http.get('/api/quick-replies', params)
 }
 export function getQuickReplyCategories() {
   return http.get('/api/quick-replies/categories')
 }
 export function createQuickReply(data) {
-  return request({ url: '/api/quick-replies', method: 'post', data })
+  return http.post('/api/quick-replies', data)
 }
 export function updateQuickReply(id, data) {
-  return request({ url: `/api/quick-replies/${id}`, method: 'put', data })
+  return http.put(`/api/quick-replies/${id}`, data)
 }
 export function deleteQuickReply(id) {
   return http.delete(`/api/quick-replies/${id}`)
@@ -59,10 +59,10 @@ export function getSessionTags() {
   return http.get('/api/session-tags')
 }
 export function createSessionTag(data) {
-  return request({ url: '/api/session-tags', method: 'post', data })
+  return http.post('/api/session-tags', data)
 }
 export function updateSessionTag(id, data) {
-  return request({ url: `/api/session-tags/${id}`, method: 'put', data })
+  return http.put(`/api/session-tags/${id}`, data)
 }
 export function deleteSessionTag(id) {
   return http.delete(`/api/session-tags/${id}`)
@@ -78,5 +78,5 @@ export function useAISuggestion(id) {
 
 // ========== 会话打标（复用后端 TagSession 路由） ==========
 export function tagSession(sessionId, data) {
-  return request({ url: `/api/customer-sessions/${sessionId}/tags`, method: 'post', data })
+  return http.post(`/api/customer-sessions/${sessionId}/tags`, data)
 }

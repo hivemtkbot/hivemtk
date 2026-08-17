@@ -490,9 +490,11 @@ func (s *LLMService) callProvider(ctx context.Context, config *LLMConfig, body [
 		endpoint = baseURL + "/v1/messages"
 	}
 
+	// BUG-7 修复：≤0 表示 caller 不显式控制（不擅自改回 3）
+	// 配合 ValidateConfig 强制 caller 显式设置，避免被静默改写
 	maxRetries := config.MaxRetries
 	if maxRetries <= 0 {
-		maxRetries = 3
+		maxRetries = 1
 	}
 
 	var lastErr error
@@ -571,10 +573,10 @@ func (s *LLMService) ValidateConfig(config *LLMConfig) error {
 	if config.Model == "" {
 		return fmt.Errorf("model is required")
 	}
-	// v3 审计 P0-14 修复：不再覆盖 caller 设置的 MaxRetries
-	// 原行为：dispatcher 设 1 → ValidateConfig 改回 3 → 实际 3 × N_providers 次
-	// 新行为：caller 必须显式设置；≤0 视为"用默认 1"（dispatcher 默认）
-	if config.MaxRetries < 0 {
+	// BUG-7 修复：caller 未显式设 MaxRetries（零值 0）时强制设为 1
+	// 原：< 0 才设；零值 0 不进分支，调用方静默用 3 次（llm.go:494 兜底）
+	// 新：零值 0 视为"未设置"，强制为 1
+	if config.MaxRetries <= 0 {
 		config.MaxRetries = 1
 	}
 	if config.RequestTimeout <= 0 {

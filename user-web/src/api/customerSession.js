@@ -3,32 +3,28 @@ import { http } from '@/utils/request';
 // 客户会话管理 - 匹配后端 customer-sessions 路由 (service_routes.go)
 // 注意：后端前缀为 /api/customer-sessions（连字符），旧版 /api/customer/session 不存在
 export function getSessions(params) {
-  return request({ url: '/api/customer-sessions', method: 'get', params })
+  return http.get('/api/customer-sessions', params)
 }
 export function getSessionMessages(id, params) {
-  return request({ url: `/api/customer-sessions/${id}/messages`, method: 'get', params })
+  return http.get(`/api/customer-sessions/${id}/messages`, params)
 }
 // 坐席/AI 回复：sender_type 必填，后端据此落库并实时推送给访客 WebSocket
 export function sendMessage(data) {
-  return request({
-    url: `/api/customer-sessions/${data.sessionId}/messages`,
-    method: 'post',
-    data: {
-      content: data.content,
-      sender_type: data.sender_type || 'agent',
-      sender_name: data.sender_name || '客服',
-      sender_id: String(data.sender_id || '')
-    }
+  return http.post(`/api/customer-sessions/${data.sessionId}/messages`, {
+    content: data.content,
+    sender_type: data.sender_type || 'agent',
+    sender_name: data.sender_name || '客服',
+    sender_id: String(data.sender_id || '')
   })
 }
 export function createSession(data) {
-  return request({ url: '/api/customer-sessions', method: 'post', data })
+  return http.post('/api/customer-sessions', data)
 }
 export function closeSession(id) {
   return http.post(`/api/customer-sessions/${id}/close`)
 }
 export function transferSession(id, data) {
-  return request({ url: `/api/customer-sessions/${id}/transfer`, method: 'post', data })
+  return http.post(`/api/customer-sessions/${id}/transfer`, data)
 }
 
 // 方向10：坐席实时聊天看板 - AI/人工接管与切换
@@ -45,11 +41,7 @@ export function transferSession(id, data) {
  * @param {string} [reason] 接管原因
  */
 export function takeoverSession(id, reason = '') {
-  return request({
-    url: `/api/customer-sessions/${id}/takeover`,
-    method: 'post',
-    data: { reason }
-  })
+  return http.post(`/api/customer-sessions/${id}/takeover`, { reason })
 }
 
 /**
@@ -67,11 +59,7 @@ export function releaseSession(id) {
  * @param {string} [reason] 切换原因
  */
 export function switchSessionHandler(id, handlerType, reason = '') {
-  return request({
-    url: `/api/customer-sessions/${id}/switch-handler`,
-    method: 'post',
-    data: { handler_type: handlerType, reason }
-  })
+  return http.post(`/api/customer-sessions/${id}/switch-handler`, { handler_type: handlerType, reason })
 }
 
 /**
@@ -81,24 +69,16 @@ export function switchSessionHandler(id, handlerType, reason = '') {
  * @param {number} [ttlHours] 0 = 永久
  */
 export function blacklistSession(id, reason = '', ttlHours = 0) {
-  return request({
-    url: `/api/customer-sessions/${id}/blacklist`,
-    method: 'post',
-    data: { reason, ttl_hours: ttlHours }
-  })
+  return http.post(`/api/customer-sessions/${id}/blacklist`, { reason, ttl_hours: ttlHours })
 }
 
 /**
  * 解除拉黑
  * @param {string} userId 访客 user_id
- * @param {string} platform 平台（web / douyin / ...）
+ * @param {string} platform 平台（web / douyin / ... ）
  */
 export function unblacklistUser(userId, platform = 'web') {
-  return request({
-    url: '/api/customer-sessions/blacklist/remove',
-    method: 'post',
-    data: { user_id: userId, platform }
-  })
+  return http.post('/api/customer-sessions/blacklist/remove', { user_id: userId, platform })
 }
 
 /**
@@ -107,11 +87,7 @@ export function unblacklistUser(userId, platform = 'web') {
  * @param {string} platform 平台
  */
 export function checkBlacklist(userId, platform = 'web') {
-  return request({
-    url: `/api/customer-sessions/blacklist/check`,
-    method: 'get',
-    params: { user_id: userId, platform }
-  })
+  return http.get('/api/customer-sessions/blacklist/check', { params: { user_id: userId, platform } })
 }
 
 /**
@@ -119,11 +95,7 @@ export function checkBlacklist(userId, platform = 'web') {
  * @param {object} params { page, page_size }
  */
 export function listBlacklist(params = {}) {
-  return request({
-    url: '/api/customer-sessions/blacklist',
-    method: 'get',
-    params
-  })
+  return http.get('/api/customer-sessions/blacklist', params)
 }
 
 // 客户 360° 画像（用于右栏渲染客户信息 + SOP 阶段）

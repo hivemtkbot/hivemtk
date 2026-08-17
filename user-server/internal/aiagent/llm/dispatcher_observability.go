@@ -36,7 +36,7 @@ const (
 var (
 	missingCounter   int64
 	totalCounter     int64
-	missingThreshold = int64(20) 
+	missingThreshold = int64(20)
 )
 
 

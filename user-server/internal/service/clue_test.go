@@ -122,7 +122,7 @@ func TestClueService_GetClue_NotFound(t *testing.T) {
 
 	service := NewClueService()
 
-	_, err := service.GetClue(context.Background(), 999)
+	_, err := service.GetClue(context.Background(), "non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent clue")
 	}

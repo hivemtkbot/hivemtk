@@ -2,16 +2,16 @@ import { http } from '@/utils/request';
 
 // 仪表板大屏 - 匹配后端 /api/dashboards/* 路径
 export function getScreenList(params) {
-  return request({ url: '/api/dashboards', method: 'get', params })
+  return http.get('/api/dashboards', params)
 }
 export function getScreenByID(id) {
   return http.get(`/api/dashboards/${id}`)
 }
 export function createScreen(data) {
-  return request({ url: '/api/dashboards', method: 'post', data })
+  return http.post('/api/dashboards', data)
 }
 export function updateScreen(id, data) {
-  return request({ url: `/api/dashboards/${id}`, method: 'put', data })
+  return http.put(`/api/dashboards/${id}`, data)
 }
 export function deleteScreen(id) {
   return http.delete(`/api/dashboards/${id}`)
@@ -31,7 +31,7 @@ export function getKPIs() {
   return http.get('/api/dashboards/data')
 }
 export function getTrends(params) {
-  return request({ url: '/api/dashboards/data', method: 'get', params })
+  return http.get('/api/dashboards/data', params)
 }
 export function getChannels() {
   return http.get('/api/dashboards/data')

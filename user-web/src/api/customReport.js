@@ -2,16 +2,16 @@ import { http } from '@/utils/request';
 
 // 自定义报表 - 匹配后端 /api/custom-reports/* 路径
 export function getReportList(params) {
-  return request({ url: '/api/custom-reports', method: 'get', params })
+  return http.get('/api/custom-reports', params)
 }
 export function getReport(id) {
   return http.get(`/api/custom-reports/${id}`)
 }
 export function createReport(data) {
-  return request({ url: '/api/custom-reports', method: 'post', data })
+  return http.post('/api/custom-reports', data)
 }
 export function updateReport(id, data) {
-  return request({ url: `/api/custom-reports/${id}`, method: 'put', data })
+  return http.put(`/api/custom-reports/${id}`, data)
 }
 export function deleteReport(id) {
   return http.delete(`/api/custom-reports/${id}`)
@@ -23,7 +23,7 @@ export function useReportTemplate(id) {
   return http.post(`/api/custom-reports/templates/${id}/use`)
 }
 export function queryReportData(id, params) {
-  return request({ url: `/api/custom-reports/${id}/data`, method: 'get', params })
+  return http.get(`/api/custom-reports/${id}/data`, params)
 }
 
 // 兼容旧接口

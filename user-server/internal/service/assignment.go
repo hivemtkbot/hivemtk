@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"hivemtk-user/internal/model"
+
+	"gorm.io/gorm"
 )
 
 // AssignmentStrategy 分配策略
@@ -22,12 +24,10 @@ const (
 
 // AssignmentService 客服会话自动分配服务（USR-WB-03）
 type AssignmentService struct {
-	db interface {
-		Exec(string, ...interface{}) (interface{}, error)
-	}
+	db *gorm.DB
 }
 
-func NewAssignmentService(db interface{}) *AssignmentService {
+func NewAssignmentService(db *gorm.DB) *AssignmentService {
 	return &AssignmentService{db: db}
 }
 

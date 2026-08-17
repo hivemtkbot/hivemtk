@@ -290,7 +290,7 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 		if tgPayload.Message != nil && tgPayload.Message.Chat != nil {
 			groupTitle = tgPayload.Message.Chat.Title
 		}
-		newOpportunity = s.mineTelegramGroupLead(context.Background(), hub, chatIDStr, groupTitle, senderIDStr, picked.username, picked.fromName, picked.text)
+		newOpportunity = s.mineTelegramGroupLead(context.Background(), hub, accountID, chatIDStr, groupTitle, senderIDStr, picked.username, picked.fromName, picked.text)
 	}
 
 	mentioned := isTelegramBotMentioned(picked.text, botUsername)

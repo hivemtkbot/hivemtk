@@ -18,11 +18,7 @@ import { http } from '@/utils/request';
 
 // 列出所有飞书账号
 export function listAccounts(params = {}) {
-  return request({
-    url: '/api/feishu/accounts',
-    method: 'get',
-    params
-  })
+  return http.get('/api/feishu/accounts', params)
 }
 
 // 获取账号详情
@@ -32,20 +28,12 @@ export function getAccount(id) {
 
 // 创建飞书账号
 export function createAccount(data) {
-  return request({
-    url: '/api/feishu/accounts',
-    method: 'post',
-    data
-  })
+  return http.post('/api/feishu/accounts', data)
 }
 
 // 更新飞书账号
 export function updateAccount(id, data) {
-  return request({
-    url: `/api/feishu/accounts/${id}`,
-    method: 'put',
-    data
-  })
+  return http.put(`/api/feishu/accounts/${id}`, data)
 }
 
 // 删除飞书账号
@@ -55,11 +43,7 @@ export function deleteAccount(id) {
 
 // 测试发送消息（验证 App 凭据）
 export function testSend(id, data) {
-  return request({
-    url: `/api/feishu/accounts/${id}/test-send`,
-    method: 'post',
-    data
-  })
+  return http.post(`/api/feishu/accounts/${id}/test-send`, data)
 }
 
 // 刷新 Access Token

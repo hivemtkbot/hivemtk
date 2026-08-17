@@ -5,13 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hivemtk-user/internal/channelbot/core"
+	"hivemtk-user/internal/channelbot/whatsapp"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/repository"
+	"strings"
 	"sync"
 	"time"
 
-	whatsapp "github.com/Rhymen/go-whatsapp"
+	gowa "github.com/Rhymen/go-whatsapp"
 	"github.com/google/uuid"
 )
 
@@ -19,7 +22,7 @@ type WhatsappService struct {
 	repo     repository.WhatsappRepository
 	clueRepo repository.ClueRepository
 	connMu   sync.RWMutex
-	conns    map[uuid.UUID]*whatsapp.Conn
+	conns    map[uuid.UUID]*gowa.Conn
 	qrMu     sync.RWMutex
 	qrs      map[uuid.UUID]string
 }
@@ -31,7 +34,7 @@ func NewWhatsappService() *WhatsappService {
 	return &WhatsappService{
 		repo:     repository.NewWhatsappRepository(),
 		clueRepo: repository.NewClueRepository(),
-		conns:    make(map[uuid.UUID]*whatsapp.Conn),
+		conns:    make(map[uuid.UUID]*gowa.Conn),
 		qrs:      make(map[uuid.UUID]string),
 	}
 }
@@ -60,7 +63,7 @@ func (s *WhatsappService) GetAccount(ctx context.Context, id uuid.UUID) (*model.
 
 // Login
 func (s *WhatsappService) StartLogin(ctx context.Context, accountID uuid.UUID, timeout time.Duration) (string, error) {
-	wac, err := whatsapp.NewConn(timeout)
+	wac, err := gowa.NewConn(timeout)
 	if err != nil {
 		return "", err
 	}
@@ -105,7 +108,7 @@ func (s *WhatsappService) LoginStatus(ctx context.Context, accountID uuid.UUID) 
 	return sess != nil, nil
 }
 
-func (s *WhatsappService) ensureConn(ctx context.Context, accountID uuid.UUID, timeout time.Duration) (*whatsapp.Conn, error) {
+func (s *WhatsappService) ensureConn(ctx context.Context, accountID uuid.UUID, timeout time.Duration) (*gowa.Conn, error) {
 	s.connMu.RLock()
 	c := s.conns[accountID]
 	s.connMu.RUnlock()
@@ -119,11 +122,11 @@ func (s *WhatsappService) ensureConn(ctx context.Context, accountID uuid.UUID, t
 	if sess == nil {
 		return nil, errors.New("no session for account")
 	}
-	wac, err := whatsapp.NewConn(timeout)
+	wac, err := gowa.NewConn(timeout)
 	if err != nil {
 		return nil, err
 	}
-	var ws whatsapp.Session
+	var ws gowa.Session
 	if err := json.Unmarshal([]byte(sess.SessionJSON), &ws); err != nil {
 		return nil, err
 	}
@@ -138,17 +141,76 @@ func (s *WhatsappService) ensureConn(ctx context.Context, accountID uuid.UUID, t
 }
 
 // SendTextMessage 发送文本消息到指定 JID
+// 兼容个人版 (go-whatsapp) 与 Cloud API 两种账号
 func (s *WhatsappService) SendTextMessage(ctx context.Context, accountID uuid.UUID, toJID, text string) (string, error) {
+	acc, err := s.repo.GetAccount(ctx, accountID)
+	if err != nil {
+		return "", err
+	}
+	if acc == nil {
+		return "", errors.New("whatsapp account not found")
+	}
+
+	// Cloud API 账号：使用 Meta Graph API 发送（24h 客服窗口内免费）
+	if acc.Type == "cloud" && acc.PhoneID != "" && acc.Token != "" {
+		phone := toJID
+		if strings.Contains(phone, "@") {
+			phone = strings.Split(phone, "@")[0]
+		}
+		if !strings.HasPrefix(phone, "+") {
+			phone = "+" + phone
+		}
+		cli := whatsapp.NewCloudClient(acc.PhoneID, acc.Token)
+		return cli.SendText(ctx, phone, text)
+	}
+
+	// 个人版账号：使用 go-whatsapp 库
 	wac, err := s.ensureConn(ctx, accountID, 30*time.Second)
 	if err != nil {
 		return "", err
 	}
-	msg := whatsapp.TextMessage{Info: whatsapp.MessageInfo{RemoteJid: toJID}, Text: text}
+	msg := gowa.TextMessage{Info: gowa.MessageInfo{RemoteJid: toJID}, Text: text}
 	resp, err := wac.Send(msg)
 	if err != nil {
 		return "", err
 	}
 	return resp, nil
+}
+
+// SendTemplateMessage 发送模板消息（客服窗口外必须走模板）
+func (s *WhatsappService) SendTemplateMessage(ctx context.Context, accountID uuid.UUID, to, templateName, language string, params map[string]string) (string, error) {
+	acc, err := s.repo.GetAccount(ctx, accountID)
+	if err != nil {
+		return "", err
+	}
+	if acc == nil {
+		return "", errors.New("whatsapp account not found")
+	}
+	if acc.PhoneID == "" || acc.Token == "" {
+		return "", errors.New("cloud api credentials missing")
+	}
+	phone := to
+	if strings.Contains(phone, "@") {
+		phone = strings.Split(phone, "@")[0]
+	}
+	if !strings.HasPrefix(phone, "+") {
+		phone = "+" + phone
+	}
+
+	var components []core.TemplateComponent
+	if len(params) > 0 {
+		var bodyParams []core.TemplateParameter
+		for _, v := range params {
+			bodyParams = append(bodyParams, core.TemplateParameter{Type: "text", Text: v})
+		}
+		components = append(components, core.TemplateComponent{
+			Type:       "body",
+			Parameters: bodyParams,
+		})
+	}
+
+	cli := whatsapp.NewCloudClient(acc.PhoneID, acc.Token)
+	return cli.SendTemplate(ctx, phone, templateName, language, components)
 }
 
 // Drafts
@@ -173,7 +235,7 @@ func (s *WhatsappService) GetDraft(ctx context.Context, id uuid.UUID) (*model.Wh
 }
 
 // Bulk send
-const ClueTypeWhatsapp int64 = 7
+// Note: ClueTypeWhatsapp is defined in clue.go (value=5). Legacy type=7 is also queried for backward compat.
 
 func (s *WhatsappService) CreateBulkJob(ctx context.Context, draftID uuid.UUID) (*model.WhatsappJob, error) {
 	draft, err := s.repo.GetDraft(ctx, draftID)
@@ -188,7 +250,8 @@ func (s *WhatsappService) CreateBulkJob(ctx context.Context, draftID uuid.UUID) 
 		return nil, err
 	}
 
-	clues, total, err := s.clueRepo.GetClueAllList(ctx, ClueTypeWhatsapp)
+	// 查询 WhatsApp 线索，兼容历史 type=7 和标准 type=5
+	clues, total, err := s.clueRepo.GetWhatsappClues(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +285,7 @@ func (s *WhatsappService) CreateBulkJob(ctx context.Context, draftID uuid.UUID) 
 				_ = s.repo.UpdateJob(ctx, job)
 				continue
 			}
-			msg := whatsapp.TextMessage{Info: whatsapp.MessageInfo{RemoteJid: toJid}, Text: draft.Content}
+			msg := gowa.TextMessage{Info: gowa.MessageInfo{RemoteJid: toJid}, Text: draft.Content}
 			_, err = wac.Send(msg)
 			if err != nil {
 				detail.Status = model.WhatsappJobDetailFailed

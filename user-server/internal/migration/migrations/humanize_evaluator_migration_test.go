@@ -19,8 +19,8 @@ func setupHumanizeMigrationTestDB(t *testing.T) *gorm.DB {
 // TestHumanizeMigration_Version 验证元信息
 func TestHumanizeMigration_Version(t *testing.T) {
 	m := NewHumanizeEvaluatorMigration(nil)
-	if m.Version() != "v2.9.0" {
-		t.Errorf("Version()=%q want=v2.9.0", m.Version())
+	if m.Version() != "v2.9.1" {
+		t.Errorf("Version()=%q want=v2.9.1", m.Version())
 	}
 	if m.Name() == "" {
 		t.Error("Name() should not be empty")

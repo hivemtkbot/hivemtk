@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"context"
 	"testing"
 )
 
@@ -35,8 +36,9 @@ func TestDispatchCacheExpiry(t *testing.T) {
 
 func TestDispatchCacheZeroTTLNoop(t *testing.T) {
 	d := newTestDispatcher()
-	d.setCache("k3", 0, "v3")
-	if _, ok := d.getCache("k3"); ok {
+	ctx := context.Background()
+	d.setCache(ctx, "k3", 0, "v3")
+	if _, ok := d.getCache(ctx, "k3"); ok {
 		t.Fatal("zero TTL should not store")
 	}
 }

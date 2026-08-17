@@ -21,7 +21,7 @@ func (s *ClueService) Register(ctx context.Context, clue model.Clue) (*model.Clu
 	return &clue, nil
 }
 
-func (s *ClueService) GetClue(ctx context.Context, id uint) (*model.Clue, error) {
+func (s *ClueService) GetClue(ctx context.Context, id string) (*model.Clue, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
@@ -64,8 +64,73 @@ type ClueType struct {
 	Label string `json:"label"`
 }
 
-// ClueTypeLeadMining 智能线索发掘（由线索发掘服务写入 clues 表，type=8）
-const ClueTypeLeadMining int64 = 8
+const (
+	ClueTypeQQ               int64 = 1
+	ClueTypeWeChat           int64 = 2
+	ClueTypePhone            int64 = 3
+	ClueTypeTelegram         int64 = 4
+	ClueTypeWhatsapp         int64 = 5
+	ClueTypeTwitter          int64 = 6
+	ClueTypeWeCom            int64 = 7
+	ClueTypeLeadMining       int64 = 8
+	ClueTypeDouyin           int64 = 9
+	ClueTypeKuaishou        int64 = 10
+	ClueTypeXiaohongshu      int64 = 11
+	ClueTypeXianyu           int64 = 12
+	ClueTypeFeishu           int64 = 13
+	ClueTypeTikTok            int64 = 14
+	ClueTypeWebWidget        int64 = 15
+	ClueTypeEmail            int64 = 16
+	ClueTypeSMS              int64 = 17
+	ClueTypeCustom           int64 = 99
+)
+
+// IsWhatsappType 判断是否为 WhatsApp 线索类型（兼容历史错误 type=7）
+func IsWhatsappType(t int64) bool {
+	return t == ClueTypeWhatsapp || t == 7
+}
+
+// PlatformToClueType 平台渠道名 → 线索类型 ID 映射
+func PlatformToClueType(platform string) int64 {
+	switch platform {
+	case "qq":
+		return ClueTypeQQ
+	case "wechat", "wx":
+		return ClueTypeWeChat
+	case "phone", "tel":
+		return ClueTypePhone
+	case "telegram", "tg":
+		return ClueTypeTelegram
+	case "whatsapp", "wa":
+		return ClueTypeWhatsapp
+	case "twitter", "x":
+		return ClueTypeTwitter
+	case "wecom", "wechat_work":
+		return ClueTypeWeCom
+	case "douyin":
+		return ClueTypeDouyin
+	case "kuaishou":
+		return ClueTypeKuaishou
+	case "xiaohongshu", "xhs":
+		return ClueTypeXiaohongshu
+	case "xianyu":
+		return ClueTypeXianyu
+	case "feishu", "lark":
+		return ClueTypeFeishu
+	case "tiktok":
+		return ClueTypeTikTok
+	case "web", "web_embed", "widget":
+		return ClueTypeWebWidget
+	case "email", "mail":
+		return ClueTypeEmail
+	case "sms":
+		return ClueTypeSMS
+	case "lead_mining":
+		return ClueTypeLeadMining
+	default:
+		return ClueTypeCustom
+	}
+}
 
 // defaultClueTypes 默认线索类型列表
 var defaultClueTypes = []ClueType{
@@ -73,13 +138,23 @@ var defaultClueTypes = []ClueType{
 	{Value: "2", Label: "微信"},
 	{Value: "3", Label: "电话"},
 	{Value: "4", Label: "Telegram"},
-	{Value: "5", Label: "Whatsapp"},
-	{Value: "6", Label: "twitter"},
+	{Value: "5", Label: "WhatsApp"},
+	{Value: "6", Label: "Twitter/X"},
+	{Value: "7", Label: "企业微信"},
 	{Value: "8", Label: "智能线索发掘"},
+	{Value: "9", Label: "抖音"},
+	{Value: "10", Label: "快手"},
+	{Value: "11", Label: "小红书"},
+	{Value: "12", Label: "闲鱼"},
+	{Value: "13", Label: "飞书"},
+	{Value: "14", Label: "TikTok"},
+	{Value: "15", Label: "网页组件"},
+	{Value: "16", Label: "邮件"},
+	{Value: "17", Label: "短信"},
+	{Value: "99", Label: "自定义"},
 }
 
 // GetClueTypes 获取线索类型列表
-// 始终返回预定义的完整类型列表，确保前端可正常选择类型
 func (s *ClueService) GetClueTypes(ctx context.Context) ([]ClueType, error) {
 	return defaultClueTypes, nil
 }

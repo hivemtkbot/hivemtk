@@ -22,7 +22,7 @@ func NewRagMonitoringMigration(db *gorm.DB) *RagMonitoringMigration {
 }
 
 // Version 返回版本号
-func (m *RagMonitoringMigration) Version() string { return "v2.8.0" }
+func (m *RagMonitoringMigration) Version() string { return "v2.8.1" }
 
 // Name 返回迁移名称
 func (m *RagMonitoringMigration) Name() string {

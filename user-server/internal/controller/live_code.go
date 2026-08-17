@@ -176,7 +176,7 @@ func (c *LiveCodeController) Share(ctx *gin.Context) {
 	}
 
 	shareResponse, err := c.liveCodeService.Share(context.Background(), idStr, &req)
-	if HandleDBError(ctx, err, "分享活码") {
+	if HandleServiceError(ctx, err) {
 		return
 	}
 

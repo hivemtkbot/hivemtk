@@ -222,10 +222,16 @@ func (r *SendMessageRequest) UnmarshalJSON(data []byte) error {
 }
 
 // SendMessage 发送消息
+//
+// 状态校验: 只有 pending/ai_handling/human_handling/waiting 状态的会话可发送消息,
+// resolved/closed 状态不允许追加消息, 防止历史会话被意外修改.
 func (s *CustomerSessionService) SendMessage(ctx context.Context, req *SendMessageRequest) (*model.SessionMessage, error) {
 	session, err := s.sessionRepo.GetBySessionID(ctx, req.SessionID)
 	if err != nil {
 		return nil, errors.New("会话不存在")
+	}
+	if !session.CanSendMessage() {
+		return nil, fmt.Errorf("会话状态 %s 不允许发送消息", session.Status)
 	}
 
 	message := &model.SessionMessage{
@@ -312,23 +318,28 @@ func (s *CustomerSessionService) GetMessages(ctx context.Context, sessionID stri
 }
 
 // UpdateSessionStatus 更新会话状态
+//
+// 幂等保护: 对已处于目标状态的会话重复调用不会产生副作用
+// (如 agent active_sessions 不会被重复扣减)
 func (s *CustomerSessionService) UpdateSessionStatus(ctx context.Context, sessionID uint, status model.SessionStatus) error {
 	session, err := s.sessionRepo.GetByID(ctx, sessionID)
 	if err != nil {
 		return err
+	}
+	if session == nil {
+		return errors.New("会话不存在")
 	}
 
 	if err := s.sessionRepo.UpdateStatus(ctx, sessionID, status); err != nil {
 		return err
 	}
 
-	if status == model.SessionStatusResolved || status == model.SessionStatusClosed {
-		if session.AgentID > 0 {
-			s.agentRepo.DecrementActiveSessions(ctx, session.AgentID)
-		}
+	if (status == model.SessionStatusResolved || status == model.SessionStatusClosed) &&
+		session.AgentID > 0 && session.Status != status {
+		s.agentRepo.DecrementActiveSessions(ctx, session.AgentID)
 	}
 
-	if session.AgentID > 0 {
+	if session.AgentID > 0 && session.Status != status {
 		websocket.NotifySessionUpdate(strconv.FormatUint(uint64(session.AgentID), 10), map[string]any{
 			"session_id": session.SessionID,
 			"status":     status,
@@ -344,7 +355,9 @@ func (s *CustomerSessionService) RateSession(ctx context.Context, sessionID uint
 	if err != nil {
 		return err
 	}
-	_ = session
+	if session == nil {
+		return errors.New("会话不存在")
+	}
 
 	session.Rating = rating
 	session.RatingComment = comment
@@ -357,7 +370,9 @@ func (s *CustomerSessionService) TagSession(ctx context.Context, sessionID uint,
 	if err != nil {
 		return err
 	}
-	_ = session
+	if session == nil {
+		return errors.New("会话不存在")
+	}
 
 	tagsJSON, _ := json.Marshal(tags)
 	session.Tags = string(tagsJSON)

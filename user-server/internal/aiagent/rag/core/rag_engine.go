@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hivemtk-user/internal/aiagent/llm"
 	"math"
+	"sort"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -207,8 +208,13 @@ func NewRAGEngineWithEmbedder(config *RAGConfig, embedder EmbedderInterface) *RA
 
 // AddDocuments 添加文档到知识库
 func (r *RAGEngine) AddDocuments(ctx context.Context, docs []Document) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	// v3 审计 P0-19 + BUG-3 修复：先批量 embedding（无锁，远程调用不持锁），
+	// 再持写锁做 map/slice 写入，避免 embedder 慢时阻塞 Search。
+	type embeddedDoc struct {
+		doc    Document
+		chunks []*Chunk
+	}
+	prepared := make([]embeddedDoc, 0, len(docs))
 	for _, doc := range docs {
 		chunks := r.splitDocument(doc)
 
@@ -219,7 +225,17 @@ func (r *RAGEngine) AddDocuments(ctx context.Context, docs []Document) error {
 			}
 			chunk.Embedding = embedding
 		}
+		prepared = append(prepared, embeddedDoc{doc: doc, chunks: chunks})
+	}
 
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, p := range prepared {
+		doc := p.doc
+		chunks := p.chunks
+		if doc.Embedding != nil && len(chunks) > 0 && chunks[0].Embedding == nil {
+			chunks[0].Embedding = doc.Embedding
+		}
 		r.documents[doc.ID] = &doc
 		r.chunks = append(r.chunks, chunks...)
 	}
@@ -314,46 +330,39 @@ func (r *RAGEngine) Search(ctx context.Context, query string, topK int) ([]Chunk
 		topK = r.config.MaxChunksToRetrieve
 	}
 
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
+	// v3 审计 BUG-3 修复：embedder 调用不持锁（远程调用慢，会阻塞 AddDocuments）
 	queryEmbedding, err := r.embedder.EmbedQuery(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to embed query: %w", err)
 	}
 
-	scores := make([]struct {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	type scored struct {
 		chunk *Chunk
 		score float64
-	}, len(r.chunks))
-
-	for i, chunk := range r.chunks {
-		score := cosineSimilarity(queryEmbedding, chunk.Embedding)
-		scores[i] = struct {
-			chunk *Chunk
-			score float64
-		}{chunk: chunk, score: score}
+	}
+	scores := make([]scored, 0, len(r.chunks))
+	for _, chunk := range r.chunks {
+		scores = append(scores, scored{chunk: chunk, score: cosineSimilarity(queryEmbedding, chunk.Embedding)})
 	}
 
-	for i := 0; i < len(scores)-1; i++ {
-		for j := i + 1; j < len(scores); j++ {
-			if scores[i].score < scores[j].score {
-				scores[i], scores[j] = scores[j], scores[i]
-			}
-		}
-	}
+	// 排序用 sort.Slice O(n log n)，避免原 O(n²) 选择排序
+	sort.Slice(scores, func(i, j int) bool { return scores[i].score > scores[j].score })
 
 	// 返回topK结果，过滤掉低于阈值的
-	var results []Chunk
-	for _, scoredChunk := range scores {
+	results := make([]Chunk, 0, topK)
+	for _, sc := range scores {
 		if len(results) >= topK {
 			break
 		}
-		if scoredChunk.score >= r.config.SimilarityThreshold {
-			sc := *scoredChunk.chunk
-			sc.Score = scoredChunk.score
-			results = append(results, sc)
+		if sc.score < r.config.SimilarityThreshold {
+			continue
 		}
+		copyChunk := *sc.chunk
+		copyChunk.Score = sc.score
+		results = append(results, copyChunk)
 	}
 
 	return results, nil
@@ -410,5 +419,14 @@ func (r *RAGEngine) UpdateConfig(config *RAGConfig) error {
 // GetConfig 获取当前配置
 func (r *RAGEngine) GetConfig() *RAGConfig {
 	return r.config
+}
+
+// GetAllChunksForTest 仅供测试使用：返回当前所有 chunks 的副本
+func (r *RAGEngine) GetAllChunksForTest(ctx context.Context) ([]*Chunk, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]*Chunk, len(r.chunks))
+	copy(out, r.chunks)
+	return out, nil
 }
 

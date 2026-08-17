@@ -14,18 +14,23 @@ import (
 type ClueRepository interface {
 	Create(ctx context.Context, user *model.Clue) error
 	BatchCreateWithDedup(ctx context.Context, clues []*model.Clue) (successCount, skipCount int64, err error)
-	GetByID(ctx context.Context, id uint) (*model.Clue, error)
+	GetByID(ctx context.Context, id string) (*model.Clue, error)
 	GetClueList(ctx context.Context, page int, limit int) ([]*model.Clue, int64, error)
 	Delete(ctx context.Context, id string) error
 	GetRecentClueList(ctx context.Context) ([]*model.Clue, error)
 	GetClueStatistics(ctx context.Context) ([]map[string]any, error)
 	GetClueAllList(ctx context.Context, clueType int64) ([]*model.Clue, int64, error)
+	GetWhatsappClues(ctx context.Context) ([]*model.Clue, int64, error)
 	ExistsByTypeAndAccount(ctx context.Context, clueType int64, account string) (bool, error)
 	FindByTypeAndAccount(ctx context.Context, clueType int64, account string) (*model.Clue, error)
 	GetDistinctTypes(ctx context.Context) ([]int64, error)
 	UpdateByID(ctx context.Context, id string, updates map[string]any) error
 	ListByAccounts(ctx context.Context, accounts []string) ([]*model.Clue, error)
 	BatchUpdateInTx(ctx context.Context, ids []string, updates map[string]any) (int, error)
+	ListWithQuery(ctx context.Context, q ClueQuery, page, limit int) ([]*model.Clue, int64, error)
+	CountWithQuery(ctx context.Context, q ClueQuery) (int64, error)
+	TypeDistribution(ctx context.Context, q ClueQuery) ([]ClueTypeAgg, error)
+	TrendByDay(ctx context.Context, q ClueQuery) ([]ClueTrendAgg, error)
 }
 
 type clueRepo struct {
@@ -150,10 +155,13 @@ func (r *clueRepo) BatchCreateWithDedup(ctx context.Context, clues []*model.Clue
 	return successCount, skipCount, nil
 }
 
-func (r *clueRepo) GetByID(ctx context.Context, id uint) (*model.Clue, error) {
-	var smlist model.Clue
-	err := r.db.WithContext(ctx).First(&smlist, id).Error
-	return &smlist, err
+func (r *clueRepo) GetByID(ctx context.Context, id string) (*model.Clue, error) {
+	var clue model.Clue
+	err := r.db.WithContext(ctx).Where("id = ?", id).First(&clue).Error
+	if err != nil {
+		return nil, err
+	}
+	return &clue, nil
 }
 
 func (r *clueRepo) GetClueList(ctx context.Context, page int, limit int) ([]*model.Clue, int64, error) {
@@ -186,10 +194,7 @@ func (r *clueRepo) GetRecentClueList(ctx context.Context) ([]*model.Clue, error)
 func (r *clueRepo) GetClueStatistics(ctx context.Context) ([]map[string]any, error) {
 	var statistics []map[string]any
 	db := r.db.WithContext(ctx)
-	err := db.Raw("SELECT type AS type, COUNT(*) AS total, SUM(is_verify) AS verify_total FROM clues GROUP BY type ORDER BY type").Scan(&statistics).Error
-	if err != nil {
-		err = db.Raw("SELECT clue_type AS type, COUNT(*) AS total, SUM(is_verify) AS verify_total FROM clues GROUP BY clue_type ORDER BY clue_type").Scan(&statistics).Error
-	}
+	err := db.Raw("SELECT type AS type, COUNT(*) AS total, SUM(CASE WHEN COALESCE(is_verify,0) >= 1 THEN 1 ELSE 0 END) AS verify_total FROM clues WHERE deleted_at IS NULL GROUP BY type ORDER BY type").Scan(&statistics).Error
 	return statistics, err
 }
 
@@ -202,6 +207,22 @@ func (r *clueRepo) GetClueAllList(ctx context.Context, clueType int64) ([]*model
 		return nil, 0, err
 	}
 	err = db.Where("type = ?", clueType).Find(&cluelists).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return cluelists, total, nil
+}
+
+// GetWhatsappClues 查询所有 WhatsApp 线索，兼容历史 type=7 和标准 type=5
+func (r *clueRepo) GetWhatsappClues(ctx context.Context) ([]*model.Clue, int64, error) {
+	var cluelists []*model.Clue
+	var total int64
+	db := r.db.WithContext(ctx)
+	err := db.Where("type IN (?)", []int64{5, 7}).Model(&model.Clue{}).Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	err = db.Where("type IN (?)", []int64{5, 7}).Find(&cluelists).Error
 	if err != nil {
 		return nil, 0, err
 	}

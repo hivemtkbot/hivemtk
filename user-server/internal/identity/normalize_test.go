@@ -479,8 +479,8 @@ func TestNormalizeEmail_Idempotent(t *testing.T) {
 
 func TestNormalizePhone_OnlySeparators(t *testing.T) {
 	got := NormalizePhone("+ - . _")
-	if got != "+ - . _" {
-		t.Errorf("only separators should return trimmed raw, got %q", got)
+	if got != "" {
+		t.Errorf("only separators should produce empty, got %q", got)
 	}
 }
 

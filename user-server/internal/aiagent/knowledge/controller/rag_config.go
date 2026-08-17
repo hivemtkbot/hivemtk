@@ -8,6 +8,7 @@ import (
 
 	"hivemtk-user/internal/aiagent/knowledge/model"
 	"hivemtk-user/internal/aiagent/knowledge/service"
+	"hivemtk-user/internal/pkg/utils/response"
 	sysmodel "hivemtk-user/internal/model"
 
 	"github.com/gin-gonic/gin"
@@ -42,33 +43,21 @@ func (ctrl *RagConfigController) RegisterRoutes(router *gin.RouterGroup) {
 func (ctrl *RagConfigController) CreateRagProduct(c *gin.Context) {
 	var req model.RagProduct
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "Invalid request body: " + err.Error(),
-		})
+		response.Error(c, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
 	product, err := ctrl.service.CreateRagProduct(c.Request.Context(), &req)
 	if err != nil {
 		if isNotFoundError(err) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"code":    404,
-				"message": err.Error(),
-			})
+			response.Error(c, http.StatusNotFound, err.Error())
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": err.Error(),
-		})
+		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": product,
-	})
+	response.Success(c, product, "RAG product created successfully")
 }
 
 func (ctrl *RagConfigController) ListRagProducts(c *gin.Context) {
@@ -86,10 +75,7 @@ func (ctrl *RagConfigController) ListRagProducts(c *gin.Context) {
 
 	products, err := ctrl.service.ListRagProducts(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": err.Error(),
-		})
+		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -104,40 +90,32 @@ func (ctrl *RagConfigController) ListRagProducts(c *gin.Context) {
 
 	pagedProducts := products[start:end]
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": gin.H{
-			"items":     pagedProducts,
-			"total":     len(products),
-			"page":      page,
-			"page_size": pageSize,
-		},
-	})
+	response.SuccessWithPage(c, pagedProducts, int64(page), int64(pageSize), int64(len(products)))
 }
 
 func (ctrl *RagConfigController) GetRagProduct(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Product ID is required"})
+		response.Error(c, http.StatusBadRequest, "Product ID is required")
 		return
 	}
 
 	product, err := ctrl.service.GetRagProduct(c.Request.Context(), id)
 	if err != nil {
 		if isNotFoundError(err) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			response.Error(c, http.StatusNotFound, err.Error())
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if product == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		response.NotFound(c, "Product not found")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": product})
+	response.Success(c, product, "Product retrieved successfully")
 }
 
 func (ctrl *RagConfigController) UpdateRagProduct(c *gin.Context) {
@@ -145,10 +123,7 @@ func (ctrl *RagConfigController) UpdateRagProduct(c *gin.Context) {
 
 	var req model.RagProduct
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "Invalid request body: " + err.Error(),
-		})
+		response.Error(c, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
@@ -157,23 +132,14 @@ func (ctrl *RagConfigController) UpdateRagProduct(c *gin.Context) {
 	err := ctrl.service.UpdateRagProduct(c.Request.Context(), &req)
 	if err != nil {
 		if isNotFoundError(err) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"code":    404,
-				"message": err.Error(),
-			})
+			response.Error(c, http.StatusNotFound, err.Error())
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": err.Error(),
-		})
+		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "RAG product updated successfully",
-	})
+	response.Success(c, nil, "RAG product updated successfully")
 }
 
 func (ctrl *RagConfigController) DeleteRagProduct(c *gin.Context) {
@@ -181,17 +147,11 @@ func (ctrl *RagConfigController) DeleteRagProduct(c *gin.Context) {
 
 	err := ctrl.service.DeleteRagProduct(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": err.Error(),
-		})
+		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "RAG product deleted successfully",
-	})
+	response.Success(c, nil, "RAG product deleted successfully")
 }
 
 func (ctrl *RagConfigController) GetAccountConfig(c *gin.Context) {
@@ -199,58 +159,37 @@ func (ctrl *RagConfigController) GetAccountConfig(c *gin.Context) {
 	platform := c.Query("platform")
 
 	if accountID == "" || platform == "" {
-		c.JSON(http.StatusOK, gin.H{
-			"code": 200,
-			"data": nil,
-		})
+		response.Success(c, nil, "No account config found")
 		return
 	}
 
 	config, err := ctrl.service.GetAccountConfig(c.Request.Context(), accountID, platform)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": err.Error(),
-		})
+		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": config,
-	})
+	response.Success(c, config, "Account config retrieved successfully")
 }
 
 func (ctrl *RagConfigController) UpdateAccountConfig(c *gin.Context) {
 	var req sysmodel.PlatformAccountConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "Invalid request body: " + err.Error(),
-		})
+		response.Error(c, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
 	err := ctrl.service.UpdateAccountConfig(c.Request.Context(), &req)
 	if err != nil {
 		if isNotFoundError(err) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"code":    404,
-				"message": err.Error(),
-			})
+			response.Error(c, http.StatusNotFound, err.Error())
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": err.Error(),
-		})
+		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "Configuration updated successfully",
-	})
+	response.Success(c, nil, "Configuration updated successfully")
 }
 
 func (ctrl *RagConfigController) ProcessMessage(c *gin.Context) {
@@ -261,28 +200,17 @@ func (ctrl *RagConfigController) ProcessMessage(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "Invalid request body: " + err.Error(),
-		})
+		response.Error(c, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
 	reply, err := ctrl.service.ProcessMessage(c.Request.Context(), req.Platform, req.AccountID, req.Message)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": err.Error(),
-		})
+		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": gin.H{
-			"reply": reply,
-		},
-	})
+	response.Success(c, gin.H{"reply": reply}, "Message processed successfully")
 }
 
 // RAGQueryRequest RAG查询请求

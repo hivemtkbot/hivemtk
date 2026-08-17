@@ -21,7 +21,7 @@ func NewSOPExecutorMigration(db *gorm.DB) *SOPExecutorMigration {
 
 // Version 返回版本号（必须全局唯一）
 func (m *SOPExecutorMigration) Version() string {
-	return "v2.7.0"
+	return "v2.7.1"
 }
 
 // Name 返回迁移名称

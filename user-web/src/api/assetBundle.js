@@ -16,11 +16,11 @@ import { http } from '@/utils/request';
 
 // 创建资产包
 export const createBundle = (data) =>
-  request({ url: '/api/asset-bundle', method: 'post', data })
+  http.post('/api/asset-bundle', data)
 
 // 更新资产包
 export const updateBundle = (id, data) =>
-  request({ url: `/api/asset-bundle/${id}`, method: 'put', data })
+  http.put(`/api/asset-bundle/${id}`, data)
 
 // 按 ID 查询
 export const getBundle = (id) =>
@@ -32,7 +32,7 @@ export const getBundleByAssetID = (aid) =>
 
 // 分页查询
 export const listBundles = (data) =>
-  request({ url: '/api/asset-bundle/list', method: 'post', data })
+  http.post('/api/asset-bundle/list', data)
 
 // 启用资产包（draft → active）
 export const publishBundle = (id) =>
@@ -54,13 +54,13 @@ export const deleteBundle = (id) =>
 
 // 织布：资产包 + RAG + 历史 + 当前提问 → 最终 messages 数组
 export const weaveBundle = (data) =>
-  request({ url: '/api/asset-bundle/weave', method: 'post', data })
+  http.post('/api/asset-bundle/weave', data)
 
 // ==================== 商户低代码模式 ====================
 
 // 商户表单保存（前端表单 → 后端翻译成 messages 数组）
 export const merchantSave = (data) =>
-  request({ url: '/api/asset-bundle/merchant-save', method: 'post', data })
+  http.post('/api/asset-bundle/merchant-save', data)
 
 // 商户表单解析（messages 数组 → 前端表单回显）
 export const merchantParse = (aid) =>

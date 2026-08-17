@@ -2,31 +2,31 @@ import { http } from '@/utils/request';
 
 // 流失预警 - 匹配后端真实路由 /api/churn-prediction/*
 export function getChurnPrediction(params) {
-  return request({ url: '/api/churn/prediction', method: 'get', params })
+  return http.get('/api/churn/prediction', params)
 }
 export function getChurnPredictions(params) {
-  return request({ url: '/api/churn-prediction', method: 'get', params })
+  return http.get('/api/churn-prediction', params)
 }
 export function getHighRiskUsers(params) {
-  return request({ url: '/api/churn-prediction/users', method: 'get', params })
+  return http.get('/api/churn-prediction/users', params)
 }
 export function getChurnWarnings(params) {
-  return request({ url: '/api/churn-prediction/warnings', method: 'get', params })
+  return http.get('/api/churn-prediction/warnings', params)
 }
 export function getUnhandledWarnings(params) {
-  return request({ url: '/api/churn/unhandled-warnings', method: 'get', params })
+  return http.get('/api/churn/unhandled-warnings', params)
 }
 export function markWarningHandled(id, data) {
-  return request({ url: `/api/churn/warnings/${id}/handle`, method: 'post', data })
+  return http.post(`/api/churn/warnings/${id}/handle`, data)
 }
 export function getChurnModelConfig() {
   return http.get('/api/churn-prediction/model-config')
 }
 export function saveChurnModelConfig(data) {
-  return request({ url: '/api/churn-prediction/model-config', method: 'post', data })
+  return http.post('/api/churn-prediction/model-config', data)
 }
 export function getChurnStatistics(params) {
-  return request({ url: '/api/churn-prediction/statistics', method: 'get', params })
+  return http.get('/api/churn-prediction/statistics', params)
 }
 export function getRiskDistribution() {
   return http.get('/api/churn/risk-distribution')
@@ -37,7 +37,7 @@ export function runChurnPrediction() {
   return calculateRFM({ type: 'churn' })
 }
 export function interveneUser(data) {
-  return request({ url: '/api/churn/warnings/intervene', method: 'post', data })
+  return http.post('/api/churn/warnings/intervene', data)
 }
 export function getChurnStats(params) {
   return getChurnStatistics(params)
@@ -49,5 +49,5 @@ export function updateChurnConfig(data) {
   return saveChurnModelConfig(data)
 }
 function calculateRFM(data) {
-  return request({ url: '/api/user-segment/rfm/calculate', method: 'post', data })
+  return http.post('/api/user-segment/rfm/calculate', data)
 }

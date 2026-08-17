@@ -14,11 +14,7 @@ import { http } from '@/utils/request';
 
 // 列出所有 Bot 账号
 export function listAccounts(params = {}) {
-  return request({
-    url: '/api/telegram/accounts',
-    method: 'get',
-    params
-  })
+  return http.get('/api/telegram/accounts', params)
 }
 
 // 获取账号详情
@@ -28,20 +24,12 @@ export function getAccount(id) {
 
 // 创建 Bot 账号
 export function createAccount(data) {
-  return request({
-    url: '/api/telegram/accounts',
-    method: 'post',
-    data
-  })
+  return http.post('/api/telegram/accounts', data)
 }
 
 // 更新 Bot 账号
 export function updateAccount(id, data) {
-  return request({
-    url: `/api/telegram/accounts/${id}`,
-    method: 'put',
-    data
-  })
+  return http.put(`/api/telegram/accounts/${id}`, data)
 }
 
 // 删除 Bot 账号
@@ -51,18 +39,10 @@ export function deleteAccount(id) {
 
 // 注册 Webhook（调用 Telegram setWebhook）
 export function registerWebhook(id, data = {}) {
-  return request({
-    url: `/api/telegram/accounts/${id}/register-webhook`,
-    method: 'post',
-    data
-  })
+  return http.post(`/api/telegram/accounts/${id}/register-webhook`, data)
 }
 
 // 测试发送消息
 export function testSend(id, data) {
-  return request({
-    url: `/api/telegram/accounts/${id}/test-send`,
-    method: 'post',
-    data
-  })
+  return http.post(`/api/telegram/accounts/${id}/test-send`, data)
 }

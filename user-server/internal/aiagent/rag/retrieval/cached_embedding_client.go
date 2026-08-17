@@ -4,6 +4,7 @@ package ragretrieval
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -19,8 +20,18 @@ type CachedEmbeddingClient struct {
 	db           *gorm.DB
 	ttlRedis     time.Duration 
 	ttlDB        time.Duration 
-	disableCache bool          
+	disableCache bool
+
+	workerPool   chan func()
+	workerWg     sync.WaitGroup
+	closeOnce    sync.Once
+	closed       chan struct{}
 }
+
+const (
+	defaultWorkerCount = 10
+	defaultTaskQueue   = 20
+)
 
 // CachedEmbeddingClientConfig 配置
 type CachedEmbeddingClientConfig struct {
@@ -51,14 +62,18 @@ func NewCachedEmbeddingClient(
 	if cfg == nil {
 		cfg = DefaultCachedEmbeddingClientConfig()
 	}
-	return &CachedEmbeddingClient{
+	c := &CachedEmbeddingClient{
 		inner:        inner,
 		redis:        redis,
 		db:           db,
 		ttlRedis:     cfg.TTLRedis,
 		ttlDB:        cfg.TTLDB,
 		disableCache: cfg.DisableCache,
+		workerPool:   make(chan func(), defaultTaskQueue),
+		closed:       make(chan struct{}),
 	}
+	c.startWorkers()
+	return c
 }
 
 // Embed 批量 embedding（带缓存）
@@ -131,7 +146,8 @@ func (c *CachedEmbeddingClient) Embed(ctx context.Context, cfg *llm.EmbeddingCon
 				break
 			}
 			results[idx] = vectors[i]
-			go func(text string, vec []float32) {
+			text, vec := missTexts[i], vectors[i]
+			c.submit(func() {
 				ctxBg := context.Background()
 				if c.redis != nil {
 					_ = c.redis.Set(ctxBg, c.cacheKey(model, text), encodeVec(vec), c.ttlRedis)
@@ -139,7 +155,7 @@ func (c *CachedEmbeddingClient) Embed(ctx context.Context, cfg *llm.EmbeddingCon
 				if c.db != nil {
 					c.persistDBCache(ctxBg, model, text, vec)
 				}
-			}(missTexts[i], vectors[i])
+			})
 		}
 	}
 	return results, nil
@@ -160,6 +176,43 @@ func (c *CachedEmbeddingClient) EmbedOne(ctx context.Context, cfg *llm.Embedding
 // DefaultConfig 透传给 inner
 func (c *CachedEmbeddingClient) DefaultConfig() *llm.EmbeddingConfig {
 	return c.inner.DefaultConfig()
+}
+
+// Close 关闭 worker pool，等待所有已提交的任务完成
+func (c *CachedEmbeddingClient) Close() {
+	c.closeOnce.Do(func() {
+		close(c.workerPool)
+	})
+	c.workerWg.Wait()
+}
+
+// submit 提交任务到 worker pool；pool 满时降级为同步执行，不阻塞调用方
+//
+// BUG-8 修复：close 之后，禁止降级同步执行（task 会用 unconfigured db/redis，
+// 反而会写脏数据）。直接 drop 并 warning。
+func (c *CachedEmbeddingClient) submit(task func()) {
+	select {
+	case <-c.closed:
+		logger.Warnf("[cached_embedding] submit after close, task dropped")
+		return
+	case c.workerPool <- task:
+		// 已提交到 worker pool
+	default:
+		task() // pool 满，同步执行
+	}
+}
+
+// startWorkers 启动 N 个后台 worker 协程
+func (c *CachedEmbeddingClient) startWorkers() {
+	for i := 0; i < defaultWorkerCount; i++ {
+		c.workerWg.Add(1)
+		go func() {
+			defer c.workerWg.Done()
+			for task := range c.workerPool {
+				task()
+			}
+		}()
+	}
 }
 
 // cacheKey 生成缓存 key
@@ -192,12 +245,12 @@ func (c *CachedEmbeddingClient) queryDBCache(ctx context.Context, model, text st
 	if err != nil || len(vec) != expectDim {
 		return nil, false
 	}
-	go func() {
+	c.submit(func() {
 		_ = c.db.WithContext(context.Background()).Exec(
 			`UPDATE embedding_cache SET hit_count = hit_count + 1, last_used_at = NOW() WHERE text_hash = ? AND model = ?`,
 			hash, model,
 		).Error
-	}()
+	})
 	return vec, true
 }
 

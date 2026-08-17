@@ -3,8 +3,17 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { request } = vi.hoisted(() => ({ request: vi.fn() }))
-vi.mock('@/utils/request', () => ({ default: request }))
+const { request, http } = vi.hoisted(() => {
+  const request = vi.fn()
+  const http = {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn()
+  }
+  return { request, http }
+})
+vi.mock('@/utils/request', () => ({ default: request, http }))
 
 import {
   runSecurityAudit,
@@ -16,6 +25,8 @@ describe('安全审计 API', () => {
   beforeEach(() => {
     request.mockReset()
     request.mockResolvedValue({ code: 'SUCCESS', data: {} })
+    http.get.mockReset()
+    http.get.mockResolvedValue({ code: 'SUCCESS', data: {} })
   })
 
   it('runSecurityAudit 提交审计名', async () => {
@@ -42,8 +53,6 @@ describe('安全审计 API', () => {
 
   it('getSecurityAuditDetail 拼接 ID', async () => {
     await getSecurityAuditDetail(42)
-    expect(request).toHaveBeenCalledWith(
-      expect.objectContaining({ url: '/api/security/audit/42', method: 'get' })
-    )
+    expect(http.get).toHaveBeenCalledWith('/api/security/audit/42')
   })
 })

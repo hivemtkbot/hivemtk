@@ -75,6 +75,27 @@ func setupDingTalkAppRoutes(auth *gin.RouterGroup, dingtalkAppSvc *service.DingT
 	dtCtrl.RegisterRoutes(auth)
 }
 
+// setupWechatRoutes 微信公众号账号管理路由
+// 商户在 UI 配置 App ID / App Secret / Token / EncodingAESKey，
+// 配合 /api/webhook/wechat/{account_id} 自动触发智能体流程
+func setupWechatRoutes(auth *gin.RouterGroup, gormDB *gorm.DB, ingressSvc *service.InboxIngressService) {
+	wechatCtrl := controller.NewWechatController(service.NewWechatService(gormDB))
+	if ingressSvc != nil {
+		wechatCtrl.SetIngressSvc(ingressSvc)
+	}
+	wechatCtrl.RegisterRoutes(auth)
+}
+
+// setupWechatWebhookRoutes 微信公众号 webhook 路由（不需要认证）
+// 微信服务器用 GET 验证 URL，用 POST 推送消息
+func setupWechatWebhookRoutes(r *gin.RouterGroup, gormDB *gorm.DB, ingressSvc *service.InboxIngressService) {
+	wechatCtrl := controller.NewWechatController(service.NewWechatService(gormDB))
+	if ingressSvc != nil {
+		wechatCtrl.SetIngressSvc(ingressSvc)
+	}
+	wechatCtrl.RegisterWebhookRoutes(r)
+}
+
 // setupTiktokRoutes TikTok 管理路由
 func setupTiktokRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	tiktokCardCtrl := controller.NewTikTokCardController(

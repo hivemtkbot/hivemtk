@@ -294,7 +294,7 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 
 	// 2) OPT-ARC-06：事务保护 — 全部 4 步写在一个事务中
 	//    任意一步失败回滚，避免出现"主已更新但次未删除"或"会话迁移但客户未更新"
-	return s.repo.WithTransaction(ctx, func(txCtx context.Context) error {
+	err = s.repo.WithTransaction(ctx, func(txCtx context.Context) error {
 		// 2.1 更新主客户（合并字段 + 标签）
 		if err := s.repo.Update(txCtx, primary); err != nil {
 			return fmt.Errorf("更新主客户失败: %w", err)
@@ -319,6 +319,9 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	// 2.5 审计日志（事务外，best-effort）
 	s.writeMergeAuditLog(ctx, primary, secondary)

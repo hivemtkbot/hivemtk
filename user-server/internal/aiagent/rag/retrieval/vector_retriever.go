@@ -43,6 +43,43 @@ type chunkScanRow struct {
 	Score      float64 `gorm:"column:score"`
 }
 
+// SearchVector 实现 VectorSearcher 接口（从向量检索）
+func (r *VectorRetriever) SearchVector(ctx context.Context, kbID string, queryVec []float32, topK int) ([]Chunk, error) {
+	if r == nil || r.db == nil {
+		return nil, fmt.Errorf("vector retriever 未初始化")
+	}
+	if topK <= 0 {
+		topK = 50
+	}
+	vecLiteral := vecToPGString(queryVec)
+
+	var rows []chunkScanRow
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec(fmt.Sprintf("SET LOCAL hnsw.ef_search = %d", r.efSearch)).Error; err != nil {
+			return fmt.Errorf("set hnsw.ef_search: %w", err)
+		}
+		sql := `
+			SELECT id, document_id, content,
+			       (1 - (embedding <=> ?::vector))::float8 AS score
+			FROM knowledge_chunks
+			WHERE embedding IS NOT NULL
+		`
+		args := []any{vecLiteral}
+		if kbID != "" {
+			sql += " AND product_id = ? ORDER BY embedding <=> ?::vector LIMIT ?"
+			args = append(args, kbID, vecLiteral, topK)
+		} else {
+			sql += " ORDER BY embedding <=> ?::vector LIMIT ?"
+			args = append(args, vecLiteral, topK)
+		}
+		return tx.Raw(sql, args...).Scan(&rows).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return rowsToChunks(rows), nil
+}
+
 // Retrieve 向量召回
 //
 // 参数:

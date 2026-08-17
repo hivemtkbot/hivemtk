@@ -102,7 +102,7 @@ func TestMineTelegramGroupLead_CreateDedupUpgrade(t *testing.T) {
 	account := "@alice"
 	hub := &model.MessageHub{MsgID: "m-1", ConversationID: "conv-alice", SenderID: "123"}
 
-	newOpp := svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "123", "alice", "Alice", "大家好呀")
+	newOpp := svc.mineTelegramGroupLead(context.Background(), hub, "1", "-1001", "群A", "123", "alice", "Alice", "大家好呀")
 	if newOpp {
 		t.Fatalf("寒暄不应标记为新晋商机")
 	}
@@ -126,7 +126,7 @@ func TestMineTelegramGroupLead_CreateDedupUpgrade(t *testing.T) {
 		t.Fatalf("同一账号应仅 1 条线索，实际 %d", n)
 	}
 
-	newOpp = svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "123", "alice", "Alice", "请问价格多少批发")
+	newOpp = svc.mineTelegramGroupLead(context.Background(), hub, "1", "-1001", "群A", "123", "alice", "Alice", "请问价格多少批发")
 	if !newOpp {
 		t.Fatalf("跨过阈值应为新晋商机")
 	}
@@ -144,7 +144,7 @@ func TestMineTelegramGroupLead_CreateDedupUpgrade(t *testing.T) {
 		t.Fatalf("升级不应新增线索，实际 %d", n)
 	}
 
-	newOpp = svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "123", "alice", "Alice", "你好啊")
+	newOpp = svc.mineTelegramGroupLead(context.Background(), hub, "1", "-1001", "群A", "123", "alice", "Alice", "你好啊")
 	if newOpp {
 		t.Fatalf("非跨阈值升级不应再标记新晋商机")
 	}
@@ -166,9 +166,9 @@ func TestMineTelegramGroupLead_NoiseSkipped(t *testing.T) {
 	account := "@bob"
 	hub := &model.MessageHub{MsgID: "m-b", ConversationID: "conv-bob", SenderID: "999"}
 
-	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "999", "bob", "Bob", "/start") 
-	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "999", "bob", "Bob", "😀😀😀")    
-	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "999", "bob", "Bob", "   ")    
+	svc.mineTelegramGroupLead(context.Background(), hub, "1", "-1001", "群A", "999", "bob", "Bob", "/start") 
+	svc.mineTelegramGroupLead(context.Background(), hub, "1", "-1001", "群A", "999", "bob", "Bob", "😀😀😀")    
+	svc.mineTelegramGroupLead(context.Background(), hub, "1", "-1001", "群A", "999", "bob", "Bob", "   ")    
 
 	if got, _ := svc.clueRepo.FindByTypeAndAccount(context.Background(), ClueTypeTelegram, account); got != nil {
 		t.Fatalf("噪声消息不应建线索，实际: %+v", got)
@@ -182,7 +182,7 @@ func TestMineTelegramGroupLead_FallbackID(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	svc := &WebhookService{db: db}
 	hub := &model.MessageHub{MsgID: "m-c", ConversationID: "conv-555", SenderID: "555"}
-	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "555", "", "Unknown", "我想采购一批货")
+	svc.mineTelegramGroupLead(context.Background(), hub, "1", "-1001", "群A", "555", "", "Unknown", "我想采购一批货")
 	got, err := svc.clueRepo.FindByTypeAndAccount(context.Background(), ClueTypeTelegram, "tg:555")
 	if err != nil || got == nil {
 		t.Fatalf("无 username 应回退 tg:<id> 建线索: err=%v got=%v", err, got)

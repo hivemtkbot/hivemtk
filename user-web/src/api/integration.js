@@ -2,16 +2,16 @@ import { http } from '@/utils/request';
 
 // 集成管理 - 匹配后端 /api/integrations/* 路径
 export function getIntegrationAccountList(params) {
-  return request({ url: '/api/integrations', method: 'get', params })
+  return http.get('/api/integrations', params)
 }
 export function getIntegrationAccount(id) {
   return http.get(`/api/integrations/${id}`)
 }
 export function createIntegrationAccount(data) {
-  return request({ url: '/api/integrations', method: 'post', data })
+  return http.post('/api/integrations', data)
 }
 export function updateIntegrationAccount(id, data) {
-  return request({ url: `/api/integrations/${id}`, method: 'put', data })
+  return http.put(`/api/integrations/${id}`, data)
 }
 export function deleteIntegrationAccount(id) {
   return http.delete(`/api/integrations/${id}`)
@@ -23,7 +23,7 @@ export function syncProducts(id) {
   return http.post(`/api/integrations/${id}/sync-products`)
 }
 export function getSyncLogs(params) {
-  return request({ url: '/api/integration/sync-logs', method: 'get', params })
+  return http.get('/api/integration/sync-logs', params)
 }
 export function getExternalCustomers() {
   return http.get('/api/integration/external-customers')
@@ -32,7 +32,7 @@ export function getExternalOrders() {
   return http.get('/api/integration/external-orders')
 }
 export function getExternalOrdersByCustomer(phone, name) {
-  return request({ url: '/api/integration/external-orders-by-customer', method: 'get', params: { phone, name } })
+  return http.get('/api/integration/external-orders-by-customer', { params: { phone, name } })
 }
 export function getExternalProducts() {
   return http.get('/api/integration/external-products')

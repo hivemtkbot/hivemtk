@@ -6,11 +6,7 @@ import { http } from '@/utils/request';
 
 // 获取TikTok卡片列表
 export function getTikTokCardList(params) {
-  return request({
-    url: '/api/tiktok-card/list',
-    method: 'get',
-    params
-  })
+  return http.get('/api/tiktok-card/list', params)
 }
 
 // 获取TikTok卡片详情
@@ -20,20 +16,12 @@ export function getTikTokCard(id) {
 
 // 创建TikTok卡片
 export function createTikTokCard(data) {
-  return request({
-    url: '/api/tiktok-card',
-    method: 'post',
-    data
-  })
+  return http.post('/api/tiktok-card', data)
 }
 
 // 更新TikTok卡片
 export function updateTikTokCard(data) {
-  return request({
-    url: `/api/tiktok-card/${data.id}`,
-    method: 'put',
-    data
-  })
+  return http.put(`/api/tiktok-card/${data.id}`, data)
 }
 
 // 删除TikTok卡片
@@ -43,27 +31,15 @@ export function deleteTikTokCard(id) {
 
 // 生成短链接
 export function generateShortLink(cardId) {
-  return request({
-    url: '/api/tiktok-card/generate-short-link',
-    method: 'post',
-    data: { card_id: cardId }
-  })
+  return http.post('/api/tiktok-card/generate-short-link', { card_id: cardId })
 }
 
 // 获取总体统计信息
 export function getTikTokCardOverallStats(params) {
-  return request({
-    url: '/api/tiktok-card/stats/overall',
-    method: 'get',
-    params
-  })
+  return http.get('/api/tiktok-card/stats/overall', params)
 }
 
 // 获取单个卡片统计信息
 export function getTikTokCardStats(cardId, params) {
-  return request({
-    url: `/api/tiktok-card/${cardId}/stats`,
-    method: 'get',
-    params
-  })
+  return http.get(`/api/tiktok-card/${cardId}/stats`, params)
 }

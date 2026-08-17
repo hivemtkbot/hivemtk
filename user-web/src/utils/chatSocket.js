@@ -21,7 +21,7 @@
 //   - close       关闭连接
 //
 // 鲁棒性（4 维度）：
-//   1. 重连：指数退避（1s → 2s → 4s → ... → 30s），无最大次数限制（私域长连接）
+//   1. 重连：指数退避 + Full-Jitter（1s → 2s → 4s → ... → 30s 封顶，防雪崩），默认 50 次上限
 //   2. 离线补发：lastSeq 持久化到 sessionStorage；onopen 自动发 resume(since_seq)
 //                + 后端 onConnect 走 delivered_at 兜底
 //   3. 有序性：每条消息提取 seq，乱序/重复丢弃（用 seenSet 去重）
@@ -51,6 +51,7 @@ export class ChatSocket {
     this.onError = options.onError || (() => {})
     this.onConnected = options.onConnected || (() => {})
     this.onDisconnected = options.onDisconnected || (() => {})
+    this.onMaxAttempts = options.onMaxAttempts || (() => {})
 
     this.ws = null
     this.pingTimer = null
@@ -376,17 +377,28 @@ export class ChatSocket {
   // 指数退避重连
   // ------------------------------------------------------------------------
   scheduleReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this._emitMaxAttempts()
+      return
+    }
     if (this.reconnectTimer) return
     if (!this.shouldReconnect) return
-    const delay = this.reconnectDelay
+    this.reconnectAttempts++
+    // 指数退避 + Full-Jitter（参考 https://websocket.org/guides/reconnection/）
+    const baseDelay = Math.min(this.reconnectDelay * Math.min(this.reconnectAttempts, 5), MAX_RECONNECT_DELAY_MS)
+    const delay = Math.floor(baseDelay * (0.5 + Math.random() * 0.5))
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
       if (this.shouldReconnect) {
         this.connect()
-        // 指数退避：1s → 2s → 4s → 8s → 16s → 30s（封顶）
-        this.reconnectDelay = Math.min(this.reconnectDelay * 2, MAX_RECONNECT_DELAY_MS)
       }
     }, delay)
+  }
+
+  _emitMaxAttempts() {
+    console.warn(`[ChatSocket] 已达最大重连次数 ${this.maxReconnectAttempts}，停止重连`)
+    this.onMaxAttempts(this.reconnectAttempts)
+    this.onError(new Error(`重连失败：已达最大尝试次数 ${this.maxReconnectAttempts}`))
   }
 
   close() {

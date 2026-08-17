@@ -4,7 +4,7 @@ const BASE = '/api/whatsapp-cloud/accounts'
 
 // 列表
 export function listWhatsappCloud(params) {
-  return request({ url: BASE, method: 'get', params })
+  return http.get(BASE, params)
 }
 
 // 详情
@@ -14,12 +14,12 @@ export function getWhatsappCloud(id) {
 
 // 创建
 export function createWhatsappCloud(data) {
-  return request({ url: BASE, method: 'post', data })
+  return http.post(BASE, data)
 }
 
 // 更新
 export function updateWhatsappCloud(id, data) {
-  return request({ url: `${BASE}/${id}`, method: 'put', data })
+  return http.put(`${BASE}/${id}`, data)
 }
 
 // 删除
@@ -29,5 +29,5 @@ export function deleteWhatsappCloud(id) {
 
 // 测试发送
 export function testSendWhatsappCloud(id, data) {
-  return request({ url: `${BASE}/${id}/test-send`, method: 'post', data })
+  return http.post(`${BASE}/${id}/test-send`, data)
 }

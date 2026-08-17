@@ -3,6 +3,10 @@ package migration
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 // Migration 迁移接口
@@ -26,9 +30,14 @@ func NewMigrationRegistry() *MigrationRegistry {
 	}
 }
 
-// Register 注册迁移
-func (r *MigrationRegistry) Register(migration Migration) {
-	r.migrations[migration.Version()] = migration
+// Register 注册迁移（版本冲突时返回错误）
+func (r *MigrationRegistry) Register(migration Migration) error {
+	v := migration.Version()
+	if _, exists := r.migrations[v]; exists {
+		return fmt.Errorf("duplicate migration version: %s (%s)", v, migration.Name())
+	}
+	r.migrations[v] = migration
+	return nil
 }
 
 // Get 获取迁移
@@ -37,34 +46,37 @@ func (r *MigrationRegistry) Get(version string) (Migration, bool) {
 	return m, ok
 }
 
-// GetAll 获取所有迁移
+// GetAll 获取所有迁移（按版本号排序）
 func (r *MigrationRegistry) GetAll() []Migration {
 	result := make([]Migration, 0, len(r.migrations))
 	for _, m := range r.migrations {
 		result = append(result, m)
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return compareVersions(result[i].Version(), result[j].Version()) < 0
+	})
 	return result
 }
 
-// GetPending 获取待执行的迁移
+// GetPending 获取待执行的迁移（按版本号排序）
 func (r *MigrationRegistry) GetPending(executedVersions []string) []Migration {
+	execSet := make(map[string]bool, len(executedVersions))
+	for _, v := range executedVersions {
+		execSet[v] = true
+	}
 	var pending []Migration
 	for _, m := range r.migrations {
-		executed := false
-		for _, v := range executedVersions {
-			if v == m.Version() {
-				executed = true
-				break
-			}
-		}
-		if !executed {
+		if !execSet[m.Version()] {
 			pending = append(pending, m)
 		}
 	}
+	sort.Slice(pending, func(i, j int) bool {
+		return compareVersions(pending[i].Version(), pending[j].Version()) < 0
+	})
 	return pending
 }
 
-// Validate 验证迁移
+// Validate 验证迁移（版本唯一性）
 func (r *MigrationRegistry) Validate() error {
 	versions := make(map[string]bool)
 	for version := range r.migrations {
@@ -74,5 +86,42 @@ func (r *MigrationRegistry) Validate() error {
 		versions[version] = true
 	}
 	return nil
+}
+
+// compareVersions 比较两个语义化版本号 (v1.2.3 < v1.2.4)
+func compareVersions(a, b string) int {
+	aParts := parseVersion(a)
+	bParts := parseVersion(b)
+	for i := 0; i < len(aParts) && i < len(bParts); i++ {
+		if aParts[i] < bParts[i] {
+			return -1
+		}
+		if aParts[i] > bParts[i] {
+			return 1
+		}
+	}
+	if len(aParts) < len(bParts) {
+		return -1
+	}
+	if len(aParts) > len(bParts) {
+		return 1
+	}
+	return 0
+}
+
+// parseVersion 解析版本号字符串 "v1.2.3" -> [1, 2, 3]
+func parseVersion(v string) []int {
+	v = strings.TrimPrefix(v, "v")
+	parts := strings.Split(v, ".")
+	result := make([]int, 0, len(parts))
+	for _, p := range parts {
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			result = append(result, 0)
+		} else {
+			result = append(result, n)
+		}
+	}
+	return result
 }
 

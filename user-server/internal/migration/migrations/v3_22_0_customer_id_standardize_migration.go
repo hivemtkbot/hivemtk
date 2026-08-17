@@ -1,0 +1,106 @@
+package migrations
+
+import (
+	"context"
+	"fmt"
+
+	"hivemtk-user/internal/migration"
+
+	"gorm.io/gorm"
+)
+
+// CustomerIDStandardizeMigration OPT-DB-04: 收敛 customer_id 字段类型
+//
+// 现状：customer_id 在不同表中使用了 varchar(36)、varchar(64)、varchar(100)、size:128 等多种类型，
+// 导致 JOIN 查询时隐式类型转换，影响查询性能与可维护性。
+//
+// 统一标准：varchar(64) —— 覆盖绝大多数场景（UUID v4 36 字符 + 前缀冗余）。
+// 本迁移将非 varchar(64) 的 customer_id 列统一 ALTER 为 varchar(64)，
+// 并对已满足的列添加 COMMENT 标注统一标准。
+//
+// 幂等安全：information_schema 动态扫描，只对当前类型 ≠ varchar(64) 的列执行 ALTER。
+type CustomerIDStandardizeMigration struct {
+	db *gorm.DB
+}
+
+var _ migration.Migration = (*CustomerIDStandardizeMigration)(nil)
+
+func NewCustomerIDStandardizeMigration(db *gorm.DB) *CustomerIDStandardizeMigration {
+	return &CustomerIDStandardizeMigration{db: db}
+}
+
+func (m *CustomerIDStandardizeMigration) Version() string { return "v3.22.0" }
+
+func (m *CustomerIDStandardizeMigration) Name() string { return "收敛 customer_id 字段类型为 varchar(64)" }
+
+func (m *CustomerIDStandardizeMigration) Description() string {
+	return "将所有 customer_id 列统一为 varchar(64)，消除 JOIN 隐式类型转换"
+}
+
+// Up 执行升级
+// PostgreSQL: 扫描 information_schema.columns 找出所有名为 customer_id 的列，
+// 对 data_type 不是 'character varying' 或 character_maximum_length ≠ 64 的列执行 ALTER。
+func (m *CustomerIDStandardizeMigration) Up(ctx context.Context) error {
+	if m.db == nil {
+		return fmt.Errorf("db is nil")
+	}
+
+	rows, err := m.db.WithContext(ctx).Raw(`
+		SELECT table_schema, table_name, data_type, character_maximum_length
+		FROM information_schema.columns
+		WHERE column_name = 'customer_id'
+		  AND table_schema NOT IN ('pg_catalog', 'information_schema')
+		ORDER BY table_schema, table_name
+	`).Rows()
+	if err != nil {
+		return fmt.Errorf("查询 customer_id 列失败: %w", err)
+	}
+	defer rows.Close()
+
+	type colInfo struct {
+		Schema string
+		Table  string
+		Type   string
+		MaxLen int
+	}
+	var cols []colInfo
+	for rows.Next() {
+		var c colInfo
+		if err := rows.Scan(&c.Schema, &c.Table, &c.Type, &c.MaxLen); err != nil {
+			return fmt.Errorf("扫描列信息失败: %w", err)
+		}
+		cols = append(cols, c)
+	}
+
+	var altered int
+	for _, c := range cols {
+		// 已经是 varchar(64) 则跳过，只加注释
+		if c.Type == "character varying" && c.MaxLen == 64 {
+			commentSQL := fmt.Sprintf(
+				`COMMENT ON COLUMN %q.%q.customer_id IS '统一 varchar(64)：客户 ID，JOIN 键'`,
+				c.Schema, c.Table)
+			_ = m.db.WithContext(ctx).Exec(commentSQL).Error
+			continue
+		}
+
+		// 非 varchar(64) 执行 ALTER
+		alterSQL := fmt.Sprintf(
+			`ALTER TABLE %q.%q ALTER COLUMN customer_id TYPE varchar(64)`,
+			c.Schema, c.Table)
+		if err := m.db.WithContext(ctx).Exec(alterSQL).Error; err != nil {
+			return fmt.Errorf("ALTER %q.%q.customer_id 失败: %w", c.Schema, c.Table, err)
+		}
+		altered++
+	}
+
+	if altered > 0 {
+		m.db.WithContext(ctx).Exec(
+			`COMMENT ON COLUMN information_schema.columns.column_name IS '统一 varchar(64) 迁移完成'`)
+	}
+
+	return nil
+}
+
+func (m *CustomerIDStandardizeMigration) Down(ctx context.Context) error {
+	return nil
+}

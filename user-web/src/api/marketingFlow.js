@@ -2,16 +2,16 @@ import { http } from '@/utils/request';
 
 // 营销流程 - 匹配后端 /api/marketing-flows/* 路径
 export function getMarketingFlowList(params) {
-  return request({ url: '/api/marketing-flows', method: 'get', params })
+  return http.get('/api/marketing-flows', params)
 }
 export function getMarketingFlow(id) {
   return http.get(`/api/marketing-flows/${id}`)
 }
 export function createMarketingFlow(data) {
-  return request({ url: '/api/marketing-flows', method: 'post', data })
+  return http.post('/api/marketing-flows', data)
 }
 export function updateMarketingFlow(id, data) {
-  return request({ url: `/api/marketing-flows/${id}`, method: 'put', data })
+  return http.put(`/api/marketing-flows/${id}`, data)
 }
 export function deleteMarketingFlow(id) {
   return http.delete(`/api/marketing-flows/${id}`)

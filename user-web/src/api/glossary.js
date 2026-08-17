@@ -9,21 +9,13 @@ import { http } from '@/utils/request';
 
 // 创建术语
 export function createGlossary(data) {
-  return request({
-    url: '/api/glossaries',
-    method: 'post',
-    data
-  })
+  return http.post('/api/glossaries', data)
 }
 
 // 术语列表
 // params: { category, status, keyword, page, page_size }
 export function listGlossaries(params) {
-  return request({
-    url: '/api/glossaries',
-    method: 'get',
-    params
-  })
+  return http.get('/api/glossaries', params)
 }
 
 // 术语详情
@@ -33,11 +25,7 @@ export function getGlossary(termId) {
 
 // 更新术语
 export function updateGlossary(termId, data) {
-  return request({
-    url: `/api/glossaries/${termId}`,
-    method: 'put',
-    data
-  })
+  return http.put(`/api/glossaries/${termId}`, data)
 }
 
 // 删除术语
@@ -48,11 +36,7 @@ export function deleteGlossary(termId) {
 // 校验预览：检测文本中违规/命中术语的情况
 // data: { text, lang }
 export function validateGlossary(data) {
-  return request({
-    url: '/api/glossaries/validate',
-    method: 'post',
-    data
-  })
+  return http.post('/api/glossaries/validate', data)
 }
 
 export default {

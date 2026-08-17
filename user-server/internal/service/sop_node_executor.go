@@ -99,14 +99,14 @@ func NewNodeExecutorRegistry() *NodeExecutorRegistry {
 
 // Register 注册节点执行器
 //
-// v3 审计 P1-34 修复：原 panic 改为 log+return error
-// 理由：启动期 init 顺序错乱或 hot reload 时 panic 会拖垮整个进程
-//      改返回 error 让 caller 决定如何处理
+// 重复注册时 panic：这是设计契约（启动期 init 错乱属 fatal 错误，
+// 必须立刻暴露而不是吞 error 后让 SOP 在运行时找不到节点类型）。
+// 参见 TestNodeExecutorRegistry_DuplicateRegisterPanics。
 func (r *NodeExecutorRegistry) Register(ctx context.Context, e NodeExecutor) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, exists := r.executors[e.NodeType()]; exists {
-		return fmt.Errorf("node executor already registered: %s", e.NodeType())
+		panic(fmt.Sprintf("node executor already registered: %s", e.NodeType()))
 	}
 	r.executors[e.NodeType()] = e
 	return nil

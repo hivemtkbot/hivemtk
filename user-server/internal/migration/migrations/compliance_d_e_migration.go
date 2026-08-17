@@ -21,7 +21,7 @@ func NewComplianceDEMigration(db *gorm.DB) *ComplianceDEMigration {
 }
 
 // Version 返回版本号
-func (m *ComplianceDEMigration) Version() string { return "v2.10.0" }
+func (m *ComplianceDEMigration) Version() string { return "v2.10.1" }
 
 // Name 返回迁移名称
 func (m *ComplianceDEMigration) Name() string {

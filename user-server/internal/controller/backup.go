@@ -60,7 +60,7 @@ func (c *BackupController) CreateBackup(ctx *gin.Context) {
 	}
 
 	backup, err := c.backupService.CreateBackup(ctx.Request.Context(), uid, &req)
-	if HandleDBError(ctx, err, "创建备份") {
+	if HandleServiceError(ctx, err) {
 		return
 	}
 

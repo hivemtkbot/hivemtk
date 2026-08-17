@@ -2,38 +2,22 @@ import { http } from '@/utils/request';
 
 // OneID 客户列表
 export function listOneID(params) {
-  return request({
-    url: '/api/customer/oneid/list',
-    method: 'get',
-    params
-  })
+  return http.get('/api/customer/oneid/list', params)
 }
 
 // 身份冲突列表
 export function listConflicts(params) {
-  return request({
-    url: '/api/customer/oneid/conflicts',
-    method: 'get',
-    params
-  })
+  return http.get('/api/customer/oneid/conflicts', params)
 }
 
 // 合并两个客户
 export function mergeOneID(data) {
-  return request({
-    url: '/api/customer/oneid/merge',
-    method: 'post',
-    data
-  })
+  return http.post('/api/customer/oneid/merge', data)
 }
 
 // 解决冲突（合并 / 忽略）
 export function resolveConflict(id, data) {
-  return request({
-    url: `/api/customer/oneid/conflicts/${id}/resolve`,
-    method: 'post',
-    data
-  })
+  return http.post(`/api/customer/oneid/conflicts/${id}/resolve`, data)
 }
 
 // 获取客户身份映射详情
@@ -43,20 +27,12 @@ export function getIdentityMappings(customerId) {
 
 // 链接新身份
 export function linkIdentity(customerId, data) {
-  return request({
-    url: `/api/customer-oneid/${customerId}/identities`,
-    method: 'post',
-    data
-  })
+  return http.post(`/api/customer-oneid/${customerId}/identities`, data)
 }
 
 // 识别或创建（OneID 解析）
 export function resolveIdentity(data) {
-  return request({
-    url: '/api/customer/oneid/resolve',
-    method: 'post',
-    data
-  })
+  return http.post('/api/customer/oneid/resolve', data)
 }
 
 // OneID 统计（总数 / 关联手机号 / 关联邮箱 / 多身份）
@@ -72,9 +48,5 @@ export function getMergeRules() {
 
 // POST /api/oneid/merge-rules
 export function saveMergeRules(data) {
-  return request({
-    url: '/api/oneid/merge-rules',
-    method: 'post',
-    data
-  })
+  return http.post('/api/oneid/merge-rules', data)
 }

@@ -52,14 +52,40 @@ func (r *BM25Retriever) Retrieve(ctx context.Context, productID string, query st
 	return r.ilikeFallback(ctx, productID, query, topK)
 }
 
+// SearchKeyword 实现 KeywordSearcher 接口
+func (r *BM25Retriever) SearchKeyword(ctx context.Context, kbID string, query string, topK int) ([]Chunk, error) {
+	return r.Retrieve(ctx, kbID, query, topK)
+}
+
+// allowedTSCols 允许的 tsvector 列白名单
+var allowedTSCols = map[string]string{
+	"contextual_tsv": "contextual_tsv",
+	"content_tsv":    "content_tsv",
+}
+
+// allowedTSConfigs 允许的文本搜索配置白名单
+var allowedTSConfigs = map[string]string{
+	"zh_rag":  "zh_rag",
+	"simple":  "simple",
+	"english": "english",
+}
+
 // tryTSQuery 尝试指定 tsvector 列 + 文本搜索配置
 func (r *BM25Retriever) tryTSQuery(ctx context.Context, productID string, query string, topK int, tsvCol, tsConfig string) ([]Chunk, error) {
+	safeCol, ok := allowedTSCols[tsvCol]
+	if !ok {
+		return nil, fmt.Errorf("invalid tsvector column: %s", tsvCol)
+	}
+	safeConfig, ok := allowedTSConfigs[tsConfig]
+	if !ok {
+		return nil, fmt.Errorf("invalid text search config: %s", tsConfig)
+	}
 	sql := fmt.Sprintf(`
 		SELECT id, document_id, content,
 		       ts_rank(%s, plainto_tsquery('%s', ?))::float8 AS score
 		FROM knowledge_chunks
 		WHERE %s @@ plainto_tsquery('%s', ?)
-	`, tsvCol, tsConfig, tsvCol, tsConfig)
+	`, safeCol, safeConfig, safeCol, safeConfig)
 	args := []any{query}
 	if productID != "" {
 		sql += " AND product_id = ? ORDER BY score DESC LIMIT ?"

@@ -53,3 +53,15 @@ export const loadCustomer360 = async (id, { signal } = {}) => {
 export const CACHE_KEY_PREFIX = 'c360:'
 
 export const buildCacheKey = (id) => `${CACHE_KEY_PREFIX}${id}`
+
+export const getCustomerList = (params) =>
+  http.get('/api/customers', params)
+
+export const getCustomerDetail = (id) =>
+  http.get(`/api/customers/${id}`)
+
+export const addCustomerTag = (id, tag) =>
+  http.post(`/api/customers/${id}/tags`, { tag })
+
+export const removeCustomerTag = (id, tag) =>
+  http.delete(`/api/customers/${id}/tags/${encodeURIComponent(tag)}`)

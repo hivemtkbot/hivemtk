@@ -51,7 +51,7 @@ func NewBackupService() *BackupService {
 
 // CreateBackupRequest 创建备份请求
 type CreateBackupRequest struct {
-	BackupName string           `json:"backup_name"`
+	BackupName string           `json:"backup_name" binding:"required"`
 	BackupType model.BackupType `json:"backup_type"`
 }
 

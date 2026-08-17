@@ -36,8 +36,8 @@ logging:
 database:
   type: postgres
   postgres:
-    host: mtk-postgres
-    port: 8202
+    host: "${DB_HOST:mtk-postgres}"
+    port: ${DB_PORT:8202}
     user: admin
     # 私域合规基线 §7.2：密码不落配置文件。docker 部署时由 docker-compose 的
     # env_file / 密钥管理注入 POSTGRES_PASSWORD，app 启动直接读取，

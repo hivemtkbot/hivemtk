@@ -39,7 +39,7 @@ type RAGThreeTierService struct {
 
 	keyword KeywordSearcher
 
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	stats   TierStats
 	enabled map[RAGTier]bool
 }
@@ -65,11 +65,6 @@ type TierSearchResult struct {
 	LatencyMs int64          `json:"latency_ms"`
 	Metadata  map[string]any `json:"metadata,omitempty"`
 	FromCache bool           `json:"from_cache"`
-}
-
-// KeywordSearcher 关键词检索接口（可选后端）
-type KeywordSearcher interface {
-	Search(ctx context.Context, kbID, query string, topK int) ([]Chunk, error)
 }
 
 // NewRAGThreeTierService 构造三级服务
@@ -116,10 +111,20 @@ func (s *RAGThreeTierService) Search(ctx context.Context, kbID, query string, to
 	s.stats.Total++
 	s.mu.Unlock()
 
-	if s.enabled[TierL1HotCache] {
+	s.mu.RLock()
+	l1Enabled := s.enabled[TierL1HotCache]
+	l2Enabled := s.enabled[TierL2WarmIndex]
+	l3Enabled := s.enabled[TierL3ColdIndex]
+	l4Enabled := s.enabled[TierL4Keyword]
+	s.mu.RUnlock()
+
+	if l1Enabled {
 		key := s.cacheKey(kbID, query, topK)
 		if v, ok := s.cache.Get(key); ok {
-			res := v.(*TierSearchResult)
+			res, ok := v.(*TierSearchResult)
+			if !ok {
+				goto l2_fallback
+			}
 			res.FromCache = true
 			res.LatencyMs = time.Since(start).Milliseconds()
 			s.mu.Lock()
@@ -130,11 +135,12 @@ func (s *RAGThreeTierService) Search(ctx context.Context, kbID, query string, to
 		}
 	}
 
-	if s.enabled[TierL2WarmIndex] {
+l2_fallback:
+	if l2Enabled {
 		chunks, score, err := s.searchTier(ctx, s.indexer, kbID, query, topK)
 		if err == nil && len(chunks) > 0 {
 			res := s.makeResult(query, chunks, TierL2WarmIndex, score, start)
-			s.cachePut(s.cacheKey(kbID, query, topK), res)
+			s.cachePut(s.cacheKey(kbID, query, topK), res, l1Enabled)
 			s.mu.Lock()
 			s.stats.L2Hits++
 			s.updateAvg(res.LatencyMs)
@@ -146,11 +152,11 @@ func (s *RAGThreeTierService) Search(ctx context.Context, kbID, query string, to
 		}
 	}
 
-	if s.enabled[TierL3ColdIndex] {
+	if l3Enabled {
 		chunks, score, err := s.searchTier(ctx, s.coldIndex, kbID, query, topK)
 		if err == nil && len(chunks) > 0 {
 			res := s.makeResult(query, chunks, TierL3ColdIndex, score, start)
-			s.cachePut(s.cacheKey(kbID, query, topK), res)
+			s.cachePut(s.cacheKey(kbID, query, topK), res, l1Enabled)
 			s.mu.Lock()
 			s.stats.L3Hits++
 			s.updateAvg(res.LatencyMs)
@@ -159,8 +165,8 @@ func (s *RAGThreeTierService) Search(ctx context.Context, kbID, query string, to
 		}
 	}
 
-	if s.enabled[TierL4Keyword] {
-		chunks, err := s.keyword.Search(ctx, kbID, query, topK)
+	if l4Enabled {
+		chunks, err := s.keyword.SearchKeyword(ctx, kbID, query, topK)
 		if err == nil && len(chunks) > 0 {
 			res := s.makeResult(query, chunks, TierL4Keyword, 0.5, start)
 			s.mu.Lock()
@@ -226,8 +232,8 @@ func (s *RAGThreeTierService) cacheKey(kbID, query string, topK int) string {
 	return hex.EncodeToString(h[:16])
 }
 
-func (s *RAGThreeTierService) cachePut(key string, val *TierSearchResult) {
-	if !s.enabled[TierL1HotCache] {
+func (s *RAGThreeTierService) cachePut(key string, val *TierSearchResult, l1Enabled bool) {
+	if !l1Enabled {
 		return
 	}
 	s.cache.Set(key, val, 30*time.Minute)

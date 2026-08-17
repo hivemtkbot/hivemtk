@@ -6,11 +6,7 @@ import { http } from '@/utils/request';
 
 // 获取工具列表
 export function listTools(params) {
-  return request({
-    url: '/api/ai-tools',
-    method: 'get',
-    params
-  })
+  return http.get('/api/ai-tools', params)
 }
 
 // 获取工具详情
@@ -20,20 +16,12 @@ export function getTool(name) {
 
 // 更新工具启用状态
 export function updateToolStatus(name, enabled) {
-  return request({
-    url: `/api/ai-tools/${name}/status`,
-    method: 'put',
-    data: { is_enabled: enabled }
-  })
+  return http.put(`/api/ai-tools/${name}/status`, { is_enabled: enabled })
 }
 
 // 批量更新工具状态
 export function batchUpdateToolStatus(tools, enabled) {
-  return request({
-    url: '/api/ai-tools/batch-status',
-    method: 'post',
-    data: { tools, is_enabled: enabled }
-  })
+  return http.post('/api/ai-tools/batch-status', { tools, is_enabled: enabled })
 }
 
 // ============================================================================
@@ -47,14 +35,10 @@ export function getToolAccounts(toolName) {
 
 // 绑定账号到工具
 export function bindToolAccount(toolName, accountType, accountId, isPrimary) {
-  return request({
-    url: `/api/ai-tools/${toolName}/accounts`,
-    method: 'post',
-    data: {
-      account_type: accountType,
-      account_id: accountId,
-      is_primary: isPrimary
-    }
+  return http.post(`/api/ai-tools/${toolName}/accounts`, {
+    account_type: accountType,
+    account_id: accountId,
+    is_primary: isPrimary
   })
 }
 

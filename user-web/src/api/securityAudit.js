@@ -2,12 +2,12 @@ import { http } from '@/utils/request';
 
 // 启动安全审计
 export function runSecurityAudit(data) {
-  return request({ url: '/api/security/audit', method: 'post', data })
+  return http.post('/api/security/audit', data)
 }
 
 // 审计历史列表
 export function getSecurityAuditList(params) {
-  return request({ url: '/api/security/audit/list', method: 'get', params })
+  return http.get('/api/security/audit/list', params)
 }
 
 // 审计详情

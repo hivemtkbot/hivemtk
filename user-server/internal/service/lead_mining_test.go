@@ -118,10 +118,10 @@ func (f *fakeClueRepo) Create(_ context.Context, c *model.Clue) error {
 	f.createCnt++
 	return nil
 }
-func (f *fakeClueRepo) GetByID(_ context.Context, id uint) (*model.Clue, error) {
+func (f *fakeClueRepo) GetByID(_ context.Context, id string) (*model.Clue, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.byID[lmItoa(int(id))], nil
+	return f.byID[id], nil
 }
 func (f *fakeClueRepo) FindByTypeAndAccount(_ context.Context, t int64, acct string) (*model.Clue, error) {
 	f.mu.Lock()
@@ -168,6 +168,21 @@ func (f *fakeClueRepo) BatchUpdateInTx(context.Context, []string, map[string]any
 }
 func (f *fakeClueRepo) BatchCreateWithDedup(context.Context, []*model.Clue) (int64, int64, error) {
 	return 0, 0, nil
+}
+func (f *fakeClueRepo) GetWhatsappClues(context.Context) ([]*model.Clue, int64, error) {
+	return nil, 0, nil
+}
+func (f *fakeClueRepo) ListWithQuery(context.Context, repository.ClueQuery, int, int) ([]*model.Clue, int64, error) {
+	return nil, 0, nil
+}
+func (f *fakeClueRepo) CountWithQuery(context.Context, repository.ClueQuery) (int64, error) {
+	return 0, nil
+}
+func (f *fakeClueRepo) TypeDistribution(context.Context, repository.ClueQuery) ([]repository.ClueTypeAgg, error) {
+	return nil, nil
+}
+func (f *fakeClueRepo) TrendByDay(context.Context, repository.ClueQuery) ([]repository.ClueTrendAgg, error) {
+	return nil, nil
 }
 
 type fakeCfgRepo struct {
@@ -325,11 +340,11 @@ func TestProcess_LeadDetected(t *testing.T) {
 	if !lmContains(tags, "高意向") || !lmContains(tags, "AI兴趣") {
 		t.Fatalf("客户标签不正确: %v", tags)
 	}
-	clue := fkr.byTypeAcct[lmItoa(int(ClueTypeLeadMining))+":telegram:u1"]
+	clue := fkr.byTypeAcct[lmItoa(int(ClueTypeTelegram))+":telegram:u1"]
 	if clue == nil {
 		t.Fatal("未写入线索库存")
 	}
-	if clue.IntentScore != 80 || clue.SourceID != "lead_mining" {
+	if clue.IntentScore != 80 || clue.SourceID != "telegram" {
 		t.Fatalf("线索字段异常: %+v", clue)
 	}
 	if fkr.createCnt != 1 {

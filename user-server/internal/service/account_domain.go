@@ -104,15 +104,54 @@ func (s *ClueService) BatchImportCluesFromDTO(ctx context.Context, reqs []dto.Im
 		if err != nil {
 			return 0, 0, err
 		}
+		isVerify := item.IsVerify
+		if isVerify < 0 || isVerify > 1 {
+			isVerify = 0
+		}
+		intentScore := item.IntentScore
+		if intentScore < 0 || intentScore > 100 {
+			intentScore = 0
+		}
+		isOpportunity := item.IsOpportunity
+		if isOpportunity < 0 || isOpportunity > 1 {
+			isOpportunity = 0
+		}
 		clues = append(clues, &model.Clue{
-			Name:     item.Name,
-			Account:  item.Account,
-			City:     item.City,
-			Address:  item.Address,
-			Type:     clueType,
-			IsVerify: 0,
+			Name:           item.Name,
+			Account:        item.Account,
+			City:           item.City,
+			Address:        item.Address,
+			Desc:           item.Desc,
+			Type:           clueType,
+			IsVerify:       isVerify,
+			IntentScore:    intentScore,
+			IsOpportunity:  isOpportunity,
+			SourceID:       item.SourceID,
+			OneID:          item.OneID,
+			ConversationID: item.ConversationID,
+			OwnerAccount:   item.OwnerAccount,
 		})
 	}
-	return s.BatchImportClues(ctx, clues)
+	success, skipped, err := s.BatchImportClues(ctx, clues)
+	if err != nil {
+		return success, skipped, err
+	}
+	// 导入完成后异步触发评分
+	if success > 0 {
+		go s.scoreImportedClues(clues)
+	}
+	return success, skipped, nil
+}
+
+// scoreImportedClues 后台为已导入线索批量评分
+func (s *ClueService) scoreImportedClues(clues []*model.Clue) {
+	ctx := context.Background()
+	scoreSvc := NewClueScoreService()
+	for _, c := range clues {
+		if c == nil {
+			continue
+		}
+		_, _ = scoreSvc.ScoreClue(ctx, c)
+	}
 }
 

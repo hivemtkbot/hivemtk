@@ -541,6 +541,8 @@ func (s *WebhookService) dispatchToChannel(ctx context.Context, channel WebhookC
 	case ChannelFeishu:
 		hub, err := s.dispatchFeishu(ctx, accountID, p, raw)
 		return hub, nil, err
+	case ChannelDouyin, ChannelTiktok:
+		return s.dispatchDouyin(ctx, accountID, p, raw)
 	default:
 
 		return nil, nil, nil

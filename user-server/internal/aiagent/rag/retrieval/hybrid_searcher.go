@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/pkg/utils/logger"
@@ -19,6 +20,13 @@ import (
 func makeRRFKey(docID, chunkID string) string {
 	h := sha256.Sum256([]byte(docID + "\x00" + chunkID))
 	return "rrf:" + base64.RawURLEncoding.EncodeToString(h[:8])
+}
+
+// tsvectorConfig 缓存的 tsvector 配置（P0-21 修复）
+// 启动时检测一次，避免每次 keywordSearchPG 都探测 4 种组合
+type tsvectorConfig struct {
+	tsConfig string
+	tsvCol   string
 }
 
 // HybridSearcher Hybrid 检索器（USR-AI-02）
@@ -39,6 +47,9 @@ type HybridSearcher struct {
 	vectorWeight     float64
 	keywordWeight    float64
 	config           *HybridSearcherConfig
+	tsvectorCfg      *tsvectorConfig // P0-21: 缓存的 tsvector 配置
+	tsvectorOnce     sync.Once       // P0-21: 确保只检测一次
+	tsvectorMu       sync.RWMutex    // BUG-4: 保护 tsvectorCfg 的并发读写
 }
 
 // VectorSearcher 向量检索接口
@@ -272,30 +283,79 @@ func (h *HybridSearcher) vectorSearchPG(ctx context.Context, productID string, q
 	return rowsToChunks(rows), nil
 }
 
+// detectTSVectorConfig 启动时检测 tsvector 配置（P0-21 修复）
+// 先尝试 zh_rag，再尝试 simple，找到第一个能用的组合后缓存
+// 线程安全：由 tsvectorOnce 保证只执行一次；写入 tsvectorCfg 时持写锁
+func (h *HybridSearcher) detectTSVectorConfig() {
+	for _, tsConfig := range []string{"zh_rag", "simple"} {
+		for _, tsvCol := range []string{"contextual_tsv", "content_tsv"} {
+			sql := fmt.Sprintf(`SELECT 1 FROM knowledge_chunks WHERE %s @@ plainto_tsquery('test') LIMIT 1`, tsvCol)
+			var ok int
+			if err := h.db.Raw(sql).Scan(&ok).Error; err == nil {
+				h.tsvectorMu.Lock()
+				h.tsvectorCfg = &tsvectorConfig{tsConfig: tsConfig, tsvCol: tsvCol}
+				h.tsvectorMu.Unlock()
+				return
+			}
+		}
+	}
+}
+
+// tsvectorSearch 执行单个 tsvector 查询（P0-21 提取的公共方法）
+func (h *HybridSearcher) tsvectorSearch(ctx context.Context, tsConfig, tsvCol, productID, query string, topK int) ([]Chunk, error) {
+	sql := fmt.Sprintf(`
+		SELECT id, document_id, content,
+		       ts_rank(%s, plainto_tsquery(?, ?))::float8 AS score
+		FROM knowledge_chunks
+		WHERE %s @@ plainto_tsquery(?, ?)
+	`, tsvCol, tsvCol)
+	args := []any{tsConfig, query, tsConfig, query}
+	if productID != "" {
+		sql += " AND product_id = ?"
+		args = append(args, productID)
+	}
+	sql += " ORDER BY score DESC LIMIT ?"
+	args = append(args, topK)
+
+	var rows []chunkScanRow
+	if err := h.db.WithContext(ctx).Raw(sql, args...).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rowsToChunks(rows), nil
+}
+
 // keywordSearchPG 直接用 pg tsvector 做关键词检索
+// P0-21 修复：使用启动时缓存的 tsvector 配置，避免每次 4 次探测
 func (h *HybridSearcher) keywordSearchPG(ctx context.Context, productID string, query string, topK int) ([]Chunk, error) {
 	if h.db == nil {
 		return nil, fmt.Errorf("db not configured")
 	}
+
+	// 懒加载检测 tsvector 配置（线程安全，仅执行一次）
+	h.tsvectorOnce.Do(func() {
+		h.detectTSVectorConfig()
+	})
+
+	// 使用缓存的配置（持读锁，避免与 nil 写入冲突）
+	h.tsvectorMu.RLock()
+	cfg := h.tsvectorCfg
+	h.tsvectorMu.RUnlock()
+	if cfg != nil {
+		rows, err := h.tsvectorSearch(ctx, cfg.tsConfig, cfg.tsvCol, productID, query, topK)
+		if err == nil {
+			return rows, nil
+		}
+		// 缓存配置执行失败（如配置被删除），清除缓存，降级到全量探测
+		h.tsvectorMu.Lock()
+		h.tsvectorCfg = nil
+		h.tsvectorMu.Unlock()
+	}
+
+	// 全量探测（首次未缓存成功，或缓存配置运行时失败）
 	for _, tsConfig := range []string{"zh_rag", "simple"} {
 		for _, tsvCol := range []string{"contextual_tsv", "content_tsv"} {
-			sql := fmt.Sprintf(`
-				SELECT id, document_id, content,
-				       ts_rank(%s, plainto_tsquery(?, ?))::float8 AS score
-				FROM knowledge_chunks
-				WHERE %s @@ plainto_tsquery(?, ?)
-			`, tsvCol, tsvCol)
-			args := []any{tsConfig, query, tsConfig, query}
-			if productID != "" {
-				sql += " AND product_id = ?"
-				args = append(args, productID)
-			}
-			sql += " ORDER BY score DESC LIMIT ?"
-			args = append(args, topK)
-
-			var rows []chunkScanRow
-			if err := h.db.WithContext(ctx).Raw(sql, args...).Scan(&rows).Error; err == nil && len(rows) > 0 {
-				return rowsToChunks(rows), nil
+			if rows, err := h.tsvectorSearch(ctx, tsConfig, tsvCol, productID, query, topK); err == nil && len(rows) > 0 {
+				return rows, nil
 			}
 		}
 	}

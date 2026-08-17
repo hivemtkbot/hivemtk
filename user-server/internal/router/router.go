@@ -252,16 +252,23 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 
 		setupFeishuRoutes(auth, gormDB)
 
+		bridgeIngressSvc := service.NewInboxIngressService()
+
+		setupWechatRoutes(auth, gormDB, bridgeIngressSvc)
+
 		setupTiktokRoutes(auth, gormDB)
 
 		setupWeComRoutes(auth, gormDB)
 
 		setupCustomerServiceRoutes(auth, aiAgentSvcGlobal, langResolver)
 
-		bridgeIngressSvc := service.NewInboxIngressService()
-		app.SetBridgeIngressSvc(bridgeIngressSvc) 
-		bridgeHandler := bridge.NewBridgeIngestHandler(bridgeIngressSvc)
-		bridgeWS := r.Group("/api")
+	app.SetBridgeIngressSvc(bridgeIngressSvc) 
+	bridgeHandler := bridge.NewBridgeIngestHandler(bridgeIngressSvc)
+
+	douyinLeadMiner := service.NewWebhookService(gormDB).DouyinLeadMiner()
+	bridgeHandler.SetLeadMiner(douyinLeadMiner)
+
+	bridgeWS := r.Group("/api")
 		bridgeWS.Use(middleware.InitGuard())
 		bridgeWS.POST("/bridge/ingest", bridgeHandler.HandleHTTPIngest)
 		bridgeWS.GET("/bridge/outbox", bridgeHandler.GetBridgeOutbox)
@@ -326,6 +333,15 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		setupDialogueMemoryRoutes(auth, gormDB)
 
 		setupReachPipelineRoutes(auth, gormDB)
+
+		setupProactiveReachRoutes(auth, gormDB)
+
+		// 2026-08-16 严肃化：13 渠道统一配置入口
+		setupChannelOverviewRoutes(auth, gormDB)
+
+	// 微信公众号 webhook（GET 验证 + POST 收消息）
+	wechatWebhookGroup := r.Group("/api")
+	setupWechatWebhookRoutes(wechatWebhookGroup, gormDB, bridgeIngressSvc)
 
 		setupSOPRoutes(auth, gormDB)
 

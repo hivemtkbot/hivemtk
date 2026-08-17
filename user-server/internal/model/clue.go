@@ -9,7 +9,7 @@ type Clue struct {
 	ID             string         `gorm:"type:varchar(36);primary_key" json:"id"`
 	SourceID       string         `gorm:"source_id" json:"source_id"`
 	Account        string         `gorm:"account" json:"account"`
-	Type           int64          `gorm:"column:type" json:"type"`
+	Type           int64          `gorm:"column:type;index" json:"type"`
 	IsVerify       int64          `gorm:"is_verify" json:"is_verify"`
 	Name           string         `gorm:"name" json:"name"`
 	City           string         `gorm:"city" json:"city"`
@@ -20,7 +20,12 @@ type Clue struct {
 	MessageID      string         `gorm:"column:message_id;type:varchar(100)" json:"message_id"`
 	ConversationID string         `gorm:"column:conversation_id;type:varchar(100);index" json:"conversation_id"`
 	OneID          string         `gorm:"column:one_id;type:varchar(100);index" json:"one_id"`
+	OwnerAccount   string         `gorm:"column:owner_account;type:varchar(255);index" json:"owner_account"`
+	IsGroup        bool           `gorm:"column:is_group;default:false" json:"is_group"`
+	GroupID        string         `gorm:"column:group_id;type:varchar(100)" json:"group_id"`
+	GroupName      string         `gorm:"column:group_name;type:varchar(255)" json:"group_name"`
 	CreateTime     int64          `gorm:"autoCreateTime" json:"create_time"`
+	UpdatedAt      int64          `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 

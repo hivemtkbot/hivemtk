@@ -2,16 +2,16 @@ import { http } from '@/utils/request';
 
 // 话术库 - 匹配后端 /api/scripts/* 路径
 export function getScriptTemplateList(params) {
-  return request({ url: '/api/scripts', method: 'get', params })
+  return http.get('/api/scripts', params)
 }
 export function getScriptTemplate(id) {
   return http.get(`/api/scripts/${id}`)
 }
 export function createScriptTemplate(data) {
-  return request({ url: '/api/scripts', method: 'post', data })
+  return http.post('/api/scripts', data)
 }
 export function updateScriptTemplate(id, data) {
-  return request({ url: `/api/scripts/${id}`, method: 'put', data })
+  return http.put(`/api/scripts/${id}`, data)
 }
 export function deleteScriptTemplate(id) {
   return http.delete(`/api/scripts/${id}`)
@@ -20,13 +20,13 @@ export function getScriptCategories() {
   return http.get('/api/scripts/categories')
 }
 export function searchScriptTemplates(params) {
-  return request({ url: '/api/scripts/search', method: 'get', params })
+  return http.get('/api/scripts/search', params)
 }
 export function getPublicScriptTemplates() {
   return http.get('/api/scripts/public')
 }
 export function recommendScript(data) {
-  return request({ url: '/api/scripts/recommend', method: 'post', data })
+  return http.post('/api/scripts/recommend', data)
 }
 
 // 兼容旧接口

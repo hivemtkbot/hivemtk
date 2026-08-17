@@ -71,7 +71,7 @@ type mockKeyword struct {
 	err    error
 }
 
-func (m *mockKeyword) Search(ctx context.Context, kbID, q string, topK int) ([]Chunk, error) {
+func (m *mockKeyword) SearchKeyword(ctx context.Context, kbID, q string, topK int) ([]Chunk, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

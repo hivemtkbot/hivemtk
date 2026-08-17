@@ -149,11 +149,17 @@ type BridgeIngestHandler struct {
 	ingress *service.InboxIngressService
 	mockHandle  func(ctx context.Context, ev *model.MessageEvent) (*service.InboxIngressResult, error)
 	mockPersist func(ctx context.Context, ev *model.MessageEvent, direction string) error
+	leadMiner   func(ctx context.Context, ev *model.MessageEvent)
 }
 
 // NewBridgeIngestHandler 构造 HTTP ingest 处理器
 func NewBridgeIngestHandler(ingress *service.InboxIngressService) *BridgeIngestHandler {
 	return &BridgeIngestHandler{ingress: ingress}
+}
+
+// SetLeadMiner 设置线索挖掘回调（Douyin/TikTok 等群聊渠道用）
+func (h *BridgeIngestHandler) SetLeadMiner(fn func(ctx context.Context, ev *model.MessageEvent)) {
+	h.leadMiner = fn
 }
 
 // NewBridgeIngestHandlerWithMock 构造带 mock 的 HTTP ingest 处理器（仅测试用）
@@ -195,12 +201,26 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 	channel := info.Channel
 	accountID := info.AccountID
 	conversationID := info.ConversationID
-	channelNorm := NormalizeBridgeChannel(channel)
 	ctx0 := c.Request.Context()
 	start := time.Now()
 	bm := metrics.GetBridge()
 
-	// bridgeHTTPIngestError 记录 ingest 校验错误指标（按错误码分类）。
+	var req HTTPIngestRequest
+	bodyBindErr := c.ShouldBindJSON(&req)
+	if bodyBindErr == nil {
+		if channel == "" {
+			channel = req.Channel
+		}
+		if accountID == "" {
+			accountID = req.AccountID
+		}
+		if conversationID == "" {
+			conversationID = req.ConversationID
+		}
+	}
+
+	channelNorm := NormalizeBridgeChannel(channel)
+
 	bridgeHTTPIngestError := func(errCode string) {
 		bm.IngestErrors.WithLabel(channel, errCode).Inc()
 		bm.IngestDuration.WithLabel(channel).Observe(float64(time.Since(start).Milliseconds()))
@@ -324,20 +344,21 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		})
 		return
 	}
-	var req HTTPIngestRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+
+	if bodyBindErr != nil && info.ContentLength > 0 {
 		logger.Ctx(ctx0).Warn().
 			Str("module", "bridge").
 			Str("event", "http_ingest_bind_json_failed").
-			Err(err).
+			Err(bodyBindErr).
 			Str("full_url", info.FullURL).
 			Msg("[Bridge HTTP] body JSON 解析失败")
 		c.JSON(http.StatusBadRequest, HTTPIngestResponse{
 			OK:     false,
-			Reason: "invalid json body: " + err.Error(),
+			Reason: "invalid json body: " + bodyBindErr.Error(),
 		})
 		return
 	}
+
 	if channel != "" {
 		req.Channel = channel
 	}
@@ -513,6 +534,12 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		}
 	}
 
+	if h.leadMiner != nil && isLeadMiningChannel(channelNorm) {
+		for _, ev := range batchEvents {
+			h.leadMiner(ctx, ev)
+		}
+	}
+
 	resp.OutboundReplies = outboundReplies
 
 	replyCount := len(resp.OutboundReplies)
@@ -597,6 +624,39 @@ func writeOutboxJSON(c *gin.Context, hubs []*model.MessageHub) {
 // isIngestDuplicate 委托 channelgw.IsDuplicateReason（HTTP/WS 传输共用同一判定）。
 func isIngestDuplicate(reason string) bool {
 	return channelgw.IsDuplicateReason(reason)
+}
+
+// 2026-08-16 重大修正：白名单只保留有真实 Chrome 扩展/桥接客户端支撑的渠道
+//
+//	真实 Bridge 渠道：douyin / tiktok / kuaishou / xiaohongshu / xianyu
+//	（有 Chrome 扩展 + Bridge 协议对齐 + channelgw 注册）
+//
+//	未实现渠道（移除出白名单）：
+//	  weibo / bilibili / taobao / pdd / jd / 1688
+//	  — 这些是上次论证书面"支持"但实际并无适配代码、Chrome 扩展、channelgw 注册，
+//	    仍将其放进 leadMiningChannels 只会让线索挖掘把假渠道当真渠道去解析。
+//	如需新增渠道：必须先实现 Chrome 扩展 manifest / content script / 与 Bridge 协议对齐，
+//	并在 channelgw.Default 注册 ChannelSpec（含 Label/Transports），
+//	再调 AddLeadMiningChannel 加回白名单。
+var leadMiningChannels = map[string]bool{
+	"douyin":      true,
+	"tiktok":      true,
+	"kuaishou":    true,
+	"xiaohongshu": true,
+	"xianyu":      true,
+}
+
+func isLeadMiningChannel(channel string) bool {
+	return leadMiningChannels[strings.ToLower(channel)]
+}
+
+// AddLeadMiningChannel 动态扩展支持群聊线索挖掘的 Bridge 渠道（插件使用）。
+//
+//	使用约束：调用方必须先在 channelgw.Default 注册同名 ChannelSpec，
+//	且必须有对应的 Chrome 扩展 content script 与 Bridge 协议对齐，
+//	否则 ingest 会被 IsBridgeChannel 拒绝。
+func AddLeadMiningChannel(channel string) {
+	leadMiningChannels[strings.ToLower(channel)] = true
 }
 
 // _bridgeOutboxHubsForLog 把 hubs 转成日志友好的可序列化结构。

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,6 +27,7 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/platform"
 	"hivemtk-user/internal/router"
+	"hivemtk-user/internal/security"
 	"hivemtk-user/internal/service"
 	"hivemtk-user/internal/service/trace_learning"
 	"hivemtk-user/internal/system/install"
@@ -83,6 +85,13 @@ func main() {
 
 	logger.Info("User Server Starting")
 	logger.Infof("IS_TEST_MODE env: %s", os.Getenv("IS_TEST_MODE"))
+
+	// NetworkExposureGuard：私域部署基线护栏（v3 审计 P0-S1）
+	if err := security.NewNetworkExposureGuard().Run(); err != nil {
+		log.Fatalf("[SECURITY] %v", err)
+	}
+	log.Printf("[SECURITY] NetworkExposureGuard passed: PUBLIC_BASE_URL=%s, REQUIRE_PRIVATE_NETWORK=%v",
+		os.Getenv("PUBLIC_BASE_URL"), os.Getenv("REQUIRE_PRIVATE_NETWORK"))
 
 	redisClient := buildRedisClient()
 	var healthPinger router.Pinger

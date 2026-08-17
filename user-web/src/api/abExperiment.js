@@ -2,16 +2,16 @@ import { http } from '@/utils/request';
 
 // A/B 测试 - 匹配后端 /api/ab-experiments/* 路径
 export function getExperimentList(params) {
-  return request({ url: '/api/ab-experiments', method: 'get', params })
+  return http.get('/api/ab-experiments', params)
 }
 export function getExperiment(id) {
   return http.get(`/api/ab-experiments/${id}`)
 }
 export function createExperiment(data) {
-  return request({ url: '/api/ab-experiments', method: 'post', data })
+  return http.post('/api/ab-experiments', data)
 }
 export function updateExperiment(id, data) {
-  return request({ url: `/api/ab-experiments/${id}`, method: 'put', data })
+  return http.put(`/api/ab-experiments/${id}`, data)
 }
 export function deleteExperiment(id) {
   return http.delete(`/api/ab-experiments/${id}`)

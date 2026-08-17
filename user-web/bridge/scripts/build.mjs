@@ -21,6 +21,7 @@ const entries = {
   'content-xhs': 'src/content/xhs.js',
   'content-tiktok': 'src/content/tiktok.js',
   'content-xianyu': 'src/content/xianyu.js',
+  'content-kuaishou': 'src/content/kuaishou.js',
   popup: 'src/popup/index.js',
 };
 

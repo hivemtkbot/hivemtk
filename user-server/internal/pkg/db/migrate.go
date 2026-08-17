@@ -222,6 +222,8 @@ func allModels() []any {
 		&model.LeadMiningConfig{},
 		&model.SecurityAudit{},
 		&model.SecurityAuditItem{},
+		&model.UserBlacklist{},
+		&model.BridgeAccount{},
 	}
 }
 

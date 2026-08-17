@@ -334,7 +334,8 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 	if err := s.execRepo.Create(ctx, exec); err != nil {
 		return nil, err
 	}
-	graph, err := s.loadSOPGraph(context.Background(), agent, variantGraphID)
+	// BUG-10 修复：保留 ctx 透传，使 trace_id 链路不中断、cancel 可传播
+	graph, err := s.loadSOPGraph(ctx, agent, variantGraphID)
 	if err != nil {
 		return nil, err
 	}
@@ -422,11 +423,11 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 			}
 		}
 	}
-	graph, err := s.loadSOPGraph(context.Background(), agent, variantGraphID)
+	// BUG-10 修复：保留 ctx 透传，使 trace_id 链路不中断、cancel 可传播
+	graph, err := s.loadSOPGraph(ctx, agent, variantGraphID)
 	if err != nil {
 		return nil, err
 	}
-
 	current := findNodeByID(&graph, exec.CurrentNode)
 	if current == nil {
 		exec.Status = SOPStatusFailed
@@ -579,6 +580,11 @@ func (s *SOPService) Stats(ctx context.Context) (map[string]int64, error) {
 	return stats, nil
 }
 
+// ValidateGraphForTest 暴露给测试用：跳过 DB 检查，只跑图结构验证
+func (s *SOPService) ValidateGraphForTest(ctx context.Context, graph *SOPGraph) error {
+	return s.validateGraph(ctx, graph)
+}
+
 func (s *SOPService) validateGraph(ctx context.Context, graph *SOPGraph) error {
 	if graph == nil {
 		return ErrSOPInvalidGraph
@@ -714,6 +720,46 @@ func findNodeByID(graph *SOPGraph, id string) *SOPNode {
 	return nil
 }
 
+func deepCopySOPNode(n *SOPNode) *SOPNode {
+	if n == nil {
+		return nil
+	}
+	cp := &SOPNode{
+		ID:          n.ID,
+		Type:        n.Type,
+		Name:        n.Name,
+		Condition:   n.Condition,
+		Description: n.Description,
+		Prompt:      n.Prompt,
+		Position:    n.Position,
+	}
+	if n.Config != nil {
+		cp.Config = make(map[string]any, len(n.Config))
+		for k, v := range n.Config {
+			cp.Config[k] = v
+		}
+	}
+	if n.Next != nil {
+		cp.Next = make([]string, len(n.Next))
+		copy(cp.Next, n.Next)
+	}
+	if n.Tools != nil {
+		cp.Tools = make([]string, len(n.Tools))
+		copy(cp.Tools, n.Tools)
+	}
+	if n.Conditions != nil {
+		cp.Conditions = make([]SOPConditionBranch, len(n.Conditions))
+		copy(cp.Conditions, n.Conditions)
+	}
+	if n.Metadata != nil {
+		cp.Metadata = make(map[string]any, len(n.Metadata))
+		for k, v := range n.Metadata {
+			cp.Metadata[k] = v
+		}
+	}
+	return cp
+}
+
 func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 	if current == nil {
 		return nil
@@ -727,11 +773,11 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 			br, err := SOPEvaluateConditionBranches(current.Conditions, data)
 			if err == nil && br.Matched && br.NextNode != "" {
 				if n := findNodeByID(graph, br.NextNode); n != nil {
-					return n
+					return deepCopySOPNode(n)
 				}
 			}
 			if len(current.Next) > 0 {
-				return findNodeByID(graph, current.Next[0])
+				return deepCopySOPNode(findNodeByID(graph, current.Next[0]))
 			}
 			return nil
 		}
@@ -747,13 +793,13 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 			if err == nil {
 				if nextID, ok := result["_next_node"].(string); ok && nextID != "" {
 					if n := findNodeByID(graph, nextID); n != nil {
-						return n
+						return deepCopySOPNode(n)
 					}
 				}
 			}
 		}
 		if len(current.Next) > 0 {
-			return findNodeByID(graph, current.Next[0])
+			return deepCopySOPNode(findNodeByID(graph, current.Next[0]))
 		}
 		return nil
 	}
@@ -761,16 +807,16 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 	if current.Type == SOPNodeTypeLLM {
 		if decision, ok := data["_llm_decision"].(string); ok && decision != "" {
 			if n := findNodeByID(graph, decision); n != nil {
-				return n
+				return deepCopySOPNode(n)
 			}
 		}
 		if nextID, ok := current.Config["next"].(string); ok && nextID != "" {
 			if n := findNodeByID(graph, nextID); n != nil {
-				return n
+				return deepCopySOPNode(n)
 			}
 		}
 		if len(current.Next) > 0 {
-			return findNodeByID(graph, current.Next[0])
+			return deepCopySOPNode(findNodeByID(graph, current.Next[0]))
 		}
 		return nil
 	}
@@ -780,7 +826,7 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 			br, err := SOPEvaluateConditionBranches(current.Conditions, data)
 			if err == nil && br.Matched && br.NextNode != "" {
 				if n := findNodeByID(graph, br.NextNode); n != nil {
-					return n
+					return deepCopySOPNode(n)
 				}
 			}
 		}
@@ -788,13 +834,13 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 			if e.From == current.ID {
 				if v, ok := data["_branch_result"].(string); ok {
 					if v == e.When || (v == "true" && e.When == "true") || (v == "false" && e.When == "false") {
-						return findNodeByID(graph, e.To)
+						return deepCopySOPNode(findNodeByID(graph, e.To))
 					}
 				}
 			}
 		}
 		if len(current.Next) > 0 {
-			return findNodeByID(graph, current.Next[0])
+			return deepCopySOPNode(findNodeByID(graph, current.Next[0]))
 		}
 		return nil
 	}
@@ -802,22 +848,22 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 	if current.Type == SOPNodeTypeAIDecide {
 		if decision, ok := data["_ai_decision"].(string); ok && decision != "" {
 			if n := findNodeByID(graph, decision); n != nil {
-				return n
+				return deepCopySOPNode(n)
 			}
 		}
 		if decision, ok := data["_llm_decision"].(string); ok && decision != "" {
 			if n := findNodeByID(graph, decision); n != nil {
-				return n
+				return deepCopySOPNode(n)
 			}
 		}
 		if len(current.Next) > 0 {
-			return findNodeByID(graph, current.Next[0])
+			return deepCopySOPNode(findNodeByID(graph, current.Next[0]))
 		}
 		return nil
 	}
 
 	if len(current.Next) > 0 {
-		return findNodeByID(graph, current.Next[0])
+		return deepCopySOPNode(findNodeByID(graph, current.Next[0]))
 	}
 	return nil
 }
@@ -841,7 +887,6 @@ func InitSOPService(db *gorm.DB, dispatcher *llm.Dispatcher) *SOPService {
 
 func NewWelcomeSOP() *CreateRequest {
 	return &CreateRequest{
-
 		Name:        "客户欢迎 SOP",
 		Scenario:    "welcome",
 		Description: "新客户接入时的标准欢迎流程（14 节点类型示范）",

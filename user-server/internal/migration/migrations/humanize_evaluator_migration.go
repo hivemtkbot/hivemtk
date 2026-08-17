@@ -21,7 +21,7 @@ func NewHumanizeEvaluatorMigration(db *gorm.DB) *HumanizeEvaluatorMigration {
 }
 
 // Version 返回版本号
-func (m *HumanizeEvaluatorMigration) Version() string { return "v2.9.0" }
+func (m *HumanizeEvaluatorMigration) Version() string { return "v2.9.1" }
 
 // Name 返回迁移名称
 func (m *HumanizeEvaluatorMigration) Name() string { return "拟人度评估器（5 张表）" }

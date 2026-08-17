@@ -1,5 +1,8 @@
 # Lint：golangci-lint（Go）+ ESLint（前端 Bridge 扩展）
 # 文档: https://golangci-lint.run/usage/install/
+#
+# 架构合规检查（五层架构）已合并到 user-server-ci.yml（test job 中），
+# 不再在此处重复执行。参见 OPT-CI-07。
 
 name: Lint
 
@@ -54,20 +57,17 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
-  arch-check:
-    name: 五层架构检查
-    # OPT-CI-07：与 user-server-ci.yml 重复，但保留为防御层
-    # 原因：lint.yml 在仓库根目录运行，user-server-ci.yml 在 user-server 子目录
-    # 两处都能捕获到架构违规，互为冗余防御
+  i18n-coverage:
+    name: i18n Coverage Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check architecture
-        run: |
-          if [ -f scripts/check-architecture.sh ]; then
-            bash scripts/check-architecture.sh
-          else
-            echo "scripts/check-architecture.sh 不存在，跳过"
-          fi
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check i18n coverage
+        run: node user-web/scripts/check-i18n-coverage.cjs

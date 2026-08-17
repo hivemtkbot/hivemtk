@@ -26,16 +26,16 @@
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
     "@tinymce/tinymce-vue": "^5.1.0",
-    "@vue-flow/background": "^1.45.0", // USR-AI-01: 可视化 Chatflow
-    "@vue-flow/controls": "^1.45.0",
-    "@vue-flow/core": "^1.45.0",
-    "@vue-flow/minimap": "^1.45.0",
+    "@vue-flow/background": "^1.3.2",
+    "@vue-flow/controls": "^1.1.3",
+    "@vue-flow/core": "^1.48.2",
+    "@vue-flow/minimap": "^1.5.4",
     "@vue/compiler-sfc": "^3.5.22",
     "axios": "^1.9.0",
     "dompurify": "^3.4.12",
     "echarts": "^6.0.0",
     "element-plus": "^2.9.11",
-    "mjml-browser": "^4.15.3", // USR-RC-02: 邮件拖拽编辑器
+    "mjml-browser": "^4.15.3",
     "pinia": "^3.0.2",
     "sass": "^1.89.1",
     "tinymce": "^6.8.3",

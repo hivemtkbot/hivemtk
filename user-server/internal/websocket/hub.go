@@ -77,39 +77,52 @@ func (h *Hub) Run() {
 
 		case client := <-h.unregister:
 			h.mu.Lock()
-			if _, ok := h.clients[client.agentID]; ok {
+			if existing, ok := h.clients[client.agentID]; ok {
 				delete(h.clients, client.agentID)
 				h.agentOnline[client.agentID] = false
-				close(client.send)
+				close(existing.send)
 			}
 			h.mu.Unlock()
 			logger.GetLogger().Info().Str("agent_id", client.agentID).Msg("agent disconnected")
 
 		case frame := <-h.broadcast:
-			h.mu.Lock()
-			if client, ok := h.clients[frame.agentID]; ok {
-				select {
-				case client.send <- frame.bytes:
-				default:
-					close(client.send)
-					delete(h.clients, frame.agentID)
-					h.agentOnline[frame.agentID] = false
-				}
+			h.mu.RLock()
+			client, ok := h.clients[frame.agentID]
+			h.mu.RUnlock()
+			if !ok {
+				continue
 			}
-			h.mu.Unlock()
+			// 非阻塞发送：通道满时丢弃（避免 Run 循环被阻塞）
+			// 不 close 通道，由 unregister 统一负责
+			select {
+			case client.send <- frame.bytes:
+			default:
+				logger.GetLogger().Warn().Str("agent_id", frame.agentID).Msg("ws send buffer full, frame dropped")
+			}
 
 		case <-ticker.C:
-			h.mu.Lock()
-			for agentID, client := range h.clients {
+			h.mu.RLock()
+			clients := make([]*Client, 0, len(h.clients))
+			for _, client := range h.clients {
+				clients = append(clients, client)
+			}
+			h.mu.RUnlock()
+
+			for _, client := range clients {
 				select {
 				case client.send <- []byte(`{"type":"heartbeat"}`):
 				default:
-					delete(h.clients, agentID)
-					h.agentOnline[agentID] = false
-					close(client.send)
+					// 通道满说明连接已僵死，由 unregister 清理
+					logger.GetLogger().Warn().Str("agent_id", client.agentID).Msg("ws heartbeat dropped, marking offline")
+					h.mu.Lock()
+					if existing, ok := h.clients[client.agentID]; ok {
+						delete(h.clients, client.agentID)
+						h.agentOnline[client.agentID] = false
+						close(existing.send)
+					}
+					h.mu.Unlock()
 				}
 			}
-			h.mu.Unlock()
 		}
 	}
 }

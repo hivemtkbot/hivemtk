@@ -4,7 +4,7 @@ const BASE = '/api/dingtalk-app/accounts'
 
 // 列表
 export function listDingtalkApp(params) {
-  return request({ url: BASE, method: 'get', params })
+  return http.get(BASE, params)
 }
 
 // 详情
@@ -14,12 +14,12 @@ export function getDingtalkApp(id) {
 
 // 创建
 export function createDingtalkApp(data) {
-  return request({ url: BASE, method: 'post', data })
+  return http.post(BASE, data)
 }
 
 // 更新
 export function updateDingtalkApp(id, data) {
-  return request({ url: `${BASE}/${id}`, method: 'put', data })
+  return http.put(`${BASE}/${id}`, data)
 }
 
 // 删除

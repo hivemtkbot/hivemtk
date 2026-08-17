@@ -37,10 +37,18 @@ type DeleteClueRequest struct {
 
 // ImportClueRequest 导入线索请求
 type ImportClueRequest struct {
-	Name    string `json:"name"`
-	Account string `json:"account"`
-	Type    string `json:"type"`
-	City    string `json:"city"`
-	Address string `json:"address"`
+	Name           string `json:"name"`
+	Account        string `json:"account"`
+	Type           string `json:"type"`
+	City           string `json:"city"`
+	Address        string `json:"address"`
+	Desc           string `json:"desc"`
+	SourceID       string `json:"source_id"`
+	OneID          string `json:"one_id"`
+	ConversationID string `json:"conversation_id"`
+	OwnerAccount   string `json:"owner_account"`
+	IsVerify       int64  `json:"is_verify"`
+	IntentScore    int64  `json:"intent_score"`
+	IsOpportunity  int64  `json:"is_opportunity"`
 }
 

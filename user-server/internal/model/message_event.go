@@ -37,6 +37,17 @@ const (
 	MsgTypeLocation = "location"
 )
 
+// 发送者类型（用于 InboxIngress 区分客户/平台/AI）
+//
+//  2026-08-17 引入：替代散落的魔法字符串 "customer"/"ai"/"system"/"agent"，
+//  统一消费方对 SenderType 的判定
+const (
+	SenderTypeCustomer = "customer"
+	SenderTypeAI       = "ai"
+	SenderTypeSystem   = "system"
+	SenderTypeAgent    = "agent"
+)
+
 // MessageEvent 渠道接入消息中台统一消息标准
 //
 // 设计要点：

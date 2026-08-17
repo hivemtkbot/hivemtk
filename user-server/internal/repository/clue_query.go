@@ -13,13 +13,15 @@ import (
 // ClueQuery 线索查询条件。
 // Type / IsVerify 用指针，nil 表示不参与过滤（区别于值为 0）。
 type ClueQuery struct {
-	Keyword      string
-	Type         *int64
-	IsVerify     *int64
-	OwnerAccount string
+	Keyword       string
+	Type          *int64
+	IsVerify      *int64
+	OwnerAccount  string
 	IsOpportunity *int64
-	StartUnix int64
-	EndUnix   int64
+	IsGroup       *bool
+	GroupID       string
+	StartUnix     int64
+	EndUnix       int64
 }
 
 // ClueTypeAgg 按类型聚合结果
@@ -65,6 +67,12 @@ func applyClueQuery(db *gorm.DB, q ClueQuery) *gorm.DB {
 		} else {
 			tx = tx.Where("COALESCE(is_opportunity, 0) < 1")
 		}
+	}
+	if q.IsGroup != nil {
+		tx = tx.Where("is_group = ?", *q.IsGroup)
+	}
+	if q.GroupID != "" {
+		tx = tx.Where("group_id = ?", q.GroupID)
 	}
 	if q.StartUnix > 0 {
 		tx = tx.Where("create_time >= ?", q.StartUnix)

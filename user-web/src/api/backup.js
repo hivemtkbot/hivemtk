@@ -2,7 +2,7 @@ import { http } from '@/utils/request';
 
 // 备份列表
 export function getBackupList(params) {
-  return request({ url: '/api/backups', method: 'get', params })
+  return http.get('/api/backups', params)
 }
 
 // 备份详情
@@ -12,7 +12,7 @@ export function getBackupByID(id) {
 
 // 创建备份
 export function createBackup(data) {
-  return request({ url: '/api/backups', method: 'post', data })
+  return http.post('/api/backups', data)
 }
 
 // 删除备份
@@ -22,12 +22,12 @@ export function deleteBackup(id) {
 
 // 触发恢复
 export function restoreBackup(data) {
-  return request({ url: '/api/restore', method: 'post', data })
+  return http.post('/api/restore', data)
 }
 
 // 恢复记录列表
 export function getRestoreList(params) {
-  return request({ url: '/api/restore/list', method: 'get', params })
+  return http.get('/api/restore/list', params)
 }
 
 // 最近一次恢复

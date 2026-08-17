@@ -39,6 +39,7 @@ type VisitorChatService struct {
 	agentStatusRepo *repository.AgentStatusRepository
 	agentBindingSvc *ChannelAgentBindingService
 	inboxConvRepo   *repository.InboxConversationRepository
+	leadMiningSvc   *Service
 }
 
 // NewVisitorChatService 构造访客会话服务
@@ -98,6 +99,11 @@ func (s *VisitorChatService) ensureVisitorCustomer(ctx context.Context, req *Vis
 // SetOrchestrator 注入编排器（用于循环依赖解耦）
 func (s *VisitorChatService) SetOrchestrator(ctx context.Context, o *SmartCSOrchestrator) {
 	s.orchestrator = o
+}
+
+// SetLeadMining 注入线索发掘服务（用于循环依赖解耦）
+func (s *VisitorChatService) SetLeadMining(svc *Service) {
+	s.leadMiningSvc = svc
 }
 
 
@@ -346,6 +352,29 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 	}
 
 	s.syncToInbox(ctx, session, req.Content)
+
+	// 非侵入钩子：Web Widget 消息成功落库并同步收件箱后，异步投递线索发掘
+	if s.leadMiningSvc != nil {
+		func() {
+			defer func() { _ = recover() }()
+			hub := &model.MessageHub{
+				MsgID:          fmt.Sprintf("visitor:%s:%d", req.VisitorID, userMsg.ID),
+				Platform:       string(model.PlatformWebEmbed),
+				AccountID:      req.ChannelID,
+				Direction:      "inbound",
+				Status:         "pending",
+				MsgType:        string(contentType),
+				SenderID:       req.VisitorID,
+				SenderName:     session.UserName,
+				ConversationID: session.SessionID,
+				Content:        req.Content,
+				MediaURL:       req.MediaURL,
+				IsGroup:        false,
+				SentAt:         time.Now(),
+			}
+			s.leadMiningSvc.Enqueue(hub)
+		}()
+	}
 
 	if session.AgentID > 0 {
 		_ = websocket.SendToAgent(websocket.TypeNewMessage, map[string]any{

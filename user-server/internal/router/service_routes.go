@@ -315,6 +315,9 @@ func setupReachPipelineRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	if sender := app.NewPipelineReachSender(db); sender != nil {
 		reachSvc.SetReachSender(sender)
 	}
+	// 2026-08-16 严肃化：把全渠道 service 注册到 tooluse GlobalServiceRegistry，
+	// 否则 AI Agent 触发 reach.*.send 全部走 NoOp 路径。
+	app.RegisterAllReachServices(db)
 	reachSvc.StartDispatcher(context.Background(), 15*time.Second)
 	reachCtrl := controller.NewReachPipelineController(reachSvc)
 	auth.GET("/reach/pipelines", reachCtrl.ListPipelines)
@@ -333,6 +336,28 @@ func setupReachPipelineRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.POST("/reach/jobs/:id/cancel", reachCtrl.CancelJob)
 	auth.POST("/reach/jobs/:id/retry", reachCtrl.RetryJob)
 	auth.POST("/reach/jobs/:id/execute", reachCtrl.ExecuteJob)
+}
+
+// setupProactiveReachRoutes 主动触达路由
+func setupProactiveReachRoutes(auth *gin.RouterGroup, db *gorm.DB) {
+	reachSvc := service.NewReachPipelineService(db)
+	proactiveSvc := service.NewProactiveReachService(db, nil)
+	service.BindProactiveReachSenders(proactiveSvc, db)
+	proactiveCtrl := controller.NewProactiveReachController(proactiveSvc)
+
+	// 主动触达核心 API
+	auth.POST("/reach/proactive/send", proactiveCtrl.ProactiveSend)
+	auth.POST("/reach/proactive/quick", proactiveCtrl.QuickSend)
+	auth.POST("/reach/proactive/validate", proactiveCtrl.ValidateReach)
+
+	// 客户维度触达（按 OneID 智能选渠道）
+	auth.POST("/reach/proactive/customer/:customer_id", proactiveCtrl.ProactiveSendFromCustomer)
+	auth.GET("/reach/proactive/customer/:customer_id/channels", proactiveCtrl.ListChannels)
+
+	// 批量触达
+	auth.POST("/reach/proactive/batch", proactiveCtrl.BatchProactiveSend)
+
+	_ = reachSvc
 }
 
 // setupLLMRoutingRoutes LLM 多模型路由

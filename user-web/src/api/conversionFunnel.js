@@ -4,11 +4,11 @@ import { http } from '@/utils/request';
 const ConversionFunnelApi = {
   // 漏斗报告（含各阶段 count/rate/drop_rate 与端到端 conversion/total）
   getFunnel(params) {
-    return request({ url: '/api/conversion-funnels', method: 'get', params })
+    return http.get('/api/conversion-funnels', params)
   },
   // 阶段详情（含 count/rate/avg_duration_seconds/top_sources）
   getStageDetails(stage, params) {
-    return request({ url: '/api/conversion-funnels/stage', method: 'get', params: { stage, ...params } })
+    return http.get('/api/conversion-funnels/stage', { params: { stage, ...params } })
   }
 }
 

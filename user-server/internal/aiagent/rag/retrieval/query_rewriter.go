@@ -222,10 +222,9 @@ func (q *QueryRewriter) queryDB(ctx context.Context, hash string) (*RewrittenQue
 		UsedStrategy: QueryRewriteStrategy(row.RewriteType),
 	}
 	if row.MultiQueries != "" {
-		_ = json.Unmarshal([]byte(row.MultiQueries), &rw.MultiQueries)
-	}
-	if rw.Rewritten == "" {
-		rw.Rewritten = row.HyDEDoc 
+		if err := json.Unmarshal([]byte(row.MultiQueries), &rw.MultiQueries); err == nil && rw.Rewritten == "" && len(rw.MultiQueries) > 0 {
+			rw.Rewritten = rw.MultiQueries[0]
+		}
 	}
 	return rw, nil
 }

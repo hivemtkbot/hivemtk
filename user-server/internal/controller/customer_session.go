@@ -6,6 +6,7 @@ import (
 	"hivemtk-user/internal/service"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -181,7 +182,16 @@ func (c *CustomerSessionController) SendMessage(ctx *gin.Context) {
 	}
 
 	message, err := c.sessionService.SendMessage(ctx.Request.Context(), &req)
-	if HandleDBError(ctx, err, "发送消息") {
+	if err != nil {
+		if err.Error() == "会话不存在" {
+			response.Error(ctx, http.StatusNotFound, err.Error())
+			return
+		}
+		if strings.Contains(err.Error(), "不允许发送消息") {
+			response.Error(ctx, http.StatusBadRequest, err.Error())
+			return
+		}
+		HandleDBError(ctx, err, "发送消息")
 		return
 	}
 

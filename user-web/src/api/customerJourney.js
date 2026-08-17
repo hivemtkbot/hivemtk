@@ -25,10 +25,10 @@ export function listByStage(stage) {
 
 // 迁移客户阶段
 export function transitionJourney(data) {
-  return request({ url: '/api/customer-journey/transition', method: 'post', data })
+  return http.post('/api/customer-journey/transition', data)
 }
 
 // 记录客户互动
 export function touchCustomer(data) {
-  return request({ url: '/api/customer-journey/touch', method: 'post', data })
+  return http.post('/api/customer-journey/touch', data)
 }

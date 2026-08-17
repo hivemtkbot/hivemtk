@@ -72,6 +72,9 @@ type SOPExecutionDispatcher struct {
 	runMu   sync.Mutex
 	running bool
 
+	// v3 审计 P0-10 修复：worker 父 ctx 取消器，Stop 时联动取消
+	workerCancel context.CancelFunc
+
 	// v3 审计 P0-12 修复：跟踪所有重试 timer 以便 Stop 时全部释放
 	retryTimersMu sync.Mutex
 	retryTimers   map[*time.Timer]struct{}
@@ -239,9 +242,12 @@ func (d *SOPExecutionDispatcher) Start(ctx context.Context) {
 	d.running = true
 	d.stopCh = make(chan struct{})
 
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	d.workerCancel = workerCancel
+
 	for i := 0; i < d.workerCount; i++ {
 		d.wg.Add(1)
-		go d.worker(context.Background(), i)
+		go d.worker(workerCtx, i)
 	}
 	logger.GetLogger().Info().
 		Int("worker_count", d.workerCount).
@@ -259,6 +265,9 @@ func (d *SOPExecutionDispatcher) Stop(ctx context.Context) {
 	}
 	d.running = false
 	close(d.stopCh)
+	if d.workerCancel != nil {
+		d.workerCancel()
+	}
 	d.runMu.Unlock()
 
 	// v3 审计 P0-12 修复：停止所有重试 timer
@@ -307,16 +316,20 @@ func (d *SOPExecutionDispatcher) worker(ctx context.Context, id int) {
 		case <-d.stopCh:
 			logger.GetLogger().Debug().Int("worker_id", id).Msg("[worker] stopped")
 			return
+		case <-ctx.Done():
+			logger.GetLogger().Debug().Int("worker_id", id).Msg("[worker] ctx cancelled, stopped")
+			return
 		case task := <-d.dispatchQueue:
-			d.processTask(context.Background(), id, task)
+			// 任务级 ctx：保留父 ctx（用于 cancel 传播）+ 5min 超时
+			taskCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+			d.processTask(taskCtx, id, task)
+			cancel()
 		}
 	}
 }
 
 // processTask 处理单个调度任务
 func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, task *dispatchTask) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
 	ctx = logger.WithTraceID(ctx, task.TraceID)
 	ctx = logger.WithModule(ctx, "sop_dispatcher")
 

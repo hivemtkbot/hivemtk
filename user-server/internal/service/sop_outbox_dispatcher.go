@@ -176,18 +176,26 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 // 恢复策略：
 //   - 找到当前节点重新派发任务（attempt=0）
 //   - 若仍失败，标记 Execution 为 failed
+//
+// 去重保障：recentlyRecovered 记录最近恢复过的 execution ID，
+// 在 recoveredCooldown 期间内跳过重复恢复，避免同一执行被多次恢复。
 type SOPStuckDetector struct {
 	execRepo       *repository.SopExecutionRepository
 	timerRepo      *repository.SOPTimerRepository
 	eventRepo      *repository.SOPExecEventRepository
 	execDispatcher SOPDispatchSender
-	maxIdleTime    time.Duration 
-	maxExecTime    time.Duration 
-	tickInterval   time.Duration 
+	maxIdleTime    time.Duration
+	maxExecTime    time.Duration
+	tickInterval   time.Duration
 	stopCh         chan struct{}
 	wg             sync.WaitGroup
 	runMu          sync.Mutex
 	running        bool
+
+	// 去重：最近恢复过的 execution -> 恢复时间
+	recentlyRecovered map[uint]time.Time
+	recoveredMu       sync.RWMutex
+	recoveredCooldown time.Duration
 }
 
 // NewSOPStuckDetector 创建卡死检测器
@@ -195,14 +203,16 @@ type SOPStuckDetector struct {
 // 构造函数签名保持 db *gorm.DB 不变以兼容调用方，内部用 db 创建 repository。
 func NewSOPStuckDetector(db *gorm.DB, execDispatcher SOPDispatchSender) *SOPStuckDetector {
 	return &SOPStuckDetector{
-		execRepo:       repository.NewSopExecutionRepository(db),
-		timerRepo:      repository.NewSOPTimerRepository(db),
-		eventRepo:      repository.NewSOPExecEventRepository(db),
-		execDispatcher: execDispatcher,
-		maxIdleTime:    30 * time.Minute,
-		maxExecTime:    24 * time.Hour,
-		tickInterval:   60 * time.Second,
-		stopCh:         make(chan struct{}),
+		execRepo:          repository.NewSopExecutionRepository(db),
+		timerRepo:         repository.NewSOPTimerRepository(db),
+		eventRepo:         repository.NewSOPExecEventRepository(db),
+		execDispatcher:    execDispatcher,
+		maxIdleTime:       30 * time.Minute,
+		maxExecTime:       24 * time.Hour,
+		tickInterval:      60 * time.Second,
+		recentlyRecovered: make(map[uint]time.Time),
+		recoveredCooldown: 5 * time.Minute,
+		stopCh:            make(chan struct{}),
 	}
 }
 
@@ -260,6 +270,19 @@ func (d *SOPStuckDetector) loop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			d.scanStuckExecutions(context.Background())
+			d.cleanupRecovered()
+		}
+	}
+}
+
+// cleanupRecovered 清理 recentlyRecovered 中超过 recoveredCooldown 的过期记录
+func (d *SOPStuckDetector) cleanupRecovered() {
+	d.recoveredMu.Lock()
+	defer d.recoveredMu.Unlock()
+	threshold := time.Now().Add(-d.recoveredCooldown)
+	for id, recoveredAt := range d.recentlyRecovered {
+		if recoveredAt.Before(threshold) {
+			delete(d.recentlyRecovered, id)
 		}
 	}
 }
@@ -298,6 +321,22 @@ func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 
 	recoveredCount := 0
 	for _, exec := range execs {
+		// BUG-6 修复：用 tryRecover 模式（持写锁一次性完成"检查+标记"）消除 TOCTOU race
+		// 原：读锁→检查→释放→写锁，多个 tick 可能同时进入恢复分支
+		d.recoveredMu.Lock()
+		recoveredAt, found := d.recentlyRecovered[exec.ID]
+		if found && time.Since(recoveredAt) < d.recoveredCooldown {
+			d.recoveredMu.Unlock()
+			logger.Ctx(ctx).Debug().
+				Uint("execution_id", exec.ID).
+				Time("recovered_at", recoveredAt).
+				Msg("[stuck] skip recently recovered execution")
+			continue
+		}
+		// 立刻写入"已恢复"标记（即使后面的检查失败，下一轮也跳过）
+		d.recentlyRecovered[exec.ID] = time.Now()
+		d.recoveredMu.Unlock()
+
 		pendingTimerCount, err := d.timerRepo.CountPendingByExecutionID(ctx, exec.ID)
 		if err != nil {
 			logger.Ctx(ctx).Warn().Err(err).

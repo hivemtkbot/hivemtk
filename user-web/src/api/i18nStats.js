@@ -14,21 +14,13 @@ export function getI18nStats() {
 // 语言分布：[{ internal_lang, target_lang, count, cross_lingual_count }]
 // params: { days }
 export function getLangDistribution(days = 7) {
-  return request({
-    url: '/api/i18n/stats/lang-dist',
-    method: 'get',
-    params: { days }
-  })
+  return http.get('/api/i18n/stats/lang-dist', { params: { days } })
 }
 
 // 缓存命中率：{ hit, miss, hit_rate }
 // params: { days }
 export function getCacheHitRate(days = 7) {
-  return request({
-    url: '/api/i18n/stats/cache',
-    method: 'get',
-    params: { days }
-  })
+  return http.get('/api/i18n/stats/cache', { params: { days } })
 }
 
 // 术语覆盖率：[{ target_lang, term_count, active_count }]
@@ -39,21 +31,13 @@ export function getGlossaryCoverage() {
 // 质量评分趋势：[{ date, avg_score, total_count }]
 // params: { days }
 export function getQualityTrend(days = 30) {
-  return request({
-    url: '/api/i18n/stats/quality',
-    method: 'get',
-    params: { days }
-  })
+  return http.get('/api/i18n/stats/quality', { params: { days } })
 }
 
 // 延迟统计：[{ target_lang, p50, p95, p99, count }]
 // params: { days }
 export function getLatencyStats(days = 7) {
-  return request({
-    url: '/api/i18n/stats/latency',
-    method: 'get',
-    params: { days }
-  })
+  return http.get('/api/i18n/stats/latency', { params: { days } })
 }
 
 export default {
