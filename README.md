@@ -282,8 +282,8 @@ hivemtk/                              # 用户端仓库
 │   ├── marketing-features/           # ⭐ 94 个营销功能模块详细文档
 │   ├── operations/                   # 运维文档(部署手册/初始化流程/Widget 嵌入)
 │   └── analysis/                     # 分析文档(冷启动/竞品对比)
-├── docker-compose-host.yml           # ⭐ 宿主机部署版(仅 PG + Redis,推荐)
-├── docker-compose-example.yml        # 旧版全栈 compose(含推理容器,兼容保留)
+├── docker-compose.yml           # ⭐ 宿主机部署版(仅 PG + Redis,推荐)
+├── docker-compose.yml        # 旧版全栈 compose(含推理容器,兼容保留)
 ├── Makefile                          # 一键安装/启动/停止/推理栈/开发热更新
 ├── .env-example                      # 环境变量模板
 ├── CONTRIBUTING.md                   # 贡献指南
@@ -402,7 +402,7 @@ make down                 # 停止旧版全栈
 | 仓库总览 | [README.md](README.md) · [README.en.md](README.en.md) |
 | 文档索引 | [docs/INDEX.md](docs/INDEX.md) |
 | 一键部署命令 | [Makefile](Makefile) |
-| 宿主机部署版 compose | [docker-compose-host.yml](docker-compose-host.yml) |
+| 宿主机部署版 compose | [docker-compose.yml](docker-compose.yml) |
 | 环境变量模板 | [.env-example](.env-example) |
 | 开源协议 | [LICENSE](LICENSE) · [NOTICE](NOTICE) |
 

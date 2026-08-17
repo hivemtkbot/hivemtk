@@ -113,7 +113,7 @@ user-server/
 │   ├── template/               # HTML 模板
 │   └── websocket/              # WebSocket 服务
 ├── config.yaml                 # 宿主直连配置（dev 默认）
-├── config-docker.yaml          # Docker 内配置（服务名寻址）
+├── config.yaml          # Docker 内配置（服务名寻址）
 ├── go.mod
 ├── go.sum
 ├── Dockerfile

@@ -22,7 +22,7 @@
 1. CORS 中间件强制白名单精确匹配；不在白名单的 Origin 立即 403，**不写 CORS 响应头**
 2. `Access-Control-Allow-Credentials: true` 仅在 Origin 命中白名单时设置
 3. 禁止 `Access-Control-Allow-Origin: *` 与 Allow-Credentials 共存（违反 CORS 规范，浏览器会拒绝）
-4. 白名单通过 `CORS_ALLOW_ORIGINS` 环境变量（逗号分隔）注入；`cors.json` 兜底默认
+4. 白名单通过 `CORS_ALLOW_ORIGINS_USER` 环境变量（逗号分隔）注入；`cors.json` 兜底默认
 
 ## 落地
 

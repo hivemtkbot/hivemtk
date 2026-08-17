@@ -71,14 +71,14 @@ npm run dev
 ### 2.1 端口对照表
 
 > **单一源**：`vite.config.js` 的 `server.port=8211` + `server.proxy['/api'].target='http://localhost:8204'`
-> user-server 端对应字段：`user-server/internal/pkg/utils/config/ports.go` `DefaultListenPort="8204"`
+> user-server 端对应字段：`user-server/internal/config/ports.go` `DefaultListenPort="8204"`
 
 | 端口 | 服务 / 应用 | 启动入口 | 单一源 | 文档源 |
 | --- | --- | --- | --- | --- |
 | **8211** | **user-web**（Vite dev） | `npm run dev` | `vite.config.js server.port=8211` | `vite.config.js:102` |
 | **8204** | **user-server**（被前端联调） | `cd ../user-server && go run ./cmd/api` | user-server `config.DefaultListenPort` | user-server/docs/dev/DEVELOPMENT.md §2.4 |
-| 8202 | user-server PG（docker 宿主机映射） | `docker compose -f docker-compose-host.yml up -d` | user-server `config.DefaultDBPortDocker` | user-server docs §2.4 |
-| 8203 | user-server Redis | `docker compose -f docker-compose-host.yml up -d` | user-server `config.DefaultRedisPort` | user-server docs §2.4 |
+| 8202 | user-server PG（docker 宿主机映射） | `docker compose -f docker-compose.yml up -d` | user-server `config.DefaultDBPortDocker` | user-server docs §2.4 |
+| 8203 | user-server Redis | `docker compose -f docker-compose.yml up -d` | user-server `config.DefaultRedisPort` | user-server docs §2.4 |
 | 8205 | platform-server（被前端联调，可选） | `cd ../hivemtk-platform/platform-server && go run cmd/api/main.go` | user-server `config.DefaultPlatformPort` | user-server docs §2.4 |
 | 8207 | LLM（本地推理） | user-server `make inference-host-up` | user-server `config.DefaultLLMPort` | user-server docs §2.4 |
 | 8208 | Embedding（本地推理） | user-server `make inference-host-up` | user-server `config.DefaultEmbeddingPort` | user-server docs §2.4 |

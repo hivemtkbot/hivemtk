@@ -252,8 +252,8 @@ hivemtk/                              # User-side repo
 │   ├── marketing-features/           # ⭐ 94 marketing modules detailed docs
 │   ├── operations/                   # Ops docs (deployment / init / embed)
 │   └── analysis/                     # Analysis docs (cold start / competitive)
-├── docker-compose-host.yml           # ⭐ Host deployment (PG + Redis only, recommended)
-├── docker-compose-example.yml        # Legacy full-stack compose (with inference containers)
+├── docker-compose.yml           # ⭐ Host deployment (PG + Redis only, recommended)
+├── docker-compose.yml        # Legacy full-stack compose (with inference containers)
 ├── Makefile                          # install / up / down / inference / dev
 ├── .env-example                      # Env template
 ├── CONTRIBUTING.md                   # Contributing guide
@@ -372,7 +372,7 @@ make down                 # Stop legacy full-stack
 | Repo overview | [README.md](README.md) · [README.en.md](README.en.md) |
 | Doc index | [docs/INDEX.md](docs/INDEX.md) |
 | One-click deploy | [Makefile](Makefile) |
-| Host deployment compose | [docker-compose-host.yml](docker-compose-host.yml) |
+| Host deployment compose | [docker-compose.yml](docker-compose.yml) |
 | Env template | [.env-example](.env-example) |
 | License | [LICENSE](LICENSE) · [NOTICE](NOTICE) |
 

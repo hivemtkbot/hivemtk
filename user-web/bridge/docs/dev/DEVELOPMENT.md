@@ -75,11 +75,11 @@ npm run dev    # 持续构建（推荐）
 ## 三、端口对照表
 
 > **核心约束**：`src/core/constants.js` 的 `DEFAULT_USER_SERVER.port` = **8204**（user-server Gin HTTP 端口）
-> 这是扩展**唯一**的默认服务端地址。任何前端代码、文档、配置均不得修改此字面量，除非同步修改 user-server `internal/pkg/utils/config/ports.go` 的 `DefaultListenPort` 与本文件。
+> 这是扩展**唯一**的默认服务端地址。任何前端代码、文档、配置均不得修改此字面量，除非同步修改 user-server `internal/config/ports.go` 的 `DefaultListenPort` 与本文件。
 
 | 端口 | 服务 / 应用 | 启动入口 | 单一源常量 | 文档源 |
 | --- | --- | --- | --- | --- |
-| **8204** | **user-server**（扩展连接入口） | `go run ./cmd/api` | `constants.DEFAULT_USER_SERVER.port` | user-server `internal/pkg/utils/config/ports.go` `DefaultListenPort` |
+| **8204** | **user-server**（扩展连接入口） | `go run ./cmd/api` | `constants.DEFAULT_USER_SERVER.port` | user-server `internal/config/ports.go` `DefaultListenPort` |
 | 8207 | LLM（本地推理） | 扩展不直连 | user-server `DefaultLLMPort` | user-server docs §2.4 |
 | 8208 | Embedding（本地推理） | 扩展不直连 | user-server `DefaultEmbeddingPort` | user-server docs §2.4 |
 | 8209 | Rerank（本地推理） | 扩展不直连 | user-server `DefaultRerankPort` | user-server docs §2.4 |
@@ -197,7 +197,7 @@ export const PROTOCOL = Object.freeze({
 1. 修改 `src/core/constants.js`，确保新值有**文档源**（DEVELOPMENT.md 或 DEFAULTS.md 链接）
 2. 同步 `docs/DEFAULTS.md` 表格
 3. 在 `test/constants.test.js` 追加断言（验证字面与文档源一致）
-4. 如跨包（如 user-server 端口）：同步 `user-server/internal/pkg/utils/config/ports.go`
+4. 如跨包（如 user-server 端口）：同步 `user-server/internal/config/ports.go`
 5. 跑 `npm run test` 验证
 
 ### 6.2 新增渠道（如快手私信）
@@ -328,7 +328,7 @@ chrome.storage.local.clear()
 | 字段 | 扩展端 | user-server 端 |
 | --- | --- | --- |
 | WS 路径 | `constants.DEFAULT_USER_SERVER.wsPath` | `internal/router/service_routes.go:90` |
-| user-server 端口 | `constants.DEFAULT_USER_SERVER.port` | `internal/pkg/utils/config/ports.go` `DefaultListenPort` |
+| user-server 端口 | `constants.DEFAULT_USER_SERVER.port` | `internal/config/ports.go` `DefaultListenPort` |
 | 心跳超时 | `WS_CLIENT_DEFAULTS.serverIdleTimeoutMs=25s` | `internal/bridge/handler.go` `pongWait=60s` |
 | 最大回复字节 | `SECURITY.maxReplyContentBytes=4KB` | `internal/bridge/handler.go` `maxReplyContentBytes=4KB` |
 | 协议帧名 | `PROTOCOL.FRAME.*` | `internal/bridge/frames.go` `Frame*` |

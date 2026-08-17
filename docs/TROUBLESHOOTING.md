@@ -30,8 +30,8 @@ docker run -e USER_JWT_SECRET="$(openssl rand -hex 32)" ...
 ```bash
 # 1. 检查端口监听
 ss -tlnp | grep 5432
-# 2. Docker 场景：用 host.docker.internal 替代 localhost
-POSTGRES_HOST=host.docker.internal
+# 2. Docker 场景：用 127.0.0.1 替代 localhost
+POSTGRES_HOST=127.0.0.1
 # 3. 验证连通
 psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB -c "SELECT 1"
 ```
@@ -42,11 +42,11 @@ psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB -c "SELECT 1"
 
 ### 2.1 浏览器控制台：`CORS policy: ... No 'Access-Control-Allow-Origin' header`
 **症状**：前端跨域请求被浏览器拦截；返回 403。
-**根因**：请求 Origin 不在 `CORS_ALLOW_ORIGINS` 白名单；新版 CORS 中间件（白名单模式）拒绝反射任意 Origin。
+**根因**：请求 Origin 不在 `CORS_ALLOW_ORIGINS_USER` 白名单；新版 CORS 中间件（白名单模式）拒绝反射任意 Origin。
 **修复**：
 ```bash
 # 在 .env 中追加允许的来源（逗号分隔）
-CORS_ALLOW_ORIGINS="https://app.example.com,https://admin.example.com"
+CORS_ALLOW_ORIGINS_USER="https://app.example.com,https://admin.example.com"
 # 重启 user-server 生效
 ```
 **避免**：

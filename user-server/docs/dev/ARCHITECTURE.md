@@ -157,7 +157,7 @@ user-server/
 │   ├── email/                                  横向 邮件域（service）
 │   ├── ops/                                    横向 运维域（controller/service/repository/model）
 │   └── pkg/                                    通用工具（i18n/metrics/trace/testutil/utils）
-├── config.yaml · config-docker.yaml            宿主/Docker 配置
+├── config.yaml · config.yaml            宿主/Docker 配置
 └── Dockerfile                                  多阶段构建
 ```
 

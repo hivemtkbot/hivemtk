@@ -58,7 +58,7 @@ cd hivemtk
 
 # 复制配置
 cp .env-example .env
-cp docker-compose-example.yml docker-compose.yml
+cp docker-compose.yml docker-compose.yml
 
 # 编辑配置
 vim .env  # 设置 JWT_SECRET、LLM 路径等

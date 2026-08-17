@@ -39,7 +39,7 @@
 | 文件 | 作用 | 是否入 Git |
 | --- | --- | --- |
 | `config.yaml` | 宿主直连配置（dev 默认） | ✅ 入仓（不含明文密钥） |
-| `config-docker.yaml` | Docker 内配置（服务名寻址） | ✅ 入仓 |
+| `config.yaml` | Docker 内配置（服务名寻址） | ✅ 入仓 |
 | `.air.toml` | air 热重载配置 + dev 环境变量 | ❌ 不入仓（在 `.gitignore` 中，开发者本地自行创建） |
 | `.env` | 敏感字段（POSTGRES_PASSWORD / JWT_SECRET 等） | ❌ 不入仓 |
 | `config/platform.yaml` | 平台对接配置（api_url/secret/admin） | ✅ 入仓 |
@@ -100,12 +100,12 @@ curl http://localhost:8204/api/v1/public/init
 
 ### 2.4 端口约定
 
-**全栈端口对照表**（所有调整必须先改本表 + `internal/pkg/utils/config/ports.go` + bridge `constants.js`）：
+**全栈端口对照表**（所有调整必须先改本表 + `internal/config/ports.go` + bridge `constants.js`）：
 
 | 端口 | 服务 / 应用 | 启动入口 | 单一源常量 | 文档源 |
 | --- | --- | --- | --- | --- |
-| 8202 | PostgreSQL（Docker 部署映射端口） | `docker compose -f docker-compose-host.yml up -d` | `config.DefaultDBPortDocker` | `docker-compose-host.yml` 中 mtk-postgres 容器映射宿主 8202 |
-| 8203 | Redis | `docker compose -f docker-compose-host.yml up -d` | `config.DefaultRedisPort` | `docker-compose-host.yml` 中 mtk-redis 容器 |
+| 8202 | PostgreSQL（Docker 部署映射端口） | `docker compose -f docker-compose.yml up -d` | `config.DefaultDBPortDocker` | `docker-compose.yml` 中 mtk-postgres 容器映射宿主 8202 |
+| 8203 | Redis | `docker compose -f docker-compose.yml up -d` | `config.DefaultRedisPort` | `docker-compose.yml` 中 mtk-redis 容器 |
 | **8204** | **user-server**（Gin HTTP） | `go run ./cmd/api` 或 `air -c .air.toml` | `config.DefaultListenPort` / `main.DefaultListenPort` | `Dockerfile:57 ENV SERVER_PORT=8204` |
 | 8205 | platform-server | `cd hivemtk-platform/platform-server && go run ./cmd/api` | `config.DefaultPlatformPort` | platform-server/config.yaml `server.port` |
 | 8206 | Chromium CDP（远程调试） | `chromedp.Flag("remote-debugging-port", "8206")` | `config.DefaultChromiumCDPPort` | `internal/aiagent/agent/browser/assistant.go:43` |
@@ -121,7 +121,7 @@ curl http://localhost:8204/api/v1/public/init
 # 端口 8202（PG）+ 8203（Redis）
 cd hivemtk && make db-up
 # 验证：
-docker compose -f docker-compose-host.yml ps   # 两个容器都 healthy
+docker compose -f docker-compose.yml ps   # 两个容器都 healthy
 
 # === 2. 启动本地推理栈（LLM + Embedding + Rerank）===
 # 端口 8207 + 8208 + 8209（宿主机 llama.cpp）
@@ -171,7 +171,7 @@ node scripts/build.mjs
 
 **单一源约束（禁软启动 / 禁多处硬编码）**：
 
-1. **所有端口字面量集中在 `user-server/internal/pkg/utils/config/ports.go`**（`DefaultListenPort`/`DefaultDBPortDev`/`DefaultDBPortDocker`/`DefaultRedisPort`/`DefaultPlatformPort`/`DefaultChromiumCDPPort`/`DefaultLLMPort`/`DefaultEmbeddingPort`/`DefaultRerankPort` 等 + 对应 `_PortStr` 字符串版本 + `DefaultXxxBaseURLDev`/`DefaultXxxBaseURLDocker` 派生 URL + `DefaultPlatformAPI` 平台 API 网关 + `DefaultBGEBaseURLDev/Docker` BGE-m3 兜底）
+1. **所有端口字面量集中在 `user-server/internal/config/ports.go`**（`DefaultListenPort`/`DefaultDBPortDev`/`DefaultDBPortDocker`/`DefaultRedisPort`/`DefaultPlatformPort`/`DefaultChromiumCDPPort`/`DefaultLLMPort`/`DefaultEmbeddingPort`/`DefaultRerankPort` 等 + 对应 `_PortStr` 字符串版本 + `DefaultXxxBaseURLDev`/`DefaultXxxBaseURLDocker` 派生 URL + `DefaultPlatformAPI` 平台 API 网关 + `DefaultBGEBaseURLDev/Docker` BGE-m3 兜底）
 2. **bridge 端单源**：`user-web/bridge/src/core/constants.js` 的 `DEFAULT_USER_SERVER.port = 8204`
 3. **禁止"软启动"**——`config.yaml` 缺字段时必须明确报错（`log.Fatalf`），不允许 `if cfg == nil { cfg = defaultConfig }` 静默兜底；即使是最后兜底的本地默认值，也必须从 `config.DefaultXxxBaseURLDev` / `config.DefaultXxxBaseURLDocker` 引用，禁止字面量
 4. **禁止"重复硬编码"**——任何模块（含 `cmd/perf/main.go`、`internal/service/short_link.go` 等）禁止在写 `http://localhost:8204` / `:8207` 等字面量，必须 `import "marketing/internal/pkg/utils/config"` 后用 `config.DefaultXxx` 派生
@@ -180,7 +180,7 @@ node scripts/build.mjs
 7. **禁止模型名硬编码**——LLM/Embedding/Rerank 默认模型名集中通过 `config.DefaultLLMModel()` / `config.DefaultEmbeddingModel()` / `config.DefaultRerankModel()` getter 引用，禁止 `embedding.go:169` 类的 `model = "bge-m3"` 字面量（dev 档契约：`Qwen2.5-1.5B-Instruct` / `bge-m3` / `bge-reranker-v2-m3`）
 8. **禁止外部 URL 硬编码**——平台 API 域名集中通过 `config.DefaultPlatformAPI` 引用，禁止 `cmd/api/main.go:175` 类字面量；Ollama 端口由环境变量 `PLAYGROUND_LLM_BASE_URL` 显式覆盖
 
-**PostgreSQL 端口差异说明**：本地源码启动时 `config.yaml` 中端口为 **8232**；Docker 部署时 `docker-compose-host.yml` 把 mtk-postgres 容器的 5432 映射到宿主机 **8202**。两者不冲突——切换部署模式时需同步修改 `config.yaml` 或 `config-docker.yaml` 的 `database.postgres.port`，或通过 `POSTGRES_PORT` 环境变量覆盖。
+**PostgreSQL 端口差异说明**：本地源码启动时 `config.yaml` 中端口为 **8232**；Docker 部署时 `docker-compose.yml` 把 mtk-postgres 容器的 5432 映射到宿主机 **8202**。两者不冲突——切换部署模式时需同步修改 `config.yaml` 或 `config.yaml` 的 `database.postgres.port`，或通过 `POSTGRES_PORT` 环境变量覆盖。
 
 ---
 
@@ -215,7 +215,7 @@ user-server/
 │   ├── aiagent/                          能力层（agent/llm/rag/embedding/vector/eval/knowledge）
 │   ├── integration/ · identity/ · etl/ · cron/ · domain/ · channelbot/ · config/   横向业务子包
 │   └── pkg/                              通用工具（i18n/metrics/trace/testutil/utils）
-├── config.yaml · config-docker.yaml      宿主/Docker 配置
+├── config.yaml · config.yaml      宿主/Docker 配置
 ├── .air.toml                             air 热重载配置（不入仓，见 .gitignore）
 ├── .golangci.yml                         Linter 配置（含 depguard controller-layer / model-layer 两条规则）
 ├── Dockerfile                            多阶段构建
@@ -666,7 +666,7 @@ docker build -t hivemtk/user-server:latest .
 - **阶段 2**: `alpine:3.19` 运行镜像，非 root 用户（`app:app`）运行
 - **国内镜像源**: 阿里云 Alpine 镜像加速
 - **Chromium**: 默认注释（线上演示不需要自动回复），需要时取消注释
-- **配置**: `config-docker.yaml` 复制为容器内 `config.yaml`
+- **配置**: `config.yaml` 复制为容器内 `config.yaml`
 - **install.lock**: 不打进镜像（运行时由初始化流程写入，持久化到 `/app/data` 命名卷）
 
 ### 9.3 CI/CD（GitHub Actions）

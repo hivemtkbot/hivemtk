@@ -18,7 +18,7 @@
 | 字段 | 默认值 | 文档源 |
 | --- | --- | --- |
 | `host` | `localhost` | DEVELOPMENT.md §2.4 端口对照表（dev 本机） |
-| `port` | `8204` | `user-server/Dockerfile:57 ENV SERVER_PORT=8204` + `cmd/api/main.go DefaultListenPort` |
+| `port` | `8204` | `cmd/api/main.go DefaultListenPort=8204` |
 | `baseUrl` | `http://localhost:8204` | 上述两者组合 |
 | `healthPaths` | `['/health', '/healthz', '/readyz', '/api/health']` | `user-server/internal/router/router.go` 实际注册顺序（优先 /health 含依赖检查） |
 | `wsPath` | `/api/ws/bridge` | `user-server/internal/router/service_routes.go:90 auth.GET("/ws/bridge", ...)` |

@@ -115,7 +115,7 @@ make db-logs
 curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8204/health
 
 # 4. 连接数（连接池是否耗尽）
-docker compose -f docker-compose-host.yml exec -T mtk-postgres \
+docker compose -f docker-compose.yml exec -T mtk-postgres \
   psql -U admin -d user_db -c \
   "SELECT count(*), state FROM pg_stat_activity GROUP BY state;"
 ```
@@ -135,7 +135,7 @@ curl -s http://127.0.0.1:8204/health
 # 然后重启 user-server（见故障一）
 
 # 4. Redis 密码校验（.env 与容器一致）
-docker compose -f docker-compose-host.yml exec -T mtk-redis \
+docker compose -f docker-compose.yml exec -T mtk-redis \
   redis-cli -a "$REDIS_PASSWORD" ping   # 期望 PONG
 ```
 
@@ -309,7 +309,7 @@ du -sh $HOME/.hivemtk/runtime user-server user-web/bridge/dist 2>/dev/null | sor
 ls -lh $HOME/.hivemtk/runtime/*.log 2>/dev/null
 
 # 4. PG 数据目录
-docker compose -f docker-compose-host.yml exec -T mtk-postgres df -h /var/lib/postgresql
+docker compose -f docker-compose.yml exec -T mtk-postgres df -h /var/lib/postgresql
 ```
 
 ### 6.4 恢复命令

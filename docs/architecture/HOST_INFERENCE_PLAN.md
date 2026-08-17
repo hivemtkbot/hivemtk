@@ -71,12 +71,12 @@ $HIVEMTK_RUNTIME_DIR/
 | 脚本 | `hivemtk/scripts/inference-host/stop-all.sh` | 新增 | 一键停止三服务 |
 | 脚本 | `hivemtk/scripts/inference-host/smoke-test.sh` | 新增 | OpenAI 兼容三端点连通性测试 |
 | 脚本 | `hivemtk/scripts/inference-host/warmup.sh` | 新增 | 预热三端点（首请求 KV-cache 编译） |
-| Docker | `hivemtk/docker-compose-host.yml` | 新增 | 仅 PG+Redis 宿主机部署 compose |
-| Docker | `hivemtk/docker-compose-example.yml` | 保留 | 旧全栈 compose（向后兼容） |
+| Docker | `hivemtk/docker-compose.yml` | 新增 | 仅 PG+Redis 宿主机部署 compose |
+| Docker | `hivemtk/docker-compose.yml` | 保留 | 旧全栈 compose（向后兼容） |
 | 配置 | `hivemtk/user-server/config.yaml` | 修改 | inference.base_url 改为 `http://127.0.0.1:8207/v1` 等 |
 | 配置 | `hivemtk/user-server/config-host.yaml` | 新增 | 宿主机开发配置（127.0.0.1 全部） |
 | 配置 | `hivemtk/user-server/.air.toml` | 修改 | air env 增加 LLAMACPP 端点 + 注释 |
-| 配置 | `hivemtk/user-server/Dockerfile` | 保留 | 旧 Dockerfile 仍可构建（向后兼容） |
+| 配置 | `hivemtk/user-server/Dockerfile` | 删除 | 2026-08-17 重构：user-server 宿主机二进制部署，不再容器化 |
 | Make | `hivemtk/Makefile` | 修改 | 新增 inference-host-up/down/logs/ps/test/install-llamacpp |
 | 环境 | `hivemtk/.env-example` | 修改 | 移除 TEI 相关变量，新增 HIVEMTK_MODELS_DIR / LLAMACPP_BIN |
 | 前端 | `hivemtk/user-web/.env.development` | 修改 | 保持相对路径，无需改动 |
@@ -163,7 +163,7 @@ $HIVEMTK_RUNTIME_DIR/
 
 **两种模式**：
 - **宿主机开发模式**：`config-host.yaml`（air 热更新用），所有 base_url 指向 `127.0.0.1`
-- **Docker 全栈模式**：`config-docker.yaml`（保留，向后兼容），所有 base_url 指向容器服务名
+- **Docker 全栈模式**：`config.yaml`（保留，向后兼容），所有 base_url 指向容器服务名
 
 **默认 `config.yaml`**（user-server/cmd/api 启动时优先读）改为宿主机版本（因为现在 user-server 默认跑在宿主机）。
 
@@ -185,7 +185,7 @@ bash scripts/inference-host/install-llama-cpp.sh
 HIVEMTK_PROFILE=dev bash scripts/inference-host/download-models.sh
 
 # 3. 启动 PG + Redis（docker compose 仅 2 个服务）
-docker compose -f docker-compose-host.yml up -d
+docker compose -f docker-compose.yml up -d
 
 # 4. 启动 llama-server 三件套
 bash scripts/inference-host/start-all.sh
@@ -267,7 +267,7 @@ cd user-server && go build ./...
 
 ```bash
 # 1. 启动数据库
-docker compose -f docker-compose-host.yml up -d
+docker compose -f docker-compose.yml up -d
 
 # 2. 启动推理
 make inference-host-up
