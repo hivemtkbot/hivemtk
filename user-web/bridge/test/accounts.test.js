@@ -121,12 +121,22 @@ describe('accounts background 消息处理（bridge:setAccountEnabled / bridge:s
     return currentMock;
   }
 
+  // 尝试所有监听器，找到能处理该消息的那个
+  function callListener(listeners, msg, sendResponse) {
+    let called = false;
+    const wrapper = (resp) => { called = true; sendResponse(resp); };
+    for (const fn of listeners.message) {
+      const ret = fn(msg, {}, wrapper);
+      if (ret !== false || called) return called;
+    }
+    return called;
+  }
+
   it('bridge:setAccountEnabled 持久化到 config.accounts 并返回 ok', async () => {
     await loadBackground();
     const { listeners, data } = currentMock;
     const resp = await new Promise((resolve) => {
-      const fn = listeners.message[0];
-      fn({ type: 'bridge:setAccountEnabled', channel: 'douyin', accountId: 'a1', enabled: false }, {}, resolve);
+      callListener(listeners, { type: 'bridge:setAccountEnabled', channel: 'douyin', accountId: 'a1', enabled: false }, resolve);
     });
     expect(resp.ok).toBe(true);
     expect(data.bridgeConfig.accounts.douyin.a1.enabled).toBe(false);
@@ -137,12 +147,10 @@ describe('accounts background 消息处理（bridge:setAccountEnabled / bridge:s
     await loadBackground();
     const { listeners, data } = currentMock;
     await new Promise((resolve) => {
-      const fn = listeners.message[0];
-      fn({ type: 'bridge:setAccountEnabled', channel: 'douyin', accountId: 'a1', enabled: false }, {}, resolve);
+      callListener(listeners, { type: 'bridge:setAccountEnabled', channel: 'douyin', accountId: 'a1', enabled: false }, resolve);
     });
     await new Promise((resolve) => {
-      const fn = listeners.message[0];
-      fn({ type: 'bridge:setAccountEnabled', channel: 'douyin', accountId: 'a1', enabled: true }, {}, resolve);
+      callListener(listeners, { type: 'bridge:setAccountEnabled', channel: 'douyin', accountId: 'a1', enabled: true }, resolve);
     });
     expect(data.bridgeConfig.accounts.douyin.a1.enabled).toBe(true);
     expect(data.bridgeConfig.accounts.douyin.a1.pausedAt).toBeNull();
@@ -152,8 +160,7 @@ describe('accounts background 消息处理（bridge:setAccountEnabled / bridge:s
     await loadBackground();
     const { listeners } = currentMock;
     const resp = await new Promise((resolve) => {
-      const fn = listeners.message[0];
-      fn({ type: 'bridge:setAccountEnabled', accountId: 'a1', enabled: false }, {}, resolve);
+      callListener(listeners, { type: 'bridge:setAccountEnabled', accountId: 'a1', enabled: false }, resolve);
     });
     expect(resp.ok).toBe(false);
     expect(resp.error).toContain('channel');
@@ -164,8 +171,7 @@ describe('accounts background 消息处理（bridge:setAccountEnabled / bridge:s
     const { listeners } = currentMock;
     const sendSpy = currentMock.chrome.tabs.sendMessage;
     await new Promise((resolve) => {
-      const fn = listeners.message[0];
-      fn({ type: 'bridge:setAccountEnabled', channel: 'douyin', accountId: 'a1', enabled: false }, {}, resolve);
+      callListener(listeners, { type: 'bridge:setAccountEnabled', channel: 'douyin', accountId: 'a1', enabled: false }, resolve);
     });
     expect(sendSpy).toHaveBeenCalled();
     const broadcastMsg = sendSpy.mock.calls[0][1];
@@ -178,8 +184,7 @@ describe('accounts background 消息处理（bridge:setAccountEnabled / bridge:s
     await loadBackground();
     const { listeners, data } = currentMock;
     const resp = await new Promise((resolve) => {
-      const fn = listeners.message[0];
-      fn({ type: 'bridge:switchAccount', channel: 'douyin', accountId: 'a2', conversationId: 'c2' }, {}, resolve);
+      callListener(listeners, { type: 'bridge:switchAccount', channel: 'douyin', accountId: 'a2', conversationId: 'c2' }, resolve);
     });
     expect(resp.ok).toBe(true);
     expect(data.bridgeConfig.channel).toBe('douyin');
@@ -192,8 +197,7 @@ describe('accounts background 消息处理（bridge:setAccountEnabled / bridge:s
     const { listeners } = currentMock;
     const sendSpy = currentMock.chrome.tabs.sendMessage;
     await new Promise((resolve) => {
-      const fn = listeners.message[0];
-      fn({ type: 'bridge:switchAccount', channel: 'xhs', accountId: 'a3' }, {}, resolve);
+      callListener(listeners, { type: 'bridge:switchAccount', channel: 'xhs', accountId: 'a3' }, resolve);
     });
     expect(sendSpy).toHaveBeenCalled();
     expect(sendSpy.mock.calls[0][1].type).toBe('bridge:accountsUpdated');

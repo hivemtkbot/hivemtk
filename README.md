@@ -14,6 +14,8 @@
 
 [![CI Status](https://img.shields.io/github/actions/workflow/status/xiaofang142/hivemtk/user-server-ci.yml?branch=master&label=CI&logo=github-actions&logoColor=white)](https://github.com/xiaofang142/hivemtk/actions/workflows/user-server-ci.yml) [![Codecov](https://img.shields.io/codecov/c/github/xiaofang142/hivemtk?logo=codecov&logoColor=white)](https://codecov.io/gh/xiaofang142/hivemtk) [![Dependabot Status](https://img.shields.io/badge/Dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](https://github.com/xiaofang142/hivemtk/network/dependencies) [![Code style: go](https://img.shields.io/badge/code%20style-gofmt-00ADD8?logo=go&logoColor=white)](https://golang.org)
 
+[![Stars](https://img.shields.io/github/stars/xiaofang142/hivemtk?style=social)](https://github.com/xiaofang142/hivemtk) [![Forks](https://img.shields.io/github/forks/xiaofang142/hivemtk?style=social)](https://github.com/xiaofang142/hivemtk) [![Watchers](https://img.shields.io/github/watchers/xiaofang142/hivemtk?style=social)](https://github.com/xiaofang142/hivemtk) [![Issues](https://img.shields.io/github/issues/xiaofang142/hivemtk)](https://github.com/xiaofang142/hivemtk/issues) [![PRs](https://img.shields.io/github/issues-pr/xiaofang142/hivemtk)](https://github.com/xiaofang142/hivemtk/pulls) [![Last commit](https://img.shields.io/github/last-commit/xiaofang142/hivemtk)](https://github.com/xiaofang142/hivemtk/commits/master)
+
 </div>
 
 ---
@@ -47,6 +49,28 @@ make dev       # 启动 user-server 热更新 → http://localhost:8204(默认�
 ```
 
 ⭐ **Star / Watch 一下,跟项目一起成长** · 💬 **[加微信群 / 商务合作](#-联系与社区)** · 🎬 **[5 分钟部署视频](#-演示与截图)** ⬇️
+
+---
+
+## 📊 项目动态
+
+<div align="center">
+
+### GitHub Stats
+
+<a href="https://github.com/xiaofang142/hivemtk"><img src="https://github-readme-stats.vercel.app/api/pin/?username=xiaofang142&repo=hivemtk&theme=react&show_owner=true" alt="HiveMtk repo stats" /></a>
+
+### ⭐ Star 趋势（GitHub + Gitee）
+
+<a href="https://star-history.com/#xiaofang142/hivemtk&xhpmayun/hivemtk&Date">
+<img src="https://api.star-history.com/svg?repos=xiaofang142/hivemtk,xhpmayun/hivemtk&type=Date&theme=dark" alt="Star History Chart" width="600" />
+</a>
+
+### 🔥 连续 commit
+
+<a href="https://git.io/streak-stats"><img src="https://streak-stats.demolab.com?user=xiaofang142&theme=react" alt="GitHub Streak" /></a>
+
+</div>
 
 ---
 
@@ -376,11 +400,15 @@ make inference-host-status        # 统一查看状态
 make inference-host-logs          # 查看日志
 make inference-host-ps            # 查看进程
 
-# ============ 本地开发(热更新) ============
-make dev                  # 启动 user-server 热更新(air)
-make dev-stop             # 停止 air
-make dev-all              # 一键全栈(数据层 + 推理栈 + air 提示)
-make dev-down             # 停止全栈
+# ============ 本地开发（热更新）============
+# ⭐ 完整工作流与约束见 user-server/docs/dev/HOT_RELOAD.md
+make dev-install         # 一次性安装 air（已装跳过）
+make dev                 # 启动 user-server 热更新（air，保存 .go/.yaml/.env 即自动重编+重启）
+make dev-stop            # 停止 air
+make dev-clean           # 清理 air 临时产物
+make dev-help            # 热重载速查
+make dev-all             # 一键全栈（数据层 + 推理栈 + air 提示）
+make dev-down            # 停止全栈
 
 # ============ 前端构建 ============
 make web-build            # 构建 user-web

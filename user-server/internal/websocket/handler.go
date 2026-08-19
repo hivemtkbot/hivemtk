@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"hivemtk-user/internal/config"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/service/translation"
 
@@ -14,11 +15,30 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// isAllowedOrigin 检查 origin 是否在允许列表中
+// 策略：
+//  1. 无 Origin 头（非浏览器请求）放行
+//  2. 白名单包含 "*" 时全部放行（调试模式）
+//  3. 严格匹配白名单
+func isAllowedOrigin(origin string) bool {
+	if origin == "" {
+		return true // 非浏览器请求
+	}
+	allowed := config.GetAllowedWSOrigins()
+	for _, a := range allowed {
+		if a == "*" || a == origin {
+			return true
+		}
+	}
+	return false
+}
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	// 安全修复：不再全放行，使用 origin 白名单
 	CheckOrigin: func(r *http.Request) bool {
-		return true 
+		return isAllowedOrigin(r.Header.Get("Origin"))
 	},
 }
 

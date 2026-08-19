@@ -1,0 +1,434 @@
+// Package mcp implements the Model Context Protocol (MCP) server side.
+//
+// 规范：https://modelcontextprotocol.io/specification/2025-06-18
+//   - 协议：JSON-RPC 2.0
+//   - 传输：HTTP (JSON-RPC over HTTP POST) + SSE（可选）
+//   - 三大原语：Tools / Resources / Prompts
+//
+// 设计目标：
+//   - 零外部依赖（自实现 JSON-RPC 2.0，参考官方 spec 严格实现）
+//   - 与现有 tooluse 工具集成（tooluse.Tool → MCP Tool）
+//   - 同时实现 capabilities 协商、initialize handshake、tools/list、tools/call
+//   - 可作为独立 HTTP server 暴露，也可嵌入到现有 router
+//
+// 实现覆盖（2025-06-18 spec）：
+//   - initialize / initialized notification
+//   - tools/list → 返回所有 tooluse 工具
+//   - tools/call → 调用工具并返回结果
+//   - ping / health check
+//   - resources/list, resources/read → 空实现（扩展点）
+//   - prompts/list, prompts/get → 空实现（扩展点）
+//
+// 不实现：stdio 传输（仅 HTTP）、sampling（host 端发起）、Roots（客户端能力）
+package mcp
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sync"
+	"time"
+
+	"hivemtk-user/internal/aiagent/agent/tooluse"
+)
+
+// ProtocolVersion MCP 协议版本
+const ProtocolVersion = "2025-06-18"
+
+// ServerInfo 服务端元信息
+const ServerInfo = "hivemtk-tooluse-mcp"
+
+// ServerVersion 服务端版本
+const ServerVersion = "1.0.0"
+
+// JSON-RPC 2.0 标准错误码
+const (
+	ErrCodeParse          = -32700
+	ErrCodeInvalidRequest = -32600
+	ErrCodeMethodNotFound = -32601
+	ErrCodeInvalidParams  = -32602
+	ErrCodeInternal       = -32603
+	// MCP 自定义错误码
+	ErrCodeToolNotFound     = -32000
+	ErrCodeToolExecFailed   = -32001
+	ErrCodeNotInitialized   = -32002
+	ErrCodeAlreadyInit      = -32003
+)
+
+// JSONRPCRequest JSON-RPC 2.0 请求
+type JSONRPCRequest struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      json.RawMessage `json:"id,omitempty"`
+	Method  string          `json:"method"`
+	Params  json.RawMessage `json:"params,omitempty"`
+}
+
+// JSONRPCResponse JSON-RPC 2.0 响应
+type JSONRPCResponse struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      json.RawMessage `json:"id,omitempty"`
+	Result  any             `json:"result,omitempty"`
+	Error   *JSONRPCError   `json:"error,omitempty"`
+}
+
+// JSONRPCError JSON-RPC 2.0 错误
+type JSONRPCError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
+}
+
+// InitializeParams initialize 方法参数
+type InitializeParams struct {
+	ProtocolVersion string                 `json:"protocolVersion"`
+	Capabilities    ClientCapabilities     `json:"capabilities"`
+	ClientInfo      Implementation         `json:"clientInfo"`
+}
+
+// ClientCapabilities 客户端能力
+type ClientCapabilities struct {
+	Roots    *RootsCapability    `json:"roots,omitempty"`
+	Sampling *SamplingCapability `json:"sampling,omitempty"`
+}
+
+// RootsCapability Roots 能力
+type RootsCapability struct {
+	ListChanged bool `json:"listChanged,omitempty"`
+}
+
+// SamplingCapability Sampling 能力
+type SamplingCapability struct{}
+
+// Implementation 客户端/服务端实现信息
+type Implementation struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+// InitializeResult initialize 方法结果
+type InitializeResult struct {
+	ProtocolVersion string             `json:"protocolVersion"`
+	Capabilities    ServerCapabilities `json:"capabilities"`
+	ServerInfo      Implementation     `json:"serverInfo"`
+}
+
+// ServerCapabilities 服务端能力
+type ServerCapabilities struct {
+	Tools     *ToolsCapability     `json:"tools,omitempty"`
+	Resources *ResourcesCapability `json:"resources,omitempty"`
+	Prompts   *PromptsCapability   `json:"prompts,omitempty"`
+}
+
+// ToolsCapability Tools 能力
+type ToolsCapability struct {
+	ListChanged bool `json:"listChanged,omitempty"`
+}
+
+// ResourcesCapability Resources 能力
+type ResourcesCapability struct {
+	Subscribe   bool `json:"subscribe,omitempty"`
+	ListChanged bool `json:"listChanged,omitempty"`
+}
+
+// PromptsCapability Prompts 能力
+type PromptsCapability struct {
+	ListChanged bool `json:"listChanged,omitempty"`
+}
+
+// MCPTool MCP 协议工具描述（与 tooluse.Tool 的桥接）
+type MCPTool struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	InputSchema map[string]any `json:"inputSchema"`
+}
+
+// ListToolsResult tools/list 方法结果
+type ListToolsResult struct {
+	Tools []MCPTool `json:"tools"`
+	NextCursor string  `json:"nextCursor,omitempty"`
+}
+
+// CallToolParams tools/call 方法参数
+type CallToolParams struct {
+	Name      string         `json:"name"`
+	Arguments map[string]any `json:"arguments,omitempty"`
+}
+
+// CallToolResult tools/call 方法结果
+type CallToolResult struct {
+	Content []ContentBlock `json:"content"`
+	IsError bool           `json:"isError"`
+}
+
+// ContentBlock 内容块
+type ContentBlock struct {
+	Type     string         `json:"type"`
+	Text     string         `json:"text,omitempty"`
+	Data     any            `json:"data,omitempty"`
+	MimeType string         `json:"mimeType,omitempty"`
+}
+
+// Server MCP 服务端
+type Server struct {
+	registry    *tooluse.ToolRegistry
+	initialized bool
+	mu          sync.RWMutex
+
+	// 内部：会话信息（用于多客户端）
+	clientInfo      Implementation
+	clientCaps      ClientCapabilities
+	initStartedAt   time.Time
+}
+
+// NewServer 构造 MCP 服务端
+func NewServer(registry *tooluse.ToolRegistry) *Server {
+	return &Server{
+		registry: registry,
+	}
+}
+
+// HandleRequest 处理单个 JSON-RPC 2.0 请求
+//
+// 返回：JSON-RPC 2.0 响应（已序列化）
+//
+// 错误处理：
+//   - 未初始化的客户端调用非 initialize 方法 → ErrCodeNotInitialized
+//   - 重复 initialize → ErrCodeAlreadyInit
+//   - 方法未实现 → ErrCodeMethodNotFound
+func (s *Server) HandleRequest(ctx context.Context, rawReq []byte) ([]byte, error) {
+	var req JSONRPCRequest
+	if err := json.Unmarshal(rawReq, &req); err != nil {
+		return s.errorResponse(nil, ErrCodeParse, "parse error", err.Error()), nil
+	}
+	if req.JSONRPC != "2.0" {
+		return s.errorResponse(req.ID, ErrCodeInvalidRequest, "jsonrpc must be 2.0", nil), nil
+	}
+
+	switch req.Method {
+	case "initialize":
+		return s.handleInitialize(ctx, req)
+	case "notifications/initialized":
+		// 客户端确认初始化（无 response）
+		return nil, nil
+	case "ping":
+		return s.successResponse(req.ID, map[string]any{}), nil
+	case "tools/list":
+		return s.handleToolsList(ctx, req)
+	case "tools/call":
+		return s.handleToolsCall(ctx, req)
+	case "resources/list":
+		return s.successResponse(req.ID, map[string]any{"resources": []any{}}), nil
+	case "resources/read":
+		return s.errorResponse(req.ID, ErrCodeMethodNotFound, "resources/read not implemented", nil), nil
+	case "prompts/list":
+		return s.successResponse(req.ID, map[string]any{"prompts": []any{}}), nil
+	case "prompts/get":
+		return s.errorResponse(req.ID, ErrCodeMethodNotFound, "prompts/get not implemented", nil), nil
+	default:
+		return s.errorResponse(req.ID, ErrCodeMethodNotFound,
+			fmt.Sprintf("method not found: %s", req.Method), nil), nil
+	}
+}
+
+// handleInitialize 处理 initialize
+func (s *Server) handleInitialize(_ context.Context, req JSONRPCRequest) ([]byte, error) {
+	var params InitializeParams
+	if len(req.Params) > 0 {
+		if err := json.Unmarshal(req.Params, &params); err != nil {
+			return s.errorResponse(req.ID, ErrCodeInvalidParams, "invalid initialize params", err.Error()), nil
+		}
+	}
+
+	s.mu.Lock()
+	if s.initialized {
+		s.mu.Unlock()
+		return s.errorResponse(req.ID, ErrCodeAlreadyInit, "already initialized", nil), nil
+	}
+	s.initialized = true
+	s.clientInfo = params.ClientInfo
+	s.clientCaps = params.Capabilities
+	s.initStartedAt = time.Now()
+	s.mu.Unlock()
+
+	result := InitializeResult{
+		ProtocolVersion: ProtocolVersion,
+		Capabilities: ServerCapabilities{
+			Tools:     &ToolsCapability{ListChanged: false},
+			Resources: &ResourcesCapability{},
+			Prompts:   &PromptsCapability{},
+		},
+		ServerInfo: Implementation{
+			Name:    ServerInfo,
+			Version: ServerVersion,
+		},
+	}
+	return s.successResponse(req.ID, result), nil
+}
+
+// handleToolsList 处理 tools/list
+func (s *Server) handleToolsList(_ context.Context, req JSONRPCRequest) ([]byte, error) {
+	if errResp, ok := s.checkInitialized(req); !ok {
+		return errResp, nil
+	}
+	tools := s.listTools()
+	return s.successResponse(req.ID, ListToolsResult{Tools: tools}), nil
+}
+
+// handleToolsCall 处理 tools/call
+func (s *Server) handleToolsCall(ctx context.Context, req JSONRPCRequest) ([]byte, error) {
+	if errResp, ok := s.checkInitialized(req); !ok {
+		return errResp, nil
+	}
+	var params CallToolParams
+	if len(req.Params) > 0 {
+		if err := json.Unmarshal(req.Params, &params); err != nil {
+			return s.errorResponse(req.ID, ErrCodeInvalidParams, "invalid call params", err.Error()), nil
+		}
+	}
+	if params.Name == "" {
+		return s.errorResponse(req.ID, ErrCodeInvalidParams, "tool name required", nil), nil
+	}
+
+	result, err := s.callTool(ctx, params)
+	if err != nil {
+		// 工具未找到或执行失败：返回 isError=true（spec 推荐）
+		return s.successResponse(req.ID, CallToolResult{
+			Content: []ContentBlock{{Type: "text", Text: err.Error()}},
+			IsError: true,
+		}), nil
+	}
+	return s.successResponse(req.ID, result), nil
+}
+
+// listTools 列出所有工具（与 tooluse.Registry 桥接）
+func (s *Server) listTools() []MCPTool {
+	if s.registry == nil {
+		return []MCPTool{}
+	}
+	tools := s.registry.List()
+	out := make([]MCPTool, 0, len(tools))
+	for _, t := range tools {
+		params := t.Parameters()
+		out = append(out, MCPTool{
+			Name:        t.Name(),
+			Description: t.Description(),
+			InputSchema: convertParameters(params),
+		})
+	}
+	return out
+}
+
+// callTool 调用单个工具
+func (s *Server) callTool(ctx context.Context, params CallToolParams) (*CallToolResult, error) {
+	if s.registry == nil {
+		return nil, fmt.Errorf("tool registry not configured")
+	}
+	tool, err := s.registry.Get(params.Name)
+	if err != nil {
+		return nil, fmt.Errorf("tool not found: %s", params.Name)
+	}
+
+	// 构造最小 tooluse.ToolHandler 上下文（业界做法：ctx 注入 tool name）
+	toolCtx := context.WithValue(ctx, toolNameKey{}, params.Name)
+	toolResult, err := tool.Execute(toolCtx, params.Arguments)
+	if err != nil {
+		return nil, fmt.Errorf("tool execution failed: %w", err)
+	}
+
+	// 序列化工具结果
+	text := toolResultToText(toolResult)
+	return &CallToolResult{
+		Content: []ContentBlock{{Type: "text", Text: text}},
+		IsError: !toolResult.Success,
+	}, nil
+}
+
+// checkInitialized 检查是否已初始化，返回 (响应, ok)
+//
+// 设计：未初始化时直接构造错误响应（无需依赖 checkInitialized 的布尔返回值）
+func (s *Server) checkInitialized(req JSONRPCRequest) ([]byte, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if !s.initialized {
+		return s.errorResponse(req.ID, ErrCodeNotInitialized, "server not initialized", nil), false
+	}
+	return nil, true
+}
+
+// IsInitialized 返回初始化状态（供 HTTP handler 决策）
+func (s *Server) IsInitialized() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.initialized
+}
+
+// successResponse 构造成功响应
+func (s *Server) successResponse(id json.RawMessage, result any) []byte {
+	resp := JSONRPCResponse{
+		JSONRPC: "2.0",
+		ID:      id,
+		Result:  result,
+	}
+	data, _ := json.Marshal(resp)
+	return data
+}
+
+// errorResponse 构造错误响应
+func (s *Server) errorResponse(id json.RawMessage, code int, message string, data any) []byte {
+	resp := JSONRPCResponse{
+		JSONRPC: "2.0",
+		ID:      id,
+		Error: &JSONRPCError{
+			Code:    code,
+			Message: message,
+			Data:    data,
+		},
+	}
+	out, _ := json.Marshal(resp)
+	return out
+}
+
+// toolNameKey 工具名 ctx key（用于在 Tool.Execute 中获取 tool 名称）
+type toolNameKey struct{}
+
+// toolResultToText 将 tooluse.ToolResult 序列化为文本
+func toolResultToText(r tooluse.ToolResult) string {
+	if r.Data == nil {
+		return r.Error
+	}
+	data, err := json.Marshal(r.Data)
+	if err != nil {
+		return r.Error
+	}
+	return string(data)
+}
+
+// convertParameters 将 tooluse.ToolParameters 转为 MCP InputSchema
+//
+// MCP inputSchema 是 JSON Schema 草案；与 tooluse.ToolParameters 字段结构兼容
+func convertParameters(p tooluse.ToolParameters) map[string]any {
+	out := map[string]any{
+		"type": "object",
+	}
+	if len(p.Properties) > 0 {
+		props := make(map[string]any, len(p.Properties))
+		for name, def := range p.Properties {
+			prop := map[string]any{
+				"type":        def.Type,
+				"description": def.Description,
+			}
+			if len(def.Enum) > 0 {
+				prop["enum"] = def.Enum
+			}
+			if def.Default != nil {
+				prop["default"] = def.Default
+			}
+			props[name] = prop
+		}
+		out["properties"] = props
+	}
+	if len(p.Required) > 0 {
+		out["required"] = p.Required
+	}
+	return out
+}

@@ -19,7 +19,7 @@ type UserBlacklist struct {
 	Source       string     `gorm:"type:varchar(50);default:'manual'" json:"source"` 
 	OperatorID   uint       `gorm:"index" json:"operator_id"`                        
 	OperatorName string     `gorm:"type:varchar(100)" json:"operator_name"`
-	SessionID    string     `gorm:"type:varchar(50);index" json:"session_id"` 
+	SessionID    string     `gorm:"type:varchar(120);index" json:"session_id"` 
 	Active       bool       `gorm:"default:true;index" json:"active"`
 	ExpiresAt    *time.Time `json:"expires_at"`
 	CreatedAt    time.Time  `gorm:"autoCreateTime" json:"created_at"`

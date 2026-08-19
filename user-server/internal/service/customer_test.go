@@ -279,6 +279,106 @@ func TestCustomerService_CreateOrUpdate_InvalidDTO(t *testing.T) {
 	}
 }
 
+// TestCustomerService_CreateOrUpdate_EmptyBody 验证空 body / 全部标识符为空 → 拒绝
+// 防止 P0 数据完整性：批量创建空记录污染 OneID 合并
+func TestCustomerService_CreateOrUpdate_EmptyBody(t *testing.T) {
+	service := setupCustomerService(t)
+
+	cases := []struct {
+		name string
+		dto  *CustomerDTO
+	}{
+		{"zero value", &CustomerDTO{}},
+		{"whitespace only", &CustomerDTO{Phone: "   ", Email: "  "}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := service.CreateOrUpdate(context.Background(), tc.dto)
+			if err == nil {
+				t.Fatal("expected error for empty body, got nil")
+			}
+			if err != nil && !contains(err.Error(), "至少需要提供") {
+				t.Errorf("expected '至少需要提供' error, got %v", err)
+			}
+		})
+	}
+}
+
+// TestCustomerService_CreateOrUpdate_InvalidFormat 验证手机号 / 邮箱格式校验
+func TestCustomerService_CreateOrUpdate_InvalidFormat(t *testing.T) {
+	service := setupCustomerService(t)
+
+	cases := []struct {
+		name      string
+		dto       *CustomerDTO
+		shouldErr string
+	}{
+		{"phone too short", &CustomerDTO{Phone: "123"}, "手机号格式不合法"},
+		{"phone non-numeric", &CustomerDTO{Phone: "abcdefghijk"}, "手机号格式不合法"},
+		{"phone wrong prefix", &CustomerDTO{Phone: "12345678901"}, "手机号格式不合法"},
+		{"email no @", &CustomerDTO{Email: "notanemail"}, "邮箱格式不合法"},
+		{"email no domain", &CustomerDTO{Email: "test@"}, "邮箱格式不合法"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := service.CreateOrUpdate(context.Background(), tc.dto)
+			if err == nil {
+				t.Fatal("expected error for invalid format, got nil")
+			}
+			if !contains(err.Error(), tc.shouldErr) {
+				t.Errorf("expected %q, got %v", tc.shouldErr, err)
+			}
+		})
+	}
+}
+
+// TestCustomerService_CreateOrUpdate_ThirdPartyIDOnly 验证仅第三方 ID（无手机/邮箱）可创建
+func TestCustomerService_CreateOrUpdate_ThirdPartyIDOnly(t *testing.T) {
+	service := setupCustomerService(t)
+
+	dto := &CustomerDTO{WechatOpenID: "wx_only_001"}
+	c, err := service.CreateOrUpdate(context.Background(), dto)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c == nil || c.WechatOpenID != "wx_only_001" {
+		t.Fatalf("expected wechat_open_id=wx_only_001, got %+v", c)
+	}
+}
+
+// TestCustomerService_CreateOrUpdate_PartialUpdatePreservesFields 验证部分更新不覆盖非空字段
+// 修复 P1：原代码无条件覆盖所有 5 字段，导致 wechat 单独更新时把 phone 清空
+func TestCustomerService_CreateOrUpdate_PartialUpdatePreservesFields(t *testing.T) {
+	service := setupCustomerService(t)
+
+	// 首次创建：phone + email + wechat
+	first, err := service.CreateOrUpdate(context.Background(), &CustomerDTO{
+		Phone:        "13900000099",
+		Email:        "preserve@test.com",
+		WechatOpenID: "wx_keep_001",
+	})
+	if err != nil {
+		t.Fatalf("first create: %v", err)
+	}
+
+	// 第二次：用 phone 找 + 仅传 email
+	second, err := service.CreateOrUpdate(context.Background(), &CustomerDTO{
+		Phone: "13900000099",
+		Email: "preserve@test.com",
+	})
+	if err != nil {
+		t.Fatalf("second update: %v", err)
+	}
+
+	// 验证 wechat_open_id 仍保留（未被空字符串清空）
+	if second.WechatOpenID != "wx_keep_001" {
+		t.Errorf("wechat_open_id 被覆盖: got %q want %q", second.WechatOpenID, "wx_keep_001")
+	}
+	if first.ID != second.ID {
+		t.Errorf("id 应一致（phone 命中同一行）: first=%s second=%s", first.ID, second.ID)
+	}
+}
+
 // TestCustomerService_AddTags_EmptyTags 测试添加空标签
 func TestCustomerService_AddTags_EmptyTags(t *testing.T) {
 	service := setupCustomerService(t)

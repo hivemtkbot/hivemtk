@@ -21,6 +21,7 @@ import (
 	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/migration"
 	"hivemtk-user/internal/migration/migrations"
+	"hivemtk-user/internal/pkg/featureflag"
 	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/config"
 	"hivemtk-user/internal/pkg/db"
@@ -83,6 +84,8 @@ func (a redisPingerAdapter) Ping(ctx context.Context) error {
 func main() {
 	logger.InitLogger(config.GetLoggingConfig())
 
+	// FeatureFlag 初始化：注册所有灰度开关（含 FF_ENABLE_SSE_BRIDGE）
+	featureflag.DefaultManager()
 	logger.Info("User Server Starting")
 	logger.Infof("IS_TEST_MODE env: %s", os.Getenv("IS_TEST_MODE"))
 
@@ -207,6 +210,12 @@ func main() {
 	traceBus := llm.InitGlobalTraceBus()
 	defer traceBus.Stop()
 	logger.Info("[M-3] global trace bus started")
+
+	dbTraceSink := llm.NewDBTraceSink(db.GetDB())
+	dbTraceSink.Start()
+	defer dbTraceSink.Stop()
+	traceBus.Subscribe(dbTraceSink)
+	logger.Info("[M-3.1] trace DB sink subscribed (persists InMemoryTraceBus events to trace_events)")
 
 	defer tracing.Stop()
 

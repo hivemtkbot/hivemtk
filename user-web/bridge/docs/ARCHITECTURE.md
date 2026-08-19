@@ -1,102 +1,131 @@
-# bridge 架构说明（2026-08-05 渠道编码统一 + OOM 巡检整改）
+# Bridge 架构总览
 
-## 1. WS 长连接 vs HTTP 轮询：使用 WS 长连接
+> **当前架构（HTTP 三通道）**。本模块不维护 WebSocket 长连接、不使用 SSE；
+> 扩展 ↔ 服务端走三条相互独立的 HTTP 通道，详细协议见 [./../bridge.md](../bridge.md) §4。
 
-bridge 扩展到 user-server 之间使用 **WebSocket 长连接**（不是 HTTP 轮询）。
+## 1. 通道划分
 
-### 1.1 连接建立
+| 通道 | 方法 | 端点 | 触发 | 用途 |
+| --- | --- | --- | --- | --- |
+| A · Uplink | POST | `/api/bridge/ingest` | content script 检测到新消息 / 会话切换 | 上行消息（inbound + history），同时拉取同会话待发 AI 回复 |
+| B · Downlink | GET | `/api/bridge/outbox` | background 轮询（`BRIDGE_THREE_CHANNEL.outboxPollIntervalMs=1500ms`） | 拉取待发 AI 回复（网页渠道） |
+| C · Ack | POST | `/api/bridge/outbox/ack` | content script 模拟发送成功后 | 标记 `msg_id` 为 `delivered` / `failed` |
 
-```
-扩展 background/index.js
-  └─ registry.ensure({...})
-       └─ BridgeClient.connect()
-            └─ new WebSocket('ws://server:8204/api/ws/bridge?channel=...&account_id=...')
-                 └─ 服务端 handler.go HandleWebSocket（验 channel + 可选 JWT）
-```
+三通道参数（`src/core/constants.js` → `BRIDGE_THREE_CHANNEL`）：
 
-- 每个 (channel, account_id) 一条独立 WS 连接
-- WS 端点：`/api/ws/bridge`（与 `user-server/internal/router/service_routes.go:90` 对齐）
-- 不使用 HTTP 轮询：HTTP 短轮询会带来秒级延迟 + 服务端 / 客户端双重资源消耗
-
-### 1.2 心跳保活
-
-| 角色 | 机制 | 间隔 | 文档源 |
-|------|------|------|--------|
-| 服务端 | gorilla/websocket SetPongHandler + pingPeriod | 50s | `bridge/handler.go:59` |
-| 客户端 | setInterval + JSON {type:"pong"} 帧 | 25s | `core/bridge-client.js:104-116` |
-| 客户端超时重连 | serverIdleTimeoutMs 内无任何帧 | 25s | `core/constants.js:96` |
-
-- 客户端 25s < 服务端 60s 错开 35s，避免客户端先断导致连接泄漏
-- 客户端发送 JSON pong 帧后置 alive=false，等服务端下次下行（pong/ack/outbound/error）置 true
-- 25s 内 alive 仍 false → 主动 `ws.close()` 触发指数退避重连（1→2→4→8→16→30s 封顶 + 500ms jitter）
-
-### 1.3 帧协议
-
-| 方向 | 帧类型 | 含义 |
-|------|--------|------|
-| 客户端 → 服务端 | `register` | WS 建立后首帧，声明 channel + account_id + conversation_id |
-| 客户端 → 服务端 | `inbound_message` | 客户消息上行（触发 AI） |
-| 客户端 → 服务端 | `history` | 历史消息上行（仅落库，不触发 AI） |
-| 客户端 → 服务端 | `pong` | 心跳保活 |
-| 服务端 → 客户端 | `outbound_reply` | AI 回复下发 |
-| 服务端 → 客户端 | `pong` / `ack` / `error` | 保活/确认/错误 |
-
-详见 `user-server/internal/bridge/frames.go` 和 `user-web/bridge/src/core/types.js`。
-
-## 2. 内容巡检（DOM 轮询）：扩展侧必须做的事
-
-虽然传输层是 WS 长连接，**内容捕获层** 仍然需要轮询/监听 IM 网页 DOM：
-
-- 抖音/小红书/TikTok/闲鱼的 IM 网页本质是 React/Vue SPA，私信渲染在 `<div id="root">` 内
-- 不能用 HTTP 轮询网页内容（跨域 / 反爬）
-- 必须用 MutationObserver + 定时兜底扫描监听 DOM 变化
-
-### 2.1 现有内容巡检（patrol）机制
-
-| 阶段 | 做什么 | 频率 |
-|------|--------|------|
-| 实时监听 | MutationObserver 监听消息线程容器 | 即时（childList + subtree） |
-| 兜底扫描 | 3s setInterval 全量扫一遍线程 | 3s |
-| 巡检 | 遍历左侧会话列表 → 点开未读会话 → 抓新消息 | 60s 一轮 |
-
-### 2.2 2026-08-05 巡检机制优化
-
-**问题**：旧版"列表遍历 + 即时点击"在虚拟列表（virtualized list）下会触发大量滚动加载 + 全部点开 → 几百个会话全部 visit、几十次 openConversation 抢占主线程，Chrome 内存 / CPU 飙升（OOM 风险）。
-
-**新策略**（两阶段扫描）：
-
-```
-阶段 1（轻量）：getConversationList() 一次 → 收集 unread id（不点开、不滚动加载）
-   ↓
-阶段 2（限并发）：仅对 unread 会话逐个点开 → 抓新消息
-   ├─ 并发上限 MAX_VISIT_PARALLEL=2
-   ├─ 用户已停留的会话自动跳过（依赖 MutationObserver）
-   └─ 单次抓取上限 80 条（防 OOM）
+```js
+{
+  uplinkMergeWindowMs: 350,    // 上行合并窗口（毫秒）
+  uplinkMaxBatch: 20,          // 上行单批最大消息数
+  outboxPollIntervalMs: 1500,  // 下行轮询间隔
+  outboxBatchSize: 50,         // 下行单批最大消息数
+  ackFlushIntervalMs: 500,     // ack 批量 flush 间隔
+  sentCacheMax: 2000,          // 本地已发缓存容量
+  sendOutboundTimeoutMs: 20000,// 下行 send 超时
+}
 ```
 
-**Scan-Only 模式**（popup 可启用）：仅跑阶段 1，返回 `{scannedTotal, unreadCount}`，
-不进入任何会话。用于"用户正在浏览时"实时探测未读变化，让 MutationObserver 自然捕获。
+## 2. 路由注册（user-server）
 
-## 3. OOM 巡检整改（2026-08-05）
+`internal/router/router.go`（`bridgeWS` 路由组，仅过 `InitGuard` 中间件）：
 
-| 风险点 | 修复 |
-|--------|------|
-| `MutationObserver.observe(root, { characterData: true, subtree: true })` 输入框抖屏产生成百上千次 textNode 字符 mutation | 移除 `characterData: true`（捕获气泡走 childList 已足够） |
-| 100ms 内 mutation 全部进 `_onMutations` 同步处理 | 100ms 节流批处理 + 单次最多 50 个新增元素 |
-| `seen` Set 5000 满时清理一半（Array.from + slice） | 改用 Set 迭代器软清理 1/4（保更多去重证据，主线程抖动小） |
-| `_collectUnseenText` 单次抓无上限（一个超长会话一次抓几千条） | 单次封顶 80 条 |
-| 巡检阶段2无并发控制（串行点几百个会话） | 信号量限并发 = 2 |
+```go
+bridgeWS.POST("/bridge/ingest",       bridgeHandler.HandleHTTPIngest)
+bridgeWS.GET ("/bridge/outbox",       bridgeHandler.GetBridgeOutbox)
+bridgeWS.POST("/bridge/outbox/ack",   bridgeHandler.AckBridgeOutbox)
+```
 
-## 4. 渠道编码统一（2026-08-05）
+- `account_id` 缺失 → 400 `account_id required`（不写 `default` 兜底）；
+- `channel` 不在白名单 → 400 `unsupported`；
+- body 上限 `HTTPIngestMaxBodySize = 4MB`，单批消息上限 `HTTPIngestMaxMessages = 200`；
+- Token 走 `Authorization: Bearer <token>` Header（**禁止 URL query**）。
 
-详见 `migrations/037_bridge_channel_unify_v2.sql` 和 `internal/migration/migrations/bridge_channel_unify_v2_migration.go`。
+## 3. 协议类型单源
 
-前端常量、后端常量、SQL 数据、Go 数据 全部统一为**全名（无 `_web` 后缀）**：
+`user-server/internal/channelgw` 包定义跨 HTTP / WS 共用的协议类型：
 
-| 旧值 | 新值 |
-|------|------|
-| `xhs` / `xhs_web` / `xiaohongshu` | `xiaohongshu` |
-| `douyin` / `douyin_web` | `douyin` |
-| `kuaishou` / `kuaishou_web` | `kuaishou` |
-| `xianyu` / `xianyu_web` | `xianyu` |
-| `tiktok` / `tiktok_web` | `tiktok` |
+- `IngestMessage` ↔ 前端 `src/core/types.js::UnifiedMessage`
+- `OutboxMessage` ↔ 前端 `src/core/types.js::UnifiedReply`
+- `HistoryItem` ↔ 前端 history 帧中的单轮
+
+**禁止在 bridge 业务代码中重定义协议结构**；调整时同步 channelgw + 前端 types.js + DEFAULTS.md + 单测。
+
+## 4. 数据流时序
+
+### 4.1 入站（客户发私信 → AI 处理）
+
+```
+客户发私信
+  → content script MutationObserver 监听到新 DOM 节点
+  → 解析为 UnifiedMessage
+  → chrome.runtime port.send → background
+  → Uplink 在 350ms 合并窗口内合并（按 account|conversation 分桶）
+  → POST /api/bridge/ingest 上报 messages[]
+  → BridgeIngestHandler → InboxIngressService.HandleIngressMessage
+  → 落 message_hub + 通知 AgentRuntime
+  → SmartCSOrchestrator 调 LLM → 生成回复
+  → ReachAdapter.Send(req)
+  → BridgeReachAdapter.Push 入 outbox（BridgeReachAdapter.Send 同时返回）
+  → 随下次 /api/bridge/ingest 响应 outbound_replies 拉回
+  → background 路由到对应 content script
+  → adapter.sendOutbound：填输入框 + 点发送
+  → 网页私信框出现 AI 回复
+```
+
+### 4.2 出站（AI 回复 → 网页发送）
+
+```
+sendOutbound(text, targetConvId)
+  ├─ targetConvId == 当前会话 → 直接模拟输入发送
+  ├─ targetConvId ≠ 当前会话 → openConversation(targetConvId)
+  │    ├─ 左侧列表找目标用户 → 点击进入右侧聊天页
+  │    └─ 找不到目标 → 放弃发送（防串台）
+  └─ 模拟输入（fillContentEditable / setValue） + 点发送按钮
+
+发送成功
+  → POST /api/bridge/outbox/ack {msg_ids, status:"delivered"}
+  → 服务端 UPDATE message_hub 标记 delivered
+  → ack 失败入 _pendingAck（10 次重试，1s→60s 退避，24h TTL）
+```
+
+### 4.3 历史回填（页面加载 / 会话切换）
+
+```
+content script 加载 / onConversationChange
+  → getConversationList 枚举左侧列表
+  → 逐个 openConversation(cid) → _backfill() 读取右侧线程
+  → history 帧（含 direction 标记，inbound/outbound）
+  → 仅落 message_hub，不触发 AI（防回环）
+```
+
+## 5. 选择器版本兼容
+
+平台网页 DOM 经常改版，渠道适配器的选择器采用「多候选 + 兜底」策略：
+
+| 平台 | 主选择器（实测） | 兼容旧版 |
+| --- | --- | --- |
+| 抖音 | `conversationConversationItemwrapper` / `messageMsgInputpublishBtn` / `zone-container.editor-kit-container.messageEditorinputArea` | `#island_b69f5 li` / `div[data-e2e="msg-item-content"]` |
+| 小红书 | `.xhs-im-conv-item` / `.chat-item` / `.xhs-im-msg-list` / `.xhs-im-input-bar-editor[contenteditable]` | `#jarvis-reply-textarea` / `.im-msg-item` / `.sx-contact-item` |
+| TikTok | `[data-e2e="chat-list"]` / DraftEditor `[data-e2e="message-input"]` | `div[contenteditable]` / `[role="textbox"]` |
+| 闲鱼 | 会话列表 data-* | URL path / query |
+| 快手 | 会话列表 data-* | URL path / query |
+
+> 平台改版后仅需在 `src/channels/<platform>.js` 的 `SEL` 追加候选，无需发版即可自愈。
+
+## 6. 限速 / 风控（详见 [./../bridge.md](../bridge.md) §7）
+
+- 扩展端三层：拟人节奏 + 令牌桶 + 会话冷却 + 相同文案去重
+- 服务端兜底：入 outbox 前每账号令牌桶（60/min）
+- `_pendingAck` 重试：10 次，1s→60s 退避，24h TTL
+
+## 7. 协议与代码入口
+
+| 概念 | 扩展端 | 服务端 |
+| --- | --- | --- |
+| 协议帧名 | `src/core/constants.js::PROTOCOL` | `internal/bridge/frames.go` |
+| 协议结构 | `src/core/types.js` | `internal/channelgw`（HTTP/WS 共用单源） |
+| 上行 / 下行 / ack 端点 | `src/core/{uplink,downlink,polling-loop}.js` + `src/core/http-ingest.js` | `internal/bridge/handler_http.go` |
+| outbox 缓冲 | `src/core/downlink.js::SentCache` | `internal/bridge/http_reply_buffer.go` |
+| 出站 adapter | — | `internal/bridge/reach_adapter.go` |
+| 渠道常量 | `src/core/constants.js::PROTOCOL.CHANNELS` | `internal/bridge/channel.go` |
+| 限速 / 风控 | `src/core/{rate-limiter,humanize}.js` | `internal/bridge/reach_adapter.go` |

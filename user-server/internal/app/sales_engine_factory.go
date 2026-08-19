@@ -117,10 +117,11 @@ func BuildSmartOrchestrator(engine *service.SalesEngine) *service.SmartCSOrchest
 // 让 SendPipeline 底层桥接真实 adapter，确保 reach.web.send 在生产真正落库 +
 // 实时推访客 WebSocket，而非空壳 NoOp。
 //
-// 调用方：router.Setup()
+// 2026-08-18 二次审核重构：保留 BridgeReachAdapter 包装层（满足 tooluse.ReachAdapter 接口需
+// SendDouyin/SendKuaishou/XHS/TikTok/Xianyu 五种方法名），但其内部把"网页渠道"方法直接转给
+// service.DeliverBridgeOutbound。修复前这五个方法走 httpReplyBuffer 死通道，消息静默丢失。
 func RegisterAgentReachTools(gormDB *gorm.DB) {
 	adapter := bridge.NewBridgeReachAdapter(NewIntegrationReachAdapterFromDB(gormDB), GetBridgeIngressSvc())
-	bridge.SetBridgeReachAdapter(adapter)
 	deps := NewReachToolDepsWithAdapter(gormDB, adapter)
 
 	if err := tooluse.RegisterReachTools(tooluse.GetGlobalRegistry(), deps); err != nil {

@@ -2,7 +2,7 @@
 //
 // 设计依据: AI 智能体性能优化
 //   - 支持灰度发布 + 一键回滚
-//   - 5 个核心开关: parallel / stream / layer1 / fallback_chain / debug_log
+//   - 6 个核心开关: parallel / stream / layer1 / fallback_chain / debug_log / sse_bridge
 //   - 通过 env (FF_XXX=1) 注入, 无需重启即可热加载
 //   - 所有 flag 默认关闭 (安全)
 //
@@ -21,6 +21,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
+
+const (
+	// FF_ENABLE_SSE_BRIDGE 控制 Bridge 出站是否使用 SSE（true）还是长轮询（false）
+	FF_ENABLE_SSE_BRIDGE = "sse_bridge"
 )
 
 // PollInterval 热加载轮询周期 (生产化加固)
@@ -61,6 +66,7 @@ func DefaultManager() *FlagManager {
 		defaultManager.register("layer1", false)
 		defaultManager.register("fallback_chain", false)
 		defaultManager.register("debug_log", false)
+		defaultManager.register(FF_ENABLE_SSE_BRIDGE, true) // 2026-08-18: 默认启用 SSE Bridge
 		defaultManager.startPoller()
 	})
 	return defaultManager

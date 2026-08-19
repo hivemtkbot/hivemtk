@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
@@ -169,4 +170,35 @@ func extractBodyChannelID(c *gin.Context) string {
 // DefaultChannelID 默认渠道 ID（无渠道时使用）
 // 私域部署：单租户，所有未指定 channel 的访客都归入此 channel
 const DefaultChannelID = "default"
+
+// IngressSecretAuth 强制校验 X-Ingress-Secret Header 的中间件
+// 用于保护内部消息入口（如 /api/chat/ingress），防匿名消息注入 AI 管道
+// 密钥来源：环境变量 INGRESS_API_KEY（未配置时返回 503 防止裸奔）
+func IngressSecretAuth() gin.HandlerFunc {
+	secret := strings.TrimSpace(os.Getenv("INGRESS_API_KEY"))
+	return func(c *gin.Context) {
+		if IsTestMode && testing.Testing() {
+			c.Next()
+			return
+		}
+		if secret == "" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"code":    503,
+				"message": "INGRESS_API_KEY 未配置，消息入口已关闭",
+			})
+			c.Abort()
+			return
+		}
+		provided := strings.TrimSpace(c.GetHeader("X-Ingress-Secret"))
+		if provided == "" || provided != secret {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"code":    401,
+				"message": "无效的入口凭证",
+			})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
 

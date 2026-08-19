@@ -299,11 +299,10 @@ func (s *Service) persistLead(ctx context.Context, cfg *model.LeadMiningConfig, 
 		}
 	}
 
-	// 根据平台映射线索类型，Web Widget 也映射到对应的渠道类型
-	clueType := PlatformToClueType(hub.Platform)
-	if hub.Platform == "lead_mining" {
-		clueType = ClueTypeLeadMining
-	}
+	// 通用 LLM 线索发掘路径统一使用 ClueTypeLeadMining 类型（type=8），
+	// 与渠道专用关键词 miner（如 ClueTypeTelegram/ClueTypeDouyin）区分开，
+	// 避免两套路径写同一 (type, account) 线索时意向分来源混乱。
+	clueType := ClueTypeLeadMining
 
 	clue := &model.Clue{
 		Type:           clueType,
@@ -314,7 +313,7 @@ func (s *Service) persistLead(ctx context.Context, cfg *model.LeadMiningConfig, 
 		IsOpportunity:  boolToInt(jd.IntentScore >= leadMiningHighOpportunity),
 		ConversationID: hub.ConversationID,
 		OneID:          customer.UnifiedID,
-		SourceID:       hub.Platform,
+		SourceID:       "lead_mining",
 		MessageID:      fmt.Sprintf("%d", hub.ID),
 		OwnerAccount:   hub.AccountID,
 		IsGroup:        hub.IsGroup,

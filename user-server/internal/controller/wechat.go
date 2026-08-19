@@ -202,11 +202,30 @@ func (c *WechatController) VerifyURL(ctx *gin.Context) {
 
 // ReceiveMessage 接收微信消息
 // POST /api/webhook/wechat/{account_id}
+// 安全：必须校验微信签名，防伪造消息注入（与 GET VerifyURL 一致）
 func (c *WechatController) ReceiveMessage(ctx *gin.Context) {
 	accountIDStr := ctx.Param("account_id")
 	accountID, err := strconv.ParseUint(accountIDStr, 10, 64)
 	if err != nil {
 		ctx.String(http.StatusBadRequest, "invalid account_id")
+		return
+	}
+
+	// 安全校验：验证微信签名（timestamp/nonce/signature）
+	acc, err := c.svc.GetAccount(ctx.Request.Context(), uint(accountID))
+	if err != nil {
+		ctx.String(http.StatusNotFound, "account not found")
+		return
+	}
+	if acc.Token == "" {
+		ctx.String(http.StatusBadRequest, "token not configured")
+		return
+	}
+	signature := ctx.Query("signature")
+	timestamp := ctx.Query("timestamp")
+	nonce := ctx.Query("nonce")
+	if !c.svc.VerifySignature(acc.Token, signature, timestamp, nonce) {
+		ctx.String(http.StatusForbidden, "signature verification failed")
 		return
 	}
 

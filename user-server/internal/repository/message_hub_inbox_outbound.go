@@ -272,3 +272,31 @@ func (r *MessageHubRepository) AnyExistsByMsgIDs(ctx context.Context, channel st
 	return out, nil
 }
 
+// FetchOutboundSince 查询指定 channel + account_id 下，id > sinceID 的 outbound 消息列表。
+//
+// 用途：SSE 初始拉取 + 轮询兜底，用于从 DB 恢复/补齐未读消息。
+//   - sinceID = 0: 返回全部（限制 limit）
+//   - sinceID > 0: 返回 id > sinceID 的记录（用于增量拉取）
+//   - 按 id ASC 排序，保证时序
+//
+// 2026-08-18 Phase 1: 供 bridge outboxDBFetcher 使用，避免 SSE 依赖内存队列。
+func (r *MessageHubRepository) FetchOutboundSince(ctx context.Context, channel, accountID string, sinceID uint64, limit int) ([]model.MessageHub, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 200
+	}
+	var rows []model.MessageHub
+	q := r.db.WithContext(ctx).
+		Where("platform = ? AND account_id = ? AND direction = 'outbound'", channel, accountID)
+	if sinceID > 0 {
+		q = q.Where("id > ?", sinceID)
+	}
+	q = q.Order("id ASC").Limit(limit)
+	if err := q.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+

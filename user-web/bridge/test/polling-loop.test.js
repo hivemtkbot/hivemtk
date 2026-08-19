@@ -9,7 +9,7 @@ const getConfig = async () => ({ serverUrl: 'http://localhost:8204', token: 'tkn
 
 describe('polling-loop / 生命周期', () => {
   it('start() 设置 downlink 定时器，stop() 清除', () => {
-    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta, preferSSE: false });
     expect(loop._downlinkTimer).toBeNull();
     loop.start();
     expect(loop._downlinkTimer).not.toBeNull();
@@ -19,7 +19,7 @@ describe('polling-loop / 生命周期', () => {
   });
 
   it('start() 幂等：重复调用不创建多个 timer', () => {
-    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta, preferSSE: false });
     loop.start();
     const t1 = loop._downlinkTimer;
     loop.start();
@@ -28,7 +28,7 @@ describe('polling-loop / 生命周期', () => {
   });
 
   it('stop() 后 _running 为 false', () => {
-    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta, preferSSE: false });
     loop.start();
     loop.stop();
     expect(loop._running).toBe(false);
@@ -43,7 +43,7 @@ describe('polling-loop / 下发轮询配置', () => {
 
 describe('polling-loop / _downlinkSafe 防护', () => {
   it('stop() 后 _downlinkSafe 立即返回', async () => {
-    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta, preferSSE: false });
     loop.start();
     loop.stop();
     await loop._downlinkSafe();
@@ -51,7 +51,7 @@ describe('polling-loop / _downlinkSafe 防护', () => {
   });
 
   it('无 config 时 _downlink 静默返回', async () => {
-    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig: () => null, getMeta });
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig: () => null, getMeta, preferSSE: false });
     await loop._downlink();
   });
 });

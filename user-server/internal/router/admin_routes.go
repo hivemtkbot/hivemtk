@@ -112,7 +112,9 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 
 	deps.emailOpenTrackerCtrl.RegisterRoutes(public, nil)
 
-	public.POST("/chat/ingress", deps.inboxIngressCtrl.Ingress)
+	// 安全：强制校验 X-Ingress-Secret，防匿名消息注入 AI 管道
+	ingressGrp := public.Group("/chat/ingress", middleware.IngressSecretAuth())
+	ingressGrp.POST("", deps.inboxIngressCtrl.Ingress)
 }
 
 // publicDeps 聚合 setupPublicRoutes 所需的仓储/服务/控制器依赖。

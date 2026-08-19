@@ -302,6 +302,17 @@ type AppConfig struct {
 	External       ExternalConfig       `yaml:"external"`
 	Proxy          ProxyConfig          `yaml:"proxy"`
 	SSO            SSOConfig            `yaml:"sso"`
+	Security       SecurityConfig       `yaml:"security"`
+}
+
+// SecurityConfig 安全配置
+//
+// 用于存储安全相关密钥和策略配置，如 visitor token HMAC 密钥。
+type SecurityConfig struct {
+	// VisitorTokenSecret 访客 token HMAC 密钥
+	// 用于生成和验证 visitor_token，防止 IDOR 越权访问
+	// 建议使用 32+ 字符随机字符串，通过环境变量覆盖
+	VisitorTokenSecret string `yaml:"visitor_token_secret" json:"visitor_token_secret"`
 }
 
 // ProxyConfig HTTP 代理配置

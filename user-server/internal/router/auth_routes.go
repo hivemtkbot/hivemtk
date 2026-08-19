@@ -85,28 +85,36 @@ func setupAccountRoutes(auth *gin.RouterGroup) {
 }
 
 // setupShortLinkRoutes 短链管理路由
+//
+// 权限分级（2026-08-18 三轮发现）：写操作（Create/Update/Delete）admin only
+// 防 staff 把短链 target_url 改成恶意地址 → 客户扫码跳转钓鱼站。
 func setupShortLinkRoutes(auth *gin.RouterGroup, public *gin.RouterGroup, gormDB *gorm.DB) {
 	shortLinkCtrl := controller.NewShortLinkController(service.NewShortLinkService(gormDB))
 	shortLinkStatsCtrl := controller.NewShortLinkStatsController(service.NewShortLinkService(gormDB))
 
+	// 读操作：任意登录用户（业务展示）
 	auth.GET("/short-link/list", shortLinkCtrl.GetList)
-	auth.POST("/short-link", shortLinkCtrl.Create)
-	auth.PUT("/short-link/:id", shortLinkCtrl.Update)
-	auth.DELETE("/short-link/:id", shortLinkCtrl.Delete)
 	auth.GET("/short-link/:id", shortLinkCtrl.GetByID)
-	public.POST("/short-link/access", shortLinkCtrl.AccessShortLink)
 	auth.GET("/short-link/:id/stats", shortLinkStatsCtrl.GetStats)
 	auth.GET("/short-link/all-stats", shortLinkStatsCtrl.GetAllStats)
 	auth.GET("/shortlink/list", shortLinkCtrl.GetList)
 	auth.GET("/shortlink/:id", shortLinkCtrl.GetByID)
-	auth.POST("/shortlink/create", shortLinkCtrl.Create)
-	auth.PUT("/shortlink/update", func(c *gin.Context) { shortLinkCtrl.Update(c) })
-	auth.DELETE("/shortlink/delete/:id", shortLinkCtrl.Delete)
-	auth.POST("/shortlink/access", shortLinkCtrl.AccessShortLink)
-	auth.POST("/shortlink/generate", shortLinkCtrl.Create)
 	auth.GET("/shortlink/:id/stats", shortLinkStatsCtrl.GetStats)
 	auth.GET("/shortlink/stats/all", shortLinkStatsCtrl.GetAllStats)
-	auth.POST("/shortlink/:id/share", shortLinkStatsCtrl.ShareShortLink)
+	// 写操作：admin only（防短链钓鱼）
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	{
+		admin.POST("/short-link", shortLinkCtrl.Create)
+		admin.PUT("/short-link/:id", shortLinkCtrl.Update)
+		admin.DELETE("/short-link/:id", shortLinkCtrl.Delete)
+		admin.POST("/shortlink/create", shortLinkCtrl.Create)
+		admin.PUT("/shortlink/update", func(c *gin.Context) { shortLinkCtrl.Update(c) })
+		admin.DELETE("/shortlink/delete/:id", shortLinkCtrl.Delete)
+		admin.POST("/shortlink/generate", shortLinkCtrl.Create)
+		admin.POST("/shortlink/:id/share", shortLinkStatsCtrl.ShareShortLink)
+	}
+	public.POST("/short-link/access", shortLinkCtrl.AccessShortLink)
+	public.POST("/shortlink/access", shortLinkCtrl.AccessShortLink)
 }
 
 // setupLiveCodeRoutes 活码管理路由

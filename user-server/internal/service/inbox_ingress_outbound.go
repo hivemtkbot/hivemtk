@@ -72,6 +72,27 @@ func (s *InboxIngressService) DeliverOutbound(ctx context.Context, h *model.Mess
 		return err
 	}
 
+	// Phase 1: SSE 事件驱动通知（异步，不阻塞主路径）
+	if GlobalSSEPublisher != nil && h != nil && h.ID != 0 {
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Errorf("[SSE] GlobalSSEPublisher panic recovered in DeliverOutbound: %v", r)
+				}
+			}()
+			GlobalSSEPublisher(
+				h.Platform, h.AccountID,
+				uint64(h.ID),
+				h.ConversationID,
+				h.MsgType,
+				h.ReceiverID,
+				h.Content,
+				h.IsAIReply,
+				h.SentAt,
+			)
+		}()
+	}
+
 	tracing.RecordNode(ctx, tracing.NodeSpan{
 		TraceID:        h.TraceID,
 		ConversationID: h.ConversationID,

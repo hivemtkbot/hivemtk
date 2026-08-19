@@ -9,6 +9,7 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 	confidencesvc "hivemtk-user/internal/service/confidence"
 	humanizesvc "hivemtk-user/internal/service/humanize"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -57,6 +58,7 @@ type SalesEngine struct {
 	memory          DialogueMemoryInterface
 	sop             SOPMatcherInterface
 	polisher        PolisherInterface
+	behaviorPl     *BehavioralPlanBuilder
 	ragSearcher     RAGSearcher
 	scriptLookup    ScriptLookup
 	customerLookup  CustomerLookup
@@ -118,10 +120,31 @@ func NewSalesEngine(
 		memory:         memory,
 		sop:            sop,
 		polisher:       polisher,
+		behaviorPl:     NewBehavioralPlanBuilder(),
 		ragSearcher:    ragSearcher,
 		scriptLookup:   scriptLookup,
 		customerLookup: customerLookup,
 	}
+}
+
+// SetBehavioralHumanize 注入行为层拟人开关
+// 关闭时使用 noop（直接返回原文本，单条消息，0 延迟）
+func (e *SalesEngine) SetBehavioralHumanize(enabled bool) {
+	if e.behaviorPl == nil {
+		e.behaviorPl = NewBehavioralPlanBuilder()
+	}
+	e.behaviorPl.SetEnabled(enabled)
+}
+
+// isFirstMessageOf 判断是否首条消息（决定是否需要 thinking pause）
+//
+// 业界依据：WhatsApp IM 行为研究
+//   - 首条消息：客户主动发起，无思考停顿
+//   - 后续消息：AI 接续上文，需要 ~3s 思考停顿（让用户感觉"在思考"）
+func isFirstMessageOf(req *SalesRequest) bool {
+	// 简化判定：session_id 变化 OR 显式标记
+	// 更精确实现需要查 session 消息历史
+	return req != nil && req.IsFirstTurn
 }
 
 func (e *SalesEngine) SetFeedbackLearner(ctx context.Context, fl FeedbackRecorderInterface) {
@@ -385,6 +408,25 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 
 	if e.humanizeEvaluator != nil && HumanizeEvaluatorEnabled {
 		stepStart = time.Now()
+		// v3 审计 P0-#4 增强：行为层拟人（打字延迟 + 分条发送）
+		//   - 业界依据：文本层拟人（polisher）效果有限；行为层拟人（分条+延迟）真实感更强
+		//   - 默认关闭（A/B 灰度）；通过 SetBehavioralHumanize(true) 启用
+		//   - 完全独立于 humanize_polisher 文本层润色（两者正交）
+		if e.behaviorPl != nil && e.behaviorPl.IsEnabled() {
+			plan := e.behaviorPl.Build(finalReply, isFirstMessageOf(req))
+			resp.SendPlan = &dto.SendPlanDTO{
+				Messages:   plan.Messages,
+				Intervals:  plan.Intervals,
+				TotalDelay: plan.TotalDelay,
+			}
+			resp.Steps = append(resp.Steps, dto.SalesStepLog{
+				Step:      "6.5_behavioral",
+				Status:    "ok",
+				LatencyMs: ms(stepStart),
+				Detail:    "behavioral humanize: " + strconv.Itoa(len(plan.Messages)) + " segments",
+			})
+		}
+
 		evalInput := &dto.HumanizeEvalInput{
 			SessionID:       req.SessionID,
 			CustomerID:      req.CustomerID,
@@ -634,6 +676,42 @@ func resolveAgentSettings(ctx context.Context) (maxTools, maxIter int) {
 // 由 SetAgentLoopTimeout 注入；与 dispatcher.MaxLatency、llm_service.httpClient.Timeout
 // 共享同一配置源（inference.llm.timeout_seconds），全链路一致。
 var agentLoopTotalTimeout = 180 * time.Second
+
+// agentLoopMaxTotalTokens Agent Loop 累计 token 预算（所有 LLM 调用之和）。
+//
+// 业界依据（OpenAI Agents SDK / LangGraph 均支持）：
+//   - 仅 wall-clock 限不够：单次快但 token 多的循环（如长 system + 多 tool result）会爆 128K 上下文。
+//   - 仅 max_iterations 不够：每轮 token 大小差异巨大（tool result 可能 1k-10k tokens）。
+//
+// 设计：默认 50000（约 12.5 轮 4k 上下文），与业界 32k-128k 区间对齐偏保守。
+// 由 SetAgentLoopMaxTotalTokens 注入；<=0 时按默认值。
+// 达到上限时停止后续 LLM 调用，使用最后一次成功 result 的 content 兜底。
+var agentLoopMaxTotalTokens = 50000
+
+// agentLoopMaxPerIterTimeout 单次 LLM 调用超时（per-iteration）。
+//
+// 业界依据：总超时 180s 情况下，单次 LLM 调用应 < 总超时 50%，否则后续工具执行
+// + 结果回灌会无时间预算。默认 60s 留出 3 轮（60+60+60=180s）的安全边界。
+// 由 SetAgentLoopMaxPerIterTimeout 注入；<=0 时按默认值。
+var agentLoopMaxPerIterTimeout = 60 * time.Second
+
+// SetAgentLoopMaxTotalTokens 注入 Agent Loop 累计 token 预算
+// 由 main.go 启动时调用；≤0 时保持默认 50000
+func SetAgentLoopMaxTotalTokens(n int) {
+	if n <= 0 {
+		return
+	}
+	agentLoopMaxTotalTokens = n
+}
+
+// SetAgentLoopMaxPerIterTimeout 注入单次 LLM 调用超时（秒）
+// 由 main.go 启动时调用；≤0 时保持默认 60s
+func SetAgentLoopMaxPerIterTimeout(seconds int) {
+	if seconds <= 0 {
+		return
+	}
+	agentLoopMaxPerIterTimeout = time.Duration(seconds) * time.Second
+}
 
 // ms 计算耗时（毫秒）
 func ms(start time.Time) int {

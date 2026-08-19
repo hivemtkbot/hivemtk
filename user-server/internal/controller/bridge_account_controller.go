@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
 
 	"hivemtk-user/internal/bridge"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -92,12 +92,7 @@ func (ctrl *BridgeAccountController) SendManual(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "bridge account offline"})
 		return
 	}
-	adapter := bridge.GlobalBridgeReachAdapter()
-	if adapter == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "bridge reach adapter not initialized"})
-		return
-	}
-	if err := adapter.EnqueueManualReply(c.Request.Context(), req.Channel, req.AccountID, req.ConversationID, req.Content, fmt.Sprint(uid)); err != nil {
+	if err := service.DeliverBridgeOutbound(c.Request.Context(), req.Channel, req.AccountID, req.ConversationID, "text", req.Content, ""); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

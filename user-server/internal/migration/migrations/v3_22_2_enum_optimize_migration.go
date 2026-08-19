@@ -71,11 +71,24 @@ func (m *EnumOptimizeMigration) createEnumIfNotExists(ctx context.Context, name 
 }
 
 // alterColumnToEnum 将指定列转换为 ENUM 类型（带 USING 子句处理旧值）
-func (m *EnumOptimizeMigration) alterColumnToEnum(ctx context.Context, table, column, enumType string) error {
-	sql := fmt.Sprintf(
-		`ALTER TABLE %q ALTER COLUMN %q TYPE %q USING %q::text::%q`,
-		table, column, enumType, column, enumType)
-	return m.db.WithContext(ctx).Exec(sql).Error
+//
+// 修复 SQLSTATE 42804：列存在 varchar 默认值时，直接 ALTER TYPE 会因
+// "default cannot be cast automatically to type enum" 失败。
+// 解决：先 DROP DEFAULT → ALTER TYPE → 重新 SET DEFAULT 为枚举字面量。
+func (m *EnumOptimizeMigration) alterColumnToEnum(ctx context.Context, table, column, enumType, defaultVal string) error {
+	stmts := []string{
+		fmt.Sprintf(`ALTER TABLE %q ALTER COLUMN %q DROP DEFAULT`, table, column),
+		fmt.Sprintf(`ALTER TABLE %q ALTER COLUMN %q TYPE %q USING %q::text::%q`, table, column, enumType, column, enumType),
+	}
+	if defaultVal != "" {
+		stmts = append(stmts, fmt.Sprintf(`ALTER TABLE %q ALTER COLUMN %q SET DEFAULT '%s'::%q`, table, column, defaultVal, enumType))
+	}
+	for _, sql := range stmts {
+		if err := m.db.WithContext(ctx).Exec(sql).Error; err != nil {
+			return fmt.Errorf("exec failed (%s): %w", sql, err)
+		}
+	}
+	return nil
 }
 
 func (m *EnumOptimizeMigration) Up(ctx context.Context) error {
@@ -103,26 +116,27 @@ func (m *EnumOptimizeMigration) Up(ctx context.Context) error {
 
 	// 2. 检查表是否存在并转换列
 	type tableCol struct {
-		table    string
-		column   string
-		enumType string
+		table      string
+		column     string
+		enumType   string
+		defaultVal string
 	}
 
 	conversions := []tableCol{
 		// ai_agents
-		{"ai_agents", "agent_type", "agent_type_enum"},
-		{"ai_agents", "agent_mode", "agent_mode_enum"},
+		{"ai_agents", "agent_type", "agent_type_enum", "sales"},
+		{"ai_agents", "agent_mode", "agent_mode_enum", "passive"},
 		// channel_agent_bindings
-		{"channel_agent_bindings", "channel_type", "channel_type_enum"},
+		{"channel_agent_bindings", "channel_type", "channel_type_enum", ""},
 		// customer_service_agents 没有 channel_type 字段，跳过
 		// knowledge_bases
-		{"knowledge_bases", "type", "kb_type_enum"},
-		{"knowledge_bases", "owner_type", "kb_owner_type_enum"},
+		{"knowledge_bases", "type", "kb_type_enum", ""},
+		{"knowledge_bases", "owner_type", "kb_owner_type_enum", ""},
 		// asset_bundle
-		{"asset_bundles", "scope", "asset_bundle_scope_enum"},
-		{"asset_bundles", "status", "asset_bundle_status_enum"},
+		{"asset_bundles", "scope", "asset_bundle_scope_enum", ""},
+		{"asset_bundles", "status", "asset_bundle_status_enum", "draft"},
 		// asset_bundle_items
-		{"asset_bundle_items", "status", "asset_bundle_status_enum"},
+		{"asset_bundle_items", "status", "asset_bundle_status_enum", "draft"},
 	}
 
 	for _, c := range conversions {
@@ -166,7 +180,7 @@ func (m *EnumOptimizeMigration) Up(ctx context.Context) error {
 			continue
 		}
 
-		if err := m.alterColumnToEnum(ctx, c.table, c.column, c.enumType); err != nil {
+		if err := m.alterColumnToEnum(ctx, c.table, c.column, c.enumType, c.defaultVal); err != nil {
 			return fmt.Errorf("转换 %s.%s -> %s 失败: %w", c.table, c.column, c.enumType, err)
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	contentctrl "hivemtk-user/internal/content/controller"
 	contentservice "hivemtk-user/internal/content/service"
 	"hivemtk-user/internal/controller"
+	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
 
@@ -78,20 +79,28 @@ func setupClueRoutes(auth *gin.RouterGroup) {
 }
 
 // setupLeadMiningRoutes 线索发掘路由
+//
+// 权限分级（2026-08-18 三轮发现）：SaveConfig admin only
+// 防 staff 误开关 lead-mining → 全公司线索流程停摆 / 误启用烧 token。
 func setupLeadMiningRoutes(auth *gin.RouterGroup) {
 	ctrl := controller.NewLeadMiningController()
 	auth.GET("/lead-mining/config", ctrl.GetConfig)
-	auth.POST("/lead-mining/config", ctrl.SaveConfig)
+	admin := auth.Group("/lead-mining", middleware.AdminAuthMiddleware())
+	admin.POST("/config", ctrl.SaveConfig)
 }
 
 // setupCustomerRFMRoutes 客户 RFM 路由
+//
+// 权限分级（2026-08-18 三轮发现）：compute-all admin only（资源密集）
+// compute 单个仍允许 staff（按需单点计算）。
 func setupCustomerRFMRoutes(auth *gin.RouterGroup) {
 	rfmCtrl := controller.NewCustomerRFMController()
 	auth.POST("/customer-rfm/compute", rfmCtrl.ComputeForCustomer)
-	auth.POST("/customer-rfm/compute-all", rfmCtrl.ComputeAll)
 	auth.GET("/customer-rfm/:customer_id", rfmCtrl.GetByCustomerID)
 	auth.GET("/customer-rfm/list", rfmCtrl.ListBySegment)
 	auth.GET("/customer-rfm/distribution", rfmCtrl.Distribution)
+	admin := auth.Group("/customer-rfm", middleware.AdminAuthMiddleware())
+	admin.POST("/compute-all", rfmCtrl.ComputeAll)
 }
 
 // setupRecoveryQueueRoutes 流失挽回队列路由

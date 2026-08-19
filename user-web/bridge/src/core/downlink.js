@@ -2,6 +2,7 @@ import { getOutbox, ackOutbox } from './http-ingest.js';
 import { sanitizeForDisplay } from './sanitize.js';
 import { BRIDGE_THREE_CHANNEL, RATE_LIMIT_DEFAULTS, BRIDGE_PROTOCOL_V2 } from './constants.js';
 import { createLogger } from './logger.js';
+import { connectSSE, getLastEventID, setLastEventID } from './sse-fetch-client.js';
 
 const log = createLogger('downlink');
 
@@ -79,10 +80,11 @@ function this_pendingAckFor(channel) {
   if (!_pendingAckByChannel[channel]) _pendingAckByChannel[channel] = new Map();
   const m = _pendingAckByChannel[channel];
   if (m.size > MAX_PENDING_ACK_PER_CHANNEL) {
-    // 容量保护：按 firstSeenAt 升序淘汰最早的条目（FIFO）
-    const sorted = [...m.entries()].sort((a, b) => a[1].firstSeenAt - b[1].firstSeenAt);
+    // 容量保护：Map 保持插入序（FIFO），直接遍历迭代器删除前 N 个最早条目。
+    // 优化前：构造 [...entries()] 全量数组 + sort（O(n log n)）+ 截取；现 O(n) 一遍过。
+    const iter = m.keys();
     const evictCount = m.size - MAX_PENDING_ACK_PER_CHANNEL;
-    for (let i = 0; i < evictCount; i++) m.delete(sorted[i][0]);
+    for (let i = 0; i < evictCount; i++) m.delete(iter.next().value);
   }
   return m;
 }
@@ -465,5 +467,338 @@ export function processAckDetailedResult(ackRes, ackIds, channel = '', label = '
     else result.retriable++; 
   }
   return result;
+}
+
+// =============================================================
+// SSE 模式下行支持（Service Worker 推送 → Content Script 接收）
+// =============================================================
+// 设计：
+//   - Content Script 通过 registerWithServiceWorker() 告知 SW 自己的存在
+//   - SW 建立 EventSource 连接，将下行消息通过 chrome.tabs.sendMessage 推送到 Content Script
+//   - Content Script 通过 listenSSEOutbound() 监听 SSE_OUTBOUND 消息
+//   - 每条消息走 SentCache 防重 → 会话内串行 → sendOutbound → ack 的完整流程
+//   - 保留独立的会话队列（ConversationQueue），确保同会话消息顺序执行
+
+// ---- 会话队列：按 conversation_id 串行执行 ----
+// 同一会话的消息必须串行（避免 A 会话的消息被填进 B 会话的输入框）。
+// 不同会话的消息可以并行。
+class ConversationQueue {
+  constructor() {
+    this._queues = new Map(); // convId -> Array<{fn, resolve, reject}>
+    this._running = new Set(); // convIds currently being processed
+  }
+
+  // 入队：返回 Promise，在 fn 执行完成后 resolve
+  enqueue(convId, fn) {
+    return new Promise((resolve, reject) => {
+      if (!this._queues.has(convId)) {
+        this._queues.set(convId, []);
+      }
+      this._queues.get(convId).push({ fn, resolve, reject });
+      // 若该会话未在执行中，启动处理
+      if (!this._running.has(convId)) {
+        this._process(convId);
+      }
+    });
+  }
+
+  async _process(convId) {
+    if (this._running.has(convId)) return;
+    this._running.add(convId);
+    try {
+      while (this._queues.has(convId) && this._queues.get(convId).length > 0) {
+        const item = this._queues.get(convId).shift();
+        try {
+          const result = await item.fn();
+          item.resolve(result);
+        } catch (err) {
+          item.reject(err);
+        }
+      }
+      // 队列清空，移除会话
+      this._queues.delete(convId);
+    } finally {
+      this._running.delete(convId);
+    }
+  }
+}
+
+const sseQueues = new Map(); // channel -> ConversationQueue
+function getSSEQueue(channel) {
+  if (!sseQueues.has(channel)) {
+    sseQueues.set(channel, new ConversationQueue());
+  }
+  return sseQueues.get(channel);
+}
+
+// ---- 注册/注销到 Service Worker ----
+
+export async function registerWithServiceWorker(channel, accountId) {
+  try {
+    await chrome.runtime.sendMessage({
+      type: 'BRIDGE_REGISTER_TAB',
+      channel,
+      accountId,
+    });
+    log.info(`已注册到 Service Worker: ${channel}:${accountId}`);
+  } catch (err) {
+    log.warn('注册到 Service Worker 失败（可能 SW 未就绪）', err && err.message);
+    throw err;
+  }
+}
+
+export async function unregisterFromServiceWorker(channel, accountId) {
+  try {
+    await chrome.runtime.sendMessage({
+      type: 'BRIDGE_UNREGISTER_TAB',
+      channel,
+      accountId,
+    });
+    log.info(`已从 Service Worker 注销: ${channel}:${accountId}`);
+  } catch (_) {}
+}
+
+// ---- 监听 Service Worker 发来的 SSE 消息 ----
+
+let _sseListeners = new Map(); // channel -> Set of listeners
+
+export function listenSSEOutbound(channel, onMessage, onError) {
+  if (!_sseListeners.has(channel)) {
+    _sseListeners.set(channel, new Set());
+  }
+  const handler = (msg) => {
+    if (!msg || msg.type !== 'SSE_OUTBOUND') return;
+    if (msg.channel !== channel) return;
+    try {
+      onMessage(msg.data);
+    } catch (err) {
+      log.error('SSE 消息处理失败', err);
+      if (onError) onError(err);
+    }
+  };
+  _sseListeners.get(channel).add(handler);
+
+  // 全局监听器（只注册一次）
+  if (!_globalSSEListenerRegistered) {
+    chrome.runtime.onMessage.addListener(_globalSSEDispatcher);
+    _globalSSEListenerRegistered = true;
+  }
+
+  // 返回取消订阅函数
+  return () => {
+    const set = _sseListeners.get(channel);
+    if (set) set.delete(handler);
+  };
+}
+
+let _globalSSEListenerRegistered = false;
+function _globalSSEDispatcher(msg) {
+  if (!msg || msg.type !== 'SSE_OUTBOUND') return false;
+  const channel = msg.channel;
+  const set = _sseListeners.get(channel);
+  if (set) {
+    for (const handler of set) {
+      try { handler(msg); } catch (_) {}
+    }
+  }
+  return false;
+}
+
+// ---- SSE 模式下发主入口 ----
+
+/**
+ * startSSEDelivery 启动 SSE 模式下行。
+ *
+ * 修复（2026-08-18）：
+ *   - 原实现通过 Service Worker 的 EventSource，在 Chrome MV3 中受限
+ *   - 新实现使用 fetch + ReadableStream 在 Content Script 中直接建立连接
+ *   - 优势：更稳定、支持自定义 Header、更好的错误处理
+ *
+ * @param {string} channel 渠道编码 (douyin/xiaohongshu/tiktok/xianyu/kuaishou)
+ * @param {string} accountId 账号 ID
+ * @param {object} handlers 回调函数
+ * @param {function} handlers.sendOutbound 发送函数 (text, convId, opts) => Promise<{ok, rateLimited, notFound}>
+ * @param {function} handlers.onMessage 消息到达回调 (msg) => void
+ * @param {function} [handlers.onError] 错误回调 (err) => void
+ * @param {function} [handlers.onDuplicate] 重复消息回调 (msgId) => void
+ * @returns {Promise<function>} 停止函数
+ */
+export async function startSSEDelivery(channel, accountId, handlers) {
+  const cache = getCache(channel);
+  await cache.load();
+
+  // 1. 获取配置（server URL + token）
+  let cfg = {};
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      const r = await chrome.storage.local.get('bridgeConfig');
+      cfg = (r && r.bridgeConfig) || {};
+    }
+  } catch (_) {}
+
+  const serverUrl = cfg.serverUrl || DEFAULT_USER_SERVER.baseUrl;
+  const token = cfg.token || '';
+  const lastEventId = getLastEventID(channel, accountId);
+
+  // 2. 直接在 Content Script 中建立 SSE 连接（fetch + ReadableStream）
+  log.info(`SSE 直连启动: ${channel}:${accountId}`, { serverUrl, hasToken: !!token, lastEventId });
+
+  let cleanupSSE;
+  let stopped = false;
+  let reconnectTimer = null;
+  let reconnectAttempts = 0;
+  const MAX_RECONNECT_ATTEMPTS = 10;
+  const RECONNECT_BASE_DELAY_MS = 1000;
+  const RECONNECT_MAX_DELAY_MS = 30000;
+
+  // 带重连的 SSE 连接启动
+  async function startSSEWithReconnect() {
+    while (!stopped) {
+      try {
+        cleanupSSE = await connectSSE(channel, accountId, {
+          serverUrl,
+          token,
+          lastEventId: getLastEventID(channel, accountId), // 每次重连获取最新的 lastEventId
+          onMessage: async (data) => {
+            if (stopped) return;
+
+            const msgId = data.msg_id || data.id;
+            const convId = data.conversation_id || '_unknown_';
+
+            // 保存 Last-Event-ID
+            if (data.id) {
+              setLastEventID(channel, accountId, data.id);
+            }
+
+            // SentCache 防重（复合键：msg_id|conversation_id）
+            const cacheKey = `${msgId}|${convId}`;
+            if (cache.has(cacheKey)) {
+              log.info(`SSE 消息已在缓存中，跳过: ${cacheKey}`);
+              handlers.onDuplicate?.(msgId);
+              return;
+            }
+
+            // 按 conversation_id 入队串行执行
+            const queue = getSSEQueue(channel);
+            try {
+              await queue.enqueue(convId, async () => {
+                const raw = data.content || '';
+                if (!raw) return;
+
+                // XSS 防护：净化内容
+                const safeContent = sanitizeForDisplay ? sanitizeForDisplay(raw) : raw;
+
+                // 调用 sendOutbound 发送到网页
+                if (handlers.sendOutbound) {
+                  const result = await handlers.sendOutbound(safeContent, convId, { viaAdapter: channel });
+                  const ok = !!(result && result.ok);
+                  const rateLimited = !!(result && result.rateLimited);
+                  const notFound = !!(result && result.notFound);
+
+                  if (ok) {
+                    // 写入缓存防重
+                    cache.add(cacheKey);
+                    await cache.flush();
+
+                    // 回调通知
+                    handlers.onMessage?.({
+                      msgId,
+                      content: safeContent,
+                      conversationId: convId,
+                      msgType: data.msg_type || 'text',
+                      isAIReply: data.is_ai_reply || data.event === 'ai_reply',
+                    });
+
+                    // ack 服务端
+                    try {
+                      await ackOutbox(
+                        { serverUrl, channel, accountId, token },
+                        [msgId],
+                        { label: `[SSE ack] ${channel}:${convId}` }
+                      );
+                    } catch (err) {
+                      log.warn('SSE ack 失败，加入重试队列', err && err.message);
+                      addPendingAck(channel, msgId, 'sse_ack_failed');
+                    }
+                  } else if (rateLimited) {
+                    log.warn(`SSE 下行被限速: ${channel}:${convId}`, { msgId });
+                  } else if (notFound) {
+                    log.warn(`SSE 下行目标会话不存在: ${channel}:${convId}`, { msgId });
+                  } else {
+                    log.warn(`SSE 下行发送失败: ${channel}:${convId}`, { result });
+                  }
+                } else {
+                  log.warn(`SSE startSSEDelivery: 未提供 sendOutbound`, channel);
+                }
+              });
+            } catch (err) {
+              log.error('SSE 消息处理异常', err);
+              handlers.onError?.(err);
+            }
+          },
+          onError: (err) => {
+            if (!stopped) {
+              log.error(`SSE 连接错误: ${channel}:${accountId}`, err);
+              handlers.onError?.(err);
+            }
+          },
+          onLastEventID: (id) => {
+            setLastEventID(channel, accountId, id);
+          },
+        });
+
+        // 重置重连计数
+        reconnectAttempts = 0;
+        log.info(`SSE 直连已建立: ${channel}:${accountId}`);
+
+        // 等待连接结束（正常或异常）
+        // connectSSE 在流结束时 resolve，在错误时 reject
+        // 这里不需要额外等待，因为如果断开了，会进入 catch 块
+      } catch (err) {
+        if (stopped) break;
+
+        reconnectAttempts++;
+        if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
+          log.warn(`SSE 重连次数已达上限 (${MAX_RECONNECT_ATTEMPTS})，停止重连: ${channel}:${accountId}`);
+          break;
+        }
+
+        // 计算重连延迟（指数退避）
+        const delay = Math.min(
+          RECONNECT_BASE_DELAY_MS * Math.pow(2, reconnectAttempts - 1),
+          RECONNECT_MAX_DELAY_MS
+        );
+        log.info(`SSE 断开，${delay}ms 后尝试第 ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} 次重连: ${channel}:${accountId}`);
+
+        // 通知上层连接已断开
+        handlers.onError?.(new Error(`SSE 断开，准备重连 (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`));
+
+        // 等待重连延迟
+        await new Promise((resolve) => {
+          reconnectTimer = setTimeout(resolve, delay);
+        });
+
+        if (stopped) break;
+      }
+    }
+
+    log.info(`SSE 重连循环结束: ${channel}:${accountId}`);
+  }
+
+  // 启动重连 SSE 连接（异步，不阻塞）
+  startSSEWithReconnect().catch((err) => {
+    log.error(`SSE 重连循环异常退出: ${channel}:${accountId}`, err);
+  });
+
+  log.info(`SSE 下行已启动（直连模式）: ${channel}:${accountId}`);
+
+  // 返回停止函数
+  return async () => {
+    stopped = true;
+    if (cleanupSSE) {
+      try { await cleanupSSE(); } catch (_) {}
+    }
+    log.info(`SSE 下行已停止: ${channel}:${accountId}`);
+  };
 }
 

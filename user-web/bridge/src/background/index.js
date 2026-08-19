@@ -1,6 +1,7 @@
 import { DEFAULT_USER_SERVER } from '../core/constants.js';
 import { createLogger } from '../core/logger.js';
 import { autoInjectOnCommit, injectContentScript, scriptingAvailable } from './injector.js';
+import './sse-client.js';
 
 const log = createLogger('bg', 'bg');
 

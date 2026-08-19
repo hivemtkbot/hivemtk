@@ -3,6 +3,8 @@
 > HiveMtk 用户端的 Go 后端核心服务，承载 CDP、智能客服、RAG 检索、智能卡片、触达编排等业务能力。覆盖用户端 94 个核心业务模块，Go 1.25 / Gin / GORM，所有客户业务数据本地化存储。
 >
 > 推理栈架构：**宿主机 llama.cpp + TEI 兼容服务**（非容器化），数据层（PostgreSQL + Redis）走 Docker。详见 [`../docs/architecture/HOST_INFERENCE_PLAN.md`](../docs/architecture/HOST_INFERENCE_PLAN.md)。
+>
+> 🚀 **开发体验**：项目内置 [air 热重载](docs/dev/HOT_RELOAD.md)，`make dev` 一行启动，保存 .go / .yaml / .env 即自动重编+重启，**无需手动 `go build` / `docker compose restart`**。
 
 ## ✨ 项目功能
 
@@ -86,7 +88,15 @@ user-server/
 │   ├── perf/                   # 性能压测工具
 │   └── routeinspect/           # 路由自检工具（导出 ROUTES.md）
 ├── config/                     # 平台对接配置
-├── docs/                       # Swagger 注释
+├── docs/                       # Swagger 注释 + dev 文档
+│   ├── AGENT_TOOLS.md
+│   ├── swagger.go
+│   └── dev/
+│       ├── HOT_RELOAD.md        # ⭐ 热重载工作流（air 详解 + 边界约束）
+│       ├── DEVELOPMENT.md
+│       ├── ARCHITECTURE.md
+│       ├── CONVENTIONS.md
+│       └── FEATURES.md
 ├── internal/
 │   ├── aiagent/                # 智能体引擎（ReAct / RAG / LLM 抽象）
 │   ├── cache/                  # 缓存抽象（内存 + Redis）
@@ -123,6 +133,8 @@ user-server/
 ## 🚀 启动说明
 
 整体架构：**数据层（Docker）+ 宿主机推理栈（llama.cpp 三件套）+ user-server（air 热更新或二进制）**。
+
+> ⭐ **日常开发只需一行 `make dev` 启动热重载**，完整工作流与边界约束见 [`docs/dev/HOT_RELOAD.md`](docs/dev/HOT_RELOAD.md)。本节为首次部署 / 全栈编排视角。
 
 ### 方式 A：宿主机推理栈 + 一键全栈（推荐）
 
@@ -185,9 +197,9 @@ cp config.yaml config.local.yaml
 # 3. 拉取依赖
 go mod download
 
-# 4. 启动（开发态 · 热重载，推荐）
-make dev-install   # 一次性安装 air（go install github.com/cosmtrek/air@latest）
-make dev           # air 监听 .go/.yaml/.html，自动重编+重启，零停机
+# 4. 启动（开发态 · 热重载，⭐推荐，详见 docs/dev/HOT_RELOAD.md）
+make dev-install   # 一次性安装 air（go install github.com/air-verse/air@latest）
+make dev           # air 监听 .go/.yaml/.html/.env，自动重编+重启，零停机
 # 仅生产 / 单次运行才手动编译二进制：
 # go build -o bin/user-server ./cmd/api && ./bin/user-server
 ```
@@ -222,8 +234,12 @@ curl http://localhost:8204/api/v1/public/init
 ## 🛠 常用命令
 
 ```bash
-# 开发热重载（推荐）
-make dev
+# === 开发热重载（⭐推荐，详见 docs/dev/HOT_RELOAD.md）===
+make dev                           # 启动 user-server + air 热重载
+make dev-install                   # 一次性安装 air（已装跳过）
+make dev-stop                      # 停止 air
+make dev-clean                     # 清理 air 临时产物
+make dev-help                      # 热重载速查
 
 # 生产构建
 go build -o bin/user-server ./cmd/api
@@ -280,6 +296,7 @@ go run ./cmd/routeinspect -format=md > ROUTES.md
 
 ## 📚 关联文档
 
+- **热重载工作流（⭐必读）**: [./docs/dev/HOT_RELOAD.md](./docs/dev/HOT_RELOAD.md)
 - 仓库根 [README](../README.md)
 - 架构图 [../docs/architecture/ARCHITECTURE_DIAGRAM.md](../docs/architecture/ARCHITECTURE_DIAGRAM.md)
 - Go 五层架构规范 [../docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md](../docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md)

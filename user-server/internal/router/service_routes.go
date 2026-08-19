@@ -7,6 +7,7 @@ import (
 
 	"hivemtk-user/internal/app"
 	"hivemtk-user/internal/controller"
+	"hivemtk-user/internal/middleware"
 	opsctrl "hivemtk-user/internal/ops/controller"
 	"hivemtk-user/internal/service"
 	"hivemtk-user/internal/service/translation"
@@ -223,26 +224,37 @@ func setupIntentRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 //
 // failover 为 nil 时使用占位 controller（所有端点返回 503）。
 // 生产环境 main.go 应通过 NewSetupLLMProviderRoutes 注入真实 failover。
+//
+// 权限分级（2026-08-18）：写操作（reset circuit / update policy）必须 admin
+// 防止 staff 误操作 / 恶意绕过熔断器造成服务不可用。
 func setupLLMProviderRoutes(auth *gin.RouterGroup) {
 	failoverSvc := service.NewLLMFailoverService(app.GetGlobalProviderFailover())
 	llmProvCtrl := controller.NewLLMProviderController(failoverSvc)
+	// 写操作：admin only
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	admin.POST("/llm/providers/circuit/reset", llmProvCtrl.ResetCircuit)
+	admin.POST("/llm/providers/circuit/reset/:provider", llmProvCtrl.ResetCircuit)
+	admin.PUT("/llm/providers/policy", llmProvCtrl.UpdatePolicy)
+	admin.POST("/llm-routings/providers/circuit/reset", llmProvCtrl.ResetCircuit)
+	admin.PUT("/llm-routings/policy", llmProvCtrl.UpdatePolicy)
+	// 读操作：任意登录用户（监控面板需要）
 	auth.GET("/llm/providers/health", llmProvCtrl.GetHealth)
 	auth.GET("/llm/providers/health/:provider", llmProvCtrl.GetProviderHealth)
-	auth.POST("/llm/providers/circuit/reset", llmProvCtrl.ResetCircuit)
-	auth.POST("/llm/providers/circuit/reset/:provider", llmProvCtrl.ResetCircuit)
 	auth.GET("/llm/providers/policy", llmProvCtrl.GetPolicy)
-	auth.PUT("/llm/providers/policy", llmProvCtrl.UpdatePolicy)
 	auth.GET("/llm-routings/providers/health", llmProvCtrl.GetHealth)
 	auth.GET("/llm-routings/providers/:provider/health", llmProvCtrl.GetProviderHealth)
-	auth.POST("/llm-routings/providers/circuit/reset", llmProvCtrl.ResetCircuit)
 	auth.GET("/llm-routings/policy", llmProvCtrl.GetPolicy)
-	auth.PUT("/llm-routings/policy", llmProvCtrl.UpdatePolicy)
+	// resolve 是只读路径解析（业务侧 chat/sop 会调），不需要 admin
 	auth.POST("/llm-routings/resolve", llmProvCtrl.ResolveRoute)
 }
 
 // setupTraceRoutes 全链路追踪路由（）
+//
+// 路由顺序重要：/traces/recent 必须在 /trace/:traceId 之前注册，
+// 否则 gin 路由树会把 "/traces/recent" 匹配为 /trace/:traceId（traceId="s/recent"）。
 func setupTraceRoutes(auth *gin.RouterGroup) {
 	traceCtrl := controller.NewTraceController()
+	auth.GET("/traces/recent", traceCtrl.ListRecent)
 	auth.GET("/trace/:traceId", traceCtrl.GetTrace)
 }
 
@@ -272,26 +284,34 @@ func setupDialogueMemoryRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 }
 
 // setupSOPRoutes SOP 智能体路由
+//
+// 权限分级（2026-08-18 三轮发现）：写操作（Create/Update/Delete/Activate/Pause/Resume/Cancel/Execute/Step/ABTest）admin only
+// SOP 是一线客服自动应答流程，被 staff 误操作会立即影响客户对话体验。
 func setupSOPRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	sopCtrl := controller.NewSOPController(service.NewSOPService(db, nil))
+	// 读操作
 	auth.GET("/sop", sopCtrl.List)
-	auth.POST("/sop", sopCtrl.Create)
 	auth.GET("/sop/stats", sopCtrl.Stats)
 	auth.GET("/sop/match", sopCtrl.MatchByIntent)
 	auth.GET("/sop/executions", sopCtrl.ListExecutions)
 	auth.GET("/sop/executions/:id", sopCtrl.GetExecution)
-	auth.POST("/sop/executions/:id/pause", sopCtrl.Pause)
-	auth.POST("/sop/executions/:id/resume", sopCtrl.Resume)
-	auth.POST("/sop/executions/:id/cancel", sopCtrl.Cancel)
 	auth.GET("/sop/:id", sopCtrl.Get)
-	auth.PUT("/sop/:id", sopCtrl.Update)
-	auth.DELETE("/sop/:id", sopCtrl.Delete)
-	auth.POST("/sop/:id/activate", sopCtrl.Activate)
-	auth.POST("/sop/:id/deactivate", sopCtrl.Deactivate)
 	auth.GET("/sop/:id/abtest/stats", sopCtrl.GetABTestStats)
-	auth.PUT("/sop/:id/abtest/config", sopCtrl.UpdateABTestConfig)
-	auth.POST("/sop/execute", sopCtrl.Execute)
-	auth.POST("/sop/step", sopCtrl.Step)
+	// 写操作：admin only
+	admin := auth.Group("/sop", middleware.AdminAuthMiddleware())
+	{
+		admin.POST("", sopCtrl.Create)
+		admin.PUT("/:id", sopCtrl.Update)
+		admin.DELETE("/:id", sopCtrl.Delete)
+		admin.POST("/:id/activate", sopCtrl.Activate)
+		admin.POST("/:id/deactivate", sopCtrl.Deactivate)
+		admin.POST("/executions/:id/pause", sopCtrl.Pause)
+		admin.POST("/executions/:id/resume", sopCtrl.Resume)
+		admin.POST("/executions/:id/cancel", sopCtrl.Cancel)
+		admin.PUT("/:id/abtest/config", sopCtrl.UpdateABTestConfig)
+		admin.POST("/execute", sopCtrl.Execute)
+		admin.POST("/step", sopCtrl.Step)
+	}
 
 	faqCtrl := controller.NewFAQController()
 	faqCtrl.RegisterRoutes(auth)
@@ -361,6 +381,11 @@ func setupProactiveReachRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 }
 
 // setupLLMRoutingRoutes LLM 多模型路由
+//
+// 权限分级（2026-08-18 多角度审计修复）：
+//   - 写操作（Create/Update/Delete/Test/Strategies）必须 admin（防 staff 注入恶意 base_url
+//     把全公司 LLM 流量重定向到 evil.com，窃取全部对话数据）
+//   - 读操作（ListModels/GetModel/ListStrategies/Stats/Health 等）任意登录用户可访问（业务需要）
 func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
 	dispatcher := app.GetGlobalDispatcher()
 	routingService := service.NewLLMRoutingService(dispatcher)
@@ -368,25 +393,30 @@ func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
 	if f := app.GetGlobalProviderFailover(); f != nil {
 		llmCtrl.SetFailover(service.NewLLMFailoverService(f))
 	}
+	// 写操作：admin only（防 LLM 流量重定向 / 注入 / 熔断绕过）
+	admin := auth.Group("/llm", middleware.AdminAuthMiddleware())
+	{
+		admin.POST("/models", llmCtrl.CreateModel)
+		admin.PUT("/models/:name", llmCtrl.UpdateModel)
+		admin.DELETE("/models/:name", llmCtrl.DeleteModel)
+		admin.POST("/models/:name/test", llmCtrl.TestModel)
+		admin.PUT("/strategies", llmCtrl.UpdateStrategies)
+		admin.POST("/strategies", llmCtrl.UpdateStrategies)
+		admin.PUT("/scene-routing", llmCtrl.UpdateSceneRouting)
+		admin.POST("/scene-routing", llmCtrl.UpdateSceneRouting)
+		admin.PUT("/fallback", llmCtrl.UpdateSceneRouting)
+		admin.POST("/fallback", llmCtrl.UpdateSceneRouting)
+	}
+	// 读操作：任意登录用户（业务展示需要）
 	auth.GET("/llm/models", llmCtrl.ListModels)
 	auth.GET("/llm/models/:name", llmCtrl.GetModel)
-	auth.POST("/llm/models", llmCtrl.CreateModel)
-	auth.PUT("/llm/models/:name", llmCtrl.UpdateModel)
-	auth.DELETE("/llm/models/:name", llmCtrl.DeleteModel)
-	auth.POST("/llm/models/:name/test", llmCtrl.TestModel)
 	auth.GET("/llm/strategies", llmCtrl.ListStrategies)
-	auth.PUT("/llm/strategies", llmCtrl.UpdateStrategies)
-	auth.POST("/llm/strategies", llmCtrl.UpdateStrategies)
 	auth.GET("/llm/audit", llmCtrl.ListAuditHistory)
 	auth.GET("/llm/stats", llmCtrl.Stats)
 	auth.GET("/llm/usage", llmCtrl.Usage)
 	auth.GET("/llm/cost-stats", llmCtrl.CostStats)
 	auth.GET("/llm/fallback", llmCtrl.FallbackConfig)
 	auth.GET("/llm/scene-routing", llmCtrl.ListStrategies)
-	auth.PUT("/llm/scene-routing", llmCtrl.UpdateSceneRouting)
-	auth.POST("/llm/scene-routing", llmCtrl.UpdateSceneRouting)
-	auth.PUT("/llm/fallback", llmCtrl.UpdateSceneRouting)
-	auth.POST("/llm/fallback", llmCtrl.UpdateSceneRouting)
 	auth.GET("/llm/scenarios", llmCtrl.ListScenarios)
 	auth.GET("/llm/health", llmCtrl.Health)
 	auth.GET("/llm/scenario-stats", llmCtrl.ScenarioStats)

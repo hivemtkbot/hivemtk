@@ -13,7 +13,7 @@ import "time"
 type FeedbackEvent struct {
 	ID                uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	EventID           string    `gorm:"type:varchar(64);uniqueIndex;not null" json:"event_id"` 
-	SessionID         string    `gorm:"type:varchar(50);index;not null" json:"session_id"`
+	SessionID         string    `gorm:"type:varchar(120);index;not null" json:"session_id"`
 	CustomerID        string    `gorm:"type:varchar(64);index;not null" json:"customer_id"`
 	SOPID             uint      `gorm:"index" json:"sop_id"`                                
 	ExecutionID       uint      `json:"execution_id"`                                       
@@ -61,7 +61,7 @@ const (
 // 一个 session 多次反馈事件累加为单一 reward 值，供 Bandit / 画像分析消费
 type FeedbackSignal struct {
 	ID                uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	SessionID         string     `gorm:"type:varchar(50);uniqueIndex;not null" json:"session_id"`
+	SessionID         string     `gorm:"type:varchar(120);uniqueIndex;not null" json:"session_id"`
 	CustomerID        string     `gorm:"type:varchar(64);not null" json:"customer_id"`
 	SOPID             uint       `gorm:"index" json:"sop_id"`
 	Variant           string     `gorm:"type:varchar(50);index" json:"variant"`
@@ -95,7 +95,7 @@ const (
 type ChampionDialogue struct {
 	ID                  uint    `gorm:"primaryKey;autoIncrement" json:"id"`
 	DialogueFingerprint string  `gorm:"type:varchar(64);uniqueIndex;not null" json:"dialogue_fingerprint"` 
-	SessionID           string  `gorm:"type:varchar(50);not null" json:"session_id"`
+	SessionID           string  `gorm:"type:varchar(120);not null" json:"session_id"`
 	CustomerID          string  `gorm:"type:varchar(64);not null" json:"customer_id"`
 	StaffID             uint    `gorm:"index" json:"staff_id"` 
 	StaffName           string  `gorm:"type:varchar(100)" json:"staff_name"`

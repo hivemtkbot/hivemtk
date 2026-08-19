@@ -6,6 +6,7 @@ import (
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -84,12 +85,13 @@ func (c *CustomerController) GetCustomer(ctx *gin.Context) {
 
 // CreateCustomer 创建客户
 // @Summary 创建客户
-// @Description 创建新客户或更新现有客户（通过身份标识匹配）
+// @Description 创建新客户或更新现有客户（通过身份标识匹配）。至少需要提供一个有效身份标识。
 // @Tags CDP-客户管理
 // @Accept json
 // @Produce json
 // @Param request body service.CustomerDTO true "客户信息"
 // @Success 200 {object} object{data=interface{}} "创建成功"
+// @Failure 400 {object} object{code=string,message=string} "参数错误（缺身份标识 / 格式不合法）"
 // @Router /api/customer [post]
 func (c *CustomerController) CreateCustomer(ctx *gin.Context) {
 	var req service.CustomerDTO
@@ -100,6 +102,14 @@ func (c *CustomerController) CreateCustomer(ctx *gin.Context) {
 
 	customer, err := c.customerService.CreateOrUpdate(context.Background(), &req)
 	if err != nil {
+		if err == service.ErrInvalidDTO {
+			response.Error(ctx, http.StatusBadRequest, err.Error())
+			return
+		}
+		if strings.Contains(err.Error(), "格式不合法") || strings.Contains(err.Error(), "至少需要提供") {
+			response.Error(ctx, http.StatusBadRequest, err.Error())
+			return
+		}
 		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}

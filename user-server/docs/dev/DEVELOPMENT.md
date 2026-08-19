@@ -5,6 +5,7 @@
 > - 架构图: [./ARCHITECTURE.md](./ARCHITECTURE.md)
 > - 代码规范: [./CONVENTIONS.md](./CONVENTIONS.md)
 > - 功能清单: [./FEATURES.md](./FEATURES.md)
+> - **热重载工作流（⭐必读）**: [./HOT_RELOAD.md](./HOT_RELOAD.md)
 > - 五层架构硬约束: [../../docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md](../../docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md)
 > - 工程 README: [../README.md](../README.md)
 
@@ -23,7 +24,7 @@
 | PostgreSQL | 16（必须启用 pgvector 扩展） | 业务主库 + 向量索引 | `psql --version` |
 | Redis | 7（可选，未配置时回退进程内缓存） | 缓存 / 分布式锁 / 限流 | `redis-cli --version` |
 | Node.js | 20（仅在构建前端 / embed-sdk 时需要） | 前端构建 | `node -v` |
-| air | 最新 | Go 热重载（开发态推荐） | `go install github.com/cosmtrek/air@latest` |
+| air | 最新 | Go 热重载（开发态推荐） | `go install github.com/air-verse/air@latest`（项目 Makefile `make dev-install` 包装） |
 | llama.cpp | 最新（开发态可选） | 本地 LLM / Embedding / Rerank | `make inference-host-ps` |
 | Docker | 24+（仅容器化部署场景） | 数据层 / 旧版全栈 | `docker --version` |
 
@@ -40,7 +41,7 @@
 | --- | --- | --- |
 | `config.yaml` | 宿主直连配置（dev 默认） | ✅ 入仓（不含明文密钥） |
 | `config.yaml` | Docker 内配置（服务名寻址） | ✅ 入仓 |
-| `.air.toml` | air 热重载配置 + dev 环境变量 | ❌ 不入仓（在 `.gitignore` 中，开发者本地自行创建） |
+| `.air.toml` | air 热重载配置（已入仓，团队共享；本地覆盖请用 `.air.local.toml`） | ✅ 入仓 |
 | `.env` | 敏感字段（POSTGRES_PASSWORD / JWT_SECRET 等） | ❌ 不入仓 |
 | `config/platform.yaml` | 平台对接配置（api_url/secret/admin） | ✅ 入仓 |
 
@@ -81,11 +82,11 @@ cp config.yaml config.local.yaml   # 仅本地修改，不入 Git
 # 3. 拉依赖
 go mod download
 
-# 4. 启动（热重载，推荐）
+# 4. 启动（热重载，推荐，⭐详见 [./HOT_RELOAD.md](./HOT_RELOAD.md)）
 air -c .air.toml
 
-# 或：单次编译运行
-go build -o bin/user-server ./cmd/api && ./bin/user-server
+# 仅生产 / 单次运行才手动编译二进制：
+# go build -o bin/user-server ./cmd/api && ./bin/user-server
 ```
 
 ### 2.3 验证启动成功
@@ -135,8 +136,8 @@ cd hivemtk && make inference-host-up
 cd hivemtk/user-server
 cp config.yaml.example config.yaml  # 首次；按 .env 调整 POSTGRES_PASSWORD
 go run ./cmd/api
-# 或热更新：
-cd hivemtk && make dev    # air 监听 ./user-server
+# 或热更新（⭐推荐，详见 [./HOT_RELOAD.md](./HOT_RELOAD.md)）：
+cd hivemtk && make dev    # air 监听 ./user-server，保存 .go 即自动重启
 # 验证：curl http://localhost:8204/health
 
 # === 4. 启动 platform-server（仅当需要资产市场/超管后台）===
@@ -196,6 +197,11 @@ user-server/
 │   └── seed/                             种子数据工具（用户/客户/线索/AI Agent/资产等）
 ├── config/                               平台对接配置（platform.yaml）
 ├── docs/                                 dev 文档（Swagger 注释当前未启用）
+│   ├── dev/HOT_RELOAD.md                 ⭐ 热重载工作流（air 详解 + 边界约束）
+│   ├── dev/DEVELOPMENT.md               本文档（环境/启动/目录/新增API/迁移/测试/调试/构建）
+│   ├── dev/ARCHITECTURE.md              架构图（模块 / 时序 / 子系统）
+│   ├── dev/CONVENTIONS.md               代码规范（分层 / 命名 / 错误 / 日志）
+│   └── dev/FEATURES.md                  功能清单（按业务域分组）
 ├── internal/
 │   ├── router/                           L2 路由声明（router.go + *_routes.go）
 │   ├── controller/                       L3 表现层（薄 handler）
@@ -725,8 +731,10 @@ docker build -t hivemtk/user-server:latest .
 
 ```bash
 # === 开发 ===
-make dev                           # 启动 user-server 热更新（air）
+make dev                           # 启动 user-server 热更新（air，⭐详见 ./HOT_RELOAD.md）
 make dev-stop                      # 停止 air 进程
+make dev-clean                     # 清理 user-server/tmp/（air 临时二进制 + 日志）
+make dev-help                      # 打印热重载工作流速查
 make dev-all                       # 一键全栈（数据层 + 推理栈 + air 提示）
 make dev-down                      # 停止全栈
 
@@ -769,7 +777,8 @@ bash ../../scripts/api-inventory.sh                # API 一致性报告
 ## 十一、相关文档导航
 
 | 主题 | 文档路径 |
-| --- | --- |
+|---|---|
+| **热重载工作流（air 详解）** | [./HOT_RELOAD.md](./HOT_RELOAD.md) |
 | 架构图（模块 / 时序 / 子系统） | [./ARCHITECTURE.md](./ARCHITECTURE.md) |
 | 代码规范（分层约束 / 命名 / 错误处理 / 日志） | [./CONVENTIONS.md](./CONVENTIONS.md) |
 | 功能清单（按业务域分组） | [./FEATURES.md](./FEATURES.md) |

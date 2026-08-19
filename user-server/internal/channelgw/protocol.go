@@ -149,13 +149,18 @@ type IngestResult struct {
 }
 
 // IngestResponse HTTP 上报响应。
+//
+// 2026-08-18 二次审核：移除 OutboundReplies 字段。该字段在历史 HTTP 长轮询时代
+// 用于在 ingest 响应中带出同会话待发 AI 回复（前端省一轮 outbox 轮询）。2026-08-06
+// 三通道架构后下行已走独立轮询（GET /api/bridge/outbox），此处恒空、保留字段只会让扩展端
+// 误以为可以省一次请求 → 文档与代码不一致。按 bridge.md §4.1 当前契约：ingest 仅
+// 报告入站结果 + 服务时间戳，下行由扩展主动轮询 outbox 拉取。
 type IngestResponse struct {
-	OK              bool             `json:"ok"`
-	Ingested        []*IngestResult  `json:"ingested"`                   
-	OutboundReplies []*OutboundReply `json:"outbound_replies,omitempty"` 
-	SessionID       string           `json:"session_id,omitempty"`
-	Reason          string           `json:"reason,omitempty"`
-	ServerTime      int64            `json:"server_time"` 
+	OK         bool            `json:"ok"`
+	Ingested   []*IngestResult `json:"ingested"`
+	SessionID  string          `json:"session_id,omitempty"`
+	Reason     string          `json:"reason,omitempty"`
+	ServerTime int64           `json:"server_time"`
 }
 
 // OutboundReply 服务器 -> 渠道 下行统一回复（WS outbound_reply 帧载荷）。

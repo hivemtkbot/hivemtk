@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/repository"
@@ -79,9 +81,29 @@ const (
 )
 
 // CreateOrUpdate 创建或更新客户
+//
+// 修复：空 body（全部标识符为空）直接拒绝，避免脏数据入库；
+// 至少需要提供一个有效身份标识（phone/email/wechat_open_id/douyin_open_id/xiaohongshu_id）。
 func (s *CustomerService) CreateOrUpdate(ctx context.Context, dto *CustomerDTO) (*model.Customer, error) {
 	if dto == nil {
 		return nil, ErrInvalidDTO
+	}
+
+	dto.Phone = strings.TrimSpace(dto.Phone)
+	dto.Email = strings.TrimSpace(dto.Email)
+	dto.WechatOpenID = strings.TrimSpace(dto.WechatOpenID)
+	dto.DouyinOpenID = strings.TrimSpace(dto.DouyinOpenID)
+	dto.XiaohongshuID = strings.TrimSpace(dto.XiaohongshuID)
+
+	if dto.Phone == "" && dto.Email == "" && dto.WechatOpenID == "" && dto.DouyinOpenID == "" && dto.XiaohongshuID == "" {
+		return nil, errors.New("至少需要提供一个身份标识（手机/邮箱/微信/抖音/小红书 ID）")
+	}
+
+	if dto.Phone != "" && !looksLikePhone(dto.Phone) {
+		return nil, errors.New("手机号格式不合法")
+	}
+	if dto.Email != "" && !looksLikeEmail(dto.Email) {
+		return nil, errors.New("邮箱格式不合法")
 	}
 
 	existing, err := s.repo.FindByIdentity(ctx, dto.Phone, dto.Email, dto.WechatOpenID, dto.DouyinOpenID, dto.XiaohongshuID)
@@ -90,12 +112,21 @@ func (s *CustomerService) CreateOrUpdate(ctx context.Context, dto *CustomerDTO) 
 	}
 
 	if existing != nil {
-		existing.Phone = dto.Phone
-		existing.Email = dto.Email
-		existing.WechatOpenID = dto.WechatOpenID
-		existing.DouyinOpenID = dto.DouyinOpenID
-		existing.XiaohongshuID = dto.XiaohongshuID
-
+		if dto.Phone != "" {
+			existing.Phone = dto.Phone
+		}
+		if dto.Email != "" {
+			existing.Email = dto.Email
+		}
+		if dto.WechatOpenID != "" {
+			existing.WechatOpenID = dto.WechatOpenID
+		}
+		if dto.DouyinOpenID != "" {
+			existing.DouyinOpenID = dto.DouyinOpenID
+		}
+		if dto.XiaohongshuID != "" {
+			existing.XiaohongshuID = dto.XiaohongshuID
+		}
 
 		if err := s.repo.Update(ctx, existing); err != nil {
 			return nil, err
@@ -114,6 +145,14 @@ func (s *CustomerService) CreateOrUpdate(ctx context.Context, dto *CustomerDTO) 
 	}
 
 	if err := s.repo.Create(ctx, customer); err != nil {
+		// 并发竞争：FindByIdentity 之后、Create 之前另一请求已插入同 unified_id。
+		// PG 23505 唯一约束 → 重新按 unified_id 查一次，幂等返回已存在行。
+		if repository.IsDuplicateKeyErr(err) {
+			existing2, getErr := s.repo.FindByIdentity(ctx, dto.Phone, dto.Email, dto.WechatOpenID, dto.DouyinOpenID, dto.XiaohongshuID)
+			if getErr == nil && existing2 != nil {
+				return existing2, nil
+			}
+		}
 		return nil, err
 	}
 
@@ -411,5 +450,18 @@ func SetCustomerTags(c *model.Customer, tags []string) error {
 // GenerateCustomerUnifiedID 生成客户统一 ID（按优先级 phone>email>wechat>douyin>xiaohongshu）
 func GenerateCustomerUnifiedID(c *model.Customer) string {
 	return model.GenerateCustomerUnifiedID(c)
+}
+
+var (
+	customerPhonePattern = regexp.MustCompile(`^1[3-9]\d{9}$`)
+	customerEmailPattern = regexp.MustCompile(`^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$`)
+)
+
+func looksLikePhone(s string) bool {
+	return customerPhonePattern.MatchString(s)
+}
+
+func looksLikeEmail(s string) bool {
+	return customerEmailPattern.MatchString(s)
 }
 

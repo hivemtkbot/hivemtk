@@ -70,34 +70,34 @@ var DefaultBruteForceConfig = BruteForceConfig{
 //	auth.POST("/license/bind", middleware.BruteForceGuard("license.bind"), controller.BindLicense)
 //	控制器中失败时调用：middleware.RecordBruteForceFailure(c, "license.bind")
 //	控制器中成功时调用：middleware.ClearBruteForceFailure(c, "license.bind")
+// BruteForceGuard 防爆破守卫前置检查
+//
+// 职责仅限"判定是否已锁定"，避免把计数放在两条路径上引起歧义。
+// 真实计数 / 加锁由 RecordBruteForceFailure（控制器失败时调用）单点维护。
+//
+// 修复：原实现同时在 Guard 与 RecordBruteForceFailure 中自增失败计数，
+//  1. 同一 entry 在两条路径上各 ++ 一次，实际触发阈值 = MaxFailures/2（实测 3 次失败即锁），
+//     行为与配置的 MaxFailures=5 不一致；
+//  2. Guard 内的 `failures = 0` 复位逻辑在并发序列下是死代码（被 RecordBruteForceFailure
+//     抢先触发锁定），且 `getBruteForceEntry` 在 entry 不存在时返回临时 struct，
+//     自增后被丢弃 — 对从未失败过的成功请求是浪费 + 误导。
+//  3. 调用点唯一：`/api/auth/login`，单点维护更清晰。
 func BruteForceGuard(endpoint string) gin.HandlerFunc {
-	cfg := DefaultBruteForceConfig
-	cfg.Endpoint = endpoint
-
 	return func(c *gin.Context) {
 		clientKey := c.ClientIP() + "|" + endpoint
-		entry := getBruteForceEntry(clientKey)
 
-		now := time.Now()
-
-		// v3 审计 P1-22 修复：使用单一写锁覆盖整个判定+记录流程
-		// 原：RLock 读 + RUnlock 之后才 RecordFailure → TOCTOU 窗口
-		// 新：全程持有 Lock 串行化，同一 clientKey 不会并行判定
-		globalBruteForce.mu.Lock()
-		locked := !entry.lockedUntil.IsZero() && now.Before(entry.lockedUntil)
-		if !locked {
-			// 在锁内做完整"检查 + 自增"原子序列
-			entry.failures++
-			if entry.failures >= DefaultBruteForceConfig.MaxFailures {
-				entry.lockedUntil = now.Add(DefaultBruteForceConfig.LockDuration)
-				entry.failures = 0
+		globalBruteForce.mu.RLock()
+		entry, exists := globalBruteForce.entries[clientKey]
+		var lockedUntil time.Time
+		if exists {
+			now := time.Now()
+			if !entry.lockedUntil.IsZero() && now.Before(entry.lockedUntil) {
+				lockedUntil = entry.lockedUntil
 			}
 		}
-		lockedUntil := entry.lockedUntil
-		failures := entry.failures
-		globalBruteForce.mu.Unlock()
+		globalBruteForce.mu.RUnlock()
 
-		if locked {
+		if !lockedUntil.IsZero() {
 			retryAfter := int(time.Until(lockedUntil).Seconds())
 			if retryAfter < 1 {
 				retryAfter = 1
@@ -110,7 +110,6 @@ func BruteForceGuard(endpoint string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		_ = failures // 计数已自增，仅用于未来 metric
 
 		c.Next()
 	}
@@ -196,15 +195,6 @@ func ResetBruteForceForTest() {
 	globalBruteForce.mu.Lock()
 	defer globalBruteForce.mu.Unlock()
 	globalBruteForce.entries = make(map[string]*bruteForceEntry)
-}
-
-func getBruteForceEntry(clientKey string) *bruteForceEntry {
-	globalBruteForce.mu.RLock()
-	defer globalBruteForce.mu.RUnlock()
-	if entry, exists := globalBruteForce.entries[clientKey]; exists {
-		return entry
-	}
-	return &bruteForceEntry{}
 }
 
 // itoa 避免引入 strconv 依赖

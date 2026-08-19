@@ -86,8 +86,8 @@ func TestFlag_AllSnapshot(t *testing.T) {
 	}
 }
 
-func TestFlag_DefaultManager_5Flags(t *testing.T) {
-	for _, name := range []string{"parallel", "stream", "layer1", "fallback_chain", "debug_log"} {
+func TestFlag_DefaultManager_6Flags(t *testing.T) {
+	for _, name := range []string{"parallel", "stream", "layer1", "fallback_chain", "debug_log", "sse_bridge"} {
 		f := Get(name)
 		if f == nil {
 			t.Errorf("flag %s should be registered", name)

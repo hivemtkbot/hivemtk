@@ -5,7 +5,7 @@ import "time"
 // SessionMessage 会话消息
 type SessionMessage struct {
 	ID          uint        `gorm:"primaryKey;autoIncrement" json:"id"`
-	SessionID   string      `gorm:"type:varchar(50);index;not null" json:"session_id"`
+	SessionID   string      `gorm:"type:varchar(120);index;not null" json:"session_id"`
 	Content     string      `gorm:"type:text" json:"content"`
 	ContentType MessageType `gorm:"type:varchar(20)" json:"content_type"`
 	CardData     string       `gorm:"type:text" json:"card_data"`

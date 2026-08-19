@@ -214,16 +214,13 @@ func TestHTTPIngestResponse_Defaults(t *testing.T) {
 	if resp.Ingested != nil {
 		t.Errorf("Ingested 应为 nil，实际 %v", resp.Ingested)
 	}
-	if resp.OutboundReplies != nil {
-		t.Errorf("OutboundReplies 应为 nil（omitempty）")
-	}
 	data, err := json.Marshal(resp)
 	if err != nil {
 		t.Fatalf("Marshal 失败: %v", err)
 	}
 	s := string(data)
 	if strings.Contains(s, "outbound_replies") {
-		t.Errorf("omitempty 失败：响应体含 outbound_replies 字段：%s", s)
+		t.Errorf("2026-08-18 二次审核：响应体不应再含 outbound_replies 字段：%s", s)
 	}
 	if !strings.Contains(s, `"ok":true`) {
 		t.Errorf("响应体应含 ok=true：%s", s)
@@ -320,28 +317,6 @@ func TestHttpMessageToEvent(t *testing.T) {
 	}
 	if ev.Extra["transport"] != "http" {
 		t.Errorf("Extra.transport = %v, want http", ev.Extra["transport"])
-	}
-}
-
-func TestRedactOutboundReplies(t *testing.T) {
-	replies := []*UnifiedReply{
-		{Channel: "xiaohongshu", AccountID: "xhs_1", ConversationID: "conv_1", Content: "你好", ReplyToEventID: "evt_1"},
-		{Channel: "xiaohongshu", AccountID: "xhs_1", ConversationID: "conv_1", Content: strings.Repeat("a", 300), Truncated: true, ReplyToEventID: "evt_2"},
-		nil, 
-	}
-	out := redactOutboundReplies(replies)
-	if len(out) != 2 {
-		t.Fatalf("redact 后应有 2 条（跳过 nil），实际 %d", len(out))
-	}
-	if out[0]["content_preview"] != "你好" {
-		t.Errorf("第 1 条 content_preview = %v, want 你好", out[0]["content_preview"])
-	}
-	if out[0]["content_length"].(int) != 6 { 
-		t.Errorf("第 1 条 content_length = %v, want 6", out[0]["content_length"])
-	}
-	p2 := out[1]["content_preview"].(string)
-	if !strings.HasSuffix(p2, "...") {
-		t.Errorf("第 2 条 content_preview 应以 ... 结尾（200 截断），实际 %q", p2[len(p2)-20:])
 	}
 }
 

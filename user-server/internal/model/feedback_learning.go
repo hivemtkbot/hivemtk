@@ -51,7 +51,7 @@ type SOPNodeTransition struct {
 	SOPID           uint      `gorm:"index;not null" json:"sop_id"`
 	ExecutionID     uint      `gorm:"index;not null" json:"execution_id"`
 	CustomerID      string    `gorm:"type:varchar(64);index" json:"customer_id"`
-	SessionID       string    `gorm:"type:varchar(50)" json:"session_id"`
+	SessionID       string    `gorm:"type:varchar(120)" json:"session_id"`
 	Variant         string    `gorm:"type:varchar(50);index" json:"variant"`   
 	FromNode        string    `gorm:"type:varchar(50);index" json:"from_node"` 
 	ToNode          string    `gorm:"type:varchar(50);index" json:"to_node"`   

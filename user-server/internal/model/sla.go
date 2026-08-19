@@ -21,7 +21,7 @@ func (SLAPolicy) TableName() string { return "sla_policies" }
 type SLAViolation struct {
 	ID            uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	PolicyID      uint      `gorm:"not null;index" json:"policy_id"`
-	SessionID     string    `gorm:"type:varchar(50);not null;index" json:"session_id"`
+	SessionID     string    `gorm:"type:varchar(120);not null;index" json:"session_id"`
 	ViolationType string    `gorm:"type:varchar(20);not null" json:"violation_type"` // 'first_response' | 'resolution'
 	SLASeconds    int       `gorm:"not null" json:"sla_seconds"`
 	ActualSeconds int       `gorm:"not null" json:"actual_seconds"`

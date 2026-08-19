@@ -7,6 +7,34 @@
 
 ## [未发布] - 2026-Q3
 
+### 安全 (Security)
+
+#### 用户端质量飞轮 (2026-08-17 多角度轰炸测试 + 修复)
+- **客户创建输入校验** (`internal/service/customer.go` + `internal/controller/customer.go`)
+  - 拒绝空 body（全部标识符为空）→ 400 `INVALID_PARAM_1001`，杜绝脏数据入库
+  - 校验手机号格式（中国 11 位 `^1[3-9]\d{9}$`）→ 400
+  - 校验邮箱格式 → 400
+  - 已存在客户的更新只覆盖**非空**字段（避免部分更新把其它标识符清空）
+  - **并发竞争幂等**：PG 23505 → 重新 FindByIdentity 返回已存在行，避免并发 10 个请求 → 4 个 500（10 并发测试已绿，DB 仍 1 行）
+- **暴力守卫语义修正** (`internal/middleware/brute_force.go`)
+  - 移除 `BruteForceGuard` 中重复自增的 `entry.failures++` 与 `failures = 0` 死代码（双计数导致 3 次失败即锁，与配置的 `MaxFailures=5` 不一致）
+  - 守卫职责收敛为"判定是否已锁定"；真实计数/加锁由 `RecordBruteForceFailure` 单点维护
+  - 删除无人调用的 `getBruteForceEntry`（返回临时 struct，自增后被丢弃，误导性强）
+- **多角色越权修复**（二轮发现 5 类 P0 漏洞，全部 admin only）
+  - **LLM 路由** (`internal/router/service_routes.go`)：Models/Strategies/SceneRouting/Fallback/Provider 写操作 admin only；staff 可注入恶意 base_url 重定向全公司 LLM 流量到 evil.com 窃取对话数据
+  - **第三方集成** (`internal/router/business_routes.go`)：Create/Update/Delete/Test/Sync admin only；含 corp_secret 等敏感凭据
+  - **企微账号** (`internal/router/chat_routes.go`)：Create/Update/Delete/Sync/Send/Refresh admin only
+  - **chat-channels 渠道** (`internal/router/chat_routes.go`)：Create/Update/Delete/RotateKey/ResetSecret admin only；含 app_key/app_secret
+  - **AB 实验** (`internal/router/business_routes.go`)：Create/Update/Delete/Start/Pause/Stop admin only
+  - **WhatsApp** (`internal/router/platform_routes.go`)：CreateAccount/CreateJob/DeleteJob/StartLogin 等 admin only
+  - **前端别名路由** (`internal/router/frontend_aliases.go`)：新增 `doRegAdmin` 工具，确保 alias 路径同样受保护
+- **回归单测** (`internal/middleware/brute_force_test.go` + `internal/service/customer_test.go`)
+  - `BruteForceGuard` 3 用例：纯请求不锁 / 5 次失败第 6 次 429 / Clear 循环不锁
+  - `CustomerService.CreateOrUpdate` 4 用例：空 body 拒绝 / 5 种格式错误拒绝 / 纯第三方 ID 通过 / 部分更新保留其他字段
+- **多角度负面测试脚本** (`tests/e2e/deep_security.sh`, 54 用例)
+  - 鉴权 / Token / 登出 / 用户枚举 / 暴力 / CORS 反射 / IDOR / 客户创建校验 / 文件上传类型 + 路径穿越 + 魔术数字 / 边界 / 桥接端点 / **多角色越权 32 用例** 全部 PASS
+- **SSE 端点编译占位** (`internal/bridge/sse_stub.go`)：另一迭代 v3 SSE 端点骨架引用了未定义类型（`SSEHandler`/`NewSSEHandler`/`SSEEvent`），本轮加 stub 让 `go build ./...` 恢复 EXIT=0
+
 ### 新增 (Added)
 
 #### Bridge 桥接架构 (Chrome 扩展 + 三通道 HTTP 协议)

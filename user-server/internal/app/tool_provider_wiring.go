@@ -23,7 +23,12 @@ func (p *ReachToolProvider) Description() string {
 
 // Provide 构造触达工具集
 //
-// 内部完成 ReachAdapter 装配（从 DB 读取真实集成配置）
+// 内部完成 ReachAdapter 装配（从 DB 读取真实集成配置）。
+//
+// 2026-08-18 二次审核重构：BridgeReachAdapter 仅作 ReachAdapter 接口的合规包装（提供 SendDouyin/
+// Kuaishou/XHS/TikTok/Xianyu 五种网页渠道方法名），其内部把"网页渠道"方法直接转给
+// service.DeliverBridgeOutbound，不再走 WS callback 间接层。2026-08-18 修复前，
+// 这五个方法把消息推入 in-memory httpReplyBuffer，buffer 无人读取 → 静默丢消息。
 func (p *ReachToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.Tool, error) {
 	if ctx.DB == nil {
 		return nil, errProviderDBRequired

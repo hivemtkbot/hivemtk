@@ -40,13 +40,20 @@ type ToolParameters struct {
 
 // ToolParam 单个参数定义
 type ToolParam struct {
-	Type        string               `json:"type"`                 
-	Description string               `json:"description"`          
-	Enum        []string             `json:"enum,omitempty"`       
-	Default     any                  `json:"default,omitempty"`    
-	Items       *ToolParam           `json:"items,omitempty"`      
-	Properties  map[string]ToolParam `json:"properties,omitempty"` 
-	Ref         string               `json:"$ref,omitempty"`       
+	Type        string               `json:"type"`
+	Description string               `json:"description"`
+	Enum        []string             `json:"enum,omitempty"`
+	Default     any                  `json:"default,omitempty"`
+	Items       *ToolParam           `json:"items,omitempty"`
+	Properties  map[string]ToolParam `json:"properties,omitempty"`
+	Ref         string               `json:"$ref,omitempty"`
+
+	// v3 审计 P3-2 增强：JSON Schema 完整字段（原版缺失）
+	Required   []string `json:"required,omitempty"`     // 仅 object 类型生效
+	MinLength  int      `json:"minLength,omitempty"`   // 仅 string 类型生效
+	MaxLength  int      `json:"maxLength,omitempty"`   // 仅 string 类型生效
+	Minimum    *float64 `json:"minimum,omitempty"`     // number/integer 类型生效
+	Maximum    *float64 `json:"maximum,omitempty"`     // number/integer 类型生效
 }
 
 // ToolResult 工具执行结果

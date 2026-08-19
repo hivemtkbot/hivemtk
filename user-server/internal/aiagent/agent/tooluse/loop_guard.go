@@ -2,9 +2,6 @@ package tooluse
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -13,7 +10,7 @@ import (
 
 
 // ErrLoopDetected 工具调用循环被检测到
-var ErrLoopDetected = fmt.Errorf("tool loop detected: same tool called too many times with identical args")
+var ErrLoopDetected = fmt.Errorf("tool loop detected: same tool called too many times with equivalent args")
 
 
 // LoopGuardConfig 循环检测配置
@@ -82,7 +79,7 @@ func (g *LoopGuard) CheckAndRecord(traceID, toolName string, args map[string]any
 		return nil
 	}
 
-	argsHash := hashArgs(args)
+	argsHash := structuralFingerprint(args)
 	key := traceID
 	if key == "" {
 		key = "_no_trace_:" + toolName
@@ -175,14 +172,11 @@ func (g *LoopGuard) Stats() LoopGuardStats {
 	}
 }
 
-// hashArgs 计算参数哈希（用于检测相同参数的重复调用）
+// hashArgs 保留为旧名（不导出），实际委托给 structuralFingerprint。
+// 删去实现以避免分叉；外部如需 hash 调用 structuralFingerprint。
+// 本函数保留仅为二进制兼容（被同包内其它代码引用）。
 func hashArgs(args map[string]any) string {
-	if len(args) == 0 {
-		return "empty"
-	}
-	b, _ := json.Marshal(args)
-	h := sha256.Sum256(b)
-	return hex.EncodeToString(h[:16]) 
+	return structuralFingerprint(args)
 }
 
 

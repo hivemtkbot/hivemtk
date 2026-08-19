@@ -290,11 +290,15 @@ type SalesRequest struct {
 	CustomerID  string             `json:"customer_id"`
 	OneID       string             `json:"one_id"`
 	UserMessage string             `json:"user_message"`
-	Platform    string             `json:"platform"`     
-	AutoExecute bool               `json:"auto_execute"` 
+	Platform    string             `json:"platform"`
+	AutoExecute bool               `json:"auto_execute"`
 	Config      *SalesEngineConfig `json:"config,omitempty"`
 
 	AgentContext *AgentContext `json:"agent_context,omitempty"`
+
+	// IsFirstTurn 标记是否为会话首条消息（用于行为层拟人 thinking pause 判定）
+	// 由上游 chat_visitor / web_chat 等入口根据 session 消息历史判断后填入
+	IsFirstTurn bool `json:"is_first_turn,omitempty"`
 }
 
 // SalesResponse 销售回复
@@ -323,6 +327,17 @@ type SalesResponse struct {
 	HumanizeScore   float64 `json:"humanize_score,omitempty"`
 	HumanizePassed  bool    `json:"humanize_passed,omitempty"`
 	HumanizeAttempt int     `json:"humanize_attempt,omitempty"`
+
+	// SendPlan 行为层拟人发送计划（业界：打字延迟 + 分条发送）
+	// 为 nil 表示未启用行为层拟人；前端应直接用 Reply
+	SendPlan *SendPlanDTO `json:"send_plan,omitempty"`
+}
+
+// SendPlanDTO 发送计划（DTO 层）
+type SendPlanDTO struct {
+	Messages   []string  `json:"messages"`
+	Intervals  []float64 `json:"intervals,omitempty"`
+	TotalDelay float64   `json:"total_delay"`
 }
 
 // SalesRequestHasAgentContext 判断 SalesRequest 是否携带智能体上下文

@@ -145,21 +145,120 @@ func readBodyForLog(rc io.ReadCloser, previewBytes int) (string, int, string, bo
 //     不依赖 DB / Redis / AI 引擎。生产环境（NewBridgeIngestHandler）保持 nil，handler 走真实 ingress。
 //   - 测试中通过 NewBridgeIngestHandlerWithMock 注入 fake，让 HandleIngressMessage / PersistBridgeHistory
 //     走测试桩函数，验证 5min 去重、长轮询 reply 拉取、OutboundReplies 序列化等。
+// v3 审计：新增 sseHandler 提供 SSE 流式响应（替换长轮询）
+// Phase 1：新增 outboxFetcher 引用，支持后期注入 OutboxQuerier
 type BridgeIngestHandler struct {
-	ingress *service.InboxIngressService
-	mockHandle  func(ctx context.Context, ev *model.MessageEvent) (*service.InboxIngressResult, error)
-	mockPersist func(ctx context.Context, ev *model.MessageEvent, direction string) error
-	leadMiner   func(ctx context.Context, ev *model.MessageEvent)
+	ingress      *service.InboxIngressService
+	mockHandle   func(ctx context.Context, ev *model.MessageEvent) (*service.InboxIngressResult, error)
+	mockPersist  func(ctx context.Context, ev *model.MessageEvent, direction string) error
+	leadMiner    func(ctx context.Context, ev *model.MessageEvent)
+	sseHandler   *SSEHandler
+	outboxFetcher *outboxDBFetcher
 }
 
 // NewBridgeIngestHandler 构造 HTTP ingest 处理器
 func NewBridgeIngestHandler(ingress *service.InboxIngressService) *BridgeIngestHandler {
-	return &BridgeIngestHandler{ingress: ingress}
+	h := &BridgeIngestHandler{ingress: ingress}
+	h.outboxFetcher = &outboxDBFetcher{}
+	h.sseHandler = NewSSEHandler(h.outboxFetcher)
+	return h
+}
+
+// SetOutboxQuerier 注入 OutboxQuerier（由 router 在装配完成后调用一次）
+func (h *BridgeIngestHandler) SetOutboxQuerier(q OutboxQuerier) {
+	if h.outboxFetcher != nil {
+		h.outboxFetcher.SetQuerier(q)
+	}
 }
 
 // SetLeadMiner 设置线索挖掘回调（Douyin/TikTok 等群聊渠道用）
 func (h *BridgeIngestHandler) SetLeadMiner(fn func(ctx context.Context, ev *model.MessageEvent)) {
 	h.leadMiner = fn
+}
+
+// HandleOutboxSSE 桥接 outbox SSE 流式端点（替换长轮询）
+//
+// v3 审计：业界 Twilio Flex / Intercom 做法，长轮询 1-3s → SSE <500ms
+// Phase 1：使用预初始化的 outboxFetcher（支持后期注入 OutboxQuerier）
+func (h *BridgeIngestHandler) HandleOutboxSSE(c *gin.Context) {
+	if h.sseHandler == nil {
+		if h.outboxFetcher == nil {
+			h.outboxFetcher = &outboxDBFetcher{}
+		}
+		h.sseHandler = NewSSEHandler(h.outboxFetcher)
+	}
+	h.sseHandler.HandleOutboxSSE(c)
+}
+
+// OutboxQuerier 由 repository.MessageHubRepository 实现的最小接口
+//
+// 解耦原因：bridge 包不能直接 import repository（避免与 service 形成循环依赖），
+// 故在 bridge 内定义最小化接口，由 repository.MessageHubRepository 隐式实现。
+type OutboxQuerier interface {
+	FetchOutboundSince(ctx context.Context, channel, accountID string, sinceID uint64, limit int) ([]model.MessageHub, error)
+}
+
+// outboxDBFetcher 基于 message_hub.outbound 表的 fetcher
+//
+// Phase 1 实现：通过 OutboxQuerier 接口查询 DB，拉取 outbound 消息转换为 SSEEvent。
+// querier 为 nil 时返回空列表（服务未初始化时的安全降级）。
+type outboxDBFetcher struct {
+	querier OutboxQuerier
+}
+
+// SetQuerier 后期注入 OutboxQuerier（避免装配阶段循环依赖；服务启动时由 router 调用一次）
+func (f *outboxDBFetcher) SetQuerier(q OutboxQuerier) {
+	f.querier = q
+}
+
+// FetchOutboxSince 查询 message_hub 表中 id > lastEventID 的 outbound 消息
+func (f *outboxDBFetcher) FetchOutboxSince(ctx context.Context, channel, accountID, lastEventID string) ([]SSEEvent, string, error) {
+	if f.querier == nil {
+		return nil, "", nil
+	}
+
+	var sinceID uint64
+	if lastEventID != "" {
+		if id, err := strconv.ParseUint(lastEventID, 10, 64); err == nil {
+			sinceID = id
+		}
+	}
+
+	rows, err := f.querier.FetchOutboundSince(ctx, channel, accountID, sinceID, 200)
+	if err != nil {
+		return nil, "", err
+	}
+
+	events := make([]SSEEvent, 0, len(rows))
+	for _, row := range rows {
+		events = append(events, SSEEvent{
+			ID:             strconv.FormatUint(uint64(row.ID), 10),
+			Event:          "new_outbound",
+			ConversationID: row.ConversationID,
+			MsgType:        row.MsgType,
+			ReceiverID:     row.ReceiverID,
+			Seq:            int(row.ID),
+			Data: map[string]any{
+				"hub_id":          row.ID,
+				"msg_id":          row.MsgID,
+				"platform":        row.Platform,
+				"account_id":      row.AccountID,
+				"conversation_id": row.ConversationID,
+				"content":         row.Content,
+				"msg_type":        row.MsgType,
+				"receiver_id":     row.ReceiverID,
+				"is_ai_reply":     row.IsAIReply,
+				"extra":           row.Extra,
+			},
+			Timestamp: row.CreatedAt,
+		})
+	}
+
+	newLastID := lastEventID
+	if len(rows) > 0 {
+		newLastID = strconv.FormatUint(uint64(rows[len(rows)-1].ID), 10)
+	}
+	return events, newLastID, nil
 }
 
 // NewBridgeIngestHandlerWithMock 构造带 mock 的 HTTP ingest 处理器（仅测试用）
@@ -430,7 +529,6 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		Ingested:   make([]*HTTPIngestResult, 0, len(req.Messages)),
 		ServerTime: time.Now().UnixMilli(),
 	}
-	outboundReplies := make([]*UnifiedReply, 0)
 
 	// 2026-08-05 重构（用户科学方案）：
 	//   - 逐条消息预处理：self/agent 走历史通道，customer + history 先持久化上下文
@@ -540,9 +638,6 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		}
 	}
 
-	resp.OutboundReplies = outboundReplies
-
-	replyCount := len(resp.OutboundReplies)
 	ingestedCount := len(resp.Ingested)
 	logger.Ctx(ctx).Info().
 		Str("module", "bridge").
@@ -553,11 +648,9 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		Str("account_id", accountID).
 		Str("conv_id", conversationID).
 		Int("ingested_count", ingestedCount).
-		Int("outbound_replies_count", replyCount).
 		Int("any_ai_queued", boolToInt(anyAIQueued)).
 		Int64("server_time_ms", resp.ServerTime).
-		Interface("outbound_replies", redactOutboundReplies(resp.OutboundReplies)).
-		Msg("[Bridge HTTP] ingest 响应（每条结果 + AI 回复摘要）")
+		Msg("[Bridge HTTP] ingest 响应（每条结果）")
 
 	bm.IngestTotal.WithLabel(channelNorm, strconv.FormatUint(uint64(req.AgentID), 10)).Inc()
 	bm.IngestDuration.WithLabel(channelNorm).Observe(float64(time.Since(start).Milliseconds()))
@@ -727,69 +820,36 @@ func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 		Str("remote_addr", c.Request.RemoteAddr).
 		Interface("parsed_query", describeUpstreamQuery(c.Request.URL.Query())).
 		Msg("[Bridge HTTP] 收到 outbox 请求（完整 URL + 全部参数）")
+	// 解析 limit：默认 50，上限 200。一次性解析避免与 fetch/log/serialize 路径重复。
+	limit := 50
 	if q := c.Query("limit"); q != "" {
 		if n, err := strconv.Atoi(q); err == nil && n > 0 {
-			if n > 200 {
-				n = 200
-			}
-			hubs, err := h.ingress.ClaimPendingOutbound(ctx, channel, accountID, n)
-			if err != nil {
-				logger.Ctx(ctx).Error().Err(err).Str("module", "bridge").Str("channel", channel).Msg("[Bridge] ListPendingOutboundLimit failed")
-				c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "query outbox failed"})
-				return
-			}
-			tracing.RecordDownlinkFetchBatch(ctx, channel, accountID, hubs)
-			logger.Ctx(ctx).Info().
-				Str("module", "bridge").
-				Str("event", "http_outbox_response").
-				Str("full_url", c.Request.URL.String()).
-				Str("channel", channel).
-				Str("account_id", accountID).
-				Int("limit", n).
-				Int("messages_count", len(hubs)).
-				Interface("messages", _bridgeOutboxHubsForLog(hubs)).
-				Msg("[Bridge HTTP] outbox 响应（完整待发消息列表，含 content）")
-			bm.OutboxFetched.WithLabel(channel, accountID).Add(uint64(len(hubs)))
-			bm.OutboxDuration.WithLabel(channel).Observe(float64(time.Since(start).Milliseconds()))
-			writeOutboxJSON(c, hubs)
-			return
+			limit = n
 		}
 	}
-	hubs, err := h.ingress.ClaimPendingOutbound(ctx, channel, accountID, 50)
+	if limit > 200 {
+		limit = 200
+	}
+	hubs, err := h.ingress.ClaimPendingOutbound(ctx, channel, accountID, limit)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Str("module", "bridge").Str("channel", channel).Msg("[Bridge] ListPendingOutbound failed")
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "query outbox failed"})
 		return
 	}
 	tracing.RecordDownlinkFetchBatch(ctx, channel, accountID, hubs)
-	msgs := make([]BridgeOutboxMessage, 0, len(hubs))
-	for _, hub := range hubs {
-		msgs = append(msgs, BridgeOutboxMessage{
-			MsgID:          hub.MsgID,
-			ConversationID: hub.ConversationID,
-			MsgType:        hub.MsgType,
-			Content:        hub.Content,
-			MediaURL:       hub.MediaURL,
-			SenderID:       hub.SenderID,
-			ReceiverID:     hub.ReceiverID,
-			IsAIReply:      hub.IsAIReply,
-			CreatedAt:      hub.CreatedAt,
-			Extra:          hub.Extra, 
-		})
-	}
 	logger.Ctx(ctx).Info().
 		Str("module", "bridge").
 		Str("event", "http_outbox_response").
 		Str("full_url", c.Request.URL.String()).
 		Str("channel", channel).
 		Str("account_id", accountID).
-		Int("limit", 50).
+		Int("limit", limit).
 		Int("messages_count", len(hubs)).
 		Interface("messages", _bridgeOutboxHubsForLog(hubs)).
 		Msg("[Bridge HTTP] outbox 响应（完整待发消息列表，含 content）")
 	bm.OutboxFetched.WithLabel(channel, accountID).Add(uint64(len(hubs)))
 	bm.OutboxDuration.WithLabel(channel).Observe(float64(time.Since(start).Milliseconds()))
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "messages": msgs})
+	writeOutboxJSON(c, hubs)
 }
 
 // BridgeOutboxAckResponse 状态确认响应（通道B），含 per-msg-id 详细状态（P3-D 2026-08-15 + P4 二次审核 6.2）。
@@ -952,7 +1012,7 @@ func httpMessageToEvent(m *HTTPIngestMessage) *model.MessageEvent {
 	if m == nil {
 		return nil
 	}
-	m.Channel = NormalizeBridgeChannel(ToBridgeChannel(m.Channel))
+	m.Channel = NormalizeBridgeChannel(m.Channel)
 	return m.ToEvent("http")
 }
 
@@ -968,30 +1028,6 @@ func httpMessageToUnified(m *HTTPIngestMessage) *UnifiedMessage {
 		GroupID:        m.GroupID,
 		GroupName:      m.GroupName,
 	}
-}
-
-// redactOutboundReplies 响应日志脱敏：保留每条 reply 的关键字段，content 截断到 200 字符。
-func redactOutboundReplies(replies []*UnifiedReply) []map[string]any {
-	out := make([]map[string]any, 0, len(replies))
-	for _, r := range replies {
-		if r == nil {
-			continue
-		}
-		preview := r.Content
-		if len(preview) > 200 {
-			preview = preview[:200] + "..."
-		}
-		out = append(out, map[string]any{
-			"channel":           r.Channel,
-			"account_id":        r.AccountID,
-			"conversation_id":   r.ConversationID,
-			"content_preview":   preview,
-			"content_length":    len(r.Content),
-			"reply_to_event_id": r.ReplyToEventID,
-			"truncated":         r.Truncated,
-		})
-	}
-	return out
 }
 
 // boolToInt 辅助：false→0, true→1（zap zerolog Field 不接受 bool）

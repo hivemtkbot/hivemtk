@@ -179,5 +179,6 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	register(NewSoftDeleteMigration(db))
 	register(NewEnumOptimizeMigration(db))
 	register(NewIntentMergeMigration(db))
+	register(NewSessionIDLengthMigration(db))
 }
 

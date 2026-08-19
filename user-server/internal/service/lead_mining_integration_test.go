@@ -91,11 +91,14 @@ func TestLeadMining_Integration_FullPipeline(t *testing.T) {
 		Summary:         "王经理咨询产品报价并表达区域代理意向，预算约5万",
 		Confidence:      0.95,
 	}}
+	hubRepo := repository.NewMessageHubRepository()
+	repository.SetMessageHubRepoDB(hubRepo, database)
 	s := &Service{
 		judge:     judge,
 		custRepo:  repository.NewCustomerRepository(),
 		clueRepo:  repository.NewClueRepository(),
 		cfgRepo:   cfgRepo,
+		hubRepo:   hubRepo,
 		lastJudge: map[string]time.Time{},
 	}
 
@@ -207,6 +210,8 @@ func TestLeadMining_Integration_AsyncEnqueue(t *testing.T) {
 
 	judge := &fakeJudge{resp: &LeadJudgement{IsLead: true, IntentScore: 75, MatchedTags: []string{"AI兴趣"}}}
 	ctxCancel, cancel := context.WithCancel(ctx)
+	hubRepo := repository.NewMessageHubRepository()
+	repository.SetMessageHubRepoDB(hubRepo, database)
 	s := &Service{
 		queue:     make(chan *model.MessageHub, 16),
 		workers:   1,
@@ -214,6 +219,7 @@ func TestLeadMining_Integration_AsyncEnqueue(t *testing.T) {
 		custRepo:  repository.NewCustomerRepository(),
 		clueRepo:  repository.NewClueRepository(),
 		cfgRepo:   cfgRepo,
+		hubRepo:   hubRepo,
 		cancel:    cancel,
 		lastJudge: map[string]time.Time{},
 	}
@@ -268,11 +274,14 @@ func TestLeadMining_Integration_Debounce(t *testing.T) {
 	}
 
 	judge := &fakeJudge{resp: &LeadJudgement{IsLead: true, IntentScore: 80}}
+	hubRepo := repository.NewMessageHubRepository()
+	repository.SetMessageHubRepoDB(hubRepo, database)
 	s := &Service{
 		judge:     judge,
 		custRepo:  repository.NewCustomerRepository(),
 		clueRepo:  repository.NewClueRepository(),
 		cfgRepo:   cfgRepo,
+		hubRepo:   hubRepo,
 		lastJudge: map[string]time.Time{},
 	}
 	for i := 1; i <= 3; i++ {

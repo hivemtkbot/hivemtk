@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/pagination"
 	"hivemtk-user/internal/pkg/utils/response"
@@ -29,13 +30,16 @@ func NewSOPTemplateController() *SOPTemplateController {
 // RegisterRoutes 注册路由
 func (c *SOPTemplateController) RegisterRoutes(router *gin.RouterGroup) {
 	g := router.Group("/sop-templates")
+	// 读操作：任意登录用户
+	g.GET("", c.List)
+	g.GET("/:id", c.Get)
+	g.POST("/match", c.Match)
+	// 写操作：admin only（防 staff 篡改 SOP 模板）
+	admin := router.Group("/sop-templates", middleware.AdminAuthMiddleware())
 	{
-		g.GET("", c.List)
-		g.GET("/:id", c.Get)
-		g.POST("", c.Create)
-		g.PUT("/:id", c.Update)
-		g.DELETE("/:id", c.Delete)
-		g.POST("/match", c.Match)
+		admin.POST("", c.Create)
+		admin.PUT("/:id", c.Update)
+		admin.DELETE("/:id", c.Delete)
 	}
 }
 

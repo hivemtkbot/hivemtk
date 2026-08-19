@@ -7,7 +7,7 @@ import "time"
 type IntentLog struct {
 	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	CustomerID  string    `gorm:"type:varchar(64);index" json:"customer_id"`
-	SessionID   string    `gorm:"type:varchar(50);index" json:"session_id"`
+	SessionID   string    `gorm:"type:varchar(120);index" json:"session_id"`
 	Message     string    `gorm:"type:text;not null" json:"message"`
 	IntentMajor string    `gorm:"type:varchar(32);not null;index" json:"intent_major"`
 	IntentMinor string    `gorm:"type:varchar(32);not null;index" json:"intent_minor"`

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 
 	"hivemtk-user/internal/config"
 	"hivemtk-user/internal/middleware"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 )
@@ -34,9 +36,39 @@ import (
 //
 // 私域部署模式：不再强制要求 X-Chat-App-Key Header。
 // 渠道 ID 软解析顺序：ctx.chat_channel_id > body.channel_id > X-Chat-Channel-Id > 默认 "default"。
+//
+// 安全：所有会话级操作要求 visitor_token（HMAC-SHA256 签名），
+// token 由 OpenSession 返回，绑定 (channelID, visitorID, sessionID)，
+// 防止 IDOR 越权访问他人会话历史。
 type ChatPublicController struct {
 	visitorSvc *service.VisitorChatService
 	channelSvc *service.ChatChannelService
+}
+
+// visitorTokenFromRequest 从请求中提取 visitor_token
+// 优先从 X-Chat-Visitor-Token Header 读取，其次从 token query param / body 读取
+func visitorTokenFromRequest(c *gin.Context) string {
+	if v := strings.TrimSpace(c.GetHeader("X-Chat-Visitor-Token")); v != "" {
+		return v
+	}
+	if v := strings.TrimSpace(c.Query("visitor_token")); v != "" {
+		return v
+	}
+	return ""
+}
+
+// validateVisitorTokenOrAbort 验证 visitor token，失败时中止请求并返回 403
+func validateVisitorTokenOrAbort(c *gin.Context, channelID, visitorID, sessionID string) bool {
+	token := visitorTokenFromRequest(c)
+	if token == "" {
+		response.Error(c, http.StatusForbidden, "缺少 visitor_token，请先调用 OpenSession 获取")
+		return false
+	}
+	if err := service.ValidateVisitorToken(token, channelID, visitorID, sessionID); err != nil {
+		response.Error(c, http.StatusForbidden, "visitor_token 无效或已过期")
+		return false
+	}
+	return true
 }
 
 // NewChatPublicController 构造控制器
@@ -101,7 +133,7 @@ func (ctrl *ChatPublicController) OpenSession(c *gin.Context) {
 
 	result, err := ctrl.visitorSvc.OpenSession(c.Request.Context(), &req)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		response.Error(c, http.StatusBadRequest, safeError(c, err, "打开会话失败，请稍后重试"))
 		return
 	}
 	response.Success(c, result, "会话已打开")
@@ -109,6 +141,8 @@ func (ctrl *ChatPublicController) OpenSession(c *gin.Context) {
 
 // GetMessages 获取历史消息
 // GET /api/chat/public/sessions/:session_id/messages
+//
+// 安全：需要有效的 visitor_token，防止 IDOR 越权读取他人会话历史
 func (ctrl *ChatPublicController) GetMessages(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	if sessionID == "" {
@@ -125,6 +159,11 @@ func (ctrl *ChatPublicController) GetMessages(c *gin.Context) {
 		return
 	}
 
+	// IDOR 修复：验证 visitor_token
+	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
+		return
+	}
+
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "50"))
 	if page < 1 {
@@ -136,7 +175,7 @@ func (ctrl *ChatPublicController) GetMessages(c *gin.Context) {
 
 	messages, total, err := ctrl.visitorSvc.GetMessages(c.Request.Context(), channelID, visitorID, sessionID, page, pageSize)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		response.Error(c, http.StatusBadRequest, safeError(c, err, "获取消息失败，请稍后重试"))
 		return
 	}
 	response.SuccessWithList(c, messages, total)
@@ -144,6 +183,8 @@ func (ctrl *ChatPublicController) GetMessages(c *gin.Context) {
 
 // SendMessage 发送访客消息
 // POST /api/chat/public/sessions/:session_id/messages
+//
+// 安全：需要有效的 visitor_token，防止 IDOR 越权向他人会话发消息
 func (ctrl *ChatPublicController) SendMessage(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	if sessionID == "" {
@@ -160,6 +201,11 @@ func (ctrl *ChatPublicController) SendMessage(c *gin.Context) {
 		return
 	}
 
+	// IDOR 修复：验证 visitor_token
+	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
+		return
+	}
+
 	var body struct {
 		Content     string `json:"content" binding:"required"`
 		ContentType string `json:"content_type"`
@@ -172,6 +218,14 @@ func (ctrl *ChatPublicController) SendMessage(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "请求参数错误", err.Error())
 		return
 	}
+
+	// XSS/注入防护：消息内容长度限制 + HTML 特殊字符转义
+	if len([]rune(body.Content)) > 5000 {
+		response.Error(c, http.StatusBadRequest, "消息内容过长，最多 5000 字符")
+		return
+	}
+	// XSS 防护：转义 HTML 特殊字符，防止存储型 XSS
+	body.Content = escapeHTML(body.Content)
 
 	req := &service.VisitorSendMessageRequest{
 		ChannelID:   channelID,
@@ -186,7 +240,7 @@ func (ctrl *ChatPublicController) SendMessage(c *gin.Context) {
 	}
 	result, err := ctrl.visitorSvc.SendMessage(c.Request.Context(), req)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		response.Error(c, http.StatusBadRequest, safeError(c, err, "发送消息失败，请稍后重试"))
 		return
 	}
 	response.Success(c, result, "消息已发送")
@@ -207,7 +261,7 @@ func (ctrl *ChatPublicController) GetActiveSession(c *gin.Context) {
 
 	session, err := ctrl.visitorSvc.GetLatestActiveSession(c.Request.Context(), channelID, visitorID)
 	if err != nil {
-		response.ErrorFromDB(c, err, err.Error())
+		response.ErrorFromDB(c, err, safeError(c, err, "获取会话失败，请稍后重试"))
 		return
 	}
 	if session == nil {
@@ -233,7 +287,7 @@ func (ctrl *ChatPublicController) GetRecentClosedSessions(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	sessions, err := ctrl.visitorSvc.GetRecentClosedSessions(c.Request.Context(), channelID, visitorID, limit)
 	if err != nil {
-		response.ErrorFromDB(c, err, err.Error())
+		response.ErrorFromDB(c, err, safeError(c, err, "获取会话列表失败，请稍后重试"))
 		return
 	}
 	response.SuccessWithList(c, sessions, int64(len(sessions)))
@@ -243,6 +297,8 @@ func (ctrl *ChatPublicController) GetRecentClosedSessions(c *gin.Context) {
 // GET /api/chat/public/sessions/:session_id/offline-messages
 // 用于访客重新连接 WebSocket 时，一次性拉取离线期间的所有回复。
 // 标记消息为已投递（通过 message.delivered_at 字段）。
+//
+// 安全：需要有效的 visitor_token，防止 IDOR 越权拉取他人离线消息
 func (ctrl *ChatPublicController) GetOfflineMessages(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	if sessionID == "" {
@@ -259,9 +315,14 @@ func (ctrl *ChatPublicController) GetOfflineMessages(c *gin.Context) {
 		return
 	}
 
+	// IDOR 修复：验证 visitor_token
+	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
+		return
+	}
+
 	messages, err := ctrl.visitorSvc.GetOfflineMessages(c.Request.Context(), channelID, visitorID, sessionID)
 	if err != nil {
-		response.ErrorFromDB(c, err, err.Error())
+		response.ErrorFromDB(c, err, safeError(c, err, "获取离线消息失败，请稍后重试"))
 		return
 	}
 	response.SuccessWithList(c, messages, int64(len(messages)))
@@ -269,6 +330,8 @@ func (ctrl *ChatPublicController) GetOfflineMessages(c *gin.Context) {
 
 // RequestHumanTransfer 访客主动转人工
 // POST /api/chat/public/sessions/:session_id/transfer
+//
+// 安全：需要有效的 visitor_token
 func (ctrl *ChatPublicController) RequestHumanTransfer(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	channelID := resolveChannelID(c, nil)
@@ -281,13 +344,24 @@ func (ctrl *ChatPublicController) RequestHumanTransfer(c *gin.Context) {
 		return
 	}
 
+	// IDOR 修复：验证 visitor_token
+	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
+		return
+	}
+
 	var body struct {
 		Reason string `json:"reason"`
 	}
 	_ = c.ShouldBindJSON(&body)
 
+	// XSS 防护：转义 reason 中的 HTML
+	body.Reason = escapeHTML(body.Reason)
+	if len([]rune(body.Reason)) > 500 {
+		body.Reason = body.Reason[:500]
+	}
+
 	if err := ctrl.visitorSvc.RequestHumanTransfer(c.Request.Context(), channelID, visitorID, sessionID, body.Reason); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		response.Error(c, http.StatusBadRequest, safeError(c, err, "转人工失败，请稍后重试"))
 		return
 	}
 	response.Success(c, nil, "已为您转接人工客服")
@@ -295,6 +369,8 @@ func (ctrl *ChatPublicController) RequestHumanTransfer(c *gin.Context) {
 
 // CloseSession 访客关闭会话
 // POST /api/chat/public/sessions/:session_id/close
+//
+// 安全：需要有效的 visitor_token
 func (ctrl *ChatPublicController) CloseSession(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	channelID := resolveChannelID(c, nil)
@@ -307,8 +383,13 @@ func (ctrl *ChatPublicController) CloseSession(c *gin.Context) {
 		return
 	}
 
+	// IDOR 修复：验证 visitor_token
+	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
+		return
+	}
+
 	if err := ctrl.visitorSvc.CloseSession(c.Request.Context(), channelID, visitorID, sessionID); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		response.Error(c, http.StatusBadRequest, safeError(c, err, "关闭会话失败，请稍后重试"))
 		return
 	}
 	response.Success(c, nil, "会话已关闭")
@@ -316,6 +397,8 @@ func (ctrl *ChatPublicController) CloseSession(c *gin.Context) {
 
 // RateSession 访客评分
 // POST /api/chat/public/sessions/:session_id/rate
+//
+// 安全：需要有效的 visitor_token
 func (ctrl *ChatPublicController) RateSession(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	channelID := resolveChannelID(c, nil)
@@ -328,6 +411,11 @@ func (ctrl *ChatPublicController) RateSession(c *gin.Context) {
 		return
 	}
 
+	// IDOR 修复：验证 visitor_token
+	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
+		return
+	}
+
 	var body struct {
 		Rating  int    `json:"rating" binding:"required,min=1,max=5"`
 		Comment string `json:"comment"`
@@ -337,10 +425,16 @@ func (ctrl *ChatPublicController) RateSession(c *gin.Context) {
 		return
 	}
 
-	if err := ctrl.visitorSvc.RateSession(c.Request.Context(), channelID, visitorID, sessionID, body.Rating, body.Comment); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
-		return
+	// XSS 防护：转义评论中的 HTML
+	body.Comment = escapeHTML(body.Comment)
+	if len([]rune(body.Comment)) > 1000 {
+		body.Comment = body.Comment[:1000]
 	}
+
+	if err := ctrl.visitorSvc.RateSession(c.Request.Context(), channelID, visitorID, sessionID, body.Rating, body.Comment); err != nil {
+	response.Error(c, http.StatusBadRequest, safeError(c, err, "评分失败，请稍后重试"))
+	return
+}
 	response.Success(c, nil, "感谢您的评价")
 }
 
@@ -349,7 +443,7 @@ func (ctrl *ChatPublicController) RateSession(c *gin.Context) {
 func (ctrl *ChatPublicController) CountAvailableAgents(c *gin.Context) {
 	count, err := ctrl.visitorSvc.CountAvailableAgents(c.Request.Context())
 	if err != nil {
-		response.ErrorFromDB(c, err, err.Error())
+		response.ErrorFromDB(c, err, safeError(c, err, "获取坐席数量失败，请稍后重试"))
 		return
 	}
 	response.Success(c, gin.H{"available": count}, "ok")
@@ -365,7 +459,32 @@ func (ctrl *ChatPublicController) CountAvailableAgents(c *gin.Context) {
 //   - key: 预生成的文件 key（chat/yyyy/MM/<uuid>.ext）
 //   - public_url: 上传后可直接访问的 CDN URL
 //   - expires_in: token 有效期（秒）
+//
+// 安全：需要有效的 visitor_token + 有效会话
 func (ctrl *ChatPublicController) GetUploadToken(c *gin.Context) {
+	// 安全：要求有效的 session_id + visitor_token，防匿名调用方滥发上传凭证
+	sessionID := strings.TrimSpace(c.Query("session_id"))
+	if sessionID == "" {
+		response.Error(c, http.StatusBadRequest, "缺少 session_id 参数")
+		return
+	}
+	channelID := middleware.GetChatChannelID(c)
+	visitorID := strings.TrimSpace(c.Query("visitor_id"))
+	if visitorID == "" {
+		response.Error(c, http.StatusBadRequest, "缺少 visitor_id 参数")
+		return
+	}
+
+	// IDOR 修复：验证 visitor_token
+	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
+		return
+	}
+
+	if _, err := ctrl.visitorSvc.GetSessionByVisitorSessionID(c.Request.Context(), channelID, visitorID, sessionID); err != nil {
+		response.Error(c, http.StatusForbidden, "无效的会话凭证")
+		return
+	}
+
 	cfg := config.GetAppConfig()
 	if cfg.Storage.Type != "qiniu" || cfg.Storage.Qiniu.AccessKey == "" {
 		response.Error(c, http.StatusServiceUnavailable, "对象存储未配置")
@@ -442,5 +561,58 @@ func (ctrl *ChatPublicController) GetUploadToken(c *gin.Context) {
 		"public_url": publicURL,
 		"expires_in": 3600,
 	}, "ok")
+}
+
+// escapeHTML 转义 HTML 特殊字符，防止存储型 XSS
+//
+// 转义规则：
+//   - < → &lt;
+//   - > → &gt;
+//   - & → &amp;
+//   - " → &quot;
+//   - ' → &#39;
+func escapeHTML(s string) string {
+	if s == "" {
+		return s
+	}
+	replacer := strings.NewReplacer(
+		"<", "&lt;",
+		">", "&gt;",
+		"&", "&amp;",
+		"\"", "&quot;",
+		"'", "&#39;",
+	)
+	return replacer.Replace(s)
+}
+
+// 内部错误模式匹配：识别可能泄露敏感信息的错误
+var (
+	// 数据库/内部错误关键词
+	internalErrorPatterns = []*regexp.Regexp{
+		regexp.MustCompile(`(?i)sql|database|mysql|postgres|connection|timeout|deadlock`),
+		regexp.MustCompile(`(?i)stack|panic|runtime|goroutine`),
+		regexp.MustCompile(`(?i)/[\w./-]+\.go:\d+`),   // Go 文件路径
+		regexp.MustCompile(`(?i)dial|tcp|udp|network`),
+		regexp.MustCompile(`(?i)permission denied|access denied|forbidden`),
+	}
+)
+
+// safeError 处理错误信息安全：过滤可能泄露内部细节的错误
+//
+// 如果错误消息看起来是面向用户的（如"会话不存在"、"参数无效"），
+// 直接返回原始消息；如果包含内部技术细节（SQL、路径、堆栈等），
+// 则记录日志并返回通用消息。
+func safeError(c *gin.Context, err error, defaultMsg string) string {
+	if err == nil {
+		return defaultMsg
+	}
+	msg := err.Error()
+	for _, re := range internalErrorPatterns {
+		if re.MatchString(msg) {
+			logger.Ctx(c.Request.Context()).Error().Err(err).Str("original_error", msg).Msg("内部错误已脱敏处理")
+			return defaultMsg
+		}
+	}
+	return msg
 }
 

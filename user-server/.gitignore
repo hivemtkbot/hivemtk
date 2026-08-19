@@ -109,7 +109,9 @@ merchant.key
 install.lock
 
 # ---------- 开发工具配置 ----------
-.air.toml
+# .air.toml 已入仓（团队共享同一份热重载配置），仅排除本地覆盖文件
+.air.local.toml
+.air.*.local.toml
 
 # ---------- 运行时上传目录（知识库样本数据，不进版本库；由运行时生成）----------
 internal/aiagent/knowledge/controller/uploads/

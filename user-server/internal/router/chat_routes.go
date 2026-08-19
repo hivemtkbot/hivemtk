@@ -34,6 +34,8 @@ func setupChatPublicRoutes(public *gin.RouterGroup, db *gorm.DB, orchestrator *s
 	chatPublic.Use(middleware.AppKeyResolve(chatChannelResolver{svc: channelSvc}))
 	chatPublic.Use(middleware.LangResolverMiddleware(langResolver))
 	chatPublic.Use(middleware.VisitorRateLimitMiddleware())
+	// 安全修复：添加 SanitizeMiddleware 对请求体做 PII 脱敏 + 内容清洗
+	chatPublic.Use(middleware.SanitizeMiddleware())
 
 	ctrl := controller.NewChatPublicController(visitorSvc, channelSvc)
 
@@ -62,44 +64,53 @@ func setupChatPublicWebSocket(r *gin.Engine, langResolver *translation.LangConfi
 	r.GET("/api/ws/visitor", visitorWS.HandleVisitorWebSocket)
 }
 
-// setupChatChannelAdminRoutes B 端渠道管理路由（需要 JWT）
+// setupChatChannelAdminRoutes B 端渠道管理路由
+//
+// 权限分级（2026-08-18 多角度审计修复）：
+//   - 渠道 CRUD / rotate-key / reset-secret 全部 admin only（含 app_key/app_secret 凭据）
+//   - List/Get 任意登录用户（业务展示）
 func setupChatChannelAdminRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	channelSvc := service.MustNewChatChannelService(db)
 	ctrl := controller.NewChatChannelController(channelSvc)
 
-	g := auth.Group("/chat-channels")
-	g.GET("", ctrl.List)
-	g.POST("", ctrl.Create)
-	g.GET("/:channel_id", ctrl.Get)
-	g.PUT("/:channel_id", ctrl.Update)
-	g.DELETE("/:channel_id", ctrl.Delete)
-	g.POST("/:channel_id/rotate-key", ctrl.RotateAppKey)
-	g.POST("/:channel_id/reset-secret", ctrl.ResetAppSecret)
+	auth.GET("/chat-channels", ctrl.List)
+	auth.GET("/chat-channels/:channel_id", ctrl.Get)
+	admin := auth.Group("/chat-channels", middleware.AdminAuthMiddleware())
+	{
+		admin.POST("", ctrl.Create)
+		admin.PUT("/:channel_id", ctrl.Update)
+		admin.DELETE("/:channel_id", ctrl.Delete)
+		admin.POST("/:channel_id/rotate-key", ctrl.RotateAppKey)
+		admin.POST("/:channel_id/reset-secret", ctrl.ResetAppSecret)
+	}
 }
 
 
 // setupWeComRoutes 企业微信管理路由
+//
+// 权限分级（2026-08-18）：
+//   - 写操作（Create/Update/Delete/Sync/Send/Refresh）必须 admin（corp_secret 等敏感凭据）
+//   - 读操作（List/Get/Customers/Groups/Messages/Tags）任意登录用户
 func setupWeComRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	wecomCtrl := controller.NewWeComController(service.NewWeComServiceWithDB(gormDB))
 
-	auth.POST("/wecom/accounts", wecomCtrl.CreateAccount)
 	auth.GET("/wecom/accounts", wecomCtrl.GetAccountList)
 	auth.GET("/wecom/accounts/:id", wecomCtrl.GetAccountByID)
-	auth.PUT("/wecom/accounts/:id", wecomCtrl.UpdateAccount)
-	auth.DELETE("/wecom/accounts/:id", wecomCtrl.DeleteAccount)
-
-	auth.POST("/wecom/accounts/:id/sync-customers", wecomCtrl.SyncCustomers)
 	auth.GET("/wecom/customers", wecomCtrl.GetCustomerList)
-
-	auth.POST("/wecom/accounts/:id/sync-groups", wecomCtrl.SyncGroups)
 	auth.GET("/wecom/groups", wecomCtrl.GetGroupList)
-
-	auth.POST("/wecom/accounts/:id/send-message", wecomCtrl.SendMessage)
-	auth.POST("/wecom/accounts/:id/refresh", wecomCtrl.RefreshAccount)
 	auth.GET("/wecom/messages", wecomCtrl.GetMessageList)
-
 	auth.GET("/wecom/tags", wecomCtrl.GetTagList)
-	auth.POST("/wecom/accounts/:id/sync-tags", wecomCtrl.SyncTags)
+	admin := auth.Group("/wecom", middleware.AdminAuthMiddleware())
+	{
+		admin.POST("/accounts", wecomCtrl.CreateAccount)
+		admin.PUT("/accounts/:id", wecomCtrl.UpdateAccount)
+		admin.DELETE("/accounts/:id", wecomCtrl.DeleteAccount)
+		admin.POST("/accounts/:id/sync-customers", wecomCtrl.SyncCustomers)
+		admin.POST("/accounts/:id/sync-groups", wecomCtrl.SyncGroups)
+		admin.POST("/accounts/:id/send-message", wecomCtrl.SendMessage)
+		admin.POST("/accounts/:id/refresh", wecomCtrl.RefreshAccount)
+		admin.POST("/accounts/:id/sync-tags", wecomCtrl.SyncTags)
+	}
 }
 
 

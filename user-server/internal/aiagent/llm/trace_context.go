@@ -3,7 +3,9 @@ package llm
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
+	"crypto/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -125,6 +127,29 @@ func (tc *TraceContext) Metadata() map[string]any {
 	return out
 }
 
+// SetSpanIDFor 显式设置本 span_id（用于 trace middleware 注入 W3C 子 span）。
+// 防御：tc 为 nil 时不 panic。
+func (tc *TraceContext) SetSpanIDFor(spanID string) {
+	if tc == nil {
+		return
+	}
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+	tc.spanID = spanID
+}
+
+// GenerateSpanIDStatic 包级便捷函数：生成新 span_id（16 hex）。
+// 用于 trace middleware 等需要同步获取 span_id 而不构造完整 TraceContext 的场景。
+func GenerateSpanIDStatic() string {
+	return generateSpanID()
+}
+
+// GenerateTraceIDStatic 包级便捷函数：生成新 trace_id（32 hex，W3C 规范）。
+// 用于 trace middleware 等需要同步获取 trace_id 而不构造完整 TraceContext 的场景。
+func GenerateTraceIDStatic() string {
+	return generateTraceID()
+}
+
 // ChildSpan 创建子 span（trace_id 不变，parent_span_id = 当前 span_id）
 func (tc *TraceContext) ChildSpan() *TraceContext {
 	if tc == nil {
@@ -146,20 +171,27 @@ func (tc *TraceContext) InjectContext(ctx context.Context) context.Context {
 	return logger.WithTraceID(ctx, tc.traceID)
 }
 
-// generateTraceID 生成 trace_id（UUIDv7 风格，按时间排序）
-// 使用 google/uuid 已有依赖（uuid.NewString 生成 UUIDv4，按 RFC 9562 v7 风格生成）
-// 实际使用 uuid.NewString() 保证唯一性；按时间排序由 timestamp 字段承担
+// generateTraceID 生成 trace_id（32 位 hex，符合 W3C traceparent 规范）
+// 使用 crypto/rand 生成 16 字节随机数，再编码为 32 字符 hex 字符串
 func generateTraceID() string {
-	return uuid.NewString()
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		// 降级：使用 uuid，但需要去掉 '-'
+		return uuid.New().String()
+	}
+	return hex.EncodeToString(b)
 }
 
-// generateSpanID 生成 span_id（16 位 hex）
+// generateSpanID 生成 span_id（16 位 hex，符合 W3C traceparent 规范）
+// 使用 crypto/rand 生成 8 字节随机数，再编码为 16 字符 hex 字符串
 func generateSpanID() string {
-	id := uuid.NewString()
-	if len(id) >= 16 {
-		return id[:16]
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		// 降级：使用 uuid 去掉 '-' 后取前 16 位
+		id := uuid.New().String()
+		return id[:8] + id[9:13]
 	}
-	return id
+	return hex.EncodeToString(b)
 }
 
 

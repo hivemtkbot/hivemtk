@@ -25,7 +25,7 @@ import "time"
 type LayerDecisionLog struct {
 	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	TraceID    string    `gorm:"type:varchar(64);index" json:"trace_id"`
-	SessionID  string    `gorm:"type:varchar(50);index" json:"session_id"`
+	SessionID  string    `gorm:"type:varchar(120);index" json:"session_id"`
 	CustomerID string    `gorm:"type:varchar(64);index" json:"customer_id"`
 	Layer      string    `gorm:"type:varchar(32);not null;index" json:"layer"` 
 	Reason     string    `gorm:"type:varchar(64);not null" json:"reason"`      

@@ -8,7 +8,7 @@
 .PHONY: db-up db-down db-logs db-ps db-backup db-restore
 .PHONY: inference-host-install inference-host-models inference-host-up inference-host-down
 .PHONY: inference-host-warmup inference-host-logs inference-host-ps inference-host-test inference-host-status
-.PHONY: dev dev-install dev-stop dev-all dev-down
+.PHONY: dev dev-install dev-stop dev-all dev-down dev-clean dev-help
 
 # 默认目标
 help:
@@ -41,8 +41,11 @@ help:
 	@echo ""
 	@echo "【user-server（宿主机 Go 服务）】"
 	@echo "  make user-build           - 编译 user-server 二进制到 user-server/bin/"
-	@echo "  make dev                  - 启动 user-server 热更新（air，开发用）"
+	@echo "  make dev                  - 启动 user-server 热更新（air，开发用，无需手动重编）"
+	@echo "  make dev-install          - 一次性安装 air（已装则跳过）"
 	@echo "  make dev-stop             - 停止 air 进程"
+	@echo "  make dev-clean            - 清理 air 临时二进制 + 日志"
+	@echo "  make dev-help             - 打印热重载工作流速查"
 	@echo ""
 	@echo "【一键全栈】"
 	@echo "  make dev-all              - 拉起数据层 + 推理栈（再手动 make dev）"
@@ -192,29 +195,92 @@ sdk-build:
 	@echo "✅ embed-sdk 已构建"
 
 # =============================================================================
-# 本地开发 - air 热更新
+# 本地开发 - air 热更新（2026-08-18 约束化）
+# -----------------------------------------------------------------------------
+# 工作流：
+#   1) cp .env-example .env && 编辑敏感字段（首次或换机）
+#   2) make dev-install   一次性安装 air（已装则跳过）
+#   3) make dev           air 监听 .go / .yaml / .html / ../.env → 自动重编+重启
+#
+# 改 .go 文件 → 1~2s 后浏览器刷新即生效
+# 改 ../.env / config.yaml → 1~2s 后自动重启（配置热重载，无需手动）
+# 改 .html 模板 / .yaml / .json → 同样触发重编
+#
+# 不需要：go build / go run / docker compose restart user-server
 # =============================================================================
 USER_SERVER_DIR = user-server
+# air-verse/air 是 cosmtrek/air 2024 后的新家（github.com/cosmtrek/air 仍能 install，
+# 但新版本已合并到 air-verse/air；这里用 air-verse 路径以避免被废弃警告）
+AIR_PKG = github.com/air-verse/air@latest
 
 dev-install:
 	@if ! command -v air >/dev/null 2>&1; then \
 		echo "📦 正在安装 air 热更新工具..."; \
-		go install github.com/cosmtrek/air@latest; \
+		go install $(AIR_PKG); \
 		echo "✅ air 安装完成（位于 \$$HOME/go/bin/）"; \
+		echo "💡 如未在 PATH，请执行:  export PATH=\$$HOME/go/bin:\$$PATH"; \
 	else \
 		echo "✅ air 已安装：$$(air -v 2>&1)"; \
 	fi
 
+# 守护式 dev 入口：
+#   - 自动 install air
+#   - 自动 source ../.env（air.cmd 内部已 source；本 target 仅打印可读的启动提示）
+#   - 启动 air，监听 user-server/ 工作目录
 dev: dev-install
-	@echo "🚀 启动 user-server 热更新（air 监听 ./user-server）"
-	@echo "📝 修改 .go/.yaml/.html 后自动重编+重启"
-	@echo "📝 停止：Ctrl+C 或 make dev-stop"
+	@echo "=========================================="
+	@echo "🚀 user-server 热更新模式（air）"
+	@echo "=========================================="
+	@echo "  工作目录  : $$(pwd)/$(USER_SERVER_DIR)"
+	@echo "  监听文件  : *.go *.yaml *.html *.json ../.env"
+	@echo "  触发动作  : 重新编译 ./cmd/api → 杀掉旧进程 → 拉起新进程"
+	@echo "  性能      : 首次冷编 ~6s，增量热编 ~1.5s（Mac M1 16GB 经验值）"
+	@echo "  停止      : Ctrl+C 或另起终端 make dev-stop"
+	@echo "=========================================="
+	@echo "💡 第一次跑请先："
+	@echo "     cp .env-example .env && 编辑敏感字段"
+	@echo "     make db-up                       # 启动 PG + Redis（数据层）"
+	@echo "     make inference-host-up           # 启动 llama.cpp 推理栈（可选）"
+	@echo ""
+	@if [ ! -f .env ]; then \
+		echo "⚠️  未发现 .env，将使用 config.yaml 中的默认值启动（DB/Redis/LLM 可能连不上）"; \
+		echo "   建议先: cp .env-example .env"; \
+		echo ""; \
+	fi
 	@cd $(USER_SERVER_DIR) && air
 
 dev-stop:
-	@pkill -f "air" 2>/dev/null || true
+	@pkill -f "air -c" 2>/dev/null || true
+	@pkill -f "air$" 2>/dev/null || true
+	@pkill -f "$(USER_SERVER_DIR)/tmp/main" 2>/dev/null || true
 	@pkill -f "tmp/main" 2>/dev/null || true
 	@echo "✅ air 进程已停止"
+
+# 清理 air 临时产物（重新冷启动时建议先跑）
+dev-clean:
+	@rm -rf $(USER_SERVER_DIR)/tmp
+	@echo "✅ 已清理 $(USER_SERVER_DIR)/tmp/（air 临时二进制 + 日志）"
+
+# 打印热重载工作流自检清单
+dev-help:
+	@echo "=========================================="
+	@echo "user-server 热重载工作流速查"
+	@echo "=========================================="
+	@echo ""
+	@echo "  1. make dev-install    一次性安装 air（已装跳过）"
+	@echo "  2. cp .env-example .env   配置敏感字段（首次）"
+	@echo "  3. make db-up          启动 PG + Redis"
+	@echo "  4. make inference-host-up  启动 LLM/Embedding/Rerank（可选）"
+	@echo "  5. make dev            启动 user-server + 热重载"
+	@echo ""
+	@echo "日常开发只需要 step 5：保存 .go → 1~2s 自动重启 → 浏览器刷新"
+	@echo ""
+	@echo "故障排查："
+	@echo "  - air 不重启    : tail -f user-server/tmp/air.log"
+	@echo "  - 编译失败      : air 停止在错误状态，修复后保存文件即继续"
+	@echo "  - 端口被占用    : lsof -i :8204 ; make dev-stop"
+	@echo "  - 完全卡死      : make dev-clean && make dev"
+	@echo "  - 不监听 .env   : 确认 user-server/.air.toml 中 include_file 含 ../.env"
 
 # =============================================================================
 # 一键全栈（开发模式）

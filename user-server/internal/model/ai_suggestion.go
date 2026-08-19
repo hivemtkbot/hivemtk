@@ -5,7 +5,7 @@ import "time"
 // AISuggestion AI建议
 type AISuggestion struct {
 	ID         uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	SessionID  string     `gorm:"type:varchar(50);index" json:"session_id"`
+	SessionID  string     `gorm:"type:varchar(120);index" json:"session_id"`
 	MessageID  uint       `json:"message_id"`
 	Suggestion string     `gorm:"type:text" json:"suggestion"`
 	Confidence float64    `gorm:"type:decimal(5,2)" json:"confidence"`

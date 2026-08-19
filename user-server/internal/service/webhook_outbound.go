@@ -1,13 +1,12 @@
 package service
 
 import (
+
 	"context"
 
 	"fmt"
 
 	"strconv"
-
-	"strings"
 
 	"time"
 
@@ -18,6 +17,9 @@ import (
 	agent_runtime "hivemtk-user/internal/aiagent/agent/runtime"
 	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/repository"
+
+
+	"gorm.io/gorm/clause"
 )
 
 func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, content string, hubMsg *model.MessageHub, cards []model.RichCard) {
@@ -165,7 +167,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 					outMsg.Extra["handler_type"] = string(result.HandlerType)
 				}
 			}
-			if undeliverable, reason := bridgeOutboundUndeliverable(accountID, outMsg.ConversationID); undeliverable {
+			if undeliverable, reason := isBridgeChannelUndeliverableLocal(accountID, outMsg.ConversationID); undeliverable {
 				outMsg.Status = "failed"
 				if outMsg.Extra == nil {
 					outMsg.Extra = model.JSONMap{}
@@ -181,34 +183,34 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 					Msg("bridge outbound target undeliverable; marked failed instead of pending")
 			}
 
-			persisted := outMsg
-			if err := s.db.Create(outMsg).Error; err != nil {
-				retryMsg := &model.MessageHub{
-					MsgID:          outMsg.MsgID + ":" + hubMsg.ConversationID,
-					Platform:       outMsg.Platform,
-					AccountID:      outMsg.AccountID,
-					Direction:      "outbound",
-					Status:         outMsg.Status,
-					MsgType:        outMsg.MsgType,
-					SenderID:       outMsg.SenderID,
-					ReceiverID:     outMsg.ReceiverID,
-					Content:        outMsg.Content,
-					ConversationID: outMsg.ConversationID,
-					IsGroup:        outMsg.IsGroup,
-					GroupID:        outMsg.GroupID,
-					IsAIReply:      outMsg.IsAIReply,
-					AIAgent:        outMsg.AIAgent,
-					IsRead:         outMsg.IsRead,
-					SentAt:         outMsg.SentAt,
-					TraceID:        outMsg.TraceID,
-					DedupHash:      outMsg.DedupHash,
-				}
-				if err2 := s.db.Create(retryMsg).Error; err2 != nil {
-					logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").Str("channel", string(channel)).Msg("failed to persist bridge outbound reply to message_hub")
-				} else {
-					persisted = retryMsg
-				}
+		persisted := outMsg
+		if err := s.db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "msg_id"}, {Name: "conversation_id"}}, DoNothing: true}).Create(outMsg).Error; err != nil {
+			retryMsg := &model.MessageHub{
+				MsgID:          outMsg.MsgID + ":" + hubMsg.ConversationID,
+				Platform:       outMsg.Platform,
+				AccountID:      outMsg.AccountID,
+				Direction:      "outbound",
+				Status:         outMsg.Status,
+				MsgType:        outMsg.MsgType,
+				SenderID:       outMsg.SenderID,
+				ReceiverID:     outMsg.ReceiverID,
+				Content:        outMsg.Content,
+				ConversationID: outMsg.ConversationID,
+				IsGroup:        outMsg.IsGroup,
+				GroupID:        outMsg.GroupID,
+				IsAIReply:      outMsg.IsAIReply,
+				AIAgent:        outMsg.AIAgent,
+				IsRead:         outMsg.IsRead,
+				SentAt:         outMsg.SentAt,
+				TraceID:        outMsg.TraceID,
+				DedupHash:      outMsg.DedupHash,
 			}
+			if err2 := s.db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "msg_id"}, {Name: "conversation_id"}}, DoNothing: true}).Create(retryMsg).Error; err2 != nil {
+				logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").Str("channel", string(channel)).Msg("failed to persist bridge outbound reply to message_hub")
+			} else {
+				persisted = retryMsg
+			}
+		}
 			if s.inboxConvRepo != nil && persisted.ID != 0 {
 
 				if err := s.inboxConvRepo.UpsertFromMessage(ctx, repository.UpsertFromMessageInput{
@@ -223,6 +225,35 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 				}); err != nil {
 					logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").Msg("failed to upsert inbox_conversations for outbound")
 				}
+			}
+
+			// Phase 1: SSE 事件驱动通知（异步，不阻塞主路径）
+			// 注意：状态可能在创建后立即被轮询改为 inflight，故 pending/inflight 都触发
+			if GlobalSSEPublisher != nil && persisted != nil && persisted.ID != 0 &&
+				(persisted.Status == "pending" || persisted.Status == "inflight") {
+				logger.Ctx(ctx).Debug().
+					Int("hub_id", int(persisted.ID)).
+					Str("channel", string(channel)).
+					Str("account_id", accountID).
+					Str("conv_id", persisted.ConversationID).
+					Msg("[SSE] webhook_outbound calling GlobalSSEPublisher")
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							logger.Ctx(ctx).Error().Any("error", r).Msg("[SSE] GlobalSSEPublisher panic recovered in webhook_outbound")
+						}
+					}()
+					GlobalSSEPublisher(
+						string(channel), accountID,
+						uint64(persisted.ID),
+						persisted.ConversationID,
+						persisted.MsgType,
+						persisted.ReceiverID,
+						persisted.Content,
+						persisted.IsAIReply,
+						persisted.SentAt,
+					)
+				}()
 			}
 
 			enqueueAbnormal := ""
@@ -274,20 +305,13 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 	}
 }
 
-// bridgeOutboundUndeliverable 判断桥接 AI 回复的目标是否可达。
-// 仅「占位账号」永远不可达，enqueue 到 pending 队列只会成为永久孤儿、污染下发监控：
+// isBridgeChannelUndeliverableLocal AI 回复路径占位账号拦截（与 bridge_outbound.go 共享同一规则）。
 //
-//	占位账号：前端账号解析失败时兜底用 <channel>-unknown 作为 account_id 上报，
-//	真实账号解析后扩展用真实 id 轮询 outbox，永不拉取 -unknown；unknown 状态下也无法投递到具体会话。
-//
-// 注意：conv:<名> 昵称派生会话【不再】在此拦截——前端 openConversation 现已支持按列表项 name
-// 匹配点击打开（见 bridge/src/core/channel-adapter.js），可尽力投递；真正打不开的会留 pending 由
-// 监控归类为「待观察」，下一轮 downlink 仍可重试，不会永久丢失。
-func bridgeOutboundUndeliverable(accountID, conversationID string) (bool, string) {
-	if accountID != "" && strings.HasSuffix(accountID, "-unknown") {
-		return true, "placeholder-account"
-	}
-	return false, ""
+// 历史：service/bridge_outbound.go 统一实现 `bridgeOutboundUndeliverable(accountID, conversationID) (bool, string)`。
+// 本地包装（is*Local）保持调用方语义清晰：本路径只关心"占位账号"这一类拦截，AI reply 不复用
+// 通用 bridge outbound 的其他可能扩展（如未来新增的会话级过滤）。
+func isBridgeChannelUndeliverableLocal(accountID, conversationID string) (bool, string) {
+	return bridgeOutboundUndeliverable(accountID, conversationID)
 }
 
 

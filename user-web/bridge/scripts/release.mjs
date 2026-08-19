@@ -45,13 +45,14 @@ const notes = `# HiveBridge 蜂桥 v${version} 发布包
 2. 开启「开发者模式」
 3. 「加载已解压的扩展程序」-> 选择解压后的 dist 目录
 4. 点击工具栏图标 -> 填写 user-server 地址（如 http://localhost:8204）-> 保存
-5. 打开任一平台私信页 -> 点「自检当前私信页」按 bridge.md §17.2 校准选择器
+5. 打开任一平台私信页 -> 点「自检当前私信页」按 bridge.md §10 真机校准清单核对
 
 ## 验证清单
 - [ ] 客户发消息后 user-server 收到 inbound_message（AI 触发）
 - [ ] AI 回复回写到网页并出现在对话框（outbound_reply）
 - [ ] 刷新/切换会话后历史进入 user-server（history 帧，direction=inbound/outbound）
 - [ ] 连续高频消息被限速拦截（popup / 后台日志可见 reason）
+- [ ] 三平台（抖音 / 小红书 / TikTok / 闲鱼 / 快手）选择器真机校准通过
 `;
 writeFileSync(resolve(releaseDir, 'RELEASE_NOTES.md'), notes);
 console.log(`==> [3/3] 发布说明 -> release/RELEASE_NOTES.md`);

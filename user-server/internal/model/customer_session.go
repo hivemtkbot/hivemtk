@@ -25,7 +25,7 @@ const (
 // CustomerSession 客服会话
 type CustomerSession struct {
 	ID        uint     `gorm:"primaryKey;autoIncrement" json:"id"`
-	SessionID string   `gorm:"type:varchar(50);uniqueIndex;not null" json:"session_id"`
+	SessionID string   `gorm:"type:varchar(120);uniqueIndex;not null" json:"session_id"`
 	Platform  Platform `gorm:"type:varchar(20)" json:"platform"`
 	AccountID string   `gorm:"type:varchar(50)" json:"account_id"`
 	UserID    string   `gorm:"type:varchar(50);index" json:"user_id"`

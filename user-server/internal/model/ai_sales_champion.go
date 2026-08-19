@@ -43,7 +43,7 @@ func (MessageHub) TableName() string { return "message_hub" }
 // IntentRecord 销售意图识别记录
 type IntentRecord struct {
 	ID              uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	SessionID       string    `gorm:"type:varchar(50);not null;index" json:"session_id"`
+	SessionID       string    `gorm:"type:varchar(120);not null;index" json:"session_id"`
 	CustomerID      string    `gorm:"type:varchar(64);index" json:"customer_id"`
 	MessageID       uint      `json:"message_id"`
 	RawText         string    `gorm:"type:text;not null" json:"raw_text"`
@@ -64,7 +64,7 @@ func (IntentRecord) TableName() string { return "intent_records" }
 // DialogueMemory 对话长期记忆
 type DialogueMemory struct {
 	ID                   uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	SessionID            string    `gorm:"type:varchar(50);not null" json:"session_id"`
+	SessionID            string    `gorm:"type:varchar(120);not null" json:"session_id"`
 	CustomerID           string    `gorm:"type:varchar(64);not null;index" json:"customer_id"`
 	Summary              string    `gorm:"type:text" json:"summary"`
 	KeyFacts             JSONMap   `gorm:"type:text" json:"key_facts"`
@@ -115,7 +115,7 @@ type SOPExecution struct {
 	ID             uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	SOPID          uint       `gorm:"index;not null" json:"sop_id"`
 	CustomerID     string     `gorm:"type:varchar(64);not null;index" json:"customer_id"`
-	SessionID      string     `gorm:"type:varchar(50)" json:"session_id"`
+	SessionID      string     `gorm:"type:varchar(120)" json:"session_id"`
 	CurrentNode    string     `gorm:"type:varchar(50)" json:"current_node"`
 	CurrentNodeIdx int        `gorm:"default:0" json:"current_node_index"`
 	Status         string     `gorm:"type:varchar(20);default:'running';index" json:"status"`
@@ -306,7 +306,7 @@ func (SalesPersona) TableName() string { return "sales_personas" }
 // AISalesLog AI 谈单日志
 type AISalesLog struct {
 	ID               uint           `gorm:"primaryKey;autoIncrement" json:"id"`
-	SessionID        string         `gorm:"type:varchar(50);not null;index" json:"session_id"`
+	SessionID        string         `gorm:"type:varchar(120);not null;index" json:"session_id"`
 	CustomerID       string         `gorm:"type:varchar(64)" json:"customer_id"`
 	SOPID            uint           `json:"sop_id"`
 	LLMModel         string         `gorm:"type:varchar(50)" json:"llm_model"`

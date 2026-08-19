@@ -10,6 +10,7 @@ import (
 	"hivemtk-user/internal/aiagent/vector"
 	"hivemtk-user/internal/controller"
 	"hivemtk-user/internal/etl"
+	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/migration"
 	"hivemtk-user/internal/migration/migrations"
 	"hivemtk-user/internal/repository"
@@ -96,17 +97,20 @@ func setupKnowledgeBaseRoutes(auth *gin.RouterGroup) {
 }
 
 // setupBackupRoutes 备份恢复路由
+//
+// 权限分级（2026-08-18 三轮发现）：CreateBackup / DeleteBackup / RestoreBackup admin only
+// （备份含全库客户数据，恢复可覆盖全库；GetBackupList 保留任意登录查看）。
 func setupBackupRoutes(auth *gin.RouterGroup) {
 	backupCtrl := controller.NewBackupController()
+	restoreCtrl := controller.NewRestoreController()
 	auth.GET("/backups", backupCtrl.GetBackupList)
 	auth.GET("/backups/:id", backupCtrl.GetBackupByID)
-	auth.POST("/backups", backupCtrl.CreateBackup)
-	auth.DELETE("/backups/:id", backupCtrl.DeleteBackup)
-
-	restoreCtrl := controller.NewRestoreController()
-	auth.POST("/restore", restoreCtrl.RestoreBackup)
 	auth.GET("/restore/list", restoreCtrl.GetRestoreList)
 	auth.GET("/restore/last", restoreCtrl.GetLastRestore)
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	admin.POST("/backups", backupCtrl.CreateBackup)
+	admin.DELETE("/backups/:id", backupCtrl.DeleteBackup)
+	admin.POST("/restore", restoreCtrl.RestoreBackup)
 }
 
 // setupMigrationRoutes 数据库迁移管理路由

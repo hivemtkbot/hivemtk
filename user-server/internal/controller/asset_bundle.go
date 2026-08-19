@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 
+	"hivemtk-user/internal/middleware"
+
 	"github.com/gin-gonic/gin"
 
 	"hivemtk-user/internal/dto"
@@ -53,21 +55,26 @@ func NewAssetBundleController(svc *service.AssetBundleService) *AssetBundleContr
 //	POST   /api/asset-bundle/enabled/list 查询已热启用的资产包列表
 func (c *AssetBundleController) Register(rg *gin.RouterGroup) {
 	g := rg.Group("/asset-bundle")
-	g.POST("", c.Create)
-	g.PUT("/:id", c.Update)
+	// 读操作：任意登录用户
 	g.GET("/:id", c.Get)
 	g.GET("/by-aid/:aid", c.GetByAssetID)
 	g.POST("/list", c.List)
-	g.POST("/:id/publish", c.Publish)
-	g.POST("/:id/archive", c.Archive)
-	g.DELETE("/:id", c.Delete)
-	g.POST("/weave", c.Weave)
-	g.POST("/merchant-save", c.MerchantSave)
-	g.POST("/merchant-parse/:aid", c.MerchantParse)
-	g.POST("/:id/enable", c.Enable)
-	g.POST("/:id/disable", c.Disable)
-	g.POST("/:id/submit-platform", c.SubmitToPlatform)
 	g.POST("/enabled/list", c.GetEnabled)
+	// 写操作：admin only（防 staff 改 / 删 / 启停客户可见资产包）
+	admin := rg.Group("/asset-bundle", middleware.AdminAuthMiddleware())
+	{
+		admin.POST("", c.Create)
+		admin.PUT("/:id", c.Update)
+		admin.DELETE("/:id", c.Delete)
+		admin.POST("/:id/publish", c.Publish)
+		admin.POST("/:id/archive", c.Archive)
+		admin.POST("/:id/enable", c.Enable)
+		admin.POST("/:id/disable", c.Disable)
+		admin.POST("/:id/submit-platform", c.SubmitToPlatform)
+		admin.POST("/weave", c.Weave)
+		admin.POST("/merchant-save", c.MerchantSave)
+		admin.POST("/merchant-parse/:aid", c.MerchantParse)
+	}
 }
 
 // SubmitToPlatform 将本地资产包提交平台审核上架（开发者上架链路）

@@ -352,6 +352,33 @@ func (s *InboxIngressService) persistHistoryMessage(ctx context.Context, event *
 		return err
 	}
 
+	// Phase 1: SSE 事件驱动通知（仅 outbound，异步不阻塞）
+	if direction == "outbound" && GlobalSSEPublisher != nil && hub.ID != 0 {
+		logger.Ctx(ctx).Debug().
+			Int("hub_id", int(hub.ID)).
+			Str("channel", hub.Platform).
+			Str("account_id", hub.AccountID).
+			Str("conv_id", hub.ConversationID).
+			Msg("[SSE] persistHistoryMessage calling GlobalSSEPublisher")
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Errorf("[SSE] GlobalSSEPublisher panic recovered in persistHistoryMessage: %v", r)
+				}
+			}()
+			GlobalSSEPublisher(
+				hub.Platform, hub.AccountID,
+				uint64(hub.ID),
+				hub.ConversationID,
+				hub.MsgType,
+				hub.ReceiverID,
+				hub.Content,
+				hub.IsAIReply,
+				hub.SentAt,
+			)
+		}()
+	}
+
 	if s.inboxSvc != nil {
 
 		if _, err := s.inboxSvc.UpsertFromHubMessage(context.Background(), hub); err != nil {

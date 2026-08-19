@@ -17,7 +17,8 @@ import (
 // pipelineReachSender 将触达调度器（service.ReachPipelineService）接入真实的渠道发送器：
 //   - telegram / whatsapp / feishu / web / wecom / dingtalk / sms / email / card
 //     走 tooluse.IntegrationReachAdapter（与 AI Agent 的 reach.*.send 共用同一套出站实现）
-//   - douyin / kuaishou / xiaohongshu / tiktok / xianyu 走 bridge.BridgeReachAdapter（HTTP 长轮询 buffer）
+//   - douyin / kuaishou / xiaohongshu / tiktok / xianyu 走 bridge.BridgeReachAdapter.Send*，
+//     内部转 service.DeliverBridgeOutbound → message_hub（2026-08-18 二次审核修复：旧 httpReplyBuffer 死通道）
 //
 // 由此修复"触达调度器下发占位"缺口：调度器不再产生假 message_id，而是真正下发到渠道。
 type pipelineReachSender struct {

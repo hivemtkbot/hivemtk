@@ -76,6 +76,9 @@ func (s *WebhookService) dispatchWhatsApp(ctx context.Context, accountID string,
 
 			s.upsertInboxFromHub(ctx, hub, name)
 
+			// 2026-08-19：接入通用线索发现（所有渠道复用）
+			MineUnifiedLead(ctx, s, hub, WhatsAppLeadAdapter{}, accountID, "", "", msg.From, name, "", content)
+
 			p.Content = content
 			p.Sender = msg.From
 			p.ChatID = msg.From

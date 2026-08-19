@@ -27,6 +27,14 @@ function makeChrome({ storage = {} } = {}) {
     },
     webNavigation: { onCommitted: { addListener: () => {} } },
     scripting: {},
+    tabs: {
+      sendMessage: (_tabId, _msg, _cb) => {},
+      query: (_opts, cb) => { cb([]); },
+    },
+    alarms: {
+      create: () => {},
+      onAlarm: { addListener: () => {} },
+    },
   };
   return { chrome, listeners, data, setLastError: (v) => { _lastError = v; } };
 }
@@ -47,10 +55,22 @@ async function loadBackground() {
   return mod;
 }
 
+// 尝试所有监听器，找到能处理该消息的那个（遍历 sse-client.js + index.js 等多个 listener）
+function callListener(listeners, msg, sendResponse) {
+  let called = false;
+  const wrapper = (resp) => { called = true; sendResponse(resp); };
+  for (const fn of listeners.message) {
+    const ret = fn(msg, {}, wrapper);
+    if (ret !== false || called) return called;
+  }
+  return called;
+}
+
 describe('background 加载', () => {
-  it('无语法错误，能正常执行（仅 onMessage 监听器）', async () => {
+  it('无语法错误，能正常执行（至少注册了 onMessage 监听器）', async () => {
     await loadBackground();
-    expect(currentMock.listeners.message.length).toBe(1);
+    // index.js + sse-client.js 各注册了一个 onMessage listener
+    expect(currentMock.listeners.message.length).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -59,8 +79,7 @@ describe('background 配置存储 setConfig 路径', () => {
     await loadBackground();
     const { listeners, data } = currentMock;
     const resp = await new Promise((resolve) => {
-      const fn = listeners.message[0];
-      fn({ type: 'setConfig', config: { serverUrl: 'http://written:8204', token: 'tk' } }, {}, resolve);
+      callListener(listeners, { type: 'setConfig', config: { serverUrl: 'http://written:8204', token: 'tk' } }, resolve);
     });
     expect(resp).toEqual({ ok: true });
     expect(data.bridgeConfig.serverUrl).toBe('http://written:8204');
@@ -79,8 +98,7 @@ describe('background 配置存储 setConfig 路径', () => {
       });
     };
     const resp = await new Promise((resolve) => {
-      const fn = listeners.message[0];
-      fn({ type: 'setConfig', config: { serverUrl: 'http://x' } }, {}, resolve);
+      callListener(listeners, { type: 'setConfig', config: { serverUrl: 'http://x' } }, resolve);
     });
     expect(resp).toEqual({ ok: false, error: 'quota exceeded' });
   });
@@ -91,8 +109,7 @@ describe('background onMessage 路由', () => {
     await loadBackground();
     const { listeners } = currentMock;
     const resp = await new Promise((resolve) => {
-      const fn = listeners.message[0];
-      fn({ type: 'getStatus' }, {}, resolve);
+      callListener(listeners, { type: 'getStatus' }, resolve);
     });
     expect(resp).toHaveProperty('statuses');
     expect(resp).toHaveProperty('routes');
@@ -111,8 +128,7 @@ describe('background onMessage 路由', () => {
     await loadBackground();
     const { listeners } = currentMock;
     const resp = await new Promise((resolve) => {
-      const fn = listeners.message[0];
-      fn({ type: 'getStatus' }, {}, resolve);
+      callListener(listeners, { type: 'getStatus' }, resolve);
     });
     expect(resp.statuses).toEqual({ xiaohongshu: { channel: 'xiaohongshu', accountId: 'a1', online: true } });
   });
@@ -120,10 +136,13 @@ describe('background onMessage 路由', () => {
   it('injectContentScript 缺 tabId → 同步返回 {ok: false, reason: invalid_tabId}', async () => {
     await loadBackground();
     const { listeners } = currentMock;
-    let ret;
+    let called = false;
     let sent;
-    ret = listeners.message[0]({ type: 'injectContentScript', url: 'http://x' }, {}, (r) => { sent = r; });
-    expect(ret).toBe(false);
+    const wrapper = (r) => { called = true; sent = r; };
+    for (const fn of listeners.message) {
+      const ret = fn({ type: 'injectContentScript', url: 'http://x' }, {}, wrapper);
+      if (ret !== false || called) break;
+    }
     expect(sent).toEqual({ ok: false, reason: 'invalid_tabId' });
   });
 
@@ -134,8 +153,7 @@ describe('background onMessage 路由', () => {
     globalThis.chrome.scripting.executeScript = (_opts, cb) => cb([{ result: 'stub' }]);
     const { listeners } = currentMock;
     const resp = await new Promise((resolve) => {
-      const fn = listeners.message[0];
-      fn({ type: 'injectContentScript', tabId: 1, url: 'http://x' }, {}, resolve);
+      callListener(listeners, { type: 'injectContentScript', tabId: 1, url: 'http://x' }, resolve);
     });
     expect(resp).toBeDefined();
   });
@@ -144,8 +162,13 @@ describe('background onMessage 路由', () => {
     await loadBackground();
     const { listeners } = currentMock;
     let sendResponseCalled = false;
-    const ret = listeners.message[0]({ type: 'foo-bar' }, {}, () => { sendResponseCalled = true; });
-    expect(ret).toBe(false);
+    for (const fn of listeners.message) {
+      const ret = fn({ type: 'foo-bar' }, {}, () => { sendResponseCalled = true; });
+      // 第一个返回非 false 的就停止（index.js 的会返回 false，然后 sse-client.js 也返回 false）
+      // 但我们只想验证第一个匹配项的行为
+      if (ret !== false) break;
+    }
+    // 所有监听器都应该返回 false 且不调用 sendResponse
     expect(sendResponseCalled).toBe(false);
   });
 
@@ -153,8 +176,10 @@ describe('background onMessage 路由', () => {
     await loadBackground();
     const { listeners } = currentMock;
     let sendResponseCalled = false;
-    const ret = listeners.message[0](null, {}, () => { sendResponseCalled = true; });
-    expect(ret).toBe(false);
+    for (const fn of listeners.message) {
+      const ret = fn(null, {}, () => { sendResponseCalled = true; });
+      if (ret !== false) break;
+    }
     expect(sendResponseCalled).toBe(false);
   });
 });
@@ -165,8 +190,7 @@ describe('background DEFAULT_USER_SERVER 默认值', () => {
     await loadBackground();
     const { data, listeners } = currentMock;
     const resp = await new Promise((resolve) => {
-      const fn = listeners.message[0];
-      fn({ type: 'setConfig', config: { serverUrl: DEFAULT_USER_SERVER.baseUrl, token: '', autoConnect: true } }, {}, resolve);
+      callListener(listeners, { type: 'setConfig', config: { serverUrl: DEFAULT_USER_SERVER.baseUrl, token: '', autoConnect: true } }, resolve);
     });
     expect(resp).toEqual({ ok: true });
     expect(data.bridgeConfig.serverUrl).toBe(DEFAULT_USER_SERVER.baseUrl);

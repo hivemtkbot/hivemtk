@@ -11,7 +11,9 @@ import (
 
 	"gorm.io/gorm"
 
+	"hivemtk-user/internal/config"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/security"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/websocket"
@@ -130,6 +132,26 @@ type VisitorOpenSessionResult struct {
 	IsNewSession   bool                   `json:"is_new_session"`
 	OnlineAgentNum int                    `json:"online_agent_num"`
 	WelcomeMessage string                 `json:"welcome_message"`
+	VisitorToken   string                 `json:"visitor_token,omitempty"`
+}
+
+// visitorTokenSecret 获取 visitor token HMAC 密钥
+// 优先从配置读取，否则使用进程级默认密钥（建议生产环境配置）
+func visitorTokenSecret() []byte {
+	if cfg := config.GetAppConfig(); cfg.Security.VisitorTokenSecret != "" {
+		return []byte(cfg.Security.VisitorTokenSecret)
+	}
+	return []byte("hivemtk-visitor-default-secret-change-me")
+}
+
+// GenerateVisitorToken 为访客生成 HMAC-SHA256 签名 token（委托给 security 包）
+func GenerateVisitorToken(channelID, visitorID, sessionID string) (string, error) {
+	return security.GenerateVisitorToken(string(visitorTokenSecret()), channelID, visitorID, sessionID, 0)
+}
+
+// ValidateVisitorToken 验证 visitor token（委托给 security 包）
+func ValidateVisitorToken(token, channelID, visitorID, sessionID string) error {
+	return security.ValidateVisitorToken(string(visitorTokenSecret()), token, channelID, visitorID, sessionID)
 }
 
 // resolveChannel 解析 channel（支持 channel_id / app_key / "default"）
@@ -186,11 +208,14 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 		)
 		if err == nil && existing != nil {
 			online, _ := s.countOnlineAgents(ctx)
+			// IDOR 修复：为续接会话生成 visitor_token
+			token, _ := GenerateVisitorToken(channel.ChannelID, req.VisitorID, existing.SessionID)
 			return &VisitorOpenSessionResult{
 				Session:        existing,
 				IsNewSession:   false,
 				OnlineAgentNum: online,
 				WelcomeMessage: channel.WelcomeMessage,
+				VisitorToken:   token,
 			}, nil
 		}
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -243,11 +268,17 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 	}
 
 	_ = session
+	// IDOR 修复：为新会话生成 visitor_token，绑定 (channelID, visitorID, sessionID)
+	token, err := GenerateVisitorToken(channel.ChannelID, req.VisitorID, session.SessionID)
+	if err != nil {
+		logger.Warnf("[visitor] 生成 visitor_token 失败: %v", err)
+	}
 	return &VisitorOpenSessionResult{
 		Session:        session,
 		IsNewSession:   true,
 		OnlineAgentNum: online,
 		WelcomeMessage: channel.WelcomeMessage,
+		VisitorToken:   token,
 	}, nil
 }
 

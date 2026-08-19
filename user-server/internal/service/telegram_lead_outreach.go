@@ -57,6 +57,14 @@ func (s *TelegramDMOutreachService) TriggerDMOutreach(ctx context.Context, accou
 	}
 
 	template := s.buildDMWelcomeTemplate(groupTitle, originalText)
+	if s.svc.tgIntegration == nil && s.svc.db != nil {
+		s.svc.tgIntegration = NewTelegramIntegrationService(s.svc.db)
+	}
+	if s.svc.tgIntegration == nil {
+		logger.Warnf("[TG-DM-Outreach] tgIntegration 未初始化，跳过私信发送 account=%s user=%d group=%s",
+			accountID, userID, groupID)
+		return
+	}
 	if err := s.svc.tgIntegration.SendMessage(ctx, parseAccountID(accountID), userID, template); err != nil {
 		logger.Warnf("[TG-DM-Outreach] 私信发送失败 account=%s user=%d group=%s: %v",
 			accountID, userID, groupID, err)

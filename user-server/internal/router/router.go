@@ -3,11 +3,15 @@ package router
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"hivemtk-user/internal/aiagent/agent/tooluse"
+	"hivemtk-user/internal/aiagent/mcp"
 	"hivemtk-user/internal/app"
 	"hivemtk-user/internal/bridge"
 	channelgw "hivemtk-user/internal/channelgw"
@@ -15,6 +19,7 @@ import (
 	"hivemtk-user/internal/controller"
 	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/monitor"
+	"hivemtk-user/internal/pkg/featureflag"
 	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
@@ -53,6 +58,7 @@ func parseCORSOrigins(s string) []string {
 // 安全策略（P1 修复）：
 //   - 浏览器扩展从 chrome-extension://<id> 源发起请求，按源反射放行（扩展为预期调用方）。
 //   - 配置在 CORS_ALLOW_ORIGINS_USER 中的 Web 源放行。
+//   - SSE 端点（/api/bridge/outbox/sse）允许所有 Origin（Content Script 在网页中运行）。
 //   - 其余任意 Origin 一律不返回 ACAO（浏览器将阻止带凭据的跨域调用），杜绝任意网页
 //     借用户浏览器凭据调用敏感 API。
 //
@@ -67,10 +73,18 @@ func corsMiddleware() gin.HandlerFunc {
 			case strings.HasPrefix(origin, "chrome-extension://"):
 				allow = true
 			default:
-				for _, a := range allowedCORSOrigins {
-					if a == origin {
-						allow = true
-						break
+				// Content Script 运行在网页上，需要允许网页 Origin
+				// SSE 端点为只读 GET，安全性可接受
+				// 检查完整路径（可能有 /api 前缀）
+				fullPath := c.Request.URL.Path
+				if strings.HasSuffix(fullPath, "/outbox/sse") || strings.Contains(fullPath, "outbox/sse") {
+					allow = true
+				} else {
+					for _, a := range allowedCORSOrigins {
+						if a == origin {
+							allow = true
+							break
+						}
 					}
 				}
 			}
@@ -81,7 +95,8 @@ func corsMiddleware() gin.HandlerFunc {
 			c.Header("Vary", "Origin")
 		}
 		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With,X-Trace-Id")
+		c.Header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With,X-Trace-Id,Last-Event-ID,Cache-Control")
+		c.Header("Access-Control-Expose-Headers", "Last-Event-ID,X-Trace-Id")
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
@@ -150,10 +165,9 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 	platformCtrl := controller.NewPlatformController()
 
 	app.InitGlobalToolExecutor()
-	app.InitGlobalToolRouter() 
+	app.InitGlobalToolRouter()
 	app.RegisterAllAgentTools(gormDB)
-	app.RegisterAgentReachTools(gormDB)
-	app.InitInferenceOrchestrator() 
+	app.InitInferenceOrchestrator()
 
 	engine := app.BuildSalesEngine(gormDB)
 	orchestrator := app.BuildSmartOrchestrator(engine)
@@ -266,6 +280,41 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 	app.SetBridgeIngressSvc(bridgeIngressSvc) 
 	bridgeHandler := bridge.NewBridgeIngestHandler(bridgeIngressSvc)
 
+	// Phase 1: 注入 OutboxQuerier（让 SSE fetcher 能查 DB）
+	messageHubRepo := repository.NewMessageHubRepositoryWithDB(gormDB)
+	bridgeHandler.SetOutboxQuerier(messageHubRepo)
+
+	// Phase 1: 设置 service → bridge SSE 事件回调
+	// service.DeliverBridgeOutbound 成功落库后，通过此回调通知 bridge.GlobalSSEBus
+	service.SetGlobalSSEPublisher(func(channel, accountID string, hubID uint64, convID, msgType, receiverID, content string, isAIReply bool, createdAt time.Time) {
+		bridge.GlobalSSEBus.Publish(bridge.SSEEvent{
+			ID:             strconv.FormatUint(hubID, 10),
+			Event:          "new_outbound",
+			ConversationID: convID,
+			MsgType:        msgType,
+			ReceiverID:     receiverID,
+			Seq:            int(hubID),
+			Data: map[string]any{
+				"hub_id":          hubID,
+				"platform":        channel,
+				"account_id":      accountID,
+				"conversation_id": convID,
+				"content":         content,
+				"msg_type":        msgType,
+				"receiver_id":     receiverID,
+				"is_ai_reply":     isAIReply,
+			},
+			Timestamp: createdAt,
+		})
+	})
+
+	// Phase 1: 设置 GlobalBridgeReachAdapter（供 AI Agent reach.*.send 工具和主动外联使用）
+	tooluseBridgeAdapter := bridge.NewBridgeReachAdapter(
+		app.NewIntegrationReachAdapterFromDB(gormDB),
+		bridgeIngressSvc,
+	)
+	bridge.GlobalBridgeReachAdapter = tooluseBridgeAdapter
+
 	douyinLeadMiner := service.NewWebhookService(gormDB).DouyinLeadMiner()
 	bridgeHandler.SetLeadMiner(douyinLeadMiner)
 
@@ -275,10 +324,41 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		bridgeWS.GET("/bridge/outbox", bridgeHandler.GetBridgeOutbox)
 		bridgeWS.POST("/bridge/outbox/ack", bridgeHandler.AckBridgeOutbox)
 
+		// v3 审计：SSE 端点替换长轮询（业界：Twilio Flex / Intercom 实践）
+		// 复用 bridgeHandler 的 outbox 数据源（DB）
+		bridgeWS.GET("/bridge/outbox/sse", bridgeHandler.HandleOutboxSSE)
+
+		// Capabilities 查询端点：供前端查询当前可用的传输方式
+		bridgeWS.GET("/bridge/capabilities", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{
+				"sse_enabled":     featureflag.Get(featureflag.FF_ENABLE_SSE_BRIDGE).Bool(),
+				"poll_interval_ms": 1500,
+				"sse_heartbeat_ms": 15000,
+			})
+		})
+
+		// v3 审计：MCP server（Model Context Protocol 2025-06-18）
+		// 让 Claude Desktop / Cursor / Continue.dev 等客户端可直接连接 user-server 调用工具
+		// 当前仅暴露 initialize/ping；tools/list+tools/call 需后续挂上 tooluse registry
+		// v3 审计发现：mcpServer 不能是单例（initialize 状态会污染）；每次请求新建
+		bridgeWS.POST("/mcp", func(c *gin.Context) {
+			body, err := io.ReadAll(c.Request.Body)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "read body: " + err.Error()})
+				return
+			}
+			mcpSrv := mcp.NewServer(nil) // 每次新建避免状态污染
+			resp, _ := mcpSrv.HandleRequest(c.Request.Context(), body)
+			c.Header("Content-Type", "application/json")
+			c.Status(http.StatusOK)
+			if _, err := c.Writer.Write(resp); err != nil {
+				logger.Ctx(c.Request.Context()).Warn().Err(err).Msg("[MCP] write response")
+			}
+		})
+
 		channelPipeline := channelgw.NewPipeline(bridgeIngressSvc)
 		channelWSTransport := channelgw.NewWSTransport(channelPipeline, channelgw.Default)
 		bridgeWS.GET("/ws/channel", channelWSTransport.HandleWS)
-		bridgeWS.POST("/bridge/ai-selectors", bridge.AISelectors)
 
 		monitor.RegisterRoutes(bridgeWS)
 

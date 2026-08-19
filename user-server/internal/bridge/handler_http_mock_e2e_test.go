@@ -297,9 +297,6 @@ func TestBridgeHTTP_ImmediateReturn_NoLongPoll(t *testing.T) {
 	if !got.Ingested[0].AIHandled {
 		t.Fatalf("用户消息未触发 AI: %+v", got)
 	}
-	if len(got.OutboundReplies) != 0 {
-		t.Fatalf("重构后不应再同步返回下游回复, 实际: %+v", got.OutboundReplies)
-	}
 	items := m.store.list(ChannelDouyinWeb, "1")
 	if len(items) != 1 {
 		t.Fatalf("AI 回复应进入下发队列, 实际: %d", len(items))

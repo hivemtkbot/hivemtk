@@ -52,14 +52,3 @@ func IsBridgeChannel(ch string) bool {
 	return gw.Default.IsChannel(NormalizeBridgeChannel(ch))
 }
 
-// ToBridgeChannel 渠道编码统一：base/bridge 已合一，直接返回 ch。
-// 保留函数是为兼容旧调用方代码，迁移期不再做映射。
-func ToBridgeChannel(ch string) string {
-	return ch
-}
-
-// APIChannelOf 返回网页桥接渠道对应的平台基础渠道（统一后 = ch）
-func APIChannelOf(ch string) string {
-	return ch
-}
-

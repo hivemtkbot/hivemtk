@@ -600,7 +600,7 @@ func (l *defaultAccountLookup) FindActiveAccount(ctx context.Context, channel st
 		var acc struct {
 			ID uint
 		}
-		if err := l.db.WithContext(ctx).Table("telegram_accounts").Where("status = ?", "active").Order("id ASC").First(&acc).Error; err != nil {
+		if err := l.db.WithContext(ctx).Table("telegram_accounts").Where("status = ?", 1).Order("id ASC").First(&acc).Error; err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("%d", acc.ID), nil

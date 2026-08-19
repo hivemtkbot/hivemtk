@@ -172,7 +172,8 @@ func (e *SalesEngine) runAgentLoop(
 
 	var lastResult *llm.DispatchResult
 	totalToolCalls := 0
-	var firstLLMError error 
+	totalTokensUsed := 0
+	var firstLLMError error
 	curMaxTokens := req.Config.MaxTokens
 	if curMaxTokens <= 0 {
 
@@ -180,7 +181,7 @@ func (e *SalesEngine) runAgentLoop(
 	}
 	curTools := toolDefs
 	lengthRetryDone := false
-	var collectedCards []model.RichCard 
+	var collectedCards []model.RichCard
 	for iter := 1; iter <= maxIter; iter++ {
 
 		if agentLoopCtx.Err() != nil {
@@ -189,9 +190,20 @@ func (e *SalesEngine) runAgentLoop(
 			break
 		}
 
-		logger.Infof("[AgentLoop] iter=%d messages=%d tools=%d prompt_len=%d max_tokens=%d", iter, len(messages), len(curTools), len(prompt), curMaxTokens)
+		// v3 审计 P3-1 修复：累计 token 预算硬限（业界共识：max_iterations 不够，必须有 token 硬限）
+		// 达上限则停止 LLM 调用，使用最后一次成功 result 兜底
+		if agentLoopMaxTotalTokens > 0 && totalTokensUsed >= agentLoopMaxTotalTokens {
+			logger.Warnf("[AgentLoop] token budget exhausted: used=%d budget=%d iter=%d, fallback to last content",
+				totalTokensUsed, agentLoopMaxTotalTokens, iter)
+			break
+		}
+
+		// v3 审计 P3-1 修复：per-iteration 超时（业界共识：单次 LLM 调用超时）
+		// 用派生 ctx 限定单次 LLM 调用时长，不影响总 agentLoopTotalTimeout
+		iterCtx, iterCancel := context.WithTimeout(agentLoopCtx, agentLoopMaxPerIterTimeout)
+		logger.Infof("[AgentLoop] iter=%d messages=%d tools=%d prompt_len=%d max_tokens=%d used_tokens=%d", iter, len(messages), len(curTools), len(prompt), curMaxTokens, totalTokensUsed)
 		logger.Infof("[AgentLoop] prompt_preview=%s", truncate(prompt, 300))
-		result, err := e.dispatcher.Dispatch(agentLoopCtx, llm.DispatchRequest{
+		result, err := e.dispatcher.Dispatch(iterCtx, llm.DispatchRequest{
 			Scenario:     scenario,
 			Prompt:       prompt,
 			SystemPrompt: e.personaWithLang(ctx, req.Config.Persona, targetLang),
@@ -201,7 +213,13 @@ func (e *SalesEngine) runAgentLoop(
 			ToolChoice:   "auto",
 			Messages:     messages,
 		})
+		iterCancel() // 立即释放 per-iter ctx
 		if err != nil {
+			// 区分"总超时"vs"单次超时"
+			if iterCtx.Err() == context.DeadlineExceeded && agentLoopCtx.Err() == nil {
+				logger.Warnf("[AgentLoop] iter=%d per-iter timeout (budget=%s), continue with next iter", iter, agentLoopMaxPerIterTimeout)
+				continue
+			}
 
 			if firstLLMError == nil {
 				firstLLMError = err
@@ -211,6 +229,14 @@ func (e *SalesEngine) runAgentLoop(
 			break
 		}
 		lastResult = result
+
+		// 累计 token 消耗（用于 agentLoopMaxTotalTokens 硬限）
+		// 优先 LLM 真实 Usage.Usage.TotalTokens（业界最佳），否则退回 result.TotalTokens
+		if result.Usage.TotalTokens > 0 {
+			totalTokensUsed += result.Usage.TotalTokens
+		} else if result.TotalTokens > 0 {
+			totalTokensUsed += result.TotalTokens
+		}
 
 		if result.FinishReason != "tool_calls" || len(result.ToolCalls) == 0 {
 

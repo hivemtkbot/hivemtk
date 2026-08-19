@@ -2,140 +2,17 @@ package service
 
 import (
 	"context"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
-	"hivemtk-user/internal/repository"
 )
 
-var dyMeaningfulRe = regexp.MustCompile(`[\p{L}\p{N}]`)
-
 func (s *WebhookService) mineDouyinGroupLead(ctx context.Context, hub *model.MessageHub, accountID, groupID, groupTitle, fromID, fromName, text string) (newOpportunity bool) {
-	if s == nil {
-		return false
-	}
-	s.ensureReposFromDB(ctx)
-	if s.clueRepo == nil {
-		return false
-	}
-	t := strings.TrimSpace(text)
-	if t == "" || strings.HasPrefix(t, "/") {
-		return false
-	}
-	if !dyMeaningfulRe.MatchString(t) {
-		return false
-	}
-
-	account := "@" + strings.TrimLeft(fromName, "@")
-	if account == "@" || account == "" {
-		account = "dy:" + strings.TrimSpace(fromID)
-	}
-	if account == "dy:" || account == "" {
-		return false
-	}
-
-	name := strings.TrimSpace(fromName)
-	if name == "" {
-		name = account
-	}
-
-	score, signals, isOpp := DetectDouyinIntent(t)
-	chatLabel := groupTitle
-	if strings.TrimSpace(chatLabel) == "" {
-		chatLabel = "抖音直播间"
-	}
-	desc := FormatDouyinLeadDesc(chatLabel, t, score, signals, isOpp)
-
-	msgID, convID, oneID := "", "", ""
-	if hub != nil {
-		msgID = hub.MsgID
-		convID = hub.ConversationID
-		oneID = hub.SenderID
-	}
-
-	existing, err := s.clueRepo.FindByTypeAndAccount(ctx, ClueTypeDouyin, account)
-	if err != nil {
-		logger.Warnf("[DyLeadMiner] 查询抖音线索失败 account=%s: %v", account, err)
-		return false
-	}
-
-	if existing == nil {
-		clue := &model.Clue{
-			SourceID:       groupID,
-			Account:        account,
-			Type:           ClueTypeDouyin,
-			Name:           name,
-			Desc:           desc,
-			IntentScore:    int64(score),
-			IsOpportunity:  boolToInt64(isOpp),
-			MessageID:      msgID,
-			ConversationID: convID,
-			OneID:          oneID,
-			IsGroup:        hub != nil && hub.IsGroup,
-			GroupID:        groupID,
-			GroupName:      groupTitle,
-		}
-		if cerr := s.clueRepo.Create(ctx, clue); cerr != nil {
-			if re, rerr := s.clueRepo.FindByTypeAndAccount(ctx, ClueTypeDouyin, account); rerr == nil && re != nil {
-				existing = re
-			} else {
-				if !isDuplicateKeyError(cerr) {
-					logger.Warnf("[DyLeadMiner] 创建抖音线索失败 account=%s: %v", account, cerr)
-				}
-				return false
-			}
-		} else {
-			logger.Infof("[DyLeadMiner] 新增抖音线索 account=%s 意向分=%d 商机=%v 群=%s", account, score, isOpp, groupTitle)
-			newOpportunity = isOpp
-			s.recordDouyinLeadScore(ctx, clue, isOpp)
-			if isOpp && score >= dyDMOutreachMinScore {
-				s.triggerDouyinDMOutreach(ctx, accountID, fromID, groupID, groupTitle, score, text)
-			}
-			return newOpportunity
-		}
-	}
-
-	// 若线索已存在但商机状态从 0 → 1（首次判定为商机），也要触发私信
-	if existing != nil && existing.IsOpportunity == 0 && isOpp && score >= dyDMOutreachMinScore {
-		logger.Infof("[DyLeadMiner] 线索首次升级为商机，触发私信 account=%s", account)
-		newOpportunity = true
-		s.triggerDouyinDMOutreach(ctx, accountID, fromID, groupID, groupTitle, score, text)
-	}
-
-	if int64(score) > existing.IntentScore {
-		wasOpp := existing.IsOpportunity != 0
-		updates := map[string]any{
-			"desc":            desc,
-			"source_id":       groupID,
-			"intent_score":    int64(score),
-			"is_opportunity":  boolToInt64(isOpp),
-			"message_id":      msgID,
-			"conversation_id": convID,
-			"one_id":          oneID,
-			"group_id":        groupID,
-			"group_name":      groupTitle,
-		}
-		if uerr := s.clueRepo.UpdateByID(ctx, existing.ID, updates); uerr != nil {
-			logger.Warnf("[DyLeadMiner] 更新抖音线索失败 id=%s: %v", existing.ID, uerr)
-		} else {
-			existing.IntentScore = int64(score)
-			existing.IsOpportunity = boolToInt64(isOpp)
-			existing.Desc = desc
-			existing.SourceID = groupID
-			logger.Infof("[DyLeadMiner] 更新抖音线索意向分 account=%s → %d 商机=%v", account, score, isOpp)
-			newOpportunity = isOpp && !wasOpp
-			// newOpportunity=true 时上面已经触发过私信，避免重复
-			if isOpp && score >= dyDMOutreachMinScore && newOpportunity {
-				s.triggerDouyinDMOutreach(ctx, accountID, fromID, groupID, groupTitle, score, text)
-			}
-		}
-	}
-	s.recordDouyinLeadScore(ctx, existing, isOpp)
-	return newOpportunity
+	// 2026-08-19：已重构为通用 MineUnifiedLead 的薄包装，所有渠道复用同一套挖掘逻辑。
+	return MineUnifiedLead(ctx, s, hub, DouyinLeadAdapter{}, accountID, groupID, groupTitle, fromID, fromName, "", text)
 }
 
 func (s *WebhookService) triggerDouyinDMOutreach(ctx context.Context, accountID, fromID, groupID, groupTitle string, score int, originalText string) {
@@ -199,17 +76,7 @@ func (s *WebhookService) recordDouyinDMOutreachEvent(ctx context.Context, accoun
 }
 
 func (s *WebhookService) recordDouyinLeadScore(ctx context.Context, clue *model.Clue, isOpp bool) {
-	if s == nil || s.db == nil || clue == nil || clue.ID == "" {
-		return
-	}
-	defer func() { _ = recover() }()
-	scoreSvc := NewClueScoreServiceWithRepos(
-		repository.NewClueScoreRepositoryWithDB(s.db),
-		repository.NewClueEngagementRepositoryWithDB(s.db),
-		s.clueRepo,
-	)
-	_ = scoreSvc.RecordEngagement(context.Background(), clue.ID, "group_message", "douyin", map[string]any{"is_opportunity": isOpp})
-	_, _ = scoreSvc.ScoreClue(context.Background(), clue)
+	recordUnifiedLeadScore(ctx, s, clue, "douyin", isOpp)
 }
 
 func (s *WebhookService) DouyinLeadMiner() func(ctx context.Context, ev *model.MessageEvent) {
@@ -218,7 +85,8 @@ func (s *WebhookService) DouyinLeadMiner() func(ctx context.Context, ev *model.M
 			return
 		}
 		channel := strings.ToLower(strings.TrimSpace(ev.Channel))
-		// 2026-08-16 扩展：所有 Bridge 网页渠道统一走抖音关键词打分模型（兼容闲鱼/微博/淘宝等）
+		// 2026-08-16 扩展：所有 Bridge 网页渠道统一走通用关键词打分模型（兼容闲鱼/微博/淘宝等）
+		// 2026-08-19 重构：每个 Bridge 渠道使用对应适配器，修正之前全部写 ClueTypeDouyin 的 Bug
 		if !isBridgeLeadMiningChannel(channel) {
 			return
 		}
@@ -260,7 +128,9 @@ func (s *WebhookService) DouyinLeadMiner() func(ctx context.Context, ev *model.M
 			},
 		}
 
-		s.mineDouyinGroupLead(ctx, hub, accountID, ev.GroupID, groupName, ev.SenderID, ev.SenderName, ev.Content)
+		// 根据渠道选择对应适配器（修正类型映射：小红书→ClueTypeXiaohongshu 等）
+		adapter := bridgeLeadAdapterForChannel(channel)
+		MineUnifiedLead(ctx, s, hub, adapter, accountID, ev.GroupID, groupName, ev.SenderID, ev.SenderName, "", ev.Content)
 	}
 }
 

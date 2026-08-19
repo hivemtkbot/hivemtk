@@ -5,6 +5,7 @@ import (
 	"hivemtk-user/internal/app"
 	contentctrl "hivemtk-user/internal/content/controller"
 	"hivemtk-user/internal/controller"
+	"hivemtk-user/internal/middleware"
 	opsctrl "hivemtk-user/internal/ops/controller"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/repository"
@@ -37,6 +38,27 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 			auth.DELETE(path, handlers...)
 		case "PATCH":
 			auth.PATCH(path, handlers...)
+		}
+	}
+	// doRegAdmin 注册仅 admin 可访问的路由别名（防 staff 改 LLM 配置 / 创建恶意 base_url）
+	doRegAdmin := func(method, path string, handlers ...gin.HandlerFunc) {
+		defer func() {
+			if r := recover(); r != nil {
+				_ = r
+			}
+		}()
+		adminHandlers := append([]gin.HandlerFunc{middleware.AdminAuthMiddleware()}, handlers...)
+		switch method {
+		case "GET":
+			auth.GET(path, adminHandlers...)
+		case "POST":
+			auth.POST(path, adminHandlers...)
+		case "PUT":
+			auth.PUT(path, adminHandlers...)
+		case "DELETE":
+			auth.DELETE(path, adminHandlers...)
+		case "PATCH":
+			auth.PATCH(path, adminHandlers...)
 		}
 	}
 
@@ -166,19 +188,19 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	llmCtrl := controller.NewLLMRoutingController(routingSvc)
 	doReg("GET", "/llm-routing/rules", llmCtrl.ListStrategies)
 	doReg("GET", "/llm-routing/models", llmCtrl.ListModels)
-	doReg("PUT", "/llm-routing/strategies", llmCtrl.UpdateStrategies)
+	doRegAdmin("PUT", "/llm-routing/strategies", llmCtrl.UpdateStrategies)
 
 	doReg("GET", "/llm/models", llmCtrl.ListModels)
 	doReg("GET", "/llm/models/:id", llmCtrl.ListModels)
-	doReg("POST", "/llm/models", llmCtrl.CreateModel)
-	doReg("PUT", "/llm/models/:id", llmCtrl.UpdateModel)
-	doReg("DELETE", "/llm/models/:id", llmCtrl.DeleteModel)
-	doReg("PUT", "/llm/models/:id/status", llmCtrl.UpdateModel)
-	doReg("POST", "/llm/models/:id/test", llmCtrl.TestModel)
+	doRegAdmin("POST", "/llm/models", llmCtrl.CreateModel)
+	doRegAdmin("PUT", "/llm/models/:id", llmCtrl.UpdateModel)
+	doRegAdmin("DELETE", "/llm/models/:id", llmCtrl.DeleteModel)
+	doRegAdmin("PUT", "/llm/models/:id/status", llmCtrl.UpdateModel)
+	doRegAdmin("POST", "/llm/models/:id/test", llmCtrl.TestModel)
 	doReg("GET", "/llm/scene-routing", llmCtrl.ListStrategies)
-	doReg("PUT", "/llm/scene-routing", llmCtrl.UpdateStrategies)
+	doRegAdmin("PUT", "/llm/scene-routing", llmCtrl.UpdateStrategies)
 	doReg("GET", "/llm/fallback", llmCtrl.Stats)
-	doReg("PUT", "/llm/fallback", llmCtrl.UpdateStrategies)
+	doRegAdmin("PUT", "/llm/fallback", llmCtrl.UpdateStrategies)
 	doReg("GET", "/llm/cost-stats", llmCtrl.Usage)
 
 	reachCtrl := controller.NewReachPipelineController(service.NewReachPipelineService(gormDB))
@@ -210,23 +232,23 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/sop-agents/list", sopCtrl.List)
 	doReg("GET", "/sop-agents/stats", sopCtrl.Stats)
 	doReg("GET", "/sop-agents/:id", sopCtrl.Get)
-	doReg("POST", "/sop-agents", sopCtrl.Create)
-	doReg("PUT", "/sop-agents/:id", sopCtrl.Update)
-	doReg("DELETE", "/sop-agents/:id", sopCtrl.Delete)
-	doReg("POST", "/sop-agents/:id/activate", sopCtrl.Activate)
-	doReg("POST", "/sop-agents/:id/deactivate", sopCtrl.Deactivate)
-	doReg("POST", "/sop-agents/:id/execute", sopCtrl.Execute)
-	doReg("POST", "/sop-agents/:id/step", sopCtrl.Step)
-	doReg("POST", "/sop-agents/:id/pause", sopCtrl.Pause)
+	doRegAdmin("POST", "/sop-agents", sopCtrl.Create)
+	doRegAdmin("PUT", "/sop-agents/:id", sopCtrl.Update)
+	doRegAdmin("DELETE", "/sop-agents/:id", sopCtrl.Delete)
+	doRegAdmin("POST", "/sop-agents/:id/activate", sopCtrl.Activate)
+	doRegAdmin("POST", "/sop-agents/:id/deactivate", sopCtrl.Deactivate)
+	doRegAdmin("POST", "/sop-agents/:id/execute", sopCtrl.Execute)
+	doRegAdmin("POST", "/sop-agents/:id/step", sopCtrl.Step)
+	doRegAdmin("POST", "/sop-agents/:id/pause", sopCtrl.Pause)
 
 	scriptCtrl := contentctrl.NewScriptTemplateController()
 	doReg("GET", "/script-templates", scriptCtrl.GetTemplateList)
 	doReg("GET", "/script-templates/list", scriptCtrl.GetTemplateList)
 	doReg("GET", "/script-templates/categories", scriptCtrl.GetCategories)
 	doReg("GET", "/script-templates/:id", scriptCtrl.GetTemplateByID)
-	doReg("POST", "/script-templates", scriptCtrl.CreateTemplate)
-	doReg("PUT", "/script-templates/:id", scriptCtrl.UpdateTemplate)
-	doReg("DELETE", "/script-templates/:id", scriptCtrl.DeleteTemplate)
+	doRegAdmin("POST", "/script-templates", scriptCtrl.CreateTemplate)
+	doRegAdmin("PUT", "/script-templates/:id", scriptCtrl.UpdateTemplate)
+	doRegAdmin("DELETE", "/script-templates/:id", scriptCtrl.DeleteTemplate)
 	doReg("GET", "/script-templates/search", scriptCtrl.SearchTemplates)
 	doReg("GET", "/script-templates/public", scriptCtrl.GetPublicTemplates)
 	doReg("POST", "/script-templates/recommend", scriptCtrl.RecommendScript)
@@ -402,13 +424,13 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/ai-content/history", aiContentCtrl.GetGenerationHistory)
 	doReg("GET", "/ai-content/templates", aiContentCtrl.GetTemplates)
 	doReg("GET", "/ai-content/templates/:id", aiContentCtrl.GetTemplateByID)
-	doReg("POST", "/ai-content/generate", aiContentCtrl.GenerateContent)
-	doReg("POST", "/ai-content", aiContentCtrl.CreateHistory)
+	doRegAdmin("POST", "/ai-content/generate", aiContentCtrl.GenerateContent)
+	doRegAdmin("POST", "/ai-content", aiContentCtrl.CreateHistory)
 	doReg("GET", "/ai-content/:id", aiContentCtrl.GetRecordByID)
-	doReg("PUT", "/ai-content/:id/save", aiContentCtrl.SaveRecord)
+	doRegAdmin("POST", "/ai-content/:id/save", aiContentCtrl.SaveRecord)
 	doReg("POST", "/ai-content/:id/favorite", aiContentCtrl.FavoriteRecord)
 	doReg("POST", "/ai-content/:id/rate", aiContentCtrl.RateRecord)
-	doReg("DELETE", "/ai-content/:id", aiContentCtrl.DeleteRecord)
+	doRegAdmin("DELETE", "/ai-content/:id", aiContentCtrl.DeleteRecord)
 
 	templateCtrl := contentctrl.NewTemplateMarketController()
 	doReg("GET", "/market-templates", templateCtrl.GetTemplateList)
