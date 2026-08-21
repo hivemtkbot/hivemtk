@@ -198,6 +198,7 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		setupPublicRoutes(public, liveCodeController, platformCtrl, gormDB)
 		setupChatPublicRoutes(public, gormDB, orchestrator, langResolver)
 		setupSSORoutes(public, gormDB)
+		setupSelfServiceRoutes(public, gormDB)
 	}
 
 	setupChatPublicWebSocket(r, langResolver)
@@ -216,6 +217,8 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 
 		setupAccountRoutes(auth)
 
+		setupAlertRoutes(auth)
+
 		setupShortLinkRoutes(auth, public, gormDB)
 
 		setupLiveCodeRoutes(auth, liveCodeController)
@@ -233,6 +236,7 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		setupMaterialRoutes(auth)
 
 		setupClueRoutes(auth)
+		setupGeoRoutes(auth, gormDB)
 		setupLeadMiningRoutes(auth)
 
 		setupCustomerRFMRoutes(auth)
@@ -425,6 +429,8 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 	setupWechatWebhookRoutes(wechatWebhookGroup, gormDB, bridgeIngressSvc)
 
 		setupSOPRoutes(auth, gormDB)
+
+		setupWorkflowOrchestratorRoutes(auth, gormDB)
 
 		setupLLMRoutingRoutes(auth)
 

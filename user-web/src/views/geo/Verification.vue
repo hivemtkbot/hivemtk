@@ -1,0 +1,271 @@
+<template>
+  <div class="geo-page">
+    <div class="page-header">
+      <h2>多模型验证</h2>
+      <p class="sub">跨 LLM 验证品牌提及率与竞品对比，支持负面查询监控</p>
+    </div>
+
+    <!-- 验证表单 -->
+    <el-card shadow="never" class="form-card">
+      <template #header><span class="card-title">验证配置</span></template>
+      <el-form :model="form" label-width="92px">
+        <el-row :gutter="16">
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="验证文章">
+              <el-select
+                v-model="form.article_id"
+                placeholder="选择已生成文章（或粘贴内容）"
+                filterable
+                clearable
+                style="width: 100%"
+                @change="onArticleChange"
+              >
+                <el-option
+                  v-for="a in articles"
+                  :key="a.id"
+                  :label="a.title || a.keyword"
+                  :value="a.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="品牌名称">
+              <el-input v-model="form.brand" placeholder="如：hivemtk" clearable />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="验证模型">
+              <el-select
+                v-model="form.models"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                placeholder="选择参与验证的 LLM"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="m in modelOptions"
+                  :key="m.value"
+                  :label="m.label"
+                  :value="m.value"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="竞品">
+              <el-input v-model="form.competitors" placeholder="多个竞品用逗号分隔" clearable />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="测试问题">
+          <el-input
+            v-model="form.queries"
+            type="textarea"
+            :rows="4"
+            placeholder="每行一个问题，可粘贴关键词"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="verifying" @click="handleVerify">
+            <el-icon><CircleCheck /></el-icon><span>验证</span>
+          </el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <!-- 验证结果 -->
+    <el-card v-if="results.length" shadow="never" class="result-card">
+      <template #header><span class="card-title">验证结果</span></template>
+      <el-table v-loading="verifying" :data="results" stripe style="width: 100%">
+        <el-table-column prop="model" label="验证模型" width="140" />
+        <el-table-column prop="query" label="问题" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="brand" label="品牌" width="120" />
+        <el-table-column prop="brand_mentioned" label="品牌提及" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.brand_mentioned ? 'success' : 'info'" size="small">
+              {{ row.brand_mentioned ? '是' : '否' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="mention_count" label="提及次数" width="100" align="right" />
+        <el-table-column prop="sentiment" label="情感" width="90">
+          <template #default="{ row }">
+            <el-tag size="small" :type="sentimentType(row.sentiment)">{{ row.sentiment || '—' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="position" label="提及位置" width="130" />
+      </el-table>
+    </el-card>
+
+    <!-- 负面监控 -->
+    <el-card shadow="never" class="negative-card">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">负面监控</span>
+          <el-button type="warning" :loading="monitoring" @click="handleMonitorNegative">
+            <el-icon><Warning /></el-icon><span>检测负面</span>
+          </el-button>
+        </div>
+      </template>
+      <el-empty v-if="!negativeResults.length" description="暂无负面监控数据，点击「检测负面」生成" :image-size="60" />
+      <el-table v-else :data="negativeResults" stripe style="width: 100%">
+        <el-table-column prop="query" label="负面查询" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="mention_count" label="提及次数" width="100" align="right" />
+        <el-table-column prop="negative_score" label="负面得分" width="100" align="right" />
+        <el-table-column prop="risk_level" label="风险等级" width="100">
+          <template #default="{ row }">
+            <el-tag size="small" :type="riskType(row.risk_level)">{{ row.risk_level || '低' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="risk_description" label="风险说明" min-width="220" show-overflow-tooltip />
+      </el-table>
+    </el-card>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { CircleCheck, Warning } from '@element-plus/icons-vue'
+import { geoApi } from '@/api/geo'
+
+const modelOptions = [
+  { label: 'GPT-4o', value: 'gpt-4o' },
+  { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet' },
+  { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro' },
+  { label: 'DeepSeek Chat', value: 'deepseek-chat' },
+  { label: '通义千问 Max', value: 'qwen-max' },
+  { label: '文心一言 4.0', value: 'ernie-4.0' }
+]
+
+const form = reactive({
+  article_id: '',
+  brand: '',
+  models: ['gpt-4o', 'deepseek-chat'],
+  competitors: '',
+  queries: '',
+  content: ''
+})
+
+const articles = ref([])
+const verifying = ref(false)
+const monitoring = ref(false)
+const results = ref([])
+const negativeResults = ref([])
+
+const sentimentType = (s) => {
+  const map = { 正面: 'success', 中性: 'info', 负面: 'danger' }
+  return map[s] || 'info'
+}
+const riskType = (r) => {
+  const map = { 高: 'danger', 中: 'warning', 低: 'success' }
+  return map[r] || 'success'
+}
+
+const loadArticles = async () => {
+  try {
+    const res = await geoApi.getArticleList({ page: 1, page_size: 100 })
+    articles.value = res?.list || res?.items || res || []
+  } catch (e) {
+    articles.value = []
+  }
+}
+
+const onArticleChange = async (id) => {
+  if (!id) return
+  try {
+    const res = await geoApi.getArticleByID(id)
+    form.content = res?.content || res?.article || ''
+  } catch (e) {
+    ElMessage.error(e.message || '文章加载失败')
+  }
+}
+
+const handleVerify = async () => {
+  if (!form.queries.trim()) {
+    ElMessage.warning('请输入测试问题')
+    return
+  }
+  if (form.models.length === 0) {
+    ElMessage.warning('请至少选择一个验证模型')
+    return
+  }
+  verifying.value = true
+  try {
+    const res = await geoApi.verifyArticle({
+      article_id: form.article_id || undefined,
+      content: form.content || undefined,
+      queries: form.queries,
+      models: form.models,
+      brand: form.brand,
+      competitors: form.competitors
+        ? form.competitors.split(/[,，]/).map((s) => s.trim()).filter(Boolean)
+        : []
+    })
+    results.value = res?.results || res || []
+    ElMessage.success('验证完成')
+  } catch (e) {
+    ElMessage.error(e.message || '验证失败')
+  } finally {
+    verifying.value = false
+  }
+}
+
+const handleMonitorNegative = async () => {
+  if (!form.brand.trim()) {
+    ElMessage.warning('请先填写品牌名称')
+    return
+  }
+  monitoring.value = true
+  try {
+    const res = await geoApi.monitorNegative({
+      brand: form.brand,
+      queries: form.queries,
+      article_id: form.article_id || undefined
+    })
+    negativeResults.value = res?.results || res || []
+    ElMessage.success('负面检测完成')
+  } catch (e) {
+    ElMessage.error(e.message || '负面检测失败')
+  } finally {
+    monitoring.value = false
+  }
+}
+
+onMounted(loadArticles)
+</script>
+
+<style scoped>
+.geo-page {
+  padding: 20px 24px;
+}
+.page-header h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.page-header .sub {
+  margin: 0 0 16px;
+  color: #64748b;
+  font-size: 13px;
+}
+.form-card,
+.result-card,
+.negative-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-weight: 600;
+  color: #0f172a;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+</style>

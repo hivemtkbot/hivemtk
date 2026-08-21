@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	contentmodel "hivemtk-user/internal/content/model"
+	geomodel "hivemtk-user/internal/geo/model"
 	"hivemtk-user/internal/model"
 	opsmodel "hivemtk-user/internal/ops/model"
 	"hivemtk-user/internal/pkg/utils/logger"
@@ -224,6 +225,22 @@ func allModels() []any {
 		&model.SecurityAuditItem{},
 		&model.UserBlacklist{},
 		&model.BridgeAccount{},
+		&model.PasswordResetToken{},
+
+		// GEO 模块
+		&geomodel.GeoKeyword{},
+		&geomodel.GeoKeywordGroup{},
+		&geomodel.GeoArticle{},
+		&geomodel.GeoOptimization{},
+		&geomodel.GeoVerifyResult{},
+		&geomodel.GeoAPICall{},
+		&geomodel.GeoConfig{},
+		&geomodel.GeoPlatformAccount{},
+		&geomodel.GeoPublishRecord{},
+		&geomodel.GeoKnowledgeDocument{},
+		&geomodel.GeoWorkflow{},
+		&geomodel.GeoWorkflowExecution{},
+		&geomodel.GeoWorkflowTemplate{},
 	}
 }
 
