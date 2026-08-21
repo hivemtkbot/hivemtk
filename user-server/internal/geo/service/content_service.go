@@ -72,7 +72,7 @@ func (s *ContentService) OptimizeContent(ctx context.Context, articleID, content
 
 	optimization := &model.GeoOptimization{
 		ArticleID:        articleID,
-		OriginalContent:   content,
+		OriginalContent:  content,
 		OptimizedContent: extractOptimizedContent(resp.Content),
 		Model:            resp.Model,
 	}
@@ -102,37 +102,43 @@ func (s *ContentService) ScoreContent(ctx context.Context, content, brandName, k
 	return parseScoreResult(resp.Content), nil
 }
 
+// scoreResult 评分结果结构（与 ContentScorePrompt 输出契约一致）
+type scoreResult struct {
+	Scores struct {
+		Structure    float64 `json:"structure"`
+		BrandMention float64 `json:"brand_mention"`
+		Authority    float64 `json:"authority"`
+		Citations    float64 `json:"citations"`
+		Total        float64 `json:"total"`
+	} `json:"scores"`
+	Details      map[string]string `json:"details"`
+	Improvements []string          `json:"improvements"`
+	Strengths    []string          `json:"strengths"`
+}
+
 // parseScoreResult 解析评分结果
 func parseScoreResult(content string) map[string]any {
-	result := map[string]any{
-		"total_score": 0.0,
-		"dimensions":  map[string]float64{},
-		"summary":     content,
+	fallback := map[string]any{
+		"scores":       map[string]float64{"total": 0},
+		"improvements": []string{},
+		"strengths":    []string{},
+		"summary":      content,
 	}
 	jsonStr := extractJSONObject(content)
 	if jsonStr == "" {
-		return result
+		return fallback
 	}
-	var parsed map[string]any
+	var parsed scoreResult
 	if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil {
-		return result
+		return fallback
 	}
-	if score, ok := parsed["total_score"].(float64); ok {
-		result["total_score"] = score
+	return map[string]any{
+		"scores":       parsed.Scores,
+		"details":      parsed.Details,
+		"improvements": parsed.Improvements,
+		"strengths":    parsed.Strengths,
+		"summary":      content,
 	}
-	if dims, ok := parsed["dimensions"].(map[string]any); ok {
-		dimMap := map[string]float64{}
-		for k, v := range dims {
-			if fv, ok := v.(float64); ok {
-				dimMap[k] = fv
-			}
-		}
-		result["dimensions"] = dimMap
-	}
-	if summary, ok := parsed["summary"].(string); ok {
-		result["summary"] = summary
-	}
-	return result
 }
 
 // EnhanceEEAT E-E-A-T 增强
@@ -147,16 +153,16 @@ func (s *ContentService) EnhanceEEAT(ctx context.Context, content, brandName str
 	s.recordAPICall(ctx, resp, "eeat_enhance")
 
 	return map[string]any{
-		"original":  content,
-		"enhanced":  resp.Content,
-		"provider":  resp.Provider,
-		"model":     resp.Model,
+		"original": content,
+		"enhanced": resp.Content,
+		"provider": resp.Provider,
+		"model":    resp.Model,
 	}, nil
 }
 
-// GenerateSchema 生成 JSON-LD Schema
-func (s *ContentService) GenerateSchema(ctx context.Context, brandName, description, schemaType string) (map[string]any, error) {
-	prompt := SchemaGeneratePrompt(brandName, description, schemaType)
+// GenerateSchema 生成 JSON-LD Schema（第三参为站点域名）
+func (s *ContentService) GenerateSchema(ctx context.Context, brandName, description, domain string) (map[string]any, error) {
+	prompt := SchemaGeneratePrompt(brandName, description, domain)
 
 	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 2000)
 	if err != nil {
@@ -171,10 +177,11 @@ func (s *ContentService) GenerateSchema(ctx context.Context, brandName, descript
 	}
 	if schema == nil {
 		schema = map[string]any{
-			"@context": "https://schema.org",
-			"@type":    schemaType,
-			"name":     brandName,
+			"@context":    "https://schema.org",
+			"@type":       "Organization",
+			"name":        brandName,
 			"description": description,
+			"url":         domain,
 		}
 	}
 	schema["provider"] = resp.Provider
@@ -196,10 +203,10 @@ func (s *ContentService) CheckUniqueness(ctx context.Context, content string) (m
 		uniquenessRatio = float64(unique) / float64(total)
 	}
 	return map[string]any{
-		"total_words":     total,
-		"unique_words":    unique,
+		"total_words":      total,
+		"unique_words":     unique,
 		"uniqueness_ratio": uniquenessRatio,
-		"is_unique":       uniquenessRatio > 0.6,
+		"is_unique":        uniquenessRatio > 0.6,
 	}, nil
 }
 

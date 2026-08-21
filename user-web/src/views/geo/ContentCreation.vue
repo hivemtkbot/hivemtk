@@ -90,26 +90,30 @@
             <el-card v-if="score" shadow="never" class="score-card">
               <div class="score-grid">
                 <div class="score-item total">
-                  <div class="score-value">{{ score.total ?? '—' }}</div>
+                  <div class="score-value">{{ score.scores?.total ?? '—' }}</div>
                   <div class="score-label">总分</div>
                 </div>
                 <div class="score-item">
-                  <div class="score-value">{{ score.geo_score ?? '—' }}</div>
-                  <div class="score-label">GEO 分</div>
+                  <div class="score-value">{{ score.scores?.structure ?? '—' }}</div>
+                  <div class="score-label">结构化</div>
                 </div>
                 <div class="score-item">
-                  <div class="score-value">{{ score.mention_rate ?? '—' }}</div>
-                  <div class="score-label">提及率</div>
+                  <div class="score-value">{{ score.scores?.brand_mention ?? '—' }}</div>
+                  <div class="score-label">品牌提及</div>
                 </div>
                 <div class="score-item">
-                  <div class="score-value">{{ score.citation ?? '—' }}</div>
-                  <div class="score-label">引用度</div>
+                  <div class="score-value">{{ score.scores?.authority ?? '—' }}</div>
+                  <div class="score-label">权威性</div>
+                </div>
+                <div class="score-item">
+                  <div class="score-value">{{ score.scores?.citations ?? '—' }}</div>
+                  <div class="score-label">可引用性</div>
                 </div>
               </div>
-              <div v-if="score.suggestions?.length" class="score-suggest">
+              <div v-if="score.improvements?.length" class="score-suggest">
                 <div class="suggest-title">优化建议</div>
                 <ul>
-                  <li v-for="(s, i) in score.suggestions" :key="i">{{ s }}</li>
+                  <li v-for="(s, i) in score.improvements" :key="i">{{ s }}</li>
                 </ul>
               </div>
             </el-card>
@@ -163,7 +167,7 @@ const addAdv = () => {
 }
 
 const handleGenerate = async () => {
-  if (!form.keyword.trim() || !form.brand.trim()) {
+  if (!form.keyword.trim() || !form.brand_name.trim()) {
     ElMessage.warning('请填写关键词与品牌名称')
     return
   }
@@ -176,10 +180,8 @@ const handleGenerate = async () => {
   try {
     const res = await geoApi.generateContent({
       keyword: form.keyword,
-      brand: form.brand,
+      brand_name: form.brand_name,
       advantages: form.advantages,
-      platform: form.platform,
-      model: form.model,
       word_count: form.word_count,
       style: form.style
     })
@@ -198,7 +200,7 @@ const handleScore = async () => {
   try {
     const res = await geoApi.scoreContent({
       content: generatedContent.value,
-      brand: form.brand,
+      brand_name: form.brand_name,
       keyword: form.keyword
     })
     score.value = res || null

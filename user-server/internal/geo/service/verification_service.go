@@ -30,10 +30,10 @@ func NewVerificationService(vr repository.GeoVerifyResultRepository, acr reposit
 // verifyLLMResponse LLM 验证响应结构
 type verifyLLMResponse struct {
 	Response             string   `json:"response"`
-	BrandMentioned      bool     `json:"brand_mentioned"`
-	MentionCount        int      `json:"mention_count"`
-	MentionPositions    []string `json:"mention_positions"`
-	Sentiment           string   `json:"sentiment"`
+	BrandMentioned       bool     `json:"brand_mentioned"`
+	MentionCount         int      `json:"mention_count"`
+	MentionPositions     []string `json:"mention_positions"`
+	Sentiment            string   `json:"sentiment"`
 	CompetitorsMentioned []string `json:"competitors_mentioned"`
 }
 

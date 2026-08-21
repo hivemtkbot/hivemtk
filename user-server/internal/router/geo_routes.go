@@ -15,19 +15,19 @@ import (
 // 权限分级：config 写入/优化（PUT /geo/config、POST /geo/config/optimize）
 // 仅管理员可操作，防止 staff 误改品牌配置导致全链路 GEO 内容偏移。
 func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
-	// 初始化 repositories
-	keywordRepo := georepo.NewGeoKeywordRepository()
-	articleRepo := georepo.NewGeoArticleRepository()
-	optimizationRepo := georepo.NewGeoOptimizationRepository()
-	verifyRepo := georepo.NewGeoVerifyResultRepository()
-	apiCallRepo := georepo.NewGeoAPICallRepository()
-	configRepo := georepo.NewGeoConfigRepository()
-	accountRepo := georepo.NewGeoPlatformAccountRepository()
-	publishRecordRepo := georepo.NewGeoPublishRecordRepository()
-	kbDocRepo := georepo.NewGeoKnowledgeDocumentRepository()
-	wfRepo := georepo.NewGeoWorkflowRepository()
-	execRepo := georepo.NewGeoWorkflowExecutionRepository()
-	tplRepo := georepo.NewGeoWorkflowTemplateRepository()
+	// 初始化 repositories（显式注入 gormDB，避免隐藏全局依赖，测试可替换）
+	keywordRepo := georepo.NewGeoKeywordRepositoryWithDB(gormDB)
+	articleRepo := georepo.NewGeoArticleRepositoryWithDB(gormDB)
+	optimizationRepo := georepo.NewGeoOptimizationRepositoryWithDB(gormDB)
+	verifyRepo := georepo.NewGeoVerifyResultRepositoryWithDB(gormDB)
+	apiCallRepo := georepo.NewGeoAPICallRepositoryWithDB(gormDB)
+	configRepo := georepo.NewGeoConfigRepositoryWithDB(gormDB)
+	accountRepo := georepo.NewGeoPlatformAccountRepositoryWithDB(gormDB)
+	publishRecordRepo := georepo.NewGeoPublishRecordRepositoryWithDB(gormDB)
+	kbDocRepo := georepo.NewGeoKnowledgeDocumentRepositoryWithDB(gormDB)
+	wfRepo := georepo.NewGeoWorkflowRepositoryWithDB(gormDB)
+	execRepo := georepo.NewGeoWorkflowExecutionRepositoryWithDB(gormDB)
+	tplRepo := georepo.NewGeoWorkflowTemplateRepositoryWithDB(gormDB)
 
 	// 初始化 LLM 适配器（复用 hivemtk 全局 Dispatcher）
 	llmAdapter := geoservice.NewLLMAdapter()

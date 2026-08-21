@@ -147,7 +147,7 @@ const originalContent = computed(() => form.content)
 
 const loadArticles = async () => {
   try {
-    const res = await geoApi.getArticleList({ page: 1, page_size: 100 })
+    const res = await geoApi.getArticleList({ page: 1, limit: 100 })
     articles.value = res?.list || res?.items || res || []
   } catch (e) {
     articles.value = []
@@ -178,12 +178,13 @@ const handleOptimize = async () => {
   try {
     const res = await geoApi.optimizeContent({
       content: form.content,
-      brand: form.brand,
-      platform: form.platform,
+      brand_name: form.brand,
       article_id: form.article_id || undefined
     })
     optimizedContent.value = res?.optimized_content || res?.content || ''
-    suggestions.value = res?.suggestions || res?.changes || []
+    // 后端 Suggestions 为文本，按行拆分为数组渲染
+    const raw = res?.suggestions || ''
+    suggestions.value = Array.isArray(raw) ? raw : String(raw).split('\n').map((s) => s.trim()).filter(Boolean)
     ElMessage.success('文章优化完成')
   } catch (e) {
     ElMessage.error(e.message || '文章优化失败')
@@ -201,7 +202,7 @@ const handleScore = async (stage) => {
   const loading = stage === 'before' ? scoringBefore : scoringAfter
   loading.value = true
   try {
-    const res = await geoApi.scoreContent({ content, brand: form.brand })
+    const res = await geoApi.scoreContent({ content, brand_name: form.brand, keyword: '' })
     if (stage === 'before') scoreBefore.value = res
     else scoreAfter.value = res
     ElMessage.success('评分完成')

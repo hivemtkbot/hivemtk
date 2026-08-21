@@ -51,7 +51,6 @@ var (
 	percentRe      = regexp.MustCompile(`\d+(\.\d+)?%`)
 	decimalRe      = regexp.MustCompile(`\d+\.\d+`)
 	trustSignalRe  = regexp.MustCompile(`(?:根据|参考|来自|据)\s*[^，。,；;\n]{2,30}(?:报告|研究|数据|统计|调查|分析)`)
-	citationRe     = regexp.MustCompile(`(?:根据|参考|来自|据)\s*[^，。,；;\n]{2,30}(?:报告|研究|数据|统计|调查|分析)`)
 	brandMentionRe = regexp.MustCompile(`\b[A-Z][a-zA-Z0-9]{2,20}\b`)
 )
 
@@ -104,7 +103,7 @@ func (s *MetricsService) CountCitations(content string) int {
 	if content == "" {
 		return 0
 	}
-	return s.countMatches(content, citationRe)
+	return s.countMatches(content, trustSignalRe)
 }
 
 // CountBrandMentions 计算品牌提及次数

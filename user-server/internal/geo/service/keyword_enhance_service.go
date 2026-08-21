@@ -148,7 +148,7 @@ func classifyIntent(keyword string) string {
 	switch {
 	case strings.Contains(keyword, "哪家") || strings.Contains(keyword, "哪个") || strings.Contains(keyword, "哪个好"):
 		return "疑问"
-	case strings.Contains(keyword, "对比") || strings.Contains(keyword, "比较") || strings.Contains("keyword", "vs"):
+	case strings.Contains(keyword, "对比") || strings.Contains(keyword, "比较") || strings.Contains(keyword, "vs"):
 		return "对比"
 	case strings.Contains(keyword, "推荐") || strings.Contains(keyword, "排行"):
 		return "推荐"

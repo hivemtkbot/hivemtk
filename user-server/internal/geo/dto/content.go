@@ -4,12 +4,12 @@ import "time"
 
 // GenerateContentRequest 内容生成请求
 type GenerateContentRequest struct {
-	Keyword     string   `json:"keyword"`
-	BrandName   string   `json:"brand_name"`
-	Advantages  []string `json:"advantages"`
-	Model       string   `json:"model"`
-	WordCount   int      `json:"word_count"`
-	Style       string   `json:"style"`
+	Keyword    string   `json:"keyword"`
+	BrandName  string   `json:"brand_name"`
+	Advantages []string `json:"advantages"`
+	Model      string   `json:"model"`
+	WordCount  int      `json:"word_count"`
+	Style      string   `json:"style"`
 }
 
 // OptimizeContentRequest 内容优化请求

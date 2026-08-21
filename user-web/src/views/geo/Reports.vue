@@ -43,8 +43,13 @@
       <el-table v-loading="costLoading" :data="costRows" stripe style="width: 100%">
         <el-table-column prop="provider" label="Provider" width="140" />
         <el-table-column prop="model" label="Model" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="calls" label="调用次数" width="110" align="right" />
-        <el-table-column prop="tokens" label="Token 数" width="120" align="right" />
+        <el-table-column prop="call_count" label="调用次数" width="110" align="right" />
+        <el-table-column label="输入 Token" width="120" align="right">
+          <template #default="{ row }">{{ formatInt(row.input_tokens) }}</template>
+        </el-table-column>
+        <el-table-column label="输出 Token" width="120" align="right">
+          <template #default="{ row }">{{ formatInt(row.output_tokens) }}</template>
+        </el-table-column>
         <el-table-column prop="cost_cny" label="成本(CNY)" width="120" align="right">
           <template #default="{ row }">¥{{ formatNum(row.cost_cny) }}</template>
         </el-table-column>
@@ -57,43 +62,34 @@
 
     <!-- ROI 分析 -->
     <el-card shadow="never" class="roi-card">
-      <template #header><span class="card-title">ROI 分析</span></template>
+      <template #header><span class="card-title">ROI 分析（API 投入统计）</span></template>
       <div v-loading="roiLoading">
         <el-row :gutter="16" class="roi-row">
           <el-col :xs="12" :sm="6">
             <div class="roi-item">
-              <div class="roi-label">总投入成本</div>
-              <div class="roi-value">¥{{ formatNum(roi.total_cost) }}</div>
+              <div class="roi-label">总调用次数</div>
+              <div class="roi-value">{{ formatInt(roi.total_calls) }}</div>
             </div>
           </el-col>
           <el-col :xs="12" :sm="6">
             <div class="roi-item">
-              <div class="roi-label">总提及次数</div>
-              <div class="roi-value">{{ roi.total_mentions ?? 0 }}</div>
+              <div class="roi-label">Token 消耗</div>
+              <div class="roi-value">{{ formatInt((roi.total_input_tokens || 0) + (roi.total_output_tokens || 0)) }}</div>
             </div>
           </el-col>
           <el-col :xs="12" :sm="6">
             <div class="roi-item">
-              <div class="roi-label">估算价值</div>
-              <div class="roi-value">¥{{ formatNum(roi.estimated_value) }}</div>
+              <div class="roi-label">总投入(CNY)</div>
+              <div class="roi-value">¥{{ formatNum(roi.total_cost_cny) }}</div>
             </div>
           </el-col>
           <el-col :xs="12" :sm="6">
             <div class="roi-item highlight">
-              <div class="roi-label">ROI</div>
-              <div class="roi-value">{{ formatNum(roi.roi_ratio) }}%</div>
+              <div class="roi-label">单次均价(USD)</div>
+              <div class="roi-value">${{ formatNum(roi.avg_cost_per_call_usd) }}</div>
             </div>
           </el-col>
         </el-row>
-        <div v-if="roi.suggestions?.length" class="roi-suggest">
-          <div class="suggest-title">成本优化建议</div>
-          <ul>
-            <li v-for="(s, i) in roi.suggestions" :key="i">
-              <el-tag size="small" :type="priorityType(s.priority)">{{ s.priority || '低' }}</el-tag>
-              <span class="suggest-text">{{ s.title }}{{ s.description ? '：' + s.description : '' }}</span>
-            </li>
-          </ul>
-        </div>
       </div>
     </el-card>
   </div>
@@ -116,12 +112,19 @@ const roi = ref({})
 const filter = reactive({})
 
 const summaryCards = computed(() => [
-  { key: 'articles', label: '文章总数', value: summary.value.articles ?? 0 },
-  { key: 'keywords', label: '关键词数', value: summary.value.keywords ?? 0 },
-  { key: 'optimizations', label: '优化次数', value: summary.value.optimizations ?? 0 },
-  { key: 'verifications', label: '验证次数', value: summary.value.verifications ?? 0 },
+  { key: 'articles', label: '文章总数', value: formatInt(summary.value.total_articles) },
+  { key: 'keywords', label: '关键词数', value: formatInt(summary.value.total_keywords) },
+  { key: 'optimizations', label: '优化次数', value: formatInt(summary.value.total_optimizations) },
+  { key: 'verifications', label: '验证次数', value: formatInt(summary.value.total_verifications) },
+  { key: 'api_calls', label: 'API 调用', value: formatInt(summary.value.total_api_calls) },
   { key: 'total_cost', label: '总成本(CNY)', value: '¥' + formatNum(summary.value.total_cost_cny), cls: 'cost' }
 ])
+
+const formatInt = (n) => {
+  const num = Number(n)
+  if (!isFinite(num)) return '0'
+  return num.toLocaleString('zh-CN')
+}
 
 const priorityType = (p) => {
   const map = { 高: 'danger', 中: 'warning', 低: 'success' }

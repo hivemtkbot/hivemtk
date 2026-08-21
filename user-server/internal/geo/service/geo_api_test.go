@@ -155,9 +155,9 @@ func TestGeoAPI_GenerateContent(t *testing.T) {
 func TestGeoAPI_ScoreContent(t *testing.T) {
 	r := setupGeoRouter(t)
 	body := map[string]any{
-		"content":   "根据2024年报告显示，GEO优化能提升品牌曝光率30%。",
+		"content":    "根据2024年报告显示，GEO优化能提升品牌曝光率30%。",
 		"brand_name": "测试品牌",
-		"keyword":   "GEO优化",
+		"keyword":    "GEO优化",
 	}
 	w := doRequest(t, r, "POST", "/geo/content/score", body)
 	assertStatus(t, w, http.StatusOK)
@@ -186,9 +186,9 @@ func TestGeoAPI_GetArticleList(t *testing.T) {
 func TestGeoAPI_VerifyArticle(t *testing.T) {
 	r := setupGeoRouter(t)
 	body := map[string]any{
-		"brand_name":  "测试品牌",
-		"query":       "GEO优化怎么样",
-		"article_id":  "test-article-001",
+		"brand_name": "测试品牌",
+		"query":      "GEO优化怎么样",
+		"article_id": "test-article-001",
 	}
 	w := doRequest(t, r, "POST", "/geo/verification/verify", body)
 	assertStatus(t, w, http.StatusOK)
@@ -210,8 +210,8 @@ func TestGeoAPI_KBSaveAndGet(t *testing.T) {
 
 	// Save
 	saveBody := map[string]any{
-		"title":   "GEO优化指南",
-		"content": "GEO（生成式引擎优化）是一种针对AI搜索引擎的优化策略...",
+		"title":    "GEO优化指南",
+		"content":  "GEO（生成式引擎优化）是一种针对AI搜索引擎的优化策略...",
 		"doc_type": "reference",
 	}
 	w := doRequest(t, r, "POST", "/geo/kb/documents", saveBody)
@@ -378,7 +378,7 @@ func TestGeoAPI_TechConfig(t *testing.T) {
 
 	// Robots
 	w := doRequest(t, r, "POST", "/geo/techconfig/robots", map[string]any{
-		"site_url":  "https://example.com",
+		"site_url": "https://example.com",
 		"disallow": []string{"/admin", "/api"},
 	})
 	assertStatus(t, w, http.StatusOK)
@@ -387,7 +387,7 @@ func TestGeoAPI_TechConfig(t *testing.T) {
 	// Sitemap
 	w = doRequest(t, r, "POST", "/geo/techconfig/sitemap", map[string]any{
 		"site_url": "https://example.com",
-		"urls":    []string{"/", "/about", "/blog"},
+		"urls":     []string{"/", "/about", "/blog"},
 	})
 	assertStatus(t, w, http.StatusOK)
 	assertCodeZero(t, w)

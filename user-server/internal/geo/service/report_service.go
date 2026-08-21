@@ -136,8 +136,8 @@ func (s *ReportService) GetROI(ctx context.Context, provider, modelName, startDa
 
 	return map[string]any{
 		"filter": map[string]any{
-			"provider":  provider,
-			"model":     modelName,
+			"provider":   provider,
+			"model":      modelName,
 			"start_date": startDate,
 			"end_date":   endDate,
 		},

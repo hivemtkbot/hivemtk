@@ -9,17 +9,17 @@ import (
 
 // ResourceController GEO 资源推荐 / 技术配置 / 质量指标控制器。
 type ResourceController struct {
-	resourceSvc  *service.ResourceService
+	resourceSvc   *service.ResourceService
 	techconfigSvc *service.TechConfigService
-	metricsSvc   *service.MetricsService
+	metricsSvc    *service.MetricsService
 }
 
 // NewResourceController 构造资源控制器
 func NewResourceController() *ResourceController {
 	return &ResourceController{
-		resourceSvc:  service.NewResourceService(),
+		resourceSvc:   service.NewResourceService(),
 		techconfigSvc: service.NewTechConfigService(),
-		metricsSvc:   service.NewMetricsService(),
+		metricsSvc:    service.NewMetricsService(),
 	}
 }
 

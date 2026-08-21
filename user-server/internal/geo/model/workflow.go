@@ -10,15 +10,15 @@ import (
 
 // GeoWorkflow GEO 工作流定义模型（迁移自 AIGEOTOOLS storage.Workflow）
 type GeoWorkflow struct {
-	ID         string         `gorm:"type:varchar(36);primaryKey" json:"id"`
-	Name       string         `gorm:"type:varchar(200)" json:"name"`
-	Steps      string         `gorm:"type:text" json:"steps"` // JSON: []map[string]interface{}
-	Conditions string         `gorm:"type:text" json:"conditions"` // JSON: map[string]string
-	Schedule   string         `gorm:"type:varchar(100)" json:"schedule"`
-	Enabled    bool           `gorm:"default:false" json:"enabled"`
+	ID         string `gorm:"type:varchar(36);primaryKey" json:"id"`
+	Name       string `gorm:"type:varchar(200)" json:"name"`
+	Steps      string `gorm:"type:text" json:"steps"`      // JSON: []map[string]interface{}
+	Conditions string `gorm:"type:text" json:"conditions"` // JSON: map[string]string
+	Schedule   string `gorm:"type:varchar(100)" json:"schedule"`
+	Enabled    bool   `gorm:"default:false" json:"enabled"`
 
-	CreatedAt time.Time       `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time       `gorm:"autoUpdateTime" json:"updated_at"`
+	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 
@@ -75,16 +75,16 @@ func (m *GeoWorkflow) GetConditions() (map[string]string, error) {
 
 // GeoWorkflowExecution GEO 工作流执行记录模型
 type GeoWorkflowExecution struct {
-	ID          string         `gorm:"type:varchar(36);primaryKey" json:"id"`
-	WorkflowID  string         `gorm:"type:varchar(36);index" json:"workflow_id"`
-	Status      string         `gorm:"type:varchar(20)" json:"status"` // running, success, failed
-	Result      string         `gorm:"type:text" json:"result"` // JSON: []StepResult
-	Error       string         `gorm:"type:text" json:"error"`
-	StartedAt   time.Time      `json:"started_at"`
-	CompletedAt *time.Time     `json:"completed_at"`
+	ID          string     `gorm:"type:varchar(36);primaryKey" json:"id"`
+	WorkflowID  string     `gorm:"type:varchar(36);index" json:"workflow_id"`
+	Status      string     `gorm:"type:varchar(20)" json:"status"` // running, success, failed
+	Result      string     `gorm:"type:text" json:"result"`        // JSON: []StepResult
+	Error       string     `gorm:"type:text" json:"error"`
+	StartedAt   time.Time  `json:"started_at"`
+	CompletedAt *time.Time `json:"completed_at"`
 
-	CreatedAt time.Time       `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time       `gorm:"autoUpdateTime" json:"updated_at"`
+	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 
@@ -101,13 +101,13 @@ func (m *GeoWorkflowExecution) BeforeCreate(tx *gorm.DB) error {
 
 // GeoWorkflowTemplate GEO 工作流模板模型（迁移自 storage.WorkflowTemplate）
 type GeoWorkflowTemplate struct {
-	ID          string         `gorm:"type:varchar(36);primaryKey" json:"id"`
-	Name        string         `gorm:"type:varchar(200)" json:"name"`
-	Description string         `gorm:"type:text" json:"description"`
-	Steps       string         `gorm:"type:text" json:"steps"` // JSON: []map[string]interface{}
+	ID          string `gorm:"type:varchar(36);primaryKey" json:"id"`
+	Name        string `gorm:"type:varchar(200)" json:"name"`
+	Description string `gorm:"type:text" json:"description"`
+	Steps       string `gorm:"type:text" json:"steps"` // JSON: []map[string]interface{}
 
-	CreatedAt time.Time       `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time       `gorm:"autoUpdateTime" json:"updated_at"`
+	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 

@@ -54,7 +54,7 @@ func (s *KeywordService) MineKeywords(ctx context.Context, seedWords []string, m
 		return nil, fmt.Errorf("关键词挖掘失败: %w", err)
 	}
 
-	s.recordAPICall(ctx, resp)
+	s.recordAPICall(ctx, resp, "keyword_mining")
 
 	keywords := s.parseMinedKeywords(resp.Content, baseKeywords)
 
@@ -62,9 +62,9 @@ func (s *KeywordService) MineKeywords(ctx context.Context, seedWords []string, m
 	for _, kw := range keywords {
 		geoKW := &model.GeoKeyword{
 			Keyword:      kw.Keyword,
-			Category:      kw.Category,
-			Intent:        kw.Intent,
-			Source:        mode,
+			Category:     kw.Category,
+			Intent:       kw.Intent,
+			Source:       mode,
 			SearchVolume: kw.EstimatedValue,
 		}
 		if err := s.keywordRepo.Create(geoKW); err != nil {
@@ -201,7 +201,7 @@ func (s *KeywordService) SemanticExpand(ctx context.Context, keywords []string, 
 	if err != nil {
 		return nil, fmt.Errorf("语义扩展失败: %w", err)
 	}
-	s.recordAPICall(ctx, resp)
+	s.recordAPICall(ctx, resp, "semantic_expand")
 
 	expanded := s.parseExpandedKeywords(resp.Content, keywordsToExpand)
 
@@ -292,7 +292,7 @@ func (s *KeywordService) TopicCluster(ctx context.Context, keywords []string, br
 	if err != nil {
 		return nil, fmt.Errorf("话题聚类失败: %w", err)
 	}
-	s.recordAPICall(ctx, resp)
+	s.recordAPICall(ctx, resp, "topic_cluster")
 	return s.parseClusterResult(resp.Content, keywordsToCluster), nil
 }
 
@@ -347,15 +347,15 @@ func (s *KeywordService) DeleteKeyword(ctx context.Context, id string) error {
 }
 
 // recordAPICall 记录 API 调用
-func (s *KeywordService) recordAPICall(ctx context.Context, resp *LLMResult) {
+func (s *KeywordService) recordAPICall(ctx context.Context, resp *LLMResult, purpose string) {
 	if s.apiCallRepo == nil || resp == nil {
 		return
 	}
 	call := &model.GeoAPICall{
-		Provider:     resp.Provider,
-		Model:        resp.Model,
-		Purpose:      "keyword_mining",
-		Status:       "success",
+		Provider: resp.Provider,
+		Model:    resp.Model,
+		Purpose:  purpose,
+		Status:   "success",
 	}
 	_ = s.apiCallRepo.Create(call)
 }

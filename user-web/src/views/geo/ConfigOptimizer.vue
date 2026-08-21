@@ -177,16 +177,19 @@ const addTag = (arr, type = 'adv') => {
   visible.value = false
 }
 
+const splitCN = (s) => String(s || '').split(/[、,，]/).map((x) => x.trim()).filter(Boolean)
+
 const loadConfig = async () => {
   loading.value = true
   try {
     const res = await geoApi.getConfig()
-    config.brand = res?.brand || ''
-    config.description = res?.description || ''
-    config.advantages = res?.advantages || []
-    config.competitors = res?.competitors || []
+    config.brand = res?.brand_name || ''
+    config.description = res?.brand_description || ''
+    // 后端以顿号分隔字符串存储，前端拆为数组便于标签编辑
+    config.advantages = splitCN(res?.advantages)
+    config.competitors = splitCN(res?.competitors)
     config.default_model = res?.default_model || 'gpt-4o'
-    config.verify_models = res?.verify_models || ['gpt-4o', 'deepseek-chat']
+    config.verify_models = splitCN(res?.verify_models)
   } catch (e) {
     ElMessage.error(e.message || '配置加载失败')
   } finally {
@@ -201,7 +204,11 @@ const handleSave = async () => {
   }
   saving.value = true
   try {
-    await geoApi.updateConfig({ ...config })
+    await geoApi.updateConfig({
+      brand: config.brand,
+      advantages: config.advantages.join('、'),
+      competitors: config.competitors
+    })
     ElMessage.success('配置已保存')
   } catch (e) {
     ElMessage.error(e.message || '配置保存失败')
@@ -213,9 +220,13 @@ const handleSave = async () => {
 const handleOptimize = async () => {
   optimizing.value = true
   try {
-    const res = await geoApi.optimizeConfig({ ...config })
-    suggestions.value = res?.suggestions || res || []
-    ElMessage.success('配置优化建议已生成')
+    const res = await geoApi.optimizeConfig({
+      brand_name: config.brand,
+      advantages: config.advantages.join('、'),
+      competitors: config.competitors
+    })
+    suggestions.value = res?.suggestions || []
+    ElMessage.success(res?.summary || '配置优化建议已生成')
   } catch (e) {
     ElMessage.error(e.message || '配置优化失败')
   } finally {

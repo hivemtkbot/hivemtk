@@ -54,10 +54,10 @@ func defaultPlatforms() []platformDef {
 }
 
 func findPlatform(name string) *platformDef {
-	for i := range defaultPlatforms() {
-		p := defaultPlatforms()[i]
-		if p.Name == name {
-			return &p
+	defs := defaultPlatforms()
+	for i := range defs {
+		if defs[i].Name == name {
+			return &defs[i]
 		}
 	}
 	return nil
@@ -119,7 +119,7 @@ func (s *PlatformService) validateAccount(req *dto.SavePlatformAccountRequest) e
 	return nil
 }
 
-// SaveAccount 新增/更新平台账号
+// SaveAccount 新增/更新平台账号（同平台同名账号覆盖更新）
 func (s *PlatformService) SaveAccount(ctx context.Context, req *dto.SavePlatformAccountRequest) (*model.GeoPlatformAccount, error) {
 	if err := s.validateAccount(req); err != nil {
 		return nil, err
@@ -137,6 +137,24 @@ func (s *PlatformService) SaveAccount(ctx context.Context, req *dto.SavePlatform
 			return nil, fmt.Errorf("序列化凭证失败: %w", err)
 		}
 		configJSON = string(b)
+	}
+
+	// 同平台+同名视为更新
+	existing, total, err := s.accountRepo.GetList(req.Platform, 1, 100)
+	if err == nil {
+		for _, acc := range existing {
+			if acc.AccountName == req.AccountName && total > 0 {
+				acc.Status = status
+				acc.Config = configJSON
+				if req.AccountID != "" {
+					acc.AccountID = req.AccountID
+				}
+				if err := s.accountRepo.Update(acc); err != nil {
+					return nil, err
+				}
+				return acc, nil
+			}
+		}
 	}
 
 	account := &model.GeoPlatformAccount{
@@ -307,11 +325,11 @@ func (s *PlatformService) publishGitHub(
 	}
 
 	record := &model.GeoPublishRecord{
-		ArticleID:   article.ID,
-		Platform:    req.Platform,
-		Status:      PublishStatusCopied,
+		ArticleID:    article.ID,
+		Platform:     req.Platform,
+		Status:       PublishStatusCopied,
 		PublishedURL: r.Content.HTMLURL,
-		PublishedAt: time.Now(),
+		PublishedAt:  time.Now(),
 	}
 	if err := s.recordRepo.Create(record); err != nil {
 		return nil, err

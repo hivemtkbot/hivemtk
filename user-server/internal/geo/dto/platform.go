@@ -20,14 +20,14 @@ type SavePlatformAccountRequest struct {
 
 // PublishRequest 平台发布请求
 type PublishRequest struct {
-	ArticleID  string `json:"article_id" binding:"required"`
-	Platform   string `json:"platform" binding:"required"`
-	Repo       string `json:"repo"`
-	Path       string `json:"path"`
-	Branch     string `json:"branch"`
-	AuthToken  string `json:"auth_token"`
-	CommitMsg  string `json:"commit_message"`
-	Filename   string `json:"filename"`
+	ArticleID string `json:"article_id" binding:"required"`
+	Platform  string `json:"platform" binding:"required"`
+	Repo      string `json:"repo"`
+	Path      string `json:"path"`
+	Branch    string `json:"branch"`
+	AuthToken string `json:"auth_token"`
+	CommitMsg string `json:"commit_message"`
+	Filename  string `json:"filename"`
 }
 
 // PublishResponse 平台发布响应

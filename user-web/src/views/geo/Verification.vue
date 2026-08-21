@@ -31,7 +31,7 @@
           </el-col>
           <el-col :xs="24" :sm="12">
             <el-form-item label="品牌名称">
-              <el-input v-model="form.brand" placeholder="如：hivemtk" clearable />
+              <el-input v-model="form.brand_name" placeholder="如：hivemtk" clearable />
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="12">
@@ -81,7 +81,7 @@
       <el-table v-loading="verifying" :data="results" stripe style="width: 100%">
         <el-table-column prop="model" label="验证模型" width="140" />
         <el-table-column prop="query" label="问题" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="brand" label="品牌" width="120" />
+        <el-table-column prop="brand_name" label="品牌" width="120" />
         <el-table-column prop="brand_mentioned" label="品牌提及" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.brand_mentioned ? 'success' : 'info'" size="small">
@@ -142,7 +142,7 @@ const modelOptions = [
 
 const form = reactive({
   article_id: '',
-  brand: '',
+  brand_name: '',
   models: ['gpt-4o', 'deepseek-chat'],
   competitors: '',
   queries: '',
@@ -156,7 +156,7 @@ const results = ref([])
 const negativeResults = ref([])
 
 const sentimentType = (s) => {
-  const map = { 正面: 'success', 中性: 'info', 负面: 'danger' }
+  const map = { 正面: 'success', positive: 'success', 中性: 'info', neutral: 'info', 负面: 'danger', negative: 'danger' }
   return map[s] || 'info'
 }
 const riskType = (r) => {
@@ -166,7 +166,7 @@ const riskType = (r) => {
 
 const loadArticles = async () => {
   try {
-    const res = await geoApi.getArticleList({ page: 1, page_size: 100 })
+    const res = await geoApi.getArticleList({ page: 1, limit: 100 })
     articles.value = res?.list || res?.items || res || []
   } catch (e) {
     articles.value = []
@@ -188,23 +188,24 @@ const handleVerify = async () => {
     ElMessage.warning('请输入测试问题')
     return
   }
-  if (form.models.length === 0) {
-    ElMessage.warning('请至少选择一个验证模型')
+  if (!form.brand_name.trim()) {
+    ElMessage.warning('请填写品牌名称')
     return
   }
   verifying.value = true
+  results.value = []
   try {
-    const res = await geoApi.verifyArticle({
-      article_id: form.article_id || undefined,
-      content: form.content || undefined,
-      queries: form.queries,
-      models: form.models,
-      brand: form.brand,
-      competitors: form.competitors
-        ? form.competitors.split(/[,，]/).map((s) => s.trim()).filter(Boolean)
-        : []
-    })
-    results.value = res?.results || res || []
+    // 后端单次验证一个 query，按行拆分逐条验证
+    const queries = form.queries.split('\n').map((s) => s.trim()).filter(Boolean)
+    for (const q of queries) {
+      const res = await geoApi.verifyArticle({
+        article_id: form.article_id || undefined,
+        query: q,
+        brand_name: form.brand_name,
+        models: form.models
+      })
+      if (res) results.value.push(res)
+    }
     ElMessage.success('验证完成')
   } catch (e) {
     ElMessage.error(e.message || '验证失败')
@@ -214,18 +215,16 @@ const handleVerify = async () => {
 }
 
 const handleMonitorNegative = async () => {
-  if (!form.brand.trim()) {
+  if (!form.brand_name.trim()) {
     ElMessage.warning('请先填写品牌名称')
     return
   }
   monitoring.value = true
   try {
     const res = await geoApi.monitorNegative({
-      brand: form.brand,
-      queries: form.queries,
-      article_id: form.article_id || undefined
+      brand_name: form.brand_name
     })
-    negativeResults.value = res?.results || res || []
+    negativeResults.value = res?.queries || []
     ElMessage.success('负面检测完成')
   } catch (e) {
     ElMessage.error(e.message || '负面检测失败')

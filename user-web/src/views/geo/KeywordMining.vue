@@ -46,7 +46,7 @@
           <span>关键词列表</span>
           <div class="header-actions">
             <el-input
-              v-model="listQuery.keyword"
+              v-model="listQuery.search"
               placeholder="搜索关键词 / 类别 / 意图"
               clearable
               style="width: 240px"
@@ -123,6 +123,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { geoApi } from '@/api/geo'
 
+const brandName = ref('')
+
 const mining = ref(false)
 const loading = ref(false)
 const tableData = ref([])
@@ -134,7 +136,7 @@ const query = reactive({
 })
 
 const listQuery = reactive({
-  keyword: '',
+  search: '',
   page: 1,
   limit: 20
 })
@@ -184,7 +186,7 @@ const handleMine = async () => {
 const handleExpand = async (row) => {
   row._expanding = true
   try {
-    const res = await geoApi.semanticExpand({ keywords: [row.keyword], brand_name: row.brand })
+    const res = await geoApi.semanticExpand({ keywords: [row.keyword], brand_name: brandName.value })
     const expanded = Array.isArray(res) ? res : (res?.keywords || [])
     ElMessage.success(`语义扩展完成，新增 ${expanded.length} 个近义 / 长尾词`)
     await loadList()
@@ -198,7 +200,7 @@ const handleExpand = async (row) => {
 const handleCluster = async (row) => {
   row._clustering = true
   try {
-    await geoApi.topicCluster({ keywords: [row.keyword], brand_name: row.brand })
+    await geoApi.topicCluster({ keywords: [row.keyword], brand_name: brandName.value })
     ElMessage.success('话题聚类完成')
     await loadList()
   } catch (e) {
@@ -224,7 +226,14 @@ const handleDelete = (row) => {
     .catch(() => {})
 }
 
-onMounted(loadList)
+onMounted(async () => {
+  loadList()
+  // 加载品牌配置供语义扩展/聚类使用
+  try {
+    const cfg = await geoApi.getConfig()
+    brandName.value = cfg?.brand_name || ''
+  } catch (e) { /* 忽略 */ }
+})
 </script>
 
 <style scoped>

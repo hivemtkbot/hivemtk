@@ -8,15 +8,15 @@ import (
 	"strings"
 
 	"hivemtk-user/internal/geo/dto"
-	
+
 	"hivemtk-user/internal/geo/model"
 	"hivemtk-user/internal/geo/repository"
 )
 
 // KBService GEO 品牌知识库服务（迁移自 AIGEOTOOLS kb/service.go）
 type KBService struct {
-	docRepo    repository.GeoKnowledgeDocumentRepository
-	llm *LLMAdapter
+	docRepo repository.GeoKnowledgeDocumentRepository
+	llm     *LLMAdapter
 }
 
 // NewKBService 创建知识库服务

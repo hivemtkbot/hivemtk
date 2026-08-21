@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/geo/dto"
-	
+
 	"hivemtk-user/internal/geo/model"
 	"hivemtk-user/internal/geo/repository"
 )
@@ -25,7 +25,7 @@ type WorkflowService struct {
 	wfRepo     repository.GeoWorkflowRepository
 	execRepo   repository.GeoWorkflowExecutionRepository
 	tplRepo    repository.GeoWorkflowTemplateRepository
-	llm *LLMAdapter
+	llm        *LLMAdapter
 	executors  map[string]StepExecutor
 	onProgress ProgressCallback
 }
@@ -38,11 +38,11 @@ func NewWorkflowService(
 	adapter *LLMAdapter,
 ) *WorkflowService {
 	s := &WorkflowService{
-		wfRepo:     wfRepo,
-		execRepo:   execRepo,
-		tplRepo:    tplRepo,
-		llm: adapter,
-		executors:  make(map[string]StepExecutor),
+		wfRepo:    wfRepo,
+		execRepo:  execRepo,
+		tplRepo:   tplRepo,
+		llm:       adapter,
+		executors: make(map[string]StepExecutor),
 	}
 	s.registerBuiltinExecutors()
 	return s
@@ -307,7 +307,15 @@ func (s *WorkflowService) Run(ctx context.Context, id string) (*dto.RunWorkflowR
 
 	var anyErr error
 	idx := 0
+	// 迭代上限守卫：防止 jump_to 条件恒真导致死循环
+	const maxIterations = 1000
+	iterations := 0
 	for idx < len(steps) {
+		iterations++
+		if iterations > maxIterations {
+			anyErr = fmt.Errorf("工作流执行超过最大迭代次数 %d（检查 jump_to 是否构成死循环）", maxIterations)
+			break
+		}
 		step := steps[idx]
 		stepName := fmt.Sprintf("%v", step["name"])
 		stepType, _ := step["type"].(string)
@@ -339,9 +347,17 @@ func (s *WorkflowService) Run(ctx context.Context, id string) (*dto.RunWorkflowR
 			break
 		}
 
-		stepWithResults := make(map[string]interface{}, len(step)+1)
+		stepWithResults := make(map[string]interface{}, len(step)+2)
 		for k, v := range step {
 			stepWithResults[k] = v
+		}
+		// 合并嵌套 params 到扁平键（API 创建的步骤参数存于 params 子对象）
+		if params, ok := step["params"].(map[string]interface{}); ok {
+			for k, v := range params {
+				if _, exists := stepWithResults[k]; !exists {
+					stepWithResults[k] = v
+				}
+			}
 		}
 		prevResults := map[string]string{}
 		for name, r := range stepResults {

@@ -12,10 +12,10 @@ type KeywordPerformance struct {
 
 // KeywordEnhanceResponse 关键词数据增强响应
 type KeywordEnhanceResponse struct {
-	HasData            bool                   `json:"has_data"`
-	Message            string                 `json:"message,omitempty"`
-	TotalKeywords      int                    `json:"total_keywords"`
-	HighValueKeywords  []*KeywordPerformance  `json:"high_value_keywords"`
-	Suggestions        []string               `json:"suggestions"`
-	IntentDistribution map[string]int         `json:"intent_distribution"`
+	HasData            bool                  `json:"has_data"`
+	Message            string                `json:"message,omitempty"`
+	TotalKeywords      int                   `json:"total_keywords"`
+	HighValueKeywords  []*KeywordPerformance `json:"high_value_keywords"`
+	Suggestions        []string              `json:"suggestions"`
+	IntentDistribution map[string]int        `json:"intent_distribution"`
 }
