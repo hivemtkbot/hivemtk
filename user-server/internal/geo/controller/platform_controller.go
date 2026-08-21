@@ -36,7 +36,7 @@ func (c *PlatformController) ListAccounts(ctx *gin.Context) {
 		response.ErrorFromDB(ctx, err, "获取账号列表失败")
 		return
 	}
-	response.SuccessWithList(ctx, list, total)
+	response.SuccessWithPage(ctx, list, int64(page), int64(limit), total)
 }
 
 // SaveAccount 新增平台账号
@@ -94,5 +94,5 @@ func (c *PlatformController) ListPublishRecords(ctx *gin.Context) {
 		response.ErrorFromDB(ctx, err, "获取发布记录失败")
 		return
 	}
-	response.SuccessWithList(ctx, list, total)
+	response.SuccessWithPage(ctx, list, int64(page), int64(limit), total)
 }

@@ -2,7 +2,6 @@ package router
 
 import (
 	geoctrl "hivemtk-user/internal/geo/controller"
-	geollm "hivemtk-user/internal/geo/llm"
 	georepo "hivemtk-user/internal/geo/repository"
 	geoservice "hivemtk-user/internal/geo/service"
 	"hivemtk-user/internal/middleware"
@@ -30,18 +29,19 @@ func setupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	execRepo := georepo.NewGeoWorkflowExecutionRepository()
 	tplRepo := georepo.NewGeoWorkflowTemplateRepository()
 
-	// 初始化 LLM 工厂（配置从环境变量或 DB 加载）
-	llmFactory := geollm.NewLLMFactoryFromEnv()
+	// 初始化 LLM 适配器（复用 hivemtk 全局 Dispatcher）
+	llmAdapter := geoservice.NewLLMAdapter()
 
 	// 初始化 services
-	keywordSvc := geoservice.NewKeywordService(keywordRepo, apiCallRepo, llmFactory)
-	contentSvc := geoservice.NewContentService(articleRepo, optimizationRepo, apiCallRepo, llmFactory)
-	verifySvc := geoservice.NewVerificationService(verifyRepo, apiCallRepo, llmFactory)
+	keywordSvc := geoservice.NewKeywordService(keywordRepo, apiCallRepo, llmAdapter)
+	contentSvc := geoservice.NewContentService(articleRepo, optimizationRepo, apiCallRepo, llmAdapter)
+	verifySvc := geoservice.NewVerificationService(verifyRepo, apiCallRepo, llmAdapter)
 	reportSvc := geoservice.NewReportService(articleRepo, keywordRepo, optimizationRepo, verifyRepo, apiCallRepo)
-	configSvc := geoservice.NewConfigService(configRepo, llmFactory)
+	configSvc := geoservice.NewConfigService(configRepo, llmAdapter)
 	platformSvc := geoservice.NewPlatformService(accountRepo, publishRecordRepo, articleRepo)
-	kbSvc := geoservice.NewKBService(kbDocRepo, llmFactory)
-	wfSvc := geoservice.NewWorkflowService(wfRepo, execRepo, tplRepo, llmFactory)
+	kbSvc := geoservice.NewKBService(kbDocRepo, llmAdapter)
+	wfSvc := geoservice.NewWorkflowService(wfRepo, execRepo, tplRepo, llmAdapter)
+	keSvc := geoservice.NewKeywordEnhanceService(keywordRepo, verifyRepo, llmAdapter)
 
 	// 初始化 controllers
 	keywordCtrl := geoctrl.NewKeywordController(keywordSvc)
@@ -53,6 +53,7 @@ func setupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	kbCtrl := geoctrl.NewKBController(kbSvc)
 	wfCtrl := geoctrl.NewWorkflowController(wfSvc)
 	resCtrl := geoctrl.NewResourceController()
+	keCtrl := geoctrl.NewKeywordEnhanceController(keSvc)
 
 	// 注册路由（统一挂在 /geo 下）
 	geo := auth.Group("/geo")
@@ -128,6 +129,10 @@ func setupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 
 	// 质量指标路由
 	geo.POST("/metrics/analyze", resCtrl.AnalyzeMetrics)
+
+	// 关键词数据增强路由
+	geo.GET("/keyword-enhance/analyze", keCtrl.Analyze)
+	geo.POST("/keyword-enhance/enhance", keCtrl.Enhance)
 
 	// 配置路由（写入/优化：仅管理员）
 	geoAdmin := geo.Group("")

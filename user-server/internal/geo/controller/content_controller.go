@@ -28,7 +28,7 @@ func (c *ContentController) GenerateContent(ctx *gin.Context) {
 	if !response.BindJSON(ctx, &req) {
 		return
 	}
-	result, err := c.svc.GenerateContent(ctx.Request.Context(), req.Keyword, req.BrandName, req.Advantages, req.Model, req.WordCount, req.Style)
+	result, err := c.svc.GenerateContent(ctx.Request.Context(), req.Keyword, req.BrandName, req.Advantages, req.WordCount, req.Style)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "内容生成失败")
 		return
@@ -43,7 +43,7 @@ func (c *ContentController) OptimizeContent(ctx *gin.Context) {
 	if !response.BindJSON(ctx, &req) {
 		return
 	}
-	result, err := c.svc.OptimizeContent(ctx.Request.Context(), req.ArticleID, req.Content, req.BrandName, req.Advantages, req.Model)
+	result, err := c.svc.OptimizeContent(ctx.Request.Context(), req.ArticleID, req.Content, req.BrandName, req.Advantages)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "内容优化失败")
 		return
@@ -108,12 +108,12 @@ func (c *ContentController) GenerateSchema(ctx *gin.Context) {
 // POST /geo/content/uniqueness
 func (c *ContentController) CheckUniqueness(ctx *gin.Context) {
 	var req struct {
-		Contents []string `json:"contents"`
+		Content string `json:"content"`
 	}
 	if !response.BindJSON(ctx, &req) {
 		return
 	}
-	result, err := c.svc.CheckUniqueness(ctx.Request.Context(), req.Contents)
+	result, err := c.svc.CheckUniqueness(ctx.Request.Context(), req.Content)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "内容查重失败")
 		return

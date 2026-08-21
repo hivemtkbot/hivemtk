@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"hivemtk-user/internal/geo/llm"
 	"hivemtk-user/internal/geo/model"
 	"hivemtk-user/internal/geo/repository"
 )
@@ -14,15 +13,12 @@ import (
 // ConfigService GEO 配置服务
 type ConfigService struct {
 	configRepo repository.GeoConfigRepository
-	llmFactory *llm.LLMFactory
+	llm        *LLMAdapter
 }
 
 // NewConfigService 创建 GEO 配置服务
-func NewConfigService(cr repository.GeoConfigRepository, f *llm.LLMFactory) *ConfigService {
-	return &ConfigService{
-		configRepo: cr,
-		llmFactory: f,
-	}
+func NewConfigService(cr repository.GeoConfigRepository, adapter *LLMAdapter) *ConfigService {
+	return &ConfigService{configRepo: cr, llm: adapter}
 }
 
 // GetConfig 获取 GEO 配置
@@ -34,12 +30,8 @@ func (s *ConfigService) GetConfig(ctx context.Context) (*model.GeoConfig, error)
 func (s *ConfigService) UpdateConfig(ctx context.Context, brand, advantages string, competitors []string, domain string) error {
 	existing, err := s.configRepo.Get()
 	if err != nil {
-		// 配置不存在时初始化默认结构
-		existing = &model.GeoConfig{
-			Language: "zh",
-		}
+		existing = &model.GeoConfig{Language: "zh"}
 	}
-
 	if brand != "" {
 		existing.BrandName = brand
 	}
@@ -55,61 +47,40 @@ func (s *ConfigService) UpdateConfig(ctx context.Context, brand, advantages stri
 	if existing.Language == "" {
 		existing.Language = "zh"
 	}
-
 	return s.configRepo.Update(existing)
 }
 
 // configOptimizeResult 配置优化结果结构
 type configOptimizeResult struct {
-	Summary             string             `json:"summary"`
-	Suggestions         map[string]any     `json:"suggestions"`
-	RecommendedVersions []map[string]any   `json:"recommended_versions"`
-	ExpectedEffects     map[string]any     `json:"expected_effects"`
+	Summary             string           `json:"summary"`
+	Suggestions         map[string]any   `json:"suggestions"`
+	RecommendedVersions []map[string]any `json:"recommended_versions"`
+	ExpectedEffects     map[string]any   `json:"expected_effects"`
 }
 
-// OptimizeConfig 优化 GEO 配置（迁移自 config_optimizer.py）
+// OptimizeConfig 优化 GEO 配置
 func (s *ConfigService) OptimizeConfig(ctx context.Context, brandName, advantages string, competitors []string) (map[string]any, error) {
-	provider := s.llmFactory.GetDefaultProvider()
-	if provider == nil {
-		return nil, fmt.Errorf("未配置 LLM 提供商")
-	}
-
 	competitorsStr := strings.Join(competitors, "、")
-	prompt := llm.ConfigOptimizePrompt(brandName, advantages, competitorsStr)
+	prompt := ConfigOptimizePrompt(brandName, advantages, competitorsStr)
 
-	req := &llm.LLMRequest{
-		Messages: []llm.Message{
-			{Role: "user", Content: prompt},
-		},
-		Temperature: 0.5,
-		MaxTokens:   3000,
-	}
-
-	resp, err := provider.Chat(req)
+	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 3000)
 	if err != nil {
 		return nil, fmt.Errorf("配置优化失败: %w", err)
 	}
 
-	parsed := parseConfigOptimizeResult(resp.Content)
-	return configOptimizeToMap(parsed, provider.Name(), resp.Model), nil
-}
-
-// parseConfigOptimizeResult 解析配置优化结果
-func parseConfigOptimizeResult(content string) *configOptimizeResult {
-	result := &configOptimizeResult{}
-	jsonStr := extractJSONObject(content)
-	if jsonStr == "" {
-		return result
+	parsed := &configOptimizeResult{}
+	jsonStr := extractJSONObject(resp.Content)
+	if jsonStr != "" {
+		_ = json.Unmarshal([]byte(jsonStr), parsed)
 	}
-	_ = json.Unmarshal([]byte(jsonStr), result)
-	return result
+	return configOptimizeToMap(parsed, resp.Provider, resp.Model), nil
 }
 
-// configOptimizeToMap 将配置优化结果转为 map 返回
-func configOptimizeToMap(r *configOptimizeResult, providerName, modelName string) map[string]any {
+// configOptimizeToMap 将配置优化结果转为 map
+func configOptimizeToMap(r *configOptimizeResult, provider, model string) map[string]any {
 	return map[string]any{
-		"provider":             providerName,
-		"model":                modelName,
+		"provider":             provider,
+		"model":                model,
 		"summary":              r.Summary,
 		"suggestions":          r.Suggestions,
 		"recommended_versions": r.RecommendedVersions,

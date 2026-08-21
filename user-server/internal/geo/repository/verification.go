@@ -11,6 +11,7 @@ import (
 type GeoVerifyResultRepository interface {
 	Create(result *model.GeoVerifyResult) error
 	GetByArticleID(articleID string) ([]*model.GeoVerifyResult, error)
+	GetByBrandName(brandName string) ([]*model.GeoVerifyResult, error)
 	GetList(articleID string, page, limit int) ([]*model.GeoVerifyResult, int64, error)
 	GetStatistics() ([]map[string]any, error)
 }
@@ -35,6 +36,12 @@ func (r *geoVerifyResultRepo) Create(result *model.GeoVerifyResult) error {
 func (r *geoVerifyResultRepo) GetByArticleID(articleID string) ([]*model.GeoVerifyResult, error) {
 	var results []*model.GeoVerifyResult
 	err := r.db.Where("article_id = ?", articleID).Order("created_at DESC").Find(&results).Error
+	return results, err
+}
+
+func (r *geoVerifyResultRepo) GetByBrandName(brandName string) ([]*model.GeoVerifyResult, error) {
+	var results []*model.GeoVerifyResult
+	err := r.db.Where("brand_name = ?", brandName).Order("created_at DESC").Find(&results).Error
 	return results, err
 }
 

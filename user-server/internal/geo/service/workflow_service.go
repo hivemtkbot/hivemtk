@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/geo/dto"
-	"hivemtk-user/internal/geo/llm"
+	
 	"hivemtk-user/internal/geo/model"
 	"hivemtk-user/internal/geo/repository"
 )
@@ -25,7 +25,7 @@ type WorkflowService struct {
 	wfRepo     repository.GeoWorkflowRepository
 	execRepo   repository.GeoWorkflowExecutionRepository
 	tplRepo    repository.GeoWorkflowTemplateRepository
-	llmFactory *llm.LLMFactory
+	llm *LLMAdapter
 	executors  map[string]StepExecutor
 	onProgress ProgressCallback
 }
@@ -35,13 +35,13 @@ func NewWorkflowService(
 	wfRepo repository.GeoWorkflowRepository,
 	execRepo repository.GeoWorkflowExecutionRepository,
 	tplRepo repository.GeoWorkflowTemplateRepository,
-	f *llm.LLMFactory,
+	adapter *LLMAdapter,
 ) *WorkflowService {
 	s := &WorkflowService{
 		wfRepo:     wfRepo,
 		execRepo:   execRepo,
 		tplRepo:    tplRepo,
-		llmFactory: f,
+		llm: adapter,
 		executors:  make(map[string]StepExecutor),
 	}
 	s.registerBuiltinExecutors()
@@ -399,7 +399,7 @@ func (s *WorkflowService) Run(ctx context.Context, id string) (*dto.RunWorkflowR
 
 // registerBuiltinExecutors 注册内置步骤执行器（迁移自 AIGEOTOOLS RegisterBuiltinExecutors）
 func (s *WorkflowService) registerBuiltinExecutors() {
-	gen := s.llmFactory.GetDefaultProvider()
+	gen := s.llm
 
 	s.executors["content_generate"] = func(ctx context.Context, step map[string]interface{}) (string, error) {
 		topic, _ := step["topic"].(string)
@@ -415,10 +415,7 @@ func (s *WorkflowService) registerBuiltinExecutors() {
 		}
 		prompt := fmt.Sprintf("请撰写一篇关于\"%s\"的高质量文章，要求：\n1. 品牌自然融入：%s\n2. 核心优势：%s\n3. 目标平台：%s\n4. 关键词：%s\n5. 字数800-1200字，结构清晰，包含标题、正文、结语\n6. 使用专业但亲切的语调", topic, brand, advantages, platform, keyword)
 		if gen != nil {
-			resp, err := gen.Chat(&llm.LLMRequest{
-				Messages:  []llm.Message{{Role: "user", Content: prompt}},
-				MaxTokens: 3000,
-			})
+			resp, err := gen.Generate(ctx, "", prompt, 0.7, 3000)
 			if err != nil {
 				return "", fmt.Errorf("LLM content generation failed: %w", err)
 			}
@@ -436,10 +433,7 @@ func (s *WorkflowService) registerBuiltinExecutors() {
 		}
 		if gen != nil {
 			prompt := fmt.Sprintf("请对以下内容进行评分（满分100分），评分维度包括：结构完整性(25分)、品牌提及自然度(25分)、权威性信号(25分)、引用与数据支撑(25分)。\n品牌：%s\n内容：\n---\n%s\n---\n请仅返回一个数字分数。", brand, content)
-			resp, err := gen.Chat(&llm.LLMRequest{
-				Messages:  []llm.Message{{Role: "user", Content: prompt}},
-				MaxTokens: 500,
-			})
+			resp, err := gen.Generate(ctx, "", prompt, 0.3, 500)
 			if err != nil {
 				return "", fmt.Errorf("LLM scoring failed: %w", err)
 			}
@@ -466,10 +460,7 @@ func (s *WorkflowService) registerBuiltinExecutors() {
 		}
 		if gen != nil {
 			prompt := fmt.Sprintf("请对以下内容进行E-E-A-T（经验、专业、权威、可信）增强。\n品牌：%s\n原始内容：\n---\n%s\n---\n请在不改变核心观点的前提下：\n1. 添加作者资质和专业背景说明\n2. 增加具体案例和实践经验描述\n3. 引用权威来源和行业数据\n4. 强化信任感和可靠性信号\n5. 保持内容流畅自然\n返回增强后的完整内容。", brand, content)
-			resp, err := gen.Chat(&llm.LLMRequest{
-				Messages:  []llm.Message{{Role: "user", Content: prompt}},
-				MaxTokens: 4000,
-			})
+			resp, err := gen.Generate(ctx, "", prompt, 0.5, 4000)
 			if err != nil {
 				return "", fmt.Errorf("LLM EEAT enhancement failed: %w", err)
 			}
@@ -486,10 +477,7 @@ func (s *WorkflowService) registerBuiltinExecutors() {
 		}
 		if gen != nil {
 			prompt := fmt.Sprintf("请对以下内容进行事实密度增强（目标密度 %.0f%%）。\n原始内容：\n---\n%s\n---\n请在保持原有结构和风格的基础上：\n1. 增加具体的数据、统计数字和百分比\n2. 添加具体的案例名称、产品型号、人物姓名\n3. 引用具体的时间、地点、机构名称\n4. 使用精确的数值替代模糊描述\n5. 确保新增事实与内容主题相关\n返回增强后的完整内容。", targetDensity*100, content)
-			resp, err := gen.Chat(&llm.LLMRequest{
-				Messages:  []llm.Message{{Role: "user", Content: prompt}},
-				MaxTokens: 4000,
-			})
+			resp, err := gen.Generate(ctx, "", prompt, 0.5, 4000)
 			if err != nil {
 				return "", fmt.Errorf("LLM fact density enhancement failed: %w", err)
 			}
@@ -517,10 +505,7 @@ func (s *WorkflowService) registerBuiltinExecutors() {
 			mentionCount := 0
 			for _, q := range queries {
 				prompt := fmt.Sprintf("搜索查询：\"%s\"\n请模拟搜索引擎结果，判断品牌\"%s\"是否在结果中被提及。\n回答\"提及\"或\"未提及\"，并简要说明。", q, brand)
-				resp, err := gen.Chat(&llm.LLMRequest{
-					Messages:  []llm.Message{{Role: "user", Content: prompt}},
-					MaxTokens: 500,
-				})
+				resp, err := gen.Generate(ctx, "", prompt, 0.3, 500)
 				if err != nil {
 					continue
 				}

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"hivemtk-user/internal/geo/dto"
-	"hivemtk-user/internal/geo/llm"
+	
 	"hivemtk-user/internal/geo/model"
 	"hivemtk-user/internal/geo/repository"
 )
@@ -16,12 +16,12 @@ import (
 // KBService GEO 品牌知识库服务（迁移自 AIGEOTOOLS kb/service.go）
 type KBService struct {
 	docRepo    repository.GeoKnowledgeDocumentRepository
-	llmFactory *llm.LLMFactory
+	llm *LLMAdapter
 }
 
 // NewKBService 创建知识库服务
-func NewKBService(dr repository.GeoKnowledgeDocumentRepository, f *llm.LLMFactory) *KBService {
-	return &KBService{docRepo: dr, llmFactory: f}
+func NewKBService(dr repository.GeoKnowledgeDocumentRepository, adapter *LLMAdapter) *KBService {
+	return &KBService{docRepo: dr, llm: adapter}
 }
 
 // Save 新增/更新文档
@@ -116,10 +116,9 @@ func (s *KBService) Search(ctx context.Context, q string, limit int) ([]*dto.KBS
 	return results, nil
 }
 
-// Ask RAG 问答：检索 Top5 片段作为上下文交给 LLM（迁移自 Ask）
+// Ask RAG 问答：检索 Top5 片段作为上下文交给 LLM
 func (s *KBService) Ask(ctx context.Context, question string) (*dto.KBAskResponse, error) {
-	provider := s.llmFactory.GetDefaultProvider()
-	if provider == nil {
+	if s.llm == nil {
 		return nil, fmt.Errorf("未配置 LLM 提供商")
 	}
 
@@ -135,15 +134,7 @@ func (s *KBService) Ask(ctx context.Context, question string) (*dto.KBAskRespons
 		sources = append(sources, r.Title)
 	}
 
-	req := &llm.LLMRequest{
-		Messages: []llm.Message{
-			{Role: "system", Content: "你是知识库问答助手。请基于以下提供的事实片段回答用户问题，若不足以回答请坦诚说明。"},
-			{Role: "user", Content: "事实片段：\n" + strings.Join(snippets, "\n\n") + "\n\n用户问题：" + question},
-		},
-		Temperature: 0.3,
-		MaxTokens:   2000,
-	}
-	resp, err := provider.Chat(req)
+	resp, err := s.llm.Generate(ctx, "你是知识库问答助手。请基于以下提供的事实片段回答用户问题，若不足以回答请坦诚说明。", "事实片段：\n"+strings.Join(snippets, "\n\n")+"\n\n用户问题："+question, 0.3, 2000)
 	if err != nil {
 		return nil, fmt.Errorf("知识库问答失败: %w", err)
 	}

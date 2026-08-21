@@ -7,7 +7,6 @@ import (
 
 	"hivemtk-user/internal/geo/dto"
 	"hivemtk-user/internal/geo/model"
-	"hivemtk-user/internal/geo/llm"
 	"hivemtk-user/internal/geo/repository"
 	"hivemtk-user/internal/pkg/testutil"
 
@@ -199,7 +198,7 @@ func TestMetricsService(t *testing.T) {
 
 func TestWorkflowService(t *testing.T) {
 	db := geoTestDB(t)
-	llmFactory := newGeoLLMFactory()
+	llmFactory := NewLLMAdapter()
 	svc := NewWorkflowService(newGeoWFRepo(db), newGeoExecRepo(db), newGeoTplRepo(db), llmFactory)
 
 	ctx := context.Background()
@@ -275,8 +274,4 @@ func newGeoExecRepo(db *gorm.DB) repository.GeoWorkflowExecutionRepository {
 
 func newGeoTplRepo(db *gorm.DB) repository.GeoWorkflowTemplateRepository {
 	return repository.NewGeoWorkflowTemplateRepositoryWithDB(db)
-}
-
-func newGeoLLMFactory() *llm.LLMFactory {
-	return llm.NewLLMFactoryFromEnv()
 }

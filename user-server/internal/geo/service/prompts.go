@@ -1,4 +1,4 @@
-package llm
+package service
 
 import (
 	"encoding/json"

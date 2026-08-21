@@ -73,18 +73,19 @@ func (m *GeoWorkflow) GetConditions() (map[string]string, error) {
 	return cond, err
 }
 
-// GeoWorkflowExecution GEO 工作流执行记录模型（迁移自 storage.WorkflowExecution）
+// GeoWorkflowExecution GEO 工作流执行记录模型
 type GeoWorkflowExecution struct {
 	ID          string         `gorm:"type:varchar(36);primaryKey" json:"id"`
 	WorkflowID  string         `gorm:"type:varchar(36);index" json:"workflow_id"`
 	Status      string         `gorm:"type:varchar(20)" json:"status"` // running, success, failed
 	Result      string         `gorm:"type:text" json:"result"` // JSON: []StepResult
 	Error       string         `gorm:"type:text" json:"error"`
-	StartedAt   time.Time      `gorm:"autoCreateTime" json:"started_at"`
+	StartedAt   time.Time      `json:"started_at"`
 	CompletedAt *time.Time     `json:"completed_at"`
-	CreatedAt   time.Time      `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt   time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+
+	CreatedAt time.Time       `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time       `gorm:"autoUpdateTime" json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 
 func (m *GeoWorkflowExecution) TableName() string {
