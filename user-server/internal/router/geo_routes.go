@@ -14,7 +14,7 @@ import (
 //
 // 权限分级：config 写入/优化（PUT /geo/config、POST /geo/config/optimize）
 // 仅管理员可操作，防止 staff 误改品牌配置导致全链路 GEO 内容偏移。
-func setupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
+func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// 初始化 repositories
 	keywordRepo := georepo.NewGeoKeywordRepository()
 	articleRepo := georepo.NewGeoArticleRepository()

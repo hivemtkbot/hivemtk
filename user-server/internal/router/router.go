@@ -236,7 +236,7 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		setupMaterialRoutes(auth)
 
 		setupClueRoutes(auth)
-		setupGeoRoutes(auth, gormDB)
+		SetupGeoRoutes(auth, gormDB)
 		setupLeadMiningRoutes(auth)
 
 		setupCustomerRFMRoutes(auth)
