@@ -221,6 +221,11 @@ func (s *SOPScheduler) tryExecute(ctx context.Context, agent model.SOPAgent) {
 	}
 
 	for _, cid := range customers {
+		// 按客户去重：同 SOP 对该客户已有 running 执行时跳过，防止重复触发
+		if running, derr := s.execRepo.CountRunningBySOPAndCustomer(ctx, agent.ID, cid, SOPStatusRunning); derr == nil && running > 0 {
+			logger.Infof("[SOPScheduler] SOP %d 客户 %s 已有 %d 个运行中执行，跳过本轮", agent.ID, cid, running)
+			continue
+		}
 		req := &dto.ExecuteRequest{
 			SOPID:      agent.ID,
 			CustomerID: cid,

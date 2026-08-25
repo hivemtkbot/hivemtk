@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"os"
+	"crypto/subtle"
 	"context"
 	"encoding/csv"
 	"net/http"
@@ -47,6 +49,14 @@ type InboundSmsWebhookRequest struct {
 // 处理运营商推送的上行短信（用户回复）
 // 自动识别退订关键词并加入退订名单
 func (c *SmsUnsubscribeController) InboundSmsWebhook(ctx *gin.Context) {
+	// v3 审计 P2：共享密钥校验（EMAIL_WEBHOOK_SECRET 配置后强制），
+	// 防任意人提交手机号进退订名单（营销 DoS）
+	if want := os.Getenv("EMAIL_WEBHOOK_SECRET"); want != "" {
+		if subtle.ConstantTimeCompare([]byte(ctx.GetHeader("X-Webhook-Secret")), []byte(want)) != 1 {
+			ctx.String(http.StatusUnauthorized, "invalid webhook secret")
+			return
+		}
+	}
 	var req InboundSmsWebhookRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "参数错误："+err.Error())

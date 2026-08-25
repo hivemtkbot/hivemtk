@@ -27,6 +27,7 @@ var apiLogSensitiveKeys = map[string]struct{}{
 	"password":                        {},
 	"passwd":                          {},
 	"token":                           {},
+	"bridge_token":                   {},
 	"secret":                          {},
 	"authorization":                   {},
 	"access_token":                    {},

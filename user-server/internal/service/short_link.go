@@ -12,6 +12,8 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 	"math/big"
+	"net/url"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -62,7 +64,27 @@ func NewShortLinkService(db *gorm.DB) ShortLinkService {
 }
 
 // Create 创建短链
+// validateTargetURL 铁律#24: 短链 target_url 必须 https。
+// （备案核验依赖外部 ICP 接口，暂以 https 强校验为最低门槛）
+func validateTargetURL(raw string) error {
+	u := strings.TrimSpace(raw)
+	if u == "" {
+		return errors.New("目标链接不能为空")
+	}
+	parsed, err := url.Parse(u)
+	if err != nil || parsed.Host == "" {
+		return errors.New("目标链接格式无效")
+	}
+	if parsed.Scheme != "https" {
+		return errors.New("铁律#24: 短链目标地址必须为 https://")
+	}
+	return nil
+}
+
 func (s *shortLinkService) Create(ctx context.Context, req *dto.CreateShortLinkRequest) (*dto.ShortLinkResponse, error) {
+	if err := validateTargetURL(req.OriginalURL); err != nil {
+		return nil, err
+	}
 	existingLink, _ := s.shortLinkRepo.GetByShortCode(ctx, req.ShortCode)
 	if existingLink != nil {
 		return nil, errors.New("短码已存在")
@@ -99,6 +121,11 @@ func (s *shortLinkService) Create(ctx context.Context, req *dto.CreateShortLinkR
 
 // Update 更新短链
 func (s *shortLinkService) Update(ctx context.Context, req *dto.UpdateShortLinkRequest) (*dto.ShortLinkResponse, error) {
+	if req.OriginalURL != "" {
+		if err := validateTargetURL(req.OriginalURL); err != nil {
+			return nil, err
+		}
+	}
 	shortLink, err := s.shortLinkRepo.GetByID(ctx, req.ID)
 	if err != nil {
 		return nil, errors.New("短链不存在")

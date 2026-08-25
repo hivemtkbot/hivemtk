@@ -155,7 +155,7 @@ func (r *MessageHubRepository) GetOutboundByPlatformSenderContentConv(ctx contex
 	var row model.MessageHub
 	q := r.db.WithContext(ctx).
 		Where("platform = ? AND direction = 'outbound' AND content = ?", platform, content).
-		Where("created_at > now() - interval '2 hours'").
+		Where("(CASE WHEN sent_at > '2000-01-01'::timestamptz THEN sent_at ELSE created_at END) > now() - interval '2 hours'").
 		Order("id DESC")
 	if conversationID != "" {
 		q = q.Where("conversation_id = ?", conversationID)
@@ -178,7 +178,7 @@ func (r *MessageHubRepository) GetOutboundByPlatformSenderContentConv(ctx contex
 	var rows []model.MessageHub
 	subQ := r.db.WithContext(ctx).
 		Where("platform = ? AND direction = 'outbound' AND conversation_id = ?", platform, conversationID).
-		Where("created_at > now() - interval '2 hours'").
+		Where("(CASE WHEN sent_at > '2000-01-01'::timestamptz THEN sent_at ELSE created_at END) > now() - interval '2 hours'").
 		Where("length(content) >= 10").
 		Order("id DESC").
 		Limit(20)
@@ -192,6 +192,30 @@ func (r *MessageHubRepository) GetOutboundByPlatformSenderContentConv(ctx contex
 		}
 	}
 	return nil, nil
+}
+
+// ListRecentOutboundInConv 列出本账号同会话近期 outbound（回环兜底检测用）。
+//
+// 按 sent_at 过滤（DOM 抓取回显的变体比对在 service 层做归一化后进行，
+// 仓储只负责按物理时间窗取候选行，不掺内容判断）。
+func (r *MessageHubRepository) ListRecentOutboundInConv(ctx context.Context, platform, accountID, conversationID string, since time.Time, limit int) ([]model.MessageHub, error) {
+	if r == nil || r.db == nil || platform == "" || conversationID == "" {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	var rows []model.MessageHub
+	q := r.db.WithContext(ctx).
+		Where("platform = ? AND direction = 'outbound' AND conversation_id = ?", platform, conversationID).
+		Where("sent_at > ?", since).
+		Order("id DESC").
+		Limit(limit)
+	if accountID != "" {
+		q = q.Where("account_id = ?", accountID)
+	}
+	err := q.Find(&rows).Error
+	return rows, err
 }
 
 // AckOutboundDeliveredBatchReturningWithStatus 原子 RETURNING + 可配置终态（2026-08-15 P0-3 + P0-1）。

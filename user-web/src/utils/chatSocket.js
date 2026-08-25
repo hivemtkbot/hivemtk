@@ -183,7 +183,7 @@ export class ChatSocket {
       }
       // 走 request.js 的 refresh 端点
       const { http } = await import('@/utils/request')
-      const resp = await http.post('/api/auth/refresh', undefined, { _silent: true })
+      const resp = await http.post('/api/auth/refresh-token', undefined, { _silent: true })
       if (resp && resp.token) {
         localStorage.setItem('token', resp.token)
         console.info('[ChatSocket] token 已刷新，重连')

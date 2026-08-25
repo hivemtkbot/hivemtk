@@ -92,7 +92,7 @@ func (r *MessageHubRepository) CreateWithInboxTx(
 			}
 			return err
 		}
-		return inboxRepo.UpsertFromMessageTx(tx, input)
+		return inboxRepo.UpsertFromMessageTx(ctx, tx, input)
 	})
 }
 
@@ -429,17 +429,18 @@ func (r *InboxConversationRepository) UpsertFromMessage(ctx context.Context, in 
 		return nil
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return r.UpsertFromMessageTx(tx, in)
+		return r.UpsertFromMessageTx(ctx, tx, in)
 	})
 }
 
 // UpsertFromMessageTx 与 UpsertFromMessage 等价，但接受外部 tx（用于跨表事务）。
 // 调用方负责事务边界（如 MessageHubRepository.CreateWithInboxTx）。
 // tx 为 nil 时返回 nil（防御性短路，与 UpsertFromMessage 行为一致）。
-func (r *InboxConversationRepository) UpsertFromMessageTx(tx *gorm.DB, in UpsertFromMessageInput) error {
+func (r *InboxConversationRepository) UpsertFromMessageTx(ctx context.Context, tx *gorm.DB, in UpsertFromMessageInput) error {
 	if r == nil || tx == nil {
 		return nil
 	}
+	tx = tx.WithContext(ctx)
 
 	in.LastMessagePreview = sanitizeUTF8(in.LastMessagePreview)
 	in.CustomerName = sanitizeUTF8(in.CustomerName)
@@ -581,7 +582,8 @@ func (r *InboxConversationRepository) ListByQuery(ctx context.Context, q InboxCo
 		return nil, 0, err
 	}
 
-	orderBy := "id DESC"
+	// 默认置顶优先（收件箱标准语义），其余按 id 倒序；显式OrderBy仍可覆盖
+	orderBy := "pinned DESC, id DESC"
 	switch q.OrderBy {
 	case "pinned_first":
 		orderBy = "pinned DESC, last_message_at DESC"

@@ -25,6 +25,13 @@ external:
   public_base_url: "${PUBLIC_BASE_URL:}"
 
 # 统一日志系统配置（生产建议 json + both，便于日志采集与本地排障）
+
+# ============================================================
+# 安全配置
+# ============================================================
+security:
+  jwt_secret: "${USER_JWT_SECRET:your-super-secret-jwt-key-at-least-32-chars-long}"
+
 logging:
   level: "info"
   format: "json"
@@ -42,7 +49,7 @@ database:
   type: postgres
   postgres:
     host: "${DB_HOST:127.0.0.1}"
-    port: ${DB_PORT:8202}
+    port: ${DB_PORT:8232}
     user: admin
     dbname: user_db
     sslmode: disable

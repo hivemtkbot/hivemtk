@@ -1,11 +1,21 @@
 package repository
 
 import (
+	"strings"
+
 	"hivemtk-user/internal/geo/model"
 	_db "hivemtk-user/internal/pkg/db"
 
 	"gorm.io/gorm"
 )
+
+// escapeLike 转义 LIKE 通配符（PG 默认转义符为反斜杠），防止用户输入 %/_ 触发全表匹配
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
+}
 
 // GeoKeywordRepository GEO 关键词仓储接口
 type GeoKeywordRepository interface {
@@ -56,7 +66,7 @@ func (r *geoKeywordRepo) GetList(search, category, source, cluster, status strin
 	query := r.db.Model(&model.GeoKeyword{})
 
 	if search != "" {
-		query = query.Where("keyword LIKE ?", "%"+search+"%")
+		query = query.Where("keyword LIKE ?", "%"+escapeLike(search)+"%")
 	}
 	if category != "" {
 		query = query.Where("category = ?", category)

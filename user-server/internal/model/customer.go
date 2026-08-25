@@ -1,12 +1,11 @@
 package model
 
 import (
-	"crypto/sha256"
 	"encoding/json"
-	"encoding/hex"
 	"time"
 
 	"github.com/google/uuid"
+	"hivemtk-user/internal/identity"
 	"gorm.io/gorm"
 )
 
@@ -37,12 +36,12 @@ const (
 // 任何渠道的入站消息都能通过 OneID 反查到客户。
 type Customer struct {
 	ID            string         `gorm:"type:varchar(36);primaryKey" json:"id"`
-	UnifiedID     string         `gorm:"type:varchar(64);uniqueIndex" json:"unified_id"`
+	UnifiedID     string         `gorm:"type:varchar(128);uniqueIndex" json:"unified_id"`
 	Name          string         `gorm:"type:varchar(100);index" json:"name"`
 
 	// 强标识（用作 OneID 主键候选）
 	Phone         string         `gorm:"type:varchar(20);index" json:"phone"`
-	PhoneHash     string         `gorm:"type:varchar(64);index;column:phone_hash" json:"phone_hash"`
+	PhoneHash     string         `gorm:"type:varchar(64);index;column:phone_hash" json:"-"`
 	Email         string         `gorm:"type:varchar(100);index" json:"email"`
 
 	// 13 渠道 OpenID / UserID（每个渠道独立字段，可与 phone/email 并存）
@@ -96,10 +95,11 @@ func (c *Customer) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// hashPhone 对手机号做 SHA-256 哈希（P0-05 隐私合规：不存明文 phone 作为查询索引时用 hash）
+// hashPhone 对手机号做哈希（P0-05 隐私合规）
+// v7 审计修复：统一委托 identity.PhoneHash（盐化），与 service 层派生/查询算法一致。
+// 原无盐 sha256 与 identity.PhoneHash(盐化) 不一致，导致 phone_hash 写读两套哈希值、查询必失效。
 func hashPhone(phone string) string {
-	h := sha256.Sum256([]byte(phone))
-	return hex.EncodeToString(h[:])
+	return identity.PhoneHash(phone)
 }
 
 // GenerateCustomerUnifiedID 根据优先级生成统一 ID（包级函数）
@@ -109,7 +109,8 @@ func hashPhone(phone string) string {
 // 同一客户多渠道身份会共享一个 OneID；多账号绑定通过 CustomerChannels 副表。
 func GenerateCustomerUnifiedID(c *Customer) string {
 	if c.Phone != "" {
-		return unifiedIDPrefixPhone + c.Phone
+		// v3 审计 P0-2：改用盐化哈希派生，unified_id 不再携带明文手机号
+		return identity.UnifiedIDFromPhone(c.Phone)
 	}
 	if c.Email != "" {
 		return unifiedIDPrefixEmail + c.Email
@@ -177,79 +178,5 @@ func SetCustomerTags(c *Customer, tags []string) error {
 	}
 	c.Tags = string(data)
 	return nil
-}
-
-// ChannelIdentity 提取客户在某个渠道的身份
-func (c *Customer) ChannelIdentity(channel string) string {
-	switch channel {
-	case "telegram":
-		if c.TelegramChatID != 0 {
-			return int64ToStr(c.TelegramChatID)
-		}
-		return c.TelegramUsername
-	case "whatsapp", "sms":
-		if c.WhatsAppPhone != "" {
-			return c.WhatsAppPhone
-		}
-		return c.Phone
-	case "email":
-		return c.Email
-	case "wechat":
-		return c.WechatOpenID
-	case "feishu":
-		return c.FeishuOpenID
-	case "wecom":
-		return c.WeComExternalID
-	case "douyin":
-		return c.DouyinOpenID
-	case "tiktok":
-		return c.TikTokOpenID
-	case "kuaishou":
-		return c.KuaishouOpenID
-	case "xiaohongshu":
-		return c.XiaohongshuID
-	case "xianyu":
-		return c.XianyuID
-	}
-	return ""
-}
-
-// HasChannelIdentity 判断客户是否在某渠道有完整身份
-func (c *Customer) HasChannelIdentity(channel string) bool {
-	return c.ChannelIdentity(channel) != ""
-}
-
-// AvailableChannels 列出客户所有有完整身份的渠道（按优先级排序）
-//
-// 优先级排序：1) 客户偏好渠道 2) 数字 ID 类（TG/抖音）3) 文本 OpenID 类 4) 离线触达（SMS/Email）
-func (c *Customer) AvailableChannels(preferredFirst []string) []string {
-	ordered := make([]string, 0, 13)
-
-	// 1. 客户偏好渠道（来自 CustomerChannels.preferred_channel）
-	for _, ch := range preferredFirst {
-		if c.HasChannelIdentity(ch) {
-			ordered = append(ordered, ch)
-		}
-	}
-
-	// 2. 默认全渠道顺序（按触达可靠性）
-	defaultOrder := []string{
-		"sms", "email", "telegram", "whatsapp", "wecom", "wechat", "feishu",
-		"douyin", "tiktok", "kuaishou", "xiaohongshu", "xianyu", "dingtalk",
-	}
-	for _, ch := range defaultOrder {
-		// 排除已在 preferredFirst 中加过的
-		exists := false
-		for _, x := range ordered {
-			if x == ch {
-				exists = true
-				break
-			}
-		}
-		if !exists && c.HasChannelIdentity(ch) {
-			ordered = append(ordered, ch)
-		}
-	}
-	return ordered
 }
 

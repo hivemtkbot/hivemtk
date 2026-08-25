@@ -184,7 +184,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 			}
 
 		persisted := outMsg
-		if err := s.db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "msg_id"}, {Name: "conversation_id"}}, DoNothing: true}).Create(outMsg).Error; err != nil {
+		if err := s.db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "platform"}, {Name: "msg_id"}, {Name: "conversation_id"}}, DoNothing: true}).Create(outMsg).Error; err != nil {
 			retryMsg := &model.MessageHub{
 				MsgID:          outMsg.MsgID + ":" + hubMsg.ConversationID,
 				Platform:       outMsg.Platform,
@@ -205,7 +205,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 				TraceID:        outMsg.TraceID,
 				DedupHash:      outMsg.DedupHash,
 			}
-			if err2 := s.db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "msg_id"}, {Name: "conversation_id"}}, DoNothing: true}).Create(retryMsg).Error; err2 != nil {
+			if err2 := s.db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "platform"}, {Name: "msg_id"}, {Name: "conversation_id"}}, DoNothing: true}).Create(retryMsg).Error; err2 != nil {
 				logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").Str("channel", string(channel)).Msg("failed to persist bridge outbound reply to message_hub")
 			} else {
 				persisted = retryMsg

@@ -300,6 +300,9 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 	// 1) 在内存中合并字段（仅写，不持久化）
 	if secondary.Phone != "" && primary.Phone == "" {
 		primary.Phone = secondary.Phone
+		// v7 审计修复：收养手机号必须同步重算 phone_hash（BeforeCreate 仅在创建时算），
+		// 否则合并后 GetByPhoneHash 对该客户永久失效。
+		primary.PhoneHash = PhoneHash(primary.Phone)
 	}
 	if secondary.Email != "" && primary.Email == "" {
 		primary.Email = secondary.Email
@@ -399,24 +402,17 @@ func (s *CustomerService) writeMergeAuditLog(ctx context.Context, primary, secon
 	}
 }
 
-// migrateCustomerEvents 将次要客户的事件迁移到主客户（best-effort，与既有语义一致）。
+// migrateCustomerEvents 将次要客户的事件流水整体迁移到主客户。
+//
+// v3 审计 P1-2 修复：改为 UPDATE 移动语义（原"复制新记录+旧记录指向已删客户"
+// 会造成事件历史翻倍与孤儿行）；查询/迁移错误向上传播（在合并事务内触发回滚），
+// 不再吞错为"无事件"。
 func (s *CustomerService) migrateCustomerEvents(ctx context.Context, secondaryID, primaryID string) error {
 	eventRepo := repository.NewCustomerEventRepository()
-	events, err := eventRepo.GetByCustomerID(ctx, secondaryID, 0)
-	if err != nil || len(events) == 0 {
-		return nil
+	if _, err := eventRepo.ReassignCustomerID(ctx, secondaryID, primaryID); err != nil {
+		return fmt.Errorf("迁移事件失败: %w", err)
 	}
-	migrated := make([]*model.CustomerEvent, 0, len(events))
-	for _, event := range events {
-		event.CustomerID = primaryID
-		data := GetCustomerEventData(event)
-		data["merged_from_secondary"] = true
-		data["original_customer_id"] = secondaryID
-		_ = SetCustomerEventData(event, data)
-		event.ID = "" 
-		migrated = append(migrated, event)
-	}
-	return eventRepo.RecordBatch(ctx, migrated)
+	return nil
 }
 
 // GetCustomerByIdentity 根据身份标识获取客户

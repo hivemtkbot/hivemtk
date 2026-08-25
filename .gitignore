@@ -182,3 +182,5 @@ user-server/docs/audit/
 .research/
 *-research.md
 internal-docs/
+.env.geo.local
+user-server/geo-run

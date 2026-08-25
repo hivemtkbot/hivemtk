@@ -1613,3 +1613,25 @@ func TestShortLinkService_Create_WithAllFields(t *testing.T) {
 	}
 }
 
+
+// TestValidateTargetURL 铁律#24: 短链 target_url 必须 https 且格式有效
+func TestValidateTargetURL(t *testing.T) {
+	cases := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{"https ok", "https://example.com/path?x=1", false},
+		{"http rejected", "http://example.com", true},
+		{"ftp rejected", "ftp://example.com", true},
+		{"empty rejected", "", true},
+		{"no host rejected", "https://", true},
+		{"invalid url rejected", "://bad url", true},
+	}
+	for _, c := range cases {
+		err := validateTargetURL(c.url)
+		if (err != nil) != c.wantErr {
+			t.Errorf("%s: url=%q err=%v wantErr=%v", c.name, c.url, err, c.wantErr)
+		}
+	}
+}

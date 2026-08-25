@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"errors"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -146,10 +147,19 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 		visitorToken = strings.TrimSpace(c.Query("token"))
 	}
 	if visitorToken == "" && sessionID != "" && visitorID != "" {
-		// 允许无 token 连接但记录警告（渐进式迁移策略）
-		logger.Ctx(ctx).Warn().Str("session_id", sessionID).Str("visitor_id", visitorID).Msg("WebSocket 连接无 visitor_token，建议升级前端")
-	} else if visitorToken != "" {
-		secretKey := getVisitorTokenSecret()
+		// v3 审计 P1-4 fail-closed：无 token 连接可冒充任意 session_id 接收会话消息，
+		// 渐进迁移期结束，一律拒绝（前端 embed 页已随 ChatSocket 统一带 token）
+		logger.Ctx(ctx).Warn().Str("session_id", sessionID).Str("visitor_id", visitorID).Msg("WebSocket 连接无 visitor_token，已拒绝")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "visitor_token required"})
+		return
+	}
+	if visitorToken != "" {
+		secretKey, serr := getVisitorTokenSecret()
+		if serr != nil {
+			logger.Ctx(ctx).Error().Err(serr).Msg("visitor token 密钥未配置，拒绝连接")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "server visitor token secret not configured"})
+			return
+		}
 		if err := security.ValidateVisitorToken(secretKey, visitorToken, channelID, visitorID, sessionID); err != nil {
 			logger.Ctx(ctx).Warn().Str("session_id", sessionID).Str("visitor_id", visitorID).Err(err).Msg("visitor_token 验证失败，拒绝 WebSocket 连接")
 			c.JSON(http.StatusForbidden, gin.H{
@@ -518,10 +528,11 @@ func (rl *messageRateLimiter) Allow() bool {
 
 // getVisitorTokenSecret 获取 visitor token HMAC 密钥
 // 从 config 读取，未配置时使用默认值
-func getVisitorTokenSecret() string {
+func getVisitorTokenSecret() (string, error) {
 	if cfg := config.GetAppConfig(); cfg.Security.VisitorTokenSecret != "" {
-		return cfg.Security.VisitorTokenSecret
+		return cfg.Security.VisitorTokenSecret, nil
 	}
-	return "hivemtk-visitor-default-secret-change-me"
+	// v3 审计 P1-4：密钥未配置时不得回退硬编码默认值（token 可被任意伪造），拒绝服务
+	return "", errors.New("VISITOR_TOKEN_SECRET 未配置")
 }
 

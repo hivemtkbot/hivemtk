@@ -31,6 +31,21 @@ func newBenchDB(tb testing.TB, models ...any) *gorm.DB {
 	}
 	benchProcDBInit.Do(func() {
 		benchProcDBName = fmt.Sprintf("user_db_test_bench_%d", os.Getpid())
+		// 与 testutil.ensureProcTestDB 对齐：先经维护库建库，避免直连不存在的库名
+		maintDSN := benchDBNameRe.ReplaceAllString(getBenchTestDSN(), "dbname=postgres")
+		if m, err := gorm.Open(postgres.Open(maintDSN), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Silent),
+		}); err == nil {
+			if sqlDB, e := m.DB(); e == nil {
+				defer sqlDB.Close()
+				_, _ = sqlDB.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %q`, benchProcDBName))
+				if _, e := sqlDB.Exec(fmt.Sprintf(`CREATE DATABASE %q`, benchProcDBName)); e != nil {
+					tb.Fatalf("创建基准测试库 %s 失败: %v", benchProcDBName, e)
+				}
+			}
+		} else {
+			tb.Fatalf("连接维护库失败: %v", err)
+		}
 	})
 	testDSN := benchDBNameRe.ReplaceAllString(getBenchTestDSN(), "dbname="+benchProcDBName)
 	database, err := gorm.Open(postgres.Open(testDSN), &gorm.Config{

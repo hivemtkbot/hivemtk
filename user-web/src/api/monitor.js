@@ -44,5 +44,35 @@ export const MonitorApi = {
   // 追踪自学习：手动触发评估（扫描最近 hours 小时内未评估的 trace 批量打分+调权）
   triggerEval(params) {
     return http.post('/api/monitor/trace-eval/trigger', null, { params })
+  },
+
+  // ============ RAG 召回质量监控 ============
+  // 获取最新召回率监控快照
+  ragRecallSnapshot() {
+    return http.get('/api/rag/recall/snapshot')
+  },
+  // 列出最近 N 条监控快照
+  ragRecallSnapshots(params) {
+    return http.get('/api/rag/recall/snapshots', params)
+  },
+  // 手动触发一次召回率指标采集
+  ragRecallCollect(params) {
+    return http.post('/api/rag/recall/collect', params)
+  },
+  // 启动后台定时采集
+  ragRecallStart() {
+    return http.post('/api/rag/recall/start')
+  },
+  // 停止后台定时采集
+  ragRecallStop() {
+    return http.post('/api/rag/recall/stop')
+  },
+  // 查询时间窗口内的召回指标聚合
+  ragRecallMetrics(params) {
+    return http.get('/api/rag/recall/metrics', params)
+  },
+  // 查询低召回样本
+  ragLowRecallQueries(params) {
+    return http.get('/api/rag/recall/low-recall', params)
   }
 }

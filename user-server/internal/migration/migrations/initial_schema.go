@@ -158,6 +158,7 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	register(NewAgentAssetBindingMigration(db))
 	register(NewUserBlacklistMigration(db))
 	register(NewBridgeAccountMigration(db))
+	register(NewWorkflowVisualOrchestratorMigration(db))
 	register(NewMultilingualI18nMigration(db))
 	register(NewMultilingualI18nP13Migration(db))
 	register(NewKnowledgeWeightMigration(db))
@@ -180,5 +181,7 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	register(NewEnumOptimizeMigration(db))
 	register(NewIntentMergeMigration(db))
 	register(NewSessionIDLengthMigration(db))
+	register(NewAlertRuleMigration(db))
+	register(NewUnifiedIDWidenMigration(db))
 }
 

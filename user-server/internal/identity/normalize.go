@@ -173,3 +173,15 @@ func HasAny(in Identifiers) bool {
 		strings.TrimSpace(in.XiaohongshuID) != ""
 }
 
+
+// UnifiedIDFromPhone 由手机号派生 OneID（不可逆：盐化哈希，杜绝明文手机号入库）。
+// v3 审计 P0-2 配套修复：原 "phone:"+明文 随各接口下发造成 PII 泄露。
+// model.GenerateCustomerUnifiedID 与 service.unifiedIDFromIdentifiers 必须经由本函数，
+// 保证两处派生一致；存量客户的旧格式 unified_id 作为不透明键继续有效（仅新增客户用新格式）。
+func UnifiedIDFromPhone(phone string) string {
+	h := PhoneHash(phone)
+	if h == "" {
+		return ""
+	}
+	return "phone:" + h
+}

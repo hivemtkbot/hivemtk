@@ -154,6 +154,7 @@
     "agentActive": "Active Outreach",
     "reachPipeline": "Outreach Pipeline",
     "marketingFlow": "Marketing Flow",
+    "workflowOrchestrator": "Оркестрация Потоков",
     "batchOperation": "Batch Operations",
     "agentSupport": "Capability Support",
     "sopAgent": "SOP Agent",

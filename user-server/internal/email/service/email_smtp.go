@@ -5,6 +5,7 @@ import (
 	"errors"
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/crypto"
 	"hivemtk-user/internal/repository"
 )
 
@@ -17,6 +18,11 @@ func NewEmailSmtpService() *EmailSmtpService {
 }
 
 func (s *EmailSmtpService) CreateEmailSmtp(ctx context.Context, emailSmtp model.EmailSmtp) (*model.EmailSmtp, error) {
+	// v3 审计 P0：SMTP 密码 AES-GCM 静态加密（FIELD_ENCRYPTION_KEY），
+	// 存量明文以 "{" 前缀识别保持双读兼容
+	if enc, err := crypto.Encrypt(emailSmtp.Password); err == nil {
+		emailSmtp.Password = enc
+	}
 	if err := s.repo.Create(ctx, &emailSmtp); err != nil {
 		return nil, err
 	}
@@ -43,6 +49,12 @@ func (s *EmailSmtpService) GetRandEmailSmtp(ctx context.Context) (*model.EmailSm
 	emailSmtpList, err := s.repo.GetEmailSmtpList(ctx)
 	if err != nil {
 		return nil, err
+	}
+	// v3 审计 P0：静态加密密码读取侧解密；存量明文解密失败时保持原值（双读兼容）
+	for i := range emailSmtpList {
+		if dec, derr := crypto.Decrypt(emailSmtpList[i].Password); derr == nil && dec != "" {
+			emailSmtpList[i].Password = dec
+		}
 	}
 	emailListService := NewEmailListService()
 	for _, emailSmtp := range emailSmtpList {

@@ -32,6 +32,7 @@ func (c *KnowledgeBaseController) RegisterRoutes(router *gin.RouterGroup) {
 		g.GET("/by-agent/:aid", c.ListByAgent)
 		g.GET("/by-type/:type", c.ListByType)
 		g.GET("/:id", c.Get)
+		g.GET("/:id/stats", c.Stats)
 		g.POST("", c.Create)
 		g.PUT("/:id", c.Update)
 		g.DELETE("/:id", c.Delete)
@@ -104,6 +105,25 @@ func (c *KnowledgeBaseController) Get(ctx *gin.Context) {
 		return
 	}
 	response.Success(ctx, kb, "查询成功")
+}
+
+// Stats 知识库统计（前端 KBDrawer: GET /api/knowledge-bases/:id/stats）
+func (c *KnowledgeBaseController) Stats(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的知识库 ID")
+		return
+	}
+	stats, err := c.svc.GetKBStats(ctx.Request.Context(), uint(id))
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if stats == nil {
+		response.NotFound(ctx, "知识库不存在")
+		return
+	}
+	response.Success(ctx, stats, "查询成功")
 }
 
 // ListByAgent 查某智能体可用的知识库

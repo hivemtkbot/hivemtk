@@ -51,6 +51,8 @@ func (r *geoConfigRepo) Update(config *model.GeoConfig) error {
 type GeoPlatformAccountRepository interface {
 	Create(account *model.GeoPlatformAccount) error
 	GetByID(id string) (*model.GeoPlatformAccount, error)
+	GetByPlatformAndName(platform, accountName string) (*model.GeoPlatformAccount, error)
+	GetLatestByPlatform(platform string) (*model.GeoPlatformAccount, error)
 	GetList(platform string, page, limit int) ([]*model.GeoPlatformAccount, int64, error)
 	Delete(id string) error
 	Update(account *model.GeoPlatformAccount) error
@@ -76,6 +78,23 @@ func (r *geoPlatformAccountRepo) Create(account *model.GeoPlatformAccount) error
 func (r *geoPlatformAccountRepo) GetByID(id string) (*model.GeoPlatformAccount, error) {
 	var account model.GeoPlatformAccount
 	err := r.db.Where("id = ?", id).First(&account).Error
+	return &account, err
+}
+
+func (r *geoPlatformAccountRepo) GetByPlatformAndName(platform, accountName string) (*model.GeoPlatformAccount, error) {
+	var account model.GeoPlatformAccount
+	err := r.db.Where("platform = ? AND account_name = ?", platform, accountName).First(&account).Error
+	return &account, err
+}
+
+// GetLatestByPlatform 返回指定平台最近更新的账号（发布时优先取用其存储凭据）。
+// 以 updated_at 为准：SaveAccount 的覆盖更新不刷新 created_at，
+// 旧账号更新凭据后仍应被优先取用；id 兜底保证同刻并列时结果确定。
+func (r *geoPlatformAccountRepo) GetLatestByPlatform(platform string) (*model.GeoPlatformAccount, error) {
+	var account model.GeoPlatformAccount
+	err := r.db.Where("platform = ?", platform).
+		Order("updated_at DESC, created_at DESC, id DESC").
+		First(&account).Error
 	return &account, err
 }
 

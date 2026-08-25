@@ -256,8 +256,12 @@ func (s *WebhookService) getAccountSecret(ctx context.Context, platform, account
 	if s.db == nil {
 		return "", nil
 	}
+	// v3 审计 P1-6：优先按 (platform, accountID) 精确匹配；查不到再回退平台级单账号
+	if acc, err := s.accountRepo.GetByPlatformAndAccount(ctx, platform, accountID); err == nil && acc != nil {
+		return acc.APISecret, nil
+	}
 	acc, err := s.accountRepo.GetByPlatform(ctx, platform)
-	if err != nil {
+	if err != nil || acc == nil {
 		return "", nil
 	}
 	return acc.APISecret, nil

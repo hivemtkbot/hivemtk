@@ -38,7 +38,9 @@ func TestBackupController_CreateBackup_Success(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 
@@ -66,7 +68,9 @@ func TestBackupController_CreateBackup_InvalidJSON(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 
@@ -109,6 +113,7 @@ func TestBackupController_CreateBackup_NoUser(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 
@@ -132,7 +137,9 @@ func TestBackupController_GetBackupList_Success(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 
@@ -167,7 +174,9 @@ func TestBackupController_GetBackupList_DefaultPagination(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 
@@ -188,7 +197,9 @@ func TestBackupController_GetBackupByID_Success(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 
@@ -209,7 +220,9 @@ func TestBackupController_GetBackupByID_InvalidID(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 
@@ -250,7 +263,9 @@ func TestBackupController_DeleteBackup_Success(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 
@@ -276,7 +291,9 @@ func TestBackupController_DeleteBackup_InvalidID(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 
@@ -320,7 +337,9 @@ func TestRestoreController_RestoreBackup_Success(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 
@@ -347,7 +366,9 @@ func TestRestoreController_RestoreBackup_InvalidJSON(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 
@@ -389,7 +410,9 @@ func TestRestoreController_GetRestoreList_Success(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 
@@ -424,7 +447,9 @@ func TestRestoreController_GetRestoreList_DefaultPagination(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 
@@ -445,7 +470,9 @@ func TestRestoreController_GetLastRestore_Success(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin")
 		ctx.Next()
 	})
 

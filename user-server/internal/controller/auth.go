@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -59,6 +60,37 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	response.Success(ctx, resp, "登录成功")
 }
 
+// Register godoc
+// @Summary      用户注册
+// @Description  自主注册，支持邮箱验证（可选），注册成功返回 JWT token
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  service.RegisterRequest  true  "注册请求"
+// @Success      200   {object}  response.Response  "注册成功，返回 token"
+// @Failure      400   {object}  response.Response  "参数错误"
+// @Failure      409   {object}  response.Response  "用户名/邮箱已存在"
+// @Router       /public/register [post]
+func (c *AuthController) Register(ctx *gin.Context) {
+	var req service.RegisterRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	resp, err := c.authService.Register(context.Background(), &req)
+	if err != nil {
+		if errors.Is(err, service.ErrUsernameExists) || errors.Is(err, service.ErrEmailExists) {
+			response.Error(ctx, http.StatusConflict, err.Error())
+			return
+		}
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, resp, "注册成功")
+}
+
 // RefreshToken godoc
 // @Summary      刷新 JWT 令牌
 // @Description  使用旧 Bearer token 换发新 token，旧 token 会被加入黑名单
@@ -97,6 +129,25 @@ func (c *AuthController) RefreshToken(ctx *gin.Context) {
 	response.Success(ctx, gin.H{
 		"token": newToken,
 	}, "刷新令牌成功")
+}
+
+// Logout godoc
+// @Summary      登出
+// @Description  将当前 Bearer 令牌加入黑名单（立即失效）
+// @Tags         Auth
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response  "登出成功"
+// @Router       /api/auth/logout [post]
+func (c *AuthController) Logout(ctx *gin.Context) {
+	authHeader := ctx.GetHeader("Authorization")
+	const prefix = "Bearer "
+	if strings.HasPrefix(authHeader, prefix) {
+		token := strings.TrimSpace(authHeader[len(prefix):])
+		if token != "" {
+			_ = c.authService.Logout(ctx.Request.Context(), token)
+		}
+	}
+	response.Success(ctx, nil, "登出成功")
 }
 
 // GetCurrentUser godoc

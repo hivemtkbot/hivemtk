@@ -371,7 +371,7 @@ func (s *CustomerIdentityService) findExistingWithRetry(ctx context.Context, ide
 func unifiedIDFromIdentifiers(id identity.Identifiers) string {
 	switch {
 	case id.Phone != "":
-		return "phone:" + id.Phone
+		return identity.UnifiedIDFromPhone(id.Phone) // 与 model 派生保持一致(盐化哈希)
 	case id.Email != "":
 		return "email:" + id.Email
 	case id.WechatOpenID != "":

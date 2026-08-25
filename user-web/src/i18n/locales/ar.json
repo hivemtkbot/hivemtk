@@ -113,6 +113,7 @@
     "agentActive": "الوصول النشط",
     "reachPipeline": "مسار الوصول",
     "marketingFlow": "مسار التسويق",
+    "workflowOrchestrator": "تنسيق سير العمل",
     "batchOperation": "العمليات المجمعة",
     "agentSupport": "دعم القدرات",
     "sopAgent": "وكيل SOP",

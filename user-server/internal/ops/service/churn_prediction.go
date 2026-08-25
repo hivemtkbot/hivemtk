@@ -252,6 +252,17 @@ func (s *ChurnPredictionService) CreateChurnWarning(userID string, prediction *m
 		IsHandled:    false,
 	}
 
+	// v3 审计 P2-6：同用户同类型已存在未处理预警时跳过，
+	// 根除 RunChurnCalculation 每日 cron 的重复轰炸
+	existing, _, err := s.warningRepo.GetUnhandled(1, 200)
+	if err == nil {
+		for _, w := range existing {
+			if w.UserID == userID && w.WarningType == warningType {
+				return nil
+			}
+		}
+	}
+
 	return s.warningRepo.Create(warning)
 }
 

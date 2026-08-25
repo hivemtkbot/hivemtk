@@ -1,6 +1,7 @@
 package email
 
 import (
+	"regexp"
 	"errors"
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/pkg/mail"
@@ -34,6 +35,10 @@ func NewEmailListService() *EmailListService {
 // CreateEmailList 创建列表
 //
 // 直接注入 clue / systemConfig repository（避免 service→tooluse→email/service 循环依赖）。
+
+// emailAddrRe 邮箱格式（v3 审计 P2：取代宽松的 Contains("@") 校验）
+var emailAddrRe = regexp.MustCompile(`^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$`)
+
 func (s *EmailListService) CreateEmailList(ctx context.Context, subject string, content string, attachments string) (total int64, err error) {
 	cluesList, clueTotal, err := s.clueRepo.GetClueAllList(ctx, 1)
 	if err != nil {
@@ -65,13 +70,15 @@ func (s *EmailListService) CreateEmailList(ctx context.Context, subject string, 
 	emailList := make([]*model.EmailList, 0)
 	for _, clue := range cluesList {
 
-		toAccount := clue.Account
+		toAccount := strings.TrimSpace(clue.Account)
 		if toAccount == "" {
 			continue
 		}
 
-		if !strings.Contains(toAccount, "@") {
-			toAccount = toAccount + "@qq.com"
+		// v3 审计 P2：正则严格校验，非法邮箱跳过（原 Contains("@")+@qq.com 兜底
+		// 会向无效地址投递并污染退订/追踪统计）
+		if !emailAddrRe.MatchString(toAccount) {
+			continue
 		}
 
 		parsemap := mail.TemplateParseMap{

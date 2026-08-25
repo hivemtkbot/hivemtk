@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"time"
+	"unicode"
 
 	"errors"
 
@@ -65,6 +67,29 @@ func (s *InboxIngressService) senderKeyForDedup(event *model.MessageEvent) strin
 	return sk
 }
 
+// senderDefinitelyDiffers 服务端权威自他判定：仅当入站事件与命中的 outbound 行
+// 双方都携带可靠物理发送者标识（SenderID）且不相等时返回 true（即"确定不是自己回显"）。
+//
+// 设计约束：
+//   - self/agent 事件一律视为平台自身消息（不豁免，保持回环拦截）
+//   - 任一侧 SenderID 缺失时返回 false（信息不足，保守按回显处理，
+//     兼容 bridge patrol 上报 sender_name 为对方昵称而 outbound 落库 sender_name 为空的历史场景）
+func (s *InboxIngressService) senderDefinitelyDiffers(event *model.MessageEvent, ob *model.MessageHub) bool {
+	if event == nil || ob == nil {
+		return false
+	}
+	switch event.SenderType {
+	case "self", "agent":
+		return false
+	}
+	inSender := strings.TrimSpace(event.SenderID)
+	outSender := strings.TrimSpace(ob.SenderID)
+	if inSender == "" || outSender == "" {
+		return false
+	}
+	return inSender != outSender
+}
+
 // interceptInbound 统一收件中间件：在消息落库/触发 AI 之前，依据「渠道+发送者+内容」唯一去重依据
 // 做服务端权威拦截，避免无效/重复/回环消息穿透业务层。
 //
@@ -89,8 +114,26 @@ func (s *InboxIngressService) interceptInbound(ctx context.Context, event *model
 		return &IngressDecision{}, nil
 	}
 
-	if ob, oerr := s.hubRepo.GetOutboundByPlatformSenderContentConv(ctx, event.Channel, event.SenderName, content, event.ConversationID); oerr == nil && ob != nil {
+	if ob, oerr := s.hubRepo.GetOutboundByPlatformSenderContentConv(ctx, event.Channel, event.SenderName, content, event.ConversationID); oerr == nil && ob != nil && !s.senderDefinitelyDiffers(event, ob) {
 		return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(matched outbound by platform+sender_name+content)"}, nil
+	}
+
+	// 兜底 3：本账号同会话近期 outbound 归一化内容命中。
+	// DOM 抓取回显常带空白/零宽字符变体（换行→空格、U+200B/U+3000 注入），
+	// 精确匹配与包含匹配均漏判 → 按"剥除全部空白+格式字符后相等"兜底拦截。
+	// 窗口 2h：既覆盖 patrol 轮询周期，又不误杀跨日重复话术（回归用例 3h 前的 outbound 不拦）。
+	if event.ConversationID != "" && s.hubRepo != nil {
+		rows, rerr := s.hubRepo.ListRecentOutboundInConv(ctx, event.Channel, resolveAccountID(event), event.ConversationID, time.Now().Add(-2*time.Hour), 20)
+		if rerr == nil && len(rows) > 0 {
+			norm := normalizeEchoText(content)
+			if norm != "" {
+				for i := range rows {
+					if normalizeEchoText(rows[i].Content) == norm {
+						return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(recent outbound normalized match)"}, nil
+					}
+				}
+			}
+		}
 	}
 
 	if s.cache != nil {
@@ -150,3 +193,17 @@ func groupNameOf(event *model.MessageEvent) string {
 	return ""
 }
 
+
+// normalizeEchoText 回环比对归一化：剥除所有空白（含 U+3000 全角空格）
+// 与格式字符（含 U+200B 零宽空格等 Cf 类），仅保留可见语义字符。
+func normalizeEchoText(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if unicode.IsSpace(r) || unicode.Is(unicode.Cf, r) {
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}

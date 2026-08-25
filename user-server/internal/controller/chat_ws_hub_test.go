@@ -320,17 +320,13 @@ func TestHub_RegisterNoRun(t *testing.T) {
 func TestClient_Close(t *testing.T) {
 	c := newTestClient("s1", "c1")
 
+	// v3 审计 P2-3 后 Close 幂等：标志位 + 安全关闭通道，重复调用不 panic
 	c.Close()
 	c.Close()
 	c.Close()
 
-	select {
-	case _, ok := <-c.send:
-		if ok {
-			t.Error("expected send channel to be closed")
-		}
-	case <-time.After(100 * time.Millisecond):
-		t.Error("expected send channel to be closed and readable")
+	if c.sendSafe([]byte("x")) {
+		t.Error("expected sendSafe=false after Close")
 	}
 }
 

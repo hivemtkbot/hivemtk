@@ -159,16 +159,20 @@ func (s *ABExperimentService) StopExperiment(id uint) error {
 
 // GetVariant 获取变体（用于流量分配）
 func (s *ABExperimentService) GetVariant(sourceID string) (*model.ABVariant, error) {
-	s.cacheMutex.RLock()
-	variant, ok := s.variantCache[s.hashSourceID(sourceID)]
-	s.cacheMutex.RUnlock()
-
-	if ok {
-		return variant, nil
+	variant, err := s.getVariantFromDB(sourceID)
+	if err != nil {
+		// DB 未命中时回退旧缓存（实验暂停场景保持历史分流稳定）
+		s.cacheMutex.RLock()
+		cached, ok := s.variantCache[s.hashSourceID(sourceID)]
+		s.cacheMutex.RUnlock()
+		if ok {
+			return cached, nil
+		}
+		return nil, err
 	}
-
-	return s.getVariantFromDB(sourceID)
+	return variant, nil
 }
+
 
 // hashSourceID 简单哈希
 func (s *ABExperimentService) hashSourceID(sourceID string) uint {
@@ -219,7 +223,7 @@ func (s *ABExperimentService) getVariantFromDB(sourceID string) (*model.ABVarian
 			s.variantRepo.IncrementTraffic(v.ID)
 
 			s.cacheMutex.Lock()
-			s.variantCache[s.hashSourceID(sourceID)] = v
+			s.variantCache[s.hashSourceID(sourceID)+uint(experiment.ID)*1000000] = v
 			s.cacheMutex.Unlock()
 
 			return v, nil

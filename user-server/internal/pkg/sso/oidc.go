@@ -368,6 +368,13 @@ func (p *OIDCProvider) CallbackHandler() gin.HandlerFunc {
 			return
 		}
 
+		// v3 审计 P1-3：nonce 必须与登录时写入的 cookie 一致（防授权码注入/重放）
+		expectedNonce, _ := c.Cookie("sso_nonce")
+		if expectedNonce == "" || claims.Nonce != expectedNonce {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "nonce mismatch"})
+			return
+		}
+
 		clearCookie(c, "sso_state")
 		clearCookie(c, "sso_nonce")
 		clearCookie(c, "sso_verifier")
@@ -537,6 +544,22 @@ func (p *OIDCProvider) verifyIDToken(ctx context.Context, idToken string) (*IDTo
 			continue
 		}
 		claims.Extra[k] = v
+	}
+
+	// v3 审计 P1-3：iss/aud 强校验，防令牌混淆（同 IdP 发给其他 client_id 的合法
+	// ID Token 此前会被接受）。exp 已由 jwt 库默认校验。
+	if claims.Issuer != p.cfg.Issuer {
+		return nil, fmt.Errorf("issuer mismatch: got %q want %q", claims.Issuer, p.cfg.Issuer)
+	}
+	audOK := false
+	for _, a := range claims.Audience {
+		if a == p.cfg.ClientID {
+			audOK = true
+			break
+		}
+	}
+	if !audOK {
+		return nil, fmt.Errorf("audience mismatch: %v does not contain client_id %q", claims.Audience, p.cfg.ClientID)
 	}
 	return claims, nil
 }

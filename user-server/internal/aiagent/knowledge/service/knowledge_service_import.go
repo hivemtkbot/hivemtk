@@ -39,6 +39,9 @@ func (s *KnowledgeService) importUploadedFile(ctx context.Context, req *ImportRe
 	if req.File == nil || req.FileHeader == nil {
 		return nil, errors.New("文件不能为空")
 	}
+	if req.FileHeader.Size > MaxUploadFileSize {
+		return nil, fmt.Errorf("文件过大: %d 字节, 上限 %d MB", req.FileHeader.Size, MaxUploadFileSize>>20)
+	}
 	ext := strings.ToLower(filepath.Ext(req.FileHeader.Filename))
 	allowed := map[string]bool{".pdf": true, ".docx": true, ".doc": true, ".txt": true, ".md": true, ".html": true, ".json": true, ".csv": true}
 	if !allowed[ext] {
@@ -56,10 +59,15 @@ func (s *KnowledgeService) importUploadedFile(ctx context.Context, req *ImportRe
 		return nil, fmt.Errorf("创建文件失败: %w", err)
 	}
 	defer dst.Close()
-	size, err := io.Copy(dst, req.File)
+	// io.LimitReader 双保险：ContentLength 可伪造，实际读取超限即中止并清理
+	size, err := io.Copy(dst, io.LimitReader(req.File, MaxUploadFileSize+1))
 	if err != nil {
 		_ = os.Remove(filePath)
 		return nil, fmt.Errorf("写入文件失败: %w", err)
+	}
+	if size > MaxUploadFileSize {
+		_ = os.Remove(filePath)
+		return nil, fmt.Errorf("文件超过大小上限 %d MB", MaxUploadFileSize>>20)
 	}
 	_ = dst.Close()
 

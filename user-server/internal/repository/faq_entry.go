@@ -8,7 +8,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 
 	"gorm.io/gorm"
@@ -98,7 +97,7 @@ func (r *FAQRepository) ListCandidates(ctx context.Context, agentID uint, limit 
 
 // ScoreCandidates 对已加载的 FAQ 候选集做内存打分排序（不触发 DB 查询）。
 // 供 Service 层命中内存缓存后复用候选集、仅按不同 query 重新打分。
-func (r *FAQRepository) ScoreCandidates(entries []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error) {
+func (r *FAQRepository) ScoreCandidates(ctx context.Context, entries []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error) {
 	return r.scoreAndRank(context.Background(), entries, msg, topK)
 }
 
@@ -271,7 +270,7 @@ func (r *FAQRepository) scoreAndRank(ctx context.Context, all []model.FAQEntry, 
 }
 
 // ListWithFilter 分页+过滤 (前端 FAQ 管理页面使用)
-func (r *FAQRepository) ListWithFilter(ctx context.Context, filter FAQFilter) ([]model.FAQEntry, int64, error) {
+func (r *FAQRepository) ListWithFilter(ctx context.Context, filter FAQListParams) ([]model.FAQEntry, int64, error) {
 	q := r.db.WithContext(ctx).Model(&model.FAQEntry{})
 	if filter.Keyword != "" {
 		kw := "%" + filter.Keyword + "%"
@@ -313,9 +312,17 @@ func (r *FAQRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.FAQEntry{}).Error
 }
 
-// FAQFilter FAQ 查询过滤器（前端管理页面）。
-// 架构整改 P0-5：权威定义迁至 dto 包，本处保留别名以兼容存量签名。
-type FAQFilter = dto.FAQFilter
+// FAQListParams FAQ 查询参数（前端管理页面）。
+// 架构整改 P0-5 后续：仓储层原生定义查询参数，dto 过滤器由 service 层转换，
+// 保持 repository 不引用 dto。
+type FAQListParams struct {
+	Keyword  string
+	Category string
+	Intent   string
+	Enabled  *bool
+	Page     int
+	PageSize int
+}
 
 // IncrementHitCount 命中次数 +1
 func (r *FAQRepository) IncrementHitCount(ctx context.Context, id uint) error {

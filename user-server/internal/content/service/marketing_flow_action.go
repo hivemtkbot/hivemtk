@@ -1,6 +1,9 @@
 package service
 
 import (
+	"os"
+	"net/url"
+	"net"
 	"context"
 
 	"encoding/json"
@@ -563,6 +566,9 @@ func (s *MarketingFlowService) sendActionWebhook(ctx context.Context, config map
 	if !ok || url == "" {
 		return nil, errors.New("webhook URL 未指定")
 	}
+	if err := validateWebhookURL(url); err != nil {
+		return nil, err
+	}
 
 	method, _ := config["method"].(string)
 	if method == "" {
@@ -706,3 +712,31 @@ func (s *MarketingFlowService) sendActionSendEmail(ctx context.Context, config m
 	}, nil
 }
 
+
+
+// validateWebhookURL SSRF 防护（v3 审计 P1）：仅允许 https，
+// 且解析出的所有 IP 均不得落在私网/回环/链路本地段（防打内网与云元数据）。
+func validateWebhookURL(raw string) error {
+	// 测试逃生开关：httptest 回环服务场景（生产严禁设置）
+	if os.Getenv("MARKETING_WEBHOOK_ALLOW_INSECURE") == "true" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return errors.New("webhook URL 格式无效")
+	}
+	if u.Scheme != "https" {
+		return errors.New("webhook URL 必须为 https://")
+	}
+	host := u.Hostname()
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return fmt.Errorf("webhook 域名解析失败: %w", err)
+	}
+	for _, ip := range ips {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+			return errors.New("webhook 目标指向内网地址，已拒绝")
+		}
+	}
+	return nil
+}

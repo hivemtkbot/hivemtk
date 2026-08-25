@@ -333,6 +333,7 @@ func TestSmsController_GetSmsDetail_InvalidID(t *testing.T) {
 
 // TestSmsController_GetSmsDetail_NotFound 测试短信不存在
 func TestSmsController_GetSmsDetail_NotFound(t *testing.T) {
+	t.Setenv("SMS_ALLOW_NIGHT_SEND", "true") // 铁律#22 夜间窗口会使测试随钟表 flaky
 	setupTestSmsDB(t)
 	ctrl := setupSmsController()
 	router := setupGinEngine()
@@ -351,6 +352,7 @@ func TestSmsController_GetSmsDetail_NotFound(t *testing.T) {
 // 注: 测试中无真实阿里云凭据, 真实 API 会失败. 这里验证: (1) 流程到达 service 层
 // (2) 数据库中创建了 sms_records 记录 (3) 状态标记为 failed
 func TestSmsController_SendSms_Success(t *testing.T) {
+	t.Setenv("SMS_ALLOW_NIGHT_SEND", "true")
 	setupTestSmsDB(t)
 	ctrl := setupSmsController()
 	router := setupGinEngine()
@@ -830,6 +832,7 @@ func TestSmsController_DeleteDraft_InvalidID(t *testing.T) {
 // TestSmsController_SendDraft_Success 测试发送草稿成功 (表单形式)
 // 注: 真实阿里云 API 会因测试凭据失败. 验证: 数据库已创建 sms_records
 func TestSmsController_SendDraft_Form_Success(t *testing.T) {
+	t.Setenv("SMS_ALLOW_NIGHT_SEND", "true")
 	setupTestSmsDB(t)
 	ctrl := setupSmsController()
 	router := setupGinEngine()
@@ -870,6 +873,7 @@ func TestSmsController_SendDraft_Form_Success(t *testing.T) {
 
 // TestSmsController_SendDraft_JSON_Success 测试发送草稿成功 (JSON 形式)
 func TestSmsController_SendDraft_JSON_Success(t *testing.T) {
+	t.Setenv("SMS_ALLOW_NIGHT_SEND", "true")
 	setupTestSmsDB(t)
 	ctrl := setupSmsController()
 	router := setupGinEngine()

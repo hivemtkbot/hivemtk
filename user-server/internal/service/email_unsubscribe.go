@@ -140,6 +140,9 @@ func (s *EmailUnsubscribeService) GenerateUnsubscribeLink(ctx context.Context, e
 
 	payloadB64 := base64.RawURLEncoding.EncodeToString(payload)
 	sig := s.sign(ctx, []byte(payloadB64))
+	if sig == "" {
+		return "", errors.New("EMAIL_UNSUBSCRIBE_SECRET 未配置，无法签发退订链接")
+	}
 	token := payloadB64 + "." + sig
 
 	base := s.baseURL(ctx)
@@ -194,19 +197,21 @@ func (s *EmailUnsubscribeService) ListAllUnsubscribes(ctx context.Context) ([]*m
 	return s.repo.ListAll(ctx)
 }
 
-// sign 使用 HMAC-SHA256 计算签名
+// sign 使用 HMAC-SHA256 计算签名（密钥未配置时返回空串，调用方必须视为失败）
 func (s *EmailUnsubscribeService) sign(ctx context.Context, data []byte) string {
-	mac := hmac.New(sha256.New, []byte(s.secret(ctx)))
+	sec := s.secret(ctx)
+	if sec == "" {
+		return ""
+	}
+	mac := hmac.New(sha256.New, []byte(sec))
 	mac.Write(data)
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
-// secret 读取退订签名密钥（仅来自环境变量，源码不含硬编码默认密钥）
+// secret 读取退订签名密钥（v3 审计 P2：缺失时 fail-closed 返回空，
+// 调用方必须拒绝签发/校验，杜绝可伪造 token 的默认密钥）
 func (s *EmailUnsubscribeService) secret(ctx context.Context) string {
-	if v := os.Getenv(emailUnsubscribeSecretEnv); v != "" {
-		return v
-	}
-	return emailUnsubscribeDefaultSecret
+	return os.Getenv(emailUnsubscribeSecretEnv)
 }
 
 // baseURL 读取对外可访问的基础 URL

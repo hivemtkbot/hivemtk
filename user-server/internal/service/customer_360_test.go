@@ -4,6 +4,7 @@ import (
 	"context"
 	"hivemtk-user/internal/model"
 	_type "hivemtk-user/internal/pkg/utils/type"
+	dbUtil "hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/repository"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ func setupCustomer360TestDB(t *testing.T) *gorm.DB {
 		&model.SessionMessage{},
 		&model.Clue{},
 		&model.Order{},
+		&model.Customer{},
 	)
 }
 
@@ -32,6 +34,116 @@ func setupCustomer360Service(t *testing.T, db *gorm.DB) *Customer360Service {
 		orderRepo:        repository.NewOrderRepositoryWithDB(db),
 		unifiedMsgRepo:   repository.NewUnifiedMessageRepositoryWithDB(db),
 		unifiedReplyRepo: repository.NewUnifiedReplyRepositoryWithDB(db),
+		customerRepo:     repository.NewCustomerRepository(),
+		eventRepo:        repository.NewCustomerEventRepository(),
+	}
+}
+
+// TestCustomer360Service_GetByCustomerID_ClueOrderByIdentity 回归：by-ID 路径线索/订单不再恒空。
+// 历史缺陷：GetCustomer360ByCustomerID 把 cust.UnifiedID（盐化哈希，如 "phone:<64hex>"）
+// 传给 buildClueInfo/buildOrderInfo，要求 session.UserID == unified_id 匹配——
+// 盐化哈希恒不等于平台会话 user_id，导致 360 页签线索/订单永远空白。
+// 修复后按客户档案 phone/email + 会话 account 聚合，无需该匹配成立。
+func TestCustomer360Service_GetByCustomerID_ClueOrderByIdentity(t *testing.T) {
+	db := setupCustomer360TestDB(t)
+	service := setupCustomer360Service(t, db)
+
+	prev := dbUtil.GetDB()
+	dbUtil.SetTestDB(db)
+	defer dbUtil.SetTestDB(prev)
+
+	cust := &model.Customer{
+		ID:        "cust-360-001",
+		Name:      "张三",
+		Phone:     "13800138000",
+		Email:     "z@example.com",
+		UnifiedID: "phone:" + string(make([]byte, 0)) + "abc123def456abc123def456abc123def456abc123def456abc123def45612",
+	}
+	if err := db.Create(cust).Error; err != nil {
+		t.Fatalf("seed customer 失败: %v", err)
+	}
+
+	sess := &model.CustomerSession{
+		SessionID: "sess-360-001",
+		UserID:    "tg-user-777",
+		OneID:     cust.UnifiedID,
+		AccountID: "account-360",
+		Platform:  model.PlatformDouyin,
+		Status:    model.SessionStatusResolved,
+	}
+	if err := db.Create(sess).Error; err != nil {
+		t.Fatalf("seed session 失败: %v", err)
+	}
+
+	clue := &model.Clue{ID: "clue-360-001", Account: "account-360", Name: "线索甲", IsVerify: 1}
+	if err := db.Create(clue).Error; err != nil {
+		t.Fatalf("seed clue 失败: %v", err)
+	}
+	order := &model.Order{AccountID: "account-360", Price: "99.90", Status: _type.OrderStatusSuccess}
+	if err := db.Create(order).Error; err != nil {
+		t.Fatalf("seed order 失败: %v", err)
+	}
+
+	dto, err := service.GetCustomer360ByCustomerID(context.Background(), cust.ID)
+	if err != nil {
+		t.Fatalf("GetCustomer360ByCustomerID 失败: %v", err)
+	}
+	if dto == nil {
+		t.Fatal("dto 为 nil")
+	}
+	if dto.BasicInfo == nil || dto.BasicInfo.UserID != cust.ID {
+		t.Fatalf("BasicInfo 应基于客户档案构建, got %+v", dto.BasicInfo)
+	}
+	if dto.ClueInfo == nil {
+		t.Error("ClueInfo 不应为空（回归：session.UserID==unified_id 恒不匹配导致线索恒空）")
+	} else if dto.ClueInfo.ClueID != clue.ID {
+		t.Errorf("ClueInfo.ClueID = %q, want %q", dto.ClueInfo.ClueID, clue.ID)
+	}
+	if dto.OrderInfo == nil || len(dto.OrderInfo.Orders) == 0 {
+		t.Error("OrderInfo 不应为空（回归：订单恒空）")
+	} else {
+		if dto.OrderInfo.TotalOrders != 1 {
+			t.Errorf("TotalOrders = %d, want 1", dto.OrderInfo.TotalOrders)
+		}
+		if dto.OrderInfo.Orders[0].OrderID != order.ID {
+			t.Errorf("OrderID = %q, want %q", dto.OrderInfo.Orders[0].OrderID, order.ID)
+		}
+	}
+}
+
+// TestCustomer360Service_GetByCustomerID_NoSessions_ReturnsProfile 回归：无会话客户仍返回档案+身份聚合结果。
+func TestCustomer360Service_GetByCustomerID_NoSessions_ReturnsProfile(t *testing.T) {
+	db := setupCustomer360TestDB(t)
+	service := setupCustomer360Service(t, db)
+
+	prev := dbUtil.GetDB()
+	dbUtil.SetTestDB(db)
+	defer dbUtil.SetTestDB(prev)
+
+	cust := &model.Customer{
+		ID:        "cust-360-no-sess",
+		Name:      "李四",
+		Phone:     "13900139000",
+		UnifiedID: "phone:def456def456def456def456def456def456def456def456def456def45612",
+	}
+	if err := db.Create(cust).Error; err != nil {
+		t.Fatalf("seed customer 失败: %v", err)
+	}
+
+	clue := &model.Clue{ID: "clue-phone-001", Account: "13900139000"}
+	if err := db.Create(clue).Error; err != nil {
+		t.Fatalf("seed clue 失败: %v", err)
+	}
+
+	dto, err := service.GetCustomer360ByCustomerID(context.Background(), cust.ID)
+	if err != nil {
+		t.Fatalf("无会话客户不应报错: %v", err)
+	}
+	if dto.BasicInfo == nil {
+		t.Fatal("应返回基本档案而非 nil")
+	}
+	if dto.ClueInfo == nil {
+		t.Error("有手机号+匹配线索时 ClueInfo 不应为空")
 	}
 }
 

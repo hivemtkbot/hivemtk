@@ -74,7 +74,7 @@ func (m *mockFAQRepo) ListCandidates(ctx context.Context, agentID uint, limit in
 	return m.entries[:limit], nil
 }
 
-func (m *mockFAQRepo) ScoreCandidates(entries []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error) {
+func (m *mockFAQRepo) ScoreCandidates(ctx context.Context, entries []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

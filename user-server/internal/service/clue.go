@@ -73,6 +73,9 @@ const (
 	ClueTypeTwitter          int64 = 6
 	ClueTypeWeCom            int64 = 7
 	ClueTypeLeadMining       int64 = 8
+	// ClueTypeGeoCapture GEO 决策链捕获线索（v3）：与 LLM 挖掘(8)区分，
+	// SourceID 存思维链 chain_id 供转化归因回写
+	ClueTypeGeoCapture       int64 = 9
 	ClueTypeDouyin           int64 = 9
 	ClueTypeKuaishou        int64 = 10
 	ClueTypeXiaohongshu      int64 = 11

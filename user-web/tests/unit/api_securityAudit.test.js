@@ -31,24 +31,12 @@ describe('安全审计 API', () => {
 
   it('runSecurityAudit 提交审计名', async () => {
     await runSecurityAudit({ audit_name: 'manual_001' })
-    expect(request).toHaveBeenCalledWith(
-      expect.objectContaining({
-        url: '/api/security/audit',
-        method: 'post',
-        data: { audit_name: 'manual_001' }
-      })
-    )
+    expect(http.post).toHaveBeenCalledWith('/api/security/audit', { audit_name: 'manual_001' })
   })
 
   it('getSecurityAuditList 接受分页参数', async () => {
     await getSecurityAuditList({ page: 1, page_size: 20 })
-    expect(request).toHaveBeenCalledWith(
-      expect.objectContaining({
-        url: '/api/security/audit/list',
-        method: 'get',
-        params: { page: 1, page_size: 20 }
-      })
-    )
+    expect(http.get).toHaveBeenCalledWith('/api/security/audit/list', { page: 1, page_size: 20 })
   })
 
   it('getSecurityAuditDetail 拼接 ID', async () => {

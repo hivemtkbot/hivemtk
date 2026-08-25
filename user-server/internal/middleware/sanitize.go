@@ -1,4 +1,3 @@
-
 package middleware
 
 import (
@@ -15,20 +14,19 @@ import (
 // PIIRule 单一脱敏规则
 type PIIRule struct {
 	FieldNames []string
-	Pattern *regexp.Regexp
-	Mask func(string) string
-	Kind string
+	Pattern    *regexp.Regexp
+	Mask       func(string) string
+	Kind       string
 }
 
 // 预定义脱敏规则
 var (
-	phoneRe = regexp.MustCompile(`1[3-9]\d{9}`)
-	emailRe = regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
-	idcardRe = regexp.MustCompile(`[1-9]\d{5}(?:18|19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx]`)
+	phoneRe    = regexp.MustCompile(`1[3-9]\d{9}`)
+	emailRe    = regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
+	idcardRe   = regexp.MustCompile(`[1-9]\d{5}(?:18|19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx]`)
 	bankcardRe = regexp.MustCompile(`\b\d{16,19}\b`)
-	tokenRe = regexp.MustCompile(`\b[A-Za-z0-9_-]{30,}\b`)
+	tokenRe    = regexp.MustCompile(`\b[A-Za-z0-9_-]{30,}\b`)
 )
-
 // DEFAULT_PII_RULES 默认脱敏规则
 var DEFAULT_PII_RULES = []PIIRule{
 	{
@@ -124,18 +122,17 @@ func SanitizeJSON(data []byte) []byte {
 		return data
 	}
 	// 尝试解析为 JSON object
-	var any_ any
-	if err := json.Unmarshal(data, &any_); err != nil {
+	var v any
+	if err := json.Unmarshal(data, &v); err != nil {
 		return []byte(SanitizeString(string(data)))
 	}
-	sanitized := sanitizeJSONValue("", any_)
+	sanitized := sanitizeJSONValue("", v)
 	out, err := json.Marshal(sanitized)
 	if err != nil {
 		return []byte(SanitizeString(string(data)))
 	}
 	return out
 }
-
 // sanitizeValue 单一字段的脱敏（考虑字段名 + 值类型）
 func sanitizeValue(key string, val any) any {
 	lowerKey := strings.ToLower(key)
@@ -192,16 +189,16 @@ func toString(v any) string {
 
 // SanitizeConfig 脱敏配置
 type SanitizeConfig struct {
-	SanitizeRequest bool
+	SanitizeRequest  bool
 	SanitizeResponse bool
-	MaxBodyBytes int64
+	MaxBodyBytes     int64
 }
 
 // DefaultSanitizeConfig 默认配置
 var DefaultSanitizeConfig = SanitizeConfig{
 	SanitizeRequest:  true,
-	SanitizeResponse: false, 
-	MaxBodyBytes:     1 << 20, 
+	SanitizeResponse: false,
+	MaxBodyBytes:     1 << 20,
 }
 
 // SanitizeMiddleware 脱敏 Gin 中间件
@@ -262,5 +259,3 @@ func SanitizeJSONPooled(data []byte) []byte {
 	copy(cp, out)
 	return cp
 }
-
-

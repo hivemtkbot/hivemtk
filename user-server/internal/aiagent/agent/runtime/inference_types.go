@@ -13,6 +13,7 @@
 //	[4a] Escalation (转人工门禁)   - 当危机 → 锁会话 + 通知坐席
 //	[4b] Planner    (任务规划器)   - 当正常 → 决定调什么工具/写什么回复
 //	[5] Action     (执行)         - LLM 调用 + 工具执行
+//	[6] Review     (复审)         - T10 三段式 Reviewer：合规/安全/拟人度终审
 //
 // 阶段之间通过 InferenceContext (不可变快照) 传递数据，
 // 编排器 (InferenceCycle) 负责串联、超时控制、错误隔离、可观测日志。
@@ -222,6 +223,7 @@ type InferenceDecision struct {
 	Sentiment SentimentScore `json:"sentiment,omitempty"`
 	Intent IntentResult `json:"intent,omitempty"`
 	Alignment AlignmentScore `json:"alignment,omitempty"`
+	Review *ReviewResult `json:"review,omitempty"`
 }
 
 

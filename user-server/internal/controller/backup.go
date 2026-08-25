@@ -34,20 +34,32 @@ func isAdmin(ctx *gin.Context) bool {
 	return roleStr == "admin"
 }
 
-// CreateBackup 创建备份
-func (c *BackupController) CreateBackup(ctx *gin.Context) {
-	// v3 审计 P2-30 修复：备份操作需 admin 权限
-	if !isAdmin(ctx) {
-		response.Error(ctx, http.StatusForbidden, "仅管理员可执行备份操作")
-		return
-	}
-
+// requireAdminAuth 统一守卫：先认证(401)后授权(403)。
+// v3 审计 P2-30 + Round6 测试契约对齐：无 user_id → 401；有身份非 admin → 403。
+func requireAdminAuth(ctx *gin.Context) (uint, bool) {
 	userID, exists := ctx.Get("user_id")
 	if !exists {
 		response.Error(ctx, http.StatusUnauthorized, "未找到用户信息")
-		return
+		return 0, false
 	}
 	uid, ok := userID.(uint)
+	if !ok || uid == 0 {
+		response.Error(ctx, http.StatusUnauthorized, "未找到用户信息")
+		return 0, false
+	}
+	if !isAdmin(ctx) {
+		response.Error(ctx, http.StatusForbidden, "仅管理员可执行备份操作")
+		return 0, false
+	}
+	return uid, true
+}
+
+// CreateBackup 创建备份
+func (c *BackupController) CreateBackup(ctx *gin.Context) {
+	uid, ok := requireAdminAuth(ctx)
+	if !ok {
+		return
+	}
 	if !ok {
 		response.Error(ctx, http.StatusUnauthorized, "无效的用户信息")
 		return

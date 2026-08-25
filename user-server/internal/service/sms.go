@@ -1,6 +1,9 @@
 package service
 
 import (
+	"regexp"
+	"sync"
+	"os"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -58,6 +61,31 @@ type smsService struct {
 // NewSmsService 创建短信服务
 func NewSmsService(repo repository.SmsRepository) SmsService {
 	return &smsService{repo: repo}
+}
+
+
+// smsPhoneRe E.164 宽松口径（v3 审计 P1）：可选 + 前缀，7-15 位数字
+var smsPhoneRe = regexp.MustCompile(`^\+?[1-9]\d{6,14}$`)
+
+// validateSMSPhone 校验手机号格式
+func validateSMSPhone(phone string) error {
+	if !smsPhoneRe.MatchString(strings.TrimSpace(phone)) {
+		return fmt.Errorf("手机号格式无效: %q", phone)
+	}
+	return nil
+}
+
+// smsUnsubSvc 懒初始化的短信退订服务（v3 审计 P0：发送前必须过滤退订名单）
+var (
+	smsUnsubOnce sync.Once
+	smsUnsubSvc  *SmsUnsubscribeService
+)
+
+func (s *smsService) unsub() *SmsUnsubscribeService {
+	smsUnsubOnce.Do(func() {
+		smsUnsubSvc = NewSmsUnsubscribeService(nil)
+	})
+	return smsUnsubSvc
 }
 
 // GetConfig 获取短信配置
@@ -184,7 +212,34 @@ func (s *smsService) GetSmsByID(ctx context.Context, id uint) (*model.SmsRecord,
 }
 
 // SendSms 发送短信
+// smsNightRestrictedFn 可替换时钟判定（测试注入用），生产指向 isSMSNightRestricted
+var smsNightRestrictedFn = isSMSNightRestricted
+
+// isSMSNightRestricted 铁律#22: 短信夜间禁发窗口 22:00-8:00（北京时间）。
+// 窗口内所有主动发送（含重发/草稿发送，任务类发送经 SendSms 同样受控）一律拒绝。
+func isSMSNightRestricted(t time.Time) bool {
+	// 显式逃生开关：压测/演练场景可 SMS_ALLOW_NIGHT_SEND=true 越过窗口
+	if os.Getenv("SMS_ALLOW_NIGHT_SEND") == "true" {
+		return false
+	}
+	cst := time.FixedZone("CST", 8*3600)
+	hour := t.In(cst).Hour()
+	return hour >= 22 || hour < 8
+}
+
 func (s *smsService) SendSms(ctx context.Context, req *dto.SmsSendRequest) error {
+	// 铁律#22 夜间禁发守卫
+	if smsNightRestrictedFn(time.Now()) {
+		return errors.New("当前处于夜间禁发时段(22:00-8:00)，短信已拦截")
+	}
+	// v3 审计 P1：号码格式校验（原仅 len=11 且批量零校验）
+	if err := validateSMSPhone(req.Phone); err != nil {
+		return err
+	}
+	// v3 审计 P0：退订名单强制过滤（命中则静默跳过，返回成功语义避免上层重试）
+	if s.unsub().IsUnsubscribed(ctx, req.Phone) {
+		return nil
+	}
 	config, err := s.repo.GetConfig(context.Background())
 	if err != nil {
 		return err
@@ -440,6 +495,10 @@ func (s *smsService) sendHuawei(ctx context.Context, phone, content string) (tim
 
 // ResendSms 重发短信
 func (s *smsService) ResendSms(ctx context.Context, id uint) error {
+	// 铁律#22 夜间禁发守卫
+	if smsNightRestrictedFn(time.Now()) {
+		return errors.New("当前处于夜间禁发时段(22:00-8:00)，短信已拦截")
+	}
 	record, err := s.repo.GetSmsByID(context.Background(), id)
 	if err != nil {
 		return err
@@ -549,6 +608,17 @@ func (s *smsService) CreateJob(ctx context.Context, req *dto.SmsJobCreateRequest
 		Failed:       0,
 		Status:       "pending",
 		ScheduleTime: req.ScheduleTime,
+	}
+
+	// v3 审计 P1：任务类发送同样受铁律#22 与号码校验约束——
+	// 预约时间落在夜间窗口直接拒绝；批量号码逐一格式校验
+	if req.ScheduleTime != nil && smsNightRestrictedFn(*req.ScheduleTime) {
+		return errors.New("预约时间处于夜间禁发时段(22:00-8:00)，短信已拦截")
+	}
+	for _, phone := range req.PhoneList {
+		if err := validateSMSPhone(phone); err != nil {
+			return err
+		}
 	}
 
 	if err := s.repo.CreateJob(context.Background(), job); err != nil {

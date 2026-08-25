@@ -348,7 +348,7 @@ func (m *mockSOPRepoForTask16) IncrementHitCount(ctx context.Context, id uint) e
 	return nil
 }
 
-func (m *mockSOPRepoForTask16) ListWithFilter(ctx context.Context, filter repository.SOPTemplateFilter) ([]model.SOPTemplate, int64, error) {
+func (m *mockSOPRepoForTask16) ListWithFilter(ctx context.Context, filter repository.SOPTemplateListParams) ([]model.SOPTemplate, int64, error) {
 	return nil, 0, nil
 }
 

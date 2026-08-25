@@ -1,9 +1,12 @@
 package router
 
 import (
+	"context"
 	geoctrl "hivemtk-user/internal/geo/controller"
 	georepo "hivemtk-user/internal/geo/repository"
 	geoservice "hivemtk-user/internal/geo/service"
+	mainrepo "hivemtk-user/internal/repository"
+	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -41,6 +44,39 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	platformSvc := geoservice.NewPlatformService(accountRepo, publishRecordRepo, articleRepo)
 	kbSvc := geoservice.NewKBService(kbDocRepo, llmAdapter)
 	wfSvc := geoservice.NewWorkflowService(wfRepo, execRepo, tplRepo, llmAdapter)
+	// v3 决策链化: 捕获线索写主域线索库（ClueTypeLeadMining=8）
+	mainClueRepo := mainrepo.NewClueRepositoryWithDB(gormDB)
+
+	// v3 决策链报表: L4 线索捕获数（clue SourceID=chain 归因键）
+	decisionCtrl := geoctrl.NewGeoDecisionController(
+		georepo.NewGeoQueryChainRepository(gormDB),
+		georepo.NewGeoContentTaskRepository(gormDB),
+		newGeoLeadReporter(gormDB),
+	)
+	auth.GET("/geo/decision/report", decisionCtrl.GetDecisionReport)
+	auth.GET("/geo/decision/tasks", decisionCtrl.GetTasks)
+	auth.POST("/geo/decision/tasks/:id/done", decisionCtrl.MarkTaskDone)
+	// v3 GEO 决策链化 Phase3：注入线索捕获端口（capture_lead 执行器 → 主域 clue）
+	geoChainRepo := georepo.NewGeoQueryChainRepository(gormDB)
+	wfSvc.RegisterCaptureLeadExecutor(geoservice.CaptureLeadFunc(func(ctx context.Context, contact, contactType, chainID, intent string) (string, error) {
+		clue := &model.Clue{
+			Account:  contact,
+			Name:     contact,
+			SourceID: chainID, // v3 修正：保留思维链归因键（原固定值丢失归因链）
+			Type:     int64(9), // ClueTypeGeoCapture：GEO 决策链捕获专用类型
+		}
+		if err := mainClueRepo.Create(ctx, clue); err != nil {
+			return "", err
+		}
+		// v3 决策链化 Phase3 收口：捕获即绑定 OneID，inbox 回填据此定位链
+		if clue.OneID != "" && geoChainRepo != nil {
+			_ = gormDB.WithContext(ctx).
+				Table("geo_query_chains").
+				Where("chain_id = ? AND (one_id = '' OR one_id IS NULL)", chainID).
+				Update("one_id", clue.OneID).Error
+		}
+		return clue.ID, nil
+	}))
 	keSvc := geoservice.NewKeywordEnhanceService(keywordRepo, verifyRepo, llmAdapter)
 
 	// 初始化 controllers
@@ -139,4 +175,20 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	geoAdmin.Use(middleware.AdminAuthMiddleware())
 	geoAdmin.PUT("/config", configCtrl.UpdateConfig)
 	geoAdmin.POST("/config/optimize", configCtrl.OptimizeConfig)
+}
+
+
+// geoLeadReporter L4 捕获线索精确统计：
+// 决策链捕获线索特征 = Type=8(ClueTypeLeadMining) 且 SourceID 为思维链键前缀
+type geoLeadReporter struct{ db *gorm.DB }
+
+func newGeoLeadReporter(db *gorm.DB) *geoLeadReporter { return &geoLeadReporter{db: db} }
+
+func (r *geoLeadReporter) CountCapturedLeads(ctx context.Context) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Model(&model.Clue{}).
+		Where("type = ?", int64(9)).
+		Where("(source_id LIKE 'probe:%' OR source_id LIKE 'verify:%' OR source_id LIKE 'inbox:%')").
+		Count(&n).Error
+	return n, err
 }

@@ -25,6 +25,19 @@ func (r *KnowledgeBaseRepository) Create(ctx context.Context, kb *model.Knowledg
 	return r.db.WithContext(ctx).Select("*").Create(kb).Error
 }
 
+// CreateWithBinding 事务创建知识库并写入 owner 智能体绑定
+//
+// 用于 owner_type=private 场景: knowledge_bases 与 agent_kb_bindings 必须同生共死,
+// 事务边界收敛在仓储层, service 不直接操作 DB。
+func (r *KnowledgeBaseRepository) CreateWithBinding(ctx context.Context, kb *model.KnowledgeBase, binding *model.AgentKBBinding) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(kb).Error; err != nil {
+			return err
+		}
+		return tx.Create(binding).Error
+	})
+}
+
 // GetByID 按 ID 查询
 func (r *KnowledgeBaseRepository) GetByID(ctx context.Context, id uint) (*model.KnowledgeBase, error) {
 	var kb model.KnowledgeBase

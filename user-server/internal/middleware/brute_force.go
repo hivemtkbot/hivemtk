@@ -34,6 +34,31 @@ var globalBruteForce = &bruteForceProtector{
 	entries: make(map[string]*bruteForceEntry),
 }
 
+// bruteForceJanitorOnce 周期清理器单次启动开关
+var bruteForceJanitorOnce sync.Once
+
+// startBruteForceJanitor 周期清理过期条目（v3 审计 P2-6：
+// 配合 XFF 伪造可致 entries 无限膨胀；此处每 10 分钟清除
+// 无失败记录且锁定已过期的 entry，防止内存耗尽）。
+func startBruteForceJanitor() {
+	bruteForceJanitorOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(10 * time.Minute)
+			defer ticker.Stop()
+			for range ticker.C {
+				now := time.Now()
+				globalBruteForce.mu.Lock()
+				for k, e := range globalBruteForce.entries {
+					if e.failures == 0 && now.After(e.lockedUntil) {
+						delete(globalBruteForce.entries, k)
+					}
+				}
+				globalBruteForce.mu.Unlock()
+			}
+		}()
+	})
+}
+
 // BruteForceLockCallback 锁定时触发的回调
 // 用于在锁定时把告警写入数据库 / 推送通知
 // endpoint: 触发锁定的端点（如 "auth.login"）
@@ -83,6 +108,7 @@ var DefaultBruteForceConfig = BruteForceConfig{
 //     自增后被丢弃 — 对从未失败过的成功请求是浪费 + 误导。
 //  3. 调用点唯一：`/api/auth/login`，单点维护更清晰。
 func BruteForceGuard(endpoint string) gin.HandlerFunc {
+	startBruteForceJanitor()
 	return func(c *gin.Context) {
 		clientKey := c.ClientIP() + "|" + endpoint
 

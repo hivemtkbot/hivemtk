@@ -20,7 +20,7 @@ import (
 type CustomerRFM struct {
 	ID         uint64 `gorm:"primaryKey;autoIncrement" json:"id"`
 	CustomerID string `gorm:"type:varchar(36);not null;uniqueIndex" json:"customer_id"`
-	UnifiedID  string `gorm:"type:varchar(64);default:'';index" json:"unified_id"`
+	UnifiedID  string `gorm:"type:varchar(128);default:'';index" json:"unified_id"`
 
 	RecencyDays   int   `gorm:"type:int;not null;default:9999" json:"recency_days"`    
 	Frequency     int   `gorm:"type:int;not null;default:0" json:"frequency"`          
@@ -69,7 +69,7 @@ var RFMSegmentDescriptions = map[string]string{
 type RecoveryQueue struct {
 	ID         uint64 `gorm:"primaryKey;autoIncrement" json:"id"`
 	CustomerID string `gorm:"type:varchar(36);not null;index" json:"customer_id"`
-	UnifiedID  string `gorm:"type:varchar(64);default:'';index" json:"unified_id"`
+	UnifiedID  string `gorm:"type:varchar(128);default:'';index" json:"unified_id"`
 	Account    string `gorm:"type:varchar(255);default:''" json:"account"`
 
 	Reason   string `gorm:"type:varchar(32);not null;default:'churn'" json:"reason"` 

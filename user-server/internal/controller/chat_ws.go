@@ -44,6 +44,7 @@ import (
 	"hivemtk-user/internal/contract"
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/response"
 )
 
 
@@ -138,22 +139,22 @@ func buildCheckOrigin(allowedOrigins []string) func(r *http.Request) bool {
 //  6. 连接关闭时清理
 func (ctrl *ChatWSController) HandleChatWS(c *gin.Context) {
 	if ctrl.engine == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "stream engine not configured"})
+		response.Error(c, http.StatusServiceUnavailable, "stream engine not configured")
 		return
 	}
 	if ctrl.hub == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "ws hub not configured"})
+		response.Error(c, http.StatusInternalServerError, "ws hub not configured")
 		return
 	}
 
 	sessionID := c.Query("session_id")
 	customerID := c.Query("customer_id")
 	if sessionID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "session_id is required"})
+		response.Error(c, http.StatusBadRequest, "session_id is required")
 		return
 	}
 	if customerID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "customer_id is required"})
+		response.Error(c, http.StatusBadRequest, "customer_id is required")
 		return
 	}
 

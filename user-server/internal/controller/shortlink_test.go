@@ -1299,8 +1299,9 @@ func TestShortLinkController_AccessShortLink_WrongPassword(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status Internal Server Error, got %d", w.Code)
+	// v3 审计后 accessErrorStatus 语义化: 密码错误=401 / 禁用=403 / 过期=403
+	if w.Code != http.StatusUnauthorized && w.Code != http.StatusForbidden {
+		t.Errorf("Expected status Unauthorized or Forbidden, got %d", w.Code)
 	}
 }
 
@@ -1372,8 +1373,9 @@ func TestShortLinkController_AccessShortLink_DisabledLink(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status Internal Server Error, got %d", w.Code)
+	// v3 审计后 accessErrorStatus 语义化: 密码错误=401 / 禁用=403 / 过期=403
+	if w.Code != http.StatusUnauthorized && w.Code != http.StatusForbidden {
+		t.Errorf("Expected status Unauthorized or Forbidden, got %d", w.Code)
 	}
 }
 
@@ -1411,8 +1413,9 @@ func TestShortLinkController_AccessShortLink_ExpiredLink(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status Internal Server Error, got %d", w.Code)
+	// v3 审计后 accessErrorStatus 语义化: 密码错误=401 / 禁用=403 / 过期=403
+	if w.Code != http.StatusUnauthorized && w.Code != http.StatusForbidden {
+		t.Errorf("Expected status Unauthorized or Forbidden, got %d", w.Code)
 	}
 }
 

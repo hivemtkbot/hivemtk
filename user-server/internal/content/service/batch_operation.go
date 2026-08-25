@@ -263,7 +263,7 @@ func (s *BatchOperationService) importUsers(ctx context.Context, rows [][]string
 			RealName: realName,
 		}
 
-		ctx := context.Background()
+		// v7 审计修复：保留调用方 ctx（trace/超时传递），不再用 Background 覆盖
 		if err := s.userRepo.Create(ctx, user); err != nil {
 			result.Failed++
 			result.Errors = append(result.Errors, ImportError{

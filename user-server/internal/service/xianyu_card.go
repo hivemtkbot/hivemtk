@@ -223,9 +223,13 @@ func (s *xianyuCardService) GenerateShortLink(ctx context.Context, card *model.X
 		domainID = card.DomainPoolID
 	}
 
+	// v3 审计修复：铁律#24 要求绝对 https 目标；未配置跳转目标时跳过
+	if card.RedirectURL == "" {
+		return nil
+	}
 	shortLink, err := s.shortLinkService.Create(ctx, &dto.CreateShortLinkRequest{
 		ShortCode:   generateResp.ShortCode,
-		OriginalURL: fmt.Sprintf("/xianyu/card/%d", card.ID), 
+		OriginalURL: card.RedirectURL,
 		Title:       card.Title,
 		Description: card.Description,
 		DomainID:    domainID,

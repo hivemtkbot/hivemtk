@@ -4,17 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
-
-
 var (
 	ErrCircuitOpen = fmt.Errorf("circuit breaker open")
 )
-
 
 // CircuitState 熔断器状态
 type CircuitState int32
@@ -40,29 +38,31 @@ func (s CircuitState) String() string {
 
 // CircuitBreakerConfig 熔断器配置
 type CircuitBreakerConfig struct {
-	FailureThreshold int
-	Cooldown time.Duration
+	FailureThreshold    int
+	BaseCooldown        time.Duration
+	MaxCooldown         time.Duration
+	BackoffMultiplier   float64
 	HalfOpenMaxAttempts int
 }
 
-// DefaultCircuitBreakerConfig 默认熔断器配置
+// DefaultCircuitBreakerConfig 默认熔断器配置（含指数退避）
 func DefaultCircuitBreakerConfig() CircuitBreakerConfig {
 	return CircuitBreakerConfig{
 		FailureThreshold:    5,
-		Cooldown:            30 * time.Second,
+		BaseCooldown:        30 * time.Second,
+		MaxCooldown:         5 * time.Minute,
+		BackoffMultiplier:   2.0,
 		HalfOpenMaxAttempts: 1,
 	}
 }
 
-
 // toolCircuit 单工具的熔断器实例
-//
-// 状态字段使用 atomic 操作保证线程安全
 type toolCircuit struct {
-	state            atomic.Int32 
-	consecutiveFails atomic.Int32 
-	openedAt         atomic.Int64 
-	halfOpenAttempts atomic.Int32 
+	state            atomic.Int32
+	consecutiveFails atomic.Int32
+	openedAt         atomic.Int64
+	halfOpenAttempts atomic.Int32
+	openCount        atomic.Int32
 }
 
 func newToolCircuit() *toolCircuit {
@@ -71,11 +71,19 @@ func newToolCircuit() *toolCircuit {
 	return c
 }
 
+// calculateCooldown 计算指数退避冷却时间
+func calculateCooldown(cfg CircuitBreakerConfig, openCount int32) time.Duration {
+	if openCount <= 1 {
+		return cfg.BaseCooldown
+	}
+	cooldown := float64(cfg.BaseCooldown) * math.Pow(cfg.BackoffMultiplier, float64(openCount-1))
+	if cooldown > float64(cfg.MaxCooldown) {
+		cooldown = float64(cfg.MaxCooldown)
+	}
+	return time.Duration(cooldown)
+}
+
 // Allow 判断是否允许请求通过
-//
-// 返回：
-//   - true: 允许通过（CLOSED 或 HALF_OPEN 试探配额未用尽）
-//   - false: 拒绝（OPEN 且冷却时间未到，或 HALF_OPEN 配额已用尽）
 func (c *toolCircuit) Allow(now time.Time, cfg CircuitBreakerConfig) bool {
 	state := CircuitState(c.state.Load())
 
@@ -85,13 +93,12 @@ func (c *toolCircuit) Allow(now time.Time, cfg CircuitBreakerConfig) bool {
 
 	case CircuitOpen:
 		openedAt := time.Unix(0, c.openedAt.Load())
-		if now.Sub(openedAt) >= cfg.Cooldown {
+		openCount := c.openCount.Load()
+		cooldown := calculateCooldown(cfg, openCount)
+		if now.Sub(openedAt) >= cooldown {
 			if c.state.CompareAndSwap(int32(CircuitOpen), int32(CircuitHalfOpen)) {
 				c.halfOpenAttempts.Store(0)
 			}
-			// v3 审计 P2-20 修复：CAS 失败重新读 state
-			// 原：fallthrough 到 HalfOpen 但 state 可能已被并发改回
-			// 新：重新读 state 决定走 Open 还是 HalfOpen
 			state = CircuitState(c.state.Load())
 			if state == CircuitOpen {
 				return false
@@ -112,26 +119,24 @@ func (c *toolCircuit) Allow(now time.Time, cfg CircuitBreakerConfig) bool {
 }
 
 // RecordSuccess 记录一次成功
-// CLOSED: 重置失败计数
-// HALF_OPEN: 切换回 CLOSED
 func (c *toolCircuit) RecordSuccess() {
 	c.consecutiveFails.Store(0)
 	state := CircuitState(c.state.Load())
 	if state == CircuitHalfOpen {
 		c.state.Store(int32(CircuitClosed))
 		c.halfOpenAttempts.Store(0)
+		c.openCount.Store(0)
 	}
 }
 
 // RecordFailure 记录一次失败
-// CLOSED: 失败计数 +1，达到阈值则切换到 OPEN
-// HALF_OPEN: 立即切换回 OPEN
 func (c *toolCircuit) RecordFailure(now time.Time, cfg CircuitBreakerConfig) {
 	state := CircuitState(c.state.Load())
 
 	if state == CircuitHalfOpen {
 		c.state.Store(int32(CircuitOpen))
 		c.openedAt.Store(now.UnixNano())
+		c.openCount.Add(1)
 		return
 	}
 
@@ -139,6 +144,7 @@ func (c *toolCircuit) RecordFailure(now time.Time, cfg CircuitBreakerConfig) {
 	if int(fails) >= cfg.FailureThreshold {
 		if c.state.CompareAndSwap(int32(CircuitClosed), int32(CircuitOpen)) {
 			c.openedAt.Store(now.UnixNano())
+			c.openCount.Add(1)
 		}
 	}
 }
@@ -153,8 +159,12 @@ func (c *toolCircuit) ConsecutiveFails() int32 {
 	return c.consecutiveFails.Load()
 }
 
+// OpenCount 获取熔断次数
+func (c *toolCircuit) OpenCount() int32 {
+	return c.openCount.Load()
+}
 
-// CircuitBreakerRegistry 熔断器注册中心（按 tool_name 独立熔断）
+// CircuitBreakerRegistry 熔断器注册中心
 type CircuitBreakerRegistry struct {
 	mu       sync.RWMutex
 	circuits map[string]*toolCircuit
@@ -165,6 +175,12 @@ type CircuitBreakerRegistry struct {
 func NewCircuitBreakerRegistry(cfg CircuitBreakerConfig) *CircuitBreakerRegistry {
 	if cfg.FailureThreshold <= 0 {
 		cfg = DefaultCircuitBreakerConfig()
+	}
+	if cfg.BackoffMultiplier < 1.0 {
+		cfg.BackoffMultiplier = 2.0
+	}
+	if cfg.MaxCooldown <= 0 {
+		cfg.MaxCooldown = 5 * time.Minute
 	}
 	return &CircuitBreakerRegistry{
 		circuits: make(map[string]*toolCircuit),
@@ -215,13 +231,24 @@ func (r *CircuitBreakerRegistry) State(toolName string) CircuitState {
 	return c.State()
 }
 
-// AllStates 查询所有工具的熔断状态（用于 /metrics endpoint 暴露）
-func (r *CircuitBreakerRegistry) AllStates() map[string]CircuitState {
+// ToolCircuitInfo 工具熔断信息
+type ToolCircuitInfo struct {
+	State            CircuitState `json:"state"`
+	ConsecutiveFails int32         `json:"consecutive_fails"`
+	OpenCount        int32         `json:"open_count"`
+}
+
+// AllStates 查询所有工具的熔断状态
+func (r *CircuitBreakerRegistry) AllStates() map[string]ToolCircuitInfo {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	out := make(map[string]CircuitState, len(r.circuits))
+	out := make(map[string]ToolCircuitInfo, len(r.circuits))
 	for name, c := range r.circuits {
-		out[name] = c.State()
+		out[name] = ToolCircuitInfo{
+			State:            c.State(),
+			ConsecutiveFails: c.ConsecutiveFails(),
+			OpenCount:        c.OpenCount(),
+		}
 	}
 	return out
 }
@@ -231,12 +258,7 @@ func (r *CircuitBreakerRegistry) Config() CircuitBreakerConfig {
 	return r.cfg
 }
 
-
 // CircuitBreakerDecorator 熔断器装饰器
-//
-// 在工具执行前检查熔断状态，工具执行后记录成功/失败
-// 装饰器链位置：权限 → 限流 → 熔断 → 重试 → 超时 → 审计
-// （熔断在重试之前：避免重试已熔断的工具）
 func CircuitBreakerDecorator(registry *CircuitBreakerRegistry) ToolDecorator {
 	return func(next ToolHandler) ToolHandler {
 		return func(ctx context.Context, args map[string]any) (ToolResult, error) {
@@ -266,15 +288,12 @@ func CircuitBreakerDecorator(registry *CircuitBreakerRegistry) ToolDecorator {
 	}
 }
 
-
-// NoOpCircuitBreakerRegistry 空操作熔断器（不进行任何熔断）
-// 用于不需要熔断的场景（如单元测试、低频调用工具）
+// NoOpCircuitBreakerRegistry 空操作熔断器
 type NoOpCircuitBreakerRegistry struct{}
 
-func (NoOpCircuitBreakerRegistry) Allow(toolName string) bool         { return true }
-func (NoOpCircuitBreakerRegistry) RecordSuccess(toolName string)      {}
-func (NoOpCircuitBreakerRegistry) RecordFailure(toolName string)      {}
-func (NoOpCircuitBreakerRegistry) State(toolName string) CircuitState { return CircuitClosed }
-func (NoOpCircuitBreakerRegistry) AllStates() map[string]CircuitState { return nil }
-func (NoOpCircuitBreakerRegistry) Config() CircuitBreakerConfig       { return DefaultCircuitBreakerConfig() }
-
+func (NoOpCircuitBreakerRegistry) Allow(toolName string) bool                { return true }
+func (NoOpCircuitBreakerRegistry) RecordSuccess(toolName string)             {}
+func (NoOpCircuitBreakerRegistry) RecordFailure(toolName string)             {}
+func (NoOpCircuitBreakerRegistry) State(toolName string) CircuitState        { return CircuitClosed }
+func (NoOpCircuitBreakerRegistry) AllStates() map[string]ToolCircuitInfo    { return nil }
+func (NoOpCircuitBreakerRegistry) Config() CircuitBreakerConfig              { return DefaultCircuitBreakerConfig() }

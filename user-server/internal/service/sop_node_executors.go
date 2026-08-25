@@ -67,11 +67,16 @@ func (e *EndExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeE
 func (e *EndExecutor) IsAsync() bool { return false }
 
 type MessageNodeBase struct {
-	nodeType   string
-	scenario   llm.DispatchScenario 
-	dispatcher *llm.Dispatcher
-	wsHub      *websocket.Hub
-	msgRepo    *repository.SessionMessageRepository
+	nodeType    string
+	scenario    llm.DispatchScenario
+	dispatcher  *llm.Dispatcher
+	wsHub       *websocket.Hub
+	msgRepo     *repository.SessionMessageRepository
+	sessionRepo *repository.CustomerSessionRepository
+	// llmSem 与 LLMNodeExecutor 共享的全局 LLM 信号量。
+	// v7 审计修复：原 resolveContent 的 LLM 兜底路径不取信号量，
+	// 11 种消息类节点 ×16 worker 可绕过 4 并发限制打满 LLM 网关。
+	llmSem chan struct{}
 }
 
 func (b *MessageNodeBase) NodeType() string { return b.nodeType }
@@ -182,6 +187,15 @@ func (b *MessageNodeBase) resolveContent(ctx context.Context, ec *ExecutionConte
 	}
 
 	if b.dispatcher != nil {
+		// v7 审计修复：LLM 兜底路径必须与 LLMNodeExecutor 同样受信号量约束
+		if b.llmSem != nil {
+			select {
+			case b.llmSem <- struct{}{}:
+				defer func() { <-b.llmSem }()
+			case <-ctx.Done():
+				return defaultScriptForNodeType(b.nodeType), "fallback", nil
+			}
+		}
 		systemPrompt := fmt.Sprintf("你是一名销冠，正在执行 %s 节点。根据客户上下文生成一段简短、自然、专业的话术（不超过 100 字）。", b.nodeType)
 		userPrompt := buildLLMUserPrompt(ec)
 		req := llm.DispatchRequest{
@@ -204,11 +218,11 @@ func (b *MessageNodeBase) resolveContent(ctx context.Context, ec *ExecutionConte
 }
 
 func (b *MessageNodeBase) updateSessionLastMessage(ctx context.Context, sessionID, content string) {
-	repo := repository.NewCustomerSessionRepository()
-	if repo == nil {
+	// v7 审计修复：使用注入的 deps.SessionRepo，不再内联构造仓储
+	if b.sessionRepo == nil {
 		return
 	}
-	_ = repo.UpdateLastMessageBySessionID(ctx, sessionID, content, "ai")
+	_ = b.sessionRepo.UpdateLastMessageBySessionID(ctx, sessionID, content, "ai")
 }
 
 func buildLLMUserPrompt(ec *ExecutionContext) string {
@@ -282,11 +296,13 @@ func (b *MessageNodeBase) SetWSHub(ctx context.Context, hub *websocket.Hub) {
 
 func NewMessageNodeExecutor(nodeType string, scenario llm.DispatchScenario, deps *SOPNodeExecutorDeps) *MessageNodeBase {
 	return &MessageNodeBase{
-		nodeType:   nodeType,
-		scenario:   scenario,
-		dispatcher: deps.Dispatcher,
-		wsHub:      deps.WSHub,
-		msgRepo:    deps.MsgRepo,
+		nodeType:    nodeType,
+		scenario:    scenario,
+		dispatcher:  deps.Dispatcher,
+		wsHub:       deps.WSHub,
+		msgRepo:     deps.MsgRepo,
+		sessionRepo: deps.SessionRepo,
+		llmSem:      deps.LLMSem,
 	}
 }
 

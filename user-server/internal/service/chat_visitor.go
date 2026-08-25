@@ -141,7 +141,8 @@ func visitorTokenSecret() []byte {
 	if cfg := config.GetAppConfig(); cfg.Security.VisitorTokenSecret != "" {
 		return []byte(cfg.Security.VisitorTokenSecret)
 	}
-	return []byte("hivemtk-visitor-default-secret-change-me")
+	// v3 审计 P1-4：密钥未配置时返回 nil（调用方 fail-closed），不再回退硬编码默认值
+	return nil
 }
 
 // GenerateVisitorToken 为访客生成 HMAC-SHA256 签名 token（委托给 security 包）

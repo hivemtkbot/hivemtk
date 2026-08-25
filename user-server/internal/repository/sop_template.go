@@ -4,7 +4,6 @@ package repository
 import (
 	"context"
 
-	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 
 	"gorm.io/gorm"
@@ -215,7 +214,7 @@ func (r *SOPTemplateRepository) MatchByIDs(ctx context.Context, intent, stage st
 // ListWithFilter 分页+过滤 (前端 SOP 模板管理页面使用)
 //
 // 新增 AgentID 过滤 (nil=不过滤, &0=仅共享, &X=仅该智能体)
-func (r *SOPTemplateRepository) ListWithFilter(ctx context.Context, filter SOPTemplateFilter) ([]model.SOPTemplate, int64, error) {
+func (r *SOPTemplateRepository) ListWithFilter(ctx context.Context, filter SOPTemplateListParams) ([]model.SOPTemplate, int64, error) {
 	q := r.db.WithContext(ctx).Model(&model.SOPTemplate{})
 	if filter.Keyword != "" {
 		kw := "%" + filter.Keyword + "%"
@@ -264,12 +263,20 @@ func (r *SOPTemplateRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.SOPTemplate{}).Error
 }
 
-// SOPTemplateFilter SOP 模板查询过滤器（前端管理页面）。
-// 架构整改 P0-5：权威定义迁至 dto 包，本处保留别名以兼容存量签名。
+// SOPTemplateListParams SOP 模板查询参数（前端管理页面）。
+// 架构整改 P0-5 后续：仓储层原生定义查询参数，dto 过滤器由 service 层转换。
 //
 // AgentID 字段
 //   - nil:  不过滤 (兼容旧调用)
 //   - &0:   仅查共享 (agent_id IS NULL)
 //   - &X:   仅查该智能体 (agent_id = X)
-type SOPTemplateFilter = dto.SOPTemplateFilter
+type SOPTemplateListParams struct {
+	Keyword  string
+	Intent   string
+	Stage    string
+	Enabled  *bool
+	AgentID  *uint
+	Page     int
+	PageSize int
+}
 

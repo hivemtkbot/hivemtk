@@ -21,6 +21,7 @@
 package controller
 
 import (
+	"time"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -55,7 +56,8 @@ type Client struct {
 	send       chan []byte
 	traceID    string
 
-	mu sync.Mutex 
+	mu     sync.Mutex
+	closed bool // v3 审计 P2-3：以标志位替代 close(chan)，根除并发 "send on closed channel" panic
 }
 
 // NewClient 创建 Client 实例
@@ -78,14 +80,38 @@ func (c *Client) RecvChan() <-chan []byte { return c.send }
 // TraceID 返回 trace_id
 func (c *Client) TraceID() string { return c.traceID }
 
-// Close 关闭 send 通道（由 Hub.Run 在 unregister 时调用）
+// Close 标记客户端关闭并安全关闭 send 通道（由 Hub.Run 在 unregister 时调用）。
+// v3 审计 P2-3：closed 标志保证并发发送方（sendSafe）先看到标志而放弃投递，
+// 因此这里的 close(chan) 不会被并发写入命中，根除 "send on closed channel" panic。
 func (c *Client) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.closed {
+		return
+	}
+	c.closed = true
+	close(c.send)
+}
+
+// sendSafe 线程安全发送：已关闭或缓冲满时返回 false（不阻塞、不 panic）。
+func (c *Client) sendSafe(payload []byte) (sent bool) {
+	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		return false
+	}
+	c.mu.Unlock()
+	defer func() {
+		// 双保险：任何路径下 close 竞态导致的 panic 均降级为投递失败
+		if r := recover(); r != nil {
+			sent = false
+		}
+	}()
 	select {
-	case <-c.send:
+	case c.send <- payload:
+		return true
 	default:
-		close(c.send)
+		return false
 	}
 }
 
@@ -119,7 +145,7 @@ type ChatWSHub struct {
 // 返回的 Hub 需要调用 Run() 启动后台 goroutine，
 // 并在程序退出时通过 Stop() 优雅关闭。
 func NewChatWSHub() *ChatWSHub {
-	return &ChatWSHub{
+	h := &ChatWSHub{
 		clients:    make(map[string]*Client),
 		register:   make(chan *Client, 16),
 		unregister: make(chan *Client, 16),
@@ -127,6 +153,10 @@ func NewChatWSHub() *ChatWSHub {
 		done:       make(chan struct{}),
 		startedCh:  make(chan struct{}),
 	}
+	// Run goroutine 的生命周期配额在构造期预占：
+	// 保证 Stop() 的 wg.Wait() 与 Run 的 defer Done 严格配对，无 Add/Wait 竞态窗口
+	h.wg.Add(1)
+	return h
 }
 
 // Run 启动 Hub 后台循环（必须在独立 goroutine 中调用）
@@ -139,24 +169,23 @@ func NewChatWSHub() *ChatWSHub {
 // 通过 wg.Add(1) / defer wg.Done 跟踪 goroutine 生命周期，
 // 让 Stop() 阻塞等待 Run 真正退出（防止 Hub 关闭后 Run goroutine 残留）。
 func (h *ChatWSHub) Run() {
+	defer h.wg.Done() // 配额在 NewChatWSHub 预占
 	h.startedOnce.Do(func() {
-		h.wg.Add(1)
 		close(h.startedCh)
-		defer h.wg.Done()
-		for {
-			select {
-			case client := <-h.register:
-				h.addClient(client)
-			case client := <-h.unregister:
-				h.removeClient(client)
-			case msg := <-h.broadcast:
-				h.fanout(msg)
-			case <-h.done:
-				h.closeAll()
-				return
-			}
-		}
 	})
+	for {
+		select {
+		case client := <-h.register:
+			h.addClient(client)
+		case client := <-h.unregister:
+			h.removeClient(client)
+		case msg := <-h.broadcast:
+			h.fanout(msg)
+		case <-h.done:
+			h.closeAll()
+			return
+		}
+	}
 }
 
 // Stop 停止 Hub（幂等）
@@ -171,9 +200,12 @@ func (h *ChatWSHub) Stop() {
 	h.closeOnce.Do(func() {
 		close(h.done)
 	})
+	// v3 flaky 修复：done 关闭后原 select 两分支同时就绪，随机选中 done 分支
+	// 会跳过 wg.Wait()，导致 Run 尚未退出就返回（goleak 偶发误报/真泄漏窗口）。
+	// Run 未被调用时 startedCh 永不关闭 → 3s 超时兜底防死等。
 	select {
 	case <-h.startedCh:
-	case <-h.done:
+	case <-time.After(500 * time.Millisecond):
 		return
 	}
 	h.wg.Wait()
@@ -211,12 +243,7 @@ func (h *ChatWSHub) SendToClient(sessionID string, payload []byte) bool {
 	if !ok {
 		return false
 	}
-	select {
-	case client.send <- payload:
-		return true
-	default:
-		return false
-	}
+	return client.sendSafe(payload)
 }
 
 // SendChunk 向指定 sessionID 发送 StreamChunk（便捷方法）
@@ -314,10 +341,8 @@ func (h *ChatWSHub) fanout(payload []byte) {
 	h.mu.RUnlock()
 
 	for _, c := range clients {
-		select {
-		case c.send <- payload:
-		default:
-			logger.Warnf("[ws-hub] broadcast to client session_id=%s dropped (send channel full)", c.SessionID)
+		if !c.sendSafe(payload) {
+			logger.Warnf("[ws-hub] broadcast to client session_id=%s dropped (closed or send channel full)", c.SessionID)
 		}
 	}
 }
@@ -328,7 +353,9 @@ func (h *ChatWSHub) closeAll() {
 	defer h.mu.Unlock()
 	for sessionID, c := range h.clients {
 		c.Close()
-		_ = c.Conn.Close()
+		if c.Conn != nil {
+			_ = c.Conn.Close()
+		}
 		logger.Infof("[ws-hub] closing client session_id=%s due to hub stop", sessionID)
 	}
 	h.clients = make(map[string]*Client)

@@ -28,7 +28,7 @@
 |------|-----|
 | **体验地址** | https://hiveuser.xapptool.cn/ |
 | **登录账号** | `admin` |
-| **登录密码** | `Admin@123456` |
+| **登录密码** | `Seed@123456` |
 
 ---
 
@@ -36,9 +36,9 @@
 
 > **开源私域营销 AI 操作系统**:把七端社媒触达、ReAct 自主智能体、零出域数据安全三件事**同时做透**。
 
-我们不是给大模型套个壳,更不是把流程写死的自动化脚本。HiveMtk 内置一套**能感知 → 规划 → 调工具 → 反思**的自主 AI 智能体(ReAct + 41 个工具),从消息入站到回复出站,自己想办法把事办成。覆盖**获客 → 触达 → 转化 → 复购**全链路营销场景,94 个业务模块开箱即用。
+我们不是给大模型套个壳,更不是把流程写死的自动化脚本。HiveMtk 内置一套**能感知 → 规划 → 调工具 → 反思**的自主 AI 智能体(ReAct + 42 个工具),从消息入站到回复出站,自己想办法把事办成。覆盖**获客 → 触达 → 转化 → 复购**全链路营销场景,94 个业务模块开箱即用,另附 GEO 智能优化模块打通 AI 搜索获客闭环。
 
-**🌐 七端打通** · **🤖 ReAct 自主智能体(41 工具)** · **🔒 100% 私域零出域** · **📦 94 业务模块** · **⚡ 5 分钟一键起**
+**🌐 七端打通** · **🤖 ReAct 自主智能体(42 工具)** · **🔒 100% 私域零出域** · **📦 94 业务模块 + GEO 引擎** · **⚡ 5 分钟一键起**
 
 ```bash
 # ⚡ 3 步 5 分钟跑起来
@@ -118,22 +118,26 @@ HiveMtk 把**私域部署 + 真 AI 智能体 + 七端打通**三件事同时做�
 
 | 渠道 | 触达 | 智能卡片 | 自动回复 | RAG 客服 | 备注 |
 |------|------|---------|---------|---------|------|
-| 抖音 | ✅ | ✅ | ✅ | ✅ | 含直播/私信 |
-| 快手 | ✅ | ✅ | ✅ | ✅ | 含直播/私信 |
-| 小红书 | ✅ | ✅ | ✅ | ✅ | 含私信/评论 |
-| 闲鱼 | ✅ | ✅ | ✅ | ✅ | 二手商品场景 |
-| TikTok | ✅ | ✅ | ✅ | ✅ | 海外矩阵 |
+| 抖音 | ✅ | ✅ | ✅ | ✅ | Chrome 扩展桥接,含直播/私信 |
+| 快手 | ✅ | ✅ | ✅ | ✅ | Chrome 扩展桥接,含直播/私信 |
+| 小红书 | ✅ | ✅ | ✅ | ✅ | Chrome 扩展桥接,含私信/评论 |
+| 闲鱼 | ✅ | ✅ | ✅ | ✅ | Chrome 扩展桥接,二手商品场景 |
+| TikTok | ✅ | ✅ | ✅ | ✅ | Chrome 扩展桥接,海外矩阵 |
 | 微信 / 企业微信 | ✅ | - | ✅ | ✅ | 含社群/朋友圈 |
-| 短信 | ✅ | - | - | - | 多通道营销 |
-| 邮件 | ✅ | - | - | - | SMTP/163/QQ |
+| 邮件 | ✅ | - | ✅ | ✅ | SMTP/163/QQ |
+| Telegram | ✅ | - | ✅ | ✅ | Bot 协议直连 |
+| WhatsApp | ✅ | - | ✅ | ✅ | Cloud API + 模板消息 |
+| 短信 | ✅ | - | - | - | 阿里云/腾讯云/华为云 |
+
+> **桥接架构说明**:抖音/快手/小红书/闲鱼/TikTok 五端经 **Chrome 扩展( Bridge 客户端)+ 你自己的登录态浏览器** 收发消息——无需无头浏览器(CDP Headless 模式已废弃并清理,见迁移 `v3_19`)。扩展所在浏览器在线时,入站私信自动进入统一收件箱,AI 生成的回复经扩展在真实会话中发出。
 
 统一 CDP 客户视图,一份资料全渠道触达;统一消息中心,会话/工单/留言一处看完。
 
 ### 2. 🤖 AI 范式:ReAct 自主智能体,不是写死的工作流
 
-- **ReAct 循环**:感知 → 规划 → 调工具 → 反思(最多 5 轮),智能体自主决策
-- **41 个内置工具**:查库存、查物流、查客户画像、改地址、加白名单……完整工具注册表见 [docs/architecture/agent-tools-inventory.md](docs/architecture/agent-tools-inventory.md)
-- **三级 RAG 检索**:粗排(向量召回) + 精排(bge-reranker) + LLM 改写(HyDE/Query Rewriter)
+- **ReAct 循环**:感知 → 规划 → 调工具 → 反思(默认最多 5 轮),智能体自主决策
+- **42 个内置工具**:13 类通道触达(reach.*)、客户资产(customer.*)、知识检索(knowledge.* / rag.search)、订单/物流/售后(order.lookup / logistics.track / aftersale.*)、私信会话(pm.*)、卡片展示(card.show),完整注册逻辑见 [user-server/internal/aiagent/agent/tooluse/](user-server/internal/aiagent/agent/tooluse/)(代码即清单)
+- **混合检索 RAG**:粗排(pgvector HNSW 向量 + BM25 关键词,RRF 融合) + 精排(bge-reranker-v2-m3) + 可选查询改写(HyDE / MultiQuery)
 - **多智能体协作**:被动应答智能体 + 主动触达智能体(ADR-013)
 - **AI 销冠**:话术模板 + RAG + 自动跟进,全流程辅助坐席
 - **可视化工作流**:营销自动化编辑器,零代码搭建 SOP
@@ -150,6 +154,39 @@ HiveMtk 把**私域部署 + 真 AI 智能体 + 七端打通**三件事同时做�
 
 ---
 
+## 🌍 GEO 智能优化模块(AI 搜索获客闭环)
+
+> **GEO(Generative Engine Optimization,生成式引擎优化)**:面向 ChatGPT Search、Perplexity、Google SGE 等 AI 搜索引擎的内容优化方法论。SEO 争的是搜索结果排名,GEO 争的是 **AI 答案里的"席位"** ——让品牌在被大模型引用作答时被提及、被正面表述。HiveMtk 将 GEO 全流程工具化,形成独立模块族(15 张 `geo_*` 表),完整指南见 [user-server/docs/geo-module-guide.md](user-server/docs/geo-module-guide.md)。
+
+### 工作流闭环
+
+```
+品牌配置 → 关键词蒸馏 → 内容创作 → 多模型验证 → 平台同步发布
+                ↑                             ↓
+           数据增强 ← 历史验证数据 ←──────────┘
+```
+
+### 六大能力详解
+
+| 能力 | 介绍 | 原理 | 作用 |
+|------|------|------|------|
+| **关键词蒸馏** | 种子词扩展为高价值关键词集 | LLM 基于品牌+种子词生成对比/评测/购买等意图词,再做语义扩展与话题聚类 | 覆盖用户真实提问方式,内容选题有据可依 |
+| **内容创作** | AI 生成 SEO/GEO 双优化文章 | 按品牌声音/字数/风格约束生成,四维百分制评分(结构/品牌自然度/权威性/数据支撑) | 批量产出符合 E-E-A-T 信号的可引用内容 |
+| **E-E-A-T + Schema** | 权威信号与结构化标记增强 | 注入经验/专业/权威/可信要素,自动生成 JSON-LD 标记 | 提升内容被 AI 引用的概率与机器可读性 |
+| **多模型验证** | 模拟 AI 搜索检验品牌可见性 | 用多厂商 LLM 模拟 ChatGPT/Perplexity 对目标查询作答,检测品牌是否被提及及情感倾向 | 量化"AI 答案席位",沉淀历史数据反哺关键词策略 |
+| **RAG 知识库** | 品牌知识库问答与检索 | PostgreSQL 关键词加权检索(title 0.6 / content 0.4)+ Top5 片段喂给 LLM 作答;大规模场景建议后续接入 pgvector | 让生成内容锚定品牌事实,降低幻觉 |
+| **平台同步** | 内容一键分发 12 平台 | GitHub API 直写 README;掘金/知乎/CSDN/微博等记录待手动发布(cookie 凭据管理) | 把优化后内容铺到高权重站点,增加被语料收录机会 |
+
+### 配套能力
+
+- **DAG 工作流引擎**:把上述步骤编排为自动执行流水线(条件判断 + 步骤跳转 + 5 种内置执行器)
+- **负面监控**:自动生成负面查询,评估负面提及风险等级
+- **ROI 与成本报表**:按 LLM 提供商/模型统计 Token 消耗与费用,投入产出可量化
+- **技术配置生成**:robots.txt / sitemap.xml 一键生成
+- **LLM 复用全局 Dispatcher**:支持 6 厂商 + 场景路由 + 缓存 + 故障转移,不重复造轮子
+
+---
+
 ## 🆚 与同类项目对比
 
 > 💡 诚实对比,敢暴露劣势。**没有银弹**,按需选择。
@@ -158,7 +195,7 @@ HiveMtk 把**私域部署 + 真 AI 智能体 + 七端打通**三件事同时做�
 |------|--------------------|---------|------------|------|---------------------|
 | **核心定位** | 私域 AI 营销 OS(7 端) | 企微 SCRM | 企微 SCRM | 通用 LLM 应用平台 | 商业 SaaS |
 | **触达端** | **7 端** ✅ | 1 端(企微) | 1 端(企微) | 无 | 1-3 端 |
-| **AI 能力** | **ReAct 智能体 + 41 工具** | 简单 RAG | 无 | 可视化 Workflow | 基础客服机器人 |
+| **AI 能力** | **ReAct 智能体 + 42 工具** | 简单 RAG | 无 | 可视化 Workflow | 基础客服机器人 |
 | **数据部署** | **100% 私域 + 本地推理栈** | SaaS / 私有 | SaaS / 私有 | 自托管 / SaaS | SaaS |
 | **开源** | ✅ AGPL-3.0(含 SaaS 网络 copyleft) | ✅ | ✅ | ✅ | ❌ |
 | **上手成本** | 5 分钟 Docker | 中等 | 中等 | 中等 | 注册即用 |
@@ -269,22 +306,65 @@ DTO         →  传输对象(无反向引用)
 
 > 平台端 10 个 `platform-*` 模块见 [hivemtk-platform/docs/platform-features/README.md](../hivemtk-platform/docs/platform-features/README.md)。
 
+> 平台端 10 个 `platform-*` 模块见 [hivemtk-platform/docs/platform-features/README.md](../hivemtk-platform/docs/platform-features/README.md)。另有独立的 **GEO 智能优化模块**(15 张 `geo_*` 表,关键词蒸馏 → 内容生成 → AI 搜索验证 → 平台发布闭环),详见上文 [GEO 专节](#-geo-智能优化模块ai-搜索获客闭环)。
+
 ---
 
-## 技术栈
+## 技术栈详解
 
-| 维度 | 选型 |
-|------|------|
-| 后端 | Go 1.25 + Gin + GORM + pgvector |
-| 前端 | Vue 3 + Vite + Element Plus + Pinia |
-| 数据库 | PostgreSQL 15 + pgvector(1024 维) |
-| 缓存 | Redis 7 |
-| LLM | llama.cpp + Qwen2.5(OpenAI 兼容 API) |
-| Embedding | TEI + bge-m3(1024 维) |
-| Rerank | TEI + bge-reranker-v2-m3 |
-| 嵌入式客服 | 原生 JS(IIFE)+ iframe + postMessage |
-| 部署 | Docker Compose(数据层)+ 宿主机推理栈(llama.cpp) |
-| 鉴权 | JWT + AppKey 软解析(无强鉴权,私域部署基线) |
+> 每个选型按 **介绍**(是什么)/ **原理**(怎么工作)/ **作用**(解决什么问题)三问说明。
+
+### 后端核心
+
+| 选型 | 介绍 | 原理 | 作用 |
+|------|------|------|------|
+| **Go 1.25 + Gin** | 静态类型编译语言 + 轻量 Web 框架 | goroutine 每连接并发模型,中间件责任链处理请求 | 单二进制交付、低内存占用,支撑高并发消息入站与 API 服务 |
+| **五层架构** | Controller → Service → Repository → Model → DTO 硬约束 | 每层只依赖下一层,禁止跨层调用,CI 脚本强制检查 | 业务逻辑可测、可替换,AI 编码与多人协作不跑偏 |
+| **JWT 鉴权** | 无状态令牌认证 | 签名令牌携带身份声明,服务端免会话查询 | 私域部署基线下的轻量登录态管理 |
+| **air 热更新** | Go 开发热重载工具 | 监听 .go/.yaml/.env 变更自动重编译重启 | 保存即生效,开发迭代秒级反馈 |
+
+### 数据与缓存
+
+| 选型 | 介绍 | 原理 | 作用 |
+|------|------|------|------|
+| **PostgreSQL 15** | 开源关系数据库 | MVCC 多版本并发控制,WAL 崩溃恢复 | 客户/对话/SOP 全部业务数据的唯一事实源,随时导出备份 |
+| **pgvector** | PostgreSQL 向量扩展 | HNSW 近似最近邻索引,1024 维向量相似度检索 | 向量与业务数据同库,客户记忆/知识库语义检索无需额外向量库 |
+| **Redis 7** | 内存键值存储 | 单线程事件循环 + 内存读写 | Token 会话、热点缓存、分布式锁,毫秒级响应 |
+| **多级缓存体系** | 进程内存 + Redis 两级管理 | LLM 响应缓存 / RAG 热缓存(LRU) / Embedding 缓存 / 工具结果缓存分层复用 | 命中即返回不消耗 token,高频问题近零成本 |
+
+### AI 推理与检索
+
+| 选型 | 介绍 | 原理 | 作用 |
+|------|------|------|------|
+| **llama.cpp + Qwen2.5** | 本地 LLM 推理运行时 + 通义开源模型 | GGUF 量化(Q4_K_M)CPU/GPU 推理,OpenAI 兼容 API | 对话生成跑在客户内网,零云端调用、零数据出域 |
+| **TEI + bge-m3** | 文本嵌入推理服务(1024 维) | Transformer 编码文本为稠密向量,批量归一化 | 把对话/知识库转成 pgvector 可检索的语义向量 |
+| **TEI + bge-reranker-v2-m3** | 交叉编码器精排服务 | Query 与候选文档拼接后逐对打分,精度远高于双塔 | RAG 第二级精排,显著提升检索相关性 |
+| **LLM Dispatcher 网关** | 多厂商统一调度层 | 场景路由(复杂异议走强模型/常规回复走轻模型)+ 故障转移 + 响应缓存 + token 计量 | 一套接口接 DeepSeek/通义/GPT-4o/GLM/Kimi/本地模型,兼顾效果成本可用性 |
+| **混合检索 RAG** | 三段式检索管线 | 粗排:HNSW 向量 + BM25 关键词双路召回 RRF 融合;精排:reranker;可选 HyDE/MultiQuery 查询改写增强 | 让智能体答得准:既不漏召回也不被关键词匹配误导 |
+
+### 智能体框架
+
+| 选型 | 介绍 | 原理 | 作用 |
+|------|------|------|------|
+| **ReAct 循环** | 推理-行动循环智能体运行时 | LLM 输出 tool_calls → 并发执行 → 结果回填 → 再推理,默认最多 5 轮 | 遇到预设之外的场景自主组合工具完成任务,而非 if-else 写死 |
+| **工具装饰器链** | 工具执行防护体系 | Permission → Retry → Timeout → RateLimit → Audit 五层装饰器逐层包裹,另有熔断器/死信队列/循环守卫 | 每次工具调用可控、可限、可查,高并发下不失控 |
+| **四层记忆系统** | L1 短期/L2 长期/L3 SOP 状态/L4 业务记忆 | 分层存储,L2 结合 pgvector 语义检索历史对话 | 智能体"记得住":短期上下文、长期偏好、SOP 进度、业务事实各归其位 |
+
+### 前端与触达
+
+| 选型 | 介绍 | 原理 | 作用 |
+|------|------|------|------|
+| **Vue 3 + Vite + Element Plus + Pinia** | 组合式 API 前端栈 | Proxy 响应式 + 按路由分包懒加载 | B 端工作台交互体验与构建速度兼顾 |
+| **embed-sdk** | 嵌入式客服 Web Widget | 原生 JS(IIFE)+ iframe 隔离 + postMessage 通信 | 一行脚本嵌入任意官网,客服入口即插即用 |
+| **13 类触达适配器** | 统一发送抽象 ReachAdapter | 各通道独立实现 SendXxx 接口,reach.* 工具统一调用;无官方接口平台经浏览器自动化桥接 | 新增渠道只需实现一个适配器,智能体能力自动覆盖 |
+
+### 部署形态
+
+| 选型 | 介绍 | 原理 | 作用 |
+|------|------|------|------|
+| **Docker Compose(数据层)** | PG + Redis 容器化编排 | 声明式 compose 文件 + 健康检查 | 数据层一键起停、迁移、备份恢复 |
+| **宿主机推理栈** | llama.cpp/TEI 非容器化直跑 | 省去容器网络与 OCI 开销,直接绑 CPU/GPU | 节省内存、提升推理吞吐 |
+| **FRP 私域穿透** | 内网穿透隧道 | 公网 VPS 反向代理经加密隧道回源内网服务 | 访客从公网进、数据留在本地,云端不落一条对话 |
 
 ---
 
@@ -302,7 +382,7 @@ hivemtk/                              # 用户端仓库
 │   ├── check-architecture.sh         # 五层架构 CI 检查
 │   └── api-inventory.sh              # API 清单导出
 ├── docs/
-│   ├── architecture/                 # 架构文档(架构图/部署方案/五层架构/ADR/41 工具清单)
+│   ├── architecture/                 # 架构文档(架构图/部署方案/五层架构/ADR)
 │   ├── marketing-features/           # ⭐ 94 个营销功能模块详细文档
 │   ├── operations/                   # 运维文档(部署手册/初始化流程/Widget 嵌入)
 │   └── analysis/                     # 分析文档(冷启动/竞品对比)
@@ -440,7 +520,8 @@ make down                 # 停止旧版全栈
 |------|------|
 | ⭐⭐⭐ Go 五层架构编码规范 | [docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md](docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md) |
 | 系统架构图(C4 + 分层 + 模块依赖) | [docs/architecture/ARCHITECTURE_DIAGRAM.md](docs/architecture/ARCHITECTURE_DIAGRAM.md) |
-| AI Agent 41 工具注册表 | [docs/architecture/agent-tools-inventory.md](docs/architecture/agent-tools-inventory.md) |
+| 智能体工具注册表(代码即清单) | [user-server/internal/aiagent/agent/tooluse/](user-server/internal/aiagent/agent/tooluse/) |
+| ⭐ GEO 智能优化模块指南 | [user-server/docs/geo-module-guide.md](user-server/docs/geo-module-guide.md) |
 | 用户系统(统一 system_users) | [docs/architecture/USER_SYSTEM.md](docs/architecture/USER_SYSTEM.md) |
 | 菜单权限实施计划 | [docs/architecture/MENU_PERMISSION_PLAN.md](docs/architecture/MENU_PERMISSION_PLAN.md) |
 | 资产市场同源同构设计 | [docs/architecture/ASSET_MARKET_INTEGRATION.md](docs/architecture/ASSET_MARKET_INTEGRATION.md) |
@@ -532,7 +613,7 @@ HiveMtk 是**私域营销 AI 操作系统**,聚焦"七端社媒触达 + 销冠 S
 
 ### 七端是哪七端?海外能用吗?
 
-抖音、快手、小红书、闲鱼、TikTok、企业微信、邮件,共 7 个社媒/沟通渠道统一接入。海外版可接 TikTok + WhatsApp + Telegram + Email,适配跨境出海场景。
+抖音、快手、小红书、闲鱼、TikTok、企业微信、邮件,共 7 个社媒/沟通渠道统一接入。其中社媒五端经 **Chrome 扩展桥接**(你自己的登录态浏览器在线即可,无需无头浏览器);Telegram / WhatsApp / 邮件为协议直连。海外版可接 TikTok + WhatsApp + Telegram + Email,适配跨境出海场景。
 
 ### 部署需要什么硬件?要多大 GPU?
 
@@ -549,7 +630,7 @@ HiveMtk 是**私域营销 AI 操作系统**,聚焦"七端社媒触达 + 销冠 S
 | 维度 | HiveMtk | 商业 SCRM |
 |------|---------|----------|
 | 数据归属 | 100% 客户自有 | 厂商云数据库 |
-| AI 智能体 | ReAct + 41 工具真自主 | 关键词匹配 / 简单 RAG |
+| AI 智能体 | ReAct + 42 工具真自主 | 关键词匹配 / 简单 RAG |
 | 渠道覆盖 | 7 端 + 短信 + 邮件 | 1-3 端(企微为主) |
 | 定制自由 | AGPL-3.0 全栈开源 | 黑盒,等厂商排期 |
 | 上手成本 | Docker 一键 5 分钟 | 注册即用 |

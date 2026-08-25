@@ -69,6 +69,14 @@ func InitCron() {
 		logger.Info(fmt.Sprintf("添加流失预测计算任务失败 %s", err.Error()))
 		panic(err)
 	}
+
+	_, err = mgr.AddTask("0 0 4 * * *", func() {
+		PasswordResetTokenCleanupCron()
+	})
+	if err != nil {
+		logger.Info(fmt.Sprintf("添加密码重置令牌清理任务失败 %s", err.Error()))
+		panic(err)
+	}
 }
 
 // ChurnCalculationCron 流失预测定时任务：从 customer_events 真实聚合全部客户行为并执行流失计算。
@@ -99,3 +107,15 @@ func LiveCodeRotateCron() {
 	logger.Info("活码轮询定时任务执行完成")
 }
 
+
+
+// PasswordResetTokenCleanupCron 密码重置令牌清理定时任务
+func PasswordResetTokenCleanupCron() {
+	logger.Info("开始执行密码重置令牌清理定时任务...")
+	resetService := service.NewPasswordResetService(db.GetDB())
+	if err := resetService.CleanupExpiredTokens(context.Background()); err != nil {
+		logger.Error(err, "密码重置令牌清理定时任务执行失败")
+		return
+	}
+	logger.Info("密码重置令牌清理定时任务执行完成")
+}

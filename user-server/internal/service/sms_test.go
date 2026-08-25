@@ -13,6 +13,7 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
+	"strings"
 )
 
 // setupSmsServiceTestDB 设置短信服务测试数据库
@@ -28,6 +29,10 @@ func setupSmsServiceTestDB(t *testing.T) *gorm.DB {
 		&model.SmsJobDetail{},
 	)
 	db.SetTestDB(database)
+	// 铁律#22 守卫会让既有发送类用例在夜间运行时被拦截，测试统一关闭时段守卫；
+	// 守卫自身行为由 TestIsSMSNightRestricted 与 TestSendSms_NightGuard 专项验证。
+	smsNightRestrictedFn = func(time.Time) bool { return false }
+	t.Cleanup(func() { smsNightRestrictedFn = isSMSNightRestricted })
 	return database
 }
 
@@ -960,3 +965,47 @@ func TestSmsService_GetSmsByID_NotFound(t *testing.T) {
 	}
 }
 
+
+// TestIsSMSNightRestricted 铁律#22: 夜间禁发窗口 22:00-8:00（北京时间）判定
+func TestIsSMSNightRestricted(t *testing.T) {
+	cst := time.FixedZone("CST", 8*3600)
+	cases := []struct {
+		hour int
+		want bool
+	}{
+		{22, true}, {23, true}, {0, true}, {5, true}, {7, true},
+		{8, false}, {12, false}, {18, false}, {21, false},
+	}
+	for _, c := range cases {
+		got := isSMSNightRestricted(time.Date(2026, 1, 1, c.hour, 30, 0, 0, cst))
+		if got != c.want {
+			t.Errorf("hour=%d: got %v, want %v", c.hour, got, c.want)
+		}
+	}
+}
+
+// TestSendSms_NightGuard 铁律#22: 夜间禁发窗口内发送被拦截
+func TestSendSms_NightGuard(t *testing.T) {
+	database := setupSmsServiceTestDB(t)
+	repo := newTestSmsRepository(database)
+	service := NewSmsService(repo)
+
+	// 模拟夜间 23:00（北京时间）
+	smsNightRestrictedFn = func(time.Time) bool { return true }
+	t.Cleanup(func() { smsNightRestrictedFn = isSMSNightRestricted })
+
+	err := service.SendSms(context.Background(), &dto.SmsSendRequest{
+		Phone:   "13800138000",
+		Content: "night test",
+	})
+	if err == nil || !strings.Contains(err.Error(), "夜间禁发") {
+		t.Fatalf("夜间时段应拒绝发送, got err=%v", err)
+	}
+
+	// 记录不应创建
+	var count int64
+	database.Model(&model.SmsRecord{}).Count(&count)
+	if count != 0 {
+		t.Errorf("夜间拦截后不应产生发送记录, got %d", count)
+	}
+}

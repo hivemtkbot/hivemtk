@@ -15,12 +15,13 @@ import (
 
 // RagRecallMonitorController 召回率监控控制器
 type RagRecallMonitorController struct {
-	svc *service.RagRecallMonitorService
+	svc        *service.RagRecallMonitorService
+	metricsSvc *service.RagMetricsService
 }
 
 // NewRagRecallMonitorController 创建控制器
-func NewRagRecallMonitorController(svc *service.RagRecallMonitorService) *RagRecallMonitorController {
-	return &RagRecallMonitorController{svc: svc}
+func NewRagRecallMonitorController(svc *service.RagRecallMonitorService, metricsSvc *service.RagMetricsService) *RagRecallMonitorController {
+	return &RagRecallMonitorController{svc: svc, metricsSvc: metricsSvc}
 }
 
 // GetSnapshot godoc
@@ -75,7 +76,7 @@ func (c *RagRecallMonitorController) ListSnapshots(ctx *gin.Context) {
 
 // CollectRequest 手动触发采集的请求体
 type CollectRequest struct {
-	WindowSeconds int `json:"window_seconds"` 
+	WindowSeconds int `json:"window_seconds"`
 }
 
 // Collect godoc
@@ -93,7 +94,7 @@ func (c *RagRecallMonitorController) Collect(ctx *gin.Context) {
 		return
 	}
 	var req CollectRequest
-	_ = ctx.ShouldBindJSON(&req) 
+	_ = ctx.ShouldBindJSON(&req)
 
 	window := time.Duration(req.WindowSeconds) * time.Second
 	if window <= 0 {
@@ -143,6 +144,67 @@ func (c *RagRecallMonitorController) Stop(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"started": false}, "已停止")
 }
 
+// GetRecallMetrics godoc
+// @Summary      查询时间窗口内的召回指标聚合
+// @Description  基于 rag_query_logs 计算 recall/precision/latency/P99/零命中/低召回统计
+// @Tags         RAG Recall
+// @Produce      json
+// @Param        start  query  string  true   "开始时间 RFC3339"
+// @Param        end    query  string  true   "结束时间 RFC3339"
+// @Success      200    {object}  service.RecallMetrics
+// @Router       /api/rag/recall/metrics [get]
+func (c *RagRecallMonitorController) GetRecallMetrics(ctx *gin.Context) {
+	if c.metricsSvc == nil {
+		response.Error(ctx, http.StatusServiceUnavailable, "RAG 指标服务未初始化")
+		return
+	}
+	startStr := ctx.Query("start")
+	endStr := ctx.Query("end")
+	if startStr == "" || endStr == "" {
+		response.Error(ctx, http.StatusBadRequest, "start/end 参数必填 (RFC3339)")
+		return
+	}
+	start, err1 := time.Parse(time.RFC3339, startStr)
+	end, err2 := time.Parse(time.RFC3339, endStr)
+	if err1 != nil || err2 != nil {
+		response.Error(ctx, http.StatusBadRequest, "时间格式错误，需 RFC3339")
+		return
+	}
+	metrics, err := c.metricsSvc.GetRecallMetrics(ctx.Request.Context(), start, end)
+	if err != nil {
+		response.ErrorFromDB(ctx, err, "查询召回指标失败："+err.Error())
+		return
+	}
+	response.Success(ctx, metrics, "ok")
+}
+
+// GetLowRecallQueries godoc
+// @Summary      查询召回率低于阈值的样本
+// @Description  用于调优分析，按创建时间倒序返回低召回查询
+// @Tags         RAG Recall
+// @Produce      json
+// @Param        threshold  query  float  false  "召回率阈值（默认 0.3）"
+// @Param        limit      query  int    false  "返回条数（默认 50，最大 200）"
+// @Success      200        {array}   service.LowRecallQuery
+// @Router       /api/rag/recall/low-recall [get]
+func (c *RagRecallMonitorController) GetLowRecallQueries(ctx *gin.Context) {
+	if c.metricsSvc == nil {
+		response.Error(ctx, http.StatusServiceUnavailable, "RAG 指标服务未初始化")
+		return
+	}
+	threshold, _ := strconv.ParseFloat(ctx.DefaultQuery("threshold", "0.3"), 64)
+	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "50"))
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	rows, err := c.metricsSvc.GetLowRecallQueries(ctx.Request.Context(), threshold, limit)
+	if err != nil {
+		response.ErrorFromDB(ctx, err, "查询低召回样本失败："+err.Error())
+		return
+	}
+	response.Success(ctx, rows, "ok")
+}
+
 // RegisterRoutes 注册路由
 func (c *RagRecallMonitorController) RegisterRoutes(auth *gin.RouterGroup) {
 	group := auth.Group("/rag/recall")
@@ -152,6 +214,7 @@ func (c *RagRecallMonitorController) RegisterRoutes(auth *gin.RouterGroup) {
 		group.POST("/collect", c.Collect)
 		group.POST("/start", c.Start)
 		group.POST("/stop", c.Stop)
+		group.GET("/metrics", c.GetRecallMetrics)
+		group.GET("/low-recall", c.GetLowRecallQueries)
 	}
 }
-

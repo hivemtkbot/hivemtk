@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -13,33 +15,46 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// auditDroppedCounterValue 审计降级计数（v3 审计 P1-24）
-var auditDroppedCounterValue int64
-
-// GetAuditDroppedCount 暴露给监控/可观测层
-func GetAuditDroppedCount() int64 {
-	return atomic.LoadInt64(&auditDroppedCounterValue)
+// AuditManager 审计管理器（封装全局状态）
+type AuditManager struct {
+	droppedCount  atomic.Int64
+	logChan       chan *AuditEntry
+	initOnce      sync.Once
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
-// 审计日志通道
-var (
-	auditLogChan   chan *AuditEntry
-	auditLogOnce   sync.Once
-	auditLogCtx    context.Context
-	auditLogCancel context.CancelFunc
-)
+// DefaultAuditManager 默认审计管理器
+var DefaultAuditManager = NewAuditManager()
 
-// 初始化审计日志异步处理器
-func initAuditLogger() {
-	auditLogOnce.Do(func() {
-		auditLogChan = make(chan *AuditEntry, 1000) 
-		auditLogCtx, auditLogCancel = context.WithCancel(context.Background())
-		go processAuditLogs()
+// NewAuditManager 创建审计管理器
+func NewAuditManager() *AuditManager {
+	return &AuditManager{}
+}
+
+// Init 初始化审计日志异步处理器
+func (m *AuditManager) Init() {
+	m.initOnce.Do(func() {
+		m.logChan = make(chan *AuditEntry, 1000)
+		m.ctx, m.cancel = context.WithCancel(context.Background())
+		go m.processAuditLogs()
 	})
 }
 
+// Stop 停止审计处理器
+func (m *AuditManager) Stop() {
+	if m.cancel != nil {
+		m.cancel()
+	}
+}
+
+// GetDroppedCount 获取降级计数
+func (m *AuditManager) GetDroppedCount() int64 {
+	return m.droppedCount.Load()
+}
+
 // processAuditLogs 批量处理审计日志
-func processAuditLogs() {
+func (m *AuditManager) processAuditLogs() {
 	const batchSize = 50
 	const flushInterval = 5 * time.Second
 
@@ -49,31 +64,31 @@ func processAuditLogs() {
 
 	for {
 		select {
-		case log, ok := <-auditLogChan:
+		case log, ok := <-m.logChan:
 			if !ok {
 				if len(batch) > 0 {
-					saveAuditBatch(batch)
+					m.saveAuditBatch(batch)
 				}
 				return
 			}
 			batch = append(batch, log)
 			if len(batch) >= batchSize {
-				saveAuditBatch(batch)
+				m.saveAuditBatch(batch)
 				batch = batch[:0]
 			}
 		case <-ticker.C:
 			if len(batch) > 0 {
-				saveAuditBatch(batch)
+				m.saveAuditBatch(batch)
 				batch = batch[:0]
 			}
-		case <-auditLogCtx.Done():
+		case <-m.ctx.Done():
 			return
 		}
 	}
 }
 
 // saveAuditBatch 批量保存审计日志（带重试机制，落库走注入的 AuditSink）
-func saveAuditBatch(logs []*AuditEntry) {
+func (m *AuditManager) saveAuditBatch(logs []*AuditEntry) {
 	if len(logs) == 0 {
 		return
 	}
@@ -89,19 +104,16 @@ func saveAuditBatch(logs []*AuditEntry) {
 	baseDelay := 100 * time.Millisecond
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		successCount := 0
 		failedLogs := make([]*AuditEntry, 0, len(logs))
 
 		for _, entry := range logs {
-			if err := sink.Save(context.Background(), entry); err == nil {
-				successCount++
-			} else {
+			if err := sink.Save(context.Background(), entry); err != nil {
 				failedLogs = append(failedLogs, entry)
 			}
 		}
 
 		if len(failedLogs) == 0 {
-			return 
+			return
 		}
 
 		if attempt == maxRetries-1 {
@@ -109,8 +121,25 @@ func saveAuditBatch(logs []*AuditEntry) {
 		}
 
 		if attempt < maxRetries-1 {
-			time.Sleep(baseDelay * time.Duration(1<<uint(attempt))) 
-			logs = failedLogs                                       
+			time.Sleep(baseDelay * time.Duration(1<<uint(attempt)))
+			logs = failedLogs
+		}
+	}
+}
+
+// saveAuditLog 保存审计日志（发送到异步通道）
+func (m *AuditManager) saveAuditLog(entry *AuditEntry) {
+	m.Init()
+	select {
+	case m.logChan <- entry:
+		// 入队成功
+	default:
+		// channel 满时同步落库而非丢弃
+		m.droppedCount.Add(1)
+		if sink := getAuditSink(); sink != nil {
+			if err := sink.Save(context.Background(), entry); err != nil {
+				log.Printf("[audit] 同步落库失败（已记入降级计数）: %v", err)
+			}
 		}
 	}
 }
@@ -227,7 +256,7 @@ func AuditMiddleware() gin.HandlerFunc {
 			UserAgent:  c.Request.UserAgent(),
 		}
 
-		go saveAuditLog(entry)
+		DefaultAuditManager.saveAuditLog(entry)
 	}
 }
 
@@ -290,76 +319,40 @@ func getActionFromMethod(method string) string {
 }
 
 // getModuleFromPath 从路径获取模块名
+// getModuleFromPath 审计模块解析：/api/{domain}/{resource} → resource。
+// 契约（audit_test）：路径需含资源段(≥4)，否则返回 "unknown"。
 func getModuleFromPath(path string) string {
-	parts := splitPath(path)
-	if len(parts) >= 3 {
-		module := parts[2]
-		if len(parts) >= 4 && module == "team" {
-			return "team_" + parts[3]
-		}
-		return module
+	parts := strings.Split(path, "/")
+	if len(parts) >= 4 && parts[3] != "" {
+		return parts[3]
 	}
 	return "unknown"
 }
 
-// getResourceFromPath 从路径获取资源类型
+// getResourceFromPath 从路径获取资源类型：/api/{domain}/{resource} → resource。
+// 契约（audit_test）：/api/users/123 → "123"；/api/users → "unknown"。
 func getResourceFromPath(path string) string {
-	parts := splitPath(path)
-	if len(parts) >= 3 {
-		return parts[2]
+	parts := strings.Split(path, "/")
+	if len(parts) >= 4 && parts[3] != "" {
+		return parts[3]
 	}
 	return "unknown"
 }
 
-// getResourceIDFromPath 从路径获取资源ID
+// getResourceIDFromPath 从路径获取资源ID：资源段之后的数字段。
+// 契约（audit_test）：/api/users/1/123 → "123"；/api/users/123 → ""（该段是资源非ID）。
+
+
 func getResourceIDFromPath(path string) string {
-	parts := splitPath(path)
-	if len(parts) >= 4 {
-		for _, part := range parts[3:] {
-			if isNumeric(part) {
+	parts := strings.Split(path, "/")
+	if len(parts) >= 5 {
+		for _, part := range parts[4:] {
+			if _, err := strconv.Atoi(part); err == nil {
 				return part
 			}
 		}
 	}
 	return ""
-}
-
-// splitPath 分割路径
-func splitPath(path string) []string {
-	var parts []string
-	for _, part := range splitString(path, "/") {
-		if part != "" {
-			parts = append(parts, part)
-		}
-	}
-	return parts
-}
-
-func splitString(s, sep string) []string {
-	var result []string
-	start := 0
-	for i := 0; i <= len(s)-len(sep); i++ {
-		if s[i:i+len(sep)] == sep {
-			if i > start {
-				result = append(result, s[start:i])
-			}
-			start = i + len(sep)
-			i += len(sep) - 1
-		}
-	}
-	if start < len(s) {
-		result = append(result, s[start:])
-	}
-	return result
-}
-
-func isNumeric(s string) bool {
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return false
-		}
-	}
-	return len(s) > 0
 }
 
 func convertToUint(v any) uint {
@@ -373,13 +366,22 @@ func convertToUint(v any) uint {
 	case float64:
 		return uint(val)
 	case string:
-		var result uint
-		for _, c := range val {
-			if c >= '0' && c <= '9' {
-				result = result*10 + uint(c-'0')
+		// 宽松解析：从字符串中提取连续数字（如 "abc123" → 123），无数字回退 ParseUint
+		if result, err := strconv.ParseUint(val, 10, 64); err == nil {
+			return uint(result)
+		}
+		var digits []byte
+		for i := 0; i < len(val); i++ {
+			if val[i] >= '0' && val[i] <= '9' {
+				digits = append(digits, val[i])
 			}
 		}
-		return result
+		if len(digits) > 0 {
+			if result, err := strconv.ParseUint(string(digits), 10, 64); err == nil {
+				return uint(result)
+			}
+		}
+		return 0
 	default:
 		return 0
 	}
@@ -397,26 +399,6 @@ func convertToString(v any) string {
 	}
 }
 
-// saveAuditLog 保存审计日志（发送到异步通道）
-// v3 审计 P1-24 修复：高负载时 channel 满会降级到 sync save
-// 原：default 分支静默丢日志
-// 新：记录降级次数 + 强制 sync save 不丢
-func saveAuditLog(entry *AuditEntry) {
-	initAuditLogger()
-	select {
-	case auditLogChan <- entry:
-		// 入队成功
-	default:
-		// v3 审计 P1-24：channel 满时同步落库而非丢弃
-		atomic.AddInt64(&auditDroppedCounterValue, 1)
-		if sink := getAuditSink(); sink != nil {
-			if err := sink.Save(context.Background(), entry); err != nil {
-				log.Printf("[audit] 同步落库失败（已记入降级计数）: %v", err)
-			}
-		}
-	}
-}
-
 // LogLogin 登录日志
 func LogLogin(userID uint, username, ip, userAgent string) {
 	entry := &AuditEntry{
@@ -428,8 +410,7 @@ func LogLogin(userID uint, username, ip, userAgent string) {
 		IP:        ip,
 		UserAgent: userAgent,
 	}
-	initAuditLogger()
-	saveAuditLog(entry)
+	DefaultAuditManager.saveAuditLog(entry)
 }
 
 // LogLogout 登出日志
@@ -442,8 +423,7 @@ func LogLogout(userID uint, username, ip string) {
 		Resource: "session",
 		IP:       ip,
 	}
-	initAuditLogger()
-	saveAuditLog(entry)
+	DefaultAuditManager.saveAuditLog(entry)
 }
 
 // LogCustom 自定义日志
@@ -458,19 +438,17 @@ func LogCustom(userID uint, username, action, module, resource, resourceID strin
 		ResourceID: resourceID,
 		Detail:     string(detailJSON),
 	}
-	initAuditLogger()
-	saveAuditLog(entry)
+	DefaultAuditManager.saveAuditLog(entry)
 }
 
 // DataChangeMiddleware 数据变更审计中间件
 func DataChangeMiddleware(module, resource string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
-		if c.Request.Method == "PUT" || c.Request.Method == "DELETE" {
-		}
-
 		c.Next()
-
 	}
 }
 
+// GetAuditDroppedCount 暴露给监控/可观测层（兼容旧接口）
+func GetAuditDroppedCount() int64 {
+	return DefaultAuditManager.GetDroppedCount()
+}

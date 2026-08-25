@@ -68,8 +68,9 @@ func TestIdentifyOrCreate_ConcurrentNoSplit(t *testing.T) {
 	}
 
 	// unified_id 唯一索引未被破坏：该标识对应的 unified_id 全局唯一
+	// （v3 审计 P0-2 后 phone 派生为盐化哈希，经 identity.UnifiedIDFromPhone 计算）
 	var uidCnt int64
-	uniqID := "phone:" + phone
+	uniqID := identity.UnifiedIDFromPhone(phone)
 	if err := db.GetDB().WithContext(context.Background()).Model(&model.Customer{}).
 		Where("unified_id = ?", uniqID).Count(&uidCnt).Error; err != nil {
 		t.Fatalf("count unified_id: %v", err)

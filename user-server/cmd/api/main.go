@@ -17,6 +17,8 @@ import (
 	rag "hivemtk-user/internal/aiagent/rag/incremental"
 	"hivemtk-user/internal/app"
 	"hivemtk-user/internal/cache"
+	georepo "hivemtk-user/internal/geo/repository"
+	geoservice "hivemtk-user/internal/geo/service"
 	"hivemtk-user/internal/event"
 	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/migration"
@@ -176,6 +178,14 @@ func main() {
 
 	gin.SetMode(gin.DebugMode)
 	r := gin.Default()
+	// 仅信任私网/回环反代（FRP/nginx 均部署在同机或内网），
+	// 防止公网客户端伪造 X-Forwarded-For 绕过限流与防爆破（ClientIP 伪造）
+	if err := r.SetTrustedProxies([]string{
+		"127.0.0.0/8", "::1/128",
+		"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+	}); err != nil {
+		logger.Warnf("[启动] SetTrustedProxies 失败(回退默认): %v", err)
+	}
 
 	tmplPath := filepath.Join("internal", "template", "*.html")
 	if matches, err := filepath.Glob(tmplPath); err == nil && len(matches) > 0 {
@@ -267,6 +277,22 @@ func main() {
 
 	service.InitMemorySystem(db.GetDB())
 
+	// [R7] RFM 全量计算 cron：每日 04:00 CST（此前仅有手动端点，分层永不更新）
+	rfmCron := service.NewCustomerRFMCron(nil)
+	rfmCron.Start(context.Background())
+	defer rfmCron.Stop(context.Background())
+	logger.Info("[CustomerRFMCron] RFM 分层定时重算已装配")
+
+	// [T8] 告警规则检查器：每 60s 扫描启用规则并比对阈值
+	alertChecker := service.NewAlertChecker(
+		service.NewMetricsAlertProvider(),
+		service.NewLogAlertNotifier(),
+		60*time.Second,
+	)
+	alertChecker.Start()
+	defer alertChecker.Stop()
+	logger.Info("[T8] alert checker started (interval=60s)")
+
 	registerEventSubscribers()
 
 	router.Setup(r, db.GetDB())
@@ -308,5 +334,18 @@ func registerEventSubscribers() {
 	indexer := rag.NewIncrementalIndexer(nil, nil, db.GetDB()) 
 	bus.Subscribe(event.TopicKnowledgeDocumentChanged, indexer.Handle)
 	logger.Info("[event] subscribed: knowledge.document.changed -> rag.IncrementalIndexer")
+
+	// v3 GEO 决策链化：inbox 侧思维链回填（仅对已绑定 OneID 的 GEO 归因链生效）
+	chainSync := geoservice.NewInboxChainSync(georepo.NewGeoQueryChainRepository(db.GetDB()))
+	bus.Subscribe(event.TopicCustomerMessageReceived, func(evt event.Event) error {
+		if p, ok := evt.Payload.(event.CustomerMessagePayload); ok {
+			go func() {
+				defer func() { _ = recover() }()
+				chainSync.HandleCustomerMessage(context.Background(), p.CustomerID, p.Content)
+			}()
+		}
+		return nil
+	})
+	logger.Info("[event] subscribed: customer.message.received -> geo inbox chain sync")
 }
 

@@ -51,7 +51,9 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 
 	public.POST("/auth/login", middleware.BruteForceGuard("auth.login"), controller.NewAuthController().Login)
 
-	public.POST("/auth/mfa/verify", controller.NewAuthController().VerifyMFALogin)
+	// MFA 二次验证：TOTP 仅 6 位数字且 ±1 窗口有 3 个有效码，
+	// 必须与登录同级防爆破，否则可在 temp_token 5 分钟有效期内穷举（v3 审计 P0-2）
+	public.POST("/auth/mfa/verify", middleware.BruteForceGuard("auth.mfa"), controller.NewAuthController().VerifyMFALogin)
 
 	systemInitCtrl := controller.NewSystemInitController()
 	authCtrl := controller.NewAuthController()

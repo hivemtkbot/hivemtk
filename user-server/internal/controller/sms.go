@@ -68,6 +68,9 @@ func (c *SmsController) RegisterRoutes(router *gin.RouterGroup) {
 // @Router       /api/sms/config [get]
 func (c *SmsController) GetConfig(ctx *gin.Context) {
 	config, err := c.service.GetConfig(context.Background())
+	if err == nil && config != nil {
+		maskSMSConfig(config)
+	}
 	if err != nil {
 		response.ErrorFromDB(ctx, err, "获取配置失败: "+err.Error())
 		return
@@ -497,3 +500,29 @@ func (c *SmsController) StopJob(ctx *gin.Context) {
 	response.Success(ctx, nil, "success")
 }
 
+
+
+// maskSMSConfig 凭证脱敏（v3 审计 P0）：各云厂商 AK/SK 仅保留尾4位，
+// 防止 GET /sms/config 明文回显凭证（泄露即等同盗用短信账户）
+func maskSMSConfig(config *dto.SmsConfigResponse) {
+	mask := func(v string) string {
+		if len(v) <= 4 {
+			return "****"
+		}
+		return "****" + v[len(v)-4:]
+	}
+	config.Aliyun.AccessKeyId = mask(config.Aliyun.AccessKeyId)
+	config.Aliyun.AccessKeySecret = mask(config.Aliyun.AccessKeySecret)
+	if config.Tencent.SecretId != "" {
+		config.Tencent.SecretId = mask(config.Tencent.SecretId)
+	}
+	if config.Tencent.SecretKey != "" {
+		config.Tencent.SecretKey = mask(config.Tencent.SecretKey)
+	}
+	if config.Huawei.AppKey != "" {
+		config.Huawei.AppKey = mask(config.Huawei.AppKey)
+	}
+	if config.Huawei.AppSecret != "" {
+		config.Huawei.AppSecret = mask(config.Huawei.AppSecret)
+	}
+}

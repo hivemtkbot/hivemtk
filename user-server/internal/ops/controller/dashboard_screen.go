@@ -80,12 +80,40 @@ func (c *DashboardScreenController) GetScreenByID(ctx *gin.Context) {
 }
 
 // UpdateScreen 更新大屏
+
+// requireScreenOwnership 大屏写操作守卫（v3 审计 P1-1 IDOR）：
+// 创建者本人或 admin 可改/删；其他登录用户 403。
+func (c *DashboardScreenController) requireScreenOwnership(ctx *gin.Context, id uint) (uid uint, ok bool) {
+	uidAny, _ := ctx.Get("user_id")
+	uid, _ = uidAny.(uint)
+	if uid == 0 {
+		response.Error(ctx, http.StatusUnauthorized, "未找到用户信息")
+		return 0, false
+	}
+	if role, _ := ctx.Get("role"); role == "admin" {
+		return uid, true
+	}
+	screen, err := c.screenService.GetScreenByID(id)
+	if err != nil || screen == nil {
+		response.Error(ctx, http.StatusNotFound, "大屏不存在")
+		return 0, false
+	}
+	if screen.CreatedBy != uid {
+		response.Error(ctx, http.StatusForbidden, "仅创建者或管理员可操作该大屏")
+		return 0, false
+	}
+	return uid, true
+}
+
 func (c *DashboardScreenController) UpdateScreen(ctx *gin.Context) {
 
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, "无效的大屏 ID")
+		return
+	}
+	if _, ok := c.requireScreenOwnership(ctx, uint(id)); !ok {
 		return
 	}
 
@@ -110,6 +138,9 @@ func (c *DashboardScreenController) DeleteScreen(ctx *gin.Context) {
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, "无效的大屏 ID")
+		return
+	}
+	if _, ok := c.requireScreenOwnership(ctx, uint(id)); !ok {
 		return
 	}
 

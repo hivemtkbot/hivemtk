@@ -55,11 +55,11 @@ type faqRepoIface interface {
 	DecayQuality(ctx context.Context, id uint, decay float64) error
 	ListDecayCandidates(ctx context.Context, cutoff time.Time, limit int) ([]model.FAQEntry, error)
 	IncrementNegativeHit(ctx context.Context, id uint) error
-	ListWithFilter(ctx context.Context, filter repository.FAQFilter) ([]model.FAQEntry, int64, error)
+	ListWithFilter(ctx context.Context, filter repository.FAQListParams) ([]model.FAQEntry, int64, error)
 	GetByID(ctx context.Context, id uint) (*model.FAQEntry, error)
 	ListEnabled(ctx context.Context, limit int) ([]model.FAQEntry, error)
 	ListCandidates(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error)
-	ScoreCandidates(entries []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error)
+	ScoreCandidates(ctx context.Context, entries []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error)
 	Create(ctx context.Context, entry *model.FAQEntry) error
 	Update(ctx context.Context, id uint, entry *model.FAQEntry) error
 	Delete(ctx context.Context, id uint) error
@@ -202,7 +202,7 @@ func (s *FAQService) Match(ctx context.Context, msg string, topK int) ([]dto.FAQ
 	if err != nil {
 		return nil, err
 	}
-	scored, err := s.repo.ScoreCandidates(entries, msg, topK)
+	scored, err := s.repo.ScoreCandidates(ctx, entries, msg, topK)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +237,7 @@ func (s *FAQService) MatchByAgent(ctx context.Context, agentID uint, msg string,
 	if err != nil {
 		return nil, err
 	}
-	scored, err := s.repo.ScoreCandidates(entries, msg, topK)
+	scored, err := s.repo.ScoreCandidates(ctx, entries, msg, topK)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +260,7 @@ func (s *FAQService) MatchByAgentKB(ctx context.Context, agentID uint, kbIDs []u
 	if err != nil {
 		return nil, err
 	}
-	scored, err := s.repo.ScoreCandidates(entries, msg, topK)
+	scored, err := s.repo.ScoreCandidates(ctx, entries, msg, topK)
 	if err != nil {
 		return nil, err
 	}
@@ -284,11 +284,19 @@ func (s *FAQService) toMatchResults(entries []model.FAQEntry, matchType string) 
 
 
 // List 列表查询
-func (s *FAQService) List(ctx context.Context, filter repository.FAQFilter) ([]dto.FAQEntry, int64, error) {
+func (s *FAQService) List(ctx context.Context, filter dto.FAQFilter) ([]dto.FAQEntry, int64, error) {
 	if s.repo == nil {
 		return nil, 0, nil
 	}
-	entries, total, err := s.repo.ListWithFilter(ctx, filter)
+	params := repository.FAQListParams{
+		Keyword:  filter.Keyword,
+		Category: filter.Category,
+		Intent:   filter.Intent,
+		Enabled:  filter.Enabled,
+		Page:     filter.Page,
+		PageSize: filter.PageSize,
+	}
+	entries, total, err := s.repo.ListWithFilter(ctx, params)
 	if err != nil {
 		return nil, 0, err
 	}

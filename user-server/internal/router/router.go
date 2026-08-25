@@ -71,7 +71,20 @@ func corsMiddleware() gin.HandlerFunc {
 		if origin != "" {
 			switch {
 			case strings.HasPrefix(origin, "chrome-extension://"):
-				allow = true
+				// v3 审计 P1-5：扩展 ID 白名单配置化（逗号分隔完整 origin，如
+				// chrome-extension://abcdef...）。未配置时保留旧行为（放行任意扩展）
+				// 以兼容存量浏览器扩展；生产建议显式配置 CORS_ALLOWED_EXTENSIONS 收敛。
+				allowedExts := strings.Split(os.Getenv("CORS_ALLOWED_EXTENSIONS"), ",")
+				if len(allowedExts) > 0 && allowedExts[0] != "" {
+					for _, ext := range allowedExts {
+						if origin == strings.TrimSpace(ext) {
+							allow = true
+							break
+						}
+					}
+				} else {
+					allow = true
+				}
 			default:
 				// Content Script 运行在网页上，需要允许网页 Origin
 				// SSE 端点为只读 GET，安全性可接受
@@ -209,6 +222,19 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 
 	auth := r.Group("/api")
 	auth.Use(middleware.InitGuard()) 
+	// 观测端点：JWT 保护（v3 审计 P1 从 bridgeWS 组迁入）
+	monitor.RegisterRoutes(auth)
+
+	// 桥接凭证管理（admin，JWT）：查询状态 / 轮换（v3 BRIDGE_TOKEN_PROTOCOL）
+	// 注意必须挂在 BridgeIngressGuard 之外——它是凭证自身的引导/轮换入口
+	bridgeTokenCtrl := controller.NewBridgeTokenController()
+	auth.GET("/bridge/token/status", middleware.RequireAdminMiddleware(), bridgeTokenCtrl.GetStatus)
+	auth.POST("/bridge/token/reset", middleware.RequireAdminMiddleware(), bridgeTokenCtrl.ResetBridgeToken)
+	tlCtrl := controller.NewTraceLearningController(trace_learning.Global())
+	auth.POST("/monitor/trace-eval/trigger", tlCtrl.TriggerEval)
+	auth.GET("/monitor/trace-eval/logs", tlCtrl.EvalLogs)
+	auth.GET("/monitor/knowledge-weights", tlCtrl.KnowledgeWeights)
+
 	auth.Use(middleware.JWTAuthMiddleware()) 
 	{
 		setupAuthRoutes(auth, gormDB)
@@ -324,6 +350,10 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 
 	bridgeWS := r.Group("/api")
 		bridgeWS.Use(middleware.InitGuard())
+		// v3 审计 P0-1：桥接通道凭证守卫（X-Bridge-Token，见 middleware.BridgeIngressGuard）
+		bridgeWS.Use(middleware.BridgeIngressGuard())
+
+
 		bridgeWS.POST("/bridge/ingest", bridgeHandler.HandleHTTPIngest)
 		bridgeWS.GET("/bridge/outbox", bridgeHandler.GetBridgeOutbox)
 		bridgeWS.POST("/bridge/outbox/ack", bridgeHandler.AckBridgeOutbox)
@@ -364,12 +394,9 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		channelWSTransport := channelgw.NewWSTransport(channelPipeline, channelgw.Default)
 		bridgeWS.GET("/ws/channel", channelWSTransport.HandleWS)
 
-		monitor.RegisterRoutes(bridgeWS)
-
-		tlCtrl := controller.NewTraceLearningController(trace_learning.Global())
-		bridgeWS.POST("/monitor/trace-eval/trigger", tlCtrl.TriggerEval)
-		bridgeWS.GET("/monitor/trace-eval/logs", tlCtrl.EvalLogs)
-		bridgeWS.GET("/monitor/knowledge-weights", tlCtrl.KnowledgeWeights)
+		// v3 审计 P1 修复：monitor/trace-learning 是运营者观测端点（user-web 调用），
+		// 不属于扩展桥接通道——迁出 bridgeWS 组（否则被 BridgeIngressGuard 拦截，
+		// 前端无 X-Bridge-Token 必 401），改挂 JWT auth 组。
 
 		tracing.Init(gormDB)
 		tooluse.ToolTraceSink = tracing.ReportToolCall

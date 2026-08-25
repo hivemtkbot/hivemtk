@@ -217,6 +217,7 @@ func TestWebhookService_VerifyWechat_WrongSig(t *testing.T) {
 }
 
 func TestWebhookService_Receive_EmptyBody(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
 	s := NewWebhookService(setupWebhookTestDB(t))
 	defer s.Stop(context.Background())
 	r, err := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: nil})
@@ -229,6 +230,7 @@ func TestWebhookService_Receive_EmptyBody(t *testing.T) {
 }
 
 func TestWebhookService_Receive_NoAccount(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
 	s := NewWebhookService(setupWebhookTestDB(t))
 	defer s.Stop(context.Background())
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, Body: []byte("{}")})
@@ -238,6 +240,7 @@ func TestWebhookService_Receive_NoAccount(t *testing.T) {
 }
 
 func TestWebhookService_Receive_Custom_NoSecret(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
 	defer s.Stop(context.Background())
@@ -255,6 +258,7 @@ func TestWebhookService_Receive_Custom_NoSecret(t *testing.T) {
 }
 
 func TestWebhookService_Receive_Duplicate(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
 	defer s.Stop(context.Background())
@@ -270,6 +274,7 @@ func TestWebhookService_Receive_Duplicate(t *testing.T) {
 }
 
 func TestWebhookService_Receive_GeneratedEventID(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
 	defer s.Stop(context.Background())
@@ -287,6 +292,7 @@ func TestWebhookService_Receive_GeneratedEventID(t *testing.T) {
 }
 
 func TestWebhookService_Receive_DefaultEventType(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
 	defer s.Stop(context.Background())
@@ -302,6 +308,7 @@ func TestWebhookService_Receive_DefaultEventType(t *testing.T) {
 }
 
 func TestWebhookService_Receive_InvalidJSON(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
 	defer s.Stop(context.Background())
@@ -312,6 +319,7 @@ func TestWebhookService_Receive_InvalidJSON(t *testing.T) {
 }
 
 func TestWebhookService_Receive_HMAC_Douyin(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
 	db := setupWebhookTestDB(t)
 	db.Create(&model.IntegrationAccount{Platform: "douyin", APISecret: "secret123", Status: 1})
 	s := NewWebhookService(db)
@@ -349,6 +357,7 @@ func TestWebhookService_Receive_HMAC_BadSig(t *testing.T) {
 }
 
 func TestWebhookService_Receive_HMAC_Kuaishou(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
 	db := setupWebhookTestDB(t)
 	db.Create(&model.IntegrationAccount{Platform: "kuaishou", APISecret: "ks_secret", Status: 1})
 	s := NewWebhookService(db)
@@ -366,6 +375,7 @@ func TestWebhookService_Receive_HMAC_Kuaishou(t *testing.T) {
 }
 
 func TestWebhookService_Receive_HMAC_Xiaohongshu(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
 	db := setupWebhookTestDB(t)
 	db.Create(&model.IntegrationAccount{Platform: "xiaohongshu", APISecret: "xhs", Status: 1})
 	s := NewWebhookService(db)
@@ -402,6 +412,7 @@ func TestWebhookService_Receive_WeCom(t *testing.T) {
 }
 
 func TestWebhookService_Receive_RateLimit(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
 	defer s.Stop(context.Background())

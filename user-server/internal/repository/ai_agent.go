@@ -36,6 +36,22 @@ func (r *AIAgentRepository) Create(ctx context.Context, agent *model.AIAgent) er
 	return r.db.Create(agent).Error
 }
 
+// CountChannelBindingsByAgent 统计智能体被渠道账号绑定的数量
+func (r *AIAgentRepository) CountChannelBindingsByAgent(ctx context.Context, agentID uint) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Model(&model.ChannelAgentBinding{}).
+		Where("agent_id = ?", agentID).Count(&n).Error
+	return n, err
+}
+
+// CountServiceMountsByAgent 统计智能体被客服座席挂载的数量
+func (r *AIAgentRepository) CountServiceMountsByAgent(ctx context.Context, agentID uint) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Model(&model.CustomerServiceAgent{}).
+		Where("ai_agent_id = ?", agentID).Count(&n).Error
+	return n, err
+}
+
 // GetByID 根据 ID 获取
 func (r *AIAgentRepository) GetByID(ctx context.Context, id uint) (*model.AIAgent, error) {
 	var a model.AIAgent
@@ -132,6 +148,37 @@ func (r *ChannelAgentBindingRepository) SetDB(ctx context.Context, db *gorm.DB) 
 // Create 创建绑定
 func (r *ChannelAgentBindingRepository) Create(ctx context.Context, b *model.ChannelAgentBinding) error {
 	return r.db.Create(b).Error
+}
+
+// ReplacePrimaryBinding 事务替换渠道账号主绑定: 清除旧主绑定 + 创建新主绑定
+//
+// 任一步骤失败整体回滚; 与 channel_agent_bindings 的 uq_channel_account_primary
+// 部分唯一索引配合, 即使并发也只有一条主绑定能落地。
+func (r *ChannelAgentBindingRepository) ReplacePrimaryBinding(ctx context.Context, channelType, accountID string, agentID uint) (*model.ChannelAgentBinding, error) {
+	var created *model.ChannelAgentBinding
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		tmpRepo := NewChannelAgentBindingRepository()
+		tmpRepo.SetDB(ctx, tx)
+		if err := tmpRepo.ClearPrimaryByChannelAccount(ctx, channelType, accountID); err != nil {
+			return err
+		}
+		b := &model.ChannelAgentBinding{
+			ChannelType: channelType,
+			AccountID:   accountID,
+			AgentID:     agentID,
+			IsPrimary:   true,
+			Enabled:     true,
+		}
+		if err := tmpRepo.Create(ctx, b); err != nil {
+			return err
+		}
+		created = b
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return created, nil
 }
 
 // GetByID 根据 ID 获取

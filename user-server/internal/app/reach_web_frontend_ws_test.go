@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"hivemtk-user/internal/config"
+	pkgsecurity "hivemtk-user/internal/pkg/security"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/testutil"
 	visitorws "hivemtk-user/internal/websocket"
@@ -45,6 +47,17 @@ func TestReachWebSend_FrontendWebSocket(t *testing.T) {
 	}
 
 	handler := visitorws.NewVisitorWSHandler(db)
+	// v7 修复: Round6 visitor WS fail-closed(无token拒绝+密钥必填)后，测试需注入密钥并携带合法 token
+	testSecret := "test-visitor-token-secret"
+	prevCfg := config.GetAppConfig()
+	cfg := prevCfg
+	cfg.Security.VisitorTokenSecret = testSecret
+	config.SetAppConfig(&cfg)
+	defer config.SetAppConfig(&prevCfg)
+	visitorToken, terr := pkgsecurity.GenerateVisitorToken(testSecret, "default", visitorID, sessionID, time.Hour)
+	if terr != nil {
+		t.Fatalf("生成 visitor_token 失败：%v", terr)
+	}
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	engine.GET("/api/ws/visitor", func(c *gin.Context) {
@@ -52,6 +65,7 @@ func TestReachWebSend_FrontendWebSocket(t *testing.T) {
 		q.Set("session_id", sessionID)
 		q.Set("visitor_id", visitorID)
 		q.Set("channel_id", "default")
+		q.Set("visitor_token", visitorToken)
 		c.Request.URL.RawQuery = q.Encode()
 		handler.HandleVisitorWebSocket(c)
 	})

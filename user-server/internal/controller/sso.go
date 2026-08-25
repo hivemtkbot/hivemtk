@@ -25,7 +25,6 @@ import (
 	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // SSOCookieTTL state/nonce/verifier cookie 有效期（5 分钟，与 sso 包默认一致）
@@ -37,10 +36,10 @@ type SSOController struct {
 	frontend   string
 }
 
-// NewSSOController 创建 SSO 控制器（生产入口，从全局配置构建服务）
-func NewSSOController(db *gorm.DB) *SSOController {
+// NewSSOController 创建 SSO 控制器（生产入口，注入已构建的 SSO 服务）
+func NewSSOController(ssoService *service.SSOService) *SSOController {
 	return &SSOController{
-		ssoService: service.NewSSOService(db),
+		ssoService: ssoService,
 		frontend:   config.GetPublicBaseURL(),
 	}
 }

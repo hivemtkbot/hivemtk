@@ -241,6 +241,9 @@ func allModels() []any {
 		&geomodel.GeoWorkflow{},
 		&geomodel.GeoWorkflowExecution{},
 		&geomodel.GeoWorkflowTemplate{},
+		// v3 GEO 决策链化
+		&geomodel.GeoQueryChain{},
+		&geomodel.GeoContentTask{},
 	}
 }
 
@@ -304,8 +307,10 @@ func AutoMigrate() *gorm.DB {
 	return DB
 }
 
-// postMigrateMessageHubUniqueIndex 把 message_hub.msg_id 单字段 UNIQUE 迁移为
-// (msg_id, conversation_id) 复合 UNIQUE。幂等：旧约束不存在时跳过，新索引已存在时跳过。
+// postMigrateMessageHubUniqueIndex 把 message_hub 的 msg_id 唯一约束迁移为
+// (platform, msg_id, conversation_id) 三元组 UNIQUE（v2 四元组去重契约的库内表达：
+// 同一 msg_id 允许在不同渠道下共存，仅同渠道同会话内强唯一）。
+// 幂等：旧索引不存在时跳过，新索引已存在时跳过。
 func postMigrateMessageHubUniqueIndex() {
 	if DB == nil {
 		return
@@ -313,10 +318,14 @@ func postMigrateMessageHubUniqueIndex() {
 	if err := DB.Exec(`ALTER TABLE message_hub DROP CONSTRAINT IF EXISTS uni_message_hub_msg_id`).Error; err != nil {
 		logger.Warn(fmt.Sprintf("post-migrate: DROP 旧 uni_message_hub_msg_id 失败(可忽略若已不存在): %v", err))
 	}
-	if err := DB.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uni_message_hub_msg_id_conv ON message_hub (msg_id, conversation_id)`).Error; err != nil {
-		logger.Warn(fmt.Sprintf("post-migrate: CREATE uni_message_hub_msg_id_conv 失败: %v", err))
+	// 旧二元组索引比新契约更严格，先降级移除（3 列唯一对既有数据恒兼容，重建不会失败）
+	if err := DB.Exec(`DROP INDEX IF EXISTS uni_message_hub_msg_id_conv`).Error; err != nil {
+		logger.Warn(fmt.Sprintf("post-migrate: DROP 旧 uni_message_hub_msg_id_conv 失败: %v", err))
+	}
+	if err := DB.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uni_message_hub_platform_msg_conv ON message_hub (platform, msg_id, conversation_id)`).Error; err != nil {
+		logger.Warn(fmt.Sprintf("post-migrate: CREATE uni_message_hub_platform_msg_conv 失败: %v", err))
 	} else {
-		logger.Info("post-migrate: message_hub (msg_id, conversation_id) 复合唯一索引已就绪")
+		logger.Info("post-migrate: message_hub (platform, msg_id, conversation_id) 三元组唯一索引已就绪")
 	}
 }
 

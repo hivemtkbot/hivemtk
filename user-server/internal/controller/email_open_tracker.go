@@ -2,6 +2,8 @@ package controller
 
 
 import (
+	"os"
+	"crypto/subtle"
 	"net/http"
 	"strconv"
 	"strings"
@@ -43,7 +45,24 @@ func (c *EmailOpenTrackerController) TrackingPixel(ctx *gin.Context) {
 }
 
 // PostmarkWebhook POST /api/email/track/webhook/postmark
+
+// verifyWebhookSharedSecret 供应商 webhook 共享密钥校验（v3 审计 P2）：
+// 配置 EMAIL_WEBHOOK_SECRET 后要求请求头 X-Webhook-Secret 精确匹配；
+// 未配置时放行并告警（各供应商签名口径不同，共享密钥为通用兜底方案）。
+func verifyWebhookSharedSecret(ctx *gin.Context) bool {
+	want := os.Getenv("EMAIL_WEBHOOK_SECRET")
+	if want == "" {
+		return true
+	}
+	got := ctx.GetHeader("X-Webhook-Secret")
+	return subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
+}
+
 func (c *EmailOpenTrackerController) PostmarkWebhook(ctx *gin.Context) {
+	if !verifyWebhookSharedSecret(ctx) {
+		ctx.String(http.StatusUnauthorized, "invalid webhook secret")
+		return
+	}
 	if c.svc == nil {
 		response.Error(ctx, http.StatusServiceUnavailable, "邮件打开追踪服务未初始化")
 		return
@@ -62,6 +81,10 @@ func (c *EmailOpenTrackerController) PostmarkWebhook(ctx *gin.Context) {
 
 // SendCloudWebhook POST /api/email/track/webhook/sendcloud
 func (c *EmailOpenTrackerController) SendCloudWebhook(ctx *gin.Context) {
+	if !verifyWebhookSharedSecret(ctx) {
+		ctx.String(http.StatusUnauthorized, "invalid webhook secret")
+		return
+	}
 	if c.svc == nil {
 		response.Error(ctx, http.StatusServiceUnavailable, "邮件打开追踪服务未初始化")
 		return

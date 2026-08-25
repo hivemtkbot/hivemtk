@@ -340,11 +340,14 @@ func TestProcess_LeadDetected(t *testing.T) {
 	if !lmContains(tags, "高意向") || !lmContains(tags, "AI兴趣") {
 		t.Fatalf("客户标签不正确: %v", tags)
 	}
-	clue := fkr.byTypeAcct[lmItoa(int(ClueTypeTelegram))+":telegram:u1"]
+	clue := fkr.byTypeAcct[lmItoa(int(ClueTypeLeadMining))+":telegram:u1"]
 	if clue == nil {
 		t.Fatal("未写入线索库存")
 	}
-	if clue.IntentScore != 80 || clue.SourceID != "telegram" {
+	if clue.Type != ClueTypeLeadMining {
+		t.Fatalf("通用 LLM 发掘路径线索类型应为 ClueTypeLeadMining(8), 实际 %d", clue.Type)
+	}
+	if clue.IntentScore != 80 || clue.SourceID != "lead_mining" {
 		t.Fatalf("线索字段异常: %+v", clue)
 	}
 	if fkr.createCnt != 1 {

@@ -69,6 +69,15 @@ func NewSopExecutionRepository(db *gorm.DB) *SopExecutionRepository {
 	return &SopExecutionRepository{db: db}
 }
 
+// CountRunningBySOPAndCustomer 统计指定 SOP 对客户的 running 执行数（意图触发去重用）
+func (r *SopExecutionRepository) CountRunningBySOPAndCustomer(ctx context.Context, sopID uint, customerID, runningStatus string) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Model(&model.SOPExecution{}).
+		Where("sop_id = ? AND customer_id = ? AND status = ?", sopID, customerID, runningStatus).
+		Count(&n).Error
+	return n, err
+}
+
 // CleanupStuck 清理卡死的执行（started_at 早于 threshold 且 status=runningStatus 的记录批量标记为 failedStatus）
 // 返回受影响行数
 func (r *SopExecutionRepository) CleanupStuck(ctx context.Context, threshold time.Time, runningStatus, failedStatus string) (int64, error) {

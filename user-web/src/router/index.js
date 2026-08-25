@@ -95,6 +95,8 @@ const moduleNames = [
   'customerJourney',
   // G13: 备份恢复 / 安全审计
   'backup', 'securityAudit',
+  // 工作流编排（可视化工作流编辑器）
+  'workflowOrchestrator',
   // 飞书账号管理（配合 reach.feishu.send 工具）
   'feishu',
   // 置信度/拟人度/反馈学习 统一管理面板
@@ -111,6 +113,8 @@ const moduleNames = [
   'crossPublish',
   // OPT-UX-01/02: 运维总览 + AI 销冠驾驶舱
   'ops',
+  // GEO 智能优化（关键词蒸馏 / 内容创作 / 文章优化 / 多模型验证 / 数据报表 / 配置）
+  'geoTools',
 ]
 
 // 同步注册的路由 (始终加载 - 用于 SSR / 初始 SEO)
@@ -206,6 +210,10 @@ const pathToModule = {
   'sales-cockpit': 'ops',
   // OPT-UX-03: 跨平台一键发布
   'cards': 'crossPublish',
+  // 工作流编排：URL 首段 workflow-orchestrator (kebab-case) → 模块名 workflowOrchestrator (camelCase)
+  'workflow-orchestrator': 'workflowOrchestrator',
+  // GEO 智能优化：URL 首段 geo-tools (kebab-case) → 模块名 geoTools (camelCase)
+  'geo-tools': 'geoTools',
 }
 
 async function ensureRouteLoaded(path) {

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/reach/card/template"
@@ -281,9 +280,15 @@ func (s *xiaohongshuCardService) GenerateShortLink(ctx context.Context, card *mo
 		return err
 	}
 
-	createReq := &dto.CreateShortLinkRequest{
-		ShortCode:   shortCodeResp.ShortCode,
-		OriginalURL: fmt.Sprintf("/xiaohongshu/card/%d", card.ID), 
+	// v3 审计修复：短链目标必须是绝对 https 地址（铁律#24），
+		// 相对路径 "/xiaohongshu/card/:id" 在 validateTargetURL 处必然被拒。
+		// 优先使用卡片跳转目标；未配置时跳过短链生成（保持创建主流程可用）。
+		if card.RedirectURL == "" {
+			return nil
+		}
+		createReq := &dto.CreateShortLinkRequest{
+			ShortCode:   shortCodeResp.ShortCode,
+			OriginalURL: card.RedirectURL,
 		Title:       card.Title,
 		Description: card.Description,
 		DomainID:    domainID, 

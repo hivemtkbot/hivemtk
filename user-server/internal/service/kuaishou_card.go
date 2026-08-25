@@ -331,9 +331,14 @@ func (s *kuaishouCardService) GenerateShortLink(ctx context.Context, card *model
 		domainID = card.DomainPoolID
 	}
 
-	shortLinkReq := &dto.CreateShortLinkRequest{
-		ShortCode:   generateResp.ShortCode,
-		OriginalURL: fmt.Sprintf("/kuaishou/card/%d", card.ID), 
+	// v3 审计修复：短链目标必须是绝对 https 地址（铁律#24）。
+		// 未配置跳转目标时跳过短链生成，保持卡片创建主流程可用。
+		if card.RedirectURL == "" {
+			return nil
+		}
+		shortLinkReq := &dto.CreateShortLinkRequest{
+			ShortCode:   generateResp.ShortCode,
+			OriginalURL: card.RedirectURL,
 		Title:       card.Title,
 		Description: card.Description,
 		DomainID:    domainID, 

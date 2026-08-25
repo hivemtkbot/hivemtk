@@ -121,7 +121,9 @@ func (r *geoAPICallRepo) GetList(provider, modelName string, page, limit int) ([
 
 func (r *geoAPICallRepo) GetCostStatistics(startDate, endDate string) ([]map[string]any, error) {
 	var statistics []map[string]any
-	query := r.db.Table("geo_api_calls").
+	// 用 Model 构建器替代 Table() 字符串表名，让 GORM 自动附加软删除作用域（deleted_at IS NULL），
+	// 与 GetList/Raw 统计口径保持一致，避免成本报表虚高
+	query := r.db.Model(&model.GeoAPICall{}).
 		Select("provider, model, COUNT(*) AS call_count, COALESCE(SUM(input_tokens),0) AS input_tokens, COALESCE(SUM(output_tokens),0) AS output_tokens, COALESCE(SUM(cost_usd),0) AS cost_usd, COALESCE(SUM(cost_cny),0) AS cost_cny").
 		Group("provider, model").
 		Order("provider, model")

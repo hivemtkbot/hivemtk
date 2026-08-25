@@ -43,7 +43,7 @@ func TestEmailListService_CreateEmailList(t *testing.T) {
 	service := NewEmailListService()
 
 	clue := model.Clue{
-		Account: "test123",
+		Account: "test123@example.com", // v3 正则校验需合法邮箱
 		Type:    1,
 		Name:    "测试用户",
 		City:    "北京",
@@ -599,7 +599,7 @@ func TestEmailListService_CreateEmailList_WithQqEmail(t *testing.T) {
 	service := NewEmailListService()
 
 	clue := model.Clue{
-		Account: "12345678",
+		Account: "user123@example.com",
 		Type:    1,
 		Name:    "QQ 用户",
 		City:    "广州",
@@ -622,14 +622,11 @@ func TestEmailListService_CreateEmailList_WithQqEmail(t *testing.T) {
 		t.Fatalf("CreateEmailList failed: %v", err)
 	}
 
-	// 验证收件人邮箱已自动拼接@qq.com
+	// v3 审计 P2 后：@qq.com 兜底拼接已移除，合法邮箱按原样入库
 	var emailList model.EmailList
 	database.First(&emailList)
-	if !strings.HasSuffix(emailList.To, "@qq.com") {
-		t.Errorf("Expected to end with @qq.com, got %s", emailList.To)
-	}
-	if emailList.To != "12345678@qq.com" {
-		t.Errorf("Expected to '12345678@qq.com', got %s", emailList.To)
+	if emailList.To != "user123@example.com" {
+		t.Errorf("Expected to 'user123@example.com', got %s", emailList.To)
 	}
 }
 

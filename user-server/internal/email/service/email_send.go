@@ -1,6 +1,8 @@
 package email
 
 import (
+	"errors"
+	"path/filepath"
 	"context"
 	"fmt"
 	"os"
@@ -27,6 +29,19 @@ const (
 type EmailSendService struct {
 	repo     repository.EmailSendRepository
 	smtpRepo repository.EmailSmtpRepository
+	unsubRepo repository.EmailUnsubscribeRepository
+}
+
+// isUnsubscribed 退订名单强制过滤（v3 审计 P0：发送前必须调用）
+func (s *EmailSendService) isUnsubscribed(ctx context.Context, email string) bool {
+	if s.unsubRepo == nil {
+		s.unsubRepo = repository.NewEmailUnsubscribeRepository(nil)
+	}
+	exists, err := s.unsubRepo.ExistsByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
+	if err != nil {
+		return false // 查询故障不阻塞发送，与既有 best-effort 语义一致
+	}
+	return exists
 }
 
 func NewEmailSendService() *EmailSendService {
@@ -36,8 +51,29 @@ func NewEmailSendService() *EmailSendService {
 	}
 }
 
+// sanitizeEmailHeader 拒绝 CRLF（v3 审计 P1：Header Injection）
+func sanitizeEmailHeader(v string) (string, error) {
+	if strings.ContainsAny(v, "\r\n") {
+		return "", errors.New("邮件头部字段不允许包含换行符")
+	}
+	return strings.TrimSpace(v), nil
+}
+
+// emailSendSem 全局发送并发闸（v3 审计 P1：ImmediateSend 裸 goroutine 无上限）
+var emailSendSem = make(chan struct{}, 10)
+
 // 发送邮件
 func (s *EmailSendService) SendEmail(ctx context.Context, req dto.SendEmailRequest) (*model.EmailSend, error) {
+	cleanTo, err := sanitizeEmailHeader(req.To)
+	if err != nil {
+		return nil, err
+	}
+	req.To = cleanTo
+	cleanSubject, serr := sanitizeEmailHeader(req.Subject)
+	if serr != nil {
+		return nil, serr
+	}
+	req.Subject = cleanSubject
 
 	emailSend := &model.EmailSend{
 		ID:          uuid.New().String(),
@@ -61,7 +97,17 @@ func (s *EmailSendService) SendEmail(ctx context.Context, req dto.SendEmailReque
 	}
 
 	if req.ImmediateSend {
+		// v3 审计 P0：退订名单强制过滤
+		if s.isUnsubscribed(ctx, req.To) {
+			if u, perr := uuid.Parse(emailSend.ID); perr == nil {
+				_ = s.repo.UpdateStatus(ctx, u, EmailStatusFailed)
+			}
+			return emailSend, nil
+		}
 		go func() {
+			// 并发闸：最多 10 封同时在途，防重试风暴
+			emailSendSem <- struct{}{}
+			defer func() { <-emailSendSem }()
 			defer func() {
 				if r := recover(); r != nil {
 					logger.Errorf("邮件发送异步协程 panic [%s]: %v", emailSend.ID, r)
@@ -143,9 +189,21 @@ func (s *EmailSendService) sendActualEmail(ctx context.Context, email *model.Ema
 	if email.Attachments != "" {
 		attachments := strings.Split(email.Attachments, ",")
 		for _, attachment := range attachments {
-			if attachment != "" {
-				m.Attach(attachment)
+			attachment = strings.TrimSpace(attachment)
+			if attachment == "" {
+				continue
 			}
+			// v3 审计 P0：附件路径用户可控，剥离任何路径分隔符防止
+			// "/etc/passwd" / "../../key" 任意文件读取外发；仅允许上传目录内的裸文件名
+			attachment = filepath.Base(strings.ReplaceAll(strings.ReplaceAll(attachment, "\\", "/"), "/", ""))
+			if attachment == "" || attachment == "." || attachment == ".." {
+				continue
+			}
+			safePath := filepath.Join("uploads", "attachments", attachment)
+			if _, err := os.Stat(safePath); err != nil {
+				continue // 文件不存在则跳过，不中断整封邮件
+			}
+			m.Attach(safePath)
 		}
 	}
 

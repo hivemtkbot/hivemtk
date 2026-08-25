@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"net/url"
 	"context"
 	"errors"
 	"net/http"
@@ -88,10 +89,13 @@ func (c *EmailTrackingController) ClickRedirect(ctx *gin.Context) {
 	}
 
 	if target == "" {
-		target = ctx.Query("url")
-	}
-	if target == "" {
+		// v3 审计 P1：移除 ?url= query 兜底——任意目标 302 即开放重定向（钓鱼跳板）。
+		// 跳转目标只允许来自追踪记录自身，不再接受请求方指定。
 		ctx.String(http.StatusBadRequest, "缺少跳转目标 URL")
+		return
+	}
+	if u, perr := url.Parse(target); perr != nil || u.Scheme != "https" {
+		ctx.String(http.StatusBadRequest, "跳转目标必须为 https 链接")
 		return
 	}
 

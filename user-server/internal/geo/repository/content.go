@@ -47,7 +47,7 @@ func (r *geoArticleRepo) GetList(keyword, status string, page, limit int) ([]*mo
 	query := r.db.Model(&model.GeoArticle{})
 
 	if keyword != "" {
-		query = query.Where("keyword LIKE ?", "%"+keyword+"%")
+		query = query.Where("keyword LIKE ?", "%"+escapeLike(keyword)+"%")
 	}
 	if status != "" {
 		query = query.Where("status = ?", status)

@@ -2,18 +2,41 @@ package cache
 
 import (
 	"context"
-	"hivemtk-user/internal/pkg/utils/logger"
+	"sync/atomic"
 	"time"
+
+	"hivemtk-user/internal/pkg/utils/logger"
 )
+
+// CacheStats 缓存统计信息
+type CacheStats struct {
+	Hits   int64 // 命中次数
+	Misses int64 // 未命中次数
+}
+
+// HitRate 计算命中率
+func (s *CacheStats) HitRate() float64 {
+	total := s.Hits + s.Misses
+	if total == 0 {
+		return 0
+	}
+	return float64(s.Hits) / float64(total) * 100
+}
+
+// Total 返回总查询次数
+func (s *CacheStats) Total() int64 {
+	return s.Hits + s.Misses
+}
 
 // CacheManager 缓存管理器
 type CacheManager struct {
-	cache Cache
+	cache  Cache
+	stats  CacheStats
 }
 
 // CacheConfig 缓存配置
 type CacheConfig struct {
-	Type       string        `yaml:"type"` 
+	Type       string        `yaml:"type"`
 	Redis      RedisConfig   `yaml:"redis"`
 	DefaultTTL time.Duration `yaml:"default_ttl"`
 }
@@ -41,9 +64,31 @@ func NewCacheManager(config CacheConfig) (*CacheManager, error) {
 	}, nil
 }
 
-// Get 获取缓存
+
+// GetStats 返回缓存统计信息（副本）
+func (m *CacheManager) GetStats() CacheStats {
+	return CacheStats{
+		Hits:   atomic.LoadInt64(&m.stats.Hits),
+		Misses: atomic.LoadInt64(&m.stats.Misses),
+	}
+}
+
+
+// ResetStats 重置缓存统计
+func (m *CacheManager) ResetStats() {
+	atomic.StoreInt64(&m.stats.Hits, 0)
+	atomic.StoreInt64(&m.stats.Misses, 0)
+}
+
+// Get 获取缓存（带统计）
 func (m *CacheManager) Get(ctx context.Context, key string) (string, error) {
-	return m.cache.Get(ctx, key)
+	val, err := m.cache.Get(ctx, key)
+	if err == nil && val != "" {
+		atomic.AddInt64(&m.stats.Hits, 1)
+	} else {
+		atomic.AddInt64(&m.stats.Misses, 1)
+	}
+	return val, err
 }
 
 // Set 设置缓存
@@ -108,9 +153,15 @@ func (m *CacheManager) Exists(ctx context.Context, key string) (bool, error) {
 	return m.cache.Exists(ctx, key)
 }
 
-// GetJSON 获取 JSON 缓存并反序列化
+// GetJSON 获取 JSON 缓存并反序列化（带统计）
 func (m *CacheManager) GetJSON(ctx context.Context, key string, dest any) error {
-	return m.cache.GetJSON(ctx, key, dest)
+	err := m.cache.GetJSON(ctx, key, dest)
+	if err == nil {
+		atomic.AddInt64(&m.stats.Hits, 1)
+	} else {
+		atomic.AddInt64(&m.stats.Misses, 1)
+	}
+	return err
 }
 
 // SetJSON 设置 JSON 缓存
@@ -138,4 +189,3 @@ func (m *CacheManager) Close() error {
 	}
 	return nil
 }
-

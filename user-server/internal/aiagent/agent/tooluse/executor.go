@@ -53,13 +53,17 @@ func nextTurnIndex(ctx context.Context) int {
 
 // ToolExecutorConfig 执行器全局配置
 type ToolExecutorConfig struct {
-	DefaultTimeout time.Duration 
+	DefaultTimeout time.Duration
 	PermissionChecker PermissionChecker
 	RateLimiter       RateLimiter
 	RetryPolicy       RetryPolicy
 	AuditLogger       AuditLogger
 	CostTracker       CostTracker
 	CircuitBreaker *CircuitBreakerRegistry
+	// FeedbackSink 反馈回流（可选，nil 时零开销跳过）。
+	// v7 审计修复：原 FeedbackCollectorDecorator 从未接入装配，反馈闭环首跳断链，
+	// feedback_events/signals 生产环境零写入，下游 Champion/PromptIterator/Bandit 全线饿死。
+	FeedbackSink FeedbackSink
 }
 
 // ToolOverride 工具级别配置覆盖
@@ -286,7 +290,7 @@ func (e *ToolExecutor) buildHandler(tool Tool) ToolHandler {
 		}
 	}
 
-	return BuildChainWithCircuitBreaker(raw,
+	chain := BuildChainWithCircuitBreaker(raw,
 		e.config.PermissionChecker,
 		e.config.RateLimiter,
 		e.config.CircuitBreaker,
@@ -295,6 +299,10 @@ func (e *ToolExecutor) buildHandler(tool Tool) ToolHandler {
 		e.config.AuditLogger,
 		e.config.CostTracker,
 	)
+	if e.config.FeedbackSink != nil {
+		chain = FeedbackCollectorDecorator(e.config.FeedbackSink)(chain)
+	}
+	return chain
 }
 
 

@@ -53,11 +53,6 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="12">
-            <el-form-item label="竞品">
-              <el-input v-model="form.competitors" placeholder="多个竞品用逗号分隔" clearable />
-            </el-form-item>
-          </el-col>
         </el-row>
         <el-form-item label="测试问题">
           <el-input
@@ -144,9 +139,7 @@ const form = reactive({
   article_id: '',
   brand_name: '',
   models: ['gpt-4o', 'deepseek-chat'],
-  competitors: '',
-  queries: '',
-  content: ''
+  queries: ''
 })
 
 const articles = ref([])
@@ -176,8 +169,7 @@ const loadArticles = async () => {
 const onArticleChange = async (id) => {
   if (!id) return
   try {
-    const res = await geoApi.getArticleByID(id)
-    form.content = res?.content || res?.article || ''
+    await geoApi.getArticleByID(id)
   } catch (e) {
     ElMessage.error(e.message || '文章加载失败')
   }

@@ -203,7 +203,7 @@ func (s *ProactiveReachService) ReachByCustomer(ctx context.Context, req *Proact
 	}
 
 	// 3. 列出客户有完整身份的所有渠道
-	available := customer.AvailableChannels(req.PreferredChannels)
+	available := CustomerAvailableChannels(customer, req.PreferredChannels)
 	if len(available) == 0 {
 		return nil, fmt.Errorf("customer %s has no channel identity on file, please bind at least one channel", customer.UnifiedID)
 	}
@@ -316,7 +316,7 @@ func (s *ProactiveReachService) loadCustomerPreferredOrder(ctx context.Context, 
 // pickChannelDryRun 试运行模式选渠道：跳过账号检查，直接选第一个有接收身份的渠道
 func (s *ProactiveReachService) pickChannelDryRun(candidates []string, customer *model.Customer) (channel, recipient, accountID string, err error) {
 	for _, ch := range candidates {
-		recipient = customer.ChannelIdentity(ch)
+		recipient = CustomerChannelIdentity(customer, ch)
 		if recipient == "" {
 			continue
 		}
@@ -337,7 +337,7 @@ func (s *ProactiveReachService) pickChannel(ctx context.Context, candidates []st
 	var tried []string
 	for _, ch := range candidates {
 		tried = append(tried, ch)
-		recipient = customer.ChannelIdentity(ch)
+		recipient = CustomerChannelIdentity(customer, ch)
 		if recipient == "" {
 			continue
 		}

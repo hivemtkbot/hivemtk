@@ -80,7 +80,7 @@ func setupRagRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	ragHealthCtrl.RegisterRoutes(auth)
 
 
-	ragRecallCtrl := controller.NewRagRecallMonitorController(service.NewRagRecallMonitorService(gormDB, 0, 0))
+	ragRecallCtrl := controller.NewRagRecallMonitorController(service.NewRagRecallMonitorService(gormDB, 0, 0), ragMetricsSvc)
 	ragRecallCtrl.RegisterRoutes(auth)
 }
 

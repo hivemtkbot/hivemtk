@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/identity"
 	"hivemtk-user/internal/pkg/db"
 	"testing"
 	"time"
@@ -336,9 +338,11 @@ func TestCustomerRepository_List(t *testing.T) {
 
 
 	for i := 1; i <= 25; i++ {
+		// v3 审计 P0-2 后 unified_id 由规范化手机号哈希派生，
+		// 种子必须使用合法且互异的手机号（原控制字符种子依赖旧拼接行为才能插入）
 		customer := &model.Customer{
-			Phone: string(rune('1' + i)),
-			Email: string(rune('a' + i)),
+			Phone: fmt.Sprintf("1380013%04d", i),
+			Email: fmt.Sprintf("user%02d@example.com", i),
 		}
 		repo.Create(ctx, customer)
 	}
@@ -462,7 +466,8 @@ func TestCustomerRepository_GetByUnifiedID(t *testing.T) {
 	}
 	repo.Create(ctx, customer)
 
-	result, err := repo.GetByUnifiedID(context.Background(), "phone:13800138000")
+	wantUID := identity.UnifiedIDFromPhone("13800138000") // v3 审计 P0-2 后为盐化哈希派生
+	result, err := repo.GetByUnifiedID(context.Background(), wantUID)
 	if err != nil {
 		t.Errorf("GetByUnifiedID() error = %v", err)
 	}
@@ -471,7 +476,7 @@ func TestCustomerRepository_GetByUnifiedID(t *testing.T) {
 		t.Fatal("Expected customer, got nil")
 	}
 
-	if result.UnifiedID != "phone:13800138000" {
+	if result.UnifiedID != wantUID {
 		t.Errorf("Expected UnifiedID 'phone:13800138000', got '%s'", result.UnifiedID)
 	}
 }

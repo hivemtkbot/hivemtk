@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"os"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -79,6 +80,16 @@ func (h *WSHandler) HandleWebSocket(c *gin.Context) {
 			"error": "无效的 agent_id",
 		})
 		return
+	}
+
+	// v3 审计 P2-4：坐席域与系统用户无外键绑定，无法做归属校验；
+	// 默认要求 admin 角色（防止任意登录用户冒充他人坐席订阅通知）。
+	// 如业务确需普通用户接入，显式设置 WS_AGENT_ALLOW_ALL_USERS=true。
+	if os.Getenv("WS_AGENT_ALLOW_ALL_USERS") != "true" {
+		if role, _ := c.Get("role"); role != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "仅管理员可订阅坐席通知"})
+			return
+		}
 	}
 
 

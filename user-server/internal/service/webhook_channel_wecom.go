@@ -61,7 +61,15 @@ func verifyWeCom(token, aesKey string, body []byte, query map[string]string) (bo
 	if p.MsgSignature == "" || p.Timestamp == "" || p.Nonce == "" {
 		return false, errors.New("missing msg_signature/timestamp/nonce")
 	}
-	parts := []string{token, p.Timestamp, p.Nonce}
+	// 官方四元组口径：
+	//   POST 加密事件: msg_signature = sha1(sort(token, timestamp, nonce, encrypt))
+	//   GET  URL验证 : msg_signature = sha1(sort(token, timestamp, nonce, echostr))
+	// v3 审计 P1-6 修复：原三元组不绑定报文内容，捕获一次合法签名即可永久重放任意伪造 payload。
+	fourth := p.Encrypt
+	if fourth == "" {
+		fourth = query["echostr"]
+	}
+	parts := []string{token, p.Timestamp, p.Nonce, fourth}
 	sortStrings(parts)
 	h := sha1Hex([]byte(strings.Join(parts, "")))
 	if subtle.ConstantTimeCompare([]byte(h), []byte(p.MsgSignature)) != 1 {

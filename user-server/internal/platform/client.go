@@ -12,12 +12,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 )
 
 type Client struct {
+	merchantSecret string // 每商户独立 HMAC 密钥(平台注册响应下发)
 	merchantKey string
 	httpClient  *http.Client
 	jwtToken    string
@@ -26,9 +28,20 @@ type Client struct {
 }
 
 func NewPlatformClient(merchantKey string) *Client {
-	return &Client{
+	c := &Client{
 		merchantKey: merchantKey,
 		httpClient:  &http.Client{Timeout: 5 * time.Second},
+	}
+	// 启动时恢复历史下发的 per-merchant secret（幂等）
+	c.loadMerchantSecret()
+	return c
+}
+
+// SetMerchantSecret 注入注册响应下发的每商户独立 HMAC 密钥（契约 §1 落地）。
+// 非空时优先于全局 MERCHANT_API_SECRET / PlatformCfg.Secret 参与签名。
+func (c *Client) SetMerchantSecret(secret string) {
+	if secret != "" {
+		c.merchantSecret = secret
 	}
 }
 
@@ -40,7 +53,10 @@ func (c *Client) sign(method, path string, body []byte) (string, string, error) 
 	}
 	payload := method + "\n" + pathNoQuery + "\n" + timestamp + "\n" + string(body)
 
-	secret := os.Getenv("MERCHANT_API_SECRET")
+	secret := c.merchantSecret
+	if secret == "" {
+		secret = os.Getenv("MERCHANT_API_SECRET")
+	}
 	if secret == "" && config.PlatformCfg != nil {
 		secret = config.PlatformCfg.Secret
 	}
@@ -238,8 +254,43 @@ func (c *Client) RegisterMerchant(req RegisterMerchantReq) error {
 		logger.Error(err, "商户注册失败")
 		return err
 	}
+	// v3 审计 P0：接收并持久化每商户独立 HMAC 密钥（仅注册响应一次性下发）
+	if len(resp.Data) > 0 {
+		var reg struct {
+			Key    string `json:"key"`
+			Secret string `json:"secret"`
+		}
+		if jerr := json.Unmarshal(resp.Data, &reg); jerr == nil && reg.Secret != "" {
+			c.SetMerchantSecret(reg.Secret)
+			if serr := saveMerchantSecret(reg.Secret); serr != nil {
+				logger.Warn(fmt.Sprintf("持久化 per-merchant secret 失败(本次进程内仍生效): %v", serr))
+			}
+			logger.Info("已接收并启用每商户独立签名密钥")
+		}
+	}
 	logger.Info("商户注册成功")
 	return nil
+}
+
+// merchantSecretFilePath per-merchant secret 本地持久化路径（0600 权限）
+func merchantSecretFilePath() string {
+	return filepath.Join("config", ".merchant_api_secret")
+}
+
+func saveMerchantSecret(secret string) error {
+	p := merchantSecretFilePath()
+	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(p, []byte(secret), 0o600)
+}
+
+// loadMerchantSecret 启动时恢复已下发的 per-merchant secret（幂等，可多次调用）
+func (c *Client) loadMerchantSecret() {
+	b, err := os.ReadFile(merchantSecretFilePath())
+	if err == nil {
+		c.SetMerchantSecret(strings.TrimSpace(string(b)))
+	}
 }
 
 // GetLicenseStatus 获取授权状态

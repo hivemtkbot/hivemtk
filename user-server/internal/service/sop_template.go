@@ -56,7 +56,7 @@ type sopRepoIface interface {
 	MatchByIDs(ctx context.Context, intent, stage string, ids []string) ([]model.SOPTemplate, error)
 	ListByAgent(ctx context.Context, agentID uint, limit int) ([]model.SOPTemplate, error)
 	IncrementHitCount(ctx context.Context, id uint) error
-	ListWithFilter(ctx context.Context, filter repository.SOPTemplateFilter) ([]model.SOPTemplate, int64, error)
+	ListWithFilter(ctx context.Context, filter repository.SOPTemplateListParams) ([]model.SOPTemplate, int64, error)
 	Update(ctx context.Context, id uint, tpl *model.SOPTemplate) error
 	Delete(ctx context.Context, id uint) error
 }
@@ -210,11 +210,20 @@ func (s *SOPTemplateService) MatchByAgentLegacy(ctx context.Context, agentSOPIDs
 
 
 // List 列表查询
-func (s *SOPTemplateService) List(ctx context.Context, filter repository.SOPTemplateFilter) ([]dto.SOPTemplate, int64, error) {
+func (s *SOPTemplateService) List(ctx context.Context, filter dto.SOPTemplateFilter) ([]dto.SOPTemplate, int64, error) {
 	if s.repo == nil {
 		return nil, 0, nil
 	}
-	tpls, total, err := s.repo.ListWithFilter(ctx, filter)
+	params := repository.SOPTemplateListParams{
+		Keyword:  filter.Keyword,
+		Intent:   filter.Intent,
+		Stage:    filter.Stage,
+		Enabled:  filter.Enabled,
+		AgentID:  filter.AgentID,
+		Page:     filter.Page,
+		PageSize: filter.PageSize,
+	}
+	tpls, total, err := s.repo.ListWithFilter(ctx, params)
 	if err != nil {
 		return nil, 0, err
 	}

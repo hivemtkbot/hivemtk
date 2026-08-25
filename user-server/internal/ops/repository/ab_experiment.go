@@ -93,9 +93,12 @@ func (r *ABVariantRepository) GetByID(id uint) (*model.ABVariant, error) {
 }
 
 // GetByExperiment 获取实验下的变体列表
+// v3 审计 P2-8：必须按 id 稳定排序——流量桶按切片顺序累积划分，
+// 无序返回会导致桶边界随数据库返回顺序漂移，同一用户被分到不同变体。
 func (r *ABVariantRepository) GetByExperiment(experimentID uint) ([]*model.ABVariant, error) {
 	var variants []*model.ABVariant
-	err := r.db.Where("experiment_id = ?", experimentID).Find(&variants).Error
+	err := r.db.Where("experiment_id = ?", experimentID).
+		Order("id ASC").Find(&variants).Error
 	return variants, err
 }
 

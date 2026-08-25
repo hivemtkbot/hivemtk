@@ -338,7 +338,7 @@ func TestSOPTemplateRepository_ListWithFilter_AgentID(t *testing.T) {
 	}
 
 	agentZero := uint(0)
-	got, _, err := repo.ListWithFilter(ctx, SOPTemplateFilter{AgentID: &agentZero, Page: 1, PageSize: 100})
+	got, _, err := repo.ListWithFilter(ctx, SOPTemplateListParams{AgentID: &agentZero, Page: 1, PageSize: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +346,7 @@ func TestSOPTemplateRepository_ListWithFilter_AgentID(t *testing.T) {
 		t.Errorf("ListWithFilter AgentID=&0 expected 1 (shared), got %d", len(got))
 	}
 
-	got, _, err = repo.ListWithFilter(ctx, SOPTemplateFilter{AgentID: &agentA, Page: 1, PageSize: 100})
+	got, _, err = repo.ListWithFilter(ctx, SOPTemplateListParams{AgentID: &agentA, Page: 1, PageSize: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +354,7 @@ func TestSOPTemplateRepository_ListWithFilter_AgentID(t *testing.T) {
 		t.Errorf("ListWithFilter AgentID=&10 expected 2, got %d", len(got))
 	}
 
-	got, _, err = repo.ListWithFilter(ctx, SOPTemplateFilter{Page: 1, PageSize: 100})
+	got, _, err = repo.ListWithFilter(ctx, SOPTemplateListParams{Page: 1, PageSize: 100})
 	if err != nil {
 		t.Fatal(err)
 	}

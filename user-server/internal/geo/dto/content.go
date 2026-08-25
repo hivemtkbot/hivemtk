@@ -8,7 +8,7 @@ type GenerateContentRequest struct {
 	BrandName  string   `json:"brand_name"`
 	Advantages []string `json:"advantages"`
 	Model      string   `json:"model"`
-	WordCount  int      `json:"word_count"`
+	WordCount  int      `json:"word_count" binding:"omitempty,min=100,max=20000"`
 	Style      string   `json:"style"`
 }
 

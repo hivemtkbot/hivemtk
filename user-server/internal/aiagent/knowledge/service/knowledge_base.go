@@ -10,6 +10,7 @@ import (
 	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
 	"hivemtk-user/internal/etl"
 	"hivemtk-user/internal/pkg/db"
+	chunkModel "hivemtk-user/internal/model"
 	"os"
 
 	"gorm.io/gorm"
@@ -76,12 +77,21 @@ func (s *KnowledgeBaseService) GetDocument(ctx context.Context, id uint) (*model
 }
 
 // DeleteDocument 删除文档
+// v7 审计修复：文档删除与分段清理放入同一事务，根除孤儿 chunk 行。
 func (s *KnowledgeBaseService) DeleteDocument(ctx context.Context, id uint) error {
 	var doc model.KBDocument
-	if err := s.db.WithContext(ctx).Where("id = ?", id).First(&doc).Error; err != nil {
-		return err
-	}
-	if err := s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.KBDocument{}).Error; err != nil {
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.WithContext(ctx).Where("id = ?", id).First(&doc).Error; err != nil {
+			return err
+		}
+		// 级联清理该文档在 knowledge_chunks 的全部分段（无则 0 行受影响）
+		if err := tx.WithContext(ctx).Where("document_id = ?", id).
+			Delete(&chunkModel.KnowledgeChunk{}).Error; err != nil {
+			return fmt.Errorf("清理文档分段失败: %w", err)
+		}
+		return tx.WithContext(ctx).Where("id = ?", id).Delete(&model.KBDocument{}).Error
+	})
+	if err != nil {
 		return err
 	}
 	if doc.FilePath != "" {

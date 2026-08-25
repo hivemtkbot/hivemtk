@@ -191,7 +191,7 @@ func (m *mockFAQRepoForDecay) ListCandidates(ctx context.Context, agentID uint, 
 	return out, nil
 }
 
-func (m *mockFAQRepoForDecay) ScoreCandidates(entries []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error) {
+func (m *mockFAQRepoForDecay) ScoreCandidates(ctx context.Context, entries []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error) {
 	if m.matchByAgentErr != nil {
 		return nil, m.matchByAgentErr
 	}
@@ -240,7 +240,7 @@ func (m *mockFAQRepoForDecay) IncrementNegativeHit(ctx context.Context, id uint)
 	return nil
 }
 
-func (m *mockFAQRepoForDecay) ListWithFilter(ctx context.Context, filter repository.FAQFilter) ([]model.FAQEntry, int64, error) {
+func (m *mockFAQRepoForDecay) ListWithFilter(ctx context.Context, filter repository.FAQListParams) ([]model.FAQEntry, int64, error) {
 	return nil, 0, nil
 }
 

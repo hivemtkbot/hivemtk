@@ -8,6 +8,7 @@ import (
 
 	"hivemtk-user/internal/aiagent/agent/tooluse"
 	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/service"
 )
 
 
@@ -37,6 +38,9 @@ func InitGlobalToolExecutor() {
 		RetryPolicy:       tooluse.NewExponentialBackoffPolicy(3, 200*time.Millisecond, 5*time.Second),
 		AuditLogger:       memAuditLogger,
 		CostTracker:       memCostTracker,
+		// v7 审计修复：接通反馈回流（FeedbackCollector 装饰器），激活 feedback_events/signals 生产链路。
+		// InitFeedbackCollector 在 main.go 先于 router.Setup() 执行，此处取到的是已初始化的全局单例。
+		FeedbackSink: NewFeedbackCollectorAdapter(service.GetFeedbackCollector()),
 	}
 	exec := tooluse.NewToolExecutor(tooluse.GetGlobalRegistry(), config)
 	tooluse.SetGlobalExecutor(exec)

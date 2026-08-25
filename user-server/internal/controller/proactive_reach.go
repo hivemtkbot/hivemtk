@@ -127,13 +127,13 @@ func (c *ProactiveReachController) ListChannels(ctx *gin.Context) {
 		return
 	}
 
-	available := cust.AvailableChannels(nil)
+	available := service.CustomerAvailableChannels(cust, nil)
 	channels := make([]map[string]any, 0, len(available))
 	for _, ch := range available {
 		channels = append(channels, map[string]any{
 			"channel":      ch,
-			"identity":     cust.ChannelIdentity(ch),
-			"has_identity": cust.HasChannelIdentity(ch),
+			"identity":     service.CustomerChannelIdentity(cust, ch),
+			"has_identity": service.CustomerHasChannelIdentity(cust, ch),
 		})
 	}
 	response.Success(ctx, gin.H{

@@ -57,7 +57,7 @@ func TestDBTraceSink_StopIdempotent(t *testing.T) {
 
 // TestQueryTrace_NotFound 验证 trace 不存在时返回 ErrTraceNotFound
 func TestQueryTrace_NotFound(t *testing.T) {
-	db := testutil.NewTestDB(t)
+	db := testutil.NewTestDB(t, &TraceEvent{})
 	t.Cleanup(func() {
 		_ = db
 	})
@@ -86,7 +86,7 @@ func TestQueryTrace_EmptyTraceID(t *testing.T) {
 
 // TestListRecentTraces_LimitClamp 验证 limit 边界归一
 func TestListRecentTraces_LimitClamp(t *testing.T) {
-	db := testutil.NewTestDB(t)
+	db := testutil.NewTestDB(t, &TraceEvent{})
 	origDB := traceDBOverride
 	traceDBOverride = func() any { return db }
 	t.Cleanup(func() { traceDBOverride = origDB })
@@ -103,7 +103,7 @@ func TestListRecentTraces_LimitClamp(t *testing.T) {
 
 // TestDBTraceSink_FlushInsertsToTable 端到端：发布 → 订阅者落库 → QueryTrace 读出
 func TestDBTraceSink_FlushInsertsToTable(t *testing.T) {
-	db := testutil.NewTestDB(t)
+	db := testutil.NewTestDB(t, &TraceEvent{})
 
 	origDB := traceDBOverride
 	traceDBOverride = func() any { return db }
@@ -155,7 +155,7 @@ func TestDBTraceSink_FlushInsertsToTable(t *testing.T) {
 
 // TestDBTraceSink_AsyncInsert 验证：发布 → 启动 sink → 等批量落库 → 读到
 func TestDBTraceSink_AsyncInsert(t *testing.T) {
-	db := testutil.NewTestDB(t)
+	db := testutil.NewTestDB(t, &TraceEvent{})
 	origDB := traceDBOverride
 	traceDBOverride = func() any { return db }
 	t.Cleanup(func() { traceDBOverride = origDB })

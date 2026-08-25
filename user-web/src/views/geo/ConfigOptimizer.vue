@@ -206,8 +206,11 @@ const handleSave = async () => {
   try {
     await geoApi.updateConfig({
       brand: config.brand,
+      brand_description: config.description,
       advantages: config.advantages.join('、'),
-      competitors: config.competitors
+      competitors: config.competitors,
+      default_model: config.default_model,
+      verify_models: config.verify_models
     })
     ElMessage.success('配置已保存')
   } catch (e) {

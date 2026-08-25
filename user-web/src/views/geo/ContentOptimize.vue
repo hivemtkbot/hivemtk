@@ -38,15 +38,8 @@
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="12">
-            <el-form-item label="目标平台">
-              <el-select v-model="form.platform" style="width: 100%">
-                <el-option v-for="p in platforms" :key="p" :label="p" :value="p" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12">
             <el-form-item label="品牌名称">
-              <el-input v-model="form.brand" placeholder="如：hivemtk" clearable />
+              <el-input v-model="form.brand_name" placeholder="如：hivemtk" clearable />
             </el-form-item>
           </el-col>
         </el-row>
@@ -121,16 +114,10 @@ import { ElMessage } from 'element-plus'
 import { MagicStick, Right } from '@element-plus/icons-vue'
 import { geoApi } from '@/api/geo'
 
-const platforms = [
-  '通用优化', '知乎（专业问答）', 'CSDN（技术博客）', 'GitHub（README/文档）',
-  '微信公众号（长文）', '百家号（资讯）'
-]
-
 const form = reactive({
   source: 'textarea',
   article_id: '',
-  platform: '通用优化',
-  brand: '',
+  brand_name: '',
   content: ''
 })
 
@@ -178,7 +165,7 @@ const handleOptimize = async () => {
   try {
     const res = await geoApi.optimizeContent({
       content: form.content,
-      brand_name: form.brand,
+      brand_name: form.brand_name,
       article_id: form.article_id || undefined
     })
     optimizedContent.value = res?.optimized_content || res?.content || ''
@@ -202,7 +189,7 @@ const handleScore = async (stage) => {
   const loading = stage === 'before' ? scoringBefore : scoringAfter
   loading.value = true
   try {
-    const res = await geoApi.scoreContent({ content, brand_name: form.brand, keyword: '' })
+    const res = await geoApi.scoreContent({ content, brand_name: form.brand_name, keyword: '' })
     if (stage === 'before') scoreBefore.value = res
     else scoreAfter.value = res
     ElMessage.success('评分完成')

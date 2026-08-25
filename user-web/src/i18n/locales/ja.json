@@ -160,6 +160,7 @@
     "agentActive": "能動的リーチ",
     "reachPipeline": "リーチパイプライン",
     "marketingFlow": "マーケティングフロー",
+    "workflowOrchestrator": "ワークフロー編成",
     "batchOperation": "バッチ運用",
     "agentSupport": "機能サポート",
     "sopAgent": "SOP エージェント",

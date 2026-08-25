@@ -30,6 +30,7 @@ type Customer360Service struct {
 	unifiedMsgRepo   repository.UnifiedMessageRepository
 	unifiedReplyRepo repository.UnifiedReplyRepository
 	customerRepo     repository.CustomerRepository
+	eventRepo        repository.CustomerEventRepository
 }
 
 func NewCustomer360ServiceWithDB(db *gorm.DB) *Customer360Service {
@@ -41,6 +42,7 @@ func NewCustomer360ServiceWithDB(db *gorm.DB) *Customer360Service {
 		unifiedMsgRepo:   repository.NewUnifiedMessageRepositoryWithDB(db),
 		unifiedReplyRepo: repository.NewUnifiedReplyRepositoryWithDB(db),
 		customerRepo:     repository.NewCustomerRepository(),
+		eventRepo:        repository.NewCustomerEventRepository(),
 	}
 }
 
@@ -53,6 +55,7 @@ func NewCustomer360Service() *Customer360Service {
 		unifiedMsgRepo:   repository.NewUnifiedMessageRepository(),
 		unifiedReplyRepo: repository.NewUnifiedReplyRepository(),
 		customerRepo:     repository.NewCustomerRepository(),
+		eventRepo:        repository.NewCustomerEventRepository(),
 	}
 }
 
@@ -233,6 +236,29 @@ func (s *Customer360Service) GetCustomer360ByCustomerID(ctx context.Context, cus
 
 	dto.BasicInfo = s.buildBasicInfoFromCustomer(cust, sessions)
 
+	// v7 审计修复：by-ID 路径的线索/订单直接用客户档案身份字段聚合。
+	// 原实现传 cust.UnifiedID 给 buildClueInfo/buildOrderInfo，要求存在
+	// session.UserID == unified_id 的会话；UnifiedID 现为盐化哈希恒不匹配 → 线索/订单永远空白。
+	identityKeys := make([]string, 0, 4)
+	accountIDs := make([]string, 0, len(sessions))
+	for _, sess := range sessions {
+		if sess.AccountID != "" {
+			accountIDs = append(accountIDs, sess.AccountID)
+		}
+	}
+	if cust.Phone != "" {
+		identityKeys = append(identityKeys, cust.Phone)
+	}
+	if cust.Email != "" {
+		identityKeys = append(identityKeys, cust.Email)
+	}
+	if len(accountIDs) > 0 || len(identityKeys) > 0 {
+		dto.ClueInfo, _ = s.assembleClueInfo(ctx, append(accountIDs, identityKeys...))
+		if len(accountIDs) > 0 {
+			dto.OrderInfo, _ = s.assembleOrderInfo(ctx, accountIDs)
+		}
+	}
+
 	if len(sessions) == 0 {
 		dto.SessionStats = &SessionStatistics{}
 		dto.InteractionStats = &InteractionStats{}
@@ -245,10 +271,6 @@ func (s *Customer360Service) GetCustomer360ByCustomerID(ctx context.Context, cus
 	dto.SessionHistory = s.buildSessionHistory(ctx, sessions)
 
 	dto.MessageHistory, _ = s.buildMessageHistory(ctx, sessions)
-
-	dto.ClueInfo, _ = s.buildClueInfo(ctx, cust.UnifiedID, sessions)
-
-	dto.OrderInfo, _ = s.buildOrderInfo(ctx, cust.UnifiedID, sessions)
 
 	dto.InteractionStats = s.buildInteractionStats(ctx, sessions)
 
@@ -455,7 +477,14 @@ func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string, u
 		return nil, nil
 	}
 
-	clues, err := s.clueRepo.ListByAccounts(ctx, []string{accountID, userPhone, userEmail})
+	return s.assembleClueInfo(ctx, []string{accountID, userPhone, userEmail})
+}
+
+// assembleClueInfo 按线索键(账户/手机号/邮箱)聚合线索信息。
+// v7 审计修复：从 buildClueInfo 拆出，供 by-ID 路径直接以客户档案身份字段调用，
+// 不再依赖 session.UserID == unified_id 的匹配（盐化哈希 UnifiedID 恒不等于会话 user_id）。
+func (s *Customer360Service) assembleClueInfo(ctx context.Context, keys []string) (*ClueInfo, error) {
+	clues, err := s.clueRepo.ListByAccounts(ctx, keys)
 	if err != nil {
 		return nil, err
 	}
@@ -498,7 +527,13 @@ func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string, 
 		}, nil
 	}
 
-	userOrders, err := s.orderRepo.ListByAccountIDs(ctx, []string{accountID})
+	return s.assembleOrderInfo(ctx, []string{accountID})
+}
+
+// assembleOrderInfo 按账户聚合订单统计。
+// v7 审计修复：从 buildOrderInfo 拆出，供 by-ID 路径直接以会话/档案账户调用。
+func (s *Customer360Service) assembleOrderInfo(ctx context.Context, accountIDs []string) (*OrderInfo, error) {
+	userOrders, err := s.orderRepo.ListByAccountIDs(ctx, accountIDs)
 	if err != nil {
 		return &OrderInfo{
 			Orders: make([]*OrderItem, 0),
@@ -633,6 +668,55 @@ func (s *Customer360Service) buildUserProfile(ctx context.Context, sessions []*m
 	}
 
 	return profile
+}
+
+// GetCustomerEvents 按客户主键查询行为事件流水（前端 GET /api/customer-360/events）。
+func (s *Customer360Service) GetCustomerEvents(ctx context.Context, customerID string, limit int) ([]*model.CustomerEvent, error) {
+	if customerID == "" {
+		return nil, ErrCustomerNotFound
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	events, err := s.eventRepo.GetByCustomerID(ctx, customerID, limit)
+	if err != nil {
+		return nil, err
+	}
+	return events, nil
+}
+
+// GetCustomerOrders 按客户档案查询订单（前端 GET /api/customer-360/orders）。
+// 订单以会话 account_id 关联：解析出该客户全部会话账户后批量拉取。
+func (s *Customer360Service) GetCustomerOrders(ctx context.Context, customerID string, limit int) ([]*OrderItem, error) {
+	cust, err := s.customerRepo.GetByID(ctx, customerID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrCustomerNotFound
+		}
+		return nil, err
+	}
+	sessions, err := s.sessionRepo.GetByOneID(ctx, cust.UnifiedID)
+	if err != nil {
+		return nil, err
+	}
+	accountIDs := make([]string, 0, len(sessions))
+	for _, sess := range sessions {
+		if sess.AccountID != "" {
+			accountIDs = append(accountIDs, sess.AccountID)
+		}
+	}
+	orderInfo, err := s.assembleOrderInfo(ctx, accountIDs)
+	if err != nil {
+		return nil, err
+	}
+	items := orderInfo.Orders
+	if items == nil {
+		items = make([]*OrderItem, 0)
+	}
+	if limit > 0 && len(items) > limit {
+		items = items[:limit]
+	}
+	return items, nil
 }
 
 func (s *Customer360Service) GetCustomerList(ctx context.Context, page, pageSize int, filters map[string]string) (map[string]*Customer360DTO, int64, error) {

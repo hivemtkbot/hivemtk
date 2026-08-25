@@ -445,7 +445,8 @@ const topMenus = ref([
           { key: 'shortLinkStats', title: '短链统计', icon: 'DataAnalysis', path: '/shortLink/stats' }
         ]
       },
-      { key: 'livecode', title: '活码管理', icon: 'QrCode', path: '/livecode' }
+      { key: 'livecode', title: '活码管理', icon: 'QrCode', path: '/livecode' },
+      { key: 'workflowOrchestrator', title: '工作流编排', icon: 'Share', path: '/workflow-orchestrator/list', roles: ['admin', 'manager'] }
     ]
   },
   {
@@ -482,7 +483,17 @@ const topMenus = ref([
           { key: 'ragProduct', title: 'RAG 产品管理', icon: 'Goods', path: '/system/rag-product' }
         ]
       },
-      { key: 'ragOverview', title: 'RAG 概览', icon: 'Monitor', path: '/system/rag-overview' }
+      { key: 'ragOverview', title: 'RAG 概览', icon: 'Monitor', path: '/system/rag-overview' },
+      {
+        key: 'i18nManage',
+        title: '多语言管理',
+        icon: 'Coin',
+        roles: ['admin', 'manager'],
+        children: [
+          { key: 'glossary', title: '术语表管理', icon: 'Collection', path: '/glossary', roles: ['admin', 'manager'] },
+          { key: 'i18nDashboard', title: '多语言监控', icon: 'DataLine', path: '/i18n/dashboard', roles: ['admin', 'manager'] }
+        ]
+      }
     ]
   },
   {
@@ -497,17 +508,21 @@ const topMenus = ref([
       { key: 'customReport', title: '自定义报表', icon: 'Document', path: '/customReport/list' },
       { key: 'abExperiment', title: 'A/B 实验', icon: 'DataLine', path: '/abExperiment/list', roles: ['admin', 'manager', 'viewer'] },
       { key: 'churnPrediction', title: '流失预警', icon: 'Warning', path: '/churnPrediction/list', roles: ['admin', 'manager', 'viewer'] },
-      { key: 'customerJourney', title: '客户旅程大屏', icon: 'TrendCharts', path: '/customerJourney/dashboard', roles: ['admin', 'manager', 'sales', 'viewer'] }
-    ]
-  },
-  {
-    key: 'i18nManage',
-    title: '多语言管理',
-    icon: 'Coin',
-    roles: ['admin', 'manager'],
-    children: [
-      { key: 'glossary', title: '术语表管理', icon: 'Collection', path: '/glossary', roles: ['admin', 'manager'] },
-      { key: 'i18nDashboard', title: '多语言监控', icon: 'DataLine', path: '/i18n/dashboard', roles: ['admin', 'manager'] }
+      { key: 'customerJourney', title: '客户旅程大屏', icon: 'TrendCharts', path: '/customerJourney/dashboard', roles: ['admin', 'manager', 'sales', 'viewer'] },
+      {
+        key: 'geoTools',
+        title: 'GEO 智能优化',
+        icon: 'MagicStick',
+        path: '/geo-tools/keyword-mining',
+        children: [
+          { key: 'geoKeywordMining', title: '关键词蒸馏', icon: 'Search', path: '/geo-tools/keyword-mining' },
+          { key: 'geoContentCreation', title: '内容创作', icon: 'EditPen', path: '/geo-tools/content-creation' },
+          { key: 'geoContentOptimize', title: '文章优化', icon: 'Document', path: '/geo-tools/content-optimize' },
+          { key: 'geoVerification', title: '多模型验证', icon: 'CircleCheck', path: '/geo-tools/verification' },
+          { key: 'geoReports', title: '数据报表', icon: 'DataAnalysis', path: '/geo-tools/reports' },
+          { key: 'geoConfig', title: '配置优化', icon: 'Setting', path: '/geo-tools/config' },
+        ]
+      }
     ]
   },
   {

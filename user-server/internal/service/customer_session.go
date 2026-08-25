@@ -230,7 +230,7 @@ func (s *CustomerSessionService) SendMessage(ctx context.Context, req *SendMessa
 	if err != nil {
 		return nil, errors.New("会话不存在")
 	}
-	if !session.CanSendMessage() {
+	if !CustomerSessionCanSendMessage(session) {
 		return nil, fmt.Errorf("会话状态 %s 不允许发送消息", session.Status)
 	}
 
@@ -384,3 +384,14 @@ func generateSessionID() string {
 	return fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), uuid.New().String()[:8])
 }
 
+
+// CustomerSessionCanSendMessage 会话当前状态是否允许发送消息
+// 领域判断自 (*model.CustomerSession).CanSendMessage 迁入。
+func CustomerSessionCanSendMessage(s *model.CustomerSession) bool {
+	switch s.Status {
+	case model.SessionStatusPending, model.SessionStatusAIHandling, model.SessionStatusHumanHandling, model.SessionStatusWaiting:
+		return true
+	default:
+		return false
+	}
+}

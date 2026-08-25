@@ -415,6 +415,11 @@ func evalIn(fieldValue any, value string) (bool, error) {
 // handleDelay 处理延迟
 func (s *MarketingFlowService) handleDelay(ctx context.Context, node model.FlowNode) (map[string]any, error) {
 	duration, _ := node.Config["duration"].(float64)
+	// v3 审计 P2：delay 秒数限幅 5 分钟——配置错误（如误填毫秒值）不应挂死执行协程
+	const maxDelaySeconds = 300
+	if duration > maxDelaySeconds {
+		duration = maxDelaySeconds
+	}
 	if duration > 0 {
 		select {
 		case <-ctx.Done():

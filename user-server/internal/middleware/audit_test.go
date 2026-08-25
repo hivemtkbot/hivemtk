@@ -4,10 +4,37 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 )
+
+// isNumeric 判断字符串是否表示一个非负整数（用于测试辅助）
+func isNumeric(s string) bool {
+	if s == "" {
+		return false
+	}
+	if _, err := strconv.Atoi(s); err != nil {
+		return false
+	}
+	return true
+}
+
+// splitPath 按斜杠切分 URL 路径，去除空段（用于测试辅助）
+func splitPath(path string) []string {
+	if path == "" {
+		return []string{}
+	}
+	parts := []string{}
+	for _, p := range strings.Split(path, "/") {
+		if p != "" {
+			parts = append(parts, p)
+		}
+	}
+	return parts
+}
 
 // TestAuditMiddleware_Enabled 测试审计中间件启用情况
 func TestAuditMiddleware_Enabled(t *testing.T) {
@@ -407,7 +434,7 @@ func TestAuditResponseWriter_WriteString(t *testing.T) {
 func TestSaveAuditBatch_Empty(t *testing.T) {
 	// 这个测试主要是确保 saveAuditBatch 处理空切片不 panic
 	var logs []*AuditEntry
-	saveAuditBatch(logs)
+	NewAuditManager().saveAuditBatch(logs) // v3 重构后为 AuditManager 方法
 	t.Log("saveAuditBatch with empty slice completed without panic")
 }
 

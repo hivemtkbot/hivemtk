@@ -1,14 +1,19 @@
 package service_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"hivemtk-user/internal/geo/model"
+	"hivemtk-user/internal/geo/service"
+	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/pkg/testutil"
 	"hivemtk-user/internal/router"
 
@@ -36,11 +41,45 @@ func geoAPITestDB(t *testing.T) *gorm.DB {
 func setupGeoRouter(t *testing.T) *gin.Engine {
 	db := geoAPITestDB(t)
 	gin.SetMode(gin.TestMode)
+	// 启用中间件测试模式：AdminAuthMiddleware 放行 PUT /geo/config 等管理员路由
+	middleware.IsTestMode = true
+	t.Cleanup(func() { middleware.IsTestMode = false })
 	r := gin.New()
 	auth := r.Group("/api")
 	auth.Use(func(c *gin.Context) { c.Next() })
 	router.SetupGeoRoutes(auth, db)
 	return r
+}
+
+// llmProbe 探测真实 LLM 后端可用性（进程级仅探测一次）。
+// 不可达时跳过依赖 LLM 的集成测试——与 testutil.NewTestDB 对 PG 的优雅降级策略一致，
+// 保证 go test 在无 LLM 配置的环境下不会大面积失败。
+var (
+	llmProbeOnce sync.Once
+	llmAvailable bool
+)
+
+func requireLLM(t *testing.T) {
+	t.Helper()
+	llmProbeOnce.Do(func() {
+		// 看门狗硬限 10s：防止底层 HTTP 栈不响应 ctx 取消（如代理半挂）导致探针悬挂
+		done := make(chan bool, 1)
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+			defer cancel()
+			_, err := service.NewLLMAdapter().GenerateJSON(ctx, "", "连接测试，请回复 ok", 10)
+			done <- err == nil
+		}()
+		select {
+		case ok := <-done:
+			llmAvailable = ok
+		case <-time.After(10 * time.Second):
+			llmAvailable = false
+		}
+	})
+	if !llmAvailable {
+		t.Skip("LLM 后端不可达（未配置 API Key 或网络不通），跳过依赖 LLM 的集成测试")
+	}
 }
 
 func doRequest(t *testing.T, r http.Handler, method, path string, body interface{}) *httptest.ResponseRecorder {
@@ -64,15 +103,17 @@ func assertStatus(t *testing.T, w *httptest.ResponseRecorder, expected int) {
 	}
 }
 
-func assertCodeZero(t *testing.T, w *httptest.ResponseRecorder) {
+// assertSuccess 断言响应体 code 为平台统一成功码 "SUCCESS"
+// （与 response.Success / utils.ErrorCodeSuccess 契约一致，同 internal/controller 各测试）
+func assertSuccess(t *testing.T, w *httptest.ResponseRecorder) {
 	t.Helper()
 	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("unmarshal response failed: %v, body: %s", err, w.Body.String())
 	}
-	code, ok := resp["code"].(float64)
-	if !ok || code != 0 {
-		t.Fatalf("expected code=0, got %v (body: %s)", resp["code"], w.Body.String())
+	code, ok := resp["code"].(string)
+	if !ok || code != "SUCCESS" {
+		t.Fatalf("expected code=SUCCESS, got %v (body: %s)", resp["code"], w.Body.String())
 	}
 }
 
@@ -82,7 +123,7 @@ func TestGeoAPI_GetConfig(t *testing.T) {
 	r := setupGeoRouter(t)
 	w := doRequest(t, r, "GET", "/geo/config", nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 func TestGeoAPI_UpdateConfig(t *testing.T) {
@@ -90,13 +131,14 @@ func TestGeoAPI_UpdateConfig(t *testing.T) {
 	body := map[string]any{"brand": "测试品牌", "advantages": "技术领先"}
 	w := doRequest(t, r, "PUT", "/geo/config", body)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 // === 关键词测试 ===
 
 func TestGeoAPI_MineKeywords(t *testing.T) {
 	r := setupGeoRouter(t)
+	requireLLM(t)
 	body := map[string]any{
 		"seed_words": []string{"GEO优化", "AI搜索"},
 		"mode":       "industry",
@@ -104,42 +146,45 @@ func TestGeoAPI_MineKeywords(t *testing.T) {
 	}
 	w := doRequest(t, r, "POST", "/geo/keywords/mine", body)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 func TestGeoAPI_SemanticExpand(t *testing.T) {
 	r := setupGeoRouter(t)
+	requireLLM(t)
 	body := map[string]any{
 		"keywords":   []string{"GEO优化", "AI搜索"},
 		"brand_name": "测试品牌",
 	}
 	w := doRequest(t, r, "POST", "/geo/keywords/expand", body)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 func TestGeoAPI_TopicCluster(t *testing.T) {
 	r := setupGeoRouter(t)
+	requireLLM(t)
 	body := map[string]any{
 		"keywords":   []string{"GEO优化", "AI搜索", "品牌营销"},
 		"brand_name": "测试品牌",
 	}
 	w := doRequest(t, r, "POST", "/geo/keywords/cluster", body)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 func TestGeoAPI_GetKeywordList(t *testing.T) {
 	r := setupGeoRouter(t)
 	w := doRequest(t, r, "GET", "/geo/keywords/list?page=1&limit=10", nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 // === 内容测试 ===
 
 func TestGeoAPI_GenerateContent(t *testing.T) {
 	r := setupGeoRouter(t)
+	requireLLM(t)
 	body := map[string]any{
 		"keyword":    "GEO优化",
 		"brand_name": "测试品牌",
@@ -149,11 +194,12 @@ func TestGeoAPI_GenerateContent(t *testing.T) {
 	}
 	w := doRequest(t, r, "POST", "/geo/content/generate", body)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 func TestGeoAPI_ScoreContent(t *testing.T) {
 	r := setupGeoRouter(t)
+	requireLLM(t)
 	body := map[string]any{
 		"content":    "根据2024年报告显示，GEO优化能提升品牌曝光率30%。",
 		"brand_name": "测试品牌",
@@ -161,7 +207,7 @@ func TestGeoAPI_ScoreContent(t *testing.T) {
 	}
 	w := doRequest(t, r, "POST", "/geo/content/score", body)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 func TestGeoAPI_CheckUniqueness(t *testing.T) {
@@ -171,20 +217,21 @@ func TestGeoAPI_CheckUniqueness(t *testing.T) {
 	}
 	w := doRequest(t, r, "POST", "/geo/content/uniqueness", body)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 func TestGeoAPI_GetArticleList(t *testing.T) {
 	r := setupGeoRouter(t)
 	w := doRequest(t, r, "GET", "/geo/content/list?page=1&limit=10", nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 // === 验证测试 ===
 
 func TestGeoAPI_VerifyArticle(t *testing.T) {
 	r := setupGeoRouter(t)
+	requireLLM(t)
 	body := map[string]any{
 		"brand_name": "测试品牌",
 		"query":      "GEO优化怎么样",
@@ -192,15 +239,16 @@ func TestGeoAPI_VerifyArticle(t *testing.T) {
 	}
 	w := doRequest(t, r, "POST", "/geo/verification/verify", body)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 func TestGeoAPI_MonitorNegative(t *testing.T) {
 	r := setupGeoRouter(t)
+	requireLLM(t)
 	body := map[string]any{"brand_name": "测试品牌"}
 	w := doRequest(t, r, "POST", "/geo/verification/negative", body)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 // === 知识库测试 ===
@@ -216,7 +264,7 @@ func TestGeoAPI_KBSaveAndGet(t *testing.T) {
 	}
 	w := doRequest(t, r, "POST", "/geo/kb/documents", saveBody)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 
 	var saveResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &saveResp)
@@ -229,24 +277,24 @@ func TestGeoAPI_KBSaveAndGet(t *testing.T) {
 	// Get
 	w = doRequest(t, r, "GET", fmt.Sprintf("/geo/kb/documents/%s", id), nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 
 	// Search
 	w = doRequest(t, r, "GET", "/geo/kb/search?q=GEO&limit=5", nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 
 	// Delete
 	w = doRequest(t, r, "DELETE", fmt.Sprintf("/geo/kb/documents/%s", id), nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 func TestGeoAPI_KBList(t *testing.T) {
 	r := setupGeoRouter(t)
 	w := doRequest(t, r, "GET", "/geo/kb/documents", nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 // === 平台同步测试 ===
@@ -255,7 +303,7 @@ func TestGeoAPI_ListPlatforms(t *testing.T) {
 	r := setupGeoRouter(t)
 	w := doRequest(t, r, "GET", "/geo/platform/platforms", nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 
 	var resp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &resp)
@@ -276,12 +324,12 @@ func TestGeoAPI_SaveAndListAccounts(t *testing.T) {
 	}
 	w := doRequest(t, r, "POST", "/geo/platform/accounts", body)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 
 	// List
 	w = doRequest(t, r, "GET", "/geo/platform/accounts", nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 // === 工作流测试 ===
@@ -299,7 +347,7 @@ func TestGeoAPI_WorkflowCRUD(t *testing.T) {
 	}
 	w := doRequest(t, r, "POST", "/geo/workflow/workflows", body)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 
 	var resp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &resp)
@@ -309,12 +357,12 @@ func TestGeoAPI_WorkflowCRUD(t *testing.T) {
 	// Get
 	w = doRequest(t, r, "GET", fmt.Sprintf("/geo/workflow/workflows/%s", id), nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 
 	// List
 	w = doRequest(t, r, "GET", "/geo/workflow/workflows", nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 
 	// Run
 	w = doRequest(t, r, "POST", fmt.Sprintf("/geo/workflow/workflows/%s/run", id), nil)
@@ -323,7 +371,7 @@ func TestGeoAPI_WorkflowCRUD(t *testing.T) {
 	// Delete
 	w = doRequest(t, r, "DELETE", fmt.Sprintf("/geo/workflow/workflows/%s", id), nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 func TestGeoAPI_WorkflowTemplates(t *testing.T) {
@@ -339,12 +387,12 @@ func TestGeoAPI_WorkflowTemplates(t *testing.T) {
 	}
 	w := doRequest(t, r, "POST", "/geo/workflow/templates", body)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 
 	// List templates
 	w = doRequest(t, r, "GET", "/geo/workflow/templates", nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 // === 资源推荐测试 ===
@@ -362,13 +410,13 @@ func TestGeoAPI_Resources(t *testing.T) {
 	for _, ep := range endpoints {
 		w := doRequest(t, r, "GET", ep, nil)
 		assertStatus(t, w, http.StatusOK)
-		assertCodeZero(t, w)
+		assertSuccess(t, w)
 	}
 
 	// Search
 	w := doRequest(t, r, "GET", "/geo/resources/search?q=SEO", nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 // === 技术配置测试 ===
@@ -382,7 +430,7 @@ func TestGeoAPI_TechConfig(t *testing.T) {
 		"disallow": []string{"/admin", "/api"},
 	})
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 
 	// Sitemap
 	w = doRequest(t, r, "POST", "/geo/techconfig/sitemap", map[string]any{
@@ -390,7 +438,7 @@ func TestGeoAPI_TechConfig(t *testing.T) {
 		"urls":     []string{"/", "/about", "/blog"},
 	})
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 // === 质量指标测试 ===
@@ -404,7 +452,7 @@ func TestGeoAPI_MetricsAnalyze(t *testing.T) {
 	}
 	w := doRequest(t, r, "POST", "/geo/metrics/analyze", body)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 }
 
 // === 报表测试 ===
@@ -420,7 +468,7 @@ func TestGeoAPI_Reports(t *testing.T) {
 	for _, ep := range endpoints {
 		w := doRequest(t, r, "GET", ep, nil)
 		assertStatus(t, w, http.StatusOK)
-		assertCodeZero(t, w)
+		assertSuccess(t, w)
 	}
 }
 
@@ -432,7 +480,7 @@ func TestGeoAPI_KeywordEnhance(t *testing.T) {
 	// Analyze
 	w := doRequest(t, r, "GET", "/geo/keyword-enhance/analyze?brand_name=测试品牌", nil)
 	assertStatus(t, w, http.StatusOK)
-	assertCodeZero(t, w)
+	assertSuccess(t, w)
 
 	// Enhance
 	body := map[string]any{

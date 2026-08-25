@@ -172,8 +172,12 @@ deploy_api() {
   log "  二进制已生成：$ROOT/user-server/bin/user-server"
 
   # 2) 停止旧的 user-server 进程
+  # 兼容三种历史启动方式：../user-server/bin/user-server、./bin/user-server、
+  # 旧版 /tmp/hivemtk-user-server。模式首字符加 [] 是防止匹配到包裹 pkill 的
+  # bash -c 命令行本身（自匹配会把部署脚本误杀）；末尾再按端口兜底清理残留监听。
   log "==> 停止旧 user-server 进程"
-  run "pkill -f 'user-server/bin/user-server' 2>/dev/null || true"
+  run "pkill -f 'user-server/bin/[u]ser-server|[h]ivemtk-user-server|[b]in/user-server' 2>/dev/null || true"
+  run "lsof -ti tcp:${USER_SERVER_PORT} 2>/dev/null | xargs kill 2>/dev/null || true"
   run "sleep 1"
 
   # 3) 启动新 user-server 进程（nohup，加载本地 .env）
@@ -187,15 +191,19 @@ deploy_api() {
   # 4) 本地健康检查
   log "==> 本地健康检查 127.0.0.1:8204"
   local i=0
+  local ct=''
   while (( i < 30 )); do
     # 用 /api/health（非 /health）并校验 Content-Type: application/json，
     # 避免 user-server NoRoute 或 nginx SPA 兜底返回 200+HTML 导致假通过
-    local ct
-    ct=$(curl -fsS -o /dev/null -w "%{content_type}" "http://127.0.0.1:8204/api/health" 2>/dev/null) && \
-      [[ "$ct" == application/json* ]] && {
-      log "  ✅ user-server 已启动（127.0.0.1:8204，${i}s，Content-Type: $ct）"
+    # 注意：set -euo pipefail 下避免把 ct=$(...) 与 && 短路链合并，
+    # 否则 curl 失败会让整个命令链非零退出导致脚本中断；改用独立 if 包裹。
+    ct=$(curl -fsS -o /dev/null -w "%{content_type}" "http://127.0.0.1:8204/api/health" 2>/dev/null || true)
+    if [[ "$ct" == application/json* ]]; then
+      # 注意：变量后紧跟全角括号‘）’ 时，Bash 会把 ct） 当成变量名，
+      # 在 set -u 下报 unbound variable；务必用 ${ct} 显式定界。
+      log "  ✅ user-server 已启动（127.0.0.1:8204，${i}s，Content-Type: ${ct}）"
       return 0
-    }
+    fi
     sleep 1
     i=$((i+1))
   done
@@ -279,7 +287,9 @@ server {
     # 不要改回 127.0.0.1:8204（那会把流量打到线上生产容器，与策略相悖）。
     location /api/ {
         proxy_pass http://118.25.236.101:8280;
-        proxy_set_header Host              $host;
+        # v3 修复：必须改写 Host 为 hiveuserapi——frps 按 Host 做 vhost 路由，
+        # 透传 $host(hiveuser) 会匹配不到隧道导致 404/400
+        proxy_set_header Host              hiveuserapi.xapptool.cn;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -327,15 +337,19 @@ healthcheck() {
 
   local max_wait=60
   local i=0
+  local ct=''
   while (( i < max_wait )); do
     # 用 /api/health（非 /health）并校验 Content-Type: application/json，
     # 避免 nginx SPA 兜底返回 200+HTML（前端 index.html）导致假通过
-    local ct
-    ct=$(curl -fsS -o /dev/null -w "%{content_type}" "https://$DOMAIN_USER_API/api/health" 2>/dev/null) && \
-      [[ "$ct" == application/json* ]] && {
-      log "  ✅ https://$DOMAIN_USER_API/api/health 通过（${i}s，Content-Type: $ct）"
+    # 注意：在 set -euo pipefail 下，避免将 ct=$(...) 与 && 短路链合并，
+    # 否则 curl 失败会让整个命令链非零退出导致脚本中断；改用独立 if 包裹。
+    ct=$(curl -fsS -o /dev/null -w "%{content_type}" "https://$DOMAIN_USER_API/api/health" 2>/dev/null || true)
+    if [[ "$ct" == application/json* ]]; then
+      # 注意：变量后紧跟全角括号‘）’ 时，Bash 会把 ct） 当成变量名，
+      # 在 set -u 下报 unbound variable；务必用 ${ct} 显式定界。
+      log "  ✅ https://$DOMAIN_USER_API/api/health 通过（${i}s，Content-Type: ${ct}）"
       return 0
-    }
+    fi
     sleep 3
     i=$((i+3))
   done

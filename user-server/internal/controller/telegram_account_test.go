@@ -282,6 +282,8 @@ func TestTelegramAccountController_Delete(t *testing.T) {
 // TestTelegramWebhook_JoinEvent_E2E 完整链路：
 // HTTP POST /api/webhook/telegram/:account_id → dispatchTelegram → MessageHub
 func TestTelegramWebhook_JoinEvent_E2E(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
+	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true") // channelbot 层独立开关
 	database := setupTelegramControllerTestDB(t)
 
 	repo := repository.NewTelegramAccountRepository()
@@ -353,6 +355,8 @@ func TestTelegramWebhook_JoinEvent_E2E(t *testing.T) {
 
 // TestTelegramWebhook_RegularMessage_E2E 普通消息端到端
 func TestTelegramWebhook_RegularMessage_E2E(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
+	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true") // channelbot 层独立开关
 	database := setupTelegramControllerTestDB(t)
 
 	repo := repository.NewTelegramAccountRepository()
@@ -412,6 +416,8 @@ func TestTelegramWebhook_RegularMessage_E2E(t *testing.T) {
 
 // TestTelegramWebhook_LeftEvent_E2E 退群事件端到端
 func TestTelegramWebhook_LeftEvent_E2E(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
+	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true") // channelbot 层独立开关
 	database := setupTelegramControllerTestDB(t)
 
 	repo := repository.NewTelegramAccountRepository()
@@ -501,6 +507,8 @@ func TestTelegramWebhook_BotMembersSkipped(t *testing.T) {
 
 // TestTelegramWebhook_Idempotent 相同 update_id 重复请求应被去重
 func TestTelegramWebhook_Idempotent(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
+	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true") // channelbot 层独立开关
 	database := setupTelegramControllerTestDB(t)
 
 	repo := repository.NewTelegramAccountRepository()

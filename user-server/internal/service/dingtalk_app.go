@@ -1,16 +1,16 @@
 package service
 
 import (
+	"crypto/subtle"
+	"crypto/hmac"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"hivemtk-user/internal/pkg/utils/logger"
@@ -73,10 +73,11 @@ func (s *DingTalkAppService) VerifyCallback(ctx context.Context, accountID uint,
 	if acc.Token == "" {
 		return "", errors.New("callback token not configured")
 	}
-	stringToSign := timestamp + "\n" + acc.Token + "\n" + nonce + "\n"
-	sum := sha256.Sum256([]byte(stringToSign))
-	expect := hex.EncodeToString(sum[:])
-	if !strings.EqualFold(expect, signature) {
+	// 钉钉官方回调签名口径：base64(hmac_sha256(token, timestamp+"\n"+nonce))
+	mac := hmac.New(sha256.New, []byte(acc.Token))
+	mac.Write([]byte(timestamp + "\n" + nonce))
+	expect := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	if subtle.ConstantTimeCompare([]byte(expect), []byte(signature)) != 1 {
 		return "", errors.New("signature verify failed")
 	}
 	if acc.AESKey == "" {
@@ -90,7 +91,8 @@ func (s *DingTalkAppService) VerifyCallback(ctx context.Context, accountID uint,
 }
 
 // ReceiveMessage 钉钉回调收消息（POST）。
-// 若账号配置了 AESKey，请求体为 {"encrypt":"..."} 信封，需先 AES 解密得到明文消息 JSON。
+// 安全约束（v3 审计 P0-3）：该端点公网可达且会触发 AI 管线，必须 fail-closed——
+// 未配置 AESKey 时拒绝明文信封（AES 解密成功即隐式认证：仅持有共享密钥方能构造合法密文）。
 // 明文为文本消息时结构：{"msgtype":"text","text":{"content":"..."},"senderId":"...","conversationId":"...","msgId":"...","createAt":...}
 func (s *DingTalkAppService) ReceiveMessage(ctx context.Context, accountID uint, raw []byte) error {
 	acc, err := s.GetAccount(ctx, accountID)
@@ -100,8 +102,11 @@ func (s *DingTalkAppService) ReceiveMessage(ctx context.Context, accountID uint,
 	if !acc.InboundEnabled {
 		return errors.New("inbound not enabled")
 	}
+	if acc.AESKey == "" {
+		return errors.New("dingtalk aes_key not configured; plaintext webhook rejected")
+	}
 	payload := raw
-	if acc.AESKey != "" {
+	{
 		var env struct {
 			Encrypt string `json:"encrypt"`
 		}

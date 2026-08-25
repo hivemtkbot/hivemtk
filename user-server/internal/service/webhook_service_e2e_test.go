@@ -172,10 +172,11 @@ func TestWeCom_Decrypt_InvalidKeyLength(t *testing.T) {
 
 // TestWeCom_Verify_OK 验签合法
 func TestWeCom_Verify_OK(t *testing.T) {
-	body := []byte(`{"MsgType":"text","Content":"hi"}`)
+	// v3 审计 P1-6 后为四元组口径（token,ts,nonce,encrypt）
+	body := []byte(`{"encrypt":"ENC123","timestamp":"1700000123","nonce":"nonce123"}`)
 	ts := "1700000123"
 	nonce := "nonce123"
-	sig := computeWeComSignature("MyT", ts, nonce)
+	sig := computeWeComSignature4("MyT", ts, nonce, "ENC123")
 
 	ok, err := verifyWeCom("MyT", "", body, map[string]string{
 		"msg_signature": sig,
@@ -516,6 +517,8 @@ func TestWebhook_NoAccountID(t *testing.T) {
 
 // TestWebhook_DuplicateEvent 幂等
 func TestWebhook_DuplicateEvent(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
+	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true")
 	db := setupTestDB(t)
 	svc := NewWebhookService(db)
 	body := []byte(`{"FromUserName":"u1","MsgType":"text","Content":"hi","MsgId":"m1"}`)
@@ -587,6 +590,8 @@ func TestParsePayload_Invalid(t *testing.T) {
 
 // TestDispatchToUnified_Integration 验证入库 unified_messages
 func TestDispatchToUnified_Integration(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
+	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true")
 	db := setupTestDB(t)
 	svc := NewWebhookService(db)
 	body := []byte(`{"FromUserName":"u1","MsgType":"text","Content":"hi","MsgId":"m_unified_1"}`)
@@ -723,3 +728,10 @@ func TestWeChat_Verify_Missing(t *testing.T) {
 	}
 }
 
+
+// computeWeComSignature4 四元组官方口径: sha1(sort(token,ts,nonce,fourth))
+func computeWeComSignature4(token, ts, nonce, fourth string) string {
+	parts := []string{token, ts, nonce, fourth}
+	sortStrings(parts)
+	return sha1Hex([]byte(strings.Join(parts, "")))
+}

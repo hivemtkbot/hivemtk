@@ -421,6 +421,8 @@ func TestTriggerTelegramJoinSales_ShouldNotTriggerWhenAIDisabled(t *testing.T) {
 // TestWebhookService_Receive_TelegramJoinEvent 验证完整 Receive 链路处理 TG 入群事件
 // 跳过验签（无 secret 时直接通过）→ 解析 → 入队 → 处理
 func TestWebhookService_Receive_TelegramJoinEvent(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
+	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true")
 	db := setupTelegramTestDB(t)
 	svc := NewWebhookService(db)
 	defer svc.Stop(context.Background())

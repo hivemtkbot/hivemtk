@@ -82,12 +82,7 @@ func (s *CustomerRFMService) ComputeForCustomer(ctx context.Context, customerID 
 		return nil, errors.New("客户不存在")
 	}
 
-	accountID := customerID
-	if cust.Phone != "" {
-		accountID = cust.Phone
-	}
-
-	r, f, m, lastActive, err := s.computeRawMetrics(ctx, accountID)
+	r, f, m, lastActive, err := s.computeRawMetricsForCustomer(ctx, cust)
 	if err != nil {
 		return nil, err
 	}
@@ -139,25 +134,35 @@ func (s *CustomerRFMService) ComputeForCustomer(ctx context.Context, customerID 
 	return rfm, nil
 }
 
-// ComputeAll 计算所有客户 RFM（limit 限制）
+// ComputeAll 计算所有客户 RFM
 //
-// 复用 List 返回的 customers 切片，直接在循环里算，跳过重复 GetByID。
-// orders 仍然每客户一次 GetByCustomerID（进一步优化可预拉，参见 ListByAccountIDs）。
+// v7 审计修复：原实现 List(ctx,1,limit) 只处理第一页（≤1000），其余客户永不参与分层。
+// 现按 pageSize=500 分页遍历全量客户；limit<=0 表示不设上限，
+// limit>0 时最多处理 limit 个（兼容旧调用方默认 200）。
 func (s *CustomerRFMService) ComputeAll(ctx context.Context, limit int) (int, error) {
-	if limit < 1 || limit > 1000 {
-		limit = 200
-	}
-	customers, _, err := s.customerRepo.List(ctx, 1, limit, "")
-	if err != nil {
-		return 0, err
-	}
+	const pageSize = 500
 	cfg := DefaultRFMConfig()
 	success := 0
-	for _, c := range customers {
-		if _, err := s.computeForCustomerLoaded(ctx, c, cfg); err != nil {
+	for page := 1; ; page++ {
+		customers, total, err := s.customerRepo.List(ctx, page, pageSize, "")
+		if err != nil {
 			return success, err
 		}
-		success++
+		if len(customers) == 0 {
+			break
+		}
+		for _, c := range customers {
+			if limit > 0 && success >= limit {
+				return success, nil
+			}
+			if _, err := s.computeForCustomerLoaded(ctx, c, cfg); err != nil {
+				return success, err
+			}
+			success++
+		}
+		if int64(page*pageSize) >= total {
+			break
+		}
 	}
 	return success, nil
 }
@@ -174,12 +179,7 @@ func (s *CustomerRFMService) computeForCustomerLoaded(ctx context.Context, cust 
 		return nil, errors.New("客户 ID 不能为空")
 	}
 
-	accountID := cust.ID
-	if cust.Phone != "" {
-		accountID = cust.Phone
-	}
-
-	r, f, m, lastActive, err := s.computeRawMetrics(ctx, accountID)
+	r, f, m, lastActive, err := s.computeRawMetricsForCustomer(ctx, cust)
 	if err != nil {
 		return nil, err
 	}
@@ -253,44 +253,71 @@ func (s *CustomerRFMService) Distribution(ctx context.Context) (map[string]int64
 // computeRawMetrics 计算 R/F/M + 最后活跃时间
 // 简化版：使用 orderRepo.GetDistinctPaidTgIDs / GetByTgID 走通全流程
 // 注意：本系统 order 表使用 account_id 关联客户（独立部署）
-func (s *CustomerRFMService) computeRawMetrics(ctx context.Context, accountID string) (recencyDays, frequency int, monetary int64, lastActive *time.Time, err error) {
-	if accountID == "" {
+// computeRawMetricsForCustomer 计算单客户 R/F/M 原始指标。
+// v7 审计修复：
+//  1. 原实现把手机号当 accountID 再 ParseInt 当 TgID 查订单——11 位手机号恒可解析为正整数，
+//     导致按错误 tg_id 查询、查不到即 recency=9999，全量手机客户被误判流失。
+//     现 TG 订单仅在客户真实持有 TelegramChatID 时查询。
+//  2. 订单主关联改走 account_id（客户 ID + 手机号），与 360 视图 assembleOrderInfo 口径一致。
+func (s *CustomerRFMService) computeRawMetricsForCustomer(ctx context.Context, cust *model.Customer) (recencyDays, frequency int, monetary int64, lastActive *time.Time, err error) {
+	if cust == nil || (cust.ID == "" && cust.Phone == "") {
 		recencyDays = 9999
 		return
 	}
-	tgID, _ := strconv.ParseInt(accountID, 10, 64)
-	if tgID > 0 {
-		orders, oerr := s.orderRepo.GetByTgID(ctx, tgID)
-		if oerr != nil {
-			err = oerr
-			return
-		}
-		frequency = len(orders)
-		for _, o := range orders {
-			if o.Price == "" {
-				continue
-			}
-			price, perr := strconv.ParseInt(o.Price, 10, 64)
-			if perr != nil {
-				continue
-			}
-			monetary += price
-			if o.CreateTime > 0 {
-				t := time.Unix(o.CreateTime, 0)
-				if lastActive == nil || t.After(*lastActive) {
-					lastActive = &t
-				}
-			}
-		}
-		if lastActive != nil {
-			recencyDays = int(time.Since(*lastActive).Hours() / 24)
-			if recencyDays < 0 {
-				recencyDays = 0
-			}
-		}
+
+	accountIDs := make([]string, 0, 2)
+	if cust.ID != "" {
+		accountIDs = append(accountIDs, cust.ID)
+	}
+	if cust.Phone != "" {
+		accountIDs = append(accountIDs, cust.Phone)
+	}
+	orders, oerr := s.orderRepo.ListByAccountIDs(ctx, accountIDs)
+	if oerr != nil {
+		err = oerr
 		return
 	}
-	recencyDays = 9999
+	if cust.TelegramChatID > 0 {
+		tgOrders, terr := s.orderRepo.GetByTgID(ctx, cust.TelegramChatID)
+		if terr != nil {
+			err = terr
+			return
+		}
+		seen := make(map[string]bool, len(orders))
+		for _, o := range orders {
+			seen[o.ID] = true
+		}
+		for _, o := range tgOrders {
+			if !seen[o.ID] {
+				orders = append(orders, o)
+				seen[o.ID] = true
+			}
+		}
+	}
+
+	frequency = len(orders)
+	for _, o := range orders {
+		if o.Price == "" {
+			continue
+		}
+		price, perr := strconv.ParseInt(o.Price, 10, 64)
+		if perr != nil {
+			continue
+		}
+		monetary += price
+		if o.CreateTime > 0 {
+			t := time.Unix(o.CreateTime, 0)
+			if lastActive == nil || t.After(*lastActive) {
+				lastActive = &t
+			}
+		}
+	}
+	if lastActive != nil {
+		recencyDays = int(time.Since(*lastActive).Hours() / 24)
+		if recencyDays < 0 {
+			recencyDays = 0
+		}
+	}
 	return
 }
 

@@ -104,19 +104,14 @@ func (s *KnowledgeBaseService) CreateKB(ctx context.Context, kb *model.Knowledge
 	}
 
 	if ownerAgentID > 0 {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Create(kb).Error; err != nil {
-				return err
-			}
-			binding := &model.AgentKBBinding{
-				AgentID: ownerAgentID,
-				KBID:    kb.ID,
-				KBType:  kb.Type,
-				Role:    model.AgentKBBindingRolePrimary,
-				Enabled: boolPtr(true),
-			}
-			return tx.Create(binding).Error
-		})
+		binding := &model.AgentKBBinding{
+			AgentID: ownerAgentID,
+			KBID:    kb.ID,
+			KBType:  kb.Type,
+			Role:    model.AgentKBBindingRolePrimary,
+			Enabled: boolPtr(true),
+		}
+		return s.repo.CreateWithBinding(ctx, kb, binding)
 	}
 	return s.repo.Create(ctx, kb)
 }
@@ -127,6 +122,30 @@ func (s *KnowledgeBaseService) GetKB(ctx context.Context, id uint) (*model.Knowl
 		return nil, nil
 	}
 	return s.repo.GetByID(ctx, id)
+}
+
+// GetKBStats 知识库统计（前端 KBDrawer 抽屉: item_count/agent_count/hit_count）
+func (s *KnowledgeBaseService) GetKBStats(ctx context.Context, id uint) (map[string]int64, error) {
+	kb, err := s.GetKB(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if kb == nil {
+		return nil, nil
+	}
+	stats := map[string]int64{
+		"item_count": int64(kb.DocCount),
+		"agent_count": 0,
+		"hit_count":   0,
+	}
+	if s.bindingRepo != nil {
+		bindings, err := s.bindingRepo.ListByKB(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		stats["agent_count"] = int64(len(bindings))
+	}
+	return stats, nil
 }
 
 // ListKBs 列表查询

@@ -58,6 +58,9 @@ func GenerateVisitorToken(secret, channelID, visitorID, sessionID string, ttl ti
 //   - visitorID: 访客 ID
 //   - sessionID: 会话 ID
 func ValidateVisitorToken(secret, token, channelID, visitorID, sessionID string) error {
+	if secret == "" {
+		return errors.New("secret 未配置")
+	}
 	if token == "" {
 		return errors.New("缺少 visitor_token")
 	}

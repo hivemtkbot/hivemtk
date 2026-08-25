@@ -784,6 +784,7 @@ func TestMarketingFlowService_sendActionAddTag_Idempotency(t *testing.T) {
 
 // TestMarketingFlowService_sendActionWebhook 测试 Webhook 动作
 func TestMarketingFlowService_sendActionWebhook(t *testing.T) {
+	t.Setenv("MARKETING_WEBHOOK_ALLOW_INSECURE", "true") // httptest 回环服务
 	service := setupMarketingFlowService(t)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

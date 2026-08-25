@@ -46,10 +46,25 @@ type SystemUserResponse struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
+// RegisterResponse 注册响应
+type RegisterResponse struct {
+	Token string `json:"token,omitempty"`
+	User  *SystemUserResponse `json:"user,omitempty"`
+}
+
 // ChangePasswordRequest 修改密码请求
 type ChangePasswordRequest struct {
 	OldPassword string `json:"old_password" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
+// RegisterRequest 用户自助注册请求
+type RegisterRequest struct {
+	Username string `json:"username" binding:"required,min=3,max=32"`
+	Password string `json:"password" binding:"required,min=8,max=64"`
+	Email    string `json:"email" binding:"required,email"`
+	Phone    string `json:"phone,omitempty"`
+	RealName string `json:"real_name,omitempty"`
 }
 
 // AuthService 认证服务
@@ -143,14 +158,26 @@ func (s *AuthService) loginWithUser(ctx context.Context, user *model.SystemUser)
 	return response, nil
 }
 
-// RefreshToken 刷新令牌
+// RefreshToken 刷新令牌（轮换语义）：
+// 已被拉黑的令牌拒绝刷新；刷新成功后立即吊销旧 token，
+// 被盗旧令牌无法借刷新通道无限续命（v3 审计 P1-1）。
 func (s *AuthService) RefreshToken(ctx context.Context, tokenString string) (string, error) {
+	if utils.IsJWTBlacklisted(tokenString) {
+		return "", errors.New("token 已失效")
+	}
 	newToken, err := s.jwtUtils.RefreshToken(tokenString)
 	if err != nil {
 		return "", err
 	}
+	utils.BlacklistJWT(tokenString)
 
 	return newToken, nil
+}
+
+// Logout 登出：将当前令牌加入黑名单（v3 审计 P1-1 补齐缺失的注销能力）。
+func (s *AuthService) Logout(ctx context.Context, tokenString string) error {
+	utils.BlacklistJWT(tokenString)
+	return nil
 }
 
 // GetCurrentUser 获取当前用户信息
@@ -224,6 +251,81 @@ func (s *AuthService) toUserResponse(ctx context.Context, user *model.SystemUser
 	}
 }
 
+
+// ErrUsernameExists 用户名已存在
+var ErrUsernameExists = errors.New("用户名已存在")
+
+// ErrEmailExists 邮箱已被使用
+var ErrEmailExists = errors.New("邮箱已被使用")
+
+// Register 用户自主注册
+//
+// 设计要点（plan v3.1 自助服务）：
+//   - 默认角色为 user（普通用户），非 admin
+//   - 严格校验：username/password/email 唯一性 + 强度
+//   - 注册成功直接签发 JWT，避免二次登录
+//   - 自助注册不应绕过 InitGuard：若系统尚未初始化，直接拒绝
+//
+// 返回 LoginResponse 与登录流程结构一致，便于上层复用。
+func (s *AuthService) Register(ctx context.Context, req *RegisterRequest) (*LoginResponse, error) {
+	username := strings.TrimSpace(req.Username)
+	email := strings.TrimSpace(req.Email)
+	password := req.Password
+	if username == "" || email == "" || password == "" {
+		return nil, errors.New("用户名/邮箱/密码均不能为空")
+	}
+
+	if err := validateUsername(username); err != nil {
+		return nil, err
+	}
+	if err := validatePassword(password); err != nil {
+		return nil, err
+	}
+	if err := validateEmail(email); err != nil {
+		return nil, err
+	}
+
+	if exists, _ := s.systemUserRepo.UsernameExists(ctx, username, 0); exists {
+		return nil, ErrUsernameExists
+	}
+	if exists, _ := s.systemUserRepo.EmailExists(ctx, email, 0); exists {
+		return nil, ErrEmailExists
+	}
+
+	user := &model.SystemUser{
+		Username: username,
+		Password: password,
+		Email:    email,
+		Phone:    strings.TrimSpace(req.Phone),
+		RealName: strings.TrimSpace(req.RealName),
+		Role:     model.SystemUserRoleUser,
+		Status:   1,
+		Enabled:  true,
+	}
+	if err := s.systemUserRepo.Create(ctx, user); err != nil {
+		logger.Error(err, "Register 创建用户失败: "+username)
+		return nil, errors.New("注册失败: " + err.Error())
+	}
+
+	token, err := s.jwtUtils.GenerateToken(user.ID, user.Username, user.Role)
+	if err != nil {
+		logger.Error(err, "Register 生成 JWT 失败: "+username)
+		return nil, errors.New("注册成功但签发令牌失败，请登录")
+	}
+
+	now := time.Now()
+	user.LastLogin = &now
+	if err := s.systemUserRepo.Update(ctx, user); err != nil {
+		logger.Error(err, "Register 更新最后登录时间失败")
+	}
+
+	logger.Info("Register 用户注册成功: " + username)
+	return &LoginResponse{
+		Token:   token,
+		User:    s.toUserResponse(ctx, user),
+		Expires: time.Now().Add(time.Hour * time.Duration(utils.DefaultJWTConfig.ExpiresHours)).Unix(),
+	}, nil
+}
 
 // CheckPassword 校验 SystemUser 密码
 func CheckPassword(u *model.SystemUser, password string) bool {

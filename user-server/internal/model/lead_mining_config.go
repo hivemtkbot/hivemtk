@@ -57,10 +57,5 @@ func (j *JSONStrings) Scan(v any) error {
 	return json.Unmarshal(data, j)
 }
 
-// IsZero 判断是否为未配置默认值
-func (c *LeadMiningConfig) IsZero() bool {
-	return c == nil || (c.ID == 0 && !c.Enabled && len(c.Keywords) == 0 && len(c.Tags) == 0 && c.Requirement == "")
-}
-
 var _ driver.Valuer = (JSONStrings)(nil)
 

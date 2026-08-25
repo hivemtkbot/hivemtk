@@ -156,6 +156,58 @@ func (c *Customer360Controller) GetCustomerSessions(ctx *gin.Context) {
 	}, "获取成功")
 }
 
+// GetCustomerEvents 获取客户行为事件流水（前端 GET /api/customer-360/events?user_id=&limit=）
+func (c *Customer360Controller) GetCustomerEvents(ctx *gin.Context) {
+	customerID := ctx.Query("user_id")
+	if customerID == "" {
+		response.Error(ctx, http.StatusBadRequest, "缺少 user_id 参数")
+		return
+	}
+	limit := 50
+	if v, err := strconv.Atoi(ctx.Query("limit")); err == nil && v > 0 {
+		limit = v
+	}
+
+	events, err := c.customer360Service.GetCustomerEvents(ctx.Request.Context(), customerID, limit)
+	if err != nil {
+		response.Error(ctx, http.StatusNotFound, "客户不存在")
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"events": events,
+		"total":  len(events),
+	}, "获取成功")
+}
+
+// GetCustomerOrders 获取客户订单（前端 GET /api/customer-360/orders?user_id=&limit=）
+func (c *Customer360Controller) GetCustomerOrders(ctx *gin.Context) {
+	customerID := ctx.Query("user_id")
+	if customerID == "" {
+		response.Error(ctx, http.StatusBadRequest, "缺少 user_id 参数")
+		return
+	}
+	limit := 20
+	if v, err := strconv.Atoi(ctx.Query("limit")); err == nil && v > 0 {
+		limit = v
+	}
+
+	items, err := c.customer360Service.GetCustomerOrders(ctx.Request.Context(), customerID, limit)
+	if err != nil {
+		if errors.Is(err, service.ErrCustomerNotFound) {
+			response.Error(ctx, http.StatusNotFound, "客户不存在")
+			return
+		}
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"orders": items,
+		"total":  len(items),
+	}, "获取成功")
+}
+
 // GetCustomerMessages 获取客户消息记录
 func (c *Customer360Controller) GetCustomerMessages(ctx *gin.Context) {
 	userID := ctx.Query("user_id")

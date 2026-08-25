@@ -187,9 +187,13 @@ func (s *tiktokCardService) GenerateShortLink(ctx context.Context, cardID uint) 
 		_ = s.shortLinkRepo.Delete(context.Background(), card.ShortLinkID)
 	}
 
+	// v3 审计修复：铁律#24 要求绝对 https 目标；未配置跳转目标时跳过
+	if card.RedirectURL == "" {
+		return nil, nil
+	}
 	sl := &model.ShortLink{
 		ShortCode:   shortCode,
-		OriginalURL: fmt.Sprintf("/tiktok/card/%d", card.ID),
+		OriginalURL: card.RedirectURL,
 		Title:       card.Title,
 		Description: card.Description,
 		DomainID:    card.DomainPoolID,

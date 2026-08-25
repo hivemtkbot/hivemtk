@@ -14,6 +14,7 @@ import (
 func setupAuthRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	authCtrl := controller.NewAuthController()
 	auth.POST("/auth/refresh-token", authCtrl.RefreshToken)
+	auth.POST("/auth/logout", authCtrl.Logout)
 	auth.GET("/auth/current-user", authCtrl.GetCurrentUser)
 	auth.POST("/auth/change-password", authCtrl.ChangePassword)
 
@@ -67,6 +68,29 @@ func setupUserRoutes(auth *gin.RouterGroup) {
 		admin.DELETE("/users/:id", userCtrl.DeleteUser)
 		admin.PUT("/user/:id/password", userCtrl.ResetPassword)
 		admin.PUT("/users/:id/password", userCtrl.ResetPassword)
+	}
+}
+
+// setupAlertRoutes 告警规则路由
+//
+// 权限分级（plan v3.1 §T8）：
+//   - 读（List/Get/Histories）：任意登录用户
+//   - 写（Create/Update/Delete/SetStatus/ResolveHistory）：admin only
+//   - 防 staff 自建"假告警"或关闭关键告警掩盖越权行为。
+func setupAlertRoutes(auth *gin.RouterGroup) {
+	alertCtrl := controller.NewAlertRuleController()
+
+	auth.GET("/alerts/rules", alertCtrl.List)
+	auth.GET("/alerts/rules/:id", alertCtrl.GetByID)
+	auth.GET("/alerts/histories", alertCtrl.ListHistory)
+
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	{
+		admin.POST("/alerts/rules", alertCtrl.Create)
+		admin.PUT("/alerts/rules/:id", alertCtrl.Update)
+		admin.DELETE("/alerts/rules/:id", alertCtrl.Delete)
+		admin.PUT("/alerts/rules/status", alertCtrl.SetStatus)
+		admin.POST("/alerts/histories/resolve", alertCtrl.ResolveHistory)
 	}
 }
 

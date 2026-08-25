@@ -41,13 +41,7 @@ describe('备份 API', () => {
 
   it('getBackupList 传入分页参数', async () => {
     await getBackupList({ page: 2, page_size: 50 })
-    expect(request).toHaveBeenCalledWith(
-      expect.objectContaining({
-        url: '/api/backups',
-        method: 'get',
-        params: { page: 2, page_size: 50 }
-      })
-    )
+    expect(http.get).toHaveBeenCalledWith('/api/backups', { page: 2, page_size: 50 })
   })
 
   it('getBackupByID 拼接 ID', async () => {
@@ -57,13 +51,7 @@ describe('备份 API', () => {
 
   it('createBackup 提交 JSON body', async () => {
     await createBackup({ backup_name: 'b1', backup_type: 'full' })
-    expect(request).toHaveBeenCalledWith(
-      expect.objectContaining({
-        url: '/api/backups',
-        method: 'post',
-        data: { backup_name: 'b1', backup_type: 'full' }
-      })
-    )
+    expect(http.post).toHaveBeenCalledWith('/api/backups', { backup_name: 'b1', backup_type: 'full' })
   })
 
   it('deleteBackup 调用 DELETE', async () => {
@@ -73,20 +61,12 @@ describe('备份 API', () => {
 
   it('restoreBackup 提交 backup_id', async () => {
     await restoreBackup({ backup_id: 5 })
-    expect(request).toHaveBeenCalledWith(
-      expect.objectContaining({
-        url: '/api/restore',
-        method: 'post',
-        data: { backup_id: 5 }
-      })
-    )
+    expect(http.post).toHaveBeenCalledWith('/api/restore', { backup_id: 5 })
   })
 
   it('getRestoreList 接受分页参数', async () => {
     await getRestoreList({ page: 1, page_size: 20 })
-    expect(request).toHaveBeenCalledWith(
-      expect.objectContaining({ url: '/api/restore/list', method: 'get' })
-    )
+    expect(http.get).toHaveBeenCalledWith('/api/restore/list', { page: 1, page_size: 20 })
   })
 
   it('getLastRestore 路径正确', async () => {

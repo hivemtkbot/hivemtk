@@ -29,12 +29,22 @@ func NewPlatformController() *PlatformController {
 	}
 }
 
-// platformCall 统一的平台 API 代理调用入口
+// platformCall 统一的平台 API 代理调用入口：拉取数据并写出成功响应。
 // 当 platformClient 未初始化(配置缺失)时,返回友好错误,不 panic
 func (pc *PlatformController) platformCall(c *gin.Context, method, path string, req, resp any, errMsg string) {
+	if pc.platformData(c, method, path, req, resp, errMsg) {
+		response.Success(c, resp, "获取成功")
+	}
+}
+
+// platformData 仅拉取平台数据并填充 resp（GET 带短时缓存），成功时不写任何 HTTP 响应，
+// 由调用方自行决定响应内容；失败时已写出错误响应并返回 false。
+// 独立于 platformCall 存在的原因：部分接口（如最新站内信）需要对 data 做二次加工，
+// 若复用 platformCall 会先写一次完整响应再被覆盖成两段拼接的 JSON（响应体双写）。
+func (pc *PlatformController) platformData(c *gin.Context, method, path string, req, resp any, errMsg string) bool {
 	if pc.platformClient == nil {
 		response.Error(c, http.StatusServiceUnavailable, "平台客户端未初始化,请检查 config/platform.yaml 配置")
-		return
+		return false
 	}
 
 	// 审计 L6：对幂等的 GET 代理请求做短时缓存，降低对平台 API 的重复调用压力。
@@ -44,8 +54,7 @@ func (pc *PlatformController) platformCall(c *gin.Context, method, path string, 
 	if method == http.MethodGet {
 		if gc := cache.GetGlobalCache(); gc != nil {
 			if err := gc.GetJSON(c.Request.Context(), cacheKey, resp); err == nil {
-				response.Success(c, resp, "获取成功")
-				return
+				return true
 			}
 		}
 	}
@@ -69,13 +78,13 @@ func (pc *PlatformController) platformCall(c *gin.Context, method, path string, 
 		} else {
 			response.Error(c, http.StatusBadGateway, errMsg+": "+err.Error())
 		}
-		return
+		return false
 	}
 
 	if len(wrapper.Data) > 0 && string(wrapper.Data) != "null" {
 		if err := json.Unmarshal(wrapper.Data, resp); err != nil {
 			response.Error(c, http.StatusBadGateway, errMsg+": 响应解析失败: "+err.Error())
-			return
+			return false
 		}
 	}
 
@@ -84,7 +93,7 @@ func (pc *PlatformController) platformCall(c *gin.Context, method, path string, 
 			_ = gc.SetJSON(c.Request.Context(), cacheKey, resp, platformCacheTTL)
 		}
 	}
-	response.Success(c, resp, "获取成功")
+	return true
 }
 
 
@@ -210,6 +219,8 @@ func (pc *PlatformController) MarkPlatformMessageRead(c *gin.Context) {
 // 平台端方法 - 最新站内信 - GET /platform/message/latest
 // 供前端 MessageNotification 全局轮询。平台客户端未初始化或平台不可达/无该端点时，
 // 静默返回 null（而非 404/5xx），避免每次页面加载都产生控制台噪声。
+// 注意：必须走 platformData 而非 platformCall——后者会先写出完整列表响应，
+// 本方法再写单条响应，导致响应体出现两段拼接的 JSON（历史双写 bug）。
 func (pc *PlatformController) GetLatestMessage(c *gin.Context) {
 	if pc.platformClient == nil {
 		response.Success(c, nil, "")
@@ -218,8 +229,9 @@ func (pc *PlatformController) GetLatestMessage(c *gin.Context) {
 	var resp struct {
 		List []map[string]any `json:"list"`
 	}
-	path := "/platform/message/list?page=1&page_size=1"
-	pc.platformCall(c, http.MethodGet, path, nil, &resp, "获取最新站内信失败")
+	if !pc.platformData(c, http.MethodGet, "/platform/message/list?page=1&page_size=1", nil, &resp, "获取最新站内信失败") {
+		return
+	}
 	if len(resp.List) > 0 {
 		response.Success(c, resp.List[0], "")
 		return

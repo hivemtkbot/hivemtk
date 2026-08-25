@@ -45,7 +45,7 @@ func makeCtxWithToolNameAndTrace(name, traceID string) context.Context {
 func TestD9_1_CircuitBreaker_StateMachine(t *testing.T) {
 	cfg := CircuitBreakerConfig{
 		FailureThreshold:    3,
-		Cooldown:            50 * time.Millisecond,
+		BaseCooldown:        50 * time.Millisecond,
 		HalfOpenMaxAttempts: 1,
 	}
 	registry := NewCircuitBreakerRegistry(cfg)
@@ -90,7 +90,7 @@ func TestD9_1_CircuitBreaker_StateMachine(t *testing.T) {
 func TestD9_2_CircuitBreaker_HalfOpenFailure(t *testing.T) {
 	cfg := CircuitBreakerConfig{
 		FailureThreshold:    2,
-		Cooldown:            20 * time.Millisecond,
+		BaseCooldown:        20 * time.Millisecond,
 		HalfOpenMaxAttempts: 1,
 	}
 	registry := NewCircuitBreakerRegistry(cfg)
@@ -117,7 +117,7 @@ func TestD9_2_CircuitBreaker_HalfOpenFailure(t *testing.T) {
 func TestD9_3_CircuitBreaker_Decorator(t *testing.T) {
 	cfg := CircuitBreakerConfig{
 		FailureThreshold:    2,
-		Cooldown:            5 * time.Minute, 
+		BaseCooldown:        5 * time.Minute,
 		HalfOpenMaxAttempts: 1,
 	}
 	registry := NewCircuitBreakerRegistry(cfg)
@@ -156,7 +156,7 @@ func TestD9_3_CircuitBreaker_Decorator(t *testing.T) {
 func TestD9_4_CircuitBreaker_ContextCanceledNotCounted(t *testing.T) {
 	cfg := CircuitBreakerConfig{
 		FailureThreshold:    2,
-		Cooldown:            30 * time.Second,
+		BaseCooldown:        30 * time.Second,
 		HalfOpenMaxAttempts: 1,
 	}
 	registry := NewCircuitBreakerRegistry(cfg)

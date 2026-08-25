@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/hmac"
+	"encoding/base64"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
@@ -351,6 +352,10 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 }
 
 func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, accountID string, body []byte, headers map[string]string, query map[string]string) (bool, error) {
+	// 显式开发模式总开关：跳过全部渠道验签（仅限联调；生产严禁设置）
+	if os.Getenv("ALLOW_INSECURE_WEBHOOK") == "true" {
+		return true, nil
+	}
 	switch channel {
 	case ChannelWeCom:
 		token, aesKey, err := s.getWeComSecrets(ctx, accountID)
@@ -369,10 +374,10 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 		secret := s.getTelegramWebhookSecret(ctx, accountID)
 		if secret == "" {
 
-			if os.Getenv("GIN_MODE") == "release" {
-				return false, errors.New("telegram webhook secret 未配置，生产环境拒绝放行")
+			if os.Getenv("ALLOW_INSECURE_WEBHOOK") != "true" {
+				return false, errors.New("telegram webhook secret 未配置；开发放行需显式 ALLOW_INSECURE_WEBHOOK=true")
 			}
-			return true, nil
+			return true, nil // 显式开发模式：跳过验签
 		}
 		headerSecret := headers["X-Telegram-Bot-Api-Secret-Token"]
 		if headerSecret == "" {
@@ -382,30 +387,62 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 			return false, errors.New("missing X-Telegram-Bot-Api-Secret-Token header")
 		}
 		return telegram.VerifyWebhook(secret, headerSecret), nil
-	case ChannelKuaishou, ChannelXiaohongshu, ChannelXianyu, ChannelFeishu:
+	case ChannelFeishu:
+		// 飞书使用专属 EncryptKey 与官方签名口径
 		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)
-		return verifyHMAC(secret, body, headers, "X-Signature", "Signature", "X-Hub-Signature-256", "Encrypt"), nil
+		return verifyFeishu(secret, body, headers), nil
+	case ChannelKuaishou, ChannelXiaohongshu, ChannelXianyu:
+		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)
+		return verifyHMAC(secret, body, headers, "X-Signature", "Signature", "X-Hub-Signature-256"), nil
 	case ChannelWhatsapp:
 
 		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)
 		if secret == "" {
-			if os.Getenv("GIN_MODE") == "release" {
-				return false, errors.New("whatsapp app secret 未配置，生产环境拒绝放行")
+			if os.Getenv("ALLOW_INSECURE_WEBHOOK") != "true" {
+			return false, errors.New("whatsapp app secret 未配置；开发放行需显式 ALLOW_INSECURE_WEBHOOK=true")
 			}
-			return true, nil
+		return true, nil // 显式开发模式：跳过验签
 		}
 		return whatsapp.VerifyWebhook(secret, body, headers["X-Hub-Signature-256"]), nil
 	default:
 		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)
 		if secret == "" {
 
-			if os.Getenv("GIN_MODE") == "release" {
-				return false, errors.New("webhook secret 未配置，生产环境拒绝放行(channel=" + string(channel) + ")")
+			if os.Getenv("ALLOW_INSECURE_WEBHOOK") != "true" {
+			return false, errors.New("webhook secret 未配置(channel=" + string(channel) + ")；开发环境请显式设置 ALLOW_INSECURE_WEBHOOK=true")
 			}
-			return true, nil
 		}
 		return verifyHMAC(secret, body, headers, "X-Signature", "Signature", "X-Hub-Signature-256"), nil
 	}
+}
+
+// verifyFeishu 飞书官方事件订阅签名校验：
+// X-Lark-Signature = base64(sha256(encrypt_key + X-Lark-Timestamp + X-Lark-Nonce + body))。
+// v3 审计 P1-6 修复：原走泛化 verifyHMAC(hex 口径、header 名拼凑)，真实飞书事件必然验签失败。
+func verifyFeishu(encryptKey string, body []byte, headers map[string]string) bool {
+	if encryptKey == "" {
+		return false
+	}
+	sig := headers["X-Lark-Signature"]
+	if sig == "" {
+		sig = headers["x-lark-signature"]
+	}
+	ts := headers["X-Lark-Timestamp"]
+	if ts == "" {
+		ts = headers["x-lark-timestamp"]
+	}
+	nonce := headers["X-Lark-Nonce"]
+	if nonce == "" {
+		nonce = headers["x-lark-nonce"]
+	}
+	if sig == "" || ts == "" || nonce == "" {
+		return false
+	}
+	h := sha256.New()
+	h.Write([]byte(encryptKey + ts + nonce))
+	h.Write(body)
+	expected := base64.StdEncoding.EncodeToString(h.Sum(nil))
+	return subtle.ConstantTimeCompare([]byte(sig), []byte(expected)) == 1
 }
 
 func verifyHMAC(secret string, body []byte, headers map[string]string, headerNames ...string) bool {

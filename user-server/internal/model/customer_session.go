@@ -60,16 +60,3 @@ func (CustomerSession) TableName() string {
 	return "customer_sessions"
 }
 
-// CanSendMessage 判断当前会话状态是否允许发送消息
-//
-// 允许发送消息的状态: pending / ai_handling / human_handling / waiting
-// 不允许发送消息的状态: resolved / closed
-func (s *CustomerSession) CanSendMessage() bool {
-	switch s.Status {
-	case SessionStatusPending, SessionStatusAIHandling, SessionStatusHumanHandling, SessionStatusWaiting:
-		return true
-	default:
-		return false
-	}
-}
-

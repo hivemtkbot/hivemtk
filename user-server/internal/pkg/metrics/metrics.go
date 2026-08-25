@@ -497,6 +497,45 @@ func NewHistogram(name, help string, labelKeys []string, buckets []float64) *His
 	return h
 }
 
+// Snapshot 返回所有注册指标的当前数值快照
+//
+// 用于告警检查器（AlertChecker）按指标名匹配阈值：
+//   - Counter：返回累计值（按所有 label 聚合）
+//   - Gauge：返回最后一个写入的值（按所有 label 聚合，取 max）
+//   - Histogram：返回 _count（样本总数）
+//
+// 返回 map[metricName]value。同名带 label 的指标会被聚合为单值。
+func Snapshot() map[string]float64 {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	out := make(map[string]float64, len(registry))
+	for name, m := range registry {
+		var samples []Sample
+		switch t := m.(type) {
+		case *CounterVec:
+			samples = t.samples()
+			for _, s := range samples {
+				out[name] += s.Value
+			}
+		case *GaugeVec:
+			samples = t.samples()
+			for _, s := range samples {
+				if s.Value > out[name] {
+					out[name] = s.Value
+				}
+			}
+		case *HistogramVec:
+			samples = t.samples()
+			for _, s := range samples {
+				if s.Agg == "count" {
+					out[name+"_count"] += s.Value
+				}
+			}
+		}
+	}
+	return out
+}
+
 // MustGetCounter 取出已注册的 Counter
 func MustGetCounter(name string) *CounterVec {
 	m := Get(name)

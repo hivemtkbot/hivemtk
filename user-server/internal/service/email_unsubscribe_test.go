@@ -186,6 +186,7 @@ func TestEmailUnsubscribe_ResubscribeEmail_EmptyEmail(t *testing.T) {
 
 // TestEmailUnsubscribe_GenerateUnsubscribeLink_Format 测试链接格式
 func TestEmailUnsubscribe_GenerateUnsubscribeLink_Format(t *testing.T) {
+	t.Setenv("EMAIL_UNSUBSCRIBE_SECRET", "test-unsubscribe-secret") // v3 fail-closed 守卫
 	database := setupEmailUnsubscribeTestDB(t)
 	svc := newEmailUnsubscribeService(database)
 
@@ -215,6 +216,7 @@ func TestEmailUnsubscribe_GenerateUnsubscribeLink_EmptyEmail(t *testing.T) {
 
 // TestEmailUnsubscribe_VerifyToken_Valid 测试有效 token 验证
 func TestEmailUnsubscribe_VerifyToken_Valid(t *testing.T) {
+	t.Setenv("EMAIL_UNSUBSCRIBE_SECRET", "test-unsubscribe-secret") // v3 fail-closed 守卫
 	database := setupEmailUnsubscribeTestDB(t)
 	svc := newEmailUnsubscribeService(database)
 
@@ -246,6 +248,7 @@ func TestEmailUnsubscribe_VerifyToken_Valid(t *testing.T) {
 
 // TestEmailUnsubscribe_VerifyToken_InvalidSignature 测试签名篡改
 func TestEmailUnsubscribe_VerifyToken_InvalidSignature(t *testing.T) {
+	t.Setenv("EMAIL_UNSUBSCRIBE_SECRET", "test-unsubscribe-secret") // v3 fail-closed 守卫
 	database := setupEmailUnsubscribeTestDB(t)
 	svc := newEmailUnsubscribeService(database)
 
@@ -265,6 +268,7 @@ func TestEmailUnsubscribe_VerifyToken_InvalidSignature(t *testing.T) {
 
 // TestEmailUnsubscribe_VerifyToken_Expired 测试过期 token
 func TestEmailUnsubscribe_VerifyToken_Expired(t *testing.T) {
+	t.Setenv("EMAIL_UNSUBSCRIBE_SECRET", "test-unsubscribe-secret")
 	database := setupEmailUnsubscribeTestDB(t)
 	svc := newEmailUnsubscribeService(database)
 
@@ -427,6 +431,7 @@ func TestEmailUnsubscribe_NormalizeEmail(t *testing.T) {
 
 // TestEmailUnsubscribe_FullLifecycle 测试完整生命周期
 func TestEmailUnsubscribe_FullLifecycle(t *testing.T) {
+	t.Setenv("EMAIL_UNSUBSCRIBE_SECRET", "test-unsubscribe-secret")
 	database := setupEmailUnsubscribeTestDB(t)
 	svc := newEmailUnsubscribeService(database)
 

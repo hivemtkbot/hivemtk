@@ -26,6 +26,7 @@ type InferenceCycle struct {
 	AlignmentStage  InferenceStage
 	GatekeeperStage InferenceStage
 	PlannerStage    InferenceStage
+	ReviewerStage   InferenceStage
 
 	StageTimeout time.Duration
 
@@ -68,6 +69,7 @@ func NewInferenceCycle() *InferenceCycle {
 		AlignmentStage:  NewDefaultAlignmentScorer(),
 		GatekeeperStage: NewDefaultCrisisDetector(),
 		PlannerStage:    NewDefaultTaskPlanner(),
+		ReviewerStage:   NewDefaultReviewer(),
 		StageTimeout:    2 * time.Second,
 		TotalTimeout:    8 * time.Second,
 	}
@@ -82,6 +84,7 @@ func NewInferenceCycleWithStages(
 		AlignmentStage:  alignment,
 		GatekeeperStage: gatekeeper,
 		PlannerStage:    planner,
+		ReviewerStage:   NewDefaultReviewer(),
 		StageTimeout:    2 * time.Second,
 		TotalTimeout:    8 * time.Second,
 	}
@@ -97,6 +100,13 @@ func NewInferenceCycleWithConfig(cfg InferenceCycleConfig, perception, alignment
 		cycle.TotalTimeout = cfg.TotalTimeout
 	}
 	return cycle
+}
+
+// SetReviewerStage 注入自定义 Reviewer（T10 三段式模式第三段）
+func (c *InferenceCycle) SetReviewerStage(r InferenceStage) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.ReviewerStage = r
 }
 
 
@@ -165,6 +175,7 @@ func (c *InferenceCycle) RunOnce(ctx context.Context, payload CustomerMessagePay
 		c.AlignmentStage,
 		c.GatekeeperStage,
 		c.PlannerStage,
+		c.ReviewerStage,
 	}
 
 	for _, stage := range stages {
@@ -252,7 +263,18 @@ func mergeDecision(base, override InferenceDecision) InferenceDecision {
 	} else if override.Crisis.Level != CrisisNone || override.Crisis.Reason != "" {
 		merged.Crisis = override.Crisis
 	}
+	if override.Review != nil {
+		merged.Review = override.Review
+	}
 	return merged
+}
+
+// reviewPassedOf 安全获取 Review.Passed
+func reviewPassedOf(r *ReviewResult) any {
+	if r == nil {
+		return "n/a"
+	}
+	return r.Passed
 }
 
 // planTypeOf 安全获取 PlanType

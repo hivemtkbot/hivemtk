@@ -31,10 +31,17 @@ type ImportDocumentResult struct {
 	Status     string `json:"status"`
 }
 
+// MaxUploadFileSize 上传文件大小上限 50MB。
+// v7 审计修复：原 io.Copy 无任何上限，超大文件可打满磁盘。
+const MaxUploadFileSize int64 = 50 << 20
+
 // ImportDocument 导入文档:保存文件 + 创建记录(status=pending) + 异步处理
 func (s *KnowledgeBaseService) ImportDocument(ctx context.Context, title string, file multipart.File, header *multipart.FileHeader) (*ImportDocumentResult, error) {
 	if header == nil {
 		return nil, errors.New("文件不能为空")
+	}
+	if header.Size > MaxUploadFileSize {
+		return nil, fmt.Errorf("文件过大: %d 字节, 上限 %d MB", header.Size, MaxUploadFileSize>>20)
 	}
 
 	ext := strings.ToLower(filepath.Ext(header.Filename))
@@ -55,9 +62,14 @@ func (s *KnowledgeBaseService) ImportDocument(ctx context.Context, title string,
 		return nil, fmt.Errorf("创建文件失败: %w", err)
 	}
 	defer dst.Close()
-	if _, err := io.Copy(dst, file); err != nil {
+	// io.LimitReader 双保险：ContentLength 可伪造，实际读取超限即中止并清理
+	if _, err := io.Copy(dst, io.LimitReader(file, MaxUploadFileSize+1)); err != nil {
 		_ = os.Remove(filePath)
 		return nil, fmt.Errorf("写入文件失败: %w", err)
+	}
+	if size, _ := getFileSize(filePath); size > MaxUploadFileSize {
+		_ = os.Remove(filePath)
+		return nil, fmt.Errorf("文件超过大小上限 %d MB", MaxUploadFileSize>>20)
 	}
 
 	size, _ := getFileSize(filePath)

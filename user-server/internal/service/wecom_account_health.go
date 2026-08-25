@@ -181,20 +181,22 @@ func (s *WeComAccountHealthService) SelectHealthyAccount(ctx context.Context) (*
 	if len(accounts) == 0 {
 		return nil, ErrWeComAccountNotFound
 	}
-	sort.Slice(accounts, func(i, j int) bool {
+	// v3 审计 P1-8：单一比较函数一次排序——健康分优先、Weight 次之、配额余量兜底。
+	// 原两次独立排序中第二次会整体重排，使健康分排序完全失效。
+	sort.SliceStable(accounts, func(i, j int) bool {
 		scoreI := accountHealthFromModel(&accounts[i])
 		scoreJ := accountHealthFromModel(&accounts[j])
 		if scoreI != scoreJ {
 			return scoreI > scoreJ
 		}
-		return accounts[i].Weight > accounts[j].Weight
-	})
-	sort.SliceStable(accounts, func(i, j int) bool {
-		rateI := 0.0
+		if accounts[i].Weight != accounts[j].Weight {
+			return accounts[i].Weight > accounts[j].Weight
+		}
+		rateI := 1.0
 		if accounts[i].DailyMsgQuota > 0 {
 			rateI = float64(accounts[i].DailyMsgUsed) / float64(accounts[i].DailyMsgQuota)
 		}
-		rateJ := 0.0
+		rateJ := 1.0
 		if accounts[j].DailyMsgQuota > 0 {
 			rateJ = float64(accounts[j].DailyMsgUsed) / float64(accounts[j].DailyMsgQuota)
 		}

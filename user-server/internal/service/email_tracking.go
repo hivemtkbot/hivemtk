@@ -334,12 +334,9 @@ func (s *EmailTrackingService) sign(ctx context.Context, data []byte) string {
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
-// secret 读取追踪签名密钥（仅来自环境变量，源码不含硬编码默认密钥）
+// secret 读取追踪签名密钥（v3 审计 P2：缺失时 fail-closed）
 func (s *EmailTrackingService) secret(ctx context.Context) string {
-	if v := os.Getenv(emailTrackingSecretEnv); v != "" {
-		return v
-	}
-	return emailTrackingDefaultSecret
+	return os.Getenv(emailTrackingSecretEnv)
 }
 
 // baseURL 读取对外可访问的基础 URL

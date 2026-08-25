@@ -14,6 +14,16 @@ import (
 // txContextKey 事务上下文 key（OPT-ARC-06）
 type txContextKey struct{}
 
+// dbFromCtx 从 ctx 提取事务句柄；不在事务中则回退全局连接池。
+// WithTransaction 写入的 tx 由本函数消费——使仓储方法真正参与外层事务，
+// 修复"假事务"缺陷（此前 tx 存入 ctx 后无任何读取方，合并客户实际逐条自动提交）。
+func dbFromCtx(ctx context.Context) *gorm.DB {
+	if tx, ok := ctx.Value(txContextKey{}).(*gorm.DB); ok && tx != nil {
+		return tx
+	}
+	return _db.GetDB().WithContext(ctx)
+}
+
 // CustomerRepository defines the interface for customer data access
 type CustomerRepository interface {
 	Create(ctx context.Context, customer *model.Customer) error
@@ -69,13 +79,13 @@ func NewCustomerRepository() CustomerRepository {
 
 // Create creates a new customer
 func (r *customerRepository) Create(ctx context.Context, customer *model.Customer) error {
-	return _db.GetDB().WithContext(ctx).Create(customer).Error
+	return dbFromCtx(ctx).Create(customer).Error
 }
 
 // GetByID retrieves a customer by ID
 func (r *customerRepository) GetByID(ctx context.Context, id string) (*model.Customer, error) {
 	var customer model.Customer
-	if err := _db.GetDB().WithContext(ctx).First(&customer, "id = ?", id).Error; err != nil {
+	if err := dbFromCtx(ctx).First(&customer, "id = ?", id).Error; err != nil {
 		return nil, nil
 	}
 	return &customer, nil
@@ -84,7 +94,7 @@ func (r *customerRepository) GetByID(ctx context.Context, id string) (*model.Cus
 // GetByUnifiedID retrieves a customer by unified ID
 func (r *customerRepository) GetByUnifiedID(ctx context.Context, unifiedID string) (*model.Customer, error) {
 	var customer model.Customer
-	if err := _db.GetDB().WithContext(ctx).First(&customer, "unified_id = ?", unifiedID).Error; err != nil {
+	if err := dbFromCtx(ctx).First(&customer, "unified_id = ?", unifiedID).Error; err != nil {
 		return nil, nil
 	}
 	return &customer, nil
@@ -93,7 +103,7 @@ func (r *customerRepository) GetByUnifiedID(ctx context.Context, unifiedID strin
 // GetByPhone retrieves a customer by phone
 func (r *customerRepository) GetByPhone(ctx context.Context, phone string) (*model.Customer, error) {
 	var customer model.Customer
-	if err := _db.GetDB().WithContext(ctx).First(&customer, "phone = ?", phone).Error; err != nil {
+	if err := dbFromCtx(ctx).First(&customer, "phone = ?", phone).Error; err != nil {
 		return nil, nil
 	}
 	return &customer, nil
@@ -102,7 +112,7 @@ func (r *customerRepository) GetByPhone(ctx context.Context, phone string) (*mod
 // GetByPhoneHash retrieves a customer by phone hash (P0-05 隐私合规)
 func (r *customerRepository) GetByPhoneHash(ctx context.Context, phoneHash string) (*model.Customer, error) {
 	var customer model.Customer
-	if err := _db.GetDB().WithContext(ctx).First(&customer, "phone_hash = ?", phoneHash).Error; err != nil {
+	if err := dbFromCtx(ctx).First(&customer, "phone_hash = ?", phoneHash).Error; err != nil {
 		return nil, nil
 	}
 	return &customer, nil
@@ -111,7 +121,7 @@ func (r *customerRepository) GetByPhoneHash(ctx context.Context, phoneHash strin
 // GetByEmail retrieves a customer by email
 func (r *customerRepository) GetByEmail(ctx context.Context, email string) (*model.Customer, error) {
 	var customer model.Customer
-	if err := _db.GetDB().WithContext(ctx).First(&customer, "email = ?", email).Error; err != nil {
+	if err := dbFromCtx(ctx).First(&customer, "email = ?", email).Error; err != nil {
 		return nil, nil
 	}
 	return &customer, nil
@@ -120,7 +130,7 @@ func (r *customerRepository) GetByEmail(ctx context.Context, email string) (*mod
 // GetByWechatOpenID retrieves a customer by Wechat OpenID
 func (r *customerRepository) GetByWechatOpenID(ctx context.Context, openID string) (*model.Customer, error) {
 	var customer model.Customer
-	if err := _db.GetDB().WithContext(ctx).First(&customer, "wechat_open_id = ?", openID).Error; err != nil {
+	if err := dbFromCtx(ctx).First(&customer, "wechat_open_id = ?", openID).Error; err != nil {
 		return nil, nil
 	}
 	return &customer, nil
@@ -129,7 +139,7 @@ func (r *customerRepository) GetByWechatOpenID(ctx context.Context, openID strin
 // GetByDouyinOpenID retrieves a customer by Douyin OpenID
 func (r *customerRepository) GetByDouyinOpenID(ctx context.Context, openID string) (*model.Customer, error) {
 	var customer model.Customer
-	if err := _db.GetDB().WithContext(ctx).First(&customer, "douyin_open_id = ?", openID).Error; err != nil {
+	if err := dbFromCtx(ctx).First(&customer, "douyin_open_id = ?", openID).Error; err != nil {
 		return nil, nil
 	}
 	return &customer, nil
@@ -137,12 +147,12 @@ func (r *customerRepository) GetByDouyinOpenID(ctx context.Context, openID strin
 
 // Update updates an existing customer
 func (r *customerRepository) Update(ctx context.Context, customer *model.Customer) error {
-	return _db.GetDB().WithContext(ctx).Save(customer).Error
+	return dbFromCtx(ctx).Save(customer).Error
 }
 
 // Delete deletes a customer by ID
 func (r *customerRepository) Delete(ctx context.Context, id string) error {
-	return _db.GetDB().WithContext(ctx).Delete(&model.Customer{}, "id = ?", id).Error
+	return dbFromCtx(ctx).Delete(&model.Customer{}, "id = ?", id).Error
 }
 
 // List retrieves customers with pagination.
@@ -152,7 +162,7 @@ func (r *customerRepository) List(ctx context.Context, page, limit int, keyword 
 	var total int64
 
 	offset := (page - 1) * limit
-	q := _db.GetDB().WithContext(ctx).Model(&model.Customer{})
+	q := dbFromCtx(ctx).Model(&model.Customer{})
 
 	kw := strings.TrimSpace(keyword)
 	if kw != "" {
@@ -174,7 +184,7 @@ func (r *customerRepository) List(ctx context.Context, page, limit int, keyword 
 // FindByIdentity finds a customer by any identity field
 func (r *customerRepository) FindByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) (*model.Customer, error) {
 	var customer model.Customer
-	query := _db.GetDB().WithContext(ctx)
+	query := dbFromCtx(ctx)
 
 	conditions := ""
 	args := []any{}
@@ -216,7 +226,7 @@ func (r *customerRepository) FindByIdentity(ctx context.Context, phone, email, w
 // FindByIdentityAll 返回所有匹配任一身份标识的客户（多条），供合并场景检测历史分裂。
 // 与 FindByIdentity（单条）不同，不会因 First 截断而漏掉同标识的第二条客户。
 func (r *customerRepository) FindByIdentityAll(ctx context.Context, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) ([]*model.Customer, error) {
-	query := _db.GetDB().WithContext(ctx)
+	query := dbFromCtx(ctx)
 
 	conditions := ""
 	args := []any{}
@@ -272,7 +282,7 @@ func (r *customerRepository) CountNotEmpty(ctx context.Context, fieldName string
 		return 0, nil
 	}
 	stmt := fieldName + " <> '' AND " + fieldName + " IS NOT NULL"
-	if err := _db.GetDB().WithContext(ctx).Model(&model.Customer{}).Where(stmt).Count(&n).Error; err != nil {
+	if err := dbFromCtx(ctx).Model(&model.Customer{}).Where(stmt).Count(&n).Error; err != nil {
 		return 0, err
 	}
 	return n, nil
@@ -287,7 +297,7 @@ func (r *customerRepository) CountMultiIdentity(ctx context.Context) (int64, err
 		"(CASE WHEN douyin_open_id IS NOT NULL AND douyin_open_id <> '' THEN 1 ELSE 0 END) + " +
 		"(CASE WHEN xiaohongshu_id IS NOT NULL AND xiaohongshu_id <> '' THEN 1 ELSE 0 END)"
 	var n int64
-	if err := _db.GetDB().WithContext(ctx).Raw(
+	if err := dbFromCtx(ctx).Raw(
 		"SELECT COUNT(*) FROM customers WHERE " + expr + " >= 2",
 	).Scan(&n).Error; err != nil {
 		return 0, err
@@ -301,7 +311,7 @@ func (r *customerRepository) ReassignSessionOneID(ctx context.Context, oldOneID,
 	if oldOneID == "" || newOneID == "" || oldOneID == newOneID {
 		return nil
 	}
-	return _db.GetDB().WithContext(ctx).
+	return dbFromCtx(ctx).
 		Table("customer_sessions").
 		Where("one_id = ?", oldOneID).
 		Update("one_id", newOneID).Error
@@ -344,7 +354,7 @@ func (r *customerRepository) ListByIDs(ctx context.Context, ids []string) (map[s
 		return result, nil
 	}
 	var customers []*model.Customer
-	if err := _db.GetDB().WithContext(ctx).Where("id IN ?", unique).Find(&customers).Error; err != nil {
+	if err := dbFromCtx(ctx).Where("id IN ?", unique).Find(&customers).Error; err != nil {
 		return nil, err
 	}
 	for _, c := range customers {
@@ -366,7 +376,7 @@ func (r *customerRepository) GetByXiaohongshuID(ctx context.Context, xhsID strin
 		return nil, nil
 	}
 	var customer model.Customer
-	if err := _db.GetDB().WithContext(ctx).Where("xiaohongshu_id = ?", xhsID).First(&customer).Error; err != nil {
+	if err := dbFromCtx(ctx).Where("xiaohongshu_id = ?", xhsID).First(&customer).Error; err != nil {
 		return nil, nil
 	}
 	return &customer, nil
@@ -398,7 +408,7 @@ func (r *customerRepository) SearchByFilter(ctx context.Context, filter Customer
 		pageSize = 100
 	}
 
-	q := _db.GetDB().WithContext(ctx).Model(&model.Customer{})
+	q := dbFromCtx(ctx).Model(&model.Customer{})
 
 	if filter.Tag != "" {
 		q = q.Where("tags::jsonb @> ?", fmt.Sprintf(`["%s"]`, escapeJSONString(filter.Tag)))

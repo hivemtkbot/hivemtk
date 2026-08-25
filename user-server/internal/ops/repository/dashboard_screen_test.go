@@ -132,8 +132,9 @@ func TestDashboardScreenRepository_GetByCode(t *testing.T) {
 	screenRepo, _, _, _ := setupDashboardRepositories(t)
 
 	screen := &model.DashboardScreen{
-		Name: "Code Test Dashboard",
-		Code: "unique_code_123",
+		Name:      "Code Test Dashboard",
+		Code:      "unique_code_123",
+		IsPublic:  true, // v3 审计后 GetByCode 仅命中公开屏（公开路由防私有屏爆破）
 	}
 	screenRepo.Create(screen)
 

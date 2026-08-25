@@ -55,6 +55,7 @@ func (r *geoWorkflowRepo) GetList() ([]*model.GeoWorkflow, error) {
 // GeoWorkflowExecutionRepository GEO 工作流执行记录仓储接口
 type GeoWorkflowExecutionRepository interface {
 	Create(exec *model.GeoWorkflowExecution) error
+	Update(exec *model.GeoWorkflowExecution) error
 	GetByID(id string) (*model.GeoWorkflowExecution, error)
 	GetByWorkflowID(workflowID string) ([]*model.GeoWorkflowExecution, error)
 }
@@ -73,6 +74,16 @@ func NewGeoWorkflowExecutionRepositoryWithDB(db *gorm.DB) GeoWorkflowExecutionRe
 
 func (r *geoWorkflowExecRepo) Create(exec *model.GeoWorkflowExecution) error {
 	return r.db.Create(exec).Error
+}
+
+func (r *geoWorkflowExecRepo) Update(exec *model.GeoWorkflowExecution) error {
+	return r.db.Model(&model.GeoWorkflowExecution{}).Where("id = ?", exec.ID).
+		Updates(map[string]any{
+			"status":       exec.Status,
+			"completed_at": exec.CompletedAt,
+			"result":       exec.Result,
+			"error":        exec.Error,
+		}).Error
 }
 
 func (r *geoWorkflowExecRepo) GetByID(id string) (*model.GeoWorkflowExecution, error) {

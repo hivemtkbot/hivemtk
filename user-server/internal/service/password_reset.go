@@ -1,0 +1,130 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"strconv"
+	"time"
+
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/bcrypt"
+	"hivemtk-user/internal/pkg/utils/logger"
+	"gorm.io/gorm"
+)
+
+const (
+	passwordResetTokenExpiry   = 24 * time.Hour
+	passwordResetTokenMaxActive = 3
+)
+
+type PasswordResetService struct {
+	emailService *EmailService
+	db           *gorm.DB
+}
+
+func NewPasswordResetService(db *gorm.DB) *PasswordResetService {
+	return &PasswordResetService{
+		emailService: NewEmailService(db),
+		db:           db,
+	}
+}
+
+type RequestPasswordResetRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type ResetPasswordRequest struct {
+	Token       string `json:"token" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
+func (s *PasswordResetService) RequestPasswordReset(ctx context.Context, req *RequestPasswordResetRequest) error {
+	var user model.User
+	if err := s.db.WithContext(ctx).Where("email = ?", req.Email).First(&user).Error; err != nil {
+		logger.Ctx(ctx).Warn().Str("email", req.Email).Msg("password reset requested for non-existent email")
+		return nil
+	}
+	var activeCount int64
+	s.db.Model(&model.PasswordResetToken{}).Where("user_id = ? AND used_at IS NULL AND expires_at > ?", user.ID, time.Now()).Count(&activeCount)
+	if activeCount >= passwordResetTokenMaxActive {
+		return errors.New("too many active reset requests, please try again later")
+	}
+	resetToken := &model.PasswordResetToken{
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(passwordResetTokenExpiry),
+	}
+	if err := s.db.WithContext(ctx).Create(resetToken).Error; err != nil {
+		return fmt.Errorf("failed to create reset token: %w", err)
+	}
+	logger.Ctx(ctx).Info().
+		Str("user_id", user.ID).
+		Str("email", req.Email).
+		Str("token_id", resetToken.ID).
+		Msg("password reset token created")
+	return nil
+}
+
+func (s *PasswordResetService) ValidateResetToken(ctx context.Context, tokenStr string) (*model.PasswordResetToken, error) {
+	var token model.PasswordResetToken
+	if err := s.db.WithContext(ctx).Where("token = ?", tokenStr).First(&token).Error; err != nil {
+		return nil, errors.New("invalid or expired token")
+	}
+	if !PasswordResetTokenIsValid(&token) {
+		return nil, errors.New("invalid or expired token")
+	}
+	return &token, nil
+}
+
+func (s *PasswordResetService) ResetPassword(ctx context.Context, req *ResetPasswordRequest) error {
+	token, err := s.ValidateResetToken(ctx, req.Token)
+	if err != nil {
+		return err
+	}
+	policySvc := NewPasswordPolicyService()
+	uid, _ := strconv.ParseUint(token.UserID, 10, 64)
+	if err := policySvc.ValidatePassword(ctx, req.NewPassword, uint(uid)); err != nil {
+		return err
+	}
+	hashedPassword, err := bcrypt.HashPassword(req.NewPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		now := time.Now()
+		if err := tx.Model(token).Update("used_at", now).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&model.User{}).Where("id = ?", token.UserID).Update("password", hashedPassword).Error; err != nil {
+			return err
+		}
+		logger.Ctx(ctx).Info().
+			Str("user_id", token.UserID).
+			Str("token_id", token.ID).
+			Msg("password reset successfully")
+		return nil
+	})
+}
+
+func (s *PasswordResetService) CleanupExpiredTokens(ctx context.Context) error {
+	result := s.db.WithContext(ctx).Where("expires_at < ? AND used_at IS NULL", time.Now().Add(-7*24*time.Hour)).Delete(&model.PasswordResetToken{})
+	if result.Error != nil {
+		return result.Error
+	}
+	logger.Ctx(ctx).Info().Int64("count", result.RowsAffected).Msg("cleaned up expired password reset tokens")
+	return nil
+}
+
+func getFrontendBaseURL() string {
+	if url := os.Getenv("FRONTEND_URL"); url != "" {
+		return url
+	}
+	return "http://localhost:3000"
+}
+
+// PasswordResetTokenIsValid 令牌是否有效（未过期且未使用）
+// 领域判断自 (*model.PasswordResetToken).IsValid 迁入，model 层仅保留数据结构。
+func PasswordResetTokenIsValid(t *model.PasswordResetToken) bool {
+	return t != nil && time.Now().Before(t.ExpiresAt) && t.UsedAt == nil
+}

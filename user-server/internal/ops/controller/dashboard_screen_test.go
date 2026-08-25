@@ -210,6 +210,7 @@ func TestDashboardScreenController_UpdateScreen_Success(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin") // v3 审计后大屏写操作需创建者/管理员
 		ctx.Set("user_id", uint(1))
 		ctx.Next()
 	})
@@ -267,6 +268,7 @@ func TestDashboardScreenController_UpdateScreen_InvalidJSON(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin") // v3 审计后大屏写操作需创建者/管理员
 		ctx.Set("user_id", uint(1))
 		ctx.Next()
 	})
@@ -296,6 +298,7 @@ func TestDashboardScreenController_DeleteScreen_Success(t *testing.T) {
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
+		ctx.Set("role", "admin") // v3 审计后大屏写操作需创建者/管理员
 		ctx.Set("user_id", uint(1))
 		ctx.Next()
 	})
