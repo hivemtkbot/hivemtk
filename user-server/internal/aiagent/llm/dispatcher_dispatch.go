@@ -96,11 +96,12 @@ func (d *Dispatcher) pickEnabledFallback(route *ScenarioRoute) string {
 }
 
 func degradedReply(req DispatchRequest) *DispatchResult {
-	tmpl := "抱歉，当前客服系统繁忙，请稍后再试，或联系人工客服获取帮助。"
+	// M11：按场景差异化模板 + 轮换；显式定制的 TemplateReply 仍优先
+	tmpl := ""
 	if fo := GetGlobalFailover(); fo != nil {
-		if c := fo.Config().TemplateReply; c != "" {
-			tmpl = c
-		}
+		tmpl = ResolveDegradedTemplate(req.Scenario, fo.Config().TemplateReply)
+	} else {
+		tmpl = TemplateReplyFor(req.Scenario)
 	}
 	promptTokens := estimateTokens(req.Prompt)
 	completionTokens := estimateTokens(tmpl)

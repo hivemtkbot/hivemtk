@@ -7,7 +7,18 @@ import (
 	"time"
 
 	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
+	"hivemtk-user/internal/repository"
 )
+
+// setupE2EStats 创建 DB 权威销售事件统计服务（无 PG 时测试自动跳过）
+func setupE2EStats(t *testing.T) *SalesEventStatsService {
+	database := testutil.NewTestDB(t,
+		&model.SalesEvent{},
+	)
+	return NewSalesEventStatsServiceWithRepo(repository.NewSalesEventRepositoryWithDB(database))
+}
 
 
 // TestE2E_MedicalBeauty_PriceInquiry 场景 1：医美客户从价格咨询到跟进闭环
@@ -16,8 +27,8 @@ func TestE2E_MedicalBeauty_PriceInquiry(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	extractor := NewOrderIntentExtractor()
-	dashboard := NewSalesDashboard(journey)
-	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
+	stats := setupE2EStats(t)
+	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, stats, nil)
 	ctx := context.Background()
 
 	custID := "mb_e2e_001"
@@ -70,7 +81,7 @@ func TestE2E_MedicalBeauty_PriceInquiry(t *testing.T) {
 		t.Error("应自动为 mb_e2e_001 安排跟进")
 	}
 
-	prod := dashboard.GetAIProductivity(ctx, time.Time{})
+	prod := stats.GetAIProductivity(ctx, time.Time{})
 	if prod.TotalAIDeals < 1 {
 		t.Errorf("仪表盘应记录至少 1 个 AI 谈单，实际 %d", prod.TotalAIDeals)
 	}
@@ -85,8 +96,8 @@ func TestE2E_Education_Reactivation(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	extractor := NewOrderIntentExtractor()
-	dashboard := NewSalesDashboard(journey)
-	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
+	stats := setupE2EStats(t)
+	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, stats, nil)
 	ctx := context.Background()
 	repurchase := NewRepurchaseEngine()
 
@@ -136,7 +147,7 @@ func TestE2E_Education_Reactivation(t *testing.T) {
 		t.Errorf("成交后应在 won，实际 %s", state.CurrentStage)
 	}
 
-	perf := dashboard.GetSalesPerformance(ctx, ownerID, time.Time{})
+	perf := stats.GetSalesPerformance(ctx, ownerID, time.Time{})
 	if perf.TotalOrders < 1 {
 		t.Errorf("应记录 1 个订单，实际 %d", perf.TotalOrders)
 	}
@@ -165,8 +176,8 @@ func TestE2E_Ecommerce_HighFrequency(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	extractor := NewOrderIntentExtractor()
-	dashboard := NewSalesDashboard(journey)
-	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
+	stats := setupE2EStats(t)
+	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, stats, nil)
 	ctx := context.Background()
 
 	ownerID := "ai_sales_007"
@@ -190,7 +201,7 @@ func TestE2E_Ecommerce_HighFrequency(t *testing.T) {
 		}
 	}
 
-	prod := dashboard.GetAIProductivity(ctx, time.Time{})
+	prod := stats.GetAIProductivity(ctx, time.Time{})
 	if prod.TotalAIDeals != 50 {
 		t.Errorf("应记录 50 个 AI 谈单，实际 %d", prod.TotalAIDeals)
 	}
@@ -198,7 +209,7 @@ func TestE2E_Ecommerce_HighFrequency(t *testing.T) {
 		t.Errorf("应记录 %d 个 AI 独立成单，实际 %d", convertedCount, prod.AISoloDeals)
 	}
 
-	funnel := dashboard.FunnelByJourney(ctx)
+	funnel := journey.Funnel(ctx)
 	total := 0
 	for _, s := range funnel.Stages {
 		total += s.Customers
@@ -228,8 +239,8 @@ func TestE2E_Complaint_LostFlow(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	extractor := NewOrderIntentExtractor()
-	dashboard := NewSalesDashboard(journey)
-	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
+	stats := setupE2EStats(t)
+	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, stats, nil)
 	ctx := context.Background()
 
 	custID := "complaint_e2e_001"
@@ -272,7 +283,7 @@ func TestE2E_Complaint_LostFlow(t *testing.T) {
 		t.Errorf("无法挽回的应推到 lost，实际 %s", state.CurrentStage)
 	}
 
-	prod := dashboard.GetAIProductivity(ctx, time.Time{})
+	prod := stats.GetAIProductivity(ctx, time.Time{})
 	if prod.TransferredCount < 1 {
 		t.Error("应记录至少 1 个转人工")
 	}
@@ -287,8 +298,8 @@ func TestE2E_OrderIntent_AutoExtract(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	extractor := NewOrderIntentExtractor()
-	dashboard := NewSalesDashboard(journey)
-	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
+	stats := setupE2EStats(t)
+	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, stats, nil)
 	ctx := context.Background()
 
 	custID := "order_e2e_001"

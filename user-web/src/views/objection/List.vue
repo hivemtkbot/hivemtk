@@ -80,10 +80,6 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="使用 LLM">
-          <el-switch v-model="form.use_llm" />
-          <span class="form-tip">启用后使用 LLM 生成个性化建议</span>
-        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSubmit" :loading="handling">
             <el-icon><Search /></el-icon>
@@ -204,8 +200,7 @@ import {
 
 const form = reactive({
   text: '',
-  category: '',
-  use_llm: false
+  category: ''
 })
 
 const handling = ref(false)
@@ -266,8 +261,7 @@ const handleSubmit = async () => {
   try {
     const res = await handleObjection({
       text: form.text,
-      category: form.category,
-      use_llm: form.use_llm
+      category: form.category
     })
     handleResult.value = res
     ElMessage.success(i18n.global.t('智能匹配完成'))
@@ -296,7 +290,6 @@ const handleClassify = async () => {
 const resetForm = () => {
   form.text = ''
   form.category = ''
-  form.use_llm = false
   handleResult.value = null
 }
 

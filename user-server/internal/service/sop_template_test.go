@@ -326,10 +326,6 @@ func (m *mockSOPRepoForTask16) MatchByAgent(ctx context.Context, agentID uint, i
 	return out, nil
 }
 
-func (m *mockSOPRepoForTask16) MatchByIDs(ctx context.Context, intent, stage string, ids []string) ([]model.SOPTemplate, error) {
-	return nil, nil
-}
-
 func (m *mockSOPRepoForTask16) ListByAgent(ctx context.Context, agentID uint, limit int) ([]model.SOPTemplate, error) {
 	if m.listByAgentErr != nil {
 		return nil, m.listByAgentErr
@@ -510,25 +506,6 @@ func TestSOPTemplate_MatchByAgent_EmptyIntent(t *testing.T) {
 	}
 	if len(matches) != 2 {
 		t.Errorf("expected 2 matches (no intent filter), got %d", len(matches))
-	}
-}
-
-// TestSOPTemplate_MatchByAgentLegacy_Empty Task 16: 旧签名 agentSOPIDs 为空直接返回 nil
-func TestSOPTemplate_MatchByAgentLegacy_Empty(t *testing.T) {
-	enabled := true
-	repo := &mockSOPRepoForTask16{
-		byAgent: map[uint][]model.SOPTemplate{
-			1: {{ID: 1, Name: "t1", Intent: "x", Template: "a", Enabled: &enabled}},
-		},
-	}
-	svc := NewSOPTemplateServiceWithRepo(repo)
-
-	matches, err := svc.MatchByAgentLegacy(context.Background(), nil, "x", "y")
-	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
-	}
-	if matches != nil {
-		t.Errorf("expected nil matches for empty agentSOPIDs, got %v", matches)
 	}
 }
 

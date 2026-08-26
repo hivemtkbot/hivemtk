@@ -14,11 +14,16 @@ import (
 )
 
 // CustomerRFMService 客户 RFM 服务
+//
+// H3（技术债清理）：原 RFMCalculatorService（rfm_calculator.go）已删除，
+// 本服务为全系统唯一 RFM 口径入口：打分（RFMConfig/Rule）、分层查询、
+// 统计分布、规则 CRUD 均收敛于此。
 type CustomerRFMService struct {
 	rfmRepo      repository.CustomerRFMRepository
 	customerRepo repository.CustomerRepository
 	orderRepo    repository.OrderRepository
 	recoveryRepo repository.RecoveryQueueRepository
+	rfmRuleRepo  *repository.RFMRuleRepository
 	nowFunc      func() time.Time
 }
 
@@ -29,6 +34,7 @@ func NewCustomerRFMService() *CustomerRFMService {
 		customerRepo: repository.NewCustomerRepository(),
 		orderRepo:    repository.NewOrderRepository(),
 		recoveryRepo: repository.NewRecoveryQueueRepository(),
+		rfmRuleRepo:  repository.NewRFMRuleRepository(),
 		nowFunc:      time.Now,
 	}
 }
@@ -540,5 +546,137 @@ func (s *CustomerRFMService) enqueueRecovery(ctx context.Context, rfm *model.Cus
 		// X-1：入队失败不再静默吞没，记录告警便于排查挽回队列缺失
 		logger.Warnf("[rfm] enqueueRecovery: create failed (customer=%s): %v", rfm.CustomerID, err)
 	}
+}
+
+// ---------- RFM 规则 CRUD（自原 rfm_calculator.go 迁移，H3 统一口径） ----------
+
+// ruleRepo 惰性获取规则仓库（兼容测试中零值构造的 service）
+func (s *CustomerRFMService) ruleRepo() *repository.RFMRuleRepository {
+	if s.rfmRuleRepo == nil {
+		s.rfmRuleRepo = repository.NewRFMRuleRepository()
+	}
+	return s.rfmRuleRepo
+}
+
+// GetRFMRule 获取当前激活的 RFM 规则
+func (s *CustomerRFMService) GetRFMRule(ctx context.Context) (*model.RFMRule, error) {
+	return s.ruleRepo().GetActiveRule(ctx)
+}
+
+// ListRFMRules 列出所有 RFM 规则（分页，用于分群管理页）
+func (s *CustomerRFMService) ListRFMRules(ctx context.Context, page, pageSize int) ([]*model.RFMRule, int64, error) {
+	all, err := s.ruleRepo().GetAll(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	total := int64(len(all))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	start := (page - 1) * pageSize
+	if start >= len(all) {
+		return []*model.RFMRule{}, total, nil
+	}
+	end := start + pageSize
+	if end > len(all) {
+		end = len(all)
+	}
+	return all[start:end], total, nil
+}
+
+// SaveRFMRuleRequest 保存 RFM 规则请求
+// 金额字段单位：分（前端展示时 / 100 转元）
+type SaveRFMRuleRequest struct {
+	Name     string `json:"name"`
+	RDays1   int    `json:"r_days_1"`
+	RDays2   int    `json:"r_days_2"`
+	RDays3   int    `json:"r_days_3"`
+	RDays4   int    `json:"r_days_4"`
+	RDays5   int    `json:"r_days_5"`
+	FCount1  int    `json:"f_count_1"`
+	FCount2  int    `json:"f_count_2"`
+	FCount3  int    `json:"f_count_3"`
+	FCount4  int    `json:"f_count_4"`
+	FCount5  int    `json:"f_count_5"`
+	MAmount1 int64  `json:"m_amount_1"`
+	MAmount2 int64  `json:"m_amount_2"`
+	MAmount3 int64  `json:"m_amount_3"`
+	MAmount4 int64  `json:"m_amount_4"`
+	MAmount5 int64  `json:"m_amount_5"`
+	IsActive bool   `json:"is_active"`
+}
+
+// SaveRFMRule 保存 RFM 规则
+func (s *CustomerRFMService) SaveRFMRule(ctx context.Context, req *SaveRFMRuleRequest) (*model.RFMRule, error) {
+	rule := &model.RFMRule{
+		Name:     req.Name,
+		RDays1:   req.RDays1,
+		RDays2:   req.RDays2,
+		RDays3:   req.RDays3,
+		RDays4:   req.RDays4,
+		RDays5:   req.RDays5,
+		FCount1:  req.FCount1,
+		FCount2:  req.FCount2,
+		FCount3:  req.FCount3,
+		FCount4:  req.FCount4,
+		FCount5:  req.FCount5,
+		MAmount1: req.MAmount1,
+		MAmount2: req.MAmount2,
+		MAmount3: req.MAmount3,
+		MAmount4: req.MAmount4,
+		MAmount5: req.MAmount5,
+		IsActive: req.IsActive,
+	}
+
+	if rule.RDays1 <= 0 {
+		rule.RDays1 = 7
+	}
+
+	err := s.ruleRepo().Create(ctx, rule)
+	if err != nil {
+		return nil, err
+	}
+
+	return rule, nil
+}
+
+// UpdateRFMRule 更新 RFM 规则
+func (s *CustomerRFMService) UpdateRFMRule(ctx context.Context, id uint, req *SaveRFMRuleRequest) (*model.RFMRule, error) {
+	rule, err := s.ruleRepo().GetByID(ctx, id)
+	if err != nil {
+		return nil, errors.New("规则不存在")
+	}
+
+	rule.Name = req.Name
+	rule.RDays1 = req.RDays1
+	rule.RDays2 = req.RDays2
+	rule.RDays3 = req.RDays3
+	rule.RDays4 = req.RDays4
+	rule.RDays5 = req.RDays5
+	rule.FCount1 = req.FCount1
+	rule.FCount2 = req.FCount2
+	rule.FCount3 = req.FCount3
+	rule.FCount4 = req.FCount4
+	rule.FCount5 = req.FCount5
+	rule.MAmount1 = req.MAmount1
+	rule.MAmount2 = req.MAmount2
+	rule.MAmount3 = req.MAmount3
+	rule.MAmount4 = req.MAmount4
+	rule.MAmount5 = req.MAmount5
+	rule.IsActive = req.IsActive
+
+	if err := s.ruleRepo().Update(ctx, rule); err != nil {
+		return nil, err
+	}
+
+	return rule, nil
+}
+
+// DeleteRFMRule 删除 RFM 规则
+func (s *CustomerRFMService) DeleteRFMRule(ctx context.Context, id uint) error {
+	return s.ruleRepo().Delete(ctx, id)
 }
 

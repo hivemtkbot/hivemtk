@@ -543,10 +543,8 @@ func (f *ProviderFailover) callSingleProvider(ctx context.Context, provider *Pro
 
 // degradedResponse 构造降级响应（模板回复 + 标记降级）
 func (f *ProviderFailover) degradedResponse(req DispatchRequest, cfg FailoverConfig, cause error) *DispatchResult {
-	reply := cfg.TemplateReply
-	if reply == "" {
-		reply = "抱歉，当前服务暂时繁忙，请稍后再试。"
-	}
+	// M11：显式定制的 TemplateReply 优先；否则按场景差异化模板轮换
+	reply := ResolveDegradedTemplate(req.Scenario, cfg.TemplateReply)
 	return &DispatchResult{
 		Provider:     "degraded",
 		Model:        "template",

@@ -83,32 +83,6 @@ func TestRFMConfigFromRule_NilRuleUsesBuckets(t *testing.T) {
 	}
 }
 
-// TestRFMCalculatorAdapter_DelegatesUnifiedScoring 薄适配层打分与统一口径一致（P-3 迁移保障）
-func TestRFMCalculatorAdapter_DelegatesUnifiedScoring(t *testing.T) {
-	svc := NewRFMCalculatorService()
-	rule := &model.RFMRule{
-		RDays1: 7, RDays2: 14, RDays3: 30, RDays4: 60, RDays5: 90,
-		FCount1: 1, FCount2: 3, FCount3: 5, FCount4: 10, FCount5: 20,
-		MAmount1: 10000, MAmount2: 50000, MAmount3: 100000, MAmount4: 500000, MAmount5: 1000000,
-	}
-	ctx := context.Background()
-
-	recent := time.Now().Add(-3 * 24 * time.Hour)
-	if got := svc.calcRScore(ctx, &recent, rule); got != 5 {
-		t.Errorf("calcRScore recent expected 5, got %d", got)
-	}
-	old := time.Now().Add(-120 * 24 * time.Hour)
-	if got := svc.calcRScore(ctx, &old, rule); got != 1 {
-		t.Errorf("calcRScore stale expected 1, got %d", got)
-	}
-	if got := svc.calcFScore(ctx, 4, rule); got != 2 {
-		t.Errorf("calcFScore(4) expected 2, got %d", got)
-	}
-	if got := svc.calcMScore(ctx, 60000, rule); got != 2 {
-		t.Errorf("calcMScore(60000) expected 2, got %d", got)
-	}
-}
-
 // ---------- P-9 Clue Level 动态化 ----------
 
 func TestClueLevelFromScore(t *testing.T) {

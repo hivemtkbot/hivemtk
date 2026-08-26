@@ -1,4 +1,4 @@
-// Package controller - chat_ws.go 聊天 WebSocket 控制器（-）
+// Package controller - chat_ws.go 聊天 WebSocket 控制器
 // ============================================================================
 // 5 层架构归属: L3 Controller 层（编排层）
 //   - 仅依赖 service 接口（不直接访问 db / repository / model）

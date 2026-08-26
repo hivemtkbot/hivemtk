@@ -48,7 +48,6 @@ func (realClock) Now() time.Time { return time.Now() }
 // Task 15 变更: 新增 MatchByAgent / ListByAgent 接口方法 (按 agentID 过滤)
 type faqRepoIface interface {
 	MatchByKeyword(ctx context.Context, msg string, topK int) ([]model.FAQEntry, error)
-	MatchByIDs(ctx context.Context, msg string, ids []string, topK int) ([]model.FAQEntry, error)
 	MatchByAgent(ctx context.Context, agentID uint, msg string, topK int) ([]model.FAQEntry, error)
 	ListByAgent(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error)
 	IncrementHitCount(ctx context.Context, id uint) error

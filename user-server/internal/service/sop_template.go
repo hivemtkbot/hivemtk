@@ -53,7 +53,6 @@ type sopRepoIface interface {
 	MatchByIntent(ctx context.Context, intent string) ([]model.SOPTemplate, error)
 	MatchByIntentStage(ctx context.Context, intent, stage string) ([]model.SOPTemplate, error)
 	MatchByAgent(ctx context.Context, agentID uint, intent, stage string) ([]model.SOPTemplate, error)
-	MatchByIDs(ctx context.Context, intent, stage string, ids []string) ([]model.SOPTemplate, error)
 	ListByAgent(ctx context.Context, agentID uint, limit int) ([]model.SOPTemplate, error)
 	IncrementHitCount(ctx context.Context, id uint) error
 	ListWithFilter(ctx context.Context, filter repository.SOPTemplateListParams) ([]model.SOPTemplate, int64, error)
@@ -187,27 +186,6 @@ func (s *SOPTemplateService) MatchByAgent(ctx context.Context, agentID uint, int
 	}
 	return all, nil
 }
-
-// MatchByAgentLegacy 旧签名匹配 (DEPRECATED: 兼容 layer.go 旧调用, 后续移除)
-//
-// 签名: (ctx, agentSOPIDs []string, intent, stage string) — 保留以支持逐步迁移
-//
-// 行为:
-//   - agentSOPIDs 为空: 不再走 MatchByIntentStage, 直接返回 (nil, nil) (强 1对1: 移除"空数组=全局"分支)
-//   - agentSOPIDs 非空: 走 MatchByIDs (旧 ID 集合过滤)
-//
-// Deprecated: Task 16 强 1对1 改造, 新代码应使用 MatchByAgent(ctx, agentID, ...)。
-// 仅供 layer.go 过渡期使用。
-func (s *SOPTemplateService) MatchByAgentLegacy(ctx context.Context, agentSOPIDs []string, intent, stage string) ([]model.SOPTemplate, error) {
-	if s.repo == nil {
-		return nil, nil
-	}
-	if len(agentSOPIDs) == 0 {
-		return nil, nil
-	}
-	return s.repo.MatchByIDs(ctx, intent, stage, agentSOPIDs)
-}
-
 
 // List 列表查询
 func (s *SOPTemplateService) List(ctx context.Context, filter dto.SOPTemplateFilter) ([]dto.SOPTemplate, int64, error) {

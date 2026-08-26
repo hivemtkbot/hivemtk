@@ -99,3 +99,59 @@ func TestDispatchDouyinGeneric_EmptyContentStable(t *testing.T) {
 		t.Errorf("空内容兜底 MsgID 仍应稳定: %q vs %q", h1.MsgID, h2.MsgID)
 	}
 }
+
+// ============================================================================
+// M3：抖音结构化分支 MsgID 稳定化回归测试
+// 结构化 JSON 解析成功但 message_id 缺失时，原实现用 UnixNano 时间戳兜底，
+// 同一事件重推必然生成不同 ID，幂等去重失效。修复后与 generic 分支一致，
+// 改用 ContentHashMsgID 内容哈希。
+// ============================================================================
+
+// TestDispatchDouyinStructured_MissingMessageIDStable 结构化分支缺 message_id → 相同内容重推 MsgID 稳定
+func TestDispatchDouyinStructured_MissingMessageIDStable(t *testing.T) {
+	svc, ctx := newDouyinGenericTestService(t)
+	defer svc.Stop(ctx)
+
+	raw := []byte(`{"event_type":"im.message.receive_v1","data":{"message":{"message_id":"","content":"在吗"},"from":{"user_id":"user_100"},"conversation":{"type":"chat"}}}`)
+	p1 := &ParsedPayload{EventID: "evt-dy-s1", Sender: "user_100", Content: "在吗"}
+	hub1, _, err := svc.dispatchDouyin(ctx, "7", p1, raw)
+	if err != nil {
+		t.Fatalf("dispatch1: %v", err)
+	}
+	if hub1 == nil {
+		t.Fatal("expected hub from structured branch")
+	}
+
+	p2 := &ParsedPayload{EventID: "evt-dy-s2", Sender: "user_100", Content: "在吗"}
+	hub2, _, _ := svc.dispatchDouyin(ctx, "7", p2, raw)
+	if hub2 == nil {
+		t.Fatal("expected second hub")
+	}
+
+	if hub1.MsgID != hub2.MsgID {
+		t.Errorf("M3 未达成：结构化分支相同内容两次投递 MsgID 不一致 %q vs %q（时间戳残留）", hub1.MsgID, hub2.MsgID)
+	}
+	if !strings.HasPrefix(hub1.MsgID, "dy_mh:") {
+		t.Errorf("MsgID 应为内容哈希形态 dy_mh:*，实际 %q", hub1.MsgID)
+	}
+	want := "dy_" + ContentHashMsgID("douyin", "", "在吗")
+	if hub1.MsgID != want {
+		t.Errorf("MsgID expected %s, got %s", want, hub1.MsgID)
+	}
+}
+
+// TestDispatchDouyinStructured_ExplicitMessageIDUnchanged 有 message_id 时保持平台 ID 原样
+func TestDispatchDouyinStructured_ExplicitMessageIDUnchanged(t *testing.T) {
+	svc, ctx := newDouyinGenericTestService(t)
+	defer svc.Stop(ctx)
+
+	raw := []byte(`{"event_type":"im.message.receive_v1","data":{"message":{"message_id":"plat-777","content":"hi"},"from":{"user_id":"u1"}}}`)
+	p := &ParsedPayload{EventID: "evt-dy-s3", Sender: "u1", Content: "hi"}
+	hub, _, err := svc.dispatchDouyin(ctx, "7", p, raw)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	if hub == nil || hub.MsgID != "dy_plat-777" {
+		t.Errorf("平台 MessageID 应原样保留为 dy_plat-777，实际 %+v", hub)
+	}
+}

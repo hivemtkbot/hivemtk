@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -70,8 +69,10 @@ func (s *WebhookService) dispatchDouyin(ctx context.Context, accountID string, p
 	}
 
 	msgID := "dy_" + payload.Data.Message.MessageID
+	// M3（对齐 W-5）：MessageID 缺失时不再用 UnixNano 时间戳兜底——重推/并发场景
+	// 天然不去重；改用内容哈希生成稳定 ID（复用 webhook_dedup.go 既有实现）。
 	if payload.Data.Message.MessageID == "" {
-		msgID = "dy_" + fmt.Sprintf("%d", time.Now().UnixNano())
+		msgID = "dy_" + ContentHashMsgID("douyin", "", p.Content)
 	}
 
 	senderName := payload.Data.From.NickName

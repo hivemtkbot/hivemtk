@@ -27,6 +27,10 @@ type SOPExecEvent struct {
 func (SOPExecEvent) TableName() string { return "sop_exec_events" }
 
 // SOPTimer SOP 定时器（wait/timer 节点的长任务实现）
+//
+// M4 列下沉：expires_at / max_wait_at / claim_count 原先仅存于 Payload JSONB，
+// 无法建索引、无法用 SQL 条件扫描。现下沉为实体列（AutoMigrate 自动补列），
+// 同时保留 payload 内旧字段兼容读取历史数据。
 type SOPTimer struct {
 	ID          uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	ExecutionID uint       `gorm:"index;not null" json:"execution_id"`
@@ -38,6 +42,13 @@ type SOPTimer struct {
 	FiredAt     *time.Time `json:"fired_at"`
 	CreatedAt   time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+
+	// M4 下沉列：到期时间快照（=wait_until 快照）
+	ExpiresAt *time.Time `gorm:"index:idx_sop_timers_expires_at" json:"expires_at,omitempty"`
+	// M4 下沉列：最大等待截止时间，超时视为满足并跳过（S1-2）
+	MaxWaitAt *time.Time `json:"max_wait_at,omitempty"`
+	// M4 下沉列：认领失败累计次数，≥5 转死信（S1-5）
+	ClaimCount int `gorm:"default:0" json:"claim_count"`
 }
 
 // TableName 指定表名

@@ -11,13 +11,15 @@ import (
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/repository"
 )
 
 
 // helper: 完整环境（5 组件 + 草稿服务 + 触发器）
-func setupDraftEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AITagger, *OrderIntentExtractor, *SalesDashboard, *OrderDraftService, *SalesActionTrigger) {
+func setupDraftEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AITagger, *OrderIntentExtractor, *SalesEventStatsService, *OrderDraftService, *SalesActionTrigger) {
 	database := testutil.NewTestDB(t,
 		&model.Order{},
+		&model.SalesEvent{},
 	)
 	db.SetTestDB(database)
 
@@ -25,14 +27,14 @@ func setupDraftEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AI
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	extractor := NewOrderIntentExtractor()
-	dashboard := NewSalesDashboard(journey)
+	stats := NewSalesEventStatsServiceWithRepo(repository.NewSalesEventRepositoryWithDB(database))
 	draftSvc := NewOrderDraftService(nil)
 	draftSvc.SetJourney(context.Background(), journey)
-	draftSvc.SetDashboard(context.Background(), dashboard)
+	draftSvc.SetStats(context.Background(), stats)
 	draftSvc.SetFollowUp(context.Background(), followup)
-	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
+	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, stats, nil)
 	trigger.SetDraftService(context.Background(), draftSvc)
-	return journey, followup, tagger, extractor, dashboard, draftSvc, trigger
+	return journey, followup, tagger, extractor, stats, draftSvc, trigger
 }
 
 
@@ -183,7 +185,7 @@ func TestDraft_ManualValidation(t *testing.T) {
 // TestDraft_Confirm 销售一键确认草稿
 // 商业产品级核心闭环：销售点"确认" → 4 件事自动发生
 func TestDraft_Confirm(t *testing.T) {
-	journey, followup, _, _, dashboard, draftSvc, _ := setupDraftEnv(t)
+	journey, followup, _, _, stats, draftSvc, _ := setupDraftEnv(t)
 	custID := "cust_confirm_001"
 	ownerID := "sales_confirm"
 	_, _ = journey.Transition(context.Background(), custID, StageQuoted, "test", ownerID, "已报价", nil)
@@ -215,7 +217,7 @@ func TestDraft_Confirm(t *testing.T) {
 		t.Errorf("客户旅程应为 won，实际: %s", state.CurrentStage)
 	}
 
-	perf := dashboard.GetSalesPerformance(context.Background(), ownerID, time.Time{})
+	perf := stats.GetSalesPerformance(context.Background(), ownerID, time.Time{})
 	if perf.TotalOrders < 1 {
 		t.Errorf("仪表盘应记录订单，实际: %d", perf.TotalOrders)
 	}
@@ -273,7 +275,7 @@ func TestDraft_Confirm_AlreadyConfirmed(t *testing.T) {
 
 // TestDraft_Cancel 取消草稿
 func TestDraft_Cancel(t *testing.T) {
-	journey, _, _, _, dashboard, draftSvc, _ := setupDraftEnv(t)
+	journey, _, _, _, stats, draftSvc, _ := setupDraftEnv(t)
 	custID := "cust_cancel"
 	ownerID := "sales_cancel"
 	_, _ = journey.Transition(context.Background(), custID, StageQuoted, "test", ownerID, "已报价", nil)
@@ -290,9 +292,9 @@ func TestDraft_Cancel(t *testing.T) {
 	if draft.CancelReason != "客户改变主意" {
 		t.Errorf("取消原因错误: %s", draft.CancelReason)
 	}
-	stats := dashboard.GetDraftStats(context.Background(), ownerID, time.Time{})
-	if stats.ByAction["cancelled"] < 1 {
-		t.Error("仪表盘应记录 cancelled 事件")
+	draftStats := stats.GetDraftStats(context.Background(), ownerID, time.Time{})
+	if draftStats.ByAction["cancelled"] < 1 {
+		t.Error("销售事件统计应记录 cancelled 事件")
 	}
 	t.Logf("✅ 草稿取消: 原因=%s", draft.CancelReason)
 }
@@ -473,7 +475,7 @@ func TestDraft_GetByID(t *testing.T) {
 //
 //	→ 自动生成草稿 → 销售在工作台看到 → 一键确认 → 下单
 func TestDraft_TriggerAutoCreate(t *testing.T) {
-	journey, _, tagger, _, dashboard, draftSvc, trigger := setupDraftEnv(t)
+	journey, _, tagger, _, stats, draftSvc, trigger := setupDraftEnv(t)
 	custID := "cust_trigger_001"
 	ownerID := "sales_trigger"
 
@@ -510,14 +512,14 @@ func TestDraft_TriggerAutoCreate(t *testing.T) {
 		t.Error("客户旅程应推进")
 	}
 
-	_ = dashboard.GetDraftStats(context.Background(), ownerID, time.Time{})
+	_ = stats.GetDraftStats(context.Background(), ownerID, time.Time{})
 	t.Logf("✅ 触发器自动创建草稿: 阶段=%s, 草稿数=%d", state.CurrentStage, len(pending))
 }
 
 // TestDraft_TriggerCreateAndConfirm 触发器创建 + 销售一键确认（端到端）
 // 这是 -11 的完整端到端测试
 func TestDraft_TriggerCreateAndConfirm(t *testing.T) {
-	journey, followup, _, _, dashboard, draftSvc, trigger := setupDraftEnv(t)
+	journey, followup, _, _, stats, draftSvc, trigger := setupDraftEnv(t)
 	custID := "cust_e2e_001"
 	ownerID := "sales_e2e"
 
@@ -546,7 +548,7 @@ func TestDraft_TriggerCreateAndConfirm(t *testing.T) {
 	if state.CurrentStage != StageWon {
 		t.Errorf("客户旅程应为 won，实际: %s", state.CurrentStage)
 	}
-	perf := dashboard.GetSalesPerformance(context.Background(), ownerID, time.Time{})
+	perf := stats.GetSalesPerformance(context.Background(), ownerID, time.Time{})
 	if perf.TotalOrders < 1 {
 		t.Error("仪表盘应记录订单")
 	}
@@ -620,7 +622,7 @@ func TestDraft_Confirm_Expired(t *testing.T) {
 
 // TestDraft_DashboardStats 仪表盘草稿统计
 func TestDraft_DashboardStats(t *testing.T) {
-	journey, _, _, _, dashboard, draftSvc, _ := setupDraftEnv(t)
+	journey, _, _, _, stats, draftSvc, _ := setupDraftEnv(t)
 	_ = journey
 	ownerID := "sales_stats"
 	for i := 0; i < 5; i++ {
@@ -633,24 +635,24 @@ func TestDraft_DashboardStats(t *testing.T) {
 			draftSvc.Cancel(context.Background(), d.ID, "test", ownerID)
 		}
 	}
-	stats := dashboard.GetDraftStats(context.Background(), ownerID, time.Time{})
-	if stats.Total != 8 {
-		t.Errorf("总事件数应为 8，实际: %d", stats.Total)
+	draftStats := stats.GetDraftStats(context.Background(), ownerID, time.Time{})
+	if draftStats.Total != 8 {
+		t.Errorf("总事件数应为 8，实际: %d", draftStats.Total)
 	}
-	if stats.ByAction["created"] != 5 {
-		t.Errorf("created 应为 5，实际: %d", stats.ByAction["created"])
+	if draftStats.ByAction["created"] != 5 {
+		t.Errorf("created 应为 5，实际: %d", draftStats.ByAction["created"])
 	}
-	if stats.ByAction["confirmed"] != 2 {
-		t.Errorf("confirmed 应为 2，实际: %d", stats.ByAction["confirmed"])
+	if draftStats.ByAction["confirmed"] != 2 {
+		t.Errorf("confirmed 应为 2，实际: %d", draftStats.ByAction["confirmed"])
 	}
-	if stats.ByAction["cancelled"] != 1 {
-		t.Errorf("cancelled 应为 1，实际: %d", stats.ByAction["cancelled"])
+	if draftStats.ByAction["cancelled"] != 1 {
+		t.Errorf("cancelled 应为 1，实际: %d", draftStats.ByAction["cancelled"])
 	}
-	if stats.ConversionRate < 39 || stats.ConversionRate > 41 {
-		t.Errorf("转化率应约 40%%，实际: %.2f", stats.ConversionRate)
+	if draftStats.ConversionRate < 39 || draftStats.ConversionRate > 41 {
+		t.Errorf("转化率应约 40%%，实际: %.2f", draftStats.ConversionRate)
 	}
-	t.Logf("✅ 仪表盘统计: 总事件=%d created=%d confirmed=%d cancelled=%d 转化率=%.1f%%",
-		stats.Total, stats.ByAction["created"], stats.ByAction["confirmed"], stats.ByAction["cancelled"], stats.ConversionRate)
+	t.Logf("✅ 销售事件统计: 总事件=%d created=%d confirmed=%d cancelled=%d 转化率=%.1f%%",
+		draftStats.Total, draftStats.ByAction["created"], draftStats.ByAction["confirmed"], draftStats.ByAction["cancelled"], draftStats.ConversionRate)
 }
 
 // TestDraft_DefaultQuantity 缺省数量处理

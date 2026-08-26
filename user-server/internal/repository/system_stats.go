@@ -20,6 +20,7 @@ import (
 // SystemStatsRepository 系统统计仓库接口
 type SystemStatsRepository interface {
 	CountSystemUsers(ctx context.Context) (int64, error)
+	CountSystemUsersByRole(ctx context.Context, role string) (int64, error)
 	CountActiveSystemUsers(ctx context.Context, sinceUnix int64) (int64, error)
 	CountOrders(ctx context.Context) (int64, error)
 	CountCards(ctx context.Context) (int64, error)
@@ -43,6 +44,14 @@ func NewSystemStatsRepository() SystemStatsRepository {
 func (r *systemStatsRepo) CountSystemUsers(ctx context.Context) (int64, error) {
 	var n int64
 	if err := r.db.Model(&model.SystemUser{}).Count(&n).Error; err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+func (r *systemStatsRepo) CountSystemUsersByRole(ctx context.Context, role string) (int64, error) {
+	var n int64
+	if err := r.db.Model(&model.SystemUser{}).Where("role = ?", role).Count(&n).Error; err != nil {
 		return 0, err
 	}
 	return n, nil

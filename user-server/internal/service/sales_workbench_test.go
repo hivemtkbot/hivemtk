@@ -9,35 +9,37 @@ import (
 
 	"hivemtk-user/internal/model"
 	dbutil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/repository"
 )
 
 
 // setupWorkbenchEnv 完整工作台环境
-func setupWorkbenchEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AITagger, *SalesDashboard, *OrderDraftService, *SalesWorkbenchService) {
+func setupWorkbenchEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AITagger, *SalesEventStatsService, *OrderDraftService, *SalesWorkbenchService) {
 	memDB := testutil.NewTestDBOrSkip(t,
 		&model.Order{},
+		&model.SalesEvent{},
 	)
 	dbutil.SetTestDB(memDB)
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
-	dashboard := NewSalesDashboard(journey)
-	followup.SetDashboard(context.Background(), dashboard)
+	stats := NewSalesEventStatsServiceWithRepo(repository.NewSalesEventRepositoryWithDB(memDB))
+	followup.SetStats(context.Background(), stats)
 
 	draft := NewOrderDraftService(nil)
 	draft.SetJourney(context.Background(), journey)
-	draft.SetDashboard(context.Background(), dashboard)
+	draft.SetStats(context.Background(), stats)
 	draft.SetFollowUp(context.Background(), followup)
 	draft.SetOrderService(context.Background(), NewOrderService())
 
 	workbench := NewSalesWorkbenchService()
-	workbench.SetDashboard(context.Background(), dashboard)
+	workbench.SetStats(context.Background(), stats)
 	workbench.SetJourney(context.Background(), journey)
 	workbench.SetFollowUp(context.Background(), followup)
 	workbench.SetDraft(context.Background(), draft)
 	workbench.SetTagger(context.Background(), tagger)
 
-	return journey, followup, tagger, dashboard, draft, workbench
+	return journey, followup, tagger, stats, draft, workbench
 }
 
 
@@ -152,25 +154,25 @@ func TestWorkbench_Todos_Overdue(t *testing.T) {
 
 // TestWorkbench_Today 今日业绩
 func TestWorkbench_Today(t *testing.T) {
-	_, _, _, dashboard, _, workbench := setupWorkbenchEnv(t)
+	_, _, _, stats, _, workbench := setupWorkbenchEnv(t)
 	salesID := "sales_today"
-	dashboard.RecordOrder(context.Background(), OrderEvent{
+	stats.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o1", CustomerID: "c1", OwnerID: salesID, Amount: 1000, ProductName: "P", OrderedAt: time.Now(),
 	})
-	dashboard.RecordOrder(context.Background(), OrderEvent{
+	stats.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o2", CustomerID: "c2", OwnerID: salesID, Amount: 500, ProductName: "P2", OrderedAt: time.Now(),
 	})
-	dashboard.RecordOrder(context.Background(), OrderEvent{
+	stats.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o3", CustomerID: "c3", OwnerID: salesID, Amount: 100, ProductName: "P3",
 		OrderedAt: time.Now().AddDate(0, 0, -30),
 	})
-	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
+	stats.RecordFollowUp(context.Background(), FollowUpEvent{
 		CustomerID: "c1", OwnerID: salesID, Result: "converted", OccurredAt: time.Now(),
 	})
-	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
+	stats.RecordFollowUp(context.Background(), FollowUpEvent{
 		CustomerID: "c2", OwnerID: salesID, Result: "no_reply", OccurredAt: time.Now(),
 	})
-	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
+	stats.RecordFollowUp(context.Background(), FollowUpEvent{
 		CustomerID: "c3", OwnerID: salesID, Result: "no_reply", OccurredAt: time.Now(),
 	})
 
@@ -196,15 +198,15 @@ func TestWorkbench_Today(t *testing.T) {
 
 // TestWorkbench_Month 本月业绩
 func TestWorkbench_Month(t *testing.T) {
-	_, _, _, dashboard, _, workbench := setupWorkbenchEnv(t)
+	_, _, _, stats, _, workbench := setupWorkbenchEnv(t)
 	salesID := "sales_month"
 	for i := 0; i < 5; i++ {
-		dashboard.RecordOrder(context.Background(), OrderEvent{
+		stats.RecordOrder(context.Background(), OrderEvent{
 			OrderID: "o" + intToStr(i), CustomerID: "c" + intToStr(i), OwnerID: salesID,
 			Amount: 1000, ProductName: "P", OrderedAt: time.Now(),
 		})
 	}
-	dashboard.RecordOrder(context.Background(), OrderEvent{
+	stats.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o_last", CustomerID: "c_last", OwnerID: salesID,
 		Amount: 9999, ProductName: "P", OrderedAt: time.Now().AddDate(0, -1, 0),
 	})
@@ -225,15 +227,15 @@ func TestWorkbench_Month(t *testing.T) {
 
 // TestWorkbench_AIProduct AI 产能
 func TestWorkbench_AIProduct(t *testing.T) {
-	_, _, _, dashboard, _, workbench := setupWorkbenchEnv(t)
+	_, _, _, stats, _, workbench := setupWorkbenchEnv(t)
 	salesID := "sales_ai"
 	for i := 0; i < 3; i++ {
-		dashboard.RecordAIDeal(context.Background(), AIDealEvent{
+		stats.RecordAIDeal(context.Background(), AIDealEvent{
 			CustomerID: "c" + intToStr(i), OwnerID: salesID, Intent: "inquiry",
 			Replied: true, OccurredAt: time.Now(), CostTokens: 100, LatencyMs: 500,
 		})
 	}
-	dashboard.RecordOrder(context.Background(), OrderEvent{
+	stats.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o_ai", CustomerID: "c1", OwnerID: salesID,
 		Amount: 1000, IsAIHandled: true, OrderedAt: time.Now(),
 	})
@@ -255,7 +257,7 @@ func TestWorkbench_AIProduct(t *testing.T) {
 
 // TestWorkbench_Leaderboard 销冠排行
 func TestWorkbench_Leaderboard(t *testing.T) {
-	_, _, _, dashboard, _, workbench := setupWorkbenchEnv(t)
+	_, _, _, stats, _, workbench := setupWorkbenchEnv(t)
 	salesList := []struct {
 		id      string
 		revenue float64
@@ -265,8 +267,8 @@ func TestWorkbench_Leaderboard(t *testing.T) {
 		{"sales_low", 1000},
 	}
 	for _, s := range salesList {
-		dashboard.RegisterSales(context.Background(), SalesProfile{SalesID: s.id, Name: s.id})
-		dashboard.RecordOrder(context.Background(), OrderEvent{
+		stats.RegisterSales(context.Background(), SalesProfile{SalesID: s.id, Name: s.id})
+		stats.RecordOrder(context.Background(), OrderEvent{
 			OrderID: "o_" + s.id, CustomerID: "c1", OwnerID: s.id,
 			Amount: s.revenue, OrderedAt: time.Now(),
 		})
@@ -314,22 +316,22 @@ func TestWorkbench_Funnel(t *testing.T) {
 
 // TestWorkbench_Metrics 关键指标
 func TestWorkbench_Metrics(t *testing.T) {
-	_, _, _, dashboard, _, workbench := setupWorkbenchEnv(t)
+	_, _, _, stats, _, workbench := setupWorkbenchEnv(t)
 	salesID := "sales_metrics"
 	for i := 0; i < 3; i++ {
-		dashboard.RecordOrder(context.Background(), OrderEvent{
+		stats.RecordOrder(context.Background(), OrderEvent{
 			OrderID: "o" + intToStr(i), CustomerID: "c_loyal", OwnerID: salesID,
 			Amount: 100, OrderedAt: time.Now(),
 		})
 	}
-	dashboard.RecordOrder(context.Background(), OrderEvent{
+	stats.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o_new", CustomerID: "c_new", OwnerID: salesID,
 		Amount: 200, OrderedAt: time.Now(),
 	})
-	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
+	stats.RecordFollowUp(context.Background(), FollowUpEvent{
 		CustomerID: "c_loyal", OwnerID: salesID, IsAI: true, Result: "success", OccurredAt: time.Now(),
 	})
-	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
+	stats.RecordFollowUp(context.Background(), FollowUpEvent{
 		CustomerID: "c_new", OwnerID: salesID, IsAI: false, Result: "no_reply", OccurredAt: time.Now(),
 	})
 	overview := workbench.GetOverview(context.Background(), salesID)
@@ -458,9 +460,9 @@ func TestWorkbench_FullLoop(t *testing.T) {
 
 // TestWorkbench_ConcurrentGetOverview 并发获取工作台
 func TestWorkbench_ConcurrentGetOverview(t *testing.T) {
-	_, _, _, dashboard, _, workbench := setupWorkbenchEnv(t)
+	_, _, _, stats, _, workbench := setupWorkbenchEnv(t)
 	salesID := "sales_concurrent"
-	dashboard.RecordOrder(context.Background(), OrderEvent{
+	stats.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o1", CustomerID: "c1", OwnerID: salesID, Amount: 1000, OrderedAt: time.Now(),
 	})
 	const n = 20

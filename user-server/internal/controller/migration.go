@@ -29,7 +29,6 @@ type MigrationController struct {
 //
 // migrationService 由 router 注入（router 负责创建 registry 并调用
 // migration.NewMigrationService(registry, gormDB, migrations.RegisterMigrations)）。
-// 同时保留 NewUpgradeController 别名以兼容历史调用方（router 内已切换）。
 //
 // 测试场景下传入 nil 时自动构造默认服务（依赖 dbUtil.GetDB()，
 // 由 testutil.NewTestDB + db.SetTestDB 设置全局 DB）。
@@ -39,12 +38,6 @@ func NewMigrationController(migrationService *migration.MigrationService) *Migra
 		migrationService = migration.NewMigrationServiceDefault(registry, migrations.RegisterMigrations)
 	}
 	return &MigrationController{migrationService: migrationService}
-}
-
-// NewUpgradeController 兼容旧调用方的别名
-// Deprecated: 请迁移到 NewMigrationController
-func NewUpgradeController(migrationService *migration.MigrationService) *MigrationController {
-	return NewMigrationController(migrationService)
 }
 
 // GetUpgradeTask 获取迁移任务详情（保留方法名以兼容 router）

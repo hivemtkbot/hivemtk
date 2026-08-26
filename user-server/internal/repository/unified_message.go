@@ -20,22 +20,20 @@ type UnifiedMessageRepository interface {
 	Delete(ctx context.Context, id uint) error
 	GetMessages(ctx context.Context, platform string, page, pageSize int) ([]*model.UnifiedMessage, int, error)
 	GetMessageByID(ctx context.Context, id uint) (*model.UnifiedMessage, error)
-	GetReplies(ctx context.Context, messageID string) ([]*model.UnifiedReply, error)
 }
 
 type unifiedMessageRepo struct {
-	db        *gorm.DB
-	replyRepo UnifiedReplyRepository
+	db *gorm.DB
 }
 
 // NewUnifiedMessageRepository 创建统一消息仓库实例
 func NewUnifiedMessageRepository() UnifiedMessageRepository {
-	return &unifiedMessageRepo{db: _db.GetDB(), replyRepo: NewUnifiedReplyRepository()}
+	return &unifiedMessageRepo{db: _db.GetDB()}
 }
 
 // NewUnifiedMessageRepositoryWithDB 创建指定数据库连接的 UnifiedMessageRepository 实例（用于测试）
 func NewUnifiedMessageRepositoryWithDB(db *gorm.DB) UnifiedMessageRepository {
-	return &unifiedMessageRepo{db: db, replyRepo: NewUnifiedReplyRepositoryWithDB(db)}
+	return &unifiedMessageRepo{db: db}
 }
 
 func (r *unifiedMessageRepo) Create(ctx context.Context, msg *model.UnifiedMessage) error {
@@ -109,11 +107,6 @@ func (r *unifiedMessageRepo) GetMessages(ctx context.Context, platform string, p
 // GetMessageByID 按主键查询消息详情（映射到 GetByID）
 func (r *unifiedMessageRepo) GetMessageByID(ctx context.Context, id uint) (*model.UnifiedMessage, error) {
 	return r.GetByID(ctx, id)
-}
-
-// GetReplies 按消息 ID 查询其回复列表（委托 reply 仓库）
-func (r *unifiedMessageRepo) GetReplies(ctx context.Context, messageID string) ([]*model.UnifiedReply, error) {
-	return r.replyRepo.GetByMessageID(ctx, messageID)
 }
 
 // UnifiedReplyRepository 统一回复仓库接口

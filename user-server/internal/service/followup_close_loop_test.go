@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+
 )
 
 
@@ -12,8 +13,8 @@ import (
 func TestFollowUp_CompleteWithResult_StageAdvance(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
-	dashboard := NewSalesDashboard(journey)
-	followup.SetDashboard(context.Background(), dashboard)
+	stats := setupE2EStats(t)
+	followup.SetStats(context.Background(), stats)
 
 	custID := "cust_close_001"
 	ownerID := "sales_001"
@@ -138,8 +139,8 @@ func TestFollowUp_CompleteWithResult_NoResponse(t *testing.T) {
 func TestFollowUp_CompleteWithResult_DashboardRealtime(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
-	dashboard := NewSalesDashboard(journey)
-	followup.SetDashboard(context.Background(), dashboard)
+	stats := setupE2EStats(t)
+	followup.SetStats(context.Background(), stats)
 
 	ownerID := "sales_006"
 	cust1 := "cust_dash_001"
@@ -159,7 +160,7 @@ func TestFollowUp_CompleteWithResult_DashboardRealtime(t *testing.T) {
 		t.Fatalf("完成跟进2失败: %v", err)
 	}
 
-	perf := dashboard.GetSalesPerformance(context.Background(), ownerID, time.Time{})
+	perf := stats.GetSalesPerformance(context.Background(), ownerID, time.Time{})
 	if perf == nil {
 		t.Fatal("应能查询到该销售的业绩")
 	}
@@ -181,9 +182,9 @@ func TestFollowUp_CompleteWithResult_DashboardNil(t *testing.T) {
 		Title: "测试",
 	})
 	if err := followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultInterested, "test"); err != nil {
-		t.Errorf("nil dashboard 不应 panic: %v", err)
+		t.Errorf("nil stats 不应 panic: %v", err)
 	}
-	t.Logf("✅ nil dashboard 安全")
+	t.Logf("✅ nil stats 安全")
 }
 
 // TestFollowUp_CompleteWithResult_NotFound 不存在的跟进
@@ -254,8 +255,8 @@ func TestFollowUp_CompleteWithResult_NoteRecorded(t *testing.T) {
 func TestFollowUp_CompleteWithResult_MultipleCustomers(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
-	dashboard := NewSalesDashboard(journey)
-	followup.SetDashboard(context.Background(), dashboard)
+	stats := setupE2EStats(t)
+	followup.SetStats(context.Background(), stats)
 
 	ownerID := "sales_multi"
 	for i := 0; i < 10; i++ {

@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"hivemtk-user/internal/cache"
 	"hivemtk-user/internal/pkg/utils/pagination"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
@@ -20,14 +19,6 @@ type MessageHubController struct {
 
 // NewMessageHubController 创建消息中台控制器
 func NewMessageHubController(svc *service.MessageHubService) *MessageHubController {
-	return &MessageHubController{
-		svc: svc,
-	}
-}
-
-// NewMessageHubControllerWithCache 带缓存创建
-// Deprecated: 请使用 NewMessageHubController，router 层负责组装带缓存的 service
-func NewMessageHubControllerWithCache(svc *service.MessageHubService, _ cache.Cache) *MessageHubController {
 	return &MessageHubController{
 		svc: svc,
 	}

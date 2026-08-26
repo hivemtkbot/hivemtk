@@ -28,11 +28,6 @@ func (s *UnifiedMessageService) GetMessages(ctx context.Context, platform string
 	return messages, int(total), nil
 }
 
-// GetReplies 获取消息回复列表（自动回复决策已移除，统一消息视图不再提供回复数据）
-func (s *UnifiedMessageService) GetReplies(ctx context.Context, messageID string) ([]*model.UnifiedReply, error) {
-	return []*model.UnifiedReply{}, nil
-}
-
 // GetMessageByID 获取消息详情
 func (s *UnifiedMessageService) GetMessageByID(ctx context.Context, id uint) (*model.UnifiedMessage, error) {
 	return s.messageRepo.GetByID(ctx, id)

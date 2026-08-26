@@ -108,3 +108,66 @@ func TestJourneyP5_WriteDualWrite(t *testing.T) {
 		t.Errorf("total_touches in redis = %d, want 1", stored2.TotalTouches)
 	}
 }
+
+// ===== H4：JourneySleepCron =====
+
+// TestJourneySleepCron_RunOnce 调度执行应复用 AutoDetectSleeping：超阈值客户迁移至 sleeping
+func TestJourneySleepCron_RunOnce(t *testing.T) {
+	svc, _, l2 := newP5JourneyPair()
+	if _, err := svc.Transition(context.Background(), "cust_sleep_a", StageWon, "ai", "ai", "init", nil); err != nil {
+		t.Fatalf("transition: %v", err)
+	}
+	// 回拨最后互动时间 200 天（超过 won 阶段 90 天沉睡阈值）
+	svc.mu.Lock()
+	svc.states["cust_sleep_a"].LastTouchAt = time.Now().Add(-200 * 24 * time.Hour)
+	svc.mu.Unlock()
+
+	c := NewJourneySleepCron(svc)
+	detected := c.runOnce(context.Background())
+
+	found := false
+	for _, cid := range detected {
+		if cid == "cust_sleep_a" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("cust_sleep_a should be detected, got %v", detected)
+	}
+	// P-5 权威源（L2）应同步更新为 sleeping
+	var stored JourneyState
+	if err := l2.GetJSON(context.Background(), journeyStateKey("cust_sleep_a"), &stored); err != nil {
+		t.Fatalf("read redis: %v", err)
+	}
+	if stored.CurrentStage != StageSleeping {
+		t.Errorf("redis stage = %s, want %s", stored.CurrentStage, StageSleeping)
+	}
+}
+
+// TestJourneySleepCron_RunOnce_PanicRecovered 执行 panic 不应外溢崩溃调度协程
+func TestJourneySleepCron_RunOnce_PanicRecovered(t *testing.T) {
+	c := NewJourneySleepCron(nil)
+	c.svc = nil // 强制 panic 路径
+	detected := c.runOnce(context.Background())
+	if detected != nil {
+		t.Errorf("expected nil after recovered panic, got %v", detected)
+	}
+}
+
+// TestJourneySleepCron_StartStopIdempotent 重复 Start/Stop 应安全（不重复起协程、不死锁）
+func TestJourneySleepCron_StartStopIdempotent(t *testing.T) {
+	c := NewJourneySleepCron(NewCustomerJourneyServiceWithCache(cache.NewMemoryCache()))
+	done := make(chan struct{})
+	go func() {
+		c.Start(context.Background())
+		c.Start(context.Background()) // 幂等
+		c.Stop(context.Background())
+		c.Stop(context.Background()) // 幂等
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Start/Stop deadlocked")
+	}
+}

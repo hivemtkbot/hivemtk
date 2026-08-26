@@ -115,7 +115,7 @@ func setupBackupRoutes(auth *gin.RouterGroup) {
 
 // setupMigrationRoutes 数据库迁移管理路由
 // 路径由原 /upgrade/* 改为 /migration/*（M3 重命名以避免与"OTA 升级"概念混淆）。
-// controller 结构体已重命名为 MigrationController（兼容别名 NewUpgradeController）。
+// controller 结构体已重命名为 MigrationController。
 func setupMigrationRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	registry := migration.NewMigrationRegistry()
 	migrationSvc := migration.NewMigrationService(registry, gormDB, migrations.RegisterMigrations)

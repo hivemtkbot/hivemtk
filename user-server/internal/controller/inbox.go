@@ -244,9 +244,14 @@ func (c *InboxController) AutoAssign(ctx *gin.Context) {
 	}
 	var h any
 	var err error
-	if req.Mode == "round_robin" {
+	// M5：策略不再静默忽略——round_robin 走轮转；manual 与非法策略名返回 400 明确报错
+	switch mode, modeErr := service.ResolveAutoAssignMode(req.Mode); {
+	case modeErr != nil:
+		response.Error(ctx, http.StatusBadRequest, modeErr.Error())
+		return
+	case mode == service.StrategyRoundRobin:
 		h, err = c.svc.RoundRobinAssign(ctx.Request.Context(), req.ConversationID, req.Candidates, operatorID)
-	} else {
+	default:
 		h, err = c.svc.AutoAssign(ctx.Request.Context(), req.ConversationID, req.Candidates, operatorID)
 	}
 	if err != nil {

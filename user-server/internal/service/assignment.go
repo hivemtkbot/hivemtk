@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"hivemtk-user/internal/model"
@@ -23,6 +24,42 @@ const (
 	StrategyOwnerRoute AssignmentStrategy = "owner_route"
 	StrategyManual     AssignmentStrategy = "manual"
 )
+
+// M5 分配策略错误：不再静默忽略非法/不支持的策略
+var (
+	// ErrManualAssignNotAllowed manual 策略不走自动分配——明确指引调用方使用指定坐席接口
+	ErrManualAssignNotAllowed = errors.New("手动分配请用指定坐席接口（action=assign + to_user_id）")
+	// ErrUnknownAssignStrategy 非法策略名
+	ErrUnknownAssignStrategy = errors.New("不支持的分配策略")
+)
+
+// SupportedAutoAssignStrategies 支持的自动分配策略集合（含空串=默认 least_busy）
+var SupportedAutoAssignStrategies = map[AssignmentStrategy]struct{}{
+	"":                 {},
+	StrategyLeastBusy:  {},
+	StrategySkillMatch: {},
+	StrategyOwnerRoute: {},
+	StrategyRoundRobin: {},
+}
+
+// ResolveAutoAssignMode 校验自动分配模式（M5）：
+//   - round_robin → 返回 StrategyRoundRobin
+//   - ""/least_busy/skill_match/owner_route → 返回 StrategyLeastBusy（默认自动算法）
+//   - manual → 返回 ErrManualAssignNotAllowed（调用方应转 HTTP 400）
+//   - 其他 → 返回 wrapped ErrUnknownAssignStrategy（调用方应转 HTTP 400）
+func ResolveAutoAssignMode(mode string) (AssignmentStrategy, error) {
+	s := AssignmentStrategy(strings.TrimSpace(mode))
+	if s == StrategyManual {
+		return "", ErrManualAssignNotAllowed
+	}
+	if _, ok := SupportedAutoAssignStrategies[s]; !ok {
+		return "", fmt.Errorf("%w: %q（支持 auto/least_busy/skill_match/owner_route/round_robin）", ErrUnknownAssignStrategy, mode)
+	}
+	if s == StrategyRoundRobin {
+		return s, nil
+	}
+	return StrategyLeastBusy, nil
+}
 
 // AssignmentService 客服会话自动分配服务（USR-WB-03）
 type AssignmentService struct {
@@ -134,6 +171,52 @@ func (s *AssignmentService) AssignWithOwner(ctx context.Context, sess *model.Cus
 		Strategy:  string(strategy),
 		Reason:    fmt.Sprintf("%s: %d/%d", reason, best.ActiveSess, best.Capacity),
 		Score:     float64(best.Capacity-best.ActiveSess) / float64(best.Capacity+1),
+	}, nil
+}
+
+// AssignWithStrategy 按显式策略分配坐席（M5：策略不再静默忽略）
+//
+//   - round_robin：按 LastAssign 最早优先轮转
+//   - least_busy/skill_match/owner_route/""：走默认算法（owner 定向 → 技能匹配 → 最闲优先）
+//   - manual：返回 ErrManualAssignNotAllowed
+//   - 其他非法策略名：返回 wrapped ErrUnknownAssignStrategy（调用方转 400）
+func (s *AssignmentService) AssignWithStrategy(ctx context.Context, sess *model.CustomerSession, candidates []AgentInfo, strategy string) (*AssignmentDecision, error) {
+	resolved, err := ResolveAutoAssignMode(strategy)
+	if err != nil {
+		return nil, err
+	}
+	if resolved == StrategyRoundRobin {
+		return s.assignRoundRobin(sess, candidates)
+	}
+	return s.Assign(ctx, sess, candidates)
+}
+
+// assignRoundRobin 轮转分配：在可用坐席中按 LastAssign 时间最早者优先（稳定排序保证同刻 FIFO）。
+func (s *AssignmentService) assignRoundRobin(sess *model.CustomerSession, candidates []AgentInfo) (*AssignmentDecision, error) {
+	available := make([]AgentInfo, 0, len(candidates))
+	for _, a := range candidates {
+		if !a.Online {
+			continue
+		}
+		if a.Capacity > 0 && a.ActiveSess >= a.Capacity {
+			continue
+		}
+		available = append(available, a)
+	}
+	if len(available) == 0 {
+		return nil, errors.New("所有坐席均已满载或离线")
+	}
+
+	sort.SliceStable(available, func(i, j int) bool {
+		return available[i].LastAssign.Before(available[j].LastAssign)
+	})
+	best := available[0]
+	return &AssignmentDecision{
+		AgentID:   best.AgentID,
+		AgentName: best.AgentName,
+		Strategy:  string(StrategyRoundRobin),
+		Reason:    fmt.Sprintf("round_robin: last_assign=%s", best.LastAssign.Format(time.RFC3339)),
+		Score:     1,
 	}, nil
 }
 

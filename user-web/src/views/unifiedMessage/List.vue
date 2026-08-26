@@ -212,39 +212,6 @@
             <div class="content-body">{{ currentMessage.content }}</div>
           </div>
         </el-card>
-
-        <el-card class="replies-card" style="margin-top: 20px">
-          <template #header>
-            <div class="replies-header">
-              <span>回复列表</span>
-              <span class="replies-count">共 {{ repliesPagination.total }} 条</span>
-            </div>
-          </template>
-          <el-timeline v-if="replyList.length > 0">
-            <el-timeline-item
-              v-for="reply in replyList"
-              :key="reply.id"
-              :timestamp="reply.created_at"
-              type="primary"
-            >
-              <div class="reply-item">
-                <div class="reply-sender">{{ reply.sender }}</div>
-                <div class="reply-content">{{ reply.content }}</div>
-              </div>
-            </el-timeline-item>
-          </el-timeline>
-          <el-empty v-else description="暂无回复" />
-          <div class="pagination-container" v-if="repliesPagination.total > 0">
-            <el-pagination
-              :current-page="repliesPagination.page"
-              :page-size="repliesPagination.pageSize"
-              :page-sizes="[5, 10, 20]"
-              layout="total, prev, pager, next"
-              :total="repliesPagination.total"
-              @current-change="handleRepliesPageChange"
-            />
-          </div>
-        </el-card>
       </div>
     </el-dialog>
   </div>
@@ -263,7 +230,6 @@ import { CHANNEL_OPTIONS, getChannelLabel, getChannelTagType } from '@/constants
 const loading = ref(false)
 const detailLoading = ref(false)
 const messageList = ref([])
-const replyList = ref([])
 const currentMessage = ref({})
 const detailDialogVisible = ref(false)
 
@@ -285,13 +251,6 @@ const dateRange = ref([])
 
 // 分页
 const pagination = reactive({
-  page: 1,
-  pageSize: 10,
-  total: 0
-})
-
-// 回复分页
-const repliesPagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
@@ -469,9 +428,7 @@ const formatTime = (val) => {
 const handleViewDetail = async (row) => {
   currentMessage.value = row
   detailDialogVisible.value = true
-  repliesPagination.page = 1
   await fetchMessageDetail(row.id)
-  await fetchReplies(row.id)
 }
 
 const fetchMessageDetail = async (id) => {
@@ -484,24 +441,6 @@ const fetchMessageDetail = async (id) => {
   } finally {
     detailLoading.value = false
   }
-}
-
-const fetchReplies = async (messageId) => {
-  try {
-    const res = await unifiedMessageApi.getReplies(messageId, {
-      page: repliesPagination.page,
-      page_size: repliesPagination.pageSize
-    })
-    replyList.value = res.list || []
-    repliesPagination.total = res.total || 0
-  } catch (error) {
-    console.error(error)
-  }
-}
-
-const handleRepliesPageChange = (val) => {
-  repliesPagination.page = val
-  fetchReplies(currentMessage.value.id)
 }
 </script>
 
@@ -626,32 +565,6 @@ const handleRepliesPageChange = (val) => {
         line-height: 1.6;
         color: #303133;
         white-space: pre-wrap;
-      }
-    }
-  }
-
-  .replies-card {
-    .replies-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-
-      .replies-count {
-        font-size: 14px;
-        color: #909399;
-      }
-    }
-
-    .reply-item {
-      .reply-sender {
-        font-weight: bold;
-        color: #303133;
-        margin-bottom: 5px;
-      }
-
-      .reply-content {
-        color: #606266;
-        line-height: 1.5;
       }
     }
   }

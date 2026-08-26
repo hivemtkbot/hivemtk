@@ -134,7 +134,6 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 func setupMessageRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	unifiedMsgCtrl := controller.NewUnifiedMessageController()
 	auth.GET("/messages", unifiedMsgCtrl.GetMessages)
-	auth.GET("/messages/:id/replies", unifiedMsgCtrl.GetReplies)
 	auth.GET("/messages/:id", unifiedMsgCtrl.GetMessageByID)
 
 	messageHubCtrl := controller.NewMessageHubController(service.NewMessageHubService())

@@ -105,8 +105,7 @@ const avatarStyle = (msg) => ({ background: avatarBg(msg) })
 const onCardAction = (btn) => {
   // 占位：当前卡片按钮以 URL 跳转为主，自定义 action 可在此上报埋点或触发业务
   if (btn && btn.action) {
-    // eslint-disable-next-line no-console
-    console.log('[ChatMessages] card action:', btn.action)
+    // 占位：自定义 action 类型暂无业务处理，预留扩展点
   }
 }
 

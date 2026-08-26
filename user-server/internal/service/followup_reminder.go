@@ -56,7 +56,7 @@ type FollowUpService struct {
 	mu        sync.RWMutex
 	reminders map[string]*Reminder 
 	journey   *CustomerJourneyService
-	dashboard *SalesDashboard
+	stats     *SalesEventStatsService
 }
 
 // NewFollowUpService 创建跟进服务
@@ -67,10 +67,10 @@ func NewFollowUpService(journey *CustomerJourneyService) *FollowUpService {
 	}
 }
 
-// SetDashboard 注入销售仪表盘（可选）
-// 商业产品级：跟进完成后自动记录到仪表盘，保证数据实时
-func (s *FollowUpService) SetDashboard(ctx context.Context, d *SalesDashboard) {
-	s.dashboard = d
+// SetStats 注入销售事件统计服务（可选，H2：替代原 SalesDashboard）
+// 商业产品级：跟进完成后自动记录事件，保证业绩数据实时
+func (s *FollowUpService) SetStats(ctx context.Context, svc *SalesEventStatsService) {
+	s.stats = svc
 }
 
 // Schedule 安排跟进
@@ -133,7 +133,7 @@ func (s *FollowUpService) Complete(ctx context.Context, reminderID string) error
 
 // FollowUpResult 跟进结果
 // 商业产品级业务流：销售点击"完成跟进"时，必须记录跟进结果
-// 才能驱动客户旅程自动推进 + 销售仪表盘实时更新
+// 才能驱动客户旅程自动推进 + 销售事件实时记录
 type FollowUpResult string
 
 const (
@@ -165,7 +165,7 @@ var FollowUpResultInfo = map[FollowUpResult]struct {
 // 商业产品级业务流：销售点"完成跟进"+ 选择结果 → 4 件事自动发生
 //  1. 跟进状态更新为 done
 //  2. 客户旅程自动推进到目标阶段
-//  3. 销售仪表盘实时记录这次跟进（用于销售排行、漏斗、跟进率）
+//  3. 销售事件流实时记录这次跟进（用于销售排行、漏斗、跟进率）
 //  4. 客户档案更新（最后跟进时间、跟进次数）
 //
 // 返回更新后的跟进详情
@@ -196,8 +196,8 @@ func (s *FollowUpService) CompleteWithResult(ctx context.Context, reminderID str
 		}
 	}
 
-	if s.dashboard != nil {
-		s.dashboard.RecordFollowUp(ctx, FollowUpEvent{
+	if s.stats != nil {
+		s.stats.RecordFollowUp(ctx, FollowUpEvent{
 			CustomerID: customerID,
 			OwnerID:    ownerID,
 			Result:     string(result),

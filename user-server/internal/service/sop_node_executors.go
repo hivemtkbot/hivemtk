@@ -578,6 +578,9 @@ func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Node
 			WaitEvent:   waitEvent,
 			WaitUntil:   waitUntil,
 			Status:      "pending",
+			// M4 列下沉：同步落实体列（payload 保留旧字段兼容读取历史数据）
+			ExpiresAt: &waitUntil,
+			MaxWaitAt: &maxWaitAt,
 			Payload: model.JSONMap{
 				"trace_id":    ec.TraceID,
 				"customer_id": ec.CustomerID,

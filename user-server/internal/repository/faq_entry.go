@@ -120,32 +120,6 @@ func (r *FAQRepository) listEnabledForAgent(ctx context.Context, agentID uint, l
 	return entries, nil
 }
 
-// MatchByIDs 按 ID 集合匹配 (: 智能体绑定 FAQ 范围)
-//
-// DEPRECATED: 此方法不再用 ID 范围过滤, 改为按 agentID 过滤.
-//
-//	保留方法签名以兼容旧调用, 内部走 MatchByKeywordForAgent 路径.
-//
-// agent 绑定了 FAQ 时, 仅在绑定的 IDs 内匹配; 绑定为空 = 全局共享
-//
-// Deprecated: 改造, agent FAQ 范围改由 agent_id 字段实现.
-func (r *FAQRepository) MatchByIDs(ctx context.Context, msg string, ids []string, topK int) ([]model.FAQEntry, error) {
-	if msg == "" || len(ids) == 0 {
-		return nil, nil
-	}
-	// 走 ID 集合匹配, 不再使用 agentID 隔离 (与 兼容)
-	var entries []model.FAQEntry
-	err := r.db.WithContext(ctx).
-		Where("enabled = ? AND id IN ?", true, ids).
-		Order("hit_count DESC, confidence DESC, id ASC").
-		Limit(5000).
-		Find(&entries).Error
-	if err != nil {
-		return nil, err
-	}
-	return r.scoreAndRank(ctx, entries, msg, topK)
-}
-
 // ListByKB 按知识库 ID 列出 (: 查某 KB 下挂载的 FAQ 条目)
 //
 // 通过 JOIN agent_kb_bindings + knowledge_bases 确定 (KBID, KBType=faq) 关联的 FAQ
@@ -226,7 +200,7 @@ func (r *FAQRepository) ListByAgent(ctx context.Context, agentID uint, limit int
 	return entries, err
 }
 
-// scoreAndRank 内部打分+排序 (MatchByKeyword / MatchByIDs 共用)
+// scoreAndRank 内部打分+排序 (MatchByKeyword 共用)
 func (r *FAQRepository) scoreAndRank(ctx context.Context, all []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error) {
 	msgTokens := tokenize(msg)
 	if len(msgTokens) == 0 {

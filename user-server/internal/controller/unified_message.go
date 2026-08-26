@@ -67,24 +67,6 @@ func (c *UnifiedMessageController) GetMessageByID(ctx *gin.Context) {
 	response.Success(ctx, msg, "获取成功")
 }
 
-// GetReplies 获取消息回复列表
-func (c *UnifiedMessageController) GetReplies(ctx *gin.Context) {
-
-	messageID := ctx.Param("id")
-	if messageID == "" {
-		response.Error(ctx, http.StatusBadRequest, "缺少消息ID")
-		return
-	}
-
-	replies, err := c.messageService.GetReplies(ctx.Request.Context(), messageID)
-	if err != nil {
-		response.ErrorFromDB(ctx, err, err.Error())
-		return
-	}
-
-	response.Success(ctx, replies, "获取成功")
-}
-
 // PlatformAccountController 平台账号控制器
 type PlatformAccountController struct {
 	accountService *service.PlatformAccountService

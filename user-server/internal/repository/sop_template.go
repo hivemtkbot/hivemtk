@@ -188,29 +188,6 @@ func (r *SOPTemplateRepository) IncrementHitCount(ctx context.Context, id uint) 
 		Error
 }
 
-// MatchByIDs 按 ID 集合 + 意图 + 阶段匹配 (: 智能体绑定 SOP 范围)
-//
-// 当 agent 绑定了 SOP template IDs 时, 仅在绑定 ID 集合内匹配;
-//
-// 绑定为空 = 走原 MatchByIntentStage 全局匹配
-//
-// Deprecated: 改造, agent SOP 范围改由 agent_id 字段实现.
-func (r *SOPTemplateRepository) MatchByIDs(ctx context.Context, intent, stage string, ids []string) ([]model.SOPTemplate, error) {
-	if intent == "" || len(ids) == 0 {
-		return nil, nil
-	}
-	var tpls []model.SOPTemplate
-	q := r.db.WithContext(ctx).
-		Where("intent = ? AND id IN ? AND enabled = ?", intent, ids, true)
-	if stage != "" {
-		q = q.Where("stage = ?", stage)
-	}
-	err := q.Order("priority DESC, confidence DESC, id ASC").
-		Limit(10).
-		Find(&tpls).Error
-	return tpls, err
-}
-
 // ListWithFilter 分页+过滤 (前端 SOP 模板管理页面使用)
 //
 // 新增 AgentID 过滤 (nil=不过滤, &0=仅共享, &X=仅该智能体)

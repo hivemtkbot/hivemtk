@@ -155,10 +155,6 @@ func (m *mockFAQRepoForDecay) MatchByKeyword(ctx context.Context, msg string, to
 	return nil, nil
 }
 
-func (m *mockFAQRepoForDecay) MatchByIDs(ctx context.Context, msg string, ids []string, topK int) ([]model.FAQEntry, error) {
-	return nil, nil
-}
-
 // MatchByAgent Task 15 mock: 默认按 agentID 过滤并返回预置 candidates
 func (m *mockFAQRepoForDecay) MatchByAgent(ctx context.Context, agentID uint, msg string, topK int) ([]model.FAQEntry, error) {
 	m.agentIDSeen = agentID

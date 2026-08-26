@@ -330,9 +330,44 @@ func updateMissingCounter(entry *LogEntry) {
 	}
 }
 
-// GetTokenSourceStats 获取进程内 token_source 统计（供监控 API 查询）
+// GetTokenSourceStats 获取 token_source 统计（供监控 API 查询）
+//
+// M12 修复：内存计数器为快速路径；进程重启后计数器归零，
+// 此时自动降级回源 llm_routing_logs 表聚合（排除 source=cache，与内存口径一致）。
+// DB 不可用时返回内存值（可能为 0）。
 func GetTokenSourceStats() (total, missing int64) {
-	return atomic.LoadInt64(&totalCounter), atomic.LoadInt64(&missingCounter)
+	total = atomic.LoadInt64(&totalCounter)
+	missing = atomic.LoadInt64(&missingCounter)
+	if total > 0 {
+		return total, missing
+	}
+	if dbTotal, dbMissing := queryTokenSourceStatsFromDB(); dbTotal > 0 {
+		return dbTotal, dbMissing
+	}
+	return total, missing
+}
+
+// queryTokenSourceStatsFromDB 从 llm_routing_logs 聚合 token_source 统计（M12 降级路径）
+func queryTokenSourceStatsFromDB() (total, missing int64) {
+	d := getAuditDB()
+	if d == nil {
+		return 0, 0
+	}
+	type row struct {
+		Total   int64
+		Missing int64
+	}
+	var r row
+	err := d.WithContext(context.Background()).
+		Table("llm_routing_logs").
+		Select("COUNT(*) AS total, COALESCE(SUM(CASE WHEN token_source = ? THEN 1 ELSE 0 END), 0) AS missing", TokenSourceMissing).
+		Where("source <> ?", SourceCache).
+		Scan(&r).Error
+	if err != nil {
+		logger.Warnf("[LLM] GetTokenSourceStats DB fallback failed: %v", err)
+		return 0, 0
+	}
+	return r.Total, r.Missing
 }
 
 // ResetTokenSourceStats 重置计数器（仅供测试使用）

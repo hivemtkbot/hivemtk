@@ -111,7 +111,6 @@ func (s *ObjectionHandlerService) classifyWithConfidence(ctx context.Context, te
 type HandleRequest struct {
 	Text     string `json:"text"`
 	Category string `json:"category"`
-	UseLLM   bool   `json:"use_llm"`
 }
 
 // HandleResponse 异议处理响应

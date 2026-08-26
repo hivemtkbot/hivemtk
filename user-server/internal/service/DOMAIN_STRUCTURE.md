@@ -27,7 +27,7 @@
 | sales_engine_agent.go | 多智能体上下文 |
 | sales_playbook.go | 销冠话术库 + 异议处理 |
 | sales_action_trigger.go | 销售动作触发器 |
-| sales_dashboard.go | 销售看板 |
+| sales_event_stats.go | 销售事件统计（DB 权威，H2 替代内存版 sales_dashboard） |
 | sales_workbench.go | 销售工作台 |
 | sales_persona_service.go | 销售人设 |
 | intent_recognition.go | 意图识别（规则+LLM） |

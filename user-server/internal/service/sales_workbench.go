@@ -77,7 +77,7 @@ type WorkbenchOverview struct {
 type SalesWorkbenchService struct {
 	mu sync.RWMutex
 
-	dashboard *SalesDashboard
+	stats     *SalesEventStatsService
 	journey   *CustomerJourneyService
 	followup  *FollowUpService
 	draft     *OrderDraftService
@@ -89,11 +89,11 @@ func NewSalesWorkbenchService() *SalesWorkbenchService {
 	return &SalesWorkbenchService{}
 }
 
-// SetDashboard 注入销售仪表盘
-func (s *SalesWorkbenchService) SetDashboard(ctx context.Context, d *SalesDashboard) {
+// SetStats 注入销售事件统计服务（H2：替代原 SalesDashboard）
+func (s *SalesWorkbenchService) SetStats(ctx context.Context, svc *SalesEventStatsService) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.dashboard = d
+	s.stats = svc
 }
 
 // SetJourney 注入客户旅程
@@ -128,7 +128,7 @@ func (s *SalesWorkbenchService) SetTagger(ctx context.Context, t *AITagger) {
 // 商业产品级：一次调用聚合 7 大模块，前端无需多次请求
 func (s *SalesWorkbenchService) GetOverview(ctx context.Context, salesID string) *WorkbenchOverview {
 	s.mu.RLock()
-	dash := s.dashboard
+	stats := s.stats
 	journey := s.journey
 	followup := s.followup
 	draft := s.draft
@@ -145,29 +145,29 @@ func (s *SalesWorkbenchService) GetOverview(ctx context.Context, salesID string)
 		Todos:       []*WorkbenchTodo{},
 	}
 
-	overview.Todos = s.aggregateTodos(ctx, salesID, dash, followup, draft)
+	overview.Todos = s.aggregateTodos(ctx, salesID, followup, draft)
 
-	overview.Today = s.aggregateToday(ctx, salesID, dash, todayStart)
+	overview.Today = s.aggregateToday(ctx, salesID, stats, todayStart)
 
-	overview.Month = s.aggregateMonth(ctx, salesID, dash, monthStart)
+	overview.Month = s.aggregateMonth(ctx, salesID, stats, monthStart)
 
-	if dash != nil {
-		overview.AIProduct = dash.GetAIProductivity(context.Background(), monthStart)
+	if stats != nil {
+		overview.AIProduct = stats.GetAIProductivity(context.Background(), monthStart)
 	}
 
-	if dash != nil {
-		overview.Funnel = dash.FunnelByJourney(context.Background())
+	if journey != nil {
+		overview.Funnel = journey.Funnel(context.Background())
 	}
 
-	if dash != nil {
-		overview.Leaderboard = dash.GetTeamRanking(context.Background(), monthStart, 5)
+	if stats != nil {
+		overview.Leaderboard = stats.GetTeamRanking(context.Background(), monthStart, 5)
 		overview.MyRank = s.findMyRank(ctx, overview.Leaderboard, salesID)
 	}
 
-	overview.Metrics = s.aggregateMetrics(ctx, salesID, dash, journey, tagger, monthStart)
+	overview.Metrics = s.aggregateMetrics(ctx, salesID, stats, journey, tagger, monthStart)
 
-	if dash != nil {
-		perf := dash.GetSalesPerformance(context.Background(), salesID, time.Time{})
+	if stats != nil {
+		perf := stats.GetSalesPerformance(context.Background(), salesID, time.Time{})
 		if perf != nil {
 			overview.Name = perf.Name
 			overview.Team = perf.Team
@@ -178,7 +178,7 @@ func (s *SalesWorkbenchService) GetOverview(ctx context.Context, salesID string)
 }
 
 // aggregateTodos 聚合待办（按优先级排序）
-func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID string, dash *SalesDashboard, followup *FollowUpService, draft *OrderDraftService) []*WorkbenchTodo {
+func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID string, followup *FollowUpService, draft *OrderDraftService) []*WorkbenchTodo {
 	todos := make([]*WorkbenchTodo, 0)
 	now := time.Now()
 
@@ -252,81 +252,44 @@ func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID stri
 	return todos
 }
 
-// aggregateToday 聚合今日业绩
-func (s *SalesWorkbenchService) aggregateToday(ctx context.Context, salesID string, dash *SalesDashboard, todayStart time.Time) *WorkbenchToday {
-	now := time.Now()
+// aggregateToday 聚合今日业绩（H2：改为销售事件 DB 统计）
+func (s *SalesWorkbenchService) aggregateToday(ctx context.Context, salesID string, stats *SalesEventStatsService, todayStart time.Time) *WorkbenchToday {
 	day := &WorkbenchToday{Date: todayStart}
-	if dash == nil {
+	if stats == nil {
 		return day
 	}
-	dash.mu.RLock()
-	defer dash.mu.RUnlock()
-	for _, o := range dash.orders {
-		if o.OwnerID != salesID {
-			continue
-		}
-		if o.OrderedAt.Before(todayStart) {
-			continue
-		}
+	bg := context.Background()
+	for _, o := range stats.Orders(bg, salesID, todayStart) {
 		day.NewOrders++
 		day.NewRevenue += o.Amount
 	}
-	for _, f := range dash.followups {
-		if f.OwnerID != salesID {
-			continue
-		}
-		if f.OccurredAt.Before(todayStart) {
-			continue
-		}
+	for _, f := range stats.FollowUps(bg, salesID, todayStart) {
 		day.FollowUps++
 		if f.Result == "converted" {
 			day.Conversions++
 		}
 	}
-	for _, ev := range dash.aiDeals {
-		if ev.OwnerID != salesID {
-			continue
-		}
-		if ev.OccurredAt.Before(todayStart) {
-			continue
-		}
-		day.AIDeals++
-	}
+	day.AIDeals = len(stats.AIDeals(bg, salesID, todayStart))
 	if day.FollowUps > 0 {
 		day.ConversionRate = float64(day.Conversions) / float64(day.FollowUps) * 100
 	}
-	_ = now
 	return day
 }
 
-// aggregateMonth 聚合本月业绩
-func (s *SalesWorkbenchService) aggregateMonth(ctx context.Context, salesID string, dash *SalesDashboard, monthStart time.Time) *WorkbenchMonth {
-	now := time.Now()
+// aggregateMonth 聚合本月业绩（H2：改为销售事件 DB 统计）
+func (s *SalesWorkbenchService) aggregateMonth(ctx context.Context, salesID string, stats *SalesEventStatsService, monthStart time.Time) *WorkbenchMonth {
 	month := &WorkbenchMonth{
 		Month: monthStart.Format("2006-01"),
 	}
-	if dash == nil {
+	if stats == nil {
 		return month
 	}
-	dash.mu.RLock()
-	defer dash.mu.RUnlock()
-	for _, o := range dash.orders {
-		if o.OwnerID != salesID {
-			continue
-		}
-		if o.OrderedAt.Before(monthStart) {
-			continue
-		}
+	bg := context.Background()
+	for _, o := range stats.Orders(bg, salesID, monthStart) {
 		month.TotalOrders++
 		month.TotalRevenue += o.Amount
 	}
-	for _, f := range dash.followups {
-		if f.OwnerID != salesID {
-			continue
-		}
-		if f.OccurredAt.Before(monthStart) {
-			continue
-		}
+	for _, f := range stats.FollowUps(bg, salesID, monthStart) {
 		month.FollowUps++
 		if f.Result == "converted" {
 			month.Conversions++
@@ -338,32 +301,24 @@ func (s *SalesWorkbenchService) aggregateMonth(ctx context.Context, salesID stri
 	if month.FollowUps > 0 {
 		month.ConversionRate = float64(month.Conversions) / float64(month.FollowUps) * 100
 	}
-	_ = now
 	return month
 }
 
-// aggregateMetrics 关键指标
-func (s *SalesWorkbenchService) aggregateMetrics(ctx context.Context, salesID string, dash *SalesDashboard, journey *CustomerJourneyService, tagger *AITagger, since time.Time) *WorkbenchKeyMetrics {
+// aggregateMetrics 关键指标（H2：改为销售事件 DB 统计）
+func (s *SalesWorkbenchService) aggregateMetrics(ctx context.Context, salesID string, stats *SalesEventStatsService, journey *CustomerJourneyService, tagger *AITagger, since time.Time) *WorkbenchKeyMetrics {
 	metrics := &WorkbenchKeyMetrics{}
-	if dash == nil {
+	if stats == nil {
 		return metrics
 	}
-	dash.mu.RLock()
-	defer dash.mu.RUnlock()
+	orders := stats.Orders(context.Background(), salesID, since)
 	totalOrders := 0
 	repurchaseOrders := 0
 	uniqueCustomers := make(map[string]bool)
-	for _, o := range dash.orders {
-		if o.OwnerID != salesID {
-			continue
-		}
-		if o.OrderedAt.Before(since) {
-			continue
-		}
+	for _, o := range orders {
 		totalOrders++
 		uniqueCustomers[o.CustomerID] = true
 		count := 0
-		for _, oo := range dash.orders {
+		for _, oo := range orders {
 			if oo.CustomerID == o.CustomerID && oo.OwnerID == salesID {
 				count++
 			}
@@ -392,13 +347,7 @@ func (s *SalesWorkbenchService) aggregateMetrics(ctx context.Context, salesID st
 
 	aiCount := 0
 	totalCount := 0
-	for _, f := range dash.followups {
-		if f.OwnerID != salesID {
-			continue
-		}
-		if f.OccurredAt.Before(since) {
-			continue
-		}
+	for _, f := range stats.FollowUps(context.Background(), salesID, since) {
 		totalCount++
 		if f.IsAI {
 			aiCount++
@@ -429,11 +378,10 @@ func todayStart(now time.Time) time.Time {
 // GetTodosOnly 仅查询待办（前端轮询使用）
 func (s *SalesWorkbenchService) GetTodosOnly(ctx context.Context, salesID string) []*WorkbenchTodo {
 	s.mu.RLock()
-	dash := s.dashboard
 	followup := s.followup
 	draft := s.draft
 	s.mu.RUnlock()
-	return s.aggregateTodos(ctx, salesID, dash, followup, draft)
+	return s.aggregateTodos(ctx, salesID, followup, draft)
 }
 
 // GetQuickActions 销售最常用的快捷入口

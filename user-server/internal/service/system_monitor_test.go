@@ -202,6 +202,18 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 		database.Create(&user)
 	}
 
+	// H5 口径：total_merchants = admin 角色系统用户数
+	for i := 0; i < 2; i++ {
+		admin := model.SystemUser{
+			Username: "admin" + string(rune('0'+i)),
+			Password: "password123",
+			Email:    "admin" + string(rune('0'+i)) + "@example.com",
+			Role:     "admin",
+			Status:   1,
+		}
+		database.Create(&admin)
+	}
+
 	for i := 0; i < 3; i++ {
 		emailList := model.EmailList{
 			Subject: "Email" + string(rune('0'+i)),
@@ -254,11 +266,12 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 	basicStats := stats["basic_stats"].(map[string]any)
 	businessStats := stats["business_stats"].(map[string]any)
 
-	if basicStats["total_users"] != int64(5) {
-		t.Errorf("Expected total_users 5, got %v", basicStats["total_users"])
+	// 5 个普通用户 + 2 个 admin（H5 口径验证用）= 7
+	if basicStats["total_users"] != int64(7) {
+		t.Errorf("Expected total_users 7, got %v", basicStats["total_users"])
 	}
-	if basicStats["total_merchants"] != int64(1) {
-		t.Errorf("Expected total_merchants 1 (开源版固定), got %v", basicStats["total_merchants"])
+	if basicStats["total_merchants"] != int64(2) {
+		t.Errorf("Expected total_merchants 2 (admin 角色系统用户数), got %v", basicStats["total_merchants"])
 	}
 
 

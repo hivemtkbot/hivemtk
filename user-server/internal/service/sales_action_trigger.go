@@ -11,7 +11,7 @@ import (
 
 // SalesActionTrigger 销售动作触发器
 // 把 AI 谈单 / 跟进完成 / 订单创建 三个核心事件
-// 自动分发到 标签 / 旅程 / 跟进 / 订单 / 仪表盘 五个下游组件
+// 自动分发到 标签 / 旅程 / 跟进 / 订单 / 销售事件统计 五个下游组件
 type SalesActionTrigger struct {
 	mu sync.Mutex
 
@@ -19,7 +19,7 @@ type SalesActionTrigger struct {
 	journey      *CustomerJourneyService
 	followup     *FollowUpService
 	extractor    *OrderIntentExtractor
-	dashboard    *SalesDashboard
+	stats        *SalesEventStatsService
 	draftService *OrderDraftService 
 
 	defaultOwnerID string
@@ -56,21 +56,18 @@ func NewSalesActionTrigger(
 	journey *CustomerJourneyService,
 	followup *FollowUpService,
 	extractor *OrderIntentExtractor,
-	dashboard *SalesDashboard,
+	stats *SalesEventStatsService,
 	cfg *TriggerConfig,
 ) *SalesActionTrigger {
 	if cfg == nil {
 		cfg = &TriggerConfig{DefaultOwnerID: "system"}
-	}
-	if dashboard == nil {
-		dashboard = NewSalesDashboard(journey)
 	}
 	return &SalesActionTrigger{
 		tagger:         tagger,
 		journey:        journey,
 		followup:       followup,
 		extractor:      extractor,
-		dashboard:      dashboard,
+		stats:          stats,
 		defaultOwnerID: cfg.DefaultOwnerID,
 	}
 }
@@ -86,7 +83,7 @@ func (t *SalesActionTrigger) SetDraftService(ctx context.Context, svc *OrderDraf
 //  2. 自动推进客户旅程（基于意图）
 //  3. 自动提取订单意向（从客户消息 + AI 回复）
 //  4. 自动安排跟进（基于阶段）
-//  5. 记录到销售仪表盘
+//  5. 记录到销售事件统计（DB 权威）
 func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, ownerID string, resp *SalesResponse) *TriggerRecord {
 	if customerID == "" || resp == nil {
 		return nil
@@ -218,8 +215,8 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 		}
 	}
 
-	if t.dashboard != nil {
-		t.dashboard.RecordAIDeal(ctx, AIDealEvent{
+	if t.stats != nil {
+		t.stats.RecordAIDeal(ctx, AIDealEvent{
 			CustomerID:  customerID,
 			OwnerID:     ownerID,
 			Intent:      safeIntent(resp),
@@ -341,8 +338,8 @@ func (t *SalesActionTrigger) TriggerAfterFollowUp(ctx context.Context, reminderI
 		})
 	}
 
-	if t.dashboard != nil {
-		t.dashboard.RecordFollowUp(ctx, FollowUpEvent{
+	if t.stats != nil {
+		t.stats.RecordFollowUp(ctx, FollowUpEvent{
 			CustomerID: customerID,
 			OwnerID:    ownerID,
 			Channel:    "manual",
@@ -375,9 +372,9 @@ func (t *SalesActionTrigger) TriggerAfterFollowUp(ctx context.Context, reminderI
 			"销售跟进成交", nil)
 	}
 
-	if result == "converted" && t.dashboard != nil {
+	if result == "converted" && t.stats != nil {
 		amount, productName := t.inferOrderFromJourney(ctx, customerID)
-		t.dashboard.RecordOrder(ctx, OrderEvent{
+		t.stats.RecordOrder(ctx, OrderEvent{
 			OrderID:     "followup-" + reminderID,
 			CustomerID:  customerID,
 			OwnerID:     ownerID,
@@ -472,8 +469,8 @@ func (t *SalesActionTrigger) TriggerAfterOrder(ctx context.Context, orderID, cus
 		}
 	}
 
-	if t.dashboard != nil {
-		t.dashboard.RecordOrder(context.Background(), OrderEvent{
+	if t.stats != nil {
+		t.stats.RecordOrder(context.Background(), OrderEvent{
 			OrderID:     orderID,
 			CustomerID:  customerID,
 			OwnerID:     ownerID,

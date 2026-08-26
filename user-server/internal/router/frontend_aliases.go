@@ -123,7 +123,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/unified-messages", unifiedMsgCtrl.GetMessages)
 	doReg("GET", "/unified-messages/list", unifiedMsgCtrl.GetMessages)
 	doReg("GET", "/unified-messages/:id", unifiedMsgCtrl.GetMessageByID)
-	doReg("GET", "/unified-messages/:id/replies", unifiedMsgCtrl.GetReplies)
 
 	oneIDCtrl := controller.NewCustomerOneIDController()
 	doReg("GET", "/oneid/identities", oneIDCtrl.ListOneID)

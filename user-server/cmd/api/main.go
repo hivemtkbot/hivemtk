@@ -25,6 +25,7 @@ import (
 	"hivemtk-user/internal/migration/migrations"
 	"hivemtk-user/internal/pkg/featureflag"
 	"hivemtk-user/internal/pkg/tracing"
+	cronpkg "hivemtk-user/internal/pkg/cron"
 	"hivemtk-user/internal/config"
 	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/logger"
@@ -282,6 +283,18 @@ func main() {
 	rfmCron.Start(context.Background())
 	defer rfmCron.Stop(context.Background())
 	logger.Info("[CustomerRFMCron] RFM 分层定时重算已装配")
+
+	// [H4] 客户旅程沉睡自动检测 cron：每日 03:30 CST（此前 AutoDetectSleeping 零调用）
+	journeySleepCron := service.NewJourneySleepCron(nil)
+	journeySleepCron.Start(context.Background())
+	defer journeySleepCron.Stop(context.Background())
+	logger.Info("[JourneySleepCron] 沉睡客户自动检测已装配")
+
+	// [M1] 企微账号日配额重置 cron：每日 00:05 CST（此前仅有手动端点，需每日人工触发）
+	wecomQuotaResetCron := cronpkg.NewWeComQuotaResetCron(service.NewWeComAccountHealthService(db.GetDB()))
+	wecomQuotaResetCron.Start(context.Background())
+	defer wecomQuotaResetCron.Stop(context.Background())
+	logger.Info("[WeComQuotaResetCron] 企微日配额每日重置已装配")
 
 	// [T8] 告警规则检查器：每 60s 扫描启用规则并比对阈值
 	alertChecker := service.NewAlertChecker(

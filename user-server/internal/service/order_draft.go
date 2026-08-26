@@ -103,7 +103,7 @@ type OrderDraftService struct {
 
 	orderService *OrderService
 	journey      *CustomerJourneyService
-	dashboard    *SalesDashboard
+	stats        *SalesEventStatsService
 	followup     *FollowUpService
 	trigger      *SalesActionTrigger
 
@@ -141,9 +141,9 @@ func (s *OrderDraftService) SetJourney(ctx context.Context, j *CustomerJourneySe
 	s.journey = j
 }
 
-// SetDashboard 注入销售仪表盘
-func (s *OrderDraftService) SetDashboard(ctx context.Context, d *SalesDashboard) {
-	s.dashboard = d
+// SetStats 注入销售事件统计服务（H2：替代原 SalesDashboard）
+func (s *OrderDraftService) SetStats(ctx context.Context, svc *SalesEventStatsService) {
+	s.stats = svc
 }
 
 // SetFollowUp 注入跟进服务
@@ -241,8 +241,8 @@ func (s *OrderDraftService) CreateFromIntent(ctx context.Context, intent *OrderI
 	s.byOwner[draft.OwnerID] = append(s.byOwner[draft.OwnerID], draft)
 	s.mu.Unlock()
 
-	if s.dashboard != nil {
-		s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
+	if s.stats != nil {
+		s.stats.RecordOrderDraft(ctx, OrderDraftEvent{
 			DraftID:     draft.ID,
 			CustomerID:  draft.CustomerID,
 			OwnerID:     draft.OwnerID,
@@ -306,8 +306,8 @@ func (s *OrderDraftService) CreateManual(ctx context.Context, req *CreateDraftRe
 	s.byOwner[draft.OwnerID] = append(s.byOwner[draft.OwnerID], draft)
 	s.mu.Unlock()
 
-	if s.dashboard != nil {
-		s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
+	if s.stats != nil {
+		s.stats.RecordOrderDraft(ctx, OrderDraftEvent{
 			DraftID:     draft.ID,
 			CustomerID:  draft.CustomerID,
 			OwnerID:     draft.OwnerID,
@@ -327,7 +327,7 @@ func (s *OrderDraftService) CreateManual(ctx context.Context, req *CreateDraftRe
 // 商业产品级业务流：销售在"待确认草稿"列表里点"确认" → 4 件事自动发生：
 //  1. 创建正式订单（如果 orderService 注入）
 //  2. 客户旅程推到"成交"（如果 journey 注入）
-//  3. 销售仪表盘记录订单（如果 dashboard 注入）
+//  3. 销售事件统计记录订单（如果 stats 注入）
 //  4. 自动安排 7 天后售后回访（如果 followup 注入）
 //
 // 返回：DraftConfirmResult（订单 ID + 阶段 + 跟进 ID）便于前端展示
@@ -403,8 +403,8 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 			})
 	}
 
-	if s.dashboard != nil {
-		s.dashboard.RecordOrder(ctx, OrderEvent{
+	if s.stats != nil {
+		s.stats.RecordOrder(ctx, OrderEvent{
 			OrderID:     orderID,
 			CustomerID:  draft.CustomerID,
 			OwnerID:     draft.OwnerID,
@@ -413,7 +413,7 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 			IsAIHandled: draft.Source == "ai_chat",
 			OrderedAt:   now,
 		})
-		s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
+		s.stats.RecordOrderDraft(ctx, OrderDraftEvent{
 			DraftID:     draft.ID,
 			CustomerID:  draft.CustomerID,
 			OwnerID:     draft.OwnerID,
@@ -466,8 +466,8 @@ func (s *OrderDraftService) Cancel(ctx context.Context, draftID, reason, cancell
 	}
 	s.mu.Unlock()
 
-	if s.dashboard != nil {
-		s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
+	if s.stats != nil {
+		s.stats.RecordOrderDraft(ctx, OrderDraftEvent{
 			DraftID:     draft.ID,
 			CustomerID:  draft.CustomerID,
 			OwnerID:     draft.OwnerID,
@@ -601,8 +601,8 @@ func (s *OrderDraftService) ExpireOverdue(ctx context.Context) int {
 			d.Status = DraftStatusExpired
 			d.UpdatedAt = now
 			count++
-			if s.dashboard != nil {
-				s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
+			if s.stats != nil {
+				s.stats.RecordOrderDraft(ctx, OrderDraftEvent{
 					DraftID:     d.ID,
 					CustomerID:  d.CustomerID,
 					OwnerID:     d.OwnerID,

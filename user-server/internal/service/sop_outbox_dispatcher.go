@@ -190,46 +190,58 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 	}
 }
 
-// sweepPendingTimers 扫描 pending timers，处理两类兜底：
-//  1. S1-2：max_wait_at 已过期 → 转 skipped + 事件记录 + SkipWait 任务（视为满足立即跳过）
-//  2. S1-5：claim_count ≥ sopTimerMaxClaims → 转 dead_letter + 告警日志
+// sweepPendingTimers 扫描 pending timers，处理两类兜底（M4 列下沉版）：
+//  1. S1-5：claim_count ≥ sopTimerMaxClaims → 转 dead_letter + 告警日志
+//  2. S1-2：max_wait_at 已过期 → 转 skipped + 事件记录 + SkipWait 任务（视为满足立即跳过）
+//
+// M4：扫描条件改为实体列 SQL 查询（配合部分索引 idx_sop_timers_pending_*），
+// 旧数据无列值时回退 payload JSONB 字段判断。
 func (o *SOPOutboxDispatcher) sweepPendingTimers(ctx context.Context, now time.Time) {
 	if o.db == nil {
 		return
 	}
-	var timers []model.SOPTimer
+
+	// S1-5：死信迁移——claim_count 列 ≥ 阈值（旧数据回退 payload 数字字段）
+	const claimExpr = `(CASE WHEN payload->>'claim_count' ~ '^[0-9]+$' THEN (payload->>'claim_count')::int ELSE 0 END)`
+	var deadCandidates []model.SOPTimer
 	if err := o.db.WithContext(ctx).
-		Where("status = ?", sopTimerStatusPending).
+		Where("status = ? AND (claim_count >= ? OR "+claimExpr+" >= ?)",
+			sopTimerStatusPending, sopTimerMaxClaims, sopTimerMaxClaims).
 		Limit(o.batchSize).
-		Find(&timers).Error; err != nil {
-		logger.Ctx(ctx).Error().Err(err).Msg("[outbox] sweep pending timers failed")
+		Find(&deadCandidates).Error; err != nil {
+		logger.Ctx(ctx).Error().Err(err).Msg("[outbox] sweep claim-exhausted timers failed")
+	}
+	for i := range deadCandidates {
+		t := &deadCandidates[i]
+		rows := o.db.WithContext(ctx).Model(&model.SOPTimer{}).
+			Where("id = ? AND status = ?", t.ID, sopTimerStatusPending).
+			Updates(map[string]any{"status": sopTimerStatusDeadLetter, "fired_at": now}).RowsAffected
+		if rows == 0 {
+			continue
+		}
+		logger.Ctx(ctx).Error().
+			Uint("timer_id", t.ID).
+			Uint("execution_id", t.ExecutionID).
+			Str("node_id", t.NodeID).
+			Int("claim_count", timerClaimCount(t)).
+			Msg("[outbox][ALERT] timer moved to dead_letter: claim_count exhausted")
+	}
+
+	// S1-2：max_wait 兜底跳过——max_wait_at 列已过期（旧数据回退 payload RFC3339 字段）
+	const maxWaitExpr = `(CASE WHEN payload->>'max_wait_at' ~ '^\d{4}-\d{2}-\d{2}T' THEN (payload->>'max_wait_at')::timestamptz ELSE NULL END)`
+	var overdue []model.SOPTimer
+	if err := o.db.WithContext(ctx).
+		Where("status = ? AND ((max_wait_at IS NOT NULL AND max_wait_at <= ?) OR (max_wait_at IS NULL AND "+maxWaitExpr+" IS NOT NULL AND "+maxWaitExpr+" <= ?))",
+			sopTimerStatusPending, now, now).
+		Limit(o.batchSize).
+		Find(&overdue).Error; err != nil {
+		logger.Ctx(ctx).Error().Err(err).Msg("[outbox] sweep max-wait-overdue timers failed")
 		return
 	}
 
-	for i := range timers {
-		t := &timers[i]
-
-		// S1-5：死信迁移
-		if timerClaimCount(t.Payload) >= sopTimerMaxClaims {
-			rows := o.db.WithContext(ctx).Model(&model.SOPTimer{}).
-				Where("id = ? AND status = ?", t.ID, sopTimerStatusPending).
-				Updates(map[string]any{"status": sopTimerStatusDeadLetter, "fired_at": now}).RowsAffected
-			if rows > 0 {
-				logger.Ctx(ctx).Error().
-					Uint("timer_id", t.ID).
-					Uint("execution_id", t.ExecutionID).
-					Str("node_id", t.NodeID).
-					Int("claim_count", timerClaimCount(t.Payload)).
-					Msg("[outbox][ALERT] timer moved to dead_letter: claim_count exhausted")
-			}
-			continue
-		}
-
-		// S1-2：max_wait 兜底跳过
-		maxWaitAt := parseSOPTimePayload(t.Payload, "max_wait_at")
-		if maxWaitAt.IsZero() || maxWaitAt.After(now) {
-			continue
-		}
+	for i := range overdue {
+		t := &overdue[i]
+		maxWaitAt := timerMaxWaitAt(t)
 		rows := o.db.WithContext(ctx).Model(&model.SOPTimer{}).
 			Where("id = ? AND status = ?", t.ID, sopTimerStatusPending).
 			Updates(map[string]any{"status": sopTimerStatusSkipped, "fired_at": now}).RowsAffected
@@ -256,13 +268,13 @@ func (o *SOPOutboxDispatcher) sweepPendingTimers(ctx context.Context, now time.T
 	}
 }
 
-// bumpTimerClaimOrDeadLetter S1-5：认领失败时累计 claim_count（写回 payload），
+// bumpTimerClaimOrDeadLetter S1-5：认领失败时累计 claim_count（M4 列下沉：实体列+payload 双写），
 // 达到阈值直接转 dead_letter 并告警。
 func (o *SOPOutboxDispatcher) bumpTimerClaimOrDeadLetter(ctx context.Context, t *model.SOPTimer, now time.Time) {
 	if o.db == nil || t == nil {
 		return
 	}
-	claims := timerClaimCount(t.Payload) + 1
+	claims := timerClaimCount(t) + 1
 	payload := model.JSONMap{}
 	for k, v := range t.Payload {
 		payload[k] = v
@@ -270,7 +282,7 @@ func (o *SOPOutboxDispatcher) bumpTimerClaimOrDeadLetter(ctx context.Context, t 
 	payload["claim_count"] = claims
 
 	status := sopTimerStatusPending
-	extra := map[string]any{"payload": payload}
+	extra := map[string]any{"payload": payload, "claim_count": claims}
 	if claims >= sopTimerMaxClaims {
 		status = sopTimerStatusDeadLetter
 		extra["status"] = status
@@ -317,7 +329,7 @@ func (o *SOPOutboxDispatcher) writeTimerSkippedEvent(ctx context.Context, t *mod
 		NodeType:     SOPNodeTypeWait,
 		EventType:    NodeEventSkipped,
 		Status:       NodeStatusSkipped,
-		ErrorMessage: fmt.Sprintf("wait exceeded max_wait_at=%s, treated as satisfied and skipped", parseSOPTimePayload(t.Payload, "max_wait_at").Format(time.RFC3339)),
+		ErrorMessage: fmt.Sprintf("wait exceeded max_wait_at=%s, treated as satisfied and skipped", timerMaxWaitAt(t).Format(time.RFC3339)),
 	}
 	if err := o.eventRepo.Create(ctx, event); err != nil {
 		logger.Ctx(ctx).Debug().Err(err).
@@ -327,9 +339,12 @@ func (o *SOPOutboxDispatcher) writeTimerSkippedEvent(ctx context.Context, t *mod
 	}
 }
 
-// timerClaimCount 从 payload 读取 claim_count
-func timerClaimCount(payload model.JSONMap) int {
-	switch v := payload["claim_count"].(type) {
+// timerClaimCount 读取 claim_count（M4：优先实体列，回退 payload 兼容旧数据）
+func timerClaimCount(t *model.SOPTimer) int {
+	if t != nil && t.ClaimCount > 0 {
+		return t.ClaimCount
+	}
+	switch v := t.Payload["claim_count"].(type) {
 	case float64:
 		return int(v)
 	case int:
@@ -340,6 +355,17 @@ func timerClaimCount(payload model.JSONMap) int {
 	default:
 		return 0
 	}
+}
+
+// timerMaxWaitAt 读取 max_wait_at（M4：优先实体列，回退 payload 兼容旧数据）
+func timerMaxWaitAt(t *model.SOPTimer) time.Time {
+	if t == nil {
+		return time.Time{}
+	}
+	if t.MaxWaitAt != nil && !t.MaxWaitAt.IsZero() {
+		return *t.MaxWaitAt
+	}
+	return parseSOPTimePayload(t.Payload, "max_wait_at")
 }
 
 // parseSOPTimePayload 从 payload 解析 RFC3339 时间字段

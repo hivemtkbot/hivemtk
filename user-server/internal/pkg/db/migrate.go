@@ -188,6 +188,7 @@ func allModels() []any {
 		&model.ObjectionTemplate{},
 		&model.ConversionFunnel{},
 		&model.SalesPersona{},
+		&model.SalesEvent{}, // H2：销售事件流持久化（替代原内存版 SalesDashboard）
 		&opsmodel.PerformanceTestResult{},
 		&knowledgemodel.KnowledgeDocument{},
 		&knowledgemodel.KnowledgeChunk{},

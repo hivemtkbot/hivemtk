@@ -307,12 +307,9 @@ const connectWebSocket = () => {
       // 后端在 RAG+推理期间推送，控制「AI 思考中」气泡
       typing.value = !!payload?.typing
     },
-    onConnected: () => {
-      console.log('[ChatWindow] WebSocket 已连接')
-    },
-    onDisconnected: () => {
-      console.log('[ChatWindow] WebSocket 已断开')
-    }
+    // WebSocket 连接/断开回调：状态由 UI 层（typing 气泡、重连提示）体现，无需额外日志
+    onConnected: () => {},
+    onDisconnected: () => {}
   })
   socket.connect()
 }

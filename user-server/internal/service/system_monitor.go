@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"context"
+	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/repository"
 )
 
@@ -148,7 +149,11 @@ func (s *SystemMonitorService) GetDetailedSystemStats(ctx context.Context) (map[
 	todayStart := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location())
 	activeUsers, _ := s.statsRepo.CountActiveSystemUsers(ctx, todayStart.Unix())
 
-	totalMerchants := int64(1)
+	// totalMerchants 真实统计口径（H5 修复）：
+	// 私域单租户部署已删除 merchants 表（见 internal/migration/migrations/unmultitenant_migration.go），
+	// 且不存在 company 表。此处以 system_users 中 admin 角色账号数作为"商户（运营主体）"数——
+	// 每个独立部署的运营主体由其管理员账号代表。
+	totalMerchants, _ := s.statsRepo.CountSystemUsersByRole(ctx, model.SystemUserRoleAdmin)
 
 	totalEmailLists, _ := s.statsRepo.CountEmailLists(ctx)
 	totalEmailJobs, _ := s.statsRepo.CountEmailJobs(ctx)

@@ -481,6 +481,79 @@ func (s *CustomerJourneyService) AutoDetectSleeping(ctx context.Context) []strin
 	return wokeUp
 }
 
+// ===== H4 修复：沉睡客户自动检测定时任务 =====
+
+// JourneySleepCron 客户旅程沉睡检测定时任务。
+//
+// H4 债务修复：AutoDetectSleeping 此前零调用（无任何 cron 注册），沉睡检测实际永不运行。
+// 现每日 03:30（CST，早于 CustomerRFMCron 的 04:00 重算）执行一次，
+// 将超过阶段阈值未互动的客户自动迁移至 sleeping 阶段。
+type JourneySleepCron struct {
+	svc       *CustomerJourneyService
+	stop      chan struct{}
+	wg        sync.WaitGroup
+	startOnce sync.Once
+}
+
+// NewJourneySleepCron 构造（svc 为 nil 时使用默认构造）
+func NewJourneySleepCron(svc *CustomerJourneyService) *JourneySleepCron {
+	if svc == nil {
+		svc = NewCustomerJourneyService()
+	}
+	return &JourneySleepCron{svc: svc, stop: make(chan struct{})}
+}
+
+// Start 启动每日调度（幂等：重复调用仅启动一次）
+func (c *JourneySleepCron) Start(ctx context.Context) {
+	c.startOnce.Do(func() {
+		c.wg.Add(1)
+		go c.loop(ctx)
+		logger.Info("[JourneySleepCron] 已启动（每日 03:30 CST 沉睡客户自动检测）")
+	})
+}
+
+// Stop 停止（幂等：重复调用安全返回）
+func (c *JourneySleepCron) Stop(_ context.Context) {
+	select {
+	case <-c.stop:
+		return
+	default:
+		close(c.stop)
+	}
+	c.wg.Wait()
+	logger.Info("[JourneySleepCron] 已停止")
+}
+
+func (c *JourneySleepCron) loop(ctx context.Context) {
+	defer c.wg.Done()
+	cst := time.FixedZone("CST", 8*3600)
+	for {
+		next := time.Now().In(cst).Add(24 * time.Hour)
+		next = time.Date(next.Year(), next.Month(), next.Day(), 3, 30, 0, 0, cst)
+		timer := time.NewTimer(time.Until(next))
+		select {
+		case <-c.stop:
+			timer.Stop()
+			return
+		case <-timer.C:
+			detected := c.runOnce(ctx)
+			logger.Ctx(ctx).Info().Int("detected", len(detected)).
+				Msg("[JourneySleepCron] 沉睡客户自动检测完成")
+		}
+	}
+}
+
+// runOnce 单次执行（panic 隔离，供测试直接调用调度触发逻辑）
+func (c *JourneySleepCron) runOnce(ctx context.Context) (detected []string) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Ctx(ctx).Error().Msgf("[JourneySleepCron] 沉睡检测 panic: %v", r)
+			detected = nil
+		}
+	}()
+	return c.svc.AutoDetectSleeping(ctx)
+}
+
 // stageDefaultSleepThreshold 阶段级硬编码沉睡阈值
 // 商业逻辑：成交/复购阶段虽然 DefaultFollowup=0（"下一次主动触达"无时间表），
 // 但仍需定期唤醒沉睡客户。例如：成交后 90 天 → 沉睡；售后 60 天 → 沉睡
@@ -563,4 +636,77 @@ func (s *CustomerJourneyService) GetOverview(ctx context.Context) *JourneyOvervi
 		})
 	}
 	return overview
+}
+
+// Funnel 构建基于客户旅程的转化漏斗（H2：自 sales_dashboard.FunnelByJourney 迁移）
+// 商业逻辑：每阶段的客户数 + 阶段间转化率 + 端到端转化率
+func (s *CustomerJourneyService) Funnel(ctx context.Context) *JourneyFunnel {
+	funnel := &JourneyFunnel{
+		Stages:      make([]JourneyFunnelStage, 0, len(AllStages)),
+		GeneratedAt: time.Now(),
+	}
+
+	stageCounts := make(map[JourneyStage]int)
+	stageDwell := make(map[JourneyStage][]float64)
+	ownerLoad := make(map[JourneyStage]map[string]int)
+
+	s.mu.RLock()
+	for _, state := range s.states {
+		stageCounts[state.CurrentStage]++
+		dwell := time.Since(state.StageSince).Hours() / 24
+		stageDwell[state.CurrentStage] = append(stageDwell[state.CurrentStage], dwell)
+		if ownerLoad[state.CurrentStage] == nil {
+			ownerLoad[state.CurrentStage] = make(map[string]int)
+		}
+		owner := state.Metadata["owner_id"]
+		if owner == "" {
+			owner = "unassigned"
+		}
+		ownerLoad[state.CurrentStage][owner]++
+	}
+	s.mu.RUnlock()
+
+	funnel.TotalEntered = stageCounts[StageStranger] + stageCounts[StageLead] + stageCounts[StageContact]
+	funnel.TotalWon = stageCounts[StageWon]
+	if funnel.TotalEntered > 0 {
+		funnel.EndToEndRate = float64(funnel.TotalWon) / float64(funnel.TotalEntered)
+	}
+
+	orderedStages := []JourneyStage{
+		StageStranger, StageLead, StageContact, StageInterested,
+		StageQuoted, StageWon,
+	}
+	for _, st := range orderedStages {
+		count := stageCounts[st]
+		dwells := stageDwell[st]
+		avgDwell := 0.0
+		if len(dwells) > 0 {
+			sum := 0.0
+			for _, d := range dwells {
+				sum += d
+			}
+			avgDwell = sum / float64(len(dwells))
+		}
+		meta := StageMetas[st]
+		label := string(st)
+		if meta != nil && meta.Label != "" {
+			label = meta.Label
+		}
+		funnel.Stages = append(funnel.Stages, JourneyFunnelStage{
+			Stage:        st,
+			Label:        label,
+			Customers:    count,
+			AvgDwellDays: avgDwell,
+			OwnerLoad:    ownerLoad[st],
+		})
+	}
+	for i := range funnel.Stages {
+		funnel.Stages[i].StageRate = float64(funnel.Stages[i].Customers) / float64(funnel.TotalEntered) * 100
+		if i == 0 {
+			funnel.Stages[i].StepRate = 100
+		} else if funnel.Stages[i-1].Customers > 0 {
+			funnel.Stages[i].StepRate = float64(funnel.Stages[i].Customers) / float64(funnel.Stages[i-1].Customers) * 100
+		}
+	}
+	return funnel
 }

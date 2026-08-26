@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"hivemtk-user/internal/pkg/featureflag"
@@ -289,4 +290,80 @@ func (t *DecisionTree) ExecuteWithFallback(
 	}
 
 	return "", LevelTemplate, fmt.Errorf("fallback chain exhausted: 7B/3B/cache all failed")
+}
+
+// ============================================================================
+// M11：按场景差异化兜底模板 + 轮换
+//
+// 原先所有场景共用单一兜底文案（"抱歉，当前服务暂时繁忙…"），对 intent_recognize
+// 这类内部场景语义不符，且连续降级时客户重复看到同一句话。现按场景配置差异化
+// 模板表（代码内 map），同场景多文案原子轮换。
+// ============================================================================
+
+// scenarioFallbackTemplates 场景 → 兜底文案模板表
+var scenarioFallbackTemplates = map[DispatchScenario][]string{
+	// 意图识别为内部 JSONMode 链路：兜底返回合法 unknown 意图 JSON，
+	// 调用方（intent_recognition）解析后按既有 unknown 契约 fail-closed 处理
+	ScenarioIntentRecognize: {
+		`{"major":"unknown","confidence":0,"reasoning":"intent service degraded"}`,
+	},
+	// SOP 回复：偏业务办理口径
+	ScenarioSOPReply: {
+		"您好，系统正在为您处理该业务，请稍候；如需加急可回复「人工」。",
+		"您的请求已记录，我们会尽快为您办理，感谢耐心等待。",
+	},
+	// 异议处理：先安抚再引导
+	ScenarioObjection: {
+		"理解您的顾虑，我先把您的问题记下来，稍后由同事为您详细解答好吗？",
+		"非常抱歉给您带来困扰，您的反馈我们已收到，会安排专人与您跟进。",
+	},
+	// 闲聊寒暄：轻松自然
+	ScenarioFriendlyChat: {
+		"哈哈，这边网络有点小状况，稍等一下下～",
+		"让我缓一缓，马上回来继续和您聊！",
+	},
+}
+
+// defaultFallbackTemplates 未匹配场景的通用兜底文案（轮换）
+var defaultFallbackTemplates = []string{
+	"抱歉，当前客服系统繁忙，请稍后再试，或联系人工客服获取帮助。",
+	"系统暂时有点忙，请稍后重试；紧急问题可回复「人工」转人工客服。",
+}
+
+// scenarioTemplateCursor 全局轮换游标（原子递增，跨场景共享无碍——各场景取模独立）
+var scenarioTemplateCursor uint64
+
+// knownFactoryDefaultTemplateReplies 出厂默认单文案集合：
+// 配置仍为出厂默认（未显式定制）时不覆盖场景差异化轮换
+var knownFactoryDefaultTemplateReplies = map[string]struct{}{
+	"抱歉，当前客服系统繁忙，请稍后再试，或联系人工客服获取帮助。": {},
+	"抱歉，当前服务暂时繁忙，请稍后再试或联系人工客服。":       {},
+}
+
+// isDefaultTemplateReply 判断文案是否为出厂默认（未被运营定制）
+func isDefaultTemplateReply(s string) bool {
+	_, ok := knownFactoryDefaultTemplateReplies[s]
+	return ok
+}
+
+// ResolveDegradedTemplate 解析降级文案：显式定制的 TemplateReply 优先，否则按场景轮换（M11）
+func ResolveDegradedTemplate(scenario DispatchScenario, configured string) string {
+	if configured != "" && !isDefaultTemplateReply(configured) {
+		return configured
+	}
+	return TemplateReplyFor(scenario)
+}
+
+// TemplateReplyFor 返回指定场景的兜底文案（M11）
+//
+// 匹配规则：
+//   - 命中场景模板表 → 同场景文案池内原子轮换
+//   - 未命中（含未知场景）→ 通用文案池轮换
+func TemplateReplyFor(scenario DispatchScenario) string {
+	pool := scenarioFallbackTemplates[scenario]
+	if len(pool) == 0 {
+		pool = defaultFallbackTemplates
+	}
+	n := atomic.AddUint64(&scenarioTemplateCursor, 1)
+	return pool[(n-1)%uint64(len(pool))]
 }
