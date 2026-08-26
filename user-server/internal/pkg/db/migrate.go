@@ -98,6 +98,8 @@ func allModels() []any {
 		&model.SystemMetrics{},
 		&model.Customer{},
 		&model.CustomerTag{},
+		&model.CustomerTagAssignment{},
+		&model.CustomerDoNotContact{},
 		&model.CustomerEvent{},
 		&model.UserTag{},
 		&model.OperationLog{},
@@ -146,6 +148,7 @@ func allModels() []any {
 		&model.TraceEvalLog{},
 		&model.WeComAccountHealth{},
 		&model.IntentRecord{},
+		&model.IntentLog{}, // 全端扫描发现：生产 AutoMigrate 漏建 intent_logs（/api/intent/logs 500）
 		&model.DialogueMemory{},
 		&model.SOPAgent{},
 		&model.SOPExecution{},

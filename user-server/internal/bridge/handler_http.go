@@ -915,9 +915,21 @@ func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "invalid body"})
 		return
 	}
+	// v2 协议（P0-1）：items[].conversation_id 必填。
+	if len(req.Items) > 0 {
+		for _, it := range req.Items {
+			if it.MsgID == "" || it.ConversationID == "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"status":  "error",
+					"message": "conversation_id required (v2 items[] must carry msg_id + conversation_id)",
+				})
+				return
+			}
+		}
+	}
 	// 2026-08-15 P3-D：单次 ack 上限（防止前端误传超长列表）
 	const maxAckMsgIDs = 500
-	if len(req.MsgIDs) > maxAckMsgIDs {
+	if len(req.MsgIDs) > maxAckMsgIDs || len(req.Items) > maxAckMsgIDs {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
 			"message": fmt.Sprintf("too many msg_ids (max %d per request)", maxAckMsgIDs),
@@ -946,11 +958,63 @@ func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
 	if terminalStatus == "" {
 		terminalStatus = model.BridgeAckStatusDelivered
 	}
-	ackResult, err := h.ingress.AckOutboundDeliveredDetailed(ctx, channel, accountID, req.MsgIDs, "", terminalStatus, nil)
-	if err != nil {
-		logger.Ctx(ctx).Error().Err(err).Str("module", "bridge").Str("channel", channel).Msg("[Bridge] AckOutboundDeliveredDetailed failed")
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "ack failed"})
+	// P0-3：非法终态在入口即 400（service 层同样兜底校验）。
+	if terminalStatus != model.BridgeAckStatusDelivered && terminalStatus != model.BridgeAckStatusFailed {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": fmt.Sprintf("invalid status: %q (must be delivered or failed)", terminalStatus),
+		})
 		return
+	}
+	// v2 协议：按 (conversation_id, 终态) 分组逐组 ack；v1：conversationID 留空走兼容范围。
+	var ackResult *service.AckOutboundResult
+	if len(req.Items) > 0 {
+		type groupKey struct {
+			conv   string
+			status string
+		}
+		groups := make(map[groupKey][]service.BridgeOutboundAckInput)
+		for _, it := range req.Items {
+			st := it.Status
+			if st == "" {
+				st = model.BridgeAckStatusDelivered
+			}
+			k := groupKey{conv: it.ConversationID, status: st}
+			groups[k] = append(groups[k], service.BridgeOutboundAckInput{
+				MsgID: it.MsgID, ConversationID: it.ConversationID, Status: it.Status, Error: it.Error,
+			})
+		}
+		merged := &service.AckOutboundResult{Items: make([]service.AckOutboundItem, 0)}
+		for k, inputs := range groups {
+			ids := make([]string, 0, len(inputs))
+			perItem := make(map[string]service.BridgeOutboundAckInput, len(inputs))
+			for _, in := range inputs {
+				ids = append(ids, in.MsgID)
+				perItem[in.MsgID] = in
+			}
+			part, err := h.ingress.AckOutboundDeliveredDetailed(ctx, channel, accountID, ids, k.conv, k.status, perItem)
+			if err != nil {
+				logger.Ctx(ctx).Error().Err(err).Str("module", "bridge").Str("channel", channel).Msg("[Bridge] AckOutboundDeliveredDetailed(v2) failed")
+				c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "ack failed"})
+				return
+			}
+			merged.AffectedCount += part.AffectedCount
+			merged.AckedItemsCount += part.AckedItemsCount
+			merged.FailedItemsCount += part.FailedItemsCount
+			merged.DuplicateCount += part.DuplicateCount
+			merged.NotFoundCount += part.NotFoundCount
+			merged.NotInScopeCount += part.NotInScopeCount
+			merged.Items = append(merged.Items, part.Items...)
+		}
+		ackResult = merged
+	} else {
+		var err error
+		ackResult, err = h.ingress.AckOutboundDeliveredDetailed(ctx, channel, accountID, req.MsgIDs, "", terminalStatus, nil)
+		if err != nil {
+			logger.Ctx(ctx).Error().Err(err).Str("module", "bridge").Str("channel", channel).Msg("[Bridge] AckOutboundDeliveredDetailed failed")
+			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "ack failed"})
+			return
+		}
 	}
 	logger.Ctx(ctx).Info().
 		Str("module", "bridge").
@@ -977,8 +1041,10 @@ func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
 		Status:          "ok",
 		AffectedCount:   ackResult.AffectedCount,
 		AckedItemsCount: ackResult.AckedItemsCount,
+		FailedItemsCount: ackResult.FailedItemsCount,
 		DuplicateCount:  ackResult.DuplicateCount,
 		NotFoundCount:   ackResult.NotFoundCount,
+		NotInScopeCount: ackResult.NotInScopeCount,
 		Items:           ackResult.Items,
 	})
 }

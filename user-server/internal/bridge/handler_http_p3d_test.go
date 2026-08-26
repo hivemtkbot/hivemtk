@@ -288,10 +288,10 @@ func TestAckOutboundDeliveredDetailed_ConcurrentDoubleAck_P4(t *testing.T) {
 }
 
 // TestAckOutboundDeliveredDetailed_HubRepoNil_P4 验证 P4-3.1：hubRepo nil 必须返 error。
+// 注：NewInboxIngressServiceWithDB 在 db!=nil 时会自动装配默认 hubRepo（8/18 起），
+// 因此 nil-repo 场景通过 db=nil 构造。
 func TestAckOutboundDeliveredDetailed_HubRepoNil_P4(t *testing.T) {
-	db := testutil.NewTestDB(t, &model.MessageHub{})
-	_ = db.Exec("DELETE FROM message_hub").Error
-	svc := service.NewInboxIngressServiceWithDB(db, nil)
+	svc := service.NewInboxIngressServiceWithDB(nil, nil)
 	r, err := svc.AckOutboundDeliveredDetailed(context.Background(), "douyin", "acc", []string{"m1"}, "", "delivered", nil)
 	if err == nil {
 		t.Fatalf("hubRepo nil 应返回 error，实际 (result=%+v, err=nil)", r)
@@ -344,15 +344,17 @@ func TestGetByMsgIDsInScope_OnlyOutbound_P4(t *testing.T) {
 	hubRepo := repository.NewMessageHubRepositoryWithDB(db)
 	ctx := context.Background()
 	for _, c := range []struct {
-		direction, msg string
+		direction, msg, conv string
 	}{
-		{"inbound", "mh:shared"},
-		{"outbound", "mh:shared"},
+		// 唯一约束 uni_message_hub_platform_msg_conv 不含 direction，
+		// 同 msg_id 的 inbound/outbound 须用不同 conversation_id 才能共存。
+		{"inbound", "mh:shared", "c_in"},
+		{"outbound", "mh:shared", "c"},
 	} {
 		h := &model.MessageHub{
 			Platform:       "douyin",
 			AccountID:      "acc_d",
-			ConversationID: "c",
+			ConversationID: c.conv,
 			MsgID:          c.msg,
 			MsgType:        "text",
 			Content:        c.msg,

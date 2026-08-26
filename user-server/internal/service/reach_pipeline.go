@@ -1,4 +1,3 @@
-
 package service
 
 import (
@@ -16,11 +15,15 @@ import (
 
 	"net/http"
 
+	"strconv"
+
 	"sync"
 
 	"time"
 
 	"gorm.io/gorm"
+
+	"hivemtk-user/internal/cache"
 
 	"hivemtk-user/internal/model"
 
@@ -31,24 +34,23 @@ import (
 )
 
 const (
-	StepAudience = "audience" 
+	StepAudience = "audience"
 
-	StepContentPrepare = "content_prepare" 
+	StepContentPrepare = "content_prepare"
 
-	StepAccountSelect = "account_select" 
+	StepAccountSelect = "account_select"
 
-	StepRateLimit = "rate_limit" 
+	StepRateLimit = "rate_limit"
 
-	StepMessageGen = "message_gen" 
+	StepMessageGen = "message_gen"
 
-	StepSend = "send" 
+	StepSend = "send"
 
-	StepTrackResult = "track_result" 
+	StepTrackResult = "track_result"
 
-	StepRetry = "retry" 
+	StepRetry = "retry"
 
-	StepReport = "report" 
-
+	StepReport = "report"
 )
 
 var DefaultPipelineSteps = []string{
@@ -91,9 +93,9 @@ var ReachChannels = map[string]bool{
 	"douyin":      true,
 	"kuaishou":    true,
 	"xiaohongshu": true,
-	"telegram":    true, 
-	"whatsapp":    true, 
-	"feishu":      true, 
+	"telegram":    true,
+	"whatsapp":    true,
+	"feishu":      true,
 }
 
 var (
@@ -156,19 +158,19 @@ type StepResult struct {
 }
 
 type RetryPolicy struct {
-	MaxRetries      int      `json:"max_retries"`     
-	IntervalMs      int      `json:"interval_ms"`     
-	Backoff         string   `json:"backoff"`         
-	MaxIntervalMs   int      `json:"max_interval_ms"` 
+	MaxRetries      int      `json:"max_retries"`
+	IntervalMs      int      `json:"interval_ms"`
+	Backoff         string   `json:"backoff"`
+	MaxIntervalMs   int      `json:"max_interval_ms"`
 	RetryableErrors []string `json:"retryable_errors,omitempty"`
 }
 
 type RateLimitConfig struct {
-	QPS          int `json:"qps"`            
-	Burst        int `json:"burst"`          
-	DailyQuota   int `json:"daily_quota"`    
-	PerUserLimit int `json:"per_user_limit"` 
-	CooldownSecs int `json:"cooldown_secs"`  
+	QPS          int `json:"qps"`
+	Burst        int `json:"burst"`
+	DailyQuota   int `json:"daily_quota"`
+	PerUserLimit int `json:"per_user_limit"`
+	CooldownSecs int `json:"cooldown_secs"`
 }
 
 func DefaultRetryPolicy() RetryPolicy {
@@ -195,12 +197,24 @@ type ReachAlertHook func(ctx context.Context, job *model.ReachJob, finalState st
 type ReachPipelineService struct {
 	repo *repository.ReachPipelineRepository
 
-	rateMu    sync.RWMutex
-	rateState map[string]*rateBucket
+	rateMu       sync.RWMutex
+	rateState    map[string]*rateBucket
 	dailyQuotaMu sync.RWMutex
 	dailyQuota   map[string]*dailyCounter
-	perUserMu   sync.RWMutex
-	perUserHits map[string][]time.Time
+	perUserMu    sync.RWMutex
+	perUserHits  map[string][]time.Time
+
+	// rateCache R-5/R-6：跨实例共享的 Redis 频控/配额后端（cache.Cache）。
+	// nil 时使用 cache.GetGlobalCache()；Redis 故障自动降级进程内计数并 WARN。
+	rateCache cache.Cache
+
+	// perUserLimitCfg R-5：system_config_kv 配置的 PerUser 上限缓存（60s 刷新）
+	perUserLimitMu      sync.Mutex
+	perUserLimitVal     int
+	perUserLimitLoadAt  time.Time
+	kvRepoOnce          sync.Once
+	kvRepo              repository.SystemConfigKVRepository
+	redisDegradedWarned sync.Map
 
 	sender ReachSender
 
@@ -795,7 +809,7 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 			res.Output = map[string]any{"account_id": job.AccountID}
 		}
 	case StepRateLimit:
-		if !s.checkRateLimit(ctx, job.Channel, job.AccountID, job.CustomerID, rl) {
+		if !s.checkRateLimit(ctx, job.Channel, job.AccountID, job.CustomerID, rl, isTransactionalPayload(job)) {
 			res.Success = false
 			res.Error = ErrReachRateLimited.Error()
 		} else {
@@ -928,7 +942,7 @@ func (s *ReachPipelineService) generateMessage(ctx context.Context, job *model.R
 		return "", err
 	}
 	cleaned := strings.TrimSpace(base)
-	cleaned = strings.Join(strings.Fields(cleaned), " ") 
+	cleaned = strings.Join(strings.Fields(cleaned), " ")
 	if v, ok := job.Payload["include_channel_footer"]; ok {
 		if b, _ := v.(bool); b && job.Channel != "" {
 			footer := fmt.Sprintf("\n\n[via %s @ %s]", job.Channel, time.Now().Format("2006-01-02 15:04:05"))
@@ -937,7 +951,6 @@ func (s *ReachPipelineService) generateMessage(ctx context.Context, job *model.R
 	}
 	return cleaned, nil
 }
-
 
 // ReachSender 真实触达发送器接口（由 router 注入）。
 // 实现连接 tooluse.IntegrationReachAdapter（telegram/whatsapp/feishu/web/wecom/dingtalk/sms/email/card）
@@ -990,7 +1003,7 @@ func (s *ReachPipelineService) dispatchOutbound(ctx context.Context, job *model.
 	implemented := map[string]bool{
 		"wecom": true, "feishu": true, "telegram": true, "whatsapp": true,
 		"sms": true, "email": true, "card": true, "dingtalk": true,
-		"douyin": false, "kuaishou": false, "xiaohongshu": false, 
+		"douyin": false, "kuaishou": false, "xiaohongshu": false,
 	}
 	if !implemented[job.Channel] {
 		return "", fmt.Errorf("channel %s 暂未实现主动出站（V3 待接入）", job.Channel)
@@ -1172,14 +1185,19 @@ func (s *ReachPipelineService) appendStepResult(ctx context.Context, job *model.
 }
 
 // checkRateLimit 检查限流
-func (s *ReachPipelineService) checkRateLimit(ctx context.Context, channel, accountID, customerID string, rl *RateLimitConfig) bool {
+//
+// R-5 频控分层：PerUser 频控状态迁 Redis（INCR+TTL，跨实例共享）；
+// 交易类消息（payload.transactional=true）豁免 PerUser 频控（Braze 分层频控语义），
+// DailyQuota/QPS 仍然生效；Redis 不可用时降级进程内计数并 WARN。
+func (s *ReachPipelineService) checkRateLimit(ctx context.Context, channel, accountID, customerID string, rl *RateLimitConfig, transactional bool) bool {
 	if rl.DailyQuota > 0 {
 		if !s.checkDailyQuota(ctx, channel, rl.DailyQuota) {
 			return false
 		}
 	}
-	if rl.PerUserLimit > 0 && customerID != "" {
-		if !s.checkPerUser(ctx, customerID, rl.PerUserLimit, time.Duration(rl.CooldownSecs)*time.Second) {
+	perUserLimit := s.resolvePerUserLimit(ctx, rl.PerUserLimit)
+	if perUserLimit > 0 && customerID != "" && !transactional {
+		if !s.checkPerUser(ctx, customerID, perUserLimit, time.Duration(rl.CooldownSecs)*time.Second) {
 			return false
 		}
 	}
@@ -1210,49 +1228,204 @@ func (s *ReachPipelineService) checkRateLimit(ctx context.Context, channel, acco
 	return true
 }
 
+// SetRateCache 注入跨实例共享的频控/配额缓存后端（R-5/R-6，通常为 Redis 实现）
+func (s *ReachPipelineService) SetRateCache(c cache.Cache) {
+	s.rateCache = c
+}
+
+// rateCacheOrGlobal 解析频控/配额共享后端：
+// 显式注入优先；未注入时仅当全局缓存为 Redis 后端才复用（生产多实例共享），
+// 否则返回 nil 由调用方降级进程内计数——避免内存单例被误用为跨实例存储、
+// 也避免单测间经全局单例互相污染。
+func (s *ReachPipelineService) rateCacheOrGlobal() cache.Cache {
+	if s.rateCache != nil {
+		return s.rateCache
+	}
+	if cache.GlobalIsRedis() {
+		return cache.GetGlobalCache()
+	}
+	return nil
+}
+
+// warnRedisDegraded R-5/R-6：Redis 故障降级告警（每组件仅告警一次防刷屏）
+func (s *ReachPipelineService) warnRedisDegraded(component string, err error) {
+	if _, loaded := s.redisDegradedWarned.LoadOrStore(component, true); loaded {
+		return
+	}
+	logger.Warnf("[R-5/R-6] Redis 不可用，%s 降级为进程内计数（多实例配额语义失效）: %v", component, err)
+}
+
+// isTransactionalPayload R-5：交易类消息标记判定（豁免 PerUser 频控）。
+// 支持 bool / string("true","1") / float64(非零) 宽松解析。
+func isTransactionalPayload(job *model.ReachJob) bool {
+	if job == nil || job.Payload == nil {
+		return false
+	}
+	v, ok := job.Payload["transactional"]
+	if !ok {
+		return false
+	}
+	switch t := v.(type) {
+	case bool:
+		return t
+	case string:
+		return t == "true" || t == "1"
+	case float64:
+		return t != 0
+	default:
+		return false
+	}
+}
+
+const (
+	// reachPerUserLimitConfigKey R-5：system_config_kv 中 PerUser 频控上限的配置键
+	reachPerUserLimitConfigKey = "reach_per_user_limit"
+
+	defaultPerUserLimit  = 3
+	perUserLimitCacheTTL = time.Minute
+)
+
+// resolvePerUserLimit R-5：解析生效的 PerUser 上限。
+// 优先级：pipeline 显式配置 > system_config_kv(reach_per_user_limit) > 默认 3。
+// 配置读取结果进程内缓存 60s，避免每次触达打 DB。
+func (s *ReachPipelineService) resolvePerUserLimit(ctx context.Context, configured int) int {
+	if configured > 0 {
+		return configured
+	}
+	s.perUserLimitMu.Lock()
+	defer s.perUserLimitMu.Unlock()
+	if s.perUserLimitVal > 0 && time.Since(s.perUserLimitLoadAt) < perUserLimitCacheTTL {
+		return s.perUserLimitVal
+	}
+	val := defaultPerUserLimit
+	s.kvRepoOnce.Do(func() { s.kvRepo = repository.NewSystemConfigKVRepository() })
+	if s.kvRepo != nil {
+		// 全局 DB 未初始化时（单测/降级）systemConfigKVRepo 内部会 panic，此处兜底回默认值
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Debugf("[R-5] 读取 %s 时全局 DB 不可用（使用默认值 %d）", reachPerUserLimitConfigKey, defaultPerUserLimit)
+				}
+			}()
+			if raw, err := s.kvRepo.Get(ctx, reachPerUserLimitConfigKey); err == nil && raw != "" {
+				if n, perr := strconv.Atoi(strings.TrimSpace(raw)); perr == nil && n >= 0 {
+					val = n
+				}
+			} else if err != nil {
+				logger.Debugf("[R-5] 读取 %s 失败（使用默认值 %d）: %v", reachPerUserLimitConfigKey, defaultPerUserLimit, err)
+			}
+		}()
+	}
+	s.perUserLimitVal = val
+	s.perUserLimitLoadAt = time.Now()
+	return val
+}
+
+// dailyQuotaRedisKey R-6：日配额 Redis 键（按 CST 日期分键，天然隔离跨日）
+func dailyQuotaRedisKey(channel, day string) string {
+	return fmt.Sprintf("reach:dailyquota:%s:%s", channel, day)
+}
+
+// nextCSTMidnight 距下一个 CST 零点的时长（R-6 TTL 至当日 24:00）
+func nextCSTMidnight(t time.Time) time.Duration {
+	local := t.In(cstZone)
+	mid := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, cstZone).AddDate(0, 0, 1)
+	return mid.Sub(local)
+}
+
 // ConsumeDailyQuota 手动消耗每日配额
 func (s *ReachPipelineService) ConsumeDailyQuota(ctx context.Context, channel string) bool {
 	return s.consumeDailyQuota(ctx, channel, 1)
 }
 
-// checkDailyQuota 检查并消耗每日配额
+// checkDailyQuota 检查并消耗每日配额（R-6：Redis INCRBY 共享计数 + TTL 至当日 CST 24:00；
+// Redis 故障降级进程内计数 + WARN。注意：拒绝的请求同样占用额度——保守方向防止超发，
+// 因 Cache 接口无原子 DECR，超发风险大于少发。）
 func (s *ReachPipelineService) checkDailyQuota(ctx context.Context, channel string, quota int) bool {
-	key := channel
-	today := time.Now().Format("2006-01-02")
+	today := time.Now().In(cstZone).Format("2006-01-02")
+	key := dailyQuotaRedisKey(channel, today)
+	if c := s.rateCacheOrGlobal(); c != nil {
+		n, err := c.Incr(ctx, key, nextCSTMidnight(time.Now()))
+		if err != nil {
+			s.warnRedisDegraded("daily_quota", err)
+		} else {
+			return quota <= 0 || n <= int64(quota)
+		}
+	}
+
 	s.dailyQuotaMu.Lock()
 	defer s.dailyQuotaMu.Unlock()
-	c, ok := s.dailyQuota[key]
-	if !ok || c.date != today {
-		s.dailyQuota[key] = &dailyCounter{date: today, count: 0}
-		c = s.dailyQuota[key]
+	if s.dailyQuota == nil {
+		s.dailyQuota = make(map[string]*dailyCounter)
 	}
-	if c.count >= quota {
+	dq, ok := s.dailyQuota[key]
+	if !ok || dq.date != today {
+		s.dailyQuota[key] = &dailyCounter{date: today, count: 0}
+		dq = s.dailyQuota[key]
+	}
+	if dq.count >= quota {
 		return false
 	}
-	c.count++
+	dq.count++
 	return true
 }
 
-// consumeDailyQuota 消耗每日配额
+// consumeDailyQuota 消耗每日配额（R-6：优先 Redis 共享计数；故障降级进程内）
 func (s *ReachPipelineService) consumeDailyQuota(ctx context.Context, channel string, n int) bool {
-	key := channel
-	today := time.Now().Format("2006-01-02")
+	today := time.Now().In(cstZone).Format("2006-01-02")
+	key := dailyQuotaRedisKey(channel, today)
+	if c := s.rateCacheOrGlobal(); c != nil {
+		ttl := nextCSTMidnight(time.Now())
+		var lastErr error
+		for i := 0; i < n; i++ {
+			if _, err := c.Incr(ctx, key, ttl); err != nil {
+				lastErr = err
+				break
+			}
+			lastErr = nil
+		}
+		if lastErr == nil {
+			return true
+		}
+		s.warnRedisDegraded("daily_quota", lastErr)
+	}
+
 	s.dailyQuotaMu.Lock()
 	defer s.dailyQuotaMu.Unlock()
-	c, ok := s.dailyQuota[key]
-	if !ok || c.date != today {
-		c = &dailyCounter{date: today, count: 0}
-		s.dailyQuota[key] = c
+	if s.dailyQuota == nil {
+		s.dailyQuota = make(map[string]*dailyCounter)
 	}
-	c.count += n
+	c2, ok := s.dailyQuota[key]
+	if !ok || c2.date != today {
+		c2 = &dailyCounter{date: today, count: 0}
+		s.dailyQuota[key] = c2
+	}
+	c2.count += n
 	return true
 }
 
-// checkPerUser 检查单用户频次
+// checkPerUser 检查单用户频次（R-5：Redis INCR+TTL 固定窗口跨实例共享；
+// Redis 故障或未配置时降级进程内滑动窗口 + WARN）
 func (s *ReachPipelineService) checkPerUser(ctx context.Context, customerID string, limit int, cooldown time.Duration) bool {
+	// cooldown<=0 语义与原滑动窗口一致：无冷却窗口即不限制
+	if cooldown <= 0 {
+		return true
+	}
+	if c := s.rateCacheOrGlobal(); c != nil {
+		key := "reach:peruser:" + customerID
+		n, err := c.Incr(ctx, key, cooldown)
+		if err == nil {
+			return n <= int64(limit)
+		}
+		s.warnRedisDegraded("per_user_rate_limit", err)
+	}
+
 	now := time.Now()
 	s.perUserMu.Lock()
 	defer s.perUserMu.Unlock()
+	if s.perUserHits == nil {
+		s.perUserHits = make(map[string][]time.Time)
+	}
 	hits := s.perUserHits[customerID]
 	cutoff := now.Add(-cooldown)
 	newHits := hits[:0]
@@ -1282,7 +1455,14 @@ func (s *ReachPipelineService) ResetRateLimit(ctx context.Context, channel strin
 	s.rateMu.Unlock()
 	s.dailyQuotaMu.Lock()
 	delete(s.dailyQuota, prefix)
+	// R-6：进程内降级路径的键为 Redis 风格全键，一并清理
+	delete(s.dailyQuota, dailyQuotaRedisKey(prefix, time.Now().In(cstZone).Format("2006-01-02")))
 	s.dailyQuotaMu.Unlock()
+	// R-6：尽力清理 Redis 当日配额键
+	if c := s.rateCacheOrGlobal(); c != nil {
+		today := time.Now().In(cstZone).Format("2006-01-02")
+		_ = c.Delete(ctx, dailyQuotaRedisKey(channel, today))
+	}
 }
 
 // validateSteps 校验步骤列表
@@ -1379,4 +1559,3 @@ func InitReachPipelineService(db *gorm.DB) *ReachPipelineService {
 	})
 	return reachInstance
 }
-

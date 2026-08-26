@@ -524,9 +524,12 @@ func buildLLMDecisionPrompt(ec *ExecutionContext, candidates []string) string {
 }
 
 type WaitExecutor struct {
-	db        *gorm.DB 
+	db        *gorm.DB
 	timerRepo *repository.SOPTimerRepository
 }
+
+// sopTimerDefaultMaxWait wait 节点缺省 max_wait 兜底（Customer.io：Max-time fallback 必须有否则卡死）
+const sopTimerDefaultMaxWait = 24 * time.Hour
 
 func (e *WaitExecutor) NodeType() string { return SOPNodeTypeWait }
 
@@ -561,6 +564,14 @@ func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Node
 	}
 
 	if e.timerRepo != nil {
+		// S1-2 Wait 语义：创建时写 expires_at(=wait_until)+max_wait_at 双字段快照。
+		// max_wait_at 从进入时刻起算（Customer.io：时长进入时刻快照），超时视为满足立即跳过。
+		now := time.Now()
+		maxWaitSeconds, _ := ec.Node.Config["max_wait_seconds"].(float64)
+		if maxWaitSeconds <= 0 {
+			maxWaitSeconds = float64(sopTimerDefaultMaxWait / time.Second)
+		}
+		maxWaitAt := now.Add(time.Duration(int64(maxWaitSeconds)) * time.Second)
 		timer := &model.SOPTimer{
 			ExecutionID: ec.Execution.ID,
 			NodeID:      ec.Node.ID,
@@ -572,6 +583,8 @@ func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Node
 				"customer_id": ec.CustomerID,
 				"session_id":  ec.SessionID,
 				"attempt":     ec.Attempt,
+				"expires_at":  waitUntil.Format(time.RFC3339),
+				"max_wait_at": maxWaitAt.Format(time.RFC3339),
 			},
 		}
 		if err := e.timerRepo.Create(ctx, timer); err != nil {

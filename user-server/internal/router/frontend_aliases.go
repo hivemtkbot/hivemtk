@@ -134,6 +134,8 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	// OPT-UX-04: OneID 合并规则 CRUD
 	doReg("GET", "/oneid/merge-rules", oneIDCtrl.GetMergeRules)
 	doReg("POST", "/oneid/merge-rules", oneIDCtrl.SaveMergeRules)
+	// MergeRuleConfig.vue 命中预览（返回 candidateCount + samples）
+	doReg("POST", "/oneid/merge-rules/preview", oneIDCtrl.PreviewMergeRules)
 
 	inboxCtrl := controller.NewInboxController(service.NewInboxService())
 	doReg("GET", "/inbox/conversations", inboxCtrl.List)
@@ -511,6 +513,19 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 
 	doReg("GET", "/system-monitor/metrics", emptyObj)
 	doReg("GET", "/system-monitor/health", emptyObj)
+
+	// R35 契约漂移处置（audit_checklist.md：3组真实在用端点的优雅空态，防页面报错）
+	emptyListResp := func(c *gin.Context) {
+		c.JSON(200, gin.H{"code": "SUCCESS", "message": "ok", "data": gin.H{"list": []any{}, "total": 0}})
+	}
+	doReg("GET", "/csat/stats", emptyObj)
+	doReg("GET", "/csat/template", emptyObj)
+	doReg("GET", "/csat/trend", emptyList)
+	doReg("GET", "/csat/negative", emptyListResp)
+	doReg("GET", "/mentions/mine", emptyListResp)
+	doReg("GET", "/system/menus", func(c *gin.Context) {
+		c.JSON(200, gin.H{"code": "SUCCESS", "message": "ok", "data": []any{}})
+	})
 
 	domainDB := gormDB
 	domainPoolRepo := repository.NewDomainPoolRepository(domainDB)

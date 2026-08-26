@@ -66,6 +66,8 @@ func (p *HumanizePolisher) Polish(ctx context.Context, raw string, pctx *PolishC
 
 	polished = p.removeExtraSymbols(ctx, polished)
 
+	polished = filterExtremeClaims(polished)
+
 	polished = p.applyPlatformStyle(ctx, polished, pctx)
 
 	if p.enableTruncation {
@@ -181,6 +183,42 @@ func (p *HumanizePolisher) removeAITraces(ctx context.Context, text string) stri
 	}
 	for _, trace := range aiTraces {
 		text = strings.ReplaceAll(text, trace, "")
+	}
+	return text
+}
+
+// adLawReplacements 广告法极限词过滤表（H-5/X-3，集中定义）。
+// Polisher 输出前将《广告法》禁用的绝对化用词替换为合规表述。
+// 注意：长词必须排在短词前（顺序替换），且避免误伤正常词（如"最近"不处理，
+// "第一"仅处理"销量第一/行业第一/第一品牌"等组合，不动"第一次"）。
+var adLawReplacements = []struct{ From, To string }{
+	{"全网最低价", "价格很有优势"},
+	{"全网最低", "价格很有优势"},
+	{"史上最低", "很有竞争力的价格"},
+	{"国家级", "高标准"},
+	{"世界级", "高标准"},
+	{"销量第一", "销量领先"},
+	{"行业第一", "行业领先"},
+	{"排名第一", "排名靠前"},
+	{"第一品牌", "领先品牌"},
+	{"百分百", "很大程度上"},
+	{"100%", "很高比例的"},
+	{"最低价", "实惠的价格"},
+	{"最先进", "先进"},
+	{"最好", "很好"},
+	{"最优", "优秀"},
+	{"最强", "很强"},
+	{"最佳", "优选"},
+	{"根治", "有效改善"},
+	{"绝对", "确实"},
+	{"顶级", "高端"},
+	{"极致", "出色"},
+}
+
+// filterExtremeClaims 过滤广告法极限词（H-5/X-3）
+func filterExtremeClaims(text string) string {
+	for _, r := range adLawReplacements {
+		text = strings.ReplaceAll(text, r.From, r.To)
 	}
 	return text
 }

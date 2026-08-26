@@ -1,9 +1,6 @@
 package confidence
 
-
 import (
-	"strings"
-
 	"hivemtk-user/internal/dto"
 )
 
@@ -21,7 +18,6 @@ type VetoContext struct {
 	ExtractedEntities map[string]any
 }
 
-
 // VetoComplaint 投诉/流失意图直接否决
 type VetoComplaint struct{}
 
@@ -36,7 +32,7 @@ func (r *VetoComplaint) Check(_ *dto.FiveSignals, ctx *VetoContext) (bool, strin
 
 // VetoLowEntity 实体完整性过低
 type VetoLowEntity struct {
-	Threshold float64 
+	Threshold float64
 }
 
 // Check 实现 VetoRule
@@ -44,7 +40,7 @@ type VetoLowEntity struct {
 // 仅当 expected 非空（即 intent 需要实体）时才检查
 func (r *VetoLowEntity) Check(signals *dto.FiveSignals, ctx *VetoContext) (bool, string) {
 	if len(ctx.ExpectedEntities) == 0 {
-		return false, "" 
+		return false, ""
 	}
 	threshold := r.Threshold
 	if threshold <= 0 {
@@ -63,7 +59,7 @@ func (r *VetoLowEntity) Check(signals *dto.FiveSignals, ctx *VetoContext) (bool,
 //
 //	禁用本规则请用负数（如 Threshold=-1）显式声明。
 type VetoLowRAG struct {
-	Threshold float64 
+	Threshold float64
 }
 
 // defaultVetoLowRAGThreshold VetoLowRAG 兜底阈值
@@ -75,10 +71,10 @@ const defaultVetoLowRAGThreshold = 0.1
 func (r *VetoLowRAG) Check(signals *dto.FiveSignals, _ *VetoContext) (bool, string) {
 	threshold := r.Threshold
 	if threshold == 0 {
-		threshold = defaultVetoLowRAGThreshold 
+		threshold = defaultVetoLowRAGThreshold
 	}
 	if threshold < 0 {
-		return false, "" 
+		return false, ""
 	}
 	if signals.RAGQual < threshold {
 		return true, "veto_low_rag"
@@ -91,7 +87,7 @@ func (r *VetoLowRAG) Check(signals *dto.FiveSignals, _ *VetoContext) (bool, stri
 // 注意：LLMEntropy 信号定义为 1 - normalized_entropy
 // 所以"高不确定"对应 LLMEntropy < threshold
 type VetoHighEntropy struct {
-	Threshold float64 
+	Threshold float64
 }
 
 // Check 实现 VetoRule
@@ -114,7 +110,7 @@ type VetoLoop struct{}
 
 // Check 实现 VetoRule
 func (r *VetoLoop) Check(_ *dto.FiveSignals, ctx *VetoContext) (bool, string) {
-	if len(ctx.LastNTurns) < 6 { 
+	if len(ctx.LastNTurns) < 6 {
 		return false, ""
 	}
 	last3 := ctx.LastNTurns[len(ctx.LastNTurns)-3:]
@@ -127,12 +123,20 @@ func (r *VetoLoop) Check(_ *dto.FiveSignals, ctx *VetoContext) (bool, string) {
 // VetoExplicit 客户显式请求转人工
 type VetoExplicit struct{}
 
-// explicitKeywords 触发显式转人工的关键词
-// 与 chat_visitor.transferKeywords 保持同步
-var explicitKeywords = []string{
-	"转人工", "人工客服", "找人工", "真人客服", "转接人工", "找客服", "人工服务",
-	"real agent", "human agent", "transfer to human",
-	"真人", "找人",
+// explicitKeywordMatcher 显式转人工关键词匹配函数（S-5 单源化 2026-08-26）。
+//
+// 本包不再维护独立关键词清单，由 service 包初始化时注入
+// （nlp_keywords.go 的 Transfer/Explicit 词表 + 否定窗口处理为单一来源；
+// 注入的匹配器为两者并集，与历史 explicitKeywords 行为等价）。
+// 未注入时（如本包单测外的异常装配）VetoExplicit 不触发，由链路后续规则兜底。
+var explicitKeywordMatcher func(string) bool
+
+// SetExplicitKeywordMatcher 注入显式转人工关键词匹配函数（S-5 运行时单一来源）。
+// 由 service 包 init 调用；fn 为 nil 时忽略。
+func SetExplicitKeywordMatcher(fn func(string) bool) {
+	if fn != nil {
+		explicitKeywordMatcher = fn
+	}
 }
 
 // Check 实现 VetoRule
@@ -140,15 +144,11 @@ func (r *VetoExplicit) Check(_ *dto.FiveSignals, ctx *VetoContext) (bool, string
 	if ctx.CustomerMessage == "" {
 		return false, ""
 	}
-	lower := strings.ToLower(ctx.CustomerMessage)
-	for _, kw := range explicitKeywords {
-		if strings.Contains(lower, kw) {
-			return true, "veto_explicit"
-		}
+	if explicitKeywordMatcher != nil && explicitKeywordMatcher(ctx.CustomerMessage) {
+		return true, "veto_explicit"
 	}
 	return false, ""
 }
-
 
 // VetoChain 一票否决链（按顺序检查，返回第一个触发的规则）
 type VetoChain struct {
@@ -171,7 +171,7 @@ func NewVetoChain() *VetoChain {
 			&VetoComplaint{},
 			&VetoLoop{},
 			&VetoLowEntity{Threshold: 0.2},
-			&VetoLowRAG{Threshold: 0}, 
+			&VetoLowRAG{Threshold: 0},
 			&VetoHighEntropy{Threshold: 0.2},
 		},
 	}
@@ -196,4 +196,3 @@ func (c *VetoChain) Check(signals *dto.FiveSignals, ctx *VetoContext) (bool, str
 func (c *VetoChain) Rules() []VetoRule {
 	return c.rules
 }
-

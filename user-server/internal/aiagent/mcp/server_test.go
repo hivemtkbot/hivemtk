@@ -491,10 +491,16 @@ func TestConvertParameters(t *testing.T) {
 	}
 }
 
-// TestServer_ProtocolVersionCompliance 验证协议版本号
+// TestServer_ProtocolVersionCompliance 验证协议版本常量（TL-2：最新支持 2025-11-25）
 func TestServer_ProtocolVersionCompliance(t *testing.T) {
-	if ProtocolVersion != "2025-06-18" {
-		t.Errorf("protocol version should be 2025-06-18 per spec, got %s", ProtocolVersion)
+	if ProtocolVersionLatest != "2025-11-25" {
+		t.Errorf("latest protocol version should be 2025-11-25 per spec, got %s", ProtocolVersionLatest)
+	}
+	if len(SupportedProtocolVersions) != 2 {
+		t.Fatalf("expected 2 supported versions, got %v", SupportedProtocolVersions)
+	}
+	if SupportedProtocolVersions[0] != "2025-06-18" || SupportedProtocolVersions[1] != "2025-11-25" {
+		t.Errorf("unexpected supported versions: %v", SupportedProtocolVersions)
 	}
 }
 

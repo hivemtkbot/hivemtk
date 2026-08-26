@@ -125,9 +125,15 @@ func (s *DingTalkAppService) ReceiveMessage(ctx context.Context, accountID uint,
 	var msg struct {
 		MsgType        string `json:"msgtype"`
 		SenderID       string `json:"senderId"`
+		SenderStaffID  string `json:"senderStaffId"`
 		ConversationID string `json:"conversationId"`
 		MsgID          string `json:"msgId"`
 		CreateAt       int64  `json:"createAt"`
+		// sessionWebhook 钉钉官方机器人回复通道（临时，有效期见 sessionWebhookExpiredTime）。
+		// 官方文档《机器人回复/发送消息》：回复消息即 POST 该 webhook，
+		// body {"msgtype":"text","text":{"content":"..."}}；过期后只能走 OpenAPI。
+		SessionWebhook           string `json:"sessionWebhook"`
+		SessionWebhookExpiredTime int64 `json:"sessionWebhookExpiredTime"`
 		Content        struct {
 			Content string `json:"content"`
 		} `json:"content"`
@@ -145,6 +151,15 @@ func (s *DingTalkAppService) ReceiveMessage(ctx context.Context, accountID uint,
 	if content == "" {
 		content = "[" + msg.MsgType + "]"
 	}
+	// 发送者归一：企业内部应用回调优先 senderStaffId（员工唯一标识），
+	// 兜底旧协议字段 senderId（2026-08-25 修复：原仅读 senderId，新协议下发时为空导致身份丢失）
+	sender := msg.SenderStaffID
+	if sender == "" {
+		sender = msg.SenderID
+	}
+	if sender == "" {
+		sender = msg.ConversationID
+	}
 	agent := acc.AIAgentID
 	if agent == "" {
 		agent = "sales_engine"
@@ -153,13 +168,18 @@ func (s *DingTalkAppService) ReceiveMessage(ctx context.Context, accountID uint,
 		EventID:        fmt.Sprintf("dt-%d-%s", accountID, msg.MsgID),
 		SessionID:      fmt.Sprintf("dt-%d-%s", accountID, msg.ConversationID),
 		Channel:        model.ChannelDingTalk,
-		SenderID:       msg.SenderID,
+		SenderID:       sender,
 		MsgType:        model.MsgTypeText,
 		Content:        content,
 		ConversationID: msg.ConversationID,
 		Timestamp:      time.Now(),
 		AIAgent:        agent,
-		Extra:          map[string]any{"account_id": fmt.Sprintf("%d", accountID)},
+		Extra: map[string]any{
+			"account_id": fmt.Sprintf("%d", accountID),
+			// 透传临时回复通道，AI 回复经 sendOutbound case ChannelDingTalk 使用
+			"session_webhook":            msg.SessionWebhook,
+			"session_webhook_expired_at": msg.SessionWebhookExpiredTime,
+		},
 	}
 	if s.webhookSvc == nil {
 		return errors.New("webhook service not configured")

@@ -390,6 +390,33 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 		for _, id := range updatedIDs {
 			updatedIDSet[id] = struct{}{}
 		}
+		// 修复：批量更新成功的 msg_id 必须生成 acked/failed 明细项，
+		// 否则 affected>0 但 AckedItemsCount=0（2026-08-18 重构回归）。
+		// 按"入参 msg_id"粒度生成明细（跨会话同名 msg_id 多行更新仍只产一条明细）。
+		for _, id := range toAck {
+			if _, ok := updatedIDSet[id]; !ok {
+				continue
+			}
+			st := model.BridgeAckStatusAcked
+			if terminalStatus == model.BridgeAckStatusFailed {
+				st = model.BridgeAckStatusFailed
+			}
+			item := AckOutboundItem{MsgID: id, Status: st}
+			if perItem != nil {
+				if inp, ok := perItem[id]; ok && inp.Error != "" {
+					item.Error = inp.Error
+				}
+			}
+			result.Items = append(result.Items, item)
+		}
+		// 更新落空（affected 0 行）= 并发下已被其他请求翻转 → 幂等 duplicate。
+		for _, id := range toAck {
+			if _, ok := updatedIDSet[id]; ok {
+				continue
+			}
+			result.Items = append(result.Items, AckOutboundItem{MsgID: id, Status: model.BridgeAckStatusDuplicate})
+			result.DuplicateCount++
+		}
 	}
 
 	finalItems := make([]AckOutboundItem, 0, len(result.Items))

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
 )
@@ -16,10 +17,11 @@ import (
 type AssignmentStrategy string
 
 const (
-	StrategyRoundRobin  AssignmentStrategy = "round_robin"
-	StrategyLeastBusy   AssignmentStrategy = "least_busy"
-	StrategySkillMatch  AssignmentStrategy = "skill_match"
-	StrategyManual      AssignmentStrategy = "manual"
+	StrategyRoundRobin AssignmentStrategy = "round_robin"
+	StrategyLeastBusy  AssignmentStrategy = "least_busy"
+	StrategySkillMatch AssignmentStrategy = "skill_match"
+	StrategyOwnerRoute AssignmentStrategy = "owner_route"
+	StrategyManual     AssignmentStrategy = "manual"
 )
 
 // AssignmentService 客服会话自动分配服务（USR-WB-03）
@@ -53,7 +55,17 @@ type AssignmentDecision struct {
 }
 
 // Assign 为入站会话选择坐席
+//
+// S-4 专属坐席定向路由（2026-08-26）：若会话客户的 owner_agent_id 对应坐席
+// 在线且有容量，则直接定向给该坐席；否则回退现有算法（技能匹配 + least_busy）。
 func (s *AssignmentService) Assign(ctx context.Context, sess *model.CustomerSession, candidates []AgentInfo) (*AssignmentDecision, error) {
+	ownerID := s.resolveOwnerAgentID(ctx, sess)
+	return s.AssignWithOwner(ctx, sess, candidates, ownerID)
+}
+
+// AssignWithOwner 带专属坐席的分配入口（ownerID<=0 时行为与原算法完全一致）。
+// 独立导出便于单测注入 owner 而无需 DB。
+func (s *AssignmentService) AssignWithOwner(ctx context.Context, sess *model.CustomerSession, candidates []AgentInfo, ownerID uint) (*AssignmentDecision, error) {
 	if len(candidates) == 0 {
 		return nil, errors.New("无可用坐席")
 	}
@@ -71,6 +83,22 @@ func (s *AssignmentService) Assign(ctx context.Context, sess *model.CustomerSess
 	}
 	if len(available) == 0 {
 		return nil, errors.New("所有坐席均已满载或离线")
+	}
+
+	// 0. S-4 专属坐席定向路由：owner 在可用集合内则直接命中
+	if ownerID > 0 {
+		for _, a := range available {
+			if a.AgentID == ownerID {
+				return &AssignmentDecision{
+					AgentID:   a.AgentID,
+					AgentName: a.AgentName,
+					Strategy:  string(StrategyOwnerRoute),
+					Reason:    fmt.Sprintf("owner_agent: %d/%d", a.ActiveSess, a.Capacity),
+					Score:     1,
+				}, nil
+			}
+		}
+		// owner 不在线/满载 → 回退现有算法
 	}
 
 	// 1. 优先匹配 skill
@@ -122,6 +150,28 @@ func extractSessionSkills(sess *model.CustomerSession) []string {
 		skills = append(skills, "vip")
 	}
 	return skills
+}
+
+// resolveOwnerAgentID S-4：解析会话客户的专属坐席（customers.owner_agent_id）。
+//
+// 身份匹配：优先 OneID（= customers.unified_id），为空回退 UserID。
+// 任何失败（未绑定/查询错误）返回 0，调用方回退现有算法——定向路由是增强而非依赖。
+func (s *AssignmentService) resolveOwnerAgentID(ctx context.Context, sess *model.CustomerSession) uint {
+	if s == nil || s.db == nil || sess == nil {
+		return 0
+	}
+	identity := sess.OneID
+	if identity == "" {
+		identity = sess.UserID
+	}
+	if identity == "" {
+		return 0
+	}
+	cust, err := repository.NewCustomerRepository().GetByUnifiedID(ctx, identity)
+	if err != nil || cust == nil || cust.OwnerAgentID == nil || *cust.OwnerAgentID == 0 {
+		return 0
+	}
+	return *cust.OwnerAgentID
 }
 
 func filterBySkills(agents []AgentInfo, required []string) []AgentInfo {

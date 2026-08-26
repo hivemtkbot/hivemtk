@@ -103,6 +103,20 @@ func (c *WebhookController) Receive(ctx *gin.Context) {
 
 	reqCtx := middleware.InjectLangToCtx(ctx.Request.Context(), c.langResolver, "", 0)
 
+	// 2026-08-25 修复（交付阻断）：飞书官方事件订阅验证流程是 POST url_verification
+	// （要求原样回显 challenge），原先只在自研 GET 端点支持 → 控制台标准配置无法通过。
+	if channel == service.ChannelFeishu {
+		challenge, handled, verr := c.svc.HandleFeishuURLVerification(reqCtx, accountID, body)
+		if handled {
+			if verr != nil {
+				ctx.String(http.StatusUnauthorized, "feishu url_verification failed: "+verr.Error())
+				return
+			}
+			ctx.JSON(http.StatusOK, gin.H{"challenge": challenge})
+			return
+		}
+	}
+
 	req := &service.ReceiveRequest{
 		Channel:   channel,
 		AccountID: accountID,

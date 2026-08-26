@@ -146,6 +146,69 @@ func (r *ToolRegistry) ToLLMFunctions() []LLMFunction {
 	return list
 }
 
+// ---------- TL-3（MASTER_COMPETITIVE_DECISIONS M13）场景→工具类别白名单 ----------
+//
+// 场景裁剪映射表集中在此一处维护：
+//   - intent_recognize 类场景只暴露 knowledge/customer 类工具（降低 prompt 体积+误触面）
+//   - sales/cs 等业务场景全量暴露
+//   - 未列出的场景默认全量（向后兼容）
+const ScenarioIntentRecognize = "intent_recognize"
+
+var scenarioToolWhitelist = map[string][]ToolCategory{
+	ScenarioIntentRecognize: {CategoryKnowledge, CategoryCustomer},
+}
+
+// ScenarioAllowedCategories 返回场景允许的工具类别。
+// restricted=false 表示该场景无裁剪配置（调用方应全量放行）。
+func ScenarioAllowedCategories(scenario string) ([]ToolCategory, bool) {
+	cats, ok := scenarioToolWhitelist[scenario]
+	return cats, ok && len(cats) > 0
+}
+
+// ScenarioAllowsTool 判断指定工具是否允许在场景中暴露
+// （无类别映射的工具按"不在白名单即隐藏"处理；场景未配置则全量放行）
+func ScenarioAllowsTool(scenario string, toolName string) bool {
+	cats, restricted := ScenarioAllowedCategories(scenario)
+	if !restricted {
+		return true
+	}
+	t, err := GetGlobalRegistry().Get(toolName)
+	if err != nil {
+		return false
+	}
+	for _, c := range cats {
+		if t.Category() == c {
+			return true
+		}
+	}
+	return false
+}
+
+// ToLLMFunctionsForScenario 按场景白名单裁剪导出 LLM Function Calling 格式。
+// 场景未配置白名单时等价于 ToLLMFunctions（全量，向后兼容）。
+func (r *ToolRegistry) ToLLMFunctionsForScenario(scenario string) []LLMFunction {
+	cats, restricted := ScenarioAllowedCategories(scenario)
+	if !restricted {
+		return r.ToLLMFunctions()
+	}
+	allowed := make(map[ToolCategory]bool, len(cats))
+	for _, c := range cats {
+		allowed[c] = true
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	list := make([]LLMFunction, 0)
+	for _, t := range r.tools {
+		if allowed[t.Category()] {
+			list = append(list, ToLLMFunction(t))
+		}
+	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Name < list[j].Name
+	})
+	return list
+}
+
 // ToLLMFunctionsByCategory 按 category 导出 LLM Function Calling 格式
 func (r *ToolRegistry) ToLLMFunctionsByCategory(category ToolCategory) []LLMFunction {
 	r.mu.RLock()

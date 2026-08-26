@@ -76,3 +76,47 @@ func (s *TechConfigService) GenerateSitemap(cfg *SitemapConfig) string {
 	b.WriteString("</urlset>\n")
 	return b.String()
 }
+
+
+// LLMsTxtConfig llms.txt 生成配置（v3 竞品对齐 A4）
+// llms.txt 是面向 AI 引擎的站点知识索引约定（类比 robots.txt 之于搜索引擎），
+// 帮助 LLM 快速定位品牌权威文档，提升被引用概率。
+type LLMsTxtConfig struct {
+	SiteURL   string            `json:"site_url" binding:"required"`
+	Brand     string            `json:"brand" binding:"required"`
+	Overview  string            `json:"overview"`
+	Documents []LLMsDocEntry    `json:"documents"`
+	Policies  map[string]string `json:"policies,omitempty"`
+}
+
+type LLMsDocEntry struct {
+	Title       string `json:"title"`
+	URL         string `json:"url"`
+	Description string `json:"description,omitempty"`
+}
+
+// GenerateLLMsTxt 输出 Markdown 格式的 llms.txt 内容
+func (s *TechConfigService) GenerateLLMsTxt(cfg *LLMsTxtConfig) string {
+	var b strings.Builder
+	b.WriteString("# " + cfg.Brand + "\n\n")
+	if cfg.Overview != "" {
+		b.WriteString("> " + cfg.Overview + "\n\n")
+	}
+	if len(cfg.Documents) > 0 {
+		b.WriteString("## Docs\n\n")
+		for _, d := range cfg.Documents {
+			line := "- [" + d.Title + "](" + d.URL + ")"
+			if d.Description != "" {
+				line += ": " + d.Description
+			}
+			b.WriteString(line + "\n")
+		}
+	}
+	if len(cfg.Policies) > 0 {
+		b.WriteString("\n## Policies\n\n")
+		for k, v := range cfg.Policies {
+			b.WriteString("- [" + k + "](" + v + ")\n")
+		}
+	}
+	return b.String()
+}

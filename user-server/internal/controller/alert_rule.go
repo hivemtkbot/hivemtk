@@ -223,6 +223,29 @@ func (c *AlertRuleController) ResolveHistory(ctx *gin.Context) {
 	response.Success(ctx, nil, "已标记为恢复")
 }
 
+// Unread godoc
+// @Summary      未恢复告警概览
+// @Description  返回 firing 状态告警计数与最近列表（OpsOverview 顶栏未读角标）
+// @Tags         告警
+// @Produce      json
+// @Param        limit  query  int  false  "列表条数上限"  default(20)
+// @Success      200    {object}  response.Response
+// @Router       /api/monitor/alerts/unread [get]
+func (c *AlertRuleController) Unread(ctx *gin.Context) {
+	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
+	out, err := c.svc.GetUnread(context.Background(), limit)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	// unread_count 为 count 的语义别名（兼容前端两种取值字段）
+	response.Success(ctx, gin.H{
+		"count":        out.Count,
+		"unread_count": out.Count,
+		"list":         out.List,
+	}, "")
+}
+
 // toUint 把 ctx 值转成 uint
 func toUint(v any) (uint, bool) {
 	switch t := v.(type) {

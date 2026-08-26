@@ -9,6 +9,7 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/testutil"
+	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
 )
@@ -19,6 +20,7 @@ func setupAutoTaggerTestDB(t *testing.T) *gorm.DB {
 		&model.CustomerTag{},
 		&model.Customer{},
 		&model.CustomerEvent{},
+		&model.CustomerTagAssignment{},
 	)
 	db.SetTestDB(database)
 	return database
@@ -442,3 +444,209 @@ func TestAutoTagger_EvaluateAndTag(t *testing.T) {
 	}
 }
 
+
+// setupCustomerWithTags 创建测试客户并写入指定标签
+func setupCustomerWithTags(t *testing.T, tagger *AutoTagger, phone string, tags []string) *model.Customer {
+	customerService := NewCustomerService()
+	customer, err := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{Phone: phone})
+	if err != nil {
+		t.Fatalf("CreateOrUpdate failed: %v", err)
+	}
+	if tags != nil {
+		if err := model.SetCustomerTags(customer, tags); err != nil {
+			t.Fatalf("SetCustomerTags failed: %v", err)
+		}
+		if err := tagger.custRepo.Update(context.Background(), customer); err != nil {
+			t.Fatalf("custRepo.Update failed: %v", err)
+		}
+	}
+	return customer
+}
+
+// createRuleWithRemoveCondition 创建带 remove_condition 的自动标签规则
+func createRuleWithRemoveCondition(t *testing.T, tagger *AutoTagger, name string, removeCond map[string]any) {
+	rule := map[string]any{
+		"type":            "simple",
+		"field":           "rfm_score",
+		"operator":        "gte",
+		"value":           9999,
+		"remove_condition": removeCond,
+	}
+	if err := tagger.CreateAutoTag(context.Background(), name, string(model.TagCategoryBehavioral), rule); err != nil {
+		t.Fatalf("CreateAutoTag failed: %v", err)
+	}
+}
+
+// seedAssignment 写入一条指定添加时间的标签归属记录
+func seedAssignment(t *testing.T, customerID, tagName string, addedAt time.Time) {
+	repo := repository.NewCustomerTagAssignmentRepository()
+	err := repo.Create(context.Background(), &model.CustomerTagAssignment{
+		CustomerID: customerID,
+		Tag:        tagName,
+		Category:   "behavioral",
+		Source:     string(model.TagSourceAuto),
+		CreatedAt:  addedAt,
+	})
+	if err != nil {
+		t.Fatalf("seedAssignment failed: %v", err)
+	}
+}
+
+// getCustomerTags 查询客户当前标签集合
+func getCustomerTags(t *testing.T, tagger *AutoTagger, customerID string) map[string]bool {
+	customer, err := tagger.custRepo.GetByID(context.Background(), customerID)
+	if err != nil || customer == nil {
+		t.Fatalf("custRepo.GetByID failed: %v", err)
+	}
+	set := make(map[string]bool)
+	for _, tag := range model.GetCustomerTags(customer) {
+		set[tag] = true
+	}
+	return set
+}
+
+// TestAutoTagger_RemoveCondition_DaysSinceExpired 标签添加超 N 天应被移除（规则本身已不再匹配）
+func TestAutoTagger_RemoveCondition_DaysSinceExpired(t *testing.T) {
+	tagger := setupAutoTagger(t)
+
+	customer := setupCustomerWithTags(t, tagger, "13900000001", []string{"HotLead"})
+	createRuleWithRemoveCondition(t, tagger, "HotLead", map[string]any{"type": "days_since", "days": 90})
+	seedAssignment(t, customer.ID, "HotLead", time.Now().AddDate(0, 0, -100))
+
+	if err := tagger.EvaluateAndTag(context.Background(), customer.ID); err != nil {
+		t.Fatalf("EvaluateAndTag failed: %v", err)
+	}
+
+	if getCustomerTags(t, tagger, customer.ID)["HotLead"] {
+		t.Error("Expected HotLead to be removed after 90 days")
+	}
+}
+
+// TestAutoTagger_RemoveCondition_DaysSinceNotExpired 未到期应保留
+func TestAutoTagger_RemoveCondition_DaysSinceNotExpired(t *testing.T) {
+	tagger := setupAutoTagger(t)
+
+	customer := setupCustomerWithTags(t, tagger, "13900000002", []string{"HotLead"})
+	createRuleWithRemoveCondition(t, tagger, "HotLead", map[string]any{"type": "days_since", "days": 90})
+	seedAssignment(t, customer.ID, "HotLead", time.Now().AddDate(0, 0, -10))
+
+	if err := tagger.EvaluateAndTag(context.Background(), customer.ID); err != nil {
+		t.Fatalf("EvaluateAndTag failed: %v", err)
+	}
+
+	if !getCustomerTags(t, tagger, customer.ID)["HotLead"] {
+		t.Error("Expected HotLead to be kept before expiry")
+	}
+}
+
+// TestAutoTagger_RemoveCondition_EventAbsent 近 N 天无指定事件应被移除
+func TestAutoTagger_RemoveCondition_EventAbsent(t *testing.T) {
+	tagger := setupAutoTagger(t)
+	ctx := context.Background()
+
+	customer := setupCustomerWithTags(t, tagger, "13900000003", []string{"RecentBuyer"})
+	createRuleWithRemoveCondition(t, tagger, "RecentBuyer", map[string]any{"type": "event_absent", "event": string(model.EventTypePurchase), "days": 60})
+
+	// 场景1：近 60 天无购买事件（仅有 90 天前的旧购买）→ 移除
+	oldPurchase := &model.CustomerEvent{
+		CustomerID:  customer.ID,
+		EventType:   model.EventTypePurchase,
+		EventSource: model.EventSourceWebsite,
+		OccurredAt:  time.Now().AddDate(0, 0, -90),
+	}
+	eventRepo := repository.NewCustomerEventRepository()
+	if err := eventRepo.Record(ctx, oldPurchase); err != nil {
+		t.Fatalf("eventRepo.Create failed: %v", err)
+	}
+	seedAssignment(t, customer.ID, "RecentBuyer", time.Now().AddDate(0, 0, -10))
+
+	if err := tagger.EvaluateAndTag(ctx, customer.ID); err != nil {
+		t.Fatalf("EvaluateAndTag failed: %v", err)
+	}
+	if getCustomerTags(t, tagger, customer.ID)["RecentBuyer"] {
+		t.Error("Expected RecentBuyer to be removed (no purchase in last 60 days)")
+	}
+
+	// 场景2：补充一笔近期购买 → 不满足 event_absent，标签保留
+	recentPurchase := &model.CustomerEvent{
+		CustomerID:  customer.ID,
+		EventType:   model.EventTypePurchase,
+		EventSource: model.EventSourceWebsite,
+		OccurredAt:  time.Now().AddDate(0, 0, -5),
+	}
+	if err := eventRepo.Record(ctx, recentPurchase); err != nil {
+		t.Fatalf("eventRepo.Create failed: %v", err)
+	}
+	if err := model.SetCustomerTags(customer, []string{"RecentBuyer"}); err != nil {
+		t.Fatalf("SetCustomerTags failed: %v", err)
+	}
+	if err := tagger.custRepo.Update(ctx, customer); err != nil {
+		t.Fatalf("custRepo.Update failed: %v", err)
+	}
+
+	if err := tagger.EvaluateAndTag(ctx, customer.ID); err != nil {
+		t.Fatalf("EvaluateAndTag failed: %v", err)
+	}
+	if !getCustomerTags(t, tagger, customer.ID)["RecentBuyer"] {
+		t.Error("Expected RecentBuyer to be kept (recent purchase exists)")
+	}
+}
+
+// TestAutoTagger_NoRemoveCondition_LegacyBehaviorUnchanged 无 remove_condition 的旧规则行为不变（只增不减）
+func TestAutoTagger_NoRemoveCondition_LegacyBehaviorUnchanged(t *testing.T) {
+	tagger := setupAutoTagger(t)
+
+	customer := setupCustomerWithTags(t, tagger, "13900000004", []string{"LegacyTag"})
+	rule := map[string]any{"type": "simple", "field": "rfm_score", "operator": "gte", "value": 0}
+	if err := tagger.CreateAutoTag(context.Background(), "MatchedTag", string(model.TagCategoryBehavioral), rule); err != nil {
+		t.Fatalf("CreateAutoTag failed: %v", err)
+	}
+
+	if err := tagger.EvaluateAndTag(context.Background(), customer.ID); err != nil {
+		t.Fatalf("EvaluateAndTag failed: %v", err)
+	}
+
+	tags := getCustomerTags(t, tagger, customer.ID)
+	if !tags["LegacyTag"] {
+		t.Error("Expected LegacyTag to be kept (tags only grow without remove_condition)")
+	}
+	if !tags["MatchedTag"] {
+		t.Error("Expected MatchedTag to be added by matching rule")
+	}
+}
+
+// TestAutoTagger_RemoveCondition_BackwardCompatibleJSON remove_condition 解析容错（字段缺失/类型异常不 panic）
+func TestAutoTagger_RemoveCondition_BackwardCompatibleJSON(t *testing.T) {
+	tagger := setupAutoTagger(t)
+	ctx := context.Background()
+
+	customer := setupCustomerWithTags(t, tagger, "13900000005", []string{"OldTag"})
+	// 规则 JSON 中 remove_condition 类型异常 → 应忽略移除条件，保留标签
+	rule := map[string]any{
+		"type": "simple", "field": "rfm_score", "operator": "gte", "value": 9999,
+		"remove_condition": "not-an-object",
+	}
+	if err := tagger.CreateAutoTag(ctx, "OldTag", string(model.TagCategoryBehavioral), rule); err != nil {
+		t.Fatalf("CreateAutoTag failed: %v", err)
+	}
+
+	if err := tagger.EvaluateAndTag(ctx, customer.ID); err != nil {
+		t.Fatalf("EvaluateAndTag failed: %v", err)
+	}
+
+	if !getCustomerTags(t, tagger, customer.ID)["OldTag"] {
+		t.Error("Expected OldTag to be kept when remove_condition is malformed")
+	}
+
+	// days_since 无归属记录（存量数据）→ 保守不移除
+	tagger2 := setupAutoTagger(t)
+	customer2 := setupCustomerWithTags(t, tagger2, "13900000006", []string{"LegacyNoRecord"})
+	createRuleWithRemoveCondition(t, tagger2, "LegacyNoRecord", map[string]any{"type": "days_since", "days": 30})
+
+	if err := tagger2.EvaluateAndTag(ctx, customer2.ID); err != nil {
+		t.Fatalf("EvaluateAndTag failed: %v", err)
+	}
+	if !getCustomerTags(t, tagger2, customer2.ID)["LegacyNoRecord"] {
+		t.Error("Expected tag without assignment record to be kept (conservative)")
+	}
+}

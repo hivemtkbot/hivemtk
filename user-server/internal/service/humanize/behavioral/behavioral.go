@@ -34,6 +34,12 @@ type BehaviorConfig struct {
 	SplitMinIntervalSec float64 // 分段间最小间隔（秒），默认 1.5
 	EnableTypoInjection bool    // 是否启用轻微错别字注入
 	TypoProbability     float64 // 错别字概率（0-1），默认 0.03
+
+	// A11（ACM CHI'24 hesitation 研究）：匀速=机器人特征，变速+偶发犹豫更拟人
+	TypingSpeedJitter    float64 // 每段打字速度随机浮动比例（±），默认 0.2 → CPS ∈ [0.8x, 1.2x]
+	HesitationProb       float64 // 每段间触发犹豫停顿的概率，默认 0.15
+	HesitationMinSec     float64 // 犹豫停顿最短秒数，默认 0.4
+	HesitationMaxSec     float64 // 犹豫停顿最长秒数，默认 1.2
 }
 
 // DefaultBehaviorConfig 返回默认行为配置
@@ -47,6 +53,11 @@ func DefaultBehaviorConfig() BehaviorConfig {
 		SplitMinIntervalSec: 1.5,
 		EnableTypoInjection: false, // 默认关闭：风险大
 		TypoProbability:     0.03,
+
+		TypingSpeedJitter: 0.2,
+		HesitationProb:    0.15,
+		HesitationMinSec:  0.4,
+		HesitationMaxSec:  1.2,
 	}
 }
 
@@ -87,8 +98,17 @@ func PlanSend(text string, cfg BehaviorConfig, isFirstMessage bool, rng *rand.Ra
 		plan.Intervals = make([]float64, len(plan.Messages)-1)
 		for i := range plan.Intervals {
 			// 随机化 ±20%，避免机械感
-			jitter := 0.8 + 0.4*rng.Float64()
-			plan.Intervals[i] = cfg.SplitMinIntervalSec * jitter
+			jitter := (1 - cfg.TypingSpeedJitter) + 2*cfg.TypingSpeedJitter*rng.Float64()
+			interval := cfg.SplitMinIntervalSec * jitter
+			// 犹豫停顿：以 HesitationProb 概率插入一次"思考卡壳"
+			if cfg.HesitationProb > 0 && rng.Float64() < cfg.HesitationProb {
+				lo, hi := cfg.HesitationMinSec, cfg.HesitationMaxSec
+				if hi < lo {
+					lo, hi = hi, lo
+				}
+				interval += lo + (hi-lo)*rng.Float64()
+			}
+			plan.Intervals[i] = interval
 		}
 	}
 
@@ -107,7 +127,13 @@ func PlanSend(text string, cfg BehaviorConfig, isFirstMessage bool, rng *rand.Ra
 			total += cfg.ThinkingPauseSec
 		}
 		for i, msg := range plan.Messages {
-			total += typingTime(msg, cfg.TypingSpeedCPS)
+			j := cfg.TypingSpeedJitter
+			speedCPS := cfg.TypingSpeedCPS
+			if j > 0 {
+				// 每段独立随机速度 ∈ [(1-j)x, (1+j)x]：模拟人类忽快忽慢
+				speedCPS = speedCPS * ((1 - j) + 2*j*rng.Float64())
+			}
+			total += typingTime(msg, speedCPS)
 			if i < len(plan.Intervals) {
 				total += plan.Intervals[i]
 			}

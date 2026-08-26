@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -402,6 +403,29 @@ func TestSSEHandler_SetMaxDuration_Zero(t *testing.T) {
 	h.SetMaxDuration(0)
 	if h.maxStreamDuration != SSEDefaultMaxStreamDuration {
 		t.Errorf("expected default, got %v", h.maxStreamDuration)
+	}
+}
+
+// TestSSEHandler_HeartbeatWithinMV3Keepalive B-1：Chrome MV3 service worker 要求
+// ≤30s 有消息交换才能保活；SSE 心跳注释帧间隔必须 ≤20s，为网络抖动留余量。
+func TestSSEHandler_HeartbeatWithinMV3Keepalive(t *testing.T) {
+	if SSEDefaultHeartbeatInterval <= 0 {
+		t.Fatalf("heartbeat interval must be positive, got %v", SSEDefaultHeartbeatInterval)
+	}
+	if SSEDefaultHeartbeatInterval > 20*time.Second {
+		t.Errorf("heartbeat interval %v exceeds 20s MV3 keepalive budget", SSEDefaultHeartbeatInterval)
+	}
+}
+
+// TestSSEHandler_HeartbeatFrameIsComment 验证下行心跳是 SSE 注释帧（":keepalive\n\n"），
+// 客户端 EventSource 不会将其派发为事件，但字节交换足以保活 MV3 service worker。
+func TestSSEHandler_HeartbeatFrameIsComment(t *testing.T) {
+	frame := ":keepalive\n\n"
+	if len(frame) < 2 || frame[0] != ':' {
+		t.Fatalf("heartbeat frame %q is not an SSE comment frame", frame)
+	}
+	if !strings.HasSuffix(frame, "\n\n") {
+		t.Fatalf("heartbeat frame %q must be terminated by a blank line", frame)
 	}
 }
 

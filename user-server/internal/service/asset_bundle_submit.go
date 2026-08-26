@@ -13,6 +13,9 @@ func (s *AssetBundleService) SubmitToPlatform(ctx context.Context, assetID strin
 	if err != nil {
 		return 0, err
 	}
+	if err := ValidateBundleForPlatformSubmit(bundle); err != nil {
+		return 0, err
+	}
 	clean := make([]map[string]string, 0, len(bundle.Messages))
 	for _, m := range bundle.Messages {
 		clean = append(clean, map[string]string{"role": m.Role, "content": m.Content})

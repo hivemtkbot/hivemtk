@@ -207,6 +207,11 @@ func (s *WeComAccountHealthService) SelectHealthyAccount(ctx context.Context) (*
 }
 
 // ConsumeQuota 消耗配额
+//
+// W-7 原子化：原「GetByID 读 used → 内存判断 → UpdateFields 写回 used+count」存在
+// 读改写竞态（并发扣减互相覆盖导致超发）。现改为单条条件 UPDATE 原子校验+扣减
+// （见 repository.ConsumeQuotaAtomic）；预检保留用于给出精确的错误语义
+// （封禁/禁用/不存在），最终以 UPDATE 的 WHERE 条件为准，未命中视为配额不足。
 func (s *WeComAccountHealthService) ConsumeQuota(ctx context.Context, accountID uint, count int) error {
 	if s.accountRepo == nil {
 		return nil
@@ -224,14 +229,14 @@ func (s *WeComAccountHealthService) ConsumeQuota(ctx context.Context, accountID 
 	if acc.LoginState == WeComLoginBanned {
 		return ErrWeComAccountBanned
 	}
-	if acc.DailyMsgUsed+count > acc.DailyMsgQuota {
+	ok, err := s.accountRepo.ConsumeQuotaAtomic(ctx, accountID, count)
+	if err != nil {
+		return err
+	}
+	if !ok {
 		return ErrWeComQuotaExceeded
 	}
-	return s.accountRepo.UpdateFields(ctx, accountID, map[string]any{
-		"daily_msg_used": acc.DailyMsgUsed + count,
-		"total_sent":     acc.TotalSent + int64(count),
-		"last_active_at": time.Now(),
-	})
+	return nil
 }
 
 // ResetDailyQuota 重置日配额（每日凌晨）

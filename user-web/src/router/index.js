@@ -235,7 +235,7 @@ async function ensureRouteLoaded(path) {
       console.warn(`[router] 模块 ${moduleName} 加载失败或无 default 导出`)
       return false
     }
-    const routes = mod.default
+    const routes = Array.isArray(mod.default) ? mod.default : [mod.default]
     for (const r of routes) {
       try { router.addRoute('Layout', r) } catch (e) { /* 重复注册容错 */ }
     }

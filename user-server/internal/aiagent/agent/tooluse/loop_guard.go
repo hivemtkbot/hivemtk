@@ -2,6 +2,7 @@ package tooluse
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -12,6 +13,41 @@ import (
 // ErrLoopDetected 工具调用循环被检测到
 var ErrLoopDetected = fmt.Errorf("tool loop detected: same tool called too many times with equivalent args")
 
+// StopReason Agent Loop 结构化停止原因（A-3）。
+//
+// 统一枚举供 Guard 停止判定与 trace span status 使用；
+// 与 MASTER_COMPETITIVE_DECISIONS.md 接口契约速查保持一致。
+type StopReason string
+
+const (
+	StopReasonNone           StopReason = ""              // 未触发，继续迭代
+	StopReasonLoopLimit      StopReason = "loop_limit"    // 同参重复调用超限
+	StopReasonTimeLimit      StopReason = "time_limit"    // wall-clock 超时
+	StopReasonTokenLimit     StopReason = "token_limit"   // token 预算耗尽
+	StopReasonCostLimit      StopReason = "cost_limit"    // 美元成本预算耗尽 / 成本漂移熔断
+	StopReasonApprovalDenied StopReason = "approval_denied" // 外发工具审批拒绝
+	StopReasonCompleted      StopReason = "completed"     // 正常完成
+	StopReasonError          StopReason = "error"         // 其他错误
+)
+
+// StopReasonOf 将错误分类为结构化 StopReason（A-3：统一出口，供调用方写 trace span status）。
+func StopReasonOf(err error) StopReason {
+	switch {
+	case err == nil:
+		return StopReasonCompleted
+	case errors.Is(err, ErrLoopDetected):
+		return StopReasonLoopLimit
+	case errors.Is(err, ErrApprovalDenied):
+		return StopReasonApprovalDenied
+	case errors.Is(err, context.DeadlineExceeded):
+		return StopReasonTimeLimit
+	default:
+		return StopReasonError
+	}
+}
+
+// CostDriftFactor 成本漂移熔断倍率（A-2 简化版）：单轮成本 > 已有轮次均值 × 该倍数即熔断。
+const CostDriftFactor = 5.0
 
 // LoopGuardConfig 循环检测配置
 type LoopGuardConfig struct {
@@ -19,6 +55,8 @@ type LoopGuardConfig struct {
 	WindowSize time.Duration
 	MaxTraces int
 	Enabled bool
+	// CostBudgetUSD 单 trace 累计美元成本预算（A-2）；<=0 表示禁用成本护栏
+	CostBudgetUSD float64
 }
 
 // DefaultLoopGuardConfig 默认循环检测配置
@@ -44,6 +82,11 @@ type LoopGuard struct {
 type traceHistory struct {
 	calls    []callRecord 
 	lastSeen time.Time    
+
+	// A-2 成本预算追踪：调用方每轮传入本轮 LLM 美元成本，由 LoopGuard 累计
+	costTotal float64     // 累计成本
+	roundCosts []float64  // 每轮成本序列（漂移检测用）
+	lastStop   StopReason // 最近一次触发的结构化停止原因（供 trace span status）
 }
 
 type callRecord struct {
@@ -119,6 +162,7 @@ func (g *LoopGuard) CheckAndRecord(traceID, toolName string, args map[string]any
 	}
 
 	if repeatCount >= g.config.MaxRepeatCount {
+		history.lastStop = StopReasonLoopLimit
 		return ErrLoopDetected
 	}
 
@@ -128,6 +172,97 @@ func (g *LoopGuard) CheckAndRecord(traceID, toolName string, args map[string]any
 		timestamp: now,
 	})
 	return nil
+}
+
+// RecordCost 记录一轮 LLM 调用的美元成本（A-2：调用方每轮传入，由 LoopGuard 累计）。
+//
+// 返回触发的 StopReason（StopReasonNone 表示未触发可继续）：
+//   - 累计成本 >= CostBudgetUSD → StopReasonCostLimit（超预算熔断）
+//   - 单轮成本 > 已有轮次均值 × CostDriftFactor → StopReasonCostLimit（漂移熔断，
+//     在总预算耗尽前拦截上下文膨胀型故障；无历史轮次或历史均值为 0 时不触发）
+//
+// 成本护栏独立于 Enabled 开关之外仍受其约束：guard 为 nil 或未启用时不追踪。
+func (g *LoopGuard) RecordCost(traceID string, costUSD float64) StopReason {
+	if g == nil || !g.config.Enabled || costUSD <= 0 {
+		return StopReasonNone
+	}
+	key := traceID
+	if key == "" {
+		key = "_no_trace_"
+	}
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	history, ok := g.traces[key]
+	if !ok {
+		history = &traceHistory{calls: make([]callRecord, 0, 8)}
+		g.traces[key] = history
+		if len(g.traces) > g.config.MaxTraces {
+			g.evictOldestLocked()
+		}
+	}
+	history.lastSeen = time.Now()
+
+	// 漂移检测（先于累计追加）：本轮成本与已有轮次均值比较
+	n := len(history.roundCosts)
+	if n > 0 {
+		var sum float64
+		for _, c := range history.roundCosts {
+			sum += c
+		}
+		if avg := sum / float64(n); avg > 0 && costUSD > avg*CostDriftFactor {
+			history.lastStop = StopReasonCostLimit
+			return StopReasonCostLimit
+		}
+	}
+
+	history.roundCosts = append(history.roundCosts, costUSD)
+	history.costTotal += costUSD
+
+	if g.config.CostBudgetUSD > 0 && history.costTotal >= g.config.CostBudgetUSD {
+		history.lastStop = StopReasonCostLimit
+		return StopReasonCostLimit
+	}
+	return StopReasonNone
+}
+
+// TraceStopReason 返回该 trace 最近一次触发的结构化停止原因（A-3 暴露给调用方）。
+// 无记录返回 StopReasonNone。
+func (g *LoopGuard) TraceStopReason(traceID string) StopReason {
+	if g == nil {
+		return StopReasonNone
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if h, ok := g.traces[traceID]; ok {
+		return h.lastStop
+	}
+	return StopReasonNone
+}
+
+// UsedCost 返回该 trace 累计美元成本（监控/调试用）
+func (g *LoopGuard) UsedCost(traceID string) float64 {
+	if g == nil {
+		return 0
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if h, ok := g.traces[traceID]; ok {
+		return h.costTotal
+	}
+	return 0
+}
+
+// FinishTrace 结束并清理该 trace 的全部状态（循环历史+成本追踪）。
+// 由调用方在 Agent Loop 收尾时调用，防止长驻进程内存累积。
+func (g *LoopGuard) FinishTrace(traceID string) {
+	if g == nil {
+		return
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	delete(g.traces, traceID)
 }
 
 // evictOldestLocked 清理最旧的 trace（已持锁）

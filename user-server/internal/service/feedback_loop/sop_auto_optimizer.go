@@ -8,6 +8,7 @@ import (
 
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
@@ -15,10 +16,11 @@ import (
 
 // SOPAutoOptimizer SOP 自动优化器
 type SOPAutoOptimizer struct {
-	db     *gorm.DB
-	repo   *repository.FeedbackLoopRepository
-	bandit BanditAllocatorInterface
-	config SOPAutoOptimizerConfig
+	db      *gorm.DB
+	repo    *repository.FeedbackLoopRepository
+	bandit  BanditAllocatorInterface
+	gateLLM gateLLM // L-1 验证门：nil 时黄金回归门 fail-closed（不自动应用）
+	config  SOPAutoOptimizerConfig
 }
 
 // NewSOPAutoOptimizer 构造优化器
@@ -78,6 +80,17 @@ func (o *SOPAutoOptimizer) ProcessPendingSuggestions(ctx context.Context) (*dto.
 	report.PendingCount = len(autoApply)
 
 	for i := range autoApply {
+		// L-1 验证门：候选须过结构/合规/黄金回归门后才允许自动应用（dry_run→gate→apply）。
+		// 近期已检查且未过的建议跳过，防止 cron 每轮重复烧 LLM。
+		if o.recentlyGateChecked(&autoApply[i]) {
+			continue
+		}
+		gateRes := o.passGate(ctx, &autoApply[i])
+		o.recordGateResult(ctx, autoApply[i].ID, gateRes)
+		if !gateRes.Passed {
+			logger.Warnf("[sop_gate] 建议 %d 未过验证门，转人工审核: %s", autoApply[i].ID, gateRes.Reason)
+			continue
+		}
 		if err := o.autoApply(ctx, &autoApply[i]); err != nil {
 			report.FailedCount++
 			report.Errors = append(report.Errors, fmt.Sprintf("apply suggestion %d: %v", autoApply[i].ID, err))

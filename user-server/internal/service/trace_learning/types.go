@@ -19,6 +19,8 @@ type Config struct {
 	BatchSize     int                  
 	Concurrency   int                  
 	SinceHours    int                  
+	// Industry 本商户行业标签（L-2 经验沉淀用）；空则跳过洞察沉淀与注入
+	Industry string
 }
 
 // DefaultConfig 默认配置（可直接调参）

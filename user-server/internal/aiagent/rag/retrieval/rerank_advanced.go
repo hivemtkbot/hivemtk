@@ -225,8 +225,9 @@ func (s *CrossEncoderScorer) Score(ctx context.Context, query string, docs []Ret
 
 // CrossEncoderReranker 纯 Cross-Encoder 重排
 type CrossEncoderReranker struct {
-	scorer *CrossEncoderScorer
-	cache  *rerankScoreCache
+	scorer     *CrossEncoderScorer
+	cache      *rerankScoreCache
+	scoreFloor float64 // 分数地板（≤0 关闭；显式开启见 SetScoreFloor）
 }
 
 // NewCrossEncoderReranker 构造纯 Cross-Encoder 重排器
@@ -235,6 +236,12 @@ func NewCrossEncoderReranker(scorer *CrossEncoderScorer) *CrossEncoderReranker {
 		return nil
 	}
 	return &CrossEncoderReranker{scorer: scorer, cache: scorer.cache}
+}
+
+// SetScoreFloor 显式开启分数地板截断（floor<=0 关闭）。
+// 建议值 rerankScoreFloorDefault=0.3，须按实际 cross-encoder 分域校准后开启。
+func (r *CrossEncoderReranker) SetScoreFloor(floor float64) {
+	r.scoreFloor = floor
 }
 
 // Strategy 策略名
@@ -274,7 +281,34 @@ func (r *CrossEncoderReranker) Rerank(ctx context.Context, query string, docs []
 	sort.SliceStable(ranked, func(i, j int) bool {
 		return ranked[i].Score > ranked[j].Score
 	})
-	return finalize(ranked, topK), nil
+	return finalize(applyScoreFloor(r.scoreFloor, ranked), topK), nil
+}
+
+// rerankScoreFloorDefault 分数地板建议值（业界共识 ~0.3，模型相关）。
+// 默认关闭（scoreFloor=0）：cross-encoder 打分体系因 delegate 实现而异，
+// 硬地板必须由部署方按实际分域显式开启，避免破坏既有排序契约。
+const rerankScoreFloorDefault = 0.3
+
+// applyScoreFloor 对已排序结果应用分数地板截断。
+//
+// floor<=0 时不截断（默认，保持向后兼容）；floor>0 时低于该值的候选视为噪声剔除——
+// "短上下文×高相关"优于"长上下文×掺噪声"。
+// 安全阀：若截断后为空则保留排序首条（宁滥勿缺，避免空上下文诱发幻觉）。
+func applyScoreFloor(floor float64, ranked []RankedDoc) []RankedDoc {
+	if floor <= 0 || len(ranked) == 0 {
+		return ranked
+	}
+	kept := make([]RankedDoc, 0, len(ranked))
+	for _, d := range ranked {
+		if d.Score >= floor {
+			kept = append(kept, d)
+		}
+	}
+	if len(kept) == 0 {
+		// 全部低于地板：保留首条而非返回空（空上下文的幻觉风险大于低相关噪声）
+		return ranked[:1]
+	}
+	return kept
 }
 
 // RRFReranker 纯 RRF 融合重排（不需要 LLM，纯算法层）

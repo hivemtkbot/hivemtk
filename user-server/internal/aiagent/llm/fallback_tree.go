@@ -1,10 +1,10 @@
 package llm
 
-
 import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"strings"
 	"time"
 
 	"hivemtk-user/internal/pkg/featureflag"
@@ -38,13 +38,13 @@ func (l FallbackLevel) String() string {
 
 // FallbackDecision 降级决策
 type FallbackDecision struct {
-	Level       FallbackLevel 
-	FromLevel   FallbackLevel 
-	Reason      string        
-	Provider    string        
-	CacheKey    string        
-	TemplateKey string        
-	CanRetry    bool          
+	Level       FallbackLevel
+	FromLevel   FallbackLevel
+	Reason      string
+	Provider    string
+	CacheKey    string
+	TemplateKey string
+	CanRetry    bool
 }
 
 // DecisionTree 智能降级决策树
@@ -193,6 +193,34 @@ func (t *DecisionTree) Decide(
 //   - queryCache 查询缓存 (返回 content + found)
 //   - levelTimeoutMs 单级超时
 //
+// isPermanentLLMError 判定"永久性错误"：内容策略拒绝/上下文超限类。
+//
+// 业界依据（LiteLLM Router 生产配置）：
+//   - retry_on_content_policy_violation=False —— 策略拒绝换模型重试同样会被拒，
+//     升级到更贵 Provider 只会烧钱（5% 失败率 × 10x 单价的成本陷阱）
+//   - context_length_exceeded 换小模型只会更糟
+//
+// 命中时降级链跳过 Secondary/Cache 升级路径，直接走 Template 兜底或返回错误。
+func isPermanentLLMError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	lower := strings.ToLower(msg)
+	permanentMarkers := []string{
+		"content_policy", "content policy", "policy violation",
+		"content_filter", "content filter", "moderation",
+		"context_length_exceeded", "context length", "maximum context",
+		"invalid_request", // 请求结构非法，换 Provider 无意义
+	}
+	for _, m := range permanentMarkers {
+		if strings.Contains(lower, m) {
+			return true
+		}
+	}
+	return false
+}
+
 // 返回: 4 级降级链中第一个成功的结果
 func (t *DecisionTree) ExecuteWithFallback(
 	ctx context.Context,
@@ -202,7 +230,7 @@ func (t *DecisionTree) ExecuteWithFallback(
 	levelTimeoutMs int,
 ) (string, FallbackLevel, error) {
 	if levelTimeoutMs <= 0 {
-		levelTimeoutMs = 60000 
+		levelTimeoutMs = 60000
 	}
 
 	levelStart := time.Now()
@@ -217,17 +245,23 @@ func (t *DecisionTree) ExecuteWithFallback(
 	logger.Warnf("[FallbackTree] level=%s failed: %v (latency=%dms)",
 		LevelPrimary.String(), err, time.Since(levelStart).Milliseconds())
 
-	levelStart = time.Now()
-	cctx2, cancel2 := context.WithTimeout(ctx, time.Duration(levelTimeoutMs)*time.Millisecond)
-	defer cancel2()
-	content, err = callProvider(cctx2, t.secondaryProvider)
-	if err == nil {
-		logger.Infof("[FallbackTree] level=%s ok, latency=%dms",
-			LevelSecondary.String(), time.Since(levelStart).Milliseconds())
-		return content, LevelSecondary, nil
+	// A6 错误类型甄别：永久性错误（内容策略/上下文超限）换 Provider 重试同样被拒，
+	// 跳过 Secondary 升级路径；但缓存层是免费的且可能是此前的有效答案，仍应尝试。
+	if isPermanentLLMError(err) {
+		logger.Warnf("[FallbackTree] permanent error detected, skip secondary escalation: %v", err)
+	} else {
+		levelStart = time.Now()
+		cctx2, cancel2 := context.WithTimeout(ctx, time.Duration(levelTimeoutMs)*time.Millisecond)
+		defer cancel2()
+		content, err = callProvider(cctx2, t.secondaryProvider)
+		if err == nil {
+			logger.Infof("[FallbackTree] level=%s ok, latency=%dms",
+				LevelSecondary.String(), time.Since(levelStart).Milliseconds())
+			return content, LevelSecondary, nil
+		}
+		logger.Warnf("[FallbackTree] level=%s failed: %v (latency=%dms)",
+			LevelSecondary.String(), err, time.Since(levelStart).Milliseconds())
 	}
-	logger.Warnf("[FallbackTree] level=%s failed: %v (latency=%dms)",
-		LevelSecondary.String(), err, time.Since(levelStart).Milliseconds())
 
 	if t.cacheEnabled && queryCache != nil {
 		levelStart = time.Now()
@@ -256,4 +290,3 @@ func (t *DecisionTree) ExecuteWithFallback(
 
 	return "", LevelTemplate, fmt.Errorf("fallback chain exhausted: 7B/3B/cache all failed")
 }
-

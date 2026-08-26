@@ -245,6 +245,15 @@ func (s *KnowledgeBaseService) UpdateKB(ctx context.Context, id uint, kb *model.
 		return fmt.Errorf("%w: type 非法: %s", utils.ErrInvalidInput, merged.Type)
 	}
 
+	// 请求显式要求 shared 时，不继承原 owner_agent_id（否则 private→shared 过渡必被校验拦截）
+	prevOwnerID := uint(0)
+	if existing.OwnerAgentID != nil {
+		prevOwnerID = *existing.OwnerAgentID
+	}
+	if strings.ToLower(strings.TrimSpace(kb.OwnerType)) == model.KnowledgeBaseOwnerShared {
+		merged.OwnerAgentID = nil
+	}
+
 	ot := strings.ToLower(strings.TrimSpace(merged.OwnerType))
 	switch ot {
 	case model.KnowledgeBaseOwnerPrivate:
@@ -258,7 +267,16 @@ func (s *KnowledgeBaseService) UpdateKB(ctx context.Context, id uint, kb *model.
 		merged.OwnerAgentID = nil
 	}
 
-	return s.repo.Update(ctx, id, merged)
+	if err := s.repo.Update(ctx, id, merged); err != nil {
+		return err
+	}
+	// private→shared 过渡：移除原 owner 的自动绑定（共享库通过显式 binding 白名单分发）
+	if ot == model.KnowledgeBaseOwnerShared && prevOwnerID > 0 && s.bindingRepo != nil {
+		if err := s.bindingRepo.DeleteByAgentAndKB(ctx, prevOwnerID, id); err != nil {
+			return fmt.Errorf("移除原 owner 绑定失败: %w", err)
+		}
+	}
+	return nil
 }
 
 // mergeKBForUpdate 合并现有 KB 与更新请求, 仅覆盖非零/非 nil 字段

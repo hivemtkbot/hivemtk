@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -107,7 +108,7 @@ func TestMemorySystem_L2SaveAndGetSummary(t *testing.T) {
 	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
 	m.L2SaveSummary(ctx, "c-1", "客户对价格敏感")
-	m.L2SaveSummary(ctx, "c-1", "客户已购买") 
+	m.L2SaveSummary(ctx, "c-1", "客户已购买")
 
 	summary, _ := m.L2GetLatestSummary(ctx, "c-1")
 	if summary != "客户已购买" {
@@ -118,7 +119,7 @@ func TestMemorySystem_L2SaveAndGetSummary(t *testing.T) {
 func TestMemorySystem_L2ImportanceDefault(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
-	m.L2SaveFact(context.Background(), "c-1", "k", "v", 0) 
+	m.L2SaveFact(context.Background(), "c-1", "k", "v", 0)
 	facts, _ := m.L2ListFacts(context.Background(), "c-1", 10)
 	if facts[0].Importance != defaultImp {
 		t.Errorf("expected default importance %d, got %d", defaultImp, facts[0].Importance)
@@ -299,7 +300,7 @@ func TestMemorySystem_SyncFromDialogueMemory(t *testing.T) {
 
 func TestMemorySystem_SyncFromDialogueMemory_NilDB(t *testing.T) {
 	m := &MemorySystem{}
-	m.SyncFromDialogueMemory(context.Background(), &model.DialogueMemory{CustomerID: "c-1"}) 
+	m.SyncFromDialogueMemory(context.Background(), &model.DialogueMemory{CustomerID: "c-1"})
 }
 
 func TestMemorySystem_BuildFullContext_NilDB(t *testing.T) {
@@ -393,3 +394,190 @@ func TestMemorySystem_L1Append_UpdatedAt(t *testing.T) {
 	}
 }
 
+// ---------- M-2：L2 fact 去重合并 ----------
+
+// M2-a: 完全相同内容语义等价 → 跳过写入，返回旧记忆
+func TestMemorySystem_Remember_DedupSkip(t *testing.T) {
+	db := setupLongTermMemoryTestDB(t)
+	m := newLongTermMemorySystem(db)
+	ctx := context.Background()
+
+	first, err := m.Remember(ctx, "c-d1", model.LongTermMemoryPreference, "客户预算 5000 元", 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dup, err := m.Remember(ctx, "c-d1", model.LongTermMemoryPreference, "客户预算 5000 元", 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dup.ID != first.ID {
+		t.Errorf("expected dedup skip returning old ID %d, got new ID %d", first.ID, dup.ID)
+	}
+	var count int64
+	db.Model(&model.CustomerLongTermMemory{}).
+		Where("customer_id = ? AND memory_type = ?", "c-d1", model.LongTermMemoryPreference).Count(&count)
+	if count != 1 {
+		t.Errorf("expected 1 memory after dedup, got %d", count)
+	}
+}
+
+// M2-b: cosine>=0.92 但内容更新 → UPDATE 替换文本并保留旧 ID
+func TestMemorySystem_Remember_DedupUpdateKeepID(t *testing.T) {
+	db := setupLongTermMemoryTestDB(t)
+	m := newLongTermMemorySystem(db)
+	ctx := context.Background()
+
+	old := &model.CustomerLongTermMemory{
+		CustomerID: "c-d2",
+		MemoryType: model.LongTermMemoryFact,
+		Content:    "旧文本：预算待确认",
+		Importance: 5,
+		Source:     model.LongTermMemorySourceConversation,
+		Embedding:  embeddingToString(hashVecForTest("客户预算确定为 8000 元")),
+	}
+	if err := db.Create(old).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	// 新内容与旧记录 embedding 完全一致（cosine=1.0）但文本不同 → 走 UPDATE 保 ID
+	item, err := m.Remember(ctx, "c-d2", model.LongTermMemoryFact, "客户预算确定为 8000 元", 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.ID != old.ID {
+		t.Fatalf("expected ID preserved (%d), got new ID %d", old.ID, item.ID)
+	}
+	var row model.CustomerLongTermMemory
+	db.First(&row, old.ID)
+	if row.Content != "客户预算确定为 8000 元" || row.Importance != 9 {
+		t.Errorf("expected updated content/importance, got %s/%d", row.Content, row.Importance)
+	}
+	var count int64
+	db.Model(&model.CustomerLongTermMemory{}).Where("customer_id = ?", "c-d2").Count(&count)
+	if count != 1 {
+		t.Errorf("expected still 1 row (in-place update), got %d", count)
+	}
+}
+
+// M2-c: 不同内容不受去重影响，正常追加；跨 memType 不互相去重
+func TestMemorySystem_Remember_NoDedupAcrossTypes(t *testing.T) {
+	db := setupLongTermMemoryTestDB(t)
+	m := newLongTermMemorySystem(db)
+	ctx := context.Background()
+
+	m.Remember(ctx, "c-d3", model.LongTermMemoryFact, "客户预算 5000 元", 8)
+	second, err := m.Remember(ctx, "c-d3", model.LongTermMemoryFact, "客户喜欢晚上联系", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cross, err := m.Remember(ctx, "c-d3", model.LongTermMemoryHabit, "客户预算 5000 元", 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cross.ID == second.ID && second.MemoryType == cross.MemoryType {
+		t.Error("unexpected merge")
+	}
+	var factCount int64
+	db.Model(&model.CustomerLongTermMemory{}).
+		Where("customer_id = ? AND memory_type = ?", "c-d3", model.LongTermMemoryFact).Count(&factCount)
+	if factCount != 2 {
+		t.Errorf("expected 2 facts, got %d", factCount)
+	}
+}
+
+// ---------- M-4：L4 importance 感知淘汰 ----------
+
+// seedL4 直接落库构造淘汰候选（绕过 cap 触发逻辑，定向验证淘汰顺序）
+func seedL4(t *testing.T, db *gorm.DB, customerID string, items []model.BusinessMemory) {
+	for i := range items {
+		items[i].CustomerID = customerID
+		if err := db.Create(&items[i]).Error; err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(2 * time.Millisecond) // 保证 created_at 可区分新旧
+	}
+}
+
+// M4-a: 先删 importance<=3 中最旧的
+func TestMemorySystem_L4Evict_LowImportanceFirst(t *testing.T) {
+	db := setupMemoryTestDB(t)
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
+	ctx := context.Background()
+
+	seedL4(t, db, "c-e1", []model.BusinessMemory{
+		{MemoryType: "order", Content: "低重要-最旧", Importance: 2},
+		{MemoryType: "order", Content: "高重要-最旧", Importance: 9},
+		{MemoryType: "order", Content: "中重要", Importance: 5},
+	})
+	// 淘汰 1 条：应删 importance=2 的"低重要-最旧"，而非更早插入的 imp=9
+	m.l4EvictImportanceAware(ctx, "c-e1", 1)
+
+	var contents []string
+	db.Model(&model.BusinessMemory{}).Where("customer_id = ?", "c-e1").Pluck("content", &contents)
+	if len(contents) != 2 {
+		t.Fatalf("expected 2 remaining, got %d: %v", len(contents), contents)
+	}
+	for _, c := range contents {
+		if c == "低重要-最旧" {
+			t.Error("importance<=3 oldest should be evicted first")
+		}
+	}
+}
+
+// M4-b: 低重要性清完后才轮到中等重要性；importance>=8 永不淘汰
+func TestMemorySystem_L4Evict_ProtectedHighImportance(t *testing.T) {
+	db := setupMemoryTestDB(t)
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
+	ctx := context.Background()
+
+	seedL4(t, db, "c-e2", []model.BusinessMemory{
+		{MemoryType: "order", Content: "中-最旧", Importance: 5},
+		{MemoryType: "order", Content: "高-最旧", Importance: 8},
+		{MemoryType: "order", Content: "中-次旧", Importance: 6},
+	})
+	// 淘汰 2 条：两条中重要性被删，imp=8 保留
+	m.l4EvictImportanceAware(ctx, "c-e2", 2)
+
+	var contents []string
+	db.Model(&model.BusinessMemory{}).Where("customer_id = ?", "c-e2").Pluck("content", &contents)
+	if len(contents) != 1 || contents[0] != "高-最旧" {
+		t.Errorf("expected only protected imp>=8 remain, got %v", contents)
+	}
+
+	// 即使要求淘汰数量超过存量，受保护记忆也不被删
+	m.l4EvictImportanceAware(ctx, "c-e2", 10)
+	var count int64
+	db.Model(&model.BusinessMemory{}).Where("customer_id = ?", "c-e2").Count(&count)
+	if count != 1 {
+		t.Errorf("protected memory must never be evicted, got %d", count)
+	}
+}
+
+// M4-c: 全量走 L4Record 的 cap 流程时同样遵守 importance 感知淘汰
+func TestMemorySystem_L4Record_EvictionPrefersLowImportance(t *testing.T) {
+	db := setupMemoryTestDB(t)
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
+	ctx := context.Background()
+
+	// 先放一条最旧的高重要记忆
+	seedL4(t, db, "c-e3", []model.BusinessMemory{
+		{MemoryType: "vip", Content: "VIP关键事实", Importance: 9},
+	})
+	for i := 0; i < L4MaxPerCust; i++ {
+		m.L4Record(ctx, "c-e3", "order", fmt.Sprintf("订单-%d", i), "", 5, nil)
+	}
+	// 第 501+1 条触发淘汰：应删 imp=5 的旧订单而非 VIP 关键事实
+	m.L4Record(ctx, "c-e3", "note", "新记忆", "", 5, nil)
+
+	var vipCount int64
+	db.Model(&model.BusinessMemory{}).
+		Where("customer_id = ? AND content = ?", "c-e3", "VIP关键事实").Count(&vipCount)
+	if vipCount != 1 {
+		t.Error("importance>=8 memory must survive eviction")
+	}
+	var total int64
+	db.Model(&model.BusinessMemory{}).Where("customer_id = ?", "c-e3").Count(&total)
+	if total > int64(L4MaxPerCust)+1 {
+		t.Errorf("cap violated: %d", total)
+	}
+}

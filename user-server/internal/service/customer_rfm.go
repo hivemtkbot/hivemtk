@@ -50,12 +50,92 @@ func NewCustomerRFMServiceWithRepos(
 }
 
 // RFMConfig RFM 评分配置
+//
+// P-3（RFM 双体系统一）：原 rfm_calculator.go 的可配 rule 表（rfm_rules）能力
+// 并入本 config——Rule 非 nil 时按规则显式阈值打分，覆盖默认 Buckets，
+// 全系统统一走 CustomerRFMService 单一口径。
 type RFMConfig struct {
 	RecencyBuckets []int 
 	FrequencyBuckets []int 
 	MonetaryBuckets []int64 
 	ChurnRecencyThreshold int 
 	AutoEnqueueRecovery bool
+
+	// Rule 可配规则（来源 rfm_rules 表）；非 nil 时优先于 *Buckets 打分
+	Rule *model.RFMRule
+}
+
+// RFMConfigFromRule 将 rfm_rules 表的可配规则转为统一口径 RFMConfig（P-3）。
+// rule 为 nil 时返回默认分位配置。
+func RFMConfigFromRule(rule *model.RFMRule) RFMConfig {
+	cfg := DefaultRFMConfig()
+	if rule == nil {
+		return cfg
+	}
+	cfg.Rule = rule
+	return cfg
+}
+
+// rfmScoreRecencyCfg R 打分统一入口：Rule 优先，否则退回默认分位 Buckets。
+// Rule 语义与原 rfm_calculator.calcRScore 完全一致（days<=RDays1→5 … >RDays5→1）。
+func rfmScoreRecencyCfg(days int, cfg RFMConfig) int {
+	if rule := cfg.Rule; rule != nil {
+		switch {
+		case days <= rule.RDays1:
+			return 5
+		case days <= rule.RDays2:
+			return 4
+		case days <= rule.RDays3:
+			return 3
+		case days <= rule.RDays4:
+			return 2
+		default:
+			return 1
+		}
+	}
+	return rfmScoreRecency(days, cfg.RecencyBuckets)
+}
+
+// rfmScoreFrequencyCfg F 打分统一入口：Rule 优先，否则退回默认分位 Buckets。
+// Rule 语义与原 rfm_calculator.calcFScore 完全一致（count>=FCount5→5 … <FCount1→1）。
+func rfmScoreFrequencyCfg(freq int, cfg RFMConfig) int {
+	if rule := cfg.Rule; rule != nil {
+		switch {
+		case freq >= rule.FCount5:
+			return 5
+		case freq >= rule.FCount4:
+			return 4
+		case freq >= rule.FCount3:
+			return 3
+		case freq >= rule.FCount2:
+			return 2
+		default:
+			return 1
+		}
+	}
+	return rfmScoreFrequency(freq, cfg.FrequencyBuckets)
+}
+
+// rfmScoreMonetaryCfg M 打分统一入口：Rule 优先，否则退回默认分位 Buckets。
+// Rule 语义与原 rfm_calculator.calcMScore 完全一致（amount>=MAmount5→5 … <MAmount1→1，单位：分）。
+func rfmScoreMonetaryCfg(amount int64, cfg RFMConfig) int {
+	if rule := cfg.Rule; rule != nil {
+		switch {
+		case amount >= rule.MAmount5:
+			return 5
+		case amount >= rule.MAmount4:
+			return 4
+		case amount >= rule.MAmount3:
+			return 3
+		case amount >= rule.MAmount2:
+			return 2
+		case amount >= rule.MAmount1:
+			return 1
+		default:
+			return 1
+		}
+	}
+	return rfmScoreMonetary(amount, cfg.MonetaryBuckets)
 }
 
 // DefaultRFMConfig 默认 RFM 配置
@@ -87,9 +167,9 @@ func (s *CustomerRFMService) ComputeForCustomer(ctx context.Context, customerID 
 		return nil, err
 	}
 
-	rs := rfmScoreRecency(r, cfg.RecencyBuckets)
-	fs := rfmScoreFrequency(f, cfg.FrequencyBuckets)
-	ms := rfmScoreMonetary(m, cfg.MonetaryBuckets)
+	rs := rfmScoreRecencyCfg(r, cfg)
+	fs := rfmScoreFrequencyCfg(f, cfg)
+	ms := rfmScoreMonetaryCfg(m, cfg)
 
 	composite := int(float64(rs)*30 + float64(fs)*30 + float64(ms)*40)
 	if composite < 0 {
@@ -184,9 +264,9 @@ func (s *CustomerRFMService) computeForCustomerLoaded(ctx context.Context, cust 
 		return nil, err
 	}
 
-	rs := rfmScoreRecency(r, cfg.RecencyBuckets)
-	fs := rfmScoreFrequency(f, cfg.FrequencyBuckets)
-	ms := rfmScoreMonetary(m, cfg.MonetaryBuckets)
+	rs := rfmScoreRecencyCfg(r, cfg)
+	fs := rfmScoreFrequencyCfg(f, cfg)
+	ms := rfmScoreMonetaryCfg(m, cfg)
 
 	composite := int(float64(rs)*30 + float64(fs)*30 + float64(ms)*40)
 	if composite < 0 {
@@ -456,6 +536,9 @@ func (s *CustomerRFMService) enqueueRecovery(ctx context.Context, rfm *model.Cus
 		Priority:   priority,
 		Stage:      model.RecoveryStageQueued,
 	}
-	_ = s.recoveryRepo.Create(ctx, item)
+	if err := s.recoveryRepo.Create(ctx, item); err != nil {
+		// X-1：入队失败不再静默吞没，记录告警便于排查挽回队列缺失
+		logger.Warnf("[rfm] enqueueRecovery: create failed (customer=%s): %v", rfm.CustomerID, err)
+	}
 }
 

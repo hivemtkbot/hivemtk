@@ -87,7 +87,7 @@
               <el-button type="primary" :loading="originSaving" @click="onSaveOrigins">
                 保存白名单
               </el-button>
-              <el-button @click="originInput = (selected.allowed_origins || []).join('\n')">
+              <el-button @click="originInput = originsToText(selected?.allowed_origins)">
                 重置
               </el-button>
               <span class="hint">只有白名单内的来源才能加载 Widget，防滥用</span>
@@ -182,6 +182,10 @@ const loading = ref(false)
 const channels = ref([])
 const selectedId = ref('')
 const selected = ref(null)
+
+// 后端 allowed_origins 可能是数组或逗号分隔字符串，统一转为换行文本
+const originsToText = (v) =>
+  Array.isArray(v) ? v.join('\n') : String(v || '').split(',').map(s => s.trim()).filter(Boolean).join('\n')
 const originInput = ref('')
 const originSaving = ref(false)
 const previewOpen = ref(false)
@@ -235,7 +239,7 @@ const onChannelChange = async (channelId) => {
   try {
     const res = await getChannel(channelId)
     selected.value = res || null
-    originInput.value = (res?.allowed_origins || []).join('\n')
+    originInput.value = originsToText(res?.allowed_origins)
     testResult.value = null
   } catch (err) {
     ElMessage.error('加载渠道失败：' + (err?.message || err))

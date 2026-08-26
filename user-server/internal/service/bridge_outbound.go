@@ -11,18 +11,32 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// bridgeChannels 网页桥接渠道白名单（私有化部署固定 5 个渠道）。
+// bridgeChannels 网页桥接渠道白名单。
 //
-// 2026-08-18 二次审核：service 包不能 import channelgw（channelgw → service 已有反向依赖），
-// 故在 service 包内独立维护一份白名单。channelgw.Default 的 IsChannel 仍是权威源，
-// 此处仅做"先期快速失败"避免构造空 MessageHub；下游 DeliverOutbound 写入 DB 后由
-// GET /api/bridge/outbox 校验归属时仍有 DB 端兜底。
-var bridgeChannels = map[string]struct{}{
-	"douyin":      {},
-	"xiaohongshu": {},
-	"tiktok":      {},
-	"xianyu":      {},
-	"kuaishou":    {},
+// B-5 单源化（2026-08-26）：本包不再手工维护渠道清单，运行时由 bridge 包 init()
+// 从 channelgw.Default（权威注册表）取值注入（SetBridgeChannels），
+// 消除双份清单漂移。service → channelgw 存在反向依赖故无法直接 import，
+// 注入时序由包初始化顺序保证（bridge import channelgw，其 init 先于 main）。
+var bridgeChannels = map[string]struct{}{}
+
+// SetBridgeChannels 用 channelgw.Default 的渠道名集合重建白名单（B-5 运行时单一来源）。
+// 由 bridge 包初始化时调用一次；names 为空时忽略（防止误清空白名单）。
+func SetBridgeChannels(names []string) {
+	if len(names) == 0 {
+		logger.Errorf("[B-5] SetBridgeChannels called with empty names; keep previous whitelist")
+		return
+	}
+	m := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		if n == "" {
+			continue
+		}
+		m[n] = struct{}{}
+	}
+	if len(m) == 0 {
+		return
+	}
+	bridgeChannels = m
 }
 
 // errBridgeOutboundNotReady 桥接出站未装配（router.Setup 尚未注入 InboxIngressService）。

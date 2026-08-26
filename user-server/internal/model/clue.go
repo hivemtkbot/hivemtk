@@ -24,7 +24,10 @@ type Clue struct {
 	IsGroup        bool           `gorm:"column:is_group;default:false" json:"is_group"`
 	GroupID        string         `gorm:"column:group_id;type:varchar(100)" json:"group_id"`
 	GroupName      string         `gorm:"column:group_name;type:varchar(255)" json:"group_name"`
-	CreateTime     int64          `gorm:"autoCreateTime" json:"create_time"`
+	// Level 线索温度等级（P-9 动态化）：由 ClueScoreService 按 clue_score 写回
+	// hot(>=70) / warm(40-69) / cold(<40)；空串表示尚未评分，读取侧兜底 warm。
+	Level      string         `gorm:"column:level;type:varchar(16);default:''" json:"level"`
+	CreateTime int64          `gorm:"autoCreateTime" json:"create_time"`
 	UpdatedAt      int64          `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }

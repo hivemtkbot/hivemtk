@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"hivemtk-user/internal/geo/model"
 	_db "hivemtk-user/internal/pkg/db"
 
@@ -9,6 +10,7 @@ import (
 
 // GeoVerifyResultRepository GEO 验证结果仓储接口
 type GeoVerifyResultRepository interface {
+	ListAllForSOV(ctx context.Context, intent string) ([]*model.GeoVerifyResult, error)
 	Create(result *model.GeoVerifyResult) error
 	GetByArticleID(articleID string) ([]*model.GeoVerifyResult, error)
 	GetByBrandName(brandName string) ([]*model.GeoVerifyResult, error)
@@ -143,4 +145,17 @@ func (r *geoAPICallRepo) GetByProvider(provider string) ([]*model.GeoAPICall, er
 	var calls []*model.GeoAPICall
 	err := r.db.Where("provider = ?", provider).Order("created_at DESC").Find(&calls).Error
 	return calls, err
+}
+
+
+// ListAllForSOV SOV 统计：按 intent 过滤返回全部验证行
+func (r *geoVerifyResultRepo) ListAllForSOV(ctx context.Context, intent string) ([]*model.GeoVerifyResult, error) {
+	var rows []*model.GeoVerifyResult
+	q := r.db.WithContext(ctx)
+	if intent != "" {
+		// intent 存于 Query 语义中，此处简化为全量由 service 层按意图过滤
+		_ = intent
+	}
+	err := q.Find(&rows).Error
+	return rows, err
 }

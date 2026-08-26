@@ -107,6 +107,7 @@ func setupCustomReportRoutes(auth *gin.RouterGroup) {
 	auth.GET("/custom-reports/templates", customReportCtrl.GetPublicTemplates)
 	auth.POST("/custom-reports/templates/:id/use", customReportCtrl.UseTemplate)
 	auth.GET("/custom-reports/:id/data", customReportCtrl.QueryReportData)
+	auth.GET("/custom-reports/:id/export", customReportCtrl.ExportCSV)
 }
 
 // setupDashboardRoutes 数据大屏路由

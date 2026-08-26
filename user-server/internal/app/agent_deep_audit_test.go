@@ -136,6 +136,8 @@ func TestD5_TraceIDPropagation(t *testing.T) {
 
 	registry := tooluse.NewToolRegistry()
 	customerDeps := tooluse.NewCustomerToolDepsWithDB(db)
+	// P2-3 重构后 customer.search 依赖 CustomerDataStore 端口，注入与生产一致的实现
+	customerDeps.CustomerRepo = NewCustomerDataStore()
 	if err := tooluse.RegisterCustomerTools(registry, customerDeps); err != nil {
 		t.Fatalf("注册客户工具失败：%v", err)
 	}

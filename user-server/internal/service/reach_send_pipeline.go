@@ -1,4 +1,3 @@
-
 package service
 
 import (
@@ -16,27 +15,28 @@ import (
 
 	"time"
 
+	"gorm.io/gorm"
+
 	"hivemtk-user/internal/pkg/utils/logger"
 	"sync/atomic"
 )
 
 const (
-	SendStepPermission = "permission" 
+	SendStepPermission = "permission"
 
-	SendStepRateLimit = "rate_limit" 
+	SendStepRateLimit = "rate_limit"
 
-	SendStepRetry = "retry" 
+	SendStepRetry = "retry"
 
-	SendStepFallback = "fallback" 
+	SendStepFallback = "fallback"
 
-	SendStepAudit = "audit" 
+	SendStepAudit = "audit"
 
-	SendStepCost = "cost" 
+	SendStepCost = "cost"
 
-	SendStepJourney = "journey" 
+	SendStepJourney = "journey"
 
-	SendStepSend = "send" 
-
+	SendStepSend = "send"
 )
 
 var DefaultSendPipelineSteps = []string{
@@ -53,6 +53,12 @@ var DefaultSendPipelineSteps = []string{
 var (
 	ErrSendPermissionDenied = errors.New("send permission denied")
 
+	// ErrSendDoNotContact R-3a：收件人命中全局跨渠道退订标志位，必须跳过发送
+	ErrSendDoNotContact = errors.New("do not contact: recipient opted out globally")
+
+	// ErrSendQuietHoursDeferred R-4：命中全渠道 quiet hours，消息已入延迟队列（非失败）
+	ErrSendQuietHoursDeferred = errors.New("send deferred to quiet hours release time")
+
 	ErrSendRateLimited = errors.New("send rate limited")
 
 	ErrSendAllChannelFailed = errors.New("all channels failed (primary + fallback)")
@@ -63,27 +69,27 @@ var (
 )
 
 type ReachSendRequest struct {
-	Channel     string            
-	AccountID   string            
-	RecipientID string            
-	CustomerID  string            
-	OperatorID  string            
-	MsgType     string            
-	Content     string            
-	Subject     string            
-	TemplateID  string            
-	Params      map[string]string 
-	Attachments []string          
-	CardID      string            
-	Fallback    *FallbackConfig   
-	Metadata    map[string]string 
+	Channel     string
+	AccountID   string
+	RecipientID string
+	CustomerID  string
+	OperatorID  string
+	MsgType     string
+	Content     string
+	Subject     string
+	TemplateID  string
+	Params      map[string]string
+	Attachments []string
+	CardID      string
+	Fallback    *FallbackConfig
+	Metadata    map[string]string
 }
 
 type FallbackConfig struct {
 	Enabled       bool
-	BackupChannel string 
-	BackupAccount string 
-	MaxAttempts   int    
+	BackupChannel string
+	BackupAccount string
+	MaxAttempts   int
 }
 
 type SendResponse struct {
@@ -92,12 +98,16 @@ type SendResponse struct {
 	Channel        string        `json:"channel"`
 	AccountID      string        `json:"account_id"`
 	FallbackUsed   bool          `json:"fallback_used"`
-	PrimaryChannel string        `json:"primary_channel"` 
+	PrimaryChannel string        `json:"primary_channel"`
 	RetryCount     int           `json:"retry_count"`
 	StepResults    []SendStepLog `json:"step_results"`
 	Error          string        `json:"error,omitempty"`
 	DurationMs     int64         `json:"duration_ms"`
 	SentAt         time.Time     `json:"sent_at"`
+	// Deferred R-4：命中 quiet hours 进入延迟队列时为 true（非失败语义）
+	Deferred bool `json:"deferred,omitempty"`
+	// DeferredAt R-4：计划首发时间
+	DeferredAt time.Time `json:"deferred_at,omitempty"`
 }
 
 type SendStepLog struct {
@@ -106,13 +116,19 @@ type SendStepLog struct {
 	StartedAt  time.Time `json:"started_at"`
 	EndedAt    time.Time `json:"ended_at"`
 	DurationMs int64     `json:"duration_ms"`
-	Output     []any     `json:"output,omitempty"` 
+	Output     []any     `json:"output,omitempty"`
 	Error      string    `json:"error,omitempty"`
 	Skipped    bool      `json:"skipped,omitempty"`
 }
 
 type SendPermissionChecker interface {
 	CheckSendPermission(ctx context.Context, req *ReachSendRequest) error
+}
+
+// DoNotContactChecker R-3a：全局跨渠道退订标志位检查接口
+// （由 DoNotContactService 实现，permission 步骤发送前置调用）
+type DoNotContactChecker interface {
+	IsBlocked(ctx context.Context, oneID, channel string) bool
 }
 
 type SendRateLimiter interface {
@@ -129,7 +145,7 @@ type RateLimitSpec struct {
 type SendRetryPolicy struct {
 	MaxRetries      int
 	IntervalMs      int
-	Backoff         string 
+	Backoff         string
 	MaxIntervalMs   int
 	RetryableErrors []string
 }
@@ -190,8 +206,7 @@ type sendRateBucket struct {
 const (
 	rateLimiterShards = 64
 
-	rateLimiterBucketIdleTTL = 10 * time.Minute 
-
+	rateLimiterBucketIdleTTL = 10 * time.Minute
 )
 
 var rateLimiterMaxBuckets = 4096
@@ -347,7 +362,7 @@ func (NoOpSendCostTracker) Charge(ctx context.Context, channel string, req *Reac
 type MemorySendCostTracker struct {
 	mu        sync.Mutex
 	balance   float64
-	costs     map[string]float64 
+	costs     map[string]float64
 	totalUsed float64
 }
 
@@ -422,16 +437,41 @@ type SendPipeline interface {
 
 type SendPipelineConfig struct {
 	PermissionChecker SendPermissionChecker
-	RateLimiter       SendRateLimiter
-	RateLimitSpec     RateLimitSpec
-	RetryPolicy       SendRetryPolicy
-	AuditLogger       SendAuditLogger
-	CostTracker       SendCostTracker
-	JourneyTracker    SendJourneyTracker
-	Adapter           ChannelAdapter            
-	FallbackAdapters  map[string]ChannelAdapter 
-	Steps             []string                  
+	// DoNotContact R-3a：全局退订标志位检查器（nil 时跳过该检查）
+	DoNotContact     DoNotContactChecker
+	RateLimiter      SendRateLimiter
+	RateLimitSpec    RateLimitSpec
+	RetryPolicy      SendRetryPolicy
+	AuditLogger      SendAuditLogger
+	CostTracker      SendCostTracker
+	JourneyTracker   SendJourneyTracker
+	Adapter          ChannelAdapter
+	FallbackAdapters map[string]ChannelAdapter
+	Steps            []string
+
+	// QuietHoursEnabled R-4：启用全渠道 quiet hours 守卫（22:00-8:00 CST）。
+	// 短信渠道不受此守卫影响（既有铁律保持：sms.go 夜间拒绝式拦截）。
+	QuietHoursEnabled bool
+	// QuietHoursDeferrer R-4：命中 quiet hours 后的延迟入队器；
+	// nil 且 QuietHoursEnabled=true 时使用全局 GlobalQuietHoursQueue（惰性创建）。
+	QuietHoursDeferrer SendQuietHoursDeferrer
+	// QuietHoursClock 可替换时钟（测试注入），生产为 nil 即 time.Now
+	QuietHoursClock func() time.Time
 }
+
+// GlobalQuietHoursQueue 全局进程内延迟队列（R-4 默认实现）。
+// 生产装配建议：main 中 q := service.NewMemoryQuietHoursQueue();
+// cfg.QuietHoursDeferrer = q; cfg.QuietHoursEnabled = true; q.Start(ctx, pipeline)。
+var globalQuietHoursOnce sync.Once
+
+func GetGlobalQuietHoursQueue() *MemoryQuietHoursQueue {
+	globalQuietHoursOnce.Do(func() {
+		globalQuietHoursQueue = NewMemoryQuietHoursQueue()
+	})
+	return globalQuietHoursQueue
+}
+
+var globalQuietHoursQueue *MemoryQuietHoursQueue
 
 func DefaultSendPipelineConfig(adapter ChannelAdapter) SendPipelineConfig {
 	return SendPipelineConfig{
@@ -448,8 +488,8 @@ func DefaultSendPipelineConfig(adapter ChannelAdapter) SendPipelineConfig {
 }
 
 var defaultThirdPartyRateLimitByChannel = map[string]RateLimitSpec{
-	"sms":   {QPS: 50, Burst: 100},
-	"email": {QPS: 30, Burst: 60},
+	"sms":          {QPS: 50, Burst: 100},
+	"email":        {QPS: 30, Burst: 60},
 	"wecom":        {QPS: 30, Burst: 60},
 	"weixin":       {QPS: 30, Burst: 60},
 	"douyin":       {QPS: 30, Burst: 60},
@@ -493,7 +533,263 @@ func NewSendPipeline(config SendPipelineConfig) SendPipeline {
 	return &defaultSendPipeline{config: config}
 }
 
+// ===== R-4 全渠道 quiet hours =====
+//
+// 决策依据 MASTER_COMPETITIVE_DECISIONS.md M17 R-4：
+// 夜间守卫覆盖全渠道（短信既有铁律保持不变，由 sms.go isSMSNightRestricted 拒绝式拦截）。
+// 命中时段的消息进入延迟队列（次日首发时间点），而非拒绝。
+
+var cstZone = time.FixedZone("CST", 8*3600)
+
+// quietHoursStartHour / quietHoursEndHour 全渠道主动触达静默窗口 22:00-8:00 (CST)
+const (
+	quietHoursStartHour = 22
+	quietHoursEndHour   = 8
+
+	// nextDayFirstSendHour 次日首发时间点：窗口结束时刻（08:00 CST）
+	nextDayFirstSendHour = quietHoursEndHour
+)
+
+// inQuietHoursWindow 判定 t 是否落在 [startHour, endHour) 跨午夜静默窗口内（CST）。
+// 例如 start=22,end=8：22:00:00~07:59:59 命中；21:59 与 08:00 不命中。
+func inQuietHoursWindow(t time.Time, startHour, endHour int) bool {
+	h := t.In(cstZone).Hour()
+	if startHour > endHour {
+		return h >= startHour || h < endHour
+	}
+	return h >= startHour && h < endHour
+}
+
+// nextQuietHoursRelease 计算静默窗口结束后的首发时间点（endHour:00 CST）。
+// 窗口内 → 当日（跨午夜则为次日）endHour:00；窗口外返回 t 本身。
+func nextQuietHoursRelease(t time.Time, endHour int) time.Time {
+	local := t.In(cstZone)
+	release := time.Date(local.Year(), local.Month(), local.Day(), endHour, 0, 0, 0, cstZone)
+	if !local.Before(release) {
+		release = release.AddDate(0, 0, 1)
+	}
+	return release
+}
+
+// SendQuietHoursDeferrer R-4：quiet hours 命中后的延迟入队接口
+type SendQuietHoursDeferrer interface {
+	Defer(ctx context.Context, req *ReachSendRequest, sendAt time.Time) error
+}
+
+// MemoryQuietHoursQueue 进程内 quiet hours 延迟队列（R-4 最小实现）。
+// Defer 入队；Start 启动后台循环将到期消息经原 pipeline 重发。
+// 注意：进程重启丢队（与 MemorySendAuditLogger 同级语义）；多实例共享需迁 Redis ZSET，量级未到不做。
+type MemoryQuietHoursQueue struct {
+	mu      sync.Mutex
+	items   []deferredSendItem
+	wake    chan struct{}
+	started atomic.Bool
+}
+
+type deferredSendItem struct {
+	req    *ReachSendRequest
+	sendAt time.Time
+}
+
+func NewMemoryQuietHoursQueue() *MemoryQuietHoursQueue {
+	return &MemoryQuietHoursQueue{wake: make(chan struct{}, 1)}
+}
+
+// Defer 实现 SendQuietHoursDeferrer
+func (q *MemoryQuietHoursQueue) Defer(_ context.Context, req *ReachSendRequest, sendAt time.Time) error {
+	q.mu.Lock()
+	q.items = append(q.items, deferredSendItem{req: req, sendAt: sendAt})
+	q.mu.Unlock()
+	select {
+	case q.wake <- struct{}{}:
+	default:
+	}
+	logger.Warnf("[R-4] 触达命中全渠道 quiet hours，进入延迟队列 channel=%s recipient=%s send_at=%s",
+		req.Channel, req.RecipientID, sendAt.Format(time.RFC3339))
+	return nil
+}
+
+// Len 当前队列长度（测试/运维）
+func (q *MemoryQuietHoursQueue) Len() int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return len(q.items)
+}
+
+// Start 启动到期重发循环；每秒扫描一次，到期项经 pipeline.Send 重发。
+func (q *MemoryQuietHoursQueue) Start(ctx context.Context, pipeline SendPipeline) {
+	if !q.started.CompareAndSwap(false, true) {
+		return
+	}
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-q.wake:
+			case <-ticker.C:
+			}
+			due := time.Now()
+			var pending []deferredSendItem
+			q.mu.Lock()
+			kept := q.items[:0]
+			for _, it := range q.items {
+				if it.sendAt.After(due) {
+					kept = append(kept, it)
+				} else {
+					pending = append(pending, it)
+				}
+			}
+			q.items = kept
+			q.mu.Unlock()
+			for _, it := range pending {
+				pipeline.Send(ctx, it.req)
+			}
+		}
+	}()
+}
+
+// ===== R-8 AuditLogger 持久化 =====
+//
+// 决策依据 M17 R-8：合规日志必须落库。LogComplianceReminder 除原有 WARN 日志外，
+// 异步批量写 reach_compliance_log 表（缓冲满/定时刷盘），不阻塞发送主路径。
+
 const complianceReminderTag = "[COMPLIANCE]"
+
+// ReachComplianceLog 合规提醒审计日志（表 reach_compliance_log）
+type ReachComplianceLog struct {
+	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Channel     string    `gorm:"type:varchar(30);index" json:"channel"`
+	RecipientID string    `gorm:"type:varchar(128)" json:"recipient_id"`
+	CreatedAt   time.Time `gorm:"autoCreateTime;index" json:"created_at"`
+}
+
+// TableName 指定表名
+func (ReachComplianceLog) TableName() string { return "reach_compliance_log" }
+
+const (
+	complianceFlushBatchSize = 100
+	complianceFlushInterval  = 5 * time.Second
+)
+
+// ComplianceAuditLogger R-8：异步批量落库的合规日志器
+type ComplianceAuditLogger struct {
+	mu      sync.Mutex
+	buf     []*ReachComplianceLog
+	db      *gorm.DB
+	flushCh chan struct{}
+	stop    chan struct{}
+	stopped sync.Once
+}
+
+var (
+	complianceLoggerOnce sync.Once
+	complianceLogger     *ComplianceAuditLogger
+)
+
+// InitComplianceAuditLogger 初始化全局合规审计落库器（main/router 装配时调用一次）。
+// db 为 nil 时退化为仅 WARN 日志（向后兼容）。表结构经 EnsureTable 惰性创建，
+// migrate.go 正式注册另行报告。
+func InitComplianceAuditLogger(db *gorm.DB) *ComplianceAuditLogger {
+	complianceLoggerOnce.Do(func() {
+		complianceLogger = &ComplianceAuditLogger{
+			db:      db,
+			flushCh: make(chan struct{}, 1),
+			stop:    make(chan struct{}),
+		}
+		if db != nil {
+			if err := db.AutoMigrate(&ReachComplianceLog{}); err != nil {
+				logger.Errorf("[R-8] reach_compliance_log 建表失败: %v", err)
+			}
+			go complianceLogger.flushLoop()
+		}
+	})
+	return complianceLogger
+}
+
+// GetComplianceAuditLogger 获取全局实例（未初始化返回 nil）
+func GetComplianceAuditLogger() *ComplianceAuditLogger { return complianceLogger }
+
+// record 追加一条到缓冲；缓冲满立即触发刷盘信号。
+// 无 db 时仅入缓冲（容量封顶），Flush 为 no-op——保证接口行为一致。
+func (l *ComplianceAuditLogger) record(channel, recipientID string) {
+	if l == nil {
+		return
+	}
+	l.mu.Lock()
+	l.buf = append(l.buf, &ReachComplianceLog{Channel: channel, RecipientID: recipientID})
+	if len(l.buf) > complianceFlushBatchSize*10 {
+		l.buf = l.buf[len(l.buf)-complianceFlushBatchSize*10:]
+	}
+	full := len(l.buf) >= complianceFlushBatchSize
+	l.mu.Unlock()
+	if full {
+		select {
+		case l.flushCh <- struct{}{}:
+		default:
+		}
+	}
+}
+
+// Flush 将缓冲批量写入 DB（供 flushLoop 与测试调用）；db 未配置时清空缓冲并返回
+func (l *ComplianceAuditLogger) Flush() error {
+	l.mu.Lock()
+	if len(l.buf) == 0 {
+		l.mu.Unlock()
+		return nil
+	}
+	batch := l.buf
+	l.buf = nil
+	l.mu.Unlock()
+	if l.db == nil || len(batch) == 0 {
+		return nil
+	}
+	if err := l.db.CreateInBatches(batch, len(batch)).Error; err != nil {
+		// 失败回灌缓冲头部，避免丢失（容量上限截断防 OOM）
+		l.mu.Lock()
+		l.buf = append(batch, l.buf...)
+		if len(l.buf) > complianceFlushBatchSize*10 {
+			l.buf = l.buf[len(l.buf)-complianceFlushBatchSize*10:]
+		}
+		l.mu.Unlock()
+		return err
+	}
+	return nil
+}
+
+func (l *ComplianceAuditLogger) flushLoop() {
+	ticker := time.NewTicker(complianceFlushInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-l.stop:
+			_ = l.Flush()
+			return
+		case <-l.flushCh:
+			if err := l.Flush(); err != nil {
+				logger.Errorf("[R-8] 合规日志刷盘失败: %v", err)
+			}
+		case <-ticker.C:
+			if err := l.Flush(); err != nil {
+				logger.Errorf("[R-8] 合规日志定时刷盘失败: %v", err)
+			}
+		}
+	}
+}
+
+// Stop 停止刷盘循环并冲刷残余缓冲
+func (l *ComplianceAuditLogger) Stop() {
+	l.stopped.Do(func() { close(l.stop) })
+}
+
+// BufferedCount 当前缓冲条数（测试用）
+func (l *ComplianceAuditLogger) BufferedCount() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return len(l.buf)
+}
 
 func LogComplianceReminder(channel, recipientID string) {
 	logger.Warnf("%s 主动触达发送已触发：channel=%s, recipient=%s。"+
@@ -502,6 +798,8 @@ func LogComplianceReminder(channel, recipientID string) {
 		"严格控制发送频率，禁止发送垃圾营销、欺诈、骚扰或违法违规内容。"+
 		"因违规发送导致的账号封禁、平台处罚、行政处罚或法律后果由使用者自行承担。",
 		complianceReminderTag, channel, recipientID)
+	// R-8：异步持久化到 reach_compliance_log（未初始化时为 no-op）
+	complianceLogger.record(channel, recipientID)
 }
 
 func (p *defaultSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *SendResponse {
@@ -533,6 +831,14 @@ func (p *defaultSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *
 		}
 		log := fn(ctx, req, resp)
 		resp.StepResults = append(resp.StepResults, log)
+		// R-4：命中 quiet hours 已入延迟队列，终止后续步骤（非失败语义）
+		if resp.Deferred {
+			resp.Success = true
+			resp.Error = ""
+			resp.DurationMs = time.Since(start).Milliseconds()
+			resp.SentAt = time.Now()
+			return resp
+		}
 		if !log.Success && !log.Skipped {
 			resp.Success = false
 			resp.Error = log.Error
@@ -567,12 +873,72 @@ func (p *defaultSendPipeline) runPermission(ctx context.Context, req *ReachSendR
 	if err := p.config.PermissionChecker.CheckSendPermission(ctx, req); err != nil {
 		log.Success = false
 		log.Error = err.Error()
+	} else if p.config.DoNotContact != nil {
+		// R-3a：发送前置全局退订标志位检查——命中即拒绝发送（permission 步骤内）
+		oneID := req.CustomerID
+		if v, ok := req.Metadata["one_id"]; ok && v != "" {
+			oneID = v
+		}
+		if oneID != "" && p.config.DoNotContact.IsBlocked(ctx, oneID, req.Channel) {
+			log.Success = false
+			log.Error = ErrSendDoNotContact.Error()
+			logger.Warnf("[DNC] pipeline 跳过发送 customer=%s channel=%s（命中全局退订标志位）", oneID, req.Channel)
+		} else if p.checkQuietHours(ctx, req, resp) {
+			log.Success = true
+			log.Skipped = true
+			log.Output = []any{map[string]any{
+				"deferred": true,
+				"send_at":  resp.DeferredAt.Format(time.RFC3339),
+				"reason":   ErrSendQuietHoursDeferred.Error(),
+			}}
+		} else {
+			log.Success = true
+		}
+	} else if p.checkQuietHours(ctx, req, resp) {
+		log.Success = true
+		log.Skipped = true
+		log.Output = []any{map[string]any{
+			"deferred": true,
+			"send_at":  resp.DeferredAt.Format(time.RFC3339),
+			"reason":   ErrSendQuietHoursDeferred.Error(),
+		}}
 	} else {
 		log.Success = true
 	}
 	log.EndedAt = time.Now()
 	log.DurationMs = time.Since(start).Milliseconds()
 	return log
+}
+
+// checkQuietHours R-4：全渠道 quiet hours 守卫（22:00-8:00 CST）。
+//
+// 短信渠道豁免（既有铁律保持：sms.go isSMSNightRestricted 拒绝式拦截，避免双重处理）。
+// 命中时入延迟队列（次日 08:00 CST 首发），设置 resp.Deferred/DeferredAt 并返回 true。
+func (p *defaultSendPipeline) checkQuietHours(ctx context.Context, req *ReachSendRequest, resp *SendResponse) bool {
+	if !p.config.QuietHoursEnabled || req.Channel == "sms" {
+		return false
+	}
+	now := time.Now()
+	if p.config.QuietHoursClock != nil {
+		now = p.config.QuietHoursClock()
+	}
+	if !inQuietHoursWindow(now, quietHoursStartHour, quietHoursEndHour) {
+		return false
+	}
+	deferrer := p.config.QuietHoursDeferrer
+	if deferrer == nil {
+		deferrer = GetGlobalQuietHoursQueue()
+	}
+	sendAt := nextQuietHoursRelease(now, nextDayFirstSendHour)
+	if err := deferrer.Defer(ctx, req, sendAt); err != nil {
+		logger.Errorf("[R-4] quiet hours 延迟入队失败，按拒绝处理 channel=%s recipient=%s: %v",
+			req.Channel, req.RecipientID, err)
+		resp.Deferred = false
+		return false
+	}
+	resp.Deferred = true
+	resp.DeferredAt = sendAt
+	return true
 }
 
 func (p *defaultSendPipeline) runRateLimit(ctx context.Context, req *ReachSendRequest, resp *SendResponse) SendStepLog {
@@ -677,7 +1043,7 @@ func (p *defaultSendPipeline) executeSendWithFallback(ctx context.Context, req *
 		backupReq := *req
 		backupReq.Channel = req.Fallback.BackupChannel
 		backupReq.AccountID = req.Fallback.BackupAccount
-		backupReq.Fallback = nil 
+		backupReq.Fallback = nil
 		msgID, err2 := backupAdapter.Send(ctx, &backupReq)
 		if err2 == nil {
 			return msgID, nil
@@ -822,16 +1188,19 @@ func (p *defaultSendPipeline) runSend(ctx context.Context, req *ReachSendRequest
 	return log
 }
 
-
 // SendPipelineStats Pipeline 统计（用于运维监控）
 type SendPipelineStats struct {
 	TotalSends   int64
 	SuccessSends int64
 	FailedSends  int64
 	RateLimited  int64
-	FallbackUsed int64
-	TotalRetries int64
-	TotalCost    float64
+	// DoNotContactSkipped R-3a：因命中全局退订标志位被跳过的次数
+	DoNotContactSkipped int64
+	// QuietHoursDeferred R-4：命中全渠道 quiet hours 进入延迟队列的次数
+	QuietHoursDeferred int64
+	FallbackUsed       int64
+	TotalRetries       int64
+	TotalCost          float64
 }
 
 // countedSendPipeline 带统计的 Pipeline 包装器
@@ -859,12 +1228,20 @@ func (p *countedSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *
 	if resp.FallbackUsed {
 		p.stats.FallbackUsed++
 	}
+	if resp.Deferred {
+		p.stats.QuietHoursDeferred++
+	}
 	p.stats.TotalRetries += int64(resp.RetryCount)
 	for _, step := range resp.StepResults {
 		if !step.Success {
 			switch step.Step {
 			case SendStepRateLimit:
 				p.stats.RateLimited++
+			case SendStepPermission:
+				// R-3a：全局退订标志位命中的跳过计数上报
+				if step.Error == ErrSendDoNotContact.Error() {
+					p.stats.DoNotContactSkipped++
+				}
 			}
 		}
 	}
@@ -878,7 +1255,6 @@ func (p *countedSendPipeline) Stats(ctx context.Context) SendPipelineStats {
 	defer p.mu.RUnlock()
 	return p.stats
 }
-
 
 // FuncChannelAdapter 将普通发送函数适配为 ChannelAdapter 接口（真实实现，非 mock）。
 type FuncChannelAdapter struct {
@@ -958,4 +1334,3 @@ func (a *FlakyAdapter) Send(ctx context.Context, req *ReachSendRequest) (string,
 func (a *FlakyAdapter) Count(ctx context.Context) int32 {
 	return atomic.LoadInt32(&a.CallCnt)
 }
-

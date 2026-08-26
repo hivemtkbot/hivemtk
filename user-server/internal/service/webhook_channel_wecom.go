@@ -174,7 +174,7 @@ func (s *WebhookService) dispatchWeCom(ctx context.Context, accountID string, p 
 		return nil, nil
 	}
 
-	plain := s.parseWeComPlain(ctx, raw)
+	plain := s.parseWeComPlain(ctx, accountID, raw)
 	if plain == nil {
 
 		plain = p.Extra
@@ -256,7 +256,12 @@ func (s *WebhookService) dispatchWeCom(ctx context.Context, accountID string, p 
 }
 
 // parseWeComPlain 如果 body 包含 encrypt 字段，尝试解密（需要从 wecomRepo 拉 EncodingAESKey）
-func (s *WebhookService) parseWeComPlain(ctx context.Context, raw []byte) map[string]any {
+//
+// W-2 解密精确路由：controller 入口为 POST /api/webhook/wecom/:account_id，
+// 路由标识即路径参数 account_id（URL query 仅含 msg_signature/timestamp/nonce/echostr，
+// 无 corp_id/agent_id 参数）。account_id 可定位账号时直接取该账号 key 解密；
+// 无法定位或解密失败才回退到全量遍历，并打 WARN 日志。
+func (s *WebhookService) parseWeComPlain(ctx context.Context, accountID string, raw []byte) map[string]any {
 	var p map[string]any
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return nil
@@ -270,29 +275,76 @@ func (s *WebhookService) parseWeComPlain(ctx context.Context, raw []byte) map[st
 		return nil
 	}
 
+	// 精确路由：按 account_id 取唯一账号的 EncodingAESKey
+	if id, err := strconv.ParseUint(accountID, 10, 64); err == nil && id > 0 {
+		if acc, gerr := s.wecomRepo.GetByID(ctx, uint(id)); gerr == nil && acc != nil && acc.EncodingAESKey != "" {
+			if out := decryptWeComPayload(acc.EncodingAESKey, enc); out != nil {
+				return out
+			}
+			logger.Warnf("[Webhook] wecom 解密失败(精确路由) account=%d，回退全量遍历", id)
+		}
+	} else {
+		logger.Warnf("[Webhook] wecom 解密缺少有效 account 标识 account=%q，回退全量遍历", accountID)
+	}
+
+	// 回退：无法精确定位时遍历所有账号逐个试 key（保持旧行为）
 	accs, err := s.wecomRepo.GetByMerchant(ctx)
 	if err != nil || len(accs) == 0 {
 		return nil
 	}
-	var out map[string]any
 	for _, a := range accs {
-		if a.EncodingAESKey == "" {
-			continue
+		if out := decryptWeComPayload(a.EncodingAESKey, enc); out != nil {
+			return out
 		}
-		plain, err := DecryptWeComMessage(a.EncodingAESKey, enc)
-		if err != nil {
-			continue
-		}
-		if err := json.Unmarshal(plain, &out); err != nil {
-			continue
-		}
-		return out
 	}
 	return nil
 }
 
+// decryptWeComPayload 用指定 aesKey 解密并反序列化；任一步失败返回 nil
+func decryptWeComPayload(aesKey, enc string) map[string]any {
+	if aesKey == "" {
+		return nil
+	}
+	plain, err := DecryptWeComMessage(aesKey, enc)
+	if err != nil {
+		return nil
+	}
+	var out map[string]any
+	if err := json.Unmarshal(plain, &out); err != nil {
+		return nil
+	}
+	return out
+}
+
+// getWechatSecrets 读取 wechat 渠道 webhook 验签 token。
+//
+// W-6 修复：原实现恒返回空串，导致 verifyWechat 对任何请求都验签失败。
+// 现从公众号账号配置（wechat_accounts.token，即「服务器配置」里的验证 Token）读取：
+//   - accountID 可解析时优先精确匹配该账号；
+//   - 否则回退到第一个 active 账号；
+//   - 均未配置时返回空串，由调用方(webhook.go::Verify)记 WARN 并跳过该渠道验签。
 func (s *WebhookService) getWechatSecrets(ctx context.Context, accountID string) (string, string) {
-	return "", ""
+	if s.wechatIntegration == nil {
+		if s.db == nil {
+			return "", ""
+		}
+		s.wechatIntegration = NewWechatService(s.db)
+	}
+	var acc *model.WechatAccount
+	if id, err := strconv.ParseUint(accountID, 10, 64); err == nil && id > 0 {
+		if a, gerr := s.wechatIntegration.GetAccount(ctx, uint(id)); gerr == nil {
+			acc = a
+		}
+	}
+	if acc == nil || acc.Token == "" {
+		if a, gerr := s.wechatIntegration.GetFirstActiveAccount(ctx); gerr == nil {
+			acc = a
+		}
+	}
+	if acc == nil {
+		return "", ""
+	}
+	return acc.Token, acc.EncodingAESKey
 }
 
 // GetWeComSecrets 公开方法：供 controller 层 URL 验证使用

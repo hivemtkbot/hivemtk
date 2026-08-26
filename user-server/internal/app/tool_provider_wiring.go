@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+
 	"gorm.io/gorm"
 
 	"hivemtk-user/internal/aiagent/agent/tooluse"
@@ -198,6 +200,10 @@ func registerAllAgentToolsViaProviders(gormDB *gorm.DB) {
 	tooluse.RegisterCardTools(tooluse.GetGlobalRegistry())
 	logger.Info("[agent] ✅ 会话内卡片工具（card.show）已接入全局注册中心")
 
+	// TL-3：租户级 disabled_tools 启停——装配完成后从注册中心剔除
+	// （配置缺失/解析失败/列表为空 → 全量，向后兼容）
+	applyTenantDisabledTools(tooluse.GetGlobalRegistry())
+
 	totalTools := 0
 	totalProviders := 0
 	failedProviders := 0
@@ -220,5 +226,36 @@ func registerAllAgentToolsViaProviders(gormDB *gorm.DB) {
 		totalProviders, totalTools, failedProviders)
 
 	InitGlobalToolRouter()
+}
+
+// applyTenantDisabledTools 读取 agent_settings 的 disabled_tools 列表，
+// 从注册中心剔除对应工具（TL-3 租户级启停）。
+// 无配置/解析失败/列表为空时不做任何剔除（全量，向后兼容）。
+func applyTenantDisabledTools(registry *tooluse.ToolRegistry) {
+	cfg, err := service.LoadAgentSettingsConfig(context.Background())
+	if err != nil || cfg == nil {
+		return
+	}
+	applyDisabledTools(registry, cfg.DisabledTools)
+}
+
+// applyDisabledTools 将 disabled 列表中的工具从注册中心剔除，返回实际剔除数
+func applyDisabledTools(registry *tooluse.ToolRegistry, disabled []string) int {
+	if registry == nil || len(disabled) == 0 {
+		return 0
+	}
+	removed := 0
+	for _, name := range disabled {
+		if name == "" {
+			continue
+		}
+		if err := registry.Unregister(name); err != nil {
+			// 工具不存在等情形：跳过即可（幂等）
+			continue
+		}
+		removed++
+		logger.Infof("[agent] 🚫 工具 %s 已按 agent_settings.disabled_tools 停用", name)
+	}
+	return removed
 }
 

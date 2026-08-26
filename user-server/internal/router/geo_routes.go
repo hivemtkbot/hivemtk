@@ -56,6 +56,44 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	auth.GET("/geo/decision/report", decisionCtrl.GetDecisionReport)
 	auth.GET("/geo/decision/tasks", decisionCtrl.GetTasks)
 	auth.POST("/geo/decision/tasks/:id/done", decisionCtrl.MarkTaskDone)
+
+	// v3 竞品对齐分析（A1 SOV / A6 爬虫 / A7 不准确检测）
+	analyticsSvc := geoservice.NewGeoDecisionAnalyticsService(
+		georepo.NewGeoVerifyResultRepositoryWithDB(gormDB),
+		georepo.NewGeoContentTaskRepository(gormDB),
+		georepo.NewGeoQueryChainRepository(gormDB),
+		georepo.NewGeoCrawlerVisitRepository(gormDB),
+		llmAdapter,
+		georepo.NewGeoAPICallRepositoryWithDB(gormDB))
+	auth.GET("/geo/sov", func(c *gin.Context) {
+		result, err := analyticsSvc.GetShareOfVoice(c.Request.Context(), c.Query("intent"))
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"code": 0, "data": result})
+	})
+	auth.GET("/geo/crawler-stats", func(c *gin.Context) {
+		result, err := analyticsSvc.GetCrawlerStats(c.Request.Context())
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"code": 0, "data": result})
+	})
+	auth.POST("/geo/inaccurate-claims", func(c *gin.Context) {
+		var body struct{ BrandName string `json:"brand_name"` }
+		if err := c.BindJSON(&body); err != nil || body.BrandName == "" {
+			c.JSON(400, gin.H{"error": "brand_name required"})
+			return
+		}
+		result, err := analyticsSvc.DetectInaccurateClaims(c.Request.Context(), body.BrandName)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"code": 0, "data": result})
+	})
 	// v3 GEO 决策链化 Phase3：注入线索捕获端口（capture_lead 执行器 → 主域 clue）
 	geoChainRepo := georepo.NewGeoQueryChainRepository(gormDB)
 	wfSvc.RegisterCaptureLeadExecutor(geoservice.CaptureLeadFunc(func(ctx context.Context, contact, contactType, chainID, intent string) (string, error) {
@@ -162,6 +200,7 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// 技术配置路由
 	geo.POST("/techconfig/robots", resCtrl.GenerateRobots)
 	geo.POST("/techconfig/sitemap", resCtrl.GenerateSitemap)
+	geo.POST("/techconfig/llms-txt", resCtrl.GenerateLLMsTxt)
 
 	// 质量指标路由
 	geo.POST("/metrics/analyze", resCtrl.AnalyzeMetrics)

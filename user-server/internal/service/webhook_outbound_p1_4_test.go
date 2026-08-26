@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-
 func TestSendOutbound_BridgeChannel_ExtraMetadata_P1_4(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{}, &model.InboxConversation{})
 	svc := NewWebhookService(db)
@@ -195,3 +194,158 @@ func TestSendOutbound_NoCtxResult_StillFillsStableFields_P1_4(t *testing.T) {
 	}
 }
 
+// ===== H-3 AI 会话回复时段感知（23:00-7:00 CST 延迟队列）=====
+
+// TestIsAIReplyQuietHours_Boundaries 静默窗口边界：22:59 放行 / 23:00 起 / 06:59 内 / 07:00 放行
+func TestIsAIReplyQuietHours_Boundaries(t *testing.T) {
+	cases := []struct {
+		hour, minute int
+		want         bool
+	}{
+		{22, 59, false},
+		{23, 0, true},
+		{23, 1, true},
+		{0, 0, true},
+		{6, 59, true},
+		{7, 0, false},
+		{12, 0, false},
+	}
+	for _, c := range cases {
+		ts := time.Date(2026, 8, 20, c.hour, c.minute, 0, 0, cstZone)
+		if got := isAIReplyQuietHours(ts); got != c.want {
+			t.Errorf("isAIReplyQuietHours(%02d:%02d CST) = %v, want %v", c.hour, c.minute, got, c.want)
+		}
+	}
+}
+
+// TestEnqueueDelayedOutbound 命中入队：落库 pending 记录且 SendAt 为次日 07:00 CST 首发
+func TestEnqueueDelayedOutbound(t *testing.T) {
+	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{}, &DelayedOutboundReply{})
+	svc := NewWebhookService(db)
+
+	p := &ParsedPayload{EventID: "evt-h3-1", Sender: "sender-h3", Content: "原始消息"}
+	hub := &model.MessageHub{ConversationID: "conv-h3-1"}
+
+	ok := svc.enqueueDelayedOutbound(context.Background(), ChannelXiaohongshu, "acct-h3", p, "延迟回复内容", hub, nil)
+	if !ok {
+		t.Fatal("入队应成功")
+	}
+	var rec DelayedOutboundReply
+	if err := db.First(&rec).Error; err != nil {
+		t.Fatalf("查询延迟记录失败: %v", err)
+	}
+	if rec.Status != "pending" {
+		t.Errorf("status 应为 pending，got %q", rec.Status)
+	}
+	if rec.Platform != string(ChannelXiaohongshu) || rec.ConversationID != "conv-h3-1" || rec.Content != "延迟回复内容" {
+		t.Errorf("字段不符: %+v", rec)
+	}
+	// SendAt 必须是未来时刻且落在 07:00 CST 首发 点位
+	sendAtCST := rec.SendAt.In(cstZone)
+	if !rec.SendAt.After(time.Now()) {
+		t.Errorf("SendAt 应在未来，got %s", rec.SendAt)
+	}
+	if sendAtCST.Hour() != aiReplyQuietEndHour || sendAtCST.Minute() != 0 {
+		t.Errorf("SendAt 应为 07:00 CST 首发点，got %s", sendAtCST)
+	}
+}
+
+// TestDispatchDueDelayedOutbound 到期记录被抢占重放并标记 sent；重放路径不再二次入队
+func TestDispatchDueDelayedOutbound(t *testing.T) {
+	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{}, &DelayedOutboundReply{})
+	svc := NewWebhookService(db)
+
+	rec := &DelayedOutboundReply{
+		Platform:       "unsupported-channel-x",
+		AccountID:      "acct-h3",
+		ConversationID: "conv-h3-d",
+		SenderID:       "sender-h3",
+		Content:        "due",
+		SendAt:         time.Now().Add(-time.Minute),
+		Status:         "pending",
+	}
+	if err := db.Create(rec).Error; err != nil {
+		t.Fatalf("预置到期记录失败: %v", err)
+	}
+
+	svc.dispatchDueDelayedOutbound(context.Background())
+
+	var after DelayedOutboundReply
+	if err := db.First(&after, rec.ID).Error; err != nil {
+		t.Fatalf("查询失败: %v", err)
+	}
+	if after.Status == "pending" {
+		t.Error("到期记录应被派发器抢占并处理，不应停留在 pending")
+	}
+	// 未到期记录不被处理
+	future := &DelayedOutboundReply{
+		Platform: "x", AccountID: "a", ConversationID: "c", SenderID: "s", Content: "future",
+		SendAt: time.Now().Add(time.Hour), Status: "pending",
+	}
+	if err := db.Create(future).Error; err != nil {
+		t.Fatalf("预置未到期记录失败: %v", err)
+	}
+	svc.dispatchDueDelayedOutbound(context.Background())
+	var futAfter DelayedOutboundReply
+	if err := db.First(&futAfter, future.ID).Error; err != nil {
+		t.Fatalf("查询失败: %v", err)
+	}
+	if futAfter.Status != "pending" {
+		t.Errorf("未到期记录应保持 pending，got %q", futAfter.Status)
+	}
+}
+
+// TestDelayedReplayContext 重放标记 ctx 生效（防循环入队）
+func TestDelayedReplayContext(t *testing.T) {
+	ctx := context.Background()
+	if isDelayedReplay(ctx) {
+		t.Error("普通 ctx 不应为重放路径")
+	}
+	if !isDelayedReplay(DelayedReplayToContext(ctx)) {
+		t.Error("标记后的 ctx 应为重放路径")
+	}
+}
+
+// init 包级禁用 H-3 quiet hours 时钟（参照 smsNightRestrictedFn 测试注入先例），
+// 使 sendOutbound 直发类测试与运行时刻无关；quiet hours 行为由下方专项测试覆盖。
+func init() {
+	aiReplyQuietHoursFn = func(time.Time) bool { return false }
+}
+
+// TestSendOutbound_QuietHoursDefersToQueue H-3 端到端：窗口内 AI 回复不直发，入延迟队列
+func TestSendOutbound_QuietHoursDefersToQueue(t *testing.T) {
+	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{}, &DelayedOutboundReply{})
+	svc := NewWebhookService(db)
+	defer svc.Stop(context.Background())
+
+	orig := aiReplyQuietHoursFn
+	aiReplyQuietHoursFn = func(time.Time) bool { return true }
+	defer func() { aiReplyQuietHoursFn = orig }()
+
+	const (
+		platform = "xiaohongshu"
+		account  = "acct-h3-e2e"
+		conv     = "conv-h3-e2e"
+	)
+	hub := &model.MessageHub{
+		MsgID: "mh:in-h3-e2e", Platform: platform, AccountID: account, Direction: "inbound",
+		MsgType: "text", SenderID: "sender-h3", Content: "原始消息", ConversationID: conv, SentAt: time.Now(),
+	}
+	if err := db.Create(hub).Error; err != nil {
+		t.Fatalf("pre-create inbound failed: %v", err)
+	}
+	p := &ParsedPayload{EventID: "evt-h3-e2e", Sender: "sender-h3", Content: "原始消息", ChatID: conv}
+
+	svc.sendOutbound(context.Background(), ChannelXiaohongshu, account, p, "夜间回复", hub, nil)
+
+	var cnt int64
+	db.Model(&DelayedOutboundReply{}).Count(&cnt)
+	if cnt != 1 {
+		t.Fatalf("quiet hours 内应入延迟队列 1 条，got %d", cnt)
+	}
+	var outCnt int64
+	db.Model(&model.MessageHub{}).Where("direction = ? AND conversation_id = ?", "outbound", conv).Count(&outCnt)
+	if outCnt != 0 {
+		t.Errorf("延迟期间不应产生出站消息，got %d", outCnt)
+	}
+}

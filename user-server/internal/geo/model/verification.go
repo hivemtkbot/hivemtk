@@ -18,6 +18,7 @@ type GeoVerifyResult struct {
 	BrandMentioned bool   `gorm:"default:false" json:"brand_mentioned"`
 	MentionCount   int    `gorm:"default:0" json:"mention_count"`
 	Sentiment      string `gorm:"type:varchar(20)" json:"sentiment"`
+	BrandContext   string `gorm:"type:varchar(50)" json:"brand_context,omitempty"`
 	Position       string `gorm:"type:varchar(100)" json:"position"`
 
 	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`

@@ -5,28 +5,28 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"hivemtk-user/internal/identity"
 	"gorm.io/gorm"
+	"hivemtk-user/internal/identity"
 )
 
 // UnifiedID Prefix constants
 //
 // 2026-08-16 严肃化：13 渠道全覆盖。每加新渠道必须同步加 prefix + 字段。
 const (
-	unifiedIDPrefixPhone         = "phone:"
-	unifiedIDPrefixEmail         = "email:"
-	unifiedIDPrefixTelegram      = "telegram:"
-	unifiedIDPrefixWhatsApp      = "whatsapp:"
-	unifiedIDPrefixWechat        = "wechat:"        // 微信公众号
-	unifiedIDPrefixFeishu        = "feishu:"
-	unifiedIDPrefixWeCom         = "wecom:"         // 企业微信 external_userid
-	unifiedIDPrefixDouyin        = "douyin:"
-	unifiedIDPrefixTikTok        = "tiktok:"
-	unifiedIDPrefixKuaishou      = "kuaishou:"
-	unifiedIDPrefixXiaohongshu   = "xiaohongshu:"
-	unifiedIDPrefixXianyu        = "xianyu:"
-	unifiedIDPrefixSMS           = "sms:"           // 短信即手机号
-	unifiedIDPrefixEmailContact  = "email_c:"       // email 也作为联系方式
+	unifiedIDPrefixPhone        = "phone:"
+	unifiedIDPrefixEmail        = "email:"
+	unifiedIDPrefixTelegram     = "telegram:"
+	unifiedIDPrefixWhatsApp     = "whatsapp:"
+	unifiedIDPrefixWechat       = "wechat:" // 微信公众号
+	unifiedIDPrefixFeishu       = "feishu:"
+	unifiedIDPrefixWeCom        = "wecom:" // 企业微信 external_userid
+	unifiedIDPrefixDouyin       = "douyin:"
+	unifiedIDPrefixTikTok       = "tiktok:"
+	unifiedIDPrefixKuaishou     = "kuaishou:"
+	unifiedIDPrefixXiaohongshu  = "xiaohongshu:"
+	unifiedIDPrefixXianyu       = "xianyu:"
+	unifiedIDPrefixSMS          = "sms:"     // 短信即手机号
+	unifiedIDPrefixEmailContact = "email_c:" // email 也作为联系方式
 )
 
 // Customer 客户模型 - CDP 统一客户数据
@@ -35,14 +35,14 @@ const (
 // UnifiedID 生成时按优先级选取一个非空字段作为唯一键。
 // 任何渠道的入站消息都能通过 OneID 反查到客户。
 type Customer struct {
-	ID            string         `gorm:"type:varchar(36);primaryKey" json:"id"`
-	UnifiedID     string         `gorm:"type:varchar(128);uniqueIndex" json:"unified_id"`
-	Name          string         `gorm:"type:varchar(100);index" json:"name"`
+	ID        string `gorm:"type:varchar(36);primaryKey" json:"id"`
+	UnifiedID string `gorm:"type:varchar(128);uniqueIndex" json:"unified_id"`
+	Name      string `gorm:"type:varchar(100);index" json:"name"`
 
 	// 强标识（用作 OneID 主键候选）
-	Phone         string         `gorm:"type:varchar(20);index" json:"phone"`
-	PhoneHash     string         `gorm:"type:varchar(64);index;column:phone_hash" json:"-"`
-	Email         string         `gorm:"type:varchar(100);index" json:"email"`
+	Phone     string `gorm:"type:varchar(20);index" json:"phone"`
+	PhoneHash string `gorm:"type:varchar(64);index;column:phone_hash" json:"-"`
+	Email     string `gorm:"type:varchar(100);index" json:"email"`
 
 	// 13 渠道 OpenID / UserID（每个渠道独立字段，可与 phone/email 并存）
 	//
@@ -50,27 +50,31 @@ type Customer struct {
 	// （历史 model 用 `whatsapp_phone/wecom_external_id/tiktok_open_id`，
 	//  DB 实际是 `whats_app_phone/we_com_external_id/tik_tok_open_id`，
 	//  缺 column tag 导致 GORM 读写全部为 NULL，本节添加显式 mapping 修复）
-	TelegramChatID  int64       `gorm:"type:bigint;index;column:telegram_chat_id" json:"telegram_chat_id"`
-	TelegramUsername string      `gorm:"type:varchar(100);index;column:telegram_username" json:"telegram_username"`
-	WhatsAppPhone   string      `gorm:"type:varchar(20);index;column:whats_app_phone" json:"whatsapp_phone"`
-	WechatOpenID    string      `gorm:"type:varchar(64);index;column:wechat_open_id" json:"wechat_open_id"`
-	FeishuOpenID    string      `gorm:"type:varchar(64);index;column:feishu_open_id" json:"feishu_open_id"`
-	WeComExternalID string      `gorm:"type:varchar(64);index;column:we_com_external_id" json:"wecom_external_id"`
-	DouyinOpenID    string      `gorm:"type:varchar(64);index;column:douyin_open_id" json:"douyin_open_id"`
-	TikTokOpenID    string      `gorm:"type:varchar(64);index;column:tik_tok_open_id" json:"tiktok_open_id"`
-	KuaishouOpenID  string      `gorm:"type:varchar(64);index;column:kuaishou_open_id" json:"kuaishou_open_id"`
-	XiaohongshuID   string      `gorm:"type:varchar(64);index;column:xiaohongshu_id" json:"xiaohongshu_id"`
-	XianyuID        string      `gorm:"type:varchar(64);index;column:xianyu_id" json:"xianyu_id"`
+	TelegramChatID   int64  `gorm:"type:bigint;index;column:telegram_chat_id" json:"telegram_chat_id"`
+	TelegramUsername string `gorm:"type:varchar(100);index;column:telegram_username" json:"telegram_username"`
+	WhatsAppPhone    string `gorm:"type:varchar(20);index;column:whats_app_phone" json:"whatsapp_phone"`
+	WechatOpenID     string `gorm:"type:varchar(64);index;column:wechat_open_id" json:"wechat_open_id"`
+	FeishuOpenID     string `gorm:"type:varchar(64);index;column:feishu_open_id" json:"feishu_open_id"`
+	WeComExternalID  string `gorm:"type:varchar(64);index;column:we_com_external_id" json:"wecom_external_id"`
+	DouyinOpenID     string `gorm:"type:varchar(64);index;column:douyin_open_id" json:"douyin_open_id"`
+	TikTokOpenID     string `gorm:"type:varchar(64);index;column:tik_tok_open_id" json:"tiktok_open_id"`
+	KuaishouOpenID   string `gorm:"type:varchar(64);index;column:kuaishou_open_id" json:"kuaishou_open_id"`
+	XiaohongshuID    string `gorm:"type:varchar(64);index;column:xiaohongshu_id" json:"xiaohongshu_id"`
+	XianyuID         string `gorm:"type:varchar(64);index;column:xianyu_id" json:"xianyu_id"`
 
 	// 标签 + 评分
-	Tags          string         `gorm:"type:text" json:"tags"`
-	RFMScore      int            `gorm:"default:0" json:"rfm_score"`
-	ChurnRisk     string         `gorm:"type:varchar(20);default:'low'" json:"churn_risk"`
+	Tags      string `gorm:"type:text" json:"tags"`
+	RFMScore  int    `gorm:"default:0" json:"rfm_score"`
+	ChurnRisk string `gorm:"type:varchar(20);default:'low'" json:"churn_risk"`
+
+	// S-4 专属坐席（2026-08-26）：客户绑定的专属人工坐席（agent_statuses.agent_id，可空）。
+	// 会话分配时优先路由给该坐席（在线且有容量），否则回退现有分配算法。
+	OwnerAgentID *uint `gorm:"index;column:owner_agent_id" json:"owner_agent_id,omitempty"`
 
 	// 时间
-	CreatedAt     time.Time      `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt     time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 
 // TableName 返回表名
@@ -179,4 +183,3 @@ func SetCustomerTags(c *Customer, tags []string) error {
 	c.Tags = string(data)
 	return nil
 }
-

@@ -3,12 +3,14 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
 	"gorm.io/gorm"
 
+	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
@@ -26,8 +28,14 @@ type SOPDispatchSender interface {
 //
 // 独立 goroutine 轮询 sop_timers 表，扫描到期的 timer 后派发任务给 SOPExecutionDispatcher。
 // 与 SOPScheduler 解耦：SOPScheduler 触发新执行，OutboxDispatcher 处理执行内事件。
+//
+// S1-2（Wait 语义）：扫描 max_wait_at 已过期的 pending timer → 转 skipped + 事件记录，
+// 并以 SkipWait 任务通知 dispatcher "已过期视为满足立即跳过"。
+// S1-5（Outbox 死信）：认领失败累计 claim_count≥5 → status=dead_letter + 告警日志。
 type SOPOutboxDispatcher struct {
+	db             *gorm.DB
 	timerRepo      *repository.SOPTimerRepository
+	eventRepo      *repository.SOPExecEventRepository
 	execDispatcher SOPDispatchSender
 	tickInterval   time.Duration 
 	batchSize      int           
@@ -37,12 +45,24 @@ type SOPOutboxDispatcher struct {
 	running        bool
 }
 
+// sop_timers 状态机取值（S1-2/S1-5 扩展 skipped / dead_letter）
+const (
+	sopTimerStatusPending    = "pending"
+	sopTimerStatusSkipped    = "skipped"
+	sopTimerStatusDeadLetter = "dead_letter"
+
+	// S1-5：最大认领次数，达到即转死信（对齐 MASTER_COMPETITIVE_DECISIONS.md S1-5）
+	sopTimerMaxClaims = 5
+)
+
 // NewSOPOutboxDispatcher 创建 Outbox 调度器
 //
 // 构造函数签名保持 db *gorm.DB 不变以兼容调用方，内部用 db 创建 repository。
 func NewSOPOutboxDispatcher(db *gorm.DB, execDispatcher SOPDispatchSender) *SOPOutboxDispatcher {
 	return &SOPOutboxDispatcher{
+		db:             db,
 		timerRepo:      repository.NewSOPTimerRepository(db),
+		eventRepo:      repository.NewSOPExecEventRepository(db),
 		execDispatcher: execDispatcher,
 		tickInterval:   5 * time.Second,
 		batchSize:      100,
@@ -123,6 +143,9 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 		return
 	}
 
+	// S1-2/S1-5 兜底扫描不依赖到期结果，先执行
+	o.sweepPendingTimers(ctx, now)
+
 	if len(timers) == 0 {
 		return
 	}
@@ -134,6 +157,8 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 			logger.Ctx(ctx).Error().Err(err).
 				Uint("timer_id", t.ID).
 				Msg("[outbox] mark timer fired failed")
+			// S1-5：认领失败累计 claim_count，≥5 转死信
+			o.bumpTimerClaimOrDeadLetter(ctx, &t, now)
 			continue
 		}
 		if rowsAffected == 0 {
@@ -163,6 +188,171 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 			Int("scanned_count", len(timers)).
 			Msg("[outbox] processed due timers")
 	}
+}
+
+// sweepPendingTimers 扫描 pending timers，处理两类兜底：
+//  1. S1-2：max_wait_at 已过期 → 转 skipped + 事件记录 + SkipWait 任务（视为满足立即跳过）
+//  2. S1-5：claim_count ≥ sopTimerMaxClaims → 转 dead_letter + 告警日志
+func (o *SOPOutboxDispatcher) sweepPendingTimers(ctx context.Context, now time.Time) {
+	if o.db == nil {
+		return
+	}
+	var timers []model.SOPTimer
+	if err := o.db.WithContext(ctx).
+		Where("status = ?", sopTimerStatusPending).
+		Limit(o.batchSize).
+		Find(&timers).Error; err != nil {
+		logger.Ctx(ctx).Error().Err(err).Msg("[outbox] sweep pending timers failed")
+		return
+	}
+
+	for i := range timers {
+		t := &timers[i]
+
+		// S1-5：死信迁移
+		if timerClaimCount(t.Payload) >= sopTimerMaxClaims {
+			rows := o.db.WithContext(ctx).Model(&model.SOPTimer{}).
+				Where("id = ? AND status = ?", t.ID, sopTimerStatusPending).
+				Updates(map[string]any{"status": sopTimerStatusDeadLetter, "fired_at": now}).RowsAffected
+			if rows > 0 {
+				logger.Ctx(ctx).Error().
+					Uint("timer_id", t.ID).
+					Uint("execution_id", t.ExecutionID).
+					Str("node_id", t.NodeID).
+					Int("claim_count", timerClaimCount(t.Payload)).
+					Msg("[outbox][ALERT] timer moved to dead_letter: claim_count exhausted")
+			}
+			continue
+		}
+
+		// S1-2：max_wait 兜底跳过
+		maxWaitAt := parseSOPTimePayload(t.Payload, "max_wait_at")
+		if maxWaitAt.IsZero() || maxWaitAt.After(now) {
+			continue
+		}
+		rows := o.db.WithContext(ctx).Model(&model.SOPTimer{}).
+			Where("id = ? AND status = ?", t.ID, sopTimerStatusPending).
+			Updates(map[string]any{"status": sopTimerStatusSkipped, "fired_at": now}).RowsAffected
+		if rows == 0 {
+			continue
+		}
+		o.writeTimerSkippedEvent(ctx, t, now)
+		logger.Ctx(ctx).Warn().
+			Uint("timer_id", t.ID).
+			Uint("execution_id", t.ExecutionID).
+			Str("node_id", t.NodeID).
+			Time("max_wait_at", maxWaitAt).
+			Msg("[outbox] timer exceeded max_wait, marked skipped and dispatching skip task")
+
+		if o.execDispatcher != nil {
+			o.execDispatcher.DispatchOrLog(&dispatchTask{
+				ExecutionID: t.ExecutionID,
+				NodeID:      t.NodeID,
+				Attempt:     0,
+				SkipWait:    true,
+				TraceID:     fmt.Sprintf("maxwait-%d", t.ID),
+			})
+		}
+	}
+}
+
+// bumpTimerClaimOrDeadLetter S1-5：认领失败时累计 claim_count（写回 payload），
+// 达到阈值直接转 dead_letter 并告警。
+func (o *SOPOutboxDispatcher) bumpTimerClaimOrDeadLetter(ctx context.Context, t *model.SOPTimer, now time.Time) {
+	if o.db == nil || t == nil {
+		return
+	}
+	claims := timerClaimCount(t.Payload) + 1
+	payload := model.JSONMap{}
+	for k, v := range t.Payload {
+		payload[k] = v
+	}
+	payload["claim_count"] = claims
+
+	status := sopTimerStatusPending
+	extra := map[string]any{"payload": payload}
+	if claims >= sopTimerMaxClaims {
+		status = sopTimerStatusDeadLetter
+		extra["status"] = status
+		extra["fired_at"] = now
+	}
+	rows := o.db.WithContext(ctx).Model(&model.SOPTimer{}).
+		Where("id = ? AND status = ?", t.ID, sopTimerStatusPending).
+		Updates(extra).RowsAffected
+	if rows == 0 {
+		return
+	}
+	if status == sopTimerStatusDeadLetter {
+		logger.Ctx(ctx).Error().
+			Uint("timer_id", t.ID).
+			Uint("execution_id", t.ExecutionID).
+			Str("node_id", t.NodeID).
+			Int("claim_count", claims).
+			Msg("[outbox][ALERT] timer moved to dead_letter: claim_count exhausted")
+	} else {
+		logger.Ctx(ctx).Warn().
+			Uint("timer_id", t.ID).
+			Int("claim_count", claims).
+			Msg("[outbox] timer claim failed, claim_count incremented")
+	}
+}
+
+// writeTimerSkippedEvent S1-2：超 max_wait 跳过的事件记录（sop_exec_events）
+func (o *SOPOutboxDispatcher) writeTimerSkippedEvent(ctx context.Context, t *model.SOPTimer, now time.Time) {
+	if o.eventRepo == nil {
+		return
+	}
+	var execRow model.SOPExecution
+	if err := o.db.WithContext(ctx).Select("id, sop_id").
+		Where("id = ?", t.ExecutionID).First(&execRow).Error; err != nil {
+		logger.Ctx(ctx).Warn().Err(err).
+			Uint("execution_id", t.ExecutionID).
+			Msg("[outbox] write skipped event aborted: execution not found")
+		return
+	}
+	event := &model.SOPExecEvent{
+		ExecutionID:  execRow.ID,
+		SOPID:        execRow.SOPID,
+		NodeID:       t.NodeID,
+		NodeType:     SOPNodeTypeWait,
+		EventType:    NodeEventSkipped,
+		Status:       NodeStatusSkipped,
+		ErrorMessage: fmt.Sprintf("wait exceeded max_wait_at=%s, treated as satisfied and skipped", parseSOPTimePayload(t.Payload, "max_wait_at").Format(time.RFC3339)),
+	}
+	if err := o.eventRepo.Create(ctx, event); err != nil {
+		logger.Ctx(ctx).Debug().Err(err).
+			Uint("execution_id", execRow.ID).
+			Str("node_id", t.NodeID).
+			Msg("[outbox] write skipped event failed")
+	}
+}
+
+// timerClaimCount 从 payload 读取 claim_count
+func timerClaimCount(payload model.JSONMap) int {
+	switch v := payload["claim_count"].(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	case json.Number:
+		n, _ := v.Int64()
+		return int(n)
+	default:
+		return 0
+	}
+}
+
+// parseSOPTimePayload 从 payload 解析 RFC3339 时间字段
+func parseSOPTimePayload(payload model.JSONMap, key string) time.Time {
+	s, _ := payload[key].(string)
+	if s == "" {
+		return time.Time{}
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }
 
 

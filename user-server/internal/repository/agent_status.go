@@ -112,3 +112,14 @@ func (r *AgentStatusRepository) CountOnlineAgents(ctx context.Context) (int, err
 	return int(count), nil
 }
 
+
+// TouchHeartbeat 刷新坐席心跳（S-3 心跳自动下线，2026-08-26）
+//
+// 由坐席工作台连接活跃事件（WS/SSE 消息、心跳帧）调用；
+// 仅更新 last_active_at，不改动 status/online_at（区别于 UpdateStatus）。
+func (r *AgentStatusRepository) TouchHeartbeat(ctx context.Context, agentID uint) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).Model(&model.AgentStatus{}).
+		Where("agent_id = ?", agentID).
+		Update("last_active_at", &now).Error
+}

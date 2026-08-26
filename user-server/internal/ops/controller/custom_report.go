@@ -1,12 +1,15 @@
 package controller
 
 import (
-	"hivemtk-user/internal/ops/service"
-	"hivemtk-user/internal/pkg/errhttp"
-	"hivemtk-user/internal/pkg/utils/response"
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
+
+	"hivemtk-user/internal/ops/service"
+	"hivemtk-user/internal/pkg/errhttp"
+	"hivemtk-user/internal/pkg/utils/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -210,5 +213,52 @@ func (c *CustomReportController) QueryReportData(ctx *gin.Context) {
 	}
 
 	response.Success(ctx, data, "获取成功")
+}
+
+// ExportCSV CSV 流式导出（D-4）
+//
+// csv.Writer 直写 ResponseWriter；行数 >30K 时拒绝同步导出并返回 400，
+// 提示缩小时间范围/过滤条件（异步任务本期不做，决策源 M18 表 D-4）。
+func (c *CustomReportController) ExportCSV(ginCtx *gin.Context) {
+
+	idStr := ginCtx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(ginCtx, http.StatusBadRequest, "无效的报表 ID")
+		return
+	}
+
+	params := make(map[string]any)
+	if startTime := ginCtx.Query("start_time"); startTime != "" {
+		if t, err := time.Parse("2006-01-02", startTime); err == nil {
+			params["start_time"] = t
+		}
+	}
+	if endTime := ginCtx.Query("end_time"); endTime != "" {
+		if t, err := time.Parse("2006-01-02", endTime); err == nil {
+			params["end_time"] = t
+		}
+	}
+	if layer := ginCtx.Query("layer"); layer != "" {
+		params["layer"] = layer
+	}
+
+	report, err := c.reportService.GetReport(uint(id))
+	if err != nil {
+		response.Error(ginCtx, http.StatusNotFound, err.Error())
+		return
+	}
+
+	ginCtx.Header("Content-Type", "text/csv; charset=utf-8")
+	ginCtx.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="report_%d.csv"`, id))
+	if err := c.reportService.ExportReportCSV(ginCtx.Request.Context(), ginCtx.Writer, report, params); err != nil {
+		if errors.Is(err, service.ErrReportTooManyRows) {
+			// 头部已写但尚未 Flush/写体，直接以 JSON 错误响应覆盖语义
+			response.Error(ginCtx, http.StatusBadRequest, err.Error())
+			return
+		}
+		response.Error(ginCtx, http.StatusInternalServerError, err.Error())
+		return
+	}
 }
 

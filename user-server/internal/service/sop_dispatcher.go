@@ -1,8 +1,8 @@
 package service
 
-
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -18,13 +18,13 @@ import (
 
 // SOPDispatcherConfig 调度器配置
 type SOPDispatcherConfig struct {
-	WorkerCount       int           
-	QueueCapacity     int           
-	LLMConcurrency    int           
-	MaxAttempts       int           
-	InitialBackoff    time.Duration 
-	MaxBackoff        time.Duration 
-	BackoffMultiplier float64       
+	WorkerCount       int
+	QueueCapacity     int
+	LLMConcurrency    int
+	MaxAttempts       int
+	InitialBackoff    time.Duration
+	MaxBackoff        time.Duration
+	BackoffMultiplier float64
 }
 
 // DefaultSOPDispatcherConfig 默认配置
@@ -46,6 +46,10 @@ type dispatchTask struct {
 	NodeID      string
 	Attempt     int
 	TraceID     string
+
+	// SkipWait S1-2：max_wait 超时后由 outbox sweeper 派发，
+	// worker 对 wait 节点不再执行，直接视为满足（skipped）推进下一节点
+	SkipWait bool
 }
 
 // SOPExecutionDispatcher SOP 执行调度器
@@ -207,7 +211,7 @@ func NewSOPExecutionDispatcher(db *gorm.DB, sopSvc *SOPService, registry *NodeEx
 
 	deps := &SOPNodeExecutorDeps{
 		DB:          db,
-		WSHub:       nil, 
+		WSHub:       nil,
 		MsgRepo:     d.msgRepo,
 		SessionRepo: d.sessionRepo,
 		LLMSem:      d.llmSem,
@@ -382,48 +386,71 @@ func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, 
 		return
 	}
 
-	d.writeExecEvent(ctx, exec, node, NodeEventStarted, task.Attempt, nil, nil, "")
-
-	execCtx := &ExecutionContext{
-		Execution:     exec,
-		Node:          node,
-		Graph:         graph,
-		CustomerID:    exec.CustomerID,
-		SessionID:     exec.SessionID,
-		Variant:       exec.Variant,
-		Input:         exec.ExecutionData,
-		ExecutionData: exec.ExecutionData,
-		TraceID:       task.TraceID,
-		StartedAt:     start,
-		Attempt:       task.Attempt,
+	// S1-1：加载 entry_policy（goal_exit 达成即退出）
+	entryPolicy := DefaultSOPEntryPolicy()
+	if d.sopService != nil {
+		if agent, aerr := d.sopService.Get(ctx, exec.SOPID); aerr == nil && agent != nil {
+			entryPolicy = ParseSOPEntryPolicy(agent.TriggerConfig)
+		}
 	}
 
-	executor := d.registry.MustGet(ctx, node.Type)
-	result, err := executor.Execute(ctx, execCtx)
 	latencyMs := time.Since(start).Milliseconds()
 
-	if err != nil || result == nil {
-		d.handleNodeFailure(ctx, exec, node, task, err, latencyMs)
-		return
+	var result *NodeExecResult
+	if task.SkipWait && node.Type == SOPNodeTypeWait {
+		// S1-2：max_wait 已超时，"已过期视为满足立即跳过"，不再执行 wait 节点
+		logger.Ctx(ctx).Info().
+			Str("node_id", node.ID).
+			Msg("[worker] skip wait node (max_wait exceeded, treated as satisfied)")
+		result = &NodeExecResult{Status: NodeStatusSkipped}
+	} else {
+		d.writeExecEvent(ctx, exec, node, NodeEventStarted, task.Attempt, nil, nil, "")
+
+		execCtx := &ExecutionContext{
+			Execution:     exec,
+			Node:          node,
+			Graph:         graph,
+			CustomerID:    exec.CustomerID,
+			SessionID:     exec.SessionID,
+			Variant:       exec.Variant,
+			Input:         exec.ExecutionData,
+			ExecutionData: exec.ExecutionData,
+			TraceID:       task.TraceID,
+			StartedAt:     start,
+			Attempt:       task.Attempt,
+		}
+
+		executor := d.registry.MustGet(ctx, node.Type)
+		var err error
+		result, err = executor.Execute(ctx, execCtx)
+		if err != nil || result == nil {
+			// 执行器返回 error 属可重试类（dispatcher 负责退避重试）
+			d.handleNodeFailure(ctx, exec, node, task, err, true, latencyMs)
+			return
+		}
 	}
 
 	d.writeExecEvent(ctx, exec, node, NodeEventExecuted, task.Attempt, result.Output, result.SideEffects, "")
 
 	switch result.Status {
 	case NodeStatusCompleted, NodeStatusSkipped:
-		d.handleNodeSuccess(ctx, exec, node, graph, result, task, latencyMs)
+		// SAGA 轨迹：仅在节点真正完成/跳过时记录（waiting/failed 不入补偿清单）
+		appendExecutedNode(exec, node, task.Attempt, "")
+		d.handleNodeSuccess(ctx, exec, node, graph, result, task, entryPolicy, latencyMs)
 	case NodeStatusWaiting:
 		d.handleNodeWaiting(ctx, exec, node, result, latencyMs)
 	case NodeStatusFailed:
 		err := fmt.Errorf("%s", result.ErrorMessage)
-		d.handleNodeFailure(ctx, exec, node, task, err, latencyMs)
+		d.handleNodeFailure(ctx, exec, node, task, err, result.Retryable, latencyMs)
 	default:
 		logger.Ctx(ctx).Warn().
 			Str("status", result.Status).
 			Msg("[worker] unknown node status, treating as completed")
-		d.handleNodeSuccess(ctx, exec, node, graph, result, task, latencyMs)
+		appendExecutedNode(exec, node, task.Attempt, "")
+		d.handleNodeSuccess(ctx, exec, node, graph, result, task, entryPolicy, latencyMs)
 	}
 }
+
 
 // loadExecution 加载 Execution 记录
 func (d *SOPExecutionDispatcher) loadExecution(ctx context.Context, execID uint) (*model.SOPExecution, error) {
@@ -460,7 +487,7 @@ func (d *SOPExecutionDispatcher) loadGraph(ctx context.Context, exec *model.SOPE
 }
 
 // handleNodeSuccess 处理节点执行成功
-func (d *SOPExecutionDispatcher) handleNodeSuccess(ctx context.Context, exec *model.SOPExecution, node *dto.SOPNode, graph *dto.SOPGraph, result *NodeExecResult, task *dispatchTask, latencyMs int64) {
+func (d *SOPExecutionDispatcher) handleNodeSuccess(ctx context.Context, exec *model.SOPExecution, node *dto.SOPNode, graph *dto.SOPGraph, result *NodeExecResult, task *dispatchTask, policy SOPEntryPolicy, latencyMs int64) {
 	if exec.ExecutionData == nil {
 		exec.ExecutionData = model.JSONMap{}
 	}
@@ -469,6 +496,17 @@ func (d *SOPExecutionDispatcher) handleNodeSuccess(ctx context.Context, exec *mo
 	}
 	for _, effect := range result.SideEffects {
 		exec.ExecutionData = appendSideEffect(exec.ExecutionData, effect)
+	}
+
+	// S1-1：goal_exit 达成即退出（提前完成，状态记 success）
+	if policy.GoalExit != "" && goalExitAchieved(policy.GoalExit, exec.ExecutionData) {
+		d.writeExecEvent(ctx, exec, node, NodeEventGoalAchieved, task.Attempt, result.Output, result.SideEffects, "")
+		logger.Ctx(ctx).Info().
+			Uint("execution_id", exec.ID).
+			Str("goal_exit", policy.GoalExit).
+			Msg("[worker] goal_exit achieved, completing execution early")
+		d.completeExecution(ctx, exec)
+		return
 	}
 
 	nextNodeID := result.NextNodeID
@@ -537,7 +575,10 @@ func (d *SOPExecutionDispatcher) handleNodeWaiting(ctx context.Context, exec *mo
 }
 
 // handleNodeFailure 处理节点执行失败
-func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *model.SOPExecution, node *dto.SOPNode, task *dispatchTask, err error, latencyMs int64) {
+//
+// S1-3：终态失败（重试耗尽）时向 executed_nodes 追加 failed 记录，
+// 携带 error_class(transient|permanent)。
+func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *model.SOPExecution, node *dto.SOPNode, task *dispatchTask, err error, retryable bool, latencyMs int64) {
 	errMsg := ""
 	if err != nil {
 		errMsg = err.Error()
@@ -595,6 +636,14 @@ func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *mo
 		Int("attempts", task.Attempt+1).
 		Err(err).
 		Msg("[worker] node failed after max attempts, marking execution as failed")
+
+	// S1-3：失败节点也入轨迹（不入补偿计划，tryCompensate 过滤 status=failed）
+	errClass := SOPErrorClassTransient
+	if !retryable {
+		errClass = SOPErrorClassPermanent
+	}
+	appendExecutedNodeWithStatus(exec, node, task.Attempt, "failed", errMsg, errClass)
+
 	d.failExecution(ctx, exec, fmt.Sprintf("node %s failed after %d attempts: %s", node.ID, task.Attempt+1, errMsg))
 }
 
@@ -647,6 +696,38 @@ func (d *SOPExecutionDispatcher) failExecution(ctx context.Context, exec *model.
 	d.tryCompensate(ctx, exec)
 }
 
+// maxExecutedNodeTrace 单次执行轨迹封顶（防异常长流程无限膨胀 JSONB）
+const maxExecutedNodeTrace = 200
+
+// appendExecutedNode 追加已完成节点轨迹到 exec.ExecutedNodes（SAGA 补偿依据）。
+// best-effort：序列化失败仅记日志，不阻断主流程。
+func appendExecutedNode(exec *model.SOPExecution, node *dto.SOPNode, attempt int, errMsg string) {
+	appendExecutedNodeWithStatus(exec, node, attempt, "completed", errMsg, "")
+}
+
+// appendExecutedNodeWithStatus 带状态与错误分类的节点轨迹追加（S1-3）
+func appendExecutedNodeWithStatus(exec *model.SOPExecution, node *dto.SOPNode, attempt int, status, errMsg, errClass string) {
+	if exec == nil || node == nil {
+		return
+	}
+	if len(exec.ExecutedNodes) >= maxExecutedNodeTrace {
+		return
+	}
+	rec := map[string]any{
+		"node_id":   node.ID,
+		"node_type": node.Type,
+		"status":    status,
+		"attempt":   attempt,
+	}
+	if errMsg != "" {
+		rec["error"] = errMsg
+	}
+	if errClass != "" {
+		rec["error_class"] = errClass
+	}
+	exec.ExecutedNodes = append(exec.ExecutedNodes, rec)
+}
+
 // tryCompensate 异步尝试补偿已执行的节点
 //
 // 设计原则：
@@ -667,20 +748,93 @@ func (d *SOPExecutionDispatcher) tryCompensate(_ context.Context, exec *model.SO
 		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
-		// 构造补偿计划：当前实现使用空计划（未来可从 exec.ExecutionData 提取已执行节点）
-		// 业界 SAGA 模式：每个 Execution 记录 executed_nodes 列表
-		// 本项目 sop_executions 表暂未持久化此字段（schema 扩展点）
-		// TODO: 在 sop_executions 表新增 executed_nodes JSONB 字段，从 DB 读取
-		plan := d.compensationMgr.Plan(nil)
+		// 从 DB 读取最新 executed_nodes（内存对象可能落后于已持久化状态）
+		var executed []compensationTraceEntry
+		fresh, err := d.execRepo.GetByID(bgCtx, exec.ID)
+		if err == nil && fresh != nil && len(fresh.ExecutedNodes) > 0 {
+			raw, _ := json.Marshal(fresh.ExecutedNodes)
+			_ = json.Unmarshal(raw, &executed)
+		} else if err == nil && fresh != nil && len(fresh.ExecutedNodes) == 0 && len(exec.ExecutedNodes) > 0 {
+			raw2, _ := json.Marshal(exec.ExecutedNodes)
+			_ = json.Unmarshal(raw2, &executed)
+		}
 
-		// 当前无法恢复已执行节点列表（schema 缺字段），但框架已就位
-		// 业务方补偿节点可在收到 execution 失败时主动调用 CompensationManager.Run
-		_ = bgCtx
-		_ = plan
-		logger.GetLogger().Debug().
+		planRecords := make([]CompensationRecord, 0, len(executed))
+		for _, e := range executed {
+			// S1-3：failed 终态节点不参与补偿（仅其前序成功节点需要撤销）
+			if e.Status == "failed" {
+				continue
+			}
+			planRecords = append(planRecords, CompensationRecord{
+				NodeID:   e.NodeID,
+				NodeType: e.NodeType,
+				Status:   e.Status,
+				Attempt:  e.Attempt,
+			})
+		}
+
+		plan := d.compensationMgr.Plan(planRecords)
+		if len(plan) == 0 {
+			logger.GetLogger().Debug().
+				Uint("execution_id", exec.ID).
+				Msg("[SOP] no executed nodes to compensate")
+			return
+		}
+
+		// 加载图并构建 nodeID→Node 索引，为 Run 提供真实 ExecutionContext
+		// （红队审查 F0：execCtxFor 传 nil 会在 Run 内部解引用 panic）
+		graph, err := d.loadGraph(bgCtx, exec)
+		if err != nil {
+			logger.GetLogger().Warn().
+				Uint("execution_id", exec.ID).
+				Err(err).
+				Msg("[SOP] compensation aborted: graph load failed")
+			return
+		}
+		nodeByID := make(map[string]*dto.SOPNode, len(graph.Nodes))
+		for i := range graph.Nodes {
+			nodeByID[graph.Nodes[i].ID] = &graph.Nodes[i]
+		}
+
+		result := d.compensationMgr.Run(bgCtx, exec.ID, plan,
+			func(nodeType string) NodeExecutor {
+				return d.registry.MustGet(bgCtx, nodeType)
+			},
+			func(nodeID string) *ExecutionContext {
+				n := nodeByID[nodeID]
+				if n == nil {
+					return nil // Run 会记录 Failed 记录而非 panic
+				}
+				return &ExecutionContext{
+					Execution:     exec,
+					Node:          n,
+					Graph:         graph,
+					CustomerID:    exec.CustomerID,
+					SessionID:     exec.SessionID,
+					Variant:       exec.Variant,
+					Input:         exec.ExecutionData,
+					ExecutionData: exec.ExecutionData,
+					StartedAt:     time.Now(),
+					Attempt:       0,
+				}
+			},
+		)
+		logger.GetLogger().Info().
 			Uint("execution_id", exec.ID).
-			Msg("[SOP] compensation framework ready, waiting for executed_nodes schema extension")
+			Int("planned", len(plan)).
+			Str("status", result.Status).
+			Msg("[SOP] SAGA compensation finished")
 	}()
+}
+
+// compensationTraceEntry executed_nodes JSONB 元素结构（与 CompensationRecord 对齐的持久化形态）
+type compensationTraceEntry struct {
+	NodeID    string `json:"node_id"`
+	NodeType  string `json:"node_type"`
+	Status    string `json:"status"`
+	Attempt   int    `json:"attempt"`
+	Error     string `json:"error,omitempty"`
+	ErrorClass string `json:"error_class,omitempty"` // S1-3: transient|permanent
 }
 
 // writeExecEvent 写入 sop_exec_events 事件日志
@@ -728,7 +882,6 @@ func sopToJSONArray(s []string) model.JSONArray {
 	return out
 }
 
-
 var (
 	globalSOPDispatcher *SOPExecutionDispatcher
 	sopDispatcherOnce   sync.Once
@@ -748,4 +901,3 @@ func InitSOPExecutionDispatcher(db *gorm.DB, sopSvc *SOPService, cfg *SOPDispatc
 func GetSOPExecutionDispatcher() *SOPExecutionDispatcher {
 	return globalSOPDispatcher
 }
-

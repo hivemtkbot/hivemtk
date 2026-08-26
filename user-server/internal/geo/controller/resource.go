@@ -78,6 +78,16 @@ func (c *ResourceController) GenerateRobots(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"content": c.techconfigSvc.GenerateRobots(&cfg)}, "生成成功")
 }
 
+// GenerateLLMsTxt 生成 llms.txt（AI 引擎知识索引，v3 竞品对齐 A4）
+// POST /geo/techconfig/llms-txt
+func (c *ResourceController) GenerateLLMsTxt(ctx *gin.Context) {
+	var cfg service.LLMsTxtConfig
+	if !response.BindJSON(ctx, &cfg) {
+		return
+	}
+	response.Success(ctx, gin.H{"content": c.techconfigSvc.GenerateLLMsTxt(&cfg)}, "生成成功")
+}
+
 // GenerateSitemap 生成 sitemap.xml
 // POST /geo/techconfig/sitemap
 func (c *ResourceController) GenerateSitemap(ctx *gin.Context) {

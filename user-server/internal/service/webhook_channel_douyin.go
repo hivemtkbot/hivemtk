@@ -124,15 +124,22 @@ func (s *WebhookService) dispatchDouyinGeneric(ctx context.Context, accountID st
 	isGroup := p.ChatID != "" && strings.HasPrefix(p.ChatID, "group_")
 	groupID := p.ChatID
 
+	content := p.Content
+	if content == "" {
+		content = "[douyin generic event]"
+	}
+
+	// W-5 MsgID 稳定化：generic 分支原用 UnixNano 时间戳，重推/并发场景天然不去重；
+	// 改用内容哈希生成稳定 ID（复用 webhook_dedup.go 既有实现）。
 	hub := &model.MessageHub{
 		Platform:       "douyin",
 		AccountID:      accountID,
-		MsgID:          fmt.Sprintf("dy_generic_%s_%d", p.Sender, time.Now().UnixNano()),
+		MsgID:          "dy_generic_" + ContentHashMsgID("douyin", p.Sender, content),
 		Direction:      "inbound",
 		SenderID:       p.Sender,
 		ConversationID: p.ChatID,
 		MsgType:        "text",
-		Content:        p.Content,
+		Content:        content,
 		SentAt:         time.Now(),
 		IsGroup:        isGroup,
 		GroupID:        groupID,

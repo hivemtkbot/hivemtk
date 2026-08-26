@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -40,9 +41,9 @@ const IntentConfigKey = "intent_recognition_config"
 
 // IntentConfig 意图识别配置（DB 持久化结构）
 type IntentConfig struct {
-	Enabled   bool   `json:"enabled"`              
-	UpdatedAt string `json:"updated_at,omitempty"` 
-	UpdatedBy string `json:"updated_by,omitempty"` 
+	Enabled   bool   `json:"enabled"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+	UpdatedBy string `json:"updated_by,omitempty"`
 }
 
 // IntentRecognizer 销售意图识别器
@@ -54,6 +55,15 @@ type IntentRecognizer struct {
 	dispatcher       *llm.Dispatcher
 	cache            *redis.Client
 	sopService       *SOPService
+
+	// 三级级联中间层（对标业界 Rule→Embedding→LLM 分层：60-70%/20-30%/5-10% 流量分布）
+	embedSvc          llm.EmbeddingServiceInterface
+	exampleRepo       *repository.IntentExampleRepository // M4 I-1: intent_examples pgvector 持久化锚点库
+	anchorMu          sync.RWMutex
+	anchorVecs        map[string][][]float32 // intentType -> 预计算示例句向量
+	embDisabled       bool                   // 锚点为空（预计算失败）或运行期连续失败熔断
+	embFailCount      int
+	embLastPrecompute time.Time // 上次预计算尝试时间（冷却懒重试用）
 }
 
 // NewIntentRecognizer 创建意图识别器
@@ -66,7 +76,7 @@ func NewIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.C
 		logRepo = repository.NewIntentLogRepository()
 		logRepo.SetDB(context.Background(), db)
 	}
-	return &IntentRecognizer{
+	rec := &IntentRecognizer{
 		db:               db,
 		recordRepo:       recordRepo,
 		logRepo:          logRepo,
@@ -74,6 +84,11 @@ func NewIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.C
 		dispatcher:       dispatcher,
 		cache:            cache,
 	}
+	if db != nil {
+		rec.exampleRepo = repository.NewIntentExampleRepository()
+		rec.exampleRepo.SetDB(context.Background(), db)
+	}
+	return rec
 }
 
 // SetSOPService 注入 SOP 服务用于意图→SOP 联动
@@ -81,23 +96,329 @@ func (s *IntentRecognizer) SetSOPService(ctx context.Context, svc *SOPService) {
 	s.sopService = svc
 }
 
+// SetEmbeddingService 注入 Embedding 服务并后台预计算意图锚点向量，
+// 启用三级级联的中间层（规则未命中 → Embedding → LLM）。
+// 预计算异步执行不阻塞启动；失败时中间层静默停用，行为退回原两级级联（fail-open，零破坏）。
+func (s *IntentRecognizer) SetEmbeddingService(svc llm.EmbeddingServiceInterface) {
+	if svc == nil {
+		return
+	}
+	s.embedSvc = svc
+	go s.safePrecomputeAnchors()
+}
+
+// safePrecomputeAnchors 带 recover 的后台预计算入口。
+// 头脑风暴 B1(SRE)：goroutine 内 panic 会击穿整个进程，后台任务必须自隔离。
+func (s *IntentRecognizer) safePrecomputeAnchors() {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("[Intent] 锚点预计算 panic 已隔离: %v", r)
+		}
+	}()
+	s.precomputeAnchors()
+}
+
+// intentEmbeddingTop1 意图 embedding 层采信阈值（业界共识 0.75）
+const intentEmbeddingTop1 = 0.75
+
+// intentEmbeddingGap 歧义缺口阈值（M4 I-3）：top1 与 top2 相似度差低于该值
+// 且两者均过采信阈值时，不强选，返回 clarify 意图由编排层发澄清话术
+const intentEmbeddingGap = 0.05
+
+// precomputeAnchors 预计算全部意图示例句向量作为锚点库
+//
+// M4 I-1：优先从 intent_examples 表（pgvector 持久化锚点）加载；
+// 表为空/不可用时回退实时计算（行为不劣于现状，fail-open），成功后异步落库供重启复用。
+func (s *IntentRecognizer) precomputeAnchors() {
+	ctx := context.Background()
+	if s.loadAnchorsFromDB(ctx) {
+		return
+	}
+	vecs := make(map[string][][]float32, len(DefaultIntents))
+	var dbRows []*model.IntentExample
+	for _, def := range DefaultIntents {
+		for _, ex := range def.Examples {
+			v, err := s.embedSvc.EmbedOne(ctx, s.embedSvc.DefaultConfig(), ex)
+			if err != nil || len(v) == 0 {
+				logger.Warnf("[Intent] 锚点预计算失败 intent=%s example=%s: %v", def.Type, ex, err)
+				continue
+			}
+			vecs[def.Type] = append(vecs[def.Type], v)
+			dbRows = append(dbRows, &model.IntentExample{Intent: def.Type, Text: ex, Vector: vecToPGLiteral(v)})
+		}
+	}
+	s.anchorMu.Lock()
+	s.anchorVecs = vecs
+	// 红队审查 F1：启动时 TEI 可能尚未就绪，锚点全失败不应永久禁用——
+	// 改为可重试状态（recognizeByEmbedding 按 embRetryCooldown 冷却后懒重试）
+	s.embDisabled = len(vecs) == 0
+	if len(vecs) > 0 {
+		s.embFailCount = 0
+	}
+	s.embLastPrecompute = time.Now()
+	s.anchorMu.Unlock()
+	total := 0
+	for _, v := range vecs {
+		total += len(v)
+	}
+	logger.Infof("[Intent] Embedding 中间层就绪: intents=%d anchors=%d disabled=%v", len(vecs), total, len(vecs) == 0)
+	// 实时计算成功后落库（best-effort，失败不影响中间层可用性）
+	if len(dbRows) > 0 && s.exampleRepo != nil {
+		if err := s.exampleRepo.UpsertBatch(ctx, dbRows); err != nil {
+			logger.Warnf("[Intent] 示例向量落库失败（下次启动将重算）: %v", err)
+		}
+	}
+}
+
+// loadAnchorsFromDB 从 intent_examples 表加载持久化锚点（M4 I-1）。
+// 成功加载≥1条返回 true 并写入 anchorVecs；表空/DB 不可用/解析失败返回 false（调用方回退实时计算）。
+func (s *IntentRecognizer) loadAnchorsFromDB(ctx context.Context) bool {
+	if s.exampleRepo == nil || s.embedSvc == nil {
+		return false
+	}
+	rows, err := s.exampleRepo.ListAll(ctx)
+	if err != nil || len(rows) == 0 {
+		return false
+	}
+	vecs := make(map[string][][]float32, len(DefaultIntents))
+	dim := s.embedSvc.DefaultConfig().Dimension
+	loaded := 0
+	for _, row := range rows {
+		v, perr := parsePGVectorLiteral(row.Vector, dim)
+		if perr != nil || len(v) == 0 {
+			continue
+		}
+		vecs[row.Intent] = append(vecs[row.Intent], v)
+		loaded++
+	}
+	if loaded == 0 {
+		return false
+	}
+	s.anchorMu.Lock()
+	s.anchorVecs = vecs
+	s.embDisabled = false
+	s.embFailCount = 0
+	s.embLastPrecompute = time.Now()
+	s.anchorMu.Unlock()
+	logger.Infof("[Intent] Embedding 中间层从 intent_examples 表就绪: intents=%d anchors=%d", len(vecs), loaded)
+	return true
+}
+
+// EnsureIntentExamplesIndexed 将 DefaultIntents 全部示例句向量化并幂等写入
+// intent_examples 表（M4 I-1 初始化方法；X-7 独立分表不污染 KB 语料）。
+// 返回本次新导入的条数。embedding 服务不可用或 DB 不可用时返回错误（调用方降级）。
+func (s *IntentRecognizer) EnsureIntentExamplesIndexed(ctx context.Context) (int, error) {
+	if s.embedSvc == nil {
+		return 0, fmt.Errorf("embedding service not injected")
+	}
+	if s.exampleRepo == nil {
+		return 0, fmt.Errorf("intent_examples repository unavailable (db is nil)")
+	}
+	existing, err := s.exampleRepo.ListAll(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list intent_examples: %w", err)
+	}
+	have := make(map[string]bool, len(existing))
+	for _, r := range existing {
+		have[r.Text] = true
+	}
+	imported := 0
+	var batch []*model.IntentExample
+	for _, def := range DefaultIntents {
+		for _, ex := range def.Examples {
+			if have[ex] {
+				continue
+			}
+			v, err := s.embedSvc.EmbedOne(ctx, s.embedSvc.DefaultConfig(), ex)
+			if err != nil || len(v) == 0 {
+				return imported, fmt.Errorf("embed example %q: %w", ex, err)
+			}
+			batch = append(batch, &model.IntentExample{Intent: def.Type, Text: ex, Vector: vecToPGLiteral(v)})
+			imported++
+		}
+	}
+	if err := s.exampleRepo.UpsertBatch(ctx, batch); err != nil {
+		return imported, fmt.Errorf("upsert intent_examples: %w", err)
+	}
+	return imported, nil
+}
+
+// vecToPGLiteral []float32 → pgvector 字面量 '[v1,v2,...]'
+func vecToPGLiteral(v []float32) string {
+	var sb strings.Builder
+	sb.WriteByte('[')
+	for i, x := range v {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		fmt.Fprintf(&sb, "%g", x)
+	}
+	sb.WriteByte(']')
+	return sb.String()
+}
+
+// parsePGVectorLiteral pgvector 字面量 '[v1,v2,...]' → []float32
+func parsePGVectorLiteral(s string, expectDim int) ([]float32, error) {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "[")
+	s = strings.TrimSuffix(s, "]")
+	if s == "" {
+		return nil, fmt.Errorf("empty vector literal")
+	}
+	parts := strings.Split(s, ",")
+	if expectDim > 0 && len(parts) != expectDim {
+		return nil, fmt.Errorf("vector dim mismatch: got %d want %d", len(parts), expectDim)
+	}
+	out := make([]float32, len(parts))
+	for i, p := range parts {
+		f, err := strconv.ParseFloat(strings.TrimSpace(p), 32)
+		if err != nil {
+			return nil, fmt.Errorf("parse vector element %d: %w", i, err)
+		}
+		out[i] = float32(f)
+	}
+	return out, nil
+}
+
+// embRetryCooldown 锚点预计算失败后的重试冷却（TEI 启动慢/重启场景）
+const embRetryCooldown = 60 * time.Second
+
+// recognizeByEmbedding 三级级联中间层：示例句锚点余弦匹配。
+// 返回 nil 表示"不采信"（相似度不足或歧义缺口过小），调用方继续下沉 LLM。
+func (s *IntentRecognizer) recognizeByEmbedding(ctx context.Context, text string) *dto.RecognizeResult {
+	if s.embedSvc == nil {
+		return nil
+	}
+	s.anchorMu.RLock()
+	anchors := s.anchorVecs
+	disabled := s.embDisabled
+	lastTry := s.embLastPrecompute
+	s.anchorMu.RUnlock()
+	// 冷却懒重试：锚点为空（如 TEI 启动慢）时按冷却间隔后台重试预计算，而非永久禁用。
+	// 二次复审 V2：重试必须在后台 goroutine 执行——同步 41 次 Embed 调用在 TEI 抖动时
+	// 会阻塞用户请求数分钟；本请求直接返回 nil 下沉 LLM 层，预计算完成后自动恢复。
+	if len(anchors) == 0 || disabled {
+		if time.Since(lastTry) < embRetryCooldown {
+			return nil
+		}
+		s.anchorMu.Lock()
+		shouldRetry := !s.embLastPrecompute.After(time.Now().Add(-embRetryCooldown))
+		if shouldRetry {
+			s.embLastPrecompute = time.Now()
+		}
+		s.anchorMu.Unlock()
+		if shouldRetry {
+			logger.Info("[Intent] Embedding 锚点为空，冷却到期触发后台重试预计算")
+			go s.safePrecomputeAnchors()
+		}
+		return nil
+	}
+	qvec, err := s.embedSvc.EmbedOne(ctx, s.embedSvc.DefaultConfig(), text)
+	if err != nil || len(qvec) == 0 {
+		s.anchorMu.Lock()
+		s.embFailCount++
+		if s.embFailCount >= 3 {
+			s.embDisabled = true
+			logger.Warnf("[Intent] Embedding 连续失败 %d 次，中间层熔断降级为两级级联", s.embFailCount)
+		}
+		s.anchorMu.Unlock()
+		return nil
+	}
+	s.anchorMu.Lock()
+	s.embFailCount = 0
+	s.anchorMu.Unlock()
+	top1Type, top1Sim, top2Sim, top2Type := "", -1.0, -1.0, ""
+	for _, def := range DefaultIntents {
+		vecs := anchors[def.Type]
+		best := -1.0
+		for _, v := range vecs {
+			if sim := cosineSimilarity(qvec, v); sim > best {
+				best = sim
+			}
+		}
+		if best < 0 {
+			continue
+		}
+		if best > top1Sim {
+			top2Sim = top1Sim
+			top2Type = top1Type
+			top1Sim = best
+			top1Type = def.Type
+		} else if best > top2Sim {
+			top2Sim = best
+			top2Type = def.Type
+		}
+	}
+	if top1Type == "" || top1Sim < intentEmbeddingTop1 {
+		return nil
+	}
+	// M4 I-3 歧义澄清：top1 与 top2 均过采信阈值且缺口 <0.05 时不强选（强选=伪精度），
+	// 返回 clarify 意图，由编排层发澄清话术
+	if top1Sim-top2Sim < intentEmbeddingGap && top2Sim >= intentEmbeddingTop1 {
+		conf := 0.55 + top1Sim*0.4
+		if conf > 0.92 {
+			conf = 0.92
+		}
+		logger.Infof("[Intent] embedding 歧义缺口 top1=%.3f(%s) top2=%.3f(%s) gap<%.2f → clarify",
+			top1Sim, top1Type, top2Sim, top2Type, intentEmbeddingGap)
+		return &dto.RecognizeResult{
+			IntentType:      IntentClarify,
+			IntentName:      "歧义澄清",
+			Confidence:      conf,
+			ConfidenceLevel: "medium",
+			Sentiment:       "neutral",
+			Method:          "embedding",
+			Entities: map[string]any{
+				"top1_intent": top1Type,
+				"top2_intent": top2Type,
+				"gap":         fmt.Sprintf("%.3f", top1Sim-top2Sim),
+			},
+		}
+	}
+	// 仅 top2 未过阈值（缺口小但次优候选本就不可信）→ 正常采信 top1
+	var def IntentDef
+	for _, d := range DefaultIntents {
+		if d.Type == top1Type {
+			def = d
+			break
+		}
+	}
+	conf := 0.55 + top1Sim*0.4
+	if conf > 0.92 {
+		conf = 0.92
+	}
+	level := "medium"
+	if conf >= 0.85 {
+		level = "high"
+	}
+	return &dto.RecognizeResult{
+		IntentType:      def.Type,
+		IntentName:      def.Name,
+		Confidence:      conf,
+		ConfidenceLevel: level,
+		Sentiment:       inferSentiment(def.Type),
+		Method:          "embedding",
+	}
+}
+
 // IntentType 销售意图类型常量
 const (
-	IntentPriceInquiry        = "price_inquiry"        
-	IntentObjectionPrice      = "objection_price"      
-	IntentObjectionNeed       = "objection_need"       
-	IntentObjectionTrust      = "objection_trust"      
-	IntentObjectionCompetitor = "objection_competitor" 
-	IntentObjectionTiming     = "objection_timing"     
-	IntentPurchase            = "purchase"             
-	IntentAskProduct          = "ask_product"          
-	IntentAskService          = "ask_service"          
-	IntentAfterSale           = "after_sale"           
-	IntentChurn               = "churn"                
-	IntentSocial              = "social"               
-	IntentGreeting            = "greeting"             
-	IntentComplaint           = "complaint"            
-	IntentUnknown             = "unknown"              
+	IntentPriceInquiry        = "price_inquiry"
+	IntentObjectionPrice      = "objection_price"
+	IntentObjectionNeed       = "objection_need"
+	IntentObjectionTrust      = "objection_trust"
+	IntentObjectionCompetitor = "objection_competitor"
+	IntentObjectionTiming     = "objection_timing"
+	IntentPurchase            = "purchase"
+	IntentAskProduct          = "ask_product"
+	IntentAskService          = "ask_service"
+	IntentAfterSale           = "after_sale"
+	IntentChurn               = "churn"
+	IntentSocial              = "social"
+	IntentGreeting            = "greeting"
+	IntentComplaint           = "complaint"
+	IntentUnknown             = "unknown"
+	IntentClarify             = "clarify" // M4 I-3: 歧义澄清意图，由编排层发澄清话术
 
 	IntentStall         = IntentObjectionTiming
 	IntentAskTrust      = IntentObjectionTrust
@@ -195,7 +516,6 @@ var DefaultIntents = []IntentDef{
 	},
 }
 
-
 // Recognize 识别意图
 //
 // 流程（重构）：
@@ -225,6 +545,10 @@ func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID,
 	var result *dto.RecognizeResult
 
 	if r := s.recognizeByRule(ctx, text); r != nil {
+		s.saveRecord(ctx, sessionID, customerID, text, r, "", 0, 0)
+		result = r
+	} else if r := s.recognizeByEmbedding(ctx, text); r != nil {
+		// 三级级联中间层：规则未命中 → Embedding 锚点匹配（仅高置信且无歧义时采信）
 		s.saveRecord(ctx, sessionID, customerID, text, r, "", 0, 0)
 		result = r
 	} else if s.dispatcher != nil {
@@ -258,6 +582,10 @@ func (s *IntentRecognizer) triggerSOPByIntent(ctx context.Context, customerID, s
 		return
 	}
 	if confidence < 0.7 {
+		return
+	}
+	// M4 I-3：clarify 是澄清信号而非业务意图，不触发 SOP（编排层负责发澄清话术）
+	if intentType == IntentClarify || intentType == IntentUnknown {
 		return
 	}
 	matches, err := s.sopService.MatchByIntent(ctx, intentType)
@@ -349,7 +677,12 @@ func (s *IntentRecognizer) recognizeByRule(ctx context.Context, text string) *dt
 	return nil
 }
 
-// recognizeByLLM LLM 识别
+// recognizeByLLM LLM 识别（三级级联末层）
+//
+// 业界契约（对标 Rasa/意图级联实践）：
+//  1. unknown 是一等公民——prompt 显式声明"无法确定时返回 unknown 是合法答案"
+//  2. temperature=0（分类任务确定性输出，无需创造性）
+//  3. 置信度 <0.7 视为 unknown（fail-closed：强选比承认未知更危险）
 func (s *IntentRecognizer) recognizeByLLM(ctx context.Context, text string) (*dto.RecognizeResult, error) {
 	intentList := make([]string, 0, len(DefaultIntents))
 	for _, def := range DefaultIntents {
@@ -361,10 +694,11 @@ func (s *IntentRecognizer) recognizeByLLM(ctx context.Context, text string) (*dt
 
 【意图列表】:
 %s
+unknown: 无法确定或消息不属于以上任何意图（这是合法答案，信息不足时必须选择它）
 
 【输出要求】(严格按 JSON 格式输出):
 {
-  "intent_type": "从列表中选择最匹配的 type",
+  "intent_type": "从列表中选择最匹配的 type，无法确定时填 unknown",
   "intent_subtype": "细分类型(可填空字符串)",
   "confidence": 0.0-1.0 的置信度,
   "entities": {
@@ -382,7 +716,7 @@ func (s *IntentRecognizer) recognizeByLLM(ctx context.Context, text string) (*dt
 		Prompt:      prompt,
 		JSONMode:    true,
 		MaxTokens:   500,
-		Temperature: 0.2,
+		Temperature: 0,
 	})
 	latency := int(time.Since(start).Milliseconds())
 	if err != nil {
@@ -399,12 +733,6 @@ func (s *IntentRecognizer) recognizeByLLM(ctx context.Context, text string) (*dt
 	if err := json.Unmarshal([]byte(extractJSONFromStr(result.Content)), &parsed); err != nil {
 		return nil, fmt.Errorf("parse intent: %w", err)
 	}
-	level := "medium"
-	if parsed.Confidence >= 0.85 {
-		level = "high"
-	} else if parsed.Confidence < 0.5 {
-		level = "low"
-	}
 	intentName := parsed.IntentType
 	known := false
 	for _, def := range DefaultIntents {
@@ -417,6 +745,19 @@ func (s *IntentRecognizer) recognizeByLLM(ctx context.Context, text string) (*dt
 	if !known {
 		parsed.IntentType = "unknown"
 		intentName = "未知意图"
+	}
+	// fail-closed：低置信强选视为 unknown（业界健康区间：LLM 层 unknown 率 20-30%）
+	if parsed.IntentType != IntentUnknown && parsed.Confidence < 0.7 {
+		logger.Infof("[Intent] LLM 低置信强选降级 unknown: type=%s conf=%.2f", parsed.IntentType, parsed.Confidence)
+		parsed.IntentType = "unknown"
+		intentName = "未知意图"
+		parsed.Sentiment = "neutral"
+	}
+	level := "medium"
+	if parsed.Confidence >= 0.85 {
+		level = "high"
+	} else if parsed.Confidence < 0.5 {
+		level = "low"
 	}
 	return &dto.RecognizeResult{
 		IntentType:      parsed.IntentType,
@@ -431,6 +772,29 @@ func (s *IntentRecognizer) recognizeByLLM(ctx context.Context, text string) (*dt
 		CostTokens:      result.TotalTokens,
 		LatencyMs:       latency,
 	}, nil
+}
+
+// BuildClarifyReply 由 clarify 意图结果生成澄清话术（M4 I-3，供编排层消费）。
+// 从 Entities 中读取 top1/top2 候选意图名，生成二选一澄清问句；
+// 候选信息缺失时退化为通用澄清话术。
+func BuildClarifyReply(r *dto.RecognizeResult) string {
+	if r == nil || r.IntentType != IntentClarify {
+		return ""
+	}
+	nameOf := func(t string) string {
+		for _, def := range DefaultIntents {
+			if def.Type == t {
+				return def.Name
+			}
+		}
+		return t
+	}
+	top1, _ := r.Entities["top1_intent"].(string)
+	top2, _ := r.Entities["top2_intent"].(string)
+	if top1 == "" || top2 == "" {
+		return "不好意思，我没太理解您的意思，您是想咨询产品价格，还是在使用上遇到了问题呢？"
+	}
+	return fmt.Sprintf("不好意思确认一下：您是想了解【%s】，还是想说说【%s】方面的事呢？", nameOf(top1), nameOf(top2))
 }
 
 // inferSentiment 根据意图推断情感
@@ -660,7 +1024,9 @@ func InitIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.
 		}
 
 		intentRecognizer = NewIntentRecognizer(db, dispatcher, cache)
+		// 三级级联中间层：注入本地 Embedding 服务（TEI bge-m3）。
+		// 失败时中间层自动停用（fail-open），不影响主链路。
+		intentRecognizer.SetEmbeddingService(llm.NewEmbeddingService())
 	})
 	return intentRecognizer
 }
-

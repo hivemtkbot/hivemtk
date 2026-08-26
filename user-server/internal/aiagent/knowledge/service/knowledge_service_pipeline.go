@@ -143,6 +143,13 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		return
 	}
 
+	// R-3 Contextual Retrieval（入库期 chunk 上下文前缀，非 HyDE）：
+	// LLM 为每个 chunk 生成语境摘要写入 contextual_context 并重新 embedding，
+	// 使 BM25 的 contextual_tsv 与向量检索同时受益。失败不阻断入库主流程。
+	if contextualEnhanceEnabled() {
+		s.enhanceDocumentContextual(bgCtx, documentID)
+	}
+
 	if s.indexer != nil {
 		idxChunks := make([]ragretrieval.Chunk, len(chunks))
 		for i, c := range chunks {
@@ -188,4 +195,3 @@ func (s *KnowledgeService) markFailed(ctx context.Context, documentID uint64, er
 		logger.Errorf("[knowledge] 标记失败状态错误: %v", err)
 	}
 }
-

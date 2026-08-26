@@ -158,7 +158,7 @@ async function loadOverview() {
 
     try {
       const alertsRes = await http.get('/api/monitor/alerts/unread')
-      alertsCount.value = alertsRes.data?.count || alertsRes.data?.unread_count || 0
+      alertsCount.value = alertsRes?.count || alertsRes?.unread_count || 0
     } catch {
       alertsCount.value = 0
     }

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"hivemtk-user/internal/cache"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
 )
@@ -45,7 +46,6 @@ func (s *TelegramDMOutreachService) TriggerDMOutreach(ctx context.Context, accou
 		return
 	}
 
-	outreachKey := "mtk:tg:dm_outreach:" + accountID + ":" + strconv.FormatInt(userID, 10) + ":" + groupID
 	allowed := s.svc.tgLeadOutreachAllowed(ctx, accountID, groupID, strconv.FormatInt(userID, 10))
 	if !allowed {
 		return
@@ -53,6 +53,12 @@ func (s *TelegramDMOutreachService) TriggerDMOutreach(ctx context.Context, accou
 
 	dmAllowed := s.svc.tgLeadOutreachAllowed(ctx, accountID, "dm", strconv.FormatInt(userID, 10))
 	if !dmAllowed {
+		return
+	}
+
+	// 第二层冷却：DM 触达专用 key（账号:用户:群），与上层线索挖掘冷却相互独立。
+	// 对齐 tgLeadOutreachAllowed 既有模式：SetNX + TTL，首次设置放行，冷却窗口内拦截。
+	if !s.dmOutreachCooldownAllowed(ctx, accountID, userID, groupID) {
 		return
 	}
 
@@ -75,7 +81,23 @@ func (s *TelegramDMOutreachService) TriggerDMOutreach(ctx context.Context, accou
 		accountID, userID, groupID, intentScore)
 
 	s.recordDMOutreachEvent(ctx, accountID, userID, groupID, intentScore)
-	_ = outreachKey
+}
+
+// dmOutreachCooldownAllowed DM 触达专用冷却检查（SetNX + TTL）。
+// 首次调用设置 key 并返回 true（放行），冷却窗口内返回 false（拦截）。
+func (s *TelegramDMOutreachService) dmOutreachCooldownAllowed(ctx context.Context, accountID string, userID int64, groupID string) bool {
+	key := "mtk:tg:dm_outreach:" + accountID + ":" + strconv.FormatInt(userID, 10) + ":" + groupID
+	set, err := cache.GetGlobalCache().SetNX(ctx, key, "1", tgDMOutreachCooldown)
+	if err != nil {
+		logger.Warnf("[TG-DM-Outreach] DM 冷却检查失败（放行）account=%s user=%d group=%s: %v",
+			accountID, userID, groupID, err)
+		return true
+	}
+	if !set {
+		logger.Infof("[TG-DM-Outreach] DM 冷却期内，拦截本次触达 account=%s user=%d group=%s",
+			accountID, userID, groupID)
+	}
+	return set
 }
 
 func (s *TelegramDMOutreachService) buildDMWelcomeTemplate(groupTitle, originalText string) string {

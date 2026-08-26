@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"gorm.io/gorm"
 
@@ -29,11 +30,22 @@ func NewReachToolDepsWithAdapter(db *gorm.DB, adapter tooluse.ReachAdapter) tool
 	}
 }
 
-// newReachSendPipeline 构造 9 步 SendPipeline（带限流）并桥接 tooluse.ReachAdapter
+// newReachSendPipeline 构造 9 步 SendPipeline（带限流）并桥接 tooluse.ReachAdapter。
+// R-4 装配：启用全渠道 quiet hours 守卫（22:00-8:00 CST），命中消息进全局延迟队列
+// （进程内 MemoryQuietHoursQueue，惰性单例；Start 幂等，重复装配不叠加 goroutine）。
+// 测试逃生开关：REACH_DISABLE_QUIET_HOURS=true 时禁用守卫（对齐 SMS_ALLOW_NIGHT_SEND 先例），
+// 否则夜间（22:00-8:00 CST）跑集成测试所有发送会被 defer 导致断言失败。
 func newReachSendPipeline(adapter tooluse.ReachAdapter) tooluse.ReachSendPipelinePort {
-	sp := service.NewSendPipeline(
-		service.NewDefaultRateLimitedPipelineConfig(&reachChannelAdapterBridge{adapter: adapter}),
-	)
+	cfg := service.NewDefaultRateLimitedPipelineConfig(&reachChannelAdapterBridge{adapter: adapter})
+	if os.Getenv("REACH_DISABLE_QUIET_HOURS") != "true" {
+		q := service.GetGlobalQuietHoursQueue()
+		cfg.QuietHoursEnabled = true
+		cfg.QuietHoursDeferrer = q
+		sp := service.NewSendPipeline(cfg)
+		q.Start(context.Background(), sp)
+		return &reachSendPipelineAdapter{sp: sp}
+	}
+	sp := service.NewSendPipeline(cfg)
 	return &reachSendPipelineAdapter{sp: sp}
 }
 

@@ -71,7 +71,7 @@ func (s *ContentService) GenerateContent(ctx context.Context, keyword, brandName
 	if style == "" {
 		style = "专业"
 	}
-	prompt := ContentGenerationPrompt(brandName, advantagesStr, keyword, wordCountStr, style)
+	prompt := ContentGenerationPrompt(brandName, advantagesStr, keyword, wordCountStr, style, "zh")
 
 	resp, err := s.llm.Generate(ctx, "", prompt, 0.7, 4000)
 	if err != nil {

@@ -7,40 +7,62 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"gorm.io/gorm"
 
 	"hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
 
 // DialogueMemoryService 对话记忆服务（短期+长期）
 //
+// M-3 双轨写合并：本服务已降级为 MemorySystem 的 L1/L2 写入适配器，
+// 保留全部函数签名兼容现有调用方；摘要结果统一经 MemorySystem.Remember 写入。
+//
 // 五层架构修复：service 层不再持有 *gorm.DB，由 repository 层封装所有 DB 操作。
 type DialogueMemoryService struct {
 	repo       repository.DialogueMemoryRepository
+	ms         *MemorySystem // M-3：统一记忆系统写入目标
 	dispatcher *llm.Dispatcher
+
+	mu     sync.Mutex
+	sumBuf map[string][]string // sessionID -> 待摘要缓冲（消息文本）
+	sumDup map[string]int      // sessionID -> 近似重复累计次数（M-1 recurrence）
 }
 
 const (
-	shortTermWindow    = 10   
-	shortTermMsgMaxLen = 1500 
+	shortTermWindow    = 10
+	shortTermMsgMaxLen = 1500
 	memoryTTL          = 30 * 24 * time.Hour
+
+	summaryBufferMax     = 12  // M-1：缓冲满触发摘要
+	summaryDupTrigger    = 2   // M-1：相似重复达到该次数即触发摘要
+	summaryJaccardThresh = 0.6 // M-1：关键词 Jaccard 判重阈值
 )
 
 // NewDialogueMemoryService 创建对话记忆服务
 // db 参数保留以兼容调用方签名（router/sales_engine_factory），内部转换为 DialogueMemoryRepository。
 // db 为 nil 时 repo 也为 nil，方法内通过 s.repo == nil 防御。
 func NewDialogueMemoryService(db *gorm.DB, dispatcher *llm.Dispatcher) *DialogueMemoryService {
-	var repo repository.DialogueMemoryRepository
-	if db != nil {
-		repo = repository.NewDialogueMemoryRepositoryWithDB(db)
+	svc := &DialogueMemoryService{
+		dispatcher: dispatcher,
+		sumBuf:     map[string][]string{},
+		sumDup:     map[string]int{},
 	}
-	return &DialogueMemoryService{repo: repo, dispatcher: dispatcher}
+	if db != nil {
+		svc.repo = repository.NewDialogueMemoryRepositoryWithDB(db)
+		// M-3：适配到统一的 4 层记忆系统（L1/L2/向量 L2 共库）
+		svc.ms = &MemorySystem{
+			memoryRepo:   repository.NewMemoryRepositoryWithDB(db),
+			embeddingSvc: llm.NewEmbeddingService(),
+		}
+	}
+	return svc
 }
-
 
 // GetOrCreateMemory 获取或创建记忆
 func (s *DialogueMemoryService) GetOrCreateMemory(ctx context.Context, sessionID, customerID string) (*model.DialogueMemory, error) {
@@ -87,8 +109,15 @@ func (s *DialogueMemoryService) AppendMessage(ctx context.Context, sessionID, cu
 		mem.LastAction = truncate(msg.Content, 100)
 	}
 
-	if mem.MessageCount%5 == 0 && s.dispatcher != nil {
-		s.updateLongTermSummary(ctx, mem, msg)
+	// M-3：短期消息双写统一记忆系统 L1
+	if s.ms != nil && msg.Content != "" {
+		_ = s.ms.L1Append(ctx, sessionID, customerID, msg.Role, msg.Content)
+	}
+
+	// M-1：摘要触发改 recurrence（关键词 Jaccard 判重 + 缓冲满触发），
+	// 替代原"每 5 条固定摘要"的 token 浪费模式
+	if s.dispatcher != nil && msg.Content != "" {
+		s.offerSummary(ctx, mem, customerID, msg.Content)
 	}
 
 	return s.repo.SaveDialogueMemory(ctx, mem)
@@ -123,7 +152,6 @@ func (s *DialogueMemoryService) GetShortTermMemory(ctx context.Context, sessionI
 func (s *DialogueMemoryService) GetLongTermMemory(ctx context.Context, sessionID string) (*model.DialogueMemory, error) {
 	return s.GetOrCreateMemory(ctx, sessionID, "")
 }
-
 
 // ListByCustomerID 根据 customerID 获取对话记忆列表
 func (s *DialogueMemoryService) ListByCustomerID(ctx context.Context, customerID string, limit int) ([]*model.DialogueMemory, int64, error) {
@@ -275,10 +303,114 @@ func (s *DialogueMemoryService) BuildContext(ctx context.Context, sessionID, cus
 	return sb.String(), nil
 }
 
-// updateLongTermSummary 更新长期摘要
-func (s *DialogueMemoryService) updateLongTermSummary(ctx context.Context, mem *model.DialogueMemory, lastMsg dto.Message) {
-	if s.dispatcher == nil {
+// offerSummary M-1：摘要触发改 recurrence（修正版，零额外 embedding 调用）
+//   - 新消息与缓冲区已有消息做关键词 Jaccard>=0.6 判重，重复累计 >=2 次触发摘要
+//   - 或缓冲区满 summaryBufferMax 条触发摘要
+//   - 触发后清空缓冲并调用 LLM 摘要
+func (s *DialogueMemoryService) offerSummary(ctx context.Context, mem *model.DialogueMemory, customerID, content string) bool {
+	s.mu.Lock()
+	buf := s.sumBuf[mem.SessionID]
+	dups := s.sumDup[mem.SessionID]
+	for _, b := range buf {
+		if keywordJaccard(content, b) >= summaryJaccardThresh {
+			dups++
+		}
+	}
+	buf = append(buf, content)
+	trigger := len(buf) >= summaryBufferMax || dups >= summaryDupTrigger
+	var batch []string
+	if trigger {
+		batch = buf
+		delete(s.sumBuf, mem.SessionID)
+		delete(s.sumDup, mem.SessionID)
+	} else {
+		s.sumBuf[mem.SessionID] = buf
+		s.sumDup[mem.SessionID] = dups
+	}
+	s.mu.Unlock()
+
+	if !trigger {
+		return false
+	}
+	s.updateLongTermSummary(ctx, mem, customerID, batch)
+	return true
+}
+
+// isCJK 判断是否 CJK 字符（用于中文 2-gram 切分）
+func isCJK(r rune) bool { return r >= 0x2E80 }
+
+// tokenizeKeywords 轻量关键词切分（M-1 修正版廉价判重，不做 embedding）：
+// 中文连续段按 2-gram、英文/数字按连续词元提取，全部转小写。
+func tokenizeKeywords(s string) map[string]struct{} {
+	tokens := map[string]struct{}{}
+	runes := []rune(strings.ToLower(s))
+	start := -1
+	flush := func(end int) {
+		if start < 0 {
+			return
+		}
+		run := runes[start:end]
+		hasCJK := false
+		for _, r := range run {
+			if isCJK(r) {
+				hasCJK = true
+				break
+			}
+		}
+		if hasCJK {
+			if len(run) == 1 {
+				tokens[string(run)] = struct{}{}
+			}
+			for i := 0; i+2 <= len(run); i++ {
+				tokens[string(run[i:i+2])] = struct{}{}
+			}
+		} else {
+			tokens[string(run)] = struct{}{}
+		}
+		start = -1
+	}
+	for i, r := range runes {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			if start < 0 {
+				start = i
+			}
+		} else {
+			flush(i)
+		}
+	}
+	flush(len(runes))
+	return tokens
+}
+
+// keywordJaccard 两段文本的关键词 Jaccard 相似度 [0,1]
+func keywordJaccard(a, b string) float64 {
+	ta, tb := tokenizeKeywords(a), tokenizeKeywords(b)
+	if len(ta) == 0 || len(tb) == 0 {
+		return 0
+	}
+	inter := 0
+	for t := range ta {
+		if _, ok := tb[t]; ok {
+			inter++
+		}
+	}
+	union := len(ta) + len(tb) - inter
+	if union == 0 {
+		return 0
+	}
+	return float64(inter) / float64(union)
+}
+
+// updateLongTermSummary 更新长期摘要（M-1：失败重试 1 次 + 错误日志，修复原静默 return；
+// 成功后经 routeSummaryToMemorySystem 统一写入 MemorySystem（M-3））
+func (s *DialogueMemoryService) updateLongTermSummary(ctx context.Context, mem *model.DialogueMemory, customerID string, batch []string) {
+	if s.dispatcher == nil || len(batch) == 0 {
 		return
+	}
+
+	lines := make([]string, 0, len(batch))
+	for i, c := range batch {
+		lines = append(lines, fmt.Sprintf("%d. %s", i+1, truncate(c, shortTermMsgMaxLen)))
 	}
 	prompt := fmt.Sprintf(`你是销冠对话分析师。请根据以下信息，生成对话的长期摘要和关键事实。
 
@@ -286,24 +418,31 @@ func (s *DialogueMemoryService) updateLongTermSummary(ctx context.Context, mem *
 【已有事实】: %v
 【历史异议】: %v
 【意图轨迹】: %v
-【最新消息】: %s
+【近期消息】:
+%s
 
 请输出 JSON 格式:
 {
   "summary": "50-150 字的对话摘要",
   "key_facts": {"key": "value"},
   "next_action_suggestion": "建议下一步动作"
-}`, mem.Summary, mem.KeyFacts, mem.Objections, mem.IntentTrail, lastMsg.Content)
+}`, mem.Summary, mem.KeyFacts, mem.Objections, mem.IntentTrail, strings.Join(lines, "\n"))
 
-	result, err := s.dispatcher.Dispatch(ctx, llm.DispatchRequest{
+	req := llm.DispatchRequest{
 		Scenario:    llm.ScenarioLongSummary,
 		Prompt:      prompt,
 		JSONMode:    true,
 		MaxTokens:   500,
 		Temperature: 0.3,
-	})
+	}
+	result, err := s.dispatcher.Dispatch(ctx, req)
 	if err != nil {
-		return
+		logger.Warnf("[DialogueMemory] 长期摘要调用失败 session=%s err=%v，重试 1 次", mem.SessionID, err)
+		result, err = s.dispatcher.Dispatch(ctx, req)
+		if err != nil {
+			logger.Errorf("[DialogueMemory] 长期摘要重试仍失败 session=%s err=%v", mem.SessionID, err)
+			return
+		}
 	}
 	var parsed struct {
 		Summary              string            `json:"summary"`
@@ -311,6 +450,7 @@ func (s *DialogueMemoryService) updateLongTermSummary(ctx context.Context, mem *
 		NextActionSuggestion string            `json:"next_action_suggestion"`
 	}
 	if err := json.Unmarshal([]byte(extractJSONFromStr(result.Content)), &parsed); err != nil {
+		logger.Errorf("[DialogueMemory] 长期摘要解析失败 session=%s err=%v", mem.SessionID, err)
 		return
 	}
 	mem.Summary = parsed.Summary
@@ -318,6 +458,28 @@ func (s *DialogueMemoryService) updateLongTermSummary(ctx context.Context, mem *
 		mem.KeyFacts = model.JSONMap(stringMapToIface(parsed.KeyFacts))
 	}
 	mem.NextActionSuggestion = parsed.NextActionSuggestion
+
+	s.routeSummaryToMemorySystem(ctx, customerID, parsed.Summary, parsed.KeyFacts)
+}
+
+// routeSummaryToMemorySystem M-3：摘要结果统一经 MemorySystem.Remember 写入 L2
+// （享受向量召回 + M-2 去重合并）；embedding 不可用时降级 L2SaveSummary/L2SaveFact 兜底。
+func (s *DialogueMemoryService) routeSummaryToMemorySystem(ctx context.Context, customerID, summary string, keyFacts map[string]string) {
+	if s.ms == nil || customerID == "" || summary == "" {
+		return
+	}
+	if _, err := s.ms.Remember(ctx, customerID, model.LongTermMemoryFact, summary, 8); err != nil {
+		logger.Warnf("[DialogueMemory] 摘要写入 MemorySystem.Remember 失败，降级 L2SaveSummary customer=%s err=%v", customerID, err)
+		_ = s.ms.L2SaveSummary(ctx, customerID, summary)
+	}
+	for k, v := range keyFacts {
+		if k == "" || v == "" {
+			continue
+		}
+		if _, err := s.ms.Remember(ctx, customerID, model.LongTermMemoryFact, k+"="+v, 7); err != nil {
+			_ = s.ms.L2SaveFact(ctx, customerID, k, v, 7)
+		}
+	}
 }
 
 // 全局实例
@@ -373,4 +535,3 @@ func truncate(s string, n int) string {
 	}
 	return string(r[:n]) + "..."
 }
-

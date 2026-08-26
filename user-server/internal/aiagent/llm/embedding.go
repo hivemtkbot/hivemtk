@@ -71,28 +71,93 @@ var sharedEmbeddingTransport = &http.Transport{
 	TLSHandshakeTimeout: 10 * time.Second,
 }
 
-// embeddingSem 进程级并发闸门：控制同一时刻在飞的 embedding 请求数。
+// EmbeddingLane embedding 并发车道（N-1 优先级隔离）。
 //
-// 历史：TEI 容器以 --max-concurrent-requests=1 运行，容量硬编码 1。
-// 现在：切换到 llama.cpp，其 embedding 模式默认 --parallel 1，
-// 但可通过 EMBEDDING_PARALLEL 环境变量调高（llama-server 端 --parallel + Go 端闸门同步）。
+// 背景：单信号量下，批量入库任务会占满全部并发额度，饿死在线检索（用户请求超时）。
+// 决策源：docs/architecture/MASTER_COMPETITIVE_DECISIONS.md M3 表 N-1。
+type EmbeddingLane int
+
+const (
+	// EmbeddingLaneOnline 在线检索车道（默认）：API 调用方零改动即走本车道。
+	EmbeddingLaneOnline EmbeddingLane = iota
+	// EmbeddingLaneBatch 批量入库车道：知识库批量向量化走本车道，为在线检索让路
+	// （batch 容量恒为 1，同一时刻至多一个批量任务在飞；online 至少保留 1 个槽位）。
+	EmbeddingLaneBatch
+)
+
+// embeddingLanes 双车道并发闸门：online(cap=并发-1，至少 1) 与 batch(cap=1)。
+type embeddingLanes struct {
+	online chan struct{}
+	batch  chan struct{}
+}
+
+// newEmbeddingLanesFrom 按总并发额度 n 构造双车道：
+//   - online 容量 n-1（n=1 时保底 1，保证在线检索永不为 0）
+//   - batch  容量恒为 1（批量任务串行，天然让路）
+func newEmbeddingLanesFrom(n int) *embeddingLanes {
+	if n < 1 {
+		n = 1
+	}
+	online := n - 1
+	if online < 1 {
+		online = 1
+	}
+	return &embeddingLanes{
+		online: make(chan struct{}, online),
+		batch:  make(chan struct{}, 1),
+	}
+}
+
+// newEmbeddingLanes 从环境变量读取总并发额度并构造双车道。
 //
-// 容量来源（init 时读取）：
-//   - 环境变量 EMBEDDING_CONCURRENCY（优先；与 start-embedding.sh --parallel 对应）
-//   - 默认 1（保守，避免内存带宽竞争；CPU bound 场景并发收益有限）
+// 容量来源：
+//   - 环境变量 EMBEDDING_CONCURRENCY（与 llama-server --parallel 对应）
+//   - 默认 1（保守，避免内存带宽竞争）
 //
 // 注意：调高此值时，必须同步调高 llama-server 的 --parallel（见 env.sh EMBEDDING_PARALLEL），
 // 否则多余的请求会在 llama-server 队列中排队，不会带来实际并发收益。
-var embeddingSem = newEmbeddingSem()
-
-func newEmbeddingSem() chan struct{} {
+func newEmbeddingLanes() *embeddingLanes {
 	n := 1
 	if v := strings.TrimSpace(os.Getenv("EMBEDDING_CONCURRENCY")); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil && parsed >= 1 && parsed <= 16 {
 			n = parsed
 		}
 	}
-	return make(chan struct{}, n)
+	return newEmbeddingLanesFrom(n)
+}
+
+// laneChannel 返回车道对应的信号量 channel（未知值回退 online，保证 API 兼容默认在线）。
+func (l *embeddingLanes) laneChannel(lane EmbeddingLane) chan struct{} {
+	if l == nil {
+		return nil
+	}
+	if lane == EmbeddingLaneBatch {
+		return l.batch
+	}
+	return l.online
+}
+
+// embeddingLanes 进程级双车道闸门（N-1），见上方容量说明。
+var embeddingLanesSem = newEmbeddingLanes()
+
+// acquireEmbeddingSlot 从指定车道获取一个并发槽位（支持 ctx 取消）。
+func acquireEmbeddingSlot(ctx context.Context, ch chan struct{}) error {
+	if ch == nil {
+		return ctx.Err()
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case ch <- struct{}{}:
+		return nil
+	}
+}
+
+// releaseEmbeddingSlot 归还并发槽位。
+func releaseEmbeddingSlot(ch chan struct{}) {
+	if ch != nil {
+		<-ch
+	}
 }
 
 // NewEmbeddingService 构造真实 Embedding 服务
@@ -193,8 +258,13 @@ func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 // 设 64 是兼顾吞吐与内存安全的经验值。
 const embeddingMaxBatch = 64
 
-// Embed 批量向量化
+// Embed 批量向量化（在线车道，API 兼容：现有调用方默认 online，零改动）。
 func (s *EmbeddingService) Embed(ctx context.Context, cfg *EmbeddingConfig, texts []string) ([][]float32, error) {
+	return s.EmbedWithLane(ctx, cfg, texts, EmbeddingLaneOnline)
+}
+
+// EmbedWithLane 按指定车道向量化（N-1：批量入库传 EmbeddingLaneBatch 为在线检索让路）。
+func (s *EmbeddingService) EmbedWithLane(ctx context.Context, cfg *EmbeddingConfig, texts []string, lane EmbeddingLane) ([][]float32, error) {
 	if len(texts) == 0 {
 		return [][]float32{}, nil
 	}
@@ -204,9 +274,9 @@ func (s *EmbeddingService) Embed(ctx context.Context, cfg *EmbeddingConfig, text
 
 	if !cfg.AllowFallback {
 		if len(texts) <= embeddingMaxBatch {
-			return s.callProviderWithRetry(ctx, cfg, texts)
+			return s.callProviderWithRetry(ctx, cfg, texts, lane)
 		}
-		return s.embedInBatches(ctx, cfg, texts)
+		return s.embedInBatches(ctx, cfg, texts, lane)
 	}
 
 	logger.Errorf("[Embedding] ERROR: EMBEDDING_ALLOW_FALLBACK=true,降级为本地哈希向量(仅供离线/单测,严禁生产环境使用)")
@@ -214,7 +284,7 @@ func (s *EmbeddingService) Embed(ctx context.Context, cfg *EmbeddingConfig, text
 }
 
 // embedInBatches 将大批量文本分片串行请求，合并结果保持原始顺序
-func (s *EmbeddingService) embedInBatches(ctx context.Context, cfg *EmbeddingConfig, texts []string) ([][]float32, error) {
+func (s *EmbeddingService) embedInBatches(ctx context.Context, cfg *EmbeddingConfig, texts []string, lane EmbeddingLane) ([][]float32, error) {
 	total := len(texts)
 	result := make([][]float32, total)
 	for i := 0; i < total; i += embeddingMaxBatch {
@@ -223,7 +293,7 @@ func (s *EmbeddingService) embedInBatches(ctx context.Context, cfg *EmbeddingCon
 			end = total
 		}
 		batch := texts[i:end]
-		vectors, err := s.callProviderWithRetry(ctx, cfg, batch)
+		vectors, err := s.callProviderWithRetry(ctx, cfg, batch, lane)
 		if err != nil {
 			return nil, fmt.Errorf("embedding 分片 %d-%d 失败: %w", i, end-1, err)
 		}
@@ -238,11 +308,12 @@ func (s *EmbeddingService) embedInBatches(ctx context.Context, cfg *EmbeddingCon
 // 候选 BaseURL：docker 内 EMBEDDING_BASE_URL 默认指向服务名 mtk-embedding；
 // 宿主机（macOS 等）无法解析该服务名时，自动回退到 localhost（同一实例），
 // 不影响 docker 内解析（docker 中 mtk-embedding 首轮即成功，不会触发回退）。
-func (s *EmbeddingService) callProviderWithRetry(ctx context.Context, cfg *EmbeddingConfig, texts []string) ([][]float32, error) {
+func (s *EmbeddingService) callProviderWithRetry(ctx context.Context, cfg *EmbeddingConfig, texts []string, lane EmbeddingLane) ([][]float32, error) {
 	maxRetries := cfg.MaxRetries
 	if maxRetries <= 0 {
 		maxRetries = 3
 	}
+	slotCh := embeddingLanesSem.laneChannel(lane)
 	candidates := s.baseURLCandidates(cfg.BaseURL)
 	var lastErr error
 	for ci, baseURL := range candidates {
@@ -267,13 +338,11 @@ func (s *EmbeddingService) callProviderWithRetry(ctx context.Context, cfg *Embed
 					}
 				}
 			}
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case embeddingSem <- struct{}{}:
+			if err := acquireEmbeddingSlot(ctx, slotCh); err != nil {
+				return nil, err
 			}
 			vectors, err := s.callProvider(ctx, &attemptCfg, texts)
-			<-embeddingSem
+			releaseEmbeddingSlot(slotCh)
 			if err == nil {
 				return vectors, nil
 			}

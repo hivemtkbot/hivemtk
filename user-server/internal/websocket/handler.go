@@ -43,6 +43,29 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+// heartbeatTouchInterval S-3：readPump 每帧心跳上报的最小间隔（节流，避免高频写库）
+const heartbeatTouchInterval = 30 * time.Second
+
+// heartbeatToucher S-3 坐席心跳上报钩子。
+// 由 main 装配注入（service.AgentStatusService.TouchHeartbeat），
+// 避免本包反向依赖 service（service 已依赖 websocket，会成环）。
+var heartbeatToucher func(ctx context.Context, agentID uint) error
+
+// SetHeartbeatToucher 注入心跳上报实现（启动时调用一次）
+func SetHeartbeatToucher(fn func(ctx context.Context, agentID uint) error) {
+	heartbeatToucher = fn
+}
+
+// touchHeartbeat 节流上报坐席活跃；未注入或失败均不影响消息主链路（best-effort）。
+func touchHeartbeat(ctx context.Context, agentID uint) {
+	if heartbeatToucher == nil {
+		return
+	}
+	if err := heartbeatToucher(ctx, agentID); err != nil {
+		logger.Ctx(ctx).Warn().Err(err).Uint("agent_id", agentID).Msg("[S-3] ws heartbeat touch failed")
+	}
+}
+
 // WSHandler WebSocket 处理器
 type WSHandler struct {
 	hub          *Hub
@@ -190,6 +213,9 @@ func (h *WSHandler) readPump(client *Client, conn *websocket.Conn, agentID uint,
 		return nil
 	})
 
+	// S-3：每帧节流上报坐席心跳（HTTP 轮询端点另有兜底）
+	lastBeat := time.Now().Add(-heartbeatTouchInterval)
+
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
@@ -197,6 +223,11 @@ func (h *WSHandler) readPump(client *Client, conn *websocket.Conn, agentID uint,
 				logger.Ctx(ctx).Error().Err(err).Uint("agent_id", agentID).Msg("ws read error")
 			}
 			break
+		}
+
+		if time.Since(lastBeat) >= heartbeatTouchInterval {
+			lastBeat = time.Now()
+			touchHeartbeat(ctx, agentID)
 		}
 
 		// 处理客户端消息

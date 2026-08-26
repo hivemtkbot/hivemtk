@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
@@ -468,6 +469,28 @@ func (s *Span) toPending(dur int64, status, errStr string) pendingSpan {
 	}
 }
 
+// maxTraceTextBytes input/output 正文落库上限（字节），超出截断并追加后缀。
+const maxTraceTextBytes = 8192
+
+// truncateTraceText 对落库正文做安全截断：
+// 超过 8192 字节时保留头部（在合法 UTF-8 rune 边界处截断，避免多字节字符被切出非法序列），
+// 并追加后缀 "…[truncated N bytes]"（N 为被丢弃的字节数）。元数据字段不经过本函数。
+func truncateTraceText(s string) string {
+	if len(s) <= maxTraceTextBytes {
+		return s
+	}
+	head := s[:maxTraceTextBytes]
+	// 回退到合法 rune 边界：截断点落在多字节字符中间时，尾部的残缺字节会被
+	// DecodeLastRuneInString 解码为 (RuneError, 1)，继续回退直到尾部是完整字符。
+	for len(head) > 0 {
+		if r, _ := utf8.DecodeLastRuneInString(head); r != utf8.RuneError {
+			break
+		}
+		head = head[:len(head)-1]
+	}
+	return head + fmt.Sprintf("…[truncated %d bytes]", len(s)-len(head))
+}
+
 // toModelFromPending 在后台落库 goroutine 中将 pendingSpan 转为落库模型（此处才做 JSON 序列化，
 // 把 CPU 开销从业务主链路移到异步 sink，降低请求路径延迟）。
 func toModelFromPending(p pendingSpan) *model.MessageTrace {
@@ -480,8 +503,8 @@ func toModelFromPending(p pendingSpan) *model.MessageTrace {
 		NodeOrder:      p.nodeOrder,
 		Direction:      p.direction,
 		MsgID:          p.msgID,
-		Input:          toJSON(p.input),
-		Output:         toJSON(p.output),
+		Input:          truncateTraceText(toJSON(p.input)),
+		Output:         truncateTraceText(toJSON(p.output)),
 		DurationMs:     p.durationMs,
 		Expected:       p.expected,
 		Status:         p.status,

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"hivemtk-user/internal/channelbot/telegram"
 	"hivemtk-user/internal/channelbot/whatsapp"
 	"hivemtk-user/internal/model"
@@ -34,6 +35,11 @@ type WebhookService struct {
 	feishuIntegration *FeishuIntegrationService
 	tgIntegration     *TelegramIntegrationService
 	waIntegration     *WhatsAppCloudIntegrationService
+
+	// wechatIntegration 微信公众号客服消息发送（AI 回复出站）
+	// 2026-08-25 修复：sendOutbound 原先无 ChannelWechat 分支，公众号 AI 回复被
+	// default 分支静默丢弃（仅 Warn 日志），导致"机器人不回复"。
+	wechatIntegration *WechatService
 
 	telegramRepo *repository.TelegramAccountRepository
 
@@ -86,6 +92,7 @@ func (b *tokenBucket) allow(ctx context.Context) bool {
 type WebhookChannel string
 
 func NewWebhookService(db *gorm.DB) *WebhookService {
+	guardInsecureWebhookAtStartup()
 	wecomRepo := repository.NewWeComAccountRepository()
 	if db != nil {
 		wecomRepo.SetDB(context.Background(), db)
@@ -351,6 +358,41 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 	}, nil
 }
 
+// insecureWebhookStartupError 判定 ALLOW_INSECURE_WEBHOOK=true 是否禁止启动。
+//
+// W-1 验签绕过防护：该开关会跳过所有渠道验签，生产环境一旦误配等于关闭回调鉴权。
+// 项目现有环境判断惯例为 APP_ENV（见 internal/pkg/db/db.go），此处兼容 MODE 别名。
+// 返回 nil 表示允许启动；返回非 nil 时调用方应 log.Fatal 拒绝启动。
+func insecureWebhookStartupError(appEnv, mode, allowInsecure string) error {
+	if allowInsecure != "true" {
+		return nil
+	}
+	env := appEnv
+	if env == "" {
+		env = mode
+	}
+	if strings.EqualFold(env, "production") {
+		return errors.New("ALLOW_INSECURE_WEBHOOK=true 禁止在生产环境(APP_ENV=production)使用：" +
+			"该开关会跳过全部渠道 webhook 验签。请移除该环境变量，并为企业微信/飞书/Telegram 等" +
+			"各渠道账号配置正确的 CallbackToken/AppSecret 后重启")
+	}
+	return nil
+}
+
+var insecureWebhookGuardOnce sync.Once
+
+// guardInsecureWebhookAtStartup 应用启动配置加载守卫：production 环境下
+// ALLOW_INSECURE_WEBHOOK=true 直接拒绝启动（dev/test 保持现状）。
+func guardInsecureWebhookAtStartup() {
+	insecureWebhookGuardOnce.Do(func() {
+		if err := insecureWebhookStartupError(
+			os.Getenv("APP_ENV"), os.Getenv("MODE"), os.Getenv("ALLOW_INSECURE_WEBHOOK"),
+		); err != nil {
+			log.Fatalf("[SECURITY] %v", err)
+		}
+	})
+}
+
 func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, accountID string, body []byte, headers map[string]string, query map[string]string) (bool, error) {
 	// 显式开发模式总开关：跳过全部渠道验签（仅限联调；生产严禁设置）
 	if os.Getenv("ALLOW_INSECURE_WEBHOOK") == "true" {
@@ -364,7 +406,13 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 		}
 		return verifyWeCom(token, aesKey, body, query)
 	case ChannelWechat:
+		// W-6：secret 从公众号账号配置读取；未配置时明确 WARN 并跳过该渠道验签
+		// （原 getWechatSecrets 恒空串导致该渠道验签永远失败、回调全部被拒）。
 		token, _ := s.getWechatSecrets(ctx, accountID)
+		if token == "" {
+			logger.Warnf("[Webhook] wechat 验签 secret 未配置 account=%s，跳过该渠道验签（W-6）", accountID)
+			return true, nil
+		}
 		return verifyWechat(token, body, headers), nil
 	case ChannelDouyin, ChannelTiktok:
 		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)
@@ -390,6 +438,11 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 	case ChannelFeishu:
 		// 飞书使用专属 EncryptKey 与官方签名口径
 		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)
+		if secret == "" {
+			// 2026-08-25 修复（交付阻断）：验签数据源断链——管理端只写 feishu_accounts.encrypt_key，
+			// integration_accounts 无记录 → secret 恒空 → 所有 POST 事件 401。回退读飞书账号表。
+			secret = s.getFeishuEncryptKey(ctx, accountID)
+		}
 		return verifyFeishu(secret, body, headers), nil
 	case ChannelKuaishou, ChannelXiaohongshu, ChannelXianyu:
 		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)

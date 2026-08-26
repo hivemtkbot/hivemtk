@@ -1,4 +1,7 @@
 package service
+// Deprecated: 纯内存 slice 存储（重启丢数据、slice 无界增长 OOM 风险）。
+// 保留仅为 sales_action_trigger 内部引用编译兼容。新报表请使用 dashboard_sse_stats(DB 权威)
+// 与 ops 报表套件(custom_report/conversion_funnel/dashboard_screen)。禁止新增调用。
 
 import (
 	"context"

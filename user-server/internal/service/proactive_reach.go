@@ -69,6 +69,8 @@ type ProactiveReachService struct {
 	db            *gorm.DB
 	customerRepo  *customerRepo
 	accountLookup AccountLookup
+	// dnc 全局跨渠道退订标志位服务（发送前置检查，见 checkDoNotContact）
+	dnc *DoNotContactService
 
 	// 渠道发送器（函数式注入，避免循环依赖）
 	smsRegistry      func() (func(ctx context.Context, phone, content, templateID string, params map[string]string) (string, error), error)
@@ -136,7 +138,21 @@ func NewProactiveReachService(db *gorm.DB, lookup AccountLookup) *ProactiveReach
 		db:            db,
 		customerRepo:  newCustomerRepo(db),
 		accountLookup: lookup,
+		dnc:           NewDoNotContactService(nil),
 	}
+}
+
+// SetDoNotContact 注入全局退订标志位服务（测试或自定义装配时使用）
+func (s *ProactiveReachService) SetDoNotContact(dnc *DoNotContactService) {
+	s.dnc = dnc
+}
+
+// dncService 获取全局退订标志位服务（懒加载兜底）
+func (s *ProactiveReachService) dncService() *DoNotContactService {
+	if s.dnc == nil {
+		s.dnc = NewDoNotContactService(nil)
+	}
+	return s.dnc
 }
 
 // newCustomerRepo 创建接 db 的 customer repo
@@ -186,10 +202,17 @@ func (s *ProactiveReachService) ReachByCustomer(ctx context.Context, req *Proact
 	}
 
 	// 1. 显式指定手机号或邮箱 → 走 SMS/Email 直发
+	// R-3a：显式渠道同样受全局退订标志位约束（无法反查 one_id 时用归一键检查）
 	if req.Phone != "" {
+		if s.checkDoNotContact(ctx, "", "sms", req.Phone) {
+			return nil, fmt.Errorf("do-not-contact: phone %s has opted out globally, send skipped", req.Phone)
+		}
 		return s.sendSMS(ctx, req, req.Phone)
 	}
 	if req.Email != "" {
+		if s.checkDoNotContact(ctx, "", "email", "email:"+NormalizeEmail(req.Email)) {
+			return nil, fmt.Errorf("do-not-contact: email %s has opted out globally, send skipped", req.Email)
+		}
 		return s.sendEmail(ctx, req, req.Email)
 	}
 
@@ -206,6 +229,12 @@ func (s *ProactiveReachService) ReachByCustomer(ctx context.Context, req *Proact
 	available := CustomerAvailableChannels(customer, req.PreferredChannels)
 	if len(available) == 0 {
 		return nil, fmt.Errorf("customer %s has no channel identity on file, please bind at least one channel", customer.UnifiedID)
+	}
+
+	// 3.5 R-3a：全局跨渠道退订标志位检查——逐渠道过滤，命中即跳过该渠道并计数上报
+	available = s.filterDoNotContactChannels(ctx, customer.UnifiedID, available)
+	if len(available) == 0 {
+		return nil, fmt.Errorf("do-not-contact: customer %s has opted out on all available channels", customer.UnifiedID)
 	}
 
 	// 4. 从副表 CustomerChannels 加载客户偏好排序
@@ -370,6 +399,41 @@ func (s *ProactiveReachService) checkCooldown(ctx context.Context, oneID string)
 		return true
 	}
 	return set
+}
+
+// checkDoNotContact R-3a 全局退订标志位检查（显式 phone/email 直发路径）
+//
+// oneID 为空时使用 fallbackKey 归一键检查（"phone:"+phone / "email:"+email，
+// 与 DoNotContactService 无法反查 one_id 时的降级约定一致）。
+// 返回 true 表示被拦截（已全局退订），调用方必须跳过发送。
+func (s *ProactiveReachService) checkDoNotContact(ctx context.Context, oneID, channel, fallbackKey string) bool {
+	key := oneID
+	if key == "" {
+		key = fallbackKey
+	}
+	blocked := s.dncService().IsBlocked(ctx, key, channel)
+	if blocked {
+		// 计数上报：单客户路径以结构化日志留痕
+		logger.Warnf("[DNC] 跳过发送 one_id=%s channel=%s（命中全局退订标志位）", key, channel)
+	}
+	return blocked
+}
+
+// filterDoNotContactChannels R-3a：按全局退订标志位过滤候选渠道
+//
+// 命中标志位的渠道被跳过并计数上报；全部命中时返回空切片，
+// 由调用方终止本次触达。单客户路径以结构化日志留痕。
+func (s *ProactiveReachService) filterDoNotContactChannels(ctx context.Context, oneID string, candidates []string) []string {
+	dnc := s.dncService()
+	kept := make([]string, 0, len(candidates))
+	for _, ch := range candidates {
+		if dnc.IsBlocked(ctx, oneID, ch) {
+			logger.Warnf("[DNC] 跳过渠道 one_id=%s channel=%s（命中全局退订标志位）", oneID, ch)
+			continue
+		}
+		kept = append(kept, ch)
+	}
+	return kept
 }
 
 // sendSMS 发送短信
@@ -708,7 +772,7 @@ func BindProactiveReachSenders(svc *ProactiveReachService, db *gorm.DB) {
 
 	// Feishu
 	svc.SetFeishuRegistry(func(ctx context.Context, accountID uint, openID, content, receiveIDType string) error {
-		return NewFeishuIntegrationService(db).SendMessage(ctx, accountID, openID, content, receiveIDType)
+		return NewFeishuIntegrationService(db).SendMessage(ctx, accountID, openID, content, receiveIDType, "")
 	})
 
 	// DingTalk

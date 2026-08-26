@@ -1,3 +1,13 @@
+// Package service 内容域话术模板服务。
+//
+// 双体系定位（T-5，MASTER_COMPETITIVE_DECISIONS.md M10/T-5）：
+//   - 本文件及 script_templates 表：管理端 CRUD 模板库 —— 运营人工维护、分类管理、
+//     管理端增删改查入口，面向内容运营。
+//   - internal/model.ScriptLibrary（script_library 表）：运行时引擎话术库 ——
+//     异议处理（objection_handler）与 SalesEngine 检索使用，面向会话执行链路。
+//
+// 两库不合并代码（避免破坏管理端），通过 script_template_sync.go 提供的
+// SyncToLibrary 单向同步：template → library 幂等 upsert。
 package service
 
 import (

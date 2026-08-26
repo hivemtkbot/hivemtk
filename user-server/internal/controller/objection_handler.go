@@ -2,7 +2,6 @@
 package controller
 
 import (
-	"context"
 	"net/http"
 
 	"hivemtk-user/internal/pkg/utils/response"
@@ -28,7 +27,7 @@ func (c *ObjectionHandlerController) Handle(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	resp, err := c.svc.Handle(context.Background(), req)
+	resp, err := c.svc.Handle(ctx.Request.Context(), req)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, "处理失败: "+err.Error())
 		return
@@ -45,7 +44,7 @@ func (c *ObjectionHandlerController) Classify(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	cat, name := c.svc.Classify(context.Background(), req.Text)
+	cat, name := c.svc.Classify(ctx.Request.Context(), req.Text)
 	response.Success(ctx, gin.H{
 		"category":      cat,
 		"category_name": name,
@@ -54,12 +53,15 @@ func (c *ObjectionHandlerController) Classify(ctx *gin.Context) {
 
 // ListCategories 列出类别
 func (c *ObjectionHandlerController) ListCategories(ctx *gin.Context) {
-	cats := c.svc.ListCategories(context.Background())
+	cats := c.svc.ListCategories(ctx.Request.Context())
 	response.SuccessWithList(ctx, cats, int64(len(cats)))
 }
 
-// RecordUsage 记录使用
+// RecordUsage 记录使用（需登录，与同目录其他 controller 鉴权惯例对齐）
 func (c *ObjectionHandlerController) RecordUsage(ctx *gin.Context) {
+	if _, ok := extractActorID(ctx); !ok {
+		return // extractActorID 已写 401 响应
+	}
 	var req struct {
 		TemplateID uint `json:"template_id"`
 		Success    bool `json:"success"`
@@ -68,10 +70,9 @@ func (c *ObjectionHandlerController) RecordUsage(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	if err := c.svc.RecordUsage(context.Background(), req.TemplateID, req.Success); err != nil {
+	if err := c.svc.RecordUsage(ctx.Request.Context(), req.TemplateID, req.Success); err != nil {
 		response.ErrorFromDB(ctx, err, "记录失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, nil, "记录成功")
 }
-

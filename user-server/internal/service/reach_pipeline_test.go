@@ -917,7 +917,7 @@ func TestExecuteJob_RateLimited(t *testing.T) {
 func TestCheckRateLimit_NoLimit(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{}
-	if !svc.checkRateLimit(context.Background(), "wecom", "acc", "u-1", &rl) {
+	if !svc.checkRateLimit(context.Background(), "wecom", "acc", "u-1", &rl, false) {
 		t.Error("expected allow when no limits set")
 	}
 }
@@ -925,9 +925,9 @@ func TestCheckRateLimit_NoLimit(t *testing.T) {
 func TestCheckRateLimit_DailyQuotaExceeded(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{DailyQuota: 2}
-	svc.checkRateLimit(context.Background(), "wecom", "acc1", "u-1", &rl)
-	svc.checkRateLimit(context.Background(), "wecom", "acc2", "u-1", &rl)
-	if svc.checkRateLimit(context.Background(), "wecom", "acc3", "u-1", &rl) {
+	svc.checkRateLimit(context.Background(), "wecom", "acc1", "u-1", &rl, false)
+	svc.checkRateLimit(context.Background(), "wecom", "acc2", "u-1", &rl, false)
+	if svc.checkRateLimit(context.Background(), "wecom", "acc3", "u-1", &rl, false) {
 		t.Error("expected deny after quota exceeded")
 	}
 }
@@ -935,13 +935,13 @@ func TestCheckRateLimit_DailyQuotaExceeded(t *testing.T) {
 func TestCheckRateLimit_DailyReset(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{DailyQuota: 1}
-	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false)
 	svc.dailyQuotaMu.Lock()
 	for k := range svc.dailyQuota {
 		svc.dailyQuota[k] = &dailyCounter{date: "2020-01-01", count: 0}
 	}
 	svc.dailyQuotaMu.Unlock()
-	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false) {
 		t.Error("expected allow after day reset")
 	}
 }
@@ -949,9 +949,9 @@ func TestCheckRateLimit_DailyReset(t *testing.T) {
 func TestCheckRateLimit_PerUserExceeded(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{PerUserLimit: 2, CooldownSecs: 60}
-	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
-	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
-	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false)
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false)
+	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false) {
 		t.Error("expected deny after per-user limit")
 	}
 }
@@ -961,13 +961,13 @@ func TestCheckRateLimit_PerUserExceeded(t *testing.T) {
 func TestCheckRateLimit_PerUserDifferent(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{PerUserLimit: 1, CooldownSecs: 60}
-	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false) {
 		t.Error("expected allow for first call")
 	}
-	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
+	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false) {
 		t.Error("expected deny for same user second call")
 	}
-	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-2", &rl) {
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-2", &rl, false) {
 		t.Error("expected allow for different user")
 	}
 }
@@ -975,8 +975,8 @@ func TestCheckRateLimit_PerUserDifferent(t *testing.T) {
 func TestCheckRateLimit_PerUserCooldown(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{PerUserLimit: 1, CooldownSecs: 0}
-	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
-	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false)
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false) {
 		t.Error("expected allow after cooldown=0")
 	}
 }
@@ -984,10 +984,10 @@ func TestCheckRateLimit_PerUserCooldown(t *testing.T) {
 func TestCheckRateLimit_QPSExceeded(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{QPS: 1, Burst: 1}
-	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false) {
 		t.Error("expected allow for first call")
 	}
-	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
+	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false) {
 		t.Error("expected deny for second call in same second")
 	}
 }
@@ -995,8 +995,8 @@ func TestCheckRateLimit_QPSExceeded(t *testing.T) {
 func TestCheckRateLimit_DifferentAccount(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{QPS: 1, Burst: 1}
-	svc.checkRateLimit(context.Background(), "wecom", "acc1", "u-1", &rl)
-	if !svc.checkRateLimit(context.Background(), "wecom", "acc2", "u-1", &rl) {
+	svc.checkRateLimit(context.Background(), "wecom", "acc1", "u-1", &rl, false)
+	if !svc.checkRateLimit(context.Background(), "wecom", "acc2", "u-1", &rl, false) {
 		t.Error("expected allow for different account")
 	}
 }
@@ -1004,12 +1004,12 @@ func TestCheckRateLimit_DifferentAccount(t *testing.T) {
 func TestResetRateLimit(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{QPS: 1, Burst: 1}
-	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
-	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false)
+	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false) {
 		t.Error("expected deny before reset")
 	}
 	svc.ResetRateLimit(context.Background(), "wecom")
-	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false) {
 		t.Error("expected allow after reset")
 	}
 }
@@ -1198,7 +1198,7 @@ func TestRunStep_RateLimit_Pass(t *testing.T) {
 func TestRunStep_RateLimit_Deny(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{QPS: 1, Burst: 1}
-	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false)
 	job := &model.ReachJob{Channel: "wecom", AccountID: "a", CustomerID: "u"}
 	res := svc.runStep(context.Background(), StepRateLimit, job, &rl)
 	if res.Success {
@@ -1436,7 +1436,7 @@ func TestCheckRateLimit_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			svc.checkRateLimit(context.Background(), "wecom", "acc", "u-1", &rl)
+			svc.checkRateLimit(context.Background(), "wecom", "acc", "u-1", &rl, false)
 		}()
 	}
 	wg.Wait()
@@ -1558,9 +1558,9 @@ func TestResetRateLimit_EmptyChannel(t *testing.T) {
 func TestCheckRateLimit_AfterReset(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{DailyQuota: 1}
-	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false)
 	svc.ResetRateLimit(context.Background(), "wecom")
-	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl, false) {
 		t.Error("expected allow after reset")
 	}
 }

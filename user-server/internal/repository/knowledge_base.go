@@ -34,6 +34,8 @@ func (r *KnowledgeBaseRepository) CreateWithBinding(ctx context.Context, kb *mod
 		if err := tx.Create(kb).Error; err != nil {
 			return err
 		}
+		// kb 主键在插入后才生成，回填到绑定行（否则 kb_id=0，同 agent 第二个私有库触发唯一键冲突）
+		binding.KBID = kb.ID
 		return tx.Create(binding).Error
 	})
 }

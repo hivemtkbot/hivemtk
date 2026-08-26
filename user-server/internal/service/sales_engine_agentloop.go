@@ -7,6 +7,7 @@ import (
 
 	"time"
 
+	"hivemtk-user/internal/aiagent/agent/tooluse"
 	"hivemtk-user/internal/aiagent/llm"
 
 	"hivemtk-user/internal/dto"
@@ -14,6 +15,8 @@ import (
 	"hivemtk-user/internal/model"
 
 	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/tracing"
+	textutil "hivemtk-user/internal/pkg/utils/text"
 
 	"encoding/json"
 	"sort"
@@ -88,6 +91,9 @@ func (e *SalesEngine) runAgentLoop(
 	}
 
 	maxTools, maxIter := resolveAgentSettings(ctx)
+	// TL-3：按场景白名单裁剪工具（intent_recognize 只暴露 knowledge/customer 类；
+	// 其余场景全量）。见 tooluse.ScenarioAllowedCategories。
+	availableTools = filterToolsForScenario(scenario, availableTools)
 	filteredTools := limitToolsForAgent(availableTools, maxTools, allowed)
 	toolDefs := make([]llm.ToolDefinition, 0, len(filteredTools))
 	for _, fn := range filteredTools {
@@ -170,8 +176,41 @@ func (e *SalesEngine) runAgentLoop(
 	agentLoopCtx, agentLoopCancel := context.WithTimeout(ctx, agentLoopTotalTimeout)
 	defer agentLoopCancel()
 
-	var lastResult *llm.DispatchResult
+	// 统一护栏（时间/token/美元/漂移）+ 结构化停止原因
+	guard := newAgentLoopGuard(agentLoopTotalTimeout, agentLoopMaxTotalTokens, agentLoopMaxTotalCostUSD)
+	stopReason := stopReasonNone
 	totalToolCalls := 0
+
+	// A-2/A-3 LoopGuard 接线：跨轮次累计 LLM 成本追踪 + 结构化停止原因写 span status。
+	// 与本地 agentLoopGuard 双层互补：本地管单次运行预算熔断，LoopGuard 管累计成本
+	// 记账（RecordCost）与收尾清理（FinishTrace 防长驻进程内存累积）。
+	loopGuard := tooluse.NewLoopGuard(tooluse.DefaultLoopGuardConfig())
+	loopTraceID := req.SessionID
+	if loopTraceID == "" {
+		loopTraceID = "agentloop:" + agentIDStr
+	}
+	defer loopGuard.FinishTrace(loopTraceID)
+
+	// writeLoopSpan 收敛处写 span status：StopReasonOf 将错误归类为结构化 StopReason，
+	// 落 message_trace（NodeAgentTurn），监控侧按 stop_reason 维度聚合
+	writeLoopSpan := func(output any, err error) {
+		sr := tooluse.StopReasonOf(err)
+		sp := tracing.Start(ctx, tracing.NodeAgentTurn).
+			TraceID(loopTraceID).
+			Kind("agent_turn").
+			Agent(agentIDStr)
+		if sr != tooluse.StopReasonCompleted {
+			sp = sp.Abnormal("stop_reason=" + string(sr))
+		}
+		sp.End(output, err)
+	}
+
+	defer func() {
+		logger.Infof("[AgentLoop] stop_reason=%s used_tokens=%d used_cost_usd=%.4f tool_calls=%d",
+			stopReason, guard.usedTokens, guard.usedCost, totalToolCalls)
+	}()
+
+	var lastResult *llm.DispatchResult
 	totalTokensUsed := 0
 	var firstLLMError error
 	curMaxTokens := req.Config.MaxTokens
@@ -184,17 +223,11 @@ func (e *SalesEngine) runAgentLoop(
 	var collectedCards []model.RichCard
 	for iter := 1; iter <= maxIter; iter++ {
 
-		if agentLoopCtx.Err() != nil {
-			logger.Warnf("[AgentLoop] wall-clock timeout at iter=%d total_tool_calls=%d, fallback to last content",
-				iter, totalToolCalls)
-			break
-		}
-
-		// v3 审计 P3-1 修复：累计 token 预算硬限（业界共识：max_iterations 不够，必须有 token 硬限）
-		// 达上限则停止 LLM 调用，使用最后一次成功 result 兜底
-		if agentLoopMaxTotalTokens > 0 && totalTokensUsed >= agentLoopMaxTotalTokens {
-			logger.Warnf("[AgentLoop] token budget exhausted: used=%d budget=%d iter=%d, fallback to last content",
-				totalTokensUsed, agentLoopMaxTotalTokens, iter)
+		// 统一护栏：先检查后消费（check before spend），任一维度触达即停止
+		if r := guard.check(); r != stopReasonNone {
+			stopReason = r
+			logger.Warnf("[AgentLoop] guard tripped at iter=%d reason=%s tokens=%d cost_usd=%.4f, fallback to last content",
+				iter, r, guard.usedTokens, guard.usedCost)
 			break
 		}
 
@@ -224,18 +257,31 @@ func (e *SalesEngine) runAgentLoop(
 			if firstLLMError == nil {
 				firstLLMError = err
 			}
+			stopReason = stopReasonLLMError
 			logger.Warnf("[AgentLoop] iter=%d LLM dispatch failed: %v, fallback to text response", iter, err)
 
 			break
 		}
 		lastResult = result
 
-		// 累计 token 消耗（用于 agentLoopMaxTotalTokens 硬限）
-		// 优先 LLM 真实 Usage.Usage.TotalTokens（业界最佳），否则退回 result.TotalTokens
+		// 累计消耗（token + 美元成本，供统一护栏判定）
+		// token 优先 LLM 真实 Usage.Usage.TotalTokens（业界最佳），否则退回 result.TotalTokens；
+		// 成本取 dispatcher 计算的 result.Cost（按 Provider CostPer1k 计价）
+		iterTokens := 0
 		if result.Usage.TotalTokens > 0 {
-			totalTokensUsed += result.Usage.TotalTokens
+			iterTokens = result.Usage.TotalTokens
 		} else if result.TotalTokens > 0 {
-			totalTokensUsed += result.TotalTokens
+			iterTokens = result.TotalTokens
+		}
+		totalTokensUsed += iterTokens
+		guard.charge(iterTokens, result.Cost)
+
+		// A-2：LoopGuard 累计成本护栏（预算耗尽/成本漂移即熔断，返回 CostLimit）
+		if sr := loopGuard.RecordCost(loopTraceID, result.Cost); sr != tooluse.StopReasonNone {
+			stopReason = stopReasonCostBudget
+			logger.Warnf("[AgentLoop] LoopGuard cost trip iter=%d reason=%s round_cost=%.4f total_cost=%.4f",
+				iter, sr, result.Cost, loopGuard.UsedCost(loopTraceID))
+			break
 		}
 
 		if result.FinishReason != "tool_calls" || len(result.ToolCalls) == 0 {
@@ -253,12 +299,16 @@ func (e *SalesEngine) runAgentLoop(
 				if firstLLMError == nil {
 					firstLLMError = fmt.Errorf("LLM returned empty final content (finish_reason=%s)", result.FinishReason)
 				}
+				stopReason = stopReasonEmptyFinal
 				logger.Warnf("[AgentLoop] iter=%d 最终文本回复为空(finish_reason=%s)，降级处理", iter, result.FinishReason)
 				break
 			}
 			logger.Infof("[AgentLoop] iter=%d finish_reason=%s content_len=%d tools_called=%d",
 				iter, result.FinishReason, len(content), totalToolCalls)
-			return e.calibrate(ctx, content, targetLang), result, collectedCards, nil
+			stopReason = stopReasonCompleted
+			finalContent := e.calibrate(ctx, content, targetLang)
+			writeLoopSpan(finalContent, nil)
+			return finalContent, result, collectedCards, nil
 		}
 
 		assistantMsg := llm.ChatMessage{
@@ -307,22 +357,29 @@ func (e *SalesEngine) runAgentLoop(
 		logger.Infof("[AgentLoop] iter=%d finish_reason=%s tool_calls=%d total_calls=%d",
 			iter, result.FinishReason, len(result.ToolCalls), totalToolCalls)
 	}
-
-	logger.Warnf("[AgentLoop] exited: total_tool_calls=%d, has_last_result=%v, llm_error=%v",
-		totalToolCalls, lastResult != nil, firstLLMError)
+	if stopReason == stopReasonNone {
+		stopReason = "max_iterations_exhausted"
+	}
+	logger.Warnf("[AgentLoop] exited: stop_reason=%s total_tool_calls=%d, has_last_result=%v, llm_error=%v",
+		stopReason, totalToolCalls, lastResult != nil, firstLLMError)
 	if lastResult != nil {
 		content := strings.TrimSpace(lastResult.Content)
 		if content == "" {
 
 			content = e.emptyReplyFallback()
 		}
+		writeLoopSpan(content, firstLLMError)
 		return content, lastResult, collectedCards, nil
 	}
 	if firstLLMError != nil {
 
-		return "抱歉，AI 服务暂时不可用，请稍后再试或联系人工客服。", nil, nil, nil
+		fallback := "抱歉，AI 服务暂时不可用，请稍后再试或联系人工客服。"
+		writeLoopSpan(fallback, firstLLMError)
+		return fallback, nil, nil, nil
 	}
-	return "", nil, nil, fmt.Errorf("agent loop exhausted with no final content")
+	exhaustedErr := fmt.Errorf("agent loop exhausted with no final content")
+	writeLoopSpan("", exhaustedErr)
+	return "", nil, nil, exhaustedErr
 }
 
 // emptyReplyFallback 当 LLM 返回空内容（被截断或未产出任何文本）时返回的友好降级话术。
@@ -369,6 +426,28 @@ func agentContextToolNames(req *SalesRequest) []string {
 		return nil
 	}
 	return req.AgentContext.Tools
+}
+
+// filterToolsForScenario TL-3 场景裁剪：intent_recognize 类场景只保留
+// knowledge/customer 类工具（映射表见 tooluse.scenarioToolWhitelist）；
+// 场景未配置白名单时原样返回（全量，向后兼容）。
+func filterToolsForScenario(scenario llm.DispatchScenario, defs []AgentToolDef) []AgentToolDef {
+	cats, restricted := tooluse.ScenarioAllowedCategories(string(scenario))
+	if !restricted {
+		return defs
+	}
+	allowed := make(map[tooluse.ToolCategory]bool, len(cats))
+	for _, c := range cats {
+		allowed[c] = true
+	}
+	reg := tooluse.GetGlobalRegistry()
+	out := make([]AgentToolDef, 0, len(defs))
+	for _, d := range defs {
+		if t, err := reg.Get(d.Name); err == nil && allowed[t.Category()] {
+			out = append(out, d)
+		}
+	}
+	return out
 }
 
 // limitToolsForAgent 计算注入给 LLM 的工具子集（双层防护之「注入期过滤」）。
@@ -546,28 +625,18 @@ func (e *SalesEngine) buildPrompt(
 	}
 
 	if e.db != nil && req.SessionID != "" {
-		var hist []model.SessionMessage
-		if err := e.db.Where("session_id = ?", req.SessionID).
-			Order("id desc").Limit(20).Find(&hist).Error; err == nil && len(hist) > 0 {
-
-			if hist[0].Content == req.UserMessage {
-				hist = hist[1:]
-			}
-			if len(hist) > 0 {
-				for i, j := 0, len(hist)-1; i < j; i, j = i+1, j-1 {
-					hist[i], hist[j] = hist[j], hist[i]
+		hist := e.fetchHistoryWithinTokenBudget(req.SessionID, req.UserMessage)
+		if len(hist) > 0 {
+			var hb strings.Builder
+			hb.WriteString(fmt.Sprintf("\n【对话历史（按时间顺序，共 %d 条）】\n", len(hist)))
+			for _, m := range hist {
+				role := "客户"
+				if m.SenderType == "ai" || m.SenderType == "agent" {
+					role = "AI"
 				}
-				var hb strings.Builder
-				hb.WriteString(fmt.Sprintf("\n【对话历史（按时间顺序，共 %d 条）】\n", len(hist)))
-				for _, m := range hist {
-					role := "客户"
-					if m.SenderType == "ai" || m.SenderType == "agent" {
-						role = "AI"
-					}
-					hb.WriteString(fmt.Sprintf("%s：%s\n", role, m.Content))
-				}
-				sb.WriteString(hb.String())
+				hb.WriteString(fmt.Sprintf("%s：%s\n", role, m.Content))
 			}
+			sb.WriteString(hb.String())
 		}
 	}
 
@@ -586,5 +655,74 @@ func safeID(c *model.Customer) string {
 		return ""
 	}
 	return c.ID
+}
+
+// —— A-4 TokenBudget 轻量版：历史消息按 token 预算截断（替代固定取 20 条）——
+
+// agentLoopHistoryTokenBudget 历史消息上下文 token 预算（含输出预留）
+const agentLoopHistoryTokenBudget = 4096
+
+// agentLoopHistoryOutputReservePct 为 LLM 输出预留的预算百分比（30%）
+const agentLoopHistoryOutputReservePct = 30
+
+// agentLoopHistoryMaxCandidates 单次查询的历史候选条数上限（截断前预取，防长会话全量拉取）
+const agentLoopHistoryMaxCandidates = 200
+
+// historyMsgTokenOverhead 每条历史消息的格式化开销估算 token（"客户：" / "AI：" + 换行）
+const historyMsgTokenOverhead = 6
+
+// fetchHistoryWithinTokenBudget 拉取会话历史并按 token 预算从新到旧保留：
+//   - 可用预算 = 总预算 × (1 - 输出预留 30%)
+//   - 从最新一条向前累加估算 token，超出预算即停止（保留最近上下文优先）
+//   - 保持消息对完整性：截断边界若落在 AI 回复上（其配对的客户消息已被裁掉），
+//     则丢弃该孤儿 AI 消息，保证最旧保留项一定是「客户」发言（一对的开头）
+func (e *SalesEngine) fetchHistoryWithinTokenBudget(sessionID, userMessage string) []model.SessionMessage {
+	var hist []model.SessionMessage
+	if err := e.db.Where("session_id = ?", sessionID).
+		Order("id desc").Limit(agentLoopHistoryMaxCandidates).Find(&hist).Error; err != nil || len(hist) == 0 {
+		return nil
+	}
+
+	// 与既有行为一致：最新一条若是当前消息本身则剔除
+	if hist[0].Content == userMessage {
+		hist = hist[1:]
+	}
+	if len(hist) == 0 {
+		return nil
+	}
+
+	budget := agentLoopHistoryTokenBudget * (100 - agentLoopHistoryOutputReservePct) / 100
+	used := 0
+	keep := 0
+	for i, m := range hist {
+		cost := textutil.EstimateTokens(m.Content) + historyMsgTokenOverhead
+		if used+cost > budget {
+			keep = i
+			break
+		}
+		used += cost
+		keep = i + 1
+	}
+	truncated := keep < len(hist)
+	hist = hist[:keep]
+
+	// 消息对完整性（仅预算截断发生时）：此时 hist 从新到旧，最旧保留项在末尾；
+	// 若它是 AI 发言（其配对的客户消息已被裁掉），从末尾丢弃该孤儿回复，
+	// 保证最旧保留项一定是「客户」发言（一对的开头）
+	if truncated {
+		for len(hist) > 0 {
+			last := hist[len(hist)-1]
+			if last.SenderType != "ai" && last.SenderType != "agent" {
+				break
+			}
+			hist = hist[:len(hist)-1]
+		}
+	}
+
+	// 恢复时间正序
+	for i, j := 0, len(hist)-1; i < j; i, j = i+1, j-1 {
+		hist[i], hist[j] = hist[j], hist[i]
+	}
+	return hist
 }
 

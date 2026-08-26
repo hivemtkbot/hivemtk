@@ -161,6 +161,8 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 	if txErr != nil {
 		return nil, txErr
 	}
+	// L-2 经验沉淀：差评样本提取错误模式落库（失败仅告警，不影响评估结果）
+	s.distillInsightForTrace(ctx, agg, res)
 	return resultLog, nil
 }
 

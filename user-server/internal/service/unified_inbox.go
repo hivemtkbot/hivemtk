@@ -1,5 +1,9 @@
 package service
 
+// Deprecated: 本服务为纯内存实现（重启丢数据、多实例不一致），已被 DB 权威体系
+// (message_hub / inbox_conversations / inbox_controller) 取代。经全量核查无任何生产消费方，
+// 前端 unifiedInbox API 实际走 inbox_controller。禁止新增调用；待观察期后移除。
+
 import (
 	"context"
 

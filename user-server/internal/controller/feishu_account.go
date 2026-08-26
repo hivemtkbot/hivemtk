@@ -81,7 +81,7 @@ func (ctrl *FeishuAccountController) TestSendQuery(c *gin.Context) {
 	integration := ctrl.integrationSvc
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	if err := integration.SendMessage(ctx, uint(id), openID, content, "open_id"); err != nil {
+	if err := integration.SendMessage(ctx, uint(id), openID, content, "open_id", ""); err != nil {
 		response.ErrorFromDB(c, err, "发送失败", err.Error())
 		return
 	}
@@ -288,7 +288,7 @@ func (ctrl *FeishuAccountController) TestSend(c *gin.Context) {
 	integration := ctrl.integrationSvc
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	if err := integration.SendMessage(ctx, acc.ID, req.OpenID, req.Content, "open_id"); err != nil {
+	if err := integration.SendMessage(ctx, acc.ID, req.OpenID, req.Content, "open_id", ""); err != nil {
 		response.ErrorFromDB(c, err, "发送失败", err.Error())
 		return
 	}

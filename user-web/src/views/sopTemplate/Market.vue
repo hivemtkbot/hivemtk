@@ -441,7 +441,7 @@ const getCategoryTagType = (cat) => {
 // ===== 加载已导入状态 =====
 const loadImportedState = async () => {
   try {
-    const res = await sopTemplateApi.list({ page: 1, page_size: 200 }).catch(() => null)
+    const res = await sopTemplateApi.list({ page: 1, page_size: 100 }).catch(() => null)
     const items = res?.list || []
     const importedCodes = new Set(
       items

@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -58,11 +59,11 @@ func TestMemoryCache_GetNonExistent(t *testing.T) {
 
 	ctx := context.Background()
 	result, err := cache.Get(ctx, "non_existent_key")
-	if err != nil {
-		t.Fatalf("Get() 返回错误：%v", err)
+	if !errors.Is(err, ErrCacheMiss) {
+		t.Fatalf("Get() 不存在的 key 应返回 ErrCacheMiss，实际：%v", err)
 	}
 	if result != "" {
-		t.Errorf("Get() 非existent key 应该返回空字符串，得到：%v", result)
+		t.Errorf("Get() 不存在的 key 应该返回空字符串，得到：%v", result)
 	}
 }
 
@@ -114,8 +115,8 @@ func TestMemoryCache_Expiration(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	result, err = cache.Get(ctx, key)
-	if err != nil {
-		t.Fatalf("Get() 返回错误：%v", err)
+	if !errors.Is(err, ErrCacheMiss) {
+		t.Fatalf("Get() 过期后应返回 ErrCacheMiss，实际：%v", err)
 	}
 	if result != "" {
 		t.Errorf("Get() 过期后应该返回空字符串，得到：%v", result)
@@ -142,8 +143,8 @@ func TestMemoryCache_Delete(t *testing.T) {
 	}
 
 	result, err := cache.Get(ctx, key)
-	if err != nil {
-		t.Fatalf("Get() 返回错误：%v", err)
+	if !errors.Is(err, ErrCacheMiss) {
+		t.Fatalf("Delete() 后 Get() 应返回 ErrCacheMiss，实际：%v", err)
 	}
 	if result != "" {
 		t.Errorf("Delete() 后 Get() 应该返回空字符串，得到：%v", result)
@@ -334,8 +335,8 @@ func TestMemoryCache_GetJSONNonExistent(t *testing.T) {
 	ctx := context.Background()
 	var result map[string]any
 	err := cache.GetJSON(ctx, "non_existent", &result)
-	if err != nil {
-		t.Fatalf("GetJSON() 非existent key 不应该返回错误：%v", err)
+	if !errors.Is(err, ErrCacheMiss) {
+		t.Fatalf("GetJSON() 不存在的 key 应返回 ErrCacheMiss，实际：%v", err)
 	}
 }
 

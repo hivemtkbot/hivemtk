@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
 	"regexp"
 	"strings"
 	"sync"
@@ -10,10 +12,12 @@ import (
 
 
 // AITagger AI 谈单后自动打标签
+// 持久化：标签写穿到 customer_tag_assignments 表；内存 map 仅为读缓存（懒加载）。
 type AITagger struct {
 	mu sync.RWMutex
 	customerTags map[string]map[string]TagInfo
 	tagTaxonomy map[string][]string
+	assignRepo repository.CustomerTagAssignmentRepository
 }
 
 // TagInfo 标签信息
@@ -29,6 +33,7 @@ type TagInfo struct {
 func NewAITagger() *AITagger {
 	return &AITagger{
 		customerTags: make(map[string]map[string]TagInfo),
+		assignRepo:   repository.NewCustomerTagAssignmentRepository(),
 		tagTaxonomy: map[string][]string{
 			"interest":  {"beauty", "education", "ecommerce", "fitness", "medical", "real_estate"},
 			"price":     {"price_sensitive", "high_end", "mid_range", "budget"},
@@ -107,10 +112,11 @@ func (t *AITagger) TagFromSalesResponse(ctx context.Context, customerID string, 
 	return tags
 }
 
-// applyTag 应用标签
+// applyTag 应用标签（高置信覆盖低置信；写穿持久化，DB 不可用时降级为纯内存）
 func (t *AITagger) applyTag(ctx context.Context, customerID string, tag TagInfo) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	t.ensureLoadedLocked(ctx, customerID)
 	if _, ok := t.customerTags[customerID]; !ok {
 		t.customerTags[customerID] = make(map[string]TagInfo)
 	}
@@ -120,12 +126,59 @@ func (t *AITagger) applyTag(ctx context.Context, customerID string, tag TagInfo)
 		}
 	}
 	t.customerTags[customerID][tag.Tag] = tag
+	t.persistLocked(ctx, customerID, tag)
 }
 
-// GetTags 获取客户所有标签
+// ensureLoadedLocked 客户缓存未初始化时从 DB 懒加载（读缓存语义）
+func (t *AITagger) ensureLoadedLocked(ctx context.Context, customerID string) {
+	if _, ok := t.customerTags[customerID]; ok {
+		return
+	}
+	m := make(map[string]TagInfo)
+	if assignments, err := t.assignRepo.ListByCustomerID(ctx, customerID); err == nil {
+		for _, a := range assignments {
+			m[a.Tag] = TagInfo{
+				Tag:        a.Tag,
+				Category:   a.Category,
+				Source:     a.Source,
+				Confidence: a.Confidence,
+				CreatedAt:  a.CreatedAt,
+			}
+		}
+	}
+	t.customerTags[customerID] = m
+}
+
+// persistLocked 将内存中的标签变更写穿到 DB（best-effort：失败不影响内存态）
+func (t *AITagger) persistLocked(ctx context.Context, customerID string, tag TagInfo) {
+	existing, err := t.assignRepo.GetByCustomerAndTag(ctx, customerID, tag.Tag)
+	if err != nil {
+		return
+	}
+	if existing == nil {
+		_ = t.assignRepo.Create(ctx, &model.CustomerTagAssignment{
+			CustomerID: customerID,
+			Tag:        tag.Tag,
+			Category:   tag.Category,
+			Source:     tag.Source,
+			Confidence: tag.Confidence,
+		})
+		return
+	}
+	if existing.Confidence >= tag.Confidence {
+		return
+	}
+	existing.Category = tag.Category
+	existing.Source = tag.Source
+	existing.Confidence = tag.Confidence
+	_ = t.assignRepo.Update(ctx, existing)
+}
+
+// GetTags 获取客户所有标签（缓存缺失时回源 DB）
 func (t *AITagger) GetTags(ctx context.Context, customerID string) []TagInfo {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.ensureLoadedLocked(ctx, customerID)
 	tags := make([]TagInfo, 0)
 	if m, ok := t.customerTags[customerID]; ok {
 		for _, tag := range m {

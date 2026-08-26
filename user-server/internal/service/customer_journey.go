@@ -11,10 +11,12 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // Redis 持久化相关常量
 const (
 	journeyStateKeyPrefix = "journey:state:"
+
+	// journeyL1TTL 内存读缓存 TTL（P-5：Redis 为权威源，内存仅作读缓存）
+	journeyL1TTL = 60 * time.Second
 
 	journeyTTLAcquisition   = 30 * 24 * time.Hour
 	journeyTTLTransactional = 90 * 24 * time.Hour
@@ -92,11 +94,11 @@ type StageMeta struct {
 	Stage           JourneyStage  `json:"stage"`
 	Label           string        `json:"label"`
 	Description     string        `json:"description"`
-	DefaultFollowup time.Duration `json:"default_followup"`          
-	RecommendedSOP  string        `json:"recommended_sop"`           
-	OwnerRole       string        `json:"owner_role"`                
-	AllowAIHandle   bool          `json:"allow_ai_handle"`           
-	AutoNextStage   JourneyStage  `json:"auto_next_stage,omitempty"` 
+	DefaultFollowup time.Duration `json:"default_followup"`
+	RecommendedSOP  string        `json:"recommended_sop"`
+	OwnerRole       string        `json:"owner_role"`
+	AllowAIHandle   bool          `json:"allow_ai_handle"`
+	AutoNextStage   JourneyStage  `json:"auto_next_stage,omitempty"`
 }
 
 // StageMetas 阶段配置
@@ -155,12 +157,12 @@ var StageMetas = map[JourneyStage]*StageMeta{
 
 // JourneyEvent 旅程事件
 type JourneyEvent struct {
-	Type       string         `json:"type"`        
-	FromStage  JourneyStage   `json:"from_stage"`  
-	ToStage    JourneyStage   `json:"to_stage"`    
-	Reason     string         `json:"reason"`      
-	Source     string         `json:"source"`      
-	OperatorID string         `json:"operator_id"` 
+	Type       string         `json:"type"`
+	FromStage  JourneyStage   `json:"from_stage"`
+	ToStage    JourneyStage   `json:"to_stage"`
+	Reason     string         `json:"reason"`
+	Source     string         `json:"source"`
+	OperatorID string         `json:"operator_id"`
 	Metadata   map[string]any `json:"metadata,omitempty"`
 	Timestamp  time.Time      `json:"timestamp"`
 }
@@ -170,19 +172,23 @@ type JourneyState struct {
 	CustomerID   string            `json:"customer_id"`
 	OneID        string            `json:"one_id"`
 	CurrentStage JourneyStage      `json:"current_stage"`
-	StageSince   time.Time         `json:"stage_since"`   
-	StageHistory []JourneyEvent    `json:"stage_history"` 
-	LastTouchAt  time.Time         `json:"last_touch_at"` 
-	TotalTouches int               `json:"total_touches"` 
-	AutoTags     []string          `json:"auto_tags"`     
+	StageSince   time.Time         `json:"stage_since"`
+	StageHistory []JourneyEvent    `json:"stage_history"`
+	LastTouchAt  time.Time         `json:"last_touch_at"`
+	TotalTouches int               `json:"total_touches"`
+	AutoTags     []string          `json:"auto_tags"`
 	Metadata     map[string]string `json:"metadata"`
 }
 
 // CustomerJourneyService 客户旅程服务
+//
+// P-5 多实例权威化：读路径以 Redis（L2）为权威源，内存（L1）仅作 60s 读缓存；
+// 写路径双写（L1 + L2）保持兼容。
 type CustomerJourneyService struct {
 	mu          sync.RWMutex
-	states      map[string]*JourneyState 
-	cache       cache.Cache              
+	states      map[string]*JourneyState
+	l1ExpiresAt map[string]time.Time
+	cache       cache.Cache
 	subscribers []JourneySubscriber
 }
 
@@ -194,8 +200,8 @@ type JourneySubscriber interface {
 // NewCustomerJourneyService 创建客户旅程服务（默认注入全局缓存后端）
 func NewCustomerJourneyService() *CustomerJourneyService {
 	return &CustomerJourneyService{
-		states: make(map[string]*JourneyState),
-		cache:  cache.GetGlobalCache(),
+		states: make(map[string]*JourneyState), l1ExpiresAt: make(map[string]time.Time),
+		cache: cache.GetGlobalCache(),
 	}
 }
 
@@ -205,8 +211,8 @@ func NewCustomerJourneyServiceWithCache(c cache.Cache) *CustomerJourneyService {
 		c = cache.GetGlobalCache()
 	}
 	return &CustomerJourneyService{
-		states: make(map[string]*JourneyState),
-		cache:  c,
+		states: make(map[string]*JourneyState), l1ExpiresAt: make(map[string]time.Time),
+		cache: c,
 	}
 }
 
@@ -220,7 +226,7 @@ func (s *CustomerJourneyService) SetCache(c cache.Cache) {
 	s.mu.Unlock()
 }
 
-// persistState 写 Redis（最佳努力，失败仅记录日志，不影响主流程）
+// persistState 写 Redis（权威写，双写路径之一；失败仅记录日志，不影响主流程）
 func (s *CustomerJourneyService) persistState(ctx context.Context, state *JourneyState) {
 	if state == nil || state.CustomerID == "" {
 		return
@@ -235,26 +241,53 @@ func (s *CustomerJourneyService) persistState(ctx context.Context, state *Journe
 	}
 }
 
-// GetState 获取客户旅程状态（L1 内存 → L2 Redis → 默认陌生客户）
-func (s *CustomerJourneyService) GetState(ctx context.Context, customerID string) *JourneyState {
-	s.mu.RLock()
-	if state, ok := s.states[customerID]; ok {
-		s.mu.RUnlock()
-		c := *state
-		return &c
+// getLiveL1 取未过期的 L1 条目；过期条目惰性淘汰（P-5）。返回深拷贝。
+func (s *CustomerJourneyService) getLiveL1(customerID string) (*JourneyState, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	state, ok := s.states[customerID]
+	if !ok {
+		return nil, false
 	}
-	s.mu.RUnlock()
+	if exp, ok := s.l1ExpiresAt[customerID]; ok && time.Now().After(exp) {
+		delete(s.states, customerID)
+		delete(s.l1ExpiresAt, customerID)
+		return nil, false
+	}
+	c := cloneJourneyState(state)
+	return &c, true
+}
 
+// putL1 写入 L1 读缓存（带 60s TTL）
+func (s *CustomerJourneyService) putL1(customerID string, state *JourneyState) {
+	s.mu.Lock()
+	stored := cloneJourneyState(state)
+	s.states[customerID] = &stored
+	s.l1ExpiresAt[customerID] = time.Now().Add(journeyL1TTL)
+	s.mu.Unlock()
+}
+
+// loadAuthoritative 读权威状态：L1 读缓存 → L2 Redis（权威）→ nil。
+func (s *CustomerJourneyService) loadAuthoritative(ctx context.Context, customerID string) (*JourneyState, bool) {
+	if st, ok := s.getLiveL1(customerID); ok {
+		return st, true
+	}
 	if s.cache != nil {
 		var loaded JourneyState
 		if err := s.cache.GetJSON(ctx, journeyStateKey(customerID), &loaded); err == nil && loaded.CustomerID != "" {
-			s.mu.Lock()
 			stored := loaded
-			s.states[customerID] = &stored
-			s.mu.Unlock()
+			s.putL1(customerID, &stored)
 			out := loaded
-			return &out
+			return &out, true
 		}
+	}
+	return nil, false
+}
+
+// GetState 获取客户旅程状态（L1 读缓存 → L2 Redis 权威 → 默认陌生客户）
+func (s *CustomerJourneyService) GetState(ctx context.Context, customerID string) *JourneyState {
+	if state, ok := s.loadAuthoritative(ctx, customerID); ok {
+		return state
 	}
 
 	return &JourneyState{
@@ -270,24 +303,25 @@ func (s *CustomerJourneyService) GetState(ctx context.Context, customerID string
 
 // Touch 记录互动（不改变阶段）
 func (s *CustomerJourneyService) Touch(ctx context.Context, customerID, source string) {
-	s.mu.Lock()
-	state, ok := s.states[customerID]
-	if !ok {
-		state = &JourneyState{
+	// 写路径以权威源为基线：L1 未命中时回源 Redis，避免多实例下覆盖丢失
+	base, found := s.loadAuthoritative(ctx, customerID)
+	if !found {
+		now := time.Now()
+		base = &JourneyState{
 			CustomerID:   customerID,
 			CurrentStage: StageContact,
-			StageSince:   time.Now(),
+			StageSince:   now,
 			StageHistory: []JourneyEvent{},
 			AutoTags:     []string{},
 			Metadata:     make(map[string]string),
 		}
-		s.states[customerID] = state
 	}
+	state := cloneJourneyState(base)
+	state.CustomerID = customerID
 	state.LastTouchAt = time.Now()
 	state.TotalTouches++
-	snapshot := cloneJourneyState(state)
-	s.mu.Unlock()
-	s.persistState(ctx, &snapshot)
+	s.putL1(customerID, &state)
+	s.persistState(ctx, &state)
 }
 
 // Transition 迁移阶段
@@ -295,22 +329,24 @@ func (s *CustomerJourneyService) Transition(ctx context.Context, customerID stri
 	if !s.isValidStage(ctx, toStage) {
 		return nil, fmt.Errorf("无效的阶段: %s", toStage)
 	}
-	s.mu.Lock()
-	state, ok := s.states[customerID]
-	if !ok {
-		state = &JourneyState{
+	// 写路径以权威源为基线：L1 未命中时回源 Redis，避免多实例下覆盖丢失
+	base, found := s.loadAuthoritative(ctx, customerID)
+	if !found {
+		now := time.Now()
+		base = &JourneyState{
 			CustomerID:   customerID,
 			CurrentStage: StageStranger,
-			StageSince:   time.Now(),
+			StageSince:   now,
 			StageHistory: []JourneyEvent{},
 			AutoTags:     []string{},
 			Metadata:     make(map[string]string),
 		}
-		s.states[customerID] = state
 	}
+	state := cloneJourneyState(base)
+	state.CustomerID = customerID
 	fromStage := state.CurrentStage
 	if fromStage == toStage {
-		s.mu.Unlock()
+		s.putL1(customerID, &state)
 		return nil, nil
 	}
 	event := &JourneyEvent{
@@ -326,10 +362,9 @@ func (s *CustomerJourneyService) Transition(ctx context.Context, customerID stri
 	state.CurrentStage = toStage
 	state.StageSince = time.Now()
 	state.StageHistory = append(state.StageHistory, *event)
-	s.applyStageSideEffects(ctx, state, toStage)
-	snapshot := cloneJourneyState(state)
-	s.mu.Unlock()
-	s.persistState(ctx, &snapshot)
+	s.applyStageSideEffects(ctx, &state, toStage)
+	s.putL1(customerID, &state)
+	s.persistState(ctx, &state)
 	for _, sub := range s.subscribers {
 		go sub.OnJourneyEvent(ctx, customerID, event)
 	}
@@ -370,12 +405,16 @@ func (s *CustomerJourneyService) AddSubscriber(ctx context.Context, sub JourneyS
 	s.subscribers = append(s.subscribers, sub)
 }
 
-// ListByStage 按阶段列出客户
+// ListByStage 按阶段列出客户（本地 L1 视图）
 func (s *CustomerJourneyService) ListByStage(ctx context.Context, stage JourneyStage) []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	customerIDs := []string{}
+	now := time.Now()
 	for cid, state := range s.states {
+		if exp, ok := s.l1ExpiresAt[cid]; ok && now.After(exp) {
+			continue
+		}
 		if state.CurrentStage == stage {
 			customerIDs = append(customerIDs, cid)
 		}
@@ -391,8 +430,13 @@ func (s *CustomerJourneyService) AutoDetectSleeping(ctx context.Context) []strin
 	s.mu.Lock()
 	wokeUp := []string{}
 	now := time.Now()
-	snapshots := make(map[string]JourneyState, 0)
+	snapshots := make([]JourneyState, 0)
 	for cid, state := range s.states {
+		if exp, ok := s.l1ExpiresAt[cid]; ok && now.After(exp) {
+			delete(s.states, cid)
+			delete(s.l1ExpiresAt, cid)
+			continue
+		}
 		meta := StageMetas[state.CurrentStage]
 		if meta == nil {
 			continue
@@ -402,7 +446,7 @@ func (s *CustomerJourneyService) AutoDetectSleeping(ctx context.Context) []strin
 			threshold = stageDefaultSleepThreshold(state.CurrentStage)
 		}
 		if threshold == 0 {
-			continue 
+			continue
 		}
 		ref := state.StageSince
 		if !state.LastTouchAt.IsZero() && state.LastTouchAt.Before(ref) {
@@ -426,14 +470,13 @@ func (s *CustomerJourneyService) AutoDetectSleeping(ctx context.Context) []strin
 			state.StageHistory = append(state.StageHistory, *event)
 			s.applyStageSideEffects(ctx, state, StageSleeping)
 			wokeUp = append(wokeUp, cid)
-			snapshots[cid] = cloneJourneyState(state)
+			s.l1ExpiresAt[cid] = now.Add(journeyL1TTL)
+			snapshots = append(snapshots, cloneJourneyState(state))
 		}
 	}
 	s.mu.Unlock()
-	for cid, snap := range snapshots {
-		cs := snap
-		s.persistState(ctx, &cs)
-		_ = cid
+	for i := range snapshots {
+		s.persistState(ctx, &snapshots[i])
 	}
 	return wokeUp
 }
@@ -459,8 +502,8 @@ type JourneyStageOverview struct {
 	Stage        JourneyStage `json:"stage"`
 	Label        string       `json:"label"`
 	Count        int          `json:"count"`
-	Rate         float64      `json:"rate"`           
-	AvgStayHours float64      `json:"avg_stay_hours"` 
+	Rate         float64      `json:"rate"`
+	AvgStayHours float64      `json:"avg_stay_hours"`
 }
 
 // JourneyOverview 客户旅程总览
@@ -480,12 +523,16 @@ func (s *CustomerJourneyService) GetOverview(ctx context.Context) *JourneyOvervi
 		Stages:      make([]JourneyStageOverview, 0, len(AllStages)),
 		GeneratedAt: time.Now(),
 	}
-	overview.TotalCustomers = len(s.states)
+	overview.TotalCustomers = 0
 
 	stageCounts := make(map[JourneyStage]int, len(AllStages))
 	stageStaySum := make(map[JourneyStage]float64, len(AllStages))
 	now := time.Now()
-	for _, state := range s.states {
+	for cid, state := range s.states {
+		if exp, ok := s.l1ExpiresAt[cid]; ok && now.After(exp) {
+			continue
+		}
+		overview.TotalCustomers++
 		stageCounts[state.CurrentStage]++
 		stay := now.Sub(state.StageSince).Hours()
 		stageStaySum[state.CurrentStage] += stay
@@ -517,4 +564,3 @@ func (s *CustomerJourneyService) GetOverview(ctx context.Context) *JourneyOvervi
 	}
 	return overview
 }
-

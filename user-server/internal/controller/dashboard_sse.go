@@ -145,9 +145,11 @@ func (c *DashboardSSEController) collectSnapshot(ctx context.Context) *service.D
 		c.statsSvc.CollectSessionStats(ctx, snap)
 		snap.HumanizeDistribution = c.statsSvc.CollectHumanizeDistribution(ctx)
 		snap.Funnel = c.statsSvc.CollectFunnel(ctx)
+		snap.MessageVolume = c.statsSvc.CollectMessageVolume(ctx, 24)
 	} else {
 		snap.HumanizeDistribution = service.HumanizeDistribution{WindowHours: 1}
 		snap.Funnel = &service.FunnelProgress{Stages: []service.FunnelStage{}}
+		snap.MessageVolume = []service.MessageVolumePoint{}
 	}
 
 	snap.LLMMetrics = c.collectLLMMetrics(ctx)

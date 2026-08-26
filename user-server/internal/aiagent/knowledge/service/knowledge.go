@@ -33,6 +33,7 @@ import (
 
 // KnowledgeService 知识库服务(V2.0 统一入口)
 type KnowledgeService struct {
+	db            *gorm.DB // R-3 Contextual Retrieval enhancer 需要原生句柄
 	processor     *etl.DocumentProcessor
 	vectorizer    *ragretrieval.Vectorizer
 	indexer       ragretrieval.IndexManagerInterface
@@ -57,6 +58,7 @@ func NewKnowledgeServiceWithDB(gdb *gorm.DB) *KnowledgeService {
 
 func newKnowledgeServiceWithDB(gdb *gorm.DB) *KnowledgeService {
 	return &KnowledgeService{
+		db:            gdb,
 		processor:     etl.NewDocumentProcessor(nil),
 		vectorizer:    ragretrieval.NewVectorizer(EmbeddingDim, nil),
 		indexer:       nil,
@@ -69,7 +71,6 @@ func newKnowledgeServiceWithDB(gdb *gorm.DB) *KnowledgeService {
 		llmSvc:        llm.NewLLMService(),
 	}
 }
-
 
 // ImportRequest 统一导入请求
 type ImportRequest struct {
@@ -86,7 +87,7 @@ type ImportRequest struct {
 	IP         string
 	UserAgent  string
 	BatchNo    string
-	Metadata map[string]any `json:"metadata"`
+	Metadata   map[string]any `json:"metadata"`
 }
 
 // ImportResult 统一导入结果(知识库专用)
@@ -111,7 +112,7 @@ func (s *KnowledgeService) Import(ctx context.Context, req *ImportRequest) (*Kno
 	if product == nil {
 		return nil, errors.New("产品不存在")
 	}
-	productNumericID := product.ID 
+	productNumericID := product.ID
 
 	start := time.Now()
 	var doc *model.KnowledgeDocument
@@ -151,7 +152,6 @@ func (s *KnowledgeService) Import(ctx context.Context, req *ImportRequest) (*Kno
 		CreatedAt:  doc.CreatedAt,
 	}, nil
 }
-
 
 // List 列出文档
 func (s *KnowledgeService) List(ctx context.Context, filter repository.ListFilter) ([]*model.KnowledgeDocument, int64, error) {
@@ -291,7 +291,6 @@ func (s *KnowledgeService) EmbedAndPersistChunks(ctx context.Context, numericPro
 	return s.persistChunkEmbeddings(ctx, chunks, embeddings)
 }
 
-
 // Search 检索知识库
 func (s *KnowledgeService) Search(ctx context.Context, productID string, query string, topK int, threshold float64) ([]model.KnowledgeChunk, error) {
 	queryVec, err := s.vectorizer.EmbedText(query)
@@ -307,4 +306,3 @@ func (s *KnowledgeService) Search(ctx context.Context, productID string, query s
 	_ = queryVec
 	return nil, nil
 }
-

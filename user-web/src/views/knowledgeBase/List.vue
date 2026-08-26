@@ -156,7 +156,9 @@
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty :description="emptyText" />
+          <el-empty :description="emptyText">
+            <el-button type="primary" @click="openCreateDialog">新建知识库</el-button>
+          </el-empty>
         </template>
       </el-table>
 
@@ -180,12 +182,56 @@
       :kb-data="currentKB"
       @updated="loadList(currentType)"
     />
+
+    <!-- 新建/编辑知识库弹窗 -->
+    <el-dialog
+      v-model="formVisible"
+      :title="formData.id ? '编辑知识库' : '新建知识库'"
+      width="520px"
+      :close-on-click-modal="false"
+    >
+      <el-form :model="formData" label-width="90px" @submit.prevent>
+        <el-form-item label="KB编码" required>
+          <el-input
+            v-model="formData.kb_code"
+            placeholder="如 kb-sales-faq"
+            :disabled="!!formData.id"
+            maxlength="64"
+          />
+        </el-form-item>
+        <el-form-item label="类型" required>
+          <el-select v-model="formData.type" :disabled="!!formData.id" style="width: 100%">
+            <el-option label="RAG 文档库" value="rag" />
+            <el-option label="FAQ 知识库" value="faq" />
+            <el-option label="SOP 模板库" value="sop" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="名称" required>
+          <el-input v-model="formData.name" placeholder="请输入知识库名称" maxlength="128" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input
+            v-model="formData.description"
+            type="textarea"
+            :rows="3"
+            placeholder="简要说明该知识库的用途（可选）"
+            maxlength="500"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="formVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="onSubmitForm">
+          {{ formData.id ? '保存' : '创建' }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Refresh,
@@ -195,11 +241,12 @@ import {
   Notebook,
   Tickets
 } from '@element-plus/icons-vue'
-import { listKBs, listByType, deleteKB, getKB } from '@/api/knowledgeBase'
+import { listKBs, listByType, deleteKB, getKB, createKB, updateKB } from '@/api/knowledgeBase'
 import { listByKB } from '@/api/agentKBBinding'
 import KBDrawer from './KBDrawer.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 const currentType = ref('rag') // rag / faq / sop
 const loading = ref(false)
@@ -218,6 +265,54 @@ const filter = ref({
 
 const drawerVisible = ref(false)
 const currentKB = ref(null)
+
+// 新建/编辑弹窗
+const formVisible = ref(false)
+const submitting = ref(false)
+const formData = ref({ id: null, kb_code: '', type: 'rag', name: '', description: '' })
+
+const openCreateDialog = () => {
+  formData.value = { id: null, kb_code: '', type: currentType.value, name: '', description: '' }
+  formVisible.value = true
+}
+
+const openEditDialog = (row) => {
+  formData.value = {
+    id: row.id,
+    kb_code: row.kb_code || '',
+    type: row.kb_type || row.type || currentType.value,
+    name: row.name || '',
+    description: row.description || ''
+  }
+  formVisible.value = true
+}
+
+const onSubmitForm = async () => {
+  const f = formData.value
+  if (!f.kb_code.trim()) return ElMessage.warning('请输入 KB 编码')
+  if (!f.name.trim()) return ElMessage.warning('请输入知识库名称')
+  submitting.value = true
+  try {
+    if (f.id) {
+      await updateKB(f.id, { type: f.type, name: f.name.trim(), description: f.description })
+      ElMessage.success('保存成功')
+    } else {
+      await createKB({
+        kb_code: f.kb_code.trim(),
+        type: f.type,
+        name: f.name.trim(),
+        description: f.description
+      })
+      ElMessage.success('创建成功')
+    }
+    formVisible.value = false
+    loadList(currentType.value)
+  } catch (e) {
+    ElMessage.error((f.id ? '保存' : '创建') + '失败：' + (e?.message || '未知错误'))
+  } finally {
+    submitting.value = false
+  }
+}
 
 const searchPlaceholder = computed(() => {
   if (currentType.value === 'rag') return '搜索名称/编码/描述'
@@ -350,11 +445,11 @@ const onSizeChange = (s) => {
 }
 
 const goCreate = () => {
-  router.push({ name: 'KnowledgeBaseCreate', query: { type: currentType.value } })
+  openCreateDialog()
 }
 
 const goEdit = (row) => {
-  router.push({ name: 'KnowledgeBaseEdit', params: { id: row.id } })
+  openEditDialog(row)
 }
 
 const openDetail = async (row) => {
@@ -415,6 +510,8 @@ const onDelete = async (row) => {
 
 onMounted(() => {
   loadList('rag')
+  // 兼容旧入口：/knowledgeBase/create 直达时自动打开新建弹窗
+  if (route.name === 'KnowledgeBaseCreate') openCreateDialog()
 })
 </script>
 

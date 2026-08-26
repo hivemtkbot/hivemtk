@@ -58,6 +58,35 @@ func (s *VerificationService) VerifyArticle(ctx context.Context, req dto.VerifyR
 	s.recordAPICall(ctx, resp, "verify_search")
 
 	parsed := parseVerifyResponse(resp.Content)
+
+	// v3 竞品对齐 A5：多模型交叉验证——req.Models 非空时逐模型追加验证行，
+	// 汇总"任一引擎提及"提升 BrandMentioned 可信度（行业标配能力）
+	for _, extraModel := range req.Models {
+		if strings.TrimSpace(extraModel) == "" || extraModel == resp.Model {
+			continue
+		}
+		extraResp, err := s.llm.GenerateJSON(ctx, "", prompt, 2000)
+		if err != nil {
+			continue
+		}
+		extraParsed := parseVerifyResponse(extraResp.Content)
+		s.recordAPICall(ctx, extraResp, "verify_search_multi")
+		_ = s.verifyRepo.Create(&model.GeoVerifyResult{
+			ArticleID:      req.ArticleID,
+			BrandName:      req.BrandName,
+			Model:          extraModel,
+			Query:          req.Query,
+			Response:       extraParsed.Response,
+			BrandMentioned: extraParsed.BrandMentioned,
+			MentionCount:   extraParsed.MentionCount,
+			Sentiment:      extraParsed.Sentiment,
+			Position:       strings.Join(extraParsed.MentionPositions, "; "),
+		})
+		if extraParsed.BrandMentioned && !parsed.BrandMentioned {
+			parsed.BrandMentioned = true
+			parsed.MentionCount += extraParsed.MentionCount
+		}
+	}
 	result := &model.GeoVerifyResult{
 		ArticleID:      req.ArticleID,
 		BrandName:      req.BrandName,

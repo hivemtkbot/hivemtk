@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -1463,6 +1464,67 @@ func TestGetHealthSummary_TotalQuota(t *testing.T) {
 	}
 	if summary.TotalUsed != 700 {
 		t.Errorf("expected 700, got %d", summary.TotalUsed)
+	}
+}
+
+// ============================================================================
+// M14 W-7：ConsumeQuota 原子化回归测试
+// 原实现为「读 used → 内存判断 → 写回 used+count」的读改写模式，
+// 并发扣减互相覆盖导致超发。修复后必须由条件 UPDATE 原子保证不超配额。
+// ============================================================================
+
+// 105. 并发扣减不超发：quota=10，50 个并发各扣 1，恰好成功 10 次、used 终值 10
+func TestConsumeQuota_ConcurrentNoOvershoot(t *testing.T) {
+	svc, db := newWeComHealthService(t)
+	a := mkWeComAccount(1)
+	a.DailyMsgQuota = 10
+	db.Create(a)
+
+	const goroutines = 50
+	var wg sync.WaitGroup
+	var success int64
+	var mu sync.Mutex
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := svc.ConsumeQuota(context.Background(), 1, 1)
+			if err == nil {
+				mu.Lock()
+				success++
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+
+	if success != 10 {
+		t.Errorf("W-7 未达成：期望恰好 10 次成功（不超发不漏发），实际 %d 次", success)
+	}
+	var final model.WeComAccount
+	db.First(&final, 1)
+	if final.DailyMsgUsed != 10 {
+		t.Errorf("expected daily_msg_used=10, got %d", final.DailyMsgUsed)
+	}
+	if final.TotalSent != 10 {
+		t.Errorf("expected total_sent=10, got %d", final.TotalSent)
+	}
+}
+
+// 106. 原子扣减后 last_active_at 被更新
+func TestConsumeQuota_UpdatesLastActiveAt(t *testing.T) {
+	svc, db := newWeComHealthService(t)
+	a := mkWeComAccount(1)
+	old := time.Now().Add(-24 * time.Hour)
+	a.LastActiveAt = &old
+	db.Create(a)
+	if err := svc.ConsumeQuota(context.Background(), 1, 3); err != nil {
+		t.Fatalf("consume: %v", err)
+	}
+	var final model.WeComAccount
+	db.First(&final, 1)
+	if final.LastActiveAt == nil || final.LastActiveAt.Before(time.Now().Add(-time.Minute)) {
+		t.Error("expected last_active_at refreshed")
 	}
 }
 

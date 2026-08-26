@@ -319,32 +319,32 @@ func (s *IntentRecognizer) recognizeFineByRule(ctx context.Context, text string)
 }
 
 // recognizeFineByLLM LLM 精细意图识别
+//
+// M4 I-4：LLM 只做一级粗分类（8 大类）；27 个 minor 子类降级为"类内关键词细分规则"，
+// 由 refineMinorByKeywords 在 LLM 结果的 major 内部用关键词打分得出，不再进入 LLM prompt。
+// temperature=0（M4 I-2：分类任务确定性输出）。
 func (s *IntentRecognizer) recognizeFineByLLM(ctx context.Context, text string) (*IntentResult, error) {
 	if s.dispatcher == nil {
 		return nil, fmt.Errorf("dispatcher is nil")
 	}
 
-	// 构建 8 大类 + 7 子类的提示词
+	// 只列大类，不再展开 27 子类（>12-15 意图时精度下降，M4 I-4）
 	var sb strings.Builder
-	sb.WriteString("以下是 8 大意图类及其子类，请从其中选择最匹配的 1 个大类和 1 个子类：\n")
 	for _, mr := range fineIntentRules {
 		sb.WriteString(fmt.Sprintf("- %s\n", mr.major))
-		for _, mi := range mr.minors {
-			sb.WriteString(fmt.Sprintf("  - %s\n", mi.minor))
-		}
 	}
 
-	prompt := fmt.Sprintf(`你是销售对话意图识别专家。分析以下客户消息，从给定意图列表中选择最匹配的 1 个大类和 1 个子类。
+	prompt := fmt.Sprintf(`你是销售对话意图识别专家。分析以下客户消息，从给定意图列表中选择最匹配的 1 个大类。
 
 【客户消息】: %s
 
 【意图列表】:
 %s
+unknown: 无法确定或消息不属于以上任何意图（这是合法答案，信息不足时必须选择它）
 
 【输出要求】(严格按 JSON 格式输出，不要添加任何其他内容):
 {
-  "major": "8 大类之一",
-  "minor": "对应子类之一",
+  "major": "8 大类之一或 unknown",
   "confidence": 0.0-1.0 的置信度,
   "reasoning": "简短解释为何选择此意图（不超过 50 字）"
 }`, text, sb.String())
@@ -354,7 +354,7 @@ func (s *IntentRecognizer) recognizeFineByLLM(ctx context.Context, text string) 
 		Prompt:      prompt,
 		JSONMode:    true,
 		MaxTokens:   300,
-		Temperature: 0.2,
+		Temperature: 0,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("llm dispatch: %w", err)
@@ -362,7 +362,6 @@ func (s *IntentRecognizer) recognizeFineByLLM(ctx context.Context, text string) 
 
 	var parsed struct {
 		Major      string  `json:"major"`
-		Minor      string  `json:"minor"`
 		Confidence float64 `json:"confidence"`
 		Reasoning  string  `json:"reasoning"`
 	}
@@ -370,13 +369,10 @@ func (s *IntentRecognizer) recognizeFineByLLM(ctx context.Context, text string) 
 		return nil, fmt.Errorf("parse llm intent: %w", err)
 	}
 
-	if !isValidMajor(parsed.Major) {
-		parsed.Major = IntentMajorConsult
-		parsed.Minor = IntentMinorConsultGeneral
-	} else if !isValidMinor(parsed.Major, parsed.Minor) {
-		parsed.Minor = getDefaultMinor(parsed.Major)
+	// M4 I-2 unknown 契约：解析出非法大类或置信 <0.7 一律降级 unknown（fail-closed）
+	if !isValidMajor(parsed.Major) || parsed.Confidence < 0.7 {
+		parsed.Major = "unknown"
 	}
-
 	if parsed.Confidence <= 0 {
 		parsed.Confidence = 0.5
 	}
@@ -384,14 +380,50 @@ func (s *IntentRecognizer) recognizeFineByLLM(ctx context.Context, text string) 
 		parsed.Confidence = 1
 	}
 
+	minor := refineMinorByKeywords(parsed.Major, text)
 	return &IntentResult{
 		Major:      parsed.Major,
-		Minor:      parsed.Minor,
+		Minor:      minor,
 		Confidence: parsed.Confidence,
 		Method:     "llm",
 		Reasoning:  parsed.Reasoning,
 		LLMModel:   result.Model,
 	}, nil
+}
+
+// refineMinorByKeywords 类内关键词细分规则（M4 I-4）：在给定 major 的 minor 规则表内
+// 按关键词加权打分选最优子类；无命中时回退该 major 默认子类；major 非法/为 unknown 时返回空。
+func refineMinorByKeywords(major, text string) string {
+	if !isValidMajor(major) {
+		return ""
+	}
+	bestMinor := ""
+	bestScore := -1
+	for _, mr := range fineIntentRules {
+		if mr.major != major {
+			continue
+		}
+		for _, mi := range mr.minors {
+			score := 0
+			for _, kw := range mi.keywords {
+				if strings.Contains(text, kw) {
+					score += mi.weight * len(kw)
+				}
+			}
+			if score > bestScore {
+				bestScore = score
+				bestMinor = mi.minor
+			}
+		}
+		if bestScore > 0 {
+			return bestMinor
+		}
+		// 大类内无任何关键词命中 → 该 major 默认子类
+		if len(mr.minors) > 0 {
+			return mr.minors[0].minor
+		}
+	}
+	return IntentMinorConsultGeneral
 }
 
 // isValidMajor 判断是否合法的大类

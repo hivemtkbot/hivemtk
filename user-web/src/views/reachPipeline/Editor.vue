@@ -27,6 +27,8 @@ const pipelineId = computed(() => route.params.id)
 const initialNodes = ref([])
 const initialEdges = ref([])
 
+const saving = ref(false)
+
 const nodeTemplates = [
   { type: 'trigger', label: '触发器', icon: 'Trigger', defaultData: { event: 'customer.created' } },
   { type: 'channel', label: '渠道', icon: 'Promotion', defaultData: { channel: 'email' } },
@@ -45,8 +47,14 @@ async function load() {
 }
 
 async function onSave({ nodes, edges }) {
-  await http.put(`/api/reach/pipelines/${pipelineId.value}`, { nodes, edges })
-  ElMessage.success('已保存')
+  if (saving.value) return
+  saving.value = true
+  try {
+    await http.put(`/api/reach/pipelines/${pipelineId.value}`, { nodes, edges })
+    ElMessage.success('已保存')
+  } finally {
+    saving.value = false
+  }
 }
 
 function onValidate({ hasCycle }) {

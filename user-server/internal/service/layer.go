@@ -108,9 +108,6 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 		return decision
 	}
 
-	if req.Intent != nil && (req.Intent.IntentType == "" || req.Intent.IntentType == IntentUnknown) {
-	}
-
 	if req.AgentID == 0 {
 	} else if r.faqSvc != nil && strings.TrimSpace(req.UserMessage) != "" {
 		matches, err := r.faqSvc.MatchByAgent(ctx, req.AgentID, req.UserMessage, 3)

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 )
 
 
@@ -32,6 +33,7 @@ func TestSOPAutoOptimizer_ProcessPending_NoSuggestions(t *testing.T) {
 // TestSOPAutoOptimizer_ProcessPending_BranchPrune 高 priority 自动应用
 //
 // 准备：1 个 SOP + 1 个 pending + priority=2 建议（branch_prune）
+// L-1 验证门（批次①）：自动应用前须过黄金回归门 → 补种 golden 案例 + 注入门 LLM
 // 验证：
 //   - AppliedCount = 1
 //   - 创建 variant SOP
@@ -40,6 +42,10 @@ func TestSOPAutoOptimizer_ProcessPending_NoSuggestions(t *testing.T) {
 func TestSOPAutoOptimizer_ProcessPending_BranchPrune(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	ctx := context.Background()
+
+	// L-1 门禁依赖：golden 集表 + 聚合素材表
+	testutil.NewTestDB(t, &model.TraceEvalLog{}, &model.MessageTrace{})
+	seedGoldenCases(t, db, minGoldenCases+2)
 
 	sop := model.SOPAgent{
 		Name: "test-sop", Scenario: "test", IsActive: true,
@@ -61,6 +67,7 @@ func TestSOPAutoOptimizer_ProcessPending_BranchPrune(t *testing.T) {
 
 	bandit := newStubBanditAllocator()
 	o := NewSOPAutoOptimizer(db, bandit, DefaultSOPAutoOptimizerConfig())
+	o.SetGateLLM(&fakeGateLLM{content: gateVerdict(true, "无损害")})
 	report, err := o.ProcessPendingSuggestions(ctx)
 	if err != nil {
 		t.Fatalf("ProcessPendingSuggestions: %v", err)
@@ -158,9 +165,14 @@ func TestSOPAutoOptimizer_ProcessPending_LowPriorityNotApplied(t *testing.T) {
 }
 
 // TestSOPAutoOptimizer_ProcessPending_UnknownSuggestionType 未知建议类型失败
+//
+// L-1 验证门通过后（补种 golden + 门 LLM），autoApply 对未知类型报错 → FailedCount=1
 func TestSOPAutoOptimizer_ProcessPending_UnknownSuggestionType(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	ctx := context.Background()
+
+	testutil.NewTestDB(t, &model.TraceEvalLog{}, &model.MessageTrace{})
+	seedGoldenCases(t, db, minGoldenCases+2)
 
 	sop := model.SOPAgent{
 		Name: "test-sop-unknown", Scenario: "test", IsActive: true,
@@ -182,6 +194,7 @@ func TestSOPAutoOptimizer_ProcessPending_UnknownSuggestionType(t *testing.T) {
 
 	bandit := newStubBanditAllocator()
 	o := NewSOPAutoOptimizer(db, bandit, DefaultSOPAutoOptimizerConfig())
+	o.SetGateLLM(&fakeGateLLM{content: gateVerdict(true, "无损害")})
 	report, err := o.ProcessPendingSuggestions(ctx)
 	if err != nil {
 		t.Fatalf("ProcessPendingSuggestions: %v", err)

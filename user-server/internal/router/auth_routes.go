@@ -83,6 +83,8 @@ func setupAlertRoutes(auth *gin.RouterGroup) {
 	auth.GET("/alerts/rules", alertCtrl.List)
 	auth.GET("/alerts/rules/:id", alertCtrl.GetByID)
 	auth.GET("/alerts/histories", alertCtrl.ListHistory)
+	// OpsOverview 顶栏未读告警角标（前端 GET /api/monitor/alerts/unread）
+	auth.GET("/monitor/alerts/unread", alertCtrl.Unread)
 
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
 	{

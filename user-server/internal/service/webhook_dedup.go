@@ -188,6 +188,11 @@ func (s *WebhookService) isDuplicate(ctx context.Context, eventID string) bool {
 
 func (s *WebhookService) allowRate(ctx context.Context, key string) bool {
 	s.rlMu.Lock()
+	// 零值构造的 WebhookService（如单测直接 &WebhookService{}）rlBuckets 为 nil，
+	// 读 nil map 安全但写入会 panic，此处惰性初始化兜底
+	if s.rlBuckets == nil {
+		s.rlBuckets = make(map[string]*tokenBucket)
+	}
 	b, ok := s.rlBuckets[key]
 	if !ok {
 		b = &tokenBucket{

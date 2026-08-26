@@ -36,14 +36,20 @@ type MemorySystem struct {
 }
 
 const (
-	L1WindowSize = 10             
-	L1TTLHours   = 24 * time.Hour 
-	L4MaxPerCust = 500            
+	L1WindowSize = 10
+	L1TTLHours   = 24 * time.Hour
+	L4MaxPerCust = 500
 	defaultImp   = 5
 
-	longTermMemoryRecallMultiplier = 3                   
-	longTermMemoryMaxFetch         = 50                  
-	longTermMemoryDecayDuration    = 30 * 24 * time.Hour 
+	longTermMemoryRecallMultiplier = 3
+	longTermMemoryMaxFetch         = 50
+	longTermMemoryDecayDuration    = 30 * 24 * time.Hour
+
+	longTermDedupThreshold = 0.92 // M-2：L2 fact 去重合并阈值（cosine）
+	longTermDedupScanLimit = 50   // M-2：去重扫描同类型旧记忆条数上限
+	l4EvictLowImp          = 3    // M-4：低重要性边界（importance<=3 最先淘汰）
+	l4EvictProtectedImp    = 8    // M-4：受保护边界（importance>=8 永不淘汰）
+	l4EvictScanLimit       = 1000 // M-4：淘汰候选扫描上限（> L4MaxPerCust，保证全量可见）
 )
 
 var (
@@ -93,7 +99,6 @@ func (m *MemorySystem) WithEmbeddingService(ctx context.Context, svc llm.Embeddi
 	m.embeddingSvc = svc
 	return m
 }
-
 
 // L1Append 追加一条短期消息
 func (m *MemorySystem) L1Append(ctx context.Context, sessionID, customerID, role, content string) error {
@@ -158,7 +163,6 @@ func (m *MemorySystem) l1Trim(ctx context.Context, sessionID string) {
 	}
 }
 
-
 // L2SaveFact 保存一条长期事实
 func (m *MemorySystem) L2SaveFact(ctx context.Context, customerID, key, value string, importance int) error {
 	if m.memoryRepo == nil {
@@ -219,7 +223,6 @@ func (m *MemorySystem) L2GetLatestSummary(ctx context.Context, customerID string
 	return item.Content, nil
 }
 
-
 // L3SaveSOPState 保存 SOP 状态
 func (m *MemorySystem) L3SaveSOPState(ctx context.Context, state *model.SOPStateMemory) error {
 	if m.memoryRepo == nil || state == nil {
@@ -248,7 +251,6 @@ func (m *MemorySystem) L3ListByCustomer(ctx context.Context, customerID string, 
 	return m.memoryRepo.ListSOPStatesByCustomer(ctx, customerID, limit)
 }
 
-
 // L4Record 记录业务记忆
 func (m *MemorySystem) L4Record(ctx context.Context, customerID, memoryType, content, relatedID string, importance int, metadata map[string]any) error {
 	if m.memoryRepo == nil {
@@ -261,12 +263,8 @@ func (m *MemorySystem) L4Record(ctx context.Context, customerID, memoryType, con
 	defer m.mu.Unlock()
 
 	count, _ := m.memoryRepo.CountBusinessMemoriesByCustomer(ctx, customerID)
-	if count >= int64(L4MaxPerCust) {
-		exceed := count - int64(L4MaxPerCust) + 1
-		oldIDs, _ := m.memoryRepo.PluckOldestBusinessMemoryIDs(ctx, customerID, int(exceed))
-		if len(oldIDs) > 0 {
-			_ = m.memoryRepo.DeleteBusinessMemoriesByIDs(ctx, oldIDs)
-		}
+	if count+1 > int64(L4MaxPerCust) {
+		m.l4EvictImportanceAware(ctx, customerID, int(count+1-int64(L4MaxPerCust)))
 	}
 
 	meta := model.JSONMap{}
@@ -297,6 +295,51 @@ func (m *MemorySystem) L4ListByCustomer(ctx context.Context, customerID string, 
 	return m.memoryRepo.ListBusinessMemories(ctx, customerID, memoryType, limit)
 }
 
+// l4EvictPriority M-4 淘汰优先级：低重要性(<=3)=0 最先删，其余=1
+func l4EvictPriority(it model.BusinessMemory) int {
+	if it.Importance <= l4EvictLowImp {
+		return 0
+	}
+	return 1
+}
+
+// l4EvictImportanceAware M-4：importance 感知淘汰（替代 FIFO 删最旧）
+//   - 第一优先：importance<=3 中最旧的（降权记忆先淘汰）
+//   - 第二优先：importance 4-7 中最旧的
+//   - importance>=8 永不淘汰；若删除后仍超限（剩余全为高重要性），输出告警日志
+func (m *MemorySystem) l4EvictImportanceAware(ctx context.Context, customerID string, n int) {
+	if n <= 0 {
+		return
+	}
+	items, err := m.memoryRepo.ListBusinessMemories(ctx, customerID, "", l4EvictScanLimit)
+	if err != nil || len(items) == 0 {
+		return
+	}
+	sort.Slice(items, func(i, j int) bool {
+		pi, pj := l4EvictPriority(items[i]), l4EvictPriority(items[j])
+		if pi != pj {
+			return pi < pj
+		}
+		return items[i].CreatedAt.Before(items[j].CreatedAt)
+	})
+	ids := make([]uint, 0, n)
+	for _, it := range items {
+		if len(ids) >= n {
+			break
+		}
+		if it.Importance >= l4EvictProtectedImp {
+			continue
+		}
+		ids = append(ids, it.ID)
+	}
+	if len(ids) > 0 {
+		_ = m.memoryRepo.DeleteBusinessMemoriesByIDs(ctx, ids)
+	}
+	if remaining := len(items) - len(ids); remaining > L4MaxPerCust {
+		logger.Warnf("[MemorySystem] L4 记忆超限且剩余均为 importance>=%d 受保护记忆，暂缓淘汰 customer=%s remaining=%d cap=%d",
+			l4EvictProtectedImp, customerID, remaining, L4MaxPerCust)
+	}
+}
 
 // BuildFullContext 构造 4 层汇总上下文（用于 LLM 提示）
 func (m *MemorySystem) BuildFullContext(ctx context.Context, sessionID, customerID string) (string, error) {
@@ -390,12 +433,11 @@ func (m *MemorySystem) SyncFromDialogueMemory(ctx context.Context, mem *model.Di
 	logger.Infof("[MemorySystem] 同步 DialogueMemory customer=%s 完成", mem.CustomerID)
 }
 
-
 // LongTermMemoryRecallResult Recall 结果
 type LongTermMemoryRecallResult struct {
 	Memory     *model.CustomerLongTermMemory
-	Similarity float64 
-	Score      float64 
+	Similarity float64
+	Score      float64
 }
 
 // Remember 记录一条长期记忆（自动 Embedding + 存储）
@@ -430,6 +472,15 @@ func (m *MemorySystem) Remember(ctx context.Context, customerID string, memType 
 		return nil, fmt.Errorf("embedding failed: %w", err)
 	}
 
+	// M-2：写入前与同 customer 同 memType 的旧记忆做语义去重（cosine>=0.92）
+	dupItem, dedupErr := m.dedupLongTermMemory(ctx, customerID, memType, content, importance, vec)
+	if dedupErr != nil {
+		return nil, dedupErr
+	}
+	if dupItem != nil {
+		return dupItem, nil
+	}
+
 	item := &model.CustomerLongTermMemory{
 		CustomerID: customerID,
 		MemoryType: memType,
@@ -443,6 +494,43 @@ func (m *MemorySystem) Remember(ctx context.Context, customerID string, memType 
 		return nil, fmt.Errorf("save long term memory: %w", err)
 	}
 	return item, nil
+}
+
+// dedupLongTermMemory M-2：L2 fact 去重合并（吸收 mem0 dedup+merge 模式）
+// 新记忆与同 customer 同 memType 的旧记忆做余弦比对：
+//   - cosine >= 0.92 且内容与重要性均一致 → 语义等价，跳过写入（返回旧记忆）
+//   - cosine >= 0.92 但内容有更新 → UPDATE 原地替换文本/向量/重要性，保留旧 ID
+//     （对应决策 M-5：保 ID 即保留 append-only 演变链）
+//
+// 旧记忆扫描失败时降级为追加式写入，不阻塞主流程。
+func (m *MemorySystem) dedupLongTermMemory(ctx context.Context, customerID string, memType model.LongTermMemoryType, content string, importance int, vec []float32) (*model.CustomerLongTermMemory, error) {
+	existing, err := m.memoryRepo.ListLongTermMemories(ctx, customerID, string(memType), longTermDedupScanLimit)
+	if err != nil {
+		logger.Warnf("[MemorySystem] L2 去重扫描失败，降级追加式写入 customer=%s type=%s err=%v", customerID, memType, err)
+		return nil, nil
+	}
+	for i := range existing {
+		old := existing[i]
+		sim := cosineSimilarity(vec, bytesToFloat32Slice([]byte(old.Embedding)))
+		if sim < longTermDedupThreshold {
+			continue
+		}
+		if old.Content == content && old.Importance == importance {
+			logger.Infof("[MemorySystem] L2 语义等价跳过 customer=%s type=%s id=%d sim=%.3f", customerID, memType, old.ID, sim)
+			cp := old
+			return &cp, nil
+		}
+		old.Content = content
+		old.Embedding = embeddingToString(vec)
+		old.Importance = importance
+		if err := m.memoryRepo.SaveLongTermMemory(ctx, &old); err != nil {
+			return nil, fmt.Errorf("update dedup long term memory: %w", err)
+		}
+		logger.Infof("[MemorySystem] L2 去重合并(保 ID=%d) customer=%s type=%s sim=%.3f", old.ID, customerID, memType, sim)
+		cp := old
+		return &cp, nil
+	}
+	return nil, nil
 }
 
 // RememberWithSource 记录长期记忆（带来源 + 元信息）
@@ -674,4 +762,3 @@ func cosineSimilarity(a, b []float32) float64 {
 	}
 	return dot / (math.Sqrt(na) * math.Sqrt(nb))
 }
-

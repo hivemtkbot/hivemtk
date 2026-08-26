@@ -11,15 +11,17 @@ import (
 
 // AutoTagger 自动标签服务
 type AutoTagger struct {
-	tagRepo  repository.CustomerTagRepository
-	custRepo repository.CustomerRepository
+	tagRepo    repository.CustomerTagRepository
+	custRepo   repository.CustomerRepository
+	assignRepo repository.CustomerTagAssignmentRepository
 }
 
 // NewAutoTagger 创建自动标签服务实例
 func NewAutoTagger() *AutoTagger {
 	return &AutoTagger{
-		tagRepo:  repository.NewCustomerTagRepository(),
-		custRepo: repository.NewCustomerRepository(),
+		tagRepo:    repository.NewCustomerTagRepository(),
+		custRepo:   repository.NewCustomerRepository(),
+		assignRepo: repository.NewCustomerTagAssignmentRepository(),
 	}
 }
 
@@ -30,7 +32,14 @@ type TagRule struct {
 	Value    any    `json:"value"`    
 }
 
-// EvaluateAndTag 评估客户并自动打标签
+// RemoveCondition 标签移除条件（Rule JSON 可选字段 remove_condition，向后兼容：缺省不移除）
+type RemoveCondition struct {
+	Type  string `json:"type"`  
+	Days  int    `json:"days"`  
+	Event string `json:"event"` 
+}
+
+// EvaluateAndTag 评估客户并自动打标签（先执行移除评估，再执行添加）
 func (s *AutoTagger) EvaluateAndTag(ctx context.Context, customerID string) error {
 	customer, err := s.custRepo.GetByID(ctx, customerID)
 	if err != nil {
@@ -54,11 +63,41 @@ func (s *AutoTagger) EvaluateAndTag(ctx context.Context, customerID string) erro
 	for _, tag := range currentTags {
 		tagSet[tag] = true
 	}
+	oldTagSet := make(map[string]bool, len(tagSet))
+	for tag := range tagSet {
+		oldTagSet[tag] = true
+	}
 
 	eventRepo := repository.NewCustomerEventRepository()
 	events, err := eventRepo.GetByCustomerID(ctx, customerID, 1000)
 	if err != nil {
 		events = []*model.CustomerEvent{}
+	}
+
+	addedAtByTag, hasAddedAt := s.loadAssignmentTimes(ctx, customerID)
+
+	now := time.Now()
+
+	for _, tag := range autoTags {
+		if !tagSet[tag.Name] || tag.Rule == "" {
+			continue
+		}
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(tag.Rule), &parsed); err != nil {
+			continue
+		}
+		rcRaw, ok := parsed["remove_condition"]
+		if !ok {
+			continue
+		}
+		rcMap, ok := rcRaw.(map[string]any)
+		if !ok {
+			continue
+		}
+		addedAt, hasAt := addedAtByTag[tag.Name]
+		if s.shouldRemoveTag(rcMap, events, addedAt, hasAt && hasAddedAt, now) {
+			delete(tagSet, tag.Name)
+		}
 	}
 
 	customerData := s.buildCustomerDataSnapshot(ctx, customer, events)
@@ -85,7 +124,91 @@ func (s *AutoTagger) EvaluateAndTag(ctx context.Context, customerID string) erro
 		return err
 	}
 
+	s.recordNewAssignments(ctx, customerID, oldTagSet, tagSet, autoTags)
+
 	return s.custRepo.Update(ctx, customer)
+}
+
+// loadAssignmentTimes 加载客户标签的添加时间（来自 customer_tag_assignments）
+func (s *AutoTagger) loadAssignmentTimes(ctx context.Context, customerID string) (map[string]time.Time, bool) {
+	assignments, err := s.assignRepo.ListByCustomerID(ctx, customerID)
+	if err != nil {
+		return nil, false
+	}
+	times := make(map[string]time.Time, len(assignments))
+	for _, a := range assignments {
+		times[a.Tag] = a.CreatedAt
+	}
+	return times, true
+}
+
+// shouldRemoveTag 评估移除条件是否命中
+// days_since: 标签添加超 N 天移除（无添加时间记录时保守跳过，兼容存量数据）
+// event_absent: 近 N 天无指定事件则移除
+func (s *AutoTagger) shouldRemoveTag(cond map[string]any, events []*model.CustomerEvent, addedAt time.Time, hasAddedAt bool, now time.Time) bool {
+	condType, _ := cond["type"].(string)
+
+	switch condType {
+	case "days_since":
+		days := parseRuleDays(cond["days"])
+		if !hasAddedAt || addedAt.IsZero() || days <= 0 {
+			return false
+		}
+		return now.Sub(addedAt) > time.Duration(days)*24*time.Hour
+	case "event_absent":
+		eventName, _ := cond["event"].(string)
+		if eventName == "" {
+			return false
+		}
+		days := parseRuleDays(cond["days"])
+		cutoff := now.AddDate(0, 0, -days)
+		for _, event := range events {
+			if string(event.EventType) == eventName && event.OccurredAt.After(cutoff) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+// parseRuleDays 解析规则中的天数字段（兼容 float64 / int）
+func parseRuleDays(v any) int {
+	switch n := v.(type) {
+	case float64:
+		return int(n)
+	case int:
+		return n
+	case int64:
+		return int(n)
+	default:
+		return 0
+	}
+}
+
+// recordNewAssignments 为本轮新增的标签写入归属记录（best-effort，用于 days_since 移除评估）
+func (s *AutoTagger) recordNewAssignments(ctx context.Context, customerID string, oldTagSet, tagSet map[string]bool, autoTags []*model.CustomerTag) {
+	categoryByTag := make(map[string]string, len(autoTags))
+	for _, tag := range autoTags {
+		categoryByTag[tag.Name] = string(tag.Category)
+	}
+
+	for tagName := range tagSet {
+		if oldTagSet[tagName] {
+			continue
+		}
+		existing, err := s.assignRepo.GetByCustomerAndTag(ctx, customerID, tagName)
+		if err == nil && existing != nil {
+			continue
+		}
+		_ = s.assignRepo.Create(ctx, &model.CustomerTagAssignment{
+			CustomerID: customerID,
+			Tag:        tagName,
+			Category:   categoryByTag[tagName],
+			Source:     string(model.TagSourceAuto),
+		})
+	}
 }
 
 // ProcessEvent 处理事件以触发标签更新

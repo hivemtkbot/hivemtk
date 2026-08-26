@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/pkg/testutil"
 
 	"gorm.io/gorm"
@@ -20,6 +21,9 @@ func setupDialogueMemoryTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.DialogueMemory{},
 		&model.MessageHub{},
+		// M-3：dialogue_memory 作为 MemorySystem 适配器需要 L1/L2/向量 L2 表
+		&model.MemoryItem{},
+		&model.CustomerLongTermMemory{},
 	)
 }
 
@@ -27,7 +31,6 @@ func newMemoryService(t *testing.T) (*DialogueMemoryService, *gorm.DB) {
 	db := setupDialogueMemoryTestDB(t)
 	return NewDialogueMemoryService(db, nil), db
 }
-
 
 // 1. 第一次创建
 func TestGetOrCreate_New(t *testing.T) {
@@ -72,7 +75,6 @@ func TestGetOrCreate_NilDB(t *testing.T) {
 		t.Error("expected error")
 	}
 }
-
 
 // 5. 追加用户消息
 func TestAppendMessage_User(t *testing.T) {
@@ -119,7 +121,7 @@ func TestAppendMessage_AITruncate(t *testing.T) {
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	runes := utf8.RuneCountInString(mem.LastAction)
-	if runes > 110 { 
+	if runes > 110 {
 		t.Errorf("expected truncated, got %d runes", runes)
 	}
 }
@@ -138,7 +140,6 @@ func TestAppendMessage_Multiple(t *testing.T) {
 		t.Errorf("expected 5, got %d", mem.MessageCount)
 	}
 }
-
 
 // 9. 短期记忆从 message_hub 取
 func TestShortTerm_FromHub(t *testing.T) {
@@ -249,7 +250,6 @@ func TestShortTerm_Empty(t *testing.T) {
 	}
 }
 
-
 // 15. 长期记忆 - 不存在则创建
 func TestLongTerm_NotFoundCreates(t *testing.T) {
 	svc, _ := newMemoryService(t)
@@ -271,7 +271,6 @@ func TestLongTerm_Exists(t *testing.T) {
 		t.Error("expected same")
 	}
 }
-
 
 // 17. 更新 name 事实
 func TestUpdateKeyFacts_Name(t *testing.T) {
@@ -363,7 +362,6 @@ func TestUpdateKeyFacts_Custom(t *testing.T) {
 	}
 }
 
-
 // 25. 记录异议
 func TestRecordObjection_Basic(t *testing.T) {
 	svc, db := newMemoryService(t)
@@ -387,7 +385,6 @@ func TestRecordObjection_Multiple(t *testing.T) {
 		t.Errorf("expected 3, got %d", len(mem.Objections))
 	}
 }
-
 
 // 27. 购买意向 high
 func TestUpdatePurchaseIntent_High(t *testing.T) {
@@ -433,7 +430,6 @@ func TestUpdatePurchaseIntent_Invalid(t *testing.T) {
 	}
 }
 
-
 // 31. 记录意图
 func TestRecordIntent_Basic(t *testing.T) {
 	svc, db := newMemoryService(t)
@@ -471,7 +467,6 @@ func TestRecordIntent_OverflowTrim(t *testing.T) {
 	}
 }
 
-
 // 34. 记录 SOP
 func TestRecordSOP_Basic(t *testing.T) {
 	svc, db := newMemoryService(t)
@@ -495,7 +490,6 @@ func TestRecordSOP_Multiple(t *testing.T) {
 		t.Errorf("expected 3, got %d", len(mem.SOPHistory))
 	}
 }
-
 
 // 36. 客户列表
 func TestListByCustomer_Basic(t *testing.T) {
@@ -564,7 +558,6 @@ func TestListByCustomer_OverLimit(t *testing.T) {
 	}
 }
 
-
 // 42. 构建上下文
 func TestBuildContext_Basic(t *testing.T) {
 	svc, db := newMemoryService(t)
@@ -619,7 +612,6 @@ func TestBuildContext_Empty(t *testing.T) {
 	}
 }
 
-
 // 46. InitDialogueMemory
 func TestInitDialogueMemory(t *testing.T) {
 	db := setupMemoryTestDB(t)
@@ -629,7 +621,6 @@ func TestInitDialogueMemory(t *testing.T) {
 		t.Error("expected same")
 	}
 }
-
 
 // 47. truncate 短
 func TestTruncate_Short(t *testing.T) {
@@ -680,7 +671,6 @@ func TestStringMapToIface(t *testing.T) {
 		t.Errorf("expected 1, got %v", out["a"])
 	}
 }
-
 
 // 53. 完整流程
 func TestFullFlow(t *testing.T) {
@@ -819,7 +809,6 @@ func TestShortTerm_DifferentMsgType(t *testing.T) {
 		t.Errorf("expected 1, got %d", len(msgs))
 	}
 }
-
 
 // 61-100. 各种事实/异议/意图组合
 func TestFacts_AllFields(t *testing.T) {
@@ -1322,3 +1311,131 @@ func TestListByCustomer_NilDB(t *testing.T) {
 	}
 }
 
+// ---------- M-1：摘要触发改 recurrence（关键词 Jaccard 判重） ----------
+
+// M1-a: 近似重复文本 Jaccard >= 0.6
+func TestKeywordJaccard_NearDuplicate(t *testing.T) {
+	a := "我想了解一下这个产品的价格多少钱"
+	b := "我想了解一下这个产品的价格是多少"
+	if keywordJaccard(a, b) < summaryJaccardThresh {
+		t.Errorf("expected near-duplicate >= %v, got %v", summaryJaccardThresh, keywordJaccard(a, b))
+	}
+	if keywordJaccard("预算 5000 元左右", "预算 5000 元左右") != 1.0 {
+		t.Error("expected identical text jaccard=1.0")
+	}
+}
+
+// M1-b: 完全不同文本 Jaccard 低于阈值
+func TestKeywordJaccard_Different(t *testing.T) {
+	a := "你们的产品有什么功能"
+	b := "发货地址是深圳南山科技园"
+	if keywordJaccard(a, b) >= summaryJaccardThresh {
+		t.Errorf("expected different texts below threshold, got %v", keywordJaccard(a, b))
+	}
+}
+
+// M1-c: recurrence 触发——相似消息重复达 2 次即触发（替代每 5 条固定摘要）
+func TestOfferSummary_RecurrenceTrigger(t *testing.T) {
+	db := setupDialogueMemoryTestDB(t)
+	svc := NewDialogueMemoryService(db, nil)
+	mem := &model.DialogueMemory{SessionID: "s-rec"}
+
+	if svc.offerSummary(context.Background(), mem, "u-1", "这个产品的价格是多少钱") {
+		t.Error("first message should not trigger")
+	}
+	if svc.offerSummary(context.Background(), mem, "u-1", "这个产品的价格是多少钱呢") {
+		t.Error("second message (dup=1) should not trigger yet")
+	}
+	// 第三条近似消息 → 累计重复 >=2 → 触发
+	if !svc.offerSummary(context.Background(), mem, "u-1", "这个产品的价格到底是多少钱") {
+		t.Error("third similar message should trigger (dups>=2)")
+	}
+}
+
+// M1-d: 缓冲满 12 条触发
+func TestOfferSummary_BufferFullTrigger(t *testing.T) {
+	db := setupDialogueMemoryTestDB(t)
+	svc := NewDialogueMemoryService(db, nil)
+	mem := &model.DialogueMemory{SessionID: "s-buf"}
+
+	triggered := false
+	topics := []string{"发货时效", "售后保修", "企业资质", "代理政策", "发票开具", "安装调试",
+		"培训课程", "数据迁移", "接口文档", "并发上限", "私有部署", "续费价格"}
+	for i := 0; i < summaryBufferMax-1; i++ {
+		if svc.offerSummary(context.Background(), mem, "u-1", topics[i]) {
+			t.Fatalf("should not trigger before buffer full at i=%d", i)
+		}
+	}
+	triggered = svc.offerSummary(context.Background(), mem, "u-1", "最后一条压满缓冲区的消息-beta")
+	if !triggered {
+		t.Errorf("expected trigger when buffer reaches %d", summaryBufferMax)
+	}
+	// 触发后缓冲清空，重新累计
+	if svc.offerSummary(context.Background(), mem, "u-1", "新的一轮开始消息-gamma") {
+		t.Error("buffer should be reset after trigger")
+	}
+}
+
+// M1-e: 无 dispatcher 时 AppendMessage 不触发摘要但仍计数
+func TestAppendMessage_NoDispatcherNoSummaryTrigger(t *testing.T) {
+	svc, db := newMemoryService(t)
+	for i := 0; i < 20; i++ {
+		svc.AppendMessage(context.Background(), "s-1", "u-1", dto.Message{
+			Role: "user", Content: fmt.Sprintf("消息-%d", i), Timestamp: time.Now(),
+		})
+	}
+	var count int64
+	db.Model(&model.CustomerLongTermMemory{}).Count(&count)
+	if count != 0 {
+		t.Errorf("no dispatcher: expected no LLM summary writes, got %d", count)
+	}
+}
+
+// ---------- M-3：双轨写合并适配器 ----------
+
+// M3-a: AppendMessage 双写 MemorySystem L1
+func TestAppendMessage_DualWriteL1(t *testing.T) {
+	db := setupDialogueMemoryTestDB(t)
+	svc := NewDialogueMemoryService(db, nil)
+	svc.AppendMessage(context.Background(), "s-l1", "c-l1", dto.Message{
+		Role: "user", Content: "双写短期记忆验证", Timestamp: time.Now(),
+	})
+	items, err := svc.ms.L1List(context.Background(), "s-l1", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Content != "双写短期记忆验证" {
+		t.Errorf("expected L1 dual write, got %+v", items)
+	}
+}
+
+// M3-b: 摘要结果统一经 routeSummaryToMemorySystem 写入（Remember 成功路径）
+func TestRouteSummary_RememberPath(t *testing.T) {
+	db := setupDialogueMemoryTestDB(t)
+	svc := NewDialogueMemoryService(db, nil)
+	svc.ms.embeddingSvc = llm.NewHashEmbeddingService(1024)
+
+	svc.routeSummaryToMemorySystem(context.Background(), "c-m3", "客户关注价格与售后保障",
+		map[string]string{"budget": "5k"})
+	svc.routeSummaryToMemorySystem(context.Background(), "c-m3", "客户关注价格与售后保障",
+		map[string]string{"budget": "5k"})
+
+	var count int64
+	db.Model(&model.CustomerLongTermMemory{}).
+		Where("customer_id = ?", "c-m3").Count(&count)
+	// 摘要 + fact 各一条；第二次路由被 M-2 去重跳过，不翻倍
+	if count != 2 {
+		t.Errorf("expected 2 memories after dedup routing, got %d", count)
+	}
+}
+
+// M3-c: 空 customerID / nil ms 防御
+func TestRouteSummary_Guards(t *testing.T) {
+	db := setupDialogueMemoryTestDB(t)
+	svc := NewDialogueMemoryService(db, nil)
+	svc.ms.embeddingSvc = llm.NewHashEmbeddingService(1024)
+	svc.routeSummaryToMemorySystem(context.Background(), "", "无客户ID摘要", nil)
+
+	nilSvc := NewDialogueMemoryService(nil, nil)
+	nilSvc.routeSummaryToMemorySystem(context.Background(), "c-x", "摘要", nil)
+}

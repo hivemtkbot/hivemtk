@@ -187,3 +187,22 @@ func (s *AlertRuleService) ListHistory(ctx context.Context, page, size int, rule
 func (s *AlertRuleService) ResolveHistory(ctx context.Context, ruleID uint) error {
 	return s.hist.ResolveFiring(ctx, ruleID, time.Now())
 }
+
+// UnreadAlerts 未恢复告警概览（OpsOverview 顶栏未读角标）
+type UnreadAlerts struct {
+	Count int64               `json:"count"`
+	List  []*model.AlertHistory `json:"list"`
+}
+
+// GetUnread 返回未恢复（firing）告警计数与最近列表
+func (s *AlertRuleService) GetUnread(ctx context.Context, limit int) (*UnreadAlerts, error) {
+	count, err := s.hist.CountFiring(ctx)
+	if err != nil {
+		return nil, err
+	}
+	list, err := s.hist.ListFiring(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	return &UnreadAlerts{Count: count, List: list}, nil
+}

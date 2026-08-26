@@ -4,13 +4,22 @@ import (
 	"context"
 	"errors"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 	"math"
 	"strconv"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // RFMCalculatorService RFM 计算服务
+//
+// Deprecated (P-3 RFM 双体系统一)：本服务与 CustomerRFMService 曾是两套打分口径。
+// 现可配 rule 能力已并入 CustomerRFMService 的 RFMConfig（见 RFMConfigFromRule），
+// 打分函数已委托给 customer_rfm.go 的统一实现，保证两入口口径一致。
+// 唯一存量调用方 internal/controller/user_segment.go（分群管理页规则 CRUD/查询）暂未迁移；
+// 新代码一律使用 CustomerRFMService（保留挽回队列联动）。
 type RFMCalculatorService struct {
 	rfmRuleRepo *repository.RFMRuleRepository
 	userRfmRepo *repository.UserRFMRepository
@@ -113,66 +122,26 @@ func (s *RFMCalculatorService) getUserStats(ctx context.Context, userID uint) (*
 }
 
 // calcRScore 计算 R 得分（Recency - 最近一次消费时间）
+// P-3：委托统一实现 rfmScoreRecencyCfg（与 CustomerRFMService 同口径）
 func (s *RFMCalculatorService) calcRScore(ctx context.Context, lastTransactionAt *time.Time, rule *model.RFMRule) int {
 	if lastTransactionAt == nil {
 		return 1
 	}
 
 	days := int(time.Since(*lastTransactionAt).Hours() / 24)
-
-	if days <= rule.RDays1 {
-		return 5
-	} else if days <= rule.RDays2 {
-		return 4
-	} else if days <= rule.RDays3 {
-		return 3
-	} else if days <= rule.RDays4 {
-		return 2
-	} else if days <= rule.RDays5 {
-		return 1
-	}
-	return 1
+	return rfmScoreRecencyCfg(days, RFMConfigFromRule(rule))
 }
 
 // calcFScore 计算 F 得分（Frequency - 消费频次）
+// P-3：委托统一实现 rfmScoreFrequencyCfg
 func (s *RFMCalculatorService) calcFScore(ctx context.Context, transactionCount int, rule *model.RFMRule) int {
-	if transactionCount == 0 {
-		return 1
-	}
-
-	if transactionCount >= rule.FCount5 {
-		return 5
-	} else if transactionCount >= rule.FCount4 {
-		return 4
-	} else if transactionCount >= rule.FCount3 {
-		return 3
-	} else if transactionCount >= rule.FCount2 {
-		return 2
-	} else if transactionCount >= rule.FCount1 {
-		return 1
-	}
-	return 1
+	return rfmScoreFrequencyCfg(transactionCount, RFMConfigFromRule(rule))
 }
 
 // calcMScore 计算 M 得分（Monetary - 消费金额）
-// totalAmount 单位：分
+// totalAmount 单位：分；P-3：委托统一实现 rfmScoreMonetaryCfg
 func (s *RFMCalculatorService) calcMScore(ctx context.Context, totalAmount int64, rule *model.RFMRule) int {
-	if totalAmount == 0 {
-		return 1
-	}
-
-	if totalAmount >= rule.MAmount5 {
-		return 5
-	} else if totalAmount >= rule.MAmount4 {
-		return 4
-	} else if totalAmount >= rule.MAmount3 {
-		return 3
-	} else if totalAmount >= rule.MAmount2 {
-		return 2
-	} else if totalAmount >= rule.MAmount1 {
-		return 1
-	}
-	return 1
+	return rfmScoreMonetaryCfg(totalAmount, RFMConfigFromRule(rule))
 }
 
 // determineLayer 确定用户分层
@@ -229,10 +198,15 @@ func (s *RFMCalculatorService) CalculateAllUsers(ctx context.Context) (int, erro
 	for _, userID := range users {
 		rfm, err := s.CalculateRFM(ctx, userID, rule)
 		if err != nil {
+			// X-1：单用户失败不再静默 continue，记录告警后继续批量
+			logger.Warnf("[rfm-calculator] CalculateRFM failed (user=%d): %v", userID, err)
 			continue
 		}
 
-		existing, _ := s.userRfmRepo.GetByUserID(ctx, userID)
+		existing, err := s.userRfmRepo.GetByUserID(ctx, userID)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Warnf("[rfm-calculator] GetByUserID failed (user=%d): %v", userID, err)
+		}
 		if existing != nil {
 			rfm.ID = existing.ID
 			err = s.userRfmRepo.Update(ctx, rfm)

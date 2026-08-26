@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -30,7 +31,6 @@ func newLongTermMemorySystem(db *gorm.DB) *MemorySystem {
 		embeddingSvc: llm.NewHashEmbeddingService(1024),
 	}
 }
-
 
 func TestLongTermMemory_Remember_HappyPath(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
@@ -98,7 +98,7 @@ func TestLongTermMemory_Remember_InvalidMemoryType(t *testing.T) {
 
 func TestLongTermMemory_Remember_NoEmbeddingSvc(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
-	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)} 
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 	_, err := m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "内容", 5)
 	if err == nil {
 		t.Error("expected error for missing embedding service")
@@ -184,7 +184,6 @@ func TestLongTermMemory_RememberWithSource(t *testing.T) {
 	}
 }
 
-
 // TestLongTermMemory_PRDAcceptance_BudgetRecall 对应 PRD §5.2 G5 验收：
 // "第一次对话客户说预算 5000，第二次对话 AI 主动提及预算"
 func TestLongTermMemory_PRDAcceptance_BudgetRecall(t *testing.T) {
@@ -221,7 +220,6 @@ func TestLongTermMemory_PRDAcceptance_BudgetRecall(t *testing.T) {
 		t.Errorf("expected at least 1 result, got %d", len(results))
 	}
 }
-
 
 func TestLongTermMemory_Recall_EmptyDB(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
@@ -332,7 +330,7 @@ func TestLongTermMemory_Recall_ExpiredExcluded(t *testing.T) {
 
 func TestLongTermMemory_Recall_NoEmbeddingSvc(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
-	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)} 
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 	_, err := m.Recall(context.Background(), "c-1", "查询", 5)
 	if err == nil {
 		t.Error("expected error for missing embedding service")
@@ -390,7 +388,6 @@ func TestLongTermMemory_Recall_ResultsHaveScore(t *testing.T) {
 	}
 }
 
-
 func TestLongTermMemory_Rerank_ImportanceBoost(t *testing.T) {
 	now := time.Now()
 	rows := []repository.LongTermMemoryVectorRow{
@@ -411,7 +408,7 @@ func TestLongTermMemory_Rerank_ImportanceBoost(t *testing.T) {
 
 func TestLongTermMemory_Rerank_RecencyBoost(t *testing.T) {
 	now := time.Now()
-	old := now.Add(-29 * 24 * time.Hour) 
+	old := now.Add(-29 * 24 * time.Hour)
 	rows := []repository.LongTermMemoryVectorRow{
 		{ID: 1, CustomerID: "c-1", MemoryType: "fact", Content: "旧记忆", Importance: 5, Source: "conversation", CreatedAt: old, Similarity: 0.5},
 		{ID: 2, CustomerID: "c-1", MemoryType: "fact", Content: "新记忆", Importance: 5, Source: "conversation", CreatedAt: now, Similarity: 0.5},
@@ -461,7 +458,7 @@ func TestLongTermMemory_Rerank_LimitTruncation(t *testing.T) {
 
 func TestLongTermMemory_Rerank_RecencyClampToZero(t *testing.T) {
 	now := time.Now()
-	veryOld := now.Add(-60 * 24 * time.Hour) 
+	veryOld := now.Add(-60 * 24 * time.Hour)
 	rows := []repository.LongTermMemoryVectorRow{
 		{ID: 1, CustomerID: "c-1", Importance: 5, CreatedAt: veryOld, Similarity: 0.5},
 	}
@@ -494,7 +491,6 @@ func TestLongTermMemory_Rerank_MetadataPreserved(t *testing.T) {
 		t.Errorf("expected manual source, got %s", results[0].Memory.Source)
 	}
 }
-
 
 func TestLongTermMemory_ListLongTermMemories_HappyPath(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
@@ -539,8 +535,9 @@ func TestLongTermMemory_ListLongTermMemories_DefaultLimit(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
 
+	// 注意：内容必须各不相同——M-2 去重合并后，相同内容只会保留一条
 	for i := 0; i < 60; i++ {
-		m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "事实", 5)
+		m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, fmt.Sprintf("事实-%d", i), 5)
 	}
 
 	list, _ := m.ListLongTermMemories(context.Background(), "c-1", "", 0)
@@ -568,7 +565,6 @@ func TestLongTermMemory_ListLongTermMemories_NilDB(t *testing.T) {
 		t.Errorf("expected nil list for nil db, got %v", list)
 	}
 }
-
 
 func TestLongTermMemory_DeleteLongTermMemory(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
@@ -601,7 +597,6 @@ func TestLongTermMemory_DeleteLongTermMemory_NilDB(t *testing.T) {
 		t.Errorf("expected nil err for nil db, got %v", err)
 	}
 }
-
 
 func TestCosineSimilarity_SameVector(t *testing.T) {
 	v := []float32{1, 2, 3, 4}
@@ -688,12 +683,9 @@ func TestBytesToFloat32Slice_Empty(t *testing.T) {
 	}
 }
 
-
-
 // hashVecForTest 用 HashEmbeddingService 生成测试向量
 func hashVecForTest(text string) []float32 {
 	svc := llm.NewHashEmbeddingService(1024)
 	vec, _ := svc.EmbedOne(context.Background(), svc.DefaultConfig(), text)
 	return vec
 }
-

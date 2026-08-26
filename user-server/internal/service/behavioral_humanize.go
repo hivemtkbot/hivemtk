@@ -4,6 +4,24 @@ import (
 	"hivemtk-user/internal/service/humanize/behavioral"
 )
 
+// HumanizeScene 拟人场景（H-2：销售场景延迟 ×1.5，客服 2-3s / 销售 5-7s 基线）
+type HumanizeScene string
+
+const (
+	SceneSupport HumanizeScene = "support" // 客服场景（默认）
+	SceneSales   HumanizeScene = "sales"   // 销售场景
+)
+
+// H-2 决策参数（MASTER_COMPETITIVE_DECISIONS.md M5/H-2）：
+//   - ≤40 字符不分条（短回复豁免，< 单句禁用气泡拆分）
+//   - 延迟 = 基线 2s + 每 20 字符 +0.8s；销售场景 ×1.5
+const (
+	noSplitMaxChars    = 40
+	delayBaselineSec   = 2.0
+	delayPer20CharsSec = 0.8
+	salesSceneFactor   = 1.5
+)
+
 // BehavioralPlanBuilder 行为层拟人计划构造器
 //
 // 业界依据：Anthropic 2024 "Building effective agents" + IM UX 研究
@@ -18,6 +36,7 @@ import (
 type BehavioralPlanBuilder struct {
 	enabled bool
 	config  behavioral.BehaviorConfig
+	scene   HumanizeScene
 }
 
 // NewBehavioralPlanBuilder 构造计划构造器
@@ -25,6 +44,7 @@ func NewBehavioralPlanBuilder() *BehavioralPlanBuilder {
 	return &BehavioralPlanBuilder{
 		enabled: false, // 默认关闭（A/B 灰度）
 		config:  behavioral.DefaultBehaviorConfig(),
+		scene:   SceneSupport,
 	}
 }
 
@@ -44,6 +64,17 @@ func (b *BehavioralPlanBuilder) IsEnabled() bool {
 	return b.enabled
 }
 
+// SetScene 设置场景（影响动态延迟系数），空串视为客服场景
+func (b *BehavioralPlanBuilder) SetScene(scene HumanizeScene) {
+	if b == nil {
+		return
+	}
+	if scene == "" {
+		scene = SceneSupport
+	}
+	b.scene = scene
+}
+
 // SetConfig 设置详细配置
 func (b *BehavioralPlanBuilder) SetConfig(cfg behavioral.BehaviorConfig) {
 	if b == nil {
@@ -52,20 +83,31 @@ func (b *BehavioralPlanBuilder) SetConfig(cfg behavioral.BehaviorConfig) {
 	b.config = cfg
 }
 
-// Build 为给定文本构造行为层拟人发送计划
+// Build 为给定文本构造行为层拟人发送计划（兼容入口，使用 builder 当前场景）
+func (b *BehavioralPlanBuilder) Build(raw string, isFirstMessage bool) behavioral.SendPlan {
+	return b.BuildWithScene(raw, isFirstMessage, b.sceneOrDefault())
+}
+
+func (b *BehavioralPlanBuilder) sceneOrDefault() HumanizeScene {
+	if b == nil || b.scene == "" {
+		return SceneSupport
+	}
+	return b.scene
+}
+
+// BuildWithScene 按指定场景构造发送计划。
 //
-// inputs:
-//   - raw: LLM 原始输出
-//   - isFirstMessage: 是否首条消息（影响 thinking pause）
-//
-// 返回：SendPlan（多条消息 + 间隔 + 总延迟）
+// H-2 兼容扩展说明：底层 PlanSend 的分条与片段间隔逻辑保留不变，
+// 本层做两件事：
+//  1. 分条豁免 —— 文本 ≤40 rune 时强制关闭分条（短回复不发多条气泡）
+//  2. 动态总延迟 —— 覆盖 PlanSend 的固定打字时间累加：
+//     TotalDelay = (基线 2s + ceil(字符数/20)×0.8s) × 场景系数(销售 1.5)
+//     非首条消息附加思考停顿 ThinkingPauseSec（沿用原语义）
 //
 // 业界依据：
-//   - 短文本（< 80 字符）→ 不分条
-//   - 长文本 → 按标点分段（业界：句号 > 问号 > 逗号）
-//   - 每段间延迟 1.5s ± 20% jitter
-//   - 打字延迟：每字符 1/25 秒（人类中位数）
-func (b *BehavioralPlanBuilder) Build(raw string, isFirstMessage bool) behavioral.SendPlan {
+//   - 短回复（≤40 字符）禁用分条气泡（HubSpot/Keeper 拟人工实践）
+//   - 延迟随长度线性增长模拟真人打字；销售回复更慎重故 ×1.5
+func (b *BehavioralPlanBuilder) BuildWithScene(raw string, isFirstMessage bool, scene HumanizeScene) behavioral.SendPlan {
 	if b == nil || !b.enabled {
 		// 关闭：返回 trivial plan
 		return behavioral.SendPlan{
@@ -73,5 +115,28 @@ func (b *BehavioralPlanBuilder) Build(raw string, isFirstMessage bool) behaviora
 			Intervals: nil,
 		}
 	}
-	return behavioral.PlanSend(raw, b.config, isFirstMessage, nil)
+
+	cfg := b.config
+	n := len([]rune(raw))
+	if n <= noSplitMaxChars {
+		cfg.EnableMessageSplit = false
+	}
+
+	plan := behavioral.PlanSend(raw, cfg, isFirstMessage, nil)
+	plan.TotalDelay = dynamicTotalDelay(n, scene, isFirstMessage, cfg)
+	return plan
+}
+
+// dynamicTotalDelay H-2 动态延迟公式：
+// (基线 2s + 每 20 字符 +0.8s) × 场景系数（sales=1.5）；非首条消息加思考停顿。
+func dynamicTotalDelay(n int, scene HumanizeScene, isFirstMessage bool, cfg behavioral.BehaviorConfig) float64 {
+	units := (n + 19) / 20 // ceil(n/20)
+	d := delayBaselineSec + float64(units)*delayPer20CharsSec
+	if scene == SceneSales {
+		d *= salesSceneFactor
+	}
+	if !isFirstMessage {
+		d += cfg.ThinkingPauseSec
+	}
+	return d
 }

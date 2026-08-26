@@ -4,9 +4,13 @@ import (
 	"container/list"
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"time"
 )
+
+// ErrCacheMiss key 不存在或已过期时返回（对齐 RedisCache 未命中返回 redis.Nil 的契约）
+var ErrCacheMiss = errors.New("cache: key not found")
 
 // DefaultMaxKeys 默认 LRU 上限（修复：限制内存使用）
 const DefaultMaxKeys = 10_000
@@ -130,13 +134,11 @@ func (m *MemoryCache) peekItem(key string) (*cacheItem, bool) {
 }
 
 // Get 获取缓存
+// 未命中或已过期返回 ErrCacheMiss（与 RedisCache 未命中返回 redis.Nil 的契约对齐）
 func (m *MemoryCache) Get(ctx context.Context, key string) (string, error) {
 	item, ok := m.peekItem(key)
-	if !ok {
-		return "", nil
-	}
-	if !item.expiration.IsZero() && item.expiration.Before(time.Now()) {
-		return "", nil
+	if !ok || (!item.expiration.IsZero() && item.expiration.Before(time.Now())) {
+		return "", ErrCacheMiss
 	}
 	switch v := item.value.(type) {
 	case string:
@@ -407,10 +409,10 @@ func (m *MemoryCache) Exists(ctx context.Context, key string) (bool, error) {
 func (m *MemoryCache) GetJSON(ctx context.Context, key string, dest any) error {
 	item, ok := m.peekItem(key)
 	if !ok {
-		return nil
+		return ErrCacheMiss
 	}
 	if !item.expiration.IsZero() && item.expiration.Before(time.Now()) {
-		return nil
+		return ErrCacheMiss
 	}
 	switch v := item.value.(type) {
 	case string:

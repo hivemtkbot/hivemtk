@@ -14,8 +14,11 @@ const (
 
 // AgentSettingsConfig Agent Loop 运行期调参
 type AgentSettingsConfig struct {
-	MaxTools          int `json:"max_tools"`           
-	MaxLoopIterations int `json:"max_loop_iterations"` 
+	MaxTools          int      `json:"max_tools"`
+	MaxLoopIterations int      `json:"max_loop_iterations"`
+	// DisabledTools 租户级工具启停（TL-3）：列出的工具名在装配处被剔除，
+	// 对所有场景不可见；为空/未配置时全量启用（向后兼容）
+	DisabledTools []string `json:"disabled_tools,omitempty"`
 }
 
 // DefaultAgentSettingsConfig 返回当前代码内默认调参（尊重 SetAgentLoop* 注入值）。

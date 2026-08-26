@@ -36,6 +36,10 @@ import (
 )
 
 // SSE 配置
+//
+// B-1 心跳约束：Chrome MV3 extension service worker 要求 ≤30s 有消息交换才能保活，
+// SSE 下行必须以 ≤20s 间隔发送注释帧（":keepalive\n\n"，等价 ": ping\n\n" 语义），
+// 为网络抖动预留 10s 余量。max stream duration 500s 由 SSEDefaultMaxStreamDuration 承担。
 const (
 	SSEDefaultHeartbeatInterval = 15 * time.Second
 	SSEDefaultMaxStreamDuration  = 5 * time.Minute

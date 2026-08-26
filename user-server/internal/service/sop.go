@@ -27,6 +27,7 @@ import (
 )
 
 type SOPService struct {
+	db         *gorm.DB
 	agentRepo  *repository.SopAgentRepository
 	execRepo   *repository.SopExecutionRepository
 	dispatcher *llm.Dispatcher
@@ -126,6 +127,7 @@ type SOPEdge = dto.SOPEdge
 
 func NewSOPService(db *gorm.DB, dispatcher *llm.Dispatcher) *SOPService {
 	return &SOPService{
+		db:         db,
 		agentRepo:  repository.NewSopAgentRepository(db),
 		execRepo:   repository.NewSopExecutionRepository(db),
 		dispatcher: dispatcher,
@@ -167,6 +169,10 @@ func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOP
 	}
 	if err := ValidateSOPABTestConfig(req.ABTestConfig); err != nil {
 		return nil, fmt.Errorf("A/B 测试配置非法：%w", err)
+	}
+	// S1-1：entry_policy 配置校验（缺省 once，非法配置拒绝保存）
+	if err := ValidateSOPTriggerConfigEntryPolicy(model.JSONMap(req.TriggerConfig)); err != nil {
+		return nil, err
 	}
 	graphData, _ := json.Marshal(req.SOPGraph)
 	if req.TriggerType == "" {
@@ -213,6 +219,10 @@ func (s *SOPService) Update(ctx context.Context, id uint, req *CreateRequest) (*
 	}
 	if err := ValidateSOPABTestConfig(req.ABTestConfig); err != nil {
 		return nil, fmt.Errorf("A/B 测试配置非法：%w", err)
+	}
+	// S1-1：entry_policy 配置校验（Update 同步）
+	if err := ValidateSOPTriggerConfigEntryPolicy(model.JSONMap(req.TriggerConfig)); err != nil {
+		return nil, err
 	}
 	agent, err := s.agentRepo.GetByID(ctx, id)
 	if err != nil {
@@ -305,6 +315,13 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 	}
 	if !agent.IsActive {
 		return nil, errors.New("sop is not active")
+	}
+
+	// S1-1 防重复进入：入队前查 sop_executions(customer_id, sop_id) 历史
+	policy := ParseSOPEntryPolicy(agent.TriggerConfig)
+	if !s.entryAllowedByPolicy(ctx, req.SOPID, req.CustomerID, policy) {
+		logger.Infof("[SOP] entry_policy 拦截重复进入 sop=%d customer=%s mode=%s", req.SOPID, req.CustomerID, policy.Mode)
+		return nil, ErrSOPEntrySuppressed
 	}
 
 	variantName, variantGraphID, err := s.resolveABTestVariant(context.Background(), agent, req.CustomerID)
@@ -700,6 +717,35 @@ func detectSOPCycles(graph *SOPGraph) error {
 		}
 	}
 	return nil
+}
+
+// entryAllowedByPolicy S1-1：按 entry_policy 判断该客户是否可（重）进入该 SOP。
+//
+// 注意：repository 层暂无 (sop_id, customer_id) 最近历史查询方法，此处经 s.db 直查；
+// 迁移注册需求见报告——需下沉为 repository.FindLastExecution + 复合索引。
+func (s *SOPService) entryAllowedByPolicy(ctx context.Context, sopID uint, customerID string, policy SOPEntryPolicy) bool {
+	if policy.Mode == SOPEntryModeAlways {
+		return true
+	}
+	var last model.SOPExecution
+	err := s.db.WithContext(ctx).
+		Where("sop_id = ? AND customer_id = ?", sopID, customerID).
+		Order("created_at DESC").
+		First(&last).Error
+	if err != nil {
+		// 无历史记录 → 首次进入放行
+		return true
+	}
+	switch policy.Mode {
+	case SOPEntryModeCooldown:
+		window := policy.cooldownWindow()
+		if window <= 0 {
+			return true
+		}
+		return time.Since(last.CreatedAt) >= window
+	default: // once
+		return false
+	}
 }
 
 func findStartNode(graph *SOPGraph) *SOPNode {

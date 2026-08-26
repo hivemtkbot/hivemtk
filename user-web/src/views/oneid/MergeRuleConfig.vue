@@ -139,7 +139,16 @@ async function load() {
   loading.value = true
   try {
     const res = await http.get('/api/oneid/merge-rules')
-    rules.value = res || []
+    // 后端返回 {built_in:[], custom:[], strategy:{}} 对象，前端表格需要扁平数组
+    const list = Array.isArray(res)
+      ? res
+      : [...(res?.built_in || []), ...(res?.custom || [])]
+    rules.value = list.map(r => ({
+      ...r,
+      type: r.type || 'deterministic',
+      fields: Array.isArray(r.fields) ? r.fields : (r.field ? [r.field] : []),
+      threshold: typeof r.threshold === 'number' ? r.threshold : 100
+    }))
   } finally {
     loading.value = false
   }

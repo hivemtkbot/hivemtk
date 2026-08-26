@@ -22,6 +22,8 @@ func setupCustomReportServiceTestDB(t *testing.T) *gorm.DB {
 		&sysmodel.CustomerSession{},
 		&sysmodel.Clue{},
 		&sysmodel.UserRFM{},
+		&sysmodel.UnifiedMessage{},
+		&sysmodel.Customer{},
 	)
 }
 
@@ -29,6 +31,7 @@ func setupCustomReportServiceTestDB(t *testing.T) *gorm.DB {
 func setupCustomReportService(t *testing.T, testDB *gorm.DB) *CustomReportService {
 	db.SetTestDB(testDB)
 	return &CustomReportService{
+		db:          testDB,
 		reportRepo:  opsrepo.NewCustomReportRepository(),
 		sessionRepo: sysrepo.NewCustomerSessionRepository(),
 		clueRepo:    sysrepo.NewClueRepository(),
@@ -376,6 +379,9 @@ func TestCustomReportService_QueryReportData_Sessions(t *testing.T) {
 		Metrics:    []model.ReportMetric{{Field: "session_count", Label: "会话数"}},
 		ChartType:  "table",
 	}
+	if err := db.Create(&sysmodel.UnifiedMessage{ContentType: "text", Content: "hello"}).Error; err != nil {
+		t.Fatalf("seed unified_message: %v", err)
+	}
 	report, err := service.CreateReport(123, createReq)
 
 	data, err := service.QueryReportData(context.Background(), report, nil)
@@ -488,6 +494,9 @@ func TestCustomReportService_QueryReportData_Messages(t *testing.T) {
 		Metrics:    []model.ReportMetric{{Field: "message_count", Label: "消息数"}},
 		ChartType:  "area",
 	}
+	if err := db.Create(&sysmodel.UnifiedMessage{ContentType: "text", Content: "hello"}).Error; err != nil {
+		t.Fatalf("seed unified_message: %v", err)
+	}
 	report, err := service.CreateReport(123, createReq)
 
 	data, err := service.QueryReportData(context.Background(), report, nil)
@@ -505,6 +514,9 @@ func TestCustomReportService_QueryReportData_Agents(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
+	if err := db.Create(&sysmodel.CustomerSession{AgentName: "agent_a", AvgResponseTime: 120}).Error; err != nil {
+		t.Fatalf("seed customer_session: %v", err)
+	}
 	createReq := &CreateReportRequest{
 		Name:       "Agent Report",
 		DataSource: "agents",

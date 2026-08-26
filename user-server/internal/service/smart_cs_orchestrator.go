@@ -4,13 +4,35 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	"hivemtk-user/internal/aiagent/llm"
+	ragcache "hivemtk-user/internal/aiagent/rag/cache"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
+
+
+// faqPromptVersion FAQ 语义缓存 prompt 版本（RT-2 缓存 key 维度之一；
+// 答案生成 prompt 语义变更时必须递增，避免旧答案串新 prompt）
+const faqPromptVersion = "v1"
+
+// 全局 FAQ 语义缓存依赖（装配层经 SetGlobalFAQAnswerCache 注入，main.go 启动时）。
+// 未注入（nil）时 SmartCSOrchestrator 零影响直通，向后兼容硬要求。
+var (
+	globalFAQCache    *ragcache.FAQAnswerCacheService
+	globalFAQEmbedder llm.EmbeddingServiceInterface
+)
+
+// SetGlobalFAQAnswerCache 装配层注入 FAQ 答案语义缓存（M6 R-2 / RT-2 契约：仅 smart_cs FAQ 场景启用）
+func SetGlobalFAQAnswerCache(svc *ragcache.FAQAnswerCacheService, embedder llm.EmbeddingServiceInterface) {
+	globalFAQCache = svc
+	globalFAQEmbedder = embedder
+}
 
 
 // SmartCSOrchestrator 智能体编排器
@@ -28,6 +50,10 @@ type SmartCSOrchestrator struct {
 	confidenceThreshold float64 
 	enableAutoReply     bool    
 	maxAIConsecutive    int     
+
+	// FAQ 语义缓存（M6 R-2）：构造时从全局装配读取；nil 时零影响直通
+	faqCache    *ragcache.FAQAnswerCacheService
+	faqEmbedder llm.EmbeddingServiceInterface
 }
 
 // OrchestratorConfig 编排器配置
@@ -65,6 +91,8 @@ func NewSmartCSOrchestrator(engine *SalesEngine, cfg *OrchestratorConfig) *Smart
 		confidenceThreshold: cfg.ConfidenceThreshold,
 		enableAutoReply:     cfg.EnableAutoReply,
 		maxAIConsecutive:    cfg.MaxAIConsecutive,
+		faqCache:            globalFAQCache,
+		faqEmbedder:         globalFAQEmbedder,
 	}
 }
 
@@ -206,6 +234,20 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		}
 	}
 
+	// M6 R-2 FAQ 语义缓存 Lookup（RT-2 契约：仅知识库可答的 FAQ 场景）。
+	// 任一前提不满足（缓存未装配 / 座席未挂 KB / 向量化失败）即直通回源，零影响。
+	faqKBID, faqVec := "", []float32(nil)
+	if o.faqCache != nil && o.faqEmbedder != nil {
+		if faqKBID = o.resolveFAQKBID(ctx, finalAgentCtx); faqKBID != "" {
+			faqVec = o.embedFAQQuery(ctx, in.Content)
+		}
+	}
+	if len(faqVec) > 0 {
+		if res, hit := o.lookupFAQAnswerCache(ctx, faqKBID, faqVec, result); hit {
+			return res, nil
+		}
+	}
+
 	salesReq := &SalesRequest{
 		SessionID:   session.SessionID,
 		CustomerID:  session.UserID,
@@ -260,6 +302,23 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	result.AIReplied = true
 	result.Reply = salesResp.Reply
 
+	// M6 R-2 FAQ 语义缓存 Store：答案来自知识库召回（RAGChunks 非空 = FromKnowledgeBase
+	// 等效标志）时异步入缓存。四道门（CanCache）由缓存服务内部把关；失败仅告警不影响主链路。
+	if faqKBID != "" && len(faqVec) > 0 && len(salesResp.RAGChunks) > 0 && salesResp.Reply != "" {
+		go func(answer string, vec []float32) {
+			defer func() { _ = recover() }()
+			if err := o.faqCache.Store(context.Background(), ragcache.StoreRequest{
+				KBID:              faqKBID,
+				PromptVersion:     faqPromptVersion,
+				QueryVector:       vec,
+				Answer:            answer,
+				FromKnowledgeBase: true,
+			}); err != nil {
+				logger.Warnf("[ragcache] store answer failed (kb_id=%s): %v", faqKBID, err)
+			}
+		}(salesResp.Reply, faqVec)
+	}
+
 	if o.enableAutoReply && salesResp.Reply != "" {
 		if err := o.saveOutboundMessage(ctx, session, salesResp.Reply, true); err != nil {
 			return nil, fmt.Errorf("save outbound message failed: %w", err)
@@ -271,6 +330,89 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	return result, nil
 }
 
+
+// resolveFAQKBID 解析座席挂载的主 FAQ/RAG 知识库 ID（RT-2 缓存 key 的 kb_id 维度）。
+// 读不到（座席为空 / 无绑定 / DB 异常）返回空 = 本轮跳过缓存，零影响直通。
+func (o *SmartCSOrchestrator) resolveFAQKBID(ctx context.Context, agentCtx *AgentContext) string {
+	if agentCtx == nil || agentCtx.AgentID == 0 {
+		return ""
+	}
+	defer func() { _ = recover() }()
+	kbs, err := repository.NewKnowledgeBaseRepository(db.GetDB()).ListByAgent(ctx, agentCtx.AgentID)
+	if err != nil {
+		return ""
+	}
+	fallback := ""
+	for _, kb := range kbs {
+		switch kb.Type {
+		case model.KnowledgeBaseTypeFAQ:
+			return strconv.FormatUint(uint64(kb.ID), 10)
+		case model.KnowledgeBaseTypeRAG:
+			if fallback == "" {
+				fallback = strconv.FormatUint(uint64(kb.ID), 10)
+			}
+		}
+	}
+	return fallback
+}
+
+// embedFAQQuery 把用户消息向量化（与知识库 chunk 同一 embedding 服务，保证同向量空间）。
+// 失败返回 nil = 跳过缓存直通。
+func (o *SmartCSOrchestrator) embedFAQQuery(ctx context.Context, text string) []float32 {
+	defer func() { _ = recover() }()
+	vec, err := o.faqEmbedder.EmbedOne(ctx, o.faqEmbedder.DefaultConfig(), text)
+	if err != nil || len(vec) == 0 {
+		return nil
+	}
+	return vec
+}
+
+// lookupFAQAnswerCache 查询语义缓存；TierExact/TierSemantic 命中时直接以缓存答案回复。
+// 未命中/异常一律返回 hit=false 回源生成（零影响直通）。
+func (o *SmartCSOrchestrator) lookupFAQAnswerCache(ctx context.Context, kbID string, vec []float32, result *HandleResult) (*HandleResult, bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Warnf("[ragcache] lookup panic (kb_id=%s): %v", kbID, r)
+		}
+	}()
+	lr, err := o.faqCache.Lookup(ctx, ragcache.LookupRequest{
+		KBID:          kbID,
+		PromptVersion: faqPromptVersion,
+		QueryVector:   vec,
+	})
+	if err != nil || lr == nil || lr.Tier == ragcache.TierMiss || strings.TrimSpace(lr.Answer) == "" {
+		return nil, false
+	}
+	logger.Ctx(ctx).Info().
+		Str("kb_id", kbID).
+		Str("tier", string(lr.Tier)).
+		Float64("similarity", lr.Similarity).
+		Msg("[ragcache] FAQ answer cache HIT, skip LLM generation")
+	result.HandlerType = model.HandlerTypeAI
+	result.AIReplied = true
+	result.Reply = lr.Answer
+	result.Confidence = 1.0
+	if o.enableAutoReply {
+		if session := o.sessionOfResult(result); session != nil {
+			_ = o.saveOutboundMessage(ctx, session, lr.Answer, true)
+			_ = o.incrementAIReplyCount(ctx, session)
+		}
+	}
+	return result, true
+}
+
+// sessionOfResult 按 result.SessionID 取会话（缓存命中路径的落库/计数用）；
+// 取不到返回 nil，调用方跳过后续会话级写操作（缓存命中回复本身不受影响）。
+func (o *SmartCSOrchestrator) sessionOfResult(result *HandleResult) *model.CustomerSession {
+	if result == nil || result.SessionID == "" {
+		return nil
+	}
+	session, err := o.sessionRepo.GetByIDString(context.Background(), result.SessionID)
+	if err != nil || session == nil {
+		return nil
+	}
+	return session
+}
 
 // findOrCreateSession 查找或创建会话
 //

@@ -40,6 +40,13 @@ var smsUnsubscribeKeywords = []string{
 //   - ResubscribePhone：允许用户重新订阅（合规要求）
 type SmsUnsubscribeService struct {
 	repo repository.SmsUnsubscribeRepository
+	// dnc 全局跨渠道退订标志位服务（退订成功后同步写入，见 syncGlobalDoNotContact）
+	dnc *DoNotContactService
+}
+
+// SetDoNotContact 注入全局退订标志位服务（不注入时按需懒加载默认实现）
+func (s *SmsUnsubscribeService) SetDoNotContact(dnc *DoNotContactService) {
+	s.dnc = dnc
 }
 
 // NewSmsUnsubscribeService 创建短信退订服务
@@ -70,7 +77,11 @@ func (s *SmsUnsubscribeService) UnsubscribePhone(ctx context.Context, phone, rea
 		existing.SourceMessageID = msgID
 		existing.KeywordMatched = keyword
 		existing.UnsubscribedAt = now
-		return s.repo.Update(ctx, existing)
+		if err := s.repo.Update(ctx, existing); err != nil {
+			return err
+		}
+		s.syncGlobalDoNotContact(ctx, phone)
+		return nil
 	}
 
 	record := &model.SmsUnsubscribe{
@@ -80,7 +91,28 @@ func (s *SmsUnsubscribeService) UnsubscribePhone(ctx context.Context, phone, rea
 		SourceMessageID: msgID,
 		KeywordMatched:  keyword,
 	}
-	return s.repo.Create(ctx, record)
+	if err := s.repo.Create(ctx, record); err != nil {
+		return err
+	}
+	s.syncGlobalDoNotContact(ctx, phone)
+	return nil
+}
+
+// syncGlobalDoNotContact 退订落库后同步写入全局跨渠道退订标志位（R-3a）
+//
+// phone→one_id 反查由 DoNotContactService.BlockFromPhone 负责：
+// 能反查到 customer.unified_id 则写真实 OneID；无法反查时降级用
+// "phone:"+phone 归一键（见 PhoneOneIDPrefix 注释）。
+// 同步失败不阻断退订主流程（phone 维度记录已落库），仅记错误日志。
+func (s *SmsUnsubscribeService) syncGlobalDoNotContact(ctx context.Context, phone string) {
+	dnc := s.dnc
+	if dnc == nil {
+		dnc = NewDoNotContactService(nil)
+		s.dnc = dnc
+	}
+	if err := dnc.BlockFromPhone(ctx, phone, model.DNCSourceSMSKeyword); err != nil {
+		logger.Errorf("[DNC] 短信退订同步全局标志位失败 phone=%s: %v", phone, err)
+	}
 }
 
 // IsUnsubscribed 检查手机号是否已退订（发送前必须调用）

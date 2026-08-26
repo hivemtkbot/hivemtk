@@ -8,6 +8,24 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
+// setupBridgeWhitelistForTest 注入测试白名单（B-5 后白名单由 bridge 包运行时注入，
+// service 包内测试需自行设置；返回恢复函数避免污染其他测试）。
+func setupBridgeWhitelistForTest(t *testing.T, channels ...string) {
+	t.Helper()
+	prev := make(map[string]struct{}, len(bridgeChannels))
+	for k := range bridgeChannels {
+		prev[k] = struct{}{}
+	}
+	SetBridgeChannels(channels)
+	t.Cleanup(func() {
+		names := make([]string, 0, len(prev))
+		for k := range prev {
+			names = append(names, k)
+		}
+		SetBridgeChannels(names)
+	})
+}
+
 // TestDeliverBridgeOutbound_DirectToOutbox 2026-08-18 二次审核修复回归：
 // 主动外联（proactive_reach / douyin_integration / AI Agent reach.*.send）经
 // DeliverBridgeOutbound 必须直接落 message_hub(status=pending)，被 ListPendingOutbound
@@ -17,6 +35,7 @@ import (
 // 静默丢失（httpReplyBuffer 的 Pull 没有任何生产调用方）。修复后 DeliverBridgeOutbound
 // 走 InboxIngressService.DeliverOutbound（与 AI 回复同队列），保证可靠投递。
 func TestDeliverBridgeOutbound_DirectToOutbox(t *testing.T) {
+	setupBridgeWhitelistForTest(t, "douyin")
 	db := testutil.NewTestDB(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)
 	SetGlobalInboxIngressService(svc)
@@ -79,6 +98,7 @@ func TestDeliverBridgeOutbound_DirectToOutbox(t *testing.T) {
 // TestDeliverBridgeOutbound_RejectsPlaceholderAccount 验证 S2 修复：
 // 占位账号 `<channel>-unknown` 主动外联时直接拒绝，不污染 outbox 队列。
 func TestDeliverBridgeOutbound_RejectsPlaceholderAccount(t *testing.T) {
+	setupBridgeWhitelistForTest(t, "douyin")
 	db := testutil.NewTestDB(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)
 	SetGlobalInboxIngressService(svc)
@@ -130,5 +150,31 @@ func TestDeliverBridgeOutbound_NotReady(t *testing.T) {
 	}
 	if err.Error() != "bridge outbound not ready: InboxIngressService not registered" {
 		t.Errorf("err = %q, want errBridgeOutboundNotReady", err.Error())
+	}
+}
+
+// TestSetBridgeChannels_SingleSource B-5 白名单单源化回归：
+// service 包不再手工维护渠道清单，白名单完全由 SetBridgeChannels（bridge init 从
+// channelgw.Default 注入）决定；空注入必须被忽略以防误清空。
+func TestSetBridgeChannels_SingleSource(t *testing.T) {
+	setupBridgeWhitelistForTest(t, "douyin", "xianyu")
+
+	if !isBridgeChannel("douyin") || !isBridgeChannel("xianyu") {
+		t.Error("注入的渠道应在白名单内")
+	}
+	if isBridgeChannel("tiktok") {
+		t.Error("未注入渠道不应在白名单内")
+	}
+
+	// 空注入忽略：白名单保持不变
+	SetBridgeChannels(nil)
+	if !isBridgeChannel("douyin") {
+		t.Error("空注入应被忽略，白名单不应被清空")
+	}
+
+	// 重建语义：以最近一次有效注入为准
+	SetBridgeChannels([]string{"kuaishou"})
+	if isBridgeChannel("douyin") || !isBridgeChannel("kuaishou") {
+		t.Error("白名单应以最近一次注入为准（运行时单一来源）")
 	}
 }

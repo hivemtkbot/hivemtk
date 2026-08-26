@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"fmt"
+	"strings"
+	"unicode"
 
 	"sort"
 
@@ -364,7 +366,64 @@ func (d *Dispatcher) DispatchMultiModel(ctx context.Context, req DispatchRequest
 	return results, nil
 }
 
-// MultiModelVote 多模型投票返回最一致答案
+// voteAgreementThreshold 投票判定阈值：两答案归一化后 bigram-Jaccard 相似度 ≥ 此值视为"一致"
+const voteAgreementThreshold = 0.80
+
+// normalizeVoteText 投票文本归一化：小写+折叠全部空白+NFC 近似（去零宽字符）
+func normalizeVoteText(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		switch {
+		case unicode.IsSpace(r):
+			b.WriteByte(' ')
+		case unicode.Is(unicode.Cf, r): // 零宽字符等格式字符
+		default:
+			b.WriteRune(unicode.ToLower(r))
+		}
+	}
+	return strings.Join(strings.Fields(b.String()), " ")
+}
+
+// bigramJaccard 字符 bigram Jaccard 相似度（无外部依赖，中文友好）
+func bigramJaccard(a, b string) float64 {
+	if a == b {
+		return 1
+	}
+	ra, rb := []rune(a), []rune(b)
+	if len(ra) < 2 || len(rb) < 2 {
+		if a == "" && b == "" {
+			return 1
+		}
+		return 0
+	}
+	setA := make(map[string]struct{}, len(ra))
+	for i := 0; i+1 < len(ra); i++ {
+		setA[string(ra[i:i+2])] = struct{}{}
+	}
+	setB := make(map[string]struct{}, len(rb))
+	inter := 0
+	for i := 0; i+1 < len(rb); i++ {
+		g := string(rb[i : i+2])
+		setB[g] = struct{}{}
+		if _, ok := setA[g]; ok {
+			inter++
+		}
+	}
+	union := len(setA) + len(setB) - inter
+	if union == 0 {
+		return 0
+	}
+	return float64(inter) / float64(union)
+}
+
+// MultiModelVote 多模型投票返回最一致答案。
+//
+// v3.1 重构（修复"名为投票实为取质量分"缺陷）：
+//  1. 归一化后计算两两 bigram-Jaccard 相似度
+//  2. 支持数 = 与自身相似度 ≥0.8 的答案数（含自身）
+//  3. 存在严格过半多数派 → 返回该派系中 QualityScore 最高者的原文
+//  4. 无过半多数派 → 回退 QualityScore 最高者（原行为保底）
 func (d *Dispatcher) MultiModelVote(results []*DispatchResult) string {
 	if len(results) == 0 {
 		return ""
@@ -373,16 +432,57 @@ func (d *Dispatcher) MultiModelVote(results []*DispatchResult) string {
 		return results[0].Content
 	}
 
-	bestIdx := 0
-	bestQuality := 0.0
+	norms := make([]string, len(results))
+	for i, r := range results {
+		norms[i] = normalizeVoteText(r.Content)
+	}
+	quality := make([]float64, len(results))
 	for i, r := range results {
 		d.mu.RLock()
 		p, ok := d.providers[r.Provider]
 		d.mu.RUnlock()
-		if ok && p.QualityScore > bestQuality {
-			bestQuality = p.QualityScore
-			bestIdx = i
+		if ok {
+			quality[i] = p.QualityScore
 		}
+	}
+
+	// 每个候选的"支持数"：与自身一致的答案数量
+	support := make([]int, len(results))
+	for i := range norms {
+		for j := range norms {
+			if i != j && bigramJaccard(norms[i], norms[j]) >= voteAgreementThreshold {
+				support[i]++
+			}
+		}
+	}
+
+	// 多数派判定：support+自身 > 半数
+	majoritySize := len(results)/2 + 1
+	bestIdx, bestQuality := -1, -1.0
+	hasMajority := false
+	for i := range results {
+		if support[i]+1 >= majoritySize {
+			hasMajority = true
+			break
+		}
+	}
+	if hasMajority {
+		for i := range results {
+			if support[i]+1 >= majoritySize && quality[i] > bestQuality {
+				bestQuality = quality[i]
+				bestIdx = i
+			}
+		}
+		logger.Debugf("[LLM] MultiModelVote 多数派命中: %d/%d", support[bestIdx]+1, len(results))
+	} else {
+		// 回退：质量分最高（原行为保底），并记录分歧率供观测
+		for i := range results {
+			if quality[i] > bestQuality {
+				bestQuality = quality[i]
+				bestIdx = i
+			}
+		}
+		logger.Debugf("[LLM] MultiModelVote 无过半多数派，回退质量分最高: provider=%s", results[bestIdx].Provider)
 	}
 	return results[bestIdx].Content
 }

@@ -332,6 +332,13 @@ func (s *WebhookService) TriggerInboundAI(ctx context.Context, channel, accountI
 		SentAt:         time.Now(),
 		Extra:          map[string]any{"sender_name": meta.SenderName},
 	}
+	// 钉钉临时回复通道透传（sendOutbound case ChannelDingTalk 消费）
+	if meta.SessionWebhook != "" {
+		hubMsg.Extra["session_webhook"] = meta.SessionWebhook
+		if meta.SessionWebhookExpiredAt > 0 {
+			hubMsg.Extra["session_webhook_expired_at"] = meta.SessionWebhookExpiredAt
+		}
+	}
 	if meta.IsGroup {
 		if hubMsg.Extra == nil {
 			hubMsg.Extra = model.JSONMap{}
@@ -362,6 +369,26 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 				Msg("[Webhook] runAIGeneration panic recovered — AI 链路已断开，请查 root cause")
 		}
 	}()
+
+	// 2026-08-25 修复（P0）：AI 处理锁全路径释放。
+	// 锁由 inbox_ingress.triggerAIForEvent 在触发前 SetNX（TTL 2min），此前唯一释放点在
+	// sendOutbound 尾部。本函数任何失败退出（replySem 超时 / 编排器重试后仍失败 /
+	// nil 结果 / 转人工 / panic）都不经过 sendOutbound → 会话锁滞留最长 2 分钟，
+	// 期间该会话所有新消息命中"AI 已在进行中，跳过本次触发"被静默丢弃（机器人不回复的直接原因之一）。
+	// 改为 defer 统一释放（幂等，sendOutbound 内的二次删除无害）；用 Background ctx，
+	// 避免入参 ctx（wechat webhook 的 30s 短生命周期 ctx）已取消导致释放失败。
+	//
+	// 注意：此处只释放不补触发——转人工/AI 主动不回复属于业务决策，立即重推会造成回复循环；
+	// 失败后的自愈依赖下一条入站消息（与既有设计一致），成功投递路径的补触发仍由 sendOutbound 负责。
+	if hubMsg != nil && hubMsg.ConversationID != "" {
+		convID := hubMsg.ConversationID
+		ingress := s.ingressSvc
+		defer func() {
+			if ingress != nil {
+				ingress.ReleaseAIProcessingFlag(context.Background(), convID)
+			}
+		}()
+	}
 	// 修复（2026-08-05 P0 大扫除）：replySem 加超时获取。
 	// 历史 bug：`s.replySem <- struct{}{}` 是阻塞写，AI 任务排队满时 goroutine 全部阻塞在 sema 上 → 越积越多 → OOM。
 	// 修复后超 5s 仍拿不到 sema → 当前 AI 任务跳过 + Error 日志，依赖下轮 inbound 重试。

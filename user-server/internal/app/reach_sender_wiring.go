@@ -175,7 +175,7 @@ type feishuLikeAdapter struct {
 }
 
 func (a *feishuLikeAdapter) SendMessage(ctx context.Context, accountID uint, openID, content, receiveIDType string) error {
-	return a.svc.SendMessage(ctx, accountID, openID, content, receiveIDType)
+	return a.svc.SendMessage(ctx, accountID, openID, content, receiveIDType, "")
 }
 
 type telegramLikeAdapter struct {

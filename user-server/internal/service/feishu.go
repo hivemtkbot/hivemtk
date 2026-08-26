@@ -5,6 +5,8 @@ import (
 
 	"context"
 
+	"encoding/binary"
+
 	"crypto/hmac"
 
 	"crypto/sha256"
@@ -187,7 +189,10 @@ func (s *FeishuIntegrationService) IngestMessage(ctx context.Context, req *Feish
 	return hubMsg, conv, nil
 }
 
-func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID uint, openID, content, receiveIDType string) error {
+// SendMessage 发送飞书文本消息。
+// conversationID：入站会话 ID（chat_id，oc_ 开头）。非空时出站记录落同一会话，
+// 保证钩子3 方向判定/去重/Recheck 与入站一致；为空时回退旧格式 feishu-{account}-{openID}。
+func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID uint, openID, content, receiveIDType, conversationID string) error {
 	if s.feishuMsgRepo == nil {
 		return errors.New("db nil")
 	}
@@ -211,10 +216,13 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	if idType == "open_chat_id" {
 		chatType = "group"
 	}
+	// 2026-08-25 修复（交付阻断）：飞书 im/v1/messages 的 content 必须是「字符串化 JSON」
+	// （官方文档 Send message content structure：content 为 string，如 "{\"text\":\"...\"}"）。
+	// 原实现传 map[string]string 对象 → 平台必然拒绝，所有 AI 回复发送失败。
 	body := map[string]any{
 		"receive_id": openID,
 		"msg_type":   "text",
-		"content":    map[string]string{"text": content},
+		"content":    feishuTextContentJSON(content),
 	}
 	b, _ := json.Marshal(body)
 	req, _ := http.NewRequestWithContext(ctx, "POST",
@@ -248,6 +256,10 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	if err := s.feishuMsgRepo.Create(ctx, outMsg); err != nil {
 		logger.Errorf("[Feishu] 出站消息落库失败 msg_id=%s: %v", outMsg.MsgID, err)
 	}
+	outConv := conversationID
+	if outConv == "" {
+		outConv = fmt.Sprintf("feishu-%d-%s", accountID, openID)
+	}
 	hubMsg, _ := s.hub.Push(ctx, &PushMessageRequest{
 		Platform:       "feishu",
 		AccountID:      fmt.Sprintf("%d", accountID),
@@ -257,7 +269,7 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 		SenderID:       fmt.Sprintf("%d", accountID),
 		ReceiverID:     openID,
 		Content:        content,
-		ConversationID: fmt.Sprintf("feishu-%d-%s", accountID, openID),
+		ConversationID: outConv,
 		IsAIReply:      true,
 		AIAgent:        "sales_engine",
 		SentAt:         timePtr(time.Now()),
@@ -772,17 +784,37 @@ func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accou
 }
 
 
-// DecryptFeishuEvent 用 EncryptKey 解密飞书事件 payload
+// DecryptFeishuEvent 解密飞书事件 payload。
+// 官方协议《事件订阅·加密事件》：
+//   - AES-256-CBC；Key = Base64Decode(EncryptKey)（43 位 key 解出 32 字节）
+//   - 密文 = Base64Decode(body.encrypt)；IV = 密文前 16 字节
+//   - 明文结构 = [16B 随机数][4B 大端 payload 长度][payload JSON]，再 PKCS7 去填充
+//
+// 2026-08-25 修复（交付阻断）：原实现 (a) 未 Base64Decode key、(b) 未剥离 20B 前缀，
+// 对真实飞书密文必解出乱码。兼容性：若长度前缀与实际不符（如旧测试数据无前缀），
+// 退回返回完整明文。
 func DecryptFeishuEvent(encryptKey, encrypted string) ([]byte, error) {
 	if encryptKey == "" {
 		return nil, errors.New("encrypt_key empty")
 	}
-	key := []byte(encryptKey)
-	if len(key) > 32 {
-		key = key[:32]
-	} else {
-		pad := make([]byte, 32-len(key))
-		key = append(key, pad...)
+	key, err := base64.StdEncoding.DecodeString(encryptKey)
+	if err != nil {
+		// 官方 43 位 EncryptKey 是无 padding 的标准 base64，需用 RawStdEncoding 解码
+		if k2, e2 := base64.RawStdEncoding.DecodeString(encryptKey); e2 == nil && len(k2) == 32 {
+			key = k2
+			err = nil
+		}
+	}
+	if err != nil || len(key) != 32 {
+		// 兼容非标准配置：退回原始字节截断/零填充到 32 字节
+		kb := []byte(encryptKey)
+		if len(kb) > 32 {
+			kb = kb[:32]
+		} else {
+			pad := make([]byte, 32-len(kb))
+			kb = append(kb, pad...)
+		}
+		key = kb
 	}
 	enc, err := base64.StdEncoding.DecodeString(encrypted)
 	if err != nil {
@@ -801,13 +833,27 @@ func DecryptFeishuEvent(encryptKey, encrypted string) ([]byte, error) {
 	plain := make([]byte, len(ciphertext))
 	mode.CryptBlocks(plain, ciphertext)
 	padLen := int(plain[len(plain)-1])
-	if padLen < 1 || padLen > aes.BlockSize {
+	if padLen < 1 || padLen > aes.BlockSize || padLen > len(plain) {
 		return nil, errors.New("invalid padding")
 	}
 	plain = plain[:len(plain)-padLen]
+	// 官方前缀：16B 随机 + 4B 大端长度。仅当长度字段与剩余字节数严格吻合才剥离，
+	// 否则视为无前缀数据原样返回（兼容旧测试夹具）。
+	if len(plain) > 20 {
+		n := binary.BigEndian.Uint32(plain[16:20])
+		if int(n) == len(plain)-20 {
+			return plain[20:], nil
+		}
+	}
 	return plain, nil
 }
 
 // timePtr 工具
 func timePtr(t time.Time) *time.Time { return &t }
 
+// feishuTextContentJSON 构造飞书 im/v1/messages 的 content 字段：
+// 官方契约要求「字符串化 JSON」（如 "{\"text\":\"...\"}"），非 JSON 对象。
+func feishuTextContentJSON(text string) string {
+	b, _ := json.Marshal(map[string]string{"text": text})
+	return string(b)
+}

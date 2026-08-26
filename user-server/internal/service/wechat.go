@@ -222,10 +222,13 @@ func (c *wechatTokenClient) getAccessToken(ctx context.Context) (string, error) 
 	return c.accessToken, nil
 }
 
+// wechatAPIBase 微信 API 基地址（包级变量便于单测注入 httptest 仿服务）
+var wechatAPIBase = "https://api.weixin.qq.com"
+
 // fetchAccessToken 从微信 API 获取 access_token
 func (c *wechatTokenClient) fetchAccessToken(ctx context.Context) (string, int, error) {
-	url := fmt.Sprintf("https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s",
-		c.appID, c.appSecret)
+	url := fmt.Sprintf("%s/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s",
+		wechatAPIBase, c.appID, c.appSecret)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -294,7 +297,7 @@ func (s *WechatService) SendCustomMessage(ctx context.Context, accountID uint, o
 	}
 
 	body, _ := json.Marshal(payload)
-	url := fmt.Sprintf("https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=%s", token)
+	url := fmt.Sprintf("%s/cgi-bin/message/custom/send?access_token=%s", wechatAPIBase, token)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {

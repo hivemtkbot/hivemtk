@@ -397,8 +397,9 @@ func TestWebhookService_Receive_Wechat(t *testing.T) {
 	body := []byte(`{"event_id":"w1","msg_signature":"x","timestamp":"1","nonce":"2"}`)
 	hdr := map[string]string{"X-Wechat-Timestamp": "1", "X-Wechat-Nonce": "2", "X-Wechat-Signature": "x"}
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelWechat, AccountID: "a1", Body: body, Headers: hdr})
-	if r.Accepted {
-		t.Error("expected rejected (no token configured)")
+	// W-6：未配置 secret 时跳过该渠道验签（原实现恒空串导致验签永远失败、回调全部被拒）
+	if !r.Accepted {
+		t.Errorf("expected accepted (secret 未配置时跳过验签), got %+v", r)
 	}
 }
 
@@ -623,3 +624,38 @@ func fmtKey(i int) string {
 	return "key_" + string(rune('a'+i%26)) + "_" + string(rune('0'+i/26%10))
 }
 
+
+// TestWebhookInsecureWebhookGuard W-1 验签绕过防护：
+// production 环境下 ALLOW_INSECURE_WEBHOOK=true 必须拒绝启动；dev/test/未设置保持现状。
+func TestWebhookInsecureWebhookGuard(t *testing.T) {
+	cases := []struct {
+		name          string
+		appEnv        string
+		mode          string
+		allowInsecure string
+		wantFatal     bool
+	}{
+		{"production+开关开启_拒绝", "production", "", "true", true},
+		{"MODE=production别名_拒绝", "", "production", "true", true},
+		{"production大小写不敏感_拒绝", "Production", "", "true", true},
+		{"production但开关未开_放行", "production", "", "false", false},
+		{"production且未设置变量_放行", "production", "", "", false},
+		{"development开启_放行", "development", "", "true", false},
+		{"test开启_放行", "test", "", "true", false},
+		{"未设置环境开启_放行(dev现状)", "", "", "true", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := insecureWebhookStartupError(tc.appEnv, tc.mode, tc.allowInsecure)
+			if gotFatal := err != nil; gotFatal != tc.wantFatal {
+				t.Fatalf("wantFatal=%v, got err=%v", tc.wantFatal, err)
+			}
+			if !tc.wantFatal && err == nil {
+				return
+			}
+			if tc.wantFatal && !strings.Contains(err.Error(), "ALLOW_INSECURE_WEBHOOK") {
+				t.Errorf("fatal 指引应包含变量名，got: %v", err)
+			}
+		})
+	}
+}

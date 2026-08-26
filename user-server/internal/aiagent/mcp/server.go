@@ -1,8 +1,8 @@
 // Package mcp implements the Model Context Protocol (MCP) server side.
 //
-// 规范：https://modelcontextprotocol.io/specification/2025-06-18
+// 规范：https://modelcontextprotocol.io/specification/2025-11-25
 //   - 协议：JSON-RPC 2.0
-//   - 传输：HTTP (JSON-RPC over HTTP POST) + SSE（可选）
+//   - 传输：HTTP (JSON-RPC over HTTP POST)；GET/SSE 流未实现（无推送需求，合法子集，见 TL-2）
 //   - 三大原语：Tools / Resources / Prompts
 //
 // 设计目标：
@@ -24,6 +24,7 @@ package mcp
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -32,8 +33,33 @@ import (
 	"hivemtk-user/internal/aiagent/agent/tooluse"
 )
 
-// ProtocolVersion MCP 协议版本
-const ProtocolVersion = "2025-06-18"
+// TL-2（MASTER_COMPETITIVE_DECISIONS M13）：对齐 MCP 2025-11-25 最小子集。
+// 支持的协议版本为 [2025-06-18, 2025-11-25]；客户端请求的版本不在支持范围内时，
+// initialize 响应返回服务端最新支持版（协议协商语义）。
+//
+// 无推送需求：不实现 GET/SSE 流（Streamable HTTP 规范允许服务器不提供
+// server→client SSE 流，仅以 POST 响应式返回），属合法子集。
+const (
+	ProtocolVersionLegacy = "2025-06-18"
+	ProtocolVersionLatest = "2025-11-25"
+)
+
+// ProtocolVersion 服务端最新支持版本（历史常量名，保持兼容）
+const ProtocolVersion = ProtocolVersionLatest
+
+// SupportedProtocolVersions 服务端支持的协议版本列表
+var SupportedProtocolVersions = []string{ProtocolVersionLegacy, ProtocolVersionLatest}
+
+// NegotiateProtocolVersion 协议版本协商：
+// 客户端请求版本在支持范围内 → 原样返回；否则返回最新支持版。
+func NegotiateProtocolVersion(requested string) string {
+	for _, v := range SupportedProtocolVersions {
+		if requested == v {
+			return v
+		}
+	}
+	return ProtocolVersionLatest
+}
 
 // ServerInfo 服务端元信息
 const ServerInfo = "hivemtk-tooluse-mcp"
@@ -174,6 +200,10 @@ type Server struct {
 	initialized bool
 	mu          sync.RWMutex
 
+	// TL-2：initialize 成功后生成的会话标识（可见 ASCII），
+	// 由 HTTP 层写入 Mcp-Session-Id 响应头并在后续请求中校验
+	sessionID       string
+
 	// 内部：会话信息（用于多客户端）
 	clientInfo      Implementation
 	clientCaps      ClientCapabilities
@@ -245,13 +275,14 @@ func (s *Server) handleInitialize(_ context.Context, req JSONRPCRequest) ([]byte
 		return s.errorResponse(req.ID, ErrCodeAlreadyInit, "already initialized", nil), nil
 	}
 	s.initialized = true
+	s.sessionID = newSessionID()
 	s.clientInfo = params.ClientInfo
 	s.clientCaps = params.Capabilities
 	s.initStartedAt = time.Now()
 	s.mu.Unlock()
 
 	result := InitializeResult{
-		ProtocolVersion: ProtocolVersion,
+		ProtocolVersion: NegotiateProtocolVersion(params.ProtocolVersion),
 		Capabilities: ServerCapabilities{
 			Tools:     &ToolsCapability{ListChanged: false},
 			Resources: &ResourcesCapability{},
@@ -360,6 +391,25 @@ func (s *Server) IsInitialized() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.initialized
+}
+
+// SessionID 返回 initialize 成功后生成的会话标识（未初始化为空串）。
+// HTTP 层将其写入 Mcp-Session-Id 响应头（spec：仅允许可见 ASCII 0x21-0x7E，
+// hex 编码满足该约束）。
+func (s *Server) SessionID() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.sessionID
+}
+
+// newSessionID 生成 32 字符 hex 会话 ID（可见 ASCII 子集，无外部依赖）
+func newSessionID() string {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		// crypto/rand 失败极罕见；退化为时间戳熵源
+		return fmt.Sprintf("%x", time.Now().UnixNano())
+	}
+	return fmt.Sprintf("%x", buf)
 }
 
 // successResponse 构造成功响应

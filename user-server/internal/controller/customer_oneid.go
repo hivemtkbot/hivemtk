@@ -294,6 +294,32 @@ func (c *CustomerOneIDController) SaveMergeRules(ctx *gin.Context) {
 	response.Success(ctx, out, "保存成功")
 }
 
+// PreviewMergeRules godoc
+// @Summary      合并规则命中预览
+// @Description  按提交的规则集预览「会合并哪些身份」，返回候选合并对数量与样例
+// @Tags         OneID
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  []service.MergePreviewRule  true  "规则数组（前端 MergeRuleConfig.vue 扁平结构）"
+// @Success      200   {object}  response.Response  "data: {candidateCount, samples:[{from,to,score}]}"
+// @Failure      400   {object}  response.Response
+// @Router       /api/oneid/merge-rules/preview [post]
+func (c *CustomerOneIDController) PreviewMergeRules(ctx *gin.Context) {
+	var rules []service.MergePreviewRule
+	if err := ctx.ShouldBindJSON(&rules); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		return
+	}
+	mergeRuleSvc := service.NewOneIDMergeRuleService()
+	out, err := mergeRuleSvc.PreviewMergeRules(ctx.Request.Context(), rules)
+	if err != nil {
+		response.ErrorFromDB(ctx, err, "合并预览失败")
+		return
+	}
+	response.Success(ctx, out, "预览成功")
+}
+
 // parsePageSize 解析页大小
 func parsePageSize(s string, def int) int {
 	if s == "" {

@@ -61,6 +61,10 @@ type TriggerInboundMeta struct {
 	IsGroup    bool
 	GroupID    string
 	GroupName  string
+	// SessionWebhook 钉钉机器人临时回复通道（官方协议：回复即 POST 此 URL）。
+	// 由入站回调捕获，经 sendOutbound case ChannelDingTalk 消费；其他渠道为空。
+	SessionWebhook          string
+	SessionWebhookExpiredAt int64
 }
 
 func WithSenderName(name string) TriggerInboundOption {
@@ -72,6 +76,13 @@ func WithGroup(groupID, groupName string) TriggerInboundOption {
 		m.IsGroup = true
 		m.GroupID = groupID
 		m.GroupName = groupName
+	}
+}
+
+func WithSessionWebhook(url string, expiredAt int64) TriggerInboundOption {
+	return func(m *TriggerInboundMeta) {
+		m.SessionWebhook = url
+		m.SessionWebhookExpiredAt = expiredAt
 	}
 }
 
@@ -350,14 +361,13 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 	if s.hubRepo != nil {
 		unreplied, withinWindow, err := s.hubRepo.HasUnrepliedCustomerMessage(ctx, event.ConversationID, InboxReplyWindow)
 		if err != nil {
-			logger.Ctx(ctx).Error().Err(err).
+			// 2026-08-25 修复：查询失败原先"保守不触发 AI"，导致 DB 抖动时用户消息静默无回复。
+			// 与本函数 interceptInbound 的"出错放行"约定对齐改为 fail-open：
+			// 上游 msg_id 去重/幂等已保证不会重复入库，宁可重复触发也不静默丢回复。
+			logger.Ctx(ctx).Warn().Err(err).
 				Str("conv_id", event.ConversationID).
-				Msg("[Inbox] 钩子3：查询最后一条消息方向失败，保守不触发 AI")
-			result.QueuedForAI = false
-			result.Reason = "query last message direction failed; not triggering AI"
-			return result, nil
-		}
-		if !unreplied {
+				Msg("[Inbox] 钩子3：查询最后一条消息方向失败，fail-open 放行本次 AI 触发")
+		} else if !unreplied {
 			result.QueuedForAI = false
 			result.Reason = "last message is outbound (平台自己发的); not triggering AI"
 			logger.Ctx(ctx).Info().
@@ -366,8 +376,7 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 				Str("event_id", event.EventID).
 				Msg("[Inbox] 钩子3：最后一条是平台自己发的，不触发 AI")
 			return result, nil
-		}
-		if !withinWindow {
+		} else if !withinWindow {
 			result.QueuedForAI = false
 			result.Reason = "last inbound outside 5min window; not triggering AI (历史消息)"
 			logger.Ctx(ctx).Info().
@@ -400,12 +409,24 @@ func (s *InboxIngressService) triggerAIForEvent(ctx context.Context, event *mode
 			Msg("[Inbox] aiTrigger 未配置 — 桥接入站消息不会创建 customer_sessions / 不会生成 AI 回复。请检查 router.Setup() 中 bridgeIngressSvc.SetAITrigger(webhookSvc) 是否在 bridge WS 注册前调用。")
 		return
 	}
-	opts := make([]TriggerInboundOption, 0, 2)
+	opts := make([]TriggerInboundOption, 0, 3)
 	if event.SenderName != "" {
 		opts = append(opts, WithSenderName(event.SenderName))
 	}
 	if event.IsGroup {
 		opts = append(opts, WithGroup(event.GroupID, groupNameOf(event)))
+	}
+	if event.Extra != nil {
+		if v, ok := event.Extra["session_webhook"].(string); ok && v != "" {
+			var exp int64
+			switch t := event.Extra["session_webhook_expired_at"].(type) {
+			case int64:
+				exp = t
+			case float64:
+				exp = int64(t)
+			}
+			opts = append(opts, WithSessionWebhook(v, exp))
+		}
 	}
 	func() {
 		defer func() {

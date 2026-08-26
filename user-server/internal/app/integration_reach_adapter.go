@@ -152,7 +152,7 @@ func (a *IntegrationReachAdapter) SendFeishu(ctx context.Context, accountID, ope
 	if err != nil {
 		return "", fmt.Errorf("feishu: %w", err)
 	}
-	if err := a.feishu.SendMessage(ctx, accID, openID, content, "open_id"); err != nil {
+	if err := a.feishu.SendMessage(ctx, accID, openID, content, "open_id", ""); err != nil {
 		logger.Ctx(ctx).Error().Err(err).Str("channel", "feishu").Str("account_id", accountID).Msg("reach send failed")
 		return "", fmt.Errorf("feishu send: %w", err)
 	}

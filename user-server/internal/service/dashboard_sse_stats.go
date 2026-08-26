@@ -26,6 +26,9 @@ type DashboardSnapshot struct {
 
 	Funnel *FunnelProgress `json:"funnel"`
 
+	// MessageVolume 消息量小时聚合（D-3/X-8 双读：summary 优先，陈旧回源 raw）
+	MessageVolume []MessageVolumePoint `json:"message_volume"`
+
 	LLMMetrics *LLMRealTimeMetrics `json:"llm_metrics"`
 }
 
@@ -66,6 +69,27 @@ type LLMRealTimeMetrics struct {
 	FailureRate     float64 `json:"failure_rate"`     
 }
 
+// MessageVolumePoint 消息量小时聚合点（D-3/X-8 双读输出，维度=platform）
+type MessageVolumePoint struct {
+	HourBucket   time.Time `json:"hour_bucket"`
+	Platform     string    `json:"platform"`
+	SessionCount int64     `json:"session_count"`
+	AICount      int64     `json:"ai_count"`
+	HumanCount   int64     `json:"human_count"`
+	MessageCount int64     `json:"message_count"`
+
+	// Source 数据来源：summary（msg_hourly_summary 主路径）/ raw（message_hub 原生 SQL 兜底）
+	Source string `json:"source"`
+}
+
+// summary 汇总可接受的最大陈旧度（X-8：summary 陈旧 >10min 回源原生 SQL）
+const summaryStaleThreshold = 10 * time.Minute
+
+const (
+	volumeSourceSummary = "summary"
+	volumeSourceRaw     = "raw"
+)
+
 // DashboardStatsService 实时驾驶舱统计服务
 //
 // 五层架构归属: L2 服务层
@@ -76,6 +100,8 @@ type DashboardStatsService interface {
 	CollectSessionStats(ctx context.Context, snap *DashboardSnapshot)
 	CollectHumanizeDistribution(ctx context.Context) HumanizeDistribution
 	CollectFunnel(ctx context.Context) *FunnelProgress
+	// CollectMessageVolume 采集消息量指标（X-8 双读：summary 优先，陈旧回源 raw）
+	CollectMessageVolume(ctx context.Context, windowHours int) []MessageVolumePoint
 }
 
 // dashboardStatsService 默认实现
@@ -272,6 +298,66 @@ func (s *dashboardStatsService) collectFunnelFromSessions(ctx context.Context) *
 		funnel.OverallRate = roundToFloat(float64(funnel.TotalWon)/float64(totalEntered)*100, 2)
 	}
 	return funnel
+}
+
+// CollectMessageVolume 采集消息量指标（X-8 双读策略）：
+//
+// 主路径：读 msg_hourly_summary（D-3 watermark 增量汇总表，容忍分钟级陈旧）；
+// 兜底：summary 为空、查询失败或最新 bucket 陈旧 > 10min 时，回源 message_hub
+// 原生 SQL 聚合（原生聚合保留作为实时兜底）。返回行携带 source 标记来源。
+func (s *dashboardStatsService) CollectMessageVolume(ctx context.Context, windowHours int) []MessageVolumePoint {
+	if s.repo == nil || windowHours <= 0 {
+		return []MessageVolumePoint{}
+	}
+	since := time.Now().Add(-time.Duration(windowHours) * time.Hour)
+
+	// 主路径：summary 表 + 陈旧判定
+	if rows, err := s.repo.QueryMessageVolumeFromSummary(ctx, since); err == nil {
+		stale := true
+		if latest, lerr := s.repo.LatestSummaryBucket(ctx); lerr == nil && latest != nil {
+			stale = time.Since(*latest) > summaryStaleThreshold
+		} else if lerr != nil {
+			logger.Ctx(ctx).Warn().Err(lerr).Msg("dashboard_sse: latest summary bucket query failed")
+		}
+		if !stale {
+			points := make([]MessageVolumePoint, 0, len(rows))
+			for _, r := range rows {
+				points = append(points, MessageVolumePoint{
+					HourBucket:   r.HourBucket,
+					Platform:     r.Platform,
+					SessionCount: r.SessionCount,
+					AICount:      r.AICount,
+					HumanCount:   r.HumanCount,
+					MessageCount: r.MessageCount,
+					Source:       volumeSourceSummary,
+				})
+			}
+			return points
+		}
+		logger.Ctx(ctx).Info().Msg("dashboard_sse: summary stale or empty, falling back to raw aggregation (X-8)")
+	} else {
+		logger.Ctx(ctx).Warn().Err(err).Msg("dashboard_sse: summary query failed, falling back to raw aggregation (X-8)")
+	}
+
+	// 兜底：message_hub 原生 SQL 聚合
+	rawRows, err := s.repo.QueryMessageVolumeRaw(ctx, since)
+	if err != nil {
+		logger.Ctx(ctx).Warn().Err(err).Msg("dashboard_sse: raw volume query failed")
+		return []MessageVolumePoint{}
+	}
+	points := make([]MessageVolumePoint, 0, len(rawRows))
+	for _, r := range rawRows {
+		points = append(points, MessageVolumePoint{
+			HourBucket:   r.HourBucket,
+			Platform:     r.Platform,
+			SessionCount: r.SessionCount,
+			AICount:      r.AICount,
+			HumanCount:   r.HumanCount,
+			MessageCount: r.MessageCount,
+			Source:       volumeSourceRaw,
+		})
+	}
+	return points
 }
 
 // roundToFloat 浮点保留 n 位小数

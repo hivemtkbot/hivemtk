@@ -125,10 +125,14 @@ type SOPExecution struct {
 	ErrorMessage   string     `gorm:"type:text" json:"error_message"`
 	Variant string `gorm:"type:varchar(50);index" json:"variant"`
 
-	LastEventAt  *time.Time `gorm:"index" json:"last_event_at"`             
-	AttemptCount int        `gorm:"default:0" json:"attempt_count"`         
-	TraceID      string     `gorm:"type:varchar(64);index" json:"trace_id"` 
-	WaitEvent    string     `gorm:"type:varchar(30)" json:"wait_event"`     
+	LastEventAt  *time.Time `gorm:"index" json:"last_event_at"`
+	AttemptCount int        `gorm:"default:0" json:"attempt_count"`
+	TraceID      string     `gorm:"type:varchar(64);index" json:"trace_id"`
+	WaitEvent    string     `gorm:"type:varchar(30)" json:"wait_event"`
+
+	// ExecutedNodes 已完成节点轨迹（SAGA 补偿依据，元素结构同 service.CompensationRecord）
+	// NULL/空 视为无补偿历史（向后兼容存量数据）
+	ExecutedNodes JSONArray `gorm:"type:text" json:"executed_nodes"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`

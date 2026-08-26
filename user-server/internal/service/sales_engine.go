@@ -255,6 +255,16 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 	}
 	resp.Intent = intentResult
 
+	// M4 I-3：clarify 意图 → 发澄清话术并结束本轮（不强选意图、不转人工、不触发 SOP）
+	if intentResult.IntentType == IntentClarify {
+		reply := BuildClarifyReply(intentResult)
+		resp.Reply = reply
+		resp.Steps = append(resp.Steps, dto.SalesStepLog{
+			Step: "3.5_clarify", Status: "ok", LatencyMs: 0, Detail: reply,
+		})
+		return resp, nil
+	}
+
 	transfer, reason := e.shouldTransferToHuman(ctx, intentResult, memCtx, req)
 	if transfer {
 		resp.TransferredToHuman = true
@@ -309,6 +319,8 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{
 			Step: "5.5_match_script", Status: "ok", LatencyMs: ms(stepStart),
 			Detail: fmt.Sprintf("script_id=%s rate=%.2f", script.ID, script.MatchRate),
+			// T-2 归因闭环：所用销冠话术 script_id 结构化落 trace span extra
+			Extra: map[string]any{"script_id": script.ID},
 		})
 	} else {
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{

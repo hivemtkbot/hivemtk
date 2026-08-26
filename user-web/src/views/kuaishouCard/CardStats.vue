@@ -178,6 +178,9 @@ const fetchCardStats = async () => {
     // 拦截器已解包，res 直接就是数据对象
     // 更新统计数据
     Object.assign(cardStats, res)
+    // 后端无数据时可能返回 null，需兜底为空数组，避免图表初始化崩溃
+    if (!Array.isArray(cardStats.dailyStats)) cardStats.dailyStats = []
+    if (!Array.isArray(cardStats.recentActivity)) cardStats.recentActivity = []
 
     // 更新图表
     nextTick(() => {

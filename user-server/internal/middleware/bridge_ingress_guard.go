@@ -99,7 +99,6 @@ func BridgeIngressGuard() gin.HandlerFunc {
 			q := c.Request.URL.Query()
 			q.Del("bridge_token")
 			c.Request.URL.RawQuery = q.Encode()
-			c.Request.URL.Path = c.Request.URL.Path // no-op keep
 		}
 		c.Next()
 	}

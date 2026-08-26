@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"fmt"
@@ -16,9 +15,9 @@ import (
 
 // 5 阶段阶段名常量 (用于 Steps 日志)
 const (
-	PhaseParallel = "0_phase_parallel" 
-	PhaseSerial   = "1_phase_serial"   
-	PhaseAsync    = "2_phase_async"    
+	PhaseParallel = "0_phase_parallel"
+	PhaseSerial   = "1_phase_serial"
+	PhaseAsync    = "2_phase_async"
 )
 
 // phase0Result Phase 0 并行执行结果聚合
@@ -27,8 +26,8 @@ const (
 // 注释中所谓"避免循环依赖"的借口不成立 — service → model 是允许的方向,
 // model → service 才是循环依赖, 两者方向不同。
 type phase0Result struct {
-	customer  *model.Customer       
-	memCtx    *model.DialogueMemory 
+	customer  *model.Customer
+	memCtx    *model.DialogueMemory
 	intent    *dto.RecognizeResult
 	intentCh  <-chan *dto.RecognizeResult
 	ragChunks []RAGChunk
@@ -87,7 +86,7 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 			Intent:      phase0.intent,
 			RAGChunks:   phase0.ragChunks,
 			Stage:       "",
-			AgentID: agentIDFromCtx(req),
+			AgentID:     agentIDFromCtx(req),
 		})
 		if decision != nil && decision.SkipLLM && decision.Reply != "" {
 			resp.Reply = decision.Reply
@@ -171,7 +170,7 @@ func (e *SalesEngine) runPhase0Parallel(ctx context.Context, req *SalesRequest) 
 			out.customer = c
 			mu.Unlock()
 		}
-		return nil 
+		return nil
 	})
 
 	g.Go(func() error {
@@ -280,10 +279,15 @@ func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, re
 			Step: "5.5_match_script", Status: "fail", Error: err.Error(),
 		})
 	} else {
-		resp.Steps = append(resp.Steps, dto.SalesStepLog{
+		stepLog := dto.SalesStepLog{
 			Step: "5.5_match_script", Status: "ok", LatencyMs: ms(stepStart),
-		})
-		_ = scriptTpl
+		}
+		if scriptTpl != nil {
+			// T-2 归因闭环：所用销冠话术 script_id 结构化落 trace span extra
+			stepLog.Extra = map[string]any{"script_id": scriptTpl.ID}
+			resp.ScriptTemplate = scriptTpl
+		}
+		resp.Steps = append(resp.Steps, stepLog)
 	}
 
 	stepStart = time.Now()
@@ -330,4 +334,3 @@ func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, re
 func (e *SalesEngine) shouldUseParallel() bool {
 	return featureflag.Get("parallel").Bool()
 }
-

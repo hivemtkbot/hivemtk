@@ -3,7 +3,15 @@ package bridge
 import (
 	gw "hivemtk-user/internal/channelgw"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/service"
 )
+
+// B-5 白名单单源化（2026-08-26）：service 包不能 import channelgw（反向依赖），
+// 故由本包在初始化时把 channelgw.Default（权威渠道注册表）注入 service 白名单，
+// 消除 service 侧独立维护的第二份清单。包初始化顺序保证 Default 已完成注册。
+func init() {
+	service.SetBridgeChannels(gw.Default.Names())
+}
 
 // 网页桥接渠道标识（与平台基础渠道同名——渠道编码统一后无 _web 后缀）
 //
@@ -11,16 +19,12 @@ import (
 // 旧的 douyin_web/xhs_web/kuaishou_web/xianyu_web 视为历史值，迁移脚本/前端已停止发送。
 // 保留同名常量是为兼容旧代码引用；常量值即全名。
 const (
-	ChannelDouyinWeb   = "douyin"      
-	ChannelXHSWeb      = "xiaohongshu" 
+	ChannelDouyinWeb   = "douyin"
+	ChannelXHSWeb      = "xiaohongshu"
 	ChannelTikTok      = "tiktok"
-	ChannelKuaishouWeb = "kuaishou" 
-	ChannelXianyuWeb   = "xianyu"   
+	ChannelKuaishouWeb = "kuaishou"
+	ChannelXianyuWeb   = "xianyu"
 )
-
-
-
-
 
 // NormalizeBridgeChannel 归一化网页桥接渠道标识（历史简写 → 全名）。
 //
@@ -51,4 +55,3 @@ func NormalizeBridgeChannel(ch string) string {
 func IsBridgeChannel(ch string) bool {
 	return gw.Default.IsChannel(NormalizeBridgeChannel(ch))
 }
-

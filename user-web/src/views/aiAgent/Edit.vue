@@ -598,7 +598,7 @@ const loadFaqOptions = async () => {
 
 const loadSopTemplateOptions = async () => {
   try {
-    const res = await sopTemplateApi.list({ page: 1, page_size: 200 })
+    const res = await sopTemplateApi.list({ page: 1, page_size: 100 })
     sopTemplateOptions.value = res?.list || []
   } catch (e) {
     console.warn('加载 SOP 模板列表失败：', e?.message)

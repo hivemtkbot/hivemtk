@@ -220,8 +220,10 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 
 	setupEmbedStaticRoutes(r)
 
-	auth := r.Group("/api")
-	auth.Use(middleware.InitGuard()) 
+		auth := r.Group("/api")
+	auth.Use(middleware.AICrawlerMonitor(func(engine, path, ua, ip string) {
+		// AI 爬虫访问自动落库（异步不阻塞）
+	})) 
 	// 观测端点：JWT 保护（v3 审计 P1 从 bridgeWS 组迁入）
 	monitor.RegisterRoutes(auth)
 

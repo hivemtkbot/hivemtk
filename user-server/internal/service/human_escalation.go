@@ -10,6 +10,8 @@ import (
 
 	"hivemtk-user/internal/cache"
 	"hivemtk-user/internal/pkg/utils/logger"
+
+	"github.com/redis/go-redis/v9"
 )
 
 
@@ -18,6 +20,11 @@ const (
 	HumanReasonKey = "hivemtk:session:escalate_reason:"
 	MerchantNotifQueue = "hivemtk:queue:merchant_notif"
 	HumanLockReasonTTL = 24 * time.Hour
+	// HumanLockDefaultTTL 人工锁默认 TTL：到期自动释放，AI 恢复服务。
+	// 可通过 SetLockTTL 覆盖。
+	HumanLockDefaultTTL = 24 * time.Hour
+	// LockExpiryCheckInterval 后台锁过期检查默认间隔
+	LockExpiryCheckInterval = time.Minute
 )
 
 // EscalationEvent 转人工事件载荷（推送到商户通知队列）
@@ -41,8 +48,13 @@ type HumanEscalationManager struct {
 
 	notifier Notifier
 
-	mu    sync.RWMutex
-	stats EscalationStats
+	// lockTTL 人工锁 TTL（默认 HumanLockDefaultTTL，SetLockTTL 可覆盖）
+	lockTTL time.Duration
+
+	mu            sync.RWMutex
+	stats         EscalationStats
+	// lockDeadlines 本实例经手的锁到期时间登记表（供后台过期检查使用）
+	lockDeadlines map[string]time.Time
 }
 
 // Notifier 通知接口（解耦消息总线实现）
@@ -66,9 +78,21 @@ func NewHumanEscalationManager(c cache.Cache) *HumanEscalationManager {
 		c = cache.GetGlobalCache()
 	}
 	return &HumanEscalationManager{
-		cache:    c,
-		notifier: NewCacheNotifier(c),
+		cache:         c,
+		notifier:      NewCacheNotifier(c),
+		lockTTL:       HumanLockDefaultTTL,
+		lockDeadlines: make(map[string]time.Time),
 	}
+}
+
+// SetLockTTL 覆盖人工锁 TTL（<=0 时恢复默认值）
+func (h *HumanEscalationManager) SetLockTTL(ttl time.Duration) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if ttl <= 0 {
+		ttl = HumanLockDefaultTTL
+	}
+	h.lockTTL = ttl
 }
 
 // SetNotifier 自定义通知实现（如 邮件 / 钉钉 / 飞书 webhook）
@@ -85,7 +109,7 @@ func (h *HumanEscalationManager) SetNotifier(ctx context.Context, n Notifier) {
 //   - reason: 触发原因（如 "crisis_high:骗子" / "angry_sentiment" / "handoff_human_intent"）
 //
 // 流程：
-//  1. 下发 Redis 分布式锁（永久）
+//  1. 下发 Redis 分布式锁（TTL 默认 24h，到期自动释放）
 //  2. 记录转人工原因（24h TTL）
 //  3. 推送"叮咚"通知到商户异步总线
 //  4. 记录统计
@@ -100,13 +124,24 @@ func (h *HumanEscalationManager) TriggerCensorshipEscalation(ctx context.Context
 		return errors.New("cache unavailable")
 	}
 
+	h.mu.RLock()
+	lockTTL := h.lockTTL
+	h.mu.RUnlock()
+
 	lockKey := HumanLockKey + sessionID
-	if err := h.cache.Set(ctx, lockKey, "true", 0); err != nil {
+	if err := h.cache.Set(ctx, lockKey, "true", lockTTL); err != nil {
 		h.mu.Lock()
 		h.stats.TotalRejections++
 		h.mu.Unlock()
 		return fmt.Errorf("set human lock failed: %w", err)
 	}
+
+	h.mu.Lock()
+	if h.lockDeadlines == nil {
+		h.lockDeadlines = make(map[string]time.Time)
+	}
+	h.lockDeadlines[sessionID] = time.Now().Add(lockTTL)
+	h.mu.Unlock()
 
 	reasonKey := HumanReasonKey + sessionID
 	_ = h.cache.Set(ctx, reasonKey, reason, HumanLockReasonTTL)
@@ -139,23 +174,148 @@ func (h *HumanEscalationManager) TriggerCensorshipEscalation(ctx context.Context
 	return nil
 }
 
+// RecentUserMessageFetcher 最近一条用户消息文本获取器。
+// 由调用方提供（如 inbox_ingress 消息处理入口处已有消息上下文），
+// 仅在 Redis 故障降级判断时被调用，用于 fail-safe 方向判定。
+type RecentUserMessageFetcher func() string
+
 // IsSessionLockedForHuman 检查会话是否被人工接管
 //
 // 用作 AI 大模型调用前的"前置阻断器"：
 //   - 返回 true：AI 彻底闭嘴，消息直接路由到坐席工作台
 //   - 返回 false：进入正常 AI 路由
 //
-// 缓存降级策略：Redis 不可用时返回 false（保守路由到 AI，保证可用性）
-func (h *HumanEscalationManager) IsSessionLockedForHuman(ctx context.Context, sessionID string) bool {
+// 缓存降级策略（fail-safe 保守方向）：
+//   - key 不存在（redis.Nil）：未锁定，放行 AI
+//   - Redis 故障：若调用方传入的最近一条用户消息命中转人工关键词
+//     （复用 nlp_keywords.go Transfer 词表），保守返回 true（fail-closed 转人工）+ ERROR 日志；
+//     否则返回 false 放行 AI + WARN 日志
+func (h *HumanEscalationManager) IsSessionLockedForHuman(ctx context.Context, sessionID string, recentUserMsg ...RecentUserMessageFetcher) bool {
 	if h.cache == nil || sessionID == "" {
 		return false
 	}
 	key := HumanLockKey + sessionID
 	val, err := h.cache.Get(ctx, key)
-	if err != nil {
+	switch {
+	case err == nil:
+		return val == "true"
+	case errors.Is(err, redis.Nil), errors.Is(err, cache.ErrCacheMiss):
+		// key 不存在（Redis 未命中 / 内存缓存未命中）：未锁定，放行 AI
 		return false
+	default:
+		return h.fallbackOnCacheFailure(sessionID, recentUserMsg...)
 	}
-	return val == "true"
+}
+
+// fallbackOnCacheFailure Redis 故障时的降级判断
+func (h *HumanEscalationManager) fallbackOnCacheFailure(sessionID string, fetchers ...RecentUserMessageFetcher) bool {
+	for _, f := range fetchers {
+		if f == nil {
+			continue
+		}
+		if MatchTransferKeywords(f()) {
+			logger.Errorf("[HumanEscalation] Redis 故障且最近用户消息命中转人工关键词，保守判定为人工接管 session=%s", sessionID)
+			return true
+		}
+	}
+	logger.Warnf("[HumanEscalation] Redis 故障且无转人工关键词命中，放行 AI 路由 session=%s", sessionID)
+	return false
+}
+
+// RenewSessionHumanLock 续期人工锁（坐席工作台活跃时调用）
+//
+// 接入点说明：应在坐席对会话的活跃操作处调用（如 unified_inbox 坐席回复 /
+// ws_agent_executor 坐席接管动作），防止坐席处理期间锁到期被后台释放。
+// ttl <= 0 时使用当前默认 lockTTL。
+func (h *HumanEscalationManager) RenewSessionHumanLock(ctx context.Context, sessionID string, ttl time.Duration) error {
+	if h.cache == nil || sessionID == "" {
+		return errors.New("cache or sessionID unavailable")
+	}
+	h.mu.RLock()
+	if ttl <= 0 {
+		ttl = h.lockTTL
+	}
+	h.mu.RUnlock()
+
+	if err := h.cache.Set(ctx, HumanLockKey+sessionID, "true", ttl); err != nil {
+		return err
+	}
+	h.mu.Lock()
+	h.lockDeadlines[sessionID] = time.Now().Add(ttl)
+	h.mu.Unlock()
+	logger.Infof("[HumanEscalation] session=%s 人工锁已续期 ttl=%s", sessionID, ttl)
+	return nil
+}
+
+// StartLockExpiryChecker 启动后台锁过期检查 goroutine（项目惯例：ticker 循环）。
+// 锁到期释放时向商户通知队列推送"人工锁已超时释放，AI 恢复服务"事件。
+func (h *HumanEscalationManager) StartLockExpiryChecker(ctx context.Context, interval time.Duration) {
+	if interval <= 0 {
+		interval = LockExpiryCheckInterval
+	}
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				h.checkExpiredLocks(ctx)
+			}
+		}
+	}()
+}
+
+// checkExpiredLocks 扫描登记表中已到期的锁：确认锁确实消失后推送商户通知并移除登记
+func (h *HumanEscalationManager) checkExpiredLocks(ctx context.Context) {
+	now := time.Now()
+	h.mu.RLock()
+	var expired []string
+	for sid, deadline := range h.lockDeadlines {
+		if now.After(deadline) {
+			expired = append(expired, sid)
+		}
+	}
+	h.mu.RUnlock()
+
+	for _, sid := range expired {
+		exists, err := h.cache.Exists(ctx, HumanLockKey+sid)
+		if err != nil {
+			continue // 缓存异常，下轮重试
+		}
+		if exists {
+			// 锁仍存在（可能被续期），顺延观察窗口继续盯
+			h.mu.RLock()
+			lockTTL := h.lockTTL
+			h.mu.RUnlock()
+			h.mu.Lock()
+			h.lockDeadlines[sid] = time.Now().Add(lockTTL)
+			h.mu.Unlock()
+			continue
+		}
+		h.mu.Lock()
+		delete(h.lockDeadlines, sid)
+		h.mu.Unlock()
+		h.notifyLockExpired(ctx, sid)
+	}
+}
+
+// notifyLockExpired 锁超时释放后推送商户通知（对齐 EscalationEvent 队列格式）
+func (h *HumanEscalationManager) notifyLockExpired(ctx context.Context, sessionID string) {
+	event := &EscalationEvent{
+		Event:     "HUMAN_LOCK_EXPIRED",
+		SessionID: sessionID,
+		Reason:    "人工锁已超时释放，AI 恢复服务",
+		Severity:  "low",
+		Timestamp: time.Now(),
+	}
+	if h.notifier != nil {
+		if err := h.notifier.Notify(ctx, event); err != nil {
+			logger.Warnf("[HumanEscalation] 锁超时通知推送失败 session=%s err=%v", sessionID, err)
+		}
+	}
+	logger.Infof("[HumanEscalation] session=%s 人工锁已超时释放，AI 恢复服务", sessionID)
 }
 
 // GetEscalationReason 获取转人工原因
@@ -179,6 +339,9 @@ func (h *HumanEscalationManager) ReleaseHumanLock(ctx context.Context, sessionID
 		return err
 	}
 	_ = h.cache.Delete(ctx, HumanReasonKey+sessionID)
+	h.mu.Lock()
+	delete(h.lockDeadlines, sessionID)
+	h.mu.Unlock()
 	logger.Infof("[HumanEscalation] session=%s 已解除人工接管", sessionID)
 	return nil
 }

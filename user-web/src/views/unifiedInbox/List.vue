@@ -131,6 +131,9 @@
 
     <!-- 会话列表 -->
     <el-table :data="conversationList" border style="width: 100%" v-loading="loading">
+      <template #empty>
+        <el-empty description="暂无会话" :image-size="80" />
+      </template>
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column label="来源平台" width="110">
         <template #default="{ row }">

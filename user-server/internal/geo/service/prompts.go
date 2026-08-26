@@ -206,8 +206,24 @@ func TopicClusterPrompt(brandName, keywords string) string {
 
 // ContentGenerationPrompt 内容生成 Prompt（迁移自 GEO 内容生成逻辑）
 // brandName: 品牌, advantages: 品牌优势, keyword: 目标关键词, wordCount: 字数, style: 风格
-func ContentGenerationPrompt(brandName, advantages, keyword, wordCount, style string) string {
-	return fmt.Sprintf(`你是 GEO（生成式引擎优化）内容创作专家，请围绕以下关键词创作高质量内容。
+
+// geoLangPrompt 多语言 prompt 映射（v3 竞品对齐 A8：Peec 115+语言覆盖）
+var geoLangPrompts = map[string]struct{ instruction, tone string }{
+	"zh": {"请使用简体中文撰写", "专业但亲切的语调"},
+	"en": {"Write in English. Use professional B2B tone with clear structure.", "professional yet approachable tone"},
+	"ja": {"日本語で執筆してください。丁寧でプロフェッショナルなトーンを使用してください。", "丁寧で信頼感のあるトーン"},
+	"ar": {"اكتب باللغة العربية مع الحفاظ على نبرة مهنية وموثوقة.", "نبرة مهنية وموثوقة"},
+}
+
+func geoPromptLang(lang string) string {
+	if _, ok := geoLangPrompts[lang]; ok {
+		return lang
+	}
+	return "zh"
+}
+
+func ContentGenerationPrompt(brandName, advantages, keyword, wordCount, style, language string) string {
+	base := fmt.Sprintf(`你是 GEO（生成式引擎优化）内容创作专家，请围绕以下关键词创作高质量内容。
 
 【品牌信息】
 - 品牌名称：%s
@@ -223,11 +239,11 @@ func ContentGenerationPrompt(brandName, advantages, keyword, wordCount, style st
 2. **品牌提及**：自然提及品牌 2-4 次，位置靠前（前1/3优先）
 3. **权威性**：包含评估维度、选择标准、数据占位（如"根据XX报告"）
 4. **可引用性**：信息密度高，结论先行，便于 AI 提取和引用
-5. **来源占位**：添加数据来源占位、案例来源占位、标准来源占位
+5. **来源占位**：添加数据来源占位、案例来源占位、标准来源占位`, brandName, advantages, keyword, wordCount, style)
 
-【输出格式】
-请输出完整的 Markdown 格式内容，包含标题、正文、列表等结构化元素。
-`, brandName, advantages, keyword, wordCount, style)
+	lp := geoLangPrompts[geoPromptLang(language)]
+	langHint := "\n\n【语言要求】" + lp.instruction + "（语调：" + lp.tone + "）"
+	return base + langHint
 }
 
 // ContentOptimizePrompt 内容优化 Prompt（迁移自 GEO 内容优化逻辑）

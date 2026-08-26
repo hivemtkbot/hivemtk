@@ -10,6 +10,7 @@ import (
 
 	"context"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
 
@@ -57,6 +58,8 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 
 	engagementScore, err := s.scoreEngagement(ctx, clue.ID)
 	if err != nil {
+		// X-1：engagement 查询失败不再静默吞没（降级为 0 分继续评分，但记录告警）
+		logger.Warnf("[clue-score] scoreEngagement failed (clue=%s): %v", clue.ID, err)
 		engagementScore = 0
 	}
 
@@ -120,13 +123,35 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 	if err := s.scoreRepo.Upsert(ctx, score); err != nil {
 		return nil, err
 	}
+	s.writeBackLevel(ctx, clue.ID, total)
 	return score, nil
 }
 
+// writeBackLevel 将评分映射的线索温度等级写回 clues 表（P-9 Level 动态化）。
+// 映射：score>=70→hot / 40-69→warm / <40→cold。失败仅告警，不影响评分结果返回。
+func (s *ClueScoreService) writeBackLevel(ctx context.Context, clueID string, score int) {
+	if s.clueRepo == nil || clueID == "" {
+		return
+	}
+	level := ClueLevelFromScore(score)
+	if err := s.clueRepo.UpdateByID(ctx, clueID, map[string]any{"level": level}); err != nil {
+		logger.Warnf("[clue-score] writeBackLevel failed (clue=%s, level=%s): %v", clueID, level, err)
+	}
+}
+
+// ClueLevelFromScore 线索评分 → 温度等级映射（P-9）。
+func ClueLevelFromScore(score int) string {
+	switch {
+	case score >= 70:
+		return "hot"
+	case score >= 40:
+		return "warm"
+	default:
+		return "cold"
+	}
+}
+
 // ScoreAll 对所有线索进行评分（受 limit 限制）
-//
-// 单次 SQL 用 CountByClueIDsBatch 拉所有线索的互动计数，缓存为 map，
-// 评分时从 map 取，IO 收敛到 2 次。
 func (s *ClueScoreService) ScoreAll(ctx context.Context, limit int) (int, error) {
 	if limit < 1 || limit > 1000 {
 		limit = 200
@@ -242,6 +267,7 @@ func (s *ClueScoreService) scoreClueWithEngagement(ctx context.Context, clue *mo
 	if err := s.scoreRepo.Upsert(ctx, score); err != nil {
 		return nil, err
 	}
+	s.writeBackLevel(ctx, clue.ID, total)
 	return score, nil
 }
 

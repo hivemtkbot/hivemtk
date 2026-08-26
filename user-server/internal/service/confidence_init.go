@@ -11,6 +11,15 @@ import (
 	confidencesvc "hivemtk-user/internal/service/confidence"
 )
 
+// init S-5 关键词单源化（2026-08-26）：confidence 包不能 import 本包（反向依赖），
+// 故在此把 nlp_keywords 的导出匹配函数注入 VetoExplicit。
+// Transfer ∪ Explicit 与历史 veto explicitKeywords 清单等价（含否定窗口过滤）。
+func init() {
+	confidencesvc.SetExplicitKeywordMatcher(func(content string) bool {
+		return MatchTransferKeywords(content) || MatchExplicitKeywords(content)
+	})
+}
+
 // 全局单例
 var (
 	confidenceAggregatorOnce sync.Once

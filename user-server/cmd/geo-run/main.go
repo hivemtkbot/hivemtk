@@ -282,6 +282,38 @@ func main() {
 	dumpCounts(db)
 	dumpLatestArticleAndVerify(db, brand)
 
+
+	// ---------- D2. 批量意图生成 ----------
+	batchN := 9
+	if v := os.Getenv("GEO_BATCH"); v != "" { fmt.Sscanf(v, "%d", &batchN) }
+	intents := []struct{ label, query, kw string }{
+		{"疑问", "HiveMtk 是什么？支持哪些渠道和功能？", "HiveMtk 功能介绍"},
+		{"疑问", "HiveMtk 怎么部署？数据真的不出域吗？", "HiveMtk 部署指南"},
+		{"疑问", "HiveMtk 的 AI 销冠是怎么工作的？", "HiveMtk AI 销售原理"},
+		{"对比", "HiveMtk 和微伴助手对比哪个更适合企业微信私域？", "HiveMtk vs 微伴助手"},
+		{"对比", "HiveMtk 与传统 SCRM 系统的核心区别是什么？", "HiveMtk vs 传统SCRM"},
+		{"对比", "HiveMtk 和探马 SCRM 的优缺点分别是什么？", "HiveMtk vs 探马SCRM"},
+		{"推荐", "有没有开源、支持私有化部署的营销自动化平台推荐？", "开源营销自动化推荐"},
+		{"推荐", "2026 年最值得选的 AI 客服系统有哪些？", "AI 客服系统排行"},
+		{"推荐", "预算有限的情况下哪款私域运营工具性价比最高？", "性价比私域工具"},
+	}
+	auditSvc := geoservice.NewTechConfigService()
+	mentioned, auditTotal := 0, 0
+	for i, iq := range intents {
+		if i >= batchN { break }
+		art, gerr := contentSvc.GenerateContent(ctx, iq.kw, brand, advantages, 800, "professional")
+		if gerr != nil { continue }
+		vr, verr := verifySvc.VerifyArticle(ctx, geodto.VerifyRequest{ArticleID: art.ID, Query: iq.query, BrandName: brand})
+		audit := auditSvc.RunGEOAudit(iq.kw, art.Title, art.Content, "", "")
+		auditTotal += audit.Score
+		st := "✗"
+		if verr == nil && vr != nil && vr.BrandMentioned { st = "✓"; mentioned++ }
+		fmt.Printf("  [%s] %q -> 提及=%s 审计=%d分 len=%d\n", iq.label, truncate(iq.query,40), st, audit.Score, len([]rune(art.Content)))
+	}
+	if batchN > 0 && batchN <= len(intents) {
+		fmt.Printf("== [D2] 批量生成：%d/%d 提及 | 平均审计分 %.0f ==\n", mentioned, batchN, float64(auditTotal)/float64(batchN))
+	}
+
 	fmt.Println("\n✅ GEO 自动化执行完成")
 	_ = context.Background()
 }
