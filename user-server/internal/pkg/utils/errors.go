@@ -19,3 +19,7 @@ var ErrUnauthorized = errors.New("unauthorized")
 // service 层在返回此类错误时应以 %w 包裹本哨兵。
 var ErrForbidden = errors.New("forbidden")
 
+// ErrServiceNotInit 表示服务未初始化（nil receiver）。
+// 通常用于防御性编程，防止 nil receiver 调用导致 panic。
+var ErrServiceNotInit = errors.New("service not initialized")
+

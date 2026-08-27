@@ -101,14 +101,14 @@ HiveMtk 后端采用**单体应用 + 模块化**设计，不引入微服务架�
 
 ### 3.3 横向能力包（pkg/）
 
-| 包 | 职责 | 可被谁引用 |
-|---|---|---|
-| `pkg/logger` | zerolog 封装 | 所有层 |
-| `pkg/cache` | Redis 缓存抽象 | Service、Middleware |
-| `pkg/metrics` | 轻量级指标采集（应用层巡检用）| Middleware、Service |
-| `pkg/trace` | TraceID 注入 | Middleware、Service |
-| `pkg/utils/urlguard` | URL 校验 | Controller、Service |
-| `pkg/tgbot` | Telegram bot SDK 封装 | 仅 Middleware / Service |
+| 包 | 职责 | 可被谁引用 | 实际路径 |
+|---|---|---|---|
+| `internal/cache` | Redis 缓存抽象（含内存/Redis 双实现） | Service、Middleware | `internal/cache/` |
+| `internal/pkg/utils/logger` | zerolog 封装（唯一日志实现） | 所有层 | `internal/pkg/utils/logger/` |
+| `internal/pkg/metrics` | 轻量级指标采集（应用层巡检用） | Middleware、Service | `internal/pkg/metrics/` |
+| `internal/pkg/trace` | TraceID 注入（与 traceparent 配套） | Middleware、Service | `internal/pkg/trace/` |
+| `internal/pkg/utils/urlguard` | URL 校验（含 SSRF 防护） | Controller、Service | `internal/pkg/utils/urlguard/` |
+| `internal/pkg/tgbot` | Telegram bot SDK 封装 | 仅 Middleware / Service | `internal/pkg/tgbot/` |
 
 横向包**不依赖**任何业务层（Controller/Service/Repository），保证低耦合。
 

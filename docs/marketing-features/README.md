@@ -2,7 +2,7 @@
 
 > **本文回答一个问题：这套系统有哪些功能。**
 > 定位：单商户私域部署的 AI 私域营销/客服一体化系统。
-> 所有功能描述与代码实现一一对应（源码基线见 `docs/architecture/AI_CORE_FEATURE_INVENTORY.md`），未完成的功能明确标注「骨架/规划中」，不做夸大。
+> 所有功能描述尽量与代码实现对应（源码级功能清单 F1–F15 见父仓库 [`docs/architecture/AI_CORE_FEATURE_INVENTORY.md`](../../../docs/architecture/AI_CORE_FEATURE_INVENTORY.md) 与本仓库 [`../../docs/architecture/AI_CORE_FEATURE_INVENTORY.md`](../../docs/architecture/AI_CORE_FEATURE_INVENTORY.md) 之一；以仓库内可达的文件为准）；未完成的功能明确标注「骨架/规划中」，不做夸大。
 
 ---
 
@@ -180,7 +180,9 @@ HiveMtk 是一套**开源自部署**的 AI 私域运营系统，解决一个核�
 
 ## 五、渠道触达层功能
 
-### 5.1 渠道接入（权威清单来自 `user-web/src/constants/channel.js`）
+### 5.1 渠道接入
+
+权威清单以父仓库 [`user-web/src/constants/channel.js`](../../../user-web/src/constants/channel.js) 为准（如该文件不存在，以 `user-server` 路由注册 `internal/router/` 中的渠道目录为准）。
 
 | 分组 | 渠道 |
 |------|------|
@@ -249,7 +251,7 @@ HiveMtk 是一套**开源自部署**的 AI 私域运营系统，解决一个核�
 | 嵌入 SDK | 原生 JS Widget | 第三方网站客服入口 |
 | 浏览器桥接 | Chrome 扩展 | 社交平台私信抓取上报 |
 
-**端口速查**（单一源 `internal/config/ports.go`）：
+**端口速查**（单一源 [`user-server/internal/config/ports.go`](../../user-server/internal/config/ports.go)，下表数值与该文件常量一一对应）：
 
 | 端口 | 服务 |
 |------|------|
@@ -266,7 +268,7 @@ HiveMtk 是一套**开源自部署**的 AI 私域运营系统，解决一个核�
 
 ## 九、已知限制（如实披露）
 
-以下短板在源码审查中确认存在（编号 G1–G12 见功能清单文档），选购/二开前请知悉：
+以下短板在源码审查中确认存在（编号 G1–G12 来自父仓库 [`docs/architecture/AI_CORE_FEATURE_INVENTORY.md`](../../../docs/architecture/AI_CORE_FEATURE_INVENTORY.md) 末尾的「已知限制」章节），选购/二开前请知悉：
 
 | # | 限制 | 影响 |
 |---|------|------|
@@ -290,7 +292,7 @@ HiveMtk 是一套**开源自部署**的 AI 私域运营系统，解决一个核�
 | [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md) | 怎么装起来（安装/部署/配置） |
 | [operations/MERCHANT_DEPLOYMENT.md](../operations/MERCHANT_DEPLOYMENT.md) | 运维手册（日常运维操作） |
 | [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) | 出了问题怎么办（故障排查） |
-| [architecture/AI_CORE_FEATURE_INVENTORY.md](../../../docs/architecture/AI_CORE_FEATURE_INVENTORY.md) | F1–F15 源码级功能清单 |
+| [architecture/AI_CORE_FEATURE_INVENTORY.md](../../../docs/architecture/AI_CORE_FEATURE_INVENTORY.md) | F1–F15 源码级功能清单（父仓库权威版） |
 
 ---
 

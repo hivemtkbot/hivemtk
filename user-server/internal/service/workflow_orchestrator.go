@@ -8,6 +8,7 @@ import (
 
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 
@@ -61,6 +62,16 @@ func (s *WorkflowOrchestratorService) SetDispatcher(d *WorkflowDispatcher) {
 
 // CreateVersion 创建工作流版本
 func (s *WorkflowOrchestratorService) CreateVersion(ctx context.Context, req *dto.WorkflowVersionCreateRequest) (*model.WorkflowVersion, error) {
+	if s == nil {
+		return nil, utils.ErrServiceNotInit
+	}
+	if req == nil || req.WorkflowID == "" {
+		return nil, utils.ErrInvalidInput
+	}
+	if req.Definition == nil {
+		return nil, utils.ErrInvalidInput
+	}
+
 	// 获取当前最大版本号
 	count, err := s.versionRepo.CountByWorkflowID(ctx, req.WorkflowID)
 	if err != nil {
@@ -89,6 +100,9 @@ func (s *WorkflowOrchestratorService) CreateVersion(ctx context.Context, req *dt
 
 // GetVersion 获取工作流版本详情
 func (s *WorkflowOrchestratorService) GetVersion(ctx context.Context, id uint) (*model.WorkflowVersion, error) {
+	if s == nil {
+		return nil, utils.ErrServiceNotInit
+	}
 	return s.versionRepo.GetByID(ctx, id)
 }
 
@@ -97,6 +111,12 @@ func (s *WorkflowOrchestratorService) GetVersion(ctx context.Context, id uint) (
 // 当无已发布版本时返回 ErrNoPublishedVersion sentinel error（而非 gorm.ErrRecordNotFound），
 // 便于上层/controller 用 errors.Is 精确判定。
 func (s *WorkflowOrchestratorService) GetLatestPublished(ctx context.Context, workflowID string) (*model.WorkflowVersion, error) {
+	if s == nil {
+		return nil, utils.ErrServiceNotInit
+	}
+	if workflowID == "" {
+		return nil, utils.ErrInvalidInput
+	}
 	v, err := s.versionRepo.GetLatestPublished(ctx, workflowID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -109,16 +129,28 @@ func (s *WorkflowOrchestratorService) GetLatestPublished(ctx context.Context, wo
 
 // ListVersions 列出工作流版本
 func (s *WorkflowOrchestratorService) ListVersions(ctx context.Context, workflowID string) ([]model.WorkflowVersion, error) {
+	if s == nil {
+		return nil, utils.ErrServiceNotInit
+	}
 	return s.versionRepo.ListVersions(ctx, workflowID)
 }
 
 // ListAll 列出所有工作流版本（用于列表页，支持按 workflow_id 和 status 过滤）
 func (s *WorkflowOrchestratorService) ListAll(ctx context.Context, workflowID, status string, page, pageSize int) ([]model.WorkflowVersion, int64, error) {
+	if s == nil {
+		return nil, 0, utils.ErrServiceNotInit
+	}
 	return s.versionRepo.ListAll(ctx, workflowID, status, page, pageSize)
 }
 
 // UpdateVersion 更新工作流版本
 func (s *WorkflowOrchestratorService) UpdateVersion(ctx context.Context, id uint, req *dto.WorkflowVersionUpdateRequest) error {
+	if s == nil {
+		return utils.ErrServiceNotInit
+	}
+	if id == 0 || req == nil || req.Definition == nil {
+		return utils.ErrInvalidInput
+	}
 	version, err := s.versionRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -135,16 +167,34 @@ func (s *WorkflowOrchestratorService) UpdateVersion(ctx context.Context, id uint
 
 // PublishVersion 发布工作流版本
 func (s *WorkflowOrchestratorService) PublishVersion(ctx context.Context, id uint) error {
+	if s == nil {
+		return utils.ErrServiceNotInit
+	}
+	if id == 0 {
+		return utils.ErrInvalidInput
+	}
 	return s.versionRepo.UpdateStatus(ctx, id, model.WorkflowStatusPublished)
 }
 
 // ArchiveVersion 归档工作流版本
 func (s *WorkflowOrchestratorService) ArchiveVersion(ctx context.Context, id uint) error {
+	if s == nil {
+		return utils.ErrServiceNotInit
+	}
+	if id == 0 {
+		return utils.ErrInvalidInput
+	}
 	return s.versionRepo.UpdateStatus(ctx, id, model.WorkflowStatusArchived)
 }
 
 // DeleteVersion 删除工作流版本
 func (s *WorkflowOrchestratorService) DeleteVersion(ctx context.Context, id uint) error {
+	if s == nil {
+		return utils.ErrServiceNotInit
+	}
+	if id == 0 {
+		return utils.ErrInvalidInput
+	}
 	return s.versionRepo.DeleteByID(ctx, id)
 }
 
@@ -153,6 +203,16 @@ func (s *WorkflowOrchestratorService) DeleteVersion(ctx context.Context, id uint
 // 创建执行实例后，若已注入 WorkflowDispatcher 则通过 go d.Run(ctx, exec.ID, traceID)
 // 异步驱动全部节点执行；dispatcher 为 nil 时仅创建记录（保持旧行为，便于单测）。
 func (s *WorkflowOrchestratorService) Execute(ctx context.Context, req *dto.WorkflowExecuteRequest) (*model.WorkflowExecution, error) {
+	if s == nil {
+		return nil, utils.ErrServiceNotInit
+	}
+	if req == nil || req.WorkflowID == "" {
+		return nil, utils.ErrInvalidInput
+	}
+	if req.TriggerPayload == nil {
+		req.TriggerPayload = model.JSONMap{}
+	}
+
 	// 获取最新已发布版本
 	version, err := s.versionRepo.GetLatestPublished(ctx, req.WorkflowID)
 	if err != nil {
@@ -193,6 +253,12 @@ func (s *WorkflowOrchestratorService) Execute(ctx context.Context, req *dto.Work
 
 // GetExecution 获取执行详情
 func (s *WorkflowOrchestratorService) GetExecution(ctx context.Context, execID uint) (*model.WorkflowExecution, error) {
+	if s == nil {
+		return nil, utils.ErrServiceNotInit
+	}
+	if execID == 0 {
+		return nil, utils.ErrInvalidInput
+	}
 	exec, err := s.execRepo.GetByID(ctx, execID)
 	if err != nil {
 		return nil, err
@@ -211,11 +277,20 @@ func (s *WorkflowOrchestratorService) GetExecution(ctx context.Context, execID u
 
 // GetNodeExecutions 获取节点执行明细
 func (s *WorkflowOrchestratorService) GetNodeExecutions(ctx context.Context, execID uint) ([]model.WorkflowNodeExecution, error) {
+	if s == nil {
+		return nil, utils.ErrServiceNotInit
+	}
+	if execID == 0 {
+		return nil, utils.ErrInvalidInput
+	}
 	return s.nodeExecRepo.ListByExecutionID(ctx, execID)
 }
 
 // ListExecutions 列出执行实例
 func (s *WorkflowOrchestratorService) ListExecutions(ctx context.Context, workflowID, status string, page, pageSize int) ([]model.WorkflowExecution, int64, error) {
+	if s == nil {
+		return nil, 0, utils.ErrServiceNotInit
+	}
 	return s.execRepo.List(ctx, workflowID, status, page, pageSize)
 }
 
@@ -224,6 +299,12 @@ func (s *WorkflowOrchestratorService) ListExecutions(ctx context.Context, workfl
 // 仅当执行处于 running 状态时方可停止，否则返回 ErrExecutionNotRunning sentinel error。
 // 终止后 dispatcher 的 runExecution 循环会在下一轮检测到 status 变化自动退出。
 func (s *WorkflowOrchestratorService) StopExecution(ctx context.Context, execID uint) error {
+	if s == nil {
+		return utils.ErrServiceNotInit
+	}
+	if execID == 0 {
+		return utils.ErrInvalidInput
+	}
 	exec, err := s.execRepo.GetByID(ctx, execID)
 	if err != nil {
 		return err
@@ -244,5 +325,8 @@ func (s *WorkflowOrchestratorService) StopExecution(ctx context.Context, execID 
 
 // FindStuckExecutions 查找卡死的执行
 func (s *WorkflowOrchestratorService) FindStuckExecutions(ctx context.Context, threshold time.Time, limit int) ([]model.WorkflowExecution, error) {
+	if s == nil {
+		return nil, utils.ErrServiceNotInit
+	}
 	return s.execRepo.FindStuck(ctx, threshold, limit)
 }
