@@ -1,12 +1,14 @@
 // Package secrets 提供基于 AES-256-GCM 的对称加密原语，落地 TL-1 决策：
 //
-//	启动时若未配置 HIVEMTK_MASTER_KEY（>=32 字节），则 fail-fast，
-//	禁止任何明文落库路径继续运行。
+//	启动时若未配置 MASTER_KEY（>=32 字节），InitFromEnv 返回 error 但进程继续运行——
+//	Ready() 返回 false，Encrypt/Decrypt 会返回 ErrMasterKeyMissing。
+//	调用方需自行判断 Ready()，缺密钥时降级为明文读写（WARN 日志）。
 //
 // 设计要点：
 //   - 使用 AEAD (GCM) 而非裸 AES，提供完整性校验。
 //   - nonce 12 字节随机，前缀拼接到密文，方便持久化。
-//   - 与 DB 中"明文 + 旧列"双轨期间，提供 MigrateLegacy 方法把旧明文重写为密文。
+//   - EncryptString 输出格式 `enc:v1:{base64(nonce|ciphertext)}`，DecryptString 识别该前缀
+//     同时兼容存量无前缀纯密文（双轨双格式）。
 //   - 任意路径泄露 MASTER_KEY 即整盘作废；建议通过 secret manager 注入。
 package secrets
 
@@ -14,30 +16,33 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 )
 
 const (
-	envMasterKey   = "HIVEMTK_MASTER_KEY"
-	keyLen         = 32 // AES-256
-	nonceLen       = 12 // GCM standard
-	masterKeyReady = "secrets.master_key_ready"
+	envMasterKey = "MASTER_KEY"
+	keyLen       = 32 // AES-256
+	nonceLen     = 12 // GCM standard
+
+	stringEncPrefix = "enc:v1:"
 )
 
-// ErrMasterKeyMissing 在启动 fail-fast 时返回；任何调用 Encrypt/Decrypt 的代码
-// 在缺密钥时也会拿到该错误。
-var ErrMasterKeyMissing = errors.New("secrets: HIVEMTK_MASTER_KEY is missing or shorter than 32 bytes")
+// ErrMasterKeyMissing 在 AEAD 未初始化时返回。调用方据此降级为明文 + WARN 日志。
+var ErrMasterKeyMissing = errors.New("secrets: MASTER_KEY is missing or shorter than 32 bytes")
 
 var (
 	gcmOnce sync.Once
 	gcmAEAD cipher.AEAD
 )
 
-// InitFromEnv 从环境变量读取主密钥并初始化全局 AEAD。空/过短则 fail-fast 返回 error。
+// InitFromEnv 从环境变量读取主密钥并初始化全局 AEAD。
+// 空/过短/初始化失败均返回 error 但不阻止进程运行，Ready() 将返回 false。
 // 进程内多次调用幂等。
 func InitFromEnv() error {
 	var initErr error
@@ -47,7 +52,6 @@ func InitFromEnv() error {
 			initErr = fmt.Errorf("%w (got len=%d)", ErrMasterKeyMissing, len(raw))
 			return
 		}
-		// 仅使用前 32 字节；超出部分忽略，便于运维粘贴完整 base64/hex 时不致失败。
 		key := []byte(raw)[:keyLen]
 		block, err := aes.NewCipher(key)
 		if err != nil {
@@ -64,10 +68,17 @@ func InitFromEnv() error {
 	return initErr
 }
 
-// Ready 报告全局 AEAD 是否已就绪。
+// Ready 报告全局 AEAD 是否已就绪（MASTER_KEY 可用且初始化成功）。
 func Ready() bool { return gcmAEAD != nil }
 
-// Encrypt 加密任意明文。失败可能由未初始化或随机源失败导致。
+// ResetForTest 重置全局 AEAD 状态和 sync.Once，仅供单测切换不同密钥使用。
+// 生产代码禁止调用。
+func ResetForTest() {
+	gcmOnce = sync.Once{}
+	gcmAEAD = nil
+}
+
+// Encrypt 加密任意明文。未初始化时返回 ErrMasterKeyMissing。
 func Encrypt(plaintext []byte) ([]byte, error) {
 	if gcmAEAD == nil {
 		return nil, ErrMasterKeyMissing
@@ -77,7 +88,6 @@ func Encrypt(plaintext []byte) ([]byte, error) {
 		return nil, fmt.Errorf("secrets: read nonce: %w", err)
 	}
 	out := gcmAEAD.Seal(nil, nonce, plaintext, nil)
-	// 输出格式：nonce || ciphertext（含 GCM tag）。
 	full := make([]byte, 0, nonceLen+len(out))
 	full = append(full, nonce...)
 	full = append(full, out...)
@@ -101,25 +111,53 @@ func Decrypt(ciphertext []byte) ([]byte, error) {
 	return pt, nil
 }
 
-// EncryptString/DecryptString 是字符串版本的便捷封装。
+// EncryptString 加密封装为持久化字符串格式 `enc:v1:{base64(nonce|ciphertext)}`。
+// Ready() 为 false 时返回 ("", ErrMasterKeyMissing)。
 func EncryptString(s string) (string, error) {
+	if !Ready() {
+		return "", ErrMasterKeyMissing
+	}
 	out, err := Encrypt([]byte(s))
 	if err != nil {
 		return "", err
 	}
-	return string(out), nil
+	return stringEncPrefix + base64.StdEncoding.EncodeToString(out), nil
 }
 
+// DecryptString 识别两种格式并解密：
+//   - `enc:v1:base64(...)` 前缀格式（本模块 EncryptString 输出）
+//   - 无前缀但 IsCiphertextFormat 判定为密文（兼容存量无前缀）
+//   - 明文（IsCiphertextFormat 判定为否）直接原样返回
+//
+// Ready() 为 false 时返回 ("", ErrMasterKeyMissing)，调用方降级为明文。
 func DecryptString(s string) (string, error) {
-	out, err := Decrypt([]byte(s))
+	if !Ready() {
+		return "", ErrMasterKeyMissing
+	}
+	var raw []byte
+	var err error
+	if strings.HasPrefix(s, stringEncPrefix) {
+		raw, err = base64.StdEncoding.DecodeString(strings.TrimPrefix(s, stringEncPrefix))
+		if err != nil {
+			return "", fmt.Errorf("secrets: decode string prefix: %w", err)
+		}
+	} else if IsCiphertextFormat(s) {
+		raw = []byte(s)
+	} else {
+		return s, nil
+	}
+	out, err := Decrypt(raw)
 	if err != nil {
 		return "", err
 	}
 	return string(out), nil
 }
 
-// IsCiphertextFormat 判定字符串是否是本模块产生的密文（粗略长度 + nonce 长度启发式）。
+// IsCiphertextFormat 判定字符串是否是本模块产生的密文（粗略长度启发式 + 前缀检测）。
 // 用于兼容历史明文双轨：DB 列里既可能是明文，也可能是本模块写的密文。
 func IsCiphertextFormat(s string) bool {
-	return len(s) >= nonceLen+16 // 16 字节是 GCM tag 的最小长度
+	if strings.HasPrefix(s, stringEncPrefix) {
+		return true
+	}
+	return len(s) >= nonceLen+16
 }

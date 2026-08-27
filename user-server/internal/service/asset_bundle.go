@@ -27,6 +27,7 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 
 	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/safeprompt"
 	"strconv"
 )
 
@@ -1078,8 +1079,11 @@ func ScanSystemPromptBannedWords(prompt string) error {
 	return nil
 }
 
-// ValidateBundleForPlatformSubmit 提交平台审核前的敏感词扫描入口：
-// 遍历资产包全部 role=system 消息，任一命中黑名单即拒绝提交。
+// ValidateBundleForPlatformSubmit 提交平台审核前的敏感词扫描入口（K-1）：
+// 遍历资产包全部 role=system 消息，依次执行：
+//  1. ScanSystemPromptBannedWords：黑名单越狱/对抗性话术扫描
+//  2. safeprompt.ScanOutput：PII + 运行时敏感词扫描
+// 任一命中严重违规即拒绝提交。
 func ValidateBundleForPlatformSubmit(bundle *model.AssetBundle) error {
 	if bundle == nil {
 		return errors.New("bundle is nil")
@@ -1090,6 +1094,9 @@ func ValidateBundleForPlatformSubmit(bundle *model.AssetBundle) error {
 		}
 		if err := ScanSystemPromptBannedWords(m.Content); err != nil {
 			return err
+		}
+		if violations := safeprompt.ScanOutput(m.Content); safeprompt.HasCriticalViolation(violations) {
+			return fmt.Errorf("system prompt 包含严重违规内容: %v", violations)
 		}
 	}
 	return nil

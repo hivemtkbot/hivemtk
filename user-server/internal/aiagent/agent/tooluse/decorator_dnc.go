@@ -88,7 +88,7 @@ func (d *dncTool) Parameters() ToolParameters { return d.inner.Parameters() }
 
 func (d *dncTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	name := d.inner.Name()
-	if !IsColdOutreachTool(name) {
+	if !IsColdOutreachTool(d.inner) {
 		return d.inner.Execute(ctx, args)
 	}
 	oneID := dncOneID(ctx, args)

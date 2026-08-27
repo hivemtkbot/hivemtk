@@ -37,9 +37,12 @@ import (
 
 // SSE 配置
 //
-// B-1 心跳约束：Chrome MV3 extension service worker 要求 ≤30s 有消息交换才能保活，
-// SSE 下行必须以 ≤20s 间隔发送注释帧（":keepalive\n\n"，等价 ": ping\n\n" 语义），
-// 为网络抖动预留 10s 余量。max stream duration 500s 由 SSEDefaultMaxStreamDuration 承担。
+// B-1 心跳约束（强制）：
+//   Chrome MV3 extension service worker 有硬性 30s 不活跃就被杀死的窗口限制。
+//   SSE 下行必须以 ≤20s 间隔发送心跳注释帧 ": ping\n\n"，为网络抖动/代理缓冲
+//   预留 10s 余量。15s 默认值符合该约束。
+//   - SSE 协议注释帧格式：以 ":" 开头，客户端 EventSource 完全忽略
+//   - 同时防止 Nginx/CDN proxy_read_timeout（通常 60s）切断长连接
 const (
 	SSEDefaultHeartbeatInterval = 15 * time.Second
 	SSEDefaultMaxStreamDuration  = 5 * time.Minute
@@ -352,7 +355,7 @@ func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 			logger.Ctx(ctx).Info().Msg("[SSE] client disconnected")
 			return
 		case <-heartbeat.C:
-			if _, err := c.Writer.WriteString(":keepalive\n\n"); err != nil {
+			if _, err := c.Writer.WriteString(": ping\n\n"); err != nil {
 				return
 			}
 			flusher.Flush()

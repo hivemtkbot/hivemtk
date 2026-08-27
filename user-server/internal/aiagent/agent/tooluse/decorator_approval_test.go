@@ -6,31 +6,58 @@ import (
 	"testing"
 )
 
+// approvalMockTool 实现 Tool 接口供测试
+type approvalMockTool struct {
+	name     string
+	category ToolCategory
+}
+
+func (m *approvalMockTool) Name() string               { return m.name }
+func (m *approvalMockTool) Category() ToolCategory     { return m.category }
+func (m *approvalMockTool) Description() string        { return "test" }
+func (m *approvalMockTool) Parameters() ToolParameters { return ToolParameters{} }
+func (m *approvalMockTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	return SuccessResult(m.name, nil), nil
+}
+
 func TestIsColdOutreachTool(t *testing.T) {
 	cases := []struct {
-		name string
-		want bool
+		name     string
+		category ToolCategory
+		want     bool
 	}{
-		// 正例
-		{"reach.telegram.dm", true},
-		{"reach.dm.send", true},
-		{"reach.proactive.email", true},
-		{"reach.batch_send.sms", true},
-		{"proactive.outreach", true},
-		{"batch_send", true},
-		// 反例
-		{"", false},
-		{"reach.telegram.send", false}, // 既有热触达工具名，行为必须不变
-		{"reach.email.send", false},
-		{"reach.wecom.send", false},
-		{"customer.search", false},
-		{"knowledge.list_kb", false},
-		{"order.lookup", false},
+		// 正例：CategoryReach + 冷触达段名
+		{"reach.telegram.dm", CategoryReach, true},
+		{"reach.dm.send", CategoryReach, true},
+		{"reach.proactive.email", CategoryReach, true},
+		{"reach.batch_send.sms", CategoryReach, true},
+		{"reach.outbound.send", CategoryReach, true},
+		{"reach.schedule.wecom", CategoryReach, true},
+		{"reach.lead.dig", CategoryReach, true},
+		// 反例：CategoryReach 但非冷触达段（热触达）
+		{"reach.telegram.send", CategoryReach, false},
+		{"reach.email.send", CategoryReach, false},
+		{"reach.wecom.send", CategoryReach, false},
+		{"reach.recall", CategoryReach, false},
+		{"reach.health", CategoryReach, false},
+		{"reach.account.list", CategoryReach, false},
+		// 反例：非 Reach category（即使 name 含冷触达段也不触发）
+		{"proactive.outreach", CategoryCustomer, false},
+		{"batch_send", CategoryKnowledge, false},
+		{"outbound.send", CategoryBusiness, false},
+		// 反例：空
+		{"", CategoryReach, false},
+		{"", CategoryCustomer, false},
 	}
 	for _, c := range cases {
-		if got := IsColdOutreachTool(c.name); got != c.want {
-			t.Errorf("IsColdOutreachTool(%q) = %v, want %v", c.name, got, c.want)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			tb := &approvalMockTool{name: c.name, category: c.category}
+			got := IsColdOutreachTool(tb)
+			if got != c.want {
+				t.Errorf("IsColdOutreachTool({name=%q, cat=%s}) = %v, want %v",
+					c.name, c.category, got, c.want)
+			}
+		})
 	}
 }
 
@@ -102,7 +129,7 @@ func TestWithApprovalNoWiringBackwardCompat(t *testing.T) {
 	prev := globalApprovalChecker.Load()
 	defer globalApprovalChecker.Store(prev)
 
-	globalApprovalChecker.Store(nil) // 模拟未接线
+	globalApprovalChecker.Store(nil)
 
 	tool := newStubColdTool()
 	wrapped := WithApproval(tool)
@@ -123,7 +150,7 @@ func TestSetGlobalApprovalChecker(t *testing.T) {
 		t.Fatal("global checker not set")
 	}
 
-	SetGlobalApprovalChecker(nil) // 恢复默认放行
+	SetGlobalApprovalChecker(nil)
 	if globalApprovalChecker.Load() != nil {
 		t.Fatal("nil should reset to default-allow")
 	}
@@ -139,5 +166,18 @@ func TestWarmToolBypassesApproval(t *testing.T) {
 	}
 	if warm.executed == false {
 		t.Fatal("warm tool should execute")
+	}
+}
+
+func TestNonReachCategoryBypassesApproval(t *testing.T) {
+	denied := &fakeApprovalChecker{approved: false}
+	nonReach := &stubColdTool{BaseTool: BaseTool{NameVal: "batch_send.email", CategoryVal: CategoryKnowledge}}
+	wrapped := WithApprovalChecker(nonReach, denied)
+
+	if _, err := wrapped.Execute(context.Background(), nil); err != nil {
+		t.Fatalf("non-reach category must bypass approval gate, got err=%v", err)
+	}
+	if !nonReach.executed {
+		t.Fatal("non-reach tool should execute")
 	}
 }

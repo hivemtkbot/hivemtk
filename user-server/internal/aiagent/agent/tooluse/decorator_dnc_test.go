@@ -34,7 +34,7 @@ func (f *fixedDNC) IsBlocked(ctx context.Context, oneID string) bool {
 }
 
 func TestDNC_NilResolverAllowsAll(t *testing.T) {
-	inner := &stubTool{name: "reach.proactive.whatsapp"}
+	inner := &stubTool{name: "reach.proactive.whatsapp", category: CategoryReach}
 	g := WithDNCGuard(inner)
 	r, err := g.Execute(context.Background(), map[string]any{"one_id": "u1"})
 	if err != nil {
@@ -62,7 +62,7 @@ func TestDNC_NotColdOutreachSkips(t *testing.T) {
 func TestDNC_BlockedDenies(t *testing.T) {
 	resolver := &fixedDNC{}
 	resolver.blocked.Store(true)
-	inner := &stubTool{name: "reach.proactive.whatsapp"}
+	inner := &stubTool{name: "reach.proactive.whatsapp", category: CategoryReach}
 	g := WithDNCGuardResolver(inner, resolver)
 	_, err := g.Execute(context.Background(), map[string]any{"one_id": "u1"})
 	if err == nil || !errors.Is(err, ErrDNCBlocked) {
@@ -73,7 +73,7 @@ func TestDNC_BlockedDenies(t *testing.T) {
 func TestDNC_NotBlockedAllows(t *testing.T) {
 	resolver := &fixedDNC{}
 	resolver.blocked.Store(false)
-	inner := &stubTool{name: "reach.batch_send.email"}
+	inner := &stubTool{name: "reach.batch_send.email", category: CategoryReach}
 	g := WithDNCGuardResolver(inner, resolver)
 	r, err := g.Execute(context.Background(), map[string]any{"one_id": "u2"})
 	if err != nil {
@@ -87,7 +87,7 @@ func TestDNC_NotBlockedAllows(t *testing.T) {
 func TestDNC_PrefersToolContextCustomerID(t *testing.T) {
 	resolver := &fixedDNC{}
 	resolver.blocked.Store(true)
-	inner := &stubTool{name: "reach.proactive.whatsapp"}
+	inner := &stubTool{name: "reach.proactive.whatsapp", category: CategoryReach}
 	g := WithDNCGuardResolver(inner, resolver)
 	ctx := WithToolContext(context.Background(), &ToolContext{CustomerID: "ctx-1"})
 	r, err := g.Execute(ctx, map[string]any{"one_id": "args-2"})
@@ -99,7 +99,7 @@ func TestDNC_PrefersToolContextCustomerID(t *testing.T) {
 func TestDNC_PhoneFallbackNormalization(t *testing.T) {
 	resolver := &fixedDNC{}
 	resolver.blocked.Store(true)
-	inner := &stubTool{name: "reach.proactive.whatsapp"}
+	inner := &stubTool{name: "reach.proactive.whatsapp", category: CategoryReach}
 	g := WithDNCGuardResolver(inner, resolver)
 	r, err := g.Execute(context.Background(), map[string]any{"phone": "13800138000"})
 	if err == nil || !errors.Is(err, ErrDNCBlocked) {
@@ -110,7 +110,7 @@ func TestDNC_PhoneFallbackNormalization(t *testing.T) {
 func TestDNC_NoOneIDAllows(t *testing.T) {
 	resolver := &fixedDNC{}
 	resolver.blocked.Store(true)
-	inner := &stubTool{name: "reach.proactive.whatsapp"}
+	inner := &stubTool{name: "reach.proactive.whatsapp", category: CategoryReach}
 	g := WithDNCGuardResolver(inner, resolver)
 	r, err := g.Execute(context.Background(), map[string]any{})
 	if err != nil {
@@ -128,7 +128,7 @@ func TestDNC_GlobalResolver(t *testing.T) {
 	SetGlobalDNCResolver(r)
 	defer SetGlobalDNCResolver(prev)
 
-	inner := &stubTool{name: "reach.dm.telegram"}
+	inner := &stubTool{name: "reach.dm.telegram", category: CategoryReach}
 	g := WithDNCGuard(inner)
 	_, err := g.Execute(context.Background(), map[string]any{"one_id": "u3"})
 	if err == nil || !errors.Is(err, ErrDNCBlocked) {
@@ -139,7 +139,7 @@ func TestDNC_GlobalResolver(t *testing.T) {
 func TestDNC_ErrorMessageContainsContext(t *testing.T) {
 	r := &fixedDNC{}
 	r.blocked.Store(true)
-	inner := &stubTool{name: "reach.proactive.whatsapp"}
+	inner := &stubTool{name: "reach.proactive.whatsapp", category: CategoryReach}
 	g := WithDNCGuardResolver(inner, r)
 	_, err := g.Execute(context.Background(), map[string]any{"one_id": "u9"})
 	if err == nil {

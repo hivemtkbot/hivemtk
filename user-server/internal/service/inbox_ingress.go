@@ -10,6 +10,7 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,7 +24,7 @@ const (
 
 	InboxPendingKey = "hivemtk:pending:"
 
-	InboxLockTTL = 0
+	InboxLockTTL = 24 * time.Hour
 
 	InboxAILockTTL = 15 * time.Second
 
@@ -171,7 +172,97 @@ func (s *InboxIngressService) UnlockSessionForHuman(ctx context.Context, session
 	}
 	_ = s.cache.Delete(ctx, InboxHumanLockKey+sessionID)
 	_ = s.cache.Delete(ctx, InboxHumanLockKey+"reason:"+sessionID)
+	if inboxLockMgr != nil {
+		inboxLockMgr.removeDeadline(sessionID)
+	}
 	return nil
+}
+
+func (s *InboxIngressService) RenewSessionHumanLock(ctx context.Context, sessionID string, ttl time.Duration) error {
+	if s.cache == nil || sessionID == "" {
+		return errors.New("cache or sessionID unavailable")
+	}
+	if ttl <= 0 {
+		ttl = InboxLockTTL
+	}
+	if err := s.cache.Set(ctx, InboxHumanLockKey+sessionID, "true", ttl); err != nil {
+		return err
+	}
+	if inboxLockMgr != nil {
+		inboxLockMgr.setDeadline(sessionID, time.Now().Add(ttl))
+	}
+	logger.Infof("[Inbox] session=%s 人工锁已续期 ttl=%s", sessionID, ttl)
+	return nil
+}
+
+type inboxHumanLockExpiryManager struct {
+	mu        sync.RWMutex
+	deadlines map[string]time.Time
+	started   bool
+}
+
+var inboxLockMgr *inboxHumanLockExpiryManager
+var inboxLockMgrOnce sync.Once
+
+func getInboxLockMgr() *inboxHumanLockExpiryManager {
+	inboxLockMgrOnce.Do(func() {
+		inboxLockMgr = &inboxHumanLockExpiryManager{deadlines: make(map[string]time.Time)}
+	})
+	return inboxLockMgr
+}
+
+func (m *inboxHumanLockExpiryManager) setDeadline(sessionID string, deadline time.Time) {
+	m.mu.Lock()
+	m.deadlines[sessionID] = deadline
+	m.mu.Unlock()
+}
+
+func (m *inboxHumanLockExpiryManager) removeDeadline(sessionID string) {
+	m.mu.Lock()
+	delete(m.deadlines, sessionID)
+	m.mu.Unlock()
+}
+
+func (m *inboxHumanLockExpiryManager) checkExpired(ctx context.Context, c cache.Cache) {
+	now := time.Now()
+	m.mu.RLock()
+	var expired []string
+	for sid, dl := range m.deadlines {
+		if now.After(dl) {
+			expired = append(expired, sid)
+		}
+	}
+	m.mu.RUnlock()
+	for _, sid := range expired {
+		if c != nil {
+			exists, err := c.Exists(ctx, InboxHumanLockKey+sid)
+			if err != nil || exists {
+				continue
+			}
+		}
+		m.mu.Lock()
+		delete(m.deadlines, sid)
+		m.mu.Unlock()
+		logger.Infof("[Inbox] session=%s 人工锁已超时释放，AI 恢复服务", sid)
+	}
+}
+
+func StartInboxHumanLockExpiryChecker(ctx context.Context, c cache.Cache, interval time.Duration) {
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				getInboxLockMgr().checkExpired(ctx, c)
+			}
+		}
+	}()
 }
 
 func (s *InboxIngressService) tryAcquireAILock(ctx context.Context, sessionID string) (bool, error) {

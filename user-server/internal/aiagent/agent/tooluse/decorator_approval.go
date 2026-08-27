@@ -37,23 +37,47 @@ func (AllowAllChecker) IsApproved(ctx context.Context, toolName, accountIDorOwne
 
 func NewAllowAllChecker() ApprovalChecker { return AllowAllChecker{} }
 
-// IsColdOutreachTool 判定是否为冷触达工具：
-//   - 名称任一段为 proactive（主动触达）
-//   - 名称任一段为 batch_send（批量发送）
-//   - reach 域内名称含 dm 段（Telegram lead outreach 类私聊触达）
+// coldOutreachNameSegs 名称段命中即视为冷触达工具。
+// 与 CategoryReach 联合判定（双重门禁），避免误伤非 reach 类工具。
+var coldOutreachNameSegs = map[string]bool{
+	"batch":       true,
+	"schedule":    true,
+	"outbound":    true,
+	"dm":          true,
+	"lead":        true,
+	"proactive":   true,
+	"telegram_dm": true,
+}
+
+// coldOutreachNameSubstrs 段名包含任一子串即视为冷触达工具（覆盖 batch_send / lead_outreach 等组合命名）。
+// 注意：dm 不放在这里——两字母子串易误伤，dm 靠精确段名匹配。
+var coldOutreachNameSubstrs = []string{"batch_", "schedule_", "outbound_", "lead_", "proactive_", "_outreach"}
+
+// IsColdOutreachTool 判定工具是否需要冷触达审批门（A-1）。
 //
-// 采用段级精确匹配，避免误伤 admin 等包含 "dm" 子串的正常工具名。
-func IsColdOutreachTool(name string) bool {
-	if name == "" {
+// 双重门禁：Category 必须是 CategoryReach + 名称段命中冷触达关键词。
+// 会话内回复（confidence 门禁 + 六否决链）不触发审批——这类工具：
+//   - Category 为 CategoryPrivateMessage / CategoryCustomer / CategoryKnowledge / CategoryBusiness
+//   - 或 CategoryReach 但名称段仅为 recall/health/history/template/account（非外发）
+//
+// 命中场景示例：
+//   - reach.batch, reach.schedule, reach.*.outbound → 批量/计划外发
+//   - reach.telegram.dm, reach.*.lead_outreach → 冷 DM
+//   - proactive_reach.* → 主动触达计划
+func IsColdOutreachTool(t Tool) bool {
+	if t == nil {
 		return false
 	}
-	lower := strings.ToLower(name)
-	for _, seg := range strings.Split(lower, ".") {
-		switch seg {
-		case "proactive", "batch_send":
+	if t.Category() != CategoryReach {
+		return false
+	}
+	name := strings.ToLower(t.Name())
+	for _, seg := range strings.Split(name, ".") {
+		if coldOutreachNameSegs[seg] {
 			return true
-		case "dm":
-			if strings.HasPrefix(lower, "reach.") {
+		}
+		for _, sub := range coldOutreachNameSubstrs {
+			if strings.Contains(seg, sub) {
 				return true
 			}
 		}
@@ -64,7 +88,7 @@ func IsColdOutreachTool(name string) bool {
 // approvalTool 审批门包装器（不改 Tool 接口，纯组合）。
 type approvalTool struct {
 	inner   Tool
-	checker *ApprovalChecker // nil → 使用全局 checker
+	checker *ApprovalChecker
 }
 
 // WithApproval 用全局审批检查器包装工具。
@@ -94,15 +118,15 @@ func (a *approvalTool) Description() string        { return a.inner.Description(
 func (a *approvalTool) Parameters() ToolParameters { return a.inner.Parameters() }
 
 func (a *approvalTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
-	name := a.inner.Name()
-	if IsColdOutreachTool(name) {
+	if IsColdOutreachTool(a.inner) {
 		checker := a.checker
 		if checker == nil {
 			checker = globalApprovalChecker.Load()
 		}
-		if checker != nil && !(*checker).IsApproved(ctx, name, approvalOwnerKey(ctx)) {
-			err := fmt.Errorf("%w: tool %s requires cold outreach approval", ErrApprovalDenied, name)
-			return ErrorResult(name, err), err
+		if checker != nil && !(*checker).IsApproved(ctx, a.inner.Name(), approvalOwnerKey(ctx)) {
+			err := fmt.Errorf("%w: tool %s (%s) requires cold outreach approval",
+				ErrApprovalDenied, a.inner.Name(), a.inner.Category())
+			return ErrorResult(a.inner.Name(), err), err
 		}
 	}
 	return a.inner.Execute(ctx, args)
