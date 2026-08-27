@@ -205,12 +205,18 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		return result, nil
 	}
 
+	// P1g 情感分层：愤怒→补偿+高级客服；焦虑→进度可视化继续走 AI（不盲转）
+	emotionHint := ""
 	if o.isUrgentOrComplaint(ctx, in.Content) {
-		result.HandlerType = model.HandlerTypeHuman
-		result.Transferred = true
-		result.TransferReason = "检测到紧急或投诉内容，转人工处理"
-		_ = o.transferToHuman(ctx, session, result.TransferReason)
-		return result, nil
+		emoStrat := StrategyForEmotion(ClassifyEmotion(in.Content))
+		if emoStrat.TransferToHuman {
+			result.HandlerType = model.HandlerTypeHuman
+			result.Transferred = true
+			result.TransferReason = emoStrat.TransferReason
+			_ = o.transferToHuman(ctx, session, result.TransferReason)
+			return result, nil
+		}
+		emotionHint = emoStrat.ReplyHint
 	}
 
 	if o.engine == nil {
@@ -255,6 +261,7 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		UserMessage: in.Content,
 		Platform:    string(in.Platform),
 		AutoExecute: o.enableAutoReply,
+		EmotionHint: emotionHint,
 	}
 	salesResp, err := o.engine.HandleWithAgent(ctx, salesReq, finalAgentCtx)
 	if err != nil || salesResp == nil {
@@ -284,7 +291,6 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	safeIntent := salesResp.Intent != nil &&
 		(salesResp.Intent.IntentType == IntentGreeting || salesResp.Intent.IntentType == IntentSocial)
 	shouldTransfer := salesResp.TransferredToHuman ||
-		o.isUrgentOrComplaint(ctx, in.Content) ||
 		(knownIntent && !safeIntent && effectiveConf < threshold)
 	if shouldTransfer {
 		result.HandlerType = model.HandlerTypeHuman

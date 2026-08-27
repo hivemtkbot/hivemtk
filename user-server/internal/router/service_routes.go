@@ -9,6 +9,7 @@ import (
 	"hivemtk-user/internal/controller"
 	"hivemtk-user/internal/middleware"
 	opsctrl "hivemtk-user/internal/ops/controller"
+	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
 	"hivemtk-user/internal/service/translation"
 	"hivemtk-user/internal/websocket"
@@ -290,6 +291,12 @@ func setupDialogueMemoryRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 // SOP 是一线客服自动应答流程，被 staff 误操作会立即影响客户对话体验。
 func setupSOPRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	sopCtrl := controller.NewSOPController(service.NewSOPService(db, nil))
+
+	// P1h SOP 热力图服务（只读，staff 可访问）
+	sopAgentRepo := repository.NewSopAgentRepository(db)
+	sopExecRepo := repository.NewSopExecutionRepository(db)
+	heatmapCtrl := controller.NewSopHeatmapController(service.NewSopHeatmapService(sopAgentRepo, sopExecRepo))
+
 	// 读操作
 	auth.GET("/sop", sopCtrl.List)
 	auth.GET("/sop/stats", sopCtrl.Stats)
@@ -298,6 +305,8 @@ func setupSOPRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.GET("/sop/executions/:id", sopCtrl.GetExecution)
 	auth.GET("/sop/:id", sopCtrl.Get)
 	auth.GET("/sop/:id/abtest/stats", sopCtrl.GetABTestStats)
+	// 热力图端点
+	auth.GET("/sop/:id/heatmap", heatmapCtrl.GetHeatmap)
 	// 写操作：admin only
 	admin := auth.Group("/sop", middleware.AdminAuthMiddleware())
 	{

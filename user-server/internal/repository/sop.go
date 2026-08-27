@@ -389,6 +389,23 @@ func (r *SopExecutionRepository) CountByStatus(ctx context.Context, status strin
 	return count, nil
 }
 
+// ListBySOPID 列出指定 SOP 的全部执行记录（含 ExecutedNodes，供热力图聚合）
+func (r *SopExecutionRepository) ListBySOPID(ctx context.Context, sopID uint, limit int) ([]model.SOPExecution, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("sop execution repository not initialized")
+	}
+	if limit <= 0 || limit > 1000 {
+		limit = 200
+	}
+	var execs []model.SOPExecution
+	err := r.db.WithContext(ctx).
+		Where("sop_id = ?", sopID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&execs).Error
+	return execs, err
+}
+
 // CountBySOPIDAndVariant 按 SOP ID 和 variant 统计执行数
 func (r *SopExecutionRepository) CountBySOPIDAndVariant(ctx context.Context, sopID uint, variant string) (int64, error) {
 	if r == nil || r.db == nil {

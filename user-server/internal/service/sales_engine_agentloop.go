@@ -584,6 +584,11 @@ func (e *SalesEngine) buildPrompt(
 
 	sb.WriteString(fmt.Sprintf("【客户消息】: %s\n\n", req.UserMessage))
 
+	// P1g 情感分层策略提示（焦虑=进度可视化 / 满意=裂变引导），空=不注入
+	if req.EmotionHint != "" {
+		sb.WriteString(fmt.Sprintf("【情绪应对策略】: %s\n\n", req.EmotionHint))
+	}
+
 	if customer != nil {
 		name := customerNameOf(customer)
 		if name != "" {

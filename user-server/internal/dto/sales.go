@@ -299,6 +299,10 @@ type SalesRequest struct {
 	// IsFirstTurn 标记是否为会话首条消息（用于行为层拟人 thinking pause 判定）
 	// 由上游 chat_visitor / web_chat 等入口根据 session 消息历史判断后填入
 	IsFirstTurn bool `json:"is_first_turn,omitempty"`
+
+	// EmotionHint P1g 情感分层策略提示（焦虑=进度可视化 / 满意=裂变引导），空=无情绪干预。
+	// 由 SmartCSOrchestrator 按 ClassifyEmotion 结果注入，buildPrompt 消费。
+	EmotionHint string `json:"emotion_hint,omitempty"`
 }
 
 // SalesResponse 销售回复
