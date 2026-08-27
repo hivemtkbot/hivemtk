@@ -62,25 +62,36 @@ func (s *FAQAnswerCacheService) Lookup(ctx context.Context, req LookupRequest) (
 	// Tier1 精确键
 	if e, err := s.store.GetExact(ctx, req.KBID, req.PromptVersion, req.QueryVector); err != nil {
 		logger.Warnf("[ragcache] tier1 exact lookup failed: %v", err)
+		ragRecallTotal.WithLabel("tier1", "false").Inc()
 	} else if e != nil && s.fresh(ctx, e) {
+		ragRecallTotal.WithLabel("tier1", "true").Inc()
 		return &LookupResult{Tier: TierExact, Answer: e.Answer}, nil
+	} else {
+		ragRecallTotal.WithLabel("tier1", "false").Inc()
 	}
 
 	// Tier2 语义层
 	e, err := s.store.GetSemantic(ctx, req.KBID, req.PromptVersion, req.QueryVector, s.threshold)
 	if err != nil {
 		logger.Warnf("[ragcache] tier2 semantic lookup failed: %v", err)
+		ragRecallTotal.WithLabel("tier2", "false").Inc()
+		ragRecallTotal.WithLabel("miss", "true").Inc()
 		return &LookupResult{Tier: TierMiss}, nil
 	}
 	if e == nil || !s.fresh(ctx, e) {
+		ragRecallTotal.WithLabel("tier2", "false").Inc()
+		ragRecallTotal.WithLabel("miss", "true").Inc()
 		return &LookupResult{Tier: TierMiss}, nil
 	}
 	// 双重校验：SQL 阈值之外在应用侧再验一次 cosine（阈值边界防线）
 	sim := CosineSimilarity(req.QueryVector, e.QueryVector)
 	if sim < float64(s.threshold) {
 		logger.Debugf("[ragcache] semantic hit below local threshold: sim=%.6f threshold=%.2f", sim, s.threshold)
+		ragRecallTotal.WithLabel("tier2", "false").Inc()
+		ragRecallTotal.WithLabel("miss", "true").Inc()
 		return &LookupResult{Tier: TierMiss}, nil
 	}
+	ragRecallTotal.WithLabel("tier2", "true").Inc()
 	return &LookupResult{Tier: TierSemantic, Answer: e.Answer, Similarity: sim}, nil
 }
 

@@ -184,5 +184,6 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	register(NewAlertRuleMigration(db))
 	register(NewUnifiedIDWidenMigration(db))
 	register(NewSOPTimerSinkColumnsMigration(db))
+	register(NewSOPHeatmapIndexMigration(db))
 }
 
