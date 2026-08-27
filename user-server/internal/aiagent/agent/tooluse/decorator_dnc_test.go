@@ -54,7 +54,7 @@ func TestDNC_NotColdOutreachSkips(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil err, got %v", err)
 	}
-	if !r.OK {
+	if !r.Success {
 		t.Fatalf("expected OK, got %+v", r)
 	}
 }
@@ -79,7 +79,7 @@ func TestDNC_NotBlockedAllows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil err, got %v", err)
 	}
-	if !r.OK {
+	if !r.Success {
 		t.Fatalf("expected OK, got %+v", r)
 	}
 }
@@ -116,7 +116,7 @@ func TestDNC_NoOneIDAllows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil err (无 oneID 放行), got %v", err)
 	}
-	if !r.OK {
+	if !r.Success {
 		t.Fatalf("expected OK, got %+v", r)
 	}
 }
