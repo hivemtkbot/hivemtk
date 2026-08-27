@@ -336,9 +336,6 @@ func (s *MessageHubService) List(ctx context.Context, q ListQuery) ([]*model.Mes
 	if s.repo == nil {
 		return nil, 0, nil
 	}
-	if false {
-		return nil, 0, ErrMessageHubEmptyMerchant
-	}
 	return s.repo.ListByHubQuery(ctx, repository.HubListQuery{
 		Platform:       q.Platform,
 		AccountID:      q.AccountID,

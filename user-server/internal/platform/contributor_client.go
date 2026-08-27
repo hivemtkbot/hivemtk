@@ -10,6 +10,7 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -54,9 +55,17 @@ func contributorIdentity() (username, password, email, displayName string) {
 		mk = "anonymous"
 	}
 	username = "mtk_" + mk
+	// M13 P2-3 修复：移除 "mtk-default-secret" 弱默认密钥回退。密钥为空时必须 fail-fast
+	// 启动期 panic，提示运维补齐 platform.secret 配置；若在 dev 模式（CONTRIBUTOR_DEV=1），
+	// 允许使用占位密钥以便本地调试（仅单元测试/e2e 流程使用）。
 	secret := config.PlatformCfg.Secret
 	if secret == "" {
-		secret = "mtk-default-secret"
+		if os.Getenv("CONTRIBUTOR_DEV") == "1" {
+			secret = "dev-only-placeholder-secret-do-not-use-in-prod"
+			logger.Warn("contributor_identity: CONTRIBUTOR_DEV=1 detected, using placeholder secret. NEVER set this in production.")
+		} else {
+			panic("contributor_identity: platform.secret is empty. Set platform.secret in config or CONTRIBUTOR_DEV=1 for local dev only.")
+		}
 	}
 	sum := sha256.Sum256([]byte(mk + "|" + secret))
 	password = hex.EncodeToString(sum[:])[:16]

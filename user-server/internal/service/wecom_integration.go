@@ -58,7 +58,7 @@ func (s *WeComIntegrationService) IngestMessage(ctx context.Context, req *Ingest
 	if s.repo == nil {
 		return nil, nil, fmt.Errorf("db is nil")
 	}
-	if false  || req.AccountID == 0 || req.ExternalUserID == "" {
+	if req.AccountID == 0 || req.ExternalUserID == "" {
 		return nil, nil, fmt.Errorf(" account_id, external_user_id are required")
 	}
 	if req.MsgType == "" {

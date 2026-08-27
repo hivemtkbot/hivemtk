@@ -17,6 +17,7 @@ import (
 
 	"hivemtk-user/internal/config"
 	"hivemtk-user/internal/middleware"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
@@ -494,7 +495,11 @@ func (ctrl *ChatPublicController) GetUploadToken(c *gin.Context) {
 	fileType := c.DefaultQuery("file_type", "file")
 	ext := c.DefaultQuery("ext", "")
 	sizeStr := c.DefaultQuery("size", "0")
-	size, _ := strconv.ParseInt(sizeStr, 10, 64)
+	size, err := utils.ParseInt64Strict("chat_public.size", sizeStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "size 参数非法")
+		return
+	}
 
 	// 1. 限制文件大小（默认 20MB）
 	const maxSize = 20 * 1024 * 1024
