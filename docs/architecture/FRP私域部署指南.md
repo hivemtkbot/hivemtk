@@ -130,7 +130,7 @@ acme.sh --install-cert -d chat.example.com \
 
 ### 3.3 本地 frpc 部署
 
-直接复用 `hivemtk-platform/scripts/release.sh` 打包的 `frp/frpc.toml` 模板：
+frpc 模板可参考项目内 `docs/architecture/FRP私域部署指南.md` 第 3.3 节，或 `hivemtk-platform/scripts/release.sh`（位于平台端仓库，若已 clone 则可复用其 `frp/frpc.toml` 模板；若该路径不可达，说明平台端仓库尚未 clone 或已迁移，请按下方模板自行编写）：
 
 ```toml
 # frpc.toml（方案 A 完整版）
@@ -396,12 +396,14 @@ proxy_read_timeout 300s;            # 大于 heartbeatTimeout
 
 ---
 
-## 七、与 docker-compose 的集成（可选）
+## 七、与 docker-compose / host 模式的集成（可选）
 
-把 frpc 容器化,与 user-server 共享 docker 网络：
+> **架构前提**：自 2026-08-17 改造后，user-server 不再以容器方式运行（详见 [部署方案_用户端.md §三](部署方案_用户端.md)），其数据层 PG/Redis 仍由根目录 `docker-compose.yml` 托管（`mtk-postgres`、`mtk-redis` 两个服务），共享网络 `mtk-user-network`。frpc 仅需**与 user-server 同主机**即可访问 `127.0.0.1:8204`。
+
+### 7.1 容器化 frpc（推荐：frpc 仍放 Docker）
 
 ```yaml
-# docker-compose.yml 追加
+# docker-compose.yml 追加（与 mtk-postgres / mtk-redis 并列）
 services:
   frpc:
     image: snowdreamtech/frpc:0.70.0
@@ -409,13 +411,20 @@ services:
     restart: unless-stopped
     volumes:
       - ./frp/frpc.toml:/etc/frp/frpc.toml:ro
+    # 共享 PG/Redis 所在网络，便于在容器内解析 mtk-postgres 等服务名
     networks:
       - mtk-user-network
-    depends_on:
-      - user-server
+    # 注意：user-server 不再是 compose 服务，因此这里不再写 depends_on: user-server
+    # frpc 通过 host gateway (默认 172.17.0.1) 反向访问 host 上的 127.0.0.1:8204：
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 ```
 
-**注意**：frpc 必须能与 `user-server` 通信，且能访问 `frps` 的公网 7000 端口。docker 网络默认能访问公网，无需特殊配置。
+**注意**：frpc 必须能与 user-server 通信，且能访问 `frps` 的公网 7000 端口。docker 网络默认能访问公网，无需特殊配置。
+
+### 7.2 frpc 跑在宿主机（更简单：直接 systemd 托管）
+
+如果你不想为 frpc 单开一个容器，直接在宿主机跑 `frpc -c /etc/frp/frpc.toml`，并按 §3.3 配置 systemd unit 即可，**无需**写 docker-compose 集成段。后续若 `mtk-postgres` 容器需要让 frpc 访问，把 PG 端口 `8202` 映射到 `127.0.0.1:8202` 即可（已在根 `docker-compose.yml` 中按 `127.0.0.1:8202:5432` 绑定，宿主机可直接访问）。
 
 ---
 
@@ -535,4 +544,4 @@ chmod +x /usr/local/bin/mtk-healthcheck.sh
 - acme.sh：https://github.com/acme-sh/acme.sh
 - Cloudflare Tunnel：https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/
 - nginx WebSocket 反代：https://nginx.org/en/docs/http/websocket.html
-- 项目内置 frpc 模板：`hivemtk-platform/scripts/release.sh` → `frp/frpc.toml`
+- 项目 frpc 模板：`hivemtk-platform/scripts/release.sh` → `frp/frpc.toml`（位于平台端仓库，若已 clone 可复用；若不可达，按本指南 §3.3 模板自行编写）

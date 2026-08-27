@@ -39,9 +39,9 @@
                    ▼
    ┌──────────────────────────────────┐
    │  user-server (HiveMtk 用户端)    │
-   │  - RESTful API: /api/chat/public/*│
-   │  - 长轮询: /api/v1/ai/chat/poll  │
-   │  - AI 自动回复（LLM + RAG）       │
+   │  - RESTful API: /api/chat/public/*     │
+   │  - WebSocket: /api/ws/visitor          │
+   │  - AI 自动回复（LLM + RAG）            │
    │  - 触发转人工后接管               │
    └──────────────────────────────────┘
 ```
@@ -240,12 +240,12 @@ aws s3 sync dist/ s3://cdn.example.com/embed/ \
 ## 十二、相关代码
 
 - `embed-sdk/src/` - SDK 源代码
-- `user-server/internal/router/chat_routes.go` - `/api/chat/public/*` 路由
-- `user-server/internal/router/embed_static_routes.go` - `/embed/*` 静态服务 + `/chat/embed/*` SPA 路由
-- `user-server/internal/service/ai_chat_poll.go` - `/api/v1/ai/chat/poll` 长轮询端点
-- `user-server/internal/service/chat_visitor_service.go` - 访客聊天服务
+- `user-server/internal/router/chat_routes.go` - `/api/chat/public/*` 与 `/api/ws/visitor` 路由
+- `user-server/internal/router/embed_static_routes.go` - `/embed/*` 静态服务 + `/chat/embed/*` SPA 路由（默认查找 `../embed-sdk/dist`，可由 `EMBED_SDK_DIST` 环境变量覆盖）
+- `user-server/internal/controller/chat_public.go` - `GetUploadToken` 实现七牛直传凭证下发（同时支持阿里云/腾讯云/AWS/本地存储，见 `internal/dto/obs_config.go`）
+- `user-server/internal/service/chat_visitor.go` - 访客聊天服务（`VisitorChatService`）
 - `user-web/src/views/chat/embed/Index.vue` - 嵌入聊天窗 SPA 入口
-- `migrations/004_customer_session.sql` - customer_sessions 表（platform=web_embed）
+- `migrations/004_customer_session.sql` - customer_sessions 表（platform 字段记录来源渠道）
 
 ---
 

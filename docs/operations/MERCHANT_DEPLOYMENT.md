@@ -63,32 +63,36 @@ PLATFORM_API_URL=http://127.0.0.1:8205
 ### 步骤 3：启动本地推理栈
 
 ```bash
-# 方式 A：宿主机 llama.cpp 推理栈（推荐，零虚拟化损耗）
-bash scripts/inference-host/install-llama-cpp.sh
-HIVEMTK_PROFILE=dev bash scripts/inference-host/download-models.sh
-bash scripts/inference-host/start-all.sh
+# 推荐：宿主机 llama.cpp 三件套（LLM + Embedding + Rerank）
+make inference-host-install        # 安装 llama.cpp 二进制（首次）
+make inference-host-models         # 下载 dev 档模型（Qwen2.5-3B + bge-m3 + bge-reranker-v2-m3）
+make inference-host-up             # 启动三服务
+make inference-host-warmup         # 预热首请求（避免首调用冷启动慢）
 
-# 方式 B：Docker 推理栈（向后兼容）
-# 模型档位在 .env 中配置：默认 dev 轻量档（Qwen2.5-3B-Instruct + bge-m3 + bge-reranker-v2-m3）
-make inference-up
+# 也可直接调用底座脚本
+# bash scripts/inference-host/install-llama-cpp.sh
+# bash scripts/inference-host/download-models.sh
+# bash scripts/inference-host/start-all.sh
 ```
 
-等待三个推理服务（LLM/Embedding/Rerank）health-check 通过后继续。
+等待三个推理服务（LLM/Embedding/Rerank）health-check 通过后继续。可用 `make inference-host-status` 统一查看。
 
 ### 步骤 4：启动用户端服务
 
 ```bash
-# 方式 A：宿主机开发模式（推荐，air 热更新）
-cd user-server && air
+# 方式 A：宿主机开发模式（推荐，air 热更新，1~2s 增量重编）
+make dev                            # 自动装 air + 启动热更新
 
-# 方式 B：Docker 全栈模式
-# 先构建前端（仅首次部署或前端有更新时需要）
-cd user-web && npm install && npm run build && cd ..
-cd embed-sdk && npm install && npm run build && cd ..
+# 方式 B：宿主机二进制模式（生产）
+make user-build                     # 输出 user-server/bin/user-server
+cd user-server && ./bin/user-server
 
-# 启动后端
-docker compose up -d
+# 方式 C：纯数据层 Docker + 全栈宿主机
+docker compose up -d                # 仅拉起 PG + Redis
+make dev                            # user-server 跑宿主机
 ```
+
+> **重要**：本项目**不在 Docker 中跑 user-server / 前端 / 推理栈**。`docker compose up -d` 只拉起 PG + Redis 两个数据层容器。user-server 由宿主机直接运行（见 `Makefile` 与 `docker-compose.yml` 头注释）。
 
 ### 步骤 5：完成初始化流程
 
@@ -101,57 +105,82 @@ docker compose up -d
 > **开源版特性**：
 > - 无需输入 LicenseKey
 > - 无 7 天免费试用限制（功能全开放）
-> - 无强制首登改密（commit 65079e5 已移除 `must_change_password` 机制）
-> - 详见 [MERCHANT_INITIALIZATION_FLOW.md](MERCHANT_INITIALIZATION_FLOW.md)
+> - 无强制首登改密（`must_change_password` 机制已下线）
+> - 详见 `user-server/internal/config/init.go` 中的初始化流程实现
 
 ---
 
 ## 四、关键端口
 
-| 端口 | 服务 | 说明 |
-|------|------|------|
-| 8204 | user-server API | RESTful + HTTP 长轮询 |
-| 8202 | PostgreSQL (user_db) | 容器内端口 |
-| 8203 | Redis | 容器内端口 |
-| 8207 | llama-server (LLM) | 宿主机 llama.cpp 推理 |
-| 8208 | llama-server (Embedding) | 宿主机 llama.cpp 向量化 (1024 维) |
+> 当前部署形态：**PG + Redis 走 Docker（端口绑 127.0.0.1）；user-server / 推理栈 / 前端 跑宿主机**。
+
+| 端口 | 服务 | 部署位置 |
+|------|------|---------|
+| 8202 | PostgreSQL (user_db) | Docker 容器 `mtk-postgres`，绑 `127.0.0.1` |
+| 8203 | Redis | Docker 容器 `mtk-redis`，绑 `127.0.0.1` |
+| 8204 | user-server API（RESTful + HTTP 长轮询 + WebSocket） | 宿主机（`make dev` 或 `./bin/user-server`） |
+| 8207 | llama-server (LLM) | 宿主机 llama.cpp（`scripts/inference-host/start-llm.sh`） |
+| 8208 | llama-server (Embedding) | 宿主机 llama.cpp 向量化（1024 维，bge-m3） |
 | 8209 | llama-server (Rerank) | 宿主机 llama.cpp 重排 |
 
 ---
 
 ## 五、数据持久化
 
-通过命名卷持久化：
+通过命名卷持久化（仅数据层，user-server / 推理栈 / 前端跑宿主机）：
 
-| 卷名 | 用途 |
+| 卷名 | 用途 | 对应容器 |
+|------|------|---------|
+| `mtk_user_pg_data` | PostgreSQL 数据 | `mtk-postgres` |
+| `mtk_user_redis_data` | Redis 数据 | `mtk-redis` |
+
+宿主机运行时目录（由 `scripts/inference-host/*.sh` 自动管理）：
+
+| 路径 | 用途 |
 |------|------|
-| `mtk_user_pg_data` | PostgreSQL 数据 |
-| `mtk_user_redis_data` | Redis 数据 |
-| `mtk_user_logs` | 应用日志 |
-| `mtk_user_uploads` | 用户上传文件 |
-| `mtk_user_data` | install.lock 等运行时文件 |
+| `~/.hivemtk/runtime/llm.log` | LLM 推理日志 |
+| `~/.hivemtk/runtime/embedding.log` | Embedding 日志 |
+| `~/.hivemtk/runtime/rerank.log` | Rerank 日志 |
+| `user-server/tmp/` | air 热更新临时二进制 + 日志 |
 
-> **不要**用 bind mount 替换这些卷，否则数据可能丢失。
+> **不要**用 bind mount 替换 Docker 卷，否则数据可能丢失。
+> **不要**假设有 `mtk_user_logs` / `mtk_user_uploads` / `mtk_user_data` 卷——这些命名只属于旧版容器化部署，**当前重构版已不再使用**（见 `docker-compose.yml` 头注释）。
 
 ---
 
 ## 六、运维命令
 
+> 当前重构版（2026-08-17）以 `Makefile` 为运维入口（详见 `Makefile` 中 `help` target）。
+
 ```bash
-# 查看服务状态
+# === 数据层 ===
+make db-up              # 启动 PG + Redis 容器（mtk-postgres / mtk-redis）
+make db-down            # 停止 PG + Redis 容器
+make db-ps              # 查看数据层容器状态
+make db-logs            # tail PG + Redis 日志
+
+# === 宿主机推理栈 ===
+make inference-host-up      # 启动 LLM + Embedding + Rerank
+make inference-host-down    # 停止三服务
+make inference-host-status  # 统一查看状态 + 端点健康检查
+make inference-host-logs    # tail 三个推理服务日志
+
+# === user-server ===
+make user-build         # 编译二进制到 user-server/bin/user-server
+make dev                # 启动 air 热更新（开发用）
+make dev-stop           # 停止 air
+
+# === 代码质量 ===
+make lint               # golangci-lint 架构护栏
+make vet                # go vet
+make test-go            # go test ./...
+
+# === 原始 docker compose 命令（仅数据层）===
 docker compose ps
-
-# 查看日志
-docker compose logs -f user-server
-
-# 重启服务
-docker compose restart user-server
-
-# 停止并保留数据
-docker compose down
-
-# 停止并清理数据（危险）
-docker compose down -v
+docker compose logs -f mtk-postgres
+docker compose restart mtk-postgres
+docker compose down        # 停止并保留数据
+docker compose down -v     # 停止并清理数据（危险）
 ```
 
 ---
@@ -161,24 +190,23 @@ docker compose down -v
 ### 备份
 
 ```bash
-# 备份 PostgreSQL
-docker exec mtk-user-postgres pg_dump -U admin user_db > backup-$(date +%Y%m%d).sql
+# 备份 PostgreSQL（Makefile 推荐）
+make db-backup   # 生成 backup_YYYYMMDD_HHMMSS.sql
+# 等价命令：
+docker compose exec -T mtk-postgres \
+  pg_dump -U $${POSTGRES_USER:-admin} $${USER_DB_NAME:-user_db} \
+  > backup-$(date +%Y%m%d).sql
 
-# 备份 install.lock（重要！丢失则需重新初始化）
-docker cp mtk-user-server:/app/data/install.lock ./install.lock.bak
-
-# 备份运行时文件
-docker run --rm -v mtk_user_data:/data -v $(pwd):/backup alpine tar czf /backup/data-backup-$(date +%Y%m%d).tar.gz -C /data .
+# 备份推理栈日志
+tar czf hivemtk-runtime-backup-$(date +%Y%m%d).tar.gz ~/.hivemtk/runtime/
 ```
 
 ### 恢复
 
 ```bash
-# 恢复 PostgreSQL
-cat backup-20260721.sql | docker exec -i mtk-user-postgres psql -U admin -d user_db
-
-# 恢复 install.lock
-docker cp ./install.lock.bak mtk-user-server:/app/data/install.lock
+make db-restore FILE=backup_20260101_120000.sql
+# 等价命令：
+cat backup-20260101_120000.sql | docker exec -i mtk-postgres psql -U admin -d user_db
 ```
 
 ---
@@ -189,21 +217,23 @@ docker cp ./install.lock.bak mtk-user-server:/app/data/install.lock
 
 ```bash
 # 1. 备份数据
-make backup  # 或执行上面的备份命令
+make db-backup
 
 # 2. 拉取新代码
 git pull
 
 # 3. 重新构建前端（如有变更）
-cd user-web && npm install && npm run build && cd ..
-cd embed-sdk && npm install && npm run build && cd ..
+make web-build          # user-web
+make sdk-build          # embed-sdk
 
-# 4. 重新构建并启动
-docker compose build
-docker compose up -d
+# 4. 重新构建并启动 user-server
+make user-build && make dev    # 或直接重启宿主机进程
 
 # 5. 执行新迁移
-docker exec -i mtk-user-postgres psql -U admin -d user_db < migrations/0XX_*.sql
+ls migrations/ | sort | tail -n 5
+for f in migrations/0XX_*.sql; do
+  docker exec -i mtk-postgres psql -U $${POSTGRES_USER:-admin} -d $${USER_DB_NAME:-user_db} < "$f"
+done
 ```
 
 ---
@@ -215,8 +245,8 @@ docker exec -i mtk-user-postgres psql -U admin -d user_db < migrations/0XX_*.sql
 ```bash
 # 检查 embedding 服务
 curl http://localhost:8208/health
-# 检查向量维度（必须 1024）
-docker exec mtk-user-postgres psql -U admin -d user_db \
+# 检查 PG 中向量维度（bge-m3 为 1024 维）
+docker exec mtk-postgres psql -U admin -d user_db \
   -c "SELECT column_name, format_type(udt_name, udt_typmod) FROM information_schema.columns WHERE table_name='knowledge_embeddings' AND column_name='embedding';"
 ```
 
@@ -225,8 +255,9 @@ docker exec mtk-user-postgres psql -U admin -d user_db \
 ```bash
 # 检查推理服务状态
 curl http://localhost:8207/health
-# 检查 GPU 是否被使用
-nvidia-smi
+make inference-host-status
+# 检查 GPU 是否被使用（仅当启用 Metal/CUDA 后端时）
+nvidia-smi    # NVIDIA
 ```
 
 ### 9.3 平台端心跳上报失败
@@ -235,24 +266,24 @@ nvidia-smi
 
 ```bash
 # 检查 PLATFORM_API_URL 配置
-docker exec mtk-user-server env | grep PLATFORM
+grep PLATFORM_API_URL .env
 # 手动测试连通性
-docker exec mtk-user-server wget -qO- $PLATFORM_API_URL/health
+curl -s $PLATFORM_API_URL/health
 ```
 
 ---
 
 ## 十、迁移到生产
 
-参考 `architecture/部署方案_用户端.md` 了解详细论证。
+参考 `docs/architecture/部署方案_用户端.md` 了解详细论证。
 
 生产环境额外建议：
 
 1. **HTTPS 终结**：使用外部反代（CDN / 云负载均衡），自行配置 TLS 证书
-2. **公网 IP / FRP 穿透**：无公网 IP 时使用 FRP 把 8204 端口穿透出去
-3. **备份策略**：每日全量备份 PostgreSQL，每周异地备份
-4. **健康监控**: 通过 `user-server` 的 `/healthz` 端点检查服务健康, 关键指标 (wall_ms / LCP / Layer1 命中率) 通过 `layer_decision_logs` 表 SQL 查询审计
-5. **日志收集**: 使用 ELK / Loki 等集中收集日志
+2. **公网 IP / FRP 穿透**：无公网 IP 时使用 FRP 把 8204 端口穿透出去（详见 `docs/architecture/FRP私域部署指南.md`）
+3. **备份策略**：每日 `make db-backup` 全量备份 PostgreSQL，每周异地备份
+4. **健康监控**: 通过 `user-server` 的 `/healthz` 端点检查服务健康；关键性能指标从 PG 表 SQL 查询（参见 `docs/operations/SLA_SLO.md`）
+5. **日志收集**: 使用 ELK / Loki 等集中收集日志（数据层容器日志已 JSON 化，见 `docker-compose.yml` 的 `x-logging`）
 
 ---
 

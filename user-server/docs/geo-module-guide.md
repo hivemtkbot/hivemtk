@@ -109,9 +109,11 @@
 
 ```
 GET    /api/geo/config                获取配置
-PUT    /api/geo/config                更新配置
-POST   /api/geo/config/optimize       LLM 优化配置
+GET    /api/geo/reports/summary       GEO 汇总报表
+GET    /api/geo/reports/roi           ROI 分析
+GET    /api/geo/reports/api-costs     API 成本报表
 ```
+> 注意：当前 `PUT /api/geo/config` 与 `POST /api/geo/config/optimize` 暂未在路由中开放；配置修改走 `geo_brand_configs` 表直接读写（见 `internal/geo/repository/config.go`）。
 
 ### 关键词
 
@@ -139,9 +141,9 @@ GET    /api/geo/content/:id            文章详情
 ### 验证
 
 ```
-POST   /api/geo/verification/verify    AI 搜索验证
-POST   /api/geo/verification/negative 负面监控
-GET    /api/geo/verification/results/:id  验证结果
+POST   /api/geo/verification/verify            AI 搜索验证
+POST   /api/geo/verification/negative          负面监控
+GET    /api/geo/verification/results/:article_id  验证结果
 ```
 
 ### 知识库
@@ -164,8 +166,9 @@ GET    /api/geo/workflow/workflows/:id       工作流详情
 PUT    /api/geo/workflow/workflows/:id       更新工作流
 DELETE /api/geo/workflow/workflows/:id       删除工作流
 POST   /api/geo/workflow/workflows/:id/run   执行工作流
-GET    /api/geo/workflow/templates            模板列表
-POST   /api/geo/workflow/templates            创建模板
+GET    /api/geo/workflow/workflows/:id/executions  某工作流执行历史
+GET    /api/geo/workflow/templates           模板列表
+POST   /api/geo/workflow/templates           创建模板
 ```
 
 ### 平台同步
@@ -182,17 +185,18 @@ GET    /api/geo/platform/records      发布记录
 ### 资源 / 配置 / 指标
 
 ```
-GET    /api/geo/resources/agents     AI Agent 推荐
-GET    /api/geo/resources/tools      工具推荐
-GET    /api/geo/resources/papers     论文 / 指南
-GET    /api/geo/resources/communities 社区推荐
-GET    /api/geo/resources/summary     资源汇总
-GET    /api/geo/resources/search      资源搜索
-POST   /api/geo/techconfig/robots     生成 robots.txt
-POST   /api/geo/techconfig/sitemap    生成 sitemap.xml
-POST   /api/geo/metrics/analyze       内容质量分析
-GET    /api/geo/keyword-enhance/analyze  关键词表现分析
-POST   /api/geo/keyword-enhance/enhance  数据增强关键词
+GET    /api/geo/resources/agents        AI Agent 推荐
+GET    /api/geo/resources/tools         工具推荐
+GET    /api/geo/resources/papers        论文 / 指南
+GET    /api/geo/resources/communities   社区推荐
+GET    /api/geo/resources/summary       资源汇总
+GET    /api/geo/resources/search        资源搜索
+POST   /api/geo/techconfig/robots       生成 robots.txt
+POST   /api/geo/techconfig/sitemap      生成 sitemap.xml
+POST   /api/geo/techconfig/llms-txt     生成 llms.txt（AI 爬虫索引）
+POST   /api/geo/metrics/analyze         内容质量分析
+GET    /api/geo/keyword-enhance/analyze 关键词表现分析
+POST   /api/geo/keyword-enhance/enhance 数据增强关键词
 ```
 
 ---
@@ -202,10 +206,10 @@ POST   /api/geo/keyword-enhance/enhance  数据增强关键词
 | 层 | 技术 |
 |----|------|
 | 后端 | Go + Gin + GORM + PostgreSQL |
-| LLM | 复用 hivemtk 全局 Dispatcher（支持 6 厂商 + 场景路由 + 缓存 + 故障转移） |
+| LLM | 复用 hivemtk 全局 LLM Dispatcher（支持 6+ 厂商：local / OpenAI 兼容 / DeepSeek / Anthropic / Google / 自托管；含场景路由 + 缓存 + 故障转移） |
 | 前端 | Vue 3 + Element Plus + Pinia + ECharts |
-| 存储 | PostgreSQL（9 张 geo_* 表，AutoMigrate 自动建表） |
-| 工作流 | 自研 DAG 引擎（条件判断 + 步骤跳转 + 5 种内置执行器） |
+| 存储 | PostgreSQL（**16 张 geo_* 表**：workflow / query_chain / keyword / crawler_visit / content / knowledge / verification / config 等，AutoMigrate 自动建表） |
+| 工作流 | 自研 DAG 引擎（条件判断 + 步骤跳转 + **5 种内置执行器**：content_generate / content_score / eeat_enhance / fact_density_enhance / verify） |
 
 ---
 
