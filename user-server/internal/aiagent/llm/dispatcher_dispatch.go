@@ -33,7 +33,14 @@ type DispatchRequest struct {
 	InternalLang    string `json:"internal_lang,omitempty"`    
 	TargetLang      string `json:"target_lang,omitempty"`      
 	CrossLingual    bool   `json:"cross_lingual,omitempty"`    
-	GlossaryVersion string `json:"glossary_version,omitempty"` 
+	GlossaryVersion string       `json:"glossary_version,omitempty"` 
+	FanOut          *FanOutConfig `json:"fanout,omitempty"`
+}
+
+type FanOutConfig struct {
+	Enable   bool          `json:"enable"`
+	Strategy string        `json:"strategy"`
+	Timeout  time.Duration `json:"timeout"`
 }
 
 type DispatchResult struct {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hivemtk-user/internal/config"
 	"hivemtk-user/internal/pkg/utils/logger"
+	textutil "hivemtk-user/internal/pkg/utils/text"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -44,7 +45,8 @@ type ProviderConfig struct {
 	NoFC bool `json:"no_fc,omitempty"`
 	DisplayName string   `json:"display_name,omitempty"`
 	Vendor      string   `json:"vendor,omitempty"`
-	Tags        []string `json:"tags,omitempty"`
+	Tags          []string `json:"tags,omitempty"`
+	ContextWindow int      `json:"context_window,omitempty"`
 }
 
 type ScenarioRoute struct {
@@ -158,6 +160,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 	candidates := []string{activeRoute.Provider}
 	candidates = append(candidates, activeRoute.Fallbacks...)
 
+	// P1-8: Fan-out 并发模式（默认关闭，配置开启）
+	if req.FanOut != nil && req.FanOut.Enable && len(candidates) >= 2 {
+		return d.dispatchFanOut(ctx, req, activeRoute, candidates)
+	}
+
 	traceID := logger.TraceIDFromContext(ctx)
 
 	var lastErr error
@@ -184,6 +191,16 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 
 		if !d.allowRequest(providerName, provider.MaxRPM) {
 			continue
+		}
+
+		// NEW-R1: context_window 自动降级
+		if provider.ContextWindow > 0 {
+			estimatedTokens := estimateRequestTokens(req)
+			if estimatedTokens > provider.ContextWindow {
+				logger.Warnf("[LLM] context_window_exceeded provider=%s model=%s tokens=%d/%d, auto skip to next fallback",
+					provider.Name, provider.Model, estimatedTokens, provider.ContextWindow)
+				continue
+			}
 		}
 
 		attempted++
@@ -412,4 +429,70 @@ func (s *InMemoryAlertSink) Snapshot() []AlertEvent {
 	copy(out, s.buffer)
 	return out
 }
+func estimateRequestTokens(req DispatchRequest) int {
+	total := textutil.EstimateTokens(req.Prompt) + textutil.EstimateTokens(req.SystemPrompt)
+	for _, m := range req.Messages {
+		total += textutil.EstimateTokens(m.Content)
+	}
+	total += len(req.Tools) * 50
+	return total
+}
 
+func (d *Dispatcher) dispatchFanOut(ctx context.Context, req DispatchRequest, route *ScenarioRoute, candidates []string) (*DispatchResult, error) {
+	strategy := "fastest"
+	timeout := 5 * time.Second
+	if req.FanOut.Strategy != "" {
+		strategy = req.FanOut.Strategy
+	}
+	if req.FanOut.Timeout > 0 {
+		timeout = req.FanOut.Timeout
+	}
+
+	fanCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	type fanResult struct {
+		r   *DispatchResult
+		err error
+		idx int
+	}
+
+	maxConcurrent := len(candidates)
+	if maxConcurrent > 2 {
+		maxConcurrent = 2
+	}
+	ch := make(chan fanResult, maxConcurrent)
+	for i := 0; i < maxConcurrent; i++ {
+		providerName := candidates[i]
+		d.mu.RLock()
+		provider, exists := d.providers[providerName]
+		d.mu.RUnlock()
+		if !exists || !provider.Enabled {
+			ch <- fanResult{idx: i, err: fmt.Errorf("provider %s not available", providerName)}
+			continue
+		}
+		go func(idx int, prov *ProviderConfig) {
+			r, err := d.callProvider(fanCtx, prov, req, route)
+			ch <- fanResult{r: r, err: err, idx: idx}
+		}(i, provider)
+	}
+
+	if strategy == "fastest" {
+		var lastErr error
+		for i := 0; i < maxConcurrent; i++ {
+			select {
+			case res := <-ch:
+				if res.err == nil && res.r != nil {
+					logger.Infof("[LLM] fan-out fastest wins provider=%s", candidates[res.idx])
+					return res.r, nil
+				}
+				lastErr = res.err
+			case <-fanCtx.Done():
+				return nil, fmt.Errorf("fan-out timeout: %w", fanCtx.Err())
+			}
+		}
+		return nil, lastErr
+	}
+
+	return nil, fmt.Errorf("fan-out strategy %q not implemented", strategy)
+}
