@@ -297,14 +297,15 @@ type ReceiveRequest struct {
 }
 
 type ReceiveResult struct {
-	Accepted   bool   `json:"accepted"`
-	EventID    string `json:"event_id"`
-	Duplicate  bool   `json:"duplicate"`
-	RateLimit  bool   `json:"rate_limit"`
-	VerifyFail bool   `json:"verify_failed"`
-	Reason     string `json:"reason,omitempty"`
-	EventType  string `json:"event_type,omitempty"`
-	Dispatched   bool   `json:"dispatched,omitempty"`
+	Accepted    bool   `json:"accepted"`
+	EventID     string `json:"event_id"`
+	Duplicate   bool   `json:"duplicate"`
+	RateLimit   bool   `json:"rate_limit"`
+	VerifyFail  bool   `json:"verify_failed"`
+	QueueFull   bool   `json:"queue_full,omitempty"`
+	Reason      string `json:"reason,omitempty"`
+	EventType   string `json:"event_type,omitempty"`
+	Dispatched  bool   `json:"dispatched,omitempty"`
 	HubMessageID string `json:"hub_message_id,omitempty"`
 }
 
@@ -377,7 +378,13 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 	select {
 	case s.queue <- job:
 	default:
-		s.handleJob(ctx, job)
+		return &ReceiveResult{
+			Accepted:  false,
+			QueueFull: true,
+			Reason:    "queue full, please retry after a short delay",
+			EventID:   payload.EventID,
+			EventType: payload.EventType,
+		}, nil
 	}
 
 	return &ReceiveResult{

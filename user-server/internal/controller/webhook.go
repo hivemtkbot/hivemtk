@@ -128,6 +128,11 @@ func (c *WebhookController) Receive(ctx *gin.Context) {
 
 	result, _ := c.svc.Receive(reqCtx, req)
 	status := http.StatusOK
+	if result.QueueFull {
+		ctx.Header("Retry-After", "30")
+		ctx.JSON(http.StatusServiceUnavailable, result)
+		return
+	}
 	if !result.Accepted {
 		status = http.StatusBadRequest
 		if result.VerifyFail {

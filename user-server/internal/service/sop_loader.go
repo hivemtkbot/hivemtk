@@ -37,6 +37,9 @@ func (l *SOPLoader) LoadSOP(ctx context.Context, sopID string) (*IndustrySOP, er
 		var s IndustrySOP
 		if err := json.Unmarshal(data, &s); err == nil {
 			s.ID = sopID
+			if len(s.Steps)+2 > maxNodesPerSOP {
+				return nil, fmt.Errorf("sop exceeds max nodes (limit=%d)", maxNodesPerSOP)
+			}
 			return &s, nil
 		}
 		slog.Warn("SOPLoader invalid JSON, fallback", "asset_id", sopID)

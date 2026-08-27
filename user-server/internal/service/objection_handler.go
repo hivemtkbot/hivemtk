@@ -53,6 +53,39 @@ type ObjectionTemplate struct {
 	SuccessRate float64           `json:"success_rate"`
 }
 
+// angerWords H-6 愤怒情绪关键词（用于情感分层前缀触发）
+var angerWords = []string{
+	"生气", "愤怒", "气死", "气死我", "发火", "火大", "恼火", "大怒", "暴怒",
+	"讨厌", "烦死", "烦", "闹心", "恶心", "郁闷", "憋屈", "窝火", "不爽",
+	"骗", "骗子", "欺诈", "坑", "坑人", "宰", "宰客", "耍", "耍我", "耍人",
+	"垃圾", "烂", "废物", "废", "混蛋", "白痴", "无语", "离谱", "荒唐",
+	"投诉", "举报", "差评", "曝光", "告你", "报警", "打官司", "维权",
+	"angry", "furious", "mad", "hate", "annoyed", "frustrated", "stupid",
+	"混蛋啊", "搞什么", "什么东西", "什么鬼", "有病", "你有病",
+	"太坑", "太烂", "太差", "太离谱", "太过分", "太过分", "再也不",
+}
+
+// detectAnger H-6：简单词典匹配检测愤怒情绪。
+// 返回 anger=true 时，confidence=hitCount/len(angerWords) 的归一化值，
+// 命中 >= 2 个关键词视为 high_confidence。
+func detectAnger(text string) (anger bool, confidence float64) {
+	t := strings.ToLower(text)
+	hits := 0
+	for _, w := range angerWords {
+		if strings.Contains(t, strings.ToLower(w)) {
+			hits++
+		}
+	}
+	if hits == 0 {
+		return false, 0
+	}
+	confidence = float64(hits) / 3.0
+	if confidence > 1 {
+		confidence = 1
+	}
+	return hits >= 2, confidence
+}
+
 // objectionRule 关键词 → 类别映射
 //
 // 规则按顺序求值、首个命中即返回，因此高优先级类别必须排在前面：
@@ -188,6 +221,19 @@ func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest)
 	sort.Slice(resp.Templates, func(i, j int) bool {
 		return resp.Templates[i].UsageCount > resp.Templates[j].UsageCount
 	})
+
+	// H-6 情感分层：anger 高置信时，建议回复前加道歉前缀
+	if angry, conf := detectAnger(req.Text); angry && conf >= 0.6 {
+		apology := "非常抱歉给您带来了不愉快的体验，"
+		if resp.Suggestion != "" {
+			resp.Suggestion = apology + resp.Suggestion
+		}
+		if resp.Acknowledge == "" {
+			resp.Acknowledge = apology
+		} else {
+			resp.Acknowledge = apology + resp.Acknowledge
+		}
+	}
 
 	return resp, nil
 }

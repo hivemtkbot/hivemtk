@@ -147,23 +147,8 @@ func setupMessageRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.GET("/message-hub/:id", messageHubCtrl.GetByID)
 	auth.POST("/message-hub/:id/read", messageHubCtrl.MarkRead)
 
-	inboxCtrl := controller.NewInboxController(service.NewInboxService())
-	auth.GET("/inbox", inboxCtrl.List)
-	auth.GET("/inbox/stats", inboxCtrl.Stats)
-	auth.POST("/inbox/reconcile", inboxCtrl.Reconcile)
-	auth.GET("/inbox/assignments", inboxCtrl.ListAssignments)
-	auth.POST("/inbox/assign", inboxCtrl.Assign)
-	auth.POST("/inbox/auto-assign", inboxCtrl.AutoAssign)
-	auth.GET("/inbox/staff/:staff/load", inboxCtrl.StaffLoad)
-	auth.GET("/inbox/:id", inboxCtrl.GetByID)
-	auth.POST("/inbox/:id/read", inboxCtrl.MarkRead)
-	auth.POST("/inbox/:id/pin", inboxCtrl.Pin)
-	auth.POST("/inbox/:id/star", inboxCtrl.Star)
-	auth.POST("/inbox/:id/mute", inboxCtrl.Mute)
-	auth.POST("/inbox/:id/tags", inboxCtrl.AddTag)
-	auth.DELETE("/inbox/:id/tags/:tag", inboxCtrl.RemoveTag)
-	auth.GET("/inbox/:id/messages", inboxCtrl.GetMessages)
-	auth.DELETE("/inbox/:id/messages/:mid", inboxCtrl.DeleteMessage)
+	// W-3 废弃：unified_inbox 路由已摘除（前端零消费，InboxService 标 Deprecated）。
+	// controller/inbox.go + service/inbox*.go 保留为内部基础设施，待新 inbox 实现替换。
 
 	inboxIngressCtrl := controller.NewInboxIngressController(service.NewInboxIngressService())
 	auth.POST("/inbox/lock-human", inboxIngressCtrl.LockHuman)

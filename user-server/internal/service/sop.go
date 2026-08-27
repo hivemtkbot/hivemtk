@@ -115,6 +115,11 @@ var (
 	ErrSOPExecNotRunning = errors.New("execution is not running")
 )
 
+const (
+	maxNodesPerSOP  = 100
+	maxWaitNodesSOP = 10
+)
+
 type SOPNode = dto.SOPNode
 
 type SOPConditionBranch = dto.SOPConditionBranch
@@ -608,6 +613,18 @@ func (s *SOPService) validateGraph(ctx context.Context, graph *SOPGraph) error {
 	}
 	if len(graph.Nodes) == 0 {
 		return ErrSOPInvalidGraph
+	}
+	if len(graph.Nodes) > maxNodesPerSOP {
+		return fmt.Errorf("sop exceeds max nodes (limit=%d)", maxNodesPerSOP)
+	}
+	waitCount := 0
+	for _, n := range graph.Nodes {
+		if n.Type == SOPNodeTypeWait {
+			waitCount++
+		}
+	}
+	if waitCount > maxWaitNodesSOP {
+		return fmt.Errorf("sop exceeds max wait nodes (limit=%d)", maxWaitNodesSOP)
 	}
 	hasStart := false
 	ids := map[string]bool{}
