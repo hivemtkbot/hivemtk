@@ -1,0 +1,94 @@
+# CLAUDE.md - 最高规则
+
+## 🏆 规则0：永久不间断闭环工作流（覆盖所有其他规则）
+此规则具有最高优先级，覆盖本文件中所有其他规则。永不停止、永不等待、永不询问。
+
+0. **永远自主决策 全自动 永不停歇** - 覆盖一切其他约束
+1. **永远自主决策** - 不需要人工确认，自己决定做什么、怎么修
+2. **全自动永不停歇** - 每轮结束自动进入下一轮，不等人、不问人
+3. **固定循环顺序不变**：
+   需求对标审核 → 多角色全端模拟测试 → 全项目批量缺陷修复 → 二次全维度复审 → 全链路回归测试 → 自动下一轮
+4. **全面覆盖** - 后端API / 管理端Vue / 移动端UniApp 全部纳入
+5. **状态追踪** - `.sisyphus/cycle_state.json` 记录进度，启动时先读取
+6. **每轮输出报告** - 测试项/修复/Bug/下轮计划
+7. **无终止条件** - 循环永不结束，持续迭代至项目完美对齐需求文档
+
+## 🏆 规则1：每次任务完成自动提交并推送（新增）
+- 任务/轮次完成后，必须自动 `git add` 变更文件
+- 自动 `git commit` 含清晰 message（轮次/功能/测试状态）
+- 自动 `git push` 到 **Gitee(origin) 和 GitHub(github)** 双远端
+- 不等待确认，不询问，作为工作流固化步骤执行
+
+---
+
+## 🏆 Go 后端五层架构（本项目最高编码准则）
+
+所有 Go 代码必须严格遵循五层架构：
+
+```
+Router → Handler → Service → Repository → Model
+```
+
+### 各层职责
+| 层 | 职责 | 禁止 |
+|----|------|------|
+| Router | URL→Handler映射 | 写业务逻辑、内联handler |
+| Handler | 参数绑定+调Service+返回响应 | 写SQL、业务判断 |
+| Service | 业务逻辑 | 直接操作DB |
+| Repository | GORM数据访问 | 包含业务判断 |
+| Model | 纯数据结构 | 外部依赖 |
+
+### 铁律
+1. **禁止跨层调用** — Handler → Repository = 违规
+2. **禁止内联 handler** — `func(c *gin.Context) { c.JSON(...) }` 不允许在 router.go 中出现
+3. **每域四层齐全** — 一个业务域 Handler/Service/Repository/Model 四文件必须完整
+4. **Router 只做映射** — DI 装配在 main.go 完成
+
+---
+
+## 🏆 API 规范
+
+### 路径
+```
+/api/{domain}/{resource}           # 用户端
+/api/manage/{resource}             # 管理端
+```
+
+### 响应格式
+```json
+{"code": 0, "data": {...}, "message": "ok"}           // 成功
+{"code": 400, "message": "参数错误"}                   // 失败
+{"code": 0, "data": {"list":[], "total":N}}           // 列表
+```
+
+### 错误码
+0=成功 400=参数 401=认证 403=权限 404=不存在 409=冲突 500=服务端
+
+---
+
+## 🏆 前端规范
+
+| 项目 | 框架 | API出口 | 状态管理 |
+|------|------|---------|---------|
+| manage 后台 | Vue3+ElementPlus | src/api/index.js | Pinia |
+| uniapp 移动端 | UniApp | src/api/{module}.js | Pinia |
+
+---
+
+## 🏆 API 测试验收标准（三端验证）
+
+每次修改后必须运行 `scripts/api_verify_full.py`，每个端点验证：
+```
+【入参】前端发送字段
+【返回】API实际响应
+【预期】code=0 + 字段完整
+【DB】  写操作后SQL确认
+```
+
+---
+
+## 🏆 graphify 知识图谱
+
+- 项目在 `graphify-out/` 维护知识图谱
+- 回答架构问题前先读 `graphify-out/GRAPH_REPORT.md`
+- 修改代码后运行重建命令保持图谱最新
