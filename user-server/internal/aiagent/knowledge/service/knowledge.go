@@ -288,6 +288,8 @@ func (s *KnowledgeService) EmbedAndPersistChunks(ctx context.Context, numericPro
 	if err != nil {
 		return fmt.Errorf("向量化失败: %w", err)
 	}
+	// N-4 维度守卫：preset 不符条目剔除（log+跳过），不中断批量写入
+	chunks, embeddings = filterValidEmbeddings(embService, embCfg, chunks, embeddings)
 	return s.persistChunkEmbeddings(ctx, chunks, embeddings)
 }
 

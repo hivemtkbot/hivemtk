@@ -572,12 +572,15 @@ func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID,
 		}
 	}
 
+	// I-5 弱标签打点：规则命中即以命中意图为伪真值记账（纯内存零阻塞）
+	RecordIntentWeakLabel(result)
+
 	if customerID != "" {
 		s.triggerSOPByIntent(ctx, customerID, sessionID, result.IntentType, result.Confidence)
 	}
 
-	// P1-6: 填充 Top-K few-shot 示例，供后续 agent prompt 注入
-	fillTopKExamples(result)
+	// P1-6 + K-5: 填充 Top-K few-shot 示例（动态 kNN 优先，异常/无向量回退静态），供后续 agent prompt 注入
+	s.fillTopKExamplesDynamic(ctx, text, result)
 
 	return result, nil
 }

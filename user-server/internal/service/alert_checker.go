@@ -165,13 +165,21 @@ func (c *AlertChecker) fire(ctx context.Context, rule *model.AlertRule, val floa
 		return fmt.Errorf("写入告警历史失败: %w", err)
 	}
 	if c.notifier != nil {
-		if err := c.notifier.Notify(ctx, rule, h); err != nil {
-			logger.Error(err, "[AlertChecker] 通知下发失败: "+rule.Name)
-			h.NotifyResult = "notify_error: " + err.Error()
-		} else {
-			h.NotifyResult = "ok"
+		notifyFn := func() {
+			if err := c.notifier.Notify(ctx, rule, h); err != nil {
+				logger.Error(err, "[AlertChecker] 通知下发失败: "+rule.Name)
+				h.NotifyResult = "notify_error: " + err.Error()
+			} else {
+				h.NotifyResult = "ok"
+			}
+			_ = updateNotifyResult(ctx, c.histRepo, h)
 		}
-		_ = updateNotifyResult(ctx, c.histRepo, h)
+		// D-6 挂接：全局分发器已装配时，通知并发去抖执行；未装配保持同步路径（向后兼容）
+		if d := GetAlertDispatcher(); d != nil {
+			d.Dispatch("alertrule:"+rule.Name, notifyFn)
+		} else {
+			notifyFn()
+		}
 	}
 	if err := c.ruleRepo.UpdateLastTriggered(ctx, rule.ID, at); err != nil {
 		logger.Error(err, "[AlertChecker] 更新 last_triggered_at 失败")

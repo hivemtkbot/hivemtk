@@ -32,6 +32,8 @@ func (s *KnowledgeService) Reindex(ctx context.Context, productID string, docID 
 		_ = s.docRepo.UpdateStatus(ctx, doc.ID, model.EmbedStatusFailed, 0, err.Error())
 		return err
 	}
+	// N-4 维度守卫：preset 不符条目剔除（log+跳过），不中断批量写入
+	chunks, embeddings = filterValidEmbeddings(embService, embCfg, chunks, embeddings)
 	if err := s.chunkRepo.UpdateEmbeddingsBatch(ctx, chunks, embeddings); err != nil {
 		return err
 	}

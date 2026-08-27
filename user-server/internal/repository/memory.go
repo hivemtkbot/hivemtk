@@ -36,6 +36,9 @@ type MemoryRepository interface {
 	DeleteMemoryItemsByIDs(ctx context.Context, ids []uint) error
 
 	ListFacts(ctx context.Context, customerID string, limit int) ([]model.MemoryItem, error)
+	ListFactsByKey(ctx context.Context, customerID, key string, limit int) ([]model.MemoryItem, error)
+	ListFactsAsOf(ctx context.Context, customerID string, asOf time.Time, limit int) ([]model.MemoryItem, error)
+	SoftInvalidateMemoryItemsByIDs(ctx context.Context, ids []uint, at time.Time) error
 	GetLatestSummary(ctx context.Context, customerID string) (*model.MemoryItem, error)
 
 	SaveSOPState(ctx context.Context, state *model.SOPStateMemory) error
@@ -137,6 +140,41 @@ func (r *memoryRepository) ListFacts(ctx context.Context, customerID string, lim
 		Order("importance DESC, created_at DESC").Limit(limit).
 		Find(&items).Error
 	return items, err
+}
+
+// ListFactsByKey M-6：按精确键列出客户长期事实（item_type = 'fact:'+key）
+// 用于矛盾更新时定位同键旧记录
+func (r *memoryRepository) ListFactsByKey(ctx context.Context, customerID, key string, limit int) ([]model.MemoryItem, error) {
+	var items []model.MemoryItem
+	err := r.db.WithContext(ctx).
+		Where("layer = ? AND customer_id = ? AND item_type = ?", model.MemoryLayerLongTerm, customerID, "fact:"+key).
+		Order("created_at DESC").Limit(limit).
+		Find(&items).Error
+	return items, err
+}
+
+// ListFactsAsOf M-6 双时间轴读取：asOf 时刻仍有效的事实
+// 判定：COALESCE(valid_from, created_at) <= asOf 且 (invalid_at IS NULL OR invalid_at > asOf)
+// ValidFrom 为 NULL 的老数据兜底视为 created_at（与 service.validAtAsOf 纯函数同语义）
+func (r *memoryRepository) ListFactsAsOf(ctx context.Context, customerID string, asOf time.Time, limit int) ([]model.MemoryItem, error) {
+	var items []model.MemoryItem
+	err := r.db.WithContext(ctx).
+		Where(`layer = ? AND customer_id = ? AND item_type LIKE ?
+			AND COALESCE(valid_from, created_at) <= ?
+			AND (invalid_at IS NULL OR invalid_at > ?)`,
+			model.MemoryLayerLongTerm, customerID, "fact:%", asOf, asOf).
+		Order("importance DESC, created_at DESC").Limit(limit).
+		Find(&items).Error
+	return items, err
+}
+
+// SoftInvalidateMemoryItemsByIDs M-6：按 ID 批量软失效（置 invalid_at=at，不物理删）
+func (r *memoryRepository) SoftInvalidateMemoryItemsByIDs(ctx context.Context, ids []uint, at time.Time) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(&model.MemoryItem{}).
+		Where("id IN ?", ids).Update("invalid_at", at).Error
 }
 
 // GetLatestSummary 取客户最新长期摘要（item_type = 'summary'）

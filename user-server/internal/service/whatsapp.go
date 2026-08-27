@@ -154,6 +154,9 @@ func (s *WhatsappService) SendTextMessage(ctx context.Context, accountID uuid.UU
 	if acc == nil {
 		return "", errors.New("whatsapp account not found")
 	}
+	if err := enforceWhatsAppTierPacing(toJID, "", time.Now()); err != nil { // R-7 分层限速，超限走既有失败路径
+		return "", err
+	}
 
 	// Cloud API 账号：使用 Meta Graph API 发送（24h 客服窗口内免费）
 	if acc.Type == "cloud" && acc.PhoneID != "" && acc.Token != "" {
@@ -192,6 +195,9 @@ func (s *WhatsappService) SendTemplateMessage(ctx context.Context, accountID uui
 	}
 	if acc.PhoneID == "" || acc.Token == "" {
 		return "", errors.New("cloud api credentials missing")
+	}
+	if err := enforceWhatsAppTierPacing(to, templateName, time.Now()); err != nil { // R-7 分层限速（模板类别参与分层）
+		return "", err
 	}
 	phone := to
 	if strings.Contains(phone, "@") {

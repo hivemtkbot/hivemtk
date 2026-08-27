@@ -43,6 +43,10 @@ type CustomerLongTermMemory struct {
 	Metadata  JSONMap    `gorm:"type:jsonb;default:'{}'" json:"metadata"`
 	CreatedAt time.Time  `gorm:"autoCreateTime;index:idx_cltm_importance,priority:2" json:"created_at"`
 	ExpiresAt *time.Time `gorm:"index" json:"expires_at,omitempty"`
+	// M-6 双时间轴（Zep 模式）：ValidFrom=事件生效时间 t_valid，InvalidAt=软失效时间 t_invalid
+	// 可空，读取层 NULL 兜底为 created_at；软失效不物理删
+	ValidFrom *time.Time `gorm:"index" json:"valid_from,omitempty"`
+	InvalidAt *time.Time `gorm:"index" json:"invalid_at,omitempty"`
 }
 
 // TableName 表名

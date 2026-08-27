@@ -169,14 +169,47 @@ func (m *MemorySystem) l1Trim(ctx context.Context, sessionID string) {
 	}
 }
 
-// L2SaveFact 保存一条长期事实
+// L2SaveFact 保存一条长期事实（事件时间缺省为 now，见 L2SaveFactAt）
 func (m *MemorySystem) L2SaveFact(ctx context.Context, customerID, key, value string, importance int) error {
+	return m.L2SaveFactAt(ctx, customerID, key, value, importance, time.Time{})
+}
+
+// L2SaveFactAt M-6 双时间轴（Zep 模式）：保存长期事实并支持显式事件时间
+//   - eventAt 零值 → ValidFrom=now（调用方未传事件时间兜底）
+//   - 矛盾更新：同键已有未失效记录且内容不同 → 旧记录 InvalidAt=now 软失效（不物理删）
+//   - 同键同内容 → 幂等跳过，保持时间轴稳定
+func (m *MemorySystem) L2SaveFactAt(ctx context.Context, customerID, key, value string, importance int, eventAt time.Time) error {
 	if m.memoryRepo == nil {
 		return nil
 	}
 	if importance <= 0 || importance > 10 {
 		importance = defaultImp
 	}
+	if eventAt.IsZero() {
+		eventAt = time.Now()
+	}
+	now := time.Now()
+	// 同键旧事实：矛盾软失效、重复幂等
+	var staleIDs []uint
+	if old, err := m.memoryRepo.ListFactsByKey(ctx, customerID, key, 50); err != nil {
+		logger.Warnf("[MemorySystem] 同键事实扫描失败，降级追加式写入 customer=%s key=%s err=%v", customerID, key, err)
+	} else {
+		for i := range old {
+			it := old[i]
+			if !validAtAsOf(timePtrValue(it.ValidFrom), it.CreatedAt, timePtrValue(it.InvalidAt), now) {
+				continue
+			}
+			if it.Content == value {
+				return nil
+			}
+			staleIDs = append(staleIDs, it.ID)
+		}
+	}
+	if err := m.memoryRepo.SoftInvalidateMemoryItemsByIDs(ctx, staleIDs, now); err != nil {
+		utils.WarnErrKV("memory.L2SaveFact.SoftInvalidate",
+			err, "customer_id", customerID, "key", key, "stale_count", strconv.Itoa(len(staleIDs)))
+	}
+	vf := eventAt
 	item := &model.MemoryItem{
 		Layer:      model.MemoryLayerLongTerm,
 		CustomerID: customerID,
@@ -184,6 +217,7 @@ func (m *MemorySystem) L2SaveFact(ctx context.Context, customerID, key, value st
 		Content:    value,
 		Importance: importance,
 		Metadata:   model.JSONMap{"key": key},
+		ValidFrom:  &vf,
 	}
 	return m.memoryRepo.CreateMemoryItem(ctx, item)
 }
@@ -212,6 +246,28 @@ func (m *MemorySystem) L2ListFacts(ctx context.Context, customerID string, limit
 		limit = 50
 	}
 	return m.memoryRepo.ListFacts(ctx, customerID, limit)
+}
+
+// L2ListFactsAsOf M-6 双时间轴读取：asOf 时刻仍有效的长期事实
+// asOf 零值时取 now；判定语义见 repository.ListFactsAsOf
+func (m *MemorySystem) L2ListFactsAsOf(ctx context.Context, customerID string, asOf time.Time, limit int) ([]model.MemoryItem, error) {
+	if m.memoryRepo == nil {
+		return nil, nil
+	}
+	if asOf.IsZero() {
+		asOf = time.Now()
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	return m.memoryRepo.ListFactsAsOf(ctx, customerID, asOf, limit)
+}
+
+// ListValidFacts M-6 双时间轴查询（Zep 风格）：asOf 时刻仍有效的事实列表
+// 过滤语义：InvalidAt IS NULL（或 > asOf）AND ValidAt（兜底 CreatedAt）<= asOf
+// asOf 零值取 now；底层委托 repository.ListFactsAsOf
+func (m *MemorySystem) ListValidFacts(ctx context.Context, customerID string, asOf time.Time, limit int) ([]model.MemoryItem, error) {
+	return m.L2ListFactsAsOf(ctx, customerID, asOf, limit)
 }
 
 // L2GetLatestSummary 获取客户最新长期摘要
@@ -499,6 +555,9 @@ func (m *MemorySystem) Remember(ctx context.Context, customerID string, memType 
 		Embedding:  embeddingToString(vec),
 		Metadata:   model.JSONMap{},
 	}
+	// M-6：调用方未传事件时间，ValidFrom 兜底为写入时刻（去重合并保 ID 路径不动 ValidFrom）
+	vf := time.Now()
+	item.ValidFrom = &vf
 	if err := m.memoryRepo.CreateLongTermMemory(ctx, item); err != nil {
 		return nil, fmt.Errorf("save long term memory: %w", err)
 	}
@@ -780,4 +839,30 @@ func cosineSimilarity(a, b []float32) float64 {
 		return 0
 	}
 	return dot / (math.Sqrt(na) * math.Sqrt(nb))
+}
+
+// timePtrValue 安全取 *time.Time 值（nil 返回零值 time.Time，便于纯函数判定）
+func timePtrValue(t *time.Time) time.Time {
+	if t == nil {
+		return time.Time{}
+	}
+	return *t
+}
+
+// effectiveValidFrom M-6 读取层兜底：ValidFrom 为零值/NULL 时视为 CreatedAt
+func effectiveValidFrom(validFrom, createdAt time.Time) time.Time {
+	if validFrom.IsZero() {
+		return createdAt
+	}
+	return validFrom
+}
+
+// validAtAsOf M-6 双时间轴判定纯函数（AsOf 过滤）：asOf 时刻事实是否有效
+// 事件时间 t_valid（兜底 created_at）<= asOf 且 (t_invalid 零值 或 t_invalid > asOf)
+// 与 repository.ListFactsAsOf 的 SQL 语义保持一致
+func validAtAsOf(validFrom, createdAt, invalidAt, asOf time.Time) bool {
+	if effectiveValidFrom(validFrom, createdAt).After(asOf) {
+		return false
+	}
+	return invalidAt.IsZero() || invalidAt.After(asOf)
 }

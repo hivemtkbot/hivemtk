@@ -134,6 +134,8 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		s.markFailed(bgCtx, documentID, fmt.Sprintf("向量化失败: %v", err))
 		return
 	}
+	// N-4 维度守卫：preset 不符条目剔除（log+跳过），不中断批量写入
+	chunkModels, embeddings = filterValidEmbeddings(embService, embCfg, chunkModels, embeddings)
 	if err := s.docRepo.UpdateStatus(bgCtx, documentID, model.EmbedStatusProcessing, 80, ""); err != nil {
 		logger.Errorf("[knowledge] 更新进度失败: %v", err)
 	}
