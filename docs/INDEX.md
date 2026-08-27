@@ -62,8 +62,8 @@
 
 - [ADR 决策记录](architecture/adr/) — 架构决策历史
 - [bridge/README.md](bridge/README.md) — Bridge 桥接模块
-- [AI 功能清单基线](../../docs/architecture/AI_CORE_FEATURE_INVENTORY.md) — F1-F15 / G1-G12 事实来源（位于上层 docs 目录）
+- [AI 功能清单基线](architecture/AI_CORE_FEATURE_INVENTORY.md) — AI 核心链路功能点 F1-F15 / 短板 G1-G12 事实来源（源码实测）
 
 ---
 
-*最后更新: 2026-08-26 · 三份主文档已按源码完成事实校准*
+*最后更新: 2026-08-27 · 三份主文档已按源码完成事实校准；AI 功能清单基线已收编入仓库*

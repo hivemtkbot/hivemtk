@@ -1,14 +1,14 @@
-# HiveMTK 工程开发文档总索引
+# HiveMtk 工程开发文档总索引
 
 > **规则级别**: ⭐⭐⭐ 项目级硬性约束
 > **适用范围**: 所有工程目录的开发文档导航
-> **最近更新日期**: 2026-07-26
+> **最近更新日期**: 2026-08-27
 
 ---
 
 ## 一、文档体系说明
 
-HiveMTK 项目按工程目录划分，每个工程目录在 `docs/dev/` 下统一生成 4 份开发文档：
+HiveMtk 项目按工程目录划分，每个工程目录在 `docs/dev/` 下统一生成 4 份开发文档：
 
 | 文档 | 文件名 | 作用 |
 | --- | --- | --- |
@@ -37,14 +37,14 @@ Go + Gin + GORM + PostgreSQL + Redis + pgvector，强制五层架构。
 
 | 文档 | 路径 |
 | --- | --- |
-| 架构图 | [hivemtk/user-server/docs/dev/ARCHITECTURE.md](hivemtk/user-server/docs/dev/ARCHITECTURE.md) |
-| 代码开发手册 | [hivemtk/user-server/docs/dev/DEVELOPMENT.md](hivemtk/user-server/docs/dev/DEVELOPMENT.md) |
-| 代码规范 | [hivemtk/user-server/docs/dev/CONVENTIONS.md](hivemtk/user-server/docs/dev/CONVENTIONS.md) |
-| 功能清单 | [hivemtk/user-server/docs/dev/FEATURES.md](hivemtk/user-server/docs/dev/FEATURES.md) |
+| 架构图 | [user-server/docs/dev/ARCHITECTURE.md](user-server/docs/dev/ARCHITECTURE.md) |
+| 代码开发手册 | [user-server/docs/dev/DEVELOPMENT.md](user-server/docs/dev/DEVELOPMENT.md) |
+| 代码规范 | [user-server/docs/dev/CONVENTIONS.md](user-server/docs/dev/CONVENTIONS.md) |
+| 功能清单 | [user-server/docs/dev/FEATURES.md](user-server/docs/dev/FEATURES.md) |
 
 关联架构文档：
-- [五层架构编码规范](hivemtk/docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md)
-- [系统架构图 C4](hivemtk/docs/architecture/ARCHITECTURE_DIAGRAM.md)
+- [五层架构编码规范](docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md)
+- [系统架构图 C4](docs/architecture/ARCHITECTURE_DIAGRAM.md)
 
 #### 2. user-web（Vue 3 前端）
 
@@ -52,10 +52,10 @@ Vue 3 + Vite + Element Plus + Pinia + Vue Router，用户端 SaaS 前端。
 
 | 文档 | 路径 |
 | --- | --- |
-| 架构图 | [hivemtk/user-web/docs/dev/ARCHITECTURE.md](hivemtk/user-web/docs/dev/ARCHITECTURE.md) |
-| 代码开发手册 | [hivemtk/user-web/docs/dev/DEVELOPMENT.md](hivemtk/user-web/docs/dev/DEVELOPMENT.md) |
-| 代码规范 | [hivemtk/user-web/docs/dev/CONVENTIONS.md](hivemtk/user-web/docs/dev/CONVENTIONS.md) |
-| 功能清单 | [hivemtk/user-web/docs/dev/FEATURES.md](hivemtk/user-web/docs/dev/FEATURES.md) |
+| 架构图 | [user-web/docs/dev/ARCHITECTURE.md](user-web/docs/dev/ARCHITECTURE.md) |
+| 代码开发手册 | [user-web/docs/dev/DEVELOPMENT.md](user-web/docs/dev/DEVELOPMENT.md) |
+| 代码规范 | [user-web/docs/dev/CONVENTIONS.md](user-web/docs/dev/CONVENTIONS.md) |
+| 功能清单 | [user-web/docs/dev/FEATURES.md](user-web/docs/dev/FEATURES.md) |
 
 #### 3. embed-sdk（嵌入式客服 SDK）
 
@@ -63,14 +63,16 @@ Vue 3 + Vite + Element Plus + Pinia + Vue Router，用户端 SaaS 前端。
 
 | 文档 | 路径 |
 | --- | --- |
-| 架构图 | [hivemtk/embed-sdk/docs/dev/ARCHITECTURE.md](hivemtk/embed-sdk/docs/dev/ARCHITECTURE.md) |
-| 代码开发手册 | [hivemtk/embed-sdk/docs/dev/DEVELOPMENT.md](hivemtk/embed-sdk/docs/dev/DEVELOPMENT.md) |
-| 代码规范 | [hivemtk/embed-sdk/docs/dev/CONVENTIONS.md](hivemtk/embed-sdk/docs/dev/CONVENTIONS.md) |
-| 功能清单 | [hivemtk/embed-sdk/docs/dev/FEATURES.md](hivemtk/embed-sdk/docs/dev/FEATURES.md) |
+| 架构图 | [embed-sdk/docs/dev/ARCHITECTURE.md](embed-sdk/docs/dev/ARCHITECTURE.md) |
+| 代码开发手册 | [embed-sdk/docs/dev/DEVELOPMENT.md](embed-sdk/docs/dev/DEVELOPMENT.md) |
+| 代码规范 | [embed-sdk/docs/dev/CONVENTIONS.md](embed-sdk/docs/dev/CONVENTIONS.md) |
+| 功能清单 | [embed-sdk/docs/dev/FEATURES.md](embed-sdk/docs/dev/FEATURES.md) |
 
 ---
 
-### B. 平台端工程（`hivemtk-platform/`）
+### B. 平台端工程（`hivemtk-platform/`，独立仓库）
+
+> 平台端为独立仓库：[Gitee 主仓库](https://gitee.com/xhpmayun/hivemtk-platform) · [GitHub 镜像](https://github.com/xiaofang142/hivemtk-platform)。克隆本仓库时不含该目录；以下文档链接指向 GitHub 在线视图（master 分支）。
 
 #### 4. platform-server（Go 后端）
 
@@ -78,14 +80,14 @@ Go + Gin + GORM + PostgreSQL + Redis，强制五层架构。负责商户管理�
 
 | 文档 | 路径 |
 | --- | --- |
-| 架构图 | [hivemtk-platform/platform-server/docs/dev/ARCHITECTURE.md](hivemtk-platform/platform-server/docs/dev/ARCHITECTURE.md) |
-| 代码开发手册 | [hivemtk-platform/platform-server/docs/dev/DEVELOPMENT.md](hivemtk-platform/platform-server/docs/dev/DEVELOPMENT.md) |
-| 代码规范 | [hivemtk-platform/platform-server/docs/dev/CONVENTIONS.md](hivemtk-platform/platform-server/docs/dev/CONVENTIONS.md) |
-| 功能清单 | [hivemtk-platform/platform-server/docs/dev/FEATURES.md](hivemtk-platform/platform-server/docs/dev/FEATURES.md) |
+| 架构图 | [platform-server/docs/dev/ARCHITECTURE.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/platform-server/docs/dev/ARCHITECTURE.md) |
+| 代码开发手册 | [platform-server/docs/dev/DEVELOPMENT.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/platform-server/docs/dev/DEVELOPMENT.md) |
+| 代码规范 | [platform-server/docs/dev/CONVENTIONS.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/platform-server/docs/dev/CONVENTIONS.md) |
+| 功能清单 | [platform-server/docs/dev/FEATURES.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/platform-server/docs/dev/FEATURES.md) |
 
 关联架构文档：
-- [平台端系统架构图](hivemtk-platform/docs/architecture/PLATFORM_ARCHITECTURE.md)
-- [五层架构编码规范](hivemtk-platform/docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md)
+- [平台端系统架构图](https://github.com/xiaofang142/hivemtk-platform/blob/master/docs/architecture/PLATFORM_ARCHITECTURE.md)
+- [五层架构编码规范](https://github.com/xiaofang142/hivemtk-platform/blob/master/docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md)
 
 #### 5. platform-web（Vue 3 前端）
 
@@ -93,10 +95,10 @@ Vue 3 + Vite + Element Plus + Pinia，平台运营管理后台前端。
 
 | 文档 | 路径 |
 | --- | --- |
-| 架构图 | [hivemtk-platform/platform-web/docs/dev/ARCHITECTURE.md](hivemtk-platform/platform-web/docs/dev/ARCHITECTURE.md) |
-| 代码开发手册 | [hivemtk-platform/platform-web/docs/dev/DEVELOPMENT.md](hivemtk-platform/platform-web/docs/dev/DEVELOPMENT.md) |
-| 代码规范 | [hivemtk-platform/platform-web/docs/dev/CONVENTIONS.md](hivemtk-platform/platform-web/docs/dev/CONVENTIONS.md) |
-| 功能清单 | [hivemtk-platform/platform-web/docs/dev/FEATURES.md](hivemtk-platform/platform-web/docs/dev/FEATURES.md) |
+| 架构图 | [platform-web/docs/dev/ARCHITECTURE.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/platform-web/docs/dev/ARCHITECTURE.md) |
+| 代码开发手册 | [platform-web/docs/dev/DEVELOPMENT.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/platform-web/docs/dev/DEVELOPMENT.md) |
+| 代码规范 | [platform-web/docs/dev/CONVENTIONS.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/platform-web/docs/dev/CONVENTIONS.md) |
+| 功能清单 | [platform-web/docs/dev/FEATURES.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/platform-web/docs/dev/FEATURES.md) |
 
 #### 6. platform-contributor（贡献者 Playground）
 
@@ -104,10 +106,10 @@ Vue 3 + Vite + Element Plus，资产市场贡献者中心，支持 5 类资产�
 
 | 文档 | 路径 |
 | --- | --- |
-| 架构图 | [hivemtk-platform/platform-contributor/docs/dev/ARCHITECTURE.md](hivemtk-platform/platform-contributor/docs/dev/ARCHITECTURE.md) |
-| 代码开发手册 | [hivemtk-platform/platform-contributor/docs/dev/DEVELOPMENT.md](hivemtk-platform/platform-contributor/docs/dev/DEVELOPMENT.md) |
-| 代码规范 | [hivemtk-platform/platform-contributor/docs/dev/CONVENTIONS.md](hivemtk-platform/platform-contributor/docs/dev/CONVENTIONS.md) |
-| 功能清单 | [hivemtk-platform/platform-contributor/docs/dev/FEATURES.md](hivemtk-platform/platform-contributor/docs/dev/FEATURES.md) |
+| 架构图 | [platform-contributor/docs/dev/ARCHITECTURE.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/platform-contributor/docs/dev/ARCHITECTURE.md) |
+| 代码开发手册 | [platform-contributor/docs/dev/DEVELOPMENT.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/platform-contributor/docs/dev/DEVELOPMENT.md) |
+| 代码规范 | [platform-contributor/docs/dev/CONVENTIONS.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/platform-contributor/docs/dev/CONVENTIONS.md) |
+| 功能清单 | [platform-contributor/docs/dev/FEATURES.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/platform-contributor/docs/dev/FEATURES.md) |
 
 #### 7. website（产品官网）
 
@@ -115,10 +117,10 @@ Vue 3 + Vite + Vue Router，产品官网。包含首页、文档页、FAQ 页，
 
 | 文档 | 路径 |
 | --- | --- |
-| 架构图 | [hivemtk-platform/website/docs/dev/ARCHITECTURE.md](hivemtk-platform/website/docs/dev/ARCHITECTURE.md) |
-| 代码开发手册 | [hivemtk-platform/website/docs/dev/DEVELOPMENT.md](hivemtk-platform/website/docs/dev/DEVELOPMENT.md) |
-| 代码规范 | [hivemtk-platform/website/docs/dev/CONVENTIONS.md](hivemtk-platform/website/docs/dev/CONVENTIONS.md) |
-| 功能清单 | [hivemtk-platform/website/docs/dev/FEATURES.md](hivemtk-platform/website/docs/dev/FEATURES.md) |
+| 架构图 | [website/docs/dev/ARCHITECTURE.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/website/docs/dev/ARCHITECTURE.md) |
+| 代码开发手册 | [website/docs/dev/DEVELOPMENT.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/website/docs/dev/DEVELOPMENT.md) |
+| 代码规范 | [website/docs/dev/CONVENTIONS.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/website/docs/dev/CONVENTIONS.md) |
+| 功能清单 | [website/docs/dev/FEATURES.md](https://github.com/xiaofang142/hivemtk-platform/blob/master/website/docs/dev/FEATURES.md) |
 
 ---
 
@@ -150,7 +152,7 @@ graph TB
         CH[触达渠道<br/>微信/企微/抖音/快手/小红书/飞书/钉钉/WhatsApp/SMS/Email]
     end
 
-    UW -->|HTTPS /api/v1| US
+    UW -->|HTTPS /api| US
     UW -->|WebSocket / SSE| US
     ESDK -->|iframe + WebSocket| US
     PW -->|HTTPS /platform/*| PS
@@ -174,18 +176,18 @@ graph TB
 
 | 工程目录 | 技术栈 | 文档行数（合计） |
 | --- | --- | --- |
-| user-server | Go + Gin + GORM | 2,217 |
-| user-web | Vue 3 + Vite + Element Plus | 2,249 |
-| embed-sdk | 原生 JS + Vite | 1,422 |
-| platform-server | Go + Gin + GORM | 2,473 |
-| platform-web | Vue 3 + Vite + Element Plus | 1,792 |
-| platform-contributor | Vue 3 + Vite + Element Plus | 1,024 |
-| website | Vue 3 + Vite + Vue Router | 1,661 |
-| **总计** | — | **12,838 行** |
+| user-server | Go + Gin + GORM | 2,329 |
+| user-web | Vue 3 + Vite + Element Plus | 2,273 |
+| embed-sdk | 原生 JS + Vite | 1,440 |
+| platform-server | Go + Gin + GORM | 2,624 |
+| platform-web | Vue 3 + Vite + Element Plus | 1,821 |
+| platform-contributor | Vue 3 + Vite + Element Plus | 1,038 |
+| website | Vue 3 + Vite + Vue Router | 1,694 |
+| **总计** | — | **13,219 行** |
 
 共计 **7 个工程目录** × **4 份文档** = **28 份开发文档**。
 
-> **口径说明**：用户端按业务子模块细分（94 个），平台端按核心功能模块归并（10 个），口径不同；统计表中"文档行数（合计）"以各工程 4 份标准文档为准，附属文档（如 user-server `NEW_FUNCTIONS_INVENTORY.md`）不计入。
+> **口径说明**：用户端按业务子模块细分（94 个），平台端按核心功能模块归并（10 个），口径不同；统计表中"文档行数（合计）"以各工程 4 份标准文档为准，附属文档（如 user-server `NEW_FUNCTIONS_INVENTORY.md`）不计入。行数为 2026-08-27 快照值。
 
 ---
 
@@ -219,7 +221,7 @@ graph TB
 
 | 前端前缀 | 后端路由 | 归属工程 | 鉴权方式 |
 | --- | --- | --- | --- |
-| `/api/v1/auth/login` | `POST /api/v1/auth/login` | user-server | 账号密码 |
+| `/api/auth/login` | `POST /api/auth/login` | user-server | 账号密码 |
 | `/api/ws/agent` | `GET /api/ws/agent` | user-server | JWT 鉴权 |
 | `/api/ws/visitor` | `GET /api/ws/visitor` | user-server | 公开（访客） |
 | `/platform/*` | `POST/GET /platform/*` | platform-server | JWT 鉴权（平台运营） |
@@ -248,7 +250,7 @@ graph TB
 
 ## 七、项目硬约束总览
 
-> 本节为项目级硬约束的统一入口，所有工程文档、代码、UI、注释均不得违反。约束散落在各工程的 `CONVENTIONS.md` / `FEATURES.md` / 架构文档中，本节按"工程级 / 业务级"两类汇总，并列出跨工程硬约束矩阵。
+> 本节为项目级硬约束的统一入口，所有工程文档、代码、UI、注释均不得违反。约束散落在各工程的 `CONVENTIONS.md` / `FEATURES.md` / 架构文档中，本节按"工程级 / 业务级"两类汇总，并列出跨工程硬约束矩阵。表中 `hivemtk-platform/` 开头的权威文档路径位于同级平台端仓库（见第二节 B 说明）。
 
 ### 7.1 工程级硬约束
 
@@ -269,7 +271,7 @@ graph TB
 | --- | --- | --- | --- |
 | B1 | WebSocket 鲁棒性：连接保活、断线重连、消息补偿、JWT 鉴权握手；路由前缀统一 `/api/ws/*` | `hivemtk/user-server/docs/dev/FEATURES.md` §二十一 / `hivemtk/user-web/docs/dev/ARCHITECTURE.md` | user-server、user-web、embed-sdk |
 | B2 | LLM 调用日志强制字段：必须记录 model / prompt_tokens / completion_tokens / total_tokens / latency_ms / status / scene / user_id | `hivemtk/user-server/docs/dev/CONVENTIONS.md` / `hivemtk/user-server/docs/dev/FEATURES.md` | user-server |
-| B3 | token 计量三维聚合：按 user_id + scene + model 三维聚合统计，用于计费/限流/分析 | `hivemtk/user-server/docs/dev/FEATURES.md` | user-server |
+| B3 | token 计量三维聚合：按 user_id + scene + model 三维聚合统计，用于限流、成本观测与分析 | `hivemtk/user-server/docs/dev/FEATURES.md` | user-server |
 | B4 | 客服聊天窗口布局：移除多语言按钮；坐席实时聊天看板必须支持拉黑功能 | `hivemtk/user-web/docs/dev/FEATURES.md` / `hivemtk/user-web/docs/dev/CONVENTIONS.md` | user-web |
 | B5 | AI/人工切换：智能体可转人工，检测到循环超过 3 次自动升级 | `hivemtk/docs/architecture/ARCHITECTURE_DIAGRAM.md` §4.4 / `hivemtk-platform/docs/platform-features/ai-agent.md` | user-server、user-web |
 | B6 | Vue 3 三栏工作台：坐席工作台采用左会话列表 + 中消息区 + 右客户详情的三栏布局 | `hivemtk/user-web/docs/dev/ARCHITECTURE.md` / `hivemtk/user-web/docs/dev/FEATURES.md` | user-web |

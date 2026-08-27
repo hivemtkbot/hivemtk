@@ -18,7 +18,7 @@
 
 ## 项目简介
 
-**HiveMtk**（读音 /ˈhaɪv ɛm ti keɪ/，"Hive"+"Marketing Toolkit"）是一套**面向中文私域运营场景的开源 AI 营销操作系统**。它把"七端社媒触达、ReAct 自主智能体、本地知识库与零出域数据安全"四件事在同一个仓库里做透，目标用户是 5–50 人的成长型团队、合规敏感行业（金融/医疗/政企）以及希望摆脱 SaaS 厂商锁定的运营团队。
+**HiveMtk**（读音 /ˈhaɪv ɛm ti keɪ/，"Hive"+"Marketing Toolkit"）是一套**面向中文私域运营场景的开源 AI 营销操作系统**。它把"多端社媒触达、ReAct 自主智能体、本地知识库与零出域数据安全"四件事在同一个仓库里做透，目标用户是 5–50 人的成长型团队、合规敏感行业（金融/医疗/政企）以及希望摆脱 SaaS 厂商锁定的运营团队。
 
 HiveMtk 不是"给大模型套个壳"，更不是把流程写死的自动化脚本。系统内置一套**能感知 → 规划 → 调工具 → 反思**的 ReAct 自主智能体，从消息入站到回复出站，自己想办法把事办成。覆盖**获客 → 触达 → 转化 → 复购**全链路营销场景，完整功能列表与已知限制如实披露，见 [docs/marketing-features/README.md](docs/marketing-features/README.md)。
 
@@ -108,14 +108,14 @@ HiveMtk 不是"给大模型套个壳"，更不是把流程写死的自动化脚�
 
 ## 一句话定位
 
-> **开源私域营销 AI 操作系统**:把七端社媒触达、ReAct 自主智能体、零出域数据安全三件事**同时做透**。
+> **开源私域营销 AI 操作系统**:把多端社媒触达、ReAct 自主智能体、零出域数据安全三件事**同时做透**。
 
 我们不是给大模型套个壳,更不是把流程写死的自动化脚本。HiveMtk 内置一套**能感知 → 规划 → 调工具 → 反思**的 ReAct 自主 AI 智能体,从消息入站到回复出站,自己想办法把事办成。覆盖**获客 → 触达 → 转化 → 复购**全链路营销场景,完整功能模块开箱即用,另附 GEO 智能优化模块打通 AI 搜索获客闭环。
 
 ```bash
 # ⚡ 3 步 5 分钟跑起来
 git clone https://gitee.com/xhpmayun/hivemtk.git && cd hivemtk
-make install   # 自动生成 .env + docker-compose.yml + 构建前端 + 下载模型 + 拉起全栈
+make install   # 复制 .env 模板 + 构建前后端 + 下载模型 + 拉起数据层与推理栈（docker-compose.yml 随仓库提供）
 vim .env       # 改 4 个密钥:POSTGRES_PASSWORD / REDIS_PASSWORD / JWT_SECRET / PLATFORM_ADMIN_PASSWORD
 make dev       # 启动 user-server 热更新 → http://localhost:8204
 ```
@@ -435,7 +435,8 @@ hivemtk/                              # 用户端仓库
 git clone https://gitee.com/xhpmayun/hivemtk.git
 cd hivemtk
 
-# 2. 一键安装（生成 .env + compose + 下载模型 + 拉起数据层 + 启动推理栈）
+# 2. 一键安装（生成 .env、构建前后端、下载模型、拉起数据层并启动推理栈）
+#    docker-compose.yml 已随仓库提供，无需生成
 make install
 
 # 3. 编辑 .env,至少修改以下密钥

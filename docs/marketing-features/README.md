@@ -2,7 +2,7 @@
 
 > **本文回答一个问题：这套系统有哪些功能。**
 > 定位：单商户私域部署的 AI 私域营销/客服一体化系统。
-> 所有功能描述尽量与代码实现对应（源码级功能清单 F1–F15 见父仓库 [`docs/architecture/AI_CORE_FEATURE_INVENTORY.md`](../../../docs/architecture/AI_CORE_FEATURE_INVENTORY.md) 与本仓库 [`../../docs/architecture/AI_CORE_FEATURE_INVENTORY.md`](../../docs/architecture/AI_CORE_FEATURE_INVENTORY.md) 之一；以仓库内可达的文件为准）；未完成的功能明确标注「骨架/规划中」，不做夸大。
+> 所有功能描述尽量与代码实现对应（源码级功能清单 F1–F15 见 [../architecture/AI_CORE_FEATURE_INVENTORY.md](../architecture/AI_CORE_FEATURE_INVENTORY.md)）；未完成的功能明确标注「骨架/规划中」，不做夸大。
 
 ---
 
@@ -182,7 +182,7 @@ HiveMtk 是一套**开源自部署**的 AI 私域运营系统，解决一个核�
 
 ### 5.1 渠道接入
 
-权威清单以父仓库 [`user-web/src/constants/channel.js`](../../../user-web/src/constants/channel.js) 为准（如该文件不存在，以 `user-server` 路由注册 `internal/router/` 中的渠道目录为准）。
+权威清单以 [`user-web/src/constants/channel.js`](../../user-web/src/constants/channel.js) 为准（如该文件不存在，以 `user-server` 路由注册 `internal/router/` 中的渠道目录为准）。
 
 | 分组 | 渠道 |
 |------|------|

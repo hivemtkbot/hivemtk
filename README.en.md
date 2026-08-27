@@ -29,14 +29,14 @@
 
 > **Open-source self-hosted AI marketing OS** that nails three things at once: **all-channel reach**, **true AI autonomy**, **zero data egress**.
 
-We don't wrap an LLM. We don't hardcode an automation script. HiveMtk ships with a **ReAct autonomous AI agent** (max 5 rounds) wielding **41 built-in tools** that perceives → plans → calls tools → reflects — figuring things out from inbound message to outbound reply, on its own. Covers the full **acquisition → outreach → conversion → repurchase** funnel with 94 business modules out of the box.
+We don't wrap an LLM. We don't hardcode an automation script. HiveMtk ships with a **ReAct autonomous AI agent** (max 5 rounds) wielding a **built-in tool suite** that perceives → plans → calls tools → reflects — figuring things out from inbound message to outbound reply, on its own. Covers the full **acquisition → outreach → conversion → repurchase** funnel with 94 business modules out of the box.
 
-**🌐 All Channels** · **🤖 ReAct Agent (41 Tools)** · **🔒 100% On-Prem** · **📦 94 Modules** · **⚡ 5-Minute Setup**
+**🌐 All Channels** · **🤖 ReAct Autonomous Agent** · **🔒 100% On-Prem** · **📦 94 Modules** · **⚡ 5-Minute Setup**
 
 ```bash
 # ⚡ 3 steps, 5 minutes
 git clone https://gitee.com/xhpmayun/hivemtk.git && cd hivemtk
-make install   # Auto-generate .env + docker-compose.yml + build frontends + download models + start stack
+make install   # Copy .env template + build frontends + download models + start data layer & inference stack (docker-compose.yml ships with the repo)
 vim .env       # Set 4 secrets: POSTGRES_PASSWORD / REDIS_PASSWORD / JWT_SECRET / PLATFORM_ADMIN_PASSWORD
 make dev       # Start user-server with hot-reload → http://localhost:8204 (default admin + your password)
 ```
@@ -101,7 +101,7 @@ Unified CDP (Customer Data Platform), unified inbox — one profile reaches ever
 ### 2. 🤖 AI Paradigm: ReAct Autonomous Agents, Not Dead Workflows
 
 - **ReAct Loop**: Perceive → Plan → Tool-call → Reflect (up to 5 rounds), the agent decides on its own
-- **41 Built-in Tools**: Order lookup, refund, inventory, logistics, customer profile, address change, whitelist add… Full tool registry at [docs/architecture/agent-tools-inventory.md](docs/architecture/agent-tools-inventory.md)
+- **Built-in Tool Suite**: Order lookup, refund, inventory, logistics, customer profile, address change, whitelist add… The code is the inventory: [user-server/internal/aiagent/agent/tooluse/](user-server/internal/aiagent/agent/tooluse/)
 - **3-Tier RAG**: Coarse retrieval (vector recall) + Fine rerank (bge-reranker) + LLM rewrite (HyDE/Query Rewriter)
 - **Multi-Agent**: Reactive answering agent + Proactive outreach agent (ADR-013)
 - **AI Sales Champion**: Script templates + RAG + auto follow-up — full agent assist for human reps
@@ -243,17 +243,16 @@ hivemtk/                              # User-side repo
 ├── embed-sdk/                        # Embeddable chat Web Widget (IIFE/ESM)
 ├── migrations/                       # DB migration SQL (002-033, idempotent)
 ├── scripts/
-│   ├── inference/                    # Docker inference scripts (deprecated, kept for compat)
 │   ├── inference-host/               # ⭐ Host inference stack scripts (llama.cpp + TEI)
 │   ├── check-architecture.sh         # 5-layer architecture CI check
 │   └── api-inventory.sh              # API inventory export
 ├── docs/
-│   ├── architecture/                 # Architecture docs (diagrams / 5-layer / ADR / 41 tools)
+│   ├── INDEX.md                      # Documentation index
+│   ├── architecture/                 # Architecture docs (diagrams / 5-layer / ADR)
 │   ├── marketing-features/           # ⭐ 94 marketing modules detailed docs
 │   ├── operations/                   # Ops docs (deployment / init / embed)
-│   └── analysis/                     # Analysis docs (cold start / competitive)
-├── docker-compose.yml           # ⭐ Host deployment (PG + Redis only, recommended)
-├── docker-compose.yml        # Legacy full-stack compose (with inference containers)
+│   └── ...                           # oneid / bridge / standards etc.
+├── docker-compose.yml                # ⭐ Data layer orchestration (PG + Redis)
 ├── Makefile                          # install / up / down / inference / dev
 ├── .env-example                      # Env template
 ├── CONTRIBUTING.md                   # Contributing guide
@@ -382,10 +381,8 @@ make down                 # Stop legacy full-stack
 |-----|-------|
 | ⭐⭐⭐ Go 5-layer architecture spec | [docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md](docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md) |
 | System architecture (C4 + 5-layer) | [docs/architecture/ARCHITECTURE_DIAGRAM.md](docs/architecture/ARCHITECTURE_DIAGRAM.md) |
-| AI Agent 41 tools registry | [docs/architecture/agent-tools-inventory.md](docs/architecture/agent-tools-inventory.md) |
-| User system (unified system_users) | [docs/architecture/USER_SYSTEM.md](docs/architecture/USER_SYSTEM.md) |
-| Menu permission plan | [docs/architecture/MENU_PERMISSION_PLAN.md](docs/architecture/MENU_PERMISSION_PLAN.md) |
-| Asset market design | [docs/architecture/ASSET_MARKET_INTEGRATION.md](docs/architecture/ASSET_MARKET_INTEGRATION.md) |
+| AI core feature inventory (F1-F15) | [docs/architecture/AI_CORE_FEATURE_INVENTORY.md](docs/architecture/AI_CORE_FEATURE_INVENTORY.md) |
+| AI agent tool registry (code as inventory) | [user-server/internal/aiagent/agent/tooluse/](user-server/internal/aiagent/agent/tooluse/) |
 
 ### Deployment & Ops
 
@@ -479,8 +476,8 @@ Douyin, Kuaishou, Xiaohongshu, Xianyu, TikTok, WeCom, Email — 7 social/contact
 | Dimension | HiveMtk | Commercial SCRM |
 |-----------|---------|-----------------|
 | Data ownership | 100% customer-owned | Vendor cloud DB |
-| AI agent | ReAct + 41 tools, truly autonomous | Keyword matching / simple RAG |
-| Channel coverage | 7 channels + SMS + Email | 1-3 channels (mostly WeCom) |
+| AI agent | ReAct + built-in tool suite, truly autonomous | Keyword matching / simple RAG |
+| Channel coverage | Multi-channel (10+) | 1-3 channels (mostly WeCom) |
 | Customization | AGPL-3.0 full-stack open source | Black box, vendor roadmap |
 | Setup cost | Docker one-click, 5 minutes | Sign-up and go |
 | Best for | Teams with IT, want self-control | Teams without IT, want zero friction |
