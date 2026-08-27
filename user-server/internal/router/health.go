@@ -10,6 +10,7 @@ import (
 
 	"hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/app"
+	"hivemtk-user/internal/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -72,7 +73,8 @@ func embeddingStatus() (string, string) {
 	if err != nil {
 		return "down", "embedding unreachable: " + err.Error()
 	}
-	_ = conn.Close()
+	utils.WarnErrKV("router.health.embedClose", conn.Close(),
+		"host", host, "port", port)
 	return "up", ""
 }
 

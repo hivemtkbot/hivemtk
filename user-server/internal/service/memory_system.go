@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 	"hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
@@ -159,7 +161,10 @@ func (m *MemorySystem) l1Trim(ctx context.Context, sessionID string) {
 		return
 	}
 	if len(oldIDs) > 0 {
-		_ = m.memoryRepo.DeleteMemoryItemsByIDs(ctx, oldIDs)
+		utils.WarnErrKV("memory.L1Trim.DeleteOldItems",
+			m.memoryRepo.DeleteMemoryItemsByIDs(ctx, oldIDs),
+			"session_id", sessionID,
+			"old_count", strconv.Itoa(len(oldIDs)))
 	}
 }
 
@@ -333,7 +338,10 @@ func (m *MemorySystem) l4EvictImportanceAware(ctx context.Context, customerID st
 		ids = append(ids, it.ID)
 	}
 	if len(ids) > 0 {
-		_ = m.memoryRepo.DeleteBusinessMemoriesByIDs(ctx, ids)
+		utils.WarnErrKV("memory.L4Trim.DeleteBusiness",
+			m.memoryRepo.DeleteBusinessMemoriesByIDs(ctx, ids),
+			"customer_id", customerID,
+			"delete_count", strconv.Itoa(len(ids)))
 	}
 	if remaining := len(items) - len(ids); remaining > L4MaxPerCust {
 		logger.Warnf("[MemorySystem] L4 记忆超限且剩余均为 importance>=%d 受保护记忆，暂缓淘汰 customer=%s remaining=%d cap=%d",

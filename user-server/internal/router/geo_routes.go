@@ -2,12 +2,14 @@ package router
 
 import (
 	"context"
+
 	geoctrl "hivemtk-user/internal/geo/controller"
 	georepo "hivemtk-user/internal/geo/repository"
 	geoservice "hivemtk-user/internal/geo/service"
 	mainrepo "hivemtk-user/internal/repository"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/middleware"
+	"hivemtk-user/internal/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -108,10 +110,10 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 		}
 		// v3 决策链化 Phase3 收口：捕获即绑定 OneID，inbox 回填据此定位链
 		if clue.OneID != "" && geoChainRepo != nil {
-			_ = gormDB.WithContext(ctx).
+			utils.WarnErrKV("router.geo.bindOneIDToChain", gormDB.WithContext(ctx).
 				Table("geo_query_chains").
 				Where("chain_id = ? AND (one_id = '' OR one_id IS NULL)", chainID).
-				Update("one_id", clue.OneID).Error
+				Update("one_id", clue.OneID).Error, "chain_id", chainID, "one_id", clue.OneID, "clue_id", clue.ID)
 		}
 		return clue.ID, nil
 	}))

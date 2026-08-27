@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/websocket"
 )
 
@@ -62,12 +63,12 @@ func (s *CustomerSessionService) TakeoverByAgent(ctx context.Context, req *Takeo
 	}
 
 	if session.AgentID > 0 {
-		_ = s.agentRepo.DecrementActiveSessions(ctx, session.AgentID)
+		utils.WarnErrKV("sessions.takeover.decrementOldAgentSessions", s.agentRepo.DecrementActiveSessions(ctx, session.AgentID), "session_id", session.SessionID, "old_agent_id", strconv.FormatUint(uint64(session.AgentID), 10))
 	}
 	if err := s.sessionRepo.AssignAgent(ctx, req.SessionID, req.AgentID, agent.AgentName); err != nil {
 		return err
 	}
-	_ = s.agentRepo.IncrementActiveSessions(ctx, req.AgentID)
+	utils.WarnErrKV("sessions.takeover.incrementActiveSessions", s.agentRepo.IncrementActiveSessions(ctx, req.AgentID), "session_id", strconv.FormatUint(uint64(req.SessionID), 10), "agent_id", strconv.FormatUint(uint64(req.AgentID), 10))
 
 	updated, err := s.sessionRepo.GetByID(ctx, req.SessionID)
 	if err != nil {
@@ -80,13 +81,13 @@ func (s *CustomerSessionService) TakeoverByAgent(ctx context.Context, req *Takeo
 	if err := s.sessionRepo.Update(ctx, updated); err != nil {
 		return err
 	}
-	_ = s.lockHumanSession(ctx, updated.SessionID, req.Reason)
-	_ = s.notifySessionUpdate(ctx, updated, "handler_changed", "human")
-	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
+	utils.WarnErrKV("sessions.takeover.lockHumanSession.takeover", s.lockHumanSession(ctx, updated.SessionID, req.Reason), "session_id", updated.SessionID, "agent_id", strconv.FormatUint(uint64(req.AgentID), 10))
+	utils.WarnErrKV("sessions.takeover.notifySessionUpdate.takeover", s.notifySessionUpdate(ctx, updated, "handler_changed", "human"), "session_id", updated.SessionID, "agent_id", strconv.FormatUint(uint64(req.AgentID), 10))
+	utils.WarnErrKV("sessions.takeover.sendToVisitor.takeover", websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
 		"session_id": updated.SessionID,
 		"handler":    "human",
 		"reason":     "客服已接管，正在为您服务",
-	}, updated.SessionID)
+	}, updated.SessionID), "session_id", updated.SessionID)
 	return nil
 }
 
@@ -126,14 +127,14 @@ func (s *CustomerSessionService) ReleaseToAI(ctx context.Context, req *ReleaseTo
 	if err := s.sessionRepo.Update(ctx, session); err != nil {
 		return err
 	}
-	_ = s.agentRepo.DecrementActiveSessions(ctx, req.AgentID)
-	_ = s.unlockHumanSession(ctx, session.SessionID)
-	_ = s.notifySessionUpdate(ctx, session, "handler_changed", "ai")
-	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
+	utils.WarnErrKV("sessions.release.decrementActiveSessions", s.agentRepo.DecrementActiveSessions(ctx, req.AgentID), "session_id", session.SessionID, "agent_id", strconv.FormatUint(uint64(req.AgentID), 10))
+	utils.WarnErrKV("sessions.release.unlockHumanSession", s.unlockHumanSession(ctx, session.SessionID), "session_id", session.SessionID, "agent_id", strconv.FormatUint(uint64(req.AgentID), 10))
+	utils.WarnErrKV("sessions.release.notifySessionUpdate", s.notifySessionUpdate(ctx, session, "handler_changed", "ai"), "session_id", session.SessionID, "agent_id", strconv.FormatUint(uint64(req.AgentID), 10))
+	utils.WarnErrKV("sessions.release.sendToVisitor", websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
 		"session_id": session.SessionID,
 		"handler":    "ai",
 		"reason":     "已切回 AI 托管，请稍候",
-	}, session.SessionID)
+	}, session.SessionID), "session_id", session.SessionID)
 	return nil
 }
 

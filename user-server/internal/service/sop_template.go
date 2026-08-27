@@ -6,10 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
 	"time"
+
+	"hivemtk-user/internal/pkg/utils"
 
 	"gorm.io/gorm"
 
@@ -359,11 +362,15 @@ func (s *SOPTemplateService) IncrementHitCount(ctx context.Context, id uint) {
 	if s.repo == nil || id == 0 {
 		return
 	}
-	go func() {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// M1：原裸 go func() 改走 utils.SafeGo，自动 recover + 写 panic 计数。
+// go func() 内吞掉的写库失败改 warn：hit_count 是统计型，丢失一次不影响正确性。
+utils.SafeGo(context.Background(), "sop_template.IncrementHitCount", func(bgCtx context.Context) {
+		bgCtx, cancel := context.WithTimeout(bgCtx, 5*time.Second)
 		defer cancel()
-		_ = s.repo.IncrementHitCount(bgCtx, id)
-	}()
+		utils.WarnErrKV("sop_template.IncrementHitCount.repo",
+			s.repo.IncrementHitCount(bgCtx, id),
+			"id", strconv.FormatUint(uint64(id), 10))
+	})
 }
 
 // WarmupCache 预热缓存 (Task 16: 按 agentID 分片)
@@ -399,7 +406,10 @@ func (s *SOPTemplateService) WarmupCache(ctx context.Context, agentID uint) erro
 // 实现: 简单串行预热每个 agent, 失败不阻塞。
 func (s *SOPTemplateService) WarmupAll(ctx context.Context, agentIDs []uint) {
 	for _, id := range agentIDs {
-		_ = s.WarmupCache(ctx, id)
+		// pre-warm 失败不阻塞主流程，但仍写 warn 以便观测缓存预热健康度。
+		utils.WarnErrKV("sop_template.WarmupCache",
+			s.WarmupCache(ctx, id),
+			"id", strconv.FormatUint(uint64(id), 10))
 	}
 }
 

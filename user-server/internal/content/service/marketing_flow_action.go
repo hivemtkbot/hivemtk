@@ -27,6 +27,8 @@ import (
 	"io"
 	"net/http"
 	"net/smtp"
+
+	"hivemtk-user/internal/pkg/utils"
 )
 
 func (s *MarketingFlowService) executeAction(ctx context.Context, node model.FlowNode, userID string, data map[string]any) (map[string]any, error) {
@@ -258,7 +260,9 @@ func (s *MarketingFlowService) sendActionAssignAgent(ctx context.Context, config
 		return nil, fmt.Errorf("分配客服失败：%w", err)
 	}
 
-	_ = s.agentRepo.IncrementActiveSessions(ctx, agentID)
+	utils.WarnErrKV("marketing.flow.IncrementActiveSessions",
+		s.agentRepo.IncrementActiveSessions(ctx, agentID),
+		"agent_id", strconv.FormatUint(uint64(agentID), 10))
 
 	return map[string]any{
 		"success":    true,

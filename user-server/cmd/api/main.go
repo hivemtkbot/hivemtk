@@ -28,6 +28,7 @@ import (
 	cronpkg "hivemtk-user/internal/pkg/cron"
 	"hivemtk-user/internal/config"
 	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/platform"
 	"hivemtk-user/internal/router"
@@ -107,7 +108,7 @@ func main() {
 	}
 	router.SetHealthRedis(healthPinger)
 
-	_ = cache.InitGlobalCache(redisClient)
+	cache.InitGlobalCache(redisClient)
 	if redisClient != nil {
 		defer redisClient.Close()
 	}
@@ -117,7 +118,8 @@ func main() {
 	db.AutoMigrate()
 
 	if gdb := db.GetDB(); gdb != nil {
-		_ = gdb.Exec(`CREATE INDEX IF NOT EXISTS idx_mt_node_status_created ON message_trace (node, status, created_at)`).Error
+		utils.WarnErrKV("main.CreateIndexMTNode",
+			gdb.Exec(`CREATE INDEX IF NOT EXISTS idx_mt_node_status_created ON message_trace (node, status, created_at)`).Error)
 	}
 
 	appCfg := config.GetAppConfig()
@@ -177,8 +179,14 @@ func main() {
 	install.SetAdminProbe(service.NewSystemUserService().GetFirstAdminUsername)
 	platform.StartHeartbeat(context.Background())
 
-	gin.SetMode(gin.DebugMode)
-	r := gin.Default()
+	// M8：生产模式默认 Release；启动期 Debug 由 ENV (GIN_MODE=debug) 覆盖
+	if os.Getenv("GIN_MODE") == "debug" {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	r := gin.New()
+	r.Use(gin.Recovery())
 	// 仅信任私网/回环反代（FRP/nginx 均部署在同机或内网），
 	// 防止公网客户端伪造 X-Forwarded-For 绕过限流与防爆破（ClientIP 伪造）
 	if err := r.SetTrustedProxies([]string{

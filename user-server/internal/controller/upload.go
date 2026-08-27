@@ -28,8 +28,12 @@ const (
 )
 
 // 文件扩展名白名单
+//
+// M9 治理：移除 .svg 扩展白名单。原因：SVG 可内嵌 <script>/事件处理器，若反代
+//同源直出且无 CSP 即构成存储型 XSS。下方 (P1-2 修复段) 已对 .svg 显式拒绝，
+//此处再次列出只会给未来误放开留口子。
 var allowedExtensions = map[string][]string{
-	"image":   {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"},
+	"image":   {".jpg", ".jpeg", ".png", ".gif", ".webp"},
 	"video":   {".mp4", ".mov", ".avi"},
 	"doc":     {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx"},
 	"archive": {".zip", ".rar", ".7z"},

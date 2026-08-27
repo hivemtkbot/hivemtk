@@ -156,11 +156,10 @@ func corsMiddleware() gin.HandlerFunc {
 			}
 		}
 		if allow {
-			c.Header("Access-Control-Allow-Origin", origin)
-			c.Header("Access-Control-Allow-Credentials", "true")
-			c.Header("Vary", "Origin")
-		}
-		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
+		c.Header("Access-Control-Allow-Origin", origin)
+		c.Header("Vary", "Origin")
+	}
+	c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With,X-Trace-Id,Last-Event-ID,Cache-Control")
 		c.Header("Access-Control-Expose-Headers", "Last-Event-ID,X-Trace-Id")
 		if c.Request.Method == http.MethodOptions {

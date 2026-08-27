@@ -12,6 +12,7 @@ import (
 	ragcache "hivemtk-user/internal/aiagent/rag/cache"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
@@ -201,7 +202,7 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		result.HandlerType = model.HandlerTypeHuman
 		result.Transferred = true
 		result.TransferReason = fmt.Sprintf("AI 连续回复已达上限 (%d 次)，转人工跟进", o.maxAIConsecutive)
-		_ = o.transferToHuman(ctx, session, result.TransferReason)
+		utils.WarnErrKV("smartcs.transferToHuman.upperLimit", o.transferToHuman(ctx, session, result.TransferReason), "session_id", session.SessionID, "agent_id", strconv.FormatUint(uint64(session.AgentID), 10))
 		return result, nil
 	}
 
@@ -213,7 +214,7 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 			result.HandlerType = model.HandlerTypeHuman
 			result.Transferred = true
 			result.TransferReason = emoStrat.TransferReason
-			_ = o.transferToHuman(ctx, session, result.TransferReason)
+			utils.WarnErrKV("smartcs.transferToHuman.emotion", o.transferToHuman(ctx, session, result.TransferReason), "session_id", session.SessionID, "reason", emoStrat.TransferReason)
 			return result, nil
 		}
 		emotionHint = emoStrat.ReplyHint
@@ -300,7 +301,7 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		} else {
 			result.TransferReason = fmt.Sprintf("AI 置信度不足 (%.2f < %.2f)", result.Confidence, threshold)
 		}
-		_ = o.transferToHuman(ctx, session, result.TransferReason)
+		utils.WarnErrKV("smartcs.transferToHuman.lowConfidence", o.transferToHuman(ctx, session, result.TransferReason), "session_id", session.SessionID, "confidence", strconv.FormatFloat(result.Confidence, 'f', 4, 64), "threshold", strconv.FormatFloat(threshold, 'f', 4, 64))
 		return result, nil
 	}
 
@@ -329,8 +330,8 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		if err := o.saveOutboundMessage(ctx, session, salesResp.Reply, true); err != nil {
 			return nil, fmt.Errorf("save outbound message failed: %w", err)
 		}
-		_ = o.markSuggestionUsed(ctx, suggestionID)
-		_ = o.incrementAIReplyCount(ctx, session)
+		utils.WarnErrKV("smartcs.markSuggestionUsed", o.markSuggestionUsed(ctx, suggestionID), "session_id", session.SessionID, "suggestion_id", strconv.FormatUint(uint64(suggestionID), 10))
+		utils.WarnErrKV("smartcs.incrementAIReplyCount", o.incrementAIReplyCount(ctx, session), "session_id", session.SessionID, "ai_reply_count", strconv.Itoa(session.AIReplyCount+1))
 	}
 
 	return result, nil
@@ -400,8 +401,8 @@ func (o *SmartCSOrchestrator) lookupFAQAnswerCache(ctx context.Context, kbID str
 	result.Confidence = 1.0
 	if o.enableAutoReply {
 		if session := o.sessionOfResult(result); session != nil {
-			_ = o.saveOutboundMessage(ctx, session, lr.Answer, true)
-			_ = o.incrementAIReplyCount(ctx, session)
+			utils.WarnErrKV("smartcs.saveOutboundMessage.hit", o.saveOutboundMessage(ctx, session, lr.Answer, true), "session_id", session.SessionID, "source", "ragcache")
+			utils.WarnErrKV("smartcs.incrementAIReplyCount.hit", o.incrementAIReplyCount(ctx, session), "session_id", session.SessionID, "source", "ragcache")
 		}
 	}
 	return result, true

@@ -78,11 +78,15 @@ func (s *WhatsappService) StartLogin(ctx context.Context, accountID uuid.UUID, t
 			return
 		}
 		b, _ := json.Marshal(sess)
-		_ = s.repo.UpsertSession(ctx, &model.WhatsappSession{AccountID: accountID.String(), SessionJSON: string(b)})
+		utils.WarnErrKV("whatsapp.UpsertSession",
+			s.repo.UpsertSession(ctx, &model.WhatsappSession{AccountID: accountID.String(), SessionJSON: string(b)}),
+			"account_id", accountID.String())
 		acc, _ := s.repo.GetAccount(ctx, accountID)
 		if acc != nil {
 			acc.Status = model.WhatsappStatusOnline
-			_ = s.repo.UpdateAccount(ctx, acc)
+			utils.WarnErrKV("whatsapp.UpdateAccount",
+				s.repo.UpdateAccount(ctx, acc),
+				"account_id", accountID.String())
 		}
 	})
 
