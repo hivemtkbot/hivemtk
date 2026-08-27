@@ -323,3 +323,57 @@ func (t *MemoryCostTracker) Reset() {
 	t.records = make(map[string]*costRecord)
 }
 
+// RetriableError 判断函数类型
+type RetriableError func(error) bool
+
+// WithRetriable 为 ExponentialBackoffPolicy 增加自定义可重试错误判断
+// 返回一个新的 policy，当 err 不是 retryable 时不再重试
+func (p *ExponentialBackoffPolicy) WithRetriable(fn RetriableError) RetryPolicy {
+	return &retriablePolicy{inner: p, retriable: fn}
+}
+
+type retriablePolicy struct {
+	inner     RetryPolicy
+	retriable RetriableError
+}
+
+func (r *retriablePolicy) MaxAttempts() int {
+	return r.inner.MaxAttempts()
+}
+
+func (r *retriablePolicy) NextBackoff(attempt int, lastErr error) (time.Duration, bool) {
+	if r.retriable != nil && lastErr != nil && !r.retriable(lastErr) {
+		return 0, false
+	}
+	return r.inner.NextBackoff(attempt, lastErr)
+}
+
+// ToolRetryPolicies 按工具名配置不同重试策略
+type ToolRetryPolicies struct {
+	defaultPolicy RetryPolicy
+	policies      map[string]RetryPolicy
+}
+
+// NewToolRetryPolicies 创建按工具名配置的重试策略集合
+func NewToolRetryPolicies(defaultPolicy RetryPolicy) *ToolRetryPolicies {
+	if defaultPolicy == nil {
+		defaultPolicy = NewExponentialBackoffPolicy(3, 200*time.Millisecond, 5*time.Second)
+	}
+	return &ToolRetryPolicies{
+		defaultPolicy: defaultPolicy,
+		policies:      make(map[string]RetryPolicy),
+	}
+}
+
+// Set 为指定工具设置专用重试策略
+func (t *ToolRetryPolicies) Set(toolName string, policy RetryPolicy) {
+	t.policies[toolName] = policy
+}
+
+// Get 获取指定工具的重试策略，未配置时返回默认策略
+func (t *ToolRetryPolicies) Get(toolName string) RetryPolicy {
+	if p, ok := t.policies[toolName]; ok {
+		return p
+	}
+	return t.defaultPolicy
+}

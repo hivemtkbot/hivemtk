@@ -79,8 +79,9 @@ type ToolOverride struct {
 // ToolExecutor 工具执行引擎
 // 线程安全；缓存每个工具的装饰后 handler
 type ToolExecutor struct {
-	registry *ToolRegistry
-	config   ToolExecutorConfig
+	registry      *ToolRegistry
+	config        ToolExecutorConfig
+	retryPolicies *ToolRetryPolicies
 
 	mu        sync.RWMutex
 	overrides map[string]ToolOverride 
@@ -130,6 +131,18 @@ func (e *ToolExecutor) ClearCache() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.cache = make(map[string]ToolHandler)
+}
+
+func (e *ToolExecutor) clearCacheLocked() {
+	e.cache = make(map[string]ToolHandler)
+}
+
+// SetRetryPolicies 注入按工具名配置的重试策略
+func (e *ToolExecutor) SetRetryPolicies(policies *ToolRetryPolicies) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.retryPolicies = policies
+	e.clearCacheLocked()
 }
 
 // Registry 返回关联的注册中心
@@ -272,6 +285,9 @@ func (e *ToolExecutor) buildHandler(tool Tool) ToolHandler {
 
 	timeout := e.config.DefaultTimeout
 	policy := e.config.RetryPolicy
+	if e.retryPolicies != nil {
+		policy = e.retryPolicies.Get(tool.Name())
+	}
 	if o, ok := e.overrides[tool.Name()]; ok {
 		if o.Timeout > 0 {
 			timeout = o.Timeout
@@ -596,4 +612,3 @@ func GetGlobalExecutor() *ToolExecutor {
 func SetGlobalExecutor(exec *ToolExecutor) {
 	globalExecutor = exec
 }
-

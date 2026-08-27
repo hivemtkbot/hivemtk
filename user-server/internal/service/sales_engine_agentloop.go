@@ -276,14 +276,6 @@ func (e *SalesEngine) runAgentLoop(
 		totalTokensUsed += iterTokens
 		guard.charge(iterTokens, result.Cost)
 
-		// A-2：LoopGuard 累计成本护栏（预算耗尽/成本漂移即熔断，返回 CostLimit）
-		if sr := loopGuard.RecordCost(loopTraceID, result.Cost); sr != tooluse.StopReasonNone {
-			stopReason = stopReasonCostBudget
-			logger.Warnf("[AgentLoop] LoopGuard cost trip iter=%d reason=%s round_cost=%.4f total_cost=%.4f",
-				iter, sr, result.Cost, loopGuard.UsedCost(loopTraceID))
-			break
-		}
-
 		if result.FinishReason != "tool_calls" || len(result.ToolCalls) == 0 {
 
 			if result.FinishReason == "length" && strings.TrimSpace(result.Content) == "" && !lengthRetryDone {

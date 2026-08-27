@@ -57,6 +57,10 @@ type agentLoopGuard struct {
 	maxTokens    int
 	maxCostUSD   float64
 
+	maxRepeatCalls  int     // 工具调用循环检测的最大重复次数
+	costDriftFactor2 float64 // 单轮成本 vs 历史均值 的漂移因子（默认 5.0，从 LoopGuard 迁移）
+	iterationCount   int     // 当前迭代次数（给 remaining API 用）
+
 	usedTokens int
 	usedCost   float64
 	iterCosts  []float64 // 每轮 LLM 调用成本序列（漂移检测用）
@@ -64,10 +68,12 @@ type agentLoopGuard struct {
 
 func newAgentLoopGuard(totalTimeout time.Duration, maxTokens int, maxCostUSD float64) *agentLoopGuard {
 	return &agentLoopGuard{
-		startedAt:    time.Now(),
-		totalTimeout: totalTimeout,
-		maxTokens:    maxTokens,
-		maxCostUSD:   maxCostUSD,
+		startedAt:        time.Now(),
+		totalTimeout:     totalTimeout,
+		maxTokens:        maxTokens,
+		maxCostUSD:       maxCostUSD,
+		maxRepeatCalls:   3,
+		costDriftFactor2: 5.0,
 	}
 }
 
@@ -112,6 +118,43 @@ func (g *agentLoopGuard) costDrifted() bool {
 		return false
 	}
 	return last3 >= first3*agentLoopDriftFactor
+}
+
+// RemainingTokens 剩余 token 预算（给 P1-4 预算注入 Prompt 用）
+func (g *agentLoopGuard) RemainingTokens() int {
+	if g.maxTokens <= 0 {
+		return -1
+	}
+	remain := g.maxTokens - g.usedTokens
+	if remain < 0 {
+		return 0
+	}
+	return remain
+}
+
+// RemainingCostUSD 剩余美元预算（给 P1-4 用）
+func (g *agentLoopGuard) RemainingCostUSD() float64 {
+	if g.maxCostUSD <= 0 {
+		return -1
+	}
+	remain := g.maxCostUSD - g.usedCost
+	if remain < 0 {
+		return 0
+	}
+	return remain
+}
+
+// Iteration 当前迭代计数（从 runAgentLoop 注入）
+func (g *agentLoopGuard) Iteration(i int) {
+	g.iterationCount = i
+}
+
+// Finish 收尾，返回当前状态对应的 stop_reason
+func (g *agentLoopGuard) Finish() agentLoopStopReason {
+	if r := g.check(); r != stopReasonNone {
+		return r
+	}
+	return stopReasonCompleted
 }
 
 func avgF64(xs []float64) float64 {
