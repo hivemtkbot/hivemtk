@@ -52,7 +52,7 @@ curl http://localhost:8204/health
 
 ### 2.4 测试
 
-- 后端 API：`go test ./...` + Postman/curl 集成测试
+- 后端 API：`make test-go`（= `cd user-server && go test ./... -count=1`）+ `scripts/regression_test.sh`（端到端 smoke）
 - 前端 UI：使用 Playwright，详见 `tests/ui/user/`
 - 推理栈连通性：`make inference-host-test`（宿主机推理栈端到端 smoke test）
 
