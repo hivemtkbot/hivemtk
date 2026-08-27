@@ -17,7 +17,7 @@
           <el-statistic title="AI 回复占比" :value="rep.ai_ratio" suffix="%" />
         </el-col>
         <el-col :span="6">
-          <el-statistic title="平均响应时长(秒)" :value="Number(rep.avg_response_time).toFixed(1)" />
+          <el-statistic title="平均响应时长(秒)" :value="Number(Number(rep.avg_response_time || 0).toFixed(1))" />
         </el-col>
         <el-col :span="6">
           <el-statistic title="转化率" :value="rep.conversion_rate" suffix="%" />

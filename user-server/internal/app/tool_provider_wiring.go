@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -127,6 +128,57 @@ func (p *BusinessToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.T
 // errProviderDBRequired Provider 依赖 DB 但未提供
 var errProviderDBRequired = &providerError{"provider requires DB in ProviderContext"}
 
+// permissionGuardedTool 权限装饰后的工具（最高标准审计 P1-7）。
+//
+// 包装 Tool.Execute：执行前经 PermissionChecker 校验，未通过返回
+// ErrPermissionDenied。语义与 tooluse.PermissionDecorator 一致，
+// 但作用于注册中心层，使绕过 ToolExecutor 的直接调用同样受权限约束。
+type permissionGuardedTool struct {
+	tooluse.Tool
+	checker tooluse.PermissionChecker
+}
+
+func (g *permissionGuardedTool) Execute(ctx context.Context, args map[string]any) (tooluse.ToolResult, error) {
+	if g.checker != nil {
+		name := g.Tool.Name()
+		if tooluse.GetToolName(ctx) == "" {
+			ctx = tooluse.WithToolName(ctx, name)
+		}
+		if err := g.checker.Check(ctx, name, tooluse.GetToolContext(ctx)); err != nil {
+			return tooluse.ErrorResult(name, fmt.Errorf("%w: %v", tooluse.ErrPermissionDenied, err)), tooluse.ErrPermissionDenied
+		}
+	}
+	return g.Tool.Execute(ctx, args)
+}
+
+// rewirePermissionDecorators 把注册中心内所有工具替换为带权限装饰的包装版本（幂等）。
+// 装配期一次性调用；checker 为 nil 时跳过（保持零开销向后兼容）。
+func rewirePermissionDecorators(registry *tooluse.ToolRegistry) {
+	if registry == nil {
+		return
+	}
+	checker := GetGlobalPermissionChecker()
+	if checker == nil {
+		logger.Warn("[agent] ⚠️ 全局 PermissionChecker 未就绪，跳过 PermissionDecorator 接线")
+		return
+	}
+	wired := 0
+	for _, t := range registry.List() {
+		if _, ok := t.(*permissionGuardedTool); ok {
+			continue
+		}
+		if err := registry.Unregister(t.Name()); err != nil {
+			continue
+		}
+		if err := registry.Register(&permissionGuardedTool{Tool: t, checker: checker}); err != nil {
+			logger.Errorf("[agent] ❌ 工具 %s 权限装饰回注失败: %v", t.Name(), err)
+			continue
+		}
+		wired++
+	}
+	logger.Infof("[agent] ✅ PermissionDecorator 已接线：%d 个工具挂载权限钩子（defaultAllow=true 语义不变）", wired)
+}
+
 type providerError struct{ msg string }
 
 func (e *providerError) Error() string { return e.msg }
@@ -199,6 +251,14 @@ func registerAllAgentToolsViaProviders(gormDB *gorm.DB) {
 
 	tooluse.RegisterCardTools(tooluse.GetGlobalRegistry())
 	logger.Info("[agent] ✅ 会话内卡片工具（card.show）已接入全局注册中心")
+
+	// 最高标准审计 P1-7 修复：PermissionDecorator 接线。
+	// 此前 PermissionDecorator 仅在 ToolExecutor 装饰器链生效，直接从注册中心
+	// 取工具执行（registry.Get().Execute()）的路径零权限校验。此处把全局
+	// WhitelistPermissionChecker 以装饰器形式包到每个已注册工具上，
+	// 覆盖所有执行路径。checker 默认 defaultAllow=true → admin/存量调用语义不变，
+	// 但权限钩子已就位：后续按 AgentContext.Tools 设置白名单即刻全链路生效。
+	rewirePermissionDecorators(tooluse.GetGlobalRegistry())
 
 	// TL-3：租户级 disabled_tools 启停——装配完成后从注册中心剔除
 	// （配置缺失/解析失败/列表为空 → 全量，向后兼容）

@@ -115,6 +115,9 @@ func (ctrl *WhatsAppCloudAccountController) Get(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+		return
+	}
 	response.Success(c, toWhatsAppCloudVO(acc), "查询成功")
 }
 
@@ -147,6 +150,7 @@ func (ctrl *WhatsAppCloudAccountController) Create(c *gin.Context) {
 		WebhookEnabled:     req.WebhookEnabled,
 		AIAgentEnabled:     req.AIAgentEnabled,
 		Status:             1,
+		OwnerUserID:        currentStaffUserID(c), // P1-5：归属当前登录 staff
 	}
 	out, err := ctrl.svc.CreateAccount(context.Background(), acc)
 	if err != nil {
@@ -184,6 +188,9 @@ func (ctrl *WhatsAppCloudAccountController) Update(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+		return
+	}
 	if req.AccountName != nil {
 		acc.AccountName = *req.AccountName
 	}
@@ -219,6 +226,14 @@ func (ctrl *WhatsAppCloudAccountController) Delete(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "ID 错误", err.Error())
 		return
 	}
+	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
+		return
+	}
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+		return
+	}
 	if err := ctrl.svc.DeleteAccount(context.Background(), uint(id)); err != nil {
 		response.ErrorFromDB(c, err, "删除失败", err.Error())
 		return
@@ -237,6 +252,14 @@ func (ctrl *WhatsAppCloudAccountController) TestSend(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "ID 错误", err.Error())
+		return
+	}
+	acc, accErr := ctrl.svc.GetAccount(context.Background(), uint(id))
+	if accErr != nil {
+		response.Error(c, http.StatusNotFound, "账号不存在", accErr.Error())
+		return
+	}
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
 		return
 	}
 	var req whatsAppCloudTestSendReq

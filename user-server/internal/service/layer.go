@@ -12,6 +12,7 @@ import (
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/featureflag"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
@@ -129,9 +130,11 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 					decision.Intent = top.Entry.Intent
 				}
 				if top.Entry != nil {
-					go func(id uint) {
-						_ = r.faqRepo.IncrementHitCount(context.Background(), id)
-					}(top.Entry.ID)
+					// 最高标准审计 P1-3 修复：命中计数异步写改走 SafeGo
+					entryID := top.Entry.ID
+					utils.SafeGo(nil, "layer.faq_hit_count", func(_ context.Context) {
+						_ = r.faqRepo.IncrementHitCount(context.Background(), entryID)
+					})
 				}
 				return decision
 			}
@@ -153,9 +156,11 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 					if intentType(req.Intent) == "" {
 						decision.Intent = top.Intent
 					}
-					go func(id uint) {
-						_ = r.faqRepo.IncrementHitCount(context.Background(), id)
-					}(top.ID)
+					// 最高标准审计 P1-3 修复：命中计数异步写改走 SafeGo
+					faqID := top.ID
+					utils.SafeGo(nil, "layer.faq_hit_count", func(_ context.Context) {
+						_ = r.faqRepo.IncrementHitCount(context.Background(), faqID)
+					})
 					return decision
 				}
 				decision.Reason = dto.ReasonLowConfidenceSkip
@@ -192,9 +197,11 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 					}
 					return decision
 				}
-				go func(id uint) {
-					_ = r.sopRepo.IncrementHitCount(context.Background(), id)
-				}(top.ID)
+				// 最高标准审计 P1-3 修复：命中计数异步写改走 SafeGo
+				sopID := top.ID
+				utils.SafeGo(nil, "layer.sop_hit_count", func(_ context.Context) {
+					_ = r.sopRepo.IncrementHitCount(context.Background(), sopID)
+				})
 				return decision
 			}
 		}
@@ -231,7 +238,8 @@ func (r *LayerRouter) record(ctx context.Context, req *RouteRequest, d *dto.Laye
 		LLMSkipped: &llmSkipped,
 		Extra:      fmt.Sprintf("faq_id=%d sop_id=%d", d.FAQID, d.SOPID),
 	}
-	go func() {
+	// 最高标准审计 P1-3 修复：Layer 决策日志异步落库改走 SafeGo
+	utils.SafeGo(nil, "layer.record", func(_ context.Context) {
 		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := r.logRepo.Record(bgCtx, log); err != nil {
@@ -239,7 +247,7 @@ func (r *LayerRouter) record(ctx context.Context, req *RouteRequest, d *dto.Laye
 				logger.Warnf("[LayerRouter] record failed: %v", err)
 			}
 		}
-	}()
+	})
 }
 
 func (r *LayerRouter) traceID() string {

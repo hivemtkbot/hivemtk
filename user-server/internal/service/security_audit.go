@@ -158,7 +158,7 @@ func (s *SecurityAuditService) buildChecks(ctx context.Context) []auditCheck {
 		{
 			name: "数据库连通性", category: "基础设施", level: "critical", weight: 40,
 			run: func(ctx context.Context) (string, string) {
-				if err := s.db.WithContext(ctx).Exec("SELECT 1").Error; err != nil {
+				if err := s.repo.PingDB(ctx); err != nil {
 					return "fail", "数据库连接失败: " + err.Error()
 				}
 				return "pass", "数据库连接正常"
@@ -167,9 +167,10 @@ func (s *SecurityAuditService) buildChecks(ctx context.Context) []auditCheck {
 		{
 			name: "超级管理员账号存在", category: "身份与访问", level: "high", weight: 25,
 			run: func(ctx context.Context) (string, string) {
-				var cnt int64
-				s.db.WithContext(ctx).Model(&model.SystemUser{}).
-					Where("role = ?", model.SystemUserRoleAdmin).Count(&cnt)
+				cnt, err := s.repo.CountSystemUserByRole(ctx, model.SystemUserRoleAdmin)
+				if err != nil {
+					return "fail", "查询超管失败: " + err.Error()
+				}
 				if cnt == 0 {
 					return "fail", "未检测到超级管理员账号"
 				}
@@ -179,8 +180,7 @@ func (s *SecurityAuditService) buildChecks(ctx context.Context) []auditCheck {
 		{
 			name: "默认超管密码已修改", category: "身份与访问", level: "high", weight: 25,
 			run: func(ctx context.Context) (string, string) {
-				var admin model.SystemUser
-				err := s.db.WithContext(ctx).Where("role = ?", model.SystemUserRoleAdmin).First(&admin).Error
+				admin, err := s.repo.FirstSystemUserByRole(ctx, model.SystemUserRoleAdmin)
 				if err != nil {
 					if errors.Is(err, gorm.ErrRecordNotFound) {
 						return "warn", "未找到超管账号，无法校验默认密码"
@@ -196,8 +196,10 @@ func (s *SecurityAuditService) buildChecks(ctx context.Context) []auditCheck {
 		{
 			name: "已启用 LLM 提供商", category: "AI 能力", level: "medium", weight: 10,
 			run: func(ctx context.Context) (string, string) {
-				var cnt int64
-				s.db.WithContext(ctx).Model(&model.LLMProvider{}).Where("enabled = ?", true).Count(&cnt)
+				cnt, err := s.repo.CountEnabledLLMProviders(ctx)
+				if err != nil {
+					return "fail", "查询 LLM 提供商失败: " + err.Error()
+				}
 				if cnt == 0 {
 					return "warn", "未启用任何 LLM 提供商，AI 问答/路由能力不可用"
 				}
@@ -227,11 +229,9 @@ func (s *SecurityAuditService) buildChecks(ctx context.Context) []auditCheck {
 // 仅统计本系统自有域名池（domain_pools）之外、或非 http(s) 协议的外发跳转，标记潜在风险。
 func (s *SecurityAuditService) auditOutboundLinkSafety(ctx context.Context) (string, string) {
 	ownHosts := map[string]bool{}
-	var domains []model.DomainPool
-	if err := s.db.WithContext(ctx).Model(&model.DomainPool{}).
-		Select("domain").Find(&domains).Error; err == nil {
-		for _, d := range domains {
-			if h := hostOf(d.Domain); h != "" {
+	if list, err := s.repo.ListDomainPoolDomains(ctx); err == nil {
+		for _, d := range list {
+			if h := hostOf(d); h != "" {
 				ownHosts[h] = true
 			}
 		}
@@ -243,28 +243,21 @@ func (s *SecurityAuditService) auditOutboundLinkSafety(ctx context.Context) (str
 	}
 	var risky []outbound
 
-	// 短链目标
-	var links []model.ShortLink
-	if err := s.db.WithContext(ctx).Find(&links).Error; err != nil {
+	if links, err := s.repo.ListShortLinkOriginalURLs(ctx); err != nil {
 		return "fail", "查询短链失败: " + err.Error()
-	}
-	for _, l := range links {
-		if r := classifyOutbound(l.OriginalURL, ownHosts); r != "" {
-			risky = append(risky, outbound{Kind: "短链", URL: l.OriginalURL})
-			_ = r
+	} else {
+		for _, l := range links {
+			if r := classifyOutbound(l, ownHosts); r != "" {
+				risky = append(risky, outbound{Kind: "短链", URL: l})
+				_ = r
+			}
 		}
 	}
 
-	// 活码落地页/入口页
-	var codes []model.LiveCode
-	if err := s.db.WithContext(ctx).Find(&codes).Error; err != nil {
+	if codes, err := s.repo.ListLiveCodeOutboundURLs(ctx); err != nil {
 		return "fail", "查询活码失败: " + err.Error()
-	}
-	for _, c := range codes {
-		for _, u := range []string{c.EntryURL, c.LandingURL} {
-			if u == "" {
-				continue
-			}
+	} else {
+		for _, u := range codes {
 			if r := classifyOutbound(u, ownHosts); r != "" {
 				risky = append(risky, outbound{Kind: "活码", URL: u})
 				_ = r

@@ -41,7 +41,7 @@ export const getRoleLabel = (v) => {
   return ROLE_LABEL_MAP[v] || String(v)
 }
 
-export const getRoleTagType = (v) => ROLE_TAG_TYPE_MAP[v] || ''
+export const getRoleTagType = (v) => ROLE_TAG_TYPE_MAP[v] || 'info'
 
 export const filterRolesByGroup = (groups) => {
   const list = Array.isArray(groups) ? groups : [groups]

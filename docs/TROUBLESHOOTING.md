@@ -1,197 +1,376 @@
-# HiveMTK 故障排查手册（TROUBLESHOOTING）
+# HiveMtk 故障排查手册
 
-> 本文档汇总 HiveMTK 私域独立部署常见故障的定位路径、临时缓解、根因修复方案。
-> 私域部署: 不依赖外部监控告警通道, 巡检通过 `scripts/post_deploy_check.sh` SQL 查询实现。
-
----
-
-## 1. 启动类故障
-
-### 1.1 user-server 启动 panic：`USER_JWT_SECRET 未配置或长度不足 32 字符`
-**症状**：`go run` 或 `docker run` 进程 panic 退出，stderr 含 `panic: [SECURITY] USER_JWT_SECRET ...`
-**根因**：JWT 签名密钥未配置或长度不足 32 字符；生产模式下 `loadJWTSecret` 主动 panic 防止使用硬编码密钥。
-**修复**：
-```bash
-# 在 .env 中设置至少 32 字符的随机密钥
-export USER_JWT_SECRET="$(openssl rand -hex 32)"
-# 或 Docker 环境变量
-docker run -e USER_JWT_SECRET="$(openssl rand -hex 32)" ...
-```
-**避免**：
-- 不要使用 `test-jwt-secret-do-not-use-in-prod-32+chars` 这类固定测试值上线。
-
-### 1.2 数据库连接失败：`failed to connect to ...: dial tcp 127.0.0.1:5432: connect: connection refused`
-**症状**：启动日志报 PostgreSQL 连不上，进程退出。
-**根因**：
-- PostgreSQL 未启动或端口未监听；
-- `.env` 中 `POSTGRES_HOST` / `POSTGRES_PORT` 错误；
-- Docker 容器内 `localhost` 指向容器自身而非宿主机。
-**修复**：
-```bash
-# 1. 检查端口监听
-ss -tlnp | grep 5432
-# 2. Docker 场景：用 127.0.0.1 替代 localhost
-POSTGRES_HOST=127.0.0.1
-# 3. 验证连通
-psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB -c "SELECT 1"
-```
+> **定位**：按「用户遇到的现象」组织。先在[快速索引表](#七快速索引表)找现象，再跳到对应条目。
+> **事实基准**：所有端口、命令、变量名均与源码核对过；已知的系统限制如实标注，不粉饰。
+> 配套文档：[部署运维手册](DEPLOYMENT_GUIDE.md) · [产品功能总览](marketing-features/README.md)
 
 ---
 
-## 2. 鉴权 / CORS 类
+## 目录
 
-### 2.1 浏览器控制台：`CORS policy: ... No 'Access-Control-Allow-Origin' header`
-**症状**：前端跨域请求被浏览器拦截；返回 403。
-**根因**：请求 Origin 不在 `CORS_ALLOW_ORIGINS_USER` 白名单；新版 CORS 中间件（白名单模式）拒绝反射任意 Origin。
-**修复**：
-```bash
-# 在 .env 中追加允许的来源（逗号分隔）
-CORS_ALLOW_ORIGINS_USER="https://app.example.com,https://admin.example.com"
-# 重启 user-server 生效
-```
-**避免**：
-- 不要写 `*` 与 `Allow-Credentials: true` 共存，浏览器会拒绝。
-
-### 2.2 WebSocket 连接 401 / 403
-**症状**：`new WebSocket('wss://...')` 立即被关闭；服务端日志 `[ws upgrade failed]`。
-**根因**：
-- token 缺失或已过期；
-- token 中的 `user_id` 与 query `agent_id` 不一致（新鉴权强制对齐）；
-- 浏览器 WebSocket API 不支持自定义 header，token 必须走 query。
-**修复**：
-```js
-// 前端：登录后用 user_id 替换 agent_id，并附 token
-const ws = new WebSocket(`wss://app.example.com/ws?agent_id=${userId}&token=${token}`)
-```
+1. [安装启动类](#一安装启动类)
+2. [登录访问类](#二登录访问类)
+3. [AI 功能类](#三ai-功能类)
+4. [渠道接入类](#四渠道接入类)
+5. [数据一致性类](#五数据一致性类)
+6. [资源与前端类](#六资源与前端类)
+7. [快速索引表](#七快速索引表)
 
 ---
 
-## 3. 性能 / 可靠性
+## 一、安装启动类
 
-### 3.1 审计日志偶发丢失
-**症状**：审计查询页某些时间窗内操作记录缺失。
-**根因**：P0-7 已修复——`saveAuditBatch` 重试逻辑曾永远不触发；当前已收集 `failedLogs` 并按指数退避重试 3 次。
-**缓解**：
-- 服务端日志中查找 `[audit] N 条审计日志在 3 次重试后仍写入失败`，定位具体失败原因（DB 抖动 / 磁盘满 / 死锁）。
-- 临时方案：在 `audit.go` 中把 `maxRetries` 提升到 5-10，但需配套监控告警，避免无限堆积。
+### 1.1 启动即 panic：`panic: [SECURITY] USER_JWT_SECRET ...`
 
-### 3.2 批量发送 WhatsApp 任务卡住
-**症状**：`/whatsapp/job/{id}` 状态长时间 `running` 但 `success + failed < total`。
-**根因**：
-- 目标账号 `conns` 失效，`ensureConn` 失败未释放资源；
-- 调度 goroutine 内部 panic。
+**症状**：user-server 启动秒退，stderr 含 `panic: [SECURITY] USER_JWT_SECRET 未配置或长度不足`。
+
+**根因**：JWT 密钥缺失或短于 32 字符时，`loadJWTSecret` 主动 panic——这是防呆设计，不是 bug。
+
 **修复**：
+
 ```bash
-# 1. 查看相关日志
-journalctl -u hivemtk-user | grep -E 'whatsapp|panic'
-# 2. P0-6 已通过 utils.SafeGo 包装所有后台 goroutine，确保 panic 不再拖垮进程
-# 3. 手动重置该 job 状态
-psql -c "UPDATE whatsapp_jobs SET status='pending' WHERE id=123"
+# .env 中设置（openssl rand -hex 32 生成）
+JWT_SECRET=<64位随机hex>
 ```
 
-### 3.3 Outbox 多实例重复派发
-**症状**：SOP 节点被同一实例多次触发，导致重复执行。
-**根因**：未使用 `SELECT ... FOR UPDATE SKIP LOCKED` 时多实例并发查询。
+**避免**：不要把测试专用值 `test-jwt-secret-do-not-use-in-prod-32+chars` 用到生产——它只在 test 模式放行。
+
+### 1.2 后端起不来：PostgreSQL 连接被拒
+
+**症状**：日志报 `dial tcp 127.0.0.1:8202: connect: connection refused`。
+
+**根因排查顺序**：
+
+1. 数据层容器没起来：`make db-ps` 查看 mtk-postgres 是否 healthy；
+2. 容器启动失败：最常见是 `.env` 里 `POSTGRES_PASSWORD` 没改（缺密码容器直接退出），用 `make db logs` 看原因；
+3. 端口写错：**宿主机侧永远是 8202**（不是 5432），检查 `.env` 的 `DB_PORT`。
+
 **修复**：
-- P1-21 已修复——`processDueTimers` 启用 GORM `clause.Locking{Strength:"UPDATE", Options:"SKIP LOCKED"}`。
-- 验证：开启 2 个 user-server 实例，查看日志 `[outbox] processed due timers` 的 `fired_count` 总和 == DB 中实际触发的行数。
 
----
-
-## 4. 数据迁移 / 模型
-
-### 4.1 AutoMigrate 与手写 SQL 冲突
-**症状**：`pq: column "xxx" does not exist` 或 `pq: relation "xxx" already exists`。
-**根因**：
-- `internal/migration/migrations/*.go` 手动创建表与 GORM AutoMigrate 重复；
-- 索引与字段在两边都被声明。
-**修复**：
 ```bash
-# 1. 临时禁用 AutoMigrate 启动，看 migrations 是否完整
-USER_AUTO_MIGRATE=false ./user-server
-# 2. 单独跑一次手动迁移
-go run ./cmd/migrate up
+make db-up && make db-ps          # 等 healthy
+ss -tlnp | grep 8202              # 确认监听
+psql -h 127.0.0.1 -p 8202 -U admin -d user_db -c "SELECT 1"
 ```
 
-### 4.2 025 迁移 DROP TABLE 误删数据
-**症状**：`025_unify_system_users.sql` 执行后 `system_users` 表数据丢失。
-**修复**（一次性预防，非已发生补救）：
-- 所有 DROP TABLE 之前必须先 `CREATE TABLE system_users_backup_2026XXXX AS SELECT * FROM system_users`；
-- 跑完冒烟验证后再 `DROP`；
-- 出问题用 `psql -c "INSERT INTO system_users SELECT * FROM system_users_backup_2026XXXX"` 还原。
+### 1.3 Redis 容器反复重启
 
----
+**症状**：`docker ps -a` 显示 mtk-redis 反复 Restarting。
 
-## 5. 前端 / 前端构建
+**根因**：`REDIS_PASSWORD` 未设置或过弱。本项目 docker-compose 对 Redis 有密码强校验。
 
-### 5.1 `npm run build` 报 `JavaScript heap out of memory`
-**症状**：CI 构建 OOM，进程退出码非零。
-**根因**：Element Plus 全量引入 + Vite 默认 chunk 拆分过粗。
-**修复**：
+**修复**：`.env` 设置强密码后 `make db-down && make db-up`。
+
+### 1.4 初始化 SQL 报错或漏表
+
+**症状**：执行 init 脚本报错；或启动后某些表不存在。
+
+**事实说明**：
+
+- 初始化脚本是 `migrations/init-user-db.sql`（启用 vector 扩展、建知识库核心表）；
+- 其余业务表由 user-server 启动时的 GORM AutoMigrate 自动创建，**启动一次就补齐**；
+- 项目中**没有** `./cmd/migrate` 这样的独立迁移命令，网上教程若让你跑它是错的；
+- 编号脚本（001~055）仅在需要精确复现历史结构时手工按序执行，日常部署不需要。
+
+**修复**：确认连接参数正确后重新执行：
+
 ```bash
-# 1. 增加 Node 堆内存
+PGPASSWORD=<POSTGRES_PASSWORD> psql -h 127.0.0.1 -p 8202 -U admin -d user_db \
+  -f migrations/init-user-db.sql
+```
+
+### 1.5 模型下载失败 / llama-server 起不来
+
+**症状**：`make inference-host-models` 中断；或 `inference-host-status` 显示某端口不通。
+
+**根因**：HuggingFace 网络不通（国内需镜像）、磁盘不足、GGUF 文件下载不完整。
+
+**修复**：
+
+```bash
+df -h                              # 模型目录预留 ≥10GB
+make inference-host-models         # 支持断点续传，重跑即可
+make inference-host-status         # 逐个确认 8207/8208/8209
+```
+
+### 1.6 前端构建 OOM：`JavaScript heap out of memory`
+
+**症状**：`make web-build` 时 Node 进程被杀。
+
+**修复**：
+
+```bash
+cd user-web
 NODE_OPTIONS=--max-old-space-size=4096 npm run build
-# 2. 长期方案：P1-10 改为按需引入（unplugin-vue-components + unplugin-auto-import）
-```
-
-### 5.2 浏览器控制台 `localStorage quota exceeded`
-**症状**：登录态丢失、菜单折叠态丢失。
-**根因**：i18n / 主题 / 路由历史全部塞 localStorage，单域超过 5-10MB 上限。
-**修复**：
-- 清理浏览器 localStorage；
-- 长期方案：i18n 包体拆分懒加载，路由历史用 IndexedDB 替代。
-
----
-
-## 6. 运维 / 监控
-
-### 6.1 关键指标采集缺失
-
-**症状**：`scripts/post_deploy_check.sh` 巡检时 `layer_decision_logs` / `rag_query_logs` 表无数据。
-**根因**：`FF_DEBUG_LOG=0`（生产默认）仅记录 ERROR 级别日志；或 audit_persister 装饰器未注入。
-**修复**：
-- 确认 `config.yaml` 中 `feature_flags.debug_log` 配置（生产建议保持 0）；
-- 确认 `audit_persister.go` 装饰器已注册到 ToolExecutor 链；
-- 手动触发一次 AI 调用后查询 `audit_logs` 表是否有新行。
-
-### 6.2 容器 OOMKilled
-**症状**：`docker ps -a` 看到 `Exited (137)`，内核日志含 `Memory cgroup out of memory: Killed process`。
-**根因**：单容器内存超过 `memory.limit_in_bytes`；常见于 `embedding-server` 大模型加载后未释放。
-**修复**：
-```yaml
-# docker-compose.yml
-services:
-  user-server:
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-    # embedding-server 单独跑 + GPU/分页加载
-  embedding-server:
-    deploy:
-      resources:
-        limits:
-          memory: 8G
 ```
 
 ---
 
-## 7. 常见问题快速索引
+## 二、登录访问类
 
-| 现象 | 速查 |
+### 2.1 页面能开但接口全报 CORS 错误
+
+**症状**：浏览器控制台大量 `blocked by CORS policy`；Network 面板请求无 `Access-Control-Allow-Origin` 响应头。
+
+**根因**：前端 Origin 不在白名单。CORS 中间件是白名单模式，不会反射任意来源。
+
+**修复**：`.env` 追加（逗号分隔，含协议和端口，重启生效）：
+
+```bash
+CORS_ALLOW_ORIGINS_USER="https://chat.example.com,https://admin.example.com"
+```
+
+**避免**：不要配 `*` 与携带凭证共存，浏览器会直接拒绝。
+
+### 2.2 客服工作台 WebSocket 连不上（401/403）
+
+**症状**：工作台实时消息不动；控制台 WS 连接立即关闭；服务端日志 `[ws upgrade failed]`。
+
+**根因**（按概率排序）：
+
+1. token 过期或未传——浏览器 WebSocket API 不能带自定义 header，token 必须走 query 参数；
+2. query 里 `agent_id` 与 token 内 `user_id` 不一致（鉴权强制对齐）；
+3. Nginx 未透传 Upgrade 头。
+
+**修复**：
+
+```js
+const ws = new WebSocket(`wss://chat.example.com/ws?agent_id=${userId}&token=${token}`)
+```
+
+Nginx 参考配置见[部署运维手册 §七 模式 B](DEPLOYMENT_GUIDE.md)（关键是 `/ws/` location 的 Upgrade 头与 86400s 读超时）。
+
+### 2.3 登录后频繁被踢出
+
+**根因**：多实例部署但 `JWT_SECRET` 不一致，或近期轮换过密钥使旧登录态全部失效。
+
+**修复**：所有实例使用同一 `JWT_SECRET`；轮换密钥安排在低峰期并提前公告（所有人需重新登录）。
+
+---
+
+## 三、AI 功能类
+
+### 3.1 客户发消息，AI 完全不回复
+
+**排查链路**（自上而下，命中即停）：
+
+| 步骤 | 检查 | 命令/位置 |
+|------|------|----------|
+| 1 | 推理栈活着吗 | `make inference-host-status`（8207/8208/8209 全绿才算活） |
+| 2 | Embedding 单独通吗 | `curl http://127.0.0.1:8208/v1/models` |
+| 3 | user-server 日志有推理报错吗 | `logs/user-server.log` 搜 `inference` 或 `llama` |
+| 4 | 该场景配置了转人工/SOP 拦截吗 | 后台对应渠道与意图配置页 |
+
+**常见根因**：推理栈根本没启动（第 4 步装完就忘了 `make inference-host-up`）；或机器重启后 llama-server 没有自启（当前无 systemd 单元，需要自行配置进程守护）。
+
+### 3.2 AI 回复很慢，首次尤其慢
+
+**事实**：
+
+- 本地 CPU 推理（无 GPU）生成速度有限，属正常现象；
+- llama-server 冷启动首个请求显著偏慢，属正常现象。
+
+**缓解**：
+
+```bash
+make inference-host-warmup    # 启动后预热一次
+```
+
+长期方案：换 prod 档位更小量化模型、加 GPU，或在后台「LLM 路由」切换响应更快的提供商配置。
+
+### 3.3 知识库检索结果为空或不相关
+
+**排查顺序**：
+
+1. Embedding 服务是否在线（8208）：向量化和检索都依赖它；
+2. 文档是否真的导入成功：后台知识库页面看文档状态与 chunk 数量；
+3. 维度是否匹配：全链路固定 **1024 维**（bge-m3 ↔ pgvector vector(1024)）。若你手动改过 embedding 模型导致维度不一致，检索会静默失败——改回 bge-m3 或重建 `knowledge_embeddings` 表。
+
+**注意一个已知限制**：混合检索的短路逻辑在冷启动场景可能漏召回（详见官方文档已知限制 G9），表现为"刚导入的知识搜不到，过段时间又能搜到"。临时缓解：重启后跑一次预热查询。
+
+### 3.4 该转人工的时候没转
+
+**事实披露**：置信度判定存在已知缺陷——不同引擎的置信度口径不统一（G4）、异议处理置信度阈值硬编码（G8）。表现为：低置信消息偶发未触发转人工。
+
+**临时缓解**：在 SOP 中对高风险意图显式配置"必转人工"规则，绕过置信度自动判定。
+
+**根治**：等待置信度统一重构（路线图内，暂无时间承诺）。
+
+### 3.5 新客户欢迎语没发出去
+
+**事实披露**：greeting 规则当前不可达（已知限制 G3）——规则配置了也不会触发。
+
+**临时替代**：用 SOP 的首条消息节点实现同等效果。
+
+---
+
+## 四、渠道接入类
+
+### 4.1 Telegram / 飞书 / 钉钉收不到消息
+
+**症状**：渠道显示已绑定，但访客消息进不来。
+
+**根因**：被动回调渠道需要公网 HTTPS Webhook 地址。`PUBLIC_BASE_URL` 未设置时，系统拿不到真实公网地址（默认推导出 `localhost:8204`，平台无法投递）。
+
+**修复**：
+
+```bash
+# .env 设置（https、不带路径、不带尾斜杠）
+PUBLIC_BASE_URL=https://chat.example.com
+```
+
+重启后到渠道页重新保存一次绑定以触发 Webhook 注册。
+
+**降级说明**：留空时这些渠道自动降级为轮询（polling）模式——能用，但禁止水平扩展，仅适合开发/单实例。
+
+### 4.2 批量任务卡在 running 不动
+
+**症状**：批量发送 job 长时间 `running` 且 `success + failed < total`。
+
+**根因**：目标账号连接失效后资源未释放；或调度 goroutine 曾 panic（现已由 SafeGo 兜底，进程不会死但该 job 会停摆）。
+
+**修复**：
+
+```bash
+grep -E 'whatsapp|panic' logs/user-server.log | tail -50
+# 手动重置 job 让其续跑（先确认账号连接已恢复）
+psql -h 127.0.0.1 -p 8202 -U admin -d user_db \
+  -c "UPDATE whatsapp_jobs SET status='pending' WHERE id=<job_id>"
+```
+
+### 4.3 平台侧桥接通道行为异常（小红书/抖音等）
+
+**症状**：桥接消息重复、延迟大、或掉线循环。
+
+**排查**：
+
+1. 出站通道模式：feature flag `sse_bridge` 默认开启（SSE），若网络中间层（部分反代/CDN）缓冲 SSE 流会导致延迟堆积，可设 `FF_SSE_BRIDGE=0` 回退长轮询验证；
+2. flag 是热加载的（约 5 秒生效），改环境变量无需重启。
+
+---
+
+## 五、数据一致性类
+
+### 5.1 定时任务/SOP 节点被重复执行
+
+**症状**：同一 SOP 节点触发两次，客户收到重复消息。
+
+**事实**：多实例并发取任务时若无行锁会重复派发。当前代码已启用 `SELECT ... FOR UPDATE SKIP LOCKED` 修复此问题。
+
+**验证方法**：开两个 user-server 实例，观察日志 `[outbox] processed due timers` 的 fired_count 总和应等于数据库实际触发行数。若你仍在单实例部署且看到重复，优先怀疑上游渠道重推而非 Outbox。
+
+### 5.2 表结构与代码对不上：`column does not exist` / `relation already exists`
+
+**事实**：项目采用双轨制——GORM AutoMigrate（启动时自动）+ 编号 SQL 脚本（历史精确复现用）。两者幂等设计，正常情况不会冲突。
+
+**冲突场景**：手工执行过编号脚本的一部分，又让 AutoMigrate 补齐，个别索引/约束声明两边不一致。
+
+**修复思路**：
+
+```sql
+-- 看具体差异
+\d <表名>
+-- 多数情况下删掉冲突的手工对象，让下次启动的 AutoMigrate 统一重建
+DROP INDEX IF EXISTS <冲突索引名>;
+```
+
+然后重启 user-server。**不存在 `USER_AUTO_MIGRATE=false` 这类开关**，AutoMigrate 无法关闭。
+
+### 5.3 审计日志偶发缺失
+
+**事实**：审计写入带指数退避重试（3 次）。极端情况下（DB 抖动/磁盘满）仍会丢，日志会留下证据。
+
+**排查**：搜索服务端日志 `[audit] N 条审计日志在 3 次重试后仍写入失败`，按其指向的原因（连接池耗尽/磁盘满/死锁）处理。
+
+### 5.4 误执行 DROP 类迁移导致数据丢失
+
+**教训条目**（源自 025 号迁移的历史事故）：任何含 `DROP TABLE` 的手工迁移，执行前必须先备份：
+
+```sql
+CREATE TABLE system_users_backup_20260826 AS SELECT * FROM system_users;
+```
+
+冒烟验证通过后再执行 DROP。出事时从备份表 INSERT 还原。**这也是为什么[部署运维手册 §十](DEPLOYMENT_GUIDE.md)要求先有 pg_dump 再做任何结构性变更。**
+
+---
+
+## 六、资源与前端类
+
+### 6.1 数据层容器被 OOM 杀掉（Exited 137）
+
+**症状**：`docker ps -a` 显示 `Exited (137)`；内核日志含 `Memory cgroup out of memory`。
+
+**事实**：mtk-postgres 限制 768M、mtk-redis 限制 512M（docker-compose.yml 明确设定）。数据量增长后 PG 可能顶到上限。
+
+**修复**：编辑 docker-compose.yml 上调 limits 并 `make db-up` 重建容器。注意应用与推理跑在宿主机不受此限，宿主机整体内存规划见[部署运维手册 §二](DEPLOYMENT_GUIDE.md)。
+
+### 6.2 浏览器端异常：localStorage 配额溢出
+
+**症状**：登录态丢失、界面偏好（菜单折叠/主题）频繁重置；控制台 `QuotaExceededError`。
+
+**修复**：清空该站点 localStorage 后重新登录。长期方案在路线图（i18n 包体懒加载）。
+
+### 6.3 想接 Prometheus 但找不到 /metrics
+
+**事实**：**本系统当前没有 `/metrics` 端点**，这不是故障。可用的健康端点只有三个：
+
+```bash
+curl http://127.0.0.1:8204/healthz    # 存活
+curl http://127.0.0.1:8204/readyz     # 就绪
+curl http://127.0.0.1:8204/health     # 含依赖详情
+```
+
+监控方案现状：指标定时落库到数据库表（bridge_metrics 等），通过 SQL 巡检趋势。Prometheus exporter 在路线图中，暂未实现。
+
+### 6.4 想看决策细节但日志里什么都没有
+
+**事实**：分层决策/RAG 查询的调试日志由 feature flag `debug_log` 控制，**生产默认关闭**。
+
+**临时打开**（热加载，约 5 秒生效，无需重启）：
+
+```bash
+# user-server 进程环境中注入
+FF_DEBUG_LOG=1     # 打开；改回 0 或删除即关闭
+```
+
+flag 家族一览（均为 `FF_<大写名>` 格式，默认关，`sse_bridge` 默认开）：`parallel` / `stream` / `layer1` / `fallback_chain` / `debug_log` / `sse_bridge`。
+
+---
+
+## 七、快速索引表
+
+| 现象 | 条目 |
 |------|------|
-| 启动 panic 含 `SECURITY` | 1.1 |
-| CORS 跨域 403 | 2.1 |
-| WebSocket 401/403 | 2.2 |
-| 审计日志丢失 | 3.1 |
-| WhatsApp job 卡住 | 3.2 |
-| Outbox 重复派发 | 3.3 |
-| 迁移冲突 | 4.1 |
-| DROP TABLE 误删 | 4.2 |
-| npm build OOM | 5.1 |
-| `/metrics` 404 | 6.1 |
-| 容器 OOMKilled | 6.2 |
+| 启动 panic 提到 SECURITY/JWT | 1.1 |
+| 连不上库 / connection refused | 1.2 |
+| Redis 容器反复重启 | 1.3 |
+| 表缺失 / 初始化报错 | 1.4 |
+| 模型下载失败 | 1.5 |
+| npm build OOM | 1.6 |
+| CORS 报错 | 2.1 |
+| WebSocket 断开 401/403 | 2.2 |
+| 频繁掉登录 | 2.3 |
+| AI 不回复 | 3.1 |
+| AI 回复慢 | 3.2 |
+| 知识库检索空/不准 | 3.3 |
+| 该转人工没转 | 3.4 |
+| 欢迎语不触发 | 3.5 |
+| Telegram/飞书/钉钉收不到消息 | 4.1 |
+| 批量任务卡 running | 4.2 |
+| 桥接消息重复/延迟 | 4.3 |
+| SOP 节点重复执行 | 5.1 |
+| column/relation 冲突 | 5.2 |
+| 审计日志缺失 | 5.3 |
+| DROP 迁移误删数据 | 5.4 |
+| 容器 Exited(137) | 6.1 |
+| localStorage 配额溢出 | 6.2 |
+| /metrics 不存在 | 6.3 |
+| 决策日志为空 | 6.4 |
 
 ---
 
-> 更多排障细节请配合 `INCIDENT_RUNBOOK.md`（按告警维度拆分）。
+## 附：本文档的使用边界
+
+- 本手册只覆盖**已核实**的故障模式。文中标注"已知限制"的条目（3.4/3.5 及引用的 G 编号）属于产品现状而非故障，修不修以路线图为准；
+- 遇到本手册未覆盖的现象：先收集三层证据再求助——`logs/user-server.log` 相关片段、`make inference-host-status` 输出、复现步骤；
+- 不要依据网上第三方教程操作本项目：端口（8202/8203/8204 系列）、健康端点（无 /metrics）、迁移方式（无独立 migrate 命令）均与常见 Go 项目惯例不同，一律以本仓库源码为准。

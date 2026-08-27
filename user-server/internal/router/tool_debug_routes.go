@@ -8,6 +8,7 @@ import (
 
 	"hivemtk-user/internal/aiagent/agent/tooluse"
 	"hivemtk-user/internal/app"
+	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/pkg/utils/logger"
 
 	"github.com/gin-gonic/gin"
@@ -17,15 +18,26 @@ import (
 // setupToolDebugRoutes 注册工具链调试与可观测 API 路由
 //
 // 调用方：router.Setup() 的 auth 路由组
+//
+// 安全（2026-08-26 审计 P0-2）：
+//   - /agent/tools/execute 允许调用任意已注册工具（含 reach.*.send 短信/邮件/
+//     企微等真实外发与 LLM 成本消耗），原挂载在普通 JWT 组，任意低权限登录用户
+//     均可触发，构成权限提升 + 资金/成本风险 → 收敛为 admin only。
+//   - /agent/tools/circuit/reset 影响全局熔断器状态，同样收敛为 admin only。
+//   - 只读端点（list/get/stats/audit/cost/providers）保留任意登录用户可访问。
 func setupToolDebugRoutes(auth *gin.RouterGroup) {
 	auth.GET("/agent/tools/list", handleToolList)
 	auth.GET("/agent/tools/get", handleToolGet)
-	auth.POST("/agent/tools/execute", handleToolExecute)
 	auth.GET("/agent/tools/stats", handleToolStats)
 	auth.GET("/agent/tools/audit", handleToolAudit)
 	auth.GET("/agent/tools/cost", handleToolCost)
-	auth.POST("/agent/tools/circuit/reset", handleToolCircuitReset)
 	auth.GET("/agent/tools/providers", handleToolProviders)
+
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	{
+		admin.POST("/agent/tools/execute", handleToolExecute)
+		admin.POST("/agent/tools/circuit/reset", handleToolCircuitReset)
+	}
 }
 
 

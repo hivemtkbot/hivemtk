@@ -3,7 +3,6 @@ package router
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"hivemtk-user/internal/aiagent/agent/tooluse"
-	"hivemtk-user/internal/aiagent/mcp"
 	"hivemtk-user/internal/app"
 	"hivemtk-user/internal/bridge"
 	channelgw "hivemtk-user/internal/channelgw"
@@ -19,7 +17,6 @@ import (
 	"hivemtk-user/internal/controller"
 	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/monitor"
-	"hivemtk-user/internal/pkg/featureflag"
 	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
@@ -38,6 +35,60 @@ import (
 // 未配置时仅放行 Chrome 扩展源（见 corsMiddleware），拒绝任意 Web 源携带凭据，
 // 修复"反射任意 Origin + 凭据"导致的 CSRF/凭据窃取漏洞（P1）。
 var allowedCORSOrigins = parseCORSOrigins(os.Getenv("CORS_ALLOW_ORIGINS_USER"))
+
+// sseAllowedCORSOrigins SSE 端点额外允许的跨域源白名单（逗号分隔），
+// 来自环境变量 SSE_CORS_ALLOW_ORIGINS。
+// 最高标准审计 P1-1 修复：SSE 端点不再对任意 Origin 反射 ACAO+credentials，
+// 仅放行「同源推断命中」或显式配置在白名单中的源。
+var sseAllowedCORSOrigins = parseCORSOrigins(os.Getenv("SSE_CORS_ALLOW_ORIGINS"))
+
+// requestScheme 推断请求协议（优先反代透传头，其次 TLS 状态）
+func requestScheme(r *http.Request) string {
+	if r == nil {
+		return "https"
+	}
+	if proto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); proto != "" {
+		return proto
+	}
+	if r.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+
+// isSameOrigin 判断请求 Origin 是否与请求 Host 同源（读 Host 推断）。
+// 最高标准审计 P1-1：SSE 白名单的第一优先级——同源请求本就无需 CORS，
+// 反射同源 Origin 不构成跨域凭据暴露面。
+func isSameOrigin(origin string, r *http.Request) bool {
+	if origin == "" || r == nil || r.Host == "" {
+		return false
+	}
+	return origin == requestScheme(r)+"://"+r.Host
+}
+
+// sseOriginAllowed SSE 端点 Origin 放行判定：
+//   - 与请求 Host 同源 → 放行
+//   - 命中 SSE_CORS_ALLOW_ORIGINS 或全局 CORS_ALLOW_ORIGINS_USER 白名单 → 放行
+//   - 其余一律拒绝（不再通配反射）
+//
+// 浏览器扩展场景走上方 chrome-extension:// 分支，不受此函数影响；
+// Content Script 若需在任意网页下连接 SSE，运维应显式配置 SSE_CORS_ALLOW_ORIGINS。
+func sseOriginAllowed(origin string, r *http.Request) bool {
+	if isSameOrigin(origin, r) {
+		return true
+	}
+	if origin == "" {
+		return false
+	}
+	for _, list := range [][]string{sseAllowedCORSOrigins, allowedCORSOrigins} {
+		for _, a := range list {
+			if a == origin {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 func parseCORSOrigins(s string) []string {
 	if s == "" {
@@ -58,7 +109,8 @@ func parseCORSOrigins(s string) []string {
 // 安全策略（P1 修复）：
 //   - 浏览器扩展从 chrome-extension://<id> 源发起请求，按源反射放行（扩展为预期调用方）。
 //   - 配置在 CORS_ALLOW_ORIGINS_USER 中的 Web 源放行。
-//   - SSE 端点（/api/bridge/outbox/sse）允许所有 Origin（Content Script 在网页中运行）。
+//   - SSE 端点（/api/bridge/outbox/sse）仅放行同源（按请求 Host 推断）与
+//     SSE_CORS_ALLOW_ORIGINS / CORS_ALLOW_ORIGINS_USER 白名单源（最高标准审计 P1-1 修复）。
 //   - 其余任意 Origin 一律不返回 ACAO（浏览器将阻止带凭据的跨域调用），杜绝任意网页
 //     借用户浏览器凭据调用敏感 API。
 //
@@ -86,12 +138,13 @@ func corsMiddleware() gin.HandlerFunc {
 					allow = true
 				}
 			default:
-				// Content Script 运行在网页上，需要允许网页 Origin
-				// SSE 端点为只读 GET，安全性可接受
-				// 检查完整路径（可能有 /api 前缀）
+				// 最高标准审计 P1-1 修复：SSE 端点不再对任意 Origin 放行。
+				// 原实现对 /outbox/sse 通配反射 ACAO 且带 credentials=true，
+				// 一旦任何端点引入 Cookie 会话即升级为凭据型 CSRF。
+				// 新策略：同源（按 Host 推断）或显式白名单才放行。
 				fullPath := c.Request.URL.Path
 				if strings.HasSuffix(fullPath, "/outbox/sse") || strings.Contains(fullPath, "outbox/sse") {
-					allow = true
+					allow = sseOriginAllowed(origin, c.Request)
 				} else {
 					for _, a := range allowedCORSOrigins {
 						if a == origin {
@@ -229,13 +282,18 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 
 	// 桥接凭证管理（admin，JWT）：查询状态 / 轮换（v3 BRIDGE_TOKEN_PROTOCOL）
 	// 注意必须挂在 BridgeIngressGuard 之外——它是凭证自身的引导/轮换入口
+	//
+	// Round32 复测修复：这三个路由注册在下方 auth.Use(JWTAuthMiddleware()) 之前，
+	// 导致 RequireAdminMiddleware 取不到 role 恒 401（bridge/token 功能不可用），
+	// 而 trace-eval/knowledge-weights 实际匿名可访问（写操作触发评估 + 数据泄露）。
+	// 显式补挂 JWT（trigger 另加 admin）。
 	bridgeTokenCtrl := controller.NewBridgeTokenController()
-	auth.GET("/bridge/token/status", middleware.RequireAdminMiddleware(), bridgeTokenCtrl.GetStatus)
-	auth.POST("/bridge/token/reset", middleware.RequireAdminMiddleware(), bridgeTokenCtrl.ResetBridgeToken)
+	auth.GET("/bridge/token/status", middleware.JWTAuthMiddleware(), middleware.RequireAdminMiddleware(), bridgeTokenCtrl.GetStatus)
+	auth.POST("/bridge/token/reset", middleware.JWTAuthMiddleware(), middleware.RequireAdminMiddleware(), bridgeTokenCtrl.ResetBridgeToken)
 	tlCtrl := controller.NewTraceLearningController(trace_learning.Global())
-	auth.POST("/monitor/trace-eval/trigger", tlCtrl.TriggerEval)
-	auth.GET("/monitor/trace-eval/logs", tlCtrl.EvalLogs)
-	auth.GET("/monitor/knowledge-weights", tlCtrl.KnowledgeWeights)
+	auth.POST("/monitor/trace-eval/trigger", middleware.JWTAuthMiddleware(), middleware.RequireAdminMiddleware(), tlCtrl.TriggerEval)
+	auth.GET("/monitor/trace-eval/logs", middleware.JWTAuthMiddleware(), tlCtrl.EvalLogs)
+	auth.GET("/monitor/knowledge-weights", middleware.JWTAuthMiddleware(), tlCtrl.KnowledgeWeights)
 
 	auth.Use(middleware.JWTAuthMiddleware()) 
 	{
@@ -365,32 +423,15 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		bridgeWS.GET("/bridge/outbox/sse", bridgeHandler.HandleOutboxSSE)
 
 		// Capabilities 查询端点：供前端查询当前可用的传输方式
-		bridgeWS.GET("/bridge/capabilities", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{
-				"sse_enabled":     featureflag.Get(featureflag.FF_ENABLE_SSE_BRIDGE).Bool(),
-				"poll_interval_ms": 1500,
-				"sse_heartbeat_ms": 15000,
-			})
-		})
+		// v3 审计整改：业务逻辑抽出至 controller/bridge_capabilities.go，router 仅做映射
+		bridgeWS.GET("/bridge/capabilities", controller.NewBridgeCapabilitiesController().GetCapabilities)
 
 		// v3 审计：MCP server（Model Context Protocol 2025-06-18）
 		// 让 Claude Desktop / Cursor / Continue.dev 等客户端可直接连接 user-server 调用工具
 		// 当前仅暴露 initialize/ping；tools/list+tools/call 需后续挂上 tooluse registry
 		// v3 审计发现：mcpServer 不能是单例（initialize 状态会污染）；每次请求新建
-		bridgeWS.POST("/mcp", func(c *gin.Context) {
-			body, err := io.ReadAll(c.Request.Body)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "read body: " + err.Error()})
-				return
-			}
-			mcpSrv := mcp.NewServer(nil) // 每次新建避免状态污染
-			resp, _ := mcpSrv.HandleRequest(c.Request.Context(), body)
-			c.Header("Content-Type", "application/json")
-			c.Status(http.StatusOK)
-			if _, err := c.Writer.Write(resp); err != nil {
-				logger.Ctx(c.Request.Context()).Warn().Err(err).Msg("[MCP] write response")
-			}
-		})
+		// v3 审计整改：JSON-RPC 处理逻辑抽出至 controller/mcp.go，router 仅做映射
+		bridgeWS.POST("/mcp", controller.NewMCPController().Handle)
 
 		channelPipeline := channelgw.NewPipeline(bridgeIngressSvc)
 		channelWSTransport := channelgw.NewWSTransport(channelPipeline, channelgw.Default)
@@ -407,11 +448,17 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		bridge.RegisterBridgeAccountRepo(bridgeRepo)
 		bridge.RegisterOwnershipChecker(func(ctx context.Context, userID uint, channel, accountID string) (bool, error) {
 			acc, err := bridgeRepo.GetByChannelAccount(ctx, channel, accountID)
-			if err == gorm.ErrRecordNotFound || acc == nil {
-				return true, nil
-			}
+			// 最高标准审计 P1-1/P1-4 修复：归属校验 fail-closed。
+			// 原实现账号不存在（ErrRecordNotFound/nil）时返回 true 放行——
+			// 越权 ingest 反而因"查无此号"通过校验。现改为：
+			//   - 账号不存在 → false（拒绝）
+			//   - DB 其他错误 → false + err（调用方按 500 处理，同样拒绝）
+			//   - 存在 → 严格比对 UserID
 			if err != nil {
 				return false, err
+			}
+			if acc == nil {
+				return false, nil
 			}
 			return acc.UserID == userID, nil
 		})

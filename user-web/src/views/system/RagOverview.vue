@@ -256,11 +256,11 @@ const loadStats = async () => {
       stats.value.activeProducts = products.filter((p) => p.is_active !== false).length
     }
 
-    // 加载知识库文档
+    // 加载知识库文档（汇总各知识库 doc_count）
     try {
-      const docsRes = await knowledgeBaseAPI.getDocuments({ page: 1, page_size: 1 })
-      const docsData = docsRes?.list || docsRes || {}
-      stats.value.totalDocuments = docsData?.total || 0
+      const kbsRes = await knowledgeBaseAPI.listKBs({ page: 1, page_size: 100 })
+      const kbs = kbsRes?.list || kbsRes?.items || (Array.isArray(kbsRes) ? kbsRes : [])
+      stats.value.totalDocuments = kbs.reduce((sum, k) => sum + Number(k?.doc_count || k?.document_count || 0), 0)
     } catch (e) {
       // 静默失败,不影响其他数据加载
       console.warn('加载知识库文档失败:', e)

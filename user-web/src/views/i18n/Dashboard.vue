@@ -103,7 +103,7 @@
               </div>
             </div>
             <el-progress
-              :percentage="formatPercent(cacheStats.hit_rate)"
+              :percentage="Number(formatPercent(cacheStats.hit_rate))"
               :stroke-width="18"
               :color="cacheHitColor"
               :format="(p) => `${p}%`"

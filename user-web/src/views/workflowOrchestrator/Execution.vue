@@ -207,7 +207,7 @@ const handleStop = async () => {
 }
 
 // === 辅助 ===
-const statusType = (s) => ({ running: 'primary', completed: 'success', failed: 'danger', terminated: 'warning', pending: 'info' }[s] || '')
+const statusType = (s) => ({ running: 'primary', completed: 'success', failed: 'danger', terminated: 'warning', pending: 'info' }[s] || 'info')
 const statusText = (s) => ({ running: '运行中', completed: '已完成', failed: '失败', terminated: '已终止', pending: '等待中' }[s] || s)
 const timelineColor = (s) => ({ running: 'primary', completed: 'success', failed: 'danger', terminated: 'warning', pending: 'info' }[s] || 'gray')
 const formatTime = (t) => {

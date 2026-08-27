@@ -140,7 +140,7 @@ export const getChannelLabel = (value) => {
  * @param {string} value
  * @returns {string} tag type，找不到时返回 ''（el-tag 默认色）
  */
-export const getChannelTagType = (value) => CHANNEL_TAG_TYPE_MAP[value] || ''
+export const getChannelTagType = (value) => CHANNEL_TAG_TYPE_MAP[value] || 'info'
 
 /**
  * 获取渠道完整定义

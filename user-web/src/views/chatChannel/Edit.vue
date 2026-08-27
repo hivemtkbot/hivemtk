@@ -177,9 +177,10 @@ const loadEnabledAgents = async () => {
 
 const loadCurrentDefaultAgent = async () => {
   try {
-    const res = await listBindings({ channel_id: form.value.channel_id, is_default: true })
+    // 后端 List 按 channel_type + account_id 查询（web 渠道 account_id = channel_id）
+    const res = await listBindings({ channel_type: 'web_embed', account_id: form.value.channel_id })
     const list = Array.isArray(res) ? res : res?.list || res?.items || []
-    const def = list.find((b) => b.is_default) || list[0]
+    const def = list.find((b) => b.is_default || b.is_primary) || list[0]
     if (def) {
       const aid = def.agent_id || def.AgentId
       form.value.default_agent_id = aid
@@ -197,10 +198,10 @@ const syncDefaultAgentBinding = async () => {
   // 解除原默认绑定
   if (orig) {
     try {
-      const res = await listBindings({ channel_id: form.value.channel_id, agent_id: orig })
+      const res = await listBindings({ channel_type: 'web_embed', account_id: form.value.channel_id, agent_id: orig })
       const list = Array.isArray(res) ? res : res?.list || res?.items || []
       for (const b of list) {
-        if (b.is_default) {
+        if (b.is_default || b.is_primary) {
           await deleteBinding(b.id || b.ID).catch(() => null)
         }
       }
@@ -211,10 +212,10 @@ const syncDefaultAgentBinding = async () => {
   // 创建新默认绑定
   if (cur) {
     await createBinding({
-      channel_id: form.value.channel_id,
+      channel_type: 'web_embed',
+      account_id: form.value.channel_id,
       agent_id: cur,
-      is_default: true,
-      priority: 100,
+      is_primary: true,
       enabled: true
     })
     initialDefaultAgentId.value = cur

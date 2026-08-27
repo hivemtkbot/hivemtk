@@ -109,7 +109,7 @@
               <template #default="{ row }">
                 <el-progress
                   v-if="row.weight > 0 && row.weight < 100"
-                  :percentage="row.weight"
+                  :percentage="Number(row.weight)"
                   :stroke-width="10"
                   :color="canaryColors"
                 />
@@ -310,7 +310,7 @@
               <div class="self-sufficiency">
                 <div class="metric-label">本地自给率（{{ formatPercent(getSelfSufficiency()) }}%）</div>
                 <el-progress
-                  :percentage="formatPercent(getSelfSufficiency())"
+                  :percentage="Number(formatPercent(getSelfSufficiency()))"
                   :stroke-width="14"
                   :color="['#67c23a', '#e6a23c', '#f56c6c']"
                 />

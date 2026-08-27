@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
@@ -106,10 +107,11 @@ func (d *WorkflowDispatcher) Stop(ctx context.Context) {
 // Run 异步触发执行，立即返回
 func (d *WorkflowDispatcher) Run(ctx context.Context, executionID uint, traceID string) {
 	d.wg.Add(1)
-	go func() {
+	// 最高标准审计 P1-3 修复：workflow 执行改走 SafeGo
+	utils.SafeGo(ctx, "workflow_dispatcher.run", func(ctx context.Context) {
 		defer d.wg.Done()
 		d.runExecution(ctx, executionID, traceID)
-	}()
+	})
 }
 
 func (d *WorkflowDispatcher) runExecution(ctx context.Context, executionID uint, traceID string) {
@@ -363,15 +365,16 @@ func (d *WorkflowDispatcher) handleNodeFailure(
 		})
 
 		d.wg.Add(1)
-		go func(execID uint, tr string) {
+		// 最高标准审计 P1-3 修复：节点重试调度改走 SafeGo
+		utils.SafeGo(nil, "workflow_dispatcher.retry", func(_ context.Context) {
 			defer d.wg.Done()
 			select {
 			case <-time.After(backoff):
-				d.Run(context.Background(), execID, tr)
+				d.Run(context.Background(), exec.ID, logger.TraceIDFromContext(ctx))
 			case <-d.stopCh:
 				return
 			}
-		}(exec.ID, logger.TraceIDFromContext(ctx))
+		})
 		return true
 	}
 

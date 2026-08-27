@@ -17,7 +17,11 @@ import (
 type AgentKBBindingService struct {
 	bindingRepo *repository.AgentKBBindingRepository
 	kbRepo      *repository.KnowledgeBaseRepository
-	db          *gorm.DB
+
+	// txBeginner 用于事务开启（如 Bind/Replace/Batch 需要原子性时）。
+	// 注入方式（func）而非直接持有 *gorm.DB，符合五层架构：service 不持久化 db 句柄，
+	// 而是在每次调用时按需获取一个执行器，事务结束后释放。
+	txBeginner func(ctx context.Context) *gorm.DB
 }
 
 // NewAgentKBBindingServiceDefault 使用全局 DB 创建绑定服务（controller 层入口，避免 controller 持有 gorm.DB）。
@@ -30,7 +34,12 @@ func NewAgentKBBindingService(db *gorm.DB) *AgentKBBindingService {
 	return &AgentKBBindingService{
 		bindingRepo: repository.NewAgentKBBindingRepository(db),
 		kbRepo:      repository.NewKnowledgeBaseRepository(db),
-		db:          db,
+		txBeginner: func(ctx context.Context) *gorm.DB {
+			if db == nil {
+				return nil
+			}
+			return db.WithContext(ctx)
+		},
 	}
 }
 
@@ -43,7 +52,12 @@ func NewAgentKBBindingServiceWithRepos(
 	return &AgentKBBindingService{
 		bindingRepo: bindRepo,
 		kbRepo:      kbRepo,
-		db:          db,
+		txBeginner: func(ctx context.Context) *gorm.DB {
+			if db == nil {
+				return nil
+			}
+			return db.WithContext(ctx)
+		},
 	}
 }
 
@@ -58,6 +72,14 @@ func (s *AgentKBBindingService) SetRepositories(
 	if bindRepo != nil {
 		s.bindingRepo = bindRepo
 	}
+}
+
+// withTxBeginner 获取事务入口；nil 表示不启用事务（降级到非事务路径）。
+func (s *AgentKBBindingService) withTxBeginner(ctx context.Context) *gorm.DB {
+	if s.txBeginner == nil {
+		return nil
+	}
+	return s.txBeginner(ctx)
 }
 
 // Bind 单个绑定 (重复自动覆盖)
@@ -155,8 +177,8 @@ func (s *AgentKBBindingService) ReplaceByAgent(ctx context.Context, agentID uint
 	if agentID == 0 {
 		return errors.New("agent_id 不能为空")
 	}
-	if s.db != nil {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if tx := s.withTxBeginner(ctx); tx != nil {
+		return tx.Transaction(func(tx *gorm.DB) error {
 			tmpBindingRepo := repository.NewAgentKBBindingRepository(tx)
 			tmpKBRepo := repository.NewKnowledgeBaseRepository(tx)
 			if err := tmpBindingRepo.DeleteByAgent(ctx, agentID); err != nil {
@@ -230,8 +252,8 @@ func (s *AgentKBBindingService) BatchBind(ctx context.Context, items []BatchBind
 			return fmt.Errorf("items[%d]: knowledge_base_id 不能为空", i)
 		}
 	}
-	if s.db != nil {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if tx := s.withTxBeginner(ctx); tx != nil {
+		return tx.Transaction(func(tx *gorm.DB) error {
 			tmpBindingRepo := repository.NewAgentKBBindingRepository(tx)
 			tmpKBRepo := repository.NewKnowledgeBaseRepository(tx)
 			for _, it := range items {

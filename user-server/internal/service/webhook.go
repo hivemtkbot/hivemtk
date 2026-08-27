@@ -14,6 +14,7 @@ import (
 	"hivemtk-user/internal/channelbot/telegram"
 	"hivemtk-user/internal/channelbot/whatsapp"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 	"os"
@@ -231,7 +232,11 @@ func (s *WebhookService) Stop(ctx context.Context) {
 func (s *WebhookService) startWorkers(ctx context.Context) {
 	for i := 0; i < s.workerCount; i++ {
 		s.wg.Add(1)
-		go s.worker(ctx, i)
+		// 最高标准审计 P1-3 修复：webhook 消费 worker 改走 SafeGo，panic 不再击穿进程
+		id := i
+		utils.SafeGo(ctx, "webhook.worker", func(ctx context.Context) {
+			s.worker(ctx, id)
+		})
 	}
 }
 

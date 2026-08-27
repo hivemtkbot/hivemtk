@@ -596,7 +596,17 @@ func (c *SystemUserController) UpdateUser(ctx *gin.Context) {
 }
 
 // DeleteUser 删除用户
+//
+// 安全（Round32 复测发现）：旧别名端点 /api/user/:id、/api/users/:id 此前走
+// 无保护的 UserService.DeleteUser，可绕过"不能删除自己的账号"与"至少保留
+// 一个超管"双重防护（实测 DELETE /api/user/1 可将超管自身删除）。
+// 统一收敛到 DeleteByAdmin（含 actor 自删校验 + ErrLastAdmin 校验）。
 func (c *SystemUserController) DeleteUser(ctx *gin.Context) {
+	actorID, ok := extractActorID(ctx)
+	if !ok {
+		return
+	}
+
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -604,8 +614,8 @@ func (c *SystemUserController) DeleteUser(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.userService.DeleteUser(context.Background(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+	if err := c.userService.DeleteByAdmin(ctx.Request.Context(), actorID, uint(id)); err != nil {
+		writeServiceError(ctx, err)
 		return
 	}
 

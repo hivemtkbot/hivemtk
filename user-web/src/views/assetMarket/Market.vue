@@ -86,7 +86,7 @@ const typeLabel = (t) =>
 
 const typeColor = (t) =>
   ({
-    agent_persona: '',
+    agent_persona: 'primary',
     sales_script: 'success',
     ab_test_plan: 'warning',
     marketing_workflow: 'info',

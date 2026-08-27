@@ -23,6 +23,7 @@ import (
 
 	"hivemtk-user/internal/model"
 
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 
 	"hash/fnv"
@@ -212,7 +213,8 @@ func (s *WebhookService) allowRate(ctx context.Context, key string) bool {
 // startRLJanitor 定期清理 idle 超过 5 分钟的限速桶（防内存泄漏）。
 // tokenBucket 按 (channel, accountID) 为 key，若无清理则永久增长。
 func (s *WebhookService) startRLJanitor(ctx context.Context) {
-	go func() {
+	// 最高标准审计 P1-3 修复：限速桶清理 janitor 改走 SafeGo
+	utils.SafeGo(ctx, "webhook_dedup.rl_janitor", func(ctx context.Context) {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
 		for {
@@ -230,7 +232,7 @@ func (s *WebhookService) startRLJanitor(ctx context.Context) {
 				s.rlMu.Unlock()
 			}
 		}
-	}()
+	})
 }
 
 func (s *WebhookService) generateEventID(ctx context.Context, channel WebhookChannel, accountID string, body []byte) string {

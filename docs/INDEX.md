@@ -1,16 +1,18 @@
 # HiveMtk 文档索引
 
 > 单商户本地部署（私域模式）
+> 三份主文档回答三个问题：**有哪些功能**（官方文档）· **如何安装运维**（运维手册）· **出问题怎么办**（排查手册）
 
 ---
 
-## 一、快速开始
+## 一、快速开始（三份主文档）
 
-| 文档 | 描述 |
+| 文档 | 回答的问题 |
 |------|------|
 | [README.md](../README.md) | 仓库入口、目录结构、快速开始 |
-| [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | 部署指南 |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | 常见问题排查 |
+| [marketing-features/README.md](marketing-features/README.md) | 官方文档：产品有哪些功能（含已知限制如实披露） |
+| [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | 运维手册：如何安装、日常如何运维（端口/命令以源码为准） |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | 排查手册：用户会遇到的问题，按现象组织，快速索引表入口 |
 
 ---
 
@@ -40,7 +42,7 @@
 
 | 文档 | 描述 |
 |------|------|
-| [marketing-features/README.md](marketing-features/README.md) | 核心功能总览 |
+| [marketing-features/README.md](marketing-features/README.md) | 核心功能总览（同快速开始） |
 | [operations/AI_AGENT_PERF_DEPLOY.md](operations/AI_AGENT_PERF_DEPLOY.md) | AI 销冠部署 |
 | [operations/AI_AGENT_PERF_API.md](operations/AI_AGENT_PERF_API.md) | AI 销冠 API |
 | [operations/KNOWLEDGE_GROUP_DEPLOY.md](operations/KNOWLEDGE_GROUP_DEPLOY.md) | 知识库部署 |
@@ -60,7 +62,8 @@
 
 - [ADR 决策记录](architecture/adr/) — 架构决策历史
 - [bridge/README.md](bridge/README.md) — Bridge 桥接模块
+- [AI 功能清单基线](../../docs/architecture/AI_CORE_FEATURE_INVENTORY.md) — F1-F15 / G1-G12 事实来源（位于上层 docs 目录）
 
 ---
 
-*最后更新: 2026-08-16*
+*最后更新: 2026-08-26 · 三份主文档已按源码完成事实校准*

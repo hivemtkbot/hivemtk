@@ -11,6 +11,7 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/bcrypt"
 	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/repository"
 	"gorm.io/gorm"
 )
 
@@ -22,12 +23,14 @@ const (
 type PasswordResetService struct {
 	emailService *EmailService
 	db           *gorm.DB
+	tokenRepo    *repository.PasswordResetTokenRepository
 }
 
 func NewPasswordResetService(db *gorm.DB) *PasswordResetService {
 	return &PasswordResetService{
 		emailService: NewEmailService(db),
 		db:           db,
+		tokenRepo:    repository.NewPasswordResetTokenRepository(db),
 	}
 }
 
@@ -41,13 +44,18 @@ type ResetPasswordRequest struct {
 }
 
 func (s *PasswordResetService) RequestPasswordReset(ctx context.Context, req *RequestPasswordResetRequest) error {
-	var user model.User
-	if err := s.db.WithContext(ctx).Where("email = ?", req.Email).First(&user).Error; err != nil {
+	if s.tokenRepo == nil {
+		return errors.New("password reset service not initialized")
+	}
+	user, err := s.tokenRepo.GetUserByEmail(ctx, req.Email)
+	if err != nil {
 		logger.Ctx(ctx).Warn().Str("email", req.Email).Msg("password reset requested for non-existent email")
 		return nil
 	}
-	var activeCount int64
-	s.db.Model(&model.PasswordResetToken{}).Where("user_id = ? AND used_at IS NULL AND expires_at > ?", user.ID, time.Now()).Count(&activeCount)
+	activeCount, err := s.tokenRepo.CountActiveTokensByUserID(ctx, user.ID, time.Now())
+	if err != nil {
+		return fmt.Errorf("failed to count active reset tokens: %w", err)
+	}
 	if activeCount >= passwordResetTokenMaxActive {
 		return errors.New("too many active reset requests, please try again later")
 	}
@@ -55,7 +63,7 @@ func (s *PasswordResetService) RequestPasswordReset(ctx context.Context, req *Re
 		UserID:    user.ID,
 		ExpiresAt: time.Now().Add(passwordResetTokenExpiry),
 	}
-	if err := s.db.WithContext(ctx).Create(resetToken).Error; err != nil {
+	if err := s.tokenRepo.Create(ctx, resetToken); err != nil {
 		return fmt.Errorf("failed to create reset token: %w", err)
 	}
 	logger.Ctx(ctx).Info().
@@ -67,14 +75,17 @@ func (s *PasswordResetService) RequestPasswordReset(ctx context.Context, req *Re
 }
 
 func (s *PasswordResetService) ValidateResetToken(ctx context.Context, tokenStr string) (*model.PasswordResetToken, error) {
-	var token model.PasswordResetToken
-	if err := s.db.WithContext(ctx).Where("token = ?", tokenStr).First(&token).Error; err != nil {
+	if s.tokenRepo == nil {
+		return nil, errors.New("password reset service not initialized")
+	}
+	token, err := s.tokenRepo.GetByToken(ctx, tokenStr)
+	if err != nil {
 		return nil, errors.New("invalid or expired token")
 	}
-	if !PasswordResetTokenIsValid(&token) {
+	if !PasswordResetTokenIsValid(token) {
 		return nil, errors.New("invalid or expired token")
 	}
-	return &token, nil
+	return token, nil
 }
 
 func (s *PasswordResetService) ResetPassword(ctx context.Context, req *ResetPasswordRequest) error {
@@ -93,10 +104,12 @@ func (s *PasswordResetService) ResetPassword(ctx context.Context, req *ResetPass
 	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
-		if err := tx.Model(token).Update("used_at", now).Error; err != nil {
+		tokenRepo := repository.NewPasswordResetTokenRepositoryWithTx(tx)
+		if err := tokenRepo.MarkUsed(ctx, token.ID, now); err != nil {
 			return err
 		}
-		if err := tx.Model(&model.User{}).Where("id = ?", token.UserID).Update("password", hashedPassword).Error; err != nil {
+		userHelper := repository.NewPasswordResetUserTxHelpers(tx)
+		if err := userHelper.UpdatePasswordInTx(ctx, token.UserID, hashedPassword); err != nil {
 			return err
 		}
 		logger.Ctx(ctx).Info().
@@ -108,11 +121,14 @@ func (s *PasswordResetService) ResetPassword(ctx context.Context, req *ResetPass
 }
 
 func (s *PasswordResetService) CleanupExpiredTokens(ctx context.Context) error {
-	result := s.db.WithContext(ctx).Where("expires_at < ? AND used_at IS NULL", time.Now().Add(-7*24*time.Hour)).Delete(&model.PasswordResetToken{})
-	if result.Error != nil {
-		return result.Error
+	if s.tokenRepo == nil {
+		return errors.New("password reset service not initialized")
 	}
-	logger.Ctx(ctx).Info().Int64("count", result.RowsAffected).Msg("cleaned up expired password reset tokens")
+	count, err := s.tokenRepo.CleanupExpiredOlderThan(ctx, time.Now().Add(-7*24*time.Hour))
+	if err != nil {
+		return err
+	}
+	logger.Ctx(ctx).Info().Int64("count", count).Msg("cleaned up expired password reset tokens")
 	return nil
 }
 

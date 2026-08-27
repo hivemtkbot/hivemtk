@@ -20,7 +20,8 @@ import (
 // 文件上传配置
 const (
 	MaxUploadSize = 10 * 1024 * 1024
-	AllowedImageTypes = "image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml"
+	// P1-2 修复：白名单移除 image/svg+xml（SVG 可携带 script，构成存储型 XSS 面）
+	AllowedImageTypes = "image/jpeg,image/jpg,image/png,image/gif,image/webp"
 	AllowedVideoTypes = "video/mp4,video/quicktime,video/x-msvideo"
 	AllowedDocTypes = "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
 	AllowedArchiveTypes = "application/zip,application/x-zip-compressed,application/x-rar-compressed,application/x-7z-compressed"
@@ -75,7 +76,7 @@ type UploadConfig struct {
 // DefaultUploadConfig 默认上传配置
 var DefaultUploadConfig = UploadConfig{
 	MaxSize:          MaxUploadSize,
-	AllowedTypes:     "image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml,application/pdf,application/zip",
+	AllowedTypes:     "image/jpeg,image/jpg,image/png,image/gif,image/webp,application/pdf,application/zip",
 	EnableVirusScan:  false,
 	VirusScanURL:     "",
 	UploadDir:        "./uploads",
@@ -143,6 +144,15 @@ func UploadFile(ctx *gin.Context) {
 			response.Error(ctx, http.StatusBadRequest, "文件类型与内容不匹配，可能为伪造文件")
 			return
 		}
+	}
+
+	// 最高标准审计 P1-2 修复：拒绝 SVG 上传（存储型 XSS 面）。
+	// SVG 可内嵌 <script>/事件处理器，若反代同源直出且无 CSP 即构成存储型 XSS。
+	// 此前仅靠 MIME 探测回退 octet-stream 间接拦截（脆弱、依赖实现细节），
+	// 现按扩展名显式拒绝，并在白名单中移除 image/svg+xml，杜绝未来误放开。
+	if originalExt == ".svg" {
+		response.Error(ctx, http.StatusBadRequest, "不支持上传 SVG 文件（存储型 XSS 风险），请转换为 PNG/JPG 后重试")
+		return
 	}
 
 	detectedMime := detectMimeType(fileBytes)

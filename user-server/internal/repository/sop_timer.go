@@ -91,3 +91,119 @@ func (r *SOPTimerRepository) CountPendingByExecutionID(ctx context.Context, exec
 	return count, nil
 }
 
+// FindClaimExhaustedPendingTimers S1-5：扫描 claim_count ≥ maxClaims 的 pending timer，
+// 用于死信迁移兜底。兼容旧数据：payload->>'claim_count' 回退整数解析。
+func (r *SOPTimerRepository) FindClaimExhaustedPendingTimers(ctx context.Context, maxClaims, limit int) ([]model.SOPTimer, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("sop timer repository not initialized")
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	const claimExpr = `(CASE WHEN payload->>'claim_count' ~ '^[0-9]+$' THEN (payload->>'claim_count')::int ELSE 0 END)`
+	var list []model.SOPTimer
+	err := r.db.WithContext(ctx).
+		Where("status = ? AND (claim_count >= ? OR "+claimExpr+" >= ?)",
+			"pending", maxClaims, maxClaims).
+		Limit(limit).
+		Find(&list).Error
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+// FindMaxWaitOverduePendingTimers S1-2：扫描 max_wait_at 已过期的 pending timer。
+// 兼容旧数据：payload->>'max_wait_at' 回退 RFC3339 timestamptz 解析。
+func (r *SOPTimerRepository) FindMaxWaitOverduePendingTimers(ctx context.Context, now time.Time, limit int) ([]model.SOPTimer, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("sop timer repository not initialized")
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	const maxWaitExpr = `(CASE WHEN payload->>'max_wait_at' ~ '^\d{4}-\d{2}-\d{2}T' THEN (payload->>'max_wait_at')::timestamptz ELSE NULL END)`
+	var list []model.SOPTimer
+	err := r.db.WithContext(ctx).
+		Where("status = ? AND ((max_wait_at IS NOT NULL AND max_wait_at <= ?) OR (max_wait_at IS NULL AND "+maxWaitExpr+" IS NOT NULL AND "+maxWaitExpr+" <= ?))",
+			"pending", now, now).
+		Limit(limit).
+		Find(&list).Error
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+// TransitionPendingStatus 原子把指定 timer 从 pending 转为新状态，返回受影响行数。
+//
+// 用于死信 / 跳过：WHERE id = ? AND status = 'pending' 限定避免抢占失败时误改。
+func (r *SOPTimerRepository) TransitionPendingStatus(ctx context.Context, id uint, newStatus string, firedAt time.Time) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("sop timer repository not initialized")
+	}
+	res := r.db.WithContext(ctx).Model(&model.SOPTimer{}).
+		Where("id = ? AND status = ?", id, "pending").
+		Updates(map[string]any{
+			"status":   newStatus,
+			"fired_at": firedAt,
+		})
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
+}
+
+// BumpClaimCount 累计 claim_count（payload claim_count 同步更新），返回受影响行数
+//
+// 用于 S1-5：认领失败累计，达到阈值再调用 TransitionPendingStatus 转 dead_letter。
+func (r *SOPTimerRepository) BumpClaimCount(ctx context.Context, id uint, claims int, payload model.JSONMap) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("sop timer repository not initialized")
+	}
+	updates := map[string]any{
+		"claim_count": claims,
+		"payload":     payload,
+	}
+	res := r.db.WithContext(ctx).Model(&model.SOPTimer{}).
+		Where("id = ? AND status = ?", id, "pending").
+		Updates(updates)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
+}
+
+// BumpClaimCountAndDeadLetter 累计 claim_count 并原子转 dead_letter，返回受影响行数
+func (r *SOPTimerRepository) BumpClaimCountAndDeadLetter(ctx context.Context, id uint, claims int, payload model.JSONMap, firedAt time.Time) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("sop timer repository not initialized")
+	}
+	updates := map[string]any{
+		"status":      "dead_letter",
+		"claim_count": claims,
+		"payload":     payload,
+		"fired_at":    firedAt,
+	}
+	res := r.db.WithContext(ctx).Model(&model.SOPTimer{}).
+		Where("id = ? AND status = ?", id, "pending").
+		Updates(updates)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
+}
+
+// GetExecutionSummary 按 ID 获取执行记录的 id+sop_id 摘要，用于写 skipped 事件前置校验
+func (r *SOPTimerRepository) GetExecutionSummary(ctx context.Context, executionID uint) (*model.SOPExecution, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("sop timer repository not initialized")
+	}
+	var row model.SOPExecution
+	if err := r.db.WithContext(ctx).Select("id, sop_id").
+		Where("id = ?", executionID).First(&row).Error; err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+

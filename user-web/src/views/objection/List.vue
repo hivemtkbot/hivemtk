@@ -227,7 +227,9 @@ const loadCategories = async () => {
   try {
     const res = await listObjectionCategories()
     const data = res || []
-    categories.value = Array.isArray(data) ? data : data.list || []
+    const raw = Array.isArray(data) ? data : data.list || []
+    // 后端返回 {category, name}，统一归一化为 {code, name}
+    categories.value = raw.map((c) => ({ code: c.code || c.category, name: c.name }))
     if (categories.value.length === 0) {
       // 兜底：使用内置类别
       categories.value = [

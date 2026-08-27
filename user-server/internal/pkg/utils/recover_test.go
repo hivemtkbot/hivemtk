@@ -72,3 +72,154 @@ func TestSafeGoWithRecover_CustomHandler(t *testing.T) {
 	}
 }
 
+func TestSafeGoDetached_PreservesTraceValue(t *testing.T) {
+	type traceKey struct{}
+	parent := context.WithValue(context.Background(), traceKey{}, "trace-abc")
+	var captured atomic.Value
+	SafeGoDetached(parent, "test.detach", 0, func(ctx context.Context) {
+		if v, ok := ctx.Value(traceKey{}).(string); ok {
+			captured.Store(v)
+		} else {
+			captured.Store("")
+		}
+	})
+	time.Sleep(50 * time.Millisecond)
+	if got := captured.Load().(string); got != "trace-abc" {
+		t.Errorf("detached ctx 丢失 trace value, got=%q", got)
+	}
+}
+
+func TestSafeGoDetached_NilCtxSafe(t *testing.T) {
+	var executed atomic.Bool
+	SafeGoDetached(nil, "test.detachnil", 0, func(ctx context.Context) {
+		if ctx == nil {
+			t.Fatal("nil ctx 应被替换为 Background")
+		}
+		executed.Store(true)
+	})
+	time.Sleep(50 * time.Millisecond)
+	if !executed.Load() {
+		t.Fatal("SafeGoDetached(nil) 未执行")
+	}
+}
+
+func TestSafeGoDetached_PanicRecovered(t *testing.T) {
+	SafeGoDetached(context.Background(), "test.detachpanic", 0, func(ctx context.Context) {
+		panic("detach panic")
+	})
+	time.Sleep(50 * time.Millisecond)
+}
+
+func TestSafeGoWithRetry_SucceedsEventually(t *testing.T) {
+	var attempts atomic.Int32
+	b := NewExponentialBackOff()
+	b.InitialInterval = 10 * time.Millisecond
+	b.MaxInterval = 50 * time.Millisecond
+	SafeGoWithRetry(context.Background(), "test.retryok", b, func(ctx context.Context) error {
+		n := attempts.Add(1)
+		if n < 3 {
+			return errors.New("模拟失败")
+		}
+		return nil
+	})
+	// 等待最终成功
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if attempts.Load() >= 3 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if attempts.Load() < 3 {
+		t.Fatalf("期望至少 3 次尝试，实际 %d", attempts.Load())
+	}
+}
+
+func TestSafeGoWithRetry_StopsOnStopBackOff(t *testing.T) {
+	var attempts atomic.Int32
+	b := &StopBackOff{}
+	SafeGoWithRetry(context.Background(), "test.stopbo", b, func(ctx context.Context) error {
+		attempts.Add(1)
+		return errors.New("必失败")
+	})
+	time.Sleep(100 * time.Millisecond)
+	if attempts.Load() != 1 {
+		t.Fatalf("期望仅 1 次尝试（StopBackOff），实际 %d", attempts.Load())
+	}
+}
+
+func TestSafeGoWithRetry_PanicRecoveredAndRetried(t *testing.T) {
+	var attempts atomic.Int32
+	b := NewExponentialBackOff()
+	b.InitialInterval = 10 * time.Millisecond
+	b.MaxInterval = 30 * time.Millisecond
+	SafeGoWithRetry(context.Background(), "test.retrypanic", b, func(ctx context.Context) error {
+		n := attempts.Add(1)
+		if n == 1 {
+			panic("retry panic")
+		}
+		return nil
+	})
+	deadline := time.Now().Add(1 * time.Second)
+	for time.Now().Before(deadline) {
+		if attempts.Load() >= 2 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if attempts.Load() < 2 {
+		t.Fatalf("panic 后应继续重试，实际 %d 次", attempts.Load())
+	}
+}
+
+func TestSafeGoWithRetry_NilCtxSafe(t *testing.T) {
+	var executed atomic.Bool
+	SafeGoWithRetry(nil, "test.retrynil", nil, func(ctx context.Context) error {
+		executed.Store(true)
+		return nil
+	})
+	time.Sleep(50 * time.Millisecond)
+	if !executed.Load() {
+		t.Fatal("SafeGoWithRetry(nil ctx) 未执行")
+	}
+}
+
+func TestExponentialBackOff_GrowsAndStops(t *testing.T) {
+	b := NewExponentialBackOff()
+	b.InitialInterval = 10 * time.Millisecond
+	b.MaxInterval = 100 * time.Millisecond
+	b.MaxElapsedTime = 50 * time.Millisecond
+	b.RandomizationFactor = 0
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	calls := 0
+	for time.Now().Before(deadline) {
+		_, stop := b.NextBackOff()
+		calls++
+		if stop {
+			break
+		}
+	}
+	if calls < 1 {
+		t.Fatal("至少应有 1 次调用")
+	}
+}
+
+func TestExponentialBackOff_Reset(t *testing.T) {
+	b := NewExponentialBackOff()
+	b.InitialInterval = 10 * time.Millisecond
+	b.MaxInterval = 100 * time.Millisecond
+	b.RandomizationFactor = 0
+	b.Multiplier = 2
+
+	d1, _ := b.NextBackOff()
+	d2, _ := b.NextBackOff()
+	if d2 < d1 {
+		t.Fatalf("第二次间隔应 >= 第一次, d1=%v d2=%v", d1, d2)
+	}
+	b.Reset()
+	d3, _ := b.NextBackOff()
+	if d3 != d1 {
+		t.Fatalf("Reset 后应回到初始间隔, d1=%v d3=%v", d1, d3)
+	}
+}

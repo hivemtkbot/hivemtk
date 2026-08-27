@@ -33,12 +33,11 @@ type SOPDispatchSender interface {
 // 并以 SkipWait 任务通知 dispatcher "已过期视为满足立即跳过"。
 // S1-5（Outbox 死信）：认领失败累计 claim_count≥5 → status=dead_letter + 告警日志。
 type SOPOutboxDispatcher struct {
-	db             *gorm.DB
 	timerRepo      *repository.SOPTimerRepository
 	eventRepo      *repository.SOPExecEventRepository
 	execDispatcher SOPDispatchSender
-	tickInterval   time.Duration 
-	batchSize      int           
+	tickInterval   time.Duration
+	batchSize      int
 	stopCh         chan struct{}
 	wg             sync.WaitGroup
 	runMu          sync.Mutex
@@ -60,7 +59,6 @@ const (
 // 构造函数签名保持 db *gorm.DB 不变以兼容调用方，内部用 db 创建 repository。
 func NewSOPOutboxDispatcher(db *gorm.DB, execDispatcher SOPDispatchSender) *SOPOutboxDispatcher {
 	return &SOPOutboxDispatcher{
-		db:             db,
 		timerRepo:      repository.NewSOPTimerRepository(db),
 		eventRepo:      repository.NewSOPExecEventRepository(db),
 		execDispatcher: execDispatcher,
@@ -197,25 +195,24 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 // M4：扫描条件改为实体列 SQL 查询（配合部分索引 idx_sop_timers_pending_*），
 // 旧数据无列值时回退 payload JSONB 字段判断。
 func (o *SOPOutboxDispatcher) sweepPendingTimers(ctx context.Context, now time.Time) {
-	if o.db == nil {
+	if o.timerRepo == nil {
 		return
 	}
 
 	// S1-5：死信迁移——claim_count 列 ≥ 阈值（旧数据回退 payload 数字字段）
-	const claimExpr = `(CASE WHEN payload->>'claim_count' ~ '^[0-9]+$' THEN (payload->>'claim_count')::int ELSE 0 END)`
-	var deadCandidates []model.SOPTimer
-	if err := o.db.WithContext(ctx).
-		Where("status = ? AND (claim_count >= ? OR "+claimExpr+" >= ?)",
-			sopTimerStatusPending, sopTimerMaxClaims, sopTimerMaxClaims).
-		Limit(o.batchSize).
-		Find(&deadCandidates).Error; err != nil {
+	deadCandidates, err := o.timerRepo.FindClaimExhaustedPendingTimers(ctx, sopTimerMaxClaims, o.batchSize)
+	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[outbox] sweep claim-exhausted timers failed")
 	}
 	for i := range deadCandidates {
 		t := &deadCandidates[i]
-		rows := o.db.WithContext(ctx).Model(&model.SOPTimer{}).
-			Where("id = ? AND status = ?", t.ID, sopTimerStatusPending).
-			Updates(map[string]any{"status": sopTimerStatusDeadLetter, "fired_at": now}).RowsAffected
+		rows, txErr := o.timerRepo.TransitionPendingStatus(ctx, t.ID, sopTimerStatusDeadLetter, now)
+		if txErr != nil {
+			logger.Ctx(ctx).Error().Err(txErr).
+				Uint("timer_id", t.ID).
+				Msg("[outbox] mark dead_letter failed")
+			continue
+		}
 		if rows == 0 {
 			continue
 		}
@@ -228,13 +225,8 @@ func (o *SOPOutboxDispatcher) sweepPendingTimers(ctx context.Context, now time.T
 	}
 
 	// S1-2：max_wait 兜底跳过——max_wait_at 列已过期（旧数据回退 payload RFC3339 字段）
-	const maxWaitExpr = `(CASE WHEN payload->>'max_wait_at' ~ '^\d{4}-\d{2}-\d{2}T' THEN (payload->>'max_wait_at')::timestamptz ELSE NULL END)`
-	var overdue []model.SOPTimer
-	if err := o.db.WithContext(ctx).
-		Where("status = ? AND ((max_wait_at IS NOT NULL AND max_wait_at <= ?) OR (max_wait_at IS NULL AND "+maxWaitExpr+" IS NOT NULL AND "+maxWaitExpr+" <= ?))",
-			sopTimerStatusPending, now, now).
-		Limit(o.batchSize).
-		Find(&overdue).Error; err != nil {
+	overdue, err := o.timerRepo.FindMaxWaitOverduePendingTimers(ctx, now, o.batchSize)
+	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[outbox] sweep max-wait-overdue timers failed")
 		return
 	}
@@ -242,9 +234,13 @@ func (o *SOPOutboxDispatcher) sweepPendingTimers(ctx context.Context, now time.T
 	for i := range overdue {
 		t := &overdue[i]
 		maxWaitAt := timerMaxWaitAt(t)
-		rows := o.db.WithContext(ctx).Model(&model.SOPTimer{}).
-			Where("id = ? AND status = ?", t.ID, sopTimerStatusPending).
-			Updates(map[string]any{"status": sopTimerStatusSkipped, "fired_at": now}).RowsAffected
+		rows, txErr := o.timerRepo.TransitionPendingStatus(ctx, t.ID, sopTimerStatusSkipped, now)
+		if txErr != nil {
+			logger.Ctx(ctx).Error().Err(txErr).
+				Uint("timer_id", t.ID).
+				Msg("[outbox] mark skipped failed")
+			continue
+		}
 		if rows == 0 {
 			continue
 		}
@@ -271,7 +267,7 @@ func (o *SOPOutboxDispatcher) sweepPendingTimers(ctx context.Context, now time.T
 // bumpTimerClaimOrDeadLetter S1-5：认领失败时累计 claim_count（M4 列下沉：实体列+payload 双写），
 // 达到阈值直接转 dead_letter 并告警。
 func (o *SOPOutboxDispatcher) bumpTimerClaimOrDeadLetter(ctx context.Context, t *model.SOPTimer, now time.Time) {
-	if o.db == nil || t == nil {
+	if o.timerRepo == nil || t == nil {
 		return
 	}
 	claims := timerClaimCount(t) + 1
@@ -281,20 +277,23 @@ func (o *SOPOutboxDispatcher) bumpTimerClaimOrDeadLetter(ctx context.Context, t 
 	}
 	payload["claim_count"] = claims
 
-	status := sopTimerStatusPending
-	extra := map[string]any{"payload": payload, "claim_count": claims}
+	var rows int64
+	var err error
 	if claims >= sopTimerMaxClaims {
-		status = sopTimerStatusDeadLetter
-		extra["status"] = status
-		extra["fired_at"] = now
+		rows, err = o.timerRepo.BumpClaimCountAndDeadLetter(ctx, t.ID, claims, payload, now)
+	} else {
+		rows, err = o.timerRepo.BumpClaimCount(ctx, t.ID, claims, payload)
 	}
-	rows := o.db.WithContext(ctx).Model(&model.SOPTimer{}).
-		Where("id = ? AND status = ?", t.ID, sopTimerStatusPending).
-		Updates(extra).RowsAffected
+	if err != nil {
+		logger.Ctx(ctx).Error().Err(err).
+			Uint("timer_id", t.ID).
+			Msg("[outbox] bump claim count failed")
+		return
+	}
 	if rows == 0 {
 		return
 	}
-	if status == sopTimerStatusDeadLetter {
+	if claims >= sopTimerMaxClaims {
 		logger.Ctx(ctx).Error().
 			Uint("timer_id", t.ID).
 			Uint("execution_id", t.ExecutionID).
@@ -311,12 +310,11 @@ func (o *SOPOutboxDispatcher) bumpTimerClaimOrDeadLetter(ctx context.Context, t 
 
 // writeTimerSkippedEvent S1-2：超 max_wait 跳过的事件记录（sop_exec_events）
 func (o *SOPOutboxDispatcher) writeTimerSkippedEvent(ctx context.Context, t *model.SOPTimer, now time.Time) {
-	if o.eventRepo == nil {
+	if o.eventRepo == nil || o.timerRepo == nil {
 		return
 	}
-	var execRow model.SOPExecution
-	if err := o.db.WithContext(ctx).Select("id, sop_id").
-		Where("id = ?", t.ExecutionID).First(&execRow).Error; err != nil {
+	execRow, err := o.timerRepo.GetExecutionSummary(ctx, t.ExecutionID)
+	if err != nil {
 		logger.Ctx(ctx).Warn().Err(err).
 			Uint("execution_id", t.ExecutionID).
 			Msg("[outbox] write skipped event aborted: execution not found")

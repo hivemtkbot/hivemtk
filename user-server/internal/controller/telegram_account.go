@@ -129,6 +129,9 @@ func (ctrl *TelegramAccountController) Get(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+		return
+	}
 	response.Success(c, toTelegramAccountVO(acc), "获取成功")
 }
 
@@ -167,6 +170,7 @@ func (ctrl *TelegramAccountController) Create(c *gin.Context) {
 		WebhookEnabled: req.WebhookEnabled,
 		AIAgentEnabled: req.AIAgentEnabled,
 		Status:         req.Status,
+		OwnerUserID:    currentStaffUserID(c), // P1-5：归属当前登录 staff
 	}
 	if _, err := ctrl.svc.CreateAccount(context.Background(), acc); err != nil {
 		response.ErrorFromDB(c, err, "创建失败", err.Error())
@@ -185,6 +189,9 @@ func (ctrl *TelegramAccountController) Update(c *gin.Context) {
 	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
+		return
+	}
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
 		return
 	}
 	var req telegramAccountCreateReq
@@ -226,6 +233,14 @@ func (ctrl *TelegramAccountController) Delete(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的账号ID", err.Error())
 		return
 	}
+	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
+		return
+	}
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+		return
+	}
 	if err := ctrl.svc.DeleteAccount(context.Background(), uint(id)); err != nil {
 		response.ErrorFromDB(c, err, "删除失败", err.Error())
 		return
@@ -245,6 +260,9 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
+		return
+	}
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
 		return
 	}
 	if acc.BotToken == "" {
@@ -355,6 +373,9 @@ func (ctrl *TelegramAccountController) Status(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+		return
+	}
 	bot, botErr := tgbot.GetMe(acc.BotToken)
 	whInfo, whErr := tgbot.GetWebhookInfo(acc.BotToken)
 	resp := gin.H{
@@ -395,6 +416,9 @@ func (ctrl *TelegramAccountController) TestSend(c *gin.Context) {
 	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
+		return
+	}
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
 		return
 	}
 	var req struct {

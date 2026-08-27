@@ -356,6 +356,12 @@ func (c *WorkflowOrchestratorController) StopExecution(ctx *gin.Context) {
 			response.Error(ctx, http.StatusNotFound, "执行不存在")
 			return
 		}
+		// Round32 复测修复：非 running 状态属于业务状态冲突（幂等重复停止等），
+		// 按错误码规范返回 409 Conflict，而非 500 INTERNAL_ERROR
+		if errors.Is(err, service.ErrExecutionNotRunning) {
+			response.Error(ctx, http.StatusConflict, err.Error())
+			return
+		}
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}

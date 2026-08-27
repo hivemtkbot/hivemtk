@@ -143,6 +143,11 @@ const filteredDrafts = computed(() => {
   return drafts.value
 })
 
+const handleClose = (done) => {
+  dialogVisible.value = false
+  if (typeof done === 'function') done()
+}
+
 // 获取草稿列表
 const fetchDrafts = async () => {
   try {

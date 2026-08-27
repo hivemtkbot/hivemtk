@@ -11,6 +11,7 @@ import (
 
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/websocket"
@@ -613,10 +614,11 @@ func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *mo
 		// 新：time.NewTimer + Stop()，并把 stop 注册到 dispatcher
 		retryTimer := time.NewTimer(backoff)
 		d.registerRetryTimer(retryTimer)
-		go func(t *time.Timer) {
-			defer d.unregisterRetryTimer(t)
+		// 最高标准审计 P1-3 修复：SOP 节点重试派发改走 SafeGo
+		utils.SafeGo(ctx, "sop_dispatcher.retry_timer", func(_ context.Context) {
+			defer d.unregisterRetryTimer(retryTimer)
 			select {
-			case <-t.C:
+			case <-retryTimer.C:
 				d.DispatchOrLog(&dispatchTask{
 					ExecutionID: exec.ID,
 					NodeID:      node.ID,
@@ -624,10 +626,10 @@ func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *mo
 					TraceID:     task.TraceID,
 				})
 			case <-d.stopCh:
-				t.Stop()
+				retryTimer.Stop()
 				return
 			}
-		}(retryTimer)
+		})
 		return
 	}
 
@@ -744,7 +746,8 @@ func (d *SOPExecutionDispatcher) tryCompensate(_ context.Context, exec *model.SO
 	}
 
 	// 异步触发：使用 background ctx 防止 fail 路径的 ctx 取消影响补偿
-	go func() {
+	// 最高标准审计 P1-3 修复：补偿流程改走 SafeGo
+	utils.SafeGo(nil, "sop_dispatcher.compensate", func(ctx context.Context) {
 		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
@@ -824,7 +827,7 @@ func (d *SOPExecutionDispatcher) tryCompensate(_ context.Context, exec *model.SO
 			Int("planned", len(plan)).
 			Str("status", result.Status).
 			Msg("[SOP] SAGA compensation finished")
-	}()
+	})
 }
 
 // compensationTraceEntry executed_nodes JSONB 元素结构（与 CompensationRecord 对齐的持久化形态）

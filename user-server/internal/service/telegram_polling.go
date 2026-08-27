@@ -16,6 +16,7 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/httpclient"
 	"hivemtk-user/internal/pkg/tgbot"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
@@ -338,13 +339,14 @@ func runTelegramPollingWorker(ctx context.Context, accountID uint, botToken, acc
 			r := raw
 			wg.Add(1)
 			sem <- struct{}{}
-			go func() {
+			// 最高标准审计 P1-3 修复：TG update 投递（消息发送路径）改走 SafeGo
+			utils.SafeGo(ctx, "telegram_polling.deliver", func(_ context.Context) {
 				defer wg.Done()
 				defer func() { <-sem }()
 				if err := deliverTelegramUpdate(ctx, client, accountID, webhookSecret, r); err != nil {
 					logger.Warnf("[TG-Polling] 账号 %d(%s) 投递 update 失败: %v", accountID, accountName, err)
 				}
-			}()
+			})
 		}
 		wg.Wait()
 		offset = maxUID + 1

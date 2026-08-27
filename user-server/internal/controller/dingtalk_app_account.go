@@ -116,6 +116,9 @@ func (ctrl *DingTalkAppAccountController) Get(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
+	if !guardChannelAccountOwnership(c, acc.UserID) { // P1-5 IDOR 防护
+		return
+	}
 	response.Success(c, toDingTalkAppVO(acc), "查询成功")
 }
 
@@ -135,7 +138,7 @@ func (ctrl *DingTalkAppAccountController) Create(c *gin.Context) {
 		AESKey:         req.AESKey,
 		InboundEnabled: req.InboundEnabled,
 		AIAgentID:      req.AIAgentID,
-		UserID:         req.UserID,
+		UserID:         currentStaffUserID(c), // P1-5：归属取当前登录用户，不信任请求体 user_id
 		Status:         req.Status,
 	}
 	if acc.Status == 0 {
@@ -165,6 +168,9 @@ func (ctrl *DingTalkAppAccountController) Update(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
+	if !guardChannelAccountOwnership(c, acc.UserID) { // P1-5 IDOR 防护
+		return
+	}
 	acc.AccountName = req.AccountName
 	acc.AppKey = req.AppKey
 	acc.AppSecret = req.AppSecret
@@ -188,6 +194,14 @@ func (ctrl *DingTalkAppAccountController) Delete(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "ID 错误", err.Error())
 		return
 	}
+	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
+		return
+	}
+	if !guardChannelAccountOwnership(c, acc.UserID) { // P1-5 IDOR 防护
+		return
+	}
 	if err := ctrl.svc.DeleteAccount(context.Background(), uint(id)); err != nil {
 		response.ErrorFromDB(c, err, "删除失败", err.Error())
 		return
@@ -205,6 +219,9 @@ func (ctrl *DingTalkAppAccountController) Test(c *gin.Context) {
 	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
+		return
+	}
+	if !guardChannelAccountOwnership(c, acc.UserID) { // P1-5 IDOR 防护
 		return
 	}
 	if acc.AppKey == "" || acc.AppSecret == "" || acc.Token == "" {

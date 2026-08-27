@@ -74,7 +74,7 @@
           <template #header>
             <span>第 3 步：白名单 Origin 配置</span>
           </template>
-          <el-form label-width="120px" :model="originForm">
+          <el-form label-width="120px">
             <el-form-item label="允许的来源">
               <el-input
                 v-model="originInput"

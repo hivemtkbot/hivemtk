@@ -8,6 +8,7 @@ import (
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/tracing"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 
 	"github.com/gin-gonic/gin"
@@ -92,12 +93,12 @@ func (t *WSTransport) HandleWS(c *gin.Context) {
 	logger.Infof("[ChannelGW WS] 渠道连接已注册: channel=%s account=%s", channel, accountID)
 
 	if t.OnRegister != nil {
-		go func() {
-			defer func() { _ = recover() }()
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		// 最高标准审计 P1-3 修复：OnRegister 回调改走 SafeGo（原裸 recover 吞 panic 无日志）
+		utils.SafeGo(context.Background(), "channelgw.ws.on_register", func(ctx context.Context) {
+			cbCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
-			t.OnRegister(ctx, channel, accountID)
-		}()
+			t.OnRegister(cbCtx, channel, accountID)
+		})
 	}
 
 	go cn.readPump()

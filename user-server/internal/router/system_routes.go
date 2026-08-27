@@ -49,15 +49,21 @@ func setupSystemRoutes(auth *gin.RouterGroup) {
 	adminConfigCtrl := controller.NewAdminConfigController()
 	auth.GET("/admin/config", adminConfigCtrl.GetAdminConfig)
 
+	// 最高标准审计 P1-6 修复：OBS 凭据配置（AccessKey/SecretKey + TestConnection
+	// SSRF 探测面）写操作收敛为 admin only；只读查询保留任意登录用户。
 	obsConfigCtrl := controller.NewObsConfigController()
 	auth.GET("/obs/config", obsConfigCtrl.GetConfigList)
-	auth.POST("/obs/config", obsConfigCtrl.CreateConfig)
 	auth.GET("/obs/config/:id", obsConfigCtrl.GetConfig)
-	auth.PUT("/obs/config/:id", obsConfigCtrl.UpdateConfig)
-	auth.DELETE("/obs/config/:id", obsConfigCtrl.DeleteConfig)
-	auth.POST("/obs/config/:id/test", obsConfigCtrl.TestConnection)
-	auth.POST("/obs/config/:id/default", obsConfigCtrl.SetDefault)
 	auth.GET("/obs/config/default", obsConfigCtrl.GetDefaultConfig)
+
+	obsAdmin := auth.Group("", middleware.AdminAuthMiddleware())
+	{
+		obsAdmin.POST("/obs/config", obsConfigCtrl.CreateConfig)
+		obsAdmin.PUT("/obs/config/:id", obsConfigCtrl.UpdateConfig)
+		obsAdmin.DELETE("/obs/config/:id", obsConfigCtrl.DeleteConfig)
+		obsAdmin.POST("/obs/config/:id/test", obsConfigCtrl.TestConnection)
+		obsAdmin.POST("/obs/config/:id/default", obsConfigCtrl.SetDefault)
+	}
 }
 
 // setupRagRoutes RAG 知识库管理路由
@@ -116,6 +122,12 @@ func setupBackupRoutes(auth *gin.RouterGroup) {
 // setupMigrationRoutes 数据库迁移管理路由
 // 路径由原 /upgrade/* 改为 /migration/*（M3 重命名以避免与"OTA 升级"概念混淆）。
 // controller 结构体已重命名为 MigrationController。
+//
+// 安全（2026-08-26 审计 P0-1）：
+//   - POST /migration/task（执行升级）与 POST /migration/rollback（回滚）直接操作
+//     数据库 schema 与数据，原挂载在普通 JWT 组，任意低权限登录用户均可触发，
+//     构成数据丢失风险 → 写操作收敛为 admin only。
+//   - 只读查询端点（task/history/records/current-version/available）保留任意登录可访问。
 func setupMigrationRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	registry := migration.NewMigrationRegistry()
 	migrationSvc := migration.NewMigrationService(registry, gormDB, migrations.RegisterMigrations)
@@ -124,9 +136,13 @@ func setupMigrationRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	auth.GET("/migration/history", migrationCtrl.GetUpgradeHistory)
 	auth.GET("/migration/records", migrationCtrl.GetMigrationRecords)
 	auth.GET("/migration/current-version", migrationCtrl.GetCurrentVersion)
-	auth.POST("/migration/task", migrationCtrl.CreateUpgradeTask)
-	auth.POST("/migration/rollback", migrationCtrl.Rollback)
 	auth.GET("/migration/available", migrationCtrl.GetAvailableUpgrades)
+
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	{
+		admin.POST("/migration/task", migrationCtrl.CreateUpgradeTask)
+		admin.POST("/migration/rollback", migrationCtrl.Rollback)
+	}
 }
 
 

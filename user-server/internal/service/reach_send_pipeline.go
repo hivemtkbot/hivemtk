@@ -17,6 +17,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"sync/atomic"
 )
@@ -621,7 +622,8 @@ func (q *MemoryQuietHoursQueue) Start(ctx context.Context, pipeline SendPipeline
 	if !q.started.CompareAndSwap(false, true) {
 		return
 	}
-	go func() {
+	// 最高标准审计 P1-3 修复：静默时段到期重发循环（消息发送路径）改走 SafeGo
+	utils.SafeGo(ctx, "reach_send_pipeline.quiet_hours_queue", func(ctx context.Context) {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for {
@@ -648,7 +650,7 @@ func (q *MemoryQuietHoursQueue) Start(ctx context.Context, pipeline SendPipeline
 				pipeline.Send(ctx, it.req)
 			}
 		}
-	}()
+	})
 }
 
 // ===== R-8 AuditLogger 持久化 =====

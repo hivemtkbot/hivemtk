@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
@@ -25,7 +26,8 @@ func NewCron(svc *Service) *Cron {
 // Start 启动周期任务
 func (c *Cron) Start(ctx context.Context) {
 	c.ticker = time.NewTicker(1 * time.Hour)
-	go func() {
+	// 最高标准审计 P1-3 修复：批量评估 cron 改走 SafeGo
+	utils.SafeGo(ctx, "trace_learning.cron", func(ctx context.Context) {
 		select {
 		case <-time.After(5 * time.Minute):
 		case <-c.stop:
@@ -48,7 +50,7 @@ func (c *Cron) Start(ctx context.Context) {
 				logger.Infof("[trace_learning] cron 批量评估完成 processed=%d", n)
 			}
 		}
-	}()
+	})
 }
 
 // Stop 停止定时任务

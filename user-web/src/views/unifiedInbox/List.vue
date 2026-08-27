@@ -436,7 +436,7 @@ const statusLabel = (s) => statusLabelMap[s] || s || '-'
 
 const statusTagType = (s) => {
   const map = { unread: 'danger', open: 'warning', assigned: 'success', closed: 'info' }
-  return map[s] || ''
+  return map[s] || 'info'
 }
 
 const fromLabel = (f) => {
@@ -446,7 +446,7 @@ const fromLabel = (f) => {
 
 const fromTagType = (f) => {
   const map = { customer: 'danger', staff: 'success', ai: 'warning' }
-  return map[f] || ''
+  return map[f] || 'info'
 }
 
 const formatTime = (t) => {

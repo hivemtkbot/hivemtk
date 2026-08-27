@@ -25,6 +25,7 @@ import (
 
 	"hivemtk-user/internal/model"
 
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 
 	agent_runtime "hivemtk-user/internal/aiagent/agent/runtime"
@@ -166,7 +167,8 @@ var delayedDispatchStop chan struct{}
 func (s *WebhookService) startDelayedOutboundDispatch() {
 	dispatchOnce.Do(func() {
 		delayedDispatchStop = make(chan struct{})
-		go func() {
+		// 最高标准审计 P1-3 修复：延迟出站派发循环改走 SafeGo
+		utils.SafeGo(nil, "webhook_outbound.delayed_dispatch", func(ctx context.Context) {
 			ticker := time.NewTicker(delayedOutboundPollInterval)
 			defer ticker.Stop()
 			for {
@@ -174,10 +176,10 @@ func (s *WebhookService) startDelayedOutboundDispatch() {
 				case <-delayedDispatchStop:
 					return
 				case <-ticker.C:
-					s.dispatchDueDelayedOutbound(context.Background())
+					s.dispatchDueDelayedOutbound(ctx)
 				}
 			}
-		}()
+		})
 	})
 }
 

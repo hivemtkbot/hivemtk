@@ -162,6 +162,7 @@ import { CopyDocument } from '@element-plus/icons-vue'
 import { createChannel } from '@/api/chatChannel'
 import { listEnabledAgents } from '@/api/aiAgent'
 import { createBinding } from '@/api/channelAgentBinding'
+import { TARGET_LANGUAGE_OPTIONS } from '@/constants/languages'
 
 const router = useRouter()
 const formRef = ref()
@@ -190,6 +191,8 @@ const form = ref({
   confidence_threshold: 0.70,
   default_agent_id: null
 })
+
+const targetLanguageOptions = TARGET_LANGUAGE_OPTIONS
 
 const rules = {
   channel_name: [{ required: true, message: i18n.global.t('请输入渠道名称'), trigger: 'blur' }],
@@ -244,10 +247,10 @@ const onSubmit = async () => {
     if (channelId && form.value.default_agent_id) {
       try {
         await createBinding({
-          channel_id: channelId,
+          channel_type: 'web_embed',
+          account_id: channelId,
           agent_id: form.value.default_agent_id,
-          is_default: true,
-          priority: 100,
+          is_primary: true,
           enabled: true
         })
         ElMessage.success(i18n.global.t('已自动绑定默认智能体'))

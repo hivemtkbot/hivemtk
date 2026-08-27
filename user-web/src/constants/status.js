@@ -176,9 +176,9 @@ export const getStatusLabel = (value, arr) => {
  * 通用业务 status tagType 查询。
  */
 export const getStatusTagType = (value, arr) => {
-  if (value === undefined || value === null || value === '') return ''
+  if (value === undefined || value === null || value === '') return 'info'
   const o = arr.find((s) => s.value === value)
-  return o ? o.tagType : ''
+  return o ? o.tagType : 'info'
 }
 
 export default {
