@@ -123,7 +123,7 @@ func TestBatchBind_EmptyItems(t *testing.T) {
 // 实际行为: bindingRepo nil 校验在 items 校验之前, 因此这里会先返回 "binding repo not initialized"
 // 这个测试在 test/integration/knowledge_base_crud_test.go 中通过真实 DB 覆盖 items 校验逻辑
 func TestBatchBind_ZeroAgentIDInItem(t *testing.T) {
-	svc := &AgentKBBindingService{bindingRepo: nil, db: nil}
+	svc := &AgentKBBindingService{bindingRepo: nil}
 	err := svc.BatchBind(nil, []BatchBindItem{
 		{AgentID: 1, KBID: 10},
 		{AgentID: 0, KBID: 20}, 
@@ -140,7 +140,7 @@ func TestBatchBind_ZeroAgentIDInItem(t *testing.T) {
 //
 // 实际行为: bindingRepo nil 校验在 items 校验之前, 因此这里会先返回 "binding repo not initialized"
 func TestBatchBind_ZeroKBIDInItem(t *testing.T) {
-	svc := &AgentKBBindingService{bindingRepo: nil, db: nil}
+	svc := &AgentKBBindingService{bindingRepo: nil}
 	err := svc.BatchBind(nil, []BatchBindItem{
 		{AgentID: 1, KBID: 0}, 
 	})
@@ -154,7 +154,7 @@ func TestBatchBind_ZeroKBIDInItem(t *testing.T) {
 // 当 s.db == nil 但 bindingRepo != nil 时, BatchBind 走非事务路径
 // 这里 bindingRepo 也是 nil, 应该先返回 nil binding repo 错误
 func TestBatchBind_NilDB_NoDBFallback(t *testing.T) {
-	svc := &AgentKBBindingService{db: nil, bindingRepo: nil}
+	svc := &AgentKBBindingService{bindingRepo: nil}
 	err := svc.BatchBind(nil, []BatchBindItem{{AgentID: 1, KBID: 1}})
 	if err == nil {
 		t.Error("expected error")
@@ -229,7 +229,7 @@ func TestBind_Priority_DefaultValue(t *testing.T) {
 
 // TestBatchBind_ItemValidation_AllValid 测试所有 item 都合法 (无 nil repo 时返回 bindingRepo 错误)
 func TestBatchBind_ItemValidation_AllValid(t *testing.T) {
-	svc := &AgentKBBindingService{bindingRepo: nil, db: nil}
+	svc := &AgentKBBindingService{bindingRepo: nil}
 	items := []BatchBindItem{
 		{AgentID: 1, KBID: 10, Priority: 1},
 		{AgentID: 1, KBID: 11, Priority: 2},
@@ -259,7 +259,7 @@ func TestBind_AllValid_NilRepo_NoPanic(t *testing.T) {
 
 // TestBatchBind_AllValid_NilRepo 测试 batch 在 nil repo 下的行为
 func TestBatchBind_AllValid_NilRepo(t *testing.T) {
-	svc := &AgentKBBindingService{db: nil}
+	svc := &AgentKBBindingService{}
 	defer func() {
 		_ = recover()
 	}()

@@ -211,7 +211,6 @@ func TestS1_2_MaxWaitExceeded_TimerSkipped(t *testing.T) {
 
 	recorder := &s1TaskRecorder{}
 	outbox := &SOPOutboxDispatcher{
-		db:             db,
 		timerRepo:      repository.NewSOPTimerRepository(db),
 		eventRepo:      repository.NewSOPExecEventRepository(db),
 		execDispatcher: recorder,
@@ -310,7 +309,6 @@ func TestS1_5_DeadLetter_ClaimThreshold(t *testing.T) {
 	atLimit := mkTimer(sopTimerMaxClaims)   // 5 次：迁移死信
 
 	outbox := &SOPOutboxDispatcher{
-		db:             db,
 		timerRepo:      repository.NewSOPTimerRepository(db),
 		eventRepo:      repository.NewSOPExecEventRepository(db),
 		execDispatcher: &s1TaskRecorder{},
