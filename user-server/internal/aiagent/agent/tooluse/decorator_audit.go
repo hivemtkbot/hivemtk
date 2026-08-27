@@ -3,10 +3,26 @@ package tooluse
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
-	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/metrics"
+)
+
+var (
+	toolCallTotal = metrics.NewCounter(
+		"hivemtk_tool_calls_total",
+		"Total tool calls",
+		[]string{"tool_name", "success"},
+	)
+
+	toolCallLatencyMs = metrics.NewHistogram(
+		"hivemtk_tool_call_latency_ms",
+		"Tool call latency in ms",
+		[]string{"tool_name"},
+		[]float64{1, 5, 10, 50, 100, 500, 1000, 3000, 5000},
+	)
 )
 
 type AuditLogger interface {
@@ -94,16 +110,8 @@ func AuditDecorator(logger AuditLogger, costTracker CostTracker) ToolDecorator {
 // 后续如需对接 Prometheus metrics，只需替换 logger.Infof 为 metrics.Counter
 func recordToolCallMetrics(toolName string, err error, result ToolResult, duration time.Duration) {
 	success := err == nil
-	tags := map[string]any{
-		"tool":      toolName,
-		"success":   success,
-		"duration_ms": duration.Milliseconds(),
-	}
-	if err != nil {
-		tags["error"] = err.Error()
-	}
-	// 结构化日志（zerolog）：后续可被 metrics agent 抓取
-	logger.Infof("[tool_metric] %+v", tags)
+	toolCallTotal.WithLabel(toolName, strconv.FormatBool(success)).Inc()
+	toolCallLatencyMs.WithLabel(toolName).Observe(float64(duration.Milliseconds()))
 }
 
 func summarizeArgs(args map[string]any) string {

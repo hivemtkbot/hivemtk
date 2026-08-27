@@ -210,6 +210,10 @@ func (e *SalesEngine) runAgentLoop(
 			stopReason, guard.usedTokens, guard.usedCost, totalToolCalls)
 	}()
 
+	defer func() {
+		agentLoopStops.WithLabel(string(stopReason)).Inc()
+	}()
+
 	var lastResult *llm.DispatchResult
 	totalTokensUsed := 0
 	var firstLLMError error

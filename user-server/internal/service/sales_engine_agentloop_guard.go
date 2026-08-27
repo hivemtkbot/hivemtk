@@ -2,6 +2,16 @@ package service
 
 import (
 	"time"
+
+	"hivemtk-user/internal/pkg/metrics"
+)
+
+var (
+	agentLoopStops = metrics.NewCounter(
+		"hivemtk_agent_loop_stops_total",
+		"Agent Loop stop_reason distribution",
+		[]string{"stop_reason"},
+	)
 )
 
 // 本文件实现 Agent Loop 的统一护栏对象（对标 OpenLegion/RunGuard/LangGraph 生产实践）：

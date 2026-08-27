@@ -170,15 +170,67 @@ func (c *InferenceCycle) RunOnce(ctx context.Context, payload CustomerMessagePay
 		}
 	}
 
-	stages := []InferenceStage{
-		c.PerceptionStage,
-		c.AlignmentStage,
-		c.GatekeeperStage,
-		c.PlannerStage,
-		c.ReviewerStage,
+	var percepResult, alignResult *StageResult
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		if c.PerceptionStage == nil {
+			return
+		}
+		sctx, scancel := context.WithTimeout(tctx, c.StageTimeout)
+		defer scancel()
+		r := c.PerceptionStage.Execute(sctx, ic)
+		if r.Error != nil {
+			logger.Warnf("[inference_cycle] stage=perception error=%v", r.Error)
+		}
+		if r.Decision != nil {
+			ic.Decision = mergeDecision(ic.Decision, *r.Decision)
+		}
+		if r.EarlyReturn {
+			percepResult = &r
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if c.AlignmentStage == nil {
+			return
+		}
+		sctx, scancel := context.WithTimeout(tctx, c.StageTimeout)
+		defer scancel()
+		r := c.AlignmentStage.Execute(sctx, ic)
+		if r.Error != nil {
+			logger.Warnf("[inference_cycle] stage=alignment error=%v", r.Error)
+		}
+		if r.Decision != nil {
+			ic.Decision = mergeDecision(ic.Decision, *r.Decision)
+		}
+		if r.EarlyReturn {
+			alignResult = &r
+		}
+	}()
+
+	wg.Wait()
+
+	if percepResult != nil || alignResult != nil {
+		earlyStageName := "perception"
+		if alignResult != nil {
+			earlyStageName = "alignment"
+		}
+		ic.Decision.TotalDuration = time.Since(start)
+		ic.Decision.Crisis = ic.Crisis
+		ic.Decision.Sentiment = ic.Sentiment
+		ic.Decision.Intent = ic.Intent
+		ic.Decision.Alignment = ic.Alignment
+		c.recordStats(ic.Decision)
+		logger.Infof("[inference_cycle] early return at stage=%s handoff=%v reason=%s duration=%s",
+			earlyStageName, ic.Decision.HandoffToHuman, ic.Decision.StopReason, ic.Decision.TotalDuration)
+		return &ic.Decision, nil
 	}
 
-	for _, stage := range stages {
+	for _, stage := range []InferenceStage{c.GatekeeperStage, c.PlannerStage, c.ReviewerStage} {
 		if stage == nil {
 			continue
 		}
