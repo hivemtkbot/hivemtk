@@ -2,14 +2,13 @@ package service
 
 import (
 	"context"
-
 	"fmt"
-
+	"strconv"
 	"time"
 
 	"hivemtk-user/internal/channelbot/whatsapp"
-
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // waMessageContent WhatsApp 消息内容映射：文本取正文，媒体类映射为占位符
@@ -42,6 +41,39 @@ func (s *WebhookService) dispatchWhatsApp(ctx context.Context, accountID string,
 		return nil, nil
 	}
 	s.ensureReposFromDB(ctx)
+
+	// P1-7: WhatsApp Cloud API 消息重排序缓冲接入
+	// Meta 弱网/抖动下可能跨 webhook 乱序到达，先 Offer buffer 按 session 维度排序后再处理
+	var bufSessionID, bufMsgID string
+	var bufTimestampMs int64
+	if waPre, err := whatsapp.ParseWebhook(raw); err == nil {
+		for _, ent := range waPre.Entry {
+			for _, ch := range ent.Changes {
+				for _, m := range ch.Value.Messages {
+					tsSec, _ := strconv.ParseInt(m.Timestamp, 10, 64)
+					if tsSec > 0 && bufSessionID == "" {
+						bufSessionID = m.From
+						bufMsgID = m.ID
+						bufTimestampMs = tsSec * 1000
+						break
+					}
+				}
+				if bufSessionID != "" {
+					break
+				}
+			}
+			if bufSessionID != "" {
+				break
+			}
+		}
+	}
+	if bufSessionID != "" {
+		_, delayed := globalReorderBuffer.Offer(accountID, bufSessionID, bufMsgID, bufTimestampMs, raw)
+		if delayed {
+			logger.Infof("[Webhook] WhatsApp session=%s delayed by reorder buffer", bufSessionID)
+			return nil, nil
+		}
+	}
 
 	waPayload, err := whatsapp.ParseWebhook(raw)
 	if err != nil {

@@ -783,6 +783,25 @@ unknown: 无法确定或消息不属于以上任何意图（这是合法答案�
 // BuildClarifyReply 由 clarify 意图结果生成澄清话术（M4 I-3，供编排层消费）。
 // 从 Entities 中读取 top1/top2 候选意图名，生成二选一澄清问句；
 // 候选信息缺失时退化为通用澄清话术。
+
+// fillTopKExamples 为 RecognizeResult 填充 TopKExamples 字段。
+// 从 DefaultIntents 中找到对应 IntentType 的 Examples，取前 K 个（intentTopKExamples=3）。
+func fillTopKExamples(r *dto.RecognizeResult) {
+	if r == nil || r.IntentType == "" || r.IntentType == IntentUnknown || r.IntentType == IntentClarify {
+		return
+	}
+	for _, def := range DefaultIntents {
+		if def.Type == r.IntentType && len(def.Examples) > 0 {
+			k := intentTopKExamples
+			if len(def.Examples) < k {
+				k = len(def.Examples)
+			}
+			r.TopKExamples = append([]string(nil), def.Examples[:k]...)
+			return
+		}
+	}
+}
+
 func BuildClarifyReply(r *dto.RecognizeResult) string {
 	if r == nil || r.IntentType != IntentClarify {
 		return ""

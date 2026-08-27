@@ -435,6 +435,13 @@ func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *mo
 		}
 	}
 
+	if intent != nil && len(intent.TopKExamples) > 0 {
+		sb.WriteString("\n【意图参考示例】:\n")
+		for i, ex := range intent.TopKExamples {
+			sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, ex))
+		}
+	}
+
 	return sb.String()
 }
 
@@ -663,6 +670,13 @@ func (e *SalesEngine) buildPrompt(
 				hb.WriteString(fmt.Sprintf("%s：%s\n", role, m.Content))
 			}
 			sb.WriteString(hb.String())
+		}
+	}
+
+	if intent != nil && len(intent.TopKExamples) > 0 {
+		sb.WriteString("\n【意图参考示例】:\n")
+		for i, ex := range intent.TopKExamples {
+			sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, ex))
 		}
 	}
 
