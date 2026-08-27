@@ -1,21 +1,21 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"runtime"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
-	"context"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/repository"
 )
 
-// processStartTime 记录进程启动时间，用于计算系统运行时长
 var processStartTime = time.Now()
 
-// formatUptime 将运行时长格式化为 "Xh Ym Zs" 形式
 func formatUptime(d time.Duration) string {
 	d = d.Round(time.Second)
 	h := int(d / time.Hour)
@@ -26,10 +26,55 @@ func formatUptime(d time.Duration) string {
 	return fmt.Sprintf("%dh %dm %ds", h, m, s)
 }
 
-// getCPUUsage 通过 syscall.Getrusage 采样进程 CPU 使用率（占 CPU 总容量的百分比）
-// 跨平台实现：在 macOS/Linux 上均使用 getrusage 采样进程用户态+内核态 CPU 时间，
-// 结合墙钟时间与 CPU 核心数计算使用率，返回真实测量值。
-func getCPUUsage() float64 {
+var (
+	cpuSnapshot    atomic.Value
+	memSnapshot    atomic.Value
+	diskSnapshot   atomic.Value
+	smInitOnce     sync.Once
+	smSamplingDone chan struct{}
+)
+
+type resourceSnapshot struct {
+	CPU  float64
+	Mem  float64
+	Disk float64
+}
+
+func initResourceSnapshots() {
+	cpuSnapshot.Store(float64(0))
+	memSnapshot.Store(float64(0))
+	diskSnapshot.Store(float64(0))
+}
+
+func startResourceSampling() {
+	smInitOnce.Do(func() {
+		initResourceSnapshots()
+		smSamplingDone = make(chan struct{})
+		go func() {
+			defer close(smSamplingDone)
+			sampleResourceUsage()
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+			for range ticker.C {
+				sampleResourceUsage()
+			}
+		}()
+	})
+}
+
+func sampleResourceUsage() {
+	cpuSnapshot.Store(sampleCPUOnce())
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	if m.Sys > 0 {
+		memSnapshot.Store(float64(m.Alloc) / float64(m.Sys) * 100)
+	} else {
+		memSnapshot.Store(float64(0))
+	}
+	diskSnapshot.Store(sampleDiskOnce())
+}
+
+func sampleCPUOnce() float64 {
 	var r1, r2 syscall.Rusage
 	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &r1); err != nil {
 		return 0
@@ -62,8 +107,7 @@ func getCPUUsage() float64 {
 	return usage
 }
 
-// getDiskUsage 通过 syscall.Statfs 获取当前工作目录所在磁盘的使用率（百分比）
-func getDiskUsage() float64 {
+func sampleDiskOnce() float64 {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return 0
@@ -88,26 +132,35 @@ func getDiskUsage() float64 {
 	return usage
 }
 
-// SystemMonitorService 系统监控服务
-//
-// 通过依赖注入 statsRepo 避免在 service 层直接访问数据库
+func readResourceSnapshot() (cpu, mem, disk float64) {
+	if v := cpuSnapshot.Load(); v != nil {
+		cpu = v.(float64)
+	}
+	if v := memSnapshot.Load(); v != nil {
+		mem = v.(float64)
+	}
+	if v := diskSnapshot.Load(); v != nil {
+		disk = v.(float64)
+	}
+	return
+}
+
 type SystemMonitorService struct {
 	statsRepo repository.SystemStatsRepository
 }
 
-// NewSystemMonitorService 创建系统监控服务实例
 func NewSystemMonitorService() *SystemMonitorService {
+	startResourceSampling()
 	return &SystemMonitorService{
 		statsRepo: repository.NewSystemStatsRepository(),
 	}
 }
 
-// NewSystemMonitorServiceWithRepo 通过 repo 创建(用于测试)
 func NewSystemMonitorServiceWithRepo(repo repository.SystemStatsRepository) *SystemMonitorService {
+	startResourceSampling()
 	return &SystemMonitorService{statsRepo: repo}
 }
 
-// GetSystemStats 获取系统统计信息
 func (s *SystemMonitorService) GetSystemStats(ctx context.Context) (map[string]any, error) {
 	totalUsers, _ := s.statsRepo.CountSystemUsers(ctx)
 	totalOrders, _ := s.statsRepo.CountOrders(ctx)
@@ -119,14 +172,7 @@ func (s *SystemMonitorService) GetSystemStats(ctx context.Context) (map[string]a
 
 	uptime := formatUptime(time.Since(processStartTime))
 
-	// 获取系统资源使用情况
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	cpuUsage := getCPUUsage()
-	memUsage := float64(m.Alloc) / float64(m.Sys) * 100
-
-	diskUsage := getDiskUsage()
+	cpuUsage, memUsage, diskUsage := readResourceSnapshot()
 
 	stats := map[string]any{
 		"total_users":       totalUsers,
@@ -144,15 +190,10 @@ func (s *SystemMonitorService) GetSystemStats(ctx context.Context) (map[string]a
 	return stats, nil
 }
 
-// GetDetailedSystemStats 获取详细的系统统计信息
 func (s *SystemMonitorService) GetDetailedSystemStats(ctx context.Context) (map[string]any, error) {
 	todayStart := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location())
 	activeUsers, _ := s.statsRepo.CountActiveSystemUsers(ctx, todayStart.Unix())
 
-	// totalMerchants 真实统计口径（H5 修复）：
-	// 私域单租户部署已删除 merchants 表（见 internal/migration/migrations/unmultitenant_migration.go），
-	// 且不存在 company 表。此处以 system_users 中 admin 角色账号数作为"商户（运营主体）"数——
-	// 每个独立部署的运营主体由其管理员账号代表。
 	totalMerchants, _ := s.statsRepo.CountSystemUsersByRole(ctx, model.SystemUserRoleAdmin)
 
 	totalEmailLists, _ := s.statsRepo.CountEmailLists(ctx)
@@ -169,6 +210,8 @@ func (s *SystemMonitorService) GetDetailedSystemStats(ctx context.Context) (map[
 
 	systemMetrics, _ := s.statsRepo.ListRecentSystemMetrics(ctx, 10)
 
+	cpuUsage, memUsage, diskUsage := readResourceSnapshot()
+
 	detailedStats := map[string]any{
 		"basic_stats": map[string]any{
 			"total_users":        totalUsers,
@@ -180,9 +223,14 @@ func (s *SystemMonitorService) GetDetailedSystemStats(ctx context.Context) (map[
 			"total_merchants":    totalMerchants,
 		},
 		"business_stats": map[string]any{
-			"total_email_lists":         totalEmailLists,
-			"total_email_jobs":          totalEmailJobs,
-			"total_materials":           totalMaterials,
+			"total_email_lists": totalEmailLists,
+			"total_email_jobs":  totalEmailJobs,
+			"total_materials":   totalMaterials,
+		},
+		"system_resources": map[string]any{
+			"cpu_usage":    cpuUsage,
+			"memory_usage": memUsage,
+			"disk_usage":   diskUsage,
 		},
 		"system_metrics": systemMetrics,
 		"timestamp":      time.Now(),
@@ -190,4 +238,3 @@ func (s *SystemMonitorService) GetDetailedSystemStats(ctx context.Context) (map[
 
 	return detailedStats, nil
 }
-

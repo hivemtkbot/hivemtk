@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 )
@@ -142,7 +143,9 @@ func (c *SSEDashboardController) ListTopics(ctx *gin.Context) {
 
 // Stats SSE Hub 统计
 // GET /api/dashboard/stats
+// Deprecated: 该接口已废弃，请使用 /api/manage/dashboard_sse_stats（dashboard_sse_stats 服务）。
 func (c *SSEDashboardController) Stats(ctx *gin.Context) {
+	logger.Warnf("[Deprecated] /api/dashboard/stats 已废弃，请使用 /api/manage/dashboard_sse_stats (dashboard_sse_stats 服务)")
 	if c.hub == nil {
 		response.Success(ctx, map[string]any{
 			"client_count": 0,

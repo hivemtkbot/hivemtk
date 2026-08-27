@@ -51,11 +51,6 @@ func (s *TelegramDMOutreachService) TriggerDMOutreach(ctx context.Context, accou
 		return
 	}
 
-	dmAllowed := s.svc.tgLeadOutreachAllowed(ctx, accountID, "dm", strconv.FormatInt(userID, 10))
-	if !dmAllowed {
-		return
-	}
-
 	// 第二层冷却：DM 触达专用 key（账号:用户:群），与上层线索挖掘冷却相互独立。
 	// 对齐 tgLeadOutreachAllowed 既有模式：SetNX + TTL，首次设置放行，冷却窗口内拦截。
 	if !s.dmOutreachCooldownAllowed(ctx, accountID, userID, groupID) {

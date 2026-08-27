@@ -191,15 +191,24 @@ func (e *SalesEngine) runAgentLoop(
 	}
 	defer loopGuard.FinishTrace(loopTraceID)
 
-	// writeLoopSpan 收敛处写 span status：StopReasonOf 将错误归类为结构化 StopReason，
-	// 落 message_trace（NodeAgentTurn），监控侧按 stop_reason 维度聚合
+	// writeLoopSpan 收敛处写 span status（A-3）：
+	// 同时收敛内部 agentLoopGuard 的 agentLoopStopReason 与外部 tooluse.StopReasonOf(err)，
+	// 落 message_trace（NodeAgentTurn），监控侧按 stop_reason 维度聚合。
+	// 内部 guard 的 stopReason（预算/迭代/空输出）优先，因其表示的是 Agent Loop 自身的结束原因，
+	// 比 err 推断出的 StopReason（仅覆盖 LLM/审批/循环检测）更完整。
 	writeLoopSpan := func(output any, err error) {
 		sr := tooluse.StopReasonOf(err)
+		innerSR := stopReason
 		sp := tracing.Start(ctx, tracing.NodeAgentTurn).
 			TraceID(loopTraceID).
 			Kind("agent_turn").
 			Agent(agentIDStr)
-		if sr != tooluse.StopReasonCompleted {
+		switch {
+		case innerSR != stopReasonNone && innerSR != stopReasonCompleted && innerSR != "max_iterations_exhausted":
+			sp = sp.Abnormal("stop_reason=" + string(innerSR))
+		case innerSR == "max_iterations_exhausted":
+			sp = sp.Abnormal("stop_reason=max_iterations_exhausted")
+		case sr != tooluse.StopReasonCompleted:
 			sp = sp.Abnormal("stop_reason=" + string(sr))
 		}
 		sp.End(output, err)

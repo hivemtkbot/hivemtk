@@ -7,21 +7,20 @@ import (
 	_db "hivemtk-user/internal/pkg/db"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
-// CustomerTagAssignmentRepository defines the interface for customer tag assignment data access
 type CustomerTagAssignmentRepository interface {
 	GetByCustomerAndTag(ctx context.Context, customerID, tag string) (*model.CustomerTagAssignment, error)
 	ListByCustomerID(ctx context.Context, customerID string) ([]*model.CustomerTagAssignment, error)
 	Create(ctx context.Context, assignment *model.CustomerTagAssignment) error
 	Update(ctx context.Context, assignment *model.CustomerTagAssignment) error
 	DeleteByCustomerAndTag(ctx context.Context, customerID, tag string) error
+	Upsert(ctx context.Context, assignment *model.CustomerTagAssignment) error
 }
 
-// customerTagAssignmentRepository implements CustomerTagAssignmentRepository
 type customerTagAssignmentRepository struct{}
 
-// NewCustomerTagAssignmentRepository creates a new CustomerTagAssignmentRepository instance
 func NewCustomerTagAssignmentRepository() CustomerTagAssignmentRepository {
 	return &customerTagAssignmentRepository{}
 }
@@ -34,8 +33,6 @@ func assignmentDB() (*gorm.DB, error) {
 	return database, nil
 }
 
-// GetByCustomerAndTag retrieves a single assignment by customer ID and tag name.
-// Returns (nil, nil) when not found (与 customer_tag.go GetByID 的容错风格一致).
 func (r *customerTagAssignmentRepository) GetByCustomerAndTag(ctx context.Context, customerID, tag string) (*model.CustomerTagAssignment, error) {
 	database, err := assignmentDB()
 	if err != nil {
@@ -63,7 +60,6 @@ func (r *customerTagAssignmentRepository) ListByCustomerID(ctx context.Context, 
 	return assignments, nil
 }
 
-// Create creates a new customer tag assignment
 func (r *customerTagAssignmentRepository) Create(ctx context.Context, assignment *model.CustomerTagAssignment) error {
 	database, err := assignmentDB()
 	if err != nil {
@@ -72,7 +68,6 @@ func (r *customerTagAssignmentRepository) Create(ctx context.Context, assignment
 	return database.Create(assignment).Error
 }
 
-// Update updates an existing customer tag assignment
 func (r *customerTagAssignmentRepository) Update(ctx context.Context, assignment *model.CustomerTagAssignment) error {
 	database, err := assignmentDB()
 	if err != nil {
@@ -81,11 +76,28 @@ func (r *customerTagAssignmentRepository) Update(ctx context.Context, assignment
 	return database.Save(assignment).Error
 }
 
-// DeleteByCustomerAndTag deletes an assignment by customer ID and tag name
 func (r *customerTagAssignmentRepository) DeleteByCustomerAndTag(ctx context.Context, customerID, tag string) error {
 	database, err := assignmentDB()
 	if err != nil {
 		return err
 	}
 	return database.Delete(&model.CustomerTagAssignment{}, "customer_id = ? AND tag = ?", customerID, tag).Error
+}
+
+func (r *customerTagAssignmentRepository) Upsert(ctx context.Context, assignment *model.CustomerTagAssignment) error {
+	database, err := assignmentDB()
+	if err != nil {
+		return err
+	}
+	return database.Clauses(clause.OnConflict{
+		Columns: []clause.Column{
+			{Name: "customer_id"},
+			{Name: "tag"},
+		},
+		DoUpdates: clause.Assignments(map[string]any{
+			"category":   assignment.Category,
+			"source":     assignment.Source,
+			"confidence": gorm.Expr("GREATEST(confidence, ?)", assignment.Confidence),
+		}),
+	}).Create(assignment).Error
 }

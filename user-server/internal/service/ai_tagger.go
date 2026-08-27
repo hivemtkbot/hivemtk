@@ -150,28 +150,15 @@ func (t *AITagger) ensureLoadedLocked(ctx context.Context, customerID string) {
 }
 
 // persistLocked 将内存中的标签变更写穿到 DB（best-effort：失败不影响内存态）
+// 使用 repo.Upsert 按 (customer_id, tag) 唯一键幂等写入，DB 侧以 GREATEST(confidence, new) 保护高置信度不被覆盖
 func (t *AITagger) persistLocked(ctx context.Context, customerID string, tag TagInfo) {
-	existing, err := t.assignRepo.GetByCustomerAndTag(ctx, customerID, tag.Tag)
-	if err != nil {
-		return
-	}
-	if existing == nil {
-		_ = t.assignRepo.Create(ctx, &model.CustomerTagAssignment{
-			CustomerID: customerID,
-			Tag:        tag.Tag,
-			Category:   tag.Category,
-			Source:     tag.Source,
-			Confidence: tag.Confidence,
-		})
-		return
-	}
-	if existing.Confidence >= tag.Confidence {
-		return
-	}
-	existing.Category = tag.Category
-	existing.Source = tag.Source
-	existing.Confidence = tag.Confidence
-	_ = t.assignRepo.Update(ctx, existing)
+	_ = t.assignRepo.Upsert(ctx, &model.CustomerTagAssignment{
+		CustomerID: customerID,
+		Tag:        tag.Tag,
+		Category:   tag.Category,
+		Source:     tag.Source,
+		Confidence: tag.Confidence,
+	})
 }
 
 // GetTags 获取客户所有标签（缓存缺失时回源 DB）

@@ -220,7 +220,11 @@ func (h *HybridSearcher) SearchIndex(ctx context.Context, productID string, quer
 		// 原：if rerr == nil → 失败时 fused 不变但调用方完全无感知
 		// 新：记 error + 告警 + 仍走降级路径（用原始 fused）
 		if rerr == nil {
-			fused = applyRerank(fused, reranked)
+			if len(reranked) == 0 {
+				logger.Infof("[Hybrid] rerank 全部文档低于阈值(floor=%.1f)，视为知识不足，降级使用原始融合结果", rerankScoreFloor)
+			} else {
+				fused = applyRerank(fused, reranked)
+			}
 		} else {
 			logger.Warnf("[Hybrid] rerank 失败，降级使用原始融合结果: %v", rerr)
 		}

@@ -161,7 +161,7 @@ func (o *SOPAutoOptimizer) recordGateResult(ctx context.Context, sugID uint, res
 		"reason":     res.Reason,
 		"golden":     res.GoldenCount,
 		"checked_at": time.Now().Format(time.RFC3339),
-		"source":     "auto_optimizer(gated)",
+		"source":     "auto_optimize_v2_gate",
 	}
 	if err := o.db.WithContext(ctx).Model(&model.OptimizationSuggestion{}).
 		Where("id = ?", sugID).

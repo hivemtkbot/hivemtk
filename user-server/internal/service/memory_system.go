@@ -47,11 +47,12 @@ const (
 	longTermMemoryMaxFetch         = 50
 	longTermMemoryDecayDuration    = 30 * 24 * time.Hour
 
-	longTermDedupThreshold = 0.92 // M-2：L2 fact 去重合并阈值（cosine）
-	longTermDedupScanLimit = 50   // M-2：去重扫描同类型旧记忆条数上限
-	l4EvictLowImp          = 3    // M-4：低重要性边界（importance<=3 最先淘汰）
-	l4EvictProtectedImp    = 8    // M-4：受保护边界（importance>=8 永不淘汰）
-	l4EvictScanLimit       = 1000 // M-4：淘汰候选扫描上限（> L4MaxPerCust，保证全量可见）
+	longTermDedupThreshold    = 0.92 // M-2：L2 fact 去重合并阈值（cosine）
+	longTermDedupFallbackJacc = 0.72 // M-2：关键词 fallback 判重阈值（无向量老数据）
+	longTermDedupScanLimit    = 50   // M-2：去重扫描同类型旧记忆条数上限
+	l4EvictLowImp             = 3    // M-4：低重要性边界（importance<=3 最先淘汰）
+	l4EvictProtectedImp       = 8    // M-4：受保护边界（importance>=8 永不淘汰）
+	l4EvictScanLimit          = 1000 // M-4：淘汰候选扫描上限（> L4MaxPerCust，保证全量可见）
 )
 
 var (
@@ -505,9 +506,11 @@ func (m *MemorySystem) Remember(ctx context.Context, customerID string, memType 
 }
 
 // dedupLongTermMemory M-2：L2 fact 去重合并（吸收 mem0 dedup+merge 模式）
-// 新记忆与同 customer 同 memType 的旧记忆做余弦比对：
-//   - cosine >= 0.92 且内容与重要性均一致 → 语义等价，跳过写入（返回旧记忆）
-//   - cosine >= 0.92 但内容有更新 → UPDATE 原地替换文本/向量/重要性，保留旧 ID
+// 新记忆与同 customer 同 memType 的旧记忆做语义比对：
+//   - 有向量的旧记忆 → cosine >= 0.92 视为重复
+//   - 无向量老数据 → 关键词 Jaccard >= 0.72 视为重复（fallback，避免重算 embedding）
+//   - 重复且内容/重要性均一致 → 跳过写入（返回旧记忆）
+//   - 重复但内容有更新 → UPDATE 原地替换文本/向量/重要性，保留旧 ID
 //     （对应决策 M-5：保 ID 即保留 append-only 演变链）
 //
 // 旧记忆扫描失败时降级为追加式写入，不阻塞主流程。
@@ -519,8 +522,16 @@ func (m *MemorySystem) dedupLongTermMemory(ctx context.Context, customerID strin
 	}
 	for i := range existing {
 		old := existing[i]
-		sim := cosineSimilarity(vec, bytesToFloat32Slice([]byte(old.Embedding)))
-		if sim < longTermDedupThreshold {
+		var sim float64
+		var threshold float64
+		if old.Embedding != "" {
+			sim = cosineSimilarity(vec, bytesToFloat32Slice([]byte(old.Embedding)))
+			threshold = longTermDedupThreshold
+		} else {
+			sim = keywordJaccard(content, old.Content)
+			threshold = longTermDedupFallbackJacc
+		}
+		if sim < threshold {
 			continue
 		}
 		if old.Content == content && old.Importance == importance {

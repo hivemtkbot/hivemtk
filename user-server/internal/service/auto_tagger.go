@@ -78,6 +78,7 @@ func (s *AutoTagger) EvaluateAndTag(ctx context.Context, customerID string) erro
 
 	now := time.Now()
 
+	removedTags := make([]string, 0)
 	for _, tag := range autoTags {
 		if !tagSet[tag.Name] || tag.Rule == "" {
 			continue
@@ -96,6 +97,9 @@ func (s *AutoTagger) EvaluateAndTag(ctx context.Context, customerID string) erro
 		}
 		addedAt, hasAt := addedAtByTag[tag.Name]
 		if s.shouldRemoveTag(rcMap, events, addedAt, hasAt && hasAddedAt, now) {
+			if oldTagSet[tag.Name] {
+				removedTags = append(removedTags, tag.Name)
+			}
 			delete(tagSet, tag.Name)
 		}
 	}
@@ -125,6 +129,9 @@ func (s *AutoTagger) EvaluateAndTag(ctx context.Context, customerID string) erro
 	}
 
 	s.recordNewAssignments(ctx, customerID, oldTagSet, tagSet, autoTags)
+	for _, removedTag := range removedTags {
+		_ = s.assignRepo.DeleteByCustomerAndTag(ctx, customerID, removedTag)
+	}
 
 	return s.custRepo.Update(ctx, customer)
 }

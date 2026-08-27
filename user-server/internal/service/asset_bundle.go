@@ -274,14 +274,12 @@ func (s *AssetBundleService) WithVersionLogRepo(v repository.AssetBundleVersionL
 }
 
 func (s *AssetBundleService) applyVersionLogRepo(v repository.AssetBundleVersionLogRepository) {
-	switch {
-	case v != nil:
+	if v != nil {
 		s.version = v
-	case db.GetDB() != nil:
-		s.version = repository.NewAssetBundleVersionLogRepository(db.GetDB())
-	default:
-		logger.Warnf("[asset_bundle] version log repo not injected and global DB unavailable: version audit DISABLED")
+		return
 	}
+	s.version = nil
+	logger.Warnf("[asset_bundle] version log repo not injected (nil): version audit DISABLED")
 }
 
 type LocalAssetLoader interface {
@@ -821,18 +819,6 @@ func (c *hotPlugCache) list(ctx context.Context) []string {
 	return out
 }
 
-type stubVersionLogRepo struct{}
-
-// Create stub 实现
-func (stubVersionLogRepo) Create(_ context.Context, m *model.AssetBundleVersionLog) error {
-	logger.Debugf("[asset_bundle] version log (stub): %s %s -> %s by %s",
-		m.AssetID, m.FromVer, m.ToVer, m.Operator)
-	return nil
-}
-
-func (stubVersionLogRepo) List(_ context.Context, _ string, _ int) ([]*model.AssetBundleVersionLog, error) {
-	return nil, nil
-}
 func BuildBundleFromMerchantForm(req dto.MerchantFormSaveRequest) (*model.AssetBundle, error) {
 	if req.AssetID == "" {
 		return nil, errors.New("asset_id required")

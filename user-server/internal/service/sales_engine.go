@@ -319,8 +319,8 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{
 			Step: "5.5_match_script", Status: "ok", LatencyMs: ms(stepStart),
 			Detail: fmt.Sprintf("script_id=%s rate=%.2f", script.ID, script.MatchRate),
-			// T-2 归因闭环：所用销冠话术 script_id 结构化落 trace span extra
-			Extra: map[string]any{"script_id": script.ID},
+			// T-2 归因闭环：所用销冠话术 script_id + objection_category 结构化落 trace span extra
+			Extra: map[string]any{"script_id": script.ID, "objection_category": intentResult.IntentType},
 		})
 	} else {
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{

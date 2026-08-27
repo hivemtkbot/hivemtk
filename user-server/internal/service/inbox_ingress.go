@@ -139,16 +139,32 @@ func (s *InboxIngressService) SetLeadMining(svc *Service) {
 	s.leadMiningSvc = svc
 }
 
-func (s *InboxIngressService) IsSessionHumanLocked(ctx context.Context, sessionID string) (bool, error) {
+func (s *InboxIngressService) IsSessionHumanLocked(ctx context.Context, sessionID string, recentUserMsg ...string) (bool, error) {
 	if s.cache == nil || sessionID == "" {
 		return false, nil
 	}
 	key := InboxHumanLockKey + sessionID
 	v, err := s.cache.Get(ctx, key)
-	if err != nil {
+	switch {
+	case err == nil:
+		return v == "true", nil
+	case errors.Is(err, cache.ErrCacheMiss):
+		return false, nil
+	default:
+		content := ""
+		for _, c := range recentUserMsg {
+			if c != "" {
+				content = c
+				break
+			}
+		}
+		if content != "" && (MatchTransferKeywords(content) || MatchExplicitKeywords(content)) {
+			logger.Errorf("[Inbox] Redis 故障且最近用户消息命中转人工关键词，保守判定为人工接管 session=%s", sessionID)
+			return true, nil
+		}
+		logger.Errorf("[Inbox] Redis 故障且无转人工关键词命中，放行 AI 路由 session=%s", sessionID)
 		return false, nil
 	}
-	return v == "true", nil
 }
 
 func (s *InboxIngressService) LockSessionForHuman(ctx context.Context, sessionID, reason string) error {
@@ -370,7 +386,7 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 
 	isSystemMsg := event.SenderType == "system"
 
-	humanLocked, _ := s.IsSessionHumanLocked(ctx, event.SessionID)
+	humanLocked, _ := s.IsSessionHumanLocked(ctx, event.SessionID, event.Content)
 	if humanLocked {
 		result.HumanLocked = true
 		result.Accepted = true
@@ -738,7 +754,7 @@ func (s *InboxIngressService) HandleIngressBatch(ctx context.Context, events []*
 			continue
 		}
 
-		humanLocked, _ := s.IsSessionHumanLocked(ctx, firstInboundEvent.SessionID)
+		humanLocked, _ := s.IsSessionHumanLocked(ctx, firstInboundEvent.SessionID, firstInboundEvent.Content)
 		if humanLocked {
 			continue
 		}
@@ -783,7 +799,7 @@ func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, e
 
 	isSystemMsg := event.SenderType == "system"
 
-	humanLocked, _ := s.IsSessionHumanLocked(ctx, event.SessionID)
+	humanLocked, _ := s.IsSessionHumanLocked(ctx, event.SessionID, event.Content)
 	if humanLocked {
 		result.HumanLocked = true
 		result.Accepted = true

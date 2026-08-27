@@ -140,12 +140,16 @@ func cleanConversationTitle(convID string) string {
 
 const InboxDefaultStaffLoadLimit = 30
 
+// Deprecated: unified_inbox 内存收件箱已废弃，建议通过 inbox_ingress / message_hub 统一入口。
+// 本结构体保留以兼容 legacy 调用方，新功能请直接调用 repository 层。
 type InboxService struct {
 	inboxRepo      *repository.InboxConversationRepository
 	assignmentRepo *repository.InboxAssignmentRepository
 	hubRepo        *repository.MessageHubRepository
 	sessionMsgRepo *repository.SessionMessageRepository
 	mu             sync.RWMutex
+	// Deprecated: unified_inbox 内存版废弃，负载缓存重启丢数据。
+	// 后续应从 inbox_assignments DB 表实时查询 assign_to 计数。
 	staffLoadCache map[string]int 
 }
 

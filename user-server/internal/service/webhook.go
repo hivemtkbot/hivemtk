@@ -396,16 +396,18 @@ func insecureWebhookStartupError(appEnv, mode, allowInsecure string) error {
 	if allowInsecure != "true" {
 		return nil
 	}
-	env := appEnv
+	env := strings.ToLower(strings.TrimSpace(appEnv))
 	if env == "" {
-		env = mode
+		env = strings.ToLower(strings.TrimSpace(mode))
 	}
-	if strings.EqualFold(env, "production") {
-		return errors.New("ALLOW_INSECURE_WEBHOOK=true 禁止在生产环境(APP_ENV=production)使用：" +
+	switch env {
+	case "", "dev", "development", "debug":
+		return nil
+	default:
+		return errors.New("ALLOW_INSECURE_WEBHOOK=true 禁止在非开发环境(APP_ENV/MODE=" + env + ")使用：" +
 			"该开关会跳过全部渠道 webhook 验签。请移除该环境变量，并为企业微信/飞书/Telegram 等" +
 			"各渠道账号配置正确的 CallbackToken/AppSecret 后重启")
 	}
-	return nil
 }
 
 var insecureWebhookGuardOnce sync.Once

@@ -117,6 +117,9 @@ func main() {
 	db.InitDB()
 	db.AutoMigrate()
 
+    logger.Info("[DNC] customer_do_not_contact ready, sms_unsubscribes pending backfill via DoNotContactService.BackfillFromSMSUnsubscribe")
+
+
 	if gdb := db.GetDB(); gdb != nil {
 		utils.WarnErrKV("main.CreateIndexMTNode",
 			gdb.Exec(`CREATE INDEX IF NOT EXISTS idx_mt_node_status_created ON message_trace (node, status, created_at)`).Error)
@@ -205,6 +208,8 @@ func main() {
 
 	db.InitDB()
 	db.AutoMigrate() 
+
+    logger.Info("[DNC] customer_do_not_contact ready, sms_unsubscribes pending backfill via DoNotContactService.BackfillFromSMSUnsubscribe")
 
 	migrationRegistry := migration.NewMigrationRegistry()
 	migrationSvc := migration.NewMigrationServiceDefault(migrationRegistry, migrations.RegisterMigrations)

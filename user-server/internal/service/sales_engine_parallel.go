@@ -284,7 +284,7 @@ func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, re
 		}
 		if scriptTpl != nil {
 			// T-2 归因闭环：所用销冠话术 script_id 结构化落 trace span extra
-			stepLog.Extra = map[string]any{"script_id": scriptTpl.ID}
+			stepLog.Extra = map[string]any{"script_id": scriptTpl.ID, "objection_category": intent.IntentType}
 			resp.ScriptTemplate = scriptTpl
 		}
 		resp.Steps = append(resp.Steps, stepLog)

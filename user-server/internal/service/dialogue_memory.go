@@ -198,10 +198,12 @@ func (s *DialogueMemoryService) UpdateKeyFacts(ctx context.Context, sessionID st
 		mem.Demand = demand
 	}
 	_ = data
-	return s.repo.SaveDialogueMemory(ctx, mem)
+	if err := s.repo.SaveDialogueMemory(ctx, mem); err != nil {
+		return err
+	}
+	s.syncKeyFactsToMemorySystem(ctx, mem.CustomerID, facts)
+	return nil
 }
-
-// RecordObjection 记录异议
 func (s *DialogueMemoryService) RecordObjection(ctx context.Context, sessionID, objectionType, content string) error {
 	mem, err := s.GetOrCreateMemory(ctx, sessionID, "")
 	if err != nil {
@@ -217,7 +219,11 @@ func (s *DialogueMemoryService) RecordObjection(ctx context.Context, sessionID, 
 		"time":    time.Now(),
 	})
 	mem.Objections = model.JSONArray(toIfaceSlice(objs))
-	return s.repo.SaveDialogueMemory(ctx, mem)
+	if err := s.repo.SaveDialogueMemory(ctx, mem); err != nil {
+		return err
+	}
+	s.syncObjectionToMemorySystem(ctx, mem.CustomerID, objectionType, content)
+	return nil
 }
 
 // UpdatePurchaseIntent 更新购买意向
@@ -230,7 +236,11 @@ func (s *DialogueMemoryService) UpdatePurchaseIntent(ctx context.Context, sessio
 		return err
 	}
 	mem.PurchaseIntent = level
-	return s.repo.SaveDialogueMemory(ctx, mem)
+	if err := s.repo.SaveDialogueMemory(ctx, mem); err != nil {
+		return err
+	}
+	s.syncPurchaseIntentToMemorySystem(ctx, mem.CustomerID, level)
+	return nil
 }
 
 // RecordIntent 记录意图轨迹
@@ -480,6 +490,40 @@ func (s *DialogueMemoryService) routeSummaryToMemorySystem(ctx context.Context, 
 			_ = s.ms.L2SaveFact(ctx, customerID, k, v, 7)
 		}
 	}
+}
+
+// syncKeyFactsToMemorySystem M-3：UpdateKeyFacts 同步委托到 MemorySystem L2
+func (s *DialogueMemoryService) syncKeyFactsToMemorySystem(ctx context.Context, customerID string, facts map[string]string) {
+	if s.ms == nil || customerID == "" || len(facts) == 0 {
+		return
+	}
+	for k, v := range facts {
+		if k == "" || v == "" {
+			continue
+		}
+		if _, err := s.ms.Remember(ctx, customerID, model.LongTermMemoryPreference, k+"="+v, 7); err != nil {
+			logger.Warnf("[DialogueMemory] syncKeyFacts Remember 失败，降级 L2SaveFact customer=%s key=%s err=%v", customerID, k, err)
+			_ = s.ms.L2SaveFact(ctx, customerID, k, v, 7)
+		}
+	}
+}
+
+// syncObjectionToMemorySystem M-3：RecordObjection 同步委托到 MemorySystem L4
+func (s *DialogueMemoryService) syncObjectionToMemorySystem(ctx context.Context, customerID, objectionType, content string) {
+	if s.ms == nil || customerID == "" || objectionType == "" {
+		return
+	}
+	meta, _ := json.Marshal(map[string]any{"type": objectionType})
+	_ = s.ms.L4Record(ctx, customerID, "objection", content, objectionType, 6,
+		map[string]any{"objection_meta": string(meta)})
+}
+
+// syncPurchaseIntentToMemorySystem M-3：UpdatePurchaseIntent 同步委托到 MemorySystem L4
+func (s *DialogueMemoryService) syncPurchaseIntentToMemorySystem(ctx context.Context, customerID, level string) {
+	if s.ms == nil || customerID == "" {
+		return
+	}
+	_ = s.ms.L4Record(ctx, customerID, "intent", "购买意向="+level, level, 8, nil)
 }
 
 // 全局实例

@@ -5,11 +5,13 @@ import (
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	"hivemtk-user/internal/pkg/textutil"
 )
 
 func TestTruncateTraceTextShortUnchanged(t *testing.T) {
 	for _, s := range []string{"", "hello", "中文消息✅", strings.Repeat("ab", 4096)} { // 恰好 8192 字节
-		if got := truncateTraceText(s); got != s {
+		if got := textutil.TruncateText(s, textutil.DefaultMaxBytes); got != s {
 			t.Errorf("short text (%d bytes) must be unchanged", len(s))
 		}
 	}
@@ -17,7 +19,7 @@ func TestTruncateTraceTextShortUnchanged(t *testing.T) {
 
 func TestTruncateTraceTextLongASCII(t *testing.T) {
 	orig := strings.Repeat("a", 10000)
-	got := truncateTraceText(orig)
+	got := textutil.TruncateText(orig, textutil.DefaultMaxBytes)
 	if !strings.HasSuffix(got, "…[truncated 1808 bytes]") {
 		t.Fatalf("suffix wrong: %q", got[len(got)-30:])
 	}
@@ -31,7 +33,7 @@ func TestTruncateTraceTextLongASCII(t *testing.T) {
 func TestTruncateTraceTextMultibyteBoundaryValidUTF8(t *testing.T) {
 	// 中文每字 3 字节，构造截断点落在多字节字符中间的情况
 	orig := strings.Repeat("中", 5000) // 15000 字节
-	got := truncateTraceText(orig)
+	got := textutil.TruncateText(orig, textutil.DefaultMaxBytes)
 	if !utf8.ValidString(got) {
 		t.Fatal("truncated output is not valid UTF-8")
 	}
@@ -61,7 +63,7 @@ func TestToModelFromPendingAppliesTruncation(t *testing.T) {
 	if m.Output != "ok" {
 		t.Fatal("short output must be unchanged (metadata/short fields untouched)")
 	}
-	if len(m.Input) <= maxTraceTextBytes || !strings.Contains(m.Input, "[truncated") {
+	if len(m.Input) <= textutil.DefaultMaxBytes || !strings.Contains(m.Input, "[truncated") {
 		t.Fatalf("input should be truncated, len=%d", len(m.Input))
 	}
 }

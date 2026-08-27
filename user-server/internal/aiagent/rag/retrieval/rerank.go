@@ -95,6 +95,7 @@ const (
 	RerankModelBgeBase  = "bge-reranker-base"
 	RerankModelBgeLarge = "bge-reranker-large"
 	RerankModelBgeV2M3  = "bge-reranker-v2-m3"
+	rerankScoreFloor    = 0.3
 )
 
 // DefaultRerankConfig 读取重排配置（配置文件为准，其次环境变量，最后内置默认）
@@ -275,7 +276,9 @@ func mapRerankResults(docs []RerankDoc, rr *rerankResponse) []RerankResult {
 	results := make([]scored, 0, len(docs))
 	for i, d := range docs {
 		score := scoredMap[i]
-		results = append(results, scored{id: d.ID, score: score})
+		if score >= rerankScoreFloor {
+			results = append(results, scored{id: d.ID, score: score})
+		}
 	}
 	sort.SliceStable(results, func(a, b int) bool {
 		return results[a].score > results[b].score
