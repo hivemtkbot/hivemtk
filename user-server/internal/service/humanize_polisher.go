@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"math/rand"
 	"regexp"
 	"strings"
 )
@@ -85,6 +86,8 @@ func (p *HumanizePolisher) Polish(ctx context.Context, raw string, pctx *PolishC
 	if p.enableParticles && pctx != nil && p.shouldAddParticle(ctx, pctx) {
 		polished = p.addNaturalParticle(ctx, polished, pctx)
 	}
+
+	polished = maybeInjectTypo(polished, pctx)
 
 	return strings.TrimSpace(polished), nil
 }
@@ -325,6 +328,35 @@ func (p *HumanizePolisher) addNaturalParticle(ctx context.Context, text string, 
 	}
 	if shortReply[text] {
 		return "嗯，" + text
+	}
+	return text
+}
+
+
+var typoPool = map[string][]string{
+	"好的":   {"好哒", "ok", "好的呀", "好滴"},
+	"好":     {"好的~", "ok", "好哒"},
+	"是的":   {"对的", "嗯嗯", "是哒"},
+	"好的呢": {"好的呀", "好的~"},
+}
+
+func maybeInjectTypo(text string, pctx *PolishContext) string {
+	if pctx == nil {
+		return text
+	}
+	persona := strings.ToLower(pctx.Persona)
+	if strings.Contains(persona, "专业") || strings.Contains(persona, "客服") {
+		return text
+	}
+	if rand.Float64() > 0.1 {
+		return text
+	}
+	for orig, variants := range typoPool {
+		if strings.HasSuffix(text, orig) {
+			replacement := variants[rand.Intn(len(variants))]
+			text = text[:len(text)-len(orig)] + replacement
+			break
+		}
 	}
 	return text
 }

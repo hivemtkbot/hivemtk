@@ -10,9 +10,9 @@ type RecognizeResult struct {
 	IntentSubtype   string         `json:"intent_subtype"`
 	Entities        map[string]any `json:"entities"`
 	Sentiment       string         `json:"sentiment"`
-	Method          string         `json:"method"` 
+	Method          string         `json:"method"`
 	LLMModel        string         `json:"llm_model,omitempty"`
 	CostTokens      int            `json:"cost_tokens"`
 	LatencyMs       int            `json:"latency_ms"`
+	TopKExamples    []string       `json:"top_k_examples,omitempty"`
 }
-

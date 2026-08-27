@@ -125,6 +125,9 @@ const intentEmbeddingTop1 = 0.75
 // 且两者均过采信阈值时，不强选，返回 clarify 意图由编排层发澄清话术
 const intentEmbeddingGap = 0.05
 
+// intentTopKExamples RecognizeResult.TopKExamples 填充数量上限
+const intentTopKExamples = 3
+
 // precomputeAnchors 预计算全部意图示例句向量作为锚点库
 //
 // M4 I-1：优先从 intent_examples 表（pgvector 持久化锚点）加载；
@@ -572,6 +575,9 @@ func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID,
 	if customerID != "" {
 		s.triggerSOPByIntent(ctx, customerID, sessionID, result.IntentType, result.Confidence)
 	}
+
+	// P1-6: 填充 Top-K few-shot 示例，供后续 agent prompt 注入
+	fillTopKExamples(result)
 
 	return result, nil
 }

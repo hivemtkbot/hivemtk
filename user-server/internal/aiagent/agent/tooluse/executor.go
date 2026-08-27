@@ -522,6 +522,13 @@ func (e *ToolExecutor) executeSingleLLMToolCall(ctx context.Context, call LLMToo
 			}
 		}
 	}
+	if err := e.preflightToolCall(call.Function.Name, args); err != nil {
+		return LLMToolResult{
+			ToolCallID: call.ID,
+			Content:    fmt.Sprintf(`{"error":"preflight_check_failed: %s"}`, err.Error()),
+			Success:    false,
+		}
+	}
 	execResult := e.Execute(ctx, ExecuteRequest{
 		ToolName: call.Function.Name,
 		Args:     args,
@@ -608,6 +615,27 @@ func GetGlobalExecutor() *ToolExecutor {
 	return globalExecutor
 }
 
+
+
+// preflightToolCall 工具调用只读预检（dry-run）
+// 校验项：
+//  1. 工具是否已注册
+//  2. 参数 JSON 是否合法（由调用方先做；这里作为二次保护）
+//  3. 工具是否被 disabled（override.Disabled）
+func (e *ToolExecutor) preflightToolCall(toolName string, args map[string]any) error {
+	if toolName == "" {
+		return fmt.Errorf("tool_name is empty")
+	}
+	tool, err := e.registry.Get(toolName)
+	if err != nil {
+		return fmt.Errorf("tool %q not registered", toolName)
+	}
+	if o, ok := e.GetOverride(toolName); ok && o.Disabled {
+		return fmt.Errorf("tool %q is disabled", toolName)
+	}
+	_ = tool
+	return nil
+}
 // SetGlobalExecutor 替换全局执行器（用于测试 / 热重载）
 func SetGlobalExecutor(exec *ToolExecutor) {
 	globalExecutor = exec

@@ -132,10 +132,12 @@ func (e *SalesEngine) runAgentLoop(
 		return e.calibrate(ctx, content, targetLang), result, nil, nil
 	}
 
+	guard := newAgentLoopGuard(agentLoopTotalTimeout, agentLoopMaxTotalTokens, agentLoopMaxTotalCostUSD)
+
 	messages := make([]llm.ChatMessage, 0, 4+maxIter*2)
 	messages = append(messages, llm.ChatMessage{
 		Role:    "system",
-		Content: buildAgentSystemPrompt(e.personaWithLang(ctx, req.Config.Persona, targetLang), intent, mem, customer, ragChunks),
+		Content: buildAgentSystemPrompt(e.personaWithLang(ctx, req.Config.Persona, targetLang), intent, mem, customer, ragChunks, guard),
 	})
 	messages = append(messages, llm.ChatMessage{
 		Role:    "user",
@@ -176,8 +178,6 @@ func (e *SalesEngine) runAgentLoop(
 	agentLoopCtx, agentLoopCancel := context.WithTimeout(ctx, agentLoopTotalTimeout)
 	defer agentLoopCancel()
 
-	// 统一护栏（时间/token/美元/漂移）+ 结构化停止原因
-	guard := newAgentLoopGuard(agentLoopTotalTimeout, agentLoopMaxTotalTokens, agentLoopMaxTotalCostUSD)
 	stopReason := stopReasonNone
 	totalToolCalls := 0
 
@@ -226,6 +226,15 @@ func (e *SalesEngine) runAgentLoop(
 	lengthRetryDone := false
 	var collectedCards []model.RichCard
 	for iter := 1; iter <= maxIter; iter++ {
+
+		// P1-5: 预估先行 —— 在 check() 之前先扣减一个预估量，防止同轮内预算穿透
+		// 预估值 = 当前已用 / 当前迭代号（粗略估算单轮平均消耗）
+		if iter > 1 && guard != nil {
+			avgCost := guard.usedCost / float64(iter-1)
+			if avgCost > 0 {
+				guard.ChargeEstimated(0, avgCost)
+			}
+		}
 
 		// 统一护栏：先检查后消费（check before spend），任一维度触达即停止
 		if r := guard.check(); r != stopReasonNone {
@@ -387,7 +396,7 @@ func (e *SalesEngine) emptyReplyFallback() string {
 
 // buildAgentSystemPrompt 构造 Agent 模式下的系统提示词
 // 在原 Persona 基础上追加工具使用指引，让 LLM 知道何时调用哪些工具
-func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *model.DialogueMemory, customer *model.Customer, ragChunks []RAGChunk) string {
+func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *model.DialogueMemory, customer *model.Customer, ragChunks []RAGChunk, guard *agentLoopGuard) string {
 	var sb strings.Builder
 	sb.WriteString(persona)
 
@@ -410,6 +419,22 @@ func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *mo
 			sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, truncate(chunk.Content, 400)))
 		}
 	}
+
+	if guard != nil {
+		sb.WriteString("\n\n# 系统资源预算\n")
+		remainTokens := guard.RemainingTokens()
+		remainCost := guard.RemainingCostUSD()
+		if remainTokens >= 0 {
+			sb.WriteString(fmt.Sprintf("- 剩余 token 预算: ~%d\n", remainTokens))
+		}
+		if remainCost >= 0 {
+			sb.WriteString(fmt.Sprintf("- 剩余成本预算: $%.2f\n", remainCost))
+			if remainCost < 0.10 && remainCost >= 0 {
+				sb.WriteString("- ⚠️ 成本即将耗尽，请尽量用已有工具数据回答，不要再调新的 LLM\n")
+			}
+		}
+	}
+
 	return sb.String()
 }
 

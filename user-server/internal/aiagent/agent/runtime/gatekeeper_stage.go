@@ -3,15 +3,17 @@ package agent_runtime
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 )
 
 
 // DefaultCrisisDetector 默认危机感检测器
 type DefaultCrisisDetector struct {
-	HighRiskKeywords []string
+	HighRiskKeywords   []string
 	MediumRiskKeywords []string
-	LowRiskKeywords []string
+	LowRiskKeywords    []string
+	SlidingWindow      *SentimentSlidingWindow
 }
 
 // NewDefaultCrisisDetector 构造默认危机检测器
@@ -30,6 +32,7 @@ func NewDefaultCrisisDetector() *DefaultCrisisDetector {
 			"急", "着急", "焦虑", "担心", "麻烦",
 			"urgent", "worried", "anxious",
 		},
+		SlidingWindow: NewSentimentSlidingWindow(20),
 	}
 }
 
@@ -118,6 +121,15 @@ func (d *DefaultCrisisDetector) Detect(ctx context.Context, ic *InferenceContext
 		reason = "angry_sentiment_high"
 	}
 
+	if d.SlidingWindow != nil {
+		d.SlidingWindow.Record(ic.Sentiment.Score)
+		if level < CrisisMedium && d.SlidingWindow.IsDeclining(3) {
+			level = CrisisMedium
+			reason = "sentiment_sliding_decline"
+			triggers = append(triggers, "sliding_decline")
+		}
+	}
+
 	if level < CrisisMedium && ic.Alignment.Empathy <= 2 {
 		level = CrisisMedium
 		reason = "low_empathy_alignment"
@@ -136,3 +148,49 @@ func (d *DefaultCrisisDetector) Detect(ctx context.Context, ic *InferenceContext
 	}
 }
 
+
+// SentimentSlidingWindow 情绪滑动窗口（ring buffer 实现）
+// 检测连续下降趋势：近 N 轮情绪分持续降低
+type SentimentSlidingWindow struct {
+	mu        sync.Mutex
+	sessionID string
+	scores    []float64
+	idx       int
+	size      int
+}
+
+// NewSentimentSlidingWindow 构造情绪滑动窗口
+func NewSentimentSlidingWindow(size int) *SentimentSlidingWindow {
+	if size <= 0 {
+		size = 20
+	}
+	return &SentimentSlidingWindow{
+		scores: make([]float64, size),
+		size:   size,
+	}
+}
+
+// Record 记录一轮情绪分
+func (w *SentimentSlidingWindow) Record(score float64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.scores[w.idx] = score
+	w.idx = (w.idx + 1) % w.size
+}
+
+// IsDeclining 检测最近连续 N 轮是否单调下降
+func (w *SentimentSlidingWindow) IsDeclining(continuous int) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if continuous < 2 {
+		return false
+	}
+	for i := 0; i < continuous-1; i++ {
+		curIdx := (w.idx - 1 - i + w.size) % w.size
+		prevIdx := (w.idx - 2 - i + w.size) % w.size
+		if w.scores[curIdx] >= w.scores[prevIdx] {
+			return false
+		}
+	}
+	return true
+}

@@ -74,6 +74,9 @@ type agentLoopGuard struct {
 	usedTokens int
 	usedCost   float64
 	iterCosts  []float64 // 每轮 LLM 调用成本序列（漂移检测用）
+
+	pendingEstimateTokens int     // ChargeEstimated 先行扣款后待冲抵的 token
+	pendingEstimateCost   float64 // ChargeEstimated 先行扣款后待冲抵的美元成本
 }
 
 func newAgentLoopGuard(totalTimeout time.Duration, maxTokens int, maxCostUSD float64) *agentLoopGuard {
@@ -105,8 +108,17 @@ func (g *agentLoopGuard) check() agentLoopStopReason {
 	return stopReasonNone
 }
 
-// charge 记录一轮 LLM 调用的消耗
+// charge 记录一轮 LLM 调用的消耗（事后结算）
+// 若之前有 ChargeEstimated 先行扣款，先冲抵预估值再累加真实值
 func (g *agentLoopGuard) charge(tokens int, costUSD float64) {
+	if g.pendingEstimateTokens > 0 {
+		g.usedTokens -= g.pendingEstimateTokens
+		g.pendingEstimateTokens = 0
+	}
+	if g.pendingEstimateCost > 0 {
+		g.usedCost -= g.pendingEstimateCost
+		g.pendingEstimateCost = 0
+	}
 	if tokens > 0 {
 		g.usedTokens += tokens
 	}
@@ -114,6 +126,25 @@ func (g *agentLoopGuard) charge(tokens int, costUSD float64) {
 		g.usedCost += costUSD
 	}
 	g.iterCosts = append(g.iterCosts, costUSD)
+}
+
+// ChargeEstimated 预估先行扣款（工具调用返回前先占位，防预算穿透）
+// estimatedTokens/estimatedCostUSD 为预估值，事后通过 charge/ChargeSettle 用真实值修正
+func (g *agentLoopGuard) ChargeEstimated(estimatedTokens int, estimatedCostUSD float64) {
+	if estimatedTokens > 0 {
+		g.usedTokens += estimatedTokens
+		g.pendingEstimateTokens += estimatedTokens
+	}
+	if estimatedCostUSD > 0 {
+		g.usedCost += estimatedCostUSD
+		g.pendingEstimateCost += estimatedCostUSD
+	}
+}
+
+// ChargeSettle 事后结算：用真实值冲抵预估值的差额
+// actualTokens/actualCostUSD 为 LLM 返回的真实 usage；预估值偏高则相当于"退回"预算
+func (g *agentLoopGuard) ChargeSettle(actualTokens int, actualCostUSD float64) {
+	g.charge(actualTokens, actualCostUSD)
 }
 
 // costDrifted 成本漂移检测：已产生 ≥6 轮且近 3 轮均成本 ≥ 首 3 轮均值 × agentLoopDriftFactor。
