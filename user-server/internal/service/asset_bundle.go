@@ -347,8 +347,47 @@ func (s *AssetBundleService) UpdateBundle(ctx context.Context, m *model.AssetBun
 	if err != nil {
 		return err
 	}
+	// R1-D3 修复: HTTP 更新路径(dto 无 asset_id 字段)构造的 model AssetID 恒为空,
+	// 直接比较会误触发不可变守卫导致 PUT /asset-bundle/:id 100% 失败。
+	// 空值视为"保持原值"; 非空且不同仍拒绝, 守卫语义不变。
+	if m.AssetID == "" {
+		m.AssetID = old.AssetID
+	}
 	if old.AssetID != m.AssetID {
 		return errors.New("asset_id cannot be changed")
+	}
+	// R1-D3b 修复: repo.Update 用 GORM Save 全行覆盖, HTTP 部分更新省略的字段
+	// 会以零值覆写原数据(status="" 还会命中 PG enum 解析错误)。
+	// 统一语义: 请求中空/缺省字段 = 保持原值。
+	if m.Title == "" {
+		m.Title = old.Title
+	}
+	if m.Status == "" {
+		m.Status = old.Status
+	}
+	if m.Version == "" {
+		m.Version = old.Version
+	}
+	if m.Scope == "" {
+		m.Scope = old.Scope
+	}
+	if m.Author == "" {
+		m.Author = old.Author
+	}
+	if m.Description == "" {
+		m.Description = old.Description
+	}
+	if m.Industry == "" {
+		m.Industry = old.Industry
+	}
+	if m.Language == "" {
+		m.Language = old.Language
+	}
+	if len(m.Tags) == 0 {
+		m.Tags = old.Tags
+	}
+	if len(m.Messages) == 0 {
+		m.Messages = old.Messages
 	}
 	if err := s.repo.Update(ctx, m); err != nil {
 		return err

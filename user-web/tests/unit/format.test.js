@@ -52,7 +52,7 @@ describe('getLocale', () => {
 
   it('返回默认 locale', () => {
     const locale = getLocale()
-    expect(typeof locale').toBe('string')
+    expect(typeof locale).toBe('string')
     expect(locale.length).toBeGreaterThan(0)
   })
 })

@@ -852,6 +852,50 @@ func TestService_UpdateBundle_VersionLog(t *testing.T) {
 	}
 }
 
+// TestService_UpdateBundle_EmptyAssetID_Inherits R1-D3 回归:
+// HTTP 更新路径(dto 无 asset_id 字段)构造的 model AssetID 恒为空,
+// 必须继承 old.AssetID 而非误触发 "asset_id cannot be changed" 守卫。
+func TestService_UpdateBundle_EmptyAssetID_Inherits(t *testing.T) {
+	repo := newMockAssetBundleRepo()
+	svc := NewAssetBundleService(repo, nil)
+
+	bundle := &model.AssetBundle{
+		AssetID:  "inherit_001",
+		Title:    "v1",
+		Version:  "1.0.0",
+		Messages: []model.AssetBundleMessage{{Role: "system", Content: "x"}},
+	}
+	if err := svc.CreateBundle(context.Background(), bundle); err != nil {
+		t.Fatal(err)
+	}
+
+	// 模拟 controller.Update 的构造: 无 AssetID / 无 Status(部分更新)
+	httpShaped := &model.AssetBundle{
+		ID:      bundle.ID,
+		Title:   "v2",
+		Version: "1.0.1",
+	}
+	if err := svc.UpdateBundle(context.Background(), httpShaped); err != nil {
+		t.Fatalf("partial update (empty AssetID/Status) should inherit old values, got err: %v", err)
+	}
+	got, err := svc.GetBundle(context.Background(), bundle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != model.AssetBundleStatusDraft {
+		t.Errorf("status should inherit old value, got %q", got.Status)
+	}
+	if got.AssetID != "inherit_001" {
+		t.Errorf("asset_id should inherit old value, got %q", got.AssetID)
+	}
+
+	// 非空且不同仍必须被拒绝
+	mutate := &model.AssetBundle{ID: bundle.ID, AssetID: "other_id", Title: "v3"}
+	if err := svc.UpdateBundle(context.Background(), mutate); err == nil {
+		t.Error("changing asset_id must still be rejected")
+	}
+}
+
 // TestService_PublishArchive 测试启用/归档状态机
 func TestService_PublishArchive(t *testing.T) {
 	repo := newMockAssetBundleRepo()

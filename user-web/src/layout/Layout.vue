@@ -270,7 +270,7 @@ const topMenus = ref([
         title: '被动应答',
         icon: 'ChatDotRound',
         children: [
-          { key: 'unifiedInbox', title: '统一收件箱', icon: 'Inbox', path: '/unifiedInbox/list', roles: ['admin', 'manager', 'sales', 'customer_service'] },
+          // R1-D1 修复: unifiedInbox(统一收件箱)已随后端 W-3 废弃摘除
           { key: 'customerSession', title: '客服会话', icon: 'Service', path: '/customerSession/list' },
           { key: 'intentRecognition', title: '意图识别', icon: 'Aim', path: '/intentRecognition/list' },
           { key: 'dialogueMemory', title: '对话记忆', icon: 'ChatDotRound', path: '/dialogueMemory/list' },

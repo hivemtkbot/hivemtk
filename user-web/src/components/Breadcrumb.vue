@@ -47,7 +47,6 @@ const subMenusMap = {
   unifiedMessage: { parent: 'customer', title: i18n.global.t('客户消息轨迹') },
   oneid: { parent: 'customer', title: i18n.global.t('客户身份') },
   aiAgent: { parent: 'aiAgent', title: i18n.global.t('智能体管理') },
-  unifiedInbox: { parent: 'aiAgent', title: i18n.global.t('被动应答') },
   customerSession: { parent: 'aiAgent', title: i18n.global.t('客服会话') },
   intentRecognition: { parent: 'aiAgent', title: i18n.global.t('意图识别') },
   dialogueMemory: { parent: 'aiAgent', title: i18n.global.t('对话记忆') },
@@ -104,8 +103,8 @@ const items = computed(() => {
   const path = route.path
   const result = []
 
-  // 首页
-  if (path === '/' || path === '/unifiedInbox/list') {
+  // 首页（R1-D1: 原默认落地页 /unifiedInbox/list 已废弃,改指统一消息中心）
+  if (path === '/' || path === '/messageHub/list') {
     return [{ title: i18n.global.t('首页'), to: '/', icon: 'HomeFilled' }]
   }
 

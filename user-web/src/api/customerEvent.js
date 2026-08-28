@@ -23,7 +23,8 @@ export function trackAddToCart(data) {
   return http.post('/api/events/add-to-cart', data)
 }
 export function getCustomerEventHistory(customerId, params) {
-  return http.get(`/api/events/customer/${customerId}`, params)
+  // R5-D1 修复: id 可能含非 ASCII/特殊字符(如 conv:中文会话名), 必须编码否则产生非法请求行 → 404
+  return http.get(`/api/events/customer/${encodeURIComponent(customerId)}`, params)
 }
 export function getEventStats(params) {
   return http.get('/api/events/stats', params)
@@ -39,5 +40,6 @@ export function getEventDetail(id) {
   return getCustomerEventHistory(String(id))
 }
 export function deleteEvent(id) {
-  return http.delete(`/api/events/customer/${id}`)
+  // R5-D1 修复: 同上, id 编码
+  return http.delete(`/api/events/customer/${encodeURIComponent(id)}`)
 }

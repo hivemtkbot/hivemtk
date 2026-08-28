@@ -136,13 +136,8 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	// MergeRuleConfig.vue 命中预览（返回 candidateCount + samples）
 	doReg("POST", "/oneid/merge-rules/preview", oneIDCtrl.PreviewMergeRules)
 
-	inboxCtrl := controller.NewInboxController(service.NewInboxService())
-	doReg("GET", "/inbox/conversations", inboxCtrl.List)
-	doReg("GET", "/inbox/conversations/list", inboxCtrl.List)
-	doReg("GET", "/inbox/messages", inboxCtrl.GetMessages)
-	doReg("GET", "/inbox/:id/messages", inboxCtrl.GetMessages)
-	doReg("GET", "/inbox", inboxCtrl.List)
-	doReg("GET", "/inbox/:id", inboxCtrl.GetByID)
+	// R1-D1 修复: W-3 废弃收尾 — 移除 legacy /inbox 别名路由(此前仍存活,与 unifiedInbox
+	// 前端页一起构成半死链路)。InboxService 本体保留为 wecom/feishu 内部基础设施。
 
 	customerSessionCtrl := controller.NewCustomerSessionController()
 	doReg("GET", "/customer-sessions", customerSessionCtrl.GetSessions)

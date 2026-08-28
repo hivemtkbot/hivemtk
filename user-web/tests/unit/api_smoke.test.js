@@ -42,7 +42,7 @@ const API_FILES = [
   'marketingFlow', 'material', 'messageHub', 'objection', 'obs', 'oneid', 'operationLog',
   'persona', 'platform', 'platformAccount', 'reachPipeline',
   'scriptTemplate', 'securityAudit', 'shortLink', 'sms', 'sopAgent', 'stats', 'system', 'tagSegmentation',
-  'telegram', 'tiktokCard', 'tuning', 'unifiedInbox',
+  'telegram', 'tiktokCard', 'tuning',
   'unifiedMessage', 'userSegment', 'users', 'wecomAccount', 'whatsapp', 'xianyuCard',
   'xiaohongshuCard'
 ]

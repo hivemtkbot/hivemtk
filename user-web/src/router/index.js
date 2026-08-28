@@ -67,7 +67,8 @@ const moduleNames = [
   // 销冠 SOP 智能体相关模块（意图识别 / 对话记忆 / SOP 智能体）
   'intentRecognition', 'dialogueMemory', 'sopAgent',
   // 触达管道 / 统一收件箱 / 企微账号
-  'reachPipeline', 'unifiedInbox', 'wecomAccount',
+  // R1-D1 修复: unifiedInbox 模块已随后端 W-3 废弃一并摘除
+  'reachPipeline', 'wecomAccount',
   'whatsappCloud',
   'dingtalkApp',
   // 新增模块:LLM 路由 / 标签分层 / 转化漏斗 / AI 产能
@@ -127,7 +128,8 @@ const routes = [
     path: '/',
     name: 'Layout',
     component: Layout,
-    redirect: '/unifiedInbox/list',
+    // R1-D1 修复: 原默认落地页 /unifiedInbox/list 已废弃,改指统一消息中心
+    redirect: '/messageHub/list',
     children: [
       // 路由将在 router.beforeEach 中按需注册 (懒加载)
       ...eagerLoadedRoutes,

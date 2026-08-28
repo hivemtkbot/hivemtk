@@ -101,7 +101,7 @@ async function webLogin(page, username, password, token, userInfo) {
 
   if (useToken) {
     // 直接访问受保护页面（router 守卫会读取 localStorage.token 放行）
-    await page.goto(`${BASE}/#/unifiedInbox/list`)
+    await page.goto(`${BASE}/#/messageHub/list`)
     await page.waitForTimeout(1500)
     return
   }

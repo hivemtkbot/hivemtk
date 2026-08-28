@@ -3,9 +3,11 @@ package controller
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/pkg/utils"
@@ -52,12 +54,44 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	resp, err := c.authService.Login(context.Background(), &req)
 	if err != nil {
 		middleware.RecordBruteForceFailure(ctx, "auth.login")
+		// R1-D2 修复: 登录失败也写入 login_events 并触发异常登录评估(异步,不阻塞响应)
+		c.recordLoginRiskAsync(ctx, req.Username, false, err.Error())
 		response.Error(ctx, http.StatusUnauthorized, err.Error())
 		return
 	}
 
 	middleware.ClearBruteForceFailure(ctx, "auth.login")
+	// R1-D2 修复: 接线 AnomalyLoginDetector(全仓原本 0 生产调用方, login_events 恒空)。
+	// 异步执行: 风险评估含 4 项 DB 查询,不阻塞登录响应; ShouldForceMFA 的同步强制语义为
+	// 破坏性变更,本轮仅恢复"记录+告警"观测链路,强制 MFA 挑战留待专项设计。
+	c.recordLoginRiskAsync(ctx, req.Username, true, "")
 	response.Success(ctx, resp, "登录成功")
+}
+
+// recordLoginRiskAsync 异步记录登录事件并触发异常登录检测/三通道告警。
+// R1-D2 修复: 原实现在生产路径零调用,登录事件与告警链路整体为孤儿代码。
+func (c *AuthController) recordLoginRiskAsync(ctx *gin.Context, username string, success bool, reason string) {
+	lctx := &service.LoginRiskContext{
+		Username:  username,
+		IP:        ctx.ClientIP(),
+		UserAgent: ctx.Request.UserAgent(),
+		Success:   success,
+		LoginAt:   time.Now(),
+		Reason:    reason,
+	}
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[login-risk] panic recovered: %v", r)
+			}
+		}()
+		dctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		detector := service.NewAnomalyLoginDetector()
+		if _, err := detector.DetectAndAlert(dctx, lctx); err != nil {
+			log.Printf("[login-risk] detect failed user=%s success=%v err=%v", username, success, err)
+		}
+	}()
 }
 
 // Register godoc

@@ -62,7 +62,7 @@ plugins: [
 
 // 桌面快捷方式配置
 const SHORTCUTS = [
-  { name: '统一收件箱', url: '/unifiedInbox/list', icon: '/icons/inbox.png' },
+  // R1-D1 修复: 统一收件箱入口已废弃移除
   { name: 'AI 智能体', url: '/aiAgent/list', icon: '/icons/ai.png' },
   { name: '客户 360', url: '/customer360/list', icon: '/icons/customer.png' },
   { name: '数据大屏', url: '/dashboardScreen/list', icon: '/icons/dashboard.png' }
