@@ -15,6 +15,18 @@ func newTestClient(sessionID, customerID string) *Client {
 	return NewClient(sessionID, customerID, nil, "trace-"+sessionID)
 }
 
+// waitUntil 每隔 20ms 轮询 cond 直到为真或超时（异步事件消费的确定性等待，替代固定 sleep）
+func waitUntil(cond func() bool, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for !cond() {
+		if !time.Now().Before(deadline) {
+			return false
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return true
+}
+
 // drainSendChan 异步消费 client.send 通道, 避免测试时通道满阻塞
 //
 // 启动一个 goroutine 持续读取 client.send 直到 channel 被 Close 关闭。
@@ -263,9 +275,10 @@ func TestHub_ClientCount(t *testing.T) {
 		c := newTestClient(string(rune('a'+i)), "c")
 		hub.Register(c)
 	}
-	time.Sleep(80 * time.Millisecond)
-	if got := hub.ClientCount(); got != 5 {
-		t.Errorf("expected 5 clients, got %d", got)
+	// 固定 sleep 在负载下不可靠（Run 单协程 select 消费 register 通道有延迟），
+	// 改为轮询等待消除确定性缺陷
+	if !waitUntil(func() bool { return hub.ClientCount() == 5 }, 5*time.Second) {
+		t.Errorf("expected 5 clients, got %d", hub.ClientCount())
 	}
 }
 

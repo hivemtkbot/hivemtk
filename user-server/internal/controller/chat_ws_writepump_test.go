@@ -179,7 +179,8 @@ func TestWritePump_RespectsWriteDeadline(t *testing.T) {
 	// 直至 chatWSWriteWait(10s) 触发 SetWriteDeadline 退出。
 	// 注意: 必须持续(阻塞)喂数据, 不能写满 channel 就退出——否则 writePump 会很快把
 	// 有限 payload 消费完并回到 select 空等, 永远触发不了写超时 (macOS 内核收缓冲可 auto-tune 到数 MB,
-	// 仅往 64 槽缓冲塞几十个 8KB 块远不足以填满, WriteMessage 不会阻塞)。
+	// 仅往 64 槽缓冲塞几十个小块远不足以填满, WriteMessage 不会阻塞)。
+	// 块大小 256KB: 减少 syscall 次数, 重载(CPU 饥饿)下更快填满内核缓冲区。
 	var writeCount int32
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -190,21 +191,24 @@ func TestWritePump_RespectsWriteDeadline(t *testing.T) {
 			select {
 			case <-stop:
 				return
-			case c.SendChan() <- make([]byte, 32*1024):
+			case c.SendChan() <- make([]byte, 256*1024):
 				atomic.AddInt32(&writeCount, 1)
 			}
 		}
 	}()
 
+	// 超时窗口 chatWSWriteWait+30s: 通过路径在 ~10-12s 内退出不受影响;
+	// 余量必须覆盖"缓冲区填满时间+调度延迟", 全量套件重载下 2s 余量不足会导致误判
+	// (实测: 填满+退出 >12s 被 12s 窗口截断判失败, 实现本身写超时正确 return)。
 	select {
 	case <-done:
 		t.Logf("writePump exited (good - means SetWriteDeadline triggered)")
-	case <-time.After(chatWSWriteWait + 2*time.Second):
+	case <-time.After(chatWSWriteWait + 30*time.Second):
 		close(stop)
 		wg.Wait()
 		c.Close()
-		t.Error("writePump did not exit after chatWSWriteWait + 2s; SetWriteDeadline may not be effective")
-		return 
+		t.Error("writePump did not exit after chatWSWriteWait + 30s; SetWriteDeadline may not be effective")
+		return
 	}
 
 	close(stop)

@@ -2,6 +2,8 @@ package agent_runtime
 
 import (
 	"context"
+	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -119,7 +121,7 @@ func TestE2E_CustomerMessageFlow(t *testing.T) {
 
 // TestE2E_KnowledgeIndexFlow 测试知识库增量索引全链路
 func TestE2E_KnowledgeIndexFlow(t *testing.T) {
-	indexer, docID := setupE2EKnowledgeTestEnv(t, "e2e_knowledge_doc_1000")
+	indexer, docID, filePath := setupE2EKnowledgeTestEnv(t, "e2e_knowledge_doc_1000")
 	bus := event.New(2, 100)
 	defer bus.Stop()
 	prevGlobal := event.GetGlobalBus()
@@ -128,19 +130,35 @@ func TestE2E_KnowledgeIndexFlow(t *testing.T) {
 
 	bus.Subscribe(event.TopicKnowledgeDocumentChanged, indexer.Handle)
 
+	docIDStr := uintToStr(uint(docID))
 	PublishKnowledgeDocumentCreate("1", uint(docID), "测试内容", 1)
-	if !waitUntil(func() bool { return indexer.ChunkCount(uintToStr(uint(docID))) > 0 }, 5*time.Second) {
+	if !waitUntil(func() bool { return indexer.ChunkCount(docIDStr) > 0 }, 5*time.Second) {
 		t.Error("expected chunks after create event")
 	}
 
+	// 索引器 loadDocumentContent 从 FilePath 读文件而非 payload.Content，需重写
+	// 临时文件让 update 产生可观测的内容变化；且 2-worker 总线对同文档事件无
+	// 顺序保证，必须等 update 真正处理完（块内容含更新标记）再发布 delete，
+	// 否则 delete（纯内存清除 µs 级）会与 update（重索引 ms 级）竞态致 chunk 复活
+	updateContent := "E2E_ROUND2V_UPDATE_MARKER 第二轮验证更新内容。" + e2eDocContent
+	if err := os.WriteFile(filePath, []byte(updateContent), 0644); err != nil {
+		t.Fatalf("rewrite temp file: %v", err)
+	}
 	PublishKnowledgeDocumentUpdate("1", uint(docID), "更新内容", 1)
-	if !waitUntil(func() bool { return indexer.ChunkCount(uintToStr(uint(docID))) > 0 }, 5*time.Second) {
-		t.Error("expected chunks after update event")
+	if !waitUntil(func() bool {
+		for _, ch := range indexer.GetIndexedChunks(docIDStr) {
+			if strings.Contains(ch.Content, "E2E_ROUND2V_UPDATE_MARKER") {
+				return true
+			}
+		}
+		return false
+	}, 5*time.Second) {
+		t.Error("expected updated chunk content after update event")
 	}
 
 	PublishKnowledgeDocumentDelete("1", uint(docID), 1)
-	if !waitUntil(func() bool { return indexer.ChunkCount(uintToStr(uint(docID))) == 0 }, 5*time.Second) {
-		t.Errorf("expected 0 chunks after delete, got %d", indexer.ChunkCount(uintToStr(uint(docID))))
+	if !waitUntil(func() bool { return indexer.ChunkCount(docIDStr) == 0 }, 5*time.Second) {
+		t.Errorf("expected 0 chunks after delete, got %d", indexer.ChunkCount(docIDStr))
 	}
 }
 

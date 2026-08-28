@@ -23,8 +23,8 @@ const e2eDocContent = "营销自动化系统支持多渠道统一管理。" +
 	"索引为可语义检索的知识片段。AI 智能体回答问题时,先从 RAG 知识库中检索相关内容," +
 	"再结合大语言模型生成回答,确保回答的准确性和时效性。\n"
 
-// setupE2EKnowledgeTestEnv 创建单文档 E2E 测试环境
-func setupE2EKnowledgeTestEnv(t *testing.T, content string) (*rag.IncrementalIndexer, uint64) {
+// setupE2EKnowledgeTestEnv 创建单文档 E2E 测试环境，返回 (索引器, 文档ID, 文档文件路径)
+func setupE2EKnowledgeTestEnv(t *testing.T, content string) (*rag.IncrementalIndexer, uint64, string) {
 	t.Helper()
 	database := testutil.NewTestDB(t, &model.KnowledgeDocument{}, &model.KnowledgeChunk{})
 
@@ -45,7 +45,7 @@ func setupE2EKnowledgeTestEnv(t *testing.T, content string) (*rag.IncrementalInd
 	if err := database.Create(doc).Error; err != nil {
 		t.Fatalf("create test doc: %v", err)
 	}
-	return rag.NewIncrementalIndexer(nil, nil, database), doc.ID
+	return rag.NewIncrementalIndexer(nil, nil, database), doc.ID, filePath
 }
 
 // setupE2EKnowledgeTestEnvMulti 创建多文档 E2E 测试环境
