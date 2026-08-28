@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/pkg/utils/logger"
@@ -155,10 +156,15 @@ func (h *HybridSearcher) SearchIndex(ctx context.Context, productID string, quer
 		return nil, nil
 	}
 
+	vectorStart := time.Now()
 	queryVec, err := h.embedQuery(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("embedding query: %w", err)
+		// 韧性降级：embedding 服务不可用（如 TEI 宕机）时不应阻断检索主流程，
+		// 降级为纯关键词路径（BM25/ILIKE 兜底），仅记录告警
+		logger.Ctx(ctx).Warn().Err(err).Msg("[Hybrid] embedding query failed, degrade to keyword-only search")
+		queryVec = nil
 	}
+	vectorMs := time.Since(vectorStart).Milliseconds()
 
 	vecResults, kwResults := make([]Chunk, 0), make([]Chunk, 0)
 
@@ -169,20 +175,23 @@ func (h *HybridSearcher) SearchIndex(ctx context.Context, productID string, quer
 			vecTopK = 50
 		}
 	}
-	if h.vectorSearcher != nil {
-		if res, err := h.vectorSearcher.SearchVector(ctx, productID, queryVec, vecTopK); err == nil {
-			vecResults = res
-		} else {
-			logger.Ctx(ctx).Warn().Err(err).Msg("[Hybrid] vector search failed, continuing with empty results")
-		}
-	} else if h.db != nil {
-		if res, err := h.vectorSearchPG(ctx, productID, queryVec, vecTopK); err == nil {
-			vecResults = res
-		} else {
-			logger.Ctx(ctx).Warn().Err(err).Msg("[Hybrid] vectorSearchPG failed, continuing with empty results")
+	if queryVec != nil {
+		if h.vectorSearcher != nil {
+			if res, err := h.vectorSearcher.SearchVector(ctx, productID, queryVec, vecTopK); err == nil {
+				vecResults = res
+			} else {
+				logger.Ctx(ctx).Warn().Err(err).Msg("[Hybrid] vector search failed, continuing with empty results")
+			}
+		} else if h.db != nil {
+			if res, err := h.vectorSearchPG(ctx, productID, queryVec, vecTopK); err == nil {
+				vecResults = res
+			} else {
+				logger.Ctx(ctx).Warn().Err(err).Msg("[Hybrid] vectorSearchPG failed, continuing with empty results")
+			}
 		}
 	}
 
+	keywordStart := time.Now()
 	kwTopK := h.config.KeywordTopK
 	if kwTopK <= 0 {
 		kwTopK = topK * 6
@@ -203,9 +212,11 @@ func (h *HybridSearcher) SearchIndex(ctx context.Context, productID string, quer
 			logger.Ctx(ctx).Warn().Err(err).Msg("[Hybrid] keywordSearchPG failed, continuing with empty results")
 		}
 	}
+	bm25Ms := time.Since(keywordStart).Milliseconds()
 
 	fused := h.reciprocalRankFusion(vecResults, kwResults)
 
+	rerankCount := 0
 	if h.config.EnableRerank && h.reranker != nil && len(fused) > topK {
 		rerankTopN := h.config.FusedTopN
 		if rerankTopN <= 0 {
@@ -224,6 +235,7 @@ func (h *HybridSearcher) SearchIndex(ctx context.Context, productID string, quer
 				logger.Infof("[Hybrid] rerank 全部文档低于阈值(floor=%.1f)，视为知识不足，降级使用原始融合结果", rerankScoreFloor)
 			} else {
 				fused = applyRerank(fused, reranked)
+				rerankCount = len(reranked)
 			}
 		} else {
 			logger.Warnf("[Hybrid] rerank 失败，降级使用原始融合结果: %v", rerr)
@@ -241,7 +253,33 @@ func (h *HybridSearcher) SearchIndex(ctx context.Context, productID string, quer
 	if len(fused) > finalK {
 		fused = fused[:finalK]
 	}
+
+	// v2.7 监控：检索指标异步写入 knowledge_search_logs（fire-and-forget，不阻塞主流程）
+	h.logSearch(query, productID, finalK, len(vecResults), len(kwResults), len(fused), rerankCount, vectorMs, bm25Ms)
+
 	return fused, nil
+}
+
+// logSearch 异步写入检索监控指标到 knowledge_search_logs（v2.7 监控字段增强）
+// fire-and-forget：写入失败仅告警，绝不影响检索主流程；productID 为空时落 NULL
+func (h *HybridSearcher) logSearch(query, productID string, topK, vectorCount, bm25Count, fusedCount, rerankCount int, vectorMs, bm25Ms int64) {
+	if h.db == nil {
+		return
+	}
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Warnf("[Hybrid] logSearch panic recovered: %v", r)
+			}
+		}()
+		sql := `INSERT INTO knowledge_search_logs
+			(query, product_id, top_k, vector_count, bm25_count, fused_count, rerank_count, vector_latency_ms, bm25_latency_ms)
+			VALUES (?, NULLIF(?, '')::bigint, ?, ?, ?, ?, ?, ?, ?)`
+		if err := h.db.WithContext(context.Background()).Exec(sql,
+			query, productID, topK, vectorCount, bm25Count, fusedCount, rerankCount, vectorMs, bm25Ms).Error; err != nil {
+			logger.Warnf("[Hybrid] logSearch 写入 knowledge_search_logs 失败: %v", err)
+		}
+	}()
 }
 
 // embedQuery 将 query 转为向量

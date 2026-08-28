@@ -97,9 +97,7 @@ func TestE2E_CustomerMessageFlow(t *testing.T) {
 
 	event.Publish(event.TopicCustomerMessageReceived, customerPayload)
 
-	time.Sleep(100 * time.Millisecond)
-
-	if salesBridge.callCount() != 1 {
+	if !waitUntil(func() bool { return salesBridge.callCount() == 1 }, 5*time.Second) {
 		t.Errorf("expected 1 sales call, got %d", salesBridge.callCount())
 	}
 
@@ -131,25 +129,31 @@ func TestE2E_KnowledgeIndexFlow(t *testing.T) {
 	bus.Subscribe(event.TopicKnowledgeDocumentChanged, indexer.Handle)
 
 	PublishKnowledgeDocumentCreate("1", uint(docID), "测试内容", 1)
-	time.Sleep(100 * time.Millisecond)
-
-	if indexer.ChunkCount(uintToStr(uint(docID))) == 0 {
+	if !waitUntil(func() bool { return indexer.ChunkCount(uintToStr(uint(docID))) > 0 }, 5*time.Second) {
 		t.Error("expected chunks after create event")
 	}
 
 	PublishKnowledgeDocumentUpdate("1", uint(docID), "更新内容", 1)
-	time.Sleep(100 * time.Millisecond)
-
-	if indexer.ChunkCount(uintToStr(uint(docID))) == 0 {
+	if !waitUntil(func() bool { return indexer.ChunkCount(uintToStr(uint(docID))) > 0 }, 5*time.Second) {
 		t.Error("expected chunks after update event")
 	}
 
 	PublishKnowledgeDocumentDelete("1", uint(docID), 1)
-	time.Sleep(100 * time.Millisecond)
-
-	if indexer.ChunkCount(uintToStr(uint(docID))) != 0 {
+	if !waitUntil(func() bool { return indexer.ChunkCount(uintToStr(uint(docID))) == 0 }, 5*time.Second) {
 		t.Errorf("expected 0 chunks after delete, got %d", indexer.ChunkCount(uintToStr(uint(docID))))
 	}
+}
+
+// waitUntil 每隔 20ms 轮询 cond 直到为真或超时（异步事件消费的确定性等待，替代固定 sleep）
+func waitUntil(cond func() bool, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for !cond() {
+		if !time.Now().Before(deadline) {
+			return false
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return true
 }
 
 // TestE2E_CustomerAndKnowledgeInParallel 测试两路事件并行无干扰
@@ -174,7 +178,24 @@ func TestE2E_CustomerAndKnowledgeInParallel(t *testing.T) {
 		PublishKnowledgeDocumentCreate("1", uint(docID), "content", uint(i+1))
 	}
 
-	time.Sleep(200 * time.Millisecond)
+	// 异步消费耗时不确定（索引构建约 400ms/条），固定 sleep 有竞态，改轮询等待
+	deadline := time.Now().Add(5 * time.Second)
+	for salesBridge.callCount() != 10 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	for time.Now().Before(deadline) {
+		allIndexed := true
+		for _, docID := range docIDs {
+			if indexer.ChunkCount(uintToStr(uint(docID))) == 0 {
+				allIndexed = false
+				break
+			}
+		}
+		if allIndexed {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 
 	if salesBridge.callCount() != 10 {
 		t.Errorf("expected 10 customer calls, got %d", salesBridge.callCount())

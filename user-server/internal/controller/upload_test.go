@@ -300,7 +300,8 @@ func TestIsValidExtension(t *testing.T) {
 		want bool
 	}{
 		{".jpg", true}, {".jpeg", true}, {".png", true}, {".gif", true},
-		{".webp", true}, {".svg", true}, {".mp4", true}, {".pdf", true},
+		{".webp", true}, {".svg", false}, {".mp4", true}, {".pdf", true},
+		// .svg 已按 M9 治理从白名单移除（内嵌 <script> 的存储型 XSS 风险），必须拒绝
 		{".zip", true}, {".exe", false}, {".xyz", false}, {".php", false},
 		{"", false}, {".JPG", true},
 	}

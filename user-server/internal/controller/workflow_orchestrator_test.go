@@ -643,8 +643,11 @@ func TestWorkflowOrchestratorController_StopExecution_NotRunning(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httpReq)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("期望状态码 500，得到 %d", w.Code)
+	// Round32 复测修复后非 running 状态属业务状态冲突（幂等重复停止等），
+	// 按错误码规范返回 409 Conflict，而非 500 INTERNAL_ERROR（见
+	// workflow_orchestrator.go StopExecution 内注释）
+	if w.Code != http.StatusConflict {
+		t.Errorf("期望状态码 409，得到 %d", w.Code)
 	}
 }
 

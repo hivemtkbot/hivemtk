@@ -12,12 +12,13 @@ import (
 // ============================================================================
 // I-5 意图识别弱标签监控（per-intent Precision/Recall/F1）
 //
-// 弱标签口径（gold 伪真值来源，按优先级）：
-//  1. ruleHitIntent 非空 → 以规则命中意图为伪真值锚点（规则可信度独立于置信度）；
-//     ruleHitIntent 与 predicted 不一致时计入混淆对（FP[predicted] / FN[ruleHit]）；
-//  2. ruleHitIntent 为空 且 confidence >= WeakTruthMinConfidence(0.85) → 视为
-//     伪真值 gold=predicted（高置信自证）；
-//  3. 其余（无规则佐证且低置信）不入混淆矩阵，仅累计到低置信桶。
+// 弱标签口径（RecordPrediction(predicted, gold, confidence)）：
+//  1. predicted 或 gold 为空 → 直接忽略（防御式，打点永不干扰主链路）；
+//  2. confidence >= WeakTruthMinConfidence(0.9) → 入混淆矩阵
+//     matrix[predicted][gold]++，gold != predicted 即混淆对
+//     （FP[predicted] 与 FN[gold] 同时累加）；
+//  3. confidence < 阈值 → 不入矩阵，仅进低置信桶（键格式 "predicted|gold"），
+//     不影响指标分子分母。
 //
 // ⚠️ 确认偏差声明（需人工介入）：
 // 弱真值与预测值同源，规则/模型自身系统性误判时对应类别 P/R 会虚高（自我印证偏差）。
@@ -27,26 +28,11 @@ import (
 //
 // 设计约束：
 //   - 纯内存实现，锁粒度为单次 map 自增，调用路径零阻塞、无 IO、不 panic；
-//   - 判定核心为纯函数 weakGoldLabel，无共享状态、可独立单测。
+//   - 记账规则仅阈值与空值两个分支，可独立单测。
 // ============================================================================
 
-// WeakTruthMinConfidence 无规则佐证时高置信自证进入混淆矩阵的最低置信度阈值
-const WeakTruthMinConfidence = 0.85
-
-// weakGoldLabel 弱标签判定纯函数：返回伪真值 gold 及该样本是否计入混淆矩阵。
-// predicted 为空时一律无效；ruleHit 非空时以 ruleHit 为 gold；否则须高置信自证。
-func weakGoldLabel(predicted, ruleHit string, confidence float64) (string, bool) {
-	if predicted == "" {
-		return "", false
-	}
-	if ruleHit != "" {
-		return ruleHit, true
-	}
-	if confidence >= WeakTruthMinConfidence {
-		return predicted, true
-	}
-	return "", false
-}
+// WeakTruthMinConfidence 进入混淆矩阵的最低置信度阈值（等于阈值即入，之下进低置信桶）
+const WeakTruthMinConfidence = 0.9
 
 // fallbackClassSet 参与单独统计但不计入宏平均的兜底/超范围类
 var fallbackClassSet = map[string]bool{
@@ -102,25 +88,23 @@ func (c *ConfusionStore) Reset() {
 	c.lowTotal = 0
 }
 
-// RecordPrediction 规格入口（predicted, ruleHit, confidence）：
-//   - predicted 为空直接忽略（防御式，保证打点永不干扰主链路）；
-//   - gold 由 weakGoldLabel 判定：ruleHit 非空以规则为伪真值（与置信度无关），
-//     否则须 confidence >= WeakTruthMinConfidence 高置信自证；
-//   - 入矩阵时 matrix[predicted][gold]++，gold != predicted 即混淆对
-//     （FP[predicted] 与 FN[gold] 同时累加）；
-//   - 不入矩阵时进低置信桶（键为 predicted），不影响指标分子分母。
-func (c *ConfusionStore) RecordPrediction(predicted string, ruleHit string, confidence float64) {
-	if predicted == "" {
+// RecordPrediction 规格入口（predicted, gold, confidence）：
+//   - predicted 或 gold 为空直接忽略（防御式，保证打点永不干扰主链路）；
+//   - confidence >= WeakTruthMinConfidence 时入矩阵 matrix[predicted][gold]++；
+//   - 低于阈值进低置信桶（键格式 "predicted|gold"），不影响指标分子分母。
+func (c *ConfusionStore) RecordPrediction(predicted string, gold string, confidence float64) {
+	if predicted == "" || gold == "" {
 		return
 	}
-	gold, counted := weakGoldLabel(predicted, ruleHit, confidence)
+	if confidence < WeakTruthMinConfidence {
+		c.mu.Lock()
+		c.lowConf[predicted+"|"+gold]++
+		c.lowTotal++
+		c.mu.Unlock()
+		return
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if !counted {
-		c.lowConf[predicted]++
-		c.lowTotal++
-		return
-	}
 	if c.matrix[predicted] == nil {
 		c.matrix[predicted] = make(map[string]int)
 	}

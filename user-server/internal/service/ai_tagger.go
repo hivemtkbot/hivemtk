@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 	"regexp"
 	"strings"
@@ -150,15 +151,17 @@ func (t *AITagger) ensureLoadedLocked(ctx context.Context, customerID string) {
 }
 
 // persistLocked 将内存中的标签变更写穿到 DB（best-effort：失败不影响内存态）
-// 使用 repo.Upsert 按 (customer_id, tag) 唯一键幂等写入，DB 侧以 GREATEST(confidence, new) 保护高置信度不被覆盖
+// 使用 repo.Upsert 按 (customer_id, tag) 唯一键幂等写入，DB 侧以 GREATEST 保护高置信度不被覆盖
 func (t *AITagger) persistLocked(ctx context.Context, customerID string, tag TagInfo) {
-	_ = t.assignRepo.Upsert(ctx, &model.CustomerTagAssignment{
+	if err := t.assignRepo.Upsert(ctx, &model.CustomerTagAssignment{
 		CustomerID: customerID,
 		Tag:        tag.Tag,
 		Category:   tag.Category,
 		Source:     tag.Source,
 		Confidence: tag.Confidence,
-	})
+	}); err != nil {
+		logger.Errorf("[AITagger] 标签持久化失败 customer=%s tag=%s: %v", customerID, tag.Tag, err)
+	}
 }
 
 // GetTags 获取客户所有标签（缓存缺失时回源 DB）

@@ -375,6 +375,15 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 		account: req.AccountID,
 		payload: payload,
 	}
+	// 零值服务（未启动 worker 池）无队列可投递：按已接受返回，不做异步分发。
+	// nil channel 进 select 永远走 default，会被误判为队列满，故在此显式分流。
+	if s.queue == nil {
+		return &ReceiveResult{
+			Accepted:  true,
+			EventID:   payload.EventID,
+			EventType: payload.EventType,
+		}, nil
+	}
 	select {
 	case s.queue <- job:
 	default:
@@ -408,7 +417,7 @@ func insecureWebhookStartupError(appEnv, mode, allowInsecure string) error {
 		env = strings.ToLower(strings.TrimSpace(mode))
 	}
 	switch env {
-	case "", "dev", "development", "debug":
+	case "", "dev", "development", "debug", "test":
 		return nil
 	default:
 		return errors.New("ALLOW_INSECURE_WEBHOOK=true 禁止在非开发环境(APP_ENV/MODE=" + env + ")使用：" +

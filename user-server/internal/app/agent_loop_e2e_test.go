@@ -580,8 +580,10 @@ func TestAgentLoop_Fallback_WhenToolFails(t *testing.T) {
 	if results[0].Success {
 		t.Error("不存在的工具应返回 success=false")
 	}
-	if !strings.Contains(results[0].Content, "tool not found") && !strings.Contains(results[0].Content, "not found") {
-		t.Errorf("Content 应包含 'not found'，实际：%s", results[0].Content)
+	// 实现措辞为 "tool %q not registered"（executor.go preflightToolCall），
+	// 断言核心意图：错误描述回灌 LLM 且携带工具名便于定位，不约束具体措辞
+	if !strings.Contains(results[0].Content, "nonexistent.tool") {
+		t.Errorf("Content 应包含工具名 'nonexistent.tool' 的错误描述，实际：%s", results[0].Content)
 	}
 	t.Logf("✅ 工具失败降级：返回 success=false + 错误描述回灌给 LLM")
 

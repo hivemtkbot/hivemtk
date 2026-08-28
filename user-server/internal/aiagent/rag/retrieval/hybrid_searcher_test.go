@@ -101,10 +101,34 @@ func insertChunk(t *testing.T, db *gorm.DB, docID uint, productID string, conten
 	}
 }
 
+// makePrefixVector 前 prefixLen 维为 1.0、其余为 0 的向量
+// 说明：makeFixedVector 产生的同值向量彼此平行（余弦距离全为 0），无法区分相似度排序；
+// 本 helper 通过不同激活前缀长度构造方向可区分的向量（cos = prefixLen/dim）
+func makePrefixVector(dim int, prefixLen int) []float32 {
+	v := make([]float32, dim)
+	for i := 0; i < prefixLen && i < dim; i++ {
+		v[i] = 1.0
+	}
+	return v
+}
+
+// waitUntil 每隔 20ms 轮询 cond 直到为真或超时（异步写入的确定性等待，替代固定 sleep）
+func waitUntil(cond func() bool, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for !cond() {
+		if !time.Now().Before(deadline) {
+			return false
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return true
+}
+
 // TestHybridSearcher_VectorRetrieve_EndToEnd 集成测试：向量召回端到端
 //
-// 场景：3 个 chunk 有 embedding，1 个无 embedding；查询向量与 chunk1 最相似
-// 期望：返回 chunk1 排第一
+// 场景：3 个 chunk 有 embedding，1 个无 embedding；查询向量(全1) 与 chunk100(cos=1.0) 最相似，
+// chunk101(cos=0.707) 次之，chunk102(cos=0.25) 最差
+// 期望：返回 chunk100 排第一
 func TestHybridSearcher_VectorRetrieve_EndToEnd(t *testing.T) {
 	if os.Getenv("POSTGRES_TEST_DSN") == "" && os.Getenv("POSTGRES_TEST_HOST") == "" {
 		t.Skip("skipping PG integration test (no POSTGRES_TEST_DSN)")
@@ -125,9 +149,9 @@ func TestHybridSearcher_VectorRetrieve_EndToEnd(t *testing.T) {
 		EnableRerank:     false,
 	})
 
-	insertChunk(t, db, 100, "1", "如何申请退货退款流程", makeFixedVector(1024, 1.0)) 
-	insertChunk(t, db, 101, "1", "商品保修政策说明", makeFixedVector(1024, 0.5))
-	insertChunk(t, db, 102, "1", "联系方式与客服电话", makeFixedVector(1024, 0.2))
+	insertChunk(t, db, 100, "1", "如何申请退货退款流程", makeFixedVector(1024, 1.0))
+	insertChunk(t, db, 101, "1", "商品保修政策说明", makePrefixVector(1024, 512))
+	insertChunk(t, db, 102, "1", "联系方式与客服电话", makePrefixVector(1024, 256))
 
 	out, err := searcher.Search(context.Background(), "如何退货", 5)
 	if err != nil {
@@ -297,14 +321,15 @@ func TestHybridSearcher_LogSearch_WritesToDB(t *testing.T) {
 		t.Fatalf("Search failed: %v", err)
 	}
 
-	time.Sleep(200 * time.Millisecond)
-
-	// 验证 knowledge_search_logs 表有记录
-	var count int64
-	if err := db.Raw(`SELECT COUNT(*) FROM knowledge_search_logs`).Scan(&count).Error; err != nil {
-		t.Fatalf("query logs failed: %v", err)
-	}
-	if count == 0 {
+	// 验证 knowledge_search_logs 表有记录（logSearch 为异步 fire-and-forget，轮询等待）
+	logWritten := waitUntil(func() bool {
+		var count int64
+		if err := db.Raw(`SELECT COUNT(*) FROM knowledge_search_logs`).Scan(&count).Error; err != nil {
+			t.Fatalf("query logs failed: %v", err)
+		}
+		return count > 0
+	}, 5*time.Second)
+	if !logWritten {
 		t.Error("knowledge_search_logs should have at least 1 record")
 	}
 }
