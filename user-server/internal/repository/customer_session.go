@@ -585,3 +585,11 @@ func (r *CustomerSessionRepository) ListRecentClosedByPlatformAccountUser(
 	return sessions, nil
 }
 
+
+// UpdateTags 更新会话标签（JSON 数组字符串；标签规则 ApplyTagRule 使用）
+func (r *CustomerSessionRepository) UpdateTags(ctx context.Context, sessionID, tagsJSON string) error {
+	return r.db.WithContext(ctx).
+		Model(&model.CustomerSession{}).
+		Where("session_id = ?", sessionID).
+		Update("tags", tagsJSON).Error
+}

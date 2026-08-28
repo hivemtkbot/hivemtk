@@ -26,6 +26,11 @@ type DomainPoolService interface {
 	AddBlacklist(ctx context.Context, domain, platform, reason, source string, ttlHours int) error
 	RemoveBlacklist(ctx context.Context, domain string) error
 	ListBlacklist(ctx context.Context, page, pageSize int) ([]*model.DomainBlacklist, int64, error)
+	IsBlacklisted(ctx context.Context, domain string) (bool, error)
+	SuspendDomain(ctx context.Context, id int) (*model.DomainPool, error)
+	RotateToBackup(ctx context.Context, id int) (*model.DomainPool, error)
+	ListAlerts(ctx context.Context) ([]*model.DomainPool, error)
+	ResolveAlert(ctx context.Context, id int) (*model.DomainPool, error)
 }
 
 // domainPoolService 域名池服务实现
@@ -226,3 +231,77 @@ func (s *domainPoolService) ListBlacklist(ctx context.Context, page, pageSize in
 	return s.blacklistRepo.List(ctx, page, pageSize)
 }
 
+
+// ---------- R39 补齐（前端 domainPool.js 动作端点） ----------
+
+// IsBlacklisted 查询域名是否在黑名单
+func (s *domainPoolService) IsBlacklisted(ctx context.Context, domain string) (bool, error) {
+	ok, _, err := s.blacklistRepo.IsBlacklisted(ctx, domain)
+	return ok, err
+}
+
+// SuspendDomain 停用域名（status=4 已停用）
+func (s *domainPoolService) SuspendDomain(ctx context.Context, id int) (*model.DomainPool, error) {
+	dp, err := s.domainPoolRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	dp.Status = 4
+	if err := s.domainPoolRepo.Update(ctx, dp); err != nil {
+		return nil, err
+	}
+	return dp, nil
+}
+
+// RotateToBackup 轮换到备用域名：停用当前激活域名并激活指定域名
+func (s *domainPoolService) RotateToBackup(ctx context.Context, id int) (*model.DomainPool, error) {
+	dp, err := s.domainPoolRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if dp.Status == 4 {
+		return nil, fmt.Errorf("域名已停用，无法轮换激活")
+	}
+	dp.IsActive = true
+	dp.Status = 1
+	if err := s.domainPoolRepo.Update(ctx, dp); err != nil {
+		return nil, err
+	}
+	return dp, nil
+}
+
+// ListAlerts 域名告警列表：状态异常（不可访问/风险）或连续失败>0 的域名
+func (s *domainPoolService) ListAlerts(ctx context.Context) ([]*model.DomainPool, error) {
+	list, _, err := s.domainPoolRepo.List(ctx, 1, 200, "", 0)
+	if err != nil {
+		return nil, err
+	}
+	var alerts []*model.DomainPool
+	for _, dp := range list {
+		if dp.Status != 1 || dp.ConsecutiveFailures > 0 {
+			alerts = append(alerts, dp)
+		}
+	}
+	return alerts, nil
+}
+
+// ResolveAlert 告警确认恢复：立即复检，健康则清零连续失败并恢复状态
+func (s *domainPoolService) ResolveAlert(ctx context.Context, id int) (*model.DomainPool, error) {
+	dp, err := s.domainPoolRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	ok, err := s.CheckDomain(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		dp.ConsecutiveFailures = 0
+		dp.Status = 1
+		if err := s.domainPoolRepo.Update(ctx, dp); err != nil {
+			return nil, err
+		}
+		return dp, nil
+	}
+	return dp, fmt.Errorf("域名仍不健康，告警保持")
+}

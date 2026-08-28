@@ -1,0 +1,111 @@
+// csat.go CSAT 满意度服务（五层 L3）
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/repository"
+)
+
+// CSATService 满意度调查服务
+type CSATService struct {
+	repo    *repository.CSATSurveyRepository
+	session *repository.CustomerSessionRepository
+	kv      repository.SystemConfigKVRepository
+	now     func() time.Time
+}
+
+// NewCSATService 构造
+func NewCSATService() *CSATService {
+	return &CSATService{
+		repo:    repository.NewCSATSurveyRepository(),
+		session: repository.NewCustomerSessionRepository(),
+		kv:      repository.NewSystemConfigKVRepository(),
+		now:     time.Now,
+	}
+}
+
+// Trigger 手动/自动触发调查（一会话一调查幂等；状态 pending→sent）
+func (s *CSATService) Trigger(ctx context.Context, sessionID, triggeredBy string) (*model.CSATSurvey, error) {
+	if triggeredBy == "" {
+		triggeredBy = "manual"
+	}
+	sess, err := s.session.GetBySessionID(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("会话不存在: %w", err)
+	}
+	survey, err := s.repo.UpsertBySession(ctx, &model.CSATSurvey{
+		SessionID:   sessionID,
+		OneID:       sess.OneID,
+		Status:      model.CSATStatusSent,
+		TriggeredBy: triggeredBy,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repo.MarkSent(ctx, sessionID); err != nil {
+		return nil, err
+	}
+	survey.Status = model.CSATStatusSent
+	now := s.now()
+	survey.SentAt = &now
+	return survey, nil
+}
+
+// Submit 提交评分（公开端点：客户提交后回写统计）
+func (s *CSATService) Submit(ctx context.Context, sessionID string, score int, comment string) (*model.CSATSurvey, error) {
+	if score < 1 || score > 5 {
+		return nil, fmt.Errorf("score 必须在 1-5")
+	}
+	return s.repo.SubmitResponse(ctx, sessionID, score, comment)
+}
+
+// Stats 统计
+func (s *CSATService) Stats(ctx context.Context) (map[string]any, error) {
+	return s.repo.Stats(ctx)
+}
+
+// Trend 趋势
+func (s *CSATService) Trend(ctx context.Context, days int) ([]map[string]any, error) {
+	return s.repo.Trend(ctx, days)
+}
+
+// Negative 差评列表（阈值取模板 low_threshold，默认 3）
+func (s *CSATService) Negative(ctx context.Context, limit int) ([]*model.CSATSurvey, int, error) {
+	tpl := s.GetTemplate(ctx)
+	threshold := 3
+	if tpl["low_threshold"] != nil {
+		if v, ok := tpl["low_threshold"].(float64); ok && v > 0 {
+			threshold = int(v)
+		}
+	}
+	list, err := s.repo.ListNegative(ctx, threshold, limit)
+	return list, threshold, err
+}
+
+// GetTemplate 模板配置（未配置回退默认）
+func (s *CSATService) GetTemplate(ctx context.Context) map[string]any {
+	out := map[string]any{}
+	raw, err := s.kv.Get(ctx, model.CSATTemplateKey)
+	if err == nil && raw != "" {
+		if err := json.Unmarshal([]byte(raw), &out); err == nil && len(out) > 0 {
+			return out
+		}
+	}
+	_ = json.Unmarshal([]byte(model.CSATDefaultTemplate), &out)
+	return out
+}
+
+// SaveTemplate 保存模板配置
+func (s *CSATService) SaveTemplate(ctx context.Context, tpl map[string]any) error {
+	raw, err := json.Marshal(tpl)
+	if err != nil {
+		return err
+	}
+	_, err = s.kv.Upsert(ctx, model.CSATTemplateKey, string(raw))
+	return err
+}

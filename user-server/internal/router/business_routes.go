@@ -81,6 +81,16 @@ func setupUserSegmentRoutes(auth *gin.RouterGroup) {
 // 防 staff 误触发批量营销活动 / 删 SOP / 暂停客服流程。
 func setupMarketingFlowRoutes(auth *gin.RouterGroup) {
 	marketingFlowCtrl := contentctrl.NewMarketingFlowController()
+	// R39 零散补齐
+	extrasCtrl := controller.NewCustomerEventBatchController()
+	auth.POST("/customer-events/batch", extrasCtrl.TrackBatch)
+	// R39: AI 销冠驾驶舱聚合
+	auth.GET("/ai/sales-cockpit", controller.NewSalesCockpitController().GetCockpit)
+	wvCtrl := controller.NewWebVitalsController()
+	auth.POST("/monitor/web-vitals", wvCtrl.Report)
+	mfSyncCtrl := controller.NewMarketingFlowSyncController()
+	auth.POST("/marketing-flows/:id/sync-ab-results", mfSyncCtrl.SyncABResults)
+
 	auth.GET("/marketing-flows", marketingFlowCtrl.GetFlowList)
 	auth.GET("/marketing-flows/:id", marketingFlowCtrl.GetFlowByID)
 	auth.GET("/marketing-flows/:id/executions", marketingFlowCtrl.GetExecutionList)
@@ -149,6 +159,34 @@ func setupScriptRoutes(auth *gin.RouterGroup) {
 	auth.GET("/scripts/search", scriptCtrl.SearchTemplates)
 	auth.GET("/scripts/public", scriptCtrl.GetPublicTemplates)
 	auth.POST("/scripts/recommend", scriptCtrl.RecommendScript)
+	auth.POST("/scripts/sync-to-library", scriptCtrl.SyncToLibrary)
+
+	// T-6/T-7 话术版本管理 + AB 曝光统计（script-library 域）
+	scriptLibCtrl := controller.NewScriptLibraryController()
+	auth.GET("/script-library/:id/versions", scriptLibCtrl.ListVersions)
+	auth.POST("/script-library/:id/versions", scriptLibCtrl.CreateVersion)
+	auth.PUT("/script-library/:id/versions/:vid/activate", scriptLibCtrl.ActivateVersion)
+	auth.POST("/script-library/:id/expire", scriptLibCtrl.ExpireScript)
+	auth.GET("/script-library/:id/ab-stats", scriptLibCtrl.GetABStats)
+	auth.PUT("/script-library/:id/ab-config", scriptLibCtrl.UpdateABConfig)
+	auth.POST("/script-ab/conversion", scriptLibCtrl.RecordConversion)
+
+	// K2 Feature Flags（Unleash/GrowthBook 管理端最小完备集）
+	flagCtrl := controller.NewFeatureFlagController()
+	auth.GET("/feature-flags", flagCtrl.List)
+	auth.POST("/feature-flags", flagCtrl.Create)
+	auth.GET("/feature-flags/stale", flagCtrl.Stale)
+	auth.POST("/feature-flags/evaluate", flagCtrl.Evaluate)
+	auth.POST("/feature-flags/evaluate-batch", flagCtrl.EvaluateBatch)
+	auth.GET("/feature-flags/:id", flagCtrl.Get)
+	auth.PUT("/feature-flags/:id", flagCtrl.Update)
+	auth.DELETE("/feature-flags/:id", flagCtrl.Delete)
+	auth.POST("/feature-flags/:id/enable", flagCtrl.Enable)
+	auth.POST("/feature-flags/:id/disable", flagCtrl.Disable)
+	auth.POST("/feature-flags/:id/rollout", flagCtrl.Rollout)
+	auth.GET("/feature-flags/:id/audit", flagCtrl.Audit)
+	auth.GET("/feature-flags/:id/eval-log", flagCtrl.EvalLogs)
+	auth.GET("/feature-flags/:id/code-references", flagCtrl.CodeReferences)
 }
 
 // setupABTestRoutes A/B 测试路由
@@ -162,6 +200,13 @@ func setupABTestRoutes(auth *gin.RouterGroup) {
 	auth.GET("/ab-experiments/:id", abCtrl.GetExperiment)
 	auth.GET("/ab-experiments/:id/results", abCtrl.GetExperimentResults)
 	auth.GET("/ab-experiments/:id/conversion-events", abCtrl.GetConversionEvents)
+	// K5 AB 高级统计（GrowthBook 轻量版）
+	auth.GET("/ab-experiments/:id/stats", abCtrl.GetAdvancedStats)
+	auth.GET("/ab-experiments/:id/diagnostics", abCtrl.GetExperimentDiagnostics)
+	auth.GET("/ab-experiments/:id/cuped", abCtrl.GetExperimentCUPED)
+	auth.POST("/ab-experiments/:id/sequential-test", abCtrl.PostSequentialTest)
+	auth.POST("/ab-experiments/:id/bayesian-test", abCtrl.PostBayesianTest)
+	auth.GET("/ab-experiments/:id/results-with-reach", abCtrl.GetResultsWithReach)
 	admin := auth.Group("/ab-experiments", middleware.AdminAuthMiddleware())
 	{
 		admin.POST("", abCtrl.CreateExperiment)

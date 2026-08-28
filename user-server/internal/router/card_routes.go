@@ -10,6 +10,15 @@ import (
 
 // setupCardRoutes 卡片管理路由（抖音、快手、小红书、闲鱼）
 func setupCardRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
+	// R39: 名片跨平台同步发布
+	crossPubCtrl := controller.NewCardCrossPublishController(
+		service.NewDouyinCardService(gormDB),
+		service.NewKuaishouCardService(gormDB),
+		service.NewXiaohongshuCardService(gormDB),
+		service.NewXianyuCardService(gormDB),
+	)
+	auth.POST("/cards/cross-publish", crossPubCtrl.CrossPublish)
+
 	douyinCardCtrl := controller.NewDouyinCardController(service.NewDouyinCardService(gormDB))
 	auth.GET("/douyin-card/list", douyinCardCtrl.GetList)
 	auth.POST("/douyin-card", douyinCardCtrl.Create)

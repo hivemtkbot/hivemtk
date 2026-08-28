@@ -441,3 +441,90 @@ func indexOf(s, sub string) int {
 	return -1
 }
 
+
+// ---------- R39 前端对齐端点（domainPool.js） ----------
+
+// CheckBlacklist GET /api/domain-pool/:id/blacklist — 查询域名是否在黑名单（:id=域名字符串）
+func (c *DomainPoolController) CheckBlacklist(ctx *gin.Context) {
+	domain := ctx.Param("id")
+	if domain == "" {
+		response.Error(ctx, http.StatusBadRequest, "域名不能为空")
+		return
+	}
+	blocked, err := c.domainPoolService.IsBlacklisted(context.Background(), domain)
+	if err != nil {
+		response.ErrorFromDB(ctx, err, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"domain": domain, "blacklisted": blocked}, "ok")
+}
+
+// SuspendDomain POST /api/domain-pool/:id/suspend — 停用域名
+func (c *DomainPoolController) SuspendDomain(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil || id <= 0 {
+		response.Error(ctx, http.StatusBadRequest, "无效的 ID")
+		return
+	}
+	dp, err := c.domainPoolService.SuspendDomain(context.Background(), id)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, toDomainResponse(dp), "域名已停用")
+}
+
+// RotateToBackup POST /api/domain-pool/:id/rotate — 轮换激活到备用域名
+func (c *DomainPoolController) RotateToBackup(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil || id <= 0 {
+		response.Error(ctx, http.StatusBadRequest, "无效的 ID")
+		return
+	}
+	dp, err := c.domainPoolService.RotateToBackup(context.Background(), id)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, toDomainResponse(dp), "已轮换激活")
+}
+
+// ListAlerts GET /api/domain-pool/alerts — 域名告警列表
+func (c *DomainPoolController) ListAlerts(ctx *gin.Context) {
+	alerts, err := c.domainPoolService.ListAlerts(context.Background())
+	if err != nil {
+		response.ErrorFromDB(ctx, err, err.Error())
+		return
+	}
+	out := make([]dto.DomainPoolResponse, 0, len(alerts))
+	for _, dp := range alerts {
+		out = append(out, toDomainResponse(dp))
+	}
+	response.Success(ctx, gin.H{"list": out, "total": len(out)}, "ok")
+}
+
+// ResolveAlert POST /api/domain-pool/alerts/:id/resolve — 告警确认（复检+恢复）
+func (c *DomainPoolController) ResolveAlert(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil || id <= 0 {
+		response.Error(ctx, http.StatusBadRequest, "无效的 ID")
+		return
+	}
+	dp, err := c.domainPoolService.ResolveAlert(context.Background(), id)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, toDomainResponse(dp), "告警已处理")
+}
+
+// CheckDomainByID POST /api/domain-pool/:id/check — 按 ID 触发健康检查
+func (c *DomainPoolController) CheckDomainByID(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil || id <= 0 {
+		response.Error(ctx, http.StatusBadRequest, "无效的 ID")
+		return
+	}
+	ok, err := c.domainPoolService.CheckDomain(context.Background(), id)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"id": id, "healthy": ok}, "检查完成")
+}

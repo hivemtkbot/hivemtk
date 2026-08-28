@@ -16,7 +16,8 @@ type SessionMessage struct {
 	SenderName   string       `gorm:"type:varchar(100)" json:"sender_name"`
 	SenderAvatar string       `gorm:"type:varchar(500)" json:"sender_avatar"`
 	AIConfidence float64      `gorm:"type:decimal(5,2)" json:"ai_confidence"`
-	AISource     string       `gorm:"type:varchar(20)" json:"ai_source"` 
+	AISource     string       `gorm:"type:varchar(20)" json:"ai_source"`
+	IsInternal   bool         `gorm:"default:false;index" json:"is_internal"` // 协作内部备注（不发给客户）
 	IsRead       bool         `gorm:"default:false" json:"is_read"`
 	ReadAt       *time.Time   `json:"read_at"`
 	DeliveredAt *time.Time `gorm:"index" json:"delivered_at"`

@@ -207,3 +207,14 @@ func (r *SessionMessageRepository) Delete(ctx context.Context, id uint) error {
 // ensure errors package is used to avoid import removal during splits
 var _ = errors.New
 
+
+// ListInternalBySession 会话内部备注列表（仅 is_internal=true）
+func (r *SessionMessageRepository) ListInternalBySession(ctx context.Context, sessionID string, limit int) ([]*model.SessionMessage, error) {
+	var list []*model.SessionMessage
+	err := r.db.WithContext(ctx).
+		Where("session_id = ? AND is_internal = ?", sessionID, true).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&list).Error
+	return list, err
+}

@@ -66,6 +66,7 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 		authCtrl.InitAdmin(ctx)
 	})
 	public.POST("/system/init-complete", systemInitCtrl.InitComplete)
+	public.POST("/system/create-default-admin", authCtrl.CreateDefaultAdmin)
 
 	public.GET("/license/status", func(c *gin.Context) {
 		c.JSON(200, gin.H{

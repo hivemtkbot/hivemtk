@@ -194,3 +194,15 @@ func (c *ScriptTemplateController) RecommendScript(ctx *gin.Context) {
 	response.Success(ctx, templates, "获取推荐成功")
 }
 
+
+// SyncToLibrary R39：模板 → 运行时话术库 同步（T-5/T-6 闭环）
+// POST /api/scripts/sync-to-library
+func (c *ScriptTemplateController) SyncToLibrary(ctx *gin.Context) {
+	syncSvc := service.NewScriptTemplateSyncService()
+	stats, err := syncSvc.SyncToLibrary(ctx.Request.Context())
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(ctx, stats, "同步完成")
+}

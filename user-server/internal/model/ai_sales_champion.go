@@ -228,23 +228,59 @@ func (SalesIntentScore) TableName() string { return "sales_intent_scores" }
 
 // ScriptLibrary 销冠话术库
 type ScriptLibrary struct {
-	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	Category       string    `gorm:"type:varchar(50);not null;index" json:"category"`
-	Subcategory    string    `gorm:"type:varchar(50)" json:"subcategory"`
-	Title          string    `gorm:"type:varchar(200);not null" json:"title"`
-	Content        string    `gorm:"type:text;not null" json:"content"`
-	Scenario       string    `gorm:"type:varchar(100)" json:"scenario"`
-	Tags           JSONArray `gorm:"type:text" json:"tags"`
-	UsageCount     int       `gorm:"default:0" json:"usage_count"`
-	SuccessCount   int       `gorm:"default:0" json:"success_count"`
-	ConversionRate float64   `gorm:"type:decimal(5,2);default:0" json:"conversion_rate"`
-	IsFeatured     bool      `gorm:"default:false;index" json:"is_featured"`
-	CreatedBy      uint      `json:"created_by"`
-	CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt      time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ID             uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	Category       string     `gorm:"type:varchar(50);not null;index" json:"category"`
+	Subcategory    string     `gorm:"type:varchar(50)" json:"subcategory"`
+	Title          string     `gorm:"type:varchar(200);not null" json:"title"`
+	Content        string     `gorm:"type:text;not null" json:"content"`
+	Scenario       string     `gorm:"type:varchar(100)" json:"scenario"`
+	Tags           JSONArray  `gorm:"type:text" json:"tags"`
+	UsageCount     int        `gorm:"default:0" json:"usage_count"`
+	SuccessCount   int        `gorm:"default:0" json:"success_count"`
+	ConversionRate float64    `gorm:"type:decimal(5,2);default:0" json:"conversion_rate"`
+	IsFeatured     bool       `gorm:"default:false;index" json:"is_featured"`
+	Version        int        `gorm:"default:1" json:"version"`                                 // T-6: 当前生效版本号（递增整数，Langfuse 模式）
+	Status         string     `gorm:"type:varchar(20);default:'active';index" json:"status"`    // T-6: active/archived/expired
+	ExpiresAt      *time.Time `json:"expires_at,omitempty"`                                     // T-6: 过期时间（nil=不过期）
+	CreatedBy      uint       `json:"created_by"`
+	CreatedAt      time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt      time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 func (ScriptLibrary) TableName() string { return "script_library" }
+
+// ScriptVersion 话术版本历史（T-6，Langfuse 整数版本模式：历史不可变）
+type ScriptVersion struct {
+	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	ScriptID  uint      `gorm:"not null;uniqueIndex:idx_script_version,priority:1" json:"script_id"`
+	Version   int       `gorm:"not null;uniqueIndex:idx_script_version,priority:2" json:"version"`
+	Title     string    `gorm:"type:varchar(200)" json:"title"`
+	Content   string    `gorm:"type:text;not null" json:"content"`
+	Status    string    `gorm:"type:varchar(20);default:'archived'" json:"status"` // archived/active/expired
+	Note      string    `gorm:"type:varchar(500)" json:"note"`
+	CreatedBy uint      `json:"created_by"`
+	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
+}
+
+func (ScriptVersion) TableName() string { return "script_versions" }
+
+// ScriptExposureLog 话术 AB 曝光日志（T-7：分桶+曝光+归因窗转化回写）
+type ScriptExposureLog struct {
+	ID             uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	ScriptID       uint       `gorm:"not null;index:idx_exposure_script_ver,priority:1" json:"script_id"`
+	Version        int        `gorm:"not null;default:1;index:idx_exposure_script_ver,priority:2" json:"version"`
+	Bucket         string     `gorm:"type:varchar(8);not null" json:"bucket"` // A/B（FNV-1a 确定性分桶）
+	CustomerID     uint       `gorm:"index" json:"customer_id"`
+	OneID          string     `gorm:"type:varchar(64);index" json:"one_id"`
+	ConversationID string     `gorm:"type:varchar(64);index" json:"conversation_id"`
+	TraceID        string     `gorm:"type:varchar(64)" json:"trace_id"`
+	ExposedAt      time.Time  `gorm:"index" json:"exposed_at"`
+	Converted      bool       `gorm:"default:false" json:"converted"`
+	ConvertedAt    *time.Time `json:"converted_at,omitempty"`
+	Outcome        string     `gorm:"type:varchar(30)" json:"outcome"` // converted 事件类型（won/replied/positive）
+}
+
+func (ScriptExposureLog) TableName() string { return "script_exposure_logs" }
 
 // ObjectionTemplate 异议处理模板
 type ObjectionTemplate struct {

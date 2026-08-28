@@ -51,3 +51,18 @@ func (r *SessionTagRepository) GetByID(ctx context.Context, id uint) (*model.Ses
 	return &tag, nil
 }
 
+
+// UpdateRuleCondition 更新标签规则条件（按 code 定位；空串=清除规则仅手动）
+func (r *SessionTagRepository) UpdateRuleCondition(ctx context.Context, code, condition string) error {
+	res := r.db.WithContext(ctx).
+		Model(&model.SessionTag{}).
+		Where("code = ?", code).
+		Update("rule_condition", condition)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}

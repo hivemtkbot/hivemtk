@@ -207,3 +207,100 @@ func (c *ABExperimentController) GetConversionEvents(ctx *gin.Context) {
 	}, "获取成功")
 }
 
+
+// ---------- K5 高级统计端点（GrowthBook 轻量版） ----------
+
+// GetAdvancedStats GET /api/ab-experiments/:id/stats?method=frequentist|bayesian
+func (c *ABExperimentController) GetAdvancedStats(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
+	if err != nil || id == 0 {
+		response.Error(ctx, http.StatusBadRequest, "无效的实验 ID")
+		return
+	}
+	method := ctx.DefaultQuery("method", "frequentist")
+	var out map[string]any
+	switch method {
+	case "bayesian":
+		out, err = c.abService.GetBayesianTest(uint(id))
+	default:
+		out, err = c.abService.GetAdvancedStats(uint(id))
+	}
+	if errhttp.HandleDBError(ctx, err, "查询实验统计") {
+		return
+	}
+	response.Success(ctx, out, "ok")
+}
+
+// GetExperimentDiagnostics GET /api/ab-experiments/:id/diagnostics
+func (c *ABExperimentController) GetExperimentDiagnostics(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
+	if err != nil || id == 0 {
+		response.Error(ctx, http.StatusBadRequest, "无效的实验 ID")
+		return
+	}
+	out, err := c.abService.GetDiagnostics(uint(id))
+	if errhttp.HandleDBError(ctx, err, "查询实验诊断") {
+		return
+	}
+	response.Success(ctx, out, "ok")
+}
+
+// GetExperimentCUPED GET /api/ab-experiments/:id/cuped
+func (c *ABExperimentController) GetExperimentCUPED(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
+	if err != nil || id == 0 {
+		response.Error(ctx, http.StatusBadRequest, "无效的实验 ID")
+		return
+	}
+	out, err := c.abService.GetCUPED(uint(id))
+	if errhttp.HandleDBError(ctx, err, "查询 CUPED") {
+		return
+	}
+	response.Success(ctx, out, "ok")
+}
+
+// PostSequentialTest POST /api/ab-experiments/:id/sequential-test {alpha}
+func (c *ABExperimentController) PostSequentialTest(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
+	if err != nil || id == 0 {
+		response.Error(ctx, http.StatusBadRequest, "无效的实验 ID")
+		return
+	}
+	var req struct {
+		Alpha float64 `json:"alpha"`
+	}
+	_ = ctx.ShouldBindJSON(&req)
+	out, err := c.abService.GetSequentialTest(uint(id), req.Alpha)
+	if errhttp.HandleDBError(ctx, err, "序贯检验") {
+		return
+	}
+	response.Success(ctx, out, "ok")
+}
+
+// PostBayesianTest POST /api/ab-experiments/:id/bayesian-test
+func (c *ABExperimentController) PostBayesianTest(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
+	if err != nil || id == 0 {
+		response.Error(ctx, http.StatusBadRequest, "无效的实验 ID")
+		return
+	}
+	out, err := c.abService.GetBayesianTest(uint(id))
+	if errhttp.HandleDBError(ctx, err, "贝叶斯检验") {
+		return
+	}
+	response.Success(ctx, out, "ok")
+}
+
+// GetResultsWithReach GET /api/ab-experiments/:id/results-with-reach
+func (c *ABExperimentController) GetResultsWithReach(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
+	if err != nil || id == 0 {
+		response.Error(ctx, http.StatusBadRequest, "无效的实验 ID")
+		return
+	}
+	out, err := c.abService.GetResultsWithReach(uint(id))
+	if errhttp.HandleDBError(ctx, err, "查询触达聚合结果") {
+		return
+	}
+	response.Success(ctx, out, "ok")
+}

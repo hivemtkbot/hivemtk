@@ -509,14 +509,36 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/system-monitor/health", emptyObj)
 
 	// R35 契约漂移处置（audit_checklist.md：3组真实在用端点的优雅空态，防页面报错）
-	emptyListResp := func(c *gin.Context) {
-		c.JSON(200, gin.H{"code": "SUCCESS", "message": "ok", "data": gin.H{"list": []any{}, "total": 0}})
-	}
-	doReg("GET", "/csat/stats", emptyObj)
-	doReg("GET", "/csat/template", emptyObj)
-	doReg("GET", "/csat/trend", emptyList)
-	doReg("GET", "/csat/negative", emptyListResp)
-	doReg("GET", "/mentions/mine", emptyListResp)
+	// R39 升级：CSAT 空态桩 → 真实 CSAT 域（会话评分/统计/趋势/差评/模板）
+	csatCtrl := controller.NewCSATController()
+	doReg("GET", "/csat/stats", csatCtrl.Stats)
+	doReg("GET", "/csat/template", csatCtrl.GetTemplate)
+	doReg("PUT", "/csat/template", csatCtrl.SaveTemplate)
+	doReg("GET", "/csat/trend", csatCtrl.Trend)
+	doReg("GET", "/csat/negative", csatCtrl.Negative)
+	doReg("POST", "/customer-sessions/:id/csat", csatCtrl.Submit)
+	doReg("POST", "/customer-sessions/:id/csat/trigger", csatCtrl.Trigger)
+
+	// R39 客服工作台增强：协作锁/内部备注/状态板/标签规则/快捷回复文件夹
+	csPlusCtrl := controller.NewCustomerServicePlusController()
+	doReg("POST", "/customer-sessions/:id/edit-lock", csPlusCtrl.AcquireEditLock)
+	doReg("DELETE", "/customer-sessions/:id/edit-lock", csPlusCtrl.ReleaseEditLock)
+	doReg("GET", "/customer-sessions/:id/edit-lock", csPlusCtrl.GetEditLock)
+	doReg("POST", "/customer-sessions/:id/internal-notes", csPlusCtrl.AddInternalNote)
+	doReg("GET", "/customer-sessions/:id/internal-notes", csPlusCtrl.ListInternalNotes)
+	doReg("POST", "/customer-sessions/:id/apply-tag-rule", csPlusCtrl.ApplyTagRule)
+	doReg("GET", "/session-tag/rules", csPlusCtrl.ListTagRules)
+	doReg("POST", "/session-tag/rules", csPlusCtrl.SaveTagRule)
+	doReg("GET", "/customer-service/agent-status-board", csPlusCtrl.GetAgentStatusBoard)
+	doReg("GET", "/quick-reply/folders", csPlusCtrl.ListQuickReplyFolders)
+	doReg("POST", "/quick-reply/folders", csPlusCtrl.CreateQuickReplyFolder)
+	doReg("POST", "/quick-reply/folders/:id/reorder", csPlusCtrl.ReorderQuickReplyFolder)
+	// ai-suggestions 会话维度别名（复用既有 AISuggestionController）
+	doReg("GET", "/customer-service/ai-suggestions", aiSuggestionCtrl.GetSuggestions)
+	// mentions 已读/我的提及（复用 NotificationService，mention=站内通知）
+	notifCtrlAlias := controller.NewNotificationController(service.NewNotificationService(gormDB))
+	doReg("POST", "/mentions/:id/read", notifCtrlAlias.MarkRead)
+	doReg("GET", "/mentions/mine", notifCtrlAlias.List)
 	doReg("GET", "/system/menus", func(c *gin.Context) {
 		c.JSON(200, gin.H{"code": "SUCCESS", "message": "ok", "data": []any{}})
 	})
@@ -533,6 +555,15 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/domain-pool", domainCtrl.Create)
 	doReg("PUT", "/domain-pool/:id", domainCtrl.Update)
 	doReg("DELETE", "/domain-pool/:id", domainCtrl.Delete)
+	// R39 domainPool.js 动作端点
+	doReg("POST", "/domain-pool/check-all", domainCtrl.CheckAllDomains)
+	doReg("GET", "/domain-pool/health", domainCtrl.HealthCheckAll)
+	doReg("GET", "/domain-pool/alerts", domainCtrl.ListAlerts)
+	doReg("POST", "/domain-pool/alerts/:id/resolve", domainCtrl.ResolveAlert)
+	doReg("GET", "/domain-pool/:id/blacklist", domainCtrl.CheckBlacklist)
+	doReg("POST", "/domain-pool/:id/check", domainCtrl.CheckDomainByID)
+	doReg("POST", "/domain-pool/:id/rotate", domainCtrl.RotateToBackup)
+	doReg("POST", "/domain-pool/:id/suspend", domainCtrl.SuspendDomain)
 
 
 

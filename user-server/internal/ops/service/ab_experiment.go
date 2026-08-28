@@ -350,3 +350,169 @@ func (s *ABExperimentService) GetConversionEvents(experimentID uint, page, pageS
 	return s.conversionRepo.GetByExperiment(experimentID, page, pageSize)
 }
 
+
+// ---------- K5 高级统计（GrowthBook 轻量版，纯函数见 ab_stats.go） ----------
+
+// variantCountsFromRepo 变体计数 → 统计输入
+func (s *ABExperimentService) variantCountsFromRepo(experimentID uint) ([]VariantCounts, error) {
+	variants, err := s.variantRepo.GetByExperiment(experimentID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]VariantCounts, 0, len(variants))
+	for _, v := range variants {
+		out = append(out, VariantCounts{
+			VariantID:       v.ID,
+			VariantName:     v.Name,
+			IsControl:       v.IsControl,
+			TrafficCount:    v.TrafficCount,
+			ConversionCount: v.ConversionCount,
+		})
+	}
+	return out, nil
+}
+
+// GetAdvancedStats 频率派 z 检验结果（method=frequentist）
+func (s *ABExperimentService) GetAdvancedStats(experimentID uint) (map[string]any, error) {
+	counts, err := s.variantCountsFromRepo(experimentID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"method":   "frequentist",
+		"variants": FrequentistStats(counts),
+	}, nil
+}
+
+// GetBayesianTest 贝叶斯胜率
+func (s *ABExperimentService) GetBayesianTest(experimentID uint) (map[string]any, error) {
+	counts, err := s.variantCountsFromRepo(experimentID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"method":   "bayesian",
+		"variants": BayesianTest(counts, 20000, nil),
+	}, nil
+}
+
+// GetSequentialTest SPRT 序贯检验
+func (s *ABExperimentService) GetSequentialTest(experimentID uint, alpha float64) (map[string]any, error) {
+	counts, err := s.variantCountsFromRepo(experimentID)
+	if err != nil {
+		return nil, err
+	}
+	v := SequentialTest(counts, alpha)
+	return map[string]any{"method": "sequential", "result": v}, nil
+}
+
+// GetDiagnostics SRM + 最小样本 + 多曝光诊断
+func (s *ABExperimentService) GetDiagnostics(experimentID uint) (map[string]any, error) {
+	counts, err := s.variantCountsFromRepo(experimentID)
+	if err != nil {
+		return nil, err
+	}
+	multi := s.countMultiExposeUsers(experimentID)
+	d := Diagnostics(counts, multi)
+	return map[string]any{"diagnostics": d}, nil
+}
+
+// countMultiExposeUsers 出现在 >1 个变体的用户数（诊断多曝光）
+func (s *ABExperimentService) countMultiExposeUsers(experimentID uint) int {
+	events, _, err := s.conversionRepo.GetByExperiment(experimentID, 1, 5000)
+	if err != nil {
+		return 0
+	}
+	userVariants := map[string]map[uint]bool{}
+	for _, e := range events {
+		if e.UserID == "" {
+			continue
+		}
+		if userVariants[e.UserID] == nil {
+			userVariants[e.UserID] = map[uint]bool{}
+		}
+		userVariants[e.UserID][e.VariantID] = true
+	}
+	multi := 0
+	for _, vs := range userVariants {
+		if len(vs) > 1 {
+			multi++
+		}
+	}
+	return multi
+}
+
+// GetCUPED CUPED 方差缩减（协变量=实验前事件计数；无数据退化）
+func (s *ABExperimentService) GetCUPED(experimentID uint) (map[string]any, error) {
+	counts, err := s.variantCountsFromRepo(experimentID)
+	if err != nil {
+		return nil, err
+	}
+	users, err := s.cupedUserMetrics(experimentID)
+	if err != nil {
+		users = nil
+	}
+	res := CUPED(counts, users)
+	return map[string]any{"cuped": res}, nil
+}
+
+// cupedUserMetrics 按 user_id 聚合 (实验内转化次数, 实验开始前事件数)
+func (s *ABExperimentService) cupedUserMetrics(experimentID uint) ([]cupedUserMetric, error) {
+	exp, err := s.experimentRepo.GetByID(experimentID)
+	if err != nil {
+		return nil, err
+	}
+	events, _, err := s.conversionRepo.GetByExperiment(experimentID, 1, 5000)
+	if err != nil {
+		return nil, err
+	}
+	type agg struct {
+		post int
+		pre  int
+	}
+	byUser := map[string]*agg{}
+	for _, e := range events {
+		if e.UserID == "" {
+			continue
+		}
+		a, ok := byUser[e.UserID]
+		if !ok {
+			a = &agg{}
+			byUser[e.UserID] = a
+		}
+		if exp.StartDate != nil && e.CreatedAt.Before(*exp.StartDate) {
+			a.pre++
+		} else {
+			a.post++
+		}
+	}
+	out := make([]cupedUserMetric, 0, len(byUser))
+	for _, a := range byUser {
+		out = append(out, cupedUserMetric{y: float64(a.post), x: float64(a.pre)})
+	}
+	return out, nil
+}
+
+// GetResultsWithReach 结果 + 触达维度聚合（reach 回流：按事件类型分桶）
+func (s *ABExperimentService) GetResultsWithReach(experimentID uint) (map[string]any, error) {
+	results, err := s.resultRepo.GetByExperiment(experimentID)
+	if err != nil {
+		return nil, err
+	}
+	events, _, err := s.conversionRepo.GetByExperiment(experimentID, 1, 5000)
+	if err != nil {
+		return nil, err
+	}
+	byEventType := map[string]int64{}
+	byVariantEvent := map[string]int64{}
+	for _, e := range events {
+		byEventType[e.EventType]++
+		key := e.EventType
+		byVariantEvent[key]++
+	}
+	return map[string]any{
+		"results":        results,
+		"event_breakdown": byEventType,
+		"variant_event":   byVariantEvent,
+	}, nil
+}

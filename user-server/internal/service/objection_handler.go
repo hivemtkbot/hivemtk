@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"sort"
 	"strings"
+	"sync"
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/repository"
@@ -142,8 +143,12 @@ func (s *ObjectionHandlerService) classifyWithConfidence(ctx context.Context, te
 
 // HandleRequest 异议处理请求
 type HandleRequest struct {
-	Text     string `json:"text"`
-	Category string `json:"category"`
+	Text           string `json:"text"`
+	Category       string `json:"category"`
+	OneID          string `json:"one_id"`          // T-7 AB 曝光归因锚点（可选）
+	CustomerID     uint   `json:"customer_id"`     // T-7（可选）
+	ConversationID string `json:"conversation_id"` // T-7（可选）
+	TraceID        string `json:"trace_id"`        // T-7（可选）
 }
 
 // HandleResponse 异议处理响应
@@ -204,7 +209,18 @@ func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest)
 		resp.Template = &resp.Templates[0]
 		// T-2 归因闭环：推荐话术后异步记录 usage（异议→话术→转化率结构化数据）
 		// 失败仅告警，不影响主响应
-		s.recordUsageAsync(ctx, resp.Template.ID)
+		// T-7 扩展：带 AB 曝光上下文（one_id 缺失时不记录曝光）
+		var exposure *scriptExposure
+		if req.OneID != "" {
+			exposure = &scriptExposure{
+				version:        reqVersionOf(scripts, resp.Template.ID),
+				oneID:          req.OneID,
+				customerID:     req.CustomerID,
+				conversationID: req.ConversationID,
+				traceID:        req.TraceID,
+			}
+		}
+		s.recordUsageAsync(ctx, resp.Template.ID, exposure)
 	}
 
 	if len(resp.Templates) == 0 {
@@ -279,11 +295,45 @@ func (s *ObjectionHandlerService) RecordUsage(ctx context.Context, templateID ui
 	return s.scriptRepo.IncrementUsageStats(ctx, templateID, success)
 }
 
+// scriptAB 话术 AB 曝光服务（T-7，懒加载单例；nil 安全）
+var scriptABOnce sync.Once
+var scriptABSvc *ScriptABService
+
+func getScriptABService() *ScriptABService {
+	scriptABOnce.Do(func() {
+		repo := repository.NewScriptLibraryRepository(repository.GetDB())
+		if repo == nil {
+			return
+		}
+		scriptABSvc = NewScriptABService(repo)
+	})
+	return scriptABSvc
+}
+
+// RecordScriptExposure T-7 曝光记录入口：fire-and-forget，绝不影响主链路
+//
+// version/oneID/customerID/conversationID/traceID 任一关键位缺失时静默跳过。
+func RecordScriptExposure(scriptID uint, version int, oneID string, customerID uint, conversationID, traceID string) {
+	svc := getScriptABService()
+	if svc == nil || scriptID == 0 || oneID == "" {
+		return
+	}
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Warn("[ScriptAB] 曝光记录 panic recovered", "script_id", scriptID, "panic", r)
+			}
+		}()
+		svc.RecordExposure(scriptID, version, oneID, customerID, conversationID, traceID)
+	}()
+}
+
 // recordUsageAsync 异步记录模板推荐 usage（T-2 归因闭环）
 //
 // 使用脱离取消信号的 context（context.WithoutCancel）确保请求返回后记录仍能落库；
 // 记录失败仅打日志，绝不影响主响应。
-func (s *ObjectionHandlerService) recordUsageAsync(ctx context.Context, templateID uint) {
+// T-7 扩展：exposure 非空时同步写入 AB 曝光日志（分桶+版本+会话锚点）。
+func (s *ObjectionHandlerService) recordUsageAsync(ctx context.Context, templateID uint, exposure *scriptExposure) {
 	if s == nil || s.scriptRepo == nil || templateID == 0 {
 		return
 	}
@@ -293,6 +343,31 @@ func (s *ObjectionHandlerService) recordUsageAsync(ctx context.Context, template
 			slog.Warn("objection handler auto record usage failed", "template_id", templateID, "error", err)
 		}
 	}()
+	if exposure != nil {
+		RecordScriptExposure(templateID, exposure.version, exposure.oneID, exposure.customerID, exposure.conversationID, exposure.traceID)
+	}
+}
+
+// scriptExposure T-7 曝光上下文（Handle 内组装后传入 recordUsageAsync）
+type scriptExposure struct {
+	version        int
+	oneID          string
+	customerID     uint
+	conversationID string
+	traceID        string
+}
+
+// reqVersionOf 从已加载话术中取指定 ID 的版本号（T-7；缺省 1）
+func reqVersionOf(scripts []model.ScriptLibrary, templateID uint) int {
+	for _, sc := range scripts {
+		if sc.ID == templateID {
+			if sc.Version > 0 {
+				return sc.Version
+			}
+			return 1
+		}
+	}
+	return 1
 }
 
 // acknowledgeTemplates T-4 LAER-Acknowledge 镜像复述前缀模板层。

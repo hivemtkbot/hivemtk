@@ -68,6 +68,15 @@ func (ctrl *KnowledgeWorkspaceController) RegisterRoutes(router *gin.RouterGroup
 		kb.POST("/openapi/sources/:id/test", ctrl.TestOpenAPISource)
 		kb.POST("/openapi/sources/:id/toggle", ctrl.ToggleOpenAPISource)
 
+		// R39: knowledgeImport.js 按 KB 导入适配
+		kb.POST("/:id/upload", ctrl.UploadImportToKB)
+		kb.POST("/:id/import/url", ctrl.URLImportToKB)
+		kb.POST("/:id/import/notion", ctrl.NotionImportToKB)
+		kb.POST("/:id/import/feishu", ctrl.FeishuImportToKB)
+		kb.POST("/:id/import/dingtalk", ctrl.DingtalkImportToKB)
+		kb.POST("/:id/import/crm", ctrl.CRMImportToKB)
+		kb.GET("/document-types", ctrl.ListDocumentTypes)
+
 		kb.GET("/stats/overview", ctrl.GetOverviewStats)
 		kb.GET("/stats/documents", ctrl.GetDocumentStats)
 		kb.GET("/stats/searches", ctrl.GetSearchStats)
@@ -762,3 +771,139 @@ func (ctrl *KnowledgeWorkspaceController) resolveProductID(raw string) string {
 	return raw
 }
 
+
+// ---------- R39: knowledgeImport.js 按 KB 导入适配端点 ----------
+//
+// 前端契约：POST /api/knowledge/:kbId/upload|import/url|import/notion|import/feishu|import/dingtalk|import/crm
+// 语义：URL 型直接走 URL 抓取管线；非 URL 型（notion/feishu/dingtalk/crm）若无 url 则要求 content，
+// 连接器凭据化对接由外部导入 job（knowledge-merchant/external/*）承载。
+
+// UploadImportToKB POST /api/knowledge/:id/upload
+func (ctrl *KnowledgeWorkspaceController) UploadImportToKB(c *gin.Context) {
+	productID := c.Param("id")
+	if productID == "" {
+		response.Error(c, http.StatusBadRequest, "KB ID 不能为空")
+		return
+	}
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "文件上传失败: "+err.Error())
+		return
+	}
+	defer file.Close()
+
+	title := c.PostForm("title")
+	if title == "" {
+		title = header.Filename
+	}
+	req := &knowledgesvc.ImportRequest{
+		ProductID:  productID,
+		SourceType: knowledgemodel.SourceTypeUpload,
+		Title:      title,
+		Category:   c.PostForm("type"),
+		Operator:   ctrl.getOperator(c),
+		IP:         c.ClientIP(),
+		UserAgent:  c.Request.UserAgent(),
+		File:       file,
+		FileHeader: header,
+	}
+	if metaJSON := c.PostForm("metadata"); metaJSON != "" {
+		var meta map[string]any
+		if err := json.Unmarshal([]byte(metaJSON), &meta); err == nil {
+			req.Metadata = meta
+		}
+	}
+	result, err := ctrl.kbService.Import(c.Request.Context(), req)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(c, result, "文件已接收,处理已启动")
+}
+
+// connectorImportToKB 通用连接器导入（url 优先，content 兜底）
+func (ctrl *KnowledgeWorkspaceController) connectorImportToKB(c *gin.Context, source string) {
+	productID := c.Param("id")
+	if productID == "" {
+		response.Error(c, http.StatusBadRequest, "KB ID 不能为空")
+		return
+	}
+	var body struct {
+		URL      string         `json:"url"`
+		Title    string         `json:"title"`
+		Content  string         `json:"content"`
+		Category string         `json:"category"`
+		Metadata map[string]any `json:"metadata"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Error(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		return
+	}
+	if body.Metadata == nil {
+		body.Metadata = map[string]any{}
+	}
+	body.Metadata["connector"] = source
+
+	req := &knowledgesvc.ImportRequest{
+		ProductID: productID,
+		Title:     body.Title,
+		Category:  body.Category,
+		Metadata:  body.Metadata,
+		Operator:  ctrl.getOperator(c),
+		IP:        c.ClientIP(),
+		UserAgent: c.Request.UserAgent(),
+	}
+	if body.URL != "" {
+		req.SourceType = knowledgemodel.SourceTypeURL
+		req.SourceRef = body.URL
+		if req.Title == "" {
+			req.Title = body.URL
+		}
+	} else if body.Content != "" {
+		req.SourceType = knowledgemodel.SourceTypeText
+		req.Content = body.Content
+		if req.Title == "" {
+			req.Title = source + " 导入"
+		}
+	} else {
+		response.Error(c, http.StatusBadRequest, "需要 url 或 content 字段（"+source+" 连接器凭据化对接由外部导入任务承载）")
+		return
+	}
+	result, err := ctrl.kbService.Import(c.Request.Context(), req)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(c, result, source+" 导入已启动")
+}
+
+// URLImportToKB POST /api/knowledge/:id/import/url
+func (ctrl *KnowledgeWorkspaceController) URLImportToKB(c *gin.Context) { ctrl.connectorImportToKB(c, "url") }
+
+// NotionImportToKB POST /api/knowledge/:id/import/notion
+func (ctrl *KnowledgeWorkspaceController) NotionImportToKB(c *gin.Context) { ctrl.connectorImportToKB(c, "notion") }
+
+// FeishuImportToKB POST /api/knowledge/:id/import/feishu
+func (ctrl *KnowledgeWorkspaceController) FeishuImportToKB(c *gin.Context) { ctrl.connectorImportToKB(c, "feishu") }
+
+// DingtalkImportToKB POST /api/knowledge/:id/import/dingtalk
+func (ctrl *KnowledgeWorkspaceController) DingtalkImportToKB(c *gin.Context) { ctrl.connectorImportToKB(c, "dingtalk") }
+
+// CRMImportToKB POST /api/knowledge/:id/import/crm
+func (ctrl *KnowledgeWorkspaceController) CRMImportToKB(c *gin.Context) { ctrl.connectorImportToKB(c, "crm") }
+
+// ListDocumentTypes GET /api/knowledge/document-types — 支持的文档类型枚举
+func (ctrl *KnowledgeWorkspaceController) ListDocumentTypes(c *gin.Context) {
+	response.Success(c, gin.H{"list": []gin.H{
+		{"type": "markdown", "name": "Markdown", "extensions": []string{".md", ".markdown"}},
+		{"type": "pdf", "name": "PDF", "extensions": []string{".pdf"}},
+		{"type": "docx", "name": "Word", "extensions": []string{".doc", ".docx"}},
+		{"type": "html", "name": "HTML", "extensions": []string{".html", ".htm"}},
+		{"type": "url", "name": "网页 URL", "extensions": []string{}},
+		{"type": "text", "name": "纯文本", "extensions": []string{".txt"}},
+		{"type": "notion", "name": "Notion", "extensions": []string{}},
+		{"type": "feishu", "name": "飞书文档", "extensions": []string{}},
+		{"type": "dingtalk", "name": "钉钉文档", "extensions": []string{}},
+		{"type": "crm", "name": "CRM 数据", "extensions": []string{}},
+	}, "total": 10}, "ok")
+}
