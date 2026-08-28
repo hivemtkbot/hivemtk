@@ -394,7 +394,7 @@ hivemtk/                              # 用户端仓库
 ├── user-server/                      # Go 后端（核心业务,五层架构）
 ├── user-web/                         # Vue 3 前端（B 端工作台 + bridge 子模块）
 ├── embed-sdk/                        # 嵌入式客服 Web Widget（IIFE/ESM）
-├── migrations/                       # 数据库迁移 SQL（002-055,幂等）
+├── migrations/                       # 数据库迁移 SQL（002-018, 024-055, 幂等, 019-023 已移除）
 ├── scripts/
 │   ├── inference-host/               # 宿主机推理栈脚本（llama.cpp + TEI）
 │   ├── check-architecture.sh         # 五层架构 CI 检查

@@ -16,12 +16,15 @@
 
 ## 🚀 Live Demo
 
-> The demo runs on shared sample data and uses public registration. Please register on the login page to get a demo account. Do not upload real business data.
+> ⚠️ The demo runs on shared sample data. Demo data is publicly accessible — do not upload real business data.
+> Demo credentials are published below; please change the default password immediately after first login.
 
 | Item | Value |
 |------|-------|
-| **Demo URL** | https://hiveuser.xapptool.cn/ |
-| **Access** | Register on the login page |
+| **Demo URL** | https://hiveuser.xapptool.cn/ (subject to official release announcements) |
+| **Admin username** | `admin` |
+| **Admin password** | `Seed@123456` |
+| **API docs** | After deployment: `http://<host>:8204/swagger/index.html` |
 
 ---
 
@@ -56,11 +59,12 @@ make dev       # Start user-server with hot-reload → http://localhost:8204 (de
 
 ### Solution
 
-HiveMtk nails **self-hosted + true AI agent + 7-channel coverage** at once:
+HiveMtk nails **self-hosted + true AI agent + 10+ channel coverage + GEO optimization** at once:
 
 - **Data locked in your perimeter**: All conversations, knowledge base, embeddings, and RAG stay inside your network. Runs fully offline.
 - **True AI autonomy**: ReAct loop (perceive → plan → tool-call → reflect, up to 5 rounds), not dead workflows.
-- **7 channels, one workspace**: Douyin / Kuaishou / Xiaohongshu / Xianyu / TikTok / WeChat / SMS / Email unified.
+- **10+ channels, one workspace**: Douyin / Kuaishou / Xiaohongshu / Xianyu / TikTok / WeCom / Telegram / WhatsApp / SMS / Email unified.
+- **GEO (Generative Engine Optimization)**: AI-search content optimization pipeline — get your brand cited by ChatGPT Search, Perplexity, and Google SGE.
 
 ### Who It's For
 
@@ -81,29 +85,33 @@ HiveMtk nails **self-hosted + true AI agent + 7-channel coverage** at once:
 
 ---
 
-## Three Core Selling Points
+## Four Core Capabilities
 
-### 1. 🌐 All-Channel Coverage: One Workspace, Seven Platforms
+### 1. 🌐 All-Channel Coverage: One Workspace, 10+ Platforms
 
 | Channel | Outreach | Smart Cards | Auto-Reply | RAG CS | Notes |
 |---------|---------|-------------|-----------|--------|-------|
-| Douyin (抖音) | ✅ | ✅ | ✅ | ✅ | Live + DM |
-| Kuaishou (快手) | ✅ | ✅ | ✅ | ✅ | Live + DM |
-| Xiaohongshu (小红书) | ✅ | ✅ | ✅ | ✅ | DM + Comments |
-| Xianyu (闲鱼) | ✅ | ✅ | ✅ | ✅ | C2C commerce |
-| TikTok | ✅ | ✅ | ✅ | ✅ | Overseas matrix |
+| Douyin (抖音) | ✅ | ✅ | ✅ | ✅ | Bridge extension, live + DM |
+| Kuaishou (快手) | ✅ | ✅ | ✅ | ✅ | Bridge extension, live + DM |
+| Xiaohongshu (小红书) | ✅ | ✅ | ✅ | ✅ | Bridge extension, DM + comments |
+| Xianyu (闲鱼) | ✅ | ✅ | ✅ | ✅ | Bridge extension, C2C commerce |
+| TikTok | ✅ | ✅ | ✅ | ✅ | Bridge extension, overseas matrix |
 | WeChat / WeCom | ✅ | — | ✅ | ✅ | Groups + Moments |
-| SMS | ✅ | — | — | — | Multi-carrier |
-| Email | ✅ | — | — | — | SMTP/163/QQ |
+| Telegram | ✅ | — | ✅ | ✅ | Bot protocol direct |
+| WhatsApp | ✅ | — | ✅ | ✅ | Cloud API + template messages |
+| Email | ✅ | — | ✅ | ✅ | SMTP / 163 / QQ |
+| SMS | ✅ | — | — | — | Aliyun / Tencent / Huawei |
+
+> **Bridge Architecture**: Douyin / Kuaishou / Xiaohongshu / Xianyu / TikTok connect via a **Chrome extension (Bridge client) + your own logged-in browser session** — no headless browser needed. When the extension browser is online, inbound DMs flow into the unified inbox; AI-generated replies are sent from the real session via the extension.
 
 Unified CDP (Customer Data Platform), unified inbox — one profile reaches everywhere; every conversation, ticket, and DM lands in one place.
 
 ### 2. 🤖 AI Paradigm: ReAct Autonomous Agents, Not Dead Workflows
 
 - **ReAct Loop**: Perceive → Plan → Tool-call → Reflect (up to 5 rounds), the agent decides on its own
-- **Built-in Tool Suite**: Order lookup, refund, inventory, logistics, customer profile, address change, whitelist add… The code is the inventory: [user-server/internal/aiagent/agent/tooluse/](user-server/internal/aiagent/agent/tooluse/)
-- **3-Tier RAG**: Coarse retrieval (vector recall) + Fine rerank (bge-reranker) + LLM rewrite (HyDE/Query Rewriter)
-- **Multi-Agent**: Reactive answering agent + Proactive outreach agent (ADR-013)
+- **Tool Decorator Chain**: Permission → Retry → Timeout → RateLimit → Audit, five core decorators wrapping every tool call (plus circuit breaker, dead-letter queue, loop guard). Code as inventory: [user-server/internal/aiagent/agent/tooluse/](user-server/internal/aiagent/agent/tooluse/)
+- **Hybrid RAG**: Coarse retrieval (pgvector HNSW vector + BM25 keyword, RRF fusion) → Fine rerank (bge-reranker-v2-m3) → optional query rewrite (HyDE / MultiQuery)
+- **Multi-Agent**: Reactive answering agent + Proactive outreach agent
 - **AI Sales Champion**: Script templates + RAG + auto follow-up — full agent assist for human reps
 - **Visual Workflow Builder**: No-code SOP editor for marketing automation
 
@@ -116,6 +124,27 @@ Unified CDP (Customer Data Platform), unified inbox — one profile reaches ever
 - **FRP Private Tunneling**: Visitors reach you via public DNS, but data flows back through the tunnel — **the cloud never sees a single message**
 - **Compliance-Friendly**: Meets classified deployment, data-residency, and private-deployment baselines
 - **Optional Cloud LLM**: Want a stronger model? Just point `LLM_BASE_URL` at DeepSeek/OpenAI. Embedding/Rerank stay strictly local.
+
+### 4. 🎯 GEO Optimization: AI-Search Customer Acquisition Loop
+
+> **GEO (Generative Engine Optimization)**: Content optimization for AI search engines (ChatGPT Search, Perplexity, Google SGE). SEO fights for ranking — GEO fights for a **seat in the AI answer**, getting your brand cited positively when large models are asked.
+
+Pipeline: Brand config → Keyword distillation → Content creation → Multi-model validation → Platform syndication
+
+Six capabilities:
+
+| Capability | Description |
+|------------|-------------|
+| **Keyword Distillation** | Seed words expanded to high-value keyword sets (comparison / review / purchase intent) |
+| **Content Creation** | Brand-voice / word-count / style constrained generation, 4-dimension scoring |
+| **E-E-A-T + Schema** | Inject Experience / Expertise / Authority / Trust signals, auto-generate JSON-LD |
+| **Multi-Model Validation** | Multi-vendor LLM simulates AI search answering, quantifies "seat in AI answer" |
+| **RAG Knowledge Base** | Anchor generated content to brand facts, reduce hallucination |
+| **Platform Syndication** | Distribute optimized content to high-authority sites for corpus index inclusion |
+
+Additional features: DAG workflow engine, negative monitoring, ROI & cost reporting, technical config generation (robots.txt / sitemap.xml), global LLM Dispatcher reuse.
+
+Full guide: [user-server/docs/geo-module-guide.md](user-server/docs/geo-module-guide.md)
 
 ---
 
@@ -241,7 +270,7 @@ hivemtk/                              # User-side repo
 ├── user-server/                      # Go backend (core business, 5-layer arch)
 ├── user-web/                         # Vue 3 frontend (B-side workspace)
 ├── embed-sdk/                        # Embeddable chat Web Widget (IIFE/ESM)
-├── migrations/                       # DB migration SQL (002-033, idempotent)
+├── migrations/                       # DB migration SQL (002-055, idempotent)
 ├── scripts/
 │   ├── inference-host/               # ⭐ Host inference stack scripts (llama.cpp + TEI)
 │   ├── check-architecture.sh         # 5-layer architecture CI check
