@@ -43,3 +43,8 @@ export function deleteEvent(id) {
   // R5-D1 修复: 同上, id 编码
   return http.delete(`/api/events/customer/${encodeURIComponent(id)}`)
 }
+
+// R41: 全局分页事件流（替代全客户 N+1 拉取；后端五层新端点）
+export function getGlobalEvents(params) {
+  return http.get('/api/customer-events/list', params)
+}

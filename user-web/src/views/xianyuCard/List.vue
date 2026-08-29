@@ -41,7 +41,8 @@
           <template #default="scope">
             <el-image 
               style="width: 100px; height: 100px" 
-              :src="scope.row.image_url" 
+              :src="scope.row.image_url"
+              @error="onImgError" 
               :preview-src-list="[scope.row.image_url]"
               fit="cover"
             />
@@ -152,6 +153,15 @@
 </template>
 
 <script setup>
+
+// R41: 占位外链图(img.example.com 等)不可达时显示内置占位 SVG
+const onImgError = (e) => {
+  const img = e.target
+  if (img && !img.dataset.fallback) {
+    img.dataset.fallback = '1'
+    img.src = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="%23f0f2f5"/><text x="40" y="46" font-size="12" text-anchor="middle" fill="%2390a0b0">%E6%97%A0%E5%9B%BE</text></svg>')
+  }
+}
 import i18n from '@/i18n'
 
 import { ref, reactive, onMounted } from 'vue'

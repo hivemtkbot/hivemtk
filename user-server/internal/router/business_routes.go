@@ -293,6 +293,8 @@ func setupEventRoutes(auth *gin.RouterGroup) {
 	eventCtrl := controller.NewCustomerEventController()
 	auth.POST("/events/track", eventCtrl.TrackEvent)
 	auth.GET("/events/customer/:id", eventCtrl.GetEventHistory)
+	// R41: 全局分页事件流（替代前端 N+1 全客户拉取）
+	auth.GET("/customer-events/list", eventCtrl.ListGlobal)
 	auth.DELETE("/events/customer/:id", eventCtrl.DeleteEvent)
 	auth.GET("/events/stats", eventCtrl.GetEventStats)
 	auth.POST("/events/pageview", eventCtrl.TrackPageView)

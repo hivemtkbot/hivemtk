@@ -4,6 +4,7 @@ import (
 	"context"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
 	"net/http"
 	"strconv"
@@ -14,14 +15,16 @@ import (
 
 // CustomerEventController 客户事件控制器
 type CustomerEventController struct {
-	tracker *service.EventTracker
+	tracker   *service.EventTracker
+	eventRepo repository.CustomerEventRepository
 }
 
 // NewCustomerEventController 创建客户事件控制器
 func NewCustomerEventController() *CustomerEventController {
 	customerService := service.NewCustomerService()
 	return &CustomerEventController{
-		tracker: service.NewEventTracker(customerService),
+		tracker:   service.NewEventTracker(customerService),
+		eventRepo: repository.NewCustomerEventRepository(),
 	}
 }
 
@@ -321,3 +324,20 @@ func (c *CustomerEventController) TrackAddToCart(ctx *gin.Context) {
 	response.Success(ctx, nil, "加购事件追踪成功")
 }
 
+
+// ListGlobal R41: GET /api/customer-events/list — 全局分页事件流
+//
+// 替代前端"全客户 N+1 逐个拉取"模式（同时根除脏 conv-id 触发 Gin %2F 解码 404 的问题）。
+func (c *CustomerEventController) ListGlobal(ctx *gin.Context) {
+	limit, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "50"))
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	if page <= 0 {
+		page = 1
+	}
+	list, total, err := c.eventRepo.ListGlobal(ctx.Request.Context(), ctx.Query("event_type"), limit, (page-1)*limit)
+	if err != nil {
+		response.ErrorFromDB(ctx, err, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"list": list, "total": total, "page": page, "page_size": limit}, "ok")
+}

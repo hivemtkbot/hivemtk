@@ -165,7 +165,7 @@ import i18n from '@/i18n'
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getCustomerEventHistory, getEventStats, trackEvent } from '@/api/customerEvent.js'
+import { getCustomerEventHistory, getEventStats, trackEvent, getGlobalEvents } from '@/api/customerEvent.js'
 import { getCustomerList } from '@/api/customer360.js'
 
 const loading = ref(false)
@@ -214,19 +214,12 @@ const mapEvent = (e) => {
 const loadEvents = async () => {
   loading.value = true
   try {
-    const custRes = await getCustomerList({})
-    const custMap = custRes?.list || {}
-    const customerIds = Array.isArray(custMap) ? custMap.map(c => c.id || c.user_id) : Object.keys(custMap)
-    const lists = await Promise.all(
-      customerIds.map(id =>
-        getCustomerEventHistory(id, { limit: 50 })
-          .then(r => (Array.isArray(r) ? r : (r?.list || [])))
-          .catch(() => [])
-      )
-    )
-    const all = lists.flat().map(mapEvent).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-    events.value = all
-    pagination.value.total = all.length
+    // R41 修复: 改用后端全局分页事件流(一次请求)
+    // 原"全客户 N+1 逐个拉取"在生产规模会打爆后端, 且脏 conv-id(含 / %2F)触发 Gin 路由解码 404
+    const res = await getGlobalEvents({ page: pagination.value.page || 1, page_size: pagination.value.pageSize || 50 })
+    const raw = Array.isArray(res) ? res : (res?.list || [])
+    events.value = raw.map(mapEvent)
+    pagination.value.total = res?.total ?? raw.length
   } finally {
     loading.value = false
   }

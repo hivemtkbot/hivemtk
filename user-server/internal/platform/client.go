@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"errors"
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -17,6 +18,9 @@ import (
 	"sync"
 	"time"
 )
+
+// ErrPlatformNotConfigured 平台客户端未配置哨兵错误（轮询型端点静默降级判定用）
+var ErrPlatformNotConfigured = errors.New("平台配置未初始化")
 
 type Client struct {
 	merchantSecret string // 每商户独立 HMAC 密钥(平台注册响应下发)

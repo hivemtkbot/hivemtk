@@ -1,6 +1,7 @@
 package repository
 
 import (
+	_db "hivemtk-user/internal/pkg/db"
 	"context"
 	"hivemtk-user/internal/model"
 	"time"
@@ -34,6 +35,7 @@ type CustomerEventRepository interface {
 	GetByTimeRange(ctx context.Context, start, end time.Time) ([]*model.CustomerEvent, error)
 	GetStats(ctx context.Context, start, end time.Time) (*EventStats, error)
 	DeleteByCustomerID(ctx context.Context, customerID string) (int64, error)
+	ListGlobal(ctx context.Context, eventType string, limit, offset int) ([]*model.CustomerEvent, int64, error)
 }
 
 // customerEventRepository implements CustomerEventRepository
@@ -178,3 +180,25 @@ func (r *customerEventRepository) GetStats(ctx context.Context, start, end time.
 	return stats, nil
 }
 
+
+// ListGlobal R41: 全局分页事件列表（替代前端 N+1 全客户逐个拉取，
+// 同时根除"会话名含 / 的脏 id 触发 Gin 解码 404"问题）
+func (r *customerEventRepository) ListGlobal(ctx context.Context, eventType string, limit, offset int) ([]*model.CustomerEvent, int64, error) {
+	q := _db.GetDB().WithContext(ctx).Model(&model.CustomerEvent{})
+	if eventType != "" {
+		q = q.Where("event_type = ?", eventType)
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	var list []*model.CustomerEvent
+	err := q.Order("created_at DESC").Limit(limit).Offset(offset).Find(&list).Error
+	return list, total, err
+}

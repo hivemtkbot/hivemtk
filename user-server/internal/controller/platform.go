@@ -46,6 +46,29 @@ func (pc *PlatformController) platformData(c *gin.Context, method, path string, 
 		response.Error(c, http.StatusServiceUnavailable, "平台客户端未初始化,请检查 config/platform.yaml 配置")
 		return false
 	}
+	ok, err := pc.platformDataRaw(c, method, path, req, resp)
+	if ok {
+		return true
+	}
+	// 错误响应写回（平台端 4xx 透传，其余 502 网关语义）
+	if perr, ok := err.(*platform.PlatformError); ok {
+		switch perr.StatusCode {
+		case http.StatusNotFound, http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden:
+			response.Error(c, perr.StatusCode, errMsg+": "+perr.Msg())
+		default:
+			response.Error(c, http.StatusBadGateway, errMsg+": "+perr.Error())
+		}
+	} else {
+		response.Error(c, http.StatusBadGateway, errMsg+": "+err.Error())
+	}
+	return false
+}
+
+// platformDataRaw R41: 不写响应的取数内核（供轮询型端点做静默降级，避免 502 已落盘后再补写无效）
+func (pc *PlatformController) platformDataRaw(c *gin.Context, method, path string, req, resp any) (bool, error) {
+	if pc.platformClient == nil {
+		return false, platform.ErrPlatformNotConfigured
+	}
 
 	// 审计 L6：对幂等的 GET 代理请求做短时缓存，降低对平台 API 的重复调用压力。
 	// 缓存命中直接返回；未命中在调用成功后写入；写类请求(POST/DELETE/...)不缓存。
@@ -54,7 +77,7 @@ func (pc *PlatformController) platformData(c *gin.Context, method, path string, 
 	if method == http.MethodGet {
 		if gc := cache.GetGlobalCache(); gc != nil {
 			if err := gc.GetJSON(c.Request.Context(), cacheKey, resp); err == nil {
-				return true
+				return true, nil
 			}
 		}
 	}
@@ -68,23 +91,12 @@ func (pc *PlatformController) platformData(c *gin.Context, method, path string, 
 		Data json.RawMessage `json:"data"`
 	}
 	if err := pc.platformClient.Do(method, path, req, &wrapper); err != nil {
-		if perr, ok := err.(*platform.PlatformError); ok {
-			switch perr.StatusCode {
-			case http.StatusNotFound, http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden:
-				response.Error(c, perr.StatusCode, errMsg+": "+perr.Msg())
-			default:
-				response.Error(c, http.StatusBadGateway, errMsg+": "+perr.Error())
-			}
-		} else {
-			response.Error(c, http.StatusBadGateway, errMsg+": "+err.Error())
-		}
-		return false
+		return false, err
 	}
 
 	if len(wrapper.Data) > 0 && string(wrapper.Data) != "null" {
 		if err := json.Unmarshal(wrapper.Data, resp); err != nil {
-			response.Error(c, http.StatusBadGateway, errMsg+": 响应解析失败: "+err.Error())
-			return false
+			return false, fmt.Errorf("响应解析失败: %w", err)
 		}
 	}
 
@@ -93,7 +105,7 @@ func (pc *PlatformController) platformData(c *gin.Context, method, path string, 
 			_ = gc.SetJSON(c.Request.Context(), cacheKey, resp, platformCacheTTL)
 		}
 	}
-	return true
+	return true, nil
 }
 
 
@@ -229,9 +241,10 @@ func (pc *PlatformController) GetLatestMessage(c *gin.Context) {
 	var resp struct {
 		List []map[string]any `json:"list"`
 	}
-	// R40 优雅空态：轮询型端点（顶部铃铛 _silent 轮询），单机部署（无平台端）时
-	// 平台不可达不应产生 502 错误流——返回空消息静默降级，不影响其余平台代理语义。
-	if !pc.platformData(c, http.MethodGet, "/platform/message/list?page=1&page_size=1", nil, &resp, "获取最新站内信失败") {
+	// R41 修复：改用 platformDataRaw（不写响应内核）——此前 platformData 失败时已写 502 落盘，
+	// 本函数再补写 SUCCESS 造成双响应体（502 头 + 拼接 JSON），前端解析报"非 JSON 响应"。
+	// 轮询型端点静默降级：平台不可达/未配置 → 空消息 200。
+	if ok, _ := pc.platformDataRaw(c, http.MethodGet, "/platform/message/list?page=1&page_size=1", nil, &resp); !ok {
 		response.Success(c, nil, "")
 		return
 	}
