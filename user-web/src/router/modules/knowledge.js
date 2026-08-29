@@ -18,6 +18,12 @@ export default [
     meta: { title: '检索 Playground', group: 'knowledge', icon: 'Aim', requiresAuth: true }
   },
   {
+    path: 'knowledge/connectors',
+    name: 'KnowledgeConnectors',
+    component: () => import('@/views/KnowledgeWorkspace/Connectors.vue'),
+    meta: { title: '外部连接器', group: 'knowledge', icon: 'Link', requiresAuth: true }
+  },
+  {
     path: 'knowledge/feedbacks',
     name: 'KnowledgeFeedbacks',
     component: () => import('@/views/KnowledgeWorkspace/FeedbackList.vue'),

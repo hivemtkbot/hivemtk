@@ -1,0 +1,292 @@
+// kb_connector_pull.go 知识连接器一键拉取导入（R42，R40/R41 连接器链路收口）
+//
+// 诚实边界（用户视角论证结论）：
+//   - notion：完整实现（POST /v1/search 列页面 → GET /v1/blocks/{id}/children 提取纯文本 →
+//     走既有 KB Import 管线 text 类型入库，metadata.connector=notion, source_ref=页面 URL）
+//   - feishu/dingtalk/crm：返回明确 not_implemented 契约（这些源需要更复杂的
+//     OAuth/导出 API/私有协议，凭据+测试连接已就绪，自动拉取待后续迭代）
+//   - 限速：Notion 官方 3 rps → 串行请求 + max_pages 上限（默认 10，上限 20）
+package service
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+
+	knowledgemodel "hivemtk-user/internal/aiagent/knowledge/model"
+	knowledgesvc "hivemtk-user/internal/aiagent/knowledge/service"
+)
+
+// ConnectorPullLimits 拉取上限
+const (
+	ConnectorPullMaxPagesDefault = 10
+	ConnectorPullMaxPagesCap     = 20
+	notionAPIRateGap             = 350 * time.Millisecond // 尊重 Notion 3 rps
+)
+
+// ConnectorPullResult 拉取导入结果
+type ConnectorPullResult struct {
+	Source   string                 `json:"source"`
+	Imported int                    `json:"imported"`
+	Failed   int                    `json:"failed"`
+	Skipped  int                    `json:"skipped"` // 空内容页面
+	Details  []ConnectorPullPageRow `json:"details"`
+}
+
+// ConnectorPullPageRow 单页结果
+type ConnectorPullPageRow struct {
+	PageID  string `json:"page_id"`
+	Title   string `json:"title"`
+	Status  string `json:"status"` // imported/failed/skipped
+	Message string `json:"message,omitempty"`
+}
+
+// ConnectorPullRequest 拉取参数
+type ConnectorPullRequest struct {
+	Query    string `json:"query"`     // 可选搜索词（空=全部）
+	MaxPages int    `json:"max_pages"` // 默认 10 上限 20
+}
+
+// kbImportSink KB 导入管线端口（适配 knowledgesvc.KnowledgeService.Import，测试可注入 mock）
+type kbImportSink interface {
+	Import(ctx context.Context, req *knowledgesvc.ImportRequest) (any, error)
+}
+
+// Pull 从连接器源拉取内容并导入知识库
+func (s *KBConnectorService) Pull(ctx context.Context, source, productID string, req *ConnectorPullRequest) (*ConnectorPullResult, error) {
+	if !kbConnectorSources[source] {
+		return nil, fmt.Errorf("不支持的连接器: %s", source)
+	}
+	if strings.TrimSpace(productID) == "" {
+		return nil, fmt.Errorf("product_id(KB ID) 不能为空")
+	}
+	raw, err := s.kv.Get(ctx, connectorKVKey(source))
+	if err != nil || raw == "" {
+		return nil, fmt.Errorf("连接器 %s 未配置凭据，请先保存凭据并测试连接", source)
+	}
+	var saved SaveConnectorRequest
+	if err := json.Unmarshal([]byte(raw), &saved); err != nil {
+		return nil, fmt.Errorf("凭据损坏，请重新保存")
+	}
+	if source == "notion" {
+		return s.pullNotion(ctx, productID, &saved, req)
+	}
+	return nil, fmt.Errorf("连接器 %s 的自动拉取尚未实现（凭据与连通测试已就绪；内容接入请用外部导入推送或 OpenAPI 集成）", source)
+}
+
+// pullNotion Notion 拉取：search → blocks children 提取文本 → Import 管线
+func (s *KBConnectorService) pullNotion(ctx context.Context, productID string, saved *SaveConnectorRequest, req *ConnectorPullRequest) (*ConnectorPullResult, error) {
+	token, _ := saved.Config["token"].(string)
+	if strings.TrimSpace(token) == "" {
+		return nil, fmt.Errorf("Notion token 缺失，请重新保存凭据")
+	}
+	maxPages := req.MaxPages
+	if maxPages <= 0 {
+		maxPages = ConnectorPullMaxPagesDefault
+	}
+	if maxPages > ConnectorPullMaxPagesCap {
+		maxPages = ConnectorPullMaxPagesCap
+	}
+
+	// 1. search 列页面
+	pages, err := s.notionSearch(ctx, token, req.Query)
+	if err != nil {
+		return nil, fmt.Errorf("Notion 搜索失败: %w", err)
+	}
+	res := &ConnectorPullResult{Source: "notion"}
+	importer := knowledgesvc.NewKnowledgeService()
+
+	for i, pg := range pages {
+		if i >= maxPages {
+			break
+		}
+		row := ConnectorPullPageRow{PageID: pg.ID, Title: pg.Title}
+		text, err := s.notionPageText(ctx, token, pg.ID)
+		if err != nil {
+			row.Status = "failed"
+			row.Message = err.Error()
+			res.Failed++
+			res.Details = append(res.Details, row)
+			continue
+		}
+		if strings.TrimSpace(text) == "" {
+			row.Status = "skipped"
+			row.Message = "页面无可提取文本（纯附件/数据库视图）"
+			res.Skipped++
+			res.Details = append(res.Details, row)
+			continue
+		}
+		_, err = importer.Import(ctx, &knowledgesvc.ImportRequest{
+			ProductID:  productID,
+			SourceType: knowledgemodel.SourceTypeText,
+			Title:      pg.Title,
+			Content:    text,
+			Operator:   "connector:notion",
+			SourceRef:  pg.URL,
+			Metadata: map[string]any{
+				"connector": "notion",
+				"page_id":   pg.ID,
+			},
+		})
+		if err != nil {
+			row.Status = "failed"
+			row.Message = err.Error()
+			res.Failed++
+		} else {
+			row.Status = "imported"
+			res.Imported++
+		}
+		res.Details = append(res.Details, row)
+		time.Sleep(notionAPIRateGap) // 尊重 3 rps
+	}
+	return res, nil
+}
+
+// notionPage 搜索结果条目
+type notionPage struct {
+	ID    string
+	Title string
+	URL   string
+}
+
+// notionSearch POST /v1/search 列页面（按最后编辑时间倒序）
+func (s *KBConnectorService) notionSearch(ctx context.Context, token, query string) ([]notionPage, error) {
+	body := map[string]any{
+		"page_size": ConnectorPullMaxPagesCap,
+		"filter":    map[string]any{"property": "object", "value": "page"},
+	}
+	if query != "" {
+		body["query"] = query
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.notion.com/v1/search", bytes.NewReader(raw))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Notion-Version", "2022-06-28")
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := s.httpCli.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Results []struct {
+			ID         string         `json:"id"`
+			URL        string         `json:"url"`
+			Properties map[string]any `json:"properties"`
+		} `json:"results"`
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, out.Message)
+	}
+	pages := make([]notionPage, 0, len(out.Results))
+	for _, r := range out.Results {
+		pages = append(pages, notionPage{
+			ID:    r.ID,
+			Title: extractNotionTitle(r.Properties),
+			URL:   r.URL,
+		})
+	}
+	return pages, nil
+}
+
+// notionPageText GET /v1/blocks/{id}/children 提取纯文本（单层 blocks + rich_text）
+func (s *KBConnectorService) notionPageText(ctx context.Context, token, pageID string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		"https://api.notion.com/v1/blocks/"+pageID+"/children?page_size=100", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Notion-Version", "2022-06-28")
+	resp, err := s.httpCli.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	if resp.StatusCode != http.StatusOK {
+		var e struct {
+			Message string `json:"message"`
+		}
+		_ = json.Unmarshal(raw, &e)
+		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, e.Message)
+	}
+	// 通用解码：results[] 内每种类型是同名字段
+	var generic struct {
+		Results []map[string]any `json:"results"`
+	}
+	if err := json.Unmarshal(raw, &generic); err != nil {
+		return "", err
+	}
+	var sb strings.Builder
+	for _, b := range generic.Results {
+		bt, _ := b["type"].(string)
+		if bt == "" {
+			continue
+		}
+		obj, ok := b[bt].(map[string]any)
+		if !ok {
+			continue
+		}
+		if line := notionRichText(obj["rich_text"]); line != "" {
+			sb.WriteString(line)
+			sb.WriteString("\n")
+		}
+	}
+	return sb.String(), nil
+}
+
+// notionRichText 提取 rich_text 数组的 plain_text 拼接
+func notionRichText(v any) string {
+	arr, ok := v.([]any)
+	if !ok {
+		return ""
+	}
+	var sb strings.Builder
+	for _, item := range arr {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if pt, ok := m["plain_text"].(string); ok {
+			sb.WriteString(pt)
+		}
+	}
+	return sb.String()
+}
+
+// extractNotionTitle 从页面 properties 提取标题（首个 title 类型属性）
+func extractNotionTitle(props map[string]any) string {
+	if props == nil {
+		return ""
+	}
+	// Notion 页面标题属性名不定（"Name"/"title"/自定义）——遍历取首个 title 类属性
+	for _, pv := range props {
+		pm, ok := pv.(map[string]any)
+		if !ok {
+			continue
+		}
+		if t, _ := pm["type"].(string); t != "title" {
+			continue
+		}
+		if title := notionRichText(pm["title"]); title != "" {
+			return title
+		}
+	}
+	return "未命名页面"
+}

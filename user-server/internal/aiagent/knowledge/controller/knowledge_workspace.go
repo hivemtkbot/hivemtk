@@ -84,6 +84,7 @@ func (ctrl *KnowledgeWorkspaceController) RegisterRoutes(router *gin.RouterGroup
 		kb.GET("/connectors/:source", connectorCtrl.Get)
 		kb.PUT("/connectors/:source", connectorCtrl.Save)
 		kb.POST("/connectors/:source/test", connectorCtrl.Test)
+		kb.POST("/connectors/:source/pull", connectorCtrl.Pull)
 
 		kb.GET("/stats/overview", ctrl.GetOverviewStats)
 		kb.GET("/stats/documents", ctrl.GetDocumentStats)

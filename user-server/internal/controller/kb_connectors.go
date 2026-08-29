@@ -2,6 +2,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 
 	"hivemtk-user/internal/pkg/utils/response"
@@ -51,4 +52,25 @@ func (c *KBConnectorController) Test(ctx *gin.Context) {
 		return
 	}
 	response.Success(ctx, res, res.Message)
+}
+
+// Pull POST /api/knowledge/connectors/:source/pull {product_id, query, max_pages}
+//
+// R42: 一键拉取导入（notion 完整实现；其余源返回明确 not_implemented 契约）。
+func (c *KBConnectorController) Pull(ctx *gin.Context) {
+	// 注意: Gin body 只能读一次 → 单结构体合并绑定(product_id + 拉取参数)
+	var body struct {
+		service.ConnectorPullRequest
+		ProductID string `json:"product_id"`
+	}
+	_ = ctx.ShouldBindJSON(&body)
+	productID := body.ProductID
+	if productID == "" {
+		productID = ctx.Query("product_id")
+	}
+	res, err := c.svc.Pull(ctx.Request.Context(), ctx.Param("source"), productID, &body.ConnectorPullRequest)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, res, fmt.Sprintf("拉取完成: 成功 %d / 失败 %d / 跳过 %d", res.Imported, res.Failed, res.Skipped))
 }
