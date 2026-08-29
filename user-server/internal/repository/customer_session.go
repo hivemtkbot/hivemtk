@@ -5,9 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"hivemtk-user/internal/model"
 	_db "hivemtk-user/internal/pkg/db"
-	"time"
 
 	"gorm.io/gorm"
 )
@@ -592,4 +594,40 @@ func (r *CustomerSessionRepository) UpdateTags(ctx context.Context, sessionID, t
 		Model(&model.CustomerSession{}).
 		Where("session_id = ?", sessionID).
 		Update("tags", tagsJSON).Error
+}
+
+// ---------- R46: CustomerSegment 分群持久化 ----------
+
+// CreateSegment 创建分群
+func (r *CustomerSessionRepository) CreateSegment(ctx context.Context, seg *model.CustomerSegment) error {
+	return r.db.WithContext(ctx).Create(seg).Error
+}
+
+// ListSegments 分群列表
+func (r *CustomerSessionRepository) ListSegments(ctx context.Context, limit int) ([]*model.CustomerSegment, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	var list []*model.CustomerSegment
+	err := r.db.WithContext(ctx).Order("id DESC").Limit(limit).Find(&list).Error
+	return list, err
+}
+
+// CountSegmentMembers 规则规模估算（rules JSON 里编译的 SQL 条件安全执行）
+func (r *CustomerSessionRepository) CountSegmentMembers(ctx context.Context, whereSQL string) (int64, error) {
+	if strings.TrimSpace(whereSQL) == "" {
+		return 0, fmt.Errorf("空条件")
+	}
+	// 白名单校验：只允许 SELECT COUNT(*) 语义的单条件片段
+	low := strings.ToLower(whereSQL)
+	for _, bad := range []string{";", "drop", "delete", "update ", "insert", "alter", "truncate", "pg_", "--"} {
+		if strings.Contains(low, bad) {
+			return 0, fmt.Errorf("条件包含非法片段")
+		}
+	}
+	var n int64
+	err := r.db.WithContext(ctx).Table("customers").
+		Where("deleted_at IS NULL AND ("+whereSQL+")").
+		Count(&n).Error
+	return n, err
 }

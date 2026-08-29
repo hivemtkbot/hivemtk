@@ -21,7 +21,9 @@
             <el-collapse-item title="凭据配置">
               <el-form label-position="top" size="small">
                 <el-form-item v-for="field in credFields(c.source)" :key="field.key" :label="field.label">
-                  <el-input v-model="credForm[c.source][field.key]" :placeholder="field.placeholder" show-password />
+                  <el-input v-model="credForm[c.source][field.key]"
+                    :placeholder="isMasked(c.source, field.key) ? '已配置（输入新值以更换，留空保持不变）' : field.placeholder"
+                    show-password />
                 </el-form-item>
                 <el-switch v-model="credForm[c.source].enabled" active-text="启用" />
                 <div class="form-actions">
@@ -93,14 +95,29 @@ const loadConnectors = async () => {
   try {
     const res = await http.get('/api/knowledge/connectors')
     connectors.value = res?.data?.list || []
-    // 回显脱敏凭据到表单（密钥为 ****xxxx，保存原样回传即保持不变——后端原值覆盖前需注意）
+    // R46 修复: 密钥字段不回填脱敏值（此前把 ****xxxx 回填表单，保存时会把掩码存回毁掉真凭据）
+    // 非密钥字段正常回显；密钥字段留空 + placeholder 提示"已配置(输入以更换)"
     for (const c of connectors.value) {
-      credForm.value[c.source] = { ...emptyCred(), ...(c.config || {}), enabled: c.enabled }
+      const cfg = c.config || {}
+      const form = { ...emptyCred(), enabled: c.enabled }
+      for (const k of Object.keys(cfg)) {
+        const v = cfg[k]
+        if (typeof v === 'string' && v.startsWith('****')) {
+          maskedFields.value[`${c.source}.${k}`] = true
+        } else {
+          form[k] = v
+        }
+      }
+      credForm.value[c.source] = form
     }
   } catch (e) {
     console.error('load connectors failed', e)
   }
 }
+
+const maskedFields = ref({})
+
+const isMasked = (source, key) => !!maskedFields.value[`${source}.${key}`]
 
 const loadKBs = async () => {
   try {
@@ -111,7 +128,17 @@ const loadKBs = async () => {
 
 const saveCred = async (source) => {
   try {
-    await http.put(`/api/knowledge/connectors/${source}`, credForm.value[source])
+    // R46: 密钥留空 = 保持原值（剔除空密钥字段再提交，避免空串覆盖真实凭据）
+    const payload = { ...credForm.value[source] }
+    const cfg = { ...(payload.config || {}) }
+    for (const [k, v] of Object.entries(cfg)) {
+      if (typeof v === 'string' && v.trim() === '') delete cfg[k]
+    }
+    for (const f of credFields(source)) {
+      if (String(payload[f.key] || '').trim() === '' && maskedFields.value[`${source}.${f.key}`]) continue
+      if (f.key !== 'enabled') cfg[f.key] = payload[f.key]
+    }
+    await http.put(`/api/knowledge/connectors/${source}`, { enabled: payload.enabled, config: cfg })
     ElMessage.success('凭据已保存（读取侧自动脱敏）')
     await loadConnectors()
   } catch (e) {

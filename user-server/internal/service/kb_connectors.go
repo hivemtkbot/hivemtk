@@ -104,9 +104,37 @@ func (s *KBConnectorService) Get(ctx context.Context, source string) ConnectorSt
 }
 
 // Save 保存凭据（写侧接受明文；仅存 KV，日志不落）
+// R46 语义修正: 密钥字段缺省/空串 = 保留原值（前端脱敏回显后不再回传掩码，避免掩码覆盖真凭据）
 func (s *KBConnectorService) Save(ctx context.Context, source string, req *SaveConnectorRequest) error {
 	if !kbConnectorSources[source] {
 		return fmt.Errorf("不支持的连接器: %s", source)
+	}
+	if req.Config == nil {
+		req.Config = map[string]any{}
+	}
+	if raw, err := s.kv.Get(ctx, connectorKVKey(source)); err == nil && raw != "" {
+		var prev SaveConnectorRequest
+		if json.Unmarshal([]byte(raw), &prev) == nil && prev.Config != nil {
+			for k, v := range prev.Config {
+				lower := strings.ToLower(k)
+				isSecret := false
+				for _, sf := range kbConnectorSecretFields {
+					if strings.Contains(lower, sf) {
+						isSecret = true
+						break
+					}
+				}
+				if !isSecret {
+					continue
+				}
+				cur, ok := req.Config[k]
+				if !ok {
+					req.Config[k] = v // 缺省 → 保留原值
+				} else if sv, isStr := cur.(string); isStr && strings.TrimSpace(sv) == "" {
+					req.Config[k] = v // 空串 → 保留原值
+				}
+			}
+		}
 	}
 	raw, err := json.Marshal(req)
 	if err != nil {

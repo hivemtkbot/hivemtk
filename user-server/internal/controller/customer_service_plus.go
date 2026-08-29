@@ -223,3 +223,85 @@ func (c *CustomerServicePlusController) DeleteQuickReplyFolder(ctx *gin.Context)
 	}
 	response.Success(ctx, gin.H{"deleted": true}, "文件夹已删除")
 }
+
+// ---------- R46: 分群端点 ----------
+
+// CreateSegment POST /api/user-segments {name, rules, trigger, where_sql}
+func (c *CustomerServicePlusController) CreateSegment(ctx *gin.Context) {
+	var req service.SegmentSaveRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误："+err.Error())
+		return
+	}
+	seg, err := c.svc.SaveSegment(ctx.Request.Context(), &req)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, seg, "分群已保存")
+}
+
+// ListSegments GET /api/user-segments
+func (c *CustomerServicePlusController) ListSegments(ctx *gin.Context) {
+	limit := 100
+	if l := ctx.Query("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil {
+			limit = n
+		}
+	}
+	list, err := c.svc.ListSegments(ctx.Request.Context(), limit)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"list": list, "total": len(list)}, "ok")
+}
+
+
+// ---------- R46: MessageHub DLQ ----------
+
+// DLQList GET /api/message-hub/dlq?limit=50
+func (c *CustomerServicePlusController) DLQList(ctx *gin.Context) {
+	limit := 50
+	if l := ctx.Query("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil {
+			limit = n
+		}
+	}
+	list, total, err := c.svc.DLQList(ctx.Request.Context(), limit)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"list": list, "total": total}, "ok")
+}
+
+// DLQRetryOne POST /api/message-hub/dlq/:id/retry
+func (c *CustomerServicePlusController) DLQRetryOne(ctx *gin.Context) {
+	id, ok := parseUintParam(ctx, "id")
+	if !ok {
+		return
+	}
+	if err := c.svc.DLQRetryOne(ctx.Request.Context(), id); HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"retried": true}, "已重新入队")
+}
+
+// DLQDrop DELETE /api/message-hub/dlq/:id
+func (c *CustomerServicePlusController) DLQDrop(ctx *gin.Context) {
+	id, ok := parseUintParam(ctx, "id")
+	if !ok {
+		return
+	}
+	if err := c.svc.DLQDrop(ctx.Request.Context(), id); HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"dropped": true}, "已丢弃")
+}
+
+// DLQBatchRetry POST /api/message-hub/dlq/batch-retry（真实数量返回）
+func (c *CustomerServicePlusController) DLQBatchRetry(ctx *gin.Context) {
+	n, err := c.svc.DLQBatchRetry(ctx.Request.Context())
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"requeued": n}, "批量重试完成")
+}

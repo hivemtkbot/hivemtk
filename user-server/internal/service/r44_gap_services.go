@@ -193,8 +193,32 @@ func (s *RagEvalGapService) UploadCSV(ctx context.Context, r io.Reader, productI
 	return n, nil
 }
 
-// Run 执行评测：逐条 question → HybridSearch top5 → 答案关键词命中率
-func (s *RagEvalGapService) Run(ctx context.Context, productID string) (*model.RagEvalRun, error) {
+// RunAsync 异步执行评测（R46 修正: 200条×检索同步必超时——先落 running 记录，后台计算后回填）
+func (s *RagEvalGapService) RunAsync(productID string) (*model.RagEvalRun, error) {
+	g := db.GetDB()
+	run := &model.RagEvalRun{Total: -1}
+	if err := g.Create(run).Error; err != nil {
+		return nil, err
+	}
+	go func(runID uint, pid string) {
+		defer func() { _ = recover() }()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		res, err := s.computeRun(ctx, pid)
+		if err != nil {
+			_ = g.Model(&model.RagEvalRun{}).Where("id = ?", runID).Updates(map[string]any{"total": -2, "eval_set_size": 0}).Error
+			return
+		}
+		_ = g.Model(&model.RagEvalRun{}).Where("id = ?", runID).Updates(map[string]any{
+			"total": res.Total, "hit": res.Hit, "recall5": res.Recall5,
+			"mrr": res.MRR, "ndcg5": res.NDCG5, "eval_set_size": res.EvalSetSize,
+		}).Error
+	}(run.ID, productID)
+	return run, nil
+}
+
+// computeRun 同步计算内核（Run/RunAsync 共用）
+func (s *RagEvalGapService) computeRun(ctx context.Context, productID string) (*model.RagEvalRun, error) {
 	g := db.GetDB()
 	var qs []model.RagEvalQuestion
 	q := g.WithContext(ctx).Model(&model.RagEvalQuestion{})
@@ -207,6 +231,7 @@ func (s *RagEvalGapService) Run(ctx context.Context, productID string) (*model.R
 	if len(qs) == 0 {
 		return nil, fmt.Errorf("评测集为空，请先上传 CSV（question,answer）")
 	}
+	_ = productID
 
 	// 检索端口：复用 knowledge workspace Search（走既有 HybridSearch 管线）
 	// 通过内部函数引用，避免绕过五层
@@ -599,8 +624,8 @@ func (s *EmailGapService) DomainReputation(ctx context.Context) ([]DomainReputat
 		User string `gorm:"column:username"`
 	}
 	var smtps []smtpRow
-	if err := g.WithContext(ctx).Table("smtp_configs").
-		Select("host, username").Where("deleted_at IS NULL").Limit(10).Scan(&smtps).Error; err == nil {
+	if err := g.WithContext(ctx).Table("email_smtp").
+		Select("server AS host, username").Where("deleted_at IS NULL").Limit(10).Scan(&smtps).Error; err == nil {
 		for _, r := range smtps {
 			parts := strings.Split(r.User, "@")
 			if len(parts) == 2 && parts[1] != "" {
@@ -674,8 +699,16 @@ func (s *EmailGapService) RFMMatrix(ctx context.Context) ([]RFMMatrixRow, RFMMat
 	if err != nil {
 		return nil, RFMMatrixStats{}, err
 	}
-	// Distribution 返回 map[层名]count — 映射到 R×F 网格（层名形如 R5F5/重要价值客户等）
-	// 诚实口径：层名不是 R/F 网格时归入 (3,3) 桶
+	// R46 修正: segment 实际枚举为 5 个英文分层（champion/loyal/at_risk/potential/churn，
+	// 见 controller/user_segment.go GetLayerDescription），并非 R5F5 网格——
+	// 映射到代表性格点（层间在 R/F 轴上的语义位置），保证矩阵可视化不失真
+	layerPos := map[string][2]int{
+		"champion":  {5, 5}, // 冠军: R最高 F最高
+		"loyal":     {4, 4}, // 忠诚: 高R较高F
+		"potential": {3, 2}, // 潜在: 中R低F
+		"at_risk":   {2, 3}, // 流失风险: 低R中F
+		"churn":     {1, 1}, // 已流失
+	}
 	rows := map[string]*RFMMatrixRow{}
 	st := RFMMatrixStats{}
 	get := func(r, f int) *RFMMatrixRow {
@@ -687,25 +720,18 @@ func (s *EmailGapService) RFMMatrix(ctx context.Context) ([]RFMMatrixRow, RFMMat
 	}
 	for layer, cnt := range dist {
 		st.Total += cnt
-		ul := strings.ToUpper(layer)
-		r, f := 3, 3
-		for i := 1; i <= 5; i++ {
-			if strings.Contains(ul, fmt.Sprintf("R%d", i)) {
-				r = i
-			}
-			if strings.Contains(ul, fmt.Sprintf("F%d", i)) {
-				f = i
-			}
+		pos, ok := layerPos[layer]
+		if !ok {
+			pos = [2]int{3, 3}
 		}
-		*get(r, f) = RFMMatrixRow{Recency: r, Frequency: f, Count: cnt}
-		// 高价值: R>=4 且 F>=4；活跃: R>=3；流失风险: R<=2
-		if r >= 4 && f >= 4 {
+		*get(pos[0], pos[1]) = RFMMatrixRow{Recency: pos[0], Frequency: pos[1], Count: cnt}
+		switch layer {
+		case "champion", "loyal":
 			st.HighValue += cnt
-		}
-		if r >= 3 {
 			st.Active += cnt
-		}
-		if r <= 2 {
+		case "potential":
+			st.Active += cnt
+		case "at_risk", "churn":
 			st.ChurnRisk += cnt
 		}
 	}

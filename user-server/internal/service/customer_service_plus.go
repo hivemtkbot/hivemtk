@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/repository"
 )
 
@@ -310,4 +311,148 @@ func NewCustomerServicePlusServiceFromGlobal() *CustomerServicePlusService {
 // DeleteFolder 删除文件夹（R43 补齐：可建可删）
 func (s *CustomerServicePlusService) DeleteFolder(ctx context.Context, folderID uint) error {
 	return s.folderRepo.Delete(ctx, folderID)
+}
+
+// ---------- R46: 分群真实持久化（此前 saveSegment 为假按钮） ----------
+
+// SegmentSaveRequest 分群保存请求
+type SegmentSaveRequest struct {
+	Name        string          `json:"name" binding:"required"`
+	Description string          `json:"description"`
+	Rules       json.RawMessage `json:"rules"`               // 规则树/RFM 快照
+	Trigger     string          `json:"trigger"`             // static/dynamic
+	WhereSQL    string          `json:"where_sql,omitempty"` // 可编译条件（规模估算用，白名单校验）
+}
+
+// SaveSegment 创建分群（真实落库 + 规模估算）
+func (s *CustomerServicePlusService) SaveSegment(ctx context.Context, req *SegmentSaveRequest) (*model.CustomerSegment, error) {
+	if strings.TrimSpace(req.Name) == "" {
+		return nil, fmt.Errorf("分群名称不能为空")
+	}
+	rulesJSON := "{}"
+	if len(req.Rules) > 0 {
+		rulesJSON = string(req.Rules)
+	}
+	seg := &model.CustomerSegment{
+		Name:        req.Name,
+		Description: req.Description,
+		RulesJSON:   rulesJSON,
+		Trigger:     req.Trigger,
+	}
+	if req.WhereSQL != "" {
+		if n, err := s.sessionRepo.CountSegmentMembers(ctx, req.WhereSQL); err == nil {
+			seg.Size = n
+		}
+	}
+	if err := s.sessionRepo.CreateSegment(ctx, seg); err != nil {
+		return nil, err
+	}
+	return seg, nil
+}
+
+// ListSegments 分群列表
+func (s *CustomerServicePlusService) ListSegments(ctx context.Context, limit int) ([]*model.CustomerSegment, error) {
+	return s.sessionRepo.ListSegments(ctx, limit)
+}
+
+
+// ---------- R46: MessageHub DLQ 真实实现（此前 batch-retry 为空转假实现: 表中无 dead_letter 状态） ----------
+//
+// 语义（源码核实）: message_hub.status ∈ pending/failed/inflight/delivered；
+// 死信 = status='failed'（投递失败）。重试 = failed→pending（由投递 consumer 重新拾取）。
+
+// DLQListRow 死信列表行（前端 Dashboard 契约: 含 failedAt）
+type DLQListRow struct {
+	ID        uint   `json:"id"`
+	Platform  string `json:"platform"`
+	MsgID     string `json:"msg_id"`
+	Direction string `json:"direction"`
+	Content   string `json:"content"`
+	Error     string `json:"error"`
+	Retries   int    `json:"retries"`
+	FailedAt  string `json:"failedAt"`
+}
+
+// DLQList 死信列表
+func (s *CustomerServicePlusService) DLQList(ctx context.Context, limit int) ([]*DLQListRow, int64, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	g := db.GetDB()
+	var total int64
+	if err := g.WithContext(ctx).Table("message_hub").Where("status = 'failed'").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	type srcRow struct {
+		ID        uint
+		Platform  string
+		MsgID     string
+		Direction string
+		Content   string
+		Extra     []byte
+		UpdatedAt time.Time
+	}
+	var src []srcRow
+	if err := g.WithContext(ctx).Table("message_hub").
+		Select("id, platform, msg_id, direction, content, extra, sent_at AS updated_at").
+		Where("status = 'failed'").
+		Order("updated_at DESC").Limit(limit).Scan(&src).Error; err != nil {
+		return nil, 0, err
+	}
+	out := make([]*DLQListRow, 0, len(src))
+	for _, r := range src {
+		retries := 0
+		if len(r.Extra) > 0 {
+			var ex map[string]any
+			if json.Unmarshal(r.Extra, &ex) == nil {
+				if rc, ok := ex["retry_count"].(float64); ok {
+					retries = int(rc)
+				}
+			}
+		}
+		out = append(out, &DLQListRow{
+			ID: r.ID, Platform: r.Platform, MsgID: r.MsgID, Direction: r.Direction,
+			Content: r.Content, Error: "投递失败", Retries: retries,
+			FailedAt: r.UpdatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+	return out, total, nil
+}
+
+// DLQRetryOne 单条重试: failed→pending
+func (s *CustomerServicePlusService) DLQRetryOne(ctx context.Context, id uint) error {
+	g := db.GetDB()
+	res := g.WithContext(ctx).Table("message_hub").
+		Where("id = ? AND status = 'failed'", id).
+		Update("status", "pending")
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("记录不存在或非失败状态")
+	}
+	return nil
+}
+
+// DLQDrop 丢弃死信（删除）
+func (s *CustomerServicePlusService) DLQDrop(ctx context.Context, id uint) error {
+	g := db.GetDB()
+	res := g.WithContext(ctx).Table("message_hub").Where("id = ? AND status = 'failed'", id).Delete(nil)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("记录不存在或非失败状态")
+	}
+	return nil
+}
+
+// DLQBatchRetry 批量重试（返回真实重入队数量；上限单批 500 防风暴）
+func (s *CustomerServicePlusService) DLQBatchRetry(ctx context.Context) (int64, error) {
+	g := db.GetDB()
+	res := g.WithContext(ctx).Table("message_hub").
+		Where("status = 'failed'").
+		Limit(500).
+		Update("status", "pending")
+	return res.RowsAffected, res.Error
 }

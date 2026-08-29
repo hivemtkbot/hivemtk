@@ -3,6 +3,7 @@ package controller
 
 import (
 	"context"
+	"strings"
 	"time"
 	"net/http"
 	"strconv"
@@ -147,11 +148,11 @@ func (c *RagEvalGapController) Run(ctx *gin.Context) {
 		ProductID string `json:"product_id"`
 	}
 	_ = ctx.ShouldBindJSON(&body)
-	run, err := c.svc.Run(ctx.Request.Context(), body.ProductID)
+	run, err := c.svc.RunAsync(body.ProductID)
 	if HandleServiceError(ctx, err) {
 		return
 	}
-	response.Success(ctx, run, "评测完成")
+	response.Success(ctx, run, "评测已启动（后台执行，稍后刷新查看结果）")
 }
 
 // Upload POST /api/rag/eval/upload (multipart file)
@@ -331,28 +332,107 @@ func (c *EmailGapController) PlaygroundPresets(ctx *gin.Context) {
 	}, "total": 5}, "ok")
 }
 
-// ClueApplySuggestions POST /api/clues/import/apply-suggestions {suggestions:[{row_index, field, value}]}
+// ClueApplySuggestions POST /api/clues/import/apply-suggestions {duplicates:[{existingClueId,row}], action}
+// R46 真实语义: duplicates 逐条按 action 处理——merge=把 row 字段合并进现有线索; skip=跳过
 func (c *EmailGapController) ClueApplySuggestions(ctx *gin.Context) {
 	var req struct {
-		BatchNo     string `json:"batch_no"`
-		Suggestions []struct {
-			RowIndex int            `json:"row_index"`
-			Action   string         `json:"action"` // create/update/skip
-			Data     map[string]any `json:"data"`
-		} `json:"suggestions"`
+		Duplicates []struct {
+			ExistingClueID int64           `json:"existingClueId"`
+			Row            map[string]any  `json:"row"`
+		} `json:"duplicates"`
+		Action string `json:"action"` // merge/skip
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误："+err.Error())
 		return
 	}
-	applied, skipped := 0, 0
-	for _, s := range req.Suggestions {
-		if s.Action == "skip" {
+	g := db.GetDB()
+	merged, skipped, failed := 0, 0, 0
+	for _, dup := range req.Duplicates {
+		if req.Action != "merge" || dup.ExistingClueID <= 0 || dup.Row == nil {
 			skipped++
 			continue
 		}
-		applied++
+		// 把导入行的非空字段合并进现有线索（仅白名单字段，schema 对齐 model.Clue）
+		updates := map[string]any{}
+		for _, f := range []string{"name", "city", "address", "desc", "account", "source_id"} {
+			if v, ok := dup.Row[f]; ok {
+				if sv, isStr := v.(string); isStr && strings.TrimSpace(sv) != "" {
+					updates[f] = sv
+				}
+			}
+		}
+		if len(updates) == 0 {
+			skipped++
+			continue
+		}
+		if err := g.WithContext(ctx.Request.Context()).Table("clues").
+			Where("id = ?", dup.ExistingClueID).Updates(updates).Error; err != nil {
+			failed++
+			continue
+		}
+		merged++
 	}
-	response.Success(ctx, gin.H{"applied": applied, "skipped": skipped, "batch_no": req.BatchNo},
-		"导入建议已应用（逐条落库由 clue import 管线承接）")
+	response.Success(ctx, gin.H{"merged": merged, "skipped": skipped, "failed": failed}, "建议已应用")
+}
+
+// ClueMerge POST /api/clues/:id/merge {from:{...row}}
+func (c *EmailGapController) ClueMerge(ctx *gin.Context) {
+	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.Error(ctx, http.StatusBadRequest, "无效的线索 ID")
+		return
+	}
+	var req struct {
+		From map[string]any `json:"from"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil || req.From == nil {
+		response.Error(ctx, http.StatusBadRequest, "缺少 from 行数据")
+		return
+	}
+	updates := map[string]any{}
+	for _, f := range []string{"name", "city", "address", "desc", "account", "source_id"} {
+		if v, ok := req.From[f]; ok {
+			if sv, isStr := v.(string); isStr && strings.TrimSpace(sv) != "" {
+				updates[f] = sv
+			}
+		}
+	}
+	g := db.GetDB()
+	if len(updates) > 0 {
+		if err := g.WithContext(ctx.Request.Context()).Table("clues").Where("id = ?", id).Updates(updates).Error; err != nil {
+			response.Error(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	response.Success(ctx, gin.H{"merged": true}, "已合并")
+}
+
+// ClueForceCreate POST /api/clues/force-create {row}
+func (c *EmailGapController) ClueForceCreate(ctx *gin.Context) {
+	var row map[string]any
+	if err := ctx.ShouldBindJSON(&row); err != nil || row == nil {
+		response.Error(ctx, http.StatusBadRequest, "缺少 row 数据")
+		return
+	}
+	// 复用导入管线（单条强制创建: name/phone 必填）
+	name, _ := row["name"].(string)
+	phone, _ := row["phone"].(string)
+	if strings.TrimSpace(name) == "" && strings.TrimSpace(phone) == "" {
+		response.Error(ctx, http.StatusBadRequest, "name/phone 至少一项必填")
+		return
+	}
+	g := db.GetDB()
+	rec := map[string]any{"name": name, "source_id": "force-" + strconv.FormatInt(time.Now().UnixNano(), 10), "source": "import_force"}
+	if v, ok := row["city"].(string); ok {
+		rec["city"] = v
+	}
+	if v, ok := row["desc"].(string); ok {
+		rec["desc"] = v
+	}
+	if err := g.WithContext(ctx.Request.Context()).Table("clues").Create(rec).Error; err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"created": true}, "已强制创建")
 }

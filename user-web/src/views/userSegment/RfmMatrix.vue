@@ -95,20 +95,42 @@ function renderMatrix(data) {
   })
 }
 
-function exportToReach() {
-  ElMessage.info('已选中分群数据，可在触达 Pipeline 中使用')
+// R46 修复: 以下按钮此前为假交互（只弹消息不落库/指向不存在路由）——全部改为真实行为
+const saving = ref(false)
+
+async function saveSegment() {
+  if (saving.value) return
+  saving.value = true
+  try {
+    // 真实落库: 保存当前 RFM 高价值客群快照为分群
+    const hv = (segments.value || []).filter((d) => d.recency >= 4 && d.frequency >= 4)
+    await http.post('/api/user-segments', {
+      name: `RFM高价值客群 ${new Date().toLocaleDateString()}`,
+      description: '由 RFM 矩阵保存：R>=4 且 F>=4 的客户桶',
+      rules: { type: 'rfm_snapshot', matrix: hv, saved_at: new Date().toISOString() },
+      trigger: 'static'
+    })
+    ElMessage.success('分群已保存（可在分群列表查看）')
+  } catch (e) {
+    ElMessage.error(e?.message || '保存失败')
+  } finally {
+    saving.value = false
+  }
 }
 
-function saveSegment() {
-  ElMessage.success('分群已保存')
+function exportToReach() {
+  // 真实跳转: 触达 Pipeline 列表
+  window.open('/#/reachPipeline/list', '_blank')
 }
 
 function viewDetail(row) {
-  window.open(`/customerSegment/${row.id}`, '_blank')
+  // 真实跳转: 客户 360（此前 /customerSegment/:id 路由不存在）
+  window.open('/#/customer360/list', '_blank')
 }
 
 function reachSegment(row) {
-  window.open(`/reachPipeline/new?segment_id=${row.id}`, '_blank')
+  // 真实跳转: 触达 Pipeline 列表（new 路由不存在）
+  window.open('/#/reachPipeline/list', '_blank')
 }
 
 onMounted(load)

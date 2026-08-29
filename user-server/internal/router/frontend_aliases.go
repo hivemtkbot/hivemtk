@@ -113,10 +113,8 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("DELETE", "/customer-events/customer/:customer_id", customerEventCtrl.DeleteEvent)
 
 	userSegmentCtrl := controller.NewUserSegmentController()
-	doReg("GET", "/user-segments", userSegmentCtrl.ListRFMRules)
 	doReg("GET", "/user-segments/list", userSegmentCtrl.ListRFMRules)
 	doReg("GET", "/user-segments/rfm/list", userSegmentCtrl.GetRFMList)
-	doReg("GET", "/user-segments/rfm/stats", userSegmentCtrl.GetRFMStats)
 	doReg("GET", "/user-segments/layers", userSegmentCtrl.GetLayerDescription)
 
 	unifiedMsgCtrl := controller.NewUnifiedMessageController()
@@ -521,6 +519,8 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 
 	// R39 客服工作台增强：协作锁/内部备注/状态板/标签规则/快捷回复文件夹
 	csPlusCtrl := controller.NewCustomerServicePlusController()
+	doReg("GET", "/user-segments", csPlusCtrl.ListSegments)
+	doReg("POST", "/user-segments", csPlusCtrl.CreateSegment)
 	doReg("POST", "/customer-sessions/:id/edit-lock", csPlusCtrl.AcquireEditLock)
 	doReg("DELETE", "/customer-sessions/:id/edit-lock", csPlusCtrl.ReleaseEditLock)
 	doReg("GET", "/customer-sessions/:id/edit-lock", csPlusCtrl.GetEditLock)
@@ -596,9 +596,14 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/email/test-send", emailGapCtrl.TestSend)
 	doReg("GET", "/user-segments/rfm", emailGapCtrl.RFMMatrix)
 	doReg("GET", "/user-segments/rfm/stats", emailGapCtrl.RFMMatrixStats)
-	doReg("POST", "/message-hub/dlq/batch-retry", emailGapCtrl.DLQBatchRetry)
+	doReg("POST", "/message-hub/dlq/batch-retry", csPlusCtrl.DLQBatchRetry)
+	doReg("GET", "/message-hub/dlq", csPlusCtrl.DLQList)
+	doReg("POST", "/message-hub/dlq/:id/retry", csPlusCtrl.DLQRetryOne)
+	doReg("DELETE", "/message-hub/dlq/:id", csPlusCtrl.DLQDrop)
 	doReg("GET", "/knowledge/playground/presets", emailGapCtrl.PlaygroundPresets)
 	doReg("POST", "/clues/import/apply-suggestions", emailGapCtrl.ClueApplySuggestions)
+	doReg("POST", "/clues/:id/merge", emailGapCtrl.ClueMerge)
+	doReg("POST", "/clues/force-create", emailGapCtrl.ClueForceCreate)
 
 	integrationCtrl := controller.NewIntegrationController()
 	doReg("GET", "/integrations/list", integrationCtrl.GetAccountList)
