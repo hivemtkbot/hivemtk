@@ -229,7 +229,10 @@ func (pc *PlatformController) GetLatestMessage(c *gin.Context) {
 	var resp struct {
 		List []map[string]any `json:"list"`
 	}
+	// R40 优雅空态：轮询型端点（顶部铃铛 _silent 轮询），单机部署（无平台端）时
+	// 平台不可达不应产生 502 错误流——返回空消息静默降级，不影响其余平台代理语义。
 	if !pc.platformData(c, http.MethodGet, "/platform/message/list?page=1&page_size=1", nil, &resp, "获取最新站内信失败") {
+		response.Success(c, nil, "")
 		return
 	}
 	if len(resp.List) > 0 {

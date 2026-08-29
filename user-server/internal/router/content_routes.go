@@ -26,11 +26,9 @@ func setupDomainPoolRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	auth.GET("/domainpool/:id", domainPoolCtrl.GetByID)
 	auth.POST("/domainpool/check-domain", domainPoolCtrl.CheckDomain)
 	auth.POST("/domainpool/check-all", domainPoolCtrl.CheckAllDomains)
-	auth.DELETE("/domainpool/delete/:id", domainPoolCtrl.Delete)
-	auth.POST("/domainpool/check/:id", func(c *gin.Context) {
-		c.Request.URL.Path = "/api/domainpool/check-domain"
-		domainPoolCtrl.CheckDomain(c)
-	})
+	// R40: 旧蛇形别名 /domainpool/delete|check 已删除（前端全量走 /api/domain-pool/*，ZOMBIE_API_TRIAGE ③ 处置）
+	// R40 ZOMBIE_API_TRIAGE ③ 处置：删除旧蛇形别名路由
+	// （/domainpool/delete|check|create|update|checkall —— 前端全量走 /api/domain-pool/*，grep 全仓无脚本依赖）
 	auth.POST("/domainpool/create", domainPoolCtrl.Create)
 	auth.PUT("/domainpool/update", func(c *gin.Context) {
 		domainPoolCtrl.Update(c)

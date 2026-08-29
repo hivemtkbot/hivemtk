@@ -1,6 +1,7 @@
 package controller
 
 import (
+	connectorcontroller "hivemtk-user/internal/controller"
 	"encoding/json"
 	"fmt"
 	knowledgemodel "hivemtk-user/internal/aiagent/knowledge/model"
@@ -37,6 +38,8 @@ func NewKnowledgeWorkspaceController(openapiPort OpenAPISourcePort) *KnowledgeWo
 
 // RegisterRoutes 注册路由
 func (ctrl *KnowledgeWorkspaceController) RegisterRoutes(router *gin.RouterGroup) {
+	// R40 连接器控制器（独立于 KB 服务，凭据走 system_config_kv）
+	connectorCtrl := connectorcontroller.NewKBConnectorController()
 	kb := router.Group("/knowledge")
 	{
 		kb.POST("/import/upload", ctrl.UploadImport)
@@ -76,6 +79,11 @@ func (ctrl *KnowledgeWorkspaceController) RegisterRoutes(router *gin.RouterGroup
 		kb.POST("/:id/import/dingtalk", ctrl.DingtalkImportToKB)
 		kb.POST("/:id/import/crm", ctrl.CRMImportToKB)
 		kb.GET("/document-types", ctrl.ListDocumentTypes)
+		// R40: 外部连接器凭据管理（Notion/飞书/钉钉/CRM）
+		kb.GET("/connectors", connectorCtrl.List)
+		kb.GET("/connectors/:source", connectorCtrl.Get)
+		kb.PUT("/connectors/:source", connectorCtrl.Save)
+		kb.POST("/connectors/:source/test", connectorCtrl.Test)
 
 		kb.GET("/stats/overview", ctrl.GetOverviewStats)
 		kb.GET("/stats/documents", ctrl.GetDocumentStats)

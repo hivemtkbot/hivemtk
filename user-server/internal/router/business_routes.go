@@ -187,6 +187,7 @@ func setupScriptRoutes(auth *gin.RouterGroup) {
 	auth.GET("/feature-flags/:id/audit", flagCtrl.Audit)
 	auth.GET("/feature-flags/:id/eval-log", flagCtrl.EvalLogs)
 	auth.GET("/feature-flags/:id/code-references", flagCtrl.CodeReferences)
+	auth.POST("/feature-flags/:id/code-references", flagCtrl.RegisterCodeReference)
 }
 
 // setupABTestRoutes A/B 测试路由

@@ -204,11 +204,32 @@ func (c *FeatureFlagController) Stale(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"list": list, "total": len(list)}, "ok")
 }
 
-// CodeReferences GET /api/feature-flags/:id/code-references
+// CodeReferences GET /api/feature-flags/:id/code-references（KV 登记表）
 func (c *FeatureFlagController) CodeReferences(ctx *gin.Context) {
 	f, err := c.svc.GetByIDOrKey(ctx.Request.Context(), ctx.Param("id"))
 	if HandleServiceError(ctx, err) {
 		return
 	}
-	response.Success(ctx, gin.H{"list": c.svc.CodeReferences(ctx.Request.Context(), f.Key), "total": 0}, "ok")
+	refs, err := c.svc.ListCodeReferences(ctx.Request.Context(), f.Key)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"list": refs, "total": len(refs)}, "ok")
+}
+
+// RegisterCodeReference POST /api/feature-flags/:id/code-references（工具链登记）
+func (c *FeatureFlagController) RegisterCodeReference(ctx *gin.Context) {
+	f, err := c.svc.GetByIDOrKey(ctx.Request.Context(), ctx.Param("id"))
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	var req service.FlagCodeRef
+	if err := ctx.ShouldBindJSON(&req); err != nil || req.File == "" {
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误：file 必填")
+		return
+	}
+	if err := c.svc.RegisterCodeReference(ctx.Request.Context(), f.Key, req); HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"registered": true}, "引用已登记")
 }
