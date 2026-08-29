@@ -569,6 +569,37 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 
 
 
+	// ===== R44 断链清欠（views 内联调用 21 条）=====
+	backupGapCtrl := controller.NewBackupGapController()
+	doReg("GET", "/backup/list", backupGapCtrl.List)
+	doReg("GET", "/backup/stats", backupGapCtrl.Stats)
+	doReg("GET", "/backup/strategy", backupGapCtrl.GetStrategy)
+	doReg("PUT", "/backup/strategy", backupGapCtrl.SaveStrategy)
+	doReg("POST", "/backup/create", backupGapCtrl.Create)
+	doReg("GET", "/backups/stats", backupGapCtrl.Stats)
+
+	ragEvalCtrl := controller.NewRagEvalGapController()
+	doReg("GET", "/rag/eval/latest", ragEvalCtrl.Latest)
+	doReg("GET", "/rag/eval/runs", ragEvalCtrl.Runs)
+	doReg("POST", "/rag/eval/run", ragEvalCtrl.Run)
+	doReg("POST", "/rag/eval/upload", ragEvalCtrl.Upload)
+	doReg("GET", "/rag/eval/diff", ragEvalCtrl.Diff)
+
+	analyticsGapCtrl := controller.NewAnalyticsGapController()
+	doReg("GET", "/analytics/cohort", analyticsGapCtrl.Cohort)
+	doReg("GET", "/analytics/path", analyticsGapCtrl.Path)
+
+	emailGapCtrl := controller.NewEmailGapController()
+	doReg("GET", "/email/deliverability", emailGapCtrl.Deliverability)
+	doReg("GET", "/email/bounces/breakdown", emailGapCtrl.BounceBreakdown)
+	doReg("GET", "/email/domain-reputation", emailGapCtrl.DomainReputation)
+	doReg("POST", "/email/test-send", emailGapCtrl.TestSend)
+	doReg("GET", "/user-segments/rfm", emailGapCtrl.RFMMatrix)
+	doReg("GET", "/user-segments/rfm/stats", emailGapCtrl.RFMMatrixStats)
+	doReg("POST", "/message-hub/dlq/batch-retry", emailGapCtrl.DLQBatchRetry)
+	doReg("GET", "/knowledge/playground/presets", emailGapCtrl.PlaygroundPresets)
+	doReg("POST", "/clues/import/apply-suggestions", emailGapCtrl.ClueApplySuggestions)
+
 	integrationCtrl := controller.NewIntegrationController()
 	doReg("GET", "/integrations/list", integrationCtrl.GetAccountList)
 	doReg("GET", "/integrations/:id", integrationCtrl.GetAccountByID)

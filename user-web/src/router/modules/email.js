@@ -34,5 +34,11 @@ export default [
     name: 'EmailGuide',
     component: () => import('@/views/email/Guide.vue'),
     meta: { title: '使用引导', group: 'reach', icon: 'Setting' }
+  },
+  {
+    path: 'email/deliverability',
+    name: 'EmailDeliverability',
+    component: () => import('@/views/email/Deliverability.vue'),
+    meta: { title: '送达分析', group: 'email', icon: 'DataAnalysis', requiresAuth: true }
   }
 ]

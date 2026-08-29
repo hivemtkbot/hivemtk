@@ -52,5 +52,11 @@ export default [
     name: 'KnowledgeOpenAPI',
     component: () => import('@/views/KnowledgeWorkspace/OpenAPIIntegration.vue'),
     meta: { title: 'OpenAPI 集成', group: 'knowledge', icon: 'Connection', requiresAuth: true }
+  },
+  {
+    path: 'knowledge/rag-eval',
+    name: 'RagEvaluation',
+    component: () => import('@/views/knowledge/RagEvaluation.vue'),
+    meta: { title: 'RAG 评测', group: 'knowledge', icon: 'DataLine', requiresAuth: true }
   }
 ]

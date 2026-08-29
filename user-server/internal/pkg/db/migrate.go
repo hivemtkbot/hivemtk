@@ -69,6 +69,8 @@ func allModels() []any {
 		&model.PlatformAccountConfig{},
 		&model.APILog{},
 		&model.WebVitalRecord{},
+		&model.RagEvalQuestion{},
+		&model.RagEvalRun{},
 		&model.VisitLog{},
 		&model.DailyStats{},
 		&knowledgemodel.KBDocument{},
