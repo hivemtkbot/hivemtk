@@ -225,7 +225,11 @@ const syncDefaultAgentBinding = async () => {
 }
 
 const onSubmit = async () => {
-  await formRef.value.validate()
+  try {
+    await formRef.value.validate()
+  } catch {
+    return // R44: 校验失败 reject 数组未捕获 → PAGEERROR
+  }
   saving.value = true
   try {
     const payload = {

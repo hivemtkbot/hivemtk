@@ -533,6 +533,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/quick-reply/folders", csPlusCtrl.ListQuickReplyFolders)
 	doReg("POST", "/quick-reply/folders", csPlusCtrl.CreateQuickReplyFolder)
 	doReg("POST", "/quick-reply/folders/:id/reorder", csPlusCtrl.ReorderQuickReplyFolder)
+	doReg("DELETE", "/quick-reply/folders/:id", csPlusCtrl.DeleteQuickReplyFolder)
 	// ai-suggestions 会话维度别名（复用既有 AISuggestionController）
 	doReg("GET", "/customer-service/ai-suggestions", aiSuggestionCtrl.GetSuggestions)
 	// mentions 已读/我的提及（复用 NotificationService，mention=站内通知）

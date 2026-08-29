@@ -306,3 +306,8 @@ func NewCustomerServicePlusServiceFromGlobal() *CustomerServicePlusService {
 		repository.NewAgentStatusRepository(),
 	)
 }
+
+// DeleteFolder 删除文件夹（R43 补齐：可建可删）
+func (s *CustomerServicePlusService) DeleteFolder(ctx context.Context, folderID uint) error {
+	return s.folderRepo.Delete(ctx, folderID)
+}

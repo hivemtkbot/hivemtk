@@ -323,7 +323,11 @@ const showEditDialog = (row) => {
 }
 
 const handleSave = async () => {
-  await formRef.value.validate()
+  try {
+    await formRef.value.validate()
+  } catch {
+    return // R44: 空表单校验失败 reject fields 数组——此前未捕获触发 PAGEERROR
+  }
   saving.value = true
   try {
     // 构造 auth_config

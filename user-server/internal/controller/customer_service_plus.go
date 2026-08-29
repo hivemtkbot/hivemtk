@@ -211,3 +211,15 @@ func currentStaffInfo(ctx *gin.Context) (string, string) {
 	}
 	return id, name
 }
+
+// DeleteQuickReplyFolder DELETE /api/quick-reply/folders/:id（R43 补齐）
+func (c *CustomerServicePlusController) DeleteQuickReplyFolder(ctx *gin.Context) {
+	id, ok := parseUintParam(ctx, "id")
+	if !ok {
+		return
+	}
+	if err := c.svc.DeleteFolder(ctx.Request.Context(), id); HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"deleted": true}, "文件夹已删除")
+}
