@@ -316,6 +316,12 @@ func runTelegramPollingWorker(ctx context.Context, accountID uint, botToken, acc
 				logger.Warnf("[TG-Polling] 账号 %d(%s) 检测到 409 Conflict（同 token 另一实例在 polling），本协程退出: %v", accountID, accountName, err)
 				return
 			}
+			// R43: 401 = token 永久失效（被撤销/伪造），无限重试毫无意义 →
+			// 停止本账号 polling 并单次告警（与 409 同级的确定性退出路径）
+			if isTelegramAuthError(err) {
+				logger.Errorf("[TG-Polling] 账号 %d(%s) token 鉴权失败(401)，已停止该账号 polling——请在渠道页更换有效 Bot Token 后重新启用: %v", accountID, accountName, err)
+				return
+			}
 			logger.Warnf("[TG-Polling] 账号 %d(%s) getUpdates 失败，%v 后重试: %v", accountID, accountName, backoff, err)
 			if sleepCtx(ctx, backoff) {
 				return
@@ -453,6 +459,15 @@ func extractUpdateID(raw json.RawMessage) int64 {
 }
 
 // isTelegramConflictError 判定错误是否是 409 Conflict（polling 重复实例）
+// isTelegramAuthError R43: 401 Unauthorized = token 永久无效（确定性退出，不重试）
+func isTelegramAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "401") || strings.Contains(msg, "Unauthorized")
+}
+
 func isTelegramConflictError(err error) bool {
 	if err == nil {
 		return false
