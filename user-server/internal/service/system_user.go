@@ -565,3 +565,29 @@ func (s *SystemUserService) DeleteByAdmin(ctx context.Context, actorID, targetID
 	return nil
 }
 
+
+// SearchUsers 按关键词搜索用户（匹配 username/email/nickname）
+func (s *SystemUserService) SearchUsers(ctx context.Context, keyword string, page, pageSize int) ([]*SystemUserResponse, int64, error) {
+    if page < 1 { page = 1 }
+    if pageSize < 1 || pageSize > 100 { pageSize = 10 }
+    q := repository.GetDB().WithContext(ctx).Model(&model.SystemUser{})
+    if keyword != "" {
+        like := "%" + keyword + "%"
+        q = q.Where("username ILIKE ? OR email ILIKE ? OR real_name ILIKE ?", like, like, like)
+    }
+    var users []model.SystemUser
+    var total int64
+    if err := q.Count(&total).Error; err != nil {
+        return nil, 0, err
+    }
+    offset := (page - 1) * pageSize
+    if err := q.Order("id DESC").Offset(offset).Limit(pageSize).Find(&users).Error; err != nil {
+        return nil, 0, err
+    }
+    responses := make([]*SystemUserResponse, 0, len(users))
+    for _, u := range users {
+        responses = append(responses, s.toUserResponse(ctx, &u))
+    }
+    return responses, total, nil
+}
+

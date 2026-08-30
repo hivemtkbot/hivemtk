@@ -287,3 +287,29 @@ func (c *ReachPipelineController) ResetRateLimit(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"channel": channel}, "重置成功")
 }
 
+
+
+// ListJobsWithExperiment GET /api/reach/jobs/with-experiment?experiment_id=xxx
+func (c *ReachPipelineController) ListJobsWithExperiment(ctx *gin.Context) {
+	experimentID := ctx.Query("experiment_id")
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	list, total, err := c.svc.ListJobsByExperiment(ctx.Request.Context(), experimentID, page, pageSize)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, "查询失败: "+err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{
+		"list":      list,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	}, "ok")
+}
+

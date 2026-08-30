@@ -570,6 +570,31 @@ func (c *SystemUserController) GetUsers(ctx *gin.Context) {
 	}, "获取用户列表成功")
 }
 
+
+// SearchUsers GET /api/users/search?keyword=xxx
+func (c *SystemUserController) SearchUsers(ctx *gin.Context) {
+	keyword := ctx.Query("keyword")
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 10
+	}
+	users, total, err := c.userService.SearchUsers(context.Background(), keyword, page, pageSize)
+	if err != nil {
+		response.ErrorFromDB(ctx, err, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{
+		"list":      users,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	}, "搜索成功")
+}
+
 // GetUser 获取用户详情
 func (c *SystemUserController) GetUser(ctx *gin.Context) {
 	idStr := ctx.Param("id")

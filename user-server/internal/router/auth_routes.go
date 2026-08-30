@@ -54,7 +54,8 @@ func setupUserRoutes(auth *gin.RouterGroup) {
 	userCtrl := controller.NewSystemUserController()
 	auth.GET("/user/list", userCtrl.GetUsers)
 	auth.GET("/users", userCtrl.GetUsers)
-	auth.GET("/user/:id", userCtrl.GetUser)
+        auth.GET("/users/search", userCtrl.SearchUsers)
+        auth.GET("/user/:id", userCtrl.GetUser)
 	auth.GET("/users/:id", userCtrl.GetUser)
 
 	admin := auth.Group("")

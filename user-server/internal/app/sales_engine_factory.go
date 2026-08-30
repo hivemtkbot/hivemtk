@@ -107,7 +107,9 @@ func BuildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 func BuildSmartOrchestrator(engine *service.SalesEngine) *service.SmartCSOrchestrator {
 	cfg := service.DefaultOrchestratorConfig()
 	cfg.ConfidenceThreshold = 0.5
-	return service.NewSmartCSOrchestrator(engine, cfg)
+	o := service.NewSmartCSOrchestrator(engine, cfg)
+	o.SetIdentityService(service.NewCustomerIdentityService())
+	return o
 }
 
 // registerAgentReachTools 生产接线：把智能体全部工具（含 reach.web.send）

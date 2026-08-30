@@ -679,6 +679,8 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/operation-logs/list", opLogCtrl.GetList)
 	doReg("GET", "/operation-logs/:id", opLogCtrl.GetByID)
 	doReg("GET", "/operation-logs/statistics", opLogCtrl.GetStatistics)
+	doReg("GET", "/operation-logs/export", opLogCtrl.ExportLogs)
+	doReg("POST", "/operation-logs/clean", opLogCtrl.CleanLogs)
 
 	backupCtrl := controller.NewBackupController()
 	doReg("GET", "/backups", backupCtrl.GetBackupList)

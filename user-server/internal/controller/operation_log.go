@@ -186,13 +186,14 @@ func (c *OperationLogController) ExportLogs(ctx *gin.Context) {
 }
 
 // CleanLogs 清理指定日期之前的操作日志
-// 入参 JSON: { before_date: "" } 或 { days: 90 }
+// 入参 JSON 可选: { before_date: "" } 或 { days: 90 }，缺省默认清理 90 天前
 func (c *OperationLogController) CleanLogs(ctx *gin.Context) {
 	var req struct {
 		BeforeDate string `json:"before_date"`
 		Days       int    `json:"days"`
 	}
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	// 兼容前端不传 body 的情况：EOF 视为空请求体，走默认值
+	if err := ctx.ShouldBindJSON(&req); err != nil && err.Error() != "EOF" {
 		response.Error(ctx, http.StatusBadRequest, "参数错误: "+err.Error())
 		return
 	}
@@ -206,6 +207,8 @@ func (c *OperationLogController) CleanLogs(ctx *gin.Context) {
 		cutoff = t
 	} else if req.Days > 0 {
 		cutoff = time.Now().AddDate(0, 0, -req.Days)
+	} else {
+		cutoff = time.Now().AddDate(0, 0, -90)
 	}
 	if err := c.logSvc.DeleteOldLogs(ctx, cutoff); err != nil {
 		response.ErrorFromDB(ctx, err, "清理失败: "+err.Error())

@@ -208,6 +208,7 @@ func setupABTestRoutes(auth *gin.RouterGroup) {
 	auth.POST("/ab-experiments/:id/sequential-test", abCtrl.PostSequentialTest)
 	auth.POST("/ab-experiments/:id/bayesian-test", abCtrl.PostBayesianTest)
 	auth.GET("/ab-experiments/:id/results-with-reach", abCtrl.GetResultsWithReach)
+	auth.POST("/ab-experiments/reach-metrics", abCtrl.PostReachMetrics)
 	admin := auth.Group("/ab-experiments", middleware.AdminAuthMiddleware())
 	{
 		admin.POST("", abCtrl.CreateExperiment)

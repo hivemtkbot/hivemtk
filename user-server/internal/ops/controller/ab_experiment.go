@@ -304,3 +304,42 @@ func (c *ABExperimentController) GetResultsWithReach(ctx *gin.Context) {
 	}
 	response.Success(ctx, out, "ok")
 }
+
+
+// PostReachMetrics POST /api/ab-experiments/reach-metrics
+// 批量上报触达指标（前端把 reach pipeline 的发送结果回灌到 AB 实验）
+func (c *ABExperimentController) PostReachMetrics(ctx *gin.Context) {
+	var req struct {
+		ExperimentID    uint    `json:"experiment_id"`
+		Channel         string  `json:"channel"`
+		SentCount       int     `json:"sent_count"`
+		DeliveredCount  int     `json:"delivered_count"`
+		OpenCount       int     `json:"open_count"`
+		ClickCount      int     `json:"click_count"`
+		ConversionCount int     `json:"conversion_count"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "参数错误: "+err.Error())
+		return
+	}
+	// 聚合结果直接返回（service 层可后续扩展为持久化）
+	out := gin.H{
+		"experiment_id":    req.ExperimentID,
+		"channel":         req.Channel,
+		"sent":            req.SentCount,
+		"delivered":       req.DeliveredCount,
+		"deliver_rate":    safeDiv(req.DeliveredCount, req.SentCount),
+		"open_rate":       safeDiv(req.OpenCount, req.DeliveredCount),
+		"click_rate":      safeDiv(req.ClickCount, req.OpenCount),
+		"conversion_rate": safeDiv(req.ConversionCount, req.ClickCount),
+	}
+	response.Success(ctx, out, "触达指标已接收")
+}
+
+func safeDiv(num, den int) float64 {
+	if den == 0 {
+		return 0
+	}
+	return float64(num) / float64(den)
+}
+

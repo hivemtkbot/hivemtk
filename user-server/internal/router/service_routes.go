@@ -357,6 +357,7 @@ func setupReachPipelineRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.POST("/reach/jobs/:id/cancel", reachCtrl.CancelJob)
 	auth.POST("/reach/jobs/:id/retry", reachCtrl.RetryJob)
 	auth.POST("/reach/jobs/:id/execute", reachCtrl.ExecuteJob)
+        auth.GET("/reach/jobs/with-experiment", reachCtrl.ListJobsWithExperiment)
 }
 
 // setupProactiveReachRoutes 主动触达路由
