@@ -42,8 +42,10 @@ func setupPlatformRoutes(platform *gin.RouterGroup, platformCtrl *controller.Pla
 
 // setupPublicRoutes 公开路由（不需要认证）
 func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.LiveCodeController, platformCtrl *controller.PlatformController, db *gorm.DB) {
+	// P0: 禁止内联 handler + 禁止非统一响应格式
+	// /api/health 是 api 前缀下的健康探针，与根级 /health（全维度探测）区分
 	public.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
+		response.Success(c, gin.H{"status": "ok"}, "ok")
 	})
 
 	systemInfoCtrl := controller.NewSystemInfoController()

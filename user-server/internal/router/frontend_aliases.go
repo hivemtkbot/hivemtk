@@ -552,6 +552,13 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/report-subscriptions/send-now", growthCtrl.SendReportsNow)
 	doReg("GET", "/customer-sessions/:id/transcript", growthCtrl.Transcript)
 	doReg("GET", "/analytics/ai-performance", growthCtrl.AIPerformance)
+	// R51: DNC 全局退订（合规核心功能此前无 API）
+	dncCtrl := controller.NewDNCController()
+	doReg("GET", "/dnc", dncCtrl.List)
+	doReg("POST", "/dnc", dncCtrl.Block)
+	doReg("POST", "/dnc/block-phone", dncCtrl.BlockByPhone)
+	doReg("DELETE", "/dnc/:one_id", dncCtrl.Unblock)
+	doReg("GET", "/dnc/:one_id/blocked", dncCtrl.IsBlocked)
 
 	sessionAICtrl := controller.NewSessionAIController()
 	doReg("POST", "/customer-sessions/:id/ai-summary", sessionAICtrl.Generate)

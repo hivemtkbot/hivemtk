@@ -141,7 +141,8 @@ func (r *CustomerSessionRepository) GetByMerchant(ctx context.Context, status mo
 	}
 
 	offset := (page - 1) * pageSize
-	err = query.Order("last_message_at DESC").Offset(offset).Limit(pageSize).Find(&sessions).Error
+	// R51 业务正确性修复: 优先级字段此前是摆设——列表排序增加 priority DESC（紧急优先）
+	err = query.Order("priority DESC, last_message_at DESC").Offset(offset).Limit(pageSize).Find(&sessions).Error
 	return sessions, total, err
 }
 

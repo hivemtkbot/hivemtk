@@ -46,9 +46,10 @@ type Response struct {
 }
 
 // Success 成功响应
+// 规范: code 用 int 0 (不是 string "SUCCESS")，与 CLAUDE.md 架构规范一致
 func Success(c *gin.Context, data any, message string) {
 	c.JSON(http.StatusOK, Response{
-		Code:    utils.ErrorCodeSuccess,
+		Code:    0,
 		Message: i18n.Localize(localeOf(c), message),
 		Data:    data,
 	})
@@ -58,7 +59,7 @@ func Success(c *gin.Context, data any, message string) {
 // data 字段返回 {list, total} 结构，便于前端统一解析 res.list 与 res.total
 func SuccessWithList(c *gin.Context, data any, total int64) {
 	c.JSON(http.StatusOK, gin.H{
-		"code":    utils.ErrorCodeSuccess,
+		"code":    0,
 		"message": i18n.T(localeOf(c), "success"),
 		"data": gin.H{
 			"list":  data,
@@ -71,7 +72,7 @@ func SuccessWithList(c *gin.Context, data any, total int64) {
 // data 字段返回 {list, total, page, page_size} 结构，便于前端统一解析
 func SuccessWithPage(c *gin.Context, data any, page, pageSize int64, total int64) {
 	c.JSON(http.StatusOK, gin.H{
-		"code":    utils.ErrorCodeSuccess,
+		"code":    0,
 		"message": i18n.T(localeOf(c), "success"),
 		"data": gin.H{
 			"list":      data,
