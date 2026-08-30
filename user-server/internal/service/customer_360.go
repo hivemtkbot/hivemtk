@@ -861,6 +861,9 @@ func (s *Customer360Service) GetCustomerOrders(ctx context.Context, customerID s
 		}
 		return nil, err
 	}
+	if cust == nil {
+		return nil, ErrCustomerNotFound
+	}
 	sessions, err := s.sessionRepo.GetByOneID(ctx, cust.UnifiedID)
 	if err != nil {
 		return nil, err
