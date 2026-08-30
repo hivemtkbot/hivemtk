@@ -134,15 +134,29 @@ func (s *WebhookService) DouyinLeadMiner() func(ctx context.Context, ev *model.M
 	}
 }
 
+// leadMiningChannels Bridge 协议支持的线索挖掘渠道注册表
+var leadMiningChannels = map[string]bool{
+	"douyin": true, "tiktok": true, "kuaishou": true,
+	"xiaohongshu": true, "xianyu": true,
+}
+
+// unsupportedLeadMiningChannels 声明支持但未完整实现的渠道（返回明确提示）
+var unsupportedLeadMiningChannels = map[string]string{
+	"weibo":   "微博线索挖掘需要 Chrome 扩展 + Bridge 协议 + 微博平台 API",
+	"taobao":  "淘宝线索挖掘需要 Chrome 扩展 + Bridge 协议",
+	"pdd":     "拼多多线索挖掘需要 Chrome 扩展 + Bridge 协议",
+	"jd":      "京东线索挖掘需要 Chrome 扩展 + Bridge 协议",
+	"bilibili": "B站线索挖掘需要 Chrome 扩展 + Bridge 协议",
+}
+
+// RegisterLeadMiningChannel 注册一个 Bridge 协议的线索挖掘渠道（供外部模块扩展）
+func RegisterLeadMiningChannel(channel string) { leadMiningChannels[channel] = true }
+
+// GetUnsupportedLeadMiningReason 返回未支持渠道的原因（给 API 调用方友好提示）
+func GetUnsupportedLeadMiningReason(channel string) string { return unsupportedLeadMiningChannels[channel] }
+
 func isBridgeLeadMiningChannel(channel string) bool {
-	switch channel {
-	// 2026-08-16 修正：仅保留真实有 Chrome 扩展 + Bridge 协议 + channelgw 注册的 5 个渠道
-	case "douyin", "tiktok", "kuaishou", "xiaohongshu", "xianyu":
-		return true
-	// 微博/淘宝/拼多多/京东/1688/B站等渠道：暂未实现 Chrome 扩展与 Bridge 协议，
-	// 不能因为白名单写着"支持"就把消息路由过去——必须先实现完整链路再启用。
-	}
-	return false
+	return leadMiningChannels[channel]
 }
 
 func toString(v any) string {

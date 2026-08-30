@@ -181,6 +181,26 @@ func (c *BatchExportController) ExportData(ctx *gin.Context) {
 		ctx.Header("Content-Type", "text/csv; charset=utf-8")
 		ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 		ctx.Data(http.StatusOK, "text/csv", buf.Bytes())
+	case "jsonl":
+		buf, err := c.svc.GenerateJSONL(ctx.Request.Context(), service.ExportType(exportType), ids)
+		if err != nil {
+			response.Error(ctx, http.StatusInternalServerError, "导出失败："+err.Error())
+			return
+		}
+		filename := fmt.Sprintf("%s_export.jsonl", exportType)
+		ctx.Header("Content-Type", "application/jsonl; charset=utf-8")
+		ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		ctx.Data(http.StatusOK, "application/jsonl", buf.Bytes())
+	case "markdown":
+		buf, err := c.svc.GenerateMarkdown(ctx.Request.Context(), service.ExportType(exportType), ids)
+		if err != nil {
+			response.Error(ctx, http.StatusInternalServerError, "导出失败："+err.Error())
+			return
+		}
+		filename := fmt.Sprintf("%s_export.md", exportType)
+		ctx.Header("Content-Type", "text/markdown; charset=utf-8")
+		ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		ctx.Data(http.StatusOK, "text/markdown", buf.Bytes())
 	default:
 		response.Error(ctx, http.StatusBadRequest, "暂不支持的导出格式: "+format)
 	}

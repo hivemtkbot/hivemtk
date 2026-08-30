@@ -30,6 +30,25 @@ const (
 )
 
 // ConnectorPullResult 拉取导入结果
+
+// ConnectorPuller 连接器拉取函数签名（闭包形式，s 由调用方注入）
+type ConnectorPuller func(ctx context.Context, productID string, saved *SaveConnectorRequest, req *ConnectorPullRequest) (*ConnectorPullResult, error)
+
+var kbPullers = map[string]ConnectorPuller{}
+
+// init 注册内置连接器实现
+func init() {
+	RegisterKBPuller("notion", func(ctx context.Context, productID string, saved *SaveConnectorRequest, req *ConnectorPullRequest) (*ConnectorPullResult, error) {
+		return globalKBPullService.pullNotion(ctx, productID, saved, req)
+	})
+}
+
+// globalKBPullService 供 init 闭包使用的全局服务实例
+var globalKBPullService = &KBConnectorService{}
+
+// RegisterKBPuller 注册一个新的连接器拉取实现（供外部扩展）
+func RegisterKBPuller(source string, p ConnectorPuller) { kbPullers[source] = p }
+
 type ConnectorPullResult struct {
 	Source   string                 `json:"source"`
 	Imported int                    `json:"imported"`
@@ -73,10 +92,11 @@ func (s *KBConnectorService) Pull(ctx context.Context, source, productID string,
 	if err := json.Unmarshal([]byte(raw), &saved); err != nil {
 		return nil, fmt.Errorf("凭据损坏，请重新保存")
 	}
-	if source == "notion" {
-		return s.pullNotion(ctx, productID, &saved, req)
+	puller, ok := kbPullers[source]
+	if !ok {
+		return nil, fmt.Errorf("连接器 %s 的自动拉取尚未实现（已支持的 source: notion；其他可用外部导入推送或 OpenAPI）", source)
 	}
-	return nil, fmt.Errorf("连接器 %s 的自动拉取尚未实现（凭据与连通测试已就绪；内容接入请用外部导入推送或 OpenAPI 集成）", source)
+	return puller(ctx, productID, &saved, req)
 }
 
 // pullNotion Notion 拉取：search → blocks children 提取文本 → Import 管线

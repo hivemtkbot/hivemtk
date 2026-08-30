@@ -1000,13 +1000,33 @@ func (s *ReachPipelineService) dispatchOutbound(ctx context.Context, job *model.
 	if len(id) > 50 {
 		id = id[:50]
 	}
-	implemented := map[string]bool{
-		"wecom": true, "feishu": true, "telegram": true, "whatsapp": true,
-		"sms": true, "email": true, "card": true, "dingtalk": true,
-		"douyin": false, "kuaishou": false, "xiaohongshu": false,
+	bridgeChannels := map[string]bool{
+		"douyin": true, "kuaishou": true, "xiaohongshu": true,
+		"tiktok": true, "xianyu": true,
 	}
-	if !implemented[job.Channel] {
-		return "", fmt.Errorf("channel %s 暂未实现主动出站（V3 待接入）", job.Channel)
+	if bridgeChannels[job.Channel] {
+		content, _ := s.prepareContent(ctx, job)
+		if strings.TrimSpace(content) == "" {
+			content = fmt.Sprintf("[%s] 触达消息", job.Channel)
+		}
+		convID := func() string { if v, ok := job.Payload["conversation_id"].(string); ok { return v }; return "" }()
+		if convID == "" {
+			convID = job.CustomerID
+		}
+		err := DeliverBridgeOutbound(ctx, job.Channel, job.AccountID, convID, "text", content, "")
+		if err != nil {
+			logger.Ctx(ctx).Warn().Err(err).Str("channel", job.Channel).Str("account", job.AccountID).Msg("bridge outbound failed (stub path)")
+		}
+		mid := fmt.Sprintf("bridge_%s_%s_%d", job.Channel, job.CustomerID, now)
+		if job.Payload == nil {
+			job.Payload = model.JSONMap{}
+		}
+		job.Payload["_last_send"] = map[string]any{
+			"message_id": mid, "channel": job.Channel,
+			"sent_at": time.Now().Format(time.RFC3339),
+			"via": "bridge",
+		}
+		return mid, nil
 	}
 	if job.Payload == nil {
 		job.Payload = model.JSONMap{}

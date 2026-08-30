@@ -40,5 +40,11 @@ export default [
     name: 'RagOverview',
     component: () => import('@/views/system/RagOverview.vue'),
     meta: { title: 'RAG概览', group: 'knowledge', icon: 'Monitor', requiresAuth: true }
+  },
+  {
+    path: 'system/automation-hub',
+    name: 'AutomationHub',
+    component: () => import('@/views/system/AutomationHub.vue'),
+    meta: { title: '自动化中心', group: 'system', icon: 'Setting', requiresAuth: true }
   }
 ]

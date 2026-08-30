@@ -396,6 +396,18 @@
               <el-button size="small" type="danger" @click="closeSession">
                 <el-icon><SwitchButton /></el-icon> 结束
               </el-button>
+              <el-button size="small" type="primary" plain @click="aiSummaryCurrent">
+                <el-icon><MagicStick /></el-icon> AI摘要
+              </el-button>
+              <el-button size="small" @click="exportTranscriptCurrent">
+                <el-icon><Download /></el-icon> 转录
+              </el-button>
+              <el-button size="small" @click="snoozeCurrent">
+                <el-icon><Clock /></el-icon> 暂缓2h
+              </el-button>
+              <el-button size="small" @click="setPriorityCurrent">
+                <el-icon><Top /></el-icon> 优先级
+              </el-button>
             </el-button-group>
           </div>
         </el-card>
@@ -454,13 +466,13 @@
 
 <script setup>
 import i18n from '@/i18n'
+import { http } from '@/utils/request'
 
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus, MagicStick, ChatLineSquare, User, UserFilled,
-  Ticket, Goods, CircleClose, SwitchButton, Warning
-} from '@element-plus/icons-vue'
+  Ticket, Goods, CircleClose, SwitchButton, Warning, Top } from '@element-plus/icons-vue'
 import {
   getSessions,
   getSessionMessages,
@@ -682,6 +694,48 @@ const setupAgentSocket = () => {
     onError: (e) => { console.warn('[agentSocket]', e) } // 实时失败仅日志，不影响 REST 列表
   })
   agentSocketInst.connect()
+}
+
+// ===== R48: AI摘要/转录导出/暂缓/优先级 =====
+const aiSummaryCurrent = async () => {
+  if (!currentSession.value) return ElMessage.warning('请先选择会话')
+  const sid = currentSession.value.sessionId || currentSession.value.session_id
+  try {
+    loading.value = true
+    const res = await http.post(`/api/customer-sessions/${sid}/ai-summary`)
+    const d = res?.data || {}
+    ElMessage.alert(d.summary || '摘要生成完成', 'AI 会话摘要（' + (d.sentiment || 'neutral') + '）', { confirmButtonText: '知道了' })
+  } catch (e) {
+    ElMessage.error(e?.message || '摘要生成失败')
+  } finally { loading.value = false }
+}
+
+const exportTranscriptCurrent = () => {
+  if (!currentSession.value) return ElMessage.warning('请先选择会话')
+  const sid = currentSession.value.sessionId || currentSession.value.session_id
+  window.open(`/api/customer-sessions/${sid}/transcript?format=csv`, '_blank')
+}
+
+const snoozeCurrent = async () => {
+  if (!currentSession.value) return ElMessage.warning('请先选择会话')
+  const sid = currentSession.value.sessionId || currentSession.value.session_id
+  try {
+    await http.post(`/api/customer-sessions/${sid}/snooze`, { hours: 2 })
+    ElMessage.success('会话已暂缓 2 小时')
+  } catch (e) { ElMessage.error(e?.message || '暂缓失败') }
+}
+
+const setPriorityCurrent = async () => {
+  if (!currentSession.value) return ElMessage.warning('请先选择会话')
+  const sid = currentSession.value.sessionId || currentSession.value.session_id
+  try {
+    const { value } = await ElMessageBox.prompt('输入优先级 0 普通 / 1 低 / 2 高 / 3 紧急', '设置优先级', { inputValue: String(currentSession.value.priority ?? 0) })
+    await http.put(`/api/customer-sessions/${sid}/priority`, { level: Number(value) })
+    currentSession.value.priority = Number(value)
+    ElMessage.success('优先级已更新')
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') ElMessage.error(e?.message || '设置失败')
+  }
 }
 
 // ===== 会话操作 =====
