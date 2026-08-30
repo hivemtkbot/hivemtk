@@ -424,7 +424,8 @@ func (s *RestoreService) RestoreBackup(ctx context.Context, createdBy uint, req 
 	}
 
 	go func(src model.RestoreRecord) {
-		s.executeRestore(ctx, &src, backup)
+		// R52 修复: 恢复为后台异步执行，必须脱离请求 ctx（请求返回后 ctx 取消 → 状态更新静默失败，记录停留 pending）
+		s.executeRestore(context.WithoutCancel(ctx), &src, backup)
 	}(*record)
 
 	return record, nil
