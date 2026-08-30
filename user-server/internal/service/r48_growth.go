@@ -305,10 +305,11 @@ func (s *CustomerServicePlusService) SessionTranscript(ctx context.Context, sess
 		CreatedAt  time.Time `gorm:"column:created_at"`
 	}
 	var msgs []transcriptMsgRow
+	// R51 业务修复: 转录排除内部备注（is_internal 仅坐席可见）
 	if err := db.GetDB().WithContext(ctx).
 		Table("session_messages").
 		Select("sender_type, COALESCE(sender_name,'') AS sender_name, content, created_at").
-		Where("session_id = ?", sessionID).
+		Where("session_id = ? AND is_internal = ?", sessionID, false).
 		Order("created_at ASC").Limit(2000).Scan(&msgs).Error; err != nil {
 		return "", "", err
 	}
