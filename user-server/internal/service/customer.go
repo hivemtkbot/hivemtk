@@ -10,6 +10,8 @@ import (
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/repository"
+
+	"gorm.io/gorm"
 )
 
 // Operator 表示触发操作的人（来自鉴权上下文），用于审计日志追踪。
@@ -107,7 +109,7 @@ func (s *CustomerService) CreateOrUpdate(ctx context.Context, dto *CustomerDTO) 
 	}
 
 	existing, err := s.repo.FindByIdentity(ctx, dto.Phone, dto.Email, dto.WechatOpenID, dto.DouyinOpenID, dto.XiaohongshuID)
-	if err != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 

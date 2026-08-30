@@ -9,6 +9,7 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
+	"gorm.io/gorm"
 )
 
 // CustomerIdentityService 客户身份识别服务
@@ -46,7 +47,7 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 
 	if identifiers.Phone != "" {
 		customer, err = s.repo.GetByPhone(ctx, identifiers.Phone)
-		if err != nil {
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
 		if customer != nil {
@@ -56,7 +57,7 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 
 	if identifiers.Email != "" {
 		customer, err = s.repo.GetByEmail(ctx, identifiers.Email)
-		if err != nil {
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
 		if customer != nil {
@@ -66,7 +67,7 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 
 	if identifiers.WechatOpenID != "" {
 		customer, err = s.repo.GetByWechatOpenID(ctx, identifiers.WechatOpenID)
-		if err != nil {
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
 		if customer != nil {
@@ -76,7 +77,7 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 
 	if identifiers.DouyinOpenID != "" {
 		customer, err = s.repo.GetByDouyinOpenID(ctx, identifiers.DouyinOpenID)
-		if err != nil {
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
 		if customer != nil {
@@ -113,6 +114,9 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 func (s *CustomerIdentityService) Identify(ctx context.Context, identifiers identity.Identifiers) (*model.Customer, error) {
 	customer, err := s.repo.FindByIdentity(ctx, identifiers.Phone, identifiers.Email, identifiers.WechatOpenID, identifiers.DouyinOpenID, identifiers.XiaohongshuID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrIdentityNotFound
+		}
 		return nil, err
 	}
 
@@ -144,7 +148,7 @@ func (s *CustomerIdentityService) LinkIdentity(ctx context.Context, customerID, 
 		// 原：existing, _ := s.repo.GetByPhone(...) 静默吞错
 		// 新：捕获 + log，DB 故障时拒绝操作（防写入重复 phone）
 		existing, err := s.repo.GetByPhone(ctx, phone)
-		if err != nil {
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Errorf("[OneID LinkIdentity] 查 phone=%s 失败: %v", phone, err)
 			return fmt.Errorf("查 phone 失败: %w", err)
 		}
@@ -167,7 +171,7 @@ func (s *CustomerIdentityService) LinkIdentity(ctx context.Context, customerID, 
 		// 原：existing, _ := s.repo.GetByWechatOpenID(...) 静默吞错
 		// 新：捕获 + log
 		existing, err := s.repo.GetByWechatOpenID(ctx, wechatOpenID)
-		if err != nil {
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Errorf("[OneID LinkIdentity] 查 wechat=%s 失败: %v", wechatOpenID, err)
 			return fmt.Errorf("查 wechat openid 失败: %w", err)
 		}
@@ -179,7 +183,7 @@ func (s *CustomerIdentityService) LinkIdentity(ctx context.Context, customerID, 
 
 	if douyinOpenID != "" {
 		existing, err := s.repo.GetByDouyinOpenID(ctx, douyinOpenID)
-		if err != nil {
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Errorf("[OneID LinkIdentity] 查 douyin=%s 失败: %v", douyinOpenID, err)
 			return fmt.Errorf("查 douyin openid 失败: %w", err)
 		}
