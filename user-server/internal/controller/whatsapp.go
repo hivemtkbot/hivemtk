@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"strings"
 	"context"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
@@ -64,6 +65,11 @@ func (c *WhatsappController) StartLogin(ctx *gin.Context) {
 	}
 	qr, err := c.svc.StartLogin(context.Background(), accID, 20*time.Second)
 	if err != nil {
+		// R47: 外部服务不可达(websocket dial失败)=503网关语义, 非500服务器错误
+		if strings.Contains(err.Error(), "dial") || strings.Contains(err.Error(), "websocket") || strings.Contains(err.Error(), "handshake") {
+			response.Error(ctx, 503, "无法连接 WhatsApp 服务器（检查网络/代理后重试）", err.Error())
+			return
+		}
 		response.ErrorFromDB(ctx, err, "启动登录失败", err.Error())
 		return
 	}

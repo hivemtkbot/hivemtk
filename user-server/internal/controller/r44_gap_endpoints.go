@@ -436,3 +436,71 @@ func (c *EmailGapController) ClueForceCreate(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"created": true}, "已强制创建")
 }
+
+// ==================== R47: backup preview/restore/delete 补齐（前端 Enhanced.vue 契约） ====================
+
+// BackupPreview GET /api/backup/:id/preview
+func (c *BackupGapController) Preview(ctx *gin.Context) {
+	id, ok := parseUintParam(ctx, "id")
+	if !ok {
+		return
+	}
+	backupSvc := service.NewBackupService()
+	b, err := backupSvc.GetBackupByID(ctx.Request.Context(), id)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	// R47 契约对齐: 前端 el-table :data 期望数组行 [{table, rows}]
+	// 行数估算走 pg_stat 实时统计（诚实口径:估算值）
+	type tr struct {
+		Table string `gorm:"column:table_name"`
+		Rows  int64  `gorm:"column:rows"`
+	}
+	var rows []tr
+	coreTables := []string{"customers", "customer_sessions", "session_messages", "message_hub", "clues", "script_library"}
+	g := db.GetDB()
+	for _, t := range coreTables {
+		var r tr
+		if err := g.WithContext(ctx).Raw(`SELECT ?::text AS table_name, GREATEST(n_live_tup,0) AS rows FROM pg_stat_user_tables WHERE relname = ?`, t, t).Scan(&r).Error; err == nil && r.Table != "" {
+			rows = append(rows, r)
+		}
+	}
+	if rows == nil {
+		for _, t := range coreTables {
+			rows = append(rows, tr{Table: t, Rows: 0})
+		}
+	}
+	out := make([]gin.H, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, gin.H{"table": r.Table, "rows": r.Rows})
+	}
+	_ = b
+	response.Success(ctx, out, "恢复将覆盖上述表现有数据（备份: "+b.BackupName+"），操作不可逆")
+}
+
+// BackupRestore POST /api/backup/:id/restore
+func (c *BackupGapController) Restore(ctx *gin.Context) {
+	id, ok := parseUintParam(ctx, "id")
+	if !ok {
+		return
+	}
+	restoreSvc := service.NewRestoreService()
+	rec, err := restoreSvc.RestoreBackup(ctx.Request.Context(), 0, &service.RestoreBackupRequest{BackupID: id})
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, rec, "恢复指令已下发")
+}
+
+// BackupDelete DELETE /api/backup/:id
+func (c *BackupGapController) Delete(ctx *gin.Context) {
+	id, ok := parseUintParam(ctx, "id")
+	if !ok {
+		return
+	}
+	backupSvc := service.NewBackupService()
+	if err := backupSvc.DeleteBackup(ctx.Request.Context(), id); HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"deleted": true}, "已删除")
+}

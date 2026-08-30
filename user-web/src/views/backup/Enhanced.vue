@@ -144,7 +144,19 @@ async function load() {
 }
 
 async function saveStrategy() {
-  await http.put('/api/backup/strategy', strategy)
+  // R47: 字段名对齐后端(snake_case), daily/weekly 时间选择器→hour/minute
+  const d = strategy.daily instanceof Date ? strategy.daily : new Date(strategy.daily)
+  const w = strategy.weeklyTime instanceof Date ? strategy.weeklyTime : new Date(strategy.weeklyTime)
+  await http.put('/api/backup/strategy', {
+    enabled: strategy.enabled,
+    daily_hour: d.getHours(),
+    daily_minute: d.getMinutes(),
+    weekly_day: strategy.weeklyDay,
+    weekly_hour: w.getHours(),
+    weekly_minute: w.getMinutes(),
+    retention_days: strategy.retentionDays,
+    checksum: strategy.checksum
+  })
   ElMessage.success('策略已保存')
 }
 
@@ -167,7 +179,12 @@ async function showPreview(row) {
 
 async function confirmRestore() {
   if (!_selectedBackup) return
-  await ElMessageBox.confirm('确认恢复？此操作不可逆', '危险操作', { type: 'error' })
+  try {
+    await ElMessageBox.confirm('确认恢复？此操作不可逆', '危险操作', { type: 'error' })
+  } catch (e) {
+    if (e === 'cancel' || e === 'close') return
+    throw e
+  }
   await http.post(`/api/backup/${_selectedBackup.id}/restore`, {})
   ElMessage.success('恢复指令已下发')
   previewVisible.value = false
@@ -179,7 +196,12 @@ function restore(row) {
 }
 
 async function remove(row) {
-  await ElMessageBox.confirm(`确认删除备份 ${row.id}？`, '删除确认', { type: 'warning' })
+  try {
+    await ElMessageBox.confirm(`确认删除备份 ${row.id}？`, '删除确认', { type: 'warning' })
+  } catch (e) {
+    if (e === 'cancel' || e === 'close') return
+    throw e
+  }
   await http.delete(`/api/backup/${row.id}`)
   ElMessage.success('已删除')
   await load()

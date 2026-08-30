@@ -139,6 +139,8 @@ const handleDelete = (id) => {
         console.error('删除账号失败:', error)
         ElMessage.error(i18n.global.t('删除账号失败'))
       }
+  }).catch((e) => {
+    if (e !== 'cancel' && e !== 'close') throw e // R47: 取消不报未捕获异常
   });
 };
 

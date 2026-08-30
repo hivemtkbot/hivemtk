@@ -87,6 +87,9 @@ function startLogin(row) {
     // 拦截器已解包，res 直接就是数据对象
     qrCode.value = res.qr
     qrDialog.value = true
+  }).catch((e) => {
+    // R47: 503(无法连WhatsApp服务器)等失败走明确提示，不再抛未捕获异常
+    ElMessage.error(e?.message || '启动登录失败（检查网络后重试）')
   })
 }
 
@@ -101,6 +104,8 @@ function refreshStatus(row) {
       if (qrCode.value) qrDialog.value = true
       else ElMessage.info(i18n.global.t('未登录，请点击登录生成二维码'))
     }
+  }).catch((e) => {
+    ElMessage.error(e?.message || '获取登录状态失败')
   })
 }
 

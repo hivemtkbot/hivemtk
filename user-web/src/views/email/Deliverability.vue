@@ -116,7 +116,12 @@ function renderBounceChart(bounces) {
 }
 
 async function suspendDomain(row) {
-  await ElMessageBox.confirm(`确认暂停域名「${row.domain}」？`, '暂停确认', { type: 'warning' })
+  try {
+    await ElMessageBox.confirm(`确认暂停域名「${row.domain}」？`, '暂停确认', { type: 'warning' })
+  } catch (e) {
+    if (e === 'cancel' || e === 'close') return
+    throw e
+  }
   await http.post(`/api/email/domains/${row.id}/suspend`, {})
   ElMessage.success('已暂停')
   await load()

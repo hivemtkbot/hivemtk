@@ -203,7 +203,7 @@ func (c *PlatformAccountController) CheckLoginStatus(ctx *gin.Context) {
 	}
 
 	status, err := c.accountService.CheckLoginStatus(context.Background(), uint(id))
-	if HandleDBError(ctx, err, "检查登录状态") {
+	if HandleServiceError(ctx, err) { // R47: 能力下线=业务错误(400)而非500
 		return
 	}
 

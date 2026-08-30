@@ -122,7 +122,12 @@ function showDiff(row) {
 }
 
 async function rollback(row) {
-  await ElMessageBox.confirm(`确认回滚操作 ${row.id}？`, '回滚确认', { type: 'warning' })
+  try {
+    await ElMessageBox.confirm(`确认回滚操作 ${row.id}？`, '回滚确认', { type: 'warning' })
+  } catch (e) {
+    if (e === 'cancel' || e === 'close') return
+    throw e
+  }
   await http.post(`/api/operation-logs/${row.id}/rollback`, {})
   ElMessage.success('已回滚')
   await load()

@@ -181,7 +181,12 @@ function editRule(row) {
 }
 
 async function deleteRule(row) {
-  await ElMessageBox.confirm(`确认删除规则「${row.name}」？`, '删除确认', { type: 'warning' })
+  try {
+    await ElMessageBox.confirm(`确认删除规则「${row.name}」？`, '删除确认', { type: 'warning' })
+  } catch (e) {
+    if (e === 'cancel' || e === 'close') return
+    throw e
+  }
   await http.delete(`/api/oneid/merge-rules/${row.id}`)
   ElMessage.success('已删除')
   await load()

@@ -576,6 +576,9 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/backup/strategy", backupGapCtrl.GetStrategy)
 	doReg("PUT", "/backup/strategy", backupGapCtrl.SaveStrategy)
 	doReg("POST", "/backup/create", backupGapCtrl.Create)
+	doReg("GET", "/backup/:id/preview", backupGapCtrl.Preview)
+	doReg("POST", "/backup/:id/restore", backupGapCtrl.Restore)
+	doReg("DELETE", "/backup/:id", backupGapCtrl.Delete)
 	doReg("GET", "/backups/stats", backupGapCtrl.Stats)
 
 	ragEvalCtrl := controller.NewRagEvalGapController()

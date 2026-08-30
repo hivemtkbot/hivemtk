@@ -117,7 +117,18 @@ func (s *PlatformAccountService) CheckLoginStatus(ctx context.Context, id uint) 
 	if err != nil {
 		return false, err
 	}
-	return false, fmt.Errorf("平台 %s 不支持服务端登录态检查（CDP 自动回复通道已移除，登录态由桥接模块维护）", account.Platform)
+	// R47: 该能力已被移除（CDP 通道下线）——返回确定性业务错误而非通用 error（此前被映射成 500）
+	return false, &UnsupportedCapabilityError{Capability: "登录态检查", Platform: string(account.Platform)}
+}
+
+// UnsupportedCapabilityError 明确的"能力已下线"业务错误（400 语义）
+type UnsupportedCapabilityError struct {
+	Capability string
+	Platform   string
+}
+
+func (e *UnsupportedCapabilityError) Error() string {
+	return fmt.Sprintf("平台 %s 不支持服务端%s（CDP 自动回复通道已移除，登录态由桥接模块维护）", e.Platform, e.Capability)
 }
 
 var ErrPermissionDenied = &PermissionDeniedError{}

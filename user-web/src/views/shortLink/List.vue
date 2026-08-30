@@ -424,6 +424,8 @@ const handleDelete = (row) => {
       ElMessage.error(i18n.global.t('删除失败'))
       console.error(error)
     }
+  }).catch((e) => {
+    if (e !== 'cancel' && e !== 'close') throw e // R47: 取消不报未捕获异常
   })
 }
 
