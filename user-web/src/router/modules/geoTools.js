@@ -1,5 +1,11 @@
 export default [
   {
+    path: 'geo/decision-report',
+    name: 'GeoDecisionReport',
+    component: () => import('@/views/geo/DecisionReport.vue'),
+    meta: { title: '决策链报表', group: 'analytics', icon: 'DataAnalysis', requiresAuth: true }
+  },
+  {
     path: 'geo-tools/keyword-mining',
     name: 'GeoKeywordMining',
     component: () => import('@/views/geo/KeywordMining.vue'),

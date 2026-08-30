@@ -223,6 +223,8 @@ const pathToModule = {
   'workflow-orchestrator': 'workflowOrchestrator',
   // GEO 智能优化：URL 首段 geo-tools (kebab-case) → 模块名 geoTools (camelCase)
   'geo-tools': 'geoTools',
+  // GEO 决策链报表：路径首段 geo → geoTools 模块（已合并到 geoTools.js）
+  'geo': 'geoTools',
 }
 
 async function ensureRouteLoaded(path) {

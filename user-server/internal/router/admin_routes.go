@@ -71,19 +71,15 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	public.POST("/system/create-default-admin", authCtrl.CreateDefaultAdmin)
 
 	public.GET("/license/status", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"code": 200,
-			"data": gin.H{
-				"edition":  "open_source",
-				"licensed": true,
-				"status":   "active",
-				"message":  "开源版无需授权",
-			},
-			"msg": "ok",
-		})
+		response.Success(c, gin.H{
+			"edition":  "open_source",
+			"licensed": true,
+			"status":   "active",
+			"message":  "开源版无需授权",
+		}, "ok")
 	})
 	public.GET("/license/features", func(c *gin.Context) {
-		c.JSON(200, gin.H{"code": 200, "data": []interface{}{}, "msg": "ok"})
+		response.Success(c, []interface{}{}, "ok")
 	})
 
 	redirectCtrl := controller.NewRedirectController(
