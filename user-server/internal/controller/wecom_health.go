@@ -87,10 +87,15 @@ func (c *WeComHealthController) GetRiskAccounts(ctx *gin.Context) {
 }
 
 // SelectHealthyAccount 选最优账号
+//
+// 降级语义：service 内部已实现三步降级（健康账号 → 降级账号 → ErrWeComAccountNotFound）。
+// 到 controller 时 err != nil 意味着系统完全没有可用账号，这是正常状态（未配置），
+// 应返回 code=0, data=null 而不是 NOT_FOUND_1002。
 func (c *WeComHealthController) SelectHealthyAccount(ctx *gin.Context) {
 	acc, err := c.svc.SelectHealthyAccount(ctx.Request.Context())
 	if err != nil {
-		response.NotFound(ctx, "无可用账号")
+		// 降级：无可用账号是正常状态，不是业务错误
+		response.Success(ctx, nil, "无可用账号，请先在系统中配置企业微信账号")
 		return
 	}
 	response.Success(ctx, acc, "查询成功")

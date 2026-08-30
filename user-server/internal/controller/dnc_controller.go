@@ -32,7 +32,7 @@ func (c *DNCController) List(ctx *gin.Context) {
 	if oneID != "" {
 		q = q.Where("one_id = ?", oneID)
 	}
-	if err := q.Order("blocked_at DESC").Limit(200).Scan(&list).Error; HandleServiceError(ctx, err) {
+	if err := q.Order("created_at DESC").Limit(200).Scan(&list).Error; HandleServiceError(ctx, err) {
 		return
 	}
 	response.Success(ctx, gin.H{"list": list, "total": len(list)}, "ok")
@@ -43,7 +43,7 @@ type dncRow struct {
 	OneID     string `json:"one_id"`
 	Channel   string `json:"channel"`
 	Source    string `json:"source"`
-	BlockedAt string `json:"blocked_at"`
+	CreatedAt string `json:"created_at"`
 }
 
 // Block POST /api/dnc {one_id, channel?, source?} — channel 空=全局

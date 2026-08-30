@@ -362,6 +362,22 @@ func (r *WeComAccountRepository) FindHealthyAccounts(ctx context.Context, riskLe
 	return accounts, err
 }
 
+// FindActiveAccounts 查找 status=1 且 login_state != banned 的账号（降级选号用）。
+//
+// 场景：SelectHealthyAccount 找不到健康账号时，降级返回任何已启用、未封禁的账号，
+// 避免整体失败。返回的结果按 id ASC 排序，保证选号稳定。
+func (r *WeComAccountRepository) FindActiveAccounts(ctx context.Context) ([]model.WeComAccount, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	var accounts []model.WeComAccount
+	err := r.db.WithContext(ctx).Model(&model.WeComAccount{}).
+		Where("status = ? AND login_state != ?", 1, "banned").
+		Order("id ASC").
+		Find(&accounts).Error
+	return accounts, err
+}
+
 
 // WeComAccountHealthRepository 企业微信账号健康度仓库
 type WeComAccountHealthRepository struct {

@@ -9,6 +9,7 @@ import (
 	agent_runtime "hivemtk-user/internal/aiagent/agent/runtime"
 	"hivemtk-user/internal/aiagent/agent/tooluse"
 	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -167,10 +168,9 @@ func handleInferenceStats(c *gin.Context) {
 		})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"stats":   orch.GetStats(),
-	})
+	response.Success(c, gin.H{
+		"stats": orch.GetStats(),
+	}, "ok")
 }
 
 
@@ -227,10 +227,9 @@ func handleGetPermissionDefault(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "error": "permission checker not initialized"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success":       true,
+	response.Success(c, gin.H{
 		"default_allow": pc.GetDefaultAllow(),
-	})
+	}, "ok")
 }
 
 type setPermissionDefaultRequest struct {
@@ -259,11 +258,11 @@ func handleGetGlobalWhitelist(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "error": "permission checker not initialized"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"tools":   pc.ListGlobalWhitelist(),
-		"count":   len(pc.ListGlobalWhitelist()),
-	})
+	tools := pc.ListGlobalWhitelist()
+	response.Success(c, gin.H{
+		"tools": tools,
+		"count": len(tools),
+	}, "ok")
 }
 
 type addGlobalWhitelistRequest struct {
@@ -297,11 +296,10 @@ func handleListConfiguredAgents(c *gin.Context) {
 		return
 	}
 	agents := pc.ListConfiguredAgents()
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"agents":  agents,
-		"count":   len(agents),
-	})
+	response.Success(c, gin.H{
+		"agents": agents,
+		"count":  len(agents),
+	}, "ok")
 }
 
 func handleGetAgentWhitelist(c *gin.Context) {

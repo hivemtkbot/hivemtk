@@ -10,6 +10,7 @@ import (
 	"hivemtk-user/internal/app"
 	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/utils/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -74,11 +75,10 @@ func handleToolList(c *gin.Context) {
 			"parameters":  t.Parameters(),
 		})
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"total":   len(out),
-		"tools":   out,
-	})
+	response.Success(c, gin.H{
+		"total": len(out),
+		"tools": out,
+	}, "ok")
 }
 
 
@@ -202,24 +202,23 @@ func handleToolStats(c *gin.Context) {
 	exec := tooluse.GetGlobalExecutor()
 	router := app.GetGlobalToolRouter()
 
-	resp := gin.H{
-		"success":            true,
+	data := gin.H{
 		"registry_total":     0,
 		"executor_available": 0,
 	}
 	if registry != nil {
-		resp["registry_total"] = registry.Count()
+		data["registry_total"] = registry.Count()
 	}
 	if exec != nil {
-		resp["executor_available"] = len(exec.ListAvailableTools())
+		data["executor_available"] = len(exec.ListAvailableTools())
 	}
 	if router != nil {
-		resp["router_stats"] = router.GetStats()
+		data["router_stats"] = router.GetStats()
 	} else {
-		resp["router_stats"] = nil
-		resp["router_warning"] = "ToolRouter not initialized"
+		data["router_stats"] = nil
+		data["router_warning"] = "ToolRouter not initialized"
 	}
-	c.JSON(http.StatusOK, resp)
+	response.Success(c, data, "ok")
 }
 
 
@@ -249,12 +248,11 @@ func handleToolAudit(c *gin.Context) {
 
 	memLogger := app.GetGlobalMemoryAuditLogger()
 	if memLogger == nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
+		response.Success(c, gin.H{
 			"entries": []any{},
 			"warning": "memory audit logger not accessible (may be replaced by DB-backed implementation)",
 			"total":   0,
-		})
+		}, "ok")
 		return
 	}
 	entries := memLogger.Entries()
@@ -266,11 +264,10 @@ func handleToolAudit(c *gin.Context) {
 		}
 		out = append(out, e)
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
+	response.Success(c, gin.H{
 		"total":   len(out),
 		"entries": out,
-	})
+	}, "ok")
 }
 
 
@@ -278,20 +275,18 @@ func handleToolAudit(c *gin.Context) {
 func handleToolCost(c *gin.Context) {
 	memTracker := app.GetGlobalMemoryCostTracker()
 	if memTracker == nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
+		response.Success(c, gin.H{
 			"stats":   []any{},
 			"warning": "memory cost tracker not accessible",
 			"total":   0,
-		})
+		}, "ok")
 		return
 	}
 	stats := memTracker.Stats()
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"total":   len(stats),
-		"stats":   stats,
-	})
+	response.Success(c, gin.H{
+		"total": len(stats),
+		"stats": stats,
+	}, "ok")
 }
 
 
@@ -410,11 +405,10 @@ func handleToolProviders(c *gin.Context) {
 		providerInfo = append(providerInfo, info)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success":          true,
+	response.Success(c, gin.H{
 		"total_providers":  len(providers),
 		"registered_count": app.GetGlobalProviderRegistry().Count(),
 		"results":          providerInfo,
-	})
+	}, "ok")
 }
 

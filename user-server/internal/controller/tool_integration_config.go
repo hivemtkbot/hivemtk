@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 
+	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,7 @@ func (c *ToolIntegrationConfigController) GetConfig(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"success": true, "data": cfg})
+	response.Success(ctx, cfg, "ok")
 }
 
 // SaveConfig 保存工具集成配置（PUT /api/agent/tool-integrations）
@@ -38,6 +39,6 @@ func (c *ToolIntegrationConfigController) SaveConfig(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"success": true, "data": cfg})
+	response.Success(ctx, cfg, "ok")
 }
 

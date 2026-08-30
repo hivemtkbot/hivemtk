@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/repository"
 
 )
@@ -106,19 +107,29 @@ func (s *OfficeHoursService) SendAwayReplyIfClosed(ctx context.Context, sessionI
 	if msg == "" {
 		return false
 	}
-	// 防重复：同会话 2 小时内只发一次
+	// 防重复：同会话 2 小时内只发一次（R52 修复: 用 trace_id='away' 识别，原 sender_type 列不存在）
 	g := db.GetDB()
 	var cnt int64
-	_ = g.WithContext(ctx).Table("message_hub").
-		Where("conversation_id = ? AND direction = 'outbound' AND sender_type = 'system_away' AND sent_at > ?", conversationID, time.Now().Add(-2*time.Hour)).
-		Count(&cnt).Error
+	_ = g.WithContext(ctx).
+		Where("conversation_id = ? AND trace_id = ? AND sent_at > ?", conversationID, "away", time.Now().Add(-2*time.Hour)).
+		Model(&model.MessageHub{}).Count(&cnt).Error
 	if cnt > 0 {
 		return false
 	}
 	now := time.Now()
-	out := g.WithContext(ctx).Exec(`
-		INSERT INTO message_hub (platform, msg_id, account_id, direction, status, msg_type, sender_id, sender_type, receiver_id, content, conversation_id, is_group, is_ai_reply, trace_id, sent_at, created_at)
-		VALUES (?, ?, ?, 'outbound', 'pending', 'text', 'system', 'system_away', '', ?, ?, false, false, '', ?, NOW())`,
-		platform, fmt.Sprintf("away_%s_%d", sessionID, now.Unix()), accountID, msg, conversationID, now)
-	return out.Error == nil
+	rec := &model.MessageHub{
+		Platform:       platform,
+		MsgID:          fmt.Sprintf("away_%s_%d", sessionID, now.Unix()),
+		AccountID:      accountID,
+		Direction:      "outbound",
+		Status:         "pending",
+		MsgType:        "text",
+		SenderID:       "system",
+		SenderName:     "离开自动回复",
+		Content:        msg,
+		ConversationID: conversationID,
+		TraceID:        "away",
+		SentAt:         now,
+	}
+	return g.WithContext(ctx).Create(rec).Error == nil
 }

@@ -168,19 +168,40 @@ func (s *WeComAccountHealthService) GetRiskAccounts(ctx context.Context) ([]mode
 }
 
 // SelectHealthyAccount 路由选号 - 选出最佳账号
+//
+// 三步降级策略（避免把"无健康账号"误报为业务错误）：
+//  1. 优先返回健康账号（risk IN normal/warning 且 login_state NOT IN banned/offline）
+//  2. 若无健康账号，降级返回任何已启用、未封禁的账号（status=1, login_state!=banned）
+//  3. 完全没有可用账号才返回 ErrWeComAccountNotFound（交由 controller 做最终降级）
+//
+// 返回值签名不变（*model.WeComAccount, error），controller 层只需区分 error 为 nil 还是 not nil。
 func (s *WeComAccountHealthService) SelectHealthyAccount(ctx context.Context) (*model.WeComAccount, error) {
 	if s.accountRepo == nil {
 		return nil, fmt.Errorf("db is nil")
 	}
+
+	// Step 1: 找健康账号
 	accounts, err := s.accountRepo.FindHealthyAccounts(ctx,
 		[]string{WeComRiskNormal, WeComRiskWarning},
 		[]string{WeComLoginBanned, WeComLoginOffline})
 	if err != nil {
 		return nil, err
 	}
+
 	if len(accounts) == 0 {
-		return nil, ErrWeComAccountNotFound
+		// Step 2: 降级 — 找任何已启用、未封禁的账号（允许 offline）
+		active, err := s.accountRepo.FindActiveAccounts(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if len(active) == 0 {
+			// Step 3: 完全没有账号
+			return nil, ErrWeComAccountNotFound
+		}
+		// 降级返回第一个可用账号（按 id ASC 排序，稳定选号）
+		return &active[0], nil
 	}
+
 	// v3 审计 P1-8：单一比较函数一次排序——健康分优先、Weight 次之、配额余量兜底。
 	// 原两次独立排序中第二次会整体重排，使健康分排序完全失效。
 	sort.SliceStable(accounts, func(i, j int) bool {

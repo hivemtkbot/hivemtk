@@ -177,9 +177,21 @@ func (s *MacroService) enqueueOutbound(ctx context.Context, sessionID, content s
 		Where("session_id = ?", sessionID).Scan(&sess).Error; err != nil {
 		return err
 	}
+	// R52 修复: 原手写 INSERT 含不存在的 sender_type 列→必失败（假性完成）。改用 GORM 模型对齐。
 	now := time.Now()
-	return g.WithContext(ctx).Exec(`
-		INSERT INTO message_hub (platform, msg_id, account_id, direction, status, msg_type, sender_id, sender_type, receiver_id, content, conversation_id, is_group, is_ai_reply, trace_id, sent_at, created_at)
-		VALUES (?, ?, ?, 'outbound', 'pending', 'text', 'system', 'macro', '', ?, ?, false, false, 'macro', ?, NOW())`,
-		sess.Platform, fmt.Sprintf("macro_%s_%d", sessionID, now.UnixNano()), sess.Account, content, sessionID, now).Error
+	rec := &model.MessageHub{
+		Platform:       sess.Platform,
+		MsgID:          fmt.Sprintf("macro_%s_%d", sessionID, now.UnixNano()),
+		AccountID:      sess.Account,
+		Direction:      "outbound",
+		Status:         "pending",
+		MsgType:        "text",
+		SenderID:       "system",
+		SenderName:     "宏消息",
+		Content:        content,
+		ConversationID: sessionID,
+		TraceID:        "macro",
+		SentAt:         now,
+	}
+	return g.WithContext(ctx).Create(rec).Error
 }

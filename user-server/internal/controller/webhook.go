@@ -10,8 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"hivemtk-user/internal/middleware"
-	"hivemtk-user/internal/service"
-	"hivemtk-user/internal/service/translation"
+        "hivemtk-user/internal/pkg/utils/response"
+        "hivemtk-user/internal/service"
+        "hivemtk-user/internal/service/translation"
 )
 
 // WebhookController 多渠道 Webhook 控制器
@@ -378,15 +379,15 @@ func (c *WebhookController) DingTalkReceive(ctx *gin.Context) {
 func (c *WebhookController) Stats(ctx *gin.Context) {
 	pending := c.svc.PendingCount(context.Background())
 	queueLen := c.svc.QueueLen(context.Background())
-	ctx.JSON(http.StatusOK, gin.H{
+	response.Success(ctx, gin.H{
 		"pending_events": pending,
 		"queue_length":   queueLen,
-	})
+	}, "ok")
 }
 
 // Health 健康检查
 func (c *WebhookController) Health(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
+	response.Success(ctx, gin.H{"status": "ok"}, "ok")
 }
 
 // extractHeaders 提取所需 headers

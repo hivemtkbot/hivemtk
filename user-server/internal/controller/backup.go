@@ -1,12 +1,14 @@
 package controller
 
 import (
+	"errors"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // BackupController 备份控制器
@@ -236,6 +238,9 @@ func (c *RestoreController) GetRestoreList(ctx *gin.Context) {
 }
 
 // GetLastRestore 获取最近一次恢复记录
+//
+// 无恢复记录是正常状态（从未执行过恢复），应降级返回 code=0, data=null，
+// 而不是 NOT_FOUND_1002。只有真正的数据库错误才返回错误。
 func (c *RestoreController) GetLastRestore(ctx *gin.Context) {
 
 	userID, exists := ctx.Get("user_id")
@@ -250,6 +255,11 @@ func (c *RestoreController) GetLastRestore(ctx *gin.Context) {
 
 	record, err := c.restoreService.GetLastRestore(ctx.Request.Context())
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 降级：暂无恢复记录是正常状态，不是业务错误
+			response.Success(ctx, nil, "暂无恢复记录")
+			return
+		}
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
 	}

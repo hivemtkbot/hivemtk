@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 
+	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,7 @@ func (c *AgentSettingsController) GetConfig(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"success": true, "data": cfg})
+	response.Success(ctx, cfg, "ok")
 }
 
 // SaveConfig 保存 Agent Loop 运行期调参（PUT /api/agent/settings）
@@ -42,6 +43,6 @@ func (c *AgentSettingsController) SaveConfig(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"success": true, "data": cfg})
+	response.Success(ctx, cfg, "ok")
 }
 

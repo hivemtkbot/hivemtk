@@ -2,12 +2,14 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // UserSegmentController 用户分层控制器
@@ -29,10 +31,15 @@ func NewUserSegmentController() *UserSegmentController {
 }
 
 // GetRFMRule 获取 RFM 规则
+// 若未配置 RFM 规则（表为空或无 active 规则），返回成功态 + nil 数据，提示前端使用系统默认。
 func (c *UserSegmentController) GetRFMRule(ctx *gin.Context) {
 	rule, err := c.rfmService.GetRFMRule(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusNotFound, "未找到 RFM 规则")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Success(ctx, nil, "RFM 规则未配置，将使用系统默认")
+			return
+		}
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
