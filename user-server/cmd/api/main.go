@@ -309,6 +309,27 @@ func main() {
 	defer wecomQuotaResetCron.Stop(context.Background())
 	logger.Info("[WeComQuotaResetCron] 企微日配额每日重置已装配")
 
+	// [R48 T3] 会话暂缓到期恢复 cron：每 5 分钟
+	snoozeCron := cronpkg.NewSnoozeRecoveryCron(func(ctx context.Context) (int64, error) {
+		return service.NewCustomerServicePlusServiceFromGlobal().RecoverSnoozed(ctx)
+	})
+	snoozeCron.Start()
+	defer snoozeCron.Stop()
+	logger.Info("[SnoozeCron] 会话暂缓到期恢复已装配")
+
+	// [R48 T9] 定时邮件报表：每日 08:00 窗口（复用调度骨架）
+	reportCron := cronpkg.NewSnoozeRecoveryCron(func(ctx context.Context) (int64, error) {
+		hm := time.Now().Format("15:04")
+		if hm >= "08:00" && hm < "08:30" {
+			n, err := service.NewCustomerServicePlusServiceFromGlobal().SendScheduledReports(ctx)
+			return int64(n), err
+		}
+		return 0, nil
+	})
+	reportCron.Start()
+	defer reportCron.Stop()
+	logger.Info("[ReportCron] 定时邮件报表已装配")
+
 	// [T8] 告警规则检查器：每 60s 扫描启用规则并比对阈值
 	alertChecker := service.NewAlertChecker(
 		service.NewMetricsAlertProvider(),

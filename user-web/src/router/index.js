@@ -27,6 +27,13 @@ const initRoutes = [
     component: () => import('@/views/Login.vue'),
     meta: { title: '登录' }
   },
+  // R48 T1: 公开帮助中心门户（免登录）
+  {
+    path: '/help-center',
+    name: 'HelpCenter',
+    component: () => import('@/views/public/HelpCenter.vue'),
+    meta: { title: '帮助中心', requiresAuth: false, public: true, hideLayout: true }
+  },
   // 公开嵌入聊天窗（被第三方网站 iframe 加载）
   // 私域部署：URL 路径用 channel_ref（兼容 app_key），缺失默认 default
   {

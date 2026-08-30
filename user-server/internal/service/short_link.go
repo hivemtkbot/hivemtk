@@ -100,6 +100,11 @@ func (s *shortLinkService) Create(ctx context.Context, req *dto.CreateShortLinkR
 		}
 	}
 
+	// R48 T11: UTM 参数自动追加（Mautic 口径：utm_source/medium/campaign 存在即拼到目标链接）
+	if req.UtmSource != "" || req.UtmMedium != "" || req.UtmCampaign != "" {
+		req.OriginalURL = appendUTM(req.OriginalURL, req.UtmSource, req.UtmMedium, req.UtmCampaign)
+	}
+
 	shortLink := &model.ShortLink{
 		ShortCode:   req.ShortCode,
 		OriginalURL: req.OriginalURL,
@@ -570,3 +575,25 @@ func (s *shortLinkService) ShareShortLink(ctx context.Context, req *dto.ShareSho
 	}, nil
 }
 
+
+// appendUTM 向目标链接追加 UTM 参数（已有参数用 & 连接；去重：已含同名参数不重复追加）
+func appendUTM(rawURL, source, medium, campaign string) string {
+	sep := "?"
+	if strings.Contains(rawURL, "?") {
+		sep = "&"
+	}
+	added := []string{}
+	if source != "" && !strings.Contains(rawURL, "utm_source=") {
+		added = append(added, "utm_source="+url.QueryEscape(source))
+	}
+	if medium != "" && !strings.Contains(rawURL, "utm_medium=") {
+		added = append(added, "utm_medium="+url.QueryEscape(medium))
+	}
+	if campaign != "" && !strings.Contains(rawURL, "utm_campaign=") {
+		added = append(added, "utm_campaign="+url.QueryEscape(campaign))
+	}
+	if len(added) == 0 {
+		return rawURL
+	}
+	return rawURL + sep + strings.Join(added, "&")
+}

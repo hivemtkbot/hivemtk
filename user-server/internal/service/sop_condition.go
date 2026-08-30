@@ -80,7 +80,11 @@ func SOPEvaluateCompoundCondition(condition string, data map[string]any) (bool, 
 	hasAnd := strings.Contains(upper, " "+SOPLogicAnd+" ")
 	hasOr := strings.Contains(upper, " "+SOPLogicOr+" ")
 	if hasAnd && hasOr {
-		return false, errors.New("复合条件不允许 AND/OR 混用，请使用括号分组（本期暂不支持括号）")
+		// AND/OR 混用 → 检查是否有括号分组（括号内子表达式递归求值）
+		if strings.Contains(condition, "(") && strings.Contains(condition, ")") {
+			return evalParenthesized(condition, data)
+		}
+		return false, errors.New("复合条件不允许 AND/OR 混用，请使用括号分组")
 	}
 
 	if hasAnd {
@@ -267,5 +271,26 @@ func splitByOperator(condition, op string) []string {
 		}
 	}
 	return filtered
+}
+
+// evalParenthesized 递归求值带括号的复合条件（支持嵌套）
+func evalParenthesized(condition string, data map[string]any) (bool, error) {
+	for strings.Contains(condition, "(") {
+		start := strings.LastIndex(condition, "(")
+		end := strings.Index(condition[start:], ")")
+		if end < 0 {
+			return false, errors.New("unmatched parenthesis")
+		}
+		end += start
+		inner := condition[start+1 : end]
+		res, err := SOPEvaluateCompoundCondition(inner, data)
+		if err != nil {
+			return false, err
+		}
+		condition = condition[:start] + map[bool]string{true: "TRUE", false: "FALSE"}[res] + condition[end+1:]
+	}
+	condition = strings.ReplaceAll(strings.ToUpper(condition), "TRUE", "true")
+	condition = strings.ReplaceAll(strings.ToUpper(condition), "FALSE", "false")
+	return SOPEvaluateCompoundCondition(condition, data)
 }
 

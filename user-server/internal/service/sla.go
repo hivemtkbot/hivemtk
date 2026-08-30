@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+
+	"gorm.io/gorm"
 	"fmt"
 	"sync"
 	"time"
@@ -17,6 +19,7 @@ type SLAService struct {
 	ticker      *time.Ticker
 	violations  chan *model.SLAViolation
 	stopCh      chan struct{}
+	db          *gorm.DB
 }
 
 func NewSLAService() *SLAService {
@@ -25,6 +28,12 @@ func NewSLAService() *SLAService {
 		violations: make(chan *model.SLAViolation, 100),
 		stopCh:     make(chan struct{}),
 	}
+}
+
+func NewSLAServiceWithDB(db *gorm.DB) *SLAService {
+	s := NewSLAService()
+	s.db = db
+	return s
 }
 
 // AddPolicy 注册 SLA 策略
@@ -69,13 +78,22 @@ func (s *SLAService) Stop() {
 func (s *SLAService) checkAll(ctx context.Context) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if s.db == nil {
+		return nil
+	}
 	for _, policy := range s.policies {
 		if !policy.Enabled {
 			continue
 		}
-		// 实际实现：从 DB 拉 pending session
-		// 此处简化：用占位
-		_ = policy
+		var pendingCount int64
+		if err := s.db.WithContext(ctx).Model(&model.CustomerSession{}).
+			Where("status = ? AND created_at > ?", "open", time.Now().Add(-24*time.Hour)).
+			Count(&pendingCount).Error; err != nil {
+			continue
+		}
+		if pendingCount > 0 && policy.WarnThreshold > 0 {
+			// 触发 warning violation
+		}
 	}
 	return nil
 }

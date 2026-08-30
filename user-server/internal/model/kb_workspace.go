@@ -45,6 +45,7 @@ type KnowledgeDocument struct {
 	ErrorMsg      string      `gorm:"type:text" json:"error_msg"`
 	Tags          string      `gorm:"type:jsonb;default:'[]'" json:"tags"` 
 	Category      string      `gorm:"size:64;index" json:"category"`
+	PublicVisible bool        `gorm:"default:false;index" json:"public_visible"` // R48: 发布到公开帮助中心
 	Priority      int         `gorm:"default:0" json:"priority"`
 	Metadata      string      `gorm:"type:jsonb;default:'{}'" json:"metadata"`
 	ImportedBy    string      `gorm:"size:64" json:"imported_by"`

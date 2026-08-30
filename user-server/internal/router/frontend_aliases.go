@@ -4,10 +4,10 @@ package router
 import (
 	"hivemtk-user/internal/app"
 	contentctrl "hivemtk-user/internal/content/controller"
+	contentService "hivemtk-user/internal/content/service"
 	"hivemtk-user/internal/controller"
 	"hivemtk-user/internal/middleware"
 	opsctrl "hivemtk-user/internal/ops/controller"
-	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
 
@@ -62,12 +62,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 		}
 	}
 
-	emptyList := func(c *gin.Context) {
-		response.SuccessWithList(c, []any{}, 0)
-	}
-	emptyObj := func(c *gin.Context) {
-		c.JSON(200, gin.H{"code": "SUCCESS", "message": "ok", "data": gin.H{}})
-	}
 
 	notifCtrl := controller.NewNotificationController(service.NewNotificationService(gormDB))
 	doReg("GET", "/notifications/list", notifCtrl.List)
@@ -77,7 +71,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/clues/list", clueCtrl.GetClueList)
 	doReg("GET", "/clues/statistics", clueCtrl.GetClueStatistics)
 	doReg("GET", "/clues/type", clueCtrl.GetClueTypes)
-	doReg("GET", "/clues/import", emptyList)
+	doReg("GET", "/clues/import", clueCtrl.GetClueTypes)
 	doReg("POST", "/clues/import", clueCtrl.ImportClues)
 	doReg("GET", "/clue-statistics/overview", clueCtrl.GetClueStatistics)
 	doReg("DELETE", "/clues/:id", clueCtrl.DeleteClue)
@@ -218,8 +212,9 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/marketing-flows/executions", marketingFlowCtrl.GetExecutionList)
 	doReg("GET", "/marketing-flows/executions/stats", marketingFlowCtrl.GetExecutionStats)
 
-	doReg("GET", "/batch-operations", emptyList)
-	doReg("GET", "/batch-operations/list", emptyList)
+	batchOpCtrl := contentctrl.NewBatchOperationController()
+	doReg("GET", "/batch-operations", batchOpCtrl.GetTools)
+	doReg("GET", "/batch-operations/list", batchOpCtrl.GetHistories)
 
 	sopCtrl := controller.NewSOPController(service.NewSOPService(gormDB, nil))
 	doReg("GET", "/sop-agents", sopCtrl.List)
@@ -410,8 +405,14 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/live-codes/:id", liveCodeCtrl.Update)
 	doReg("DELETE", "/live-codes/:id", liveCodeCtrl.Delete)
 
-	doReg("GET", "/rag-product-configs", emptyObj)
-	doReg("GET", "/rag-product-configs/list", emptyList)
+	ragProductCtrl := controller.NewRagProductController(gormDB)
+	doReg("GET", "/rag-product-configs", ragProductCtrl.List)
+	doReg("GET", "/rag-product-configs/list", ragProductCtrl.List)
+	doReg("GET", "/rag-product-configs/stats", ragProductCtrl.Stats)
+	doReg("GET", "/rag-product-configs/:id", ragProductCtrl.Get)
+	doRegAdmin("POST", "/rag-product-configs", ragProductCtrl.Create)
+	doRegAdmin("PUT", "/rag-product-configs/:id", ragProductCtrl.Update)
+	doRegAdmin("DELETE", "/rag-product-configs/:id", ragProductCtrl.Delete)
 
 	aiContentCtrl := contentctrl.NewAIContentController()
 	doReg("GET", "/ai-content/list", aiContentCtrl.GetGenerationHistory)
@@ -498,13 +499,17 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/obs-configs/:id/test", obsCtrl.TestConnection)
 	doReg("POST", "/obs-configs/:id/default", obsCtrl.SetDefault)
 
-	doReg("GET", "/material-library/list", emptyList)
-	doReg("GET", "/material-library", emptyList)
-	doReg("GET", "/material-library/categories", emptyList)
-	doReg("GET", "/material-library/stats", emptyObj)
+	materialCtrl := contentctrl.NewMaterialController(contentService.NewMaterialService())
+	doReg("GET", "/material-library/list", materialCtrl.GetMaterialList)
+	doReg("GET", "/material-library", materialCtrl.GetMaterialList)
+	doReg("GET", "/material-library/categories", materialCtrl.GetMaterialCategories)
+	doReg("GET", "/material-library/stats", materialCtrl.GetMaterialStats)
+	doReg("POST", "/material-library", materialCtrl.UploadMaterial)
+	doReg("DELETE", "/material-library/:id", materialCtrl.DeleteMaterial)
 
-	doReg("GET", "/system-monitor/metrics", emptyObj)
-	doReg("GET", "/system-monitor/health", emptyObj)
+	sysMonCtrl := controller.NewSystemMonitorController()
+	doReg("GET", "/system-monitor/metrics", sysMonCtrl.GetMetrics)
+	doReg("GET", "/system-monitor/health", sysMonCtrl.GetHealth)
 
 	// R35 契约漂移处置（audit_checklist.md：3组真实在用端点的优雅空态，防页面报错）
 	// R39 升级：CSAT 空态桩 → 真实 CSAT 域（会话评分/统计/趋势/差评/模板）
@@ -520,6 +525,37 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	// R39 客服工作台增强：协作锁/内部备注/状态板/标签规则/快捷回复文件夹
 	csPlusCtrl := controller.NewCustomerServicePlusController()
 	doReg("GET", "/user-segments", csPlusCtrl.ListSegments)
+	// R48 T2/T3: 办公时间 + 会话优先级/暂缓
+	doReg("GET", "/office-hours", csPlusCtrl.GetOfficeHours)
+	doReg("PUT", "/office-hours", csPlusCtrl.SaveOfficeHours)
+	doReg("PUT", "/customer-sessions/:id/priority", csPlusCtrl.SetSessionPriority)
+	doReg("POST", "/customer-sessions/:id/snooze", csPlusCtrl.SnoozeSession)
+	doReg("DELETE", "/customer-sessions/:id/snooze", csPlusCtrl.UnsnoozeSession)
+	// R48 T4/T5: 宏 + AI 会话摘要
+	macroCtrl := controller.NewMacroController()
+	doReg("GET", "/macros", macroCtrl.List)
+	doReg("POST", "/macros", macroCtrl.Create)
+	doReg("DELETE", "/macros/:id", macroCtrl.Delete)
+	doReg("POST", "/macros/:id/apply", macroCtrl.Apply)
+	// R48 T6-T12
+	growthCtrl := controller.NewGrowthController()
+	doReg("GET", "/webhook-subscriptions", growthCtrl.ListWebhookSubs)
+	doReg("POST", "/webhook-subscriptions", growthCtrl.CreateWebhookSub)
+	doReg("DELETE", "/webhook-subscriptions/:id", growthCtrl.DeleteWebhookSub)
+	doReg("PUT", "/customers/:id/custom-attributes", growthCtrl.SetCustomAttributes)
+	doReg("POST", "/saved-views", growthCtrl.CreateSavedView)
+	doReg("GET", "/saved-views", growthCtrl.ListSavedViews)
+	doReg("DELETE", "/saved-views/:id", growthCtrl.DeleteSavedView)
+	doReg("POST", "/report-subscriptions", growthCtrl.CreateReportSub)
+	doReg("GET", "/report-subscriptions", growthCtrl.ListReportSubs)
+	doReg("DELETE", "/report-subscriptions/:id", growthCtrl.DeleteReportSub)
+	doReg("POST", "/report-subscriptions/send-now", growthCtrl.SendReportsNow)
+	doReg("GET", "/customer-sessions/:id/transcript", growthCtrl.Transcript)
+	doReg("GET", "/analytics/ai-performance", growthCtrl.AIPerformance)
+
+	sessionAICtrl := controller.NewSessionAIController()
+	doReg("POST", "/customer-sessions/:id/ai-summary", sessionAICtrl.Generate)
+	doReg("GET", "/customer-sessions/:id/ai-summary", sessionAICtrl.Get)
 	doReg("POST", "/user-segments", csPlusCtrl.CreateSegment)
 	doReg("POST", "/customer-sessions/:id/edit-lock", csPlusCtrl.AcquireEditLock)
 	doReg("DELETE", "/customer-sessions/:id/edit-lock", csPlusCtrl.ReleaseEditLock)
@@ -604,6 +640,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/message-hub/dlq/:id/retry", csPlusCtrl.DLQRetryOne)
 	doReg("DELETE", "/message-hub/dlq/:id", csPlusCtrl.DLQDrop)
 	doReg("GET", "/knowledge/playground/presets", emailGapCtrl.PlaygroundPresets)
+	doReg("PATCH", "/knowledge/documents/:id/public-visibility", controller.NewHelpCenterController().SetVisibility)
 	doReg("POST", "/clues/import/apply-suggestions", emailGapCtrl.ClueApplySuggestions)
 	doReg("POST", "/clues/:id/merge", emailGapCtrl.ClueMerge)
 	doReg("POST", "/clues/force-create", emailGapCtrl.ClueForceCreate)

@@ -108,6 +108,26 @@ func GetLeadMiningConfig(ctx context.Context) (*dto.LeadMiningConfig, error) {
 }
 
 // SaveLeadMiningConfig 保存配置并热更新运行中的缓存
+
+
+// GetStatus 返回线索挖掘服务运行时状态
+func GetStatus() map[string]any {
+    s := singleton
+    if s == nil {
+        return map[string]any{"running": false, "message": "service not initialized"}
+    }
+    s.mu.Lock()
+    count := len(s.lastJudge)
+    s.mu.Unlock()
+    return map[string]any{
+        "running":    true,
+        "workers":    s.workers,
+        "queue_depth": len(s.queue),
+        "recent_processed": count,
+        "cfg_loaded":       s.cfgLoadedAt.IsZero(),
+    }
+}
+
 func SaveLeadMiningConfig(ctx context.Context, in *dto.LeadMiningConfig) error {
 	if err := repository.NewLeadMiningConfigRepository().Save(ctx, leadMiningConfigFromDTO(in)); err != nil {
 		return err

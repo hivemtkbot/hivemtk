@@ -305,3 +305,62 @@ func (c *CustomerServicePlusController) DLQBatchRetry(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"requeued": n}, "批量重试完成")
 }
+
+// ---------- R48 T2/T3: 办公时间 + 会话优先级/暂缓 ----------
+
+// GetOfficeHours GET /api/office-hours
+func (c *CustomerServicePlusController) GetOfficeHours(ctx *gin.Context) {
+	response.Success(ctx, service.GetOfficeHoursService().GetConfig(ctx.Request.Context()), "ok")
+}
+
+// SaveOfficeHours PUT /api/office-hours
+func (c *CustomerServicePlusController) SaveOfficeHours(ctx *gin.Context) {
+	var cfg service.OfficeHoursConfig
+	if err := ctx.ShouldBindJSON(&cfg); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误："+err.Error())
+		return
+	}
+	if err := service.GetOfficeHoursService().SaveConfig(ctx.Request.Context(), &cfg); HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, cfg, "办公时间策略已保存")
+}
+
+// SetSessionPriority PUT /api/customer-sessions/:id/priority {level}
+func (c *CustomerServicePlusController) SetSessionPriority(ctx *gin.Context) {
+	var req struct {
+		Level *int `json:"level" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil || req.Level == nil {
+		response.Error(ctx, http.StatusBadRequest, "level 必填(0-3)")
+		return
+	}
+	if err := c.svc.SetSessionPriority(ctx.Request.Context(), ctx.Param("id"), *req.Level); HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"priority": *req.Level}, "优先级已更新")
+}
+
+// SnoozeSession POST /api/customer-sessions/:id/snooze {hours}
+func (c *CustomerServicePlusController) SnoozeSession(ctx *gin.Context) {
+	var req struct {
+		Hours *float64 `json:"hours" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil || req.Hours == nil {
+		response.Error(ctx, http.StatusBadRequest, "hours 必填")
+		return
+	}
+	until, err := c.svc.SnoozeSession(ctx.Request.Context(), ctx.Param("id"), *req.Hours)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"snoozed_until": until}, "会话已暂缓")
+}
+
+// UnsnoozeSession DELETE /api/customer-sessions/:id/snooze
+func (c *CustomerServicePlusController) UnsnoozeSession(ctx *gin.Context) {
+	if err := c.svc.UnsnoozeSession(ctx.Request.Context(), ctx.Param("id")); HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"unsnoozed": true}, "已恢复活跃")
+}

@@ -128,6 +128,9 @@ func (s *CustomerSessionService) CreateSession(ctx context.Context, req *CreateS
 		return nil, err
 	}
 
+	// R48 T2: 新会话非办公时间自动离开回复（fire-and-forget，防循环标记 system_away）
+	MaybeSendAwayReply(session.SessionID, session.SessionID, string(session.Platform), session.AccountID)
+
 	return session, nil
 }
 

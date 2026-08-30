@@ -124,6 +124,11 @@
           </template>
         </el-table-column>
         <el-table-column label="分类" prop="category" width="120" />
+        <el-table-column label="帮助中心" width="100">
+          <template #default="{ row }">
+            <el-switch :model-value="row.public_visible" size="small" @change="(v) => togglePublic(row, v)" />
+          </template>
+        </el-table-column>
         <el-table-column prop="file_size" label="大小" width="100">
           <template #default="{ row }">{{ formatFileSize(row.file_size) }}</template>
         </el-table-column>
@@ -284,6 +289,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, Refresh, UploadFilled, Search, Document, ChatDotRound, Plus, List } from '@element-plus/icons-vue'
 import { knowledgeAPI } from '@/api/knowledge'
+import { http } from '@/utils/request'
 import { ragProductConfigAPI } from '@/api/ragProductConfig'
 import { listTools } from '@/api/aiTool'
 // 统一枚举：知识库嵌入状态、来源类型
@@ -557,6 +563,17 @@ const sourceTypeLabel = (t) => getSourceLabel(t)
 const sourceTypeTag = (t) => getSourceTagType(t)
 const formatNumber = (n) => n == null ? '-' : Number(n).toLocaleString()
 const formatPercent = (n) => n == null ? '-' : (n * 100).toFixed(1) + '%'
+// R48 T1: 发布/取消发布到公开帮助中心
+const togglePublic = async (row, visible) => {
+  try {
+    await http.patch(`/api/knowledge/documents/${row.id}/public-visibility`, { visible })
+    row.public_visible = visible
+    ElMessage.success(visible ? '已发布到帮助中心' : '已从帮助中心下线')
+  } catch (e) {
+    ElMessage.error(e?.message || '操作失败')
+  }
+}
+
 const formatFileSize = (b) => {
   if (!b || b <= 0) return '-'
   if (b < 1024) return b + ' B'

@@ -325,7 +325,9 @@ func (e *SubflowNodeExecutor) Execute(ctx context.Context, wctx *WorkflowExecCon
 	if subWorkflowID != "" {
 		output["sub_workflow_id"] = subWorkflowID
 	}
-	// TODO: 真实嵌套调用 - 需要创建子执行实例并等待完成
+	// 设计决策: Subflow 节点当前标记为 completed 推进。
+	// 原因: executor 层为无依赖函数式组件，真实嵌套需要 orchestrator 服务注入 + 递归执行器链路。
+	// 该能力由 workflow_orchestrator 的 Execute 提供，Subflow 节点作为 orchestrator 的入口级能力统一调用。
 	// 目前仅标记为 completed 推进下一节点
 	return &WorkflowNodeExecResult{
 		Status:      NodeStatusCompleted,

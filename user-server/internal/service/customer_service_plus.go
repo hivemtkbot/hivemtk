@@ -456,3 +456,84 @@ func (s *CustomerServicePlusService) DLQBatchRetry(ctx context.Context) (int64, 
 		Update("status", "pending")
 	return res.RowsAffected, res.Error
 }
+
+// ---------- R48 T2/T3: 办公时间判定 + 会话优先级/暂缓 ----------
+
+// SetSessionPriority 设置会话优先级（0 普通 / 1 低 / 2 高 / 3 紧急）
+func (s *CustomerServicePlusService) SetSessionPriority(ctx context.Context, sessionID string, level int) error {
+	if level < 0 || level > 3 {
+		return fmt.Errorf("优先级取值 0-3")
+	}
+	g := db.GetDB()
+	res := g.WithContext(ctx).Table("customer_sessions").
+		Where("session_id = ?", sessionID).
+		Update("priority", level)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("会话不存在")
+	}
+	return nil
+}
+
+// SnoozeSession 暂缓会话 N 小时（到期自动回活跃）
+func (s *CustomerServicePlusService) SnoozeSession(ctx context.Context, sessionID string, hours float64) (time.Time, error) {
+	if hours <= 0 || hours > 24*30 {
+		return time.Time{}, fmt.Errorf("暂缓时长须在 0-720 小时")
+	}
+	until := time.Now().Add(time.Duration(hours * float64(time.Hour)))
+	g := db.GetDB()
+	res := g.WithContext(ctx).Table("customer_sessions").
+		Where("session_id = ?", sessionID).
+		Update("snoozed_until", until)
+	if res.Error != nil {
+		return time.Time{}, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return time.Time{}, fmt.Errorf("会话不存在")
+	}
+	return until, nil
+}
+
+// UnsnoozeSession 取消暂缓
+func (s *CustomerServicePlusService) UnsnoozeSession(ctx context.Context, sessionID string) error {
+	res := db.GetDB().WithContext(ctx).Table("customer_sessions").
+		Where("session_id = ?", sessionID).
+		Update("snoozed_until", nil)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("会话不存在")
+	}
+	return nil
+}
+
+// RecoverSnoozed cron 到期恢复：snoozed_until 已过 → 置 NULL（返回恢复条数）
+func (s *CustomerServicePlusService) RecoverSnoozed(ctx context.Context) (int64, error) {
+	res := db.GetDB().WithContext(ctx).Table("customer_sessions").
+		Where("snoozed_until IS NOT NULL AND snoozed_until < NOW()").
+		Update("snoozed_until", nil)
+	return res.RowsAffected, res.Error
+}
+
+// OfficeHoursSvc 办公时间服务实例（懒加载）
+var officeHoursOnce sync.Once
+var officeHoursSvc *OfficeHoursService
+
+// GetOfficeHoursService 获取实例
+func GetOfficeHoursService() *OfficeHoursService {
+	officeHoursOnce.Do(func() { officeHoursSvc = NewOfficeHoursService() })
+	return officeHoursSvc
+}
+
+// MaybeSendAwayReply 新会话非工作时间自动回复入口（fire-and-forget，由会话创建链路调用）
+func MaybeSendAwayReply(sessionID, conversationID, platform, accountID string) {
+	go func() {
+		defer func() { _ = recover() }()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		GetOfficeHoursService().SendAwayReplyIfClosed(ctx, sessionID, conversationID, platform, accountID)
+	}()
+}

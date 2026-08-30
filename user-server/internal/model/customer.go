@@ -39,6 +39,9 @@ type Customer struct {
 	UnifiedID string `gorm:"type:varchar(128);uniqueIndex" json:"unified_id"`
 	Name      string `gorm:"type:varchar(100);index" json:"name"`
 
+	// R48 T7: 联系人自定义属性（JSONB merge，竞品标配 Custom Attributes）
+	CustomAttributes string `gorm:"type:jsonb;default:'{}'" json:"custom_attributes"`
+
 	// 强标识（用作 OneID 主键候选）
 	Phone     string `gorm:"type:varchar(20);index" json:"phone"`
 	PhoneHash string `gorm:"type:varchar(64);index;column:phone_hash" json:"-"`

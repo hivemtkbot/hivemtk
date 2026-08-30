@@ -264,6 +264,11 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		setupChatPublicRoutes(public, gormDB, orchestrator, langResolver)
 		setupSSORoutes(public, gormDB)
 		setupSelfServiceRoutes(public, gormDB)
+		// R48 T1: 公开帮助中心（免登录，仅 public_visible 文档白名单）
+		hcCtrl := controller.NewHelpCenterController()
+		public.GET("/public/help-center/categories", hcCtrl.Categories)
+		public.GET("/public/help-center/articles", hcCtrl.Articles)
+		public.GET("/public/help-center/articles/:id", hcCtrl.ArticleDetail)
 	}
 
 	setupChatPublicWebSocket(r, langResolver)

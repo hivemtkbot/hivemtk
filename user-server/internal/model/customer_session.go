@@ -39,6 +39,7 @@ type CustomerSession struct {
 	AgentID         uint          `gorm:"index" json:"agent_id"`
 	AgentName       string        `gorm:"type:varchar(100)" json:"agent_name"`
 	Priority        int           `gorm:"default:0" json:"priority"` 
+	SnoozedUntil    *time.Time    `gorm:"index" json:"snoozed_until"` // R48 T3: 暂缓至该时间，到期自动回活跃
 	LastMessage     string        `gorm:"type:text" json:"last_message"`
 	LastMessageAt   *time.Time    `json:"last_message_at"`
 	LastMessageBy   string        `gorm:"type:varchar(20)" json:"last_message_by"` 

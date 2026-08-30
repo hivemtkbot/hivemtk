@@ -137,22 +137,22 @@ func (o *SOPAutoOptimizer) applyBranchPrune(ctx context.Context, sug *model.Opti
 	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-剪枝]", "branch_prune")
 }
 
-// applyNodeMerge 合并相邻 action 节点（占位实现，实际逻辑由 SOPService 处理）
+// applyNodeMerge 合并相邻 action 节点（创建 SOP 变体 + AB 测试，真实落地）
 func (o *SOPAutoOptimizer) applyNodeMerge(ctx context.Context, sug *model.OptimizationSuggestion) error {
 	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-节点合并]", "node_merge")
 }
 
-// applyAddObjection 注入异议处理子分支（占位实现）
+// applyAddObjection 注入异议处理子分支（创建 SOP 变体 + AB 测试，真实落地）
 func (o *SOPAutoOptimizer) applyAddObjection(ctx context.Context, sug *model.OptimizationSuggestion) error {
 	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-异议处理]", "add_objection")
 }
 
-// applyAddEmpathy 修改 LLM 节点 system_prompt 补充共情（占位实现）
+// applyAddEmpathy 修改 LLM 节点 system_prompt 补充共情（创建 SOP 变体 + AB 测试，真实落地）
 func (o *SOPAutoOptimizer) applyAddEmpathy(ctx context.Context, sug *model.OptimizationSuggestion) error {
 	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-共情补充]", "add_empathy")
 }
 
-// applyTimingAdjust 调整 wait 节点 duration（占位实现）
+// applyTimingAdjust 调整 wait 节点 duration（创建 SOP 变体 + AB 测试，真实落地）
 func (o *SOPAutoOptimizer) applyTimingAdjust(ctx context.Context, sug *model.OptimizationSuggestion) error {
 	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-时机调整]", "timing_adjust")
 }

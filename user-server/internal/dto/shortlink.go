@@ -7,7 +7,10 @@ type CreateShortLinkRequest struct {
 	ShortCode   string     `json:"short_code" binding:"required"`       
 	OriginalURL string     `json:"original_url" binding:"required,url"` 
 	Title       string     `json:"title"`                               
-	Description string     `json:"description"`                         
+	Description string     `json:"description"`
+	UtmSource   string     `json:"utm_source"`
+	UtmMedium   string     `json:"utm_medium"`
+	UtmCampaign string     `json:"utm_campaign"`
 	DomainID    uint       `json:"domain_id"`                           
 	Password    string     `json:"password"`                            
 	ExpireTime  *time.Time `json:"expire_time"`                         
@@ -19,7 +22,10 @@ type UpdateShortLinkRequest struct {
 	ShortCode   string     `json:"short_code"`                          
 	OriginalURL string     `json:"original_url" binding:"required,url"` 
 	Title       string     `json:"title"`                               
-	Description string     `json:"description"`                         
+	Description string     `json:"description"`
+	UtmSource   string     `json:"utm_source"`
+	UtmMedium   string     `json:"utm_medium"`
+	UtmCampaign string     `json:"utm_campaign"`
 	DomainID    uint       `json:"domain_id"`                           
 	Password    string     `json:"password"`                            
 	ExpireTime  *time.Time `json:"expire_time"`                         

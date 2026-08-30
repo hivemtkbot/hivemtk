@@ -83,6 +83,7 @@ func setupClueRoutes(auth *gin.RouterGroup) {
 func setupLeadMiningRoutes(auth *gin.RouterGroup) {
 	ctrl := controller.NewLeadMiningController()
 	auth.GET("/lead-mining/config", ctrl.GetConfig)
+	auth.GET("/lead-mining/status", ctrl.GetStatus)
 	admin := auth.Group("/lead-mining", middleware.AdminAuthMiddleware())
 	admin.POST("/config", ctrl.SaveConfig)
 }
