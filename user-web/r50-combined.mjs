@@ -36,12 +36,22 @@ page.on('pageerror', (e) => consoleMsgs.push({ route: cur, t: new Date().toISOSt
 await page.goto(BASE + '/login', { waitUntil: 'networkidle', timeout: 30000 })
 await page.fill('input[type="text"]', 'admin')
 await page.fill('input[type="password"]', 'Admin@12345678')
-await page.click('button:has-text("Log In")')
-// R50 修复: 等待登录完成（hash 变化或 5s 兜底）
-for (let i = 0; i < 25; i++) {
-  const h = await page.evaluate(() => location.hash).catch(() => '')
-  if (h && !h.includes('login')) break
-  await page.waitForTimeout(300)
+// R50: 登录带重试（间歇性环境失败兜底），以 localStorage.token 落地为准
+let loggedIn = false
+for (let attempt = 0; attempt < 3 && !loggedIn; attempt++) {
+  await page.goto(BASE + '/login', { waitUntil: 'networkidle', timeout: 30000 })
+  await page.fill('input[type="text"]', 'admin')
+  await page.fill('input[type="password"]', 'Admin@12345678')
+  await page.click('button:has-text("Log In")')
+  for (let i = 0; i < 20; i++) {
+    const tok = await page.evaluate(() => localStorage.getItem('token')).catch(() => null)
+    if (tok) { loggedIn = true; break }
+    await page.waitForTimeout(300)
+  }
+}
+if (!loggedIn) {
+  console.error('FATAL: 登录 3 次均失败')
+  process.exit(1)
 }
 await page.waitForTimeout(1200)
 
@@ -67,6 +77,20 @@ for (const r of routes) {
   t0Page = new Date().toISOString()
   const before = interactions.length
   try {
+    // 防复发: 若意外回到登录页 → 重新登录（不点击 Log In 超过 1 次）
+    const h0 = await page.evaluate(() => location.hash).catch(() => '')
+    const tok = await page.evaluate(() => localStorage.getItem('token')).catch(() => null)
+    if (!tok) {
+      await page.goto(BASE + '/login', { waitUntil: 'networkidle', timeout: 30000 })
+      await page.fill('input[type="text"]', 'admin')
+      await page.fill('input[type="password"]', 'Admin@12345678')
+      await page.click('button:has-text("Log In")')
+      for (let i = 0; i < 20; i++) {
+        const t = await page.evaluate(() => localStorage.getItem('token')).catch(() => null)
+        if (t) break
+        await page.waitForTimeout(300)
+      }
+    }
     await page.evaluate((h) => { location.hash = h }, r)
     await page.waitForTimeout(1250)
 

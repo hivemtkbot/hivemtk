@@ -210,8 +210,8 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 
 
 	r.Use(middleware.RateLimitMiddleware(middleware.RateLimitConfig{
-		RPS:        10,
-		BucketSize: 100,
+		RPS:        1000,
+		BucketSize: 20000,
 		Enabled:    true,
 		ExemptPaths: []string{
 			"/api/bridge/ingest",
