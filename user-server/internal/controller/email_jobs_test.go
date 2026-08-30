@@ -44,7 +44,7 @@ func TestEmailJobsController_CreateEmailJobs_Success(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"id":            uuid.New().String(),
 				"subject":       req.Subject,
@@ -79,7 +79,7 @@ func TestEmailJobsController_CreateEmailJobs_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }
@@ -132,7 +132,7 @@ func TestEmailJobsController_GetEmailJobsList_Success(t *testing.T) {
 
 	router.GET("/api/email/jobs", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"total": 2,
 				"list": []gin.H{
@@ -154,7 +154,7 @@ func TestEmailJobsController_GetEmailJobsList_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }
@@ -194,7 +194,7 @@ func TestEmailJobsController_GetEmailJobsDetail_Success(t *testing.T) {
 	jobID := uuid.New().String()
 	router.GET("/api/email/jobs/:id", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"id":          jobID,
 				"subject":     "Test Job",
@@ -240,7 +240,7 @@ func TestEmailJobsController_UpdateEmailJobs_Success(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"id":          req.ID,
 				"subject":     req.Subject,
@@ -304,7 +304,7 @@ func TestEmailJobsController_UpdateSendTotal_Success(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code":    "SUCCESS",
+			"code":    float64(0),
 			"data":    nil,
 			"message": "更新成功",
 		})
@@ -353,7 +353,7 @@ func TestEmailJobsController_DeleteEmailJobs_Success(t *testing.T) {
 
 	router.DELETE("/api/email/jobs/:id", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"code":    "SUCCESS",
+			"code":    float64(0),
 			"data":    nil,
 			"message": "删除成功",
 		})

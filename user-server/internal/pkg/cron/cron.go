@@ -77,6 +77,24 @@ func InitCron() {
 		logger.Info(fmt.Sprintf("添加密码重置令牌清理任务失败 %s", err.Error()))
 		panic(err)
 	}
+
+	// G10: 离线消息回扫 - 每 5 分钟扫描 bridge_metrics 发现离线渠道并回扫累积消息
+	_, err = mgr.AddTask("0 */5 * * * *", func() {
+		go service.NewBridgeOfflineReplayService().RunOnce(context.Background())
+	})
+	if err != nil {
+		logger.Info(fmt.Sprintf("添加离线消息回扫定时任务失败 %s", err.Error()))
+		panic(err)
+	}
+
+	// G14: 工单升级/转派链 - 每 5 分钟扫描未解决会话执行规则链
+	_, err = mgr.AddTask("5 */5 * * * *", func() {
+		go service.NewHandoffChainService().RunCron(context.Background(), 200)
+	})
+	if err != nil {
+		logger.Info(fmt.Sprintf("添加工单升级链定时任务失败 %s", err.Error()))
+		panic(err)
+	}
 }
 
 // ChurnCalculationCron 流失预测定时任务：从 customer_events 真实聚合全部客户行为并执行流失计算。

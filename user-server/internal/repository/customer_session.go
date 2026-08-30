@@ -356,7 +356,10 @@ func (r *CustomerSessionRepository) GetActiveByOneID(ctx context.Context, oneID 
 	}).Where("COALESCE(last_message_at, created_at) > ?", cutoff).
 		Order("last_message_at DESC, id DESC").First(&session).Error
 	if err != nil {
-		return nil, nil
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	return &session, nil
 }
@@ -631,4 +634,45 @@ func (r *CustomerSessionRepository) CountSegmentMembers(ctx context.Context, whe
 		Where("deleted_at IS NULL AND ("+whereSQL+")").
 		Count(&n).Error
 	return n, err
+}
+
+// ---------- G3: 会话锁定/编辑冲突检测（乐观锁）----------
+
+// ErrOptimisticLock 乐观锁冲突错误
+var ErrOptimisticLock = fmt.Errorf("optimistic lock conflict: session version mismatch")
+
+// OptimisticUpdate 使用乐观锁更新会话。
+// 仅当数据库中当前 version == session.Version 时才会执行更新，
+// 成功后 version 自增 1。版本不匹配时返回 ErrOptimisticLock。
+func (r *CustomerSessionRepository) OptimisticUpdate(ctx context.Context, session *model.CustomerSession) error {
+	oldVersion := session.Version
+	res := r.db.WithContext(ctx).
+		Model(&model.CustomerSession{}).
+		Where("id = ? AND version = ?", session.ID, oldVersion).
+		Updates(map[string]any{
+			"status":          session.Status,
+			"handler_type":    session.HandlerType,
+			"agent_id":        session.AgentID,
+			"agent_name":      session.AgentName,
+			"priority":        session.Priority,
+			"last_message":    session.LastMessage,
+			"last_message_at": session.LastMessageAt,
+			"message_count":   session.MessageCount,
+			"ai_reply_count":  session.AIReplyCount,
+			"human_reply_count": session.HumanReplyCount,
+			"rating":          session.Rating,
+			"rating_comment":  session.RatingComment,
+			"tags":            session.Tags,
+			"resolved_at":     session.ResolvedAt,
+			"closed_at":       session.ClosedAt,
+			"version":         oldVersion + 1,
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrOptimisticLock
+	}
+	session.Version = oldVersion + 1
+	return nil
 }

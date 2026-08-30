@@ -127,10 +127,23 @@ func (s *EmailOpenTrackerService) RecordPostmarkEvent(ctx context.Context, evt *
 		return s.recordOpenByEmail(ctx, evt.Recipient, evt.MessageID, evt.IP, evt.UserAgent)
 	case "click":
 		return s.recordClickByEmail(ctx, evt.Recipient, evt.MessageID, evt.OriginalLink, evt.IP, evt.UserAgent)
-	case "bounce":
-		return s.tracking.RecordBounceEvent(ctx, evt.Recipient, evt.MessageID, evt.IP, evt.UserAgent)
+	case "bounce", "hardbounce", "softbounce":
+		if err := s.tracking.RecordBounceEvent(ctx, evt.Recipient, evt.MessageID, evt.IP, evt.UserAgent); err != nil {
+			return err
+		}
+		// R53 E1: 硬退/投诉 → 自动写入全局退订（合规链闭环；软退按 Postmark 口径 HardBounce 才写）
+		rt := strings.ToLower(evt.RecordType)
+		if rt == "bounce" || rt == "hardbounce" {
+			s.autoBlockOnBounce(ctx, evt.Recipient)
+		}
+		return nil
 	case "spamcomplaint":
-		return s.tracking.RecordUnsubscribeEvent(ctx, evt.Recipient, evt.MessageID, evt.IP, evt.UserAgent)
+		if err := s.tracking.RecordUnsubscribeEvent(ctx, evt.Recipient, evt.MessageID, evt.IP, evt.UserAgent); err != nil {
+			return err
+		}
+		// 投诉同样进入全局退订（最强合规信号）
+		s.autoBlockOnBounce(ctx, evt.Recipient)
+		return nil
 	default:
 		return fmt.Errorf("%w: unsupported RecordType: %s", utils.ErrInvalidInput, evt.RecordType)
 	}
@@ -317,3 +330,15 @@ func PrettyPrintJSON(v any) (string, error) {
 	return string(b), nil
 }
 
+
+
+// autoBlockOnBounce 硬退/投诉 → 按收件人手机号/邮箱写入 DNC（R53 E1）
+func (s *EmailOpenTrackerService) autoBlockOnBounce(ctx context.Context, email string) {
+	email = normalizeEmail(email)
+	if email == "" || !strings.Contains(email, "@") {
+		return
+	}
+	phone := strings.Split(email, "@")[0]
+	dnc := NewDoNotContactService(nil)
+	_ = dnc.BlockFromPhone(ctx, phone, "email_hard_bounce")
+}

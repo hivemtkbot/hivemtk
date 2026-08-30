@@ -349,6 +349,13 @@ func (s *CustomerSessionService) UpdateSessionStatus(ctx context.Context, sessio
 		})
 	}
 
+	// R53 A1/B: 生命周期链闭环——resolved/closed 自动触发 CSAT + 规则引擎事件
+	if (status == model.SessionStatusResolved || status == model.SessionStatusClosed) && session.Status != status {
+		chain := NewSessionChainService()
+		chain.TriggerCSATOnClose(session)
+		DispatchSessionEventAsync(RuleEventSessionResolved, session.SessionID, session)
+	}
+
 	return nil
 }
 
@@ -397,4 +404,15 @@ func CustomerSessionCanSendMessage(s *model.CustomerSession) bool {
 	default:
 		return false
 	}
+}
+
+
+// DispatchSessionEventAsync R53 B: 规则引擎事件 fire-and-forget 入口
+func DispatchSessionEventAsync(event, sessionID string, session *model.CustomerSession) {
+	go func() {
+		defer func() { _ = recover() }()
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		NewRuleEngineService().Dispatch(ctx, event, sessionID, session)
+	}()
 }

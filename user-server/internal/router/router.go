@@ -579,6 +579,15 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 
 		setupIntegrationRoutes(auth)
 
+		// G11: 限流配额面板
+		setupRateQuotaRoutes(auth)
+
+		// G13: Prompt 版本管理 + A/B
+		setupPromptRoutes(auth)
+
+		// G15: 打字预回复
+		setupTypingPredictRoutes(auth)
+
 		setupCommunityRoutes(auth)
 
 		setupBackupRoutes(auth)
@@ -604,6 +613,9 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 
 		csAgentMountCtrl := controller.NewCustomerServiceAgentControllerWithService(csAgentSvcGlobal)
 		csAgentMountCtrl.RegisterRoutes(auth)
+
+		// G1-G6 竞品标配功能路由
+		setupCompetitorFeatureRoutes(auth)
 
 		setupFrontendAliases(auth, r, gormDB)
 	}

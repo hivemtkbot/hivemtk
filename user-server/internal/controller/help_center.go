@@ -1,5 +1,6 @@
-// help_center.go 帮助中心控制器（R48 T1）
 package controller
+
+// help_center.go 帮助中心控制器（R48 T1）
 
 import (
 	"strconv"
@@ -38,7 +39,7 @@ func (c *HelpCenterController) Articles(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"list": list, "total": len(list)}, "ok")
 }
 
-// ArticleDetail GET /api/public/help-center/articles/:id
+// ArticleDetail GET /api/public/help-center/articles/:id（含 views 自增）
 func (c *HelpCenterController) ArticleDetail(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	if err != nil || id == 0 {
@@ -49,7 +50,61 @@ func (c *HelpCenterController) ArticleDetail(ctx *gin.Context) {
 	if HandleServiceError(ctx, err) {
 		return
 	}
+	c.svc.IncArticleViews(ctx.Request.Context(), id)
 	response.Success(ctx, art, "ok")
+}
+
+// SetStatus PATCH /api/knowledge/documents/:id/help-center-status {status}
+func (c *HelpCenterController) SetStatus(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
+	if err != nil || id == 0 {
+		response.Error(ctx, 400, "无效的文档 ID")
+		return
+	}
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, 400, "status 必填")
+		return
+	}
+	if err := c.svc.SetArticleStatus(ctx.Request.Context(), id, req.Status); HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"help_center_status": req.Status}, "状态已更新")
+}
+
+// TopArticles GET /api/knowledge/help-center/top?limit=10（效果统计）
+func (c *HelpCenterController) TopArticles(ctx *gin.Context) {
+	limit := 10
+	if l := ctx.Query("limit"); l != "" {
+		if n, err2 := strconv.Atoi(l); err2 == nil {
+			limit = n
+		}
+	}
+	list, err := c.svc.TopArticles(ctx.Request.Context(), limit)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"list": list, "total": len(list)}, "ok")
+}
+
+// RetrievalTest POST /api/knowledge/help-center/retrieval-test {product_id,query,top_k}
+func (c *HelpCenterController) RetrievalTest(ctx *gin.Context) {
+	var req struct {
+		ProductID string `json:"product_id"`
+		Query     string `json:"query" binding:"required"`
+		TopK      int    `json:"top_k"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, 400, "query 必填")
+		return
+	}
+	res, err := c.svc.RetrievalTest(ctx.Request.Context(), req.ProductID, req.Query, req.TopK)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, res, "ok")
 }
 
 // SetVisibility PATCH /api/knowledge/documents/:id/public-visibility（管理端，登录）

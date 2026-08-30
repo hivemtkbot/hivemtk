@@ -16,18 +16,29 @@ type WebVitalRecord struct {
 
 func (WebVitalRecord) TableName() string { return "web_vital_records" }
 
-// RagEvalQuestion RAG 评测集条目（R44 断链清欠）
+// RagEvalQuestion RAG 评测集条目（R44 断链清欠 + G4 自动评测扩展）
 type RagEvalQuestion struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	RunID     uint      `gorm:"index" json:"run_id"`                  // G4: 关联评测运行
 	ProductID string    `gorm:"type:varchar(64);index" json:"product_id"`
 	Question  string    `gorm:"type:text;not null" json:"question"`
 	Answer    string    `gorm:"type:text" json:"answer"`
+
+	// G4: 自动评测扩展字段
+	SourceDocID     string  `gorm:"type:varchar(128);index" json:"source_doc_id"`
+	SourceChunkIdx  int     `gorm:"default:0" json:"source_chunk_idx"`
+	RelevantDocIDs  string  `gorm:"type:text" json:"relevant_doc_ids"`
+	RetrievedDocIDs string  `gorm:"type:text" json:"retrieved_doc_ids"`
+	Hit             bool    `gorm:"default:false" json:"hit"`
+	Recall          float64 `gorm:"type:decimal(6,4);default:0" json:"recall"`
+	Precision       float64 `gorm:"type:decimal(6,4);default:0" json:"precision"`
+
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
 func (RagEvalQuestion) TableName() string { return "rag_eval_questions" }
 
-// RagEvalRun 一次 RAG 评测运行
+// RagEvalRun 一次 RAG 评测运行（R44 原始 + G4 自动评测扩展）
 type RagEvalRun struct {
 	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Total       int       `json:"total"`
@@ -36,7 +47,17 @@ type RagEvalRun struct {
 	MRR         float64   `json:"mrr"`
 	NDCG5       float64   `json:"ndcg5"`
 	EvalSetSize int       `json:"eval_set_size"`
-	CreatedAt   time.Time `gorm:"autoCreateTime;index" json:"created_at"`
+
+	// G4: 自动评测扩展字段
+	Name           string     `gorm:"type:varchar(128)" json:"name"`
+	Status         string     `gorm:"type:varchar(20);default:'completed';index" json:"status"`
+	AvgRecall      float64    `gorm:"type:decimal(6,4);default:0" json:"avg_recall"`
+	AvgPrecision   float64    `gorm:"type:decimal(6,4);default:0" json:"avg_precision"`
+	ErrorMsg       string     `gorm:"type:text" json:"error_msg"`
+	StartedAt      *time.Time `json:"started_at,omitempty"`
+	CompletedAt    *time.Time `json:"completed_at,omitempty"`
+
+	CreatedAt time.Time `gorm:"autoCreateTime;index" json:"created_at"`
 }
 
 func (RagEvalRun) TableName() string { return "rag_eval_runs" }

@@ -133,9 +133,9 @@ func TestCustomerEventController_TrackEvent(t *testing.T) {
 			assert.NoError(t, err)
 
 			if tt.expectSuccess {
-				assert.Equal(t, "SUCCESS", response["code"])
+				assert.Equal(t, float64(0), response["code"])
 			} else if !tt.allowSuccess {
-				assert.NotEqual(t, "SUCCESS", response["code"])
+				assert.NotEqual(t, float64(0), response["code"])
 			}
 		})
 	}
@@ -179,7 +179,7 @@ func TestCustomerEventController_GetEventHistory(t *testing.T) {
 				var response map[string]any
 				err := json.Unmarshal(w.Body.Bytes(), &response)
 				assert.NoError(t, err)
-				assert.Equal(t, "SUCCESS", response["code"])
+				assert.Equal(t, float64(0), response["code"])
 			}
 		})
 	}
@@ -230,9 +230,9 @@ func TestCustomerEventController_GetEventStats(t *testing.T) {
 			assert.NoError(t, err)
 
 			if tt.expectSuccess {
-				assert.Equal(t, "SUCCESS", response["code"])
+				assert.Equal(t, float64(0), response["code"])
 			} else if !tt.allowSuccess {
-				assert.NotEqual(t, "SUCCESS", response["code"])
+				assert.NotEqual(t, float64(0), response["code"])
 			}
 		})
 	}

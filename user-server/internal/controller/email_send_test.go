@@ -49,7 +49,7 @@ func TestEmailSendController_SendEmail_Success(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"id":      "test-email-id",
 				"to":      req.To,
@@ -80,7 +80,7 @@ func TestEmailSendController_SendEmail_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }
@@ -223,7 +223,7 @@ func TestEmailSendController_SendEmail_WithScheduledTime(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"id":        "test-email-id",
 				"to":        req.To,
@@ -267,7 +267,7 @@ func TestEmailSendController_SendEmail_WithAttachments(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"id":          "test-email-id",
 				"to":          req.To,

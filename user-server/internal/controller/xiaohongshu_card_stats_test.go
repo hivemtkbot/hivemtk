@@ -99,7 +99,7 @@ func TestXiaohongshuCardStatsController_GetCardStats(t *testing.T) {
 	var response map[string]any
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "SUCCESS", response["code"]) 
+	assert.Equal(t, float64(0), response["code"]) 
 	assert.NotNil(t, response["data"])
 }
 
@@ -116,7 +116,7 @@ func TestXiaohongshuCardStatsController_GetCardStats_InvalidID(t *testing.T) {
 	var response map[string]any
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.NotEqual(t, "SUCCESS", response["code"]) 
+	assert.NotEqual(t, float64(0), response["code"]) 
 }
 
 // TestXiaohongshuCardStatsController_GetCardStats_WithDateRange 测试带日期范围的请求
@@ -132,7 +132,7 @@ func TestXiaohongshuCardStatsController_GetCardStats_WithDateRange(t *testing.T)
 	var response map[string]any
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "SUCCESS", response["code"])
+	assert.Equal(t, float64(0), response["code"])
 	assert.NotNil(t, response["data"])
 }
 
@@ -172,7 +172,7 @@ func TestXiaohongshuCardStatsController_GetOverallStats(t *testing.T) {
 	var response map[string]any
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "SUCCESS", response["code"]) 
+	assert.Equal(t, float64(0), response["code"]) 
 
 	data, ok := response["data"].(map[string]any)
 	assert.True(t, ok)
@@ -194,7 +194,7 @@ func TestXiaohongshuCardStatsController_GetOverallStats_WithDateRange(t *testing
 	var response map[string]any
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "SUCCESS", response["code"])
+	assert.Equal(t, float64(0), response["code"])
 }
 
 // TestXiaohongshuCardStatsController_GetOverallStats_WithGroupBy 测试不同分组方式的总体统计
@@ -302,6 +302,6 @@ func TestXiaohongshuCardStatsController_GetOverallStats_EmptyResponse(t *testing
 	var response map[string]any
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "SUCCESS", response["code"])
+	assert.Equal(t, float64(0), response["code"])
 }
 

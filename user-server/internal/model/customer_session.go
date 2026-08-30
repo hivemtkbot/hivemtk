@@ -50,6 +50,7 @@ type CustomerSession struct {
 	Rating          int           `json:"rating"`            
 	RatingComment   string        `gorm:"type:text" json:"rating_comment"`
 	Tags            string        `gorm:"type:text" json:"tags"` 
+	Version         int           `gorm:"default:1" json:"version"`  // G3: 乐观锁版本号
 	CreatedAt       time.Time     `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt       time.Time     `gorm:"autoUpdateTime" json:"updated_at"`
 	ResolvedAt      *time.Time    `json:"resolved_at"`

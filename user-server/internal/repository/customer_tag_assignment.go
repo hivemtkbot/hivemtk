@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"hivemtk-user/internal/model"
 	_db "hivemtk-user/internal/pkg/db"
@@ -40,7 +41,10 @@ func (r *customerTagAssignmentRepository) GetByCustomerAndTag(ctx context.Contex
 	}
 	var assignment model.CustomerTagAssignment
 	if err := database.First(&assignment, "customer_id = ? AND tag = ?", customerID, tag).Error; err != nil {
-		return nil, nil
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	return &assignment, nil
 }

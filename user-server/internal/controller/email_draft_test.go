@@ -38,7 +38,7 @@ func TestEmailDraftController_CreateEmailDraft_Success(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"id":          uuid.New().String(),
 				"subject":     req.Subject,
@@ -67,7 +67,7 @@ func TestEmailDraftController_CreateEmailDraft_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }
@@ -104,7 +104,7 @@ func TestEmailDraftController_CreateEmailDraft_EmptyContent(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code":    "SUCCESS",
+			"code":    float64(0),
 			"data":    gin.H{"id": uuid.New().String(), "subject": req.Subject},
 			"message": "创建成功",
 		})
@@ -132,7 +132,7 @@ func TestEmailDraftController_GetEmailDraftList_Success(t *testing.T) {
 
 	router.GET("/api/email/draft", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"total": 2,
 				"list": []gin.H{
@@ -154,7 +154,7 @@ func TestEmailDraftController_GetEmailDraftList_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }
@@ -166,7 +166,7 @@ func TestEmailDraftController_GetEmailDraftDetail_Success(t *testing.T) {
 	draftID := uuid.New().String()
 	router.GET("/api/email/draft/:id", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"id":          draftID,
 				"subject":     "Test Subject",
@@ -212,7 +212,7 @@ func TestEmailDraftController_UpdateEmailDraft_Success(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code":    "SUCCESS",
+			"code":    float64(0),
 			"data":    nil,
 			"message": "更新成功",
 		})
@@ -263,7 +263,7 @@ func TestEmailDraftController_DeleteEmailDraft_Success(t *testing.T) {
 
 	router.DELETE("/api/email/draft/:id", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"code":    "SUCCESS",
+			"code":    float64(0),
 			"data":    nil,
 			"message": "删除成功",
 		})

@@ -102,9 +102,9 @@ func TestCustomer360Controller_GetCustomer360(t *testing.T) {
 			assert.NoError(t, err)
 
 			if tt.expectSuccess {
-				assert.Equal(t, "SUCCESS", response["code"])
+				assert.Equal(t, float64(0), response["code"])
 			} else {
-				assert.NotEqual(t, "SUCCESS", response["code"])
+				assert.NotEqual(t, float64(0), response["code"])
 			}
 		})
 	}
@@ -154,10 +154,10 @@ func TestCustomer360Controller_GetCustomerList(t *testing.T) {
 			assert.NoError(t, err)
 
 			if tt.expectSuccess {
-				assert.Equal(t, "SUCCESS", response["code"])
+				assert.Equal(t, float64(0), response["code"])
 				assert.NotNil(t, response["data"])
 			} else {
-				assert.NotEqual(t, "SUCCESS", response["code"])
+				assert.NotEqual(t, float64(0), response["code"])
 			}
 		})
 	}
@@ -201,9 +201,9 @@ func TestCustomer360Controller_GetCustomerBasicInfo(t *testing.T) {
 			assert.NoError(t, err)
 
 			if tt.expectSuccess {
-				assert.Equal(t, "SUCCESS", response["code"])
+				assert.Equal(t, float64(0), response["code"])
 			} else {
-				assert.NotEqual(t, "SUCCESS", response["code"])
+				assert.NotEqual(t, float64(0), response["code"])
 			}
 		})
 	}
@@ -247,9 +247,9 @@ func TestCustomer360Controller_GetCustomerStats(t *testing.T) {
 			assert.NoError(t, err)
 
 			if tt.expectSuccess {
-				assert.Equal(t, "SUCCESS", response["code"])
+				assert.Equal(t, float64(0), response["code"])
 			} else {
-				assert.NotEqual(t, "SUCCESS", response["code"])
+				assert.NotEqual(t, float64(0), response["code"])
 			}
 		})
 	}
@@ -293,9 +293,9 @@ func TestCustomer360Controller_GetCustomerSessions(t *testing.T) {
 			assert.NoError(t, err)
 
 			if tt.expectSuccess {
-				assert.Equal(t, "SUCCESS", response["code"])
+				assert.Equal(t, float64(0), response["code"])
 			} else {
-				assert.NotEqual(t, "SUCCESS", response["code"])
+				assert.NotEqual(t, float64(0), response["code"])
 			}
 		})
 	}
@@ -339,9 +339,9 @@ func TestCustomer360Controller_GetCustomerMessages(t *testing.T) {
 			assert.NoError(t, err)
 
 			if tt.expectSuccess {
-				assert.Equal(t, "SUCCESS", response["code"])
+				assert.Equal(t, float64(0), response["code"])
 			} else {
-				assert.NotEqual(t, "SUCCESS", response["code"])
+				assert.NotEqual(t, float64(0), response["code"])
 			}
 		})
 	}
@@ -416,9 +416,9 @@ func TestCustomer360Controller_UpdateCustomerTags(t *testing.T) {
 			assert.NoError(t, err)
 
 			if tt.expectSuccess {
-				assert.Equal(t, "SUCCESS", response["code"])
+				assert.Equal(t, float64(0), response["code"])
 			} else {
-				assert.NotEqual(t, "SUCCESS", response["code"])
+				assert.NotEqual(t, float64(0), response["code"])
 			}
 		})
 	}
@@ -462,9 +462,9 @@ func TestCustomer360Controller_GetCustomerTags(t *testing.T) {
 			assert.NoError(t, err)
 
 			if tt.expectSuccess {
-				assert.Equal(t, "SUCCESS", response["code"])
+				assert.Equal(t, float64(0), response["code"])
 			} else {
-				assert.NotEqual(t, "SUCCESS", response["code"])
+				assert.NotEqual(t, float64(0), response["code"])
 			}
 		})
 	}

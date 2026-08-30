@@ -2,8 +2,12 @@ package repository
 
 import (
 	"context"
+	"errors"
+
 	"hivemtk-user/internal/model"
 	_db "hivemtk-user/internal/pkg/db"
+
+	"gorm.io/gorm"
 )
 
 // CustomerTagRepository defines the interface for customer tag data access
@@ -33,7 +37,10 @@ func (r *customerTagRepository) Create(ctx context.Context, tag *model.CustomerT
 func (r *customerTagRepository) GetByID(ctx context.Context, id string) (*model.CustomerTag, error) {
 	var tag model.CustomerTag
 	if err := _db.GetDB().First(&tag, "id = ?", id).Error; err != nil {
-		return nil, nil
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	return &tag, nil
 }

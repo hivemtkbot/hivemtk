@@ -330,6 +330,24 @@ func main() {
 	defer reportCron.Stop()
 	logger.Info("[ReportCron] 定时邮件报表已装配")
 
+	// [R53 A2] 自动解决 SLA cron：每 10 分钟扫描无活动超时会话
+	autoResolveCron := cronpkg.NewSnoozeRecoveryCron(func(ctx context.Context) (int64, error) {
+		n, err := service.NewSessionChainService().RunAutoResolve(ctx)
+		return int64(n), err
+	})
+	autoResolveCron.Start()
+	defer autoResolveCron.Stop()
+	logger.Info("[AutoResolveCron] 自动解决 SLA 已装配")
+
+	// [R53 B] 自动化规则延迟执行复核 cron：每 2 分钟
+	ruleCron := cronpkg.NewSnoozeRecoveryCron(func(ctx context.Context) (int64, error) {
+		n, err := service.NewRuleEngineService().ProcessPendingRules(ctx)
+		return int64(n), err
+	})
+	ruleCron.Start()
+	defer ruleCron.Stop()
+	logger.Info("[RuleEngineCron] 自动化规则延迟执行已装配")
+
 	// [T8] 告警规则检查器：每 60s 扫描启用规则并比对阈值
 	alertChecker := service.NewAlertChecker(
 		service.NewMetricsAlertProvider(),

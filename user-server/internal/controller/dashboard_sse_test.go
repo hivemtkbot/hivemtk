@@ -139,7 +139,7 @@ func TestSnapshot_HTTPEndpoint(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 	var resp struct {
-		Code    string                     `json:"code"`
+		Code int `json:"code"`
 		Data    *service.DashboardSnapshot `json:"data"`
 		Message string                     `json:"message"`
 	}
@@ -149,8 +149,8 @@ func TestSnapshot_HTTPEndpoint(t *testing.T) {
 	if resp.Data == nil {
 		t.Fatal("expected non-nil data")
 	}
-	if resp.Code == "" {
-		t.Error("expected non-empty code")
+	if resp.Code != 0 {
+		t.Errorf("expected code=0, got %d", resp.Code)
 	}
 }
 

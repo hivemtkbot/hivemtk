@@ -62,7 +62,7 @@ func TestTikTokCardController_Create_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }
@@ -219,7 +219,7 @@ func TestTikTokCardController_Get_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] == "SUCCESS" {
+	if response["code"] == float64(0) {
 		t.Errorf("Expected NOT_FOUND code, got %v", response["code"])
 	}
 }
@@ -251,7 +251,7 @@ func TestTikTokCardController_List_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }
@@ -360,7 +360,7 @@ func TestTikTokCardController_StatsOverall_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 

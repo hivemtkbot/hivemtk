@@ -100,14 +100,14 @@ func TestTelegramAccountController_CreateAndList(t *testing.T) {
 		t.Fatalf("创建账号期望 200, 实际 %d, body: %s", w.Code, w.Body.String())
 	}
 	var createResp struct {
-		Code string         `json:"code"`
+		Code int `json:"code"`
 		Data map[string]any `json:"data"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &createResp); err != nil {
 		t.Fatalf("解析创建响应失败: %v, body: %s", err, w.Body.String())
 	}
-	if createResp.Code != "SUCCESS" {
-		t.Errorf("创建响应 code 期望 SUCCESS, 实际 %s", createResp.Code)
+	if createResp.Code != 0 {
+		t.Errorf("创建响应 code 期望 SUCCESS, 实际 %d", createResp.Code)
 	}
 	if createResp.Data["account_name"] != "销售助手Bot" {
 		t.Errorf("account_name 错误: %v", createResp.Data["account_name"])
@@ -128,7 +128,7 @@ func TestTelegramAccountController_CreateAndList(t *testing.T) {
 		t.Fatalf("列表查询期望 200, 实际 %d", w.Code)
 	}
 	var listResp struct {
-		Code string           `json:"code"`
+		Code int `json:"code"`
 		Data map[string]any   `json:"data"`
 		List []map[string]any `json:"list"`
 	}

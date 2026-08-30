@@ -52,7 +52,7 @@ func TestSystemOpsController_GetSystemLogs_Success(t *testing.T) {
 
 	var resp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &resp)
-	if resp["code"] != "SUCCESS" {
+	if resp["code"] != float64(0) {
 		t.Errorf("Expected SUCCESS code, got %v", resp["code"])
 	}
 }

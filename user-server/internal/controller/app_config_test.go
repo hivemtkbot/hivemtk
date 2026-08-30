@@ -53,7 +53,7 @@ func TestAppConfigController_GetAppConfig_ReturnsConfig(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }
@@ -148,7 +148,7 @@ func TestAppConfigController_HealthCheck_ReturnsStatus(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }

@@ -244,6 +244,9 @@ func setupIntegrationRoutes(auth *gin.RouterGroup) {
 	integrationCtrl := controller.NewIntegrationController()
 	auth.GET("/integrations", integrationCtrl.GetAccountList)
 	auth.GET("/integrations/:id", integrationCtrl.GetAccountByID)
+	// G8: 集成生态前端页 - 模板与分类
+	auth.GET("/integrations/templates", integrationCtrl.GetTemplates)
+	auth.GET("/integrations/categories", integrationCtrl.GetCategories)
 	auth.GET("/integration/sync-logs", integrationCtrl.GetSyncLogs)
 	auth.GET("/integration/external-customers", integrationCtrl.GetExternalCustomers)
 	auth.GET("/integration/external-products", integrationCtrl.GetExternalProducts)
@@ -303,5 +306,28 @@ func setupEventRoutes(auth *gin.RouterGroup) {
 	auth.POST("/events/signup", eventCtrl.TrackSignup)
 	auth.POST("/events/login", eventCtrl.TrackLogin)
 	auth.POST("/events/add-to-cart", eventCtrl.TrackAddToCart)
+}
+
+// setupRateQuotaRoutes G11: 限流配额面板路由
+func setupRateQuotaRoutes(auth *gin.RouterGroup) {
+	ctrl := controller.NewRateQuotaController()
+	auth.GET("/system/rate-quota", ctrl.GetRateQuota)
+}
+
+// setupPromptRoutes G13: Prompt 版本管理 + A/B 实验路由
+func setupPromptRoutes(auth *gin.RouterGroup) {
+	ctrl := controller.NewPromptController()
+	auth.GET("/prompts/ab-experiments", ctrl.GetABExperiments)
+	auth.GET("/prompts/:id/versions", ctrl.GetVersions)
+	auth.POST("/prompts/:id/publish", ctrl.Publish)
+}
+
+// setupTypingPredictRoutes G15: 打字预回复 SSE 路由
+func setupTypingPredictRoutes(auth *gin.RouterGroup) {
+	ctrl := controller.NewTypingPredictController()
+	// 同步预测（主通路，最简单可靠）
+	auth.POST("/chat/typing-predict/predict", ctrl.Predict)
+	// SSE 长连接（预留，高实时场景可选）
+	auth.GET("/chat/typing-predict/sse", ctrl.SSEStream)
 }
 

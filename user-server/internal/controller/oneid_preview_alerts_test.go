@@ -65,7 +65,7 @@ func TestCustomerOneIDController_PreviewMergeRules(t *testing.T) {
 			{"name": "同手机号合并", "fields": []string{"phone"}, "threshold": 95, "enabled": true},
 		})
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Equal(t, "SUCCESS", resp["code"])
+		assert.Equal(t, float64(0), resp["code"])
 		data := resp["data"].(map[string]any)
 		assert.Equal(t, float64(1), data["candidateCount"])
 		samples := data["samples"].([]any)
@@ -79,7 +79,7 @@ func TestCustomerOneIDController_PreviewMergeRules(t *testing.T) {
 		_, resp := doPreview([]map[string]any{
 			{"name": "同手机号合并", "fields": []string{"phone"}, "threshold": 95, "enabled": false},
 		})
-		assert.Equal(t, "SUCCESS", resp["code"])
+		assert.Equal(t, float64(0), resp["code"])
 		data := resp["data"].(map[string]any)
 		assert.Equal(t, float64(0), data["candidateCount"])
 	})
@@ -123,7 +123,7 @@ func TestAlertRuleController_Unread(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	var resp map[string]any
 	_ = json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.Equal(t, "SUCCESS", resp["code"])
+	assert.Equal(t, float64(0), resp["code"])
 
 	data := resp["data"].(map[string]any)
 	assert.Equal(t, float64(2), data["count"], "只统计 firing 状态告警")

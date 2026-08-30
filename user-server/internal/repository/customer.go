@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -86,6 +87,9 @@ func (r *customerRepository) Create(ctx context.Context, customer *model.Custome
 func (r *customerRepository) GetByID(ctx context.Context, id string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &customer, nil
@@ -95,6 +99,9 @@ func (r *customerRepository) GetByID(ctx context.Context, id string) (*model.Cus
 func (r *customerRepository) GetByUnifiedID(ctx context.Context, unifiedID string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "unified_id = ?", unifiedID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &customer, nil
@@ -104,6 +111,9 @@ func (r *customerRepository) GetByUnifiedID(ctx context.Context, unifiedID strin
 func (r *customerRepository) GetByPhone(ctx context.Context, phone string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "phone = ?", phone).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &customer, nil
@@ -113,6 +123,9 @@ func (r *customerRepository) GetByPhone(ctx context.Context, phone string) (*mod
 func (r *customerRepository) GetByPhoneHash(ctx context.Context, phoneHash string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "phone_hash = ?", phoneHash).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &customer, nil
@@ -122,6 +135,9 @@ func (r *customerRepository) GetByPhoneHash(ctx context.Context, phoneHash strin
 func (r *customerRepository) GetByEmail(ctx context.Context, email string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "email = ?", email).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &customer, nil
@@ -131,6 +147,9 @@ func (r *customerRepository) GetByEmail(ctx context.Context, email string) (*mod
 func (r *customerRepository) GetByWechatOpenID(ctx context.Context, openID string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "wechat_open_id = ?", openID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &customer, nil
@@ -140,6 +159,9 @@ func (r *customerRepository) GetByWechatOpenID(ctx context.Context, openID strin
 func (r *customerRepository) GetByDouyinOpenID(ctx context.Context, openID string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "douyin_open_id = ?", openID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &customer, nil
@@ -217,6 +239,9 @@ func (r *customerRepository) FindByIdentity(ctx context.Context, phone, email, w
 	conditions = conditions[:len(conditions)-4]
 
 	if err := query.Where(conditions, args...).First(&customer).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -259,6 +284,9 @@ func (r *customerRepository) FindByIdentityAll(ctx context.Context, phone, email
 
 	var customers []*model.Customer
 	if err := query.Where(conditions, args...).Find(&customers).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return customers, nil
@@ -355,6 +383,9 @@ func (r *customerRepository) ListByIDs(ctx context.Context, ids []string) (map[s
 	}
 	var customers []*model.Customer
 	if err := dbFromCtx(ctx).Where("id IN ?", unique).Find(&customers).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	for _, c := range customers {
@@ -377,6 +408,9 @@ func (r *customerRepository) GetByXiaohongshuID(ctx context.Context, xhsID strin
 	}
 	var customer model.Customer
 	if err := dbFromCtx(ctx).Where("xiaohongshu_id = ?", xhsID).First(&customer).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &customer, nil

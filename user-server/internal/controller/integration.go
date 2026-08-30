@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/pagination"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
@@ -344,6 +345,88 @@ func (c *IntegrationController) ReceiveOrderWebhook(ctx *gin.Context) {
 		return
 	}
 	response.Success(ctx, gin.H{"platform": platform, "order_id": orderID, "status": status}, "已接收并处理")
+}
+
+// ===== G8: 集成生态前端页 - 模板与分类 =====
+
+// GetTemplates 第三方对接模板列表（integration_templates 表）
+// GET /api/integrations/templates?platform=dingtalk&category=erp&page=1&page_size=20
+func (c *IntegrationController) GetTemplates(ctx *gin.Context) {
+	platform := ctx.Query("platform")
+	category := ctx.Query("category")
+	var enabled *bool
+	if v := ctx.Query("enabled"); v != "" {
+		b := v == "true"
+		enabled = &b
+	}
+	page, pageSize, err := pagination.Parse(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	tplSvc := service.NewIntegrationTemplateService()
+	templates, total, err := tplSvc.List(ctx.Request.Context(), platform, category, enabled, page, pageSize)
+	if err != nil {
+		response.ErrorFromDB(ctx, err, "获取模板列表失败")
+		return
+	}
+	response.SuccessWithPage(ctx, templates, int64(page), int64(pageSize), total)
+}
+
+// GetCategories 对接模板分类分组（从 integration_templates 聚合 distinct category）
+// GET /api/integrations/categories
+func (c *IntegrationController) GetCategories(ctx *gin.Context) {
+	tplSvc := service.NewIntegrationTemplateService()
+	all, err := tplSvc.ListBuiltIn(ctx.Request.Context())
+	if err != nil {
+		response.ErrorFromDB(ctx, err, "获取分类失败")
+		return
+	}
+	// 用一次全量查询（内置模板数量有限）在内存里按 category 聚合
+	type catItem struct {
+		Category  string `json:"category"`
+		Label     string `json:"label"`
+		Count     int    `json:"count"`
+		Platforms []string `json:"platforms"`
+	}
+	catMap := make(map[string]*catItem)
+	for _, t := range all {
+		cat, ok := catMap[t.Category]
+		if !ok {
+			cat = &catItem{Category: t.Category, Label: categoryLabel(t.Category), Platforms: []string{}}
+			catMap[t.Category] = cat
+		}
+		cat.Count++
+		found := false
+		for _, p := range cat.Platforms {
+			if p == t.Platform {
+				found = true
+				break
+			}
+		}
+		if !found {
+			cat.Platforms = append(cat.Platforms, t.Platform)
+		}
+	}
+	result := make([]catItem, 0, len(catMap))
+	for _, v := range catMap {
+		result = append(result, *v)
+	}
+	response.Success(ctx, result, "获取成功")
+}
+
+// categoryLabel 分类常量到展示标签的映射
+func categoryLabel(cat string) string {
+	labels := map[string]string{
+		model.CategoryERP:     "ERP 企业资源计划",
+		model.CategoryCRM:     "CRM 客户关系管理",
+		model.CategoryHR:      "HR 人力资源",
+		model.CategoryFinance: "Finance 财务管理",
+	}
+	if l, ok := labels[cat]; ok {
+		return l
+	}
+	return cat
 }
 
 // GetExternalProducts 获取外部商品列表

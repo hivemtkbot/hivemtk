@@ -1,0 +1,114 @@
+// Package repository - RAG 自动评测仓库（G4）
+package repository
+
+import (
+	"context"
+	"time"
+
+	"hivemtk-user/internal/model"
+	_db "hivemtk-user/internal/pkg/db"
+
+	"gorm.io/gorm"
+)
+
+// RagEvalRepository RAG 评测仓库
+type RagEvalRepository struct {
+	db *gorm.DB
+}
+
+// NewRagEvalRepository 创建实例
+func NewRagEvalRepository() *RagEvalRepository {
+	return &RagEvalRepository{db: _db.GetDB()}
+}
+
+// NewRagEvalRepositoryWithDB 测试注入
+func NewRagEvalRepositoryWithDB(db *gorm.DB) *RagEvalRepository {
+	return &RagEvalRepository{db: db}
+}
+
+// CreateRun 创建评测运行
+func (r *RagEvalRepository) CreateRun(ctx context.Context, run *model.RagEvalRun) error {
+	return r.db.WithContext(ctx).Create(run).Error
+}
+
+// UpdateRun 更新评测运行
+func (r *RagEvalRepository) UpdateRun(ctx context.Context, run *model.RagEvalRun) error {
+	return r.db.WithContext(ctx).Save(run).Error
+}
+
+// GetRun 按 ID 查询
+func (r *RagEvalRepository) GetRun(ctx context.Context, id uint) (*model.RagEvalRun, error) {
+	var run model.RagEvalRun
+	if err := r.db.WithContext(ctx).First(&run, id).Error; err != nil {
+		return nil, err
+	}
+	return &run, nil
+}
+
+// ListRuns 列出评测运行记录
+func (r *RagEvalRepository) ListRuns(ctx context.Context, limit int) ([]*model.RagEvalRun, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	var runs []*model.RagEvalRun
+	err := r.db.WithContext(ctx).Order("id DESC").Limit(limit).Find(&runs).Error
+	return runs, err
+}
+
+// CreateQuestion 批量写入评测问题
+func (r *RagEvalRepository) CreateQuestions(ctx context.Context, questions []*model.RagEvalQuestion) error {
+	if len(questions) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Create(&questions).Error
+}
+
+// ListQuestionsByRun 列出某次运行的所有问题
+func (r *RagEvalRepository) ListQuestionsByRun(ctx context.Context, runID uint) ([]*model.RagEvalQuestion, error) {
+	var questions []*model.RagEvalQuestion
+	err := r.db.WithContext(ctx).Where("run_id = ?", runID).Order("id ASC").Find(&questions).Error
+	return questions, err
+}
+
+// CompleteRun 更新运行状态为 completed 并聚合指标
+func (r *RagEvalRepository) CompleteRun(ctx context.Context, runID uint) error {
+	now := time.Now()
+	updates := map[string]any{
+		"status":       "completed",
+		"completed_at": &now,
+	}
+
+	// 聚合问题级指标
+	var result struct {
+		Total       int64   `gorm:"column:total"`
+		HitCount    int64   `gorm:"column:hit_count"`
+		AvgRecall   float64 `gorm:"column:avg_recall"`
+		AvgPrecision float64 `gorm:"column:avg_precision"`
+	}
+	r.db.WithContext(ctx).Model(&model.RagEvalQuestion{}).
+		Select(`
+			COUNT(*) as total,
+			COUNT(*) FILTER (WHERE hit = true) as hit_count,
+			AVG(recall) as avg_recall,
+			AVG(precision) as avg_precision
+		`).
+		Where("run_id = ?", runID).
+		Scan(&result)
+
+	updates["total_questions"] = result.Total
+	updates["hit_count"] = result.HitCount
+	updates["avg_recall"] = result.AvgRecall
+	updates["avg_precision"] = result.AvgPrecision
+
+	return r.db.WithContext(ctx).Model(&model.RagEvalRun{}).Where("id = ?", runID).Updates(updates).Error
+}
+
+// FailRun 标记运行失败
+func (r *RagEvalRepository) FailRun(ctx context.Context, runID uint, errMsg string) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).Model(&model.RagEvalRun{}).Where("id = ?", runID).Updates(map[string]any{
+		"status":       "failed",
+		"completed_at": &now,
+		"error_msg":    errMsg,
+	}).Error
+}

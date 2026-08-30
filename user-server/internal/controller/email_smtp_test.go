@@ -48,7 +48,7 @@ func TestEmailSmtpController_CreateEmailSmtp_Success(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"id":       "smtp-123",
 				"name":     req.Name,
@@ -81,7 +81,7 @@ func TestEmailSmtpController_CreateEmailSmtp_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }
@@ -110,7 +110,7 @@ func TestEmailSmtpController_GetEmailSmtpList_Success(t *testing.T) {
 
 	router.GET("/api/email/smtp", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"total": 2,
 				"list": []any{
@@ -144,7 +144,7 @@ func TestEmailSmtpController_GetEmailSmtpList_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }
@@ -161,7 +161,7 @@ func TestEmailSmtpController_UpdateEmailSmtp_Success(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code":    "SUCCESS",
+			"code":    float64(0),
 			"data":    nil,
 			"message": "更新成功",
 		})
@@ -189,7 +189,7 @@ func TestEmailSmtpController_UpdateEmailSmtp_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }
@@ -211,7 +211,7 @@ func TestEmailSmtpController_UpdateEmailSmtp_MissingFields(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code":    "SUCCESS",
+			"code":    float64(0),
 			"data":    nil,
 			"message": "更新成功",
 		})
@@ -236,7 +236,7 @@ func TestEmailSmtpController_DeleteEmailSmtp_Success(t *testing.T) {
 
 	router.DELETE("/api/email/smtp/:id", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"code":    "SUCCESS",
+			"code":    float64(0),
 			"data":    nil,
 			"message": "删除成功",
 		})
@@ -252,7 +252,7 @@ func TestEmailSmtpController_DeleteEmailSmtp_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }

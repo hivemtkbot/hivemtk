@@ -563,6 +563,13 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 
 	sessionAICtrl := controller.NewSessionAIController()
 	doReg("POST", "/customer-sessions/:id/ai-summary", sessionAICtrl.Generate)
+	// R53 B: 自动化规则引擎 CRUD
+	ruleCtrl := controller.NewRuleEngineController()
+	doReg("GET", "/automation-rules", ruleCtrl.List)
+	doReg("POST", "/automation-rules", ruleCtrl.Create)
+	doReg("DELETE", "/automation-rules/:id", ruleCtrl.Delete)
+	doReg("POST", "/automation-rules/:id/toggle", ruleCtrl.Toggle)
+	doReg("POST", "/automation-rules/fire", ruleCtrl.Fire)
 	doReg("GET", "/customer-sessions/:id/ai-summary", sessionAICtrl.Get)
 	doReg("POST", "/user-segments", csPlusCtrl.CreateSegment)
 	doReg("POST", "/customer-sessions/:id/edit-lock", csPlusCtrl.AcquireEditLock)
@@ -649,6 +656,9 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("DELETE", "/message-hub/dlq/:id", csPlusCtrl.DLQDrop)
 	doReg("GET", "/knowledge/playground/presets", emailGapCtrl.PlaygroundPresets)
 	doReg("PATCH", "/knowledge/documents/:id/public-visibility", controller.NewHelpCenterController().SetVisibility)
+	doReg("PATCH", "/knowledge/documents/:id/help-center-status", controller.NewHelpCenterController().SetStatus)
+	doReg("GET", "/knowledge/help-center/top", controller.NewHelpCenterController().TopArticles)
+	doReg("POST", "/knowledge/help-center/retrieval-test", controller.NewHelpCenterController().RetrievalTest)
 	doReg("POST", "/clues/import/apply-suggestions", emailGapCtrl.ClueApplySuggestions)
 	doReg("POST", "/clues/:id/merge", emailGapCtrl.ClueMerge)
 	doReg("POST", "/clues/force-create", emailGapCtrl.ClueForceCreate)

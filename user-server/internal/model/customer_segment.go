@@ -73,3 +73,32 @@ type ReportSubscription struct {
 }
 
 func (ReportSubscription) TableName() string { return "report_subscriptions" }
+
+// AutomationRule 轻量自动化规则（R53 B，Chatwoot automation_rules 精简版）
+type AutomationRule struct {
+	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Name         string    `gorm:"type:varchar(100);not null" json:"name"`
+	Event        string    `gorm:"type:varchar(40);not null;index" json:"event"`
+	Conditions   string    `gorm:"type:text" json:"conditions"`
+	Actions      string    `gorm:"type:text;not null" json:"actions"`
+	DelayMinutes int       `gorm:"default:0" json:"delay_minutes"`
+	Priority     int       `gorm:"default:0" json:"priority"`
+	Enabled      bool      `gorm:"default:true;index" json:"enabled"`
+	RunCount     int64     `gorm:"default:0" json:"run_count"`
+	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+func (AutomationRule) TableName() string { return "automation_rules" }
+
+// RulePendingExecution 自动化规则延迟执行队列（R53 B）
+type RulePendingExecution struct {
+	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	RuleID    uint      `gorm:"index;not null" json:"rule_id"`
+	SessionID string    `gorm:"type:varchar(120);not null" json:"session_id"`
+	ExecuteAt time.Time `gorm:"index;not null" json:"execute_at"`
+	Status    string    `gorm:"type:varchar(20);default:'pending'" json:"status"`
+	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
+}
+
+func (RulePendingExecution) TableName() string { return "rule_pending_executions" }

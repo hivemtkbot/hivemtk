@@ -45,7 +45,9 @@ type KnowledgeDocument struct {
 	ErrorMsg      string      `gorm:"type:text" json:"error_msg"`
 	Tags          string      `gorm:"type:jsonb;default:'[]'" json:"tags"` 
 	Category      string      `gorm:"size:64;index" json:"category"`
-	PublicVisible bool        `gorm:"default:false;index" json:"public_visible"` // R48: 发布到公开帮助中心
+	PublicVisible bool        `gorm:"default:false;index" json:"public_visible"` // R48: 发布到公开帮助中心（兼容保留）
+	HCStatus      string      `gorm:"size:20;default:'';index" json:"help_center_status"` // R53 C1: draft/published/archived
+	HCViews       int64       `gorm:"default:0" json:"help_center_views"`                 // R53 C1: 公开访问计数
 	Priority      int         `gorm:"default:0" json:"priority"`
 	Metadata      string      `gorm:"type:jsonb;default:'{}'" json:"metadata"`
 	ImportedBy    string      `gorm:"size:64" json:"imported_by"`
@@ -161,3 +163,16 @@ func (KnowledgeOpenAPISource) TableName() string {
 	return "knowledge_openapi_sources"
 }
 
+
+// HelpCenterTestRecord 检索测试记录（R53 C2，Dify Retrieval Testing 对标）
+type HelpCenterTestRecord struct {
+	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	ProductID string    `gorm:"type:varchar(64);index" json:"product_id"`
+	Query     string    `gorm:"type:varchar(300);not null" json:"query"`
+	TopK      int       `json:"top_k"`
+	Hits      int       `json:"hits"`
+	Results   string    `gorm:"type:text" json:"results"` // 命中 chunks JSON
+	CreatedAt time.Time `gorm:"autoCreateTime;index" json:"created_at"`
+}
+
+func (HelpCenterTestRecord) TableName() string { return "help_center_test_records" }

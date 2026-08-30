@@ -40,7 +40,7 @@ func TestEmailListController_CreateEmailList_Success(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"total": 100,
 			},
@@ -66,7 +66,7 @@ func TestEmailListController_CreateEmailList_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }
@@ -97,7 +97,7 @@ func TestEmailListController_GetEmailListList_Success(t *testing.T) {
 
 	router.GET("/api/email/list", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"total": 2,
 				"list": []gin.H{
@@ -119,7 +119,7 @@ func TestEmailListController_GetEmailListList_Success(t *testing.T) {
 
 	var response map[string]any
 	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["code"] != "SUCCESS" {
+	if response["code"] != float64(0) {
 		t.Errorf("Expected code SUCCESS, got %v", response["code"])
 	}
 }
@@ -159,7 +159,7 @@ func TestEmailListController_GetEmailListDetail_Success(t *testing.T) {
 	listID := uuid.New().String()
 	router.GET("/api/email/list/:id", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"code": "SUCCESS",
+			"code": float64(0),
 			"data": gin.H{
 				"id":      listID,
 				"subject": "Test List",
@@ -205,7 +205,7 @@ func TestEmailListController_UpdateEmailList_Success(t *testing.T) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"code":    "SUCCESS",
+			"code":    float64(0),
 			"data":    nil,
 			"message": "success",
 		})
@@ -256,7 +256,7 @@ func TestEmailListController_DeleteEmailList_Success(t *testing.T) {
 
 	router.DELETE("/api/email/list/:id", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"code":    "SUCCESS",
+			"code":    float64(0),
 			"data":    nil,
 			"message": "success",
 		})
@@ -292,7 +292,7 @@ func TestEmailListController_TraceEmail_Success(t *testing.T) {
 
 	router.POST("/api/email/list/trace", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"code":    "SUCCESS",
+			"code":    float64(0),
 			"data":    gin.H{"status": "tracked"},
 			"message": "success",
 		})

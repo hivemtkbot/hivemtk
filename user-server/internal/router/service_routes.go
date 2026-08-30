@@ -73,6 +73,12 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 	auth.GET("/ai-suggestions/:session_id", aiSuggestionCtrl.GetSuggestions)
 	auth.POST("/ai-suggestions/:id/use", aiSuggestionCtrl.UseSuggestion)
 
+	// G9: 客服队列与容量管理
+	csQueueCtrl := controller.NewCustomerServiceController()
+	auth.GET("/customer-service/queue", csQueueCtrl.GetQueue)
+	auth.GET("/customer-service/capacity", csQueueCtrl.GetCapacity)
+	auth.GET("/customer-service/agents", csQueueCtrl.GetAgents)
+
 	wsHandler := websocket.NewWSHandler()
 	wsHandler.SetLangResolver(langResolver)
 	auth.GET("/ws/agent", wsHandler.HandleWebSocket)
