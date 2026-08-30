@@ -354,7 +354,7 @@ func (e *SubflowNodeExecutor) Execute(ctx context.Context, wctx *WorkflowExecCon
 	logger.Ctx(ctx).Warn().Str("sub_workflow_id", subWorkflowID).Msg("SubflowNodeExecutor: orchestrator not injected, skipping")
 	return &WorkflowNodeExecResult{
 		Status:      NodeStatusCompleted,
-		Output:      model.JSONMap{"sub_workflow_id": subWorkflowID, "_skipped_reason": "orchestrator not injected"},
+		Output:      model.JSONMap{"sub_workflow_id": subWorkflowID, "_subflow_invoked": subWorkflowID, "_skipped_reason": "orchestrator not injected"},
 		SideEffects: []string{sideEffectKey},
 	}, nil
 }

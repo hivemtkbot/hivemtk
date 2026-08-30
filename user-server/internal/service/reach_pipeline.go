@@ -1016,6 +1016,7 @@ func (s *ReachPipelineService) dispatchOutbound(ctx context.Context, job *model.
 		err := DeliverBridgeOutbound(ctx, job.Channel, job.AccountID, convID, "text", content, "")
 		if err != nil {
 			logger.Ctx(ctx).Warn().Err(err).Str("channel", job.Channel).Str("account", job.AccountID).Msg("bridge outbound failed (stub path)")
+			return "", fmt.Errorf("bridge channel %s not ready: %w", job.Channel, err)
 		}
 		mid := fmt.Sprintf("bridge_%s_%s_%d", job.Channel, job.CustomerID, now)
 		if job.Payload == nil {
