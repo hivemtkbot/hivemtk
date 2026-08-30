@@ -71,18 +71,13 @@ func (r *RagEvalRepository) ListQuestionsByRun(ctx context.Context, runID uint) 
 }
 
 // CompleteRun 更新运行状态为 completed 并聚合指标
+// 使用 Raw SQL 直接指定列名，绕过 GORM map key→column 映射的诡异行为
 func (r *RagEvalRepository) CompleteRun(ctx context.Context, runID uint) error {
-	now := time.Now()
-	updates := map[string]any{
-		"status":       "completed",
-		"completed_at": &now,
-	}
-
 	// 聚合问题级指标
 	var result struct {
-		Total       int64   `gorm:"column:total"`
-		HitCount    int64   `gorm:"column:hit_count"`
-		AvgRecall   float64 `gorm:"column:avg_recall"`
+		Total        int64   `gorm:"column:total"`
+		HitCount     int64   `gorm:"column:hit_count"`
+		AvgRecall    float64 `gorm:"column:avg_recall"`
 		AvgPrecision float64 `gorm:"column:avg_precision"`
 	}
 	r.db.WithContext(ctx).Model(&model.RagEvalQuestion{}).
@@ -95,20 +90,25 @@ func (r *RagEvalRepository) CompleteRun(ctx context.Context, runID uint) error {
 		Where("run_id = ?", runID).
 		Scan(&result)
 
-	updates["total_questions"] = result.Total
-	updates["hit_count"] = result.HitCount
-	updates["avg_recall"] = result.AvgRecall
-	updates["avg_precision"] = result.AvgPrecision
-
-	return r.db.WithContext(ctx).Model(&model.RagEvalRun{}).Where("id = ?", runID).Updates(updates).Error
+	now := time.Now()
+	return r.db.WithContext(ctx).Exec(
+		`UPDATE rag_eval_runs SET
+			status = ?, completed_at = ?,
+			total = ?, hit = ?,
+			avg_recall = ?, avg_precision = ?
+		 WHERE id = ?`,
+		"completed", now,
+		result.Total, result.HitCount,
+		result.AvgRecall, result.AvgPrecision,
+		runID,
+	).Error
 }
 
 // FailRun 标记运行失败
 func (r *RagEvalRepository) FailRun(ctx context.Context, runID uint, errMsg string) error {
 	now := time.Now()
-	return r.db.WithContext(ctx).Model(&model.RagEvalRun{}).Where("id = ?", runID).Updates(map[string]any{
-		"status":       "failed",
-		"completed_at": &now,
-		"error_msg":    errMsg,
-	}).Error
+	return r.db.WithContext(ctx).Exec(
+		`UPDATE rag_eval_runs SET status = ?, completed_at = ?, error_msg = ? WHERE id = ?`,
+		"failed", now, errMsg, runID,
+	).Error
 }

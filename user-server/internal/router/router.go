@@ -394,6 +394,35 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 
 		setupCustomerServiceRoutes(auth, aiAgentSvcGlobal, langResolver)
 
+		// G1-G15,G26 竞品标配功能路由
+		copilotCtrl := controller.NewManageCoPilotController()
+		auth.POST("/manage/co-pilot/evaluate", copilotCtrl.Evaluate)
+		auth.GET("/manage/co-pilot/config", copilotCtrl.GetConfig)
+		auth.PUT("/manage/co-pilot/config", copilotCtrl.SetConfig)
+
+		smartRouterCtrl := controller.NewManageSmartRouterController()
+		auth.POST("/manage/smart-router/match", smartRouterCtrl.MatchAgent)
+
+		ragEvalCtrl := controller.NewManageRagEvalController()
+		auth.POST("/manage/rag-eval/run", ragEvalCtrl.Run)
+		auth.GET("/manage/rag-eval/runs", ragEvalCtrl.List)
+		auth.GET("/manage/rag-eval/runs/:id", ragEvalCtrl.Detail)
+
+		dataExportCtrl := controller.NewManageDataExportController()
+		auth.GET("/manage/data-export/:customer_id", dataExportCtrl.Export)
+
+		typingPredictCtrl := controller.NewManageTypingPredictController()
+		auth.GET("/manage/typing-predict", typingPredictCtrl.Predict)
+
+		handoffCtrl := controller.NewHandoffChainController()
+		auth.GET("/manage/session-chain/sla-config", handoffCtrl.GetAutoResolveConfig)
+		auth.PUT("/manage/session-chain/sla-config", handoffCtrl.SaveAutoResolveConfig)
+		auth.POST("/manage/session-chain/reopen", handoffCtrl.ReopenOnInboundMessage)
+		auth.POST("/manage/rules", handoffCtrl.CreateRule)
+		auth.GET("/manage/rules", handoffCtrl.ListRules)
+		auth.DELETE("/manage/rules/:id", handoffCtrl.DeleteRule)
+		auth.PUT("/manage/rules/:id/toggle", handoffCtrl.ToggleRule)
+
 	app.SetBridgeIngressSvc(bridgeIngressSvc) 
 	bridgeHandler := bridge.NewBridgeIngestHandler(bridgeIngressSvc)
 

@@ -2,6 +2,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"hivemtk-user/internal/model"
@@ -33,14 +34,26 @@ func (c *RuleEngineController) List(ctx *gin.Context) {
 
 // Create POST /api/automation-rules
 func (c *RuleEngineController) Create(ctx *gin.Context) {
-	var req model.AutomationRule
+	var req struct {
+		Name         string                 `json:"name" binding:"required"`
+		Event        string                 `json:"event" binding:"required"`
+		Conditions   []service.RuleCondition `json:"conditions"`
+		Actions      []service.RuleAction    `json:"actions" binding:"required"`
+		DelayMinutes int                    `json:"delay_minutes"`
+		Priority     int                    `json:"priority"`
+	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误："+err.Error())
 		return
 	}
-	req.ID = 0
-	req.Enabled = true
-	r, err := c.svc.Create(ctx.Request.Context(), &req)
+	conds, _ := json.Marshal(req.Conditions)
+	acts, _ := json.Marshal(req.Actions)
+	rule := &model.AutomationRule{
+		Name: req.Name, Event: req.Event,
+		Conditions: string(conds), Actions: string(acts),
+		DelayMinutes: req.DelayMinutes, Priority: req.Priority, Enabled: true,
+	}
+	r, err := c.svc.Create(ctx.Request.Context(), rule)
 	if HandleServiceError(ctx, err) {
 		return
 	}
