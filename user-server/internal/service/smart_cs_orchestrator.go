@@ -10,6 +10,7 @@ import (
 
 	"hivemtk-user/internal/aiagent/llm"
 	ragcache "hivemtk-user/internal/aiagent/rag/cache"
+	"hivemtk-user/internal/identity"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils"
@@ -38,19 +39,20 @@ func SetGlobalFAQAnswerCache(svc *ragcache.FAQAnswerCacheService, embedder llm.E
 
 // SmartCSOrchestrator 智能体编排器
 type SmartCSOrchestrator struct {
-	engine         *SalesEngine              
-	sessionSvc     *CustomerSessionService   
-	assignmentSvc  *SessionAssignmentService 
+	engine         *SalesEngine
+	sessionSvc     *CustomerSessionService
+	assignmentSvc  *SessionAssignmentService
 	suggestionRepo *repository.AISuggestionRepository
 	sessionRepo    *repository.CustomerSessionRepository
 	messageRepo    *repository.SessionMessageRepository
 	agentRepo      *repository.AgentStatusRepository
 
-	csAgentSvc *CustomerServiceAgentService
+	csAgentSvc   *CustomerServiceAgentService
+	identitySvc  *CustomerIdentityService // 可选：自动补建 customer 档案
 
-	confidenceThreshold float64 
-	enableAutoReply     bool    
-	maxAIConsecutive    int     
+	confidenceThreshold float64
+	enableAutoReply     bool
+	maxAIConsecutive    int
 
 	// FAQ 语义缓存（M6 R-2）：构造时从全局装配读取；nil 时零影响直通
 	faqCache    *ragcache.FAQAnswerCacheService
@@ -102,6 +104,40 @@ func NewSmartCSOrchestrator(engine *SalesEngine, cfg *OrchestratorConfig) *Smart
 // 优先级：座席挂载 > 渠道绑定 > 默认配置
 func (o *SmartCSOrchestrator) SetCustomerServiceAgentService(ctx context.Context, svc *CustomerServiceAgentService) {
 	o.csAgentSvc = svc
+}
+
+// SetIdentityService 注入 CustomerIdentityService。
+// 注入后 findOrCreateSession 在创建新会话时会自动 IdentifyOrCreate
+// 补建 customer 档案（按平台 open_id 查找/创建），确保 session ↔ customer
+// 关联不断裂；nil 时零影响（向后兼容）。
+func (o *SmartCSOrchestrator) SetIdentityService(svc *CustomerIdentityService) {
+	o.identitySvc = svc
+}
+
+// ensureCustomerForSession best-effort 补建 customer 档案。
+// 当 identitySvc 已注入且 sender 非空时，从 platform+open_id 构造 Identifiers
+// 调 IdentifyOrCreate，确保 session 创建后一定存在可关联的 customer。
+// 失败只记 warn 日志，不阻断 session 创建主流程（session 是核心，customer 是增强）。
+func (o *SmartCSOrchestrator) ensureCustomerForSession(ctx context.Context, platform model.Platform, senderID, userName string) {
+	if o.identitySvc == nil || senderID == "" {
+		return
+	}
+	var identifiers identity.Identifiers
+	switch platform {
+	case model.PlatformWeChat:
+		identifiers.WechatOpenID = senderID
+	case model.PlatformDouyin:
+		identifiers.DouyinOpenID = senderID
+	case model.PlatformXiaohongshu:
+		identifiers.XiaohongshuID = senderID
+	}
+	if !HasAnyIdentifier(identifiers) {
+		return
+	}
+	if _, err := o.identitySvc.IdentifyOrCreate(ctx, identifiers); err != nil {
+		logger.Ctx(ctx).Warn().Err(err).Str("platform", string(platform)).
+			Str("sender", senderID).Msg("[Orchestrator] IdentifyOrCreate best-effort 失败，不阻断 session")
+	}
 }
 
 // Mode 返回本编排器作为智能体生命周期的工作模式：被动（passive）。

@@ -44,7 +44,7 @@ func (s *HelpCenterService) Categories(ctx context.Context) ([]map[string]any, e
 	err := db.GetDB().WithContext(ctx).
 		Table("knowledge_documents").
 		Select("COALESCE(NULLIF(category,''),'未分类') AS category, COUNT(*) AS cnt").
-		Where("(public_visible = ? OR help_center_status = ?)", true, "published").
+		Where("(public_visible = ? OR hc_status = ?)", true, "published").
 		Group("category").Order("cnt DESC").
 		Scan(&rows).Error
 	if err != nil {
@@ -66,7 +66,7 @@ func (s *HelpCenterService) Articles(ctx context.Context, category, q string, li
 	qry := g.WithContext(ctx).
 		Table("knowledge_documents").
 		Select("id, title, COALESCE(NULLIF(category,''),'未分类') AS category, updated_at").
-		Where("(public_visible = ? OR help_center_status = ?)", true, "published")
+		Where("(public_visible = ? OR hc_status = ?)", true, "published")
 	if category != "" && category != "未分类" {
 		qry = qry.Where("category = ?", category)
 	} else if category == "未分类" {
@@ -139,7 +139,7 @@ func (s *HelpCenterService) ArticleDetail(ctx context.Context, id uint64) (map[s
 	err := g.WithContext(ctx).
 		Table("knowledge_documents").
 		Select("id, title, COALESCE(NULLIF(category,''),'未分类') AS category, updated_at").
-		Where("id = ? AND (public_visible = ? OR help_center_status = ?)", id, true, "published").
+		Where("id = ? AND (public_visible = ? OR hc_status = ?)", id, true, "published").
 		Scan(&doc).Error
 	if err != nil {
 		return nil, err
@@ -196,7 +196,7 @@ func (s *HelpCenterService) SetArticleStatus(ctx context.Context, docID uint64, 
 		Model(&struct{}{}).
 		Table("knowledge_documents").
 		Where("id = ?", docID).
-		Updates(map[string]any{"help_center_status": status, "public_visible": status == "published"})
+		Updates(map[string]any{"hc_status": status, "public_visible": status == "published"})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -209,7 +209,7 @@ func (s *HelpCenterService) SetArticleStatus(ctx context.Context, docID uint64, 
 // IncArticleViews 公开详情访问计数（原子自增）
 func (s *HelpCenterService) IncArticleViews(ctx context.Context, id uint64) {
 	_ = db.GetDB().WithContext(ctx).
-		Exec("UPDATE knowledge_documents SET help_center_views = help_center_views + 1 WHERE id = ?", id).Error
+		Exec("UPDATE knowledge_documents SET hc_views = hc_views + 1 WHERE id = ?", id).Error
 }
 
 // TopArticles 按访问量排序（效果统计）
@@ -220,9 +220,9 @@ func (s *HelpCenterService) TopArticles(ctx context.Context, limit int) ([]map[s
 	out := []map[string]any{}
 	err := db.GetDB().WithContext(ctx).
 		Table("knowledge_documents").
-		Select("id, title, help_center_views AS views").
-		Where("help_center_status = ? AND deleted_at IS NULL", "published").
-		Order("help_center_views DESC").Limit(limit).
+		Select("id, title, hc_views AS views").
+		Where("hc_status = ? AND deleted_at IS NULL", "published").
+		Order("hc_views DESC").Limit(limit).
 		Scan(&out).Error
 	return out, err
 }
