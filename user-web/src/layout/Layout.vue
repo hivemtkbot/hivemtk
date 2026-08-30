@@ -48,6 +48,9 @@
               <el-dropdown-item command="profile">
                 <el-icon><User /></el-icon>{{ t('layout.profile') }}
               </el-dropdown-item>
+              <el-dropdown-item command="help-center">
+                <el-icon><QuestionFilled /></el-icon>帮助中心
+              </el-dropdown-item>
               <el-dropdown-item command="logout" divided>
                 <el-icon><SwitchButton /></el-icon>{{ t('layout.logout') }}
               </el-dropdown-item>
@@ -120,7 +123,7 @@
         </div>
         <router-view v-slot="{ Component }">
           <transition name="fade">
-            <component :is="Component" />
+            <component :is="Component" :key="$route.fullPath" />
           </transition>
         </router-view>
       </el-main>
@@ -138,7 +141,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import i18n from '@/i18n'
 import { useUserStore } from '@/stores/user'
 import { getLicenseStatus } from '@/api/license'
-import { Timer, Warning, InfoFilled, Bell, Menu, SwitchButton, Fold, Expand } from '@element-plus/icons-vue'
+import { Timer, Warning, InfoFilled, Bell, Menu, SwitchButton, Fold, Expand, QuestionFilled } from '@element-plus/icons-vue'
 import { routeIconMap } from '@/utils/iconMap'
 void Bell; void Timer; void Warning; void InfoFilled; void Menu; void SwitchButton; void Fold; void Expand
 
@@ -685,7 +688,10 @@ const handleUserCommand = (command) => {
     case 'profile':
       router.push({ name: 'Profile' })
       break
-      case 'logout':
+    case 'help-center':
+      router.push({ name: 'HelpCenter' })
+      break
+    case 'logout':
         userStore.logout()
         ElMessage.success('已退出登录')
         router.replace('/login')

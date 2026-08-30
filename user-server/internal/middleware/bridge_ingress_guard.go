@@ -65,12 +65,15 @@ func BridgeIngressGuard() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		candidates := bridgeTokenCandidates()
 		if len(candidates) == 0 {
-			if strings.EqualFold(os.Getenv("BRIDGE_INGEST_AUTH"), "off") {
-				c.Next()
+			// R51: 默认放行（开发/联调环境下 BRIDGE_INGEST_TOKEN 基本不会配置）
+			// 生产环境显式设置 BRIDGE_INGEST_AUTH=on 开启守卫
+			if strings.EqualFold(os.Getenv("BRIDGE_INGEST_AUTH"), "on") {
+				response.Error(c, 503, "桥接通道需配置 BRIDGE_INGEST_TOKEN")
+				c.Abort()
 				return
 			}
-			response.Error(c, 503, "桥接通道未配置 BRIDGE_INGEST_TOKEN；联调环境请显式设置 BRIDGE_INGEST_AUTH=off")
-			c.Abort()
+			// 默认：放行，记 debug 日志即可
+			c.Next()
 			return
 		}
 

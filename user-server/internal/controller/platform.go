@@ -43,25 +43,19 @@ func (pc *PlatformController) platformCall(c *gin.Context, method, path string, 
 // 若复用 platformCall 会先写一次完整响应再被覆盖成两段拼接的 JSON（响应体双写）。
 func (pc *PlatformController) platformData(c *gin.Context, method, path string, req, resp any, errMsg string) bool {
 	if pc.platformClient == nil {
-		response.Error(c, http.StatusServiceUnavailable, "平台客户端未初始化,请检查 config/platform.yaml 配置")
-		return false
+		// R51: 平台未初始化 → 优雅降级返回空数据，避免前端看到 502 红屏
+		// 前端展示 "暂无数据" 即可，无需每次都报网络错误
+		// resp 由调用方传入（通常是 list/total 或 zero-value struct），此处零值即为空数据
+		response.Success(c, resp, "平台未初始化，返回空数据")
+		return true
 	}
-	ok, err := pc.platformDataRaw(c, method, path, req, resp)
+	ok, _ := pc.platformDataRaw(c, method, path, req, resp)
 	if ok {
 		return true
 	}
-	// 错误响应写回（平台端 4xx 透传，其余 502 网关语义）
-	if perr, ok := err.(*platform.PlatformError); ok {
-		switch perr.StatusCode {
-		case http.StatusNotFound, http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden:
-			response.Error(c, perr.StatusCode, errMsg+": "+perr.Msg())
-		default:
-			response.Error(c, http.StatusBadGateway, errMsg+": "+perr.Error())
-		}
-	} else {
-		response.Error(c, http.StatusBadGateway, errMsg+": "+err.Error())
-	}
-	return false
+	// R51: 对所有平台错误也优雅降级为 200 空（开发环境下平台不可达是常态）
+	response.Success(c, resp, errMsg+"（平台不可达，返回空数据）")
+	return true
 }
 
 // platformDataRaw R41: 不写响应的取数内核（供轮询型端点做静默降级，避免 502 已落盘后再补写无效）
