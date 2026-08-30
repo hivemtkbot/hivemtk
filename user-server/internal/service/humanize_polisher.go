@@ -15,7 +15,8 @@ type HumanizePolisher struct {
 	maxLength        int  
 	platformStyle    PlatformStyle
 	particlePool     []string            
-	emojiPool        map[string][]string 
+	emojiPool        map[string][]string
+	randFn           func() float64 // 测试注入的确定性随机函数，nil 时用全局 math/rand
 }
 
 // PlatformStyle 平台风格
@@ -87,7 +88,7 @@ func (p *HumanizePolisher) Polish(ctx context.Context, raw string, pctx *PolishC
 		polished = p.addNaturalParticle(ctx, polished, pctx)
 	}
 
-	polished = maybeInjectTypo(polished, pctx)
+	polished = p.injectTypo(polished, pctx)
 
 	return strings.TrimSpace(polished), nil
 }
@@ -340,7 +341,23 @@ var typoPool = map[string][]string{
 	"好的呢": {"好的呀", "好的~"},
 }
 
-func maybeInjectTypo(text string, pctx *PolishContext) string {
+// randFloat 返回 [0,1) 随机数，优先使用注入的 randFn（测试用）。
+func (p *HumanizePolisher) randFloat() float64 {
+	if p.randFn != nil {
+		return p.randFn()
+	}
+	return rand.Float64()
+}
+
+// randIntn 返回 [0,n) 随机整数，基于 randFloat。
+func (p *HumanizePolisher) randIntn(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	return int(p.randFloat() * float64(n))
+}
+
+func (p *HumanizePolisher) injectTypo(text string, pctx *PolishContext) string {
 	if pctx == nil {
 		return text
 	}
@@ -348,12 +365,12 @@ func maybeInjectTypo(text string, pctx *PolishContext) string {
 	if strings.Contains(persona, "专业") || strings.Contains(persona, "客服") {
 		return text
 	}
-	if rand.Float64() > 0.1 {
+	if p.randFloat() > 0.1 {
 		return text
 	}
 	for orig, variants := range typoPool {
 		if strings.HasSuffix(text, orig) {
-			replacement := variants[rand.Intn(len(variants))]
+			replacement := variants[p.randIntn(len(variants))]
 			text = text[:len(text)-len(orig)] + replacement
 			break
 		}
