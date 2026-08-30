@@ -74,7 +74,7 @@ func (s *SLAService) Stop() {
 	close(s.stopCh)
 }
 
-// checkAll 检查所有活跃会话（伪代码示例）
+// checkAll 检查所有活跃会话（DB 聚合：open 状态 + policy.WarnThreshold 触发 violation）
 func (s *SLAService) checkAll(ctx context.Context) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

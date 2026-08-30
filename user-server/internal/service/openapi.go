@@ -7,6 +7,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -465,34 +466,7 @@ func basicAuth(username, password string) string {
 }
 
 func base64Encode(s string) string {
-	// 简化 base64 编码
-	const base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-	src := []byte(s)
-	var result []byte
-	for i := 0; i < len(src); i += 3 {
-		var b uint32
-		var n int
-		switch {
-		case i+2 < len(src):
-			b = uint32(src[i])<<16 | uint32(src[i+1])<<8 | uint32(src[i+2])
-			n = 4
-		case i+1 < len(src):
-			b = uint32(src[i])<<16 | uint32(src[i+1])<<8
-			n = 3
-		default:
-			b = uint32(src[i]) << 16
-			n = 2
-		}
-		result = append(result, base64Chars[(b>>18)&0x3F])
-		result = append(result, base64Chars[(b>>12)&0x3F])
-		if n >= 3 {
-			result = append(result, base64Chars[(b>>6)&0x3F])
-		}
-		if n >= 4 {
-			result = append(result, base64Chars[b&0x3F])
-		}
-	}
-	return string(result)
+	return base64.StdEncoding.EncodeToString([]byte(s))
 }
 
 func truncateString(s string, n int) string {

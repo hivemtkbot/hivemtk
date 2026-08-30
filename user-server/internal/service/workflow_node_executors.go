@@ -6,9 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
 )
+
+const MaxSubflowDepth = 5
 
 // TriggerNodeExecutor 触发器节点执行器
 type TriggerNodeExecutor struct{}
@@ -291,7 +294,14 @@ func toFloat64(v any) (float64, bool) {
 }
 
 // SubflowNodeExecutor 子流程节点执行器
-type SubflowNodeExecutor struct{}
+type SubflowNodeExecutor struct {
+	orchestrator *WorkflowOrchestratorService
+}
+
+func NewSubflowNodeExecutor(orch *WorkflowOrchestratorService) *SubflowNodeExecutor {
+	return &SubflowNodeExecutor{orchestrator: orch}
+}
+
 
 func (e *SubflowNodeExecutor) NodeType() string { return WorkflowNodeTypeSubflow }
 
@@ -304,35 +314,47 @@ func (e *SubflowNodeExecutor) Execute(ctx context.Context, wctx *WorkflowExecCon
 			subWorkflowID = v
 		}
 	}
-
-	sideEffectKey := WorkflowSideEffectKey(wctx, "subflow")
+	if subWorkflowID == "" {
+		return &WorkflowNodeExecResult{Status: NodeStatusFailed, Output: model.JSONMap{"error": "sub_workflow_id required"}}, nil
+	}
+	depth := 0
+	if wctx.Execution != nil {
+		if d, ok := wctx.Execution.TriggerPayload["_subflow_depth"].(int); ok {
+			depth = d
+		}
+	}
+	if depth >= MaxSubflowDepth {
+		return &WorkflowNodeExecResult{Status: NodeStatusFailed, Output: model.JSONMap{"error": fmt.Sprintf("subflow max depth %d exceeded", MaxSubflowDepth)}}, nil
+	}
+	sideEffectKey := WorkflowSideEffectKey(wctx, "subflow:"+subWorkflowID)
 	if HasWorkflowSideEffect(wctx, sideEffectKey) {
 		return &WorkflowNodeExecResult{
 			Status:      NodeStatusCompleted,
-			Output:      model.JSONMap{"_already_executed": true},
-			NextNodeID:  "",
+			Output:      model.JSONMap{"_already_executed": true, "sub_workflow_id": subWorkflowID},
 			SideEffects: []string{sideEffectKey},
 		}, nil
 	}
-
-	logger.Ctx(ctx).Info().
-		Str("sub_workflow_id", subWorkflowID).
-		Str("node_id", wctx.NodeID).
-		Msg("SubflowNodeExecutor: invoking subflow (placeholder)")
-
 	AppendWorkflowSideEffect(wctx, sideEffectKey)
-	output := model.JSONMap{"_subflow_invoked": subWorkflowID}
-	if subWorkflowID != "" {
-		output["sub_workflow_id"] = subWorkflowID
+	if e.orchestrator != nil {
+		payload := model.JSONMap{}
+		if wctx.Execution != nil && wctx.Execution.TriggerPayload != nil {
+			payload = wctx.Execution.TriggerPayload
+		}
+		payload["_subflow_depth"] = depth + 1
+		exec, err := e.orchestrator.Execute(ctx, &dto.WorkflowExecuteRequest{WorkflowID: subWorkflowID, TriggerPayload: payload})
+		if err != nil {
+			return &WorkflowNodeExecResult{Status: NodeStatusFailed, Output: model.JSONMap{"error": err.Error(), "sub_workflow_id": subWorkflowID}}, nil
+		}
+		return &WorkflowNodeExecResult{
+			Status:      NodeStatusCompleted,
+			Output:      model.JSONMap{"sub_workflow_id": subWorkflowID, "execution_id": exec.ID, "status": exec.Status},
+			SideEffects: []string{sideEffectKey},
+		}, nil
 	}
-	// 设计决策: Subflow 节点当前标记为 completed 推进。
-	// 原因: executor 层为无依赖函数式组件，真实嵌套需要 orchestrator 服务注入 + 递归执行器链路。
-	// 该能力由 workflow_orchestrator 的 Execute 提供，Subflow 节点作为 orchestrator 的入口级能力统一调用。
-	// 目前仅标记为 completed 推进下一节点
+	logger.Ctx(ctx).Warn().Str("sub_workflow_id", subWorkflowID).Msg("SubflowNodeExecutor: orchestrator not injected, skipping")
 	return &WorkflowNodeExecResult{
 		Status:      NodeStatusCompleted,
-		Output:      output,
-		NextNodeID:  "",
+		Output:      model.JSONMap{"sub_workflow_id": subWorkflowID, "_skipped_reason": "orchestrator not injected"},
 		SideEffects: []string{sideEffectKey},
 	}, nil
 }

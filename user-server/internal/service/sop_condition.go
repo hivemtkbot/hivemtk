@@ -66,7 +66,7 @@ func SOPEvaluateSingleCondition(condition string, data map[string]any) (bool, er
 //   - 单条件："field op value"
 //   - AND："cond1 AND cond2"
 //   - OR："cond1 OR cond2"
-//   - 不允许 AND/OR 混用（必须用括号分组，本期暂不支持括号，返回 error）
+//   - AND/OR 混用时必须用括号分组，括号内子表达式递归求值（evalParenthesized）
 //
 // 空条件视为始终匹配（与单条件行为一致）
 func SOPEvaluateCompoundCondition(condition string, data map[string]any) (bool, error) {
