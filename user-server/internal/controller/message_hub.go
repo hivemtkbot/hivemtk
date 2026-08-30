@@ -44,22 +44,19 @@ func (c *MessageHubController) Push(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	// R53 A3/B: 访客消息 → resolved/closed 会话自动 reopen + 规则引擎 message_inbound 事件
+	// R53 A3/B + R54 修复: 访客消息 → 自动 reopen（仅 closed/resolved）+ 规则引擎 message_inbound 事件
+	// R54 修复: 此前仅 reopen 发生时才分发规则事件 → 进行中会话收消息永远不触发 message_inbound 规则（业务缺陷）
 	if msg != nil && msg.Direction == "inbound" {
 		go func(m *model.MessageHub) {
 			defer func() { _ = recover() }()
-			ctx2, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx2, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			if reopened, _ := service.NewSessionChainService().ReopenOnInboundMessage(ctx2, m.ConversationID); !reopened {
-				return
-			}
-			// reopen 后带消息内容分发规则事件
+			_, _ = service.NewSessionChainService().ReopenOnInboundMessage(ctx2, m.ConversationID)
 			var sess model.CustomerSession
 			if db.GetDB().WithContext(ctx2).Where("session_id = ?", m.ConversationID).First(&sess).Error == nil {
 				service.NewRuleEngineService().Dispatch(ctx2, service.RuleEventMessageInbound, m.ConversationID, &sess)
 			}
 		}(msg)
-		_ = ctx
 	}
 	response.Success(ctx, msg, "推送成功")
 }
