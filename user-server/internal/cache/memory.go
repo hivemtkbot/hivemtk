@@ -496,4 +496,3 @@ func (m *MemoryCache) Clear(ctx context.Context) error {
 	m.order = list.New()
 	return nil
 }
-

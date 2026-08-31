@@ -88,19 +88,19 @@ func WithSessionWebhook(url string, expiredAt int64) TriggerInboundOption {
 }
 
 type InboxIngressResult struct {
-	Accepted    bool   `json:"accepted"`      
-	HumanLocked bool   `json:"human_locked"`  
-	QueuedForAI bool   `json:"queued_for_ai"` 
+	Accepted    bool   `json:"accepted"`
+	HumanLocked bool   `json:"human_locked"`
+	QueuedForAI bool   `json:"queued_for_ai"`
 	SessionID   string `json:"session_id"`
-	Reason      string `json:"reason,omitempty"` 
+	Reason      string `json:"reason,omitempty"`
 }
 
 type InboxIngressService struct {
-	hubRepo   *repository.MessageHubRepository
-	cache     cache.Cache
-	triggerCh chan string   
-	aiTrigger AITrigger     
-	inboxSvc  *InboxService 
+	hubRepo       *repository.MessageHubRepository
+	cache         cache.Cache
+	triggerCh     chan string
+	aiTrigger     AITrigger
+	inboxSvc      *InboxService
 	leadMiningSvc *Service
 }
 
@@ -701,8 +701,8 @@ func (s *InboxIngressService) RecheckUnrepliedAndTrigger(ctx context.Context, co
 }
 
 type InboxIngressBatchResult struct {
-	PerEvent    []*InboxIngressResult `json:"per_event"`    
-	TriggeredAI bool                  `json:"triggered_ai"` 
+	PerEvent    []*InboxIngressResult `json:"per_event"`
+	TriggeredAI bool                  `json:"triggered_ai"`
 	Reason      string                `json:"reason,omitempty"`
 }
 
@@ -734,7 +734,7 @@ func (s *InboxIngressService) HandleIngressBatch(ctx context.Context, events []*
 
 	for convID, groupEvents := range groups {
 		var newInboundContents []string
-		var firstInboundEvent *model.MessageEvent 
+		var firstInboundEvent *model.MessageEvent
 		for _, ie := range groupEvents {
 			ev := ie.event
 
@@ -870,4 +870,3 @@ func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, e
 	result.Reason = "batched; will be merged and triggered at batch end"
 	return result, nil
 }
-

@@ -98,8 +98,8 @@ func TestDispatchWhatsAppStatuses_MissAndPassthrough(t *testing.T) {
 	}
 }
 
-// T3 验收③：未知 status 不写入。
-func TestUpdateDeliveryStatus_UnknownIgnored(t *testing.T) {
+// T3 验收③：未知 status 不写入；终态 send_failed 不被迟到回执回翻（二次审查 S4 修复）。
+func TestUpdateDeliveryStatus_TerminalStateGuard(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	repo := repository.NewMessageHubRepositoryWithDB(db)
 	ctx := context.Background()
@@ -113,5 +113,40 @@ func TestUpdateDeliveryStatus_UnknownIgnored(t *testing.T) {
 	got, _ := repo.GetByID(ctx, row.ID)
 	if got.Status == "weird_status" {
 		t.Fatalf("unknown status must not be written")
+	}
+	// 落终态 → 迟到 sent/delivered 不回翻
+	if err := repo.UpdateDeliveryStatus(ctx, "whatsapp", "a", "wamid.ST9", "failed", "boom"); err != nil {
+		t.Fatalf("failed: %v", err)
+	}
+	if err := repo.UpdateDeliveryStatus(ctx, "whatsapp", "a", "wamid.ST9", "sent", ""); err != nil {
+		t.Fatalf("late sent: %v", err)
+	}
+	got2, _ := repo.GetByID(ctx, row.ID)
+	if got2.Status != "send_failed" {
+		t.Fatalf("terminal send_failed must not be flipped by late sent, got %s", got2.Status)
+	}
+}
+
+// T3 验收④（二次审查 S2 修复）：statuses+messages 混合推送——回执消费且消息放行主管线。
+func TestDispatchWhatsAppStatuses_MixedPayloadPassesMessages(t *testing.T) {
+	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
+	svc := &WebhookService{db: db}
+	ctx := context.Background()
+	row := &model.MessageHub{MsgID: "wamid.MIX1", Platform: "whatsapp", AccountID: "wa-mix", Direction: "outbound", MsgType: "text", ConversationID: "c", Content: "x", SentAt: time.Now()}
+	if err := db.Create(row).Error; err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	mixed := []byte(`{"object":"whatsapp_business_account","entry":[{"id":"WABA","changes":[{"field":"messages","value":{"metadata":{"phone_number_id":"PN"},"statuses":[{"id":"wamid.MIX1","status":"delivered"}],"messages":[{"from":"86138","id":"wamid.INMIX","timestamp":"1","type":"text","text":{"body":"hello"}}]}}]}]}`)
+	handled, err := svc.dispatchWhatsAppStatuses(ctx, "wa-mix", mixed)
+	if err != nil {
+		t.Fatalf("mixed payload err: %v", err)
+	}
+	if handled {
+		t.Fatal("混合推送必须放行消息主管线（handled=false）")
+	}
+	repo := repository.NewMessageHubRepositoryWithDB(db)
+	got, _ := repo.GetByID(ctx, row.ID)
+	if got.Status != "delivered" {
+		t.Fatalf("混合推送的回执仍应被消费, got %s", got.Status)
 	}
 }

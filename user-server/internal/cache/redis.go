@@ -12,7 +12,7 @@ import (
 // RedisCache Redis 缓存实现
 type RedisCache struct {
 	client       *redis.Client
-	sharedClient bool 
+	sharedClient bool
 }
 
 // RedisConfig Redis 配置
@@ -190,4 +190,3 @@ func (r *RedisCache) Close() error {
 	}
 	return r.client.Close()
 }
-

@@ -27,4 +27,3 @@ type Cache interface {
 	LLen(ctx context.Context, key string) (int64, error)
 	Clear(ctx context.Context) error
 }
-

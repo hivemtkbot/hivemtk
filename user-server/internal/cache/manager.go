@@ -30,8 +30,8 @@ func (s *CacheStats) Total() int64 {
 
 // CacheManager 缓存管理器
 type CacheManager struct {
-	cache  Cache
-	stats  CacheStats
+	cache Cache
+	stats CacheStats
 }
 
 // CacheConfig 缓存配置
@@ -64,7 +64,6 @@ func NewCacheManager(config CacheConfig) (*CacheManager, error) {
 	}, nil
 }
 
-
 // GetStats 返回缓存统计信息（副本）
 func (m *CacheManager) GetStats() CacheStats {
 	return CacheStats{
@@ -72,7 +71,6 @@ func (m *CacheManager) GetStats() CacheStats {
 		Misses: atomic.LoadInt64(&m.stats.Misses),
 	}
 }
-
 
 // ResetStats 重置缓存统计
 func (m *CacheManager) ResetStats() {
