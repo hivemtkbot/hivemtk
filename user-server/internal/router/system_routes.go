@@ -205,6 +205,11 @@ func setupTuningRoutes(auth *gin.RouterGroup) {
 
 
 // setupAIToolConfigRoutes 注册AI工具配置路由
+//
+// P0-12 权限分级（2026-08-31 四轮加固）：
+//   - 读（List/Get/Accounts）：任意登录用户（AI 工具面板需要展示）
+//   - 写（UpdateStatus/BatchStatus/BindAccount/UnbindAccount）：admin only
+// AI 工具持有第三方 API Key，staff 不能启停 / 绑定解绑账号。
 func setupAIToolConfigRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	toolRepo := repository.NewAIToolConfigRepository(db)
 	bindingRepo := repository.NewAIToolAccountBindingRepository(db)
@@ -215,12 +220,15 @@ func setupAIToolConfigRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	{
 		g.GET("", ctrl.ListTools)
 		g.GET("/:name", ctrl.GetTool)
-		g.PUT("/:name/status", ctrl.UpdateToolStatus)
-		g.POST("/batch-status", ctrl.BatchUpdateStatus)
-
 		g.GET("/:name/accounts", ctrl.GetToolAccounts)
-		g.POST("/:name/accounts", ctrl.BindAccount)
-		g.DELETE("/:name/accounts/:account_type/:account_id", ctrl.UnbindAccount)
+	}
+	// 写操作 admin only
+	admin := auth.Group("/ai-tools", middleware.AdminAuthMiddleware())
+	{
+		admin.PUT("/:name/status", ctrl.UpdateToolStatus)
+		admin.POST("/batch-status", ctrl.BatchUpdateStatus)
+		admin.POST("/:name/accounts", ctrl.BindAccount)
+		admin.DELETE("/:name/accounts/:account_type/:account_id", ctrl.UnbindAccount)
 	}
 }
 

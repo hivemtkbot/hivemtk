@@ -222,7 +222,7 @@ const topMenus = ref([
     key: 'workspace',
     title: '工作台',
     icon: 'Monitor',
-    roles: ['admin', 'manager', 'sales', 'viewer'],
+    roles: ['admin', 'manager', 'sales', 'viewer', 'staff'],
     children: [
       { key: 'messageHub', title: '消息中台 MQ', icon: 'MessageBox', path: '/messageHub/list', roles: ['admin', 'manager'] },
       { key: 'wecomAccount', title: '多账号聚合', icon: 'Connection', path: '/wecomAccount/list', roles: ['admin', 'manager'] }
@@ -232,7 +232,7 @@ const topMenus = ref([
     key: 'customer',
     title: '客户中心',
     icon: 'UserFilled',
-    roles: ['admin', 'manager', 'sales', 'viewer'],
+    roles: ['admin', 'manager', 'sales', 'viewer', 'staff'],
     children: [
       { key: 'clueList', title: '线索列表', icon: 'Document', path: '/clue/list' },
       { key: 'clueStatistics', title: '线索统计', icon: 'DataAnalysis', path: '/clue/statistics' },
@@ -257,7 +257,7 @@ const topMenus = ref([
     key: 'aiAgent',
     title: '智能体',
     icon: 'Cpu',
-    roles: ['admin', 'manager', 'customer_service'],
+    roles: ['admin', 'manager', 'customer_service', 'staff'],
     children: [
       {
         key: 'agentManage',
@@ -340,7 +340,7 @@ const topMenus = ref([
     key: 'reach',
     title: '触达运营',
     icon: 'Promotion',
-    roles: ['admin', 'manager', 'sales', 'viewer'],
+    roles: ['admin', 'manager', 'sales', 'viewer', 'staff'],
     children: [
       {
         key: 'emailReach',
@@ -456,7 +456,7 @@ const topMenus = ref([
     key: 'knowledge',
     title: '知识中心',
     icon: 'Collection',
-    roles: ['admin', 'manager', 'sales', 'viewer'],
+    roles: ['admin', 'manager', 'sales', 'viewer', 'staff'],
     children: [
       {
         key: 'knowledgeWorkspace',
@@ -503,7 +503,7 @@ const topMenus = ref([
     key: 'analytics',
     title: '数据分析',
     icon: 'DataAnalysis',
-    roles: ['admin', 'manager', 'sales', 'viewer'],
+    roles: ['admin', 'manager', 'sales', 'viewer', 'staff'],
     children: [
       { key: 'dashboardScreen', title: '数据大屏', icon: 'DataBoard', path: '/dashboardScreen/list' },
       { key: 'conversionFunnel', title: '转化漏斗', icon: 'Filter', path: '/conversionFunnel/list' },
@@ -559,7 +559,7 @@ const topMenus = ref([
     key: 'system',
     title: '系统设置',
     icon: 'Setting',
-    roles: ['admin', 'manager', 'sales', 'viewer'],
+    roles: ['admin', 'manager', 'sales', 'viewer', 'staff'],
     children: [
       {
         key: 'siteConfig',
@@ -604,7 +604,7 @@ const topMenus = ref([
         key: 'assetBundle',
         title: '资产包',
         icon: 'Box',
-        roles: ['admin', 'manager', 'sales', 'viewer'],
+        roles: ['admin', 'manager', 'sales', 'viewer', 'staff'],
         children: [
           { key: 'assetMarket', title: '资产市场', icon: 'ShoppingCart', path: '/asset-market' },
           { key: 'myAssets', title: '我的资产', icon: 'Files', path: '/asset-market/my-assets' },

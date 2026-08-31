@@ -172,22 +172,30 @@ func setupScriptRoutes(auth *gin.RouterGroup) {
 	auth.POST("/script-ab/conversion", scriptLibCtrl.RecordConversion)
 
 	// K2 Feature Flags（Unleash/GrowthBook 管理端最小完备集）
+	//
+	// P0-10 权限分级（2026-08-31 四轮加固）：
+	//   - 读（List/Get/Stale/Audit/EvalLogs/CodeReferences）：任意登录用户
+	//   - 写（Create/Update/Delete/Enable/Disable/Rollout/Evaluate/RegisterCodeReference）：admin only
+	// Feature Flag 控制全系统功能开关，staff 不能随意启停。
 	flagCtrl := controller.NewFeatureFlagController()
 	auth.GET("/feature-flags", flagCtrl.List)
-	auth.POST("/feature-flags", flagCtrl.Create)
 	auth.GET("/feature-flags/stale", flagCtrl.Stale)
-	auth.POST("/feature-flags/evaluate", flagCtrl.Evaluate)
-	auth.POST("/feature-flags/evaluate-batch", flagCtrl.EvaluateBatch)
 	auth.GET("/feature-flags/:id", flagCtrl.Get)
-	auth.PUT("/feature-flags/:id", flagCtrl.Update)
-	auth.DELETE("/feature-flags/:id", flagCtrl.Delete)
-	auth.POST("/feature-flags/:id/enable", flagCtrl.Enable)
-	auth.POST("/feature-flags/:id/disable", flagCtrl.Disable)
-	auth.POST("/feature-flags/:id/rollout", flagCtrl.Rollout)
 	auth.GET("/feature-flags/:id/audit", flagCtrl.Audit)
 	auth.GET("/feature-flags/:id/eval-log", flagCtrl.EvalLogs)
 	auth.GET("/feature-flags/:id/code-references", flagCtrl.CodeReferences)
-	auth.POST("/feature-flags/:id/code-references", flagCtrl.RegisterCodeReference)
+	flagAdmin := auth.Group("/feature-flags", middleware.AdminAuthMiddleware())
+	{
+		flagAdmin.POST("", flagCtrl.Create)
+		flagAdmin.PUT("/:id", flagCtrl.Update)
+		flagAdmin.DELETE("/:id", flagCtrl.Delete)
+		flagAdmin.POST("/:id/enable", flagCtrl.Enable)
+		flagAdmin.POST("/:id/disable", flagCtrl.Disable)
+		flagAdmin.POST("/:id/rollout", flagCtrl.Rollout)
+		flagAdmin.POST("/evaluate", flagCtrl.Evaluate)
+		flagAdmin.POST("/evaluate-batch", flagCtrl.EvaluateBatch)
+		flagAdmin.POST("/:id/code-references", flagCtrl.RegisterCodeReference)
+	}
 }
 
 // setupABTestRoutes A/B 测试路由
@@ -299,7 +307,9 @@ func setupEventRoutes(auth *gin.RouterGroup) {
 	auth.GET("/events/customer/:id", eventCtrl.GetEventHistory)
 	// R41: 全局分页事件流（替代前端 N+1 全客户拉取）
 	auth.GET("/customer-events/list", eventCtrl.ListGlobal)
-	auth.DELETE("/events/customer/:id", eventCtrl.DeleteEvent)
+	// P0-11 DELETE /events/customer/:id admin only（防 staff 删客户行为数据）
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	admin.DELETE("/events/customer/:id", eventCtrl.DeleteEvent)
 	auth.GET("/events/stats", eventCtrl.GetEventStats)
 	auth.POST("/events/pageview", eventCtrl.TrackPageView)
 	auth.POST("/events/click", eventCtrl.TrackClick)

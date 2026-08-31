@@ -98,17 +98,22 @@ func setupAlertRoutes(auth *gin.RouterGroup) {
 }
 
 // setupAccountRoutes 账户管理路由
+//
+// P0-8 权限分级（2026-08-31 四轮加固）：
+//   - 读（List/Get）：任意登录用户
+//   - 写（Create/Update/Delete）：admin only
 func setupAccountRoutes(auth *gin.RouterGroup) {
 	accountCtrl := controller.NewAccountController()
 	auth.GET("/account/list", accountCtrl.GetAccounts)
 	auth.GET("/account/:id", accountCtrl.GetAccount)
-	auth.POST("/account", accountCtrl.CreateAccount)
-	auth.PUT("/account/:id", accountCtrl.UpdateAccount)
-	auth.DELETE("/account/:id", accountCtrl.DeleteAccount)
 	auth.GET("/accounts/list", accountCtrl.GetAccounts)
-	auth.POST("/accounts/create", accountCtrl.CreateAccount)
-	auth.PUT("/accounts/update/:id", accountCtrl.UpdateAccount)
-	auth.DELETE("/accounts/delete/:id", accountCtrl.DeleteAccount)
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	admin.POST("/account", accountCtrl.CreateAccount)
+	admin.PUT("/account/:id", accountCtrl.UpdateAccount)
+	admin.DELETE("/account/:id", accountCtrl.DeleteAccount)
+	admin.POST("/accounts/create", accountCtrl.CreateAccount)
+	admin.PUT("/accounts/update/:id", accountCtrl.UpdateAccount)
+	admin.DELETE("/accounts/delete/:id", accountCtrl.DeleteAccount)
 }
 
 // setupShortLinkRoutes 短链管理路由
@@ -173,6 +178,11 @@ func setupLiveCodeRoutes(auth *gin.RouterGroup, liveCodeController *controller.L
 }
 
 // setupEmailRoutes 邮件管理路由
+//
+// P0-9 权限分级（2026-08-31 四轮加固）：
+//   - 读（List/Get）：任意登录用户
+//   - SMTP 凭据写操作 / send / jobs CRUD：admin only
+// 防 staff 用系统 SMTP 向外发垃圾邮件 / 改 SMTP 凭据劫持邮件。
 func setupEmailRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	emailListCtrl := controller.NewEmailListController()
 	emailSmtpCtrl := controller.NewEmailSmtpController()
@@ -180,31 +190,37 @@ func setupEmailRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	emailJobsCtrl := controller.NewEmailJobsController()
 	emailSendCtrl := controller.NewEmailSendController()
 
-	auth.GET("/email/list", emailListCtrl.GetEmailListList)
-	auth.POST("/email/list", emailListCtrl.CreateEmailList)
-	auth.PUT("/email/list/:id", emailListCtrl.UpdateEmailList)
-	auth.DELETE("/email/list/:id", emailListCtrl.DeleteEmailList)
-	auth.GET("/email/list/:id", emailListCtrl.GetEmailListDetail)
-	auth.POST("/email/list/:id/trace", emailListCtrl.TraceEmail)
+	emailAdmin := auth.Group("", middleware.AdminAuthMiddleware())
 
+	// 邮件列表（读写 admin？保持写 admin）
+	auth.GET("/email/list", emailListCtrl.GetEmailListList)
+	auth.GET("/email/list/:id", emailListCtrl.GetEmailListDetail)
+	emailAdmin.POST("/email/list", emailListCtrl.CreateEmailList)
+	emailAdmin.PUT("/email/list/:id", emailListCtrl.UpdateEmailList)
+	emailAdmin.DELETE("/email/list/:id", emailListCtrl.DeleteEmailList)
+	emailAdmin.POST("/email/list/:id/trace", emailListCtrl.TraceEmail)
+
+	// SMTP 凭据：读 admin 以下保持 auth，写 admin only
 	auth.GET("/email/smtp", emailSmtpCtrl.GetEmailSmtpList)
 	auth.GET("/email/smtp/:id", emailSmtpCtrl.GetEmailSmtp)
-	auth.POST("/email/smtp", emailSmtpCtrl.CreateEmailSmtp)
-	auth.PUT("/email/smtp/:id", emailSmtpCtrl.UpdateEmailSmtp)
-	auth.DELETE("/email/smtp/:id", emailSmtpCtrl.DeleteEmailSmtp)
+	emailAdmin.POST("/email/smtp", emailSmtpCtrl.CreateEmailSmtp)
+	emailAdmin.PUT("/email/smtp/:id", emailSmtpCtrl.UpdateEmailSmtp)
+	emailAdmin.DELETE("/email/smtp/:id", emailSmtpCtrl.DeleteEmailSmtp)
 
+	// 草稿（staff 可以写草稿？保持原样不改）
 	auth.GET("/email/drafts", emailDraftCtrl.GetEmailDraftList)
 	auth.POST("/email/drafts", emailDraftCtrl.CreateEmailDraft)
 	auth.GET("/email/drafts/:id", emailDraftCtrl.GetEmailDraftDetail)
 	auth.PUT("/email/drafts/:id", emailDraftCtrl.UpdateEmailDraft)
 	auth.DELETE("/email/drafts/:id", emailDraftCtrl.DeleteEmailDraft)
 
+	// Jobs + Send：admin only（实际发邮件）
 	auth.GET("/email/jobs", emailJobsCtrl.GetEmailJobsList)
-	auth.POST("/email/jobs", emailJobsCtrl.CreateEmailJobs)
-	auth.DELETE("/email/jobs/:id", emailJobsCtrl.DeleteEmailJobs)
+	emailAdmin.POST("/email/jobs", emailJobsCtrl.CreateEmailJobs)
+	emailAdmin.DELETE("/email/jobs/:id", emailJobsCtrl.DeleteEmailJobs)
 	auth.GET("/email/jobs/:id", emailJobsCtrl.GetEmailJobsDetail)
 
-	auth.POST("/email/send", emailSendCtrl.SendEmail)
+	emailAdmin.POST("/email/send", emailSendCtrl.SendEmail)
 
 	emailUnsubscribeRepo := repository.NewEmailUnsubscribeRepository(gormDB)
 	emailUnsubscribeCtrl := controller.NewEmailUnsubscribeController(

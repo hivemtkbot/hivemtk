@@ -14,7 +14,7 @@ export const useUserStore = defineStore('user', () => {
   const isLoggedIn = computed(() => !!token.value)
   
   const username = computed(() => userInfo.value.username)
-  const role = computed(() => userInfo.value.role || 'admin')
+  const role = computed(() => userInfo.value.role || '')
   // 阶段 7：超管标记，供 Layout / router 校验使用
   const isAdmin = computed(() => role.value === 'admin')
   
