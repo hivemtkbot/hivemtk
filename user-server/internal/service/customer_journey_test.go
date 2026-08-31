@@ -11,6 +11,7 @@ import (
 // newP5JourneyPair 构造共享同一 L2(Redis 模拟) 后端的两个服务实例，模拟多实例部署
 func newP5JourneyPair() (*CustomerJourneyService, *CustomerJourneyService, *cache.MemoryCache) {
 	l2 := cache.NewMemoryCache()
+	defer l2.Close()
 	svc1 := NewCustomerJourneyServiceWithCache(l2)
 	svc2 := NewCustomerJourneyServiceWithCache(l2)
 	return svc1, svc2, l2
@@ -156,7 +157,9 @@ func TestJourneySleepCron_RunOnce_PanicRecovered(t *testing.T) {
 
 // TestJourneySleepCron_StartStopIdempotent 重复 Start/Stop 应安全（不重复起协程、不死锁）
 func TestJourneySleepCron_StartStopIdempotent(t *testing.T) {
-	c := NewJourneySleepCron(NewCustomerJourneyServiceWithCache(cache.NewMemoryCache()))
+	_c := cache.NewMemoryCache()
+	defer _c.Close()
+	c := NewJourneySleepCron(NewCustomerJourneyServiceWithCache(_c))
 	done := make(chan struct{})
 	go func() {
 		c.Start(context.Background())

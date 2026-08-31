@@ -139,7 +139,9 @@ func TestSendOutbound_WechatChannel_DeliversCustomerServiceMessage(t *testing.T)
 // 否则会话被静音 2 分钟、后续消息全部不回复。
 func TestRunAIGeneration_ReleasesAILock_OnErrorExit(t *testing.T) {
 	ctx := context.Background()
-	ingress := NewInboxIngressServiceWithDB(nil, cache.NewMemoryCache())
+	_mc1 := cache.NewMemoryCache()
+	defer _mc1.Close()
+	ingress := NewInboxIngressServiceWithDB( nil, _mc1)
 
 	svc := &WebhookService{
 		db:               nil,
@@ -187,7 +189,9 @@ func TestRunAIGeneration_ReleasesAILock_OnErrorExit(t *testing.T) {
 func TestRunAIGeneration_ReleasesAILock_OnSemaphoreTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
-	ingress := NewInboxIngressServiceWithDB(nil, cache.NewMemoryCache())
+	_mc2 := cache.NewMemoryCache()
+	defer _mc2.Close()
+	ingress := NewInboxIngressServiceWithDB( nil, _mc2)
 
 	sem := make(chan struct{}, 1)
 	sem <- struct{}{} // 占满信号量 → runAIGeneration 必走 sem 超时分支
@@ -226,7 +230,9 @@ func TestRunAIGeneration_ReleasesAILock_OnSemaphoreTimeout(t *testing.T) {
 // wechat 渠道入站事件必须能通过去重/钩子3 全链路并触发 AI（渠道连通性回归护栏）。
 func TestInboxIngress_WechatChannel_TriggersAI(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	ingress := NewInboxIngressServiceWithDB(db, cache.NewMemoryCache())
+	_mc3 := cache.NewMemoryCache()
+	defer _mc3.Close()
+	ingress := NewInboxIngressServiceWithDB( db, _mc3)
 	tr := &fakeAITrigger{}
 	ingress.SetAITrigger(tr)
 

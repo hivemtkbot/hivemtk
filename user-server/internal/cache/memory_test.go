@@ -16,7 +16,7 @@ func TestMemoryCache_New(t *testing.T) {
 	if cache.data == nil {
 		t.Error("NewMemoryCache() data 未初始化")
 	}
-	if cache.stop == nil {
+	if cache.done == nil {
 		t.Error("NewMemoryCache() stop 通道未初始化")
 	}
 	cache.Close()

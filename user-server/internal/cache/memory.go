@@ -15,14 +15,47 @@ var ErrCacheMiss = errors.New("cache: key not found")
 // DefaultMaxKeys 默认 LRU 上限（修复：限制内存使用）
 const DefaultMaxKeys = 10_000
 
+// cacheRegistry 全局 MemoryCache 注册表，用于测试/进程退出时统一清理 goroutine
+var (
+	cacheRegistryMu sync.Mutex
+	cacheRegistry   = make(map[*MemoryCache]struct{})
+)
+
+// registerCache 注册一个 MemoryCache 到全局注册表
+func registerCache(m *MemoryCache) {
+	cacheRegistryMu.Lock()
+	cacheRegistry[m] = struct{}{}
+	cacheRegistryMu.Unlock()
+}
+
+// unregisterCache 从全局注册表注销一个 MemoryCache
+func unregisterCache(m *MemoryCache) {
+	cacheRegistryMu.Lock()
+	delete(cacheRegistry, m)
+	cacheRegistryMu.Unlock()
+}
+
+// ShutdownAll 关闭所有注册表中未关闭的 MemoryCache（用于测试进程退出清理 goroutine leak）
+func ShutdownAll() {
+	cacheRegistryMu.Lock()
+	caches := make([]*MemoryCache, 0, len(cacheRegistry))
+	for m := range cacheRegistry {
+		caches = append(caches, m)
+	}
+	cacheRegistryMu.Unlock()
+	for _, m := range caches {
+		m.Close()
+	}
+}
+
 // MemoryCache 内存缓存实现（带 LRU 上限）
 type MemoryCache struct {
-	data    map[string]*list.Element
-	order   *list.List 
-	mu      sync.RWMutex
-	stop    chan struct{} 
-	closed  chan struct{} 
-	maxKeys int
+	data      map[string]*list.Element
+	order     *list.List
+	mu        sync.RWMutex
+	done      chan struct{}
+	closeOnce sync.Once
+	maxKeys   int
 }
 
 type cacheItem struct {
@@ -46,26 +79,23 @@ func NewMemoryCacheWithLimit(maxKeys int) *MemoryCache {
 	cache := &MemoryCache{
 		data:    make(map[string]*list.Element),
 		order:   list.New(),
-		stop:    make(chan struct{}),
-		closed:  make(chan struct{}),
+		done:    make(chan struct{}),
 		maxKeys: maxKeys,
 	}
+	registerCache(cache)
 	go cache.cleanup()
 	return cache
 }
 
-// Close 关闭缓存清理 goroutine
+// Close 关闭缓存清理 goroutine，幂等且并发安全
 func (m *MemoryCache) Close() {
-	select {
-	case <-m.closed:
-		return
-	default:
-		close(m.closed)
-		close(m.stop)
-	}
+	m.closeOnce.Do(func() {
+		unregisterCache(m)
+		close(m.done)
+	})
 }
 
-// cleanup 定期清理过期缓存
+// cleanup 定期清理过期缓存，监听 done channel 退出
 func (m *MemoryCache) cleanup() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -73,7 +103,7 @@ func (m *MemoryCache) cleanup() {
 		select {
 		case <-ticker.C:
 			m.deleteExpired()
-		case <-m.stop:
+		case <-m.done:
 			return
 		}
 	}

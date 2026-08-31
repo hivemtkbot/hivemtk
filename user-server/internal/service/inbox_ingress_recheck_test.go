@@ -39,6 +39,8 @@ func TestRecheck_LastIsOutbound_NoTrigger(t *testing.T) {
 	})
 
 	mc := cache.NewMemoryCache()
+
+	defer mc.Close()
 	defer mc.Close()
 	svc := NewInboxIngressServiceWithDB(db, mc)
 	tr := &fakeAITrigger{}
@@ -64,6 +66,8 @@ func TestRecheck_LastInboundWithinWindow_TriggersAI(t *testing.T) {
 	})
 
 	mc := cache.NewMemoryCache()
+
+	defer mc.Close()
 	defer mc.Close()
 	svc := NewInboxIngressServiceWithDB(db, mc)
 	tr := &fakeAITrigger{}
@@ -96,6 +100,8 @@ func TestRecheck_LastInboundOutsideWindow_NoTrigger(t *testing.T) {
 	})
 
 	mc := cache.NewMemoryCache()
+
+	defer mc.Close()
 	defer mc.Close()
 	svc := NewInboxIngressServiceWithDB(db, mc)
 	tr := &fakeAITrigger{}
@@ -119,6 +125,8 @@ func TestRecheck_AIProcessingFlagExists_NoTrigger(t *testing.T) {
 	})
 
 	mc := cache.NewMemoryCache()
+
+	defer mc.Close()
 	defer mc.Close()
 	svc := NewInboxIngressServiceWithDB(db, mc)
 	tr := &fakeAITrigger{}
@@ -147,6 +155,8 @@ func TestRecheck_HumanLocked_NoTrigger(t *testing.T) {
 	})
 
 	mc := cache.NewMemoryCache()
+
+	defer mc.Close()
 	defer mc.Close()
 	svc := NewInboxIngressServiceWithDB(db, mc)
 	tr := &fakeAITrigger{}
@@ -186,6 +196,8 @@ func TestRecheck_FullScenario_OrphanMessage(t *testing.T) {
 	})
 
 	mc := cache.NewMemoryCache()
+
+	defer mc.Close()
 	defer mc.Close()
 	svc := NewInboxIngressServiceWithDB(db, mc)
 	tr := &fakeAITrigger{}

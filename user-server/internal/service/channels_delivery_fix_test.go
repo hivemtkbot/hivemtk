@@ -252,7 +252,9 @@ func TestDingTalkReceiveMessage_CapturesSessionWebhookAndTriggersAI(t *testing.T
 		t.Fatalf("create account: %v", err)
 	}
 
-	ingress := NewInboxIngressServiceWithDB(db, cache.NewMemoryCache())
+	_mc1 := cache.NewMemoryCache()
+	defer _mc1.Close()
+	ingress := NewInboxIngressServiceWithDB( db, _mc1)
 	tr := &fakeAITrigger{}
 	ingress.SetAITrigger(tr)
 	webhookSvc := &WebhookService{db: db, ingressSvc: ingress}

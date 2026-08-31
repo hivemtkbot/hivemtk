@@ -25,7 +25,9 @@ func setupMessageHubTestDB(t *testing.T) *gorm.DB {
 
 func newMessageHubTestService(t *testing.T) (*MessageHubService, *gorm.DB) {
 	db := setupMessageHubTestDB(t)
-	svc := NewMessageHubServiceWithDB(db, cache.NewMemoryCache())
+	_mc1 := cache.NewMemoryCache()
+	defer _mc1.Close()
+	svc := NewMessageHubServiceWithDB( db, _mc1)
 	return svc, db
 }
 
@@ -349,7 +351,9 @@ func TestPush_DuplicateError(t *testing.T) {
 }
 
 func TestPush_NilDB(t *testing.T) {
-	svc := NewMessageHubServiceWithDB(nil, cache.NewMemoryCache())
+	_mc2 := cache.NewMemoryCache()
+	defer _mc2.Close()
+	svc := NewMessageHubServiceWithDB( nil, _mc2)
 	req := newReq()
 
 	_, err := svc.Push(context.Background(), &req)
@@ -1061,7 +1065,9 @@ func TestGenerateMsgID_Format(t *testing.T) {
 
 
 func TestWithIdemTTL(t *testing.T) {
-	svc := NewMessageHubServiceWithDB(nil, cache.NewMemoryCache())
+	_mc3 := cache.NewMemoryCache()
+	defer _mc3.Close()
+	svc := NewMessageHubServiceWithDB( nil, _mc3)
 	svc.WithIdemTTL(context.Background(), 1*time.Hour)
 	if svc.idemTTL != 1*time.Hour {
 		t.Errorf("expected 1h, got %v", svc.idemTTL)
@@ -1069,7 +1075,9 @@ func TestWithIdemTTL(t *testing.T) {
 }
 
 func TestWithMaxContent(t *testing.T) {
-	svc := NewMessageHubServiceWithDB(nil, cache.NewMemoryCache())
+	_mc4 := cache.NewMemoryCache()
+	defer _mc4.Close()
+	svc := NewMessageHubServiceWithDB( nil, _mc4)
 	svc.WithMaxContent(context.Background(), 1000)
 	if svc.maxContent != 1000 {
 		t.Errorf("expected 1000, got %d", svc.maxContent)
@@ -1077,7 +1085,9 @@ func TestWithMaxContent(t *testing.T) {
 }
 
 func TestWithQueueSize(t *testing.T) {
-	svc := NewMessageHubServiceWithDB(nil, cache.NewMemoryCache())
+	_mc5 := cache.NewMemoryCache()
+	defer _mc5.Close()
+	svc := NewMessageHubServiceWithDB( nil, _mc5)
 	svc.WithQueueSize(context.Background(), 500)
 	if svc.streamSize != 500 {
 		t.Errorf("expected 500, got %d", svc.streamSize)

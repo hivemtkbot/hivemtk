@@ -16,6 +16,7 @@ import (
 func TestHumanEscalation_BasicFlow(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()
+	defer c.Close()
 	mgr := NewHumanEscalationManager(c)
 	sessionID := "session_basic"
 
@@ -49,6 +50,7 @@ func TestHumanEscalation_BasicFlow(t *testing.T) {
 func TestHumanEscalation_MultipleSessions(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()
+	defer c.Close()
 	mgr := NewHumanEscalationManager(c)
 
 	sessions := []string{"s1", "s2", "s3", "s4", "s5"}
@@ -69,6 +71,7 @@ func TestHumanEscalation_MultipleSessions(t *testing.T) {
 func TestHumanEscalation_EmptySessionID(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()
+	defer c.Close()
 	mgr := NewHumanEscalationManager(c)
 
 	if err := mgr.TriggerCensorshipEscalation(ctx, "", "reason"); err == nil {
@@ -84,6 +87,7 @@ func TestHumanEscalation_EmptySessionID(t *testing.T) {
 func TestHumanEscalation_NotificationPushed(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()
+	defer c.Close()
 	mgr := NewHumanEscalationManager(c)
 	sessionID := "session_notif"
 
@@ -115,6 +119,7 @@ func TestHumanEscalation_NotificationPushed(t *testing.T) {
 func TestHumanEscalation_ReleaseClearsReason(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()
+	defer c.Close()
 	mgr := NewHumanEscalationManager(c)
 	sessionID := "session_release"
 
@@ -135,6 +140,7 @@ func TestHumanEscalation_ReleaseClearsReason(t *testing.T) {
 func TestHumanEscalation_Stats(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()
+	defer c.Close()
 	mgr := NewHumanEscalationManager(c)
 
 	_ = mgr.TriggerCensorshipEscalation(ctx, "s1", "reason_a")
@@ -154,6 +160,7 @@ func TestHumanEscalation_Stats(t *testing.T) {
 func TestHumanEscalation_Concurrent(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()
+	defer c.Close()
 	mgr := NewHumanEscalationManager(c)
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
@@ -182,6 +189,7 @@ func TestHumanEscalation_Concurrent(t *testing.T) {
 func TestHumanEscalation_CustomNotifier(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()
+	defer c.Close()
 	mgr := NewHumanEscalationManager(c)
 
 	received := make(chan *EscalationEvent, 1)
@@ -206,6 +214,7 @@ func TestHumanEscalation_CustomNotifier(t *testing.T) {
 func TestHumanEscalation_GatekeeperIntegration(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()
+	defer c.Close()
 	mgr := NewHumanEscalationManager(c)
 	sessionID := "session_integration"
 
@@ -275,7 +284,9 @@ func TestHumanEscalation_RedisFailure_NoFetcher_FailOpen(t *testing.T) {
 // TestHumanEscalation_KeyMissing_Unlocked key 不存在（redis.Nil）不算故障，直接放行
 func TestHumanEscalation_KeyMissing_Unlocked(t *testing.T) {
 	ctx := context.Background()
-	mgr := NewHumanEscalationManager(cache.NewMemoryCache())
+	_mc := cache.NewMemoryCache()
+	defer _mc.Close()
+	mgr := NewHumanEscalationManager(_mc)
 
 	called := false
 	if mgr.IsSessionLockedForHuman(ctx, "s_missing", func() string {
@@ -291,7 +302,9 @@ func TestHumanEscalation_KeyMissing_Unlocked(t *testing.T) {
 
 // TestHumanEscalation_LockHasDefaultTTL S-2: 锁默认带 24h TTL 而非永久
 func TestHumanEscalation_LockHasDefaultTTL(t *testing.T) {
-	mgr := NewHumanEscalationManager(cache.NewMemoryCache())
+	_mc := cache.NewMemoryCache()
+	defer _mc.Close()
+	mgr := NewHumanEscalationManager(_mc)
 	if mgr.lockTTL != HumanLockDefaultTTL || HumanLockDefaultTTL != 24*time.Hour {
 		t.Fatalf("lockTTL = %s, want 24h", mgr.lockTTL)
 	}
@@ -305,6 +318,7 @@ func TestHumanEscalation_LockHasDefaultTTL(t *testing.T) {
 func TestHumanEscalation_RenewLock(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()
+	defer c.Close()
 	mgr := NewHumanEscalationManager(c)
 	sid := "session_renew"
 
@@ -332,6 +346,7 @@ func TestHumanEscalation_RenewLock(t *testing.T) {
 func TestHumanEscalation_LockExpiryNotifiesMerchant(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()
+	defer c.Close()
 	mgr := NewHumanEscalationManager(c)
 	mgr.SetLockTTL(30 * time.Millisecond)
 	sid := "session_expiry"
@@ -373,6 +388,7 @@ func TestHumanEscalation_StartLockExpiryChecker(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	c := cache.NewMemoryCache()
+	defer c.Close()
 	mgr := NewHumanEscalationManager(c)
 	mgr.SetLockTTL(20 * time.Millisecond)
 	mgr.StartLockExpiryChecker(ctx, 10*time.Millisecond)
