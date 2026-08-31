@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"math"
 	"testing"
@@ -131,4 +130,3 @@ func TestGoldenSection_Minimize_RegionShrinkRatio(t *testing.T) {
 		t.Errorf("函数调用次数应在 [5, 50], got %d", callCount)
 	}
 }
-

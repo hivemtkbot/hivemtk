@@ -1,6 +1,5 @@
 package feedbackloop
 
-
 import (
 	"context"
 	"errors"
@@ -12,7 +11,6 @@ import (
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 )
-
 
 // TestComputeReward_Rating 评分归一化（v/5）
 func TestComputeReward_Rating(t *testing.T) {
@@ -171,7 +169,6 @@ func TestGenEventID_Format(t *testing.T) {
 	}
 }
 
-
 // TestFeedbackCollector_CollectSync_SingleEvent 同步采集单条事件
 func TestFeedbackCollector_CollectSync_SingleEvent(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
@@ -275,7 +272,7 @@ func TestFeedbackCollector_Collect_AsyncPersist(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		err := c.Collect(ctx, &dto.CollectRequest{
-			SessionID:  "sess-async-" + strings.Repeat("x", i+1), 
+			SessionID:  "sess-async-" + strings.Repeat("x", i+1),
 			CustomerID: "cust-1",
 			EventType:  dto.FBEventTypeExplicit,
 			SignalKey:  dto.FBSignalLike, SignalValue: true,
@@ -428,4 +425,3 @@ func TestFeedbackCollector_ConcurrentCollectSync(t *testing.T) {
 		t.Errorf("SignalCount = %d want %d", signal.SignalCount, N)
 	}
 }
-

@@ -336,7 +336,7 @@ func TestLiveCodeRepository_GetAvailableLiveCodes(t *testing.T) {
 		ShortDomainID:   1,
 		EntryDomainID:   2,
 		LandingDomainID: 3,
-		Status:          1, 
+		Status:          1,
 	}
 	database.Create(disabledCode)
 	database.Model(&model.LiveCode{}).Where("id = ?", disabledCode.ID).Update("status", 0)
@@ -372,4 +372,3 @@ func TestLiveCodeRepository_Delete_NotFound(t *testing.T) {
 		t.Errorf("Delete() panicked = %v", err)
 	}
 }
-

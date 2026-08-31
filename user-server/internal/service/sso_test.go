@@ -3,10 +3,10 @@
 // 覆盖：
 //   - NewSSOServiceWithRepos：仅启用 client_id 非空的 provider
 //   - HandleCallback 完整流程（mock OIDC：discovery + jwks + token）
-//     - 自动 provisioning（首次登录创建本地用户并绑定）
-//     - 已有身份复用（幂等）
-//     - 未启用 / provider 不存在 / 缺 code 等错误分支
-//     - auto_provision=false 按邮箱关联已有本地用户
+//   - 自动 provisioning（首次登录创建本地用户并绑定）
+//   - 已有身份复用（幂等）
+//   - 未启用 / provider 不存在 / 缺 code 等错误分支
+//   - auto_provision=false 按邮箱关联已有本地用户
 //
 // mock 采用自定义 http.RoundTripper，全程无真实网络请求。
 package service
@@ -38,14 +38,14 @@ const testOIDCIssuer = "https://test-idp.example.com"
 
 // mockOIDCTransport 拦截 discovery / jwks / token 请求的 mock RoundTripper
 type mockOIDCTransport struct {
-	priv       *rsa.PrivateKey
-	tokenIssuer string
-	sub        string
-	email      string
-	username   string
-	name       string
-	roles      []string
-	extra      map[string]interface{}
+	priv          *rsa.PrivateKey
+	tokenIssuer   string
+	sub           string
+	email         string
+	username      string
+	name          string
+	roles         []string
+	extra         map[string]interface{}
 	exchangeError string
 }
 
@@ -194,8 +194,8 @@ func TestNewSSOService_SkipsProvidersWithoutClientID(t *testing.T) {
 	cfg := config.SSOConfig{
 		Enabled: true,
 		Providers: map[string]config.SSOProviderConfig{
-			"feishu":   {Issuer: "https://x", ClientID: ""},   
-			"dingtalk": {Issuer: "https://x", ClientID: "cid"}, 
+			"feishu":   {Issuer: "https://x", ClientID: ""},
+			"dingtalk": {Issuer: "https://x", ClientID: "cid"},
 		},
 	}
 	svc := NewSSOServiceWithRepos(cfg, repository.NewSystemUserRepository(), repository.NewSSOIdentityRepository(database))
@@ -377,7 +377,7 @@ func TestSSOService_HandleCallback_EmailMatchWithoutAutoProvision(t *testing.T) 
 	}
 
 	mt := setupSSOServiceTest(t, database)
-	svc := newTestSSOService(t, database, ssoTestConfig(false), mt) 
+	svc := newTestSSOService(t, database, ssoTestConfig(false), mt)
 
 	result, err := svc.HandleCallback(context.Background(), "generic", "test-code", "v")
 	if err != nil {
@@ -493,4 +493,3 @@ func TestSSOService_ProvisionedUserPasswordHashed(t *testing.T) {
 		t.Errorf("expected bcrypt hash prefix, got %q", u.Password[:min(8, len(u.Password))])
 	}
 }
-

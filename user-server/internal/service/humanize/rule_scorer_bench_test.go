@@ -1,6 +1,5 @@
 package humanize
 
-
 import (
 	"context"
 	"strings"
@@ -113,4 +112,3 @@ func BenchmarkRuleScorer_Parallel(b *testing.B) {
 		}
 	})
 }
-

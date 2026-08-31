@@ -35,11 +35,11 @@ type WechatService struct {
 
 // wechatTokenClient AccessToken 管理
 type wechatTokenClient struct {
-	appID        string
-	appSecret    string
-	accessToken  string
-	expiresAt    time.Time
-	mu           sync.Mutex
+	appID       string
+	appSecret   string
+	accessToken string
+	expiresAt   time.Time
+	mu          sync.Mutex
 }
 
 // NewWechatService 创建微信公众号服务
@@ -161,8 +161,8 @@ type WechatIncomingMessage struct {
 	Description string `xml:"Description,omitempty"`
 	URL         string `xml:"Url,omitempty"`
 	// 事件
-	Event     string `xml:"Event,omitempty"`
-	EventKey  string `xml:"EventKey,omitempty"`
+	Event    string `xml:"Event,omitempty"`
+	EventKey string `xml:"EventKey,omitempty"`
 }
 
 // ParseIncomingMessage 解析微信推送的 XML 消息

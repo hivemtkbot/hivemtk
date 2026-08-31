@@ -403,4 +403,3 @@ func TestCustomerService_RemoveTags_NotFound(t *testing.T) {
 		t.Errorf("Expected ErrCustomerNotFound, got %v", err)
 	}
 }
-

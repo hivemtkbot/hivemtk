@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 // customerTagGetRule 获取标签规则对象（从 model.CustomerTag 迁出，五层架构合规）
 func customerTagGetRule(t *model.CustomerTag) map[string]any {
 	if t.Rule == "" {
@@ -35,7 +34,6 @@ func customerTagSetRule(t *model.CustomerTag, rule map[string]any) error {
 	t.Rule = string(jsonData)
 	return nil
 }
-
 
 // UserTagService 用户标签门面服务
 type UserTagService struct {
@@ -85,7 +83,6 @@ func (s *UserTagService) GetUserTags(ctx context.Context, userID string) ([]stri
 	}
 	return tags, nil
 }
-
 
 // UserProfileService 客户档案门面服务
 type UserProfileService struct {
@@ -158,7 +155,6 @@ type UserBasicView struct {
 	Status     _type.UserStatusType `json:"status"`
 	UpdateTime int64                `json:"update_time"`
 }
-
 
 // TagRuleService 自动标签规则门面服务
 type TagRuleService struct {
@@ -330,7 +326,6 @@ func (s *TagRuleService) GetTagStats(ctx context.Context) (*TagStatsResult, erro
 	}, nil
 }
 
-
 // CustomerQueryService OneID 客户查询门面服务
 type CustomerQueryService struct {
 	custRepo repository.CustomerRepository
@@ -428,4 +423,3 @@ func (s *CustomerQueryService) OneIDStats(ctx context.Context) *OneIDStatsView {
 		MultiIdentity: multi,
 	}
 }
-

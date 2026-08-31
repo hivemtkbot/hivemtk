@@ -144,7 +144,7 @@ func TestDouyinCardRepository_GetList(t *testing.T) {
 
 	inactiveCard := &model.DouyinCard{
 		Title:    "Inactive Card",
-		IsActive: true, 
+		IsActive: true,
 	}
 	if err := database.Create(inactiveCard).Error; err != nil {
 		t.Fatalf("Failed to create inactive card: %v", err)
@@ -329,4 +329,3 @@ func TestDouyinCardRepository_IncrementShareCount(t *testing.T) {
 		t.Errorf("Expected ShareCount 1, got %d", updated.ShareCount)
 	}
 }
-

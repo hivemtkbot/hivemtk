@@ -48,4 +48,3 @@ func (r *SOPExecEventRepository) CountRecentByExecutionID(ctx context.Context, e
 	}
 	return count, nil
 }
-

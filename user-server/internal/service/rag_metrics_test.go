@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"fmt"
@@ -22,7 +21,6 @@ func setupRagMetricsTestDB(t *testing.T) *gorm.DB {
 		&model.RagMetricsDaily{},
 	)
 }
-
 
 // TestRagMetrics_NewService 测试服务构造
 func TestRagMetrics_NewService(t *testing.T) {
@@ -69,7 +67,6 @@ func TestRagMetrics_NewService_NilReceiver(t *testing.T) {
 		t.Error("Expected error for nil receiver")
 	}
 }
-
 
 // TestRagMetrics_RecordQuerySync_Basic 测试同步写入基础
 func TestRagMetrics_RecordQuerySync_Basic(t *testing.T) {
@@ -158,7 +155,6 @@ func TestRagMetrics_RecordQuerySync_NilReq(t *testing.T) {
 	}
 }
 
-
 // TestRagMetrics_GetRecallMetrics_Empty 测试空数据集
 func TestRagMetrics_GetRecallMetrics_Empty(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
@@ -189,7 +185,7 @@ func TestRagMetrics_GetRecallMetrics_Aggregation(t *testing.T) {
 		req := &RecordQueryRequest{
 			Query:           fmt.Sprintf("q%d", i),
 			RetrievedDocIDs: []string{fmt.Sprintf("d%d", i)},
-			RelevantDocIDs:  []string{}, 
+			RelevantDocIDs:  []string{},
 			Latency:         time.Duration(10*(i+1)) * time.Millisecond,
 			TopK:            5,
 		}
@@ -266,7 +262,6 @@ func TestRagMetrics_GetRecallMetrics_ZeroHit(t *testing.T) {
 	}
 }
 
-
 // TestRagMetrics_GetLowRecallQueries_Basic 测试低召回样本查询
 func TestRagMetrics_GetLowRecallQueries_Basic(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
@@ -276,9 +271,9 @@ func TestRagMetrics_GetLowRecallQueries_Basic(t *testing.T) {
 		retrieved []string
 		relevant  []string
 	}{
-		{[]string{"a", "b"}, []string{"a", "b"}},      
-		{[]string{"a"}, []string{"a", "b", "c", "d"}}, 
-		{[]string{"a"}, []string{}},                   
+		{[]string{"a", "b"}, []string{"a", "b"}},
+		{[]string{"a"}, []string{"a", "b", "c", "d"}},
+		{[]string{"a"}, []string{}},
 	}
 	for i, q := range queries {
 		req := &RecordQueryRequest{
@@ -340,7 +335,7 @@ func TestRagMetrics_GetLowRecallQueries_LimitClamp(t *testing.T) {
 		req := &RecordQueryRequest{
 			Query:           fmt.Sprintf("q%d", i),
 			RetrievedDocIDs: []string{"a", "b"},
-			RelevantDocIDs:  []string{}, 
+			RelevantDocIDs:  []string{},
 			Latency:         5 * time.Millisecond,
 		}
 		_ = svc.RecordQuerySync(context.Background(), req)
@@ -353,7 +348,6 @@ func TestRagMetrics_GetLowRecallQueries_LimitClamp(t *testing.T) {
 		t.Errorf("Expected 0 rows (all filtered by relevant=0), got %d", len(rows))
 	}
 }
-
 
 // TestRagMetrics_AggregateWindow_Idempotent 测试幂等：重复调用应更新而非新建
 func TestRagMetrics_AggregateWindow_Idempotent(t *testing.T) {
@@ -410,7 +404,6 @@ func TestRagMetrics_AggregateWindow_NilDB(t *testing.T) {
 	}
 }
 
-
 // TestRagMetrics_AggregateLastWindow 测试最近窗口聚合
 func TestRagMetrics_AggregateLastWindow(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
@@ -440,7 +433,6 @@ func TestRagMetrics_AggregateLastWindow(t *testing.T) {
 		t.Errorf("Expected window duration=%v, got %v", RagMetricsAggregationInterval, d.WindowEnd.Sub(d.WindowStart))
 	}
 }
-
 
 // TestRagMetrics_GetLatestMetrics 测试最新指标查询（升序返回）
 func TestRagMetrics_GetLatestMetrics(t *testing.T) {
@@ -492,14 +484,13 @@ func TestRagMetrics_GetLatestMetrics_LimitClamp(t *testing.T) {
 	}
 }
 
-
 // TestRagMetrics_StartStop 测试 Start/Stop 后台 goroutine
 func TestRagMetrics_StartStop(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
 	svc := NewRagMetricsService(db)
 
 	svc.Start(context.Background())
-	svc.Start(context.Background()) 
+	svc.Start(context.Background())
 
 	for i := 0; i < 3; i++ {
 		svc.RecordQuery(context.Background(), &RecordQueryRequest{
@@ -527,7 +518,7 @@ func TestRagMetrics_StartStop(t *testing.T) {
 	}
 
 	svc.Stop(context.Background())
-	svc.Stop(context.Background()) 
+	svc.Stop(context.Background())
 }
 
 // TestRagMetrics_FlushBatchTrigger 测试批量阈值触发 flush
@@ -562,7 +553,6 @@ func TestRagMetrics_FlushBatchTrigger(t *testing.T) {
 	}
 }
 
-
 // TestRagMetrics_Cron_StartStop 测试 cron 启停
 func TestRagMetrics_Cron_StartStop(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
@@ -575,7 +565,6 @@ func TestRagMetrics_Cron_StartStop(t *testing.T) {
 	cron.Start(context.Background())
 	cron.Stop(context.Background())
 }
-
 
 // TestRagMetrics_BuildQueryLog_Calc 测试 buildQueryLog 计算
 func TestRagMetrics_BuildQueryLog_Calc(t *testing.T) {
@@ -618,7 +607,6 @@ func TestRagMetrics_BuildQueryLog_Calc(t *testing.T) {
 		})
 	}
 }
-
 
 // TestRagMetrics_ToStringSet 测试 toStringSet 去重
 func TestRagMetrics_ToStringSet(t *testing.T) {
@@ -685,7 +673,6 @@ func TestRagMetrics_HashQueryShort(t *testing.T) {
 	}
 }
 
-
 // TestRagMetrics_ConcurrentRecordQuery 测试并发 RecordQuery 不应 panic 或丢数据
 func TestRagMetrics_ConcurrentRecordQuery(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
@@ -732,4 +719,3 @@ func absFloat(x float64) float64 {
 	}
 	return x
 }
-

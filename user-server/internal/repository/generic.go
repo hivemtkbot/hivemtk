@@ -248,4 +248,3 @@ func (r *BaseRepository[T]) Log(ctx context.Context, format string, args ...any)
 	msg := fmt.Sprintf(format, args...)
 	logger.Info(msg)
 }
-

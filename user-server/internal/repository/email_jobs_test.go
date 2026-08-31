@@ -326,4 +326,3 @@ func TestEmailJobsRepository_Create_WithStats(t *testing.T) {
 		t.Errorf("Expected ReadTotal 600, got %d", result.ReadTotal)
 	}
 }
-

@@ -8,18 +8,17 @@ import (
 	"time"
 )
 
-
 // ReminderType 提醒类型
 type ReminderType string
 
 const (
-	ReminderFirstContact  ReminderType = "first_contact"   
-	ReminderQuoteFollowup ReminderType = "quote_followup"  
-	ReminderAfterSaleCare ReminderType = "after_sale_care" 
-	ReminderRepurchase    ReminderType = "repurchase"      
-	ReminderReactivation  ReminderType = "reactivation"    
-	ReminderBirthday      ReminderType = "birthday"        
-	ReminderCustom        ReminderType = "custom"          
+	ReminderFirstContact  ReminderType = "first_contact"
+	ReminderQuoteFollowup ReminderType = "quote_followup"
+	ReminderAfterSaleCare ReminderType = "after_sale_care"
+	ReminderRepurchase    ReminderType = "repurchase"
+	ReminderReactivation  ReminderType = "reactivation"
+	ReminderBirthday      ReminderType = "birthday"
+	ReminderCustom        ReminderType = "custom"
 )
 
 // ReminderPriority 优先级
@@ -37,7 +36,7 @@ type Reminder struct {
 	ID          string           `json:"id"`
 	CustomerID  string           `json:"customer_id"`
 	OneID       string           `json:"one_id"`
-	OwnerID     string           `json:"owner_id"` 
+	OwnerID     string           `json:"owner_id"`
 	Type        ReminderType     `json:"type"`
 	Priority    ReminderPriority `json:"priority"`
 	Title       string           `json:"title"`
@@ -45,16 +44,16 @@ type Reminder struct {
 	DueAt       time.Time        `json:"due_at"`
 	CreatedAt   time.Time        `json:"created_at"`
 	CompletedAt *time.Time       `json:"completed_at,omitempty"`
-	Status      string           `json:"status"` 
+	Status      string           `json:"status"`
 	SOPName     string           `json:"sop_name,omitempty"`
-	AutoHandle  bool             `json:"auto_handle"`       
-	Channel     string           `json:"channel,omitempty"` 
+	AutoHandle  bool             `json:"auto_handle"`
+	Channel     string           `json:"channel,omitempty"`
 }
 
 // FollowUpService 跟进提醒服务
 type FollowUpService struct {
 	mu        sync.RWMutex
-	reminders map[string]*Reminder 
+	reminders map[string]*Reminder
 	journey   *CustomerJourneyService
 	stats     *SalesEventStatsService
 }
@@ -137,20 +136,20 @@ func (s *FollowUpService) Complete(ctx context.Context, reminderID string) error
 type FollowUpResult string
 
 const (
-	FollowUpResultContacted  FollowUpResult = "contacted"   
-	FollowUpResultInterested FollowUpResult = "interested"  
-	FollowUpResultQuoted     FollowUpResult = "quoted"      
-	FollowUpResultConverted  FollowUpResult = "converted"   
-	FollowUpResultRejected   FollowUpResult = "rejected"    
-	FollowUpResultLost       FollowUpResult = "lost"        
-	FollowUpResultNoResponse FollowUpResult = "no_response" 
+	FollowUpResultContacted  FollowUpResult = "contacted"
+	FollowUpResultInterested FollowUpResult = "interested"
+	FollowUpResultQuoted     FollowUpResult = "quoted"
+	FollowUpResultConverted  FollowUpResult = "converted"
+	FollowUpResultRejected   FollowUpResult = "rejected"
+	FollowUpResultLost       FollowUpResult = "lost"
+	FollowUpResultNoResponse FollowUpResult = "no_response"
 )
 
 // FollowUpResultInfo 跟进结果元信息（影响客户旅程推进）
 var FollowUpResultInfo = map[FollowUpResult]struct {
-	TargetStage JourneyStage 
-	Weight      int          
-	IsPositive  bool         
+	TargetStage JourneyStage
+	Weight      int
+	IsPositive  bool
 }{
 	FollowUpResultContacted:  {StageContact, 1, true},
 	FollowUpResultInterested: {StageInterested, 3, true},
@@ -368,4 +367,3 @@ func (s *FollowUpService) ScheduleForStage(ctx context.Context, customerID, owne
 		AutoHandle:  meta.AllowAIHandle,
 	})
 }
-

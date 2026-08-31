@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"encoding/json"
@@ -15,29 +14,29 @@ import (
 
 // SSE Topic 常量
 const (
-	SSETopicLLMCalls       = "llm_calls"          
-	SSETopicIntentRecogn   = "intent_recognition" 
-	SSETopicRAGQueries     = "rag_queries"        
-	SSETopicAgentActions   = "agent_actions"      
-	SSETopicHumanizeScores = "humanize_scores"    
-	SSETopicSystemAlerts   = "system_alerts"      
+	SSETopicLLMCalls       = "llm_calls"
+	SSETopicIntentRecogn   = "intent_recognition"
+	SSETopicRAGQueries     = "rag_queries"
+	SSETopicAgentActions   = "agent_actions"
+	SSETopicHumanizeScores = "humanize_scores"
+	SSETopicSystemAlerts   = "system_alerts"
 )
 
 // SSE 默认参数
 const (
-	SSEHeartbeatInterval = 15 * time.Second 
-	SSEMaxConnPerIP      = 5                
-	SSEClientBufferSize  = 100              
-	SSEWriteTimeout      = 30 * time.Second 
+	SSEHeartbeatInterval = 15 * time.Second
+	SSEMaxConnPerIP      = 5
+	SSEClientBufferSize  = 100
+	SSEWriteTimeout      = 30 * time.Second
 )
 
 // SSEEvent SSE 事件
 type SSEEvent struct {
-	Topic     string    `json:"topic"`              
-	EventType string    `json:"event_type"`         
-	Data      any       `json:"data"`               
-	TraceID   string    `json:"trace_id,omitempty"` 
-	Timestamp time.Time `json:"timestamp"`          
+	Topic     string    `json:"topic"`
+	EventType string    `json:"event_type"`
+	Data      any       `json:"data"`
+	TraceID   string    `json:"trace_id,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // SSEClient 单个 SSE 客户端连接
@@ -125,8 +124,8 @@ func (c *SSEClient) Closed(ctx context.Context) bool {
 // SSEHub SSE 事件总线（管理所有 client 连接）
 type SSEHub struct {
 	mu      sync.RWMutex
-	clients map[string]*SSEClient 
-	ipCount map[string]int        
+	clients map[string]*SSEClient
+	ipCount map[string]int
 	stopCh  chan struct{}
 	stopped atomic.Bool
 }
@@ -260,7 +259,6 @@ func (h *SSEHub) Stopped(ctx context.Context) bool {
 	return h.stopped.Load()
 }
 
-
 var (
 	globalSSEHub     *SSEHub
 	globalSSEHubOnce sync.Once
@@ -379,7 +377,7 @@ func SSEStreamHandler(c *gin.Context, hub *SSEHub, client *SSEClient) {
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
-	c.Writer.Header().Set("X-Accel-Buffering", "no") 
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
 	c.Writer.WriteHeader(http.StatusOK)
 
 	_ = SSEWriteEvent(c, SSEEvent{
@@ -415,4 +413,3 @@ func SSEStreamHandler(c *gin.Context, hub *SSEHub, client *SSEClient) {
 		}
 	}
 }
-

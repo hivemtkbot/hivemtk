@@ -7,8 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
-
 // AIAgentRepository AI 智能体仓库
 type AIAgentRepository struct {
 	db *gorm.DB
@@ -126,7 +124,6 @@ func (r *AIAgentRepository) CountByIDs(ctx context.Context, ids []uint) (int64, 
 	}
 	return count, nil
 }
-
 
 // ChannelAgentBindingRepository 渠道绑定仓库
 type ChannelAgentBindingRepository struct {
@@ -248,7 +245,6 @@ func (r *ChannelAgentBindingRepository) DeleteByChannelAccount(ctx context.Conte
 		Delete(&model.ChannelAgentBinding{}).Error
 }
 
-
 // CustomerServiceAgentRepository 客服挂载仓库
 type CustomerServiceAgentRepository struct {
 	db *gorm.DB
@@ -336,4 +332,3 @@ func (r *CustomerServiceAgentRepository) DeleteByAgentStatusID(ctx context.Conte
 	return r.db.Where("agent_status_id = ?", agentStatusID).
 		Delete(&model.CustomerServiceAgent{}).Error
 }
-

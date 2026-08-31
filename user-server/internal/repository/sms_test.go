@@ -882,4 +882,3 @@ func TestSmsRepository_DeleteJobDetails(t *testing.T) {
 		t.Errorf("Expected 0 details after deletion, got %d", len(results))
 	}
 }
-

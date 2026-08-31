@@ -29,7 +29,7 @@ func setupAuditTestDB(t *testing.T) {
 // TestIdentifyOrCreate_ConcurrentNoSplit 回归：高并发双上报同标识时，
 // 必须收敛为全局唯一建档（unified_id 唯一索引冲突回查兜底），不得分裂建档。
 func TestIdentifyOrCreate_ConcurrentNoSplit(t *testing.T) {
-	setupMergeTestDB(t) 
+	setupMergeTestDB(t)
 	svc := NewCustomerIdentityService()
 	const phone = "13800001234"
 	const n = 30
@@ -202,5 +202,3 @@ func TestMergeByIdentity_SingleEmailHealsSplit(t *testing.T) {
 		t.Fatalf("单一 email 历史分裂未自愈合并，两原始客户应一存一删: a=%v b=%v", aAlive, bAlive)
 	}
 }
-
-

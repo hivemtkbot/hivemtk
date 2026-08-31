@@ -1,6 +1,5 @@
 package feedbackloop
 
-
 import (
 	"context"
 	"errors"
@@ -8,7 +7,6 @@ import (
 
 	"hivemtk-user/internal/dto"
 )
-
 
 // LLMDispatcher LLM 调度器接口
 //
@@ -34,7 +32,6 @@ type BanditAllocatorInterface interface {
 	PromoteArm(ctx context.Context, experimentID, winnerKey string) error
 }
 
-
 // SignalWeightMap 信号权重映射（可由配置覆盖）
 //
 // 权重设计依据 docs/核心链路优化.md §17.2.1 信号权重设计表：
@@ -48,25 +45,24 @@ type SignalWeightMap map[dto.FeedbackSignalKey]float64
 var DefaultSignalWeights = SignalWeightMap{
 	dto.FBSignalLike:         1.0,
 	dto.FBSignalDislike:      -1.5,
-	dto.FBSignalRating:       0.8, 
+	dto.FBSignalRating:       0.8,
 	dto.FBSignalComplaint:    -2.0,
 	dto.FBSignalConversion:   2.0,
-	dto.FBSignalReplyRate:    0.5, 
-	dto.FBSignalDuration:     0.3, 
+	dto.FBSignalReplyRate:    0.5,
+	dto.FBSignalDuration:     0.3,
 	dto.FBSignalTransfer:     -0.5,
 	dto.FBSignalChampionMark: 1.5,
 	dto.FBSignalScriptAdopt:  0.6,
 }
 
-
 // BanditConfig Bandit 分配器配置
 type BanditConfig struct {
-	MinSamplesForExploit int     
-	ExplorationFloor     float64 
-	TrafficCeiling       float64 
-	ConvergenceThreshold float64 
-	MinSamplesForPromote int     
-	PosteriorSamples     int     
+	MinSamplesForExploit int
+	ExplorationFloor     float64
+	TrafficCeiling       float64
+	ConvergenceThreshold float64
+	MinSamplesForPromote int
+	PosteriorSamples     int
 }
 
 // DefaultBanditConfig 默认 Bandit 配置
@@ -81,13 +77,12 @@ func DefaultBanditConfig() BanditConfig {
 	}
 }
 
-
 // FeedbackCollectorConfig 反馈采集器配置
 type FeedbackCollectorConfig struct {
-	QueueSize     int             
-	FlushInterval time.Duration   
-	BatchSize     int             
-	Weights       SignalWeightMap 
+	QueueSize     int
+	FlushInterval time.Duration
+	BatchSize     int
+	Weights       SignalWeightMap
 }
 
 // DefaultFeedbackCollectorConfig 默认采集器配置
@@ -100,14 +95,13 @@ func DefaultFeedbackCollectorConfig() FeedbackCollectorConfig {
 	}
 }
 
-
 // ChampionAnalyzerConfig 销冠对话分析器配置
 type ChampionAnalyzerConfig struct {
-	MinReward           float64 
-	ClusterSimThreshold float64 
-	MinClusterSize      int     
-	TopKPerCluster      int     
-	MaxDialoguesPerRun  int     
+	MinReward           float64
+	ClusterSimThreshold float64
+	MinClusterSize      int
+	TopKPerCluster      int
+	MaxDialoguesPerRun  int
 }
 
 // DefaultChampionAnalyzerConfig 默认分析器配置
@@ -121,13 +115,12 @@ func DefaultChampionAnalyzerConfig() ChampionAnalyzerConfig {
 	}
 }
 
-
 // PromptIteratorConfig Prompt 迭代器配置
 type PromptIteratorConfig struct {
-	MinSamplesForIteration  int     
-	NegativeRewardThreshold float64 
-	CandidatesPerRun        int     
-	AutoApprove             bool    
+	MinSamplesForIteration  int
+	NegativeRewardThreshold float64
+	CandidatesPerRun        int
+	AutoApprove             bool
 }
 
 // DefaultPromptIteratorConfig 默认迭代器配置
@@ -140,13 +133,12 @@ func DefaultPromptIteratorConfig() PromptIteratorConfig {
 	}
 }
 
-
 // SOPAutoOptimizerConfig SOP 自动优化器配置
 type SOPAutoOptimizerConfig struct {
-	AutoApplyPriority      int           
-	RollbackDropThreshold  float64       
-	RollbackComplaintRatio float64       
-	ABTestDuration         time.Duration 
+	AutoApplyPriority      int
+	RollbackDropThreshold  float64
+	RollbackComplaintRatio float64
+	ABTestDuration         time.Duration
 }
 
 // DefaultSOPAutoOptimizerConfig 默认优化器配置
@@ -159,7 +151,6 @@ func DefaultSOPAutoOptimizerConfig() SOPAutoOptimizerConfig {
 	}
 }
 
-
 var (
 	ErrInvalidInput         = errors.New("feedback_loop: invalid input")
 	ErrNoArms               = errors.New("feedback_loop: no arms for experiment")
@@ -170,4 +161,3 @@ var (
 	ErrEmbedderNotConfig    = errors.New("feedback_loop: embedder not configured")
 	ErrQueueFull            = errors.New("feedback_loop: feedback queue full, event dropped")
 )
-

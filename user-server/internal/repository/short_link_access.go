@@ -202,4 +202,3 @@ func (r *shortLinkAccessRepository) GetAllShortLinksBasicStats(ctx context.Conte
 	err := query.Group("sl.id, sl.short_code, sl.original_url").Order("access_count DESC").Scan(&results).Error
 	return results, err
 }
-

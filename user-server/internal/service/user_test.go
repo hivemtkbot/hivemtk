@@ -491,4 +491,3 @@ func TestUserService_Login_DisabledUser(t *testing.T) {
 		t.Errorf("Expected '账户已被禁用', got %s", err.Error())
 	}
 }
-

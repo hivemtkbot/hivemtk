@@ -56,10 +56,10 @@ const TopicGroupRevive = "group.revive"
 
 // ReviveVerdict 复活建议结构：只给"建议字段"，话术由上层渲染（不写死营销文案）
 type ReviveVerdict struct {
-	SignalKey    string    `json:"signal_key"`
-	GroupID      string    `json:"group_id"`
-	Verdict      string    `json:"verdict"`
-	SilenceHours float64   `json:"silence_hours"`
+	SignalKey    string  `json:"signal_key"`
+	GroupID      string  `json:"group_id"`
+	Verdict      string  `json:"verdict"`
+	SilenceHours float64 `json:"silence_hours"`
 	// Suggestions 价值型内容建议（枚举，非具体话术）：value_content / faq_digest / poll / help_recap
 	Suggestions []string  `json:"suggestions"`
 	SuggestedAt time.Time `json:"suggested_at"`
@@ -83,9 +83,9 @@ func BuildReviveVerdict(groupID string, verdict string, silenceHours float64, no
 
 // GroupRevivePayload 群复活事件载荷（经事件总线发布，SOP 侧 Subscribe(TopicGroupRevive) 消费）
 type GroupRevivePayload struct {
-	SignalKey string       `json:"signal_key"`
-	GroupID   string       `json:"group_id"`
-	Verdict   string       `json:"verdict"`
+	SignalKey string        `json:"signal_key"`
+	GroupID   string        `json:"group_id"`
+	Verdict   string        `json:"verdict"`
 	Detail    ReviveVerdict `json:"detail"`
 }
 

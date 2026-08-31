@@ -52,4 +52,3 @@ func ListAssetsFromDB(db *gorm.DB, assetType string) ([]struct {
 		Scan(&rows).Error
 	return rows, err
 }
-

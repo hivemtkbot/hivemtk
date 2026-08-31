@@ -29,18 +29,18 @@ func TestAggregator_WithPlatt_Integration(t *testing.T) {
 
 	// 输入：RawIntentConf=0.5（高 RAG 兜底）
 	in := &dto.SignalCollectionInput{
-		SessionID:  "s1",
-		CustomerID: "c1",
-		MessageID:  "m1",
-		Text:       "hello",
-		IntentType: "consult",
+		SessionID:     "s1",
+		CustomerID:    "c1",
+		MessageID:     "m1",
+		Text:          "hello",
+		IntentType:    "consult",
 		RawIntentConf: 0.5,
 		RAGChunks: []dto.RAGChunk{
 			{Score: 0.95}, {Score: 0.92}, {Score: 0.90}, {Score: 0.88}, {Score: 0.85},
 		},
-		LLMLogprobs:    []float64{10.0, -2.0, -3.0},
-		LastTurns:      []string{"hi"},
-		CustomerLevel:  "vip",
+		LLMLogprobs:   []float64{10.0, -2.0, -3.0},
+		LastTurns:     []string{"hi"},
+		CustomerLevel: "vip",
 	}
 
 	dec, err := a.Aggregate(context.Background(), in)
@@ -60,18 +60,18 @@ func TestAggregator_WithPlatt_NilSafe(t *testing.T) {
 	a.SetPlatt(nil) // 显式 nil
 
 	in := &dto.SignalCollectionInput{
-		SessionID:  "s1",
-		CustomerID: "c1",
-		MessageID:  "m1",
-		Text:       "hello",
-		IntentType: "consult",
+		SessionID:     "s1",
+		CustomerID:    "c1",
+		MessageID:     "m1",
+		Text:          "hello",
+		IntentType:    "consult",
 		RawIntentConf: 0.8,
 		RAGChunks: []dto.RAGChunk{
 			{Score: 0.95}, {Score: 0.92}, {Score: 0.90}, {Score: 0.88}, {Score: 0.85},
 		},
-		LLMLogprobs:    []float64{10.0, -2.0, -3.0},
-		LastTurns:      []string{"hi"},
-		CustomerLevel:  "vip",
+		LLMLogprobs:   []float64{10.0, -2.0, -3.0},
+		LastTurns:     []string{"hi"},
+		CustomerLevel: "vip",
 	}
 	dec, err := a.Aggregate(context.Background(), in)
 	if err != nil {
@@ -99,18 +99,18 @@ func TestAggregator_WithConformal_HighCoverage(t *testing.T) {
 	a.SetConformal(cp)
 
 	in := &dto.SignalCollectionInput{
-		SessionID:  "s1",
-		CustomerID: "c1",
-		MessageID:  "m1",
-		Text:       "hello",
-		IntentType: "consult",
+		SessionID:     "s1",
+		CustomerID:    "c1",
+		MessageID:     "m1",
+		Text:          "hello",
+		IntentType:    "consult",
 		RawIntentConf: 0.9,
 		RAGChunks: []dto.RAGChunk{
 			{Score: 0.95}, {Score: 0.92}, {Score: 0.90}, {Score: 0.88}, {Score: 0.85},
 		},
-		LLMLogprobs:    []float64{10.0, -2.0, -3.0},
-		LastTurns:      []string{"hi"},
-		CustomerLevel:  "vip",
+		LLMLogprobs:   []float64{10.0, -2.0, -3.0},
+		LastTurns:     []string{"hi"},
+		CustomerLevel: "vip",
 	}
 	dec, err := a.Aggregate(context.Background(), in)
 	if err != nil {
@@ -134,18 +134,18 @@ func TestAggregator_WithConformal_LowCoverage(t *testing.T) {
 	a.SetConformal(cp)
 
 	in := &dto.SignalCollectionInput{
-		SessionID:  "s1",
-		CustomerID: "c1",
-		MessageID:  "m1",
-		Text:       "hello",
-		IntentType: "consult",
+		SessionID:     "s1",
+		CustomerID:    "c1",
+		MessageID:     "m1",
+		Text:          "hello",
+		IntentType:    "consult",
 		RawIntentConf: 0.4, // 1 - 0.4 = 0.6 > 0.1 阈值
 		RAGChunks: []dto.RAGChunk{
 			{Score: 0.3},
 		},
-		LLMLogprobs:    []float64{-1.0, -1.0, -1.0, -1.0},
-		LastTurns:      []string{"hi"},
-		CustomerLevel:  "normal",
+		LLMLogprobs:   []float64{-1.0, -1.0, -1.0, -1.0},
+		LastTurns:     []string{"hi"},
+		CustomerLevel: "normal",
 	}
 	dec, err := a.Aggregate(context.Background(), in)
 	if err != nil {
@@ -163,18 +163,18 @@ func TestAggregator_WithConformal_NilSafe(t *testing.T) {
 	a.SetConformal(nil)
 
 	in := &dto.SignalCollectionInput{
-		SessionID:  "s1",
-		CustomerID: "c1",
-		MessageID:  "m1",
-		Text:       "hello",
-		IntentType: "consult",
+		SessionID:     "s1",
+		CustomerID:    "c1",
+		MessageID:     "m1",
+		Text:          "hello",
+		IntentType:    "consult",
 		RawIntentConf: 0.7,
 		RAGChunks: []dto.RAGChunk{
 			{Score: 0.95}, {Score: 0.92}, {Score: 0.90}, {Score: 0.88}, {Score: 0.85},
 		},
-		LLMLogprobs:    []float64{10.0, -2.0, -3.0},
-		LastTurns:      []string{"hi"},
-		CustomerLevel:  "vip",
+		LLMLogprobs:   []float64{10.0, -2.0, -3.0},
+		LastTurns:     []string{"hi"},
+		CustomerLevel: "vip",
 	}
 	_, err := a.Aggregate(context.Background(), in)
 	if err != nil {
@@ -223,18 +223,18 @@ func TestAggregator_PlattAndConformal_FullPipeline(t *testing.T) {
 	a.SetConformal(cp)
 
 	in := &dto.SignalCollectionInput{
-		SessionID:  "s1",
-		CustomerID: "c1",
-		MessageID:  "m1",
-		Text:       "hi",
-		IntentType: "consult",
+		SessionID:     "s1",
+		CustomerID:    "c1",
+		MessageID:     "m1",
+		Text:          "hi",
+		IntentType:    "consult",
 		RawIntentConf: 0.85,
 		RAGChunks: []dto.RAGChunk{
 			{Score: 0.95}, {Score: 0.92}, {Score: 0.90}, {Score: 0.88}, {Score: 0.85},
 		},
-		LLMLogprobs:    []float64{10.0, -2.0, -3.0},
-		LastTurns:      []string{"hi"},
-		CustomerLevel:  "vip",
+		LLMLogprobs:   []float64{10.0, -2.0, -3.0},
+		LastTurns:     []string{"hi"},
+		CustomerLevel: "vip",
 	}
 	dec, err := a.Aggregate(context.Background(), in)
 	if err != nil {

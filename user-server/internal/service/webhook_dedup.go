@@ -32,10 +32,10 @@ import (
 )
 
 type webhookJob struct {
-	event  *model.WebhookEvent
-	raw    []byte
-	header map[string]string
-	source string
+	event   *model.WebhookEvent
+	raw     []byte
+	header  map[string]string
+	source  string
 	channel WebhookChannel
 	account string
 	payload *ParsedPayload
@@ -47,13 +47,13 @@ type tokenBucket struct {
 	refillRate float64
 	tokens     float64
 	lastRefill time.Time
-	lastAccess time.Time 
+	lastAccess time.Time
 }
 
 const (
 	WebhookDedupTTL = 5 * time.Minute
 
-	WebhookWorkerCount = 4 
+	WebhookWorkerCount = 4
 
 	WebhookQueueSize = 512
 
@@ -300,4 +300,3 @@ func getString(m map[string]any, keys ...string) string {
 	}
 	return ""
 }
-

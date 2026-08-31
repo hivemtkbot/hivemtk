@@ -1,6 +1,5 @@
 package humanize
 
-
 import (
 	"context"
 	"math"
@@ -11,11 +10,10 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-
 // ABTestStatsService A/B 测试统计服务
 type ABTestStatsService struct {
-	bootstrapN int     
-	alpha      float64 
+	bootstrapN int
+	alpha      float64
 }
 
 // NewABTestStatsService 构造
@@ -88,7 +86,6 @@ func (s *ABTestStatsService) Compute(ctx context.Context, input *dto.ABTestStats
 	}, nil
 }
 
-
 // MannWhitneyUTest Mann-Whitney U 检验（非参数，不假设正态分布）
 //
 // 适用：5 维评分是序数型数据，天然非正态分布（天花板效应）
@@ -115,7 +112,7 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 	// 1. 合并排序
 	type pair struct {
 		value float64
-		group int 
+		group int
 	}
 	combined := make([]pair, 0, nA+nB)
 	for _, v := range groupA {
@@ -161,7 +158,7 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 			j++
 		}
 		t := float64(j - i + 1)
-		tieTerm += (t*t - t) * t 
+		tieTerm += (t*t - t) * t
 		i = j + 1
 	}
 	totalN := float64(nA + nB)
@@ -185,7 +182,6 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 func normalCDF(x float64) float64 {
 	return 0.5 * (1 + math.Erf(x/math.Sqrt2))
 }
-
 
 // BootstrapCIDifference Bootstrap 置信区间（差值）
 //
@@ -275,7 +271,6 @@ func BootstrapCI(data []float64, nBoot int, alpha float64) (low, high float64) {
 	return means[lowIdx], means[highIdx]
 }
 
-
 // CohensD Cohen's d 效应量
 //
 // 公式：d = (M1 - M2) / SD_pooled
@@ -327,7 +322,6 @@ func InterpretCohensD(d float64) string {
 	}
 }
 
-
 // meanValue 均值
 func meanValue(data []float64) float64 {
 	if len(data) == 0 {
@@ -358,4 +352,3 @@ func varianceValue(data []float64, m float64) float64 {
 func round4(v float64) float64 {
 	return math.Round(v*10000) / 10000
 }
-

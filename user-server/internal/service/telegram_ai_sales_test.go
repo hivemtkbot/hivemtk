@@ -29,7 +29,6 @@ func setupTelegramTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-
 // TestDispatchTelegram_JoinEvent_NewChatMembers 验证 TG 入群事件被正确解析并写入消息中台
 func TestDispatchTelegram_JoinEvent_NewChatMembers(t *testing.T) {
 	db := setupTelegramTestDB(t)
@@ -256,7 +255,6 @@ func TestDispatchTelegram_SystemNotification_Skipped(t *testing.T) {
 	}
 }
 
-
 // TestShouldTriggerAI_TelegramAccountStates 验证不同状态的 TG 账号触发判定
 func TestShouldTriggerAI_TelegramAccountStates(t *testing.T) {
 	db := setupTelegramTestDB(t)
@@ -298,7 +296,7 @@ func TestShouldTriggerAI_TelegramAccountStates(t *testing.T) {
 				AccountName:    "disabled-bot",
 				BotToken:       "token-3",
 				AIAgentEnabled: true,
-				Status:         2, 
+				Status:         2,
 			},
 			accountID:       "3",
 			expectedTrigger: false,
@@ -330,7 +328,7 @@ func TestShouldTriggerAI_TelegramAccountStates(t *testing.T) {
 			svc := &WebhookService{
 				db:           db,
 				telegramRepo: tgRepo,
-				salesEngine:  &SalesEngine{}, 
+				salesEngine:  &SalesEngine{},
 			}
 			got := svc.shouldTriggerAI(context.Background(), ChannelTelegram, c.accountID)
 			if got != c.expectedTrigger {
@@ -387,7 +385,6 @@ func TestShouldTriggerAI_InvalidAccountIDReturnsFalse(t *testing.T) {
 	}
 }
 
-
 // TestTriggerTelegramJoinSales_NilSalesEngineNoCrash 验证 salesEngine 为 nil 时安全返回
 func TestTriggerTelegramJoinSales_NilSalesEngineNoCrash(t *testing.T) {
 	db := setupTelegramTestDB(t)
@@ -412,11 +409,10 @@ func TestTriggerTelegramJoinSales_ShouldNotTriggerWhenAIDisabled(t *testing.T) {
 	svc := &WebhookService{
 		db:           db,
 		telegramRepo: tgRepo,
-		salesEngine:  &SalesEngine{}, 
+		salesEngine:  &SalesEngine{},
 	}
 	svc.triggerTelegramJoinSales(context.Background(), "1", "-1001234567890", "8888", "新用户加入群组")
 }
-
 
 // TestWebhookService_Receive_TelegramJoinEvent 验证完整 Receive 链路处理 TG 入群事件
 // 跳过验签（无 secret 时直接通过）→ 解析 → 入队 → 处理
@@ -456,7 +452,6 @@ func TestWebhookService_Receive_TelegramJoinEvent(t *testing.T) {
 		t.Error("should not be duplicate on first receive")
 	}
 }
-
 
 // TestTelegramAccountRepository_CRUD 验证 TG 账号仓库 CRUD 操作
 func TestTelegramAccountRepository_CRUD(t *testing.T) {
@@ -520,4 +515,3 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 		t.Errorf("expected 0 after delete, got %d", len(all2))
 	}
 }
-

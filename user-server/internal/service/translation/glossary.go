@@ -22,7 +22,6 @@ import (
 // service 层引用 gorm 包仅用于错误识别，不直接持有/使用 *gorm.DB（符合五层架构）。
 var ErrGlossaryNotFound = errors.New("glossary: not found")
 
-
 // GlossaryRepo 术语表仓储接口（由 repository.GlossaryRepository 实现）。
 type GlossaryRepo interface {
 	ListActive(ctx context.Context) ([]*model.Glossary, error)
@@ -188,7 +187,6 @@ func (s *GlossaryService) InvalidateAll(ctx context.Context) {
 	}
 }
 
-
 // Create 创建术语。写库后失效全量缓存（保证后续 LoadByLang 拉到最新数据）。
 func (s *GlossaryService) Create(ctx context.Context, g *model.Glossary) error {
 	if g == nil {
@@ -260,7 +258,6 @@ func (s *GlossaryService) ListByCategory(ctx context.Context, category string) (
 	}
 	return list, nil
 }
-
 
 // loadFromCache 从缓存读取视图；未命中或反序列化失败时返回 (nil, false)。
 //
@@ -392,4 +389,3 @@ func pickTextByLang(translations []glossaryTranslation, lang string) string {
 	}
 	return ""
 }
-

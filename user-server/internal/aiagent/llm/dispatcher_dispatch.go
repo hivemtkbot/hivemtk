@@ -16,25 +16,25 @@ import (
 )
 
 type DispatchRequest struct {
-	Scenario       DispatchScenario `json:"scenario"`
-	Prompt         string           `json:"prompt"`
-	SystemPrompt   string           `json:"system_prompt"`
-	MaxTokens      int              `json:"max_tokens"`
-	Temperature    float64          `json:"temperature"`
-	JSONMode       bool             `json:"json_mode"`
-	CacheKey       string           `json:"cache_key"`       
-	CacheTTL       int              `json:"cache_ttl"`       
-	ReturnLogprobs bool             `json:"return_logprobs"` 
-	TopLogprobs    int              `json:"top_logprobs"`    
-	Tools      []ToolDefinition `json:"tools,omitempty"`
-	ToolChoice string           `json:"tool_choice,omitempty"`
-	Messages []ChatMessage `json:"messages,omitempty"`
-	CanaryKey string `json:"canary_key,omitempty"`
-	InternalLang    string `json:"internal_lang,omitempty"`    
-	TargetLang      string `json:"target_lang,omitempty"`      
-	CrossLingual    bool   `json:"cross_lingual,omitempty"`    
-	GlossaryVersion string       `json:"glossary_version,omitempty"` 
-	FanOut          *FanOutConfig `json:"fanout,omitempty"`
+	Scenario        DispatchScenario `json:"scenario"`
+	Prompt          string           `json:"prompt"`
+	SystemPrompt    string           `json:"system_prompt"`
+	MaxTokens       int              `json:"max_tokens"`
+	Temperature     float64          `json:"temperature"`
+	JSONMode        bool             `json:"json_mode"`
+	CacheKey        string           `json:"cache_key"`
+	CacheTTL        int              `json:"cache_ttl"`
+	ReturnLogprobs  bool             `json:"return_logprobs"`
+	TopLogprobs     int              `json:"top_logprobs"`
+	Tools           []ToolDefinition `json:"tools,omitempty"`
+	ToolChoice      string           `json:"tool_choice,omitempty"`
+	Messages        []ChatMessage    `json:"messages,omitempty"`
+	CanaryKey       string           `json:"canary_key,omitempty"`
+	InternalLang    string           `json:"internal_lang,omitempty"`
+	TargetLang      string           `json:"target_lang,omitempty"`
+	CrossLingual    bool             `json:"cross_lingual,omitempty"`
+	GlossaryVersion string           `json:"glossary_version,omitempty"`
+	FanOut          *FanOutConfig    `json:"fanout,omitempty"`
 }
 
 type FanOutConfig struct {
@@ -44,24 +44,24 @@ type FanOutConfig struct {
 }
 
 type DispatchResult struct {
-	Provider    string  `json:"provider"`
-	Model       string  `json:"model"`
-	Content     string  `json:"content"`
-	TotalTokens int     `json:"total_tokens"`
-	Cost        float64 `json:"cost"`
-	LatencyMs   int     `json:"latency_ms"`
-	FromCache   bool    `json:"from_cache"`
-	Logprobs        []float64 `json:"logprobs,omitempty"`
-	TopTokenEntropy float64   `json:"top_token_entropy,omitempty"`
-	FinishReason    string    `json:"finish_reason,omitempty"`
-	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
-	Usage TokenUsage `json:"usage,omitempty"`
-	BaseURL        string  `json:"base_url,omitempty"`        
-	IsFallback     bool    `json:"is_fallback,omitempty"`     
-	TokenSource    string  `json:"token_source,omitempty"`    
-	Estimator      string  `json:"estimator,omitempty"`       
-	PromptCost     float64 `json:"prompt_cost,omitempty"`     
-	CompletionCost float64 `json:"completion_cost,omitempty"` 
+	Provider        string     `json:"provider"`
+	Model           string     `json:"model"`
+	Content         string     `json:"content"`
+	TotalTokens     int        `json:"total_tokens"`
+	Cost            float64    `json:"cost"`
+	LatencyMs       int        `json:"latency_ms"`
+	FromCache       bool       `json:"from_cache"`
+	Logprobs        []float64  `json:"logprobs,omitempty"`
+	TopTokenEntropy float64    `json:"top_token_entropy,omitempty"`
+	FinishReason    string     `json:"finish_reason,omitempty"`
+	ToolCalls       []ToolCall `json:"tool_calls,omitempty"`
+	Usage           TokenUsage `json:"usage,omitempty"`
+	BaseURL         string     `json:"base_url,omitempty"`
+	IsFallback      bool       `json:"is_fallback,omitempty"`
+	TokenSource     string     `json:"token_source,omitempty"`
+	Estimator       string     `json:"estimator,omitempty"`
+	PromptCost      float64    `json:"prompt_cost,omitempty"`
+	CompletionCost  float64    `json:"completion_cost,omitempty"`
 }
 
 type TokenUsage struct {
@@ -494,4 +494,3 @@ func (d *Dispatcher) MultiModelVote(results []*DispatchResult) string {
 	}
 	return results[bestIdx].Content
 }
-

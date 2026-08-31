@@ -54,10 +54,10 @@ func NewSelfConsistency[T any](samples int) *SelfConsistency[T] {
 
 // VoteResult 投票结果
 type VoteResult[T any] struct {
-	Winner     T      // 胜出答案
-	WinnerKey  string // 胜出 key
-	Count      int    // 胜出票数
-	Total      int    // 总票数
+	Winner     T       // 胜出答案
+	WinnerKey  string  // 胜出 key
+	Count      int     // 胜出票数
+	Total      int     // 总票数
 	Confidence float64 // 胜出票数 / 总票数
 	AllKeys    []VoteCount[T]
 }

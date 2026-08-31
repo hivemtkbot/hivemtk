@@ -86,4 +86,3 @@ func TestNewDispatcherFromConfig_CloudOptIn(t *testing.T) {
 		t.Fatal("default 仍应启用")
 	}
 }
-

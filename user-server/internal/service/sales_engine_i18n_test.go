@@ -75,4 +75,3 @@ func TestSalesEngineCalibrate(t *testing.T) {
 		t.Fatalf("no calibrator should return unchanged, got %q", got)
 	}
 }
-

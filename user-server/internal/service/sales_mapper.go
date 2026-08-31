@@ -5,7 +5,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // LLMProviderConfigToDTO model 嵌入式配置 → dto 镜像
 func LLMProviderConfigToDTO(c model.LLMProviderConfig) dto.LLMProviderConfig {
 	return dto.LLMProviderConfig{
@@ -124,4 +123,3 @@ func richCardToDTO(c model.RichCard) dto.RichCard {
 	}
 	return dc
 }
-

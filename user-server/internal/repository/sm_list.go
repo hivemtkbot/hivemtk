@@ -65,4 +65,3 @@ func (r *smlistRepo) GetRecentSmlistList(ctx context.Context) ([]*model.Smlist, 
 	err := r.db.Where("created_at > ?", startTime).Order("created_at desc").Find(&smlists).Error
 	return smlists, err
 }
-

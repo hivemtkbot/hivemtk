@@ -12,7 +12,7 @@ import (
 func TestInboxIngress_NormalizeEvent_Defaults(t *testing.T) {
 	_mc1 := cache.NewMemoryCache()
 	defer _mc1.Close()
-	svc := NewInboxIngressServiceWithDB( nil, _mc1)
+	svc := NewInboxIngressServiceWithDB(nil, _mc1)
 
 	event := &model.MessageEvent{
 		Channel:  model.ChannelWeb,
@@ -39,7 +39,7 @@ func TestInboxIngress_NormalizeEvent_Defaults(t *testing.T) {
 func TestInboxIngress_NormalizeEvent_RejectsEmptyChannel(t *testing.T) {
 	_mc2 := cache.NewMemoryCache()
 	defer _mc2.Close()
-	svc := NewInboxIngressServiceWithDB( nil, _mc2)
+	svc := NewInboxIngressServiceWithDB(nil, _mc2)
 	err := svc.NormalizeEvent(context.Background(), &model.MessageEvent{SenderID: "x"})
 	if err == nil {
 		t.Fatal("expected error for empty channel")
@@ -49,7 +49,7 @@ func TestInboxIngress_NormalizeEvent_RejectsEmptyChannel(t *testing.T) {
 func TestInboxIngress_NormalizeEvent_EmptySenderFallsBack(t *testing.T) {
 	_mc3 := cache.NewMemoryCache()
 	defer _mc3.Close()
-	svc := NewInboxIngressServiceWithDB( nil, _mc3)
+	svc := NewInboxIngressServiceWithDB(nil, _mc3)
 	ev := &model.MessageEvent{Channel: model.ChannelWeb}
 	if err := svc.NormalizeEvent(context.Background(), ev); err != nil {
 		t.Fatalf("空 sender_id 应走兜底而非报错，实际: %v", err)
@@ -358,4 +358,3 @@ func TestInboxIngress_EndToEndScenario(t *testing.T) {
 		t.Fatal("after unlock, AI should be triggered again")
 	}
 }
-

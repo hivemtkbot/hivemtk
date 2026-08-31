@@ -75,4 +75,3 @@ func TestOrderWebhookAndCustomerLookup_FT(t *testing.T) {
 	t.Logf("PASS: order_id=%s platform=%s status=%s pay=%.2f元 items=%s",
 		found.OrderID, found.Platform, found.Status, float64(found.PayAmount)/100, found.Items)
 }
-

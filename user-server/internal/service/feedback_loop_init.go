@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"sync"
@@ -111,4 +110,3 @@ type FeedbackLoopComponents struct {
 	LLMAdapter   *feedbackLLMAdapter
 	EmbedAdapter *embeddingAdapter
 }
-

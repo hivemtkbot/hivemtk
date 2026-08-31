@@ -347,7 +347,7 @@ func TestSystemUserService_UpdateUser(t *testing.T) {
 		Email:    "updated@example.com",
 		RealName: "Updated User",
 		Role:     "admin",
-		Status:   2, 
+		Status:   2,
 	}
 
 	updatedUser, err := service.UpdateUser(context.Background(), user.ID, req)
@@ -622,7 +622,7 @@ func TestSystemUserService_CreateUser_InvalidRole(t *testing.T) {
 		Username: "invaliduser",
 		Password: "Password123",
 		Email:    "invalid@example.com",
-		Role:     "invalid_role", 
+		Role:     "invalid_role",
 		Status:   1,
 	}
 
@@ -652,7 +652,7 @@ func TestSystemUserService_UpdateUser_InvalidRole(t *testing.T) {
 	database.Create(&user)
 
 	req := &UpdateUserRequest{
-		Role: "invalid_role", 
+		Role: "invalid_role",
 	}
 
 	updatedUser, err := service.UpdateUser(context.Background(), user.ID, req)
@@ -672,7 +672,7 @@ func TestSystemUserService_CreateUser_EmptyPassword(t *testing.T) {
 
 	req := &CreateUserRequest{
 		Username: "emptypassword",
-		Password: "", 
+		Password: "",
 		Email:    "empty@example.com",
 		Role:     "user",
 		Status:   1,
@@ -820,7 +820,7 @@ func TestSystemUserService_UpdateUser_EmptyFields(t *testing.T) {
 		Email:    "",
 		RealName: "",
 		Role:     "",
-		Status:   0, 
+		Status:   0,
 	}
 
 	updatedUser, err := service.UpdateUser(context.Background(), user.ID, req)
@@ -1010,4 +1010,3 @@ func TestSystemUserService_ResetPassword_MultipleTimes(t *testing.T) {
 		t.Error("Initial password should be invalid")
 	}
 }
-

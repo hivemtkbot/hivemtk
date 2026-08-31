@@ -9,8 +9,8 @@ import (
 
 	"hivemtk-user/internal/model"
 
-	_type "hivemtk-user/internal/pkg/utils/type"
 	"hivemtk-user/internal/pkg/utils/logger"
+	_type "hivemtk-user/internal/pkg/utils/type"
 
 	"hivemtk-user/internal/repository"
 
@@ -37,10 +37,10 @@ type Customer360Service struct {
 	eventRepo        repository.CustomerEventRepository
 
 	// P-4 画像字段真实来源依赖（均为 best-effort，nil 时对应字段回退默认值）
-	tagRepo    repository.CustomerTagAssignmentRepository // Tags ← customer_tag_assignments top5
+	tagRepo     repository.CustomerTagAssignmentRepository  // Tags ← customer_tag_assignments top5
 	insightRepo repository.CustomerProfileInsightRepository // PreferredTime ← 消息时段直方图
-	rfmRepo    repository.CustomerRFMRepository           // RiskLevel ← RFM churn_risk
-	aiTagger   *AITagger                                  // Interests ← ai_tagger 兴趣标签（只读接口）
+	rfmRepo     repository.CustomerRFMRepository            // RiskLevel ← RFM churn_risk
+	aiTagger    *AITagger                                   // Interests ← ai_tagger 兴趣标签（只读接口）
 }
 
 func NewCustomer360ServiceWithDB(db *gorm.DB) *Customer360Service {
@@ -111,11 +111,11 @@ type SessionStatistics struct {
 	ActiveSessions  int64 `json:"active_sessions"`
 	ClosedSessions  int64 `json:"closed_sessions"`
 	TotalMessages   int64 `json:"total_messages"`
-	AvgResponseTime int   `json:"avg_response_time"` 
+	AvgResponseTime int   `json:"avg_response_time"`
 	AIReplies       int64 `json:"ai_replies"`
 	HumanReplies    int64 `json:"human_replies"`
-	UserRating      int   `json:"user_rating"`  
-	RatingCount     int64 `json:"rating_count"` 
+	UserRating      int   `json:"user_rating"`
+	RatingCount     int64 `json:"rating_count"`
 }
 
 type SessionHistoryItem struct {
@@ -133,7 +133,7 @@ type SessionHistoryItem struct {
 type MessageHistoryItem struct {
 	SessionID    string  `json:"session_id"`
 	Content      string  `json:"content"`
-	SenderType   string  `json:"sender_type"` 
+	SenderType   string  `json:"sender_type"`
 	SenderName   string  `json:"sender_name"`
 	ContentType  string  `json:"content_type"`
 	CreatedAt    string  `json:"created_at"`
@@ -146,8 +146,8 @@ type ClueInfo struct {
 	Name      string `json:"name"`
 	Phone     string `json:"phone"`
 	Email     string `json:"email"`
-	Status    string `json:"status"` 
-	Level     string `json:"level"`  
+	Status    string `json:"status"`
+	Level     string `json:"level"`
 	Owner     string `json:"owner"`
 	CreatedAt string `json:"created_at"`
 }
@@ -181,15 +181,15 @@ type InteractionStats struct {
 	Last30Days int64 `json:"last_30_days"`
 
 	AvgMessagesPerSession float64 `json:"avg_messages_per_session"`
-	FirstResponseTime     int     `json:"first_response_time"` 
+	FirstResponseTime     int     `json:"first_response_time"`
 }
 
 type UserProfile struct {
 	Tags              []string `json:"tags"`
 	Interests         []string `json:"interests"`
-	PurchasePower     string   `json:"purchase_power"` 
-	ActivityLevel     string   `json:"activity_level"` 
-	RiskLevel         string   `json:"risk_level"`     
+	PurchasePower     string   `json:"purchase_power"`
+	ActivityLevel     string   `json:"activity_level"`
+	RiskLevel         string   `json:"risk_level"`
 	PreferredPlatform string   `json:"preferred_platform"`
 	PreferredTime     string   `json:"preferred_time"`
 }
@@ -591,7 +591,7 @@ func (s *Customer360Service) assembleOrderInfo(ctx context.Context, accountIDs [
 			Amount:      amount,
 			Status:      orderStatusToString(order.Status),
 			CreatedAt:   time.Unix(order.CreateTime, 0).Format("2006-01-02 15:04:05"),
-			ProductName: "平台商品", 
+			ProductName: "平台商品",
 		})
 	}
 
@@ -614,15 +614,15 @@ func (s *Customer360Service) assembleOrderInfo(ctx context.Context, accountIDs [
 func orderStatusToString(status _type.OrderStatusType) string {
 	switch status {
 	case _type.OrderStatusPending:
-		return "pending" 
+		return "pending"
 	case _type.OrderStatusSuccess:
-		return "success" 
+		return "success"
 	case _type.OrderStatusForceSuccess:
-		return "success" 
+		return "success"
 	case _type.OrderStatusTimeout:
-		return "timeout" 
+		return "timeout"
 	case _type.OrderStatusForceClose:
-		return "closed" 
+		return "closed"
 	default:
 		return "unknown"
 	}
@@ -719,7 +719,6 @@ func (s *Customer360Service) buildUserProfile(ctx context.Context, sessions []*m
 	} else if orderInfo != nil && orderInfo.TotalAmount < 1000 {
 		profile.PurchasePower = "low"
 	}
-
 
 	maxCount := int64(0)
 	for platform, count := range map[string]int64{
@@ -1067,7 +1066,7 @@ func (s *Customer360Service) buildOrderInfoFromMap(userSessions []*model.Custome
 		return &OrderInfo{Orders: make([]*OrderItem, 0)}
 	}
 	var totalAmount float64
-	lastOrder := userOrders[0] 
+	lastOrder := userOrders[0]
 	orderItems := make([]*OrderItem, 0, len(userOrders))
 	for _, order := range userOrders {
 		amount, _ := strconv.ParseFloat(order.Price, 64)
@@ -1129,4 +1128,3 @@ func (s *Customer360ServiceForTest) GetCustomerList(ctx context.Context, page, p
 	}
 	return realService.GetCustomerList(ctx, page, pageSize, filters)
 }
-

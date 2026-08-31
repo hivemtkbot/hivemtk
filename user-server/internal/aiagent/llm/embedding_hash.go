@@ -91,4 +91,3 @@ func hashVector(text string, dim int) []float32 {
 	}
 	return vec
 }
-

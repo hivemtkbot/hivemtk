@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"errors"
@@ -114,7 +113,7 @@ func (s *AgentKBBindingService) Bind(ctx context.Context, agentID, kbID uint, pr
 	binding := &model.AgentKBBinding{
 		AgentID:  agentID,
 		KBID:     kbID,
-		KBType:   model.KnowledgeBaseTypeFAQ, 
+		KBType:   model.KnowledgeBaseTypeFAQ,
 		Role:     model.AgentKBBindingRolePrimary,
 		Priority: priority,
 		Enabled:  boolPtr(true),
@@ -226,9 +225,9 @@ func (s *AgentKBBindingService) ReplaceByAgent(ctx context.Context, agentID uint
 
 // BatchBindItem 批量绑定参数项
 type BatchBindItem struct {
-	AgentID uint `json:"agent_id"`
-	KBID    uint `json:"knowledge_base_id"`
-	Priority int `json:"priority"`
+	AgentID  uint `json:"agent_id"`
+	KBID     uint `json:"knowledge_base_id"`
+	Priority int  `json:"priority"`
 }
 
 // BatchBind 批量绑定 (事务; 全部成功或全部失败)
@@ -293,4 +292,3 @@ func (s *AgentKBBindingService) BatchBind(ctx context.Context, items []BatchBind
 
 // boolPtr 构造 *bool
 func boolPtr(b bool) *bool { return &b }
-

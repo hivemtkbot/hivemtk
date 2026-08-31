@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // 1. NewTraceContext 生成 trace_id 和 span_id
 func TestNewTraceContext(t *testing.T) {
 	tc := NewTraceContext("", "")
@@ -186,21 +185,21 @@ func TestInMemoryTraceBusMultiSubscribers(t *testing.T) {
 func TestInMemoryTraceBusSubscribeNil(t *testing.T) {
 	bus := NewInMemoryTraceBus()
 	defer bus.Stop()
-	bus.Subscribe(nil) 
+	bus.Subscribe(nil)
 }
 
 // 14. InMemoryTraceBus Stop 不重复关闭
 func TestInMemoryTraceBusStop(t *testing.T) {
 	bus := NewInMemoryTraceBus()
 	bus.Stop()
-	bus.Stop() 
+	bus.Stop()
 }
 
 // 15. InMemoryTraceBus Stop 后 Publish 丢弃
 func TestInMemoryTraceBusStopPublish(t *testing.T) {
 	bus := NewInMemoryTraceBus()
 	bus.Stop()
-	bus.Publish(TraceEvent{TraceID: "t1", SpanID: "s1"}) 
+	bus.Publish(TraceEvent{TraceID: "t1", SpanID: "s1"})
 }
 
 // 16. PublishTraceEvent 自动补全字段
@@ -501,7 +500,6 @@ func TestGetGlobalTraceBusSingleton(t *testing.T) {
 	}
 }
 
-
 type testSubscriber struct {
 	fn func(event TraceEvent)
 }
@@ -511,4 +509,3 @@ func (s *testSubscriber) OnEvent(event TraceEvent) {
 		s.fn(event)
 	}
 }
-

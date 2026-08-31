@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-
 // TestE2E_FullChain_ReachToSalesFeedback 4 渠道客户消息 → SalesEngine 9 步 → 反馈学习记录
 // 商业产品级核心闭环：客户在 4 个渠道发消息 → 智能体 9 步处理 → 决策快照进入反馈学习
 func TestE2E_FullChain_ReachToSalesFeedback(t *testing.T) {
@@ -236,4 +235,3 @@ func TestE2E_FullChain_ResponseIntegrity(t *testing.T) {
 	t.Logf("✅ 响应完整: reply_len=%d, latency=%dms, steps=%d, intent=%s",
 		len(resp.Reply), resp.LatencyMs, len(resp.Steps), resp.Intent.IntentType)
 }
-

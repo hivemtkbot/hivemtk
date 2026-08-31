@@ -65,4 +65,3 @@ func TestCacheKeyStableAndDistinct(t *testing.T) {
 		t.Fatal("different scenarios should produce different keys")
 	}
 }
-

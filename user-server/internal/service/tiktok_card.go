@@ -344,4 +344,3 @@ func generateRandomCode(length int) string {
 	}
 	return string(b)
 }
-

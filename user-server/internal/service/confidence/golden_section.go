@@ -1,6 +1,5 @@
 package confidence
 
-
 import "math"
 
 // GoldenSectionSearcher 黄金分割搜索器
@@ -60,4 +59,3 @@ func (g *GoldenSectionSearcher) Minimize(f func(float64) float64, a, b float64) 
 	}
 	return (a + b) / 2
 }
-

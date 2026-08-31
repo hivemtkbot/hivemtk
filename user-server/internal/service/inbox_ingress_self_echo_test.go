@@ -21,9 +21,9 @@ func TestHandleIngress_SelfEcho_BridgeRelay_Blocked(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		platform = "xiaohongshu"
-		account  = "acct-selfecho"
-		conv     = "conv-selfecho-1"
+		platform        = "xiaohongshu"
+		account         = "acct-selfecho"
+		conv            = "conv-selfecho-1"
 		outboundContent = "您好！😊 我是 HiveMTK 销售助手，专注为您提供一站式私域方案。"
 	)
 
@@ -41,12 +41,12 @@ func TestHandleIngress_SelfEcho_BridgeRelay_Blocked(t *testing.T) {
 		t.Fatalf("预置 outbound 失败: %v", err)
 	}
 
-	relayedContent := "您好！　😊 我是 HiveMTK 销售助手，专注为您提供一站式私域方案。​" 
+	relayedContent := "您好！　😊 我是 HiveMTK 销售助手，专注为您提供一站式私域方案。​"
 	evt := &model.MessageEvent{
 		Channel:        model.ChannelXHS,
-		SenderID:       conv, 
+		SenderID:       conv,
 		SenderName:     "雪大王",
-		SenderType:     "customer", 
+		SenderType:     "customer",
 		Content:        relayedContent,
 		EventID:        "mh:relay-selfecho-1",
 		ConversationID: conv,
@@ -80,10 +80,10 @@ func TestHandleIngress_SelfEcho_RealCustomer_NotBlocked(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		platform = "xiaohongshu"
-		account  = "acct-selfecho-real"
-		conv     = "conv-selfecho-real-1"
-		customerQ = "我不会技术，如何安装部署呢？" 
+		platform  = "xiaohongshu"
+		account   = "acct-selfecho-real"
+		conv      = "conv-selfecho-real-1"
+		customerQ = "我不会技术，如何安装部署呢？"
 	)
 
 	evt := &model.MessageEvent{
@@ -113,5 +113,3 @@ func TestHandleIngress_SelfEcho_RealCustomer_NotBlocked(t *testing.T) {
 		t.Fatalf("真实客户消息应入库 1 条 inbound，实际=%d", inboundCount)
 	}
 }
-
-

@@ -177,19 +177,19 @@ func TestCustomerEventRepository_GetByTimeRange(t *testing.T) {
 			CustomerID:  "customer-1",
 			EventType:   model.EventTypePageView,
 			EventSource: model.EventSourceWebsite,
-			OccurredAt:  now.Add(-48 * time.Hour), 
+			OccurredAt:  now.Add(-48 * time.Hour),
 		},
 		{
 			CustomerID:  "customer-2",
 			EventType:   model.EventTypeClick,
 			EventSource: model.EventSourceApp,
-			OccurredAt:  now.Add(-24 * time.Hour), 
+			OccurredAt:  now.Add(-24 * time.Hour),
 		},
 		{
 			CustomerID:  "customer-3",
 			EventType:   model.EventTypePurchase,
 			EventSource: model.EventSourceWechat,
-			OccurredAt:  now.Add(-12 * time.Hour), 
+			OccurredAt:  now.Add(-12 * time.Hour),
 		},
 		{
 			CustomerID:  "customer-4",
@@ -366,4 +366,3 @@ func TestCustomerEventRepository_AllEventSources(t *testing.T) {
 		t.Errorf("Expected %d events, got %d", len(eventSources), len(events))
 	}
 }
-

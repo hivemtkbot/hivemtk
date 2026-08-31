@@ -11,11 +11,10 @@ import (
 	"hivemtk-user/internal/aiagent/agent/portcontract"
 )
 
-
 // AfterSaleExternalResult 电商侧回写结果
 type AfterSaleExternalResult struct {
-	ExternalID string 
-	Status     string 
+	ExternalID string
+	Status     string
 }
 
 // AfterSaleExternalClient 售后回写电商平台客户端接口
@@ -83,4 +82,3 @@ func (c *HTTPAfterSaleClient) Create(ctx context.Context, req *portcontract.Afte
 	}
 	return &AfterSaleExternalResult{ExternalID: out.ExternalID, Status: out.Status}, nil
 }
-

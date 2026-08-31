@@ -8,7 +8,6 @@ import (
 	i18npkg "hivemtk-user/internal/pkg/i18n"
 )
 
-
 // GlossaryRenderer 术语表渲染接口（由 service/translation.GlossaryService 实现）。
 //
 // 返回的 block 追加到 system prompt，约束 LLM 在目标语种下对品牌术语的正确写法。
@@ -99,4 +98,3 @@ func (e *SalesEngine) calibrate(ctx context.Context, text, targetLang string) st
 	}
 	return text
 }
-

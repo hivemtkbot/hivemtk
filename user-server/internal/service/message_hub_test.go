@@ -27,7 +27,7 @@ func newMessageHubTestService(t *testing.T) (*MessageHubService, *gorm.DB) {
 	db := setupMessageHubTestDB(t)
 	_mc1 := cache.NewMemoryCache()
 	defer _mc1.Close()
-	svc := NewMessageHubServiceWithDB( db, _mc1)
+	svc := NewMessageHubServiceWithDB(db, _mc1)
 	return svc, db
 }
 
@@ -50,7 +50,6 @@ func newReq() PushMessageRequest {
 		Extra:          map[string]any{"source": "test"},
 	}
 }
-
 
 func TestValidPlatform_Supported(t *testing.T) {
 	for _, p := range []string{"wecom", "personal_wx", "douyin", "kuaishou", "xiaohongshu", "xianyu", "tiktok", "whatsapp", "sms", "email"} {
@@ -113,8 +112,6 @@ func TestListMsgTypes(t *testing.T) {
 		t.Errorf("expected >= 5 msg types, got %d", len(list))
 	}
 }
-
-
 
 func TestNormalize_InvalidPlatform(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -258,7 +255,6 @@ func TestNormalize_AllPlatforms(t *testing.T) {
 	}
 }
 
-
 func TestIdempotencyKey_Stable(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
 	k1 := svc.IdempotencyKey(context.Background(), "wecom", "acc-1", "msg-1")
@@ -323,7 +319,6 @@ func TestCheckIdempotent_DifferentAccount(t *testing.T) {
 	}
 }
 
-
 func TestPush_Success(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
 	req := newReq()
@@ -353,7 +348,7 @@ func TestPush_DuplicateError(t *testing.T) {
 func TestPush_NilDB(t *testing.T) {
 	_mc2 := cache.NewMemoryCache()
 	defer _mc2.Close()
-	svc := NewMessageHubServiceWithDB( nil, _mc2)
+	svc := NewMessageHubServiceWithDB(nil, _mc2)
 	req := newReq()
 
 	_, err := svc.Push(context.Background(), &req)
@@ -420,8 +415,6 @@ func TestPushBatch_PartialError(t *testing.T) {
 		t.Error("expected second result to be non-nil")
 	}
 }
-
-
 
 func TestList_DefaultPage(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -624,7 +617,6 @@ func TestList_FilterSenderID(t *testing.T) {
 	}
 }
 
-
 func TestGetByID_NotFound(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
 	msg, err := svc.GetByID(context.Background(), 999)
@@ -635,7 +627,6 @@ func TestGetByID_NotFound(t *testing.T) {
 		t.Error("expected nil for not found")
 	}
 }
-
 
 func TestGetByID_Success(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -649,7 +640,6 @@ func TestGetByID_Success(t *testing.T) {
 		t.Errorf("expected same id, got %v", got)
 	}
 }
-
 
 func TestMarkRead_SingleID(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -693,8 +683,6 @@ func TestMarkRead_EmptyIDs(t *testing.T) {
 		t.Errorf("expected no error for empty ids, got %v", err)
 	}
 }
-
-
 
 func TestStats_Empty(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -815,7 +803,6 @@ func TestStats_TimeRange(t *testing.T) {
 // ptrTime 构造 *time.Time（原定义在 performance_test_service.go，该文件已移除）
 func ptrTime(t time.Time) *time.Time { return &t }
 
-
 func TestConsume_EmptyPartition(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
 	msg, err := svc.Consume(context.Background(), "wecom", "unknown-acc", 0)
@@ -888,7 +875,6 @@ func TestSize_Empty(t *testing.T) {
 	}
 }
 
-
 func TestConvertFromChannel_Basic(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
 	raw := &RawChannelMessage{
@@ -948,7 +934,6 @@ func TestConvertFromChannel_AllPlatforms(t *testing.T) {
 	}
 }
 
-
 func TestMarshalUnmarshal(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
 	orig := &model.MessageHub{
@@ -979,7 +964,6 @@ func TestUnmarshal_InvalidJSON(t *testing.T) {
 		t.Error("expected error for invalid json")
 	}
 }
-
 
 type testSub struct {
 	mu     sync.Mutex
@@ -1040,7 +1024,6 @@ func TestSubscriber_Filtered(t *testing.T) {
 	}
 }
 
-
 func TestGenerateMsgID_Unique(t *testing.T) {
 	seen := make(map[string]bool)
 	for i := 0; i < 100; i++ {
@@ -1063,11 +1046,10 @@ func TestGenerateMsgID_Format(t *testing.T) {
 	}
 }
 
-
 func TestWithIdemTTL(t *testing.T) {
 	_mc3 := cache.NewMemoryCache()
 	defer _mc3.Close()
-	svc := NewMessageHubServiceWithDB( nil, _mc3)
+	svc := NewMessageHubServiceWithDB(nil, _mc3)
 	svc.WithIdemTTL(context.Background(), 1*time.Hour)
 	if svc.idemTTL != 1*time.Hour {
 		t.Errorf("expected 1h, got %v", svc.idemTTL)
@@ -1077,7 +1059,7 @@ func TestWithIdemTTL(t *testing.T) {
 func TestWithMaxContent(t *testing.T) {
 	_mc4 := cache.NewMemoryCache()
 	defer _mc4.Close()
-	svc := NewMessageHubServiceWithDB( nil, _mc4)
+	svc := NewMessageHubServiceWithDB(nil, _mc4)
 	svc.WithMaxContent(context.Background(), 1000)
 	if svc.maxContent != 1000 {
 		t.Errorf("expected 1000, got %d", svc.maxContent)
@@ -1087,13 +1069,12 @@ func TestWithMaxContent(t *testing.T) {
 func TestWithQueueSize(t *testing.T) {
 	_mc5 := cache.NewMemoryCache()
 	defer _mc5.Close()
-	svc := NewMessageHubServiceWithDB( nil, _mc5)
+	svc := NewMessageHubServiceWithDB(nil, _mc5)
 	svc.WithQueueSize(context.Background(), 500)
 	if svc.streamSize != 500 {
 		t.Errorf("expected 500, got %d", svc.streamSize)
 	}
 }
-
 
 func TestPush_Concurrent(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -1138,7 +1119,6 @@ func TestConsume_ConcurrentSafe(t *testing.T) {
 	}
 	wg.Wait()
 }
-
 
 func TestEndToEnd_PushListReadStats(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -1208,7 +1188,6 @@ func TestEndToEnd_FromChannel(t *testing.T) {
 		t.Errorf("expected direction=inbound, got %s", msg.Direction)
 	}
 }
-
 
 func TestPush_AllRequiredFieldsEmpty(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
@@ -1308,4 +1287,3 @@ func TestConsume_ContextCancel(t *testing.T) {
 		t.Error("expected context cancellation error")
 	}
 }
-

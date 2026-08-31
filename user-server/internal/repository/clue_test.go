@@ -352,4 +352,3 @@ func TestClueRepository_GetClueList_SecondPage(t *testing.T) {
 		t.Errorf("Expected total 20, got %d", total)
 	}
 }
-

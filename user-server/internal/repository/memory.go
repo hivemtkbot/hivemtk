@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"time"
@@ -76,7 +75,6 @@ func NewMemoryRepositoryWithDB(db *gorm.DB) MemoryRepository {
 	return &memoryRepository{db: db}
 }
 
-
 // CreateMemoryItem 创建 MemoryItem（L1 短期消息 / L2 事实摘要通用）
 func (r *memoryRepository) CreateMemoryItem(ctx context.Context, item *model.MemoryItem) error {
 	return r.db.WithContext(ctx).Create(item).Error
@@ -130,7 +128,6 @@ func (r *memoryRepository) DeleteMemoryItemsByIDs(ctx context.Context, ids []uin
 	}
 	return r.db.WithContext(ctx).Where("id IN ?", ids).Delete(&model.MemoryItem{}).Error
 }
-
 
 // ListFacts 列出客户长期事实（item_type LIKE 'fact:%'，按 importance DESC, created_at DESC）
 func (r *memoryRepository) ListFacts(ctx context.Context, customerID string, limit int) ([]model.MemoryItem, error) {
@@ -193,7 +190,6 @@ func (r *memoryRepository) GetLatestSummary(ctx context.Context, customerID stri
 	return &item, nil
 }
 
-
 // SaveSOPState 保存 SOP 状态（upsert by ID）
 func (r *memoryRepository) SaveSOPState(ctx context.Context, state *model.SOPStateMemory) error {
 	return r.db.WithContext(ctx).Save(state).Error
@@ -223,7 +219,6 @@ func (r *memoryRepository) ListSOPStatesByCustomer(ctx context.Context, customer
 		Order("updated_at DESC").Limit(limit).Find(&list).Error
 	return list, err
 }
-
 
 // CountBusinessMemoriesByCustomer 统计客户业务记忆数（用于限额裁剪）
 // 注意：与原实现一致，错误被静默忽略（返回 0），调用方按计数判断是否裁剪
@@ -270,7 +265,6 @@ func (r *memoryRepository) ListBusinessMemories(ctx context.Context, customerID,
 	err := q.Order("importance DESC, created_at DESC").Limit(limit).Find(&list).Error
 	return list, err
 }
-
 
 // CreateLongTermMemory 创建长期记忆（带 embedding）
 func (r *memoryRepository) CreateLongTermMemory(ctx context.Context, item *model.CustomerLongTermMemory) error {
@@ -339,10 +333,8 @@ func (r *memoryRepository) DeleteLongTermMemoryByID(ctx context.Context, id uint
 	return r.db.WithContext(ctx).Delete(&model.CustomerLongTermMemory{}, id).Error
 }
 
-
 // DialectName 返回当前 DB dialect 名（如 "postgres" / "sqlite"）
 // 用于 service 判断是否走 pgvector 召回路径
 func (r *memoryRepository) DialectName(ctx context.Context) string {
 	return r.db.Dialector.Name()
 }
-

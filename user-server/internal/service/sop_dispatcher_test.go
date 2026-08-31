@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"sync"
@@ -11,7 +10,6 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/testutil"
 )
-
 
 func TestSOPRetryPolicy_Backoff(t *testing.T) {
 	p := DefaultSOPRetryPolicy()
@@ -48,7 +46,6 @@ func TestSOPRetryPolicy_BackoffAttemptZeroOrNegative(t *testing.T) {
 	}
 }
 
-
 func TestSOPExecutionDispatcher_DispatchQueued(t *testing.T) {
 	d := &SOPExecutionDispatcher{
 		dispatchQueue: make(chan *dispatchTask, 10),
@@ -66,7 +63,7 @@ func TestSOPExecutionDispatcher_DispatchQueued(t *testing.T) {
 
 func TestSOPExecutionDispatcher_DispatchQueueFull(t *testing.T) {
 	d := &SOPExecutionDispatcher{
-		dispatchQueue: make(chan *dispatchTask, 1), 
+		dispatchQueue: make(chan *dispatchTask, 1),
 		stopCh:        make(chan struct{}),
 		retryPolicy:   DefaultSOPRetryPolicy(),
 	}
@@ -92,7 +89,7 @@ func TestSOPExecutionDispatcher_DispatchAfterStop(t *testing.T) {
 
 func TestSOPExecutionDispatcher_DispatchOrLogNoPanic(t *testing.T) {
 	d := &SOPExecutionDispatcher{
-		dispatchQueue: make(chan *dispatchTask, 0), 
+		dispatchQueue: make(chan *dispatchTask, 0),
 		stopCh:        make(chan struct{}),
 		retryPolicy:   DefaultSOPRetryPolicy(),
 	}
@@ -103,7 +100,6 @@ func TestSOPExecutionDispatcher_DispatchOrLogNoPanic(t *testing.T) {
 	}()
 	d.DispatchOrLog(&dispatchTask{ExecutionID: 1, NodeID: "n1"})
 }
-
 
 func TestSOPOutboxDispatcher_ProcessDueTimers_FiresPendingTimers(t *testing.T) {
 	db := testutil.NewTestDB(t,
@@ -128,7 +124,7 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_FiresPendingTimers(t *testing.T) {
 		ExecutionID: exec.ID,
 		NodeID:      "wait_node",
 		WaitEvent:   WaitEventTimer,
-		WaitUntil:   time.Now().Add(-1 * time.Second), 
+		WaitUntil:   time.Now().Add(-1 * time.Second),
 		Status:      "pending",
 	}
 	if err := db.Create(timer).Error; err != nil {
@@ -265,7 +261,7 @@ func TestSOPStuckDetector_ScanSkipsRunningExecution(t *testing.T) {
 	)
 
 	now := time.Now()
-	recentEvent := now.Add(-1 * time.Minute) 
+	recentEvent := now.Add(-1 * time.Minute)
 
 	exec := &model.SOPExecution{
 		SOPID: 1, CustomerID: "c1", Status: SOPStatusRunning,
@@ -299,11 +295,11 @@ func TestSOPStuckDetector_ScanSkipsWaitNodeWithPendingTimer(t *testing.T) {
 	)
 
 	now := time.Now()
-	oldEvent := now.Add(-2 * time.Hour) 
+	oldEvent := now.Add(-2 * time.Hour)
 
 	exec := &model.SOPExecution{
 		SOPID: 1, CustomerID: "c1", Status: SOPStatusRunning,
-		CurrentNode: "wait", StartedAt: now.Add(-48 * time.Hour), 
+		CurrentNode: "wait", StartedAt: now.Add(-48 * time.Hour),
 		LastEventAt: &oldEvent,
 		WaitEvent:   WaitEventCustomerReply,
 	}
@@ -313,7 +309,7 @@ func TestSOPStuckDetector_ScanSkipsWaitNodeWithPendingTimer(t *testing.T) {
 		ExecutionID: exec.ID,
 		NodeID:      "wait",
 		WaitEvent:   WaitEventCustomerReply,
-		WaitUntil:   now.Add(20 * time.Hour), 
+		WaitUntil:   now.Add(20 * time.Hour),
 		Status:      "pending",
 	}
 	db.Create(timer)
@@ -380,7 +376,6 @@ func TestSOPStuckDetector_ScanRecoversTrulyStuckExecution(t *testing.T) {
 	}
 }
 
-
 type mockExecDispatcher struct {
 	dispatchFn func(task *dispatchTask)
 }
@@ -393,4 +388,3 @@ func (m *mockExecDispatcher) DispatchOrLog(task *dispatchTask) {
 
 // 引用 context 包以避免 unused import（在测试函数未用到时）
 var _ = context.Background
-

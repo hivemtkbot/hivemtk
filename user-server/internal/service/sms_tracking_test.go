@@ -135,7 +135,7 @@ func TestSmsTracking_RecordDeliveryReport_FailedWithRetryable(t *testing.T) {
 		Phone:     "13700137000",
 		JobID:     "job-003",
 		Status:    "FAILED",
-		ErrorCode: model.SmsErrorCodeGatewayTimeout, 
+		ErrorCode: model.SmsErrorCodeGatewayTimeout,
 		ErrorMsg:  "网关超时",
 	}
 	if err := svc.RecordDeliveryReport(context.Background(), req); err != nil {
@@ -167,7 +167,7 @@ func TestSmsTracking_RecordDeliveryReport_FailedNotRetryable(t *testing.T) {
 		Phone:     "13600136000",
 		JobID:     "job-004",
 		Status:    "FAILED",
-		ErrorCode: model.SmsErrorCodeInvalidPhone, 
+		ErrorCode: model.SmsErrorCodeInvalidPhone,
 		ErrorMsg:  "号码无效",
 	}
 	if err := svc.RecordDeliveryReport(context.Background(), req); err != nil {
@@ -230,11 +230,11 @@ func TestSmsTracking_IsRetryable_RetryableCodes(t *testing.T) {
 	svc := newSmsTrackingService(database)
 
 	cases := []string{
-		model.SmsErrorCodeGatewayTimeout,   
-		model.SmsErrorCodeProviderInternal, 
-		model.SmsErrorCodeRateLimited,      
-		"ERR_6999",                         
-		"ERR_5999",                         
+		model.SmsErrorCodeGatewayTimeout,
+		model.SmsErrorCodeProviderInternal,
+		model.SmsErrorCodeRateLimited,
+		"ERR_6999",
+		"ERR_5999",
 	}
 	for _, code := range cases {
 		if !svc.IsRetryable(context.Background(), code) {
@@ -249,11 +249,11 @@ func TestSmsTracking_IsRetryable_NonRetryableCodes(t *testing.T) {
 	svc := newSmsTrackingService(database)
 
 	cases := []string{
-		model.SmsErrorCodeInvalidPhone,     
-		model.SmsErrorCodeBlacklisted,      
-		model.SmsErrorCodeContentViolation, 
-		model.SmsErrorCodeSubscriberFreq,   
-		"ERR_4999",                         
+		model.SmsErrorCodeInvalidPhone,
+		model.SmsErrorCodeBlacklisted,
+		model.SmsErrorCodeContentViolation,
+		model.SmsErrorCodeSubscriberFreq,
+		"ERR_4999",
 	}
 	for _, code := range cases {
 		if svc.IsRetryable(context.Background(), code) {
@@ -525,7 +525,7 @@ func TestSmsTracking_GetRangeMetrics_InvalidRange(t *testing.T) {
 	svc := newSmsTrackingService(database)
 
 	start := time.Now()
-	end := time.Now().Add(-1 * time.Hour) 
+	end := time.Now().Add(-1 * time.Hour)
 	_, err := svc.GetRangeMetrics(context.Background(), start, end)
 	if err == nil {
 		t.Error("Expected error for invalid range")
@@ -637,7 +637,7 @@ func TestSmsTracking_ListPhoneStatuses(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		req := &DeliveryReportRequest{
 			MessageID: "phone-" + string(rune('0'+i)),
-			Phone:     "138-0013-8000", 
+			Phone:     "138-0013-8000",
 			JobID:     "job-phone-" + string(rune('0'+i)),
 			Status:    "DELIVERED",
 		}
@@ -685,8 +685,8 @@ func TestSmsTracking_NormalizeSmsStatus(t *testing.T) {
 		{"SENT", model.SmsStatusSent},
 		{"ACCEPTD", model.SmsStatusSent},
 		{"ACCEPTED", model.SmsStatusSent},
-		{"  delivered  ", model.SmsStatusDelivered}, 
-		{"unknown_status", "unknown_status"},        
+		{"  delivered  ", model.SmsStatusDelivered},
+		{"unknown_status", "unknown_status"},
 	}
 	for _, c := range cases {
 		got := normalizeSmsStatus(c.input)
@@ -914,4 +914,3 @@ func TestSmsTracking_RecordDeliveryReport_StatusNormalization(t *testing.T) {
 		}
 	}
 }
-

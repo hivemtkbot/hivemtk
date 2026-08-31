@@ -35,7 +35,7 @@ func setupFeishuTestDB(t *testing.T) *gorm.DB {
 
 // feishuMockTransport 拦截飞书开放平台 HTTP 请求，返回成功响应
 type feishuMockTransport struct {
-	code int 
+	code int
 }
 
 func (m feishuMockTransport) RoundTrip(r *http.Request) (*http.Response, error) {
@@ -168,4 +168,3 @@ func TestFeishuIntegrationService_IngestMessage(t *testing.T) {
 func uintToStr(v uint) string {
 	return strconv.FormatUint(uint64(v), 10)
 }
-

@@ -10,8 +10,8 @@ import (
 
 	"hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/model"
-	tracelearning "hivemtk-user/internal/service/trace_learning"
 	"hivemtk-user/internal/pkg/utils/logger"
+	tracelearning "hivemtk-user/internal/service/trace_learning"
 )
 
 // L-1 SOP 优化验证门（P0，批次①补做）。

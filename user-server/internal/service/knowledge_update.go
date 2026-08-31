@@ -17,14 +17,14 @@ import (
 // 实际生产环境可通过 kb_workspace / ai_agent_rag_repository 统一管理；
 // 此处为 G12 增量更新独立维护的最小切片结构（存 document_id 级别的增量变更）。
 type KBDocumentChunk struct {
-	ID           uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
-	DocumentID   uint      `gorm:"index;not null" json:"document_id"`
-	ChunkIndex   int       `gorm:"not null;default:0" json:"chunk_index"`
-	ContentHash  string    `gorm:"type:varchar(64);index;not null" json:"content_hash"`
-	ChunkContent string    `gorm:"type:text" json:"chunk_content"`
-	EmbeddingHash string   `gorm:"type:varchar(64);default:''" json:"embedding_hash"`
-	Status       string    `gorm:"type:varchar(20);default:'active';index" json:"status"`
-	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ID            uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
+	DocumentID    uint      `gorm:"index;not null" json:"document_id"`
+	ChunkIndex    int       `gorm:"not null;default:0" json:"chunk_index"`
+	ContentHash   string    `gorm:"type:varchar(64);index;not null" json:"content_hash"`
+	ChunkContent  string    `gorm:"type:text" json:"chunk_content"`
+	EmbeddingHash string    `gorm:"type:varchar(64);default:''" json:"embedding_hash"`
+	Status        string    `gorm:"type:varchar(20);default:'active';index" json:"status"`
+	UpdatedAt     time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 func (KBDocumentChunk) TableName() string { return "kb_document_chunks" }
@@ -35,9 +35,9 @@ func (KBDocumentChunk) TableName() string { return "kb_document_chunks" }
 // 不 rebuild 整个 KB。
 //
 // 核心逻辑：
-//   1) 将文档切分为 chunks（按 500 字窗口）
-//   2) 计算每个 chunk 的内容 hash（SHA256）
-//   3) 对比旧 chunks：hash 不同的 chunk 删除并重新索引；hash 相同的 chunk 保留
+//  1. 将文档切分为 chunks（按 500 字窗口）
+//  2. 计算每个 chunk 的内容 hash（SHA256）
+//  3. 对比旧 chunks：hash 不同的 chunk 删除并重新索引；hash 相同的 chunk 保留
 type KnowledgeUpdateService struct {
 	db *gorm.DB
 }
@@ -55,14 +55,14 @@ func (s *KnowledgeUpdateService) WithDB(d *gorm.DB) *KnowledgeUpdateService {
 
 // UpdateDeltaResult 增量更新结果
 type UpdateDeltaResult struct {
-	DocumentID    uint  `json:"document_id"`
-	TotalChunks   int   `json:"total_chunks"`
-	Unchanged     int   `json:"unchanged"`
-	Added         int   `json:"added"`
-	Removed       int   `json:"removed"`
-	Updated       int   `json:"updated"`
-	StartedAt     time.Time `json:"started_at"`
-	FinishedAt    time.Time `json:"finished_at"`
+	DocumentID  uint      `json:"document_id"`
+	TotalChunks int       `json:"total_chunks"`
+	Unchanged   int       `json:"unchanged"`
+	Added       int       `json:"added"`
+	Removed     int       `json:"removed"`
+	Updated     int       `json:"updated"`
+	StartedAt   time.Time `json:"started_at"`
+	FinishedAt  time.Time `json:"finished_at"`
 }
 
 // UpdateDocumentDelta 对指定文档执行增量切片更新

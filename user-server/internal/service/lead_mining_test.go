@@ -13,7 +13,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 type fakeCustRepo struct {
 	mu    sync.Mutex
 	byID  map[string]*model.Customer
@@ -207,7 +206,6 @@ func (f *fakeJudge) Judge(context.Context, *model.LeadMiningConfig, []llm.ChatMe
 	return f.resp, nil
 }
 
-
 func lmItoa(n int) string {
 	if n == 0 {
 		return "0"
@@ -271,7 +269,6 @@ func sampleHub(platform, senderID, content string) *model.MessageHub {
 	}
 }
 
-
 func TestMergeTags(t *testing.T) {
 	got := mergeTags([]string{"A", "B"}, []string{"b", "C", ""})
 	want := []string{"A", "B", "C"}
@@ -286,7 +283,7 @@ func TestMergeTags(t *testing.T) {
 }
 
 func TestChannelEnabled(t *testing.T) {
-	cfg := &model.LeadMiningConfig{} 
+	cfg := &model.LeadMiningConfig{}
 	if !channelEnabled(cfg, "douyin") {
 		t.Fatal("空渠道配置应放行全部渠道")
 	}
@@ -312,7 +309,6 @@ func TestBuildSystemPrompt(t *testing.T) {
 		}
 	}
 }
-
 
 func TestProcess_LeadDetected(t *testing.T) {
 	cfg := &model.LeadMiningConfig{
@@ -452,4 +448,3 @@ func lmContains(s []string, v string) bool {
 	}
 	return false
 }
-

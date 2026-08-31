@@ -7,11 +7,10 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-
 // TestSalesEngine_RecordFeedback_NilLearner feedbackLearner=nil 时静默跳过
 // 商业产品级：未注入反馈学习器时不能影响主链路
 func TestSalesEngine_RecordFeedback_NilLearner(t *testing.T) {
-	engine := &SalesEngine{} 
+	engine := &SalesEngine{}
 	resp := &SalesResponse{
 		Reply: "您好，请问有什么可以帮您？",
 		Steps: make([]dto.SalesStepLog, 0, 9),
@@ -46,7 +45,7 @@ func TestSalesEngine_RecordFeedback_RecordSuccess(t *testing.T) {
 			IntentType: IntentAskProduct,
 			Confidence: 0.85,
 		},
-		MatchedSOP: nil, 
+		MatchedSOP: nil,
 		Steps:      make([]dto.SalesStepLog, 0, 9),
 	}
 	req := &SalesRequest{
@@ -248,4 +247,3 @@ func containsStr(s, sub string) bool {
 	}
 	return false
 }
-

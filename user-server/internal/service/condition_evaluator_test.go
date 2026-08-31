@@ -332,7 +332,7 @@ func TestEvaluateCondition_InvalidConditions(t *testing.T) {
 			name:      "empty condition",
 			condition: "",
 			context:   map[string]any{},
-			wantErr:   false, 
+			wantErr:   false,
 		},
 		{
 			name:      "invalid operator",
@@ -451,7 +451,7 @@ func TestEvaluateCondition_FullMatrix(t *testing.T) {
 		{"ne_num_diff", "count ne 10", map[string]any{"count": float64(5)}, true, false},
 		{"ne_num_same", "count ne 10", map[string]any{"count": float64(10)}, false, false},
 		{"ne_num_zero", "count ne 0", map[string]any{"count": float64(1)}, true, false},
-		{"ne_missing_field", "missing ne x", map[string]any{}, false, false}, 
+		{"ne_missing_field", "missing ne x", map[string]any{}, false, false},
 		{"ne_unicode", "city ne 上海", map[string]any{"city": "北京"}, true, false},
 		{"ne_empty", "name ne", map[string]any{"name": "x"}, false, true},
 		{"ne_invalid_num", "count ne abc", map[string]any{"count": float64(5)}, false, true},
@@ -484,7 +484,7 @@ func TestEvaluateCondition_FullMatrix(t *testing.T) {
 		{"gte_zero", "x gte 0", map[string]any{"x": float64(0)}, true, false},
 		{"gte_neg", "x gte -5", map[string]any{"x": float64(-5)}, true, false},
 		{"gte_invalid", "score gte abc", map[string]any{"score": float64(90)}, false, true},
-		{"gte_string", "score gte 90", map[string]any{"score": "90"}, false, true}, 
+		{"gte_string", "score gte 90", map[string]any{"score": "90"}, false, true},
 		{"gte_int", "score gte 90", map[string]any{"score": 100}, true, false},
 
 		{"lte_equal", "score lte 100", map[string]any{"score": float64(100)}, true, false},
@@ -492,7 +492,7 @@ func TestEvaluateCondition_FullMatrix(t *testing.T) {
 		{"lte_greater", "score lte 100", map[string]any{"score": float64(120)}, false, false},
 		{"lte_zero", "x lte 0", map[string]any{"x": float64(0)}, true, false},
 		{"lte_invalid", "score lte abc", map[string]any{"score": float64(100)}, false, true},
-		{"lte_string", "score lte 100", map[string]any{"score": "100"}, false, true}, 
+		{"lte_string", "score lte 100", map[string]any{"score": "100"}, false, true},
 		{"lte_int", "score lte 100", map[string]any{"score": 50}, true, false},
 		{"lte_neg_inf", "x lte 0", map[string]any{"x": math.Inf(-1)}, true, false},
 
@@ -514,7 +514,7 @@ func TestEvaluateCondition_FullMatrix(t *testing.T) {
 		{"in_num_nomatch", "count in [1,5,10]", map[string]any{"count": float64(7)}, false, false},
 		{"in_single", "status in [only]", map[string]any{"status": "only"}, true, false},
 		{"in_missing_field", "status in [a,b]", map[string]any{}, false, false},
-		{"in_empty_list", "status in []", map[string]any{"status": "x"}, false, false}, 
+		{"in_empty_list", "status in []", map[string]any{"status": "x"}, false, false},
 		{"in_no_bracket", "status in active,pending", map[string]any{"status": "active"}, false, true},
 		{"in_only_open_bracket", "status in [active", map[string]any{"status": "active"}, false, true},
 		{"in_only_close_bracket", "status in active]", map[string]any{"status": "active"}, false, true},
@@ -524,7 +524,7 @@ func TestEvaluateCondition_FullMatrix(t *testing.T) {
 		{"in_with_empty_item", "tag in [a,,b]", map[string]any{"tag": ""}, true, false},
 
 		{"parse_no_operator", "justfield", map[string]any{"justfield": "x"}, false, true},
-		{"parse_only_spaces", "   ", map[string]any{}, false, true}, 
+		{"parse_only_spaces", "   ", map[string]any{}, false, true},
 		{"parse_field_with_spaces", "field name eq value", map[string]any{"field name": "value"}, true, false},
 		{"parse_trailing_space", "name eq  John ", map[string]any{"name": "John"}, true, false},
 		{"parse_unknown_op", "name ~= John", map[string]any{"name": "John"}, false, true},
@@ -574,7 +574,7 @@ func TestEvaluateCondition_NextNodeRouting(t *testing.T) {
 		nextNodes []string
 		condition string
 		context   map[string]any
-		wantNext  any 
+		wantNext  any
 		wantMatch bool
 	}
 	cases := []tc{
@@ -672,10 +672,10 @@ func TestParseCondition_Unit(t *testing.T) {
 		{"contains", "msg contains hello", "msg", "contains", "hello", false},
 		{"in", "tag in [a,b,c]", "tag", "in", "[a,b,c]", false},
 		{"with_extra_spaces", " name   eq   John ", "name", "eq", "John", false},
-		{"empty", "", "", "", "", true}, 
+		{"empty", "", "", "", "", true},
 		{"no_operator", "justtext", "", "", "", true},
 		{"unknown_op", "x foo y", "", "", "", true},
-		{"trailing_op_no_value", "x eq", "x", "eq", "", true}, 
+		{"trailing_op_no_value", "x eq", "x", "eq", "", true},
 	}
 
 	for _, tt := range cases {
@@ -700,4 +700,3 @@ func TestParseCondition_Unit(t *testing.T) {
 		})
 	}
 }
-

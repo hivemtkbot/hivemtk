@@ -452,7 +452,6 @@ func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, 
 	}
 }
 
-
 // loadExecution 加载 Execution 记录
 func (d *SOPExecutionDispatcher) loadExecution(ctx context.Context, execID uint) (*model.SOPExecution, error) {
 	return d.execRepo.GetByID(ctx, execID)
@@ -832,11 +831,11 @@ func (d *SOPExecutionDispatcher) tryCompensate(_ context.Context, exec *model.SO
 
 // compensationTraceEntry executed_nodes JSONB 元素结构（与 CompensationRecord 对齐的持久化形态）
 type compensationTraceEntry struct {
-	NodeID    string `json:"node_id"`
-	NodeType  string `json:"node_type"`
-	Status    string `json:"status"`
-	Attempt   int    `json:"attempt"`
-	Error     string `json:"error,omitempty"`
+	NodeID     string `json:"node_id"`
+	NodeType   string `json:"node_type"`
+	Status     string `json:"status"`
+	Attempt    int    `json:"attempt"`
+	Error      string `json:"error,omitempty"`
 	ErrorClass string `json:"error_class,omitempty"` // S1-3: transient|permanent
 }
 

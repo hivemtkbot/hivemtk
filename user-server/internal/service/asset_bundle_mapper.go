@@ -5,7 +5,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // AssetBundleMessagesFromDTO dto 消息切片 → model JSONB 消息数组
 func AssetBundleMessagesFromDTO(msgs []dto.AssetBundleMessage) model.AssetBundleMessages {
 	if msgs == nil {
@@ -76,4 +75,3 @@ func FromAssetBundleModelList(list []*model.AssetBundle) []*dto.AssetBundleView 
 	}
 	return out
 }
-

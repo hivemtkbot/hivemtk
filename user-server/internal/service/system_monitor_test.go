@@ -274,7 +274,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 		t.Errorf("Expected total_merchants 2 (admin 角色系统用户数), got %v", basicStats["total_merchants"])
 	}
 
-
 	if businessStats["total_email_lists"] != int64(3) {
 		t.Errorf("Expected total_email_lists 3, got %v", businessStats["total_email_lists"])
 	}
@@ -440,7 +439,7 @@ func TestSystemMonitorService_GetSystemStats_Orders(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		order := model.Order{
-			Status:    0, 
+			Status:    0,
 			Price:     "100.00",
 			TgID:      int64(1000 + i),
 			AccountID: "account" + string(rune('0'+i)),
@@ -450,7 +449,7 @@ func TestSystemMonitorService_GetSystemStats_Orders(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		order := model.Order{
-			Status:    1, 
+			Status:    1,
 			Price:     "200.00",
 			TgID:      int64(2000 + i),
 			AccountID: "account" + string(rune('0'+i)),
@@ -547,4 +546,3 @@ func TestSystemMonitorService_GetSystemStats_VisitLogsOld(t *testing.T) {
 		t.Errorf("Expected today_visits 5 (excluding yesterday's 10), got %v", stats["today_visits"])
 	}
 }
-

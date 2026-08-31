@@ -54,7 +54,7 @@ type MemoryQuery struct {
 type MemoryFact struct {
 	Key        string
 	Value      string
-	Source     string    // "L2_item"=memory_items / "L2_vector"=customer_long_term_memory
+	Source     string // "L2_item"=memory_items / "L2_vector"=customer_long_term_memory
 	Confidence float64
 	ValidFrom  time.Time // 已兜底（NULL→CreatedAt）
 	InvalidAt  *time.Time

@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/websocket"
 )
 
-
 // AssignSessionRequest 分配会话请求
 type AssignSessionRequest struct {
 	SessionID uint `json:"session_id" binding:"required"`
@@ -119,4 +118,3 @@ var _ = func() error {
 	_ = t
 	return nil
 }()
-

@@ -90,4 +90,3 @@ func FromGlossaryModelList(list []*model.Glossary) []*dto.GlossaryResponse {
 	}
 	return out
 }
-

@@ -48,10 +48,10 @@ func TestAnyExistsByMsgIDs_AcrossAccount_P0_6(t *testing.T) {
 	}
 
 	expects := map[string]bool{
-		"m_same":       true,
-		"m_cross_out":  true,
-		"m_cross_in":   true,
-		"m_not_exist":  false,
+		"m_same":      true,
+		"m_cross_out": true,
+		"m_cross_in":  true,
+		"m_not_exist": false,
 	}
 	for id, want := range expects {
 		if got := out[id]; got != want {
@@ -137,4 +137,3 @@ func TestAnyExistsByMsgIDs_EmptyAndNil_P0_6(t *testing.T) {
 		t.Errorf("nil repo 应返回空 map，实际 %d", len(out2))
 	}
 }
-

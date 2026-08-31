@@ -13,7 +13,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 // FeedbackLearningService 反馈学习闭环服务
 type FeedbackLearningService struct {
 	feedbackRepo *repository.FeedbackLearningRepository
@@ -35,12 +34,11 @@ func NewFeedbackLearningService(db *gorm.DB) *FeedbackLearningService {
 	return s
 }
 
-
 // ChampionDimensionScore 单维度得分
 type ChampionDimensionScore struct {
 	Dimension     model.SalesChampionDimension `json:"dimension"`
 	Name          string                       `json:"name"`
-	Score         float64                      `json:"score"` 
+	Score         float64                      `json:"score"`
 	SampleCount   int                          `json:"sample_count"`
 	PositiveCount int                          `json:"positive_count"`
 	NegativeCount int                          `json:"negative_count"`
@@ -51,9 +49,9 @@ type ChampionDimensionScore struct {
 type ChampionProfileReport struct {
 	StaffID      uint                     `json:"staff_id"`
 	StaffName    string                   `json:"staff_name"`
-	Scenario     string                   `json:"scenario"` 
+	Scenario     string                   `json:"scenario"`
 	Dimensions   []ChampionDimensionScore `json:"dimensions"`
-	OverallScore float64                  `json:"overall_score"` 
+	OverallScore float64                  `json:"overall_score"`
 	PeriodStart  time.Time                `json:"period_start"`
 	PeriodEnd    time.Time                `json:"period_end"`
 	GeneratedAt  time.Time                `json:"generated_at"`
@@ -351,15 +349,14 @@ func classifyRepurchaseOperation(aiReply, customerMsg string) (bool, dimensionEv
 	return true, dimensionEvidence{positive: true, tag: "复购触达"}
 }
 
-
 // SOPNodeConversionStats SOP 节点转化率统计
 type SOPNodeConversionStats struct {
 	SOPID             uint                   `json:"sop_id"`
 	SOPName           string                 `json:"sop_name"`
-	Variant           string                 `json:"variant"` 
+	Variant           string                 `json:"variant"`
 	Nodes             []NodeConversionDetail `json:"nodes"`
 	TotalExecutions   int64                  `json:"total_executions"`
-	OverallConversion float64                `json:"overall_conversion"` 
+	OverallConversion float64                `json:"overall_conversion"`
 	GeneratedAt       time.Time              `json:"generated_at"`
 }
 
@@ -368,14 +365,14 @@ type NodeConversionDetail struct {
 	NodeID         string  `json:"node_id"`
 	NodeName       string  `json:"node_name"`
 	NodeType       string  `json:"node_type"`
-	EnteredCount   int     `json:"entered_count"`   
-	SuccessCount   int     `json:"success_count"`   
-	AbandonedCount int     `json:"abandoned_count"` 
-	FailedCount    int     `json:"failed_count"`    
-	ConversionRate float64 `json:"conversion_rate"` 
-	DropRate       float64 `json:"drop_rate"`       
-	AvgDurationMs  int     `json:"avg_duration_ms"` 
-	IsBottleneck   bool    `json:"is_bottleneck"`   
+	EnteredCount   int     `json:"entered_count"`
+	SuccessCount   int     `json:"success_count"`
+	AbandonedCount int     `json:"abandoned_count"`
+	FailedCount    int     `json:"failed_count"`
+	ConversionRate float64 `json:"conversion_rate"`
+	DropRate       float64 `json:"drop_rate"`
+	AvgDurationMs  int     `json:"avg_duration_ms"`
+	IsBottleneck   bool    `json:"is_bottleneck"`
 }
 
 // AnalyzeNodeConversion 分析 SOP 节点转化率
@@ -447,14 +444,13 @@ func (s *FeedbackLearningService) AnalyzeNodeConversion(ctx context.Context, sop
 	return stats, nil
 }
 
-
 // OptimizationSuggestionInput 优化建议生成输入
 type OptimizationSuggestionInput struct {
 	SOPID             uint
 	SOPName           string
 	NodeConversion    *SOPNodeConversionStats
-	LowScoreThreshold float64 
-	MinSampleCount    int     
+	LowScoreThreshold float64
+	MinSampleCount    int
 }
 
 // GenerateOptimizationSuggestions 为低转化节点生成优化建议
@@ -561,7 +557,6 @@ func buildOptimizationSuggestion(sopID uint, sopName string, node NodeConversion
 	return sug
 }
 
-
 // RecordNodeTransition 记录节点流转
 // 供 SalesEngine / SOPService 在执行 SOP 时调用
 func (s *FeedbackLearningService) RecordNodeTransition(ctx context.Context, t *model.SOPNodeTransition) error {
@@ -612,13 +607,12 @@ func (s *FeedbackLearningService) GetLatestProfile(ctx context.Context, staffID 
 	if s.feedbackRepo == nil {
 		return nil, fmt.Errorf("db not configured")
 	}
-	list, err := s.feedbackRepo.ListLatestProfileSnapshots(ctx, staffID, scenario, 5) 
+	list, err := s.feedbackRepo.ListLatestProfileSnapshots(ctx, staffID, scenario, 5)
 	if err != nil {
 		return nil, fmt.Errorf("query profile: %w", err)
 	}
 	return list, nil
 }
-
 
 // persistProfileSnapshot 持久化画像快照
 func (s *FeedbackLearningService) persistProfileSnapshot(ctx context.Context, report *ChampionProfileReport) error {
@@ -714,4 +708,3 @@ func toStringArray(items []string) model.JSONArray {
 func roundTo2(f float64) float64 {
 	return float64(int(f*100+0.5)) / 100
 }
-

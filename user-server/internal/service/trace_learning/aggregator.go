@@ -107,4 +107,3 @@ func extractContent(input string) string {
 	}
 	return ""
 }
-

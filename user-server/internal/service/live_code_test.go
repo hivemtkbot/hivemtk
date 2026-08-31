@@ -139,7 +139,7 @@ func TestLiveCodeService_Create_InvalidShortDomain(t *testing.T) {
 	req := &dto.CreateLiveCodeRequest{
 		Name:            "测试活码",
 		ShortLink:       "test-link",
-		ShortDomainID:   99999, 
+		ShortDomainID:   99999,
 		EntryDomainID:   entryDomain.ID,
 		LandingDomainID: landingDomain.ID,
 		Status:          1,
@@ -164,7 +164,7 @@ func TestLiveCodeService_Create_InvalidEntryDomain(t *testing.T) {
 		Name:            "测试活码",
 		ShortLink:       "test-link",
 		ShortDomainID:   shortDomain.ID,
-		EntryDomainID:   99999, 
+		EntryDomainID:   99999,
 		LandingDomainID: landingDomain.ID,
 		Status:          1,
 	}
@@ -189,7 +189,7 @@ func TestLiveCodeService_Create_InvalidLandingDomain(t *testing.T) {
 		ShortLink:       "test-link",
 		ShortDomainID:   shortDomain.ID,
 		EntryDomainID:   entryDomain.ID,
-		LandingDomainID: 99999, 
+		LandingDomainID: 99999,
 		Status:          1,
 	}
 
@@ -340,7 +340,7 @@ func TestLiveCodeService_Update_SameShortLink(t *testing.T) {
 
 	updateReq := &dto.UpdateLiveCodeRequest{
 		Name:      "新名称",
-		ShortLink: "link-1", 
+		ShortLink: "link-1",
 	}
 
 	_, err := service.Update(context.Background(), response.ID, updateReq)
@@ -1326,4 +1326,3 @@ func TestLiveCodeService_EmptyResponseFields(t *testing.T) {
 		t.Errorf("Expected empty LandingURL, got %s", response.LandingURL)
 	}
 }
-

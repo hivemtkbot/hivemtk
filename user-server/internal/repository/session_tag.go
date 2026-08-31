@@ -51,7 +51,6 @@ func (r *SessionTagRepository) GetByID(ctx context.Context, id uint) (*model.Ses
 	return &tag, nil
 }
 
-
 // UpdateRuleCondition 更新标签规则条件（按 code 定位；空串=清除规则仅手动）
 func (r *SessionTagRepository) UpdateRuleCondition(ctx context.Context, code, condition string) error {
 	res := r.db.WithContext(ctx).

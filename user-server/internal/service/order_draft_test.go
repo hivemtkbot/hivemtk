@@ -14,7 +14,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 // helper: 完整环境（5 组件 + 草稿服务 + 触发器）
 func setupDraftEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AITagger, *OrderIntentExtractor, *SalesEventStatsService, *OrderDraftService, *SalesActionTrigger) {
 	database := testutil.NewTestDB(t,
@@ -36,7 +35,6 @@ func setupDraftEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AI
 	trigger.SetDraftService(context.Background(), draftSvc)
 	return journey, followup, tagger, extractor, stats, draftSvc, trigger
 }
-
 
 // TestDraft_CreateManual 手动创建草稿
 func TestDraft_CreateManual(t *testing.T) {
@@ -180,7 +178,6 @@ func TestDraft_ManualValidation(t *testing.T) {
 		t.Error("负单价应报错")
 	}
 }
-
 
 // TestDraft_Confirm 销售一键确认草稿
 // 商业产品级核心闭环：销售点"确认" → 4 件事自动发生
@@ -356,7 +353,6 @@ func TestDraft_Expire(t *testing.T) {
 	t.Logf("✅ 草稿过期: %d 个", expired)
 }
 
-
 // TestDraft_ListPending 待确认草稿列表
 // 商业产品级：销售工作台首页展示
 func TestDraft_ListPending(t *testing.T) {
@@ -468,7 +464,6 @@ func TestDraft_GetByID(t *testing.T) {
 		t.Error("不存在应返回 nil")
 	}
 }
-
 
 // TestDraft_TriggerAutoCreate AI 谈单 → 自动创建草稿（核心入口）
 // 商业产品级核心业务流：AI 回复中包含"光子嫩肤 3 次 2280 元"
@@ -603,14 +598,13 @@ func TestDraft_TriggerNoIntent(t *testing.T) {
 	}
 }
 
-
 // TestDraft_Confirm_Expired 确认过期草稿
 func TestDraft_Confirm_Expired(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
 	draft, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
-	draft.ExpiresAt = time.Now().Add(-1 * time.Hour) 
+	draft.ExpiresAt = time.Now().Add(-1 * time.Hour)
 	_, err := draftSvc.Confirm(context.Background(), draft.ID, "s1")
 	if err == nil {
 		t.Error("过期草稿不应能确认")
@@ -732,4 +726,3 @@ func TestDraft_ConcurrentSafe(t *testing.T) {
 		t.Errorf("并发创建后应有 100 个，实际: %d", len(all))
 	}
 }
-

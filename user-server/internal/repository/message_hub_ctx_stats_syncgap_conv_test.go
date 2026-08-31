@@ -45,7 +45,7 @@ func setupHubFullTestDB(t *testing.T) *gorm.DB {
 		"message_hub",
 		"agent_statuses",
 	} {
-		if err := db.Exec("TRUNCATE "+tbl+" RESTART IDENTITY CASCADE").Error; err != nil {
+		if err := db.Exec("TRUNCATE " + tbl + " RESTART IDENTITY CASCADE").Error; err != nil {
 			t.Fatalf("TRUNCATE %s: %v", tbl, err)
 		}
 	}
@@ -62,7 +62,7 @@ func newHubWithConv(platform, accountID, customer, msgID, direction, status stri
 		Status:         status,
 		MsgType:        "text",
 		Content:        "hello-" + msgID,
-		SenderID:       func() string {
+		SenderID: func() string {
 			if direction == "inbound" {
 				return customer
 			}

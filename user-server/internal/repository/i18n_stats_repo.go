@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"errors"
@@ -246,4 +245,3 @@ func (r *i18nStatsRepo) LatencyStats(ctx context.Context, since time.Time) ([]La
 
 // 编译期接口断言
 var _ I18nStatsRepository = (*i18nStatsRepo)(nil)
-

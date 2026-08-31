@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"bytes"
 	"context"
@@ -23,9 +22,9 @@ import (
 )
 
 const (
-	sopCacheTTL  = 5 * time.Minute
-	sopCacheMaxN = 2000
-	sopTopK      = 5
+	sopCacheTTL         = 5 * time.Minute
+	sopCacheMaxN        = 2000
+	sopTopK             = 5
 	sopAgentShared uint = 0
 )
 
@@ -80,7 +79,7 @@ type sopBindingRepoIface interface {
 //   - 新增 sharedCache 概念: agentID=0 的桶存储"共享池" SOP (向后兼容旧 Match API)
 type SOPTemplateService struct {
 	repo        sopRepoIface
-	bindingRepo sopBindingRepoIface 
+	bindingRepo sopBindingRepoIface
 	db          *gorm.DB
 
 	mu     sync.RWMutex
@@ -363,8 +362,8 @@ func (s *SOPTemplateService) IncrementHitCount(ctx context.Context, id uint) {
 		return
 	}
 	// M1：原裸 go func() 改走 utils.SafeGo，自动 recover + 写 panic 计数。
-// go func() 内吞掉的写库失败改 warn：hit_count 是统计型，丢失一次不影响正确性。
-utils.SafeGo(context.Background(), "sop_template.IncrementHitCount", func(bgCtx context.Context) {
+	// go func() 内吞掉的写库失败改 warn：hit_count 是统计型，丢失一次不影响正确性。
+	utils.SafeGo(context.Background(), "sop_template.IncrementHitCount", func(bgCtx context.Context) {
 		bgCtx, cancel := context.WithTimeout(bgCtx, 5*time.Second)
 		defer cancel()
 		utils.WarnErrKV("sop_template.IncrementHitCount.repo",
@@ -453,4 +452,3 @@ func (s *SOPTemplateService) ShouldSkipLLM(tpl *model.SOPTemplate) bool {
 	}
 	return tpl.Confidence >= 0.7
 }
-

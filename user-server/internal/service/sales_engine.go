@@ -27,27 +27,27 @@ type AgentToolPermissionChecker interface {
 type AgentToolDef struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description"`
-	Parameters  map[string]any `json:"parameters"` 
+	Parameters  map[string]any `json:"parameters"`
 }
 
 type AgentToolCall struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
-	Arguments string `json:"arguments"` 
+	Arguments string `json:"arguments"`
 }
 
 type AgentToolContext struct {
 	AgentID    string
 	SessionID  string
 	CustomerID string
-	Source     string 
+	Source     string
 }
 
 type AgentToolResult struct {
 	ToolCallID string          `json:"tool_call_id"`
-	Content    string          `json:"content"` 
+	Content    string          `json:"content"`
 	Success    bool            `json:"success"`
-	Card       *model.RichCard `json:"card,omitempty"` 
+	Card       *model.RichCard `json:"card,omitempty"`
 }
 
 type SalesEngine struct {
@@ -58,12 +58,12 @@ type SalesEngine struct {
 	memory          DialogueMemoryInterface
 	sop             SOPMatcherInterface
 	polisher        PolisherInterface
-	behaviorPl     *BehavioralPlanBuilder
+	behaviorPl      *BehavioralPlanBuilder
 	ragSearcher     RAGSearcher
 	scriptLookup    ScriptLookup
 	customerLookup  CustomerLookup
-	playbook        PlaybookRecommenderInterface 
-	feedbackLearner FeedbackRecorderInterface    
+	playbook        PlaybookRecommenderInterface
+	feedbackLearner FeedbackRecorderInterface
 
 	confidenceAggregator *confidencesvc.ConfidenceAggregator
 
@@ -592,7 +592,7 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 
 	} else {
 		runes := []rune(reply)
-		const batchSize = 4 
+		const batchSize = 4
 		interval := 15 * time.Millisecond
 		for i := 0; i < len(runes); i += batchSize {
 			select {
@@ -776,4 +776,3 @@ func stageToJourneyStage(stage string) JourneyStage {
 		return StageLead
 	}
 }
-

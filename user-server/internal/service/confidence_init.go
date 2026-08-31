@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"sync"
 
@@ -63,4 +62,3 @@ func buildConfidenceAggregator(db *gorm.DB, embedder confidencesvc.Embedder) *co
 func GetConfidenceAggregator() *confidencesvc.ConfidenceAggregator {
 	return confidenceAggregator
 }
-

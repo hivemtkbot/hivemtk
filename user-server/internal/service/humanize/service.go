@@ -1,6 +1,5 @@
 package humanize
 
-
 import (
 	"context"
 	"encoding/json"
@@ -349,4 +348,3 @@ var (
 	_ HumanizeEvaluator = (*RuleScorerImpl)(nil)
 	_ HumanizeEvaluator = (*LLMScorerImpl)(nil)
 )
-

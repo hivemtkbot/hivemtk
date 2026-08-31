@@ -743,9 +743,9 @@ func TestExternalOrderRepository_Create(t *testing.T) {
 				UserID:         "user-123",
 				UserName:       "Test User",
 				UserPhone:      "13800138000",
-				TotalAmount:    10000, 
-				PayAmount:      9000,  
-				DiscountAmount: 1000,  
+				TotalAmount:    10000,
+				PayAmount:      9000,
+				DiscountAmount: 1000,
 				Status:         "pending",
 				Items:          `[{"id": "item-1", "name": "Item 1", "price": 100, "quantity": 1}]`,
 				ShippingAddr:   `{"address": "Test Address", "city": "Shanghai"}`,
@@ -760,7 +760,7 @@ func TestExternalOrderRepository_Create(t *testing.T) {
 				OrderNo:     "internal-order-456",
 				UserID:      "user-456",
 				UserName:    "JD User",
-				TotalAmount: 20000, 
+				TotalAmount: 20000,
 				PayAmount:   20000,
 				Status:      "paid",
 			},
@@ -794,7 +794,7 @@ func TestExternalOrderRepository_GetByOrderID(t *testing.T) {
 		OrderNo:     "internal-123",
 		UserID:      "user-123",
 		UserName:    "Order User",
-		TotalAmount: 15000, 
+		TotalAmount: 15000,
 	}
 	orderRepo.Create(ctx, order)
 
@@ -908,7 +908,7 @@ func TestExternalOrderRepository_Update(t *testing.T) {
 		OrderNo:     "internal-update",
 		UserID:      "user-123",
 		UserName:    "Original User",
-		TotalAmount: 10000, 
+		TotalAmount: 10000,
 		Status:      "pending",
 	}
 	orderRepo.Create(ctx, order)
@@ -972,8 +972,8 @@ func TestExternalProductRepository_Create(t *testing.T) {
 				Name:          "Test Product",
 				CategoryID:    "cat-1",
 				CategoryName:  "Test Category",
-				Price:         9900,  
-				OriginalPrice: 19900, 
+				Price:         9900,
+				OriginalPrice: 19900,
 				Stock:         100,
 				Sales:         50,
 				Images:        `["image1.jpg", "image2.jpg"]`,
@@ -987,7 +987,7 @@ func TestExternalProductRepository_Create(t *testing.T) {
 				Platform:  "ecommerce_jd",
 				ProductID: "prod-456",
 				Name:      "JD Product",
-				Price:     15000, 
+				Price:     15000,
 				Stock:     50,
 				Status:    1,
 			},
@@ -1019,8 +1019,8 @@ func TestExternalProductRepository_GetByProductID(t *testing.T) {
 		Platform:      "ecommerce_taobao",
 		ProductID:     "unique-product-id",
 		Name:          "Unique Product",
-		Price:         9900,  
-		OriginalPrice: 19900, 
+		Price:         9900,
+		OriginalPrice: 19900,
 		Stock:         100,
 	}
 	productRepo.Create(ctx, product)
@@ -1071,14 +1071,14 @@ func TestExternalProductRepository_Update(t *testing.T) {
 		Platform:  "ecommerce_taobao",
 		ProductID: "update-product",
 		Name:      "Original Name",
-		Price:     9900, 
+		Price:     9900,
 		Stock:     100,
 		Status:    1,
 	}
 	productRepo.Create(ctx, product)
 
 	product.Name = "Updated Name"
-	product.Price = 14900 
+	product.Price = 14900
 	product.Stock = 50
 
 	err := productRepo.Update(ctx, product)
@@ -1107,7 +1107,7 @@ func TestExternalProductRepository_Delete(t *testing.T) {
 		Platform:  "ecommerce_taobao",
 		ProductID: "delete-product",
 		Name:      "To Delete",
-		Price:     9900, 
+		Price:     9900,
 	}
 	productRepo.Create(ctx, product)
 
@@ -1312,4 +1312,3 @@ func TestWebhookEventRepository_Update(t *testing.T) {
 		t.Errorf("Expected raw data '{\"updated\": \"data\"}', got '%s'", updated.RawData)
 	}
 }
-

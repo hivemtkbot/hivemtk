@@ -218,7 +218,7 @@ func (s *xianyuCardService) GenerateShortLink(ctx context.Context, card *model.X
 	}
 
 	// 获取域名池域名
-	var domainID uint = 0 
+	var domainID uint = 0
 	if card.DomainPoolID != 0 {
 		domainID = card.DomainPoolID
 	}
@@ -272,4 +272,3 @@ func (s *xianyuCardService) convertToResponse(ctx context.Context, card *model.X
 		UpdatedAt:    card.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 }
-

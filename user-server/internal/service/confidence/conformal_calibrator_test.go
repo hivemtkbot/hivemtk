@@ -139,7 +139,7 @@ func TestConformalCalibrator_PredictorImmutability(t *testing.T) {
 	cc.AddScore(0.7)
 	p1 := cc.Predictor()
 	cc.AddScore(0.9) // 不应触发 Recalibrate（只 1 条）
-	cc.Recalibrate()  // 显式重算
+	cc.Recalibrate() // 显式重算
 	p2 := cc.Predictor()
 	if p1 == p2 {
 		t.Error("after Recalibrate, Predictor should return new instance")

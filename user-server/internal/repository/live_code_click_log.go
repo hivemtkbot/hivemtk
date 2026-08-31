@@ -77,4 +77,3 @@ func (r *liveCodeClickLogRepository) CountTodayByQRCode(ctx context.Context, qrC
 		Count(&count).Error
 	return count, err
 }
-

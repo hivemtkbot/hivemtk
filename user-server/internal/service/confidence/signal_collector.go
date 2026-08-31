@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"context"
 	"math"
@@ -48,7 +47,7 @@ func (c *SignalCollector) Collect(ctx context.Context, in *dto.SignalCollectionI
 	if err == nil {
 		signals.CtxRelev = ctxRelev
 	} else {
-		signals.CtxRelev = 0.5 
+		signals.CtxRelev = 0.5
 	}
 
 	signals.RAGQual = c.computeRAGQual(in)
@@ -216,4 +215,3 @@ func clamp01(v float64) float64 {
 	}
 	return v
 }
-

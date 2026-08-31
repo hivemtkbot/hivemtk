@@ -16,13 +16,10 @@ import (
 	"gorm.io/gorm"
 )
 
-
-
 // AgentContext 智能体执行上下文
 // 已迁移至 dto 包，此处保留类型别名以维持向后兼容
 // 注意：Go 不允许为类型别名（type X = Y）定义方法，相关方法必须挂在 dto 包中
 type AgentContext = dto.AgentContext
-
 
 // AIAgentService AI 智能体服务
 type AIAgentService struct {
@@ -170,18 +167,18 @@ func (s *AIAgentService) LoadContext(ctx context.Context, agentID uint) (*AgentC
 		return nil, err
 	}
 	if agent.Status != 1 {
-		return nil, nil 
+		return nil, nil
 	}
 
 	agentCtx := &AgentContext{
-		AgentID:       agent.ID,
-		AgentCode:     agent.AgentCode,
-		Name:          agent.Name,
-		AgentType:     agent.AgentType,
-		Persona:       agent.Persona,
-		SystemPrompt:  agent.SystemPrompt,
-		Greeting:      agent.Greeting,
-		RagProductIDs: []string(agent.RagProductIDs),
+		AgentID:              agent.ID,
+		AgentCode:            agent.AgentCode,
+		Name:                 agent.Name,
+		AgentType:            agent.AgentType,
+		Persona:              agent.Persona,
+		SystemPrompt:         agent.SystemPrompt,
+		Greeting:             agent.Greeting,
+		RagProductIDs:        []string(agent.RagProductIDs),
 		FAQEntryIDs:          []string(agent.FAQEntryIDs),
 		SOPTemplateIDs:       []string(agent.SOPTemplateIDs),
 		SOPIDs:               []string(agent.SOPIDs),
@@ -260,7 +257,6 @@ func (s *AIAgentService) TestAgent(ctx context.Context, agentID uint, customerID
 	}
 	return engine.HandleWithAgent(ctx, req, agentCtx)
 }
-
 
 // ChannelAgentBindingService 渠道绑定服务
 type ChannelAgentBindingService struct {
@@ -443,7 +439,6 @@ func NormalizeChannelType(ch string) string {
 	}
 }
 
-
 // CustomerServiceAgentService 客服挂载服务
 type CustomerServiceAgentService struct {
 	repo            *repository.CustomerServiceAgentRepository
@@ -582,7 +577,7 @@ func (s *CustomerServiceAgentService) ListByUserID(ctx context.Context, userID u
 	st, err := s.agentStatusRepo.GetByAgentID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return []*model.CustomerServiceAgent{}, nil 
+			return []*model.CustomerServiceAgent{}, nil
 		}
 		return nil, fmt.Errorf("查询座席状态失败: %w", err)
 	}
@@ -609,4 +604,3 @@ func (s *CustomerServiceAgentService) CreateByUserID(ctx context.Context, userID
 	}
 	return m, nil
 }
-

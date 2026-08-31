@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"errors"
@@ -66,10 +65,10 @@ func (r *KnowledgeBaseRepository) GetByCode(ctx context.Context, code string) (*
 
 // ListFilter 列表查询过滤条件
 type KBListFilter struct {
-	Type         string 
-	OwnerType    string 
-	OwnerAgentID *uint  
-	Enabled      *bool  
+	Type         string
+	OwnerType    string
+	OwnerAgentID *uint
+	Enabled      *bool
 	Limit        int
 	Offset       int
 }
@@ -190,4 +189,3 @@ func (r *KnowledgeBaseRepository) CountByAgent(ctx context.Context, agentID uint
 		Count(&count).Error
 	return count, err
 }
-

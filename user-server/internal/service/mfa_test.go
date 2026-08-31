@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"strings"
@@ -460,9 +459,8 @@ func isBase32Char(c rune) bool {
 	if c >= '2' && c <= '7' {
 		return true
 	}
-	if c == '=' { 
+	if c == '=' {
 		return true
 	}
 	return false
 }
-

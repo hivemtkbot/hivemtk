@@ -279,4 +279,3 @@ func setJSONMapValue(m model.JSONMap, key, value string) string {
 func fmtUintSafe(v uint) string {
 	return strconv.FormatUint(uint64(v), 10)
 }
-

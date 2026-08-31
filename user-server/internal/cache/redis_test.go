@@ -299,7 +299,7 @@ func TestRedisCache_Clear(t *testing.T) {
 	config := RedisConfig{
 		Host: "localhost",
 		Port: 6379,
-		DB:   1, 
+		DB:   1,
 	}
 
 	cache, err := NewRedisCache(config)
@@ -438,4 +438,3 @@ func TestRedisCache_WithExpiration(t *testing.T) {
 		t.Error("Get() 过期后应该返回错误")
 	}
 }
-

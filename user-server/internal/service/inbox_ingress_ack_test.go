@@ -159,7 +159,7 @@ func TestInboxIngress_InterceptEcho_DistinguishesSelfAndCustomer(t *testing.T) {
 
 	const (
 		channel   = "douyin_web"
-		accountID = "acc_echo_1" 
+		accountID = "acc_echo_1"
 		conv      = "conv_echo_1"
 		content   = "您好，请问有什么可以帮您"
 	)
@@ -214,4 +214,3 @@ func TestInboxIngress_InterceptEcho_DistinguishesSelfAndCustomer(t *testing.T) {
 		t.Fatalf("客户复述 AI 原话不应被拦截（否则丢失客户消息），实际 reason=%q", dec2.Reason)
 	}
 }
-

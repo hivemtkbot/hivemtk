@@ -61,11 +61,11 @@ func NewCustomerRFMServiceWithRepos(
 // 并入本 config——Rule 非 nil 时按规则显式阈值打分，覆盖默认 Buckets，
 // 全系统统一走 CustomerRFMService 单一口径。
 type RFMConfig struct {
-	RecencyBuckets []int 
-	FrequencyBuckets []int 
-	MonetaryBuckets []int64 
-	ChurnRecencyThreshold int 
-	AutoEnqueueRecovery bool
+	RecencyBuckets        []int
+	FrequencyBuckets      []int
+	MonetaryBuckets       []int64
+	ChurnRecencyThreshold int
+	AutoEnqueueRecovery   bool
 
 	// Rule 可配规则（来源 rfm_rules 表）；非 nil 时优先于 *Buckets 打分
 	Rule *model.RFMRule
@@ -149,7 +149,7 @@ func DefaultRFMConfig() RFMConfig {
 	return RFMConfig{
 		RecencyBuckets:        []int{7, 30, 90, 180},
 		FrequencyBuckets:      []int{10, 5, 3, 1},
-		MonetaryBuckets:       []int64{500000, 100000, 30000, 5000}, 
+		MonetaryBuckets:       []int64{500000, 100000, 30000, 5000},
 		ChurnRecencyThreshold: 180,
 		AutoEnqueueRecovery:   true,
 	}
@@ -679,4 +679,3 @@ func (s *CustomerRFMService) UpdateRFMRule(ctx context.Context, id uint, req *Sa
 func (s *CustomerRFMService) DeleteRFMRule(ctx context.Context, id uint) error {
 	return s.ruleRepo().Delete(ctx, id)
 }
-

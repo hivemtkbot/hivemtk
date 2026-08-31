@@ -255,4 +255,3 @@ func TestEmailSmtpRepository_GetEmailSmtpList_EmptyResult(t *testing.T) {
 		t.Errorf("Expected 0 SMTP configs, got %d", len(results))
 	}
 }
-

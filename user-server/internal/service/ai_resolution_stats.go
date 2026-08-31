@@ -8,12 +8,12 @@ import (
 )
 
 type ResolutionStats struct {
-	TotalSuggestions      int64   `json:"total_suggestions"`
-	AdoptedSuggestions    int64   `json:"adopted_suggestions"`
-	AdoptionRate          float64 `json:"adoption_rate"`
-	ResolvedByAI          int64   `json:"resolved_by_ai"`
-	ResolvedRate          float64 `json:"resolved_rate"`
-	DailyTrend            []DailyResolutionPoint `json:"daily_trend"`
+	TotalSuggestions   int64                  `json:"total_suggestions"`
+	AdoptedSuggestions int64                  `json:"adopted_suggestions"`
+	AdoptionRate       float64                `json:"adoption_rate"`
+	ResolvedByAI       int64                  `json:"resolved_by_ai"`
+	ResolvedRate       float64                `json:"resolved_rate"`
+	DailyTrend         []DailyResolutionPoint `json:"daily_trend"`
 }
 
 type DailyResolutionPoint struct {

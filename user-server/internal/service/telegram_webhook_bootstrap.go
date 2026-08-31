@@ -191,4 +191,3 @@ func ReconcileTelegramWebhooks(svc *TelegramService) {
 	}
 	EnsureTelegramMode(svc)
 }
-

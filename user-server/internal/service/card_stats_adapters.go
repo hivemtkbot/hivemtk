@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // 平台标识常量（与 model.PlatformXxx 保持一致）
 const (
 	PlatformCardStatsDouyin      = "douyin"
@@ -21,7 +20,6 @@ const (
 	PlatformCardStatsXianyu      = "xianyu"
 	PlatformCardStatsTiktok      = "tiktok"
 )
-
 
 // douyinCardStatsAdapter 抖音卡片统计适配器
 //
@@ -91,7 +89,6 @@ func (a *douyinCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint
 	return a.inner.RecordActivity(ctx, cardID, userID, action, username, ipAddress, userAgent)
 }
 
-
 // xiaohongshuCardStatsAdapter 小红书卡片统计适配器
 type xiaohongshuCardStatsAdapter struct {
 	inner XiaohongshuCardStatsService
@@ -156,7 +153,6 @@ func (a *xiaohongshuCardStatsAdapter) RecordActivity(ctx context.Context, cardID
 	return a.inner.RecordActivity(ctx, cardID, userID, action, username, ipAddress, userAgent)
 }
 
-
 // kuaishouCardStatsAdapter 快手卡片统计适配器
 //
 // 快手原本是 struct（非 interface），且 RecordActivity 签名（cardID, action,
@@ -212,12 +208,12 @@ func (a *kuaishouCardStatsAdapter) GetOverallStats(ctx context.Context, req *dto
 		return nil, err
 	}
 	return &dto.PlatformCardOverallStatsResponse{
-		Platform:     PlatformCardStatsKuaishou,
-		TotalCards:   resp.TotalCards,
-		ActiveCards:  resp.ActiveCards,
-		TotalViews:   resp.TotalViews,
-		PopularCards: resp.PopularCards,
-		DailyStats:   resp.DailyStats,
+		Platform:       PlatformCardStatsKuaishou,
+		TotalCards:     resp.TotalCards,
+		ActiveCards:    resp.ActiveCards,
+		TotalViews:     resp.TotalViews,
+		PopularCards:   resp.PopularCards,
+		DailyStats:     resp.DailyStats,
 		RecentActivity: resp.RecentActivities,
 	}, nil
 }
@@ -230,7 +226,6 @@ func (a *kuaishouCardStatsAdapter) RecordActivity(ctx context.Context, cardID ui
 	_ = username
 	return a.inner.RecordActivity(ctx, cardID, action, ipAddress, userAgent, "")
 }
-
 
 // xianyuCardStatsAdapter 闲鱼卡片统计适配器
 //
@@ -307,14 +302,13 @@ func (a *xianyuCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint
 	}
 }
 
-
 // tiktokCardStatsAdapter TikTok 卡片统计适配器
 //
 // TikTok 没有独立的 stats service，统计能力挂在 TikTokCardService
 // （Stats / StatsOverall / RecordView）。此处通过聚合这些方法满足统一接口。
 type tiktokCardStatsAdapter struct {
 	inner    TikTokCardService
-	activity repository.TikTokCardRepository 
+	activity repository.TikTokCardRepository
 }
 
 // NewPlatformTiktokCardStatsAdapter 创建 TikTok 统一接口适配器
@@ -378,7 +372,7 @@ func (a *tiktokCardStatsAdapter) GetOverallStats(ctx context.Context, req *dto.P
 	recent := make([]dto.Activity, 0, len(resp.RecentActivity))
 	for _, r := range resp.RecentActivity {
 		recent = append(recent, dto.Activity{
-			CardID:    0, 
+			CardID:    0,
 			Action:    r.Action,
 			Username:  r.Username,
 			CreatedAt: r.CreatedAt,
@@ -422,7 +416,6 @@ func (a *tiktokCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint
 	return nil
 }
 
-
 // parseDateRange 把 "" 字符串转 time.Time；空字符串时返回零值
 func parseDateRange(start, end string) (time.Time, time.Time) {
 	var s, e time.Time
@@ -449,4 +442,3 @@ func normalizeDateRange(start, end string) (string, string) {
 	}
 	return start, end
 }
-

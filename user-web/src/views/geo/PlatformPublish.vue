@@ -112,13 +112,11 @@
 <script setup>
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { http } from '@/utils/http'
+import { geoApi } from '@/api/geo.js'
 import {
   listPlatformAccounts,
   savePlatformAccount,
-  testPlatformPublish,
-  runPlatformPipeline,
-  getPipelineStatus,
+  publishToPlatform,
   listPlatformPublishRecords
 } from '@/api/geoPlatform.js'
 
@@ -176,7 +174,7 @@ const loadAccounts = async () => {
 
 const loadArticles = async () => {
   try {
-    const data = await http.get('/api/geo/content/list', { page: 1, limit: 20 })
+    const data = await geoApi.getArticleList({ page: 1, limit: 20 })
     articles.value = data?.list || data?.items || (Array.isArray(data) ? data : [])
   } catch {
     articles.value = []
@@ -220,7 +218,13 @@ const saveAccount = async () => {
 
 const onTestPublish = async (p) => {
   try {
-    await testPlatformPublish(p.key, '这是一条测试发布内容')
+    // 测试发布需要先选一篇文章，没有文章则提示
+    if (!selectedArticle.value && !articles.value.length) {
+      ElMessage.warning('请先在 GEO 内容创作页创建一篇文章')
+      return
+    }
+    const articleId = selectedArticle.value || articles.value[0]?.id
+    await publishToPlatform(articleId, p.key, {})
     ElMessage.success(`${p.name} 测试发布成功`)
   } catch (e) {
     ElMessage.error(`${p.name} 测试失败：${e?.message || e}`)
@@ -231,21 +235,32 @@ const runPipeline = async () => {
   pipelineRunning.value = true
   pipelineStatuses.value = selectedPlatforms.value.map(p => ({ platform: p, status: 'running', message: '发布中...' }))
   try {
-    await runPlatformPipeline(selectedArticle.value, selectedPlatforms.value)
-    // 轮询状态
-    const poll = async () => {
+    // 后端没有 runPlatformPipeline / getPipelineStatus，改为循环调 publishToPlatform
+    for (const p of selectedPlatforms.value) {
+      const idx = pipelineStatuses.value.findIndex(s => s.platform === p)
       try {
-        const status = await getPipelineStatus(selectedArticle.value)
-        const list = Array.isArray(status) ? status : (status?.results || [])
-        if (list.length) {
-          pipelineStatuses.value = list
-          const allDone = list.every(r => ['success', 'failed', 'error', 'done'].includes(r.status))
-          if (!allDone) { setTimeout(poll, 2000) }
-          else { pipelineRunning.value = false; ElMessage.success('Pipeline 执行完成'); loadRecords() }
-        } else { pipelineRunning.value = false }
-      } catch { pipelineRunning.value = false }
+        await publishToPlatform(selectedArticle.value, p, {})
+        if (idx >= 0) pipelineStatuses.value[idx] = { platform: p, status: 'success', message: '发布成功' }
+      } catch (err) {
+        if (idx >= 0) pipelineStatuses.value[idx] = { platform: p, status: 'failed', message: err?.message || '发布失败' }
+      }
     }
-    setTimeout(poll, 1500)
+    // 发布完成后查 listPlatformPublishRecords 看 records 最新状态
+    try {
+      const recordsData = await listPlatformPublishRecords(selectedArticle.value)
+      const list = Array.isArray(recordsData) ? recordsData : (recordsData?.list || recordsData?.items || [])
+      if (list.length) {
+        pipelineStatuses.value = list.map(r => ({
+          platform: r.platform,
+          status: r.status || 'unknown',
+          message: r.message || r.error || '',
+          url: r.url
+        }))
+      }
+    } catch { /* 忽略查询失败 */ }
+    pipelineRunning.value = false
+    ElMessage.success('Pipeline 执行完成')
+    loadRecords()
   } catch (e) {
     ElMessage.error('Pipeline 执行失败：' + (e?.message || e))
     pipelineRunning.value = false

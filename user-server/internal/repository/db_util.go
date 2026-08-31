@@ -3,8 +3,8 @@ package repository
 import (
 	"errors"
 
-	"github.com/lib/pq"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -42,4 +42,3 @@ func isDuplicateKeyErr(err error) bool {
 func IsDuplicateKeyErr(err error) bool {
 	return isDuplicateKeyErr(err)
 }
-

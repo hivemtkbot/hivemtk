@@ -7,23 +7,22 @@ import (
 	"strings"
 )
 
-
 // HumanizePolisher 拟人润色器
 type HumanizePolisher struct {
-	enableParticles  bool 
-	enableTruncation bool 
-	maxLength        int  
+	enableParticles  bool
+	enableTruncation bool
+	maxLength        int
 	platformStyle    PlatformStyle
-	particlePool     []string            
+	particlePool     []string
 	emojiPool        map[string][]string
 	randFn           func() float64 // 测试注入的确定性随机函数，nil 时用全局 math/rand
 }
 
 // PlatformStyle 平台风格
 type PlatformStyle struct {
-	AllowEmoji     bool   
-	AllowFormality bool   
-	StyleName      string 
+	AllowEmoji     bool
+	AllowFormality bool
+	StyleName      string
 }
 
 // PolishContext 润色上下文
@@ -333,11 +332,10 @@ func (p *HumanizePolisher) addNaturalParticle(ctx context.Context, text string, 
 	return text
 }
 
-
 var typoPool = map[string][]string{
-	"好的":   {"好哒", "ok", "好的呀", "好滴"},
-	"好":     {"好的~", "ok", "好哒"},
-	"是的":   {"对的", "嗯嗯", "是哒"},
+	"好的":  {"好哒", "ok", "好的呀", "好滴"},
+	"好":   {"好的~", "ok", "好哒"},
+	"是的":  {"对的", "嗯嗯", "是哒"},
 	"好的呢": {"好的呀", "好的~"},
 }
 
@@ -377,4 +375,3 @@ func (p *HumanizePolisher) injectTypo(text string, pctx *PolishContext) string {
 	}
 	return text
 }
-

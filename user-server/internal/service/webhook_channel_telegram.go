@@ -21,8 +21,8 @@ import (
 )
 
 type tgDispatchExtra struct {
-	Mentioned      bool 
-	NewOpportunity bool 
+	Mentioned      bool
+	NewOpportunity bool
 }
 
 const (
@@ -435,4 +435,3 @@ func (s *WebhookService) getTelegramWebhookSecret(ctx context.Context, accountID
 	}
 	return acc.WebhookSecret
 }
-

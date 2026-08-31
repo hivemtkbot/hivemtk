@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"errors"
@@ -134,7 +133,7 @@ func (s *KnowledgeBaseService) GetKBStats(ctx context.Context, id uint) (map[str
 		return nil, nil
 	}
 	stats := map[string]int64{
-		"item_count": int64(kb.DocCount),
+		"item_count":  int64(kb.DocCount),
 		"agent_count": 0,
 		"hit_count":   0,
 	}
@@ -332,4 +331,3 @@ func (s *KnowledgeBaseService) UnbindFromAgent(ctx context.Context, kbID, agentI
 	}
 	return s.bindingRepo.DeleteByAgentAndKB(ctx, agentID, kbID)
 }
-

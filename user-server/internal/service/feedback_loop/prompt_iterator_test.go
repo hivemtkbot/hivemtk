@@ -1,6 +1,5 @@
 package feedbackloop
 
-
 import (
 	"context"
 	"encoding/json"
@@ -13,7 +12,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // TestNextVersion 版本号递增
 func TestNextVersion(t *testing.T) {
 	cases := []struct {
@@ -22,13 +20,13 @@ func TestNextVersion(t *testing.T) {
 	}{
 		{"v1.0", "v1.1"},
 		{"v1.1", "v1.2"},
-		{"v1.9", "v2.0"}, 
+		{"v1.9", "v2.0"},
 		{"v2.9", "v3.0"},
 		{"v9.9", "v10.0"},
-		{"", "v1.1"},       
-		{"v1", "v1.1"},     
-		{"1.0", "1.1"},     
-		{"v1.x", "v1.x.1"}, 
+		{"", "v1.1"},
+		{"v1", "v1.1"},
+		{"1.0", "1.1"},
+		{"v1.x", "v1.x.1"},
 	}
 	for _, c := range cases {
 		got := nextVersion(c.input)
@@ -63,7 +61,6 @@ func TestArmKeysToInterface_Empty(t *testing.T) {
 		t.Errorf("empty input len = %d want 0", len(got))
 	}
 }
-
 
 // TestPromptIterator_IterateForNode_NoActivePrompt 无 active prompt 报错
 func TestPromptIterator_IterateForNode_NoActivePrompt(t *testing.T) {
@@ -269,7 +266,7 @@ func TestPromptIterator_IterateForNode_NoAutoApprove(t *testing.T) {
 	llm := newFeedbackLoopStubLLMDispatcher([]string{respJSON})
 
 	cfg := DefaultPromptIteratorConfig()
-	cfg.AutoApprove = false 
+	cfg.AutoApprove = false
 	p := NewPromptIterator(db, llm, cfg)
 
 	got, err := p.IterateForNode(ctx, 1, "node_1")
@@ -376,4 +373,3 @@ func TestPromptIterator_IterateForNode_LLMInvalidJSON(t *testing.T) {
 		t.Errorf("LLM 返回非 JSON 应报错")
 	}
 }
-

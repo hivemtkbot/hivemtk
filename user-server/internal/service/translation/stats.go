@@ -1,6 +1,5 @@
 package translation
 
-
 import (
 	"context"
 	"fmt"
@@ -30,19 +29,19 @@ type I18nStatsOverview struct {
 	Since time.Time `json:"since"`
 	Until time.Time `json:"until"`
 
-	TotalCalls        int64 `json:"total_calls"`         
-	CrossLingualCalls int64 `json:"cross_lingual_calls"` 
-	LangCount         int   `json:"lang_count"`          
+	TotalCalls        int64 `json:"total_calls"`
+	CrossLingualCalls int64 `json:"cross_lingual_calls"`
+	LangCount         int   `json:"lang_count"`
 
 	CacheHit     int64   `json:"cache_hit"`
 	CacheMiss    int64   `json:"cache_miss"`
-	CacheHitRate float64 `json:"cache_hit_rate"` 
+	CacheHitRate float64 `json:"cache_hit_rate"`
 
 	FallbackTotal int64   `json:"fallback_total"`
 	FallbackCount int64   `json:"fallback_count"`
-	FallbackRate  float64 `json:"fallback_rate"` 
+	FallbackRate  float64 `json:"fallback_rate"`
 
-	GlossaryLangCount int `json:"glossary_lang_count"` 
+	GlossaryLangCount int `json:"glossary_lang_count"`
 
 	LatencyP50 float64 `json:"latency_p50"`
 	LatencyP95 float64 `json:"latency_p95"`
@@ -234,4 +233,3 @@ func (s *I18nStatsService) GetFallbackRate(ctx context.Context, days int) (float
 	}
 	return float64(fallback) / float64(total), nil
 }
-

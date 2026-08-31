@@ -162,7 +162,6 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-
 // TestAuthService_Login_DisabledUser 测试禁用用户登录
 func TestAuthService_Login_DisabledUser(t *testing.T) {
 	mockRepo := new(MockSystemUserRepository)
@@ -223,7 +222,6 @@ func TestAuthService_RefreshToken(t *testing.T) {
 	assert.NotEmpty(t, newToken)
 }
 
-
 // TestAuthService_GetCurrentUser_Success 测试获取当前用户成功
 func TestAuthService_GetCurrentUser_Success(t *testing.T) {
 	mockRepo := new(MockSystemUserRepository)
@@ -277,7 +275,6 @@ func TestAuthService_GetCurrentUser_NotFound(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-
 // TestAuthService_ChangePassword_UserNotFound 测试修改密码时用户不存在
 func TestAuthService_ChangePassword_UserNotFound(t *testing.T) {
 	mockRepo := new(MockSystemUserRepository)
@@ -322,7 +319,6 @@ func TestAuthService_InitAdmin_EmptyUsername(t *testing.T) {
 	assert.Contains(t, err.Error(), "不能为空")
 }
 
-
 // TestAuthService_InitAdmin_WeakPassword 测试初始化管理员时密码强度不足
 func TestAuthService_InitAdmin_WeakPassword(t *testing.T) {
 	mockRepo := new(MockSystemUserRepository)
@@ -339,7 +335,6 @@ func TestAuthService_InitAdmin_WeakPassword(t *testing.T) {
 
 	assert.Error(t, err)
 }
-
 
 // TestAuthService_InitAdmin_InvalidEmail 测试初始化管理员时邮箱格式错误
 func TestAuthService_InitAdmin_InvalidEmail(t *testing.T) {
@@ -379,7 +374,6 @@ func TestAuthService_InitAdmin_UsernameExists(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-
 // TestAuthService_InitAdmin_EmailExists 测试初始化管理员时邮箱已存在
 func TestAuthService_InitAdmin_EmailExists(t *testing.T) {
 	mockRepo := new(MockSystemUserRepository)
@@ -401,7 +395,6 @@ func TestAuthService_InitAdmin_EmailExists(t *testing.T) {
 	assert.Contains(t, err.Error(), "邮箱已被使用")
 	mockRepo.AssertExpectations(t)
 }
-
 
 // TestAuthService_InitAdmin_Success 测试初始化管理员成功
 func TestAuthService_InitAdmin_Success(t *testing.T) {
@@ -436,7 +429,6 @@ func TestAuthService_CheckPassword(t *testing.T) {
 	assert.False(t, result)
 }
 
-
 // TestAuthService_HashPassword 测试密码哈希
 func TestAuthService_HashPassword(t *testing.T) {
 	password := "TestPassword123!"
@@ -447,7 +439,6 @@ func TestAuthService_HashPassword(t *testing.T) {
 	assert.NotEmpty(t, hashed)
 	assert.NotEqual(t, password, hashed)
 }
-
 
 // TestNewAuthService 测试创建认证服务实例
 func TestNewAuthService(t *testing.T) {

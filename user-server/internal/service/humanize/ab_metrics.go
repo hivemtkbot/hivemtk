@@ -25,15 +25,15 @@ const (
 
 // HumanizeABMetrics 单桶聚合指标
 type HumanizeABMetrics struct {
-	Group             string  `json:"group"`
-	SampleCount       int64   `json:"sample_count"`
-	SumScore          float64 `json:"sum_score"`
-	MeanScore         float64 `json:"mean_score"`
-	ConversionCount   int64   `json:"conversion_count"`
-	ChurnCount        int64   `json:"churn_count"`
-	NegativeReplies   int64   `json:"negative_replies"`
-	AvgFirstReplyMs   int64   `json:"avg_first_reply_ms"`
-	SumFirstReplyMs   int64   `json:"sum_first_reply_ms"`
+	Group           string  `json:"group"`
+	SampleCount     int64   `json:"sample_count"`
+	SumScore        float64 `json:"sum_score"`
+	MeanScore       float64 `json:"mean_score"`
+	ConversionCount int64   `json:"conversion_count"`
+	ChurnCount      int64   `json:"churn_count"`
+	NegativeReplies int64   `json:"negative_replies"`
+	AvgFirstReplyMs int64   `json:"avg_first_reply_ms"`
+	SumFirstReplyMs int64   `json:"sum_first_reply_ms"`
 }
 
 // ConversionRate 转化率（conversions / samples）
@@ -221,14 +221,14 @@ func (r *ABRecorder) Snapshot() (control, treatment HumanizeABMetrics) {
 
 // ABComparison A/B 对比结果
 type ABComparison struct {
-	Control           *HumanizeABMetrics `json:"control"`
-	Treatment         *HumanizeABMetrics `json:"treatment"`
-	ConversionDelta   float64           `json:"conversion_delta"`
-	ChurnDelta        float64           `json:"churn_delta"`
-	ScoreDelta        float64           `json:"score_delta"`
-	Winner            string            `json:"winner"`             // "treatment" | "control" | "inconclusive"
-	MinSampleReached  bool              `json:"min_sample_reached"` // 是否达到统计显著性最低样本量
-	Recommendation    string            `json:"recommendation"`
+	Control          *HumanizeABMetrics `json:"control"`
+	Treatment        *HumanizeABMetrics `json:"treatment"`
+	ConversionDelta  float64            `json:"conversion_delta"`
+	ChurnDelta       float64            `json:"churn_delta"`
+	ScoreDelta       float64            `json:"score_delta"`
+	Winner           string             `json:"winner"`             // "treatment" | "control" | "inconclusive"
+	MinSampleReached bool               `json:"min_sample_reached"` // 是否达到统计显著性最低样本量
+	Recommendation   string             `json:"recommendation"`
 }
 
 // Compare 对比两桶并给出建议

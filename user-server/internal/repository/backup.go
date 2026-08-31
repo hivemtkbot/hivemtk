@@ -142,4 +142,3 @@ func (r *RestoreRecordRepository) GetLastRestore(ctx context.Context) (*model.Re
 		First(&record).Error
 	return &record, err
 }
-

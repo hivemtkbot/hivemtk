@@ -40,9 +40,9 @@ func Evaluate(ctx context.Context, dispatcher *llm.Dispatcher, cfg Config, agg *
 		Scenario:     cfg.Scenario,
 		SystemPrompt: evalSystemPrompt,
 		Prompt:       userPrompt,
-		MaxTokens:   2560,
-		Temperature: 0.2,
-		JSONMode:    true,
+		MaxTokens:    2560,
+		Temperature:  0.2,
+		JSONMode:     true,
 	}
 	res, err := dispatcher.Dispatch(ctx, req)
 	if err != nil {
@@ -77,4 +77,3 @@ func parseEvalResult(raw string) (*EvalResult, error) {
 	logger.Debugf("[trace_learning] eval score=%d bad=%v reason=%s", r.Score, r.Bad, r.Reason)
 	return &r, nil
 }
-

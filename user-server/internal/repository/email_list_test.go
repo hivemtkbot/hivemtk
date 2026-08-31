@@ -472,4 +472,3 @@ func TestEmailListRepository_List_EmptyResult(t *testing.T) {
 		t.Errorf("Expected total 0, got %d", total)
 	}
 }
-

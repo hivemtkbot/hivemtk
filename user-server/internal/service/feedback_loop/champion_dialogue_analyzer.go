@@ -1,6 +1,5 @@
 package feedbackloop
 
-
 import (
 	"context"
 	"encoding/json"
@@ -112,7 +111,6 @@ func (a *ChampionDialogueAnalyzer) AnalyzePipeline(ctx context.Context, since ti
 	return report, nil
 }
 
-
 // fetchCandidates 从 feedback_signals 拉取高价值候选对话
 //
 // SQL：聚合 reward + 关联最近一条 feedback_events 取 customer_msg / ai_reply 快照
@@ -126,7 +124,6 @@ func (a *ChampionDialogueAnalyzer) fetchCandidates(ctx context.Context, since ti
 	}
 	return rows, nil
 }
-
 
 // championDialogueWithEmb 候选对话 + 向量
 type championDialogueWithEmb struct {
@@ -156,7 +153,7 @@ func (a *ChampionDialogueAnalyzer) clusterDialogues(ctx context.Context, rows []
 	visited := make([]bool, len(candidates))
 	clusterID := uint(0)
 	clusters := make(map[uint][]championDialogueWithEmb)
-	simThreshold := float32(a.config.ClusterSimThreshold) 
+	simThreshold := float32(a.config.ClusterSimThreshold)
 
 	for i := 0; i < len(candidates); i++ {
 		if visited[i] {
@@ -214,7 +211,6 @@ func (a *ChampionDialogueAnalyzer) takeTopK(dialogues []championDialogueWithEmb,
 	}
 	return dialogues[:k]
 }
-
 
 // extractScriptsWithLLM LLM 提取话术
 //
@@ -285,7 +281,6 @@ func extractJSON(s string) string {
 	return s[start : end+1]
 }
 
-
 // persistDialogue 持久化销冠对话到 champion_dialogues
 //
 // 注意：Embedding 字段用 pgvector 字符串字面量 '[v1,v2,...]' 通过原生 SQL 写入
@@ -296,7 +291,7 @@ func (a *ChampionDialogueAnalyzer) persistDialogue(ctx context.Context, d champi
 	}
 	fingerprint := d.SessionID + "_" + d.Scenario
 	embStr := formatEmbeddingForPgVector(d.Embedding)
-	conversionAchieved := d.Reward >= 2.0 
+	conversionAchieved := d.Reward >= 2.0
 
 	return a.repo.PersistChampionDialogue(ctx, repository.ChampionDialoguePersist{
 		Fingerprint:        fingerprint,
@@ -359,4 +354,3 @@ func (a *ChampionDialogueAnalyzer) saveScriptsToTemplate(ctx context.Context, sc
 
 // _ 确保 math 包被引用（未来 sqrtF32 等函数可能扩展）
 var _ = math.Pi
-

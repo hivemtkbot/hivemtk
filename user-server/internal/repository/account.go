@@ -89,4 +89,3 @@ func (r *accountRepo) UpdateAccountTgNameById(ctx context.Context, id string, Tg
 	err = r.db.Save(&account).Error
 	return err
 }
-

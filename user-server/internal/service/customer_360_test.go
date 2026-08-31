@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 	"hivemtk-user/internal/model"
-	_type "hivemtk-user/internal/pkg/utils/type"
 	dbUtil "hivemtk-user/internal/pkg/db"
+	_type "hivemtk-user/internal/pkg/utils/type"
 	"hivemtk-user/internal/repository"
 	"testing"
 	"time"
@@ -194,7 +194,7 @@ func TestCustomer360Service_buildClueInfo(t *testing.T) {
 		{
 			name: "no matching clue",
 
-			userID:  "user-456", 
+			userID:  "user-456",
 			wantErr: false,
 			wantNil: true,
 		},
@@ -255,7 +255,7 @@ func TestCustomer360Service_buildOrderInfo(t *testing.T) {
 		ID:        "order-1",
 		AccountID: "account-123",
 		Price:     "100.00",
-		Status:    1, 
+		Status:    1,
 		TgID:      12345,
 	}
 	db.Create(order1)
@@ -266,7 +266,7 @@ func TestCustomer360Service_buildOrderInfo(t *testing.T) {
 		ID:        "order-2",
 		AccountID: "account-123",
 		Price:     "200.50",
-		Status:    0, 
+		Status:    0,
 		TgID:      12345,
 	}
 	db.Create(order2)
@@ -463,4 +463,3 @@ func TestCustomer360Service_orderStatusToString(t *testing.T) {
 		})
 	}
 }
-

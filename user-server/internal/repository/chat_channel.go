@@ -157,4 +157,3 @@ func (r *ChatChannelRepository) IncrementSessionCount(ctx context.Context, chann
 		Where("channel_id = ?", channelID).
 		UpdateColumn("session_count", gorm.Expr("session_count + 1")).Error
 }
-

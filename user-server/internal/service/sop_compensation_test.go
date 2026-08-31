@@ -12,8 +12,8 @@ import (
 
 // mockCompensableExecutor 测试用：可补偿的执行器
 type mockCompensableExecutor struct {
-	nodeType    string
-	executeFn   func(ctx context.Context, execCtx *ExecutionContext) (*NodeExecResult, error)
+	nodeType     string
+	executeFn    func(ctx context.Context, execCtx *ExecutionContext) (*NodeExecResult, error)
 	compensateFn func(ctx context.Context, execCtx *ExecutionContext) error
 }
 
@@ -37,8 +37,8 @@ type mockNonCompensableExecutor struct {
 	nodeType string
 }
 
-func (m *mockNonCompensableExecutor) NodeType() string                          { return m.nodeType }
-func (m *mockNonCompensableExecutor) IsAsync() bool                             { return false }
+func (m *mockNonCompensableExecutor) NodeType() string { return m.nodeType }
+func (m *mockNonCompensableExecutor) IsAsync() bool    { return false }
 func (m *mockNonCompensableExecutor) Execute(_ context.Context, _ *ExecutionContext) (*NodeExecResult, error) {
 	return &NodeExecResult{Status: NodeStatusCompleted}, nil
 }
@@ -174,12 +174,12 @@ func TestCompensationManager_Run_FullSaga(t *testing.T) {
 		switch nodeType {
 		case "send_sms":
 			return &mockCompensableExecutor{
-				nodeType: "send_sms",
+				nodeType:     "send_sms",
 				compensateFn: func(_ context.Context, _ *ExecutionContext) error { return nil },
 			}
 		case "create_order":
 			return &mockCompensableExecutor{
-				nodeType: "create_order",
+				nodeType:     "create_order",
 				compensateFn: func(_ context.Context, _ *ExecutionContext) error { return nil },
 			}
 		case "log":
@@ -234,7 +234,7 @@ func TestCompensationManager_Run_PartialFailure(t *testing.T) {
 			}
 		}
 		return &mockCompensableExecutor{
-			nodeType: nodeType,
+			nodeType:     nodeType,
 			compensateFn: func(_ context.Context, _ *ExecutionContext) error { return nil },
 		}
 	}

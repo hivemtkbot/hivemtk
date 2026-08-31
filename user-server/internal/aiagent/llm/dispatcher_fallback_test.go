@@ -34,4 +34,3 @@ func TestPickEnabledFallback(t *testing.T) {
 		t.Fatalf("全部禁用时不应兜底，实际=%q", got)
 	}
 }
-

@@ -16,14 +16,14 @@ import (
 // HandoffRule 升级规则定义
 // 规则存储在 system_config_kv 中，key = "handoff_rules"，value 是 JSON 数组
 type HandoffRule struct {
-	ID          string  `json:"id"`           // 规则唯一标识，如 "escalate_24h"
-	Name        string  `json:"name"`         // 展示名
-	Enabled     bool    `json:"enabled"`      // 是否启用
-	Order       int     `json:"order"`        // 执行优先级（从小到大）
-	Condition   string  `json:"condition"`    // 触发条件表达式，如 "unresolved > 24h" / "csat <= 2 && unresolved"
-	TargetRole  string  `json:"target_role"`  // 目标角色: supervisor / specialist / agent
-	Action      string  `json:"action"`       // escalate / transfer / notify
-	Description string  `json:"description,omitempty"`
+	ID          string `json:"id"`          // 规则唯一标识，如 "escalate_24h"
+	Name        string `json:"name"`        // 展示名
+	Enabled     bool   `json:"enabled"`     // 是否启用
+	Order       int    `json:"order"`       // 执行优先级（从小到大）
+	Condition   string `json:"condition"`   // 触发条件表达式，如 "unresolved > 24h" / "csat <= 2 && unresolved"
+	TargetRole  string `json:"target_role"` // 目标角色: supervisor / specialist / agent
+	Action      string `json:"action"`      // escalate / transfer / notify
+	Description string `json:"description,omitempty"`
 }
 
 // HandoffChainService 工单升级/转派链服务
@@ -31,8 +31,8 @@ type HandoffRule struct {
 // G14: 竞品标配功能 - 基于可配置规则的 SLA 升级链
 //
 // 规则示例（默认）：
-//   1) unresolved > 24h → 自动升级到 supervisor
-//   2) csat <= 2 && unresolved → 自动转派到 specialist
+//  1. unresolved > 24h → 自动升级到 supervisor
+//  2. csat <= 2 && unresolved → 自动转派到 specialist
 //
 // 数据源：
 //   - system_config_kv (key = "handoff_rules")：规则 JSON
@@ -115,12 +115,12 @@ func (s *HandoffChainService) CheckRules(ctx context.Context, sessionID string) 
 
 	// 查会话状态
 	type sessSnapshot struct {
-		ID           string  `gorm:"column:id"`
-		Status       string  `gorm:"column:status"`
-		CreatedAt    time.Time `gorm:"column:created_at"`
-		ResolvedAt   *time.Time `gorm:"column:resolved_at"`
-		CsatScore    *int    `gorm:"column:csat_score"`
-		AssignedAgentID *uint `gorm:"column:assigned_agent_id"`
+		ID              string     `gorm:"column:id"`
+		Status          string     `gorm:"column:status"`
+		CreatedAt       time.Time  `gorm:"column:created_at"`
+		ResolvedAt      *time.Time `gorm:"column:resolved_at"`
+		CsatScore       *int       `gorm:"column:csat_score"`
+		AssignedAgentID *uint      `gorm:"column:assigned_agent_id"`
 	}
 	var sess sessSnapshot
 	if err := s.db.WithContext(ctx).
@@ -188,12 +188,12 @@ func (s *HandoffChainService) RunCron(ctx context.Context, limit int) (int, erro
 
 // matchRule 判断规则条件是否成立
 func (s *HandoffChainService) matchRule(rule HandoffRule, sess struct {
-	ID              string    `gorm:"column:id"`
-	Status          string    `gorm:"column:status"`
-	CreatedAt       time.Time `gorm:"column:created_at"`
+	ID              string     `gorm:"column:id"`
+	Status          string     `gorm:"column:status"`
+	CreatedAt       time.Time  `gorm:"column:created_at"`
 	ResolvedAt      *time.Time `gorm:"column:resolved_at"`
-	CsatScore       *int      `gorm:"column:csat_score"`
-	AssignedAgentID *uint     `gorm:"column:assigned_agent_id"`
+	CsatScore       *int       `gorm:"column:csat_score"`
+	AssignedAgentID *uint      `gorm:"column:assigned_agent_id"`
 }, now time.Time) bool {
 	// 会话已解决 → 跳过
 	if sess.Status == "resolved" || sess.Status == "closed" {
@@ -223,11 +223,11 @@ func (s *HandoffChainService) applyRule(ctx context.Context, rule HandoffRule, s
 	// 1) 写入 handoff_decisions 记录（规则驱动的升级/转派也落同一张表）
 	if s.db != nil {
 		record := model.HandoffDecisionRecord{
-			DecisionID:  rule.ID + "_" + sessionID,
-			SessionID:   sessionID,
-			Reason:      rule.Action + "_by_rule:" + rule.ID,
+			DecisionID:   rule.ID + "_" + sessionID,
+			SessionID:    sessionID,
+			Reason:       rule.Action + "_by_rule:" + rule.ID,
 			ReasonDetail: rule.Description,
-			IntentType:  rule.TargetRole,
+			IntentType:   rule.TargetRole,
 		}
 		_ = s.db.WithContext(ctx).Create(&record).Error
 	}

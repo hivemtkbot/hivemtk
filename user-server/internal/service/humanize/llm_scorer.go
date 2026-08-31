@@ -1,6 +1,5 @@
 package humanize
 
-
 import (
 	"context"
 	"encoding/json"
@@ -17,10 +16,10 @@ import (
 
 // LLMScorerImpl LLM 评估器实现
 type LLMScorerImpl struct {
-	dispatcher LLMDispatcher
-	baseline   *model.ChampionBaseline
+	dispatcher       LLMDispatcher
+	baseline         *model.ChampionBaseline
 	selfConsistencyN int
-	temperature float64
+	temperature      float64
 }
 
 // NewLLMScorer 构造 LLM 评估器
@@ -98,7 +97,6 @@ func (s *LLMScorerImpl) Evaluate(ctx context.Context, input *dto.HumanizeEvalInp
 
 	return final, nil
 }
-
 
 // buildHumanizeLLMPrompt 构建 G-Eval 风格 prompt（见 §16.2.5）
 func buildHumanizeLLMPrompt(input *dto.HumanizeEvalInput, baseline *model.ChampionBaseline) string {
@@ -194,7 +192,6 @@ func pickMedianResult(results []*dto.HumanizeEvalResult) *dto.HumanizeEvalResult
 	return results[len(results)/2]
 }
 
-
 // weightedEuclideanDistance 加权欧氏距离
 //
 // D = sqrt(Σ w_i * (s_i - b_i)²)
@@ -223,11 +220,10 @@ func weightedEuclideanDistance(scores []dto.HumanizeDimensionScore, baseline *mo
 	return math.Round(math.Sqrt(sum)*10000) / 10000
 }
 
-
 // SampleDecision 采样决策
 type SampleDecision struct {
 	NeedLLM  bool
-	Strategy string 
+	Strategy string
 }
 
 // decideLLMSample 根据 RuleScorer 总分决定是否触发 LLM 评估
@@ -256,4 +252,3 @@ func decideLLMSample(ruleScore, threshold, boundaryLow, boundaryHigh, sampleRate
 	}
 	return SampleDecision{NeedLLM: false, Strategy: "full"}
 }
-

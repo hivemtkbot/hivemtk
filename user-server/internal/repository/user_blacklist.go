@@ -113,4 +113,3 @@ func isExpired(b *model.UserBlacklist) bool {
 	}
 	return !b.ExpiresAt.After(time.Now())
 }
-

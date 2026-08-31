@@ -9,8 +9,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
-
 // scriptLookupAdapter 话术库查询适配器
 // 实现 SalesEngine.ScriptLookup 接口
 type scriptLookupAdapter struct {
@@ -106,7 +104,6 @@ func uintToString(n uint) string {
 	return string(buf[i:])
 }
 
-
 // customerLookupAdapter 客户信息查询适配器
 // 实现 SalesEngine.CustomerLookup 接口
 type customerLookupAdapter struct {
@@ -137,4 +134,3 @@ func (a *customerLookupAdapter) GetByID(ctx context.Context, id string) (*model.
 	}
 	return a.customerRepo.GetByID(ctx, id)
 }
-

@@ -101,4 +101,3 @@ func (r *smsUnsubscribeRepo) ListAll(ctx context.Context) ([]*model.SmsUnsubscri
 	}
 	return records, nil
 }
-

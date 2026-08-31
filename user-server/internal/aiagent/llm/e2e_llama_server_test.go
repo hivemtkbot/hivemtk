@@ -58,8 +58,8 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 
 	svc := NewLLMService()
 	llmCfg := &LLMConfig{
-		BaseURL:        config.DefaultLLMBaseURLDev, 
-		Model:          "Qwen2.5-1.5B-Instruct",     
+		BaseURL:        config.DefaultLLMBaseURLDev,
+		Model:          "Qwen2.5-1.5B-Instruct",
 		MaxTokens:      50,
 		Temperature:    0.7,
 		MaxRetries:     1,
@@ -92,8 +92,8 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 
 	provider := &ProviderConfig{
 		Name:    "default",
-		BaseURL: config.DefaultLLMBaseURLDev, 
-		Model:   "Qwen2.5-1.5B-Instruct",     
+		BaseURL: config.DefaultLLMBaseURLDev,
+		Model:   "Qwen2.5-1.5B-Instruct",
 	}
 	traceID := fmt.Sprintf("e2e-llama-%d", time.Now().UnixNano())
 	tokenSource := InferTokenSource(result.Usage.TotalTokens, result.Content)
@@ -182,4 +182,3 @@ func truncate(s string, n int) string {
 	}
 	return s[:n] + "..."
 }
-

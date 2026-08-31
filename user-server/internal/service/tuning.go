@@ -8,7 +8,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 // TuningService 统一管理服务接口
 //
 // 所有列表方法返回 **值切片**（[]T），与下层 Repository 保持一致；
@@ -73,7 +72,6 @@ func NewTuningService() TuningService {
 	}
 }
 
-
 func (s *tuningService) ListConfidenceSignals(ctx context.Context, sessionID string, page, pageSize int) ([]model.ConfidenceSignal, int64, error) {
 	return s.signalRepo.List(ctx, sessionID, page, pageSize)
 }
@@ -98,11 +96,9 @@ func (s *tuningService) StatsConfidenceSignals(ctx context.Context, since time.T
 	return out, nil
 }
 
-
 func (s *tuningService) ListCalibrations(ctx context.Context, signalType string, page, pageSize int) ([]model.ConfidenceCalibration, int64, error) {
 	return s.calibRepo.List(ctx, signalType, page, pageSize)
 }
-
 
 func (s *tuningService) ListThresholdPolicies(ctx context.Context) ([]model.ThresholdPolicy, error) {
 	return s.policyRepo.ListActive(ctx)
@@ -113,7 +109,6 @@ func (s *tuningService) UpsertThresholdPolicy(ctx context.Context, p *model.Thre
 	p.UpdatedAt = time.Now()
 	return s.policyRepo.Save(ctx, p)
 }
-
 
 func (s *tuningService) ListHumanizeScores(ctx context.Context, sessionID string, passed *bool, page, pageSize int) ([]model.HumanizeScore, int64, error) {
 	return s.scoreRepo.List(ctx, sessionID, passed, page, pageSize)
@@ -132,11 +127,9 @@ func (s *tuningService) StatsHumanizeScores(ctx context.Context, since time.Time
 	}, nil
 }
 
-
 func (s *tuningService) ListChampionBaselines(ctx context.Context) ([]model.ChampionBaseline, error) {
 	return s.baselineRepo.ListEnabledModels(ctx)
 }
-
 
 func (s *tuningService) ListFeedbackEvents(ctx context.Context, sessionID, signalKey string, page, pageSize int) ([]model.FeedbackEvent, int64, error) {
 	return s.feedbackRepo.ListFeedbackEvents(ctx, sessionID, signalKey, page, pageSize)
@@ -157,11 +150,9 @@ func (s *tuningService) StatsFeedbackEvents(ctx context.Context, since time.Time
 	return out, nil
 }
 
-
 func (s *tuningService) ListChampionDialogues(ctx context.Context, intent, industry string, page, pageSize int) ([]model.ChampionDialogue, int64, error) {
 	return s.feedbackRepo.ListChampionDialogues(ctx, intent, industry, page, pageSize)
 }
-
 
 func (s *tuningService) ListPromptCandidates(ctx context.Context, status string, page, pageSize int) ([]model.PromptCandidate, int64, error) {
 	return s.feedbackRepo.ListPromptCandidates(ctx, status, page, pageSize)
@@ -171,13 +162,10 @@ func (s *tuningService) UpdatePromptCandidateStatus(ctx context.Context, id, sta
 	return s.feedbackRepo.UpdatePromptCandidateStatus(ctx, id, status)
 }
 
-
 func (s *tuningService) ListBanditArms(ctx context.Context, experimentID, sopID string, page, pageSize int) ([]model.BanditArm, int64, error) {
 	return s.feedbackRepo.ListBanditArms(ctx, experimentID, sopID, page, pageSize)
 }
 
-
 func (s *tuningService) ListLowQualitySamples(ctx context.Context, sampleType string, page, pageSize int) ([]model.LowQualitySample, int64, error) {
 	return s.lowQRepo.List(ctx, sampleType, page, pageSize)
 }
-

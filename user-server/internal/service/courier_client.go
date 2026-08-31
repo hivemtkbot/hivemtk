@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/aiagent/agent/portcontract"
 )
 
-
 // CourierClient 标准快递轨迹 HTTP 客户端，实现 portcontract.CourierClient
 type CourierClient struct {
 	baseURL string
@@ -81,4 +80,3 @@ func (c *CourierClient) Query(ctx context.Context, carrier, trackingNo string) (
 	}
 	return tracks, nil
 }
-

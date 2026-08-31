@@ -60,7 +60,7 @@ func (s *xianyuCardStatsService) GetCardStats(ctx context.Context, cardID uint, 
 
 	return &dto.XianyuCardStatsResponse{
 		CardID:     cardID,
-		Title:      "", 
+		Title:      "",
 		ViewCount:  stats.Views,
 		ClickCount: stats.Clicks,
 		ShareCount: stats.Shares,
@@ -110,7 +110,7 @@ func (s *xianyuCardStatsService) GetOverallStats(ctx context.Context, startDate,
 		TotalShares:    stats.TotalShareCount,
 		DailyStats:     dailyStats,
 		PopularCards:   popularCards,
-		RecentActivity: []dto.Activity{}, 
+		RecentActivity: []dto.Activity{},
 	}, nil
 }
 
@@ -203,4 +203,3 @@ func (s *xianyuCardStatsService) RecordClick(ctx context.Context, cardID uint, i
 func (s *xianyuCardStatsService) RecordShare(ctx context.Context, cardID uint, ip, userAgent, referer string) error {
 	return s.repo.RecordActivity(ctx, cardID, "share", ip, userAgent, referer)
 }
-

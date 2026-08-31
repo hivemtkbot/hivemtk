@@ -16,7 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // 构造一条带唯一 MsgID 的入站消息
 func seedHub(platform, sender, name, content string, idx int) model.MessageHub {
 	return model.MessageHub{
@@ -326,4 +325,3 @@ func cleanupLeadMiningData(t *testing.T, database *gorm.DB, senders ...string) {
 		database.Delete(&model.LeadMiningConfig{})
 	})
 }
-

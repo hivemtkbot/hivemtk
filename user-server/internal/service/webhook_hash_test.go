@@ -9,7 +9,7 @@ import "testing"
 // 契约：FNV-1a 32 位，输入 = channel + "|" + trim(content)（UTF-8 字节），
 // 输出 = "mh:" + 8 位小写 hex。conversationID 严禁进入哈希输入。
 func TestContentHashMsgIDCrossLanguageContract(t *testing.T) {
-	const anchor = "mh:00550fed" 
+	const anchor = "mh:00550fed"
 
 	if got := ContentHashMsgID("douyin", "c1", "你好"); got != anchor {
 		t.Fatalf("cross-language anchor mismatch: ContentHashMsgID('douyin','c1','你好') = %q, want %q", got, anchor)
@@ -57,4 +57,3 @@ func TestContentHashWithSenderDistinguishesSender(t *testing.T) {
 		t.Fatalf("ContentHashWithSender not deterministic")
 	}
 }
-

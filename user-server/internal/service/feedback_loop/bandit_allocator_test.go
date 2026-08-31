@@ -1,6 +1,5 @@
 package feedbackloop
 
-
 import (
 	"context"
 	"errors"
@@ -11,7 +10,6 @@ import (
 
 	"hivemtk-user/internal/model"
 )
-
 
 // TestBetaSample_RangeInUnitInterval Beta 采样结果应在 [0,1]
 func TestBetaSample_RangeInUnitInterval(t *testing.T) {
@@ -54,10 +52,10 @@ func TestBetaSample_MeanConverges(t *testing.T) {
 	cases := []struct {
 		alpha, beta float64
 	}{
-		{2, 8},   
-		{5, 5},   
-		{8, 2},   
-		{50, 50}, 
+		{2, 8},
+		{5, 5},
+		{8, 2},
+		{50, 50},
 	}
 	const N = 5000
 	for _, c := range cases {
@@ -156,7 +154,7 @@ func TestEnforceTrafficCeiling_NoCeilingReached(t *testing.T) {
 func TestEnforceTrafficCeiling_CeilingReached(t *testing.T) {
 	b := NewBanditAllocator(nil, DefaultBanditConfig(), 42)
 	arms := []*model.BanditArm{
-		{ArmKey: "arm_a", TotalTrials: 80}, 
+		{ArmKey: "arm_a", TotalTrials: 80},
 		{ArmKey: "arm_b", TotalTrials: 20},
 	}
 	forced, needExplore := b.enforceTrafficCeiling(arms, "arm_a", 100)
@@ -183,7 +181,6 @@ func TestEnforceTrafficCeiling_ZeroTotalTrials(t *testing.T) {
 		t.Errorf("不强制时 forced = %q want arm_a", forced)
 	}
 }
-
 
 // TestBanditAllocator_SelectArm_ColdStartUniform 冷启动期均匀随机分配
 //
@@ -517,4 +514,3 @@ func TestBanditAllocator_SelectPrompt_WithRunningTest(t *testing.T) {
 		t.Errorf("armKey = %q want arm_0", armKey)
 	}
 }
-

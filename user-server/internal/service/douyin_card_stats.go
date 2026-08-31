@@ -172,4 +172,3 @@ func (s *douyinCardStatsService) RecordActivity(ctx context.Context, cardID uint
 
 	return s.repo.IncrementCardViewCount(ctx, cardID)
 }
-

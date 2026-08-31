@@ -1,4 +1,3 @@
-
 package service
 
 import (
@@ -166,5 +165,3 @@ func TestIsValidSystemUserRoleCode(t *testing.T) {
 		}
 	}
 }
-
-

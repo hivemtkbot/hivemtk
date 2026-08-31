@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"errors"
 	"strings"
@@ -11,7 +10,6 @@ import (
 
 	"gorm.io/gorm"
 )
-
 
 // TestBind_NilBindingRepo 测试 nil binding repo
 func TestBind_NilBindingRepo(t *testing.T) {
@@ -62,7 +60,6 @@ func TestBind_ErrorMessage(t *testing.T) {
 	}
 }
 
-
 // TestUnbind_NilBindingRepo 测试 nil repo
 func TestUnbind_NilBindingRepo(t *testing.T) {
 	svc := &AgentKBBindingService{}
@@ -71,7 +68,6 @@ func TestUnbind_NilBindingRepo(t *testing.T) {
 		t.Error("expected error for nil binding repo")
 	}
 }
-
 
 // TestListByAgent_NilBindingRepo 测试 nil repo
 func TestListByAgent_NilBindingRepo(t *testing.T) {
@@ -96,7 +92,6 @@ func TestListByKB_NilBindingRepo(t *testing.T) {
 		t.Errorf("expected nil list, got %v", got)
 	}
 }
-
 
 // TestBatchBind_NilBindingRepo 测试 nil repo
 func TestBatchBind_NilBindingRepo(t *testing.T) {
@@ -126,7 +121,7 @@ func TestBatchBind_ZeroAgentIDInItem(t *testing.T) {
 	svc := &AgentKBBindingService{bindingRepo: nil}
 	err := svc.BatchBind(nil, []BatchBindItem{
 		{AgentID: 1, KBID: 10},
-		{AgentID: 0, KBID: 20}, 
+		{AgentID: 0, KBID: 20},
 	})
 	if err == nil {
 		t.Error("expected error")
@@ -142,7 +137,7 @@ func TestBatchBind_ZeroAgentIDInItem(t *testing.T) {
 func TestBatchBind_ZeroKBIDInItem(t *testing.T) {
 	svc := &AgentKBBindingService{bindingRepo: nil}
 	err := svc.BatchBind(nil, []BatchBindItem{
-		{AgentID: 1, KBID: 0}, 
+		{AgentID: 1, KBID: 0},
 	})
 	if err == nil {
 		t.Error("expected error")
@@ -161,7 +156,6 @@ func TestBatchBind_NilDB_NoDBFallback(t *testing.T) {
 	}
 }
 
-
 // TestSetRepositories_NilInputs 验证 nil 输入保留 nil
 func TestSetRepositories_NilInputs(t *testing.T) {
 	svc := &AgentKBBindingService{}
@@ -178,7 +172,6 @@ func TestSetRepositories_PartialNil(t *testing.T) {
 	bindRepo := (*repository.AgentKBBindingRepository)(nil)
 	svc.SetRepositories(kbRepo, bindRepo)
 }
-
 
 // TestNewAgentKBBindingService_NilDB 测试 nil db 构造
 //
@@ -204,7 +197,6 @@ func TestNewAgentKBBindingServiceWithRepos(t *testing.T) {
 	}
 }
 
-
 // TestBoolPtr 测试 boolPtr
 func TestBoolPtr(t *testing.T) {
 	p := boolPtr(true)
@@ -217,12 +209,11 @@ func TestBoolPtr(t *testing.T) {
 	}
 }
 
-
 // TestBind_Priority_DefaultValue 验证 priority=0 是合法值
 func TestBind_Priority_DefaultValue(t *testing.T) {
 	svc := &AgentKBBindingService{bindingRepo: nil}
 	defer func() {
-		_ = recover() 
+		_ = recover()
 	}()
 	_ = svc.Bind(nil, 1, 1, 0)
 }
@@ -244,15 +235,14 @@ func TestBatchBind_ItemValidation_AllValid(t *testing.T) {
 	}
 }
 
-
 // TestBind_AllValid_NilRepo_NoPanic 测试 agent/kb 校验通过后, 调 nil repo 不会 panic
 //
 // 当前实现: kb 存在性检查 -> DeleteByAgentAndKB -> Create
 // 全部 nil 会 panic, 这里验证 panic 是可恢复的
 func TestBind_AllValid_NilRepo_NoPanic(t *testing.T) {
-	svc := &AgentKBBindingService{} 
+	svc := &AgentKBBindingService{}
 	defer func() {
-		_ = recover() 
+		_ = recover()
 	}()
 	_ = svc.Bind(nil, 1, 1, 0)
 }
@@ -265,7 +255,6 @@ func TestBatchBind_AllValid_NilRepo(t *testing.T) {
 	}()
 	_ = svc.BatchBind(nil, []BatchBindItem{{AgentID: 1, KBID: 1}})
 }
-
 
 // TestAgentKBBinding_Model 验证模型字段定义
 func TestAgentKBBinding_Model(t *testing.T) {
@@ -303,7 +292,6 @@ func TestBatchBindItem_Defaults(t *testing.T) {
 	}
 }
 
-
 // TestWrapError 验证错误包装
 func TestWrapError(t *testing.T) {
 	inner := errors.New("inner error")
@@ -313,7 +301,6 @@ func TestWrapError(t *testing.T) {
 	}
 }
 
-
 // TestGormDB_NilAssignment 验证 gorm.DB nil 赋值
 func TestGormDB_NilAssignment(t *testing.T) {
 	var db *gorm.DB
@@ -321,4 +308,3 @@ func TestGormDB_NilAssignment(t *testing.T) {
 		t.Error("expected nil db")
 	}
 }
-

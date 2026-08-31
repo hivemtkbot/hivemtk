@@ -9,22 +9,19 @@ import (
 	"time"
 )
 
-
-
 var (
 	ErrReActParseFailed = fmt.Errorf("react parse failed")
-	ErrReActNoAction = fmt.Errorf("react no action or final answer")
+	ErrReActNoAction    = fmt.Errorf("react no action or final answer")
 )
-
 
 // ReActParseResult ReAct 解析结果
 type ReActParseResult struct {
-	Thought     string 
-	Action      string 
-	ActionInput string 
-	FinalAnswer string 
-	IsFinal     bool   
-	RawContent  string 
+	Thought     string
+	Action      string
+	ActionInput string
+	FinalAnswer string
+	IsFinal     bool
+	RawContent  string
 }
 
 // reactActionRe 匹配 Action: xxx
@@ -99,7 +96,6 @@ func (r *ReActParseResult) ToToolCall(id string) *ToolCall {
 		},
 	}
 }
-
 
 // ReActAdapter 将无 FC 能力的 LLM 适配为 ReAct 协议
 //
@@ -205,7 +201,6 @@ func (a *ReActAdapter) nextToolCallID() string {
 	return fmt.Sprintf("react_%d_%d", time.Now().UnixNano(), seq)
 }
 
-
 // BuildObservationMessage 构造 ReAct Observation 消息
 //
 // 在 Agent Loop 中，工具执行结果需要回灌给 LLM。
@@ -220,7 +215,7 @@ func BuildObservationMessage(toolName, toolCallID, observation string) ChatMessa
 	return ChatMessage{
 		Role:       "user",
 		Content:    content,
-		ToolCallID: toolCallID, 
+		ToolCallID: toolCallID,
 		Name:       toolName,
 	}
 }
@@ -239,4 +234,3 @@ func IsReActMode(req *DispatchRequest, providerNoFC bool) bool {
 	}
 	return false
 }
-

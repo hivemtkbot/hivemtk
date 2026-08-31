@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"context"
 	"time"
@@ -125,7 +124,7 @@ func (a *ConfidenceAggregator) Aggregate(ctx context.Context, in *dto.SignalColl
 
 	aggregatedConf := a.aggregator.Aggregate(signals)
 	if vetoTriggered {
-		aggregatedConf = 0 
+		aggregatedConf = 0
 	}
 
 	threshold := a.calc.Calculate(&ThresholdInput{
@@ -257,4 +256,3 @@ var ErrAggregatorNotInitialized = &aggError{"confidence aggregator not initializ
 type aggError struct{ msg string }
 
 func (e *aggError) Error() string { return e.msg }
-

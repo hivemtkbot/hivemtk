@@ -1,6 +1,5 @@
 package feedbackloop
 
-
 import (
 	"context"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/testutil"
 )
-
 
 // TestSOPAutoOptimizer_ProcessPending_NoSuggestions 无建议
 func TestSOPAutoOptimizer_ProcessPending_NoSuggestions(t *testing.T) {
@@ -143,7 +141,7 @@ func TestSOPAutoOptimizer_ProcessPending_LowPriorityNotApplied(t *testing.T) {
 		SOPID: sop.ID, SOPName: "test-sop-low",
 		SuggestionType: model.SuggestionTypeBranchPrune,
 		SuggestionText: "低 priority 建议",
-		Priority:       1, 
+		Priority:       1,
 		Status:         model.SuggestionStatusPending,
 	}
 	if err := db.Create(&sug).Error; err != nil {
@@ -183,9 +181,9 @@ func TestSOPAutoOptimizer_ProcessPending_UnknownSuggestionType(t *testing.T) {
 	}
 	sug := model.OptimizationSuggestion{
 		SOPID: sop.ID, SOPName: "test",
-		SuggestionType: "unknown_type", 
+		SuggestionType: "unknown_type",
 		SuggestionText: "未知类型建议",
-		Priority:       3, 
+		Priority:       3,
 		Status:         model.SuggestionStatusPending,
 	}
 	if err := db.Create(&sug).Error; err != nil {
@@ -332,7 +330,7 @@ func TestSOPAutoOptimizer_CheckAndRollback_ConversionDrop(t *testing.T) {
 		}
 	}
 
-	bandit := newStubBanditAllocator() 
+	bandit := newStubBanditAllocator()
 	o := NewSOPAutoOptimizer(db, bandit, DefaultSOPAutoOptimizerConfig())
 	report, err := o.ProcessPendingSuggestions(ctx)
 	if err != nil {
@@ -506,4 +504,3 @@ func TestSOPAutoOptimizer_RollbackTest(t *testing.T) {
 		t.Errorf("retired arms = %d want 2", retiredCount)
 	}
 }
-

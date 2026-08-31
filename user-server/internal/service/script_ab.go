@@ -26,8 +26,8 @@ const ScriptABAttributionHours = 48
 // ScriptABConfig 话术级 AB 配置（system_config_kv: script_ab.{scriptID}）
 type ScriptABConfig struct {
 	Enabled      bool `json:"enabled"`
-	SplitA       int  `json:"split_a"`         // A 桶百分比（0-100），B=100-A
-	AttributionH int  `json:"attribution_h"`   // 归因窗口小时数
+	SplitA       int  `json:"split_a"`       // A 桶百分比（0-100），B=100-A
+	AttributionH int  `json:"attribution_h"` // 归因窗口小时数
 }
 
 // DefaultScriptABConfig 默认配置：启用 50/50，48h 归因

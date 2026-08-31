@@ -35,9 +35,8 @@ func TestReachAlertHook_InvokedOnFire(t *testing.T) {
 
 // TestReachAlertHook_NilNoPanic 验证未注入告警钩子时 fireAlert 不 panic（向后兼容）。
 func TestReachAlertHook_NilNoPanic(t *testing.T) {
-	svc := &ReachPipelineService{} 
+	svc := &ReachPipelineService{}
 	assert.NotPanics(t, func() {
 		svc.fireAlert(context.Background(), &model.ReachJob{ID: 1}, "failed", "x")
 	})
 }
-

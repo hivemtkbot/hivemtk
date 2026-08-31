@@ -1,11 +1,10 @@
 package llm
 
-
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"crypto/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,13 +18,13 @@ import (
 type TraceSpanKind string
 
 const (
-	TraceSpanKindLLMCall   TraceSpanKind = "llm_call"  
-	TraceSpanKindToolCall  TraceSpanKind = "tool_call" 
-	TraceSpanKindDBOp      TraceSpanKind = "db_op"     
-	TraceSpanKindLog       TraceSpanKind = "log"       
-	TraceSpanKindRAGQuery  TraceSpanKind = "rag_query" 
-	TraceSpanKindAgent     TraceSpanKind = "agent"     
-	TraceSpanKindWebSocket TraceSpanKind = "websocket" 
+	TraceSpanKindLLMCall   TraceSpanKind = "llm_call"
+	TraceSpanKindToolCall  TraceSpanKind = "tool_call"
+	TraceSpanKindDBOp      TraceSpanKind = "db_op"
+	TraceSpanKindLog       TraceSpanKind = "log"
+	TraceSpanKindRAGQuery  TraceSpanKind = "rag_query"
+	TraceSpanKindAgent     TraceSpanKind = "agent"
+	TraceSpanKindWebSocket TraceSpanKind = "websocket"
 )
 
 // TraceEvent 全链路追踪事件（对应 trace_events 表）
@@ -38,7 +37,7 @@ type TraceEvent struct {
 	Service      string         `json:"service" gorm:"type:varchar(64);not null"`
 	Operation    string         `json:"operation" gorm:"type:varchar(128);not null"`
 	DurationMs   int64          `json:"duration_ms" gorm:"default:0"`
-	Status       string         `json:"status" gorm:"type:varchar(16);default:'ok'"` 
+	Status       string         `json:"status" gorm:"type:varchar(16);default:'ok'"`
 	Metadata     map[string]any `json:"metadata,omitempty" gorm:"type:text;serializer:json"`
 	Timestamp    time.Time      `json:"timestamp" gorm:"index"`
 }
@@ -195,7 +194,6 @@ func generateSpanID() string {
 	return hex.EncodeToString(b)
 }
 
-
 // TraceEventPublisher 追踪事件发布器接口
 type TraceEventPublisher interface {
 	Publish(event TraceEvent)
@@ -273,12 +271,10 @@ func (b *InMemoryTraceBus) dispatch() {
 	}
 }
 
-
 // TraceRecorder 追踪事件记录器接口
 type TraceRecorder interface {
 	Record(event TraceEvent) error
 }
-
 
 var (
 	globalTraceBus     *InMemoryTraceBus
@@ -402,4 +398,3 @@ func UnmarshalMetadata(raw string) map[string]any {
 	}
 	return m
 }
-

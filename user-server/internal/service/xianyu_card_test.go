@@ -497,4 +497,3 @@ func TestXianyuCardService_Create_InactiveCard(t *testing.T) {
 		t.Error("Expected non-zero ID")
 	}
 }
-

@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"hivemtk-user/internal/identity"
+	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/testutil"
-	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/repository"
 )
 
@@ -30,5 +30,3 @@ func TestDiagUnifiedIDLookup(t *testing.T) {
 		t.Fatalf("GetByUnifiedID miss after create")
 	}
 }
-
-

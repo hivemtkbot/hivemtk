@@ -42,4 +42,3 @@ func (s *AssetBundleService) SubmitToPlatform(ctx context.Context, assetID strin
 	}
 	return platformAssetID, nil
 }
-

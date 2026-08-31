@@ -150,7 +150,7 @@ func TestOrderRepository_GetGetLastOrder(t *testing.T) {
 	order2 := &model.Order{
 		Status:    _type.OrderStatusSuccess,
 		Price:     "199.00",
-		TgID:      12346, 
+		TgID:      12346,
 		AccountID: "account123",
 	}
 	repo.Create(ctx, order2)
@@ -359,4 +359,3 @@ func TestOrderRepository_GetGetLastOrder_MultipleUsers(t *testing.T) {
 		t.Errorf("Expected account 'account0', got %s", lastOrder.AccountID)
 	}
 }
-

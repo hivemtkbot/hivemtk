@@ -7,7 +7,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // TestTakeoverByAgent_Success 正常接管：AI 会话切到人工
 func TestTakeoverByAgent_Success(t *testing.T) {
 	svc := setupCustomerSessionService(t)
@@ -262,10 +261,9 @@ func TestSwitchHandler_InvalidType(t *testing.T) {
 	})
 	err := svc.SwitchHandler(context.Background(), &SwitchHandlerRequest{
 		SessionID:   sess.ID,
-		HandlerType: "robot", 
+		HandlerType: "robot",
 	})
 	if err == nil {
 		t.Error("expected error for invalid handler type")
 	}
 }
-

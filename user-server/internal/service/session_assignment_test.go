@@ -45,4 +45,3 @@ func TestIsUrgentOrComplaint_CaseInsensitive(t *testing.T) {
 		t.Error("expected urgent for 投诉")
 	}
 }
-

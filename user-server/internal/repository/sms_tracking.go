@@ -232,4 +232,3 @@ func (r *smsTrackingRepo) ListJobMetricsByRange(ctx context.Context, start, end 
 	err := r.db.WithContext(ctx).Where("updated_at BETWEEN ? AND ?", start, end).Find(&metrics).Error
 	return metrics, err
 }
-

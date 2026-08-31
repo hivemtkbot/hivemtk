@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"context"
 	"errors"
@@ -25,7 +24,7 @@ type Calibrator struct {
 // repo 可为 nil（用于无 DB 场景，仅做内存校准）
 func NewCalibrator(repo *repository.ConfidenceCalibrationRepository) *Calibrator {
 	return &Calibrator{
-		scaler:          NewTemperatureScaler(1.0), 
+		scaler:          NewTemperatureScaler(1.0),
 		searcher:        NewGoldenSectionSearcher(1e-4, 100),
 		calibrationRepo: repo,
 	}
@@ -182,8 +181,8 @@ func (c *Calibrator) evaluate(samples []CalibrationSample, t float64) (ece, nll 
 
 // CalibrationSample 校准样本
 type CalibrationSample struct {
-	Logits     []float64 
-	CorrectIdx int       
+	Logits     []float64
+	CorrectIdx int
 }
 
 // CalibrationResult 校准结果
@@ -198,4 +197,3 @@ type CalibrationResult struct {
 
 // ErrEmptyCalibrationSet 标注集为空
 var ErrEmptyCalibrationSet = errors.New("calibration sample set is empty")
-

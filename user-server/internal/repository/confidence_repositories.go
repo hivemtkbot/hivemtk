@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"time"
@@ -10,7 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
 )
-
 
 // ConfidenceSignalRepository 5 维信号快照读写
 type ConfidenceSignalRepository struct{}
@@ -58,7 +56,6 @@ func (r *ConfidenceSignalRepository) ListBySession(ctx context.Context, sessionI
 	return list, err
 }
 
-
 // ConfidenceCalibrationRepository 校准参数历史
 type ConfidenceCalibrationRepository struct{}
 
@@ -105,7 +102,6 @@ func (r *ConfidenceCalibrationRepository) ListBySignalType(ctx context.Context, 
 	err := q.Find(&list).Error
 	return list, err
 }
-
 
 // HandoffDecisionRepository 转人工决策记录
 type HandoffDecisionRepository struct{}
@@ -182,7 +178,6 @@ func (r *HandoffDecisionRepository) MarkResolved(ctx context.Context, decisionID
 		}).Error
 }
 
-
 // ThresholdPolicyRepository 动态阈值策略
 type ThresholdPolicyRepository struct{}
 
@@ -226,7 +221,6 @@ func (r *ThresholdPolicyRepository) Deactivate(ctx context.Context, intentType s
 		Where("intent_type = ? AND is_active = true", intentType).
 		Update("is_active", false).Error
 }
-
 
 // ABTestRepository A/B 测试配置与统计
 type ABTestRepository struct{}
@@ -296,7 +290,6 @@ func (r *ABTestRepository) CountMetricSamples(ctx context.Context, testID, group
 		Count(&count).Error
 	return int(count), err
 }
-
 
 // ConfidenceBandStat 置信度决策带聚合结果
 type ConfidenceBandStat struct {
@@ -373,4 +366,3 @@ func (r *ThresholdPolicyRepository) ListActivePolicies(ctx context.Context) ([]m
 	}
 	return list, nil
 }
-

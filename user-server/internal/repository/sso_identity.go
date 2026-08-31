@@ -72,4 +72,3 @@ func (r *ssoIdentityRepo) Delete(ctx context.Context, id uint) error {
 }
 
 var _ SSOIdentityRepository = (*ssoIdentityRepo)(nil)
-

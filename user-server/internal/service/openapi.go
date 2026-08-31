@@ -6,8 +6,8 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/hex"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -58,7 +58,6 @@ func NewOpenAPIServiceWithDB(gdb *gorm.DB) *OpenAPIService {
 		},
 	}
 }
-
 
 // CreateSource 创建 OpenAPI 数据源
 func (s *OpenAPIService) CreateSource(ctx context.Context, src *model.KnowledgeOpenAPISource) error {
@@ -116,7 +115,6 @@ func (s *OpenAPIService) ToggleEnabled(ctx context.Context, productID string, id
 	}
 	return s.srcRepo.Update(ctx, src)
 }
-
 
 // SyncResult 同步结果
 type SyncResult struct {
@@ -236,7 +234,6 @@ func (s *OpenAPIService) SyncAllEnabled(ctx context.Context) ([]SyncResult, erro
 	return results, nil
 }
 
-
 // TestConnection 测试数据源连接
 func (s *OpenAPIService) TestConnection(ctx context.Context, src *model.KnowledgeOpenAPISource) (map[string]any, error) {
 	body, headers, err := s.buildRequest(ctx, src)
@@ -271,7 +268,6 @@ func (s *OpenAPIService) TestConnection(ctx context.Context, src *model.Knowledg
 		"body_sample": truncateString(string(respBody), 500),
 	}, nil
 }
-
 
 // buildRequest 构建请求体与请求头
 func (s *OpenAPIService) buildRequest(ctx context.Context, src *model.KnowledgeOpenAPISource) ([]byte, map[string]string, error) {
@@ -476,4 +472,3 @@ func truncateString(s string, n int) string {
 	}
 	return string(runes[:n]) + "..."
 }
-

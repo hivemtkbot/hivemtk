@@ -108,7 +108,6 @@ func (s *VisitorChatService) SetLeadMining(svc *Service) {
 	s.leadMiningSvc = svc
 }
 
-
 // VisitorOpenSessionRequest 访客打开会话请求
 //
 // 注意（私域部署修复）：ChannelID/VisitorID 不再用 binding:"required"。
@@ -122,8 +121,8 @@ type VisitorOpenSessionRequest struct {
 	VisitorName  string `json:"visitor_name"`
 	VisitorPhone string `json:"visitor_phone"`
 	VisitorEmail string `json:"visitor_email"`
-	VisitorMeta  string `json:"visitor_meta"` 
-	Resume bool `json:"resume"`
+	VisitorMeta  string `json:"visitor_meta"`
+	Resume       bool   `json:"resume"`
 }
 
 // VisitorOpenSessionResult 访客打开会话结果
@@ -240,13 +239,13 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 	session := &model.CustomerSession{
 		SessionID:   generateSessionID(),
 		Platform:    model.PlatformWebEmbed,
-		AccountID:   channel.ChannelID, 
+		AccountID:   channel.ChannelID,
 		UserID:      req.VisitorID,
 		UserName:    defaultIfEmpty(req.VisitorName, "访客"),
 		UserPhone:   req.VisitorPhone,
 		UserEmail:   req.VisitorEmail,
 		Status:      model.SessionStatusPending,
-		HandlerType: model.HandlerTypeAI, 
+		HandlerType: model.HandlerTypeAI,
 		Priority:    0,
 		Tags:        string(tagsJSON),
 	}
@@ -303,7 +302,6 @@ func (s *VisitorChatService) GetSessionByVisitorSessionID(ctx context.Context, c
 	return session, nil
 }
 
-
 // VisitorSendMessageRequest 访客发送消息请求
 type VisitorSendMessageRequest struct {
 	ChannelID   string `json:"channel_id" binding:"required"`
@@ -311,23 +309,23 @@ type VisitorSendMessageRequest struct {
 	SessionID   string `json:"session_id" binding:"required"`
 	Content     string `json:"content" binding:"required"`
 	ContentType string `json:"content_type"`
-	MediaURL  string `json:"media_url"`
-	MediaType string `json:"media_type"`
-	MediaName string `json:"media_name"`
-	MediaSize int64  `json:"media_size"`
+	MediaURL    string `json:"media_url"`
+	MediaType   string `json:"media_type"`
+	MediaName   string `json:"media_name"`
+	MediaSize   int64  `json:"media_size"`
 }
 
 // VisitorSendMessageResult 访客发送消息结果
 type VisitorSendMessageResult struct {
-	UserMessage *model.SessionMessage `json:"user_message"`
-	AIReplied   bool                  `json:"ai_replied"`
-	AIResponse  *model.SessionMessage `json:"ai_response,omitempty"`
-	AICards        []model.RichCard `json:"ai_cards,omitempty"`
-	Transferred    bool             `json:"transferred"`
-	TransferReason string           `json:"transfer_reason,omitempty"`
-	Confidence     float64          `json:"confidence"`
-	HandlerType    string           `json:"handler_type"`
-	SuggestionID   uint             `json:"suggestion_id,omitempty"`
+	UserMessage    *model.SessionMessage `json:"user_message"`
+	AIReplied      bool                  `json:"ai_replied"`
+	AIResponse     *model.SessionMessage `json:"ai_response,omitempty"`
+	AICards        []model.RichCard      `json:"ai_cards,omitempty"`
+	Transferred    bool                  `json:"transferred"`
+	TransferReason string                `json:"transfer_reason,omitempty"`
+	Confidence     float64               `json:"confidence"`
+	HandlerType    string                `json:"handler_type"`
+	SuggestionID   uint                  `json:"suggestion_id,omitempty"`
 }
 
 // SendMessage 访客发送消息（核心入口）
@@ -542,7 +540,6 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 		}
 	}
 
-
 	if session.AgentID > 0 {
 		_ = websocket.SendToAgent(websocket.TypeSessionUpdate, map[string]any{
 			"session_id":   session.SessionID,
@@ -587,7 +584,6 @@ func (s *VisitorChatService) syncToInbox(ctx context.Context, session *model.Cus
 	_ = s.inboxConvRepo.Create(ctx, newConv)
 }
 
-
 // GetMessages 访客获取历史消息
 func (s *VisitorChatService) GetMessages(ctx context.Context, channelID, visitorID, sessionID string, page, pageSize int) ([]*model.SessionMessage, int64, error) {
 	if _, err := s.GetSessionByVisitorSessionID(ctx, channelID, visitorID, sessionID); err != nil {
@@ -603,7 +599,7 @@ func (s *VisitorChatService) GetMessages(ctx context.Context, channelID, visitor
 func (s *VisitorChatService) GetLatestActiveSession(ctx context.Context, channelID, visitorID string) (*model.CustomerSession, error) {
 	channel, err := s.resolveChannel(ctx, channelID)
 	if err != nil {
-		return nil, nil 
+		return nil, nil
 	}
 	session, err := s.sessionRepo.GetLatestActiveByPlatformAccountUser(ctx,
 		model.PlatformWebEmbed, channel.ChannelID, visitorID,
@@ -611,7 +607,7 @@ func (s *VisitorChatService) GetLatestActiveSession(ctx context.Context, channel
 	)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil 
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -627,7 +623,7 @@ func (s *VisitorChatService) GetRecentClosedSessions(ctx context.Context, channe
 	}
 	channel, err := s.resolveChannel(ctx, channelID)
 	if err != nil {
-		return []*model.CustomerSession{}, nil 
+		return []*model.CustomerSession{}, nil
 	}
 	sevenDaysAgo := time.Now().AddDate(0, 0, -7)
 	return s.sessionRepo.ListRecentClosedByPlatformAccountUser(ctx,
@@ -658,7 +654,6 @@ func (s *VisitorChatService) MarkMessagesDelivered(ctx context.Context, sessionI
 	now := time.Now()
 	return s.messageRepo.MarkDelivered(ctx, sessionID, messageIDs, now)
 }
-
 
 // RequestHumanTransfer 访客主动转人工
 func (s *VisitorChatService) RequestHumanTransfer(ctx context.Context, channelID, visitorID, sessionID, reason string) error {
@@ -709,7 +704,6 @@ func (s *VisitorChatService) RateSession(ctx context.Context, channelID, visitor
 	return s.sessionSvc.RateSession(ctx, session.ID, rating, comment)
 }
 
-
 // countOnlineAgents 统计在线坐席数
 func (s *VisitorChatService) countOnlineAgents(ctx context.Context) (int, error) {
 	return s.agentStatusRepo.CountOnlineAgents(ctx)
@@ -720,7 +714,6 @@ func (s *VisitorChatService) CountAvailableAgents(ctx context.Context) (int, err
 	return s.countOnlineAgents(ctx)
 }
 
-
 // shouldForceTransferByKeywords 判断用户消息是否命中"转人工"关键词
 //
 // 设计：
@@ -730,4 +723,3 @@ func (s *VisitorChatService) CountAvailableAgents(ctx context.Context) (int, err
 func shouldForceTransferByKeywords(content string) bool {
 	return MatchTransferKeywords(content)
 }
-

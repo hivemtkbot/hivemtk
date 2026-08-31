@@ -99,11 +99,11 @@ func (r *customerTagAssignmentRepository) Upsert(ctx context.Context, assignment
 			{Name: "tag"},
 		},
 		DoUpdates: clause.Assignments(map[string]any{
-				"category": assignment.Category,
-				"source":   assignment.Source,
-				// ON CONFLICT DO UPDATE 的 SET 右值中裸列名会触发 PG "column reference is ambiguous"，
-				// 必须以表名限定引用既有行的 confidence（与 EXCLUDED 的新值取 GREATEST）
-				"confidence": gorm.Expr("GREATEST(customer_tag_assignments.confidence, ?)", assignment.Confidence),
-			}),
+			"category": assignment.Category,
+			"source":   assignment.Source,
+			// ON CONFLICT DO UPDATE 的 SET 右值中裸列名会触发 PG "column reference is ambiguous"，
+			// 必须以表名限定引用既有行的 confidence（与 EXCLUDED 的新值取 GREATEST）
+			"confidence": gorm.Expr("GREATEST(customer_tag_assignments.confidence, ?)", assignment.Confidence),
+		}),
 	}).Create(assignment).Error
 }

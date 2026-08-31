@@ -75,14 +75,14 @@ func TestBehavioralPlanBuilder_NilSafeBuild(t *testing.T) {
 func TestBehavioralPlanBuilder_SetConfig(t *testing.T) {
 	b := NewBehavioralPlanBuilder()
 	cfg := behavioral.BehaviorConfig{
-		EnableTypingDelay:     true,
-		TypingSpeedCPS:        10.0, // 10 cps 慢速
-		ThinkingPauseSec:      5.0,
-		EnableMessageSplit:    false, // 关闭分条
-		SplitThresholdChars:   80,
-		SplitMinIntervalSec:   1.0,
-		EnableTypoInjection:   false,
-		TypoProbability:       0.0,
+		EnableTypingDelay:   true,
+		TypingSpeedCPS:      10.0, // 10 cps 慢速
+		ThinkingPauseSec:    5.0,
+		EnableMessageSplit:  false, // 关闭分条
+		SplitThresholdChars: 80,
+		SplitMinIntervalSec: 1.0,
+		EnableTypoInjection: false,
+		TypoProbability:     0.0,
 	}
 	b.SetConfig(cfg)
 	b.SetEnabled(true)

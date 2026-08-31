@@ -35,7 +35,6 @@ func newTestShortLinkAccessRepository(db *gorm.DB) repository.ShortLinkAccessRep
 	return repository.NewShortLinkAccessRepository(db)
 }
 
-
 // TestNewShortLinkService 测试创建短链服务
 func TestNewShortLinkService(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
@@ -45,7 +44,6 @@ func TestNewShortLinkService(t *testing.T) {
 		t.Error("Expected non-nil service")
 	}
 }
-
 
 // TestShortLinkService_Create 测试创建短链
 func TestShortLinkService_Create(t *testing.T) {
@@ -160,7 +158,7 @@ func TestShortLinkService_Create_WithUnavailableDomain(t *testing.T) {
 
 	domain := &model.DomainPool{
 		Domain: "unavailable.com",
-		Status: 2, 
+		Status: 2,
 	}
 	database.Create(domain)
 
@@ -235,7 +233,6 @@ func TestShortLinkService_Create_EmptyOriginalURL(t *testing.T) {
 		t.Logf("Create with empty original URL: %v", err)
 	}
 }
-
 
 // TestShortLinkService_Update 测试更新短链
 func TestShortLinkService_Update(t *testing.T) {
@@ -394,7 +391,6 @@ func TestShortLinkService_Update_WithInvalidDomain(t *testing.T) {
 	}
 }
 
-
 // TestShortLinkService_Delete 测试删除短链
 func TestShortLinkService_Delete(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
@@ -433,7 +429,6 @@ func TestShortLinkService_Delete_NotFound(t *testing.T) {
 		t.Errorf("Expected '短链不存在', got %s", err.Error())
 	}
 }
-
 
 // TestShortLinkService_GetByID 测试根据 ID 获取短链
 func TestShortLinkService_GetByID(t *testing.T) {
@@ -483,7 +478,6 @@ func TestShortLinkService_GetByID_NotFound(t *testing.T) {
 	}
 }
 
-
 // TestShortLinkService_GetByShortCode 测试根据短码获取短链
 func TestShortLinkService_GetByShortCode(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
@@ -525,7 +519,6 @@ func TestShortLinkService_GetByShortCode_NotFound(t *testing.T) {
 		t.Errorf("Expected '短链不存在', got %s", err.Error())
 	}
 }
-
 
 // TestShortLinkService_GetList 测试获取短链列表
 func TestShortLinkService_GetList(t *testing.T) {
@@ -689,8 +682,7 @@ func TestShortLinkService_GetList_DefaultPagination(t *testing.T) {
 
 	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "default1", OriginalURL: "https://example.com/1"})
 
-	listReq := &dto.ListShortLinkRequest{
-	}
+	listReq := &dto.ListShortLinkRequest{}
 
 	resp, err := service.GetList(context.Background(), listReq)
 	if err != nil {
@@ -701,7 +693,6 @@ func TestShortLinkService_GetList_DefaultPagination(t *testing.T) {
 		t.Error("Expected non-zero total")
 	}
 }
-
 
 // TestShortLinkService_AccessShortLink 测试访问短链
 func TestShortLinkService_AccessShortLink(t *testing.T) {
@@ -912,7 +903,6 @@ func TestShortLinkService_AccessShortLink_WithDeviceParsing(t *testing.T) {
 	}
 }
 
-
 // TestShortLinkService_GenerateShortCode 测试生成短码
 func TestShortLinkService_GenerateShortCode(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
@@ -937,8 +927,7 @@ func TestShortLinkService_GenerateShortCode_DefaultLength(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	req := &dto.GenerateShortCodeRequest{
-	}
+	req := &dto.GenerateShortCodeRequest{}
 
 	resp, err := service.GenerateShortCode(context.Background(), req)
 	if err != nil {
@@ -1001,7 +990,6 @@ func TestShortLinkService_GenerateShortCode_WithExistingShortCodes(t *testing.T)
 		t.Error("Generated short code should not exist")
 	}
 }
-
 
 // TestShortLinkService_GetStats 测试获取短链统计
 func TestShortLinkService_GetStats(t *testing.T) {
@@ -1171,7 +1159,6 @@ func TestShortLinkService_GetStats_DeviceTypeStats(t *testing.T) {
 	}
 }
 
-
 // TestShortLinkService_GetAllStats 测试获取所有短链统计
 func TestShortLinkService_GetAllStats(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
@@ -1280,7 +1267,6 @@ func TestShortLinkService_GetAllStats_EmptyStats(t *testing.T) {
 	}
 }
 
-
 // TestShortLinkService_ShareShortLink 测试分享短链
 func TestShortLinkService_ShareShortLink(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
@@ -1335,7 +1321,6 @@ func TestShortLinkService_ShareShortLink_NotFound(t *testing.T) {
 		t.Errorf("Expected '短链不存在', got %s", err.Error())
 	}
 }
-
 
 // TestShortLinkService_Create_VeryLongURL 测试创建超长 URL 的短链
 func TestShortLinkService_Create_VeryLongURL(t *testing.T) {
@@ -1612,7 +1597,6 @@ func TestShortLinkService_Create_WithAllFields(t *testing.T) {
 		t.Error("Expected ExpireTime to be set")
 	}
 }
-
 
 // TestValidateTargetURL 铁律#24: 短链 target_url 必须 https 且格式有效
 func TestValidateTargetURL(t *testing.T) {

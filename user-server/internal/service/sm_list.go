@@ -42,4 +42,3 @@ func (s *SmlistService) DeleteSmlist(ctx context.Context, id string) error {
 func (s *SmlistService) GetRecentSmlistList(ctx context.Context) ([]*model.Smlist, error) {
 	return s.repo.GetRecentSmlistList(ctx)
 }
-

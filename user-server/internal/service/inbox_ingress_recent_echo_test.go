@@ -33,21 +33,21 @@ func TestInboxIngress_SelfEcho_RecentOutboundByContent_Blocked(t *testing.T) {
 		MsgType:        "text",
 		ConversationID: conv,
 		SenderID:       account,
-		SenderName:     "", 
+		SenderName:     "",
 		Content:        outContent,
 		SentAt:         time.Now().Add(-30 * time.Second),
 	}).Error; err != nil {
 		t.Fatalf("插入 outbound 失败: %v", err)
 	}
 
-	loopContent := strings.ReplaceAll(outContent, "\n", " ") 
+	loopContent := strings.ReplaceAll(outContent, "\n", " ")
 	event := &model.MessageEvent{
 		Channel:        platform,
 		SenderID:       conv,
-		SenderName:     "小红薯69C69EDE", 
+		SenderName:     "小红薯69C69EDE",
 		SenderType:     "customer",
 		Content:        loopContent,
-		EventID:        "mh:loopback-test-1", 
+		EventID:        "mh:loopback-test-1",
 		ConversationID: conv,
 		Extra:          map[string]interface{}{"account_id": account},
 	}
@@ -118,11 +118,11 @@ func TestInboxIngress_DifferentAccount_NotBlockedByContentEcho(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		platform    = "xiaohongshu"
-		accountA    = "acct-A"
-		accountB    = "acct-B"
-		conv        = "conv-cross-account"
-		sharedText  = "HiveMTK 支持私有化部署,云服务器也可以"
+		platform   = "xiaohongshu"
+		accountA   = "acct-A"
+		accountB   = "acct-B"
+		conv       = "conv-cross-account"
+		sharedText = "HiveMTK 支持私有化部署,云服务器也可以"
 	)
 	if err := db.Create(&model.MessageHub{
 		MsgID:          "mh:ob-A",
@@ -313,5 +313,3 @@ func TestInboxIngress_HandleIngress_SelfEcho_NotQueuedForAI(t *testing.T) {
 		t.Fatalf("回环消息不应被持久化为 inbound, 实际 %d 条", count)
 	}
 }
-
-

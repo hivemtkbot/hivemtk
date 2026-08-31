@@ -45,4 +45,3 @@ func (s *AccountService) UpdateAccountStatusById(ctx context.Context, id string,
 func (s *AccountService) UpdateAccountTgNameById(ctx context.Context, id string, TgName string) error {
 	return s.repo.UpdateAccountTgNameById(ctx, id, TgName)
 }
-

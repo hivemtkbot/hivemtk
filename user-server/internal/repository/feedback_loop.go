@@ -137,7 +137,6 @@ func (r *FeedbackLoopRepository) ListBanditArms(ctx context.Context, experimentI
 	return rows, total, nil
 }
 
-
 // NewFeedbackLoopRepositoryWithDB 使用指定 *gorm.DB 构造（供 service 构造函数与测试使用）
 func NewFeedbackLoopRepositoryWithDB(db *gorm.DB) *FeedbackLoopRepository {
 	return &FeedbackLoopRepository{db: db}
@@ -392,4 +391,3 @@ func (r *FeedbackLoopRepository) RollbackABTest(ctx context.Context, testID uint
 		return nil
 	})
 }
-

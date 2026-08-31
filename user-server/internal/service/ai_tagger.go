@@ -11,21 +11,20 @@ import (
 	"time"
 )
 
-
 // AITagger AI 谈单后自动打标签
 // 持久化：标签写穿到 customer_tag_assignments 表；内存 map 仅为读缓存（懒加载）。
 type AITagger struct {
-	mu sync.RWMutex
+	mu           sync.RWMutex
 	customerTags map[string]map[string]TagInfo
-	tagTaxonomy map[string][]string
-	assignRepo repository.CustomerTagAssignmentRepository
+	tagTaxonomy  map[string][]string
+	assignRepo   repository.CustomerTagAssignmentRepository
 }
 
 // TagInfo 标签信息
 type TagInfo struct {
 	Tag        string    `json:"tag"`
 	Category   string    `json:"category"`
-	Source     string    `json:"source"` 
+	Source     string    `json:"source"`
 	Confidence float64   `json:"confidence"`
 	CreatedAt  time.Time `json:"created_at"`
 }
@@ -208,7 +207,6 @@ func matchInterestFromIntent(intentName string) string {
 	return ""
 }
 
-
 // OrderIntent 订单意向
 type OrderIntent struct {
 	CustomerID  string         `json:"customer_id"`
@@ -220,10 +218,10 @@ type OrderIntent struct {
 	UnitPrice   float64        `json:"unit_price"`
 	TotalAmount float64        `json:"total_amount"`
 	Confidence  float64        `json:"confidence"`
-	Source      string         `json:"source"`   
-	RawText     string         `json:"raw_text"` 
+	Source      string         `json:"source"`
+	RawText     string         `json:"raw_text"`
 	ExtractedAt time.Time      `json:"extracted_at"`
-	Status      string         `json:"status"` 
+	Status      string         `json:"status"`
 	Metadata    map[string]any `json:"metadata"`
 }
 
@@ -288,7 +286,7 @@ func (e *OrderIntentExtractor) ExtractFromText(ctx context.Context, customerID, 
 			Metadata:    make(map[string]any),
 		}
 		if unitPrice == 0 {
-			intent.Confidence = 0.5 
+			intent.Confidence = 0.5
 		}
 		intents = append(intents, intent)
 	}
@@ -406,4 +404,3 @@ func roundTo(value, precision float64) float64 {
 	}
 	return float64(int64(value/precision+0.5)) * precision
 }
-

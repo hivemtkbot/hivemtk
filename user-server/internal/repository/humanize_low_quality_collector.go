@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"fmt"
@@ -39,4 +38,3 @@ func (c *HumanizeLowQualitySampleCollector) Collect(
 	}
 	return nil
 }
-

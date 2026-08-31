@@ -19,21 +19,21 @@ import (
 const (
 	leadMiningQueueSize       = 8192
 	leadMiningWorkers         = 4
-	leadMiningDebounce        = 60 * time.Second 
-	leadMiningHistorySize     = 20               
+	leadMiningDebounce        = 60 * time.Second
+	leadMiningHistorySize     = 20
 	leadMiningConfigTTL       = 30 * time.Second
-	leadMiningHighOpportunity = 70 
+	leadMiningHighOpportunity = 70
 )
 
 // LeadJudgement LLM 结构化判定结果
 type LeadJudgement struct {
 	IsLead          bool     `json:"is_lead"`
-	IntentScore     int      `json:"intent_score"`     
-	MatchedKeywords []string `json:"matched_keywords"` 
-	MatchedTags     []string `json:"matched_tags"`     
-	Summary         string   `json:"summary"`          
-	Confidence      float64  `json:"confidence"`       
-	Reason          string   `json:"reason"`           
+	IntentScore     int      `json:"intent_score"`
+	MatchedKeywords []string `json:"matched_keywords"`
+	MatchedTags     []string `json:"matched_tags"`
+	Summary         string   `json:"summary"`
+	Confidence      float64  `json:"confidence"`
+	Reason          string   `json:"reason"`
 }
 
 // LLMJudge 判定接口（便于测试注入 fake）
@@ -109,23 +109,22 @@ func GetLeadMiningConfig(ctx context.Context) (*dto.LeadMiningConfig, error) {
 
 // SaveLeadMiningConfig 保存配置并热更新运行中的缓存
 
-
 // GetStatus 返回线索挖掘服务运行时状态
 func GetStatus() map[string]any {
-    s := singleton
-    if s == nil {
-        return map[string]any{"running": false, "message": "service not initialized"}
-    }
-    s.mu.Lock()
-    count := len(s.lastJudge)
-    s.mu.Unlock()
-    return map[string]any{
-        "running":    true,
-        "workers":    s.workers,
-        "queue_depth": len(s.queue),
-        "recent_processed": count,
-        "cfg_loaded":       s.cfgLoadedAt.IsZero(),
-    }
+	s := singleton
+	if s == nil {
+		return map[string]any{"running": false, "message": "service not initialized"}
+	}
+	s.mu.Lock()
+	count := len(s.lastJudge)
+	s.mu.Unlock()
+	return map[string]any{
+		"running":          true,
+		"workers":          s.workers,
+		"queue_depth":      len(s.queue),
+		"recent_processed": count,
+		"cfg_loaded":       s.cfgLoadedAt.IsZero(),
+	}
 }
 
 func SaveLeadMiningConfig(ctx context.Context, in *dto.LeadMiningConfig) error {
@@ -397,7 +396,6 @@ func (s *Service) tagCustomer(ctx context.Context, customer *model.Customer, new
 	return s.custRepo.Update(ctx, customer)
 }
 
-
 func channelEnabled(cfg *model.LeadMiningConfig, platform string) bool {
 	if len(cfg.Channels) == 0 {
 		return true
@@ -412,7 +410,7 @@ func channelEnabled(cfg *model.LeadMiningConfig, platform string) bool {
 
 // mergeTags 合并两组标签，按小写去重（避免 AI兴趣/ai兴趣 重复），保留首次出现的原始大小写
 func mergeTags(a, b []string) []string {
-	set := map[string]string{} 
+	set := map[string]string{}
 	add := func(t string) {
 		if v := strings.TrimSpace(t); v != "" {
 			k := strings.ToLower(v)
@@ -497,4 +495,3 @@ func buildSystemPrompt(cfg *model.LeadMiningConfig) string {
 	b.WriteString("只输出 JSON，不要额外解释。")
 	return b.String()
 }
-

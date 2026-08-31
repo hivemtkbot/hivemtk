@@ -68,4 +68,3 @@ func TestBuildTelegramCardKeyboard_Empty(t *testing.T) {
 		t.Fatalf("expected nil keyboard when no buttons, got %+v", kb)
 	}
 }
-

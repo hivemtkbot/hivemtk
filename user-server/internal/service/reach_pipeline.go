@@ -1009,7 +1009,12 @@ func (s *ReachPipelineService) dispatchOutbound(ctx context.Context, job *model.
 		if strings.TrimSpace(content) == "" {
 			content = fmt.Sprintf("[%s] 触达消息", job.Channel)
 		}
-		convID := func() string { if v, ok := job.Payload["conversation_id"].(string); ok { return v }; return "" }()
+		convID := func() string {
+			if v, ok := job.Payload["conversation_id"].(string); ok {
+				return v
+			}
+			return ""
+		}()
 		if convID == "" {
 			convID = job.CustomerID
 		}
@@ -1025,7 +1030,7 @@ func (s *ReachPipelineService) dispatchOutbound(ctx context.Context, job *model.
 		job.Payload["_last_send"] = map[string]any{
 			"message_id": mid, "channel": job.Channel,
 			"sent_at": time.Now().Format(time.RFC3339),
-			"via": "bridge",
+			"via":     "bridge",
 		}
 		return mid, nil
 	}
@@ -1583,9 +1588,12 @@ func InitReachPipelineService(db *gorm.DB) *ReachPipelineService {
 
 // ListJobsByExperiment 按实验 ID 关联查询触达任务
 func (s *ReachPipelineService) ListJobsByExperiment(ctx context.Context, experimentID string, page, pageSize int) ([]model.ReachJob, int64, error) {
-    if page < 1 { page = 1 }
-    if pageSize < 1 || pageSize > 100 { pageSize = 20 }
-    // 复用 repo 现有查询，按 pipeline_id 过滤（AB 实验通常把 pipeline_id 当 experiment_id 用）
-    return s.repo.ListJobs(ctx, experimentID, "", page, pageSize)
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	// 复用 repo 现有查询，按 pipeline_id 过滤（AB 实验通常把 pipeline_id 当 experiment_id 用）
+	return s.repo.ListJobs(ctx, experimentID, "", page, pageSize)
 }
-

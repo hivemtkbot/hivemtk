@@ -138,4 +138,3 @@ type PermissionDeniedError struct{}
 func (e *PermissionDeniedError) Error(ctx context.Context) string {
 	return "权限不足"
 }
-

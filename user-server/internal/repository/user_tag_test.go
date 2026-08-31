@@ -115,9 +115,9 @@ func TestUserTagRepository_AddTags(t *testing.T) {
 		{
 			name:      "add tags with duplicates",
 			userID:    "user-2",
-			tags:      []string{"tag4", "tag1"}, 
+			tags:      []string{"tag4", "tag1"},
 			wantErr:   false,
-			wantCount: 2, 
+			wantCount: 2,
 		},
 	}
 
@@ -374,7 +374,7 @@ func TestUserTagRepository_DeleteTagsByName(t *testing.T) {
 		{
 			name:      "delete tag by name",
 			tagName:   "global-tag",
-			wantCount: 1, 
+			wantCount: 1,
 			wantErr:   false,
 		},
 	}
@@ -441,4 +441,3 @@ func TestUserTagRepository_HasTag(t *testing.T) {
 		})
 	}
 }
-

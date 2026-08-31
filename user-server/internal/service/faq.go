@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"errors"
@@ -18,15 +17,15 @@ import (
 )
 
 const (
-	faqCacheTTL    = 5 * time.Minute
-	faqCacheMaxN   = 5000
-	faqHitThresh   = 0.6 
-	faqTopKDefault = 3
-	faqDecayPerWeek  = 0.1                
-	faqDecayDays     = 7 * 24 * time.Hour 
-	faqDecayMinHits  = 5                  
-	faqDecayMaxBatch = 1000               
-	faqAgentShared uint = 0
+	faqCacheTTL           = 5 * time.Minute
+	faqCacheMaxN          = 5000
+	faqHitThresh          = 0.6
+	faqTopKDefault        = 3
+	faqDecayPerWeek       = 0.1
+	faqDecayDays          = 7 * 24 * time.Hour
+	faqDecayMinHits       = 5
+	faqDecayMaxBatch      = 1000
+	faqAgentShared   uint = 0
 )
 
 // Clock 时钟抽象 (用于 WeekDecay 测试注入, 五层架构 L4)
@@ -82,7 +81,7 @@ type faqBindingRepoIface interface {
 //   - 新增 sharedCache 概念: agentID=0 的桶存储"共享池"FAQ (向后兼容旧 Match API)
 type FAQService struct {
 	repo        faqRepoIface
-	bindingRepo faqBindingRepoIface 
+	bindingRepo faqBindingRepoIface
 	db          *gorm.DB
 	clock       Clock
 
@@ -280,7 +279,6 @@ func (s *FAQService) toMatchResults(entries []model.FAQEntry, matchType string) 
 	}
 	return out
 }
-
 
 // List 列表查询
 func (s *FAQService) List(ctx context.Context, filter dto.FAQFilter) ([]dto.FAQEntry, int64, error) {
@@ -543,4 +541,3 @@ func entryToDTO(e *model.FAQEntry) *dto.FAQEntry {
 		AgentID:    e.AgentID,
 	}
 }
-

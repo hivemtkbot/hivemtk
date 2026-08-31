@@ -1,12 +1,10 @@
 package confidence
 
-
 import (
 	"testing"
 
 	"hivemtk-user/internal/dto"
 )
-
 
 func TestVetoComplaint_ComplaintIntent(t *testing.T) {
 	r := &VetoComplaint{}
@@ -36,7 +34,6 @@ func TestVetoComplaint_OtherIntent(t *testing.T) {
 		}
 	}
 }
-
 
 func TestVetoExplicit_ChineseKeywords(t *testing.T) {
 	r := &VetoExplicit{}
@@ -89,7 +86,6 @@ func TestVetoExplicit_NoKeyword(t *testing.T) {
 	}
 }
 
-
 func TestVetoLoop_LessThan3Turns(t *testing.T) {
 	r := &VetoLoop{}
 	ctx := &VetoContext{LastNTurns: []string{"hi", "hello", "hey"}}
@@ -126,7 +122,6 @@ func TestVetoLoop_Last3SameButEmpty(t *testing.T) {
 	}
 }
 
-
 func TestVetoLowEntity_EmptyExpected(t *testing.T) {
 	r := &VetoLowEntity{Threshold: 0.2}
 	ctx := &VetoContext{ExpectedEntities: nil}
@@ -140,7 +135,7 @@ func TestVetoLowEntity_EmptyExpected(t *testing.T) {
 func TestVetoLowEntity_LowEntityComp(t *testing.T) {
 	r := &VetoLowEntity{Threshold: 0.2}
 	ctx := &VetoContext{ExpectedEntities: map[string]any{"product": "iPhone"}}
-	signals := &dto.FiveSignals{EntityComp: 0.1} 
+	signals := &dto.FiveSignals{EntityComp: 0.1}
 	triggered, reason := r.Check(signals, ctx)
 	if !triggered || reason != "veto_low_entity" {
 		t.Errorf("EntityComp=0.1 < 0.2 应触发, got triggered=%v reason=%v", triggered, reason)
@@ -150,7 +145,7 @@ func TestVetoLowEntity_LowEntityComp(t *testing.T) {
 func TestVetoLowEntity_HighEntityComp(t *testing.T) {
 	r := &VetoLowEntity{Threshold: 0.2}
 	ctx := &VetoContext{ExpectedEntities: map[string]any{"product": "iPhone"}}
-	signals := &dto.FiveSignals{EntityComp: 0.5} 
+	signals := &dto.FiveSignals{EntityComp: 0.5}
 	triggered, _ := r.Check(signals, ctx)
 	if triggered {
 		t.Errorf("EntityComp=0.5 > 0.2 不应触发")
@@ -158,9 +153,9 @@ func TestVetoLowEntity_HighEntityComp(t *testing.T) {
 }
 
 func TestVetoLowEntity_DefaultThreshold(t *testing.T) {
-	r := &VetoLowEntity{Threshold: 0} 
+	r := &VetoLowEntity{Threshold: 0}
 	ctx := &VetoContext{ExpectedEntities: map[string]any{"k": "v"}}
-	signals := &dto.FiveSignals{EntityComp: 0.15} 
+	signals := &dto.FiveSignals{EntityComp: 0.15}
 	triggered, _ := r.Check(signals, ctx)
 	if !triggered {
 		t.Errorf("Threshold=0 应默认 0.2, EntityComp=0.15 应触发")
@@ -170,17 +165,16 @@ func TestVetoLowEntity_DefaultThreshold(t *testing.T) {
 func TestVetoLowEntity_BoundaryEqual(t *testing.T) {
 	r := &VetoLowEntity{Threshold: 0.2}
 	ctx := &VetoContext{ExpectedEntities: map[string]any{"k": "v"}}
-	signals := &dto.FiveSignals{EntityComp: 0.2} 
+	signals := &dto.FiveSignals{EntityComp: 0.2}
 	triggered, _ := r.Check(signals, ctx)
 	if triggered {
 		t.Errorf("EntityComp=0.2 等于阈值不应触发（< 严格小于）")
 	}
 }
 
-
 func TestVetoLowRAG_LowRAGQual(t *testing.T) {
 	r := &VetoLowRAG{Threshold: 0.1}
-	signals := &dto.FiveSignals{RAGQual: 0.05} 
+	signals := &dto.FiveSignals{RAGQual: 0.05}
 	triggered, reason := r.Check(signals, &VetoContext{})
 	if !triggered || reason != "veto_low_rag" {
 		t.Errorf("RAGQual=0.05 < 0.1 应触发, got triggered=%v reason=%v", triggered, reason)
@@ -189,7 +183,7 @@ func TestVetoLowRAG_LowRAGQual(t *testing.T) {
 
 func TestVetoLowRAG_HighRAGQual(t *testing.T) {
 	r := &VetoLowRAG{Threshold: 0.1}
-	signals := &dto.FiveSignals{RAGQual: 0.5} 
+	signals := &dto.FiveSignals{RAGQual: 0.5}
 	triggered, _ := r.Check(signals, &VetoContext{})
 	if triggered {
 		t.Errorf("RAGQual=0.5 > 0.1 不应触发")
@@ -197,7 +191,7 @@ func TestVetoLowRAG_HighRAGQual(t *testing.T) {
 }
 
 func TestVetoLowRAG_DefaultThreshold(t *testing.T) {
-	r := &VetoLowRAG{Threshold: 0} 
+	r := &VetoLowRAG{Threshold: 0}
 	signals := &dto.FiveSignals{RAGQual: 0.05}
 	triggered, _ := r.Check(signals, &VetoContext{})
 	if !triggered {
@@ -205,10 +199,9 @@ func TestVetoLowRAG_DefaultThreshold(t *testing.T) {
 	}
 }
 
-
 func TestVetoHighEntropy_LowLLMEntropy(t *testing.T) {
 	r := &VetoHighEntropy{Threshold: 0.2}
-	signals := &dto.FiveSignals{LLMEntropy: 0.1} 
+	signals := &dto.FiveSignals{LLMEntropy: 0.1}
 	triggered, reason := r.Check(signals, &VetoContext{})
 	if !triggered || reason != "veto_high_entropy" {
 		t.Errorf("LLMEntropy=0.1 < 0.2 应触发, got triggered=%v reason=%v", triggered, reason)
@@ -217,7 +210,7 @@ func TestVetoHighEntropy_LowLLMEntropy(t *testing.T) {
 
 func TestVetoHighEntropy_HighLLMEntropy(t *testing.T) {
 	r := &VetoHighEntropy{Threshold: 0.2}
-	signals := &dto.FiveSignals{LLMEntropy: 0.7} 
+	signals := &dto.FiveSignals{LLMEntropy: 0.7}
 	triggered, _ := r.Check(signals, &VetoContext{})
 	if triggered {
 		t.Errorf("LLMEntropy=0.7 > 0.2 不应触发")
@@ -232,7 +225,6 @@ func TestVetoHighEntropy_DefaultThreshold(t *testing.T) {
 		t.Errorf("Threshold=0 应默认 0.2, LLMEntropy=0.15 应触发")
 	}
 }
-
 
 func TestVetoChain_DefaultOrder(t *testing.T) {
 	c := NewVetoChain()
@@ -331,7 +323,7 @@ func TestVetoChain_CustomRules(t *testing.T) {
 	if len(rules) != 2 {
 		t.Errorf("自定义规则链应有 2 条规则, got %d", len(rules))
 	}
-	signals := &dto.FiveSignals{RAGQual: 0.3} 
+	signals := &dto.FiveSignals{RAGQual: 0.3}
 	ctx := &VetoContext{ExpectedEntities: map[string]any{"k": "v"}}
 	triggered, reason := c.Check(signals, ctx)
 	if !triggered || reason != "veto_low_rag" {
@@ -346,4 +338,3 @@ func TestVetoChain_EmptyRules(t *testing.T) {
 		t.Errorf("空规则链不应触发")
 	}
 }
-

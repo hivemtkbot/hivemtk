@@ -105,7 +105,7 @@ func TestAuthService_Login_ExistingUser(t *testing.T) {
 	database := db.GetDB()
 	secondUser := &model.SystemUser{
 		Username: "testuser",
-		Password: "password123", 
+		Password: "password123",
 		Email:    "test@example.com",
 		RealName: "Test User",
 		Role:     "user",
@@ -158,7 +158,7 @@ func TestAuthService_Login_DisabledUser(t *testing.T) {
 		Email:    "disabled@example.com",
 		RealName: "Disabled User",
 		Role:     "user",
-		Status:   0, 
+		Status:   0,
 	}
 	model.HashSystemUserPassword(disabledUser)
 	database.Create(disabledUser)
@@ -385,4 +385,3 @@ func TestAuthService_loginWithUser(t *testing.T) {
 		t.Error("Expected user info to be populated")
 	}
 }
-

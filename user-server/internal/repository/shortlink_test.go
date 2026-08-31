@@ -434,4 +434,3 @@ func TestShortLinkRepository_WithExpireTime(t *testing.T) {
 		t.Error("Expected ExpireTime to be set")
 	}
 }
-

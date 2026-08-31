@@ -49,4 +49,3 @@ func (r *assetBundleVersionLogRepo) List(ctx context.Context, assetID string, li
 	err := q.Order("created_at DESC").Limit(limit).Find(&list).Error
 	return list, err
 }
-

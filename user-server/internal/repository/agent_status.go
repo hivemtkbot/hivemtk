@@ -112,7 +112,6 @@ func (r *AgentStatusRepository) CountOnlineAgents(ctx context.Context) (int, err
 	return int(count), nil
 }
 
-
 // TouchHeartbeat 刷新坐席心跳（S-3 心跳自动下线，2026-08-26）
 //
 // 由坐席工作台连接活跃事件（WS/SSE 消息、心跳帧）调用；

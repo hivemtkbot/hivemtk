@@ -107,7 +107,6 @@ func encryptWeComPlain(t *testing.T, aesKey, receiveID, msg string) string {
 	return base64.StdEncoding.EncodeToString(out)
 }
 
-
 // TestWeCom_VerifyURL_OK 验证 URL 验证挑战
 func TestWeCom_VerifyURL_OK(t *testing.T) {
 	token := "TestToken123456"
@@ -353,7 +352,6 @@ func TestWeCom_ReceiveCallback(t *testing.T) {
 	}
 }
 
-
 // TestSalesEngine_ProcessIncomingMessage_AllChannels 4 渠道统一入口
 func TestSalesEngine_ProcessIncomingMessage_AllChannels(t *testing.T) {
 	engine := NewSalesEngine(nil, nil, nil, nil, nil, nil, nil, nil)
@@ -484,7 +482,6 @@ func TestNormalizeChannelMessage_Image(t *testing.T) {
 		t.Errorf("expected [图片], got %s", content)
 	}
 }
-
 
 // TestWebhook_EmptyBody 拒绝空 body
 func TestWebhook_EmptyBody(t *testing.T) {
@@ -621,7 +618,6 @@ func TestWebhookStats(t *testing.T) {
 	}
 }
 
-
 // TestWeCom_VerifyURL_HTTP HTTP 端到端测试
 func TestWeCom_VerifyURL_HTTP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -727,7 +723,6 @@ func TestWeChat_Verify_Missing(t *testing.T) {
 		t.Error("expected fail on missing params")
 	}
 }
-
 
 // computeWeComSignature4 四元组官方口径: sha1(sort(token,ts,nonce,fourth))
 func computeWeComSignature4(token, ts, nonce, fourth string) string {

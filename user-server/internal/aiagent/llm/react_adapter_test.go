@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-
-
 func TestD8_1_ParseReActResponse_Action(t *testing.T) {
 	content := `Thought: 我需要查询客户信息
 Action: customer.search
@@ -29,7 +27,6 @@ Action Input: {"phone":"13800138000"}`
 	}
 }
 
-
 func TestD8_2_ParseReActResponse_FinalAnswer(t *testing.T) {
 	content := `Thought: 已获得客户信息
 Final Answer: 客户张三，手机 13800138000`
@@ -48,7 +45,6 @@ Final Answer: 客户张三，手机 13800138000`
 	}
 }
 
-
 func TestD8_3_ParseReActResponse_Thought(t *testing.T) {
 	content := `Thought: 我正在思考`
 	result, err := ParseReActResponse(content)
@@ -59,7 +55,6 @@ func TestD8_3_ParseReActResponse_Thought(t *testing.T) {
 		t.Fatal("仅 Thought 应降级为 Final Answer")
 	}
 }
-
 
 func TestD8_4_ParseReActResponse_EmptyAndFallback(t *testing.T) {
 	if _, err := ParseReActResponse(""); err == nil {
@@ -78,7 +73,6 @@ func TestD8_4_ParseReActResponse_EmptyAndFallback(t *testing.T) {
 		t.Errorf("FinalAnswer 应等于原文，实际 %q", result.FinalAnswer)
 	}
 }
-
 
 func TestD8_5_ToToolCall_Conversion(t *testing.T) {
 	r := &ReActParseResult{
@@ -111,7 +105,6 @@ func TestD8_5_ToToolCall_Conversion(t *testing.T) {
 		t.Fatal("Final Answer 路径应返回 nil ToolCall")
 	}
 }
-
 
 func TestD8_6_WrapSystemPrompt(t *testing.T) {
 	adapter := NewReActAdapter()
@@ -158,7 +151,6 @@ func TestD8_6_WrapSystemPrompt(t *testing.T) {
 	}
 }
 
-
 func TestD8_7_AdaptResult_ActionPath(t *testing.T) {
 	adapter := NewReActAdapter()
 	result := &DispatchResult{
@@ -188,7 +180,6 @@ Action Input: {"phone":"13800138000"}`,
 	}
 }
 
-
 func TestD8_8_AdaptResult_FinalAnswerPath(t *testing.T) {
 	adapter := NewReActAdapter()
 	result := &DispatchResult{
@@ -213,7 +204,6 @@ Final Answer: 客户张三，手机 13800138000`,
 	}
 }
 
-
 func TestD8_9_IsReActMode(t *testing.T) {
 	req := &DispatchRequest{
 		Tools: []ToolDefinition{{Type: "function", Function: ToolFunctionSchema{Name: "test"}}},
@@ -236,7 +226,6 @@ func TestD8_9_IsReActMode(t *testing.T) {
 	}
 }
 
-
 func TestD8_10_BuildObservationMessage(t *testing.T) {
 	msg := BuildObservationMessage("customer.search", "react_123_1", `{"id":"cust-001"}`)
 	if msg.Role != "user" {
@@ -255,7 +244,6 @@ func TestD8_10_BuildObservationMessage(t *testing.T) {
 		t.Errorf("Name 期望 customer.search，实际 %s", msg.Name)
 	}
 }
-
 
 func TestD8_11_AdaptResult_ConcurrentIDUniqueness(t *testing.T) {
 	adapter := NewReActAdapter()
@@ -287,4 +275,3 @@ Action Input: {}`,
 		ids[id] = true
 	}
 }
-

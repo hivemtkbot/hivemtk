@@ -12,12 +12,11 @@ import (
 	"hivemtk-user/internal/websocket"
 )
 
-
 // TakeoverRequest 坐席接管请求
 type TakeoverRequest struct {
 	SessionID uint   `json:"session_id" binding:"required"`
 	AgentID   uint   `json:"agent_id" binding:"required"`
-	Reason    string `json:"reason"` 
+	Reason    string `json:"reason"`
 }
 
 // TakeoverByAgent 坐席接管 AI 会话
@@ -142,7 +141,7 @@ func (s *CustomerSessionService) ReleaseToAI(ctx context.Context, req *ReleaseTo
 type SwitchHandlerRequest struct {
 	SessionID   uint              `json:"session_id" binding:"required"`
 	AgentID     uint              `json:"agent_id"`
-	HandlerType model.HandlerType `json:"handler_type" binding:"required"` 
+	HandlerType model.HandlerType `json:"handler_type" binding:"required"`
 	Reason      string            `json:"reason"`
 }
 
@@ -216,4 +215,3 @@ func (s *CustomerSessionService) notifySessionUpdate(ctx context.Context, sessio
 		"updated_at":   time.Now().Unix(),
 	})
 }
-

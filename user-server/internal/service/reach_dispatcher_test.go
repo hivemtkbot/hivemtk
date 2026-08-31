@@ -143,4 +143,3 @@ func TestResetStuckJobs(t *testing.T) {
 		t.Errorf("stuck 任务应被重置为 pending，实际 %s", got.State)
 	}
 }
-

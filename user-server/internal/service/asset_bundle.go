@@ -1108,6 +1108,7 @@ func ScanSystemPromptBannedWords(prompt string) error {
 // 遍历资产包全部 role=system 消息，依次执行：
 //  1. ScanSystemPromptBannedWords：黑名单越狱/对抗性话术扫描
 //  2. safeprompt.ScanOutput：PII + 运行时敏感词扫描
+//
 // 任一命中严重违规即拒绝提交。
 func ValidateBundleForPlatformSubmit(bundle *model.AssetBundle) error {
 	if bundle == nil {

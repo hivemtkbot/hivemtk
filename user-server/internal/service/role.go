@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"fmt"
@@ -39,6 +38,7 @@ func NewRoleServiceWithRepo(repo repository.SystemUserRepository) *RoleService {
 //   - 按 model.SystemRoleList 的固定顺序返回（admin → customer_service → staff）
 //   - 成员数通过 CountByRole 实时统计
 //   - 统计失败时记 0 + log，不阻断列表（部分失败降级）
+//
 // v3 审计 P2-14 修复：记 0 掩盖真实错误 → 补 log
 func (s *RoleService) ListRoles(ctx context.Context) ([]*RoleWithCount, error) {
 	roles := make([]*RoleWithCount, 0, len(model.SystemRoleList))
@@ -103,4 +103,3 @@ func (s *RoleService) ListMembersByRole(ctx context.Context, code string, page, 
 	}
 	return users, total, nil
 }
-

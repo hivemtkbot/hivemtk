@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	llm "hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
-	llm "hivemtk-user/internal/aiagent/llm"
 
 	"gorm.io/gorm"
 )
@@ -67,9 +67,9 @@ func (s *SessionAIService) Generate(ctx context.Context, sessionID string) (*mod
 	// LLM 摘要：复用全局 Dispatcher（含 DB 路由/providers，勿自建实例绕过路由表）
 	d := llm.GetGlobalDispatcher()
 	res, err := d.Dispatch(ctx, llm.DispatchRequest{
-		Scenario: llm.ScenarioLongSummary,
-		Prompt: fmt.Sprintf("请为以下客服会话生成一段简洁摘要（150字以内），并在最后一行给出情绪倾向（格式：情绪: positive|neutral|negative）。\n\n会话记录：\n%s", transcript),
-		MaxTokens:  400,
+		Scenario:    llm.ScenarioLongSummary,
+		Prompt:      fmt.Sprintf("请为以下客服会话生成一段简洁摘要（150字以内），并在最后一行给出情绪倾向（格式：情绪: positive|neutral|negative）。\n\n会话记录：\n%s", transcript),
+		MaxTokens:   400,
 		Temperature: 0.3,
 	})
 	if err != nil {

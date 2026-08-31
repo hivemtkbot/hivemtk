@@ -16,17 +16,17 @@ import (
 //
 // 存储于 system_config_kv，key = "co_pilot_auto_execute"
 type CoPilotAutoExecuteConfig struct {
-	Enabled            bool    `json:"enabled"`
+	Enabled             bool    `json:"enabled"`
 	ConfidenceThreshold float64 `json:"confidence_threshold"` // 置信度阈值，默认 0.85
-	CostLimit          float64 `json:"cost_limit"`           // 单次成本上限（USD），默认 0.5
+	CostLimit           float64 `json:"cost_limit"`           // 单次成本上限（USD），默认 0.5
 }
 
 // 默认配置
 func defaultCoPilotConfig() CoPilotAutoExecuteConfig {
 	return CoPilotAutoExecuteConfig{
-		Enabled:            false,
+		Enabled:             false,
 		ConfidenceThreshold: 0.85,
-		CostLimit:          0.5,
+		CostLimit:           0.5,
 	}
 }
 
@@ -80,9 +80,9 @@ func (s *AgentCoPilotService) SaveConfig(ctx context.Context, cfg *CoPilotAutoEx
 
 // AutoExecuteDecision 自动执行决策结果
 type AutoExecuteDecision struct {
-	AutoApproved bool    `json:"auto_approved"`
-	Reason       string  `json:"reason"`
-	Confidence   float64 `json:"confidence"`
+	AutoApproved  bool    `json:"auto_approved"`
+	Reason        string  `json:"reason"`
+	Confidence    float64 `json:"confidence"`
 	EstimatedCost float64 `json:"estimated_cost"`
 }
 

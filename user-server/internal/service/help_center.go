@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"strings"
 
-	"hivemtk-user/internal/model"
 	ksvc "hivemtk-user/internal/aiagent/knowledge/service"
+	"hivemtk-user/internal/model"
 	"time"
 
 	"hivemtk-user/internal/pkg/db"
@@ -184,7 +184,6 @@ func (s *HelpCenterService) SetArticleVisibility(ctx context.Context, docID uint
 	}
 	return nil
 }
-
 
 // SetArticleStatus 状态机切换（draft/published/archived，双向同步 public_visible）
 func (s *HelpCenterService) SetArticleStatus(ctx context.Context, docID uint64, status string) error {

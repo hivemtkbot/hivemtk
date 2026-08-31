@@ -204,12 +204,12 @@ func (s *liveCodeService) RotateLiveCodes(ctx context.Context) error {
 
 		qrCode := &model.LiveCodeQR{
 			LiveCodeID: liveCode.ID,
-			Status:     1, 
+			Status:     1,
 		}
 
 		err := s.qrCodeRepo.Create(ctx, qrCode)
 		if err != nil {
-			continue 
+			continue
 		}
 	}
 
@@ -393,7 +393,7 @@ func (s *liveCodeService) GetQRStats(ctx context.Context, qrID string) (*dto.Liv
 	accessStats := make([]*dto.LiveCodeQRStatItem, len(stats))
 	for i, stat := range stats {
 		accessStats[i] = &dto.LiveCodeQRStatItem{
-			ID:        fmt.Sprintf("%d", stat.ID), 
+			ID:        fmt.Sprintf("%d", stat.ID),
 			QRCodeID:  stat.QRCodeID,
 			Date:      stat.Date,
 			CreatedAt: stat.CreatedAt,
@@ -412,10 +412,10 @@ func (s *liveCodeService) GetQRStats(ctx context.Context, qrID string) (*dto.Liv
 		ExpireDays:          qrCode.ExpireDays,
 		ViewCount:           viewCount,
 		ClickCount:          clickCount,
-		ExpireTime:          time.Now().AddDate(0, 0, qrCode.ExpireDays), 
+		ExpireTime:          time.Now().AddDate(0, 0, qrCode.ExpireDays),
 		Status:              qrCode.Status,
-		IsExpired:           false, 
-		IsDailyLimitReached: false, 
+		IsExpired:           false,
+		IsDailyLimitReached: false,
 		AccessStats:         accessStats,
 	}, nil
 }
@@ -564,11 +564,11 @@ func (s *liveCodeService) qrModelToResponse(ctx context.Context, qrCode *model.L
 		ViewCount:           viewCount,
 		ClickCount:          clickCount,
 		Status:              qrCode.Status,
-		ExpireTime:          time.Now().AddDate(0, 0, qrCode.ExpireDays), 
+		ExpireTime:          time.Now().AddDate(0, 0, qrCode.ExpireDays),
 		CreatedAt:           qrCode.CreatedAt,
 		UpdatedAt:           qrCode.UpdatedAt,
-		IsExpired:           false, 
-		IsDailyLimitReached: false, 
+		IsExpired:           false,
+		IsDailyLimitReached: false,
 	}
 }
 
@@ -615,4 +615,3 @@ func calculateConversionRate(shown, clicks int) float64 {
 	}
 	return float64(clicks) / float64(shown) * 100
 }
-

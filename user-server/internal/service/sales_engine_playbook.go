@@ -140,4 +140,3 @@ func (e *SalesEngine) generateCandidate(
 	}
 	return e.calibrate(ctx, strings.TrimSpace(result.Content), targetLang), result, nil, nil
 }
-

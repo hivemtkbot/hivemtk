@@ -1,8 +1,8 @@
 package service
 
 import (
-	"encoding/json"
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -187,7 +187,7 @@ func (r *s1TaskRecorder) DispatchOrLog(task *dispatchTask) { r.tasks = append(r.
 
 func TestS1_2_MaxWaitExceeded_TimerSkipped(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.SOPAgent{}, &model.SOPExecution{}, &model.SOPExecEvent{}, &model.SOPTimer{})
-	
+
 	ctx := context.Background()
 
 	exec := &model.SOPExecution{SOPID: 1, CustomerID: "c1", Status: SOPStatusRunning, CurrentNode: "wait_node"}
@@ -244,7 +244,6 @@ func TestS1_2_MaxWaitExceeded_TimerSkipped(t *testing.T) {
 // TestWaitExecutor_WritesExpiresAndMaxWait S1-2：timer 创建时写双字段快照
 func TestWaitExecutor_WritesExpiresAndMaxWait(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.SOPTimer{})
-	
 
 	e := NewWaitExecutor(&SOPNodeExecutorDeps{DB: db})
 	start := time.Now()
@@ -283,7 +282,7 @@ func TestWaitExecutor_WritesExpiresAndMaxWait(t *testing.T) {
 
 func TestS1_5_DeadLetter_ClaimThreshold(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.SOPAgent{}, &model.SOPExecution{}, &model.SOPExecEvent{}, &model.SOPTimer{})
-	
+
 	ctx := context.Background()
 
 	// WaitUntil 设为未来，确保不被正常 fire 路径处理，只走死信扫描

@@ -78,8 +78,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { listKBDocuments, uploadKBDocument, deleteKBDocument, updateKBDocument, askKB, extractEntities } from '@/api/geoEntity.js'
-import { http } from '@/utils/http'
+import { listKBDocuments, saveKBDocument, deleteKBDocument, askKB, extractEntities } from '@/api/geoEntity.js'
 
 const docs = ref([])
 const loading = ref(false)
@@ -103,18 +102,13 @@ const loadDocs = async () => {
 }
 
 const onUpload = async (file) => {
-  try {
-    const formData = new FormData()
-    formData.append('file', file)
-    await uploadKBDocument(formData)
-    ElMessage.success('上传成功')
-    loadDocs()
-  } catch (e) { ElMessage.error('上传失败：' + (e?.message || e)) }
+  // 后端暂未开放文件上传接口（只接受 JSON），改为提示手动录入
+  ElMessage.warning('请通过 KB 文档创建手动录入（后端暂不支持文件上传）')
 }
 
 const onUpdateLevel = async (row) => {
   try {
-    await updateKBDocument(row.id || row.doc_id, { source_level: row.source_level })
+    await saveKBDocument({ id: row.id || row.doc_id, source_level: row.source_level, title: row.title || row.filename, content: row.content || '' })
     ElMessage.success('已更新')
   } catch (e) { ElMessage.error(e?.message || '更新失败') }
 }

@@ -40,7 +40,7 @@ func TestHandleIngress_CanonicalContentHash_AlreadyExists_Skipped(t *testing.T) 
 		t.Fatalf("预置 outbound 失败: %v", err)
 	}
 
-	algo1Hash := "mh:0000aabb" 
+	algo1Hash := "mh:0000aabb"
 	evt := &model.MessageEvent{
 		Channel:        model.ChannelXHS,
 		SenderID:       "customer-xhs-100",
@@ -334,4 +334,3 @@ func TestPersistBridgeHistory_NewContent_Persisted(t *testing.T) {
 		t.Fatalf("direction 应为 inbound，got=%s", row.Direction)
 	}
 }
-

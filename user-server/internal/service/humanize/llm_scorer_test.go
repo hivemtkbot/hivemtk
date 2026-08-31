@@ -1,6 +1,5 @@
 package humanize
 
-
 import (
 	"context"
 	"errors"
@@ -10,7 +9,6 @@ import (
 
 	"hivemtk-user/internal/dto"
 )
-
 
 // TestLLMScorer_Evaluate_Basic 基本 LLM 评估
 func TestLLMScorer_Evaluate_Basic(t *testing.T) {
@@ -95,7 +93,7 @@ func TestLLMScorer_Evaluate_NilDispatcher(t *testing.T) {
 func TestLLMScorer_Evaluate_AllFail(t *testing.T) {
 	dispatcher := newHumanizeStubLLMDispatcher(nil)
 	dispatcher.err = errors.New("LLM service unavailable")
-	dispatcher.failOn = 1 
+	dispatcher.failOn = 1
 	scorer := NewLLMScorer(dispatcher)
 	input := &dto.HumanizeEvalInput{AIReply: "测试"}
 	_, err := scorer.Evaluate(context.Background(), input)
@@ -107,7 +105,7 @@ func TestLLMScorer_Evaluate_AllFail(t *testing.T) {
 // TestLLMScorer_Evaluate_PartialFail 部分失败仍可返回中位数
 func TestLLMScorer_Evaluate_PartialFail(t *testing.T) {
 	responses := []string{
-		"", 
+		"",
 		`{"scores":[{"dimension":"naturalness","score":0.8},{"dimension":"conciseness","score":0.8},{"dimension":"empathy","score":0.8},{"dimension":"professionalism","score":0.8},{"dimension":"persuasiveness","score":0.8}],"total_score":0.8}`,
 		`{"scores":[{"dimension":"naturalness","score":0.9},{"dimension":"conciseness","score":0.9},{"dimension":"empathy","score":0.9},{"dimension":"professionalism","score":0.9},{"dimension":"persuasiveness","score":0.9}],"total_score":0.9}`,
 	}
@@ -124,7 +122,6 @@ func TestLLMScorer_Evaluate_PartialFail(t *testing.T) {
 		t.Fatal("result is nil")
 	}
 }
-
 
 // TestBuildHumanizeLLMPrompt_Basic 基本 prompt 构建
 func TestBuildHumanizeLLMPrompt_Basic(t *testing.T) {
@@ -183,7 +180,6 @@ func TestBuildHumanizeLLMPrompt_WithBaseline(t *testing.T) {
 		t.Error("prompt 应包含 naturalness=0.850")
 	}
 }
-
 
 // TestParseHumanizeEvalResult_PlainJSON 纯 JSON
 func TestParseHumanizeEvalResult_PlainJSON(t *testing.T) {
@@ -280,7 +276,6 @@ func TestParseHumanizeEvalResult_AutoTotal(t *testing.T) {
 	}
 }
 
-
 // TestPickMedianResult_Odd 奇数取中位数
 func TestPickMedianResult_Odd(t *testing.T) {
 	results := []*dto.HumanizeEvalResult{
@@ -319,7 +314,6 @@ func TestPickMedianResult_Single(t *testing.T) {
 	}
 }
 
-
 // TestWeightedEuclideanDistance_Basic 基本距离计算
 func TestWeightedEuclideanDistance_Basic(t *testing.T) {
 	scores := []dto.HumanizeDimensionScore{
@@ -345,7 +339,7 @@ func TestWeightedEuclideanDistance_Basic(t *testing.T) {
 // TestWeightedEuclideanDistance_NonZero 有差距
 func TestWeightedEuclideanDistance_NonZero(t *testing.T) {
 	scores := []dto.HumanizeDimensionScore{
-		{Dimension: dto.HumanizeDimNaturalness, Score: 0.75}, 
+		{Dimension: dto.HumanizeDimNaturalness, Score: 0.75},
 		{Dimension: dto.HumanizeDimConciseness, Score: 0.90},
 		{Dimension: dto.HumanizeDimEmpathy, Score: 0.80},
 		{Dimension: dto.HumanizeDimProfessionalism, Score: 0.85},
@@ -374,7 +368,6 @@ func TestWeightedEuclideanDistance_NilBaseline(t *testing.T) {
 		t.Errorf("nil baseline 距离=%v want 0", dist)
 	}
 }
-
 
 // TestDecideLLMSample_Boundary 边界样本 100% 触发
 func TestDecideLLMSample_Boundary(t *testing.T) {
@@ -464,7 +457,6 @@ func TestDecideLLMSample_EqualBoundaryHigh(t *testing.T) {
 	}
 }
 
-
 // stringContains 字符串包含（避免引入 strings 包）
 func stringContains(s, sub string) bool {
 	return len(s) >= len(sub) && (indexOf(s, sub) >= 0)
@@ -479,4 +471,3 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
-

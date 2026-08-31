@@ -57,7 +57,7 @@ func platformNameIntoData(raw json.RawMessage, name string) json.RawMessage {
 		return raw
 	}
 	if _, ok := m["name"]; ok {
-		return raw 
+		return raw
 	}
 	nameJSON, err := json.Marshal(name)
 	if err != nil {
@@ -313,4 +313,3 @@ func (s *LocalAssetService) reportUsageAsync(assetID string) {
 	defer cancel()
 	_ = s.ReportUsage(ctx, assetID)
 }
-

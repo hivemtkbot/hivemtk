@@ -51,7 +51,7 @@ func TestDynamicTotalDelay_Formula(t *testing.T) {
 		{"客服 41 字符进位", 41, SceneSupport, true, 2.0 + 3*0.8},
 		{"销售 40 字符首条 ×1.5", 40, SceneSales, true, (2.0 + 2*0.8) * 1.5},
 		{"客服 40 字符非首条加思考停顿", 40, SceneSupport, false, 2.0 + 2*0.8 + cfg.ThinkingPauseSec},
-		{"销售 100 字符非首条", 100, SceneSales, false, (2.0 + 5*0.8) * 1.5 + cfg.ThinkingPauseSec},
+		{"销售 100 字符非首条", 100, SceneSales, false, (2.0+5*0.8)*1.5 + cfg.ThinkingPauseSec},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 func setupLayerLogTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := testutil.NewTestDB(t, &model.LayerDecisionLog{})
@@ -206,4 +205,3 @@ func TestLayerDecisionLogRepository_LLMSkippedCount(t *testing.T) {
 		t.Errorf("expected 2 LLM skipped, got %d", count)
 	}
 }
-

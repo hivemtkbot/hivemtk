@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // SOPSupportedOperators SOP 支持的运算符集合
 var SOPSupportedOperators = map[string]bool{
 	"eq": true, "ne": true, "gt": true, "lt": true,
@@ -24,8 +23,8 @@ const (
 
 // SOPConditionResult 条件评估结果
 type SOPConditionResult struct {
-	Matched  bool   
-	NextNode string 
+	Matched  bool
+	NextNode string
 }
 
 // SOPParseCondition 解析单个条件表达式（包装 ParseCondition，方便统一调用）
@@ -95,7 +94,7 @@ func SOPEvaluateCompoundCondition(condition string, data map[string]any) (bool, 
 				return false, err
 			}
 			if !matched {
-				return false, nil 
+				return false, nil
 			}
 		}
 		return true, nil
@@ -109,7 +108,7 @@ func SOPEvaluateCompoundCondition(condition string, data map[string]any) (bool, 
 				return false, err
 			}
 			if matched {
-				return true, nil 
+				return true, nil
 			}
 		}
 		return false, nil
@@ -293,4 +292,3 @@ func evalParenthesized(condition string, data map[string]any) (bool, error) {
 	condition = strings.ReplaceAll(strings.ToUpper(condition), "FALSE", "false")
 	return SOPEvaluateCompoundCondition(condition, data)
 }
-

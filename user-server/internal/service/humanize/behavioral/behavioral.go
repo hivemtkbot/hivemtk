@@ -36,10 +36,10 @@ type BehaviorConfig struct {
 	TypoProbability     float64 // 错别字概率（0-1），默认 0.03
 
 	// A11（ACM CHI'24 hesitation 研究）：匀速=机器人特征，变速+偶发犹豫更拟人
-	TypingSpeedJitter    float64 // 每段打字速度随机浮动比例（±），默认 0.2 → CPS ∈ [0.8x, 1.2x]
-	HesitationProb       float64 // 每段间触发犹豫停顿的概率，默认 0.15
-	HesitationMinSec     float64 // 犹豫停顿最短秒数，默认 0.4
-	HesitationMaxSec     float64 // 犹豫停顿最长秒数，默认 1.2
+	TypingSpeedJitter float64 // 每段打字速度随机浮动比例（±），默认 0.2 → CPS ∈ [0.8x, 1.2x]
+	HesitationProb    float64 // 每段间触发犹豫停顿的概率，默认 0.15
+	HesitationMinSec  float64 // 犹豫停顿最短秒数，默认 0.4
+	HesitationMaxSec  float64 // 犹豫停顿最长秒数，默认 1.2
 }
 
 // DefaultBehaviorConfig 返回默认行为配置

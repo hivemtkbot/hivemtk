@@ -11,15 +11,14 @@ import (
 	"time"
 )
 
-
 // DraftStatus 草稿状态
 type DraftStatus string
 
 const (
-	DraftStatusPending   DraftStatus = "pending"   
-	DraftStatusConfirmed DraftStatus = "confirmed" 
-	DraftStatusCancelled DraftStatus = "cancelled" 
-	DraftStatusExpired   DraftStatus = "expired"   
+	DraftStatusPending   DraftStatus = "pending"
+	DraftStatusConfirmed DraftStatus = "confirmed"
+	DraftStatusCancelled DraftStatus = "cancelled"
+	DraftStatusExpired   DraftStatus = "expired"
 )
 
 // OrderDraft 订单草稿
@@ -27,24 +26,24 @@ type OrderDraft struct {
 	ID           string         `json:"id"`
 	CustomerID   string         `json:"customer_id"`
 	OneID        string         `json:"one_id,omitempty"`
-	OwnerID      string         `json:"owner_id"`     
-	ProductName  string         `json:"product_name"` 
+	OwnerID      string         `json:"owner_id"`
+	ProductName  string         `json:"product_name"`
 	ProductID    string         `json:"product_id,omitempty"`
-	Category     string         `json:"category"`     
-	Quantity     int            `json:"quantity"`     
-	UnitPrice    float64        `json:"unit_price"`   
-	TotalAmount  float64        `json:"total_amount"` 
-	Confidence   float64        `json:"confidence"`   
-	Source       string         `json:"source"`       
-	SourceText   string         `json:"source_text"`  
+	Category     string         `json:"category"`
+	Quantity     int            `json:"quantity"`
+	UnitPrice    float64        `json:"unit_price"`
+	TotalAmount  float64        `json:"total_amount"`
+	Confidence   float64        `json:"confidence"`
+	Source       string         `json:"source"`
+	SourceText   string         `json:"source_text"`
 	IntentID     string         `json:"intent_id,omitempty"`
 	Status       DraftStatus    `json:"status"`
-	OrderID      string         `json:"order_id,omitempty"` 
-	Note         string         `json:"note,omitempty"`     
+	OrderID      string         `json:"order_id,omitempty"`
+	Note         string         `json:"note,omitempty"`
 	CancelReason string         `json:"cancel_reason,omitempty"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
-	ExpiresAt    time.Time      `json:"expires_at"` 
+	ExpiresAt    time.Time      `json:"expires_at"`
 	ConfirmedAt  *time.Time     `json:"confirmed_at,omitempty"`
 	CancelledAt  *time.Time     `json:"cancelled_at,omitempty"`
 	Metadata     map[string]any `json:"metadata,omitempty"`
@@ -74,10 +73,10 @@ type DraftUpdates struct {
 // DraftConfirmResult 草稿确认结果
 type DraftConfirmResult struct {
 	Draft         *OrderDraft  `json:"draft"`
-	OrderID       string       `json:"order_id"`              
-	Order         *orderRecord `json:"order,omitempty"`       
-	StageAdvanced string       `json:"stage_advanced"`        
-	FollowUpID    string       `json:"followup_id,omitempty"` 
+	OrderID       string       `json:"order_id"`
+	Order         *orderRecord `json:"order,omitempty"`
+	StageAdvanced string       `json:"stage_advanced"`
+	FollowUpID    string       `json:"followup_id,omitempty"`
 }
 
 // orderRecord 订单快照（避免直接依赖 model.Order 以保持模块解耦）
@@ -89,7 +88,7 @@ type orderRecord struct {
 	UnitPrice   float64   `json:"unit_price"`
 	TotalAmount float64   `json:"total_amount"`
 	Status      string    `json:"status"`
-	Source      string    `json:"source"` 
+	Source      string    `json:"source"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -97,9 +96,9 @@ type orderRecord struct {
 type OrderDraftService struct {
 	mu sync.RWMutex
 
-	drafts     map[string]*OrderDraft   
-	byCustomer map[string][]*OrderDraft 
-	byOwner    map[string][]*OrderDraft 
+	drafts     map[string]*OrderDraft
+	byCustomer map[string][]*OrderDraft
+	byOwner    map[string][]*OrderDraft
 
 	orderService *OrderService
 	journey      *CustomerJourneyService
@@ -107,7 +106,7 @@ type OrderDraftService struct {
 	followup     *FollowUpService
 	trigger      *SalesActionTrigger
 
-	defaultExpiry time.Duration 
+	defaultExpiry time.Duration
 }
 
 // OrderDraftConfig 草稿服务配置
@@ -121,7 +120,7 @@ func NewOrderDraftService(cfg *OrderDraftConfig) *OrderDraftService {
 		cfg = &OrderDraftConfig{}
 	}
 	if cfg.DefaultExpiry == 0 {
-		cfg.DefaultExpiry = 7 * 24 * time.Hour 
+		cfg.DefaultExpiry = 7 * 24 * time.Hour
 	}
 	return &OrderDraftService{
 		drafts:        make(map[string]*OrderDraft),
@@ -155,7 +154,6 @@ func (s *OrderDraftService) SetFollowUp(ctx context.Context, f *FollowUpService)
 func (s *OrderDraftService) SetTrigger(ctx context.Context, t *SalesActionTrigger) {
 	s.trigger = t
 }
-
 
 // CreateFromIntent 从订单意向自动生成草稿（-11 核心入口）
 // 商业产品级业务流：AI 谈单时提取到"光子嫩肤 3 次 2280 元"→
@@ -224,7 +222,7 @@ func (s *OrderDraftService) CreateFromIntent(ctx context.Context, intent *OrderI
 		Confidence:  conf,
 		Source:      "ai_chat",
 		SourceText:  intent.RawText,
-		IntentID:    intent.RawText, 
+		IntentID:    intent.RawText,
 		Status:      DraftStatusPending,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -290,7 +288,7 @@ func (s *OrderDraftService) CreateManual(ctx context.Context, req *CreateDraftRe
 		Quantity:    req.Quantity,
 		UnitPrice:   req.UnitPrice,
 		TotalAmount: req.UnitPrice * float64(req.Quantity),
-		Confidence:  1.0, 
+		Confidence:  1.0,
 		Source:      "manual",
 		Status:      DraftStatusPending,
 		Note:        req.Note,
@@ -321,7 +319,6 @@ func (s *OrderDraftService) CreateManual(ctx context.Context, req *CreateDraftRe
 	}
 	return draft, nil
 }
-
 
 // Confirm 销售一键确认草稿 → 创建正式订单（-11 核心入口）
 // 商业产品级业务流：销售在"待确认草稿"列表里点"确认" → 4 件事自动发生：
@@ -511,7 +508,6 @@ func (s *OrderDraftService) Edit(ctx context.Context, draftID string, updates Dr
 	return nil
 }
 
-
 // GetByID 根据 ID 查询草稿
 func (s *OrderDraftService) GetByID(ctx context.Context, draftID string) *OrderDraft {
 	s.mu.RLock()
@@ -619,7 +615,6 @@ func (s *OrderDraftService) ExpireOverdue(ctx context.Context) int {
 	return count
 }
 
-
 // findPendingDraftByProduct 查找客户某产品的 pending 草稿（去重用）
 func (s *OrderDraftService) findPendingDraftByProduct(ctx context.Context, customerID, productName string) *OrderDraft {
 	s.mu.RLock()
@@ -684,4 +679,3 @@ func generateTempOrderID() string {
 	n := atomic.AddInt64(&orderCounter, 1)
 	return fmt.Sprintf("ord_%d_%d", time.Now().UnixNano(), n)
 }
-

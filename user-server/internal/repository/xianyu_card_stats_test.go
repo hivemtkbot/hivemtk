@@ -460,7 +460,7 @@ func TestXianyuCardStatsRepository_RecordActivity_WithContext(t *testing.T) {
 	ctx := context.Background()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() 
+	cancel()
 
 	card := &model.XianyuCard{
 		Title:       "Context Test Card",
@@ -474,4 +474,3 @@ func TestXianyuCardStatsRepository_RecordActivity_WithContext(t *testing.T) {
 		t.Error("Expected error when context is cancelled")
 	}
 }
-

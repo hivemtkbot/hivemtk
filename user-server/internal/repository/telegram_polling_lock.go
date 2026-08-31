@@ -10,7 +10,6 @@ import (
 	_db "hivemtk-user/internal/pkg/db"
 )
 
-
 // ErrPollingLockDBNil DB 句柄未初始化（service 启动期或测试中可能遇到）
 var ErrPollingLockDBNil = errors.New("polling lock: db is nil")
 
@@ -190,4 +189,3 @@ func (r *TelegramPollingLockRepository) getLockInfo(ctx context.Context, account
 	}
 	return PollingLockInfo{Owner: row.PollingOwner, LastHeartbeat: row.PollingHeartbeatAt}, nil
 }
-

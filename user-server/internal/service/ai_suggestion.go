@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/websocket"
 )
 
-
 // AISuggestionService AI建议服务
 type AISuggestionService struct {
 	suggestionRepo *repository.AISuggestionRepository
@@ -55,4 +54,3 @@ func (s *AISuggestionService) GetSuggestions(ctx context.Context, sessionID stri
 func (s *AISuggestionService) UseSuggestion(ctx context.Context, id uint, agentID uint) error {
 	return s.suggestionRepo.MarkAsUsed(ctx, id, agentID)
 }
-

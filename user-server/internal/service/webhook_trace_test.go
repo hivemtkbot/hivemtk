@@ -47,7 +47,7 @@ func TestTraceID_InheritanceRunAIGenerationCtx(t *testing.T) {
 	if parentTraceID := trace.TraceIDFromContext(upstream); parentTraceID != "" {
 		parentCtx = trace.NewContextWithTraceID(parentCtx, parentTraceID)
 	}
-	ctx, cancel := context.WithTimeout(parentCtx, 30*1000*1000*1000) 
+	ctx, cancel := context.WithTimeout(parentCtx, 30*1000*1000*1000)
 	defer cancel()
 	ctx = logger.WithModule(ctx, "webhook")
 
@@ -59,7 +59,7 @@ func TestTraceID_InheritanceRunAIGenerationCtx(t *testing.T) {
 // TestTraceID_AutoGenerateWhenMissing 验证上游无 trace_id 时自动生成新 ID，
 // 保证可观测性不丢。
 func TestTraceID_AutoGenerateWhenMissing(t *testing.T) {
-	upstream := context.Background() 
+	upstream := context.Background()
 
 	parentCtx := context.Background()
 	if parentTraceID := trace.TraceIDFromContext(upstream); parentTraceID != "" {
@@ -71,4 +71,3 @@ func TestTraceID_AutoGenerateWhenMissing(t *testing.T) {
 		t.Fatal("auto-generated trace_id should not be empty")
 	}
 }
-

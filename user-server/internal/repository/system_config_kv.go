@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"errors"
@@ -90,4 +89,3 @@ func (r *systemConfigKVRepo) EnsureTable(ctx context.Context) error {
 }
 
 var _ SystemConfigKVRepository = (*systemConfigKVRepo)(nil)
-

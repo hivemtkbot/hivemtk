@@ -64,7 +64,7 @@ func (s *domainPoolService) Create(ctx context.Context, domain string, port int,
 		Domain:    domain,
 		Port:      port,
 		Purpose:   purpose,
-		Status:    1, 
+		Status:    1,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -175,7 +175,7 @@ func (s *domainPoolService) CheckAllDomains(ctx context.Context) ([]dto.DomainPo
 
 			client := &http.Client{Timeout: 5 * time.Second}
 
-			status := 2 
+			status := 2
 			msg := "不可访问"
 
 			resp, err := client.Get(url)
@@ -209,7 +209,6 @@ func (s *domainPoolService) CheckAllDomains(ctx context.Context) ([]dto.DomainPo
 // domainCheckConcurrency CheckAllDomains 并发健康检查的最大并发数
 const domainCheckConcurrency = 16
 
-
 // AddBlacklist 添加域名到黑名单
 // ttlHours=0 表示永久,>0 表示 TTL(小时)
 func (s *domainPoolService) AddBlacklist(ctx context.Context, domain, platform, reason, source string, ttlHours int) error {
@@ -230,7 +229,6 @@ func (s *domainPoolService) RemoveBlacklist(ctx context.Context, domain string) 
 func (s *domainPoolService) ListBlacklist(ctx context.Context, page, pageSize int) ([]*model.DomainBlacklist, int64, error) {
 	return s.blacklistRepo.List(ctx, page, pageSize)
 }
-
 
 // ---------- R39 补齐（前端 domainPool.js 动作端点） ----------
 

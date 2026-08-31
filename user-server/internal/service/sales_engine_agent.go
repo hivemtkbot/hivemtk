@@ -8,7 +8,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // HandleWithAgent 按指定智能体上下文执行 9 步链路
 //
 // 调用方：
@@ -46,7 +45,6 @@ func (e *SalesEngine) HandleWithAgent(ctx context.Context, req *SalesRequest, ag
 	return e.Handle(ctx, req)
 }
 
-
 // CustomerFromAgent 提供给 LLM 上下文的客户标识信息
 // 优先级：UnifiedID > Phone > Email
 // 选择理由：Customer 模型没有 Name/OneID 字段，使用 UnifiedID 作为统一标识最为稳定；
@@ -67,4 +65,3 @@ func CustomerFromAgent(c *model.Customer, agentCtx *AgentContext) string {
 	}
 	return name
 }
-

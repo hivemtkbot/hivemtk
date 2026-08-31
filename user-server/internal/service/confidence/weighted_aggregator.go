@@ -1,17 +1,16 @@
 package confidence
 
-
 import (
 	"hivemtk-user/internal/dto"
 )
 
 // SignalWeights 5 维信号权重
 type SignalWeights struct {
-	IntentConf float64 
-	EntityComp float64 
-	CtxRelev   float64 
-	RAGQual    float64 
-	LLMEntropy float64 
+	IntentConf float64
+	EntityComp float64
+	CtxRelev   float64
+	RAGQual    float64
+	LLMEntropy float64
 }
 
 // DefaultSignalWeights 默认权重（来自设计文档 §15.2.2）
@@ -83,4 +82,3 @@ func normalizeWeights(w *SignalWeights) {
 		w.LLMEntropy /= sum
 	}
 }
-

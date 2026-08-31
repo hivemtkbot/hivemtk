@@ -8,7 +8,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 // OperationLogService 操作日志门面服务
 type OperationLogService struct {
 	logRepo repository.OperationLogRepository
@@ -156,4 +155,3 @@ func (s *OperationLogService) ExportAll(ctx context.Context, pageSize int) ([]*O
 	}
 	return out, nil
 }
-

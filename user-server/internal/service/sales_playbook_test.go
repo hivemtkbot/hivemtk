@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-
 // TestPlaybook_DefaultSeeds_AllIndustries 所有行业都有默认话术
 func TestPlaybook_DefaultSeeds_AllIndustries(t *testing.T) {
 	svc := NewPlaybookService()
@@ -96,13 +95,13 @@ func TestPlaybook_Recommend_PriorityBySuccessRate(t *testing.T) {
 	highRate, _ := svc.Add(context.Background(), &PlaybookEntry{
 		Industry: IndustryB2B, Stage: StageInterested, Objection: PlayObjectionPrice,
 		Title: "高成功率话术", Content: "ROI 计算话术",
-		UseCount: 10, SuccessCount: 9, 
+		UseCount: 10, SuccessCount: 9,
 		CreatedBy: "tester",
 	})
 	lowRate, _ := svc.Add(context.Background(), &PlaybookEntry{
 		Industry: IndustryB2B, Stage: StageInterested, Objection: PlayObjectionPrice,
 		Title: "低成功率话术", Content: "ROI 计算话术",
-		UseCount: 100, SuccessCount: 10, 
+		UseCount: 100, SuccessCount: 10,
 		CreatedBy: "tester",
 	})
 
@@ -281,7 +280,6 @@ func TestPlaybook_Concurrent(t *testing.T) {
 	t.Logf("✅ 并发安全：50 个推荐 + 50 个记录无 race")
 }
 
-
 // TestSalesEngine_SetPlaybook_Integration 话术库集成
 func TestSalesEngine_SetPlaybook_Integration(t *testing.T) {
 	playbook := NewPlaybookService()
@@ -298,14 +296,13 @@ func TestSalesEngine_SetPlaybook_Integration(t *testing.T) {
 
 // TestSalesEngine_RecommendPlaybook_NilSafe nil 时安全
 func TestSalesEngine_RecommendPlaybook_NilSafe(t *testing.T) {
-	engine := &SalesEngine{} 
+	engine := &SalesEngine{}
 	got := engine.RecommendPlaybook(context.Background(), IndustryMedicalBeauty, "", StageInterested, IntentObjectionPrice)
 	if got != nil {
 		t.Error("未注入话术库时应返回 nil")
 	}
 	t.Logf("✅ nil safe：返回 nil")
 }
-
 
 // TestPlaybook_E2E_MedicalBeauty 医美行业完整闭环
 func TestPlaybook_E2E_MedicalBeauty(t *testing.T) {
@@ -337,7 +334,7 @@ func TestPlaybook_E2E_MedicalBeauty(t *testing.T) {
 	if len(got4) == 0 {
 		t.Fatal("信任异议话术缺失")
 	}
-	svc.RecordUse(context.Background(), got4[0].ID, false) 
+	svc.RecordUse(context.Background(), got4[0].ID, false)
 	t.Logf("  4️⃣  信任异议：%s", got4[0].Title)
 
 	got5 := svc.RecommendForResponse(context.Background(), IndustryMedicalBeauty, "", StageQuoted, IntentStall)
@@ -417,7 +414,7 @@ func TestPlaybook_Priority_NewVsOld(t *testing.T) {
 	oldOne, _ := svc.Add(context.Background(), &PlaybookEntry{
 		Industry: IndustryAuto, Stage: StageInterested, Objection: PlayObjectionPrice,
 		Title: "低成功率老话术", Content: "老版本",
-		UseCount: 100, SuccessCount: 10, 
+		UseCount: 100, SuccessCount: 10,
 		CreatedBy: "tester",
 	})
 	newOne, _ := svc.Add(context.Background(), &PlaybookEntry{
@@ -575,4 +572,3 @@ func TestPlaybook_TimestampSet(t *testing.T) {
 	}
 	t.Logf("✅ 时间戳自动设置")
 }
-

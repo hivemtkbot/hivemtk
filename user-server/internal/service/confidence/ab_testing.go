@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"context"
 	"errors"
@@ -106,7 +105,6 @@ func (s *ABTestService) Analyze(ctx context.Context, testID, metricName string) 
 // ErrInsufficientSamples 样本不足
 var ErrInsufficientSamples = errors.New("insufficient samples for analysis (need >=10 per group)")
 
-
 // mannWhitneyU Mann-Whitney U 检验
 //
 // H0: 两个样本来自相同分布
@@ -124,7 +122,7 @@ func mannWhitneyU(a, b []float64) (u, p float64) {
 	// 合并排序
 	type pair struct {
 		val   float64
-		group int 
+		group int
 	}
 	combined := make([]pair, 0, n1+n2)
 	for _, v := range a {
@@ -144,7 +142,7 @@ func mannWhitneyU(a, b []float64) (u, p float64) {
 		for j+1 < len(combined) && combined[j+1].val == combined[i].val {
 			j++
 		}
-		avgRank := float64(i+j+2) / 2 
+		avgRank := float64(i+j+2) / 2
 		for k := i; k <= j; k++ {
 			ranks[k] = avgRank
 		}
@@ -259,4 +257,3 @@ func getFloat(m map[string]any, key string) float64 {
 	}
 	return 0.5
 }
-

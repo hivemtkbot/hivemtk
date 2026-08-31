@@ -8,7 +8,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-
 // AssetBundleResolver 资产包解析器接口
 //
 // 实现方：由 service 层提供具体实现（如 AssetBundleService.ResolveSystemPrompt）
@@ -65,4 +64,3 @@ func resolveAssetBundlePersona(ctx context.Context, agentCtx *dto.AgentContext, 
 	}
 	return prompt
 }
-

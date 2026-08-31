@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"testing"
@@ -8,7 +7,6 @@ import (
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 )
-
 
 func TestNodeExecutorRegistry_RegisterAndGet(t *testing.T) {
 	r := NewNodeExecutorRegistry()
@@ -93,7 +91,6 @@ func TestNodeExecutorRegistry_AllRegistered(t *testing.T) {
 	}
 }
 
-
 func TestNoopExecutor_NodeType(t *testing.T) {
 	n := &NoopExecutor{nodeType: "custom_type"}
 	if n.NodeType() != "custom_type" {
@@ -125,7 +122,6 @@ func TestNoopExecutor_ExecuteReturnsCompleted(t *testing.T) {
 		t.Error("Output should not be nil")
 	}
 }
-
 
 func TestHasSideEffect_EmptyExecution(t *testing.T) {
 	if hasSideEffect(nil, "msg:1:n1") {
@@ -175,7 +171,7 @@ func TestExtractSideEffects_ValidData(t *testing.T) {
 
 func TestExtractSideEffects_InvalidType(t *testing.T) {
 	data := model.JSONMap{
-		"_side_effects": "not_an_array", 
+		"_side_effects": "not_an_array",
 	}
 	effects := extractSideEffects(data)
 	if effects != nil {
@@ -195,7 +191,7 @@ func TestAppendSideEffect_NewEffect(t *testing.T) {
 func TestAppendSideEffect_DuplicateDeduplicated(t *testing.T) {
 	data := model.JSONMap{}
 	data = appendSideEffect(data, "effect1")
-	data = appendSideEffect(data, "effect1") 
+	data = appendSideEffect(data, "effect1")
 	data = appendSideEffect(data, "effect2")
 	effects := extractSideEffects(data)
 	if len(effects) != 2 {
@@ -213,7 +209,6 @@ func TestAppendSideEffect_NilData(t *testing.T) {
 		t.Errorf("expected [effect1], got %v", effects)
 	}
 }
-
 
 func TestExecutionContext_FieldsAccessible(t *testing.T) {
 	ec := &ExecutionContext{
@@ -267,7 +262,6 @@ func TestNodeExecResult_FieldsAccessible(t *testing.T) {
 	}
 }
 
-
 func TestNodeStatusConstants(t *testing.T) {
 	cases := []struct{ name, value string }{
 		{"NodeStatusCompleted", NodeStatusCompleted},
@@ -320,4 +314,3 @@ func TestWaitEventConstants(t *testing.T) {
 		t.Errorf("WaitEventExternal=%s want=external", WaitEventExternal)
 	}
 }
-

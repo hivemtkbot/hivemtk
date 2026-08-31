@@ -577,4 +577,3 @@ func TestSmlistService_LongStrings(t *testing.T) {
 		t.Error("Expected ID to be generated for long string test")
 	}
 }
-

@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 //
 // 与 service 层常量保持一致；放此处以便 repository 内部使用，避免循环引用。
 const RagRecallMonitorTableName = "rag_recall_monitor_snapshots"
-
 
 // RagRecallAggRow rag_query_logs 召回监控聚合行
 //
@@ -29,7 +27,6 @@ type RagRecallAggRow struct {
 	Top1Hit       int64
 }
 
-
 // RagRecallMonitorRepository RAG 召回率监控仓储接口
 type RagRecallMonitorRepository interface {
 	AggregateRecallLogs(ctx context.Context, start, end time.Time) (*RagRecallAggRow, error)
@@ -38,7 +35,6 @@ type RagRecallMonitorRepository interface {
 	ListSnapshots(ctx context.Context, limit int) ([]map[string]any, error)
 	EnsureSchema(ctx context.Context) error
 }
-
 
 type ragRecallMonitorRepo struct {
 	db *gorm.DB
@@ -138,4 +134,3 @@ func (r *ragRecallMonitorRepo) EnsureSchema(ctx context.Context) error {
 
 // 编译期断言
 var _ RagRecallMonitorRepository = (*ragRecallMonitorRepo)(nil)
-

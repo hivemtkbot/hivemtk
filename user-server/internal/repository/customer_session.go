@@ -591,7 +591,6 @@ func (r *CustomerSessionRepository) ListRecentClosedByPlatformAccountUser(
 	return sessions, nil
 }
 
-
 // UpdateTags 更新会话标签（JSON 数组字符串；标签规则 ApplyTagRule 使用）
 func (r *CustomerSessionRepository) UpdateTags(ctx context.Context, sessionID, tagsJSON string) error {
 	return r.db.WithContext(ctx).
@@ -631,7 +630,7 @@ func (r *CustomerSessionRepository) CountSegmentMembers(ctx context.Context, whe
 	}
 	var n int64
 	err := r.db.WithContext(ctx).Table("customers").
-		Where("deleted_at IS NULL AND ("+whereSQL+")").
+		Where("deleted_at IS NULL AND (" + whereSQL + ")").
 		Count(&n).Error
 	return n, err
 }
@@ -650,22 +649,22 @@ func (r *CustomerSessionRepository) OptimisticUpdate(ctx context.Context, sessio
 		Model(&model.CustomerSession{}).
 		Where("id = ? AND version = ?", session.ID, oldVersion).
 		Updates(map[string]any{
-			"status":          session.Status,
-			"handler_type":    session.HandlerType,
-			"agent_id":        session.AgentID,
-			"agent_name":      session.AgentName,
-			"priority":        session.Priority,
-			"last_message":    session.LastMessage,
-			"last_message_at": session.LastMessageAt,
-			"message_count":   session.MessageCount,
-			"ai_reply_count":  session.AIReplyCount,
+			"status":            session.Status,
+			"handler_type":      session.HandlerType,
+			"agent_id":          session.AgentID,
+			"agent_name":        session.AgentName,
+			"priority":          session.Priority,
+			"last_message":      session.LastMessage,
+			"last_message_at":   session.LastMessageAt,
+			"message_count":     session.MessageCount,
+			"ai_reply_count":    session.AIReplyCount,
 			"human_reply_count": session.HumanReplyCount,
-			"rating":          session.Rating,
-			"rating_comment":  session.RatingComment,
-			"tags":            session.Tags,
-			"resolved_at":     session.ResolvedAt,
-			"closed_at":       session.ClosedAt,
-			"version":         oldVersion + 1,
+			"rating":            session.Rating,
+			"rating_comment":    session.RatingComment,
+			"tags":              session.Tags,
+			"resolved_at":       session.ResolvedAt,
+			"closed_at":         session.ClosedAt,
+			"version":           oldVersion + 1,
 		})
 	if res.Error != nil {
 		return res.Error

@@ -40,18 +40,18 @@ var (
 
 // 支持的平台白名单
 var messageHubPlatforms = map[string]bool{
-	"wecom":       true, 
-	"personal_wx": true, 
-	"douyin":      true, 
-	"kuaishou":    true, 
-	"xiaohongshu": true, 
-	"xianyu":      true, 
-	"tiktok":      true, 
-	"whatsapp":    true, 
-	"sms":         true, 
-	"email":       true, 
-	"telegram":    true, 
-	"feishu":      true, 
+	"wecom":       true,
+	"personal_wx": true,
+	"douyin":      true,
+	"kuaishou":    true,
+	"xiaohongshu": true,
+	"xianyu":      true,
+	"tiktok":      true,
+	"whatsapp":    true,
+	"sms":         true,
+	"email":       true,
+	"telegram":    true,
+	"feishu":      true,
 }
 
 // 支持的消息类型
@@ -74,9 +74,9 @@ var messageHubDirections = map[string]bool{
 
 // 消息中台常量
 const (
-	MessageHubDefaultIdemTTL    = 24 * time.Hour 
-	MessageHubDefaultMaxContent = 64 * 1024      
-	MessageHubDefaultQueueSize  = 10000          
+	MessageHubDefaultIdemTTL    = 24 * time.Hour
+	MessageHubDefaultMaxContent = 64 * 1024
+	MessageHubDefaultQueueSize  = 10000
 	MessageHubStreamKeyPrefix   = "msg:hub:stream:"
 	MessageHubIdemKeyPrefix     = "msg:hub:idem:"
 )
@@ -108,7 +108,7 @@ type MessageHubService struct {
 	repo        *repository.MessageHubRepository
 	cache       cache.Cache
 	mu          sync.RWMutex
-	streams     map[string]*hubStream 
+	streams     map[string]*hubStream
 	streamSize  int
 	idemTTL     time.Duration
 	maxContent  int
@@ -187,7 +187,7 @@ func (s *MessageHubService) Subscribe(ctx context.Context, sub MessageSubscriber
 
 // Normalize 校验并标准化消息
 func (s *MessageHubService) Normalize(ctx context.Context, req *PushMessageRequest) (*model.MessageHub, error) {
-	if false  {
+	if false {
 		return nil, ErrMessageHubEmptyMerchant
 	}
 	if !messageHubPlatforms[req.Platform] {
@@ -670,4 +670,3 @@ func ListMsgTypes() []string {
 	sort.Strings(out)
 	return out
 }
-

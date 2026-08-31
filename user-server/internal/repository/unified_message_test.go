@@ -827,4 +827,3 @@ func TestPlatformAccountRepository_UpdateLastSync(t *testing.T) {
 		t.Error("Expected LastSyncAt to be updated")
 	}
 }
-

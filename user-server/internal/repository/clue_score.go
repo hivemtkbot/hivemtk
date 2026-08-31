@@ -206,4 +206,3 @@ func (r *clueEngagementRepo) LastByClueID(ctx context.Context, clueID string, li
 	err := r.db.Where("clue_id = ?", clueID).Order("created_at DESC").Limit(limit).Find(&evts).Error
 	return evts, err
 }
-

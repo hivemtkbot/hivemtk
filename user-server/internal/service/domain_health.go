@@ -49,15 +49,15 @@ type HealthCheckResult struct {
 	OnBlacklist  bool      `json:"on_blacklist"`
 	BlacklistSrc string    `json:"blacklist_source,omitempty"`
 	HealthScore  int       `json:"health_score"`
-	ActionTaken  string    `json:"action_taken"` 
+	ActionTaken  string    `json:"action_taken"`
 }
 
 // 评分阈值（导出常量，供测试断言使用）
 const (
-	HealthScoreSwitchThreshold = 30 
+	HealthScoreSwitchThreshold = 30
 	HealthScoreHealthy         = 80
 	HealthScoreWarn            = 60
-	ConsecutiveFailureLimit    = 3 
+	ConsecutiveFailureLimit    = 3
 	HealthCheckTimeout         = 5 * time.Second
 	HealthLogRetentionDays     = 30
 )
@@ -68,7 +68,7 @@ type domainHealthService struct {
 	logRepo     *repository.DomainHealthLogRepository
 	blacklistR  *repository.DomainBlacklistRepository
 	httpClient  *http.Client
-	probeTarget string 
+	probeTarget string
 	mu          sync.Mutex
 }
 
@@ -385,4 +385,3 @@ func (s *domainHealthService) ListAvailable(ctx context.Context, minScore int) (
 func (s *domainHealthService) ListHealthLogs(ctx context.Context, domainID int, limit int) ([]*model.DomainHealthLog, error) {
 	return s.logRepo.ListByDomain(ctx, domainID, limit)
 }
-

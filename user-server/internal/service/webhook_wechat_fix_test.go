@@ -75,11 +75,11 @@ func TestSendOutbound_WechatChannel_DeliversCustomerServiceMessage(t *testing.T)
 		conv      = "wechat:3:" + openID
 	)
 	acc := &model.WechatAccount{
-		ID:         3,
-		AppID:      "wx-test-appid",
-		AppSecret:  "wx-test-secret",
-		Token:      "tok",
-		Status:     "active",
+		ID:        3,
+		AppID:     "wx-test-appid",
+		AppSecret: "wx-test-secret",
+		Token:     "tok",
+		Status:    "active",
 	}
 	if err := db.Create(acc).Error; err != nil {
 		t.Fatalf("create wechat account failed: %v", err)
@@ -141,12 +141,12 @@ func TestRunAIGeneration_ReleasesAILock_OnErrorExit(t *testing.T) {
 	ctx := context.Background()
 	_mc1 := cache.NewMemoryCache()
 	defer _mc1.Close()
-	ingress := NewInboxIngressServiceWithDB( nil, _mc1)
+	ingress := NewInboxIngressServiceWithDB(nil, _mc1)
 
 	svc := &WebhookService{
-		db:               nil,
-		replySem:         make(chan struct{}, 4),
-		ingressSvc:       ingress,
+		db:                nil,
+		replySem:          make(chan struct{}, 4),
+		ingressSvc:        ingress,
 		smartOrchestrator: nil, // HandleIncomingWithAgent 对 nil receiver 返回错误 → 错误重试路径
 	}
 
@@ -191,7 +191,7 @@ func TestRunAIGeneration_ReleasesAILock_OnSemaphoreTimeout(t *testing.T) {
 	defer cancel()
 	_mc2 := cache.NewMemoryCache()
 	defer _mc2.Close()
-	ingress := NewInboxIngressServiceWithDB( nil, _mc2)
+	ingress := NewInboxIngressServiceWithDB(nil, _mc2)
 
 	sem := make(chan struct{}, 1)
 	sem <- struct{}{} // 占满信号量 → runAIGeneration 必走 sem 超时分支
@@ -232,7 +232,7 @@ func TestInboxIngress_WechatChannel_TriggersAI(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	_mc3 := cache.NewMemoryCache()
 	defer _mc3.Close()
-	ingress := NewInboxIngressServiceWithDB( db, _mc3)
+	ingress := NewInboxIngressServiceWithDB(db, _mc3)
 	tr := &fakeAITrigger{}
 	ingress.SetAITrigger(tr)
 

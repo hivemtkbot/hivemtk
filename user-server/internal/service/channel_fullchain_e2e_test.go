@@ -28,7 +28,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 func setupChannelFullDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.WeComAccount{},
@@ -44,7 +43,6 @@ func setupChannelFullDB(t *testing.T) *gorm.DB {
 		&model.IntegrationAccount{},
 	)
 }
-
 
 func TestE2E_Feishu_AccountCreateAndList(t *testing.T) {
 	db := setupChannelFullDB(t)
@@ -159,7 +157,7 @@ func TestE2E_Feishu_IngestMessage_GroupChat(t *testing.T) {
 
 func TestE2E_Feishu_DecryptEvent(t *testing.T) {
 	plain := `{"event":{"message":{"message_id":"m1","chat_id":"c1","chat_type":"p2p","message_type":"text","content":"{\"text\":\"hi\"}"}}}`
-	ek := "12345678901234567890123456789012" 
+	ek := "12345678901234567890123456789012"
 	enc := encryptFeishuForTest(t, ek, plain)
 	out, err := DecryptFeishuEvent(ek, enc)
 	if err != nil {
@@ -207,7 +205,6 @@ func encryptFeishuForTest(t *testing.T, key, plaintext string) string {
 	combined := append(iv, cipherText...)
 	return base64.StdEncoding.EncodeToString(combined)
 }
-
 
 func TestE2E_Telegram_AccountCreateAndGet(t *testing.T) {
 	db := setupChannelFullDB(t)
@@ -294,7 +291,6 @@ func TestE2E_Telegram_IngestMessage_Group(t *testing.T) {
 	}
 }
 
-
 func TestE2E_WhatsApp_AccountCreate(t *testing.T) {
 	db := setupChannelFullDB(t)
 	svc := NewWhatsAppCloudService(db)
@@ -379,7 +375,6 @@ func TestE2E_WhatsApp_VerifySignature(t *testing.T) {
 	}
 }
 
-
 func TestE2E_MessageHub_Whitelist_FourChannels(t *testing.T) {
 	for _, p := range []string{"wecom", "whatsapp", "telegram", "feishu"} {
 		if !messageHubPlatforms[p] {
@@ -387,7 +382,6 @@ func TestE2E_MessageHub_Whitelist_FourChannels(t *testing.T) {
 		}
 	}
 }
-
 
 func TestE2E_WebhookService_DispatchWhatsApp(t *testing.T) {
 	db := setupChannelFullDB(t)
@@ -524,8 +518,8 @@ func TestE2E_WebhookService_ShouldTriggerAI_FourChannels(t *testing.T) {
 		{ChannelWhatsapp, "1", true},
 		{ChannelTelegram, "1", true},
 		{ChannelFeishu, "1", true},
-		{ChannelWeCom, "999", false}, 
-		{ChannelDouyin, "1", false},  
+		{ChannelWeCom, "999", false},
+		{ChannelDouyin, "1", false},
 	}
 	for _, c := range cases {
 		got := svc.shouldTriggerAI(context.Background(), c.ch, c.acc)
@@ -535,11 +529,9 @@ func TestE2E_WebhookService_ShouldTriggerAI_FourChannels(t *testing.T) {
 	}
 }
 
-
 func init() {
 	_ = time.Now
 }
-
 
 type capturedHTTP struct {
 	URL    string
@@ -551,7 +543,7 @@ type capturedHTTP struct {
 // outboundCaptureTransport 是真实 HTTP Transport：把出站请求转发到本地 httptest
 // 服务，同时把原始 URL/host 透传（X-Orig-* 头），供 handler 记录与按渠道判定响应。
 type outboundCaptureTransport struct {
-	target string 
+	target string
 }
 
 func (t *outboundCaptureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -801,12 +793,11 @@ func TestE2E_SendOutbound_WhatsApp_RealPath(t *testing.T) {
 	}
 }
 
-
 func TestE2E_HandleJob_FourChannels_AIDisabled(t *testing.T) {
 	cases := []struct {
 		name    string
 		channel WebhookChannel
-		setup   func(db *gorm.DB) string 
+		setup   func(db *gorm.DB) string
 		body    []byte
 		verify  func(t *testing.T, db *gorm.DB, accountID string)
 	}{
@@ -923,7 +914,6 @@ func TestE2E_HandleJob_FourChannels_AIDisabled(t *testing.T) {
 	}
 }
 
-
 func TestE2E_WebhookService_ToUnifiedMessage_4Channels(t *testing.T) {
 	db := setupChannelFullDB(t)
 	svc := NewWebhookService(db)
@@ -960,4 +950,3 @@ func TestE2E_WebhookService_ToUnifiedMessage_4Channels(t *testing.T) {
 		}
 	}
 }
-

@@ -22,7 +22,7 @@ type SOPNodeExecutorDeps struct {
 	WSHub       *websocket.Hub
 	MsgRepo     *repository.SessionMessageRepository
 	SessionRepo *repository.CustomerSessionRepository
-	LLMSem      chan struct{} 
+	LLMSem      chan struct{}
 }
 
 type StartExecutor struct{}
@@ -60,7 +60,7 @@ func (e *EndExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeE
 		Output: model.JSONMap{
 			"_ended_at": time.Now().Format(time.RFC3339),
 		},
-		NextNodeID: "", 
+		NextNodeID: "",
 	}, nil
 }
 
@@ -307,7 +307,7 @@ func NewMessageNodeExecutor(nodeType string, scenario llm.DispatchScenario, deps
 }
 
 type ConditionExecutor struct {
-	nodeType string 
+	nodeType string
 }
 
 func (e *ConditionExecutor) NodeType() string { return e.nodeType }
@@ -371,7 +371,7 @@ func (e *ConditionExecutor) Execute(ctx context.Context, ec *ExecutionContext) (
 }
 
 type LLMNodeExecutor struct {
-	nodeType   string 
+	nodeType   string
 	dispatcher *llm.Dispatcher
 	llmSem     chan struct{}
 }
@@ -535,7 +535,6 @@ func (e *WaitExecutor) NodeType() string { return SOPNodeTypeWait }
 
 func (e *WaitExecutor) IsAsync() bool { return true }
 
-
 func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
 	waitSeconds, _ := ec.Node.Config["wait_seconds"].(float64)
 	waitEventStr, _ := ec.Node.Config["wait_event"].(string)
@@ -543,7 +542,7 @@ func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Node
 
 	// 计算等待截止时间
 	var waitUntil time.Time
-	waitEvent := WaitEventTimer 
+	waitEvent := WaitEventTimer
 
 	if waitUntilStr != "" {
 		if t, err := time.Parse(time.RFC3339, waitUntilStr); err == nil {
@@ -627,8 +626,6 @@ func NewWaitExecutor(deps *SOPNodeExecutorDeps) *WaitExecutor {
 	return e
 }
 
-
-
 // RegisterAllNodeExecutors 注册所有 14 种节点执行器 + 5 种旧版兼容执行器
 //
 // 应在 SOPExecutionDispatcher 初始化时调用一次。
@@ -664,7 +661,6 @@ func RegisterAllNodeExecutors(registry *NodeExecutorRegistry, deps *SOPNodeExecu
 		Msg("all sop node executors registered")
 }
 
-
 // firstOrEmpty 返回切片第一个元素，空切片返回空字符串
 func firstOrEmpty(s []string) string {
 	if len(s) == 0 {
@@ -682,4 +678,3 @@ func containsString(s []string, v string) bool {
 	}
 	return false
 }
-

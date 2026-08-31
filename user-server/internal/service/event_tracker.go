@@ -14,8 +14,8 @@ type EventTracker struct {
 	repo         repository.CustomerEventRepository
 	customerRepo repository.CustomerRepository
 	autoTagger   *AutoTagger
-	orchestrator *CustomerOrchestrator 
-	disableAsync bool                  
+	orchestrator *CustomerOrchestrator
+	disableAsync bool
 }
 
 // NewEventTracker 创建事件追踪服务实例
@@ -150,7 +150,7 @@ func (s *EventTracker) GetEventHistory(ctx context.Context, customerID string, l
 func (s *EventTracker) GetStats(ctx context.Context, start, end string) (*repository.EventStats, error) {
 	startTime, err := time.Parse("2006-01-02", start)
 	if err != nil {
-		startTime = time.Now().AddDate(0, -1, 0) 
+		startTime = time.Now().AddDate(0, -1, 0)
 	}
 
 	endTime, err := time.Parse("2006-01-02", end)
@@ -211,7 +211,7 @@ func (s *EventTracker) TrackAddToCart(ctx context.Context, customerID, productID
 //   - 失败仅记录日志，不向上游返回错误（best-effort，不阻塞触达主流程）
 func (s *EventTracker) RecordReachEvent(ctx context.Context, customerID, channel, messageID string, success bool, errMsg string) error {
 	if customerID == "" {
-		return nil 
+		return nil
 	}
 	eventType := model.EventType("reach")
 	eventSource := model.EventSource(channel)
@@ -282,4 +282,3 @@ func SerializeEventData(data map[string]any) (string, error) {
 	}
 	return string(jsonData), nil
 }
-

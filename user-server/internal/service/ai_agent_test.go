@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // setupAgentTestDB 设置测试数据库
 func setupAgentTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
@@ -44,7 +43,6 @@ func makeAgent(code, name, agentType string) *model.AIAgent {
 		Status:              1,
 	}
 }
-
 
 // TestAIAgentService_CreateAndGet 测试创建和查询
 func TestAIAgentService_CreateAndGet(t *testing.T) {
@@ -258,7 +256,6 @@ func TestAIAgentService_LoadContextCache(t *testing.T) {
 	}
 }
 
-
 // TestChannelBinding_CreateAndList 测试渠道绑定创建和查询
 func TestChannelBinding_CreateAndList(t *testing.T) {
 	setupAgentTestDB(t)
@@ -380,7 +377,6 @@ func TestChannelBinding_BindDisabledAgent(t *testing.T) {
 	}
 }
 
-
 // TestCSAgentMount_CreateAndList 测试客服挂载创建和查询
 func TestCSAgentMount_CreateAndList(t *testing.T) {
 	setupAgentTestDB(t)
@@ -477,7 +473,6 @@ func TestCSAgentMount_LoadAgentForSeat(t *testing.T) {
 	}
 }
 
-
 // TestCSAgentMount_GetOrCreateAgentStatusByUserID 测试按用户ID查找/创建座席状态
 func TestCSAgentMount_GetOrCreateAgentStatusByUserID(t *testing.T) {
 	setupAgentTestDB(t)
@@ -571,7 +566,6 @@ func TestCSAgentMount_CreateByUserID(t *testing.T) {
 	}
 }
 
-
 func TestNormalizeChannelType(t *testing.T) {
 	cases := []struct {
 		input, expected string
@@ -602,7 +596,6 @@ func TestNormalizeChannelType(t *testing.T) {
 		}
 	}
 }
-
 
 func TestAgentContext_ToSalesEngineConfig(t *testing.T) {
 	ctx := (*AgentContext)(nil)
@@ -638,7 +631,6 @@ func TestAgentContext_ToSalesEngineConfig(t *testing.T) {
 		t.Errorf("Persona 不匹配: %s", cfg.Persona)
 	}
 }
-
 
 // TestE2E_ChannelBindingToLoadContext 端到端：创建智能体→绑定渠道→加载上下文
 func TestE2E_ChannelBindingToLoadContext(t *testing.T) {
@@ -694,4 +686,3 @@ func TestE2E_UserMountToLoadContext(t *testing.T) {
 		t.Errorf("智能体名称应为 客服AI, 实际 %s", ctx.Name)
 	}
 }
-

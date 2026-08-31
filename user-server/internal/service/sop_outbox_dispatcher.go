@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"encoding/json"
@@ -22,7 +21,6 @@ import (
 type SOPDispatchSender interface {
 	DispatchOrLog(task *dispatchTask)
 }
-
 
 // SOPOutboxDispatcher Outbox 调度器
 //
@@ -379,7 +377,6 @@ func parseSOPTimePayload(payload model.JSONMap, key string) time.Time {
 	return t
 }
 
-
 // SOPStuckDetector 卡死执行检测器
 //
 // 独立 goroutine 周期扫描（默认 60s），检测卡死的 Execution：
@@ -599,7 +596,6 @@ func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 	}
 }
 
-
 var (
 	globalOutboxDispatcher *SOPOutboxDispatcher
 	globalStuckDetector    *SOPStuckDetector
@@ -634,4 +630,3 @@ func InitSOPStuckDetector(db *gorm.DB, execDispatcher *SOPExecutionDispatcher) *
 func GetSOPStuckDetector() *SOPStuckDetector {
 	return globalStuckDetector
 }
-

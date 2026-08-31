@@ -1,6 +1,5 @@
 package feedbackloop
 
-
 import (
 	"context"
 	"fmt"
@@ -176,7 +175,7 @@ func (o *SOPAutoOptimizer) checkAndRollback(ctx context.Context, report *dto.Opt
 				continue
 			}
 			report.RolledBackCount++
-			continue 
+			continue
 		}
 		controlComplaint, expComplaint := o.fetchComplaintRates(ctx, t.ID)
 		if controlComplaint > 0 && (expComplaint-controlComplaint)/controlComplaint > o.config.RollbackComplaintRatio {
@@ -275,4 +274,3 @@ func (o *SOPAutoOptimizer) fetchComplaintRates(ctx context.Context, testID uint)
 func (o *SOPAutoOptimizer) rollbackTest(ctx context.Context, testID uint, reason string) error {
 	return o.getRepo().RollbackABTest(ctx, testID)
 }
-

@@ -158,4 +158,3 @@ func (r *douyinCardRepository) IncrementShareCount(ctx context.Context, id uint)
 	}
 	return r.db.Model(&model.DouyinCard{}).Where("id = ?", id).Update("share_count", gorm.Expr("share_count + ?", 1)).Error
 }
-

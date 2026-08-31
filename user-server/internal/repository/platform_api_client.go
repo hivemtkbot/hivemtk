@@ -28,4 +28,3 @@ type PlatformAPIClient interface {
 	MyPurchases(ctx context.Context) ([]map[string]any, error)
 	ReportUsage(ctx context.Context, assetID string, delta int64) error
 }
-

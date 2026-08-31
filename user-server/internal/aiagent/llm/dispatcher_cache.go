@@ -106,4 +106,3 @@ func CacheKey(scenario DispatchScenario, prompt string) string {
 	h.Write([]byte(strings.TrimSpace(prompt)))
 	return fmt.Sprintf("llm:dispatch:%s:%x", scenario, h.Sum64())
 }
-

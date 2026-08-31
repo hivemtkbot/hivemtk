@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"os"
@@ -35,7 +34,7 @@ func (a *humanizeLLMAdapter) ChatSend(ctx context.Context, prompt string) (strin
 		return "", "", nil
 	}
 	result, err := a.dispatcher.Dispatch(ctx, llm.DispatchRequest{
-		Scenario:  llm.ScenarioObjection, 
+		Scenario:  llm.ScenarioObjection,
 		Prompt:    prompt,
 		MaxTokens: 256,
 	})
@@ -216,11 +215,10 @@ func SetHumanizeRegenerateDispatcher(dispatcher *llm.Dispatcher) {
 // 其在 CPU 上的拟人度普遍 < 0.85，应自动禁用拟人度评估避免无效重生成。
 func isLocalLLMBaseURL(baseURL string) bool {
 	if baseURL == "" {
-		return true 
+		return true
 	}
 	lower := strings.ToLower(baseURL)
 	return strings.Contains(lower, "127.0.0.1") ||
 		strings.Contains(lower, "localhost") ||
 		strings.Contains(lower, "mtk-llm")
 }
-

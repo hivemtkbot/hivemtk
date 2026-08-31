@@ -56,8 +56,8 @@ func TestRFMRuleRepository_Create(t *testing.T) {
 				FCount3:  5,
 				FCount4:  10,
 				FCount5:  20,
-				MAmount1: 10000, 
-				MAmount2: 50000, 
+				MAmount1: 10000,
+				MAmount2: 50000,
 				MAmount3: 100000,
 				MAmount4: 500000,
 				MAmount5: 1000000,
@@ -237,8 +237,8 @@ func TestUserRFMRepository_Create(t *testing.T) {
 				TotalScore:       14,
 				Layer:            "important_value",
 				TransactionCount: 20,
-				TotalAmount:      1000000, 
-				AvgAmount:        50000,   
+				TotalAmount:      1000000,
+				AvgAmount:        50000,
 			},
 			wantErr: false,
 		},
@@ -474,7 +474,7 @@ func TestUserRFMRepository_BatchUpsert(t *testing.T) {
 
 	rfms := []*model.UserRFM{
 		{
-			UserID:     1, 
+			UserID:     1,
 			RScore:     5,
 			FScore:     5,
 			MScore:     5,
@@ -482,7 +482,7 @@ func TestUserRFMRepository_BatchUpsert(t *testing.T) {
 			Layer:      "important_value",
 		},
 		{
-			UserID:     2, 
+			UserID:     2,
 			RScore:     4,
 			FScore:     4,
 			MScore:     4,
@@ -557,13 +557,13 @@ func TestUserRFMRepository_GetNeedUpdateUsers(t *testing.T) {
 			name: "get users need update (30 days)",
 
 			days:      30,
-			wantCount: 2, 
+			wantCount: 2,
 		},
 		{
 			name: "get users need update (365 days)",
 
 			days:      365,
-			wantCount: 1, 
+			wantCount: 1,
 		},
 	}
 
@@ -608,4 +608,3 @@ func TestUserRFMRepository_GetNeedUpdateUsers_EmptyResult(t *testing.T) {
 		t.Errorf("Expected 0 users need update, got %d", len(results))
 	}
 }
-

@@ -106,9 +106,9 @@ func (r *CSATSurveyRepository) Stats(ctx context.Context) (map[string]any, error
 		avg = *avgScore
 	}
 	return map[string]any{
-		"total":       total,
-		"responded":   responded,
-		"avg_score":   avg,
+		"total":        total,
+		"responded":    responded,
+		"avg_score":    avg,
 		"distribution": dist,
 	}, nil
 }

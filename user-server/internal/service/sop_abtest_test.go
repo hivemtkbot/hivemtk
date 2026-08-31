@@ -6,7 +6,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 func TestSOPABTestConfig_Validate(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -286,4 +285,3 @@ func intAbs(x int) int {
 	}
 	return x
 }
-

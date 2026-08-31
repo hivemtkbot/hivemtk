@@ -39,7 +39,7 @@ func TestBlacklistUser_Success(t *testing.T) {
 		Reason:       "辱骂客服",
 		OperatorID:   101,
 		OperatorName: "客服甲",
-		TTLHours:     0, 
+		TTLHours:     0,
 	}); err != nil {
 		t.Fatalf("BlacklistUser: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestBlacklistUser_NoUserID(t *testing.T) {
 	sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform:  model.PlatformWeb,
 		AccountID: "acc_1",
-		UserID:    "", 
+		UserID:    "",
 	})
 
 	err := svc.BlacklistUser(context.Background(), &BlacklistRequest{
@@ -454,4 +454,3 @@ func contains(s, sub string) bool {
 	}
 	return false
 }
-

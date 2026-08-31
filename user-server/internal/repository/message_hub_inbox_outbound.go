@@ -34,9 +34,10 @@ func (r *MessageHubRepository) AckOutboundDeliveredBatch(ctx context.Context, ch
 //   - err: SQL 错误
 //
 // 设计依据：
-//   2.1 高危问题（acked/affected 矛盾）：原实现先 GetByMsgIDsInScope 把 msg_id 标为 "acked"，
-//     然后 AckOutboundDeliveredBatch 实际受影响 0 行时仍返回 acked，违反"acked 字段 = 实际 SQL affected rows"
-//     契约。RETURNING 直接告诉调用方"哪些 msg_id 真的被翻了"，语义零歧义。
+//
+//	2.1 高危问题（acked/affected 矛盾）：原实现先 GetByMsgIDsInScope 把 msg_id 标为 "acked"，
+//	  然后 AckOutboundDeliveredBatch 实际受影响 0 行时仍返回 acked，违反"acked 字段 = 实际 SQL affected rows"
+//	  契约。RETURNING 直接告诉调用方"哪些 msg_id 真的被翻了"，语义零歧义。
 func (r *MessageHubRepository) AckOutboundDeliveredBatchReturning(ctx context.Context, channel, accountID string, msgIDs []string) (updatedIDs []string, affectedRows int64, err error) {
 	if r.db == nil || len(msgIDs) == 0 {
 		return nil, 0, nil
@@ -86,8 +87,8 @@ func (r *MessageHubRepository) ClaimPendingOutbound(ctx context.Context, channel
 //
 // 用于 ack 详细化：先批量查每条 msg_id 的当前 status，再分类执行更新 / 幂等跳过 / 不存在。
 // 限制 (platform, account_id, direction='outbound') 避免：
-//   1. 越权查询其他账号的出站消息
-//   2. inbound 行（与 outbound 同 msg_id 的客户消息）混入 outbound 分类
+//  1. 越权查询其他账号的出站消息
+//  2. inbound 行（与 outbound 同 msg_id 的客户消息）混入 outbound 分类
 //
 // 2026-08-15 P4 二次审核 1.1 中危：原实现缺 direction 过滤 → 客户消息（inbound）与 AI 回复（outbound）
 // 同 msg_id 时会被错误归类。现与 AckOutboundDeliveredBatch 保持对称。
@@ -138,7 +139,7 @@ func (r *MessageHubRepository) GetByMsgIDsInScopeWithConv(ctx context.Context, p
 //   - 仅匹配 direction='outbound'，避免把客户 inbound 消息误判为自身回显。
 //   - 2026-08-17 修复回环漏判：AI 回复落库时 sender_name 恒为空（见 webhook_outbound.go），
 //     而 bridge 回显上报时 sender_name 为对方昵称（getPeerName），二者 sender_name 必不相同 →
-//     原精确匹配永久漏判 → 回环。修复：senderName 非空时匹配 (sender_name = ? OR sender_name = ''),
+//     原精确匹配永久漏判 → 回环。修复：senderName 非空时匹配 (sender_name = ? OR sender_name = ”),
 //     即 outbound 自身空 sender_name 也算命中；并加 2 小时窗口避免历史消息误杀。
 //   - 2026-08-17 深查：精确 content = ? 仍漏判 DOM 拼接场景（同一 outbound 被抓两次拼成 2 倍长度，
 //     或多条 AI 回复拼接）。增加包含匹配兜底：拉同会话近期 outbound，若 inbound content 完整包含
@@ -323,4 +324,3 @@ func (r *MessageHubRepository) FetchOutboundSince(ctx context.Context, channel, 
 	}
 	return rows, nil
 }
-

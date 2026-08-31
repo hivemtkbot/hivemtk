@@ -49,4 +49,3 @@ func (r *KnowledgeRepository) Search(ctx context.Context, query string, topK int
 
 	return hits, nil
 }
-

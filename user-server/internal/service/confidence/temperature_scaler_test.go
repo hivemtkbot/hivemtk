@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"math"
 	"testing"
@@ -12,7 +11,7 @@ func approxEqual(a, b float64) bool {
 }
 
 func TestTemperatureScaler_DefaultT1(t *testing.T) {
-	ts := NewTemperatureScaler(0) 
+	ts := NewTemperatureScaler(0)
 	if !approxEqual(ts.Temperature(), 1.0) {
 		t.Errorf("默认温度应为 1.0, got %v", ts.Temperature())
 	}
@@ -131,4 +130,3 @@ func TestTemperatureScaler_SetTemperature_HotReload(t *testing.T) {
 		t.Errorf("SetTemperature(-1) 不应改变温度: %v want=2.5", ts.Temperature())
 	}
 }
-

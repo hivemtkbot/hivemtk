@@ -132,5 +132,3 @@ func TestFindByIdentity_Xiaohongshu(t *testing.T) {
 		t.Fatalf("小红书 ID 未被 FindByIdentity 识别")
 	}
 }
-
-

@@ -1,6 +1,5 @@
 package translation
 
-
 import (
 	"context"
 	"errors"
@@ -12,7 +11,6 @@ import (
 	"hivemtk-user/internal/model"
 	i18npkg "hivemtk-user/internal/pkg/i18n"
 )
-
 
 // mockChannelReader 可配置返回结果或错误。
 type mockChannelReader struct {
@@ -42,7 +40,6 @@ func (m *mockAgentReader) GetByID(_ context.Context, _ uint) (*model.AIAgent, er
 
 // errSentinel 测试用哨兵错误。
 var errSentinel = errors.New("mock repo error")
-
 
 // TestResolve_ChannelPriority 渠道优先级最高
 // channel.target_language=en, agent.target_language=ja, agent.internal=zh
@@ -106,7 +103,7 @@ func TestResolve_DegradeToInternal(t *testing.T) {
 	chRepo := &mockChannelReader{ch: &model.ChatChannel{TargetLanguage: ""}}
 	agRepo := &mockAgentReader{ag: &model.AIAgent{
 		InternalLanguage: "ja",
-		TargetLanguage:   "", 
+		TargetLanguage:   "",
 	}}
 	r := NewLangConfigResolver(chRepo, agRepo)
 
@@ -222,7 +219,7 @@ func TestResolve_ChannelReturnsNil(t *testing.T) {
 // TestResolve_AgentIDZero_NoAgentLookup agentID=0 不应调用 agentRepo
 func TestResolve_AgentIDZero_NoAgentLookup(t *testing.T) {
 	agRepo := &mockAgentReader{ag: &model.AIAgent{
-		InternalLanguage: "ja", 
+		InternalLanguage: "ja",
 		TargetLanguage:   "ja",
 	}}
 	r := NewLangConfigResolver(nil, agRepo)
@@ -240,7 +237,6 @@ func TestResolve_NormalizesLangCodes(t *testing.T) {
 	assert.Equal(t, "zh", res.InternalLang)
 	assert.Equal(t, "en", res.TargetLang)
 }
-
 
 func TestInjectToCtx(t *testing.T) {
 	r := NewLangConfigResolver(nil, nil)
@@ -276,4 +272,3 @@ func TestResolveAndInject(t *testing.T) {
 	assert.Equal(t, "en", i18npkg.GetTargetLang(ctx))
 	assert.True(t, i18npkg.GetCrossLingual(ctx))
 }
-

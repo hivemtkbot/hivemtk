@@ -113,4 +113,3 @@ func (r *emailListRepo) GetByTraceID(ctx context.Context, traceID uuid.UUID) (*m
 	}
 	return &emailList, nil
 }
-

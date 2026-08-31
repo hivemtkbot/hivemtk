@@ -133,8 +133,9 @@ func TestConformalPredictor_CalibrateOnline_SlidingWindow(t *testing.T) {
 // TestConformalPredictor_FiniteSampleGuarantee 验证核心性质
 //
 // 业界定理（Vovk et al. 2005, Thm 2.1）：
-//   在 i.i.d. 假设下，对于任意新样本 (X, Y)：
-//   P(Y ∈ C(X)) ≥ 1 - δ
+//
+//	在 i.i.d. 假设下，对于任意新样本 (X, Y)：
+//	P(Y ∈ C(X)) ≥ 1 - δ
 //
 // 测试：构造 i.i.d. 校准集 + 大量 i.i.d. 测试集，
 // 经验覆盖率 ≥ 1-δ - ε

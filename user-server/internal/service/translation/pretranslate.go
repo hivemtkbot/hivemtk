@@ -1,13 +1,11 @@
 package translation
 
-
 import (
 	"context"
 	"fmt"
 
 	kbmodel "hivemtk-user/internal/aiagent/knowledge/model"
 )
-
 
 // ChunkReader 知识库分段读取/回填接口（由 repository 层实现）
 type ChunkReader interface {
@@ -141,4 +139,3 @@ func (s *PretranslateService) hasTranslation(chunk *kbmodel.KnowledgeChunk, lang
 	text, ok := v.(string)
 	return ok && text != ""
 }
-

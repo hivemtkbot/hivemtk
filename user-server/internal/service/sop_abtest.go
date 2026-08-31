@@ -13,7 +13,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // SOPABTestVariant A/B 测试 variant 定义
 // 已迁移至 dto 包，此处保留类型别名以维持向后兼容
 type SOPABTestVariant = dto.SOPABTestVariant
@@ -123,7 +122,7 @@ type SOPABTestVariantStats struct {
 	SuccessCount   int64   `json:"success_count"`
 	FailedCount    int64   `json:"failed_count"`
 	RunningCount   int64   `json:"running_count"`
-	SuccessRate    float64 `json:"success_rate"` 
+	SuccessRate    float64 `json:"success_rate"`
 }
 
 // GetABTestStats 查询指定 SOP 的 A/B 测试 variant 统计
@@ -246,4 +245,3 @@ func (s *SOPService) loadSOPGraph(ctx context.Context, agent *model.SOPAgent, gr
 
 // 用 gorm.Expr 占位避免 unused 警告（保留扩展点）
 var _ = gorm.Expr
-

@@ -14,8 +14,7 @@ func toOrderModel(draft *OrderDraft, priceStr string) *model.Order {
 	return &model.Order{
 		Status:    _type.OrderStatusPending,
 		Price:     priceStr,
-		TgID:      0,                
-		AccountID: draft.CustomerID, 
+		TgID:      0,
+		AccountID: draft.CustomerID,
 	}
 }
-

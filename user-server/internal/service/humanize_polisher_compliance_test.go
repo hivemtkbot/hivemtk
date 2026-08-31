@@ -10,9 +10,9 @@ import (
 
 func TestFilterExtremeClaims_Positive(t *testing.T) {
 	tests := []struct {
-		name    string
-		in      string
-		banned  []string
+		name     string
+		in       string
+		banned   []string
 		mustHave string
 	}{
 		{"最好", "我们的产品是最好的", []string{"最好"}, "很好"},

@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"strings"
@@ -142,5 +141,3 @@ func (r *clueRepo) TrendByDay(ctx context.Context, q ClueQuery) ([]ClueTrendAgg,
 	}
 	return rows, nil
 }
-
-

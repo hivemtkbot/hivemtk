@@ -172,8 +172,8 @@ func TestNoClarify_GapAtOrAbove005(t *testing.T) {
 func TestNoClarify_Top2BelowThresholdEvenIfGapSmall(t *testing.T) {
 	// 构造 top1=0.76、top2≈0.72：gap≈0.04<0.05 但 top2 未过 0.75 阈值
 	// → 次优候选本就不可信，应直接采信 top1 而非 clarify
-	gamma := math.Acos(0.76)              // query 与 price 锚点夹角
-	phi := gamma + math.Acos(0.72)        // objection 锚点与 price 锚点夹角
+	gamma := math.Acos(0.76)       // query 与 price 锚点夹角
+	phi := gamma + math.Acos(0.72) // objection 锚点与 price 锚点夹角
 	rec, _ := newCascadeFixture(t, math.Cos(phi))
 	r := rec.recognizeByEmbedding(context.Background(), "这个多少钱？")
 	if r == nil || r.IntentType == IntentClarify {
@@ -244,7 +244,7 @@ func TestRefineMinorByKeywords(t *testing.T) {
 		{IntentMajorObjection, "太贵了不值", IntentMinorObjectionPriceHigh},
 		{IntentMajorAfterSale, "我要退货退款", IntentMinorAfterSaleRefund},
 		{IntentMajorPriceInquiry, "请给我报价", IntentMinorPriceBudgetCheck}, // 类内无关键词命中 → 默认子类
-		{"unknown", "任意文本", ""},                                        // 非法 major → 空
+		{"unknown", "任意文本", ""},                                         // 非法 major → 空
 	}
 	for _, c := range cases {
 		if got := refineMinorByKeywords(c.major, c.text); got != c.want {

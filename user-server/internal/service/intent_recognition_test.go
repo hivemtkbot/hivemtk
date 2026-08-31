@@ -44,7 +44,6 @@ func waitForIntentCount(t *testing.T, rec *IntentRecognizer, customerID string, 
 	}
 }
 
-
 // 1. 完全匹配 - 询价
 func TestRecognizeRule_PriceInquiryExact(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
@@ -96,7 +95,6 @@ func TestRecognizeRule_PriceInquiryQuote(t *testing.T) {
 	}
 }
 
-
 // 6. 价格异议 - 太贵了
 func TestRecognizeRule_PriceObjectionExpensive(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
@@ -136,7 +134,6 @@ func TestRecognizeRule_PriceObjectionNotCost(t *testing.T) {
 	}
 }
 
-
 // 10. 需求异议 - 不需要
 func TestRecognizeRule_NeedObjectionNo(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
@@ -163,7 +160,6 @@ func TestRecognizeRule_NeedObjectionLook(t *testing.T) {
 		t.Errorf("expected objection_need, got %s", r.IntentType)
 	}
 }
-
 
 // 13. 信任异议 - 骗子
 func TestRecognizeRule_TrustObjectionCheat(t *testing.T) {
@@ -192,7 +188,6 @@ func TestRecognizeRule_TrustObjectionBelieve(t *testing.T) {
 	}
 }
 
-
 // 16. 竞品异议 - 别家
 func TestRecognizeRule_CompetitorObjectionOther(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
@@ -210,7 +205,6 @@ func TestRecognizeRule_CompetitorObjectionCompare(t *testing.T) {
 		t.Errorf("expected objection_competitor, got %s", r.IntentType)
 	}
 }
-
 
 // 18. 时机异议 - 过段时间
 func TestRecognizeRule_TimingObjectionLater(t *testing.T) {
@@ -238,7 +232,6 @@ func TestRecognizeRule_TimingObjectionBusy(t *testing.T) {
 		t.Errorf("expected objection_timing, got %s", r.IntentType)
 	}
 }
-
 
 // 21. 购买意向 - 怎么买
 func TestRecognizeRule_PurchaseHowToBuy(t *testing.T) {
@@ -279,7 +272,6 @@ func TestRecognizeRule_PurchasePlaced(t *testing.T) {
 	}
 }
 
-
 // 25. 产品咨询 - 功能
 func TestRecognizeRule_ProductFeature(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
@@ -306,7 +298,6 @@ func TestRecognizeRule_ProductHowToUse(t *testing.T) {
 		t.Errorf("expected ask_product, got %s", r.IntentType)
 	}
 }
-
 
 // 28. 服务咨询 - 售后
 func TestRecognizeRule_ServiceAfterSale(t *testing.T) {
@@ -335,7 +326,6 @@ func TestRecognizeRule_ServiceLogistics(t *testing.T) {
 	}
 }
 
-
 // 31. 售后问题 - 坏了
 func TestRecognizeRule_AfterSaleBroken(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
@@ -362,7 +352,6 @@ func TestRecognizeRule_AfterSaleFault(t *testing.T) {
 		t.Errorf("expected after_sale, got %s", r.IntentType)
 	}
 }
-
 
 // 34. 流失倾向 - 别再发了
 func TestRecognizeRule_ChurnStop(t *testing.T) {
@@ -394,7 +383,6 @@ func TestRecognizeRule_ChurnUnsubscribe(t *testing.T) {
 	}
 }
 
-
 // 37. 社交 - 在吗
 func TestRecognizeRule_SocialHello(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
@@ -421,7 +409,6 @@ func TestRecognizeRule_SocialHi(t *testing.T) {
 		t.Errorf("expected social, got %s", r.IntentType)
 	}
 }
-
 
 // 40. 投诉 - 投诉
 func TestRecognizeRule_ComplaintBasic(t *testing.T) {
@@ -452,7 +439,6 @@ func TestRecognizeRule_ComplaintTrash(t *testing.T) {
 		t.Errorf("expected complaint, got %s", r.IntentType)
 	}
 }
-
 
 // 43. 空文本
 func TestRecognize_EmptyText(t *testing.T) {
@@ -520,7 +506,6 @@ func TestRecognize_MultipleIntents(t *testing.T) {
 	}
 }
 
-
 // 49. 完全匹配高置信度
 func TestRecognize_ExactHighConfidence(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
@@ -550,7 +535,6 @@ func TestRecognize_MultipleKeywordConfidence(t *testing.T) {
 		t.Errorf("expected high, got %f", r.Confidence)
 	}
 }
-
 
 // 52. 识别记录入库
 func TestRecognize_Persist(t *testing.T) {
@@ -600,7 +584,6 @@ func TestRecognize_RecordFields(t *testing.T) {
 	}
 }
 
-
 // 55. 统计为空
 func TestIntentStats_Empty(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
@@ -634,7 +617,6 @@ func TestStats_ZeroDays(t *testing.T) {
 	stats, _ := rec.GetIntentStats(context.Background(), 0)
 	_ = stats
 }
-
 
 // 59. 客户近期意图
 func TestRecentIntents_Basic(t *testing.T) {
@@ -686,7 +668,6 @@ func TestRecentIntents_OrderDesc(t *testing.T) {
 	}
 }
 
-
 // 63. 情感 - 流失
 func TestSentiment_Churn(t *testing.T) {
 	if inferSentiment(IntentChurn) != "negative" {
@@ -736,7 +717,6 @@ func TestSentiment_Unknown(t *testing.T) {
 	}
 }
 
-
 // 70. extractJSON - 标准JSON
 func TestExtractJSON_Normal(t *testing.T) {
 	s := `prefix {"a": 1} suffix`
@@ -782,7 +762,6 @@ func TestExtractJSON_Nested(t *testing.T) {
 	}
 }
 
-
 // 75. entitiesToMap - 空
 func TestEntitiesToMap_Empty(t *testing.T) {
 	m := entitiesToMap(nil)
@@ -806,7 +785,6 @@ func TestEntitiesToMap_BadJSON(t *testing.T) {
 		t.Error("expected non-nil")
 	}
 }
-
 
 // 78. recognizeByRule 优先级 - 完全匹配
 func TestRecognizeByRule_ExactPriority(t *testing.T) {
@@ -859,7 +837,6 @@ func TestRecognizeByRule_ConfCapped(t *testing.T) {
 	}
 }
 
-
 // 83. 默认意图数量
 func TestDefaultIntents_Count(t *testing.T) {
 	if len(DefaultIntents) < 10 {
@@ -892,7 +869,6 @@ func TestDefaultIntents_Unique(t *testing.T) {
 		seen[def.Type] = true
 	}
 }
-
 
 // 86. 意图常量
 func TestIntentConstants(t *testing.T) {
@@ -927,7 +903,6 @@ func TestIntentConstants_Different(t *testing.T) {
 	}
 }
 
-
 // 88. LLM 不可用时 兜底 unknown
 func TestRecognize_LLMUnavailableFallback(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
@@ -939,7 +914,6 @@ func TestRecognize_LLMUnavailableFallback(t *testing.T) {
 		t.Errorf("expected rule method, got %s", r.Method)
 	}
 }
-
 
 // 89. 初始化
 func TestInitIntentRecognizer(t *testing.T) {
@@ -974,7 +948,6 @@ func TestRecognize_NilCache(t *testing.T) {
 		t.Error("expected non-nil")
 	}
 }
-
 
 // 92. 极长文本
 func TestRecognize_LongText(t *testing.T) {
@@ -1147,4 +1120,3 @@ func TestRecognize_MultiSession(t *testing.T) {
 		t.Errorf("expected 2 across sessions, got %d", len(list))
 	}
 }
-

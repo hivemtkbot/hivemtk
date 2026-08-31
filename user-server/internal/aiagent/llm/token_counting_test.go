@@ -20,7 +20,7 @@ func TestInferVendor(t *testing.T) {
 		{"https://api.openai.com", "openai"},
 		{"https://open.bigmodel.cn/api/paas/v4", "zhipu"},
 		{"https://api.moonshot.cn", "moonshot"},
-		{config.DefaultLLMBaseURLDev, "local"}, 
+		{config.DefaultLLMBaseURLDev, "local"},
 		{"http://localhost:8080", "local"},
 		{"http://mtk-llm:" + config.DefaultLLMPortStr + "/v1", "local"},
 		{"", "other"},
@@ -42,7 +42,7 @@ func TestInferModelType(t *testing.T) {
 		baseURL string
 		want    string
 	}{
-		{"", ModelTypeLocal}, 
+		{"", ModelTypeLocal},
 		{config.DefaultLLMBaseURLDev, ModelTypeLocal},
 		{"http://localhost:8080", ModelTypeLocal},
 		{"http://mtk-llm:" + config.DefaultLLMPortStr + "/v1", ModelTypeLocal},
@@ -132,8 +132,8 @@ func abs(x float64) float64 {
 func TestNewLogEntry_Actual(t *testing.T) {
 	provider := &ProviderConfig{
 		Name:      "default",
-		BaseURL:   config.DefaultLLMBaseURLDev, 
-		Model:     "Qwen2.5-1.5B-Instruct",     
+		BaseURL:   config.DefaultLLMBaseURLDev,
+		Model:     "Qwen2.5-1.5B-Instruct",
 		CostPer1k: 0,
 	}
 	entry := NewLogEntry(ScenarioSOPReply, provider, "Qwen2.5-1.5B-Instruct",
@@ -169,8 +169,8 @@ func TestNewLogEntry_Actual(t *testing.T) {
 func TestNewLogEntry_Estimated(t *testing.T) {
 	provider := &ProviderConfig{
 		Name:      "default",
-		BaseURL:   config.DefaultLLMBaseURLDev, 
-		Model:     "Qwen2.5-1.5B-Instruct",     
+		BaseURL:   config.DefaultLLMBaseURLDev,
+		Model:     "Qwen2.5-1.5B-Instruct",
 		CostPer1k: 0,
 	}
 	entry := NewLogEntry(ScenarioIntentRecognize, provider, "Qwen2.5-1.5B-Instruct",
@@ -222,8 +222,8 @@ func TestNewLogEntry_Missing(t *testing.T) {
 func TestNewLogEntry_CacheSource(t *testing.T) {
 	provider := &ProviderConfig{
 		Name:    "default",
-		BaseURL: config.DefaultLLMBaseURLDev, 
-		Model:   "Qwen2.5-1.5B-Instruct",     
+		BaseURL: config.DefaultLLMBaseURLDev,
+		Model:   "Qwen2.5-1.5B-Instruct",
 	}
 	entry := NewLogEntry(ScenarioFriendlyChat, provider, "Qwen2.5-1.5B-Instruct",
 		10, 5, 15, 0, 0, true, "", true, false, "trace-cache", "hi", SourceDispatch)
@@ -291,8 +291,8 @@ func TestLogRoutingDecision_NilDB(t *testing.T) {
 	ResetTokenSourceStats()
 	entry := NewLogEntry(ScenarioSOPReply, &ProviderConfig{
 		Name:    "default",
-		BaseURL: config.DefaultLLMBaseURLDev, 
-		Model:   "Qwen2.5-1.5B-Instruct",     
+		BaseURL: config.DefaultLLMBaseURLDev,
+		Model:   "Qwen2.5-1.5B-Instruct",
 	}, "Qwen2.5-1.5B-Instruct", 30, 9, 39, 0, 100, true, "", false, false, "t1", "ok", SourceDispatch)
 
 	LogRoutingDecision(context.Background(), entry)
@@ -308,4 +308,3 @@ func TestLogRoutingDecision_NilDB(t *testing.T) {
 func TestLogRoutingDecision_NilEntry(t *testing.T) {
 	LogRoutingDecision(context.Background(), nil)
 }
-

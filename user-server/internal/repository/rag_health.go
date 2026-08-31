@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 
@@ -36,4 +35,3 @@ func (r *ragHealthRepo) CountKnowledgeChunks(ctx context.Context) (int64, error)
 
 // 编译期断言
 var _ RagHealthRepository = (*ragHealthRepo)(nil)
-

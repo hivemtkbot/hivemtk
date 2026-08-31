@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"hivemtk-user/internal/model"
-
 )
 
 // tgLeadOpportunityThreshold 意向分达到该值即判定为「商机」
@@ -61,7 +60,7 @@ func DetectTelegramIntent(text string) (score int, signals []string, isOpportuni
 		return 0, nil, false
 	}
 	lower := strings.ToLower(t)
-	score = 8 
+	score = 8
 	seen := map[string]bool{}
 	add := func(sig string, w int) {
 		if seen[sig] {
@@ -180,4 +179,3 @@ func boolToInt64(b bool) int64 {
 func (s *WebhookService) recordTelegramLeadScore(ctx context.Context, clue *model.Clue, isOpp bool) {
 	recordUnifiedLeadScore(ctx, s, clue, "telegram", isOpp)
 }
-

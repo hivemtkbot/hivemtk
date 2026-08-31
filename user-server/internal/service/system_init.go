@@ -126,4 +126,3 @@ func validateEmail(e string) error {
 	}
 	return nil
 }
-

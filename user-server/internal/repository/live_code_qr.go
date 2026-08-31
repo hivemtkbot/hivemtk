@@ -158,4 +158,3 @@ func (r *liveCodeQRRepository) SumLiveCodeStats(ctx context.Context, liveCodeID 
 	}
 	return views, clicks, nil
 }
-

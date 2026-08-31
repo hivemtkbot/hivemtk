@@ -532,7 +532,7 @@ func TestRestoreService_GetLastRestore(t *testing.T) {
 		CreatedBy:  1,
 	})
 
-	time.Sleep(10 * time.Millisecond) 
+	time.Sleep(10 * time.Millisecond)
 
 	restoreRepo.Create(context.Background(), &model.RestoreRecord{
 		BackupID:   2,
@@ -915,4 +915,3 @@ func TestNewScheduleBackupService(t *testing.T) {
 		t.Error("Expected non-nil schedule backup service")
 	}
 }
-

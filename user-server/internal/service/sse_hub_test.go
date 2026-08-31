@@ -1,13 +1,11 @@
 package service
 
-
 import (
 	"context"
 	"sync"
 	"testing"
 	"time"
 )
-
 
 // 1. 创建客户端
 func TestSSEClient_New(t *testing.T) {
@@ -94,10 +92,9 @@ func TestSSEClient_CloseCh(t *testing.T) {
 func TestSSEClient_CloseIdempotent(t *testing.T) {
 	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
 	c.Close(context.Background())
-	c.Close(context.Background()) 
+	c.Close(context.Background())
 	c.Close(context.Background())
 }
-
 
 // 8. Register / Unregister
 func TestSSEHub_RegisterUnregister(t *testing.T) {
@@ -221,7 +218,7 @@ func TestSSEHub_PublishSetsTimestamp(t *testing.T) {
 func TestSSEHub_UnregisterNonExistent(t *testing.T) {
 	hub := NewSSEHub()
 	defer hub.Stop(context.Background())
-	hub.Unregister(context.Background(), "nonexistent") 
+	hub.Unregister(context.Background(), "nonexistent")
 }
 
 // 16. Stop 关闭所有客户端
@@ -247,7 +244,7 @@ func TestSSEHub_StopAllClients(t *testing.T) {
 func TestSSEHub_PublishAfterStop(t *testing.T) {
 	hub := NewSSEHub()
 	hub.Stop(context.Background())
-	hub.Publish(context.Background(), SSEEvent{Topic: SSETopicLLMCalls}) 
+	hub.Publish(context.Background(), SSEEvent{Topic: SSETopicLLMCalls})
 }
 
 // 18. Stop 幂等
@@ -302,7 +299,6 @@ func TestSSEHub_ListClients(t *testing.T) {
 	}
 }
 
-
 // 22. ParseTopics 正常解析
 func TestParseTopics_Normal(t *testing.T) {
 	topics := ParseTopics("llm_calls,intent_recognition")
@@ -356,7 +352,6 @@ func TestIsValidSSETopic(t *testing.T) {
 	}
 }
 
-
 // 27. InitGlobalSSEHub 单例
 func TestInitGlobalSSEHub_Singleton(t *testing.T) {
 	hub := InitGlobalSSEHub()
@@ -373,7 +368,6 @@ func TestInitGlobalSSEHub_Singleton(t *testing.T) {
 func TestPublishSSEEvent_NoPanic(t *testing.T) {
 	PublishSSEEvent(SSETopicLLMCalls, "test", "data", "trace-1")
 }
-
 
 // 29. 并发 Register / Unregister / Publish
 func TestSSEHub_Concurrent(t *testing.T) {
@@ -414,7 +408,6 @@ func TestSSEClient_ConcurrentSend(t *testing.T) {
 	}
 	wg.Wait()
 }
-
 
 // 31. 客户端缓冲区大小校验
 func TestSSEClient_BufferSize(t *testing.T) {
@@ -470,4 +463,3 @@ func TestSSEClient_CreatedAt(t *testing.T) {
 		t.Errorf("createdAt %v not in [%v, %v]", c.createdAt, before, after)
 	}
 }
-

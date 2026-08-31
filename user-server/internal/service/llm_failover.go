@@ -8,7 +8,6 @@ import (
 	"hivemtk-user/internal/aiagent/llm"
 )
 
-
 // LLMProviderHealth provider 健康状态（mirror llm.ProviderHealth）
 type LLMProviderHealth struct {
 	ProviderName        string    `json:"provider_name"`
@@ -191,7 +190,6 @@ func (s *LLMRoutingService) UpdateSingleScenarioRoute(ctx context.Context, route
 	return s.UpdateStrategies(ctx, batch)
 }
 
-
 func fromLLMProviderHealth(h llm.ProviderHealth) LLMProviderHealth {
 	return LLMProviderHealth{
 		ProviderName:        h.ProviderName,
@@ -233,4 +231,3 @@ func toLLMFailoverPolicy(p LLMFailoverPolicy) llm.FailoverPolicy {
 		Scenarios: p.Scenarios,
 	}
 }
-

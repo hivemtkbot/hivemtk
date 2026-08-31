@@ -81,4 +81,3 @@ func TestInboxIngress_AckOutboundScopeIsolation(t *testing.T) {
 		t.Fatalf("越权 ack 不应清除原账号消息, 实际 %d", len(msgs))
 	}
 }
-

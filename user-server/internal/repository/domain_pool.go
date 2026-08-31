@@ -190,7 +190,6 @@ func (r *domainPoolRepository) DeactivateAll(ctx context.Context) error {
 	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("is_active = ?", true).Update("is_active", false).Error
 }
 
-
 // DomainHealthLogRepository 健康度日志仓储
 type DomainHealthLogRepository struct {
 	db *gorm.DB
@@ -221,7 +220,6 @@ func (r *DomainHealthLogRepository) ListByDomain(ctx context.Context, domainID i
 	err := r.db.Where("domain_id = ?", domainID).Order("checked_at DESC").Limit(limit).Find(&rows).Error
 	return rows, err
 }
-
 
 // DomainBlacklistRepository 黑名单仓储
 type DomainBlacklistRepository struct {
@@ -316,4 +314,3 @@ func (r *DomainBlacklistRepository) List(ctx context.Context, page, pageSize int
 	}
 	return rows, total, nil
 }
-

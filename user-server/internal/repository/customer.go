@@ -61,7 +61,7 @@ type CustomerSearchFilter struct {
 	Tag           string
 	RFMMin        int
 	RFMMax        int
-	HasRFMMin     bool 
+	HasRFMMin     bool
 	HasRFMMax     bool
 	ChurnRisk     string
 	CreatedAfter  string
@@ -496,4 +496,3 @@ func escapeJSONString(s string) string {
 	}
 	return string(out)
 }
-

@@ -57,13 +57,13 @@ func (s *userService) RegisterUser(ctx context.Context, req *dto.CreateUserReque
 
 	user := &model.User{
 		Username: req.Username,
-		Password: req.Password, 
+		Password: req.Password,
 		Email:    req.Email,
 		RealName: req.RealName,
 		Phone:    req.Phone,
 		Avatar:   req.Avatar,
 		Role:     req.Role,
-		Status:   1, 
+		Status:   1,
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
@@ -298,4 +298,3 @@ func (s *userService) InitUser(ctx context.Context, accountID string, tgID int64
 	}
 	return user.ID, nil
 }
-

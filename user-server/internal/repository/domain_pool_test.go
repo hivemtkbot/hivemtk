@@ -383,4 +383,3 @@ func TestDomainPoolRepository_UpdateLastCheck(t *testing.T) {
 		t.Error("Expected LastCheck to be updated")
 	}
 }
-

@@ -73,4 +73,3 @@ func TestLLMService_ValidateConfig(t *testing.T) {
 		t.Error("Expected error for empty config")
 	}
 }
-

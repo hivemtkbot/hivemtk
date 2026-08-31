@@ -30,7 +30,6 @@ func setupUpgradeRepositories(t *testing.T) (*UpgradeTaskRepository, *MigrationR
 		&MigrationCheckpointRepository{db: db.GetDB()}
 }
 
-
 // TestUpgradeTaskRepository_Create 测试创建升级任务
 func TestUpgradeTaskRepository_Create(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
@@ -323,7 +322,6 @@ func TestUpgradeTaskRepository_UpdateStatus_WithCompletion(t *testing.T) {
 	}
 }
 
-
 // TestMigrationRecordRepository_Create 测试创建迁移记录
 func TestMigrationRecordRepository_Create(t *testing.T) {
 	_, repo, _ := setupUpgradeRepositories(t)
@@ -485,7 +483,6 @@ func TestMigrationRecordRepository_Update(t *testing.T) {
 	}
 }
 
-
 // TestMigrationCheckpointRepository_GetByCheckpoint 测试根据检查点名称获取
 func TestMigrationCheckpointRepository_GetByCheckpoint(t *testing.T) {
 	_, _, repo := setupUpgradeRepositories(t)
@@ -558,4 +555,3 @@ func TestMigrationCheckpointRepository_Upsert(t *testing.T) {
 		t.Errorf("Expected updated data, got '%s'", updated.Data)
 	}
 }
-

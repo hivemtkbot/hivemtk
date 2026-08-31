@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 var (
 	smsSvcOnce     sync.Once
 	smsSvcInstance SmsService
@@ -63,4 +62,3 @@ func lazySendSms(phone, content string) error {
 	}
 	return nil
 }
-

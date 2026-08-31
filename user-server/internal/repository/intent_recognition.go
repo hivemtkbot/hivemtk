@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"time"
@@ -10,7 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 	_db "hivemtk-user/internal/pkg/db"
 )
-
 
 // IntentRecordRepository 意图识别记录仓储
 type IntentRecordRepository struct {
@@ -103,7 +101,6 @@ func (r *IntentRecordRepository) GetMethodLevelStatsSince(ctx context.Context, s
 	}
 	return rows, nil
 }
-
 
 // IntentLogRepository 精细意图识别日志仓储
 type IntentLogRepository struct {
@@ -214,4 +211,3 @@ func (r *IntentLogRepository) GetMethodStatsSince(ctx context.Context, since tim
 	}
 	return stats, nil
 }
-

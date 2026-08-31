@@ -32,7 +32,7 @@ type DeliveryReportRequest struct {
 	Phone       string `json:"phone"`
 	JobID       string `json:"jobId"`
 	Provider    string `json:"provider"`
-	Status      string `json:"status" binding:"required"` 
+	Status      string `json:"status" binding:"required"`
 	ErrorCode   string `json:"errorCode"`
 	ErrorMsg    string `json:"errorMsg"`
 	SentAt      string `json:"sentAt"`
@@ -232,7 +232,7 @@ func (s *SmsTrackingService) GetJobMetrics(ctx context.Context, jobID string) (*
 
 	metric.TotalSent = sent
 	metric.TotalDelivered = delivered
-	metric.TotalFailed = failed + retryable 
+	metric.TotalFailed = failed + retryable
 	metric.TotalRetried = retryable
 
 	if sent > 0 {
@@ -341,7 +341,6 @@ func normalizeSmsStatus(status string) string {
 	}
 }
 
-
 // - Unix 时间戳（秒）
 func parseSmsTime(s string) (*time.Time, error) {
 	s = strings.TrimSpace(s)
@@ -363,4 +362,3 @@ func parseSmsTime(s string) (*time.Time, error) {
 
 	return nil, errors.New("unsupported time format")
 }
-

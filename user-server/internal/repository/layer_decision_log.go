@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"time"
@@ -116,4 +115,3 @@ func (r *LayerDecisionLogRepository) LLMSkippedCount(ctx context.Context, since 
 		Count(&count).Error
 	return count, err
 }
-

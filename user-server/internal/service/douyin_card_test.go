@@ -28,7 +28,7 @@ func setupDouyinCardServiceTestDB(t *testing.T) *gorm.DB {
 		Domain:  "example.com",
 		Port:    80,
 		Purpose: "测试域名",
-		Status:  1, 
+		Status:  1,
 	}).Error; err != nil {
 		t.Fatalf("预创建 DomainPool 记录失败: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestDouyinCardService_Update_NotFound(t *testing.T) {
 	service := NewDouyinCardService(database)
 
 	updateReq := &dto.DouyinCardUpdateRequest{
-		ID:    999, 
+		ID:    999,
 		Title: "Non-existent Card",
 	}
 
@@ -603,7 +603,7 @@ func TestDouyinCardService_Update_DomainPoolChange(t *testing.T) {
 		Title:        "Test Card",
 		Description:  "Test description",
 		ImageURL:     "https://example.com/image.jpg",
-		DomainPoolID: 1, 
+		DomainPoolID: 1,
 		IsActive:     true,
 	}
 
@@ -612,4 +612,3 @@ func TestDouyinCardService_Update_DomainPoolChange(t *testing.T) {
 		t.Fatalf("Update failed: %v", err)
 	}
 }
-

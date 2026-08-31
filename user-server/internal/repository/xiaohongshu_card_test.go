@@ -354,4 +354,3 @@ func TestXiaohongshuCardRepository_UpdateShortLinkID(t *testing.T) {
 		t.Errorf("Expected ShortLinkID 456, got %v", updated.ShortLinkID)
 	}
 }
-

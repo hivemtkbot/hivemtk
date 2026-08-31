@@ -171,4 +171,3 @@ func (r *douyinCardStatsRepository) IncrementCardViewCount(ctx context.Context, 
 		Where("id = ?", cardID).
 		Update("view_count", gorm.Expr("view_count + 1")).Error
 }
-

@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"errors"
@@ -67,4 +66,3 @@ func (r *passwordHistoryRepo) Latest(ctx context.Context, userID uint) (*model.P
 
 // compile-time 接口断言
 var _ PasswordHistoryRepository = (*passwordHistoryRepo)(nil)
-

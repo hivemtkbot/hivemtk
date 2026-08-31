@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"fmt"
@@ -14,27 +13,27 @@ import (
 
 // 节点执行结果状态
 const (
-	NodeStatusCompleted = "completed" 
-	NodeStatusWaiting   = "waiting"   
-	NodeStatusFailed    = "failed"    
-	NodeStatusSkipped   = "skipped"   
+	NodeStatusCompleted = "completed"
+	NodeStatusWaiting   = "waiting"
+	NodeStatusFailed    = "failed"
+	NodeStatusSkipped   = "skipped"
 )
 
 // 节点事件类型（写入 sop_exec_events.event_type）
 const (
-	NodeEventStarted   = "started"   
-	NodeEventExecuted  = "executed"  
-	NodeEventCompleted = "completed" 
-	NodeEventFailed    = "failed"    
-	NodeEventWaiting   = "waiting"   
-	NodeEventRetried   = "retried"   
+	NodeEventStarted   = "started"
+	NodeEventExecuted  = "executed"
+	NodeEventCompleted = "completed"
+	NodeEventFailed    = "failed"
+	NodeEventWaiting   = "waiting"
+	NodeEventRetried   = "retried"
 )
 
 // 等待事件类型（写入 sop_timers.wait_event 与 sop_executions.wait_event）
 const (
-	WaitEventTimer         = "timer"          
-	WaitEventCustomerReply = "customer_reply" 
-	WaitEventExternal      = "external"       
+	WaitEventTimer         = "timer"
+	WaitEventCustomerReply = "customer_reply"
+	WaitEventExternal      = "external"
 )
 
 // NodeExecutor 节点执行器接口（Strategy 模式）
@@ -55,30 +54,30 @@ type NodeExecutor interface {
 // 封装节点执行所需的所有上下文信息，避免执行器直接访问数据库。
 // 由 SOPExecutionDispatcher 在派发任务时构造。
 type ExecutionContext struct {
-	Execution     *model.SOPExecution 
-	Node          *dto.SOPNode        
-	Graph         *dto.SOPGraph       
-	CustomerID    string              
-	SessionID     string              
-	Variant       string              
-	Input         model.JSONMap       
-	ExecutionData model.JSONMap       
-	TraceID       string              
-	StartedAt     time.Time           
-	Attempt       int                 
+	Execution     *model.SOPExecution
+	Node          *dto.SOPNode
+	Graph         *dto.SOPGraph
+	CustomerID    string
+	SessionID     string
+	Variant       string
+	Input         model.JSONMap
+	ExecutionData model.JSONMap
+	TraceID       string
+	StartedAt     time.Time
+	Attempt       int
 }
 
 // NodeExecResult 节点执行结果
 type NodeExecResult struct {
-	Status       string        
-	Output       model.JSONMap 
-	NextNodeID   string        
-	WaitUntil    *time.Time    
-	WaitEvent    string        
-	ErrorMessage string        
-	Retryable    bool          
-	SideEffects  []string      
-	TokensUsed   int           
+	Status       string
+	Output       model.JSONMap
+	NextNodeID   string
+	WaitUntil    *time.Time
+	WaitEvent    string
+	ErrorMessage string
+	Retryable    bool
+	SideEffects  []string
+	TokensUsed   int
 }
 
 // NodeExecutorRegistry 节点执行器注册中心
@@ -244,11 +243,10 @@ func appendSideEffect(data model.JSONMap, effect string) model.JSONMap {
 	existing := extractSideEffects(data)
 	for _, e := range existing {
 		if e == effect {
-			return data 
+			return data
 		}
 	}
 	existing = append(existing, effect)
 	data["_side_effects"] = existing
 	return data
 }
-

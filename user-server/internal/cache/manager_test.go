@@ -394,7 +394,7 @@ func TestMemoryCache_deleteExpired_MultipleKeys(t *testing.T) {
 
 	cache.Set(ctx, "expired1", "value1", 1*time.Millisecond)
 	cache.Set(ctx, "expired2", "value2", 1*time.Millisecond)
-	cache.Set(ctx, "valid", "valid_value", 1*time.Hour) 
+	cache.Set(ctx, "valid", "valid_value", 1*time.Hour)
 
 	time.Sleep(10 * time.Millisecond)
 
@@ -416,7 +416,6 @@ func TestMemoryCache_deleteExpired_MultipleKeys(t *testing.T) {
 		t.Error("deleteExpired() 后 valid 应该仍然存在")
 	}
 }
-
 
 // TestCacheManager_Stats_HitRate 测试缓存命中率统计
 func TestCacheManager_Stats_HitRate(t *testing.T) {
@@ -463,7 +462,6 @@ func TestCacheManager_Stats_HitRate(t *testing.T) {
 	}
 }
 
-
 // TestCacheManager_Stats_ResetStats 测试重置统计
 func TestCacheManager_Stats_ResetStats(t *testing.T) {
 	config := CacheConfig{Type: "memory"}
@@ -495,7 +493,6 @@ func TestCacheManager_Stats_ResetStats(t *testing.T) {
 		t.Errorf("重置后统计应为 0，得到：Hits=%d, Misses=%d", stats.Hits, stats.Misses)
 	}
 }
-
 
 // TestCacheManager_Stats_GetJSON 测试 GetJSON 统计
 func TestCacheManager_Stats_GetJSON(t *testing.T) {

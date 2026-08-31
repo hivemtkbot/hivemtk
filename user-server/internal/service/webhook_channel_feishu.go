@@ -1,7 +1,6 @@
 package service
 
 import (
-
 	"context"
 
 	"crypto/subtle"
@@ -152,7 +151,7 @@ func (s *WebhookService) dispatchFeishu(ctx context.Context, accountID string, p
 				ChatID      string `json:"chat_id"`
 				ChatType    string `json:"chat_type"`
 				MessageType string `json:"message_type"`
-				Content     string `json:"content"` 
+				Content     string `json:"content"`
 				CreateTime  int64  `json:"create_time"`
 			} `json:"message"`
 		} `json:"event,omitempty"`
@@ -216,4 +215,3 @@ func (s *WebhookService) dispatchFeishu(ctx context.Context, accountID string, p
 	p.ChatID = m.ChatID
 	return hub, nil
 }
-

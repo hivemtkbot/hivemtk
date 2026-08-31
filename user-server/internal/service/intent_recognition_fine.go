@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"encoding/json"
@@ -13,100 +12,98 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 const (
-	IntentMajorConsult      = "consult"       
-	IntentMajorPriceInquiry = "price_inquiry" 
-	IntentMajorObjection    = "objection"     
-	IntentMajorAfterSale    = "after_sale"    
-	IntentMajorComplaint    = "complaint"     
-	IntentMajorChurn        = "churn"         
-	IntentMajorIntentBuy    = "intent_buy"    
-	IntentMajorAskProduct   = "ask_product"   
+	IntentMajorConsult      = "consult"
+	IntentMajorPriceInquiry = "price_inquiry"
+	IntentMajorObjection    = "objection"
+	IntentMajorAfterSale    = "after_sale"
+	IntentMajorComplaint    = "complaint"
+	IntentMajorChurn        = "churn"
+	IntentMajorIntentBuy    = "intent_buy"
+	IntentMajorAskProduct   = "ask_product"
 )
-
 
 // consult 子类
 const (
-	IntentMinorConsultGeneral         = "general"          
-	IntentMinorConsultProductSpecific = "product_specific" 
-	IntentMinorConsultComparison      = "comparison"       
+	IntentMinorConsultGeneral         = "general"
+	IntentMinorConsultProductSpecific = "product_specific"
+	IntentMinorConsultComparison      = "comparison"
 )
 
 // price_inquiry 子类
 const (
-	IntentMinorPriceBudgetCheck  = "budget_check"     
-	IntentMinorPriceDiscountReq  = "discount_request" 
-	IntentMinorPricePaymentTerms = "payment_terms"    
+	IntentMinorPriceBudgetCheck  = "budget_check"
+	IntentMinorPriceDiscountReq  = "discount_request"
+	IntentMinorPricePaymentTerms = "payment_terms"
 )
 
 // objection 子类
 const (
-	IntentMinorObjectionPriceHigh     = "price_too_high"        
-	IntentMinorObjectionTrustIssue    = "trust_issue"           
-	IntentMinorObjectionTimingBad     = "timing_bad"            
-	IntentMinorObjectionCompetitorCmp = "competitor_comparison" 
+	IntentMinorObjectionPriceHigh     = "price_too_high"
+	IntentMinorObjectionTrustIssue    = "trust_issue"
+	IntentMinorObjectionTimingBad     = "timing_bad"
+	IntentMinorObjectionCompetitorCmp = "competitor_comparison"
 )
 
 // after_sale 子类
 const (
-	IntentMinorAfterSaleQuality  = "quality_issue"  
-	IntentMinorAfterSaleDelivery = "delivery_issue" 
-	IntentMinorAfterSaleRefund   = "refund_request" 
-	IntentMinorAfterSaleWarranty = "warranty"       
+	IntentMinorAfterSaleQuality  = "quality_issue"
+	IntentMinorAfterSaleDelivery = "delivery_issue"
+	IntentMinorAfterSaleRefund   = "refund_request"
+	IntentMinorAfterSaleWarranty = "warranty"
 )
 
 // complaint 子类
 const (
-	IntentMinorComplaintService = "service_complaint" 
-	IntentMinorComplaintProduct = "product_complaint" 
-	IntentMinorComplaintBilling = "billing_complaint" 
+	IntentMinorComplaintService = "service_complaint"
+	IntentMinorComplaintProduct = "product_complaint"
+	IntentMinorComplaintBilling = "billing_complaint"
 )
 
 // churn 子类
 const (
-	IntentMinorChurnCancelSub  = "cancel_subscription" 
-	IntentMinorChurnSwitchComp = "switch_competitor"   
-	IntentMinorChurnStopUsing  = "stop_using"          
+	IntentMinorChurnCancelSub  = "cancel_subscription"
+	IntentMinorChurnSwitchComp = "switch_competitor"
+	IntentMinorChurnStopUsing  = "stop_using"
 )
 
 // intent_buy 子类
 const (
-	IntentMinorIntentBuyReady    = "ready_to_buy"   
-	IntentMinorIntentBuyNeedInfo = "need_more_info" 
-	IntentMinorIntentBuyApproval = "need_approval"  
+	IntentMinorIntentBuyReady    = "ready_to_buy"
+	IntentMinorIntentBuyNeedInfo = "need_more_info"
+	IntentMinorIntentBuyApproval = "need_approval"
 )
 
 // ask_product 子类
 const (
-	IntentMinorAskProductFeature = "feature_query" 
-	IntentMinorAskProductAvail   = "availability"  
-	IntentMinorAskProductSpec    = "spec_query"    
+	IntentMinorAskProductFeature = "feature_query"
+	IntentMinorAskProductAvail   = "availability"
+	IntentMinorAskProductSpec    = "spec_query"
 )
 
 // IntentResult 精细意图识别结果
 type IntentResult struct {
-	Major      string  `json:"major"`                
-	Minor      string  `json:"minor"`                
-	Confidence float64 `json:"confidence"`           
-	Method     string  `json:"method"`               
-	Reasoning  string  `json:"reasoning,omitempty"`  
-	LatencyMs  int     `json:"latency_ms,omitempty"` 
-	LLMModel   string  `json:"llm_model,omitempty"`  
+	Major      string  `json:"major"`
+	Minor      string  `json:"minor"`
+	Confidence float64 `json:"confidence"`
+	Method     string  `json:"method"`
+	Reasoning  string  `json:"reasoning,omitempty"`
+	LatencyMs  int     `json:"latency_ms,omitempty"`
+	LLMModel   string  `json:"llm_model,omitempty"`
 }
 
 // minorRule 子类规则定义
 type minorRule struct {
 	minor    string
 	keywords []string
-	weight   int 
+	weight   int
 }
 
 // majorRule 大类规则定义
 type majorRule struct {
 	major    string
 	minors   []minorRule
-	keywords []string 
+	keywords []string
 }
 
 // fineIntentRules 精细意图规则表
@@ -550,4 +547,3 @@ func (s *IntentRecognizer) QueryIntentLogsByTraceID(ctx context.Context, traceID
 	}
 	return s.logRepo.ListByTraceID(ctx, traceID)
 }
-

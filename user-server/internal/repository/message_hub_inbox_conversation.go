@@ -64,4 +64,3 @@ type InboxConversationQuery struct {
 	PageSize    int
 	OrderBy     string
 }
-

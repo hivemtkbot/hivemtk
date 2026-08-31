@@ -54,7 +54,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import * as echarts from 'echarts'
-import { getSOVTrend } from '@/api/geoProbe.js'
+import { getSOV } from '@/api/geoProbe.js'
 
 const intent = ref('对比')
 const funnelStage = ref('')
@@ -107,15 +107,35 @@ const handleResize = () => chartInstance && chartInstance.resize()
 const load = async () => {
   loading.value = true
   try {
-    const trend = await getSOVTrend(intent.value, funnelStage.value, 30)
-    trendData.value = Array.isArray(trend) ? trend : (trend?.data || [])
-    // mock sovData if not from API yet (后端 sov report 还没就绪时用趋势数据的最新值填充)
-    if (!sovData.value.length && trendData.value.length) {
-      const last = trendData.value[trendData.value.length - 1]
-      sovData.value = [
-        { intent: intent.value, engine: '百度', brand_sov: last.brand_sov ?? 0, competitor_sov: last.competitor_sov ?? 0, gap: ((last.brand_sov ?? 0) - (last.competitor_sov ?? 0)).toFixed(1), sample_count: 30 },
-        { intent: intent.value, engine: '谷歌', brand_sov: (last.brand_sov ?? 0) + 2, competitor_sov: (last.competitor_sov ?? 0) - 1, gap: (((last.brand_sov ?? 0) + 2) - ((last.competitor_sov ?? 0) - 1)).toFixed(1), sample_count: 25 }
-      ]
+    // 后端只有 /geo/sov summary 端点，不再有 getSOVTrend
+    const data = await getSOV()
+    // 解析后端返回的 summary + 按 engine 聚合数据
+    const engines = data?.engines || data?.by_engine || []
+    const summaryRow = data?.summary || {}
+    // sovData 直接使用按 engine 聚合的数据
+    sovData.value = Array.isArray(engines) ? engines : (data?.list || data?.items || [])
+    // 兼容旧 mock 数据结构：确保 gap 字段存在
+    sovData.value = sovData.value.map(r => ({
+      ...r,
+      gap: r.gap ?? ((r.brand_sov ?? 0) - (r.competitor_sov ?? 0)).toFixed(1)
+    }))
+    // 趋势图：后端暂不返回历史 trend，用 summary 里的 history 或 mock 空数据
+    const history = data?.history || []
+    if (Array.isArray(history) && history.length) {
+      trendData.value = history
+    } else {
+      trendData.value = [] // 暂无后端 trend 数据，图表渲染空状态
+    }
+    // 如果 sovData 为空但 summary 有数据，用 summary 构造一行
+    if (!sovData.value.length && summaryRow) {
+      sovData.value = [{
+        intent: '全意图汇总',
+        engine: summaryRow.engine || '汇总',
+        brand_sov: summaryRow.brand_sov ?? 0,
+        competitor_sov: summaryRow.competitor_sov ?? 0,
+        gap: (summaryRow.brand_sov ?? 0) - (summaryRow.competitor_sov ?? 0),
+        sample_count: summaryRow.sample_count || 0
+      }]
     }
     await nextTick()
     renderTrendChart()

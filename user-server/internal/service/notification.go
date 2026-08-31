@@ -26,7 +26,7 @@ func NewNotificationService(db *gorm.DB) *NotificationService {
 
 // ListRequest 列表请求
 type NotificationListRequest struct {
-	UserID  uint 
+	UserID  uint
 	Page    int
 	Size    int
 	Type    string
@@ -157,4 +157,3 @@ func (s *NotificationService) SeedIfEmpty(ctx context.Context) error {
 	}
 	return nil
 }
-

@@ -12,7 +12,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // LLMModelStat 内存中"按 provider"实时累计（用于 /stats 实时面板）
 //
 // 该 map 在 Dispatcher 决策日志落库后，仅保留"最近一次统计清点后的增量"。
@@ -25,7 +24,7 @@ type LLMModelStat struct {
 	FailedCount  int64     `json:"failed_count"`
 	TotalTokens  int64     `json:"total_tokens"`
 	TotalCost    float64   `json:"total_cost"`
-	AvgLatencyMs int64     `json:"avg_latency_ms"` 
+	AvgLatencyMs int64     `json:"avg_latency_ms"`
 	LastUsedAt   time.Time `json:"last_used_at"`
 }
 
@@ -35,7 +34,7 @@ type LLMProviderInfo struct {
 	DisplayName  string   `json:"display_name,omitempty"`
 	BaseURL      string   `json:"base_url"`
 	Model        string   `json:"model"`
-	APIKey       string   `json:"api_key,omitempty"` 
+	APIKey       string   `json:"api_key,omitempty"`
 	APIKeySet    bool     `json:"api_key_set"`
 	Enabled      bool     `json:"enabled"`
 	QualityScore float64  `json:"quality_score"`
@@ -111,7 +110,7 @@ type LLMRoutingService struct {
 	dispatcher *llm.Dispatcher
 
 	mu    sync.Mutex
-	stats map[string]*LLMModelStat 
+	stats map[string]*LLMModelStat
 }
 
 // NewLLMRoutingService 创建 LLM 路由服务
@@ -121,7 +120,6 @@ func NewLLMRoutingService(d *llm.Dispatcher) *LLMRoutingService {
 		stats:      make(map[string]*LLMModelStat),
 	}
 }
-
 
 // ListModels 列出所有 provider
 func (s *LLMRoutingService) ListModels(ctx context.Context) []LLMProviderInfo {
@@ -203,7 +201,7 @@ func (s *LLMRoutingService) CreateModel(ctx context.Context, info LLMProviderInf
 		Vendor:       info.Vendor,
 		Tags:         info.Tags,
 	}
-	s.dispatcher.AddProvider(pc) 
+	s.dispatcher.AddProvider(pc)
 	if err := s.dispatcher.UpsertProviderToDB(pc); err != nil {
 		return fmt.Errorf("provider 落库失败: %w", err)
 	}
@@ -245,12 +243,12 @@ func (s *LLMRoutingService) UpdateModel(ctx context.Context, identifier string, 
 		apiKey = info.APIKey
 	}
 	updated := llm.ProviderConfig{
-		Name:         identifier, 
+		Name:         identifier,
 		DisplayName:  orDefault(info.DisplayName, old.DisplayName),
 		BaseURL:      orDefault(info.BaseURL, old.BaseURL),
 		Model:        orDefault(info.Model, old.Model),
 		APIKey:       apiKey,
-		APIType:      old.APIType, 
+		APIType:      old.APIType,
 		Enabled:      info.Enabled,
 		QualityScore: nonZero(info.QualityScore, old.QualityScore),
 		MaxRPM:       nonZeroInt(info.MaxRPM, old.MaxRPM),
@@ -259,7 +257,7 @@ func (s *LLMRoutingService) UpdateModel(ctx context.Context, identifier string, 
 		Vendor:       orDefault(info.Vendor, old.Vendor),
 		Tags:         info.Tags,
 	}
-	s.dispatcher.AddProvider(updated) 
+	s.dispatcher.AddProvider(updated)
 	if err := s.dispatcher.UpsertProviderToDB(updated); err != nil {
 		return fmt.Errorf("provider 落库失败: %w", err)
 	}
@@ -298,7 +296,6 @@ func (s *LLMRoutingService) DeleteModel(ctx context.Context, identifier string) 
 		"delete_model", identifier, operatorFromContext(ctx), logger.TraceIDFromContext(ctx))
 	return nil
 }
-
 
 // ListStrategies 列出所有场景路由
 func (s *LLMRoutingService) ListStrategies(ctx context.Context) []llm.ScenarioRoute {
@@ -342,7 +339,6 @@ func (s *LLMRoutingService) UpdateStrategies(ctx context.Context, req UpdateStra
 func (s *LLMRoutingService) ListAuditHistory(ctx context.Context, scenario string, limit int) ([]map[string]any, error) {
 	return llm.QueryAuditHistory(ctx, scenario, limit)
 }
-
 
 // Stats 返回进程内实时 provider 维度统计
 func (s *LLMRoutingService) Stats(ctx context.Context) map[string]LLMModelStat {
@@ -416,7 +412,6 @@ func (s *LLMRoutingService) Usage(ctx context.Context, window string) (*UsageSum
 	return summary, nil
 }
 
-
 // TestModel 测试模型连通性（走独立路径，不污染全局路由/告警/熔断）
 //
 // 关键设计：
@@ -450,7 +445,7 @@ func (s *LLMRoutingService) TestModel(ctx context.Context, req TestModelRequest)
 	testRoute := &llm.ScenarioRoute{
 		Scenario:   llm.ScenarioLowCost,
 		Provider:   req.Provider,
-		MaxLatency: timeout * 1000, 
+		MaxLatency: timeout * 1000,
 		MinQuality: 0,
 	}
 	dreq := llm.DispatchRequest{
@@ -477,7 +472,6 @@ func (s *LLMRoutingService) TestModel(ctx context.Context, req TestModelRequest)
 	res.Success = true
 	return res, nil
 }
-
 
 func orDefault(s, def string) string {
 	if s == "" {
@@ -541,4 +535,3 @@ func operatorFromContext(ctx context.Context) string {
 	}
 	return "system"
 }
-

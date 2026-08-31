@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"testing"
@@ -109,4 +108,3 @@ func TestRagRecallMonitor_BoundaryParams(t *testing.T) {
 		t.Errorf("Expected default window, got %v", s.window)
 	}
 }
-

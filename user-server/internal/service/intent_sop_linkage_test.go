@@ -241,4 +241,3 @@ func TestIntentSOP_Recognize_TriggersSOP(t *testing.T) {
 		t.Errorf("expected 1 execution triggered by Recognize, got %d", count)
 	}
 }
-

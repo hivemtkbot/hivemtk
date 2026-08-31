@@ -1,6 +1,5 @@
 package translation
 
-
 import (
 	"strings"
 	"testing"
@@ -8,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
 
 func TestValidate_SKUProtected(t *testing.T) {
 	v := NewPostValidator()
@@ -23,7 +21,6 @@ func TestValidate_SKUProtected(t *testing.T) {
 	}
 	assert.True(t, found, "应记录 SKU pattern_protected")
 }
-
 
 func TestValidate_PriceProtected(t *testing.T) {
 	v := NewPostValidator()
@@ -48,7 +45,6 @@ func TestValidate_PriceMultiCurrencies(t *testing.T) {
 	}
 }
 
-
 func TestValidate_URLProtected(t *testing.T) {
 	v := NewPostValidator()
 	text := "Visit https://example.com today"
@@ -70,7 +66,6 @@ func TestValidate_HTTPUrlProtected(t *testing.T) {
 	assert.Equal(t, text, out, "http URL 也不应被修改")
 }
 
-
 func TestValidate_EmailProtected(t *testing.T) {
 	v := NewPostValidator()
 	text := "Contact support@brand.com for help"
@@ -84,7 +79,6 @@ func TestValidate_EmailProtected(t *testing.T) {
 	}
 	assert.True(t, found, "应记录 email pattern_protected")
 }
-
 
 func TestValidate_GlossaryCorrection(t *testing.T) {
 	v := NewPostValidator()
@@ -141,7 +135,6 @@ func TestValidate_GlossaryMultipleMappings(t *testing.T) {
 	assert.Equal(t, 2, count)
 }
 
-
 func TestValidate_NilGlossary_NoPanic(t *testing.T) {
 	v := NewPostValidator()
 	text := "Hello world"
@@ -159,7 +152,6 @@ func TestValidate_EmptyGlossary(t *testing.T) {
 	assert.Empty(t, issues)
 }
 
-
 func TestValidate_MultipleViolations_AllProtected(t *testing.T) {
 	v := NewPostValidator()
 	text := "Buy SKU-ABC12345 for $99.99 at https://example.com"
@@ -173,7 +165,6 @@ func TestValidate_MultipleViolations_AllProtected(t *testing.T) {
 	}
 	assert.GreaterOrEqual(t, count, 3, "应记录 SKU/价格/URL 三条保护")
 }
-
 
 func TestValidate_EmptyText(t *testing.T) {
 	v := NewPostValidator()
@@ -189,7 +180,6 @@ func TestValidate_NoMatches(t *testing.T) {
 	assert.Equal(t, text, out)
 	assert.Empty(t, issues)
 }
-
 
 func TestValidate_GlossaryCustomPatterns(t *testing.T) {
 	v := NewPostValidator()
@@ -213,7 +203,7 @@ func TestValidate_GlossaryInvalidPattern_SkippedGracefully(t *testing.T) {
 	v := NewPostValidator()
 	glossary := &GlossaryView{
 		Lang:     "en",
-		Patterns: []string{`[invalid`}, 
+		Patterns: []string{`[invalid`},
 	}
 	text := "Hello"
 	out, issues := v.Validate(text, "en", glossary)
@@ -221,16 +211,15 @@ func TestValidate_GlossaryInvalidPattern_SkippedGracefully(t *testing.T) {
 	assert.Empty(t, issues)
 }
 
-
 func TestApplyGlossary_EmptyMappingValue_Skipped(t *testing.T) {
 	v := NewPostValidator()
 	glossary := &GlossaryView{
 		Lang: "en",
 		Mappings: map[string]string{
-			"":        "ignored", 
-			"apple":   "",        
-			"same":    "same",    
-			"missing": "iPhone",  
+			"":        "ignored",
+			"apple":   "",
+			"same":    "same",
+			"missing": "iPhone",
 		},
 	}
 	text := "Hello world"
@@ -238,7 +227,6 @@ func TestApplyGlossary_EmptyMappingValue_Skipped(t *testing.T) {
 	assert.Equal(t, text, out)
 	assert.Empty(t, issues)
 }
-
 
 func TestValidate_GlossaryThenProtection_OrderMatters(t *testing.T) {
 	v := NewPostValidator()
@@ -262,7 +250,6 @@ func TestValidate_GlossaryThenProtection_OrderMatters(t *testing.T) {
 	assert.True(t, foundSKU, "应记录 SKU 保护")
 	assert.True(t, foundGlossary, "应记录术语校准")
 }
-
 
 // TestValidate_SensitiveRedacted 验证内部敏感信息被真正脱敏（[REDACTED]），
 // 而业务令牌（email/价格）仍保留原样。
@@ -298,4 +285,3 @@ func TestValidate_RedactExcludesProtectedURL(t *testing.T) {
 	out, _ := v.Validate(text, "en", nil)
 	assert.Equal(t, text, out, "URL 内的长数字应受保护不被脱敏")
 }
-

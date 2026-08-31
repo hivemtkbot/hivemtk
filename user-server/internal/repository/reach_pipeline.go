@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"errors"
@@ -340,4 +339,3 @@ func (r *ReachPipelineRepository) GetStats(ctx context.Context) (*ReachPipelineS
 	}
 	return stats, nil
 }
-

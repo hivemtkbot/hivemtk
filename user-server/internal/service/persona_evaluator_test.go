@@ -20,7 +20,6 @@ func setupPersonaTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-
 func TestRuleBasedPersonaEvaluator_HighQualityReply(t *testing.T) {
 	e := NewRuleBasedPersonaEvaluator()
 	input := &PersonaEvaluationInput{
@@ -88,7 +87,7 @@ func TestRuleBasedPersonaEvaluator_FalsePromiseLowCompliance(t *testing.T) {
 
 func TestRuleBasedPersonaEvaluator_LongReplyLowConciseness(t *testing.T) {
 	e := NewRuleBasedPersonaEvaluator()
-	longReply := strings.Repeat("这是一段很长的回复内容。", 30) 
+	longReply := strings.Repeat("这是一段很长的回复内容。", 30)
 	input := &PersonaEvaluationInput{
 		AIReply: longReply,
 	}
@@ -244,7 +243,6 @@ func TestRuleBasedPersonaEvaluator_CustomThreshold(t *testing.T) {
 	}
 }
 
-
 func TestPersonaEvaluationService_Evaluate_HighQualityPass(t *testing.T) {
 	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator())
 	input := &PersonaEvaluationInput{
@@ -348,7 +346,7 @@ func TestPersonaEvaluationService_EvaluateWithRetry_ExhaustedAndCollect(t *testi
 		SessionID:       "s-1",
 	}
 	regenerateFn := func(ctx context.Context, input *PersonaEvaluationInput, feedback *PersonaEvaluationResult) (string, error) {
-		return "依然最好的产品，绝对保证", nil 
+		return "依然最好的产品，绝对保证", nil
 	}
 	result, err := svc.EvaluateWithRetry(context.Background(), input, regenerateFn)
 	if err != nil {
@@ -466,7 +464,6 @@ func TestPersonaEvaluationService_AllRepliesCollected(t *testing.T) {
 	}
 }
 
-
 func TestLLMPersonaEvaluator_NilDispatcher(t *testing.T) {
 	e := &LLMPersonaEvaluator{dispatcher: nil}
 	_, err := e.Evaluate(context.Background(), &PersonaEvaluationInput{AIReply: "测试"})
@@ -490,7 +487,6 @@ func TestLLMPersonaEvaluator_EmptyReply(t *testing.T) {
 		t.Error("expected error for empty reply")
 	}
 }
-
 
 func TestParsePersonaEvaluationResult_ValidJSON(t *testing.T) {
 	content := `{"scores":[{"dimension":"naturalness","score":0.9,"reason":"口语化"},{"dimension":"relevance","score":0.85,"reason":"相关"},{"dimension":"persona","score":0.8,"reason":"符合人设"},{"dimension":"emotion","score":0.7,"reason":"有共情"},{"dimension":"conciseness","score":0.95,"reason":"简洁"},{"dimension":"compliance","score":1.0,"reason":"合规"}],"total_score":0.87}`
@@ -558,7 +554,6 @@ func TestParsePersonaEvaluationResult_ScoreClamp(t *testing.T) {
 		t.Errorf("expected clamp to 0.0, got %.3f", rel)
 	}
 }
-
 
 func TestDBLowQualitySampleCollector_HappyPath(t *testing.T) {
 	db := setupPersonaTestDB(t)
@@ -641,7 +636,6 @@ func TestLogLowQualitySampleCollector_NoError(t *testing.T) {
 		t.Errorf("expected nil err, got %v", err)
 	}
 }
-
 
 func TestListLowQualitySamples_HappyPath(t *testing.T) {
 	db := setupPersonaTestDB(t)
@@ -730,7 +724,6 @@ func TestMarkLowQualitySampleHandled_NilDB(t *testing.T) {
 	}
 }
 
-
 func TestComputeWeightedScore_AllMax(t *testing.T) {
 	scores := []PersonaDimensionScore{}
 	for _, dim := range AllPersonaDimensions {
@@ -778,7 +771,7 @@ func TestClampScore(t *testing.T) {
 		{0.5, 0.5},
 		{1, 1},
 		{1.5, 1},
-		{0.555, 0.56}, 
+		{0.555, 0.56},
 	}
 	for _, tc := range tests {
 		got := clampScore(tc.input)
@@ -863,7 +856,6 @@ func TestPersonaEvaluationResult_ScoreByDimension(t *testing.T) {
 		t.Error("expected not found for missing dimension")
 	}
 }
-
 
 // TestPersonaEvaluation_PRDAcceptance_RetryAndCollect PRD §5.2 G6 验收：
 // "重生成循环正确触发" + "低质样本自动收集用于后续训练"
@@ -972,4 +964,3 @@ func TestPersonaEvaluation_PRDAcceptance_SixDimensions(t *testing.T) {
 		t.Errorf("PRD 验收失败：权重总和应为 1.0, got %.3f", totalWeight)
 	}
 }
-

@@ -1,9 +1,6 @@
 package service
 
 import (
-	"regexp"
-	"sync"
-	"os"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -14,8 +11,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"context"
@@ -62,7 +62,6 @@ type smsService struct {
 func NewSmsService(repo repository.SmsRepository) SmsService {
 	return &smsService{repo: repo}
 }
-
 
 // smsPhoneRe E.164 宽松口径（v3 审计 P1）：可选 + 前缀，7-15 位数字
 var smsPhoneRe = regexp.MustCompile(`^\+?[1-9]\d{6,14}$`)
@@ -301,7 +300,7 @@ func (s *smsService) sendAliyun(ctx context.Context, phone, content string) (tim
 	params := url.Values{}
 	params.Set("PhoneNumbers", phone)
 	params.Set("SignName", cfg.SignName)
-	params.Set("TemplateCode", "SMS_000000001") 
+	params.Set("TemplateCode", "SMS_000000001")
 	params.Set("TemplateParam", `{"content":"`+escapeJSON(content)+`"}`)
 	params.Set("AccessKeyId", cfg.AccessKeyID)
 	params.Set("Timestamp", time.Now().UTC().Format("2006-01-02T15:04:05Z"))
@@ -379,7 +378,7 @@ func (s *smsService) sendTencent(ctx context.Context, phone, content string) (ti
 		"PhoneNumberSet":   []string{phone},
 		"SmsSdkAppId":      cfg.AppID,
 		"SignName":         cfg.SignName,
-		"TemplateId":       "0000000", 
+		"TemplateId":       "0000000",
 		"TemplateParamSet": []string{content},
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
@@ -453,12 +452,12 @@ func (s *smsService) sendHuawei(ctx context.Context, phone, content string) (tim
 	}
 
 	apiURL := fmt.Sprintf("https://smsapi.%s.boe-business.huaweicloud.com:443/sms/batchSendSms/v1",
-		"cn-north-4") 
+		"cn-north-4")
 
 	body := map[string]any{
 		"from":          cfg.Sender,
 		"to":            []string{phone},
-		"templateId":    "0000000", 
+		"templateId":    "0000000",
 		"templateParas": []string{content},
 		"signature":     cfg.Signature,
 	}
@@ -720,4 +719,3 @@ func (s *smsService) GetJobRecords(ctx context.Context, id uint, page, limit int
 
 	return s.repo.GetJobDetails(context.Background(), id, page, limit)
 }
-

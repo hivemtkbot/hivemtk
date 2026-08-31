@@ -158,4 +158,3 @@ func (r *kuaishouCardStatsRepository) IncrementViewCount(ctx context.Context, id
 		Where("id = ?", id).
 		UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
 }
-

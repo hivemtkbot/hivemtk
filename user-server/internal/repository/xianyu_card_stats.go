@@ -313,4 +313,3 @@ func (r *xianyuCardStatsRepository) RecordActivity(ctx context.Context, cardID u
 
 	return nil
 }
-

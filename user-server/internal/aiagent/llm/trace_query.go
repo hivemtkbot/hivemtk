@@ -5,8 +5,8 @@ import (
 	"errors"
 	"sort"
 
-	"hivemtk-user/internal/pkg/db"
 	"gorm.io/gorm"
+	"hivemtk-user/internal/pkg/db"
 )
 
 // TraceQueryError 查询失败错误（含 reason 便于上层判定）。
@@ -29,14 +29,14 @@ var ErrTraceNotFound = errors.New("trace not found")
 
 // TraceSummary 一次 trace 的概要统计。
 type TraceSummary struct {
-	TraceID     string `json:"trace_id"`
-	SpanCount   int    `json:"span_count"`
-	KindCounts  map[string]int `json:"kind_counts"`
-	ServiceCount int   `json:"service_count"`
-	FirstAt     string `json:"first_at,omitempty"`
-	LastAt      string `json:"last_at,omitempty"`
-	TotalDurationMs int64 `json:"total_duration_ms"`
-	ErrorCount  int    `json:"error_count"`
+	TraceID         string         `json:"trace_id"`
+	SpanCount       int            `json:"span_count"`
+	KindCounts      map[string]int `json:"kind_counts"`
+	ServiceCount    int            `json:"service_count"`
+	FirstAt         string         `json:"first_at,omitempty"`
+	LastAt          string         `json:"last_at,omitempty"`
+	TotalDurationMs int64          `json:"total_duration_ms"`
+	ErrorCount      int            `json:"error_count"`
 }
 
 // TraceSpanView 单条 span 的视图（不暴露内部元数据 raw 文本）。
@@ -96,11 +96,11 @@ func QueryTrace(ctx context.Context, traceID string) (*TraceDetail, error) {
 	}
 
 	detail := &TraceDetail{
-		Spans:  make([]TraceSpanView, 0, len(rows)),
+		Spans: make([]TraceSpanView, 0, len(rows)),
 		Summary: TraceSummary{
-			TraceID:     traceID,
-			SpanCount:   len(rows),
-			KindCounts:  make(map[string]int, 4),
+			TraceID:      traceID,
+			SpanCount:    len(rows),
+			KindCounts:   make(map[string]int, 4),
 			ServiceCount: 0,
 		},
 	}
@@ -157,8 +157,8 @@ func ListRecentTraces(ctx context.Context, limit int) ([]TraceSummary, error) {
 	}
 
 	type traceRow struct {
-		TraceID  string
-		LastAt   string
+		TraceID   string
+		LastAt    string
 		SpanCount int
 	}
 	var ids []traceRow

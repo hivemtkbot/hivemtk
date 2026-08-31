@@ -37,7 +37,7 @@ func TestClampWeight(t *testing.T) {
 }
 
 func TestComputeNewWeight_MeanReversion(t *testing.T) {
-	cfg := DefaultConfig() 
+	cfg := DefaultConfig()
 	assert.InDelta(t, 1.108, computeNewWeight(1.0, "boost", cfg), 1e-9)
 	assert.InDelta(t, 0.865, computeNewWeight(1.0, "decay", cfg), 1e-9)
 	assert.InDelta(t, 2.8, computeNewWeight(3.0, "boost", cfg), 1e-9)
@@ -49,4 +49,3 @@ func TestDedupeParseIDs(t *testing.T) {
 	got := dedupeParseIDs([]string{"1", "1", "2", "abc", " 3 ", "3"})
 	assert.Equal(t, []uint64{1, 2, 3}, got)
 }
-

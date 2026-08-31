@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"sync"
@@ -115,4 +114,3 @@ func (c *FeedbackLearningCron) trigger(ctx context.Context) {
 		}
 	}
 }
-

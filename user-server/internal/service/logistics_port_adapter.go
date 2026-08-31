@@ -6,7 +6,6 @@ import (
 	"hivemtk-user/internal/aiagent/agent/portcontract"
 )
 
-
 // LogisticsPortAdapter 物流端口适配器实现 portcontract.LogisticsPort
 type LogisticsPortAdapter struct {
 	order portcontract.OrderPort
@@ -61,4 +60,3 @@ func (a *LogisticsPortAdapter) Track(ctx context.Context, req *portcontract.Logi
 
 	return res, nil
 }
-

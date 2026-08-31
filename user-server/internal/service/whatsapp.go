@@ -332,4 +332,3 @@ func (s *WhatsappService) GetJob(ctx context.Context, id uuid.UUID) (*model.What
 func (s *WhatsappService) DeleteJob(ctx context.Context, id uuid.UUID) error {
 	return s.repo.DeleteJob(ctx, id)
 }
-

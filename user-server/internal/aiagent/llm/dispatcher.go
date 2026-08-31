@@ -14,37 +14,36 @@ import (
 type DispatchScenario string
 
 const (
-	ScenarioIntentRecognize DispatchScenario = "intent_recognize" 
+	ScenarioIntentRecognize DispatchScenario = "intent_recognize"
 
-	ScenarioSOPReply DispatchScenario = "sop_reply" 
+	ScenarioSOPReply DispatchScenario = "sop_reply"
 
-	ScenarioObjection DispatchScenario = "objection" 
+	ScenarioObjection DispatchScenario = "objection"
 
-	ScenarioFriendlyChat DispatchScenario = "friendly_chat" 
+	ScenarioFriendlyChat DispatchScenario = "friendly_chat"
 
-	ScenarioLongSummary DispatchScenario = "long_summary" 
+	ScenarioLongSummary DispatchScenario = "long_summary"
 
-	ScenarioHighQuality DispatchScenario = "high_quality" 
+	ScenarioHighQuality DispatchScenario = "high_quality"
 
-	ScenarioLowCost DispatchScenario = "low_cost" 
-
+	ScenarioLowCost DispatchScenario = "low_cost"
 )
 
 type ProviderConfig struct {
-	Name         string  `json:"name"` 
-	APIKey       string  `json:"api_key"`
-	BaseURL      string  `json:"base_url"`
-	APIType      string  `json:"api_type"` 
-	Model        string  `json:"model"`
-	CostPer1k    float64 `json:"cost_per_1k"`
-	AvgLatencyMs int     `json:"avg_latency_ms"`
-	QualityScore float64 `json:"quality_score"`
-	MaxRPM       int     `json:"max_rpm"` 
-	MaxTPM       int     `json:"max_tpm"` 
-	Enabled      bool    `json:"enabled"`
-	NoFC bool `json:"no_fc,omitempty"`
-	DisplayName string   `json:"display_name,omitempty"`
-	Vendor      string   `json:"vendor,omitempty"`
+	Name          string   `json:"name"`
+	APIKey        string   `json:"api_key"`
+	BaseURL       string   `json:"base_url"`
+	APIType       string   `json:"api_type"`
+	Model         string   `json:"model"`
+	CostPer1k     float64  `json:"cost_per_1k"`
+	AvgLatencyMs  int      `json:"avg_latency_ms"`
+	QualityScore  float64  `json:"quality_score"`
+	MaxRPM        int      `json:"max_rpm"`
+	MaxTPM        int      `json:"max_tpm"`
+	Enabled       bool     `json:"enabled"`
+	NoFC          bool     `json:"no_fc,omitempty"`
+	DisplayName   string   `json:"display_name,omitempty"`
+	Vendor        string   `json:"vendor,omitempty"`
 	Tags          []string `json:"tags,omitempty"`
 	ContextWindow int      `json:"context_window,omitempty"`
 }
@@ -63,14 +62,14 @@ type ScenarioRoute struct {
 }
 
 type Dispatcher struct {
-	mu         sync.RWMutex
-	providers  map[string]*ProviderConfig
-	routes     map[DispatchScenario]*ScenarioRoute
-	llmService *LLMService
-	rpmCounter map[string]*rpmBucket
+	mu             sync.RWMutex
+	providers      map[string]*ProviderConfig
+	routes         map[DispatchScenario]*ScenarioRoute
+	llmService     *LLMService
+	rpmCounter     map[string]*rpmBucket
 	reactAdapter   *ReActAdapter
 	reactAdapterMu sync.Once
-	testMode atomic.Bool
+	testMode       atomic.Bool
 }
 
 func NewDispatcher(llmService *LLMService) *Dispatcher {

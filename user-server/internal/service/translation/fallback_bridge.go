@@ -15,7 +15,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // LowResourceLangs 低资源语言列表（LLM 覆盖较弱，需翻译降级）。
 //
 // 该列表基于 v1.2 出海方案的默认配置，可通过 config.yaml 的
@@ -66,10 +65,9 @@ type Translator interface {
 
 // TranslateOptions 翻译选项。
 type TranslateOptions struct {
-	GlossaryID    string            
-	PreserveTerms map[string]string 
+	GlossaryID    string
+	PreserveTerms map[string]string
 }
-
 
 // deeplDefaultBaseURL DeepL API 默认地址（Pro 版本；Free 版本使用 https://api-free.deepl.com/v2）。
 const deeplDefaultBaseURL = "https://api.deepl.com/v2"
@@ -227,7 +225,6 @@ func truncateForLog(s string, max int) string {
 	return s[:max] + "..."
 }
 
-
 // RAGGenerator 中文 RAG 生成器接口。
 //
 // 由 ragcustomerservice.ResponseGeneratorImpl 适配实现：调用方传入一个
@@ -236,7 +233,6 @@ func truncateForLog(s string, max int) string {
 type RAGGenerator interface {
 	Generate(ctx context.Context, query string, docs []any) (string, error)
 }
-
 
 // FallbackBridge 低资源语言降级桥。
 //
@@ -334,4 +330,3 @@ func (b *FallbackBridge) Generate(ctx context.Context, query string, targetLang 
 
 // ErrFallbackDisabled FallbackBridge 未启用。
 var ErrFallbackDisabled = errors.New("fallback bridge: disabled")
-

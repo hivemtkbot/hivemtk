@@ -43,4 +43,3 @@ func (r *messageRepo) GetMessageList(ctx context.Context, page int, limit int) (
 func (r *messageRepo) Delete(ctx context.Context, id string) error {
 	return r.db.Where("id = ?", id).Delete(&model.Message{}).Error
 }
-

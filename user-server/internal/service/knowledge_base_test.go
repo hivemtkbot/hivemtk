@@ -1,13 +1,11 @@
 package service
 
-
 import (
 	"strings"
 	"testing"
 
 	"hivemtk-user/internal/model"
 )
-
 
 func TestIsValidKBType_AllValid(t *testing.T) {
 	cases := []struct {
@@ -17,8 +15,8 @@ func TestIsValidKBType_AllValid(t *testing.T) {
 		{"faq", true},
 		{"rag", true},
 		{"sop", true},
-		{"FAQ", true},     
-		{"  faq  ", true}, 
+		{"FAQ", true},
+		{"  faq  ", true},
 		{"RAG", true},
 		{"", false},
 		{"invalid", false},
@@ -31,10 +29,9 @@ func TestIsValidKBType_AllValid(t *testing.T) {
 	}
 }
 
-
 // TestCreateKB_NilInput 验证 nil 输入 (在 nil repo 之前)
 func TestCreateKB_NilInput(t *testing.T) {
-	svc := &KnowledgeBaseService{repo: nil} 
+	svc := &KnowledgeBaseService{repo: nil}
 	err := svc.CreateKB(nil, nil)
 	if err == nil {
 		t.Error("expected error for nil kb")
@@ -56,8 +53,6 @@ func TestCreateKB_NilRepo(t *testing.T) {
 		t.Errorf("expected 'repo not initialized' error, got: %v", err)
 	}
 }
-
-
 
 // TestGetKB_NilRepo 测试 nil repo 下的安全行为
 func TestGetKB_NilRepo(t *testing.T) {
@@ -107,7 +102,6 @@ func TestListByAgent_NilRepo(t *testing.T) {
 	}
 }
 
-
 // TestUpdateKB_NilRepo 验证 nil repo 报错
 func TestUpdateKB_NilRepo(t *testing.T) {
 	svc := &KnowledgeBaseService{}
@@ -119,7 +113,7 @@ func TestUpdateKB_NilRepo(t *testing.T) {
 
 // TestUpdateKB_ZeroID 验证 id=0 报错
 func TestUpdateKB_ZeroID(t *testing.T) {
-	svc := &KnowledgeBaseService{repo: nil} 
+	svc := &KnowledgeBaseService{repo: nil}
 	svc.repo = nil
 	err := svc.UpdateKB(nil, 0, &model.KnowledgeBase{Name: "x"})
 	if err == nil {
@@ -184,7 +178,6 @@ func TestUpdateKB_SharedClearsOwner(t *testing.T) {
 	}
 }
 
-
 // TestDeleteKB_NilRepo
 func TestDeleteKB_NilRepo(t *testing.T) {
 	svc := &KnowledgeBaseService{}
@@ -194,10 +187,9 @@ func TestDeleteKB_NilRepo(t *testing.T) {
 	}
 }
 
-
 // TestUnbindFromAgent_NilBindingRepo 测试 nil repo 下的安全行为
 func TestUnbindFromAgent_NilBindingRepo(t *testing.T) {
-	svc := &KnowledgeBaseService{} 
+	svc := &KnowledgeBaseService{}
 	err := svc.UnbindFromAgent(nil, 1, 1)
 	if err != nil {
 		t.Errorf("expected nil error for nil binding repo, got %v", err)
@@ -210,15 +202,14 @@ func TestUnbindFromAgent_NilBindingRepo(t *testing.T) {
 //
 //	即使 svc.bindingRepo = nil, BindToAgent 仍能工作 (它构造新 service)
 func TestBindToAgent_NilBindingRepo(t *testing.T) {
-	svc := &KnowledgeBaseService{} 
+	svc := &KnowledgeBaseService{}
 	defer func() {
 		if r := recover(); r != nil {
 			t.Logf("BindToAgent panicked (expected with nil repo): %v", r)
 		}
 	}()
-	_ = svc.BindToAgent(nil, 999, 1) 
+	_ = svc.BindToAgent(nil, 999, 1)
 }
-
 
 // TestNewKnowledgeBaseService 测试构造函数
 //
@@ -239,4 +230,3 @@ func TestSetRepositories(t *testing.T) {
 		t.Error("nil inputs should not set repos")
 	}
 }
-

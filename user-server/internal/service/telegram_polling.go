@@ -20,7 +20,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // TelegramPollingEnvKey 显式启用 / 禁用 polling 的环境变量
 //   - "1"/"true"/"yes" → 强制启用
 //   - "0"/"false"/"no" → 强制禁用
@@ -29,8 +28,8 @@ const TelegramPollingEnvKey = "TELEGRAM_POLLING_ENABLED"
 
 // 默认轮询参数（与 Telegram Bot API 官方建议对齐）
 const (
-	tgPollingTimeoutSeconds = 25  
-	tgPollingLimit          = 100 
+	tgPollingTimeoutSeconds = 25
+	tgPollingLimit          = 100
 	tgPollingBackoffMin     = 1 * time.Second
 	tgPollingBackoffMax     = 30 * time.Second
 )
@@ -332,7 +331,7 @@ func runTelegramPollingWorker(ctx context.Context, accountID uint, botToken, acc
 			}
 			continue
 		}
-		backoff = tgPollingBackoffMin 
+		backoff = tgPollingBackoffMin
 
 		maxUID := offset - 1
 		sem := make(chan struct{}, tgPollingDeliverConcurrency)
@@ -420,7 +419,7 @@ func deliverTelegramUpdate(ctx context.Context, client *http.Client, accountID u
 			return err
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Telegram-Polling-Source", "1") 
+		req.Header.Set("X-Telegram-Polling-Source", "1")
 		if webhookSecret != "" {
 			req.Header.Set("X-Telegram-Bot-Api-Secret-Token", webhookSecret)
 		}
@@ -487,4 +486,3 @@ func sleepCtx(ctx context.Context, d time.Duration) bool {
 		return false
 	}
 }
-

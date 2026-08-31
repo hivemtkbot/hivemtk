@@ -152,4 +152,3 @@ func buildWSSE(appKey, appSecret string) string {
 	passwordDigest := base64.StdEncoding.EncodeToString(h.Sum(nil))
 	return `UsernameToken Username="` + appKey + `", PasswordDigest="` + passwordDigest + `", Nonce="` + nonce + `", Created="` + now + `"`
 }
-

@@ -315,4 +315,3 @@ func (r *syncLogRepo) List(ctx context.Context, assetID string, limit int) ([]*m
 	err := q.Order("created_at DESC").Limit(limit).Find(&list).Error
 	return list, err
 }
-

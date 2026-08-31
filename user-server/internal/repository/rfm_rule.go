@@ -206,4 +206,3 @@ func (r *UserRFMRepository) GetNeedUpdateUsers(ctx context.Context, days int) ([
 func NewUserRFMRepositoryWithDB(db *gorm.DB) *UserRFMRepository {
 	return &UserRFMRepository{db: db}
 }
-

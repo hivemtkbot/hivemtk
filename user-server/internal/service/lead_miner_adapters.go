@@ -8,9 +8,9 @@ import (
 // TelegramLeadAdapter Telegram 渠道线索适配器
 type TelegramLeadAdapter struct{}
 
-func (TelegramLeadAdapter) Channel() string  { return "telegram" }
-func (TelegramLeadAdapter) ClueType() int64  { return ClueTypeTelegram }
-func (TelegramLeadAdapter) DescPrefix() string { return "[TG]" }
+func (TelegramLeadAdapter) Channel() string       { return "telegram" }
+func (TelegramLeadAdapter) ClueType() int64       { return ClueTypeTelegram }
+func (TelegramLeadAdapter) DescPrefix() string    { return "[TG]" }
 func (TelegramLeadAdapter) OutreachMinScore() int { return tgDMOutreachMinScore }
 func (TelegramLeadAdapter) LeadTag(isOpportunity bool) string {
 	if isOpportunity {
@@ -46,9 +46,9 @@ func (a TelegramLeadAdapter) TriggerOutreach(ctx context.Context, s *WebhookServ
 // DouyinLeadAdapter 抖音渠道线索适配器
 type DouyinLeadAdapter struct{}
 
-func (DouyinLeadAdapter) Channel() string  { return "douyin" }
-func (DouyinLeadAdapter) ClueType() int64  { return ClueTypeDouyin }
-func (DouyinLeadAdapter) DescPrefix() string { return "[Douyin]" }
+func (DouyinLeadAdapter) Channel() string       { return "douyin" }
+func (DouyinLeadAdapter) ClueType() int64       { return ClueTypeDouyin }
+func (DouyinLeadAdapter) DescPrefix() string    { return "[Douyin]" }
 func (DouyinLeadAdapter) OutreachMinScore() int { return dyDMOutreachMinScore }
 func (DouyinLeadAdapter) LeadTag(isOpportunity bool) string {
 	if isOpportunity {
@@ -95,9 +95,9 @@ type BridgeLeadAdapter struct {
 	DefaultChat string
 }
 
-func (a BridgeLeadAdapter) Channel() string  { return a.ChannelName }
-func (a BridgeLeadAdapter) ClueType() int64  { return a.Type }
-func (a BridgeLeadAdapter) DescPrefix() string { return a.Prefix }
+func (a BridgeLeadAdapter) Channel() string       { return a.ChannelName }
+func (a BridgeLeadAdapter) ClueType() int64       { return a.Type }
+func (a BridgeLeadAdapter) DescPrefix() string    { return a.Prefix }
 func (a BridgeLeadAdapter) OutreachMinScore() int { return dyDMOutreachMinScore }
 func (a BridgeLeadAdapter) LeadTag(isOpportunity bool) string {
 	if isOpportunity {
@@ -156,9 +156,9 @@ func bridgeLeadAdapterForChannel(channel string) BridgeLeadAdapter {
 // WhatsAppLeadAdapter WhatsApp 渠道线索适配器（无主动触达，24h 窗口限制）
 type WhatsAppLeadAdapter struct{}
 
-func (WhatsAppLeadAdapter) Channel() string  { return "whatsapp" }
-func (WhatsAppLeadAdapter) ClueType() int64  { return ClueTypeWhatsapp }
-func (WhatsAppLeadAdapter) DescPrefix() string { return "[WhatsApp]" }
+func (WhatsAppLeadAdapter) Channel() string       { return "whatsapp" }
+func (WhatsAppLeadAdapter) ClueType() int64       { return ClueTypeWhatsapp }
+func (WhatsAppLeadAdapter) DescPrefix() string    { return "[WhatsApp]" }
 func (WhatsAppLeadAdapter) OutreachMinScore() int { return 0 }
 func (WhatsAppLeadAdapter) LeadTag(isOpportunity bool) string {
 	if isOpportunity {
@@ -195,9 +195,9 @@ func (WhatsAppLeadAdapter) TriggerOutreach(_ context.Context, _ *WebhookService,
 // WeComLeadAdapter 企业微信渠道线索适配器
 type WeComLeadAdapter struct{}
 
-func (WeComLeadAdapter) Channel() string  { return "wecom" }
-func (WeComLeadAdapter) ClueType() int64  { return ClueTypeWeCom }
-func (WeComLeadAdapter) DescPrefix() string { return "[WeCom]" }
+func (WeComLeadAdapter) Channel() string       { return "wecom" }
+func (WeComLeadAdapter) ClueType() int64       { return ClueTypeWeCom }
+func (WeComLeadAdapter) DescPrefix() string    { return "[WeCom]" }
 func (WeComLeadAdapter) OutreachMinScore() int { return 0 }
 func (WeComLeadAdapter) LeadTag(isOpportunity bool) string {
 	if isOpportunity {
@@ -227,14 +227,15 @@ func (WeComLeadAdapter) DisplayName(fromName, username, accountKey string) strin
 	return name
 }
 func (WeComLeadAdapter) ExtraKeywords() (high, medium []string) { return nil, nil }
-func (WeComLeadAdapter) TriggerOutreach(_ context.Context, _ *WebhookService, _, _, _, _ string, _ int, _ string) {}
+func (WeComLeadAdapter) TriggerOutreach(_ context.Context, _ *WebhookService, _, _, _, _ string, _ int, _ string) {
+}
 
 // FeishuLeadAdapter 飞书渠道线索适配器
 type FeishuLeadAdapter struct{}
 
-func (FeishuLeadAdapter) Channel() string  { return "feishu" }
-func (FeishuLeadAdapter) ClueType() int64  { return ClueTypeFeishu }
-func (FeishuLeadAdapter) DescPrefix() string { return "[Feishu]" }
+func (FeishuLeadAdapter) Channel() string       { return "feishu" }
+func (FeishuLeadAdapter) ClueType() int64       { return ClueTypeFeishu }
+func (FeishuLeadAdapter) DescPrefix() string    { return "[Feishu]" }
 func (FeishuLeadAdapter) OutreachMinScore() int { return 0 }
 func (FeishuLeadAdapter) LeadTag(isOpportunity bool) string {
 	if isOpportunity {
@@ -264,7 +265,8 @@ func (FeishuLeadAdapter) DisplayName(fromName, username, accountKey string) stri
 	return name
 }
 func (FeishuLeadAdapter) ExtraKeywords() (high, medium []string) { return nil, nil }
-func (FeishuLeadAdapter) TriggerOutreach(_ context.Context, _ *WebhookService, _, _, _, _ string, _ int, _ string) {}
+func (FeishuLeadAdapter) TriggerOutreach(_ context.Context, _ *WebhookService, _, _, _, _ string, _ int, _ string) {
+}
 
 // GenericLeadAdapter 通用渠道适配器（用于未专门实现的渠道，如 Twitter/邮件/短信/QQ/微信/网页组件等）
 type GenericLeadAdapter struct {
@@ -273,9 +275,9 @@ type GenericLeadAdapter struct {
 	Prefix      string
 }
 
-func (a GenericLeadAdapter) Channel() string  { return a.ChannelName }
-func (a GenericLeadAdapter) ClueType() int64  { return a.Type }
-func (a GenericLeadAdapter) DescPrefix() string { return a.Prefix }
+func (a GenericLeadAdapter) Channel() string       { return a.ChannelName }
+func (a GenericLeadAdapter) ClueType() int64       { return a.Type }
+func (a GenericLeadAdapter) DescPrefix() string    { return a.Prefix }
 func (a GenericLeadAdapter) OutreachMinScore() int { return 0 }
 func (a GenericLeadAdapter) LeadTag(isOpportunity bool) string {
 	if isOpportunity {
@@ -308,7 +310,8 @@ func (a GenericLeadAdapter) DisplayName(fromName, username, accountKey string) s
 	return name
 }
 func (a GenericLeadAdapter) ExtraKeywords() (high, medium []string) { return nil, nil }
-func (a GenericLeadAdapter) TriggerOutreach(_ context.Context, _ *WebhookService, _, _, _, _ string, _ int, _ string) {}
+func (a GenericLeadAdapter) TriggerOutreach(_ context.Context, _ *WebhookService, _, _, _, _ string, _ int, _ string) {
+}
 
 // LeadAdapterForPlatform 根据平台名返回对应的线索适配器（统一工厂入口）。
 func LeadAdapterForPlatform(platform string) ChannelLeadAdapter {

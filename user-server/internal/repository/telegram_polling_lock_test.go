@@ -157,4 +157,3 @@ func TestTelegramPollingLockRepository_NilDB(t *testing.T) {
 		t.Errorf("db=nil HeartbeatPollingLock 应返回 lockLost=true")
 	}
 }
-

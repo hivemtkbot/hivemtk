@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"errors"
@@ -42,7 +41,6 @@ func (r *GlossaryRepository) SetDB(_ context.Context, db *gorm.DB) {
 func (r *GlossaryRepository) GetDB(_ context.Context) *gorm.DB {
 	return r.db
 }
-
 
 // Create 创建术语。
 func (r *GlossaryRepository) Create(ctx context.Context, g *model.Glossary) error {
@@ -164,4 +162,3 @@ func (r *GlossaryRepository) ListAll(ctx context.Context, status, keyword string
 	}
 	return list, total, nil
 }
-

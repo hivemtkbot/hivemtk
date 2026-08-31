@@ -51,7 +51,7 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 	if clue.IsVerify == 1 {
 		verifyScore = 100
 	} else if clue.IsVerify == 0 {
-		verifyScore = 20 
+		verifyScore = 20
 	}
 
 	profileScore := scoreProfile(clue)
@@ -453,4 +453,3 @@ func FormatCreateTime(s string) int64 {
 	}
 	return v
 }
-

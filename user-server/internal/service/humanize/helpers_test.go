@@ -1,6 +1,5 @@
 package humanize
 
-
 import (
 	"context"
 	"math"
@@ -20,15 +19,14 @@ func approxEqualTol(a, b, tol float64) bool {
 	return math.Abs(a-b) < tol
 }
 
-
 // stubLLMDispatcher 测试用 LLM 调度器
 type stubLLMDispatcher struct {
 	mu              sync.Mutex
-	responses       []string 
+	responses       []string
 	model           string
 	calls           int
-	failOn          int   
-	err             error 
+	failOn          int
+	err             error
 	capturedPrompts []string
 }
 
@@ -57,7 +55,6 @@ func (s *stubLLMDispatcher) ChatSend(ctx context.Context, prompt string) (string
 	return s.responses[idx], s.model, nil
 }
 
-
 // stubScoreRepo 测试用评分仓储
 type stubScoreRepo struct {
 	mu             sync.Mutex
@@ -84,7 +81,6 @@ func (r *stubScoreRepo) Save(ctx context.Context, score *model.HumanizeScore, di
 	r.lastDimensions = dimensions
 	return nil
 }
-
 
 // stubBaselineRepo 测试用销冠基线仓储
 type stubBaselineRepo struct {
@@ -138,7 +134,6 @@ func (r *stubBaselineRepo) RefreshPhrases(ctx context.Context, baselineID uint64
 	return nil
 }
 
-
 // stubSampleCollector 测试用低质样本收集器
 type stubSampleCollector struct {
 	mu         sync.Mutex
@@ -173,7 +168,6 @@ var (
 	_ HumanizeEvaluator          = (*stubEvaluator)(nil)
 )
 
-
 // stubEvaluator 测试用评估器：按调用顺序返回预设结果
 //
 // 用法：
@@ -181,10 +175,10 @@ var (
 //   - err: 非 nil 时所有调用都报错
 //   - calls: 累计调用次数
 type stubEvaluator struct {
-	mu      sync.Mutex
-	results []*dto.HumanizeEvalResult
-	err     error
-	calls   int
+	mu             sync.Mutex
+	results        []*dto.HumanizeEvalResult
+	err            error
+	calls          int
 	capturedInputs []*dto.HumanizeEvalInput
 }
 
@@ -212,4 +206,3 @@ func (s *stubEvaluator) Evaluate(ctx context.Context, input *dto.HumanizeEvalInp
 	}
 	return nil, nil
 }
-

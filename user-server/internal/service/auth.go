@@ -27,8 +27,8 @@ type LoginResponse struct {
 	Token     string              `json:"token,omitempty"`
 	User      *SystemUserResponse `json:"user,omitempty"`
 	Expires   int64               `json:"expires,omitempty"`
-	NeedMFA   bool                `json:"need_mfa,omitempty"`   
-	TempToken string              `json:"temp_token,omitempty"` 
+	NeedMFA   bool                `json:"need_mfa,omitempty"`
+	TempToken string              `json:"temp_token,omitempty"`
 }
 
 // SystemUserResponse 系统用户响应
@@ -41,14 +41,14 @@ type SystemUserResponse struct {
 	Role        string     `json:"role"`
 	Status      int        `json:"status"`
 	LastLogin   *time.Time `json:"last_login"`
-	LastLoginAt *time.Time `json:"last_login_at"` 
+	LastLoginAt *time.Time `json:"last_login_at"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 // RegisterResponse 注册响应
 type RegisterResponse struct {
-	Token string `json:"token,omitempty"`
+	Token string              `json:"token,omitempty"`
 	User  *SystemUserResponse `json:"user,omitempty"`
 }
 
@@ -251,7 +251,6 @@ func (s *AuthService) toUserResponse(ctx context.Context, user *model.SystemUser
 	}
 }
 
-
 // ErrUsernameExists 用户名已存在
 var ErrUsernameExists = errors.New("用户名已存在")
 
@@ -337,7 +336,6 @@ func HashPassword(password string) (string, error) {
 	return bcrypt.HashPassword(password)
 }
 
-
 // InitAdmin 初始化系统首个超管（公开，无 JWT）
 //
 // 系统用户统一 plan v3.1 §3.2：
@@ -396,4 +394,3 @@ func (s *AuthService) InitAdmin(ctx context.Context, username, password, email s
 	logger.Info("InitAdmin 超管创建成功: " + username)
 	return nil
 }
-

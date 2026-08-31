@@ -191,7 +191,6 @@ func TestAgentKBBindingRepository_GetByAgentKB_NotFound(t *testing.T) {
 	}
 }
 
-
 // TestAgentKBBindingRepository_DeleteByID 验证按 ID 删除
 func TestAgentKBBindingRepository_DeleteByID(t *testing.T) {
 	repo, _, done := setupAgentKBBindingRepoWithTX(t)
@@ -368,4 +367,3 @@ func TestAgentKBBindingRepository_ListByAgent_PriorityOrdering(t *testing.T) {
 		}
 	}
 }
-

@@ -36,9 +36,9 @@ const (
 	WeComLoginOffline = "offline"
 	WeComLoginBanned  = "banned"
 
-	WeComDefaultWeight = 100
+	WeComDefaultWeight             = 100
 	WeComErrorRateDegradeThreshold = 0.3
-	WeComQuotaDegradeThreshold = 0.9
+	WeComQuotaDegradeThreshold     = 0.9
 )
 
 // 错误定义
@@ -480,4 +480,3 @@ func InitWeComAccountHealthService(db *gorm.DB) *WeComAccountHealthService {
 	})
 	return wecomHealthInstance
 }
-

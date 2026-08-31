@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 	"fmt"
-	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/identity"
+	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
 	"testing"
 	"time"
@@ -336,7 +336,6 @@ func TestCustomerRepository_List(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-
 	for i := 1; i <= 25; i++ {
 		// v3 审计 P0-2 后 unified_id 由规范化手机号哈希派生，
 		// 种子必须使用合法且互异的手机号（原控制字符种子依赖旧拼接行为才能插入）
@@ -594,4 +593,3 @@ func TestCustomerRepository_Timestamps(t *testing.T) {
 			customer.UpdatedAt, beforeCreate, afterCreate)
 	}
 }
-

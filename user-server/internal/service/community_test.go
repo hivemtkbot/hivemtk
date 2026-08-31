@@ -1142,4 +1142,3 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 	_ = database
 	_ = groups2
 }
-

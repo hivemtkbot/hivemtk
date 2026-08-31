@@ -16,10 +16,10 @@ func TestAlertDispatcher_DedupeWindow(t *testing.T) {
 	fn := func() { calls.Add(1) }
 
 	d.dispatchAt(base, "rule:cpu", fn)
-	d.dispatchAt(base.Add(1*time.Minute), "rule:cpu", fn)  // 窗口内 → 丢弃
-	d.dispatchAt(base.Add(4*time.Minute), "rule:cpu", fn)  // 窗口内 → 丢弃
-	d.dispatchAt(base.Add(6*time.Minute), "rule:cpu", fn)  // 窗口过 → 放行
-	d.dispatchAt(base.Add(6*time.Minute), "rule:mem", fn)  // 不同 key → 放行
+	d.dispatchAt(base.Add(1*time.Minute), "rule:cpu", fn) // 窗口内 → 丢弃
+	d.dispatchAt(base.Add(4*time.Minute), "rule:cpu", fn) // 窗口内 → 丢弃
+	d.dispatchAt(base.Add(6*time.Minute), "rule:cpu", fn) // 窗口过 → 放行
+	d.dispatchAt(base.Add(6*time.Minute), "rule:mem", fn) // 不同 key → 放行
 
 	if got := d.DedupedCount.Load(); got != 2 {
 		t.Fatalf("DedupedCount = %d, want 2", got)

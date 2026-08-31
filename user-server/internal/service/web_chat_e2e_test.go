@@ -19,8 +19,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
-
 // fakeRAGSearcher 记录是否被调用，并返回带唯一标记的知识库片段（用于断言 RAG→回复 接线）
 type fakeRAGSearcher struct {
 	mu        sync.Mutex
@@ -152,7 +150,6 @@ func newFakeLLMDispatcher(t *testing.T) *llm.Dispatcher {
 	return disp
 }
 
-
 func setupWebChatE2E(t *testing.T) (*VisitorChatService, *SmartCSOrchestrator, *fakeRAGSearcher, *gorm.DB) {
 	t.Helper()
 	database := testutil.NewTestDB(t,
@@ -183,7 +180,6 @@ func setupWebChatE2E(t *testing.T) (*VisitorChatService, *SmartCSOrchestrator, *
 	visitorSvc := NewVisitorChatService(context.Background(), database, channelSvc, orch, nil)
 	return visitorSvc, orch, rag, database
 }
-
 
 func TestE2E_WebChat_VisitorAsk_AIReplyWithRAG(t *testing.T) {
 	visitorSvc, _, rag, _ := setupWebChatE2E(t)
@@ -239,7 +235,6 @@ func TestE2E_WebChat_VisitorAsk_AIReplyWithRAG(t *testing.T) {
 		send.AIResponse.Content, send.Confidence, rag.calls)
 }
 
-
 func TestE2E_WebChat_KeywordTransferToHuman(t *testing.T) {
 	visitorSvc, _, _, _ := setupWebChatE2E(t)
 
@@ -269,7 +264,6 @@ func TestE2E_WebChat_KeywordTransferToHuman(t *testing.T) {
 	}
 	t.Logf("✅ 场景B通过：转人工原因=%q", send.TransferReason)
 }
-
 
 func TestE2E_WebChat_AgentReplyAfterTransfer(t *testing.T) {
 	visitorSvc, orch, _, _ := setupWebChatE2E(t)
@@ -313,7 +307,6 @@ func TestE2E_WebChat_AgentReplyAfterTransfer(t *testing.T) {
 	}
 	t.Logf("✅ 场景C通过：坐席回复已落库，会话消息数=%d", len(msgs))
 }
-
 
 func TestE2E_WebChat_FullBusinessLine(t *testing.T) {
 	visitorSvc, orch, rag, database := setupWebChatE2E(t)
@@ -361,4 +354,3 @@ func TestE2E_WebChat_FullBusinessLine(t *testing.T) {
 	_ = rag
 	t.Logf("✅ 场景D（完整业务线）通过：AI回复→转人工→坐席回复 状态机正确")
 }
-

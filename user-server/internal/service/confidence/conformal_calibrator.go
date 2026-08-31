@@ -63,8 +63,9 @@ func (c *ConformalCalibrator) Predictor() *ConformalPredictor {
 // AddScore 添加一条非一致性分数（异步线程安全）
 //
 // 业界依据：业务运行时收集 (predicted_conf, actual_correct) 计算
-//   s = 1 - predicted_conf（如果 correct=true）或 s = predicted_conf（如果 correct=false）
-//   1 - δ 保证下，s > threshold → abstention
+//
+//	s = 1 - predicted_conf（如果 correct=true）或 s = predicted_conf（如果 correct=false）
+//	1 - δ 保证下，s > threshold → abstention
 func (c *ConformalCalibrator) AddScore(score float64) {
 	if c == nil || math.IsNaN(score) || math.IsInf(score, 0) {
 		return
@@ -119,10 +120,10 @@ func (c *ConformalCalibrator) Threshold() float64 {
 
 // Snapshot 导出当前状态（用于诊断 / 持久化）
 type ConformalCalibratorSnapshot struct {
-	SampleSize    int     `json:"sample_size"`
-	Quantile      float64 `json:"quantile"`
-	Delta         float64 `json:"delta"`
-	CoverageRate  float64 `json:"coverage_rate"`
+	SampleSize   int     `json:"sample_size"`
+	Quantile     float64 `json:"quantile"`
+	Delta        float64 `json:"delta"`
+	CoverageRate float64 `json:"coverage_rate"`
 }
 
 // Snapshot 返回当前快照

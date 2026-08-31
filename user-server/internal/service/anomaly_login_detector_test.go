@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"testing"
@@ -240,7 +239,7 @@ func TestDetectAndAlert_AbnormalLogin(t *testing.T) {
 		UserID:    50,
 		Username:  "traveler",
 		IP:        "1.1.1.1",
-		Location:  "geo(40.0,116.0)", 
+		Location:  "geo(40.0,116.0)",
 		LoginAt:   time.Now().Add(-1 * time.Hour),
 		Success:   true,
 		RiskLevel: model.RiskLevelLow,
@@ -250,7 +249,7 @@ func TestDetectAndAlert_AbnormalLogin(t *testing.T) {
 	lctx := &LoginRiskContext{
 		UserID:    50,
 		Username:  "traveler",
-		IP:        "200.200.200.200", 
+		IP:        "200.200.200.200",
 		UserAgent: "Mozilla/5.0",
 		Success:   true,
 		LoginAt:   time.Now(),
@@ -533,4 +532,3 @@ func TestAlertChannels(t *testing.T) {
 		}
 	}
 }
-

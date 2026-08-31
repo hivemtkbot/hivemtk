@@ -42,7 +42,7 @@ func (r *userTagRepo) AddTag(ctx context.Context, userID, tagName string) error 
 		return err
 	}
 	if exists {
-		return nil 
+		return nil
 	}
 
 	tag := &model.UserTag{
@@ -154,4 +154,3 @@ func (r *userTagRepo) HasTag(ctx context.Context, userID, tagName string) (bool,
 		Count(&count).Error
 	return count > 0, err
 }
-

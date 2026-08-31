@@ -355,7 +355,6 @@ func (s *CustomerServicePlusService) ListSegments(ctx context.Context, limit int
 	return s.sessionRepo.ListSegments(ctx, limit)
 }
 
-
 // ---------- R46: MessageHub DLQ 真实实现（此前 batch-retry 为空转假实现: 表中无 dead_letter 状态） ----------
 //
 // 语义（源码核实）: message_hub.status ∈ pending/failed/inflight/delivered；

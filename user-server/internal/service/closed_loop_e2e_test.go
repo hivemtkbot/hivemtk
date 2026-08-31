@@ -20,7 +20,6 @@ func setupE2EStats(t *testing.T) *SalesEventStatsService {
 	return NewSalesEventStatsServiceWithRepo(repository.NewSalesEventRepositoryWithDB(database))
 }
 
-
 // TestE2E_MedicalBeauty_PriceInquiry 场景 1：医美客户从价格咨询到跟进闭环
 func TestE2E_MedicalBeauty_PriceInquiry(t *testing.T) {
 	journey := NewCustomerJourneyService()
@@ -188,7 +187,7 @@ func TestE2E_Ecommerce_HighFrequency(t *testing.T) {
 		custID := fmt.Sprintf("ecom_e2e_%s_%d", batchTag, i)
 		intentType := IntentPriceInquiry
 		if i%5 == 0 {
-			intentType = IntentPurchase 
+			intentType = IntentPurchase
 		}
 		resp := &SalesResponse{
 			Reply:  "好的，瑜伽课体验课 99 元，正式课 880 元/期",
@@ -338,4 +337,3 @@ func modelDialogueMemoryFixture(customerID, demand, budget string) modelDialogue
 
 // modelDialogueMemoryT 测试用 DialogueMemory（P0-7 后 SalesResponse.Memory 为 dto 镜像类型）
 type modelDialogueMemoryT = dto.DialogueMemory
-

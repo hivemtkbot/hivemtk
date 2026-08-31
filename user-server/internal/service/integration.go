@@ -41,8 +41,7 @@ type IntegrationService struct {
 }
 
 var (
-	_ *repository.IntegrationAccountRepository 
-
+	_ *repository.IntegrationAccountRepository
 )
 
 func NewIntegrationService() *IntegrationService {
@@ -59,14 +58,13 @@ func NewIntegrationService() *IntegrationService {
 type Platform string
 
 const (
-	PlatformXiaoshouyi Platform = "crm_xiaoshouyi" 
+	PlatformXiaoshouyi Platform = "crm_xiaoshouyi"
 
-	PlatformFenxiangxiao Platform = "crm_fenxiangxiao" 
+	PlatformFenxiangxiao Platform = "crm_fenxiangxiao"
 
-	PlatformTaobao Platform = "ecommerce_taobao" 
+	PlatformTaobao Platform = "ecommerce_taobao"
 
-	PlatformJD Platform = "ecommerce_jd" 
-
+	PlatformJD Platform = "ecommerce_jd"
 )
 
 type CreateIntegrationAccountRequest struct {
@@ -1077,4 +1075,3 @@ func (s *IntegrationService) TestConnection(ctx context.Context, account *model.
 	}
 	return nil
 }
-

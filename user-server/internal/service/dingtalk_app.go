@@ -1,12 +1,12 @@
 package service
 
 import (
-	"crypto/subtle"
-	"crypto/hmac"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -132,9 +132,9 @@ func (s *DingTalkAppService) ReceiveMessage(ctx context.Context, accountID uint,
 		// sessionWebhook 钉钉官方机器人回复通道（临时，有效期见 sessionWebhookExpiredTime）。
 		// 官方文档《机器人回复/发送消息》：回复消息即 POST 该 webhook，
 		// body {"msgtype":"text","text":{"content":"..."}}；过期后只能走 OpenAPI。
-		SessionWebhook           string `json:"sessionWebhook"`
-		SessionWebhookExpiredTime int64 `json:"sessionWebhookExpiredTime"`
-		Content        struct {
+		SessionWebhook            string `json:"sessionWebhook"`
+		SessionWebhookExpiredTime int64  `json:"sessionWebhookExpiredTime"`
+		Content                   struct {
 			Content string `json:"content"`
 		} `json:"content"`
 		Text struct {
@@ -241,4 +241,3 @@ func dingTalkDecrypt(aesKey, cipherText string) (string, error) {
 	}
 	return string(plain[:n-pad]), nil
 }
-

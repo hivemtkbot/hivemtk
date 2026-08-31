@@ -84,8 +84,8 @@ func TestProactiveReachService_PickChannel_UsesAccountLookup(t *testing.T) {
 		results:   map[string]string{"telegram": "42"},
 	})
 	customer := &model.Customer{
-		UnifiedID:        "telegram:12345",
-		TelegramChatID:   12345,
+		UnifiedID:      "telegram:12345",
+		TelegramChatID: 12345,
 	}
 	channel, recipient, acc, err := svc.pickChannel(context.Background(), []string{"telegram"}, customer)
 	if err != nil {

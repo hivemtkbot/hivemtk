@@ -196,7 +196,7 @@ func (r *MessageHubRepository) NormalizePollutedConversationIDs(ctx context.Cont
 		WHERE m.conversation_id LIKE 'conv:%'
 		  AND (m.conversation_id LIKE (m.sender_id || ' %')
 		    OR m.conversation_id LIKE (m.receiver_id || ' %'))`,
-			tsPat)
+		tsPat)
 	return res.RowsAffected, res.Error
 }
 
@@ -216,4 +216,3 @@ func (r *MessageHubRepository) NormalizePollutedTraceConversationIDs(ctx context
 		tsPat)
 	return res.RowsAffected, res.Error
 }
-

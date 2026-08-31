@@ -270,4 +270,3 @@ func (r *communityRepository) GetStatistics(ctx context.Context) (*map[string]an
 
 	return &stats, nil
 }
-

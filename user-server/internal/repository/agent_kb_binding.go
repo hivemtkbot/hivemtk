@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"errors"
@@ -125,4 +124,3 @@ func (r *AgentKBBindingRepository) Update(ctx context.Context, id uint, b *model
 		Where("id = ?", id).
 		Select("*").Updates(b).Error
 }
-

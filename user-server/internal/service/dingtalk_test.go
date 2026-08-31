@@ -104,4 +104,3 @@ func TestIntegrationReachAdapter_SendDingTalk_NilService(t *testing.T) {
 		t.Fatal("空 webhook 应返回错误（零值服务不应 panic）")
 	}
 }
-

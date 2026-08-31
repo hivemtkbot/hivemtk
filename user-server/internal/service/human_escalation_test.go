@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/cache"
 )
 
-
 // TestHumanEscalation_BasicFlow 完整流程
 func TestHumanEscalation_BasicFlow(t *testing.T) {
 	ctx := context.Background()
@@ -232,7 +231,6 @@ func TestHumanEscalation_GatekeeperIntegration(t *testing.T) {
 	}
 }
 
-
 // brokenCache 模拟 Redis 故障：Get 始终返回非 redis.Nil 错误
 type brokenCache struct {
 	cache.Cache
@@ -443,4 +441,3 @@ func itoa(n int) string {
 	}
 	return string(buf[i:])
 }
-

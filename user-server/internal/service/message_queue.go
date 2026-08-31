@@ -206,4 +206,3 @@ func (mq *MessageQueueService) RecordGroupMessage(ctx context.Context, message m
 		logger.Errorf("写入群发记录失败: %v", err)
 	}
 }
-

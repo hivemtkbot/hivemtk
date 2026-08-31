@@ -36,7 +36,7 @@ func TestRandomNonce(t *testing.T) {
 	if n1 == n2 {
 		t.Error("randomNonce should be different")
 	}
-	if len(n1) != 32 { 
+	if len(n1) != 32 {
 		t.Errorf("expected 32 chars, got %d", len(n1))
 	}
 }
@@ -131,4 +131,3 @@ func TestBuildWSSE(t *testing.T) {
 		t.Error("expected current year in timestamp")
 	}
 }
-

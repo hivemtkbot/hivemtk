@@ -44,7 +44,7 @@ func TestSOPScheduler_StartTwiceIsIdempotent(t *testing.T) {
 	svc := NewSOPService(db, nil)
 	s := NewSOPScheduler(svc, db, time.Second)
 	s.Start(context.Background())
-	s.Start(context.Background()) 
+	s.Start(context.Background())
 	s.Stop(context.Background())
 }
 
@@ -133,7 +133,7 @@ func TestSOPScheduler_DispatchAutoSOP(t *testing.T) {
 
 func TestSOPScheduler_DispatchAutoSOP_NilDB(t *testing.T) {
 	s := NewSOPScheduler(nil, nil, time.Hour)
-	s.dispatchAutoSOPs(context.Background()) 
+	s.dispatchAutoSOPs(context.Background())
 }
 
 func TestSOPScheduler_DispatchScheduledSOP_FirstRun(t *testing.T) {
@@ -209,7 +209,7 @@ func TestSOPScheduler_TryExecute_DuplicateGuard(t *testing.T) {
 	svc := NewSOPService(db, nil)
 	s := NewSOPScheduler(svc, db, time.Hour)
 	s.tryExecute(ctx, *agent)
-	s.tryExecute(ctx, *agent) 
+	s.tryExecute(ctx, *agent)
 
 	var execs []model.SOPExecution
 	db.Where("sop_id = ? AND status = ?", agent.ID, SOPStatusRunning).Find(&execs)
@@ -270,13 +270,12 @@ func TestSOPScheduler_FmtUintSafe(t *testing.T) {
 
 func TestSOPScheduler_Tick_NilDB(t *testing.T) {
 	s := NewSOPScheduler(nil, nil, time.Hour)
-	s.tick(context.Background()) 
+	s.tick(context.Background())
 }
 
 func TestSOPScheduler_Tick_WithDB_NoData(t *testing.T) {
 	db := setupSOPSchedulerTestDB(t)
 	svc := NewSOPService(db, nil)
 	s := NewSOPScheduler(svc, db, time.Hour)
-	s.tick(context.Background()) 
+	s.tick(context.Background())
 }
-

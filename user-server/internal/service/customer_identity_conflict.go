@@ -10,11 +10,11 @@ import (
 // IdentityConflict 身份冲突记录
 // 表示同一身份标识(手机号/邮箱/各平台 OpenID)被多个客户记录持有
 type IdentityConflict struct {
-	IdentityType  string             `json:"identity_type"`  
-	IdentityValue string             `json:"identity_value"` 
-	CustomerIDs   []string           `json:"customer_ids"`   
+	IdentityType  string             `json:"identity_type"`
+	IdentityValue string             `json:"identity_value"`
+	CustomerIDs   []string           `json:"customer_ids"`
 	Customers     []ConflictCustomer `json:"customers"`
-	MatchScore    float64            `json:"match_score"` 
+	MatchScore    float64            `json:"match_score"`
 }
 
 // ConflictCustomer 冲突中涉及的客户摘要
@@ -149,7 +149,7 @@ type OneIDCustomer struct {
 	DouyinOpenID  string  `json:"douyin_open_id"`
 	XiaohongshuID string  `json:"xiaohongshu_id"`
 	IdentityCount int     `json:"identity_count"`
-	MatchScore    float64 `json:"match_score"` 
+	MatchScore    float64 `json:"match_score"`
 	CreatedAt     string  `json:"created_at"`
 	UpdatedAt     string  `json:"updated_at"`
 }
@@ -202,4 +202,3 @@ func ListOneIDCustomers(ctx context.Context, repo repository.CustomerRepository,
 	_ = keyword
 	return result, total
 }
-

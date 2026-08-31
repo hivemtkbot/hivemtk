@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-
 // SalesActionTrigger 销售动作触发器
 // 把 AI 谈单 / 跟进完成 / 订单创建 三个核心事件
 // 自动分发到 标签 / 旅程 / 跟进 / 订单 / 销售事件统计 五个下游组件
@@ -20,7 +19,7 @@ type SalesActionTrigger struct {
 	followup     *FollowUpService
 	extractor    *OrderIntentExtractor
 	stats        *SalesEventStatsService
-	draftService *OrderDraftService 
+	draftService *OrderDraftService
 
 	defaultOwnerID string
 
@@ -29,19 +28,19 @@ type SalesActionTrigger struct {
 
 // TriggerRecord 触发记录
 type TriggerRecord struct {
-	EventType  string          `json:"event_type"` 
+	EventType  string          `json:"event_type"`
 	CustomerID string          `json:"customer_id"`
-	Actions    []TriggerAction `json:"actions"` 
+	Actions    []TriggerAction `json:"actions"`
 	OccurredAt time.Time       `json:"occurred_at"`
 	Metadata   map[string]any  `json:"metadata,omitempty"`
 }
 
 // TriggerAction 单个触发动作
 type TriggerAction struct {
-	Action     string `json:"action"`     
-	Target     string `json:"target"`     
-	Confidence int    `json:"confidence"` 
-	Result     string `json:"result"`     
+	Action     string `json:"action"`
+	Target     string `json:"target"`
+	Confidence int    `json:"confidence"`
+	Result     string `json:"result"`
 	Message    string `json:"message,omitempty"`
 }
 
@@ -533,7 +532,6 @@ func (t *SalesActionTrigger) inferOrderFromJourney(ctx context.Context, customer
 	return amount, product
 }
 
-
 func safeIntent(resp *SalesResponse) string {
 	if resp == nil || resp.Intent == nil {
 		return "unknown"
@@ -554,4 +552,3 @@ func safeConf(resp *SalesResponse) float64 {
 func init() {
 	_ = strings.TrimSpace
 }
-

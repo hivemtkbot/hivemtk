@@ -57,11 +57,13 @@ func NewConformalPredictor(scores []float64, delta float64) *ConformalPredictor 
 // Quantile 计算 1-delta 覆盖率下的非一致性分数阈值
 //
 // 公式（Vovk et al. 2005, "Algorithmic Learning in a Random World" §4.1）：
-//   q = ⌈(n+1)·(1-δ)⌉ / n 分位数
+//
+//	q = ⌈(n+1)·(1-δ)⌉ / n 分位数
 //
 // 例子：n=100, δ=0.1
-//   q = ⌈101·0.9⌉ / 100 = ⌈90.9⌉ / 100 = 91 / 100 = 0.91
-//   即排序后第 91 个分数作为阈值
+//
+//	q = ⌈101·0.9⌉ / 100 = ⌈90.9⌉ / 100 = 91 / 100 = 0.91
+//	即排序后第 91 个分数作为阈值
 //
 // 返回：阈值；新样本的非一致性分数 ≤ 阈值 → 预测可信
 func (c *ConformalPredictor) Quantile() float64 {
@@ -88,7 +90,8 @@ func (c *ConformalPredictor) Quantile() float64 {
 // 返回：1-based 索引数组，索引 i 表示"labels[i] 在预测集中"
 //
 // 用法：给定输入 x，对每个候选 label y_i 计算 s(x, y_i)，
-//   返回 s(x, y_i) ≤ Quantile() 的所有 y_i
+//
+//	返回 s(x, y_i) ≤ Quantile() 的所有 y_i
 func (c *ConformalPredictor) PredictSet(scores []float64) []int {
 	threshold := c.Quantile()
 	out := make([]int, 0, len(scores))

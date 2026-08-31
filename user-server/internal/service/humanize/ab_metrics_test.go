@@ -262,7 +262,7 @@ func TestABRecorder_RatesEmptyMetrics(t *testing.T) {
 
 // TestABRecorder_DefaultTrafficSplit 验证非法 split 归一化
 func TestABRecorder_DefaultTrafficSplit(t *testing.T) {
-	r := NewABRecorder(0)   // 应归一为 50
+	r := NewABRecorder(0) // 应归一为 50
 	if r.traffic != 50 {
 		t.Errorf("traffic=0 should normalize to 50, got %d", r.traffic)
 	}
@@ -291,7 +291,7 @@ func TestABRecorder_PersistHook(t *testing.T) {
 	r := NewABRecorder(50)
 	type call struct {
 		testID, group, metric, customerID string
-		value                            float64
+		value                             float64
 	}
 	calls := make(chan call, 10)
 	r.SetPersistHook(func(testID, group, metricName, customerID string, value float64) {

@@ -1,6 +1,5 @@
 package humanize
 
-
 import (
 	"math"
 	"sort"
@@ -11,16 +10,16 @@ import (
 type PhraseType string
 
 const (
-	PhraseTypeAction       PhraseType = "action"       
-	PhraseTypeEmpathy      PhraseType = "empathy"      
-	PhraseTypeProfessional PhraseType = "professional" 
-	PhraseTypePersuasion   PhraseType = "persuasion"   
-	PhraseTypeGeneral      PhraseType = "general"      
+	PhraseTypeAction       PhraseType = "action"
+	PhraseTypeEmpathy      PhraseType = "empathy"
+	PhraseTypeProfessional PhraseType = "professional"
+	PhraseTypePersuasion   PhraseType = "persuasion"
+	PhraseTypeGeneral      PhraseType = "general"
 )
 
 // TFIDFPhraseExtractor TF-IDF 短语提取器
 type TFIDFPhraseExtractor struct {
-	stopWords map[string]bool 
+	stopWords map[string]bool
 }
 
 // NewTFIDFPhraseExtractor 构造
@@ -59,8 +58,8 @@ func (e *TFIDFPhraseExtractor) Extract(messages []ChampionMessage, topN int) []T
 		return nil
 	}
 	N := float64(len(messages))
-	tfMap := make(map[string]int) 
-	dfMap := make(map[string]int) 
+	tfMap := make(map[string]int)
+	dfMap := make(map[string]int)
 	phraseTypeMap := make(map[string]PhraseType)
 	for _, msg := range messages {
 		phrases := e.extractPhrases(msg.Content)
@@ -209,4 +208,3 @@ func containsSubstring(s, sub string) bool {
 	}
 	return false
 }
-

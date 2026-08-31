@@ -347,4 +347,3 @@ func toSystemUserResponse(user *model.SystemUser) *SystemUserResponse {
 		UpdatedAt:   user.UpdatedAt,
 	}
 }
-

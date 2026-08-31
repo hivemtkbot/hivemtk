@@ -86,8 +86,8 @@ func ChatChannelAllowedOriginsList(c *model.ChatChannel) []string {
 
 // CreateChannelRequest 创建渠道请求
 type CreateChannelRequest struct {
-	ChannelName    string   `json:"channel_name" binding:"required,min=1,max=100"`
-	AllowedOrigins []string `json:"allowed_origins" binding:"required,min=1"`
+	ChannelName         string   `json:"channel_name" binding:"required,min=1,max=100"`
+	AllowedOrigins      []string `json:"allowed_origins" binding:"required,min=1"`
 	DefaultRAGProductID string   `json:"default_rag_product_id"`
 	WelcomeMessage      string   `json:"welcome_message"`
 	WidgetColor         string   `json:"widget_color"`
@@ -95,7 +95,7 @@ type CreateChannelRequest struct {
 	WidgetTitle         string   `json:"widget_title"`
 	AutoAssign          *bool    `json:"auto_assign"`
 	ConfidenceThreshold *float64 `json:"confidence_threshold"`
-	TargetLanguage string `json:"target_language"`
+	TargetLanguage      string   `json:"target_language"`
 }
 
 // UpdateChannelRequest 更新渠道请求
@@ -110,14 +110,14 @@ type UpdateChannelRequest struct {
 	Status              *string   `json:"status"`
 	AutoAssign          *bool     `json:"auto_assign"`
 	ConfidenceThreshold *float64  `json:"confidence_threshold"`
-	TargetLanguage *string `json:"target_language"`
+	TargetLanguage      *string   `json:"target_language"`
 }
 
 // ChannelCreateResult 渠道创建结果（含一次性返回的明文凭证）
 type ChannelCreateResult struct {
 	Channel   *model.ChatChannel `json:"channel"`
 	AppKey    string             `json:"app_key"`
-	AppSecret string             `json:"app_secret"` 
+	AppSecret string             `json:"app_secret"`
 }
 
 // Create 创建渠道（生成 AppKey + AppSecret）
@@ -310,8 +310,8 @@ func (s *ChatChannelService) GetOrCreateDefaultChannel(ctx context.Context) (*mo
 
 // cardChannelMeta 卡片渠道元数据（4 平台统一）
 type cardChannelMeta struct {
-	PlatformLabel string 
-	ThemeColor    string 
+	PlatformLabel string
+	ThemeColor    string
 }
 
 var cardChannelMetas = map[string]cardChannelMeta{
@@ -421,7 +421,6 @@ func (s *ChatChannelService) IncrementSessionCount(ctx context.Context, channelI
 	return s.repo.IncrementSessionCount(ctx, channelID)
 }
 
-
 // appKeyAlphabet AppKey 字符表（去歧义字符：0/O/1/l/I）
 const appKeyAlphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
@@ -494,4 +493,3 @@ func defaultIfEmpty(s, def string) string {
 
 // 等待时间以避免 Go vet 警告
 var _ = time.Second
-

@@ -192,4 +192,3 @@ func (r *loginRiskRepo) CreateNotification(ctx context.Context, notif *model.Not
 }
 
 var _ LoginRiskRepository = (*loginRiskRepo)(nil)
-

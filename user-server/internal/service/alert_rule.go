@@ -17,24 +17,24 @@ import (
 
 // AlertRuleRequest 创建/更新规则请求
 type AlertRuleRequest struct {
-	Name           string   `json:"name" binding:"required,max=100"`
-	Description    string   `json:"description" binding:"max=500"`
-	Source         string   `json:"source" binding:"required"`
-	Operator       string   `json:"operator" binding:"required"`
-	Threshold      float64  `json:"threshold"`
-	WindowSeconds  int      `json:"window_seconds"`
-	CooldownSeconds int     `json:"cooldown_seconds"`
-	Severity       string   `json:"severity"`
-	Channels       []string `json:"channels"`
-	Targets        map[string]any `json:"targets"`
-	Enabled        *bool    `json:"enabled"`
+	Name            string         `json:"name" binding:"required,max=100"`
+	Description     string         `json:"description" binding:"max=500"`
+	Source          string         `json:"source" binding:"required"`
+	Operator        string         `json:"operator" binding:"required"`
+	Threshold       float64        `json:"threshold"`
+	WindowSeconds   int            `json:"window_seconds"`
+	CooldownSeconds int            `json:"cooldown_seconds"`
+	Severity        string         `json:"severity"`
+	Channels        []string       `json:"channels"`
+	Targets         map[string]any `json:"targets"`
+	Enabled         *bool          `json:"enabled"`
 }
 
 // AlertRuleListItem 列表项
 type AlertRuleListItem struct {
 	model.AlertRule
-	ChannelsList []string        `json:"channels_list"`
-	TargetsMap   map[string]any  `json:"targets_map"`
+	ChannelsList []string       `json:"channels_list"`
+	TargetsMap   map[string]any `json:"targets_map"`
 }
 
 // AlertRuleService 告警规则服务
@@ -96,17 +96,17 @@ func (s *AlertRuleService) Create(ctx context.Context, req *AlertRuleRequest, cr
 
 	m := &model.AlertRule{
 		Name:            strings.TrimSpace(req.Name),
-		Description:      req.Description,
-		Source:           strings.TrimSpace(req.Source),
-		Operator:         strings.ToLower(req.Operator),
-		Threshold:        req.Threshold,
-		WindowSeconds:    req.WindowSeconds,
-		CooldownSeconds:  req.CooldownSeconds,
-		Severity:         model.AlertRuleSeverity(req.Severity),
-		Channels:         string(channels),
-		Targets:          string(targets),
-		Enabled:          true,
-		CreatedBy:        creatorID,
+		Description:     req.Description,
+		Source:          strings.TrimSpace(req.Source),
+		Operator:        strings.ToLower(req.Operator),
+		Threshold:       req.Threshold,
+		WindowSeconds:   req.WindowSeconds,
+		CooldownSeconds: req.CooldownSeconds,
+		Severity:        model.AlertRuleSeverity(req.Severity),
+		Channels:        string(channels),
+		Targets:         string(targets),
+		Enabled:         true,
+		CreatedBy:       creatorID,
 	}
 	if req.Enabled != nil {
 		m.Enabled = *req.Enabled
@@ -190,7 +190,7 @@ func (s *AlertRuleService) ResolveHistory(ctx context.Context, ruleID uint) erro
 
 // UnreadAlerts 未恢复告警概览（OpsOverview 顶栏未读角标）
 type UnreadAlerts struct {
-	Count int64               `json:"count"`
+	Count int64                 `json:"count"`
 	List  []*model.AlertHistory `json:"list"`
 }
 

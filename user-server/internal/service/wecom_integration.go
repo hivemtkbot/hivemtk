@@ -125,7 +125,7 @@ func (s *WeComIntegrationService) SendMessage(ctx context.Context, req *WeComSen
 	if s.repo == nil {
 		return nil, fmt.Errorf("db is nil")
 	}
-	if false  || req.AccountID == 0 || req.ExternalUserID == "" {
+	if false || req.AccountID == 0 || req.ExternalUserID == "" {
 		return nil, fmt.Errorf(" account_id, external_user_id are required")
 	}
 	if req.MsgType == "" {
@@ -247,7 +247,7 @@ type ReceiveCallbackRequest struct {
 	MsgID     string `json:"msg_id"`
 	MediaID   string `json:"media_id"`
 	ChatID    string `json:"chat_id"`
-	ChatType  string `json:"chat_type"` 
+	ChatType  string `json:"chat_type"`
 }
 
 // ReceiveCallback 处理企微回调
@@ -272,4 +272,3 @@ func (s *WeComIntegrationService) ReceiveCallback(ctx context.Context, req *Rece
 	}
 	return s.IngestMessage(ctx, ingestReq)
 }
-

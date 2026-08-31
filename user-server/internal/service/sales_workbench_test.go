@@ -12,7 +12,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 // setupWorkbenchEnv 完整工作台环境
 func setupWorkbenchEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AITagger, *SalesEventStatsService, *OrderDraftService, *SalesWorkbenchService) {
 	memDB := testutil.NewTestDBOrSkip(t,
@@ -41,7 +40,6 @@ func setupWorkbenchEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService,
 
 	return journey, followup, tagger, stats, draft, workbench
 }
-
 
 // TestWorkbench_Todos_Drafts 待确认草稿出现在待办
 func TestWorkbench_Todos_Drafts(t *testing.T) {
@@ -151,7 +149,6 @@ func TestWorkbench_Todos_Overdue(t *testing.T) {
 	t.Logf("✅ 逾期跟进标为紧急")
 }
 
-
 // TestWorkbench_Today 今日业绩
 func TestWorkbench_Today(t *testing.T) {
 	_, _, _, stats, _, workbench := setupWorkbenchEnv(t)
@@ -223,7 +220,6 @@ func TestWorkbench_Month(t *testing.T) {
 	t.Logf("✅ 本月业绩: 订单=%d 收入=%.2f 客单=%.2f",
 		overview.Month.TotalOrders, overview.Month.TotalRevenue, overview.Month.AvgDealAmount)
 }
-
 
 // TestWorkbench_AIProduct AI 产能
 func TestWorkbench_AIProduct(t *testing.T) {
@@ -313,7 +309,6 @@ func TestWorkbench_Funnel(t *testing.T) {
 	t.Logf("✅ 漏斗: %d 个阶段", len(overview.Funnel.Stages))
 }
 
-
 // TestWorkbench_Metrics 关键指标
 func TestWorkbench_Metrics(t *testing.T) {
 	_, _, _, stats, _, workbench := setupWorkbenchEnv(t)
@@ -351,7 +346,6 @@ func TestWorkbench_Metrics(t *testing.T) {
 		overview.Metrics.RepurchaseRate, overview.Metrics.AIAssistRate, overview.Metrics.ActiveCustomers)
 }
 
-
 // TestWorkbench_QuickActions 快捷入口
 func TestWorkbench_QuickActions(t *testing.T) {
 	_, _, _, _, _, workbench := setupWorkbenchEnv(t)
@@ -373,7 +367,6 @@ func TestWorkbench_QuickActions(t *testing.T) {
 	}
 	t.Logf("✅ 快捷入口: %d 个", len(actions))
 }
-
 
 // TestWorkbench_NilDependencies 无依赖场景
 func TestWorkbench_NilDependencies(t *testing.T) {
@@ -478,4 +471,3 @@ func TestWorkbench_ConcurrentGetOverview(t *testing.T) {
 	}
 	t.Logf("✅ 并发查询: %d 次", n)
 }
-

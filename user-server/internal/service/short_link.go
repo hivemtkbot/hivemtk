@@ -174,10 +174,13 @@ func (s *shortLinkService) Update(ctx context.Context, req *dto.UpdateShortLinkR
 // OPT-ARC-09：删除顺序改为"先删主表 → 再删依赖表"
 //
 // 旧顺序：先删 access（依赖表）→ 再删 short_link（主表）
-//   风险：若主表删除失败，access 已被删除，主表成为"幽灵"
+//
+//	风险：若主表删除失败，access 已被删除，主表成为"幽灵"
+//
 // 新顺序：先删主表 → 再删 access
-//   优势：若 access 删除失败，主表已删，access 残留为孤儿（FK 启用后会被 CASCADE）
-//   兼容旧行为：当 short_link_delete 失败时，回退到旧顺序的等效状态
+//
+//	优势：若 access 删除失败，主表已删，access 残留为孤儿（FK 启用后会被 CASCADE）
+//	兼容旧行为：当 short_link_delete 失败时，回退到旧顺序的等效状态
 func (s *shortLinkService) Delete(ctx context.Context, id uint) error {
 	// 1) 校验存在性
 	_, err := s.shortLinkRepo.GetByID(ctx, id)
@@ -574,7 +577,6 @@ func (s *shortLinkService) ShareShortLink(ctx context.Context, req *dto.ShareSho
 		QRCode:   qrCode,
 	}, nil
 }
-
 
 // appendUTM 向目标链接追加 UTM 参数（已有参数用 & 连接；去重：已含同名参数不重复追加）
 func appendUTM(rawURL, source, medium, campaign string) string {

@@ -683,4 +683,3 @@ func TestWhatsappRepository_UpdateJobDetail(t *testing.T) {
 		t.Errorf("Expected status Success, got %v", updated[0].Status)
 	}
 }
-

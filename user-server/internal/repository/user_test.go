@@ -273,7 +273,7 @@ func TestUserRepository_UpdatePassword(t *testing.T) {
 	repo.Create(ctx, user)
 	oldHashedPassword := user.Password
 
-	hashedPassword := "hashed_newpassword123" 
+	hashedPassword := "hashed_newpassword123"
 	err := repo.UpdatePassword(context.Background(), user.ID, hashedPassword)
 	if err != nil {
 		t.Fatalf("UpdatePassword failed: %v", err)
@@ -398,4 +398,3 @@ func TestUserRepository_EmailExists(t *testing.T) {
 		t.Error("Expected email to not exist when excluding self")
 	}
 }
-

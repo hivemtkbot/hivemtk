@@ -119,7 +119,7 @@ func TestEmbeddingService_Embed_NoFallback_ReturnsError(t *testing.T) {
 func TestEmbeddingService_Embed_AllowFallback_Works(t *testing.T) {
 	clearEmbeddingEnv(t)
 	t.Setenv("EMBEDDING_ALLOW_FALLBACK", "true")
-	t.Setenv("EMBEDDING_DIM", "1024") 
+	t.Setenv("EMBEDDING_DIM", "1024")
 
 	svc := NewEmbeddingService()
 	cfg := svc.DefaultConfig()
@@ -204,4 +204,3 @@ func clearEmbeddingEnv(t *testing.T) {
 		_ = os.Unsetenv(k)
 	}
 }
-

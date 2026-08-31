@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"encoding/json"
@@ -12,7 +11,6 @@ import (
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 )
-
 
 func TestStartExecutor_NodeType(t *testing.T) {
 	e := &StartExecutor{}
@@ -55,7 +53,6 @@ func TestStartExecutor_ExecuteReturnsCompleted(t *testing.T) {
 	}
 }
 
-
 func TestEndExecutor_NodeType(t *testing.T) {
 	e := &EndExecutor{}
 	if e.NodeType() != SOPNodeTypeEnd {
@@ -90,7 +87,6 @@ func TestEndExecutor_ExecuteTerminatesFlow(t *testing.T) {
 		t.Error("Output should contain _ended_at")
 	}
 }
-
 
 func TestMessageNodeBase_NodeType(t *testing.T) {
 	b := NewMessageNodeExecutor(SOPNodeTypeGreeting, llm.ScenarioFriendlyChat, &SOPNodeExecutorDeps{})
@@ -271,7 +267,6 @@ func TestRenderPromptTemplate_NilData(t *testing.T) {
 	}
 }
 
-
 func TestConditionExecutor_NodeType(t *testing.T) {
 	e := &ConditionExecutor{nodeType: SOPNodeTypeCondition}
 	if e.NodeType() != SOPNodeTypeCondition {
@@ -374,7 +369,7 @@ func TestConditionExecutor_FallbackToNextZero(t *testing.T) {
 				{Label: "高意向", Condition: "intent_score gte 0.7", Next: "close_node", Priority: 100},
 			},
 		},
-		ExecutionData: model.JSONMap{"intent_score": float64(0.1)}, 
+		ExecutionData: model.JSONMap{"intent_score": float64(0.1)},
 	}
 	result, _ := e.Execute(context.Background(), ec)
 	if result.NextNodeID != "default_node" {
@@ -399,7 +394,6 @@ func TestConditionExecutor_LegacyConditionField(t *testing.T) {
 		t.Errorf("NextNodeID=%s want=active_branch (legacy match)", result.NextNodeID)
 	}
 }
-
 
 func TestLLMNodeExecutor_NodeType(t *testing.T) {
 	e := NewLLMNodeExecutor(SOPNodeTypeLLM, &SOPNodeExecutorDeps{})
@@ -452,7 +446,7 @@ func TestLLMNodeExecutor_NoCandidates(t *testing.T) {
 		Node: &dto.SOPNode{
 			ID:   "llm1",
 			Type: SOPNodeTypeLLM,
-			Next: []string{}, 
+			Next: []string{},
 		},
 		ExecutionData: model.JSONMap{},
 	}
@@ -488,7 +482,7 @@ func TestLLMNodeExecutor_SemaphoreLimitsConcurrency(t *testing.T) {
 
 func TestLLMNodeExecutor_SemaphoreBlocksWhenFull(t *testing.T) {
 	sem := make(chan struct{}, 1)
-	sem <- struct{}{} 
+	sem <- struct{}{}
 	e := NewLLMNodeExecutor(SOPNodeTypeLLM, &SOPNodeExecutorDeps{LLMSem: sem})
 	ec := &ExecutionContext{
 		Execution: &model.SOPExecution{ID: 1},
@@ -516,7 +510,6 @@ func TestLLMNodeExecutor_SemaphoreBlocksWhenFull(t *testing.T) {
 	}
 	<-sem
 }
-
 
 func TestParseLLMDecision_ValidJSON(t *testing.T) {
 	content := `{"next_node_id":"close_node","reason":"客户意向高"}`
@@ -593,7 +586,6 @@ func TestBuildLLMDecisionPrompt_ContainsCandidates(t *testing.T) {
 	}
 }
 
-
 func TestWaitExecutor_NodeType(t *testing.T) {
 	e := &WaitExecutor{}
 	if e.NodeType() != SOPNodeTypeWait {
@@ -609,7 +601,7 @@ func TestWaitExecutor_IsAsync(t *testing.T) {
 }
 
 func TestWaitExecutor_WaitSeconds(t *testing.T) {
-	e := &WaitExecutor{db: nil} 
+	e := &WaitExecutor{db: nil}
 	ec := &ExecutionContext{
 		Execution: &model.SOPExecution{ID: 1},
 		Node: &dto.SOPNode{
@@ -710,7 +702,6 @@ func TestWaitExecutor_CustomWaitEvent(t *testing.T) {
 	}
 }
 
-
 func TestRegisterAllNodeExecutors_AllTypesRegistered(t *testing.T) {
 	r := NewNodeExecutorRegistry()
 	deps := &SOPNodeExecutorDeps{
@@ -753,7 +744,6 @@ func TestRegisterAllNodeExecutors_PanicsOnDuplicate(t *testing.T) {
 	RegisterAllNodeExecutors(r, deps)
 }
 
-
 func TestFirstOrEmpty(t *testing.T) {
 	if firstOrEmpty(nil) != "" {
 		t.Error("nil slice should return empty")
@@ -780,7 +770,6 @@ func TestContainsString(t *testing.T) {
 		t.Error("should contain empty string (in slice)")
 	}
 }
-
 
 func TestLLMDecision_JSONRoundTrip(t *testing.T) {
 	original := llmDecision{NextNodeID: "close", Reason: "高意向"}
@@ -812,4 +801,3 @@ func TestLLMDecision_FieldNamesMatchJSONContract(t *testing.T) {
 
 // 引用 llm 包以确保导入（避免 unused import 在条件编译下被误判）
 var _ llm.DispatchScenario = llm.ScenarioHighQuality
-

@@ -20,7 +20,7 @@ import (
 type LLMConfig struct {
 	APIKey           string
 	BaseURL          string
-	APIType          string 
+	APIType          string
 	Model            string
 	MaxRetries       int
 	RequestTimeout   int
@@ -29,18 +29,18 @@ type LLMConfig struct {
 	TopP             float64
 	FrequencyPenalty float64
 	PresencePenalty  float64
-	ResponseFormat   string 
+	ResponseFormat   string
 	SystemPrompt     string
-	Logprobs    bool
-	TopLogprobs int
-	Tools      []ToolDefinition
-	ToolChoice string
-	Messages []ChatMessage
+	Logprobs         bool
+	TopLogprobs      int
+	Tools            []ToolDefinition
+	ToolChoice       string
+	Messages         []ChatMessage
 }
 
 // ToolDefinition OpenAI 兼容的工具定义
 type ToolDefinition struct {
-	Type     string             `json:"type"` 
+	Type     string             `json:"type"`
 	Function ToolFunctionSchema `json:"function"`
 }
 
@@ -48,29 +48,29 @@ type ToolDefinition struct {
 type ToolFunctionSchema struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description"`
-	Parameters  map[string]any `json:"parameters"` 
+	Parameters  map[string]any `json:"parameters"`
 }
 
 // ChatMessage 通用对话消息（支持 user/assistant/tool/system 角色）
 type ChatMessage struct {
-	Role       string     `json:"role"`                   
-	Content    string     `json:"content,omitempty"`      
-	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`   
-	ToolCallID string     `json:"tool_call_id,omitempty"` 
-	Name       string     `json:"name,omitempty"`         
+	Role       string     `json:"role"`
+	Content    string     `json:"content,omitempty"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+	Name       string     `json:"name,omitempty"`
 }
 
 // ToolCall OpenAI 兼容的工具调用结构
 type ToolCall struct {
-	ID       string           `json:"id"`   
-	Type     string           `json:"type"` 
+	ID       string           `json:"id"`
+	Type     string           `json:"type"`
 	Function ToolCallFunction `json:"function"`
 }
 
 // ToolCallFunction 工具调用 function 部分
 type ToolCallFunction struct {
-	Name      string `json:"name"`      
-	Arguments string `json:"arguments"` 
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
 }
 
 // LLMServiceInterface LLM服务接口
@@ -114,17 +114,17 @@ func NewLLMService() *LLMService {
 
 // chatRequest OpenAI 兼容的聊天请求体
 type chatRequest struct {
-	Model            string         `json:"model"`
-	Messages         []chatMessage  `json:"messages"`
-	Temperature      float64        `json:"temperature,omitempty"`
-	MaxTokens        int            `json:"max_tokens,omitempty"`
-	TopP             float64        `json:"top_p,omitempty"`
-	FrequencyPenalty float64        `json:"frequency_penalty,omitempty"`
-	PresencePenalty  float64        `json:"presence_penalty,omitempty"`
-	ResponseFormat   map[string]any `json:"response_format,omitempty"`
-	Stream           bool           `json:"stream"`
-	Tools      []map[string]any `json:"tools,omitempty"`       
-	ToolChoice any              `json:"tool_choice,omitempty"` 
+	Model            string           `json:"model"`
+	Messages         []chatMessage    `json:"messages"`
+	Temperature      float64          `json:"temperature,omitempty"`
+	MaxTokens        int              `json:"max_tokens,omitempty"`
+	TopP             float64          `json:"top_p,omitempty"`
+	FrequencyPenalty float64          `json:"frequency_penalty,omitempty"`
+	PresencePenalty  float64          `json:"presence_penalty,omitempty"`
+	ResponseFormat   map[string]any   `json:"response_format,omitempty"`
+	Stream           bool             `json:"stream"`
+	Tools            []map[string]any `json:"tools,omitempty"`
+	ToolChoice       any              `json:"tool_choice,omitempty"`
 }
 
 // chatMessage OpenAI 兼容的聊天消息
@@ -132,22 +132,22 @@ type chatRequest struct {
 type chatMessage struct {
 	Role       string         `json:"role"`
 	Content    string         `json:"content,omitempty"`
-	ToolCalls  []chatToolCall `json:"tool_calls,omitempty"`   
-	ToolCallID string         `json:"tool_call_id,omitempty"` 
-	Name       string         `json:"name,omitempty"`         
+	ToolCalls  []chatToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string         `json:"tool_call_id,omitempty"`
+	Name       string         `json:"name,omitempty"`
 }
 
 // chatToolCall OpenAI 兼容的 tool_call 结构
 type chatToolCall struct {
-	ID       string           `json:"id"`   
-	Type     string           `json:"type"` 
+	ID       string           `json:"id"`
+	Type     string           `json:"type"`
 	Function chatToolCallFunc `json:"function"`
 }
 
 // chatToolCallFunc 工具调用 function 部分
 type chatToolCallFunc struct {
 	Name      string `json:"name"`
-	Arguments string `json:"arguments"` 
+	Arguments string `json:"arguments"`
 }
 
 // chatResponse OpenAI 兼容的聊天响应
@@ -161,11 +161,11 @@ type chatResponse struct {
 		Message struct {
 			Role              string         `json:"role"`
 			Content           string         `json:"content"`
-			ReasoningContent  string         `json:"reasoning,omitempty"`         
-			ReasoningContent2 string         `json:"reasoning_content,omitempty"` 
-			ToolCalls         []chatToolCall `json:"tool_calls,omitempty"`        
+			ReasoningContent  string         `json:"reasoning,omitempty"`
+			ReasoningContent2 string         `json:"reasoning_content,omitempty"`
+			ToolCalls         []chatToolCall `json:"tool_calls,omitempty"`
 		} `json:"message"`
-		FinishReason string `json:"finish_reason"` 
+		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage struct {
 		PromptTokens     int `json:"prompt_tokens"`
@@ -215,7 +215,6 @@ type GenerateResult struct {
 	FinishReason string
 	Usage        TokenUsage
 }
-
 
 // Generate 生成文本回复（向后兼容）。
 //
@@ -692,4 +691,3 @@ func extractJSON(s string) string {
 	}
 	return s[start:]
 }
-

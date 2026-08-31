@@ -142,7 +142,6 @@ func TestUpsertFromMessage_IncrementUnread(t *testing.T) {
 	}
 }
 
-
 // 6. 空 customer
 func TestUpsertFromMessage_EmptyCustomer(t *testing.T) {
 	svc, _ := newInboxService(t)
@@ -414,7 +413,6 @@ func TestInboxGetByID_Success(t *testing.T) {
 		t.Errorf("expected user-001, got %s", c.CustomerID)
 	}
 }
-
 
 // 22. MarkRead
 func TestMarkRead(t *testing.T) {
@@ -1127,7 +1125,6 @@ func TestUpsertFromMessage_AssignedNoUser(t *testing.T) {
 	}
 }
 
-
 // 60. List 默认分页
 func TestInboxList_DefaultPage(t *testing.T) {
 	svc, _ := newInboxService(t)
@@ -1817,4 +1814,3 @@ func TestAutoAssign_Reentrant(t *testing.T) {
 		}
 	}
 }
-

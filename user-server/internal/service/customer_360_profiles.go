@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"encoding/json"
@@ -12,20 +11,20 @@ import (
 
 // CustomerProfileItem 客户档案列表项
 type CustomerProfileItem struct {
-	ID        string   `json:"id"`
-	UnifiedID string   `json:"unified_id"`
-	Name      string   `json:"name"`
-	Phone     string   `json:"phone"`
-	Email     string   `json:"email"`
-	Tags      []string `json:"tags"`
-	RFMScore  int      `json:"rfm_score"`
-	ChurnRisk string   `json:"churn_risk"`
+	ID           string   `json:"id"`
+	UnifiedID    string   `json:"unified_id"`
+	Name         string   `json:"name"`
+	Phone        string   `json:"phone"`
+	Email        string   `json:"email"`
+	Tags         []string `json:"tags"`
+	RFMScore     int      `json:"rfm_score"`
+	ChurnRisk    string   `json:"churn_risk"`
 	Platforms    []string `json:"platforms"`
 	SessionCount int      `json:"session_count"`
 	MessageCount int      `json:"message_count"`
 	LastActiveAt string   `json:"last_active_at"`
 	CreatedAt    string   `json:"created_at"`
-	Status string `json:"status"`
+	Status       string   `json:"status"`
 }
 
 // ListCustomerProfiles 分页查询客户档案列表。
@@ -228,5 +227,3 @@ func fallbackCustomerName(c *model.Customer) string {
 		return c.ID
 	}
 }
-
-

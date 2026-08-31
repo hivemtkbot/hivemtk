@@ -1,10 +1,8 @@
 package humanize
 
-
 import (
 	"testing"
 )
-
 
 // TestTFIDF_Extract_Basic 基本提取
 func TestTFIDF_Extract_Basic(t *testing.T) {
@@ -67,7 +65,6 @@ func TestTFIDF_Extract_TopNTruncation(t *testing.T) {
 		t.Errorf("topN=5 应最多返回 5 个, got %d", len(phrases))
 	}
 }
-
 
 // TestTFIDF_TFIDFScoreCalculation TF-IDF 计算正确性
 func TestTFIDF_TFIDFScoreCalculation(t *testing.T) {
@@ -145,7 +142,6 @@ func TestTFIDF_DocumentFrequency_AllDocuments(t *testing.T) {
 	}
 }
 
-
 // TestTFIDF_ClassifyPhrase 短语分类
 func TestTFIDF_ClassifyPhrase(t *testing.T) {
 	extractor := NewTFIDFPhraseExtractor()
@@ -192,7 +188,6 @@ func TestTFIDF_Extract_PhraseTypeInResult(t *testing.T) {
 	}
 }
 
-
 // TestTFIDF_StopWordFilter 停用词过滤
 func TestTFIDF_StopWordFilter(t *testing.T) {
 	messages := []ChampionMessage{
@@ -229,7 +224,7 @@ func TestContainsPunct(t *testing.T) {
 		{"a，b", true},
 		{"a；b", true},
 		{"a:b", true},
-		{"a b", true}, 
+		{"a b", true},
 	}
 	for _, tt := range tests {
 		got := containsPunct(tt.input)
@@ -269,7 +264,7 @@ func TestContainsSubstring(t *testing.T) {
 		{"hello world", "world", true},
 		{"hello world", "hello", true},
 		{"hello world", "o w", true},
-		{"hello", "hello world", false}, 
+		{"hello", "hello world", false},
 		{"hello", "", false},
 		{"你好世界", "好世", true},
 		{"你好世界", "世界", true},
@@ -283,7 +278,6 @@ func TestContainsSubstring(t *testing.T) {
 		}
 	}
 }
-
 
 // TestTFIDF_SlidingWindowSize 2-4 字滑窗
 func TestTFIDF_SlidingWindowSize(t *testing.T) {
@@ -303,7 +297,7 @@ func TestTFIDF_SlidingWindowSize(t *testing.T) {
 // TestTFIDF_Extract_ShortText 短文本（< 2 字）
 func TestTFIDF_Extract_ShortText(t *testing.T) {
 	messages := []ChampionMessage{
-		{Content: "a"}, 
+		{Content: "a"},
 	}
 	extractor := NewTFIDFPhraseExtractor()
 	phrases := extractor.Extract(messages, 10)
@@ -311,7 +305,6 @@ func TestTFIDF_Extract_ShortText(t *testing.T) {
 		t.Errorf("单字符应无短语, got %d", len(phrases))
 	}
 }
-
 
 // TestTFIDF_Extract_RealisticScenario 真实销冠对话场景
 func TestTFIDF_Extract_RealisticScenario(t *testing.T) {
@@ -336,4 +329,3 @@ func TestTFIDF_Extract_RealisticScenario(t *testing.T) {
 			phrases[i].Rank, phrases[i].Phrase, phrases[i].TF, phrases[i].DF, phrases[i].TFIDFScore, phrases[i].PhraseType)
 	}
 }
-

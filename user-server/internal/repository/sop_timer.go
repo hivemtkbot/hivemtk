@@ -206,4 +206,3 @@ func (r *SOPTimerRepository) GetExecutionSummary(ctx context.Context, executionI
 	}
 	return &row, nil
 }
-

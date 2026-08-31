@@ -29,23 +29,23 @@ import (
 //   - 哈希算法：SHA1
 //   - 密钥长度：20 字节（base32 编码后 32 字符）
 const (
-	totpTimeStep    = 30
-	totpDigits      = 6
-	totpSecretBytes = 20
+	totpTimeStep      = 30
+	totpDigits        = 6
+	totpSecretBytes   = 20
 	totpAllowedWindow = 1
 )
 
 // MFASetupResponse MFA 设置响应
 type MFASetupResponse struct {
-	Secret     string `json:"secret"`      
-	OTPAuthURL string `json:"otpauth_url"` 
-	QRCodeURL  string `json:"qr_code_url"` 
+	Secret     string `json:"secret"`
+	OTPAuthURL string `json:"otpauth_url"`
+	QRCodeURL  string `json:"qr_code_url"`
 }
 
 // MFAVerifyRequest MFA 验证请求
 type MFAVerifyRequest struct {
-	TempToken string `json:"temp_token" binding:"required"` 
-	Code      string `json:"code" binding:"required,len=6"` 
+	TempToken string `json:"temp_token" binding:"required"`
+	Code      string `json:"code" binding:"required,len=6"`
 }
 
 // MFASetupVerifyRequest MFA 设置确认请求（用户扫码后输入 6 位码确认）
@@ -189,7 +189,7 @@ func (s *MFAService) SetupMFA(ctx context.Context, userID uint, username string)
 	mfa := &model.UserMFA{
 		UserID:     userID,
 		MFASecret:  secret,
-		MFAEnabled: false, 
+		MFAEnabled: false,
 		MFAType:    model.MFATypeTOTP,
 	}
 
@@ -415,4 +415,3 @@ func (s *MFAService) GenerateBackupCodes(ctx context.Context, userID uint) ([]st
 	}
 	return codes, nil
 }
-

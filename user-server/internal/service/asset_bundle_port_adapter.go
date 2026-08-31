@@ -8,8 +8,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
-
 // AssetBundleWeavePortAdapter 适配 AssetBundleService → portcontract.AssetBundleWeavePort
 type AssetBundleWeavePortAdapter struct {
 	svc *AssetBundleService
@@ -78,7 +76,6 @@ func (a *AssetBundleWeavePortAdapter) IsBundleEnabled(assetID string) bool {
 // 编译期断言：AssetBundleWeavePortAdapter 实现 portcontract.AssetBundleWeavePort
 var _ portcontract.AssetBundleWeavePort = (*AssetBundleWeavePortAdapter)(nil)
 
-
 // KnowledgeSearchPortAdapter 适配 KnowledgeBaseService → portcontract.KnowledgeSearchPort
 type KnowledgeSearchPortAdapter struct {
 	svc KnowledgeSearcher
@@ -104,4 +101,3 @@ func (a *KnowledgeSearchPortAdapter) Search(ctx context.Context, query string, t
 
 // 编译期断言
 var _ portcontract.KnowledgeSearchPort = (*KnowledgeSearchPortAdapter)(nil)
-

@@ -15,7 +15,6 @@ import (
 	"hivemtk-user/internal/config"
 )
 
-
 var (
 	baseURL = config.DefaultUserServerBaseURL
 	user    = os.Getenv("TEST_ADMIN_USERNAME")
@@ -29,7 +28,6 @@ type apiResp struct {
 }
 
 var globalToken string
-
 
 func mustPost(t *testing.T, path string, body any, token string) (apiResp, int) {
 	return mustRequest(t, "POST", path, body, token)
@@ -89,7 +87,6 @@ func login(t *testing.T) string {
 	}
 	return globalToken
 }
-
 
 func TestAIAgent_FullChain(t *testing.T) {
 	token := login(t)
@@ -263,4 +260,3 @@ func TestAIAgent_FullChain(t *testing.T) {
 
 // 防止 os 引用
 var _ = os.Getenv
-

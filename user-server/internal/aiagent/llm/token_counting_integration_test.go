@@ -45,8 +45,8 @@ func TestIntegration_TokenSourceActual(t *testing.T) {
 
 	provider := &ProviderConfig{
 		Name:    "default",
-		BaseURL: config.DefaultLLMBaseURLDev, 
-		Model:   "Qwen2.5-1.5B-Instruct",     
+		BaseURL: config.DefaultLLMBaseURLDev,
+		Model:   "Qwen2.5-1.5B-Instruct",
 	}
 	traceID := fmt.Sprintf("integration-test-%d", time.Now().UnixNano())
 	entry := NewLogEntry(ScenarioSOPReply, provider, "Qwen2.5-1.5B-Instruct",
@@ -200,4 +200,3 @@ func TestIntegration_TokenSourceMissing(t *testing.T) {
 		t.Errorf("counter: total=%d missing=%d, want (1, 1)", total, missing)
 	}
 }
-

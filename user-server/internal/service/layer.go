@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"fmt"
@@ -38,7 +37,7 @@ type LayerRouter struct {
 	logRepo   *repository.LayerDecisionLogRepository
 	faqSvc    *FAQService
 	sopSvc    *SOPTemplateService
-	traceFunc func() string 
+	traceFunc func() string
 }
 
 // NewLayerRouter 创建 LayerRouter
@@ -75,13 +74,13 @@ func NewLayerRouter(
 //   - AgentFAQIDs (旧字段) 被弃用, 改用 AgentID 强 1对1
 //   - AgentSOPTemplateIDs (旧字段) 同样, 后续 Task 16 改造 SOP
 type RouteRequest struct {
-	SessionID   string
-	CustomerID  string
-	UserMessage string
-	Intent      *dto.RecognizeResult
-	RAGChunks   []RAGChunk
-	Stage       string
-	AgentID uint
+	SessionID           string
+	CustomerID          string
+	UserMessage         string
+	Intent              *dto.RecognizeResult
+	RAGChunks           []RAGChunk
+	Stage               string
+	AgentID             uint
 	AgentFAQIDs         []string
 	AgentSOPTemplateIDs []string
 }
@@ -263,4 +262,3 @@ func intentType(r *dto.RecognizeResult) string {
 	}
 	return r.IntentType
 }
-

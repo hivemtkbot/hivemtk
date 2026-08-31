@@ -1,6 +1,5 @@
 package feedbackloop
 
-
 import (
 	"context"
 	"errors"
@@ -21,8 +20,8 @@ import (
 type BanditAllocator struct {
 	banditRepo *repository.FeedbackLoopRepository
 	mu         sync.RWMutex
-	cache      map[string][]*model.BanditArm 
-	rng        *rand.Rand                    
+	cache      map[string][]*model.BanditArm
+	rng        *rand.Rand
 	config     BanditConfig
 }
 
@@ -252,7 +251,6 @@ func (b *BanditAllocator) InvalidateCache(experimentID string) {
 	delete(b.cache, experimentID)
 }
 
-
 // loadArms 加载臂（带缓存）
 func (b *BanditAllocator) loadArms(ctx context.Context, experimentID string) ([]*model.BanditArm, error) {
 	b.mu.RLock()
@@ -310,7 +308,6 @@ func (b *BanditAllocator) markSampledAsync(experimentID, armKey string) {
 	defer cancel()
 	_ = b.banditRepo.UpdateBanditArmLastSampled(ctx, experimentID, armKey, time.Now())
 }
-
 
 // betaSample Beta(α, β) 采样
 //
@@ -370,4 +367,3 @@ func gammaSample(alpha, theta float64, rng *rand.Rand) float64 {
 func sqrtF32(f float32) float32 {
 	return float32(math.Sqrt(float64(f)))
 }
-

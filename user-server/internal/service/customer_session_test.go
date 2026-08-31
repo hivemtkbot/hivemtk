@@ -22,7 +22,7 @@ func setupCustomerSessionServiceTestDB(t *testing.T) *gorm.DB {
 		&model.AISuggestion{},
 		&model.QuickReply{},
 		&model.SessionTag{},
-		&model.UserBlacklist{}, 
+		&model.UserBlacklist{},
 	)
 	db.SetTestDB(database)
 	return database
@@ -1039,7 +1039,6 @@ func TestGenerateSessionID(t *testing.T) {
 	}
 }
 
-
 // TestAutoCloseStaleSessions_OnlyStaleActiveClosed 验证只有「活跃但超过 TTL」的会话被关闭
 //
 // 场景：
@@ -1074,10 +1073,10 @@ func TestAutoCloseStaleSessions_OnlyStaleActiveClosed(t *testing.T) {
 		return s
 	}
 
-	sA := mk("A", model.SessionStatusAIHandling, &veryOld) 
-	sB := mk("B", model.SessionStatusAIHandling, &recent)  
-	sC := mk("C", model.SessionStatusPending, nil)         
-	sD := mk("D", model.SessionStatusClosed, &veryOld)     
+	sA := mk("A", model.SessionStatusAIHandling, &veryOld)
+	sB := mk("B", model.SessionStatusAIHandling, &recent)
+	sC := mk("C", model.SessionStatusPending, nil)
+	sD := mk("D", model.SessionStatusClosed, &veryOld)
 
 	for _, s := range []*model.CustomerSession{sA, sB, sC, sD} {
 		if err := repo.Create(context.Background(), s); err != nil {
@@ -1105,7 +1104,7 @@ func TestAutoCloseStaleSessions_OnlyStaleActiveClosed(t *testing.T) {
 	verify("A", model.SessionStatusClosed)
 	verify("B", model.SessionStatusAIHandling)
 	verify("C", model.SessionStatusClosed)
-	verify("D", model.SessionStatusClosed) 
+	verify("D", model.SessionStatusClosed)
 }
 
 // TestGetActiveByUserID_RespectsTTL 验证 GetActiveByUserID 受 24h TTL 约束
@@ -1222,4 +1221,3 @@ func TestCreateSession_StoresOneID(t *testing.T) {
 		t.Errorf("expected OneID stored, got %q", sess.OneID)
 	}
 }
-

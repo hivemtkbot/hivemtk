@@ -203,7 +203,7 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 		return nil, fmt.Errorf("db nil")
 	}
 	if batchSize <= 0 || batchSize > 500 {
-		batchSize = s.cfg.BatchSize 
+		batchSize = s.cfg.BatchSize
 	}
 	conc := s.cfg.Concurrency
 	if conc < 1 {
@@ -225,7 +225,7 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 		}
 		defer func() { _ = conn.Exec("SELECT pg_advisory_unlock(?)", runBatchLockKey).Error }()
 
-		stalled := 0 
+		stalled := 0
 		for {
 			sub := conn.WithContext(ctx).Table("message_trace").
 				Select("trace_id").
@@ -302,8 +302,8 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 
 // BatchResult RunBatch 处理结果
 type BatchResult struct {
-	Processed int                   
-	Previews  []*model.TraceEvalLog 
+	Processed int
+	Previews  []*model.TraceEvalLog
 }
 
 // Logs 查询最近打分记录（供前端展示）。
@@ -340,4 +340,3 @@ func (s *Service) TopWeights(ctx context.Context, limit int) ([]map[string]any, 
 
 // marshalJSON 供外部复用（保持与 adjuster 同名函数一致）
 var _ = marshalJSON
-

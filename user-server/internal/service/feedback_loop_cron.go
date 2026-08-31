@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"sync"
@@ -50,11 +49,10 @@ func (c *FeedbackLoopCron) Stop(ctx context.Context) {
 	c.wg.Wait()
 }
 
-
 func (c *FeedbackLoopCron) runChampionBaselineMonthly(ctx context.Context, _ *gorm.DB) {
 	defer c.wg.Done()
 	for {
-		next := nextMonthlyRun(1, 2, 0) 
+		next := nextMonthlyRun(1, 2, 0)
 		select {
 		case <-c.stopCh:
 			return
@@ -148,11 +146,10 @@ func (c *FeedbackLoopCron) refreshChampionBaselineRows(
 	return 1
 }
 
-
 func (c *FeedbackLoopCron) runChampionDialogueWeekly(ctx context.Context) {
 	defer c.wg.Done()
 	for {
-		next := nextWeeklyRun(time.Sunday, 3, 0) 
+		next := nextWeeklyRun(time.Sunday, 3, 0)
 		select {
 		case <-c.stopCh:
 			return
@@ -169,11 +166,10 @@ func (c *FeedbackLoopCron) runChampionDialogueWeekly(ctx context.Context) {
 	}
 }
 
-
 func (c *FeedbackLoopCron) runPromptIteratorDaily(ctx context.Context) {
 	defer c.wg.Done()
 	for {
-		next := nextDailyRun(4, 0) 
+		next := nextDailyRun(4, 0)
 		select {
 		case <-c.stopCh:
 			return
@@ -285,7 +281,6 @@ func isPromptableNodeType(t string) bool {
 	}
 }
 
-
 func (c *FeedbackLoopCron) runBanditConvergence(ctx context.Context) {
 	defer c.wg.Done()
 	for {
@@ -337,7 +332,6 @@ func (c *FeedbackLoopCron) runBanditConvergence(ctx context.Context) {
 	}
 }
 
-
 // nextMonthlyRun 下一次月跑（day 1, hour 02:00）
 func nextMonthlyRun(day, hour, minute int) time.Time {
 	now := time.Now()
@@ -369,4 +363,3 @@ func nextDailyRun(hour, minute int) time.Time {
 	}
 	return next
 }
-

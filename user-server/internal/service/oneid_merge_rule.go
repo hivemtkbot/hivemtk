@@ -34,34 +34,34 @@ func NewOneIDMergeRuleService() *OneIDMergeRuleService {
 
 // MergeRule 合并规则
 type MergeRule struct {
-	ID         int64    `json:"id"`
-	Name       string   `json:"name"`
-	Field      string   `json:"field"`        // 匹配字段，如 phone / email / unionid
-	Op         string   `json:"op"`           // eq / prefix / like / custom_sql
-	Value      string   `json:"value"`        // 自定义 SQL 时的表达式
-	Priority   int      `json:"priority"`     // 100 = 最高
-	Enabled    bool     `json:"enabled"`
-	BuiltIn    bool     `json:"built_in"`     // 预置规则（不可删）
-	UpdatedAt  string   `json:"updated_at"`
-	Description string  `json:"description"`
-	Example    string   `json:"example"`
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Field       string `json:"field"`    // 匹配字段，如 phone / email / unionid
+	Op          string `json:"op"`       // eq / prefix / like / custom_sql
+	Value       string `json:"value"`    // 自定义 SQL 时的表达式
+	Priority    int    `json:"priority"` // 100 = 最高
+	Enabled     bool   `json:"enabled"`
+	BuiltIn     bool   `json:"built_in"` // 预置规则（不可删）
+	UpdatedAt   string `json:"updated_at"`
+	Description string `json:"description"`
+	Example     string `json:"example"`
 }
 
 // MergeStrategy 合并策略
 type MergeStrategy struct {
-	PrimaryRule        string   `json:"primary_rule"`         // latest_active / most_orders / manual
-	ConflictBehavior   string   `json:"conflict_behavior"`    // auto_merge / queue_review / skip
-	WindowStart        string   `json:"window_start"`         // "02:00"
-	WindowEnd          string   `json:"window_end"`           // "05:00"
-	PostMergeActions   []string `json:"post_merge_actions"`   // unify_tag / merge_orders / notify_owner / write_audit
+	PrimaryRule      string   `json:"primary_rule"`       // latest_active / most_orders / manual
+	ConflictBehavior string   `json:"conflict_behavior"`  // auto_merge / queue_review / skip
+	WindowStart      string   `json:"window_start"`       // "02:00"
+	WindowEnd        string   `json:"window_end"`         // "05:00"
+	PostMergeActions []string `json:"post_merge_actions"` // unify_tag / merge_orders / notify_owner / write_audit
 }
 
 // MergeRuleSet 完整规则集
 type MergeRuleSet struct {
-	BuiltIn []MergeRule   `json:"built_in"`
-	Custom  []MergeRule   `json:"custom"`
-	Strategy MergeStrategy `json:"strategy"`
-	UpdatedAt string      `json:"updated_at"`
+	BuiltIn   []MergeRule   `json:"built_in"`
+	Custom    []MergeRule   `json:"custom"`
+	Strategy  MergeStrategy `json:"strategy"`
+	UpdatedAt string        `json:"updated_at"`
 }
 
 // GetRules godoc
@@ -230,12 +230,12 @@ func defaultRuleSet() *MergeRuleSet {
 	now := time.Now().UTC().Format(time.RFC3339)
 	return &MergeRuleSet{
 		BuiltIn: []MergeRule{
-			{ID: 1, Name: "同手机号合并",    Field: "phone",       Op: "eq", Priority: 100, Enabled: true,  BuiltIn: true, UpdatedAt: now, Description: "相同手机号必合并", Example: "13800001111 == 13800001111"},
-			{ID: 2, Name: "同 UnionID 合并", Field: "unionid",     Op: "eq", Priority: 95,  Enabled: true,  BuiltIn: true, UpdatedAt: now, Description: "微信开放平台 UnionID", Example: "o6_bm123 == o6_bm123"},
-			{ID: 3, Name: "同邮箱合并",      Field: "email",       Op: "eq", Priority: 90,  Enabled: true,  BuiltIn: true, UpdatedAt: now, Description: "相同邮箱必合并", Example: "a@x.com == a@x.com"},
-			{ID: 4, Name: "同 OpenID 合并",  Field: "openid",      Op: "eq", Priority: 80,  Enabled: false, BuiltIn: true, UpdatedAt: now, Description: "单应用内 OpenID", Example: "同一公众号 OpenID"},
-			{ID: 5, Name: "同外部 ID 合并",  Field: "external_id", Op: "eq", Priority: 70,  Enabled: true,  BuiltIn: true, UpdatedAt: now, Description: "CRM 外部系统 ID", Example: "salesforce_001 == sfdc_001"},
-			{ID: 6, Name: "手机号前 7 位合并", Field: "phone",     Op: "prefix", Priority: 50, Enabled: false, BuiltIn: true, UpdatedAt: now, Description: "易换号场景兜底", Example: "1380000**** == 1380000****"},
+			{ID: 1, Name: "同手机号合并", Field: "phone", Op: "eq", Priority: 100, Enabled: true, BuiltIn: true, UpdatedAt: now, Description: "相同手机号必合并", Example: "13800001111 == 13800001111"},
+			{ID: 2, Name: "同 UnionID 合并", Field: "unionid", Op: "eq", Priority: 95, Enabled: true, BuiltIn: true, UpdatedAt: now, Description: "微信开放平台 UnionID", Example: "o6_bm123 == o6_bm123"},
+			{ID: 3, Name: "同邮箱合并", Field: "email", Op: "eq", Priority: 90, Enabled: true, BuiltIn: true, UpdatedAt: now, Description: "相同邮箱必合并", Example: "a@x.com == a@x.com"},
+			{ID: 4, Name: "同 OpenID 合并", Field: "openid", Op: "eq", Priority: 80, Enabled: false, BuiltIn: true, UpdatedAt: now, Description: "单应用内 OpenID", Example: "同一公众号 OpenID"},
+			{ID: 5, Name: "同外部 ID 合并", Field: "external_id", Op: "eq", Priority: 70, Enabled: true, BuiltIn: true, UpdatedAt: now, Description: "CRM 外部系统 ID", Example: "salesforce_001 == sfdc_001"},
+			{ID: 6, Name: "手机号前 7 位合并", Field: "phone", Op: "prefix", Priority: 50, Enabled: false, BuiltIn: true, UpdatedAt: now, Description: "易换号场景兜底", Example: "1380000**** == 1380000****"},
 		},
 		Custom: []MergeRule{},
 		Strategy: MergeStrategy{

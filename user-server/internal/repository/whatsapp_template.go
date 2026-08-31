@@ -71,4 +71,3 @@ func (r *WhatsappTemplateRepository) DeleteByID(ctx context.Context, id string) 
 	result := r.db.Where("id = ?", id).Delete(&model.WhatsappMessageTemplate{})
 	return result.RowsAffected, result.Error
 }
-

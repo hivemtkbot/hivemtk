@@ -965,7 +965,6 @@ func TestSmsService_GetSmsByID_NotFound(t *testing.T) {
 	}
 }
 
-
 // TestIsSMSNightRestricted 铁律#22: 夜间禁发窗口 22:00-8:00（北京时间）判定
 func TestIsSMSNightRestricted(t *testing.T) {
 	cst := time.FixedZone("CST", 8*3600)

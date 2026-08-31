@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"strings"
@@ -154,11 +153,11 @@ func TestValidatePassword_ForbidCommon(t *testing.T) {
 	}
 
 	cases := []string{
-		"123456",        
-		"12345678",      
-		"password",      
-		"admin123",      
-		"AdminPASSWORD", 
+		"123456",
+		"12345678",
+		"password",
+		"admin123",
+		"AdminPASSWORD",
 	}
 
 	for _, pwd := range cases {
@@ -465,14 +464,14 @@ func TestValidatePasswordStrength(t *testing.T) {
 	}{
 		{"", false},
 		{"short", false},
-		{"alllower1234", false}, 
-		{"Xkp9aBz3", true},      
-		{"Pa$$w0rdXyz9", true},  
-		{"123456", false},       
-		{"admin888", false},     
-		{"Abcdefg1", false},     
-		{"Xk1234567", false},    
-		{"Password", false},     
+		{"alllower1234", false},
+		{"Xkp9aBz3", true},
+		{"Pa$$w0rdXyz9", true},
+		{"123456", false},
+		{"admin888", false},
+		{"Abcdefg1", false},
+		{"Xk1234567", false},
+		{"Password", false},
 	}
 	for _, c := range cases {
 		err := ValidatePasswordStrength(c.pwd)
@@ -484,4 +483,3 @@ func TestValidatePasswordStrength(t *testing.T) {
 		}
 	}
 }
-

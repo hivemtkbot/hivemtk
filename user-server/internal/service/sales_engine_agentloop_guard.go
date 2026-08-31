@@ -67,7 +67,7 @@ type agentLoopGuard struct {
 	maxTokens    int
 	maxCostUSD   float64
 
-	maxRepeatCalls  int     // 工具调用循环检测的最大重复次数
+	maxRepeatCalls   int     // 工具调用循环检测的最大重复次数
 	costDriftFactor2 float64 // 单轮成本 vs 历史均值 的漂移因子（默认 5.0，从 LoopGuard 迁移）
 	iterationCount   int     // 当前迭代次数（给 remaining API 用）
 

@@ -116,4 +116,3 @@ func (r *MessageHubRepository) GetHubStats(ctx context.Context, start, end *time
 
 	return stats, nil
 }
-

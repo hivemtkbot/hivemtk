@@ -258,7 +258,12 @@ func TestMetricsService(t *testing.T) {
 func TestWorkflowService(t *testing.T) {
 	db := geoTestDB(t)
 	llmFactory := NewLLMAdapter()
-	svc := NewWorkflowService(newGeoWFRepo(db), newGeoExecRepo(db), newGeoTplRepo(db), llmFactory)
+	svc := NewWorkflowService(
+		newGeoWFRepo(db), newGeoExecRepo(db), newGeoTplRepo(db),
+		repository.NewGeoQueryChainRepository(db),
+		repository.NewGeoContentTaskRepository(db),
+		llmFactory,
+	)
 
 	ctx := context.Background()
 

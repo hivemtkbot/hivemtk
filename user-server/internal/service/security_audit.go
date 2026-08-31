@@ -57,7 +57,7 @@ func (s *SecurityAuditService) withDB(ctx context.Context) *gorm.DB {
 type auditCheck struct {
 	name     string
 	category string
-	level    string 
+	level    string
 	weight   int
 	run      func(ctx context.Context) (result string, message string)
 }
@@ -317,4 +317,3 @@ func classifyOutbound(rawURL string, ownHosts map[string]bool) string {
 	}
 	return ""
 }
-

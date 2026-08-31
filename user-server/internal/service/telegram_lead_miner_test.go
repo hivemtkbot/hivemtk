@@ -10,14 +10,13 @@ import (
 	"gorm.io/gorm"
 )
 
-
 func TestDetectTelegramIntent(t *testing.T) {
 	cases := []struct {
 		name     string
 		text     string
 		minScore int
 		wantOpp  bool
-		wantSig  string 
+		wantSig  string
 	}{
 		{name: "空消息", text: "", minScore: 0, wantOpp: false},
 		{name: "普通寒暄", text: "大家好呀", minScore: 8, wantOpp: false},
@@ -62,7 +61,6 @@ func TestDetectTelegramIntent_ScoreCap(t *testing.T) {
 	}
 }
 
-
 func TestFormatAndParseTelegramLeadScore(t *testing.T) {
 	desc := formatTelegramLeadDesc("销售交流群", "我想买", 82, []string{"价格", "合作"}, true)
 	if !strings.Contains(desc, "[意向分:82]") {
@@ -75,7 +73,6 @@ func TestFormatAndParseTelegramLeadScore(t *testing.T) {
 		t.Fatalf("普通线索应标记为「群发言线索」: %s", got)
 	}
 }
-
 
 func TestTelegramLeadAccountKey(t *testing.T) {
 	if k := telegramLeadAccountKey("alice", "123"); k != "@alice" {
@@ -94,7 +91,6 @@ func TestTelegramLeadAccountKey(t *testing.T) {
 		t.Fatalf("全空应返回空，实际 %q", k)
 	}
 }
-
 
 func TestMineTelegramGroupLead_CreateDedupUpgrade(t *testing.T) {
 	db := setupTelegramTestDB(t)
@@ -166,9 +162,9 @@ func TestMineTelegramGroupLead_NoiseSkipped(t *testing.T) {
 	account := "@bob"
 	hub := &model.MessageHub{MsgID: "m-b", ConversationID: "conv-bob", SenderID: "999"}
 
-	svc.mineTelegramGroupLead(context.Background(), hub, "1", "-1001", "群A", "999", "bob", "Bob", "/start") 
-	svc.mineTelegramGroupLead(context.Background(), hub, "1", "-1001", "群A", "999", "bob", "Bob", "😀😀😀")    
-	svc.mineTelegramGroupLead(context.Background(), hub, "1", "-1001", "群A", "999", "bob", "Bob", "   ")    
+	svc.mineTelegramGroupLead(context.Background(), hub, "1", "-1001", "群A", "999", "bob", "Bob", "/start")
+	svc.mineTelegramGroupLead(context.Background(), hub, "1", "-1001", "群A", "999", "bob", "Bob", "😀😀😀")
+	svc.mineTelegramGroupLead(context.Background(), hub, "1", "-1001", "群A", "999", "bob", "Bob", "   ")
 
 	if got, _ := svc.clueRepo.FindByTypeAndAccount(context.Background(), ClueTypeTelegram, account); got != nil {
 		t.Fatalf("噪声消息不应建线索，实际: %+v", got)
@@ -191,7 +187,6 @@ func TestMineTelegramGroupLead_FallbackID(t *testing.T) {
 		t.Fatalf("无 username 会话关联异常: one=%q conv=%q", got.OneID, got.ConversationID)
 	}
 }
-
 
 func TestDispatchTelegram_MinesHumanGroupMessage(t *testing.T) {
 	db := setupTelegramTestDB(t)
@@ -271,7 +266,6 @@ func TestDispatchTelegram_MinesPrivateHumanDM(t *testing.T) {
 	}
 }
 
-
 func TestIsTelegramBotMentioned(t *testing.T) {
 	cases := []struct {
 		name        string
@@ -284,7 +278,7 @@ func TestIsTelegramBotMentioned(t *testing.T) {
 		{name: "大小写不敏感", text: "hi @MyBot 在吗", botUsername: "mybot", want: true},
 		{name: "无 @提及", text: "请问价格多少", botUsername: "mybot", want: false},
 		{name: "提及别人", text: "找 @otherbot 吧", botUsername: "mybot", want: false},
-		{name: "用户名带前缀 @ 不匹配", text: "hi @mybotX", botUsername: "mybot", want: false}, 
+		{name: "用户名带前缀 @ 不匹配", text: "hi @mybotX", botUsername: "mybot", want: false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -294,7 +288,6 @@ func TestIsTelegramBotMentioned(t *testing.T) {
 		})
 	}
 }
-
 
 func TestTgLeadOutreachAllowed(t *testing.T) {
 	svc := &WebhookService{}
@@ -318,4 +311,3 @@ func countClues(t *testing.T, db *gorm.DB, account string) int {
 	}
 	return len(list)
 }
-

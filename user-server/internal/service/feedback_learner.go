@@ -16,7 +16,7 @@ import (
 type FeedbackLearner struct {
 	db          *gorm.DB
 	mu          sync.RWMutex
-	intentCache map[string]*IntentStats 
+	intentCache map[string]*IntentStats
 	sopCache    map[string]*SOPStats
 }
 
@@ -47,9 +47,9 @@ type FeedbackRecord struct {
 	Confidence     float64   `json:"confidence"`
 	SOPName        string    `json:"sop_name"`
 	AIReply        string    `json:"ai_reply"`
-	HumanReply     string    `json:"human_reply,omitempty"` 
-	CustomerAccept bool      `json:"customer_accept"`       
-	Transferred    bool      `json:"transferred"`           
+	HumanReply     string    `json:"human_reply,omitempty"`
+	CustomerAccept bool      `json:"customer_accept"`
+	Transferred    bool      `json:"transferred"`
 	TransferReason string    `json:"transfer_reason,omitempty"`
 	Tokens         int       `json:"tokens"`
 	LatencyMs      int       `json:"latency_ms"`
@@ -192,7 +192,7 @@ func (f *FeedbackLearner) SuggestBestSOP(ctx context.Context, intentType string)
 func (f *FeedbackLearner) SuggestConfidenceFloor(ctx context.Context, intentType string) float64 {
 	stats := f.GetIntentStats(ctx, intentType)
 	if stats == nil || stats.TotalCount < 10 {
-		return 0.5 
+		return 0.5
 	}
 	successRate := float64(stats.SuccessCount) / float64(stats.TotalCount)
 	if successRate >= 0.8 {
@@ -203,4 +203,3 @@ func (f *FeedbackLearner) SuggestConfidenceFloor(ctx context.Context, intentType
 		return 0.7
 	}
 }
-

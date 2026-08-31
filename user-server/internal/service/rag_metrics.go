@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"crypto/sha256"
@@ -18,14 +17,12 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 const (
 	RagMetricsAggregationInterval = 5 * time.Minute
-	RagMetricsBatchSize = 100
-	RagMetricsFlushInterval = 2 * time.Second
-	RagMetricsLowRecallDefault = 0.3
+	RagMetricsBatchSize           = 100
+	RagMetricsFlushInterval       = 2 * time.Second
+	RagMetricsLowRecallDefault    = 0.3
 )
-
 
 // RagMetricsService RAG 召回率监控服务
 type RagMetricsService struct {
@@ -107,7 +104,6 @@ func (s *RagMetricsService) flushLoop(ctx context.Context) {
 		}
 	}
 }
-
 
 // RecordQueryRequest 记录查询请求
 type RecordQueryRequest struct {
@@ -229,7 +225,6 @@ func (s *RagMetricsService) flush(ctx context.Context) error {
 	return nil
 }
 
-
 // RecallMetrics 召回指标聚合结果
 type RecallMetrics struct {
 	WindowStart    time.Time `json:"window_start"`
@@ -287,7 +282,6 @@ func (s *RagMetricsService) GetRecallMetrics(ctx context.Context, start, end tim
 	return &metrics, nil
 }
 
-
 // LowRecallQuery 低召回样本
 type LowRecallQuery struct {
 	ID             int64     `json:"id"`
@@ -340,7 +334,6 @@ func (s *RagMetricsService) GetLowRecallQueries(ctx context.Context, threshold f
 	return rows, nil
 }
 
-
 // AggregateWindow 把 rag_query_logs 聚合到 rag_metrics_daily
 //
 // 由 cron 每 5 分钟调用；也可手动调用补跑
@@ -391,7 +384,6 @@ func (s *RagMetricsService) AggregateLastWindow(ctx context.Context) (*model.Rag
 	return s.AggregateWindow(ctx, start, end)
 }
 
-
 // GetLatestMetrics 获取最近 N 个聚合窗口（用于趋势图）
 func (s *RagMetricsService) GetLatestMetrics(ctx context.Context, limit int) ([]model.RagMetricsDaily, error) {
 	if s == nil || s.db == nil {
@@ -409,7 +401,6 @@ func (s *RagMetricsService) GetLatestMetrics(ctx context.Context, limit int) ([]
 	})
 	return rows, nil
 }
-
 
 // toStringSet 把字符串切片转为集合（去重）
 func toStringSet(ids []string) map[string]struct{} {
@@ -440,7 +431,6 @@ func hashQueryShort(query string) string {
 	h := sha256.Sum256([]byte(query))
 	return hex.EncodeToString(h[:])[:16]
 }
-
 
 // RagMetricsCron 召回指标聚合定时任务
 type RagMetricsCron struct {
@@ -485,4 +475,3 @@ func (c *RagMetricsCron) run(ctx context.Context) {
 		}
 	}
 }
-

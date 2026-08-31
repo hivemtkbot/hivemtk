@@ -318,4 +318,3 @@ func TestMessageService_DeleteMessage_NonExistent(t *testing.T) {
 		t.Logf("DeleteMessage returned: %v", err)
 	}
 }
-

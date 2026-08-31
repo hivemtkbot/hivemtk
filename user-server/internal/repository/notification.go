@@ -159,4 +159,3 @@ func (r *NotificationRepository) CountAll(ctx context.Context) (int64, error) {
 	}
 	return count, nil
 }
-

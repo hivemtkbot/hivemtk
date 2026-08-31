@@ -168,8 +168,8 @@ func TestSopHeatmap_EmptyGraphReturnsError(t *testing.T) {
 func TestSopHeatmap_DynamicNodeFromExecution(t *testing.T) {
 	// 执行记录中出现图中未定义的节点（variant 差异），应动态纳入
 	agent := &model.SOPAgent{
-		ID:   4,
-		Name: "动态节点SOP",
+		ID:       4,
+		Name:     "动态节点SOP",
 		SOPGraph: model.JSONMap{"nodes": []any{map[string]any{"id": "main", "type": "llm"}}},
 	}
 	execs := []model.SOPExecution{

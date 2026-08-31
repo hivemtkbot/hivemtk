@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-
 // TestSmartCSOrchestrator_NilSafe nil 入参安全
 func TestSmartCSOrchestrator_NilSafe(t *testing.T) {
 	var o *SmartCSOrchestrator
@@ -296,7 +295,7 @@ func TestSmartCSOrchestrator_FindOrCreateSession_GroupScoped(t *testing.T) {
 	in1 := &IncomingContext{
 		Platform:   model.Platform("xhs"),
 		AccountID:  "acct-1",
-		SenderID:   "group-1", 
+		SenderID:   "group-1",
 		SenderName: "张三",
 		Content:    "@客服 帮我查订单",
 		MessageID:  "g-msg-1",
@@ -401,4 +400,3 @@ func TestSmartCSOrchestrator_FindOrCreateSession_DerivedOneIDMergesSameUser(t *t
 		t.Fatalf("应命中同一会话；first=%s second=%s", first.SessionID, second.SessionID)
 	}
 }
-

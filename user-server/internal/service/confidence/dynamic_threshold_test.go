@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"context"
 	"testing"
@@ -16,7 +15,6 @@ func makePolicyEngine() *ThresholdPolicyEngine {
 	e.loadDefaults()
 	return e
 }
-
 
 func TestDynamicThreshold_Calculate_NilPolicyEngine(t *testing.T) {
 	c := NewDynamicThresholdCalculator(nil)
@@ -170,7 +168,6 @@ func TestDynamicThreshold_Calculate_AllFactorsCombined(t *testing.T) {
 	}
 }
 
-
 func TestDynamicThreshold_DetermineBand_Handoff(t *testing.T) {
 	e := makePolicyEngine()
 	c := NewDynamicThresholdCalculator(e)
@@ -247,7 +244,6 @@ func TestDynamicThreshold_DetermineBand_NilPolicy(t *testing.T) {
 	}
 }
 
-
 func TestThresholdPolicyEngine_LoadPolicies_NilRepo(t *testing.T) {
 	e := NewThresholdPolicyEngine(nil)
 	if err := e.LoadPolicies(context.Background()); err != nil {
@@ -308,7 +304,7 @@ func TestThresholdPolicyEngine_UpdatePolicy(t *testing.T) {
 	newPolicy := &model.ThresholdPolicy{
 		PolicyID:      "policy_complaint_v2",
 		IntentType:    "complaint",
-		BaseThreshold: 0.90, 
+		BaseThreshold: 0.90,
 		IsActive:      true,
 	}
 	if err := e.UpdatePolicy(context.Background(), newPolicy); err != nil {
@@ -350,4 +346,3 @@ func TestThresholdPolicyEngine_PolicyFields(t *testing.T) {
 		t.Errorf("BandReviewUpper=0.75, got %v", p.BandReviewUpper)
 	}
 }
-

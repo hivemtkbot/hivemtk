@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 // NewAccountServiceWithRepo 创建带 repository 的 AccountService（兼容原构造函数语义）
 func NewAccountServiceWithRepo(repo repository.AccountRepository) *AccountService {
 	return &AccountService{repo: repo}
@@ -18,13 +17,13 @@ func NewAccountServiceWithRepo(repo repository.AccountRepository) *AccountServic
 // CreateAccountDTO 根据请求 DTO 创建商户账户，并返回响应 DTO
 func (s *AccountService) CreateAccountDTO(ctx context.Context, req dto.CreateAccountRequest) (*dto.AccountResponse, error) {
 	account := model.Account{
-		TgBotToken:          req.TgBotToken,
-		Price:               req.Price,
-		GroupID:             req.GroupID,
-		ProxyEnableProxy:    req.ProxyEnableProxy,
-		ProxyProtoclo:       req.ProxyProtoclo,
-		ProxyHost:           req.ProxyHost,
-		ProxyPort:           req.ProxyPort,
+		TgBotToken:       req.TgBotToken,
+		Price:            req.Price,
+		GroupID:          req.GroupID,
+		ProxyEnableProxy: req.ProxyEnableProxy,
+		ProxyProtoclo:    req.ProxyProtoclo,
+		ProxyHost:        req.ProxyHost,
+		ProxyPort:        req.ProxyPort,
 	}
 	created, err := s.CreateAccount(ctx, account)
 	if err != nil {
@@ -61,15 +60,15 @@ func (s *AccountService) GetAccountListDTO(ctx context.Context) (*dto.GetAccount
 // UpdateAccountDTO 根据请求 DTO 更新账户，并返回响应 DTO
 func (s *AccountService) UpdateAccountDTO(ctx context.Context, req dto.UpdateAccountRequest) (*dto.AccountResponse, error) {
 	account := model.Account{
-		ID:                  req.ID,
-		TgName:              req.TgName,
-		TgBotToken:          req.TgBotToken,
-		Price:               req.Price,
-		GroupID:             req.GroupID,
-		ProxyEnableProxy:    req.ProxyEnableProxy,
-		ProxyProtoclo:       req.ProxyProtoclo,
-		ProxyHost:           req.ProxyHost,
-		ProxyPort:           req.ProxyPort,
+		ID:               req.ID,
+		TgName:           req.TgName,
+		TgBotToken:       req.TgBotToken,
+		Price:            req.Price,
+		GroupID:          req.GroupID,
+		ProxyEnableProxy: req.ProxyEnableProxy,
+		ProxyProtoclo:    req.ProxyProtoclo,
+		ProxyHost:        req.ProxyHost,
+		ProxyPort:        req.ProxyPort,
 	}
 	if err := s.UpdateAccount(ctx, account); err != nil {
 		return nil, err
@@ -80,19 +79,19 @@ func (s *AccountService) UpdateAccountDTO(ctx context.Context, req dto.UpdateAcc
 // toAccountResponse 将 model.Account 转换为 dto.AccountResponse
 func toAccountResponse(a *model.Account) *dto.AccountResponse {
 	return &dto.AccountResponse{
-		ID:                  a.ID,
-		TgName:              a.TgName,
-		TgBotToken:          a.TgBotToken,
-		Price:               a.Price,
-		GroupID:             a.GroupID,
-		ProxyEnableProxy:    a.ProxyEnableProxy,
-		ProxyProtoclo:       a.ProxyProtoclo,
-		ProxyHost:           a.ProxyHost,
-		ProxyPort:           a.ProxyPort,
-		Status:              a.Status,
-		CreateTime:          a.CreateTime,
-		Msg:                 a.Msg,
-		URL:                 a.URL,
+		ID:               a.ID,
+		TgName:           a.TgName,
+		TgBotToken:       a.TgBotToken,
+		Price:            a.Price,
+		GroupID:          a.GroupID,
+		ProxyEnableProxy: a.ProxyEnableProxy,
+		ProxyProtoclo:    a.ProxyProtoclo,
+		ProxyHost:        a.ProxyHost,
+		ProxyPort:        a.ProxyPort,
+		Status:           a.Status,
+		CreateTime:       a.CreateTime,
+		Msg:              a.Msg,
+		URL:              a.URL,
 	}
 }
 
@@ -154,4 +153,3 @@ func (s *ClueService) scoreImportedClues(clues []*model.Clue) {
 		_, _ = scoreSvc.ScoreClue(ctx, c)
 	}
 }
-

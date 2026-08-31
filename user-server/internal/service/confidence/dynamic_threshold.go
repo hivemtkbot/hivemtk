@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"math"
 	"time"
@@ -21,10 +20,10 @@ func NewDynamicThresholdCalculator(engine *ThresholdPolicyEngine) *DynamicThresh
 
 // ThresholdInput 计算入参
 type ThresholdInput struct {
-	IntentType        string    
-	CustomerLevel     string    
-	AgentAvailability float64   
-	Now               time.Time 
+	IntentType        string
+	CustomerLevel     string
+	AgentAvailability float64
+	Now               time.Time
 }
 
 // Calculate 计算 4 因子动态阈值
@@ -38,7 +37,7 @@ type ThresholdInput struct {
 //   - agent_availability: 空闲>50% -1（多转人工）, 空闲<10% +1（加严避免堆积）, 其他 0；权重 γ = 0.10
 func (c *DynamicThresholdCalculator) Calculate(in *ThresholdInput) float64 {
 	if c.policyEngine == nil {
-		return 0.70 
+		return 0.70
 	}
 	policy := c.policyEngine.GetPolicy(in.IntentType)
 	if policy == nil {
@@ -63,9 +62,9 @@ func (c *DynamicThresholdCalculator) Calculate(in *ThresholdInput) float64 {
 	var tsFactor float64
 	switch {
 	case (hour >= 10 && hour < 12) || (hour >= 14 && hour < 16):
-		tsFactor = -1.0 
+		tsFactor = -1.0
 	case hour >= 0 && hour < 7:
-		tsFactor = 1.0 
+		tsFactor = 1.0
 	default:
 		tsFactor = 0
 	}
@@ -75,9 +74,9 @@ func (c *DynamicThresholdCalculator) Calculate(in *ThresholdInput) float64 {
 	var avFactor float64
 	switch {
 	case in.AgentAvailability > 0.5:
-		avFactor = -1.0 
+		avFactor = -1.0
 	case in.AgentAvailability < 0.1:
-		avFactor = 1.0 
+		avFactor = 1.0
 	default:
 		avFactor = 0
 	}
@@ -130,4 +129,3 @@ func (c *DynamicThresholdCalculator) DetermineBand(conf, threshold float64, poli
 	}
 	return dto.BandAuto
 }
-

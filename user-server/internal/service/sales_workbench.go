@@ -8,19 +8,18 @@ import (
 	"time"
 )
 
-
 // WorkbenchTodo 待办事项（销售工作台首页核心）
 type WorkbenchTodo struct {
-	Type        string    `json:"type"`     
-	Priority    int       `json:"priority"` 
+	Type        string    `json:"type"`
+	Priority    int       `json:"priority"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
-	TargetID    string    `json:"target_id"`   
-	TargetType  string    `json:"target_type"` 
+	TargetID    string    `json:"target_id"`
+	TargetType  string    `json:"target_type"`
 	CustomerID  string    `json:"customer_id"`
 	DueAt       time.Time `json:"due_at"`
 	CreatedAt   time.Time `json:"created_at"`
-	URL         string    `json:"url"` 
+	URL         string    `json:"url"`
 }
 
 // WorkbenchToday 今日业绩
@@ -36,7 +35,7 @@ type WorkbenchToday struct {
 
 // WorkbenchMonth 本月业绩
 type WorkbenchMonth struct {
-	Month          string  `json:"month"` 
+	Month          string  `json:"month"`
 	TotalOrders    int     `json:"total_orders"`
 	TotalRevenue   float64 `json:"total_revenue"`
 	FollowUps      int     `json:"follow_ups"`
@@ -48,13 +47,13 @@ type WorkbenchMonth struct {
 
 // WorkbenchKeyMetrics 关键指标
 type WorkbenchKeyMetrics struct {
-	RenewalRate      float64 `json:"renewal_rate"`      
-	AvgDealAmount    float64 `json:"avg_deal_amount"`   
-	RepurchaseRate   float64 `json:"repurchase_rate"`   
-	ChurnRate        float64 `json:"churn_rate"`        
-	AIAssistRate     float64 `json:"ai_assist_rate"`    
-	ActiveCustomers  int     `json:"active_customers"`  
-	DormantCustomers int     `json:"dormant_customers"` 
+	RenewalRate      float64 `json:"renewal_rate"`
+	AvgDealAmount    float64 `json:"avg_deal_amount"`
+	RepurchaseRate   float64 `json:"repurchase_rate"`
+	ChurnRate        float64 `json:"churn_rate"`
+	AIAssistRate     float64 `json:"ai_assist_rate"`
+	ActiveCustomers  int     `json:"active_customers"`
+	DormantCustomers int     `json:"dormant_customers"`
 }
 
 // WorkbenchOverview 工作台首页综合数据
@@ -77,11 +76,11 @@ type WorkbenchOverview struct {
 type SalesWorkbenchService struct {
 	mu sync.RWMutex
 
-	stats     *SalesEventStatsService
-	journey   *CustomerJourneyService
-	followup  *FollowUpService
-	draft     *OrderDraftService
-	tagger    *AITagger
+	stats    *SalesEventStatsService
+	journey  *CustomerJourneyService
+	followup *FollowUpService
+	draft    *OrderDraftService
+	tagger   *AITagger
 }
 
 // NewSalesWorkbenchService 创建工作台服务
@@ -329,7 +328,7 @@ func (s *SalesWorkbenchService) aggregateMetrics(ctx context.Context, salesID st
 	}
 	if totalOrders > 0 {
 		metrics.RepurchaseRate = float64(repurchaseOrders) / float64(totalOrders) * 100
-		metrics.AvgDealAmount = 0 
+		metrics.AvgDealAmount = 0
 	}
 	metrics.ActiveCustomers = len(uniqueCustomers)
 
@@ -374,7 +373,6 @@ func todayStart(now time.Time) time.Time {
 	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 }
 
-
 // GetTodosOnly 仅查询待办（前端轮询使用）
 func (s *SalesWorkbenchService) GetTodosOnly(ctx context.Context, salesID string) []*WorkbenchTodo {
 	s.mu.RLock()
@@ -404,4 +402,3 @@ type QuickAction struct {
 	URL   string `json:"url"`
 	Badge int    `json:"badge"`
 }
-

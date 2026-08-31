@@ -33,11 +33,11 @@ type ExportBundle struct {
 	ExportedAt time.Time `json:"exported_at"`
 	CustomerID string    `json:"customer_id"`
 
-	Customer    *model.Customer               `json:"customer"`
-	Sessions    []*model.CustomerSession      `json:"sessions"`
-	Messages    []*model.SessionMessage      `json:"messages"`
-	Tags        []*model.CustomerTag         `json:"tags"`
-	MemoryItems []*model.MemoryItem          `json:"memory_items"`
+	Customer    *model.Customer          `json:"customer"`
+	Sessions    []*model.CustomerSession `json:"sessions"`
+	Messages    []*model.SessionMessage  `json:"messages"`
+	Tags        []*model.CustomerTag     `json:"tags"`
+	MemoryItems []*model.MemoryItem      `json:"memory_items"`
 
 	MessageCount    int `json:"message_count"`
 	MemoryItemCount int `json:"memory_item_count"`

@@ -52,11 +52,10 @@ func newReachJobReq(pipelineID uint) *EnqueueJobRequest {
 		Channel:    "wecom",
 		CustomerID: fmt.Sprintf("customer-%d", n),
 		AccountID:  fmt.Sprintf("acc-%d", n),
-		Payload:  map[string]any{"content": "hello {{customer_id}}", "text": "hello"},
-		MaxRetry: 3,
+		Payload:    map[string]any{"content": "hello {{customer_id}}", "text": "hello"},
+		MaxRetry:   3,
 	}
 }
-
 
 func TestReachChannels_AllSupported(t *testing.T) {
 	channels := []string{"wecom", "sms", "email", "card", "dingtalk", "douyin", "kuaishou", "xiaohongshu", "telegram", "whatsapp", "feishu"}
@@ -75,7 +74,6 @@ func TestReachChannels_Unsupported(t *testing.T) {
 		}
 	}
 }
-
 
 func TestDefaultPipelineSteps_Complete(t *testing.T) {
 	if len(DefaultPipelineSteps) != 9 {
@@ -97,7 +95,6 @@ func TestDefaultPipelineSteps_Complete(t *testing.T) {
 	}
 }
 
-
 func TestDefaultRetryPolicy_Fields(t *testing.T) {
 	rp := DefaultRetryPolicy()
 	if rp.MaxRetries != 3 {
@@ -111,7 +108,6 @@ func TestDefaultRetryPolicy_Fields(t *testing.T) {
 	}
 }
 
-
 func TestDefaultRateLimit_Fields(t *testing.T) {
 	rl := DefaultRateLimit()
 	if rl.QPS != 10 {
@@ -124,7 +120,6 @@ func TestDefaultRateLimit_Fields(t *testing.T) {
 		t.Errorf("expected daily_quota=10000, got %d", rl.DailyQuota)
 	}
 }
-
 
 func TestValidateSteps_AllDefault(t *testing.T) {
 	svc := &ReachPipelineService{}
@@ -165,7 +160,6 @@ func TestValidateSteps_MixedValid(t *testing.T) {
 	}
 }
 
-
 func TestComputeNextRunTime_Fixed(t *testing.T) {
 	rp := RetryPolicy{MaxRetries: 3, IntervalMs: 1000, Backoff: "fixed"}
 	now := time.Now()
@@ -202,7 +196,6 @@ func TestComputeNextRunTime_ExponentialCapped(t *testing.T) {
 	}
 }
 
-
 func TestRateBucket_InitialBurst(t *testing.T) {
 	b := &rateBucket{tokens: 5, lastFill: time.Now(), burst: 5, qps: 1}
 	for i := 0; i < 5; i++ {
@@ -231,7 +224,6 @@ func TestRateBucket_BurstBounded(t *testing.T) {
 		t.Errorf("expected tokens <= burst, got %f", b.tokens)
 	}
 }
-
 
 func TestCreatePipeline_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -316,7 +308,6 @@ func TestCreatePipeline_VersionIncrement(t *testing.T) {
 	}
 }
 
-
 func TestUpdatePipeline_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
@@ -352,7 +343,6 @@ func TestUpdatePipeline_InvalidChannel(t *testing.T) {
 		t.Errorf("expected ErrReachInvalidChannel, got %v", err)
 	}
 }
-
 
 func TestGetPipeline_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -390,7 +380,6 @@ func TestGetPipeline_SingleTenant(t *testing.T) {
 		t.Errorf("Expected pipeline ID %d, got %v", pipe.ID, got)
 	}
 }
-
 
 func TestListPipelines_All(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -476,7 +465,6 @@ func TestListPipelines_LargePageSize(t *testing.T) {
 	}
 }
 
-
 func TestDeletePipeline_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
@@ -495,7 +483,6 @@ func TestDeletePipeline_NotFound(t *testing.T) {
 		t.Errorf("expected ErrReachPipelineNotFound, got %v", err)
 	}
 }
-
 
 func TestPausePipeline(t *testing.T) {
 	svc, db := newReachTestService(t)
@@ -536,7 +523,6 @@ func TestArchivePipeline(t *testing.T) {
 		t.Errorf("expected archived, got %s", got.Status)
 	}
 }
-
 
 func TestEnqueueJob_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -649,7 +635,6 @@ func TestEnqueueJob_DefaultNextRunAt(t *testing.T) {
 	}
 }
 
-
 func TestGetJob_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
@@ -670,7 +655,6 @@ func TestGetJob_NotFound(t *testing.T) {
 		t.Errorf("expected ErrReachJobNotFound, got %v", err)
 	}
 }
-
 
 func TestListJobs_All(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -742,7 +726,6 @@ func TestListJobs_EmptyMerchant(t *testing.T) {
 	}
 }
 
-
 func TestCancelJob_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
@@ -778,7 +761,6 @@ func TestCancelJob_AlreadySucceeded(t *testing.T) {
 	}
 }
 
-
 func TestRetryJob_Success(t *testing.T) {
 	svc, db := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
@@ -810,7 +792,6 @@ func TestRetryJob_NotFound(t *testing.T) {
 		t.Errorf("expected ErrReachJobNotPending, got %v", err)
 	}
 }
-
 
 func TestExecuteJob_Success(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -912,7 +893,6 @@ func TestExecuteJob_RateLimited(t *testing.T) {
 		t.Errorf("expected rate_limited, got %v", executed)
 	}
 }
-
 
 func TestCheckRateLimit_NoLimit(t *testing.T) {
 	svc := NewReachPipelineService(nil)
@@ -1023,7 +1003,6 @@ func TestConsumeDailyQuota(t *testing.T) {
 		t.Error("expected allow second")
 	}
 }
-
 
 func TestRunStep_Audience_NoCustomer(t *testing.T) {
 	svc := NewReachPipelineService(nil)
@@ -1206,7 +1185,6 @@ func TestRunStep_RateLimit_Deny(t *testing.T) {
 	}
 }
 
-
 func TestStats_ReachEmpty(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	stats, _ := svc.Stats(context.Background())
@@ -1275,7 +1253,6 @@ func TestStats_CanceledCount(t *testing.T) {
 	}
 }
 
-
 func TestPipelineStateMachine_ActiveToPausedToActive(t *testing.T) {
 	svc, db := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
@@ -1306,7 +1283,6 @@ func TestPipelineStateMachine_ActiveToArchived(t *testing.T) {
 		t.Error("expected error when enqueuing to archived pipeline")
 	}
 }
-
 
 func TestJobStateMachine_PendingToSuccess(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -1365,7 +1341,6 @@ func TestJobStateMachine_RateLimitedToPending(t *testing.T) {
 		t.Errorf("expected pending, got %s", got2.State)
 	}
 }
-
 
 func TestExecuteJob_Concurrent(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -1441,7 +1416,6 @@ func TestCheckRateLimit_Concurrent(t *testing.T) {
 	}
 	wg.Wait()
 }
-
 
 func TestCreatePipeline_EmptyName(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -1549,7 +1523,6 @@ func TestListPipelines_PageBoundaries(t *testing.T) {
 	}
 }
 
-
 func TestResetRateLimit_EmptyChannel(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	svc.ResetRateLimit(context.Background(), "")
@@ -1576,7 +1549,6 @@ func TestExecuteJob_AfterPipelineDeleted(t *testing.T) {
 	}
 }
 
-
 func TestComputeNextRunTime_FirstRetry(t *testing.T) {
 	rp := RetryPolicy{MaxRetries: 3, IntervalMs: 500, Backoff: "fixed"}
 	now := time.Now()
@@ -1602,7 +1574,6 @@ func TestExecuteJob_StartEndTime(t *testing.T) {
 		t.Errorf("expected positive duration, got %d", executed.DurationMs)
 	}
 }
-
 
 func TestExecuteJob_StepOrder(t *testing.T) {
 	svc, _ := newReachTestService(t)
@@ -1636,7 +1607,6 @@ func TestExecuteJob_AllStepsSuccessful(t *testing.T) {
 	}
 }
 
-
 func TestAppendStepResult(t *testing.T) {
 	svc, db := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
@@ -1659,7 +1629,6 @@ func toBytes(v any) []byte {
 func jsonUnmarshal(data []byte, v any) error {
 	return json.Unmarshal(data, v)
 }
-
 
 func TestPrepareContent_NilJob(t *testing.T) {
 	svc := NewReachPipelineService(nil)
@@ -2026,7 +1995,6 @@ func TestRenderReachTemplate_UnclosedPlaceholder(t *testing.T) {
 	}
 }
 
-
 func TestFullPipeline_RenderAndTrack(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	req := newReachPipelineReq("m-1")
@@ -2090,7 +2058,7 @@ func TestFullPipeline_FailOnEmptyContent(t *testing.T) {
 func TestFullPipeline_FailOnUnimplementedChannel(t *testing.T) {
 	svc, _ := newReachTestService(t)
 	req := newReachPipelineReq("m-1")
-	req.Channel = "douyin" 
+	req.Channel = "douyin"
 	pipe, _ := svc.CreatePipeline(context.Background(), req)
 	jobReq := &EnqueueJobRequest{
 		PipelineID: pipe.ID,
@@ -2110,4 +2078,3 @@ func TestFullPipeline_FailOnUnimplementedChannel(t *testing.T) {
 		t.Errorf("expected error message about douyin, got %q", executed.ErrorMessage)
 	}
 }
-

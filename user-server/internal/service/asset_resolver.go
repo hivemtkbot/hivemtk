@@ -56,7 +56,6 @@ func (r *AssetResolver) activeAssetID(ctx context.Context, assetType string) (st
 	return aid, true
 }
 
-
 func (r *AssetResolver) GetActivePersona(ctx context.Context) (*AgentPersona, bool) {
 	if aid, ok := r.activeAssetID(ctx, "agent_persona"); ok {
 		if p, err := r.agent.LoadPersona(ctx, aid); err == nil {
@@ -102,7 +101,6 @@ func (r *AssetResolver) GetActiveWorkflow(ctx context.Context) (*MarketingWorkfl
 	return nil, false
 }
 
-
 func (r *AssetResolver) LoadPersona(ctx context.Context, assetID string) (*AgentPersona, error) {
 	return r.agent.LoadPersona(ctx, assetID)
 }
@@ -123,7 +121,6 @@ func (r *AssetResolver) LoadWorkflow(ctx context.Context, assetID string) (*Mark
 	return r.workflow.LoadWorkflow(ctx, assetID)
 }
 
-
 func (r *AssetResolver) ListPersonas(ctx context.Context) ([]*AgentPersona, error) {
 	return r.agent.ListAllPersonas(ctx)
 }
@@ -143,4 +140,3 @@ func (r *AssetResolver) ListPlans(ctx context.Context) ([]*ABTestPlan, error) {
 func (r *AssetResolver) ListWorkflows(ctx context.Context) ([]*MarketingWorkflow, error) {
 	return r.workflow.ListAllWorkflows(ctx)
 }
-

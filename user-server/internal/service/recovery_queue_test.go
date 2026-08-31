@@ -94,7 +94,6 @@ func TestRecoveryQueueService_Cancel(t *testing.T) {
 	}
 }
 
-
 type mockRecoveryRepo struct {
 	items map[uint64]*model.RecoveryQueue
 	next  uint64
@@ -213,4 +212,3 @@ func (e errAlreadyQueued) Error() string { return e.msg }
 type errNotFound struct{ msg string }
 
 func (e errNotFound) Error() string { return e.msg }
-

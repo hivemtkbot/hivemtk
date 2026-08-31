@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"time"
@@ -49,7 +48,7 @@ func (s *IntentRecognizer) RecognizeSpeculative(
 		s.saveRecord(ctx, sessionID, customerID, text, r, "", 0, 0)
 		ch := make(chan *dto.RecognizeResult, 1)
 		if s.dispatcher != nil {
-			go s.runLLMAsync(sessionID, customerID, text, ch, true )
+			go s.runLLMAsync(sessionID, customerID, text, ch, true)
 		} else {
 			ch <- r
 			close(ch)
@@ -67,7 +66,7 @@ func (s *IntentRecognizer) RecognizeSpeculative(
 	}
 	ch := make(chan *dto.RecognizeResult, 1)
 	if s.dispatcher != nil {
-		go s.runLLMAsync(sessionID, customerID, text, ch, false )
+		go s.runLLMAsync(sessionID, customerID, text, ch, false)
 	} else {
 		ch <- placeholder
 		close(ch)
@@ -106,4 +105,3 @@ func (s *IntentRecognizer) runLLMAsync(
 		ch <- llmR
 	}
 }
-

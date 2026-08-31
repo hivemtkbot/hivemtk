@@ -97,8 +97,8 @@ func TestInbox_GroupMessage_TriggersAI_WithMeta(t *testing.T) {
 		EventID:        "g1",
 		Channel:        "xiaohongshu",
 		ConversationID: "group-1",
-		SenderID:       "group-1", 
-		SenderName:     "张三",      
+		SenderID:       "group-1",
+		SenderName:     "张三",
 		Content:        "@客服 帮我查一下订单",
 		IsGroup:        true,
 		GroupID:        "group-1",
@@ -163,4 +163,3 @@ func TestIsDuplicateKey(t *testing.T) {
 		})
 	}
 }
-

@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"context"
 	"sync"
@@ -12,7 +11,7 @@ import (
 // ThresholdPolicyEngine 动态阈值策略引擎
 type ThresholdPolicyEngine struct {
 	mu       sync.RWMutex
-	policies map[string]*model.ThresholdPolicy 
+	policies map[string]*model.ThresholdPolicy
 	repo     *repository.ThresholdPolicyRepository
 }
 
@@ -127,4 +126,3 @@ func (e *ThresholdPolicyEngine) AllPolicies() []model.ThresholdPolicy {
 	}
 	return result
 }
-

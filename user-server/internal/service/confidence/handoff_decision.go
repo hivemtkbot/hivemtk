@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"context"
 	"fmt"
@@ -129,4 +128,3 @@ func timeslotLabel(t time.Time) string {
 		return "normal"
 	}
 }
-

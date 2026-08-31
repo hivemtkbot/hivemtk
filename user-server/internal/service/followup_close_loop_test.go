@@ -5,9 +5,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-
 )
-
 
 // TestFollowUp_CompleteWithResult_StageAdvance 跟进结果推进客户旅程
 func TestFollowUp_CompleteWithResult_StageAdvance(t *testing.T) {
@@ -361,8 +359,6 @@ func TestFollowUp_CompleteWithResult_FunnelTracking(t *testing.T) {
 	t.Logf("✅ 漏斗正确：%d → %d → %d → %d (50/30/15/5)", contactedCount, interestedCount, quotedCount, wonCount)
 }
 
-
-
 func intToStr(i int) string {
 	if i == 0 {
 		return "0"
@@ -384,4 +380,3 @@ func intToStr(i int) string {
 	}
 	return string(buf[pos:])
 }
-

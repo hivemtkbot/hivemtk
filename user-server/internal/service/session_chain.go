@@ -54,10 +54,10 @@ const AutoResolveConfigKey = "session.auto_resolve"
 
 // AutoResolveConfig SLA 配置
 type AutoResolveConfig struct {
-	Enabled        bool `json:"enabled"`
-	Hours          int  `json:"hours"`           // 无活动超过 N 小时自动解决
-	OnlyClosedOff  bool `json:"only_open_like"`  // 仅 open 类状态（pending/ai_handling/waiting）
-	AddTag         string `json:"add_tag"`       // 自动关闭时打的标签（如 auto_resolved）
+	Enabled       bool   `json:"enabled"`
+	Hours         int    `json:"hours"`          // 无活动超过 N 小时自动解决
+	OnlyClosedOff bool   `json:"only_open_like"` // 仅 open 类状态（pending/ai_handling/waiting）
+	AddTag        string `json:"add_tag"`        // 自动关闭时打的标签（如 auto_resolved）
 }
 
 // DefaultAutoResolveConfig 默认关闭

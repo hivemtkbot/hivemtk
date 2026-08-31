@@ -302,7 +302,6 @@ func NewSubflowNodeExecutor(orch *WorkflowOrchestratorService) *SubflowNodeExecu
 	return &SubflowNodeExecutor{orchestrator: orch}
 }
 
-
 func (e *SubflowNodeExecutor) NodeType() string { return WorkflowNodeTypeSubflow }
 
 func (e *SubflowNodeExecutor) IsAsync() bool { return false }

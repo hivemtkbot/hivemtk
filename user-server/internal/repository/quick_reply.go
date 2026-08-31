@@ -63,4 +63,3 @@ func (r *QuickReplyRepository) GetCategories(ctx context.Context) ([]string, err
 		Distinct("category").Pluck("category", &categories).Error
 	return categories, err
 }
-

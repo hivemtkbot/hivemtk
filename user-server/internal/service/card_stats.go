@@ -26,4 +26,3 @@ type PlatformCardStatsService interface {
 
 	RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error
 }
-

@@ -91,9 +91,9 @@ func (s *KBConnectorService) Get(ctx context.Context, source string) ConnectorSt
 	st.Config = maskConnectorConfig(saved.Config)
 	// 附带测试结果（如有）
 	var testRes struct {
-		At   string `json:"at"`
-		OK   bool   `json:"ok"`
-		Msg  string `json:"msg"`
+		At  string `json:"at"`
+		OK  bool   `json:"ok"`
+		Msg string `json:"msg"`
 	}
 	if err := json.Unmarshal([]byte(raw), &testRes); err == nil && testRes.At != "" {
 		st.LastTestAt = &testRes.At
@@ -168,8 +168,8 @@ func (s *KBConnectorService) Test(ctx context.Context, source string) (*TestResu
 	// 回写测试结果（凭据原样保留）
 	merged, _ := json.Marshal(struct {
 		SaveConnectorRequest
-		TestAt string `json:"test_at"`
-		TestOK bool   `json:"test_ok"`
+		TestAt  string `json:"test_at"`
+		TestOK  bool   `json:"test_ok"`
 		TestMsg string `json:"test_msg"`
 	}{saved, time.Now().Format(time.RFC3339), res.OK, res.Message})
 	_, _ = s.kv.Upsert(ctx, connectorKVKey(source), string(merged))

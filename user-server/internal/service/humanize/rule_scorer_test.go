@@ -1,13 +1,11 @@
 package humanize
 
-
 import (
 	"context"
 	"testing"
 
 	"hivemtk-user/internal/dto"
 )
-
 
 // TestRuleScorer_Evaluate_Basic 基本 5 维评分输出
 func TestRuleScorer_Evaluate_Basic(t *testing.T) {
@@ -63,7 +61,6 @@ func TestRuleScorer_Evaluate_EmptyReply(t *testing.T) {
 		t.Error("空 AIReply 应报错")
 	}
 }
-
 
 // TestRuleScorer_Naturalness_AITrace AI 痕迹词触发重罚
 func TestRuleScorer_Naturalness_AITrace(t *testing.T) {
@@ -126,7 +123,6 @@ func TestRuleScorer_Naturalness_Burstiness(t *testing.T) {
 		t.Logf("变长句 Naturalness=%v, 等长句=%v（变长应不低于等长）", n2, n1)
 	}
 }
-
 
 // TestRuleScorer_Conciseness_InRange 字数在期望范围内得高分
 func TestRuleScorer_Conciseness_InRange(t *testing.T) {
@@ -192,7 +188,6 @@ func TestRuleScorer_Conciseness_UnknownIntent(t *testing.T) {
 	}
 }
 
-
 // TestRuleScorer_Empathy_ComplaintNoEmpathy 投诉场景无共情直接 ≤ 0.4
 func TestRuleScorer_Empathy_ComplaintNoEmpathy(t *testing.T) {
 	scorer := NewRuleScorer()
@@ -238,7 +233,6 @@ func TestRuleScorer_Empathy_NonComplaint(t *testing.T) {
 	}
 }
 
-
 // TestRuleScorer_Professionalism_WithProWords 专业词密度提升得分
 func TestRuleScorer_Professionalism_WithProWords(t *testing.T) {
 	scorer := NewRuleScorer()
@@ -266,7 +260,6 @@ func TestRuleScorer_Professionalism_NoProWords(t *testing.T) {
 		t.Errorf("无专业词 Professionalism 应 ≤ 0.7, got %v", score)
 	}
 }
-
 
 // TestRuleScorer_Persuasiveness_WithActionAndBenefit 行动召唤+利益词得高分
 func TestRuleScorer_Persuasiveness_WithActionAndBenefit(t *testing.T) {
@@ -296,7 +289,6 @@ func TestRuleScorer_Persuasiveness_NoCallToAction(t *testing.T) {
 	}
 }
 
-
 // TestRuleScorer_TotalScore_WeightedSum 综合分 = Σ w_i * s_i
 func TestRuleScorer_TotalScore_WeightedSum(t *testing.T) {
 	scorer := NewRuleScorer()
@@ -315,7 +307,6 @@ func TestRuleScorer_TotalScore_WeightedSum(t *testing.T) {
 	}
 }
 
-
 // TestCountRunes 字符计数
 func TestCountRunes(t *testing.T) {
 	tests := []struct {
@@ -325,7 +316,7 @@ func TestCountRunes(t *testing.T) {
 		{"", 0},
 		{"hello", 5},
 		{"你好世界", 4},
-		{"  a b  ", 2}, 
+		{"  a b  ", 2},
 		{"a b c", 3},
 	}
 	for _, tt := range tests {
@@ -359,10 +350,10 @@ func TestSplitSentences(t *testing.T) {
 // TestComputeBurstiness burstiness 计算
 func TestComputeBurstiness(t *testing.T) {
 	tests := []struct {
-		name  string
-		input string
+		name         string
+		input        string
 		expectNonNeg bool
-		expectLow    bool 
+		expectLow    bool
 	}{
 		{"empty", "", true, true},
 		{"single sentence", "你好。", true, true},
@@ -418,7 +409,6 @@ func TestClampScore(t *testing.T) {
 	}
 }
 
-
 // TestIntentExpectedLength 各意图字数范围
 func TestIntentExpectedLength(t *testing.T) {
 	tests := []struct {
@@ -449,7 +439,6 @@ func TestIntentExpectedLength(t *testing.T) {
 		}
 	}
 }
-
 
 // TestRuleScorer_Evaluate_ComplaintScenario 投诉场景端到端
 func TestRuleScorer_Evaluate_ComplaintScenario(t *testing.T) {
@@ -496,4 +485,3 @@ func TestRuleScorer_Evaluate_SalesScenario(t *testing.T) {
 		t.Errorf("合理销售回复综合分应 ≥ 0.6, got %v", result.TotalScore)
 	}
 }
-

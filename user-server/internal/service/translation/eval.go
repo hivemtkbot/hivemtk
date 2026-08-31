@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // EvalLogRepository 评估日志仓储接口（由 repository 层实现）。
 type EvalLogRepository interface {
 	ListRecentCalls(ctx context.Context, lang string, limit int) ([]*model.LLMRoutingLog, error)
@@ -23,11 +22,11 @@ type EvalService struct {
 	chrF       *eval.ChrFEvaluator
 	judge      eval.LLMJudge
 	logRepo    EvalLogRepository
-	sampleRate float64 
+	sampleRate float64
 	enabled    bool
 
-	sampledCount   int64 
-	evaluatedCount int64 
+	sampledCount   int64
+	evaluatedCount int64
 }
 
 // NewEvalService 创建评估服务。
@@ -149,4 +148,3 @@ func (s *EvalService) evaluate(ctx context.Context, log *model.LLMRoutingLog, qu
 
 	atomic.AddInt64(&s.evaluatedCount, 1)
 }
-

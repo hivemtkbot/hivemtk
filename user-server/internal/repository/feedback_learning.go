@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"errors"
@@ -20,7 +19,6 @@ type FeedbackLearningRepository struct {
 func NewFeedbackLearningRepository(db *gorm.DB) *FeedbackLearningRepository {
 	return &FeedbackLearningRepository{db: db}
 }
-
 
 // ListAIMessagesByPeriod 查询指定时间段内的 AI 回复消息
 //
@@ -68,7 +66,6 @@ func (r *FeedbackLearningRepository) ListCustomerMessagesBySessions(ctx context.
 	return msgs, nil
 }
 
-
 // CreateNodeTransition 创建节点流转记录
 // t 为 nil 时直接返回 nil（与原 service 实现一致）
 func (r *FeedbackLearningRepository) CreateNodeTransition(ctx context.Context, t *model.SOPNodeTransition) error {
@@ -100,7 +97,6 @@ func (r *FeedbackLearningRepository) ListNodeTransitionsBySOPAndVariant(ctx cont
 	}
 	return transitions, nil
 }
-
 
 // CreateSuggestionsInBatches 批量创建优化建议
 //
@@ -152,7 +148,6 @@ func (r *FeedbackLearningRepository) UpdateSuggestionFields(ctx context.Context,
 		Updates(fields).Error
 }
 
-
 // CreateProfileSnapshot 创建画像快照
 func (r *FeedbackLearningRepository) CreateProfileSnapshot(ctx context.Context, snapshot *model.SalesChampionProfileSnapshot) error {
 	if r == nil || r.db == nil {
@@ -185,4 +180,3 @@ func (r *FeedbackLearningRepository) ListLatestProfileSnapshots(ctx context.Cont
 	}
 	return list, nil
 }
-

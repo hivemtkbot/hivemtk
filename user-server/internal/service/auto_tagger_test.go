@@ -444,7 +444,6 @@ func TestAutoTagger_EvaluateAndTag(t *testing.T) {
 	}
 }
 
-
 // setupCustomerWithTags 创建测试客户并写入指定标签
 func setupCustomerWithTags(t *testing.T, tagger *AutoTagger, phone string, tags []string) *model.Customer {
 	customerService := NewCustomerService()
@@ -466,10 +465,10 @@ func setupCustomerWithTags(t *testing.T, tagger *AutoTagger, phone string, tags 
 // createRuleWithRemoveCondition 创建带 remove_condition 的自动标签规则
 func createRuleWithRemoveCondition(t *testing.T, tagger *AutoTagger, name string, removeCond map[string]any) {
 	rule := map[string]any{
-		"type":            "simple",
-		"field":           "rfm_score",
-		"operator":        "gte",
-		"value":           9999,
+		"type":             "simple",
+		"field":            "rfm_score",
+		"operator":         "gte",
+		"value":            9999,
 		"remove_condition": removeCond,
 	}
 	if err := tagger.CreateAutoTag(context.Background(), name, string(model.TagCategoryBehavioral), rule); err != nil {

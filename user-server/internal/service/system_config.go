@@ -84,8 +84,7 @@ func (s *SystemConfigService) defaultConfig(ctx context.Context) *model.SystemCo
 		EnableEmailMarketing: true,
 		EnableRAG:            true,
 		MaintenanceMode:      false,
-		MaxUsers:          0,
-		MaxUploadSizeMB:   50,
+		MaxUsers:             0,
+		MaxUploadSizeMB:      50,
 	}
 }
-

@@ -397,7 +397,6 @@ func TestAccountService_DeleteAccount_NonExistent(t *testing.T) {
 	}
 }
 
-
 // TestAccountService_CreateAccount_WithEmptyFields 测试创建账户时空字段处理
 func TestAccountService_CreateAccount_WithEmptyFields(t *testing.T) {
 	setupAccountServiceTestDB(t)
@@ -542,7 +541,7 @@ func TestAccountService_CreateAccount_WithLargeGroupID(t *testing.T) {
 	account := model.Account{
 		TgName:     "large_group_account",
 		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
-		GroupID:    9223372036854775807, 
+		GroupID:    9223372036854775807,
 		Price:      "100.00",
 		URL:        "http://example.com",
 	}
@@ -782,4 +781,3 @@ func TestAccountService_UpdateAccount_WithMinimalFields(t *testing.T) {
 		t.Errorf("Expected Price '999.99', got %s", result.Price)
 	}
 }
-

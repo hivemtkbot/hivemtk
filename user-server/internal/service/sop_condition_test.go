@@ -7,7 +7,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 func TestSOPParseCondition_Wrap(t *testing.T) {
 	cases := []struct {
 		input     string
@@ -161,7 +160,7 @@ func TestSOPEvaluateConditionBranches_PriorityRouting(t *testing.T) {
 		{"high_intent", map[string]any{"intent_score": float64(0.85)}, true, "close_node"},
 		{"mid_intent", map[string]any{"intent_score": float64(0.55)}, true, "nurture_node"},
 		{"low_intent", map[string]any{"intent_score": float64(0.2)}, true, "activate_node"},
-		{"missing_field", map[string]any{}, true, "activate_node"}, 
+		{"missing_field", map[string]any{}, true, "activate_node"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -194,7 +193,7 @@ func TestSOPEvaluateConditionBranches_PriorityRouting(t *testing.T) {
 func TestSOPEvaluateConditionBranches_CatchAll(t *testing.T) {
 	branches := []SOPConditionBranch{
 		{Label: "高意向", Condition: "intent_score gte 0.7", Next: "close_node", Priority: 100},
-		{Label: "兜底", Condition: "", Next: "activate_node", Priority: 0}, 
+		{Label: "兜底", Condition: "", Next: "activate_node", Priority: 0},
 	}
 
 	br, err := SOPEvaluateConditionBranches(branches, map[string]any{"intent_score": float64(0.85)})
@@ -342,7 +341,6 @@ func TestSOPEvaluateNodeCondition_NilNode(t *testing.T) {
 	}
 }
 
-
 func TestNextNode_ConditionNode_PriorityRouting(t *testing.T) {
 	graph := &SOPGraph{
 		Nodes: []SOPNode{
@@ -355,7 +353,7 @@ func TestNextNode_ConditionNode_PriorityRouting(t *testing.T) {
 					{Label: "高", Condition: "score gte 0.7", Next: "high", Priority: 100},
 					{Label: "低", Condition: "", Next: "low", Priority: 0},
 				},
-				Next: []string{"low"}, 
+				Next: []string{"low"},
 			},
 			{ID: "high", Type: SOPNodeTypeClose, Name: "促单", Next: []string{"end"}},
 			{ID: "low", Type: SOPNodeTypeNurture, Name: "培育", Next: []string{"end"}},
@@ -513,4 +511,3 @@ func TestValidateGraph_NewNodeTypes(t *testing.T) {
 		t.Error("expected error for missing condition branch target")
 	}
 }
-

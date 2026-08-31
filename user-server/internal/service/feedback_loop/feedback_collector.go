@@ -1,6 +1,5 @@
 package feedbackloop
 
-
 import (
 	"context"
 	"crypto/rand"
@@ -22,9 +21,9 @@ import (
 type FeedbackCollector struct {
 	repo   *repository.FeedbackLoopRepository
 	config FeedbackCollectorConfig
-	queue  chan *dto.CollectRequest 
-	stopCh chan struct{}            
-	done   chan struct{}            
+	queue  chan *dto.CollectRequest
+	stopCh chan struct{}
+	done   chan struct{}
 }
 
 // NewFeedbackCollector 创建采集器（启动后台 worker）
@@ -96,7 +95,6 @@ func (c *FeedbackCollector) Stop() {
 	<-c.done
 }
 
-
 // worker 后台 worker（批量写入 + 信号聚合）
 func (c *FeedbackCollector) worker() {
 	defer close(c.done)
@@ -155,7 +153,6 @@ func (c *FeedbackCollector) flushBatch(ctx context.Context, batch []*dto.Collect
 	}
 }
 
-
 // persist 持久化单条事件 + upsert feedback_signals
 //
 // 事务（由 repository 封装）：
@@ -205,7 +202,6 @@ func (c *FeedbackCollector) persist(ctx context.Context, req *dto.CollectRequest
 	}
 	return c.repo.PersistFeedback(ctx, event, sig)
 }
-
 
 // lookupWeight 查找信号权重（未配置则返回 0）
 func (c *FeedbackCollector) lookupWeight(key dto.FeedbackSignalKey) float64 {
@@ -286,4 +282,3 @@ func (c *FeedbackCollector) genEventID(req *dto.CollectRequest) string {
 	h.Write(nonce)
 	return hex.EncodeToString(h.Sum(nil))[:32]
 }
-

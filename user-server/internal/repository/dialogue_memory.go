@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 
@@ -82,4 +81,3 @@ func (r *dialogueMemoryRepository) ListMessageHubByConversation(ctx context.Cont
 	}
 	return records, nil
 }
-

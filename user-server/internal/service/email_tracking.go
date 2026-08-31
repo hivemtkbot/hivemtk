@@ -34,8 +34,8 @@ const emailTrackingDefaultSecret = "marketing-tools-kit-email-tracking-dev-secre
 type EmailTrackingClaim struct {
 	Email  string `json:"email"`
 	JobID  string `json:"job_id"`
-	Type   string `json:"type"`             
-	Target string `json:"target,omitempty"` 
+	Type   string `json:"type"`
+	Target string `json:"target,omitempty"`
 	Expire int64  `json:"expire"`
 	Nonce  string `json:"nonce"`
 }
@@ -83,7 +83,7 @@ func (s *EmailTrackingService) generateToken(ctx context.Context, email, jobID, 
 		JobID:  jobID,
 		Type:   tokenType,
 		Target: target,
-		Expire: time.Now().Add(90 * 24 * time.Hour).Unix(), 
+		Expire: time.Now().Add(90 * 24 * time.Hour).Unix(),
 		Nonce:  fmt.Sprintf("track-%s", uuid.NewString()),
 	}
 	payload, err := json.Marshal(claim)
@@ -348,4 +348,3 @@ func (s *EmailTrackingService) baseURL(ctx context.Context) string {
 func round2(v float64) float64 {
 	return math.Round(v*100) / 100
 }
-

@@ -238,7 +238,6 @@ func TestRecheck_FullScenario_OrphanMessage(t *testing.T) {
 	})
 	svc.ReleaseAIProcessingFlag(context.Background(), convID)
 
-
 	db.Where("conversation_id = ?", convID).Delete(&model.MessageHub{})
 
 	db.Create(&model.MessageHub{
@@ -276,7 +275,7 @@ func TestRecheck_FullScenario_OrphanMessage(t *testing.T) {
 func TestRecheck_ContextCanceled_NoBlock(t *testing.T) {
 	svc := NewInboxIngressServiceWithDB(nil, nil)
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() 
+	cancel()
 	done := make(chan struct{})
 	go func() {
 		svc.RecheckUnrepliedAndTrigger(ctx, "conv1", "")
@@ -288,4 +287,3 @@ func TestRecheck_ContextCanceled_NoBlock(t *testing.T) {
 		t.Fatal("context 取消后 RecheckUnrepliedAndTrigger 应立即返回，但阻塞了 2s")
 	}
 }
-

@@ -321,4 +321,3 @@ func TestMessageRepository_Create_VariousTextLengths(t *testing.T) {
 		t.Errorf("Expected total 5, got %d", total)
 	}
 }
-

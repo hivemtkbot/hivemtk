@@ -167,17 +167,17 @@ func customerNameOf(c *model.Customer) string {
 
 // ChannelMessage 渠道无关的入站消息（WebhookService → SalesEngine 桥接）
 type ChannelMessage struct {
-	Channel      string `json:"channel"`       
-	AccountID    string `json:"account_id"`    
-	ExternalUser string `json:"external_user"` 
-	Nickname     string `json:"nickname"`      
-	Content      string `json:"content"`       
-	MsgType      string `json:"msg_type"`      
-	ChatID       string `json:"chat_id"`       
-	IsGroup      bool   `json:"is_group"`      
-	MediaURL     string `json:"media_url"`     
-	RawData      string `json:"raw_data"`      
-	ReceivedAt   int64  `json:"received_at"`   
+	Channel      string `json:"channel"`
+	AccountID    string `json:"account_id"`
+	ExternalUser string `json:"external_user"`
+	Nickname     string `json:"nickname"`
+	Content      string `json:"content"`
+	MsgType      string `json:"msg_type"`
+	ChatID       string `json:"chat_id"`
+	IsGroup      bool   `json:"is_group"`
+	MediaURL     string `json:"media_url"`
+	RawData      string `json:"raw_data"`
+	ReceivedAt   int64  `json:"received_at"`
 }
 
 // normalizeChannelMessage 渠道特定清洗 → 通用字段
@@ -209,4 +209,3 @@ func (e *SalesEngine) normalizeChannelMessage(ctx context.Context, msg *ChannelM
 	customerID = msg.Channel + ":" + msg.ExternalUser
 	return
 }
-

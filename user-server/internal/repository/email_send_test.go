@@ -44,7 +44,7 @@ func TestEmailSendRepository_Create(t *testing.T) {
 				To:      "user@example.com",
 				Subject: "Test Email",
 				Content: "This is a test email content",
-				Status:  0, 
+				Status:  0,
 				SendTime: func() *time.Time {
 					t := time.Now().Add(time.Hour)
 					return &t
@@ -74,7 +74,7 @@ func TestEmailSendRepository_Create(t *testing.T) {
 				To:       "user@example.com",
 				Subject:  "Already sent",
 				Content:  "Content",
-				Status:   1, 
+				Status:   1,
 				SendTime: func() *time.Time { t := time.Now(); return &t }(),
 				SmtpID:   "smtp-2",
 			},
@@ -208,7 +208,7 @@ func TestEmailSendRepository_UpdateStatus(t *testing.T) {
 		To:      "update@example.com",
 		Subject: "Status Update Test",
 		Content: "Content",
-		Status:  0, 
+		Status:  0,
 	}
 	repo.Create(ctx, email)
 
@@ -322,4 +322,3 @@ func TestEmailSendRepository_List_EmptyResult(t *testing.T) {
 		t.Errorf("Expected 0 emails, got %d", len(results))
 	}
 }
-

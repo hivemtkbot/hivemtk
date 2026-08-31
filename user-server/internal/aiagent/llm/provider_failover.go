@@ -1,6 +1,5 @@
 package llm
 
-
 import (
 	"context"
 	"encoding/json"
@@ -43,19 +42,18 @@ type ProviderHealth struct {
 	LastError           string         `json:"last_error,omitempty"`
 	ConsecutiveFailures int            `json:"consecutive_failures"`
 	CircuitOpenUntil    time.Time      `json:"circuit_open_until,omitempty"`
-	LatencyP95Ms int64 `json:"latency_p95_ms,omitempty"`
+	LatencyP95Ms        int64          `json:"latency_p95_ms,omitempty"`
 }
-
 
 // FailoverConfig 降级策略配置（从 system_kv_config 表 key=llm_provider_failover 读取）
 type FailoverConfig struct {
-	HealthCheckInterval int `json:"health_check_interval"`
-	FailureThreshold int `json:"failure_threshold"`
-	CircuitOpenDuration int `json:"circuit_open_duration"`
-	DegradedLatencyMs int64 `json:"degraded_latency_ms"`
+	HealthCheckInterval   int    `json:"health_check_interval"`
+	FailureThreshold      int    `json:"failure_threshold"`
+	CircuitOpenDuration   int    `json:"circuit_open_duration"`
+	DegradedLatencyMs     int64  `json:"degraded_latency_ms"`
 	LocalFallbackProvider string `json:"local_fallback_provider"`
-	TemplateReply string `json:"template_reply"`
-	HealthCheckPath string `json:"health_check_path"`
+	TemplateReply         string `json:"template_reply"`
+	HealthCheckPath       string `json:"health_check_path"`
 }
 
 // DefaultFailoverConfig 默认降级策略
@@ -74,7 +72,7 @@ func DefaultFailoverConfig() FailoverConfig {
 // FailoverPolicy 降级策略（从 system_kv_config 读取的完整 JSON）
 type FailoverPolicy struct {
 	Config    FailoverConfig      `json:"config"`
-	Scenarios map[string][]string `json:"scenarios"` 
+	Scenarios map[string][]string `json:"scenarios"`
 }
 
 // DefaultFailoverPolicy 默认降级策略（注入到 system_kv_config 表的种子数据）
@@ -563,7 +561,6 @@ func IsDegraded(result *DispatchResult) bool {
 	return result != nil && result.Provider == "degraded" && result.Model == "template"
 }
 
-
 var (
 	globalFailover     *ProviderFailover
 	globalFailoverOnce sync.Once
@@ -581,4 +578,3 @@ func InitGlobalFailover(dispatcher *Dispatcher, db *gorm.DB) *ProviderFailover {
 func GetGlobalFailover() *ProviderFailover {
 	return globalFailover
 }
-

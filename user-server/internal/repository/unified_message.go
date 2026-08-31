@@ -232,4 +232,3 @@ func (r *platformAccountRepo) UpdateLastSync(ctx context.Context, id uint) error
 	now := time.Now()
 	return r.db.WithContext(ctx).Model(&model.PlatformAccount{}).Where("id = ?", id).Update("last_sync_at", now).Error
 }
-

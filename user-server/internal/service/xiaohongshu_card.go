@@ -267,7 +267,7 @@ func (s *xiaohongshuCardService) GenerateShortLink(ctx context.Context, card *mo
 	}
 
 	// 获取域名池信息
-	var domainID uint = 0 
+	var domainID uint = 0
 	if card.DomainPoolID != nil {
 		domainID = *card.DomainPoolID
 	}
@@ -281,17 +281,17 @@ func (s *xiaohongshuCardService) GenerateShortLink(ctx context.Context, card *mo
 	}
 
 	// v3 审计修复：短链目标必须是绝对 https 地址（铁律#24），
-		// 相对路径 "/xiaohongshu/card/:id" 在 validateTargetURL 处必然被拒。
-		// 优先使用卡片跳转目标；未配置时跳过短链生成（保持创建主流程可用）。
-		if card.RedirectURL == "" {
-			return nil
-		}
-		createReq := &dto.CreateShortLinkRequest{
-			ShortCode:   shortCodeResp.ShortCode,
-			OriginalURL: card.RedirectURL,
+	// 相对路径 "/xiaohongshu/card/:id" 在 validateTargetURL 处必然被拒。
+	// 优先使用卡片跳转目标；未配置时跳过短链生成（保持创建主流程可用）。
+	if card.RedirectURL == "" {
+		return nil
+	}
+	createReq := &dto.CreateShortLinkRequest{
+		ShortCode:   shortCodeResp.ShortCode,
+		OriginalURL: card.RedirectURL,
 		Title:       card.Title,
 		Description: card.Description,
-		DomainID:    domainID, 
+		DomainID:    domainID,
 	}
 
 	shortLinkResp, err := s.shortLinkService.Create(ctx, createReq)
@@ -359,4 +359,3 @@ func (s *xiaohongshuCardService) toResponseWithShortLink(ctx context.Context, ca
 		UpdatedAt:    card.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 }
-

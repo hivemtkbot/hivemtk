@@ -42,8 +42,8 @@ type PasswordPolicy struct {
 	ForbidCommon     bool     `json:"forbid_common"`
 	CommonPasswords  []string `json:"common_passwords"`
 	ForbidReuse      bool     `json:"forbid_reuse"`
-	ReuseCount       int      `json:"reuse_count"` 
-	ExpiryDays       int      `json:"expiry_days"` 
+	ReuseCount       int      `json:"reuse_count"`
+	ExpiryDays       int      `json:"expiry_days"`
 }
 
 // DefaultPasswordPolicy 默认密码策略
@@ -298,7 +298,7 @@ func (s *PasswordPolicyService) checkPasswordHistory(ctx context.Context, userID
 	histories, err := s.historyRepo.ListRecent(ctx, userID, reuseCount)
 	if err != nil {
 		logger.Errorf("查询密码历史失败: %v", err)
-		return nil 
+		return nil
 	}
 
 	for _, h := range histories {
@@ -370,4 +370,3 @@ func ValidatePasswordStrength(password string) error {
 	s := NewPasswordPolicyService()
 	return s.ValidatePasswordWithPolicy(context.Background(), password, 0, &DefaultPasswordPolicy)
 }
-

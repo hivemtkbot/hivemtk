@@ -258,4 +258,3 @@ func (r *platformAccountRepoForTest) UpdateStatus(ctx context.Context, id uint, 
 func (r *platformAccountRepoForTest) UpdateLastSync(ctx context.Context, id uint) error {
 	return r.db.Model(&model.PlatformAccount{}).Where("id = ?", id).Update("last_sync_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
 }
-

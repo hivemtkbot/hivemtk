@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"time"
@@ -60,7 +59,7 @@ type ChampionDialoguePersist struct {
 	Scenario           string
 	CustomerMsg        string
 	ChampionReply      string
-	EmbeddingLiteral   string 
+	EmbeddingLiteral   string
 	ClusterID          uint
 	Reward             float64
 	ConversionAchieved bool
@@ -132,4 +131,3 @@ func (r *FeedbackLoopRepository) InsertScriptTemplate(ctx context.Context, categ
 		category, title, content, tags, effectivenessScore,
 		effectivenessScore, tags, journeyStage, championDialogueID).Error
 }
-

@@ -1,6 +1,5 @@
 package confidence
 
-
 import "math"
 
 // TemperatureScaler 温度缩放器
@@ -78,4 +77,3 @@ func (ts *TemperatureScaler) SetTemperature(t float64) {
 func (ts *TemperatureScaler) Temperature() float64 {
 	return ts.temperature
 }
-

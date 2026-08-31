@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 
@@ -256,4 +255,3 @@ type SOPTemplateListParams struct {
 	Page     int
 	PageSize int
 }
-

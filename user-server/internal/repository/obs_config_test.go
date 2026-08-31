@@ -240,7 +240,6 @@ func TestObsConfigRepository_GetList(t *testing.T) {
 	}
 }
 
-
 // TestObsConfigRepository_Update 测试更新配置
 func TestObsConfigRepository_Update(t *testing.T) {
 	ctx := context.Background()
@@ -325,7 +324,6 @@ func TestObsConfigRepository_GetDefault(t *testing.T) {
 	}
 }
 
-
 // TestObsConfigRepository_SetDefault 测试设置默认配置
 func TestObsConfigRepository_SetDefault(t *testing.T) {
 	ctx := context.Background()
@@ -397,7 +395,6 @@ func TestObsConfigRepository_ClearDefault(t *testing.T) {
 	}
 }
 
-
 // TestObsConfigRepository_UpdateStatus 测试更新状态
 func TestObsConfigRepository_UpdateStatus(t *testing.T) {
 	ctx := context.Background()
@@ -461,7 +458,6 @@ func TestObsConfigRepository_CountByStatus(t *testing.T) {
 	}
 }
 
-
 // TestObsConfigRepository_GetByID_NotFound 测试获取不存在的配置
 func TestObsConfigRepository_GetByID_NotFound(t *testing.T) {
 	ctx := context.Background()
@@ -472,4 +468,3 @@ func TestObsConfigRepository_GetByID_NotFound(t *testing.T) {
 		t.Error("Expected error when getting non-existing config")
 	}
 }
-

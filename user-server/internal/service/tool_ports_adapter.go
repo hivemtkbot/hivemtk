@@ -10,8 +10,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
-
 // CustomerPortAdapter 适配 CustomerService → portcontract.CustomerPort
 type CustomerPortAdapter struct {
 	svc *CustomerService
@@ -68,7 +66,6 @@ func (a *CustomerPortAdapter) RemoveTags(customerID string, tags []string) error
 	return a.svc.RemoveTags(context.Background(), customerID, tags)
 }
 
-
 // SessionPortAdapter 适配 CustomerSessionService → portcontract.SessionPort
 type SessionPortAdapter struct {
 	svc *CustomerSessionService
@@ -116,7 +113,6 @@ func (a *SessionPortAdapter) SendMessage(ctx context.Context, in *portcontract.S
 		ContentType: ct,
 	})
 }
-
 
 // FollowUpPortAdapter 适配 FollowUpService → portcontract.FollowUpPort
 type FollowUpPortAdapter struct {
@@ -257,4 +253,3 @@ func (a *AfterSalePortAdapter) Create(ctx context.Context, req *portcontract.Aft
 func (a *AfterSalePortAdapter) Query(ctx context.Context, platform, orderID, customerPhone string) ([]*portcontract.AfterSaleView, error) {
 	return a.svc.Query(ctx, platform, orderID, customerPhone)
 }
-

@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"sync"
@@ -117,4 +116,3 @@ func StopSessionTTLCron(ctx context.Context) {
 		sessionTTLCron.Stop(ctx)
 	}
 }
-

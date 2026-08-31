@@ -158,7 +158,7 @@ func TestCustomerIdentityService_Identify_NotFound(t *testing.T) {
 	service := setupCustomerIdentityService(t)
 
 	identifiers := identity.Identifiers{
-		Phone: "13800138999", 
+		Phone: "13800138999",
 	}
 
 	_, err := service.Identify(context.Background(), identifiers)
@@ -355,7 +355,7 @@ func TestCustomerIdentityService_UpdateIdentifiers_NotOverwrite(t *testing.T) {
 	}
 
 	identifiers := identity.Identifiers{
-		Phone: "13800138999", 
+		Phone: "13800138999",
 		Email: "new@example.com",
 	}
 
@@ -368,4 +368,3 @@ func TestCustomerIdentityService_UpdateIdentifiers_NotOverwrite(t *testing.T) {
 		t.Errorf("Expected email new@example.com, got %s", customer.Email)
 	}
 }
-

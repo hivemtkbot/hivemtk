@@ -27,7 +27,7 @@ func TestPersistBridgeHistory_HistoryEchoDedupHit_Skipped(t *testing.T) {
 		account  = "acct-xhs-hd"
 		conv     = "conv-xhs-hd-1"
 		content  = "你好呀！😊 很高兴与你交流～有任何产品问题随时问我"
-		hashID   = "mh:hd000001" 
+		hashID   = "mh:hd000001"
 	)
 
 	oldTime := time.Now().Add(-1 * time.Hour)
@@ -48,9 +48,9 @@ func TestPersistBridgeHistory_HistoryEchoDedupHit_Skipped(t *testing.T) {
 	histEvent := &model.MessageEvent{
 		Channel:        model.ChannelXHS,
 		SenderID:       "customer-xhs-001",
-		SenderType:     "customer", 
+		SenderType:     "customer",
 		Content:        content,
-		EventID:        hashID, 
+		EventID:        hashID,
 		ConversationID: conv,
 		Extra:          map[string]interface{}{"account_id": account},
 	}
@@ -98,7 +98,7 @@ func TestPersistBridgeHistory_NewHistoryMessage_NotSkipped(t *testing.T) {
 		account  = "acct-xhs-nh"
 		conv     = "conv-xhs-nh-1"
 		content  = "这是页面加载时回填的真实历史消息"
-		newMsgID = "mh:hd0000ff" 
+		newMsgID = "mh:hd0000ff"
 	)
 
 	histEvent := &model.MessageEvent{
@@ -174,4 +174,3 @@ func TestPersistBridgeHistory_HistoryEcho_NoNewOutboundAppended(t *testing.T) {
 		t.Fatalf("history 命中幂等后该会话 outbound 应仍为 1 条，实际=%d", outboundCount)
 	}
 }
-

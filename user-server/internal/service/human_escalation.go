@@ -14,10 +14,9 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-
 const (
-	HumanLockKey = "hivemtk:lock:human:"
-	HumanReasonKey = "hivemtk:session:escalate_reason:"
+	HumanLockKey       = "hivemtk:lock:human:"
+	HumanReasonKey     = "hivemtk:session:escalate_reason:"
 	MerchantNotifQueue = "hivemtk:queue:merchant_notif"
 	HumanLockReasonTTL = 24 * time.Hour
 	// HumanLockDefaultTTL 人工锁默认 TTL：到期自动释放，AI 恢复服务。
@@ -29,14 +28,14 @@ const (
 
 // EscalationEvent 转人工事件载荷（推送到商户通知队列）
 type EscalationEvent struct {
-	Event      string    `json:"event"`                 
-	SessionID  string    `json:"session_id"`            
-	Reason     string    `json:"reason"`                
-	Severity   string    `json:"severity"`              
-	Timestamp  time.Time `json:"timestamp"`             
-	Channel    string    `json:"channel,omitempty"`     
-	CustomerID string    `json:"customer_id,omitempty"` 
-	AgentCode  string    `json:"agent_code,omitempty"`  
+	Event      string    `json:"event"`
+	SessionID  string    `json:"session_id"`
+	Reason     string    `json:"reason"`
+	Severity   string    `json:"severity"`
+	Timestamp  time.Time `json:"timestamp"`
+	Channel    string    `json:"channel,omitempty"`
+	CustomerID string    `json:"customer_id,omitempty"`
+	AgentCode  string    `json:"agent_code,omitempty"`
 }
 
 // HumanEscalationManager 转人工协同状态机中枢
@@ -51,8 +50,8 @@ type HumanEscalationManager struct {
 	// lockTTL 人工锁 TTL（默认 HumanLockDefaultTTL，SetLockTTL 可覆盖）
 	lockTTL time.Duration
 
-	mu            sync.RWMutex
-	stats         EscalationStats
+	mu    sync.RWMutex
+	stats EscalationStats
 	// lockDeadlines 本实例经手的锁到期时间登记表（供后台过期检查使用）
 	lockDeadlines map[string]time.Time
 }
@@ -64,12 +63,12 @@ type Notifier interface {
 
 // EscalationStats 转人工统计
 type EscalationStats struct {
-	TotalTriggers      int64     
-	TotalRejections    int64     
-	TotalNotifications int64     
-	LastTriggerAt      time.Time 
-	LastSessionID      string    
-	TriggersByReason   sync.Map  
+	TotalTriggers      int64
+	TotalRejections    int64
+	TotalNotifications int64
+	LastTriggerAt      time.Time
+	LastSessionID      string
+	TriggersByReason   sync.Map
 }
 
 // NewHumanEscalationManager 构造转人工管理器
@@ -356,7 +355,6 @@ func (h *HumanEscalationManager) GetStats(ctx context.Context) *EscalationStats 
 	return &h.stats
 }
 
-
 // severityFromReason 从原因推断严重度
 func severityFromReason(reason string) string {
 	switch {
@@ -384,7 +382,6 @@ func hasAnySubstring(s string, subs []string) bool {
 	return false
 }
 
-
 // CacheNotifier 基于 Cache 的默认通知器
 type CacheNotifier struct {
 	cache cache.Cache
@@ -408,7 +405,6 @@ func (n *CacheNotifier) Notify(ctx context.Context, event *EscalationEvent) erro
 	return n.cache.LPush(ctx, n.queue, string(payload), 0)
 }
 
-
 var (
 	globalEscalationMgr *HumanEscalationManager
 	onceEscalationMgr   sync.Once
@@ -421,4 +417,3 @@ func GetGlobalEscalationManager() *HumanEscalationManager {
 	})
 	return globalEscalationMgr
 }
-

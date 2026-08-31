@@ -45,4 +45,3 @@ func (s *MessageService) InitMessage(ctx context.Context, accountID string, user
 	}
 	return message.ID, nil
 }
-

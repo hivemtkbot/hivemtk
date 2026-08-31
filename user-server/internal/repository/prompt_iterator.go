@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"time"
@@ -102,4 +101,3 @@ func (r *FeedbackLoopRepository) CreateBanditArmsInBatches(ctx context.Context, 
 	}
 	return r.db.WithContext(ctx).CreateInBatches(arms, batchSize).Error
 }
-

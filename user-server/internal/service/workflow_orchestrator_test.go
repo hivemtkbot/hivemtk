@@ -101,9 +101,9 @@ func TestWorkflowOrchestratorService_FindStuckExecutions(t *testing.T) {
 
 	exec := &model.WorkflowExecution{
 		WorkflowID: "wf-stuck-test",
-		Version:     1,
-		Status:      "running",
-		StartedAt:   time.Now().Add(-30 * time.Minute),
+		Version:    1,
+		Status:     "running",
+		StartedAt:  time.Now().Add(-30 * time.Minute),
 	}
 	database.Create(exec)
 
@@ -130,8 +130,8 @@ func TestWorkflowOrchestratorService_StopExecution_AlreadyCompleted(t *testing.T
 	ctx := context.Background()
 	exec := &model.WorkflowExecution{
 		WorkflowID: "wf-stop-completed",
-		Version:     1,
-		Status:      "completed",
+		Version:    1,
+		Status:     "completed",
 	}
 	database.Create(exec)
 
@@ -175,8 +175,8 @@ func TestWorkflowOrchestratorService_GetNodeExecutions(t *testing.T) {
 	ctx := context.Background()
 	exec := &model.WorkflowExecution{
 		WorkflowID: "wf-node-list",
-		Version:     1,
-		Status:      "running",
+		Version:    1,
+		Status:     "running",
 	}
 	database.Create(exec)
 

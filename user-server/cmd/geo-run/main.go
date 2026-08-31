@@ -178,9 +178,10 @@ func main() {
 	verifySvc := geoservice.NewVerificationService(
 		georepo.NewGeoVerifyResultRepositoryWithDB(db),
 		georepo.NewGeoAPICallRepositoryWithDB(db),
+		georepo.NewGeoQueryChainRepository(db),
+		georepo.NewGeoContentTaskRepository(db),
 		geoservice.NewLLMAdapter(),
 	)
-	verifySvc.SetChainRepo(georepo.NewGeoQueryChainRepository(db))
 	contentSvc := geoservice.NewContentService(
 		georepo.NewGeoArticleRepositoryWithDB(db),
 		georepo.NewGeoOptimizationRepositoryWithDB(db),
@@ -225,6 +226,8 @@ func main() {
 		georepo.NewGeoWorkflowRepositoryWithDB(db),
 		georepo.NewGeoWorkflowExecutionRepositoryWithDB(db),
 		georepo.NewGeoWorkflowTemplateRepositoryWithDB(db),
+		georepo.NewGeoQueryChainRepository(db),
+		georepo.NewGeoContentTaskRepository(db),
 		geoservice.NewLLMAdapter(),
 	)
 	wf, err := wfSvc.Create(ctx, &geodto.SaveWorkflowRequest{
@@ -268,9 +271,10 @@ func main() {
 		verifySvc := geoservice.NewVerificationService(
 			georepo.NewGeoVerifyResultRepositoryWithDB(db),
 			georepo.NewGeoAPICallRepositoryWithDB(db),
+			georepo.NewGeoQueryChainRepository(db),
+			georepo.NewGeoContentTaskRepository(db),
 			geoservice.NewLLMAdapter(),
 		)
-		verifySvc.SetChainRepo(georepo.NewGeoQueryChainRepository(db))
 		if _, verr := verifySvc.VerifyArticle(ctx, geodto.VerifyRequest{
 			ArticleID: latestArt.ID, Query: topKeyword, BrandName: brand,
 		}); verr != nil {

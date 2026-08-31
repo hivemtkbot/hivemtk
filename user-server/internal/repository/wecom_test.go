@@ -580,4 +580,3 @@ func TestWeComGroupRepository_UpdateMemberCount(t *testing.T) {
 		t.Errorf("Expected MemberCount 15, got %d", updated.MemberCount)
 	}
 }
-

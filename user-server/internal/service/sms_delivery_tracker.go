@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"encoding/json"
@@ -17,17 +16,15 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 // SmsBlockType 黑名单类型
 type SmsBlockType string
 
 const (
-	SmsBlockCarrier    SmsBlockType = "carrier"    
-	SmsBlockBusiness   SmsBlockType = "business"   
-	SmsBlockRegulatory SmsBlockType = "regulatory" 
-	SmsBlockContent    SmsBlockType = "content"    
+	SmsBlockCarrier    SmsBlockType = "carrier"
+	SmsBlockBusiness   SmsBlockType = "business"
+	SmsBlockRegulatory SmsBlockType = "regulatory"
+	SmsBlockContent    SmsBlockType = "content"
 )
-
 
 // SmsDeliveryTrackerService 短信到达率追踪服务
 type SmsDeliveryTrackerService struct {
@@ -38,7 +35,7 @@ type SmsDeliveryTrackerService struct {
 	carrierMu        sync.RWMutex
 	carrierCache     map[string]model.SmsCarrier
 	carrierLoaded    bool
-	carrierLoadErrAt time.Time 
+	carrierLoadErrAt time.Time
 }
 
 // NewSmsDeliveryTrackerService 创建短信到达率追踪服务
@@ -60,7 +57,6 @@ func NewSmsDeliveryTrackerService(db *gorm.DB, tracking *SmsTrackingService, rep
 		carrierLoaded: false,
 	}
 }
-
 
 // DetectCarrierFromPhone 简单规则识别运营商（前 7 位号段）
 //
@@ -118,7 +114,7 @@ func (s *SmsDeliveryTrackerService) DetectAndRecordPortability(ctx context.Conte
 		newCarrier = DetectCarrierFromPhone(phone)
 	}
 	if newCarrier == model.SmsCarrierUnknown {
-		return nil 
+		return nil
 	}
 
 	s.carrierMu.Lock()
@@ -131,11 +127,11 @@ func (s *SmsDeliveryTrackerService) DetectAndRecordPortability(ctx context.Conte
 		s.carrierMu.RLock()
 		original, exists = s.carrierCache[phone]
 		s.carrierMu.RUnlock()
-		s.carrierCache[phone] = newCarrier 
+		s.carrierCache[phone] = newCarrier
 	}
 
 	if exists && original == newCarrier {
-		return nil 
+		return nil
 	}
 
 	rec := &model.SmsNumberPortabilityRecord{
@@ -212,7 +208,6 @@ func (s *SmsDeliveryTrackerService) ListPortabilityRecords(ctx context.Context, 
 	return rows, total, nil
 }
 
-
 // SmsBlacklistRecord 黑名单记录（聚合）
 type SmsBlacklistRecord struct {
 	Phone     string       `json:"phone"`
@@ -256,7 +251,6 @@ func (s *SmsDeliveryTrackerService) RecordBlacklistEvent(ctx context.Context, ph
 	logger.Infof("[SmsDeliveryTracker] blacklist: %+v", rec)
 }
 
-
 // DeliveryRateMetrics 到达率指标
 type DeliveryRateMetrics struct {
 	WindowStart  time.Time              `json:"window_start"`
@@ -265,9 +259,9 @@ type DeliveryRateMetrics struct {
 	Delivered    int64                  `json:"delivered"`
 	Failed       int64                  `json:"failed"`
 	Retryable    int64                  `json:"retryable"`
-	Blacklisted  int64                  `json:"blacklisted"`   
-	Portability  int64                  `json:"portability"`   
-	DeliveryRate float64                `json:"delivery_rate"` 
+	Blacklisted  int64                  `json:"blacklisted"`
+	Portability  int64                  `json:"portability"`
+	DeliveryRate float64                `json:"delivery_rate"`
 	FailureRate  float64                `json:"failure_rate"`
 	ByCarrier    map[string]CarrierStat `json:"by_carrier"`
 }
@@ -335,14 +329,13 @@ func (s *SmsDeliveryTrackerService) GetDeliveryRateMetrics(ctx context.Context, 
 	return m, nil
 }
 
-
 // ProviderDeliveryReport 兼容的运营商回执统一格式
 type ProviderDeliveryReport struct {
 	MessageID   string `json:"messageId"`
 	Phone       string `json:"phone"`
 	JobID       string `json:"jobId"`
 	Provider    string `json:"provider"`
-	Carrier     string `json:"carrier"` 
+	Carrier     string `json:"carrier"`
 	Status      string `json:"status"`
 	ErrorCode   string `json:"errorCode"`
 	ErrorMsg    string `json:"errorMsg"`
@@ -393,10 +386,8 @@ func (s *SmsDeliveryTrackerService) RecordFromProvider(ctx context.Context, r *P
 	return nil
 }
 
-
 // MarshalReport 序列化原始回执（用于持久化到 raw_payload 字段）
 func MarshalReport(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
 }
-

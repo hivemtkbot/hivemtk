@@ -11,7 +11,7 @@ import (
 
 // SalesPersonaService 销冠能力画像服务
 type SalesPersonaService struct {
-	db   *gorm.DB 
+	db   *gorm.DB
 	repo *repository.SalesPersonaRepository
 }
 
@@ -50,7 +50,7 @@ type PersonaItem struct {
 	Name   string  `json:"name"`
 	Score  float64 `json:"score"`
 	Sample int64   `json:"sample"`
-	Trend  string  `json:"trend"` 
+	Trend  string  `json:"trend"`
 }
 
 // PersonaReport 销冠画像报告
@@ -169,4 +169,3 @@ func (s *SalesPersonaService) ListStaffs(ctx context.Context) ([]map[string]any,
 	}
 	return out, nil
 }
-

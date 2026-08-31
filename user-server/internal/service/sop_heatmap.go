@@ -50,18 +50,18 @@ type SopHeatmapReport struct {
 
 // NodeHeatmapEntry 单节点热力图条目
 type NodeHeatmapEntry struct {
-	NodeID        string  `json:"node_id"`
-	NodeType      string  `json:"node_type"`
-	Entered       int     `json:"entered"`         // 到达该节点的执行数
-	Completed     int     `json:"completed"`       // 该节点成功完成数
-	DropRate      float64 `json:"drop_rate"`       // 1 - completed/entered
-	AvgDurationMs float64 `json:"avg_duration_ms"` // 平均耗时(ms)，仅基于已完成
+	NodeID        string         `json:"node_id"`
+	NodeType      string         `json:"node_type"`
+	Entered       int            `json:"entered"`               // 到达该节点的执行数
+	Completed     int            `json:"completed"`             // 该节点成功完成数
+	DropRate      float64        `json:"drop_rate"`             // 1 - completed/entered
+	AvgDurationMs float64        `json:"avg_duration_ms"`       // 平均耗时(ms)，仅基于已完成
 	StatusDist    map[string]int `json:"status_dist,omitempty"` // status 计数：completed/failed/skipped...
 }
 
 // SopNodeMeta SOP 图中的节点元数据
 type SopNodeMeta struct {
-	NodeID  string `json:"node_id"`
+	NodeID   string `json:"node_id"`
 	NodeType string `json:"node_type"`
 }
 
@@ -112,7 +112,7 @@ func (s *SopHeatmapService) GenerateHeatmapForSOP(ctx context.Context, sopID uin
 		processExecutionExecutedNodes(exec, nodeStats)
 	}
 
-// 4. 计算派生字段
+	// 4. 计算派生字段
 	nodesOut := make([]NodeHeatmapEntry, 0, len(nodeMetas)+len(nodeStats))
 	seen := make(map[string]bool)
 	// 先按图顺序输出基准节点

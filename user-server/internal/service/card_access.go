@@ -149,4 +149,3 @@ func (s *cardAccessService) GetTodayUV(ctx context.Context, cardID uint, cardTyp
 
 	return stats.UVCount, nil
 }
-

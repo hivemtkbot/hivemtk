@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"testing"
 
@@ -122,7 +121,7 @@ func TestWeightedAggregator_NormalizeWeights(t *testing.T) {
 
 // TestWeightedAggregator_NormalizeWeights_ZeroSum 权重全 0 不应 panic
 func TestWeightedAggregator_NormalizeWeights_ZeroSum(t *testing.T) {
-	w := SignalWeights{} 
+	w := SignalWeights{}
 	a := NewWeightedAggregator(w)
 	got := a.Weights()
 	sum := got.IntentConf + got.EntityComp + got.CtxRelev + got.RAGQual + got.LLMEntropy
@@ -154,7 +153,7 @@ func TestWeightedAggregator_UpdateWeights_Normalize(t *testing.T) {
 	a := NewDefaultWeightedAggregator()
 	a.UpdateWeights(SignalWeights{
 		IntentConf: 2.0, EntityComp: 1.0, CtxRelev: 1.0, RAGQual: 1.0, LLMEntropy: 1.0,
-	}) 
+	})
 	w := a.Weights()
 	sum := w.IntentConf + w.EntityComp + w.CtxRelev + w.RAGQual + w.LLMEntropy
 	if !approxEqual(sum, 1.0) {
@@ -169,7 +168,7 @@ func TestWeightedAggregator_UpdateWeights_Normalize(t *testing.T) {
 func TestWeightedAggregator_Weights(t *testing.T) {
 	a := NewDefaultWeightedAggregator()
 	w1 := a.Weights()
-	w1.IntentConf = 999 
+	w1.IntentConf = 999
 	w2 := a.Weights()
 	if !approxEqual(w2.IntentConf, 0.30) {
 		t.Errorf("外部修改 Weights 返回值不应影响内部状态, got %v", w2.IntentConf)
@@ -181,9 +180,8 @@ func TestWeightedAggregator_Aggregate_PartialSignals(t *testing.T) {
 	a := NewDefaultWeightedAggregator()
 	signals := &dto.FiveSignals{IntentConf: 0.9}
 	got := a.Aggregate(signals)
-	expected := 0.30 * 0.9 
+	expected := 0.30 * 0.9
 	if !approxEqual(got, expected) {
 		t.Errorf("部分信号聚合=%v want %v", got, expected)
 	}
 }
-

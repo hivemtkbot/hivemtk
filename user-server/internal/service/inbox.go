@@ -60,12 +60,11 @@ const (
 const InboxOverdueThreshold = 30 * time.Minute
 
 const (
-	ReconcileModeUnread = "unread" 
+	ReconcileModeUnread = "unread"
 
-	ReconcileModeOverdue = "overdue" 
+	ReconcileModeOverdue = "overdue"
 
-	ReconcileModeBackfill = "backfill" 
-
+	ReconcileModeBackfill = "backfill"
 )
 
 const (
@@ -150,7 +149,7 @@ type InboxService struct {
 	mu             sync.RWMutex
 	// Deprecated: unified_inbox 内存版废弃，负载缓存重启丢数据。
 	// 后续应从 inbox_assignments DB 表实时查询 assign_to 计数。
-	staffLoadCache map[string]int 
+	staffLoadCache map[string]int
 }
 
 func NewInboxService() *InboxService {
@@ -190,13 +189,13 @@ type InboxQuery struct {
 	Muted       *bool
 	Page        int
 	PageSize    int
-	OrderBy     string 
+	OrderBy     string
 }
 
 type InboxAssignRequest struct {
 	ConversationID uint
-	Action         string 
-	ToType         string 
+	Action         string
+	ToType         string
 	ToUserID       string
 	ToSOPID        uint
 	OperatorID     string
@@ -601,11 +600,11 @@ type ReconcileResult struct {
 	OverdueFound         int    `json:"overdue_found"`
 	OverdueAssigned      int    `json:"overdue_assigned"`
 	AssignedTo           string `json:"assigned_to,omitempty"`
-	FixedNullConv        int64  `json:"fixed_null_conv_id"`     
-	Backfilled           int64  `json:"backfilled"`             
-	NormalizedConv       int64  `json:"normalized_conv"`        
-	PollutedInboxDeleted int64  `json:"polluted_inbox_deleted"` 
-	SyncGapFixed         int64  `json:"sync_gap_fixed"`         
+	FixedNullConv        int64  `json:"fixed_null_conv_id"`
+	Backfilled           int64  `json:"backfilled"`
+	NormalizedConv       int64  `json:"normalized_conv"`
+	PollutedInboxDeleted int64  `json:"polluted_inbox_deleted"`
+	SyncGapFixed         int64  `json:"sync_gap_fixed"`
 	Message              string `json:"message"`
 }
 
@@ -652,7 +651,7 @@ func (s *InboxService) Reconcile(ctx context.Context, mode string) (*ReconcileRe
 		return res, nil
 	case ReconcileModeBackfill:
 		return s.reconcileBackfill(ctx)
-	default: 
+	default:
 		n, err := s.inboxRepo.ReconcileUnread(ctx)
 		if err != nil {
 			return nil, err
@@ -941,7 +940,6 @@ func (s *InboxService) DeleteMessage(ctx context.Context, conversationID, messag
 	return nil
 }
 
-
 // pickStaff 选择负载最小的客服
 func (s *InboxService) pickStaff(ctx context.Context, candidates []string) (string, error) {
 	if len(candidates) == 0 {
@@ -1036,4 +1034,3 @@ func firstNonEmpty(a, b string) string {
 	}
 	return b
 }
-

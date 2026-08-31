@@ -326,22 +326,22 @@ func (s *kuaishouCardService) GenerateShortLink(ctx context.Context, card *model
 	logger.Infof("生成的短码: %s", generateResp.ShortCode)
 
 	// 获取域名池域名
-	var domainID uint = 0 
+	var domainID uint = 0
 	if card.DomainPoolID != 0 {
 		domainID = card.DomainPoolID
 	}
 
 	// v3 审计修复：短链目标必须是绝对 https 地址（铁律#24）。
-		// 未配置跳转目标时跳过短链生成，保持卡片创建主流程可用。
-		if card.RedirectURL == "" {
-			return nil
-		}
-		shortLinkReq := &dto.CreateShortLinkRequest{
-			ShortCode:   generateResp.ShortCode,
-			OriginalURL: card.RedirectURL,
+	// 未配置跳转目标时跳过短链生成，保持卡片创建主流程可用。
+	if card.RedirectURL == "" {
+		return nil
+	}
+	shortLinkReq := &dto.CreateShortLinkRequest{
+		ShortCode:   generateResp.ShortCode,
+		OriginalURL: card.RedirectURL,
 		Title:       card.Title,
 		Description: card.Description,
-		DomainID:    domainID, 
+		DomainID:    domainID,
 	}
 
 	shortLinkResp, err := s.shortLinkService.Create(ctx, shortLinkReq)
@@ -391,7 +391,7 @@ func (s *kuaishouCardService) toResponse(ctx context.Context, card *model.Kuaish
 		Description:  card.Description,
 		ImageURL:     card.ImageURL,
 		RedirectURL:  card.RedirectURL,
-		DomainPoolID: &card.DomainPoolID, 
+		DomainPoolID: &card.DomainPoolID,
 		ShortLinkURL: shortLinkURL,
 		ShortCode:    shortCode,
 		Tags:         card.Tags,
@@ -417,7 +417,7 @@ func (s *kuaishouCardService) toResponseWithShortLink(ctx context.Context, card 
 		Description:  card.Description,
 		ImageURL:     card.ImageURL,
 		RedirectURL:  card.RedirectURL,
-		DomainPoolID: &card.DomainPoolID, 
+		DomainPoolID: &card.DomainPoolID,
 		ShortLinkURL: shortLinkURL,
 		ShortCode:    shortCode,
 		Tags:         card.Tags,
@@ -429,4 +429,3 @@ func (s *kuaishouCardService) toResponseWithShortLink(ctx context.Context, card 
 		UpdatedAt:    card.UpdatedAt.Format(time.RFC3339),
 	}
 }
-

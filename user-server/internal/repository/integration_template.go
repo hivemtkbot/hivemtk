@@ -18,7 +18,7 @@ type IntegrationTemplateRepository interface {
 	GetByCode(ctx context.Context, code string) (*model.IntegrationTemplate, error)
 	List(ctx context.Context, platform, category string, enabled *bool, page, pageSize int) ([]*model.IntegrationTemplate, int64, error)
 	ListBuiltIn(ctx context.Context) ([]*model.IntegrationTemplate, error)
-	UpsertBuiltIn(ctx context.Context, t *model.IntegrationTemplate) error 
+	UpsertBuiltIn(ctx context.Context, t *model.IntegrationTemplate) error
 }
 
 type integrationTemplateRepo struct {
@@ -139,4 +139,3 @@ func (r *integrationTemplateRepo) UpsertBuiltIn(ctx context.Context, t *model.In
 		"remark":      t.Remark,
 	}).Error
 }
-

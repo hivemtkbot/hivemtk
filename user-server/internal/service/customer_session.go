@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // CustomerSessionService 客服会话服务
 type CustomerSessionService struct {
 	sessionRepo    *repository.CustomerSessionRepository
@@ -87,14 +86,14 @@ func NewCustomerSessionServiceWithDB(db *gorm.DB) *CustomerSessionService {
 
 // CreateSessionRequest 创建会话请求
 type CreateSessionRequest struct {
-	Platform  model.Platform `json:"platform" binding:"required"`
-	AccountID string         `json:"account_id" binding:"required"`
-	UserID    string         `json:"user_id" binding:"required"`
-	OneID      string `json:"one_id"`
-	UserName   string `json:"user_name"`
-	UserAvatar string `json:"user_avatar"`
-	UserPhone  string `json:"user_phone"`
-	UserEmail  string `json:"user_email"`
+	Platform   model.Platform `json:"platform" binding:"required"`
+	AccountID  string         `json:"account_id" binding:"required"`
+	UserID     string         `json:"user_id" binding:"required"`
+	OneID      string         `json:"one_id"`
+	UserName   string         `json:"user_name"`
+	UserAvatar string         `json:"user_avatar"`
+	UserPhone  string         `json:"user_phone"`
+	UserEmail  string         `json:"user_email"`
 }
 
 // CreateSession 创建会话
@@ -193,16 +192,16 @@ func (s *CustomerSessionService) GetSessionByID(ctx context.Context, id uint) (*
 
 // SendMessageRequest 发送消息请求
 type SendMessageRequest struct {
-	SessionID   string            `json:"session_id"`
-	Content     string            `json:"content" binding:"required"`
-	ContentType model.MessageType `json:"content_type"`
-	MediaURL    string            `json:"media_url"`
-	SenderType   string  `json:"sender_type"`
-	SenderID     string  `json:"sender_id"`
-	SenderName   string  `json:"sender_name"`
-	SenderAvatar string  `json:"sender_avatar"`
-	AIConfidence float64 `json:"ai_confidence"`
-	AISource     string  `json:"ai_source"`
+	SessionID    string            `json:"session_id"`
+	Content      string            `json:"content" binding:"required"`
+	ContentType  model.MessageType `json:"content_type"`
+	MediaURL     string            `json:"media_url"`
+	SenderType   string            `json:"sender_type"`
+	SenderID     string            `json:"sender_id"`
+	SenderName   string            `json:"sender_name"`
+	SenderAvatar string            `json:"sender_avatar"`
+	AIConfidence float64           `json:"ai_confidence"`
+	AISource     string            `json:"ai_source"`
 }
 
 // UnmarshalJSON 自定义反序列化，兼容 sender_id 为数字或字符串
@@ -397,7 +396,6 @@ func generateSessionID() string {
 	return fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), uuid.New().String()[:8])
 }
 
-
 // CustomerSessionCanSendMessage 会话当前状态是否允许发送消息
 // 领域判断自 (*model.CustomerSession).CanSendMessage 迁入。
 func CustomerSessionCanSendMessage(s *model.CustomerSession) bool {
@@ -408,7 +406,6 @@ func CustomerSessionCanSendMessage(s *model.CustomerSession) bool {
 		return false
 	}
 }
-
 
 // DispatchSessionEventAsync R53 B: 规则引擎事件 fire-and-forget 入口
 func DispatchSessionEventAsync(event, sessionID string, session *model.CustomerSession) {

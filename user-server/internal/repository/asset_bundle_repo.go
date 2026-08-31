@@ -22,15 +22,15 @@ import (
 
 // AssetBundleFilter 列表过滤
 type AssetBundleFilter struct {
-	Keyword  string                  
-	Author   string                  
-	Industry string                  
-	Language string                  
-	Scope    model.AssetBundleScope  
-	Status   model.AssetBundleStatus 
-	Tags     []string                
-	Page     int                     
-	Size     int                     
+	Keyword  string
+	Author   string
+	Industry string
+	Language string
+	Scope    model.AssetBundleScope
+	Status   model.AssetBundleStatus
+	Tags     []string
+	Page     int
+	Size     int
 }
 
 // AssetBundleRepository 资产包仓储接口
@@ -187,4 +187,3 @@ func (r *assetBundleRepo) ExistsByAssetID(ctx context.Context, assetID string) (
 	}
 	return c > 0, nil
 }
-

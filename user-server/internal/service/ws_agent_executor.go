@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/websocket"
 )
 
-
 // WSAgentExecutor WebSocket 坐席会话操作执行器
 //
 // 通过 CustomerSessionService 实现 websocket.AgentSessionExecutor 接口。
@@ -111,4 +110,3 @@ func (e *WSAgentExecutor) resolveSessionID(ctx context.Context, raw string) (uin
 	}
 	return sess.ID, nil
 }
-

@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-
 func TestCustomerJourney_NewCustomerIsStranger(t *testing.T) {
 	s := NewCustomerJourneyService()
 	state := s.GetState(context.Background(), "cust_001")
@@ -81,7 +80,7 @@ func TestCustomerJourney_AutoDetectSleeping(t *testing.T) {
 	_, _ = s.Transition(context.Background(), "old_cust", StageWon, "ai", "ai", "", nil)
 	s.mu.Lock()
 	state := s.states["old_cust"]
-	state.LastTouchAt = time.Now().Add(-200 * 24 * time.Hour) 
+	state.LastTouchAt = time.Now().Add(-200 * 24 * time.Hour)
 	s.mu.Unlock()
 	wokeUp := s.AutoDetectSleeping(context.Background())
 	found := false
@@ -94,7 +93,6 @@ func TestCustomerJourney_AutoDetectSleeping(t *testing.T) {
 		t.Error("old_cust should be detected as sleeping")
 	}
 }
-
 
 func TestFollowUp_Schedule(t *testing.T) {
 	journey := NewCustomerJourneyService()
@@ -153,9 +151,9 @@ func TestFollowUp_DailyCalendar(t *testing.T) {
 	svc := NewFollowUpService(journey)
 	now := time.Now()
 	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	due1 := dayStart.Add(9 * time.Hour)  
-	due2 := dayStart.Add(12 * time.Hour) 
-	due3 := dayStart.Add(15 * time.Hour) 
+	due1 := dayStart.Add(9 * time.Hour)
+	due2 := dayStart.Add(12 * time.Hour)
+	due3 := dayStart.Add(15 * time.Hour)
 	_, _ = svc.Schedule(context.Background(), "a", "sales_001", ReminderFirstContact, due1.Sub(now), nil)
 	_, _ = svc.Schedule(context.Background(), "b", "sales_001", ReminderFirstContact, due2.Sub(now), nil)
 	_, _ = svc.Schedule(context.Background(), "c", "sales_001", ReminderFirstContact, due3.Sub(now), nil)
@@ -184,7 +182,6 @@ func TestFollowUp_WeeklyCalendar(t *testing.T) {
 		t.Errorf("expected total >= 3 reminders in week, got %d", total)
 	}
 }
-
 
 func TestRepurchase_Champion(t *testing.T) {
 	e := NewRepurchaseEngine()
@@ -262,5 +259,3 @@ func TestRepurchase_ReactivationCandidates(t *testing.T) {
 		t.Error("expected reactivation candidates")
 	}
 }
-
-

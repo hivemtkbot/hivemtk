@@ -23,4 +23,3 @@ func TestEmptyReplyFallback(t *testing.T) {
 		t.Fatal("emptyReplyFallback 非确定性")
 	}
 }
-

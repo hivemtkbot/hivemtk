@@ -1,6 +1,5 @@
 package humanize
 
-
 import (
 	"context"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 
 	"hivemtk-user/internal/dto"
 )
-
 
 // aiTraces AI 痕迹词（命中则 Naturalness 重罚）
 var aiTraces = []string{
@@ -81,17 +79,17 @@ var complaintKeywords = []string{
 
 // intentExpectedLength 各意图期望字数范围（用于 Conciseness 评分）
 var intentExpectedLength = map[string][2]int{
-	"complaint":     {20, 200}, 
-	"churn":         {30, 250}, 
-	"objection":     {20, 180}, 
-	"ask_product":   {10, 150}, 
-	"ask_service":   {15, 180}, 
-	"price_inquiry": {10, 100}, 
-	"purchase":      {10, 120}, 
-	"after_sale":    {20, 200}, 
-	"social":        {5, 60},   
-	"greeting":      {5, 50},   
-	"default":       {10, 150}, 
+	"complaint":     {20, 200},
+	"churn":         {30, 250},
+	"objection":     {20, 180},
+	"ask_product":   {10, 150},
+	"ask_service":   {15, 180},
+	"price_inquiry": {10, 100},
+	"purchase":      {10, 120},
+	"after_sale":    {20, 200},
+	"social":        {5, 60},
+	"greeting":      {5, 50},
+	"default":       {10, 150},
 }
 
 // RuleScorerImpl 规则评估器实现
@@ -134,7 +132,6 @@ func (s *RuleScorerImpl) Evaluate(ctx context.Context, input *dto.HumanizeEvalIn
 		CalculatedAt:   time.Now(),
 	}, nil
 }
-
 
 // computeNaturalness 自然度评分
 //
@@ -191,21 +188,21 @@ func (s *RuleScorerImpl) computeConciseness(reply, intent string) float64 {
 			score = 0.95
 		} else {
 			ratio := float64(runeCount-low) / float64(high-low)
-			score = 0.85 + 0.15*(1-math.Abs(ratio-0.5)*2) 
+			score = 0.85 + 0.15*(1-math.Abs(ratio-0.5)*2)
 		}
 	case runeCount < low:
 		ratio := float64(runeCount) / float64(low)
 		if ratio < 0.5 {
-			score = 0.30 
+			score = 0.30
 		} else {
-			score = 0.30 + 0.55*(ratio-0.5)*2 
+			score = 0.30 + 0.55*(ratio-0.5)*2
 		}
 	default:
 		ratio := float64(runeCount) / float64(high)
 		if ratio > 2.0 {
 			score = 0.30
 		} else {
-			score = 0.85 - 0.55*(ratio-1.0) 
+			score = 0.85 - 0.55*(ratio-1.0)
 		}
 	}
 	return clampScore(score)
@@ -237,7 +234,7 @@ func (s *RuleScorerImpl) computeEmpathy(reply, customerMessage string) float64 {
 	}
 	if isComplaint {
 		if empathyCount == 0 {
-			return 0.30 
+			return 0.30
 		}
 		score := 0.40 + math.Min(density*0.20, 0.60)
 		return clampScore(score)
@@ -305,7 +302,6 @@ func (s *RuleScorerImpl) computePersuasiveness(reply string) float64 {
 	return clampScore(score)
 }
 
-
 // normalizeIntent 归一化意图标签
 func normalizeIntent(intent string) string {
 	intent = strings.TrimSpace(strings.ToLower(intent))
@@ -371,4 +367,3 @@ func computeBurstiness(s string) float64 {
 	variance /= float64(len(sentences))
 	return math.Sqrt(variance) / mean
 }
-

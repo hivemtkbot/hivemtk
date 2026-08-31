@@ -472,4 +472,3 @@ func TestEmailUnsubscribe_FullLifecycle(t *testing.T) {
 		t.Error("Should be resubscribed after ResubscribeEmail")
 	}
 }
-

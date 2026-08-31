@@ -1,9 +1,9 @@
 package repository
 
 import (
-	_db "hivemtk-user/internal/pkg/db"
 	"context"
 	"hivemtk-user/internal/model"
+	_db "hivemtk-user/internal/pkg/db"
 	"time"
 )
 
@@ -179,7 +179,6 @@ func (r *customerEventRepository) GetStats(ctx context.Context, start, end time.
 
 	return stats, nil
 }
-
 
 // ListGlobal R41: 全局分页事件列表（替代前端 N+1 全客户逐个拉取，
 // 同时根除"会话名含 / 的脏 id 触发 Gin 解码 404"问题）

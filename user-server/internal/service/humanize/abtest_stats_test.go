@@ -1,6 +1,5 @@
 package humanize
 
-
 import (
 	"context"
 	"math"
@@ -8,7 +7,6 @@ import (
 
 	"hivemtk-user/internal/dto"
 )
-
 
 // TestMannWhitneyU_Basic 基本检验：两组完全分离 → 极显著
 func TestMannWhitneyU_Basic(t *testing.T) {
@@ -94,7 +92,6 @@ func TestMannWhitneyU_Symmetric(t *testing.T) {
 	}
 }
 
-
 // TestNormalCDF_Basic 标准正态 CDF 关键值
 func TestNormalCDF_Basic(t *testing.T) {
 	tests := []struct {
@@ -126,7 +123,6 @@ func TestNormalCDF_Range(t *testing.T) {
 		}
 	}
 }
-
 
 // TestBootstrapCIDifference_Paired 配对 bootstrap
 func TestBootstrapCIDifference_Paired(t *testing.T) {
@@ -214,7 +210,6 @@ func TestBootstrapCI_Empty(t *testing.T) {
 	}
 }
 
-
 // TestCohensD_Basic 基本 Cohen's d 计算
 func TestCohensD_Basic(t *testing.T) {
 	group1 := []float64{0.7, 0.75, 0.8, 0.85, 0.9, 0.82, 0.78, 0.88}
@@ -281,7 +276,6 @@ func TestCohensD_TooSmall(t *testing.T) {
 	}
 }
 
-
 // TestInterpretCohensD_Boundaries 阈值边界
 func TestInterpretCohensD_Boundaries(t *testing.T) {
 	tests := []struct {
@@ -312,7 +306,6 @@ func TestInterpretCohensD_Boundaries(t *testing.T) {
 		}
 	}
 }
-
 
 // TestABTestStatsService_Compute_Significant 端到端：显著差异
 func TestABTestStatsService_Compute_Significant(t *testing.T) {
@@ -396,7 +389,7 @@ func TestABTestStatsService_Compute_InsufficientSamples(t *testing.T) {
 	svc := NewABTestStatsService()
 	_, err := svc.Compute(context.Background(), &dto.ABTestStatsInput{
 		ExperimentID: "exp_test_003",
-		Control:      []float64{0.8, 0.85, 0.82, 0.83}, 
+		Control:      []float64{0.8, 0.85, 0.82, 0.83},
 		Treatment:    []float64{0.9, 0.95, 0.92, 0.93, 0.91},
 	})
 	if err == nil {
@@ -460,7 +453,6 @@ func TestABTestStatsService_Chaining_Invalid(t *testing.T) {
 	}
 }
 
-
 // TestMeanValue 均值
 func TestMeanValue(t *testing.T) {
 	tests := []struct {
@@ -490,9 +482,9 @@ func TestVarianceValue(t *testing.T) {
 	}{
 		{[]float64{1, 2, 3, 4, 5}, 3.0, 2.5, 1e-9},
 		{[]float64{0.8, 0.9, 0.85, 0.95}, 0.875, 0.004167, 1e-5},
-		{[]float64{1}, 1.0, 0, 0},          
-		{[]float64{}, 0, 0, 0},             
-		{[]float64{5, 5, 5, 5}, 5.0, 0, 0}, 
+		{[]float64{1}, 1.0, 0, 0},
+		{[]float64{}, 0, 0, 0},
+		{[]float64{5, 5, 5, 5}, 5.0, 0, 0},
 	}
 	for _, tt := range tests {
 		got := varianceValue(tt.data, tt.mean)
@@ -522,4 +514,3 @@ func TestRound4(t *testing.T) {
 		}
 	}
 }
-

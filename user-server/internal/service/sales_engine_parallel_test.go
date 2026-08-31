@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"testing"
@@ -74,7 +73,7 @@ func TestSalesEngine_HandleParallel_DefaultConfig(t *testing.T) {
 		SessionID:   "s1",
 		CustomerID:  "c1",
 		UserMessage: "你好",
-		Config:      nil, 
+		Config:      nil,
 	}
 	resp, err := e.HandleParallel(context.Background(), req)
 	if err != nil {
@@ -127,4 +126,3 @@ func TestSalesEngine_HandleParallel_PhaseConstants(t *testing.T) {
 		t.Errorf("PhaseAsync constant changed: %s", PhaseAsync)
 	}
 }
-

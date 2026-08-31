@@ -123,4 +123,3 @@ func (r *kuaishouCardRepository) CreateActivity(ctx context.Context, activity *m
 func (r *kuaishouCardRepository) UpdateShortLinkID(ctx context.Context, id uint, shortLinkID *uint) error {
 	return r.db.Model(&model.KuaishouCard{}).Where("id = ?", id).Update("short_link_id", shortLinkID).Error
 }
-

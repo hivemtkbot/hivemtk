@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"context"
 	"testing"
@@ -27,7 +26,7 @@ func makeTestAggregator() *ConfidenceAggregator {
 
 // TestAggregator_Aggregate_NilAggregator nil 聚合器返回错误
 func TestAggregator_Aggregate_NilAggregator(t *testing.T) {
-	var a *ConfidenceAggregator 
+	var a *ConfidenceAggregator
 	_, err := a.Aggregate(context.Background(), &dto.SignalCollectionInput{})
 	if err != ErrAggregatorNotInitialized {
 		t.Errorf("nil 聚合器应返回 ErrAggregatorNotInitialized, got %v", err)
@@ -39,11 +38,11 @@ func TestAggregator_Aggregate_NilAggregator(t *testing.T) {
 func TestAggregator_Aggregate_NoVeto_HighConf(t *testing.T) {
 	a := makeTestAggregator()
 	in := &dto.SignalCollectionInput{
-		SessionID:  "sess-1",
-		CustomerID: "cust-1",
-		MessageID:  "msg-1",
-		Text:       "hello",
-		IntentType: "ask_product",
+		SessionID:         "sess-1",
+		CustomerID:        "cust-1",
+		MessageID:         "msg-1",
+		Text:              "hello",
+		IntentType:        "ask_product",
 		RawIntentConf:     0.95,
 		ExpectedEntities:  map[string]any{"product": "iPhone"},
 		ExtractedEntities: map[string]any{"product": "iPhone"},
@@ -78,9 +77,9 @@ func TestAggregator_Aggregate_NoVeto_LowConf(t *testing.T) {
 	in := &dto.SignalCollectionInput{
 		Text:          "hello",
 		IntentType:    "ask_product",
-		RawIntentConf: 0.20,                              
-		RAGChunks:     []dto.RAGChunk{{Score: 0.3}},      
-		LLMLogprobs:   []float64{-1.0, -1.0, -1.0, -1.0}, 
+		RawIntentConf: 0.20,
+		RAGChunks:     []dto.RAGChunk{{Score: 0.3}},
+		LLMLogprobs:   []float64{-1.0, -1.0, -1.0, -1.0},
 	}
 	dec, err := a.Aggregate(context.Background(), in)
 	if err != nil {
@@ -100,7 +99,7 @@ func TestAggregator_Aggregate_VetoExplicit(t *testing.T) {
 	in := &dto.SignalCollectionInput{
 		Text:          "我要转人工",
 		IntentType:    "ask_product",
-		RawIntentConf: 0.95, 
+		RawIntentConf: 0.95,
 		RAGChunks:     []dto.RAGChunk{{Score: 0.9}, {Score: 0.9}, {Score: 0.9}, {Score: 0.9}, {Score: 0.9}},
 		LLMLogprobs:   []float64{10.0, -1.0, -2.0},
 	}
@@ -159,8 +158,8 @@ func TestAggregator_Aggregate_WithCalibration(t *testing.T) {
 	in := &dto.SignalCollectionInput{
 		Text:          "hello",
 		IntentType:    "ask_product",
-		RawIntentConf: 0.5,                      
-		RawLogits:     []float64{2.0, 1.0, 0.5}, 
+		RawIntentConf: 0.5,
+		RawLogits:     []float64{2.0, 1.0, 0.5},
 		RAGChunks:     []dto.RAGChunk{{Score: 0.9}, {Score: 0.9}, {Score: 0.9}, {Score: 0.9}, {Score: 0.9}},
 	}
 	dec, err := a.Aggregate(context.Background(), in)
@@ -178,7 +177,7 @@ func TestAggregator_Aggregate_NoCalibration(t *testing.T) {
 	in := &dto.SignalCollectionInput{
 		Text:          "hello",
 		IntentType:    "ask_product",
-		RawIntentConf: 0.80, 
+		RawIntentConf: 0.80,
 	}
 	dec, _ := a.Aggregate(context.Background(), in)
 	if dec.Signals.IntentConf != 0.80 {
@@ -195,7 +194,7 @@ func TestAggregator_inferCustomerLevel(t *testing.T) {
 		{"vip", "vip"},
 		{"normal", "normal"},
 		{"low", "low"},
-		{"", "normal"}, 
+		{"", "normal"},
 	}
 	for _, tc := range cases {
 		in := &dto.SignalCollectionInput{CustomerLevel: tc.input}
@@ -214,8 +213,8 @@ func TestAggregator_inferAgentAvailability(t *testing.T) {
 	}{
 		{0.8, 0.8},
 		{0.3, 0.3},
-		{0.0, 0.5},  
-		{-0.1, 0.5}, 
+		{0.0, 0.5},
+		{-0.1, 0.5},
 	}
 	for _, tc := range cases {
 		in := &dto.SignalCollectionInput{AgentAvailability: tc.input}
@@ -228,7 +227,7 @@ func TestAggregator_inferAgentAvailability(t *testing.T) {
 
 // TestAggregator_saveSignalAsync_NilRepo nil repo 不应 panic
 func TestAggregator_saveSignalAsync_NilRepo(t *testing.T) {
-	a := makeTestAggregator() 
+	a := makeTestAggregator()
 	in := &dto.SignalCollectionInput{SessionID: "s1"}
 	dec := &dto.ConfidenceDecision{SignalID: "sig-1"}
 	sig := &dto.FiveSignals{IntentConf: 0.5}
@@ -293,13 +292,13 @@ func TestAggregator_Aggregate_ReviewBand(t *testing.T) {
 	in := &dto.SignalCollectionInput{
 		Text:              "hello",
 		IntentType:        "ask_product",
-		RawIntentConf:     0.70, 
+		RawIntentConf:     0.70,
 		ExpectedEntities:  map[string]any{"k": "v"},
 		ExtractedEntities: map[string]any{"k": "v"},
 		RAGChunks: []dto.RAGChunk{
 			{Score: 0.7}, {Score: 0.7}, {Score: 0.7}, {Score: 0.7}, {Score: 0.7},
 		},
-		LLMLogprobs: []float64{2.0, -1.0, -1.0}, 
+		LLMLogprobs: []float64{2.0, -1.0, -1.0},
 	}
 	dec, _ := a.Aggregate(context.Background(), in)
 	if dec.AggregatedConf < 0.40 {
@@ -312,7 +311,7 @@ func TestAggregator_Aggregate_ReviewBand(t *testing.T) {
 func TestAggregator_Aggregate_ContextCancelled(t *testing.T) {
 	a := makeTestAggregator()
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() 
+	cancel()
 	in := &dto.SignalCollectionInput{
 		Text:          "hello",
 		IntentType:    "ask_product",
@@ -380,4 +379,3 @@ func TestComputeRAGQual_NeutralVsExecuted(t *testing.T) {
 		t.Errorf("提供 chunks 应返回 (0,1] 的质量分, got %v", withChunks)
 	}
 }
-

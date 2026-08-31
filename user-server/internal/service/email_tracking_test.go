@@ -499,4 +499,3 @@ func TestEmailTracking_FullFlow(t *testing.T) {
 		t.Errorf("Expected OpenRate 100, got %f", metric.OpenRate)
 	}
 }
-

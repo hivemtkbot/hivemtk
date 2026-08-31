@@ -17,7 +17,6 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
-
 )
 
 // 邮件退订 token 有效期（30 天），合规要求退订链接在合理时长内可用
@@ -223,4 +222,3 @@ func (s *EmailUnsubscribeService) baseURL(ctx context.Context) string {
 func normalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
-

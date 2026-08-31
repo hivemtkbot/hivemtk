@@ -104,7 +104,7 @@ func TestSystemConfigRepository_GetConfig(t *testing.T) {
 				if result.WebsiteURL != "https://test.example.com" {
 					t.Errorf("Expected website URL 'https://test.example.com', got '%s'", result.WebsiteURL)
 				}
-				}
+			}
 		})
 	}
 }
@@ -144,4 +144,3 @@ func TestSystemConfigRepository_GetConfig_Empty(t *testing.T) {
 		t.Error("Expected error for empty config")
 	}
 }
-

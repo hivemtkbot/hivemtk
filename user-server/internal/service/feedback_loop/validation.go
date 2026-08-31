@@ -1,6 +1,5 @@
 package feedbackloop
 
-
 import (
 	"hivemtk-user/internal/dto"
 )
@@ -30,4 +29,3 @@ func ValidateCollectRequest(req *dto.CollectRequest) error {
 	}
 	return nil
 }
-

@@ -207,12 +207,12 @@ func (s *CustomerServicePlusService) DeleteSavedView(ctx context.Context, id, us
 
 // ReportSubscription 报表订阅
 type ReportSubscription struct {
-	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	Email     string    `gorm:"type:varchar(200);not null;uniqueIndex" json:"email"`
-	Schedule  string    `gorm:"type:varchar(20);default:'daily'" json:"schedule"` // daily/weekly
-	Enabled   bool      `gorm:"default:true" json:"enabled"`
+	ID        uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	Email     string     `gorm:"type:varchar(200);not null;uniqueIndex" json:"email"`
+	Schedule  string     `gorm:"type:varchar(20);default:'daily'" json:"schedule"` // daily/weekly
+	Enabled   bool       `gorm:"default:true" json:"enabled"`
 	LastSent  *time.Time `json:"last_sent,omitempty"`
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
+	CreatedAt time.Time  `gorm:"autoCreateTime" json:"created_at"`
 }
 
 func (ReportSubscription) TableName() string { return "report_subscriptions" }
@@ -299,9 +299,9 @@ func (s *CustomerServicePlusService) SendScheduledReports(ctx context.Context) (
 // SessionTranscript 导出转录（csv=true 时返回 CSV 两列）
 func (s *CustomerServicePlusService) SessionTranscript(ctx context.Context, sessionID string, csv bool) (string, string, error) {
 	type msgRow struct {
-		SenderType string `gorm:"column:sender_type"`
-		SenderName string `gorm:"column:sender_name"`
-		Content    string `gorm:"column:content"`
+		SenderType string    `gorm:"column:sender_type"`
+		SenderName string    `gorm:"column:sender_name"`
+		Content    string    `gorm:"column:content"`
 		CreatedAt  time.Time `gorm:"column:created_at"`
 	}
 	var msgs []transcriptMsgRow
@@ -361,14 +361,14 @@ func whoOf(m transcriptMsgRow) string {
 
 // AIPerformanceResult 自动化率漏斗
 type AIPerformanceResult struct {
-	Window        string         `json:"window"`
-	TotalSessions int64          `json:"total_sessions"`
-	AIHandled     int64          `json:"ai_handled"`
-	HumanHandled  int64          `json:"human_handled"`
-	ClosedByAI    int64          `json:"closed_by_ai"`
-	AutoRate      float64        `json:"automation_rate"` // AI 处理占比
-	LLMCalls      int64          `json:"llm_calls"`
-	LLMCost       float64        `json:"llm_cost"`
+	Window        string           `json:"window"`
+	TotalSessions int64            `json:"total_sessions"`
+	AIHandled     int64            `json:"ai_handled"`
+	HumanHandled  int64            `json:"human_handled"`
+	ClosedByAI    int64            `json:"closed_by_ai"`
+	AutoRate      float64          `json:"automation_rate"` // AI 处理占比
+	LLMCalls      int64            `json:"llm_calls"`
+	LLMCost       float64          `json:"llm_cost"`
 	Breakdown     map[string]int64 `json:"llm_by_scenario,omitempty"`
 }
 

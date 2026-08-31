@@ -190,4 +190,3 @@ func (s *xiaohongshuCardStatsService) RecordActivity(ctx context.Context, cardID
 
 	return s.repo.IncrementCardViewCount(ctx, cardID)
 }
-

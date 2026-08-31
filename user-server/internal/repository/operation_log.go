@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"time"
@@ -108,4 +107,3 @@ func (r *operationLogRepo) DeleteByIDs(ctx context.Context, ids []uint) (int64, 
 	result := r.db.WithContext(ctx).Where("id IN ?", ids).Delete(&model.OperationLog{})
 	return result.RowsAffected, result.Error
 }
-

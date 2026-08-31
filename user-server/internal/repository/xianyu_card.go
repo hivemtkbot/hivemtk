@@ -98,4 +98,3 @@ func (r *xianyuCardRepository) GetList(ctx context.Context, req CardListFilter) 
 
 	return cards, total, nil
 }
-

@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
 )
-
 
 // HumanizeScoreRepository 评分仓储
 type HumanizeScoreRepository struct{}
@@ -90,7 +88,6 @@ func (r *HumanizeScoreRepository) ListDimensionsByScoreID(ctx context.Context, s
 		Find(&list).Error
 	return list, err
 }
-
 
 // ChampionBaselineRepositoryImpl 销冠基线仓储
 type ChampionBaselineRepositoryImpl struct{}
@@ -190,7 +187,6 @@ func (r *ChampionBaselineRepositoryImpl) ListPhrases(ctx context.Context, baseli
 	return list, err
 }
 
-
 // ABTestStatRepository A/B 测试统计仓储
 type ABTestStatRepository struct{}
 
@@ -218,14 +214,12 @@ func (r *ABTestStatRepository) ListByExperiment(ctx context.Context, experimentI
 	return list, err
 }
 
-
 // generateScoreID 生成评分 ID
 //
 // 格式：hs_<unix_nano>
 func generateScoreID() string {
 	return fmt.Sprintf("hs_%d", time.Now().UnixNano())
 }
-
 
 // HumanizeScoreStat 拟人度统计聚合
 type HumanizeScoreStat struct {
@@ -274,13 +268,13 @@ func (r *HumanizeScoreRepository) Stats(ctx context.Context, since time.Time) (*
 
 // BaselineMetricAggregate 基线聚合结果（5 维均值 + 标准差 + 计数）
 type BaselineMetricAggregate struct {
-	AvgN   float64 
-	AvgC   float64 
-	AvgE   float64 
-	AvgP   float64 
-	AvgR   float64 
-	Stddev float64 
-	Count  int64   
+	AvgN   float64
+	AvgC   float64
+	AvgE   float64
+	AvgP   float64
+	AvgR   float64
+	Stddev float64
+	Count  int64
 }
 
 // AggregateBaselineMetrics 聚合指定时间窗口内 humanize_scores 的 5 维均值 + 标准差 + 计数
@@ -358,4 +352,3 @@ func (r *ChampionBaselineRepositoryImpl) CreateBaseline(
 ) error {
 	return db.GetDB().WithContext(ctx).Create(baseline).Error
 }
-

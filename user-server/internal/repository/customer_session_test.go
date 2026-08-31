@@ -46,7 +46,6 @@ func setupCustomerSessionRepositories(t *testing.T) (
 		&SessionTagRepository{db: database}
 }
 
-
 // TestCustomerSessionRepository_Create 测试创建会话
 func TestCustomerSessionRepository_Create(t *testing.T) {
 	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
@@ -518,7 +517,6 @@ func TestCustomerSessionRepository_IncrementHumanReplyCount(t *testing.T) {
 	}
 }
 
-
 // TestSessionMessageRepository_Create 测试创建消息
 func TestSessionMessageRepository_Create(t *testing.T) {
 	_, messageRepo, _, _, _, _ := setupCustomerSessionRepositories(t)
@@ -722,7 +720,6 @@ func TestSessionMessageRepository_GetUnreadCount(t *testing.T) {
 		t.Errorf("Expected 2 unread user messages, got %d", count)
 	}
 }
-
 
 // TestAgentStatusRepository_Create 测试创建客服状态
 func TestAgentStatusRepository_Create(t *testing.T) {
@@ -1039,7 +1036,6 @@ func TestAgentStatusRepository_IncrementTodayMessages(t *testing.T) {
 	}
 }
 
-
 // TestAISuggestionRepository_Create 测试创建 AI 建议
 func TestAISuggestionRepository_Create(t *testing.T) {
 	_, _, _, aiSuggestionRepo, _, _ := setupCustomerSessionRepositories(t)
@@ -1158,7 +1154,6 @@ func TestAISuggestionRepository_MarkAsUsed(t *testing.T) {
 		t.Error("Expected UsedAt to be set")
 	}
 }
-
 
 // TestQuickReplyRepository_Create 测试创建快捷回复
 func TestQuickReplyRepository_Create(t *testing.T) {
@@ -1349,7 +1344,6 @@ func TestQuickReplyRepository_GetCategories(t *testing.T) {
 	}
 }
 
-
 // TestSessionTagRepository_Create 测试创建会话标签
 func TestSessionTagRepository_Create(t *testing.T) {
 	_, _, _, _, _, sessionTagRepo := setupCustomerSessionRepositories(t)
@@ -1492,4 +1486,3 @@ func TestSessionTagRepository_GetByID(t *testing.T) {
 		})
 	}
 }
-

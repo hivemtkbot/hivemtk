@@ -69,8 +69,8 @@ func (d *Detector) SetThresholds(lower, upper float64) {
 // DetectionResult 检测结果
 type DetectionResult struct {
 	Perplexity    float64 `json:"perplexity"`
-	Quality       string  `json:"quality"`        // "good" | "too_ai" | "too_natural" | "unknown"
-	Score         float64 `json:"score"`          // 0-1，1 = 理想拟人度
+	Quality       string  `json:"quality"` // "good" | "too_ai" | "too_natural" | "unknown"
+	Score         float64 `json:"score"`   // 0-1，1 = 理想拟人度
 	Tokens        int     `json:"tokens"`
 	CharEntropy   float64 `json:"char_entropy"`   // 字符级熵
 	AIProbability float64 `json:"ai_probability"` // 0-1，AI 似然

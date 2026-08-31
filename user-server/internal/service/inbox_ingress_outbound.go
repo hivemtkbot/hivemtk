@@ -248,7 +248,7 @@ func (s *InboxIngressService) AckOutboundDelivered(ctx context.Context, channel,
 //   - "duplicate"      此前已为 delivered，本次幂等跳过（前端应从本地重试队列移除并停止重发）
 //   - "not_found"      本渠道账号下不存在该 msg_id（前端应停止重发，可能被 GC 回收或归属错）
 //   - "not_in_scope"   存在但归属其他 (channel, account_id) 或 direction≠outbound
-//                      （防越权探测：发现即告警，不告知具体归属）
+//     （防越权探测：发现即告警，不告知具体归属）
 //
 // 错误码语义（Error 字段）：
 //   - ""                 无错误
@@ -257,7 +257,7 @@ func (s *InboxIngressService) AckOutboundDelivered(ctx context.Context, channel,
 //   - "client_error"     客户端未捕获的发送异常
 type AckOutboundItem struct {
 	MsgID  string `json:"msg_id"`
-	Status string `json:"status"` 
+	Status string `json:"status"`
 	Error  string `json:"error,omitempty"`
 }
 
@@ -272,42 +272,44 @@ type AckOutboundItem struct {
 //   - NotInScopeCount: 存在但归属其他 (channel, account_id) 或 direction≠outbound 的 msg_id 数
 //   - Items: 按入参 msgIDs 顺序逐条结果（顺序契约由代码保证并由 p3d-contract.test.js 验证）
 type AckOutboundResult struct {
-	AffectedCount   int               `json:"affected_count"`     
-	AckedItemsCount int               `json:"acked_items_count"`  
-	FailedItemsCount int              `json:"failed_items_count"` 
-	DuplicateCount  int               `json:"duplicate_count"`    
-	NotFoundCount   int               `json:"not_found_count"`    
-	NotInScopeCount int               `json:"not_in_scope_count"` 
-	Items           []AckOutboundItem `json:"items"`
+	AffectedCount    int               `json:"affected_count"`
+	AckedItemsCount  int               `json:"acked_items_count"`
+	FailedItemsCount int               `json:"failed_items_count"`
+	DuplicateCount   int               `json:"duplicate_count"`
+	NotFoundCount    int               `json:"not_found_count"`
+	NotInScopeCount  int               `json:"not_in_scope_count"`
+	Items            []AckOutboundItem `json:"items"`
 }
 
 // AckOutboundDeliveredDetailed 批量 ack 详细版（P3-D + P4 二次审核修复 + P0 全面升级）。
 //
 // 2026-08-15 头脑风暴二次论证 P3-D：
-//   服务端按 (channel, account, msg_id) 去重，按 per-msg-id 状态分类返回。
+//
+//	服务端按 (channel, account, msg_id) 去重，按 per-msg-id 状态分类返回。
 //
 // 2026-08-15 P4 二次审核修复（修复 2.1 / 3.1 / 6.2 / 7.4 / 2.3 / 1.1）：
-//   1. hubRepo nil 直接返回 error（修复 3.1：原"全量空 result"会让前端误判为成功）
-//   2. 用 UPDATE ... RETURNING 单 SQL 原子"分类 + 翻转"（修复 2.1：原"先查后更"非原子，
-//      当其他 worker 在两步间抢先翻转为 delivered 时，本 worker 仍把 msg_id 标 acked，但
-//      SQL 实际 affected=0——acked 与 affected 矛盾）
-//   3. 增加 AckedItemsCount 字段，区分"行级 affected"与"msg_id 级 acked"（修复 6.2）
-//   4. msg_id 入参去重（修复 7.4：["m1","m1","m1"] 时只算 1 次）
-//   5. duplicate 状态记 StatusSkipped 而非 StatusOk（修复 2.3：tracing 监控失真）
-//   6. GetByMsgIDsInScope 已加 direction='outbound' 过滤（修复 1.1）
+//  1. hubRepo nil 直接返回 error（修复 3.1：原"全量空 result"会让前端误判为成功）
+//  2. 用 UPDATE ... RETURNING 单 SQL 原子"分类 + 翻转"（修复 2.1：原"先查后更"非原子，
+//     当其他 worker 在两步间抢先翻转为 delivered 时，本 worker 仍把 msg_id 标 acked，但
+//     SQL 实际 affected=0——acked 与 affected 矛盾）
+//  3. 增加 AckedItemsCount 字段，区分"行级 affected"与"msg_id 级 acked"（修复 6.2）
+//  4. msg_id 入参去重（修复 7.4：["m1","m1","m1"] 时只算 1 次）
+//  5. duplicate 状态记 StatusSkipped 而非 StatusOk（修复 2.3：tracing 监控失真）
+//  6. GetByMsgIDsInScope 已加 direction='outbound' 过滤（修复 1.1）
 //
 // 2026-08-15 P0 全面升级（10/10 任务清单）：
 //   - P0-1: 可选 conversationID 参数，非空时只 ack 该会话下的 msg_id（解决"跨会话同名 msg_id 一锅端"）
 //   - P0-3: 可选 terminalStatus（"delivered" | "failed"），决定翻转到的终态；缺省 delivered
 //   - P0-8: not_found 与 not_in_scope 区分——not_in_scope 表示行存在但归属其他 (channel, account_id)
-//           或 direction≠outbound（防越权探测：发现即告警但不告知具体归属）
+//     或 direction≠outbound（防越权探测：发现即告警但不告知具体归属）
 //   - P0-2: AckOutboundItem.Error 字段透传失败原因
 //
 // 协议契约（与前端 downlink.js 配套）：
-//   响应：{ affected_count, acked_items_count, failed_items_count, duplicate_count,
-//           not_found_count, not_in_scope_count,
-//           items: [{msg_id, status, error?}] }
-//   items 顺序严格对齐入参 msgIDs 顺序（去重后）。
+//
+//	响应：{ affected_count, acked_items_count, failed_items_count, duplicate_count,
+//	        not_found_count, not_in_scope_count,
+//	        items: [{msg_id, status, error?}] }
+//	items 顺序严格对齐入参 msgIDs 顺序（去重后）。
 //
 // 入参约定（2026-08-15 P0-1）：
 //   - conversationID == "" 时：按 (channel, account_id) 范围 ack 全部匹配 msg_id（v1 兼容）
@@ -319,7 +321,7 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 	msgIDs []string,
 	conversationID string,
 	terminalStatus string,
-	perItem map[string]BridgeOutboundAckInput, 
+	perItem map[string]BridgeOutboundAckInput,
 ) (*AckOutboundResult, error) {
 	result := &AckOutboundResult{
 		Items: make([]AckOutboundItem, 0, len(msgIDs)),
@@ -532,4 +534,3 @@ type BridgeOutboundAckInput struct {
 	Status         string
 	Error          string
 }
-

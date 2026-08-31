@@ -63,9 +63,10 @@ func (r *clueRepo) Create(ctx context.Context, clue *model.Clue) error {
 // BatchCreateWithDedup 批量创建线索并去重（解决 OPT-ARC-07 N+1）
 // 旧实现：每条线索 1 次 SELECT + 1 次 INSERT，N 条 = 2N 次 DB 往返
 // 新实现：
-//   1. 1 次 SELECT 查询已存在的 (type, account) 对
-//   2. 在内存去重 input 中的重复项
-//   3. 1 次 Bulk INSERT 新数据
+//  1. 1 次 SELECT 查询已存在的 (type, account) 对
+//  2. 在内存去重 input 中的重复项
+//  3. 1 次 Bulk INSERT 新数据
+//
 // 总 DB 往返：3 次（与 N 无关）
 func (r *clueRepo) BatchCreateWithDedup(ctx context.Context, clues []*model.Clue) (successCount, skipCount int64, err error) {
 	if len(clues) == 0 {
@@ -334,4 +335,3 @@ func (r *clueRepo) BatchUpdateInTx(ctx context.Context, ids []string, updates ma
 	})
 	return count, err
 }
-

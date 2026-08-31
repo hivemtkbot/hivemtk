@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"errors"
@@ -88,6 +87,7 @@ func RequireNotViewer(operatorRole string) error {
 // RequirePermission 要求操作者具备指定权限
 //   - 使用 PermissionService.CheckPermission
 //   - 管理员（admin）默认放行
+//
 // RequirePermission 校验操作者是否拥有指定权限
 //
 // 提示：旧版用 context.Background() 会丢失调用方 trace / cancel。
@@ -146,7 +146,6 @@ func AssertCanOperateSystemUser(operatorID uint, operatorRole, action string, ta
 	}
 	return ErrServicePermissionDenied
 }
-
 
 // PermissionService 权限服务
 //
@@ -221,4 +220,3 @@ func (s *PermissionService) GetUserPermissions(ctx context.Context, roleCode str
 	}
 	return nil, errors.New("角色权限未定义")
 }
-

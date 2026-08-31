@@ -4,17 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
+	"gorm.io/gorm"
 	"hivemtk-user/internal/identity"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
-	"gorm.io/gorm"
+	"time"
 )
 
 // CustomerIdentityService 客户身份识别服务
 type CustomerIdentityService struct {
-	repo repository.CustomerRepository
+	repo        repository.CustomerRepository
 	customerSvc *CustomerService
 }
 
@@ -200,7 +200,6 @@ func (s *CustomerIdentityService) LinkIdentity(ctx context.Context, customerID, 
 		}
 		customer.XiaohongshuID = xiaohongshuID
 	}
-
 
 	return s.repo.Update(ctx, customer)
 }
@@ -388,4 +387,3 @@ func unifiedIDFromIdentifiers(id identity.Identifiers) string {
 		return ""
 	}
 }
-

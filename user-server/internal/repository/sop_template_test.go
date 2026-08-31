@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 func setupSOPTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := testutil.NewTestDB(t, &model.SOPTemplate{})
@@ -388,4 +387,3 @@ func TestSOPTemplateRepository_IncrementHitCount(t *testing.T) {
 		t.Errorf("expected hit_count=2, got %d", got.HitCount)
 	}
 }
-

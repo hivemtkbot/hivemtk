@@ -8,17 +8,16 @@ import (
 	"strings"
 	"time"
 
-	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/repository"
-
 )
 
 // OfficeHoursConfig 办公时间策略（KV: office.hours）
 type OfficeHoursConfig struct {
-	Enabled     bool       `json:"enabled"`
+	Enabled     bool        `json:"enabled"`
 	DailyRanges [][2]string `json:"daily_ranges"` // [{start:"09:00", end:"18:00"}]
-	AwayMessage string     `json:"away_message"`
+	AwayMessage string      `json:"away_message"`
 }
 
 // DefaultOfficeHoursConfig 默认工作日 9-18

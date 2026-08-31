@@ -6,9 +6,8 @@ import (
 	"time"
 )
 
-
 func TestRecognizeSpeculative_EmptyText(t *testing.T) {
-	rec := &IntentRecognizer{} 
+	rec := &IntentRecognizer{}
 	ctx := context.Background()
 	result, ch, err := rec.RecognizeSpeculative(ctx, "s1", "c1", "")
 	if err != nil {
@@ -47,7 +46,7 @@ func TestRecognizeSpeculative_DisabledFlag(t *testing.T) {
 }
 
 func TestRecognizeSpeculative_RuleHit(t *testing.T) {
-	rec := &IntentRecognizer{} 
+	rec := &IntentRecognizer{}
 	ctx := context.Background()
 	result, ch, err := rec.RecognizeSpeculative(ctx, "s1", "c1", "你好")
 	if err != nil {
@@ -68,7 +67,7 @@ func TestRecognizeSpeculative_RuleHit(t *testing.T) {
 }
 
 func TestRecognizeSpeculative_RuleMiss_NoDispatcher(t *testing.T) {
-	rec := &IntentRecognizer{} 
+	rec := &IntentRecognizer{}
 	ctx := context.Background()
 	result, ch, err := rec.RecognizeSpeculative(ctx, "s1", "c1", "随便说点啥12345abc")
 	if err != nil {
@@ -95,4 +94,3 @@ func TestRecognizeSpeculative_Channel_BufferIsOne(t *testing.T) {
 		t.Errorf("expected ch cap >= 1, got %d", cap(ch))
 	}
 }
-

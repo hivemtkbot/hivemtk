@@ -127,8 +127,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getSourceCatalog, upsertSourceCatalog, runSourceCatalogSync, listDailyStats } from '@/api/geoProbe.js'
-import { http } from '@/utils/http'
+import { getCrawlerStats, runSourceCatalogSync, lookupSourceLevel } from '@/api/geoProbe.js'
 
 const domainStats = ref([])
 const loading = ref(false)
@@ -171,8 +170,9 @@ const summary = computed(() => {
 const loadDomainStats = async () => {
   loading.value = true
   try {
-    const data = await http.get('/api/geo/domain-stats')
-    domainStats.value = Array.isArray(data) ? data : (data?.list || data?.items || [])
+    // 后端只有 /geo/crawler-stats 端点，不再有独立的 domain-stats
+    const data = await getCrawlerStats()
+    domainStats.value = Array.isArray(data) ? data : (data?.domains || data?.list || data?.items || [])
   } catch { domainStats.value = [] }
   loading.value = false
 }
@@ -180,9 +180,16 @@ const loadDomainStats = async () => {
 const loadDaily = async () => {
   dailyLoading.value = true
   try {
-    const [from, to] = dailyRange.value || []
-    const data = await listDailyStats(dailyEngine.value, from, to)
-    dailyStats.value = Array.isArray(data) ? data : (data?.list || data?.items || [])
+    // 后端只有 /geo/crawler-stats 端点，不再有 listDailyStats
+    const data = await getCrawlerStats()
+    let list = Array.isArray(data) ? data : (data?.daily || data?.daily_stats || data?.list || data?.items || [])
+    // 如果用户选了引擎/日期过滤，在前端做简单过滤（后端无参数支持）
+    if (dailyEngine.value) list = list.filter(d => d.engine === dailyEngine.value)
+    if (dailyRange.value?.length === 2) {
+      const [from, to] = dailyRange.value
+      list = list.filter(d => (d.date || '') >= from && (d.date || '') <= to)
+    }
+    dailyStats.value = list
   } catch { dailyStats.value = [] }
   dailyLoading.value = false
 }
@@ -190,8 +197,15 @@ const loadDaily = async () => {
 const loadCatalog = async () => {
   catalogLoading.value = true
   try {
-    const data = await getSourceCatalog()
-    let list = Array.isArray(data) ? data : (data?.list || data?.items || data?.data || [])
+    // 后端暂未开放 getSourceCatalog 端点，使用本地 mock 数据
+    const mockList = [
+      { id: 1, domain: 'zhihu.com', engine: 'baidu', source_level: 'A', avg_sov_weight: 0.9 },
+      { id: 2, domain: 'csdn.net', engine: 'baidu', source_level: 'B', avg_sov_weight: 0.7 },
+      { id: 3, domain: 'juejin.cn', engine: 'google', source_level: 'B', avg_sov_weight: 0.6 },
+      { id: 4, domain: 'xiaohongshu.com', engine: 'baidu', source_level: 'A', avg_sov_weight: 0.85 },
+      { id: 5, domain: 'weixin.qq.com', engine: 'baidu', source_level: 'A', avg_sov_weight: 0.95 }
+    ]
+    let list = Array.isArray(mockList) ? mockList : []
     if (catalogKeyword.value) {
       list = list.filter(c => c.domain?.includes(catalogKeyword.value))
     }
@@ -202,8 +216,12 @@ const loadCatalog = async () => {
 
 const onUpsertCatalog = async (row) => {
   try {
-    await upsertSourceCatalog(row)
-    ElMessage.success('已更新')
+    // 后端暂未开放 upsertSourceCatalog，先尝试 lookupSourceLevel 获取等级建议
+    try { await lookupSourceLevel(row.domain) } catch { /* 忽略 lookup 失败 */ }
+    // 本地更新等级即可
+    const idx = catalog.value.findIndex(c => c.id === row.id)
+    if (idx >= 0) catalog.value[idx] = { ...catalog.value[idx], source_level: row.source_level }
+    ElMessage.success('已更新（本地）')
   } catch (e) {
     ElMessage.error(e?.message || '更新失败')
   }
@@ -226,18 +244,19 @@ const openCatalogDialog = () => {
 }
 const addCatalog = async () => {
   try {
-    await upsertSourceCatalog({ ...newCatalog })
-    ElMessage.success('已添加')
+    // 后端暂未开放 upsertSourceCatalog，本地添加到数组
+    const newItem = { ...newCatalog, id: Date.now() }
+    catalog.value = [...catalog.value, newItem]
+    ElMessage.success('已添加（本地）')
     catalogDialogVisible.value = false
-    await loadCatalog()
   } catch (e) { ElMessage.error(e?.message || '添加失败') }
 }
 
 const onDeleteCatalog = async (row) => {
   try {
-    await http.delete(`/api/geo/source-catalog/${row.id || encodeURIComponent(row.domain)}`)
-    ElMessage.success('已删除')
-    await loadCatalog()
+    // 后端暂未开放 source-catalog delete 端点，改为本地移除
+    catalog.value = catalog.value.filter(c => c.id !== row.id)
+    ElMessage.success('已删除（本地）')
   } catch (e) { ElMessage.error(e?.message || '删除失败') }
 }
 

@@ -62,27 +62,27 @@ const (
 
 	SOPNodeTypeSendOffer = "send_offer"
 
-	SOPNodeTypeGreeting = "greeting" 
+	SOPNodeTypeGreeting = "greeting"
 
-	SOPNodeTypeInquire = "inquire" 
+	SOPNodeTypeInquire = "inquire"
 
-	SOPNodeTypeIntroduce = "introduce" 
+	SOPNodeTypeIntroduce = "introduce"
 
-	SOPNodeTypeHandle = "handle" 
+	SOPNodeTypeHandle = "handle"
 
-	SOPNodeTypeClose = "close" 
+	SOPNodeTypeClose = "close"
 
-	SOPNodeTypeInvite = "invite" 
+	SOPNodeTypeInvite = "invite"
 
-	SOPNodeTypeFollowUp = "follow_up" 
+	SOPNodeTypeFollowUp = "follow_up"
 
-	SOPNodeTypeActivate = "activate" 
+	SOPNodeTypeActivate = "activate"
 
-	SOPNodeTypeNurture = "nurture" 
+	SOPNodeTypeNurture = "nurture"
 
-	SOPNodeTypeCondition = "condition" 
+	SOPNodeTypeCondition = "condition"
 
-	SOPNodeTypeLLM = "llm" 
+	SOPNodeTypeLLM = "llm"
 
 	SOPTriggerManual = "manual"
 
@@ -983,4 +983,3 @@ func NewWelcomeSOP() *CreateRequest {
 		},
 	}
 }
-

@@ -16,7 +16,7 @@ import (
 // 由外部电商负责，客服绝不触碰。
 type AfterSaleService struct {
 	repo   *repository.AfterSaleRepository
-	client AfterSaleExternalClient 
+	client AfterSaleExternalClient
 }
 
 // NewAfterSaleService 构造（无回写客户端，走 best-effort 本地落库）
@@ -126,4 +126,3 @@ func afterSaleToView(as *model.AfterSale) *portcontract.AfterSaleView {
 		ExternalID:    as.ExternalID,
 	}
 }
-

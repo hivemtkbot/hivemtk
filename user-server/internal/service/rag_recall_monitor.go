@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"encoding/json"
@@ -18,8 +17,8 @@ import (
 // RagRecallMonitorConstants
 const (
 	RagRecallMonitorDefaultInterval = 5 * time.Minute
-	RagRecallMonitorDefaultWindow = 1 * time.Hour
-	RagRecallMonitorTableName = "rag_recall_monitor_snapshots"
+	RagRecallMonitorDefaultWindow   = 1 * time.Hour
+	RagRecallMonitorTableName       = "rag_recall_monitor_snapshots"
 )
 
 // RagRecallMetricsSummary 召回率指标汇总
@@ -29,17 +28,17 @@ type RagRecallMetricsSummary struct {
 
 	TotalQueries int64 `json:"total_queries"`
 
-	TopKHitRate   float64 `json:"top_k_hit_rate"` 
-	TopOneHitRate float64 `json:"top_1_hit_rate"` 
-	AvgRecall     float64 `json:"avg_recall"`     
-	AvgPrecision  float64 `json:"avg_precision"`  
-	AvgSimilarity float64 `json:"avg_similarity"` 
+	TopKHitRate   float64 `json:"top_k_hit_rate"`
+	TopOneHitRate float64 `json:"top_1_hit_rate"`
+	AvgRecall     float64 `json:"avg_recall"`
+	AvgPrecision  float64 `json:"avg_precision"`
+	AvgSimilarity float64 `json:"avg_similarity"`
 
 	AvgLatencyMs float64 `json:"avg_latency_ms"`
 	P95LatencyMs int64   `json:"p95_latency_ms"`
 
-	ZeroHitCount   int64 `json:"zero_hit_count"`   
-	LowRecallCount int64 `json:"low_recall_count"` 
+	ZeroHitCount   int64 `json:"zero_hit_count"`
+	LowRecallCount int64 `json:"low_recall_count"`
 }
 
 // RagRecallMonitorService RAG 召回率监控服务
@@ -248,4 +247,3 @@ func (s *RagRecallMonitorService) EnsureSchema(ctx context.Context) error {
 	}
 	return s.repo.EnsureSchema(ctx)
 }
-

@@ -8,9 +8,9 @@ import (
 )
 
 var (
-	globalMu    sync.RWMutex
-	globalCache Cache
-	globalRedis bool
+	globalMu     sync.RWMutex
+	globalCache  Cache
+	globalRedis  bool
 	defaultOnce  sync.Once
 	defaultCache Cache
 )
@@ -81,4 +81,3 @@ func CloseGlobalCache(_ context.Context) error {
 	}
 	return nil
 }
-

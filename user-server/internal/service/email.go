@@ -21,18 +21,18 @@ import (
 
 // EmailAccount 邮件账号配置（独立表，不依赖既有 schema）
 type EmailAccount struct {
-	ID         uint   `gorm:"primaryKey" json:"id"`
-	Name       string `gorm:"type:varchar(100)" json:"name"`
-	Host       string `gorm:"type:varchar(255);not null" json:"host"`
-	Port       int    `gorm:"default:465" json:"port"`
-	Username   string `gorm:"type:varchar(255)" json:"username"`
-	Password   string `gorm:"type:varchar(255)" json:"-"`
-	FromAddr   string `gorm:"type:varchar(255);not null" json:"from_addr"`
-	FromName   string `gorm:"type:varchar(100)" json:"from_name"`
-	UseSSL     bool   `gorm:"default:true" json:"use_ssl"`
-	DailyQuota int    `gorm:"default:500" json:"daily_quota"`
-	DailyUsed  int    `gorm:"default:0" json:"daily_used"`
-	Status     string `gorm:"type:varchar(20);default:'active'" json:"status"`
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	Name       string    `gorm:"type:varchar(100)" json:"name"`
+	Host       string    `gorm:"type:varchar(255);not null" json:"host"`
+	Port       int       `gorm:"default:465" json:"port"`
+	Username   string    `gorm:"type:varchar(255)" json:"username"`
+	Password   string    `gorm:"type:varchar(255)" json:"-"`
+	FromAddr   string    `gorm:"type:varchar(255);not null" json:"from_addr"`
+	FromName   string    `gorm:"type:varchar(100)" json:"from_name"`
+	UseSSL     bool      `gorm:"default:true" json:"use_ssl"`
+	DailyQuota int       `gorm:"default:500" json:"daily_quota"`
+	DailyUsed  int       `gorm:"default:0" json:"daily_used"`
+	Status     string    `gorm:"type:varchar(20);default:'active'" json:"status"`
 	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt  time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }

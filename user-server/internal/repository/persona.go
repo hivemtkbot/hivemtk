@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"fmt"
@@ -47,4 +46,3 @@ func (r *personaLowQualitySampleRepository) Create(ctx context.Context, sample *
 	}
 	return nil
 }
-

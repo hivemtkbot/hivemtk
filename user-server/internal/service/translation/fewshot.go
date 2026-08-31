@@ -12,7 +12,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // FewShotExample 多语言 few-shot 示例。
 //
 // 存储在 AssetBundle.Examples（JSONArray）中，每个元素为 JSON 对象。
@@ -164,7 +163,6 @@ func (s *FewShotService) invalidateCache(ctx context.Context, lang string) {
 	}
 }
 
-
 // loadFromCache 从缓存读取示例列表；未命中或反序列化失败时返回 (nil, false)。
 func (s *FewShotService) loadFromCache(ctx context.Context, lang string) ([]FewShotExample, bool) {
 	key := fewShotCacheKeyPrefix + lang
@@ -228,4 +226,3 @@ func filterByLang(examples []FewShotExample, lang string) []FewShotExample {
 	}
 	return out
 }
-

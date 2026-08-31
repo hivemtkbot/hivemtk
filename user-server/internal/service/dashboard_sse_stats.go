@@ -16,11 +16,11 @@ import (
 type DashboardSnapshot struct {
 	GeneratedAt time.Time `json:"generated_at"`
 
-	OnlineSessions  int `json:"online_sessions"`   
-	AISessions      int `json:"ai_sessions"`       
-	HumanSessions   int `json:"human_sessions"`    
-	WaitingSessions int `json:"waiting_sessions"`  
-	InFlightReplies int `json:"in_flight_replies"` 
+	OnlineSessions  int `json:"online_sessions"`
+	AISessions      int `json:"ai_sessions"`
+	HumanSessions   int `json:"human_sessions"`
+	WaitingSessions int `json:"waiting_sessions"`
+	InFlightReplies int `json:"in_flight_replies"`
 
 	HumanizeDistribution HumanizeDistribution `json:"humanize_distribution"`
 
@@ -36,11 +36,11 @@ type DashboardSnapshot struct {
 type HumanizeDistribution struct {
 	WindowHours      int     `json:"window_hours"`
 	TotalScored      int     `json:"total_scored"`
-	LowScoreCount    int     `json:"low_score_count"`    
-	MediumScoreCount int     `json:"medium_score_count"` 
-	HighScoreCount   int     `json:"high_score_count"`   
+	LowScoreCount    int     `json:"low_score_count"`
+	MediumScoreCount int     `json:"medium_score_count"`
+	HighScoreCount   int     `json:"high_score_count"`
 	AvgScore         float64 `json:"avg_score"`
-	PassRate         float64 `json:"pass_rate"` 
+	PassRate         float64 `json:"pass_rate"`
 }
 
 // FunnelProgress 转化漏斗进度
@@ -48,25 +48,25 @@ type FunnelProgress struct {
 	Stages       []FunnelStage `json:"stages"`
 	TotalEntered int           `json:"total_entered"`
 	TotalWon     int           `json:"total_won"`
-	OverallRate  float64       `json:"overall_rate"` 
+	OverallRate  float64       `json:"overall_rate"`
 }
 
 // FunnelStage 漏斗单个阶段
 type FunnelStage struct {
-	Name      string  `json:"name"`       
-	Code      string  `json:"code"`       
-	Count     int     `json:"count"`      
-	StageRate float64 `json:"stage_rate"` 
-	StepRate  float64 `json:"step_rate"`  
+	Name      string  `json:"name"`
+	Code      string  `json:"code"`
+	Count     int     `json:"count"`
+	StageRate float64 `json:"stage_rate"`
+	StepRate  float64 `json:"step_rate"`
 }
 
 // LLMRealTimeMetrics LLM 实时指标
 type LLMRealTimeMetrics struct {
-	ActiveProviders int     `json:"active_providers"` 
-	DownProviders   int     `json:"down_providers"`   
-	CircuitOpen     int     `json:"circuit_open"`     
-	AvgLatencyMs    float64 `json:"avg_latency_ms"`   
-	FailureRate     float64 `json:"failure_rate"`     
+	ActiveProviders int     `json:"active_providers"`
+	DownProviders   int     `json:"down_providers"`
+	CircuitOpen     int     `json:"circuit_open"`
+	AvgLatencyMs    float64 `json:"avg_latency_ms"`
+	FailureRate     float64 `json:"failure_rate"`
 }
 
 // MessageVolumePoint 消息量小时聚合点（D-3/X-8 双读输出，维度=platform）
@@ -368,4 +368,3 @@ func roundToFloat(v float64, n int) float64 {
 	mult := math.Pow(10, float64(n))
 	return math.Round(v*mult) / mult
 }
-

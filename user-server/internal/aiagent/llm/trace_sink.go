@@ -5,8 +5,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"hivemtk-user/internal/pkg/utils/logger"
 	"gorm.io/gorm"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // DBTraceSink 把 InMemoryTraceBus 派发的 TraceEvent 异步批量落库到 trace_events 表。
@@ -41,10 +41,10 @@ const (
 // NewDBTraceSink 构造 DB 订阅者；db 允许为空（此时事件将被丢弃并计数）。
 func NewDBTraceSink(db *gorm.DB) *DBTraceSink {
 	return &DBTraceSink{
-		db:      db,
-		buffer:  make(chan TraceEvent, dbSinkBufferSize),
-		stopCh:  make(chan struct{}),
-		doneCh:  make(chan struct{}),
+		db:     db,
+		buffer: make(chan TraceEvent, dbSinkBufferSize),
+		stopCh: make(chan struct{}),
+		doneCh: make(chan struct{}),
 	}
 }
 

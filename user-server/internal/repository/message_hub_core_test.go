@@ -3,11 +3,11 @@
 //
 // 这是用户明确要求的"从消息入库到出库全流程链路"的 repository 层测试，
 // 每一步都验证：
-//   1. DB 实际写入/更新 (不是仅 mock)
-//   2. 字段正确性 (msg_id, trace_id, platform, direction, status)
-//   3. 幂等性 (重复调用不报错、不产生脏数据)
-//   4. 跨账号隔离 (A 账号不能看到 B 账号的消息)
-//   5. 边界条件 (空 msgIDs, nil repo, 空字符串)
+//  1. DB 实际写入/更新 (不是仅 mock)
+//  2. 字段正确性 (msg_id, trace_id, platform, direction, status)
+//  3. 幂等性 (重复调用不报错、不产生脏数据)
+//  4. 跨账号隔离 (A 账号不能看到 B 账号的消息)
+//  5. 边界条件 (空 msgIDs, nil repo, 空字符串)
 package repository
 
 import (

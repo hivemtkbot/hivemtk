@@ -6,12 +6,10 @@ import (
 	"testing"
 )
 
-
-
 func TestHumanize_RemoveAITraces(t *testing.T) {
 	p := NewHumanizePolisher()
 	p.randFn = func() float64 { return 0.99 } // R40: 确定性随机，typo 注入永不触发
-	p.enableTruncation = false 
+	p.enableTruncation = false
 	cases := []struct {
 		name     string
 		input    string
@@ -48,7 +46,6 @@ func TestHumanize_RemoveAITraces(t *testing.T) {
 	}
 }
 
-
 func TestHumanize_RemoveExtraSymbols(t *testing.T) {
 	p := NewHumanizePolisher()
 	p.randFn = func() float64 { return 0.99 } // R40: 确定性随机，typo 注入永不触发
@@ -68,7 +65,7 @@ func TestHumanize_RemoveExtraSymbols(t *testing.T) {
 		{"单个 ? 不变", "真的吗?", "真的吗?"},
 		{"连续 . 4 个", "嗯......", "嗯……"},
 		{"连续 . 5 个", "嗯.....", "嗯……"},
-		{"2 个 . 不变", "嗯..", "嗯.."}, 
+		{"2 个 . 不变", "嗯..", "嗯.."},
 		{"全角省略号不变", "嗯……", "嗯……"},
 	}
 	for _, c := range cases {
@@ -80,7 +77,6 @@ func TestHumanize_RemoveExtraSymbols(t *testing.T) {
 		})
 	}
 }
-
 
 func TestHumanize_PlatformStyle(t *testing.T) {
 	p := NewHumanizePolisher()
@@ -126,14 +122,13 @@ func TestHumanize_PlatformStyle(t *testing.T) {
 	}
 }
 
-
 func TestHumanize_Truncation(t *testing.T) {
 	cases := []struct {
 		name      string
 		input     string
-		maxLen    int  
-		exLen     int  
-		shouldEnd bool 
+		maxLen    int
+		exLen     int
+		shouldEnd bool
 	}{
 		{"不超长 默认 80", "短文本", 80, 3, false},
 		{"正好 80", strings.Repeat("中", 80), 80, 80, false},
@@ -141,16 +136,16 @@ func TestHumanize_Truncation(t *testing.T) {
 		{"100 截断到 80", strings.Repeat("中", 100), 80, 80, true},
 		{"200 截断到 80", strings.Repeat("a", 200), 80, 80, true},
 		{"maxLen 0 不截断", strings.Repeat("中", 100), 0, 100, false},
-		{"maxLen 1", "中文", 1, 1, true},  
-		{"maxLen 2", "中文", 2, 2, false}, 
-		{"maxLen 3", "中文", 3, 2, false}, 
+		{"maxLen 1", "中文", 1, 1, true},
+		{"maxLen 2", "中文", 2, 2, false},
+		{"maxLen 3", "中文", 3, 2, false},
 		{"空串", "", 80, 0, false},
-		{"半角 ASCII 截断", "abcdefghij", 5, 5, true}, 
+		{"半角 ASCII 截断", "abcdefghij", 5, 5, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			p := NewHumanizePolisher()
-	p.randFn = func() float64 { return 0.99 } // R40: 确定性随机
+			p.randFn = func() float64 { return 0.99 } // R40: 确定性随机
 			p.maxLength = c.maxLen
 			out, _ := p.Polish(context.Background(), c.input, &PolishContext{Platform: "wechat"})
 			runes := []rune(out)
@@ -177,7 +172,6 @@ func TestHumanize_TruncationDisabled(t *testing.T) {
 		t.Errorf("truncation disabled should keep 200 runes, got %d", len([]rune(out)))
 	}
 }
-
 
 func TestHumanize_Personalization(t *testing.T) {
 	p := NewHumanizePolisher()
@@ -207,7 +201,6 @@ func TestHumanize_Personalization(t *testing.T) {
 		})
 	}
 }
-
 
 func TestHumanize_Particle(t *testing.T) {
 	p := NewHumanizePolisher()
@@ -254,7 +247,6 @@ func TestHumanize_ParticleDisabled(t *testing.T) {
 		t.Errorf("particles disabled: want 好的 got %q", out)
 	}
 }
-
 
 func TestHumanize_EndToEnd(t *testing.T) {
 	p := NewHumanizePolisher()
@@ -351,7 +343,6 @@ func TestHumanize_EndToEnd(t *testing.T) {
 	}
 }
 
-
 func TestHumanize_EdgeCases(t *testing.T) {
 	p := NewHumanizePolisher()
 	p.randFn = func() float64 { return 0.99 } // R40: 确定性随机，typo 注入永不触发
@@ -388,7 +379,6 @@ func TestHumanize_EdgeCases(t *testing.T) {
 	}
 }
 
-
 func TestHumanize_GetStyleForPlatform(t *testing.T) {
 	p := NewHumanizePolisher()
 	p.randFn = func() float64 { return 0.99 } // R40: 确定性随机
@@ -409,7 +399,7 @@ func TestHumanize_GetStyleForPlatform(t *testing.T) {
 		{"telegram", "im", true, true},
 		{"email", "email", false, true},
 		{"mail", "email", false, true},
-		{"unknown", "default", true, false}, 
+		{"unknown", "default", true, false},
 	}
 	for _, c := range cases {
 		t.Run(c.platform, func(t *testing.T) {
@@ -487,7 +477,6 @@ func TestHumanize_Personalize(t *testing.T) {
 	}
 }
 
-
 func TestHumanize_TestCaseCount(t *testing.T) {
 	t.Log("HumanizePolisher 测试覆盖：≥100 用例")
 	t.Log("  - AI 痕迹去除: 13")
@@ -501,4 +490,3 @@ func TestHumanize_TestCaseCount(t *testing.T) {
 	t.Log("  - 内部 helper: 5+6+3 = 14")
 	t.Log("  合计: ≥109")
 }
-

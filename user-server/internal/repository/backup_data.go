@@ -142,4 +142,3 @@ func (r *backupDataRepo) RestoreShortLink(ctx context.Context, row map[string]an
 var _ = time.Now
 
 var _ BackupDataRepository = (*backupDataRepo)(nil)
-

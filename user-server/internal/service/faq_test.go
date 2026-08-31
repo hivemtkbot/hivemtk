@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"fmt"
@@ -131,7 +130,6 @@ func TestFAQService_InvalidateCache_NilSafe(t *testing.T) {
 	svc.InvalidateCache(0)
 }
 
-
 // mockFAQRepoForDecay 专用于 WeekDecay 测试的 mock
 //
 // Task 15 扩展: 同样支持 MatchByAgent / ListByAgent 的 mock 数据
@@ -142,8 +140,8 @@ type mockFAQRepoForDecay struct {
 		ID    uint
 		Decay float64
 	}
-	listErr  error
-	decayErr error
+	listErr         error
+	decayErr        error
 	agentIDSeen     uint
 	msgSeen         string
 	matchByAgentErr error
@@ -333,7 +331,6 @@ func TestFAQService_WeekDecay_ListErr(t *testing.T) {
 
 // ptrTimeUniq 构造 *time.Time (helper, 避开 service.ptrTime 重定义)
 func ptrTimeUniq(t time.Time) *time.Time { return &t }
-
 
 // TestFAQService_MatchByAgent_AgentIDZero 验证 agentID=0 直接返回 nil (移除"空数组=全局"分支)
 func TestFAQService_MatchByAgent_AgentIDZero(t *testing.T) {
@@ -624,4 +621,3 @@ func TestFAQService_MatchByAgent_DefaultTopK(t *testing.T) {
 
 // ptrBoolUniq 构造 *bool (helper, 避免与其他文件冲突)
 func ptrBoolUniq(b bool) *bool { return &b }
-

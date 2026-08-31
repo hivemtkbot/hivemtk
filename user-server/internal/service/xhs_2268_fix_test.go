@@ -1,4 +1,3 @@
-
 package service
 
 import (
@@ -65,7 +64,7 @@ func TestTriggerInboundAI_NoPanicOnNilOrchestrator(t *testing.T) {
 // 修复后 panic 转 Error 日志，进程存活。
 func TestRunAIGeneration_RecoverPanic(t *testing.T) {
 	svc := &WebhookService{
-		smartOrchestrator: nil, 
+		smartOrchestrator: nil,
 		db:                nil,
 		replySem:          make(chan struct{}, 1),
 	}
@@ -123,4 +122,3 @@ func TestInboxIngress_TriggerLogStart(t *testing.T) {
 	}
 	t.Log("✅ HandleIngressMessage 在 aiTrigger=nil 时不 panic、不阻塞")
 }
-

@@ -244,6 +244,7 @@ func (intVoter) Key(answer int) string {
 	}
 	return "odd"
 }
+
 // intSampler int 采样器
 type intSampler struct {
 	mu      sync.Mutex

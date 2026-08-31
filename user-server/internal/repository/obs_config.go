@@ -113,4 +113,3 @@ func (r *obsConfigRepo) Count(ctx context.Context) (int64, error) {
 	err := r.db.Model(&model.ObsConfig{}).Count(&count).Error
 	return count, err
 }
-

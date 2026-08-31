@@ -17,7 +17,6 @@ import (
 	i18npkg "hivemtk-user/internal/pkg/i18n"
 )
 
-
 // ChannelReader 渠道读取接口（避免 service 层直接依赖 repository 包）。
 // 由 repository.ChatChannelRepository 实现。
 type ChannelReader interface {
@@ -37,11 +36,11 @@ type AgentReader interface {
 //   - InternalSrc / TargetSrc  ：配置来源标记，便于排查与日志
 //   - CrossLingual              ：是否需要跨语言生成
 type LangResolveResult struct {
-	InternalLang string 
-	TargetLang   string 
-	CrossLingual bool   
-	InternalSrc  string 
-	TargetSrc    string 
+	InternalLang string
+	TargetLang   string
+	CrossLingual bool
+	InternalSrc  string
+	TargetSrc    string
 	ChannelID    string
 	AgentID      uint
 }
@@ -81,7 +80,7 @@ func (r *LangConfigResolver) Resolve(ctx context.Context, channelID string, agen
 		}
 	}
 
-	targetLang := result.InternalLang 
+	targetLang := result.InternalLang
 	targetSrc := "internal"
 
 	if channelID != "" && r.channelRepo != nil {
@@ -135,4 +134,3 @@ func (r *LangConfigResolver) ResolveAndInject(ctx context.Context, channelID str
 	result, _ := r.Resolve(ctx, channelID, agentID)
 	return r.InjectToCtx(ctx, result), result
 }
-

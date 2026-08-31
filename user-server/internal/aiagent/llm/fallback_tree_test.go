@@ -1,6 +1,5 @@
 package llm
 
-
 import (
 	"context"
 	"errors"
@@ -166,7 +165,7 @@ func TestDecisionTree_Decide_CacheDisabledButHit(t *testing.T) {
 	tree := NewDecisionTree(DecisionTreeConfig{
 		PrimaryProvider:   "p1",
 		SecondaryProvider: "p2",
-		CacheEnabled:      false, 
+		CacheEnabled:      false,
 		TemplateEnabled:   true,
 		TemplateFallback:  "兜底",
 	})
@@ -186,7 +185,7 @@ func TestDecisionTree_Decide_3BNoTemplateConfigured(t *testing.T) {
 		PrimaryProvider:   "p1",
 		SecondaryProvider: "p2",
 		CacheEnabled:      true,
-		TemplateEnabled:   false, 
+		TemplateEnabled:   false,
 		TemplateFallback:  "",
 	})
 	dec := tree.Decide(context.Background(), LevelSecondary, "error", "k", false)
@@ -344,7 +343,7 @@ func TestExecuteWithFallback_AllExhausted(t *testing.T) {
 		PrimaryProvider:   "p1",
 		SecondaryProvider: "p2",
 		CacheEnabled:      true,
-		TemplateEnabled:   false, 
+		TemplateEnabled:   false,
 		TemplateFallback:  "",
 	})
 
@@ -416,4 +415,3 @@ func TestExecuteWithFallback_FullChain(t *testing.T) {
 		t.Errorf("expected level=template (end of chain), got %s", level)
 	}
 }
-

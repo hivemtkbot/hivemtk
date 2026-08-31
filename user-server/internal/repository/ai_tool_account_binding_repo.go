@@ -74,4 +74,3 @@ func (r *AIToolAccountBindingRepository) ListByAccountType(ctx context.Context, 
 	err := r.db.WithContext(ctx).Where("account_type = ?", accountType).Find(&bindings).Error
 	return bindings, err
 }
-

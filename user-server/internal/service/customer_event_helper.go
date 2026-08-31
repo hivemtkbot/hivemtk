@@ -37,4 +37,3 @@ func SetCustomerEventData(e *model.CustomerEvent, data map[string]any) error {
 	e.EventData = string(jsonData)
 	return nil
 }
-

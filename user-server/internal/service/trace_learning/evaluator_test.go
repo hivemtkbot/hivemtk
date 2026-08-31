@@ -44,4 +44,3 @@ func TestParseEvalResult(t *testing.T) {
 		})
 	}
 }
-

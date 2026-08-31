@@ -19,7 +19,7 @@ func TestHumanizePolisher_RemoveAITraces(t *testing.T) {
 		{"作为 AI 助手，我建议您... ", "，我建议您... "},
 		{"我是 AI，无法处理此事", "，无法处理此事"},
 		{"很抱歉，我无法帮助您", "，我无法帮助您"},
-		{"我理解您的需求", "我理解您的需求"}, 
+		{"我理解您的需求", "我理解您的需求"},
 	}
 	for i, c := range cases {
 		got, _ := p.Polish(nil, c.in, nil)
@@ -55,7 +55,7 @@ func TestHumanizePolisher_TruncateByLength(t *testing.T) {
 	p.randFn = func() float64 { return 0.99 } // R40: 确定性随机
 	p.maxLength = 10
 	got, _ := p.Polish(nil, "这是一段非常长的测试文本，包含很多很多字符", nil)
-	if len([]rune(got)) > 12 { 
+	if len([]rune(got)) > 12 {
 		t.Errorf("truncate failed: len=%d, text=%q", len([]rune(got)), got)
 	}
 }
@@ -139,10 +139,9 @@ func TestFeedbackLearner_StatsCopy(t *testing.T) {
 	f := NewFeedbackLearner(nil)
 	_ = f.RecordFeedback(nil, &FeedbackRecord{IntentType: "test", Confidence: 0.5, CustomerAccept: true})
 	stats := f.GetIntentStats(context.Background(), "test")
-	stats.TotalCount = 9999 
+	stats.TotalCount = 9999
 	original := f.GetIntentStats(context.Background(), "test")
 	if original.TotalCount == 9999 {
 		t.Error("stats should be returned by value (copy)")
 	}
 }
-

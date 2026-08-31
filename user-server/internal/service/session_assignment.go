@@ -21,7 +21,7 @@ type SessionAssignmentService struct {
 	agentRepo           *repository.AgentStatusRepository
 	ragEngine           *rag_core.RAGEngine
 	llmService          *llm.LLMService
-	confidenceThreshold float64 
+	confidenceThreshold float64
 }
 
 // NewSessionAssignmentService 创建会话分配服务
@@ -32,7 +32,7 @@ func NewSessionAssignmentService() *SessionAssignmentService {
 		agentRepo:           repository.NewAgentStatusRepository(),
 		ragEngine:           rag_core.NewRAGEngine(nil),
 		llmService:          llm.NewLLMService(),
-		confidenceThreshold: 0.5, 
+		confidenceThreshold: 0.5,
 	}
 }
 
@@ -139,7 +139,7 @@ func (s *SessionAssignmentService) saveMessageToSession(ctx context.Context, ses
 
 // HandlerDecision 处理者决策
 type HandlerDecision struct {
-	HandlerType    model.HandlerType 
+	HandlerType    model.HandlerType
 	Confidence     float64
 	ShouldTransfer bool
 	TransferReason string
@@ -165,7 +165,7 @@ func (s *SessionAssignmentService) decideHandler(ctx context.Context, session *m
 	if s.isUrgentOrComplaint(ctx, msg.Content) {
 		decision.HandlerType = model.HandlerTypeHuman
 		decision.TransferReason = "检测到紧急或投诉内容"
-		decision.Priority = 2 
+		decision.Priority = 2
 		return decision, nil
 	}
 
@@ -442,4 +442,3 @@ func (s *SessionAssignmentService) AutoAssignAllPending(ctx context.Context) (in
 
 	return assignedCount, nil
 }
-

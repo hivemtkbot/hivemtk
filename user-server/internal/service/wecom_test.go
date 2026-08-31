@@ -437,5 +437,3 @@ func TestWeComService_SendMessage_Text(t *testing.T) {
 		t.Error("MsgType should not be empty")
 	}
 }
-
-

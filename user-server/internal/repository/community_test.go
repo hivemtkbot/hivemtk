@@ -76,7 +76,6 @@ func TestCommunityRepository_New(t *testing.T) {
 	}
 }
 
-
 func TestCommunityRepository_CreateGroup(t *testing.T) {
 	db := setupCommunityTestDB(t)
 
@@ -306,7 +305,6 @@ func TestCommunityRepository_DeleteGroup_NotFound(t *testing.T) {
 	}
 }
 
-
 func TestCommunityRepository_AddMember(t *testing.T) {
 	db := setupCommunityTestDB(t)
 
@@ -522,7 +520,6 @@ func TestCommunityRepository_RemoveMember_NotFound(t *testing.T) {
 	}
 }
 
-
 func TestCommunityRepository_AddMessage(t *testing.T) {
 	db := setupCommunityTestDB(t)
 
@@ -655,7 +652,6 @@ func TestCommunityRepository_GetMessages_DifferentGroup(t *testing.T) {
 	}
 }
 
-
 func TestCommunityRepository_GetStatistics(t *testing.T) {
 	db := setupCommunityTestDB(t)
 
@@ -710,4 +706,3 @@ func TestCommunityRepository_GetStatistics_Empty(t *testing.T) {
 		t.Errorf("Expected total_messages 0, got %v", (*stats)["total_messages"])
 	}
 }
-

@@ -12,8 +12,8 @@ import (
 //   - 业界实现标准：scikit-learn `_SVC._predict_proba_lr` 用同样公式。
 //   - 适用：二分类（如「这个 intent 分类是否正确」「这段 AI 回复是否要转人工」）。
 //   - 与 Temperature Scaling 的关系：
-//     - Temperature：单参数 T 缩放 logits 后 softmax（多分类）
-//     - Platt：2 参数 (A, B)，对单 logit 做 sigmoid：P(y=1|x) = 1/(1+exp(A·z + B))
+//   - Temperature：单参数 T 缩放 logits 后 softmax（多分类）
+//   - Platt：2 参数 (A, B)，对单 logit 做 sigmoid：P(y=1|x) = 1/(1+exp(A·z + B))
 //
 // 训练算法：Newton-Raphson MLE（Platt 原论文 §2.2）。
 //   - 目标：最小化 NLL of sigmoid(A·z_i + B) vs label y_i ∈ {0,1}
@@ -42,17 +42,19 @@ type PlattSample struct {
 // Fit 用 Newton-Raphson MLE 拟合 (A, B)。
 //
 // 数学推导（来自 Platt 1999 论文）：
-//   令 z_i = A·f_i + B，σ(z) = 1/(1+exp(-z))
-//   NLL = -Σ [ t_i · log(σ(z_i)) + (1-t_i) · log(1-σ(z_i)) ]
-//   ∂NLL/∂A = Σ (σ(z_i) - t_i) · f_i    （err · f）
-//   ∂NLL/∂B = Σ (σ(z_i) - t_i)           （err）
-//   ∂²NLL/∂A² = Σ σ(z_i)·(1-σ(z_i)) · f_i²  （正定）
-//   ∂²NLL/∂B² = Σ σ(z_i)·(1-σ(z_i))
-//   ∂²NLL/∂A∂B = Σ σ(z_i)·(1-σ(z_i)) · f_i
+//
+//	令 z_i = A·f_i + B，σ(z) = 1/(1+exp(-z))
+//	NLL = -Σ [ t_i · log(σ(z_i)) + (1-t_i) · log(1-σ(z_i)) ]
+//	∂NLL/∂A = Σ (σ(z_i) - t_i) · f_i    （err · f）
+//	∂NLL/∂B = Σ (σ(z_i) - t_i)           （err）
+//	∂²NLL/∂A² = Σ σ(z_i)·(1-σ(z_i)) · f_i²  （正定）
+//	∂²NLL/∂B² = Σ σ(z_i)·(1-σ(z_i))
+//	∂²NLL/∂A∂B = Σ σ(z_i)·(1-σ(z_i)) · f_i
 //
 // Newton 更新（最小化 NLL）：
-//   [A, B] -= H^(-1) · ∇NLL
-//   H = [[hAA, hAB], [hAB, hBB]] 全部为正（与原 platt_scaling.go 草稿不同）
+//
+//	[A, B] -= H^(-1) · ∇NLL
+//	H = [[hAA, hAB], [hAB, hBB]] 全部为正（与原 platt_scaling.go 草稿不同）
 //
 // 返回：训练后的 PlattScaling 实例（链式调用友好）。
 func (p *PlattScaling) Fit(samples []PlattSample) *PlattScaling {

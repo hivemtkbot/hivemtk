@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // setupFeedbackLearningDB 初始化测试 DB
 func setupFeedbackLearningDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
@@ -56,7 +55,6 @@ func seedCustomerMessages(db *gorm.DB, sessionID string, contents []string, base
 		}
 	}
 }
-
 
 // TestExtractProfile_AllDimensionsPresent 所有 5 维度都被提取
 func TestExtractProfile_AllDimensionsPresent(t *testing.T) {
@@ -118,7 +116,7 @@ func TestExtractProfile_ObjectionAbandoned(t *testing.T) {
 	baseTime := time.Now().Add(-1 * time.Hour)
 	seedCustomerMessages(db, "s1", []string{"太贵了，不需要"}, baseTime)
 	seedAIMessages(db, "s1", []string{
-		"好的，再见", 
+		"好的，再见",
 	}, baseTime.Add(30*time.Second))
 
 	report, err := svc.ExtractProfile(context.Background(), 0, "智能体", "ai_champion", baseTime, time.Now())
@@ -256,7 +254,7 @@ func TestExtractProfile_PersistSnapshot(t *testing.T) {
 		}
 	}
 
-	_ = report 
+	_ = report
 }
 
 // TestExtractProfile_NoSamples 中性得分（无样本时 50 分）
@@ -295,7 +293,6 @@ func TestExtractProfile_OverallScore(t *testing.T) {
 		t.Errorf("overall score out of [0,100]: %.2f", report.OverallScore)
 	}
 }
-
 
 // seedSOPAgent 创建测试 SOP
 func seedSOPAgent(db *gorm.DB, name string) uint {
@@ -450,7 +447,6 @@ func TestAnalyzeNodeConversion_DropRate(t *testing.T) {
 		t.Errorf("expected drop_rate=30.0, got %.2f", node.DropRate)
 	}
 }
-
 
 // TestGenerateOptimizationSuggestions_LLMNode LLM 节点建议
 func TestGenerateOptimizationSuggestions_LLMNode(t *testing.T) {
@@ -635,7 +631,6 @@ func TestGenerateOptimizationSuggestions_MinSampleFilter(t *testing.T) {
 	}
 }
 
-
 // TestReviewSuggestion_Approve 审核通过
 func TestReviewSuggestion_Approve(t *testing.T) {
 	db := setupFeedbackLearningDB(t)
@@ -742,7 +737,6 @@ func TestReviewSuggestion_InvalidAction(t *testing.T) {
 	}
 }
 
-
 // TestRecordNodeTransition 记录节点流转
 func TestRecordNodeTransition(t *testing.T) {
 	db := setupFeedbackLearningDB(t)
@@ -780,7 +774,6 @@ func TestRecordNodeTransition_Nil(t *testing.T) {
 		t.Errorf("nil transition should not return error, got %v", err)
 	}
 }
-
 
 // TestListPendingSuggestions 列出待审核建议
 func TestListPendingSuggestions(t *testing.T) {
@@ -847,7 +840,6 @@ func TestListPendingSuggestions_PriorityOrder(t *testing.T) {
 	}
 }
 
-
 // TestGetLatestProfile 获取最新画像
 func TestGetLatestProfile(t *testing.T) {
 	db := setupFeedbackLearningDB(t)
@@ -875,7 +867,6 @@ func TestGetLatestProfile(t *testing.T) {
 		t.Errorf("expected 5 dimensions, got %d", len(list))
 	}
 }
-
 
 // TestClassifyObjectionHandling_Positive 异议处理正向
 func TestClassifyObjectionHandling_Positive(t *testing.T) {
@@ -1011,7 +1002,6 @@ func TestClassifyRepurchaseOperation(t *testing.T) {
 	}
 }
 
-
 // TestPRD_Acceptance_ExtractDimensionsFromDialog 验收：销冠对话可自动提取能力维度
 func TestPRD_Acceptance_ExtractDimensionsFromDialog(t *testing.T) {
 	db := setupFeedbackLearningDB(t)
@@ -1124,7 +1114,6 @@ func TestPRD_Acceptance_LowConversionSuggestion(t *testing.T) {
 	}
 }
 
-
 // findDimension 在报告中查找指定维度
 func findDimension(report *ChampionProfileReport, dim model.SalesChampionDimension) ChampionDimensionScore {
 	for _, d := range report.Dimensions {
@@ -1134,4 +1123,3 @@ func findDimension(report *ChampionProfileReport, dim model.SalesChampionDimensi
 	}
 	return ChampionDimensionScore{}
 }
-

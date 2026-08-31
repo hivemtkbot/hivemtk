@@ -29,12 +29,12 @@ import (
 type EmbeddingConfig struct {
 	APIKey         string
 	BaseURL        string
-	APIType        string 
-	Model          string 
-	Dimension      int    
-	RequestTimeout int    
+	APIType        string
+	Model          string
+	Dimension      int
+	RequestTimeout int
 	MaxRetries     int
-	AllowFallback  bool 
+	AllowFallback  bool
 }
 
 // EmbeddingServiceInterface Embedding 服务接口
@@ -243,7 +243,7 @@ func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 	return &EmbeddingConfig{
 		APIKey:         apiKey,
 		BaseURL:        baseURL,
-		APIType:        "openai", 
+		APIType:        "openai",
 		Model:          model,
 		Dimension:      dim,
 		RequestTimeout: 60,
@@ -510,4 +510,3 @@ func (s *EmbeddingService) callProvider(ctx context.Context, cfg *EmbeddingConfi
 	}
 	return vectors, nil
 }
-

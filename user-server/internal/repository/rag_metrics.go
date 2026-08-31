@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"errors"
@@ -10,7 +9,6 @@ import (
 
 	"hivemtk-user/internal/model"
 )
-
 
 // RagQueryLogAggRow rag_query_logs 基础聚合行
 //
@@ -24,7 +22,6 @@ type RagQueryLogAggRow struct {
 	LowRecall    int64
 }
 
-
 // RagMetricsRepository RAG 召回率监控仓储接口
 type RagMetricsRepository interface {
 	CreateQueryLog(ctx context.Context, log *model.RagQueryLog) error
@@ -37,7 +34,6 @@ type RagMetricsRepository interface {
 	CreateDaily(ctx context.Context, daily *model.RagMetricsDaily) error
 	FindLatestDailies(ctx context.Context, limit int) ([]model.RagMetricsDaily, error)
 }
-
 
 type ragMetricsRepo struct {
 	db *gorm.DB
@@ -159,4 +155,3 @@ func IsRecordNotFound(err error) bool {
 
 // 编译期断言
 var _ RagMetricsRepository = (*ragMetricsRepo)(nil)
-

@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"os"
@@ -263,4 +262,3 @@ func TestLayerRouter_Route_FFToggle(t *testing.T) {
 		t.Error("expected reason != layer1_disabled when FF on")
 	}
 }
-

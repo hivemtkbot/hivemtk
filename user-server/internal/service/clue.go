@@ -65,27 +65,27 @@ type ClueType struct {
 }
 
 const (
-	ClueTypeQQ               int64 = 1
-	ClueTypeWeChat           int64 = 2
-	ClueTypePhone            int64 = 3
-	ClueTypeTelegram         int64 = 4
-	ClueTypeWhatsapp         int64 = 5
-	ClueTypeTwitter          int64 = 6
-	ClueTypeWeCom            int64 = 7
-	ClueTypeLeadMining       int64 = 8
+	ClueTypeQQ         int64 = 1
+	ClueTypeWeChat     int64 = 2
+	ClueTypePhone      int64 = 3
+	ClueTypeTelegram   int64 = 4
+	ClueTypeWhatsapp   int64 = 5
+	ClueTypeTwitter    int64 = 6
+	ClueTypeWeCom      int64 = 7
+	ClueTypeLeadMining int64 = 8
 	// ClueTypeGeoCapture GEO 决策链捕获线索（v3）：与 LLM 挖掘(8)区分，
 	// SourceID 存思维链 chain_id 供转化归因回写
-	ClueTypeGeoCapture       int64 = 9
-	ClueTypeDouyin           int64 = 9
-	ClueTypeKuaishou        int64 = 10
-	ClueTypeXiaohongshu      int64 = 11
-	ClueTypeXianyu           int64 = 12
-	ClueTypeFeishu           int64 = 13
-	ClueTypeTikTok            int64 = 14
-	ClueTypeWebWidget        int64 = 15
-	ClueTypeEmail            int64 = 16
-	ClueTypeSMS              int64 = 17
-	ClueTypeCustom           int64 = 99
+	ClueTypeGeoCapture  int64 = 9
+	ClueTypeDouyin      int64 = 9
+	ClueTypeKuaishou    int64 = 10
+	ClueTypeXiaohongshu int64 = 11
+	ClueTypeXianyu      int64 = 12
+	ClueTypeFeishu      int64 = 13
+	ClueTypeTikTok      int64 = 14
+	ClueTypeWebWidget   int64 = 15
+	ClueTypeEmail       int64 = 16
+	ClueTypeSMS         int64 = 17
+	ClueTypeCustom      int64 = 99
 )
 
 // IsWhatsappType 判断是否为 WhatsApp 线索类型（兼容历史错误 type=7）
@@ -161,4 +161,3 @@ var defaultClueTypes = []ClueType{
 func (s *ClueService) GetClueTypes(ctx context.Context) ([]ClueType, error) {
 	return defaultClueTypes, nil
 }
-

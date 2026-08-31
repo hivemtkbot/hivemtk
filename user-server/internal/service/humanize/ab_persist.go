@@ -3,9 +3,9 @@ package humanize
 import (
 	"context"
 
+	"gorm.io/gorm"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
-	"gorm.io/gorm"
 )
 
 // NewDBPersistHook 构造 DB 持久化钩子

@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"errors"
@@ -17,20 +16,20 @@ import (
 type AnomalyLoginAlertChannel string
 
 const (
-	AnomalyLoginChannelAudit   AnomalyLoginAlertChannel = "audit"     
-	AnomalyLoginChannelEmail   AnomalyLoginAlertChannel = "email"     
-	AnomalyLoginChannelInbox   AnomalyLoginAlertChannel = "inbox"     
-	AnomalyLoginChannelWebsock AnomalyLoginAlertChannel = "websocket" 
+	AnomalyLoginChannelAudit   AnomalyLoginAlertChannel = "audit"
+	AnomalyLoginChannelEmail   AnomalyLoginAlertChannel = "email"
+	AnomalyLoginChannelInbox   AnomalyLoginAlertChannel = "inbox"
+	AnomalyLoginChannelWebsock AnomalyLoginAlertChannel = "websocket"
 )
 
 // AnomalyLoginDetectorConfig 异常登录预警配置
 type AnomalyLoginDetectorConfig struct {
-	EmailEnabled bool
-	AuditEnabled bool
-	InboxEnabled bool
-	AdminEmails []string
+	EmailEnabled         bool
+	AuditEnabled         bool
+	InboxEnabled         bool
+	AdminEmails          []string
 	EmailSubjectTemplate string
-	EmailBodyTemplate string
+	EmailBodyTemplate    string
 }
 
 // DefaultAnomalyLoginDetectorConfig 默认配置
@@ -220,7 +219,7 @@ func (d *AnomalyLoginDetector) sendEmailAlert(ctx context.Context, lctx *LoginRi
 		To:      strings.Join(d.config.AdminEmails, ","),
 		Subject: subject,
 		Content: body,
-		Status:  0, 
+		Status:  0,
 	}
 	return emailRepo.Create(context.Background(), email)
 }
@@ -270,4 +269,3 @@ func (d *AnomalyLoginDetector) IgnoreAlert(ctx context.Context, alertID, operato
 	})
 	return nil
 }
-

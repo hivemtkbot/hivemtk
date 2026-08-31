@@ -192,4 +192,3 @@ func (s *IntegrationTemplateService) SeedBuiltIn(ctx context.Context) (int, erro
 	}
 	return success, nil
 }
-

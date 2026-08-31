@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"errors"
@@ -292,4 +291,3 @@ func (r *systemUserRepo) UpdatePassword(ctx context.Context, id uint, hashedPass
 }
 
 var _ SystemUserRepository = (*systemUserRepo)(nil)
-

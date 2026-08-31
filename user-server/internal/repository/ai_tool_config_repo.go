@@ -92,4 +92,3 @@ func (r *AIToolConfigRepository) CountEnabled(ctx context.Context) (int64, error
 	err := r.db.WithContext(ctx).Model(&model.AIToolConfig{}).Where("is_enabled = true").Count(&count).Error
 	return count, err
 }
-

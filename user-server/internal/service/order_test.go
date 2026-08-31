@@ -323,4 +323,3 @@ func TestOrderService_UpdateOrderStatusById_ToClosed(t *testing.T) {
 		t.Errorf("Expected status %d, got %d", _type.OrderStatusForceClose, orders[0].Status)
 	}
 }
-

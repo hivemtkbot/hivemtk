@@ -27,18 +27,17 @@ import (
 type PersonaDimension string
 
 const (
-	PersonaDimensionNaturalness PersonaDimension = "naturalness" 
+	PersonaDimensionNaturalness PersonaDimension = "naturalness"
 
-	PersonaDimensionRelevance PersonaDimension = "relevance" 
+	PersonaDimensionRelevance PersonaDimension = "relevance"
 
-	PersonaDimensionPersona PersonaDimension = "persona" 
+	PersonaDimensionPersona PersonaDimension = "persona"
 
-	PersonaDimensionEmotion PersonaDimension = "emotion" 
+	PersonaDimensionEmotion PersonaDimension = "emotion"
 
-	PersonaDimensionConciseness PersonaDimension = "conciseness" 
+	PersonaDimensionConciseness PersonaDimension = "conciseness"
 
-	PersonaDimensionCompliance PersonaDimension = "compliance" 
-
+	PersonaDimensionCompliance PersonaDimension = "compliance"
 )
 
 var PersonaDimensionWeight = map[PersonaDimension]float64{
@@ -60,29 +59,29 @@ var AllPersonaDimensions = []PersonaDimension{
 }
 
 type PersonaEvaluationInput struct {
-	CustomerID      string 
-	SessionID       string 
-	CustomerMessage string 
-	AIReply         string 
-	Persona         string 
-	Industry        string 
-	Platform        string 
-	Intent          string 
+	CustomerID      string
+	SessionID       string
+	CustomerMessage string
+	AIReply         string
+	Persona         string
+	Industry        string
+	Platform        string
+	Intent          string
 }
 
 type PersonaDimensionScore struct {
 	Dimension PersonaDimension `json:"dimension"`
-	Score     float64          `json:"score"` 
+	Score     float64          `json:"score"`
 	Reason    string           `json:"reason"`
 }
 
 type PersonaEvaluationResult struct {
 	Scores       []PersonaDimensionScore `json:"scores"`
-	TotalScore   float64                 `json:"total_score"` 
-	Passed       bool                    `json:"passed"`      
+	TotalScore   float64                 `json:"total_score"`
+	Passed       bool                    `json:"passed"`
 	AttemptCount int                     `json:"attempt_count"`
-	FinalReply   string                  `json:"final_reply"` 
-	AllReplies   []string                `json:"all_replies"` 
+	FinalReply   string                  `json:"final_reply"`
+	AllReplies   []string                `json:"all_replies"`
 	Input        *PersonaEvaluationInput `json:"input,omitempty"`
 }
 
@@ -107,7 +106,7 @@ type LowQualitySampleCollector interface {
 
 type LLMPersonaEvaluator struct {
 	dispatcher *llm.Dispatcher
-	threshold  float64 
+	threshold  float64
 }
 
 func NewLLMPersonaEvaluator(dispatcher *llm.Dispatcher) *LLMPersonaEvaluator {
@@ -277,7 +276,7 @@ func (e *RuleBasedPersonaEvaluator) Evaluate(ctx context.Context, input *Persona
 
 func (e *RuleBasedPersonaEvaluator) scoreNaturalness(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	reply := input.AIReply
-	score := 0.88 
+	score := 0.88
 	aiTraces := []string{
 		"作为 AI", "作为人工智能", "我是 AI", "我是人工智能",
 		"很抱歉，我无法", "作为一个", "我是一个 AI", "我的能力有限",
@@ -304,7 +303,7 @@ func (e *RuleBasedPersonaEvaluator) scoreNaturalness(ctx context.Context, input 
 
 func (e *RuleBasedPersonaEvaluator) scoreRelevance(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	if input.CustomerMessage == "" {
-		return 0.8 
+		return 0.8
 	}
 	keywords := extractKeywords(input.CustomerMessage)
 	if len(keywords) == 0 {
@@ -380,7 +379,7 @@ func containsAny(text string, words []string) bool {
 }
 
 func (e *RuleBasedPersonaEvaluator) scorePersona(ctx context.Context, input *PersonaEvaluationInput) float64 {
-	score := 0.75 
+	score := 0.75
 	reply := input.AIReply
 	if input.Persona != "" && strings.Contains(reply, input.Persona) {
 		score += 0.1
@@ -404,7 +403,7 @@ func (e *RuleBasedPersonaEvaluator) scorePersona(ctx context.Context, input *Per
 
 func (e *RuleBasedPersonaEvaluator) scoreEmotion(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	reply := input.AIReply
-	score := 0.8 
+	score := 0.8
 	empathyWords := []string{"理解", "抱歉", "不好意思", "恭喜", "开心", "放心", "别担心", "明白您的", "感谢"}
 	for _, w := range empathyWords {
 		if strings.Contains(reply, w) {
@@ -749,4 +748,3 @@ func MarkLowQualitySampleHandled(db *gorm.DB, id uint64, handler, note string) e
 
 // touchUnusedRegex 避免 regexp 包未被引用（保留以备后续复杂规则扩展）
 var _ = regexp.MustCompile
-

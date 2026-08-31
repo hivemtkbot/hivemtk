@@ -248,7 +248,7 @@ func TestSmsUnsubscribe_ProcessReply_NotMatched(t *testing.T) {
 
 	cases := []string{
 		"好的", "yes", "OK", "我同意", "继续",
-		"NT999", "N200", 
+		"NT999", "N200",
 	}
 	for i, content := range cases {
 		phone := "1320013200" + string(rune('0'+i))
@@ -311,8 +311,8 @@ func TestSmsUnsubscribe_MatchKeyword_Comprehensive(t *testing.T) {
 		{"stop", "stop"},
 		{"Unsubscribe", "Unsubscribe"},
 		{"unsubscribe", "unsubscribe"},
-		{"TD退订", "TD"}, 
-		{"我要退订", "退订"}, 
+		{"TD退订", "TD"},
+		{"我要退订", "退订"},
 		{"回复TD退订", "TD"},
 	}
 	for _, c := range positive {
@@ -339,7 +339,7 @@ func TestSmsUnsubscribe_MatchKeyword_Negative(t *testing.T) {
 		"我想订阅", "请发送", "TDown", "TD12345",
 		"", " ", "   ",
 		"NT", "QT", "123",
-		"NTDT", 
+		"NTDT",
 	}
 	for _, content := range negative {
 		m := MatchUnsubscribeKeyword(content)
@@ -539,4 +539,3 @@ func TestSmsUnsubscribe_FullFlow_AllKeywords(t *testing.T) {
 		}
 	}
 }
-

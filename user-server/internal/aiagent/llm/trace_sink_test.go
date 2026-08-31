@@ -19,13 +19,13 @@ func TestDBTraceSink_OnEvent_NonBlocking(t *testing.T) {
 	go func() {
 		for i := 0; i < dbSinkBufferSize+100; i++ {
 			sink.OnEvent(TraceEvent{
-				TraceID:  "t1",
-				SpanID:   "s1",
-				Kind:     TraceSpanKindLog,
-				Service:  "test",
+				TraceID:    "t1",
+				SpanID:     "s1",
+				Kind:       TraceSpanKindLog,
+				Service:    "test",
 				DurationMs: 0,
-				Status:   "ok",
-				Timestamp: time.Now(),
+				Status:     "ok",
+				Timestamp:  time.Now(),
 			})
 		}
 		close(done)
@@ -121,15 +121,15 @@ func TestDBTraceSink_FlushInsertsToTable(t *testing.T) {
 			"timestamp":   time.Now().Add(-2 * time.Second),
 		},
 		{
-			"trace_id":    "trace-roundtrip-1",
-			"span_id":     "span-B",
+			"trace_id":       "trace-roundtrip-1",
+			"span_id":        "span-B",
 			"parent_span_id": "span-A",
-			"kind":        "tool_call",
-			"service":     "tool",
-			"operation":   "search_kb",
-			"duration_ms": 35,
-			"status":      "ok",
-			"timestamp":   time.Now().Add(-1 * time.Second),
+			"kind":           "tool_call",
+			"service":        "tool",
+			"operation":      "search_kb",
+			"duration_ms":    35,
+			"status":         "ok",
+			"timestamp":      time.Now().Add(-1 * time.Second),
 		},
 	}).Error; err != nil {
 		t.Fatalf("seed trace_events: %v", err)
@@ -171,14 +171,14 @@ func TestDBTraceSink_AsyncInsert(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			sink.OnEvent(TraceEvent{
-				TraceID:  traceID,
-				SpanID:   "sp-" + time.Now().Format("150405.000000") + "-" + string(rune('0'+idx)),
-				Kind:     TraceSpanKindLLMCall,
-				Service:  "llm",
-				Operation: "chat",
+				TraceID:    traceID,
+				SpanID:     "sp-" + time.Now().Format("150405.000000") + "-" + string(rune('0'+idx)),
+				Kind:       TraceSpanKindLLMCall,
+				Service:    "llm",
+				Operation:  "chat",
 				DurationMs: int64(idx * 10),
-				Status:   "ok",
-				Timestamp: time.Now(),
+				Status:     "ok",
+				Timestamp:  time.Now(),
 			})
 		}(i)
 	}

@@ -1,6 +1,5 @@
 package humanize
 
-
 import (
 	"context"
 	"errors"
@@ -93,4 +92,3 @@ func computeHumanizeWeightedScore(scores []dto.HumanizeDimensionScore) float64 {
 	}
 	return total
 }
-

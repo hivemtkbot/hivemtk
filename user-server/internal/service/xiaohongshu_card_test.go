@@ -28,7 +28,7 @@ func setupXiaohongshuCardServiceTestDB(t *testing.T) *gorm.DB {
 		Domain:  "example.com",
 		Port:    80,
 		Purpose: "测试域名",
-		Status:  1, 
+		Status:  1,
 	}).Error; err != nil {
 		t.Fatalf("预创建 DomainPool 记录失败: %v", err)
 	}
@@ -473,4 +473,3 @@ func TestXiaohongshuCardService_Create_InactiveCard(t *testing.T) {
 func uintPtr(i uint) *uint {
 	return &i
 }
-

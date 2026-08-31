@@ -369,4 +369,3 @@ func TestShortLinkAccessRepository_GetByID_NotFound(t *testing.T) {
 		t.Error("Expected error when getting non-existing access")
 	}
 }
-

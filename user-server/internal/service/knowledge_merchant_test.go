@@ -203,7 +203,6 @@ func TestContextCheck(t *testing.T) {
 	}
 }
 
-
 func TestParseCSV_OnlyContentColumn(t *testing.T) {
 	csv := "content\nhello world\nfoo bar"
 	items, err := knowledgesvc.ParseCSV([]byte(csv))
@@ -325,7 +324,7 @@ func TestHashToken_ConsistentForSameInput(t *testing.T) {
 		if h1 != h2 {
 			t.Errorf("inconsistent hash for %s", input)
 		}
-		if len(h1) != 64 { 
+		if len(h1) != 64 {
 			t.Errorf("hash length should be 64, got %d", len(h1))
 		}
 	}
@@ -495,4 +494,3 @@ func TestUpdateChunkRequest_RequiresContent(t *testing.T) {
 		t.Error("chunk_id required")
 	}
 }
-

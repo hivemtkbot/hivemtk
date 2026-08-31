@@ -155,4 +155,3 @@ func (s *IndustrySOP) ToCreateRequest(ctx context.Context, scenario string) *dto
 		SOPGraph:    dto.SOPGraph{Entry: "start", Nodes: nodes},
 	}
 }
-

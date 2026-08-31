@@ -270,4 +270,3 @@ func TestSystemConfigService_Integration(t *testing.T) {
 		t.Errorf("Expected final name '集成测试系统', got %s", finalConfig.Name)
 	}
 }
-

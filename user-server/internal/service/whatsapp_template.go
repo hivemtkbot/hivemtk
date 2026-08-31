@@ -14,7 +14,7 @@ import (
 )
 
 type WhatsAppTemplateService struct {
-	db   *gorm.DB 
+	db   *gorm.DB
 	repo *repository.WhatsappTemplateRepository
 }
 
@@ -76,4 +76,3 @@ func (ts *WhatsAppTemplateService) DeleteTemplate(ctx context.Context, templateI
 func generateTemplateID() string {
 	return fmt.Sprintf("tmpl_%d", time.Now().UnixNano())
 }
-

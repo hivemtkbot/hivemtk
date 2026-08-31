@@ -1,6 +1,5 @@
 package feedbackloop
 
-
 import (
 	"context"
 	"encoding/json"
@@ -13,7 +12,6 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/repository"
 )
-
 
 // TestCosineSimilarity_SameVector 相同向量相似度 = 1.0
 func TestCosineSimilarity_SameVector(t *testing.T) {
@@ -174,7 +172,6 @@ func TestFormatEmbeddingForPgVector(t *testing.T) {
 		t.Errorf("format 结果应以 [] 包裹: %q", got)
 	}
 }
-
 
 // TestChampionAnalyzer_AnalyzePipeline_EmptyCandidates 空候选返回空报告
 func TestChampionAnalyzer_AnalyzePipeline_EmptyCandidates(t *testing.T) {
@@ -397,4 +394,3 @@ func TestChampionAnalyzer_PersistDialogue_OnConflictUpdate(t *testing.T) {
 		t.Errorf("reward = %v want 3.0 (updated)", updated.Reward)
 	}
 }
-

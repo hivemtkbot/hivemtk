@@ -6,7 +6,6 @@ import (
 	"strings"
 )
 
-
 // ValidationIssue 单条校准记录。
 //
 // Type 取值：
@@ -257,7 +256,7 @@ func (v *PostValidator) applyRedact(text string, patterns []*regexp.Regexp, prot
 	var sb strings.Builder
 	last := 0
 	for _, h := range hits {
-		if h.s < last { 
+		if h.s < last {
 			continue
 		}
 		sb.WriteString(text[last:h.s])
@@ -294,4 +293,3 @@ func compileUserPatterns(patterns []string) []*regexp.Regexp {
 	}
 	return out
 }
-

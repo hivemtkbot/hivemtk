@@ -246,4 +246,3 @@ func (s *CommunityService) GetStatistics(ctx context.Context) (*dto.CommunitySta
 		NewMembersToday: int((*stats)["new_members_today"].(int64)),
 	}, nil
 }
-

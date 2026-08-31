@@ -22,14 +22,13 @@ type SegmentRecomputer interface {
 	RecomputeForCustomer(ctx context.Context, customerID string) error
 }
 
-
 // CustomerOrchestrator 客户业务编排层
 type CustomerOrchestrator struct {
 	journey       *CustomerJourneyService
 	tagger        *AutoTagger
 	cache         cache.Cache
-	clueScoreUpd  ClueScoreRFMUpdater 
-	segmentRecomp SegmentRecomputer   
+	clueScoreUpd  ClueScoreRFMUpdater
+	segmentRecomp SegmentRecomputer
 }
 
 // NewCustomerOrchestrator 创建客户业务编排层实例。
@@ -243,7 +242,6 @@ func stageForEvent(eventType model.EventType) JourneyStage {
 	}
 }
 
-
 var (
 	globalOrch *CustomerOrchestrator
 	globalMu   sync.RWMutex
@@ -262,4 +260,3 @@ func GetGlobalOrchestrator() *CustomerOrchestrator {
 	defer globalMu.RUnlock()
 	return globalOrch
 }
-

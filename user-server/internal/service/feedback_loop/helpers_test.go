@@ -1,6 +1,5 @@
 package feedbackloop
 
-
 import (
 	"context"
 	"math"
@@ -13,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 func approxEqualF64(a, b float64) bool {
 	return math.Abs(a-b) < 1e-6
 }
@@ -21,7 +19,6 @@ func approxEqualF64(a, b float64) bool {
 func approxEqualF32(a, b float32) bool {
 	return math.Abs(float64(a-b)) < 1e-6
 }
-
 
 // stubLLMDispatcher 测试用 LLM 调度器
 //
@@ -72,7 +69,6 @@ func (s *stubLLMDispatcher) Calls() int {
 	defer s.mu.Unlock()
 	return s.calls
 }
-
 
 // stubEmbedder 测试用 Embedder
 //
@@ -135,13 +131,12 @@ func (s *stubEmbedder) Dimension() int {
 	return s.dimension
 }
 
-
 // stubBanditAllocator 测试用 BanditAllocator
 //
 // 用于 SOPAutoOptimizer 测试，可控返回收敛结果与 PromoteArm 行为
 type stubBanditAllocator struct {
 	mu             sync.Mutex
-	convergenceMap map[string]string 
+	convergenceMap map[string]string
 	promoteCalls   []promoteCall
 	promoteErr     error
 }
@@ -190,7 +185,6 @@ func (s *stubBanditAllocator) PromoteCalls() []promoteCall {
 	return out
 }
 
-
 // setupFeedbackLoopTestDB 创建 测试 DB
 //
 // 行为：
@@ -213,4 +207,3 @@ func setupFeedbackLoopTestDB(t *testing.T) *gorm.DB {
 		&model.OptimizationSuggestion{},
 	)
 }
-

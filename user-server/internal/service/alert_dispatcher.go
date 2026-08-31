@@ -44,8 +44,8 @@ type AsyncAlertDispatcher struct {
 	DroppedCount  atomic.Int64 // 缓冲满丢弃数
 	ExecutedCount atomic.Int64 // 实际执行数
 
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 // NewAsyncAlertDispatcher 构造（buffer/window 可由常量覆盖）

@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"strings"
@@ -235,4 +234,3 @@ func TestEmailOpenTracker_EmailEventSummary(t *testing.T) {
 		t.Errorf("Unexpected summary: %s", out)
 	}
 }
-

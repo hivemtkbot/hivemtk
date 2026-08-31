@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"fmt"
@@ -25,7 +24,6 @@ func setupRagHealthTestDB(t *testing.T) *gorm.DB {
 		&kbmodel.KnowledgeChunk{},
 	)
 }
-
 
 // TestRagHealth_NewService 测试服务构造
 func TestRagHealth_NewService(t *testing.T) {
@@ -63,7 +61,6 @@ func TestRagHealth_NewService_NilReceiver(t *testing.T) {
 	}
 }
 
-
 // TestRagHealth_GetHealth_Empty 测试空数据（应为 D 级低分）
 func TestRagHealth_GetHealth_Empty(t *testing.T) {
 	db := setupRagHealthTestDB(t)
@@ -91,7 +88,6 @@ func TestRagHealth_GetHealth_Empty(t *testing.T) {
 	}
 }
 
-
 // TestRagHealth_GetHealth_Perfect 测试完美场景（A 级）
 func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 	db := setupRagHealthTestDB(t)
@@ -105,7 +101,7 @@ func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 			HitCount:       5,
 			Recall:         1.0,
 			Precision:      1.0,
-			LatencyMs:      50, 
+			LatencyMs:      50,
 			Source:         "hybrid",
 			CreatedAt:      time.Now().Add(-30 * time.Minute),
 		}
@@ -169,7 +165,6 @@ func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 	}
 }
 
-
 // TestRagHealth_GetHealth_LowRecall 测试低召回场景
 func TestRagHealth_GetHealth_LowRecall(t *testing.T) {
 	db := setupRagHealthTestDB(t)
@@ -218,7 +213,7 @@ func TestRagHealth_GetHealth_HighLatency(t *testing.T) {
 		HitCount:       1,
 		Recall:         1.0,
 		Precision:      1.0,
-		LatencyMs:      3000, 
+		LatencyMs:      3000,
 		Source:         "hybrid",
 		CreatedAt:      time.Now().Add(-30 * time.Minute),
 	}
@@ -294,7 +289,7 @@ func TestRagHealth_GetHealth_ActiveAlerts(t *testing.T) {
 		}
 	}
 
-	_ = now 
+	_ = now
 
 	r, err := svc.GetHealth(context.Background(), time.Hour)
 	if err != nil {
@@ -308,7 +303,6 @@ func TestRagHealth_GetHealth_ActiveAlerts(t *testing.T) {
 		t.Errorf("Expected alerts score=100 (私域: 无告警通道, 默认满分), got %d", got)
 	}
 }
-
 
 // TestRagHealth_GetHealth_CustomWindow 测试自定义窗口
 func TestRagHealth_GetHealth_CustomWindow(t *testing.T) {
@@ -354,7 +348,6 @@ func TestRagHealth_GetHealth_CustomWindow(t *testing.T) {
 		t.Errorf("Expected retrieval score=100 for 3h window, got %d", dimMap[RagHealthDimRetrieval].Score)
 	}
 }
-
 
 // TestRagHealth_GetHealthCached 测试缓存命中
 func TestRagHealth_GetHealthCached(t *testing.T) {
@@ -424,7 +417,6 @@ func TestRagHealth_GetHealthCached_ConcurrentSafe(t *testing.T) {
 	}
 }
 
-
 // TestRagHealth_ScoreToGrade 测试分数转分级
 func TestRagHealth_ScoreToGrade(t *testing.T) {
 	cases := []struct {
@@ -439,7 +431,7 @@ func TestRagHealth_ScoreToGrade(t *testing.T) {
 		{60, RagHealthGradeC},
 		{59, RagHealthGradeD},
 		{0, RagHealthGradeD},
-		{-1, RagHealthGradeD}, 
+		{-1, RagHealthGradeD},
 	}
 	for _, c := range cases {
 		g := scoreToGrade(c.score)
@@ -448,7 +440,6 @@ func TestRagHealth_ScoreToGrade(t *testing.T) {
 		}
 	}
 }
-
 
 // TestRagHealth_BuildHealthSummary 测试摘要生成
 func TestRagHealth_BuildHealthSummary(t *testing.T) {
@@ -489,7 +480,6 @@ func TestRagHealth_BuildHealthSummary(t *testing.T) {
 	}
 }
 
-
 // TestRagHealth_ComputeDimensions_AllHealthy 测试全健康维度
 func TestRagHealth_ComputeDimensions_AllHealthy(t *testing.T) {
 	svc := NewRagHealthService(setupRagHealthTestDB(t), nil)
@@ -516,9 +506,9 @@ func TestRagHealth_ComputeDimensions_AllHealthy(t *testing.T) {
 func TestRagHealth_ComputeDimensions_AllCritical(t *testing.T) {
 	svc := NewRagHealthService(setupRagHealthTestDB(t), nil)
 	recall := &RecallMetrics{
-		TotalQueries: 0, 
+		TotalQueries: 0,
 	}
-	dims := svc.computeDimensions(context.Background(), recall, 0.0, 0, 0, 20) 
+	dims := svc.computeDimensions(context.Background(), recall, 0.0, 0, 0, 20)
 	if len(dims) != 6 {
 		t.Fatalf("Expected 6 dims, got %d", len(dims))
 	}
@@ -560,7 +550,6 @@ func TestRagHealth_MakeDimension(t *testing.T) {
 	}
 }
 
-
 // TestRagHealth_ClearCache 测试清缓存
 func TestRagHealth_ClearCache(t *testing.T) {
 	db := setupRagHealthTestDB(t)
@@ -577,7 +566,6 @@ func TestRagHealth_ClearCache(t *testing.T) {
 	}
 }
 
-
 // TestRagHealth_GetHealth_NegativeWindow 测试负窗口（应使用默认）
 func TestRagHealth_GetHealth_NegativeWindow(t *testing.T) {
 	db := setupRagHealthTestDB(t)
@@ -591,7 +579,6 @@ func TestRagHealth_GetHealth_NegativeWindow(t *testing.T) {
 	}
 }
 
-
 // TestRagHealth_GetHealth_BGrade 测试 B 级场景
 func TestRagHealth_GetHealth_BGrade(t *testing.T) {
 	db := setupRagHealthTestDB(t)
@@ -604,7 +591,7 @@ func TestRagHealth_GetHealth_BGrade(t *testing.T) {
 		HitCount:       1,
 		Recall:         0.5,
 		Precision:      0.25,
-		LatencyMs:      800, 
+		LatencyMs:      800,
 		Source:         "hybrid",
 		CreatedAt:      time.Now().Add(-30 * time.Minute),
 	}
@@ -642,4 +629,3 @@ func TestRagHealth_GetHealth_BGrade(t *testing.T) {
 		t.Errorf("Expected score>=30, got %d", r.Score)
 	}
 }
-

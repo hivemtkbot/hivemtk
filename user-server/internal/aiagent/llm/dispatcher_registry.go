@@ -125,4 +125,3 @@ func (d *Dispatcher) CountProvidersByStatus() (up, down, disabled int) {
 	}
 	return up, down, disabled
 }
-

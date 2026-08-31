@@ -339,4 +339,3 @@ func (r *smsRepository) GetJobDetails(ctx context.Context, jobID uint, page, lim
 
 	return details, total, nil
 }
-

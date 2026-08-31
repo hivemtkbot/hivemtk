@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"fmt"
@@ -131,4 +130,3 @@ func (r *FeedbackLoopRepository) UpdateBanditArmLastSampled(ctx context.Context,
 		Where("experiment_id = ? AND arm_key = ?", experimentID, armKey).
 		Update("last_sampled_at", sampledAt).Error
 }
-

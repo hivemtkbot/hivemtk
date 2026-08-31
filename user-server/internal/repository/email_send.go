@@ -61,4 +61,3 @@ func (r *emailSendRepo) Delete(ctx context.Context, id uuid.UUID) error {
 func (r *emailSendRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status int) error {
 	return r.db.WithContext(ctx).Model(&model.EmailSend{}).Where("id = ?", id).Update("status", status).Error
 }
-

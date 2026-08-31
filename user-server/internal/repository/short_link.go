@@ -114,4 +114,3 @@ func (r *shortLinkRepository) GetTotalCount(ctx context.Context) (int64, error) 
 func (r *shortLinkRepository) IncreaseClickCount(ctx context.Context, id uint) error {
 	return r.db.Model(&model.ShortLink{}).Where("id = ?", id).UpdateColumn("click_count", gorm.Expr("click_count + ?", 1)).Error
 }
-

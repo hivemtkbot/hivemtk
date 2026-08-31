@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 
 	"hivemtk-user/internal/repository"
 )
-
 
 const (
 	RagHealthGradeA = "A"
@@ -24,14 +22,13 @@ const (
 
 // 6 个维度的权重（总和 1.0）
 const (
-	RagHealthWeightRetrieval = 0.10
-	RagHealthWeightRecall = 0.30
-	RagHealthWeightEmbedding = 0.15
-	RagHealthWeightCoverage = 0.15
+	RagHealthWeightRetrieval   = 0.10
+	RagHealthWeightRecall      = 0.30
+	RagHealthWeightEmbedding   = 0.15
+	RagHealthWeightCoverage    = 0.15
 	RagHealthWeightPerformance = 0.15
-	RagHealthWeightAlerts = 0.15
+	RagHealthWeightAlerts      = 0.15
 )
-
 
 // RagHealthService RAG 健康度服务
 type RagHealthService struct {
@@ -58,28 +55,27 @@ func NewRagHealthService(db *gorm.DB, metric *RagMetricsService) *RagHealthServi
 	}
 }
 
-
 // RagHealthReport 健康度报告
 type RagHealthReport struct {
-	Score       int                  `json:"score"`        
-	Grade       string               `json:"grade"`        
-	Dimensions  []RagHealthDimension `json:"dimensions"`   
-	CheckedAt   time.Time            `json:"checked_at"`   
-	WindowStart time.Time            `json:"window_start"` 
-	WindowEnd   time.Time            `json:"window_end"`   
-	Summary     string               `json:"summary"`      
+	Score       int                  `json:"score"`
+	Grade       string               `json:"grade"`
+	Dimensions  []RagHealthDimension `json:"dimensions"`
+	CheckedAt   time.Time            `json:"checked_at"`
+	WindowStart time.Time            `json:"window_start"`
+	WindowEnd   time.Time            `json:"window_end"`
+	Summary     string               `json:"summary"`
 }
 
 // RagHealthDimension 单维度子分数
 type RagHealthDimension struct {
-	Name          string  `json:"name"`           
-	Key           string  `json:"key"`            
-	Score         int     `json:"score"`          
-	Weight        float64 `json:"weight"`         
-	WeightedScore float64 `json:"weighted_score"` 
-	MetricValue   float64 `json:"metric_value"`   
-	MetricDesc    string  `json:"metric_desc"`    
-	Status        string  `json:"status"`         
+	Name          string  `json:"name"`
+	Key           string  `json:"key"`
+	Score         int     `json:"score"`
+	Weight        float64 `json:"weight"`
+	WeightedScore float64 `json:"weighted_score"`
+	MetricValue   float64 `json:"metric_value"`
+	MetricDesc    string  `json:"metric_desc"`
+	Status        string  `json:"status"`
 }
 
 // 维度键
@@ -91,7 +87,6 @@ const (
 	RagHealthDimPerformance = "performance"
 	RagHealthDimAlerts      = "alerts"
 )
-
 
 // GetHealth 计算并返回 RAG 系统健康度报告
 //
@@ -123,7 +118,7 @@ func (s *RagHealthService) GetHealth(ctx context.Context, window time.Duration) 
 	var embedFailRate float64
 	var embedTotal int64
 	if recallMetrics != nil {
-		embedFailRate = 0 
+		embedFailRate = 0
 		embedTotal = int64(recallMetrics.TotalQueries)
 	}
 
@@ -141,7 +136,7 @@ func (s *RagHealthService) GetHealth(ctx context.Context, window time.Duration) 
 	for _, d := range dimensions {
 		totalScore += d.WeightedScore
 	}
-	report.Score = int(totalScore + 0.5) 
+	report.Score = int(totalScore + 0.5)
 	if report.Score > 100 {
 		report.Score = 100
 	}
@@ -177,7 +172,6 @@ func (s *RagHealthService) GetHealthCached(ctx context.Context, window time.Dura
 	s.mu.Unlock()
 	return r, nil
 }
-
 
 // computeDimensions 计算 6 个维度的子分数
 func (s *RagHealthService) computeDimensions(ctx context.Context,
@@ -379,7 +373,6 @@ func buildHealthSummary(r *RagHealthReport) string {
 	return summary
 }
 
-
 // getChunkCount 查询知识库 chunk 总数
 func (s *RagHealthService) getChunkCount(ctx context.Context) (int64, error) {
 	return s.repo.CountKnowledgeChunks(ctx)
@@ -392,4 +385,3 @@ func (s *RagHealthService) ClearCache(ctx context.Context) {
 	s.cachedAt = time.Time{}
 	s.mu.Unlock()
 }
-

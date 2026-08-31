@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-
 // 预期的 4 平台品牌元数据（与 cardChannelMetas 保持一致）
 var expectedCardMetas = map[string]struct {
 	ChannelID   string
@@ -148,7 +147,7 @@ func TestVisitorChatService_ResolveCardChannel(t *testing.T) {
 
 	engine := NewSalesEngine(
 		database,
-		nil, 
+		nil,
 		nil, nil, nil, nil, nil, nil,
 	)
 	orch := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig())
@@ -285,4 +284,3 @@ func TestVisitorChatService_OpenSessionWithVisitorMeta(t *testing.T) {
 		})
 	}
 }
-

@@ -114,4 +114,3 @@ func (r *userRepo) GetByTgID(ctx context.Context, tgID int64) (*model.User, erro
 	err := r.db.Where("tg_id = ?", tgID).First(&user).Error
 	return &user, err
 }
-

@@ -100,7 +100,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { listEntities, getEntityRelations, generateEntitySchema } from '@/api/geoEntity.js'
+import { listEntities, getEntityRelations, extractEntities } from '@/api/geoEntity.js'
 
 const entities = ref([])
 const loading = ref(false)
@@ -146,7 +146,7 @@ const onSelectEntity = async (row) => {
   currentEntity.value = row
   schema.value = ''
   try {
-    const data = await getEntityRelations(row.id || row.entity_id || row.id)
+    const data = await getEntityRelations(row.entity_id || row.id)
     const list = Array.isArray(data) ? data : (data?.relations || data?.list || [])
     relations.value = layoutRelations(list)
   } catch { relations.value = [] }
@@ -156,10 +156,26 @@ const onGenerateSchema = async () => {
   if (!currentEntity.value) return
   schemaLoading.value = true
   try {
-    const data = await generateEntitySchema(currentEntity.value.id || currentEntity.value.entity_id)
-    const json = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
+    // 后端没有独立的 generateEntitySchema 端点，改为基于当前实体 + 关系数据本地生成 JSON-LD Schema
+    const e = currentEntity.value
+    const rels = relations.value || []
+    const graph = {
+      '@context': 'https://schema.org',
+      '@type': e.type || 'Thing',
+      name: e.name,
+      identifier: e.entity_id || e.id,
+      description: e.description || ''
+    }
+    if (rels.length) {
+      graph.relatedEntities = rels.map(r => ({
+        '@type': 'Thing',
+        name: r.target_name || r.targetName || r.target_id || '',
+        relationType: r.relation_type || r.relationType || ''
+      }))
+    }
+    const json = JSON.stringify({ '@graph': [graph] }, null, 2)
     schema.value = json
-    ElMessage.success('Schema 生成成功')
+    ElMessage.success('Schema 生成成功（本地基于实体关系数据）')
   } catch (e) { ElMessage.error('生成失败：' + (e?.message || e)) }
   schemaLoading.value = false
 }

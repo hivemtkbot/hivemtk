@@ -39,21 +39,21 @@ type LoginRiskContext struct {
 	DeviceFingerprint string
 	Success           bool
 	LoginAt           time.Time
-	Reason            string 
+	Reason            string
 }
 
 // LoginRiskResult 风险评估结果
 type LoginRiskResult struct {
 	RiskLevel        model.RiskLevel
-	ShouldAlert      bool   
-	ShouldForceMFA   bool   
-	AlertType        string 
+	ShouldAlert      bool
+	ShouldForceMFA   bool
+	AlertType        string
 	AlertTitle       string
 	AlertDescription string
-	Reasons          []string 
-	Location         string   
-	LoginEventID     uint     
-	SecurityAlertID  uint     
+	Reasons          []string
+	Location         string
+	LoginEventID     uint
+	SecurityAlertID  uint
 }
 
 // LoginRiskService 登录风险评估服务
@@ -402,4 +402,3 @@ func (s *LoginRiskService) IgnoreSecurityAlert(ctx context.Context, alertID, res
 	}
 	return s.repo.ResolveSecurityAlert(context.Background(), alertID, resolverUserID, note, time.Now(), string(model.SecurityAlertStatusIgnored))
 }
-

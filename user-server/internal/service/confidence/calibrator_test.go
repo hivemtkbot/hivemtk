@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"context"
 	"math"
@@ -212,7 +211,7 @@ func TestCalibrator_Evaluate_ECE_Worst(t *testing.T) {
 	samples := make([]CalibrationSample, 0, 40)
 	for i := 0; i < 20; i++ {
 		samples = append(samples, CalibrationSample{Logits: []float64{4.0, -4.0}, CorrectIdx: 0})
-		samples = append(samples, CalibrationSample{Logits: []float64{4.0, -4.0}, CorrectIdx: 1}) 
+		samples = append(samples, CalibrationSample{Logits: []float64{4.0, -4.0}, CorrectIdx: 1})
 	}
 	ece, _ := c.evaluate(samples, 1.0)
 	if ece < 0.3 {
@@ -251,4 +250,3 @@ func TestCalibrator_FitOnDataset_SingleClass(t *testing.T) {
 		t.Errorf("单类样本 NLL_after (%v) 应 <= NLL_before (%v)", result.NLLAfter, result.NLLBefore)
 	}
 }
-

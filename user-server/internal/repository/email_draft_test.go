@@ -250,4 +250,3 @@ func TestEmailDraftRepository_Update_WithUpdatedAt(t *testing.T) {
 		t.Error("Expected UpdatedAt to be after CreatedAt")
 	}
 }
-

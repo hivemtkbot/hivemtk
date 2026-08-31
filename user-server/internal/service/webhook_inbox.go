@@ -53,4 +53,3 @@ func (s *WebhookService) dispatchToUnified(ctx context.Context, um *model.Unifie
 	}
 	return nil
 }
-

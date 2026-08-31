@@ -43,4 +43,3 @@ func (s *AssetMarketService) MyPurchases(ctx context.Context) ([]map[string]any,
 	}
 	return list, nil
 }
-

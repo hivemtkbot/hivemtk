@@ -8,7 +8,6 @@ import (
 
 	"hivemtk-user/internal/geo/dto"
 	"hivemtk-user/internal/geo/model"
-	geodb "hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/geo/repository"
 )
 
@@ -22,19 +21,20 @@ type VerificationService struct {
 }
 
 // NewVerificationService 创建 AI 搜索验证服务
-func NewVerificationService(vr repository.GeoVerifyResultRepository, acr repository.GeoAPICallRepository, adapter *LLMAdapter) *VerificationService {
-	vs := &VerificationService{
+func NewVerificationService(
+	vr repository.GeoVerifyResultRepository,
+	acr repository.GeoAPICallRepository,
+	chainRepo repository.GeoQueryChainRepository,
+	taskRepo repository.GeoContentTaskRepository,
+	adapter *LLMAdapter,
+) *VerificationService {
+	return &VerificationService{
 		verifyRepo:  vr,
 		apiCallRepo: acr,
+		chainRepo:   chainRepo,
+		taskRepo:    taskRepo,
 		llm:         adapter,
 	}
-	// v3 决策链化：思维链仓储（Append 失败静默，不影响验证主流程）
-	gdb := geodb.GetDB()
-	if gdb != nil {
-		vs.chainRepo = repository.NewGeoQueryChainRepository(gdb)
-		vs.taskRepo = repository.NewGeoContentTaskRepository(gdb)
-	}
-	return vs
 }
 
 // verifyLLMResponse LLM 验证响应结构

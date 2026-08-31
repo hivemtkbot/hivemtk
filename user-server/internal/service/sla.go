@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"gorm.io/gorm"
 	"fmt"
+	"gorm.io/gorm"
 	"sync"
 	"time"
 
@@ -14,12 +14,12 @@ import (
 // SLAService SLA 监控服务（USR-WB-04）
 // 实时计算首响/解决 SLA 达标率、违规检测、看板聚合。
 type SLAService struct {
-	mu          sync.RWMutex
-	policies    map[uint]*model.SLAPolicy // id -> policy
-	ticker      *time.Ticker
-	violations  chan *model.SLAViolation
-	stopCh      chan struct{}
-	db          *gorm.DB
+	mu         sync.RWMutex
+	policies   map[uint]*model.SLAPolicy // id -> policy
+	ticker     *time.Ticker
+	violations chan *model.SLAViolation
+	stopCh     chan struct{}
+	db         *gorm.DB
 }
 
 func NewSLAService() *SLAService {
@@ -105,7 +105,7 @@ type SLAStats struct {
 	TotalSessions       int     `json:"total_sessions"`
 	FirstResponseMet    int     `json:"first_response_met"`
 	ResolutionMet       int     `json:"resolution_met"`
-	FirstResponseRate   float64 `json:"first_response_rate"`  // 0-100
+	FirstResponseRate   float64 `json:"first_response_rate"` // 0-100
 	ResolutionRate      float64 `json:"resolution_rate"`
 	AvgFirstResponseSec int     `json:"avg_first_response_sec"`
 	AvgResolutionSec    int     `json:"avg_resolution_sec"`
@@ -120,48 +120,48 @@ func (s *SLAService) GetStats(policyID uint, since time.Time) (*SLAStats, error)
 	if !ok {
 		return nil, fmt.Errorf("policy %d not found", policyID)
 	}
-        stats := &SLAStats{PolicyID: policy.ID, PolicyName: policy.Name}
-        if s.db == nil {
-                return stats, nil
-        }
-        var total int64
-        if err := s.db.Model(&model.CustomerSession{}).
-                Where("created_at >= ?", since).Count(&total).Error; err != nil {
-                return stats, err
-        }
-        stats.TotalSessions = int(total)
-        if total == 0 {
-                return stats, nil
-        }
-        var resolved int64
-        if err := s.db.Model(&model.CustomerSession{}).
-                Where("created_at >= ? AND status IN ?", since,
-                        []string{"resolved", "closed"}).Count(&resolved).Error; err != nil {
-                return stats, err
-        }
-        var openHandling int64
-        s.db.Model(&model.CustomerSession{}).
-                Where("created_at >= ? AND status IN ?", since,
-                        []string{"pending", "ai_handling", "human_handling", "waiting"}).
-                Count(&openHandling)
-        if policy.ResolutionSeconds > 0 {
-                stats.FirstResponseMet = stats.TotalSessions
-                stats.ResolutionMet = int(resolved)
-                stats.ViolationsLast24h = int(openHandling)
-        } else {
-                stats.FirstResponseMet = stats.TotalSessions
-                stats.ResolutionMet = stats.TotalSessions
-                stats.ViolationsLast24h = 0
-        }
-        if stats.TotalSessions > 0 {
-                stats.FirstResponseRate = float64(stats.FirstResponseMet) / float64(stats.TotalSessions) * 100
-                stats.ResolutionRate = float64(stats.ResolutionMet) / float64(stats.TotalSessions) * 100
-        }
-        stats.AvgFirstResponseSec = 45
-        if policy.ResolutionSeconds > 0 {
-                stats.AvgResolutionSec = policy.ResolutionSeconds / 2
-        }
-        return stats, nil
+	stats := &SLAStats{PolicyID: policy.ID, PolicyName: policy.Name}
+	if s.db == nil {
+		return stats, nil
+	}
+	var total int64
+	if err := s.db.Model(&model.CustomerSession{}).
+		Where("created_at >= ?", since).Count(&total).Error; err != nil {
+		return stats, err
+	}
+	stats.TotalSessions = int(total)
+	if total == 0 {
+		return stats, nil
+	}
+	var resolved int64
+	if err := s.db.Model(&model.CustomerSession{}).
+		Where("created_at >= ? AND status IN ?", since,
+			[]string{"resolved", "closed"}).Count(&resolved).Error; err != nil {
+		return stats, err
+	}
+	var openHandling int64
+	s.db.Model(&model.CustomerSession{}).
+		Where("created_at >= ? AND status IN ?", since,
+			[]string{"pending", "ai_handling", "human_handling", "waiting"}).
+		Count(&openHandling)
+	if policy.ResolutionSeconds > 0 {
+		stats.FirstResponseMet = stats.TotalSessions
+		stats.ResolutionMet = int(resolved)
+		stats.ViolationsLast24h = int(openHandling)
+	} else {
+		stats.FirstResponseMet = stats.TotalSessions
+		stats.ResolutionMet = stats.TotalSessions
+		stats.ViolationsLast24h = 0
+	}
+	if stats.TotalSessions > 0 {
+		stats.FirstResponseRate = float64(stats.FirstResponseMet) / float64(stats.TotalSessions) * 100
+		stats.ResolutionRate = float64(stats.ResolutionMet) / float64(stats.TotalSessions) * 100
+	}
+	stats.AvgFirstResponseSec = 45
+	if policy.ResolutionSeconds > 0 {
+		stats.AvgResolutionSec = policy.ResolutionSeconds / 2
+	}
+	return stats, nil
 }
 
 // RecordFirstResponse 记录首响时间（外部 hook）

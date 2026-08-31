@@ -30,4 +30,3 @@ func ToThresholdPolicyModel(r *dto.ThresholdPolicyRequest) *model.ThresholdPolic
 		UpdatedAt:               now,
 	}
 }
-

@@ -122,9 +122,9 @@ func (s *WebhookService) DouyinLeadMiner() func(ctx context.Context, ev *model.M
 			IsGroup:        ev.IsGroup,
 			GroupID:        ev.GroupID,
 			Extra: model.JSONMap{
-				"source":      "bridge",
-				"group_name":  groupName,
-				"account_id":  accountID,
+				"source":     "bridge",
+				"group_name": groupName,
+				"account_id": accountID,
 			},
 		}
 
@@ -142,10 +142,10 @@ var leadMiningChannels = map[string]bool{
 
 // unsupportedLeadMiningChannels 声明支持但未完整实现的渠道（返回明确提示）
 var unsupportedLeadMiningChannels = map[string]string{
-	"weibo":   "微博线索挖掘需要 Chrome 扩展 + Bridge 协议 + 微博平台 API",
-	"taobao":  "淘宝线索挖掘需要 Chrome 扩展 + Bridge 协议",
-	"pdd":     "拼多多线索挖掘需要 Chrome 扩展 + Bridge 协议",
-	"jd":      "京东线索挖掘需要 Chrome 扩展 + Bridge 协议",
+	"weibo":    "微博线索挖掘需要 Chrome 扩展 + Bridge 协议 + 微博平台 API",
+	"taobao":   "淘宝线索挖掘需要 Chrome 扩展 + Bridge 协议",
+	"pdd":      "拼多多线索挖掘需要 Chrome 扩展 + Bridge 协议",
+	"jd":       "京东线索挖掘需要 Chrome 扩展 + Bridge 协议",
 	"bilibili": "B站线索挖掘需要 Chrome 扩展 + Bridge 协议",
 }
 
@@ -153,7 +153,9 @@ var unsupportedLeadMiningChannels = map[string]string{
 func RegisterLeadMiningChannel(channel string) { leadMiningChannels[channel] = true }
 
 // GetUnsupportedLeadMiningReason 返回未支持渠道的原因（给 API 调用方友好提示）
-func GetUnsupportedLeadMiningReason(channel string) string { return unsupportedLeadMiningChannels[channel] }
+func GetUnsupportedLeadMiningReason(channel string) string {
+	return unsupportedLeadMiningChannels[channel]
+}
 
 func isBridgeLeadMiningChannel(channel string) bool {
 	return leadMiningChannels[channel]

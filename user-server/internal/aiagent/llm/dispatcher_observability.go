@@ -14,7 +14,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 const (
 	TokenSourceActual    = "actual"
 	TokenSourceEstimated = "estimated"
@@ -38,7 +37,6 @@ var (
 	totalCounter     int64
 	missingThreshold = int64(20)
 )
-
 
 // InferVendor 根据 BaseURL 推断厂商
 //
@@ -100,7 +98,6 @@ func ClassifyEstimator(tokenSource string) string {
 	}
 }
 
-
 // auditDB 全局审计 DB 句柄（由 InitGlobalDispatcher 注入）
 var (
 	auditDBMu sync.RWMutex
@@ -126,7 +123,6 @@ func AttachAuditDB(d *gorm.DB) {
 	setAuditDB(d)
 }
 
-
 // LogEntry 路由决策日志条目（包含 v3.6.0 基础字段 + v3.7.0 扩展字段）
 //
 // 设计原则：
@@ -146,21 +142,21 @@ type LogEntry struct {
 	Success          bool             `json:"success"`
 	ErrorMsg         string           `json:"error_msg"`
 	FromCache        bool             `json:"from_cache"`
-	ModelType        string  `json:"model_type"`        
-	Vendor           string  `json:"vendor"`            
-	BaseURL          string  `json:"base_url"`          
-	IsFallback       bool    `json:"is_fallback"`       
-	PromptCost       float64 `json:"prompt_cost"`       
-	CompletionCost   float64 `json:"completion_cost"`   
-	TokenSource      string  `json:"token_source"`      
-	Estimator        string  `json:"estimator"`         
-	Source           string  `json:"source"`            
-	ScenarioProvider string  `json:"scenario_provider"` 
-	InternalLang    string `json:"internal_lang,omitempty"`    
-	TargetLang      string `json:"target_lang,omitempty"`      
-	CrossLingual    bool   `json:"cross_lingual,omitempty"`    
-	GlossaryVersion string `json:"glossary_version,omitempty"` 
-	CacheHit        bool   `json:"cache_hit,omitempty"`        
+	ModelType        string           `json:"model_type"`
+	Vendor           string           `json:"vendor"`
+	BaseURL          string           `json:"base_url"`
+	IsFallback       bool             `json:"is_fallback"`
+	PromptCost       float64          `json:"prompt_cost"`
+	CompletionCost   float64          `json:"completion_cost"`
+	TokenSource      string           `json:"token_source"`
+	Estimator        string           `json:"estimator"`
+	Source           string           `json:"source"`
+	ScenarioProvider string           `json:"scenario_provider"`
+	InternalLang     string           `json:"internal_lang,omitempty"`
+	TargetLang       string           `json:"target_lang,omitempty"`
+	CrossLingual     bool             `json:"cross_lingual,omitempty"`
+	GlossaryVersion  string           `json:"glossary_version,omitempty"`
+	CacheHit         bool             `json:"cache_hit,omitempty"`
 }
 
 // NewLogEntry 根据基础信息构造 LogEntry，自动填充扩展字段
@@ -288,11 +284,11 @@ func LogRoutingDecision(ctx context.Context, entry *LogEntry) {
 		"estimator":         entry.Estimator,
 		"source":            entry.Source,
 		"scenario_provider": entry.ScenarioProvider,
-		"internal_lang":    entry.InternalLang,
-		"target_lang":      entry.TargetLang,
-		"cross_lingual":    entry.CrossLingual,
-		"glossary_version": entry.GlossaryVersion,
-		"cache_hit":        entry.CacheHit,
+		"internal_lang":     entry.InternalLang,
+		"target_lang":       entry.TargetLang,
+		"cross_lingual":     entry.CrossLingual,
+		"glossary_version":  entry.GlossaryVersion,
+		"cache_hit":         entry.CacheHit,
 	}
 	if err := d.WithContext(context.Background()).Table("llm_routing_logs").Create(row).Error; err != nil {
 		logger.Warnf("[LLM] LogRoutingDecision write failed: %v (entry=%+v)", err, entry)
@@ -387,7 +383,7 @@ type ScenarioStat struct {
 	TotalTokens  int64   `json:"total_tokens"`
 	TotalCost    float64 `json:"total_cost"`
 	AvgLatencyMs int64   `json:"avg_latency_ms"`
-	WindowLabel  string  `json:"window_label"` 
+	WindowLabel  string  `json:"window_label"`
 }
 
 // QueryScenarioStats 查 llm_routing_logs 按 (scenario, provider) 聚合
@@ -466,7 +462,6 @@ func QueryAuditHistory(ctx context.Context, scenario string, limit int) ([]map[s
 	return rows, nil
 }
 
-
 // DecideCanaryRoute 决定本次 Dispatch 走哪个 route（主或灰度）
 //
 // 决策规则：
@@ -496,7 +491,6 @@ func DecideCanaryRoute(route *ScenarioRoute, canaryKey string) *ScenarioRoute {
 	}
 	return nil
 }
-
 
 // StartCacheJanitor 启动后台 goroutine 定期清理过期 cache 项
 //
@@ -543,4 +537,3 @@ func InitGlobalDispatcherWithDB(d *Dispatcher, gormDB *gorm.DB) {
 		setAuditDB(db.GetDB())
 	}
 }
-

@@ -27,16 +27,16 @@ func NewAutoTagger() *AutoTagger {
 
 // TagRule 标签规则定义
 type TagRule struct {
-	Field    string `json:"field"`    
-	Operator string `json:"operator"` 
-	Value    any    `json:"value"`    
+	Field    string `json:"field"`
+	Operator string `json:"operator"`
+	Value    any    `json:"value"`
 }
 
 // RemoveCondition 标签移除条件（Rule JSON 可选字段 remove_condition，向后兼容：缺省不移除）
 type RemoveCondition struct {
-	Type  string `json:"type"`  
-	Days  int    `json:"days"`  
-	Event string `json:"event"` 
+	Type  string `json:"type"`
+	Days  int    `json:"days"`
+	Event string `json:"event"`
 }
 
 // EvaluateAndTag 评估客户并自动打标签（先执行移除评估，再执行添加）
@@ -318,7 +318,7 @@ func (s *AutoTagger) evaluatePurchaseAmountRule(ctx context.Context, customerDat
 
 // evaluateDaysSinceRule 评估距离某天数的规则
 func (s *AutoTagger) evaluateDaysSinceRule(ctx context.Context, customerData map[string]any, rule map[string]any) bool {
-	field, _ := rule["field"].(string) 
+	field, _ := rule["field"].(string)
 	operator, _ := rule["operator"].(string)
 
 	// Handle threshold as either float64 or int
@@ -349,7 +349,7 @@ func (s *AutoTagger) evaluateCustomRule(ctx context.Context, customerData map[st
 		return false
 	}
 
-	logic, _ := rule["logic"].(string) 
+	logic, _ := rule["logic"].(string)
 	if logic == "" {
 		logic = "AND"
 	}
@@ -492,7 +492,7 @@ func compareValues(fieldValue any, operator string, value any) bool {
 	case "lte", "<=":
 		return fv <= val
 	case "contains":
-		return false 
+		return false
 	default:
 		return false
 	}
@@ -538,4 +538,3 @@ func (s *AutoTagger) CreateAutoTag(ctx context.Context, name, category string, r
 func (s *AutoTagger) GetAutoTags(ctx context.Context) ([]*model.CustomerTag, error) {
 	return s.tagRepo.ListAutoTags(ctx)
 }
-

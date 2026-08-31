@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"testing"
@@ -8,7 +7,6 @@ import (
 
 	"hivemtk-user/internal/model"
 )
-
 
 // 1. consult - general
 func TestRecognizeIntent_ConsultGeneral(t *testing.T) {
@@ -325,7 +323,6 @@ func TestRecognizeIntent_AskProductSpec(t *testing.T) {
 	}
 }
 
-
 // 27. 空消息兜底
 func TestRecognizeIntent_EmptyMessage(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
@@ -374,7 +371,6 @@ func TestRecognizeIntent_LatencyNonNegative(t *testing.T) {
 	}
 }
 
-
 // 31. IntentLog 异步落库
 func TestRecognizeIntent_PersistIntentLog(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
@@ -397,7 +393,6 @@ func TestRecognizeIntent_PersistIntentLog(t *testing.T) {
 		t.Errorf("expected rule method, got %s", logs[0].Method)
 	}
 }
-
 
 // 32. GetIntentLogs 按 customer_id 过滤
 func TestGetIntentLogs_ByCustomerID(t *testing.T) {
@@ -475,7 +470,6 @@ func TestGetIntentLogs_LimitDefault(t *testing.T) {
 	}
 }
 
-
 // 36. GetIntentLogStats 按 major 聚合
 func TestGetIntentLogStats_ByMajor(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
@@ -521,7 +515,6 @@ func TestGetIntentLogStats_DefaultDays(t *testing.T) {
 	}
 }
 
-
 // 38. QueryIntentLogsByTraceID 按 trace_id 查询
 func TestQueryIntentLogsByTraceID(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
@@ -559,7 +552,6 @@ func TestQueryIntentLogsByTraceID_EmptyTraceID(t *testing.T) {
 		t.Errorf("expected nil for empty trace_id, got %v", logs)
 	}
 }
-
 
 // 40. isValidMajor
 func TestIsValidMajor(t *testing.T) {
@@ -627,7 +619,6 @@ func TestGetDefaultMinor(t *testing.T) {
 	}
 }
 
-
 // 43. recognizeFineByRule 空字符串
 func TestRecognizeFineByRule_Empty(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
@@ -659,7 +650,6 @@ func TestRecognizeFineByRule_HitMinor(t *testing.T) {
 	}
 }
 
-
 // 46. 多关键词同时命中选最高分
 func TestRecognizeFineByRule_MultiKeywordBestScore(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
@@ -683,4 +673,3 @@ func TestRecognizeFineByRule_MajorOnlyFallback(t *testing.T) {
 		t.Errorf("expected budget_check (first minor), got %s", r.Minor)
 	}
 }
-

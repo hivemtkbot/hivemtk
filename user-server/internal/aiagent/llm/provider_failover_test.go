@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // fakeChecker 模拟健康检查器
 type fakeChecker struct {
 	mu      sync.Mutex
@@ -46,7 +45,6 @@ func newTestFailover(t *testing.T, dispatcher *Dispatcher, db *gorm.DB) *Provide
 	f := NewProviderFailover(dispatcher, db)
 	return f
 }
-
 
 // 1. 默认配置 - 字段正确
 func TestDefaultFailoverConfig(t *testing.T) {
@@ -395,7 +393,7 @@ func TestFailoverStop(t *testing.T) {
 	d := newTestDispatcher()
 	f := newTestFailover(t, d, nil)
 	f.Stop()
-	f.Stop() 
+	f.Stop()
 }
 
 // 23. Start 后 Stop 优雅关闭
@@ -448,7 +446,7 @@ func TestIntervalDefault(t *testing.T) {
 func TestSetHealthCheckerNil(t *testing.T) {
 	d := newTestDispatcher()
 	f := newTestFailover(t, d, nil)
-	f.SetHealthChecker(nil) 
+	f.SetHealthChecker(nil)
 	latency, err := f.checker.Ping(context.Background(), &ProviderConfig{Name: "local"}, f.Config())
 	if err != nil {
 		t.Errorf("expected nil err, got %v", err)
@@ -514,4 +512,3 @@ func TestDefaultHealthCheckPath(t *testing.T) {
 		t.Errorf("expected /health, got %s", cfg.HealthCheckPath)
 	}
 }
-

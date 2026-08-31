@@ -152,4 +152,3 @@ func (r *MigrationCheckpointRepository) Upsert(ctx context.Context, checkpoint *
 	}
 	return r.db.WithContext(ctx).Create(checkpoint).Error
 }
-

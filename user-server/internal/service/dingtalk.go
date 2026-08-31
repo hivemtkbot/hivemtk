@@ -16,7 +16,6 @@ import (
 	"hivemtk-user/internal/pkg/httpclient"
 )
 
-
 // dingtalkRobotBase 钉钉群机器人发送基础地址；测试可临时覆盖以指向 mock server。
 var dingtalkRobotBase = "https://oapi.dingtalk.com/robot/send"
 
@@ -120,4 +119,3 @@ func dingtalkSign(secret string, timestamp int64) string {
 	mac.Write([]byte(stringToSign))
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
-

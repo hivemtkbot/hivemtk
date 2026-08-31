@@ -147,15 +147,15 @@ func (s *SalesEventStatsService) RecordAIDeal(ctx context.Context, ev AIDealEven
 		ev.OccurredAt = time.Now()
 	}
 	_ = s.repo.Create(ctx, &model.SalesEvent{
-		EventType:  model.SalesEventTypeAIDeal,
-		CustomerID: ev.CustomerID,
-		OwnerID:    ev.OwnerID,
-		Intent:     ev.Intent,
-		Replied:    ev.Replied,
+		EventType:   model.SalesEventTypeAIDeal,
+		CustomerID:  ev.CustomerID,
+		OwnerID:     ev.OwnerID,
+		Intent:      ev.Intent,
+		Replied:     ev.Replied,
 		Transferred: ev.Transferred,
-		CostTokens: ev.CostTokens,
-		LatencyMs:  ev.LatencyMs,
-		OccurredAt: ev.OccurredAt,
+		CostTokens:  ev.CostTokens,
+		LatencyMs:   ev.LatencyMs,
+		OccurredAt:  ev.OccurredAt,
 	})
 }
 

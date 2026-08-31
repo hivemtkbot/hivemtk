@@ -29,7 +29,7 @@ func TestClueScoreService_ScoreClue_Verify(t *testing.T) {
 	clue := &model.Clue{
 		ID:         "test-clue-1",
 		Account:    "acc-1",
-		Type:       3, 
+		Type:       3,
 		IsVerify:   1,
 		Name:       "Alice",
 		City:       "上海",
@@ -59,7 +59,7 @@ func TestClueScoreService_ScoreClue_LowQuality(t *testing.T) {
 	clue := &model.Clue{
 		ID:       "test-clue-2",
 		Account:  "acc-2",
-		Type:     6, 
+		Type:     6,
 		IsVerify: 0,
 	}
 	score, err := svc.ScoreClue(context.Background(), clue)
@@ -188,4 +188,3 @@ func TestCalcGradeFromScore(t *testing.T) {
 		}
 	}
 }
-

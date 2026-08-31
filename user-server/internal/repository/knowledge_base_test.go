@@ -240,7 +240,6 @@ func TestKnowledgeBaseRepository_CountByAgent(t *testing.T) {
 	}
 }
 
-
 // TestKnowledgeBaseRepository_GetByID_NotFound 验证 GetByID 不存在返回 nil
 func TestKnowledgeBaseRepository_GetByID_NotFound(t *testing.T) {
 	repo, _, done := setupKBRepoWithTX(t)
@@ -567,4 +566,3 @@ func TestKnowledgeBaseRepository_CountByAgent_NoKB(t *testing.T) {
 		t.Errorf("expected count=0 for agent with no KB, got %d", c)
 	}
 }
-

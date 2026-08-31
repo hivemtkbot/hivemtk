@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // boolPtr 工具函数,把 bool 转成 *bool (GORM v2 零值 false 处理)
 func boolPtr(v bool) *bool { return &v }
 
@@ -90,7 +89,7 @@ func TestFAQRepository_MatchByKeyword_Simple(t *testing.T) {
 		{Question: "韵达发货吗", Answer: "韵达不发的哦", Intent: "logistics", Confidence: 0.9, Enabled: boolPtr(true)},
 		{Question: "可以优惠价吗", Answer: "200 把起优惠", Intent: "pricing", Confidence: 0.85, Enabled: boolPtr(true)},
 		{Question: "纸皮核桃好不好", Answer: "是的哦", Intent: "product", Confidence: 0.8, Enabled: boolPtr(true)},
-		{Question: "退换货怎么操作", Answer: "联系客服", Intent: "aftersales", Confidence: 0.9, Enabled: boolPtr(false)}, 
+		{Question: "退换货怎么操作", Answer: "联系客服", Intent: "aftersales", Confidence: 0.9, Enabled: boolPtr(false)},
 	}
 	for _, e := range entries {
 		if err := repo.Create(ctx, e); err != nil {
@@ -165,4 +164,3 @@ func TestFAQRepository_IncrementHitCount(t *testing.T) {
 		t.Errorf("expected hit_count=2, got %d", got.HitCount)
 	}
 }
-

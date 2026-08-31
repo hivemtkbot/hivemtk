@@ -156,4 +156,3 @@ func (r *whatsappRepo) ListJobDetails(ctx context.Context, jobID uuid.UUID) ([]*
 	err := r.db.Where("job_id = ?", jobID).Order("created_at asc").Find(&list).Error
 	return list, err
 }
-

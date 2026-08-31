@@ -42,9 +42,9 @@ func TestInboxIngress_PlatformEchoAcrossDays(t *testing.T) {
 	event := &model.MessageEvent{
 		Channel:        model.ChannelDouyin,
 		SenderID:       account,
-		SenderType:     "customer", 
+		SenderType:     "customer",
 		Content:        content,
-		EventID:        hashID, 
+		EventID:        hashID,
 		ConversationID: conv,
 		Extra:          map[string]interface{}{"account_id": account},
 	}
@@ -151,7 +151,7 @@ func TestInboxIngress_PlatformEchoTextModified(t *testing.T) {
 		SenderID:       "customer-xhs",
 		SenderType:     "customer",
 		Content:        reported,
-		EventID:        "mh:aabbcc99", 
+		EventID:        "mh:aabbcc99",
 		ConversationID: conv,
 		Extra:          map[string]interface{}{"account_id": account},
 	}
@@ -172,4 +172,3 @@ func TestInboxIngress_PlatformEchoTextModified(t *testing.T) {
 		t.Fatalf("微调文本应落库 1 条 inbound, 实际 %d", inboundCount)
 	}
 }
-

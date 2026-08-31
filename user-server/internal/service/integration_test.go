@@ -475,7 +475,7 @@ func TestIntegrationService_GetExternalProducts(t *testing.T) {
 			Platform:  "ecommerce_taobao",
 			ProductID: "product_id",
 			Name:      "Product",
-			Price:     10000, 
+			Price:     10000,
 			Stock:     10,
 		})
 	}
@@ -588,4 +588,3 @@ func TestNewJDClient(t *testing.T) {
 		t.Errorf("Expected appSecret 'test_secret', got '%s'", client.appSecret)
 	}
 }
-

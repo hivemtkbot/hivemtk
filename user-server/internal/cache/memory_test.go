@@ -76,7 +76,7 @@ func TestMemoryCache_SetWithZeroExpiration(t *testing.T) {
 	key := "permanent_key"
 	value := "permanent_value"
 
-	err := cache.Set(ctx, key, value, 0) 
+	err := cache.Set(ctx, key, value, 0)
 	if err != nil {
 		t.Fatalf("Set() 返回错误：%v", err)
 	}
@@ -399,4 +399,3 @@ func TestMemoryCache_CleanupGoroutine(t *testing.T) {
 	time.Sleep(600 * time.Millisecond)
 
 }
-

@@ -278,7 +278,7 @@ func TestWebhookService_Receive_GeneratedEventID(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
 	defer s.Stop(context.Background())
-	body := []byte(`{"content":"hi"}`) 
+	body := []byte(`{"content":"hi"}`)
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
 	if !r.Accepted {
 		t.Errorf("expected accepted, got %+v", r)
@@ -297,7 +297,7 @@ func TestWebhookService_Receive_DefaultEventType(t *testing.T) {
 	s := NewWebhookService(db)
 	defer s.Stop(context.Background())
 	eventID := fmt.Sprintf("e1-%d", time.Now().UnixNano())
-	body := []byte(fmt.Sprintf(`{"event_id":"%s","content":"hi"}`, eventID)) 
+	body := []byte(fmt.Sprintf(`{"event_id":"%s","content":"hi"}`, eventID))
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
 	if !r.Accepted {
 		t.Errorf("expected accepted, got %+v", r)
@@ -623,7 +623,6 @@ func TestWebhookService_PayloadSize_Large(t *testing.T) {
 func fmtKey(i int) string {
 	return "key_" + string(rune('a'+i%26)) + "_" + string(rune('0'+i/26%10))
 }
-
 
 // TestWebhookInsecureWebhookGuard W-1 验签绕过防护：
 // production 环境下 ALLOW_INSECURE_WEBHOOK=true 必须拒绝启动；dev/test/未设置保持现状。

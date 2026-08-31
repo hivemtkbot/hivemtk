@@ -11,9 +11,9 @@ import "math"
 //   - 公式：P(y=1|z) = σ(a·z + b)^c / (σ(a·z + b)^c + (1-σ(a·z + b))^c)
 //   - 与 Platt 的关系：Platt 是 Beta(c=1) 的特例；Beta 多 1 个参数 c → 更灵活
 //   - 优势：
-//     - 2 参数 (a, b) 仍是低维度（不需交叉验证）
-//     - 多 1 个 c 参数能拟合「双峰分布」（Platt 只能拟合单峰）
-//     - MLE 闭式更新（梯度 + Hessian 3x3）
+//   - 2 参数 (a, b) 仍是低维度（不需交叉验证）
+//   - 多 1 个 c 参数能拟合「双峰分布」（Platt 只能拟合单峰）
+//   - MLE 闭式更新（梯度 + Hessian 3x3）
 //   - 适用：客服意图分类（label 极不平衡、分布有偏）
 //
 // 与 Platt 对比：
@@ -41,15 +41,16 @@ type BetaSample struct {
 // Fit 用 MLE 拟合 (a, b, c)。
 //
 // 数学（Kull 2017 §2）：
-//   p_i = σ(a·z_i + b)
-//   q_i = p_i^c / (p_i^c + (1-p_i)^c)
-//   目标：max Σ [y_i · log(q_i) + (1-y_i) · log(1-q_i)]
+//
+//	p_i = σ(a·z_i + b)
+//	q_i = p_i^c / (p_i^c + (1-p_i)^c)
+//	目标：max Σ [y_i · log(q_i) + (1-y_i) · log(1-q_i)]
 //
 // 训练流程（简化版）：
-//   1. 先以 Platt 拟合 (a, b)，得初始点
-//   2. 再用数值梯度 + 步长搜索优化 c（line search 0.1..3.0）
-//   3. 固定 c，联合优化 (a, b)（Newton-Raphson 2x2）
-//   4. 重复 2-3 直至收敛
+//  1. 先以 Platt 拟合 (a, b)，得初始点
+//  2. 再用数值梯度 + 步长搜索优化 c（line search 0.1..3.0）
+//  3. 固定 c，联合优化 (a, b)（Newton-Raphson 2x2）
+//  4. 重复 2-3 直至收敛
 func (b *BetaCalibration) Fit(samples []BetaSample) *BetaCalibration {
 	if len(samples) == 0 {
 		return b
@@ -172,7 +173,8 @@ func betaNLL(samples []BetaSample, a, b, c float64) float64 {
 // newtonAB 固定 c，对 (a, b) 做 Newton-Raphson 2x2
 //
 // 简化版：用 Platt 的 Hessian 近似（忽略 c 的二阶项）
-//   数学上不严格但实践中足够（Kull 2017 论文验证）
+//
+//	数学上不严格但实践中足够（Kull 2017 论文验证）
 func newtonAB(samples []BetaSample, c, initA, initB float64) (float64, float64) {
 	a, bb := initA, initB
 	const maxIter = 5

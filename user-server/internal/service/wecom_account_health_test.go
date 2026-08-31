@@ -49,7 +49,6 @@ func mkWeComAccount(id uint) *model.WeComAccount {
 	}
 }
 
-
 // 1. 基本正常上报
 func TestReportHealth_Normal(t *testing.T) {
 	svc, db := newWeComHealthService(t)
@@ -147,7 +146,6 @@ func TestReportHealth_ManyErrors(t *testing.T) {
 	}
 }
 
-
 // 8. 空 account
 func TestReportHealth_EmptyAccount(t *testing.T) {
 	svc, _ := newWeComHealthService(t)
@@ -185,7 +183,6 @@ func TestReportHealth_CustomMetrics(t *testing.T) {
 	}
 }
 
-
 // 11. 拉取最新健康度
 func TestGetLatestHealth_Success(t *testing.T) {
 	svc, db := newWeComHealthService(t)
@@ -218,7 +215,6 @@ func TestGetLatestHealth_NotFound(t *testing.T) {
 		t.Errorf("expected ErrWeComHealthNotFound, got %v", err)
 	}
 }
-
 
 // 13. 历史列表
 func TestListHealthHistory_Success(t *testing.T) {
@@ -267,7 +263,6 @@ func TestListHealthHistory_Empty(t *testing.T) {
 	}
 }
 
-
 // 16. 风险账号列表
 func TestGetRiskAccounts_WithRisks(t *testing.T) {
 	svc, db := newWeComHealthService(t)
@@ -298,7 +293,6 @@ func TestGetRiskAccounts_AllNormal(t *testing.T) {
 		t.Errorf("expected 0, got %d", len(risks))
 	}
 }
-
 
 // 18. 选最佳账号 - 配额最低优先
 func TestSelectHealthyAccount_QuotaFirst(t *testing.T) {
@@ -377,7 +371,6 @@ func TestSelectHealthyAccount_ByWeight(t *testing.T) {
 		t.Errorf("expected 2 (weight 100), got %d", best.ID)
 	}
 }
-
 
 // 23. 配额消耗
 func TestConsumeQuota_Success(t *testing.T) {
@@ -474,7 +467,6 @@ func TestConsumeQuota_NotFound(t *testing.T) {
 	}
 }
 
-
 // 31. 重置日配额
 func TestResetDailyQuota_Success(t *testing.T) {
 	svc, db := newWeComHealthService(t)
@@ -515,7 +507,6 @@ func TestResetDailyQuota_SetsTime(t *testing.T) {
 		t.Error("expected quota_reset_at to be set")
 	}
 }
-
 
 // 34. 健康概览
 func TestGetHealthSummary_Basic(t *testing.T) {
@@ -591,7 +582,6 @@ func TestGetHealthSummary_AccountDetails(t *testing.T) {
 		t.Errorf("expected 0.5, got %f", summary.Accounts[0].QuotaUsageRate)
 	}
 }
-
 
 // 38. 健康分 - 正常
 func TestComputeHealthScore_Normal(t *testing.T) {
@@ -713,7 +703,6 @@ func TestComputeHealthScore_UpperBound(t *testing.T) {
 	}
 }
 
-
 // 53. 风险等级 - 100
 func TestComputeRiskLevel_100(t *testing.T) {
 	risk := computeRiskLevel(100, WeComLoginOnline)
@@ -777,7 +766,6 @@ func TestComputeRiskLevel_BannedPriority(t *testing.T) {
 		t.Errorf("expected banned, got %s", risk)
 	}
 }
-
 
 // 61. 同步账号状态 - last_active_at
 func TestSyncAccountState_LastActiveAt(t *testing.T) {
@@ -902,7 +890,6 @@ func TestSyncAccountState_OnlineRestores(t *testing.T) {
 	}
 }
 
-
 // 68. WeCom 集成 - IngestMessage 创建消息与会话
 func TestWeComIntegration_IngestMessage(t *testing.T) {
 	_, db := newWeComHealthService(t)
@@ -980,7 +967,6 @@ func TestWeComIntegration_IngestGroupMessage(t *testing.T) {
 		t.Errorf("expected g-001, got %s", hubMsg.GroupID)
 	}
 }
-
 
 // 72. 集成 - 缺 account
 func TestWeComIntegration_MissingAccount(t *testing.T) {
@@ -1269,7 +1255,6 @@ func TestWeComIntegration_ReceiveCallbackMissing(t *testing.T) {
 	}
 }
 
-
 // 91. 初始化服务
 func TestInitWeComAccountHealthService(t *testing.T) {
 	svc1 := InitWeComAccountHealthService(nil)
@@ -1527,5 +1512,3 @@ func TestConsumeQuota_UpdatesLastActiveAt(t *testing.T) {
 		t.Error("expected last_active_at refreshed")
 	}
 }
-
-

@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"strings"
@@ -45,7 +44,7 @@ func TestSmsDeliveryTracker_DetectCarrier(t *testing.T) {
 		{"18900189000", model.SmsCarrierTelecom},
 		{"20000000000", model.SmsCarrierUnknown},
 		{"123", model.SmsCarrierUnknown},
-		{"138-0013-8000", model.SmsCarrierMobile}, 
+		{"138-0013-8000", model.SmsCarrierMobile},
 	}
 	for _, c := range cases {
 		got := DetectCarrierFromPhone(c.phone)
@@ -197,4 +196,3 @@ func TestSmsDeliveryTracker_MarshalReport(t *testing.T) {
 		t.Errorf("Unexpected output: %s", out)
 	}
 }
-

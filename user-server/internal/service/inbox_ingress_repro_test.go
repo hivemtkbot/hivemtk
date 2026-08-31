@@ -1,4 +1,3 @@
-
 package service
 
 import (
@@ -37,4 +36,3 @@ func TestReproduce_XhsWeb_NoAITrigger(t *testing.T) {
 	}
 	t.Logf("✅ AI trigger 被正确调用: channel=%s accountID=%s", tr.lastChannel, tr.lastAccount)
 }
-

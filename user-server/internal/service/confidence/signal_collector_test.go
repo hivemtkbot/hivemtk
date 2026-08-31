@@ -1,6 +1,5 @@
 package confidence
 
-
 import (
 	"context"
 	"math"
@@ -8,7 +7,6 @@ import (
 
 	"hivemtk-user/internal/dto"
 )
-
 
 type mockEmbedder struct {
 	vectors map[string][]float32
@@ -24,7 +22,6 @@ func (m *mockEmbedder) Embed(_ context.Context, text string) ([]float32, error) 
 	}
 	return []float32{1.0, 0.0, 0.0}, nil
 }
-
 
 func TestSignalCollector_EntityComp_EmptyExpected(t *testing.T) {
 	c := NewSignalCollector(nil)
@@ -78,9 +75,8 @@ func TestSignalCollector_EntityComp_ValueMismatch(t *testing.T) {
 	}
 }
 
-
 func TestSignalCollector_CtxRelev_NilEmbedder(t *testing.T) {
-	c := NewSignalCollector(nil) 
+	c := NewSignalCollector(nil)
 	got, err := c.computeCtxRelev(context.Background(), "hello", []string{"hi"})
 	if err != nil {
 		t.Fatalf("nil embedder 不应返回错误: %v", err)
@@ -158,7 +154,6 @@ func TestSignalCollector_CtxRelev_MeanOfMultipleTurns(t *testing.T) {
 	}
 }
 
-
 func TestSignalCollector_RAGQual_Empty(t *testing.T) {
 	c := NewSignalCollector(nil)
 	if got := c.computeRAGQual(&dto.SignalCollectionInput{}); !approxEqual(got, 0.5) {
@@ -209,7 +204,6 @@ func TestSignalCollector_RAGQual_MoreThanExpected(t *testing.T) {
 	}
 }
 
-
 func TestSignalCollector_LLMEntropy_EmptyLogprobs(t *testing.T) {
 	c := NewSignalCollector(nil)
 	got := c.computeLLMEntropy(nil)
@@ -249,7 +243,6 @@ func TestSignalCollector_LLMEntropy_TwoEqualLargeValues(t *testing.T) {
 		t.Errorf("两个相等大值 LLMEntropy 应在 [0.30, 0.45], got %v", got)
 	}
 }
-
 
 func TestSignalCollector_Collect_Full(t *testing.T) {
 	emb := &mockEmbedder{
@@ -295,20 +288,19 @@ func TestSignalCollector_Collect_Full(t *testing.T) {
 func TestSignalCollector_Collect_IntentConfClamped(t *testing.T) {
 	c := NewSignalCollector(nil)
 	in := &dto.SignalCollectionInput{
-		RawIntentConf: 1.5, 
+		RawIntentConf: 1.5,
 	}
 	signals, _ := c.Collect(context.Background(), in)
 	if !approxEqual(signals.IntentConf, 1.0) {
 		t.Errorf("IntentConf 应被 clip 到 1.0, got %v", signals.IntentConf)
 	}
 
-	in.RawIntentConf = -0.5 
+	in.RawIntentConf = -0.5
 	signals, _ = c.Collect(context.Background(), in)
 	if !approxEqual(signals.IntentConf, 0.0) {
 		t.Errorf("IntentConf 应被 clip 到 0.0, got %v", signals.IntentConf)
 	}
 }
-
 
 func TestCosineSim_SameVector(t *testing.T) {
 	a := []float32{1.0, 2.0, 3.0}
@@ -354,7 +346,7 @@ func TestClamp01(t *testing.T) {
 		{0.5, 0.5},
 		{1.0, 1.0},
 		{1.5, 1.0},
-		{math.NaN(), 0.0}, 
+		{math.NaN(), 0.0},
 	}
 	c := NewSignalCollector(nil)
 	_ = c
@@ -365,4 +357,3 @@ func TestClamp01(t *testing.T) {
 		}
 	}
 }
-

@@ -265,7 +265,7 @@ func (s *douyinCardService) toResponseWithShortLink(ctx context.Context, card *m
 		Description:  card.Description,
 		ImageURL:     card.ImageURL,
 		RedirectURL:  card.RedirectURL,
-		DomainPoolID: &card.DomainPoolID, 
+		DomainPoolID: &card.DomainPoolID,
 		ShortLinkURL: shortLinkURL,
 		ShortCode:    shortCode,
 		Tags:         card.Tags,
@@ -301,16 +301,16 @@ func (s *douyinCardService) GenerateShortLink(ctx context.Context, card *model.D
 	}
 
 	// v3 审计修复：短链目标必须是绝对 https 地址（铁律#24）。
-		// 未配置跳转目标时跳过短链生成，保持卡片创建主流程可用。
-		if card.RedirectURL == "" {
-			return nil
-		}
-		shortLinkReq := &dto.CreateShortLinkRequest{
-			ShortCode:   generateResp.ShortCode,
-			OriginalURL: card.RedirectURL,
+	// 未配置跳转目标时跳过短链生成，保持卡片创建主流程可用。
+	if card.RedirectURL == "" {
+		return nil
+	}
+	shortLinkReq := &dto.CreateShortLinkRequest{
+		ShortCode:   generateResp.ShortCode,
+		OriginalURL: card.RedirectURL,
 		Title:       card.Title,
 		Description: card.Description,
-		DomainID:    domainID, 
+		DomainID:    domainID,
 	}
 
 	shortLinkResp, err := s.shortLinkService.Create(ctx, shortLinkReq)
@@ -341,4 +341,3 @@ func (s *douyinCardService) GenerateShortLink(ctx context.Context, card *model.D
 
 	return nil
 }
-

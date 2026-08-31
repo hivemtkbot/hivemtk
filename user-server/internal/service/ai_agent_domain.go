@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // AIAgentCreateDTO 智能体创建/更新 DTO（脱离 model 的入参）
 type AIAgentCreateDTO struct {
 	AgentCode            string          `json:"agent_code"`
@@ -338,4 +337,3 @@ func (s *CustomerServiceAgentService) UpdateCSAgentMountFromJSON(ctx context.Con
 	}
 	return existing, nil
 }
-

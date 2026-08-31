@@ -43,7 +43,7 @@ func TestResolveTelegramWebhookURL(t *testing.T) {
 
 	t.Run("falls back to public_base_url env when explicit empty", func(t *testing.T) {
 		_ = os.Setenv("PUBLIC_BASE_URL", "https://env.example.com")
-		config.SetAppConfig(&config.AppConfig{}) 
+		config.SetAppConfig(&config.AppConfig{})
 		acc := &model.TelegramAccount{ID: 7, WebhookURL: ""}
 		url, has := ResolveTelegramWebhookURL(acc)
 		if url != "https://env.example.com/api/webhook/telegram/7" {
@@ -210,4 +210,3 @@ func errMsg(e error) string {
 	}
 	return e.Error()
 }
-

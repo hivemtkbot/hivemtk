@@ -337,7 +337,7 @@ var scenarioTemplateCursor uint64
 // 配置仍为出厂默认（未显式定制）时不覆盖场景差异化轮换
 var knownFactoryDefaultTemplateReplies = map[string]struct{}{
 	"抱歉，当前客服系统繁忙，请稍后再试，或联系人工客服获取帮助。": {},
-	"抱歉，当前服务暂时繁忙，请稍后再试或联系人工客服。":       {},
+	"抱歉，当前服务暂时繁忙，请稍后再试或联系人工客服。":      {},
 }
 
 // isDefaultTemplateReply 判断文案是否为出厂默认（未被运营定制）

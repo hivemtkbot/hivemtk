@@ -1,6 +1,5 @@
 package feedbackloop
 
-
 import (
 	"context"
 	"encoding/json"
@@ -92,7 +91,7 @@ func (p *PromptIterator) IterateForNode(ctx context.Context, sopID uint, nodeID 
 		candidates[i].SOPID = sopID
 		candidates[i].SOPNodeID = nodeID
 		candidates[i].Status = model.PromptCandidateStatusDraft
-		candidates[i].Alpha = 2 
+		candidates[i].Alpha = 2
 		candidates[i].Beta = 2
 		candidates[i].GeneratedBy = "llm"
 		if p.config.AutoApprove {
@@ -296,4 +295,3 @@ func nextVersion(v string) string {
 	}
 	return fmt.Sprintf("%s.%d", major, minorInt)
 }
-

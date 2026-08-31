@@ -36,20 +36,20 @@ func (s *BridgeOfflineReplayService) WithDB(d *gorm.DB) *BridgeOfflineReplayServ
 
 // OfflineChannel 离线渠道快照
 type OfflineChannel struct {
-	Platform  string `json:"platform"`
-	AccountID string `json:"account_id"`
+	Platform     string    `json:"platform"`
+	AccountID    string    `json:"account_id"`
 	OfflineSince time.Time `json:"offline_since"`
 }
 
 // ReplayStats 回扫统计
 type ReplayStats struct {
-	ScannedChannels    int                 `json:"scanned_channels"`
-	OfflineChannels    int                 `json:"offline_channels"`
-	ReplayedMessages   int64               `json:"replayed_messages"`
-	FailedMessages     int64               `json:"failed_messages"`
-	OfflineSnapshots   []OfflineChannel    `json:"offline_snapshots,omitempty"`
-	StartedAt          time.Time           `json:"started_at"`
-	FinishedAt         time.Time           `json:"finished_at"`
+	ScannedChannels  int              `json:"scanned_channels"`
+	OfflineChannels  int              `json:"offline_channels"`
+	ReplayedMessages int64            `json:"replayed_messages"`
+	FailedMessages   int64            `json:"failed_messages"`
+	OfflineSnapshots []OfflineChannel `json:"offline_snapshots,omitempty"`
+	StartedAt        time.Time        `json:"started_at"`
+	FinishedAt       time.Time        `json:"finished_at"`
 }
 
 // DetectOfflineChannels 检测离线渠道
@@ -62,9 +62,9 @@ func (s *BridgeOfflineReplayService) DetectOfflineChannels(ctx context.Context) 
 	}
 	// 先尝试 bridge_metrics（如果表不存在则 fallback 到 bridge_accounts）
 	type channelStat struct {
-		Platform    string    `gorm:"column:platform"`
-		AccountID   string    `gorm:"column:account_id"`
-		LastSeen    time.Time `gorm:"column:last_seen"`
+		Platform  string    `gorm:"column:platform"`
+		AccountID string    `gorm:"column:account_id"`
+		LastSeen  time.Time `gorm:"column:last_seen"`
 	}
 	var stats []channelStat
 	err := s.db.WithContext(ctx).
@@ -125,14 +125,14 @@ func (s *BridgeOfflineReplayService) ReplayDelayedOutbound(ctx context.Context, 
 		return 0, 0
 	}
 	type delayedMsg struct {
-		ID             uint64    `gorm:"column:id"`
-		ConversationID string    `gorm:"column:conversation_id"`
-		SenderID       string    `gorm:"column:sender_id"`
-		ReceiverID     string    `gorm:"column:receiver_id"`
-		MsgType        string    `gorm:"column:msg_type"`
-		Content        string    `gorm:"column:content"`
-		EventID        string    `gorm:"column:event_id"`
-		RetryCount     int       `gorm:"column:retry_count"`
+		ID             uint64 `gorm:"column:id"`
+		ConversationID string `gorm:"column:conversation_id"`
+		SenderID       string `gorm:"column:sender_id"`
+		ReceiverID     string `gorm:"column:receiver_id"`
+		MsgType        string `gorm:"column:msg_type"`
+		Content        string `gorm:"column:content"`
+		EventID        string `gorm:"column:event_id"`
+		RetryCount     int    `gorm:"column:retry_count"`
 	}
 	var msgs []delayedMsg
 	q := s.db.WithContext(ctx).

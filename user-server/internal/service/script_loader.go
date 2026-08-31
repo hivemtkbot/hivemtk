@@ -82,4 +82,3 @@ func defaultScripts() map[string]*SalesScript {
 		},
 	}
 }
-

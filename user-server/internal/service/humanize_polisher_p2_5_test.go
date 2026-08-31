@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-
 func TestHumanizePolisher_P2_5_RemoveFlattery(t *testing.T) {
 	p := NewHumanizePolisher()
 	ctx := context.Background()
@@ -14,8 +13,8 @@ func TestHumanizePolisher_P2_5_RemoveFlattery(t *testing.T) {
 	type tc struct {
 		name   string
 		input  string
-		expect string 
-		intent string 
+		expect string
+		intent string
 	}
 	cases := []tc{
 		{
@@ -133,10 +132,10 @@ func TestHumanizePolisher_P2_5_NormalContent_NotOverStripped(t *testing.T) {
 	ctx := context.Background()
 
 	cases := []string{
-		"可以的，我可以帮您查看具体功能。",        
-		"我们支持的功能是 AGPL-3.0 开源。",      
-		"好的，下面是您的订单详情。",             
-		"Hi, what can I do for you?",            
+		"可以的，我可以帮您查看具体功能。",
+		"我们支持的功能是 AGPL-3.0 开源。",
+		"好的，下面是您的订单详情。",
+		"Hi, what can I do for you?",
 	}
 	for _, input := range cases {
 		t.Run(input, func(t *testing.T) {
@@ -151,4 +150,3 @@ func TestHumanizePolisher_P2_5_NormalContent_NotOverStripped(t *testing.T) {
 		})
 	}
 }
-

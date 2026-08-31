@@ -8,7 +8,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // FeishuAccountVO 飞书账号视图（敏感字段掩码）
 type FeishuAccountVO struct {
 	ID                uint       `json:"id"`
@@ -301,4 +300,3 @@ func maskSecret(secret string) string {
 	}
 	return fmt.Sprintf("%s****%s", secret[:4], secret[len(secret)-4:])
 }
-

@@ -39,7 +39,7 @@ func OperatorFromContext(ctx context.Context) Operator {
 
 // CustomerService 客户服务
 type CustomerService struct {
-	repo     repository.CustomerRepository
+	repo      repository.CustomerRepository
 	auditRepo repository.OperationLogRepository
 }
 
@@ -78,8 +78,8 @@ const (
 	DefaultLimit = 50
 	// OPT-ARC-11：MaxLimit 1000 → 100，防止恶意/误用全表扫描
 	// 大数据集查询请走 cursor-based 分页（OPT-ARC-10 二期）
-	MaxLimit = 100
-	DefaultPage  = 1
+	MaxLimit    = 100
+	DefaultPage = 1
 )
 
 // CreateOrUpdate 创建或更新客户
@@ -434,7 +434,6 @@ func SerializeTags(tags []string) (string, error) {
 	return string(data), nil
 }
 
-
 // GetCustomerTags 获取客户标签数组
 func GetCustomerTags(c *model.Customer) []string {
 	return model.GetCustomerTags(c)
@@ -462,4 +461,3 @@ func looksLikePhone(s string) bool {
 func looksLikeEmail(s string) bool {
 	return customerEmailPattern.MatchString(s)
 }
-

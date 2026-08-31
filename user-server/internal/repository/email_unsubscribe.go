@@ -101,4 +101,3 @@ func (r *emailUnsubscribeRepo) ListAll(ctx context.Context) ([]*model.EmailUnsub
 	}
 	return records, nil
 }
-

@@ -18,7 +18,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 // faqPromptVersion FAQ 语义缓存 prompt 版本（RT-2 缓存 key 维度之一；
 // 答案生成 prompt 语义变更时必须递增，避免旧答案串新 prompt）
 const faqPromptVersion = "v1"
@@ -36,7 +35,6 @@ func SetGlobalFAQAnswerCache(svc *ragcache.FAQAnswerCacheService, embedder llm.E
 	globalFAQEmbedder = embedder
 }
 
-
 // SmartCSOrchestrator 智能体编排器
 type SmartCSOrchestrator struct {
 	engine         *SalesEngine
@@ -47,8 +45,8 @@ type SmartCSOrchestrator struct {
 	messageRepo    *repository.SessionMessageRepository
 	agentRepo      *repository.AgentStatusRepository
 
-	csAgentSvc   *CustomerServiceAgentService
-	identitySvc  *CustomerIdentityService // 可选：自动补建 customer 档案
+	csAgentSvc  *CustomerServiceAgentService
+	identitySvc *CustomerIdentityService // 可选：自动补建 customer 档案
 
 	confidenceThreshold float64
 	enableAutoReply     bool
@@ -71,7 +69,7 @@ func DefaultOrchestratorConfig() *OrchestratorConfig {
 	return &OrchestratorConfig{
 		ConfidenceThreshold: 0.7,
 		EnableAutoReply:     true,
-		MaxAIConsecutive:    10, 
+		MaxAIConsecutive:    10,
 	}
 }
 
@@ -146,7 +144,6 @@ func (o *SmartCSOrchestrator) ensureCustomerForSession(ctx context.Context, plat
 // 主动模式（active）由后续主动触达引擎落地（详见）。
 func (o *SmartCSOrchestrator) Mode(ctx context.Context) string { return string(model.AgentModePassive) }
 
-
 // IncomingContext 入站消息上下文
 type IncomingContext struct {
 	Platform   model.Platform
@@ -156,24 +153,24 @@ type IncomingContext struct {
 	Content    string
 	MessageID  string
 	MediaURL   string
-	OneID      string 
-	IsGroup   bool
-	GroupID   string
-	GroupName string
+	OneID      string
+	IsGroup    bool
+	GroupID    string
+	GroupName  string
 }
 
 // HandleResult 处理结果
 type HandleResult struct {
 	SessionID      string            `json:"session_id"`
-	HandlerType    model.HandlerType `json:"handler_type"` 
+	HandlerType    model.HandlerType `json:"handler_type"`
 	AIReplied      bool              `json:"ai_replied"`
 	Reply          string            `json:"reply,omitempty"`
 	Confidence     float64           `json:"confidence"`
 	Transferred    bool              `json:"transferred"`
 	TransferReason string            `json:"transfer_reason,omitempty"`
-	Cards         []model.RichCard `json:"cards,omitempty"`
-	SuggestionID  uint             `json:"suggestion_id,omitempty"`
-	SalesResponse *SalesResponse   `json:"sales_response,omitempty"`
+	Cards          []model.RichCard  `json:"cards,omitempty"`
+	SuggestionID   uint              `json:"suggestion_id,omitempty"`
+	SalesResponse  *SalesResponse    `json:"sales_response,omitempty"`
 }
 
 // HandleIncoming 处理入站消息（智能体主入口，默认配置）
@@ -220,6 +217,11 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		return nil, fmt.Errorf("find/create session failed: %w", err)
 	}
 	result.SessionID = session.SessionID
+
+	// 全链路审查发现：ensureCustomerForSession 仅有定义无调用（d8d3cdf 半成品
+	// 接线），导致桥接渠道客户档案永不创建（api_verify_full.py S3.1 长期 FAIL）。
+	// 在 session 创建后补建 customer 档案，失败不阻断主流程（best-effort）。
+	o.ensureCustomerForSession(ctx, in.Platform, in.SenderID, in.SenderName)
 
 	if err := o.saveInboundMessage(ctx, session, in); err != nil {
 		return nil, fmt.Errorf("save inbound message failed: %w", err)
@@ -372,7 +374,6 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 
 	return result, nil
 }
-
 
 // resolveFAQKBID 解析座席挂载的主 FAQ/RAG 知识库 ID（RT-2 缓存 key 的 kb_id 维度）。
 // 读不到（座席为空 / 无绑定 / DB 异常）返回空 = 本轮跳过缓存，零影响直通。
@@ -726,7 +727,7 @@ func (o *SmartCSOrchestrator) extractConfidence(ctx context.Context, resp *Sales
 	if resp.Intent != nil && resp.Intent.Confidence > 0 {
 		return resp.Intent.Confidence
 	}
-	score := 0.5 
+	score := 0.5
 	if resp.Reply != "" {
 		score += 0.1
 	}
@@ -755,7 +756,6 @@ func safeMessageID(id string) string {
 	}
 	return id
 }
-
 
 // AgentTakeover 座席接管 AI 会话
 // 当座席认为 AI 回复不合适时，可主动接管会话
@@ -805,4 +805,3 @@ func (o *SmartCSOrchestrator) AgentReply(ctx context.Context, sessionID string, 
 	session.LastMessageBy = "agent"
 	return o.sessionRepo.Update(ctx, session)
 }
-

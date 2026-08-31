@@ -11,23 +11,22 @@ import (
 	"time"
 )
 
-
 // BlacklistRequest 拉黑请求
 type BlacklistRequest struct {
 	SessionID    uint   `json:"session_id" binding:"required"`
-	Reason       string `json:"reason"`        
-	OperatorID   uint   `json:"operator_id"`   
-	OperatorName string `json:"operator_name"` 
-	TTLHours     int    `json:"ttl_hours"`     
+	Reason       string `json:"reason"`
+	OperatorID   uint   `json:"operator_id"`
+	OperatorName string `json:"operator_name"`
+	TTLHours     int    `json:"ttl_hours"`
 }
 
 // BlacklistSource 黑名单来源枚举
 type BlacklistSource string
 
 const (
-	BlacklistSourceManual BlacklistSource = "manual" 
-	BlacklistSourceAuto   BlacklistSource = "auto"   
-	BlacklistSourceRisk   BlacklistSource = "risk"   
+	BlacklistSourceManual BlacklistSource = "manual"
+	BlacklistSourceAuto   BlacklistSource = "auto"
+	BlacklistSourceRisk   BlacklistSource = "risk"
 )
 
 // BlacklistUser 拉黑当前会话对应的访客（user_id 维度）
@@ -40,7 +39,7 @@ const (
 //
 // 错误：返回业务语义化错误（含中文 message 供前端直接展示）。
 func (s *CustomerSessionService) BlacklistUser(ctx context.Context, req *BlacklistRequest) error {
-	_ = ctx 
+	_ = ctx
 	if req == nil {
 		return errors.New("请求体不能为空")
 	}
@@ -155,7 +154,7 @@ func (s *CustomerSessionService) preCreateBlacklistGuard(ctx context.Context, re
 		return errors.New("请求体不能为空")
 	}
 	if req.UserID == "" {
-		return nil 
+		return nil
 	}
 	banned, err := s.blacklistRepo.IsBlacklisted(ctx, req.UserID, req.Platform)
 	if err != nil {
@@ -166,4 +165,3 @@ func (s *CustomerSessionService) preCreateBlacklistGuard(ctx context.Context, re
 	}
 	return nil
 }
-

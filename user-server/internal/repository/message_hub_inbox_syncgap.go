@@ -36,4 +36,3 @@ func (r *MessageHubRepository) FindSyncGapConversations(ctx context.Context, sin
 	}
 	return rows, nil
 }
-

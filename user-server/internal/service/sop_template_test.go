@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"fmt"
@@ -136,8 +135,8 @@ func TestSOPTemplate_IncrementHitCount_NilRepo(t *testing.T) {
 // Task 16: InvalidateCache 现在要求传 agentID 参数, agentID=0 表示失效共享池。
 func TestSOPTemplate_InvalidateCache_NilSafe(t *testing.T) {
 	svc := &SOPTemplateService{}
-	svc.InvalidateCache(0) 
-	svc.InvalidateCache(1) 
+	svc.InvalidateCache(0)
+	svc.InvalidateCache(1)
 }
 
 // TestSOPTemplate_MatchByIntent_NilRepo 测试空仓库
@@ -169,7 +168,6 @@ func TestSOPTemplate_MatchByIntentStage_NilRepo(t *testing.T) {
 	}
 }
 
-
 // TestSOPTemplate_Render_UserMessageNotAllowed 验证 user_message 不入模板
 //
 // 攻击场景: 模板里写 {{.user_message}}, 攻击者输入 {{ .Intent }} 之类的模板注入。
@@ -180,7 +178,7 @@ func TestSOPTemplate_Render_UserMessageNotAllowed(t *testing.T) {
 	vars := map[string]any{
 		"customer_id":  "c123",
 		"intent":       "logistics",
-		"user_message": "{{.SneakyTemplate}}", 
+		"user_message": "{{.SneakyTemplate}}",
 	}
 	got, err := svc.Render(tpl, vars)
 	if err != nil {
@@ -248,15 +246,14 @@ func TestSOPTemplate_filterWhitelistVars_DoesNotMutate(t *testing.T) {
 	}
 }
 
-
 // mockSOPRepoForTask16 专用于 Task 16 的 mock 实现
 //
 // 实现 sopRepoIface 接口, 用于 MatchByAgent / Create / WarmupCache 等测试。
 type mockSOPRepoForTask16 struct {
-	byAgent map[uint][]model.SOPTemplate
+	byAgent         map[uint][]model.SOPTemplate
 	listByAgentErr  error
 	matchByAgentErr error
-	matchCalls []struct {
+	matchCalls      []struct {
 		AgentID uint
 		Intent  string
 		Stage   string
@@ -758,4 +755,3 @@ func TestSOPTemplate_Create_InvalidatesAgentCache(t *testing.T) {
 		t.Error("expected cache[1] to be invalidated after Create")
 	}
 }
-

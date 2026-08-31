@@ -32,4 +32,3 @@ func (s *UnifiedMessageService) GetMessages(ctx context.Context, platform string
 func (s *UnifiedMessageService) GetMessageByID(ctx context.Context, id uint) (*model.UnifiedMessage, error) {
 	return s.messageRepo.GetByID(ctx, id)
 }
-

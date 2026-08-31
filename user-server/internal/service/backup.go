@@ -627,4 +627,3 @@ func RunDailyBackup() {
 	service := NewScheduleBackupService()
 	service.CreateDailyBackup(context.Background())
 }
-

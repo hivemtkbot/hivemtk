@@ -6,7 +6,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 // QuickReplyService 快捷回复服务
 type QuickReplyService struct {
 	replyRepo *repository.QuickReplyRepository
@@ -41,7 +40,7 @@ func (s *QuickReplyService) CreateReply(ctx context.Context, createdBy uint, req
 		CreatedBy: createdBy,
 	}
 	if !reply.IsPublic {
-		reply.IsPublic = true 
+		reply.IsPublic = true
 	}
 
 	if err := s.replyRepo.Create(ctx, reply); err != nil {
@@ -92,4 +91,3 @@ func (s *QuickReplyService) GetReplies(ctx context.Context, category string) ([]
 func (s *QuickReplyService) GetCategories(ctx context.Context) ([]string, error) {
 	return s.replyRepo.GetCategories(ctx)
 }
-

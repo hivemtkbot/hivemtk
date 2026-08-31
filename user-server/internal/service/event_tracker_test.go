@@ -28,7 +28,7 @@ func setupEventTracker(t *testing.T) *EventTracker {
 	setupEventTrackerTestDB(t)
 	customerService := NewCustomerService()
 	tracker := NewEventTracker(customerService)
-	tracker.DisableAsync(context.Background()) 
+	tracker.DisableAsync(context.Background())
 	return tracker
 }
 
@@ -374,4 +374,3 @@ func TestSerializeEventData(t *testing.T) {
 		t.Errorf("Expected {} for nil data, got %s", empty)
 	}
 }
-

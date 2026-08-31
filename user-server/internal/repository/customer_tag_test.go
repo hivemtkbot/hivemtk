@@ -536,4 +536,3 @@ func TestCustomerTagRepository_ComplexRule(t *testing.T) {
 		t.Errorf("Expected logic 'AND', got '%v'", retrievedRule["logic"])
 	}
 }
-

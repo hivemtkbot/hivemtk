@@ -8,15 +8,15 @@ import (
 	"strconv"
 	"time"
 
+	"gorm.io/gorm"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/bcrypt"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
-	"gorm.io/gorm"
 )
 
 const (
-	passwordResetTokenExpiry   = 24 * time.Hour
+	passwordResetTokenExpiry    = 24 * time.Hour
 	passwordResetTokenMaxActive = 3
 )
 

@@ -212,7 +212,7 @@ func TestInboxIngress_AckOutboundDelivered_CrossSession(t *testing.T) {
 		SenderID:       "agent_1",
 		ReceiverID:     "conv_x1b",
 		Content:        content,
-		ConversationID: "conv_x1b", 
+		ConversationID: "conv_x1b",
 		IsRead:         true,
 	}
 	if err := db.Create(oth).Error; err != nil {
@@ -257,7 +257,7 @@ func TestInboxIngress_AckOutboundDelivered_OwnershipIsolation(t *testing.T) {
 		conv     = "conv_owner"
 	)
 	hA := seedPendingOutbound(t, db, channel, accountA, conv, content)
-	_ = seedPendingOutbound(t, db, channel, accountB, conv, "归属隔离内容_B") 
+	_ = seedPendingOutbound(t, db, channel, accountB, conv, "归属隔离内容_B")
 
 	n, err := svc.AckOutboundDelivered(ctx, channel, accountB, []string{hA.MsgID})
 	if err != nil {
@@ -405,7 +405,6 @@ func TestInboxIngress_ClaimPendingOutbound_GuardZeroNegative(t *testing.T) {
 	}
 }
 
-
 func assertStatus(t *testing.T, db *gorm.DB, channel, accountID, conv, msgID, want string) {
 	t.Helper()
 	var h model.MessageHub
@@ -417,4 +416,3 @@ func assertStatus(t *testing.T, db *gorm.DB, channel, accountID, conv, msgID, wa
 		t.Fatalf("状态应为 %q，实际 %q", want, h.Status)
 	}
 }
-

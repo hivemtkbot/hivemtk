@@ -35,6 +35,8 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	wfRepo := georepo.NewGeoWorkflowRepositoryWithDB(gormDB)
 	execRepo := georepo.NewGeoWorkflowExecutionRepositoryWithDB(gormDB)
 	tplRepo := georepo.NewGeoWorkflowTemplateRepositoryWithDB(gormDB)
+	chainRepo := georepo.NewGeoQueryChainRepository(gormDB)
+	taskRepo := georepo.NewGeoContentTaskRepository(gormDB)
 
 	// 初始化 LLM 适配器（复用 hivemtk 全局 Dispatcher）
 	llmAdapter := geoservice.NewLLMAdapter()
@@ -42,12 +44,12 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// 初始化 services
 	keywordSvc := geoservice.NewKeywordService(keywordRepo, apiCallRepo, llmAdapter)
 	contentSvc := geoservice.NewContentService(articleRepo, optimizationRepo, apiCallRepo, kbDocRepo, llmAdapter)
-	verifySvc := geoservice.NewVerificationService(verifyRepo, apiCallRepo, llmAdapter)
+	verifySvc := geoservice.NewVerificationService(verifyRepo, apiCallRepo, chainRepo, taskRepo, llmAdapter)
 	reportSvc := geoservice.NewReportService(articleRepo, keywordRepo, optimizationRepo, verifyRepo, apiCallRepo)
 	configSvc := geoservice.NewConfigService(configRepo, llmAdapter)
 	platformSvc := geoservice.NewPlatformService(accountRepo, publishRecordRepo, articleRepo)
 	kbSvc := geoservice.NewKBService(kbDocRepo, llmAdapter)
-	wfSvc := geoservice.NewWorkflowService(wfRepo, execRepo, tplRepo, llmAdapter)
+	wfSvc := geoservice.NewWorkflowService(wfRepo, execRepo, tplRepo, chainRepo, taskRepo, llmAdapter)
 	// v3 决策链化: 捕获线索写主域线索库（ClueTypeLeadMining=8）
 	mainClueRepo := mainrepo.NewClueRepositoryWithDB(gormDB)
 

@@ -70,7 +70,7 @@ func TestLiveCodeQRRepository_Create(t *testing.T) {
 				QRType:     "wechat",
 				QRContent:  "https://example.com/qr3",
 				QRTitle:    "Disabled QR",
-				Status:     1, 
+				Status:     1,
 			},
 			wantErr: false,
 		},
@@ -257,7 +257,7 @@ func TestLiveCodeQRRepository_GetAvailableQR(t *testing.T) {
 		QRType:     "wechat",
 		QRContent:  "https://example.com/disabled",
 		QRTitle:    "Disabled QR",
-		Status:     1, 
+		Status:     1,
 	}
 	repo.Create(ctx, disabledQR)
 	disabledQR.Status = 0
@@ -286,7 +286,7 @@ func TestLiveCodeQRRepository_GetAvailableQR_NotFound(t *testing.T) {
 		QRType:     "wechat",
 		QRContent:  "https://example.com/disabled",
 		QRTitle:    "Only Disabled",
-		Status:     1, 
+		Status:     1,
 	}
 	repo.Create(ctx, disabledQR)
 	disabledQR.Status = 0
@@ -403,4 +403,3 @@ func TestLiveCodeQRRepository_GetStats_Empty(t *testing.T) {
 		t.Errorf("Expected 0 stats, got %d", len(results))
 	}
 }
-

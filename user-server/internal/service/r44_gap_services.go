@@ -1,8 +1,9 @@
 // r44_gap_services.go R44 断链清欠服务层（R39 论证吸收但未实施的 K4/K9/K12/K14/K16 真正落地）
 //
 // 本文件一次补齐 21 条前端内联断链（views/*.vue 直连 /api/... 未被 api/*.js 覆盖的部分）：
-//   backup stats/strategy、rag/eval 全套、analytics cohort/path、email 送达分析全套、
-//   user-segments/rfm 矩阵、message-hub dlq 批量重试、clue 导入建议应用、playground 预设。
+//
+//	backup stats/strategy、rag/eval 全套、analytics cohort/path、email 送达分析全套、
+//	user-segments/rfm 矩阵、message-hub dlq 批量重试、clue 导入建议应用、playground 预设。
 package service
 
 import (
@@ -134,10 +135,6 @@ func (s *BackupGapService) nextRunTime(st BackupStrategy) time.Time {
 }
 
 // ==================== RAG Eval（评估集上传/执行/历史） ====================
-
-
-
-
 
 // RagEvalGapService RAG 评测服务（诚实口径：Recall@5 = 检索 top5 文本含答案关键词的比例；MRR/NDCG 按同口径排序）
 type RagEvalGapService struct {
@@ -339,13 +336,13 @@ func (s *RagEvalGapService) Diff(ctx context.Context, baselineID uint) (map[stri
 	}
 	latest, _ := s.Latest(ctx)
 	return map[string]any{
-		"baseline_id":   base.ID,
-		"latest_id":     latest.ID,
-		"recall5Delta":  latest.Recall5 - base.Recall5,
-		"mrrDelta":      latest.MRR - base.MRR,
-		"ndcg5Delta":    latest.NDCG5 - base.NDCG5,
-		"baseline":      base,
-		"latest":        latest,
+		"baseline_id":  base.ID,
+		"latest_id":    latest.ID,
+		"recall5Delta": latest.Recall5 - base.Recall5,
+		"mrrDelta":     latest.MRR - base.MRR,
+		"ndcg5Delta":   latest.NDCG5 - base.NDCG5,
+		"baseline":     base,
+		"latest":       latest,
 	}, nil
 }
 
@@ -514,17 +511,17 @@ func NewEmailGapService() *EmailGapService { return &EmailGapService{} }
 
 // DeliverabilityStats 页面顶部指标
 type DeliverabilityStats struct {
-	Sent        int64   `json:"sent"`
-	Delivered   int64   `json:"delivered"`
-	Opened      int64   `json:"opened"`
-	Clicked     int64   `json:"clicked"`
-	Bounced     int64   `json:"bounced"`
-	HardBounce  int64   `json:"hardBounce"`
-	SoftBounce  int64   `json:"softBounce"`
-	Unsub       int64   `json:"unsub"`
+	Sent         int64   `json:"sent"`
+	Delivered    int64   `json:"delivered"`
+	Opened       int64   `json:"opened"`
+	Clicked      int64   `json:"clicked"`
+	Bounced      int64   `json:"bounced"`
+	HardBounce   int64   `json:"hardBounce"`
+	SoftBounce   int64   `json:"softBounce"`
+	Unsub        int64   `json:"unsub"`
 	DeliveryRate float64 `json:"deliveryRate"`
-	OpenRate    float64 `json:"openRate"`
-	ClickRate   float64 `json:"clickRate"`
+	OpenRate     float64 `json:"openRate"`
+	ClickRate    float64 `json:"clickRate"`
 }
 
 // Deliverability 聚合 email_sends + email_tracking_events

@@ -333,4 +333,3 @@ func TestSmlistRepository_GetSmlistList_Empty(t *testing.T) {
 		t.Errorf("Expected total 0, got %d", total)
 	}
 }
-

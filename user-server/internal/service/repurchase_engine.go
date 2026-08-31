@@ -7,31 +7,30 @@ import (
 	"time"
 )
 
-
 // RFMType RFM 类型
 type RFMType string
 
 const (
-	RFMTYPEChampion    RFMType = "champion"    
-	RFMTYPELoyal       RFMType = "loyal"       
-	RFMTYPEPotential   RFMType = "potential"   
-	RFMTYPENewbie      RFMType = "newbie"      
-	RFMTYPEAttention   RFMType = "attention"   
-	RFMTYPEHibernating RFMType = "hibernating" 
-	RFMTYPELost        RFMType = "lost"        
+	RFMTYPEChampion    RFMType = "champion"
+	RFMTYPELoyal       RFMType = "loyal"
+	RFMTYPEPotential   RFMType = "potential"
+	RFMTYPENewbie      RFMType = "newbie"
+	RFMTYPEAttention   RFMType = "attention"
+	RFMTYPEHibernating RFMType = "hibernating"
+	RFMTYPELost        RFMType = "lost"
 )
 
 // RFMScore RFM 评分
 type RFMScore struct {
 	CustomerID  string    `json:"customer_id"`
-	Recency     int       `json:"recency"`   
-	Frequency   int       `json:"frequency"` 
-	Monetary    float64   `json:"monetary"`  
-	R           int       `json:"r"`         
-	F           int       `json:"f"`         
-	M           int       `json:"m"`         
-	RFMScore    int       `json:"rfm_score"` 
-	Segment     RFMType   `json:"segment"`   
+	Recency     int       `json:"recency"`
+	Frequency   int       `json:"frequency"`
+	Monetary    float64   `json:"monetary"`
+	R           int       `json:"r"`
+	F           int       `json:"f"`
+	M           int       `json:"m"`
+	RFMScore    int       `json:"rfm_score"`
+	Segment     RFMType   `json:"segment"`
 	LastOrderAt time.Time `json:"last_order_at"`
 	ComputedAt  time.Time `json:"computed_at"`
 }
@@ -39,9 +38,9 @@ type RFMScore struct {
 // RepurchasePrediction 复购预测
 type RepurchasePrediction struct {
 	CustomerID     string    `json:"customer_id"`
-	Probability    float64   `json:"probability"`    
-	PredictedDays  int       `json:"predicted_days"` 
-	Reason         string    `json:"reason"`         
+	Probability    float64   `json:"probability"`
+	PredictedDays  int       `json:"predicted_days"`
+	Reason         string    `json:"reason"`
 	RecommendedSOP string    `json:"recommended_sop"`
 	PredictedAt    time.Time `json:"predicted_at"`
 }
@@ -49,7 +48,7 @@ type RepurchasePrediction struct {
 // RepurchaseEngine 复购引擎
 type RepurchaseEngine struct {
 	mu      sync.RWMutex
-	scores  map[string]*RFMScore 
+	scores  map[string]*RFMScore
 	history map[string][]PurchaseEvent
 }
 
@@ -376,4 +375,3 @@ func (e *RepurchaseEngine) TriggerJourney(ctx context.Context, customerID string
 	_, err := journey.Transition(ctx, customerID, targetStage, "rfm_engine", "system", "基于 RFM 自动分层: "+string(rfm.Segment), nil)
 	return err
 }
-

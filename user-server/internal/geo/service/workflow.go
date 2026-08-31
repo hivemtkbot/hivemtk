@@ -12,7 +12,6 @@ import (
 
 	"hivemtk-user/internal/geo/model"
 	"hivemtk-user/internal/geo/repository"
-	dbUtil "hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
@@ -37,6 +36,8 @@ func NewWorkflowService(
 	wfRepo repository.GeoWorkflowRepository,
 	execRepo repository.GeoWorkflowExecutionRepository,
 	tplRepo repository.GeoWorkflowTemplateRepository,
+	chainRepo repository.GeoQueryChainRepository,
+	taskRepo repository.GeoContentTaskRepository,
 	adapter *LLMAdapter,
 ) *WorkflowService {
 	s := &WorkflowService{
@@ -49,14 +50,10 @@ func NewWorkflowService(
 	s.registerBuiltinExecutors()
 	// v3 GEO 决策链化：追加 query_probe / source_attribution / content_gap_fill
 	// （capture_lead 需主域端口，由装配层调用 RegisterCaptureLeadExecutor 注入）
-	deps := DecisionChainDeps{Probe: NewDefaultSearchProbe()}
-	if gdb := dbUtil.GetDB(); gdb != nil {
-		deps.ChainRepo = repository.NewGeoQueryChainRepository(gdb)
-		deps.TaskRepo = repository.NewGeoContentTaskRepository(gdb)
-	} else {
-		// 测试/无库环境：内存桩，保证执行器恒注册且行为可验证
-		deps.ChainRepo = newMemChainRepo()
-		deps.TaskRepo = newMemTaskRepo()
+	deps := DecisionChainDeps{
+		Probe:     NewDefaultSearchProbe(),
+		ChainRepo: chainRepo,
+		TaskRepo:  taskRepo,
 	}
 	s.RegisterDecisionChainExecutors(deps)
 	return s

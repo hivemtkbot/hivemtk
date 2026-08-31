@@ -70,4 +70,3 @@ func TestValidateConfigDefaultMaxTokens(t *testing.T) {
 		t.Fatalf("expected GetDefaultConfig MaxTokens 2048, got %d", def.MaxTokens)
 	}
 }
-

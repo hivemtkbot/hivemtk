@@ -8,17 +8,17 @@ import (
 
 // Config 自学习模块配置
 type Config struct {
-	Scenario      llm.DispatchScenario 
-	BadThreshold  int                  
-	GoodThreshold int                  
-	Decay         float64              
-	Boost         float64              
-	MinWeight     float64              
-	MaxWeight     float64              
-	MeanReversion float64              
-	BatchSize     int                  
-	Concurrency   int                  
-	SinceHours    int                  
+	Scenario      llm.DispatchScenario
+	BadThreshold  int
+	GoodThreshold int
+	Decay         float64
+	Boost         float64
+	MinWeight     float64
+	MaxWeight     float64
+	MeanReversion float64
+	BatchSize     int
+	Concurrency   int
+	SinceHours    int
 	// Industry 本商户行业标签（L-2 经验沉淀用）；空则跳过洞察沉淀与注入
 	Industry string
 }
@@ -33,10 +33,10 @@ func DefaultConfig() Config {
 		Boost:         1.12,
 		MinWeight:     0.1,
 		MaxWeight:     3.0,
-		MeanReversion: 0.1, 
+		MeanReversion: 0.1,
 		BatchSize:     200,
-		Concurrency:   4, 
-		SinceHours:    0, 
+		Concurrency:   4,
+		SinceHours:    0,
 	}
 }
 
@@ -84,4 +84,3 @@ func ensureCtx(ctx context.Context) context.Context {
 	}
 	return ctx
 }
-

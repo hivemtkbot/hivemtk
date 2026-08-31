@@ -141,7 +141,7 @@ func TestAgentStatus_GetOnlineAgents(t *testing.T) {
 		{AgentID: 4001, AgentName: "Online1", Status: "online", MaxSessions: 5, ActiveSessions: 2, LastActiveAt: &now},
 		{AgentID: 4002, AgentName: "Busy1", Status: "busy", MaxSessions: 5, ActiveSessions: 3, LastActiveAt: &now},
 		{AgentID: 4003, AgentName: "Offline1", Status: "offline", MaxSessions: 5, ActiveSessions: 0, LastActiveAt: &now},
-		{AgentID: 4004, AgentName: "Full", Status: "online", MaxSessions: 5, ActiveSessions: 5, LastActiveAt: &now},       // sessions 已满
+		{AgentID: 4004, AgentName: "Full", Status: "online", MaxSessions: 5, ActiveSessions: 5, LastActiveAt: &now},     // sessions 已满
 		{AgentID: 4005, AgentName: "Stale", Status: "online", MaxSessions: 5, ActiveSessions: 1, LastActiveAt: &tooOld}, // 心跳过期
 	}
 	for _, a := range agents {

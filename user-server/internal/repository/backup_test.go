@@ -50,7 +50,7 @@ func TestBackupRepository_Create(t *testing.T) {
 				BackupName: "full-backup-1",
 				BackupType: model.BackupTypeFull,
 				Status:     model.BackupStatusPending,
-				FileSize:   1024 * 1024 * 100, 
+				FileSize:   1024 * 1024 * 100,
 				CreatedBy:  1,
 			},
 			wantErr: false,
@@ -338,7 +338,7 @@ func TestBackupRepository_CleanupOldBackups(t *testing.T) {
 	ctx := context.Background()
 
 	now := time.Now()
-	oldDate := now.AddDate(0, 0, -31) 
+	oldDate := now.AddDate(0, 0, -31)
 
 	backupRepo.Create(ctx, &model.Backup{
 		BackupName: "Old Backup 1",
@@ -575,4 +575,3 @@ func TestRestoreRecordRepository_GetLastRestore(t *testing.T) {
 		t.Errorf("Expected BackupName 'Last Restore', got '%s'", result.BackupName)
 	}
 }
-

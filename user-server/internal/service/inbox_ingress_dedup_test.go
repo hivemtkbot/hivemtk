@@ -29,7 +29,7 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 	c := cache.NewMemoryCache()
 
 	defer c.Close()
-	svc := NewInboxIngressServiceWithDB(nil, c) 
+	svc := NewInboxIngressServiceWithDB(nil, c)
 
 	trigger := &fakeAITrigger{}
 	svc.SetAITrigger(trigger)
@@ -182,7 +182,7 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 				Content:        "自己发的消息",
 				EventID:        "evt-self-1",
 				ConversationID: "conv-filter-1",
-				SenderType:     "customer", 
+				SenderType:     "customer",
 				MsgType:        model.MsgTypeText,
 				Extra:          map[string]interface{}{"account_id": "xhs-acct-1"},
 			},
@@ -273,4 +273,3 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		t.Logf("✅ 空内容返回空 hash")
 	})
 }
-

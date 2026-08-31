@@ -285,7 +285,7 @@ func (s *obsConfigService) convertToDTO(ctx context.Context, config *model.ObsCo
 		Provider:     string(config.Provider),
 		ProviderName: obsConfigProviderName(config),
 		AccessKey:    config.AccessKey,
-		SecretKey:    "***", 
+		SecretKey:    "***",
 		Bucket:       config.Bucket,
 		Region:       config.Region,
 		Endpoint:     config.Endpoint,
@@ -351,4 +351,3 @@ func obsConfigIsFileSizeAllowed(c *model.ObsConfig, size int64) bool {
 func obsConfigIsFileCountAllowed(c *model.ObsConfig) bool {
 	return c.FileCount < c.MaxCount
 }
-

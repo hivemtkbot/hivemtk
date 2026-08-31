@@ -6,7 +6,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 // SessionTagService 会话标签服务
 type SessionTagService struct {
 	tagRepo *repository.SessionTagRepository
@@ -86,4 +85,3 @@ func (s *SessionTagService) DeleteTag(ctx context.Context, id uint) error {
 func (s *SessionTagService) GetTags(ctx context.Context) ([]*model.SessionTag, error) {
 	return s.tagRepo.GetByMerchant(ctx)
 }
-

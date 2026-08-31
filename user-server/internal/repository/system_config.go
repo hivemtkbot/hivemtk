@@ -53,4 +53,3 @@ func (r *systemConfigRepo) CountUsers(ctx context.Context) (int64, error) {
 func (r *systemConfigRepo) PingDB(ctx context.Context) bool {
 	return r.db.WithContext(ctx).Exec("SELECT 1").Error == nil
 }
-

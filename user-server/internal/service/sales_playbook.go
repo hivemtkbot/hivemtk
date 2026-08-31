@@ -13,7 +13,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-
 // Industry 行业
 // 已迁移至 dto 包，此处保留类型别名以维持向后兼容
 type Industry = dto.Industry
@@ -93,7 +92,7 @@ func (s *PlaybookService) Add(ctx context.Context, entry *PlaybookEntry) (*Playb
 	entry.UpdatedAt = time.Now()
 	if entry.CreatedBy == "系统预设" && entry.UseCount == 0 {
 		entry.UseCount = 5
-		entry.SuccessCount = 3 
+		entry.SuccessCount = 3
 	}
 	s.entries[entry.ID] = entry
 	s.byIndustry[entry.Industry] = append(s.byIndustry[entry.Industry], entry)
@@ -639,4 +638,3 @@ func (s *PlaybookService) FormatPlaybook(ctx context.Context, e *PlaybookEntry) 
 	}
 	return sb.String()
 }
-

@@ -303,8 +303,8 @@ func TestDomainPoolService_List_WithStatusFilter(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	_, _ = service.Create(context.Background(), "example1.com", 8080, "服务 1") 
-	_, _ = service.Create(context.Background(), "example2.com", 8080, "服务 2") 
+	_, _ = service.Create(context.Background(), "example1.com", 8080, "服务 1")
+	_, _ = service.Create(context.Background(), "example2.com", 8080, "服务 2")
 
 	database.Model(&model.DomainPool{}).Where("domain = ?", "example2.com").Update("status", 2)
 
@@ -577,4 +577,3 @@ func TestDomainPoolService_Create_SpecialCharactersInPurpose(t *testing.T) {
 		t.Errorf("Expected purpose %s, got %s", purpose, domainPool.Purpose)
 	}
 }
-

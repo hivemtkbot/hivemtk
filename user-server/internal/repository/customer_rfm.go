@@ -246,4 +246,3 @@ func (r *recoveryQueueRepo) CountByStage(ctx context.Context) (map[string]int64,
 func (r *recoveryQueueRepo) Delete(ctx context.Context, id uint64) error {
 	return r.db.Delete(&model.RecoveryQueue{}, id).Error
 }
-

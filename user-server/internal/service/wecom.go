@@ -116,15 +116,15 @@ func (s *WeComService) GetAccessToken(ctx context.Context, account *model.WeComA
 
 // CreateAccountRequest 创建账号请求
 type CreateAccountRequest struct {
-	CorpID      string `json:"corp_id" binding:"required"`
-	CorpSecret  string `json:"corp_secret" binding:"required"`
-	AgentID     int    `json:"agent_id"`
-	AgentSecret string `json:"agent_secret"`
-	CallbackToken  string `json:"callback_token"`   
-	EncodingAESKey string `json:"encoding_aes_key"` 
-	WebhookEnabled bool   `json:"webhook_enabled"`  
-	AIAgentEnabled bool   `json:"ai_agent_enabled"` 
-	WebhookPath    string `json:"webhook_path"`     
+	CorpID         string `json:"corp_id" binding:"required"`
+	CorpSecret     string `json:"corp_secret" binding:"required"`
+	AgentID        int    `json:"agent_id"`
+	AgentSecret    string `json:"agent_secret"`
+	CallbackToken  string `json:"callback_token"`
+	EncodingAESKey string `json:"encoding_aes_key"`
+	WebhookEnabled bool   `json:"webhook_enabled"`
+	AIAgentEnabled bool   `json:"ai_agent_enabled"`
+	WebhookPath    string `json:"webhook_path"`
 }
 
 // CreateAccount 创建企业微信账号
@@ -567,4 +567,3 @@ func (s *WeComService) SyncTags(ctx context.Context, account *model.WeComAccount
 
 	return count, nil
 }
-

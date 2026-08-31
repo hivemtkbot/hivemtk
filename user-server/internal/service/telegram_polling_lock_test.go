@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // setupPollingLockTestDB 准备带 telegram_accounts 表的测试库
 func setupPollingLockTestDB(t *testing.T) *gorm.DB {
 	db := testutil.NewTestDB(t, &model.TelegramAccount{})
@@ -288,4 +287,3 @@ func mustHostname() string {
 	}
 	return h
 }
-

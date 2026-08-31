@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"context"
 	"crypto/sha256"
@@ -16,21 +15,20 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-
 // EmailOpenPixel 1×1 透明 PNG 字节
 //
 // 最小可用 PNG：43 字节，所有邮件客户端 / 浏览器均能正确显示为透明像素。
 // 选 GIF43a / PNG8 会被部分安全软件识别为追踪器，PNG 透明像素兼容性最佳。
 var EmailOpenPixel = []byte{
-	0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 
-	0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, 
-	0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 
-	0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 
-	0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 
-	0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, 
-	0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 
-	0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 
-	0x42, 0x60, 0x82, 
+	0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+	0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+	0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+	0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+	0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41,
+	0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+	0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
+	0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+	0x42, 0x60, 0x82,
 }
 
 // EmailOpenPixelContentType 像素 HTTP Content-Type
@@ -41,7 +39,6 @@ const EmailOpenPixelContentType = "image/png"
 // 长缓存：30 天。30 天后追踪 token 早已过期（默认 90 天），不会与业务冲突。
 // 短缓存：邮件客户端对同一 URL 1 天内可能拉多次。
 const EmailOpenPixelMaxAge = 30 * 24 * 3600
-
 
 // EmailOpenTrackerService 邮件打开追踪服务
 type EmailOpenTrackerService struct {
@@ -59,7 +56,6 @@ func NewEmailOpenTrackerService(tracking *EmailTrackingService, repo repository.
 	}
 	return &EmailOpenTrackerService{tracking: tracking, repo: repo}
 }
-
 
 // GenerateOpenPixelURL 生成邮件打开追踪的 1×1 像素 URL
 //
@@ -99,18 +95,17 @@ func (s *EmailOpenTrackerService) RenderPixel(ctx context.Context, token, ip, ua
 	return EmailOpenPixel, EmailOpenPixelContentType, EmailOpenPixelMaxAge, nil
 }
 
-
 // PostmarkOpenEvent Postmark 邮件打开 webhook payload
 //
 // 兼容 Postmark MessageEvent API：https://postmarkapp.com/developer/webhooks/message-event-webhook
 // 我们只关心 Open / Click / Bounce / SpamComplaint 4 类事件。
 type PostmarkOpenEvent struct {
-	RecordType string `json:"RecordType"`  
-	MessageID  string `json:"MessageID"`   
-	Recipient  string `json:"Recipient"`   
-	ReceivedAt string `json:"DeliveredAt"` 
-	UserAgent  string `json:"UserAgent"`   
-	IP         string `json:"IP"`          
+	RecordType    string `json:"RecordType"`
+	MessageID     string `json:"MessageID"`
+	Recipient     string `json:"Recipient"`
+	ReceivedAt    string `json:"DeliveredAt"`
+	UserAgent     string `json:"UserAgent"`
+	IP            string `json:"IP"`
 	ClickLocation string `json:"ClickLocation,omitempty"`
 	OriginalLink  string `json:"OriginalLink,omitempty"`
 }
@@ -168,7 +163,7 @@ func (s *EmailOpenTrackerService) recordOpenByEmail(ctx context.Context, email, 
 	evt := &model.EmailTrackingEvent{
 		EventID:   eventID,
 		Email:     email,
-		JobID:     messageID, 
+		JobID:     messageID,
 		EventType: model.EmailEventTypeOpen,
 		UserAgent: ua,
 		IP:        ip,
@@ -180,20 +175,19 @@ func (s *EmailOpenTrackerService) recordOpenByEmail(ctx context.Context, email, 
 	return s.repo.CreateEvent(ctx, evt)
 }
 
-
 // SendCloudOpenEvent SendCloud webhook payload
 //
 // 文档：https://www.sendcloud.net/doc/email_v2/webhook/
 // 关键字段：event（delivered / open / click / bounce / spam_report / unsubscribe）
 type SendCloudOpenEvent struct {
-	Event     string `json:"event"`      
-	Recipient string `json:"recipient"`  
-	MessageID string `json:"message_id"` 
+	Event     string `json:"event"`
+	Recipient string `json:"recipient"`
+	MessageID string `json:"message_id"`
 	IP        string `json:"ip"`
 	UserAgent string `json:"useragent"`
-	URL       string `json:"url,omitempty"`    
-	Reason    string `json:"reason,omitempty"` 
-	Timestamp string `json:"timestamp"`        
+	URL       string `json:"url,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+	Timestamp string `json:"timestamp"`
 }
 
 // RecordSendCloudEvent 记录 SendCloud 风格事件
@@ -245,14 +239,13 @@ func (s *EmailOpenTrackerService) recordClickByEmail(ctx context.Context, email,
 	return s.repo.CreateEvent(ctx, evt)
 }
 
-
 // OpenRateMetrics 打开率指标
 type OpenRateMetrics struct {
 	JobID           string  `json:"job_id"`
 	TotalSent       int64   `json:"total_sent"`
 	UniqueOpened    int64   `json:"unique_opened"`
 	TotalOpens      int64   `json:"total_opens"`
-	OpenRate        float64 `json:"open_rate"` 
+	OpenRate        float64 `json:"open_rate"`
 	AvgOpensPerUser float64 `json:"avg_opens_per_user"`
 }
 
@@ -284,7 +277,6 @@ func (s *EmailOpenTrackerService) GetOpenRateMetrics(ctx context.Context, jobID 
 	return m, nil
 }
 
-
 var (
 	pixelCacheMu sync.Mutex
 	pixelCache   = make(map[string]time.Time)
@@ -315,7 +307,6 @@ func MarkOpenSeen(token string) bool {
 	return true
 }
 
-
 // EmailEventSummary 邮件事件摘要（用于日志）
 func EmailEventSummary(evtType, email string) string {
 	return fmt.Sprintf("[%s] %s", evtType, email)
@@ -329,8 +320,6 @@ func PrettyPrintJSON(v any) (string, error) {
 	}
 	return string(b), nil
 }
-
-
 
 // autoBlockOnBounce 硬退/投诉 → 按收件人手机号/邮箱写入 DNC（R53 E1）
 func (s *EmailOpenTrackerService) autoBlockOnBounce(ctx context.Context, email string) {
