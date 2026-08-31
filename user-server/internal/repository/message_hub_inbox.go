@@ -259,7 +259,7 @@ func (r *MessageHubRepository) MarkReadByIDs(ctx context.Context, ids []uint) er
 
 type HubListQuery struct {
 	Platform       string
-	Status         string 
+	Status         string
 	AccountID      string
 	ConversationID string
 	SenderID       string
@@ -856,8 +856,8 @@ func (r *InboxConversationRepository) CountByAssignedToStatus(ctx context.Contex
 // AssignTxInput 分配事务入参
 type AssignTxInput struct {
 	ConversationID uint
-	Action         string 
-	ToType         string 
+	Action         string
+	ToType         string
 	ToUserID       string
 	ToSOPID        uint
 	OperatorID     string
@@ -883,69 +883,69 @@ func (r *InboxConversationRepository) AssignTx(ctx context.Context, in AssignTxI
 	}
 	out := &AssignTxOutput{}
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			var conv model.InboxConversation
-			if err := tx.First(&conv, in.ConversationID).Error; err != nil {
-				return errors.New("conversation not found")
+		var conv model.InboxConversation
+		if err := tx.First(&conv, in.ConversationID).Error; err != nil {
+			return errors.New("conversation not found")
+		}
+		out.OldAssignedTo = conv.AssignedTo
+
+		updates := map[string]any{}
+		now := time.Now()
+		switch in.Action {
+		case "assign":
+			updates["status"] = "assigned"
+			updates["assigned_at"] = &now
+		case "reassign":
+			updates["status"] = "assigned"
+			updates["assigned_at"] = &now
+		case "release":
+			updates["status"] = "open"
+			updates["assigned_to"] = ""
+			updates["assigned_to_sop"] = 0
+		case "close":
+			updates["status"] = "closed"
+			updates["closed_at"] = &now
+		case "reopen":
+			updates["status"] = "unread"
+			updates["assigned_to"] = ""
+			updates["assigned_to_sop"] = 0
+		}
+
+		if in.Action == "assign" || in.Action == "reassign" {
+			updates["assigned_to"] = ""
+			updates["assigned_to_sop"] = 0
+			switch in.ToType {
+			case "human":
+				updates["assigned_to"] = in.ToUserID
+				out.NewAssignedTo = in.ToUserID
+			case "sop":
+				updates["assigned_to_sop"] = in.ToSOPID
+			case "ai":
+
 			}
-			out.OldAssignedTo = conv.AssignedTo
+		}
 
-			updates := map[string]any{}
-			now := time.Now()
-			switch in.Action {
-			case "assign":
-				updates["status"] = "assigned"
-				updates["assigned_at"] = &now
-			case "reassign":
-				updates["status"] = "assigned"
-				updates["assigned_at"] = &now
-			case "release":
-				updates["status"] = "open"
-				updates["assigned_to"] = ""
-				updates["assigned_to_sop"] = 0
-			case "close":
-				updates["status"] = "closed"
-				updates["closed_at"] = &now
-			case "reopen":
-				updates["status"] = "unread"
-				updates["assigned_to"] = ""
-				updates["assigned_to_sop"] = 0
-			}
-
-			if in.Action == "assign" || in.Action == "reassign" {
-				updates["assigned_to"] = ""
-				updates["assigned_to_sop"] = 0
-				switch in.ToType {
-				case "human":
-					updates["assigned_to"] = in.ToUserID
-					out.NewAssignedTo = in.ToUserID
-				case "sop":
-					updates["assigned_to_sop"] = in.ToSOPID
-				case "ai":
-
-				}
-			}
-
-			// 先清掉需要置 NULL 的字段（硬编码 SET NULL，绕开 GORM map nil/参数绑定歧义）
-			switch in.Action {
-			case "release":
-				if err := tx.Model(&model.InboxConversation{}).
-					Where("id = ?", in.ConversationID).
-					UpdateColumn("assigned_at", gorm.Expr("NULL")).Error; err != nil {
-					return err
-				}
-			case "reopen":
-				if err := tx.Model(&model.InboxConversation{}).
-					Where("id = ?", in.ConversationID).
-					UpdateColumn("closed_at", gorm.Expr("NULL")).Error; err != nil {
-					return err
-				}
-			}
-
+		// 先清掉需要置 NULL 的字段（硬编码 SET NULL，绕开 GORM map nil/参数绑定歧义）
+		switch in.Action {
+		case "release":
 			if err := tx.Model(&model.InboxConversation{}).
 				Where("id = ?", in.ConversationID).
-				Updates(updates).Error; err != nil {
+				UpdateColumn("assigned_at", gorm.Expr("NULL")).Error; err != nil {
 				return err
 			}
+		case "reopen":
+			if err := tx.Model(&model.InboxConversation{}).
+				Where("id = ?", in.ConversationID).
+				UpdateColumn("closed_at", gorm.Expr("NULL")).Error; err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Model(&model.InboxConversation{}).
+			Where("id = ?", in.ConversationID).
+			Updates(updates).Error; err != nil {
+			return err
+		}
 
 		hist := &model.InboxAssignment{
 			ConversationID: conv.ID,
@@ -1155,4 +1155,3 @@ func firstNonEmpty(a, b string) string {
 	}
 	return b
 }
-

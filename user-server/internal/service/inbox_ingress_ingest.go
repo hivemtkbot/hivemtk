@@ -51,6 +51,20 @@ func resolveAccountID(event *model.MessageEvent) string {
 	return ""
 }
 
+// channelMsgIDOf 从事件 Extra 提取平台消息 ID（channel_msg_id 由渠道 Ingress
+// 写入，WA 为 wamid 等）。剔除服务端自造占位前缀，那些不可能与真实平台 ID
+// 匹配，直接返回空以省一次无效查询。
+func channelMsgIDOf(event *model.MessageEvent) string {
+	if event == nil || event.Extra == nil {
+		return ""
+	}
+	id, _ := event.Extra["channel_msg_id"].(string)
+	if id == "" || strings.HasPrefix(id, "wa-out-") || strings.HasPrefix(id, "tg-out-") {
+		return ""
+	}
+	return id
+}
+
 // senderKeyForDedup 计算消息的去重发送者键（渠道+发送者+内容 三元组的"发送者"维度）。
 //
 //	核心：自他判定服务端权威，不信任前端 sender_type。
@@ -116,6 +130,17 @@ func (s *InboxIngressService) interceptInbound(ctx context.Context, event *model
 
 	if ob, oerr := s.hubRepo.GetOutboundByPlatformSenderContentConv(ctx, event.Channel, event.SenderName, content, event.ConversationID); oerr == nil && ob != nil && !s.senderDefinitelyDiffers(event, ob) {
 		return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(matched outbound by platform+sender_name+content)"}, nil
+	}
+
+	// T2（ChatbotX 模式移植）第一优先级：平台消息 ID 精确回显判定。
+	// 出站行已回写平台消息 ID（WA wamid 等），入站回显若携带同一 ID 即为自己
+	// 发出的消息——比内容哈希启发式精确（启发式会误杀"客户复述 AI 原话"的
+	// 边界场景，且 2h 窗口外的回显会漏）。出站行 msg_id 仍是占位符（wa-out-*）
+	// 或旧数据时精确匹配不命中，自然落回下方启发式，语义安全降级。
+	if chanMsgID := channelMsgIDOf(event); chanMsgID != "" && s.hubRepo != nil {
+		if _, err := s.hubRepo.GetOutgoingByPlatformMsgID(ctx, event.Channel, resolveAccountID(event), chanMsgID); err == nil {
+			return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(platform msg_id exact match)"}, nil
+		}
 	}
 
 	// 兜底 3：本账号同会话近期 outbound 归一化内容命中。
@@ -192,7 +217,6 @@ func groupNameOf(event *model.MessageEvent) string {
 	}
 	return ""
 }
-
 
 // normalizeEchoText 回环比对归一化：剥除所有空白（含 U+3000 全角空格）
 // 与格式字符（含 U+200B 零宽空格等 Cf 类），仅保留可见语义字符。

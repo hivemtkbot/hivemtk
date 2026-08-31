@@ -142,7 +142,7 @@ type FeishuIngestRequest struct {
 	Content   string
 	MsgID     string
 	ChatID    string
-	ChatType  string 
+	ChatType  string
 }
 
 func (s *FeishuIntegrationService) IngestMessage(ctx context.Context, req *FeishuIngestRequest) (*model.MessageHub, *model.InboxConversation, error) {
@@ -710,7 +710,7 @@ func NewWhatsAppCloudIntegrationService(db *gorm.DB) *WhatsAppCloudIntegrationSe
 
 type WhatsAppIngestRequest struct {
 	AccountID    uint
-	PhoneFrom    string 
+	PhoneFrom    string
 	CustomerName string
 	MsgType      string
 	Content      string
@@ -797,7 +797,6 @@ func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accou
 	}
 	return nil
 }
-
 
 // DecryptFeishuEvent 解密飞书事件 payload。
 // 官方协议《事件订阅·加密事件》：
