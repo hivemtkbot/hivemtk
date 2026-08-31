@@ -1,13 +1,13 @@
 export default [
   {
-    path: 'customerSession/list',
+    path: '/customerSession/list',
     name: 'CustomerSessionList',
     component: () => import('@/views/customerSession/List.vue'),
     meta: { title: '客服会话', group: 'customer', icon: 'Service', requiresAuth: true }
   },
   // USR-WB-07: UnifiedInbox 跳转链接
   {
-    path: 'customerSession/list/session/:sessionId',
+    path: '/customerSession/list/session/:sessionId',
     name: 'CustomerSessionDetail',
     component: () => import('@/views/customerSession/List.vue'),
     meta: { title: '客服会话', group: 'customer', icon: 'Service', requiresAuth: true },

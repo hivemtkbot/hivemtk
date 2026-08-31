@@ -4,7 +4,7 @@
 // 路径：/system/roles → views/system/RoleList.vue
 export default [
   {
-    path: 'system/roles',
+    path: '/system/roles',
     name: 'RoleList',
     component: () => import('@/views/system/RoleList.vue'),
     meta: {

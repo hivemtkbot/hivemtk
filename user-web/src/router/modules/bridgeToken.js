@@ -6,7 +6,7 @@ export default {
   component: () => import('@/layout/Layout.vue'),
   children: [
     {
-      path: 'token',
+      path: '/token',
       name: 'BridgeTokenManagement',
       component: () => import('@/views/bridge/TokenManagement.vue'),
       meta: { title: '桥接凭证', requiresAdmin: true }

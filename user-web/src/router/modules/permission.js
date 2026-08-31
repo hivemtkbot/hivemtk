@@ -4,7 +4,7 @@
 // 路径：/system/permissions → views/system/PermissionPanel.vue
 export default [
   {
-    path: 'system/permissions',
+    path: '/system/permissions',
     name: 'PermissionPanel',
     component: () => import('@/views/system/PermissionPanel.vue'),
     meta: {

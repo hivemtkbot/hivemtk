@@ -1,48 +1,48 @@
 export default [
   {
-    path: 'system/config',
+    path: '/system/config',
     name: 'SystemConfig',
     component: () => import('@/views/system/Config.vue'),
     meta: { title: '站点设置', group: 'system', icon: 'Tools', requiresAuth: true }
   },
   {
-    path: 'system/obs-config',
+    path: '/system/obs-config',
     name: 'SystemObsConfig',
     component: () => import('@/views/system/ObsConfig.vue'),
     meta: { title: '存储配置', group: 'system', icon: 'Cloud', requiresAuth: true }
   },
   {
-    path: 'system/material-library',
+    path: '/system/material-library',
     name: 'SystemMaterialLibrary',
     component: () => import('@/views/system/MaterialLibrary.vue'),
     meta: { title: '素材库', group: 'system', icon: 'Picture', requiresAuth: true }
   },
   {
-    path: 'system/monitor',
+    path: '/system/monitor',
     name: 'SystemMonitor',
     component: () => import('@/views/system/Monitor.vue'),
     meta: { title: '监控', group: 'system', icon: 'Cpu', requiresAuth: true }
   },
   {
-    path: 'system/trace',
+    path: '/system/trace',
     name: 'TraceMonitor',
     component: () => import('@/views/system/TraceMonitor.vue'),
     meta: { title: '链路追踪', group: 'system', icon: 'Connection', requiresAuth: true }
   },
   {
-    path: 'system/guide',
+    path: '/system/guide',
     name: 'SystemGuide',
     component: () => import('@/views/system/Guide.vue'),
     meta: { title: '使用引导', group: 'system', icon: 'Document', requiresAuth: true }
   },
   {
-    path: 'system/rag-overview',
+    path: '/system/rag-overview',
     name: 'RagOverview',
     component: () => import('@/views/system/RagOverview.vue'),
     meta: { title: 'RAG概览', group: 'knowledge', icon: 'Monitor', requiresAuth: true }
   },
   {
-    path: 'system/automation-hub',
+    path: '/system/automation-hub',
     name: 'AutomationHub',
     component: () => import('@/views/system/AutomationHub.vue'),
     meta: { title: '自动化中心', group: 'system', icon: 'Setting', requiresAuth: true }

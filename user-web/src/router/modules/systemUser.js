@@ -7,7 +7,7 @@
 // 命名规范：与 system.js / operationLog.js / role.js / permission.js 等保持一致
 export default [
   {
-    path: 'system/users',
+    path: '/system/users',
     name: 'SystemUserList',
     component: () => import('@/views/system/UserList.vue'),
     meta: {
