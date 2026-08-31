@@ -59,8 +59,9 @@ func AsChannelError(err error) *ChannelError {
 }
 
 var (
-	reHTTPStatus = regexp.MustCompile(`status[ =:]+(\d{3})`)
-	reRetryAfter = regexp.MustCompile(`retry_after[ ":]+(\d+)`)
+	// \b 词边界防误匹配：如 "status 4001" 不得截断成 400（二次审查 S2 修复）
+	reHTTPStatus = regexp.MustCompile(`status[ =:]+(\d{3})\b`)
+	reRetryAfter = regexp.MustCompile(`retry_after[ ":]+(\d+)\b`)
 )
 
 // classifyChannelError 从错误字符串提取特征分类。
@@ -194,9 +195,6 @@ func (s *WebhookService) outboundSendFailed(ctx context.Context, channel Webhook
 	}
 	extra["send_failed_category"] = string(ce.Category)
 	extra["send_failed_reason"] = ce.Raw
-	_ = s.messageHubRepo.Update(ctx, &model.MessageHub{
-		ID:     hubMsg.ID,
-		Status: "send_failed",
-		Extra:  extra,
-	})
+	// 二次审查 S1 修复：必须走列级 Updates（Save 全列覆盖会清空 msg_id/content 等字段）
+	_ = s.messageHubRepo.MarkOutboundSendFailed(ctx, hubMsg.ID, extra)
 }

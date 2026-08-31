@@ -101,6 +101,25 @@ func (r *RedisCache) LRange(ctx context.Context, key string, start, stop int64) 
 	return r.client.LRange(ctx, key, start, stop).Result()
 }
 
+// PopAll 原子取出并删除整个 list（Lua 脚本保证 LRange+DEL 之间无窗口）。
+func (r *RedisCache) PopAll(ctx context.Context, key string) ([]string, error) {
+	const popAllLua = `local v = redis.call('LRANGE', KEYS[1], 0, -1)
+redis.call('DEL', KEYS[1])
+return v`
+	res, err := r.client.Eval(ctx, popAllLua, []string{key}).Result()
+	if err != nil {
+		return nil, err
+	}
+	vals, _ := res.([]any)
+	out := make([]string, 0, len(vals))
+	for _, v := range vals {
+		if s, ok := v.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out, nil
+}
+
 // LLen 列表长度
 func (r *RedisCache) LLen(ctx context.Context, key string) (int64, error) {
 	return r.client.LLen(ctx, key).Result()

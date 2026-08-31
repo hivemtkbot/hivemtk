@@ -320,6 +320,26 @@ func (m *MemoryCache) LPop(ctx context.Context, key string) (string, error) {
 }
 
 // LRange 获取列表区间
+// PopAll 原子取出并删除整个 list（写锁内交换，无丢消息窗口）。
+func (m *MemoryCache) PopAll(ctx context.Context, key string) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ele, ok := m.data[key]
+	if !ok {
+		return []string{}, nil
+	}
+	item := ele.Value.(*cacheItem)
+	if !item.listMode || len(item.listItems) == 0 {
+		m.order.Remove(ele)
+		delete(m.data, key)
+		return []string{}, nil
+	}
+	items := item.listItems
+	m.order.Remove(ele)
+	delete(m.data, key)
+	return items, nil
+}
+
 func (m *MemoryCache) LRange(ctx context.Context, key string, start, stop int64) ([]string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

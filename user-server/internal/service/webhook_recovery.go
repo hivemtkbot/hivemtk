@@ -63,6 +63,10 @@ type webhookRecoveryScanner struct {
 
 	stopCh chan struct{}
 	mu     sync.Mutex
+
+	// lastID 扫描游标：id ASC limit N 的窗口若被 100 条反复失败的事件占满，
+	// 会饿死后续积压（二次审查 S3 修复）。游标越过本轮批次，批不满时回绕。
+	lastID uint64
 }
 
 // newWebhookRecoveryScanner 构造扫描器；db 为 nil（零值服务/单测）时返回 nil。
@@ -135,22 +139,32 @@ func (sc *webhookRecoveryScanner) scanOnce(ctx context.Context) int {
 		return 0
 	}
 	cutoff := time.Now().Add(-sc.cooldown)
-	events, err := sc.eventRepo.ListStaleUnprocessed(ctx, cutoff, sc.batchSize)
+	events, err := sc.eventRepo.ListStaleUnprocessedAfter(ctx, cutoff, sc.lastID, sc.batchSize)
 	if err != nil {
 		logger.Ctx(ctx).Warn().Err(err).Msg("[WebhookRecovery] scan query failed")
 		return 0
 	}
 	if len(events) == 0 {
+		sc.lastID = 0 // 回绕：从头再扫（事件可能已被 fast path 收敛或下轮可认领）
 		return 0
+	}
+	if len(events) < sc.batchSize {
+		sc.lastID = 0 // 不足一批说明已扫到尾部，下轮回绕
+	} else {
+		sc.lastID = uint64(events[len(events)-1].ID)
 	}
 	replayed := 0
 	for _, evt := range events {
-		if !sc.claim(ctx, evt) {
+		token, claimed := sc.claim(ctx, evt)
+		if !claimed {
 			continue
 		}
-		if sc.replay(ctx, evt) {
-			replayed++
-		}
+		sc.replay(ctx, evt)
+		// 处理完立即释放门闸：markProcessed 失败的事件下一轮即可重试，
+		// 收敛由毒丸计数兜底（5 次上限）
+		_, _ = cache.GetGlobalCache().ReleaseLock(context.Background(),
+			"mtk:webhook:recovering:"+strconv.FormatUint(uint64(evt.ID), 10), token)
+		replayed++
 	}
 	if replayed > 0 {
 		logger.Infof("[WebhookRecovery] replayed %d/%d stale events", replayed, len(events))
@@ -159,18 +173,20 @@ func (sc *webhookRecoveryScanner) scanOnce(ctx context.Context) int {
 }
 
 // claim Redis SetNX 认领门闸：同一事件同一时刻只被一个实例重放。
+// 门闸值 = token，处理完成后 ReleaseLock 校验持有者释放（防误删他人门闸）。
 // Redis 异常时放行（fail-open），副作用幂等由下游兜底。
-func (sc *webhookRecoveryScanner) claim(ctx context.Context, evt *model.WebhookEvent) bool {
+func (sc *webhookRecoveryScanner) claim(ctx context.Context, evt *model.WebhookEvent) (string, bool) {
 	key := "mtk:webhook:recovering:" + strconv.FormatUint(uint64(evt.ID), 10)
-	ok, err := cache.GetGlobalCache().SetNX(context.Background(), key, "1", webhookRecoveryGateTTL)
+	token := "recovery-" + strconv.FormatUint(uint64(evt.ID), 10) + "-" + time.Now().Format("150405.000000000")
+	ok, err := cache.GetGlobalCache().SetNX(context.Background(), key, token, webhookRecoveryGateTTL)
 	if err != nil {
 		logger.Ctx(ctx).Warn().Err(err).Uint("event_id", evt.ID).Msg("[WebhookRecovery] claim backend error, proceeding (fail-open)")
-		return true
+		return "", true
 	}
 	if !ok {
-		return false // 其他实例正在处理
+		return "", false // 其他实例正在处理
 	}
-	return true
+	return token, true
 }
 
 // replay 重放单个事件：重建 webhookJob 后复用 handleJob 全链路。
@@ -240,10 +256,9 @@ func (sc *webhookRecoveryScanner) incrRetry(ctx context.Context, eventID string)
 }
 
 func webhookEnvSeconds(name string, def time.Duration) time.Duration {
-	if v := os.Getenv(name); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			return time.Duration(n) * time.Second
-		}
+	n := webhookEnvInt(name, int(def/time.Second))
+	if n <= 0 {
+		return def
 	}
-	return def
+	return time.Duration(n) * time.Second
 }

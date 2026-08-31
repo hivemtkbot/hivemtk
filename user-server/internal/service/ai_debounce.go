@@ -21,14 +21,17 @@ package service
 //   - AfterFunc 为进程内存活——进程崩溃则本窗口聚合丢失，pending list 5min TTL
 //     自然回收，效果等同该消息未触发 AI（与桥接渠道 best-effort 语义一致）；
 //     恢复能力由 webhook 恢复扫描器（T1）覆盖官方渠道事件级重放。
-//   - 窗口默认 3s，AI_DEBOUNCE_SECONDS 环境变量调整，0 = 禁用（退回逐条触发）；
-//     事件 Extra["ai_debounce_seconds"] 可按账号覆盖（预留 per-account 接线）。
+//   - 窗口默认禁用（渐进上线）：生产部署显式设置 AI_DEBOUNCE_SECONDS=3 开启，
+//     0 = 禁用（退回逐条触发）；事件 Extra["ai_debounce_seconds"] 可按账号
+//     覆盖（预留 per-account 接线）。
 import (
 	"context"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
@@ -101,11 +104,16 @@ func (s *InboxIngressService) triggerAIWithDebounce(ctx context.Context, event *
 	}
 
 	// ChatbotX 语义：窗口内只有赢家负责调度合并触发；其余消息静默收集。
+	// 门闸值 = 本赢家 token：窗口到期回调 ReleaseLock 校验持有者，防止回调延迟
+	// 越过 TTL 后盲删下一个窗口的门闸（二次审查 S2 修复）。
 	gate := aiDebounceGatePrefix + sessionID
-	ok, err := s.cache.SetNX(ctx, gate, "1", time.Duration(seconds)*time.Second+time.Second)
+	gateToken := uuid.NewString()
+	ok, err := s.cache.SetNX(ctx, gate, gateToken, time.Duration(seconds)*time.Second+time.Second)
 	if err != nil {
 		// 门闸后端异常：退化为立即触发（fail-open，与 interceptInbound 同哲学）
 		logger.Ctx(ctx).Warn().Err(err).Str("session_id", sessionID).Msg("[Inbox][Debounce] gate backend error, fallback to immediate trigger")
+		// 本条已入 pending list：回滚取出，避免下一窗口重复喂 AI（二次审查 S4 修复）
+		s.drainOnePending(ctx, sessionID)
 		s.triggerAIForEvent(ctx, event)
 		return
 	}
@@ -121,11 +129,22 @@ func (s *InboxIngressService) triggerAIWithDebounce(ctx context.Context, event *
 	// 赢家：窗口到期后合并全量 pending 消息，单次触发
 	latestContent := content
 	mergedEvent := *event
+	// 二次审查 S2 修复：深拷贝 Extra——浅拷贝与原 event 共享 map，
+	// 回调 goroutine 写 ai_debounce_merged 会与持有原 event 的读方竞态
+	if event.Extra != nil {
+		extraCopy := make(map[string]any, len(event.Extra)+1)
+		for k, v := range event.Extra {
+			extraCopy[k] = v
+		}
+		mergedEvent.Extra = extraCopy
+	}
 	time.AfterFunc(time.Duration(seconds)*time.Second, func() {
 		// 请求级 ctx 已随 HTTP 返回取消，窗口回调用独立 context
 		bctx := context.Background()
 		pending, perr := s.PopPendingMessages(bctx, sessionID)
-		_ = s.cache.Delete(bctx, gate) // 释放门闸，允许下一窗口
+		// 仅当仍是本赢家持有时才释放门闸（ReleaseLock 校验 token）：
+		// 回调延迟越过 TTL、新窗口已开时不会误删新门闸
+		_, _ = s.cache.ReleaseLock(bctx, gate, gateToken)
 		if perr != nil {
 			logger.Ctx(bctx).Warn().Err(perr).Str("session_id", sessionID).Msg("[Inbox][Debounce] pop pending failed, trigger with latest only")
 			pending = []string{latestContent}
@@ -140,9 +159,6 @@ func (s *InboxIngressService) triggerAIWithDebounce(ctx context.Context, event *
 		if mergedEvent.Extra == nil {
 			mergedEvent.Extra = map[string]any{}
 		}
-		for k, v := range event.Extra {
-			mergedEvent.Extra[k] = v
-		}
 		mergedEvent.Extra["ai_debounce_merged"] = len(pending)
 
 		logger.Ctx(bctx).Info().
@@ -154,6 +170,17 @@ func (s *InboxIngressService) triggerAIWithDebounce(ctx context.Context, event *
 
 		s.triggerAIForEvent(bctx, &mergedEvent)
 	})
+}
+
+// drainOnePending 从 pending list 弹出一条（fail-open 回滚用）。
+// LPop 一条即本次 append 的那条（list 头部为最新写入）。
+func (s *InboxIngressService) drainOnePending(ctx context.Context, sessionID string) {
+	if s.cache == nil || sessionID == "" {
+		return
+	}
+	if _, err := s.cache.LPop(ctx, InboxPendingKey+sessionID); err != nil {
+		logger.Ctx(ctx).Warn().Err(err).Str("session_id", sessionID).Msg("[Inbox][Debounce] drain pending failed (TTL will reclaim)")
+	}
 }
 
 // mergePending 注入桩测试辅助：暴露窗口到期的合并逻辑（时间序 + 超限截断）。

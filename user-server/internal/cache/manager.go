@@ -108,6 +108,11 @@ func (m *CacheManager) SetNX(ctx context.Context, key string, value any, expirat
 }
 
 // ReleaseLock 安全释放分布式锁（仅删除持有者自己的锁）
+// PopAll 原子取出并删除整个 list（委托底层实现）。
+func (m *CacheManager) PopAll(ctx context.Context, key string) ([]string, error) {
+	return m.cache.PopAll(ctx, key)
+}
+
 func (m *CacheManager) ReleaseLock(ctx context.Context, key, token string) (bool, error) {
 	return m.cache.ReleaseLock(ctx, key, token)
 }

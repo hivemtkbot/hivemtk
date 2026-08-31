@@ -128,19 +128,26 @@ func (s *InboxIngressService) interceptInbound(ctx context.Context, event *model
 		return &IngressDecision{}, nil
 	}
 
-	if ob, oerr := s.hubRepo.GetOutboundByPlatformSenderContentConv(ctx, event.Channel, event.SenderName, content, event.ConversationID); oerr == nil && ob != nil && !s.senderDefinitelyDiffers(event, ob) {
-		return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(matched outbound by platform+sender_name+content)"}, nil
-	}
-
 	// T2（ChatbotX 模式移植）第一优先级：平台消息 ID 精确回显判定。
 	// 出站行已回写平台消息 ID（WA wamid 等），入站回显若携带同一 ID 即为自己
 	// 发出的消息——比内容哈希启发式精确（启发式会误杀"客户复述 AI 原话"的
 	// 边界场景，且 2h 窗口外的回显会漏）。出站行 msg_id 仍是占位符（wa-out-*）
 	// 或旧数据时精确匹配不命中，自然落回下方启发式，语义安全降级。
+	// 注意：先于内容哈希三元组检查执行（spec"第一优先级"，二次审查纠偏）。
 	if chanMsgID := channelMsgIDOf(event); chanMsgID != "" && s.hubRepo != nil {
-		if _, err := s.hubRepo.GetOutgoingByPlatformMsgID(ctx, event.Channel, resolveAccountID(event), chanMsgID); err == nil {
+		accID := resolveAccountID(event)
+		if event.ConversationID != "" && accID != "" {
+			// 会话范围限定：TG message_id 按聊天独立计数等场景防跨会话误拦
+			if _, err := s.hubRepo.GetOutgoingByPlatformMsgIDInConv(ctx, event.Channel, accID, event.ConversationID, chanMsgID); err == nil {
+				return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(platform msg_id exact match)"}, nil
+			}
+		} else if _, err := s.hubRepo.GetOutgoingByPlatformMsgID(ctx, event.Channel, accID, chanMsgID); err == nil {
 			return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(platform msg_id exact match)"}, nil
 		}
+	}
+
+	if ob, oerr := s.hubRepo.GetOutboundByPlatformSenderContentConv(ctx, event.Channel, event.SenderName, content, event.ConversationID); oerr == nil && ob != nil && !s.senderDefinitelyDiffers(event, ob) {
+		return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(matched outbound by platform+sender_name+content)"}, nil
 	}
 
 	// 兜底 3：本账号同会话近期 outbound 归一化内容命中。

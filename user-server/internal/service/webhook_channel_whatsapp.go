@@ -136,7 +136,9 @@ func (s *WebhookService) dispatchWhatsApp(ctx context.Context, accountID string,
 }
 
 // dispatchWhatsAppStatuses 消费 WA statuses 回执（T3）。
-// 返回 handled=true 表示本次推送是状态回执（已处理或忽略），调用方直接结束。
+// 返回 handled=true 表示本次推送只含回执（已处理或忽略），调用方直接结束。
+// 二次审查 S2 修复：statuses 与 messages 混合推送时（Meta 批量场景），先消费
+// 回执再返回 handled=false 让消息继续走主管线，避免整批丢消息。
 // best-effort：行未命中（wamid 未回写/旧占位）静默忽略，不影响主链路。
 func (s *WebhookService) dispatchWhatsAppStatuses(ctx context.Context, accountID string, raw []byte) (bool, error) {
 	s.ensureReposFromDB(ctx)
@@ -145,12 +147,14 @@ func (s *WebhookService) dispatchWhatsAppStatuses(ctx context.Context, accountID
 		return false, nil // 不是合法 WA payload，交给主链路处理
 	}
 	hasStatuses := false
+	hasMessages := false
 	for _, e := range payload.Entry {
 		for _, c := range e.Changes {
-			if len(c.Value.Statuses) > 0 {
-				hasStatuses = true
+			if len(c.Value.Messages) > 0 {
+				hasMessages = true
 			}
 			for _, st := range c.Value.Statuses {
+				hasStatuses = true
 				if s.messageHubRepo == nil {
 					break
 				}
@@ -159,13 +163,17 @@ func (s *WebhookService) dispatchWhatsAppStatuses(ctx context.Context, accountID
 					reason = st.Errors[0].Title + ": " + st.Errors[0].Message
 				}
 				if uerr := s.messageHubRepo.UpdateDeliveryStatus(ctx, "whatsapp", accountID, st.ID, st.Status, reason); uerr != nil {
-					// wamid 未命中（占位 ID 未回写/旧数据）是常态，降为 debug 语义
+					// wamid 未命中（占位 ID 未回写/旧数据）是常态，降为 info 语义
 					logger.Infof("[WhatsApp] status writeback miss wamid=%s status=%s: %v", st.ID, st.Status, uerr)
 				}
 			}
 		}
 	}
 	if !hasStatuses {
+		return false, nil
+	}
+	if hasMessages {
+		// 混合推送：回执已消费，消息交还主管线
 		return false, nil
 	}
 	logger.Infof("[Webhook] whatsapp statuses consumed account=%s", accountID)

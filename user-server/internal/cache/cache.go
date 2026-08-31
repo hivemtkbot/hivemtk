@@ -20,6 +20,10 @@ type Cache interface {
 	RPush(ctx context.Context, key string, value any, expiration time.Duration) error
 	LPop(ctx context.Context, key string) (string, error)
 	LRange(ctx context.Context, key string, start, stop int64) ([]string, error)
+	// PopAll 原子取出并删除整个 list（T5 防抖窗口消费用）。
+	// 必须原子：LRange+Delete 分离实现存在「新消息 LPush 落在两步之间被 Delete
+	// 抹掉」的丢消息窗口（二次审查 S2 发现）。
+	PopAll(ctx context.Context, key string) ([]string, error)
 	LLen(ctx context.Context, key string) (int64, error)
 	Clear(ctx context.Context) error
 }

@@ -31,16 +31,18 @@ func encryptAPIKeyForStorage(plain string) string {
 }
 
 // decryptAPIKeyForUse 读库后解密。
-// 明文（存量/未启用加密）→ 原样返回；密文解密失败 → 原样返回并告警
-// （master key 轮换丢失场景，保留原值便于运维排查）。
+// 明文（存量/未启用加密）→ 原样返回；密文解密失败 → 返回空串并告警。
+// 二次审查修复：解密失败绝不能把密文当 API key 透传（会以密文调上游 API
+// 产生一串 401 的静默失败）；返回空串让 provider 显式鉴权失败，便于发现
+// master key 轮换/多实例不一致问题。
 func decryptAPIKeyForUse(stored string) string {
 	if stored == "" || !secrets.IsCiphertextFormat(stored) {
 		return stored
 	}
 	plain, err := secrets.DecryptString(stored)
 	if err != nil {
-		logger.Errorf("[LLM] api key decrypt failed (key rotation lost?), using stored value: %v", err)
-		return stored
+		logger.Errorf("[LLM] api key decrypt failed (master key rotation/多实例 key 不一致?), provider 将以空 key 显式失败: %v", err)
+		return ""
 	}
 	return plain
 }

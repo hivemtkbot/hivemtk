@@ -1102,6 +1102,10 @@ func (f *fakeRedisCache) RPush(_ context.Context, _ string, _ any, _ time.Durati
 func (f *fakeRedisCache) LPop(_ context.Context, _ string) (string, error) {
 	return "", errors.New("not implemented")
 }
+func (f *fakeRedisCache) PopAll(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}
+
 func (f *fakeRedisCache) LRange(_ context.Context, _ string, _, _ int64) ([]string, error) {
 	return nil, nil
 }

@@ -319,11 +319,12 @@ func (s *InboxIngressService) PopPendingMessages(ctx context.Context, sessionID 
 		return nil, nil
 	}
 	key := InboxPendingKey + sessionID
-	items, err := s.cache.LRange(ctx, key, 0, -1)
+	// 二次审查 S2 修复：原子 PopAll 替代 LRange+Delete——两步之间存在
+	// 「新消息 LPush 落在 Delete 之后无法被取走、又被门闸拦截」的丢消息窗口
+	items, err := s.cache.PopAll(ctx, key)
 	if err != nil {
 		return nil, err
 	}
-	_ = s.cache.Delete(ctx, key)
 	return items, nil
 }
 

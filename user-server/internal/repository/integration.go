@@ -491,16 +491,25 @@ func (r *WebhookEventRepository) CountUnprocessed(ctx context.Context) (int64, e
 // 处理窗口；真正的互斥由扫描器的 Redis SetNX 认领门闸承担，重放的副作用
 // 幂等性由下游兜底（message_hub 唯一索引 + AI ClaimReply 事件级防重）。
 func (r *WebhookEventRepository) ListStaleUnprocessed(ctx context.Context, olderThan time.Time, limit int) ([]*model.WebhookEvent, error) {
+	return r.ListStaleUnprocessedAfter(ctx, olderThan, 0, limit)
+}
+
+// ListStaleUnprocessedAfter 在 ListStaleUnprocessed 基础上支持 id 游标
+// （afterID 之后），防止头部反复失败的事件占满批次窗口饿死后续积压。
+func (r *WebhookEventRepository) ListStaleUnprocessedAfter(ctx context.Context, olderThan time.Time, afterID uint64, limit int) ([]*model.WebhookEvent, error) {
 	if r == nil || r.db == nil {
 		return nil, nil
 	}
 	if limit <= 0 {
 		limit = 100
 	}
+	q := r.db.WithContext(ctx).
+		Where("processed = ? AND created_at < ?", false, olderThan)
+	if afterID > 0 {
+		q = q.Where("id > ?", afterID)
+	}
 	var events []*model.WebhookEvent
-	err := r.db.WithContext(ctx).
-		Where("processed = ? AND created_at < ?", false, olderThan).
-		Order("id ASC").
+	err := q.Order("id ASC").
 		Limit(limit).
 		Find(&events).Error
 	return events, err

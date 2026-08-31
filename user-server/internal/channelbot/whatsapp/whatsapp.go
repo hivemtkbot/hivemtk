@@ -139,21 +139,6 @@ type WebhookStatus struct {
 	} `json:"errors"`
 }
 
-// FirstStatus 取第一条状态回执（若无则返回 ok=false）。
-// 错误详情按需从 ParseWebhook 的原始结构取，此处只回传主键字段。
-func (e *WebhookEvent) FirstStatus() (wamid, status, timestamp, recipientID string, ok bool) {
-	for _, ent := range e.Entry {
-		for _, ch := range ent.Changes {
-			if len(ch.Value.Statuses) == 0 {
-				continue
-			}
-			s := ch.Value.Statuses[0]
-			return s.ID, s.Status, s.Timestamp, s.RecipientID, true
-		}
-	}
-	return "", "", "", "", false
-}
-
 // WebhookEvent Meta webhook 推送结构（精简版）
 type WebhookEvent struct {
 	Object string `json:"object"`
