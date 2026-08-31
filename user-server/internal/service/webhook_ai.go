@@ -27,7 +27,13 @@ func (s *WebhookService) SetSmartOrchestrator(ctx context.Context, o *SmartCSOrc
 }
 
 func (s *WebhookService) retryWithBackoff(ctx context.Context, job *webhookJob, payload *ParsedPayload, origErr error) {
-	delays := []time.Duration{2 * time.Second, 10 * time.Second, 30 * time.Second}
+	// T4（ChatbotX 模式移植）：按渠道错误分类调参——不可重试分类（鉴权/参数错误）
+	// 立即放弃；限速分类尊重平台 Retry-After；网络/未知沿用既有退避序列。
+	delays := retryDelaysFor(AsChannelError(origErr))
+	if delays == nil {
+		logger.Ctx(ctx).Error().Str("event", job.event.EventID).Msg("[Webhook] non-retryable channel error, giving up immediately")
+		return
+	}
 	for i := 0; i < WebhookMaxRetries; i++ {
 
 		if i >= len(delays) {
@@ -534,4 +540,3 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 		Str("handler", string(result.HandlerType)).
 		Msg("no outbound")
 }
-

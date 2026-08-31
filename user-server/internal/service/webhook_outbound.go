@@ -305,7 +305,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 			IsAIReply:      true,
 			AIAgent:        "sales_engine",
 		}); err != nil {
-			logger.Ctx(ctx).Error().Err(err).Str("channel", "wecom").Str("account_id", accountID).Msg("outbound failed")
+			s.outboundSendFailed(ctx, channel, accountID, hubMsg, err)
 		} else {
 			sent = true
 		}
@@ -329,7 +329,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 			outConv = hubMsg.ConversationID
 		}
 		if err := s.feishuIntegration.SendMessage(ctx, uint(accID), target, content, idType, outConv); err != nil {
-			logger.Ctx(ctx).Error().Err(err).Str("channel", "feishu").Str("account_id", accountID).Msg("outbound failed")
+			s.outboundSendFailed(ctx, channel, accountID, hubMsg, err)
 		} else {
 			sent = true
 		}
@@ -350,7 +350,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 			return
 		}
 		if err := s.tgIntegration.SendMessage(ctx, uint(accID), chatID, content); err != nil {
-			logger.Ctx(ctx).Error().Err(err).Str("channel", "telegram").Str("account_id", accountID).Int64("chat_id", chatID).Msg("outbound failed")
+			s.outboundSendFailed(ctx, channel, accountID, hubMsg, err)
 		} else {
 			sent = true
 		}
@@ -391,7 +391,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		}
 
 		if err := s.waIntegration.SendMessage(ctx, uint(accID), p.Sender, content); err != nil {
-			logger.Ctx(ctx).Error().Err(err).Str("channel", "whatsapp").Str("account_id", accountID).Msg("outbound failed")
+			s.outboundSendFailed(ctx, channel, accountID, hubMsg, err)
 		} else {
 			sent = true
 		}
