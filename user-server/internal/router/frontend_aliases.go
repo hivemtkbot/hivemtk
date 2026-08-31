@@ -75,7 +75,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/clues/import", clueCtrl.GetClueTypes)
 	doReg("POST", "/clues/import", clueCtrl.ImportClues)
 	doReg("GET", "/clue-statistics/overview", clueCtrl.GetClueStatistics)
-	doReg("DELETE", "/clues/:id", clueCtrl.DeleteClue)
+	doRegAdmin("DELETE", "/clues/:id", clueCtrl.DeleteClue)
 
 	customer360Ctrl := controller.NewCustomer360Controller()
 	doReg("GET", "/customer-360/list", customer360Ctrl.GetCustomerList)
