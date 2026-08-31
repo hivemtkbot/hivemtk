@@ -281,7 +281,7 @@ func (s *RuleEngineService) Dispatch(ctx context.Context, event, sessionID strin
 	if err := g.WithContext(ctx).
 		Where("event = ? AND enabled = ?", event, true).
 		Order("priority ASC, id ASC").Limit(20).
-		Find(&rules).Error; err != nil || len(rules) == 0 {
+		Find(&rules).Error; err != nil {
 		return
 	}
 	for _, rule := range rules {
