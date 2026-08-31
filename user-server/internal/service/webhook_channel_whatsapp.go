@@ -36,11 +36,18 @@ func waMessageContent(msgType string, body string) string {
 //	{"object":"whatsapp_business_account","entry":[{"changes":[{"value":{"messages":[...]}}]}]}
 //
 // W-4 多消息批次：Meta 单次推送可能携带多条 messages[]，逐条入队，不再只处理第一条。
+// T3（ChatbotX 模式移植）：statuses 回执（sent/delivered/read/failed，按 wamid）
+// 前置分流——只更新 message_hub 出站行状态，不走入站管线、不触发 AI。
 func (s *WebhookService) dispatchWhatsApp(ctx context.Context, accountID string, p *ParsedPayload, raw []byte) (*model.MessageHub, error) {
 	if s.db == nil {
 		return nil, nil
 	}
 	s.ensureReposFromDB(ctx)
+
+	// T3: statuses 回执优先处理；存在 statuses 且无 messages 的推送直接结束
+	if handled, err := s.dispatchWhatsAppStatuses(ctx, accountID, raw); handled {
+		return nil, err
+	}
 
 	// P1-7: WhatsApp Cloud API 消息重排序缓冲接入
 	// Meta 弱网/抖动下可能跨 webhook 乱序到达，先 Offer buffer 按 session 维度排序后再处理
@@ -128,3 +135,39 @@ func (s *WebhookService) dispatchWhatsApp(ctx context.Context, accountID string,
 	return firstHub, nil
 }
 
+// dispatchWhatsAppStatuses 消费 WA statuses 回执（T3）。
+// 返回 handled=true 表示本次推送是状态回执（已处理或忽略），调用方直接结束。
+// best-effort：行未命中（wamid 未回写/旧占位）静默忽略，不影响主链路。
+func (s *WebhookService) dispatchWhatsAppStatuses(ctx context.Context, accountID string, raw []byte) (bool, error) {
+	s.ensureReposFromDB(ctx)
+	payload, err := whatsapp.ParseWebhook(raw)
+	if err != nil {
+		return false, nil // 不是合法 WA payload，交给主链路处理
+	}
+	hasStatuses := false
+	for _, e := range payload.Entry {
+		for _, c := range e.Changes {
+			if len(c.Value.Statuses) > 0 {
+				hasStatuses = true
+			}
+			for _, st := range c.Value.Statuses {
+				if s.messageHubRepo == nil {
+					break
+				}
+				reason := ""
+				if len(st.Errors) > 0 {
+					reason = st.Errors[0].Title + ": " + st.Errors[0].Message
+				}
+				if uerr := s.messageHubRepo.UpdateDeliveryStatus(ctx, "whatsapp", accountID, st.ID, st.Status, reason); uerr != nil {
+					// wamid 未命中（占位 ID 未回写/旧数据）是常态，降为 debug 语义
+					logger.Infof("[WhatsApp] status writeback miss wamid=%s status=%s: %v", st.ID, st.Status, uerr)
+				}
+			}
+		}
+	}
+	if !hasStatuses {
+		return false, nil
+	}
+	logger.Infof("[Webhook] whatsapp statuses consumed account=%s", accountID)
+	return true, nil
+}

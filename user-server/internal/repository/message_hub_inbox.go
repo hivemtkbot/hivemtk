@@ -230,6 +230,55 @@ func (r *MessageHubRepository) GetOutgoingByPlatformMsgID(ctx context.Context, p
 	return &existing, nil
 }
 
+// UpdateDeliveryStatus 按 wamid 更新出站消息的平台回执状态（ChatbotX 模式移植 T3）。
+//
+// status 语义（仅作用于官方渠道出站行，与桥接 outbox 认领状态机
+// pending→inflight→delivered 分离——官方行不进 outbox 认领队列）：
+//   - sent/delivered → Status 置对应值
+//   - read           → IsRead=true + ReadAt
+//   - failed/deleted → Status='send_failed'，错误详情写入 Extra
+//
+// 未命中（旧占位 ID/未回写）返回 ErrRecordNotFound，调用方静默忽略。
+func (r *MessageHubRepository) UpdateDeliveryStatus(ctx context.Context, platform, accountID, msgID, status string, failureReason string) error {
+	if r == nil || r.db == nil || msgID == "" || status == "" {
+		return nil
+	}
+	row, err := r.GetOutgoingByPlatformMsgID(ctx, platform, accountID, msgID)
+	if err != nil {
+		return err
+	}
+	updates := map[string]any{}
+	switch status {
+	case "read":
+		updates["is_read"] = true
+		updates["read_at"] = time.Now()
+	case "failed", "deleted":
+		updates["status"] = "send_failed"
+		if failureReason != "" {
+			row.Extra = mergeHubExtra(row.Extra, map[string]any{"delivery_error": failureReason})
+			updates["extra"] = row.Extra
+		}
+	case "sent", "delivered":
+		updates["status"] = status
+	default:
+		return nil // 未知状态忽略，不盲目写入
+	}
+	return r.db.WithContext(ctx).Model(&model.MessageHub{}).
+		Where("id = ?", row.ID).Updates(updates).Error
+}
+
+// mergeHubExtra 合并 Extra JSON（保留既有键，新键覆盖）。
+func mergeHubExtra(existing model.JSONMap, patch map[string]any) model.JSONMap {
+	out := model.JSONMap{}
+	for k, v := range existing {
+		out[k] = v
+	}
+	for k, v := range patch {
+		out[k] = v
+	}
+	return out
+}
+
 func (r *MessageHubRepository) GetByDedupHash(ctx context.Context, platform, dedupHash string) (*model.MessageHub, error) {
 	if r == nil || r.db == nil || dedupHash == "" {
 		return nil, gorm.ErrRecordNotFound
