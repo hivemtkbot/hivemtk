@@ -556,13 +556,21 @@ For business cooperation or technical support, reach out via Gitee Issue or jide
 
 ## 🏷️ Recommended Topics
 
-```
-scrm · private-domain-marketing · ai-agent · react-agent · llm · rag
-· customer-service · marketing-automation · sales-copilot · cdp
-· self-hosted · on-premise · go · vue · agpl-3.0
-```
+### Product & Positioning
 
-Optional additions (as needed): `qwen` · `llama-cpp` · `bge-m3` · `pgvector` · `docker`
+SCRM · private-domain marketing · AI sales copilot · customer service AI · marketing automation · CDP · sales automation
+
+### AI Capabilities
+
+ReAct agent · LLM · RAG · hybrid search · ai agent · react-agent · retrieval augmented generation
+
+### Tech Stack
+
+Go · Vue · PostgreSQL · pgvector · Redis · Docker · llama-cpp · bge-m3 · qwen
+
+### Deployment
+
+self-hosted · on-premise · private deployment · zero data egress · AGPL-3.0
 
 ---
 

@@ -64,11 +64,17 @@ HiveMtk 不是"给大模型套个壳"，更不是把流程写死的自动化脚�
 
 ## 关键词与适用场景
 
-> SEO 关键词（GitHub/Gitee 搜索可见）
+### 核心关键词（GitHub / Gitee 搜索）
 
-`scrm` · `private-domain-marketing` · `ai-agent` · `react-agent` · `llm` · `rag` · `customer-service` · `marketing-automation` · `sales-copilot` · `cdp` · `self-hosted` · `on-premise` · `go` · `vue` · `agpl-3.0` · `qwen` · `llama-cpp` · `bge-m3` · `pgvector` · `docker` · `frp` · `private-deployment`
+**产品定位**：SCRM 私域营销 · 私域增长 AI · 私域智能体 · customer service AI · 营销自动化 · sales copilot · CDP 客户数据平台
 
-**适用场景（典型行业）**：
+**AI 能力**：ReAct agent · LLM · RAG 检索增强 · hybrid search · ai agent · react-agent
+
+**技术栈**：Go · Vue · PostgreSQL · pgvector · Redis · Docker · llama-cpp · bge-m3 · qwen
+
+**部署形态**：self-hosted · on-premise · private deployment · 数据零出域 · AGPL-3.0
+
+### 适用场景（典型行业）
 
 | 场景 | 关键能力 | 典型行业 |
 |------|---------|---------|
