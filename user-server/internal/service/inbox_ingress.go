@@ -495,7 +495,9 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 		}
 	}
 
-	s.triggerAIForEvent(ctx, event)
+	// T5（ChatbotX 模式移植）：会话级防抖聚合——窗口内碎片消息合并为单次 AI 推理。
+	// 转人工关键词/非文本/禁用配置直接透传，语义不变。
+	s.triggerAIWithDebounce(ctx, event)
 	result.QueuedForAI = true
 	result.Reason = "trigger AI customer service"
 	return result, nil
