@@ -558,6 +558,9 @@ onUnmounted(() => {
 // 嵌入状态 label/type：取自统一 status 集
 const getEmbedStatusLabel = (s) => getStatusLabel(s, EMBED_STATUS)
 const getEmbedStatusTagType = (s) => getStatusTagType(s, EMBED_STATUS)
+// 模板别名：详情弹窗使用 embedStatusTag/embedStatusLabel 命名（R41 全链路扫描发现未定义崩溃）
+const embedStatusLabel = getEmbedStatusLabel
+const embedStatusTag = getEmbedStatusTagType
 // 来源类型 label/type：取自统一 source 常量
 const sourceTypeLabel = (t) => getSourceLabel(t)
 const sourceTypeTag = (t) => getSourceTagType(t)

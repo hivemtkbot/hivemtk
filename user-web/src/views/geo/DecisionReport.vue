@@ -27,6 +27,7 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getGeoDecisionReport, getGeoGapTasks, markGeoTaskDone } from '@/api/geoDecision.js'
+import { toList } from '@/utils/list'
 
 const report = ref({})
 const tasks = ref([])
@@ -36,7 +37,7 @@ const load = async () => {
   loading.value = true
   try {
     report.value = await getGeoDecisionReport() || {}
-    tasks.value = await getGeoGapTasks(50) || []
+    tasks.value = toList(await getGeoGapTasks(50))
   } finally { loading.value = false }
 }
 

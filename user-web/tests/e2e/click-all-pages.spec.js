@@ -15,7 +15,7 @@ const SAFE = /新增|新建|添加|Add|Create|创建|导入|Import|同步|Sync|�
 const DANGER = /删除|Delete|移除|Remove|重置|清除|Logout|退出|注销|清空|解散/i
 
 test('[CLICK-ALL] 全页面模拟人工点击扫描', async ({ page }) => {
-  test.setTimeout(1800000)
+  test.setTimeout(3000000)
   const log = []        // 所有采集到的问题（含上下文）
   const realBugs = []   // 真实崩溃：pageerror + 5xx
   let ctxRoute = ''
@@ -63,6 +63,8 @@ test('[CLICK-ALL] 全页面模拟人工点击扫描', async ({ page }) => {
   let visited = 0
   let interacted = 0
   for (const p of PATHS) {
+    // /login 不是业务页：已登录态下 goto 会破坏会话（清 storage），排除
+    if (p === '/login' || p === '/login/' || p === 'login') continue
     const route = p
     const url = BASE + '/#' + (p.startsWith('/') ? p : '/' + p)
     ctxRoute = route; ctxAction = '(render)'

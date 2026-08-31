@@ -161,6 +161,8 @@ const formatPercent = (rate) => {
 
 // 初始化图表
 const initCharts = () => {
+  // 防御：图表容器未挂载（tab 懒渲染/路由快速切换）时跳过，避免 echarts invalid dom 崩溃
+  if (!viewsChart.value || !clicksChart.value) return
   // 浏览量图表
   viewsChartInstance = echarts.init(viewsChart.value)
   const viewsOption = {
