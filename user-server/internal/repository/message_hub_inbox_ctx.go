@@ -187,16 +187,16 @@ func (r *MessageHubRepository) NormalizePollutedConversationIDs(ctx context.Cont
 		UPDATE message_hub m
 		SET conversation_id = regexp_replace(
 			CASE
-				WHEN m.sender_id   LIKE (m.conversation_id || ' %') THEN m.sender_id
-				WHEN m.receiver_id LIKE (m.conversation_id || ' %') THEN m.receiver_id
+				WHEN m.conversation_id LIKE (m.sender_id || ' %') THEN m.sender_id
+				WHEN m.conversation_id LIKE (m.receiver_id || ' %') THEN m.receiver_id
 				ELSE m.conversation_id
 			END,
 			?, '', 'g'
 		)
 		WHERE m.conversation_id LIKE 'conv:%'
-		  AND (m.sender_id   LIKE (m.conversation_id || ' %')
-		    OR m.receiver_id LIKE (m.conversation_id || ' %'))`,
-		tsPat)
+		  AND (m.conversation_id LIKE (m.sender_id || ' %')
+		    OR m.conversation_id LIKE (m.receiver_id || ' %'))`,
+			tsPat)
 	return res.RowsAffected, res.Error
 }
 
