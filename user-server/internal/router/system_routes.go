@@ -104,16 +104,16 @@ func setupKnowledgeBaseRoutes(auth *gin.RouterGroup) {
 
 // setupBackupRoutes 备份恢复路由
 //
-// 权限分级（2026-08-18 三轮发现）：CreateBackup / DeleteBackup / RestoreBackup admin only
-// （备份含全库客户数据，恢复可覆盖全库；GetBackupList 保留任意登录查看）。
+// 权限分级（2026-08-18 三轮发现 + 2026-09-01 四轮加固）：
+// 备份属于系统级敏感操作，全链路收敛为 admin only（含列表、详情、恢复历史查看）。
 func setupBackupRoutes(auth *gin.RouterGroup) {
 	backupCtrl := controller.NewBackupController()
 	restoreCtrl := controller.NewRestoreController()
-	auth.GET("/backups", backupCtrl.GetBackupList)
-	auth.GET("/backups/:id", backupCtrl.GetBackupByID)
-	auth.GET("/restore/list", restoreCtrl.GetRestoreList)
-	auth.GET("/restore/last", restoreCtrl.GetLastRestore)
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	admin.GET("/backups", backupCtrl.GetBackupList)
+	admin.GET("/backups/:id", backupCtrl.GetBackupByID)
+	admin.GET("/restore/list", restoreCtrl.GetRestoreList)
+	admin.GET("/restore/last", restoreCtrl.GetLastRestore)
 	admin.POST("/backups", backupCtrl.CreateBackup)
 	admin.DELETE("/backups/:id", backupCtrl.DeleteBackup)
 	admin.POST("/restore", restoreCtrl.RestoreBackup)
