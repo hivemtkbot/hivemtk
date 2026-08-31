@@ -401,6 +401,22 @@ func (s *ProbeService) ProbeAllEngines(ctx context.Context, query string) ([]*mo
 			errs = append(errs, fmt.Errorf("probe %s: %w", p.Name(), err))
 			continue
 		}
+		// 轻量匹配：品牌提及 + 情感（不需要 LLM，strings.Contains 足够）
+		brandName := s.getBrandName(ctx)
+		negativeWords := []string{"差评", "投诉", "骗局", "失败", "坑", "垃圾", "烂"}
+		isNegative := false
+		for _, nw := range negativeWords {
+			if strings.Contains(strings.ToLower(pr.Response), strings.ToLower(nw)) {
+				isNegative = true
+				break
+			}
+		}
+		pr.BrandHit = brandName != "" && strings.Contains(strings.ToLower(pr.Response), strings.ToLower(brandName))
+		if isNegative {
+			pr.Sentiment = "negative"
+		} else {
+			pr.Sentiment = "neutral"
+		}
 		run := &model.GeoProbeRun{
 			Engine:      pr.Engine,
 			Query:       pr.Query,
@@ -427,7 +443,27 @@ func (s *ProbeService) ProbeAllEngines(ctx context.Context, query string) ([]*mo
 func (s *ProbeService) TestSingle(ctx context.Context, engineName, query string) (*ProbeResult, error) {
 	for _, p := range s.probes {
 		if engineName == "" || p.Name() == engineName {
-			return p.Probe(ctx, query)
+			pr, err := p.Probe(ctx, query)
+			if err != nil {
+				return nil, err
+			}
+			// 轻量匹配：品牌提及 + 情感（与 ProbeAllEngines 一致）
+			brandName := s.getBrandName(ctx)
+			negativeWords := []string{"差评", "投诉", "骗局", "失败", "坑", "垃圾", "烂"}
+			isNegative := false
+			for _, nw := range negativeWords {
+				if strings.Contains(strings.ToLower(pr.Response), strings.ToLower(nw)) {
+					isNegative = true
+					break
+				}
+			}
+			pr.BrandHit = brandName != "" && strings.Contains(strings.ToLower(pr.Response), strings.ToLower(brandName))
+			if isNegative {
+				pr.Sentiment = "negative"
+			} else {
+				pr.Sentiment = "neutral"
+			}
+			return pr, nil
 		}
 	}
 	return nil, fmt.Errorf("engine %s not found (available: %s)", engineName, availableEngineNames(s.probes))
@@ -447,4 +483,14 @@ func availableEngineNames(probes []SearchProbe) string {
 		names = append(names, p.Name())
 	}
 	return strings.Join(names, ",")
+}
+
+// getBrandName 从 GeoConfig 读取品牌名（轻量、不打 LLM）
+func (s *ProbeService) getBrandName(ctx context.Context) string {
+	cfgRepo := repository.NewGeoConfigRepository()
+	cfg, err := cfgRepo.Get()
+	if err != nil || cfg.BrandName == "" {
+		return ""
+	}
+	return cfg.BrandName
 }

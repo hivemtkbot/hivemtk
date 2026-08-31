@@ -10,6 +10,7 @@ type GenerateContentRequest struct {
 	Model      string   `json:"model"`
 	WordCount  int      `json:"word_count" binding:"omitempty,min=100,max=20000"`
 	Style      string   `json:"style"`
+	Lang       string   `json:"lang"` // zh(default) / en
 }
 
 // OptimizeContentRequest 内容优化请求

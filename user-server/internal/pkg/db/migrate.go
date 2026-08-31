@@ -275,6 +275,7 @@ func allModels() []any {
 		&geomodel.GeoSourceCatalog{},
 		&geomodel.GeoEntity{},
 		&geomodel.GeoEntityRelation{},
+		&geomodel.GeoAlert{},
 	}
 }
 

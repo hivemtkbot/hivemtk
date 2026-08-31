@@ -2,12 +2,18 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	"hivemtk-user/internal/geo/model"
 	"hivemtk-user/internal/geo/repository"
 	"hivemtk-user/internal/pkg/utils/logger"
+
+	_db "hivemtk-user/internal/pkg/db"
 )
 
 // ---- SOVRefreshCron ----
@@ -62,6 +68,56 @@ func SOVRefreshCron() {
 		}
 	}
 	logger.Info(fmt.Sprintf("[GEO Scheduler] SOV 刷新完成 总=%d 成功=%d 部分失败=%d", len(allKW), success, failed))
+
+	// === 聚合到 daily_stats ===
+	dailyRepo := repository.NewGeoDailyStatRepository()
+	today := time.Now().Format("2006-01-02")
+	type aggKey struct {
+		engine string
+		intent string
+	}
+	agg := map[aggKey]*model.GeoDailyStat{}
+
+	// 从 probeRepo.ListRecent 拉 500 条然后内存聚合
+	recentRuns, _ := probeRepo.ListRecent(ctx, 500)
+	for _, r := range recentRuns {
+		if r.CreatedAt.Format("2006-01-02") != today {
+			continue
+		}
+		k := aggKey{engine: r.Engine, intent: truncateForLog(r.Query, 40)}
+		if agg[k] == nil {
+			agg[k] = &model.GeoDailyStat{
+				Date:   today,
+				Engine: r.Engine,
+				Intent: truncateForLog(r.Query, 40),
+			}
+		}
+		if r.BrandMentioned {
+			agg[k].BrandMentionedCount++
+		}
+		if r.Sentiment == "negative" {
+			agg[k].NegativeCount++
+		}
+		// citations 计数
+		var cits []map[string]interface{}
+		if err := json.Unmarshal(r.Citations, &cits); err == nil {
+			agg[k].CitationCount += int(len(cits))
+		}
+	}
+
+	stats := make([]*model.GeoDailyStat, 0, len(agg))
+	for _, v := range agg {
+		stats = append(stats, v)
+	}
+	if len(stats) > 0 {
+		if err := dailyRepo.BatchUpsert(ctx, stats); err != nil {
+			logger.Error(err, "[GEO Scheduler] daily_stats 聚合写入失败")
+		} else {
+			logger.Info(fmt.Sprintf("[GEO Scheduler] daily_stats 聚合完成 写入=%d", len(stats)))
+		}
+	} else {
+		logger.Info("[GEO Scheduler] daily_stats 今日无探针数据，跳过聚合")
+	}
 }
 
 // ---- NegativeMonitorCron ----
@@ -111,12 +167,33 @@ func NegativeMonitorCron() {
 					hit++
 					logger.Info(fmt.Sprintf("[GEO Scheduler] 负面监控命中！brand=%s engine=%s query=%s snippet=%s",
 						brandName, r.Engine, q, truncateForLog(r.Response, 120)))
+					// 写 alerts 表
+					alert := &model.GeoAlert{
+						Type:      "negative_monitor",
+						Level:     "warning",
+						BrandName: brandName,
+						Query:     q,
+						Engine:    r.Engine,
+						Snippet:   truncateForLog(r.Response, 300),
+						Details:   r.Response,
+						Notified:  false,
+					}
+					if db := _db.GetDB(); db != nil {
+						if err := db.Create(alert).Error; err != nil {
+							logger.Error(err, "[GEO Scheduler] 写入 geo_alerts 失败")
+						}
+					}
 					break
 				}
 			}
 		}
 	}
 	logger.Info(fmt.Sprintf("[GEO Scheduler] 负面监控完成 检查查询=%d 命中=%d", len(queries), hit))
+
+	// 如果有命中，发飞书告警
+	if hit > 0 {
+		go sendFeishuAlert(ctx, brandName, queries, hit)
+	}
 }
 
 // ---- SourceCatalogSyncCron ----
@@ -153,5 +230,24 @@ func SourceCatalogSyncCron() {
 		ok++
 	}
 	logger.Info(fmt.Sprintf("[GEO Scheduler] 信源目录同步完成 总=%d 可达=%d 失败=%d", len(seeds), ok, fail))
+}
+
+// sendFeishuAlert 通过飞书 webhook 发送 GEO 负面监控告警
+func sendFeishuAlert(ctx context.Context, brand string, queries []string, hitCount int) {
+	webhook := os.Getenv("FEISHU_ALERT_WEBHOOK")
+	if webhook == "" {
+		logger.Info("[GEO Scheduler] FEISHU_ALERT_WEBHOOK 未配置，跳过飞书通知")
+		return
+	}
+	payload := fmt.Sprintf(`{"msg_type":"interactive","card":{"header":{"title":{"tag":"plain_text","content":"[GEO 负面告警] %s 命中 %d 次"}},"elements":[{"tag":"div","text":{"tag":"lark_md","content":"**品牌**: %s\n**命中数**: %d\n**查询**: %v"}}]}}`, brand, hitCount, brand, hitCount, queries)
+	req, _ := http.NewRequestWithContext(ctx, "POST", webhook, strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 10 * time.Second}
+	if resp, err := client.Do(req); err != nil {
+		logger.Error(err, "[GEO Scheduler] 飞书 webhook 发送失败")
+	} else {
+		resp.Body.Close()
+		logger.Info(fmt.Sprintf("[GEO Scheduler] 飞书告警已发送 brand=%s hit=%d", brand, hitCount))
+	}
 }
 

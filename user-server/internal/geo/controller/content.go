@@ -28,7 +28,7 @@ func (c *ContentController) GenerateContent(ctx *gin.Context) {
 	if !response.BindJSON(ctx, &req) {
 		return
 	}
-	result, err := c.svc.GenerateContent(ctx.Request.Context(), req.Keyword, req.BrandName, req.Advantages, req.WordCount, req.Style)
+	result, err := c.svc.GenerateContent(ctx.Request.Context(), req.Lang, req.Keyword, req.BrandName, req.Advantages, req.WordCount, req.Style)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "内容生成失败")
 		return

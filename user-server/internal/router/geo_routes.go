@@ -11,6 +11,8 @@ import (
 	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/pkg/utils"
 
+	"hivemtk-user/internal/aiagent/llm"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -39,7 +41,7 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 
 	// 初始化 services
 	keywordSvc := geoservice.NewKeywordService(keywordRepo, apiCallRepo, llmAdapter)
-	contentSvc := geoservice.NewContentService(articleRepo, optimizationRepo, apiCallRepo, llmAdapter)
+	contentSvc := geoservice.NewContentService(articleRepo, optimizationRepo, apiCallRepo, kbDocRepo, llmAdapter)
 	verifySvc := geoservice.NewVerificationService(verifyRepo, apiCallRepo, llmAdapter)
 	reportSvc := geoservice.NewReportService(articleRepo, keywordRepo, optimizationRepo, verifyRepo, apiCallRepo)
 	configSvc := geoservice.NewConfigService(configRepo, llmAdapter)
@@ -141,7 +143,13 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	crawlerSvc := geoservice.NewCrawlerService(sourceRepo)
 	sourceCtrl := geoctrl.NewSourceCatalogController(crawlerSvc)
 
-	entityCtrl := geoctrl.NewEntityController()
+	entityRepo := georepo.NewGeoEntityRepositoryWithDB(gormDB)
+	extractSvc := geoservice.NewEntityExtractorService(
+		entityRepo,
+		kbDocRepo,
+		llm.GetGlobalDispatcher(),
+	)
+	entityCtrl := geoctrl.NewEntityController(entityRepo, extractSvc)
 
 	// 注册路由（统一挂在 /geo 下）
 	geo := auth.Group("/geo")

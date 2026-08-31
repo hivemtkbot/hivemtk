@@ -41,9 +41,12 @@ const (
 )
 
 // aiDebounceSeconds 计算本事件的防抖窗口秒数（0 = 禁用）。
-// 优先级：事件 Extra["ai_debounce_seconds"]（账号级，预留）> 环境变量 > 默认 3s。
+// 优先级：事件 Extra["ai_debounce_seconds"]（账号级，预留）> 环境变量 > 默认 0。
+//
+// 默认禁用的理由：防抖引入 N 秒回复延迟是产品行为变更，渐进上线——
+// 生产部署显式设置 AI_DEBOUNCE_SECONDS=3 开启；单测保持确定性（触发即到）。
 func aiDebounceSeconds(event *model.MessageEvent) int {
-	def := 3
+	def := 0
 	if v := os.Getenv("AI_DEBOUNCE_SECONDS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			def = n

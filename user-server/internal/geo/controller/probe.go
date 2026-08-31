@@ -1,9 +1,11 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
+	"hivemtk-user/internal/geo/repository"
 	"hivemtk-user/internal/geo/service"
 	"hivemtk-user/internal/pkg/utils/response"
 
@@ -145,16 +147,28 @@ func (c *SourceCatalogController) LookupLevels(ctx *gin.Context) {
 
 // EntityController 实体图谱控制器（读路径；写入由 entity_extractor 定时任务负责）
 type EntityController struct {
-	// 后续注入 EntityService，暂用空实现保持路由挂载
+	entityRepo repository.GeoEntityRepository
+	extractor  *service.EntityExtractorService
 }
 
 // NewEntityController 构造实体控制器
-func NewEntityController() *EntityController { return &EntityController{} }
+func NewEntityController(er repository.GeoEntityRepository, ex *service.EntityExtractorService) *EntityController {
+	return &EntityController{entityRepo: er, extractor: ex}
+}
 
 // ListEntities 查询实体列表
 // GET /geo/entity/list?search=&type=&page=&limit=
 func (c *EntityController) ListEntities(ctx *gin.Context) {
-	response.Success(ctx, gin.H{"note": "实体列表接口待接入 EntityService"}, "ok")
+	search := ctx.Query("search")
+	entityType := ctx.Query("type")
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
+	list, total, err := c.entityRepo.List(ctx.Request.Context(), search, entityType, page, limit)
+	if err != nil {
+		response.ErrorFromDB(ctx, err, "查询实体列表失败")
+		return
+	}
+	response.Success(ctx, gin.H{"list": list, "total": total, "page": page, "page_size": limit}, "ok")
 }
 
 // GetGraph 查询实体关系子图
@@ -162,7 +176,19 @@ func (c *EntityController) ListEntities(ctx *gin.Context) {
 func (c *EntityController) GetGraph(ctx *gin.Context) {
 	id, _ := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	depth, _ := strconv.Atoi(ctx.DefaultQuery("depth", "2"))
-	response.Success(ctx, gin.H{"entity_id": id, "depth": depth, "note": "关系子图接口待接入"}, "ok")
+	if depth <= 0 || depth > 5 {
+		depth = 2
+	}
+	if id == 0 {
+		response.Error(ctx, http.StatusBadRequest, "id 无效")
+		return
+	}
+	rels, entities, err := c.entityRepo.GetRelationGraph(ctx.Request.Context(), uint(id), depth)
+	if err != nil {
+		response.ErrorFromDB(ctx, err, "查询实体关系图失败")
+		return
+	}
+	response.Success(ctx, gin.H{"entity_id": id, "depth": depth, "entities": entities, "relations": rels}, "ok")
 }
 
 // Extract 从指定文档抽取实体
@@ -174,5 +200,10 @@ func (c *EntityController) Extract(ctx *gin.Context) {
 	if !response.BindJSON(ctx, &body) {
 		return
 	}
-	response.Success(ctx, gin.H{"doc_id": body.DocID, "note": "实体抽取接口待接入 EntityExtractorService"}, "ok")
+	err := c.extractor.ExtractFromDocument(ctx.Request.Context(), body.DocID)
+	if err != nil {
+		response.BusinessError(ctx, fmt.Sprintf("实体抽取失败: %v", err))
+		return
+	}
+	response.Success(ctx, gin.H{"doc_id": body.DocID, "status": "completed"}, "实体抽取完成")
 }

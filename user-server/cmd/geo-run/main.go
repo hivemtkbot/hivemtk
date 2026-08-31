@@ -185,12 +185,13 @@ func main() {
 		georepo.NewGeoArticleRepositoryWithDB(db),
 		georepo.NewGeoOptimizationRepositoryWithDB(db),
 		georepo.NewGeoAPICallRepositoryWithDB(db),
+		georepo.NewGeoKnowledgeDocumentRepositoryWithDB(db),
 		geoservice.NewLLMAdapter(),
 	)
 
 	fmt.Println("== [U3] 决策链三阶段内容+验证 ==")
 	for _, iq := range intentQueries {
-		art, gerr := contentSvc.GenerateContent(ctx, iq.kw, brand, advantages, 800, "professional")
+		art, gerr := contentSvc.GenerateContent(ctx, "", iq.kw, brand, advantages, 800, "professional")
 		if gerr != nil {
 			fmt.Printf("  [%s] 生成失败: %v\n", iq.intent, gerr)
 			continue
@@ -301,7 +302,7 @@ func main() {
 	mentioned, auditTotal := 0, 0
 	for i, iq := range intents {
 		if i >= batchN { break }
-		art, gerr := contentSvc.GenerateContent(ctx, iq.kw, brand, advantages, 800, "professional")
+		art, gerr := contentSvc.GenerateContent(ctx, "", iq.kw, brand, advantages, 800, "professional")
 		if gerr != nil { continue }
 		vr, verr := verifySvc.VerifyArticle(ctx, geodto.VerifyRequest{ArticleID: art.ID, Query: iq.query, BrandName: brand})
 		audit := auditSvc.RunGEOAudit(iq.kw, art.Title, art.Content, "", "")

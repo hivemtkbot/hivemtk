@@ -8,6 +8,7 @@ import (
 
 	"hivemtk-user/internal/geo/model"
 	"hivemtk-user/internal/geo/repository"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // ContentService 内容服务
@@ -15,15 +16,17 @@ type ContentService struct {
 	articleRepo      repository.GeoArticleRepository
 	optimizationRepo repository.GeoOptimizationRepository
 	apiCallRepo      repository.GeoAPICallRepository
+	kbRepo           repository.GeoKnowledgeDocumentRepository
 	llm              *LLMAdapter
 }
 
 // NewContentService 创建内容服务
-func NewContentService(ar repository.GeoArticleRepository, or repository.GeoOptimizationRepository, acr repository.GeoAPICallRepository, adapter *LLMAdapter) *ContentService {
+func NewContentService(ar repository.GeoArticleRepository, or repository.GeoOptimizationRepository, acr repository.GeoAPICallRepository, kr repository.GeoKnowledgeDocumentRepository, adapter *LLMAdapter) *ContentService {
 	return &ContentService{
 		articleRepo:      ar,
 		optimizationRepo: or,
 		apiCallRepo:      acr,
+		kbRepo:           kr,
 		llm:              adapter,
 	}
 }
@@ -58,7 +61,10 @@ func truncateRunes(s string, n int) string {
 	return string(r[:n]) + "…"
 }
 
-func (s *ContentService) GenerateContent(ctx context.Context, keyword, brandName string, advantages []string, wordCount int, style string) (*model.GeoArticle, error) {
+func (s *ContentService) GenerateContent(ctx context.Context, lang, keyword, brandName string, advantages []string, wordCount int, style string) (*model.GeoArticle, error) {
+	if lang == "" {
+		lang = "zh"
+	}
 	advantagesStr := AdvantagesToString(advantages)
 	// 兜底钳制：DTO 校验之外再防一层（服务也可能被其他调用方使用），避免超大字数烧 LLM 成本
 	if wordCount > 20000 {
@@ -71,7 +77,7 @@ func (s *ContentService) GenerateContent(ctx context.Context, keyword, brandName
 	if style == "" {
 		style = "专业"
 	}
-	prompt := ContentGenerationPrompt(brandName, advantagesStr, keyword, wordCountStr, style, "zh")
+	prompt := ContentGenerationPrompt(brandName, advantagesStr, keyword, wordCountStr, style, lang)
 
 	resp, err := s.llm.Generate(ctx, "", prompt, 0.7, 4000)
 	if err != nil {
@@ -91,6 +97,23 @@ func (s *ContentService) GenerateContent(ctx context.Context, keyword, brandName
 	if err := s.articleRepo.Create(article); err != nil {
 		return nil, fmt.Errorf("保存文章失败: %w", err)
 	}
+
+	// 联动：生成内容自动写入 GEO 知识库
+	if s.kbRepo != nil {
+		if err := s.kbRepo.Create(&model.GeoKnowledgeDocument{
+			Title:       article.Title,
+			Content:     article.Content,
+			DocType:     "generated",
+			SourceLevel: "D", // 自生成内容默认 D 级，后续人工审核可升级
+			SourceURL:   "",
+		}); err != nil {
+			// KB 写入失败不阻断主流程，只记日志
+			logger.Error(err, "[GEO Content] 知识库联动写入失败")
+		} else {
+			logger.Info(fmt.Sprintf("[GEO Content] 已写入知识库 title=%s", article.Title))
+		}
+	}
+
 	return article, nil
 }
 
