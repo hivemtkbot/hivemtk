@@ -10,12 +10,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// GeoProbeRunRepository GEO 搜索探针运行记录仓储
+// GeoProbeRunRepository interface {
 type GeoProbeRunRepository interface {
 	Create(ctx context.Context, run *model.GeoProbeRun) error
 	BatchCreate(ctx context.Context, runs []*model.GeoProbeRun) error
 	ListByEngine(ctx context.Context, engine string, page, limit int) ([]*model.GeoProbeRun, int64, error)
 	ListRecent(ctx context.Context, limit int) ([]*model.GeoProbeRun, error)
+	ListSince(ctx context.Context, since time.Time, limit int) ([]*model.GeoProbeRun, error)
 	ListByIntent(ctx context.Context, intent string, since time.Time) ([]*model.GeoProbeRun, error)
 	DistinctEngines(ctx context.Context) ([]string, error)
 }
@@ -87,4 +88,16 @@ func (r *geoProbeRunRepo) DistinctEngines(ctx context.Context) ([]string, error)
 		Where("engine != ''").
 		Pluck("engine", &engines).Error
 	return engines, err
+}
+
+// ListSince 返回 since 之后的探针记录，按 created_at 升序（聚合用）
+// limit<=0 表示不限制
+func (r *geoProbeRunRepo) ListSince(ctx context.Context, since time.Time, limit int) ([]*model.GeoProbeRun, error) {
+	q := r.db.WithContext(ctx).Where("created_at >= ?", since).Order("created_at ASC")
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	var list []*model.GeoProbeRun
+	err := q.Find(&list).Error
+	return list, err
 }

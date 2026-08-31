@@ -12,9 +12,16 @@ import (
 	"hivemtk-user/internal/geo/model"
 	"hivemtk-user/internal/geo/repository"
 	"hivemtk-user/internal/pkg/utils/logger"
-
-	_db "hivemtk-user/internal/pkg/db"
 )
+
+// runeTruncate 按 rune（字符）截断，不带省略号后缀 —— 用于 DB 字段值
+func runeTruncate(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n])
+}
 
 // ---- SOVRefreshCron ----
 // 每天凌晨 2:00 跑一轮 Share-of-Voice 刷新：对已有关键词采样若干条重新做 search probe，
@@ -72,24 +79,25 @@ func SOVRefreshCron() {
 	// === 聚合到 daily_stats ===
 	dailyRepo := repository.NewGeoDailyStatRepository()
 	today := time.Now().Format("2006-01-02")
+	todayStart, _ := time.Parse("2006-01-02", today)
 	type aggKey struct {
 		engine string
 		intent string
 	}
 	agg := map[aggKey]*model.GeoDailyStat{}
 
-	// 从 probeRepo.ListRecent 拉 500 条然后内存聚合
-	recentRuns, _ := probeRepo.ListRecent(ctx, 500)
+	// 拉今日全部 probe_runs（不限制数量），内存聚合
+	recentRuns, _ := probeRepo.ListSince(ctx, todayStart, 0)
 	for _, r := range recentRuns {
 		if r.CreatedAt.Format("2006-01-02") != today {
 			continue
 		}
-		k := aggKey{engine: r.Engine, intent: truncateForLog(r.Query, 40)}
+		k := aggKey{engine: r.Engine, intent: runeTruncate(r.Query, 40)}
 		if agg[k] == nil {
 			agg[k] = &model.GeoDailyStat{
 				Date:   today,
 				Engine: r.Engine,
-				Intent: truncateForLog(r.Query, 40),
+				Intent: runeTruncate(r.Query, 40),
 			}
 		}
 		if r.BrandMentioned {
@@ -132,6 +140,7 @@ func NegativeMonitorCron() {
 
 	cfgRepo := repository.NewGeoConfigRepository()
 	probeRepo := repository.NewGeoProbeRunRepository()
+	alertRepo := repository.NewGeoAlertRepository()
 	config, err := cfgRepo.Get()
 	if err != nil {
 		logger.Error(err, "[GEO Scheduler] 负面监控：读取 GeoConfig 失败，跳过本轮")
@@ -178,10 +187,8 @@ func NegativeMonitorCron() {
 						Details:   r.Response,
 						Notified:  false,
 					}
-					if db := _db.GetDB(); db != nil {
-						if err := db.Create(alert).Error; err != nil {
-							logger.Error(err, "[GEO Scheduler] 写入 geo_alerts 失败")
-						}
+					if err := alertRepo.Create(ctx, alert); err != nil {
+						logger.Error(err, "[GEO Scheduler] 写入 geo_alerts 失败")
 					}
 					break
 				}
