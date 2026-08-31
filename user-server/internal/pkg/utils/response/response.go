@@ -153,7 +153,19 @@ func ErrorFromDB(c *gin.Context, err error, fallbackMsg string, data ...any) {
 		Error(c, http.StatusForbidden, fallbackMsg, data...)
 		return
 	}
-	if strings.Contains(msg, "invalid input") {
+	if strings.Contains(msg, "invalid input") ||
+		strings.Contains(msg, "非法") ||
+		strings.Contains(msg, "参数") ||
+		strings.Contains(msg, "不能为空") ||
+		strings.Contains(msg, "缺失") ||
+		strings.Contains(msg, "required") ||
+		strings.Contains(msg, "validation") ||
+		strings.Contains(msg, "至少需要") ||
+		strings.Contains(msg, "缺 ") ||
+		strings.Contains(msg, "取值") ||
+		strings.Contains(msg, "格式") ||
+		strings.Contains(msg, "校验") ||
+		strings.Contains(msg, "不符合") {
 		Error(c, http.StatusBadRequest, fallbackMsg, data...)
 		return
 	}
