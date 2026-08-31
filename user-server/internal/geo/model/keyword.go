@@ -17,6 +17,7 @@ type GeoKeyword struct {
 	Difficulty   float64 `gorm:"default:0" json:"difficulty"`
 	Intent       string  `gorm:"type:varchar(50)" json:"intent"`
 	Cluster      string  `gorm:"type:varchar(100);index" json:"cluster"`
+	FunnelStage  string  `gorm:"column:funnel_stage;size:20;index" json:"funnel_stage"` // Awareness/Consideration/Conversion
 	Status       string  `gorm:"type:varchar(20);default:'active'" json:"status"`
 
 	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`

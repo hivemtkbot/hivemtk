@@ -67,7 +67,7 @@ func (s *TechConfigService) RunGEOAudit(url, title, content, metaDesc, schemaJSO
 	add("内部链接≥2", 2, strings.Count(content, "](/") >= 2, "站内链接数")
 
 	// -- AI 引擎偏好 (5因子) --
-	add("定义句开头", 4, strings.Contains(content[:min(len(content),200)], "是"), "首200字符含定义性表述")
+	add("定义句开头", 4, strings.Contains(content[:auditMin(len(content),200)], "是"), "首200字符含定义性表述")
 	add("对比维度明确", 3, strings.Contains(lc, "vs") || strings.Contains(lc, "相比") || strings.Contains(lc, "对比"), "含对比性表述")
 	add("信源可追溯", 4, strings.Contains(content, "http") || strings.Contains(content, "来源"), "外部链接或来源标注")
 	add("无禁止词", 5, !containsAny(lc, []string{" TODO ", "FIXME", "placeholder", "lorem ipsum"}), "无开发占位符")
@@ -117,7 +117,7 @@ func containsAny(s string, subs []string) bool {
 	return false
 }
 
-func min(a, b int) int {
+func auditMin(a, b int) int {
 	if a < b {
 		return a
 	}

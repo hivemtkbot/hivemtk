@@ -3,6 +3,7 @@ package cron
 import (
 	"context"
 	"fmt"
+	geoservice "hivemtk-user/internal/geo/service"
 	opsservice "hivemtk-user/internal/ops/service"
 	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/logger"
@@ -93,6 +94,33 @@ func InitCron() {
 	})
 	if err != nil {
 		logger.Info(fmt.Sprintf("添加工单升级链定时任务失败 %s", err.Error()))
+		panic(err)
+	}
+
+	// GEO: SOV 刷新 — 每天凌晨 2:00
+	_, err = mgr.AddTask("0 0 2 * * *", func() {
+		go geoservice.SOVRefreshCron()
+	})
+	if err != nil {
+		logger.Info(fmt.Sprintf("添加 GEO SOV 刷新定时任务失败 %s", err.Error()))
+		panic(err)
+	}
+
+	// GEO: 负面监控 — 每 30 分钟
+	_, err = mgr.AddTask("0 */30 * * * *", func() {
+		go geoservice.NegativeMonitorCron()
+	})
+	if err != nil {
+		logger.Info(fmt.Sprintf("添加 GEO 负面监控定时任务失败 %s", err.Error()))
+		panic(err)
+	}
+
+	// GEO: 信源目录同步 — 每天凌晨 3:00
+	_, err = mgr.AddTask("0 0 3 * * *", func() {
+		go geoservice.SourceCatalogSyncCron()
+	})
+	if err != nil {
+		logger.Info(fmt.Sprintf("添加 GEO 信源同步定时任务失败 %s", err.Error()))
 		panic(err)
 	}
 }

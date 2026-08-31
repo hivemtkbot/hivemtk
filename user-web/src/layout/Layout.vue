@@ -518,12 +518,39 @@ const topMenus = ref([
         icon: 'MagicStick',
         path: '/geo-tools/keyword-mining',
         children: [
-          { key: 'geoKeywordMining', title: '关键词蒸馏', icon: 'Search', path: '/geo-tools/keyword-mining' },
-          { key: 'geoContentCreation', title: '内容创作', icon: 'EditPen', path: '/geo-tools/content-creation' },
-          { key: 'geoContentOptimize', title: '文章优化', icon: 'Document', path: '/geo-tools/content-optimize' },
-          { key: 'geoVerification', title: '多模型验证', icon: 'CircleCheck', path: '/geo-tools/verification' },
-          { key: 'geoReports', title: '数据报表', icon: 'DataAnalysis', path: '/geo-tools/reports' },
-          { key: 'geoConfig', title: '配置优化', icon: 'Setting', path: '/geo-tools/config' },
+          {
+            key: 'geoProd',
+            title: '生产类',
+            icon: 'EditPen',
+            children: [
+              { key: 'geoKeywordMining', title: '关键词蒸馏', icon: 'Search', path: '/geo-tools/keyword-mining' },
+              { key: 'geoContentCreation', title: '内容创作', icon: 'EditPen', path: '/geo-tools/content-creation' },
+              { key: 'geoContentOptimize', title: '文章优化', icon: 'Document', path: '/geo-tools/content-optimize' },
+              { key: 'geoKnowledgeBase', title: 'GEO 知识库', icon: 'FolderOpened', path: '/geo-tools/knowledge-base' },
+            ]
+          },
+          {
+            key: 'geoPublish',
+            title: '发布类',
+            icon: 'Connection',
+            children: [
+              { key: 'geoPlatformPublish', title: '平台发布', icon: 'Connection', path: '/geo-tools/platform-publish' },
+              { key: 'geoWorkflow', title: '工作流', icon: 'Setting', path: '/geo-tools/workflow' },
+            ]
+          },
+          {
+            key: 'geoMonitor',
+            title: '监控类',
+            icon: 'Monitor',
+            children: [
+              { key: 'geoSovBoard', title: '竞品 SOV', icon: 'DataLine', path: '/geo-tools/sov-board' },
+              { key: 'geoCrawlerStats', title: '爬虫统计', icon: 'Monitor', path: '/geo-tools/crawler-stats' },
+              { key: 'geoEntityGraph', title: '实体图谱', icon: 'Share', path: '/geo-tools/entity-graph' },
+              { key: 'geoVerification', title: '多模型验证', icon: 'CircleCheck', path: '/geo-tools/verification' },
+              { key: 'geoReports', title: '数据报表', icon: 'DataAnalysis', path: '/geo-tools/reports' },
+              { key: 'geoConfig', title: '配置优化', icon: 'Setting', path: '/geo-tools/config' },
+            ]
+          }
         ]
       }
     ]

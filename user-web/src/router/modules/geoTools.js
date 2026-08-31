@@ -24,6 +24,42 @@ export default [
     meta: { title: '文章优化', group: 'analytics', icon: 'Document', requiresAuth: true }
   },
   {
+    path: 'geo-tools/knowledge-base',
+    name: 'GeoKnowledgeBase',
+    component: () => import('@/views/geo/KnowledgeBase.vue'),
+    meta: { title: 'GEO 知识库', group: 'analytics', icon: 'FolderOpened', requiresAuth: true }
+  },
+  {
+    path: 'geo-tools/platform-publish',
+    name: 'GeoPlatformPublish',
+    component: () => import('@/views/geo/PlatformPublish.vue'),
+    meta: { title: '平台发布', group: 'analytics', icon: 'Connection', requiresAuth: true }
+  },
+  {
+    path: 'geo-tools/workflow',
+    name: 'GeoWorkflow',
+    component: () => import('@/views/geo/WorkflowEditor.vue'),
+    meta: { title: '工作流', group: 'analytics', icon: 'Setting', requiresAuth: true }
+  },
+  {
+    path: 'geo-tools/sov-board',
+    name: 'GeoSovBoard',
+    component: () => import('@/views/geo/SovBoard.vue'),
+    meta: { title: '竞品 SOV', group: 'analytics', icon: 'DataLine', requiresAuth: true }
+  },
+  {
+    path: 'geo-tools/crawler-stats',
+    name: 'GeoCrawlerStats',
+    component: () => import('@/views/geo/CrawlerStats.vue'),
+    meta: { title: '爬虫统计', group: 'analytics', icon: 'Monitor', requiresAuth: true }
+  },
+  {
+    path: 'geo-tools/entity-graph',
+    name: 'GeoEntityGraph',
+    component: () => import('@/views/geo/EntityGraph.vue'),
+    meta: { title: '实体图谱', group: 'analytics', icon: 'Share', requiresAuth: true }
+  },
+  {
     path: 'geo-tools/verification',
     name: 'GeoVerification',
     component: () => import('@/views/geo/Verification.vue'),

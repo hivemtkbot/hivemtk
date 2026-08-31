@@ -9,11 +9,13 @@ import (
 
 // GeoKnowledgeDocument GEO 品牌知识库文档模型（迁移自 AIGEOTOOLS kb Document）
 type GeoKnowledgeDocument struct {
-	ID       string `gorm:"type:varchar(36);primaryKey" json:"id"`
-	Title    string `gorm:"type:varchar(500)" json:"title"`
-	Content  string `gorm:"type:text" json:"content"`
-	DocType  string `gorm:"type:varchar(50)" json:"doc_type"`
-	Metadata string `gorm:"type:text" json:"metadata"`
+	ID          string `gorm:"type:varchar(36);primaryKey" json:"id"`
+	Title       string `gorm:"type:varchar(500)" json:"title"`
+	Content     string `gorm:"type:text" json:"content"`
+	DocType     string `gorm:"type:varchar(50)" json:"doc_type"`
+	SourceLevel string `gorm:"column:source_level;size:2;index" json:"source_level"` // A/B/C/D 信源等级
+	SourceURL   string `gorm:"column:source_url;size:512" json:"source_url"`
+	Metadata    string `gorm:"type:text" json:"metadata"`
 
 	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`

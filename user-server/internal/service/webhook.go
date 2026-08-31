@@ -154,6 +154,8 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 	}
 	s.startWorkers(context.Background())
 	s.startRLJanitor(context.Background())
+	// ChatbotX 模式移植 T1：DB 真源兜底扫描器，重放内存队列丢失的事件
+	s.startRecoveryScanner()
 
 	// P1-7: 注册全局 WhatsApp 消息重排序缓冲 FlushHandler
 	globalReorderBuffer.FlushHandler = func(accountID, sessionID string, ordered [][]byte) {
@@ -357,6 +359,7 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 		Platform:  string(req.Channel),
 		EventID:   payload.EventID,
 		EventType: payload.EventType,
+		AccountID: req.AccountID,
 		RawData:   s.TruncateForStore(ctx, req.Body),
 		Processed: false,
 	}

@@ -131,6 +131,18 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	resCtrl := geoctrl.NewResourceController()
 	keCtrl := geoctrl.NewKeywordEnhanceController(keSvc)
 
+	// 多引擎探针聚合：ProbeService + 爬虫/实体辅助 controller
+	probeRepo := georepo.NewGeoProbeRunRepositoryWithDB(gormDB)
+	probes := geoservice.NewEngineProbes()
+	probeSvc := geoservice.NewProbeService(probes, probeRepo)
+	probeCtrl := geoctrl.NewProbeController(probeSvc)
+
+	sourceRepo := georepo.NewGeoSourceCatalogRepositoryWithDB(gormDB)
+	crawlerSvc := geoservice.NewCrawlerService(sourceRepo)
+	sourceCtrl := geoctrl.NewSourceCatalogController(crawlerSvc)
+
+	entityCtrl := geoctrl.NewEntityController()
+
 	// 注册路由（统一挂在 /geo 下）
 	geo := auth.Group("/geo")
 
@@ -210,6 +222,21 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// 关键词数据增强路由
 	geo.GET("/keyword-enhance/analyze", keCtrl.Analyze)
 	geo.POST("/keyword-enhance/enhance", keCtrl.Enhance)
+
+	// === 多引擎探针路由 ===
+	geo.GET("/probe/engines", probeCtrl.ListAvailableEngines)
+	geo.POST("/probe/test", probeCtrl.TestSingle)
+	geo.POST("/probe/all", probeCtrl.ProbeAll)
+	geo.POST("/probe/run-sov", probeCtrl.RunCron)
+	geo.POST("/probe/run-negative", probeCtrl.RunNegativeMonitor)
+	geo.POST("/probe/run-source-sync", probeCtrl.RunSourceSync)
+
+	// === 信源目录路由 ===
+	geo.GET("/source-catalog/levels", sourceCtrl.LookupLevels)
+
+	// === 实体图谱路由 ===
+	geo.GET("/entity/list", entityCtrl.ListEntities)
+	geo.GET("/entity/:id/graph", entityCtrl.GetGraph)
 
 	// 配置路由（写入/优化：仅管理员）
 	geoAdmin := geo.Group("")

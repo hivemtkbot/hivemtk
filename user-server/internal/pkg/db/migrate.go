@@ -269,6 +269,12 @@ func allModels() []any {
 		// v3 GEO 决策链化
 		&geomodel.GeoQueryChain{},
 		&geomodel.GeoContentTask{},
+		// v3 GEO Model 层扩展（Probe / 统计 / 信源 / 实体）
+		&geomodel.GeoProbeRun{},
+		&geomodel.GeoDailyStat{},
+		&geomodel.GeoSourceCatalog{},
+		&geomodel.GeoEntity{},
+		&geomodel.GeoEntityRelation{},
 	}
 }
 

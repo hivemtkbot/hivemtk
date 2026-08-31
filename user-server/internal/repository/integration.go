@@ -480,3 +480,37 @@ func (r *WebhookEventRepository) CountUnprocessed(ctx context.Context) (int64, e
 	return c, err
 }
 
+// ListStaleUnprocessed 列出积压的未处理 Webhook 事件候选。
+//
+// 业务背景：webhook 主链路走进程内 chan（重启即丢），本方法供恢复扫描器
+// 兜底重放 processed=false 的历史事件。仅返回 created_at < olderThan 的行
+// （冷却期，避免与内存队列 fast path 竞争刚落库的事件，fast path 处理成功
+// 即会翻转 processed）。
+//
+// 跨实例互斥不在 SQL 层做：行锁（FOR UPDATE）在事务提交即释放，覆盖不了
+// 处理窗口；真正的互斥由扫描器的 Redis SetNX 认领门闸承担，重放的副作用
+// 幂等性由下游兜底（message_hub 唯一索引 + AI ClaimReply 事件级防重）。
+func (r *WebhookEventRepository) ListStaleUnprocessed(ctx context.Context, olderThan time.Time, limit int) ([]*model.WebhookEvent, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	var events []*model.WebhookEvent
+	err := r.db.WithContext(ctx).
+		Where("processed = ? AND created_at < ?", false, olderThan).
+		Order("id ASC").
+		Limit(limit).
+		Find(&events).Error
+	return events, err
+}
+
+// GetDB 暴露底层连接（测试辅助：回拨 created_at 等数据构造）。
+func (r *WebhookEventRepository) GetDB() *gorm.DB {
+	if r == nil {
+		return nil
+	}
+	return r.db
+}
+

@@ -128,11 +128,12 @@ type WebhookEvent struct {
 	ID          uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	Platform    string     `gorm:"type:varchar(50);index" json:"platform"`
 	EventID     string     `gorm:"type:varchar(100);unique" json:"event_id"`
-	EventType   string     `gorm:"type:varchar(50)" json:"event_type"` 
+	EventType   string     `gorm:"type:varchar(50)" json:"event_type"`
+	AccountID   string     `gorm:"type:varchar(100);default:''" json:"account_id"`
 	RawData     string     `gorm:"type:text" json:"raw_data"`
-	Processed   bool       `gorm:"default:false" json:"processed"`
+	Processed   bool       `gorm:"default:false;index:idx_webhook_events_processed_created,priority:1" json:"processed"`
 	ProcessedAt *time.Time `json:"processed_at"`
-	CreatedAt   time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	CreatedAt   time.Time  `gorm:"autoCreateTime;index:idx_webhook_events_processed_created,priority:2" json:"created_at"`
 }
 
 // TableName 指定表名
