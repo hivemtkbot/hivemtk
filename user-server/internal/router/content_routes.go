@@ -103,14 +103,22 @@ func setupCustomerRFMRoutes(auth *gin.RouterGroup) {
 }
 
 // setupRecoveryQueueRoutes 流失挽回队列路由
+//
+// P0-24 权限分级（2026-08-31 四轮加固）：
+//   - 读（ListByStage/Distribution/ListReadyForAttempt）：任意登录用户
+//   - 写（Enqueue/MarkAttempt/MarkRecovered/Cancel）：admin only
+// 防 staff 恶意 enqueue 大量客户触发批量挽回短信轰炸。
 func setupRecoveryQueueRoutes(auth *gin.RouterGroup) {
 	ctrl := controller.NewRecoveryQueueController()
-	auth.POST("/recovery-queue/enqueue", ctrl.Enqueue)
-	auth.POST("/recovery-queue/:id/attempt", ctrl.MarkAttempt)
-	auth.POST("/recovery-queue/:id/recovered", ctrl.MarkRecovered)
-	auth.POST("/recovery-queue/:id/cancel", ctrl.Cancel)
 	auth.GET("/recovery-queue/list", ctrl.ListByStage)
 	auth.GET("/recovery-queue/distribution", ctrl.Distribution)
 	auth.GET("/recovery-queue/ready", ctrl.ListReadyForAttempt)
+	admin := auth.Group("/recovery-queue", middleware.AdminAuthMiddleware())
+	{
+		admin.POST("/enqueue", ctrl.Enqueue)
+		admin.POST("/:id/attempt", ctrl.MarkAttempt)
+		admin.POST("/:id/recovered", ctrl.MarkRecovered)
+		admin.POST("/:id/cancel", ctrl.Cancel)
+	}
 }
 

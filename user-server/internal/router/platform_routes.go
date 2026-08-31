@@ -56,42 +56,58 @@ func setupWhatsappRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 // setupTelegramRoutes Telegram 机器人账号管理路由
 // 用于配置 TG Bot Token + Webhook + 智能体开关，
 // 配合 /api/webhook/telegram/{account_id} 自动触发智能体流程
+//
+// P0-22 权限分级（2026-08-31 四轮加固）：
+//   - Bot Token 是敏感凭据，整套账号管理 admin only（读+写）
 func setupTelegramRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	telegramAccountCtrl := controller.NewTelegramAccountController(service.NewTelegramService(gormDB))
-	telegramAccountCtrl.RegisterRoutes(auth)
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	telegramAccountCtrl.RegisterRoutes(admin)
 }
 
 // setupFeishuRoutes 飞书机器人账号管理路由
 // 商户在 UI 配置 App ID / App Secret / Verification Token / Encrypt Key，
 // 配合 /api/webhook/feishu/{account_id} 自动触发智能体流程
+//
+// P0-22 权限分级：App Secret / Encrypt Key 敏感，整套 admin only
 func setupFeishuRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	feishuCtrl := controller.NewFeishuAccountController(service.NewFeishuService(gormDB), service.NewFeishuIntegrationService(gormDB))
-	feishuCtrl.RegisterRoutes(auth)
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	feishuCtrl.RegisterRoutes(admin)
 }
 
 // setupWhatsAppCloudRoutes WhatsApp Cloud API 商业账号管理路由
 // 商户在 UI 配置 Phone Number ID / WABA ID / Access Token / App Secret，
 // 配合 /api/webhook/whatsapp/{account_id} 自动触发智能体流程
+//
+// P0-22 权限分级：Access Token / App Secret 敏感，整套 admin only
 func setupWhatsAppCloudRoutes(auth *gin.RouterGroup, whatsappCloudSvc *service.WhatsAppCloudService, gormDB *gorm.DB) {
 	waCtrl := controller.NewWhatsAppCloudAccountController(whatsappCloudSvc, service.NewWhatsAppCloudIntegrationService(gormDB))
-	waCtrl.RegisterRoutes(auth)
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	waCtrl.RegisterRoutes(admin)
 }
 
 // setupDingTalkAppRoutes 钉钉企业内部应用（支持回调收消息）路由
+//
+// P0-22 权限分级：AppKey / AppSecret / AgentId 敏感，整套 admin only
 func setupDingTalkAppRoutes(auth *gin.RouterGroup, dingtalkAppSvc *service.DingTalkAppService) {
 	dtCtrl := controller.NewDingTalkAppAccountController(dingtalkAppSvc)
-	dtCtrl.RegisterRoutes(auth)
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	dtCtrl.RegisterRoutes(admin)
 }
 
 // setupWechatRoutes 微信公众号账号管理路由
 // 商户在 UI 配置 App ID / App Secret / Token / EncodingAESKey，
 // 配合 /api/webhook/wechat/{account_id} 自动触发智能体流程
+//
+// P0-22 权限分级：App Secret / EncodingAESKey 敏感，整套 admin only
 func setupWechatRoutes(auth *gin.RouterGroup, gormDB *gorm.DB, ingressSvc *service.InboxIngressService) {
 	wechatCtrl := controller.NewWechatController(service.NewWechatService(gormDB))
 	if ingressSvc != nil {
 		wechatCtrl.SetIngressSvc(ingressSvc)
 	}
-	wechatCtrl.RegisterRoutes(auth)
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	wechatCtrl.RegisterRoutes(admin)
 }
 
 // setupWechatWebhookRoutes 微信公众号 webhook 路由（不需要认证）

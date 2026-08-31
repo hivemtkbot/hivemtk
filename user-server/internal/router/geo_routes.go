@@ -165,29 +165,19 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// 平台同步发布路由
 	geo.GET("/platform/platforms", platformCtrl.ListPlatforms)
 	geo.GET("/platform/accounts", platformCtrl.ListAccounts)
-	geo.POST("/platform/accounts", platformCtrl.SaveAccount)
-	geo.DELETE("/platform/accounts/:id", platformCtrl.DeleteAccount)
-	geo.POST("/platform/publish", platformCtrl.Publish)
 	geo.GET("/platform/records", platformCtrl.ListPublishRecords)
 
 	// 知识库路由
 	geo.GET("/kb/documents", kbCtrl.List)
-	geo.POST("/kb/documents", kbCtrl.Save)
 	geo.GET("/kb/documents/:id", kbCtrl.Get)
-	geo.DELETE("/kb/documents/:id", kbCtrl.Delete)
 	geo.GET("/kb/search", kbCtrl.Search)
 	geo.POST("/kb/ask", kbCtrl.Ask)
 
 	// 工作流自动化路由
 	geo.GET("/workflow/workflows", wfCtrl.List)
-	geo.POST("/workflow/workflows", wfCtrl.Create)
 	geo.GET("/workflow/workflows/:id", wfCtrl.Get)
-	geo.PUT("/workflow/workflows/:id", wfCtrl.Update)
-	geo.DELETE("/workflow/workflows/:id", wfCtrl.Delete)
-	geo.POST("/workflow/workflows/:id/run", wfCtrl.Run)
 	geo.GET("/workflow/workflows/:id/executions", wfCtrl.ListExecutions)
 	geo.GET("/workflow/templates", wfCtrl.ListTemplates)
-	geo.POST("/workflow/templates", wfCtrl.CreateTemplate)
 
 	// 资源推荐路由
 	geo.GET("/resources/agents", resCtrl.GetAgents)
@@ -213,7 +203,6 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	geo.GET("/probe/engines", probeCtrl.ListAvailableEngines)
 	geo.POST("/probe/test", probeCtrl.TestSingle)
 	geo.POST("/probe/all", probeCtrl.ProbeAll)
-	geo.POST("/probe/run-sov", probeCtrl.RunCron)
 	geo.POST("/probe/run-negative", probeCtrl.RunNegativeMonitor)
 	geo.POST("/probe/run-source-sync", probeCtrl.RunSourceSync)
 	geo.GET("/probe/runs", probeCtrl.ListRuns)
@@ -226,11 +215,26 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	geo.GET("/entity/:id/graph", entityCtrl.GetGraph)
 	geo.POST("/entities/extract", entityCtrl.Extract)
 
-	// 配置路由（写入/优化：仅管理员）
+	// P0-13 配置/发布/删除/调度类写操作 admin only（2026-08-31 四轮加固）
 	geoAdmin := geo.Group("")
 	geoAdmin.Use(middleware.AdminAuthMiddleware())
 	geoAdmin.PUT("/config", configCtrl.UpdateConfig)
 	geoAdmin.POST("/config/optimize", configCtrl.OptimizeConfig)
+	// 平台账号 CRUD + 发布
+	geoAdmin.POST("/platform/accounts", platformCtrl.SaveAccount)
+	geoAdmin.DELETE("/platform/accounts/:id", platformCtrl.DeleteAccount)
+	geoAdmin.POST("/platform/publish", platformCtrl.Publish)
+	// 工作流写操作
+	geoAdmin.POST("/workflow/workflows", wfCtrl.Create)
+	geoAdmin.PUT("/workflow/workflows/:id", wfCtrl.Update)
+	geoAdmin.DELETE("/workflow/workflows/:id", wfCtrl.Delete)
+	geoAdmin.POST("/workflow/workflows/:id/run", wfCtrl.Run)
+	geoAdmin.POST("/workflow/templates", wfCtrl.CreateTemplate)
+	// kb 文档写操作
+	geoAdmin.POST("/kb/documents", kbCtrl.Save)
+	geoAdmin.DELETE("/kb/documents/:id", kbCtrl.Delete)
+	// Cron 触发端点（防 staff 手工跑 SOV 排名扫描 / 爬虫调度）
+	geoAdmin.POST("/probe/run-sov", probeCtrl.RunCron)
 }
 
 
