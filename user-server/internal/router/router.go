@@ -395,16 +395,17 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		setupCustomerServiceRoutes(auth, aiAgentSvcGlobal, langResolver)
 
 		// G1-G15,G26 竞品标配功能路由
+		//
+		// 安全（2026-08-31 P0-22 四轮加固）：
+		//   - /manage/* 写操作（PUT config / POST run / DELETE / toggle）全部 admin only。
+		//   - 读操作（GET）保留任意登录可访问。
+		//   - evaluate/match 等执行型端点涉及 LLM/调度，也收敛为 admin 防 staff 滥用。
 		copilotCtrl := controller.NewManageCoPilotController()
-		auth.POST("/manage/co-pilot/evaluate", copilotCtrl.Evaluate)
 		auth.GET("/manage/co-pilot/config", copilotCtrl.GetConfig)
-		auth.PUT("/manage/co-pilot/config", copilotCtrl.SetConfig)
 
 		smartRouterCtrl := controller.NewManageSmartRouterController()
-		auth.POST("/manage/smart-router/match", smartRouterCtrl.MatchAgent)
 
 		ragEvalCtrl := controller.NewManageRagEvalController()
-		auth.POST("/manage/rag-eval/run", ragEvalCtrl.Run)
 		auth.GET("/manage/rag-eval/runs", ragEvalCtrl.List)
 		auth.GET("/manage/rag-eval/runs/:id", ragEvalCtrl.Detail)
 
@@ -416,12 +417,20 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 
 		handoffCtrl := controller.NewHandoffChainController()
 		auth.GET("/manage/session-chain/sla-config", handoffCtrl.GetAutoResolveConfig)
-		auth.PUT("/manage/session-chain/sla-config", handoffCtrl.SaveAutoResolveConfig)
-		auth.POST("/manage/session-chain/reopen", handoffCtrl.ReopenOnInboundMessage)
-		auth.POST("/manage/rules", handoffCtrl.CreateRule)
 		auth.GET("/manage/rules", handoffCtrl.ListRules)
-		auth.DELETE("/manage/rules/:id", handoffCtrl.DeleteRule)
-		auth.PUT("/manage/rules/:id/toggle", handoffCtrl.ToggleRule)
+
+		manageAdmin := auth.Group("/manage", middleware.AdminAuthMiddleware())
+		{
+			manageAdmin.POST("/co-pilot/evaluate", copilotCtrl.Evaluate)
+			manageAdmin.PUT("/co-pilot/config", copilotCtrl.SetConfig)
+			manageAdmin.POST("/smart-router/match", smartRouterCtrl.MatchAgent)
+			manageAdmin.POST("/rag-eval/run", ragEvalCtrl.Run)
+			manageAdmin.PUT("/session-chain/sla-config", handoffCtrl.SaveAutoResolveConfig)
+			manageAdmin.POST("/session-chain/reopen", handoffCtrl.ReopenOnInboundMessage)
+			manageAdmin.POST("/rules", handoffCtrl.CreateRule)
+			manageAdmin.DELETE("/rules/:id", handoffCtrl.DeleteRule)
+			manageAdmin.PUT("/rules/:id/toggle", handoffCtrl.ToggleRule)
+		}
 
 	app.SetBridgeIngressSvc(bridgeIngressSvc) 
 	bridgeHandler := bridge.NewBridgeIngestHandler(bridgeIngressSvc)

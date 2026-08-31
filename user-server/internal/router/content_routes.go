@@ -13,6 +13,11 @@ import (
 )
 
 // setupDomainPoolRoutes 域名池管理路由
+//
+// 权限分级（2026-08-31 P0-23 四轮加固）：
+//   - 域名池是公司级基础设施，staff 不能新增/修改/删除域名（钓鱼+SSRF 风险）。
+//   - 域名探测 check-domain / check-all 涉及外部网络请求，也收敛为 admin。
+//   - 只读查询（list / :id）保留任意登录。
 func setupDomainPoolRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	database := gormDB
 	domainPoolRepo := repository.NewDomainPoolRepository(database)
@@ -20,20 +25,21 @@ func setupDomainPoolRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	healthSvc := service.NewDomainHealthService(database, domainPoolRepo)
 	domainPoolCtrl := controller.NewDomainPoolController(domainPoolSvc, healthSvc)
 	auth.GET("/domainpool/list", domainPoolCtrl.List)
-	auth.POST("/domainpool", domainPoolCtrl.Create)
-	auth.PUT("/domainpool/:id", domainPoolCtrl.Update)
-	auth.DELETE("/domainpool/:id", domainPoolCtrl.Delete)
 	auth.GET("/domainpool/:id", domainPoolCtrl.GetByID)
-	auth.POST("/domainpool/check-domain", domainPoolCtrl.CheckDomain)
-	auth.POST("/domainpool/check-all", domainPoolCtrl.CheckAllDomains)
-	// R40: 旧蛇形别名 /domainpool/delete|check 已删除（前端全量走 /api/domain-pool/*，ZOMBIE_API_TRIAGE ③ 处置）
-	// R40 ZOMBIE_API_TRIAGE ③ 处置：删除旧蛇形别名路由
-	// （/domainpool/delete|check|create|update|checkall —— 前端全量走 /api/domain-pool/*，grep 全仓无脚本依赖）
-	auth.POST("/domainpool/create", domainPoolCtrl.Create)
-	auth.PUT("/domainpool/update", func(c *gin.Context) {
-		domainPoolCtrl.Update(c)
-	})
-	auth.POST("/domainpool/checkall", domainPoolCtrl.CheckAllDomains)
+
+	admin := auth.Group("/domainpool", middleware.AdminAuthMiddleware())
+	{
+		admin.POST("", domainPoolCtrl.Create)
+		admin.PUT("/:id", domainPoolCtrl.Update)
+		admin.DELETE("/:id", domainPoolCtrl.Delete)
+		admin.POST("/check-domain", domainPoolCtrl.CheckDomain)
+		admin.POST("/check-all", domainPoolCtrl.CheckAllDomains)
+		admin.POST("/create", domainPoolCtrl.Create)
+		admin.PUT("/update", func(c *gin.Context) {
+			domainPoolCtrl.Update(c)
+		})
+		admin.POST("/checkall", domainPoolCtrl.CheckAllDomains)
+	}
 }
 
 // setupMaterialRoutes 素材管理路由
@@ -56,17 +62,26 @@ func setupMaterialRoutes(auth *gin.RouterGroup) {
 }
 
 // setupClueRoutes 线索管理路由
+//
+// 权限分级（2026-08-31 P0-24 四轮加固）：
+//   - 线索删除（DELETE /clue/:id /clues/delete/:id）admin only（防 staff 误删客户线索）。
+//   - 线索导入（POST /clue/import /clues/import）涉及批量写入，也收敛为 admin。
+//   - 评分/打标（score / engagement）保留任意登录（销售日常操作需要）。
 func setupClueRoutes(auth *gin.RouterGroup) {
 	clueCtrl := controller.NewClueController()
 	auth.GET("/clue/list", clueCtrl.GetClueList)
-	auth.DELETE("/clue/:id", clueCtrl.DeleteClue)
 	auth.GET("/clue/statistics", clueCtrl.GetClueStatistics)
-	auth.POST("/clue/import", clueCtrl.ImportClues)
 	auth.GET("/clues/list", clueCtrl.GetClueList)
-	auth.DELETE("/clues/delete/:id", clueCtrl.DeleteClue)
 	auth.GET("/clues/statistics", clueCtrl.GetClueStatistics)
-	auth.POST("/clues/import", clueCtrl.ImportClues)
 	auth.GET("/clues/type", clueCtrl.GetClueTypes)
+
+	clueAdmin := auth.Group("", middleware.AdminAuthMiddleware())
+	{
+		clueAdmin.DELETE("/clue/:id", clueCtrl.DeleteClue)
+		clueAdmin.POST("/clue/import", clueCtrl.ImportClues)
+		clueAdmin.DELETE("/clues/delete/:id", clueCtrl.DeleteClue)
+		clueAdmin.POST("/clues/import", clueCtrl.ImportClues)
+	}
 
 	clueScoreCtrl := controller.NewClueScoreController()
 	auth.POST("/clue/score", clueScoreCtrl.ScoreClue)

@@ -46,9 +46,15 @@ func setupWorkflowOrchestratorRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	}
 
 	// 执行相关路由
-	auth.POST("/workflows/execute", workflowCtrl.Execute)
+	//
+	// 安全（2026-08-31 P0-25 四轮加固）：POST /workflows/execute 触发工作流执行，
+	// 涉及调度器 / 节点执行器 / 可能的外部 API 调用，资源密集型操作，收敛为 admin only。
+	// 只读查询（ListExecutions / GetExecution / GetNodeExecutions）保留任意登录。
 	auth.GET("/workflows/executions", workflowCtrl.ListExecutions)
 	auth.GET("/workflows/executions/:id", workflowCtrl.GetExecution)
 	auth.GET("/workflows/executions/:id/nodes", workflowCtrl.GetNodeExecutions)
-	auth.POST("/workflows/executions/:id/stop", middleware.AdminAuthMiddleware(), workflowCtrl.StopExecution)
+
+	execAdmin := auth.Group("", middleware.AdminAuthMiddleware())
+	execAdmin.POST("/workflows/execute", workflowCtrl.Execute)
+	execAdmin.POST("/workflows/executions/:id/stop", workflowCtrl.StopExecution)
 }

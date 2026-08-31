@@ -10,22 +10,30 @@ import (
 )
 
 // setupBatchRoutes 批量操作路由
+//
+// 权限分级（2026-08-31 P0-26 四轮加固）：
+//   - 批量删除 / 批量更新 / 批量导入 / 批量取消历史 全部 admin only（staff 能批量
+//     删除客户数据 = 数据灾难）。
+//   - 批量导出 / 批量预览 保留任意登录（运营日常需要导出分析）。
 func setupBatchRoutes(auth *gin.RouterGroup) {
 	batchImportCtrl := contentctrl.NewBatchImportController()
-	auth.POST("/batch/import", batchImportCtrl.ImportFile)
-	auth.GET("/batch/template", batchImportCtrl.DownloadTemplate)
-
 	batchExportCtrl := contentctrl.NewBatchExportController()
-	auth.POST("/batch/export", batchExportCtrl.ExportData)
-
 	batchOpCtrl := contentctrl.NewBatchOperationController()
-	auth.POST("/batch/delete", batchOpCtrl.BatchDelete)
-	auth.POST("/batch/update", batchOpCtrl.BatchUpdate)
+
+	auth.GET("/batch/template", batchImportCtrl.DownloadTemplate)
+	auth.POST("/batch/export", batchExportCtrl.ExportData)
 	auth.GET("/batch/tools", batchOpCtrl.GetTools)
 	auth.GET("/batch/histories", batchOpCtrl.GetHistories)
 	auth.GET("/batch/histories/:id", batchOpCtrl.GetHistoryByID)
-	auth.POST("/batch/histories/:id/cancel", batchOpCtrl.CancelHistory)
 	auth.POST("/batch/preview", batchOpCtrl.Preview)
+
+	admin := auth.Group("/batch", middleware.AdminAuthMiddleware())
+	{
+		admin.POST("/import", batchImportCtrl.ImportFile)
+		admin.POST("/delete", batchOpCtrl.BatchDelete)
+		admin.POST("/update", batchOpCtrl.BatchUpdate)
+		admin.POST("/histories/:id/cancel", batchOpCtrl.CancelHistory)
+	}
 }
 
 // setupAIContentRoutes AI 内容创作路由
@@ -229,6 +237,10 @@ func setupABTestRoutes(auth *gin.RouterGroup) {
 }
 
 // setupChurnRoutes 流失预警路由
+//
+// 权限分级（2026-08-31 P0-27 四轮加固）：
+//   - 流失模型配置写（POST /churn/model-config）admin only。
+//   - 流失处理（POST /churn/warnings/:id/handle /intervene）保留任意登录（客服日常标记）。
 func setupChurnRoutes(auth *gin.RouterGroup) {
 	churnCtrl := opsctrl.NewChurnPredictionController()
 	auth.GET("/churn/prediction", churnCtrl.GetChurnPrediction)
@@ -239,9 +251,11 @@ func setupChurnRoutes(auth *gin.RouterGroup) {
 	auth.POST("/churn/warnings/:id/handle", churnCtrl.MarkWarningHandled)
 	auth.POST("/churn/warnings/intervene", churnCtrl.InterveneUser)
 	auth.GET("/churn/model-config", churnCtrl.GetModelConfig)
-	auth.POST("/churn/model-config", churnCtrl.SaveModelConfig)
 	auth.GET("/churn/statistics", churnCtrl.GetChurnStatistics)
 	auth.GET("/churn/risk-distribution", churnCtrl.GetRiskDistribution)
+
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	admin.POST("/churn/model-config", churnCtrl.SaveModelConfig)
 }
 
 // setupIntegrationRoutes 第三方对接路由
@@ -275,17 +289,19 @@ func setupIntegrationRoutes(auth *gin.RouterGroup) {
 
 // setupCommunityRoutes 社群管理路由
 //
-// 权限分级（2026-08-18 三轮发现）：写操作（Create/Update/Delete/AddMember/RemoveMember/Import）admin only
-// 防 staff 误删社群 / 拉人入群。
+// 权限分级（2026-08-18 三轮发现 + 2026-08-31 P0-28 四轮加固）：
+//   - 写操作（Create/Update/Delete group / AddMember / RemoveMember / Import / UpdateMember / Export）
+//     全部 admin only。staff 不能改社群成员、不能导数据。
+//   - 读操作（GET groups/members/messages/stats）保留任意登录。
 func setupCommunityRoutes(auth *gin.RouterGroup) {
 	communityCtrl := controller.NewCommunityController()
 	auth.GET("/community/groups", communityCtrl.GetGroups)
 	auth.GET("/community/groups/:id", communityCtrl.GetGroupByID)
 	auth.GET("/community/members", communityCtrl.GetMembers)
 	auth.GET("/community/members/:id", communityCtrl.GetMemberByID)
-	auth.PUT("/community/members/:id", communityCtrl.UpdateMember)
 	auth.GET("/community/messages", communityCtrl.GetMessages)
 	auth.GET("/community/stats", communityCtrl.GetStatistics)
+
 	admin := auth.Group("/community", middleware.AdminAuthMiddleware())
 	{
 		admin.POST("/groups", communityCtrl.CreateGroup)
@@ -293,9 +309,10 @@ func setupCommunityRoutes(auth *gin.RouterGroup) {
 		admin.DELETE("/groups/:id", communityCtrl.DeleteGroup)
 		admin.POST("/members", communityCtrl.AddMember)
 		admin.DELETE("/members/:id", communityCtrl.RemoveMember)
+		admin.PUT("/members/:id", communityCtrl.UpdateMember)
 		admin.POST("/import", communityCtrl.ImportData)
+		admin.POST("/export", communityCtrl.ExportData)
 	}
-	auth.POST("/community/export", communityCtrl.ExportData)
 }
 
 
@@ -326,11 +343,16 @@ func setupRateQuotaRoutes(auth *gin.RouterGroup) {
 }
 
 // setupPromptRoutes G13: Prompt 版本管理 + A/B 实验路由
+//
+// 权限分级（2026-08-31 P0-29 四轮加固）：POST /prompts/:id/publish 发布 Prompt
+// 到生产环境，影响所有 AI Agent 对话行为，收敛为 admin only。
 func setupPromptRoutes(auth *gin.RouterGroup) {
 	ctrl := controller.NewPromptController()
 	auth.GET("/prompts/ab-experiments", ctrl.GetABExperiments)
 	auth.GET("/prompts/:id/versions", ctrl.GetVersions)
-	auth.POST("/prompts/:id/publish", ctrl.Publish)
+
+	admin := auth.Group("/prompts", middleware.AdminAuthMiddleware())
+	admin.POST("/:id/publish", ctrl.Publish)
 }
 
 // setupTypingPredictRoutes G15: 打字预回复 SSE 路由
