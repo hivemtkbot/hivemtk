@@ -474,7 +474,11 @@ func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID 
 		return fmt.Errorf("get tg account: %w", err)
 	}
 	cli := telegram.NewTelegramClient(acc.BotToken, core.WithHTTPClient(httpclient.Client))
-	if _, err := cli.SendMessage(ctx, chatID, content); err != nil {
+	// T2（ChatbotX 模式移植）：保留平台返回的 message_id 作为 msg_id 落库，
+	// 用于 echo 精确去重与对账；message_id 在 (platform,msg_id,conversation_id)
+	// 唯一索引范围内（同 chat 内）唯一。解析失败回退占位 ID 保持旧语义。
+	messageID, err := cli.SendMessage(ctx, chatID, content)
+	if err != nil {
 		now := time.Now()
 		acc.LastErrorAt = &now
 		acc.LastErrorMsg = err.Error()
@@ -482,10 +486,14 @@ func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID 
 		return fmt.Errorf("send tg msg: %w", err)
 	}
 	chatIDStr := fmt.Sprintf("%d", chatID)
+	msgID := fmt.Sprintf("tg-out-%d", time.Now().UnixNano())
+	if messageID > 0 {
+		msgID = fmt.Sprintf("tg-%d", messageID)
+	}
 	hubMsg, _ := s.hub.Push(ctx, &PushMessageRequest{
 		Platform:       "telegram",
 		AccountID:      fmt.Sprintf("%d", accountID),
-		MsgID:          fmt.Sprintf("tg-out-%d", time.Now().UnixNano()),
+		MsgID:          msgID,
 		Direction:      "outbound",
 		MsgType:        "text",
 		SenderID:       fmt.Sprintf("%d", accountID),
@@ -754,17 +762,24 @@ func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accou
 		return fmt.Errorf("get wa account: %w", err)
 	}
 	cli := whatsapp.NewCloudClient(acc.PhoneNumberID, acc.AccessToken, core.WithHTTPClient(httpclient.Client))
-	if _, err := cli.SendText(ctx, toPhone, content); err != nil {
+	// T2（ChatbotX 模式移植）：保留平台返回的 wamid，发送成功后回写 message_hub.msg_id。
+	// 回写用于 echo 精确去重与 WA statuses 状态回执对账；失败仅 WARN 不阻断。
+	wamid, err := cli.SendText(ctx, toPhone, content)
+	if err != nil {
 		now := time.Now()
 		acc.LastErrorAt = &now
 		acc.LastErrorMsg = err.Error()
 		_ = s.wa.UpdateAccount(ctx, acc)
 		return fmt.Errorf("send wa msg: %w", err)
 	}
+	msgID := wamid
+	if msgID == "" {
+		msgID = fmt.Sprintf("wa-out-%d", time.Now().UnixNano())
+	}
 	hubMsg, _ := s.hub.Push(ctx, &PushMessageRequest{
 		Platform:       "whatsapp",
 		AccountID:      fmt.Sprintf("%d", accountID),
-		MsgID:          fmt.Sprintf("wa-out-%d", time.Now().UnixNano()),
+		MsgID:          msgID,
 		Direction:      "outbound",
 		MsgType:        "text",
 		SenderID:       fmt.Sprintf("%d", accountID),

@@ -195,6 +195,41 @@ func (r *MessageHubRepository) GetByPlatformAccountMsgID(ctx context.Context, pl
 	return &existing, nil
 }
 
+// UpdateMsgID 回写平台消息 ID（ChatbotX 模式移植 T2）。
+//
+// 业务背景：出站消息落库时平台尚未返回消息 ID（历史实现自造 wa-out-{UnixNano}
+// 占位），发送成功后平台返回 wamid / message_id，必须回写用于：
+//  1. echo 精确去重（入站回显按 platform+msg_id 命中 outgoing 行即拦截）
+//  2. 状态回执对账（WA statuses 按 wamid 定位消息行）
+//  3. 撤回/引用等平台能力的基础
+//
+// best-effort：回写失败仅影响对账，不阻断发送链路（调用方自行 WARN）。
+// 仅更新 direction='outgoing' 行，防御性避免误改入站行。
+func (r *MessageHubRepository) UpdateMsgID(ctx context.Context, id uint, platformMsgID string) error {
+	if r == nil || r.db == nil || platformMsgID == "" {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(&model.MessageHub{}).
+		Where("id = ? AND direction = ?", id, "outbound").
+		Update("msg_id", platformMsgID).Error
+}
+
+// GetOutgoingByPlatformMsgID 按平台消息 ID 精确查找出站行（echo 拦截用）。
+// 范围限定单账号 + 出站方向，避免跨账号/跨方向的偶然 ID 碰撞误判。
+func (r *MessageHubRepository) GetOutgoingByPlatformMsgID(ctx context.Context, platform, accountID, msgID string) (*model.MessageHub, error) {
+	if r == nil || r.db == nil || msgID == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var existing model.MessageHub
+	err := r.db.WithContext(ctx).
+		Where("platform = ? AND account_id = ? AND msg_id = ? AND direction = ?", platform, accountID, msgID, "outbound").
+		First(&existing).Error
+	if err != nil {
+		return nil, err
+	}
+	return &existing, nil
+}
+
 func (r *MessageHubRepository) GetByDedupHash(ctx context.Context, platform, dedupHash string) (*model.MessageHub, error) {
 	if r == nil || r.db == nil || dedupHash == "" {
 		return nil, gorm.ErrRecordNotFound
