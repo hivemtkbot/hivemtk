@@ -17,21 +17,22 @@ import (
 	rag "hivemtk-user/internal/aiagent/rag/incremental"
 	"hivemtk-user/internal/app"
 	"hivemtk-user/internal/cache"
+	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/event"
 	georepo "hivemtk-user/internal/geo/repository"
 	geoservice "hivemtk-user/internal/geo/service"
-	"hivemtk-user/internal/event"
 	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/migration"
 	"hivemtk-user/internal/migration/migrations"
+	cronpkg "hivemtk-user/internal/pkg/cron"
+	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/featureflag"
 	"hivemtk-user/internal/pkg/tracing"
-	cronpkg "hivemtk-user/internal/pkg/cron"
-	"hivemtk-user/internal/config"
-	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/platform"
 	"hivemtk-user/internal/router"
+	"hivemtk-user/internal/secrets"
 	"hivemtk-user/internal/security"
 	"hivemtk-user/internal/service"
 	"hivemtk-user/internal/service/trace_learning"
@@ -117,8 +118,7 @@ func main() {
 	db.InitDB()
 	db.AutoMigrate()
 
-    logger.Info("[DNC] customer_do_not_contact ready, sms_unsubscribes pending backfill via DoNotContactService.BackfillFromSMSUnsubscribe")
-
+	logger.Info("[DNC] customer_do_not_contact ready, sms_unsubscribes pending backfill via DoNotContactService.BackfillFromSMSUnsubscribe")
 
 	if gdb := db.GetDB(); gdb != nil {
 		utils.WarnErrKV("main.CreateIndexMTNode",
@@ -127,6 +127,11 @@ func main() {
 
 	appCfg := config.GetAppConfig()
 	service.SetAgentLoopTimeout(appCfg.Inference.LLM.TimeoutSeconds)
+	// T6（ChatbotX 负面教训应用）：LLM BYOK 密钥加密存储——MASTER_KEY 未配置时
+	// 降级明文（与仓库降级哲学一致），配置后存量明文在 LoadProvidersFromDB 内自动迁移
+	if err := secrets.InitFromEnv(); err != nil {
+		logger.Warnf("[secrets] MASTER_KEY 未配置或无效，敏感凭据将以明文存储: %v", err)
+	}
 	llm.InitGlobalDispatcherWithDB(llm.NewDispatcherFromConfig(appCfg), db.GetDB())
 
 	if err := llm.GetGlobalDispatcher().LoadProvidersFromDB(); err != nil {
@@ -207,9 +212,9 @@ func main() {
 	}
 
 	db.InitDB()
-	db.AutoMigrate() 
+	db.AutoMigrate()
 
-    logger.Info("[DNC] customer_do_not_contact ready, sms_unsubscribes pending backfill via DoNotContactService.BackfillFromSMSUnsubscribe")
+	logger.Info("[DNC] customer_do_not_contact ready, sms_unsubscribes pending backfill via DoNotContactService.BackfillFromSMSUnsubscribe")
 
 	migrationRegistry := migration.NewMigrationRegistry()
 	migrationSvc := migration.NewMigrationServiceDefault(migrationRegistry, migrations.RegisterMigrations)
@@ -348,6 +353,10 @@ func main() {
 	defer ruleCron.Stop()
 	logger.Info("[RuleEngineCron] 自动化规则延迟执行已装配")
 
+	// [GEO-AUTO] GEO 模块三定时任务（SOV 刷新 / 负面监控 / 信源同步）
+	cronpkg.InitCron()
+	logger.Info("[GEO InitCron] 三个定时任务已注册（SOV@02:00 / Negative@每30min / SourceSync@03:00）")
+
 	// [T8] 告警规则检查器：每 60s 扫描启用规则并比对阈值
 	alertChecker := service.NewAlertChecker(
 		service.NewMetricsAlertProvider(),
@@ -388,7 +397,7 @@ func registerEventSubscribers() {
 	}
 
 	if os.Getenv("AGENT_RUNTIME_BUS_ENABLED") == "true" {
-		rt := agent_runtime.NewAgentRuntime(nil, nil, nil) 
+		rt := agent_runtime.NewAgentRuntime(nil, nil, nil)
 		agentHandler := agent_runtime.NewEventSubscriber(rt)
 		bus.Subscribe(event.TopicCustomerMessageReceived, agentHandler)
 		logger.Info("[event] subscribed: customer.message.received -> agent_runtime (AGENT_RUNTIME_BUS_ENABLED=true)")
@@ -396,7 +405,7 @@ func registerEventSubscribers() {
 		logger.Info("[event] customer.message.received 总线订阅关闭(默认)：由同步主链路处理，避免僵尸订阅者与双触发地雷")
 	}
 
-	indexer := rag.NewIncrementalIndexer(nil, nil, db.GetDB()) 
+	indexer := rag.NewIncrementalIndexer(nil, nil, db.GetDB())
 	bus.Subscribe(event.TopicKnowledgeDocumentChanged, indexer.Handle)
 	logger.Info("[event] subscribed: knowledge.document.changed -> rag.IncrementalIndexer")
 
@@ -413,4 +422,3 @@ func registerEventSubscribers() {
 	})
 	logger.Info("[event] subscribed: customer.message.received -> geo inbox chain sync")
 }
-

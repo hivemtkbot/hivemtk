@@ -8,6 +8,7 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/secrets"
 
 	"gorm.io/gorm"
 )
@@ -24,6 +25,7 @@ func providerDB() *gorm.DB {
 
 // LoadProvidersFromDB 启动时从 llm_providers 表加载所有 provider 到内存路由表。
 // DB 定义覆盖同名的 config 占位 provider（如 deepseek 在库里有真实密钥则启用）。
+// T6：加载时解密 api_key（明文双轨兼容），并对存量明文行做一次性加密回写。
 func (d *Dispatcher) LoadProvidersFromDB() error {
 	g := providerDB()
 	if g == nil {
@@ -34,8 +36,28 @@ func (d *Dispatcher) LoadProvidersFromDB() error {
 	if err := g.Order("sort_order ASC, id ASC").Find(&rows).Error; err != nil {
 		return err
 	}
+	// T6 存量迁移：master key 可用时把明文 api_key 加密回写（幂等，已密文跳过）
+	migrated := 0
+	if secrets.Ready() {
+		for i := range rows {
+			if rows[i].APIKey != "" && !secrets.IsCiphertextFormat(rows[i].APIKey) {
+				rows[i].APIKey = encryptAPIKeyForStorage(rows[i].APIKey)
+				if err := g.Model(&model.LLMProvider{}).Where("id = ?", rows[i].ID).
+					Update("api_key", rows[i].APIKey).Error; err == nil {
+					migrated++
+				} else {
+					logger.Warnf("[LLM] api key 迁移加密失败 provider=%s: %v", rows[i].Name, err)
+				}
+			}
+		}
+		if migrated > 0 {
+			logger.Infof("[LLM] api key 存量迁移：%d 个 provider 的明文密钥已加密", migrated)
+		}
+	}
 	for i := range rows {
-		d.AddProvider(rowToProviderConfig(&rows[i]))
+		cfg := rowToProviderConfig(&rows[i])
+		cfg.APIKey = decryptAPIKeyForUse(cfg.APIKey)
+		d.AddProvider(cfg)
 	}
 	logger.Infof("[LLM] LoadProvidersFromDB: 从 llm_providers 加载 %d 个 provider", len(rows))
 	return nil
@@ -177,7 +199,7 @@ func providerConfigToRow(pc ProviderConfig) model.LLMProvider {
 		DisplayName:  pc.DisplayName,
 		BaseURL:      pc.BaseURL,
 		Model:        pc.Model,
-		APIKey:       pc.APIKey,
+		APIKey:       encryptAPIKeyForStorage(pc.APIKey), // T6: 入库加密
 		APIType:      pc.APIType,
 		Enabled:      pc.Enabled,
 		QualityScore: pc.QualityScore,
@@ -240,4 +262,3 @@ func tagsFromText(s string) []string {
 	}
 	return out
 }
-
