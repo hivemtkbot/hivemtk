@@ -270,12 +270,17 @@ func (s *RuleEngineService) DispatchSessionEvent(ctx context.Context, event, ses
 		defer func() { _ = recover() }()
 		c, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		s.Dispatch(c, event, sessionID, session)
+		s.DispatchWithText(c, event, sessionID, "", session)
 	}()
 }
 
-// dispatch 规则匹配执行
+// Dispatch 规则匹配执行（inboundText: message_inbound 事件的消息内容，供 content 条件匹配）
 func (s *RuleEngineService) Dispatch(ctx context.Context, event, sessionID string, session *model.CustomerSession) {
+	s.DispatchWithText(ctx, event, sessionID, "", session)
+}
+
+// DispatchWithText 完整入口（带消息内容）
+func (s *RuleEngineService) DispatchWithText(ctx context.Context, event, sessionID string, inboundText string, session *model.CustomerSession) {
 	g := db.GetDB()
 	var rules []*model.AutomationRule
 	if err := g.WithContext(ctx).
@@ -285,7 +290,7 @@ func (s *RuleEngineService) Dispatch(ctx context.Context, event, sessionID strin
 		return
 	}
 	for _, rule := range rules {
-		if session == nil || !s.matchConditions(rule, session, "") {
+		if session == nil || !s.matchConditions(rule, session, inboundText) {
 			continue
 		}
 		if rule.DelayMinutes > 0 {

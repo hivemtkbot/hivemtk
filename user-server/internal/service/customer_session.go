@@ -416,6 +416,6 @@ func DispatchSessionEventAsync(event, sessionID string, session *model.CustomerS
 		defer func() { _ = recover() }()
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		NewRuleEngineService().Dispatch(ctx, event, sessionID, session)
+		NewRuleEngineService().DispatchWithText(ctx, event, sessionID, "", session)
 	}()
 }

@@ -54,7 +54,7 @@ func (c *MessageHubController) Push(ctx *gin.Context) {
 			_, _ = service.NewSessionChainService().ReopenOnInboundMessage(ctx2, m.ConversationID)
 			var sess model.CustomerSession
 			if db.GetDB().WithContext(ctx2).Where("session_id = ?", m.ConversationID).First(&sess).Error == nil {
-				service.NewRuleEngineService().Dispatch(ctx2, service.RuleEventMessageInbound, m.ConversationID, &sess)
+				service.NewRuleEngineService().DispatchWithText(ctx2, service.RuleEventMessageInbound, m.ConversationID, m.Content, &sess)
 			}
 		}(msg)
 	}
