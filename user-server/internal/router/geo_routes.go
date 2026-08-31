@@ -230,6 +230,7 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	geo.POST("/probe/run-sov", probeCtrl.RunCron)
 	geo.POST("/probe/run-negative", probeCtrl.RunNegativeMonitor)
 	geo.POST("/probe/run-source-sync", probeCtrl.RunSourceSync)
+	geo.GET("/probe/runs", probeCtrl.ListRuns)
 
 	// === 信源目录路由 ===
 	geo.GET("/source-catalog/levels", sourceCtrl.LookupLevels)
@@ -237,6 +238,7 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// === 实体图谱路由 ===
 	geo.GET("/entity/list", entityCtrl.ListEntities)
 	geo.GET("/entity/:id/graph", entityCtrl.GetGraph)
+	geo.POST("/entities/extract", entityCtrl.Extract)
 
 	// 配置路由（写入/优化：仅管理员）
 	geoAdmin := geo.Group("")

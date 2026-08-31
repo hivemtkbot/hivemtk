@@ -103,17 +103,17 @@ func assertStatus(t *testing.T, w *httptest.ResponseRecorder, expected int) {
 	}
 }
 
-// assertSuccess 断言响应体 code 为平台统一成功码 "SUCCESS"
-// （与 response.Success / utils.ErrorCodeSuccess 契约一致，同 internal/controller 各测试）
+// assertSuccess 断言响应体 code 为平台统一成功码 0 (number)
+// （与 response.Success / utils.ErrorCodeSuccess 契约一致）
 func assertSuccess(t *testing.T, w *httptest.ResponseRecorder) {
 	t.Helper()
 	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("unmarshal response failed: %v, body: %s", err, w.Body.String())
 	}
-	code, ok := resp["code"].(string)
-	if !ok || code != "SUCCESS" {
-		t.Fatalf("expected code=SUCCESS, got %v (body: %s)", resp["code"], w.Body.String())
+	code, ok := resp["code"]
+	if !ok || code != float64(0) {
+		t.Fatalf("expected code=0, got %v (body: %s)", resp["code"], w.Body.String())
 	}
 }
 

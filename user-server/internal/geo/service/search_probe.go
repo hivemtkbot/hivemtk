@@ -433,6 +433,14 @@ func (s *ProbeService) TestSingle(ctx context.Context, engineName, query string)
 	return nil, fmt.Errorf("engine %s not found (available: %s)", engineName, availableEngineNames(s.probes))
 }
 
+// ListRuns 返回最近 N 条探针运行记录
+func (s *ProbeService) ListRuns(ctx context.Context, limit int) ([]*model.GeoProbeRun, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	return s.repo.ListRecent(ctx, limit)
+}
+
 func availableEngineNames(probes []SearchProbe) string {
 	names := make([]string, 0, len(probes))
 	for _, p := range probes {

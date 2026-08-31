@@ -105,6 +105,18 @@ func (c *ProbeController) ListAvailableEngines(ctx *gin.Context) {
 	response.Success(ctx, names, "ok")
 }
 
+// ListRuns 最近探针运行记录
+// GET /geo/probe/runs?limit=20
+func (c *ProbeController) ListRuns(ctx *gin.Context) {
+	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
+	list, err := c.probeSvc.ListRuns(ctx.Request.Context(), limit)
+	if err != nil {
+		response.ErrorFromDB(ctx, err, "查询探针记录失败")
+		return
+	}
+	response.Success(ctx, list, "ok")
+}
+
 // SourceCatalogController 信源目录控制器
 type SourceCatalogController struct {
 	crawlerSvc *service.CrawlerService
@@ -151,4 +163,16 @@ func (c *EntityController) GetGraph(ctx *gin.Context) {
 	id, _ := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	depth, _ := strconv.Atoi(ctx.DefaultQuery("depth", "2"))
 	response.Success(ctx, gin.H{"entity_id": id, "depth": depth, "note": "关系子图接口待接入"}, "ok")
+}
+
+// Extract 从指定文档抽取实体
+// POST /geo/entities/extract
+func (c *EntityController) Extract(ctx *gin.Context) {
+	var body struct {
+		DocID string `json:"doc_id" binding:"required"`
+	}
+	if !response.BindJSON(ctx, &body) {
+		return
+	}
+	response.Success(ctx, gin.H{"doc_id": body.DocID, "note": "实体抽取接口待接入 EntityExtractorService"}, "ok")
 }
