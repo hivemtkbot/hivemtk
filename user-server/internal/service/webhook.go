@@ -3,20 +3,20 @@ package service
 import (
 	"context"
 	"crypto/hmac"
-	"encoding/base64"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"hivemtk-user/internal/channelbot/telegram"
 	"hivemtk-user/internal/channelbot/whatsapp"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -26,7 +26,7 @@ import (
 )
 
 type WebhookService struct {
-	db          *gorm.DB 
+	db          *gorm.DB
 	eventRepo   *repository.WebhookEventRepository
 	accountRepo *repository.IntegrationAccountRepository
 
@@ -55,13 +55,13 @@ type WebhookService struct {
 
 	ingressSvc *InboxIngressService
 
-	salesEngine *SalesEngine
+	salesEngine       *SalesEngine
 	smartOrchestrator *SmartCSOrchestrator
 
 	agentBindingSvc *ChannelAgentBindingService
 
-	mu        sync.Mutex 
-	rlMu      sync.Mutex 
+	mu        sync.Mutex
+	rlMu      sync.Mutex
 	rlBuckets map[string]*tokenBucket
 
 	workerCount int
@@ -295,19 +295,19 @@ type ReceiveRequest struct {
 	Body      []byte
 	Headers   map[string]string
 	SourceIP  string
-	Query map[string]string
+	Query     map[string]string
 }
 
 type ReceiveResult struct {
-	Accepted    bool   `json:"accepted"`
-	EventID     string `json:"event_id"`
-	Duplicate   bool   `json:"duplicate"`
-	RateLimit   bool   `json:"rate_limit"`
-	VerifyFail  bool   `json:"verify_failed"`
-	QueueFull   bool   `json:"queue_full,omitempty"`
-	Reason      string `json:"reason,omitempty"`
-	EventType   string `json:"event_type,omitempty"`
-	Dispatched  bool   `json:"dispatched,omitempty"`
+	Accepted     bool   `json:"accepted"`
+	EventID      string `json:"event_id"`
+	Duplicate    bool   `json:"duplicate"`
+	RateLimit    bool   `json:"rate_limit"`
+	VerifyFail   bool   `json:"verify_failed"`
+	QueueFull    bool   `json:"queue_full,omitempty"`
+	Reason       string `json:"reason,omitempty"`
+	EventType    string `json:"event_type,omitempty"`
+	Dispatched   bool   `json:"dispatched,omitempty"`
 	HubMessageID string `json:"hub_message_id,omitempty"`
 }
 
@@ -502,9 +502,9 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)
 		if secret == "" {
 			if os.Getenv("ALLOW_INSECURE_WEBHOOK") != "true" {
-			return false, errors.New("whatsapp app secret 未配置；开发放行需显式 ALLOW_INSECURE_WEBHOOK=true")
+				return false, errors.New("whatsapp app secret 未配置；开发放行需显式 ALLOW_INSECURE_WEBHOOK=true")
 			}
-		return true, nil // 显式开发模式：跳过验签
+			return true, nil // 显式开发模式：跳过验签
 		}
 		return whatsapp.VerifyWebhook(secret, body, headers["X-Hub-Signature-256"]), nil
 	default:
@@ -512,7 +512,7 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 		if secret == "" {
 
 			if os.Getenv("ALLOW_INSECURE_WEBHOOK") != "true" {
-			return false, errors.New("webhook secret 未配置(channel=" + string(channel) + ")；开发环境请显式设置 ALLOW_INSECURE_WEBHOOK=true")
+				return false, errors.New("webhook secret 未配置(channel=" + string(channel) + ")；开发环境请显式设置 ALLOW_INSECURE_WEBHOOK=true")
 			}
 		}
 		return verifyHMAC(secret, body, headers, "X-Signature", "Signature", "X-Hub-Signature-256"), nil
@@ -688,4 +688,3 @@ func (s *WebhookService) dispatchToChannel(ctx context.Context, channel WebhookC
 		return nil, nil, nil
 	}
 }
-

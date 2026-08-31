@@ -513,4 +513,3 @@ func (r *WebhookEventRepository) GetDB() *gorm.DB {
 	}
 	return r.db
 }
-
