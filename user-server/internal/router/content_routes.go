@@ -43,22 +43,32 @@ func setupDomainPoolRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 }
 
 // setupMaterialRoutes 素材管理路由
+//
+// P0-25 权限分级（2026-08-31 六轮加固）：
+//   - 读（List/Get/Stats/Categories）+ 上传：任意登录用户（销售日场上架素材）
+//   - DELETE 素材 + 分类 CRUD：admin only（防 staff 误删/恶意删除生产素材库）
 func setupMaterialRoutes(auth *gin.RouterGroup) {
 	materialCtrl := contentctrl.NewMaterialController(contentservice.NewMaterialService())
+	// 读 + 上传：任意登录
 	auth.GET("/material/list", materialCtrl.GetMaterialList)
 	auth.POST("/material", materialCtrl.UploadMaterial)
+	auth.POST("/material/upload", materialCtrl.UploadMaterial)
 	auth.PUT("/material/:id/usage", materialCtrl.UpdateMaterialUsage)
-	auth.DELETE("/material/:id", materialCtrl.DeleteMaterial)
+	auth.POST("/material/:id/usage", materialCtrl.UpdateMaterialUsage)
 	auth.GET("/material/stats", materialCtrl.GetMaterialStats)
 	auth.GET("/material/categories", materialCtrl.GetMaterialCategories)
-	auth.POST("/material/categories", materialCtrl.CreateMaterialCategory)
-	auth.PUT("/material/categories/:id", materialCtrl.UpdateMaterialCategory)
-	auth.DELETE("/material/categories/:id", materialCtrl.DeleteMaterialCategory)
 	auth.GET("/material/categories/:id", materialCtrl.GetMaterialCategoryByID)
 	auth.GET("/material/selector", materialCtrl.GetMaterialSelector)
 	auth.GET("/material/:id", materialCtrl.GetMaterialByID)
-	auth.POST("/material/upload", materialCtrl.UploadMaterial)
-	auth.POST("/material/:id/usage", materialCtrl.UpdateMaterialUsage)
+
+	// 写（DELETE material + categories CRUD）：admin only
+	materialAdmin := auth.Group("", middleware.AdminAuthMiddleware())
+	{
+		materialAdmin.DELETE("/material/:id", materialCtrl.DeleteMaterial)
+		materialAdmin.POST("/material/categories", materialCtrl.CreateMaterialCategory)
+		materialAdmin.PUT("/material/categories/:id", materialCtrl.UpdateMaterialCategory)
+		materialAdmin.DELETE("/material/categories/:id", materialCtrl.DeleteMaterialCategory)
+	}
 }
 
 // setupClueRoutes 线索管理路由

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // GeoProbeRun AI 搜索引擎探针运行记录（v3 GEO Probe 模块核心表）
@@ -22,6 +23,7 @@ type GeoProbeRun struct {
 	CompetitorMentioned bool          `gorm:"column:competitor_mentioned" json:"competitor_mentioned"`
 	LatencyMs          int64          `gorm:"column:latency_ms" json:"latency_ms"`
 	CreatedAt          time.Time      `gorm:"column:created_at;index" json:"created_at"`
+	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (GeoProbeRun) TableName() string { return "geo_probe_runs" }

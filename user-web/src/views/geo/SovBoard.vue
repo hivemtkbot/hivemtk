@@ -41,12 +41,18 @@
           </template>
         </el-table-column>
         <el-table-column prop="sample_count" label="样本量" width="80" />
+        <template #empty>
+          <div class="py-8 text-gray-400">暂无 SOV 数据，请先运行探针</div>
+        </template>
       </el-table>
     </el-card>
 
     <el-card>
       <template #header><span class="font-bold">SOV 趋势（最近 30 天）</span></template>
-      <div ref="trendChartRef" style="height:320px"></div>
+      <div v-if="!loading && (!trendData || trendData.length === 0)" class="py-12 text-center text-gray-400">
+        暂无 SOV 趋势数据，后端未返回历史记录
+      </div>
+      <div ref="trendChartRef" v-show="trendData && trendData.length > 0" style="height:320px"></div>
     </el-card>
   </div>
 </template>
@@ -107,40 +113,24 @@ const handleResize = () => chartInstance && chartInstance.resize()
 const load = async () => {
   loading.value = true
   try {
-    // 后端只有 /geo/sov summary 端点，不再有 getSOVTrend
     const data = await getSOV()
-    // 解析后端返回的 summary + 按 engine 聚合数据
-    const engines = data?.engines || data?.by_engine || []
-    const summaryRow = data?.summary || {}
-    // sovData 直接使用按 engine 聚合的数据
-    sovData.value = Array.isArray(engines) ? engines : (data?.list || data?.items || [])
-    // 兼容旧 mock 数据结构：确保 gap 字段存在
-    sovData.value = sovData.value.map(r => ({
-      ...r,
-      gap: r.gap ?? ((r.brand_sov ?? 0) - (r.competitor_sov ?? 0)).toFixed(1)
+    // 后端返回 []SOVEntry（Brand / SOV / Mentions / TotalMention / AvgSentiment）
+    const list = Array.isArray(data) ? data : (data?.list || data?.engines || data?.items || [])
+    sovData.value = list.map(r => ({
+      intent: r.intent || intent.value || '',
+      engine: r.engine || '',
+      brand_sov: r.SOV ?? r.brand_sov ?? 0,
+      competitor_sov: r.competitor_sov != null ? r.competitor_sov : Math.max(0, ((r.TotalMention || 0) - (r.Mentions || 0))) / (r.TotalMention || 1) * 100,
+      gap: (r.SOV ?? r.brand_sov ?? 0) - (r.competitor_sov ?? 0),
+      sample_count: r.Mentions ?? r.sample_count ?? 0
     }))
-    // 趋势图：后端暂不返回历史 trend，用 summary 里的 history 或 mock 空数据
-    const history = data?.history || []
-    if (Array.isArray(history) && history.length) {
-      trendData.value = history
-    } else {
-      trendData.value = [] // 暂无后端 trend 数据，图表渲染空状态
-    }
-    // 如果 sovData 为空但 summary 有数据，用 summary 构造一行
-    if (!sovData.value.length && summaryRow) {
-      sovData.value = [{
-        intent: '全意图汇总',
-        engine: summaryRow.engine || '汇总',
-        brand_sov: summaryRow.brand_sov ?? 0,
-        competitor_sov: summaryRow.competitor_sov ?? 0,
-        gap: (summaryRow.brand_sov ?? 0) - (summaryRow.competitor_sov ?? 0),
-        sample_count: summaryRow.sample_count || 0
-      }]
-    }
+    // 后端暂不返回历史 trend 数据
+    trendData.value = Array.isArray(data?.history) ? data.history : []
     await nextTick()
     renderTrendChart()
   } catch (e) {
-    // 忽略后端未就绪的错误，仍然渲染空状态
+    sovData.value = []
+    trendData.value = []
   } finally {
     loading.value = false
   }

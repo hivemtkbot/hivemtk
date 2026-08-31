@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // GeoSourceCatalog GEO 信源目录表（v3 信源分级 G5.1）
 //
@@ -16,8 +20,9 @@ type GeoSourceCatalog struct {
 	Description string    `gorm:"column:description;size:512" json:"description"`
 	Verified    bool      `gorm:"column:verified;default:true" json:"verified"`
 	LastChecked time.Time `gorm:"column:last_checked" json:"last_checked"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (GeoSourceCatalog) TableName() string { return "geo_source_catalogs" }

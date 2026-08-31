@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // GeoEntity GEO 实体表（v3 实体抽取 G7.1）
@@ -20,6 +21,7 @@ type GeoEntity struct {
 	Confidence  float64        `gorm:"column:confidence;default:0.8" json:"confidence"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (GeoEntity) TableName() string { return "geo_entities" }
@@ -33,7 +35,8 @@ type GeoEntityRelation struct {
 	EntityAID uint      `gorm:"column:entity_a_id;index" json:"entity_a_id"`
 	EntityBID uint      `gorm:"column:entity_b_id;index" json:"entity_b_id"`
 	Relation  string    `gorm:"column:relation;size:64;index" json:"relation"` // is_a/used_for/competitor_of/part_of
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time      `json:"created_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (GeoEntityRelation) TableName() string { return "geo_entity_relations" }

@@ -2,6 +2,8 @@ package router
 
 
 import (
+	"fmt"
+
 	"hivemtk-user/internal/app"
 	contentctrl "hivemtk-user/internal/content/controller"
 	contentService "hivemtk-user/internal/content/service"
@@ -45,7 +47,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doRegAdmin := func(method, path string, handlers ...gin.HandlerFunc) {
 		defer func() {
 			if r := recover(); r != nil {
-				_ = r
+				fmt.Printf("[WARN] doRegAdmin panic: %s %s -> %v\n", method, path, r)
 			}
 		}()
 		adminHandlers := append([]gin.HandlerFunc{middleware.AdminAuthMiddleware()}, handlers...)
@@ -61,6 +63,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 		case "PATCH":
 			auth.PATCH(path, adminHandlers...)
 		}
+		fmt.Printf("[OK] doRegAdmin registered: %s %s (handlers=%d)\n", method, path, len(adminHandlers))
 	}
 
 
@@ -73,7 +76,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/clues/statistics", clueCtrl.GetClueStatistics)
 	doReg("GET", "/clues/type", clueCtrl.GetClueTypes)
 	doReg("GET", "/clues/import", clueCtrl.GetClueTypes)
-	doReg("POST", "/clues/import", clueCtrl.ImportClues)
+	doRegAdmin("POST", "/clues/import", clueCtrl.ImportClues)
 	doReg("GET", "/clue-statistics/overview", clueCtrl.GetClueStatistics)
 	doRegAdmin("DELETE", "/clues/:id", clueCtrl.DeleteClue)
 
@@ -105,7 +108,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/customer-events/signup", customerEventCtrl.TrackSignup)
 	doReg("POST", "/customer-events/login", customerEventCtrl.TrackLogin)
 	doReg("POST", "/customer-events/add-to-cart", customerEventCtrl.TrackAddToCart)
-	doReg("DELETE", "/customer-events/customer/:customer_id", customerEventCtrl.DeleteEvent)
+	doRegAdmin("DELETE", "/customer-events/customer/:customer_id", customerEventCtrl.DeleteEvent)
 
 	userSegmentCtrl := controller.NewUserSegmentController()
 	doReg("GET", "/user-segments/list", userSegmentCtrl.ListRFMRules)
@@ -118,16 +121,16 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/unified-messages/:id", unifiedMsgCtrl.GetMessageByID)
 
 	oneIDCtrl := controller.NewCustomerOneIDController()
-	doReg("GET", "/oneid/identities", oneIDCtrl.ListOneID)
-	doReg("GET", "/oneid/conflicts", oneIDCtrl.ListConflicts)
-	doReg("POST", "/oneid/merge", oneIDCtrl.MergeIdentity)
-	doReg("POST", "/oneid/resolve", oneIDCtrl.ResolveIdentity)
-	doReg("POST", "/oneid/conflicts/:id/resolve", oneIDCtrl.ResolveConflict)
-	// OPT-UX-04: OneID 合并规则 CRUD
-	doReg("GET", "/oneid/merge-rules", oneIDCtrl.GetMergeRules)
-	doReg("POST", "/oneid/merge-rules", oneIDCtrl.SaveMergeRules)
-	// MergeRuleConfig.vue 命中预览（返回 candidateCount + samples）
-	doReg("POST", "/oneid/merge-rules/preview", oneIDCtrl.PreviewMergeRules)
+        doReg("GET", "/oneid/identities", oneIDCtrl.ListOneID)
+        doReg("GET", "/oneid/conflicts", oneIDCtrl.ListConflicts)
+        doRegAdmin("POST", "/oneid/merge", oneIDCtrl.MergeIdentity)
+        doRegAdmin("POST", "/oneid/resolve", oneIDCtrl.ResolveIdentity)
+        doRegAdmin("POST", "/oneid/conflicts/:id/resolve", oneIDCtrl.ResolveConflict)
+        // OPT-UX-04: OneID 合并规则 CRUD（配置类，admin-only）
+        doRegAdmin("GET", "/oneid/merge-rules", oneIDCtrl.GetMergeRules)
+        doRegAdmin("POST", "/oneid/merge-rules", oneIDCtrl.SaveMergeRules)
+        // MergeRuleConfig.vue 命中预览（返回 candidateCount + samples）— admin-only
+        doRegAdmin("POST", "/oneid/merge-rules/preview", oneIDCtrl.PreviewMergeRules)
 
 	// R1-D1 修复: W-3 废弃收尾 — 移除 legacy /inbox 别名路由(此前仍存活,与 unifiedInbox
 	// 前端页一起构成半死链路)。InboxService 本体保留为 wecom/feishu 内部基础设施。
@@ -156,7 +159,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/intent-records/recognize", intentCtrl.Recognize)
 	doReg("POST", "/intent-records/recognize/batch", intentCtrl.BatchRecognize)
 	doReg("GET", "/intent-records/config", intentCtrl.GetConfig)
-	doReg("PUT", "/intent-records/config", intentCtrl.UpdateConfig)
+	doRegAdmin("PUT", "/intent-records/config", intentCtrl.UpdateConfig)
 
 	memCtrl := controller.NewDialogueMemoryController(service.NewDialogueMemoryService(gormDB, nil))
 	doReg("GET", "/dialogue-memories", memCtrl.Stats)
@@ -260,16 +263,16 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/quick-replies", quickReplyCtrl.GetReplies)
 	doReg("GET", "/quick-replies/list", quickReplyCtrl.GetReplies)
 	doReg("GET", "/quick-replies/categories", quickReplyCtrl.GetReplyCategories)
-	doReg("POST", "/quick-replies", quickReplyCtrl.CreateReply)
-	doReg("PUT", "/quick-replies/:id", quickReplyCtrl.UpdateReply)
-	doReg("DELETE", "/quick-replies/:id", quickReplyCtrl.DeleteReply)
+	doRegAdmin("POST", "/quick-replies", quickReplyCtrl.CreateReply)
+	doRegAdmin("PUT", "/quick-replies/:id", quickReplyCtrl.UpdateReply)
+	doRegAdmin("DELETE", "/quick-replies/:id", quickReplyCtrl.DeleteReply)
 
 	sessionTagCtrl := controller.NewSessionTagController()
 	doReg("GET", "/session-tags", sessionTagCtrl.GetTags)
 	doReg("GET", "/session-tags/list", sessionTagCtrl.GetTags)
-	doReg("POST", "/session-tags", sessionTagCtrl.CreateTag)
-	doReg("PUT", "/session-tags/:id", sessionTagCtrl.UpdateTag)
-	doReg("DELETE", "/session-tags/:id", sessionTagCtrl.DeleteTag)
+	doRegAdmin("POST", "/session-tags", sessionTagCtrl.CreateTag)
+	doRegAdmin("PUT", "/session-tags/:id", sessionTagCtrl.UpdateTag)
+	doRegAdmin("DELETE", "/session-tags/:id", sessionTagCtrl.DeleteTag)
 
 	aiSuggestionCtrl := controller.NewAISuggestionController()
 	doReg("GET", "/ai-suggestions", aiSuggestionCtrl.GetSuggestions)
@@ -293,10 +296,10 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/email/lists", emailListCtrl.GetEmailListList)
 	doReg("GET", "/email/lists/list", emailListCtrl.GetEmailListList)
 	doReg("GET", "/email/lists/:id", emailListCtrl.GetEmailListDetail)
-	doReg("POST", "/email/lists", emailListCtrl.CreateEmailList)
-	doReg("PUT", "/email/lists/:id", emailListCtrl.UpdateEmailList)
-	doReg("DELETE", "/email/lists/:id", emailListCtrl.DeleteEmailList)
-	doReg("GET", "/email/lists/:id/trace", emailListCtrl.TraceEmail)
+	doRegAdmin("POST", "/email/lists", emailListCtrl.CreateEmailList)
+	doRegAdmin("PUT", "/email/lists/:id", emailListCtrl.UpdateEmailList)
+	doRegAdmin("DELETE", "/email/lists/:id", emailListCtrl.DeleteEmailList)
+	doRegAdmin("GET", "/email/lists/:id/trace", emailListCtrl.TraceEmail)
 	doReg("GET", "/email/lists/:id/tracking", emailListCtrl.GetTracking)
 
 	emailSmtpCtrl := controller.NewEmailSmtpController()
@@ -311,60 +314,61 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	smsCtrl := controller.NewSmsController(service.NewSmsService(repository.NewSmsRepository()))
 	doReg("GET", "/sms/records", smsCtrl.GetSmsList)
 	doReg("GET", "/sms/records/list", smsCtrl.GetSmsList)
-	doReg("POST", "/sms/records", smsCtrl.SendSms)
+	// P0-27 SMS 发信 + 配置 + jobs 全部 admin only（防 staff 滥发短信/改网关劫持）
+	doRegAdmin("POST", "/sms/records", smsCtrl.SendSms)
 
 	doReg("GET", "/sms/drafts", smsCtrl.GetDraftList)
 	doReg("GET", "/sms/drafts/list", smsCtrl.GetDraftList)
-	doReg("POST", "/sms/drafts", smsCtrl.CreateDraft)
-	doReg("PUT", "/sms/drafts/:id", smsCtrl.UpdateDraft)
-	doReg("DELETE", "/sms/drafts/:id", smsCtrl.DeleteDraft)
+	doRegAdmin("POST", "/sms/drafts", smsCtrl.CreateDraft)
+	doRegAdmin("PUT", "/sms/drafts/:id", smsCtrl.UpdateDraft)
+	doRegAdmin("DELETE", "/sms/drafts/:id", smsCtrl.DeleteDraft)
 
 	doReg("GET", "/sms/jobs", smsCtrl.GetJobList)
 	doReg("GET", "/sms/jobs/list", smsCtrl.GetJobList)
-	doReg("POST", "/sms/jobs", smsCtrl.CreateJob)
-	doReg("POST", "/sms/jobs/:id/pause", smsCtrl.PauseJob)
-	doReg("POST", "/sms/jobs/:id/resume", smsCtrl.ResumeJob)
-	doReg("DELETE", "/sms/jobs/:id", smsCtrl.DeleteJob)
+	doRegAdmin("POST", "/sms/jobs", smsCtrl.CreateJob)
+	doRegAdmin("POST", "/sms/jobs/:id/pause", smsCtrl.PauseJob)
+	doRegAdmin("POST", "/sms/jobs/:id/resume", smsCtrl.ResumeJob)
+	doRegAdmin("DELETE", "/sms/jobs/:id", smsCtrl.DeleteJob)
 
 	doReg("GET", "/sms/configs", smsCtrl.GetConfig)
 	doReg("GET", "/sms/configs/list", smsCtrl.GetConfig)
-	doReg("POST", "/sms/configs", smsCtrl.SaveConfig)
+	doRegAdmin("POST", "/sms/configs", smsCtrl.SaveConfig)
 
 	{
 		douyinCtrl := controller.NewDouyinCardController(service.NewDouyinCardService(gormDB))
 		doReg("GET", "/douyin-cards", douyinCtrl.GetList)
 		doReg("GET", "/douyin-cards/list", douyinCtrl.GetList)
 		doReg("GET", "/douyin-cards/:id", douyinCtrl.GetByID)
-		doReg("POST", "/douyin-cards", douyinCtrl.Create)
-		doReg("PUT", "/douyin-cards/:id", douyinCtrl.Update)
-		doReg("DELETE", "/douyin-cards/:id", douyinCtrl.Delete)
+		doRegAdmin("POST", "/douyin-cards", douyinCtrl.Create)
+		doRegAdmin("PUT", "/douyin-cards/:id", douyinCtrl.Update)
+		doRegAdmin("DELETE", "/douyin-cards/:id", douyinCtrl.Delete)
 	}
 	{
 		kuaishouCtrl := controller.NewKuaishouCardController(service.NewKuaishouCardService(gormDB))
 		doReg("GET", "/kuaishou-cards", kuaishouCtrl.GetList)
 		doReg("GET", "/kuaishou-cards/list", kuaishouCtrl.GetList)
 		doReg("GET", "/kuaishou-cards/:id", kuaishouCtrl.GetByID)
-		doReg("POST", "/kuaishou-cards", kuaishouCtrl.Create)
-		doReg("PUT", "/kuaishou-cards/:id", kuaishouCtrl.Update)
-		doReg("DELETE", "/kuaishou-cards/:id", kuaishouCtrl.Delete)
+		doRegAdmin("POST", "/kuaishou-cards", kuaishouCtrl.Create)
+		doRegAdmin("PUT", "/kuaishou-cards/:id", kuaishouCtrl.Update)
+		doRegAdmin("DELETE", "/kuaishou-cards/:id", kuaishouCtrl.Delete)
 	}
 	{
 		xhsCtrl := controller.NewXiaohongshuCardController(service.NewXiaohongshuCardService(gormDB))
 		doReg("GET", "/xiaohongshu-cards", xhsCtrl.GetList)
 		doReg("GET", "/xiaohongshu-cards/list", xhsCtrl.GetList)
 		doReg("GET", "/xiaohongshu-cards/:id", xhsCtrl.GetByID)
-		doReg("POST", "/xiaohongshu-cards", xhsCtrl.Create)
-		doReg("PUT", "/xiaohongshu-cards/:id", xhsCtrl.Update)
-		doReg("DELETE", "/xiaohongshu-cards/:id", xhsCtrl.Delete)
+		doRegAdmin("POST", "/xiaohongshu-cards", xhsCtrl.Create)
+		doRegAdmin("PUT", "/xiaohongshu-cards/:id", xhsCtrl.Update)
+		doRegAdmin("DELETE", "/xiaohongshu-cards/:id", xhsCtrl.Delete)
 	}
 	{
 		xianyuCtrl := controller.NewXianyuCardController(service.NewXianyuCardService(gormDB), service.NewXianyuCardStatsService(gormDB))
 		doReg("GET", "/xianyu-cards", xianyuCtrl.GetList)
 		doReg("GET", "/xianyu-cards/list", xianyuCtrl.GetList)
 		doReg("GET", "/xianyu-cards/:id", xianyuCtrl.GetByID)
-		doReg("POST", "/xianyu-cards", xianyuCtrl.Create)
-		doReg("PUT", "/xianyu-cards/:id", xianyuCtrl.Update)
-		doReg("DELETE", "/xianyu-cards/:id", xianyuCtrl.Delete)
+		doRegAdmin("POST", "/xianyu-cards", xianyuCtrl.Create)
+		doRegAdmin("PUT", "/xianyu-cards/:id", xianyuCtrl.Update)
+		doRegAdmin("DELETE", "/xianyu-cards/:id", xianyuCtrl.Delete)
 	}
 
 	tiktokCtrl := controller.NewTikTokCardController(
@@ -373,9 +377,9 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/tiktok-cards", tiktokCtrl.List)
 	doReg("GET", "/tiktok-cards/list", tiktokCtrl.List)
 	doReg("GET", "/tiktok-cards/:id", tiktokCtrl.Get)
-	doReg("POST", "/tiktok-cards", tiktokCtrl.Create)
-	doReg("PUT", "/tiktok-cards/:id", tiktokCtrl.Update)
-	doReg("DELETE", "/tiktok-cards/:id", tiktokCtrl.Delete)
+	doRegAdmin("POST", "/tiktok-cards", tiktokCtrl.Create)
+	doRegAdmin("PUT", "/tiktok-cards/:id", tiktokCtrl.Update)
+	doRegAdmin("DELETE", "/tiktok-cards/:id", tiktokCtrl.Delete)
 
 	feishuCtrl := controller.NewFeishuAccountController(service.NewFeishuService(gormDB), service.NewFeishuIntegrationService(gormDB))
 	doReg("GET", "/feishu/accounts", feishuCtrl.List)
@@ -398,17 +402,18 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/short-links", shortLinkCtrl.GetList)
 	doReg("GET", "/short-links/list", shortLinkCtrl.GetList)
 	doReg("GET", "/short-links/:id", shortLinkCtrl.GetByID)
-	doReg("POST", "/short-links", shortLinkCtrl.Create)
-	doReg("PUT", "/short-links/:id", shortLinkCtrl.Update)
-	doReg("DELETE", "/short-links/:id", shortLinkCtrl.Delete)
+	// P0-28 short-links 别名写操作 admin only（防 staff 绕过 setupShortLinkRoutes 的保护改 target_url → 钓鱼）
+	doRegAdmin("POST", "/short-links", shortLinkCtrl.Create)
+	doRegAdmin("PUT", "/short-links/:id", shortLinkCtrl.Update)
+	doRegAdmin("DELETE", "/short-links/:id", shortLinkCtrl.Delete)
 
 	liveCodeCtrl := controller.NewLiveCodeController(service.NewLiveCodeService(gormDB))
 	doReg("GET", "/live-codes", liveCodeCtrl.GetList)
 	doReg("GET", "/live-codes/list", liveCodeCtrl.GetList)
 	doReg("GET", "/live-codes/:id", liveCodeCtrl.GetByID)
-	doReg("POST", "/live-codes", liveCodeCtrl.Create)
-	doReg("PUT", "/live-codes/:id", liveCodeCtrl.Update)
-	doReg("DELETE", "/live-codes/:id", liveCodeCtrl.Delete)
+	doRegAdmin("POST", "/live-codes", liveCodeCtrl.Create)
+	doRegAdmin("PUT", "/live-codes/:id", liveCodeCtrl.Update)
+	doRegAdmin("DELETE", "/live-codes/:id", liveCodeCtrl.Delete)
 
 	ragProductCtrl := controller.NewRagProductController(gormDB)
 	doReg("GET", "/rag-product-configs", ragProductCtrl.List)
@@ -447,17 +452,17 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/dashboard-screens", dashCtrl.GetScreenList)
 	doReg("GET", "/dashboard-screens/list", dashCtrl.GetScreenList)
 	doReg("GET", "/dashboard-screens/:id", dashCtrl.GetScreenByID)
-	doReg("POST", "/dashboard-screens", dashCtrl.CreateScreen)
-	doReg("PUT", "/dashboard-screens/:id", dashCtrl.UpdateScreen)
-	doReg("DELETE", "/dashboard-screens/:id", dashCtrl.DeleteScreen)
+	doRegAdmin("POST", "/dashboard-screens", dashCtrl.CreateScreen)
+	doRegAdmin("PUT", "/dashboard-screens/:id", dashCtrl.UpdateScreen)
+	doRegAdmin("DELETE", "/dashboard-screens/:id", dashCtrl.DeleteScreen)
 	doReg("GET", "/dashboard-screens/:id/data", dashCtrl.GetDashboardData)
 	doReg("GET", "/dashboard-screens/:id/activities", dashCtrl.GetRealtimeActivities)
 	doReg("GET", "/dashboards", dashCtrl.GetScreenList)
 	doReg("GET", "/dashboards/list", dashCtrl.GetScreenList)
 	doReg("GET", "/dashboards/:id", dashCtrl.GetScreenByID)
-	doReg("POST", "/dashboards", dashCtrl.CreateScreen)
-	doReg("PUT", "/dashboards/:id", dashCtrl.UpdateScreen)
-	doReg("DELETE", "/dashboards/:id", dashCtrl.DeleteScreen)
+	doRegAdmin("POST", "/dashboards", dashCtrl.CreateScreen)
+	doRegAdmin("PUT", "/dashboards/:id", dashCtrl.UpdateScreen)
+	doRegAdmin("DELETE", "/dashboards/:id", dashCtrl.DeleteScreen)
 	doReg("GET", "/dashboards/:id/data", dashCtrl.GetDashboardData)
 	doReg("GET", "/dashboards/data", dashCtrl.GetDashboardData)
 	doReg("GET", "/dashboards/activities", dashCtrl.GetRealtimeActivities)
@@ -491,7 +496,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/system/configs", sysCfgCtrl.GetConfig)
 	doReg("GET", "/system/configs/list", sysCfgCtrl.GetConfig)
 	doReg("GET", "/system/configs/:key", sysCfgCtrl.GetConfig)
-	doReg("PUT", "/system/configs/:key", sysCfgCtrl.SaveConfig)
+	doRegAdmin("PUT", "/system/configs/:key", sysCfgCtrl.SaveConfig)
 
 	obsCtrl := controller.NewObsConfigController()
 	doReg("GET", "/obs-configs", obsCtrl.GetConfigList)
@@ -511,7 +516,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/material-library/categories", materialCtrl.GetMaterialCategories)
 	doReg("GET", "/material-library/stats", materialCtrl.GetMaterialStats)
 	doReg("POST", "/material-library", materialCtrl.UploadMaterial)
-	doReg("DELETE", "/material-library/:id", materialCtrl.DeleteMaterial)
+	doRegAdmin("DELETE", "/material-library/:id", materialCtrl.DeleteMaterial)
 
 	sysMonCtrl := controller.NewSystemMonitorController()
 	doReg("GET", "/system-monitor/metrics", sysMonCtrl.GetMetrics)
@@ -538,44 +543,44 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("PUT", "/customer-sessions/:id/priority", csPlusCtrl.SetSessionPriority)
 	doReg("POST", "/customer-sessions/:id/snooze", csPlusCtrl.SnoozeSession)
 	doReg("DELETE", "/customer-sessions/:id/snooze", csPlusCtrl.UnsnoozeSession)
-	// R48 T4/T5: 宏 + AI 会话摘要
-	macroCtrl := controller.NewMacroController()
-	doReg("GET", "/macros", macroCtrl.List)
-	doReg("POST", "/macros", macroCtrl.Create)
-	doReg("DELETE", "/macros/:id", macroCtrl.Delete)
-	doReg("POST", "/macros/:id/apply", macroCtrl.Apply)
-	// R48 T6-T12
-	growthCtrl := controller.NewGrowthController()
-	doReg("GET", "/webhook-subscriptions", growthCtrl.ListWebhookSubs)
-	doReg("POST", "/webhook-subscriptions", growthCtrl.CreateWebhookSub)
-	doReg("DELETE", "/webhook-subscriptions/:id", growthCtrl.DeleteWebhookSub)
+	// R48 T4/T5: 宏 + AI 会话摘要（配置类，admin-only）
+        macroCtrl := controller.NewMacroController()
+        doRegAdmin("GET", "/macros", macroCtrl.List)
+        doRegAdmin("POST", "/macros", macroCtrl.Create)
+        doRegAdmin("DELETE", "/macros/:id", macroCtrl.Delete)
+        doRegAdmin("POST", "/macros/:id/apply", macroCtrl.Apply)
+        // R48 T6-T12（Webhook 管理，admin-only）
+        growthCtrl := controller.NewGrowthController()
+        doRegAdmin("GET", "/webhook-subscriptions", growthCtrl.ListWebhookSubs)
+        doRegAdmin("POST", "/webhook-subscriptions", growthCtrl.CreateWebhookSub)
+        doRegAdmin("DELETE", "/webhook-subscriptions/:id", growthCtrl.DeleteWebhookSub)
 	doReg("PUT", "/customers/:id/custom-attributes", growthCtrl.SetCustomAttributes)
-	doReg("POST", "/saved-views", growthCtrl.CreateSavedView)
+	doRegAdmin("POST", "/saved-views", growthCtrl.CreateSavedView)
 	doReg("GET", "/saved-views", growthCtrl.ListSavedViews)
-	doReg("DELETE", "/saved-views/:id", growthCtrl.DeleteSavedView)
-	doReg("POST", "/report-subscriptions", growthCtrl.CreateReportSub)
+	doRegAdmin("DELETE", "/saved-views/:id", growthCtrl.DeleteSavedView)
+	doRegAdmin("POST", "/report-subscriptions", growthCtrl.CreateReportSub)
 	doReg("GET", "/report-subscriptions", growthCtrl.ListReportSubs)
-	doReg("DELETE", "/report-subscriptions/:id", growthCtrl.DeleteReportSub)
-	doReg("POST", "/report-subscriptions/send-now", growthCtrl.SendReportsNow)
+	doRegAdmin("DELETE", "/report-subscriptions/:id", growthCtrl.DeleteReportSub)
+	doRegAdmin("POST", "/report-subscriptions/send-now", growthCtrl.SendReportsNow)
 	doReg("GET", "/customer-sessions/:id/transcript", growthCtrl.Transcript)
 	doReg("GET", "/analytics/ai-performance", growthCtrl.AIPerformance)
-	// R51: DNC 全局退订（合规核心功能此前无 API）
-	dncCtrl := controller.NewDNCController()
-	doReg("GET", "/dnc", dncCtrl.List)
-	doReg("POST", "/dnc", dncCtrl.Block)
-	doReg("POST", "/dnc/block-phone", dncCtrl.BlockByPhone)
-	doReg("DELETE", "/dnc/:one_id", dncCtrl.Unblock)
-	doReg("GET", "/dnc/:one_id/blocked", dncCtrl.IsBlocked)
+	// R51: DNC 全局退订（合规核心功能）— 全部 admin-only（防 staff 误删黑名单 / 绕过合规）
+        dncCtrl := controller.NewDNCController()
+        doRegAdmin("GET", "/dnc", dncCtrl.List)
+        doRegAdmin("POST", "/dnc", dncCtrl.Block)
+        doRegAdmin("POST", "/dnc/block-phone", dncCtrl.BlockByPhone)
+        doRegAdmin("DELETE", "/dnc/:one_id", dncCtrl.Unblock)
+        doRegAdmin("GET", "/dnc/:one_id/blocked", dncCtrl.IsBlocked)
 
 	sessionAICtrl := controller.NewSessionAIController()
 	doReg("POST", "/customer-sessions/:id/ai-summary", sessionAICtrl.Generate)
-	// R53 B: 自动化规则引擎 CRUD
-	ruleCtrl := controller.NewRuleEngineController()
-	doReg("GET", "/automation-rules", ruleCtrl.List)
-	doReg("POST", "/automation-rules", ruleCtrl.Create)
-	doReg("DELETE", "/automation-rules/:id", ruleCtrl.Delete)
-	doReg("POST", "/automation-rules/:id/toggle", ruleCtrl.Toggle)
-	doReg("POST", "/automation-rules/fire", ruleCtrl.Fire)
+	// R53 B: 自动化规则引擎 CRUD — 全部 admin only（防 staff 误触发自动化流程 / 绕过熔断）
+        ruleCtrl := controller.NewRuleEngineController()
+        doRegAdmin("GET", "/automation-rules", ruleCtrl.List)
+        doRegAdmin("POST", "/automation-rules", ruleCtrl.Create)
+        doRegAdmin("DELETE", "/automation-rules/:id", ruleCtrl.Delete)
+        doRegAdmin("POST", "/automation-rules/:id/toggle", ruleCtrl.Toggle)
+        doRegAdmin("POST", "/automation-rules/fire", ruleCtrl.Fire)
 	doReg("GET", "/customer-sessions/:id/ai-summary", sessionAICtrl.Get)
 	doReg("POST", "/user-segments", csPlusCtrl.CreateSegment)
 	doReg("POST", "/customer-sessions/:id/edit-lock", csPlusCtrl.AcquireEditLock)
@@ -657,18 +662,18 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/email/test-send", emailGapCtrl.TestSend)
 	doReg("GET", "/user-segments/rfm", emailGapCtrl.RFMMatrix)
 	doReg("GET", "/user-segments/rfm/stats", emailGapCtrl.RFMMatrixStats)
-	doReg("POST", "/message-hub/dlq/batch-retry", csPlusCtrl.DLQBatchRetry)
+	doRegAdmin("POST", "/message-hub/dlq/batch-retry", csPlusCtrl.DLQBatchRetry)
 	doReg("GET", "/message-hub/dlq", csPlusCtrl.DLQList)
-	doReg("POST", "/message-hub/dlq/:id/retry", csPlusCtrl.DLQRetryOne)
-	doReg("DELETE", "/message-hub/dlq/:id", csPlusCtrl.DLQDrop)
+	doRegAdmin("POST", "/message-hub/dlq/:id/retry", csPlusCtrl.DLQRetryOne)
+	doRegAdmin("DELETE", "/message-hub/dlq/:id", csPlusCtrl.DLQDrop)
 	doReg("GET", "/knowledge/playground/presets", emailGapCtrl.PlaygroundPresets)
 	doReg("PATCH", "/knowledge/documents/:id/public-visibility", controller.NewHelpCenterController().SetVisibility)
 	doReg("PATCH", "/knowledge/documents/:id/help-center-status", controller.NewHelpCenterController().SetStatus)
 	doReg("GET", "/knowledge/help-center/top", controller.NewHelpCenterController().TopArticles)
 	doReg("POST", "/knowledge/help-center/retrieval-test", controller.NewHelpCenterController().RetrievalTest)
-	doReg("POST", "/clues/import/apply-suggestions", emailGapCtrl.ClueApplySuggestions)
-	doReg("POST", "/clues/:id/merge", emailGapCtrl.ClueMerge)
-	doReg("POST", "/clues/force-create", emailGapCtrl.ClueForceCreate)
+	doRegAdmin("POST", "/clues/import/apply-suggestions", emailGapCtrl.ClueApplySuggestions)
+	doRegAdmin("POST", "/clues/:id/merge", emailGapCtrl.ClueMerge)
+	doRegAdmin("POST", "/clues/force-create", emailGapCtrl.ClueForceCreate)
 
 	integrationCtrl := controller.NewIntegrationController()
 	doReg("GET", "/integrations/list", integrationCtrl.GetAccountList)
@@ -704,14 +709,14 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/churn-prediction/statistics", churnCtrl.GetChurnStatistics)
 	doReg("GET", "/churn-prediction/risk-distribution", churnCtrl.GetRiskDistribution)
 	doReg("GET", "/churn-prediction/model-config", churnCtrl.GetModelConfig)
-	doReg("POST", "/churn-prediction/model-config", churnCtrl.SaveModelConfig)
+	doRegAdmin("POST", "/churn-prediction/model-config", churnCtrl.SaveModelConfig)
 	doReg("GET", "/churn/prediction", churnCtrl.GetChurnPrediction)
 	doReg("GET", "/churn/predictions", churnCtrl.GetChurnPredictions)
 	doReg("GET", "/churn/high-risk-users", churnCtrl.GetHighRiskUsers)
 	doReg("GET", "/churn/warnings", churnCtrl.GetChurnWarnings)
 	doReg("GET", "/churn/unhandled-warnings", churnCtrl.GetUnhandledWarnings)
 	doReg("GET", "/churn/model-config", churnCtrl.GetModelConfig)
-	doReg("POST", "/churn/model-config", churnCtrl.SaveModelConfig)
+	doRegAdmin("POST", "/churn/model-config", churnCtrl.SaveModelConfig)
 	doReg("GET", "/churn/statistics", churnCtrl.GetChurnStatistics)
 	doReg("GET", "/churn/risk-distribution", churnCtrl.GetRiskDistribution)
 	doRegAdmin("POST", "/backups", backupCtrl.CreateBackup)

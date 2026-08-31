@@ -97,7 +97,6 @@ func setupMarketingFlowRoutes(auth *gin.RouterGroup) {
 	wvCtrl := controller.NewWebVitalsController()
 	auth.POST("/monitor/web-vitals", wvCtrl.Report)
 	mfSyncCtrl := controller.NewMarketingFlowSyncController()
-	auth.POST("/marketing-flows/:id/sync-ab-results", mfSyncCtrl.SyncABResults)
 
 	auth.GET("/marketing-flows", marketingFlowCtrl.GetFlowList)
 	auth.GET("/marketing-flows/:id", marketingFlowCtrl.GetFlowByID)
@@ -111,6 +110,7 @@ func setupMarketingFlowRoutes(auth *gin.RouterGroup) {
 		admin.POST("/:id/activate", marketingFlowCtrl.ActivateFlow)
 		admin.POST("/:id/pause", marketingFlowCtrl.PauseFlow)
 		admin.POST("/:id/stop", marketingFlowCtrl.StopFlow)
+		admin.POST("/:id/sync-ab-results", mfSyncCtrl.SyncABResults)
 	}
 }
 
@@ -135,9 +135,10 @@ func setupDashboardRoutes(auth *gin.RouterGroup, public *gin.RouterGroup) {
 	auth.GET("/dashboards/data", dashboardCtrl.GetDashboardData)
 	auth.GET("/dashboards/activities", dashboardCtrl.GetRealtimeActivities)
 	auth.GET("/dashboards/:id", dashboardCtrl.GetScreenByID)
-	auth.POST("/dashboards", dashboardCtrl.CreateScreen)
-	auth.PUT("/dashboards/:id", dashboardCtrl.UpdateScreen)
-	auth.DELETE("/dashboards/:id", dashboardCtrl.DeleteScreen)
+	dashAdmin := auth.Group("/dashboards", middleware.AdminAuthMiddleware())
+	dashAdmin.POST("", dashboardCtrl.CreateScreen)
+	dashAdmin.PUT("/:id", dashboardCtrl.UpdateScreen)
+	dashAdmin.DELETE("/:id", dashboardCtrl.DeleteScreen)
 
 	public.GET("/dashboards/public/:code", dashboardCtrl.PublicViewScreen)
 }

@@ -29,14 +29,15 @@ const (
 
 // 文件扩展名白名单
 //
+// P0-26 收紧（2026-08-31 六轮加固）：只允许图片 + PDF + Word 文档。
+// 移除 video/archive/xls/xlsx/ppt/pptx/rar/7z 等扩展——可执行内容、ZIP 炸弹、
+// Office 宏均构成安全面。Excel/PPT 若后续需要上传，建议单独端点 + 专用处理。
+//
 // M9 治理：移除 .svg 扩展白名单。原因：SVG 可内嵌 <script>/事件处理器，若反代
-//同源直出且无 CSP 即构成存储型 XSS。下方 (P1-2 修复段) 已对 .svg 显式拒绝，
-//此处再次列出只会给未来误放开留口子。
+//同源直出且无 CSP 即构成存储型 XSS。下方 (P1-2 修复段) 已对 .svg 显式拒绝。
 var allowedExtensions = map[string][]string{
-	"image":   {".jpg", ".jpeg", ".png", ".gif", ".webp"},
-	"video":   {".mp4", ".mov", ".avi"},
-	"doc":     {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx"},
-	"archive": {".zip", ".rar", ".7z"},
+	"image": {".jpg", ".jpeg", ".png", ".gif", ".webp"},
+	"doc":   {".pdf", ".doc", ".docx"},
 }
 
 // 危险文件扩展名黑名单
@@ -78,9 +79,12 @@ type UploadConfig struct {
 }
 
 // DefaultUploadConfig 默认上传配置
+//
+// P0-26 收紧：AllowedTypes 与 allowedExtensions 保持一致，只放行
+// 图片 (jpeg/png/gif/webp) + PDF + Word。
 var DefaultUploadConfig = UploadConfig{
 	MaxSize:          MaxUploadSize,
-	AllowedTypes:     "image/jpeg,image/jpg,image/png,image/gif,image/webp,application/pdf,application/zip",
+	AllowedTypes:     "image/jpeg,image/jpg,image/png,image/gif,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 	EnableVirusScan:  false,
 	VirusScanURL:     "",
 	UploadDir:        "./uploads",

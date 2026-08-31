@@ -102,8 +102,35 @@ const loadDocs = async () => {
 }
 
 const onUpload = async (file) => {
-  // 后端暂未开放文件上传接口（只接受 JSON），改为提示手动录入
-  ElMessage.warning('请通过 KB 文档创建手动录入（后端暂不支持文件上传）')
+  const rawFile = file.raw || file
+  // 只支持文本类文件（txt / md / json）
+  const ext = (rawFile.name || '').split('.').pop()?.toLowerCase() || ''
+  const isText = ['txt', 'md', 'markdown', 'json'].includes(ext) ||
+    rawFile.type?.startsWith('text/') ||
+    rawFile.type === 'application/json'
+  if (!isText) {
+    ElMessage.warning('仅支持 txt / md / json 等文本文件')
+    return false
+  }
+  try {
+    const content = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('文件读取失败'))
+      reader.readAsText(rawFile)
+    })
+    if (!content.trim()) {
+      ElMessage.warning('文件内容为空')
+      return false
+    }
+    const title = rawFile.name.replace(/\.[^.]+$/, '') || '未命名文档'
+    await saveKBDocument({ title, content, source_level: 'C' })
+    ElMessage.success('文档上传成功')
+    await loadDocs()
+  } catch (e) {
+    ElMessage.error(e?.message || '上传失败')
+  }
+  return false
 }
 
 const onUpdateLevel = async (row) => {

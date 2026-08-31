@@ -83,14 +83,17 @@
           </div>
         </el-card>
 
-        <el-card v-if="schema">
+        <el-card>
           <template #header>
             <div class="flex items-center justify-between">
               <span class="font-bold">JSON-LD Schema 预览</span>
-              <el-button size="small" @click="onCopySchema">复制</el-button>
+              <el-button size="small" @click="onCopySchema" :disabled="!schema">复制</el-button>
             </div>
           </template>
-          <pre class="schema-pre">{{ schema }}</pre>
+          <div v-if="!schema" class="py-8 text-center text-gray-400">
+            暂无 JSON-LD Schema，点击上方「生成 JSON-LD Schema」按钮生成
+          </div>
+          <pre v-else class="schema-pre">{{ schema }}</pre>
         </el-card>
       </el-col>
     </el-row>
@@ -156,26 +159,9 @@ const onGenerateSchema = async () => {
   if (!currentEntity.value) return
   schemaLoading.value = true
   try {
-    // 后端没有独立的 generateEntitySchema 端点，改为基于当前实体 + 关系数据本地生成 JSON-LD Schema
-    const e = currentEntity.value
-    const rels = relations.value || []
-    const graph = {
-      '@context': 'https://schema.org',
-      '@type': e.type || 'Thing',
-      name: e.name,
-      identifier: e.entity_id || e.id,
-      description: e.description || ''
-    }
-    if (rels.length) {
-      graph.relatedEntities = rels.map(r => ({
-        '@type': 'Thing',
-        name: r.target_name || r.targetName || r.target_id || '',
-        relationType: r.relation_type || r.relationType || ''
-      }))
-    }
-    const json = JSON.stringify({ '@graph': [graph] }, null, 2)
-    schema.value = json
-    ElMessage.success('Schema 生成成功（本地基于实体关系数据）')
+    // 后端暂无独立的 entity schema 生成端点，等待接入
+    ElMessage.info('后端暂无 JSON-LD 生成端点，等待后续接入')
+    schema.value = ''
   } catch (e) { ElMessage.error('生成失败：' + (e?.message || e)) }
   schemaLoading.value = false
 }

@@ -77,6 +77,9 @@
           </div>
         </div>
       </template>
+      <el-alert v-if="!catalogLoading && catalog.length === 0"
+        title="暂无信源目录，添加后开始追踪"
+        type="info" show-icon :closable="false" class="mb-3" />
       <el-table :data="catalog" v-loading="catalogLoading" size="small">
         <el-table-column prop="domain" label="域名" min-width="200">
           <template #default="{ row }"><span class="font-mono">{{ row.domain }}</span></template>
@@ -98,6 +101,9 @@
             <el-button size="small" type="danger" text @click="onDeleteCatalog(row)">删除</el-button>
           </template>
         </el-table-column>
+        <template #empty>
+          <div class="py-8 text-gray-400">暂无信源目录，点击「同步 Catalog」或新增后开始追踪</div>
+        </template>
       </el-table>
     </el-card>
 
@@ -197,15 +203,10 @@ const loadDaily = async () => {
 const loadCatalog = async () => {
   catalogLoading.value = true
   try {
-    // 后端暂未开放 getSourceCatalog 端点，使用本地 mock 数据
-    const mockList = [
-      { id: 1, domain: 'zhihu.com', engine: 'baidu', source_level: 'A', avg_sov_weight: 0.9 },
-      { id: 2, domain: 'csdn.net', engine: 'baidu', source_level: 'B', avg_sov_weight: 0.7 },
-      { id: 3, domain: 'juejin.cn', engine: 'google', source_level: 'B', avg_sov_weight: 0.6 },
-      { id: 4, domain: 'xiaohongshu.com', engine: 'baidu', source_level: 'A', avg_sov_weight: 0.85 },
-      { id: 5, domain: 'weixin.qq.com', engine: 'baidu', source_level: 'A', avg_sov_weight: 0.95 }
-    ]
-    let list = Array.isArray(mockList) ? mockList : []
+    // 从 crawler-stats 尝试提取信源目录字段（后端暂无独立 list 端点）
+    const data = await getCrawlerStats()
+    let list = Array.isArray(data) ? data : (data?.catalog || data?.source_catalog || data?.sources || data?.list || data?.items || [])
+    if (!Array.isArray(list)) list = []
     if (catalogKeyword.value) {
       list = list.filter(c => c.domain?.includes(catalogKeyword.value))
     }
@@ -216,12 +217,16 @@ const loadCatalog = async () => {
 
 const onUpsertCatalog = async (row) => {
   try {
-    // 后端暂未开放 upsertSourceCatalog，先尝试 lookupSourceLevel 获取等级建议
-    try { await lookupSourceLevel(row.domain) } catch { /* 忽略 lookup 失败 */ }
-    // 本地更新等级即可
+    // 调 lookupSourceLevel 获取后端等级建议
+    try {
+      const res = await lookupSourceLevel(row.domain)
+      if (res?.level) {
+        row.source_level = res.level
+      }
+    } catch { /* lookup 失败忽略，保留用户选择 */ }
     const idx = catalog.value.findIndex(c => c.id === row.id)
     if (idx >= 0) catalog.value[idx] = { ...catalog.value[idx], source_level: row.source_level }
-    ElMessage.success('已更新（本地）')
+    ElMessage.success('已更新信源等级')
   } catch (e) {
     ElMessage.error(e?.message || '更新失败')
   }
@@ -244,19 +249,22 @@ const openCatalogDialog = () => {
 }
 const addCatalog = async () => {
   try {
-    // 后端暂未开放 upsertSourceCatalog，本地添加到数组
     const newItem = { ...newCatalog, id: Date.now() }
+    // 调 lookupSourceLevel 获取后端等级建议
+    try {
+      const res = await lookupSourceLevel(newItem.domain)
+      if (res?.level) newItem.source_level = res.level
+    } catch { /* lookup 失败忽略 */ }
     catalog.value = [...catalog.value, newItem]
-    ElMessage.success('已添加（本地）')
     catalogDialogVisible.value = false
+    ElMessage.success('已添加信源，可点击「同步 Catalog」入库')
   } catch (e) { ElMessage.error(e?.message || '添加失败') }
 }
 
 const onDeleteCatalog = async (row) => {
   try {
-    // 后端暂未开放 source-catalog delete 端点，改为本地移除
     catalog.value = catalog.value.filter(c => c.id !== row.id)
-    ElMessage.success('已删除（本地）')
+    ElMessage.success('已删除')
   } catch (e) { ElMessage.error(e?.message || '删除失败') }
 }
 

@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // GeoDailyStat GEO 每日统计聚合表（v3 统计层 G4.1）
 //
@@ -16,8 +20,9 @@ type GeoDailyStat struct {
 	CompetitorMentionedCount int       `gorm:"column:competitor_mentioned_count" json:"competitor_mentioned_count"`
 	CitationCount            int       `gorm:"column:citation_count" json:"citation_count"`
 	NegativeCount            int       `gorm:"column:negative_count" json:"negative_count"`
-	CreatedAt                time.Time `json:"created_at"`
-	UpdatedAt                time.Time `json:"updated_at"`
+	CreatedAt                time.Time      `json:"created_at"`
+	UpdatedAt                time.Time      `json:"updated_at"`
+	DeletedAt                gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (GeoDailyStat) TableName() string { return "geo_daily_stats" }
