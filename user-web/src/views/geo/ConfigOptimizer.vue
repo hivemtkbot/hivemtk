@@ -45,7 +45,7 @@
                   size="small"
                   class="tag-input"
                   @keyup.enter="addTag(config.advantages)"
-                  @blur="addTag(config.advantages)"
+                  @blur="() => setTimeout(() => addTag(config.advantages), 100)"
                 />
                 <el-button v-else size="small" class="tag-add" @click="showAdvInput">+ 优势</el-button>
               </div>
@@ -67,7 +67,7 @@
                   size="small"
                   class="tag-input"
                   @keyup.enter="addTag(config.competitors, 'comp')"
-                  @blur="addTag(config.competitors, 'comp')"
+                  @blur="() => setTimeout(() => addTag(config.competitors, 'comp'), 100)"
                 />
                 <el-button v-else size="small" class="tag-add" @click="showCompInput">+ 竞品</el-button>
               </div>
@@ -126,12 +126,11 @@ import { Check, MagicStick } from '@element-plus/icons-vue'
 import { geoApi } from '@/api/geo'
 
 const modelOptions = [
-  { label: 'GPT-4o', value: 'gpt-4o' },
-  { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet' },
-  { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro' },
+  { label: '本地 SMOL (local-mlx)', value: 'local-mlx' },
   { label: 'DeepSeek Chat', value: 'deepseek-chat' },
-  { label: '通义千问 Max', value: 'qwen-max' },
-  { label: '文心一言 4.0', value: 'ernie-4.0' }
+  { label: '通义千问 (qwen-plus)', value: 'qwen-plus' },
+  { label: '豆包 (doubao-pro-32k)', value: 'doubao-pro-32k' },
+  { label: '文心一言 (ernie)', value: 'ernie-4.0-8k-latest' }
 ]
 
 const config = reactive({
@@ -139,8 +138,8 @@ const config = reactive({
   description: '',
   advantages: [],
   competitors: [],
-  default_model: 'gpt-4o',
-  verify_models: ['gpt-4o', 'deepseek-chat']
+  default_model: 'deepseek-chat',
+  verify_models: ['deepseek-chat', 'local-mlx']
 })
 
 const loading = ref(false)
@@ -188,7 +187,7 @@ const loadConfig = async () => {
     // 后端以顿号分隔字符串存储，前端拆为数组便于标签编辑
     config.advantages = splitCN(res?.advantages)
     config.competitors = splitCN(res?.competitors)
-    config.default_model = res?.default_model || 'gpt-4o'
+    config.default_model = res?.default_model || 'deepseek-chat'
     config.verify_models = splitCN(res?.verify_models)
   } catch (e) {
     ElMessage.error(e.message || '配置加载失败')

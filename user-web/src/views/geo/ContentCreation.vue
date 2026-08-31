@@ -33,7 +33,7 @@
                   size="small"
                   class="adv-input"
                   @keyup.enter="addAdv"
-                  @blur="addAdv"
+                  @blur="() => setTimeout(addAdv, 100)"
                 />
                 <el-button v-else size="small" class="adv-add" @click="showAdvInput">+ 优势</el-button>
               </div>
@@ -131,17 +131,18 @@ import { EditPen, DocumentCopy, DataAnalysis } from '@element-plus/icons-vue'
 import { geoApi } from '@/api/geo'
 
 const models = [
-  { label: 'GPT-4o', value: 'gpt-4o' },
-  { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet' },
+  { label: '本地 SMOL (local-mlx)', value: 'local-mlx' },
   { label: 'DeepSeek Chat', value: 'deepseek-chat' },
-  { label: '通义千问 Max', value: 'qwen-max' }
+  { label: '通义千问 (qwen-plus)', value: 'qwen-plus' },
+  { label: '豆包 (doubao-pro-32k)', value: 'doubao-pro-32k' },
+  { label: '文心一言 (ernie)', value: 'ernie-4.0-8k-latest' }
 ]
 
 const form = reactive({
   keyword: '',
   brand_name: '',
   advantages: [],
-  model: 'gpt-4o',
+  model: 'deepseek-chat',
   word_count: 800,
   style: 'professional'
 })
