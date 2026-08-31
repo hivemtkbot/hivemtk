@@ -58,7 +58,9 @@ func (s *HandoffChainService) LoadRules(ctx context.Context) ([]HandoffRule, err
 		return defaultHandoffRules(), nil
 	}
 	var kv model.SystemConfigKV
-	err := s.db.WithContext(ctx).Where("`key` = ?", "handoff_rules").First(&kv).Error
+	// ⚠️ PostgreSQL 不支持 MySQL 风格反引号标识符，必须裸写 key（此处 key 在 PG 中为非保留字）。
+	// 曾因 `` `key` `` 导致 syntax error at or near "=" ，使全部会话的升级规则判定失败并回退错误。
+	err := s.db.WithContext(ctx).Where("key = ?", "handoff_rules").First(&kv).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return defaultHandoffRules(), nil

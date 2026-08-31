@@ -209,12 +209,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/marketing-flows/list", marketingFlowCtrl.GetFlowList)
 	doReg("GET", "/marketing-flows/:id", marketingFlowCtrl.GetFlowByID)
 	// P0-20 marketing-flows 别名写操作 admin only
-	doRegAdmin("POST", "/marketing-flows", marketingFlowCtrl.CreateFlow)
-	doRegAdmin("PUT", "/marketing-flows/:id", marketingFlowCtrl.UpdateFlow)
-	doRegAdmin("DELETE", "/marketing-flows/:id", marketingFlowCtrl.DeleteFlow)
-	doRegAdmin("POST", "/marketing-flows/:id/activate", marketingFlowCtrl.ActivateFlow)
-	doRegAdmin("POST", "/marketing-flows/:id/pause", marketingFlowCtrl.PauseFlow)
-	doRegAdmin("POST", "/marketing-flows/:id/stop", marketingFlowCtrl.StopFlow)
 	doReg("GET", "/marketing-flows/executions", marketingFlowCtrl.GetExecutionList)
 	doReg("GET", "/marketing-flows/executions/stats", marketingFlowCtrl.GetExecutionStats)
 
@@ -263,22 +257,10 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/quick-replies", quickReplyCtrl.GetReplies)
 	doReg("GET", "/quick-replies/list", quickReplyCtrl.GetReplies)
 	doReg("GET", "/quick-replies/categories", quickReplyCtrl.GetReplyCategories)
-	doRegAdmin("POST", "/quick-replies", quickReplyCtrl.CreateReply)
-	doRegAdmin("PUT", "/quick-replies/:id", quickReplyCtrl.UpdateReply)
-	doRegAdmin("DELETE", "/quick-replies/:id", quickReplyCtrl.DeleteReply)
 
-	sessionTagCtrl := controller.NewSessionTagController()
-	doReg("GET", "/session-tags", sessionTagCtrl.GetTags)
-	doReg("GET", "/session-tags/list", sessionTagCtrl.GetTags)
-	doRegAdmin("POST", "/session-tags", sessionTagCtrl.CreateTag)
-	doRegAdmin("PUT", "/session-tags/:id", sessionTagCtrl.UpdateTag)
-	doRegAdmin("DELETE", "/session-tags/:id", sessionTagCtrl.DeleteTag)
 
 	aiSuggestionCtrl := controller.NewAISuggestionController()
 	doReg("GET", "/ai-suggestions", aiSuggestionCtrl.GetSuggestions)
-	doReg("GET", "/ai-suggestions/list", aiSuggestionCtrl.GetSuggestions)
-	doReg("GET", "/ai-suggestions/:session_id", aiSuggestionCtrl.GetSuggestions)
-	doReg("POST", "/ai-suggestions/:id/use", aiSuggestionCtrl.UseSuggestion)
 
 	objCtrl := controller.NewObjectionHandlerController()
 	doReg("GET", "/objection-templates", objCtrl.ListCategories)
@@ -386,17 +368,11 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/feishu/accounts/list", feishuCtrl.List)
 	doReg("GET", "/feishu/accounts/:id", feishuCtrl.Get)
 	// P0-18 平台账号别名写操作 admin only（AppSecret/BotToken/AccessToken 敏感）
-	doRegAdmin("POST", "/feishu/accounts", feishuCtrl.Create)
-	doRegAdmin("PUT", "/feishu/accounts/:id", feishuCtrl.Update)
-	doRegAdmin("DELETE", "/feishu/accounts/:id", feishuCtrl.Delete)
 
 	tgCtrl := controller.NewTelegramAccountController(service.NewTelegramService(gormDB))
 	doReg("GET", "/telegram/accounts", tgCtrl.List)
 	doReg("GET", "/telegram/accounts/list", tgCtrl.List)
 	doReg("GET", "/telegram/accounts/:id", tgCtrl.Get)
-	doRegAdmin("POST", "/telegram/accounts", tgCtrl.Create)
-	doRegAdmin("PUT", "/telegram/accounts/:id", tgCtrl.Update)
-	doRegAdmin("DELETE", "/telegram/accounts/:id", tgCtrl.Delete)
 
 	shortLinkCtrl := controller.NewShortLinkController(service.NewShortLinkService(gormDB))
 	doReg("GET", "/short-links", shortLinkCtrl.GetList)
@@ -460,9 +436,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/dashboards", dashCtrl.GetScreenList)
 	doReg("GET", "/dashboards/list", dashCtrl.GetScreenList)
 	doReg("GET", "/dashboards/:id", dashCtrl.GetScreenByID)
-	doRegAdmin("POST", "/dashboards", dashCtrl.CreateScreen)
-	doRegAdmin("PUT", "/dashboards/:id", dashCtrl.UpdateScreen)
-	doRegAdmin("DELETE", "/dashboards/:id", dashCtrl.DeleteScreen)
 	doReg("GET", "/dashboards/:id/data", dashCtrl.GetDashboardData)
 	doReg("GET", "/dashboards/data", dashCtrl.GetDashboardData)
 	doReg("GET", "/dashboards/activities", dashCtrl.GetRealtimeActivities)
@@ -679,13 +652,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/integrations/list", integrationCtrl.GetAccountList)
 	doReg("GET", "/integrations/:id", integrationCtrl.GetAccountByID)
 	// P0-21 integrations 别名写操作 admin only（corp_secret 等敏感凭据）
-	doRegAdmin("POST", "/integrations", integrationCtrl.CreateAccount)
-	doRegAdmin("PUT", "/integrations/:id", integrationCtrl.UpdateAccount)
-	doRegAdmin("DELETE", "/integrations/:id", integrationCtrl.DeleteAccount)
-	doReg("GET", "/integrations/:id/sync-logs", integrationCtrl.GetSyncLogs)
-	doRegAdmin("POST", "/integrations/:id/test", integrationCtrl.TestIntegration)
-	doRegAdmin("POST", "/integrations/:id/sync/customers", integrationCtrl.SyncCustomers)
-	doRegAdmin("POST", "/integrations/:id/sync/products", integrationCtrl.SyncProducts)
 
 	opLogCtrl := controller.NewOperationLogController()
 	doRegAdmin("GET", "/operation-logs", opLogCtrl.GetList)
@@ -695,10 +661,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doRegAdmin("GET", "/operation-logs/export", opLogCtrl.ExportLogs)
 	doRegAdmin("POST", "/operation-logs/clean", opLogCtrl.CleanLogs)
 
-	backupCtrl := controller.NewBackupController()
-	doRegAdmin("GET", "/backups", backupCtrl.GetBackupList)
-	doRegAdmin("GET", "/backups/list", backupCtrl.GetBackupList)
-	doRegAdmin("GET", "/backups/:id", backupCtrl.GetBackupByID)
 
 	churnCtrl := opsctrl.NewChurnPredictionController()
 	doReg("GET", "/churn-prediction", churnCtrl.GetChurnPredictions)
@@ -716,10 +678,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/churn/warnings", churnCtrl.GetChurnWarnings)
 	doReg("GET", "/churn/unhandled-warnings", churnCtrl.GetUnhandledWarnings)
 	doReg("GET", "/churn/model-config", churnCtrl.GetModelConfig)
-	doRegAdmin("POST", "/churn/model-config", churnCtrl.SaveModelConfig)
 	doReg("GET", "/churn/statistics", churnCtrl.GetChurnStatistics)
 	doReg("GET", "/churn/risk-distribution", churnCtrl.GetRiskDistribution)
-	doRegAdmin("POST", "/backups", backupCtrl.CreateBackup)
-	doRegAdmin("DELETE", "/backups/:id", backupCtrl.DeleteBackup)
 }
 

@@ -222,8 +222,13 @@ const addInterceptors = () => {
 
         switch (status) {
           case 401:
-            if (!silent) showToast(t('http.loginExpired'))
-            clearAuthAndGoLogin()
+            // _silent 请求（后台轮询/探测）绝不触发登出：401 可能来自探活类端点
+            // 的会话语义差异，清登录态会引发全站 401 雪崩（R40 实锤）。
+            // 登出只由用户显式操作或非 silent 的业务 401 触发。
+            if (!silent) {
+              showToast(t('http.loginExpired'))
+              clearAuthAndGoLogin()
+            }
             break
           case 403:
             if (!silent) showToast(t('http.accessDenied'))

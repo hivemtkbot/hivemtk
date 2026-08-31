@@ -15,6 +15,7 @@ import (
 
 	"net/url"
 
+	"os"
 	"strconv"
 
 	"strings"
@@ -75,6 +76,7 @@ func (DelayedOutboundReply) TableName() string { return "reach_delayed_outbound"
 
 // isAIReplyQuietHours H-3：AI 会话回复静默窗口 23:00-7:00 (CST) 判定
 func isAIReplyQuietHours(t time.Time) bool {
+	if os.Getenv("DISABLE_AI_QUIET_HOURS") != "" { return false }
 	return inQuietHoursWindow(t, aiReplyQuietStartHour, aiReplyQuietEndHour)
 }
 

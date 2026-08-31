@@ -754,7 +754,7 @@ func (s *InboxIngressService) HandleIngressBatch(ctx context.Context, events []*
 		}
 
 		if len(newInboundContents) == 0 || firstInboundEvent == nil {
-			continue
+continue
 		}
 
 		humanLocked, _ := s.IsSessionHumanLocked(ctx, firstInboundEvent.SessionID, firstInboundEvent.Content)
@@ -772,7 +772,7 @@ func (s *InboxIngressService) HandleIngressBatch(ctx context.Context, events []*
 			}
 		}
 
-		mergedEvent := *firstInboundEvent
+mergedEvent := *firstInboundEvent
 		if len(newInboundContents) > 1 {
 			mergedEvent.Content = strings.Join(newInboundContents, "\n")
 			mergedEvent.EventID = uuid.NewString()

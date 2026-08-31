@@ -209,7 +209,10 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 		if err == nil && existing != nil {
 			online, _ := s.countOnlineAgents(ctx)
 			// IDOR 修复：为续接会话生成 visitor_token
-			token, _ := GenerateVisitorToken(channel.ChannelID, req.VisitorID, existing.SessionID)
+			token, terr := GenerateVisitorToken(channel.ChannelID, req.VisitorID, existing.SessionID)
+			if terr != nil {
+				return nil, fmt.Errorf("生成 visitor_token 失败: %w", terr)
+			}
 			return &VisitorOpenSessionResult{
 				Session:        existing,
 				IsNewSession:   false,
@@ -271,7 +274,8 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 	// IDOR 修复：为新会话生成 visitor_token，绑定 (channelID, visitorID, sessionID)
 	token, err := GenerateVisitorToken(channel.ChannelID, req.VisitorID, session.SessionID)
 	if err != nil {
-		logger.Warnf("[visitor] 生成 visitor_token 失败: %v", err)
+		// fail-closed：无 token 则后续 WS/会话操作全被拒，宁可开 会话 失败也不返回残缺态
+		return nil, fmt.Errorf("生成 visitor_token 失败: %w", err)
 	}
 	return &VisitorOpenSessionResult{
 		Session:        session,

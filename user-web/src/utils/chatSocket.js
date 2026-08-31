@@ -39,6 +39,8 @@ export class ChatSocket {
   constructor(options) {
     this.sessionId = options.sessionId
     this.visitorId = options.visitorId
+    // 访客 HMAC 凭证（ws/visitor fail-closed 后必传）；有它=访客上下文
+    this.visitorToken = options.visitorToken || options.token || ''
     // 私域部署：channelId 可选（缺失时后端使用 default）
     this.channelId = options.channelId || 'default'
     this.baseURL = options.baseURL || (typeof window !== 'undefined' ? window.location.origin : '')
@@ -116,7 +118,8 @@ export class ChatSocket {
     const host = this.baseURL.replace(/^https?:\/\//, '')
     // since_seq 增量补发：重连时透传 lastSeq 让服务端走 seq 路径（精确）
     const sinceSeqPart = this.lastSeq > 0 ? `&since_seq=${this.lastSeq}` : ''
-    const url = `${protocol}://${host}/api/ws/visitor?session_id=${encodeURIComponent(this.sessionId)}&visitor_id=${encodeURIComponent(this.visitorId)}&channel_id=${encodeURIComponent(this.channelId)}${sinceSeqPart}`
+    const tokenPart = this.visitorToken ? `&visitor_token=${encodeURIComponent(this.visitorToken)}` : ''
+    const url = `${protocol}://${host}/api/ws/visitor?session_id=${encodeURIComponent(this.sessionId)}&visitor_id=${encodeURIComponent(this.visitorId)}&channel_id=${encodeURIComponent(this.channelId)}${sinceSeqPart}${tokenPart}`
 
     try {
       this.ws = new WebSocket(url)
@@ -174,14 +177,15 @@ export class ChatSocket {
 
   // USR-RT-05: 异步 token 刷新
   async _tryRefreshTokenAndReconnect() {
+    // 访客上下文：embed 页无主站登录态是常态。仅凭 WS 4001 就去刷新/清除主站
+    // token 会把访客会话升级为"全站登出"事故（全链路审查 R40 实锤：/chat/embed
+    // 触发后 140 页全部 401 雪崩）。访客上下文只走重连。
+    const hasAgentToken = !!localStorage.getItem('token')
+    if (!hasAgentToken) {
+      this.onError(new Error('auth_required'))
+      return
+    }
     try {
-      const newToken = localStorage.getItem('token')
-      if (!newToken) {
-        // 没有 token，触发登录跳转（由 onError 回调处理）
-        this.onError(new Error('auth_required'))
-        return
-      }
-      // 走 request.js 的 refresh 端点
       const { http } = await import('@/utils/request')
       const resp = await http.post('/api/auth/refresh-token', undefined, { _silent: true })
       if (resp && resp.token) {

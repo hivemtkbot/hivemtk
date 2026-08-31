@@ -31,6 +31,7 @@ external:
 # ============================================================
 security:
   jwt_secret: "${USER_JWT_SECRET:your-super-secret-jwt-key-at-least-32-chars-long}"
+  visitor_token_secret: "${VISITOR_TOKEN_SECRET:}"
 
 logging:
   level: "info"

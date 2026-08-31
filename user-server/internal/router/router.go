@@ -376,6 +376,8 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		setupWhatsAppCloudRoutes(auth, whatsappCloudSvc, gormDB)
 
 		webhookSvc = service.NewWebhookService(gormDB)
+		webhookSvc.SetAgentBindingService(context.Background(), channelBindingSvcGlobal)
+		webhookSvc.SetSmartOrchestrator(context.Background(), orchestrator)
 		dingtalkAppSvc = service.NewDingTalkAppService(gormDB, webhookSvc)
 
 		setupDingTalkAppRoutes(auth, dingtalkAppSvc)

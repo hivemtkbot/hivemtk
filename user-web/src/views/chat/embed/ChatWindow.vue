@@ -117,6 +117,7 @@ const effectiveChannelId = computed(() => {
 // 状态
 const visitorId = ref('')
 const sessionId = ref('')
+const visitorToken = ref('')
 const messages = ref([])
 const loading = ref(false)
 const sending = ref(false)
@@ -213,6 +214,7 @@ const openSession = async (resume = true) => {
     }, effectiveChannelId.value, visitorId.value)
     const data = res?.data || res
     sessionId.value = data.session?.session_id || ''
+    visitorToken.value = data.visitor_token || ''
     if (data.welcome_message) {
       messages.value.push({
         sender_type: 'system',
@@ -257,6 +259,7 @@ const connectWebSocket = () => {
   socket = new ChatSocket({
     sessionId: sessionId.value,
     visitorId: visitorId.value,
+    visitorToken: visitorToken.value,
     channelId: effectiveChannelId.value,
     baseURL: window.location.origin,
     onMessage: (payload) => {

@@ -37,6 +37,12 @@ test('[CLICK-ALL] 全页面模拟人工点击扫描', async ({ page }) => {
     log.push(e)
     realBugs.push(e)
   })
+  page.on('requestfailed', (r) => {
+    const u = r.url()
+    if (u.includes('/api/') && !benign(u)) {
+      log.push(`[${ctxRoute} :: ${ctxAction}] REQFAIL ${r.failure()?.errorText || '?'} ${r.method()} ${u.slice(0, 130)}`)
+    }
+  })
   page.on('response', (res) => {
     if (res.status() >= 500) {
       const e = `[${ctxRoute} :: ${ctxAction}] 5xx ${res.status()} ${res.url()}`
