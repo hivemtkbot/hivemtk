@@ -33,18 +33,23 @@ func NewContentService(ar repository.GeoArticleRepository, or repository.GeoOpti
 
 // GenerateContent 生成内容
 
-// extractTitleAndContent 从 LLM 生成的 Markdown 中抽取一级标题作为 Title，
-// 并从正文剥离该标题行（避免详情页重复渲染大标题）。
+// extractTitleAndContent 从 LLM 生成的 Markdown 中抽取第一个标题行作为 Title，
+// 并从正文剥离该行（避免详情页重复渲染大标题）。
+// 支持 # / ## / ### / #### 等各级 Markdown 标题。
 func extractTitleAndContent(raw string) (title, content string) {
 	content = strings.TrimSpace(raw)
-	lines := strings.SplitN(content, "\n", 2)
-	first := strings.TrimSpace(lines[0])
-	if strings.HasPrefix(first, "# ") {
-		title = strings.TrimPrefix(first, "# ")
-		if len(lines) > 1 {
-			content = strings.TrimSpace(lines[1])
-		} else {
-			content = ""
+	// 逐行扫描，找第一个 Markdown 标题（# 到 ######）
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		for h := 6; h >= 1; h-- {
+			prefix := strings.Repeat("#", h) + " "
+			if strings.HasPrefix(trimmed, prefix) {
+				title = strings.TrimSpace(strings.TrimPrefix(trimmed, prefix))
+				// 去掉标题行后重新拼接正文
+				content = strings.TrimSpace(strings.Join(lines[i+1:], "\n"))
+				return
+			}
 		}
 	}
 	if title == "" {
