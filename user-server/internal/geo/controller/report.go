@@ -11,12 +11,13 @@ import (
 
 // ReportController GEO 报表控制器。
 type ReportController struct {
-	svc *service.ReportService
+	svc         *service.ReportService
+	analyticsSvc *service.GeoDecisionAnalyticsService
 }
 
 // NewReportController 构造报表控制器。
-func NewReportController(svc *service.ReportService) *ReportController {
-	return &ReportController{svc: svc}
+func NewReportController(svc *service.ReportService, analyticsSvc *service.GeoDecisionAnalyticsService) *ReportController {
+	return &ReportController{svc: svc, analyticsSvc: analyticsSvc}
 }
 
 // GetReport 获取 GEO 汇总报表
@@ -58,4 +59,55 @@ func (c *ReportController) GetAPICosts(ctx *gin.Context) {
 		return
 	}
 	response.Success(ctx, result, "获取 API 成本成功")
+}
+
+// ShareOfVoice SOV 竞品率分析
+// GET /geo/sov
+func (c *ReportController) ShareOfVoice(ctx *gin.Context) {
+	if c.analyticsSvc == nil {
+		response.Error(ctx, http.StatusServiceUnavailable, "analytics service 未初始化")
+		return
+	}
+	result, err := c.analyticsSvc.GetShareOfVoice(ctx.Request.Context(), ctx.Query("intent"))
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, "SOV 分析失败: "+err.Error())
+		return
+	}
+	response.Success(ctx, result, "ok")
+}
+
+// CrawlerStats 爬虫统计
+// GET /geo/crawler-stats
+func (c *ReportController) CrawlerStats(ctx *gin.Context) {
+	if c.analyticsSvc == nil {
+		response.Error(ctx, http.StatusServiceUnavailable, "analytics service 未初始化")
+		return
+	}
+	result, err := c.analyticsSvc.GetCrawlerStats(ctx.Request.Context())
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, "爬虫统计失败: "+err.Error())
+		return
+	}
+	response.Success(ctx, result, "ok")
+}
+
+// InaccurateClaims 不准确声明检测
+// POST /geo/inaccurate-claims
+func (c *ReportController) InaccurateClaims(ctx *gin.Context) {
+	if c.analyticsSvc == nil {
+		response.Error(ctx, http.StatusServiceUnavailable, "analytics service 未初始化")
+		return
+	}
+	var body struct {
+		BrandName string `json:"brand_name" binding:"required"`
+	}
+	if !response.BindJSON(ctx, &body) {
+		return
+	}
+	result, err := c.analyticsSvc.DetectInaccurateClaims(ctx.Request.Context(), body.BrandName)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, "不准确声明检测失败: "+err.Error())
+		return
+	}
+	response.Success(ctx, result, "ok")
 }

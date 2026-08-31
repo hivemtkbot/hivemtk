@@ -69,36 +69,7 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 		georepo.NewGeoCrawlerVisitRepository(gormDB),
 		llmAdapter,
 		georepo.NewGeoAPICallRepositoryWithDB(gormDB))
-	auth.GET("/geo/sov", func(c *gin.Context) {
-		result, err := analyticsSvc.GetShareOfVoice(c.Request.Context(), c.Query("intent"))
-		if err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(200, gin.H{"code": 0, "data": result})
-	})
-	auth.GET("/geo/crawler-stats", func(c *gin.Context) {
-		result, err := analyticsSvc.GetCrawlerStats(c.Request.Context())
-		if err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(200, gin.H{"code": 0, "data": result})
-	})
-	auth.POST("/geo/inaccurate-claims", func(c *gin.Context) {
-		var body struct{ BrandName string `json:"brand_name"` }
-		if err := c.BindJSON(&body); err != nil || body.BrandName == "" {
-			c.JSON(400, gin.H{"error": "brand_name required"})
-			return
-		}
-		result, err := analyticsSvc.DetectInaccurateClaims(c.Request.Context(), body.BrandName)
-		if err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(200, gin.H{"code": 0, "data": result})
-	})
-	// v3 GEO 决策链化 Phase3：注入线索捕获端口（capture_lead 执行器 → 主域 clue）
+		// v3 GEO 决策链化 Phase3：注入线索捕获端口（capture_lead 执行器 → 主域 clue）
 	geoChainRepo := georepo.NewGeoQueryChainRepository(gormDB)
 	wfSvc.RegisterCaptureLeadExecutor(geoservice.CaptureLeadFunc(func(ctx context.Context, contact, contactType, chainID, intent string) (string, error) {
 		clue := &model.Clue{
@@ -125,7 +96,7 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	keywordCtrl := geoctrl.NewKeywordController(keywordSvc)
 	contentCtrl := geoctrl.NewContentController(contentSvc)
 	verifyCtrl := geoctrl.NewVerificationController(verifySvc)
-	reportCtrl := geoctrl.NewReportController(reportSvc)
+	reportCtrl := geoctrl.NewReportController(reportSvc, analyticsSvc)
 	configCtrl := geoctrl.NewConfigController(configSvc)
 	platformCtrl := geoctrl.NewPlatformController(platformSvc)
 	kbCtrl := geoctrl.NewKBController(kbSvc)
@@ -180,6 +151,11 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	geo.GET("/reports/summary", reportCtrl.GetReport)
 	geo.GET("/reports/roi", reportCtrl.GetROI)
 	geo.GET("/reports/api-costs", reportCtrl.GetAPICosts)
+
+	// v3 竞品对齐分析（A1 SOV / A6 爬虫 / A7 不准确检测）
+	geo.GET("/sov", reportCtrl.ShareOfVoice)
+	geo.GET("/crawler-stats", reportCtrl.CrawlerStats)
+	geo.POST("/inaccurate-claims", reportCtrl.InaccurateClaims)
 
 	// 配置路由（读取：所有登录用户）
 	geo.GET("/config", configCtrl.GetConfig)
