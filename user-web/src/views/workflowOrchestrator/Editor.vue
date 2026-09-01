@@ -519,7 +519,13 @@ const autoLayout = () => {
 const loadVersions = async () => {
   try {
     const result = await workflowOrchestratorApi.listVersions(workflowId.value)
-    versions.value = result?.data || result?.list || []
+    // request.js 拦截器已解包为 data.data（后端 SuccessWithList 返回数组本体），
+    // 此处需兼容数组 / {list} / {data} 三种形态，否则 versions 恒空 → currentVersion 恒 null
+    // → 保存按钮永远报"没有版本可保存"（R54 实测）
+    versions.value = Array.isArray(result)
+      ? result
+      : (Array.isArray(result?.list) ? result.list
+        : (Array.isArray(result?.data) ? result.data : []))
     if (versions.value.length > 0) {
       // 默认选择草稿或最新版本
       const draft = versions.value.find(v => v.status === 'draft')
