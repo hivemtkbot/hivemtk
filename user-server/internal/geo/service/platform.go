@@ -48,18 +48,12 @@ type platformDef struct {
 	Capability string
 }
 
-// defaultPlatforms 平台清单：标注真实能力，前端按 capability 展示可用状态
+// defaultPlatforms 平台清单：只保留技术上真实可实现的平台
+// Cookie 灰产类（掘金/知乎/CSDN/微博/小红书/抖音/头条）全部剔除，标记 disabled
 func defaultPlatforms() []platformDef {
 	return []platformDef{
 		{Name: "github_readme", DisplayName: "GitHub README", URL: "https://github.com", Path: "README.md", Branch: "master", AuthType: "token", Enabled: true, Capability: "real_api"},
 		{Name: "github_blog", DisplayName: "GitHub Blog", URL: "https://github.com", Path: "blog/", Branch: "master", AuthType: "token", Enabled: true, Capability: "real_api"},
-		{Name: "juejin", DisplayName: "掘金", URL: "https://juejin.cn", AuthType: "cookie", Enabled: false, Capability: "cookie_gray"},
-		{Name: "zhihu", DisplayName: "知乎", URL: "https://zhihu.com", AuthType: "cookie", Enabled: false, Capability: "cookie_gray"},
-		{Name: "csdn", DisplayName: "CSDN", URL: "https://csdn.net", AuthType: "cookie", Enabled: false, Capability: "cookie_gray"},
-		{Name: "weibo", DisplayName: "微博", URL: "https://weibo.com", AuthType: "oauth", Enabled: false, Capability: "cookie_gray"},
-		{Name: "xiaohongshu", DisplayName: "小红书", URL: "https://xiaohongshu.com", AuthType: "cookie", Enabled: false, Capability: "cookie_gray"},
-		{Name: "douyin", DisplayName: "抖音", URL: "https://douyin.com", AuthType: "oauth", Enabled: false, Capability: "cookie_gray"},
-		{Name: "toutiao", DisplayName: "今日头条", URL: "https://toutiao.com", AuthType: "cookie", Enabled: false, Capability: "cookie_gray"},
 		{Name: "medium", DisplayName: "Medium", URL: "https://medium.com", AuthType: "oauth", Enabled: true, Capability: "real_api"},
 		{Name: "wordpress", DisplayName: "WordPress", AuthType: "xmlrpc", Enabled: true, Capability: "real_api"},
 		{Name: "custom", DisplayName: "自定义平台", AuthType: "custom", Enabled: false, Capability: "stub"},
