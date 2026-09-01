@@ -592,15 +592,17 @@ import { CHANNEL_OPTIONS, getChannelLabel } from '@/constants/channel'
 // ====== 常量映射 ======
 
 const stepOptions = [
-  { value: 'audience', label: '1. 受众筛选' },
-  { value: 'content_prepare', label: '2. 内容准备' },
-  { value: 'account_select', label: '3. 账号选择' },
-  { value: 'rate_limit', label: '4. 限流控制' },
-  { value: 'message_gen', label: '5. 文案生成' },
-  { value: 'send', label: '6. 发送执行' },
-  { value: 'track_result', label: '7. 结果追踪' },
-  { value: 'retry', label: '8. 失败重试' },
-  { value: 'report', label: '9. 汇总报告' }
+  // R57: label 不带编号 — 详情弹窗 `{{ i+1 }}.` 与表格列各自负责编号，
+  // label 里再带数字会产生 "1. 1. 受众筛选" 双重编号
+  { value: 'audience', label: '受众筛选' },
+  { value: 'content_prepare', label: '内容准备' },
+  { value: 'account_select', label: '账号选择' },
+  { value: 'rate_limit', label: '限流控制' },
+  { value: 'message_gen', label: '文案生成' },
+  { value: 'send', label: '发送执行' },
+  { value: 'track_result', label: '结果追踪' },
+  { value: 'retry', label: '失败重试' },
+  { value: 'report', label: '汇总报告' }
 ]
 
 const jobStateOptions = [
