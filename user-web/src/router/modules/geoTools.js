@@ -76,5 +76,11 @@ export default [
     name: 'GeoConfig',
     component: () => import('@/views/geo/ConfigOptimizer.vue'),
     meta: { title: '配置优化', group: 'analytics', icon: 'Setting', requiresAuth: true }
+  },
+  {
+    path: '/geo-tools/competitors',
+    name: 'GeoCompetitors',
+    component: () => import('@/views/geo/CompetitorManage.vue'),
+    meta: { title: '竞品管理', group: 'analytics', icon: 'Users', requiresAuth: true }
   }
 ]

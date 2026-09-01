@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -79,21 +80,24 @@ var competitorSeeds = []competitorSeed{
 }
 
 // MonitorCrawlerService 关键词维度 AI 爬虫监控
-// 核心：读 geo_keywords → 查 keywordToLandings 拿 HiveMTK 落地页 → 爬竞品种子页 → 每条访问带 keyword 标签
+// 核心：读 geo_keywords → 查 keywordToLandings 拿 HiveMTK 落地页 → 读 geo_competitors DB → 爬所有竞品 → 每条访问带 keyword 标签
 type MonitorCrawlerService struct {
-	crawlerRepo repository.GeoCrawlerVisitRepository
-	keywordRepo repository.GeoKeywordRepository
-	httpClient  *http.Client
+	crawlerRepo    repository.GeoCrawlerVisitRepository
+	keywordRepo    repository.GeoKeywordRepository
+	competitorRepo repository.GeoCompetitorRepository
+	httpClient     *http.Client
 }
 
 func NewMonitorCrawlerService(
 	crawlerRepo repository.GeoCrawlerVisitRepository,
 	keywordRepo repository.GeoKeywordRepository,
+	competitorRepo repository.GeoCompetitorRepository,
 ) *MonitorCrawlerService {
 	return &MonitorCrawlerService{
-		crawlerRepo: crawlerRepo,
-		keywordRepo: keywordRepo,
-		httpClient:  &http.Client{
+		crawlerRepo:    crawlerRepo,
+		keywordRepo:    keywordRepo,
+		competitorRepo: competitorRepo,
+		httpClient:      &http.Client{
 			Timeout: 10 * time.Second,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) >= 3 {
@@ -116,13 +120,16 @@ func (s *MonitorCrawlerService) RunCrawlerCron(ctx context.Context) (int, error)
 		kws = defaultSeedKeywords()
 	}
 
-	// 2. 构造 (keyword × landingPage) 爬取任务
+	// 2. 加载竞品（从 DB，兜底硬编码）
+	competitors := s.loadCompetitors(ctx)
+
+	// 3. 构造 (keyword × landingPage) 爬取任务
 	type task struct {
-		Keyword  string
-		URL      string
+		Keyword   string
+		URL       string
 		IsHiveMTK bool
 	}
-	tasks := make([]task, 0, len(kws)*5+20)
+	tasks := make([]task, 0, len(kws)*6+30)
 
 	for _, kw := range kws {
 		// HiveMTK 落地页（优先 keywordToLandings 映射，兜底首页）
@@ -134,17 +141,22 @@ func (s *MonitorCrawlerService) RunCrawlerCron(ctx context.Context) (int, error)
 			tasks = append(tasks, task{Keyword: kw, URL: "https://hive.xapptool.cn/", IsHiveMTK: true})
 		}
 
-		// 每个 keyword 随机爬 1-2 个竞品（竞品不做 keyword-specific 落地页，只爬基础页）
-		competitor := competitorSeeds[rand.Intn(len(competitorSeeds))]
-		path := competitor.Paths[rand.Intn(len(competitor.Paths))]
-		tasks = append(tasks, task{
-			Keyword:   kw,
-			URL:       fmt.Sprintf("https://%s%s", competitor.Domain, path),
-			IsHiveMTK: false,
-		})
+		// 爬所有 active 竞品（每个 keyword 对每个竞品随机选 1 个 path）
+		for _, comp := range competitors {
+			paths := jsonPaths(comp.Paths) // datatypes.JSON → []string
+			if len(paths) == 0 {
+				paths = []string{"/"}
+			}
+			path := paths[rand.Intn(len(paths))]
+			tasks = append(tasks, task{
+				Keyword:   kw,
+				URL:       fmt.Sprintf("https://%s%s", comp.Domain, path),
+				IsHiveMTK: false,
+			})
+		}
 	}
 
-	// 3. 执行爬取（每任务 2 个随机 AI Bot UA）
+	// 4. 执行爬取（每任务 2 个随机 AI Bot UA）
 	visits := make([]*model.GeoCrawlerVisit, 0, len(tasks)*2)
 	var success, fail int
 	for i, t := range tasks {
@@ -167,7 +179,7 @@ func (s *MonitorCrawlerService) RunCrawlerCron(ctx context.Context) (int, error)
 	logger.Info(fmt.Sprintf("[GEO Crawler] 爬取完成: %d/%d 成功 (%.0f%%)",
 		success, success+fail, float64(success)/float64(success+fail+1)*100))
 
-	// 4. 批量写库
+	// 5. 批量写库
 	if s.crawlerRepo != nil && len(visits) > 0 {
 		if err := s.crawlerRepo.BulkCreate(ctx, visits); err != nil {
 			logger.Error(err, "[GEO Crawler] 批量写入失败")
@@ -175,8 +187,8 @@ func (s *MonitorCrawlerService) RunCrawlerCron(ctx context.Context) (int, error)
 		}
 	}
 
-	logger.Info(fmt.Sprintf("[GEO Crawler] 完成 keywords=%d 任务数=%d 写入=%d",
-		len(kws), len(tasks), len(visits)))
+	logger.Info(fmt.Sprintf("[GEO Crawler] 完成 keywords=%d competitors=%d 任务数=%d 写入=%d",
+		len(kws), len(competitors), len(tasks), len(visits)))
 	return len(visits), nil
 }
 
@@ -284,19 +296,63 @@ func indexOf(s, substr string) int {
 	return -1
 }
 
+// jsonPaths 把 datatypes.JSON ([]byte) 解析成 []string
+func jsonPaths(in []byte) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	var out []string
+	if err := json.Unmarshal(in, &out); err != nil {
+		return nil
+	}
+	return out
+}
+
+// loadCompetitors 从 geo_competitors 读取 active 竞品（兜底硬编码）
+func (s *MonitorCrawlerService) loadCompetitors(ctx context.Context) []*model.GeoCompetitor {
+	if s.competitorRepo != nil {
+		list, err := s.competitorRepo.ListActive(ctx)
+		if err == nil && len(list) > 0 {
+			return list
+		}
+	}
+	// 兜底：硬编码种子（防止 DB 表空时爬虫不跑）
+	out := make([]*model.GeoCompetitor, 0, len(competitorSeeds))
+	for _, cs := range competitorSeeds {
+		out = append(out, &model.GeoCompetitor{
+			Name:   cs.Domain,
+			Domain: cs.Domain,
+			Paths:  strSliceToJSON(cs.Paths),
+		})
+	}
+	return out
+}
+
 // CrawlerMonitorCron 关键词驱动爬虫定时任务（包级入口）
 func CrawlerMonitorCron() {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
+	n, _ := CrawlerMonitorCronWithContext(ctx)
+	logger.Info(fmt.Sprintf("[GEO Crawler] cron 完成，写入=%d 条", n))
+}
 
+// CrawlerMonitorCronSync 同步执行爬虫（手动触发入口，返回写入数和错误）
+func CrawlerMonitorCronSync() (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	return CrawlerMonitorCronWithContext(ctx)
+}
+
+func CrawlerMonitorCronWithContext(ctx context.Context) (int, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error(fmt.Errorf("panic: %v", r), "[GEO Crawler] panic recovered")
+		}
+	}()
 	svc := NewMonitorCrawlerService(
 		repository.NewGeoCrawlerVisitRepositoryDefault(),
 		repository.NewGeoKeywordRepository(),
+		repository.NewGeoCompetitorRepository(),
 	)
-	n, err := svc.RunCrawlerCron(ctx)
-	if err != nil {
-		logger.Error(err, "[GEO Crawler] 关键词驱动爬虫失败")
-		return
-	}
-	logger.Info(fmt.Sprintf("[GEO Crawler] cron 完成，写入=%d 条关键词驱动的 AI Bot 访问记录", n))
+	return svc.RunCrawlerCron(ctx)
 }

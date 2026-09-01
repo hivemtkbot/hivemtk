@@ -291,6 +291,7 @@
     "geoWorkflow": "Workflow",
     "geoMonitor": "Monitoring",
     "geoSovBoard": "Competitor SOV",
+    "geoCompetitors": "Competitor Mgmt",
     "geoCrawlerStats": "Crawler Stats",
     "geoEntityGraph": "Entity Graph"
   },

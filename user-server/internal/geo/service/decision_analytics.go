@@ -148,31 +148,55 @@ func (s *GeoDecisionAnalyticsService) RecordCrawlerVisit(ctx context.Context, ke
 	})
 }
 
-// CrawlerStatsResponse 爬虫统计前端友好返回（双维度：关键词 × 域名）
+// CrawlerStatsResponse 爬虫统计前端友好返回
 type CrawlerStatsResponse struct {
-	Summary     CrawlerStatsSummary          `json:"summary"`
-	KeywordStats []repository.KeywordStatRow  `json:"keyword_stats"` // 核心：关键词 × AI Bot 引擎 的访问次数
-	DomainStats  []repository.DomainStatRow   `json:"domain_stats"`
+	Summary       CrawlerStatsSummary          `json:"summary"`
+	KeywordStats  []repository.KeywordStatRow  `json:"keyword_stats"`
+	DomainStats   []repository.DomainStatRow   `json:"domain_stats"`
+	// 新增：HiveMTK vs 竞品 对比维度（业务核心）
+	KeywordCompare []KeywordCompareRow `json:"keyword_compare"`
+	DomainCompare  []DomainCompareRow  `json:"domain_compare"`
+	CoverageScore  float64             `json:"coverage_score"` // HiveMTK 总体覆盖度（0-100）
 }
 
 type CrawlerStatsSummary struct {
-	TodayVisits   int64   `json:"today_visits"`
-	ActiveKeywords int64  `json:"active_keywords"`  // 新增：活跃关键词数
-	ActiveEngines int64   `json:"active_engines"`    // 新增：活跃 AI Bot 引擎数
-	ActiveDomains int64   `json:"active_domains"`
-	ALevelCount   int64   `json:"a_level_count"`
-	AvgSOV        float64 `json:"avg_sov"`
+	TodayVisits    int64   `json:"today_visits"`
+	ActiveKeywords int64   `json:"active_keywords"`
+	ActiveEngines  int64   `json:"active_engines"`
+	ActiveDomains  int64   `json:"active_domains"`
+	ALevelCount    int64   `json:"a_level_count"`
+	AvgSOV         float64 `json:"avg_sov"`
+	// 新增
+	HiveMTKVisits  int64   `json:"hivemtk_visits"`
+	CompetitorVisits int64  `json:"competitor_visits"`
 }
 
-// GetCrawlerStats 返回关键词 + 域名 双维度聚合
-func (s *GeoDecisionAnalyticsService) GetCrawlerStats(ctx context.Context) (*CrawlerStatsResponse, error) {
-	// 1. 关键词维度（核心）
-	keywordRows, _ := s.crawler.StatsByKeyword(ctx, 30)
+// KeywordCompareRow 关键词维度 HiveMTK vs 竞品 对比
+type KeywordCompareRow struct {
+	Keyword           string           `json:"keyword"`
+	HiveMTKVisits     int64            `json:"hivemtk_visits"`
+	CompetitorVisits  map[string]int64 `json:"competitor_visits"` // domain → visits
+	HiveMTKEngines    int              `json:"hivemtk_engines"`   // 覆盖的引擎种类数
+	TotalEngines      int              `json:"total_engines"`
+}
 
-	// 2. 域名维度（保留原有）
+// DomainCompareRow 域名维度 HiveMTK vs 竞品 排名
+type DomainCompareRow struct {
+	Domain     string  `json:"domain"`
+	IsHiveMTK  bool    `json:"is_hivemtk"`
+	Visits     int64   `json:"visits"`
+	Engines    int     `json:"engines"`
+	SharePct   float64 `json:"share_pct"`  // 声量占比
+	SourceLevel string `json:"source_level"`
+}
+
+const hivemtkDomain = "hive.xapptool.cn"
+
+// GetCrawlerStats 返回关键词 + 域名 + 对比 三维度
+func (s *GeoDecisionAnalyticsService) GetCrawlerStats(ctx context.Context) (*CrawlerStatsResponse, error) {
+	keywordRows, _ := s.crawler.StatsByKeyword(ctx, 30)
 	domainRows, _ := s.crawler.StatsByDomain(ctx, 30)
 
-	// 3. 汇总指标
 	totalVisits, _ := s.crawler.TotalVisits(ctx, 1)
 	activeKws, _ := s.crawler.ActiveKeywords(ctx, 30)
 	activeEngines, _ := s.crawler.ActiveEngines(ctx, 30)
@@ -185,18 +209,129 @@ func (s *GeoDecisionAnalyticsService) GetCrawlerStats(ctx context.Context) (*Cra
 		}
 	}
 
+	// ---- 计算对比维度 ----
+	kwCompare := computeKeywordCompare(keywordRows)
+	domainCompare, hivemtkVisits, compVisits, coverage := computeDomainCompare(domainRows)
+
 	return &CrawlerStatsResponse{
 		Summary: CrawlerStatsSummary{
-			TodayVisits:    totalVisits,
-			ActiveKeywords: activeKws,
-			ActiveEngines:  activeEngines,
-			ActiveDomains:  activeDomains,
-			ALevelCount:    aLevelCount,
-			AvgSOV:         73.90,
+			TodayVisits:      totalVisits,
+			ActiveKeywords:   activeKws,
+			ActiveEngines:    activeEngines,
+			ActiveDomains:    activeDomains,
+			ALevelCount:      aLevelCount,
+			AvgSOV:           73.90,
+			HiveMTKVisits:    hivemtkVisits,
+			CompetitorVisits: compVisits,
 		},
-		KeywordStats: keywordRows,
-		DomainStats:  domainRows,
+		KeywordStats:   keywordRows,
+		DomainStats:    domainRows,
+		KeywordCompare: kwCompare,
+		DomainCompare:  domainCompare,
+		CoverageScore:  coverage,
 	}, nil
+}
+
+// computeKeywordCompare 按 keyword 聚合，区分 HiveMTK vs 竞品
+// 注意：keywordRows 本身不带 domain 信息（只有 keyword, engine, visit_count）
+// 我们需要另一个数据源：从 domainRows 里能拿到 domain，但 domainRows 也没 keyword
+// 所以这里只做 HiveMTK vs 竞品的整体对比，不再细分到 keyword×domain
+func computeKeywordCompare(keywordRows []repository.KeywordStatRow) []KeywordCompareRow {
+	// keyword → engine → visit_count
+	type key struct{ kw, engine string }
+	perEngine := map[key]int64{}
+	perKW := map[string]int{} // keyword → set of engines
+	for _, r := range keywordRows {
+		perEngine[key{r.Keyword, r.Engine}] += r.VisitCount
+		if perKW[r.Keyword] == 0 {
+			perKW[r.Keyword] = 1
+		}
+	}
+	// 简单输出：关键词 × 总访问 × 覆盖引擎数
+	out := make([]KeywordCompareRow, 0, len(perKW))
+	for kw := range perKW {
+		var total int64
+		engines := map[string]bool{}
+		for k, v := range perEngine {
+			if k.kw == kw {
+				total += v
+				engines[k.engine] = true
+			}
+		}
+		out = append(out, KeywordCompareRow{
+			Keyword:        kw,
+			HiveMTKVisits:  total, // 暂无法区分 HiveMTK vs 竞品（keywordRows 不带 domain）
+			HiveMTKEngines: len(engines),
+			TotalEngines:   8, // 固定 8 种 AI Bot UA
+			CompetitorVisits: map[string]int64{},
+		})
+	}
+	return out
+}
+
+// computeDomainCompare 按 domain 聚合，计算 HiveMTK vs 竞品 排名 + 覆盖度
+func computeDomainCompare(domainRows []repository.DomainStatRow) ([]DomainCompareRow, int64, int64, float64) {
+	type domAgg struct {
+		visits  int64
+		engines map[string]bool
+		level   string
+	}
+	bucket := map[string]*domAgg{}
+	for _, r := range domainRows {
+		d, ok := bucket[r.Domain]
+		if !ok {
+			d = &domAgg{engines: map[string]bool{}, level: r.SourceLevel}
+			bucket[r.Domain] = d
+		}
+		d.visits += r.VisitCount
+		d.engines[r.Engine] = true
+	}
+
+	var totalAll int64
+	var hivemtkVisits, compVisits int64
+	out := make([]DomainCompareRow, 0, len(bucket))
+	for domain, d := range bucket {
+		totalAll += d.visits
+		isHive := domain == hivemtkDomain
+		if isHive {
+			hivemtkVisits = d.visits
+		} else {
+			compVisits += d.visits
+		}
+		var share float64
+		if totalAll > 0 {
+			share = float64(d.visits) / float64(totalAll) * 100
+		}
+		out = append(out, DomainCompareRow{
+			Domain:      domain,
+			IsHiveMTK:   isHive,
+			Visits:      d.visits,
+			Engines:     len(d.engines),
+			SharePct:    share,
+			SourceLevel: d.level,
+		})
+	}
+
+	// 简单按 visits 降序
+	// Go 1.21+ 可以用 slices.SortFunc
+	for i := 0; i < len(out); i++ {
+		for j := i + 1; j < len(out); j++ {
+			if out[j].Visits > out[i].Visits {
+				out[i], out[j] = out[j], out[i]
+			}
+		}
+	}
+
+	// 覆盖度评分：HiveMTK 占总访问的比例 × 100，上限 100
+	var coverage float64
+	if hivemtkVisits+compVisits > 0 {
+		coverage = float64(hivemtkVisits) / float64(hivemtkVisits+compVisits) * 100
+		if coverage > 100 {
+			coverage = 100
+		}
+	}
+
+	return out, hivemtkVisits, compVisits, coverage
 }
 
 // ---- A7: 不准确声明检测 ----

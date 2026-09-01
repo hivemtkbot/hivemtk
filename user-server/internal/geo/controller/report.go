@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 
 	"hivemtk-user/internal/geo/service"
@@ -115,6 +116,13 @@ func (c *ReportController) InaccurateClaims(ctx *gin.Context) {
 // RunCrawler 手动触发竞品监控爬虫
 // POST /geo/crawler/run
 func (c *ReportController) RunCrawler(ctx *gin.Context) {
-	go service.CrawlerMonitorCron() // 异步执行
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("[GEO Crawler] panic: %v\n", r)
+			}
+		}()
+		service.CrawlerMonitorCronSync()
+	}()
 	response.Success(ctx, map[string]string{"status": "started"}, "爬虫已启动")
 }

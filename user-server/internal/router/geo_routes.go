@@ -127,6 +127,11 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	)
 	entityCtrl := geoctrl.NewEntityController(entityRepo, extractSvc)
 
+	// 竞品管理
+	competitorRepo := georepo.NewGeoCompetitorRepository()
+	competitorSvc := geoservice.NewGeoCompetitorService(competitorRepo)
+	competitorCtrl := geoctrl.NewCompetitorController(competitorSvc)
+
 	// 注册路由（统一挂在 /geo 下）
 	geo := auth.Group("/geo")
 
@@ -162,6 +167,13 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	geo.GET("/crawler-stats", reportCtrl.CrawlerStats)
 	geo.POST("/crawler/run", reportCtrl.RunCrawler)
 	geo.POST("/inaccurate-claims", reportCtrl.InaccurateClaims)
+
+	// 竞品管理（admin 权限，所有 geo 登录用户可增删改）
+	geo.GET("/competitors", competitorCtrl.List)
+	geo.GET("/competitors/:id", competitorCtrl.Get)
+	geo.POST("/competitors", competitorCtrl.Create)
+	geo.PUT("/competitors/:id", competitorCtrl.Update)
+	geo.DELETE("/competitors/:id", competitorCtrl.Delete)
 
 	// 配置路由（读取：所有登录用户）
 	geo.GET("/config", configCtrl.GetConfig)

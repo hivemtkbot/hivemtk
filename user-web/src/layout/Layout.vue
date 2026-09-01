@@ -544,6 +544,7 @@ const topMenus = ref([
             icon: 'Monitor',
             children: [
               { key: 'geoSovBoard', title: '竞品 SOV', icon: 'DataLine', path: '/geo-tools/sov-board' },
+              { key: 'geoCompetitors', title: '竞品管理', icon: 'UserFilled', path: '/geo-tools/competitors' },
               { key: 'geoCrawlerStats', title: '爬虫统计', icon: 'Monitor', path: '/geo-tools/crawler-stats' },
               { key: 'geoEntityGraph', title: '实体图谱', icon: 'Share', path: '/geo-tools/entity-graph' },
               { key: 'geoVerification', title: '多模型验证', icon: 'CircleCheck', path: '/geo-tools/verification' },

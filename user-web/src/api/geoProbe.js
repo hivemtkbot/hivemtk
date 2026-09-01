@@ -38,3 +38,19 @@ export const detectInaccurateClaims = (brandName) =>
 // ===== 信源目录（后端 /geo/source-catalog/levels） =====
 export const lookupSourceLevel = (url) =>
   http.get('/api/geo/source-catalog/levels', { url })
+
+// ===== 竞品管理（后端 /geo/competitors/*） =====
+export const listCompetitors = () =>
+  http.get('/api/geo/competitors')
+
+export const getCompetitor = (id) =>
+  http.get(`/api/geo/competitors/${id}`)
+
+export const createCompetitor = (data) =>
+  http.post('/api/geo/competitors', data)
+
+export const updateCompetitor = (id, data) =>
+  http.put(`/api/geo/competitors/${id}`, data)
+
+export const deleteCompetitor = (id) =>
+  http.delete(`/api/geo/competitors/${id}`)

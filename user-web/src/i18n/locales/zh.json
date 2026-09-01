@@ -291,6 +291,7 @@
     "geoWorkflow": "工作流",
     "geoMonitor": "监控",
     "geoSovBoard": "竞品 SOV",
+    "geoCompetitors": "竞品管理",
     "geoCrawlerStats": "爬虫统计",
     "geoEntityGraph": "实体图谱"
   },
