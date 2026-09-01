@@ -167,14 +167,19 @@ func (s *GeoDecisionAnalyticsService) DetectInaccurateClaims(ctx context.Context
 
 
 func (s *GeoDecisionAnalyticsService) recordAPICall(ctx context.Context, resp *LLMResult, purpose string) {
-	if s.apiCallRepo == nil {
+	if s.apiCallRepo == nil || resp == nil {
 		return
 	}
+	costUSD, costCNY := EstimateCostUSD(resp.Model, resp.InputTokens, resp.OutputTokens)
 	call := &model.GeoAPICall{
-		Purpose:     purpose,
-		Model:       resp.Model,
-		InputTokens: resp.InputTokens,
+		Provider:     resp.Provider,
+		Model:        resp.Model,
+		InputTokens:  resp.InputTokens,
 		OutputTokens: resp.OutputTokens,
+		CostUSD:      costUSD,
+		CostCNY:      costCNY,
+		Purpose:      purpose,
+		Status:       "success",
 	}
 	_ = s.apiCallRepo.Create(call)
 }

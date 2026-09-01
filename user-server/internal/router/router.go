@@ -15,6 +15,7 @@ import (
 	channelgw "hivemtk-user/internal/channelgw"
 	contentservice "hivemtk-user/internal/content/service"
 	"hivemtk-user/internal/controller"
+	geomodel "hivemtk-user/internal/geo/model"
 	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/monitor"
 	"hivemtk-user/internal/pkg/tracing"
@@ -303,6 +304,17 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		auth := r.Group("/api")
 	auth.Use(middleware.AICrawlerMonitor(func(engine, path, ua, ip string) {
 		// AI 爬虫访问自动落库（异步不阻塞）
+		go func() {
+			if gormDB == nil {
+				return
+			}
+			_ = gormDB.WithContext(context.Background()).Create(&geomodel.GeoCrawlerVisit{
+				Engine:    engine,
+				Path:      path,
+				UserAgent: ua,
+				IP:        ip,
+			}).Error
+		}()
 	})) 
 	// 观测端点：JWT 保护（v3 审计 P1 从 bridgeWS 组迁入）
 	monitor.RegisterRoutes(auth)
