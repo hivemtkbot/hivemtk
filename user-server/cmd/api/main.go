@@ -90,6 +90,9 @@ func (a redisPingerAdapter) Ping(ctx context.Context) error {
 }
 
 func main() {
+	// R48: .env 加载幂等兜底（utils 包 init 期已先行加载, 此处防未来时序变化）
+	utils.LoadDotEnv(".env")
+
 	logger.InitLogger(config.GetLoggingConfig())
 
 	// FeatureFlag 初始化：注册所有灰度开关（含 FF_ENABLE_SSE_BRIDGE）
