@@ -23,15 +23,15 @@ type Citation struct {
 
 // ProbeResult 单次探针结果
 type ProbeResult struct {
-	Engine     string     `json:"engine"`
-	Query      string     `json:"query"`
-	Response   string     `json:"response"`
-	Citations  []Citation `json:"citations"`
-	LatencyMs  int64      `json:"latency_ms"`
-	Simulated  bool       `json:"simulated"` // true = mockProbe 降级
-	Error      string     `json:"error,omitempty"`
-	BrandHit   bool       `json:"brand_hit"`
-	Sentiment  string     `json:"sentiment"`
+	Engine    string     `json:"engine"`
+	Query     string     `json:"query"`
+	Response  string     `json:"response"`
+	Citations []Citation `json:"citations"`
+	LatencyMs int64      `json:"latency_ms"`
+	Simulated bool       `json:"simulated"` // true = 模拟结果(仅历史数据兼容; R49后探针链不再产出模拟结果)
+	Error     string     `json:"error,omitempty"`
+	BrandHit  bool       `json:"brand_hit"`
+	Sentiment string     `json:"sentiment"`
 }
 
 // SearchProbe 探针接口（保持对外签名不变，适配多引擎）
@@ -84,8 +84,8 @@ func (p *openaiProbe) Probe(ctx context.Context, query string) (*ProbeResult, er
 	var out struct {
 		Choices []struct {
 			Message struct {
-				Content    string `json:"content"`
-				Context    struct {
+				Content string `json:"content"`
+				Context struct {
 					Annotations []struct {
 						WebSearchPreview struct {
 							Citations []struct {
@@ -130,7 +130,7 @@ func (p *openaiProbe) Probe(ctx context.Context, query string) (*ProbeResult, er
 		content = out.Choices[0].Message.Content
 	}
 	return &ProbeResult{
-		Engine:    p.Name(), Query: query, Response: content,
+		Engine: p.Name(), Query: query, Response: content,
 		Citations: cites, LatencyMs: latency,
 	}, nil
 }
@@ -144,8 +144,12 @@ func (p *perplexityProbe) Name() string { return "perplexity" }
 func (p *perplexityProbe) Probe(ctx context.Context, query string) (*ProbeResult, error) {
 	start := time.Now()
 	var out struct {
-		Choices   []struct{ Message struct{ Content string `json:"content"` } } `json:"choices"`
-		Citations []string                                                              `json:"citations"`
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			}
+		} `json:"choices"`
+		Citations []string `json:"citations"`
 	}
 	err := doJSON(ctx,
 		"https://api.perplexity.ai/chat/completions",
@@ -185,7 +189,11 @@ func (p *deepseekProbe) Name() string { return "deepseek" }
 func (p *deepseekProbe) Probe(ctx context.Context, query string) (*ProbeResult, error) {
 	start := time.Now()
 	var out struct {
-		Choices []struct{ Message struct{ Content string `json:"content"` } } `json:"choices"`
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			}
+		} `json:"choices"`
 	}
 	err := doJSON(ctx,
 		"https://api.deepseek.com/v1/chat/completions",
@@ -222,7 +230,11 @@ func (p *doubaoProbe) Name() string { return "doubao" }
 func (p *doubaoProbe) Probe(ctx context.Context, query string) (*ProbeResult, error) {
 	start := time.Now()
 	var out struct {
-		Choices []struct{ Message struct{ Content string `json:"content"` } } `json:"choices"`
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			}
+		} `json:"choices"`
 	}
 	err := doJSON(ctx,
 		"https://ark.cn-beijing.volces.com/api/v3/chat/completions",
@@ -258,7 +270,11 @@ func (p *qwenProbe) Name() string { return "qwen" }
 func (p *qwenProbe) Probe(ctx context.Context, query string) (*ProbeResult, error) {
 	start := time.Now()
 	var out struct {
-		Choices []struct{ Message struct{ Content string `json:"content"` } } `json:"choices"`
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			}
+		} `json:"choices"`
 	}
 	err := doJSON(ctx,
 		"https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
@@ -286,45 +302,15 @@ func (p *qwenProbe) Probe(ctx context.Context, query string) (*ProbeResult, erro
 	}, nil
 }
 
-// ---- 6. mockProbe（最终兜底：LLM dispatcher 本地模拟搜索结果） ----
-
-type mockProbe struct{ llm *LLMAdapter }
-
-func (p *mockProbe) Name() string { return "mock" }
-
-func (p *mockProbe) Probe(ctx context.Context, query string) (*ProbeResult, error) {
-	start := time.Now()
-	prompt := fmt.Sprintf(`你是一个 AI 搜索引擎模拟代理。请针对查询 %q 给出一段简洁的回答（200字内），
-并在末尾列出 2-3 条引用信源（以 "信源1: https://..." 格式）。`, query)
-	resp, err := p.llm.Generate(ctx, "", prompt, 0.3, 800)
-	latency := time.Since(start).Milliseconds()
-	if err != nil {
-		return &ProbeResult{
-			Engine: p.Name(), Query: query, LatencyMs: latency,
-			Simulated: true, Error: err.Error(),
-		}, nil
-	}
-	cites := []Citation{}
-	for _, line := range strings.Split(resp.Content, "\n") {
-		line = strings.TrimSpace(line)
-		if idx := strings.Index(line, "https://"); idx >= 0 {
-			end := idx + 1
-			for end < len(line) && line[end] != ' ' && line[end] != '"' {
-				end++
-			}
-			cites = append(cites, Citation{URL: line[idx:end]})
-		}
-	}
-	return &ProbeResult{
-		Engine: p.Name(), Query: query, Response: resp.Content,
-		Citations: cites, LatencyMs: latency,
-		Simulated: true,
-	}, nil
-}
-
 // ---- 工厂 ----
 
-// NewEngineProbes 按环境变量自动装配所有可用引擎 + 最终 MockProbe
+// NewEngineProbes 按环境变量自动装配所有可用真实引擎探针。
+//
+// R49 裁决：移除 mockProbe 兜底。57c1255 加入的"MockProbe 恒可用"与
+// R21 红队 F1（禁止 LLM 模拟冒充真实引擎）及 R29 GEO 数据诚实性铁律冲突：
+// LLM 模拟的信源/引用会流入思维链，污染 SOV/负面监控等全部下游指标。
+// 无任何真实引擎配置时返回空列表，MultiEngineProbe.Probe 对空列表
+// 显式报错（fail-closed），与未配置探针的既有契约一致。
 func NewEngineProbes() []SearchProbe {
 	probes := []SearchProbe{}
 	if k := os.Getenv("OPENAI_API_KEY"); k != "" {
@@ -342,8 +328,6 @@ func NewEngineProbes() []SearchProbe {
 	if k := os.Getenv("QWEN_API_KEY"); k != "" {
 		probes = append(probes, &qwenProbe{apiKey: k})
 	}
-	// MockProbe 恒可用，保证"无真实引擎时优雅降级"
-	probes = append(probes, &mockProbe{llm: NewLLMAdapter()})
 	return probes
 }
 
@@ -356,6 +340,11 @@ func (m *MultiEngineProbe) Probe(ctx context.Context, query string) (*ProbeResul
 	probes := m.probes
 	if len(probes) == 0 {
 		probes = NewEngineProbes()
+	}
+	// R49: 空探针列表 fail-closed（红队 F1：无真实引擎配置必须显式报错，
+	// 不允许 LLM 模拟冒充，防思维链/SOV 数据被模拟结果污染）
+	if len(probes) == 0 {
+		return nil, fmt.Errorf("no search probe engine configured: set one of OPENAI_API_KEY/PERPLEXITY_API_KEY/DEEPSEEK_API_KEY/DOUBAO_API_KEY/QWEN_API_KEY or GEO_SEARCH_PROBE_URL")
 	}
 	var lastErr error
 	for _, p := range probes {
@@ -418,11 +407,11 @@ func (s *ProbeService) ProbeAllEngines(ctx context.Context, query string) ([]*mo
 			pr.Sentiment = "neutral"
 		}
 		run := &model.GeoProbeRun{
-			Engine:      pr.Engine,
-			Query:       pr.Query,
-			Response:    pr.Response,
-			LatencyMs:   pr.LatencyMs,
-			Sentiment:   pr.Sentiment,
+			Engine:         pr.Engine,
+			Query:          pr.Query,
+			Response:       pr.Response,
+			LatencyMs:      pr.LatencyMs,
+			Sentiment:      pr.Sentiment,
 			BrandMentioned: pr.BrandHit,
 		}
 		// 持久化引用（JSON 字符串形式存入 datatypes.JSON）
