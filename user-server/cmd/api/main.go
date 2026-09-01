@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fvbock/endless"
@@ -377,9 +380,18 @@ func main() {
 	}
 	addr := "0.0.0.0:" + port
 	logger.Infof("营销后端服务启动于 %s", addr)
-	if err := endless.ListenAndServe(addr, r); err != nil {
+	if err := endless.ListenAndServe(addr, r); err != nil && !isGracefulShutdownErr(err) {
 		panic("服务启动失败：" + err.Error())
 	}
+}
+
+// isGracefulShutdownErr 判定 ListenAndServe 返回的错误是否为优雅关闭路径的正常产物。
+// endless 收到 SIGTERM/SIGINT 后关闭 listener，Serve() 会返回
+// "accept tcp ...: use of closed network connection"（endless 未包装为 ErrServerClosed），
+// 若不加区分地 panic，会把正常关停变成异常退出(exit≠0)并打印误导性 panic 栈。
+func isGracefulShutdownErr(err error) bool {
+	return errors.Is(err, http.ErrServerClosed) ||
+		strings.Contains(err.Error(), "use of closed network connection")
 }
 
 // registerEventSubscribers 注册 Event Bus 订阅者
