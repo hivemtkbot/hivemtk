@@ -397,29 +397,6 @@ func TestGeoAPI_WorkflowTemplates(t *testing.T) {
 
 // === 资源推荐测试 ===
 
-func TestGeoAPI_Resources(t *testing.T) {
-	r := setupGeoRouter(t)
-
-	endpoints := []string{
-		"/geo/resources/agents",
-		"/geo/resources/tools",
-		"/geo/resources/papers",
-		"/geo/resources/communities",
-		"/geo/resources/summary",
-	}
-	for _, ep := range endpoints {
-		w := doRequest(t, r, "GET", ep, nil)
-		assertStatus(t, w, http.StatusOK)
-		assertSuccess(t, w)
-	}
-
-	// Search
-	w := doRequest(t, r, "GET", "/geo/resources/search?q=SEO", nil)
-	assertStatus(t, w, http.StatusOK)
-	assertSuccess(t, w)
-}
-
-// === 技术配置测试 ===
 
 func TestGeoAPI_TechConfig(t *testing.T) {
 	r := setupGeoRouter(t)

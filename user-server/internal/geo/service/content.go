@@ -153,7 +153,8 @@ func extractOptimizedContent(response string) string {
 }
 
 // ScoreContent 内容质量评分
-func (s *ContentService) ScoreContent(ctx context.Context, content, brandName, keyword string) (map[string]any, error) {
+// articleID 可选：非空时将评分结果持久化到 geo_articles.score / score_detail
+func (s *ContentService) ScoreContent(ctx context.Context, articleID, content, brandName, keyword string) (map[string]any, error) {
 	prompt := ContentScorePrompt(brandName, keyword, content)
 
 	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 2000)
@@ -162,7 +163,27 @@ func (s *ContentService) ScoreContent(ctx context.Context, content, brandName, k
 	}
 	s.recordAPICall(ctx, resp, "content_score")
 
-	return parseScoreResult(resp.Content), nil
+	result := parseScoreResult(resp.Content)
+
+	// 持久化评分结果到文章
+	if articleID != "" && s.articleRepo != nil {
+		article, gErr := s.articleRepo.GetByID(articleID)
+		if gErr == nil && article != nil {
+			if scores, ok := result["scores"].(map[string]any); ok {
+				if total, ok2 := scores["total"].(float64); ok2 {
+					article.Score = total
+				}
+			}
+			if detail, jErr := json.Marshal(result); jErr == nil {
+				article.ScoreDetail = string(detail)
+			}
+			if uErr := s.articleRepo.Update(article); uErr != nil {
+				logger.Error(uErr, "[GEO Content] 评分持久化失败")
+			}
+		}
+	}
+
+	return result, nil
 }
 
 // scoreResult 评分结果结构（与 ContentScorePrompt 输出契约一致）
@@ -205,7 +226,8 @@ func parseScoreResult(content string) map[string]any {
 }
 
 // EnhanceEEAT E-E-A-T 增强
-func (s *ContentService) EnhanceEEAT(ctx context.Context, content, brandName string, advantages []string) (map[string]any, error) {
+// articleID 可选：非空时将增强后内容持久化到 geo_articles.content
+func (s *ContentService) EnhanceEEAT(ctx context.Context, articleID, content, brandName string, advantages []string) (map[string]any, error) {
 	advantagesStr := AdvantagesToString(advantages)
 	prompt := EEATEnhancePrompt(brandName, advantagesStr, content)
 
@@ -215,16 +237,31 @@ func (s *ContentService) EnhanceEEAT(ctx context.Context, content, brandName str
 	}
 	s.recordAPICall(ctx, resp, "eeat_enhance")
 
-	return map[string]any{
+	result := map[string]any{
 		"original": content,
 		"enhanced": resp.Content,
 		"provider": resp.Provider,
 		"model":    resp.Model,
-	}, nil
+	}
+
+	// 持久化增强后内容到文章
+	if articleID != "" && s.articleRepo != nil {
+		article, gErr := s.articleRepo.GetByID(articleID)
+		if gErr == nil && article != nil {
+			article.Content = resp.Content
+			article.WordCount = len([]rune(resp.Content))
+			if uErr := s.articleRepo.Update(article); uErr != nil {
+				logger.Error(uErr, "[GEO Content] EEAT 增强持久化失败")
+			}
+		}
+	}
+
+	return result, nil
 }
 
 // GenerateSchema 生成 JSON-LD Schema（第三参为站点域名）
-func (s *ContentService) GenerateSchema(ctx context.Context, brandName, description, domain string) (map[string]any, error) {
+// articleID 可选：非空时将 Schema 持久化到 geo_articles.json_ld
+func (s *ContentService) GenerateSchema(ctx context.Context, articleID, brandName, description, domain string) (map[string]any, error) {
 	prompt := SchemaGeneratePrompt(brandName, description, domain)
 
 	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 2000)
@@ -249,50 +286,128 @@ func (s *ContentService) GenerateSchema(ctx context.Context, brandName, descript
 	}
 	schema["provider"] = resp.Provider
 	schema["model"] = resp.Model
+
+	// 持久化 Schema 到文章
+	if articleID != "" && s.articleRepo != nil {
+		article, gErr := s.articleRepo.GetByID(articleID)
+		if gErr == nil && article != nil {
+			if ld, jErr := json.Marshal(schema); jErr == nil {
+				article.JSONLD = string(ld)
+				if uErr := s.articleRepo.Update(article); uErr != nil {
+					logger.Error(uErr, "[GEO Content] Schema 持久化失败")
+				}
+			}
+		}
+	}
+
 	return schema, nil
 }
 
-// CheckUniqueness 内容独特性检测
+// CheckUniqueness LLM 驱动的内容原创性与查重检测
+// 分析内容是否为陈词滥调、模板化、或与常见 GEO 内容高度雷同
+// LLM 不可达时 fallback 到启发式套话检测（正则匹配常见 GEO 行业模板）
 func (s *ContentService) CheckUniqueness(ctx context.Context, content string) (map[string]any, error) {
-	words := tokenize(content)
-	uniqueWords := make(map[string]bool)
-	for _, w := range words {
-		uniqueWords[w] = true
-	}
-	total := len(words)
-	unique := len(uniqueWords)
-	uniquenessRatio := 0.0
-	if total > 0 {
-		uniquenessRatio = float64(unique) / float64(total)
-	}
-	return map[string]any{
-		"total_words":      total,
-		"unique_words":     unique,
-		"uniqueness_ratio": uniquenessRatio,
-		"is_unique":        uniquenessRatio > 0.6,
-	}, nil
+	// 先尝试 LLM 检测
+	prompt := fmt.Sprintf(`你是 GEO 内容原创性评审专家。请对以下内容进行原创性检测，输出 JSON：
+{
+  "originality_score": 0-100（分数越高越原创）,
+  "plagiarism_risk": "low/medium/high"（抄袭风险）,
+  "is_unique": true/false,
+  "duplicate_patterns": ["检测到的模板化/陈词滥调句子列表"],
+  "suggestions": ["提升原创性的具体建议"]
 }
 
-func tokenize(text string) []string {
-	text = strings.TrimSpace(text)
-	if text == "" {
-		return nil
+检测维度：
+1. 是否使用了 GEO 行业常见套话模板（如"在当今数字化时代""随着互联网的发展"等）
+2. 是否存在明显可以被其他品牌直接套用的通用段落
+3. 核心观点是否有原创性，还是泛泛而谈
+4. 品牌特色、差异化表达是否充分
+
+内容：
+"""%s"""`, content)
+
+	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 1500)
+	if err == nil {
+		s.recordAPICall(ctx, resp, "uniqueness_check")
+		// 解析 LLM 返回
+		jsonStr := extractJSONObject(resp.Content)
+		result := map[string]any{
+			"originality_score":  0,
+			"plagiarism_risk":    "unknown",
+			"is_unique":          false,
+			"duplicate_patterns": []string{},
+			"suggestions":        []string{},
+			"provider":           resp.Provider,
+			"model":              resp.Model,
+		}
+		if jsonStr != "" {
+			var parsed map[string]any
+			if json.Unmarshal([]byte(jsonStr), &parsed) == nil {
+				for k := range result {
+					if v, ok := parsed[k]; ok {
+						result[k] = v
+					}
+				}
+			}
+		}
+		return result, nil
 	}
-	words := strings.FieldsFunc(text, func(r rune) bool {
-		return r == ' ' || r == '\t' || r == '\n' || r == ',' || r == '.' ||
-			r == '，' || r == '。' || r == '、' || r == '；' || r == '：'
-	})
-	stopWords := map[string]bool{
-		"的": true, "了": true, "在": true, "是": true, "我": true,
-		"和": true, "就": true, "不": true, "都": true, "一": true,
+
+	// LLM 不可达：fallback 到启发式检测（常见 GEO 行业套话 + 模板化句子）
+	return heuristicUniquenessCheck(content), nil
+}
+
+// heuristicUniquenessCheck LLM 不可达时的启发式原创性检测
+// 通过正则匹配 GEO/SEO 行业常见套话模板，给出启发式评分
+func heuristicUniquenessCheck(content string) map[string]any {
+	cliches := []string{
+		"在当今数字化时代", "随着互联网的发展", "在这个信息爆炸的时代",
+		"毋庸置疑", "众所周知", "不言而喻",
+		"随着科技的进步", "随着人工智能的崛起", "大数据时代",
+		"引领行业发展", "助力企业腾飞", "赋能千行百业",
+		"一站式解决方案", "端到端服务", "全链路覆盖",
+		"重新定义", "颠覆传统", "革命性创新",
+		"降本增效", "提质增效", "转型升级",
+		"痛点与难点", "机遇与挑战", "任重而道远",
+		"让我们一起", "携手共进", "共创辉煌",
 	}
-	result := make([]string, 0, len(words))
-	for _, w := range words {
-		if len(w) > 1 && !stopWords[w] {
-			result = append(result, strings.ToLower(w))
+
+	patterns := []string{}
+	for _, cliche := range cliches {
+		if strings.Contains(content, cliche) {
+			patterns = append(patterns, cliche)
 		}
 	}
-	return result
+
+	// 简单评分：基础分 100，每命中一个套话扣 15
+	score := 100 - len(patterns)*15
+	if score < 0 {
+		score = 0
+	}
+
+	risk := "low"
+	if score < 40 {
+		risk = "high"
+	} else if score < 70 {
+		risk = "medium"
+	}
+
+	suggestions := []string{}
+	if len(patterns) > 0 {
+		suggestions = append(suggestions, "替换行业套话为品牌特有的差异化表达")
+		suggestions = append(suggestions, "补充具体数据、案例或用户反馈来支撑观点")
+	}
+	suggestions = append(suggestions, "确保品牌核心优势在内容中有充分体现")
+
+	return map[string]any{
+		"originality_score":  score,
+		"plagiarism_risk":    risk,
+		"is_unique":          score >= 70,
+		"duplicate_patterns": patterns,
+		"suggestions":        suggestions,
+		"provider":           "heuristic_fallback",
+		"model":              "regex_v1",
+	}
 }
 
 // GetArticleList 获取文章列表

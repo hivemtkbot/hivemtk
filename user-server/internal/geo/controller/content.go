@@ -58,7 +58,7 @@ func (c *ContentController) ScoreContent(ctx *gin.Context) {
 	if !response.BindJSON(ctx, &req) {
 		return
 	}
-	result, err := c.svc.ScoreContent(ctx.Request.Context(), req.Content, req.BrandName, req.Keyword)
+	result, err := c.svc.ScoreContent(ctx.Request.Context(), req.ArticleID, req.Content, req.BrandName, req.Keyword)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "内容评分失败")
 		return
@@ -70,6 +70,7 @@ func (c *ContentController) ScoreContent(ctx *gin.Context) {
 // POST /geo/content/eeat
 func (c *ContentController) EnhanceEEAT(ctx *gin.Context) {
 	var req struct {
+		ArticleID  string   `json:"article_id"`
 		Content    string   `json:"content"`
 		BrandName  string   `json:"brand_name"`
 		Advantages []string `json:"advantages"`
@@ -77,7 +78,7 @@ func (c *ContentController) EnhanceEEAT(ctx *gin.Context) {
 	if !response.BindJSON(ctx, &req) {
 		return
 	}
-	result, err := c.svc.EnhanceEEAT(ctx.Request.Context(), req.Content, req.BrandName, req.Advantages)
+	result, err := c.svc.EnhanceEEAT(ctx.Request.Context(), req.ArticleID, req.Content, req.BrandName, req.Advantages)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "E-E-A-T 增强失败")
 		return
@@ -89,6 +90,7 @@ func (c *ContentController) EnhanceEEAT(ctx *gin.Context) {
 // POST /geo/content/schema
 func (c *ContentController) GenerateSchema(ctx *gin.Context) {
 	var req struct {
+		ArticleID   string `json:"article_id"`
 		BrandName   string `json:"brand_name"`
 		Description string `json:"description"`
 		Domain      string `json:"domain"`
@@ -96,7 +98,7 @@ func (c *ContentController) GenerateSchema(ctx *gin.Context) {
 	if !response.BindJSON(ctx, &req) {
 		return
 	}
-	result, err := c.svc.GenerateSchema(ctx.Request.Context(), req.BrandName, req.Description, req.Domain)
+	result, err := c.svc.GenerateSchema(ctx.Request.Context(), req.ArticleID, req.BrandName, req.Description, req.Domain)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "Schema 生成失败")
 		return

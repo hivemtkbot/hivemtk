@@ -180,35 +180,6 @@ func TestEstimateCostUSD(t *testing.T) {
 	}
 }
 
-func TestResourceService(t *testing.T) {
-	svc := NewResourceService()
-
-	agents := svc.GetAgents("")
-	if len(agents) == 0 {
-		t.Fatal("expected non-empty agents")
-	}
-
-	tools := svc.GetTools("SEO 工具")
-	if len(tools) == 0 {
-		t.Fatal("expected SEO tools")
-	}
-
-	papers := svc.GetPapers("", "高")
-	if len(papers) == 0 {
-		t.Fatal("expected high importance papers")
-	}
-
-	summary := svc.GetSummary()
-	if summary.Total == 0 {
-		t.Fatal("expected non-zero summary")
-	}
-
-	results := svc.SearchResources("SEO", "")
-	if len(results) == 0 {
-		t.Fatal("expected search results for 'SEO'")
-	}
-}
-
 func TestTechConfigService(t *testing.T) {
 	svc := NewTechConfigService()
 

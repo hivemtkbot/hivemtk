@@ -103,7 +103,7 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	platformCtrl := geoctrl.NewPlatformController(platformSvc)
 	kbCtrl := geoctrl.NewKBController(kbSvc)
 	wfCtrl := geoctrl.NewWorkflowController(wfSvc)
-	resCtrl := geoctrl.NewResourceController()
+	tmCtrl := geoctrl.NewTechMetricsController()
 	keCtrl := geoctrl.NewKeywordEnhanceController(keSvc)
 
 	// 多引擎探针聚合：ProbeService + 爬虫/实体辅助 controller
@@ -179,21 +179,13 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	geo.GET("/workflow/workflows/:id/executions", wfCtrl.ListExecutions)
 	geo.GET("/workflow/templates", wfCtrl.ListTemplates)
 
-	// 资源推荐路由
-	geo.GET("/resources/agents", resCtrl.GetAgents)
-	geo.GET("/resources/tools", resCtrl.GetTools)
-	geo.GET("/resources/papers", resCtrl.GetPapers)
-	geo.GET("/resources/communities", resCtrl.GetCommunities)
-	geo.GET("/resources/summary", resCtrl.GetResourceSummary)
-	geo.GET("/resources/search", resCtrl.SearchResources)
+	// 技术配置路由（真实功能：robots.txt / sitemap.xml / llms.txt 生成器）
+	geo.POST("/techconfig/robots", tmCtrl.GenerateRobots)
+	geo.POST("/techconfig/sitemap", tmCtrl.GenerateSitemap)
+	geo.POST("/techconfig/llms-txt", tmCtrl.GenerateLLMsTxt)
 
-	// 技术配置路由
-	geo.POST("/techconfig/robots", resCtrl.GenerateRobots)
-	geo.POST("/techconfig/sitemap", resCtrl.GenerateSitemap)
-	geo.POST("/techconfig/llms-txt", resCtrl.GenerateLLMsTxt)
-
-	// 质量指标路由
-	geo.POST("/metrics/analyze", resCtrl.AnalyzeMetrics)
+	// 质量指标路由（真实功能：regex 解析内容结构 / 信任信号分析）
+	geo.POST("/metrics/analyze", tmCtrl.AnalyzeMetrics)
 
 	// 关键词数据增强路由
 	geo.GET("/keyword-enhance/analyze", keCtrl.Analyze)

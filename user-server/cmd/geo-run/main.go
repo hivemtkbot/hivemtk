@@ -197,7 +197,7 @@ func main() {
 			fmt.Printf("  [%s] 生成失败: %v\n", iq.intent, gerr)
 			continue
 		}
-		score, serr := contentSvc.ScoreContent(ctx, art.Content, brand, iq.kw)
+		score, serr := contentSvc.ScoreContent(ctx, art.ID, art.Content, brand, iq.kw)
 		total := "?"
 		if serr == nil {
 			if v, ok := score["total_score"].(float64); ok {

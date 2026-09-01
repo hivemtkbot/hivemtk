@@ -24,6 +24,7 @@ type OptimizeContentRequest struct {
 
 // ScoreContentRequest 内容评分请求
 type ScoreContentRequest struct {
+	ArticleID string `json:"article_id"`
 	Content   string `json:"content"`
 	BrandName string `json:"brand_name"`
 	Keyword   string `json:"keyword"`
