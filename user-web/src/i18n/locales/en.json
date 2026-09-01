@@ -283,7 +283,16 @@
     "i18nDashboard": "i18n Monitoring",
     "faqKb": "FAQ Knowledge Base",
     "sopTemplate": "SOP Templates",
-    "systemTrace": "System Trace"
+    "systemTrace": "System Trace",
+    "geoProd": "Production",
+    "geoKnowledgeBase": "GEO Knowledge Base",
+    "geoPublish": "Publishing",
+    "geoPlatformPublish": "Platform Publish",
+    "geoWorkflow": "Workflow",
+    "geoMonitor": "Monitoring",
+    "geoSovBoard": "Competitor SOV",
+    "geoCrawlerStats": "Crawler Stats",
+    "geoEntityGraph": "Entity Graph"
   },
   "保存": "Save",
   "提交": "Submit",
