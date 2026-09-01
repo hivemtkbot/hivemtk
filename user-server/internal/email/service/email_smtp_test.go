@@ -13,7 +13,10 @@ import (
 )
 
 // setupEmailSmtpServiceTestDB 设置邮件 SMTP 服务测试数据库
+// R50: 同步注入 FIELD_ENCRYPTION_KEY 测试密钥（crypto 包 once 语义下,
+// setup 先于任何 Encrypt 调用执行, 保证加密链路在测试中可用）
 func setupEmailSmtpServiceTestDB(t *testing.T) *gorm.DB {
+	t.Setenv("FIELD_ENCRYPTION_KEY", "test-field-encryption-key-0123456789abcdef")
 	database := testutil.NewTestDB(t,
 		&model.EmailSmtp{},
 		&model.EmailList{},
@@ -36,6 +39,7 @@ func TestNewEmailSmtpService(t *testing.T) {
 }
 
 // TestEmailSmtpService_CreateEmailSmtp 测试创建 SMTP 配置
+// R50: 密码须以 AES-GCM 密文落库（FIELD_ENCRYPTION_KEY 由 testmain 注入）
 func TestEmailSmtpService_CreateEmailSmtp(t *testing.T) {
 	database := setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()
@@ -60,6 +64,16 @@ func TestEmailSmtpService_CreateEmailSmtp(t *testing.T) {
 
 	if created.Limit != 100 {
 		t.Errorf("Expected limit 100, got %d", created.Limit)
+	}
+
+	// R50 fail-closed 验证: DB 中密码必须是密文（非明文原文）
+	var stored model.EmailSmtp
+	database.Where("name = ?", "test@qq.com").First(&stored)
+	if stored.Password == "test-password" {
+		t.Errorf("密码明文落库! R50 fail-closed 未生效")
+	}
+	if stored.Password == "" {
+		t.Errorf("密码为空, 加密链路异常")
 	}
 
 	// 验证数据库中已保存
@@ -184,6 +198,10 @@ func TestEmailSmtpService_UpdateEmailSmtp(t *testing.T) {
 	}
 	if updated.Limit != 200 {
 		t.Errorf("Expected limit 200, got %d", updated.Limit)
+	}
+	// R50 fail-closed: 更新后的密码必须是密文
+	if updated.Password == "old-password" {
+		t.Errorf("更新后密码明文落库! R50 fail-closed 未生效")
 	}
 }
 
@@ -313,6 +331,8 @@ func TestEmailSmtpService_GetRandEmailSmtp_WithLimit(t *testing.T) {
 }
 
 // TestEmailSmtpService_CreateEmailSmtp_EmptyFields 测试创建 SMTP 配置时字段为空
+// R50: Password 为空时 crypto.Encrypt 返回 ("", nil) 不报错 —— 空密码创建仍允许（DTO 层校验负责拦截），
+// 但 Name 等其它字段为空不构成加密层障碍。
 func TestEmailSmtpService_CreateEmailSmtp_EmptyFields(t *testing.T) {
 	setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()

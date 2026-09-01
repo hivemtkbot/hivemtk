@@ -20,9 +20,13 @@ func NewEmailSmtpService() *EmailSmtpService {
 func (s *EmailSmtpService) CreateEmailSmtp(ctx context.Context, emailSmtp model.EmailSmtp) (*model.EmailSmtp, error) {
 	// v3 审计 P0：SMTP 密码 AES-GCM 静态加密（FIELD_ENCRYPTION_KEY），
 	// 存量明文以 "{" 前缀识别保持双读兼容
-	if enc, err := crypto.Encrypt(emailSmtp.Password); err == nil {
-		emailSmtp.Password = enc
+	// R50 fail-closed 收口：此前 `err==nil 才替换` 在密钥未配置时静默跳过，
+	// 密码明文落库且无任何告警（R50 UI 实测 DB 明文实证）。加密失败必须拒绝写入。
+	enc, err := crypto.Encrypt(emailSmtp.Password)
+	if err != nil {
+		return nil, errors.New("SMTP 密码加密失败（FIELD_ENCRYPTION_KEY 未配置或无效），已拒绝明文落库: " + err.Error())
 	}
+	emailSmtp.Password = enc
 	if err := s.repo.Create(ctx, &emailSmtp); err != nil {
 		return nil, err
 	}
@@ -38,6 +42,14 @@ func (s *EmailSmtpService) GetEmailSmtpList(ctx context.Context) ([]*model.Email
 }
 
 func (s *EmailSmtpService) UpdateEmailSmtp(ctx context.Context, emailSmtp model.EmailSmtp) error {
+	// R50 fail-closed：同 Create，密码非空时加密失败拒绝写入（空值表示不修改密码的语义由 DTO 层保证）
+	if emailSmtp.Password != "" {
+		enc, err := crypto.Encrypt(emailSmtp.Password)
+		if err != nil {
+			return errors.New("SMTP 密码加密失败（FIELD_ENCRYPTION_KEY 未配置或无效），已拒绝明文落库: " + err.Error())
+		}
+		emailSmtp.Password = enc
+	}
 	return s.repo.Update(ctx, &emailSmtp)
 }
 
@@ -109,7 +121,16 @@ func (s *EmailSmtpService) GetEmailSmtpDTO(ctx context.Context, id string) (*dto
 }
 
 // UpdateEmailSmtpDTO 通过请求 DTO 更新 SMTP 配置
+// R50：Password 为空 = 不修改密码，回读旧行继承（repo.Update 用 Save 全行覆盖，
+// 否则编辑表单密码留空提交会把密码清空）；非空则走 UpdateEmailSmtp 的 fail-closed 加密。
 func (s *EmailSmtpService) UpdateEmailSmtpDTO(ctx context.Context, req dto.UpdateEmailSmtpRequest) error {
+	if req.Password == "" {
+		old, err := s.GetEmailSmtp(ctx, req.ID)
+		if err != nil {
+			return err
+		}
+		req.Password = old.Password
+	}
 	return s.UpdateEmailSmtp(ctx, model.EmailSmtp{
 		ID:       req.ID,
 		Name:     req.Name,

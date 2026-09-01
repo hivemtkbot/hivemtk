@@ -38,7 +38,7 @@
           <el-input v-model="form.username" placeholder="请输入用户名" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
-          <el-input v-model="form.password" placeholder="请输入密码" />
+          <el-input v-model="form.password" placeholder="请输入密码" type="password" show-password autocomplete="new-password" />
         </el-form-item>
         <el-form-item label="代理日限制" prop="limit">
           <el-input v-model="form.limit" placeholder="请输入代理日限制" type="number" />
