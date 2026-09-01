@@ -237,11 +237,9 @@ else:
     log_fail("POST /geo/entities/extract", "未拿到 doc_id")
 
 r, dt, raw = api("GET", "/api/geo/entity/list")
-assert_ok("GET /geo/entity/list", r, raw)
-
-# graph 需要先 list 拿到一个具体 entity id
-r, dt, raw = api("GET", "/api/geo/entity/list")
 elist = assert_ok("GET /geo/entity/list", r, raw)
+
+# graph 需要具体 entity id
 eid = None
 if isinstance(elist, dict): eid = (elist.get("list") or elist.get("items") or [{}])[0].get("id")
 elif isinstance(elist, list) and elist: eid = elist[0].get("id")
