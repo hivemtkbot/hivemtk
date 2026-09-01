@@ -12,23 +12,31 @@ import (
 
 // GeoDecisionAnalyticsService 竞品对齐分析服务（v3 吸收 A1/A2/A6/A7）
 type GeoDecisionAnalyticsService struct {
-	verifyRepo repository.GeoVerifyResultRepository
-	taskRepo   repository.GeoContentTaskRepository
-	chainRepo  repository.GeoQueryChainRepository
-	crawler    repository.GeoCrawlerVisitRepository
-	llm        *LLMAdapter
+	verifyRepo  repository.GeoVerifyResultRepository
+	probeRepo   repository.GeoProbeRunRepository
+	configRepo  repository.GeoConfigRepository
+	taskRepo    repository.GeoContentTaskRepository
+	chainRepo   repository.GeoQueryChainRepository
+	crawler     repository.GeoCrawlerVisitRepository
+	llm         *LLMAdapter
 	apiCallRepo repository.GeoAPICallRepository
 }
 
 func NewGeoDecisionAnalyticsService(
 	vr repository.GeoVerifyResultRepository,
+	pr repository.GeoProbeRunRepository,
+	cfgr repository.GeoConfigRepository,
 	tr repository.GeoContentTaskRepository,
 	cr repository.GeoQueryChainRepository,
 	crawler repository.GeoCrawlerVisitRepository,
 	llmAdapter *LLMAdapter,
 	apiCallRepo repository.GeoAPICallRepository,
 ) *GeoDecisionAnalyticsService {
-	return &GeoDecisionAnalyticsService{verifyRepo: vr, taskRepo: tr, chainRepo: cr, crawler: crawler, llm: llmAdapter, apiCallRepo: apiCallRepo}
+	return &GeoDecisionAnalyticsService{
+		verifyRepo: vr, probeRepo: pr, configRepo: cfgr,
+		taskRepo: tr, chainRepo: cr, crawler: crawler,
+		llm: llmAdapter, apiCallRepo: apiCallRepo,
+	}
 }
 
 // ---- A1+A2: Share of Voice 品牌声量份额 ----
@@ -43,11 +51,42 @@ type SOVEntry struct {
 }
 
 // GetShareOfVoice 按意图分组计算各品牌声量占比（Peec 三子指标对齐：可见性/位置/情感）
+// 数据源：geo_probe_runs（真实云端探针引擎）+ geo_config（品牌/竞品列表）
 func (s *GeoDecisionAnalyticsService) GetShareOfVoice(ctx context.Context, intent string) ([]SOVEntry, error) {
-	rows, err := s.verifyRepo.ListAllForSOV(ctx, intent)
-	if err != nil {
-		return nil, err
+	// 1. 从 geo_config 读取品牌和竞品列表
+	brandList := []string{}
+	if s.configRepo != nil {
+		cfg, err := s.configRepo.Get()
+		if err == nil {
+			if bn := strings.TrimSpace(cfg.BrandName); bn != "" {
+				brandList = append(brandList, bn)
+			}
+			if cp := strings.TrimSpace(cfg.Competitors); cp != "" {
+				for _, c := range strings.Split(cp, "、") {
+					c = strings.TrimSpace(c)
+					if c != "" {
+						brandList = append(brandList, c)
+					}
+				}
+			}
+		}
 	}
+	// 至少包含主品牌
+	if len(brandList) == 0 {
+		brandList = append(brandList, "HiveMTK")
+	}
+
+	// 2. 从 geo_probe_runs 读取真实探针引擎数据
+	var probeRuns []*model.GeoProbeRun
+	if s.probeRepo != nil {
+		rows, err := s.probeRepo.ListRecent(ctx, 500)
+		if err != nil {
+			return nil, err
+		}
+		probeRuns = rows
+	}
+
+	// 3. 从 query 和 response 中匹配品牌提及
 	type agg struct {
 		count    int64
 		positive int64
@@ -55,24 +94,28 @@ func (s *GeoDecisionAnalyticsService) GetShareOfVoice(ctx context.Context, inten
 	}
 	byBrand := map[string]*agg{}
 	var total int64
-	for _, r := range rows {
-		b := strings.TrimSpace(r.BrandName)
-		if b == "" {
-			continue
+
+	for _, run := range probeRuns {
+		haystack := strings.ToLower(run.Query + " " + run.Response)
+		for _, brand := range brandList {
+			brandLower := strings.ToLower(brand)
+			if strings.Contains(haystack, brandLower) {
+				a, ok := byBrand[brand]
+				if !ok {
+					a = &agg{}
+					byBrand[brand] = a
+				}
+				a.count++
+				total++
+				if run.Sentiment == "positive" {
+					a.positive++
+				} else if run.Sentiment == "negative" {
+					a.negative++
+				}
+			}
 		}
-		a, ok := byBrand[b]
-		if !ok {
-			a = &agg{}
-			byBrand[b] = a
-		}
-		a.count += int64(r.MentionCount)
-		if r.Sentiment == "positive" {
-			a.positive++
-		} else if r.Sentiment == "negative" {
-			a.negative++
-		}
-		total += int64(r.MentionCount)
 	}
+
 	out := make([]SOVEntry, 0, len(byBrand))
 	for brand, a := range byBrand {
 		sentiment := "neutral"

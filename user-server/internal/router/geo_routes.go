@@ -67,6 +67,8 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// v3 竞品对齐分析（A1 SOV / A6 爬虫 / A7 不准确检测）
 	analyticsSvc := geoservice.NewGeoDecisionAnalyticsService(
 		georepo.NewGeoVerifyResultRepositoryWithDB(gormDB),
+		georepo.NewGeoProbeRunRepositoryWithDB(gormDB),
+		georepo.NewGeoConfigRepositoryWithDB(gormDB),
 		georepo.NewGeoContentTaskRepository(gormDB),
 		georepo.NewGeoQueryChainRepository(gormDB),
 		georepo.NewGeoCrawlerVisitRepository(gormDB),
