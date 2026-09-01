@@ -121,27 +121,43 @@
 </template>
 
 <script setup>
-import { ref, reactive, nextTick } from 'vue'
+import { ref, reactive, nextTick, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { EditPen, DocumentCopy, DataAnalysis } from '@element-plus/icons-vue'
 import { geoApi } from '@/api/geo'
+import http from '@/utils/request'
 
-const models = [
-  { label: '本地 SMOL (local-mlx)', value: 'local-mlx' },
-  { label: 'DeepSeek Chat', value: 'deepseek-chat' },
-  { label: '通义千问 (qwen-plus)', value: 'qwen-plus' },
-  { label: '豆包 (doubao-pro-32k)', value: 'doubao-pro-32k' },
-  { label: '文心一言 (ernie)', value: 'ernie-4.0-8k-latest' }
-]
+const models = ref([])
 
 const form = reactive({
   keyword: '',
   brand_name: '',
   advantages: [],
-  model: 'deepseek-chat',
+  model: '',
   word_count: 800,
   style: 'professional'
 })
+
+// 动态加载云端模型（排除本地 provider）
+const loadModels = async () => {
+  try {
+    const list = await http.get('/api/llm/models')
+    const cloud = (Array.isArray(list) ? list : list?.list || [])
+      .filter(m => {
+        const url = (m.base_url || '').toLowerCase()
+        const vendor = (m.vendor || '').toLowerCase()
+        return m.enabled !== false &&
+          vendor !== 'local' &&
+          !url.includes('127.0.0.1') &&
+          !url.includes('localhost') &&
+          !url.includes('0.0.0.0')
+      })
+      .map(m => ({ label: `${m.name || m.vendor || 'Unknown'}`, value: m.name }))
+    models.value = cloud
+    if (cloud.length && !form.model) form.model = cloud[0].value
+  } catch {}
+}
+onMounted(loadModels)
 
 const generating = ref(false)
 const scoring = ref(false)
@@ -168,17 +184,15 @@ const handleGenerate = async () => {
     ElMessage.warning('请填写关键词与品牌名称')
     return
   }
-  if (form.advantages.length === 0) {
-    ElMessage.warning('请至少添加一个核心优势')
-    return
-  }
   generating.value = true
   score.value = null
+  generatedContent.value = ''
   try {
     const res = await geoApi.generateContent({
       keyword: form.keyword,
       brand_name: form.brand_name,
       advantages: form.advantages,
+      model: form.model,
       word_count: form.word_count,
       style: form.style
     })
