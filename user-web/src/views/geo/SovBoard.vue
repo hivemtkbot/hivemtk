@@ -1,5 +1,11 @@
 <template>
-  <div class="p-4">
+  <div class="geo-page">
+    <div class="page-header">
+      <h2>竞品 SOV 声量份额</h2>
+      <p class="sub">对比 HiveMTK 与竞品在 AI 引擎中的品牌提及率与引用份额，识别机会与威胁</p>
+    </div>
+
+    <div class="p-4">
     <el-row :gutter="16" class="mb-4">
       <el-col :span="6">
         <el-card><el-statistic title="品牌声量份额 SOV" :value="summary.brand_sov" suffix="%" :precision="1" /></el-card>
@@ -54,6 +60,7 @@
       </div>
       <div ref="trendChartRef" v-show="trendData && trendData.length > 0" style="height:320px"></div>
     </el-card>
+    </div>
   </div>
 </template>
 

@@ -1,5 +1,11 @@
 <template>
-  <div class="p-4">
+  <div class="geo-page">
+    <div class="page-header">
+      <h2>多平台发布</h2>
+      <p class="sub">将 HiveMTK 优化后的内容一键发布到 Medium/DEV/GitHub，扩大 AI 搜索覆盖面</p>
+    </div>
+
+    <div class="p-4">
     <el-row :gutter="16" class="mb-4">
       <el-col :span="8">
         <el-card>
@@ -106,6 +112,7 @@
         <el-button type="primary" @click="saveAccount">保存</el-button>
       </template>
     </el-dialog>
+    </div>
   </div>
 </template>
 

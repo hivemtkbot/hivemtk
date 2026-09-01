@@ -1,5 +1,11 @@
 <template>
-  <div class="p-4">
+  <div class="geo-page">
+    <div class="page-header">
+      <h2>爬虫访问统计</h2>
+      <p class="sub">追踪 Googlebot/Bingbot/Perplexity 爬虫对 HiveMTK 站点的访问行为，优化抓取策略</p>
+    </div>
+
+    <div class="p-4">
     <el-row :gutter="16" class="mb-4">
       <el-col :span="6">
         <el-card><el-statistic title="今日爬虫访问数" :value="summary.today_visits" /></el-card>
@@ -127,6 +133,7 @@
         <el-button type="primary" @click="addCatalog">保存</el-button>
       </template>
     </el-dialog>
+    </div>
   </div>
 </template>
 

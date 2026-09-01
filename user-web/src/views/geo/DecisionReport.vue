@@ -1,5 +1,11 @@
 <template>
-  <div class="p-4">
+  <div class="geo-page">
+    <div class="page-header">
+      <h2>GEO 决策链报表</h2>
+      <p class="sub">汇总 HiveMTK GEO 运营全链路数据，识别内容缺口与优化优先级，输出执行清单</p>
+    </div>
+
+    <div class="p-4">
     <el-row :gutter="16" class="mb-4">
       <el-col :span="8"><el-card><el-statistic title="捕获线索数(L4)" :value="report.leads_captured || 0" /></el-card></el-col>
       <el-col :span="8"><el-card><el-statistic title="待处理缺口任务" :value="report.tasks_pending || 0" /></el-card></el-col>
@@ -20,6 +26,7 @@
         </el-table-column>
       </el-table>
     </el-card>
+    </div>
   </div>
 </template>
 
