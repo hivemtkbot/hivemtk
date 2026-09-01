@@ -236,46 +236,46 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .geo-page {
-  padding: 20px 24px;
+  padding: $spacing-lg 24px;
 }
 .page-header h2 {
   margin: 0 0 6px;
-  font-size: 20px;
+  font-size: $font-size-extra-large;
   font-weight: 700;
-  color: #0f172a;
+  color: $text-primary;
 }
 .page-header .sub {
   margin: 0 0 16px;
-  color: #64748b;
-  font-size: 13px;
+  color: $info-color;
+  font-size: $font-size-small;
 }
 .search-card,
 .table-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid $border-base;
   border-radius: 10px;
-  margin-bottom: 16px;
+  margin-bottom: $spacing-md;
 }
 .action-col {
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
-  padding-bottom: 4px;
+  padding-bottom: $spacing-xs;
 }
 .card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: $spacing-md;
 }
 .header-actions {
   display: flex;
-  gap: 8px;
+  gap: $spacing-sm;
 }
 .pager {
-  margin-top: 16px;
+  margin-top: $spacing-md;
   display: flex;
   justify-content: flex-end;
 }

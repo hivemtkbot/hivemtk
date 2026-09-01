@@ -212,45 +212,45 @@ const copyOptimized = async () => {
 onMounted(loadArticles)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .geo-page {
-  padding: 20px 24px;
+  padding: $spacing-lg 24px;
 }
 .page-header h2 {
   margin: 0 0 6px;
-  font-size: 20px;
+  font-size: $font-size-extra-large;
   font-weight: 700;
-  color: #0f172a;
+  color: $text-primary;
 }
 .page-header .sub {
   margin: 0 0 16px;
-  color: #64748b;
-  font-size: 13px;
+  color: $info-color;
+  font-size: $font-size-small;
 }
 .input-card,
 .compare-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid $border-base;
   border-radius: 10px;
-  margin-bottom: 16px;
+  margin-bottom: $spacing-md;
 }
 .card-title {
   font-weight: 600;
-  color: #0f172a;
+  color: $text-primary;
 }
 .card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: $spacing-md;
 }
 .score-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: $spacing-sm;
 }
 .score-bar .arrow {
-  color: #94a3b8;
+  color: $text-placeholder;
 }
 .compare-col {
   display: flex;
@@ -258,8 +258,8 @@ onMounted(loadArticles)
 }
 .col-title {
   font-weight: 600;
-  margin-bottom: 8px;
-  color: #0f172a;
+  margin-bottom: $spacing-sm;
+  color: $text-primary;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -268,40 +268,40 @@ onMounted(loadArticles)
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.8;
-  font-size: 13px;
-  padding: 12px;
+  font-size: $font-size-small;
+  padding: $spacing-md;
   border-radius: 8px;
   min-height: 200px;
   max-height: 480px;
   overflow-y: auto;
 }
 .compare-text.original {
-  background: #f8fafc;
-  color: #475569;
+  background: $bg-color-page;
+  color: $text-regular;
 }
 .compare-text.optimized {
-  background: #eef2ff;
-  color: #1e293b;
-  border: 1px solid #c7d2fe;
+  background: $primary-light-1;
+  color: $text-primary;
+  border: 1px solid $primary-light-3;
 }
 .suggest-section {
-  margin-top: 20px;
-  border-top: 1px dashed #e2e8f0;
-  padding-top: 16px;
+  margin-top: $spacing-lg;
+  border-top: 1px dashed $border-base;
+  padding-top: $spacing-md;
 }
 .suggest-title {
   font-weight: 600;
-  margin-bottom: 8px;
-  color: #0f172a;
+  margin-bottom: $spacing-sm;
+  color: $text-primary;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 .suggest-list {
   margin: 0;
-  padding-left: 20px;
-  color: #475569;
-  font-size: 13px;
+  padding-left: $spacing-lg;
+  color: $text-regular;
+  font-size: $font-size-small;
   line-height: 1.9;
 }
 </style>

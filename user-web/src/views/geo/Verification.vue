@@ -228,31 +228,31 @@ const handleMonitorNegative = async () => {
 onMounted(loadArticles)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .geo-page {
-  padding: 20px 24px;
+  padding: $spacing-lg 24px;
 }
 .page-header h2 {
   margin: 0 0 6px;
-  font-size: 20px;
+  font-size: $font-size-extra-large;
   font-weight: 700;
-  color: #0f172a;
+  color: $text-primary;
 }
 .page-header .sub {
   margin: 0 0 16px;
-  color: #64748b;
-  font-size: 13px;
+  color: $info-color;
+  font-size: $font-size-small;
 }
 .form-card,
 .result-card,
 .negative-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid $border-base;
   border-radius: 10px;
-  margin-bottom: 16px;
+  margin-bottom: $spacing-md;
 }
 .card-title {
   font-weight: 600;
-  color: #0f172a;
+  color: $text-primary;
 }
 .card-header {
   display: flex;

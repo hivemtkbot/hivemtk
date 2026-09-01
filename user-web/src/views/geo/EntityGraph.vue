@@ -178,7 +178,7 @@ const onCopySchema = async () => {
 onMounted(loadEntities)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .graph-container {
   background: var(--el-fill-color-lighter);
   border-radius: 6px;
@@ -188,13 +188,13 @@ onMounted(loadEntities)
   justify-content: center;
 }
 .schema-pre {
-  background: #1e293b;
-  color: #e2e8f0;
-  padding: 16px;
+  background: $text-primary;
+  color: $border-base;
+  padding: $spacing-md;
   border-radius: 6px;
   max-height: 360px;
   overflow: auto;
-  font-size: 12px;
+  font-size: $font-size-extra-small;
   line-height: 1.5;
   margin: 0;
 }

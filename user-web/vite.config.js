@@ -127,7 +127,12 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        // 移除自动导入，改用@use语法
+        // 全局自动注入变量 —— 所有 <style lang="scss"> 块可直接用 $primary-color 等
+        // 通过 sass loadPaths 让 "variables.scss" 无路径引用即可解析
+        sassOptions: {
+          loadPaths: [resolve(__dirname, 'src/styles')],
+        },
+        additionalData: '@use "variables.scss" as *;',
       }
     },
     // 添加CSS配置以处理深度选择器警告

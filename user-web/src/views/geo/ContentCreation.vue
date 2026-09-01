@@ -223,30 +223,30 @@ const copyContent = async () => {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .geo-page {
-  padding: 20px 24px;
+  padding: $spacing-lg 24px;
 }
 .page-header h2 {
   margin: 0 0 6px;
-  font-size: 20px;
+  font-size: $font-size-extra-large;
   font-weight: 700;
-  color: #0f172a;
+  color: $text-primary;
 }
 .page-header .sub {
   margin: 0 0 16px;
-  color: #64748b;
-  font-size: 13px;
+  color: $info-color;
+  font-size: $font-size-small;
 }
 .form-card,
 .result-card,
 .score-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid $border-base;
   border-radius: 10px;
 }
 .card-title {
   font-weight: 600;
-  color: #0f172a;
+  color: $text-primary;
 }
 .card-header {
   display: flex;
@@ -257,7 +257,7 @@ const copyContent = async () => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: $spacing-sm;
 }
 .adv-tag {
   margin: 0;
@@ -272,54 +272,54 @@ const copyContent = async () => {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.8;
-  color: #1e293b;
-  font-size: 14px;
+  color: $text-primary;
+  font-size: $font-size-base;
 }
 .score-section {
-  margin-top: 16px;
-  border-top: 1px dashed #e2e8f0;
-  padding-top: 16px;
+  margin-top: $spacing-md;
+  border-top: 1px dashed $border-base;
+  padding-top: $spacing-md;
 }
 .score-actions {
-  margin-bottom: 12px;
+  margin-bottom: $spacing-md;
 }
 .score-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  gap: $spacing-md;
 }
 .score-item {
   text-align: center;
-  padding: 12px 8px;
+  padding: $spacing-md 8px;
   border-radius: 8px;
-  background: #f8fafc;
+  background: $bg-color-page;
 }
 .score-item.total {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  color: #fff;
+  background: linear-gradient(135deg, $primary-color, $primary-color);
+  color: $bg-color;
 }
 .score-value {
-  font-size: 22px;
+  font-size: $font-size-extra-large;
   font-weight: 700;
 }
 .score-label {
-  font-size: 12px;
-  margin-top: 4px;
+  font-size: $font-size-extra-small;
+  margin-top: $spacing-xs;
   opacity: 0.85;
 }
 .score-suggest {
-  margin-top: 12px;
+  margin-top: $spacing-md;
 }
 .suggest-title {
   font-weight: 600;
-  margin-bottom: 6px;
-  color: #0f172a;
+  margin-bottom: $spacing-sm;
+  color: $text-primary;
 }
 .score-suggest ul {
   margin: 0;
-  padding-left: 20px;
-  color: #475569;
-  font-size: 13px;
+  padding-left: $spacing-lg;
+  color: $text-regular;
+  font-size: $font-size-small;
   line-height: 1.8;
 }
 @media (max-width: 768px) {

@@ -177,32 +177,32 @@ const onAsk = async () => {
 onMounted(loadDocs)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .chat-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: $spacing-md;
   min-height: 300px;
 }
 .chat-message {
   display: flex;
-  gap: 8px;
+  gap: $spacing-sm;
   align-items: flex-start;
 }
 .chat-message.user { flex-direction: row-reverse; }
 .chat-avatar {
   width: 28px; height: 28px; border-radius: 50%;
-  background: var(--el-color-primary); color: #fff;
+  background: var(--el-color-primary); color: $bg-color;
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; flex-shrink: 0;
+  font-size: $font-size-extra-small; flex-shrink: 0;
 }
-.chat-message.assistant .chat-avatar { background: #10b981; }
+.chat-message.assistant .chat-avatar { background: $success-color; }
 .chat-bubble {
   max-width: 75%;
-  padding: 10px 14px;
+  padding: $spacing-md 14px;
   border-radius: 10px;
   background: var(--el-fill-color-light);
-  font-size: 14px;
+  font-size: $font-size-base;
   white-space: pre-wrap;
   word-break: break-word;
 }

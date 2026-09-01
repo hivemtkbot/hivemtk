@@ -239,29 +239,29 @@ const handleOptimize = async () => {
 onMounted(loadConfig)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .geo-page {
-  padding: 20px 24px;
+  padding: $spacing-lg 24px;
 }
 .page-header h2 {
   margin: 0 0 6px;
-  font-size: 20px;
+  font-size: $font-size-extra-large;
   font-weight: 700;
-  color: #0f172a;
+  color: $text-primary;
 }
 .page-header .sub {
   margin: 0 0 16px;
-  color: #64748b;
-  font-size: 13px;
+  color: $info-color;
+  font-size: $font-size-small;
 }
 .form-card,
 .suggest-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid $border-base;
   border-radius: 10px;
 }
 .card-title {
   font-weight: 600;
-  color: #0f172a;
+  color: $text-primary;
 }
 .card-header {
   display: flex;
@@ -272,7 +272,7 @@ onMounted(loadConfig)
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: $spacing-sm;
 }
 .tag-item {
   margin: 0;
@@ -283,25 +283,25 @@ onMounted(loadConfig)
 .suggest-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: $spacing-md;
 }
 .suggest-item {
-  padding: 12px;
+  padding: $spacing-md;
   border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: $bg-color-page;
+  border: 1px solid $border-base;
 }
 .suggest-item-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: $spacing-sm;
   font-weight: 600;
-  color: #0f172a;
-  margin-bottom: 6px;
+  color: $text-primary;
+  margin-bottom: $spacing-sm;
 }
 .suggest-item-desc {
-  font-size: 13px;
-  color: #475569;
+  font-size: $font-size-small;
+  color: $text-regular;
   line-height: 1.6;
 }
 </style>

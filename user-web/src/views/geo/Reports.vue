@@ -190,83 +190,83 @@ const loadAll = () => {
 onMounted(loadAll)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .geo-page {
-  padding: 20px 24px;
+  padding: $spacing-lg 24px;
 }
 .page-header h2 {
   margin: 0 0 6px;
-  font-size: 20px;
+  font-size: $font-size-extra-large;
   font-weight: 700;
-  color: #0f172a;
+  color: $text-primary;
 }
 .page-header .sub {
   margin: 0 0 16px;
-  color: #64748b;
-  font-size: 13px;
+  color: $info-color;
+  font-size: $font-size-small;
 }
 .filter-card,
 .cost-card,
 .roi-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid $border-base;
   border-radius: 10px;
-  margin-bottom: 16px;
+  margin-bottom: $spacing-md;
 }
 .card-title {
   font-weight: 600;
-  color: #0f172a;
+  color: $text-primary;
 }
 .summary-row {
-  margin-bottom: 16px;
+  margin-bottom: $spacing-md;
 }
 .summary-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid $border-base;
   border-radius: 10px;
-  margin-bottom: 12px;
+  margin-bottom: $spacing-md;
 }
 .summary-label {
-  font-size: 12px;
-  color: #64748b;
+  font-size: $font-size-extra-small;
+  color: $info-color;
 }
 .summary-value {
-  font-size: 22px;
+  font-size: $font-size-extra-large;
   font-weight: 700;
-  color: #0f172a;
-  margin-top: 4px;
+  color: $text-primary;
+  margin-top: $spacing-xs;
 }
 .summary-value.cost {
-  color: #dc2626;
+  color: $danger-color;
 }
 .roi-row {
-  margin-bottom: 16px;
+  margin-bottom: $spacing-md;
 }
 .roi-item {
-  background: #f8fafc;
+  background: $bg-color-page;
   border-radius: 8px;
-  padding: 16px;
+  padding: $spacing-md;
   text-align: center;
 }
 .roi-item.highlight {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  color: #fff;
+  background: linear-gradient(135deg, $primary-color, $primary-color);
+  color: $bg-color;
 }
 .roi-label {
-  font-size: 12px;
+  font-size: $font-size-extra-small;
   opacity: 0.85;
 }
 .roi-value {
-  font-size: 22px;
+  font-size: $font-size-extra-large;
   font-weight: 700;
-  margin-top: 4px;
+  margin-top: $spacing-xs;
 }
 .roi-suggest {
-  border-top: 1px dashed #e2e8f0;
-  padding-top: 12px;
+  border-top: 1px dashed $border-base;
+  padding-top: $spacing-md;
 }
 .suggest-title {
   font-weight: 600;
-  margin-bottom: 8px;
-  color: #0f172a;
+  margin-bottom: $spacing-sm;
+  color: $text-primary;
 }
 .roi-suggest ul {
   margin: 0;
@@ -276,9 +276,9 @@ onMounted(loadAll)
 .roi-suggest li {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-  font-size: 13px;
-  color: #475569;
+  gap: $spacing-sm;
+  padding: $spacing-xs 0;
+  font-size: $font-size-small;
+  color: $text-regular;
 }
 </style>

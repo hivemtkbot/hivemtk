@@ -273,7 +273,7 @@ const loadAll = () => { loadDomainStats(); loadDaily(); loadCatalog() }
 onMounted(loadAll)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .heat-bar {
   height: 14px;
   border-radius: 3px;

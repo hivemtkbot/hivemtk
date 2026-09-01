@@ -240,9 +240,9 @@ const loadExecutions = async () => {
 onMounted(() => { loadWorkflows(); loadExecutions() })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .workflow-item {
-  padding: 10px;
+  padding: $spacing-md;
   border-radius: 6px;
   cursor: pointer;
   background: var(--el-fill-color-light);
@@ -253,10 +253,10 @@ onMounted(() => { loadWorkflows(); loadExecutions() })
 .step-block {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: $spacing-md;
+  padding: $spacing-md 16px;
   border-radius: 8px;
-  margin-bottom: 10px;
+  margin-bottom: $spacing-md;
   background: var(--el-fill-color-light);
   border: 1px solid var(--el-border-color-lighter);
 }
@@ -265,20 +265,20 @@ onMounted(() => { loadWorkflows(); loadExecutions() })
   height: 28px;
   border-radius: 50%;
   background: var(--el-color-primary);
-  color: #fff;
+  color: $bg-color;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: $font-size-base;
   flex-shrink: 0;
 }
 .step-body { flex: 1; min-width: 0; }
-.step-title { font-weight: 600; margin-bottom: 8px; }
+.step-title { font-weight: 600; margin-bottom: $spacing-sm; }
 .step-config .el-input, .step-config .el-select { width: 100%; }
-.step-actions { display: flex; flex-direction: column; gap: 4px; }
-.step-keywords { border-left: 3px solid #f59e0b; }
-.step-generate { border-left: 3px solid #409eff; }
-.step-optimize { border-left: 3px solid #10b981; }
-.step-verify { border-left: 3px solid #8b5cf6; }
-.step-publish { border-left: 3px solid #ec4899; }
+.step-actions { display: flex; flex-direction: column; gap: $spacing-xs; }
+.step-keywords { border-left: 3px solid $warning-color; }
+.step-generate { border-left: 3px solid $primary-color; }
+.step-optimize { border-left: 3px solid $success-color; }
+.step-verify { border-left: 3px solid $primary-color; }
+.step-publish { border-left: 3px solid $danger-color; }
 </style>
