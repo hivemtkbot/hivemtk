@@ -1,6 +1,10 @@
 <template>
   <!-- 有子菜单的菜单项 -->
-  <el-sub-menu v-if="menu.children && menu.children.length > 0" :index="menu.key || menu.path">
+  <el-sub-menu
+    v-if="menu.children && menu.children.length > 0"
+    :index="menu.key || menu.path"
+    popper-class="sidebar-menu-popper"
+  >
     <template #title>
       <el-icon><component :is="resolveRouteIcon(menu.icon)" /></el-icon>
       <span>{{ t('menu.' + menu.key) }}</span>
@@ -57,11 +61,11 @@ const props = defineProps({
 }
 
 :deep(.el-sub-menu .el-menu-item) {
-  background-color: var(--el-menu-bg-color);
+  background-color: transparent;
 }
 
 :deep(.el-sub-menu .el-menu-item:hover) {
-  background-color: var(--el-menu-hover-bg-color);
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 /* 确保三级菜单缩进正确 */
@@ -80,6 +84,6 @@ const props = defineProps({
 
 /* 确保三级菜单子菜单正确展开 */
 :deep(.el-sub-menu .el-sub-menu .el-menu) {
-  background-color: var(--el-menu-bg-color);
+  background-color: transparent;
 }
 </style>

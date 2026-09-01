@@ -235,6 +235,53 @@ body {
 }
 
 /* ==========================================================================
+   侧边栏三级子菜单弹出层（Element Plus vertical 模式 ≥3 级自动弹出）
+   使用 popper-class="sidebar-menu-popper" 避免影响顶部 horizontal 菜单
+   ========================================================================== */
+.sidebar-menu-popper {
+  background: #4F46E5 !important;
+  border: none !important;
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.3) !important;
+  border-radius: 8px !important;
+  padding: 4px !important;
+
+  .el-menu {
+    background: transparent !important;
+    border-right: none !important;
+  }
+
+  .el-menu-item,
+  .el-sub-menu__title {
+    background: transparent !important;
+    color: #C7D2FE !important;
+    border-radius: 6px;
+    height: 40px;
+    line-height: 40px;
+  }
+
+  .el-menu-item:hover,
+  .el-sub-menu__title:hover {
+    background: rgba(255, 255, 255, 0.12) !important;
+    color: #ffffff !important;
+  }
+
+  .el-menu-item.is-active {
+    background: rgba(255, 255, 255, 0.18) !important;
+    color: #ffffff !important;
+    font-weight: 600;
+  }
+
+  .el-menu-item .el-icon,
+  .el-sub-menu__title .el-icon {
+    color: #A5B4FC !important;
+  }
+
+  .el-sub-menu .el-menu {
+    background: transparent !important;
+  }
+}
+
+/* ==========================================================================
    通用工具类（USR-I18N-01: 增加 RTL 兼容的逻辑属性版本）
    ========================================================================== */
 .text-center { text-align: center; }
