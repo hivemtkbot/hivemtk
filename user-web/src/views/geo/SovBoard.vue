@@ -5,10 +5,10 @@
     <el-row :gutter="16" class="mb-4">
       <el-col :span="6">
         <el-card>
-          <el-statistic title="HiveMTK SOV" :value="hiveMTKSov" suffix="%" :precision="1">
+          <el-statistic title="HiveMTK SOV" :value="hiveMTKSov" suffix="%" :precision="2">
             <template #suffix>
               <span :class="hiveMTKSovTrend < 0 ? 'text-red-500' : 'text-green-500'" style="font-size:12px;margin-left:4px">
-                {{ hiveMTKSovTrend >= 0 ? '↑' : '↓' }}{{ Math.abs(hiveMTKSovTrend).toFixed(1) }}%
+                {{ hiveMTKSovTrend >= 0 ? '↑' : '↓' }}{{ Math.abs(hiveMTKSovTrend).toFixed(2) }}%
               </span>
             </template>
           </el-statistic>
@@ -58,7 +58,7 @@
               <el-progress :percentage="row.sov_percent" :stroke-width="8" :show-text="false"
                 :color="row.is_own ? '#409eff' : (row.sov_percent >= 20 ? '#67c23a' : row.sov_percent >= 10 ? '#e6a23c' : '#f56c6c')"
                 style="flex:1" />
-              <span class="text-xs w-12 text-right">{{ row.sov_percent.toFixed(1) }}%</span>
+              <span class="text-xs w-12 text-right">{{ row.sov_percent.toFixed(2) }}%</span>
             </div>
           </template>
         </el-table-column>
@@ -93,7 +93,7 @@ const hiveMTKMentions = computed(() => hiveMTKEntry.value?.mentions || 0)
 const hiveMTKSovTrend = computed(() => {
   if (sovData.value.length <= 1) return 0
   const avg = sovData.value.reduce((s, r) => s + r.sov_percent, 0) / sovData.value.length
-  return Number((hiveMTKSov.value - avg).toFixed(1))
+  return Number((hiveMTKSov.value - avg).toFixed(2))
 })
 
 const summary = computed(() => ({
@@ -120,7 +120,7 @@ const renderBarChart = () => {
   }
   const sorted = [...sovData.value].sort((a, b) => b.sov_percent - a.sov_percent)
   chartInstance.setOption({
-    tooltip: { trigger: 'axis', formatter: '{b}: {c}%' },
+    tooltip: { trigger: 'axis', formatter: (p) => `${p[0].name}: ${Number(p[0].value).toFixed(2)}%` },
     grid: { left: 50, right: 20, top: 20, bottom: 30 },
     xAxis: { type: 'category', data: sorted.map(r => r.brand), axisLabel: { rotate: 30, fontSize: 12 } },
     yAxis: { type: 'value', name: 'SOV %', max: 100 },
@@ -130,8 +130,8 @@ const renderBarChart = () => {
         value: r.sov_percent,
         itemStyle: { color: r.is_own ? '#409eff' : '#909399' }
       })),
-      barMaxWidth: 48,
-      label: { show: true, position: 'top', formatter: '{c}%', fontSize: 11 }
+      barWidth: '40%',
+      label: { show: true, position: 'top', formatter: (p) => `${Number(p.value).toFixed(2)}%`, fontSize: 11 }
     }]
   })
 }

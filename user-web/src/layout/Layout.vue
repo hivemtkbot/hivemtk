@@ -520,7 +520,7 @@ const topMenus = ref([
         children: [
           {
             key: 'geoProd',
-            title: '生产类',
+            title: '生产',
             icon: 'EditPen',
             children: [
               { key: 'geoKeywordMining', title: '关键词蒸馏', icon: 'Search', path: '/geo-tools/keyword-mining' },
@@ -531,7 +531,7 @@ const topMenus = ref([
           },
           {
             key: 'geoPublish',
-            title: '发布类',
+            title: '发布',
             icon: 'Connection',
             children: [
               { key: 'geoPlatformPublish', title: '平台发布', icon: 'Connection', path: '/geo-tools/platform-publish' },
@@ -540,7 +540,7 @@ const topMenus = ref([
           },
           {
             key: 'geoMonitor',
-            title: '监控类',
+            title: '监控',
             icon: 'Monitor',
             children: [
               { key: 'geoSovBoard', title: '竞品 SOV', icon: 'DataLine', path: '/geo-tools/sov-board' },
