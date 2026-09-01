@@ -2,10 +2,15 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"strings"
 	"time"
 
 	"hivemtk-user/internal/aiagent/knowledge/model"
 	"hivemtk-user/internal/aiagent/knowledge/repository"
+	"hivemtk-user/internal/pkg/utils/async"
+	"hivemtk-user/internal/pkg/utils/logger"
 )
 
 // Reindex 重建指定文档的向量索引。复用已落库的分片内容重新向量化，不重新分块。
@@ -18,8 +23,31 @@ func (s *KnowledgeService) Reindex(ctx context.Context, productID string, docID 
 	if err != nil {
 		return err
 	}
+	logger.Infof("[knowledge][Reindex] called doc=%d chunks=%d", doc.ID, len(chunks))
 	if len(chunks) == 0 {
-		_ = s.docRepo.UpdateStatus(ctx, doc.ID, model.EmbedStatusIndexed, 100, "")
+		// R43 修复：0 分片说明上次分片阶段失败（如短文本被 MinChunkSize 全量过滤，
+		// 或 embedding 不可达中断），绝非"无可索引内容"。此前直接伪造 indexed/100
+		// 状态（假成功），文档永远无法被检索。改为：读回源内容重走完整分片+向量化管线。
+		content := ""
+		logger.Infof("[knowledge][Reindex] zero-chunk re-pipeline doc=%d file=%s", doc.ID, doc.FilePath)
+		if doc.FilePath != "" {
+			if b, rerr := os.ReadFile(doc.FilePath); rerr == nil {
+				content = string(b)
+			}
+		}
+		if strings.TrimSpace(content) == "" {
+			_ = s.docRepo.UpdateStatus(ctx, doc.ID, model.EmbedStatusFailed, 0,
+				"重建失败：0 分片且源内容不可读（文件缺失或为空）")
+			return nil
+		}
+		meta := map[string]any{}
+		if doc.Metadata != "" {
+			_ = json.Unmarshal([]byte(doc.Metadata), &meta)
+		}
+		async.RunWithTimeout(ctx, AsyncProcessingTimeout, func(procCtx context.Context) {
+			s.processDocumentAsync(procCtx, doc.ID, doc.ProductID, doc.FilePath,
+				doc.FileName, content, doc.MimeType, doc.Title, doc.SourceType, meta)
+		})
 		return nil
 	}
 	texts := make([]string, len(chunks))

@@ -246,6 +246,19 @@ func (dp *DocumentProcessor) postProcessChunks(chunks []rag_core.Chunk) []rag_co
 		}
 	}
 
+	// R43 修复：短文档（如一句话 FAQ）可能被 MinChunkSize 全量过滤 → "分片结果为空"
+	// → 文档永远无法向量化。语义上内容非空就不应产出 0 分片：兜底保留最长的原始
+	// 分片（对齐 rerank ScoreFloor 的"全低于地板保留首条"设计，R31 A8 同思路）。
+	if len(filteredChunks) == 0 && len(chunks) > 0 {
+		best := chunks[0]
+		for _, c := range chunks[1:] {
+			if len(c.Content) > len(best.Content) {
+				best = c
+			}
+		}
+		filteredChunks = append(filteredChunks, best)
+	}
+
 	return filteredChunks
 }
 
