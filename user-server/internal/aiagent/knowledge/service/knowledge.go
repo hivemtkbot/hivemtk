@@ -26,6 +26,8 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 	"mime/multipart"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -44,6 +46,7 @@ type KnowledgeService struct {
 	searchLogRepo *repository.KnowledgeSearchLogRepository
 	embeddingSvc  *llm.EmbeddingService
 	llmSvc        *llm.LLMService
+	ragSearcher   *RagSearcher
 }
 
 // NewKnowledgeService 创建知识库服务
@@ -69,6 +72,7 @@ func newKnowledgeServiceWithDB(gdb *gorm.DB) *KnowledgeService {
 		searchLogRepo: repository.NewKnowledgeSearchLogRepository(gdb),
 		embeddingSvc:  llm.NewEmbeddingService(),
 		llmSvc:        llm.NewLLMService(),
+		ragSearcher:   NewRagSearcherWithDB(gdb),
 	}
 }
 
@@ -295,16 +299,27 @@ func (s *KnowledgeService) EmbedAndPersistChunks(ctx context.Context, numericPro
 
 // Search 检索知识库
 func (s *KnowledgeService) Search(ctx context.Context, productID string, query string, topK int, threshold float64) ([]model.KnowledgeChunk, error) {
-	queryVec, err := s.vectorizer.EmbedText(query)
+	// R43 修复：原为半成品桩（_ = queryVec; return nil,nil）恒空，检索 API 全线失效。
+	// 接线到 RagSearcher 的 HybridSearcher（向量+BM25 混合），命中分片按阈值过滤。
+	if s.ragSearcher == nil {
+		return nil, errors.New("rag searcher 未初始化")
+	}
+	// RagSearcher.Search 内部：hybrid(向量+BM25+RRF+重排) → legacy 降级链全托管
+	ragChunks, err := s.ragSearcher.Search(ctx, query, topK)
 	if err != nil {
-		return nil, fmt.Errorf("向量化查询失败: %w", err)
+		return nil, fmt.Errorf("混合检索失败: %w", err)
 	}
-
-	total, _ := s.chunkRepo.CountByProductID(ctx, productID)
-	if total == 0 {
-		return nil, nil
+	out := make([]model.KnowledgeChunk, 0, len(ragChunks))
+	for _, c := range ragChunks {
+		if threshold > 0 && c.Score < threshold {
+			continue
+		}
+		docID, _ := strconv.ParseUint(strings.TrimPrefix(c.DocID, "kb_doc_"), 10, 64)
+		out = append(out, model.KnowledgeChunk{
+			DocumentID: docID,
+			ProductID:  productID,
+			Content:    c.Content,
+		})
 	}
-
-	_ = queryVec
-	return nil, nil
+	return out, nil
 }
