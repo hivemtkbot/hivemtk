@@ -13,6 +13,7 @@ type GeoVerifyResult struct {
 	ArticleID      string `gorm:"type:varchar(36);index" json:"article_id"`
 	BrandName      string `gorm:"type:varchar(200);index" json:"brand_name"`
 	Model          string `gorm:"type:varchar(100)" json:"model"`
+	Engine         string `gorm:"type:varchar(50)" json:"engine,omitempty"` // R49: 真实探针引擎来源（local-llm/qwen/deepseek 等）
 	Query          string `gorm:"type:text" json:"query"`
 	Response       string `gorm:"type:text" json:"response"`
 	BrandMentioned bool   `gorm:"default:false" json:"brand_mentioned"`

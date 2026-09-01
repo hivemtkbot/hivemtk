@@ -182,6 +182,7 @@ func main() {
 		georepo.NewGeoQueryChainRepository(db),
 		georepo.NewGeoContentTaskRepository(db),
 		geoservice.NewLLMAdapter(),
+		geoservice.NewDefaultSearchProbe(),
 	)
 	contentSvc := geoservice.NewContentService(
 		georepo.NewGeoArticleRepositoryWithDB(db),
@@ -275,6 +276,7 @@ func main() {
 			georepo.NewGeoQueryChainRepository(db),
 			georepo.NewGeoContentTaskRepository(db),
 			geoservice.NewLLMAdapter(),
+			geoservice.NewDefaultSearchProbe(),
 		)
 		if _, verr := verifySvc.VerifyArticle(ctx, geodto.VerifyRequest{
 			ArticleID: latestArt.ID, Query: topKeyword, BrandName: brand,

@@ -1,9 +1,5 @@
 <template>
   <div class="geo-page">
-    <div class="page-header">
-      <h2>配置优化</h2>
-      <p class="sub">维护品牌 / 优势 / 竞品 / 模型配置，并使用 LLM 自动优化配置</p>
-    </div>
 
     <el-row :gutter="16">
       <!-- 配置表单 -->

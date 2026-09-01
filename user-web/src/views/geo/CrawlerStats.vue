@@ -1,9 +1,5 @@
 <template>
   <div class="geo-page">
-    <div class="page-header">
-      <h2>爬虫访问统计</h2>
-      <p class="sub">追踪 Googlebot/Bingbot/Perplexity 爬虫对 HiveMTK 站点的访问行为，优化抓取策略</p>
-    </div>
 
     <div class="p-4">
     <el-row :gutter="16" class="mb-4">

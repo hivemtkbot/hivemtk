@@ -551,7 +551,7 @@ func (s *WorkflowService) registerBuiltinExecutors() {
 		if gen != nil {
 			mentionCount := 0
 			for _, q := range queries {
-				prompt := fmt.Sprintf("搜索查询：\"%s\"\n请模拟搜索引擎结果，判断品牌\"%s\"是否在结果中被提及。\n回答\"提及\"或\"未提及\"，并简要说明。", q, brand)
+				prompt := fmt.Sprintf("搜索查询：\"%s\"\n请基于你的知识回答该搜索查询，判断品牌\"%s\"是否在结果中被提及。\n回答\"提及\"或\"未提及\"，并简要说明。", q, brand)
 				resp, err := gen.Generate(ctx, "", prompt, 0.3, 500)
 				if err != nil {
 					continue

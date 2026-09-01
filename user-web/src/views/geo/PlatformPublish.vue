@@ -1,9 +1,5 @@
 <template>
   <div class="geo-page">
-    <div class="page-header">
-      <h2>多平台发布</h2>
-      <p class="sub">将 HiveMTK 优化后的内容发布到 Medium / GitHub / WordPress 等可用平台，扩大 AI 搜索覆盖面</p>
-    </div>
 
     <div class="p-4">
     <el-row :gutter="16" class="mb-4">

@@ -1,9 +1,5 @@
 <template>
   <div class="geo-page">
-    <div class="page-header">
-      <h2>内容创作</h2>
-      <p class="sub">按关键词 / 品牌 / 优势生成 GEO 友好内容，并一键评分</p>
-    </div>
 
     <el-row :gutter="16">
       <!-- 左侧：生成表单 -->

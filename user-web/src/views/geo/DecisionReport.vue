@@ -1,9 +1,5 @@
 <template>
   <div class="geo-page">
-    <div class="page-header">
-      <h2>GEO 决策链报表</h2>
-      <p class="sub">汇总 HiveMTK GEO 运营全链路数据，识别内容缺口与优化优先级，输出执行清单</p>
-    </div>
 
     <div class="p-4">
     <el-row :gutter="16" class="mb-4">

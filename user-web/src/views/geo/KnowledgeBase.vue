@@ -1,9 +1,5 @@
 <template>
   <div class="geo-page">
-    <div class="page-header">
-      <h2>GEO 知识库</h2>
-      <p class="sub">构建 HiveMTK 品牌知识语料库，让 AI 搜索在回答问题时能精准引用产品特性与案例</p>
-    </div>
 
     <div class="p-4" style="display:flex; gap:16px; min-height:calc(100vh - 180px)">
     <!-- 左：文档管理 -->

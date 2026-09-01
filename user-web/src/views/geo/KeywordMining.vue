@@ -1,9 +1,5 @@
 <template>
   <div class="geo-page">
-    <div class="page-header">
-      <h2>关键词蒸馏</h2>
-      <p class="sub">基于品牌与核心优势挖掘 GEO 关键词，支持 AI 生成、托词组合与混合模式</p>
-    </div>
 
     <!-- 搜索 / 挖掘区 -->
     <el-card shadow="never" class="search-card">

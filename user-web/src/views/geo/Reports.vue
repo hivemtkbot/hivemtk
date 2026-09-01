@@ -1,9 +1,5 @@
 <template>
   <div class="geo-page">
-    <div class="page-header">
-      <h2>数据报表</h2>
-      <p class="sub">监控 GEO 效果与 API 成本，量化投入产出比，数据驱动决策</p>
-    </div>
 
     <!-- 筛选 -->
     <el-card shadow="never" class="filter-card">

@@ -1,9 +1,5 @@
 <template>
   <div class="geo-page">
-    <div class="page-header">
-      <h2>多模型验证</h2>
-      <p class="sub">跨 LLM 验证品牌提及率与竞品对比，支持负面查询监控</p>
-    </div>
 
     <!-- 验证表单 -->
     <el-card shadow="never" class="form-card">

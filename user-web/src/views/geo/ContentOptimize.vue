@@ -1,9 +1,5 @@
 <template>
   <div class="geo-page">
-    <div class="page-header">
-      <h2>文章优化</h2>
-      <p class="sub">优化已有文章，提升结构化 / 可引用性 / 品牌自然植入，对比优化前后效果</p>
-    </div>
 
     <!-- 优化输入 -->
     <el-card shadow="never" class="input-card">

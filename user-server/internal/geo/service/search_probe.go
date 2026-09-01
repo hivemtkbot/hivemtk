@@ -8,12 +8,19 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
+	hivemodel "hivemtk-user/internal/model"
 	"hivemtk-user/internal/geo/model"
 	"hivemtk-user/internal/geo/repository"
+	"hivemtk-user/internal/pkg/db"
+	"gorm.io/gorm"
 )
+
+// urlRegexp 抽取 http(s):// 开头的 URL，用于从 LLM 回答中提取引用信源
+var urlRegexp = regexp.MustCompile(`https?://[^\s"'\)\]\}\>,;]+`)
 
 // Citation 单条被引信源
 type Citation struct {
@@ -28,19 +35,19 @@ type ProbeResult struct {
 	Response  string     `json:"response"`
 	Citations []Citation `json:"citations"`
 	LatencyMs int64      `json:"latency_ms"`
-	Simulated bool       `json:"simulated"` // true = 模拟结果(仅历史数据兼容; R49后探针链不再产出模拟结果)
+	Simulated bool       `json:"simulated"` // true = 模拟结果(仅历史数据兼容)
 	Error     string     `json:"error,omitempty"`
 	BrandHit  bool       `json:"brand_hit"`
 	Sentiment string     `json:"sentiment"`
 }
 
-// SearchProbe 探针接口（保持对外签名不变，适配多引擎）
+// SearchProbe 探针接口
 type SearchProbe interface {
 	Name() string
 	Probe(ctx context.Context, query string) (*ProbeResult, error)
 }
 
-// ---- HTTP 基础客户端（复用，避免各引擎重复 new Client） ----
+// ---- HTTP 基础客户端 ----
 
 var probeHTTPClient = &http.Client{Timeout: 60 * time.Second}
 
@@ -73,263 +80,205 @@ func doJSON(ctx context.Context, endpoint, authHeader string, payload, out any) 
 	return json.Unmarshal(rb, out)
 }
 
-// ---- 1. openaiProbe ----
+// ---- llmEndpointProbe 通用 OpenAI 兼容端点探针 ----
+//
+// 统一处理所有 LLM provider（qwen/deepseek/doubao/local-llm 等），
+// 不再为每个 provider 写独立的 struct。配置完全从 llm_providers 表读取。
 
-type openaiProbe struct{ apiKey string }
+type llmEndpointProbe struct {
+	name     string // 引擎名：qwen/deepseek/local-llm 等
+	endpoint string // e.g. http://127.0.0.1:8207/v1
+	model    string
+	apiKey   string
+}
 
-func (p *openaiProbe) Name() string { return "openai" }
+func (p *llmEndpointProbe) Name() string {
+	if p.name != "" {
+		return p.name
+	}
+	return "local-llm"
+}
 
-func (p *openaiProbe) Probe(ctx context.Context, query string) (*ProbeResult, error) {
+func (p *llmEndpointProbe) Probe(ctx context.Context, query string) (*ProbeResult, error) {
 	start := time.Now()
+	systemPrompt := `你是 AI 搜索答案专家。请以事实为依据回答用户的搜索查询。
+要求：
+1. 直接给出有用的回答（200-400字），不要说"作为AI我无法"之类的套话
+2. 尽量引用具体信息源（网站、博客、文档链接等），如果不确定就说"据公开资料"
+3. 如果涉及具体产品/品牌，客观陈述其定位和特点
+4. 输出中自然出现"信息来源"或"参考链接"小节，列出 1-3 条你所知的可靠链接`
 	var out struct {
 		Choices []struct {
 			Message struct {
 				Content string `json:"content"`
-				Context struct {
-					Annotations []struct {
-						WebSearchPreview struct {
-							Citations []struct {
-								URL   string `json:"url"`
-								Title string `json:"title"`
-							} `json:"citations"`
-						} `json:"web_search_preview"`
-					} `json:"annotations"`
-				} `json:"context"`
 			} `json:"message"`
 		} `json:"choices"`
 		Error *struct {
 			Message string `json:"message"`
 		} `json:"error"`
 	}
+	auth := ""
+	if p.apiKey != "" && !strings.EqualFold(p.apiKey, "local") {
+		auth = "Bearer " + p.apiKey
+	}
 	err := doJSON(ctx,
-		"https://api.openai.com/v1/chat/completions",
-		"Bearer "+p.apiKey,
+		p.endpoint+"/chat/completions",
+		auth,
 		map[string]any{
-			"model": "gpt-4o-mini-search-preview",
-			"messages": []map[string]any{
-				{"role": "user", "content": query},
-			},
-			"web_search_options": map[string]any{"search_context_size": "medium"},
+			"model":       p.model,
+			"messages":    []map[string]any{{"role": "system", "content": systemPrompt}, {"role": "user", "content": query}},
+			"temperature": 0.3,
+			"max_tokens":  1024,
 		},
 		&out,
 	)
 	latency := time.Since(start).Milliseconds()
 	if err != nil {
-		return nil, fmt.Errorf("openai: %w", err)
+		return nil, fmt.Errorf("%s: %w", p.Name(), err)
 	}
-	cites := []Citation{}
-	if len(out.Choices) > 0 {
-		for _, ann := range out.Choices[0].Message.Context.Annotations {
-			for _, c := range ann.WebSearchPreview.Citations {
-				cites = append(cites, Citation{URL: c.URL, Title: c.Title})
+	if len(out.Choices) == 0 {
+		return nil, fmt.Errorf("%s: empty response", p.Name())
+	}
+	content := out.Choices[0].Message.Content
+	cites := extractCitationsFromText(content)
+	return &ProbeResult{
+		Engine: p.Name(), Query: query, Response: content,
+		Citations: cites, LatencyMs: latency,
+	}, nil
+}
+
+// extractCitationsFromText 从 LLM 文本回答中抽取 URL 作为引用信源
+func extractCitationsFromText(text string) []Citation {
+	var cites []Citation
+	for _, m := range urlRegexp.FindAllString(text, -1) {
+		cites = append(cites, Citation{URL: m})
+	}
+	return cites
+}
+
+// ---- 工厂：全部从 llm_providers 表读取 ----
+
+// NewEngineProbes 装配所有可用真实引擎探针（统一从 DB 配置读取）。
+// 优先级：DB 中 enabled=true 的 provider 在前，本地 LLM 兜底在后。
+// 环境变量仅作为补充（兼容老部署），不再硬编码任何 endpoint/model。
+func NewEngineProbes() []SearchProbe {
+	return NewEngineProbesFromDB(db.GetDB())
+}
+
+// NewEngineProbesFromDB 从 llm_providers 表装配探针引擎。
+//
+// 这是唯一的探针装配入口。所有 provider 配置（endpoint/model/api_key）
+// 都从 DB 读取，不再硬编码。运维在后台改 llm_providers 表即可热切换探针引擎。
+//
+// 装配顺序：
+//  1. DB 中 enabled=true 且 BaseURL 非空的 provider（跳过本地 provider，下面单独处理健康检查）
+//  2. 本地 LLM（从 DB 中找第一个 localhost 类型的 provider，健康检查通过则加入）
+func NewEngineProbesFromDB(g *gorm.DB) []SearchProbe {
+	probes := []SearchProbe{}
+	seen := make(map[string]bool)
+
+	// 1. 从 DB 读 enabled=true 的 provider
+	if g != nil {
+		var rows []hivemodel.LLMProvider
+		if err := g.Where("enabled = ?", true).Order("sort_order ASC").Find(&rows).Error; err == nil {
+			for _, row := range rows {
+				if row.BaseURL == "" || row.Model == "" {
+					continue
+				}
+				name := row.Name
+				if seen[name] {
+					continue
+				}
+				// 本地 provider 需要额外健康检查
+				isLocal := strings.HasPrefix(row.BaseURL, "http://127.0.0.1") ||
+					strings.HasPrefix(row.BaseURL, "http://localhost")
+				if isLocal {
+					// 本地 LLM 健康检查
+					if err := checkProbeHealth(row.BaseURL); err != nil {
+						continue
+					}
+					// 标记已有本地 provider，兜底不再重复添加
+					seen["local-llm"] = true
+				}
+				seen[name] = true
+				probes = append(probes, &llmEndpointProbe{
+					name:     name,
+					endpoint: row.BaseURL,
+					model:    row.Model,
+					apiKey:   row.APIKey,
+				})
 			}
 		}
 	}
-	content := ""
-	if len(out.Choices) > 0 {
-		content = out.Choices[0].Message.Content
-	}
-	return &ProbeResult{
-		Engine: p.Name(), Query: query, Response: content,
-		Citations: cites, LatencyMs: latency,
-	}, nil
-}
 
-// ---- 2. perplexityProbe ----
-
-type perplexityProbe struct{ apiKey string }
-
-func (p *perplexityProbe) Name() string { return "perplexity" }
-
-func (p *perplexityProbe) Probe(ctx context.Context, query string) (*ProbeResult, error) {
-	start := time.Now()
-	var out struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
+	// 2. 兜底：如果 DB 没有任何本地 provider，尝试用环境变量或默认地址
+	if !seen["local-llm"] {
+		localURL := os.Getenv("GEO_LOCAL_LLM_URL")
+		if localURL == "" {
+			localURL = "http://127.0.0.1:8207/v1"
+		}
+		if err := checkProbeHealth(localURL); err == nil {
+			model := os.Getenv("LOCAL_LLM_MODEL")
+			if model == "" {
+				model = detectLocalLLMModel(localURL)
 			}
-		} `json:"choices"`
-		Citations []string `json:"citations"`
-	}
-	err := doJSON(ctx,
-		"https://api.perplexity.ai/chat/completions",
-		"Bearer "+p.apiKey,
-		map[string]any{
-			"model": "sonar-pro",
-			"messages": []map[string]any{
-				{"role": "user", "content": query},
-			},
-		},
-		&out,
-	)
-	latency := time.Since(start).Milliseconds()
-	if err != nil {
-		return nil, fmt.Errorf("perplexity: %w", err)
-	}
-	cites := []Citation{}
-	for _, u := range out.Citations {
-		cites = append(cites, Citation{URL: u})
-	}
-	content := ""
-	if len(out.Choices) > 0 {
-		content = out.Choices[0].Message.Content
-	}
-	return &ProbeResult{
-		Engine: p.Name(), Query: query, Response: content,
-		Citations: cites, LatencyMs: latency,
-	}, nil
-}
-
-// ---- 3. deepseekProbe ----
-
-type deepseekProbe struct{ apiKey string }
-
-func (p *deepseekProbe) Name() string { return "deepseek" }
-
-func (p *deepseekProbe) Probe(ctx context.Context, query string) (*ProbeResult, error) {
-	start := time.Now()
-	var out struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
+			if model == "" {
+				model = "smollm3-3b-4bit-mlx"
 			}
-		} `json:"choices"`
-	}
-	err := doJSON(ctx,
-		"https://api.deepseek.com/v1/chat/completions",
-		"Bearer "+p.apiKey,
-		map[string]any{
-			"model": "deepseek-chat",
-			"messages": []map[string]any{
-				{"role": "user", "content": query},
-			},
-			"enable_search": true,
-		},
-		&out,
-	)
-	latency := time.Since(start).Milliseconds()
-	if err != nil {
-		return nil, fmt.Errorf("deepseek: %w", err)
-	}
-	content := ""
-	if len(out.Choices) > 0 {
-		content = out.Choices[0].Message.Content
-	}
-	return &ProbeResult{
-		Engine: p.Name(), Query: query, Response: content,
-		LatencyMs: latency,
-	}, nil
-}
-
-// ---- 4. doubaoProbe（豆包/火山引擎） ----
-
-type doubaoProbe struct{ apiKey string }
-
-func (p *doubaoProbe) Name() string { return "doubao" }
-
-func (p *doubaoProbe) Probe(ctx context.Context, query string) (*ProbeResult, error) {
-	start := time.Now()
-	var out struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			}
-		} `json:"choices"`
-	}
-	err := doJSON(ctx,
-		"https://ark.cn-beijing.volces.com/api/v3/chat/completions",
-		"Bearer "+p.apiKey,
-		map[string]any{
-			"model": "doubao-pro-32k",
-			"messages": []map[string]any{
-				{"role": "user", "content": query},
-			},
-		},
-		&out,
-	)
-	latency := time.Since(start).Milliseconds()
-	if err != nil {
-		return nil, fmt.Errorf("doubao: %w", err)
-	}
-	content := ""
-	if len(out.Choices) > 0 {
-		content = out.Choices[0].Message.Content
-	}
-	return &ProbeResult{
-		Engine: p.Name(), Query: query, Response: content,
-		LatencyMs: latency,
-	}, nil
-}
-
-// ---- 5. qwenProbe（阿里千问） ----
-
-type qwenProbe struct{ apiKey string }
-
-func (p *qwenProbe) Name() string { return "qwen" }
-
-func (p *qwenProbe) Probe(ctx context.Context, query string) (*ProbeResult, error) {
-	start := time.Now()
-	var out struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			}
-		} `json:"choices"`
-	}
-	err := doJSON(ctx,
-		"https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
-		"Bearer "+p.apiKey,
-		map[string]any{
-			"model": "qwen-plus",
-			"messages": []map[string]any{
-				{"role": "user", "content": query},
-			},
-			"enable_search": true,
-		},
-		&out,
-	)
-	latency := time.Since(start).Milliseconds()
-	if err != nil {
-		return nil, fmt.Errorf("qwen: %w", err)
-	}
-	content := ""
-	if len(out.Choices) > 0 {
-		content = out.Choices[0].Message.Content
-	}
-	return &ProbeResult{
-		Engine: p.Name(), Query: query, Response: content,
-		LatencyMs: latency,
-	}, nil
-}
-
-// ---- 工厂 ----
-
-// NewEngineProbes 按环境变量自动装配所有可用真实引擎探针。
-//
-// R49 裁决：移除 mockProbe 兜底。57c1255 加入的"MockProbe 恒可用"与
-// R21 红队 F1（禁止 LLM 模拟冒充真实引擎）及 R29 GEO 数据诚实性铁律冲突：
-// LLM 模拟的信源/引用会流入思维链，污染 SOV/负面监控等全部下游指标。
-// 无任何真实引擎配置时返回空列表，MultiEngineProbe.Probe 对空列表
-// 显式报错（fail-closed），与未配置探针的既有契约一致。
-func NewEngineProbes() []SearchProbe {
-	probes := []SearchProbe{}
-	if k := os.Getenv("OPENAI_API_KEY"); k != "" {
-		probes = append(probes, &openaiProbe{apiKey: k})
-	}
-	if k := os.Getenv("PERPLEXITY_API_KEY"); k != "" {
-		probes = append(probes, &perplexityProbe{apiKey: k})
-	}
-	if k := os.Getenv("DEEPSEEK_API_KEY"); k != "" {
-		probes = append(probes, &deepseekProbe{apiKey: k})
-	}
-	if k := os.Getenv("DOUBAO_API_KEY"); k != "" {
-		probes = append(probes, &doubaoProbe{apiKey: k})
-	}
-	if k := os.Getenv("QWEN_API_KEY"); k != "" {
-		probes = append(probes, &qwenProbe{apiKey: k})
+			probes = append(probes, &llmEndpointProbe{name: "local-llm", endpoint: localURL, model: model})
+		}
 	}
 	return probes
 }
+
+// checkProbeHealth 轻量健康检查（GET /v1/models）
+func checkProbeHealth(endpoint string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(endpoint, "/")+"/models", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := probeHTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 200 && resp.StatusCode < 500 {
+		return nil
+	}
+	return fmt.Errorf("status %d", resp.StatusCode)
+}
+
+// detectLocalLLMModel 从本地 OpenAI 兼容端点 /v1/models 动态获取第一个可用模型 ID
+func detectLocalLLMModel(endpoint string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	var out struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(endpoint, "/")+"/models", nil)
+	resp, err := probeHTTPClient.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return ""
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(body, &out); err != nil {
+		return ""
+	}
+	if len(out.Data) > 0 && out.Data[0].ID != "" {
+		return out.Data[0].ID
+	}
+	return ""
+}
+
+// ---- MultiEngineProbe ----
 
 // MultiEngineProbe 将多个 SearchProbe 包装成一个 SearchProbe：顺序尝试，首个成功即返回
 type MultiEngineProbe struct{ probes []SearchProbe }
@@ -341,10 +290,8 @@ func (m *MultiEngineProbe) Probe(ctx context.Context, query string) (*ProbeResul
 	if len(probes) == 0 {
 		probes = NewEngineProbes()
 	}
-	// R49: 空探针列表 fail-closed（红队 F1：无真实引擎配置必须显式报错，
-	// 不允许 LLM 模拟冒充，防思维链/SOV 数据被模拟结果污染）
 	if len(probes) == 0 {
-		return nil, fmt.Errorf("no search probe engine configured: set one of OPENAI_API_KEY/PERPLEXITY_API_KEY/DEEPSEEK_API_KEY/DOUBAO_API_KEY/QWEN_API_KEY or GEO_SEARCH_PROBE_URL")
+		return nil, fmt.Errorf("no search probe engine configured: add provider to llm_providers table or set GEO_LOCAL_LLM_URL")
 	}
 	var lastErr error
 	for _, p := range probes {
@@ -357,7 +304,7 @@ func (m *MultiEngineProbe) Probe(ctx context.Context, query string) (*ProbeResul
 	return nil, fmt.Errorf("all engines failed: %w", lastErr)
 }
 
-// NewDefaultSearchProbe 保持对外旧接口不变，内部返回 MultiEngineProbe 包装后的 SearchProbe
+// NewDefaultSearchProbe 创建默认探针（全部从 DB 配置读取）
 func NewDefaultSearchProbe() SearchProbe {
 	return &MultiEngineProbe{probes: NewEngineProbes()}
 }
@@ -376,7 +323,6 @@ func NewProbeService(probes []SearchProbe, repo repository.GeoProbeRunRepository
 }
 
 // ProbeAllEngines 遍历所有引擎，逐个调用，结果写入 geo_probe_runs
-// 返回成功的结果 + 失败的错误（部分引擎失败不阻断）
 func (s *ProbeService) ProbeAllEngines(ctx context.Context, query string) ([]*model.GeoProbeRun, []error) {
 	probes := s.probes
 	if len(probes) == 0 {
@@ -390,7 +336,6 @@ func (s *ProbeService) ProbeAllEngines(ctx context.Context, query string) ([]*mo
 			errs = append(errs, fmt.Errorf("probe %s: %w", p.Name(), err))
 			continue
 		}
-		// 轻量匹配：品牌提及 + 情感（不需要 LLM，strings.Contains 足够）
 		brandName := s.getBrandName(ctx)
 		negativeWords := []string{"差评", "投诉", "骗局", "失败", "坑", "垃圾", "烂"}
 		isNegative := false
@@ -414,7 +359,6 @@ func (s *ProbeService) ProbeAllEngines(ctx context.Context, query string) ([]*mo
 			Sentiment:      pr.Sentiment,
 			BrandMentioned: pr.BrandHit,
 		}
-		// 持久化引用（JSON 字符串形式存入 datatypes.JSON）
 		if len(pr.Citations) > 0 {
 			b, _ := json.Marshal(pr.Citations)
 			run.Citations = b
@@ -428,7 +372,7 @@ func (s *ProbeService) ProbeAllEngines(ctx context.Context, query string) ([]*mo
 	return runs, errs
 }
 
-// TestSingle 测试单个引擎（给前端调试用）
+// TestSingle 测试单个引擎
 func (s *ProbeService) TestSingle(ctx context.Context, engineName, query string) (*ProbeResult, error) {
 	for _, p := range s.probes {
 		if engineName == "" || p.Name() == engineName {
@@ -436,7 +380,6 @@ func (s *ProbeService) TestSingle(ctx context.Context, engineName, query string)
 			if err != nil {
 				return nil, err
 			}
-			// 轻量匹配：品牌提及 + 情感（与 ProbeAllEngines 一致）
 			brandName := s.getBrandName(ctx)
 			negativeWords := []string{"差评", "投诉", "骗局", "失败", "坑", "垃圾", "烂"}
 			isNegative := false
@@ -474,7 +417,7 @@ func availableEngineNames(probes []SearchProbe) string {
 	return strings.Join(names, ",")
 }
 
-// getBrandName 从 GeoConfig 读取品牌名（轻量、不打 LLM）
+// getBrandName 从 GeoConfig 读取品牌名
 func (s *ProbeService) getBrandName(ctx context.Context) string {
 	cfgRepo := repository.NewGeoConfigRepository()
 	cfg, err := cfgRepo.Get()

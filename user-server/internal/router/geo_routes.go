@@ -45,7 +45,7 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// 初始化 services
 	keywordSvc := geoservice.NewKeywordService(keywordGroupRepo, keywordRepo, apiCallRepo, llmAdapter)
 	contentSvc := geoservice.NewContentService(articleRepo, optimizationRepo, apiCallRepo, kbDocRepo, llmAdapter)
-	verifySvc := geoservice.NewVerificationService(verifyRepo, apiCallRepo, chainRepo, taskRepo, llmAdapter)
+	verifySvc := geoservice.NewVerificationService(verifyRepo, apiCallRepo, chainRepo, taskRepo, llmAdapter, geoservice.NewDefaultSearchProbe())
 	reportSvc := geoservice.NewReportService(articleRepo, keywordRepo, optimizationRepo, verifyRepo, apiCallRepo)
 	configSvc := geoservice.NewConfigService(configRepo, llmAdapter)
 	platformSvc := geoservice.NewPlatformService(accountRepo, publishRecordRepo, articleRepo)
@@ -109,7 +109,7 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 
 	// 多引擎探针聚合：ProbeService + 爬虫/实体辅助 controller
 	probeRepo := georepo.NewGeoProbeRunRepositoryWithDB(gormDB)
-	probes := geoservice.NewEngineProbes()
+	probes := geoservice.NewEngineProbesFromDB(gormDB)
 	probeSvc := geoservice.NewProbeService(probes, probeRepo)
 	probeCtrl := geoctrl.NewProbeController(probeSvc)
 

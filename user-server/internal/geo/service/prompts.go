@@ -532,10 +532,19 @@ func ConfigOptimizePrompt(brandName, advantages, competitors string) string {
 `, brandName, advantages, competitors)
 }
 
-// VerifySearchPrompt AI 搜索验证 Prompt（迁移自 ai_search_verifier.py 验证逻辑）
-// brandName: 品牌名, query: 搜索查询
-func VerifySearchPrompt(brandName, query string) string {
-	return fmt.Sprintf(`你是 AI 搜索验证助手。请针对以下查询，模拟 AI 搜索引擎的回答，并分析品牌提及情况。
+// VerifySearchPrompt AI 搜索验证 Prompt（R49 重构版）
+// 真实探针架构：调用方先用 SearchProbe 获取真实引擎搜索结果（probeResponse），
+// 再把真实结果传给本函数让 LLM 做品牌提及/情感等分析。
+// 不再让 LLM "模拟搜索引擎回答"——那会伪造数据污染 SOV/负面监控下游指标。
+//
+// brandName: 品牌名
+// query:     原始搜索查询
+// probeResponse: 真实探针引擎返回的搜索结果正文（可含多引擎拼接）
+func VerifySearchPrompt(brandName, query string, probeResponse string) string {
+	if probeResponse == "" {
+		probeResponse = "[探针未返回搜索结果，请仅基于你的知识进行品牌提及分析]"
+	}
+	return fmt.Sprintf(`你是 AI 搜索答案品牌提及分析专家。请基于以下【真实探针返回的搜索结果】，分析品牌提及情况。
 
 【搜索查询】
 %s
@@ -543,17 +552,21 @@ func VerifySearchPrompt(brandName, query string) string {
 【目标品牌】
 %s
 
+【真实探针返回的搜索结果】
+%s
+
 【任务】
-1. 模拟 AI 搜索引擎对该查询的回答（200-400字）
-2. 分析回答中是否提及目标品牌
-3. 统计品牌提及次数和位置
+1. 基于上述真实搜索结果，提取其中出现的品牌相关内容
+2. 判断目标品牌是否被提及，统计提及次数
+3. 标注每次提及的大致位置（如"开篇首句"、"第二段中部"、"最后总结"）
 4. 分析品牌提及的情感（正面/中性/负面）
+5. 同时识别搜索结果中出现的竞品
 
 【输出格式】
 请严格按照以下 JSON 格式输出：
 
 {
-  "response": "<模拟的AI回答内容>",
+  "response": "<从搜索结果中提取的品牌相关摘要（200-400字）>",
   "brand_mentioned": <true/false>,
   "mention_count": <提及次数>,
   "mention_positions": ["<位置1>", "<位置2>"],
@@ -561,20 +574,29 @@ func VerifySearchPrompt(brandName, query string) string {
   "competitors_mentioned": ["<竞品1>", "<竞品2>"]
 }
 
-【开始验证】
-`, query, brandName)
+【开始分析】`, query, brandName, probeResponse)
 }
 
-// NegativeMonitorPrompt 负面监控 Prompt（迁移自 negative_monitor.py）
-// brandName: 品牌名称
-func NegativeMonitorPrompt(brandName string) string {
-	return fmt.Sprintf(`你是品牌负面监控专家。请针对品牌 "%s" 生成负面查询并模拟 AI 回答，分析负面提及情况。
+// NegativeMonitorPrompt 负面监控 Prompt（R49 重构版）
+// 真实探针架构：调用方先用 SearchProbe 依次对每个负面查询做真实探针，
+// 再把所有探针返回拼接后传给本函数让 LLM 做汇总分析。
+// 不再让 LLM "模拟 AI 对每个负面查询的回答"。
+//
+// brandName:    品牌名称
+// probeResults: 真实探针引擎返回的多条负面查询结果拼接文本
+func NegativeMonitorPrompt(brandName string, probeResults string) string {
+	if probeResults == "" {
+		probeResults = "[探针未返回搜索结果，请仅基于你的知识评估品牌风险]"
+	}
+	return fmt.Sprintf(`你是品牌负面监控专家。请基于以下【真实探针返回的负面查询搜索结果】，分析品牌 "%s" 的负面提及风险。
+
+【真实探针返回的搜索结果】
+%s
 
 【任务】
-1. 生成 5 个负面查询（如"品牌名 缺点"、"品牌名 问题"等）
-2. 模拟 AI 对每个负面查询的回答
-3. 分析每个回答中是否提及品牌、是否有负面情感
-4. 评估风险等级（高/中/低）
+1. 逐条分析每个查询结果是否提及品牌、是否有负面情感
+2. 识别负面关键词并评估负面程度
+3. 综合评估整体风险等级（高/中/低）
 
 【输出格式】
 请严格按照以下 JSON 格式输出：
@@ -582,8 +604,8 @@ func NegativeMonitorPrompt(brandName string) string {
 {
   "queries": [
     {
-      "query": "<负面查询>",
-      "response": "<模拟AI回答>",
+      "query": "<对应的负面查询>",
+      "response": "<从探针结果中提取的相关片段>",
       "brand_mentioned": <true/false>,
       "mention_count": <提及次数>,
       "is_negative": <true/false>,
@@ -604,8 +626,7 @@ func NegativeMonitorPrompt(brandName string) string {
   }
 }
 
-【开始监控】
-`, brandName)
+【开始监控】`, brandName, probeResults)
 }
 
 // --- 辅助函数 ---

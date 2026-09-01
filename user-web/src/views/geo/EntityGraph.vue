@@ -1,9 +1,5 @@
 <template>
   <div class="geo-page">
-    <div class="page-header">
-      <h2>实体图谱</h2>
-      <p class="sub">从 HiveMTK 品牌内容中自动抽取人物/产品/技术实体并构建关系网络，增强 AI 理解</p>
-    </div>
 
     <div class="p-4">
     <el-row :gutter="16" class="mb-4">

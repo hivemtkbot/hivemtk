@@ -1,9 +1,5 @@
 <template>
   <div class="geo-page">
-    <div class="page-header">
-      <h2>GEO 工作流</h2>
-      <p class="sub">编排 HiveMTK GEO 自动化流水线：关键词挖掘→内容生成→多引擎验证→平台发布</p>
-    </div>
 
     <div class="p-4" style="display:flex; gap:16px; min-height:calc(100vh - 180px)">
     <!-- 左栏：Workflow 模板列表 -->

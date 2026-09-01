@@ -1,9 +1,5 @@
 <template>
   <div class="geo-page">
-    <div class="page-header">
-      <h2>竞品 SOV 声量份额</h2>
-      <p class="sub">对比 HiveMTK 与竞品在 AI 引擎中的品牌提及率与引用份额，识别机会与威胁</p>
-    </div>
 
     <div class="p-4">
     <el-row :gutter="16" class="mb-4">

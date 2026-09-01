@@ -122,7 +122,7 @@ type InaccurateClaim struct {
 // DetectInaccurateClaims 对指定品牌的验证回答做不准确声明检测（Profound 独有能力对齐）。
 // 返回检测到的错误/可疑陈述列表；每条自动落 negative_counter 任务供人工审核。
 func (s *GeoDecisionAnalyticsService) DetectInaccurateClaims(ctx context.Context, brandName string) ([]InaccurateClaim, error) {
-	prompt := fmt.Sprintf(`你是品牌声誉审计员。请模拟用户向 AI 搜索引擎提问关于 "%s" 的常见问题，
+	prompt := fmt.Sprintf(`你是品牌声誉审计员。请针对品牌 "%s" 进行准确性审计：
 然后检查 AI 回答中是否存在以下类型的不准确陈述：
 1. 功能描述与实际不符（夸大或遗漏核心能力）
 2. 定价信息错误或过时
