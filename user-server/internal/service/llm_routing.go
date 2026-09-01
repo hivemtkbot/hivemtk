@@ -121,7 +121,14 @@ func NewLLMRoutingService(d *llm.Dispatcher) *LLMRoutingService {
 	}
 }
 
-// ListModels 列出所有 provider
+// isLocalURL 判断 LLM endpoint 是否为本地推理
+func isLocalURL(url string) bool {
+	lower := strings.ToLower(url)
+	return strings.Contains(lower, "127.0.0.1") || strings.Contains(lower, "localhost") ||
+		strings.Contains(lower, "[::1]") || strings.Contains(lower, "0.0.0.0")
+}
+
+// ListModels 列出所有 provider（含本地）
 func (s *LLMRoutingService) ListModels(ctx context.Context) []LLMProviderInfo {
 	if s.dispatcher == nil {
 		return nil
@@ -144,6 +151,22 @@ func (s *LLMRoutingService) ListModels(ctx context.Context) []LLMProviderInfo {
 			Vendor:       vendorOf(p),
 			Tags:         p.Tags,
 		})
+	}
+	return out
+}
+
+// ListCloudModels 只返回 enabled 的云端 provider（排除本地推理），GEO 模块使用
+func (s *LLMRoutingService) ListCloudModels(ctx context.Context) []LLMProviderInfo {
+	all := s.ListModels(ctx)
+	out := make([]LLMProviderInfo, 0, len(all))
+	for _, p := range all {
+		if !p.Enabled {
+			continue
+		}
+		if isLocalURL(p.BaseURL) {
+			continue
+		}
+		out = append(out, p)
 	}
 	return out
 }

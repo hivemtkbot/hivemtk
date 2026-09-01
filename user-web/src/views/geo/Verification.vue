@@ -130,7 +130,14 @@ const loadModelOptions = async () => {
     const res = await http.get('/api/llm/models')
     const list = Array.isArray(res) ? res : (res?.list || res?.items || res?.data || [])
     const options = list
-      .filter((m) => m && m.enabled !== false && !(m.name && m.name.startsWith('local')))
+      .filter((m) => {
+        if (!m || m.enabled === false) return false
+        // 排除本地推理 provider（vendor=local 或 base_url 是本地地址）
+        if (m.vendor === 'local') return false
+        const url = (m.base_url || m.baseURL || '').toLowerCase()
+        if (url.includes('127.0.0.1') || url.includes('localhost') || url.includes('0.0.0.0')) return false
+        return true
+      })
       .map((m) => ({
         label: `${m.display_name || m.name} (${m.model || m.name})`,
         value: m.name
