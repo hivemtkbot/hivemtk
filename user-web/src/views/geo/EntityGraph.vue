@@ -111,6 +111,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { listEntities, getEntityRelations, extractEntities } from '@/api/geoEntity.js'
+import { geoApi } from '@/api/geo.js'
 
 const entities = ref([])
 const loading = ref(false)
@@ -166,10 +167,33 @@ const onGenerateSchema = async () => {
   if (!currentEntity.value) return
   schemaLoading.value = true
   try {
-    // 后端暂无独立的 entity schema 生成端点，等待接入
-    ElMessage.info('后端暂无 JSON-LD 生成端点，等待后续接入')
-    schema.value = ''
-  } catch (e) { ElMessage.error('生成失败：' + (e?.message || e)) }
+    // 拉品牌配置 + 调后端 schema 生成端点
+    let brandName = 'HiveMTK', advantages = '', domain = ''
+    try {
+      const cfg = await geoApi.getConfig()
+      brandName = cfg?.brand_name || brandName
+      advantages = cfg?.advantages || ''
+      domain = cfg?.domain || ''
+    } catch { /* 用默认值 */ }
+    const data = await geoApi.generateSchema({
+      content: currentEntity.value.description || currentEntity.value.name,
+      brand_name: brandName,
+      advantages,
+      keyword: currentEntity.value.name,
+      domain
+    })
+    const result = typeof data === 'string' ? data : (data?.schema_json || data?.schema || JSON.stringify(data, null, 2))
+    // 后端可能返回纯 JSON 对象，需要格式化
+    try {
+      const parsed = JSON.parse(typeof result === 'string' ? result : JSON.stringify(result))
+      schema.value = JSON.stringify(parsed, null, 2)
+    } catch {
+      schema.value = typeof result === 'string' ? result : JSON.stringify(result, null, 2)
+    }
+    ElMessage.success('JSON-LD Schema 生成成功')
+  } catch (e) {
+    ElMessage.error('生成失败：' + (e?.message || e))
+  }
   schemaLoading.value = false
 }
 

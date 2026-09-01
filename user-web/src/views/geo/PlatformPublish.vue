@@ -2,14 +2,14 @@
   <div class="geo-page">
     <div class="page-header">
       <h2>多平台发布</h2>
-      <p class="sub">将 HiveMTK 优化后的内容一键发布到 Medium/DEV/GitHub，扩大 AI 搜索覆盖面</p>
+      <p class="sub">将 HiveMTK 优化后的内容发布到 Medium / GitHub / WordPress 等可用平台，扩大 AI 搜索覆盖面</p>
     </div>
 
     <div class="p-4">
     <el-row :gutter="16" class="mb-4">
       <el-col :span="8">
         <el-card>
-          <el-statistic title="已配置平台" :value="configuredPlatforms.length" suffix="/ 7" />
+          <el-statistic title="可用平台" :value="availablePlatforms.length" />
         </el-card>
       </el-col>
       <el-col :span="8">
@@ -28,26 +28,60 @@
     <el-card class="mb-4">
       <template #header>
         <div class="flex items-center justify-between">
-          <span class="font-bold">平台账号</span>
-          <el-button size="small" type="primary" @click="loadAccounts">刷新</el-button>
+          <span class="font-bold">可用平台列表（仅显示技术上可实现的平台）</span>
+          <el-button size="small" type="primary" @click="loadAll">刷新</el-button>
         </div>
       </template>
-      <el-table :data="platforms" v-loading="accountsLoading" size="small">
-        <el-table-column prop="name" label="平台" width="120" />
-        <el-table-column prop="key" label="标识" width="100" />
-        <el-table-column label="状态" width="140">
+      <el-table :data="availablePlatforms" v-loading="platformsLoading" size="small">
+        <el-table-column prop="display_name" label="平台" width="160">
           <template #default="{ row }">
-            <el-tag v-if="isConfigured(row.key)" type="success" size="small">已配置</el-tag>
-            <el-tag v-else type="info" size="small">未配置</el-tag>
+            <a v-if="row.url" :href="row.url" target="_blank" class="platform-link">{{ row.display_name }}</a>
+            <span v-else>{{ row.display_name }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="300">
+        <el-table-column prop="name" label="标识" width="160" />
+        <el-table-column label="能力类型" width="110">
           <template #default="{ row }">
-            <el-button size="small" @click="openAccountDialog(row)">添加账号</el-button>
-            <el-button size="small" type="primary" plain :disabled="!isConfigured(row.key)" @click="onTestPublish(row)">测试发布</el-button>
+            <el-tag v-if="row.capability === 'real_api'" type="success" size="small">真实 API</el-tag>
+            <el-tag v-else-if="row.capability === 'cookie_gray'" type="warning" size="small">Cookie</el-tag>
+            <el-tag v-else type="info" size="small">{{ row.capability || '未知' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="认证方式" width="110">
+          <template #default="{ row }">
+            <span class="auth-type">{{ authLabel(row.auth_type) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="130">
+          <template #default="{ row }">
+            <el-tag v-if="isConfigured(row.name)" type="success" size="small">已配置</el-tag>
+            <el-tag v-else type="info" size="small">未配置 Token</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="说明" min-width="240">
+          <template #default="{ row }">
+            <span v-if="row.capability === 'real_api'" class="hint">需配置 API Token 环境变量后可发布</span>
+            <span v-else-if="row.capability === 'cookie_gray'" class="hint">依赖有效 Cookie，稳定性较差</span>
+            <span v-else class="hint">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="200">
+          <template #default="{ row }">
+            <el-button size="small" @click="openAccountDialog(row)">配置 Token</el-button>
+            <el-button size="small" type="primary" plain :disabled="!isConfigured(row.name)" @click="onTestPublish(row)">测试发布</el-button>
           </template>
         </el-table-column>
       </el-table>
+      <div v-if="filteredCount === 0" class="empty-hint">
+        暂无可用平台。需要在后端配置 API Token 后可发布。
+      </div>
+      <div v-if="hiddenCount > 0" class="hidden-hint">
+        <el-alert type="info" :closable="false" show-icon>
+          <template #title>
+            已隐藏 {{ hiddenCount }} 个技术上不可实现的平台（stub/自定义平台、未配置 Cookie 的灰产平台、OAuth 未开放的平台）。
+          </template>
+        </el-alert>
+      </div>
     </el-card>
 
     <!-- 发布 Pipeline -->
@@ -58,12 +92,12 @@
           <el-option v-for="a in articles" :key="a.id" :label="a.title || a.id" :value="a.id" />
         </el-select>
         <el-select v-model="selectedPlatforms" multiple placeholder="选择发布平台" size="small" style="min-width:260px">
-          <el-option v-for="p in configuredPlatforms" :key="p" :label="p" :value="p" />
+          <el-option v-for="p in realApiPlatforms" :key="p.name" :label="p.display_name + ' (真实API)'" :value="p.name" />
         </el-select>
         <el-button size="small" type="primary" :disabled="!selectedArticle || !selectedPlatforms.length" :loading="pipelineRunning" @click="runPipeline">执行发布</el-button>
       </div>
       <el-table v-if="pipelineStatuses.length" :data="pipelineStatuses" size="small">
-        <el-table-column prop="platform" label="平台" width="120" />
+        <el-table-column prop="platform" label="平台" width="160" />
         <el-table-column prop="status" label="状态" width="120">
           <template #default="{ row }">
             <el-tag :type="statusType(row.status)" size="small">{{ row.status }}</el-tag>
@@ -84,18 +118,20 @@
       <template #header><span class="font-bold">发布记录</span></template>
       <el-table :data="records" v-loading="recordsLoading" size="small">
         <el-table-column prop="article_title" label="文章" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="platform" label="平台" width="120" />
+        <el-table-column prop="platform" label="平台" width="160" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="statusType(row.status)" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="error" label="错误信息" min-width="200" show-overflow-tooltip />
         <el-table-column prop="created_at" label="时间" width="180" />
       </el-table>
+      <div v-if="records.length === 0" class="empty-hint">暂无发布记录</div>
     </el-card>
 
     <!-- 账号配置 Dialog -->
-    <el-dialog v-model="accountDialogVisible" :title="`配置 ${currentPlatform?.name} 账号`" width="480px">
+    <el-dialog v-model="accountDialogVisible" :title="`配置 ${currentPlatform?.display_name} Token`" width="480px">
       <el-form :model="accountForm" label-width="120px">
         <el-form-item label="AppKey / UserID">
           <el-input v-model="accountForm.app_key" placeholder="填入平台 AppKey 或 UserID" />
@@ -121,25 +157,16 @@ import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { geoApi } from '@/api/geo.js'
 import {
+  listPlatforms as fetchPlatforms,
   listPlatformAccounts,
   savePlatformAccount,
   publishToPlatform,
   listPlatformPublishRecords
 } from '@/api/geoPlatform.js'
 
-const PLATFORMS = [
-  { key: 'wechat', name: '微信公众号' },
-  { key: 'zhihu', name: '知乎' },
-  { key: 'csdn', name: 'CSDN' },
-  { key: 'xiaohongshu', name: '小红书' },
-  { key: 'juejin', name: '掘金' },
-  { key: 'github', name: 'GitHub' },
-  { key: 'wordpress', name: 'WordPress' }
-]
-
-const platforms = ref(PLATFORMS)
-const accounts = ref({}) // { wechat: {...}, zhihu: {...} }
-const accountsLoading = ref(false)
+const allPlatforms = ref([]) // 后端返回的完整列表
+const platformsLoading = ref(false)
+const accounts = ref({})
 const articles = ref([])
 const records = ref([])
 const recordsLoading = ref(false)
@@ -153,15 +180,42 @@ const accountDialogVisible = ref(false)
 const currentPlatform = ref(null)
 const accountForm = reactive({ app_key: '', secret: '', extra: '' })
 
-const configuredPlatforms = computed(() =>
-  Object.keys(accounts.value).filter(k => accounts.value[k] && (accounts.value[k].app_key || accounts.value[k].configured))
+// 过滤规则：
+// 1) capability === 'stub'  →  完全隐藏（自定义平台是假的）
+// 2) capability === 'cookie_gray' && !has_account && !enabled  →  隐藏（无 cookie 且未启用 = 不可用）
+// 3) 只保留 real_api + (cookie_gray && has_account 或 enabled) 的平台
+const availablePlatforms = computed(() => {
+  return allPlatforms.value.filter(p => {
+    const cap = p.capability
+    if (cap === 'stub') return false
+    if (cap === 'cookie_gray' && !p.has_account && !p.enabled) return false
+    return true
+  })
+})
+
+const hiddenCount = computed(() => allPlatforms.value.length - availablePlatforms.value.length)
+const filteredCount = computed(() => availablePlatforms.value.length)
+
+const realApiPlatforms = computed(() =>
+  availablePlatforms.value.filter(p => p.capability === 'real_api')
 )
+
 const recordsToday = computed(() => {
   const t = new Date().toISOString().slice(0, 10)
   return records.value.filter(r => (r.created_at || '').startsWith(t)).length
 })
 
-const isConfigured = (key) => configuredPlatforms.value.includes(key)
+const configuredPlatformNames = computed(() =>
+  Object.keys(accounts.value).filter(k => accounts.value[k] && (accounts.value[k].app_key || accounts.value[k].configured))
+)
+
+const isConfigured = (name) => configuredPlatformNames.value.includes(name)
+
+const authLabel = (t) => {
+  const map = { token: 'API Token', oauth: 'OAuth', cookie: 'Cookie', xmlrpc: 'XML-RPC', custom: '自定义' }
+  return map[t] || t || '-'
+}
+
 const statusType = (s) => {
   if (s === 'success' || s === 'done') return 'success'
   if (s === 'failed' || s === 'error') return 'danger'
@@ -169,23 +223,36 @@ const statusType = (s) => {
   return 'info'
 }
 
+const loadAll = async () => {
+  await Promise.all([loadPlatforms(), loadAccounts(), loadArticles(), loadRecords()])
+}
+
+const loadPlatforms = async () => {
+  platformsLoading.value = true
+  try {
+    const data = await fetchPlatforms()
+    allPlatforms.value = Array.isArray(data) ? data : []
+  } catch {
+    allPlatforms.value = []
+  } finally {
+    platformsLoading.value = false
+  }
+}
+
 const loadAccounts = async () => {
-  accountsLoading.value = true
   try {
     const data = await listPlatformAccounts()
     accounts.value = Array.isArray(data)
-      ? data.reduce((acc, a) => { acc[a.platform || a.key] = a; return acc }, {})
+      ? data.reduce((acc, a) => { acc[a.platform || a.name || a.key] = a; return acc }, {})
       : (data || {})
-  } finally { accountsLoading.value = false }
+  } catch { /* 忽略 */ }
 }
 
 const loadArticles = async () => {
   try {
     const data = await geoApi.getArticleList({ page: 1, limit: 20 })
     articles.value = data?.list || data?.items || (Array.isArray(data) ? data : [])
-  } catch {
-    articles.value = []
-  }
+  } catch { articles.value = [] }
 }
 
 const loadRecords = async () => {
@@ -193,14 +260,13 @@ const loadRecords = async () => {
   try {
     const data = await listPlatformPublishRecords(selectedArticle.value)
     records.value = Array.isArray(data) ? data : (data?.list || data?.items || [])
-  } catch {
-    records.value = []
-  } finally { recordsLoading.value = false }
+  } catch { records.value = [] }
+  finally { recordsLoading.value = false }
 }
 
 const openAccountDialog = (p) => {
   currentPlatform.value = p
-  const existing = accounts.value[p.key] || {}
+  const existing = accounts.value[p.name] || accounts.value[p.key] || {}
   accountForm.app_key = existing.app_key || existing.appKey || ''
   accountForm.secret = existing.secret || existing.token || ''
   accountForm.extra = typeof existing.extra === 'string' ? existing.extra : JSON.stringify(existing.extra || {})
@@ -210,7 +276,7 @@ const openAccountDialog = (p) => {
 const saveAccount = async () => {
   try {
     await savePlatformAccount({
-      platform: currentPlatform.value.key,
+      platform: currentPlatform.value.name || currentPlatform.value.key,
       app_key: accountForm.app_key,
       secret: accountForm.secret,
       extra: accountForm.extra
@@ -224,25 +290,28 @@ const saveAccount = async () => {
 }
 
 const onTestPublish = async (p) => {
+  if (!selectedArticle.value && !articles.value.length) {
+    ElMessage.warning('请先在 GEO 内容创作页创建一篇文章')
+    return
+  }
+  const articleId = selectedArticle.value || articles.value[0]?.id
+  const platformKey = p.name || p.key
   try {
-    // 测试发布需要先选一篇文章，没有文章则提示
-    if (!selectedArticle.value && !articles.value.length) {
-      ElMessage.warning('请先在 GEO 内容创作页创建一篇文章')
-      return
-    }
-    const articleId = selectedArticle.value || articles.value[0]?.id
-    await publishToPlatform(articleId, p.key, {})
-    ElMessage.success(`${p.name} 测试发布成功`)
+    await publishToPlatform(articleId, platformKey, {})
+    ElMessage.success(`${p.display_name} 测试发布成功`)
   } catch (e) {
-    ElMessage.error(`${p.name} 测试失败：${e?.message || e}`)
+    ElMessage.error(`${p.display_name} 测试失败：${e?.message || e}`)
   }
 }
 
 const runPipeline = async () => {
+  if (!selectedArticle.value || !selectedPlatforms.value.length) {
+    ElMessage.warning('请选择文章和发布平台')
+    return
+  }
   pipelineRunning.value = true
   pipelineStatuses.value = selectedPlatforms.value.map(p => ({ platform: p, status: 'running', message: '发布中...' }))
   try {
-    // 后端没有 runPlatformPipeline / getPipelineStatus，改为循环调 publishToPlatform
     for (const p of selectedPlatforms.value) {
       const idx = pipelineStatuses.value.findIndex(s => s.platform === p)
       try {
@@ -252,7 +321,6 @@ const runPipeline = async () => {
         if (idx >= 0) pipelineStatuses.value[idx] = { platform: p, status: 'failed', message: err?.message || '发布失败' }
       }
     }
-    // 发布完成后查 listPlatformPublishRecords 看 records 最新状态
     try {
       const recordsData = await listPlatformPublishRecords(selectedArticle.value)
       const list = Array.isArray(recordsData) ? recordsData : (recordsData?.list || recordsData?.items || [])
@@ -274,5 +342,30 @@ const runPipeline = async () => {
   }
 }
 
-onMounted(() => { loadAccounts(); loadArticles(); loadRecords() })
+onMounted(loadAll)
 </script>
+
+<style lang="scss" scoped>
+.platform-link {
+  color: var(--el-color-primary);
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+.auth-type {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.empty-hint {
+  text-align: center;
+  padding: 24px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+.hidden-hint {
+  margin-top: 12px;
+}
+</style>

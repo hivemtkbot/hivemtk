@@ -8,57 +8,71 @@
     <div class="p-4">
     <el-row :gutter="16" class="mb-4">
       <el-col :span="6">
-        <el-card><el-statistic title="品牌声量份额 SOV" :value="summary.brand_sov" suffix="%" :precision="1" /></el-card>
+        <el-card>
+          <el-statistic title="HiveMTK SOV" :value="hiveMTKSov" suffix="%" :precision="1">
+            <template #suffix>
+              <span :class="hiveMTKSovTrend < 0 ? 'text-red-500' : 'text-green-500'" style="font-size:12px;margin-left:4px">
+                {{ hiveMTKSovTrend >= 0 ? '↑' : '↓' }}{{ Math.abs(hiveMTKSovTrend).toFixed(1) }}%
+              </span>
+            </template>
+          </el-statistic>
+        </el-card>
       </el-col>
       <el-col :span="6">
-        <el-card><el-statistic title="竞品对比数" :value="summary.competitor_count" /></el-card>
+        <el-card><el-statistic title="竞品总数" :value="summary.competitor_count" /></el-card>
       </el-col>
       <el-col :span="6">
-        <el-card><el-statistic title="意图覆盖数" :value="summary.intent_count" /></el-card>
+        <el-card><el-statistic title="总提及次数" :value="summary.total_mentions" /></el-card>
       </el-col>
       <el-col :span="6">
-        <el-card><el-statistic title="今日探针次数" :value="summary.today_probes" /></el-card>
+        <el-card><el-statistic title="品牌提及次数" :value="hiveMTKMentions" /></el-card>
       </el-col>
     </el-row>
 
+    <!-- SOV 柱状对比图 -->
+    <el-card class="mb-4">
+      <template #header><span class="font-bold">品牌 SOV 对比（AI 引擎声量份额）</span></template>
+      <div v-if="!loading && sovData.length === 0" class="py-12 text-center text-gray-400">
+        暂无 SOV 数据，请先在"多模型验证"页面运行品牌验证
+      </div>
+      <div ref="barChartRef" v-show="sovData.length > 0" style="height:320px"></div>
+    </el-card>
+
+    <!-- SOV 明细表 -->
     <el-card class="mb-4">
       <template #header>
         <div class="flex items-center gap-4">
-          <span class="font-bold">意图 SOV 对比</span>
-          <el-select v-model="intent" placeholder="选择意图" size="small" style="width:160px">
-            <el-option v-for="i in intents" :key="i" :label="i" :value="i" />
-          </el-select>
-          <el-select v-model="funnelStage" placeholder="漏斗阶段" size="small" style="width:140px" clearable>
-            <el-option label="Awareness" value="Awareness" />
-            <el-option label="Consideration" value="Consideration" />
-            <el-option label="Conversion" value="Conversion" />
-          </el-select>
-          <el-button size="small" type="primary" @click="load">刷新</el-button>
+          <span class="font-bold">品牌明细</span>
+          <el-button size="small" type="primary" @click="load" :loading="loading">刷新</el-button>
         </div>
       </template>
-      <el-table :data="sovData" v-loading="loading" size="small">
-        <el-table-column prop="intent" label="意图" width="120" />
-        <el-table-column prop="engine" label="引擎" width="100" />
-        <el-table-column prop="brand_sov" label="品牌 SOV(%)" width="130" />
-        <el-table-column prop="competitor_sov" label="竞品 SOV(%)" width="130" />
-        <el-table-column label="缺口" width="100">
+      <el-table :data="sovData" v-loading="loading" size="small" :sort-change="() => {}">
+        <el-table-column label="品牌" min-width="140">
           <template #default="{ row }">
-            <el-tag :type="(row.gap ?? 0) < 0 ? 'danger' : 'success'" size="small">{{ row.gap ?? 0 }}</el-tag>
+            <div class="flex items-center gap-2">
+              <el-tag v-if="row.is_own" type="primary" size="small" effect="dark">OWN</el-tag>
+              <span :class="row.is_own ? 'font-bold text-primary' : ''">{{ row.brand }}</span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="sample_count" label="样本量" width="80" />
-        <template #empty>
-          <div class="py-8 text-gray-400">暂无 SOV 数据，请先运行探针</div>
-        </template>
+        <el-table-column prop="mentions" label="提及次数" width="100" sortable />
+        <el-table-column prop="sov_percent" label="SOV(%)" width="110" sortable>
+          <template #default="{ row }">
+            <div class="flex items-center gap-2">
+              <el-progress :percentage="row.sov_percent" :stroke-width="8" :show-text="false"
+                :color="row.is_own ? '#409eff' : (row.sov_percent >= 20 ? '#67c23a' : row.sov_percent >= 10 ? '#e6a23c' : '#f56c6c')"
+                style="flex:1" />
+              <span class="text-xs w-12 text-right">{{ row.sov_percent.toFixed(1) }}%</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="情感倾向" width="100">
+          <template #default="{ row }">
+            <el-tag :type="sentimentTag(row.avg_sentiment)" size="small">{{ sentimentLabel(row.avg_sentiment) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="total_mentions_all_brands" label="全行业总提及" width="120" />
       </el-table>
-    </el-card>
-
-    <el-card>
-      <template #header><span class="font-bold">SOV 趋势（最近 30 天）</span></template>
-      <div v-if="!loading && (!trendData || trendData.length === 0)" class="py-12 text-center text-gray-400">
-        暂无 SOV 趋势数据，后端未返回历史记录
-      </div>
-      <div ref="trendChartRef" v-show="trendData && trendData.length > 0" style="height:320px"></div>
     </el-card>
     </div>
   </div>
@@ -69,49 +83,60 @@ import { ref, computed, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import * as echarts from 'echarts'
 import { getSOV } from '@/api/geoProbe.js'
 
-const intent = ref('对比')
-const funnelStage = ref('')
+const OWN_BRAND = 'HiveMtk'
+
 const loading = ref(false)
 const sovData = ref([])
-const trendData = ref([])
-const trendChartRef = ref(null)
+const barChartRef = ref(null)
 let chartInstance = null
 
-const intents = ['对比', '推荐', '使用方法', '价格', '好不好']
-
-const summary = computed(() => {
-  if (!sovData.value.length) return { brand_sov: 0, competitor_count: 0, intent_count: 0, today_probes: 0 }
-  const avg = sovData.value.reduce((s, r) => s + (r.brand_sov || 0), 0) / sovData.value.length
-  const competitors = new Set()
-  const intents = new Set()
-  sovData.value.forEach(r => { competitors.add(r.engine); intents.add(r.intent) })
-  return {
-    brand_sov: avg.toFixed(1),
-    competitor_count: competitors.size,
-    intent_count: intents.size,
-    today_probes: sovData.value.reduce((s, r) => s + (r.sample_count || 0), 0)
-  }
+const hiveMTKEntry = computed(() => sovData.value.find(r => r.is_own))
+const hiveMTKSov = computed(() => hiveMTKEntry.value?.sov_percent || 0)
+const hiveMTKMentions = computed(() => hiveMTKEntry.value?.mentions || 0)
+// 趋势：默认与平均值对比（简化版，后端暂不返回历史趋势）
+const hiveMTKSovTrend = computed(() => {
+  if (sovData.value.length <= 1) return 0
+  const avg = sovData.value.reduce((s, r) => s + r.sov_percent, 0) / sovData.value.length
+  return Number((hiveMTKSov.value - avg).toFixed(1))
 })
 
-const renderTrendChart = () => {
-  if (!trendChartRef.value) return
+const summary = computed(() => ({
+  competitor_count: Math.max(0, sovData.value.filter(r => !r.is_own).length),
+  total_mentions: sovData.value.reduce((s, r) => s + r.mentions, 0)
+}))
+
+const sentimentTag = (s) => {
+  if (s === 'positive') return 'success'
+  if (s === 'negative') return 'danger'
+  return 'info'
+}
+const sentimentLabel = (s) => {
+  if (s === 'positive') return '积极'
+  if (s === 'negative') return '负面'
+  return '中性'
+}
+
+const renderBarChart = () => {
+  if (!barChartRef.value || sovData.value.length === 0) return
   if (!chartInstance) {
-    chartInstance = echarts.init(trendChartRef.value)
+    chartInstance = echarts.init(barChartRef.value)
     window.addEventListener('resize', handleResize)
   }
-  const dates = (trendData.value || []).map(d => d.date || d.day).filter(Boolean)
-  const brandSeries = (trendData.value || []).map(d => d.brand_sov ?? d.brandSov ?? null)
-  const competitorSeries = (trendData.value || []).map(d => d.competitor_sov ?? d.competitorSov ?? null)
+  const sorted = [...sovData.value].sort((a, b) => b.sov_percent - a.sov_percent)
   chartInstance.setOption({
-    tooltip: { trigger: 'axis' },
-    legend: { data: ['品牌 SOV', '竞品 SOV'] },
-    grid: { left: 40, right: 20, top: 40, bottom: 30 },
-    xAxis: { type: 'category', data: dates },
-    yAxis: { type: 'value', name: 'SOV %' },
-    series: [
-      { name: '品牌 SOV', type: 'line', smooth: true, data: brandSeries, areaStyle: { opacity: 0.15 }, itemStyle: { color: '#409eff' } },
-      { name: '竞品 SOV', type: 'line', smooth: true, data: competitorSeries, areaStyle: { opacity: 0.1 }, itemStyle: { color: '#f56c6c' } }
-    ]
+    tooltip: { trigger: 'axis', formatter: '{b}: {c}%' },
+    grid: { left: 50, right: 20, top: 20, bottom: 30 },
+    xAxis: { type: 'category', data: sorted.map(r => r.brand), axisLabel: { rotate: 30, fontSize: 12 } },
+    yAxis: { type: 'value', name: 'SOV %', max: 100 },
+    series: [{
+      type: 'bar',
+      data: sorted.map(r => ({
+        value: r.sov_percent,
+        itemStyle: { color: r.is_own ? '#409eff' : '#909399' }
+      })),
+      barMaxWidth: 48,
+      label: { show: true, position: 'top', formatter: '{c}%', fontSize: 11 }
+    }]
   })
 }
 
@@ -121,23 +146,20 @@ const load = async () => {
   loading.value = true
   try {
     const data = await getSOV()
-    // 后端返回 []SOVEntry（Brand / SOV / Mentions / TotalMention / AvgSentiment）
-    const list = Array.isArray(data) ? data : (data?.list || data?.engines || data?.items || [])
+    // 后端返回: [{ brand, mentions, total_mentions_all_brands, sov_percent, avg_sentiment }]
+    const list = Array.isArray(data) ? data : (data?.list || data?.data || [])
     sovData.value = list.map(r => ({
-      intent: r.intent || intent.value || '',
-      engine: r.engine || '',
-      brand_sov: r.SOV ?? r.brand_sov ?? 0,
-      competitor_sov: r.competitor_sov != null ? r.competitor_sov : Math.max(0, ((r.TotalMention || 0) - (r.Mentions || 0))) / (r.TotalMention || 1) * 100,
-      gap: (r.SOV ?? r.brand_sov ?? 0) - (r.competitor_sov ?? 0),
-      sample_count: r.Mentions ?? r.sample_count ?? 0
+      brand: r.brand || '未知',
+      mentions: Number(r.mentions || 0),
+      total_mentions_all_brands: Number(r.total_mentions_all_brands || 0),
+      sov_percent: Number(r.sov_percent || 0),
+      avg_sentiment: r.avg_sentiment || 'neutral',
+      is_own: (r.brand || '').toLowerCase() === OWN_BRAND.toLowerCase()
     }))
-    // 后端暂不返回历史 trend 数据
-    trendData.value = Array.isArray(data?.history) ? data.history : []
     await nextTick()
-    renderTrendChart()
+    renderBarChart()
   } catch (e) {
     sovData.value = []
-    trendData.value = []
   } finally {
     loading.value = false
   }
