@@ -57,7 +57,9 @@ const isMessageDismissed = (messageId) => {
 }
 
 // 检查新消息
+let pollingStopped = false // 403(角色无权限)等永久性拒绝时停表，避免 staff 每30s刷一次403噪音
 const checkNewMessage = async () => {
+  if (pollingStopped) return
   try {
     // 修复：request.js 拦截器已解包 data.data，response 即业务数据本身（即 message）
     const message = await platformAPI.getLatestMessage()
@@ -68,6 +70,13 @@ const checkNewMessage = async () => {
     }
   } catch (error) {
     // 后台轮询：平台不可用时仅开发态记录，避免生产控制台噪声
+    // HTTP 403 = 当前角色无权接收平台消息（如 staff），永久性拒绝 → 停止轮询
+    // （axios error: error.response.status；拦截器包装 error: bizCode = data.code，403时为数字403）
+    if (error?.response?.status === 403 || error?.bizCode === 403) {
+      pollingStopped = true
+      if (checkInterval) { clearInterval(checkInterval); checkInterval = null }
+      return
+    }
     if (import.meta.env?.DEV) console.warn('获取最新消息失败:', error)
   }
 }

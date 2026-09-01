@@ -40,23 +40,29 @@ type platformDef struct {
 	Branch      string
 	AuthType    string
 	Enabled     bool
+	// Capability 平台真实能力标记：
+	//   "real_api"     — 有公开 REST API，技术上完全可实现真实发布
+	//   "cookie_gray"  — 无公开 API，需要浏览器 cookie 灰产方式（不稳定）
+	//   "stub"         — 占位符，无实现
+	//   "disabled"     — 默认禁用
+	Capability string
 }
 
-// defaultPlatforms 迁移自 AIGEOTOOLS DefaultCopyPlatforms
+// defaultPlatforms 平台清单：标注真实能力，前端按 capability 展示可用状态
 func defaultPlatforms() []platformDef {
 	return []platformDef{
-		{Name: "github_readme", DisplayName: "GitHub README", URL: "https://github.com", Path: "README.md", Branch: "main", AuthType: "token", Enabled: true},
-		{Name: "github_blog", DisplayName: "GitHub Blog", URL: "https://github.com", Path: "blog/", Branch: "main", AuthType: "token", Enabled: true},
-		{Name: "juejin", DisplayName: "掘金", URL: "https://juejin.cn", AuthType: "cookie", Enabled: true},
-		{Name: "zhihu", DisplayName: "知乎", URL: "https://zhihu.com", AuthType: "cookie", Enabled: true},
-		{Name: "csdn", DisplayName: "CSDN", URL: "https://csdn.net", AuthType: "cookie", Enabled: true},
-		{Name: "weibo", DisplayName: "微博", URL: "https://weibo.com", AuthType: "oauth", Enabled: true},
-		{Name: "xiaohongshu", DisplayName: "小红书", URL: "https://xiaohongshu.com", AuthType: "cookie", Enabled: true},
-		{Name: "douyin", DisplayName: "抖音", URL: "https://douyin.com", AuthType: "oauth", Enabled: true},
-		{Name: "toutiao", DisplayName: "今日头条", URL: "https://toutiao.com", AuthType: "cookie", Enabled: true},
-		{Name: "medium", DisplayName: "Medium", URL: "https://medium.com", AuthType: "oauth", Enabled: true},
-		{Name: "wordpress", DisplayName: "WordPress", AuthType: "xmlrpc", Enabled: true},
-		{Name: "custom", DisplayName: "自定义平台", AuthType: "custom", Enabled: false},
+		{Name: "github_readme", DisplayName: "GitHub README", URL: "https://github.com", Path: "README.md", Branch: "main", AuthType: "token", Enabled: true, Capability: "real_api"},
+		{Name: "github_blog", DisplayName: "GitHub Blog", URL: "https://github.com", Path: "blog/", Branch: "main", AuthType: "token", Enabled: true, Capability: "real_api"},
+		{Name: "juejin", DisplayName: "掘金", URL: "https://juejin.cn", AuthType: "cookie", Enabled: false, Capability: "cookie_gray"},
+		{Name: "zhihu", DisplayName: "知乎", URL: "https://zhihu.com", AuthType: "cookie", Enabled: false, Capability: "cookie_gray"},
+		{Name: "csdn", DisplayName: "CSDN", URL: "https://csdn.net", AuthType: "cookie", Enabled: false, Capability: "cookie_gray"},
+		{Name: "weibo", DisplayName: "微博", URL: "https://weibo.com", AuthType: "oauth", Enabled: false, Capability: "cookie_gray"},
+		{Name: "xiaohongshu", DisplayName: "小红书", URL: "https://xiaohongshu.com", AuthType: "cookie", Enabled: false, Capability: "cookie_gray"},
+		{Name: "douyin", DisplayName: "抖音", URL: "https://douyin.com", AuthType: "oauth", Enabled: false, Capability: "cookie_gray"},
+		{Name: "toutiao", DisplayName: "今日头条", URL: "https://toutiao.com", AuthType: "cookie", Enabled: false, Capability: "cookie_gray"},
+		{Name: "medium", DisplayName: "Medium", URL: "https://medium.com", AuthType: "oauth", Enabled: true, Capability: "real_api"},
+		{Name: "wordpress", DisplayName: "WordPress", AuthType: "xmlrpc", Enabled: true, Capability: "real_api"},
+		{Name: "custom", DisplayName: "自定义平台", AuthType: "custom", Enabled: false, Capability: "stub"},
 	}
 }
 
@@ -94,17 +100,36 @@ func NewPlatformService(
 	}
 }
 
-// ListPlatforms 获取支持的平台列表
+// ListPlatforms 获取支持的平台列表 + 真实能力标记 + DB 账号状态
 func (s *PlatformService) ListPlatforms(ctx context.Context) []dto.PlatformInfo {
 	defs := defaultPlatforms()
+
+	// 查 DB 中已配置的有效账号的 platform set
+	activeAccounts, _, err := s.accountRepo.GetList("", 1, 100)
+	hasAccount := make(map[string]bool)
+	if err == nil {
+		for _, a := range activeAccounts {
+			if a.Status == "active" {
+				hasAccount[a.Platform] = true
+			}
+		}
+	}
+
 	result := make([]dto.PlatformInfo, 0, len(defs))
 	for _, p := range defs {
+		// capability=cookie_gray 的平台，只有显式在 DB 配了账号才 enabled
+		enabled := p.Enabled
+		if p.Capability == "cookie_gray" {
+			enabled = hasAccount[p.Name]
+		}
 		result = append(result, dto.PlatformInfo{
-			Name:        p.Name,
+			Name:       p.Name,
 			DisplayName: p.DisplayName,
-			URL:         p.URL,
-			AuthType:    p.AuthType,
-			Enabled:     p.Enabled,
+			URL:        p.URL,
+			AuthType:   p.AuthType,
+			Enabled:    enabled,
+			Capability: p.Capability,
+			HasAccount: hasAccount[p.Name],
 		})
 	}
 	return result

@@ -139,6 +139,7 @@ func main() {
 
 	// ---------- 服务集 ----------
 	kwSvc := geoservice.NewKeywordService(
+		georepo.NewGeoKeywordGroupRepositoryWithDB(db),
 		georepo.NewGeoKeywordRepositoryWithDB(db),
 		georepo.NewGeoAPICallRepositoryWithDB(db),
 		geoservice.NewLLMAdapter(),

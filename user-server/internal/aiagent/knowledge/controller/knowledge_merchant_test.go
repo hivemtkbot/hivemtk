@@ -532,9 +532,9 @@ func TestKM_Playground_WithData(t *testing.T) {
 		t.Fatalf("want 200, got %d, body=%s", w.Code, w.Body.String())
 	}
 	var resp struct {
-		Code string `json:"code"`
-		Msg  string `json:"msg"`
-		Data struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    struct {
 			Total    int     `json:"total"`
 			MaxScore float64 `json:"max_score"`
 		} `json:"data"`

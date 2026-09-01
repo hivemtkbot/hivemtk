@@ -9,6 +9,10 @@ type PlatformInfo struct {
 	URL         string `json:"url"`
 	AuthType    string `json:"auth_type"`
 	Enabled     bool   `json:"enabled"`
+	// Capability 真实能力标记：real_api / cookie_gray / stub / disabled
+	Capability string `json:"capability"`
+	// HasAccount DB 中是否已配置该平台的有效账号
+	HasAccount bool `json:"has_account"`
 }
 
 // PlatformAccountResponse 平台账号响应（脱敏：绝不回显明文凭据）

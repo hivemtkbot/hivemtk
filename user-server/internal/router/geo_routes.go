@@ -24,6 +24,7 @@ import (
 func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// 初始化 repositories（显式注入 gormDB，避免隐藏全局依赖，测试可替换）
 	keywordRepo := georepo.NewGeoKeywordRepositoryWithDB(gormDB)
+	keywordGroupRepo := georepo.NewGeoKeywordGroupRepositoryWithDB(gormDB)
 	articleRepo := georepo.NewGeoArticleRepositoryWithDB(gormDB)
 	optimizationRepo := georepo.NewGeoOptimizationRepositoryWithDB(gormDB)
 	verifyRepo := georepo.NewGeoVerifyResultRepositoryWithDB(gormDB)
@@ -42,7 +43,7 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	llmAdapter := geoservice.NewLLMAdapter()
 
 	// 初始化 services
-	keywordSvc := geoservice.NewKeywordService(keywordRepo, apiCallRepo, llmAdapter)
+	keywordSvc := geoservice.NewKeywordService(keywordGroupRepo, keywordRepo, apiCallRepo, llmAdapter)
 	contentSvc := geoservice.NewContentService(articleRepo, optimizationRepo, apiCallRepo, kbDocRepo, llmAdapter)
 	verifySvc := geoservice.NewVerificationService(verifyRepo, apiCallRepo, chainRepo, taskRepo, llmAdapter)
 	reportSvc := geoservice.NewReportService(articleRepo, keywordRepo, optimizationRepo, verifyRepo, apiCallRepo)

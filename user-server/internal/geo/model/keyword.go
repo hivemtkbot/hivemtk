@@ -41,7 +41,9 @@ type GeoKeywordGroup struct {
 	ID           string `gorm:"type:varchar(36);primaryKey" json:"id"`
 	Name         string `gorm:"type:varchar(200);not null" json:"name"`
 	Description  string `gorm:"type:text" json:"description"`
-	KeywordCount int    `gorm:"default:0" json:"keyword_count"`
+	KeywordCount  int    `gorm:"default:0" json:"keyword_count"`
+	// KeywordList 关键词分组内的关键词 JSON 数组文本（避免 GORM text[] 特殊处理）
+	KeywordList string `gorm:"type:text" json:"keyword_list"`
 
 	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`

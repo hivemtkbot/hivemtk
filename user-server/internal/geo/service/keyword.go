@@ -14,17 +14,19 @@ import (
 
 // KeywordService 关键词服务
 type KeywordService struct {
-	keywordRepo repository.GeoKeywordRepository
-	apiCallRepo repository.GeoAPICallRepository
-	llm         *LLMAdapter
+	keywordGroupRepo repository.GeoKeywordGroupRepository
+	keywordRepo      repository.GeoKeywordRepository
+	apiCallRepo      repository.GeoAPICallRepository
+	llm              *LLMAdapter
 }
 
 // NewKeywordService 创建关键词服务
-func NewKeywordService(repo repository.GeoKeywordRepository, acr repository.GeoAPICallRepository, adapter *LLMAdapter) *KeywordService {
+func NewKeywordService(kgRepo repository.GeoKeywordGroupRepository, repo repository.GeoKeywordRepository, acr repository.GeoAPICallRepository, adapter *LLMAdapter) *KeywordService {
 	return &KeywordService{
-		keywordRepo: repo,
-		apiCallRepo: acr,
-		llm:         adapter,
+		keywordGroupRepo: kgRepo,
+		keywordRepo:      repo,
+		apiCallRepo:      acr,
+		llm:              adapter,
 	}
 }
 
@@ -346,7 +348,7 @@ type clusterResult struct {
 	} `json:"clusters"`
 }
 
-// TopicCluster 话题聚类
+// TopicCluster 话题聚类 + 结果持久化到 geo_keyword_groups
 func (s *KeywordService) TopicCluster(ctx context.Context, keywords []string, brandName string) (map[string][]string, error) {
 	if len(keywords) == 0 {
 		return map[string][]string{}, nil
@@ -363,7 +365,20 @@ func (s *KeywordService) TopicCluster(ctx context.Context, keywords []string, br
 		return nil, fmt.Errorf("话题聚类失败: %w", err)
 	}
 	s.recordAPICall(ctx, resp, "topic_cluster")
-	return s.parseClusterResult(resp.Content, keywordsToCluster), nil
+
+	clusters := s.parseClusterResult(resp.Content, keywordsToCluster)
+
+	// 持久化聚类结果（按分组名 upsert 覆盖更新）
+	for name, kws := range clusters {
+		if name == "" || len(kws) == 0 {
+			continue
+		}
+		if _, uErr := s.keywordGroupRepo.UpsertByName(name, kws); uErr != nil {
+			logger.Errorf("[GEO Keyword] 聚类分组持久化失败 name=%s err=%v", name, uErr)
+		}
+	}
+
+	return clusters, nil
 }
 
 // parseClusterResult 解析聚类结果
