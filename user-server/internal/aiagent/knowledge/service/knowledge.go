@@ -311,9 +311,9 @@ func (s *KnowledgeService) Search(ctx context.Context, productID string, query s
 	}
 	out := make([]model.KnowledgeChunk, 0, len(ragChunks))
 	for _, c := range ragChunks {
-		if threshold > 0 && c.Score < threshold {
-			continue
-		}
+		// 注意：RankRAGChunks 后的 Score 是加权排序分（含 chunk 权重），不是
+		// 0-1 余弦相似度，不能用绝对阈值截断。阈值语义由 RagSearcher 内部的
+		// 相似度门控承担，这里只做归属映射。
 		docID, _ := strconv.ParseUint(strings.TrimPrefix(c.DocID, "kb_doc_"), 10, 64)
 		out = append(out, model.KnowledgeChunk{
 			DocumentID: docID,
