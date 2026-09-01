@@ -85,10 +85,11 @@ func doJSON(ctx context.Context, endpoint, authHeader string, payload, out any) 
 // 不再为每个 provider 写独立的 struct。配置完全从 llm_providers 表读取。
 
 type llmEndpointProbe struct {
-	name     string // 引擎名：qwen/deepseek/local-llm 等
-	endpoint string // e.g. http://127.0.0.1:8207/v1
-	model    string
-	apiKey   string
+	name      string // 引擎名：qwen/deepseek/local-llm 等
+	endpoint  string // e.g. http://127.0.0.1:8207/v1
+	model     string
+	apiKey    string
+	brandHint string // 品牌上下文提示，避免 LLM 把同名品牌搞混
 }
 
 func (p *llmEndpointProbe) Name() string {
@@ -98,14 +99,22 @@ func (p *llmEndpointProbe) Name() string {
 	return "local-llm"
 }
 
+// sentimentRegex 从 LLM 回答末尾抽取 [SENTIMENT: xxx] 标签
+var sentimentRegexp = regexp.MustCompile(`(?m)^\s*\[SENTIMENT:\s*(positive|neutral|negative)\]\s*$`)
+
 func (p *llmEndpointProbe) Probe(ctx context.Context, query string) (*ProbeResult, error) {
 	start := time.Now()
+	brandCtx := ""
+	if p.brandHint != "" {
+		brandCtx = fmt.Sprintf("\n【品牌上下文】%s。回答中涉及此品牌时请以此描述为准，不要和同名的其他项目混淆。", p.brandHint)
+	}
 	systemPrompt := `你是 AI 搜索答案专家。请以事实为依据回答用户的搜索查询。
 要求：
 1. 直接给出有用的回答（200-400字），不要说"作为AI我无法"之类的套话
 2. 尽量引用具体信息源（网站、博客、文档链接等），如果不确定就说"据公开资料"
 3. 如果涉及具体产品/品牌，客观陈述其定位和特点
-4. 输出中自然出现"信息来源"或"参考链接"小节，列出 1-3 条你所知的可靠链接`
+4. 输出中自然出现"信息来源"或"参考链接"小节，列出 1-3 条你所知的可靠链接
+5. 回答最后单独输出一行情感标签，格式严格为 [SENTIMENT: positive] 或 [SENTIMENT: neutral] 或 [SENTIMENT: negative]，三选一。判断标准：你的回答整体态度——如果在为品牌辩护、说没负面、没证据=positive；只是客观陈述=neutral；确认有真实差评/投诉/负面新闻=negative` + brandCtx
 	var out struct {
 		Choices []struct {
 			Message struct {
@@ -139,10 +148,17 @@ func (p *llmEndpointProbe) Probe(ctx context.Context, query string) (*ProbeResul
 		return nil, fmt.Errorf("%s: empty response", p.Name())
 	}
 	content := out.Choices[0].Message.Content
+	// 抽取 LLM 自己打的情感标签
+	sentiment := "neutral"
+	if m := sentimentRegexp.FindStringSubmatch(content); len(m) == 2 {
+		sentiment = m[1]
+		content = sentimentRegexp.ReplaceAllString(content, "")
+		content = strings.TrimSpace(content)
+	}
 	cites := extractCitationsFromText(content)
 	return &ProbeResult{
 		Engine: p.Name(), Query: query, Response: content,
-		Citations: cites, LatencyMs: latency,
+		Citations: cites, LatencyMs: latency, Sentiment: sentiment,
 	}, nil
 }
 
@@ -176,6 +192,22 @@ func NewEngineProbesFromDB(g *gorm.DB) []SearchProbe {
 	probes := []SearchProbe{}
 	seen := make(map[string]bool)
 
+	// 从 geo_config 读取品牌上下文，注入到每个探针 prompt
+	brandHint := ""
+	if g != nil {
+		var cfg struct {
+			BrandName        string
+			BrandDescription string
+		}
+		if err := g.Table("geo_config").Select("brand_name", "brand_description").First(&cfg).Error; err == nil {
+			if cfg.BrandName != "" && cfg.BrandDescription != "" {
+				brandHint = cfg.BrandName + "：" + cfg.BrandDescription
+			} else if cfg.BrandName != "" {
+				brandHint = cfg.BrandName
+			}
+		}
+	}
+
 	if g != nil {
 		var rows []hivemodel.LLMProvider
 		if err := g.Where("enabled = ?", true).Order("sort_order ASC").Find(&rows).Error; err == nil {
@@ -194,10 +226,11 @@ func NewEngineProbesFromDB(g *gorm.DB) []SearchProbe {
 				}
 				seen[row.Name] = true
 				probes = append(probes, &llmEndpointProbe{
-					name:     row.Name,
-					endpoint: row.BaseURL,
-					model:    row.Model,
-					apiKey:   row.APIKey,
+					name:      row.Name,
+					endpoint:  row.BaseURL,
+					model:     row.Model,
+					apiKey:    row.APIKey,
+					brandHint: brandHint,
 				})
 			}
 		}
@@ -311,20 +344,8 @@ func (s *ProbeService) ProbeAllEngines(ctx context.Context, query string) ([]*mo
 			continue
 		}
 		brandName := s.getBrandName(ctx)
-		negativeWords := []string{"差评", "投诉", "骗局", "失败", "坑", "垃圾", "烂"}
-		isNegative := false
-		for _, nw := range negativeWords {
-			if strings.Contains(strings.ToLower(pr.Response), strings.ToLower(nw)) {
-				isNegative = true
-				break
-			}
-		}
 		pr.BrandHit = brandName != "" && strings.Contains(strings.ToLower(pr.Response), strings.ToLower(brandName))
-		if isNegative {
-			pr.Sentiment = "negative"
-		} else {
-			pr.Sentiment = "neutral"
-		}
+		// sentiment 已由 llmEndpointProbe.Probe() 内部通过 LLM 自判返回，这里直接使用
 		run := &model.GeoProbeRun{
 			Engine:         pr.Engine,
 			Query:          pr.Query,
@@ -355,20 +376,8 @@ func (s *ProbeService) TestSingle(ctx context.Context, engineName, query string)
 				return nil, err
 			}
 			brandName := s.getBrandName(ctx)
-			negativeWords := []string{"差评", "投诉", "骗局", "失败", "坑", "垃圾", "烂"}
-			isNegative := false
-			for _, nw := range negativeWords {
-				if strings.Contains(strings.ToLower(pr.Response), strings.ToLower(nw)) {
-					isNegative = true
-					break
-				}
-			}
 			pr.BrandHit = brandName != "" && strings.Contains(strings.ToLower(pr.Response), strings.ToLower(brandName))
-			if isNegative {
-				pr.Sentiment = "negative"
-			} else {
-				pr.Sentiment = "neutral"
-			}
+			// sentiment 已由 Probe() 内部返回，不再硬编码关键词匹配
 			return pr, nil
 		}
 	}
