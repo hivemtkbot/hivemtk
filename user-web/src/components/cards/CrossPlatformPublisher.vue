@@ -225,15 +225,19 @@ function platformColor(code) {
 }
 
 function buildPayload() {
-  const tags = content.value.tags
+  const tagList = content.value.tags
     .split(/\s+/)
     .filter(Boolean)
   return {
     title: content.value.title,
     description: content.value.body,
     image_url: content.value.cover,
-    target_url: content.value.url,
-    tags,
+    // R63: 后端五套卡片 DTO 契约字段为 redirect_url（dto/douyincard.go 等），
+    // 此前发 target_url 被静默丢弃，卡片跳转链接恒为空/默认值
+    redirect_url: content.value.url,
+    // R63: 后端 Tags 为空格分隔字符串（DouyinCardCreateRequest.Tags string），
+    // 数组形态会 400: cannot unmarshal array into ... .tags of type string
+    tags: tagList.join(' '),
   }
 }
 
