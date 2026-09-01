@@ -51,8 +51,8 @@ type platformDef struct {
 // defaultPlatforms 平台清单：标注真实能力，前端按 capability 展示可用状态
 func defaultPlatforms() []platformDef {
 	return []platformDef{
-		{Name: "github_readme", DisplayName: "GitHub README", URL: "https://github.com", Path: "README.md", Branch: "main", AuthType: "token", Enabled: true, Capability: "real_api"},
-		{Name: "github_blog", DisplayName: "GitHub Blog", URL: "https://github.com", Path: "blog/", Branch: "main", AuthType: "token", Enabled: true, Capability: "real_api"},
+		{Name: "github_readme", DisplayName: "GitHub README", URL: "https://github.com", Path: "README.md", Branch: "master", AuthType: "token", Enabled: true, Capability: "real_api"},
+		{Name: "github_blog", DisplayName: "GitHub Blog", URL: "https://github.com", Path: "blog/", Branch: "master", AuthType: "token", Enabled: true, Capability: "real_api"},
 		{Name: "juejin", DisplayName: "掘金", URL: "https://juejin.cn", AuthType: "cookie", Enabled: false, Capability: "cookie_gray"},
 		{Name: "zhihu", DisplayName: "知乎", URL: "https://zhihu.com", AuthType: "cookie", Enabled: false, Capability: "cookie_gray"},
 		{Name: "csdn", DisplayName: "CSDN", URL: "https://csdn.net", AuthType: "cookie", Enabled: false, Capability: "cookie_gray"},
