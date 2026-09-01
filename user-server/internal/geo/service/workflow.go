@@ -96,15 +96,13 @@ func (s *WorkflowService) toWorkflowResponse(wf *model.GeoWorkflow) (*dto.Workfl
 		CreatedAt:  wf.CreatedAt,
 		UpdatedAt:  wf.UpdatedAt,
 	}
-	// 将 []map 转为 []WorkflowStep
+	// 将 []map 转为 []WorkflowStep：用 JSON marshal/unmarshal 保留所有字段（含 Extra）
 	stepDTOs := make([]dto.WorkflowStep, 0, len(steps))
 	for _, st := range steps {
-		stepDTOs = append(stepDTOs, dto.WorkflowStep{
-			Name:      stepString(st, "name"),
-			Type:      stepString(st, "type"),
-			Condition: stepString(st, "condition"),
-			JumpTo:    stepString(st, "jump_to"),
-		})
+		b, _ := json.Marshal(st)
+		var ws dto.WorkflowStep
+		_ = json.Unmarshal(b, &ws)
+		stepDTOs = append(stepDTOs, ws)
 	}
 	resp.Steps = stepDTOs
 	return resp, nil
@@ -224,10 +222,10 @@ func (s *WorkflowService) toTemplateResponse(tpl *model.GeoWorkflowTemplate) (*d
 	}
 	stepDTOs := make([]dto.WorkflowStep, 0, len(steps))
 	for _, st := range steps {
-		stepDTOs = append(stepDTOs, dto.WorkflowStep{
-			Name: stepString(st, "name"),
-			Type: stepString(st, "type"),
-		})
+		b, _ := json.Marshal(st)
+		var ws dto.WorkflowStep
+		_ = json.Unmarshal(b, &ws)
+		stepDTOs = append(stepDTOs, ws)
 	}
 	return &dto.WorkflowTemplateResponse{
 		ID:          tpl.ID,
@@ -564,6 +562,37 @@ func (s *WorkflowService) registerBuiltinExecutors() {
 			return fmt.Sprintf("%.4f", rate), nil
 		}
 		return "0.5000", nil
+	}
+
+	// 控制节点 passthrough 执行器：用于 trigger / action / decision / end
+	// 这些节点不做实际 LLM 调用，仅返回标记信息，让工作流能完整跑完
+	s.executors["trigger"] = func(ctx context.Context, step map[string]interface{}) (string, error) {
+		return "trigger_fired", nil
+	}
+	s.executors["action"] = func(ctx context.Context, step map[string]interface{}) (string, error) {
+		// 尝试从上一步结果透传内容（若存在），否则返回动作标记
+		if prev, ok := step["_step_results"].(map[string]string); ok {
+			for _, v := range prev {
+				if v != "" {
+					return v, nil
+				}
+			}
+		}
+		name, _ := step["name"].(string)
+		return "action_done:" + name, nil
+	}
+	s.executors["decision"] = func(ctx context.Context, step map[string]interface{}) (string, error) {
+		// decision 的 condition/jump_to 在 Run() 主循环里处理，
+		// 此处只做占位执行器，返回条件状态
+		cond, _ := step["condition"].(string)
+		jumpTo, _ := step["jump_to"].(string)
+		if jumpTo != "" {
+			return "decision_jump_to:" + jumpTo, nil
+		}
+		return "decision_evaluated:" + cond, nil
+	}
+	s.executors["end"] = func(ctx context.Context, step map[string]interface{}) (string, error) {
+		return "workflow_complete", nil
 	}
 }
 
