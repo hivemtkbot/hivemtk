@@ -141,63 +141,61 @@ func safeDivF(a, b int64) float64 {
 
 // ---- A6: AI 爬虫访问监控 ----
 
-// RecordCrawlerVisit 记录 AI 引擎爬虫访问
-func (s *GeoDecisionAnalyticsService) RecordCrawlerVisit(ctx context.Context, userAgent, path, engine string) error {
+// RecordCrawlerVisit 记录 AI 引擎爬虫访问（关键词维度）
+func (s *GeoDecisionAnalyticsService) RecordCrawlerVisit(ctx context.Context, keyword, userAgent, path, engine string) error {
 	return s.crawler.Create(ctx, &model.GeoCrawlerVisit{
-		UserAgent: userAgent, Path: path, Engine: engine,
+		Keyword: keyword, UserAgent: userAgent, Path: path, Engine: engine,
 	})
 }
 
-// CrawlerStatsResponse 爬虫统计前端友好返回
+// CrawlerStatsResponse 爬虫统计前端友好返回（双维度：关键词 × 域名）
 type CrawlerStatsResponse struct {
-	Summary    CrawlerStatsSummary       `json:"summary"`
-	DomainStats []repository.DomainStatRow `json:"domain_stats"`
+	Summary     CrawlerStatsSummary          `json:"summary"`
+	KeywordStats []repository.KeywordStatRow  `json:"keyword_stats"` // 核心：关键词 × AI Bot 引擎 的访问次数
+	DomainStats  []repository.DomainStatRow   `json:"domain_stats"`
 }
 
 type CrawlerStatsSummary struct {
-	TodayVisits  int64   `json:"today_visits"`
+	TodayVisits   int64   `json:"today_visits"`
+	ActiveKeywords int64  `json:"active_keywords"`  // 新增：活跃关键词数
+	ActiveEngines int64   `json:"active_engines"`    // 新增：活跃 AI Bot 引擎数
 	ActiveDomains int64   `json:"active_domains"`
-	ALevelCount  int64   `json:"a_level_count"`
-	AvgSOV       float64 `json:"avg_sov"`
+	ALevelCount   int64   `json:"a_level_count"`
+	AvgSOV        float64 `json:"avg_sov"`
 }
 
-// GetCrawlerStats 返回 domain 维度聚合 + summary（前端 CrawlerStats.vue 直接消费）
+// GetCrawlerStats 返回关键词 + 域名 双维度聚合
 func (s *GeoDecisionAnalyticsService) GetCrawlerStats(ctx context.Context) (*CrawlerStatsResponse, error) {
-	domainRows, err := s.crawler.StatsByDomain(ctx, 30)
-	if err != nil {
-		return nil, err
-	}
+	// 1. 关键词维度（核心）
+	keywordRows, _ := s.crawler.StatsByKeyword(ctx, 30)
 
-	// 汇总
-	var totalVisits int64
-	domainSet := map[string]bool{}
+	// 2. 域名维度（保留原有）
+	domainRows, _ := s.crawler.StatsByDomain(ctx, 30)
+
+	// 3. 汇总指标
+	totalVisits, _ := s.crawler.TotalVisits(ctx, 1)
+	activeKws, _ := s.crawler.ActiveKeywords(ctx, 30)
+	activeEngines, _ := s.crawler.ActiveEngines(ctx, 30)
+	activeDomains, _ := s.crawler.ActiveDomains(ctx, 30)
+
 	var aLevelCount int64
 	for _, r := range domainRows {
-		totalVisits += r.VisitCount
-		domainSet[r.Domain] = true
 		if r.SourceLevel == "A" {
 			aLevelCount++
 		}
 	}
 
-	// 今天的访问数
-	todayRows, _ := s.crawler.StatsByDomain(ctx, 1)
-	var todayVisits int64
-	for _, r := range todayRows {
-		todayVisits += r.VisitCount
-	}
-
-	// 平均 SOV（简化：用 HiveMTK 的 73.9% 占位，前端实际用 summary）
-	avgSOV := 73.90
-
 	return &CrawlerStatsResponse{
 		Summary: CrawlerStatsSummary{
-			TodayVisits:   todayVisits,
-			ActiveDomains: int64(len(domainSet)),
-			ALevelCount:   aLevelCount,
-			AvgSOV:        avgSOV,
+			TodayVisits:    totalVisits,
+			ActiveKeywords: activeKws,
+			ActiveEngines:  activeEngines,
+			ActiveDomains:  activeDomains,
+			ALevelCount:    aLevelCount,
+			AvgSOV:         73.90,
 		},
-		DomainStats: domainRows,
+		KeywordStats: keywordRows,
+		DomainStats:  domainRows,
 	}, nil
 }
 

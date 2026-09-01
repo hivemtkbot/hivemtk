@@ -1,39 +1,95 @@
 <template>
-  <div class="geo-page">
-
-    <div class="p-4">
-    <el-row :gutter="16" class="mb-4">
-      <el-col :span="6">
-        <el-card><el-statistic title="今日爬虫访问数" :value="summary.today_visits" /></el-card>
+  <div class="geo-page p-4">
+    <!-- KPI 卡片 -->
+    <el-row :gutter="12" class="mb-4">
+      <el-col :span="4">
+        <el-card shadow="hover">
+          <el-statistic title="今日 AI Bot 访问" :value="s.today_visits || 0" />
+        </el-card>
       </el-col>
-      <el-col :span="6">
-        <el-card><el-statistic title="活跃域名数" :value="summary.active_domains" /></el-card>
+      <el-col :span="4">
+        <el-card shadow="hover">
+          <el-statistic title="活跃关键词" :value="s.active_keywords || 0" />
+        </el-card>
       </el-col>
-      <el-col :span="6">
-        <el-card><el-statistic title="A 级信源数" :value="summary.a_level_count" /></el-card>
+      <el-col :span="4">
+        <el-card shadow="hover">
+          <el-statistic title="AI Bot 引擎" :value="s.active_engines || 0" />
+        </el-card>
       </el-col>
-      <el-col :span="6">
-        <el-card><el-statistic title="平均 SOV" :value="summary.avg_sov" suffix="%" :precision="1" /></el-card>
+      <el-col :span="4">
+        <el-card shadow="hover">
+          <el-statistic title="监控域名" :value="s.active_domains || 0" />
+        </el-card>
+      </el-col>
+      <el-col :span="4">
+        <el-card shadow="hover">
+          <el-statistic title="A 级信源" :value="s.a_level_count || 0" />
+        </el-card>
+      </el-col>
+      <el-col :span="4">
+        <el-card shadow="hover">
+          <el-statistic title="平均 SOV" :value="s.avg_sov || 0" suffix="%" :precision="1" />
+        </el-card>
       </el-col>
     </el-row>
 
-    <!-- 爬虫访问热力图 -->
+    <!-- 关键词热力（核心展示） -->
     <el-card class="mb-4">
       <template #header>
         <div class="flex items-center justify-between">
-          <span class="font-bold">爬虫访问热力（按 Domain 聚合）</span>
-          <el-button size="small" type="primary" @click="loadAll">刷新</el-button>
+          <span class="font-bold">关键词 × AI Bot 引擎 — 热力排名</span>
+          <div class="flex items-center gap-2">
+            <el-input v-model="kwFilter" placeholder="过滤关键词" size="small" style="width:160px" clearable />
+            <el-button size="small" type="primary" @click="loadAll">刷新</el-button>
+            <el-button size="small" type="success" :loading="running" @click="triggerCrawl">跑一轮爬虫</el-button>
+          </div>
         </div>
       </template>
-      <el-table :data="domainStats" v-loading="loading" size="small">
+      <el-table :data="filteredKeywordStats" v-loading="loading" size="small" :default-sort="{prop:'visit_count', order:'descending'}">
+        <el-table-column prop="keyword" label="关键词" min-width="220">
+          <template #default="{ row }">
+            <span class="font-semibold">{{ row.keyword }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="engine" label="AI Bot 引擎" width="160">
+          <template #default="{ row }">
+            <el-tag size="small" :type="engineTagType(row.engine)">{{ row.engine }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="visit_count" label="访问次数" width="100" sortable>
+          <template #default="{ row }">
+            <span class="font-mono font-bold">{{ row.visit_count }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="热力条" min-width="240">
+          <template #default="{ row }">
+            <div class="heat-bar" :style="{ width: heatWidth(row.visit_count) + '%', background: heatColor(row.visit_count) }"></div>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #empty>
+        <div class="py-8 text-gray-400">暂无数据，点右上角「跑一轮爬虫」触发真实 AI Bot 访问</div>
+      </template>
+    </el-card>
+
+    <!-- 域名维度（保留） -->
+    <el-card>
+      <template #header>
+        <div class="flex items-center justify-between">
+          <span class="font-bold">域名 × AI Bot 引擎 — 访问聚合</span>
+          <el-tag size="small" type="info">按 domain + engine 分组</el-tag>
+        </div>
+      </template>
+      <el-table :data="domainStats" v-loading="loading" size="small" :default-sort="{prop:'visit_count', order:'descending'}">
         <el-table-column prop="domain" label="域名" min-width="200">
           <template #default="{ row }">
             <span class="font-mono">{{ row.domain }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="engine" label="引擎" width="120" />
-        <el-table-column prop="visit_count" label="访问次数" width="120" sortable />
-        <el-table-column label="热力" width="200">
+        <el-table-column prop="engine" label="引擎" width="160" />
+        <el-table-column prop="visit_count" label="访问次数" width="100" sortable />
+        <el-table-column label="热力条" min-width="200">
           <template #default="{ row }">
             <div class="heat-bar" :style="{ width: heatWidth(row.visit_count) + '%', background: heatColor(row.visit_count) }"></div>
           </template>
@@ -45,113 +101,31 @@
         </el-table-column>
       </el-table>
     </el-card>
-
-    <!-- Daily Stats -->
-    <el-card class="mb-4">
-      <template #header>
-        <div class="flex items-center justify-between">
-          <span class="font-bold">Daily Stats（按日期 × 引擎）</span>
-          <div class="flex items-center gap-2">
-            <el-input v-model="dailyEngine" placeholder="引擎 (baidu/google/bing)" size="small" style="width:160px" clearable />
-            <el-date-picker v-model="dailyRange" type="daterange" size="small" range-separator="~" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD" />
-            <el-button size="small" type="primary" @click="loadDaily">查询</el-button>
-          </div>
-        </div>
-      </template>
-      <el-table :data="dailyStats" v-loading="dailyLoading" size="small">
-        <el-table-column prop="date" label="日期" width="120" />
-        <el-table-column prop="engine" label="引擎" width="120" />
-        <el-table-column prop="crawl_count" label="爬虫次数" width="120" />
-        <el-table-column prop="sov_sample_count" label="SOV 样本量" width="140" />
-        <el-table-column prop="avg_brand_sov" label="平均品牌 SOV(%)" width="160" />
-      </el-table>
-    </el-card>
-
-    <!-- 信源 Catalog -->
-    <el-card>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <span class="font-bold">信源 Catalog</span>
-          <div class="flex items-center gap-2">
-            <el-input v-model="catalogKeyword" placeholder="搜索域名" size="small" style="width:180px" clearable @clear="loadCatalog" @keyup.enter="loadCatalog" />
-            <el-button size="small" type="warning" @click="onSyncCatalog" :loading="syncing">同步 Catalog</el-button>
-            <el-button size="small" type="primary" @click="openCatalogDialog()">新增</el-button>
-          </div>
-        </div>
-      </template>
-      <el-alert v-if="!catalogLoading && catalog.length === 0"
-        title="暂无信源目录，添加后开始追踪"
-        type="info" show-icon :closable="false" class="mb-3" />
-      <el-table :data="catalog" v-loading="catalogLoading" size="small">
-        <el-table-column prop="domain" label="域名" min-width="200">
-          <template #default="{ row }"><span class="font-mono">{{ row.domain }}</span></template>
-        </el-table-column>
-        <el-table-column prop="engine" label="引擎" width="120" />
-        <el-table-column label="等级" width="140">
-          <template #default="{ row }">
-            <el-select v-model="row.source_level" size="small" style="width:90px" @change="onUpsertCatalog(row)">
-              <el-option label="A" value="A" />
-              <el-option label="B" value="B" />
-              <el-option label="C" value="C" />
-              <el-option label="D" value="D" />
-            </el-select>
-          </template>
-        </el-table-column>
-        <el-table-column prop="avg_sov_weight" label="SOV 权重" width="120" />
-        <el-table-column label="操作" width="100">
-          <template #default="{ row }">
-            <el-button size="small" type="danger" text @click="onDeleteCatalog(row)">删除</el-button>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <div class="py-8 text-gray-400">暂无信源目录，点击「同步 Catalog」或新增后开始追踪</div>
-        </template>
-      </el-table>
-    </el-card>
-
-    <!-- 新增 Catalog Dialog -->
-    <el-dialog v-model="catalogDialogVisible" title="新增信源" width="420px">
-      <el-form :model="newCatalog" label-width="100px">
-        <el-form-item label="域名"><el-input v-model="newCatalog.domain" /></el-form-item>
-        <el-form-item label="引擎"><el-input v-model="newCatalog.engine" /></el-form-item>
-        <el-form-item label="等级">
-          <el-select v-model="newCatalog.source_level" style="width:100%">
-            <el-option label="A" value="A" />
-            <el-option label="B" value="B" />
-            <el-option label="C" value="C" />
-            <el-option label="D" value="D" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="权重"><el-input-number v-model="newCatalog.avg_sov_weight" :min="0" :max="1" :step="0.1" /></el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="catalogDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="addCatalog">保存</el-button>
-      </template>
-    </el-dialog>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getCrawlerStats, runSourceCatalogSync, lookupSourceLevel } from '@/api/geoProbe.js'
+import { getCrawlerStats, runCrawler as runCrawlerApi } from '@/api/geoProbe.js'
 
-const domainStats = ref([])
 const loading = ref(false)
-const dailyStats = ref([])
-const dailyLoading = ref(false)
-const dailyEngine = ref('')
-const dailyRange = ref([])
-const catalog = ref([])
-const catalogLoading = ref(false)
-const catalogKeyword = ref('')
-const catalogDialogVisible = ref(false)
-const newCatalog = reactive({ domain: '', engine: 'baidu', source_level: 'C', avg_sov_weight: 0.5 })
-const syncing = ref(false)
+const running = ref(false)
+const keywordStats = ref([])
+const domainStats = ref([])
+const s = ref({})
+const kwFilter = ref('')
 
-const maxCount = computed(() => Math.max(1, ...domainStats.value.map(d => d.visit_count || 0)))
+const filteredKeywordStats = computed(() => {
+  const list = keywordStats.value
+  if (!kwFilter.value) return list
+  return list.filter(k => k.keyword.includes(kwFilter.value))
+})
+
+const maxCount = computed(() => {
+  const all = [...keywordStats.value, ...domainStats.value].map(d => d.visit_count || 0)
+  return Math.max(1, ...all)
+})
 const heatWidth = (c) => Math.min(100, Math.round(((c || 0) / maxCount.value) * 100))
 const heatColor = (c) => {
   const ratio = (c || 0) / maxCount.value
@@ -161,131 +135,47 @@ const heatColor = (c) => {
   return '#22c55e'
 }
 const levelType = (l) => ({ A: 'success', B: 'primary', C: 'warning', D: 'info' }[l] || 'info')
+const engineTagType = (e) => {
+  if (e.includes('GPT')) return 'primary'
+  if (e.includes('Claude')) return 'warning'
+  if (e.includes('Perplexity')) return 'success'
+  if (e.includes('Google')) return 'danger'
+  return 'info'
+}
 
-const summary = computed(() => {
-  // 后端已返回 summary，直接用
-  if (rawSummary.value && typeof rawSummary.value === 'object') {
-    return rawSummary.value
-  }
-  // 降级：从 domainStats 计算
-  const todayVisits = domainStats.value.reduce((s, d) => s + (d.visit_count || 0), 0)
-  const domains = new Set(domainStats.value.map(d => d.domain))
-  const aLevel = domainStats.value.filter(d => d.source_level === 'A').length
-  return {
-    today_visits: todayVisits,
-    active_domains: domains.size,
-    a_level_count: aLevel,
-    avg_sov: 73.90
-  }
-})
-
-const rawSummary = ref(null)
-
-const loadDomainStats = async () => {
+const loadAll = async () => {
   loading.value = true
   try {
     const data = await getCrawlerStats()
-    // 新格式：{summary, domain_stats}
-    rawSummary.value = data?.summary || null
-    domainStats.value = data?.domain_stats || data?.domains || (Array.isArray(data) ? data : [])
-  } catch { domainStats.value = [] }
+    s.value = data?.summary || {}
+    keywordStats.value = data?.keyword_stats || []
+    domainStats.value = data?.domain_stats || []
+  } catch {
+    keywordStats.value = []
+    domainStats.value = []
+  }
   loading.value = false
 }
 
-const loadDaily = async () => {
-  dailyLoading.value = true
+const triggerCrawl = async () => {
+  running.value = true
   try {
-    // 后端只有 /geo/crawler-stats 端点，不再有 listDailyStats
-    const data = await getCrawlerStats()
-    let list = Array.isArray(data) ? data : (data?.daily || data?.daily_stats || data?.list || data?.items || [])
-    // 如果用户选了引擎/日期过滤，在前端做简单过滤（后端无参数支持）
-    if (dailyEngine.value) list = list.filter(d => d.engine === dailyEngine.value)
-    if (dailyRange.value?.length === 2) {
-      const [from, to] = dailyRange.value
-      list = list.filter(d => (d.date || '') >= from && (d.date || '') <= to)
-    }
-    dailyStats.value = list
-  } catch { dailyStats.value = [] }
-  dailyLoading.value = false
-}
-
-const loadCatalog = async () => {
-  catalogLoading.value = true
-  try {
-    // 从 crawler-stats 尝试提取信源目录字段（后端暂无独立 list 端点）
-    const data = await getCrawlerStats()
-    let list = Array.isArray(data) ? data : (data?.catalog || data?.source_catalog || data?.sources || data?.list || data?.items || [])
-    if (!Array.isArray(list)) list = []
-    if (catalogKeyword.value) {
-      list = list.filter(c => c.domain?.includes(catalogKeyword.value))
-    }
-    catalog.value = list
-  } catch { catalog.value = [] }
-  catalogLoading.value = false
-}
-
-const onUpsertCatalog = async (row) => {
-  try {
-    // 调 lookupSourceLevel 获取后端等级建议
-    try {
-      const res = await lookupSourceLevel(row.domain)
-      if (res?.level) {
-        row.source_level = res.level
-      }
-    } catch { /* lookup 失败忽略，保留用户选择 */ }
-    const idx = catalog.value.findIndex(c => c.id === row.id)
-    if (idx >= 0) catalog.value[idx] = { ...catalog.value[idx], source_level: row.source_level }
-    ElMessage.success('已更新信源等级')
+    await runCrawlerApi()
+    ElMessage.success('爬虫已启动，约 15-30s 完成，自动刷新结果')
+    setTimeout(loadAll, 20000)
   } catch (e) {
-    ElMessage.error(e?.message || '更新失败')
+    ElMessage.error('触发失败: ' + (e?.message || e))
   }
+  running.value = false
 }
-
-const onSyncCatalog = async () => {
-  syncing.value = true
-  try {
-    await runSourceCatalogSync()
-    ElMessage.success('同步完成')
-    await loadCatalog()
-  } catch (e) {
-    ElMessage.error('同步失败：' + (e?.message || e))
-  } finally { syncing.value = false }
-}
-
-const openCatalogDialog = () => {
-  Object.assign(newCatalog, { domain: '', engine: 'baidu', source_level: 'C', avg_sov_weight: 0.5 })
-  catalogDialogVisible.value = true
-}
-const addCatalog = async () => {
-  try {
-    const newItem = { ...newCatalog, id: Date.now() }
-    // 调 lookupSourceLevel 获取后端等级建议
-    try {
-      const res = await lookupSourceLevel(newItem.domain)
-      if (res?.level) newItem.source_level = res.level
-    } catch { /* lookup 失败忽略 */ }
-    catalog.value = [...catalog.value, newItem]
-    catalogDialogVisible.value = false
-    ElMessage.success('已添加信源，可点击「同步 Catalog」入库')
-  } catch (e) { ElMessage.error(e?.message || '添加失败') }
-}
-
-const onDeleteCatalog = async (row) => {
-  try {
-    catalog.value = catalog.value.filter(c => c.id !== row.id)
-    ElMessage.success('已删除')
-  } catch (e) { ElMessage.error(e?.message || '删除失败') }
-}
-
-const loadAll = () => { loadDomainStats(); loadDaily(); loadCatalog() }
 
 onMounted(loadAll)
 </script>
 
 <style lang="scss" scoped>
 .heat-bar {
-  height: 14px;
-  border-radius: 3px;
-  transition: width .3s;
+  height: 16px;
+  border-radius: 4px;
+  transition: width .4s ease;
 }
 </style>

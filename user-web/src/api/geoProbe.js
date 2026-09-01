@@ -29,6 +29,9 @@ export const getSOV = () =>
 export const getCrawlerStats = () =>
   http.get('/api/geo/crawler-stats')
 
+export const runCrawler = () =>
+  http.post('/api/geo/crawler/run')
+
 export const detectInaccurateClaims = (brandName) =>
   http.post('/api/geo/inaccurate-claims', { brand_name: brandName })
 

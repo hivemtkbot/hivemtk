@@ -14,24 +14,40 @@ import (
 // GeoCrawlerVisitRepository 爬虫访问仓储
 type GeoCrawlerVisitRepository interface {
 	Create(ctx context.Context, v *model.GeoCrawlerVisit) error
+	BulkCreate(ctx context.Context, vs []*model.GeoCrawlerVisit) error
 	StatsByEngine(ctx context.Context, days int) (map[string]int64, error)
 	// StatsByDomain 按域名 + 引擎聚合（近 days 天）
 	StatsByDomain(ctx context.Context, days int) ([]DomainStatRow, error)
+	// StatsByKeyword 按关键词 + 引擎聚合 —— 核心：每个关键词被多少 AI Bot 引擎爬过
+	StatsByKeyword(ctx context.Context, days int) ([]KeywordStatRow, error)
 	// TotalVisits 近 days 天总访问数
 	TotalVisits(ctx context.Context, days int) (int64, error)
 	// ActiveDomains 近 days 天活跃域名数
 	ActiveDomains(ctx context.Context, days int) (int64, error)
+	// ActiveKeywords 近 days 天活跃关键词数
+	ActiveKeywords(ctx context.Context, days int) (int64, error)
+	// ActiveEngines 近 days 天活跃 AI Bot 引擎数
+	ActiveEngines(ctx context.Context, days int) (int64, error)
+	// Clean 删除全部历史数据（爬虫整轮重置）
+	Clean(ctx context.Context) error
 }
 
 // DomainStatRow 爬虫访问按域名聚合行
 type DomainStatRow struct {
-	Domain       string `json:"domain"`
-	Engine       string `json:"engine"`
-	VisitCount   int64  `json:"visit_count"`
-	SourceLevel  string `json:"source_level"`
+	Domain      string `json:"domain"`
+	Engine      string `json:"engine"`
+	VisitCount  int64  `json:"visit_count"`
+	SourceLevel string `json:"source_level"`
 }
 
-// domainSourceLevel 域名→信源等级映射（硬编码，后续可接 geo_source_catalog）
+// KeywordStatRow 爬虫访问按关键词聚合行 —— AI Bot 对某关键词的搜索频次
+type KeywordStatRow struct {
+	Keyword    string `json:"keyword"`
+	Engine     string `json:"engine"`
+	VisitCount int64  `json:"visit_count"`
+}
+
+// domainSourceLevel 域名→信源等级映射
 var domainSourceLevel = map[string]string{
 	"hive.xapptool.cn":  "A",
 	"weibanzhushou.com": "B",
@@ -40,6 +56,7 @@ var domainSourceLevel = map[string]string{
 	"hubspot.com":       "A",
 	"producthunt.com":   "A",
 	"techcrunch.com":    "A",
+	"intercom.com":      "A",
 	"baidu.com":         "A",
 	"google.com":        "A",
 	"bing.com":          "A",
@@ -78,6 +95,13 @@ func (r *geoCrawlerVisitRepo) Create(ctx context.Context, v *model.GeoCrawlerVis
 	return r.db.WithContext(ctx).Create(v).Error
 }
 
+func (r *geoCrawlerVisitRepo) BulkCreate(ctx context.Context, vs []*model.GeoCrawlerVisit) error {
+	if len(vs) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).CreateInBatches(vs, 200).Error
+}
+
 func (r *geoCrawlerVisitRepo) StatsByEngine(ctx context.Context, days int) (map[string]int64, error) {
 	since := time.Now().AddDate(0, 0, -days)
 	type row struct {
@@ -102,7 +126,6 @@ func (r *geoCrawlerVisitRepo) StatsByEngine(ctx context.Context, days int) (map[
 func (r *geoCrawlerVisitRepo) StatsByDomain(ctx context.Context, days int) ([]DomainStatRow, error) {
 	since := time.Now().AddDate(0, 0, -days)
 
-	// 先把所有 path 取出来，在 Go 侧解析 domain（SQL 做 URL 解析太复杂）
 	type rawRow struct {
 		Path   string
 		Engine string
@@ -117,7 +140,6 @@ func (r *geoCrawlerVisitRepo) StatsByDomain(ctx context.Context, days int) ([]Do
 		return nil, err
 	}
 
-	// 聚合到 domain + engine
 	type key struct{ Domain, Engine string }
 	bucket := map[key]int64{}
 	for _, row := range raw {
@@ -140,6 +162,34 @@ func (r *geoCrawlerVisitRepo) StatsByDomain(ctx context.Context, days int) ([]Do
 	return out, nil
 }
 
+func (r *geoCrawlerVisitRepo) StatsByKeyword(ctx context.Context, days int) ([]KeywordStatRow, error) {
+	since := time.Now().AddDate(0, 0, -days)
+	type row struct {
+		Keyword string
+		Engine  string
+		N       int64
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).Model(&model.GeoCrawlerVisit{}).
+		Select("keyword, engine, COUNT(*) as n").
+		Where("created_at >= ? AND keyword != ''", since).
+		Group("keyword, engine").
+		Order("n DESC").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]KeywordStatRow, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, KeywordStatRow{
+			Keyword:    row.Keyword,
+			Engine:     row.Engine,
+			VisitCount: row.N,
+		})
+	}
+	return out, nil
+}
+
 func (r *geoCrawlerVisitRepo) TotalVisits(ctx context.Context, days int) (int64, error) {
 	since := time.Now().AddDate(0, 0, -days)
 	var n int64
@@ -149,7 +199,6 @@ func (r *geoCrawlerVisitRepo) TotalVisits(ctx context.Context, days int) (int64,
 }
 
 func (r *geoCrawlerVisitRepo) ActiveDomains(ctx context.Context, days int) (int64, error) {
-	// 去重统计 domain 数量
 	var paths []string
 	since := time.Now().AddDate(0, 0, -days)
 	if err := r.db.WithContext(ctx).Model(&model.GeoCrawlerVisit{}).
@@ -163,4 +212,26 @@ func (r *geoCrawlerVisitRepo) ActiveDomains(ctx context.Context, days int) (int6
 		}
 	}
 	return int64(len(domains)), nil
+}
+
+func (r *geoCrawlerVisitRepo) ActiveKeywords(ctx context.Context, days int) (int64, error) {
+	since := time.Now().AddDate(0, 0, -days)
+	var n int64
+	err := r.db.WithContext(ctx).Model(&model.GeoCrawlerVisit{}).
+		Where("created_at >= ? AND keyword != ''", since).
+		Distinct("keyword").Count(&n).Error
+	return n, err
+}
+
+func (r *geoCrawlerVisitRepo) ActiveEngines(ctx context.Context, days int) (int64, error) {
+	since := time.Now().AddDate(0, 0, -days)
+	var n int64
+	err := r.db.WithContext(ctx).Model(&model.GeoCrawlerVisit{}).
+		Where("created_at >= ?", since).
+		Distinct("engine").Count(&n).Error
+	return n, err
+}
+
+func (r *geoCrawlerVisitRepo) Clean(ctx context.Context) error {
+	return r.db.WithContext(ctx).Where("1=1").Delete(&model.GeoCrawlerVisit{}).Error
 }

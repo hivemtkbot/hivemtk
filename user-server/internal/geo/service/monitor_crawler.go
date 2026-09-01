@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"strings"
 	"time"
 
 	"hivemtk-user/internal/geo/model"
@@ -13,8 +12,7 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ---- AI 爬虫 UA 清单（2026 主流） ----
-// 参考: developers.openai.com, anthropic.com, perplexity.ai
+// ---- AI 爬虫 UA 清单（2026 主流，均为搜索引擎公开承认的 Crawler UA） ----
 var aiBotUserAgents = []string{
 	"GPTBot/1.1 (+https://openai.com/gptbot)",
 	"ClaudeBot/1.0 (+https://www.anthropic.com/claudebot)",
@@ -26,206 +24,279 @@ var aiBotUserAgents = []string{
 	"Meta-ExternalAgent/1.0 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)",
 }
 
-// domainSeedURLs 监控域名 + 要爬取的页面路径
-// 每个域名对应：主站 + 典型 SEO 页面（首页 / 产品 / 定价 / 博客 / FAQ）
-var domainSeedURLs = map[string][]string{
-	// HiveMTK 主站
-	"hive.xapptool.cn": {
-		"/", "/product", "/pricing", "/blog", "/faq", "/docs",
-	},
-	// 竞品 - SCRM 赛道
-	"weibanzhushou.com": {
-		"/", "/product", "/pricing", "/case",
-	},
-	"tanmascrm.com": {
-		"/", "/product", "/pricing", "/solution",
-	},
-	"fengchenscrm.com": {
-		"/", "/product", "/case-studies", "/pricing",
-	},
-	// 海外竞品
-	"hubspot.com": {
-		"/", "/products", "/pricing", "/blog", "/customers",
-	},
-	// 行业媒体/社区（AI 领域）
-	"producthunt.com": {
-		"/", "/topics/artificial-intelligence", "/topics/marketing",
-	},
-	"techcrunch.com": {
-		"/", "/category/artificial-intelligence/", "/category/marketing/",
-	},
+// keywordToLandings 每个关键词 → 应该被 AI Bot 访问的落地页 URL（HiveMTK 主站）
+// 语义：当用户在 AI 搜索框搜 "GEO优化" 时，Perplexity/Claude 等引擎的爬虫会访问
+//       hive.xapptool.cn 上与该关键词最相关的产品页/博客页/文档页
+var keywordToLandings = map[string][]string{
+	// ---- GEO 核心词 ----
+	"GEO优化":        {"https://hive.xapptool.cn/", "https://hive.xapptool.cn/blog/geo-optimization", "https://hive.xapptool.cn/docs/geo"},
+	"AI搜索优化":     {"https://hive.xapptool.cn/blog/ai-search-optimization", "https://hive.xapptool.cn/"},
+	"生成式引擎优化":  {"https://hive.xapptool.cn/blog/generative-engine-optimization", "https://hive.xapptool.cn/"},
+	"LLM SEO":        {"https://hive.xapptool.cn/blog/llm-seo", "https://hive.xapptool.cn/docs/geo"},
+
+	// ---- 产品核心词 ----
+	"私域AI营销":      {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/product/private-ai", "https://hive.xapptool.cn/pricing"},
+	"AI自动谈单":      {"https://hive.xapptool.cn/product/ai-agent", "https://hive.xapptool.cn/blog/ai-talk"},
+	"全渠道触达引擎":  {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/"},
+	"多账号聚合中枢":  {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/"},
+	"销冠SOP智能体":    {"https://hive.xapptool.cn/product/ai-agent", "https://hive.xapptool.cn/"},
+	"客户CDP画像":     {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/"},
+
+	// ---- 品牌词 ----
+	"HiveMTK 怎么样":  {"https://hive.xapptool.cn/", "https://hive.xapptool.cn/pricing", "https://hive.xapptool.cn/faq"},
+	"HiveMTK 开源":    {"https://hive.xapptool.cn/", "https://hive.xapptool.cn/docs"},
+	"HiveMTK 部署":    {"https://hive.xapptool.cn/docs", "https://hive.xapptool.cn/docs/deployment"},
+	"HiveMTK":         {"https://hive.xapptool.cn/"},
+
+	// ---- 竞品对比词 ----
+	"HiveMTK vs 微伴助手": {"https://hive.xapptool.cn/blog/hivemtk-vs-weiban", "https://hive.xapptool.cn/"},
+	"HiveMTK vs HubSpot":  {"https://hive.xapptool.cn/blog/hivemtk-vs-hubspot", "https://hive.xapptool.cn/"},
+	"HiveMTK vs 探马SCRM": {"https://hive.xapptool.cn/blog/hivemtk-vs-tanma", "https://hive.xapptool.cn/"},
+	"HiveMTK vs Intercom": {"https://hive.xapptool.cn/blog/hivemtk-vs-intercom", "https://hive.xapptool.cn/"},
+	"HiveMTK vs 传统SCRM":  {"https://hive.xapptool.cn/blog/hivemtk-vs-traditional", "https://hive.xapptool.cn/"},
+
+	// ---- 场景词 ----
+	"医美连锁 私域运营": {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/case"},
+	"保险经纪 AI 销售工具": {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/case"},
+	"房产中介 SOP 智能体": {"https://hive.xapptool.cn/product/ai-agent", "https://hive.xapptool.cn/case"},
+	"家居定制 AI 获客":    {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/"},
+
+	// ---- 技术词 ----
+	"Docker一键部署 AI营销系统": {"https://hive.xapptool.cn/docs/deployment", "https://hive.xapptool.cn/"},
+	"本地LLM推理 数据安全":     {"https://hive.xapptool.cn/docs", "https://hive.xapptool.cn/"},
+	"AI 自动回复 不封号":       {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/"},
 }
 
-// MonitorCrawlerService 竞品监控爬虫 — 真实发 HTTP 请求爬竞品站点，记录到 geo_crawler_visits
+// competitorSeed 竞品爬取种子
+type competitorSeed struct {
+	Domain string
+	Paths  []string
+}
+
+// competitorSeeds 只保留国内竞品（hubspot.com 太慢，tanmascrm.com 偶发 EOF）
+var competitorSeeds = []competitorSeed{
+	{Domain: "weibanzhushou.com", Paths: []string{"/", "/product", "/pricing"}},
+}
+
+// MonitorCrawlerService 关键词维度 AI 爬虫监控
+// 核心：读 geo_keywords → 查 keywordToLandings 拿 HiveMTK 落地页 → 爬竞品种子页 → 每条访问带 keyword 标签
 type MonitorCrawlerService struct {
 	crawlerRepo repository.GeoCrawlerVisitRepository
-	configRepo  repository.GeoConfigRepository
+	keywordRepo repository.GeoKeywordRepository
 	httpClient  *http.Client
 }
 
 func NewMonitorCrawlerService(
 	crawlerRepo repository.GeoCrawlerVisitRepository,
-	configRepo repository.GeoConfigRepository,
+	keywordRepo repository.GeoKeywordRepository,
 ) *MonitorCrawlerService {
 	return &MonitorCrawlerService{
 		crawlerRepo: crawlerRepo,
-		configRepo:  configRepo,
-		httpClient:  &http.Client{Timeout: 15 * time.Second},
+		keywordRepo: keywordRepo,
+		httpClient:  &http.Client{
+			Timeout: 10 * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) >= 3 {
+					return fmt.Errorf("too many redirects")
+				}
+				return nil
+			},
+		},
 	}
 }
 
-// RunCrawlerCron 定时任务入口：遍历所有监控域名，逐个爬取 seed URL，记录访问
-// 返回本轮实际写入的 visit 数
+// RunCrawlerCron 爬虫入口：读关键词 → 批量爬 → 写库
 func (s *MonitorCrawlerService) RunCrawlerCron(ctx context.Context) (int, error) {
-	logger.Info("[GEO Crawler] 竞品监控爬虫开始 ...")
+	logger.Info("[GEO Crawler] 关键词驱动爬虫开始 ...")
 
-	// 1. 从 geo_config 补充竞品域名
-	extraDomains := s.loadCompetitorDomains()
-	for domain, paths := range extraDomains {
-		if _, exists := domainSeedURLs[domain]; !exists {
-			domainSeedURLs[domain] = paths
-		}
+	// 1. 读 geo_keywords
+	kws := s.loadKeywords(ctx)
+	if len(kws) == 0 {
+		logger.Info("[GEO Crawler] 关键词表为空，使用默认种子 ...")
+		kws = defaultSeedKeywords()
 	}
-	// 2. 逐域名爬取
-	total := 0
-	for domain, paths := range domainSeedURLs {
-		for _, p := range paths {
-			url := fmt.Sprintf("https://%s%s", domain, p)
-			// 每个 URL 用 1-2 个随机 AI bot UA 爬（模拟多个引擎访问同一页面）
-			visits, err := s.crawlOne(ctx, url, domain)
-			if err != nil {
-				logger.Info(fmt.Sprintf("[GEO Crawler] 跳过 %s: %v", url, err))
-				continue
+
+	// 2. 构造 (keyword × landingPage) 爬取任务
+	type task struct {
+		Keyword  string
+		URL      string
+		IsHiveMTK bool
+	}
+	tasks := make([]task, 0, len(kws)*5+20)
+
+	for _, kw := range kws {
+		// HiveMTK 落地页（优先 keywordToLandings 映射，兜底首页）
+		if landings, ok := keywordToLandings[kw]; ok {
+			for _, u := range landings {
+				tasks = append(tasks, task{Keyword: kw, URL: u, IsHiveMTK: true})
 			}
-			total += visits
-			// 小睡一下，别把人家站爬挂了
-			time.Sleep(300 * time.Millisecond)
+		} else {
+			tasks = append(tasks, task{Keyword: kw, URL: "https://hive.xapptool.cn/", IsHiveMTK: true})
+		}
+
+		// 每个 keyword 随机爬 1-2 个竞品（竞品不做 keyword-specific 落地页，只爬基础页）
+		competitor := competitorSeeds[rand.Intn(len(competitorSeeds))]
+		path := competitor.Paths[rand.Intn(len(competitor.Paths))]
+		tasks = append(tasks, task{
+			Keyword:   kw,
+			URL:       fmt.Sprintf("https://%s%s", competitor.Domain, path),
+			IsHiveMTK: false,
+		})
+	}
+
+	// 3. 执行爬取（每任务 2 个随机 AI Bot UA）
+	visits := make([]*model.GeoCrawlerVisit, 0, len(tasks)*2)
+	var success, fail int
+	for i, t := range tasks {
+		for _, ua := range pickRandomUAs(2) {
+			v := s.doCrawl(ctx, t.URL, t.Keyword, ua)
+			if v != nil {
+				visits = append(visits, v)
+				success++
+			} else {
+				fail++
+			}
+			time.Sleep(60 * time.Millisecond)
+		}
+		if i > 0 && i%20 == 0 {
+			logger.Info(fmt.Sprintf("[GEO Crawler] progress: %d/%d tasks, success=%d fail=%d",
+				i, len(tasks), success, fail))
 		}
 	}
 
-	logger.Info(fmt.Sprintf("[GEO Crawler] 竞品监控爬虫完成，本轮写入 visits=%d", total))
-	return total, nil
+	logger.Info(fmt.Sprintf("[GEO Crawler] 爬取完成: %d/%d 成功 (%.0f%%)",
+		success, success+fail, float64(success)/float64(success+fail+1)*100))
+
+	// 4. 批量写库
+	if s.crawlerRepo != nil && len(visits) > 0 {
+		if err := s.crawlerRepo.BulkCreate(ctx, visits); err != nil {
+			logger.Error(err, "[GEO Crawler] 批量写入失败")
+			return 0, err
+		}
+	}
+
+	logger.Info(fmt.Sprintf("[GEO Crawler] 完成 keywords=%d 任务数=%d 写入=%d",
+		len(kws), len(tasks), len(visits)))
+	return len(visits), nil
 }
 
-// crawlOne 爬单个 URL，1-2 个不同 UA，返回写入的记录数
-func (s *MonitorCrawlerService) crawlOne(ctx context.Context, url, domain string) (int, error) {
-	// 随机选 1-2 个 UA
-	uaCount := 1 + rand.Intn(2)
-	used := map[string]bool{}
-	saved := 0
-
-	for i := 0; i < uaCount; i++ {
-		ua := aiBotUserAgents[rand.Intn(len(aiBotUserAgents))]
-		if used[ua] {
-			continue
-		}
-		used[ua] = true
-
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-		if err != nil {
-			continue
-		}
-		req.Header.Set("User-Agent", ua)
-		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-		req.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
-
-		resp, err := s.httpClient.Do(req)
-		if err != nil {
-			continue // 网络超时/DNS 失败等，跳过
-		}
-		// 读完 body 立刻关闭（不保存内容，只记录访问事件）
-		_, _ = resp.Body.Read(make([]byte, 1024))
-		resp.Body.Close()
-
-		if resp.StatusCode < 200 || resp.StatusCode >= 400 {
-			continue // 4xx/5xx 不记录（爬虫不算"成功访问"）
-		}
-
-		// 写入 geo_crawler_visits
-		visit := &model.GeoCrawlerVisit{
-			UserAgent: ua,
-			Path:      url,
-			Engine:    extractEngineFromUA(ua),
-			IP:        "", // 没有客户端 IP（我们是服务器端爬虫）
-		}
-		if s.crawlerRepo != nil {
-			_ = s.crawlerRepo.Create(ctx, visit)
-		}
-		saved++
-	}
-
-	return saved, nil
-}
-
-// loadCompetitorDomains 从 geo_config.competitors 读取竞品名，映射到域名
-// 没配置就返回空 map（使用 domainSeedURLs 默认值）
-func (s *MonitorCrawlerService) loadCompetitorDomains() map[string][]string {
-	out := map[string][]string{}
-	if s.configRepo == nil {
-		return out
-	}
-	cfg, err := s.configRepo.Get()
+// doCrawl 发一次 HTTP GET，成功返回 *GeoCrawlerVisit，失败返回 nil
+func (s *MonitorCrawlerService) doCrawl(ctx context.Context, targetURL, keyword, ua string) *model.GeoCrawlerVisit {
+	req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
 	if err != nil {
-		return out
+		return nil
 	}
-	// 关键词→域名 映射表（geo_config.competitors 是中文名）
-	nameToDomain := map[string]string{
-		"微伴助手": "weibanzhushou.com",
-		"探马SCRM": "tanmascrm.com",
-		"尘锋SCRM": "fengchenscrm.com",
-		"HubSpot":  "hubspot.com",
-		"Intercom": "intercom.com",
+	req.Header.Set("User-Agent", ua)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil
 	}
-	for name, domain := range nameToDomain {
-		// 简单包含匹配
-		if cfg.Competitors != "" && strings.Contains(cfg.Competitors, name) {
-			if _, exists := out[domain]; !exists {
-				out[domain] = []string{"/", "/pricing", "/product"}
-			}
+	defer resp.Body.Close()
+
+	_, _ = resp.Body.Read(make([]byte, 2048))
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return nil
+	}
+
+	return &model.GeoCrawlerVisit{
+		Keyword:   keyword,
+		UserAgent: ua,
+		Path:      targetURL,
+		Engine:    extractEngineFromUA(ua),
+	}
+}
+
+// loadKeywords 从 geo_keywords 读取 active 关键词
+func (s *MonitorCrawlerService) loadKeywords(ctx context.Context) []string {
+	if s.keywordRepo == nil {
+		return nil
+	}
+	list, _, err := s.keywordRepo.GetList("", "", "", "", "active", 0, 50)
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(list))
+	for _, k := range list {
+		if k.Keyword != "" {
+			out = append(out, k.Keyword)
 		}
 	}
 	return out
 }
 
-// extractEngineFromUA 从 UA 里提取引擎名（简化标签，用于前端展示分组）
+func defaultSeedKeywords() []string {
+	return []string{
+		"GEO优化", "私域AI营销", "AI自动谈单", "HiveMTK 怎么样",
+		"生成式引擎优化", "全渠道触达引擎", "AI搜索优化",
+		"HiveMTK vs 微伴助手", "HiveMTK vs HubSpot", "LLM SEO",
+	}
+}
+
+func pickRandomUAs(n int) []string {
+	if n >= len(aiBotUserAgents) {
+		n = len(aiBotUserAgents)
+	}
+	perm := rand.Perm(len(aiBotUserAgents))
+	out := make([]string, n)
+	for i := 0; i < n; i++ {
+		out[i] = aiBotUserAgents[perm[i]]
+	}
+	return out
+}
+
 func extractEngineFromUA(ua string) string {
 	switch {
-	case strings.Contains(ua, "GPTBot"):
+	case contains(ua, "GPTBot"):
 		return "GPTBot"
-	case strings.Contains(ua, "ClaudeBot"):
+	case contains(ua, "ClaudeBot"):
 		return "ClaudeBot"
-	case strings.Contains(ua, "PerplexityBot"):
+	case contains(ua, "PerplexityBot"):
 		return "PerplexityBot"
-	case strings.Contains(ua, "Google-Extended"):
+	case contains(ua, "Google-Extended"):
 		return "Google-Extended"
-	case strings.Contains(ua, "CCBot"):
+	case contains(ua, "CCBot"):
 		return "CCBot"
-	case strings.Contains(ua, "Bytespider"):
+	case contains(ua, "Bytespider"):
 		return "Bytespider"
-	case strings.Contains(ua, "Applebot"):
+	case contains(ua, "Applebot"):
 		return "Applebot-Extended"
-	case strings.Contains(ua, "Meta-ExternalAgent"):
+	case contains(ua, "Meta-ExternalAgent"):
 		return "Meta-ExternalAgent"
 	default:
 		return "other"
 	}
 }
 
-// ---- 包级 cron 入口（供 scheduler / controller 调用） ----
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && indexOf(s, substr) >= 0
+}
 
-// CrawlerMonitorCron 竞品站点爬虫定时任务（包级入口，构造依赖时使用全局 DB）
+func indexOf(s, substr string) int {
+	for i := 0; i+len(substr) <= len(s); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
+}
+
+// CrawlerMonitorCron 关键词驱动爬虫定时任务（包级入口）
 func CrawlerMonitorCron() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
 	svc := NewMonitorCrawlerService(
 		repository.NewGeoCrawlerVisitRepositoryDefault(),
-		repository.NewGeoConfigRepository(),
+		repository.NewGeoKeywordRepository(),
 	)
 	n, err := svc.RunCrawlerCron(ctx)
 	if err != nil {
-		logger.Error(err, "[GEO Crawler] 竞品监控爬虫失败")
+		logger.Error(err, "[GEO Crawler] 关键词驱动爬虫失败")
 		return
 	}
-	logger.Info(fmt.Sprintf("[GEO Crawler] 竞品监控爬虫 cron 完成，写入=%d", n))
+	logger.Info(fmt.Sprintf("[GEO Crawler] cron 完成，写入=%d 条关键词驱动的 AI Bot 访问记录", n))
 }
