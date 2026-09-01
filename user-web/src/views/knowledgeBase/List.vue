@@ -269,10 +269,10 @@ const currentKB = ref(null)
 // 新建/编辑弹窗
 const formVisible = ref(false)
 const submitting = ref(false)
-const formData = ref({ id: null, kb_code: '', type: 'rag', name: '', description: '' })
+const formData = ref({ id: null, kb_code: '', type: 'rag', name: '', description: '', owner_type: 'shared' })
 
 const openCreateDialog = () => {
-  formData.value = { id: null, kb_code: '', type: currentType.value, name: '', description: '' }
+  formData.value = { id: null, kb_code: '', type: currentType.value, name: '', description: '', owner_type: 'shared' }
   formVisible.value = true
 }
 
@@ -301,7 +301,10 @@ const onSubmitForm = async () => {
         kb_code: f.kb_code.trim(),
         type: f.type,
         name: f.name.trim(),
-        description: f.description
+        description: f.description,
+        // R84: 前端必须显式传 owner_type, 后端 private 模式强制 owner_agent_id
+        // (前端 form 无代理下拉), 默认 shared 模式创建公共 KB, 用户可后续编辑为私有
+        owner_type: f.owner_type || 'shared'
       })
       ElMessage.success('创建成功')
     }
