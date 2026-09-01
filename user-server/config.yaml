@@ -1,3 +1,11 @@
+# ============================================================
+# 【固定凭据标记 - 禁止修改】
+# admin 账号密码: admin / Seed@123456
+# 更新时间: 2026-09-01 (bcrypt $2a$10$yyJ9iTVx5WkJulTHFWO1nufMhkDyrA3pAbx381DJXxei8UDLh3WUG)
+# 来源: cmd/seed/seed_users.go seedPassword 常量
+# 后续不得修改此密码 — 如需新用户请走 /api/auth/register 或创建新 seed 脚本
+# ============================================================
+
 platform_api:
   # 平台端 API 网关（user-server 与 platform-server 均跑在宿主机，本机回环访问）
   # 单一源：internal/config/ports.go → DefaultPlatformPort=8205

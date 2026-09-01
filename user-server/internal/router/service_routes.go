@@ -133,10 +133,13 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 	auth.POST("/customer/session/:id/transfer", customerSessionCtrl.TransferSession)
 
 	appConfigCtrl := controller.NewAppConfigController()
-	auth.GET("/app-config", appConfigCtrl.GetAppConfig)
+	// /app-config/health 仅返回健康状态，无敏感字段，保持登录用户可读
 	auth.GET("/app-config/health", appConfigCtrl.HealthCheck)
 	// P0-1 写操作 admin only（防 staff 改全局应用配置 / 触发平台同步）
+	// P0-2 读操作同样 admin only：GetAppConfig 响应含 db_config.password /
+	// redis_config.password / merchant_key，普通登录用户可读即凭据泄露（前端无调用点，收敛无副作用）
 	appAdmin := auth.Group("", middleware.AdminAuthMiddleware())
+	appAdmin.GET("/app-config", appConfigCtrl.GetAppConfig)
 	appAdmin.PUT("/app-config", appConfigCtrl.UpdateAppConfig)
 	appAdmin.POST("/app-config/sync", appConfigCtrl.SyncWithPlatform)
 }
