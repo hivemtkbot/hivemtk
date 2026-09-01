@@ -741,17 +741,17 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .app-shell {
   height: 100vh;
-  background: #F8FAFC;
+  background: $bg-color-page;
 }
 
 /* ===== 顶栏 ===== */
 .app-header {
   height: 64px;
-  background: #FFFFFF;
-  border-bottom: 1px solid #E2E8F0;
+  background: $bg-color;
+  border-bottom: 1px solid $border-base;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
   display: flex;
   align-items: center;
@@ -762,14 +762,14 @@ onMounted(async () => {
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-right: 28px;
+  gap: $spacing-md;
+  margin-right: $spacing-lg;
 }
 .brand-mark {
   width: 30px;
   height: 30px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  border-radius: $border-radius-base;
+  background: linear-gradient(135deg, $primary-color 0%, $primary-color 100%);
   box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
   position: relative;
   flex-shrink: 0;
@@ -779,14 +779,14 @@ onMounted(async () => {
   position: absolute;
   inset: 7px;
   border: 2px solid rgba(255, 255, 255, 0.92);
-  border-radius: 4px;
+  border-radius: $border-radius-small;
   border-bottom-color: transparent;
   border-left-color: transparent;
 }
 .brand-text {
-  font-size: 17px;
+  font-size: $font-size-medium;
   font-weight: 700;
-  color: #0F172A;
+  color: $text-primary;
   letter-spacing: 0.3px;
   white-space: nowrap;
 }
@@ -806,22 +806,22 @@ onMounted(async () => {
   min-width: max-content;
 }
 .top-menu::-webkit-scrollbar { height: 4px; }
-.top-menu::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 2px; }
+.top-menu::-webkit-scrollbar-thumb { background: $border-base; border-radius: 2px; }
 .top-menu .el-menu-item {
   height: 64px;
   line-height: 64px;
   border-bottom: none;
   font-weight: 500;
-  color: #475569;
+  color: $text-regular;
 }
 .top-menu .el-menu-item:hover {
-  color: #4F46E5;
+  color: $primary-color;
   background: transparent;
 }
 .top-menu .el-menu-item.is-active {
-  color: #4F46E5;
+  color: $primary-color;
   font-weight: 600;
-  border-bottom: 2px solid #4F46E5;
+  border-bottom: 2px solid $primary-color;
 }
 
 /* ===== 通知铃铛 ===== */
@@ -831,61 +831,61 @@ onMounted(async () => {
   justify-content: center;
   width: 38px;
   height: 38px;
-  margin: 0 6px;
-  border-radius: 10px;
-  color: #475569;
+  margin: $spacing-sm;
+  border-radius: $border-radius-base;
+  color: $text-regular;
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 .notif-bell:hover {
-  background: #F1F5F9;
-  color: #4F46E5;
+  background: $border-extra-light;
+  color: $primary-color;
 }
 
 /* ===== 用户区 ===== */
 .user-area {
   display: flex;
   align-items: center;
-  margin-left: 12px;
+  margin-left: $spacing-md;
 }
 .user-dropdown {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: $spacing-sm;
   cursor: pointer;
-  padding: 5px 10px;
-  border-radius: 10px;
+  padding: $spacing-xs 10px;
+  border-radius: $border-radius-base;
   transition: background-color 0.2s ease;
 }
 .user-dropdown:hover {
-  background: #F1F5F9;
+  background: $border-extra-light;
 }
 .user-avatar {
-  background: linear-gradient(135deg, #6366F1, #4F46E5);
+  background: linear-gradient(135deg, $primary-color, $primary-color);
   font-weight: 600;
-  font-size: 13px;
+  font-size: $font-size-small;
 }
 .user-name {
-  color: #0F172A;
+  color: $text-primary;
   font-weight: 500;
-  font-size: 14px;
+  font-size: $font-size-base;
 }
 .login-button {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: #fff;
-  background: #4F46E5;
+  gap: $spacing-sm;
+  color: $bg-color;
+  background: $primary-color;
   cursor: pointer;
-  padding: 8px 18px;
-  border-radius: 8px;
+  padding: $spacing-sm 18px;
+  border-radius: $border-radius-base;
   font-weight: 500;
-  font-size: 14px;
-  margin-left: 12px;
+  font-size: $font-size-base;
+  margin-left: $spacing-md;
   transition: background 0.2s ease;
 }
 .login-button:hover {
-  background: #4338CA;
+  background: $primary-color;
 }
 
 /* ===== 侧边栏（品牌深靛蓝） ===== */
@@ -893,7 +893,7 @@ onMounted(async () => {
   height: calc(100vh - 64px);
 }
 .app-aside {
-  background: linear-gradient(180deg, #1E1B4B 0%, #181542 100%);
+  background: linear-gradient(180deg, $primary-color 0%, $primary-color 100%);
   border-right: none;
   display: flex;
   flex-direction: column;
@@ -904,31 +904,31 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 18px 20px;
-  color: #C7D2FE;
-  font-size: 14px;
+  padding: $spacing-md 20px;
+  color: $primary-light-3;
+  font-size: $font-size-base;
   font-weight: 600;
   letter-spacing: 0.5px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 .aside-brand .el-icon {
-  font-size: 18px;
-  color: #818CF8;
+  font-size: $font-size-large;
+  color: $primary-light-2;
 }
 .collapse-btn {
   margin-left: auto;
-  color: #C7D2FE;
+  color: $primary-light-3;
 }
 .app-aside.is-collapsed .aside-brand {
   justify-content: center;
-  padding: 18px 0;
+  padding: $spacing-md 0;
   gap: 0;
 }
 .app-aside.is-collapsed .collapse-btn {
   margin-left: 0;
 }
 .collapse-btn:hover {
-  color: #fff;
+  color: $bg-color;
   background: rgba(255, 255, 255, 0.06);
 }
 .app-aside :deep(.el-scrollbar) {
@@ -937,28 +937,28 @@ onMounted(async () => {
 .app-aside :deep(.el-menu) {
   background: transparent;
   border-right: none;
-  padding: 8px;
+  padding: $spacing-sm;
 }
 .app-aside :deep(.el-menu-item),
 .app-aside :deep(.el-sub-menu__title) {
-  color: #C7D2FE;
-  border-radius: 8px;
-  margin-bottom: 4px;
+  color: $primary-light-3;
+  border-radius: $border-radius-base;
+  margin-bottom: $spacing-xs;
   height: 44px;
   line-height: 44px;
 }
 .app-aside :deep(.el-menu-item .el-icon),
 .app-aside :deep(.el-sub-menu__title .el-icon) {
-  color: #A5B4FC;
+  color: $primary-light-4;
 }
 .app-aside :deep(.el-menu-item:hover),
 .app-aside :deep(.el-sub-menu__title:hover) {
   background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  color: $bg-color;
 }
 .app-aside :deep(.el-menu-item.is-active) {
   background: rgba(99, 102, 241, 0.22);
-  color: #fff;
+  color: $bg-color;
   font-weight: 600;
   position: relative;
 }
@@ -970,53 +970,53 @@ onMounted(async () => {
   bottom: 8px;
   width: 3px;
   border-radius: 0 3px 3px 0;
-  background: #818CF8;
+  background: $primary-light-2;
 }
 .app-aside :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
-  color: #fff;
+  color: $bg-color;
 }
 
 /* ===== 授权信息 ===== */
 .license-info {
-  padding: 12px;
+  padding: $spacing-md;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.15);
-  color: #C7D2FE;
-  font-size: 12px;
+  color: $primary-light-3;
+  font-size: $font-size-extra-small;
   text-align: center;
 }
-.license-expiry.expired { color: #FCA5A5; }
+.license-expiry.expired { color: $danger-color; }
 .license-expiry {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: $spacing-xs;
 }
 .license-note {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  margin-top: 6px;
-  font-size: 11px;
-  color: #94A3B8;
+  gap: $spacing-xs;
+  margin-top: $spacing-sm;
+  font-size: $font-size-extra-small;
+  color: $text-placeholder;
 }
 
 /* ===== 主内容区 ===== */
 .app-main {
-  background: #F8FAFC;
+  background: $bg-color-page;
   padding: 0;
   overflow-y: auto;
 }
 .breadcrumb-wrap {
-  padding: 16px 24px 0;
+  padding: $spacing-md 24px 0;
 }
 .breadcrumb-wrap :deep(.el-breadcrumb__inner) {
-  color: #64748B;
+  color: $text-secondary;
   font-weight: 500;
 }
 .breadcrumb-wrap :deep(.el-breadcrumb__item:last-child .el-breadcrumb__inner) {
-  color: #0F172A;
+  color: $text-primary;
   font-weight: 600;
 }
 

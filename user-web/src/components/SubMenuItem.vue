@@ -49,7 +49,7 @@ const props = defineProps({
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 /* 确保三级菜单正确显示 */
 :deep(.el-menu .el-sub-menu .el-menu-item) {
   padding-left: 50px !important;
@@ -71,7 +71,7 @@ const props = defineProps({
 
 /* 确保子菜单正确展开 */
 :deep(.el-sub-menu .el-sub-menu__title) {
-  padding-left: 30px !important;
+  padding-left: $spacing-lg !important;
 }
 
 :deep(.el-menu .el-sub-menu .el-sub-menu .el-sub-menu__title) {
