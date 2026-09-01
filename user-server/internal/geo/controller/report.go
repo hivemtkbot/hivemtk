@@ -111,3 +111,10 @@ func (c *ReportController) InaccurateClaims(ctx *gin.Context) {
 	}
 	response.Success(ctx, result, "ok")
 }
+
+// RunCrawler 手动触发竞品监控爬虫
+// POST /geo/crawler/run
+func (c *ReportController) RunCrawler(ctx *gin.Context) {
+	go service.CrawlerMonitorCron() // 异步执行
+	response.Success(ctx, map[string]string{"status": "started"}, "爬虫已启动")
+}

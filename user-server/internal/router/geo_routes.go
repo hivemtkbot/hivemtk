@@ -160,6 +160,7 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	// v3 竞品对齐分析（A1 SOV / A6 爬虫 / A7 不准确检测）
 	geo.GET("/sov", reportCtrl.ShareOfVoice)
 	geo.GET("/crawler-stats", reportCtrl.CrawlerStats)
+	geo.POST("/crawler/run", reportCtrl.RunCrawler)
 	geo.POST("/inaccurate-claims", reportCtrl.InaccurateClaims)
 
 	// 配置路由（读取：所有登录用户）

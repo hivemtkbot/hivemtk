@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/geo/model"
+	"hivemtk-user/internal/pkg/db"
 
 	"gorm.io/gorm"
 )
@@ -66,6 +67,11 @@ type geoCrawlerVisitRepo struct{ db *gorm.DB }
 
 func NewGeoCrawlerVisitRepository(db *gorm.DB) GeoCrawlerVisitRepository {
 	return &geoCrawlerVisitRepo{db: db}
+}
+
+// NewGeoCrawlerVisitRepository 默认使用全局 DB（cron / controller 调用）
+func NewGeoCrawlerVisitRepositoryDefault() GeoCrawlerVisitRepository {
+	return &geoCrawlerVisitRepo{db: db.GetDB()}
 }
 
 func (r *geoCrawlerVisitRepo) Create(ctx context.Context, v *model.GeoCrawlerVisit) error {

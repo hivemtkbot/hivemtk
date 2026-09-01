@@ -123,6 +123,15 @@ func InitCron() {
 		logger.Info(fmt.Sprintf("添加 GEO 信源同步定时任务失败 %s", err.Error()))
 		panic(err)
 	}
+
+	// GEO: 竞品监控爬虫 — 每 6 小时爬一次竞品站点，真实 HTTP 请求记录访问
+	_, err = mgr.AddTask("0 0 */6 * * *", func() {
+		go geoservice.CrawlerMonitorCron()
+	})
+	if err != nil {
+		logger.Info(fmt.Sprintf("添加 GEO 竞品监控爬虫定时任务失败 %s", err.Error()))
+		panic(err)
+	}
 }
 
 // ChurnCalculationCron 流失预测定时任务：从 customer_events 真实聚合全部客户行为并执行流失计算。
