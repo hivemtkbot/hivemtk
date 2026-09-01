@@ -24,7 +24,7 @@
     <el-card class="mb-4">
       <template #header>
         <div class="flex items-center justify-between">
-          <span class="font-bold">可用平台列表（仅显示技术上可实现的平台）</span>
+          <span class="font-bold">可用平台列表</span>
           <el-button size="small" type="primary" @click="loadAll">刷新</el-button>
         </div>
       </template>
@@ -54,10 +54,18 @@
             <el-tag v-else type="info" size="small">未配置 Token</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="说明" min-width="240">
+        <el-table-column label="说明" min-width="360">
           <template #default="{ row }">
-            <span v-if="row.capability === 'real_api'" class="hint">需配置 API Token 环境变量后可发布</span>
-            <span v-else-if="row.capability === 'cookie_gray'" class="hint">依赖有效 Cookie，稳定性较差</span>
+            <span v-if="row.name && row.name.includes('github')" class="hint">
+              访问 <a href="https://github.com/settings/tokens" target="_blank">https://github.com/settings/tokens</a> 创建 Personal Access Token（classic，勾选 repo 权限），填入环境变量 <code>GITHUB_TOKEN</code>
+            </span>
+            <span v-else-if="row.name === 'medium'" class="hint">
+              访问 <a href="https://medium.com/me/settings/security" target="_blank">https://medium.com/me/settings/security</a> 手动配置 IntegrationToken（或通过 OAuth 应用授权），填入环境变量 <code>MEDIUM_TOKEN</code>
+            </span>
+            <span v-else-if="row.name === 'wordpress'" class="hint">
+              WordPress 后台 → 用户 → 应用密码 → 生成专用密码，填入环境变量 <code>WORDPRESS_APPPASS</code>（用户名+密码）
+            </span>
+            <span v-else-if="row.capability === 'real_api'" class="hint">需配置 API Token 环境变量后可发布</span>
             <span v-else class="hint">—</span>
           </template>
         </el-table-column>
@@ -70,13 +78,6 @@
       </el-table>
       <div v-if="filteredCount === 0" class="empty-hint">
         暂无可用平台。需要在后端配置 API Token 后可发布。
-      </div>
-      <div v-if="hiddenCount > 0" class="hidden-hint">
-        <el-alert type="info" :closable="false" show-icon>
-          <template #title>
-            已隐藏 {{ hiddenCount }} 个技术上不可实现的平台（stub/自定义平台、未配置 Cookie 的灰产平台、OAuth 未开放的平台）。
-          </template>
-        </el-alert>
       </div>
     </el-card>
 
@@ -177,14 +178,14 @@ const currentPlatform = ref(null)
 const accountForm = reactive({ app_key: '', secret: '', extra: '' })
 
 // 过滤规则：
-// 1) capability === 'stub'  →  完全隐藏（自定义平台是假的）
-// 2) capability === 'cookie_gray' && !has_account && !enabled  →  隐藏（无 cookie 且未启用 = 不可用）
-// 3) 只保留 real_api + (cookie_gray && has_account 或 enabled) 的平台
+// 1) capability === 'stub'          →  完全隐藏（自定义平台是假的）
+// 2) capability === 'cookie_gray' && !has_account  →  隐藏（无 cookie 账号 = 无法使用）
+// 3) 其余 real_api 或 cookie_gray 且有账号的 →  展示
 const availablePlatforms = computed(() => {
   return allPlatforms.value.filter(p => {
     const cap = p.capability
     if (cap === 'stub') return false
-    if (cap === 'cookie_gray' && !p.has_account && !p.enabled) return false
+    if (cap === 'cookie_gray' && !p.has_account) return false
     return true
   })
 })

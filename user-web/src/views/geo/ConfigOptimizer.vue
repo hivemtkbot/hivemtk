@@ -120,22 +120,48 @@ import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Check, MagicStick } from '@element-plus/icons-vue'
 import { geoApi } from '@/api/geo'
+import { http } from '@/utils/request'
 
-const modelOptions = [
-  { label: '本地 SMOL (local-mlx)', value: 'local-mlx' },
-  { label: 'DeepSeek Chat', value: 'deepseek-chat' },
-  { label: '通义千问 (qwen-plus)', value: 'qwen-plus' },
-  { label: '豆包 (doubao-pro-32k)', value: 'doubao-pro-32k' },
-  { label: '文心一言 (ernie)', value: 'ernie-4.0-8k-latest' }
-]
+const modelOptions = ref([])
+
+const loadModelOptions = async () => {
+  try {
+    const res = await http.get('/api/llm/models')
+    const list = Array.isArray(res) ? res : (res?.list || res?.items || res?.data || [])
+    const options = list
+      .filter((m) => m && m.enabled !== false && !(m.name && m.name.startsWith('local')))
+      .map((m) => ({
+        label: `${m.display_name || m.name} (${m.model || m.name})`,
+        value: m.name
+      }))
+    modelOptions.value = options
+    // 默认选中第一个 provider 作为 default_model
+    if (options.length) {
+      if (!config.default_model || !options.some((o) => o.value === config.default_model)) {
+        config.default_model = options[0].value
+      }
+      // verify_models 过滤掉已下线的
+      if (Array.isArray(config.verify_models)) {
+        config.verify_models = config.verify_models.filter((v) =>
+          options.some((o) => o.value === v)
+        )
+      }
+      if (!config.verify_models.length) {
+        config.verify_models = [options[0].value]
+      }
+    }
+  } catch (e) {
+    console.warn('加载可用模型列表失败:', e.message)
+  }
+}
 
 const config = reactive({
   brand: '',
   description: '',
   advantages: [],
   competitors: [],
-  default_model: 'deepseek-chat',
-  verify_models: ['deepseek-chat', 'local-mlx']
+  default_model: '',
+  verify_models: []
 })
 
 const loading = ref(false)
@@ -183,8 +209,11 @@ const loadConfig = async () => {
     // 后端以顿号分隔字符串存储，前端拆为数组便于标签编辑
     config.advantages = splitCN(res?.advantages)
     config.competitors = splitCN(res?.competitors)
-    config.default_model = res?.default_model || 'deepseek-chat'
-    config.verify_models = splitCN(res?.verify_models)
+    config.default_model = res?.default_model || config.default_model || modelOptions.value?.[0]?.value || ''
+    const verifyFromDB = splitCN(res?.verify_models)
+    config.verify_models = verifyFromDB.length
+      ? verifyFromDB
+      : (config.verify_models.length ? config.verify_models : (modelOptions.value?.[0] ? [modelOptions.value[0].value] : []))
   } catch (e) {
     ElMessage.error(e.message || '配置加载失败')
   } finally {
@@ -232,7 +261,10 @@ const handleOptimize = async () => {
   }
 }
 
-onMounted(loadConfig)
+onMounted(async () => {
+  await loadModelOptions()
+  await loadConfig()
+})
 </script>
 
 <style lang="scss" scoped>

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -170,14 +169,13 @@ func NewEngineProbes() []SearchProbe {
 // 这是唯一的探针装配入口。所有 provider 配置（endpoint/model/api_key）
 // 都从 DB 读取，不再硬编码。运维在后台改 llm_providers 表即可热切换探针引擎。
 //
-// 装配顺序：
-//  1. DB 中 enabled=true 且 BaseURL 非空的 provider（跳过本地 provider，下面单独处理健康检查）
-//  2. 本地 LLM（从 DB 中找第一个 localhost 类型的 provider，健康检查通过则加入）
+// 注意：探针引擎只使用云端 provider（排除 localhost / 127.0.0.1 本地 LLM），
+// 避免本地 LLM 速度慢、质量低影响 GEO 验证准确性。本地 LLM 仅在 LLMAdapter
+// 的 fallback 链中作为兜底。
 func NewEngineProbesFromDB(g *gorm.DB) []SearchProbe {
 	probes := []SearchProbe{}
 	seen := make(map[string]bool)
 
-	// 1. 从 DB 读 enabled=true 的 provider
 	if g != nil {
 		var rows []hivemodel.LLMProvider
 		if err := g.Where("enabled = ?", true).Order("sort_order ASC").Find(&rows).Error; err == nil {
@@ -185,47 +183,23 @@ func NewEngineProbesFromDB(g *gorm.DB) []SearchProbe {
 				if row.BaseURL == "" || row.Model == "" {
 					continue
 				}
-				name := row.Name
-				if seen[name] {
-					continue
-				}
-				// 本地 provider 需要额外健康检查
+				// 排除本地 LLM — 探针引擎只跑云端
 				isLocal := strings.HasPrefix(row.BaseURL, "http://127.0.0.1") ||
 					strings.HasPrefix(row.BaseURL, "http://localhost")
 				if isLocal {
-					// 本地 LLM 健康检查
-					if err := checkProbeHealth(row.BaseURL); err != nil {
-						continue
-					}
-					// 标记已有本地 provider，兜底不再重复添加
-					seen["local-llm"] = true
+					continue
 				}
-				seen[name] = true
+				if seen[row.Name] {
+					continue
+				}
+				seen[row.Name] = true
 				probes = append(probes, &llmEndpointProbe{
-					name:     name,
+					name:     row.Name,
 					endpoint: row.BaseURL,
 					model:    row.Model,
 					apiKey:   row.APIKey,
 				})
 			}
-		}
-	}
-
-	// 2. 兜底：如果 DB 没有任何本地 provider，尝试用环境变量或默认地址
-	if !seen["local-llm"] {
-		localURL := os.Getenv("GEO_LOCAL_LLM_URL")
-		if localURL == "" {
-			localURL = "http://127.0.0.1:8207/v1"
-		}
-		if err := checkProbeHealth(localURL); err == nil {
-			model := os.Getenv("LOCAL_LLM_MODEL")
-			if model == "" {
-				model = detectLocalLLMModel(localURL)
-			}
-			if model == "" {
-				model = "smollm3-3b-4bit-mlx"
-			}
-			probes = append(probes, &llmEndpointProbe{name: "local-llm", endpoint: localURL, model: model})
 		}
 	}
 	return probes

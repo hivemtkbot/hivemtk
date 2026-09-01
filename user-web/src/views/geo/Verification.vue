@@ -121,20 +121,34 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { CircleCheck, Warning } from '@element-plus/icons-vue'
 import { geoApi } from '@/api/geo'
+import { http } from '@/utils/request'
 
-const modelOptions = [
-  { label: 'GPT-4o', value: 'gpt-4o' },
-  { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet' },
-  { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro' },
-  { label: 'DeepSeek Chat', value: 'deepseek-chat' },
-  { label: '通义千问 Max', value: 'qwen-max' },
-  { label: '文心一言 4.0', value: 'ernie-4.0' }
-]
+const modelOptions = ref([])
+
+const loadModelOptions = async () => {
+  try {
+    const res = await http.get('/api/llm/models')
+    const list = Array.isArray(res) ? res : (res?.list || res?.items || res?.data || [])
+    const options = list
+      .filter((m) => m && m.enabled !== false && !(m.name && m.name.startsWith('local')))
+      .map((m) => ({
+        label: `${m.display_name || m.name} (${m.model || m.name})`,
+        value: m.name
+      }))
+    modelOptions.value = options
+    // 默认选中第一个 provider
+    if (options.length && (!form.models || !form.models.length)) {
+      form.models = [options[0].value]
+    }
+  } catch (e) {
+    console.warn('加载可用模型列表失败:', e.message)
+  }
+}
 
 const form = reactive({
   article_id: '',
   brand_name: '',
-  models: ['gpt-4o', 'deepseek-chat'],
+  models: [],
   queries: ''
 })
 
@@ -221,7 +235,10 @@ const handleMonitorNegative = async () => {
   }
 }
 
-onMounted(loadArticles)
+onMounted(async () => {
+  await loadModelOptions()
+  await loadArticles()
+})
 </script>
 
 <style lang="scss" scoped>
