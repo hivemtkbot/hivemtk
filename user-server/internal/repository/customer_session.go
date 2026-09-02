@@ -511,6 +511,20 @@ func (r *CustomerSessionRepository) IncrementHumanReplyCount(ctx context.Context
 		Update("human_reply_count", gorm.Expr("human_reply_count + 1")).Error
 }
 
+// UpdateFields 按主键原子更新部分字段（不覆盖全对象）
+//
+// 用于 incrementAIReplyCount 等场景：先 IncrementAIReplyCount 原子 +1，
+// 再 UpdateFields 更新 status / last_message_at 等附属字段。
+// 避免 sessionRepo.Update(ctx, session) 把内存中的零值 message_count
+// 回写到 DB，破坏其他原子操作。
+func (r *CustomerSessionRepository) UpdateFields(ctx context.Context, id uint, fields map[string]any) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(&model.CustomerSession{}).
+		Where("id = ?", id).Updates(fields).Error
+}
+
 // UpdateHandlerType 更新会话处理方类型（ai / human）
 //
 // 用于关键词触发自动转人工但 AutoAssign 失败的场景：

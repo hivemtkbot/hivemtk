@@ -233,6 +233,16 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		return nil, fmt.Errorf("save inbound message failed: %w", err)
 	}
 
+	// P0-FIX: Bridge 渠道 message_count 长期为 0 — findOrCreateSession/UpsertByOneID
+	// 写死 message_count=0，后续没人 +1。Web Widget 链路（chat_visitor.go）会在
+	// saveInbound 后调 sessionRepo.UpdateLastMessage（内含 message_count+1）。
+	// 这里补齐：用户消息入站后 message_count +1 + 更新 last_message 元数据。
+	if err := o.sessionRepo.UpdateLastMessage(ctx, session.ID, in.Content, "user"); err != nil {
+		logger.Ctx(ctx).Warn().Err(err).
+			Str("session_id", session.SessionID).
+			Msg("[Orchestrator] UpdateLastMessage(user) failed — message_count 可能不准")
+	}
+
 	if session.HandlerType == model.HandlerTypeHuman && session.AgentID > 0 {
 		if o.isAgentOnline(ctx, session.AgentID) {
 			result.HandlerType = model.HandlerTypeHuman
@@ -413,6 +423,12 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		}
 		utils.WarnErrKV("smartcs.markSuggestionUsed", o.markSuggestionUsed(ctx, suggestionID), "session_id", session.SessionID, "suggestion_id", strconv.FormatUint(uint64(suggestionID), 10))
 		utils.WarnErrKV("smartcs.incrementAIReplyCount", o.incrementAIReplyCount(ctx, session), "session_id", session.SessionID, "ai_reply_count", strconv.Itoa(session.AIReplyCount+1))
+		// P0-FIX: AI 回复后也要 +1 message_count（Web Widget 链路 chat_visitor.go:523 会调）
+		if err := o.sessionRepo.UpdateLastMessage(ctx, session.ID, salesResp.Reply, "ai"); err != nil {
+			logger.Ctx(ctx).Warn().Err(err).
+				Str("session_id", session.SessionID).
+				Msg("[Orchestrator] UpdateLastMessage(ai) failed — message_count 可能不准")
+		}
 	}
 
 	return result, nil
@@ -494,6 +510,8 @@ func (o *SmartCSOrchestrator) lookupFAQAnswerCache(ctx context.Context, kbID str
 		if session := o.sessionOfResult(result); session != nil {
 			utils.WarnErrKV("smartcs.saveOutboundMessage.hit", o.saveOutboundMessage(ctx, session, lr.Answer, true), "session_id", session.SessionID, "source", "ragcache")
 			utils.WarnErrKV("smartcs.incrementAIReplyCount.hit", o.incrementAIReplyCount(ctx, session), "session_id", session.SessionID, "source", "ragcache")
+			// P0-FIX: FAQ 缓存命中路径也需要 +1 message_count（AI 回复计入总消息数）
+			utils.WarnErrKV("smartcs.UpdateLastMessage.hit", o.sessionRepo.UpdateLastMessage(ctx, session.ID, lr.Answer, "ai"), "session_id", session.SessionID, "source", "ragcache")
 		}
 	}
 	return result, true
@@ -764,12 +782,28 @@ func (o *SmartCSOrchestrator) transferToHuman(ctx context.Context, session *mode
 }
 
 // incrementAIReplyCount 增加 AI 回复计数
+//
+// P0-FIX 2026-09-02：原来用 sessionRepo.Update(ctx, session) 会把内存里的
+// message_count=0（来自 UpsertByOneID INSERT 初始值）回写到 DB，覆盖掉此前
+// UpdateLastMessage 的原子 +1。拆成两个独立原子操作：
+//   1. IncrementAIReplyCount — 纯原子 +1，不碰其他列
+//   2. Updates(status, last_message_at) — 只改状态和时间戳
 func (o *SmartCSOrchestrator) incrementAIReplyCount(ctx context.Context, session *model.CustomerSession) error {
+	now := time.Now()
+	if err := o.sessionRepo.IncrementAIReplyCount(ctx, session.ID); err != nil {
+		return fmt.Errorf("increment ai_reply_count: %w", err)
+	}
+	if err := o.sessionRepo.UpdateFields(ctx, session.ID, map[string]any{
+		"status":          model.SessionStatusAIHandling,
+		"last_message_at": &now,
+	}); err != nil {
+		logger.Ctx(ctx).Warn().Err(err).Uint("id", session.ID).Msg("[Orchestrator] UpdateFields after AI increment failed (non-fatal)")
+	}
+	// 内存也更新，供后续链路读
 	session.AIReplyCount++
 	session.Status = model.SessionStatusAIHandling
-	now := time.Now()
 	session.LastMessageAt = &now
-	return o.sessionRepo.Update(ctx, session)
+	return nil
 }
 
 // isAgentOnline 座席是否在线

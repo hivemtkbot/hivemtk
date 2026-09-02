@@ -116,18 +116,21 @@ func (s *HandoffChainService) CheckRules(ctx context.Context, sessionID string) 
 	}
 
 	// 查会话状态
+	// P0-FIX 2026-09-02: 原引用 csat_score / resolved_at / assigned_agent_id 三列，
+	// 但 DB 实际只有 rating / agent_id。ResolvedAt 用 updated_at 近似（如果 status
+	// 是 resolved 或 closed，则该字段可以近似视为已解决时间）。
 	type sessSnapshot struct {
 		ID              string     `gorm:"column:id"`
 		Status          string     `gorm:"column:status"`
 		CreatedAt       time.Time  `gorm:"column:created_at"`
-		ResolvedAt      *time.Time `gorm:"column:resolved_at"`
-		CsatScore       *int       `gorm:"column:csat_score"`
-		AssignedAgentID *uint      `gorm:"column:assigned_agent_id"`
+		ResolvedAt      *time.Time `gorm:"column:updated_at"`   // 近似替代 resolved_at（DB 缺列）
+		CsatScore       *int       `gorm:"column:rating"`       // 用 rating 替代 csat_score
+		AssignedAgentID *uint      `gorm:"column:agent_id"`     // 用 agent_id 替代 assigned_agent_id
 	}
 	var sess sessSnapshot
 	if err := s.db.WithContext(ctx).
 		Table("customer_sessions").
-		Select("id, status, created_at, resolved_at, csat_score, assigned_agent_id").
+		Select("id, status, created_at, updated_at, rating, agent_id").
 		Where("id = ?", sessionID).
 		Scan(&sess).Error; err != nil {
 		return nil, fmt.Errorf("查询会话: %w", err)
@@ -193,9 +196,9 @@ func (s *HandoffChainService) matchRule(rule HandoffRule, sess struct {
 	ID              string     `gorm:"column:id"`
 	Status          string     `gorm:"column:status"`
 	CreatedAt       time.Time  `gorm:"column:created_at"`
-	ResolvedAt      *time.Time `gorm:"column:resolved_at"`
-	CsatScore       *int       `gorm:"column:csat_score"`
-	AssignedAgentID *uint      `gorm:"column:assigned_agent_id"`
+	ResolvedAt      *time.Time `gorm:"column:updated_at"` // P0-FIX: 用 updated_at 近似 resolved_at
+	CsatScore       *int       `gorm:"column:rating"`     // P0-FIX: 用 rating 替代 csat_score
+	AssignedAgentID *uint      `gorm:"column:agent_id"`   // P0-FIX: 用 agent_id 替代 assigned_agent_id
 }, now time.Time) bool {
 	// 会话已解决 → 跳过
 	if sess.Status == "resolved" || sess.Status == "closed" {
