@@ -230,3 +230,42 @@ func (c *MarketingFlowController) GetExecutionStats(ctx *gin.Context) {
 	response.Success(ctx, stats, "获取成功")
 }
 
+// TriggerRequest 触发营销流程请求体
+type TriggerRequest struct {
+	TriggerID string         `json:"trigger_id,omitempty"`
+	Data      map[string]any `json:"data,omitempty"`
+}
+
+// Trigger 触发营销流程（手动触发 / 测试触发）
+// POST /marketing-flows/:id/trigger
+func (c *MarketingFlowController) Trigger(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的流程 ID")
+		return
+	}
+
+	var req TriggerRequest
+	_ = ctx.ShouldBindJSON(&req)
+
+	userID, _ := ctx.Get("user_id")
+	uid := uint(0)
+	if v, ok := userID.(uint); ok {
+		uid = v
+	}
+	uidStr := strconv.FormatUint(uint64(uid), 10)
+
+	triggerID := req.TriggerID
+	if triggerID == "" {
+		triggerID = "manual-" + uidStr
+	}
+
+	execution, err := c.flowService.TriggerFlowByID(ctx.Request.Context(), uint(id), triggerID, uidStr, req.Data)
+	if errhttp.HandleServiceError(ctx, err) {
+		return
+	}
+
+	response.Success(ctx, execution, "流程已触发")
+}
+

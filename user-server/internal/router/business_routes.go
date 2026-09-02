@@ -110,6 +110,7 @@ func setupMarketingFlowRoutes(auth *gin.RouterGroup) {
 		admin.POST("/:id/activate", marketingFlowCtrl.ActivateFlow)
 		admin.POST("/:id/pause", marketingFlowCtrl.PauseFlow)
 		admin.POST("/:id/stop", marketingFlowCtrl.StopFlow)
+		admin.POST("/:id/trigger", marketingFlowCtrl.Trigger)
 		admin.POST("/:id/sync-ab-results", mfSyncCtrl.SyncABResults)
 	}
 }
@@ -345,14 +346,21 @@ func setupRateQuotaRoutes(auth *gin.RouterGroup) {
 
 // setupPromptRoutes G13: Prompt 版本管理 + A/B 实验路由
 //
-// 权限分级（2026-08-31 P0-29 四轮加固）：POST /prompts/:id/publish 发布 Prompt
-// 到生产环境，影响所有 AI Agent 对话行为，收敛为 admin only。
+// 权限分级（2026-08-31 P0-29 四轮加固 + 2026-09-02 D1 断点修复）：
+//   - 读端点（GET）auth 即可访问
+//   - 写端点（POST/PUT/DELETE/publish）收敛为 admin only
 func setupPromptRoutes(auth *gin.RouterGroup) {
 	ctrl := controller.NewPromptController()
+	// auth 层开放读端点
+	auth.GET("/prompts", ctrl.List)
+	auth.GET("/prompts/:id", ctrl.GetByID)
 	auth.GET("/prompts/ab-experiments", ctrl.GetABExperiments)
 	auth.GET("/prompts/:id/versions", ctrl.GetVersions)
 
 	admin := auth.Group("/prompts", middleware.AdminAuthMiddleware())
+	admin.POST("", ctrl.Create)
+	admin.PUT("/:id", ctrl.Update)
+	admin.DELETE("/:id", ctrl.Delete)
 	admin.POST("/:id/publish", ctrl.Publish)
 }
 

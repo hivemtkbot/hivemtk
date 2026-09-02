@@ -124,6 +124,16 @@ func InitCron() {
 		panic(err)
 	}
 
+	// [Backup] 每日自动备份 — 每天凌晨 03:05（避开 GEO SourceCatalogSync 03:00 资源争抢）
+	_, err = mgr.AddTask("0 5 3 * * *", func() {
+		go service.RunDailyBackup()
+	})
+	if err != nil {
+		logger.Info(fmt.Sprintf("添加每日自动备份定时任务失败 %s", err.Error()))
+		panic(err)
+	}
+	logger.Info("[Backup] 每日自动备份 cron 已注册 (03:05:00)")
+
 	// GEO: 竞品监控爬虫 — 每 6 小时爬一次竞品站点，真实 HTTP 请求记录访问
 	_, err = mgr.AddTask("0 0 */6 * * *", func() {
 		go geoservice.CrawlerMonitorCron()

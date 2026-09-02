@@ -77,9 +77,19 @@ func (s *CustomerSessionService) TransferSession(ctx context.Context, sessionID 
 		return err
 	}
 
+	// 防自转：不能将会话转给自己
+	if session.AgentID > 0 && session.AgentID == newAgentID {
+		return errors.New("不能将会话转给自己")
+	}
+
 	newAgent, err := s.agentRepo.GetByAgentID(ctx, newAgentID)
 	if err != nil {
 		return errors.New("客服不存在")
+	}
+
+	// 目标坐席必须在线
+	if newAgent.Status != "online" {
+		return errors.New("目标客服不在线，无法转接")
 	}
 
 	if session.AgentID > 0 {

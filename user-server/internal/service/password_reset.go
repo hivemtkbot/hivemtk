@@ -53,7 +53,10 @@ func (s *PasswordResetService) RequestPasswordReset(ctx context.Context, req *Re
 		logger.Ctx(ctx).Warn().Str("email", req.Email).Msg("password reset requested for non-existent email")
 		return nil
 	}
-	activeCount, err := s.tokenRepo.CountActiveTokensByUserID(ctx, user.ID, time.Now())
+	// 修复 A3：user 现在是 *model.SystemUser，ID 为 uint，转 string 存入 PasswordResetToken.UserID
+	userIDStr := strconv.FormatUint(uint64(user.ID), 10)
+
+	activeCount, err := s.tokenRepo.CountActiveTokensByUserID(ctx, userIDStr, time.Now())
 	if err != nil {
 		return fmt.Errorf("failed to count active reset tokens: %w", err)
 	}
@@ -61,17 +64,30 @@ func (s *PasswordResetService) RequestPasswordReset(ctx context.Context, req *Re
 		return errors.New("too many active reset requests, please try again later")
 	}
 	resetToken := &model.PasswordResetToken{
-		UserID:    user.ID,
+		UserID:    userIDStr,
 		ExpiresAt: time.Now().Add(passwordResetTokenExpiry),
 	}
 	if err := s.tokenRepo.Create(ctx, resetToken); err != nil {
 		return fmt.Errorf("failed to create reset token: %w", err)
 	}
 	logger.Ctx(ctx).Info().
-		Str("user_id", user.ID).
+		Str("user_id", userIDStr).
 		Str("email", req.Email).
 		Str("token_id", resetToken.ID).
 		Msg("password reset token created")
+
+	// 修复 A2：发邮件通知用户（失败不影响 token 创建，方便开发/测试场景）
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s", getFrontendBaseURL(), resetToken.Token)
+	subject := "重置您的 HiveMTK 密码"
+	body := fmt.Sprintf("您请求了密码重置。请点击以下链接完成重置：\n%s\n\n链接将在 24 小时后失效。", resetURL)
+
+	if s.emailService != nil {
+		if _, err := s.emailService.Send(ctx, 0, req.Email, subject, body, nil); err != nil {
+			logger.Ctx(ctx).Warn().Err(err).Str("email", req.Email).Str("reset_url", resetURL).Msg("password reset 邮件发送失败，但 token 已生成")
+		} else {
+			logger.Ctx(ctx).Info().Str("email", req.Email).Msg("password reset 邮件发送成功")
+		}
+	}
 	return nil
 }
 

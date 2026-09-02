@@ -75,15 +75,22 @@ func (s *EmailService) Send(ctx context.Context, accountID uint, to, subject, co
 			if err := s.db.WithContext(ctx).First(&acc, accountID).Error; err != nil {
 				return "", fmt.Errorf("email account not found: %w", err)
 			}
-		} else {
-			acc = &EmailAccount{}
-			if err := s.db.WithContext(ctx).Where("status = ?", "active").Order("id ASC").First(acc).Error; err != nil {
-				// 无 DB / 无账号：使用环境变量兜底
-				acc = emailFromEnv()
+			if acc != nil && acc.ID > 0 && acc.DailyUsed >= acc.DailyQuota {
+				return "", errors.New("email account quota exceeded")
 			}
-		}
-		if acc != nil && acc.ID > 0 && acc.DailyUsed >= acc.DailyQuota {
-			return "", errors.New("email account quota exceeded")
+		} else {
+			// 选 quota 充足的 active 账号（不再硬编码取第一个 id ASC）
+			var candidates []EmailAccount
+			if err := s.db.WithContext(ctx).
+				Where("status = ? AND daily_used < daily_quota", "active").
+				Order("daily_used ASC").
+				Find(&candidates).Error; err != nil || len(candidates) == 0 {
+				// 无 DB / 无账号 / 全部 quota 用尽：尝试 env 兜底
+				acc = emailFromEnv()
+			} else {
+				chosen := candidates[0]
+				acc = &chosen
+			}
 		}
 	}
 	if acc == nil {

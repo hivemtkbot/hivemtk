@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"hivemtk-user/internal/model"
@@ -28,12 +29,13 @@ func NewPasswordResetTokenRepositoryWithTx(tx *gorm.DB) *PasswordResetTokenRepos
 	return &PasswordResetTokenRepository{db: tx}
 }
 
-// GetUserByEmail 按 email 查 user（用于密码重置前置校验）
-func (r *PasswordResetTokenRepository) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+// GetUserByEmail 按 email 查 system_user（用于密码重置前置校验）
+// 修复 A3：原实现查 model.User（老表），现改为查 model.SystemUser（统一用户表）
+func (r *PasswordResetTokenRepository) GetUserByEmail(ctx context.Context, email string) (*model.SystemUser, error) {
 	if r == nil || r.db == nil {
 		return nil, errors.New("password reset token repository not initialized")
 	}
-	var user model.User
+	var user model.SystemUser
 	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error; err != nil {
 		return nil, err
 	}
@@ -109,12 +111,18 @@ func NewPasswordResetUserTxHelpers(tx *gorm.DB) *PasswordResetUserTxHelpers {
 	return &PasswordResetUserTxHelpers{tx: tx}
 }
 
-// UpdatePasswordInTx 事务内更新 user 密码
+// UpdatePasswordInTx 事务内更新 system_user 密码
+// 修复 A3：原实现查 model.User（老表），现改为查 model.SystemUser（统一用户表）
 func (h *PasswordResetUserTxHelpers) UpdatePasswordInTx(ctx context.Context, userID, hashedPassword string) error {
 	if h == nil || h.tx == nil {
 		return errors.New("password reset tx helper not initialized")
 	}
-	return h.tx.WithContext(ctx).Model(&model.User{}).
-		Where("id = ?", userID).
+	// PasswordResetToken.UserID 是 string，SystemUser.ID 是 uint
+	var uid uint
+	if _, err := fmt.Sscanf(userID, "%d", &uid); err != nil {
+		return fmt.Errorf("invalid user_id format: %w", err)
+	}
+	return h.tx.WithContext(ctx).Model(&model.SystemUser{}).
+		Where("id = ?", uid).
 		Update("password", hashedPassword).Error
 }

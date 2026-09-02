@@ -359,14 +359,28 @@ func main() {
 	logger.Info("[GEO InitCron] 三个定时任务已注册（SOV@02:00 / Negative@每30min / SourceSync@03:00）")
 
 	// [T8] 告警规则检查器：每 60s 扫描启用规则并比对阈值
+	//   默认 LogAlertNotifier；通过 env 追加 EmailAlertNotifier / WebhookAlertNotifier
+	alertNotifiers := []service.AlertNotifier{service.NewLogAlertNotifier()}
+	if os.Getenv("ALERT_EMAIL_ENABLED") == "true" {
+		if recps := os.Getenv("ALERT_EMAIL_RECIPIENTS"); recps != "" {
+			recipients := strings.Split(recps, ",")
+			emailSvc := service.NewEmailService(db.GetDB())
+			alertNotifiers = append(alertNotifiers, service.NewEmailAlertNotifier(emailSvc, recipients, 0))
+			logger.Infof("[T8] alert email notifier enabled, recipients=%v", recipients)
+		}
+	}
+	if webhookURL := os.Getenv("ALERT_WEBHOOK_URL"); webhookURL != "" {
+		alertNotifiers = append(alertNotifiers, service.NewWebhookAlertNotifier(webhookURL))
+		logger.Info("[T8] alert webhook notifier enabled")
+	}
 	alertChecker := service.NewAlertChecker(
 		service.NewMetricsAlertProvider(),
-		service.NewLogAlertNotifier(),
+		service.NewMultiNotifier(alertNotifiers...),
 		60*time.Second,
 	)
 	alertChecker.Start()
 	defer alertChecker.Stop()
-	logger.Info("[T8] alert checker started (interval=60s)")
+	logger.Info("[T8] alert checker started (interval=60s, notifiers=%d)", len(alertNotifiers))
 
 	registerEventSubscribers()
 

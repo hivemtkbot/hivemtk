@@ -1,9 +1,12 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -252,5 +255,121 @@ func (n *logNotifier) Notify(ctx context.Context, rule *model.AlertRule, h *mode
 	var chans []string
 	_ = json.Unmarshal([]byte(rule.Channels), &chans)
 	logger.Warnf("[AlertNotify] rule=%s severity=%s channels=%v msg=%s", rule.Name, rule.Severity, chans, h.Message)
+	return nil
+}
+
+// --- 多 Notifier 组合 ---
+
+// MultiNotifier 遍历调用所有子 Notifier，单个失败不中断，返回首个 error
+type MultiNotifier struct {
+	notifiers []AlertNotifier
+}
+
+func NewMultiNotifier(notifiers ...AlertNotifier) AlertNotifier {
+	filtered := make([]AlertNotifier, 0, len(notifiers))
+	for _, n := range notifiers {
+		if n != nil {
+			filtered = append(filtered, n)
+		}
+	}
+	return &MultiNotifier{notifiers: filtered}
+}
+
+func (m *MultiNotifier) Notify(ctx context.Context, rule *model.AlertRule, h *model.AlertHistory) error {
+	var firstErr error
+	for _, n := range m.notifiers {
+		if err := n.Notify(ctx, rule, h); err != nil {
+			logger.Warnf("[MultiNotifier] 子通知器失败: %v", err)
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+	return firstErr
+}
+
+// --- EmailAlertNotifier ---
+
+// EmailSender 抽象 EmailService 避免循环依赖，语义与 EmailService.Send 对齐
+type EmailSender interface {
+	Send(ctx context.Context, accountID uint, to, subject, content string, attachments []string) (string, error)
+}
+
+type EmailAlertNotifier struct {
+	sender     EmailSender
+	recipients []string
+	accountID  uint
+}
+
+func NewEmailAlertNotifier(sender EmailSender, recipients []string, accountID uint) AlertNotifier {
+	return &EmailAlertNotifier{sender: sender, recipients: recipients, accountID: accountID}
+}
+
+func (n *EmailAlertNotifier) Notify(ctx context.Context, rule *model.AlertRule, h *model.AlertHistory) error {
+	if n.sender == nil || len(n.recipients) == 0 {
+		return nil
+	}
+	subject := fmt.Sprintf("[HiveMTK 告警] %s (%s)", rule.Name, rule.Severity)
+	var firstErr error
+	for _, to := range n.recipients {
+		to = strings.TrimSpace(to)
+		if to == "" {
+			continue
+		}
+		if _, err := n.sender.Send(ctx, n.accountID, to, subject, h.Message, nil); err != nil {
+			logger.Warnf("[EmailAlertNotifier] 发送告警给 %s 失败: %v", to, err)
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+	return firstErr
+}
+
+// --- WebhookAlertNotifier ---
+
+type WebhookAlertNotifier struct {
+	url string
+}
+
+func NewWebhookAlertNotifier(url string) AlertNotifier {
+	return &WebhookAlertNotifier{url: url}
+}
+
+func (n *WebhookAlertNotifier) Notify(ctx context.Context, rule *model.AlertRule, h *model.AlertHistory) error {
+	if n.url == "" {
+		return nil
+	}
+	payload := map[string]any{
+		"rule_name":     rule.Name,
+		"severity":      rule.Severity,
+		"source":        rule.Source,
+		"message":       h.Message,
+		"value":         h.Value,
+		"threshold":     h.Threshold,
+		"status":        h.Status,
+		"triggered_at":  h.TriggeredAt.Format(time.RFC3339),
+		"channels":      rule.Channels,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("webhook marshal: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, n.url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("webhook new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	hc := &http.Client{Timeout: 10 * time.Second}
+	resp, err := hc.Do(req)
+	if err != nil {
+		return fmt.Errorf("webhook post: %w", err)
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("webhook 返回非 2xx: %d", resp.StatusCode)
+	}
 	return nil
 }

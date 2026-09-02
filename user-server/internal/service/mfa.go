@@ -339,8 +339,39 @@ func (s *MFAService) ConsumeTempToken(ctx context.Context, token string) {
 	_ = cache.GetGlobalCache().Delete(ctx, tempTokenCachePrefix+token)
 }
 
+// VerifyBackupCode 验证恢复码（一次性，使用后从 backup_codes 数组移除）
+// DB 中每个 code 都是 bcrypt 哈希，提交的是明文 code
+func (s *MFAService) VerifyBackupCode(ctx context.Context, userID uint, code string) bool {
+	mfa, err := s.mfaRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return false
+	}
+	if mfa.BackupCodes == "" || mfa.BackupCodes == "[]" {
+		return false
+	}
+
+	var hashedCodes []string
+	if err := json.Unmarshal([]byte(mfa.BackupCodes), &hashedCodes); err != nil {
+		logger.Errorf("MFA VerifyBackupCode backup_codes JSON 解析失败: %v", err)
+		return false
+	}
+
+	for i, hashed := range hashedCodes {
+		if bcrypt.CheckPassword(hashed, code) == nil {
+			// 匹配！从数组中移除（恢复码一次性）
+			remaining := append(hashedCodes[:i], hashedCodes[i+1:]...)
+			remainingJSON, _ := json.Marshal(remaining)
+			if err := s.mfaRepo.UpdateBackupCodes(ctx, userID, string(remainingJSON)); err != nil {
+				logger.Errorf("MFA VerifyBackupCode 移除已用恢复码失败: %v", err)
+			}
+			return true
+		}
+	}
+	return false
+}
+
 // VerifyMFALogin MFA 登录验证
-// 步骤：校验临时令牌 → 校验 TOTP 码 → 检查重放 → 更新 last_used_at → 返回用户 ID
+// 步骤：校验临时令牌 → 校验 TOTP 码 → (fallback) 校验恢复码 → 检查重放 → 更新 last_used_at → 返回用户 ID
 func (s *MFAService) VerifyMFALogin(ctx context.Context, tempToken, code string) (uint, string, string, error) {
 	userID, username, role, err := s.ValidateTempToken(ctx, tempToken)
 	if err != nil {
@@ -359,17 +390,27 @@ func (s *MFAService) VerifyMFALogin(ctx context.Context, tempToken, code string)
 		return 0, "", "", errors.New("验证码已使用，请等待下一次刷新")
 	}
 
-	if !s.VerifyTOTP(ctx, mfa.MFASecret, code) {
-		return 0, "", "", errors.New("验证码错误")
+	// 先尝试 TOTP
+	if s.VerifyTOTP(ctx, mfa.MFASecret, code) {
+		now := time.Now()
+		if err := s.mfaRepo.UpdateLastUsed(ctx, userID, code, &now); err != nil {
+			logger.Errorf("MFA last_used_at 更新失败: %v", err)
+		}
+		s.ConsumeTempToken(ctx, tempToken)
+		return userID, username, role, nil
 	}
 
-	now := time.Now()
-	if err := s.mfaRepo.UpdateLastUsed(ctx, userID, code, &now); err != nil {
-		logger.Errorf("MFA last_used_at 更新失败: %v", err)
+	// Fallback: 尝试 backup recovery code
+	if s.VerifyBackupCode(ctx, userID, code) {
+		now := time.Now()
+		if err := s.mfaRepo.UpdateLastUsed(ctx, userID, code, &now); err != nil {
+			logger.Errorf("MFA backup code last_used_at 更新失败: %v", err)
+		}
+		s.ConsumeTempToken(ctx, tempToken)
+		return userID, username, role, nil
 	}
 
-	s.ConsumeTempToken(ctx, tempToken)
-	return userID, username, role, nil
+	return 0, "", "", errors.New("验证码错误")
 }
 
 // GenerateBackupCodes 生成 10 个一次性恢复码

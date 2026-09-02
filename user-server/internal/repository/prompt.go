@@ -64,3 +64,54 @@ func (r *PromptRepo) ListABTests(ctx context.Context, status string) ([]model.Pr
 	}
 	return experiments, nil
 }
+
+// Create 创建 Prompt 候选（CRUD 基础方法）
+func (r *PromptRepo) Create(ctx context.Context, p *model.PromptCandidate) error {
+	return r.db.WithContext(ctx).Create(p).Error
+}
+
+// Update 更新 Prompt 候选
+func (r *PromptRepo) Update(ctx context.Context, p *model.PromptCandidate) error {
+	return r.db.WithContext(ctx).Save(p).Error
+}
+
+// Delete 删除 Prompt 候选
+func (r *PromptRepo) Delete(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Delete(&model.PromptCandidate{}, id).Error
+}
+
+// GetByID 按 ID 查询 Prompt 候选
+func (r *PromptRepo) GetByID(ctx context.Context, id uint) (*model.PromptCandidate, error) {
+	var p model.PromptCandidate
+	if err := r.db.WithContext(ctx).First(&p, id).Error; err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// List 分页查询 Prompt 候选（可按 status / sop_node_id / sop_id 过滤）
+func (r *PromptRepo) List(ctx context.Context, page, pageSize int, status, sopNodeID string, sopID uint) ([]model.PromptCandidate, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.PromptCandidate{})
+	if status != "" {
+		q = q.Where("status = ?", status)
+	}
+	if sopNodeID != "" {
+		q = q.Where("sop_node_id = ?", sopNodeID)
+	}
+	if sopID > 0 {
+		q = q.Where("sop_id = ?", sopID)
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var list []model.PromptCandidate
+	offset := (page - 1) * pageSize
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if err := q.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+	return list, total, nil
+}

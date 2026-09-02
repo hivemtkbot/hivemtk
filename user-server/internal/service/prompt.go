@@ -66,3 +66,28 @@ func (s *PromptService) Publish(ctx context.Context, req PublishRequest) (*model
 func (s *PromptService) ListABTests(ctx context.Context, status string) ([]model.PromptABTest, error) {
 	return s.repo.ListABTests(ctx, status)
 }
+
+// Create 创建 Prompt 候选（模板 CRUD）
+func (s *PromptService) Create(ctx context.Context, p *model.PromptCandidate) error {
+	return s.repo.Create(ctx, p)
+}
+
+// Update 更新 Prompt 候选
+func (s *PromptService) Update(ctx context.Context, p *model.PromptCandidate) error {
+	return s.repo.Update(ctx, p)
+}
+
+// Delete 删除 Prompt 候选
+func (s *PromptService) Delete(ctx context.Context, id uint) error {
+	return s.repo.Delete(ctx, id)
+}
+
+// GetByID 按 ID 查询 Prompt 候选
+func (s *PromptService) GetByID(ctx context.Context, id uint) (*model.PromptCandidate, error) {
+	return s.repo.GetByID(ctx, id)
+}
+
+// List 分页查询 Prompt 候选（支持 sop_node_id / sop_id / status 过滤）
+func (s *PromptService) List(ctx context.Context, page, pageSize int, status, sopNodeID string, sopID uint) ([]model.PromptCandidate, int64, error) {
+	return s.repo.List(ctx, page, pageSize, status, sopNodeID, sopID)
+}

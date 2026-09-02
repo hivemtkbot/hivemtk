@@ -306,6 +306,15 @@ func (s *AuthService) Register(ctx context.Context, req *RegisterRequest) (*Logi
 		return nil, errors.New("注册失败: " + err.Error())
 	}
 
+	// 修复 A5：注册成功后发欢迎邮件（不阻塞主流程）
+	if user.Email != "" {
+		emailSvc := NewEmailServiceAuto()
+		welcomeBody := "欢迎加入 HiveMTK！您的账号已成功创建。"
+		if _, err := emailSvc.Send(ctx, 0, user.Email, "欢迎加入 HiveMTK", welcomeBody, nil); err != nil {
+			logger.Ctx(ctx).Warn().Err(err).Str("email", user.Email).Msg("Register 欢迎邮件发送失败")
+		}
+	}
+
 	token, err := s.jwtUtils.GenerateToken(user.ID, user.Username, user.Role)
 	if err != nil {
 		logger.Error(err, "Register 生成 JWT 失败: "+username)

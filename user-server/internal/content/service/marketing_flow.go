@@ -452,3 +452,23 @@ func (s *MarketingFlowService) GetActiveFlows() ([]*model.MarketingFlow, error) 
 	return s.flowRepo.GetByStatus(model.FlowStatusActive)
 }
 
+// TriggerFlowByID 按 ID 触发营销流程（封装 GetByID + TriggerFlow）
+func (s *MarketingFlowService) TriggerFlowByID(ctx context.Context, flowID uint, triggerID, userID string, data map[string]any) (*model.FlowExecution, error) {
+	flow, err := s.flowRepo.GetByID(flowID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.TriggerFlow(ctx, flow, triggerID, userID, data); err != nil {
+		return nil, err
+	}
+	// 触发后返回刚创建的 execution 记录（取最新一条）
+	executions, _, err := s.executionRepo.GetByFlowID(flowID, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	if len(executions) > 0 {
+		return executions[0], nil
+	}
+	return nil, nil
+}
+
