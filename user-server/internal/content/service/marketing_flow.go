@@ -9,6 +9,7 @@ import (
 	"hivemtk-user/internal/content/repository"
 	cdprepo "hivemtk-user/internal/repository"
 	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -316,27 +317,64 @@ func (s *MarketingFlowService) executeFlow(ctx context.Context, execution *model
 		return
 	}
 
-	executionData := data
-	for _, node := range flowDef.Nodes {
-		execution.CurrentNode = node.ID
+	// [P2-FIX] 用 NextNodes 做拓扑排序 + 分层并行执行（替代原先按数组顺序线性遍历）
+	levels := topologicalLevels(flowDef.Nodes)
+	if len(levels) == 0 {
+		execution.Status = "failed"
+		execution.ErrorMessage = "流程无有效节点"
+		s.executionRepo.Update(execution)
+		return
+	}
 
-		result, err := s.executeNode(ctx, node, execution.UserID, executionData)
-		if err != nil {
+	executionData := data
+	var execMu sync.Mutex
+
+	for levelIdx, level := range levels {
+		var wg sync.WaitGroup
+		levelErrs := []error{}
+		var levelMu sync.Mutex
+
+		for i := range level {
+			node := level[i] // level 是 []*model.FlowNode，已经是指针
+			wg.Add(1)
+			go func(n *model.FlowNode) {
+				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						levelMu.Lock()
+						levelErrs = append(levelErrs, fmt.Errorf("node %s panic: %v", n.ID, r))
+						levelMu.Unlock()
+					}
+				}()
+
+				execution.CurrentNode = n.ID
+				result, err := s.executeNode(ctx, *n, execution.UserID, executionData)
+				if err != nil {
+					levelMu.Lock()
+					levelErrs = append(levelErrs, fmt.Errorf("节点 %s 执行失败：%w", n.Name, err))
+					levelMu.Unlock()
+					return
+				}
+
+				if result != nil {
+					execMu.Lock()
+					for k, v := range result {
+						executionData[k] = v
+					}
+					execMu.Unlock()
+				}
+			}(node)
+		}
+		wg.Wait()
+
+		// 收集本层错误：只要有一个节点失败就中断流程
+		if len(levelErrs) > 0 {
 			execution.Status = "failed"
-			execution.ErrorMessage = fmt.Sprintf("节点 %s 执行失败：%v", node.Name, err)
+			execution.ErrorMessage = levelErrs[0].Error()
 			s.executionRepo.Update(execution)
 			return
 		}
-
-		if result != nil {
-			for k, v := range result {
-				executionData[k] = v
-			}
-		}
-
-		if len(node.NextNodes) == 0 {
-			break
-		}
+		_ = levelIdx
 	}
 
 	execution.Status = "completed"
@@ -344,6 +382,86 @@ func (s *MarketingFlowService) executeFlow(ctx context.Context, execution *model
 	executionDataBytes, _ := json.Marshal(executionData)
 	execution.ExecutionData = string(executionDataBytes)
 	s.executionRepo.Update(execution)
+}
+
+// topologicalLevels 按 FlowNode.NextNodes 拓扑排序，返回每一层的节点。
+//
+// level[0] = 入度为 0 的入口节点（通常是 trigger 类型）
+// level[1] = 依赖 level[0] 完成后才能执行的节点
+// 以此类推，直到没有更多节点
+//
+// 环检测：如果存在环，部分节点入度永远不为 0，会被跳过。我们额外打印日志帮助定位。
+// [P2-FIX] 2026-09-02
+func topologicalLevels(nodes []model.FlowNode) [][]*model.FlowNode {
+	if len(nodes) == 0 {
+		return nil
+	}
+
+	nodeMap := make(map[string]*model.FlowNode, len(nodes))
+	inDegree := make(map[string]int, len(nodes))
+	for i := range nodes {
+		n := &nodes[i]
+		nodeMap[n.ID] = n
+		inDegree[n.ID] = 0
+	}
+
+	// 统计入度
+	for i := range nodes {
+		n := &nodes[i]
+		for _, next := range n.NextNodes {
+			if _, ok := inDegree[next]; ok { // 只对已存在的节点计数（防止 NextNodes 引用不存在的 ID）
+				inDegree[next]++
+			}
+		}
+	}
+
+	// BFS 分层
+	var levels [][]*model.FlowNode
+	currentLevel := []*model.FlowNode{}
+	for id, deg := range inDegree {
+		if deg == 0 {
+			currentLevel = append(currentLevel, nodeMap[id])
+		}
+	}
+	// 如果没有入度为 0 的节点（反常：存在环），退化为"全量一层"，保证不会空跑
+	if len(currentLevel) == 0 {
+		for i := range nodes {
+			currentLevel = append(currentLevel, &nodes[i])
+		}
+		return [][]*model.FlowNode{currentLevel}
+	}
+
+	visited := make(map[string]bool)
+	for len(currentLevel) > 0 {
+		levels = append(levels, currentLevel)
+		nextLevel := []*model.FlowNode{}
+		for _, n := range currentLevel {
+			visited[n.ID] = true
+			for _, next := range n.NextNodes {
+				if _, ok := inDegree[next]; !ok {
+					continue // 目标节点不在集合里，跳过（可能是 NextNodes 里的脏数据）
+				}
+				inDegree[next]--
+				if inDegree[next] == 0 {
+					nextLevel = append(nextLevel, nodeMap[next])
+				}
+			}
+		}
+		currentLevel = nextLevel
+	}
+
+	// 环检测：如果有节点未被 visited，说明有环，把它们作为最后一层处理（退化为串行）
+	unvisited := []*model.FlowNode{}
+	for id := range nodeMap {
+		if !visited[id] {
+			unvisited = append(unvisited, nodeMap[id])
+		}
+	}
+	if len(unvisited) > 0 {
+		levels = append(levels, unvisited)
+	}
+
+	return levels
 }
 
 func (s *MarketingFlowService) executeNode(ctx context.Context, node model.FlowNode, userID string, data map[string]any) (map[string]any, error) {
