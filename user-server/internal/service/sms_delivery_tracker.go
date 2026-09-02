@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
@@ -154,7 +155,7 @@ func (s *SmsDeliveryTrackerService) loadCarrierCache(ctx context.Context) {
 	if s.carrierLoaded || s.deliveryRepo == nil {
 		return
 	}
-	if !s.carrierLoadErrAt.IsZero() && time.Since(s.carrierLoadErrAt) < 60*time.Second {
+	if !s.carrierLoadErrAt.IsZero() && time.Since(s.carrierLoadErrAt) < utils.LongTimeout {
 		return
 	}
 	rows, err := s.deliveryRepo.LoadLatestPortability(ctx, 10000)
@@ -374,7 +375,7 @@ func (s *SmsDeliveryTrackerService) RecordFromProvider(ctx context.Context, r *P
 	}
 
 	go func(phone, carrier string) {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		bgCtx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
 		defer cancel()
 		_ = s.DetectAndRecordPortability(bgCtx, phone, carrier)
 	}(r.Phone, r.Carrier)

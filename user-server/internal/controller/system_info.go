@@ -4,6 +4,7 @@ import (
 	"hivemtk-user/internal/pkg/shared/service"
 
 	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/system/install"
 
 	"github.com/gin-gonic/gin"
 )
@@ -33,5 +34,40 @@ func (c *SystemInfoController) GetSystemInfo(ctx *gin.Context) {
 	}
 
 	response.Success(ctx, info, "获取系统信息成功")
+}
+
+// Health 轻量级健康探针（/api/health），与根级 /health（全维度）区分，
+// 仅返回服务存活状态。
+// Router 层原内联 handler 已于 2026-09-02 抽到此处。
+func (c *SystemInfoController) Health(ctx *gin.Context) {
+	response.Success(ctx, gin.H{"status": "ok"}, "ok")
+}
+
+// LicenseStatus 返回授权状态（开源版固定 open_source + licensed）。
+// Router 层原硬编码 JSON 已于 2026-09-02 抽到此处。
+func (c *SystemInfoController) LicenseStatus(ctx *gin.Context) {
+	response.Success(ctx, gin.H{
+		"edition":  "open_source",
+		"licensed": true,
+		"status":   "active",
+		"message":  "开源版无需授权",
+	}, "ok")
+}
+
+// LicenseFeatures 返回当前授权激活的特性列表（开源版固定空数组）。
+func (c *SystemInfoController) LicenseFeatures(ctx *gin.Context) {
+	response.Success(ctx, []any{}, "ok")
+}
+
+// SystemMenus 返回前端侧边栏菜单树。
+// 当前开源版无动态菜单配置，返回空数组供前端做初始渲染占位。
+func (c *SystemInfoController) SystemMenus(ctx *gin.Context) {
+	response.Success(ctx, []any{}, "ok")
+}
+
+// IsSystemInitialized 检查系统是否已完成安装（install.lock.initialized=true）。
+// 供 router / init 流程调用，避免路由层直接依赖 install 包。
+func IsSystemInitialized() bool {
+	return install.GetStatus().Initialized
 }
 

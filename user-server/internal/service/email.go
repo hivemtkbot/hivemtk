@@ -12,8 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm"
 	_db "hivemtk-user/internal/pkg/db"
+
+	"gorm.io/gorm"
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils"
@@ -58,7 +59,6 @@ func NewEmailService(db *gorm.DB) *EmailService {
 func NewEmailServiceAuto() *EmailService {
 	return NewEmailService(_db.GetDB())
 }
-
 
 // Send 发送邮件（通过指定 accountID 或默认账号）
 func (s *EmailService) Send(ctx context.Context, accountID uint, to, subject, content string, attachments []string) (string, error) {

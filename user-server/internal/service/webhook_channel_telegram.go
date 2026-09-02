@@ -15,6 +15,7 @@ import (
 
 	"hivemtk-user/internal/model"
 
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 
 	"hivemtk-user/internal/cache"
@@ -374,7 +375,7 @@ func (s *WebhookService) triggerTelegramJoinSales(ctx context.Context, accountID
 	if !s.shouldTriggerAI(ctx, ChannelTelegram, accountID) {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), utils.DefaultHTTPTimeout)
 	defer cancel()
 
 	req := &SalesRequest{

@@ -364,7 +364,7 @@ func (s *SOPTemplateService) IncrementHitCount(ctx context.Context, id uint) {
 	// M1：原裸 go func() 改走 utils.SafeGo，自动 recover + 写 panic 计数。
 	// go func() 内吞掉的写库失败改 warn：hit_count 是统计型，丢失一次不影响正确性。
 	utils.SafeGo(context.Background(), "sop_template.IncrementHitCount", func(bgCtx context.Context) {
-		bgCtx, cancel := context.WithTimeout(bgCtx, 5*time.Second)
+		bgCtx, cancel := context.WithTimeout(bgCtx, utils.ShortTimeout)
 		defer cancel()
 		utils.WarnErrKV("sop_template.IncrementHitCount.repo",
 			s.repo.IncrementHitCount(bgCtx, id),

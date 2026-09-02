@@ -717,6 +717,11 @@ func (c *SystemUserController) ResetPassword(ctx *gin.Context) {
 //   - Email:    可选，格式合法
 //   - RealName / ContactPhone: 可选（开源版 init 上报用，本流程不消费）
 func (c *AuthController) InitAdmin(ctx *gin.Context) {
+	if IsSystemInitialized() {
+		response.Error(ctx, http.StatusForbidden, response.ErrSystemAlreadyInitialized)
+		return
+	}
+
 	var req InitAdminRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())

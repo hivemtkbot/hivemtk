@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/websocket"
@@ -411,7 +412,7 @@ func CustomerSessionCanSendMessage(s *model.CustomerSession) bool {
 func DispatchSessionEventAsync(event, sessionID string, session *model.CustomerSession) {
 	go func() {
 		defer func() { _ = recover() }()
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), utils.DefaultHTTPTimeout)
 		defer cancel()
 		NewRuleEngineService().DispatchWithText(ctx, event, sessionID, "", session)
 	}()

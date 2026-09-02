@@ -35,10 +35,8 @@ func setupDomainPoolRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 		admin.POST("/check-domain", domainPoolCtrl.CheckDomain)
 		admin.POST("/check-all", domainPoolCtrl.CheckAllDomains)
 		admin.POST("/create", domainPoolCtrl.Create)
-		admin.PUT("/update", func(c *gin.Context) {
-			domainPoolCtrl.Update(c)
-		})
 		admin.POST("/checkall", domainPoolCtrl.CheckAllDomains)
+		admin.PUT("/update", domainPoolCtrl.Update)
 	}
 }
 

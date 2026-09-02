@@ -16,6 +16,7 @@ import (
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils"
 
 	"gorm.io/gorm"
 )
@@ -61,7 +62,7 @@ func PublishWebhookEvent(ctx context.Context, event string, payload map[string]a
 	for _, sub := range subs {
 		go func(sub model.WebhookSubscription, body []byte) {
 			defer func() { _ = recover() }()
-			reqCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			reqCtx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
 			defer cancel()
 			req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, sub.URL, strings.NewReader(string(body)))
 			if err != nil {

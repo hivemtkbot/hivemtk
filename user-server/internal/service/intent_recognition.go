@@ -15,6 +15,7 @@ import (
 	"hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
@@ -1040,7 +1041,7 @@ func UpdateIntentConfig(ctx context.Context, cfg *IntentConfig) error {
 //   - DB 不可用：降级为默认 Enabled=true（不阻断服务启动）
 func InitIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.Client) *IntentRecognizer {
 	intentRecognizerOnce.Do(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
 		defer cancel()
 		cfg, err := LoadIntentConfig(ctx)
 		if err != nil {

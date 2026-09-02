@@ -13,6 +13,7 @@ import (
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 	dbUtil "hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/repository"
 )
 
@@ -397,7 +398,7 @@ func (s *FAQService) IncrementHitCount(ctx context.Context, id uint) {
 		return
 	}
 	go func() {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		bgCtx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
 		defer cancel()
 		_ = s.repo.IncrementHitCount(bgCtx, id)
 	}()

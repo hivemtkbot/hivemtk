@@ -85,7 +85,7 @@ func (s *EmailOpenTrackerService) RenderPixel(ctx context.Context, token, ip, ua
 		return EmailOpenPixel, EmailOpenPixelContentType, EmailOpenPixelMaxAge, nil
 	}
 	go func(t, ipAddr, userAgent string) {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		bgCtx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
 		defer cancel()
 		if err := s.tracking.RecordOpenEvent(bgCtx, t, ipAddr, userAgent); err != nil {
 			_ = err
@@ -292,7 +292,7 @@ func MarkOpenSeen(token string) bool {
 	}
 	pixelCacheMu.Lock()
 	defer pixelCacheMu.Unlock()
-	if last, ok := pixelCache[token]; ok && time.Since(last) < 30*time.Second {
+	if last, ok := pixelCache[token]; ok && time.Since(last) < utils.DefaultHTTPTimeout {
 		return false
 	}
 	pixelCache[token] = time.Now()

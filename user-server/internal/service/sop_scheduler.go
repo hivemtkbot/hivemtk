@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"strconv"
 	"sync"
@@ -50,7 +51,7 @@ func (s *SOPScheduler) SOPService(ctx context.Context) *SOPService {
 func InitSOPScheduler(db *gorm.DB, dispatcher any) *SOPScheduler {
 	schedulerOnce.Do(func() {
 		svc := InitSOPService(db, nil)
-		globalSOPScheduler = NewSOPScheduler(svc, db, 60*time.Second)
+		globalSOPScheduler = NewSOPScheduler(svc, db, utils.LongTimeout)
 		globalSOPScheduler.Start(context.Background())
 	})
 	return globalSOPScheduler
@@ -123,7 +124,7 @@ func (s *SOPScheduler) tick(ctx context.Context) {
 	if s.agentRepo == nil || s.execRepo == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), utils.DefaultHTTPTimeout)
 	defer cancel()
 
 	s.cleanupStuckExecutions(ctx)

@@ -58,7 +58,7 @@ func (c *FeedbackLoopCron) runChampionBaselineMonthly(ctx context.Context, _ *go
 			return
 		case <-time.After(time.Until(next)):
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), utils.CronVeryLongTimeout)
 
 		report, err := c.components.Analyzer.AnalyzePipeline(ctx, time.Now().AddDate(0, -1, 0))
 		if err != nil {
@@ -155,7 +155,7 @@ func (c *FeedbackLoopCron) runChampionDialogueWeekly(ctx context.Context) {
 			return
 		case <-time.After(time.Until(next)):
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), utils.CronExtraLongTimeout)
 		_, err := c.components.Analyzer.AnalyzePipeline(ctx, time.Now().AddDate(0, 0, -7))
 		if err != nil {
 			logger.Ctx(ctx).Error().Err(err).Msg("[cron] weekly champion dialogue analyze failed")
@@ -175,7 +175,7 @@ func (c *FeedbackLoopCron) runPromptIteratorDaily(ctx context.Context) {
 			return
 		case <-time.After(time.Until(next)):
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), utils.CronLongTimeout)
 		if c.components == nil || c.components.Iterator == nil {
 			cancel()
 			continue
@@ -289,7 +289,7 @@ func (c *FeedbackLoopCron) runBanditConvergence(ctx context.Context) {
 			return
 		case <-time.After(6 * time.Hour):
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), utils.CronShortTimeout)
 		if c.components == nil || c.components.Bandit == nil {
 			cancel()
 			continue

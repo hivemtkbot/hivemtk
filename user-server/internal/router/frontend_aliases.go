@@ -9,7 +9,6 @@ import (
 	contentService "hivemtk-user/internal/content/service"
 	"hivemtk-user/internal/controller"
 	"hivemtk-user/internal/middleware"
-	"hivemtk-user/internal/pkg/utils/response"
 	opsctrl "hivemtk-user/internal/ops/controller"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
@@ -577,9 +576,8 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	notifCtrlAlias := controller.NewNotificationController(service.NewNotificationService(gormDB))
 	doReg("POST", "/mentions/:id/read", notifCtrlAlias.MarkRead)
 	doReg("GET", "/mentions/mine", notifCtrlAlias.List)
-	doReg("GET", "/system/menus", func(c *gin.Context) {
-		response.Success(c, []any{}, "ok")
-	})
+	systemInfoCtrl := controller.NewSystemInfoController()
+	doReg("GET", "/system/menus", systemInfoCtrl.SystemMenus)
 
 	domainDB := gormDB
 	domainPoolRepo := repository.NewDomainPoolRepository(domainDB)

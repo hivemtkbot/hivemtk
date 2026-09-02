@@ -12,8 +12,9 @@ import (
 
 	"hivemtk-user/internal/pkg/testutil"
 
-	"gorm.io/gorm"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 // setupSmsServiceTestDB 设置短信服务测试数据库

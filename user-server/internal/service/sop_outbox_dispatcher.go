@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
@@ -128,7 +129,7 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 	if o.timerRepo == nil || o.execDispatcher == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), utils.DefaultHTTPTimeout)
 	defer cancel()
 	ctx = logger.WithModule(ctx, "sop_outbox")
 
@@ -512,7 +513,7 @@ func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 	if d.execRepo == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), utils.DefaultHTTPTimeout)
 	defer cancel()
 	ctx = logger.WithModule(ctx, "sop_stuck_detector")
 

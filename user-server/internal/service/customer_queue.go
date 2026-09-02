@@ -30,7 +30,7 @@ func NewCustomerQueueServiceWithRepos(
 
 // QueueSnapshot 队列快照
 type QueueSnapshot struct {
-	WaitingCount    int64 `json:"waiting_count"`
+	WaitingCount     int64 `json:"waiting_count"`
 	LongestWaitSec   int64 `json:"longest_wait_sec"`
 	EstimatedWaitSec int64 `json:"estimated_wait_sec"`
 }
@@ -54,8 +54,8 @@ func (s *CustomerQueueService) GetQueue(ctx context.Context) (*QueueSnapshot, er
 	}
 
 	return &QueueSnapshot{
-		WaitingCount:    waitingCount,
-		LongestWaitSec:  longestWait,
+		WaitingCount:     waitingCount,
+		LongestWaitSec:   longestWait,
 		EstimatedWaitSec: estimated,
 	}, nil
 }

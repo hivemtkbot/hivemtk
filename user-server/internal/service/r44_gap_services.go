@@ -18,6 +18,7 @@ import (
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
@@ -200,7 +201,7 @@ func (s *RagEvalGapService) RunAsync(productID string) (*model.RagEvalRun, error
 	}
 	go func(runID uint, pid string) {
 		defer func() { _ = recover() }()
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), utils.CronMediumTimeout)
 		defer cancel()
 		res, err := s.computeRun(ctx, pid)
 		if err != nil {
@@ -739,7 +740,6 @@ func (s *EmailGapService) RFMMatrix(ctx context.Context) ([]RFMMatrixRow, RFMMat
 	}
 	return out, st, nil
 }
-
 
 // ==================== Backup 补齐: List + Preview ====================
 

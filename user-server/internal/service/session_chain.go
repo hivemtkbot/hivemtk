@@ -16,6 +16,7 @@ import (
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
@@ -37,7 +38,7 @@ func (s *SessionChainService) TriggerCSATOnClose(session *model.CustomerSession)
 	}
 	go func() {
 		defer func() { _ = recover() }()
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), utils.RagMetricsTimeout)
 		defer cancel()
 		csat := NewCSATService()
 		if _, err := csat.Trigger(ctx, session.SessionID, "auto"); err != nil {
@@ -268,7 +269,7 @@ func (s *RuleEngineService) Toggle(ctx context.Context, id uint, enabled bool) e
 func (s *RuleEngineService) DispatchSessionEvent(ctx context.Context, event, sessionID string, session *model.CustomerSession) {
 	go func() {
 		defer func() { _ = recover() }()
-		c, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		c, cancel := context.WithTimeout(context.Background(), utils.DefaultHTTPTimeout)
 		defer cancel()
 		s.DispatchWithText(c, event, sessionID, "", session)
 	}()

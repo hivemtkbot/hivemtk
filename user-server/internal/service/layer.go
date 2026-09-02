@@ -239,7 +239,7 @@ func (r *LayerRouter) record(ctx context.Context, req *RouteRequest, d *dto.Laye
 	}
 	// 最高标准审计 P1-3 修复：Layer 决策日志异步落库改走 SafeGo
 	utils.SafeGo(nil, "layer.record", func(_ context.Context) {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		bgCtx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
 		defer cancel()
 		if err := r.logRepo.Record(bgCtx, log); err != nil {
 			if featureflag.Get("debug_log").Bool() {

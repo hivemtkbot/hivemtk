@@ -11,6 +11,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/repository"
 )
 
@@ -114,7 +115,7 @@ func (s *RagRecallMonitorService) run(ctx context.Context) {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), utils.DefaultHTTPTimeout)
 			if _, err := s.CollectAndStore(ctx, time.Now().Add(-s.window), time.Now()); err != nil {
 				cancel()
 				continue

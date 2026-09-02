@@ -13,10 +13,10 @@ import (
 
 // MessageTraceCleanupTask message_trace 正文 TTL 分层清理任务（M16 表 TR-2 / TR-3 轻量版）。
 type MessageTraceCleanupTask struct {
-	repo    *repository.MessageTraceCleanupRepo
-	stopCh  chan struct{}
+	repo     *repository.MessageTraceCleanupRepo
+	stopCh   chan struct{}
 	stopOnce sync.Once
-	wg      sync.WaitGroup
+	wg       sync.WaitGroup
 
 	nowFn func() time.Time
 }

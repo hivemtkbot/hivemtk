@@ -340,7 +340,7 @@ func (d *SOPExecutionDispatcher) worker(ctx context.Context, id int) {
 			return
 		case task := <-d.dispatchQueue:
 			// 任务级 ctx：保留父 ctx（用于 cancel 传播）+ 5min 超时
-			taskCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+			taskCtx, cancel := context.WithTimeout(ctx, utils.CronShortTimeout)
 			d.processTask(taskCtx, id, task)
 			cancel()
 		}
@@ -747,7 +747,7 @@ func (d *SOPExecutionDispatcher) tryCompensate(_ context.Context, exec *model.SO
 	// 异步触发：使用 background ctx 防止 fail 路径的 ctx 取消影响补偿
 	// 最高标准审计 P1-3 修复：补偿流程改走 SafeGo
 	utils.SafeGo(nil, "sop_dispatcher.compensate", func(ctx context.Context) {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		bgCtx, cancel := context.WithTimeout(context.Background(), utils.CronShortTimeout)
 		defer cancel()
 
 		// 从 DB 读取最新 executed_nodes（内存对象可能落后于已持久化状态）

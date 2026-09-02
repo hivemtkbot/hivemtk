@@ -11,7 +11,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 

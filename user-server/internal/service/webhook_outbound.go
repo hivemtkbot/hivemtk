@@ -76,7 +76,9 @@ func (DelayedOutboundReply) TableName() string { return "reach_delayed_outbound"
 
 // isAIReplyQuietHours H-3：AI 会话回复静默窗口 23:00-7:00 (CST) 判定
 func isAIReplyQuietHours(t time.Time) bool {
-	if os.Getenv("DISABLE_AI_QUIET_HOURS") != "" { return false }
+	if os.Getenv("DISABLE_AI_QUIET_HOURS") != "" {
+		return false
+	}
 	return inQuietHoursWindow(t, aiReplyQuietStartHour, aiReplyQuietEndHour)
 }
 
@@ -282,7 +284,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 	}
 
 	sent := false
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, utils.MediumTimeout)
 	defer func() {
 		if !sent {
 			agent_runtime.ReleaseReply(p.EventID)

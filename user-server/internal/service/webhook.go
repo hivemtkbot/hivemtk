@@ -159,7 +159,7 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 
 	// P1-7: 注册全局 WhatsApp 消息重排序缓冲 FlushHandler
 	globalReorderBuffer.FlushHandler = func(accountID, sessionID string, ordered [][]byte) {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), utils.DefaultHTTPTimeout)
 		defer cancel()
 		for _, raw := range ordered {
 			parsed, err := s.ParsePayload(ctx, ChannelWhatsapp, raw)

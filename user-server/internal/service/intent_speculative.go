@@ -2,9 +2,9 @@ package service
 
 import (
 	"context"
-	"time"
 
 	"hivemtk-user/internal/dto"
+	"hivemtk-user/internal/pkg/utils"
 )
 
 // RecognizeSpeculative 投机识别 (并行化优化)
@@ -85,7 +85,7 @@ func (s *IntentRecognizer) runLLMAsync(
 	ruleHit bool,
 ) {
 	defer close(ch)
-	bgCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	bgCtx, cancel := context.WithTimeout(context.Background(), utils.LongTimeout)
 	defer cancel()
 
 	llmR, err := s.recognizeByLLM(bgCtx, text)

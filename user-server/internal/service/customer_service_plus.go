@@ -13,6 +13,7 @@ import (
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/repository"
 )
 
@@ -531,7 +532,7 @@ func GetOfficeHoursService() *OfficeHoursService {
 func MaybeSendAwayReply(sessionID, conversationID, platform, accountID string) {
 	go func() {
 		defer func() { _ = recover() }()
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
 		defer cancel()
 		GetOfficeHoursService().SendAwayReplyIfClosed(ctx, sessionID, conversationID, platform, accountID)
 	}()

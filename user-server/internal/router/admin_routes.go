@@ -4,12 +4,8 @@ import (
 	knowledgectrl "hivemtk-user/internal/aiagent/knowledge/controller"
 	"hivemtk-user/internal/controller"
 	"hivemtk-user/internal/middleware"
-	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
-	"hivemtk-user/internal/system/install"
-
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -44,11 +40,8 @@ func setupPlatformRoutes(platform *gin.RouterGroup, platformCtrl *controller.Pla
 func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.LiveCodeController, platformCtrl *controller.PlatformController, db *gorm.DB) {
 	// P0: 禁止内联 handler + 禁止非统一响应格式
 	// /api/health 是 api 前缀下的健康探针，与根级 /health（全维度探测）区分
-	public.GET("/health", func(c *gin.Context) {
-		response.Success(c, gin.H{"status": "ok"}, "ok")
-	})
-
 	systemInfoCtrl := controller.NewSystemInfoController()
+	public.GET("/health", systemInfoCtrl.Health)
 	public.GET("/system/info", systemInfoCtrl.GetSystemInfo)
 
 	public.POST("/auth/login", middleware.BruteForceGuard("auth.login"), controller.NewAuthController().Login)
@@ -60,27 +53,12 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	systemInitCtrl := controller.NewSystemInitController()
 	authCtrl := controller.NewAuthController()
 	public.GET("/system/init-status", systemInitCtrl.GetInitStatus)
-	public.POST("/system/init-admin", func(ctx *gin.Context) {
-		if install.GetStatus().Initialized {
-			response.Error(ctx, http.StatusForbidden, response.ErrSystemAlreadyInitialized)
-			return
-		}
-		authCtrl.InitAdmin(ctx)
-	})
+	public.POST("/system/init-admin", authCtrl.InitAdmin)
 	public.POST("/system/init-complete", systemInitCtrl.InitComplete)
 	public.POST("/system/create-default-admin", authCtrl.CreateDefaultAdmin)
 
-	public.GET("/license/status", func(c *gin.Context) {
-		response.Success(c, gin.H{
-			"edition":  "open_source",
-			"licensed": true,
-			"status":   "active",
-			"message":  "开源版无需授权",
-		}, "ok")
-	})
-	public.GET("/license/features", func(c *gin.Context) {
-		response.Success(c, []interface{}{}, "ok")
-	})
+	public.GET("/license/status", systemInfoCtrl.LicenseStatus)
+	public.GET("/license/features", systemInfoCtrl.LicenseFeatures)
 
 	redirectCtrl := controller.NewRedirectController(
 		service.NewShortLinkService(db),

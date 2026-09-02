@@ -12,6 +12,7 @@ import (
 	"hivemtk-user/internal/domain/asset"
 	bizerr "hivemtk-user/internal/domain/errors"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/repository"
 )
 
@@ -309,7 +310,7 @@ func (s *LocalAssetService) reportUsageAsync(assetID string) {
 		return
 	}
 	defer reportingInFlight.Delete(assetID)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
 	defer cancel()
 	_ = s.ReportUsage(ctx, assetID)
 }

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/repository"
 )
 
@@ -175,7 +176,7 @@ func (s *ScriptABService) RecordExposure(scriptID uint, version int, oneID strin
 		TraceID:        traceID,
 		ExposedAt:      s.now(),
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
 	defer cancel()
 	if err := s.repo.CreateScriptExposure(ctx, e); err != nil {
 		slog.Warn("[ScriptAB] 曝光落库失败（不影响主链路）", "script_id", scriptID, "err", err)

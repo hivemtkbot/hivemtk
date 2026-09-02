@@ -164,6 +164,12 @@ func UploadFile(ctx *gin.Context) {
 	}
 
 	detectedMime := detectMimeType(fileBytes)
+	// KNOWN BUG 1 修复：Office Open XML 文档（.docx/.xlsx/.pptx）本质是 ZIP 容器，
+	// detectMimeType 只看字节会返回 application/zip。如果扩展名是 Office 文档，
+	// 则用扩展名 → MIME 映射覆盖，让 MIME 与扩展名保持一致。
+	if detectedMime == "application/zip" && isOfficeDocument(originalExt) {
+		detectedMime = extToMIME(originalExt)
+	}
 	if !isAllowedMimeType(detectedMime, config.AllowedTypes) {
 		response.Error(ctx, http.StatusBadRequest, "不允许上传此类型的文件："+detectedMime)
 		return
@@ -290,12 +296,41 @@ func isAllowedMimeType(mimeType, allowedTypes string) bool {
 	return false
 }
 
-// isOfficeDocument 检查是否是 Office 文档
+// isOfficeDocument 检查是否是 Office Open XML 文档（ZIP 容器）
 func isOfficeDocument(ext string) bool {
 	officeExts := map[string]bool{
 		".docx": true, ".xlsx": true, ".pptx": true,
 	}
 	return officeExts[strings.ToLower(ext)]
+}
+
+// extToMIME 将文件扩展名映射到规范 MIME 类型。
+// 主要用于 ZIP-based Office 文档场景：detectMimeType 仅看字节会返回
+// "application/zip"，此处根据扩展名还原正确的 MIME。
+func extToMIME(ext string) string {
+	ext = strings.ToLower(ext)
+	switch ext {
+	case ".docx":
+		return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	case ".xlsx":
+		return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+	case ".pptx":
+		return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+	case ".doc":
+		return "application/msword"
+	case ".pdf":
+		return "application/pdf"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 // extensionsMatch 检查两个扩展名是否等价（处理 jpg/jpeg、zip/docx 等同义扩展名）

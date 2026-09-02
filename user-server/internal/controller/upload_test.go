@@ -300,10 +300,11 @@ func TestIsValidExtension(t *testing.T) {
 		want bool
 	}{
 		{".jpg", true}, {".jpeg", true}, {".png", true}, {".gif", true},
-		{".webp", true}, {".svg", false}, {".mp4", true}, {".pdf", true},
+		{".webp", true}, {".svg", false}, {".mp4", false}, {".pdf", true},
 		// .svg 已按 M9 治理从白名单移除（内嵌 <script> 的存储型 XSS 风险），必须拒绝
-		{".zip", true}, {".exe", false}, {".xyz", false}, {".php", false},
-		{"", false}, {".JPG", true},
+		// .mp4 / .zip / .rar / 7z 等已按 P0-26 收紧白名单，只放行 image + PDF + Word
+		{".zip", false}, {".exe", false}, {".xyz", false}, {".php", false},
+		{"", false}, {".JPG", true}, {".docx", true}, {".doc", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.ext, func(t *testing.T) {
@@ -421,8 +422,10 @@ func TestGetFileType(t *testing.T) {
 		ext  string
 		want string
 	}{
-		{".jpg", "image"}, {".png", "image"}, {".mp4", "video"},
-		{".pdf", "doc"}, {".zip", "archive"}, {".xyz", "other"},
+		{".jpg", "image"}, {".png", "image"},
+		// .mp4 / .zip 已按 P0-26 收紧白名单，不再在 allowedExtensions 中
+		{".mp4", "other"}, {".zip", "other"},
+		{".pdf", "doc"}, {".docx", "doc"}, {".xyz", "other"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.ext, func(t *testing.T) {
@@ -518,29 +521,35 @@ func TestUploadFile_DangerousExtensions_AreDeadCode(t *testing.T) {
 }
 
 func TestUploadFile_MP4_NotInAllowedMIME(t *testing.T) {
+	// P0-26 修复：video/mp4 及其扩展名 .mp4 已从白名单移除（可执行视频风险）。
+	// 此前 MIME 与扩展名不一致的 KNOWN BUG 已随扩展名一起移除而自然解决。
 	allowed := DefaultUploadConfig.AllowedTypes
 	if strings.Contains(allowed, "video/mp4") {
 		t.Log("video/mp4 is in allowed types")
 	} else {
-		t.Log("KNOWN BUG: video/mp4 not in allowed types but .mp4 is in allowed extensions")
+		t.Log("OK: video/mp4 correctly removed from allowed types (P0-26)")
 	}
 }
 
 func TestUploadFile_SVG_NotInAllowedMIME(t *testing.T) {
+	// M9 治理 + P0-26 修复：image/svg+xml 及其扩展名 .svg 已从白名单移除（存储型 XSS 风险）。
+	// 此前 MIME 与扩展名不一致的 KNOWN BUG 已随扩展名一起移除而自然解决。
 	allowed := DefaultUploadConfig.AllowedTypes
 	if strings.Contains(allowed, "image/svg+xml") {
 		t.Log("image/svg+xml is in allowed types")
 	} else {
-		t.Log("KNOWN BUG: image/svg+xml not in allowed types but .svg is in allowed extensions")
+		t.Log("OK: image/svg+xml correctly removed from allowed types (M9)")
 	}
 }
 
 func TestUploadFile_RAR_NotInAllowedMIME(t *testing.T) {
+	// P0-26 修复：application/x-rar-compressed 及其扩展名 .rar 已从白名单移除（压缩包可执行风险 + ZIP 炸弹）。
+	// 此前 MIME 与扩展名不一致的 KNOWN BUG 已随扩展名一起移除而自然解决。
 	allowed := DefaultUploadConfig.AllowedTypes
 	if strings.Contains(allowed, "rar") {
 		t.Log("rar type is in allowed types")
 	} else {
-		t.Log("KNOWN BUG: rar MIME type not in allowed types but .rar is in allowed extensions")
+		t.Log("OK: rar MIME correctly removed from allowed types (P0-26)")
 	}
 }
 

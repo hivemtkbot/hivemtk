@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 )
@@ -216,7 +217,7 @@ func (s *RagMetricsService) flush(ctx context.Context) error {
 	if s.db == nil {
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), utils.RagMetricsTimeout)
 	defer cancel()
 	if err := s.repo.CreateQueryLogsInBatches(ctx, batch, 50); err != nil {
 		logger.Errorf("[RagMetrics] flush batch failed (%d logs): %v", len(batch), err)
@@ -466,7 +467,7 @@ func (c *RagMetricsCron) run(ctx context.Context) {
 		case <-c.stopCh:
 			return
 		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), utils.DefaultHTTPTimeout)
 			_, err := c.svc.AggregateLastWindow(ctx)
 			if err != nil {
 				logger.Errorf("[RagMetricsCron] aggregate last window failed: %v", err)
