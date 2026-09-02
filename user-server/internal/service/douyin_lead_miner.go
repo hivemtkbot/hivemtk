@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"log"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -46,7 +48,11 @@ func (s *WebhookService) recordDouyinDMOutreachEvent(ctx context.Context, accoun
 	if s.db == nil {
 		return
 	}
-	defer func() { _ = recover() }()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+		}
+	}()
 
 	hub := &model.MessageHub{
 		Platform:       "douyin",

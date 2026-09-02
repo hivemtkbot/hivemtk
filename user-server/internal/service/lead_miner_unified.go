@@ -10,7 +10,9 @@ package service
 
 import (
 	"context"
+	"log"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -277,7 +279,11 @@ func recordUnifiedLeadScore(ctx context.Context, s *WebhookService, clue *model.
 	if s == nil || s.db == nil || clue == nil || clue.ID == "" {
 		return
 	}
-	defer func() { _ = recover() }()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+		}
+	}()
 	scoreSvc := NewClueScoreServiceWithRepos(
 		repository.NewClueScoreRepositoryWithDB(s.db),
 		repository.NewClueEngagementRepositoryWithDB(s.db),

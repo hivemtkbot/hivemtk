@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -121,7 +123,11 @@ func (s *TelegramDMOutreachService) recordDMOutreachEvent(ctx context.Context, a
 	if s.svc == nil || s.svc.db == nil {
 		return
 	}
-	defer func() { _ = recover() }()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+		}
+	}()
 
 	hub := &model.MessageHub{
 		Platform:       "telegram",

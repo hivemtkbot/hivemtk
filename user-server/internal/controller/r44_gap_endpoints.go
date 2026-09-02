@@ -23,7 +23,7 @@ type BackupGapController struct {
 
 // NewBackupGapController 构造
 func NewBackupGapController() *BackupGapController {
-	return &BackupGapController{svc: service.NewBackupGapService()}
+	return &BackupGapController{svc: service.NewBackupGapServiceFromGlobal()}
 }
 
 // List GET /api/backup/list → [{id, createdAt, size, checksum, status, type, name}]（复用既有 backups 表）
@@ -89,7 +89,7 @@ type RagEvalGapController struct {
 // NewRagEvalGapController 构造（检索端口复用既有 RagSearcher 混合检索管线）
 func NewRagEvalGapController() *RagEvalGapController {
 	searcher := ksvc.NewRagSearcher()
-	svc := service.NewRagEvalGapService(func(ctx context.Context, productID, query string) ([]string, error) {
+	svc := service.NewRagEvalGapServiceFromGlobal(func(ctx context.Context, productID, query string) ([]string, error) {
 		chunks, err := searcher.Search(ctx, query, 5)
 		if err != nil {
 			return nil, err
@@ -173,7 +173,7 @@ type AnalyticsGapController struct {
 
 // NewAnalyticsGapController 构造
 func NewAnalyticsGapController() *AnalyticsGapController {
-	return &AnalyticsGapController{svc: service.NewCohortGapService()}
+	return &AnalyticsGapController{svc: service.NewCohortGapServiceFromGlobal()}
 }
 
 // Cohort GET /api/analytics/cohort?period=weekly
@@ -204,7 +204,7 @@ type EmailGapController struct {
 
 // NewEmailGapController 构造
 func NewEmailGapController() *EmailGapController {
-	return &EmailGapController{svc: service.NewEmailGapService()}
+	return &EmailGapController{svc: service.NewEmailGapServiceFromGlobal()}
 }
 
 // Deliverability GET /api/email/deliverability?days=30

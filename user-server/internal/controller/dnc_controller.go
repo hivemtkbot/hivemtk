@@ -4,9 +4,7 @@ package controller
 import (
 	"net/http"
 
-	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/response"
-	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -26,24 +24,15 @@ func NewDNCController() *DNCController {
 // List GET /api/dnc?one_id=（one_id 空=全部）
 func (c *DNCController) List(ctx *gin.Context) {
 	oneID := ctx.Query("one_id")
-	var list []*dncRow
-	g := db.GetDB()
-	q := g.WithContext(ctx).Table("customer_do_not_contact")
-	if oneID != "" {
-		q = q.Where("one_id = ?", oneID)
-	}
-	if err := q.Order("created_at DESC").Limit(200).Scan(&list).Error; HandleServiceError(ctx, err) {
+	list, err := c.svc.ListBlocks(ctx.Request.Context(), oneID)
+	if HandleServiceError(ctx, err) {
 		return
 	}
+	// service 层 ListBlocks 没有 LIMIT 200，在此截断保持原行为
+	if len(list) > 200 {
+		list = list[:200]
+	}
 	response.Success(ctx, gin.H{"list": list, "total": len(list)}, "ok")
-}
-
-type dncRow struct {
-	ID        int64  `json:"id"`
-	OneID     string `json:"one_id"`
-	Channel   string `json:"channel"`
-	Source    string `json:"source"`
-	CreatedAt string `json:"created_at"`
 }
 
 // Block POST /api/dnc {one_id, channel?, source?} — channel 空=全局
@@ -105,6 +94,3 @@ func orDefault(v, def string) string {
 	}
 	return v
 }
-
-var _ = db.GetDB
-var _ = repository.NewCustomerDoNotContactRepository

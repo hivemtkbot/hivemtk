@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -28,14 +30,18 @@ import (
 
 // BackupGapService backup 页面契约适配（复用既有 BackupService 存储能力 + KV 策略）
 type BackupGapService struct {
+	db  *gorm.DB
 	kv  repository.SystemConfigKVRepository
 	now func() time.Time
 }
 
 // NewBackupGapService 构造
-func NewBackupGapService() *BackupGapService {
-	return &BackupGapService{kv: repository.NewSystemConfigKVRepository(), now: time.Now}
+func NewBackupGapService(gdb *gorm.DB) *BackupGapService {
+	return &BackupGapService{db: gdb, kv: repository.NewSystemConfigKVRepository(), now: time.Now}
 }
+
+// NewBackupGapServiceFromGlobal 便捷构造
+func NewBackupGapServiceFromGlobal() *BackupGapService { return NewBackupGapService(db.GetDB()) }
 
 // BackupStatsRow backup 页统计契约
 type BackupStatsRow struct {
@@ -90,7 +96,7 @@ func (s *BackupGapService) SaveStrategy(ctx context.Context, st *BackupStrategy)
 
 // Stats 聚合既有 backups 表（model.Backup）+ 表级规模估算
 func (s *BackupGapService) Stats(ctx context.Context) (*BackupStatsRow, error) {
-	g := db.GetDB()
+	g := s.db
 	var total int64
 	var last model.Backup
 	row := &BackupStatsRow{LastSuccess: "-", NextRun: "-"}
@@ -140,12 +146,18 @@ func (s *BackupGapService) nextRunTime(st BackupStrategy) time.Time {
 
 // RagEvalGapService RAG 评测服务（诚实口径：Recall@5 = 检索 top5 文本含答案关键词的比例；MRR/NDCG 按同口径排序）
 type RagEvalGapService struct {
+	db       *gorm.DB
 	searchFn func(ctx context.Context, productID, query string) ([]string, error)
 }
 
 // NewRagEvalGapService 构造（searchFn: 复用既有 RagSearcher 混合检索，由装配处注入）
-func NewRagEvalGapService(searchFn func(ctx context.Context, productID, query string) ([]string, error)) *RagEvalGapService {
-	return &RagEvalGapService{searchFn: searchFn}
+func NewRagEvalGapService(gdb *gorm.DB, searchFn func(ctx context.Context, productID, query string) ([]string, error)) *RagEvalGapService {
+	return &RagEvalGapService{db: gdb, searchFn: searchFn}
+}
+
+// NewRagEvalGapServiceFromGlobal 便捷构造
+func NewRagEvalGapServiceFromGlobal(searchFn func(ctx context.Context, productID, query string) ([]string, error)) *RagEvalGapService {
+	return NewRagEvalGapService(db.GetDB(), searchFn)
 }
 
 // searchTop5 检索 top5 文本片段
@@ -169,7 +181,7 @@ func (s *RagEvalGapService) UploadCSV(ctx context.Context, r io.Reader, productI
 	if len(records[0]) > 0 && strings.Contains(strings.ToLower(records[0][0]), "question") {
 		start = 1
 	}
-	g := db.GetDB()
+	g := s.db
 	n := 0
 	for i := start; i < len(records); i++ {
 		row := records[i]
@@ -194,13 +206,17 @@ func (s *RagEvalGapService) UploadCSV(ctx context.Context, r io.Reader, productI
 
 // RunAsync 异步执行评测（R46 修正: 200条×检索同步必超时——先落 running 记录，后台计算后回填）
 func (s *RagEvalGapService) RunAsync(productID string) (*model.RagEvalRun, error) {
-	g := db.GetDB()
+	g := s.db
 	run := &model.RagEvalRun{Total: -1}
 	if err := g.Create(run).Error; err != nil {
 		return nil, err
 	}
 	go func(runID uint, pid string) {
-		defer func() { _ = recover() }()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+			}
+		}()
 		ctx, cancel := context.WithTimeout(context.Background(), utils.CronMediumTimeout)
 		defer cancel()
 		res, err := s.computeRun(ctx, pid)
@@ -218,7 +234,7 @@ func (s *RagEvalGapService) RunAsync(productID string) (*model.RagEvalRun, error
 
 // computeRun 同步计算内核（Run/RunAsync 共用）
 func (s *RagEvalGapService) computeRun(ctx context.Context, productID string) (*model.RagEvalRun, error) {
-	g := db.GetDB()
+	g := s.db
 	var qs []model.RagEvalQuestion
 	q := g.WithContext(ctx).Model(&model.RagEvalQuestion{})
 	if productID != "" {
@@ -311,7 +327,7 @@ func answerKeywords(ans string) []string {
 // Latest 最新一次 run
 func (s *RagEvalGapService) Latest(ctx context.Context) (*model.RagEvalRun, error) {
 	var run model.RagEvalRun
-	if err := db.GetDB().WithContext(ctx).Order("id DESC").First(&run).Error; err != nil {
+	if err := s.db.WithContext(ctx).Order("id DESC").First(&run).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return &model.RagEvalRun{}, nil
 		}
@@ -326,14 +342,14 @@ func (s *RagEvalGapService) Runs(ctx context.Context, limit int) ([]*model.RagEv
 		limit = 20
 	}
 	var runs []*model.RagEvalRun
-	err := db.GetDB().WithContext(ctx).Order("id DESC").Limit(limit).Find(&runs).Error
+	err := s.db.WithContext(ctx).Order("id DESC").Limit(limit).Find(&runs).Error
 	return runs, err
 }
 
 // Diff 与基线对比
 func (s *RagEvalGapService) Diff(ctx context.Context, baselineID uint) (map[string]any, error) {
 	var base model.RagEvalRun
-	if err := db.GetDB().WithContext(ctx).First(&base, baselineID).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&base, baselineID).Error; err != nil {
 		return nil, err
 	}
 	latest, _ := s.Latest(ctx)
@@ -351,10 +367,15 @@ func (s *RagEvalGapService) Diff(ctx context.Context, baselineID uint) (map[stri
 // ==================== Analytics: Cohort 留存矩阵 + Path 桑基 ====================
 
 // CohortGapService 留存/路径分析
-type CohortGapService struct{}
+type CohortGapService struct {
+	db *gorm.DB
+}
 
 // NewCohortGapService 构造
-func NewCohortGapService() *CohortGapService { return &CohortGapService{} }
+func NewCohortGapService(gdb *gorm.DB) *CohortGapService { return &CohortGapService{db: gdb} }
+
+// NewCohortGapServiceFromGlobal 便捷构造
+func NewCohortGapServiceFromGlobal() *CohortGapService { return NewCohortGapService(db.GetDB()) }
 
 // CohortResult 周留存矩阵
 type CohortResult struct {
@@ -374,7 +395,7 @@ func (s *CohortGapService) Cohort(ctx context.Context, weeks int) (*CohortResult
 	if weeks <= 0 || weeks > 12 {
 		weeks = 8
 	}
-	g := db.GetDB()
+	g := s.db
 	now := time.Now()
 	thisWeekStart := now.AddDate(0, 0, -int(now.Weekday())) // 本周起点（周日对齐）
 	type cohort struct {
@@ -443,7 +464,7 @@ func (s *CohortGapService) Path(ctx context.Context, limit int) (*PathResult, er
 	if limit <= 0 || limit > 20 {
 		limit = 5
 	}
-	g := db.GetDB()
+	g := s.db
 	type ev struct {
 		CustomerID string
 		EventType  string
@@ -506,10 +527,15 @@ func (s *CohortGapService) Path(ctx context.Context, limit int) (*PathResult, er
 // ==================== Email 送达分析 ====================
 
 // EmailGapService 邮件送达分析
-type EmailGapService struct{}
+type EmailGapService struct {
+	db *gorm.DB
+}
 
 // NewEmailGapService 构造
-func NewEmailGapService() *EmailGapService { return &EmailGapService{} }
+func NewEmailGapService(gdb *gorm.DB) *EmailGapService { return &EmailGapService{db: gdb} }
+
+// NewEmailGapServiceFromGlobal 便捷构造
+func NewEmailGapServiceFromGlobal() *EmailGapService { return NewEmailGapService(db.GetDB()) }
 
 // DeliverabilityStats 页面顶部指标
 type DeliverabilityStats struct {
@@ -531,7 +557,7 @@ func (s *EmailGapService) Deliverability(ctx context.Context, days int) (*Delive
 	if days <= 0 || days > 365 {
 		days = 30
 	}
-	g := db.GetDB()
+	g := s.db
 	since := time.Now().AddDate(0, 0, -days)
 	st := &DeliverabilityStats{}
 	if err := g.WithContext(ctx).Model(&model.EmailSend{}).
@@ -581,7 +607,7 @@ func (s *EmailGapService) BounceBreakdown(ctx context.Context, days int) ([]map[
 	if days <= 0 || days > 365 {
 		days = 30
 	}
-	g := db.GetDB()
+	g := s.db
 	since := time.Now().AddDate(0, 0, -days)
 	type row struct {
 		Domain string `gorm:"column:domain"`
@@ -615,7 +641,7 @@ type DomainReputationRow struct {
 
 // DomainReputation 从 SMTP 配置取自有域名 → 24h 发送/退信聚合 + DNS 记录检查（诚实口径：无外网返回 unknown）
 func (s *EmailGapService) DomainReputation(ctx context.Context) ([]DomainReputationRow, error) {
-	g := db.GetDB()
+	g := s.db
 	// 自有发信域名：SMTP 配置表 or 邮件发送记录里的发件域
 	var domains []string
 	type smtpRow struct {
@@ -764,7 +790,7 @@ func (s *BackupGapService) ListBackups(ctx context.Context) ([]BackupRow, error)
 		FileSize   int64
 		CreatedAt  string
 	}
-	g := db.GetDB()
+	g := s.db
 	var rows []src
 	if err := g.WithContext(ctx).
 		Table("backups").
@@ -789,7 +815,7 @@ func (s *BackupGapService) PreviewTableStats(ctx context.Context) ([]map[string]
 		Rows  int64  `gorm:"column:rows"`
 	}
 	coreTables := []string{"customers", "customer_sessions", "session_messages", "message_hub", "clues", "script_library"}
-	g := db.GetDB()
+	g := s.db
 	var rows []tr
 	for _, t := range coreTables {
 		var r tr
@@ -815,7 +841,7 @@ func (s *BackupGapService) PreviewTableStats(ctx context.Context) ([]map[string]
 
 // RetryDeadLetters 将 message_hub 中 status='dead_letter' 的记录重置为 pending
 func (s *EmailGapService) RetryDeadLetters(ctx context.Context) (int64, error) {
-	g := db.GetDB()
+	g := s.db
 	res := g.WithContext(ctx).
 		Table("message_hub").
 		Where("status = 'dead_letter'").
@@ -840,7 +866,7 @@ func (s *EmailGapService) ClueApplySuggestions(ctx context.Context, action strin
 	ExistingClueID int64          `json:"existingClueId"`
 	Row            map[string]any `json:"row"`
 }) (*ClueApplyResult, error) {
-	g := db.GetDB()
+	g := s.db
 	res := &ClueApplyResult{}
 	for _, dup := range duplicates {
 		if action != "merge" || dup.ExistingClueID <= 0 || dup.Row == nil {
@@ -882,7 +908,7 @@ func (s *EmailGapService) ClueMerge(ctx context.Context, id int64, from map[stri
 	if len(updates) == 0 {
 		return true, nil
 	}
-	g := db.GetDB()
+	g := s.db
 	if err := g.WithContext(ctx).Table("clues").Where("id = ?", id).Updates(updates).Error; err != nil {
 		return false, err
 	}
@@ -896,7 +922,7 @@ func (s *EmailGapService) ClueForceCreate(ctx context.Context, row map[string]an
 	if strings.TrimSpace(name) == "" && strings.TrimSpace(phone) == "" {
 		return false, fmt.Errorf("name/phone 至少一项必填")
 	}
-	g := db.GetDB()
+	g := s.db
 	rec := map[string]any{
 		"name":      name,
 		"source_id": "force-" + strconv.FormatInt(time.Now().UnixNano(), 10),

@@ -10,7 +10,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"log/slog"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -23,10 +25,15 @@ import (
 )
 
 // SessionChainService 会话生命周期链服务
-type SessionChainService struct{}
+type SessionChainService struct {
+	db *gorm.DB
+}
 
 // NewSessionChainService 构造
-func NewSessionChainService() *SessionChainService { return &SessionChainService{} }
+func NewSessionChainService(gdb *gorm.DB) *SessionChainService { return &SessionChainService{db: gdb} }
+
+// NewSessionChainServiceFromGlobal 便捷构造
+func NewSessionChainServiceFromGlobal() *SessionChainService { return NewSessionChainService(db.GetDB()) }
 
 // ---------- A1: resolved/closed 自动触发 CSAT ----------
 
@@ -37,7 +44,11 @@ func (s *SessionChainService) TriggerCSATOnClose(session *model.CustomerSession)
 		return
 	}
 	go func() {
-		defer func() { _ = recover() }()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+			}
+		}()
 		ctx, cancel := context.WithTimeout(context.Background(), utils.RagMetricsTimeout)
 		defer cancel()
 		csat := NewCSATService()
@@ -102,7 +113,7 @@ func (s *SessionChainService) RunAutoResolve(ctx context.Context) (int, error) {
 	if !cfg.Enabled {
 		return 0, nil
 	}
-	g := db.GetDB()
+	g := s.db
 	threshold := time.Now().Add(-time.Duration(cfg.Hours) * time.Hour)
 	var sessions []*model.CustomerSession
 	q := g.WithContext(ctx).
@@ -144,7 +155,7 @@ func (s *SessionChainService) RunAutoResolve(ctx context.Context) (int, error) {
 
 // closeByPK 直接按主键关单（复用 UpdateStatus 需要再查一次，这里省一轮）
 func (s *SessionChainService) closeByPK(ctx context.Context, id uint) error {
-	return db.GetDB().WithContext(ctx).Model(&model.CustomerSession{}).
+	return s.db.WithContext(ctx).Model(&model.CustomerSession{}).
 		Where("id = ?", id).Update("status", model.SessionStatusClosed).Error
 }
 
@@ -153,7 +164,7 @@ func (s *SessionChainService) closeByPK(ctx context.Context, id uint) error {
 // ReopenOnInboundMessage 访客消息落库后调用：resolved/closed 会话自动回 waiting（toggle_status 语义）。
 // 返回 true=发生了 reopen。
 func (s *SessionChainService) ReopenOnInboundMessage(ctx context.Context, sessionID string) (bool, error) {
-	g := db.GetDB()
+	g := s.db
 	res := g.WithContext(ctx).
 		Model(&model.CustomerSession{}).
 		Where("session_id = ? AND status IN ?", sessionID, []model.SessionStatus{
@@ -164,6 +175,12 @@ func (s *SessionChainService) ReopenOnInboundMessage(ctx context.Context, sessio
 		return false, res.Error
 	}
 	return res.RowsAffected > 0, nil
+}
+
+// GetSession 根据 session_id 获取会话（供 controller 层复用，避免直接 db.GetDB）
+func (s *SessionChainService) GetSession(ctx context.Context, sessionID string) (*model.CustomerSession, error) {
+	repo := repository.NewCustomerSessionRepositoryWithDB(s.db)
+	return repo.GetBySessionID(ctx, sessionID)
 }
 
 // ---------- B: 轻量自动化规则引擎 ----------
@@ -201,14 +218,18 @@ type RuleAction struct {
 
 // RuleEngineService 规则引擎
 type RuleEngineService struct {
+	db     *gorm.DB
 	csPlus *CustomerServicePlusService
 	now    func() time.Time
 }
 
 // NewRuleEngineService 构造
-func NewRuleEngineService() *RuleEngineService {
-	return &RuleEngineService{csPlus: NewCustomerServicePlusServiceFromGlobal(), now: time.Now}
+func NewRuleEngineService(gdb *gorm.DB) *RuleEngineService {
+	return &RuleEngineService{db: gdb, csPlus: NewCustomerServicePlusServiceFromGlobal(), now: time.Now}
 }
+
+// NewRuleEngineServiceFromGlobal 便捷构造
+func NewRuleEngineServiceFromGlobal() *RuleEngineService { return NewRuleEngineService(db.GetDB()) }
 
 // Create 创建规则
 func (s *RuleEngineService) Create(ctx context.Context, r *model.AutomationRule) (*model.AutomationRule, error) {
@@ -237,7 +258,7 @@ func (s *RuleEngineService) Create(ctx context.Context, r *model.AutomationRule)
 			return nil, fmt.Errorf("不支持的动作: %s", a.Type)
 		}
 	}
-	if err := db.GetDB().WithContext(ctx).Create(r).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(r).Error; err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -245,7 +266,7 @@ func (s *RuleEngineService) Create(ctx context.Context, r *model.AutomationRule)
 
 // List 规则列表
 func (s *RuleEngineService) List(ctx context.Context, event string) ([]*model.AutomationRule, error) {
-	q := db.GetDB().WithContext(ctx).Model(&model.AutomationRule{})
+	q := s.db.WithContext(ctx).Model(&model.AutomationRule{})
 	if event != "" {
 		q = q.Where("event = ?", event)
 	}
@@ -256,19 +277,23 @@ func (s *RuleEngineService) List(ctx context.Context, event string) ([]*model.Au
 
 // Delete 删除
 func (s *RuleEngineService) Delete(ctx context.Context, id uint) error {
-	return db.GetDB().WithContext(ctx).Delete(&model.AutomationRule{}, id).Error
+	return s.db.WithContext(ctx).Delete(&model.AutomationRule{}, id).Error
 }
 
 // Toggle 启停
 func (s *RuleEngineService) Toggle(ctx context.Context, id uint, enabled bool) error {
-	return db.GetDB().WithContext(ctx).Model(&model.AutomationRule{}).
+	return s.db.WithContext(ctx).Model(&model.AutomationRule{}).
 		Where("id = ?", id).Update("enabled", enabled).Error
 }
 
 // DispatchSessionEvent 会话事件入口（session 落库/迁移点调用）
 func (s *RuleEngineService) DispatchSessionEvent(ctx context.Context, event, sessionID string, session *model.CustomerSession) {
 	go func() {
-		defer func() { _ = recover() }()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+			}
+		}()
 		c, cancel := context.WithTimeout(context.Background(), utils.DefaultHTTPTimeout)
 		defer cancel()
 		s.DispatchWithText(c, event, sessionID, "", session)
@@ -282,7 +307,7 @@ func (s *RuleEngineService) Dispatch(ctx context.Context, event, sessionID strin
 
 // DispatchWithText 完整入口（带消息内容）
 func (s *RuleEngineService) DispatchWithText(ctx context.Context, event, sessionID string, inboundText string, session *model.CustomerSession) {
-	g := db.GetDB()
+	g := s.db
 	var rules []*model.AutomationRule
 	if err := g.WithContext(ctx).
 		Where("event = ? AND enabled = ?", event, true).
@@ -362,7 +387,7 @@ func (s *RuleEngineService) executeRule(ctx context.Context, rule *model.Automat
 	if json.Unmarshal([]byte(rule.Actions), &acts) != nil {
 		return
 	}
-	g := db.GetDB()
+	g := s.db
 	for _, a := range acts {
 		var err error
 		switch a.Type {
@@ -432,7 +457,7 @@ func (s *RuleEngineService) executeRule(ctx context.Context, rule *model.Automat
 
 // ProcessPendingRules 延迟规则复核（cron 入口）
 func (s *RuleEngineService) ProcessPendingRules(ctx context.Context) (int, error) {
-	g := db.GetDB()
+	g := s.db
 	var pendings []*model.RulePendingExecution
 	if err := g.WithContext(ctx).
 		Where("status = ? AND execute_at <= ?", "pending", time.Now()).

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"hivemtk-user/internal/model"
-	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/bcrypt"
 	"hivemtk-user/internal/repository"
 
@@ -47,9 +46,6 @@ func (s *SecurityAuditService) SetRepository(ctx context.Context, repo *reposito
 func (s *SecurityAuditService) withDB(ctx context.Context) *gorm.DB {
 	if s.repo != nil {
 		return s.repo.GetDB(ctx)
-	}
-	if s.db == nil {
-		return db.GetDB().WithContext(ctx)
 	}
 	return s.db.WithContext(ctx)
 }

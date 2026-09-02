@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"runtime/debug"
 	"strconv"
 	"time"
 
@@ -354,7 +356,7 @@ func (s *CustomerSessionService) UpdateSessionStatus(ctx context.Context, sessio
 
 	// R53 A1/B: 生命周期链闭环——resolved/closed 自动触发 CSAT + 规则引擎事件
 	if (status == model.SessionStatusResolved || status == model.SessionStatusClosed) && session.Status != status {
-		chain := NewSessionChainService()
+		chain := NewSessionChainServiceFromGlobal()
 		chain.TriggerCSATOnClose(session)
 		DispatchSessionEventAsync(RuleEventSessionResolved, session.SessionID, session)
 	}
@@ -411,9 +413,13 @@ func CustomerSessionCanSendMessage(s *model.CustomerSession) bool {
 // DispatchSessionEventAsync R53 B: 规则引擎事件 fire-and-forget 入口
 func DispatchSessionEventAsync(event, sessionID string, session *model.CustomerSession) {
 	go func() {
-		defer func() { _ = recover() }()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+			}
+		}()
 		ctx, cancel := context.WithTimeout(context.Background(), utils.DefaultHTTPTimeout)
 		defer cancel()
-		NewRuleEngineService().DispatchWithText(ctx, event, sessionID, "", session)
+		NewRuleEngineServiceFromGlobal().DispatchWithText(ctx, event, sessionID, "", session)
 	}()
 }

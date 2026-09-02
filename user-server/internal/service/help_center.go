@@ -20,10 +20,15 @@ import (
 )
 
 // HelpCenterService 帮助中心服务
-type HelpCenterService struct{}
+type HelpCenterService struct {
+	db *gorm.DB
+}
 
 // NewHelpCenterService 构造
-func NewHelpCenterService() *HelpCenterService { return &HelpCenterService{} }
+func NewHelpCenterService(gdb *gorm.DB) *HelpCenterService { return &HelpCenterService{db: gdb} }
+
+// NewHelpCenterServiceFromGlobal 便捷构造（使用全局 DB）
+func NewHelpCenterServiceFromGlobal() *HelpCenterService { return NewHelpCenterService(db.GetDB()) }
 
 // HCArticleRow 文章列表行
 type HCArticleRow struct {
@@ -41,7 +46,7 @@ func (s *HelpCenterService) Categories(ctx context.Context) ([]map[string]any, e
 		Cnt      int64  `gorm:"column:cnt"`
 	}
 	var rows []row
-	err := db.GetDB().WithContext(ctx).
+	err := s.db.WithContext(ctx).
 		Table("knowledge_documents").
 		Select("COALESCE(NULLIF(category,''),'未分类') AS category, COUNT(*) AS cnt").
 		Where("(public_visible = ? OR hc_status = ?)", true, "published").
@@ -62,7 +67,7 @@ func (s *HelpCenterService) Articles(ctx context.Context, category, q string, li
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
-	g := db.GetDB()
+	g := s.db
 	qry := g.WithContext(ctx).
 		Table("knowledge_documents").
 		Select("id, title, COALESCE(NULLIF(category,''),'未分类') AS category, updated_at").
@@ -129,7 +134,7 @@ func (s *HelpCenterService) Articles(ctx context.Context, category, q string, li
 
 // ArticleDetail 文章详情（正文=chunks 拼接）
 func (s *HelpCenterService) ArticleDetail(ctx context.Context, id uint64) (map[string]any, error) {
-	g := db.GetDB()
+	g := s.db
 	var doc struct {
 		ID        uint64
 		Title     string
@@ -171,7 +176,7 @@ func (s *HelpCenterService) ArticleDetail(ctx context.Context, id uint64) (map[s
 
 // SetArticleVisibility 管理端切换发布状态
 func (s *HelpCenterService) SetArticleVisibility(ctx context.Context, docID uint64, visible bool) error {
-	g := db.GetDB()
+	g := s.db
 	res := g.WithContext(ctx).
 		Table("knowledge_documents").
 		Where("id = ?", docID).
@@ -190,7 +195,7 @@ func (s *HelpCenterService) SetArticleStatus(ctx context.Context, docID uint64, 
 	if status != "draft" && status != "published" && status != "archived" {
 		return fmt.Errorf("非法状态: %s（仅 draft/published/archived）", status)
 	}
-	g := db.GetDB()
+	g := s.db
 	res := g.WithContext(ctx).
 		Model(&struct{}{}).
 		Table("knowledge_documents").
@@ -207,7 +212,7 @@ func (s *HelpCenterService) SetArticleStatus(ctx context.Context, docID uint64, 
 
 // IncArticleViews 公开详情访问计数（原子自增）
 func (s *HelpCenterService) IncArticleViews(ctx context.Context, id uint64) {
-	_ = db.GetDB().WithContext(ctx).
+	_ = s.db.WithContext(ctx).
 		Exec("UPDATE knowledge_documents SET hc_views = hc_views + 1 WHERE id = ?", id).Error
 }
 
@@ -217,7 +222,7 @@ func (s *HelpCenterService) TopArticles(ctx context.Context, limit int) ([]map[s
 		limit = 10
 	}
 	out := []map[string]any{}
-	err := db.GetDB().WithContext(ctx).
+	err := s.db.WithContext(ctx).
 		Table("knowledge_documents").
 		Select("id, title, hc_views AS views").
 		Where("hc_status = ? AND deleted_at IS NULL", "published").
@@ -249,7 +254,7 @@ func (s *HelpCenterService) RetrievalTest(ctx context.Context, productID, query 
 	rec := &model.HelpCenterTestRecord{
 		ProductID: productID, Query: query, TopK: topK, Hits: len(results), Results: string(raw),
 	}
-	_ = db.GetDB().WithContext(ctx).Create(rec).Error
+	_ = s.db.WithContext(ctx).Create(rec).Error
 	return map[string]any{
 		"query": query, "top_k": topK, "hits": len(results), "results": results,
 		"record_id": rec.ID,

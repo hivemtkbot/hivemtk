@@ -2,12 +2,13 @@ package controller
 
 import (
 	"context"
+	"log"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 	"time"
 
 	"hivemtk-user/internal/model"
-	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/pagination"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
@@ -48,13 +49,18 @@ func (c *MessageHubController) Push(ctx *gin.Context) {
 	// R54 修复: 此前仅 reopen 发生时才分发规则事件 → 进行中会话收消息永远不触发 message_inbound 规则（业务缺陷）
 	if msg != nil && msg.Direction == "inbound" {
 		go func(m *model.MessageHub) {
-			defer func() { _ = recover() }()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+				}
+			}()
 			ctx2, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			_, _ = service.NewSessionChainService().ReopenOnInboundMessage(ctx2, m.ConversationID)
-			var sess model.CustomerSession
-			if db.GetDB().WithContext(ctx2).Where("session_id = ?", m.ConversationID).First(&sess).Error == nil {
-				service.NewRuleEngineService().DispatchWithText(ctx2, service.RuleEventMessageInbound, m.ConversationID, m.Content, &sess)
+			chainSvc := service.NewSessionChainServiceFromGlobal()
+			_, _ = chainSvc.ReopenOnInboundMessage(ctx2, m.ConversationID)
+			sess, err := chainSvc.GetSession(ctx2, m.ConversationID)
+			if err == nil && sess != nil {
+				service.NewRuleEngineServiceFromGlobal().DispatchWithText(ctx2, service.RuleEventMessageInbound, m.ConversationID, m.Content, sess)
 			}
 		}(msg)
 	}

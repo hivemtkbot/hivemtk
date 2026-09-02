@@ -7,6 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +17,8 @@ import (
 	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/repository"
+
+	"gorm.io/gorm"
 )
 
 // EditLockTTL 会话编辑锁 TTL（协作碰撞检测）
@@ -29,6 +33,7 @@ type EditLock struct {
 
 // CustomerServicePlusService 客服增强服务
 type CustomerServicePlusService struct {
+	db          *gorm.DB
 	sessionRepo *repository.CustomerSessionRepository
 	msgRepo     *repository.SessionMessageRepository
 	tagRepo     *repository.SessionTagRepository
@@ -41,11 +46,13 @@ type CustomerServicePlusService struct {
 
 // NewCustomerServicePlusService 构造（DI 在路由装配完成）
 func NewCustomerServicePlusService(
+	gdb *gorm.DB,
 	sessionRepo *repository.CustomerSessionRepository,
 	msgRepo *repository.SessionMessageRepository,
 	agentRepo *repository.AgentStatusRepository,
 ) *CustomerServicePlusService {
 	return &CustomerServicePlusService{
+		db:          gdb,
 		sessionRepo: sessionRepo,
 		msgRepo:     msgRepo,
 		tagRepo:     repository.NewSessionTagRepository(),
@@ -303,6 +310,7 @@ func csPlusContainsString(list []string, s string) bool {
 // NewCustomerServicePlusServiceFromGlobal 便捷构造：使用全局 DB 仓储（控制器装配用）
 func NewCustomerServicePlusServiceFromGlobal() *CustomerServicePlusService {
 	return NewCustomerServicePlusService(
+		db.GetDB(),
 		repository.NewCustomerSessionRepository(),
 		repository.NewSessionMessageRepository(),
 		repository.NewAgentStatusRepository(),
@@ -378,7 +386,7 @@ func (s *CustomerServicePlusService) DLQList(ctx context.Context, limit int) ([]
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
-	g := db.GetDB()
+	g := s.db
 	var total int64
 	if err := g.WithContext(ctx).Table("message_hub").Where("status = 'failed'").Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -421,7 +429,7 @@ func (s *CustomerServicePlusService) DLQList(ctx context.Context, limit int) ([]
 
 // DLQRetryOne 单条重试: failed→pending
 func (s *CustomerServicePlusService) DLQRetryOne(ctx context.Context, id uint) error {
-	g := db.GetDB()
+	g := s.db
 	res := g.WithContext(ctx).Table("message_hub").
 		Where("id = ? AND status = 'failed'", id).
 		Update("status", "pending")
@@ -436,7 +444,7 @@ func (s *CustomerServicePlusService) DLQRetryOne(ctx context.Context, id uint) e
 
 // DLQDrop 丢弃死信（删除）
 func (s *CustomerServicePlusService) DLQDrop(ctx context.Context, id uint) error {
-	g := db.GetDB()
+	g := s.db
 	res := g.WithContext(ctx).Table("message_hub").Where("id = ? AND status = 'failed'", id).Delete(nil)
 	if res.Error != nil {
 		return res.Error
@@ -449,7 +457,7 @@ func (s *CustomerServicePlusService) DLQDrop(ctx context.Context, id uint) error
 
 // DLQBatchRetry 批量重试（返回真实重入队数量；上限单批 500 防风暴）
 func (s *CustomerServicePlusService) DLQBatchRetry(ctx context.Context) (int64, error) {
-	g := db.GetDB()
+	g := s.db
 	res := g.WithContext(ctx).Table("message_hub").
 		Where("status = 'failed'").
 		Limit(500).
@@ -464,7 +472,7 @@ func (s *CustomerServicePlusService) SetSessionPriority(ctx context.Context, ses
 	if level < 0 || level > 3 {
 		return fmt.Errorf("优先级取值 0-3")
 	}
-	g := db.GetDB()
+	g := s.db
 	res := g.WithContext(ctx).Table("customer_sessions").
 		Where("session_id = ?", sessionID).
 		Update("priority", level)
@@ -483,7 +491,7 @@ func (s *CustomerServicePlusService) SnoozeSession(ctx context.Context, sessionI
 		return time.Time{}, fmt.Errorf("暂缓时长须在 0-720 小时")
 	}
 	until := time.Now().Add(time.Duration(hours * float64(time.Hour)))
-	g := db.GetDB()
+	g := s.db
 	res := g.WithContext(ctx).Table("customer_sessions").
 		Where("session_id = ?", sessionID).
 		Update("snoozed_until", until)
@@ -498,7 +506,7 @@ func (s *CustomerServicePlusService) SnoozeSession(ctx context.Context, sessionI
 
 // UnsnoozeSession 取消暂缓
 func (s *CustomerServicePlusService) UnsnoozeSession(ctx context.Context, sessionID string) error {
-	res := db.GetDB().WithContext(ctx).Table("customer_sessions").
+	res := s.db.WithContext(ctx).Table("customer_sessions").
 		Where("session_id = ?", sessionID).
 		Update("snoozed_until", nil)
 	if res.Error != nil {
@@ -512,7 +520,7 @@ func (s *CustomerServicePlusService) UnsnoozeSession(ctx context.Context, sessio
 
 // RecoverSnoozed cron 到期恢复：snoozed_until 已过 → 置 NULL（返回恢复条数）
 func (s *CustomerServicePlusService) RecoverSnoozed(ctx context.Context) (int64, error) {
-	res := db.GetDB().WithContext(ctx).Table("customer_sessions").
+	res := s.db.WithContext(ctx).Table("customer_sessions").
 		Where("snoozed_until IS NOT NULL AND snoozed_until < NOW()").
 		Update("snoozed_until", nil)
 	return res.RowsAffected, res.Error
@@ -531,7 +539,11 @@ func GetOfficeHoursService() *OfficeHoursService {
 // MaybeSendAwayReply 新会话非工作时间自动回复入口（fire-and-forget，由会话创建链路调用）
 func MaybeSendAwayReply(sessionID, conversationID, platform, accountID string) {
 	go func() {
-		defer func() { _ = recover() }()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+			}
+		}()
 		ctx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
 		defer cancel()
 		GetOfficeHoursService().SendAwayReplyIfClosed(ctx, sessionID, conversationID, platform, accountID)

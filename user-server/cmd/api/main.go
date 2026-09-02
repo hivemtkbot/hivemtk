@@ -343,7 +343,7 @@ func main() {
 
 	// [R53 A2] 自动解决 SLA cron：每 10 分钟扫描无活动超时会话
 	autoResolveCron := cronpkg.NewSnoozeRecoveryCron(func(ctx context.Context) (int64, error) {
-		n, err := service.NewSessionChainService().RunAutoResolve(ctx)
+		n, err := service.NewSessionChainServiceFromGlobal().RunAutoResolve(ctx)
 		return int64(n), err
 	})
 	autoResolveCron.Start()
@@ -352,7 +352,7 @@ func main() {
 
 	// [R53 B] 自动化规则延迟执行复核 cron：每 2 分钟
 	ruleCron := cronpkg.NewSnoozeRecoveryCron(func(ctx context.Context) (int64, error) {
-		n, err := service.NewRuleEngineService().ProcessPendingRules(ctx)
+		n, err := service.NewRuleEngineServiceFromGlobal().ProcessPendingRules(ctx)
 		return int64(n), err
 	})
 	ruleCron.Start()

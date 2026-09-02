@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"hivemtk-user/internal/model"
+	_db "hivemtk-user/internal/pkg/db"
 )
 
 // FeatureFlagRepository FeatureFlag 仓储接口
@@ -34,6 +35,11 @@ type featureFlagRepo struct {
 // NewFeatureFlagRepository 构造
 func NewFeatureFlagRepository(db *gorm.DB) FeatureFlagRepository {
 	return &featureFlagRepo{db: db}
+}
+
+// NewFeatureFlagRepositoryFromGlobal 便捷构造（内部调用 db.GetDB()）
+func NewFeatureFlagRepositoryFromGlobal() FeatureFlagRepository {
+	return NewFeatureFlagRepository(_db.GetDB())
 }
 
 func (r *featureFlagRepo) Create(ctx context.Context, f *model.FeatureFlag) error {

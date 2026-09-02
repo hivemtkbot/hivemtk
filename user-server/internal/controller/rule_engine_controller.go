@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"hivemtk-user/internal/model"
-	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 
@@ -20,7 +19,7 @@ type RuleEngineController struct {
 
 // NewRuleEngineController 构造
 func NewRuleEngineController() *RuleEngineController {
-	return &RuleEngineController{svc: service.NewRuleEngineService()}
+	return &RuleEngineController{svc: service.NewRuleEngineServiceFromGlobal()}
 }
 
 // List GET /api/automation-rules?event=
@@ -101,11 +100,8 @@ func (c *RuleEngineController) Fire(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "event/session_id 必填")
 		return
 	}
-	var sess struct{}
-	_ = sess
-	var full *model.CustomerSession
-	if err := db.GetDB().WithContext(ctx.Request.Context()).
-		Where("session_id = ?", req.SessionID).First(&full).Error; HandleServiceError(ctx, err) {
+	full, err := service.NewSessionChainServiceFromGlobal().GetSession(ctx.Request.Context(), req.SessionID)
+	if HandleServiceError(ctx, err) {
 		return
 	}
 	c.svc.Dispatch(ctx.Request.Context(), req.Event, req.SessionID, full)

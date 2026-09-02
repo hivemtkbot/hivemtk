@@ -68,6 +68,15 @@ func (r *ABExperimentRepository) GetRunningBySourceID(sourceID string) (*model.A
 	return &experiment, err
 }
 
+// GetLatestBySourceID 根据 sourceID 获取最新实验（不限状态，按 updated_at DESC）
+func (r *ABExperimentRepository) GetLatestBySourceID(sourceID string) (*model.ABExperiment, error) {
+	var experiment model.ABExperiment
+	err := r.db.Where("source_id = ?", sourceID).
+		Order("updated_at DESC").
+		First(&experiment).Error
+	return &experiment, err
+}
+
 // ABVariantRepository A/B 变体仓库
 type ABVariantRepository struct {
 	db *gorm.DB

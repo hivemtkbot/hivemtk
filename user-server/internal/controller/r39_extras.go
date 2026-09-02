@@ -8,9 +8,7 @@ import (
 	"time"
 
 	opssvc "hivemtk-user/internal/ops/service"
-	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/response"
-	opsmodel "hivemtk-user/internal/ops/model"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/service"
 
@@ -38,12 +36,8 @@ func (c *MarketingFlowSyncController) SyncABResults(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "无效的流程 ID")
 		return
 	}
-	gdb := db.GetDB()
-	var experiment opsmodel.ABExperiment
-	err = gdb.WithContext(ctx.Request.Context()).
-		Where("source_id = ?", strconv.FormatUint(id, 10)).
-		Order("updated_at DESC").
-		First(&experiment).Error
+	sourceID := strconv.FormatUint(id, 10)
+	experiment, err := c.abService.GetExperimentBySourceID(sourceID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			response.Success(ctx, gin.H{"synced": false, "results": []any{}}, "流程未绑定实验")
@@ -132,10 +126,14 @@ func eventTypeOf(name string) model.EventType {
 // ---------- Web Vitals 上报（web-vitals.js sendBeacon） ----------
 
 // WebVitalsController 控制器
-type WebVitalsController struct{}
+type WebVitalsController struct {
+	svc *opssvc.WebVitalService
+}
 
 // NewWebVitalsController 构造
-func NewWebVitalsController() *WebVitalsController { return &WebVitalsController{} }
+func NewWebVitalsController() *WebVitalsController {
+	return &WebVitalsController{svc: opssvc.NewWebVitalService()}
+}
 
 // Report POST /api/monitor/web-vitals
 func (c *WebVitalsController) Report(ctx *gin.Context) {
@@ -164,7 +162,7 @@ func (c *WebVitalsController) Report(ctx *gin.Context) {
 	if rec.UserAgent == "" {
 		rec.UserAgent = ctx.Request.UserAgent()
 	}
-	if err := db.GetDB().WithContext(ctx.Request.Context()).Create(rec).Error; err != nil {
+	if err := c.svc.Report(ctx.Request.Context(), rec); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}

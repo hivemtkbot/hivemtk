@@ -10,6 +10,8 @@ import (
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
+
+	"gorm.io/gorm"
 )
 
 // 宏动作类型
@@ -30,13 +32,17 @@ type MacroAction struct {
 
 // MacroService 宏服务
 type MacroService struct {
+	db     *gorm.DB
 	csPlus *CustomerServicePlusService
 }
 
 // NewMacroService 构造
-func NewMacroService() *MacroService {
-	return &MacroService{csPlus: NewCustomerServicePlusServiceFromGlobal()}
+func NewMacroService(gdb *gorm.DB) *MacroService {
+	return &MacroService{db: gdb, csPlus: NewCustomerServicePlusServiceFromGlobal()}
 }
+
+// NewMacroServiceFromGlobal 便捷构造
+func NewMacroServiceFromGlobal() *MacroService { return NewMacroService(db.GetDB()) }
 
 // Create 创建宏
 func (s *MacroService) Create(ctx context.Context, name string, actions []MacroAction) (*model.Macro, error) {
@@ -58,7 +64,7 @@ func (s *MacroService) Create(ctx context.Context, name string, actions []MacroA
 		return nil, err
 	}
 	m := &model.Macro{Name: name, Actions: string(raw)}
-	if err := db.GetDB().WithContext(ctx).Create(m).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(m).Error; err != nil {
 		return nil, err
 	}
 	return m, nil
@@ -67,13 +73,13 @@ func (s *MacroService) Create(ctx context.Context, name string, actions []MacroA
 // List 宏列表
 func (s *MacroService) List(ctx context.Context) ([]*model.Macro, error) {
 	var list []*model.Macro
-	err := db.GetDB().WithContext(ctx).Order("id ASC").Find(&list).Error
+	err := s.db.WithContext(ctx).Order("id ASC").Find(&list).Error
 	return list, err
 }
 
 // Delete 删除宏
 func (s *MacroService) Delete(ctx context.Context, id uint) error {
-	return db.GetDB().WithContext(ctx).Delete(&model.Macro{}, id).Error
+	return s.db.WithContext(ctx).Delete(&model.Macro{}, id).Error
 }
 
 // ApplyResult 应用结果
@@ -85,7 +91,7 @@ type ApplyResult struct {
 // Apply 对会话执行宏动作序列
 func (s *MacroService) Apply(ctx context.Context, macroID uint, sessionID, operator string) (*ApplyResult, error) {
 	var m model.Macro
-	if err := db.GetDB().WithContext(ctx).First(&m, macroID).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&m, macroID).Error; err != nil {
 		return nil, err
 	}
 	var actions []MacroAction
@@ -125,7 +131,7 @@ func (s *MacroService) appendSessionTag(ctx context.Context, sessionID, tagCode 
 	if strings.TrimSpace(tagCode) == "" {
 		return fmt.Errorf("标签为空")
 	}
-	g := db.GetDB()
+	g := s.db
 	var tagsRaw string
 	if err := g.WithContext(ctx).Table("customer_sessions").
 		Select("COALESCE(tags,'')").Where("session_id = ?", sessionID).Scan(&tagsRaw).Error; err != nil {
@@ -151,13 +157,13 @@ func (s *MacroService) assignSession(ctx context.Context, sessionID, agentID str
 	if strings.TrimSpace(agentID) == "" {
 		return fmt.Errorf("坐席为空")
 	}
-	return db.GetDB().WithContext(ctx).Table("customer_sessions").
+	return s.db.WithContext(ctx).Table("customer_sessions").
 		Where("session_id = ?", sessionID).
 		Update("agent_id", agentID).Error
 }
 
 func (s *MacroService) closeSession(ctx context.Context, sessionID string) error {
-	return db.GetDB().WithContext(ctx).Table("customer_sessions").
+	return s.db.WithContext(ctx).Table("customer_sessions").
 		Where("session_id = ?", sessionID).
 		Update("status", "closed").Error
 }
@@ -166,7 +172,7 @@ func (s *MacroService) enqueueOutbound(ctx context.Context, sessionID, content s
 	if strings.TrimSpace(content) == "" {
 		return fmt.Errorf("消息内容为空")
 	}
-	g := db.GetDB()
+	g := s.db
 	// 会话元信息
 	var sess struct {
 		Platform string

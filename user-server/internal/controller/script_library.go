@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
@@ -19,9 +18,9 @@ type ScriptLibraryController struct {
 	abSvc *service.ScriptABService
 }
 
-// NewScriptLibraryController 创建控制器（DI 在路由装配完成）
+// NewScriptLibraryController 创建控制器
 func NewScriptLibraryController() *ScriptLibraryController {
-	repo := repository.NewScriptLibraryRepository(db.GetDB())
+	repo := repository.NewScriptLibraryRepositoryFromGlobal()
 	svc := service.NewScriptABService(repo)
 	kvRepo := repository.NewSystemConfigKVRepository()
 	svc.SetKVStore(

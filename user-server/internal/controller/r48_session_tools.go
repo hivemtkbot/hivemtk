@@ -17,7 +17,7 @@ type MacroController struct {
 
 // NewMacroController 构造
 func NewMacroController() *MacroController {
-	return &MacroController{svc: service.NewMacroService()}
+	return &MacroController{svc: service.NewMacroServiceFromGlobal()}
 }
 
 // List GET /api/macros

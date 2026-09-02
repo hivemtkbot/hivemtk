@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -352,7 +354,11 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	// 等效标志）时异步入缓存。四道门（CanCache）由缓存服务内部把关；失败仅告警不影响主链路。
 	if faqKBID != "" && len(faqVec) > 0 && len(salesResp.RAGChunks) > 0 && salesResp.Reply != "" {
 		go func(answer string, vec []float32) {
-			defer func() { _ = recover() }()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+				}
+			}()
 			if err := o.faqCache.Store(context.Background(), ragcache.StoreRequest{
 				KBID:              faqKBID,
 				PromptVersion:     faqPromptVersion,
@@ -382,7 +388,11 @@ func (o *SmartCSOrchestrator) resolveFAQKBID(ctx context.Context, agentCtx *Agen
 	if agentCtx == nil || agentCtx.AgentID == 0 {
 		return ""
 	}
-	defer func() { _ = recover() }()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+		}
+	}()
 	if o.kbRepo == nil {
 		return ""
 	}
@@ -407,7 +417,11 @@ func (o *SmartCSOrchestrator) resolveFAQKBID(ctx context.Context, agentCtx *Agen
 // embedFAQQuery 把用户消息向量化（与知识库 chunk 同一 embedding 服务，保证同向量空间）。
 // 失败返回 nil = 跳过缓存直通。
 func (o *SmartCSOrchestrator) embedFAQQuery(ctx context.Context, text string) []float32 {
-	defer func() { _ = recover() }()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+		}
+	}()
 	vec, err := o.faqEmbedder.EmbedOne(ctx, o.faqEmbedder.DefaultConfig(), text)
 	if err != nil || len(vec) == 0 {
 		return nil

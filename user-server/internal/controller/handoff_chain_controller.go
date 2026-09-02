@@ -17,8 +17,8 @@ type HandoffChainController struct {
 // NewHandoffChainController 构造
 func NewHandoffChainController() *HandoffChainController {
 	return &HandoffChainController{
-		chainSvc: service.NewSessionChainService(),
-		ruleSvc:  service.NewRuleEngineService(),
+		chainSvc: service.NewSessionChainServiceFromGlobal(),
+		ruleSvc:  service.NewRuleEngineServiceFromGlobal(),
 	}
 }
 

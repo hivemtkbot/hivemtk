@@ -22,8 +22,8 @@ type GrowthController struct {
 func NewGrowthController() *GrowthController {
 	return &GrowthController{
 		csPlus:   service.NewCustomerServicePlusServiceFromGlobal(),
-		webhook:  service.NewWebhookSubService(),
-		analytics: service.NewEmailGapService(),
+		webhook:  service.NewWebhookSubServiceFromGlobal(),
+		analytics: service.NewEmailGapServiceFromGlobal(),
 	}
 }
 

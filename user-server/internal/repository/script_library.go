@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"hivemtk-user/internal/model"
+	_db "hivemtk-user/internal/pkg/db"
 )
 
 // ScriptLibraryRepository 话术库仓储
@@ -18,6 +19,11 @@ type ScriptLibraryRepository struct {
 // NewScriptLibraryRepository 创建话术库仓储
 func NewScriptLibraryRepository(db *gorm.DB) *ScriptLibraryRepository {
 	return &ScriptLibraryRepository{db: db}
+}
+
+// NewScriptLibraryRepositoryFromGlobal 便捷构造（内部调用 db.GetDB()）
+func NewScriptLibraryRepositoryFromGlobal() *ScriptLibraryRepository {
+	return NewScriptLibraryRepository(_db.GetDB())
 }
 
 // ListObjectionTemplates 查询异议处理模板

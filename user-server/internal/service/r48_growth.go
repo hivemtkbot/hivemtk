@@ -9,8 +9,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -61,7 +63,11 @@ func PublishWebhookEvent(ctx context.Context, event string, payload map[string]a
 	})
 	for _, sub := range subs {
 		go func(sub model.WebhookSubscription, body []byte) {
-			defer func() { _ = recover() }()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+				}
+			}()
 			reqCtx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
 			defer cancel()
 			req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, sub.URL, strings.NewReader(string(body)))
@@ -87,10 +93,15 @@ func PublishWebhookEvent(ctx context.Context, event string, payload map[string]a
 }
 
 // WebhookSubService CRUD 服务
-type WebhookSubService struct{}
+type WebhookSubService struct {
+	db *gorm.DB
+}
 
 // NewWebhookSubService 构造
-func NewWebhookSubService() *WebhookSubService { return &WebhookSubService{} }
+func NewWebhookSubService(gdb *gorm.DB) *WebhookSubService { return &WebhookSubService{db: gdb} }
+
+// NewWebhookSubServiceFromGlobal 便捷构造
+func NewWebhookSubServiceFromGlobal() *WebhookSubService { return NewWebhookSubService(db.GetDB()) }
 
 // Create 创建订阅（URL 必须 http(s)，secret 自动生成）
 func (s *WebhookSubService) Create(ctx context.Context, url, events string) (*model.WebhookSubscription, error) {
@@ -102,7 +113,7 @@ func (s *WebhookSubService) Create(ctx context.Context, url, events string) (*mo
 	}
 	secret := "whsec_" + fmt.Sprintf("%d", time.Now().UnixNano())
 	sub := &model.WebhookSubscription{URL: url, Events: events, Secret: secret, Enabled: true}
-	if err := db.GetDB().WithContext(ctx).Create(sub).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(sub).Error; err != nil {
 		return nil, err
 	}
 	return sub, nil
@@ -111,20 +122,20 @@ func (s *WebhookSubService) Create(ctx context.Context, url, events string) (*mo
 // List 订阅列表
 func (s *WebhookSubService) List(ctx context.Context) ([]*model.WebhookSubscription, error) {
 	var list []*model.WebhookSubscription
-	err := db.GetDB().WithContext(ctx).Order("id ASC").Find(&list).Error
+	err := s.db.WithContext(ctx).Order("id ASC").Find(&list).Error
 	return list, err
 }
 
 // Delete 删除
 func (s *WebhookSubService) Delete(ctx context.Context, id uint) error {
-	return db.GetDB().WithContext(ctx).Delete(&model.WebhookSubscription{}, id).Error
+	return s.db.WithContext(ctx).Delete(&model.WebhookSubscription{}, id).Error
 }
 
 // ==================== T7: 联系人自定义属性 ====================
 
 // SetCustomAttributes 更新客户自定义属性（JSONB merge）
 func (s *CustomerServicePlusService) SetCustomAttributes(ctx context.Context, customerID string, attrs map[string]any) (map[string]any, error) {
-	g := db.GetDB()
+	g := s.db
 	var curStr string
 	if err := g.WithContext(ctx).Table("customers").
 		Select("COALESCE(NULLIF(custom_attributes::text,''), '{}')").
@@ -168,7 +179,7 @@ func (s *CustomerServicePlusService) CreateSavedView(ctx context.Context, userID
 	if strings.TrimSpace(name) == "" || strings.TrimSpace(route) == "" {
 		return nil, fmt.Errorf("name/route 必填")
 	}
-	g := db.GetDB()
+	g := s.db
 	_ = g.WithContext(ctx).
 		Where("user_id = ? AND name = ? AND route = ?", userID, name, route).
 		Delete(&model.SavedView{}).Error
@@ -182,7 +193,7 @@ func (s *CustomerServicePlusService) CreateSavedView(ctx context.Context, userID
 // ListSavedViews 视图列表（按用户+路由）
 func (s *CustomerServicePlusService) ListSavedViews(ctx context.Context, userID uint, route string) ([]*model.SavedView, error) {
 	var list []*model.SavedView
-	q := db.GetDB().WithContext(ctx).Where("user_id = ?", userID)
+	q := s.db.WithContext(ctx).Where("user_id = ?", userID)
 	if route != "" {
 		q = q.Where("route = ?", route)
 	}
@@ -192,7 +203,7 @@ func (s *CustomerServicePlusService) ListSavedViews(ctx context.Context, userID 
 
 // DeleteSavedView 删除视图
 func (s *CustomerServicePlusService) DeleteSavedView(ctx context.Context, id, userID uint) error {
-	res := db.GetDB().WithContext(ctx).
+	res := s.db.WithContext(ctx).
 		Where("id = ? AND user_id = ?", id, userID).
 		Delete(&model.SavedView{})
 	if res.Error != nil {
@@ -226,7 +237,7 @@ func (s *CustomerServicePlusService) CreateReportSubscription(ctx context.Contex
 	if schedule != "daily" && schedule != "weekly" {
 		schedule = "daily"
 	}
-	g := db.GetDB()
+	g := s.db
 	// 幂等：同邮箱覆盖
 	_ = g.WithContext(ctx).Where("email = ?", email).Delete(&model.ReportSubscription{}).Error
 	sub := &model.ReportSubscription{Email: email, Schedule: schedule, Enabled: true}
@@ -239,18 +250,18 @@ func (s *CustomerServicePlusService) CreateReportSubscription(ctx context.Contex
 // ListReportSubscriptions 订阅列表
 func (s *CustomerServicePlusService) ListReportSubscriptions(ctx context.Context) ([]*model.ReportSubscription, error) {
 	var list []*model.ReportSubscription
-	err := db.GetDB().WithContext(ctx).Order("id ASC").Find(&list).Error
+	err := s.db.WithContext(ctx).Order("id ASC").Find(&list).Error
 	return list, err
 }
 
 // DeleteReportSubscription 退订
 func (s *CustomerServicePlusService) DeleteReportSubscription(ctx context.Context, id uint) error {
-	return db.GetDB().WithContext(ctx).Delete(&model.ReportSubscription{}, id).Error
+	return s.db.WithContext(ctx).Delete(&model.ReportSubscription{}, id).Error
 }
 
 // SendScheduledReports cron 入口：给全部启用订阅发送昨日汇总（汇总 CSV 内存生成→SMTP）
 func (s *CustomerServicePlusService) SendScheduledReports(ctx context.Context) (int, error) {
-	g := db.GetDB()
+	g := s.db
 	var subs []model.ReportSubscription
 	if err := g.WithContext(ctx).Where("enabled = ?", true).Find(&subs).Error; err != nil {
 		return 0, err
@@ -307,7 +318,7 @@ func (s *CustomerServicePlusService) SessionTranscript(ctx context.Context, sess
 	}
 	var msgs []transcriptMsgRow
 	// R51 业务修复: 转录排除内部备注（is_internal 仅坐席可见）
-	if err := db.GetDB().WithContext(ctx).
+	if err := s.db.WithContext(ctx).
 		Table("session_messages").
 		Select("sender_type, COALESCE(sender_name,'') AS sender_name, content, created_at").
 		Where("session_id = ? AND is_internal = ?", sessionID, false).
@@ -378,7 +389,7 @@ func (s *EmailGapService) AIPerformance(ctx context.Context, days int) (*AIPerfo
 	if days <= 0 || days > 90 {
 		days = 7
 	}
-	g := db.GetDB()
+	g := s.db
 	since := time.Now().AddDate(0, 0, -days)
 	res := &AIPerformanceResult{Window: fmt.Sprintf("%dd", days)}
 	_ = g.WithContext(ctx).Table("customer_sessions").

@@ -12,7 +12,9 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"log/slog"
+	"runtime/debug"
 	"time"
 
 	"hivemtk-user/internal/model"
@@ -40,6 +42,11 @@ type FeatureFlagService struct {
 // NewFeatureFlagService 构造
 func NewFeatureFlagService(repo repository.FeatureFlagRepository) *FeatureFlagService {
 	return &FeatureFlagService{repo: repo, kvRepo: repository.NewSystemConfigKVRepository(), now: time.Now}
+}
+
+// NewFeatureFlagServiceFromGlobal 便捷构造
+func NewFeatureFlagServiceFromGlobal() *FeatureFlagService {
+	return NewFeatureFlagService(repository.NewFeatureFlagRepositoryFromGlobal())
 }
 
 // CreateReq 创建请求
@@ -276,7 +283,11 @@ func (s *FeatureFlagService) auditAsync(ctx context.Context, f *model.FeatureFla
 	}
 	detached := context.WithoutCancel(ctx)
 	go func() {
-		defer func() { _ = recover() }()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+			}
+		}()
 		if err := s.repo.CreateAudit(detached, a); err != nil {
 			slog.Warn("[FeatureFlag] 审计写入失败", "key", f.Key, "err", err)
 		}
@@ -294,7 +305,11 @@ func (s *FeatureFlagService) logEvalAsync(key string, attributes map[string]any,
 		e.Value = fmt.Sprintf("%v", res.Value)
 	}
 	go func() {
-		defer func() { _ = recover() }()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+			}
+		}()
 		if err := s.repo.CreateEvalLog(context.Background(), e); err != nil {
 			slog.Warn("[FeatureFlag] 评估日志写入失败", "key", key, "err", err)
 		}

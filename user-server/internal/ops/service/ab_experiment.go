@@ -90,6 +90,11 @@ func (s *ABExperimentService) GetExperiment(id uint) (*model.ABExperiment, error
 	return s.experimentRepo.GetByID(id)
 }
 
+// GetExperimentBySourceID 根据 sourceID 获取最新实验（不限状态）
+func (s *ABExperimentService) GetExperimentBySourceID(sourceID string) (*model.ABExperiment, error) {
+	return s.experimentRepo.GetLatestBySourceID(sourceID)
+}
+
 // GetExperimentList 获取实验列表
 func (s *ABExperimentService) GetExperimentList(page, pageSize int) ([]*model.ABExperiment, int64, error) {
 	return s.experimentRepo.GetAll(page, pageSize)

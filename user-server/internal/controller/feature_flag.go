@@ -5,9 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/response"
-	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -18,9 +16,9 @@ type FeatureFlagController struct {
 	svc *service.FeatureFlagService
 }
 
-// NewFeatureFlagController 构造（DI 在路由装配完成）
+// NewFeatureFlagController 构造
 func NewFeatureFlagController() *FeatureFlagController {
-	return &FeatureFlagController{svc: service.NewFeatureFlagService(repository.NewFeatureFlagRepository(db.GetDB()))}
+	return &FeatureFlagController{svc: service.NewFeatureFlagServiceFromGlobal()}
 }
 
 func actorIDFrom(ctx *gin.Context) uint {

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -390,7 +392,11 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 	// 非侵入钩子：Web Widget 消息成功落库并同步收件箱后，异步投递线索发掘
 	if s.leadMiningSvc != nil {
 		func() {
-			defer func() { _ = recover() }()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+				}
+			}()
 			hub := &model.MessageHub{
 				MsgID:          fmt.Sprintf("visitor:%s:%d", req.VisitorID, userMsg.ID),
 				Platform:       string(model.PlatformWebEmbed),

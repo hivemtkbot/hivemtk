@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 
+	"log"
+	"runtime/debug"
+	"strings"
 	"time"
 
 	"hivemtk-user/internal/model"
@@ -10,7 +13,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 
 	"hivemtk-user/internal/pkg/tracing"
-	"strings"
 )
 
 func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.MessageEvent) error {
@@ -99,7 +101,11 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 			return
 		}
 		func() {
-			defer func() { _ = recover() }()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+				}
+			}()
 			s.leadMiningSvc.Enqueue(hub)
 		}()
 	}()

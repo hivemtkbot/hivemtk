@@ -18,7 +18,7 @@ type HelpCenterController struct {
 
 // NewHelpCenterController 构造
 func NewHelpCenterController() *HelpCenterController {
-	return &HelpCenterController{svc: service.NewHelpCenterService()}
+	return &HelpCenterController{svc: service.NewHelpCenterServiceFromGlobal()}
 }
 
 // Categories GET /api/public/help-center/categories（免登录）
