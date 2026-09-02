@@ -4,7 +4,9 @@ package service
 import (
 	"context"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -72,7 +74,11 @@ func (s *WebhookSubService) Create(ctx context.Context, url, events string) (*mo
 	if strings.TrimSpace(events) == "" {
 		events = "all"
 	}
-	secret := "whsec_" + fmt.Sprintf("%d", time.Now().UnixNano())
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return nil, fmt.Errorf("failed to generate webhook secret: %w", err)
+	}
+	secret := "whsec_" + base64.RawURLEncoding.EncodeToString(b)
 	sub := &model.WebhookSubscription{URL: url, Events: events, Secret: secret, Enabled: true}
 	if err := s.db.WithContext(ctx).Create(sub).Error; err != nil {
 		return nil, err
@@ -97,7 +103,7 @@ func (s *WebhookSubService) PublishEvent(ctx context.Context, event string, payl
 	var subs []model.WebhookSubscription
 	if err := s.db.WithContext(ctx).
 		Where("enabled = ? AND (events LIKE ? OR events LIKE ?)", true, "%"+event+"%", "%all%").
-		Limit(20).Find(&subs).Error; err != nil || len(subs) == 0 {
+		Limit(100).Find(&subs).Error; err != nil || len(subs) == 0 {
 		return
 	}
 	body, _ := json.Marshal(map[string]any{

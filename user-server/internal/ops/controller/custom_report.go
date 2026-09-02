@@ -26,6 +26,16 @@ func NewCustomReportController() *CustomReportController {
 	}
 }
 
+// extractUserContext 从 gin.Context 提取 userID 和 isAdmin 标志
+func extractUserContext(ctx *gin.Context) (uint, bool) {
+	userID, _ := ctx.Get("user_id")
+	roleVal, _ := ctx.Get("role")
+	role, _ := roleVal.(string)
+	isAdmin := role == "admin" || role == "super_admin"
+	uid, _ := userID.(uint)
+	return uid, isAdmin
+}
+
 // CreateReport 创建报表
 func (c *CustomReportController) CreateReport(ctx *gin.Context) {
 
@@ -59,7 +69,8 @@ func (c *CustomReportController) GetReport(ctx *gin.Context) {
 		return
 	}
 
-	report, err := c.reportService.GetReport(uint(id))
+	userID, isAdmin := extractUserContext(ctx)
+	report, err := c.reportService.GetReport(uint(id), userID, isAdmin)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -84,7 +95,8 @@ func (c *CustomReportController) GetReportList(ctx *gin.Context) {
 		}
 	}
 
-	reports, total, err := c.reportService.GetReportList(page, pageSize)
+	userID, isAdmin := extractUserContext(ctx)
+	reports, total, err := c.reportService.GetReportList(page, pageSize, userID, isAdmin)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -114,7 +126,8 @@ func (c *CustomReportController) UpdateReport(ctx *gin.Context) {
 		return
 	}
 
-	report, err := c.reportService.UpdateReport(uint(id), &req)
+	userID, isAdmin := extractUserContext(ctx)
+	report, err := c.reportService.UpdateReport(uint(id), userID, isAdmin, &req)
 	if errhttp.HandleDBError(ctx, err, "更新报表") {
 		return
 	}
@@ -132,7 +145,8 @@ func (c *CustomReportController) DeleteReport(ctx *gin.Context) {
 		return
 	}
 
-	err = c.reportService.DeleteReport(uint(id))
+	userID, isAdmin := extractUserContext(ctx)
+	err = c.reportService.DeleteReport(uint(id), userID, isAdmin)
 	if errhttp.HandleDBError(ctx, err, "删除报表") {
 		return
 	}
@@ -200,7 +214,8 @@ func (c *CustomReportController) QueryReportData(ctx *gin.Context) {
 		params["layer"] = layer
 	}
 
-	report, err := c.reportService.GetReport(uint(id))
+	userID, isAdmin := extractUserContext(ctx)
+	report, err := c.reportService.GetReport(uint(id), userID, isAdmin)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -243,7 +258,8 @@ func (c *CustomReportController) ExportCSV(ginCtx *gin.Context) {
 		params["layer"] = layer
 	}
 
-	report, err := c.reportService.GetReport(uint(id))
+	userID, isAdmin := extractUserContext(ginCtx)
+	report, err := c.reportService.GetReport(uint(id), userID, isAdmin)
 	if err != nil {
 		response.Error(ginCtx, http.StatusNotFound, err.Error())
 		return
@@ -261,4 +277,3 @@ func (c *CustomReportController) ExportCSV(ginCtx *gin.Context) {
 		return
 	}
 }
-

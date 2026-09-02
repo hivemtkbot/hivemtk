@@ -57,6 +57,9 @@ type SmartCSOrchestrator struct {
 	// FAQ 语义缓存（M6 R-2）：构造时从全局装配读取；nil 时零影响直通
 	faqCache    *ragcache.FAQAnswerCacheService
 	faqEmbedder llm.EmbeddingServiceInterface
+
+	// dncChecker CS-P0-1: 全局退订检查器（nil 时跳过，向后兼容）
+	dncChecker DoNotContactChecker
 }
 
 // OrchestratorConfig 编排器配置
@@ -495,6 +498,7 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 		}
 		derivedOneID := "group:" + groupKey
 		now := time.Now()
+		dncBlocked := o.checkDNCBlocked(ctx, derivedOneID)
 		stableSessionID := fmt.Sprintf("sess_%s_%s_%s", string(in.Platform), in.AccountID, derivedOneID)
 		if id, err := o.sessionRepo.UpsertByOneID(ctx, string(in.Platform), in.AccountID, derivedOneID, derivedOneID, in.GroupName, in.Content, &now); err != nil {
 			staleID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
@@ -513,6 +517,7 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 				LastMessageAt: &now,
 				LastMessageBy: "user",
 				HandlerType:   model.HandlerTypeAI,
+				DNCBlocked:    dncBlocked,
 			}
 			if err := o.sessionRepo.Create(ctx, session); err != nil {
 				return nil, err
@@ -535,6 +540,7 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 			LastMessageAt: &now,
 			LastMessageBy: "user",
 			HandlerType:   model.HandlerTypeAI,
+			DNCBlocked:    dncBlocked,
 		}
 		if err := o.sessionRepo.Create(ctx, session); err != nil {
 			return nil, err
@@ -556,6 +562,7 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 	if derivedOneID == "" {
 		derivedOneID = fmt.Sprintf("%s:%s", in.Platform, in.SenderID)
 	}
+	dncBlocked := o.checkDNCBlocked(ctx, derivedOneID)
 	now := time.Now()
 	stableSessionID := fmt.Sprintf("sess_%s_%s_%s", string(in.Platform), in.AccountID, derivedOneID)
 	if id, err := o.sessionRepo.UpsertByOneID(ctx, string(in.Platform), in.AccountID, derivedOneID, in.SenderID, in.SenderName, in.Content, &now); err != nil {
@@ -574,6 +581,7 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 			LastMessageAt: &now,
 			LastMessageBy: "user",
 			HandlerType:   model.HandlerTypeAI,
+			DNCBlocked:    dncBlocked,
 		}
 		if err := o.sessionRepo.Create(ctx, session); err != nil {
 			return nil, err
@@ -596,11 +604,27 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 		LastMessageAt: &now,
 		LastMessageBy: "user",
 		HandlerType:   model.HandlerTypeAI,
+		DNCBlocked:    dncBlocked,
 	}
 	if err := o.sessionRepo.Create(ctx, session); err != nil {
 		return nil, err
 	}
 	return session, nil
+}
+
+// checkDNCBlocked CS-P0-1: 检查 oneID 是否命中全局退订，命中时记 warn 日志并返回 true。
+// dncChecker 为 nil 或 oneID 为空时返回 false（跳过检查）。
+func (o *SmartCSOrchestrator) checkDNCBlocked(ctx context.Context, oneID string) bool {
+	if o.dncChecker == nil || oneID == "" {
+		return false
+	}
+	if o.dncChecker.IsBlocked(ctx, oneID, "") {
+		logger.Ctx(ctx).Warn().
+			Str("one_id", oneID).
+			Msg("[CS-P0-1] Orchestrator 创建会话时命中全局退订，标记 DNCBlocked=true 但允许创建")
+		return true
+	}
+	return false
 }
 
 // saveInboundMessage 保存入站消息

@@ -7,11 +7,15 @@ import (
 	"hivemtk-user/internal/aiagent/llm"
 	rag_core "hivemtk-user/internal/aiagent/rag/core"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/websocket"
 	"strconv"
 	"strings"
 	"time"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // SessionAssignmentService 会话分配服务
@@ -327,30 +331,70 @@ func (s *SessionAssignmentService) handleByHuman(ctx context.Context, session *m
 }
 
 // autoAssignToAgent 自动分配给客服
+//
+// CS-P0-2: 修复 TOCTOU 竞态 — 原 "GetOnlineAgents 读 → findLeast 选 → AssignAgent +
+// Increment 写" 三步非原子，并发下多个请求可能同时选到同一个 agent 且都成功 Increment，
+// 导致负载统计失真甚至超容量分配。
+//
+// 修复：整个分配链路包在一个 DB 事务内，用 SELECT ... FOR UPDATE 锁住被选中的
+// agent_status 行，其他并发事务会等待直到当前提交，保证选 agent + 分配 + 负载更新
+// 三者严格原子。websocket 通知放在 Commit 之后（通知不参与回滚）。
 func (s *SessionAssignmentService) autoAssignToAgent(ctx context.Context, session *model.CustomerSession, reason string) error {
-	agents, err := s.agentRepo.GetOnlineAgents(ctx)
-	if err != nil || len(agents) == 0 {
-		return errors.New("无在线客服")
+	gdb := db.GetDB()
+	if gdb == nil {
+		return errors.New("database not initialized")
 	}
 
-	selectedAgent := agents[0]
-	for _, agent := range agents {
-		if agent.ActiveSessions < selectedAgent.ActiveSessions {
-			selectedAgent = agent
+	tx := gdb.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return fmt.Errorf("start transaction: %w", tx.Error)
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
 		}
+	}()
+
+	// SELECT ... FOR UPDATE 锁住最佳 agent，其他并发请求会等待
+	var bestAgent model.AgentStatus
+	cutoff := time.Now().Add(-5 * time.Minute)
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("status IN ? AND active_sessions < max_sessions AND last_active_at > ?",
+			[]string{"online", "busy"}, cutoff).
+		Order("active_sessions ASC").
+		Limit(1).
+		First(&bestAgent).Error; err != nil {
+		tx.Rollback()
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("无在线客服")
+		}
+		return fmt.Errorf("pick agent: %w", err)
 	}
 
-	err = s.sessionRepo.AssignAgent(ctx, session.ID, selectedAgent.AgentID, selectedAgent.AgentName)
-	if err != nil {
-		return err
+	// 事务内 AssignAgent（用 tx 绑定的 repo 实例）
+	txSessionRepo := repository.NewCustomerSessionRepositoryWithDB(tx)
+	if err := txSessionRepo.AssignAgent(ctx, session.ID, bestAgent.AgentID, bestAgent.AgentName); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("assign agent: %w", err)
 	}
 
-	err = s.agentRepo.IncrementActiveSessions(ctx, selectedAgent.AgentID)
-	if err != nil {
-		return err
+	// 事务内原子递增 active_sessions + today_sessions（等价于原 IncrementActiveSessions）
+	if err := tx.Model(&model.AgentStatus{}).Where("agent_id = ?", bestAgent.AgentID).
+		Updates(map[string]any{
+			"active_sessions": gorm.Expr("active_sessions + 1"),
+			"today_sessions":  gorm.Expr("today_sessions + 1"),
+		}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("increment agent load: %w", err)
 	}
 
-	websocket.NotifyNewSession(strconv.FormatUint(uint64(selectedAgent.AgentID), 10), map[string]any{
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("commit assign: %w", err)
+	}
+
+	// Commit 成功后再做 websocket 通知（通知不参与事务，回滚场景不会多发通知）
+	websocket.NotifyNewSession(strconv.FormatUint(uint64(bestAgent.AgentID), 10), map[string]any{
 		"session_id":      session.SessionID,
 		"user_name":       session.UserName,
 		"last_message":    session.LastMessage,
@@ -361,7 +405,7 @@ func (s *SessionAssignmentService) autoAssignToAgent(ctx context.Context, sessio
 	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
 		"session_id": session.SessionID,
 		"handler":    "human",
-		"agent_name": selectedAgent.AgentName,
+		"agent_name": bestAgent.AgentName,
 		"reason":     "正在为您接入人工客服，请稍候...",
 	}, session.SessionID)
 

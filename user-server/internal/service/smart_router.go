@@ -7,6 +7,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/repository"
@@ -87,27 +88,47 @@ type candidateScores struct {
 }
 
 // computeScores 计算单个坐席的三个维度得分
+//
+// Intent 匹配策略（AI-P0-3 2026-09-02 加固）：
+//  1. AgentName 直接包含 intent 关键词 → 0.8
+//  2. AgentName 中的角色关键词（售后/咨询/技术/销售…）映射命中相关意图 → 0.5
+//  3. 均未命中 → 0.3
+//
+// Skills 匹配策略：
+//  AgentStatus 当前暂无 skills 字段，退化为用 AgentName/角色关键词匹配 SkillsNeeded，
+//  任一命中 → 0.7，均未命中 → 0.5
 func (r *SmartRouter) computeScores(agent *model.AgentStatus, req *SmartRouteRequest) candidateScores {
 	var scores candidateScores
 
-	// Intent match: 简单实现——agent_name 包含 intent 关键词给分
-	// 实际项目中可扩展为 agent 级别的 intent_preferences 字段
+	// ---------- Intent ----------
+	scores.Intent = 0.3 // 默认最低分
 	if req.Intent != "" && agent.AgentName != "" {
-		if containsIgnoreCase(agent.AgentName, req.Intent) {
-			scores.Intent = 1.0
-		} else {
-			scores.Intent = 0.5 // 中性分，避免非零无差别
+		nameLower := strings.ToLower(agent.AgentName)
+		intentLower := strings.ToLower(req.Intent)
+
+		// 1) AgentName 直接包含 intent 关键词
+		if strings.Contains(nameLower, intentLower) {
+			scores.Intent = 0.8
+		} else if roleMatchesIntent(nameLower, intentLower) {
+			// 2) 角色关键词 → 意图的语义映射
+			scores.Intent = 0.5
 		}
-	} else {
-		scores.Intent = 0.5
 	}
 
-	// Skills match: 当前 model.AgentStatus 暂无 skills 字段，按未来扩展预留接口
-	// 现阶段给固定中间分；skills 字段加上后改为交集计算
-	scores.Skills = 0.5
-	_ = req.SkillsNeeded // 预留
+	// ---------- Skills ----------
+	scores.Skills = 0.5 // 默认中性分
+	if len(req.SkillsNeeded) > 0 && agent.AgentName != "" {
+		nameLower := strings.ToLower(agent.AgentName)
+		for _, sk := range req.SkillsNeeded {
+			skLower := strings.ToLower(strings.TrimSpace(sk))
+			if skLower != "" && strings.Contains(nameLower, skLower) {
+				scores.Skills = 0.7
+				break
+			}
+		}
+	}
 
-	// Capacity score: 活跃会话 / 最大会话，剩余容量越多分越高
+	// ---------- Capacity ----------
 	if agent.MaxSessions > 0 {
 		used := float64(agent.ActiveSessions) / float64(agent.MaxSessions)
 		scores.Capacity = 1.0 - used // active=0 → 1.0, full → 0.0
@@ -118,28 +139,29 @@ func (r *SmartRouter) computeScores(agent *model.AgentStatus, req *SmartRouteReq
 	return scores
 }
 
-func containsIgnoreCase(s, substr string) bool {
-	if len(substr) > len(s) {
-		return false
-	}
-	for i := 0; i <= len(s)-len(substr); i++ {
-		match := true
-		for j := 0; j < len(substr); j++ {
-			sc := s[i+j]
-			tc := substr[j]
-			if sc >= 'A' && sc <= 'Z' {
-				sc += 32
+// roleIntentMap AgentName 中常见的角色关键词 → 意图关键词列表
+// 用于 AgentName 不直接包含 intent 时的语义兜底匹配。
+var roleIntentMap = map[string][]string{
+	"售后":   {"after_sale", "return", "refund", "complaint", "换货", "退款", "投诉"},
+	"客服":   {"consult", "pre_sale", "after_sale", "咨询", "售前", "售后", "问题"},
+	"咨询":   {"consult", "pre_sale", "售前", "咨询", "问题"},
+	"售前":   {"pre_sale", "consult", "售前", "咨询", "产品"},
+	"技术":   {"technical", "tech", "install", "bug", "support", "技术", "安装", "故障", "支持"},
+	"销售":   {"sales", "pre_sale", "consult", "售前", "咨询", "产品", "报价"},
+	"投诉":   {"complaint", "after_sale", "return", "refund", "投诉", "退款"},
+	"支持":   {"support", "technical", "tech", "install", "bug", "技术", "安装", "故障"},
+	"运营":   {"operation", "campaign", "活动", "运营", "推广"},
+}
+
+// roleMatchesIntent 检查 agentName 是否包含某个角色关键词，且该角色与 intent 相关
+func roleMatchesIntent(agentName, intent string) bool {
+	for roleKey, intents := range roleIntentMap {
+		if strings.Contains(agentName, strings.ToLower(roleKey)) {
+			for _, i := range intents {
+				if strings.Contains(intent, strings.ToLower(i)) || strings.Contains(strings.ToLower(i), intent) {
+					return true
+				}
 			}
-			if tc >= 'A' && tc <= 'Z' {
-				tc += 32
-			}
-			if sc != tc {
-				match = false
-				break
-			}
-		}
-		if match {
-			return true
 		}
 	}
 	return false

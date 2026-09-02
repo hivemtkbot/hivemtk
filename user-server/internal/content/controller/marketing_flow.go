@@ -10,6 +10,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// extractUserContext 从 gin.Context 提取 userID 和 isAdmin 标志
+func extractFlowUserContext(ctx *gin.Context) (uint, bool) {
+	userID, _ := ctx.Get("user_id")
+	roleVal, _ := ctx.Get("role")
+	role, _ := roleVal.(string)
+	isAdmin := role == "admin" || role == "super_admin"
+	uid, _ := userID.(uint)
+	return uid, isAdmin
+}
+
 // MarketingFlowController 营销流程控制器
 type MarketingFlowController struct {
 	flowService *service.MarketingFlowService
@@ -95,7 +105,8 @@ func (c *MarketingFlowController) UpdateFlow(ctx *gin.Context) {
 		return
 	}
 
-	flow, err := c.flowService.UpdateFlow(uint(id), &req)
+	userID, isAdmin := extractFlowUserContext(ctx)
+	flow, err := c.flowService.UpdateFlow(uint(id), userID, isAdmin, &req)
 	if errhttp.HandleDBError(ctx, err, "更新营销流程") {
 		return
 	}
@@ -113,7 +124,8 @@ func (c *MarketingFlowController) DeleteFlow(ctx *gin.Context) {
 		return
 	}
 
-	if errhttp.HandleDBError(ctx, c.flowService.DeleteFlow(uint(id)), "删除营销流程") {
+	userID, isAdmin := extractFlowUserContext(ctx)
+	if errhttp.HandleDBError(ctx, c.flowService.DeleteFlow(uint(id), userID, isAdmin), "删除营销流程") {
 		return
 	}
 
@@ -130,7 +142,8 @@ func (c *MarketingFlowController) ActivateFlow(ctx *gin.Context) {
 		return
 	}
 
-	if errhttp.HandleDBError(ctx, c.flowService.ActivateFlow(uint(id)), "激活营销流程") {
+	userID, isAdmin := extractFlowUserContext(ctx)
+	if errhttp.HandleDBError(ctx, c.flowService.ActivateFlow(uint(id), userID, isAdmin), "激活营销流程") {
 		return
 	}
 
@@ -147,7 +160,8 @@ func (c *MarketingFlowController) PauseFlow(ctx *gin.Context) {
 		return
 	}
 
-	if errhttp.HandleDBError(ctx, c.flowService.PauseFlow(uint(id)), "暂停营销流程") {
+	userID, isAdmin := extractFlowUserContext(ctx)
+	if errhttp.HandleDBError(ctx, c.flowService.PauseFlow(uint(id), userID, isAdmin), "暂停营销流程") {
 		return
 	}
 
@@ -164,7 +178,8 @@ func (c *MarketingFlowController) StopFlow(ctx *gin.Context) {
 		return
 	}
 
-	if errhttp.HandleDBError(ctx, c.flowService.StopFlow(uint(id)), "停止营销流程") {
+	userID, isAdmin := extractFlowUserContext(ctx)
+	if errhttp.HandleDBError(ctx, c.flowService.StopFlow(uint(id), userID, isAdmin), "停止营销流程") {
 		return
 	}
 

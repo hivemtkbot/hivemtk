@@ -137,7 +137,7 @@ func TestCustomReportService_GetReport_Success(t *testing.T) {
 	}
 	created, _ := service.CreateReport(123, createReq)
 
-	report, err := service.GetReport(created.ID)
+	report, err := service.GetReport(created.ID, 123, true)
 	if err != nil {
 		t.Fatalf("GetReport failed: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestCustomReportService_GetReport_NotFound(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	_, err := service.GetReport(999999)
+	_, err := service.GetReport(999999, 123, true)
 	if err == nil {
 		t.Error("Expected error for non-existent report")
 	}
@@ -171,7 +171,7 @@ func TestCustomReportService_GetReport_NoPermission(t *testing.T) {
 	}
 	created, _ := service.CreateReport(123, createReq)
 
-	_, err := service.GetReport(created.ID)
+	_, err := service.GetReport(created.ID, 999, false)
 	if err == nil {
 		t.Error("Expected error for no permission")
 	}
@@ -191,7 +191,7 @@ func TestCustomReportService_GetReportList_Success(t *testing.T) {
 		service.CreateReport(123, createReq)
 	}
 
-	reports, total, err := service.GetReportList(1, 10)
+	reports, total, err := service.GetReportList(1, 10, 123, true)
 	if err != nil {
 		t.Fatalf("GetReportList failed: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestCustomReportService_UpdateReport_Success(t *testing.T) {
 		IsPublic:    true,
 	}
 
-	updated, err := service.UpdateReport(created.ID, updateReq)
+	updated, err := service.UpdateReport(created.ID, 123, true, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateReport failed: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestCustomReportService_UpdateReport_NotFound(t *testing.T) {
 		ChartType:  "line",
 	}
 
-	_, err := service.UpdateReport(999999, updateReq)
+	_, err := service.UpdateReport(999999, 123, true, updateReq)
 	if err == nil {
 		t.Error("Expected error for non-existent report")
 	}
@@ -272,7 +272,7 @@ func TestCustomReportService_UpdateReport_SingleTenant(t *testing.T) {
 		ChartType:  "bar",
 	}
 
-	updated, err := service.UpdateReport(created.ID, updateReq)
+	updated, err := service.UpdateReport(created.ID, 123, true, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateReport failed: %v", err)
 	}
@@ -293,12 +293,12 @@ func TestCustomReportService_DeleteReport_Success(t *testing.T) {
 	}
 	created, _ := service.CreateReport(123, createReq)
 
-	err := service.DeleteReport(created.ID)
+	err := service.DeleteReport(created.ID, 123, true)
 	if err != nil {
 		t.Fatalf("DeleteReport failed: %v", err)
 	}
 
-	_, err = service.GetReport(created.ID)
+	_, err = service.GetReport(created.ID, 123, true)
 	if err == nil {
 		t.Error("Expected error after deletion")
 	}
@@ -309,7 +309,7 @@ func TestCustomReportService_DeleteReport_NotFound(t *testing.T) {
 	db := setupCustomReportServiceTestDB(t)
 	service := setupCustomReportService(t, db)
 
-	err := service.DeleteReport(999999)
+	err := service.DeleteReport(999999, 123, true)
 	if err == nil {
 		t.Error("Expected error for non-existent report")
 	}

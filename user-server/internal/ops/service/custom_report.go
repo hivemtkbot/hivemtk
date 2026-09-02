@@ -107,33 +107,38 @@ func (s *CustomReportService) CreateReport(createdBy uint, req *CreateReportRequ
 	return report, nil
 }
 
-// GetReport 获取报表详情
-func (s *CustomReportService) GetReport(id uint) (*model.CustomReport, error) {
+// GetReport 获取报表详情（带权限校验：公开或本人或管理员可读）
+func (s *CustomReportService) GetReport(id uint, userID uint, isAdmin bool) (*model.CustomReport, error) {
 	report, err := s.reportRepo.GetByID(id)
 	if err != nil {
 		return nil, errors.New("报表不存在")
 	}
 
-	if !report.IsPublic {
+	if !report.IsPublic && !isAdmin && report.CreatedBy != userID {
 		return nil, errors.New("无权限查看")
 	}
 
 	return report, nil
 }
 
-// GetReportList 获取报表列表
-func (s *CustomReportService) GetReportList(page, pageSize int) ([]*model.CustomReport, int64, error) {
-	return s.reportRepo.GetAll(page, pageSize)
+// GetReportList 获取报表列表（管理员看全部，普通用户看自己创建的 + 公开的）
+func (s *CustomReportService) GetReportList(page, pageSize int, userID uint, isAdmin bool) ([]*model.CustomReport, int64, error) {
+	if isAdmin {
+		return s.reportRepo.GetAll(page, pageSize)
+	}
+	return s.reportRepo.GetByCreatorOrPublic(userID, page, pageSize)
 }
 
-// UpdateReport 更新报表
-func (s *CustomReportService) UpdateReport(id uint, req *UpdateReportRequest) (*model.CustomReport, error) {
+// UpdateReport 更新报表（只有创建者或管理员可修改）
+func (s *CustomReportService) UpdateReport(id uint, userID uint, isAdmin bool, req *UpdateReportRequest) (*model.CustomReport, error) {
 	report, err := s.reportRepo.GetByID(id)
 	if err != nil {
 		return nil, errors.New("报表不存在")
 	}
 
-	_ = report
+	if !isAdmin && report.CreatedBy != userID {
+		return nil, errors.New("无权限修改此报表")
+	}
 
 	if !isValidDataSource(req.DataSource) {
 		return nil, errors.New("不支持的数据源类型")
@@ -166,14 +171,16 @@ func (s *CustomReportService) UpdateReport(id uint, req *UpdateReportRequest) (*
 	return report, nil
 }
 
-// DeleteReport 删除报表
-func (s *CustomReportService) DeleteReport(id uint) error {
+// DeleteReport 删除报表（只有创建者或管理员可删除）
+func (s *CustomReportService) DeleteReport(id uint, userID uint, isAdmin bool) error {
 	report, err := s.reportRepo.GetByID(id)
 	if err != nil {
 		return errors.New("报表不存在")
 	}
 
-	_ = report
+	if !isAdmin && report.CreatedBy != userID {
+		return errors.New("无权限删除此报表")
+	}
 
 	return s.reportRepo.Delete(id)
 }

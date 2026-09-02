@@ -49,8 +49,9 @@ type CustomerSession struct {
 	AvgResponseTime int           `json:"avg_response_time"` 
 	Rating          int           `json:"rating"`            
 	RatingComment   string        `gorm:"type:text" json:"rating_comment"`
-	Tags            string        `gorm:"type:text" json:"tags"` 
-	Version         int           `gorm:"default:1" json:"version"`  // G3: 乐观锁版本号
+	Tags            string        `gorm:"type:text" json:"tags"`
+	DNCBlocked      bool          `gorm:"default:false;index" json:"dnc_blocked"` // CS-P0-1: 会话创建时命中全局退订标记；允许创建但 CRM 侧默认阻止营销动作
+	Version         int           `gorm:"default:1" json:"version"`                // G3: 乐观锁版本号
 	CreatedAt       time.Time     `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt       time.Time     `gorm:"autoUpdateTime" json:"updated_at"`
 	ResolvedAt      *time.Time    `json:"resolved_at"`

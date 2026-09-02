@@ -45,6 +45,10 @@ type CustomerRepository interface {
 	GetByXiaohongshuID(ctx context.Context, xhsID string) (*model.Customer, error)
 	SearchByFilter(ctx context.Context, filter CustomerSearchFilter) (items []*model.Customer, total int64, err error)
 	ReassignSessionOneID(ctx context.Context, oldOneID, newOneID string) error
+	// CS-P0-3: 通用 OneID 重定向（对普通表执行 UPDATE ... SET one_id = new WHERE one_id = old）
+	ReassignOneID(ctx context.Context, table, oldOneID, newOneID string) error
+	// CS-P0-3: DNC 重定向（处理唯一索引 (one_id, channel) 冲突：先删 primary 已有的 channel 再 UPDATE）
+	ReassignDNCOneID(ctx context.Context, oldOneID, newOneID string) error
 	// OPT-ARC-06：事务支持（OPT-ARC-06 全量写操作原子化）
 	WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error
 }
@@ -341,6 +345,48 @@ func (r *customerRepository) ReassignSessionOneID(ctx context.Context, oldOneID,
 	}
 	return dbFromCtx(ctx).
 		Table("customer_sessions").
+		Where("one_id = ?", oldOneID).
+		Update("one_id", newOneID).Error
+}
+
+// ReassignOneID CS-P0-3: 通用 OneID 重定向（普通表）。
+// 将指定表中 one_id = oldOneID 的记录改为 newOneID（幂等，无匹配不报错）。
+// 调用方需确保表名合法（gorm TableName 常量对应的字符串），禁止拼接外部输入。
+func (r *customerRepository) ReassignOneID(ctx context.Context, table, oldOneID, newOneID string) error {
+	if table == "" || oldOneID == "" || newOneID == "" || oldOneID == newOneID {
+		return nil
+	}
+	return dbFromCtx(ctx).
+		Table(table).
+		Where("one_id = ?", oldOneID).
+		Update("one_id", newOneID).Error
+}
+
+// ReassignDNCOneID CS-P0-3: DNC 重定向（处理唯一索引冲突）。
+// customer_do_not_contact 有唯一索引 (one_id, channel)，合并时 secondary 的某些
+// (oldOneID, channel) 可能与 primary 的 (newOneID, channel) 冲突。
+// 本方法先删除 primary 侧已存在的 channel 行（保留 primary 自己的退订时间/来源），
+// 再把 secondary 的 one_id 改为 newOneID。整个过程参与外层事务。
+func (r *customerRepository) ReassignDNCOneID(ctx context.Context, oldOneID, newOneID string) error {
+	if oldOneID == "" || newOneID == "" || oldOneID == newOneID {
+		return nil
+	}
+	db := dbFromCtx(ctx)
+	// 先收集 secondary 有但 primary 也有相同 channel 的行，删除 primary 侧的
+	// （保留 primary 端自己的 Block 记录，因为 primary 的 block 时间/来源更可信）
+	dupSubQuery := db.
+		Table("customer_do_not_contact").
+		Where("one_id = ?", oldOneID).
+		Select("channel")
+	if err := db.
+		Table("customer_do_not_contact").
+		Where("one_id = ? AND channel IN (?)", newOneID, dupSubQuery).
+		Delete(nil).Error; err != nil {
+		return fmt.Errorf("delete duplicate DNC rows: %w", err)
+	}
+	// 再把 secondary 的 one_id 改为 newOneID（幂等）
+	return db.
+		Table("customer_do_not_contact").
 		Where("one_id = ?", oldOneID).
 		Update("one_id", newOneID).Error
 }

@@ -22,6 +22,8 @@ func setupAuthRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	auth.POST("/auth/mfa/confirm", authCtrl.ConfirmMFASetup)
 	auth.POST("/auth/mfa/disable", authCtrl.DisableMFA)
 	auth.GET("/auth/mfa/status", authCtrl.GetMFAStatus)
+	// AD-P0-4: 生成 MFA 恢复码端点（Service 层已有 GenerateBackupCodes）
+	auth.POST("/auth/mfa/backup-codes", authCtrl.GenerateBackupCodes)
 
 	auth.GET("/auth/login-events", authCtrl.ListLoginEvents)
 	auth.GET("/auth/security-alerts", authCtrl.ListSecurityAlerts)
@@ -150,31 +152,42 @@ func setupShortLinkRoutes(auth *gin.RouterGroup, public *gin.RouterGroup, gormDB
 }
 
 // setupLiveCodeRoutes 活码管理路由
+//
+// 权限分级（AD-P0-1 2026-09-02 加固）：
+//   - 读（List/Get/Stats/QRCodes/QRStats）：任意登录用户
+//   - 写（Create/Update/Delete/GenerateQRCode/Share/UpdateLiveCodeQR/DeleteLiveCodeQR）：admin only
+// 防 staff 绕过权限篡改活码目标 URL / 恶意生成 QR。
 func setupLiveCodeRoutes(auth *gin.RouterGroup, liveCodeController *controller.LiveCodeController) {
+	// 读操作：任意登录用户
 	auth.GET("/live-code/list", liveCodeController.GetList)
 	auth.GET("/live-codes/list", liveCodeController.GetList)
-	auth.POST("/live-code", liveCodeController.Create)
-	auth.PUT("/live-code/:id", liveCodeController.Update)
-	auth.DELETE("/live-code/:id", liveCodeController.Delete)
 	auth.GET("/live-code/:id", liveCodeController.GetByID)
 	auth.GET("/live-code/:id/stats", liveCodeController.GetStats)
-	auth.POST("/live-code/:id/qr-code", liveCodeController.GenerateQRCode)
 	auth.GET("/live-code/:id/qr-codes", liveCodeController.GetQRCodes)
 	auth.GET("/live-code/:id/qr-stats", liveCodeController.GetQRStats)
-	auth.POST("/live-code/:id/share", liveCodeController.Share)
-	auth.DELETE("/live-code/:id/qr-codes/:qr_id", liveCodeController.DeleteLiveCodeQR)
-	auth.PUT("/live-code/:id/qr-codes/:qr_id", liveCodeController.UpdateLiveCodeQR)
 	auth.GET("/live-codes/:id", liveCodeController.GetByID)
-	auth.POST("/live-codes/create", liveCodeController.Create)
-	auth.PUT("/live-codes/:id/update", liveCodeController.Update)
-	auth.DELETE("/live-codes/:id/delete", liveCodeController.Delete)
 	auth.GET("/live-codes/:id/stats", liveCodeController.GetStats)
 	auth.GET("/live-codes/:id/qrcodes", liveCodeController.GetQRCodes)
-	auth.POST("/live-codes/:id/qrcodes/create", liveCodeController.GenerateQRCode)
 	auth.GET("/live-codes/qrcodes/:qr_id/stats", liveCodeController.GetQRStats)
-	auth.POST("/live-codes/:id/share", liveCodeController.Share)
-	auth.DELETE("/live-codes/qrcodes/:qr_id/delete", liveCodeController.DeleteLiveCodeQR)
-	auth.PUT("/live-codes/qrcodes/:qr_id/update", liveCodeController.UpdateLiveCodeQR)
+
+	// 写操作：admin only
+	admin := auth.Group("", middleware.AdminAuthMiddleware())
+	{
+		admin.POST("/live-code", liveCodeController.Create)
+		admin.PUT("/live-code/:id", liveCodeController.Update)
+		admin.DELETE("/live-code/:id", liveCodeController.Delete)
+		admin.POST("/live-code/:id/qr-code", liveCodeController.GenerateQRCode)
+		admin.POST("/live-code/:id/share", liveCodeController.Share)
+		admin.DELETE("/live-code/:id/qr-codes/:qr_id", liveCodeController.DeleteLiveCodeQR)
+		admin.PUT("/live-code/:id/qr-codes/:qr_id", liveCodeController.UpdateLiveCodeQR)
+		admin.POST("/live-codes/create", liveCodeController.Create)
+		admin.PUT("/live-codes/:id/update", liveCodeController.Update)
+		admin.DELETE("/live-codes/:id/delete", liveCodeController.Delete)
+		admin.POST("/live-codes/:id/qrcodes/create", liveCodeController.GenerateQRCode)
+		admin.POST("/live-codes/:id/share", liveCodeController.Share)
+		admin.DELETE("/live-codes/qrcodes/:qr_id/delete", liveCodeController.DeleteLiveCodeQR)
+		admin.PUT("/live-codes/qrcodes/:qr_id/update", liveCodeController.UpdateLiveCodeQR)
+	}
 }
 
 // setupEmailRoutes 邮件管理路由

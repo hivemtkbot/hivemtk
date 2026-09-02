@@ -509,6 +509,15 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 		Version string           `json:"version"`
 		Clues   []map[string]any `json:"clues"`
 		Users   []map[string]any `json:"users"`
+		// AD-P0-2 扩表：新增字段（v1.1.0 及以上版本）
+		MFA                []map[string]any `json:"mfa"`
+		OBSConfig          []map[string]any `json:"obs_config"`
+		EmailAccounts      []map[string]any `json:"email_accounts"`
+		EmailJobs          []map[string]any `json:"email_jobs"`
+		DNC                []map[string]any `json:"dnc"`
+		SystemConfig       []map[string]any `json:"system_config"`
+		WebhookSubs        []map[string]any `json:"webhook_subscriptions"`
+		PasswordHistory    []map[string]any `json:"password_history"`
 	}
 	if err := json.Unmarshal(data, &backupData); err != nil {
 		return err
@@ -559,11 +568,14 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 		if exists {
 			continue
 		}
+		// AD-P0-3 修复：恢复用户时包含 password（bcrypt 哈希原样写回）
+		// 原：只恢复 id/username/email/phone → 用户丢失密码，登录即失败
 		if err := s.backupDataRepo.RestoreUser(ctx, map[string]any{
 			"id":       u["id"],
 			"username": username,
 			"email":    u["email"],
 			"phone":    u["phone"],
+			"password": u["password"], // bcrypt 哈希，RestoreUser 用 Table() 绕过 BeforeCreate 钩子
 		}); err != nil {
 			logger.Error(err, "恢复用户失败: "+username)
 			continue
@@ -571,7 +583,36 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 		restoredUsers++
 	}
 
-	logger.Info(fmt.Sprintf("备份 %s 恢复完成: 线索 %d 条, 用户 %d 个", backup.BackupName, restoredClues, restoredUsers))
+	// AD-P0-2 扩表恢复：v1.1.0+ 备份包含这些表，旧版本为 nil 则跳过
+	type restoreExtra struct {
+		key       string
+		tableName string
+		rows      []map[string]any
+	}
+	extras := []restoreExtra{
+		{"mfa", "user_mfa", backupData.MFA},
+		{"obs_config", "obs_config", backupData.OBSConfig},
+		{"email_accounts", "email_accounts", backupData.EmailAccounts},
+		{"email_jobs", "email_jobs", backupData.EmailJobs},
+		{"dnc", "dnc", backupData.DNC},
+		{"system_config", "system_config", backupData.SystemConfig},
+		{"webhook_subscriptions", "webhook_subscriptions", backupData.WebhookSubs},
+		{"password_history", "password_history", backupData.PasswordHistory},
+	}
+	restoredExtraTables := 0
+	for _, e := range extras {
+		if len(e.rows) == 0 {
+			continue
+		}
+		if err := s.backupDataRepo.RestoreTable(ctx, e.tableName, e.rows); err != nil {
+			logger.Error(err, fmt.Sprintf("恢复扩表 %s 失败", e.tableName))
+			continue
+		}
+		restoredExtraTables++
+	}
+
+	logger.Info(fmt.Sprintf("备份 %s 恢复完成: 线索 %d 条, 用户 %d 个, 扩表 %d 组",
+		backup.BackupName, restoredClues, restoredUsers, restoredExtraTables))
 
 	os.RemoveAll("restore_tmp")
 	return nil

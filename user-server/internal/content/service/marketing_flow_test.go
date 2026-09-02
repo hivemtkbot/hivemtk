@@ -197,7 +197,7 @@ func TestMarketingFlowService_UpdateFlow(t *testing.T) {
 		Description: "New Description",
 	}
 
-	updated, err := service.UpdateFlow(flow.ID, req)
+	updated, err := service.UpdateFlow(flow.ID, 123, true, req)
 	if err != nil {
 		t.Fatalf("UpdateFlow failed: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestMarketingFlowService_UpdateFlow_SingleTenant(t *testing.T) {
 	req := &UpdateFlowRequest{
 		Name: "Updated",
 	}
-	updated, err := service.UpdateFlow(flow.ID, req)
+	updated, err := service.UpdateFlow(flow.ID, 123, true, req)
 	if err != nil {
 		t.Fatalf("UpdateFlow should succeed in single-tenant mode, got: %v", err)
 	}
@@ -243,7 +243,7 @@ func TestMarketingFlowService_DeleteFlow(t *testing.T) {
 	}
 	db.GetDB().Create(flow)
 
-	err := service.DeleteFlow(flow.ID)
+	err := service.DeleteFlow(flow.ID, 123, true)
 	if err != nil {
 		t.Fatalf("DeleteFlow failed: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestMarketingFlowService_DeleteFlow_SingleTenant(t *testing.T) {
 	}
 	db.GetDB().Create(flow)
 
-	if err := service.DeleteFlow(flow.ID); err != nil {
+	if err := service.DeleteFlow(flow.ID, 123, true); err != nil {
 		t.Fatalf("DeleteFlow should succeed in single-tenant mode, got: %v", err)
 	}
 	var count int64
@@ -292,7 +292,7 @@ func TestMarketingFlowService_ActivateFlow(t *testing.T) {
 	}
 	db.GetDB().Create(flow)
 
-	err := service.ActivateFlow(flow.ID)
+	err := service.ActivateFlow(flow.ID, 123, true)
 	if err != nil {
 		t.Fatalf("ActivateFlow failed: %v", err)
 	}
@@ -314,7 +314,7 @@ func TestMarketingFlowService_ActivateFlow_InvalidStatus(t *testing.T) {
 	}
 	db.GetDB().Create(flow)
 
-	err := service.ActivateFlow(flow.ID)
+	err := service.ActivateFlow(flow.ID, 123, true)
 	if err == nil {
 		t.Error("Expected error for invalid status")
 	}
@@ -330,7 +330,7 @@ func TestMarketingFlowService_PauseFlow(t *testing.T) {
 	}
 	db.GetDB().Create(flow)
 
-	err := service.PauseFlow(flow.ID)
+	err := service.PauseFlow(flow.ID, 123, true)
 	if err != nil {
 		t.Fatalf("PauseFlow failed: %v", err)
 	}
@@ -352,7 +352,7 @@ func TestMarketingFlowService_StopFlow(t *testing.T) {
 	}
 	db.GetDB().Create(flow)
 
-	err := service.StopFlow(flow.ID)
+	err := service.StopFlow(flow.ID, 123, true)
 	if err != nil {
 		t.Fatalf("StopFlow failed: %v", err)
 	}

@@ -54,6 +54,30 @@ func (r *CustomReportRepository) GetAll(page, pageSize int) ([]*model.CustomRepo
 	return reports, total, nil
 }
 
+// GetByCreatorOrPublic 获取当前用户创建的或公开的报表列表（普通用户视角）
+func (r *CustomReportRepository) GetByCreatorOrPublic(creatorID uint, page, pageSize int) ([]*model.CustomReport, int64, error) {
+	var reports []*model.CustomReport
+	var total int64
+
+	offset := (page - 1) * pageSize
+
+	where := r.db.Model(&model.CustomReport{}).Where("created_by = ? OR is_public = ?", creatorID, true)
+
+	if err := where.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := where.
+		Order("created_at DESC").
+		Limit(pageSize).Offset(offset).
+		Find(&reports).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return reports, total, nil
+}
+
 // GetByDataSource 根据数据源获取报表(排除公开模板)
 func (r *CustomReportRepository) GetByDataSource(dataSource string) ([]*model.CustomReport, error) {
 	var reports []*model.CustomReport
@@ -111,4 +135,3 @@ func (r *CustomReportRepository) UseTemplate(templateID uint, createdBy uint) (*
 func NewCustomReportRepositoryWithDB(db *gorm.DB) *CustomReportRepository {
 	return &CustomReportRepository{db: db}
 }
-

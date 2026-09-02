@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	_db "hivemtk-user/internal/pkg/db"
@@ -16,19 +17,23 @@ import (
 //   - DumpClues:导出最近 sinceUnix 之后的线索
 //   - DumpUsers:导出 limit 个用户（从 offset 开始，用于分页全量 dump）
 //   - DumpShortLinks:导出 limit 个短链（从 offset 开始）
+//   - DumpTable:通用任意表全量导出（AD-P0-2 备份扩表：mfa / obs_config / email_accounts 等）
 //   - RestoreClue/RestoreUser/RestoreShortLink:按 ID 去重写入
+//   - RestoreTable:通用恢复（DELETE + INSERT），幂等重建
 //
 // 五层架构合规:封装对多张表的直接访问,避免 service 层持有 *gorm.DB。
 type BackupDataRepository interface {
 	DumpClues(ctx context.Context, sinceUnix int64) (json.RawMessage, error)
 	DumpUsers(ctx context.Context, limit, offset int) (json.RawMessage, error)
 	DumpShortLinks(ctx context.Context, limit, offset int) (json.RawMessage, error)
+	DumpTable(ctx context.Context, tableName string) (json.RawMessage, error)
 	ClueExists(ctx context.Context, id string) (bool, error)
 	RestoreClue(ctx context.Context, row map[string]any) error
 	UserExistsByUsername(ctx context.Context, username string) (bool, error)
 	RestoreUser(ctx context.Context, row map[string]any) error
 	ShortLinkExistsByCode(ctx context.Context, code string) (bool, error)
 	RestoreShortLink(ctx context.Context, row map[string]any) error
+	RestoreTable(ctx context.Context, tableName string, rows []map[string]any) error
 }
 
 type backupDataRepo struct {
@@ -67,13 +72,14 @@ func (r *backupDataRepo) DumpClues(ctx context.Context, sinceUnix int64) (json.R
 	return json.Marshal(rows)
 }
 
-// DumpUsers 导出 limit 个用户（v3 审计 P0-07 修复：分页支持）
+// DumpUsers 导出 limit 个用户（v3 审计 P0-07 修复：分页支持；AD-P0-3 修复：包含 password）
 func (r *backupDataRepo) DumpUsers(ctx context.Context, limit, offset int) (json.RawMessage, error) {
 	type userRow struct {
 		ID       string `json:"id"`
 		Username string `json:"username"`
 		Email    string `json:"email"`
 		Phone    string `json:"phone"`
+		Password string `json:"password"` // bcrypt 哈希，恢复时原样写回
 	}
 	var rows []userRow
 	if err := r.db.WithContext(ctx).Table("user").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
@@ -136,6 +142,53 @@ func (r *backupDataRepo) ShortLinkExistsByCode(ctx context.Context, code string)
 // RestoreShortLink 写入单条短链
 func (r *backupDataRepo) RestoreShortLink(ctx context.Context, row map[string]any) error {
 	return r.db.WithContext(ctx).Table("short_links").Create(row).Error
+}
+
+// AD-P0-2 备份扩表：安全白名单——仅允许导出/恢复这些表
+var allowedBackupTables = map[string]bool{
+	"user_mfa":              true,
+	"obs_config":            true,
+	"email_accounts":        true,
+	"email_jobs":            true,
+	"dnc":                   true,
+	"system_config":         true,
+	"webhook_subscriptions": true,
+	"password_history":      true,
+}
+
+// DumpTable 通用全量导出任意表（AD-P0-2 备份扩表）
+func (r *backupDataRepo) DumpTable(ctx context.Context, tableName string) (json.RawMessage, error) {
+	if !allowedBackupTables[tableName] {
+		return nil, fmt.Errorf("表 %s 不在导出白名单内", tableName)
+	}
+	var rows []map[string]any
+	if err := r.db.WithContext(ctx).Table(tableName).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		return []byte("[]"), nil
+	}
+	return json.Marshal(rows)
+}
+
+// RestoreTable 通用恢复：幂等重建（DELETE + INSERT）
+func (r *backupDataRepo) RestoreTable(ctx context.Context, tableName string, rows []map[string]any) error {
+	if !allowedBackupTables[tableName] {
+		return fmt.Errorf("表 %s 不在恢复白名单内", tableName)
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	// 幂等：先清空目标表再批量写入
+	if err := r.db.WithContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", tableName)).Error; err != nil {
+		return fmt.Errorf("清空 %s 失败: %w", tableName, err)
+	}
+	for _, row := range rows {
+		if err := r.db.WithContext(ctx).Table(tableName).Create(row).Error; err != nil {
+			fmt.Printf("[backup] RestoreTable row skipped table=%s err=%v\n", tableName, err)
+		}
+	}
+	return nil
 }
 
 // 防止 import time 未使用告警

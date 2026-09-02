@@ -412,6 +412,34 @@ func (c *AuthController) GetMFAStatus(ctx *gin.Context) {
 	}, "查询成功")
 }
 
+// GenerateBackupCodes 生成新的 MFA 恢复码（使旧码全部失效）
+// POST /api/auth/mfa/backup-codes
+// 返回 10 个明文恢复码（仅展示一次，后续只存 bcrypt 哈希）
+// 安全：需要用户已登录（JWT 鉴权）；生成后旧码立即失效
+func (c *AuthController) GenerateBackupCodes(ctx *gin.Context) {
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		response.Error(ctx, http.StatusUnauthorized, "未找到用户信息")
+		return
+	}
+	uid, ok := userID.(uint)
+	if !ok {
+		response.Error(ctx, http.StatusInternalServerError, "用户ID类型错误")
+		return
+	}
+
+	codes, err := c.mfaService.GenerateBackupCodes(context.Background(), uid)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"backup_codes": codes,
+		"message":      "恢复码已生成，旧码已失效。请立即保存，此页面关闭后将无法再次查看明文码。",
+	}, "生成成功")
+}
+
 
 // ListLoginEvents 查询登录事件列表
 // GET /api/auth/login-events?page=1&page_size=20

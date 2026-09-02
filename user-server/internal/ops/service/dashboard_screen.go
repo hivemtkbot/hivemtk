@@ -9,8 +9,9 @@ import (
 	"hivemtk-user/internal/ops/model"
 	opsrepo "hivemtk-user/internal/ops/repository"
 	sysrepo "hivemtk-user/internal/repository"
-	"log"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // DashboardScreenService 数据大屏服务
@@ -244,10 +245,23 @@ type RealtimeActivity struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// dataScopeScope 根据角色返回数据范围作用域
+// admin → 全量（无额外条件），普通用户 → data_scope 过滤（私域单租户当前无实际字段，预留接口）
+func dataScopeScope(db *gorm.DB, isAdmin bool) *gorm.DB {
+	if isAdmin {
+		return db
+	}
+	// 私域单租户：无多租户隔离字段，普通用户等价全量访问（单商户场景）
+	// 多租户迁移时在此追加 merchant_id / data_scope 条件
+	return db
+}
+
 // AggregateDashboardData 聚合大屏数据（Service 层）
-// 私域部署：单租户，查询所有数据。返回结构与前端 dashboardScreen/List.vue 对齐。
-func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, error) {
-	gormDB := sysrepo.GetDB() 
+// isAdmin=true  → 返回全租户数据；
+// isAdmin=false → 按 data_scope 过滤（私域单租户当前无实际隔离，预留接口）。
+// 错误不再用 log.Printf 吞掉，而是向上返回，让 Controller 包装成 500 响应。
+func (s *DashboardScreenService) AggregateDashboardData(isAdmin bool) (*DashboardAggregate, error) {
+	gormDB := sysrepo.GetDB()
 	now := time.Now()
 	loc := now.Location()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
@@ -256,34 +270,52 @@ func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, 
 	thisWeekStart := todayStart.AddDate(0, 0, -int(todayStart.Weekday()))
 	lastWeekStart := thisWeekStart.AddDate(0, 0, -7)
 
+	scope := func(tx *gorm.DB) *gorm.DB {
+		return dataScopeScope(tx, isAdmin)
+	}
+
 	agg := &DashboardAggregate{}
 
-	// 基础计数
+	// 基础计数（私域单租户：scope 无实际过滤，admin/非 admin 结果一致；多租户时自动生效）
 	var totalClues, todayClues, yesterdayClues, verifiedClues int64
-	gormDB.Model(&sysmodel.Clue{}).Count(&totalClues)
-	gormDB.Model(&sysmodel.Clue{}).Where("create_time >= ?", todayStart.Unix()).Count(&todayClues)
-	gormDB.Model(&sysmodel.Clue{}).Where("create_time >= ? AND create_time < ?", yesterdayStart.Unix(), todayStart.Unix()).Count(&yesterdayClues)
-	gormDB.Model(&sysmodel.Clue{}).Where("is_verify = ?", 1).Count(&verifiedClues)
+	if err := scope(gormDB.Model(&sysmodel.Clue{})).Count(&totalClues).Error; err != nil {
+		return nil, fmt.Errorf("统计总线索失败: %w", err)
+	}
+	if err := scope(gormDB.Model(&sysmodel.Clue{})).Where("create_time >= ?", todayStart.Unix()).Count(&todayClues).Error; err != nil {
+		return nil, fmt.Errorf("统计今日线索失败: %w", err)
+	}
+	if err := scope(gormDB.Model(&sysmodel.Clue{})).Where("create_time >= ? AND create_time < ?", yesterdayStart.Unix(), todayStart.Unix()).Count(&yesterdayClues).Error; err != nil {
+		return nil, fmt.Errorf("统计昨日线索失败: %w", err)
+	}
+	if err := scope(gormDB.Model(&sysmodel.Clue{})).Where("is_verify = ?", 1).Count(&verifiedClues).Error; err != nil {
+		return nil, fmt.Errorf("统计已验证线索失败: %w", err)
+	}
 
 	var totalCustomers, totalOrders int64
 	if gormDB.Migrator().HasTable(&sysmodel.Customer{}) {
-		gormDB.Model(&sysmodel.Customer{}).Count(&totalCustomers)
+		if err := scope(gormDB.Model(&sysmodel.Customer{})).Count(&totalCustomers).Error; err != nil {
+			return nil, fmt.Errorf("统计客户总数失败: %w", err)
+		}
 	}
 	if gormDB.Migrator().HasTable(&sysmodel.Order{}) {
-		gormDB.Model(&sysmodel.Order{}).Count(&totalOrders)
+		if err := scope(gormDB.Model(&sysmodel.Order{})).Count(&totalOrders).Error; err != nil {
+			return nil, fmt.Errorf("统计订单总数失败: %w", err)
+		}
 	}
 
-	// 近 30 天趋势（按天聚合线索/成单）
+	// 近 30 天趋势
 	type dayRow struct {
 		Day string
 		Cnt int64
 	}
 	var clueDays, orderDays []dayRow
 	if err := gormDB.Raw(`SELECT to_char(to_timestamp(create_time), 'MM-DD') AS day, COUNT(*) AS cnt FROM clues WHERE create_time >= ? GROUP BY day ORDER BY day`, thirtyDaysAgo.Unix()).Scan(&clueDays).Error; err != nil {
-		log.Printf("[dashboard] GetDashboardData 线索趋势查询失败: %v", err)
+		return nil, fmt.Errorf("线索趋势查询失败: %w", err)
 	}
-	if err := gormDB.Raw(`SELECT to_char(to_timestamp(create_time), 'MM-DD') AS day, COUNT(*) AS cnt FROM "order" WHERE create_time >= ? GROUP BY day ORDER BY day`, thirtyDaysAgo.Unix()).Scan(&orderDays).Error; err != nil {
-		log.Printf("[dashboard] GetDashboardData 成单趋势查询失败: %v", err)
+	if gormDB.Migrator().HasTable(&sysmodel.Order{}) {
+		if err := gormDB.Raw(`SELECT to_char(to_timestamp(create_time), 'MM-DD') AS day, COUNT(*) AS cnt FROM "order" WHERE create_time >= ? GROUP BY day ORDER BY day`, thirtyDaysAgo.Unix()).Scan(&orderDays).Error; err != nil {
+			return nil, fmt.Errorf("成单趋势查询失败: %w", err)
+		}
 	}
 	clueMap := make(map[string]int64, len(clueDays))
 	orderMap := make(map[string]int64, len(orderDays))
@@ -304,17 +336,17 @@ func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, 
 	for i, key := range dates {
 		agg.Trend.Clues[i] = clueMap[key]
 		agg.Trend.Conversions[i] = orderMap[key]
-		agg.Trend.Visits[i] = clueMap[key] 
+		agg.Trend.Visits[i] = clueMap[key]
 	}
 
-	// 渠道分布（按线索 source_id）
+	// 渠道分布
 	type kvRow struct {
 		Name  string
 		Value int64
 	}
 	var chRows []kvRow
 	if err := gormDB.Raw(`SELECT COALESCE(NULLIF(source_id, ''), '未知') AS name, COUNT(*) AS value FROM clues GROUP BY name ORDER BY value DESC`).Scan(&chRows).Error; err != nil {
-		log.Printf("[dashboard] GetDashboardData 渠道分布查询失败: %v", err)
+		return nil, fmt.Errorf("渠道分布查询失败: %w", err)
 	}
 	for _, r := range chRows {
 		agg.Channels = append(agg.Channels, NameValue{Name: r.Name, Value: r.Value})
@@ -326,10 +358,10 @@ func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, 
 		agg.Sources = append(agg.Sources, r)
 	}
 
-	// 地区分布（按线索 city）
+	// 地区分布
 	var regRows []kvRow
 	if err := gormDB.Raw(`SELECT COALESCE(NULLIF(city, ''), '未知') AS name, COUNT(*) AS value FROM clues GROUP BY name ORDER BY value DESC`).Scan(&regRows).Error; err != nil {
-		log.Printf("[dashboard] GetDashboardData 地区分布查询失败: %v", err)
+		return nil, fmt.Errorf("地区分布查询失败: %w", err)
 	}
 	for _, r := range regRows {
 		agg.Regions = append(agg.Regions, NameValue{Name: r.Name, Value: r.Value})
@@ -343,10 +375,20 @@ func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, 
 
 	// 转化率对比（本周 vs 上周）
 	var cluesTW, cluesLW, ordersTW, ordersLW int64
-	gormDB.Model(&sysmodel.Clue{}).Where("create_time >= ?", thisWeekStart.Unix()).Count(&cluesTW)
-	gormDB.Model(&sysmodel.Clue{}).Where("create_time >= ? AND create_time < ?", lastWeekStart.Unix(), thisWeekStart.Unix()).Count(&cluesLW)
-	gormDB.Model(&sysmodel.Order{}).Where("create_time >= ?", thisWeekStart.Unix()).Count(&ordersTW)
-	gormDB.Model(&sysmodel.Order{}).Where("create_time >= ? AND create_time < ?", lastWeekStart.Unix(), thisWeekStart.Unix()).Count(&ordersLW)
+	if err := scope(gormDB.Model(&sysmodel.Clue{})).Where("create_time >= ?", thisWeekStart.Unix()).Count(&cluesTW).Error; err != nil {
+		return nil, fmt.Errorf("本周线索统计失败: %w", err)
+	}
+	if err := scope(gormDB.Model(&sysmodel.Clue{})).Where("create_time >= ? AND create_time < ?", lastWeekStart.Unix(), thisWeekStart.Unix()).Count(&cluesLW).Error; err != nil {
+		return nil, fmt.Errorf("上周线索统计失败: %w", err)
+	}
+	if gormDB.Migrator().HasTable(&sysmodel.Order{}) {
+		if err := scope(gormDB.Model(&sysmodel.Order{})).Where("create_time >= ?", thisWeekStart.Unix()).Count(&ordersTW).Error; err != nil {
+			return nil, fmt.Errorf("本周成单统计失败: %w", err)
+		}
+		if err := scope(gormDB.Model(&sysmodel.Order{})).Where("create_time >= ? AND create_time < ?", lastWeekStart.Unix(), thisWeekStart.Unix()).Count(&ordersLW).Error; err != nil {
+			return nil, fmt.Errorf("上周成单统计失败: %w", err)
+		}
+	}
 	agg.Conversion.Dates = []string{"本周", "上周"}
 	agg.Conversion.ThisWeek = []int64{pct(ordersTW, cluesTW)}
 	agg.Conversion.LastWeek = []int64{pct(ordersLW, cluesLW)}

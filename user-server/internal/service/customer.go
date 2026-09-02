@@ -336,7 +336,7 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 		return err
 	}
 
-	// 2) OPT-ARC-06：事务保护 — 全部 4 步写在一个事务中
+	// 2) OPT-ARC-06：事务保护 — 全部写操作包在一个事务中
 	//    任意一步失败回滚，避免出现"主已更新但次未删除"或"会话迁移但客户未更新"
 	err = s.repo.WithTransaction(ctx, func(txCtx context.Context) error {
 		// 2.1 更新主客户（合并字段 + 标签）
@@ -344,10 +344,37 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 			return fmt.Errorf("更新主客户失败: %w", err)
 		}
 
-		// 2.2 迁移 OneID 关联的会话
 		if secondary.UnifiedID != "" && secondary.UnifiedID != primary.UnifiedID {
+			// 2.2 迁移 customer_sessions（已有）
 			if err := s.repo.ReassignSessionOneID(txCtx, secondary.UnifiedID, primary.UnifiedID); err != nil {
 				return fmt.Errorf("迁移会话失败: %w", err)
+			}
+
+			// CS-P0-3: 补全遗漏的 OneID 关联表迁移
+
+			// 2.2b customer_do_not_contact — 有唯一索引 (one_id, channel) 冲突需专用方法
+			if err := s.repo.ReassignDNCOneID(txCtx, secondary.UnifiedID, primary.UnifiedID); err != nil {
+				return fmt.Errorf("迁移 DNC 失败: %w", err)
+			}
+
+			// 2.2c customer_channels
+			if err := s.repo.ReassignOneID(txCtx, "customer_channels", secondary.UnifiedID, primary.UnifiedID); err != nil {
+				return fmt.Errorf("迁移客户渠道失败: %w", err)
+			}
+
+			// 2.2d csat_surveys
+			if err := s.repo.ReassignOneID(txCtx, "csat_surveys", secondary.UnifiedID, primary.UnifiedID); err != nil {
+				return fmt.Errorf("迁移 CSAT 失败: %w", err)
+			}
+
+			// 2.2e clues
+			if err := s.repo.ReassignOneID(txCtx, "clues", secondary.UnifiedID, primary.UnifiedID); err != nil {
+				return fmt.Errorf("迁移线索失败: %w", err)
+			}
+
+			// 2.2f script_exposure_logs
+			if err := s.repo.ReassignOneID(txCtx, "script_exposure_logs", secondary.UnifiedID, primary.UnifiedID); err != nil {
+				return fmt.Errorf("迁移话术曝光日志失败: %w", err)
 			}
 		}
 

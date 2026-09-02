@@ -145,10 +145,14 @@ type UpdateFlowRequest struct {
 	FlowData      *model.FlowDefinition `json:"flow_data"`
 }
 
-func (s *MarketingFlowService) UpdateFlow(id uint, req *UpdateFlowRequest) (*model.MarketingFlow, error) {
+func (s *MarketingFlowService) UpdateFlow(id uint, userID uint, isAdmin bool, req *UpdateFlowRequest) (*model.MarketingFlow, error) {
 	flow, err := s.flowRepo.GetByID(id)
 	if err != nil {
 		return nil, err
+	}
+
+	if !isAdmin && flow.CreatedBy != userID {
+		return nil, errors.New("无权限修改此营销流程")
 	}
 
 	if req.Name != "" {
@@ -177,20 +181,27 @@ func (s *MarketingFlowService) UpdateFlow(id uint, req *UpdateFlowRequest) (*mod
 	return flow, nil
 }
 
-func (s *MarketingFlowService) DeleteFlow(id uint) error {
+func (s *MarketingFlowService) DeleteFlow(id uint, userID uint, isAdmin bool) error {
 	flow, err := s.flowRepo.GetByID(id)
 	if err != nil {
 		return err
 	}
-	_ = flow
+
+	if !isAdmin && flow.CreatedBy != userID {
+		return errors.New("无权限删除此营销流程")
+	}
 
 	return s.flowRepo.Delete(id)
 }
 
-func (s *MarketingFlowService) ActivateFlow(id uint) error {
+func (s *MarketingFlowService) ActivateFlow(id uint, userID uint, isAdmin bool) error {
 	flow, err := s.flowRepo.GetByID(id)
 	if err != nil {
 		return err
+	}
+
+	if !isAdmin && flow.CreatedBy != userID {
+		return errors.New("无权限激活此营销流程")
 	}
 
 	if err := s.validateFlowDefinition(flow.FlowData); err != nil {
@@ -200,22 +211,28 @@ func (s *MarketingFlowService) ActivateFlow(id uint) error {
 	return s.flowRepo.UpdateStatus(id, model.FlowStatusActive)
 }
 
-func (s *MarketingFlowService) PauseFlow(id uint) error {
+func (s *MarketingFlowService) PauseFlow(id uint, userID uint, isAdmin bool) error {
 	flow, err := s.flowRepo.GetByID(id)
 	if err != nil {
 		return err
 	}
-	_ = flow
+
+	if !isAdmin && flow.CreatedBy != userID {
+		return errors.New("无权限暂停此营销流程")
+	}
 
 	return s.flowRepo.UpdateStatus(id, model.FlowStatusPaused)
 }
 
-func (s *MarketingFlowService) StopFlow(id uint) error {
+func (s *MarketingFlowService) StopFlow(id uint, userID uint, isAdmin bool) error {
 	flow, err := s.flowRepo.GetByID(id)
 	if err != nil {
 		return err
 	}
-	_ = flow
+
+	if !isAdmin && flow.CreatedBy != userID {
+		return errors.New("无权限停止此营销流程")
+	}
 
 	return s.flowRepo.UpdateStatus(id, model.FlowStatusInactive)
 }

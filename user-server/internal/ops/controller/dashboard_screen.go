@@ -172,9 +172,12 @@ func (c *DashboardScreenController) PublicViewScreen(ctx *gin.Context) {
 // GetDashboardData 获取仪表板大屏实时聚合数据
 // 该接口汇总线索、客户、订单、消息、抖音/小红书卡片等多源真实数据
 // 用于前端大屏可视化展示,绝不返回模拟数据
-// 架构修复：通过 Service 层访问 DB，不再直接调 db.GetDB
+// 架构修复：通过 Service 层访问 DB，不再直接调 db.GetDB；
+// 权限隔离：admin 返回全量，普通用户按 data_scope 过滤（私域单租户当前统一返回全量）
 func (c *DashboardScreenController) GetDashboardData(ctx *gin.Context) {
-	data, err := c.screenService.AggregateDashboardData()
+	role, _ := ctx.Get("role")
+	isAdmin := role == "admin"
+	data, err := c.screenService.AggregateDashboardData(isAdmin)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "聚合大屏数据失败: "+err.Error())
 		return

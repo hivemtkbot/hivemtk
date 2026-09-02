@@ -13,6 +13,7 @@ import (
 	"log"
 	"log/slog"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -367,11 +368,51 @@ func (s *RuleEngineService) matchConditions(rule *model.AutomationRule, sess *mo
 				return false
 			}
 		case "gt":
+			if numActual, err1 := strconv.Atoi(actual); err1 == nil {
+				if numExpected, err2 := strconv.Atoi(c.Value); err2 == nil {
+					if !(numActual > numExpected) {
+						return false
+					}
+					break
+				}
+			}
 			if !(actual > c.Value) {
 				return false
 			}
 		case "lt":
+			if numActual, err1 := strconv.Atoi(actual); err1 == nil {
+				if numExpected, err2 := strconv.Atoi(c.Value); err2 == nil {
+					if !(numActual < numExpected) {
+						return false
+					}
+					break
+				}
+			}
 			if !(actual < c.Value) {
+				return false
+			}
+		case "ge":
+			if numActual, err1 := strconv.Atoi(actual); err1 == nil {
+				if numExpected, err2 := strconv.Atoi(c.Value); err2 == nil {
+					if !(numActual >= numExpected) {
+						return false
+					}
+					break
+				}
+			}
+			if !(actual >= c.Value) {
+				return false
+			}
+		case "le":
+			if numActual, err1 := strconv.Atoi(actual); err1 == nil {
+				if numExpected, err2 := strconv.Atoi(c.Value); err2 == nil {
+					if !(numActual <= numExpected) {
+						return false
+					}
+					break
+				}
+			}
+			if !(actual <= c.Value) {
 				return false
 			}
 		default:

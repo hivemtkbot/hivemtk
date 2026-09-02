@@ -78,6 +78,8 @@ func (f *fakeCustRepo) FindByIdentityAll(context.Context, string, string, string
 func (f *fakeCustRepo) ReassignSessionOneID(context.Context, string, string) error {
 	return nil
 }
+func (f *fakeCustRepo) ReassignOneID(context.Context, string, string, string) error { return nil }
+func (f *fakeCustRepo) ReassignDNCOneID(context.Context, string, string) error      { return nil }
 func (f *fakeCustRepo) CountNotEmpty(context.Context, string) (int64, error) { return 0, nil }
 func (f *fakeCustRepo) CountMultiIdentity(context.Context) (int64, error)    { return 0, nil }
 func (f *fakeCustRepo) ListByIDs(context.Context, []string) (map[string]*model.Customer, error) {
