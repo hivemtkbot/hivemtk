@@ -22,8 +22,6 @@ import (
 
 	"hivemtk-user/internal/model"
 
-	"hivemtk-user/internal/pkg/db"
-
 	"hivemtk-user/internal/pkg/utils/logger"
 
 	"hivemtk-user/internal/repository"
@@ -696,15 +694,12 @@ func (c *hotPlugCache) ensureKV() repository.SystemConfigKVRepository {
 	if kv != nil {
 		return kv
 	}
-	if g := db.GetDB(); g != nil {
-		c.mu.Lock()
-		if c.kv == nil {
-			c.kv = repository.NewSystemConfigKVRepository()
-		}
-		kv = c.kv
-		c.mu.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.kv == nil {
+		c.kv = repository.NewSystemConfigKVRepository()
 	}
-	return kv
+	return c.kv
 }
 
 // fetchEnabled 从 DB 读单个开关的权威状态（值="1" 视为启用）

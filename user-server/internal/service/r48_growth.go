@@ -48,48 +48,9 @@ const (
 var webhookOutClient = &http.Client{Timeout: 5 * time.Second}
 
 // PublishWebhookEvent 事件发布（fire-and-forget，失败仅日志，绝不阻塞主链路）
+// 便捷入口：使用全局单例 WebhookSubService
 func PublishWebhookEvent(ctx context.Context, event string, payload map[string]any) {
-	g := db.GetDB()
-	var subs []model.WebhookSubscription
-	if err := g.WithContext(ctx).
-		Where("enabled = ? AND (events LIKE ? OR events LIKE ?)", true, "%"+event+"%", "%all%").
-		Limit(20).Find(&subs).Error; err != nil || len(subs) == 0 {
-		return
-	}
-	body, _ := json.Marshal(map[string]any{
-		"event":     event,
-		"timestamp": time.Now().Format(time.RFC3339),
-		"data":      payload,
-	})
-	for _, sub := range subs {
-		go func(sub model.WebhookSubscription, body []byte) {
-			defer func() {
-				if r := recover(); r != nil {
-					log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
-				}
-			}()
-			reqCtx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
-			defer cancel()
-			req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, sub.URL, strings.NewReader(string(body)))
-			if err != nil {
-				return
-			}
-			req.Header.Set("Content-Type", "application/json")
-			mac := hmac.New(sha256.New, []byte(sub.Secret))
-			mac.Write(body)
-			req.Header.Set("X-Hivemtk-Signature", "sha256="+hex.EncodeToString(mac.Sum(nil)))
-			resp, err := webhookOutClient.Do(req)
-			if err != nil {
-				slog.Warn("[WebhookOut] 投递失败", "url", sub.URL, "event", event, "err", err)
-				return
-			}
-			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))
-			_ = resp.Body.Close()
-			if resp.StatusCode >= 400 {
-				slog.Warn("[WebhookOut] 远端非 2xx", "url", sub.URL, "status", resp.StatusCode)
-			}
-		}(sub, body)
-	}
+	NewWebhookSubServiceFromGlobal().PublishEvent(ctx, event, payload)
 }
 
 // WebhookSubService CRUD 服务
@@ -129,6 +90,50 @@ func (s *WebhookSubService) List(ctx context.Context) ([]*model.WebhookSubscript
 // Delete 删除
 func (s *WebhookSubService) Delete(ctx context.Context, id uint) error {
 	return s.db.WithContext(ctx).Delete(&model.WebhookSubscription{}, id).Error
+}
+
+// PublishEvent 事件发布（fire-and-forget，失败仅日志，绝不阻塞主链路）
+func (s *WebhookSubService) PublishEvent(ctx context.Context, event string, payload map[string]any) {
+	var subs []model.WebhookSubscription
+	if err := s.db.WithContext(ctx).
+		Where("enabled = ? AND (events LIKE ? OR events LIKE ?)", true, "%"+event+"%", "%all%").
+		Limit(20).Find(&subs).Error; err != nil || len(subs) == 0 {
+		return
+	}
+	body, _ := json.Marshal(map[string]any{
+		"event":     event,
+		"timestamp": time.Now().Format(time.RFC3339),
+		"data":      payload,
+	})
+	for _, sub := range subs {
+		go func(sub model.WebhookSubscription, body []byte) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
+				}
+			}()
+			reqCtx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
+			defer cancel()
+			req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, sub.URL, strings.NewReader(string(body)))
+			if err != nil {
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			mac := hmac.New(sha256.New, []byte(sub.Secret))
+			mac.Write(body)
+			req.Header.Set("X-Hivemtk-Signature", "sha256="+hex.EncodeToString(mac.Sum(nil)))
+			resp, err := webhookOutClient.Do(req)
+			if err != nil {
+				slog.Warn("[WebhookOut] 投递失败", "url", sub.URL, "event", event, "err", err)
+				return
+			}
+			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))
+			_ = resp.Body.Close()
+			if resp.StatusCode >= 400 {
+				slog.Warn("[WebhookOut] 远端非 2xx", "url", sub.URL, "status", resp.StatusCode)
+			}
+		}(sub, body)
+	}
 }
 
 // ==================== T7: 联系人自定义属性 ====================
