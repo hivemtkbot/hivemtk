@@ -3,13 +3,11 @@ package controller
 
 import (
 	"context"
-	"strings"
 	"time"
 	"net/http"
 	"strconv"
 
 	ksvc "hivemtk-user/internal/aiagent/knowledge/service"
-	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 
@@ -30,34 +28,16 @@ func NewBackupGapController() *BackupGapController {
 
 // List GET /api/backup/list → [{id, createdAt, size, checksum, status, type, name}]（复用既有 backups 表）
 func (c *BackupGapController) List(ctx *gin.Context) {
-	type row struct {
-		ID        uint   `json:"id"`
-		Name      string `json:"name"`
-		Type      string `json:"type"`
-		Status    string `json:"status"`
-		Size      int64  `json:"size"`
-		Checksum  string `json:"checksum"`
-		CreatedAt string `json:"createdAt"`
-	}
-	var src []struct {
-		ID        uint
-		BackupName string
-		BackupType string
-		Status     string
-		FileSize   int64
-		Checksum   string
-		CreatedAt  string
-	}
-	g := db.GetDB()
-	if err := g.WithContext(ctx.Request.Context()).
-		Table("backups").
-		Select("id, backup_name, backup_type, status, file_size, '' as checksum, TO_CHAR(created_at,'YYYY-MM-DD HH24:MI') as created_at").
-		Order("id DESC").Limit(100).Scan(&src).Error; HandleServiceError(ctx, err) {
+	rows, err := c.svc.ListBackups(ctx.Request.Context())
+	if HandleServiceError(ctx, err) {
 		return
 	}
-	out := make([]row, 0, len(src))
-	for _, s := range src {
-		out = append(out, row{s.ID, s.BackupName, s.BackupType, s.Status, s.FileSize, s.Checksum, s.CreatedAt})
+	out := make([]gin.H, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, gin.H{
+			"id": r.ID, "name": r.Name, "type": r.Type,
+			"status": r.Status, "size": r.Size, "checksum": r.Checksum, "createdAt": r.CreatedAt,
+		})
 	}
 	response.Success(ctx, out, "ok")
 }
@@ -267,7 +247,7 @@ func (c *EmailGapController) TestSend(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误："+err.Error())
 		return
 	}
-	svc := service.NewEmailService(db.GetDB())
+	svc := service.NewEmailServiceAuto()
 	sent, failed := 0, 0
 	var lastErr error
 	for _, to := range req.To {
@@ -309,16 +289,12 @@ func (c *EmailGapController) RFMMatrixStats(ctx *gin.Context) {
 
 // DLQBatchRetry POST /api/message-hub/dlq/batch-retry（重试全部死信）
 func (c *EmailGapController) DLQBatchRetry(ctx *gin.Context) {
-	g := db.GetDB()
-	res := g.WithContext(ctx.Request.Context()).
-		Table("message_hub").
-		Where("status = 'dead_letter'").
-		Update("status", "pending")
-	if res.Error != nil {
-		response.Error(ctx, http.StatusInternalServerError, res.Error.Error())
+	n, err := c.svc.RetryDeadLetters(ctx.Request.Context())
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	response.Success(ctx, gin.H{"requeued": res.RowsAffected}, "批量重试已入队")
+	response.Success(ctx, gin.H{"requeued": n}, "批量重试已入队")
 }
 
 // PlaygroundPresets GET /api/knowledge/playground/presets（检索调参预设）
@@ -346,34 +322,12 @@ func (c *EmailGapController) ClueApplySuggestions(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误："+err.Error())
 		return
 	}
-	g := db.GetDB()
-	merged, skipped, failed := 0, 0, 0
-	for _, dup := range req.Duplicates {
-		if req.Action != "merge" || dup.ExistingClueID <= 0 || dup.Row == nil {
-			skipped++
-			continue
-		}
-		// 把导入行的非空字段合并进现有线索（仅白名单字段，schema 对齐 model.Clue）
-		updates := map[string]any{}
-		for _, f := range []string{"name", "city", "address", "desc", "account", "source_id"} {
-			if v, ok := dup.Row[f]; ok {
-				if sv, isStr := v.(string); isStr && strings.TrimSpace(sv) != "" {
-					updates[f] = sv
-				}
-			}
-		}
-		if len(updates) == 0 {
-			skipped++
-			continue
-		}
-		if err := g.WithContext(ctx.Request.Context()).Table("clues").
-			Where("id = ?", dup.ExistingClueID).Updates(updates).Error; err != nil {
-			failed++
-			continue
-		}
-		merged++
+		res, err := c.svc.ClueApplySuggestions(ctx.Request.Context(), req.Action, req.Duplicates)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
 	}
-	response.Success(ctx, gin.H{"merged": merged, "skipped": skipped, "failed": failed}, "建议已应用")
+	response.Success(ctx, gin.H{"merged": res.Merged, "skipped": res.Skipped, "failed": res.Failed}, "处理完成")
 }
 
 // ClueMerge POST /api/clues/:id/merge {from:{...row}}
@@ -390,22 +344,12 @@ func (c *EmailGapController) ClueMerge(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "缺少 from 行数据")
 		return
 	}
-	updates := map[string]any{}
-	for _, f := range []string{"name", "city", "address", "desc", "account", "source_id"} {
-		if v, ok := req.From[f]; ok {
-			if sv, isStr := v.(string); isStr && strings.TrimSpace(sv) != "" {
-				updates[f] = sv
-			}
-		}
+	ok, err := c.svc.ClueMerge(ctx.Request.Context(), id, req.From)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
 	}
-	g := db.GetDB()
-	if len(updates) > 0 {
-		if err := g.WithContext(ctx.Request.Context()).Table("clues").Where("id = ?", id).Updates(updates).Error; err != nil {
-			response.Error(ctx, http.StatusInternalServerError, err.Error())
-			return
-		}
-	}
-	response.Success(ctx, gin.H{"merged": true}, "已合并")
+	response.Success(ctx, gin.H{"merged": ok}, "已合并")
 }
 
 // ClueForceCreate POST /api/clues/force-create {row}
@@ -415,26 +359,12 @@ func (c *EmailGapController) ClueForceCreate(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "缺少 row 数据")
 		return
 	}
-	// 复用导入管线（单条强制创建: name/phone 必填）
-	name, _ := row["name"].(string)
-	phone, _ := row["phone"].(string)
-	if strings.TrimSpace(name) == "" && strings.TrimSpace(phone) == "" {
-		response.Error(ctx, http.StatusBadRequest, "name/phone 至少一项必填")
-		return
-	}
-	g := db.GetDB()
-	rec := map[string]any{"name": name, "source_id": "force-" + strconv.FormatInt(time.Now().UnixNano(), 10), "source": "import_force"}
-	if v, ok := row["city"].(string); ok {
-		rec["city"] = v
-	}
-	if v, ok := row["desc"].(string); ok {
-		rec["desc"] = v
-	}
-	if err := g.WithContext(ctx.Request.Context()).Table("clues").Create(rec).Error; err != nil {
+	ok, err := c.svc.ClueForceCreate(ctx.Request.Context(), row)
+	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	response.Success(ctx, gin.H{"created": true}, "已强制创建")
+	response.Success(ctx, gin.H{"created": ok}, "已强制创建")
 }
 
 // ==================== R47: backup preview/restore/delete 补齐（前端 Enhanced.vue 契约） ====================
@@ -452,27 +382,10 @@ func (c *BackupGapController) Preview(ctx *gin.Context) {
 	}
 	// R47 契约对齐: 前端 el-table :data 期望数组行 [{table, rows}]
 	// 行数估算走 pg_stat 实时统计（诚实口径:估算值）
-	type tr struct {
-		Table string `gorm:"column:table_name"`
-		Rows  int64  `gorm:"column:rows"`
-	}
-	var rows []tr
-	coreTables := []string{"customers", "customer_sessions", "session_messages", "message_hub", "clues", "script_library"}
-	g := db.GetDB()
-	for _, t := range coreTables {
-		var r tr
-		if err := g.WithContext(ctx).Raw(`SELECT ?::text AS table_name, GREATEST(n_live_tup,0) AS rows FROM pg_stat_user_tables WHERE relname = ?`, t, t).Scan(&r).Error; err == nil && r.Table != "" {
-			rows = append(rows, r)
-		}
-	}
-	if rows == nil {
-		for _, t := range coreTables {
-			rows = append(rows, tr{Table: t, Rows: 0})
-		}
-	}
-	out := make([]gin.H, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, gin.H{"table": r.Table, "rows": r.Rows})
+	out, err := c.svc.PreviewTableStats(ctx.Request.Context())
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
 	}
 	_ = b
 	response.Success(ctx, out, "恢复将覆盖上述表现有数据（备份: "+b.BackupName+"），操作不可逆")

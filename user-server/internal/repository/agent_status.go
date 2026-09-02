@@ -122,3 +122,19 @@ func (r *AgentStatusRepository) TouchHeartbeat(ctx context.Context, agentID uint
 		Where("agent_id = ?", agentID).
 		Update("last_active_at", &now).Error
 }
+
+// CountByStatus 按 status 统计坐席数（客服队列/容量视图用）
+func (r *AgentStatusRepository) CountByStatus(ctx context.Context, status string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.AgentStatus{}).
+		Where("status = ?", status).Count(&count).Error
+	return count, err
+}
+
+// CountByStatusIn 按 status IN [...] 统计坐席数
+func (r *AgentStatusRepository) CountByStatusIn(ctx context.Context, statuses []string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.AgentStatus{}).
+		Where("status IN ?", statuses).Count(&count).Error
+	return count, err
+}

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"hivemtk-user/internal/model"
-	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/repository"
 )
 
@@ -32,10 +31,14 @@ func DefaultOfficeHoursConfig() OfficeHoursConfig {
 const officeHoursKVKey = "office.hours"
 
 // OfficeHoursService 办公时间服务
-type OfficeHoursService struct{}
+type OfficeHoursService struct {
+	repo *repository.OfficeHoursRepo
+}
 
 // NewOfficeHoursService 构造
-func NewOfficeHoursService() *OfficeHoursService { return &OfficeHoursService{} }
+func NewOfficeHoursService(repo *repository.OfficeHoursRepo) *OfficeHoursService {
+	return &OfficeHoursService{repo: repo}
+}
 
 // GetConfig 读策略（未配置回退默认）
 func (s *OfficeHoursService) GetConfig(ctx context.Context) OfficeHoursConfig {
@@ -106,13 +109,8 @@ func (s *OfficeHoursService) SendAwayReplyIfClosed(ctx context.Context, sessionI
 	if msg == "" {
 		return false
 	}
-	// 防重复：同会话 2 小时内只发一次（R52 修复: 用 trace_id='away' 识别，原 sender_type 列不存在）
-	g := db.GetDB()
-	var cnt int64
-	_ = g.WithContext(ctx).
-		Where("conversation_id = ? AND trace_id = ? AND sent_at > ?", conversationID, "away", time.Now().Add(-2*time.Hour)).
-		Model(&model.MessageHub{}).Count(&cnt).Error
-	if cnt > 0 {
+	cnt, err := s.repo.CountAwayReplyRecent(ctx, conversationID, 2*time.Hour)
+	if err != nil || cnt > 0 {
 		return false
 	}
 	now := time.Now()
@@ -130,5 +128,5 @@ func (s *OfficeHoursService) SendAwayReplyIfClosed(ctx context.Context, sessionI
 		TraceID:        "away",
 		SentAt:         now,
 	}
-	return g.WithContext(ctx).Create(rec).Error == nil
+	return s.repo.CreateMessageHub(ctx, rec) == nil
 }

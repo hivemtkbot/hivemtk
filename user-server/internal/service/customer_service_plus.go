@@ -523,7 +523,7 @@ var officeHoursSvc *OfficeHoursService
 
 // GetOfficeHoursService 获取实例
 func GetOfficeHoursService() *OfficeHoursService {
-	officeHoursOnce.Do(func() { officeHoursSvc = NewOfficeHoursService() })
+	officeHoursOnce.Do(func() { officeHoursSvc = NewOfficeHoursService(repository.NewOfficeHoursRepo(db.GetDB())) })
 	return officeHoursSvc
 }
 

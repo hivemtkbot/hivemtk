@@ -5,37 +5,26 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	llm "hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/model"
-	"hivemtk-user/internal/pkg/db"
-
-	"gorm.io/gorm"
+	"hivemtk-user/internal/repository"
 )
 
 // SessionAIService AI 会话服务
-type SessionAIService struct{}
+type SessionAIService struct {
+	repo *repository.SessionAIRepo
+}
 
 // NewSessionAIService 构造
-func NewSessionAIService() *SessionAIService { return &SessionAIService{} }
+func NewSessionAIService(repo *repository.SessionAIRepo) *SessionAIService {
+	return &SessionAIService{repo: repo}
+}
 
 // Generate 生成（或刷新）会话摘要：取会话消息→LLM LongSummary 场景→落库
 func (s *SessionAIService) Generate(ctx context.Context, sessionID string) (*model.SessionAISummary, error) {
-	g := db.GetDB()
-	// 会话消息（最近 60 条，够概括且省 token）
-	type msgRow struct {
-		SenderType string
-		SenderName string
-		Content    string
-		CreatedAt  time.Time
-	}
-	var msgs []msgRow
-	if err := g.WithContext(ctx).
-		Table("session_messages").
-		Select("sender_type, COALESCE(sender_name,'') AS sender_name, content, created_at").
-		Where("session_id = ? AND is_internal = ?", sessionID, false).
-		Order("created_at ASC").Limit(60).Scan(&msgs).Error; err != nil {
+	msgs, err := s.repo.ListRecentMessages(ctx, sessionID, 60)
+	if err != nil {
 		return nil, err
 	}
 	if len(msgs) == 0 {
@@ -64,7 +53,6 @@ func (s *SessionAIService) Generate(ctx context.Context, sessionID string) (*mod
 		transcript = string(r[:12000])
 	}
 
-	// LLM 摘要：复用全局 Dispatcher（含 DB 路由/providers，勿自建实例绕过路由表）
 	d := llm.GetGlobalDispatcher()
 	res, err := d.Dispatch(ctx, llm.DispatchRequest{
 		Scenario:    llm.ScenarioLongSummary,
@@ -88,13 +76,7 @@ func (s *SessionAIService) Generate(ctx context.Context, sessionID string) (*mod
 	}
 
 	rec := &model.SessionAISummary{SessionID: sessionID, Summary: content, Sentiment: sentiment, Model: modelName}
-	// upsert（一会话一摘要，重复生成覆盖）
-	if err := g.WithContext(ctx).
-		Where("session_id = ?", sessionID).
-		Delete(&model.SessionAISummary{}).Error; err != nil {
-		return nil, err
-	}
-	if err := g.WithContext(ctx).Create(rec).Error; err != nil {
+	if err := s.repo.UpsertSummary(ctx, rec); err != nil {
 		return nil, err
 	}
 	return rec, nil
@@ -102,15 +84,5 @@ func (s *SessionAIService) Generate(ctx context.Context, sessionID string) (*mod
 
 // GetLatest 读取已有摘要（无则 ok=false）
 func (s *SessionAIService) GetLatest(ctx context.Context, sessionID string) (*model.SessionAISummary, bool, error) {
-	var rec model.SessionAISummary
-	err := db.GetDB().WithContext(ctx).
-		Where("session_id = ?", sessionID).
-		Order("id DESC").First(&rec).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, false, nil
-		}
-		return nil, false, err
-	}
-	return &rec, true, nil
+	return s.repo.GetLatestSummary(ctx, sessionID)
 }

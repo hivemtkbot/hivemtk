@@ -104,10 +104,10 @@ func BuildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 //
 // 调优记录：9B 4-bit 在 RAG 短问答上 confidence 评估均值 ~0.55-0.65，
 // 默认 0.7 阈值导致 80% 业务问答被判定为"低置信度"转人工。降到 0.5 让 AI 接管更多场景。
-func BuildSmartOrchestrator(engine *service.SalesEngine) *service.SmartCSOrchestrator {
+func BuildSmartOrchestrator(engine *service.SalesEngine, kbRepo *repository.KnowledgeBaseRepository) *service.SmartCSOrchestrator {
 	cfg := service.DefaultOrchestratorConfig()
 	cfg.ConfidenceThreshold = 0.5
-	o := service.NewSmartCSOrchestrator(engine, cfg)
+	o := service.NewSmartCSOrchestrator(engine, cfg, kbRepo)
 	o.SetIdentityService(service.NewCustomerIdentityService())
 	return o
 }

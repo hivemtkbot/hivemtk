@@ -545,7 +545,9 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
         doRegAdmin("DELETE", "/dnc/:one_id", dncCtrl.Unblock)
         doRegAdmin("GET", "/dnc/:one_id/blocked", dncCtrl.IsBlocked)
 
-	sessionAICtrl := controller.NewSessionAIController()
+	sessionAIRepo := repository.NewSessionAIRepo(gormDB)
+	sessionAISvc := service.NewSessionAIService(sessionAIRepo)
+	sessionAICtrl := controller.NewSessionAIController(sessionAISvc)
 	doReg("POST", "/customer-sessions/:id/ai-summary", sessionAICtrl.Generate)
 	// R53 B: 自动化规则引擎 CRUD — 全部 admin only（防 staff 误触发自动化流程 / 绕过熔断）
         ruleCtrl := controller.NewRuleEngineController()

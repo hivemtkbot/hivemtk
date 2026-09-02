@@ -85,8 +85,8 @@ type SessionAIController struct {
 }
 
 // NewSessionAIController 构造
-func NewSessionAIController() *SessionAIController {
-	return &SessionAIController{svc: service.NewSessionAIService()}
+func NewSessionAIController(svc *service.SessionAIService) *SessionAIController {
+	return &SessionAIController{svc: svc}
 }
 
 // Generate POST /api/customer-sessions/:id/ai-summary

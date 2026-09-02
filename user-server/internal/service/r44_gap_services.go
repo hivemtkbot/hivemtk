@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -737,4 +738,178 @@ func (s *EmailGapService) RFMMatrix(ctx context.Context) ([]RFMMatrixRow, RFMMat
 		out = append(out, *r)
 	}
 	return out, st, nil
+}
+
+
+// ==================== Backup 补齐: List + Preview ====================
+
+// BackupRow backup 列表行契约
+type BackupRow struct {
+	ID        uint   `json:"id"`
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	Status    string `json:"status"`
+	Size      int64  `json:"size"`
+	Checksum  string `json:"checksum"`
+	CreatedAt string `json:"createdAt"`
+}
+
+// ListBackups 列出 backups 表（最多 100 条）
+func (s *BackupGapService) ListBackups(ctx context.Context) ([]BackupRow, error) {
+	type src struct {
+		ID         uint
+		BackupName string
+		BackupType string
+		Status     string
+		FileSize   int64
+		CreatedAt  string
+	}
+	g := db.GetDB()
+	var rows []src
+	if err := g.WithContext(ctx).
+		Table("backups").
+		Select("id, backup_name, backup_type, status, file_size, TO_CHAR(created_at,'YYYY-MM-DD HH24:MI') as created_at").
+		Order("id DESC").Limit(100).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]BackupRow, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, BackupRow{
+			ID: r.ID, Name: r.BackupName, Type: r.BackupType,
+			Status: r.Status, Size: r.FileSize, Checksum: "", CreatedAt: r.CreatedAt,
+		})
+	}
+	return out, nil
+}
+
+// PreviewTableStats 返回核心表的行数估算（pg_stat_user_tables）
+func (s *BackupGapService) PreviewTableStats(ctx context.Context) ([]map[string]any, error) {
+	type tr struct {
+		Table string `gorm:"column:table_name"`
+		Rows  int64  `gorm:"column:rows"`
+	}
+	coreTables := []string{"customers", "customer_sessions", "session_messages", "message_hub", "clues", "script_library"}
+	g := db.GetDB()
+	var rows []tr
+	for _, t := range coreTables {
+		var r tr
+		if err := g.WithContext(ctx).Raw(
+			"SELECT ?::text AS table_name, GREATEST(n_live_tup,0) AS rows FROM pg_stat_user_tables WHERE relname = ?", t, t,
+		).Scan(&r).Error; err == nil && r.Table != "" {
+			rows = append(rows, r)
+		}
+	}
+	if rows == nil {
+		for _, t := range coreTables {
+			rows = append(rows, tr{Table: t, Rows: 0})
+		}
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, map[string]any{"table": r.Table, "rows": r.Rows})
+	}
+	return out, nil
+}
+
+// ==================== DLQ 批量重试 ====================
+
+// RetryDeadLetters 将 message_hub 中 status='dead_letter' 的记录重置为 pending
+func (s *EmailGapService) RetryDeadLetters(ctx context.Context) (int64, error) {
+	g := db.GetDB()
+	res := g.WithContext(ctx).
+		Table("message_hub").
+		Where("status = 'dead_letter'").
+		Update("status", "pending")
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
+}
+
+// ==================== Clue 导入/合并/强制创建 ====================
+
+// ClueApplyResult 线索导入建议应用结果
+type ClueApplyResult struct {
+	Merged  int `json:"merged"`
+	Skipped int `json:"skipped"`
+	Failed  int `json:"failed"`
+}
+
+// ClueApplySuggestions 逐条按 action 处理重复线索
+func (s *EmailGapService) ClueApplySuggestions(ctx context.Context, action string, duplicates []struct {
+	ExistingClueID int64          `json:"existingClueId"`
+	Row            map[string]any `json:"row"`
+}) (*ClueApplyResult, error) {
+	g := db.GetDB()
+	res := &ClueApplyResult{}
+	for _, dup := range duplicates {
+		if action != "merge" || dup.ExistingClueID <= 0 || dup.Row == nil {
+			res.Skipped++
+			continue
+		}
+		updates := map[string]any{}
+		for _, f := range []string{"name", "city", "address", "desc", "account", "source_id"} {
+			if v, ok := dup.Row[f]; ok {
+				if sv, isStr := v.(string); isStr && strings.TrimSpace(sv) != "" {
+					updates[f] = sv
+				}
+			}
+		}
+		if len(updates) == 0 {
+			res.Skipped++
+			continue
+		}
+		if err := g.WithContext(ctx).Table("clues").
+			Where("id = ?", dup.ExistingClueID).Updates(updates).Error; err != nil {
+			res.Failed++
+			continue
+		}
+		res.Merged++
+	}
+	return res, nil
+}
+
+// ClueMerge 合并线索字段到现有线索
+func (s *EmailGapService) ClueMerge(ctx context.Context, id int64, from map[string]any) (bool, error) {
+	updates := map[string]any{}
+	for _, f := range []string{"name", "city", "address", "desc", "account", "source_id"} {
+		if v, ok := from[f]; ok {
+			if sv, isStr := v.(string); isStr && strings.TrimSpace(sv) != "" {
+				updates[f] = sv
+			}
+		}
+	}
+	if len(updates) == 0 {
+		return true, nil
+	}
+	g := db.GetDB()
+	if err := g.WithContext(ctx).Table("clues").Where("id = ?", id).Updates(updates).Error; err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// ClueForceCreate 强制创建线索（单条导入）
+func (s *EmailGapService) ClueForceCreate(ctx context.Context, row map[string]any) (bool, error) {
+	name, _ := row["name"].(string)
+	phone, _ := row["phone"].(string)
+	if strings.TrimSpace(name) == "" && strings.TrimSpace(phone) == "" {
+		return false, fmt.Errorf("name/phone 至少一项必填")
+	}
+	g := db.GetDB()
+	rec := map[string]any{
+		"name":      name,
+		"source_id": "force-" + strconv.FormatInt(time.Now().UnixNano(), 10),
+		"source":    "import_force",
+	}
+	if v, ok := row["city"].(string); ok {
+		rec["city"] = v
+	}
+	if v, ok := row["desc"].(string); ok {
+		rec["desc"] = v
+	}
+	if err := g.WithContext(ctx).Table("clues").Create(rec).Error; err != nil {
+		return false, err
+	}
+	return true, nil
 }

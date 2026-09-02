@@ -5,29 +5,26 @@ import (
 	"net/http"
 	"strconv"
 
-	"hivemtk-user/internal/model"
-	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // PromptController Prompt 版本管理 + A/B 实验控制器
 // G13: 竞品标配功能
 type PromptController struct {
-	db *gorm.DB
+	svc *service.PromptService
 }
 
 // NewPromptController 创建 Prompt 控制器
 func NewPromptController() *PromptController {
-	return &PromptController{db: db.GetDB()}
+	return &PromptController{svc: service.NewPromptService()}
 }
 
-// NewPromptControllerWithDB 注入 DB（测试用）
-func (c *PromptController) WithDB(d *gorm.DB) *PromptController {
-	c.db = d
-	return c
+// NewPromptControllerWithService 注入 Service（测试用）
+func NewPromptControllerWithService(svc *service.PromptService) *PromptController {
+	return &PromptController{svc: svc}
 }
 
 // GetVersions 获取某个 SOP Node / Prompt ID 的所有历史版本（prompt_candidates）
@@ -40,13 +37,9 @@ func (c *PromptController) GetVersions(ctx *gin.Context) {
 		return
 	}
 
-	q := c.db.WithContext(context.Background()).Model(&model.PromptCandidate{}).Where("id = ? OR sop_id = ? OR sop_node_id = ?", idStr, uint(id), idStr)
-
-	if status := ctx.Query("status"); status != "" {
-		q = q.Where("status = ?", status)
-	}
-	var versions []model.PromptCandidate
-	if err := q.Order("created_at DESC").Find(&versions).Error; err != nil {
+	status := ctx.Query("status")
+	versions, err := c.svc.ListVersions(context.Background(), idStr, uint(id), "", status)
+	if err != nil {
 		response.ErrorFromDB(ctx, err, "获取 prompt 版本列表失败")
 		return
 	}
@@ -77,26 +70,16 @@ func (c *PromptController) Publish(ctx *gin.Context) {
 		return
 	}
 
-	// 把当前 active 的同 node 版本降为 retired
-	if req.SOPNodeID != "" {
-		c.db.WithContext(context.Background()).
-			Model(&model.PromptCandidate{}).
-			Where("sop_node_id = ? AND status = ?", req.SOPNodeID, model.PromptCandidateStatusActive).
-			Update("status", model.PromptCandidateStatusRetired)
-	}
-
-	// 创建新版本
-	parentID := uint(id)
-	newVersion := model.PromptCandidate{
-		SOPNodeID:          req.SOPNodeID,
-		SOPID:              req.SOPID,
+	newVersion, err := c.svc.Publish(context.Background(), service.PublishRequest{
 		SystemPrompt:       req.SystemPrompt,
 		UserPromptTemplate: req.UserPromptTemplate,
+		SOPNodeID:          req.SOPNodeID,
+		SOPID:              req.SOPID,
 		ImprovementNotes:   req.ImprovementNotes,
-		Status:             model.PromptCandidateStatusActive,
-		ParentID:           parentID,
-	}
-	if err := c.db.WithContext(context.Background()).Create(&newVersion).Error; err != nil {
+		Variables:          req.Variables,
+		ParentID:           uint(id),
+	})
+	if err != nil {
 		response.ErrorFromDB(ctx, err, "发布新版本失败")
 		return
 	}
@@ -106,12 +89,9 @@ func (c *PromptController) Publish(ctx *gin.Context) {
 // GetABExperiments 获取所有 Prompt A/B 实验列表
 // GET /api/prompts/ab-experiments?status=running
 func (c *PromptController) GetABExperiments(ctx *gin.Context) {
-	q := c.db.WithContext(context.Background()).Model(&model.PromptABTest{})
-	if status := ctx.Query("status"); status != "" {
-		q = q.Where("status = ?", status)
-	}
-	var experiments []model.PromptABTest
-	if err := q.Order("created_at DESC").Find(&experiments).Error; err != nil {
+	status := ctx.Query("status")
+	experiments, err := c.svc.ListABTests(context.Background(), status)
+	if err != nil {
 		response.ErrorFromDB(ctx, err, "获取 A/B 实验列表失败")
 		return
 	}

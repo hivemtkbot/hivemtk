@@ -12,7 +12,6 @@ import (
 	ragcache "hivemtk-user/internal/aiagent/rag/cache"
 	"hivemtk-user/internal/identity"
 	"hivemtk-user/internal/model"
-	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
@@ -44,6 +43,7 @@ type SmartCSOrchestrator struct {
 	sessionRepo    *repository.CustomerSessionRepository
 	messageRepo    *repository.SessionMessageRepository
 	agentRepo      *repository.AgentStatusRepository
+	kbRepo         *repository.KnowledgeBaseRepository
 
 	csAgentSvc  *CustomerServiceAgentService
 	identitySvc *CustomerIdentityService // 可选：自动补建 customer 档案
@@ -74,7 +74,7 @@ func DefaultOrchestratorConfig() *OrchestratorConfig {
 }
 
 // NewSmartCSOrchestrator 创建智能体编排器
-func NewSmartCSOrchestrator(engine *SalesEngine, cfg *OrchestratorConfig) *SmartCSOrchestrator {
+func NewSmartCSOrchestrator(engine *SalesEngine, cfg *OrchestratorConfig, kbRepo *repository.KnowledgeBaseRepository) *SmartCSOrchestrator {
 	if cfg == nil {
 		cfg = DefaultOrchestratorConfig()
 	}
@@ -89,6 +89,7 @@ func NewSmartCSOrchestrator(engine *SalesEngine, cfg *OrchestratorConfig) *Smart
 		sessionRepo:         repository.NewCustomerSessionRepository(),
 		messageRepo:         repository.NewSessionMessageRepository(),
 		agentRepo:           repository.NewAgentStatusRepository(),
+		kbRepo:              kbRepo,
 		confidenceThreshold: cfg.ConfidenceThreshold,
 		enableAutoReply:     cfg.EnableAutoReply,
 		maxAIConsecutive:    cfg.MaxAIConsecutive,
@@ -382,7 +383,10 @@ func (o *SmartCSOrchestrator) resolveFAQKBID(ctx context.Context, agentCtx *Agen
 		return ""
 	}
 	defer func() { _ = recover() }()
-	kbs, err := repository.NewKnowledgeBaseRepository(db.GetDB()).ListByAgent(ctx, agentCtx.AgentID)
+	if o.kbRepo == nil {
+		return ""
+	}
+	kbs, err := o.kbRepo.ListByAgent(ctx, agentCtx.AgentID)
 	if err != nil {
 		return ""
 	}

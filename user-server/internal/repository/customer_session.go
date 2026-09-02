@@ -675,3 +675,12 @@ func (r *CustomerSessionRepository) OptimisticUpdate(ctx context.Context, sessio
 	session.Version = oldVersion + 1
 	return nil
 }
+
+// CountPendingUnassigned 统计等待处理且未分配坐席的会话数
+func (r *CustomerSessionRepository) CountPendingUnassigned(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.CustomerSession{}).
+		Where("status IN ? AND agent_id = 0", []string{"pending", "waiting"}).
+		Count(&count).Error
+	return count, err
+}
