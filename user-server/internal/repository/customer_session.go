@@ -89,9 +89,10 @@ func (r *CustomerSessionRepository) GetByIDString(ctx context.Context, id string
 //   - platform, accountID, oneID：业务唯一键
 //   - userID, userName：用户身份信息（首次入站填）
 //   - lastMessage, lastMessageAt：本次消息预览
+//   - dncBlocked：CS-P0-1 全局退订标记（true 时 INSERT 写入）
 //
 // 返回：稳定 session_id（首消息=新创建, 重复=已存在）；err 留给上层降级到旧逻辑
-func (r *CustomerSessionRepository) UpsertByOneID(ctx context.Context, platform, accountID, oneID, userID, userName, lastMessage string, lastMessageAt *time.Time) (string, error) {
+func (r *CustomerSessionRepository) UpsertByOneID(ctx context.Context, platform, accountID, oneID, userID, userName, lastMessage string, lastMessageAt *time.Time, dncBlocked bool) (string, error) {
 	stableID := fmt.Sprintf("sess_%s_%s_%s", platform, accountID, oneID)
 	now := time.Now()
 	if lastMessageAt == nil {
@@ -100,14 +101,14 @@ func (r *CustomerSessionRepository) UpsertByOneID(ctx context.Context, platform,
 	insertSQL := `
 INSERT INTO customer_sessions
   (session_id, platform, account_id, user_id, one_id, user_name, status, handler_type,
-   last_message, last_message_at, last_message_by, message_count, ai_reply_count, human_reply_count, avg_response_time, rating, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+   last_message, last_message_at, last_message_by, message_count, ai_reply_count, human_reply_count, avg_response_time, rating, dnc_blocked, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (session_id) DO NOTHING
 `
 	err := r.db.WithContext(ctx).Exec(insertSQL,
 		stableID, platform, accountID, userID, oneID, userName,
 		model.SessionStatusPending, model.HandlerTypeAI,
-		lastMessage, lastMessageAt, "user", 0, 0, 0, 0, 0,
+		lastMessage, lastMessageAt, "user", 0, 0, 0, 0, 0, dncBlocked,
 		&now, &now,
 	).Error
 	if err != nil {

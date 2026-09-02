@@ -35,11 +35,12 @@ func NewFeedbackLoopCron(db *gorm.DB, components *FeedbackLoopComponents) *Feedb
 		c.sopRepo = repository.NewSopAgentRepository(db)
 		c.abTestRepo = repository.NewFeedbackLoopRepositoryWithDB(db)
 	}
-	c.wg.Add(4)
+	c.wg.Add(5)
 	go c.runChampionBaselineMonthly(context.Background(), db)
 	go c.runChampionDialogueWeekly(context.Background())
 	go c.runPromptIteratorDaily(context.Background())
 	go c.runBanditConvergence(context.Background())
+	go c.runOptimizerCycle(context.Background())
 	return c
 }
 
@@ -328,6 +329,38 @@ func (c *FeedbackLoopCron) runBanditConvergence(ctx context.Context) {
 			}
 		}
 		logger.Ctx(ctx).Info().Int("total", len(experiments)).Int("converged", converged).Int("promoted", promoted).Msg("[cron] bandit convergence check done")
+		cancel()
+	}
+}
+
+// runOptimizerCycle R55 T1：定时驱动 SOPAutoOptimizer 主循环（6h/轮）
+//
+// 此前 Optimizer.ProcessPendingSuggestions 从未被任何 cron/端点调度，
+// 自动优化建议生成后永远停在 pending，闭环断链。现挂入 feedback loop cron：
+// 自动应用（过验证门）+ AB 回滚检查 + bandit 收敛选优。
+func (c *FeedbackLoopCron) runOptimizerCycle(ctx context.Context) {
+	defer c.wg.Done()
+	for {
+		select {
+		case <-c.stopCh:
+			return
+		case <-time.After(6 * time.Hour):
+		}
+		if c.components == nil || c.components.Optimizer == nil {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), utils.CronShortTimeout)
+		report, err := c.components.Optimizer.ProcessPendingSuggestions(ctx)
+		if err != nil {
+			logger.Ctx(ctx).Error().Err(err).Msg("[cron] sop optimizer cycle failed")
+		} else {
+			logger.Ctx(ctx).Info().
+				Int("pending", report.PendingCount).
+				Int("applied", report.AppliedCount).
+				Int("failed", report.FailedCount).
+				Int("rolled_back", report.RolledBackCount).
+				Msg("[cron] sop optimizer cycle done")
+		}
 		cancel()
 	}
 }

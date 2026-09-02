@@ -240,7 +240,7 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 
 	engine := app.BuildSalesEngine(gormDB)
 	kbRepo := repository.NewKnowledgeBaseRepository(gormDB)
-	orchestrator := app.BuildSmartOrchestrator(engine, kbRepo)
+	orchestrator := app.BuildSmartOrchestrator(engine, kbRepo, gormDB)
 	aiAgentSvcGlobal := service.NewAIAgentService()
 	channelBindingSvcGlobal := service.NewChannelAgentBindingService()
 	csAgentSvcGlobal := service.NewCustomerServiceAgentService()

@@ -3,8 +3,10 @@ package feedbackloop
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
@@ -114,7 +116,7 @@ func (o *SOPAutoOptimizer) ProcessPendingSuggestions(ctx context.Context) (*dto.
 func (o *SOPAutoOptimizer) autoApply(ctx context.Context, sug *model.OptimizationSuggestion) error {
 	switch sug.SuggestionType {
 	case model.SuggestionTypePromptRewrite:
-		return nil
+		return o.applyPromptRewrite(ctx, sug)
 	case model.SuggestionTypeBranchPrune:
 		return o.applyBranchPrune(ctx, sug)
 	case model.SuggestionTypeNodeMerge:
@@ -129,31 +131,71 @@ func (o *SOPAutoOptimizer) autoApply(ctx context.Context, sug *model.Optimizatio
 	return fmt.Errorf("unknown suggestion type: %s", sug.SuggestionType)
 }
 
-// applyBranchPrune 自动剪枝：克隆 SOP 为 variant B + 创建 A/B 测试
-//
-// 注意：实际节点 graph 修改逻辑由 SOPService 已有方法处理，此处仅创建 SOP 副本与 A/B 测试配置
+// applyBranchPrune 自动剪枝：克隆 SOP 为 variant B（真实删节点）+ 创建 A/B 测试
 func (o *SOPAutoOptimizer) applyBranchPrune(ctx context.Context, sug *model.OptimizationSuggestion) error {
-	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-剪枝]", "branch_prune")
+	return o.getRepo().CloneSOPAndCreateABTestMutated(ctx, sug.SOPID, " [优化-剪枝]", "branch_prune", SOPGraphMutatorForExperiment("branch_prune"))
 }
 
-// applyNodeMerge 合并相邻 action 节点（创建 SOP 变体 + AB 测试，真实落地）
+// applyNodeMerge 合并相邻 message 节点（创建 SOP 变体 + AB 测试，真实落地）
 func (o *SOPAutoOptimizer) applyNodeMerge(ctx context.Context, sug *model.OptimizationSuggestion) error {
-	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-节点合并]", "node_merge")
+	return o.getRepo().CloneSOPAndCreateABTestMutated(ctx, sug.SOPID, " [优化-节点合并]", "node_merge", SOPGraphMutatorForExperiment("node_merge"))
 }
 
 // applyAddObjection 注入异议处理子分支（创建 SOP 变体 + AB 测试，真实落地）
 func (o *SOPAutoOptimizer) applyAddObjection(ctx context.Context, sug *model.OptimizationSuggestion) error {
-	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-异议处理]", "add_objection")
+	return o.getRepo().CloneSOPAndCreateABTestMutated(ctx, sug.SOPID, " [优化-异议处理]", "add_objection", SOPGraphMutatorForExperiment("add_objection"))
 }
 
-// applyAddEmpathy 修改 LLM 节点 system_prompt 补充共情（创建 SOP 变体 + AB 测试，真实落地）
+// applyAddEmpathy 修改 LLM/message 节点 prompt 补充共情（创建 SOP 变体 + AB 测试，真实落地）
 func (o *SOPAutoOptimizer) applyAddEmpathy(ctx context.Context, sug *model.OptimizationSuggestion) error {
-	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-共情补充]", "add_empathy")
+	return o.getRepo().CloneSOPAndCreateABTestMutated(ctx, sug.SOPID, " [优化-共情补充]", "add_empathy", SOPGraphMutatorForExperiment("add_empathy"))
 }
 
 // applyTimingAdjust 调整 wait 节点 duration（创建 SOP 变体 + AB 测试，真实落地）
 func (o *SOPAutoOptimizer) applyTimingAdjust(ctx context.Context, sug *model.OptimizationSuggestion) error {
-	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-时机调整]", "timing_adjust")
+	return o.getRepo().CloneSOPAndCreateABTestMutated(ctx, sug.SOPID, " [优化-时机调整]", "timing_adjust", SOPGraphMutatorForExperiment("timing_adjust"))
+}
+
+// applyPromptRewrite R55 T1：LLM 节点转化率低 → 用 LLM 重写该节点 prompt，克隆为 variant B
+//
+// 此前该类型建议直接 return nil（静默吞掉），建议应用数虚低且闭环缺失。
+// 重写失败（LLM 不可用/节点不存在）返回错误，由上层转人工审核，不静默。
+func (o *SOPAutoOptimizer) applyPromptRewrite(ctx context.Context, sug *model.OptimizationSuggestion) error {
+	if o.gateLLM == nil {
+		return fmt.Errorf("prompt_rewrite 需要 LLM 能力，当前未注入 dispatcher")
+	}
+	newPrompt, err := o.rewriteNodePrompt(ctx, sug)
+	if err != nil {
+		return fmt.Errorf("rewrite prompt: %w", err)
+	}
+	mutator := SOPGraphMutatorForNodePrompt(sug.NodeID, newPrompt)
+	return o.getRepo().CloneSOPAndCreateABTestMutated(ctx, sug.SOPID, " [优化-Prompt重写]", "prompt_rewrite", mutator)
+}
+
+// rewriteNodePrompt 用 LLM 依据建议文本重写节点 prompt
+func (o *SOPAutoOptimizer) rewriteNodePrompt(ctx context.Context, sug *model.OptimizationSuggestion) (string, error) {
+	systemPrompt := `你是销售 SOP 优化专家。给定一个 LLM 节点的当前 prompt 和优化建议，输出改进后的完整 prompt。
+要求：保留原有业务意图与合规边界；按建议落实改进；输出仅含新 prompt 正文，不要解释。`
+	userPrompt := fmt.Sprintf("当前 prompt：\n%s\n\n优化建议：\n%s\n\n输出改进后的 prompt：", sug.SuggestionText, sug.SuggestionText)
+	res, err := o.gateLLM.Dispatch(ctx, llm.DispatchRequest{
+		Scenario:     llm.ScenarioHighQuality,
+		SystemPrompt: systemPrompt,
+		Prompt:       userPrompt,
+		MaxTokens:    1024,
+		Temperature:  0.3,
+	})
+	if err != nil {
+		return "", err
+	}
+	out := ""
+	if res != nil {
+		out = res.Content
+	}
+	out = strings.TrimSpace(out)
+	if out == "" {
+		return "", fmt.Errorf("LLM 返回空 prompt")
+	}
+	return out, nil
 }
 
 // checkAndRollback 检查 A/B 测试是否需要回滚

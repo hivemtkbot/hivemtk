@@ -243,7 +243,19 @@ func (r *FeedbackLoopRepository) MarkSuggestionApplied(ctx context.Context, id u
 }
 
 // CloneSOPAndCreateABTest 事务：克隆 SOP 为 variant B + 创建 A/B 测试 + 2 个 bandit arms
+//
+// R55 T1：clone 后调用 mutate（Service 注入的图变异器）对 variant B 做真实变异
+// （此前原样复制，variant B ≡ variant A，AB 实验无意义）。mutate 为 nil 或返回 nil
+// 时降级为原样克隆（图结构未知时不产出非法图，与"失败不阻断"哲学一致）。
 func (r *FeedbackLoopRepository) CloneSOPAndCreateABTest(ctx context.Context, sopID uint, nameSuffix string, experimentTag string) error {
+	return r.CloneSOPAndCreateABTestMutated(ctx, sopID, nameSuffix, experimentTag, nil)
+}
+
+// CloneSOPAndCreateABTestMutated 同 CloneSOPAndCreateABTest，另支持 Service 层注入图变异器
+func (r *FeedbackLoopRepository) CloneSOPAndCreateABTestMutated(
+	ctx context.Context, sopID uint, nameSuffix, experimentTag string,
+	mutate func(model.JSONMap) model.JSONMap,
+) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var original model.SOPAgent
 		if err := tx.First(&original, sopID).Error; err != nil {
@@ -255,6 +267,11 @@ func (r *FeedbackLoopRepository) CloneSOPAndCreateABTest(ctx context.Context, so
 		clone.IsActive = false
 		clone.ExecutionCount = 0
 		clone.SuccessCount = 0
+		if mutate != nil {
+			if mutated := mutate(clone.SOPGraph); mutated != nil {
+				clone.SOPGraph = mutated
+			}
+		}
 		if err := tx.Create(&clone).Error; err != nil {
 			return fmt.Errorf("create variant sop: %w", err)
 		}
@@ -391,3 +408,4 @@ func (r *FeedbackLoopRepository) RollbackABTest(ctx context.Context, testID uint
 		return nil
 	})
 }
+

@@ -284,10 +284,16 @@ func main() {
 	defer traceLearningCron.Stop(context.Background())
 	logger.Info("[trace_learning] 自学习闭环已装配（cron 每小时评估新 trace 并调整知识库权重）")
 
-	feedbackComponents := service.InitFeedbackLoopComponents(db.GetDB(), nil, nil)
+	// T1(R55) 自学习闭环真激活：此前 dispatcher 传 nil → PromptIterator 恒
+	// ErrDispatcherNotConfig，日度 prompt 迭代在生产空转；gateLLM 未注入 →
+	// 优化建议验证门 fail-closed。注入全局 Dispatcher 后两条链路恢复工作。
+	feedbackComponents := service.InitFeedbackLoopComponents(db.GetDB(), llm.GetGlobalDispatcher(), nil)
+	if feedbackComponents.Optimizer != nil {
+		feedbackComponents.Optimizer.SetGateLLM(llm.GetGlobalDispatcher())
+	}
 	feedbackCron := service.NewFeedbackLoopCron(db.GetDB(), feedbackComponents)
 	defer feedbackCron.Stop(context.Background())
-	logger.Info("[P0-5] feedback loop cron started (4 tasks: monthly baseline / weekly dialogue / daily prompt / 6h bandit)")
+	logger.Info("[P0-5] feedback loop cron started (5 tasks: monthly baseline / weekly dialogue / daily prompt / 6h bandit / 6h optimizer)")
 
 	feedbackLearningCron := service.NewFeedbackLearningCron(db.GetDB())
 	if feedbackLearningCron != nil {

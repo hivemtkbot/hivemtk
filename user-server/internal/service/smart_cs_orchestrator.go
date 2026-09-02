@@ -118,6 +118,15 @@ func (o *SmartCSOrchestrator) SetIdentityService(svc *CustomerIdentityService) {
 	o.identitySvc = svc
 }
 
+// SetDNCChecker CS-P0-1: 注入全局退订检查器
+//
+// 生产接线：sales_engine_factory.BuildSmartOrchestrator 在创建编排器后注入
+// DoNotContactService，使 checkDNCBlocked 能真正查 DB。
+// 测试 / 无 DB 环境可传 nil（向后兼容，DNC 检查被跳过）。
+func (o *SmartCSOrchestrator) SetDNCChecker(checker DoNotContactChecker) {
+	o.dncChecker = checker
+}
+
 // ensureCustomerForSession best-effort 补建 customer 档案。
 // 当 identitySvc 已注入且 sender 非空时，从 platform+open_id 构造 Identifiers
 // 调 IdentifyOrCreate，确保 session 创建后一定存在可关联的 customer。
@@ -551,7 +560,7 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 		now := time.Now()
 		dncBlocked := o.checkDNCBlocked(ctx, derivedOneID)
 		stableSessionID := fmt.Sprintf("sess_%s_%s_%s", string(in.Platform), in.AccountID, derivedOneID)
-		if id, err := o.sessionRepo.UpsertByOneID(ctx, string(in.Platform), in.AccountID, derivedOneID, derivedOneID, in.GroupName, in.Content, &now); err != nil {
+		if id, err := o.sessionRepo.UpsertByOneID(ctx, string(in.Platform), in.AccountID, derivedOneID, derivedOneID, in.GroupName, in.Content, &now, dncBlocked); err != nil {
 			staleID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
 			logger.Ctx(ctx).Warn().Err(err).Str("stable_id", stableSessionID).Str("stale_id", staleID).
 				Msg("[Orchestrator] 群聊 UpsertByOneID 失败，降级用 stale session_id")
@@ -616,7 +625,7 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 	dncBlocked := o.checkDNCBlocked(ctx, derivedOneID)
 	now := time.Now()
 	stableSessionID := fmt.Sprintf("sess_%s_%s_%s", string(in.Platform), in.AccountID, derivedOneID)
-	if id, err := o.sessionRepo.UpsertByOneID(ctx, string(in.Platform), in.AccountID, derivedOneID, in.SenderID, in.SenderName, in.Content, &now); err != nil {
+	if id, err := o.sessionRepo.UpsertByOneID(ctx, string(in.Platform), in.AccountID, derivedOneID, in.SenderID, in.SenderName, in.Content, &now, dncBlocked); err != nil {
 		staleID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
 		logger.Ctx(ctx).Warn().Err(err).Str("stable_id", stableSessionID).Str("stale_id", staleID).Msg("[Orchestrator] UpsertByOneID 失败，降级用 stale session_id")
 		session := &model.CustomerSession{
