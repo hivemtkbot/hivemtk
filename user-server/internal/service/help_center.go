@@ -231,6 +231,12 @@ func (s *HelpCenterService) TopArticles(ctx context.Context, limit int) ([]map[s
 	return out, err
 }
 
+// Search 公开门户搜索（ILIKE 标题 + knowledge_chunks 正文）
+// [P0-FIX B] 新增公开搜索方法：复用 Articles 的 ILIKE 关联查询逻辑，关键词参数显式命名
+func (s *HelpCenterService) Search(ctx context.Context, keyword string, limit int) ([]*HCArticleRow, error) {
+	return s.Articles(ctx, "", keyword, limit)
+}
+
 // RetrievalTest 检索测试（Dify Retrieval Testing 对标）+ 记录落库
 func (s *HelpCenterService) RetrievalTest(ctx context.Context, productID, query string, topK int) (map[string]any, error) {
 	if strings.TrimSpace(query) == "" {

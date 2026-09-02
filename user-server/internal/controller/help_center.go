@@ -39,6 +39,27 @@ func (c *HelpCenterController) Articles(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"list": list, "total": len(list)}, "ok")
 }
 
+// Search GET /api/public/help-center/search?keyword=xxx&limit=10
+// [P0-FIX B] 公开门户搜索端点：走 ILIKE 标题 + knowledge_chunks 正文关联查询，免登录
+func (c *HelpCenterController) Search(ctx *gin.Context) {
+	keyword := ctx.Query("keyword")
+	limit := 20
+	if l := ctx.Query("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 100 {
+			limit = n
+		}
+	}
+	if keyword == "" {
+		response.Success(ctx, gin.H{"list": []any{}, "total": 0}, "ok")
+		return
+	}
+	list, err := c.svc.Search(ctx.Request.Context(), keyword, limit)
+	if HandleServiceError(ctx, err) {
+		return
+	}
+	response.Success(ctx, gin.H{"list": list, "total": len(list)}, "ok")
+}
+
 // ArticleDetail GET /api/public/help-center/articles/:id（含 views 自增）
 func (c *HelpCenterController) ArticleDetail(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)

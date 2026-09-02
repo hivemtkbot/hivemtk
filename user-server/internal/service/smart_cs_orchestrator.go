@@ -310,11 +310,44 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	}
 	salesResp, err := o.engine.HandleWithAgent(ctx, salesReq, finalAgentCtx)
 	if err != nil || salesResp == nil {
-		result.HandlerType = model.HandlerTypeHuman
-		result.Transferred = true
-		result.TransferReason = "AI 引擎处理失败，转人工兜底"
-		_ = o.transferToHuman(ctx, session, result.TransferReason)
-		return result, nil
+		// [P0-FIX C] AI 失败分级降级链：Level1→备用引擎→Level2→规则引擎→Level3→转人工兜底
+		logger.Ctx(ctx).Warn().Err(err).Str("session_id", session.SessionID).
+			Msg("[Orchestrator] HandleWithAgent 失败，进入降级链")
+
+		// Level 1: 用 SalesEngine.Handle() 做备用 LLM 链路重试（不走 agentCtx，默认配置兜底）
+		if err != nil {
+			logger.Ctx(ctx).Info().Str("session_id", session.SessionID).
+				Msg("[Orchestrator] 降级链 Level 1: 备用 Engine.Handle() 重试")
+			salesResp, err = o.engine.Handle(ctx, salesReq)
+		}
+		if err == nil && salesResp != nil && salesResp.Reply != "" {
+			logger.Ctx(ctx).Info().Str("session_id", session.SessionID).
+				Msg("[Orchestrator] 降级链 Level 1 成功: 备用 Engine.Handle() 返回有效回复")
+		} else {
+			// Level 2: RuleEngine 规则匹配 — 触发自动化规则（自动回复/标签/通知）
+			logger.Ctx(ctx).Info().Str("session_id", session.SessionID).
+				Msg("[Orchestrator] 降级链 Level 2: RuleEngine 规则引擎触发")
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logger.Ctx(ctx).Warn().Interface("panic", r).
+							Msg("[Orchestrator] RuleEngine 触发 panic，已 recover 不影响主链路")
+					}
+				}()
+				NewRuleEngineServiceFromGlobal().DispatchWithText(
+					ctx, "ai_fallback", session.SessionID, in.Content, session,
+				)
+			}()
+
+			// Level 3: 最终兜底 → 转人工
+			logger.Ctx(ctx).Info().Str("session_id", session.SessionID).
+				Msg("[Orchestrator] 降级链 Level 3: 最终兜底 → 转人工")
+			result.HandlerType = model.HandlerTypeHuman
+			result.Transferred = true
+			result.TransferReason = "AI 引擎处理失败，降级链 Level 3 兜底转人工"
+			_ = o.transferToHuman(ctx, session, result.TransferReason)
+			return result, nil
+		}
 	}
 	result.SalesResponse = salesResp
 	result.Confidence = o.extractConfidence(ctx, salesResp)

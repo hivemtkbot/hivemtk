@@ -274,6 +274,7 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 		public.GET("/public/help-center/categories", hcCtrl.Categories)
 		public.GET("/public/help-center/articles", hcCtrl.Articles)
 		public.GET("/public/help-center/articles/:id", hcCtrl.ArticleDetail)
+		public.GET("/public/help-center/search", hcCtrl.Search) // [P0-FIX B] 公开搜索端点
 	}
 
 	setupChatPublicWebSocket(r, langResolver)

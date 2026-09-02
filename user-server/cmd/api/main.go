@@ -354,6 +354,10 @@ func main() {
 	defer ruleCron.Stop()
 	logger.Info("[RuleEngineCron] 自动化规则延迟执行已装配")
 
+	// [P0-FIX A] SessionTTLCron 优雅停止（cron 在 service 包 init() 自动启动，main 需负责 Stop）
+	defer service.StopSessionTTLCron(context.Background())
+	logger.Info("[SessionTTLCron] 会话 TTL 自动关闭 cron 已装配（service 包 init 自动启动，这里只注册 defer Stop）")
+
 	// [GEO-AUTO] GEO 模块三定时任务（SOV 刷新 / 负面监控 / 信源同步）
 	cronpkg.InitCron()
 	logger.Info("[GEO InitCron] 三个定时任务已注册（SOV@02:00 / Negative@每30min / SourceSync@03:00）")
@@ -379,8 +383,8 @@ func main() {
 		60*time.Second,
 	)
 	alertChecker.Start()
-	defer alertChecker.Stop()
-	logger.Info("[T8] alert checker started (interval=60s, notifiers=%d)", len(alertNotifiers))
+        defer alertChecker.Stop()
+        logger.Infof("[T8] alert checker started (interval=60s, notifiers=%d)", len(alertNotifiers))
 
 	registerEventSubscribers()
 

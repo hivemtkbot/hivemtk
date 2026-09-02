@@ -505,20 +505,36 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 	}
 
 	// 解析 JSON 数据
-	var backupData struct {
-		Version string           `json:"version"`
-		Clues   []map[string]any `json:"clues"`
-		Users   []map[string]any `json:"users"`
-		// AD-P0-2 扩表：新增字段（v1.1.0 及以上版本）
-		MFA                []map[string]any `json:"mfa"`
-		OBSConfig          []map[string]any `json:"obs_config"`
-		EmailAccounts      []map[string]any `json:"email_accounts"`
-		EmailJobs          []map[string]any `json:"email_jobs"`
-		DNC                []map[string]any `json:"dnc"`
-		SystemConfig       []map[string]any `json:"system_config"`
-		WebhookSubs        []map[string]any `json:"webhook_subscriptions"`
-		PasswordHistory    []map[string]any `json:"password_history"`
-	}
+        var backupData struct {
+                Version string           `json:"version"`
+                Clues   []map[string]any `json:"clues"`
+                Users   []map[string]any `json:"users"`
+                // AD-P0-2 扩表：新增字段（v1.1.0 及以上版本）
+                MFA                []map[string]any `json:"mfa"`
+                OBSConfig          []map[string]any `json:"obs_config"`
+                EmailAccounts      []map[string]any `json:"email_accounts"`
+                EmailJobs          []map[string]any `json:"email_jobs"`
+                DNC                []map[string]any `json:"dnc"`
+                SystemConfig       []map[string]any `json:"system_config"`
+                WebhookSubs        []map[string]any `json:"webhook_subscriptions"`
+                PasswordHistory    []map[string]any `json:"password_history"`
+                // AD-P0-2 续：v1.2.0+ 核心业务表字段（RestoreBackup extras 数组引用）
+                CustomerSessions   []map[string]any `json:"customer_sessions"`
+                Messages           []map[string]any `json:"messages"`
+                CsatScores         []map[string]any `json:"csat_scores"`
+                Customers          []map[string]any `json:"customers"`
+                AgentStatuses      []map[string]any `json:"agent_statuses"`
+                AlertRules         []map[string]any `json:"alert_rules"`
+                AutomationRules    []map[string]any `json:"automation_rules"`
+                BridgeAccounts     []map[string]any `json:"bridge_accounts"`
+                OperationLogs      []map[string]any `json:"operation_logs"`
+                LoginEvents        []map[string]any `json:"login_events"`
+                SecurityAlerts     []map[string]any `json:"security_alerts"`
+                PasswordResetTokens []map[string]any `json:"password_reset_tokens"`
+                Prompts            []map[string]any `json:"prompts"`
+                AIAgents           []map[string]any `json:"ai_agents"`
+                FeatureFlags       []map[string]any `json:"feature_flags"`
+        }
 	if err := json.Unmarshal(data, &backupData); err != nil {
 		return err
 	}
@@ -590,14 +606,31 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 		rows      []map[string]any
 	}
 	extras := []restoreExtra{
+		// AD-P0-2 v1.1.0+ 原有
 		{"mfa", "user_mfa", backupData.MFA},
 		{"obs_config", "obs_config", backupData.OBSConfig},
 		{"email_accounts", "email_accounts", backupData.EmailAccounts},
 		{"email_jobs", "email_jobs", backupData.EmailJobs},
-		{"dnc", "dnc", backupData.DNC},
+		{"dnc", "customer_do_not_contact", backupData.DNC},
 		{"system_config", "system_config", backupData.SystemConfig},
 		{"webhook_subscriptions", "webhook_subscriptions", backupData.WebhookSubs},
 		{"password_history", "password_history", backupData.PasswordHistory},
+		// P0-1 v1.2.0+ 核心业务表
+		{"customer_sessions", "customer_sessions", backupData.CustomerSessions},
+		{"messages", "message", backupData.Messages},
+		{"csat_scores", "csat_surveys", backupData.CsatScores},
+		{"customers", "customers", backupData.Customers},
+		{"agent_statuses", "agent_statuses", backupData.AgentStatuses},
+		{"alert_rules", "alert_rules", backupData.AlertRules},
+		{"automation_rules", "automation_rules", backupData.AutomationRules},
+		{"bridge_accounts", "bridge_accounts", backupData.BridgeAccounts},
+		{"operation_logs", "operation_logs", backupData.OperationLogs},
+		{"login_events", "login_events", backupData.LoginEvents},
+		{"security_alerts", "security_alerts", backupData.SecurityAlerts},
+		{"password_reset_tokens", "password_reset_tokens", backupData.PasswordResetTokens},
+		{"prompts", "prompts", backupData.Prompts},
+		{"ai_agents", "ai_agents", backupData.AIAgents},
+		{"feature_flags", "feature_flags", backupData.FeatureFlags},
 	}
 	restoredExtraTables := 0
 	for _, e := range extras {
