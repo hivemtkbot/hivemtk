@@ -123,6 +123,12 @@ const moduleNames = [
   'ops',
   // GEO 智能优化（关键词蒸馏 / 内容创作 / 文章优化 / 多模型验证 / 数据报表 / 配置）
   'geoTools',
+  // R44: 留存/路径分析（孤儿页挂载）
+  'analytics',
+  // 桥接通道凭证管理（v3 BRIDGE_TOKEN_PROTOCOL）
+  'bridgeToken',
+  // 线索发掘：发掘设置 + 线索库
+  'leadMining',
 ]
 
 // 同步注册的路由 (始终加载 - 用于 SSR / 初始 SEO)
@@ -225,6 +231,12 @@ const pathToModule = {
   'geo-tools': 'geoTools',
   // GEO 决策链报表：路径首段 geo → geoTools 模块（已合并到 geoTools.js）
   'geo': 'geoTools',
+  // R44: 留存与路径分析 /analytics/* → analytics 模块（首段已匹配，无需映射）
+  // 桥接通道凭证：路径首段 bridge / token → bridgeToken 模块
+  'bridge': 'bridgeToken',
+  'token': 'bridgeToken',
+  // 线索发掘：URL 首段 lead-mining (kebab-case) → 模块名 leadMining (camelCase)
+  'lead-mining': 'leadMining',
 }
 
 async function ensureRouteLoaded(path) {
