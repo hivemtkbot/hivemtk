@@ -1802,7 +1802,8 @@
     "trafficSplit": "[AR] Traffic Split (%)",
     "variantName": "[AR] Variant Name",
     "weight": "[AR] Weight",
-    "winner": "[AR] Winner"
+    "winner": "[AR] Winner",
+    "delete": "حذف"
   },
   "关联 AI 工具": "[AR] Related AI Tools",
   "发送邮件": "[AR] Send Email",

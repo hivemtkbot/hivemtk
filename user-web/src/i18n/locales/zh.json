@@ -1725,7 +1725,8 @@
     "resultTraffic": "流量",
     "resultConversion": "转化数",
     "resultRate": "转化率",
-    "noResults": "暂无结果"
+    "noResults": "暂无结果",
+    "delete": "删除"
   },
   "systemUser": {
     "title": "人员管理",

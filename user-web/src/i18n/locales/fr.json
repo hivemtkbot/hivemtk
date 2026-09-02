@@ -1704,7 +1704,8 @@
     "resultTraffic": "Traffic",
     "resultConversion": "Conversions",
     "resultRate": "Conversion Rate",
-    "noResults": "No results yet"
+    "noResults": "No results yet",
+    "delete": "Supprimer"
   },
   "systemUser": {
     "title": "Personnel Management",
