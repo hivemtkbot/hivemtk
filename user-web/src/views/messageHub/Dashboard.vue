@@ -90,6 +90,7 @@
  */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { http } from '@/utils/request'
 
 const stats = ref({ total: 0, success: 0, retrying: 0, dlq: 0 })
@@ -123,7 +124,7 @@ async function load() {
 
 function renderChart() {
   if (!chartRef.value) return
-  const chart = echarts.init(chartRef.value)
+  const chart = safeInit(chartRef.value)
   chart.setOption({
     tooltip: { trigger: 'axis' },
     xAxis: { type: 'category', data: Array.from({ length: 60 }, (_, i) => `-${60 - i}s`) },

@@ -60,6 +60,7 @@ import {
   DataLine, PieChart, Document, Histogram, TrendCharts, LocationInformation
 } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { http } from '@/utils/request'
 
 const blockTypes = [
@@ -108,7 +109,7 @@ function loadChart(type) {
   return {
     template: `<div ref="chart" class="chart-area"></div>`,
     mounted() {
-      const c = echarts.init(this.$refs.chart)
+      const c = safeInit(this.$refs.chart)
       c.setOption({
         xAxis: { type: 'category', data: ['A', 'B', 'C', 'D'] },
         yAxis: { type: 'value' },

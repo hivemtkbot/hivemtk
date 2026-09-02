@@ -111,6 +111,7 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { getXianyuCardOverallStats } from '@/api/xianyuCard'
 
 const router = useRouter()
@@ -164,7 +165,7 @@ const initCharts = () => {
   // 防御：图表容器未挂载（tab 懒渲染/路由快速切换）时跳过，避免 echarts invalid dom 崩溃
   if (!viewsChart.value || !clicksChart.value) return
   // 浏览量图表
-  viewsChartInstance = echarts.init(viewsChart.value)
+  viewsChartInstance = safeInit(viewsChart.value)
   const viewsOption = {
     tooltip: {
       trigger: 'axis'
@@ -192,7 +193,7 @@ const initCharts = () => {
   viewsChartInstance.setOption(viewsOption)
 
   // 点击量图表
-  clicksChartInstance = echarts.init(clicksChart.value)
+  clicksChartInstance = safeInit(clicksChart.value)
   const clicksOption = {
     tooltip: {
       trigger: 'axis'

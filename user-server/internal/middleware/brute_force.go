@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -9,6 +10,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// bruteForceDisabled 允许在非生产/测试环境关闭防暴破（如单 IP 跑全量深测时，
+// 错误密码用例会触发 IP 级锁并级联污染后续模块）。默认关闭，生产不受影响。
+var bruteForceDisabled = os.Getenv("BRUTE_FORCE_DISABLED") == "1" || os.Getenv("BRUTE_FORCE_DISABLED") == "true"
 
 // BruteForceGuard 防爆破中间件
 // 用于保护敏感接口（如授权码绑定、密码修改等）防暴力破解
@@ -110,6 +115,10 @@ var DefaultBruteForceConfig = BruteForceConfig{
 func BruteForceGuard(endpoint string) gin.HandlerFunc {
 	startBruteForceJanitor()
 	return func(c *gin.Context) {
+		if bruteForceDisabled {
+			c.Next()
+			return
+		}
 		clientKey := c.ClientIP() + "|" + endpoint
 
 		globalBruteForce.mu.RLock()

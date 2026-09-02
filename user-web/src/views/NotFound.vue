@@ -36,7 +36,10 @@ const goBack = () => {
 }
 
 const goHome = () => {
-  router.push({ name: 'Home' })
+  // 修复：路由表中不存在名为 'Home' 的命名路由，push({name:'Home'}) 会抛出
+  // 未捕获异常 "No match for {"name":"Home","params":{}}"，导致「回到首页」按钮失效。
+  // 首页由 Layout 根路由 '/' 承载（redirect → /messageHub/list），改用路径跳转。
+  router.push('/')
 }
 </script>
 

@@ -64,6 +64,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { http } from '@/utils/request'
 
 const stats = reactive({ total: 0, highValue: 0, active: 0, churnRisk: 0 })
@@ -82,7 +83,7 @@ async function load() {
 
 function renderMatrix(data) {
   if (!matrixRef.value) return
-  const chart = echarts.init(matrixRef.value)
+  const chart = safeInit(matrixRef.value)
   chart.setOption({
     tooltip: {},
     xAxis: { type: 'category', data: ['R5', 'R4', 'R3', 'R2', 'R1'] },

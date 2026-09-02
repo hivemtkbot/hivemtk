@@ -172,7 +172,11 @@ export default defineConfig({
   },
   // 添加优化选项
   optimizeDeps: {
-    include: ['vue', 'vue-router', 'pinia', 'element-plus', 'axios']
+    // dompurify / tinymce / echarts 等是被懒加载（动态 import）或较大体积的依赖，
+    // 若不在启动期预打包，首次被页面请求时 Vite 会临时优化，期间对该依赖的请求返回
+    // 504，导致 import 该依赖的页面（sms/Jobs、chatChannel/List、email/Drafts、
+    // whatsappBot/BulkMessaging 等）白屏。显式 include 使其在 server 启动期完成预构建。
+    include: ['vue', 'vue-router', 'pinia', 'element-plus', 'axios', 'dompurify', 'echarts', 'tinymce', '@tinymce/tinymce-vue']
   },
   // 添加自定义配置以禁用警告
   define: {

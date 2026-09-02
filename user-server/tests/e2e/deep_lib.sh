@@ -20,7 +20,7 @@ TOKEN=""
 PLAT_TOKEN=""
 
 mtk_login() {
-  local pw="${1:-Admin@123456}"
+  local pw="${1:-Seed@123456}"
   local resp
   resp=$(curl -s --max-time 15 -X POST "$BASE/api/auth/login" \
     -H 'Content-Type: application/json' \

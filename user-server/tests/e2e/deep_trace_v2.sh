@@ -18,7 +18,7 @@ fail() { echo "  [FAIL] $1"; FAIL=$((FAIL+1)); }
 
 # 登录
 TOKEN=$(curl -s -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"Admin@123456"}' | jq -r '.data.token')
+  -d '{"username":"admin","password":"Seed@123456"}' | jq -r '.data.token')
 if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
   echo "LOGIN_FAIL"; exit 1
 fi

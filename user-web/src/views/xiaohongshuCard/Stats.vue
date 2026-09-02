@@ -136,6 +136,7 @@ import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { getXiaohongshuCardOverallStats } from '@/api/xiaohongshuCard'
 
 // 路由
@@ -232,7 +233,7 @@ const updateCharts = () => {
   
   const viewChartDom = document.getElementById('viewChart')
   if (viewChartDom) {
-    viewChart.value = echarts.init(viewChartDom)
+    viewChart.value = safeInit(viewChartDom)
     const viewOption = {
       title: {
         text: '访问趋势',

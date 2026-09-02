@@ -78,6 +78,7 @@
  */
 import { ref, computed, watch, onMounted } from 'vue'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { http } from '@/utils/request'
 import { formatCompactNumber } from '@/utils/format'
 
@@ -115,7 +116,7 @@ async function load() {
 
 function renderTrend(days) {
   if (!trendRef.value) return
-  const chart = echarts.init(trendRef.value)
+  const chart = safeInit(trendRef.value)
   chart.setOption({
     tooltip: { trigger: 'axis' },
     xAxis: { type: 'category', data: days.map((d) => d.date) },
@@ -132,7 +133,7 @@ function renderTrend(days) {
 
 function renderDist(data) {
   if (!distRef.value) return
-  const chart = echarts.init(distRef.value)
+  const chart = safeInit(distRef.value)
   chart.setOption({
     tooltip: { trigger: 'item' },
     series: [{

@@ -141,6 +141,7 @@ import i18n from '@/i18n'
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { ElMessage } from 'element-plus'
 import { getKuaishouCardOverallStats } from '@/api/kuaishouCard'
 
@@ -275,7 +276,7 @@ const updateCharts = () => {
 const initCharts = () => {
   // 访问趋势图
   if (visitTrendChartRef.value) {
-    visitTrendChart = echarts.init(visitTrendChartRef.value)
+    visitTrendChart = safeInit(visitTrendChartRef.value)
   }
 
   // 窗口大小变化时重新调整图表

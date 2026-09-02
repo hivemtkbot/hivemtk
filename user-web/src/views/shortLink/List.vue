@@ -255,6 +255,7 @@ import { Plus, Search, RefreshRight, DataAnalysis, Share } from '@element-plus/i
 import { shortLinkApi } from '@/api/shortLink'
 import PageState from '@/components/PageState.vue'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 
 // 响应式数据
 const loading = ref(false)
@@ -567,7 +568,7 @@ const initCharts = (data) => {
   if (deviceChart) deviceChart.dispose()
   
   // 初始化趋势图
-  trendChart = echarts.init(trendChartRef.value)
+  trendChart = safeInit(trendChartRef.value)
   const trendOption = {
     title: {
       show: false
@@ -605,7 +606,7 @@ const initCharts = (data) => {
   trendChart.setOption(trendOption)
   
   // 初始化设备分布图
-  deviceChart = echarts.init(deviceChartRef.value)
+  deviceChart = safeInit(deviceChartRef.value)
   const deviceOption = {
     title: {
       show: false

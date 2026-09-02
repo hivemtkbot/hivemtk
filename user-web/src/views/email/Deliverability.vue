@@ -77,6 +77,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { http } from '@/utils/request'
 
 const stats = ref({ deliveryRate: 0, openRate: 0, softBounce: 0, hardBounce: 0 })
@@ -104,7 +105,7 @@ function refresh() { load() }
 
 function renderBounceChart(bounces) {
   if (!bounceChartRef.value) return
-  const chart = echarts.init(bounceChartRef.value)
+  const chart = safeInit(bounceChartRef.value)
   chart.setOption({
     tooltip: { trigger: 'item' },
     series: [{

@@ -74,6 +74,7 @@
 
 <script>
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import ConversionFunnelApi from '@/api/conversionFunnel'
 import { getChannelLabel } from '@/constants/channel'
 
@@ -91,7 +92,7 @@ export default {
     }
   },
   mounted() {
-    this.chartInst = echarts.init(this.$refs.funnelChart)
+    this.chartInst = safeInit(this.$refs.funnelChart)
     this.loadAll()
   },
   beforeDestroy() {

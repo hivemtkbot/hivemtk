@@ -22,6 +22,7 @@
  */
 import { ref, onMounted, watch } from 'vue'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { http } from '@/utils/request'
 
 const activeTab = ref('cohort')
@@ -33,7 +34,7 @@ async function loadCohort() {
   const days = data.periods || []
   const cohorts = data.cohorts || []
   if (!cohortChartRef.value) return
-  const chart = echarts.init(cohortChartRef.value)
+  const chart = safeInit(cohortChartRef.value)
   chart.setOption({
     tooltip: { trigger: 'item' },
     xAxis: { type: 'category', data: days },
@@ -50,7 +51,7 @@ async function loadCohort() {
 async function loadPath() {
   const data = await http.get('/api/analytics/path', { limit: 5 })
   if (!pathChartRef.value) return
-  const chart = echarts.init(pathChartRef.value)
+  const chart = safeInit(pathChartRef.value)
   chart.setOption({
     tooltip: {},
     series: [{

@@ -69,6 +69,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { http } from '@/utils/request'
 
 const stats = reactive({ recall5: 0, mrr: 0, ndcg5: 0, evalSetSize: 0 })
@@ -93,7 +94,7 @@ async function load() {
 
 function renderChart(runs) {
   if (!chartRef.value) return
-  const chart = echarts.init(chartRef.value)
+  const chart = safeInit(chartRef.value)
   chart.setOption({
     tooltip: { trigger: 'axis' },
     legend: { data: ['Recall@5', 'MRR', 'NDCG@5'] },

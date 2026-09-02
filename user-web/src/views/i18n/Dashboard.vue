@@ -216,6 +216,7 @@ import i18n from '@/i18n'
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import {
   Refresh, ChatLineRound, Connection, Files, TrendCharts,
   DataLine, Collection, Timer
@@ -368,7 +369,7 @@ const loadAll = async () => {
 const renderLangDist = () => {
   if (!langDistChart.value) return
   if (!langDistInst) {
-    langDistInst = echarts.init(langDistChart.value)
+    langDistInst = safeInit(langDistChart.value)
   }
   const data = langDist.value.map((row) => ({
     name: `${getLanguageLabel(row.internal_lang)} → ${getLanguageLabel(row.target_lang)}`,
@@ -414,7 +415,7 @@ const renderLangDist = () => {
 const renderQuality = () => {
   if (!qualityChart.value) return
   if (!qualityInst) {
-    qualityInst = echarts.init(qualityChart.value)
+    qualityInst = safeInit(qualityChart.value)
   }
   const data = qualityTrend.value.slice().sort((a, b) => {
     const da = new Date(a.date).getTime() || 0

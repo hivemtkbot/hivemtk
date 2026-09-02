@@ -109,6 +109,7 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { getSalesCockpit } from '@/api/cockpit'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 
 const intentChart = ref(null)
 const cockpit = ref({
@@ -156,7 +157,7 @@ function renderIntentChart() {
     chartInstance.dispose()
     chartInstance = null
   }
-  chartInstance = echarts.init(intentChart.value)
+  chartInstance = safeInit(intentChart.value)
   chartInstance.setOption({
     tooltip: { trigger: 'item' },
     legend: { bottom: 0 },

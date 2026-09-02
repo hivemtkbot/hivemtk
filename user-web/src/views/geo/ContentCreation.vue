@@ -29,7 +29,7 @@
                   size="small"
                   class="adv-input"
                   @keyup.enter="addAdv"
-                  @blur="() => setTimeout(addAdv, 100)"
+                  @blur="onBlurAddAdv"
                 />
                 <el-button v-else size="small" class="adv-add" @click="showAdvInput">+ 优势</el-button>
               </div>
@@ -178,6 +178,9 @@ const addAdv = () => {
   advInputVisible.value = false
   advInputValue.value = ''
 }
+
+// 模板不能直接调用 setTimeout（Web API 不在 Vue3 模板全局白名单），包装成方法供 @blur 绑定
+const onBlurAddAdv = () => setTimeout(addAdv, 100)
 
 const handleGenerate = async () => {
   if (!form.keyword.trim() || !form.brand_name.trim()) {

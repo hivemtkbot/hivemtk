@@ -122,6 +122,7 @@ import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { getTikTokCard, getTikTokCardStats } from '@/api/tiktokCard'
 
 // 路由
@@ -196,7 +197,7 @@ const updateCharts = () => {
     visitChartInstance.dispose()
   }
   
-  visitChartInstance = echarts.init(visitTrendChart.value)
+  visitChartInstance = safeInit(visitTrendChart.value)
   const visitOption = {
     title: {
       text: '访问量趋势',

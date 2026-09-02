@@ -237,6 +237,7 @@ import { ElMessage } from 'element-plus'
 import { DataAnalysis, Share, Search, RefreshRight } from '@element-plus/icons-vue'
 import { shortLinkApi } from '@/api/shortLink'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 
 // 响应式数据
 const loading = ref(false)
@@ -440,7 +441,7 @@ const initCharts = (data) => {
   if (deviceChart) deviceChart.dispose()
   
   // 初始化趋势图
-  trendChart = echarts.init(trendChartRef.value)
+  trendChart = safeInit(trendChartRef.value)
   const trendOption = {
     title: {
       show: false
@@ -478,7 +479,7 @@ const initCharts = (data) => {
   trendChart.setOption(trendOption)
   
   // 初始化设备分布图
-  deviceChart = echarts.init(deviceChartRef.value)
+  deviceChart = safeInit(deviceChartRef.value)
   const deviceOption = {
     title: {
       show: false
@@ -533,7 +534,7 @@ const initAllCharts = (data) => {
   if (allDeviceChart) allDeviceChart.dispose()
   
   // 初始化趋势图
-  allTrendChart = echarts.init(allTrendChartRef.value)
+  allTrendChart = safeInit(allTrendChartRef.value)
   const trendOption = {
     title: {
       show: false
@@ -571,7 +572,7 @@ const initAllCharts = (data) => {
   allTrendChart.setOption(trendOption)
   
   // 初始化设备分布图
-  allDeviceChart = echarts.init(allDeviceChartRef.value)
+  allDeviceChart = safeInit(allDeviceChartRef.value)
   const deviceOption = {
     title: {
       show: false

@@ -148,6 +148,7 @@ import { ref, reactive, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, DataLine, CircleCheck, Warning, Plus } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { clueApi } from '@/api/clue'
 import { getChannelLabel } from '@/constants/channel'
 // 线索类型：取自统一 cardPlatform 常量
@@ -251,7 +252,7 @@ const renderAll = () => {
 const initChart = (refEl) => {
   if (!refEl) return null
   if (charts[refEl]) return charts[refEl]
-  charts[refEl] = echarts.init(refEl)
+  charts[refEl] = safeInit(refEl)
   return charts[refEl]
 }
 

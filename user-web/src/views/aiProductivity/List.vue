@@ -45,6 +45,7 @@
 
 <script>
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import AIProductivityApi from '@/api/aiProductivity'
 
 export default {
@@ -58,7 +59,7 @@ export default {
     }
   },
   mounted() {
-    this.chartInst = echarts.init(this.$refs.trendChart)
+    this.chartInst = safeInit(this.$refs.trendChart)
     this.loadAll()
   },
   beforeDestroy() {

@@ -105,6 +105,7 @@ import i18n from '@/i18n'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { FullScreen, User, ShoppingCart, ChatLineRound, Document, Promotion, Bell, Money } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { getDashboardData, getRealtimeActivities } from '@/api/dashboardScreen.js'
 
 const currentTime = ref('')
@@ -158,7 +159,7 @@ const loadRealtime = async () => {
 const initCharts = (data) => {
   // 趋势图
   if (trendChartRef.value) {
-    trendChart = echarts.init(trendChartRef.value)
+    trendChart = safeInit(trendChartRef.value)
     trendChart.setOption({
       tooltip: { trigger: 'axis' },
       legend: { data: ['访问', '线索', '转化'], textStyle: { color: '#fff' } },
@@ -175,7 +176,7 @@ const initCharts = (data) => {
 
   // 渠道图
   if (channelChartRef.value) {
-    channelChart = echarts.init(channelChartRef.value)
+    channelChart = safeInit(channelChartRef.value)
     channelChart.setOption({
       tooltip: { trigger: 'item' },
       legend: { orient: 'vertical', left: 'left', textStyle: { color: '#fff' } },
@@ -190,7 +191,7 @@ const initCharts = (data) => {
 
   // 来源图
   if (sourceChartRef.value) {
-    sourceChart = echarts.init(sourceChartRef.value)
+    sourceChart = safeInit(sourceChartRef.value)
     sourceChart.setOption({
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
@@ -202,7 +203,7 @@ const initCharts = (data) => {
 
   // 漏斗图
   if (funnelChartRef.value) {
-    funnelChart = echarts.init(funnelChartRef.value)
+    funnelChart = safeInit(funnelChartRef.value)
     funnelChart.setOption({
       tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {c}%' },
       series: [{
@@ -216,7 +217,7 @@ const initCharts = (data) => {
 
   // 地区分布（echarts 6 不内置 china 地图 geoJSON，使用柱状图展示，避免 "Map china not exists" 报错）
   if (mapChartRef.value) {
-    mapChart = echarts.init(mapChartRef.value)
+    mapChart = safeInit(mapChartRef.value)
     const regions = Array.isArray(data.regions) ? data.regions : []
     mapChart.setOption({
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
@@ -237,7 +238,7 @@ const initCharts = (data) => {
 
   // 转化对比
   if (conversionChartRef.value) {
-    conversionChart = echarts.init(conversionChartRef.value)
+    conversionChart = safeInit(conversionChartRef.value)
     conversionChart.setOption({
       tooltip: { trigger: 'axis' },
       legend: { data: ['本周', '上周'], textStyle: { color: '#fff' } },

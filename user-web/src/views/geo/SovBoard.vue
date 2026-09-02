@@ -77,6 +77,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { getSOV } from '@/api/geoProbe.js'
 
 const OWN_BRAND = 'HiveMtk'
@@ -115,7 +116,7 @@ const sentimentLabel = (s) => {
 const renderBarChart = () => {
   if (!barChartRef.value || sovData.value.length === 0) return
   if (!chartInstance) {
-    chartInstance = echarts.init(barChartRef.value)
+    chartInstance = safeInit(barChartRef.value)
     window.addEventListener('resize', handleResize)
   }
   const sorted = [...sovData.value].sort((a, b) => b.sov_percent - a.sov_percent)

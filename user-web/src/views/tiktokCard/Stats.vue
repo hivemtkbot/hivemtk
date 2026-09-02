@@ -134,6 +134,7 @@ import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { getTikTokCardOverallStats } from '@/api/tiktokCard'
 
 // 路由
@@ -217,7 +218,7 @@ const updateCharts = () => {
       visitChartInstance.dispose()
     }
     
-    visitChartInstance = echarts.init(visitTrendChart.value)
+    visitChartInstance = safeInit(visitTrendChart.value)
     const dates = overallStats.stats_by_time.map(item => item.date)
     const views = overallStats.stats_by_time.map(item => item.viewCount || 0)
     

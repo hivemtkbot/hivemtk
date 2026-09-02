@@ -82,6 +82,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { getCSATStats, getCSATTrend, getNegativeCSAT } from '@/api/csat'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 
 const stats = reactive({ avgScore: 0, positiveRate: 0, totalCount: 0, negativeCount: 0 })
 const negativeList = ref([])
@@ -108,7 +109,7 @@ async function load() {
 
 function renderTrend(data) {
   if (!trendChartRef.value) return
-  const chart = echarts.init(trendChartRef.value)
+  const chart = safeInit(trendChartRef.value)
   chart.setOption({
     tooltip: { trigger: 'axis' },
     xAxis: { type: 'category', data: data.map((d) => d.date) },
@@ -125,7 +126,7 @@ function renderTrend(data) {
 
 function renderDist(data) {
   if (!distChartRef.value) return
-  const chart = echarts.init(distChartRef.value)
+  const chart = safeInit(distChartRef.value)
   chart.setOption({
     tooltip: { trigger: 'item' },
     series: [{

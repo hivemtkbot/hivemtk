@@ -41,7 +41,7 @@
                   size="small"
                   class="tag-input"
                   @keyup.enter="addTag(config.advantages)"
-                  @blur="() => setTimeout(() => addTag(config.advantages), 100)"
+                  @blur="onBlurAddTag('adv')"
                 />
                 <el-button v-else size="small" class="tag-add" @click="showAdvInput">+ 优势</el-button>
               </div>
@@ -63,7 +63,7 @@
                   size="small"
                   class="tag-input"
                   @keyup.enter="addTag(config.competitors, 'comp')"
-                  @blur="() => setTimeout(() => addTag(config.competitors, 'comp'), 100)"
+                  @blur="onBlurAddTag('comp')"
                 />
                 <el-button v-else size="small" class="tag-add" @click="showCompInput">+ 竞品</el-button>
               </div>
@@ -203,6 +203,14 @@ const addTag = (arr, type = 'adv') => {
   if (v && !arr.includes(v)) arr.push(v)
   value.value = ''
   visible.value = false
+}
+
+// 模板中不能直接调用 setTimeout（Web API 不在 Vue3 模板全局白名单，
+// 会被编译成 _ctx.setTimeout → undefined is not a function）。故在 setup 中
+// 暴露包装方法，事件直接绑定到此方法。
+const onBlurAddTag = (type = 'adv') => {
+  const arr = type === 'comp' ? config.competitors : config.advantages
+  setTimeout(() => addTag(arr, type), 100)
 }
 
 const splitCN = (s) => String(s || '').split(/[、,，]/).map((x) => x.trim()).filter(Boolean)

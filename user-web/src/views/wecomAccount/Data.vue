@@ -159,6 +159,7 @@ import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import { safeInit } from '@/utils/echarts'
 import { wecomAccountApi } from '@/api/wecomAccount'
 import WeComSendDialog from '@/components/WeComSendDialog.vue'
 import { toList } from '@/utils/list'
@@ -337,7 +338,7 @@ const loadChartData = async () => {
 const renderSourceChart = (data) => {
   if (sourceChartInst) sourceChartInst.dispose()
   if (!sourceChart.value) return
-  sourceChartInst = echarts.init(sourceChart.value)
+  sourceChartInst = safeInit(sourceChart.value)
   sourceChartInst.setOption({
     title: { text: '客户来源分布', left: 'center' },
     tooltip: { trigger: 'item' },
@@ -358,7 +359,7 @@ const renderSourceChart = (data) => {
 const renderGroupSizeChart = (names, sizes) => {
   if (groupSizeChartInst) groupSizeChartInst.dispose()
   if (!groupSizeChart.value) return
-  groupSizeChartInst = echarts.init(groupSizeChart.value)
+  groupSizeChartInst = safeInit(groupSizeChart.value)
   groupSizeChartInst.setOption({
     title: { text: '客户群规模 Top10', left: 'center' },
     tooltip: { trigger: 'axis' },
@@ -379,7 +380,7 @@ const renderGroupSizeChart = (names, sizes) => {
 const renderMsgTrendChart = (days, data) => {
   if (msgTrendChartInst) msgTrendChartInst.dispose()
   if (!msgTrendChart.value) return
-  msgTrendChartInst = echarts.init(msgTrendChart.value)
+  msgTrendChartInst = safeInit(msgTrendChart.value)
   msgTrendChartInst.setOption({
     title: { text: '消息趋势（近30天）', left: 'center' },
     tooltip: { trigger: 'axis' },
