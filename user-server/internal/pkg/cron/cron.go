@@ -97,32 +97,10 @@ func InitCron() {
 		panic(err)
 	}
 
-	// GEO: SOV 刷新 — 每天凌晨 2:00
-	_, err = mgr.AddTask("0 0 2 * * *", func() {
-		go geoservice.SOVRefreshCron()
-	})
-	if err != nil {
-		logger.Info(fmt.Sprintf("添加 GEO SOV 刷新定时任务失败 %s", err.Error()))
-		panic(err)
-	}
-
-	// GEO: 负面监控 — 每 30 分钟
-	_, err = mgr.AddTask("0 */30 * * * *", func() {
-		go geoservice.NegativeMonitorCron()
-	})
-	if err != nil {
-		logger.Info(fmt.Sprintf("添加 GEO 负面监控定时任务失败 %s", err.Error()))
-		panic(err)
-	}
-
-	// GEO: 信源目录同步 — 每天凌晨 3:00
-	_, err = mgr.AddTask("0 0 3 * * *", func() {
-		go geoservice.SourceCatalogSyncCron()
-	})
-	if err != nil {
-		logger.Info(fmt.Sprintf("添加 GEO 信源同步定时任务失败 %s", err.Error()))
-		panic(err)
-	}
+	// GEO: 四个定时任务统一注册（SOV 刷新 / 负面监控 / 信源同步 / 竞品爬虫）。
+	// 调度周期持久化于 geo_config.cron_specs，可经管理端 /geo/jobs API 调整；
+	// 执行互斥、超时、panic 恢复与运行历史（geo_job_runs）由 geoservice.JobManager 统一处理。
+	geoservice.SetupGeoJobs(mgr)
 
 	// [Backup] 每日自动备份 — 每天凌晨 03:05（避开 GEO SourceCatalogSync 03:00 资源争抢）
 	_, err = mgr.AddTask("0 5 3 * * *", func() {
@@ -133,15 +111,6 @@ func InitCron() {
 		panic(err)
 	}
 	logger.Info("[Backup] 每日自动备份 cron 已注册 (03:05:00)")
-
-	// GEO: 竞品监控爬虫 — 每 6 小时爬一次竞品站点，真实 HTTP 请求记录访问
-	_, err = mgr.AddTask("0 0 */6 * * *", func() {
-		go geoservice.CrawlerMonitorCron()
-	})
-	if err != nil {
-		logger.Info(fmt.Sprintf("添加 GEO 竞品监控爬虫定时任务失败 %s", err.Error()))
-		panic(err)
-	}
 }
 
 // ChurnCalculationCron 流失预测定时任务：从 customer_events 真实聚合全部客户行为并执行流失计算。

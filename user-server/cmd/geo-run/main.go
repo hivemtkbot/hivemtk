@@ -155,7 +155,7 @@ func main() {
 		"数据不出域;AI直接驱动成交而非仅客服应答;开源可自部署;多渠道统一收件箱;决策链GEO优化内置",
 		[]string{"微伴助手", "探马SCRM", "尘锋SCRM"},
 		"https://hivemtk.com", "deepseek",
-		[]string{"deepseek", "qwen"})
+		[]string{"deepseek", "qwen"}, nil)
 	cfgRow, _ := configSvc.GetConfig(ctx)
 	fmt.Printf("== [U1] 品牌配置已保存 == 品牌=%s 竞品=%s\n", cfgRow.BrandName, cfgRow.Competitors)
 

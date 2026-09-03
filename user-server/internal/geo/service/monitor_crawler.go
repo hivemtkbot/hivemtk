@@ -328,12 +328,9 @@ func (s *MonitorCrawlerService) loadCompetitors(ctx context.Context) []*model.Ge
 	return out
 }
 
-// CrawlerMonitorCron 关键词驱动爬虫定时任务（包级入口）
+// CrawlerMonitorCron 关键词驱动爬虫定时任务（包级入口，经 JobManager 统一执行）
 func CrawlerMonitorCron() {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
-	defer cancel()
-	n, _ := CrawlerMonitorCronWithContext(ctx)
-	logger.Info(fmt.Sprintf("[GEO Crawler] cron 完成，写入=%d 条", n))
+	_, _ = GetGeoJobManager().Trigger(JobCrawlerMonitor)
 }
 
 // CrawlerMonitorCronSync 同步执行爬虫（手动触发入口，返回写入数和错误）

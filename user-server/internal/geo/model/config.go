@@ -18,6 +18,10 @@ type GeoConfig struct {
 	Language         string `gorm:"type:varchar(20);default:'zh'" json:"language"`
 	DefaultModel     string `gorm:"type:varchar(100)" json:"default_model"`
 	VerifyModels     string `gorm:"type:text" json:"verify_models"`
+	// NegativeKeywords 负面监控种子词（逗号分隔；空则用后端默认种子）
+	NegativeKeywords string `gorm:"type:text" json:"negative_keywords"`
+	// CronSpecs 定时任务调度配置 JSON map：{"sov_refresh":"0 0 2 * * *",...}
+	CronSpecs string `gorm:"type:text" json:"cron_specs"`
 
 	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`

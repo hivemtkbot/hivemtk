@@ -75,24 +75,23 @@ func errlistStrings(errs []error) []string {
 	return out
 }
 
-// RunCron 手动触发 SOV 刷新（给管理员强制跑一轮用）
-// POST /geo/probe/run-sov
-func (c *ProbeController) RunCron(ctx *gin.Context) {
-	go service.SOVRefreshCron()
-	response.Success(ctx, gin.H{"started": true}, "已启动 SOV 刷新任务，请查看日志")
-}
-
 // RunNegativeMonitor 手动触发负面监控
 // POST /geo/probe/run-negative
 func (c *ProbeController) RunNegativeMonitor(ctx *gin.Context) {
-	go service.NegativeMonitorCron()
+	if _, err := service.GetGeoJobManager().Trigger(service.JobNegativeMonitor); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
 	response.Success(ctx, gin.H{"started": true}, "已启动负面监控任务")
 }
 
 // RunSourceSync 手动触发信源目录同步
 // POST /geo/probe/run-source-sync
 func (c *ProbeController) RunSourceSync(ctx *gin.Context) {
-	go service.SourceCatalogSyncCron()
+	if _, err := service.GetGeoJobManager().Trigger(service.JobSourceSync); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
 	response.Success(ctx, gin.H{"started": true}, "已启动信源同步任务")
 }
 

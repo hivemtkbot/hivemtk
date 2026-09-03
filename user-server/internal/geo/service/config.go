@@ -38,7 +38,8 @@ func (s *ConfigService) GetConfig(ctx context.Context) (*model.GeoConfig, error)
 }
 
 // UpdateConfig 更新 GEO 配置（合并更新，保留未提供的字段）
-func (s *ConfigService) UpdateConfig(ctx context.Context, brand, brandDescription, advantages string, competitors []string, domain, defaultModel string, verifyModels []string) error {
+// negativeKeywords 为 nil 时保留现有负面监控种子词配置
+func (s *ConfigService) UpdateConfig(ctx context.Context, brand, brandDescription, advantages string, competitors []string, domain, defaultModel string, verifyModels []string, negativeKeywords []string) error {
 	existing, err := s.configRepo.Get()
 	if err != nil {
 		existing = &model.GeoConfig{Language: "zh"}
@@ -63,6 +64,9 @@ func (s *ConfigService) UpdateConfig(ctx context.Context, brand, brandDescriptio
 	}
 	if len(verifyModels) > 0 {
 		existing.VerifyModels = strings.Join(verifyModels, "、")
+	}
+	if negativeKeywords != nil {
+		existing.NegativeKeywords = strings.Join(negativeKeywords, ",")
 	}
 	if existing.Language == "" {
 		existing.Language = "zh"

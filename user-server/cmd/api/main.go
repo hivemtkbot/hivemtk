@@ -391,7 +391,7 @@ func main() {
 
 	// [GEO-AUTO] GEO 模块三定时任务（SOV 刷新 / 负面监控 / 信源同步）
 	cronpkg.InitCron()
-	logger.Info("[GEO InitCron] 三个定时任务已注册（SOV@02:00 / Negative@每30min / SourceSync@03:00）")
+	logger.Info("[GEO InitCron] 定时任务已注册（SOV刷新/负面监控/信源同步/竞品爬虫，经 JobManager 统一管理）")
 
 	// [T8] 告警规则检查器：每 60s 扫描启用规则并比对阈值
 	//   默认 LogAlertNotifier；通过 env 追加 EmailAlertNotifier / WebhookAlertNotifier

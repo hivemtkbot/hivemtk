@@ -41,12 +41,13 @@ func (c *ConfigController) UpdateConfig(ctx *gin.Context) {
 		Domain           string   `json:"domain"`
 		DefaultModel     string   `json:"default_model"`
 		VerifyModels     []string `json:"verify_models"`
+		NegativeKeywords []string `json:"negative_keywords"`
 	}
 	if !response.BindJSON(ctx, &req) {
 		return
 	}
 	err := c.svc.UpdateConfig(ctx.Request.Context(), req.Brand, req.BrandDescription,
-		req.Advantages, req.Competitors, req.Domain, req.DefaultModel, req.VerifyModels)
+		req.Advantages, req.Competitors, req.Domain, req.DefaultModel, req.VerifyModels, req.NegativeKeywords)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "更新配置失败")
 		return

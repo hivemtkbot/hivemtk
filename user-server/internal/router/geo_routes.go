@@ -115,6 +115,9 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	probeSvc := geoservice.NewProbeService(probes, probeRepo)
 	probeCtrl := geoctrl.NewProbeController(probeSvc)
 
+	// 定时任务管理（互斥/历史/调度配置统一由 JobManager 处理）
+	jobCtrl := geoctrl.NewJobController(geoservice.GetGeoJobManager())
+
 	sourceRepo := georepo.NewGeoSourceCatalogRepositoryWithDB(gormDB)
 	crawlerSvc := geoservice.NewCrawlerService(sourceRepo)
 	sourceCtrl := geoctrl.NewSourceCatalogController(crawlerSvc)
@@ -242,7 +245,12 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	geoAdmin.POST("/kb/documents", kbCtrl.Save)
 	geoAdmin.DELETE("/kb/documents/:id", kbCtrl.Delete)
 	// Cron 触发端点（防 staff 手工跑 SOV 排名扫描 / 爬虫调度）
-	geoAdmin.POST("/probe/run-sov", probeCtrl.RunCron)
+	// SOV 刷新改由 /geo/jobs/:name/trigger 触发
+	// === 定时任务管理（admin）===
+	geoAdmin.GET("/jobs", jobCtrl.List)
+	geoAdmin.GET("/jobs/runs", jobCtrl.Runs)
+	geoAdmin.POST("/jobs/:name/trigger", jobCtrl.Trigger)
+	geoAdmin.PUT("/jobs/:name/schedule", jobCtrl.UpdateSchedule)
 }
 
 
