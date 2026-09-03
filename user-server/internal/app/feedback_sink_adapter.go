@@ -74,7 +74,7 @@ func (a *FeedbackCollectorAdapter) RecordToolCall(ctx context.Context, event too
 		SessionID:   event.SessionID,
 		CustomerID:  event.CustomerID,
 		EventType:   dto.FBEventTypeImplicit,
-		SignalKey:   "tool_call", 
+		SignalKey:   dto.FBSignalToolCall, // R58: 用常量替换硬编码字符串，确保 DefaultSignalWeights 能匹配
 		SignalValue: signalValue,
 		AIReply:     "", 
 		CustomerMsg: "", 

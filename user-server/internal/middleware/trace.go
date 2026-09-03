@@ -9,6 +9,7 @@ import (
 
 	"hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/pkg/traceparent"
+	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 )
@@ -62,7 +63,15 @@ func TraceMiddleware() gin.HandlerFunc {
 		tc.SetSpanIDFor(spanID) // 注入本服务产生的子 span_id
 		c.Set("trace_ctx", tc)
 
-		c.Request = c.Request.WithContext(logger.WithTraceID(c.Request.Context(), traceID))
+		ctx := logger.WithTraceID(c.Request.Context(), traceID)
+
+		// R58 CRITICAL: 注入 tracing.Carrier 到 context
+		// 此前只写 logger trace_id → API trace_event 全是 UUID（21/22 条）
+		// 注入 Carrier 后，业务层 tracing.Start() 能自动继承稳定 trace_id
+		// 与 webhook_ai.go:448 的 WithCarrier 形成统一入口
+		carrier := &tracing.Carrier{TraceID: traceID}
+		ctx = tracing.WithCarrier(ctx, carrier)
+		c.Request = c.Request.WithContext(ctx)
 
 		// 响应头：legacy X-Trace-Id + 标准 W3C traceparent 双写
 		c.Writer.Header().Set(traceHeader, traceID)

@@ -99,14 +99,14 @@ func normalizeInsight(raw string) string {
 }
 
 // distillInsightForTrace 差评样本沉淀入口：提取并落库（失败仅告警不阻断批处理）。
-// Industry 未配置时跳过（无行业标签的洞察无法被读取侧匹配，存了也无消费方）。
+// Industry 未配置时用 "general" 作为默认行业（R58: 此前空值跳过，导致 learning_insights 全空）。
 func (s *Service) distillInsightForTrace(ctx context.Context, agg *AggregatedTrace, res *EvalResult) {
 	if !shouldDistillInsight(s.cfg, res) {
 		return
 	}
-	if s.cfg.Industry == "" {
-		logger.Debugf("[trace_learning] 跳过洞察沉淀：未配置 Industry trace=%s", agg.TraceID)
-		return
+	industry := s.cfg.Industry
+	if industry == "" {
+		industry = "general" // R58 fallback: 无行业标签时用 general，保证洞察能沉淀
 	}
 	text, err := ExtractErrorPattern(ctx, s.dispatcher, s.cfg.Scenario, agg)
 	if err != nil {

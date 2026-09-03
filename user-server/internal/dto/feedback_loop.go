@@ -11,16 +11,18 @@ import (
 type FeedbackSignalKey string
 
 const (
-	FBSignalLike         FeedbackSignalKey = "like"          
-	FBSignalDislike      FeedbackSignalKey = "dislike"       
-	FBSignalRating       FeedbackSignalKey = "rating"        
-	FBSignalComplaint    FeedbackSignalKey = "complaint"     
-	FBSignalConversion   FeedbackSignalKey = "conversion"    
-	FBSignalReplyRate    FeedbackSignalKey = "reply_rate"    
-	FBSignalDuration     FeedbackSignalKey = "duration"      
-	FBSignalTransfer     FeedbackSignalKey = "transfer"      
-	FBSignalChampionMark FeedbackSignalKey = "champion_mark" 
-	FBSignalScriptAdopt  FeedbackSignalKey = "script_adopt"  
+	FBSignalLike         FeedbackSignalKey = "like"
+	FBSignalDislike      FeedbackSignalKey = "dislike"
+	FBSignalRating       FeedbackSignalKey = "rating"
+	FBSignalComplaint    FeedbackSignalKey = "complaint"
+	FBSignalConversion   FeedbackSignalKey = "conversion"
+	FBSignalReplyRate    FeedbackSignalKey = "reply_rate"
+	FBSignalDuration     FeedbackSignalKey = "duration"
+	FBSignalTransfer     FeedbackSignalKey = "transfer"
+	FBSignalChampionMark FeedbackSignalKey = "champion_mark"
+	FBSignalScriptAdopt  FeedbackSignalKey = "script_adopt"
+	FBSignalToolCall     FeedbackSignalKey = "tool_call" // R58: 新增 — 工具调用隐式反馈（成功 +0.3 / 失败 -0.5）
+	FBSignalIntentMatch  FeedbackSignalKey = "intent_match" // R58: 新增 — 意图识别匹配（好意图 +0.5 / 错意图 -0.8）
 )
 
 // FeedbackEventType 反馈事件类型

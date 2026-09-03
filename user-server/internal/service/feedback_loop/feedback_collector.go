@@ -217,6 +217,8 @@ func (c *FeedbackCollector) lookupWeight(key dto.FeedbackSignalKey) float64 {
 //   - rating（评分 1-5）：reward = weight * (v / 5.0)
 //   - reply_rate（回复率 0-1）：reward = weight * v
 //   - duration（会话时长秒）：reward = weight * min(v/300, 1)
+//   - tool_call（bool 1.0/0.0）：成功 +weight，失败 -weight*1.5（惩罚更重）
+//   - intent_match（bool）：匹配 +weight，不匹配 -weight*1.6
 //   - 其他（bool/string）：reward = weight * 1.0
 func (c *FeedbackCollector) computeReward(key dto.FeedbackSignalKey, value any, weight float64) float64 {
 	switch key {
@@ -235,6 +237,27 @@ func (c *FeedbackCollector) computeReward(key dto.FeedbackSignalKey, value any, 
 				normalized = 1
 			}
 			return weight * normalized
+		}
+	case dto.FBSignalToolCall:
+		// R58: tool_call 的 value 是 1.0 (成功) / 0.0 (失败)
+		if v, ok := toFloat64(value); ok {
+			if v > 0 {
+				return weight
+			}
+			// 失败惩罚 = -|weight| * 1.5（失败信号更重，防止静默坏 tool 积累）
+			penalty := -weight * 1.5
+			if weight < 0 {
+				penalty = weight * 1.5
+			}
+			return penalty
+		}
+	case dto.FBSignalIntentMatch:
+		// R58: intent_match 的 value 是 1.0 (匹配) / 0.0 (不匹配)
+		if v, ok := toFloat64(value); ok {
+			if v > 0 {
+				return weight
+			}
+			return -weight * 1.6
 		}
 	}
 	return weight
