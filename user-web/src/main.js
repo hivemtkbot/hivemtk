@@ -52,3 +52,111 @@ router.afterEach((to) => {
 })
 
 app.mount('#app')
+
+// ============================================================================
+// Service Worker 版本管理 — 彻底防旧页/404
+// ----------------------------------------------------------------------------
+// 为什么需要这段:
+//   1. vite-plugin-pwa 改了 injectRegister: false — 关闭自动注入
+//   2. 这里手动注册 SW, 加版本检测逻辑
+//
+// 执行时机: app.mount 之后 (不阻塞首屏)
+// 执行步骤:
+//   [1] fetch('/version.json') — 用 cache:'no-store' 绕过 HTTP/SW 缓存
+//   [2] 对比 localStorage 里的 buildId
+//   [3] buildId 变化 → 旧版 SW 存在 → unregister + 清 caches → reload
+//   [4] buildId 不变 → 注册/更新 SW, 监听 updatefound → skipWaiting
+// ============================================================================
+
+const SW_VERSION_KEY = 'hivemtk-build-id'
+const SW_REGISTERED_KEY = 'hivemtk-sw-registered'
+
+async function manageServiceWorker() {
+  // SW 不可用 (HTTP、隐私模式、老浏览器) — 跳过, 不影响功能
+  if (!('serviceWorker' in navigator)) {
+    console.info('[SW] serviceWorker 不可用, 跳过注册')
+    return
+  }
+
+  try {
+    // [1] 拉取服务器上的 version.json (强制绕过缓存)
+    const resp = await fetch('/version.json', { cache: 'no-store' })
+    if (!resp.ok) {
+      console.warn(`[SW] 拉 version.json 失败: HTTP ${resp.status}`)
+      return
+    }
+    const remoteVersion = await resp.json()
+    const remoteBuildId = remoteVersion.buildId
+
+    // [2] 对比本地存储的 buildId
+    const localBuildId = localStorage.getItem(SW_VERSION_KEY)
+
+    if (localBuildId && localBuildId !== remoteBuildId) {
+      // ----------------------------------------------------------
+      // 版本变化 —— 用户正在用旧 SW, 里面 precache 了旧 index.html
+      // 这个旧 SW 会拦截导航 → 返回旧 index.html → 引用被删的旧 chunk → 404
+      // 所以必须: 先干掉旧 SW + 清所有 caches, 再 reload 拿新版本
+      // ----------------------------------------------------------
+      console.warn(`[SW] 检测到新版本: ${localBuildId} → ${remoteBuildId}, 正在清理...`)
+
+      // 1. unregister 所有 SW
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      for (const reg of registrations) {
+        await reg.unregister()
+      }
+
+      // 2. 删除所有 CacheStorage (包括 workbox precache + runtime cache)
+      //    这样 reload 后不会命中任何旧缓存
+      const cacheNames = await caches.keys()
+      await Promise.all(cacheNames.map(name => caches.delete(name)))
+
+      // 3. 清 localStorage 里的版本标记
+      localStorage.removeItem(SW_REGISTERED_KEY)
+
+      // 4. 等 1 帧让 unregister 生效, 然后 reload (绕过 HTTP 缓存)
+      await new Promise(r => setTimeout(r, 100))
+      console.info('[SW] 旧版本已清理, 即将 reload 到新版本')
+      location.reload()
+      return // reload 后就不会执行下面的注册逻辑了
+    }
+
+    // [3] 版本没变, 正常注册/更新 SW
+    const registration = await navigator.serviceWorker.register('/sw.js', {
+      // 关键: updateViaCache: 'none' — SW 文件永远走网络, 让 workbox 能及时发现新 precache manifest
+      updateViaCache: 'none',
+    })
+
+    // 标记已注册 (帮助判断是否首次访问)
+    localStorage.setItem(SW_VERSION_KEY, remoteBuildId)
+    localStorage.setItem(SW_REGISTERED_KEY, '1')
+
+    // [4] 监听 SW 更新事件 — 新 SW 下载完成后 skipWaiting 立即激活
+    registration.addEventListener('updatefound', () => {
+      const newSW = registration.installing
+      if (!newSW) return
+      console.info('[SW] 新版本下载中...')
+      newSW.addEventListener('statechange', () => {
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+          // 新 SW 准备好了, 立即激活 (不等所有 tab 关)
+          console.info('[SW] 新版本已就绪, 正在 activate...')
+          newSW.postMessage({ type: 'SKIP_WAITING' })
+        }
+      })
+    })
+
+    // 页面首次加载时也主动触发一次 SW 检测 (避开 HTTP 缓存)
+    registration.update().catch(() => {})
+
+    console.info(`[SW] 已注册, buildId=${remoteBuildId}`)
+  } catch (err) {
+    // SW 注册失败不应影响主流程 — 用户照样能正常用
+    console.warn('[SW] 注册失败 (不影响功能):', err.message)
+  }
+}
+
+// 不阻塞首屏渲染 — 等 load 事件后再执行
+if (document.readyState === 'complete') {
+  manageServiceWorker()
+} else {
+  window.addEventListener('load', manageServiceWorker, { once: true })
+}

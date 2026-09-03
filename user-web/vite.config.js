@@ -6,6 +6,59 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { VitePWA } from 'vite-plugin-pwa'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { resolve } from 'path'
+import { writeFileSync, mkdirSync } from 'fs'
+
+// ============================================================================
+// PWA 彻底防旧页/404 方案
+// ----------------------------------------------------------------------------
+// 根因链：
+//   旧 SW 拦截 HTML 导航 → 返回旧 precache 的 index.html
+//   → 旧 index.html 引用旧 hash chunk → rsync 删旧 chunk → 404
+//   → 用户看到白屏/功能不全
+//
+// 四层防御：
+//   Layer 1: 不让 SW 拦截 HTML 导航（navigateFallback + NavigationRoute 全部移除）
+//            index.html 永远走网络（Nginx Cache-Control: no-cache）
+//            静态资源 (JS/CSS/图片) 继续 precache — hash 命名天然无冲突
+//   Layer 2: skipWaiting + clientsClaim — 新 SW 构建后立即 activate, 不等 tab 关
+//   Layer 3: buildId 写入 version.json — 每次构建生成新 buildId, 写入
+//            dist/version.json 和 sw.js 头部, 可用于版本探测
+//   Layer 4: rsync 不删 assets/ — 保留旧 chunk, 即使极端情况也不会 404
+// ============================================================================
+
+// 每次构建生成唯一 buildId (git commit hash + 时间戳)
+function generateBuildId() {
+  try {
+    const { execSync } = require('child_process')
+    const gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim()
+    return `${gitHash}-${Date.now()}`
+  } catch {
+    return `build-${Date.now()}`
+  }
+}
+const BUILD_ID = generateBuildId()
+
+// 自定义插件: 构建时生成 dist/version.json
+// main.js 启动时 fetch 这个文件对比 localStorage 里的版本
+// 发现 buildId 变化 → unregister SW → 清 cache → reload
+const versionJsonPlugin = {
+  name: 'generate-version-json',
+  closeBundle() {
+    try {
+      mkdirSync('dist', { recursive: true })
+    } catch {}
+    writeFileSync(
+      'dist/version.json',
+      JSON.stringify({
+        buildId: BUILD_ID,
+        buildTime: new Date().toISOString(),
+        url: './index.html',
+      }, null, 2),
+      'utf-8'
+    )
+    console.log(`\n[version.json] buildId = ${BUILD_ID}\n`)
+  },
+}
 
 // =============================================================
 // 单一源约束（user-web / user-server 端口对齐）
@@ -43,6 +96,8 @@ function ElementPlusIconResolver(name) {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    // 自定义: 构建时生成 dist/version.json (main.js 用来探测版本)
+    versionJsonPlugin,
     // 预编译 i18n 资源（./src/i18n/locales/*.json），运行期不再编译消息，
     // 避免 vue-i18n 用 new Function 触发 CSP script-src 'self' 的 unsafe-eval 拦截。
     // runtimeOnly 默认 true：改用 vue-i18n 运行时构建（无消息编译器）。
@@ -79,29 +134,71 @@ export default defineConfig({
       ],
       dts: 'src/types/components.d.ts',
     }),
-    // PWA（OPT-FE-12）
-    // 仅对 5 个关键页面（首屏/工作台/对话/客户/数据大屏）做 precache；
-    // 其他路由采用 NetworkFirst / 路由懒加载，避免 SW 体积过大。
-    // 注意：vite-plugin-pwa 0.21.x 的 workbox 模式不支持 precacheAndRoute 数组传参
-    // 应使用 additionalManifestEntries 注入额外资源清单
+    // ==========================================================================
+    // PWA v2 — 彻底解决旧页面/404 问题
+    // --------------------------------------------------------------------------
+    // 关键改动:
+    //   1. 移除 navigateFallback / NavigationRoute — HTML 导航不走 SW, 永远走网络
+    //      (index.html 在 Nginx 已 Cache-Control: no-cache, 每次都拿到最新版)
+    //   2. 移除 additionalManifestEntries 里的 HTML 路由 — 不 precache 任何 HTML
+    //      静态资源 (JS/CSS/图片) 继续 precache — hash 命名天然无冲突
+    //   3. skipWaiting + clientsClaim — 新 SW 立即 activate, 不等用户关 tab
+    //   4. injectRegister: false — main.js 自己写 SW 注册 + 版本检测逻辑
+    //   5. manifest 用动态 buildId 做 revision — 每次构建触发 SW 更新
+    //
+    // 这样: 旧 SW 不会拦截导航 → 不会返回旧 index.html → 不会引用被删的旧 chunk → 不会 404
+    // ==========================================================================
     VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
-      manifest: 'manifest.webmanifest',
+      registerType: 'prompt',            // main.js 手动注册 SW
+      injectRegister: false,             // 关闭自动注入 sw-register.js
+      manifest: {
+        name: 'AI营销套件',
+        short_name: 'HiveMtk',
+        description: 'HiveMtk 企业级 AI 智能体客服平台',
+        start_url: '/',
+        display: 'standalone',
+        background_color: '#ffffff',
+        theme_color: '#409EFF',
+        // 加 buildId 让 manifest 每次构建都变, 触发 SW 重新 precache
+        buildId: BUILD_ID,
+        icons: [
+          { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' },
+        ],
+      },
       devOptions: { enabled: false },
       workbox: {
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/chat\/embed/],
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        // 仅 5 张关键页面 precache（additionalManifestEntries 追加）
+        // ---- 关键: 不 precache 任何 HTML, 不让 SW 拦截导航 ----
+        // navigateFallback: null — 显式禁用 NavigationRoute
+        // workbox 默认会生成 navigateFallback:'/index.html' 的 NavigationRoute,
+        // 必须显式 null 才能干掉它。否则旧 SW 仍会拦截导航 → 返回旧 index.html → 404。
+        navigateFallback: null,
+        // 静态资源继续 precache (hash 命名, 新旧共存不冲突)
+        globPatterns: ['**/*.{js,css,svg,png,woff2,webp}'],
+        // 排除 HTML 和 manifest, 这俩走网络
+        globIgnores: ['**/*.html', 'manifest.webmanifest', 'version.json'],
+        // skipWaiting + clientsClaim: 新 SW 构建后立即 activate
+        // 不等所有 tab 关闭, 也不用等用户下次导航
+        skipWaiting: true,
+        clientsClaim: true,
+        // 每次构建动态变更 precache manifest (buildId 作为缓存键)
+        // 让 workbox 正确区分新旧版本
         additionalManifestEntries: [
-          { url: '/', revision: 'pwa-v1' },
-          { url: '/unifiedInbox/list', revision: 'pwa-v1' },
-          { url: '/workspace', revision: 'pwa-v1' },
-          { url: '/customer360', revision: 'pwa-v1' },
-          { url: '/dashboardScreen', revision: 'pwa-v1' },
+          // version.json 也 precache, 但 main.js 会用 cache:no-store 绕过
+          // (留作离线 fallback)
+          { url: 'version.json', revision: BUILD_ID },
         ],
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
+          // 图片: StaleWhileRevalidate (先显示缓存, 后台更新)
+          {
+            urlPattern: ({ request }) => request.destination === 'image',
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'images-v1',
+              expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+          // API 静态资源: CacheFirst
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/static/'),
             handler: 'CacheFirst',
@@ -110,10 +207,16 @@ export default defineConfig({
               expiration: { maxEntries: 64, maxAgeSeconds: 60 * 60 * 24 * 7 },
             },
           },
+          // 字体文件: CacheFirst
           {
-            urlPattern: ({ request }) => request.destination === 'image',
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'images-v1' },
+            urlPattern: ({ request }) =>
+              request.destination === 'font' ||
+              /\.(woff2?|ttf|eot|otf)$/.test(request.url),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'fonts-v1',
+              expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 * 90 },
+            },
           },
         ],
       },
