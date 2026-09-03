@@ -211,13 +211,13 @@ deploy_api() {
   log "  user-server 部署完成"
 }
 
-# ---------- 更新 静态托管配置 ----------
-  fi
-
-  log "  静态托管配置更新完成"
+# ---------- 更新静态托管配置（反向代理层同源托管）----------
+# 2026-09-03 注：函数体暂缺，--反向代理层-only 模式不生效。
+# 静态资源已通过 push_web() rsync 到云端 /www/wwwroot/hivemtk/user-web/dist/
+deploy_reverse_proxy() {
+  log_warn 'deploy_reverse_proxy 函数体暂缺，跳过'
 }
 
-# ---------- 健康检查 ----------
 healthcheck() {
   [[ -n "$SKIP_HEALTHCHECK" ]] && { log "跳过健康检查"; return 0; }
   log "########## 健康检查 ##########"
