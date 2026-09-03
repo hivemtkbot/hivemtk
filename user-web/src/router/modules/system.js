@@ -46,5 +46,11 @@ export default [
     name: 'AutomationHub',
     component: () => import('@/views/system/AutomationHub.vue'),
     meta: { title: '自动化中心', group: 'system', icon: 'Setting', requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/system/config-params',
+    name: 'ConfigParams',
+    component: () => import('@/views/system/ConfigParams.vue'),
+    meta: { title: '动态阈值参数', group: 'system', icon: 'DataAnalysis', requiresAuth: true, requiresAdmin: true }
   }
 ]
