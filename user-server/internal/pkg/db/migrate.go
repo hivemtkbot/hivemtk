@@ -162,6 +162,7 @@ func allModels() []any {
 		&model.InboxAssignment{},
 		&model.MessageTrace{},
 		&model.TraceEvalLog{},
+		&model.LearningInsight{}, // R21: 经验沉淀洞察表，AutoMigrate 漏注册导致新环境缺表
 		&model.WeComAccountHealth{},
 		&model.IntentRecord{},
 		&model.IntentLog{}, // 全端扫描发现：生产 AutoMigrate 漏建 intent_logs（/api/intent/logs 500）

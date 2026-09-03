@@ -119,7 +119,7 @@ func (s *Service) distillInsightForTrace(ctx context.Context, agg *AggregatedTra
 	if text == "" {
 		return
 	}
-	if err := SaveInsight(ctx, s.db, s.cfg.Industry, text, agg.TraceID); err != nil {
+	if err := SaveInsight(ctx, s.db, industry, text, agg.TraceID); err != nil {
 		logger.Warnf("[trace_learning] 保存洞察失败 trace=%s: %v", agg.TraceID, err)
 	}
 }
