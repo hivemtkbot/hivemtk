@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -156,7 +157,6 @@ func DefaultInferenceConfig() InferenceConfig {
 		},
 	}
 }
-
 
 // DefaultLLMModel dev 档默认 LLM 模型名（外部包引用入口）
 func DefaultLLMModel() string { return defaultLLMModelLocal }
@@ -374,7 +374,7 @@ func GetProxyTransport() *http.Transport {
 
 // ExternalConfig 外部可达地址配置
 //
-// 用途：用户端 user-server 通常部署在内网/反代后面（frp / nginx / 云函数），
+// 用途：用户端 user-server 通常部署在内网/反代后面（frp / 反向代理层 / 云函数），
 // 业务侧无法通过「请求 Host 头」直接推断 Telegram / 飞书 / 钉钉等回调所需的公网 URL。
 // 显式声明 public_base_url 后，系统在注册被动渠道 webhook 时优先使用该地址，
 // 避免因「localhost:8080」导致 Telegram 无法向本系统投递更新。
@@ -535,11 +535,38 @@ func SetAppConfig(cfg *AppConfig) {
 
 var appConfig *AppConfig
 
-// loadAppConfigOnce 懒加载：把 yaml 读一遍，结果不写入 appConfig
+// loadAppConfigOnce 懒加载：把 yaml 读一遍，结果不写入 appConfig。
+// 多路径 fallback 确保任何 cwd 都能找到 config.yaml（Docker 场景走硬编码 fallback）：
+//   1) cwd/config.yaml  (正常启动)
+//   2) exe 目录/config.yaml  (go run / 二进制同目录)
+//   3) ../config.yaml  (父目录启动，如 hivemtk/ 下 ./user-server/mtk-serve)
+//   4) user-server/config.yaml  (仓库根目录启动)
+// 都找不到才走 Docker 硬编码 fallback（postgres-user:8202）。
 func loadAppConfigOnce() AppConfig {
 	var config AppConfig
 
-	data, err := os.ReadFile("config.yaml")
+	configPaths := []string{
+		"config.yaml",
+		"../config.yaml",
+		"user-server/config.yaml",
+	}
+	if exePath, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exePath)
+		configPaths = append(configPaths,
+			filepath.Join(exeDir, "config.yaml"),
+			filepath.Join(exeDir, "..", "config.yaml"),
+		)
+	}
+
+	var data []byte
+	var err error
+	for _, p := range configPaths {
+		data, err = os.ReadFile(p)
+		if err == nil {
+			logger.Infof("[config] 从 %s 加载 config.yaml", p)
+			break
+		}
+	}
 	if err != nil {
 		config.Database.Type = DBTypePostgres
 		config.Database.Postgres.Host = "postgres-user"
