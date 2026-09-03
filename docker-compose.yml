@@ -9,12 +9,15 @@
 #   - 前端（user-web）与嵌入 SDK（embed-sdk）在【宿主机】构建后由 user-server 直接托管
 #   - 用户端由各商户/用户自行部署，与【平台端】物理隔离
 #
-# 端口：
-#   - mtk-postgres：容器内 8202 → 宿主机 127.0.0.1:8202
-#   - mtk-redis：容器内 8203 → 宿主机 127.0.0.1:8203
-#   - LLM       ：宿主机 127.0.0.1:8207（llama-server / mlx_lm.server，scripts/inference-host/start-llm.sh）
-#   - Embedding ：宿主机 127.0.0.1:8208（llama-server，scripts/inference-host/start-embedding.sh）
-#   - Rerank    ：宿主机 127.0.0.1:8209（llama-server，scripts/inference-host/start-rerank.sh）
+# 端口（权威文档：docs/PORT_REGISTRY.md §一 端口对照表）：
+#   - mtk-postgres：容器内**固定 8202** → 宿主机映射 ${USER_POSTGRES_HOST_PORT:-8202}
+#     · 默认值 8202；开发时可在 .env 设 USER_POSTGRES_HOST_PORT=8232 避开 8202（历史其他服务占用）
+#     · 两种模式：Docker 数据层（ports.go DefaultDBPortDocker=8202）vs 宿主机直连（DefaultDBPortDev=8232）
+#   - mtk-redis  ：容器内 8203 → 宿主机 127.0.0.1:${REDIS_HOST_PORT:-8203}
+#   - LLM        ：宿主机 127.0.0.1:8207（llama-server / mlx_lm.server，scripts/inference-host/start-llm.sh）
+#   - Embedding  ：宿主机 127.0.0.1:8208（llama-server，scripts/inference-host/start-embedding.sh）
+#   - Rerank     ：宿主机 127.0.0.1:8209（llama-server，scripts/inference-host/start-rerank.sh）
+# 改端口流程：docs/PORT_REGISTRY.md §3.2 — 严禁随意改！改完跑 bash scripts/audit-cross-package-ports.sh
 #
 # 启动：
 #   docker compose up -d
@@ -74,7 +77,9 @@ services:
       - maintenance_work_mem=64MB
       - -c
       - port=8202
-    # 关键：端口绑到 127.0.0.1，user-server 走 127.0.0.1:8202 访问，避免容器网络解析
+    # 端口：绑 127.0.0.1（只本机可访问）。默认宿主机 8202，可通过 .env 的
+    # USER_POSTGRES_HOST_PORT 覆盖。开发时建议覆盖到 8232 避开 8202 历史占用。
+    # 详见 docs/PORT_REGISTRY.md §二 模式说明
     ports:
       - "127.0.0.1:${USER_POSTGRES_HOST_PORT:-8202}:8202"
     volumes:

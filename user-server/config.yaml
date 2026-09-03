@@ -54,6 +54,9 @@ logging:
 # ============================================================
 # 私域合规基线 §7.2：密码不落配置文件。docker 部署时由 .env 注入，
 # 宿主机运行时由环境变量 DB_PASSWORD 注入，app 启动直接读取。
+# 端口说明：DB_PORT 默认 8232（宿主机直连 Dev 模式，避开 8202 历史占用）；
+#           Docker 数据层模式通过 .env DB_PORT=8202 覆盖。
+#           权威端口表 + 改端口流程 → docs/PORT_REGISTRY.md
 database:
   type: postgres
   postgres:
