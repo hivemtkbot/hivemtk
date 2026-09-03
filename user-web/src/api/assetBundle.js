@@ -79,3 +79,15 @@ export const disableBundle = (id) =>
 // 查询已热启用的资产包列表
 export const listEnabledBundles = () =>
   http.post('/api/asset-bundle/enabled/list')
+
+// ==================== 封面图上传 ====================
+
+// 封面图上传：multipart form-data → POST /api/upload
+// 后端返回 { url: "/files/attachments/YYYY/MM/uuid.jpg", filename, size }
+export const uploadCover = (file) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return http.post('/api/upload', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}

@@ -4,12 +4,22 @@
     <el-card v-if="detail" class="mt-16">
       <template #header>
         <div class="header">
-          <div>
-            <h2>{{ asset.name }}</h2>
-            <div class="tags">
-              <el-tag>{{ asset.industry }}</el-tag>
-              <el-tag type="info">{{ asset.asset_type }}</el-tag>
-              <el-tag type="success">v{{ asset.latest_version || version?.version }}</el-tag>
+          <div class="header-with-cover">
+            <el-image
+              v-if="asset.cover_url"
+              :src="asset.cover_url"
+              :preview-src-list="[asset.cover_url]"
+              fit="cover"
+              class="cover-big"
+            />
+            <div v-else class="cover-big-placeholder">{{ (asset.name || '?').slice(0, 1) }}</div>
+            <div class="header-text">
+              <h2>{{ asset.name }}</h2>
+              <div class="tags">
+                <el-tag>{{ asset.industry }}</el-tag>
+                <el-tag type="info">{{ asset.asset_type }}</el-tag>
+                <el-tag type="success">v{{ asset.latest_version || version?.version }}</el-tag>
+              </div>
             </div>
           </div>
           <el-button type="primary" @click="handlePurchase">免费试用</el-button>
@@ -78,6 +88,34 @@ onMounted(fetchDetail)
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+}
+.header-with-cover {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.cover-big {
+  width: 96px;
+  height: 96px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.cover-big-placeholder {
+  width: 96px;
+  height: 96px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  font-size: 36px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.header-text h2 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
 }
 .tags .el-tag {
   margin-right: 6px;

@@ -49,12 +49,30 @@
           </div>
         </template>
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :span="6">
+            <el-form-item label="封面图">
+              <el-upload
+                class="cover-uploader"
+                :http-request="handleCoverUpload"
+                :show-file-list="false"
+                accept=".jpg,.jpeg,.png,.gif,.webp"
+              >
+                <el-image
+                  v-if="form.cover_image"
+                  :src="form.cover_image"
+                  :preview-src-list="[form.cover_image]"
+                  fit="cover"
+                  class="cover-preview"
+                />
+                <el-icon v-else class="cover-uploader-icon"><Plus /></el-icon>
+              </el-upload>
+              <div class="cover-tip">点击上传封面图</div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="18">
             <el-form-item label="资产包名称">
               <el-input v-model="form.title" placeholder="例如：跨境成人用品私域销冠自动留资话术包" />
             </el-form-item>
-          </el-col>
-          <el-col :span="12">
             <el-form-item label="资产 ID">
               <el-input v-model="form.asset_id" placeholder="例如：hive_sales_vape_cn_001（保存后不可修改）" :disabled="isEdit" />
             </el-form-item>
@@ -269,7 +287,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Monitor, VideoPause, Goods, Lock, ChatDotRound, Grid } from '@element-plus/icons-vue'
-import { merchantSave, merchantParse, enableBundle, disableBundle, getBundleByAssetID } from '@/api/assetBundle'
+import { merchantSave, merchantParse, enableBundle, disableBundle, getBundleByAssetID, uploadCover } from '@/api/assetBundle'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
@@ -288,6 +306,7 @@ const form = reactive({
   asset_id: '',
   title: '',
   author: '',
+  cover_image: '',  // 封面图 URL（由 uploadCover 返回 /files/attachments/YYYY/MM/uuid.jpg）
   // 1. 基础经营策略
   shop_name: '',
   campaign_name: '',
@@ -387,6 +406,17 @@ const loadBundle = async () => {
     ElMessage.error('加载资产包失败: ' + (e?.message || e))
   } finally {
     loading.value = false
+  }
+}
+
+// 封面图上传（对接后端 /api/upload → /files/attachments/YYYY/MM/uuid.jpg）
+const handleCoverUpload = async ({ file }) => {
+  try {
+    const res = await uploadCover(file)
+    form.cover_image = res.data?.url || res.url || res
+    ElMessage.success('封面上传成功（保存后生效）')
+  } catch (e) {
+    // request.js 拦截器已弹 ElMessage.error
   }
 }
 
@@ -569,5 +599,36 @@ onMounted(() => {
   justify-content: center;
   gap: 12px;
   padding: 24px 0;
+}
+.cover-uploader :deep(.el-upload) {
+  border: 1px dashed #d9d9d9;
+  border-radius: 8px;
+  cursor: pointer;
+  overflow: hidden;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s;
+}
+.cover-uploader :deep(.el-upload:hover) {
+  border-color: #409eff;
+}
+.cover-preview {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+}
+.cover-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+}
+.cover-tip {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #909399;
+  text-align: center;
 }
 </style>

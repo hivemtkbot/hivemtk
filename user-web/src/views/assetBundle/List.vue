@@ -48,6 +48,18 @@
     </el-card>
 
     <el-table :data="list" v-loading="loading" border stripe>
+      <el-table-column label="封面" width="80">
+        <template #default="{ row }">
+          <el-image
+            v-if="row.cover_image"
+            :src="row.cover_image"
+            :preview-src-list="[row.cover_image]"
+            fit="cover"
+            style="width: 64px; height: 48px; border-radius: 6px"
+          />
+          <div v-else class="cover-placeholder-bundle">{{ (row.title || '?').slice(0, 1) }}</div>
+        </template>
+      </el-table-column>
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="asset_id" label="Asset ID" width="220" />
       <el-table-column prop="title" label="标题" min-width="200" />
@@ -244,5 +256,17 @@ onMounted(() => {
   margin-top: 12px;
   display: flex;
   justify-content: flex-end;
+}
+.cover-placeholder-bundle {
+  width: 64px;
+  height: 48px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>
