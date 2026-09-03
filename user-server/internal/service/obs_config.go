@@ -15,6 +15,8 @@ import (
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/storage"
 	"mime/multipart"
+	"os"
+	"path/filepath"
 )
 
 // ObsConfigService OBS（对象存储）配置服务

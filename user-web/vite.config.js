@@ -157,6 +157,7 @@ export default defineConfig({
     port: 8211,
     strictPort: false, // 端口被占用时自动递增
     host: true, // 允许外部访问
+    allowedHosts: true, // 允许 frp 反代的外部域名访问
     open: false, // 不自动打开浏览器
     hmr: {
       overlay: false
