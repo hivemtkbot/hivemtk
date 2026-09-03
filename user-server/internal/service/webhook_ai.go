@@ -429,8 +429,18 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 	defer cancel()
 	ctx = logger.WithModule(ctx, "webhook")
 
+	// 修复（2026-09-03 R56 追踪链修复）：runAIGeneration 入口的 hubMsg 是手工构造（line 326），
+	// 没设置 TraceID → traceCarrier.TraceID 空 → Span.toPending fallback 到 ctx 的 trace_id，
+	// 但 ctx 已被 orchestrator 覆盖成 session_id → ai_dispatch 节点 trace_id = session_id，
+	// 与 ingress/outbound_enqueue/inbox_sync 的 tr-xxx 稳定 trace 断裂。
+	// 修复：hubMsg.TraceID 为空时，用 LinkInboundTraceID 派生与 ingress 一致的稳定 trace_id，
+	// 保证同一会话全链路 trace_id 统一。
+	traceID := hubMsg.TraceID
+	if traceID == "" {
+		traceID = tracing.LinkInboundTraceID(ctx, hubMsg.ConversationID)
+	}
 	traceCarrier := &tracing.Carrier{
-		TraceID:        hubMsg.TraceID,
+		TraceID:        traceID,
 		ConversationID: hubMsg.ConversationID,
 		AccountID:      hubMsg.AccountID,
 		Channel:        string(channel),

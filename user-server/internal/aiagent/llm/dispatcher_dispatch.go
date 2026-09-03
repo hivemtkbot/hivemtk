@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"encoding/json"
+	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
@@ -189,10 +190,49 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 
 	}
 
+	// === Trace 注入（2026-09-03 R56 追踪链补全）：callProvider 是所有 LLM 调用的唯一入口，
+	// 此处注入 PublishLLMCall 把 LLM 调用 span 写入 trace_events 表，打通
+	// InMemoryTraceBus → DBTraceSink → trace_events 的完整链路。 ===
+	// traceID 优先从 tracing.Carrier 获取（业务入口注入的稳定 tr-xxx），
+	// fallback 到 logger context key（兼容旧路径/测试场景）。
+	traceID := ""
+	if c := tracing.CarrierFromContext(ctx); c != nil {
+		traceID = c.TraceID
+	}
+	if traceID == "" {
+		traceID = logger.TraceIDFromContext(ctx)
+	}
+	spanID := generateSpanID()
+	parentSpanID := ""
+
 	start := time.Now()
 
 	result, err := d.llmService.GenerateWithTools(ctx, config, req.Prompt)
 	latency := int(time.Since(start).Milliseconds())
+
+	// 无论成功失败都发布 LLM span
+	llmStatus := "ok"
+	llmErrMsg := ""
+	if err != nil {
+		llmStatus = "error"
+		llmErrMsg = err.Error()
+	}
+	finishReason := ""
+	if result != nil {
+		finishReason = result.FinishReason
+	}
+	PublishLLMCall(
+		traceID, spanID, parentSpanID,
+		provider.Name, provider.Model,
+		int64(latency), llmStatus,
+		map[string]any{
+			"scenario":      string(req.Scenario),
+			"latency_ms":    latency,
+			"finish_reason": finishReason,
+			"error":         llmErrMsg,
+		},
+	)
+
 	if err != nil {
 		return nil, fmt.Errorf("provider %s: %w", provider.Name, err)
 	}
