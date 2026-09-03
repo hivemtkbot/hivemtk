@@ -7,7 +7,6 @@ import (
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/tracing"
-	"hivemtk-user/internal/pkg/utils/logger"
 	confidencesvc "hivemtk-user/internal/service/confidence"
 	humanizesvc "hivemtk-user/internal/service/humanize"
 	"strconv"
@@ -524,7 +523,7 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 				if c := tracing.CarrierFromContext(ctx); c != nil {
 					return c.TraceID
 				}
-				return logger.TraceIDFromContext(ctx)
+				return tracing.TraceIDFromContext(ctx)
 			}(),
 			Step:    "start",
 		}

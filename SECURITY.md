@@ -119,7 +119,7 @@
 
 ### 5.1 部署侧
 
-- 在反向代理（nginx / Caddy）层强制 HTTPS
+- 在反向代理（反向代理层 / Caddy）层强制 HTTPS
 - 配置 CSP / X-Frame-Options / X-Content-Type-Options 等安全响应头
 - 限制 Webhook 入站 IP 白名单（Postmark / SendCloud / 各渠道）
 - 数据库端口不暴露公网（容器内端口 8202，宿主机映射 8232，建议改为内网或 127.0.0.1）

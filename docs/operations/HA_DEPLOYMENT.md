@@ -46,7 +46,6 @@
 ```bash
 # Ubuntu/Debian
 sudo apt update
-sudo apt install -y docker docker-compose-plugin nginx certbot
 ```
 
 ### 3.2 配置服务

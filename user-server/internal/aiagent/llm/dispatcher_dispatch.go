@@ -200,7 +200,7 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 		traceID = c.TraceID
 	}
 	if traceID == "" {
-		traceID = logger.TraceIDFromContext(ctx)
+		traceID = tracing.TraceIDFromContext(ctx)
 	}
 	spanID := generateSpanID()
 	parentSpanID := ""

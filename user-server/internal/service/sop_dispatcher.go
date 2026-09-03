@@ -13,6 +13,7 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/websocket"
 )
@@ -859,7 +860,7 @@ func (d *SOPExecutionDispatcher) writeExecEvent(ctx context.Context, exec *model
 		Output:       output,
 		SideEffects:  sopToJSONArray(sideEffects),
 		ErrorMessage: errMsg,
-		TraceID:      logger.TraceIDFromContext(ctx),
+		TraceID:      tracing.TraceIDFromContext(ctx),
 	}
 	if err := d.eventRepo.Create(ctx, event); err != nil {
 		logger.Ctx(ctx).Debug().Err(err).

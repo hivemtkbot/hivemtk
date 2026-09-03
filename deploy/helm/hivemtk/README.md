@@ -14,7 +14,7 @@ hivemtk/
 └── templates/
     ├── deployment.yaml     # user-server Deployment
     ├── service.yaml        # ClusterIP Service
-    └── ingress.yaml        # nginx Ingress
+    └── ingress.yaml        # 路由规则
 ```
 
 ## 快速开始

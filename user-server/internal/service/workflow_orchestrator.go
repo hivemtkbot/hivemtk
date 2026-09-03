@@ -9,7 +9,7 @@ import (
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils"
-	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
@@ -241,7 +241,7 @@ func (s *WorkflowOrchestratorService) Execute(ctx context.Context, req *dto.Work
 
 	// 异步派发节点执行
 	if s.dispatcher != nil {
-		traceID := logger.TraceIDFromContext(ctx)
+		traceID := tracing.TraceIDFromContext(ctx)
 		if traceID == "" {
 			traceID = fmt.Sprintf("wf-%d-%d", exec.ID, time.Now().UnixNano())
 		}

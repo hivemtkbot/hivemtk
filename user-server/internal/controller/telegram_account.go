@@ -328,7 +328,7 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 //  1. 配置文件 external.public_base_url 或环境变量 PUBLIC_BASE_URL（公网域名/frp 暴露的域名）
 //     → 私域部署基线：user-server 跑在 frp 后，请求 Host 总是 localhost:8204，
 //     必须显式声明公网域名，否则 Telegram 永远无法回调本系统。
-//  2. 反代透传的 X-Forwarded-Proto / X-Forwarded-Host（适用于云函数 / nginx 自终止 TLS）
+//  2. 反代透传的 X-Forwarded-Proto / X-Forwarded-Host（适用于云函数 / 反向代理层 自终止 TLS）
 //  3. 请求自身 Host（仅适合公网直连调试 / 本地开发）
 //
 // 注意：返回值已确保是 https 协议（http + 端口会由 NormalizePublicBaseURL 自动升级）。

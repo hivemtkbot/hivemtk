@@ -42,7 +42,7 @@ import (
 //   SSE 下行必须以 ≤20s 间隔发送心跳注释帧 ": ping\n\n"，为网络抖动/代理缓冲
 //   预留 10s 余量。15s 默认值符合该约束。
 //   - SSE 协议注释帧格式：以 ":" 开头，客户端 EventSource 完全忽略
-//   - 同时防止 Nginx/CDN proxy_read_timeout（通常 60s）切断长连接
+//   - 同时防止 反向代理层 /CDN proxy_read_timeout（通常 60s）切断长连接
 const (
 	SSEDefaultHeartbeatInterval = 15 * time.Second
 	SSEDefaultMaxStreamDuration  = 5 * time.Minute

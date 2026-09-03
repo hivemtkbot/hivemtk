@@ -68,9 +68,9 @@ const ERROR_CATALOG = {
     level: 'error',
     title_zh: '网关错误',
     title_en: 'Bad Gateway',
-    body_zh: 'user-server 上游（Nginx/网关）未响应。',
-    body_en: 'user-server upstream (Nginx/gateway) did not respond.',
-    action: '检查 Nginx/网关日志与 user-server 进程是否存活。',
+    body_zh: 'user-server 上游（反向代理层 /网关）未响应。',
+    body_en: 'user-server upstream (反向代理层 /gateway) did not respond.',
+    action: '检查 反向代理层 /网关日志与 user-server 进程是否存活。',
     docUrl: null,
   },
   'http_503': {

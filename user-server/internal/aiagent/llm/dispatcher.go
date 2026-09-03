@@ -141,7 +141,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 					ctid = c.TraceID
 				}
 				if ctid == "" {
-					ctid = logger.TraceIDFromContext(ctx)
+					ctid = tracing.TraceIDFromContext(ctx)
 				}
 				cacheEntry := &LogEntry{
 					TraceID:          ctid,
@@ -180,7 +180,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 		traceID = c.TraceID
 	}
 	if traceID == "" {
-		traceID = logger.TraceIDFromContext(ctx)
+		traceID = tracing.TraceIDFromContext(ctx)
 	}
 
 	var lastErr error

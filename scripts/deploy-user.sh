@@ -4,9 +4,9 @@
 #
 # 部署目标：hiveuserapi.xapptool.cn (118.25.236.101)
 # 部署架构（2026-08-17 重构：宿主机部署）：
-#   - 云端（118.25.236.101）：仅 nginx + user-web 静态资源 + frps 隧道服务端
+#   - 云端（118.25.236.101）：仅 反向代理层 + user-web 静态资源 + frps 隧道服务端
 #   - 本地（宿主机）：user-server 二进制 + PG + Redis + LLM 推理栈
-#   - API 路径：客户端 → 云端 nginx /api → frps(8280) → 本地 frpc → 本地 user-server:8204
+#   - API 路径：客户端 → 云端 反向代理层 /api → frps(8280) → 本地 frpc → 本地 user-server:8204
 #
 # 部署内容：
 #   - user-web 前端 → 云端 /www/wwwroot/hivemtk/user-web/dist/        (商户演示前端 hiveuser.xapptool.cn 站点根)
@@ -18,7 +18,7 @@
 #   ./deploy-user.sh --web-only         # 只发布前端到云端
 #   ./deploy-user.sh --api-only         # 只重启本地 user-server（跳过前端构建）
 #   ./deploy-user.sh --skip-build       # 跳过本地前端构建
-#   ./deploy-user.sh --nginx-only       # 只更新云端 nginx 反代配置
+#   ./deploy-user.sh --反向代理层-only       # 只更新云端 同源托管配置
 #   ./deploy-user.sh --dry-run          # 仅打印命令
 # =============================================================
 set -euo pipefail
@@ -39,7 +39,6 @@ DEPLOY_HOST="${DEPLOY_HOST:-118.25.236.101}"
 REMOTE="ssh $DEPLOY_USER@$DEPLOY_HOST"
 
 WEBROOT_USERWEB="${WEBROOT_USERWEB:-/www/wwwroot/hivemtk/user-web}"
-NGINX_VHOST_DIR="${NGINX_VHOST_DIR:-/www/server/panel/vhost/nginx}"
 USER_SERVER_PORT="${USER_SERVER_PORT:-8204}"
 
 REMOTE_DEPLOY_DIR="${REMOTE_DEPLOY_DIR:-/www/wwwroot/hivemtk}"
@@ -59,7 +58,7 @@ while [[ $# -gt 0 ]]; do
     --web-only)     MODE="web"; shift ;;
     --api-only)     MODE="api"; shift ;;
     --skip-build)   SKIP_BUILD=1; shift ;;
-    --nginx-only)   MODE="nginx"; shift ;;
+    --反向代理层-only)   MODE="反向代理层"; shift ;;
     --dry-run)      DRY_RUN=1; shift ;;
     -h|--help)
       sed -n '2,20p' "$0"
@@ -194,7 +193,7 @@ deploy_api() {
   local ct=''
   while (( i < 30 )); do
     # 用 /api/health（非 /health）并校验 Content-Type: application/json，
-    # 避免 user-server NoRoute 或 nginx SPA 兜底返回 200+HTML 导致假通过
+    # 避免 user-server NoRoute 或 反向代理层 SPA 兜底返回 200+HTML 导致假通过
     # 注意：set -euo pipefail 下避免把 ct=$(...) 与 && 短路链合并，
     # 否则 curl 失败会让整个命令链非零退出导致脚本中断；改用独立 if 包裹。
     ct=$(curl -fsS -o /dev/null -w "%{content_type}" "http://127.0.0.1:8204/api/health" 2>/dev/null || true)
@@ -212,122 +211,10 @@ deploy_api() {
   log "  user-server 部署完成"
 }
 
-# ---------- 更新 nginx 配置 ----------
-update_nginx() {
-  log "########## 更新 nginx 反代配置 ##########"
-
-  # 生成 nginx 配置
-  local conf="/tmp/mtk_user_api.conf"
-  cat > "$conf" <<'NGINX_EOF'
-# 由 deploy-user.sh 自动生成
-server {
-    listen 80;
-    listen 443 ssl;
-    # 注意：故意不开启 http2。WebSocket 升级无法在 HTTP/2 连接上进行，
-    # nginx 开启 http2 后会用 HTTP/2 处理 wss 握手并返回 400 Bad Request。
-    # 该域名以 API/WebSocket 为主，关闭 http2 可保证 WS Upgrade 走 HTTP/1.1 必然成功。
-    server_name hiveuserapi.xapptool.cn;
-    index index.html;
-    root /www/wwwroot/hivemtk/user-web/dist;
-
-    # SSL 配置（宝塔面板管理）
-    include /www/server/panel/vhost/nginx/well-known/hiveuserapi.xapptool.cn.conf;
-    include /www/server/panel/vhost/nginx/extension/hiveuserapi.xapptool.cn/*.conf;
-
-    ssl_certificate    /www/server/panel/vhost/cert/hiveuserapi.xapptool.cn/fullchain.pem;
-    ssl_certificate_key /www/server/panel/vhost/cert/hiveuserapi.xapptool.cn/privkey.pem;
-    ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;
-    ssl_ciphers EECDH+CHACHA20:EECDH+CHACHA20-draft:EECDH+AES128:RSA+AES128:EECDH+AES256:RSA+AES256:EECDH+3DES:RSA+3DES:!MD5;
-    ssl_prefer_server_ciphers on;
-    ssl_session_tickets on;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-    add_header Strict-Transport-Security "max-age=31536000";
-    error_page 497  https://$host$request_uri;
-
-    error_page 404 /404.html;
-
-    # 禁止访问的文件或目录
-    location ~ ^/(\.user\.ini|\.htaccess|\.git|\.env|\.svn|\.project|LICENSE|README\.md)$ {
-        return 404;
-    }
-
-    # SSL 证书验证目录
-    location ~ \.well-known {
-        allow all;
-    }
-
-    # 静态资源（SPA + assets）
-    location /assets/ {
-        alias /www/wwwroot/hivemtk/user-web/dist/assets/;
-        access_log off;
-        expires 12h;
-        add_header Cache-Control "public, max-age=43200";
-    }
-    location = /favicon.svg {
-        alias /www/wwwroot/hivemtk/user-web/dist/favicon.svg;
-        access_log off;
-        expires 30d;
-    }
-    location = /favicon.ico {
-        alias /www/wwwroot/hivemtk/user-web/dist/favicon.svg;
-        access_log off;
-        expires 30d;
-    }
-    location = /logo.png {
-        alias /www/wwwroot/hivemtk/user-web/dist/logo.png;
-        access_log off;
-        expires 30d;
-    }
-
-    # API / WebSocket 转发
-    # 部署策略（2026-08-03 用户定）：user-web 发布到线上，user-server 始终在本地运行，
-    # API 经 frps 隧道穿透回本地。故 /api 默认指向 frps vhost(118.25.236.101:8280)，
-    # 由 frps 按 Host=hiveuserapi.xapptool.cn 路由到本地 frpc→本地 user-server:8204。
-    # 不要改回 127.0.0.1:8204（那会把流量打到线上生产容器，与策略相悖）。
-    location /api/ {
-        proxy_pass http://118.25.236.101:8280;
-        # v3 修复：必须改写 Host 为 hiveuserapi——frps 按 Host 做 vhost 路由，
-        # 透传 $host(hiveuser) 会匹配不到隧道导致 404/400
-        proxy_set_header Host              hiveuserapi.xapptool.cn;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket（wss→ws）
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade    $http_upgrade;
-        proxy_set_header Connection "upgrade";
-
-        # 长连接/流式
-        proxy_buffering off;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
-    }
-
-    # SPA 兜底
-    # 关键：index.html 必须 no-cache。否则浏览器缓存旧 index.html（引用已删除的旧
-    # chunk hash），部署新前端后用户仍加载到缓存里的旧包，表现为“登录不跳转/功能异常”。
-    # 带 hash 的 /assets/* 仍走 12h 强缓存（内容变则 hash 变，天然失效）。
-    location / {
-        expires -1;
-        try_files $uri $uri/ /index.html;
-    }
-
-    access_log  /www/wwwlogs/hiveuserapi.xapptool.cn.log;
-    error_log   /www/wwwlogs/hiveuserapi.xapptool.cn.error.log;
-}
-NGINX_EOF
-
-  if [[ -z "$DRY_RUN" ]]; then
-    local remote_conf="$NGINX_VHOST_DIR/hiveuserapi.xapptool.cn.conf"
-    run_remote "备份现有配置" "test -f $remote_conf && cp $remote_conf $remote_conf.bak-$(date +%Y%m%d-%H%M%S) || true"
-    run "scp \"$conf\" $DEPLOY_USER@$DEPLOY_HOST:\"$remote_conf\""
-    run_remote "nginx 配置校验" "nginx -t" || die "nginx -t 失败"
-    run_remote "nginx 重载" "nginx -s reload"
+# ---------- 更新 静态托管配置 ----------
   fi
 
-  log "  nginx 配置更新完成"
+  log "  静态托管配置更新完成"
 }
 
 # ---------- 健康检查 ----------
@@ -340,7 +227,7 @@ healthcheck() {
   local ct=''
   while (( i < max_wait )); do
     # 用 /api/health（非 /health）并校验 Content-Type: application/json，
-    # 避免 nginx SPA 兜底返回 200+HTML（前端 index.html）导致假通过
+    # 避免 反向代理层 SPA 兜底返回 200+HTML（前端 index.html）导致假通过
     # 注意：在 set -euo pipefail 下，避免将 ct=$(...) 与 && 短路链合并，
     # 否则 curl 失败会让整个命令链非零退出导致脚本中断；改用独立 if 包裹。
     ct=$(curl -fsS -o /dev/null -w "%{content_type}" "https://$DOMAIN_USER_API/api/health" 2>/dev/null || true)
@@ -368,16 +255,13 @@ case "$MODE" in
     ;;
   api)
     deploy_api
-    update_nginx
     ;;
-  nginx)
-    update_nginx
+  反向代理层)
     ;;
   all)
     build_web
     push_web
     deploy_api
-    update_nginx
     ;;
   *) die "未知模式: $MODE" ;;
 esac

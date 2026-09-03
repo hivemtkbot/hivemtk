@@ -84,7 +84,7 @@ else
   fail "SSE Cache-Control 异常: $cache"
 fi
 
-# 8. SSE X-Accel-Buffering（防 nginx 缓冲）
+# 8. SSE X-Accel-Buffering（防 反向代理层 缓冲）
 xab=$(curl -s -N --max-time 2 -D - -o /dev/null "$BASE/api/bridge/outbox/sse?channel=douyin&account_id=default" 2>&1 | grep -i "x-accel-buffering:" | head -1 | tr -d '\r')
 if echo "$xab" | grep -q "no"; then
   pass "SSE X-Accel-Buffering: no"

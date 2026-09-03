@@ -9,6 +9,7 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/repository"
 )
 
@@ -253,7 +254,7 @@ func (d *WorkflowDispatcher) executeNode(
 		Graph:      def,
 		Input:      exec.TriggerPayload,
 		Context:    exec.Context,
-		TraceID:    logger.TraceIDFromContext(ctx),
+		TraceID:    tracing.TraceIDFromContext(ctx),
 		StartedAt:  start,
 		Attempt:    attempt,
 	}
@@ -370,7 +371,7 @@ func (d *WorkflowDispatcher) handleNodeFailure(
 			defer d.wg.Done()
 			select {
 			case <-time.After(backoff):
-				d.Run(context.Background(), exec.ID, logger.TraceIDFromContext(ctx))
+				d.Run(context.Background(), exec.ID, tracing.TraceIDFromContext(ctx))
 			case <-d.stopCh:
 				return
 			}

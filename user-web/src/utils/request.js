@@ -166,7 +166,7 @@ const addInterceptors = () => {
       }
       if (!isJsonResponse(response) && typeof body !== 'object') {
         if (import.meta.env?.DEV) {
-          console.error('[request] 收到非 JSON 响应，疑似网关/Nginx 兜底到前端页面：', data)
+          console.error('[request] 收到非 JSON 响应，疑似网关/ 反向代理层 兜底到前端页面：', data)
         }
         const msg = t('http.unexpectedResponse')
         if (!silent) showToast(msg)
@@ -207,7 +207,7 @@ const addInterceptors = () => {
         const { status, data, config } = error.response
         const silent = !!(config && config._silent)
 
-        // 非 JSON 兜底响应（如 init-license 路由缺失时 Nginx 返回 404 HTML）
+        // 非 JSON 兜底响应（如 init-license 路由缺失时 反向代理层 返回 404 HTML）
         if (!isJsonResponse(error.response) || typeof data !== 'object') {
           if (import.meta.env?.DEV) {
             console.error('[request] 网关返回非 JSON 响应：', data)

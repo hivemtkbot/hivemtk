@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"hivemtk-user/internal/aiagent/llm"
-	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/tracing"
 )
 
 // LLMModelStat 内存中"按 provider"实时累计（用于 /stats 实时面板）
@@ -229,7 +229,7 @@ func (s *LLMRoutingService) CreateModel(ctx context.Context, info LLMProviderInf
 		return fmt.Errorf("provider 落库失败: %w", err)
 	}
 	s.dispatcher.LogModelLifecycle(ctx,
-		"create_model", info.Name, operatorFromContext(ctx), logger.TraceIDFromContext(ctx))
+		"create_model", info.Name, operatorFromContext(ctx), tracing.TraceIDFromContext(ctx))
 	return nil
 }
 
@@ -316,7 +316,7 @@ func (s *LLMRoutingService) DeleteModel(ctx context.Context, identifier string) 
 	delete(s.stats, identifier)
 	s.mu.Unlock()
 	s.dispatcher.LogModelLifecycle(ctx,
-		"delete_model", identifier, operatorFromContext(ctx), logger.TraceIDFromContext(ctx))
+		"delete_model", identifier, operatorFromContext(ctx), tracing.TraceIDFromContext(ctx))
 	return nil
 }
 
@@ -337,7 +337,7 @@ func (s *LLMRoutingService) UpdateStrategies(ctx context.Context, req UpdateStra
 		return errors.New("dispatcher not initialized")
 	}
 	operator := orDefault(req.Operator, operatorFromContext(ctx))
-	traceID := orDefault(req.TraceID, logger.TraceIDFromContext(ctx))
+	traceID := orDefault(req.TraceID, tracing.TraceIDFromContext(ctx))
 	if len(req.Routes) == 0 {
 		return errors.New("routes is required")
 	}
@@ -476,7 +476,7 @@ func (s *LLMRoutingService) TestModel(ctx context.Context, req TestModelRequest)
 		Prompt:      req.Prompt,
 		MaxTokens:   256,
 		Temperature: 0.7,
-		CanaryKey:   "_test_only_" + logger.TraceIDFromContext(ctx),
+		CanaryKey:   "_test_only_" + tracing.TraceIDFromContext(ctx),
 	}
 	result, err := s.dispatcher.CallProviderForTest(tCtx, provider, dreq, testRoute)
 	res := &TestModelResult{

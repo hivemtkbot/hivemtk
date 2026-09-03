@@ -273,6 +273,21 @@ func CarrierFromContext(ctx context.Context) *Carrier {
 	return nil
 }
 
+// TraceIDFromContext 统一从 context 取 trace_id。
+// 优先 Carrier（稳定 tr-xxx），fallback 到 logger 注入的 trace_id。
+// 替代分散的裸 logger.TraceIDFromContext(ctx) 调用（15 处已统一）。
+func TraceIDFromContext(ctx context.Context) string {
+	if c := CarrierFromContext(ctx); c != nil && c.TraceID != "" {
+		return c.TraceID
+	}
+	if ctx != nil {
+		if tid := trace.TraceIDFromContext(ctx); tid != "" {
+			return tid
+		}
+	}
+	return ""
+}
+
 // Child 复制会话/渠道维度（保留同一轮 trace_id），用于子 span 挂在同一个 trace 下。
 func (c *Carrier) Child() *Carrier {
 	if c == nil {

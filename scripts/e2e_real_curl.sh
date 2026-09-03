@@ -248,9 +248,9 @@ TG_TBL=$(eval $PG_CMD -c "\"SELECT EXISTS (SELECT 1 FROM information_schema.tabl
 
 echo
 echo "=== 反代配置模板（P1-A1）==="
-if [ -f /Users/xiaofang/Documents/www/go/hivemtk/docs/operations/reverse-proxy/nginx.conf.template ]; then
-    if grep -q "http2 off\|proxy_buffering off" /Users/xiaofang/Documents/www/go/hivemtk/docs/operations/reverse-proxy/nginx.conf.template 2>&1; then
-        ok "P1-A1 nginx 模板" "HTTP/2 off + SSE buffer off 已声明"
+if [ -f /Users/xiaofang/Documents/www/go/hivemtk/docs/operations/reverse-proxy/ 反向代理层.conf.template ]; then
+    if grep -q "http2 off\|proxy_buffering off" /Users/xiaofang/Documents/www/go/hivemtk/docs/operations/reverse-proxy/ 反向代理层.conf.template 2>&1; then
+        ok "P1-A1 反向代理层 模板" "HTTP/2 off + SSE buffer off 已声明"
     fi
 fi
 

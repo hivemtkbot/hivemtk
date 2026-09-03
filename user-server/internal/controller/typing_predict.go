@@ -83,7 +83,7 @@ func (c *TypingPredictController) SSEStream(ctx *gin.Context) {
 	ctx.Header("Content-Type", "text/event-stream")
 	ctx.Header("Cache-Control", "no-cache")
 	ctx.Header("Connection", "keep-alive")
-	ctx.Header("X-Accel-Buffering", "no") // 禁用 Nginx 缓冲
+	ctx.Header("X-Accel-Buffering", "no") // 禁用 反向代理层 缓冲
 
 	flusher, ok := ctx.Writer.(http.Flusher)
 	if !ok {

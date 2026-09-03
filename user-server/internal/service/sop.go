@@ -22,6 +22,7 @@ import (
 	"hivemtk-user/internal/model"
 
 	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/pkg/tracing"
 
 	"hivemtk-user/internal/repository"
 )
@@ -334,7 +335,7 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 		return nil, fmt.Errorf("A/B 测试分流失败：%w", err)
 	}
 
-	traceID := logger.TraceIDFromContext(ctx)
+	traceID := tracing.TraceIDFromContext(ctx)
 	if traceID == "" {
 		traceID = logger.GenerateTraceID()
 	}

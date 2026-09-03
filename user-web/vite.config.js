@@ -18,7 +18,7 @@ import { writeFileSync, mkdirSync } from 'fs'
 //
 // 四层防御：
 //   Layer 1: 不让 SW 拦截 HTML 导航（navigateFallback + NavigationRoute 全部移除）
-//            index.html 永远走网络（Nginx Cache-Control: no-cache）
+//            index.html 永远走网络（HTTP Cache-Control: no-cache）
 //            静态资源 (JS/CSS/图片) 继续 precache — hash 命名天然无冲突
 //   Layer 2: skipWaiting + clientsClaim — 新 SW 构建后立即 activate, 不等 tab 关
 //   Layer 3: buildId 写入 version.json — 每次构建生成新 buildId, 写入
@@ -139,7 +139,7 @@ export default defineConfig({
     // --------------------------------------------------------------------------
     // 关键改动:
     //   1. 移除 navigateFallback / NavigationRoute — HTML 导航不走 SW, 永远走网络
-    //      (index.html 在 Nginx 已 Cache-Control: no-cache, 每次都拿到最新版)
+    //      (index.html 已 Cache-Control: no-cache, 每次都拿到最新版)
     //   2. 移除 additionalManifestEntries 里的 HTML 路由 — 不 precache 任何 HTML
     //      静态资源 (JS/CSS/图片) 继续 precache — hash 命名天然无冲突
     //   3. skipWaiting + clientsClaim — 新 SW 立即 activate, 不等用户关 tab

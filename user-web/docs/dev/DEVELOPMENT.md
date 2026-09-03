@@ -241,7 +241,7 @@ export default fooAPI
 | --- | --- |
 | `request.use` | 注入 `Authorization: Bearer {token}`（来自 `localStorage.token`）+ `Accept-Language`（来自 `i18n/locale.getStoredLocale()`） |
 | `response.use` 成功分支 | 兼容 `code === 'SUCCESS' \|\| 200 \|\| 0` → 返回 `data.data`；`responseType:'blob'` 直接透传 |
-| `response.use` 失败分支 | 401 → 清 token 跳 `/login`；403/404/429/5xx → `ElMessage` 国际化提示；非 JSON 兜底（Nginx 404 HTML）→ 提示"响应异常" |
+| `response.use` 失败分支 | 401 → 清 token 跳 `/login`；403/404/429/5xx → `ElMessage` 国际化提示；非 JSON 兜底（反向代理层 404 HTML）→ 提示"响应异常" |
 | 业务跳转码 | `INIT_REQUIRED` → `redirectTo('/setup')`，可通过 `INIT_REDIRECT_MAP` 扩展 |
 | `_silent` 标记 | 调用方传 `{ _silent: true }` 关闭统一 toast，自行处理错误 |
 
@@ -480,7 +480,7 @@ npm run preview
 仓库根 `hivemtk/docker-compose.yml` 中以构建产物方式集成：
 
 - **构建阶段**：`Dockerfile` 执行 `npm install && npm run build`
-- **运行阶段**：由 nginx 反代 `dist/` 静态资源 + `/api` 反代到 `user-server:8204`
+- **运行阶段**：由 同源托管 `dist/` 静态资源 + `/api` 反代到 `user-server:8204`
 
 ### 9.4 环境变量
 

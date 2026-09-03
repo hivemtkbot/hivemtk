@@ -291,7 +291,7 @@ npm run test:e2e:ui
 仓库根 `hivemtk/docker-compose.yml` 中以构建产物方式集成：
 
 - 构建阶段：`Dockerfile` 执行 `npm install && npm run build`
-- 运行阶段：由 nginx 反代 `dist/` 静态资源 + `/api` 反代到 `user-server:8204`
+- 运行阶段：由 同源托管 `dist/` 静态资源 + `/api` 反代到 `user-server:8204`
 
 ## 📷 截图
 

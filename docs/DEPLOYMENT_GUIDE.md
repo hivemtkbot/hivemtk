@@ -32,7 +32,7 @@
 │  应用层                                                   │
 │  ├─ user-server 二进制        监听 127.0.0.1:8204         │
 │  │   （make user-build 产物，air 热重载用于开发）           │
-│  └─ user-web 静态产物         由 Nginx 或任意静态服务托管   │
+│  └─ user-web 静态产物         由 反向代理层 或任意静态服务托管   │
 │                                                          │
 │  推理层（scripts/inference-host/）                        │
 │  ├─ llama-server · LLM       127.0.0.1:8207              │
@@ -99,7 +99,6 @@
 # Ubuntu 22.04 / Debian 12 参考安装
 apt-get update && apt-get install -y \
   curl wget git make postgresql-client \
-  nginx certbot python3-certbot-nginx
 # Go 1.25 与 Node 18 请按官方渠道安装，发行版仓库版本可能过旧
 ```
 
@@ -172,7 +171,7 @@ make sdk-build     # 可选：构建 embed-sdk 网页挂件
 cd user-server && ./bin/user-server
 ```
 
-前端构建产物（`user-web/dist`）部署到 Nginx 或任意静态服务器即可，user-server 当前配置中不含静态托管段。
+前端构建产物（`user-web/dist`）部署到 反向代理层 或任意静态服务器即可，user-server 当前配置中不含静态托管段。
 
 ### 第 6 步：验证
 
@@ -226,52 +225,11 @@ curl http://127.0.0.1:8208/v1/models    # Embedding 服务模型清单
 
 什么都不用配。访问 `http://<内网IP>:8204` 即可。适合个人体验与内网测试。注意此模式下被动渠道 Webhook 不可用（无公网 HTTPS 地址），相关渠道自动走轮询。
 
-### 模式 B：Nginx 反向代理 + HTTPS（公网标准部署）
-
-```nginx
-upstream user_server {
-  server 127.0.0.1:8204;
-}
-
-server {
-  listen 80;
-  server_name chat.example.com;
-  return 301 https://$host$request_uri;
-}
-
-server {
-  listen 443 ssl http2;
-  server_name chat.example.com;
-
-  ssl_certificate     /etc/letsencrypt/live/chat.example.com/fullchain.pem;
-  ssl_certificate_key /etc/letsencrypt/live/chat.example.com/privkey.pem;
-
-  # WebSocket（客服工作台实时通道）
-  location /ws/ {
-    proxy_pass http://user_server;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header Host $host;
-    proxy_read_timeout 86400s;
-    proxy_send_timeout 86400s;
-  }
-
-  # API
-  location / {
-    proxy_pass http://user_server;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Host $host;
-  }
-}
-```
+### 模式 B：反向代理层 反向代理 + HTTPS（公网标准部署）
 
 证书签发：
 
 ```bash
-certbot --nginx -d chat.example.com
 ```
 
 配套两件事：
@@ -315,7 +273,7 @@ customDomains = ["chat.example.com"]
 | `/readyz` | 就绪 | 依赖就绪才返回 200；适合负载均衡摘流判断 |
 | `/health` | 综合 | 附带数据层依赖检查详情；人工巡检首选 |
 
-接入示例（systemd 或 supervisor 心跳检测用 `/healthz`；Nginx upstream 健康检查用 `/readyz`）。
+接入示例（systemd 或 supervisor 心跳检测用 `/healthz`；反向代理层 upstream 健康检查用 `/readyz`）。
 
 ## 九、日常运维操作
 

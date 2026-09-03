@@ -36,10 +36,8 @@ service:
 # Ingress 配置
 ingress:
   enabled: true
-  className: nginx
+  # className: 由 Go embed 静态托管, 无需 Ingress
   annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
   hosts:
     - host: api.hivemtk.io
       paths:

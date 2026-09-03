@@ -211,7 +211,7 @@ func main() {
 	}
 	r := gin.New()
 	r.Use(gin.Recovery())
-	// 仅信任私网/回环反代（FRP/nginx 均部署在同机或内网），
+	// 仅信任私网/回环反代（FRP/ 反向代理层 均部署在同机或内网），
 	// 防止公网客户端伪造 X-Forwarded-For 绕过限流与防爆破（ClientIP 伪造）
 	if err := r.SetTrustedProxies([]string{
 		"127.0.0.0/8", "::1/128",
