@@ -192,29 +192,65 @@ func (s *obsConfigService) TestConnection(ctx context.Context, config *dto.ObsCo
 		if config.AccessKey == "" || config.SecretKey == "" || config.Bucket == "" {
 			return errors.New("阿里云OSS配置不完整")
 		}
-		logger.Infof("[OBS] Testing connection for Aliyun: bucket=%s, region=%s", config.Bucket, config.Region)
+		if _, err := storage.Factory(obsConfigResponseToModel(config)); err != nil {
+			return fmt.Errorf("驱动构造失败: %w", err)
+		}
+		logger.Infof("[OBS] Testing connection for Aliyun: bucket=%s, region=%s (配置格式OK)", config.Bucket, config.Region)
 		return nil
 	case model.ObsProviderQiniu:
 		if config.AccessKey == "" || config.SecretKey == "" || config.Bucket == "" {
 			return errors.New("七牛云存储配置不完整")
 		}
-		logger.Infof("[OBS] Testing connection for Qiniu: %s", config.Bucket)
+		if _, err := storage.Factory(obsConfigResponseToModel(config)); err != nil {
+			return fmt.Errorf("驱动构造失败: %w", err)
+		}
+		logger.Infof("[OBS] Testing connection for Qiniu: bucket=%s (配置格式OK)", config.Bucket)
 		return nil
 	case model.ObsProviderTencent:
 		if config.AccessKey == "" || config.SecretKey == "" || config.Bucket == "" {
 			return errors.New("腾讯云COS配置不完整")
 		}
-		logger.Infof("[OBS] Testing connection for Tencent: bucket=%s, region=%s", config.Bucket, config.Region)
+		if _, err := storage.Factory(obsConfigResponseToModel(config)); err != nil {
+			return fmt.Errorf("驱动构造失败: %w", err)
+		}
+		logger.Infof("[OBS] Testing connection for Tencent: bucket=%s, region=%s (配置格式OK)", config.Bucket, config.Region)
 		return nil
 	case model.ObsProviderAWS:
 		if config.AccessKey == "" || config.SecretKey == "" || config.Bucket == "" {
 			return errors.New("AWS S3配置不完整")
 		}
-		logger.Infof("[OBS] Testing connection for AWS: %s", config.Bucket)
+		if _, err := storage.Factory(obsConfigResponseToModel(config)); err != nil {
+			return fmt.Errorf("驱动构造失败: %w", err)
+		}
+		logger.Infof("[OBS] Testing connection for AWS: bucket=%s (配置格式OK)", config.Bucket)
 		return nil
 	case model.ObsProviderLocal:
-		// local 永远可以连通
-		logger.Infof("[OBS] Testing connection for local storage: OK")
+		// 解析 baseDir（优先 config.Endpoint，回退 env，回退 ./uploads）
+		baseDir := config.Endpoint
+		if baseDir == "" {
+			baseDir = os.Getenv("STORAGE_LOCAL_BASE_DIR")
+		}
+		if baseDir == "" {
+			baseDir = "./uploads"
+		}
+		// 1. 目录是否存在
+		info, err := os.Stat(baseDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("local 存储目录不存在: %s（请先创建或检查路径配置）", baseDir)
+			}
+			return fmt.Errorf("local 存储目录访问失败: %w", err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("local 存储路径不是目录: %s", baseDir)
+		}
+		// 2. 是否可写：写一个临时文件再删掉
+		testFile := filepath.Join(baseDir, ".obs_test_write")
+		if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
+			return fmt.Errorf("local 存储目录不可写: %w", err)
+		}
+		os.Remove(testFile) // 清理
+		logger.Infof("[OBS] Testing connection for local storage: OK (baseDir=%s, writable=true)", baseDir)
 		return nil
 	default:
 		return errors.New("不支持的存储提供商")
@@ -277,7 +313,21 @@ func (s *obsConfigService) validateCreateRequest(ctx context.Context, req *dto.C
 	provider := model.ObsProvider(req.Provider)
 	switch provider {
 	case model.ObsProviderLocal:
-		// local 不需要 AK/SK/Bucket/Region
+		// local 不需要 AK/SK/Bucket/Region，但自动填充默认 Endpoint/Domain
+		if req.Endpoint == "" {
+			if v := os.Getenv("STORAGE_LOCAL_BASE_DIR"); v != "" {
+				req.Endpoint = v
+			} else {
+				req.Endpoint = "./uploads"
+			}
+		}
+		if req.Domain == "" {
+			if v := os.Getenv("STORAGE_LOCAL_PUBLIC_URL"); v != "" {
+				req.Domain = v
+			} else {
+				req.Domain = "/files"
+			}
+		}
 		return nil
 	case model.ObsProviderAliyun, model.ObsProviderTencent, model.ObsProviderQiniu, model.ObsProviderAWS:
 		if req.AccessKey == "" {
@@ -348,4 +398,35 @@ func obsConfigIsFileSizeAllowed(c *model.ObsConfig, size int64) bool {
 // obsConfigIsFileCountAllowed 检查是否达到文件数量限制
 func obsConfigIsFileCountAllowed(c *model.ObsConfig) bool {
 	return c.FileCount < c.MaxCount
+}
+
+// obsConfigResponseToModel 将 DTO 转回 model.ObsConfig（用于 TestConnection 内部
+// 调用 storage.Factory 验证驱动能否正常构造）。
+func obsConfigResponseToModel(d *dto.ObsConfigResponse) *model.ObsConfig {
+	if d == nil {
+		return nil
+	}
+	return &model.ObsConfig{
+		ID:         d.ID,
+		Name:       d.Name,
+		Provider:   model.ObsProvider(d.Provider),
+		AccessKey:  d.AccessKey,
+		SecretKey:  d.SecretKey,
+		Bucket:     d.Bucket,
+		Region:     d.Region,
+		Endpoint:   d.Endpoint,
+		Domain:     d.Domain,
+		PathPrefix: d.PathPrefix,
+		Config:     d.Config,
+		MaxSize:    d.MaxSize,
+		MaxCount:   d.MaxCount,
+		Status:     model.ObsStatus(d.Status),
+		LastError:  d.LastError,
+		LastTestAt: d.LastTestAt,
+		TotalSize:  d.TotalSize,
+		FileCount:  d.FileCount,
+		IsDefault:  d.IsDefault,
+		CreatedAt:  d.CreatedAt,
+		UpdatedAt:  d.UpdatedAt,
+	}
 }
