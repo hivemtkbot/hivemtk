@@ -135,8 +135,16 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 		if c, hit := d.getCache(ctx, req.CacheKey); hit {
 
 			if !d.testMode.Load() {
+				// R58: cache hit 也要 Carrier 优先取，避免 cache 命中时 trace_id 裸 logger
+				ctid := ""
+				if c := tracing.CarrierFromContext(ctx); c != nil {
+					ctid = c.TraceID
+				}
+				if ctid == "" {
+					ctid = logger.TraceIDFromContext(ctx)
+				}
 				cacheEntry := &LogEntry{
-					TraceID:          logger.TraceIDFromContext(ctx),
+					TraceID:          ctid,
 					Scenario:         req.Scenario,
 					Provider:         "cache",
 					Model:            "cache",

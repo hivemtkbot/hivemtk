@@ -141,8 +141,14 @@ func (s *WebhookService) triggerSalesEngine(ctx context.Context, channel Webhook
 		return
 	}
 
+	// R58: 用上游 ctx 拷贝 Carrier，保留全链路 trace_id + 会话/渠道维度。
+	// 之前 parentCtx := context.Background() 只手动注入 trace_id，Carrier（含 trace_id +
+	// conversation_id + channel + account_id）丢失 → AgentLoop 内部 trace.Event 可能生成
+	// 新的 UUID trace_id 与 webhook 入口断裂。
 	parentCtx := context.Background()
-	if parentTraceID := trace.TraceIDFromContext(ctx); parentTraceID != "" {
+	if c := tracing.CarrierFromContext(ctx); c != nil {
+		parentCtx = tracing.WithCarrier(parentCtx, c)
+	} else if parentTraceID := trace.TraceIDFromContext(ctx); parentTraceID != "" {
 		parentCtx = trace.NewContextWithTraceID(parentCtx, parentTraceID)
 	}
 
@@ -417,11 +423,13 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 	}
 
 	parentCtx := context.Background()
-	if parentTraceID := trace.TraceIDFromContext(ctx); parentTraceID != "" {
-		parentCtx = trace.NewContextWithTraceID(parentCtx, parentTraceID)
-	}
+    if c := tracing.CarrierFromContext(ctx); c != nil {
+        parentCtx = tracing.WithCarrier(parentCtx, c)
+    } else if parentTraceID := trace.TraceIDFromContext(ctx); parentTraceID != "" {
+        parentCtx = trace.NewContextWithTraceID(parentCtx, parentTraceID)
+    }
 
-	aiTimeout := webhookEnvInt("WEBHOOK_AI_TIMEOUT_SECONDS", 180)
+    aiTimeout := webhookEnvInt("WEBHOOK_AI_TIMEOUT_SECONDS", 180)
 	if aiTimeout < 60 {
 		aiTimeout = 60
 	}
