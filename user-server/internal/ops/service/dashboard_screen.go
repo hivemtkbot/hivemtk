@@ -345,7 +345,7 @@ func (s *DashboardScreenService) AggregateDashboardData(isAdmin bool) (*Dashboar
 		Value int64
 	}
 	var chRows []kvRow
-	if err := gormDB.Raw(`SELECT COALESCE(NULLIF(source_id, ''), '未知') AS name, COUNT(*) AS value FROM clues GROUP BY name ORDER BY value DESC`).Scan(&chRows).Error; err != nil {
+	if err := gormDB.Raw(`SELECT COALESCE(NULLIF(source_id, ''), '未知') AS name, COUNT(*) AS value FROM clues GROUP BY 1 ORDER BY value DESC`).Scan(&chRows).Error; err != nil {
 		return nil, fmt.Errorf("渠道分布查询失败: %w", err)
 	}
 	for _, r := range chRows {
@@ -360,7 +360,7 @@ func (s *DashboardScreenService) AggregateDashboardData(isAdmin bool) (*Dashboar
 
 	// 地区分布
 	var regRows []kvRow
-	if err := gormDB.Raw(`SELECT COALESCE(NULLIF(city, ''), '未知') AS name, COUNT(*) AS value FROM clues GROUP BY name ORDER BY value DESC`).Scan(&regRows).Error; err != nil {
+	if err := gormDB.Raw(`SELECT COALESCE(NULLIF(city, ''), '未知') AS name, COUNT(*) AS value FROM clues GROUP BY 1 ORDER BY value DESC`).Scan(&regRows).Error; err != nil {
 		return nil, fmt.Errorf("地区分布查询失败: %w", err)
 	}
 	for _, r := range regRows {
