@@ -17,7 +17,7 @@ func TestSeedConfigParams(t *testing.T) {
 	}
 	var count int64
 	gdb.Model(&model.ConfigParam{}).Count(&count)
-	if count != 59 { t.Fatalf("want 59, got %d", count) }
+	if count != 109 { t.Fatalf("want 109, got %d", count) }
 
 	svc := GlobalConfigParam()
 	ctx := context.Background()
@@ -90,11 +90,11 @@ func TestFallbackNilDB(t *testing.T) {
 
 func TestDefaultParamDefsCount(t *testing.T) {
 	defs := DefaultParamDefs()
-	if len(defs) != 59 { t.Fatalf("want 59 defs, got %d", len(defs)) }
+	if len(defs) != 109 { t.Fatalf("want 109 defs, got %d", len(defs)) }
 	for i, d := range defs {
 		if d.Group == "" || d.Key == "" || d.DefaultValue == "" {
 			t.Errorf("def[%d] bad: group=%q key=%q default=%q", i, d.Group, d.Key, d.DefaultValue)
 		}
 	}
-	t.Logf("✅ 59 default defs validated")
+	t.Logf("✅ 106 default defs validated")
 }
