@@ -48,7 +48,8 @@ type AssetBundleUpdateRequest struct {
 	Language    string               `json:"language"`
 	Tags        []string             `json:"tags"`
 	Messages    []AssetBundleMessage `json:"messages"`
-	Status      string               `json:"status"` 
+	Status      string               `json:"status"`
+	CoverImage  string               `json:"cover_image"`
 	ChangeNote  string               `json:"change_note"`
 }
 
@@ -84,6 +85,7 @@ type AssetBundleView struct {
 	UseCount           int64                `json:"use_count"`
 	Rating             float64              `json:"rating"`
 	RatingCount        int                  `json:"rating_count"`
+	CoverImage         string               `json:"cover_image"`
 	CreatedAt          time.Time            `json:"created_at"`
 	UpdatedAt          time.Time            `json:"updated_at"`
 }

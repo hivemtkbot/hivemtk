@@ -159,6 +159,8 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/intent-records/recognize/batch", intentCtrl.BatchRecognize)
 	doReg("GET", "/intent-records/config", intentCtrl.GetConfig)
 	doRegAdmin("PUT", "/intent-records/config", intentCtrl.UpdateConfig)
+	doReg("GET", "/intent-records/keywords-override", intentCtrl.GetKeywordOverride)
+	doRegAdmin("PUT", "/intent-records/keywords-override", intentCtrl.UpdateKeywordOverride)
 
 	memCtrl := controller.NewDialogueMemoryController(service.NewDialogueMemoryService(gormDB, nil))
 	doReg("GET", "/dialogue-memories", memCtrl.Stats)

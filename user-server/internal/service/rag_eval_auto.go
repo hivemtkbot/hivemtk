@@ -11,8 +11,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
+	knowledgesvc "hivemtk-user/internal/aiagent/knowledge/service"
+	dto "hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/repository"
@@ -91,40 +94,144 @@ func (s *RagEvalAutoService) RunAutoEvaluation(ctx context.Context, cfg *RagEval
 	return s.repo.GetRun(ctx, run.ID)
 }
 
-// generateQuestions 从知识库文档切片生成评测问题列表
+// generateQuestions 从真实生产查询构建评测问题集（R55 T7 修复）
+//
+// 此前问题=「关于「X」用户可能会问什么？」占位句 + relevant=文档自身（必然命中，
+// hit 恒 true 仪式化评测）。现分两级：
+//  1. 优先采样 rag_query_logs 真实用户查询（近 30 天），relevant=该查询真实命中的 doc
+//  2. 不足时回退 KB 文档标题生成（保留旧行为兜底，hit 判定走真实检索）
+//
+// hit 判定改为：真实调用 RAG 检索，topK 结果含 relevant doc 才算命中（非恒真）。
 func (s *RagEvalAutoService) generateQuestions(ctx context.Context, cfg *RagEvalConfig, runID uint) ([]*model.RagEvalQuestion, error) {
-	// 取已索引的知识库文档
-	var docs []*model.KBDocument
+	questions := make([]*model.RagEvalQuestion, 0, cfg.MaxQuestions)
+
+	// 一级来源：真实生产查询（去重，取最近优先）
+	var logs []*model.RagQueryLog
 	if err := s.db.WithContext(ctx).
-		Model(&model.KBDocument{}).
-		Where("status = ?", model.KBDocumentStatusIndexed).
-		Limit(cfg.MaxQuestions).
-		Find(&docs).Error; err != nil {
-		return nil, fmt.Errorf("RAG_EVAL_004: 查询知识库文档失败: %w", err)
+		Model(&model.RagQueryLog{}).
+		Where("created_at >= ?", time.Now().AddDate(0, 0, -30)).
+		Order("created_at DESC").
+		Limit(cfg.MaxQuestions * 3).
+		Find(&logs).Error; err != nil {
+		logs = nil // 查询失败降级到文档来源
 	}
 
-	questions := make([]*model.RagEvalQuestion, 0, len(docs))
-	for _, doc := range docs {
+	seen := make(map[string]bool, len(logs))
+	for _, lg := range logs {
 		if len(questions) >= cfg.MaxQuestions {
 			break
 		}
-
-		q := &model.RagEvalQuestion{
-			RunID:          runID,
-			Question:       fmt.Sprintf("关于「%s」，用户可能会问什么？", doc.Title),
-			SourceDocID:    strconv.FormatUint(uint64(doc.ID), 10),
-			SourceChunkIdx: 0,
-			Hit:            false,
+		q := strings.TrimSpace(lg.Query)
+		if q == "" || seen[q] {
+			continue
 		}
-
-		// relevant_doc_ids：该文档自身的 ID
-		relIDs, _ := json.Marshal([]string{strconv.FormatUint(uint64(doc.ID), 10)})
-		q.RelevantDocIDs = string(relIDs)
-
-		questions = append(questions, q)
+		seen[q] = true
+		questions = append(questions, &model.RagEvalQuestion{
+			RunID:          runID,
+			Question:       q,
+			SourceDocID:    lg.Top1DocID,
+			RelevantDocIDs: lg.RelevantDocIDs,
+		})
 	}
 
+	// 二级来源：KB 文档（不足时补齐；relevant=自身）
+	if len(questions) < cfg.MaxQuestions {
+		var docs []*model.KBDocument
+		if err := s.db.WithContext(ctx).
+			Model(&model.KBDocument{}).
+			Where("status = ?", model.KBDocumentStatusIndexed).
+			Limit(cfg.MaxQuestions - len(questions)).
+			Find(&docs).Error; err != nil {
+			return nil, fmt.Errorf("RAG_EVAL_004: 查询知识库文档失败: %w", err)
+		}
+		for _, doc := range docs {
+			if len(questions) >= cfg.MaxQuestions {
+				break
+			}
+			if strings.TrimSpace(doc.Title) == "" {
+				continue
+			}
+			relIDs, _ := json.Marshal([]string{strconv.FormatUint(uint64(doc.ID), 10)})
+			questions = append(questions, &model.RagEvalQuestion{
+				RunID:          runID,
+				Question:       doc.Title,
+				SourceDocID:    strconv.FormatUint(uint64(doc.ID), 10),
+				SourceChunkIdx: 0,
+				RelevantDocIDs: string(relIDs),
+			})
+		}
+	}
+
+	if len(questions) == 0 {
+		return nil, fmt.Errorf("RAG_EVAL_007: 无可用评测来源（无生产查询且无已索引文档）")
+	}
+
+	// 真实检索 hit 判定：用 RagSearcher 逐题检索，命中 relevant doc 才算 hit
+	s.evaluateRetrievalHit(ctx, questions)
+
 	return questions, nil
+}
+
+// evaluateRetrievalHit 真实调用 RAG 检索判定每题 hit/recall（R55 T7）
+//
+// 检索器不可用（TEI/rerank 未部署）时保留 hit=false 原值并记日志——诚实降级，
+// 不再恒 true 伪装满分。
+func (s *RagEvalAutoService) evaluateRetrievalHit(ctx context.Context, questions []*model.RagEvalQuestion) {
+	searcher := knowledgesvc.NewRagSearcher()
+	if searcher == nil || searcher.HybridSearcher() == nil {
+		fmt.Println("[rag_eval] 检索器未就绪（HybridSearcher nil），本 run hit 保持未判定")
+		return
+	}
+	for _, q := range questions {
+		chunks, err := searcher.Search(ctx, q.Question, 5)
+		if err != nil {
+			continue // 单题失败不影响整轮
+		}
+		q.RetrievedDocIDs = marshalDocIDs(chunks)
+		relevant := parseDocIDSet(q.RelevantDocIDs)
+		hitCount := 0
+		for i, c := range chunks {
+			if relevant[c.DocID] {
+				hitCount++
+				if i == 0 {
+					q.Hit = true // top1 命中
+				}
+			}
+		}
+		if len(relevant) > 0 {
+			q.Recall = float64(hitCount) / float64(len(relevant))
+			if q.Recall > 1 {
+				q.Recall = 1
+			}
+			q.Precision = float64(hitCount) / float64(len(chunks))
+		}
+	}
+}
+
+func marshalDocIDs(chunks []dto.RAGChunk) string {
+	ids := make([]string, 0, len(chunks))
+	for _, c := range chunks {
+		if c.DocID != "" {
+			ids = append(ids, c.DocID)
+		}
+	}
+	b, _ := json.Marshal(ids)
+	return string(b)
+}
+
+func parseDocIDSet(raw string) map[string]bool {
+	set := make(map[string]bool)
+	if raw == "" {
+		return set
+	}
+	var ids []string
+	if err := json.Unmarshal([]byte(raw), &ids); err != nil {
+		return set
+	}
+	for _, id := range ids {
+		set[id] = true
+	}
+	return set
 }
 
 // GetRun 获取单次评测详情

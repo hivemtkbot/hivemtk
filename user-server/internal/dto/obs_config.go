@@ -3,15 +3,19 @@ package dto
 import "time"
 
 // ObsConfigRequest OBS配置请求
+//
+// provider 校验规则：
+//   - local：只需 Name，Endpoint 存本地目录（默认 ./uploads），Domain 存公开访问前缀（默认 /files）
+//   - 云厂商 (aliyun/qiniu/tencent/aws)：必须填 AccessKey / SecretKey / Bucket / Region
 type CreateObsConfigRequest struct {
 	Name       string `json:"name" binding:"required"`
 	Provider   string `json:"provider" binding:"required,oneof=aliyun qiniu tencent aws local"`
-	AccessKey  string `json:"access_key" binding:"required"`
-	SecretKey  string `json:"secret_key" binding:"required"`
-	Bucket     string `json:"bucket" binding:"required"`
+	AccessKey  string `json:"access_key"`
+	SecretKey  string `json:"secret_key"`
+	Bucket     string `json:"bucket"`
 	Region     string `json:"region"`
-	Endpoint   string `json:"endpoint"`
-	Domain     string `json:"domain"`
+	Endpoint   string `json:"endpoint"`   // local 时存本地目录；cloud 时存 S3 Endpoint
+	Domain     string `json:"domain"`      // local 时存公开 URL 前缀；cloud 时存自定义 CDN 域名
 	PathPrefix string `json:"path_prefix"`
 	Config     string `json:"config"`
 	MaxSize    int64  `json:"max_size"`
@@ -40,7 +44,7 @@ type ObsConfigResponse struct {
 	Provider     string     `json:"provider"`
 	ProviderName string     `json:"provider_name"`
 	AccessKey    string     `json:"access_key"`
-	SecretKey    string     `json:"secret_key"` 
+	SecretKey    string     `json:"secret_key"`
 	Bucket       string     `json:"bucket"`
 	Region       string     `json:"region"`
 	Endpoint     string     `json:"endpoint"`
@@ -76,4 +80,3 @@ type TestConnectionRequest struct {
 type SetDefaultRequest struct {
 	ID string `json:"id" binding:"required"`
 }
-

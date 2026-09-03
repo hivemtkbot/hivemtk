@@ -220,10 +220,12 @@
 <script setup>
 import i18n from '@/i18n'
 
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshRight, View, Check, Top, CopyDocument } from '@element-plus/icons-vue'
 import { unifiedMessageApi } from '@/api/unifiedMessage'
+import { getMyAgent } from '@/api/customerService'
+import AgentSocket from '@/utils/agentSocket'
 import { CHANNEL_OPTIONS, getChannelLabel, getChannelTagType } from '@/constants/channel'
 
 // 响应式数据
@@ -303,8 +305,45 @@ const getStatusLabel = (v) => STATUS_LABEL[v] || (v ? String(v) : '-')
 const getStatusTagType = (v) => STATUS_TAG[v] || 'info'
 
 // 生命周期
+let agentSocketInst = null
+let realtimeTimer = null
+
+// R55 T6: 接入坐席 WS 通道——新消息/新会话到达时自动刷新，无需手动点刷新
+const setupRealtime = async () => {
+  if (agentSocketInst) return
+  try {
+    const me = await getMyAgent()
+    const agentId = me?.agent_id || me?.data?.agent_id
+    if (!agentId) return
+    agentSocketInst = new AgentSocket(agentId, undefined, {
+      onNewMessage: () => scheduleRealtimeRefresh(),
+      onNewSession: () => scheduleRealtimeRefresh(),
+      onSessionUpdate: () => scheduleRealtimeRefresh(),
+      onError: (e) => { console.warn('[unifiedMessage ws]', e) }
+    })
+    agentSocketInst.connect()
+  } catch (e) {
+    // 登录态不可得时静默跳过（保持手动刷新可用）
+  }
+}
+
+// 3s 去抖合并刷新（突发多条消息只刷一次）
+const scheduleRealtimeRefresh = () => {
+  if (realtimeTimer) return
+  realtimeTimer = setTimeout(() => {
+    realtimeTimer = null
+    fetchMessageList()
+  }, 3000)
+}
+
 onMounted(() => {
   fetchMessageList()
+  setupRealtime()
+})
+
+onUnmounted(() => {
+  if (realtimeTimer) { clearTimeout(realtimeTimer); realtimeTimer = null }
+  if (agentSocketInst) { agentSocketInst.disconnect?.(); agentSocketInst = null }
 })
 
 // 切换渠道 Tab

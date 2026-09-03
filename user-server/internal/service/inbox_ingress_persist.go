@@ -13,6 +13,7 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 
 	"hivemtk-user/internal/pkg/tracing"
+	"hivemtk-user/internal/websocket"
 )
 
 func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.MessageEvent) error {
@@ -95,9 +96,10 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 
 	// 非侵入钩子：消息成功落库后，异步投递线索发掘（不阻塞/不入侵核心业务）。
 	// 用 persisted 标记仅在落库成功时触发一次；defer + recover 保证任何异常都不影响主链路。
+	// R55 T6: 同钩子追加坐席 WS 实时广播——消息中心/聚合收件箱无需手动刷新即见新消息。
 	var persisted bool
 	defer func() {
-		if !persisted || hub == nil || s.leadMiningSvc == nil {
+		if !persisted || hub == nil {
 			return
 		}
 		func() {
@@ -106,7 +108,18 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 					log.Printf("[panic-recover] %T: %v\n%s", r, r, string(debug.Stack()))
 				}
 			}()
-			s.leadMiningSvc.Enqueue(hub)
+			if s.leadMiningSvc != nil {
+				s.leadMiningSvc.Enqueue(hub)
+			}
+			websocket.BroadcastToAgents(websocket.TypeNewMessage, map[string]any{
+				"msg_id":         hub.MsgID,
+				"platform":       hub.Platform,
+				"conversation_id": hub.ConversationID,
+				"direction":      hub.Direction,
+				"sender_name":    hub.SenderName,
+				"content":        hub.Content,
+				"sent_at":        hub.SentAt,
+			})
 		}()
 	}()
 

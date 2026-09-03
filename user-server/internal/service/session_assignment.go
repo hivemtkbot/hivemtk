@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hivemtk-user/internal/aiagent/llm"
 	rag_core "hivemtk-user/internal/aiagent/rag/core"
+	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/repository"
@@ -73,24 +74,38 @@ func (s *SessionAssignmentService) ProcessIncomingMessage(ctx context.Context, m
 }
 
 // findActiveSession 查找活跃会话
+//
+// R55 T3 修复：此前 GetByMerchant("",1,10) 只取全局前 10 条再内存匹配，
+// 并发会话 >10 时必 ErrSessionNotFound → 重复建会话。
+// 现改为：先按 chatID 精确查（索引唯一），再按 userID 索引查该用户全部会话。
 func (s *SessionAssignmentService) findActiveSession(ctx context.Context, userID, chatID string) (*model.CustomerSession, error) {
-	sessions, _, err := s.sessionRepo.GetByMerchant(ctx, "", 1, 10)
+	if chatID != "" {
+		if session, err := s.sessionRepo.GetBySessionID(ctx, chatID); err == nil && session != nil && isActiveSession(session) {
+			return session, nil
+		}
+	}
+	if userID == "" {
+		return nil, ErrSessionNotFound
+	}
+	sessions, err := s.sessionRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-
 	for _, session := range sessions {
-		if session.UserID == userID || session.SessionID == chatID {
-			if session.Status == model.SessionStatusPending ||
-				session.Status == model.SessionStatusAIHandling ||
-				session.Status == model.SessionStatusHumanHandling ||
-				session.Status == model.SessionStatusWaiting {
-				return session, nil
-			}
+		if isActiveSession(session) {
+			return session, nil
 		}
 	}
 
 	return nil, ErrSessionNotFound
+}
+
+// isActiveSession 会话是否处于活跃态（可继续处理消息）
+func isActiveSession(session *model.CustomerSession) bool {
+	return session.Status == model.SessionStatusPending ||
+		session.Status == model.SessionStatusAIHandling ||
+		session.Status == model.SessionStatusHumanHandling ||
+		session.Status == model.SessionStatusWaiting
 }
 
 // ErrSessionNotFound 会话未找到错误
@@ -219,6 +234,10 @@ func (s *SessionAssignmentService) isUrgentOrComplaint(ctx context.Context, cont
 }
 
 // generateLLMResponse 使用 LLM 生成回复
+//
+// R55 T8 修复：置信度此前按回复长度硬编码 0.6/0.7 伪值（与 confidence 包校准体系
+// 完全脱节，转人工决策被污染）。现接入全局 ConfidenceAggregator 5 维信号聚合，
+// 聚合器未就绪时降级为中性 0.5（fail-low 保守转人工，优于伪高置信）。
 func (s *SessionAssignmentService) generateLLMResponse(ctx context.Context, content string) (string, float64, error) {
 	prompt := fmt.Sprintf(`作为专业客服助手，请针对以下用户消息生成友好、专业的回复：
 
@@ -245,12 +264,23 @@ func (s *SessionAssignmentService) generateLLMResponse(ctx context.Context, cont
 		return "", 0.5, err
 	}
 
-	confidence := 0.6
-	if len(output) > 20 && len(output) < 500 {
-		confidence = 0.7
-	}
+	return output, s.calibratedConfidence(ctx, content), nil
+}
 
-	return output, confidence, nil
+// calibratedConfidence 经校准的置信度（5 维信号聚合；未就绪降级 0.5）
+func (s *SessionAssignmentService) calibratedConfidence(ctx context.Context, content string) float64 {
+	agg := GetConfidenceAggregator()
+	if agg == nil {
+		return 0.5
+	}
+	dec, err := agg.Aggregate(ctx, &dto.SignalCollectionInput{
+		Text:          content,
+		RawIntentConf: 0.5, // 无意图识别输出时的中性先验
+	})
+	if err != nil || dec == nil {
+		return 0.5
+	}
+	return dec.AggregatedConf
 }
 
 // executeDecision 执行决策

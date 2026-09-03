@@ -124,6 +124,9 @@ func main() {
 	db.InitDB()
 	db.AutoMigrate()
 
+	// [Storage] 启动时 seed 默认 local 存储配置（obs_config 表为空时自动写入，私有化零云依赖）
+	service.InitDefaultStorageIfEmpty(db.GetDB())
+
 	logger.Info("[DNC] customer_do_not_contact ready, sms_unsubscribes pending backfill via DoNotContactService.BackfillFromSMSUnsubscribe")
 
 	if gdb := db.GetDB(); gdb != nil {
@@ -135,8 +138,15 @@ func main() {
 	service.SetAgentLoopTimeout(appCfg.Inference.LLM.TimeoutSeconds)
 	// T6（ChatbotX 负面教训应用）：LLM BYOK 密钥加密存储——MASTER_KEY 未配置时
 	// 降级明文（与仓库降级哲学一致），配置后存量明文在 LoadProvidersFromDB 内自动迁移
+	// T9(R55)：生产模式（GIN_MODE=release，默认）且 MASTER_KEY 缺失 → fail-fast。
+	// 私域营销系统凭据明文落库属不可接受风险，宁拒绝启动不降级。
 	if err := secrets.InitFromEnv(); err != nil {
-		logger.Warnf("[secrets] MASTER_KEY 未配置或无效，敏感凭据将以明文存储: %v", err)
+		if os.Getenv("GIN_MODE") == "debug" {
+			logger.Warnf("[secrets] MASTER_KEY 未配置（debug 模式降级明文存储）: %v", err)
+		} else {
+			logger.Errorf("[secrets] MASTER_KEY 未配置或无效，生产模式拒绝启动（GIN_MODE=debug 可临时降级）: %v", err)
+			os.Exit(1)
+		}
 	}
 	llm.InitGlobalDispatcherWithDB(llm.NewDispatcherFromConfig(appCfg), db.GetDB())
 
@@ -308,6 +318,12 @@ func main() {
 	rfmCron.Start(context.Background())
 	defer rfmCron.Stop(context.Background())
 	logger.Info("[CustomerRFMCron] RFM 分层定时重算已装配")
+
+	// [T7-R55] RAG 自动评测 cron：每日 03:40 CST（真实生产查询采样 + 真实检索 hit 判定）
+	ragEvalCron := service.NewRagEvalCron()
+	ragEvalCron.Start(context.Background())
+	defer ragEvalCron.Stop(context.Background())
+	logger.Info("[RagEvalCron] RAG 自动评测每日已装配")
 
 	// [H4] 客户旅程沉睡自动检测 cron：每日 03:30 CST（此前 AutoDetectSleeping 零调用）
 	journeySleepCron := service.NewJourneySleepCron(nil)

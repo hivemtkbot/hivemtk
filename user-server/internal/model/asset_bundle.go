@@ -109,6 +109,8 @@ type AssetBundle struct {
 	UseCount    int64   `gorm:"default:0" json:"use_count"`
 	Rating      float64 `gorm:"default:0" json:"rating"`
 	RatingCount int     `gorm:"default:0" json:"rating_count"`
+	// CoverImage 资产包封面 URL（由统一存储服务返回，值形如 /files/covers/2026/09/03/uuid.jpg）
+	CoverImage  string  `gorm:"size:500" json:"cover_image"`
 	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`

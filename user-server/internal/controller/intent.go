@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"hivemtk-user/internal/dto"
@@ -319,3 +320,52 @@ func (c *IntentController) UpdateConfig(ctx *gin.Context) {
 	response.Success(ctx, cfg, "更新成功")
 }
 
+
+// ===== R55 T10：意图词表租户可配置 =====
+
+// GetKeywordOverride GET /api/intent-records/keywords-override
+func (c *IntentController) GetKeywordOverride(ctx *gin.Context) {
+	response.Success(ctx, service.GetIntentKeywordOverride(), "查询成功")
+}
+
+// UpdateKeywordOverrideRequest 覆盖词表请求体（意图类型 → 追加关键词列表）
+type UpdateKeywordOverrideRequest struct {
+	Override map[string][]string `json:"override"`
+}
+
+// UpdateKeywordOverride PUT /api/intent-records/keywords-override
+//
+// 覆盖语义为追加（不删除默认词表），保存即热生效。
+func (c *IntentController) UpdateKeywordOverride(ctx *gin.Context) {
+	var req UpdateKeywordOverrideRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		return
+	}
+	if req.Override == nil {
+		req.Override = map[string][]string{}
+	}
+	// 白名单校验：意图类型必须存在于默认词典（防脏配置静默无效）
+	valid := make(map[string]bool, len(service.DefaultIntents))
+	for _, def := range service.DefaultIntents {
+		valid[def.Type] = true
+	}
+	cleaned := make(map[string][]string, len(req.Override))
+	for k, words := range req.Override {
+		if !valid[k] {
+			continue
+		}
+		kept := make([]string, 0, len(words))
+		for _, w := range words {
+			if s := strings.TrimSpace(w); s != "" && len(s) <= 64 {
+				kept = append(kept, s)
+			}
+		}
+		cleaned[k] = kept
+	}
+	if err := service.SaveIntentKeywordOverride(ctx.Request.Context(), cleaned); err != nil {
+		response.ErrorFromDB(ctx, err, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"types": len(cleaned)}, "词表已更新并热生效")
+}

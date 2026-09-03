@@ -184,6 +184,17 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 	var webhookSvc *service.WebhookService
 	var dingtalkAppSvc *service.DingTalkAppService
 
+	// 统一静态文件托管：所有上传文件通过 ObsConfig 驱动存储 → 本路由对外暴露
+	// 默认本地存储路径 ./uploads（可通过 STORAGE_LOCAL_BASE_DIR env 覆盖）
+	// 对外 URL 前缀 /files（可通过 STORAGE_LOCAL_PUBLIC_URL env 覆盖）
+	uploadDir := os.Getenv("STORAGE_LOCAL_BASE_DIR")
+	if uploadDir == "" {
+		uploadDir = "./uploads"
+	}
+	_ = os.MkdirAll(uploadDir, 0o750) // 启动即创建，避免首次上传报目录不存在
+	r.Static("/files", uploadDir)
+	logger.Infof("[Router] static file server registered: /files -> %s", uploadDir)
+
 	r.HandleMethodNotAllowed = true
 	r.NoMethod(func(c *gin.Context) {
 		c.JSON(http.StatusMethodNotAllowed, gin.H{

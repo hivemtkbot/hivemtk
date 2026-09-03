@@ -143,6 +143,7 @@ func (c *AssetBundleController) Update(ctx *gin.Context) {
 		Tags:        req.Tags,
 		Messages:    service.AssetBundleMessagesFromDTO(req.Messages),
 		Status:      model.AssetBundleStatus(req.Status),
+		CoverImage:  req.CoverImage,
 	}
 	if err := c.svc.UpdateBundle(ctx.Request.Context(), bundle); err != nil {
 		logger.Errorf("[asset-bundle] update failed: %v", err)

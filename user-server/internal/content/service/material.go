@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -8,6 +9,9 @@ import (
 	"hivemtk-user/internal/content/model"
 	"hivemtk-user/internal/content/repository"
 	"hivemtk-user/internal/dto"
+	usermodel "hivemtk-user/internal/model"
+	userrepo "hivemtk-user/internal/repository"
+	"hivemtk-user/internal/storage"
 	"image"
 	"io"
 	"mime/multipart"
@@ -75,40 +79,69 @@ func NewMaterialServiceWithDB(db *gorm.DB) MaterialService {
 	}
 }
 
-// obsConfigServiceAdapter 适配 internal/service.ObsConfigService 到本包的 ObsService 接口
+// obsConfigServiceAdapter 桥接本域 ObsService → storage.Driver
+//
+// 不再依赖外部 SetInner 注入（之前永远不会被调用导致所有上传必挂）。
+// 构造时直接拿 userrepo.ObsConfigRepository → 查默认 ObsConfig → storage.Factory 构造 Driver。
 type obsConfigServiceAdapter struct {
-	inner interface {
-		UploadFile(multipart.File, *multipart.FileHeader, string, string) (string, error)
-		GetDefaultConfig(string) (*dto.ObsConfigResponse, error)
-	}
+	cfgRepo userrepo.ObsConfigRepository
 }
 
-// NewObsConfigServiceAdapter 返回一个新的 obsConfigServiceAdapter
-// 实际注入由调用方通过 SetInner 注入以避免循环依赖
+// NewObsConfigServiceAdapter 返回立即可用的 adapter（不再依赖外部注入）
 func NewObsConfigServiceAdapter() *obsConfigServiceAdapter {
-	return &obsConfigServiceAdapter{}
-}
-
-// SetInner 设置内部服务（在主程序中注入）
-func (a *obsConfigServiceAdapter) SetInner(inner interface {
-	UploadFile(multipart.File, *multipart.FileHeader, string, string) (string, error)
-	GetDefaultConfig(string) (*dto.ObsConfigResponse, error)
-}) {
-	a.inner = inner
+	return &obsConfigServiceAdapter{
+		cfgRepo: userrepo.NewObsConfigRepository(),
+	}
 }
 
 func (a *obsConfigServiceAdapter) UploadFile(file multipart.File, header *multipart.FileHeader, licenseID string, folder string) (string, error) {
-	if a.inner == nil {
-		return "", fmt.Errorf("obs service not initialized")
+	_ = licenseID // 单租户：全局唯一默认配置
+
+	cfg, err := a.cfgRepo.GetDefault(context.Background())
+	if err != nil {
+		return "", fmt.Errorf("no default obs config: %w", err)
 	}
-	return a.inner.UploadFile(file, header, licenseID, folder)
+
+	driver, err := storage.Factory(cfg)
+	if err != nil {
+		return "", fmt.Errorf("storage factory: %w", err)
+	}
+
+	publicURL, _, err := driver.UploadMultipart(context.Background(), file, header, folder)
+	if err != nil {
+		return "", fmt.Errorf("driver upload: %w", err)
+	}
+	return publicURL, nil
 }
 
 func (a *obsConfigServiceAdapter) GetDefaultConfig(licenseID string) (*dto.ObsConfigResponse, error) {
-	if a.inner == nil {
-		return nil, fmt.Errorf("obs service not initialized")
+	_ = licenseID
+	cfg, err := a.cfgRepo.GetDefault(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("no default obs config: %w", err)
 	}
-	return a.inner.GetDefaultConfig(licenseID)
+	return obsModelToDTO(cfg), nil
+}
+
+// obsModelToDTO model.ObsConfig → dto.ObsConfigResponse（本地 helper，避免依赖 service 包循环）
+func obsModelToDTO(c *usermodel.ObsConfig) *dto.ObsConfigResponse {
+	return &dto.ObsConfigResponse{
+		ID:         c.ID,
+		Name:       c.Name,
+		Provider:   string(c.Provider),
+		AccessKey:  c.AccessKey,
+		Bucket:     c.Bucket,
+		Region:     c.Region,
+		Endpoint:   c.Endpoint,
+		Domain:     c.Domain,
+		PathPrefix: c.PathPrefix,
+		MaxSize:    c.MaxSize,
+		MaxCount:   c.MaxCount,
+		IsDefault:  c.IsDefault,
+		Status:     string(c.Status),
+		CreatedAt:  c.CreatedAt,
+		UpdatedAt:  c.UpdatedAt,
+	}
 }
 
 func (s *materialService) GetCategoryList(licenseID string, parentID string, materialType string, page int, limit int) (*contentdto.GetMaterialCategoryListResponse, error) {

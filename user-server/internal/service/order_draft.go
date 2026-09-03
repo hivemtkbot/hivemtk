@@ -106,7 +106,16 @@ type OrderDraftService struct {
 	followup     *FollowUpService
 	trigger      *SalesActionTrigger
 
+	// R55 T5: 成单时自动回写话术 AB 转化归因（nil 跳过）
+	scriptConversionHook func(ctx context.Context, oneID, conversationID, outcome string)
+
 	defaultExpiry time.Duration
+}
+
+// SetScriptConversionHook 注入话术 AB 转化归因 hook（R55 T5）
+// main.go 装配时指向 ScriptABService.RecordConversion，成单即自动归因。
+func (s *OrderDraftService) SetScriptConversionHook(hook func(ctx context.Context, oneID, conversationID, outcome string)) {
+	s.scriptConversionHook = hook
 }
 
 // OrderDraftConfig 草稿服务配置
@@ -127,7 +136,21 @@ func NewOrderDraftService(cfg *OrderDraftConfig) *OrderDraftService {
 		byCustomer:    make(map[string][]*OrderDraft),
 		byOwner:       make(map[string][]*OrderDraft),
 		defaultExpiry: cfg.DefaultExpiry,
+		// R55 T5: 默认装配话术 AB 转化归因 hook（成单即回写曝光转化）
+		scriptConversionHook: defaultScriptConversionHook,
 	}
+}
+
+// defaultScriptConversionHook R55 T5：默认转化归因 hook（懒初始化 ScriptABService）
+func defaultScriptConversionHook(ctx context.Context, oneID, conversationID, outcome string) {
+	if scriptABSvc == nil {
+		return
+	}
+	svc := getScriptABService()
+	if svc == nil {
+		return
+	}
+	_ = svc.RecordConversion(ctx, oneID, conversationID, outcome)
 }
 
 // SetOrderService 注入订单服务
@@ -434,6 +457,20 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 		if r != nil {
 			result.FollowUpID = r.ID
 		}
+	}
+
+	// R55 T5: 成单 → 话术 AB 转化自动归因（异步，不影响主链路）
+	// conversation_id 可从 Metadata 携带（AI 谈单来源时由引擎写入）
+	if s.scriptConversionHook != nil && draft.OneID != "" {
+		oneID := draft.OneID
+		convID, _ := draft.Metadata["conversation_id"].(string)
+		hook := s.scriptConversionHook
+		go func() {
+			defer func() { _ = recover() }()
+			dctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			hook(dctx, oneID, convID, "purchase")
+		}()
 	}
 
 	return result, nil

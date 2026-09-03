@@ -637,7 +637,9 @@ func (s *IntentRecognizer) recognizeByRule(ctx context.Context, text string) *dt
 	if text == "" {
 		return nil
 	}
-	for _, def := range DefaultIntents {
+	// R55 T10: 默认词表 + 租户覆盖词表合并
+	activeIntents := intentsForRule()
+	for _, def := range activeIntents {
 		for _, ex := range def.Examples {
 			if strings.EqualFold(text, ex) {
 				return &dto.RecognizeResult{
@@ -654,7 +656,7 @@ func (s *IntentRecognizer) recognizeByRule(ctx context.Context, text string) *dt
 	// 关键词匹配
 	var bestMatch *IntentDef
 	bestScore := 0
-	for _, def := range DefaultIntents {
+	for _, def := range activeIntents {
 		score := 0
 		for _, kw := range def.Keywords {
 			if strings.Contains(text, kw) {
@@ -1056,6 +1058,112 @@ func InitIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.
 		// 三级级联中间层：注入本地 Embedding 服务（TEI bge-m3）。
 		// 失败时中间层自动停用（fail-open），不影响主链路。
 		intentRecognizer.SetEmbeddingService(llm.NewEmbeddingService())
+
+		// R55 T10: 启动加载租户意图词表覆盖
+		InitIntentKeywordOverride(ctx)
 	})
 	return intentRecognizer
+}
+
+// ===== R55 T10：意图词表租户可配置 =====
+//
+// 此前 DefaultIntents 13 类硬编码，医美/教育等行业关键词不可改，跨行业适配需改源码。
+// 现支持 system_config_kv 覆盖层：key=intent_keywords_override，
+// PUT 覆盖词表后 recognizeByRule/recognizeByEmbedding 立即合并生效（无需重启）。
+
+// IntentKeywordsOverrideKey 覆盖词表存储 key
+const IntentKeywordsOverrideKey = "intent_keywords_override"
+
+// intentOverrideMu 保护 intentKeywordOverride 并发读写
+var intentOverrideMu sync.RWMutex
+
+// intentKeywordOverride 租户覆盖词表（type → 追加关键词），nil=未配置
+var intentKeywordOverride map[string][]string
+
+// LoadIntentKeywordOverride 从 system_config_kv 加载覆盖词表
+func LoadIntentKeywordOverride(ctx context.Context) (map[string][]string, error) {
+	repo := repository.NewSystemConfigKVRepository()
+	val, err := repo.Get(ctx, IntentKeywordsOverrideKey)
+	if err != nil || val == "" {
+		return nil, err
+	}
+	out := make(map[string][]string)
+	if err := json.Unmarshal([]byte(val), &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SaveIntentKeywordOverride 持久化覆盖词表 + 立即生效（热更新）
+func SaveIntentKeywordOverride(ctx context.Context, override map[string][]string) error {
+	data, err := json.Marshal(override)
+	if err != nil {
+		return fmt.Errorf("marshal intent override: %w", err)
+	}
+	repo := repository.NewSystemConfigKVRepository()
+	if _, err := repo.Upsert(ctx, IntentKeywordsOverrideKey, string(data)); err != nil {
+		return fmt.Errorf("upsert intent override: %w", err)
+	}
+	intentOverrideMu.Lock()
+	intentKeywordOverride = override
+	intentOverrideMu.Unlock()
+	logger.Infof("[intent] 意图词表覆盖已更新：%d 类", len(override))
+	return nil
+}
+
+// GetIntentKeywordOverride 读取当前覆盖词表快照（controller 用）
+func GetIntentKeywordOverride() map[string][]string {
+	intentOverrideMu.RLock()
+	defer intentOverrideMu.RUnlock()
+	out := make(map[string][]string, len(intentKeywordOverride))
+	for k, v := range intentKeywordOverride {
+		out[k] = append([]string(nil), v...)
+	}
+	return out
+}
+
+// InitIntentKeywordOverride 启动时加载覆盖词表（失败静默降级默认词表）
+func InitIntentKeywordOverride(ctx context.Context) {
+	m, err := LoadIntentKeywordOverride(ctx)
+	if err != nil {
+		logger.Ctx(ctx).Warn().Err(err).Msg("[intent] 意图词表覆盖加载失败，使用默认词表")
+		return
+	}
+	intentOverrideMu.Lock()
+	intentKeywordOverride = m
+	intentOverrideMu.Unlock()
+	if len(m) > 0 {
+		logger.Infof("[intent] 意图词表覆盖已加载：%d 类", len(m))
+	}
+}
+
+// intentsForRule 合并默认词表与租户覆盖词表（覆盖为追加语义，不删除默认词）
+func intentsForRule() []IntentDef {
+	intentOverrideMu.RLock()
+	override := intentKeywordOverride
+	intentOverrideMu.RUnlock()
+	if len(override) == 0 {
+		return DefaultIntents
+	}
+	merged := make([]IntentDef, 0, len(DefaultIntents))
+	for _, def := range DefaultIntents {
+		extra, ok := override[def.Type]
+		if ok && len(extra) > 0 {
+			seen := make(map[string]bool, len(def.Keywords)+len(extra))
+			for _, kw := range def.Keywords {
+				seen[kw] = true
+			}
+			appended := append([]string(nil), def.Keywords...)
+			for _, kw := range extra {
+				kw = strings.TrimSpace(kw)
+				if kw != "" && !seen[kw] {
+					appended = append(appended, kw)
+					seen[kw] = true
+				}
+			}
+			def.Keywords = appended
+		}
+		merged = append(merged, def)
+	}
+	return merged
 }

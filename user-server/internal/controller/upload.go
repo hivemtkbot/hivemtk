@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/storage"
 	"io"
 	"net/http"
 	"os"
@@ -14,7 +15,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // 文件上传配置
@@ -100,9 +100,6 @@ func UploadFile(ctx *gin.Context) {
 			config.MaxSize = size
 		}
 	}
-	if envUploadDir := os.Getenv("UPLOAD_DIR"); envUploadDir != "" {
-		config.UploadDir = envUploadDir
-	}
 	if envVirusScan := os.Getenv("UPLOAD_VIRUS_SCAN"); envVirusScan == "true" {
 		config.EnableVirusScan = true
 	}
@@ -185,22 +182,22 @@ func UploadFile(ctx *gin.Context) {
 		}
 	}
 
-	newFilename := uuid.New().String() + originalExt
-
-	uploadSubDir := time.Now().Format("20060102")
-	uploadDir := filepath.Join(config.UploadDir, uploadSubDir)
-	if err := os.MkdirAll(uploadDir, 0750); err != nil {
-		response.ErrorFromDB(ctx, err, "创建上传目录失败")
-		return
+	// 通过统一存储层写入：Driver.UploadReader 内部自动原子写（tmp+rename）
+	// 和按 folder/YYYY/MM/uuid.ext 生成路径，publicURL 格式 /files/{folder}/YYYY/MM/uuid.ext
+	uploadFolder := os.Getenv("UPLOAD_FOLDER")
+	if uploadFolder == "" {
+		uploadFolder = "attachments"
 	}
+	baseDir := os.Getenv("STORAGE_LOCAL_BASE_DIR")
+	publicURLPrefix := os.Getenv("STORAGE_LOCAL_PUBLIC_URL")
+	driver := storage.NewLocalDriver(baseDir, publicURLPrefix)
 
-	filePath := filepath.Join(uploadDir, newFilename)
-	if err := os.WriteFile(filePath, fileBytes, 0640); err != nil {
+	publicURL, _, err := driver.UploadReader(ctx, bytes.NewReader(fileBytes), header.Size, uploadFolder, header.Filename)
+	if err != nil {
 		response.ErrorFromDB(ctx, err, "保存文件失败")
 		return
 	}
-
-	fileURL := "/uploads/" + uploadSubDir + "/" + newFilename
+	fileURL := publicURL
 	fileType := getFileType(originalExt)
 
 	response.Success(ctx, gin.H{

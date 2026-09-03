@@ -319,10 +319,12 @@
 <script setup>
 import i18n from '@/i18n'
 
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, RefreshRight, DataAnalysis } from '@element-plus/icons-vue'
 import { messageHubApi } from '@/api/messageHub'
+import { getMyAgent } from '@/api/customerService'
+import AgentSocket from '@/utils/agentSocket'
 // 平台（消息中台 MQ）label / tag type：取自统一 channel 常量，
 // 业务视图禁止再各自维护 platformLabelMap。
 import { getChannelLabel, getChannelTagType, PLATFORM_GROUP_MEMBERS_REVERSE } from '@/constants/channel'
@@ -430,9 +432,44 @@ const pushRules = {
 const detailDialogVisible = ref(false)
 const currentMessage = ref({})
 
+// R55 T6: 坐席 WS 实时接线——新消息/会话到达自动刷新（3s 去抖）
+let agentSocketInst = null
+let realtimeTimer = null
+const scheduleRealtimeRefresh = () => {
+  if (realtimeTimer) return
+  realtimeTimer = setTimeout(() => {
+    realtimeTimer = null
+    fetchMessageList()
+    loadStats()
+  }, 3000)
+}
+const setupRealtime = async () => {
+  if (agentSocketInst) return
+  try {
+    const me = await getMyAgent()
+    const agentId = me?.agent_id || me?.data?.agent_id
+    if (!agentId) return
+    agentSocketInst = new AgentSocket(agentId, undefined, {
+      onNewMessage: scheduleRealtimeRefresh,
+      onNewSession: scheduleRealtimeRefresh,
+      onSessionUpdate: scheduleRealtimeRefresh,
+      onError: (e) => { console.warn('[messageHub ws]', e) }
+    })
+    agentSocketInst.connect()
+  } catch (e) {
+    // 静默：保持手动刷新可用
+  }
+}
+
 onMounted(async () => {
   await loadPlatforms()
   await Promise.all([fetchMessageList(), loadStats()])
+  setupRealtime()
+})
+
+onUnmounted(() => {
+  if (realtimeTimer) { clearTimeout(realtimeTimer); realtimeTimer = null }
+  if (agentSocketInst) { agentSocketInst.disconnect?.(); agentSocketInst = null }
 })
 
 const loadPlatforms = async () => {

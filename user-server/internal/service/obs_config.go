@@ -1,3 +1,8 @@
+// Package service 提供 OBS（对象存储配置）业务逻辑层。
+//
+// 存储驱动已下沉到 internal/storage 包；本层负责：
+//  1. CRUD + SetDefault + TestConnection（配置管理）
+//  2. UploadFile —— 查默认配置 → 构造 Driver → 调用 Drive
 package service
 
 import (
@@ -8,10 +13,8 @@ import (
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/storage"
 	"mime/multipart"
-	"path/filepath"
-	"strings"
-	"time"
 )
 
 // ObsConfigService OBS（对象存储）配置服务
@@ -26,6 +29,7 @@ type ObsConfigService interface {
 	DeleteConfig(ctx context.Context, id string) error
 	SetDefaultConfig(ctx context.Context, id string) error
 	TestConnection(ctx context.Context, config *dto.ObsConfigResponse) error
+	// UploadFile 业务入口：查默认配置 → 构造 Driver → 写文件 → 返回公开 URL
 	UploadFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, folder string) (string, error)
 	GetDefaultConfig(ctx context.Context) (*dto.ObsConfigResponse, error)
 }
@@ -45,7 +49,6 @@ func (s *obsConfigService) GetConfigList(ctx context.Context, page, limit int, p
 	if err != nil {
 		return nil, err
 	}
-	_ = ctx
 
 	list := make([]*dto.ObsConfigResponse, len(configs))
 	for i, config := range configs {
@@ -161,7 +164,6 @@ func (s *obsConfigService) DeleteConfig(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	_ = ctx
 
 	if config.IsDefault {
 		return errors.New("不能删除默认配置")
@@ -188,67 +190,69 @@ func (s *obsConfigService) TestConnection(ctx context.Context, config *dto.ObsCo
 		if config.AccessKey == "" || config.SecretKey == "" || config.Bucket == "" {
 			return errors.New("阿里云OSS配置不完整")
 		}
-		logger.Infof("[OBS Config] Testing connection for Aliyun: bucket=%s, region=%s", config.Bucket, config.Region)
+		logger.Infof("[OBS] Testing connection for Aliyun: bucket=%s, region=%s", config.Bucket, config.Region)
 		return nil
 	case model.ObsProviderQiniu:
 		if config.AccessKey == "" || config.SecretKey == "" || config.Bucket == "" {
 			return errors.New("七牛云存储配置不完整")
 		}
-		logger.Infof("[OBS Config] Testing connection for Qiniu: %s", config.Bucket)
+		logger.Infof("[OBS] Testing connection for Qiniu: %s", config.Bucket)
 		return nil
 	case model.ObsProviderTencent:
 		if config.AccessKey == "" || config.SecretKey == "" || config.Bucket == "" {
 			return errors.New("腾讯云COS配置不完整")
 		}
-		logger.Infof("[OBS Config] Testing connection for Tencent: bucket=%s, region=%s", config.Bucket, config.Region)
+		logger.Infof("[OBS] Testing connection for Tencent: bucket=%s, region=%s", config.Bucket, config.Region)
 		return nil
 	case model.ObsProviderAWS:
 		if config.AccessKey == "" || config.SecretKey == "" || config.Bucket == "" {
 			return errors.New("AWS S3配置不完整")
 		}
-		logger.Infof("[OBS Config] Testing connection for AWS: %s", config.Bucket)
+		logger.Infof("[OBS] Testing connection for AWS: %s", config.Bucket)
 		return nil
 	case model.ObsProviderLocal:
+		// local 永远可以连通
+		logger.Infof("[OBS] Testing connection for local storage: OK")
 		return nil
 	default:
 		return errors.New("不支持的存储提供商")
 	}
 }
 
+// UploadFile 重写：查默认 ObsConfig → 构造 storage.Driver → 调用 Driver.UploadMultipart
+//
+// 返回公开访问 URL（local 为 /files/...，云存储为完整 CDN URL）
 func (s *obsConfigService) UploadFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, folder string) (string, error) {
 	config, err := s.repo.GetDefault(ctx)
 	if err != nil {
-		return "", errors.New("未找到默认存储配置")
+		return "", fmt.Errorf("未找到默认存储配置: %w", err)
 	}
 
 	if !obsConfigIsFileSizeAllowed(config, header.Size) {
 		return "", fmt.Errorf("文件大小超过限制: %d bytes (最大: %d bytes)", header.Size, config.MaxSize)
 	}
 
-	if !obsConfigIsFileCountAllowed(config) {
-		return "", fmt.Errorf("已达到最大文件数量限制: %d", config.MaxCount)
+	driver, err := storage.Factory(config)
+	if err != nil {
+		return "", fmt.Errorf("构造存储驱动失败: %w", err)
 	}
 
-	ext := strings.ToLower(filepath.Ext(header.Filename))
-	fileName := fmt.Sprintf("%s/%s%s", folder, time.Now().Format("20060102150405"), ext)
-
-	// 根据提供商上传文件
-	var fileURL string
-	switch config.Provider {
-	case model.ObsProviderLocal:
-		fileURL = fmt.Sprintf("/uploads/%s", fileName)
-		logger.Infof("[OBS Config] Saving file locally: %s", fileName)
-		return fileURL, nil
-	default:
-		logger.Infof("[OBS Config] Uploading to cloud storage: %s, provider: %s", fileName, config.Provider)
-		fileURL = obsConfigAccessURL(config, fileName)
+	publicURL, storagePath, err := driver.UploadMultipart(ctx, file, header, folder)
+	if err != nil {
+		return "", fmt.Errorf("上传失败 (provider=%s, folder=%s): %w", config.Provider, folder, err)
 	}
 
+	logger.Infof("[OBS] file uploaded: provider=%s folder=%s path=%s url=%s",
+		config.Provider, folder, storagePath, publicURL)
+
+	// 更新统计
 	config.FileCount++
 	config.TotalSize += header.Size
-	s.repo.Update(ctx, config)
+	if err := s.repo.Update(ctx, config); err != nil {
+		logger.Warnf("[OBS] update file count failed (non-blocking): %v", err)
+	}
 
-	return fileURL, nil
+	return publicURL, nil
 }
 
 func (s *obsConfigService) GetDefaultConfig(ctx context.Context) (*dto.ObsConfigResponse, error) {
@@ -259,23 +263,34 @@ func (s *obsConfigService) GetDefaultConfig(ctx context.Context) (*dto.ObsConfig
 	return s.convertToDTO(ctx, config), nil
 }
 
+// validateCreateRequest 按 provider 分支化校验
+//
+// local：只要求 Name
+// 云厂商：要求 Name + AccessKey + SecretKey + Bucket + Region
 func (s *obsConfigService) validateCreateRequest(ctx context.Context, req *dto.CreateObsConfigRequest) error {
+	_ = ctx
 	if req.Name == "" {
 		return errors.New("配置名称不能为空")
 	}
-	if req.Provider == "" {
-		return errors.New("存储提供商不能为空")
+	provider := model.ObsProvider(req.Provider)
+	switch provider {
+	case model.ObsProviderLocal:
+		// local 不需要 AK/SK/Bucket/Region
+		return nil
+	case model.ObsProviderAliyun, model.ObsProviderTencent, model.ObsProviderQiniu, model.ObsProviderAWS:
+		if req.AccessKey == "" {
+			return errors.New("云存储 AccessKey 不能为空")
+		}
+		if req.SecretKey == "" {
+			return errors.New("云存储 SecretKey 不能为空")
+		}
+		if req.Bucket == "" {
+			return errors.New("云存储 Bucket 不能为空")
+		}
+		return nil
+	default:
+		return fmt.Errorf("不支持的存储提供商: %s", req.Provider)
 	}
-	if req.AccessKey == "" {
-		return errors.New("AccessKey不能为空")
-	}
-	if req.SecretKey == "" {
-		return errors.New("SecretKey不能为空")
-	}
-	if req.Bucket == "" {
-		return errors.New("存储桶名称不能为空")
-	}
-	return nil
 }
 
 func (s *obsConfigService) convertToDTO(ctx context.Context, config *model.ObsConfig) *dto.ObsConfigResponse {
@@ -320,25 +335,6 @@ func obsConfigProviderName(c *model.ObsConfig) string {
 		return "本地存储"
 	default:
 		return "未知"
-	}
-}
-
-// obsConfigAccessURL 获取访问URL
-func obsConfigAccessURL(c *model.ObsConfig, filePath string) string {
-	if c.Domain != "" {
-		return c.Domain + "/" + filePath
-	}
-	switch c.Provider {
-	case model.ObsProviderAliyun:
-		return "https://" + c.Bucket + "." + c.Region + ".aliyuncs.com/" + filePath
-	case model.ObsProviderQiniu:
-		return "http://" + c.Domain + "/" + filePath
-	case model.ObsProviderTencent:
-		return "https://" + c.Bucket + ".cos." + c.Region + ".myqcloud.com/" + filePath
-	case model.ObsProviderAWS:
-		return "https://" + c.Bucket + ".s3." + c.Region + ".amazonaws.com/" + filePath
-	default:
-		return filePath
 	}
 }
 

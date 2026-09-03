@@ -80,6 +80,11 @@ func setupEmbedStaticRoutes(r *gin.Engine) {
 					c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 					return
 				}
+				// 存储文件访问路由（由 r.Static("/files", ...) 注册，此处只负责文件不存在时的正确 404）
+				if strings.HasPrefix(path, "/files/") {
+					c.JSON(http.StatusNotFound, gin.H{"error": "file not found", "path": path})
+					return
+				}
 				if strings.HasPrefix(path, "/assets/") ||
 					strings.HasPrefix(path, "/embed/") ||
 					strings.HasPrefix(path, "/static/") {

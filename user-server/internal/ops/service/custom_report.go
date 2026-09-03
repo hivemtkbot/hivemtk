@@ -252,33 +252,55 @@ func (s *CustomReportService) querySessionData(ctx context.Context, report *mode
 	var metrics []model.ReportMetric
 	json.Unmarshal([]byte(report.Metrics), &metrics)
 
-	sessions, total, err := s.sessionRepo.GetByMerchant(ctx, sysmodel.SessionStatus(""), 1, 1000)
-	if err != nil {
+	// R55 T2: 应用报表过滤器（此前 filters 存储/编辑完备但查询不应用）
+	conds, args := BuildReportFilterSQL("sessions", report.Filters)
+
+	type sessionAgg struct {
+		DimValue     string
+		SessionCount int64
+		MessageSum   int64
+	}
+	// 维度分组聚合（此前逐行 count=1 假聚合）
+	dimField := "status"
+	if len(dimensions) > 0 {
+		dimField = dimensions[0].Field
+	}
+	groupExpr := "status"
+	dimValueExpr := "status::text"
+	switch dimField {
+	case "date", "created_at":
+		groupExpr = "DATE(created_at)"
+		dimValueExpr = "TO_CHAR(DATE(created_at), 'YYYY-MM-DD')"
+	case "agent_name":
+		groupExpr = "COALESCE(NULLIF(agent_name, ''), '未分配')"
+		dimValueExpr = "COALESCE(NULLIF(agent_name, ''), '未分配')"
+	default: // status / 其他降级 status
+		groupExpr = "status"
+		dimValueExpr = "status::text"
+	}
+
+	q := s.db.WithContext(ctx).Table("customer_sessions").
+		Select(dimValueExpr + " AS dim_value, COUNT(*) AS session_count, COALESCE(SUM(message_count), 0) AS message_sum").
+		Group(groupExpr).
+		Order(groupExpr)
+	q = applyConds(q, conds, args)
+	var aggs []sessionAgg
+	if err := q.Scan(&aggs).Error; err != nil {
 		return nil, err
 	}
 
-	data := make([]map[string]any, 0)
-	for _, session := range sessions {
-		row := make(map[string]any)
-
-		for _, dim := range dimensions {
-			if dim.Field == "date" {
-				row["date"] = session.CreatedAt.Format("2006-01-02")
-			} else if dim.Field == "status" {
-				row["status"] = string(session.Status)
-			} else if dim.Field == "agent_name" {
-				row["agent_name"] = session.AgentName
-			}
+	data := make([]map[string]any, 0, len(aggs))
+	for _, a := range aggs {
+		row := map[string]any{
+			dimField: a.DimValue,
 		}
-
 		for _, metric := range metrics {
 			if metric.Field == "session_count" {
-				row["session_count"] = 1
+				row["session_count"] = a.SessionCount
 			} else if metric.Field == "message_count" {
-				row["message_count"] = session.MessageCount
+				row["message_count"] = a.MessageSum
 			}
 		}
-
 		data = append(data, row)
 	}
 
@@ -296,7 +318,7 @@ func (s *CustomReportService) querySessionData(ctx context.Context, report *mode
 		Dimensions: dimNames,
 		Metrics:    metricNames,
 		Data:       data,
-		Total:      total,
+		Total:      int64(len(data)),
 	}, nil
 }
 
@@ -318,22 +340,41 @@ func (s *CustomReportService) queryMessageData(ctx context.Context, report *mode
 	}
 
 	type msgAgg struct {
-		ContentType string
-		Count       int64
+		DimValue string
+		Count    int64
 	}
+	// R55 T2: 应用报表过滤器 + 按所选维度分组（此前硬编码 content_type 且不读 filters）
+	conds, args := BuildReportFilterSQL("messages", report.Filters)
+
+	dimValueExpr := "COALESCE(content_type, 'unknown')"
+	groupExpr := "COALESCE(content_type, 'unknown')"
+	switch dimField {
+	case "date", "created_at":
+		groupExpr = "DATE(created_at)"
+		dimValueExpr = "TO_CHAR(DATE(created_at), 'YYYY-MM-DD')"
+	case "platform":
+		groupExpr = "COALESCE(platform, 'unknown')"
+		dimValueExpr = "COALESCE(platform, 'unknown')"
+	default: // msg_type / content_type
+		groupExpr = "COALESCE(content_type, 'unknown')"
+		dimValueExpr = "COALESCE(content_type, 'unknown')"
+	}
+
+	q := s.db.WithContext(ctx).
+		Table("unified_messages").
+		Select(dimValueExpr+" AS dim_value, COUNT(*) AS count").
+		Group(groupExpr).
+		Order(groupExpr)
+	q = applyConds(q, conds, args)
 	var aggs []msgAgg
-	if err := s.db.WithContext(ctx).
-		Model(&sysmodel.UnifiedMessage{}).
-		Select("COALESCE(content_type, 'unknown') AS content_type, COUNT(*) AS count").
-		Group("COALESCE(content_type, 'unknown')").
-		Scan(&aggs).Error; err != nil {
+	if err := q.Scan(&aggs).Error; err != nil {
 		return nil, err
 	}
 
 	data := make([]map[string]any, 0, len(aggs))
 	for _, a := range aggs {
 		row := make(map[string]any)
-		row[dimField] = a.ContentType
+		row[dimField] = a.DimValue
 		row[metricField] = a.Count
 		data = append(data, row)
 	}
@@ -364,25 +405,54 @@ func (s *CustomReportService) queryClueData(ctx context.Context, report *model.C
 	var metrics []model.ReportMetric
 	json.Unmarshal([]byte(report.Metrics), &metrics)
 
-	clues, _, err := s.clueRepo.GetClueList(ctx, 1, 1000)
-	if err != nil {
+	// R55 T2: SQL GROUP BY 真聚合 + filters 应用（此前拉 1000 条逐行 count=1 假聚合）
+	conds, args := BuildReportFilterSQL("clues", report.Filters)
+
+	dimField := "type"
+	if len(dimensions) > 0 {
+		dimField = dimensions[0].Field
+	}
+	dimValueExpr := "type::text"
+	groupExpr := "type"
+	switch dimField {
+	case "is_verify":
+		dimValueExpr = "is_verify::text"
+		groupExpr = "is_verify"
+	case "level":
+		dimValueExpr = "COALESCE(NULLIF(level, ''), 'warm')"
+		groupExpr = "COALESCE(NULLIF(level, ''), 'warm')"
+	case "is_group":
+		dimValueExpr = "is_group::text"
+		groupExpr = "is_group"
+	default: // type
+		dimValueExpr = "type::text"
+		groupExpr = "type"
+	}
+
+	type clueAgg struct {
+		DimValue string
+		Count    int64
+	}
+	q := s.db.WithContext(ctx).Table("clues").
+		Select(dimValueExpr + " AS dim_value, COUNT(*) AS count").
+		Group(groupExpr).
+		Order(groupExpr)
+	q = applyConds(q, conds, args)
+	var aggs []clueAgg
+	if err := q.Scan(&aggs).Error; err != nil {
 		return nil, err
 	}
 
-	data := make([]map[string]any, 0)
-	for _, clue := range clues {
-		row := make(map[string]any)
-		for _, dim := range dimensions {
-			if dim.Field == "type" {
-				row["type"] = clue.Type
-			} else if dim.Field == "is_verify" {
-				row["is_verify"] = clue.IsVerify
-			}
-		}
-		for _, metric := range metrics {
-			if metric.Field == "clue_count" {
-				row["clue_count"] = 1
-			}
+	metricField := "clue_count"
+	if len(metrics) > 0 {
+		metricField = metrics[0].Field
+	}
+
+	data := make([]map[string]any, 0, len(aggs))
+	for _, a := range aggs {
+		row := map[string]any{
+			dimField:     a.DimValue,
+			metricField:  a.Count,
 		}
 		data = append(data, row)
 	}
@@ -506,13 +576,16 @@ func (s *CustomReportService) queryUserData(ctx context.Context, report *model.C
 		DimValue string
 		Count    int64
 	}
-	var aggs []userAgg
-	if err := s.db.WithContext(ctx).
+	// R55 T2: 应用报表过滤器
+	conds, args := BuildReportFilterSQL("users", report.Filters)
+	q := s.db.WithContext(ctx).
 		Table("customers").
 		Select(dimValueExpr + " AS dim_value, COUNT(*) AS count").
 		Group(groupExpr).
-		Order(groupExpr).
-		Scan(&aggs).Error; err != nil {
+		Order(groupExpr)
+	q = applyConds(q, conds, args)
+	var aggs []userAgg
+	if err := q.Scan(&aggs).Error; err != nil {
 		return nil, err
 	}
 

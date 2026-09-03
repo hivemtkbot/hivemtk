@@ -183,17 +183,53 @@ func (s *ScriptABService) RecordExposure(scriptID uint, version int, oneID strin
 	}
 }
 
+// attributionHoursFor 读取指定话术的归因窗口配置（此前硬编码 48h 死变量，
+// 用户配置 attribution_h 不生效 → 统计口径与预期不符）
+func (s *ScriptABService) attributionHoursFor(ctx context.Context, scriptID uint) int {
+	if s.kvGetter == nil {
+		return ScriptABAttributionHours
+	}
+	if raw, ok := s.kvGetter(ctx, scriptABKVKey(scriptID)); ok && raw != "" {
+		var parsed ScriptABConfig
+		if err := json.Unmarshal([]byte(raw), &parsed); err == nil && parsed.AttributionH > 0 {
+			return parsed.AttributionH
+		}
+	}
+	return ScriptABAttributionHours
+}
+
 // RecordConversion 转化回写：归因窗内同 one_id（或会话）的未转化曝光标记 converted
+//
+// R55 T4 修复：归因窗口此前死变量 48h，现读取 AB 配置（scriptID 无法从 oneID 推出时，
+// 扫描该 one_id 归属的 script 逐个按其配置回写）。
 func (s *ScriptABService) RecordConversion(ctx context.Context, oneID, conversationID, outcome string) error {
-	cfgHours := ScriptABAttributionHours
-	_ = cfgHours
-	since := s.now().Add(-ScriptABAttributionHours * time.Hour)
-	n, err := s.repo.MarkScriptExposuresConverted(ctx, oneID, conversationID, outcome, s.now(), since)
-	if err != nil {
+	// 查出该 one_id/conversation 有曝光的话术集合，逐个按其归因窗口回写
+	scriptIDs, err := s.repo.ListScriptIDsByExposureAnchor(ctx, oneID, conversationID)
+	if err != nil || len(scriptIDs) == 0 {
+		// 无已知 script 归属 → 退回默认窗口兜底
+		since := s.now().Add(-ScriptABAttributionHours * time.Hour)
+		n, err := s.repo.MarkScriptExposuresConverted(ctx, oneID, conversationID, outcome, s.now(), since)
+		if err != nil {
+			return err
+		}
+		if n > 0 {
+			slog.Info("[ScriptAB] 转化归因回写(默认窗)", "one_id", oneID, "conversation_id", conversationID, "rows", n)
+		}
 		return err
 	}
-	if n > 0 {
-		slog.Info("[ScriptAB] 转化归因回写", "one_id", oneID, "conversation_id", conversationID, "rows", n)
+	total := int64(0)
+	for _, sid := range scriptIDs {
+		hours := s.attributionHoursFor(ctx, sid)
+		since := s.now().Add(-time.Duration(hours) * time.Hour)
+		n, err := s.repo.MarkScriptExposuresConverted(ctx, oneID, conversationID, outcome, s.now(), since, sid)
+		if err != nil {
+			slog.Warn("[ScriptAB] 转化归因回写失败", "script_id", sid, "err", err)
+			continue
+		}
+		total += n
+	}
+	if total > 0 {
+		slog.Info("[ScriptAB] 转化归因回写", "one_id", oneID, "conversation_id", conversationID, "rows", total)
 	}
 	return nil
 }

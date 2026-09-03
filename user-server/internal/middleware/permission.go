@@ -6,7 +6,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/response"
 	"os"
 	"strings"
-	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -96,7 +95,7 @@ func ManagerOrAdminMiddleware() gin.HandlerFunc {
 // TeamJWTAuthMiddleware JWT 认证中间件 - 支持团队用户
 func TeamJWTAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if IsTestMode && testing.Testing() {
+		if IsTestMode && testModeGate() {
 			c.Set("user_id", uint(1))
 			c.Set("license_id", "system_admin")
 			c.Next()

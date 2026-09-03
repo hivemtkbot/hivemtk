@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/repository"
 )
 
@@ -357,18 +358,60 @@ type scriptExposure struct {
 	traceID        string
 }
 
-// reqVersionOf 从已加载话术中取指定 ID 的版本号（T-7；缺省 1）
+// reqVersionOf 从已加载话术中取指定 ID 的版本号（T-7）
+//
+// R55 T4 修复：此前模板缺失/Version=0 时恒回 1 → 曝光统计记错版本。
+// 现改为异步查 DB 当前最大版本（版本快照未建时降级 1）。
+// 保持同步签名（调用方在请求链路内），失败静默降级 1 不影响主链路。
 func reqVersionOf(scripts []model.ScriptLibrary, templateID uint) int {
 	for _, sc := range scripts {
 		if sc.ID == templateID {
 			if sc.Version > 0 {
 				return sc.Version
 			}
-			return 1
+			return fallbackVersionOf(templateID)
 		}
 	}
+	return fallbackVersionOf(templateID)
+}
+
+// fallbackVersionOf 从版本快照表取当前版本（异步缓存，避免阻塞主链路）
+func fallbackVersionOf(templateID uint) int {
+	if templateID == 0 {
+		return 1
+	}
+	versionCacheMu.RLock()
+	if v, ok := versionCache[templateID]; ok && v > 0 {
+		versionCacheMu.RUnlock()
+		return v
+	}
+	versionCacheMu.RUnlock()
+
+	// 异步刷新缓存（首次 miss 返回 1，下一轮请求生效）
+	go func(id uint) {
+		defer func() { _ = recover() }()
+		repo := repository.NewScriptLibraryRepository(repository.GetDB())
+		if repo == nil {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
+		defer cancel()
+		if v, err := repo.MaxScriptVersion(ctx, id); err == nil && v > 0 {
+			versionCacheMu.Lock()
+			if len(versionCache) > 1024 {
+				versionCache = make(map[uint]int)
+			}
+			versionCache[id] = v
+			versionCacheMu.Unlock()
+		}
+	}(templateID)
 	return 1
 }
+
+var (
+	versionCache   = make(map[uint]int)
+	versionCacheMu sync.RWMutex
+)
 
 // acknowledgeTemplates T-4 LAER-Acknowledge 镜像复述前缀模板层。
 // 业界依据：多数异议实现跳过 Acknowledge 层直接 Respond，机器味重；

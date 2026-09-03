@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"testing"
 
 	"hivemtk-user/internal/pkg/utils"
 
@@ -12,14 +11,21 @@ import (
 )
 
 // IsTestMode 测试模式标志，仅用于测试时绕过认证
+//
+// R55 T9 安全加固：此前本文件 import "testing" 并以 `IsTestMode && testing.Testing()`
+// 绕过认证——生产二进制引入测试框架依赖，且为认证绕过留口子。现改为可注入 gate：
+// 默认恒 false（生产零绕过），测试环境由 *_test.go 替换。
 var IsTestMode bool
+
+// testModeGate 测试模式判定（默认恒 false；仅 *_test.go 中替换）
+var testModeGate = func() bool { return false }
 
 // JWTAuthMiddleware JWT认证中间件
 func JWTAuthMiddleware() gin.HandlerFunc {
 	jwtUtils := utils.NewJWTUtils(utils.DefaultJWTConfig)
 
 	return func(c *gin.Context) {
-		if IsTestMode && testing.Testing() {
+		if IsTestMode && testModeGate() {
 			c.Set("user_id", uint(1))
 			c.Set("license_id", "system_admin")
 			c.Set("role", "admin")
@@ -92,7 +98,7 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 // AdminAuthMiddleware 管理员权限中间件
 func AdminAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if IsTestMode && testing.Testing() {
+		if IsTestMode && testModeGate() {
 			c.Set("role", "admin")
 			c.Next()
 			return
@@ -125,7 +131,7 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 	jwtUtils := utils.NewJWTUtils(utils.DefaultJWTConfig)
 
 	return func(c *gin.Context) {
-		if IsTestMode && testing.Testing() {
+		if IsTestMode && testModeGate() {
 			c.Set("user_id", uint(1))
 			c.Set("license_id", "system_admin")
 			c.Next()
