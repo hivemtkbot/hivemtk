@@ -13,10 +13,24 @@ import (
 // ErrPollingLockDBNil DB 句柄未初始化（service 启动期或测试中可能遇到）
 var ErrPollingLockDBNil = errors.New("polling lock: db is nil")
 
-// PollingLockStaleThreshold 锁过期阈值（超过此时间未心跳视为僵尸锁）
+// PollingLockStaleThreshold 锁过期阈值默认值（超过此时间未心跳视为僵尸锁）
 //
-// 与 service.PollingLockStaleThreshold 保持一致；调整需同步更新两边。
+// 实际运行时由 ConfigParam "misc.polling_lock_stale_threshold" 驱动，
+// 此常量仅作为 fallback（DB 未接入时的安全兜底）。
 const PollingLockStaleThreshold = 60 * time.Second
+
+// pollingLockStaleThresholdProvider 返回实际生效的锁过期阈值
+var pollingLockStaleThresholdProvider = func() time.Duration { return PollingLockStaleThreshold }
+
+// GetPollingLockStaleThreshold 返回当前生效的锁过期阈值
+func GetPollingLockStaleThreshold() time.Duration { return pollingLockStaleThresholdProvider() }
+
+// SetPollingLockStaleThresholdProvider 上层注入函数（ConfigParam 初始化后调用）
+func SetPollingLockStaleThresholdProvider(fn func() time.Duration) {
+	if fn != nil {
+		pollingLockStaleThresholdProvider = fn
+	}
+}
 
 // PollingLockInfo 锁查询结果（含当前 owner + 最后心跳时间，用于诊断）
 type PollingLockInfo struct {
@@ -79,7 +93,7 @@ func (r *TelegramPollingLockRepository) TryAcquirePollingLock(
 	if r == nil || r.db == nil {
 		return false, PollingLockInfo{}, ErrPollingLockDBNil
 	}
-	staleBefore := time.Now().Add(-PollingLockStaleThreshold)
+	staleBefore := time.Now().Add(-GetPollingLockStaleThreshold())
 
 	res := r.db.WithContext(ctx).Exec(
 		`UPDATE telegram_accounts

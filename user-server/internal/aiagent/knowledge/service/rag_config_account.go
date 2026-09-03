@@ -105,9 +105,9 @@ func (s *RagConfigService) processWithRag(ctx context.Context, productID, messag
 	ragConfig := &rag_core.RAGConfig{
 		ChunkSize:           512,
 		ChunkOverlap:        50,
-		MaxChunksToRetrieve: DefaultTopK,
-		SimilarityThreshold: DefaultSimilarityThreshold,
-		VectorDimension:     EmbeddingDim,
+		MaxChunksToRetrieve: DefaultTopK(),
+		SimilarityThreshold: DefaultSimilarityThreshold(),
+		VectorDimension: EmbeddingDim(),
 	}
 
 	queryReq := &rag_service.QueryRequest{

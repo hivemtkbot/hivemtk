@@ -60,7 +60,7 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 		return nil, errors.New("rag product not found")
 	}
 	if topK <= 0 {
-		topK = DefaultTopK
+		topK = DefaultTopK()
 	}
 
 	productNumericID := productID
@@ -73,8 +73,7 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 		if product.EmbeddingProviderConfig.BaseURL != "" {
 			dim := product.EmbeddingProviderConfig.Dimension
 			if dim == 0 {
-				dim = EmbeddingDim
-			}
+				dim = EmbeddingDim()			}
 			embClient = llm.NewEmbeddingServiceWithConfig(&llm.EmbeddingConfig{
 				APIType:        "openai",
 				BaseURL:        product.EmbeddingProviderConfig.BaseURL,
@@ -82,7 +81,7 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 				APIKey:         product.EmbeddingProviderConfig.APIKey,
 				Dimension:      dim,
 				AllowFallback:  false,
-				RequestTimeout: DefaultRequestTimeoutSeconds,
+				RequestTimeout: DefaultRequestTimeoutSeconds(),
 				MaxRetries:     2,
 			})
 		}
@@ -145,8 +144,8 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 				ChunkSize:           512,
 				ChunkOverlap:        50,
 				MaxChunksToRetrieve: topK,
-				SimilarityThreshold: DefaultSimilarityThreshold,
-				VectorDimension:     EmbeddingDim,
+				SimilarityThreshold: DefaultSimilarityThreshold(),
+				VectorDimension: EmbeddingDim(),
 			}
 			queryReq := &rag_service.QueryRequest{
 				Query:     query,

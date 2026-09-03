@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/service"
 )
 
 // ErrAccountOwnedByOther 归属冲突：该渠道账号已归属于其他用户，
@@ -162,7 +163,8 @@ func (r *BridgeAccountRepository) TouchLastSync(ctx context.Context, channel, ac
 		Update("last_sync_at", now).Error
 }
 
-// OnlineGraceWindow 账号"在线"判定窗口：last_sync_at 在该窗口内视为在线。
+// OnlineGraceWindow 账号"在线"判定窗口：last_sync_at 在该窗口内视为在线（DB 驱动，以下为 fallback 默认值）。
+// 运行时通过 service.GlobalConfigParam() 按 group=bridge 读取 bridge.online_grace_window。
 //
 // 2026-08-05 架构重构（WS → HTTP）：
 //   - 旧实现：Online = GetBridgeHub().IsOnline(ch, acc)（依赖 WS hub 内存状态）
@@ -173,12 +175,17 @@ func (r *BridgeAccountRepository) TouchLastSync(ctx context.Context, channel, ac
 // 30s 窗口可容许扩展侧最多丢失 1 个心跳，不会误判。
 const OnlineGraceWindow = 30 * time.Second
 
+func runtimeOnlineGraceWindow(ctx context.Context) time.Duration {
+	return service.GlobalConfigParam().GetDuration(ctx, "bridge", "online_grace_window", OnlineGraceWindow)
+}
+
 // isOnlineByLastSync 基于 last_sync_at 判定账号是否在线
 //
 // HTTP-only 模式下，bridge 端每个 /api/bridge/ingest 请求都会经由 Upsert 刷新 last_sync_at。
 // 此函数纯粹从 DB 字段判断"是否仍在活跃"，不再依赖任何 in-memory hub 状态。
 //
 // 输入：
+//   - ctx: 用于 DB 参数读取
 //   - lastSyncAt: DB 中存的最近同步时间（可能为 nil）
 //   - status: 业务状态（"online" / "offline"）
 //   - now: 判定时间（测试可注入）
@@ -186,16 +193,16 @@ const OnlineGraceWindow = 30 * time.Second
 // 规则（短路）：
 //  1. status == "offline" → 离线（不论 last_sync_at 多新）
 //  2. lastSyncAt == nil → 离线（从未同步过）
-//  3. now - lastSyncAt < OnlineGraceWindow → 在线
+//  3. now - lastSyncAt < runtimeOnlineGraceWindow(ctx) → 在线
 //  4. 否则 → 离线（心跳超时）
-func isOnlineByLastSync(lastSyncAt *time.Time, status string, now time.Time) bool {
+func isOnlineByLastSync(ctx context.Context, lastSyncAt *time.Time, status string, now time.Time) bool {
 	if status == "offline" {
 		return false
 	}
 	if lastSyncAt == nil {
 		return false
 	}
-	return now.Sub(*lastSyncAt) < OnlineGraceWindow
+	return now.Sub(*lastSyncAt) < runtimeOnlineGraceWindow(ctx)
 }
 
 // ListByUser 列出某用户全部桥接账号（基于 last_sync_at 判断在线状态）。
@@ -218,7 +225,7 @@ func (r *BridgeAccountRepository) ListByUser(ctx context.Context, userID uint) (
 			AgentID:     a.AgentID,
 			Status:      a.Status,
 			LastSyncAt:  a.LastSyncAt,
-			Online:      isOnlineByLastSync(a.LastSyncAt, a.Status, now),
+			Online:      isOnlineByLastSync(ctx, a.LastSyncAt, a.Status, now),
 		})
 	}
 	return views, nil
@@ -236,7 +243,7 @@ func (r *BridgeAccountRepository) IsOnline(ctx context.Context, channel, account
 		}
 		return false, err
 	}
-	return isOnlineByLastSync(acc.LastSyncAt, acc.Status, time.Now()), nil
+	return isOnlineByLastSync(ctx, acc.LastSyncAt, acc.Status, time.Now()), nil
 }
 
 // GetByChannelAccount 按渠道+账号查询（供归属校验使用）。

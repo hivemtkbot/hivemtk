@@ -1,12 +1,13 @@
 package service
 
 import (
-	"time"
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"hivemtk-user/internal/aiagent/llm"
+	"hivemtk-user/internal/service"
 )
 
 // LLMAdapter 为 GEO 模块提供 LLM 访问，复用 hivemtk 全局 Dispatcher
@@ -98,7 +99,10 @@ func EstimateCostUSD(modelName string, inputTokens, outputTokens int) (float64, 
 // Generate 生成内容（使用 high_quality 场景路由）
 
 // geoMaxTokensPerCall 单次 LLM 调用 token 上限（v3 审计 P2-9 成本熔断）
-const geoMaxTokensPerCall = 4000
+// seed: agent_llm.geo_max_tokens_per_call
+func geoMaxTokensPerCall() int {
+	return service.GlobalConfigParam().GetInt(context.Background(), "agent_llm", "geo_max_tokens_per_call", 4000)
+}
 
 func (a *LLMAdapter) Generate(ctx context.Context, systemPrompt, prompt string, temperature float64, maxTokens int) (*LLMResult, error) {
 	if a.dispatcher == nil {
@@ -108,8 +112,8 @@ func (a *LLMAdapter) Generate(ctx context.Context, systemPrompt, prompt string, 
 	// 必须有单次调用超时兜底，防止不可中止的分钟级挂起
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
-	if maxTokens <= 0 || maxTokens > geoMaxTokensPerCall {
-		maxTokens = geoMaxTokensPerCall
+	if maxTokens <= 0 || maxTokens > geoMaxTokensPerCall() {
+		maxTokens = geoMaxTokensPerCall()
 	}
 	req := llm.DispatchRequest{
 		Scenario:     llm.ScenarioHighQuality,
@@ -138,8 +142,8 @@ func (a *LLMAdapter) GenerateJSON(ctx context.Context, systemPrompt, prompt stri
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
-	if maxTokens <= 0 || maxTokens > geoMaxTokensPerCall {
-		maxTokens = geoMaxTokensPerCall
+	if maxTokens <= 0 || maxTokens > geoMaxTokensPerCall() {
+		maxTokens = geoMaxTokensPerCall()
 	}
 	req := llm.DispatchRequest{
 		Scenario:     llm.ScenarioHighQuality,

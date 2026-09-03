@@ -111,7 +111,7 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 		job.Payload = string(payload)
 		_ = s.externalRepo.Create(ctx, job)
 		go func(productID string, items []BatchImportItem, op string) {
-			bg, bgCancel := context.WithTimeout(context.Background(), ExternalImportTimeout)
+			bg, bgCancel := context.WithTimeout(context.Background(), ExternalImportTimeout())
 			defer bgCancel()
 			started := time.Now()
 			now := time.Now()

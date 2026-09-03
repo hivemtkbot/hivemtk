@@ -45,7 +45,7 @@ func chunksToRAGChunks(chunks []ragretrieval.Chunk) []RAGChunk {
 	result := make([]RAGChunk, 0, len(chunks))
 	for _, c := range chunks {
 		result = append(result, RAGChunk{
-			Content: truncateText(c.Content, ChunkContentPreview),
+			Content: truncateText(c.Content, ChunkContentPreview()),
 			Source:  "hybrid",
 			Score:   c.Score,
 			DocID:   c.DocumentID,
@@ -81,7 +81,7 @@ func chunksToMerchantChunks(chunks []ragretrieval.Chunk) []MerchantRAGChunk {
 		result = append(result, MerchantRAGChunk{
 			ID:         id,
 			DocumentID: docID,
-			Content:    truncateText(c.Content, ChunkContentPreview),
+			Content:    truncateText(c.Content, ChunkContentPreview()),
 			Score:      c.Score,
 			Metadata:   meta,
 			Weight:     c.Weight,
@@ -95,7 +95,7 @@ func (s *RagSearcher) toRAGChunks(pairs []scored) []RAGChunk {
 	result := make([]RAGChunk, 0, len(pairs))
 	for _, p := range pairs {
 		result = append(result, RAGChunk{
-			Content: truncateText(p.row.Content, ChunkContentPreview),
+			Content: truncateText(p.row.Content, ChunkContentPreview()),
 			Score:   p.score,
 			DocID:   strconv.FormatUint(p.row.DocumentID, 10),
 			ChunkID: strconv.FormatUint(p.row.ID, 10),
@@ -111,7 +111,7 @@ func (s *RagSearcher) toMerchantChunks(pairs []scored) []MerchantRAGChunk {
 		result = append(result, MerchantRAGChunk{
 			ID:         p.row.ID,
 			DocumentID: p.row.DocumentID,
-			Content:    truncateText(p.row.Content, ChunkContentPreview),
+			Content:    truncateText(p.row.Content, ChunkContentPreview()),
 			Score:      p.score,
 		})
 	}

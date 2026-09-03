@@ -23,13 +23,34 @@ import (
 )
 
 
-// HTTP 端点参数（与 WS 端点默认值严格对齐，单源来自 DEFAULTS.md）
+// HTTP 端点参数（DB 驱动，以下为 fallback 默认值）
+// 实际运行时通过 service.GlobalConfigParam() 按 group=bridge 读取 DB 参数：
+//   bridge.polling_max_timeout → HTTPPollingMaxTimeout (fallback)
+//   bridge.polling_default_timeout → HTTPPollingDefaultTimeout (fallback)
+//   bridge.ingest_max_body_bytes → HTTPIngestMaxBodySize (fallback)
+//   bridge.ingest_max_messages → HTTPIngestMaxMessages (fallback)
 const (
 	HTTPPollingMaxTimeout = 500 * time.Second
 	HTTPPollingDefaultTimeout = 30 * time.Second
-	HTTPIngestMaxBodySize = 4 << 20 
+	HTTPIngestMaxBodySize = 4 << 20
 	HTTPIngestMaxMessages = 200
 )
+
+func runtimePollingMaxTimeout(ctx context.Context) time.Duration {
+	return service.GlobalConfigParam().GetDuration(ctx, "bridge", "polling_max_timeout", HTTPPollingMaxTimeout)
+}
+func runtimePollingDefaultTimeout(ctx context.Context) time.Duration {
+	return service.GlobalConfigParam().GetDuration(ctx, "bridge", "polling_default_timeout", HTTPPollingDefaultTimeout)
+}
+func runtimeIngestMaxBodySize(ctx context.Context) int {
+	return service.GlobalConfigParam().GetInt(ctx, "bridge", "ingest_max_body_bytes", HTTPIngestMaxBodySize)
+}
+func runtimeIngestMaxMessages(ctx context.Context) int {
+	return service.GlobalConfigParam().GetInt(ctx, "bridge", "ingest_max_messages", HTTPIngestMaxMessages)
+}
+func runtimeMaxAckMsgIDs(ctx context.Context) int {
+	return service.GlobalConfigParam().GetInt(ctx, "bridge", "max_ack_msg_ids", 500)
+}
 
 // HTTPIngestRequest 上报请求体（别名 channelgw.IngestRequest，与扩展端 http-ingest.js 严格对齐）。
 // 2026-08-10 协议单源化：线路协议类型统一收敛到渠道网关 channelgw，HTTP/WS 共用。
@@ -430,16 +451,17 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		}
 	}
 
-	if info.ContentLength > HTTPIngestMaxBodySize {
+	maxBodySize := runtimeIngestMaxBodySize(ctx0)
+	if info.ContentLength > int64(maxBodySize) {
 		logger.Ctx(ctx0).Warn().
 			Str("module", "bridge").
 			Str("event", "http_ingest_body_too_large").
 			Str("full_url", info.FullURL).
 			Int64("content_length", info.ContentLength).
-			Msg("[Bridge HTTP] body 超过 4MB 上限")
+			Msg("[Bridge HTTP] body 超过上限")
 		c.JSON(http.StatusRequestEntityTooLarge, HTTPIngestResponse{
 			OK:     false,
-			Reason: fmt.Sprintf("body too large (max %d bytes)", HTTPIngestMaxBodySize),
+			Reason: fmt.Sprintf("body too large (max %d bytes)", maxBodySize),
 		})
 		return
 	}
@@ -467,15 +489,16 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 	if conversationID != "" {
 		req.ConversationID = conversationID
 	}
-	if len(req.Messages) > HTTPIngestMaxMessages {
+	maxMessages := runtimeIngestMaxMessages(ctx0)
+	if len(req.Messages) > maxMessages {
 		logger.Ctx(ctx0).Warn().
 			Str("module", "bridge").
 			Str("event", "http_ingest_truncated").
 			Str("full_url", info.FullURL).
 			Int("messages", len(req.Messages)).
-			Int("truncated_to", HTTPIngestMaxMessages).
-			Msg("[Bridge HTTP] 消息数超过 200 上限，截断处理（剩余由下轮巡检补齐）")
-		req.Messages = req.Messages[:HTTPIngestMaxMessages]
+			Int("truncated_to", maxMessages).
+			Msg("[Bridge HTTP] 消息数超过上限，截断处理（剩余由下轮巡检补齐）")
+		req.Messages = req.Messages[:maxMessages]
 	}
 
 	traceID := c.GetHeader("X-Trace-Id")
@@ -928,7 +951,7 @@ func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
 		}
 	}
 	// 2026-08-15 P3-D：单次 ack 上限（防止前端误传超长列表）
-	const maxAckMsgIDs = 500
+	maxAckMsgIDs := runtimeMaxAckMsgIDs(c.Request.Context())
 	if len(req.MsgIDs) > maxAckMsgIDs || len(req.Items) > maxAckMsgIDs {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",

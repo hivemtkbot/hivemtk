@@ -61,7 +61,7 @@ func (s *KnowledgeMerchantService) Playground(ctx context.Context, req *Playgrou
 		return nil, errors.New("query 不能为空")
 	}
 	if req.TopK <= 0 {
-		req.TopK = DefaultTopK
+		req.TopK = DefaultTopK()
 	}
 	if req.TopK > 50 {
 		req.TopK = 50

@@ -36,10 +36,22 @@ const (
 	WeComLoginOffline = "offline"
 	WeComLoginBanned  = "banned"
 
-	WeComDefaultWeight             = 100
+	WeComDefaultWeight = 100
+
+	// WeComErrorRateDegradeThreshold / WeComQuotaDegradeThreshold 为 fallback 默认值（DB 驱动）
+	// 运行时通过 GlobalConfigParam() 按 group=wecom 读取 DB 参数：
+	//   wecom.error_rate_degrade → WeComErrorRateDegradeThreshold (fallback)
+	//   wecom.quota_degrade → WeComQuotaDegradeThreshold (fallback)
 	WeComErrorRateDegradeThreshold = 0.3
 	WeComQuotaDegradeThreshold     = 0.9
 )
+
+func runtimeWeComErrorRateDegrade(ctx context.Context) float64 {
+	return GlobalConfigParam().GetFloat(ctx, "wecom", "error_rate_degrade", WeComErrorRateDegradeThreshold)
+}
+func runtimeWeComQuotaDegrade(ctx context.Context) float64 {
+	return GlobalConfigParam().GetFloat(ctx, "wecom", "quota_degrade", WeComQuotaDegradeThreshold)
+}
 
 // 错误定义
 var (
@@ -374,6 +386,7 @@ func (s *WeComAccountHealthService) GetHealthSummary(ctx context.Context) (*Acco
 // computeHealthScore 计算账号健康分
 func computeHealthScore(loginState string, quotaRate, successRate float64, errorCount int) int {
 	score := 100
+	quotaDegrade := runtimeWeComQuotaDegrade(context.Background())
 	if loginState == WeComLoginBanned {
 		return WeComHealthScoreBanned
 	}
@@ -382,7 +395,7 @@ func computeHealthScore(loginState string, quotaRate, successRate float64, error
 	}
 	if quotaRate > 0.95 {
 		score -= 25
-	} else if quotaRate > WeComQuotaDegradeThreshold {
+	} else if quotaRate > quotaDegrade {
 		score -= 15
 	} else if quotaRate > 0.7 {
 		score -= 5
@@ -443,7 +456,7 @@ func (s *WeComAccountHealthService) syncAccountState(ctx context.Context, accoun
 		updates["last_error_msg"] = lastErr
 		updates["error_count"] = gorm.Expr("error_count + 1")
 	}
-	if quotaRate > WeComQuotaDegradeThreshold && risk == WeComRiskNormal {
+	if quotaRate > runtimeWeComQuotaDegrade(ctx) && risk == WeComRiskNormal {
 		updates["risk_level"] = WeComRiskWarning
 	}
 	_ = s.accountRepo.UpdateFields(ctx, accountID, updates)

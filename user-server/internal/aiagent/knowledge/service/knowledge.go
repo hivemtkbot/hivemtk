@@ -63,7 +63,7 @@ func newKnowledgeServiceWithDB(gdb *gorm.DB) *KnowledgeService {
 	return &KnowledgeService{
 		db:            gdb,
 		processor:     etl.NewDocumentProcessor(nil),
-		vectorizer:    ragretrieval.NewVectorizer(EmbeddingDim, nil),
+		vectorizer:    ragretrieval.NewVectorizer(EmbeddingDim(), nil),
 		indexer:       nil,
 		ragRepo:       repository.NewRagConfigRepository(gdb),
 		docRepo:       repository.NewKnowledgeDocumentRepository(gdb),
@@ -144,7 +144,7 @@ func (s *KnowledgeService) Import(ctx context.Context, req *ImportRequest) (*Kno
 
 	_ = s.logImport(ctx, req, doc.ID, "success", int(time.Since(start).Milliseconds()), "")
 
-	async.RunWithTimeout(ctx, AsyncProcessingTimeout, func(procCtx context.Context) {
+	async.RunWithTimeout(ctx, AsyncProcessingTimeout(), func(procCtx context.Context) {
 		s.processDocumentAsync(procCtx, doc.ID, productNumericID, doc.FilePath, doc.FileName, req.Content, doc.MimeType, doc.Title, req.SourceType, req.Metadata)
 	})
 
@@ -258,8 +258,7 @@ func (s *KnowledgeService) resolveEmbeddingConfig(ctx context.Context, numericPr
 	if prod := s.resolveProductByID(ctx, numericProductID); prod != nil && prod.EmbeddingProviderConfig.BaseURL != "" {
 		dim := prod.EmbeddingProviderConfig.Dimension
 		if dim == 0 {
-			dim = EmbeddingDim
-		}
+                    dim = EmbeddingDim()		}
 		cfg := &llm.EmbeddingConfig{
 			APIType:        prod.EmbeddingProviderConfig.APIType,
 			BaseURL:        prod.EmbeddingProviderConfig.BaseURL,
@@ -267,7 +266,7 @@ func (s *KnowledgeService) resolveEmbeddingConfig(ctx context.Context, numericPr
 			APIKey:         prod.EmbeddingProviderConfig.APIKey,
 			Dimension:      dim,
 			AllowFallback:  false,
-			RequestTimeout: DefaultRequestTimeoutSeconds,
+			RequestTimeout: DefaultRequestTimeoutSeconds(),
 			MaxRetries:     2,
 		}
 		return llm.NewEmbeddingServiceWithConfig(cfg), cfg

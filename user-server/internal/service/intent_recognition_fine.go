@@ -185,8 +185,11 @@ var fineIntentRules = []majorRule{
 	},
 }
 
-// minorLLMThreshold 触发 LLM 二次识别的置信度阈值
-const minorLLMThreshold = 0.6
+// minorLLMThreshold 触发 LLM 二次识别的置信度阈值（DB 驱动）
+// seed: agent_llm.minor_llm_threshold
+func minorLLMThreshold() float64 {
+	return GlobalConfigParam().GetFloat(context.Background(), "agent_llm", "minor_llm_threshold", 0.6)
+}
 
 // RecognizeIntent 精细意图识别入口
 //
@@ -221,7 +224,7 @@ func (s *IntentRecognizer) RecognizeIntent(ctx context.Context, message, custome
 	var final *IntentResult
 	if ruleResult != nil {
 		final = ruleResult
-		if ruleResult.Confidence < minorLLMThreshold && s.dispatcher != nil {
+		if ruleResult.Confidence < minorLLMThreshold() && s.dispatcher != nil {
 			if llmResult, err := s.recognizeFineByLLM(ctx, message); err == nil && llmResult != nil {
 				llmResult.Method = "hybrid"
 				final = llmResult

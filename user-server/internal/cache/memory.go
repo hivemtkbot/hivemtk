@@ -15,6 +15,19 @@ var ErrCacheMiss = errors.New("cache: key not found")
 // DefaultMaxKeys 默认 LRU 上限（修复：限制内存使用）
 const DefaultMaxKeys = 10_000
 
+// maxKeysProvider 返回 LRU 上限，可被上层（ConfigParam）注入动态值
+var maxKeysProvider = func() int { return DefaultMaxKeys }
+
+// MaxKeys 返回当前 LRU 上限（DB 驱动优先，fallback 为 DefaultMaxKeys）
+func MaxKeys() int { return maxKeysProvider() }
+
+// SetMaxKeysProvider 上层注入函数（ConfigParam 初始化后调用）
+func SetMaxKeysProvider(fn func() int) {
+	if fn != nil {
+		maxKeysProvider = fn
+	}
+}
+
 // cacheRegistry 全局 MemoryCache 注册表，用于测试/进程退出时统一清理 goroutine
 var (
 	cacheRegistryMu sync.Mutex
@@ -66,15 +79,15 @@ type cacheItem struct {
 	listItems  []string
 }
 
-// NewMemoryCache 创建内存缓存（默认 LRU 上限 10000）
+// NewMemoryCache 创建内存缓存（LRU 上限由 ConfigParam 动态驱动，fallback 10000）
 func NewMemoryCache() *MemoryCache {
-	return NewMemoryCacheWithLimit(DefaultMaxKeys)
+	return NewMemoryCacheWithLimit(MaxKeys())
 }
 
 // NewMemoryCacheWithLimit 创建带 LRU 上限的内存缓存
 func NewMemoryCacheWithLimit(maxKeys int) *MemoryCache {
 	if maxKeys <= 0 {
-		maxKeys = DefaultMaxKeys
+		maxKeys = MaxKeys()
 	}
 	cache := &MemoryCache{
 		data:    make(map[string]*list.Element),

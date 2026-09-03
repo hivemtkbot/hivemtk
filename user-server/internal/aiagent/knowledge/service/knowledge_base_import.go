@@ -90,7 +90,7 @@ func (s *KnowledgeBaseService) ImportDocument(ctx context.Context, title string,
 		return nil, fmt.Errorf("保存文档记录失败: %w", err)
 	}
 
-	async.RunWithTimeout(ctx, AsyncProcessingTimeout, func(procCtx context.Context) {
+	async.RunWithTimeout(ctx, AsyncProcessingTimeout(), func(procCtx context.Context) {
 		s.processDocumentAsync(procCtx, doc.ID, filePath)
 	})
 

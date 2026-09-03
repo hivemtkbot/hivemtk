@@ -72,8 +72,18 @@ type TranslateOptions struct {
 // deeplDefaultBaseURL DeepL API 默认地址（Pro 版本；Free 版本使用 https://api-free.deepl.com/v2）。
 const deeplDefaultBaseURL = "https://api.deepl.com/v2"
 
-// deeplTimeout DeepL API 请求超时。
+// deeplTimeout DeepL API 请求超时默认值（ConfigParam "misc.deepl_timeout" 驱动实际值）
 const deeplTimeout = 30 * time.Second
+
+// deeplTimeoutProvider 返回实际生效的 DeepL API 超时，可被上层注入
+var deeplTimeoutProvider = func() time.Duration { return deeplTimeout }
+
+// SetDeeplTimeoutProvider 上层注入函数（ConfigParam 初始化后调用）
+func SetDeeplTimeoutProvider(fn func() time.Duration) {
+	if fn != nil {
+		deeplTimeoutProvider = fn
+	}
+}
 
 // DeepLTranslator DeepL 翻译实现。
 //
@@ -96,7 +106,7 @@ func NewDeepLTranslator(apiKey, baseURL string) *DeepLTranslator {
 	return &DeepLTranslator{
 		apiKey:     apiKey,
 		baseURL:    strings.TrimRight(baseURL, "/"),
-		httpClient: &http.Client{Timeout: deeplTimeout},
+		httpClient: &http.Client{Timeout: deeplTimeoutProvider()},
 	}
 }
 

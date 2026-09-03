@@ -10,13 +10,20 @@ import (
 	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
 
-// WS 传输默认参数。
+// WS 传输默认参数（DB 驱动，以下为 fallback 默认值）。
+// 运行时通过 service.GlobalConfigParam() 按 group=channelgw 读取 DB 参数：
+//   channelgw.ws_register_timeout → wsRegisterTimeout (fallback)
+//   channelgw.ws_read_idle_timeout → wsReadIdleTimeout (fallback)
+//   channelgw.ws_write_timeout → wsWriteTimeout (fallback)
+//   channelgw.ws_push_interval_default → wsPushIntervalDefault (fallback)
+//   channelgw.ws_pipeline_timeout → wsPipelineTimeout (fallback)
 const (
 	wsRegisterTimeout = 15 * time.Second
 	wsReadIdleTimeout = 90 * time.Second
@@ -26,6 +33,22 @@ const (
 	wsMaxFrameSize = 1 << 20
 	wsPipelineTimeout = 30 * time.Second
 )
+
+func runtimeWSRegisterTimeout(ctx context.Context) time.Duration {
+	return service.GlobalConfigParam().GetDuration(ctx, "channelgw", "ws_register_timeout", wsRegisterTimeout)
+}
+func runtimeWSReadIdleTimeout(ctx context.Context) time.Duration {
+	return service.GlobalConfigParam().GetDuration(ctx, "channelgw", "ws_read_idle_timeout", wsReadIdleTimeout)
+}
+func runtimeWSWriteTimeout(ctx context.Context) time.Duration {
+	return service.GlobalConfigParam().GetDuration(ctx, "channelgw", "ws_write_timeout", wsWriteTimeout)
+}
+func runtimeWSPushIntervalDefault(ctx context.Context) time.Duration {
+	return service.GlobalConfigParam().GetDuration(ctx, "channelgw", "ws_push_interval_default", wsPushIntervalDefault)
+}
+func runtimeWSPipelineTimeout(ctx context.Context) time.Duration {
+	return service.GlobalConfigParam().GetDuration(ctx, "channelgw", "ws_pipeline_timeout", wsPipelineTimeout)
+}
 
 // WSTransport WebSocket 传输处理器。
 type WSTransport struct {
@@ -50,7 +73,7 @@ func NewWSTransport(pipeline IngressPipeline, registry *Registry) *WSTransport {
 			WriteBufferSize: 4096,
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
-		pushInterval: wsPushIntervalDefault,
+		pushInterval: runtimeWSPushIntervalDefault(context.Background()),
 		pushBatch:    wsPushBatchDefault,
 	}
 }
@@ -64,7 +87,7 @@ func (t *WSTransport) HandleWS(c *gin.Context) {
 		return
 	}
 
-	_ = conn.SetReadDeadline(time.Now().Add(wsRegisterTimeout))
+	_ = conn.SetReadDeadline(time.Now().Add(runtimeWSRegisterTimeout(context.Background())))
 	var reg Frame
 	if err := conn.ReadJSON(&reg); err != nil {
 		logger.Warnf("[ChannelGW WS] 读取 register 帧失败: %v", err)
@@ -81,7 +104,7 @@ func (t *WSTransport) HandleWS(c *gin.Context) {
 		_ = conn.Close()
 		return
 	}
-	_ = conn.SetReadDeadline(time.Now().Add(wsReadIdleTimeout))
+	_ = conn.SetReadDeadline(time.Now().Add(runtimeWSReadIdleTimeout(context.Background())))
 
 	cn := &wsConn{
 		t:         t,
@@ -157,7 +180,7 @@ func (c *wsConn) send(f *Frame) bool {
 	}
 	c.sendMu.Lock()
 	defer c.sendMu.Unlock()
-	_ = c.conn.SetWriteDeadline(time.Now().Add(wsWriteTimeout))
+	_ = c.conn.SetWriteDeadline(time.Now().Add(runtimeWSWriteTimeout(context.Background())))
 	if err := c.conn.WriteJSON(f); err != nil {
 		logger.Warnf("[ChannelGW WS] 写帧失败 channel=%s account=%s type=%s: %v",
 			c.channel, c.accountID, f.Type, err)
@@ -172,7 +195,7 @@ func (c *wsConn) readPump() {
 	defer c.close()
 	c.conn.SetReadLimit(wsMaxFrameSize)
 	for {
-		_ = c.conn.SetReadDeadline(time.Now().Add(wsReadIdleTimeout))
+		_ = c.conn.SetReadDeadline(time.Now().Add(runtimeWSReadIdleTimeout(context.Background())))
 		var f Frame
 		if err := c.conn.ReadJSON(&f); err != nil {
 			return
@@ -190,7 +213,7 @@ func (c *wsConn) handleFrame(f *Frame) {
 		if len(f.MsgIDs) == 0 {
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), wsPipelineTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), runtimeWSPipelineTimeout(context.Background()))
 		defer cancel()
 		acked, err := c.t.pipeline.AckOutbound(ctx, c.channel, c.accountID, f.MsgIDs)
 		if err != nil {
@@ -234,7 +257,7 @@ func (c *wsConn) handleInbound(f *Frame) {
 	if len(msgs) == 0 {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), wsPipelineTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeWSPipelineTimeout(context.Background()))
 	defer cancel()
 
 	events := make([]*model.MessageEvent, 0, len(msgs))
@@ -300,7 +323,7 @@ func (c *wsConn) handleHistory(f *Frame) {
 	if len(msgs) == 0 {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), wsPipelineTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeWSPipelineTimeout(context.Background()))
 	defer cancel()
 	for _, m := range msgs {
 		if m == nil {
@@ -334,7 +357,7 @@ func (c *wsConn) pushPump() {
 
 // pushOnce 单轮推帧：认领 → 逐条推帧（写失败即停止，剩余由回收机制重生）。
 func (c *wsConn) pushOnce() {
-	ctx, cancel := context.WithTimeout(context.Background(), wsPipelineTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeWSPipelineTimeout(context.Background()))
 	hubs, err := c.t.pipeline.ClaimOutbound(ctx, c.channel, c.accountID, c.t.pushBatch)
 	cancel()
 	if err != nil {

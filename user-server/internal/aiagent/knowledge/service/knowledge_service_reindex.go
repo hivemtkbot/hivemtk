@@ -44,7 +44,7 @@ func (s *KnowledgeService) Reindex(ctx context.Context, productID string, docID 
 		if doc.Metadata != "" {
 			_ = json.Unmarshal([]byte(doc.Metadata), &meta)
 		}
-		async.RunWithTimeout(ctx, AsyncProcessingTimeout, func(procCtx context.Context) {
+		async.RunWithTimeout(ctx, AsyncProcessingTimeout(), func(procCtx context.Context) {
 			s.processDocumentAsync(procCtx, doc.ID, doc.ProductID, doc.FilePath,
 				doc.FileName, content, doc.MimeType, doc.Title, doc.SourceType, meta)
 		})

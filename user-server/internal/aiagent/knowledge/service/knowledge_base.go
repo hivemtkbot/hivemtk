@@ -30,8 +30,8 @@ func NewKnowledgeBaseService() *KnowledgeBaseService {
 	return &KnowledgeBaseService{
 		db:        db.GetDB(),
 		processor: etl.NewDocumentProcessor(nil),
-		indexer:   ragretrieval.NewInMemoryIndexManager(EmbeddingDim),
-		vector:    ragretrieval.NewVectorizer(EmbeddingDim, nil),
+		indexer:   ragretrieval.NewInMemoryIndexManager(EmbeddingDim()),
+		vector:    ragretrieval.NewVectorizer(EmbeddingDim(), nil),
 	}
 }
 
@@ -40,8 +40,8 @@ func NewKnowledgeBaseServiceWithDB(gdb *gorm.DB) *KnowledgeBaseService {
 	return &KnowledgeBaseService{
 		db:        gdb,
 		processor: etl.NewDocumentProcessor(nil),
-		indexer:   ragretrieval.NewInMemoryIndexManager(EmbeddingDim),
-		vector:    ragretrieval.NewVectorizer(EmbeddingDim, nil),
+		indexer:   ragretrieval.NewInMemoryIndexManager(EmbeddingDim()),
+		vector:    ragretrieval.NewVectorizer(EmbeddingDim(), nil),
 	}
 }
 

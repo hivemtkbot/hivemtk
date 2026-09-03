@@ -51,14 +51,11 @@ func (s *RagConfigService) CreateRagProduct(ctx context.Context, req *model.RagP
 	}
 
 	if req.Temperature == 0 {
-		req.Temperature = DefaultTemperature
-	}
+		req.Temperature = DefaultTemperature()	}
 	if req.MaxTokens == 0 {
-		req.MaxTokens = DefaultMaxTokens
-	}
+		req.MaxTokens = DefaultMaxTokens()	}
 	if req.TopP == 0 {
-		req.TopP = DefaultTopP
-	}
+		req.TopP = DefaultTopP()	}
 	if req.FrequencyPenalty == 0 {
 		req.FrequencyPenalty = DefaultFrequencyPenalty
 	}
@@ -76,11 +73,9 @@ func (s *RagConfigService) CreateRagProduct(ctx context.Context, req *model.RagP
 		req.LLMProviderConfig.Model = req.LLMModel
 	}
 	if req.LLMProviderConfig.MaxRetries == 0 {
-		req.LLMProviderConfig.MaxRetries = DefaultMaxRetries
-	}
+		req.LLMProviderConfig.MaxRetries = DefaultMaxRetries()	}
 	if req.LLMProviderConfig.RequestTimeout == 0 {
-		req.LLMProviderConfig.RequestTimeout = DefaultRequestTimeoutSeconds
-	}
+		req.LLMProviderConfig.RequestTimeout = DefaultRequestTimeoutSeconds()	}
 
 	if req.EmbeddingProviderConfig.APIType == "" {
 		req.EmbeddingProviderConfig.APIType = "openai"
@@ -91,8 +86,7 @@ func (s *RagConfigService) CreateRagProduct(ctx context.Context, req *model.RagP
 	if req.EmbeddingProviderConfig.Dimension == 0 {
 		req.EmbeddingProviderConfig.Dimension = req.EmbeddingDim
 		if req.EmbeddingProviderConfig.Dimension == 0 {
-			req.EmbeddingProviderConfig.Dimension = EmbeddingDim
-		}
+			req.EmbeddingProviderConfig.Dimension = EmbeddingDim()		}
 	}
 	req.EmbeddingProviderConfig.Enabled = true
 	if req.RerankProviderConfig.APIType == "" {

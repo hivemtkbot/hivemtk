@@ -69,12 +69,14 @@ type OrchestratorConfig struct {
 	MaxAIConsecutive    int
 }
 
-// DefaultOrchestratorConfig 默认配置
+// DefaultOrchestratorConfig 默认配置（DB 驱动读取）
+// seed: smart_cs.confidence_threshold, smart_cs.max_ai_consecutive
 func DefaultOrchestratorConfig() *OrchestratorConfig {
+	cp := GlobalConfigParam()
 	return &OrchestratorConfig{
-		ConfidenceThreshold: 0.7,
-		EnableAutoReply:     true,
-		MaxAIConsecutive:    10,
+		ConfidenceThreshold: cp.GetFloat(context.Background(), "smart_cs", "confidence_threshold", 0.7),
+		EnableAutoReply:     cp.GetBool(context.Background(), "smart_cs", "enable_auto_reply", true),
+		MaxAIConsecutive:    cp.GetInt(context.Background(), "smart_cs", "max_ai_consecutive", 10),
 	}
 }
 

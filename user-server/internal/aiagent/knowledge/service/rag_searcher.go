@@ -165,7 +165,7 @@ func (s *RagSearcher) Search(ctx context.Context, query string, topK int) ([]RAG
 		return nil, nil
 	}
 	if topK <= 0 {
-		topK = DefaultTopK
+		topK = DefaultTopK()
 	}
 	if strings.TrimSpace(query) == "" {
 		return nil, nil
@@ -206,7 +206,7 @@ func (s *RagSearcher) SearchIndex(ctx context.Context, productID string, query s
 		return nil, nil
 	}
 	if topK <= 0 {
-		topK = DefaultTopK
+		topK = DefaultTopK()
 	}
 	if strings.TrimSpace(query) == "" {
 		return nil, nil

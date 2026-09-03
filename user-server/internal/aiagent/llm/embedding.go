@@ -252,11 +252,21 @@ func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 	}
 }
 
-// embeddingMaxBatch 单次 embedding 请求最大文本数。
+// embeddingMaxBatch 单次 embedding 请求最大文本数（DB 驱动）。
 // 超过此值时自动分片串行请求，避免单次请求体过大导致 llama-server OOM 或超时。
 // llama-server 默认 --batch-size=512（token 级），64 条短文本约 6400 token 会分批处理，
 // 设 64 是兼顾吞吐与内存安全的经验值。
-const embeddingMaxBatch = 64
+//
+// seed: knowledge.embedding_max_batch（默认 64）
+// 启动时由 internal/service.SetLLMConfigGetters 注入 DB 驱动的 getter。
+var embeddingMaxBatchGetter = func() int { return 64 }
+
+func embeddingMaxBatch() int { return embeddingMaxBatchGetter() }
+
+// SetEmbeddingMaxBatchGetter 装配层注入 DB 驱动的 embedding_max_batch 读取器
+func SetEmbeddingMaxBatchGetter(fn func() int) {
+	embeddingMaxBatchGetter = fn
+}
 
 // Embed 批量向量化（在线车道，API 兼容：现有调用方默认 online，零改动）。
 func (s *EmbeddingService) Embed(ctx context.Context, cfg *EmbeddingConfig, texts []string) ([][]float32, error) {
@@ -273,7 +283,7 @@ func (s *EmbeddingService) EmbedWithLane(ctx context.Context, cfg *EmbeddingConf
 	}
 
 	if !cfg.AllowFallback {
-		if len(texts) <= embeddingMaxBatch {
+		if len(texts) <= embeddingMaxBatch() {
 			return s.callProviderWithRetry(ctx, cfg, texts, lane)
 		}
 		return s.embedInBatches(ctx, cfg, texts, lane)
@@ -287,8 +297,8 @@ func (s *EmbeddingService) EmbedWithLane(ctx context.Context, cfg *EmbeddingConf
 func (s *EmbeddingService) embedInBatches(ctx context.Context, cfg *EmbeddingConfig, texts []string, lane EmbeddingLane) ([][]float32, error) {
 	total := len(texts)
 	result := make([][]float32, total)
-	for i := 0; i < total; i += embeddingMaxBatch {
-		end := i + embeddingMaxBatch
+	for i := 0; i < total; i += embeddingMaxBatch() {
+		end := i + embeddingMaxBatch()
 		if end > total {
 			end = total
 		}
@@ -299,7 +309,7 @@ func (s *EmbeddingService) embedInBatches(ctx context.Context, cfg *EmbeddingCon
 		}
 		copy(result[i:end], vectors)
 	}
-	logger.Infof("[Embedding] 大批量分片完成: %d 条文本, 分 %d 批", total, (total+embeddingMaxBatch-1)/embeddingMaxBatch)
+	logger.Infof("[Embedding] 大批量分片完成: %d 条文本, 分 %d 批", total, (total+embeddingMaxBatch()-1)/embeddingMaxBatch())
 	return result, nil
 }
 

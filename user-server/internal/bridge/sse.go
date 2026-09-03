@@ -31,11 +31,15 @@ import (
 	"time"
 
 	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
-// SSE 配置
+// SSE 配置（DB 驱动，以下为 fallback 默认值）
+// 实际运行时通过 service.GlobalConfigParam() 按 group=bridge 读取 DB 参数：
+//   bridge.sse_heartbeat_interval → SSEDefaultHeartbeatInterval (fallback)
+//   bridge.sse_max_stream_duration → SSEDefaultMaxStreamDuration (fallback)
 //
 // B-1 心跳约束（强制）：
 //   Chrome MV3 extension service worker 有硬性 30s 不活跃就被杀死的窗口限制。
@@ -49,6 +53,13 @@ const (
 	SSEMaxBacklogEvents         = 1000
 	SSEBusBufferSize            = 100
 )
+
+func runtimeSSEHeartbeatInterval(ctx context.Context) time.Duration {
+	return service.GlobalConfigParam().GetDuration(ctx, "bridge", "sse_heartbeat_interval", SSEDefaultHeartbeatInterval)
+}
+func runtimeSSEMaxStreamDuration(ctx context.Context) time.Duration {
+	return service.GlobalConfigParam().GetDuration(ctx, "bridge", "sse_max_stream_duration", SSEDefaultMaxStreamDuration)
+}
 
 // SSEOutboxFetcher 拉取 outbox 事件的接口
 //
@@ -245,6 +256,16 @@ func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 		lastEventID = c.Query("last_event_id")
 	}
 
+	ctxReq := c.Request.Context()
+	heartbeatInterval := h.heartbeatInterval
+	if heartbeatInterval == SSEDefaultHeartbeatInterval {
+		heartbeatInterval = runtimeSSEHeartbeatInterval(ctxReq)
+	}
+	maxStreamDuration := h.maxStreamDuration
+	if maxStreamDuration == SSEDefaultMaxStreamDuration {
+		maxStreamDuration = runtimeSSEMaxStreamDuration(ctxReq)
+	}
+
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
@@ -258,10 +279,10 @@ func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 	}
 
 	// 发送 retry: 指令，告诉浏览器 EventSource 重连间隔
-	fmt.Fprintf(c.Writer, "retry: %d\n\n", h.heartbeatInterval.Milliseconds())
+	fmt.Fprintf(c.Writer, "retry: %d\n\n", heartbeatInterval.Milliseconds())
 	flusher.Flush()
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), h.maxStreamDuration)
+	ctx, cancel := context.WithTimeout(ctxReq, maxStreamDuration)
 	defer cancel()
 
 	logger.Ctx(ctx).Info().
@@ -328,10 +349,10 @@ func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 	// ---- 优化 4: 动态 poll 间隔 ----
 	// 正常时用较长间隔（2x heartbeat），确保 SSEBus 优先
 	// poll 作为安全网，防止极端情况下的事件丢失
-	pollInterval := 2 * h.heartbeatInterval
-	idlePollInterval := 4 * h.heartbeatInterval // SSEBus 活跃时用更长间隔
+	pollInterval := 2 * heartbeatInterval
+	idlePollInterval := 4 * heartbeatInterval // SSEBus 活跃时用更长间隔
 
-	heartbeat := time.NewTicker(h.heartbeatInterval)
+	heartbeat := time.NewTicker(heartbeatInterval)
 	poll := time.NewTicker(pollInterval)
 	defer heartbeat.Stop()
 	defer poll.Stop()

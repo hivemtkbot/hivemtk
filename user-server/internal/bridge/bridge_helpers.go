@@ -6,12 +6,18 @@ import (
 
 	gw "hivemtk-user/internal/channelgw"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/service"
 )
 
 
-// 单条 AI 回复最大字节数（防止 XSS payload 巨大 + 平台限制）
+// 单条 AI 回复最大字节数（DB 驱动，以下为 fallback 默认值）
+// 运行时通过 service.GlobalConfigParam() 按 group=bridge 读取 bridge.max_reply_content_bytes
 // 与前端 constants.SECURITY.maxReplyContentBytes 严格对齐
 const maxReplyContentBytes = 4 * 1024
+
+func runtimeMaxReplyContentBytes(ctx context.Context) int {
+	return service.GlobalConfigParam().GetInt(ctx, "bridge", "max_reply_content_bytes", maxReplyContentBytes)
+}
 
 // OwnershipChecker 账号归属校验回调：
 //   - 输入：uid (JWT 解析的 user_id), channel, accountID

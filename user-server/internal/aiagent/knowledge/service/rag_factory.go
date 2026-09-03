@@ -19,12 +19,12 @@ type RAGStack struct {
 
 func NewRAGStack(db *gorm.DB, glossary ragcustomerservice.GlossaryRenderer, calibrator ragcustomerservice.OutputCalibrator) *RAGStack {
 	embeddingSvc := llm.NewEmbeddingService()
-	embedder := rag_core.NewRemoteEmbedder(EmbeddingDim)
+	embedder := rag_core.NewRemoteEmbedder(EmbeddingDim())
 	_ = embeddingSvc
 	_ = embedder
 
 	vectorizer := &ragretrieval.Vectorizer{}
-	indexManager := ragretrieval.NewInMemoryIndexManager(EmbeddingDim)
+	indexManager := ragretrieval.NewInMemoryIndexManager(EmbeddingDim())
 	storage := ragretrieval.NewInMemoryStorage()
 	// RAG 检索缓存：REDIS_HOST 配置时复用全局 Redis 缓存（跨实例共享检索结果，
 	// 减少重复向量化/检索）；未配置则回退进程内内存缓存（向后兼容单实例）。
@@ -34,11 +34,11 @@ func NewRAGStack(db *gorm.DB, glossary ragcustomerservice.GlossaryRenderer, cali
 	}
 
 	retrievalCfg := &ragretrieval.RetrievalConfig{
-		DefaultTopK:                DefaultTopK,
-		DefaultSimilarityThreshold: DefaultSimilarityThreshold,
+		DefaultTopK:                 DefaultTopK(),
+		DefaultSimilarityThreshold:  DefaultSimilarityThreshold(),
 		MaxTopK:                    10,
 		CacheTTL:                   30 * time.Minute,
-		MaxChunkSize:               MaxSearchListSize,
+		MaxChunkSize:               MaxSearchListSize(),
 		DefaultChunkOverlap:        200,
 	}
 
@@ -67,8 +67,8 @@ func NewRAGStack(db *gorm.DB, glossary ragcustomerservice.GlossaryRenderer, cali
 
 	var llmSvc ragcustomerservice.LLMServiceInterface = nil
 	respGenCfg := &ragcustomerservice.ResponseGenerationConfig{
-		DefaultTemperature: DefaultTemperature,
-		DefaultMaxTokens:   DefaultMaxTokens,
+		DefaultTemperature:  DefaultTemperature(),
+		DefaultMaxTokens:    DefaultMaxTokens(),
 	}
 	responseGenerator := ragcustomerservice.NewResponseGeneratorImpl(llmSvc, respGenCfg)
 	if glossary != nil {
@@ -91,10 +91,10 @@ func NewRAGStack(db *gorm.DB, glossary ragcustomerservice.GlossaryRenderer, cali
 	csConfig := &ragcustomerservice.CustomerServiceConfig{
 		DefaultMaxHistoryLength: 10,
 		DefaultTimeout:          30 * 60,
-		DefaultTemperature:      DefaultTemperature,
-		DefaultMaxTokens:        DefaultMaxTokens,
-		RetrievalTopK:           DefaultTopK,
-		RetrievalThreshold:      DefaultSimilarityThreshold,
+		DefaultTemperature:       DefaultTemperature(),
+		DefaultMaxTokens:         DefaultMaxTokens(),
+		RetrievalTopK:           DefaultTopK(),
+		RetrievalThreshold:      DefaultSimilarityThreshold(),
 		CacheTTL:                30 * time.Minute,
 		MaxConcurrentSessions:   100,
 		SessionCleanupInterval:  5 * time.Minute,

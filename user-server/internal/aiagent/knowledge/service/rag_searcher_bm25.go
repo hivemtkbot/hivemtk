@@ -21,7 +21,7 @@ func (s *RagSearcher) bm25SearchAll(ctx context.Context, query string, topK int)
 		Table("knowledge_chunks").
 		Select("id, document_id, content").
 		Where("embedding IS NULL OR embedding IS NOT NULL"). 
-		Limit(BM25ScanLimit).
+		Limit(BM25ScanLimit()).
 		Scan(&rows).Error; err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (s *RagSearcher) bm25SearchIndex(ctx context.Context, productID string, que
 		Table("knowledge_chunks").
 		Select("id, document_id, content").
 		Where("product_id = ?", productID).
-		Limit(BM25ScanLimit).
+		Limit(BM25ScanLimit()).
 		Scan(&rows).Error; err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (s *RagSearcher) bm25SearchIndex(ctx context.Context, productID string, que
 		result = append(result, MerchantRAGChunk{
 			ID:         p.row.ID,
 			DocumentID: p.row.DocumentID,
-			Content:    truncateText(p.row.Content, ChunkContentPreview),
+			Content:    truncateText(p.row.Content, ChunkContentPreview()),
 			Score:      p.score,
 		})
 	}

@@ -7,8 +7,11 @@ import (
 	"sync"
 	"time"
 
+	llmpkg "hivemtk-user/internal/aiagent/llm"
+	knowledgesvc "hivemtk-user/internal/aiagent/knowledge/service"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
+	"hivemtk-user/internal/platform"
 	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
@@ -81,6 +84,18 @@ func SeedConfigParams(ctx context.Context, db *gorm.DB) error {
 	repo := repository.NewConfigParamRepository(db)
 	svc := NewConfigParamService(db)
 	SetGlobal(svc)
+
+	// 注入知识库子域的 ConfigReader（避免 knowledge/service 反向依赖 internal/service 循环）
+	knowledgesvc.SetConfigReader(svc)
+
+	// 注入跨包模块的 DB 驱动 getter（llm / platform 无法 import internal/service 避免循环）
+	ctxBG := context.Background()
+	llmpkg.SetEmbeddingMaxBatchGetter(func() int {
+		return svc.GetInt(ctxBG, "knowledge", "embedding_max_batch", 64)
+	})
+	platform.SetHeartbeatIntervalGetter(func() time.Duration {
+		return svc.GetDuration(ctxBG, "misc", "heartbeat_interval", 3*time.Minute)
+	})
 
 	var created, existing int
 	for _, def := range DefaultParamDefs() {

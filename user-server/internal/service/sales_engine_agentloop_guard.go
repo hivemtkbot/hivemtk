@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"time"
 
 	"hivemtk-user/internal/pkg/metrics"
@@ -43,7 +44,10 @@ const (
 
 // agentLoopDriftFactor 成本漂移熔断倍率：近 3 轮均成本 ≥ 首轮 3 轮均值 × 该倍数即触发。
 // 业界参考值 2.5x（RunGuard drift_factor 默认），在预算耗尽前拦截上下文累积型故障。
-const agentLoopDriftFactor = 2.5
+// seed: agent_llm.agent_loop_drift_factor
+func agentLoopDriftFactor() float64 {
+	return GlobalConfigParam().GetFloat(context.Background(), "agent_llm", "agent_loop_drift_factor", 2.5)
+}
 
 // agentLoopMaxTotalCostUSD Agent Loop 单次运行累计美元成本上限。
 //
@@ -158,7 +162,7 @@ func (g *agentLoopGuard) costDrifted() bool {
 	if first3 <= 0 {
 		return false
 	}
-	return last3 >= first3*agentLoopDriftFactor
+	return last3 >= first3*agentLoopDriftFactor()
 }
 
 // RemainingTokens 剩余 token 预算（给 P1-4 预算注入 Prompt 用）

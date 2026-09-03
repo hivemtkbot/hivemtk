@@ -15,8 +15,17 @@ import (
 	"hivemtk-user/internal/system/install"
 )
 
-// heartbeatInterval 心跳上报周期（开源版：每 3 分钟上报一次，best-effort）。
-const heartbeatInterval = 3 * time.Minute
+// heartbeatIntervalGetter 心跳上报周期（DB 驱动）。
+// seed: misc.heartbeat_interval（默认 180s = 3min）
+// 启动时由 internal/service.SetPlatformConfigGetters 注入 DB 驱动的 getter。
+var heartbeatIntervalGetter = func() time.Duration { return 3 * time.Minute }
+
+func heartbeatInterval() time.Duration { return heartbeatIntervalGetter() }
+
+// SetHeartbeatIntervalGetter 装配层注入 DB 驱动的心跳间隔读取器
+func SetHeartbeatIntervalGetter(fn func() time.Duration) {
+	heartbeatIntervalGetter = fn
+}
 
 // deviceFP 进程启动时计算一次、全局复用的设备指纹（同一机器在不变更网卡 /
 // 重装系统前保持稳定），用于平台侧识别同一部署实例。
@@ -55,7 +64,7 @@ func StartHeartbeat(ctx context.Context) {
 	go func() {
 		time.Sleep(30 * time.Second)
 		sendHeartbeat()
-		ticker := time.NewTicker(heartbeatInterval)
+		ticker := time.NewTicker(heartbeatInterval())
 		defer ticker.Stop()
 		for {
 			select {
