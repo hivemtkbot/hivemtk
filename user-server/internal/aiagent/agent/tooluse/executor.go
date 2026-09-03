@@ -41,13 +41,24 @@ func GetTurnIndex(ctx context.Context) int {
 }
 
 // nextTurnIndex 基于 trace_id 自增返回本轮序号（1-based）。
+// R58: 优先从 tracing.Carrier 取稳定 trace_id（tr-xxx），fallback logger context。
 func nextTurnIndex(ctx context.Context) int {
-	key := trace.TraceIDFromContext(ctx)
+	key := traceIDFromContext(ctx)
 	if key == "" {
 		key = "default"
 	}
 	v, _ := turnCounters.LoadOrStore(key, new(int64))
 	return int(atomic.AddInt64(v.(*int64), 1))
+}
+
+// traceIDFromContext R58: 双路获取 trace_id — Carrier 优先 → logger fallback。
+// 修复 AgentLoop tool_call/agent_turn trace_id 断链（此前只读 logger context key，
+// 当 Carrier 存在但 logger trace_id 为 UUID 时出现 mismatch）。
+func traceIDFromContext(ctx context.Context) string {
+	if c := tracing.CarrierFromContext(ctx); c != nil && c.TraceID != "" {
+		return c.TraceID
+	}
+	return trace.TraceIDFromContext(ctx)
 }
 
 
@@ -225,7 +236,7 @@ func (e *ToolExecutor) Execute(ctx context.Context, req ExecuteRequest) ExecuteR
 		}
 		ev := tracing.ToolTraceEvent{
 			Kind:       model.SpanKindToolCall,
-			TraceID:    trace.TraceIDFromContext(execCtx),
+			TraceID:    traceIDFromContext(execCtx),
 			ToolName:   req.ToolName,
 			TurnIndex:  GetTurnIndex(execCtx),
 			Input:      req.Args,
@@ -469,7 +480,7 @@ func (e *ToolExecutor) DispatchByLLMToolCall(ctx context.Context, toolCalls []LL
 	if ToolTraceSink != nil {
 		ev := tracing.ToolTraceEvent{
 			Kind:       model.SpanKindAgentTurn,
-			TraceID:    trace.TraceIDFromContext(dispatchCtx),
+			TraceID:    traceIDFromContext(dispatchCtx),
 			AgentID:    agentID,
 			TurnIndex:  turnIdx,
 			Input:      map[string]any{"tool_calls": len(toolCalls)},
