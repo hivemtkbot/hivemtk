@@ -183,6 +183,9 @@ user-web/tests/e2e/audit/summary.json
 # 临时运行日志（前端桥接运行输出，非源码）
 user-web/_bridge_run.txt
 
+# simulate 运行时数据（脚本产物，非源码）
+*.jsonl
+
 # ---------- 内部/敏感文档：不对外公开，仅本地留存于仓库外 internal-docs/ ----------
 # 含内部需求/设计逻辑/审计结论/真实客户数据，禁止进入公开仓库。
 customer-service/
