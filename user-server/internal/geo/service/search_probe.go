@@ -216,9 +216,11 @@ func NewEngineProbesFromDB(g *gorm.DB) []SearchProbe {
 					continue
 				}
 				// 排除本地 LLM — 探针引擎只跑云端
+				// 例外：freeapi-proxy（端口 8787）虽然本地运行，但代理的是云端免费端点
 				isLocal := strings.HasPrefix(row.BaseURL, "http://127.0.0.1") ||
 					strings.HasPrefix(row.BaseURL, "http://localhost")
-				if isLocal {
+				isFreeAPIProxy := strings.Contains(row.BaseURL, ":8787")
+				if isLocal && !isFreeAPIProxy {
 					continue
 				}
 				if seen[row.Name] {
