@@ -1,0 +1,233 @@
+package service
+
+// ParamDef 单个参数定义（用于 Seed 初始化）
+type ParamDef struct {
+	Group        string // 模块分组
+	Key          string // 参数键（group 内唯一）
+	Name         string // 显示名
+	Description  string // 说明
+	ValueType    string // int / float / bool / string / duration
+	DefaultValue string // 默认值（字符串）
+	Min          *string
+	Max          *string
+	Step         *string
+	ReadOnly     bool
+	Restart      bool
+	Category     string // UI 子分类（可选）
+}
+
+func strPtr(s string) *string { return &s }
+
+// DefaultParamDefs 返回全部默认参数定义
+//
+// 来源：项目内 ~60 处硬编码 const（bridge/handler_http.go、
+// knowledge/service/constants.go、smart_cs_orchestrator.go、
+// customer_session.go、cache/memory.go 等）。
+//
+// 设计原则：
+//  1. 每一条对应一个现存的硬编码 const
+//  2. Group 按业务域划分：bridge / knowledge / agent_llm / smart_cs /
+//     session / cache / pagination / wecom / telemetry / sales / misc
+//  3. Min/Max/Step 基于参数语义的合理范围（用于 UI slider/number input）
+func DefaultParamDefs() []ParamDef {
+	return []ParamDef{
+		// ==================== bridge（消息通道/HTTP长轮询/SSE） ====================
+		{Group: "bridge", Key: "polling_max_timeout", Name: "轮询最大超时",
+			Description: "客户端 HTTP 长轮询允许的最长等待时间（秒），超时由服务端主动返回",
+			ValueType: "duration", DefaultValue: "500", Min: strPtr("10"), Max: strPtr("3600"), Step: strPtr("5")},
+		{Group: "bridge", Key: "polling_default_timeout", Name: "轮询默认超时",
+			Description: "客户端未指定 timeout 参数时的默认等待时间（秒）",
+			ValueType: "duration", DefaultValue: "30", Min: strPtr("5"), Max: strPtr("120"), Step: strPtr("1")},
+		{Group: "bridge", Key: "ingest_max_body_bytes", Name: "Ingest 请求体上限",
+			Description: "bridge/ingest 单次请求体最大字节数",
+			ValueType: "int", DefaultValue: "4194304", Min: strPtr("1048576"), Max: strPtr("67108864")},
+		{Group: "bridge", Key: "ingest_max_messages", Name: "Ingest 单次消息数上限",
+			Description: "单次上报最多携带的消息条数",
+			ValueType: "int", DefaultValue: "200", Min: strPtr("10"), Max: strPtr("2000"), Step: strPtr("10")},
+		{Group: "bridge", Key: "sse_heartbeat_interval", Name: "SSE 心跳间隔",
+			Description: "SSE 空闲时服务端向客户端发送心跳包的间隔（秒）",
+			ValueType: "duration", DefaultValue: "15", Min: strPtr("5"), Max: strPtr("60"), Step: strPtr("1")},
+		{Group: "bridge", Key: "max_reply_content_bytes", Name: "回复内容截断上限",
+			Description: "AI 回复内容超过此字节数时截断（防止超长大文本撑爆渠道）",
+			ValueType: "int", DefaultValue: "4096", Min: strPtr("1024"), Max: strPtr("65536"), Step: strPtr("256")},
+		{Group: "bridge", Key: "max_ack_msg_ids", Name: "ACK 单次消息ID数上限",
+			Description: "客户端一次 ACK 最多携带的消息 ID 数",
+			ValueType: "int", DefaultValue: "500", Min: strPtr("50"), Max: strPtr("5000"), Step: strPtr("50")},
+		{Group: "bridge", Key: "online_grace_window", Name: "在线状态宽限窗口",
+			Description: "渠道账号心跳丢失后仍判定为在线的宽限时间（秒）",
+			ValueType: "duration", DefaultValue: "30", Min: strPtr("10"), Max: strPtr("300"), Step: strPtr("5")},
+
+		// ==================== knowledge（RAG 知识库） ====================
+		{Group: "knowledge", Key: "default_top_k", Name: "默认 Top-K 检索数",
+			Description: "向量检索返回的候选文档数",
+			ValueType: "int", DefaultValue: "5", Min: strPtr("1"), Max: strPtr("50"), Step: strPtr("1")},
+		{Group: "knowledge", Key: "similarity_threshold", Name: "相似度阈值",
+			Description: "向量检索相似度低于此值视为无相关内容（0-1）",
+			ValueType: "float", DefaultValue: "0.5", Min: strPtr("0.1"), Max: strPtr("0.95"), Step: strPtr("0.05")},
+		{Group: "knowledge", Key: "chunk_preview_max_len", Name: "分片内容预览长度",
+			Description: "检索结果 Content 字段截断长度",
+			ValueType: "int", DefaultValue: "500", Min: strPtr("100"), Max: strPtr("5000"), Step: strPtr("50")},
+		{Group: "knowledge", Key: "max_search_list_size", Name: "检索扫描上限",
+			Description: "BM25-lite 兜底路径扫描的最大条目数",
+			ValueType: "int", DefaultValue: "1000", Min: strPtr("100"), Max: strPtr("100000"), Step: strPtr("100")},
+		{Group: "knowledge", Key: "bm25_scan_limit", Name: "BM25 文本匹配上限",
+			Description: "BM25 关键词匹配扫描的最大分片数",
+			ValueType: "int", DefaultValue: "10000", Min: strPtr("1000"), Max: strPtr("500000"), Step: strPtr("1000")},
+		{Group: "knowledge", Key: "embedding_dimension", Name: "Embedding 维度",
+			Description: "向量嵌入维度（bge-m3 默认 1024）",
+			ValueType: "int", DefaultValue: "1024", Min: strPtr("128"), Max: strPtr("8192"), ReadOnly: true},
+		{Group: "knowledge", Key: "async_processing_timeout", Name: "异步处理超时",
+			Description: "文档异步处理（分片+embedding+索引）总超时（秒）",
+			ValueType: "duration", DefaultValue: "900", Min: strPtr("60"), Max: strPtr("7200"), Step: strPtr("60")},
+		{Group: "knowledge", Key: "external_import_timeout", Name: "外部导入超时",
+			Description: "飞书/Notion 外部导入总超时（秒）",
+			ValueType: "duration", DefaultValue: "1800", Min: strPtr("60"), Max: strPtr("7200"), Step: strPtr("60")},
+		{Group: "knowledge", Key: "ssrf_check_timeout", Name: "SSRF 防护超时",
+			Description: "外部 URL SSRF 校验的单次 HTTP 超时（秒）",
+			ValueType: "duration", DefaultValue: "5", Min: strPtr("1"), Max: strPtr("60"), Step: strPtr("1")},
+		{Group: "knowledge", Key: "embedding_max_batch", Name: "Embedding 最大批大小",
+			Description: "单次 embedding 向量化调用的最大文本批数",
+			ValueType: "int", DefaultValue: "64", Min: strPtr("1"), Max: strPtr("1024"), Step: strPtr("8")},
+
+		// ==================== agent_llm（智能体推理/LLM 参数） ====================
+		{Group: "agent_llm", Key: "temperature", Name: "LLM Temperature",
+			Description: "采样温度，越大输出越发散（0-2）",
+			ValueType: "float", DefaultValue: "0.7", Min: strPtr("0.1"), Max: strPtr("2.0"), Step: strPtr("0.1")},
+		{Group: "agent_llm", Key: "max_tokens", Name: "LLM Max Tokens",
+			Description: "单次 LLM 调用最大生成 token 数",
+			ValueType: "int", DefaultValue: "1000", Min: strPtr("64"), Max: strPtr("8192"), Step: strPtr("64")},
+		{Group: "agent_llm", Key: "top_p", Name: "LLM Top-P",
+			Description: "核采样概率阈值（0-1）",
+			ValueType: "float", DefaultValue: "0.9", Min: strPtr("0.5"), Max: strPtr("1.0"), Step: strPtr("0.05")},
+		{Group: "agent_llm", Key: "request_timeout", Name: "LLM 请求超时",
+			Description: "单次 LLM HTTP 请求超时（秒）",
+			ValueType: "duration", DefaultValue: "60", Min: strPtr("5"), Max: strPtr("600"), Step: strPtr("5")},
+		{Group: "agent_llm", Key: "max_retries", Name: "LLM 最大重试",
+			Description: "LLM 调用失败后自动重试次数",
+			ValueType: "int", DefaultValue: "3", Min: strPtr("0"), Max: strPtr("10"), Step: strPtr("1")},
+		{Group: "agent_llm", Key: "agent_loop_drift_factor", Name: "AgentLoop 漂移因子",
+			Description: "智能体循环步数相对阈值的放宽倍数（超过阈值×factor 触发降级）",
+			ValueType: "float", DefaultValue: "2.5", Min: strPtr("1.0"), Max: strPtr("10.0"), Step: strPtr("0.1")},
+		{Group: "agent_llm", Key: "minor_llm_threshold", Name: "轻量 LLM 意图阈值",
+			Description: "意图识别置信度低于此值时只调用轻量模型（非完整 LLM）",
+			ValueType: "float", DefaultValue: "0.6", Min: strPtr("0.3"), Max: strPtr("0.95"), Step: strPtr("0.05")},
+		{Group: "agent_llm", Key: "geo_max_tokens_per_call", Name: "Geo LLM 单调 Token 上限",
+			Description: "内容分析 Geo 场景单次 LLM 调用的最大 token",
+			ValueType: "int", DefaultValue: "4000", Min: strPtr("512"), Max: strPtr("32768"), Step: strPtr("256")},
+
+		// ==================== smart_cs（智能客服编排器） ====================
+		{Group: "smart_cs", Key: "confidence_threshold", Name: "智能客服置信度阈值",
+			Description: "置信度高于此值才走自动 AI 回复，否则转人工",
+			ValueType: "float", DefaultValue: "0.7", Min: strPtr("0.3"), Max: strPtr("0.99"), Step: strPtr("0.05")},
+		{Group: "smart_cs", Key: "enable_auto_reply", Name: "开启自动回复",
+			Description: "是否允许智能体自动回复（false 时全部转人工）",
+			ValueType: "bool", DefaultValue: "true"},
+		{Group: "smart_cs", Key: "max_ai_consecutive", Name: "AI 连续回复上限",
+			Description: "同一会话内 AI 连续回复超过此次数后强制转人工",
+			ValueType: "int", DefaultValue: "10", Min: strPtr("2"), Max: strPtr("50"), Step: strPtr("1")},
+
+		// ==================== session（会话管理） ====================
+		{Group: "session", Key: "active_ttl", Name: "会话活跃 TTL",
+			Description: "无任何消息交互超过此时间后会话自动关闭（秒）",
+			ValueType: "duration", DefaultValue: "86400", Min: strPtr("300"), Max: strPtr("2592000"), Step: strPtr("3600")},
+		{Group: "session", Key: "idle_ttl", Name: "MCP 会话空闲 TTL",
+			Description: "MCP Server 会话无活动超过此时间后过期（秒）",
+			ValueType: "duration", DefaultValue: "1800", Min: strPtr("60"), Max: strPtr("86400"), Step: strPtr("60")},
+		{Group: "session", Key: "max_delay_seconds", Name: "营销触达延迟上限",
+			Description: "触达流水线排程允许的最大延迟（秒），超过视为放弃",
+			ValueType: "duration", DefaultValue: "300", Min: strPtr("30"), Max: strPtr("3600"), Step: strPtr("10")},
+
+		// ==================== cache（内存缓存） ====================
+		{Group: "cache", Key: "max_keys", Name: "内存缓存最大键数",
+			Description: "进程内内存缓存的最大条目数（超过会触发 LRU 淘汰）",
+			ValueType: "int", DefaultValue: "10000", Min: strPtr("1000"), Max: strPtr("1000000"), Step: strPtr("1000")},
+		{Group: "cache", Key: "faq_ttl", Name: "FAQ 缓存 TTL",
+			Description: "FAQ 语义缓存有效期（秒）",
+			ValueType: "duration", DefaultValue: "300", Min: strPtr("60"), Max: strPtr("86400"), Step: strPtr("60")},
+		{Group: "cache", Key: "faq_decay_max_batch", Name: "FAQ 衰减批量",
+			Description: "后台 FAQ 分数衰减任务每轮处理的最大条目",
+			ValueType: "int", DefaultValue: "1000", Min: strPtr("100"), Max: strPtr("100000"), Step: strPtr("100")},
+
+		// ==================== pagination（分页） ====================
+		{Group: "pagination", Key: "page_max_size", Name: "单页最大条数",
+			Description: "列表接口允许的 limit 上限（超过此值强制截断）",
+			ValueType: "int", DefaultValue: "100", Min: strPtr("10"), Max: strPtr("10000"), Step: strPtr("10")},
+		{Group: "pagination", Key: "page_default_size", Name: "默认分页大小",
+			Description: "列表接口 limit 未指定时的默认值",
+			ValueType: "int", DefaultValue: "20", Min: strPtr("5"), Max: strPtr("500"), Step: strPtr("5")},
+		{Group: "pagination", Key: "cursor_page_size", Name: "游标分页大小",
+			Description: "游标分页（Cursor）每批拉取的数量",
+			ValueType: "int", DefaultValue: "100", Min: strPtr("10"), Max: strPtr("1000"), Step: strPtr("10")},
+
+		// ==================== wecom（企微降级阈值） ====================
+		{Group: "wecom", Key: "error_rate_degrade", Name: "错误率降级阈值",
+			Description: "企微接口错误率超过此值触发降级到备用通道（0-1）",
+			ValueType: "float", DefaultValue: "0.3", Min: strPtr("0.05"), Max: strPtr("0.95"), Step: strPtr("0.05")},
+		{Group: "wecom", Key: "quota_degrade", Name: "配额降级阈值",
+			Description: "企微消息使用率超过此比例触发限流（0-1）",
+			ValueType: "float", DefaultValue: "0.9", Min: strPtr("0.5"), Max: strPtr("1.0"), Step: strPtr("0.05")},
+
+		// ==================== telemetry（监控/追踪） ====================
+		{Group: "telemetry", Key: "node_health_window", Name: "节点健康检查窗口",
+			Description: "节点最近 24 小时的健康心跳统计窗口（秒）",
+			ValueType: "duration", DefaultValue: "86400", Min: strPtr("3600"), Max: strPtr("604800"), Step: strPtr("3600")},
+		{Group: "telemetry", Key: "trace_sink_buffer", Name: "Trace Sink 缓冲",
+			Description: "追踪采集缓冲队列容量（超过丢弃低优先级事件）",
+			ValueType: "int", DefaultValue: "8192", Min: strPtr("256"), Max: strPtr("524288"), Step: strPtr("256")},
+		{Group: "telemetry", Key: "geo_position_window", Name: "Geo 位置统计窗口",
+			Description: "Geo 地理位置统计的滑动窗口大小",
+			ValueType: "int", DefaultValue: "20", Min: strPtr("5"), Max: strPtr("100"), Step: strPtr("1")},
+		{Group: "telemetry", Key: "feature_flag_poll_interval", Name: "Feature Flag 轮询间隔",
+			Description: "内存内存缓存刷新的轮询周期（秒）",
+			ValueType: "duration", DefaultValue: "5", Min: strPtr("1"), Max: strPtr("300"), Step: strPtr("1")},
+
+		// ==================== sales（销售/客户） ====================
+		{Group: "sales", Key: "insight_limit", Name: "销售洞察条数",
+			Description: "sales insight 返回的最大建议条数",
+			ValueType: "int", DefaultValue: "3", Min: strPtr("1"), Max: strPtr("20"), Step: strPtr("1")},
+		{Group: "sales", Key: "identity_max_attempts", Name: "客户身份合并重试上限",
+			Description: "CustomerIdentity 身份合并的最大重试次数",
+			ValueType: "int", DefaultValue: "8", Min: strPtr("1"), Max: strPtr("50"), Step: strPtr("1")},
+
+		// ==================== misc（其他零散） ====================
+		{Group: "misc", Key: "visitor_token_ttl", Name: "访客 Token TTL",
+			Description: "未登录访客的身份 Token 有效期（秒）",
+			ValueType: "duration", DefaultValue: "604800", Min: strPtr("3600"), Max: strPtr("2592000"), Step: strPtr("3600")},
+		{Group: "misc", Key: "sso_cookie_ttl", Name: "SSO Cookie TTL",
+			Description: "SSO 单点登录 cookie 的有效期（秒）",
+			ValueType: "duration", DefaultValue: "300", Min: strPtr("60"), Max: strPtr("86400"), Step: strPtr("60")},
+		{Group: "misc", Key: "heartbeat_interval", Name: "平台心跳间隔",
+			Description: "向平台发送心跳的周期（秒）",
+			ValueType: "duration", DefaultValue: "180", Min: strPtr("30"), Max: strPtr("3600"), Step: strPtr("10")},
+		{Group: "misc", Key: "polling_lock_stale_threshold", Name: "轮询锁过期阈值",
+			Description: "Telegram 等渠道 polling lock 超过此时间未更新视为失效（秒）",
+			ValueType: "duration", DefaultValue: "60", Min: strPtr("10"), Max: strPtr("600"), Step: strPtr("5")},
+		{Group: "misc", Key: "domain_check_concurrency", Name: "域名检测并发",
+			Description: "域名可用性检查的并发 goroutine 数",
+			ValueType: "int", DefaultValue: "16", Min: strPtr("1"), Max: strPtr("128"), Step: strPtr("1")},
+		{Group: "misc", Key: "ab_exposure_buffer", Name: "AB 曝光缓冲",
+			Description: "AB 实验曝光事件的批量缓冲大小",
+			ValueType: "int", DefaultValue: "1024", Min: strPtr("64"), Max: strPtr("65536"), Step: strPtr("64")},
+		{Group: "misc", Key: "sms_max_retry", Name: "短信最大重试次数",
+			Description: "短信发送失败后的重试次数",
+			ValueType: "int", DefaultValue: "3", Min: strPtr("0"), Max: strPtr("10"), Step: strPtr("1")},
+		{Group: "misc", Key: "csv_export_max_rows", Name: "CSV 导出最大行数",
+			Description: "自定义报表 CSV 导出的单行上限（防止 OOM）",
+			ValueType: "int", DefaultValue: "30000", Min: strPtr("1000"), Max: strPtr("500000"), Step: strPtr("1000")},
+		{Group: "misc", Key: "backup_page_size", Name: "备份分页大小",
+			Description: "数据库备份导出的分页大小",
+			ValueType: "int", DefaultValue: "1000", Min: strPtr("100"), Max: strPtr("100000"), Step: strPtr("100")},
+		{Group: "misc", Key: "text_truncate_max_bytes", Name: "文本截断上限",
+			Description: "文本工具通用截断的最大字节数",
+			ValueType: "int", DefaultValue: "8192", Min: strPtr("512"), Max: strPtr("1048576"), Step: strPtr("256")},
+		{Group: "misc", Key: "preview_max_len", Name: "消息预览最大长度",
+			Description: "消息列表 preview 字段的最大字符长度",
+			ValueType: "int", DefaultValue: "500", Min: strPtr("50"), Max: strPtr("5000"), Step: strPtr("50")},
+		{Group: "misc", Key: "sop_scheduler_interval", Name: "SOP Scheduler 扫描间隔",
+			Description: "SOP 调度器扫描待触发任务的周期（秒）",
+			ValueType: "duration", DefaultValue: "60", Min: strPtr("5"), Max: strPtr("600"), Step: strPtr("5")},
+		{Group: "misc", Key: "sop_max_wait", Name: "SOP Timer 最大等待",
+			Description: "SOP 定时器的最大等待时间（超过视为异常）",
+			ValueType: "duration", DefaultValue: "86400", Min: strPtr("3600"), Max: strPtr("2592000"), Step: strPtr("3600")},
+	}
+}

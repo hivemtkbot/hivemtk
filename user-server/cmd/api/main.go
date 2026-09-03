@@ -124,6 +124,15 @@ func main() {
 	db.InitDB()
 	db.AutoMigrate()
 
+	// [ConfigParam] 动态阈值参数表 — AutoMigrate + Seed 默认 59 条参数
+	if gdb := db.GetDB(); gdb != nil {
+		if err := service.SeedConfigParams(context.Background(), gdb); err != nil {
+			logger.Errorf("[ConfigParam] seed failed: %v", err)
+		} else {
+			logger.Info("[ConfigParam] dynamic threshold params seeded (59 defaults)")
+		}
+	}
+
 	// [Storage] 启动时 seed 默认 local 存储配置（obs_config 表为空时自动写入，私有化零云依赖）
 	service.InitDefaultStorageIfEmpty(db.GetDB())
 

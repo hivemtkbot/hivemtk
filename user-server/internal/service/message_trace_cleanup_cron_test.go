@@ -8,6 +8,7 @@ import (
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/testutil"
+	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
 )
@@ -48,7 +49,7 @@ func setupTraceCleanupTestDB(t *testing.T) *gorm.DB {
 }
 
 func newSilentCleanupTask(database *gorm.DB) *MessageTraceCleanupTask {
-	task := NewMessageTraceCleanupTask(database)
+	task := NewMessageTraceCleanupTask(repository.NewMessageTraceCleanupRepo(database))
 	return task
 }
 

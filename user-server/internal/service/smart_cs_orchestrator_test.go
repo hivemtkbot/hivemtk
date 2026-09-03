@@ -19,7 +19,7 @@ func TestSmartCSOrchestrator_NilSafe(t *testing.T) {
 		t.Fatal("nil orchestrator 应返回错误")
 	}
 
-	o = NewSmartCSOrchestrator(nil, nil)
+	o = NewSmartCSOrchestrator(nil, nil, nil)
 	_, err = o.HandleIncoming(context.Background(), nil)
 	if err == nil {
 		t.Fatal("nil incoming 应返回错误")
@@ -47,7 +47,7 @@ func TestSmartCSOrchestrator_DefaultConfig(t *testing.T) {
 
 // TestSmartCSOrchestrator_ExtractConfidence 置信度提取
 func TestSmartCSOrchestrator_ExtractConfidence(t *testing.T) {
-	o := NewSmartCSOrchestrator(nil, nil)
+	o := NewSmartCSOrchestrator(nil, nil, nil)
 
 	if c := o.extractConfidence(context.Background(), nil); c != 0 {
 		t.Errorf("nil 响应置信度应为 0，实际 %.2f", c)
@@ -77,7 +77,7 @@ func TestSmartCSOrchestrator_ExtractConfidence(t *testing.T) {
 
 // TestSmartCSOrchestrator_IsUrgentOrComplaint 紧急投诉识别
 func TestSmartCSOrchestrator_IsUrgentOrComplaint(t *testing.T) {
-	o := NewSmartCSOrchestrator(nil, nil)
+	o := NewSmartCSOrchestrator(nil, nil, nil)
 
 	urgentCases := []string{
 		"我要投诉你们",
@@ -111,7 +111,7 @@ func TestSmartCSOrchestrator_IsUrgentOrComplaint(t *testing.T) {
 // 注意：HandleIncoming 完整流程需要 DB 支持（findOrCreateSession），
 // 此测试仅验证 engine==nil 的状态，不调用 HandleIncoming（避免无 DB panic）
 func TestSmartCSOrchestrator_EngineNil(t *testing.T) {
-	o := NewSmartCSOrchestrator(nil, nil)
+	o := NewSmartCSOrchestrator(nil, nil, nil)
 	if o.engine != nil {
 		t.Fatal("引擎应为 nil")
 	}
@@ -133,7 +133,7 @@ func TestSmartCSOrchestrator_ConfidenceThreshold(t *testing.T) {
 		EnableAutoReply:     false,
 		MaxAIConsecutive:    3,
 	}
-	o := NewSmartCSOrchestrator(nil, cfg)
+	o := NewSmartCSOrchestrator(nil, cfg, nil)
 	if o.confidenceThreshold != 0.8 {
 		t.Errorf("阈值应为 0.8，实际 %.2f", o.confidenceThreshold)
 	}
@@ -166,7 +166,7 @@ func TestSmartCSOrchestrator_SafeMessageID(t *testing.T) {
 
 // TestSmartCSOrchestrator_AgentTakeover_NoSession 座席接管不存在的会话
 func TestSmartCSOrchestrator_AgentTakeover_NoSession(t *testing.T) {
-	o := NewSmartCSOrchestrator(nil, nil)
+	o := NewSmartCSOrchestrator(nil, nil, nil)
 	err := o.AgentTakeover(context.Background(), "nonexistent_session_xyz", 1)
 	if err == nil {
 		t.Error("不存在的会话应返回错误")
@@ -178,7 +178,7 @@ func TestSmartCSOrchestrator_AgentTakeover_NoSession(t *testing.T) {
 
 // TestSmartCSOrchestrator_AgentReply_NoSession 座席回复不存在的会话
 func TestSmartCSOrchestrator_AgentReply_NoSession(t *testing.T) {
-	o := NewSmartCSOrchestrator(nil, nil)
+	o := NewSmartCSOrchestrator(nil, nil, nil)
 	err := o.AgentReply(context.Background(), "nonexistent_session_xyz", 1, "您好")
 	if err == nil {
 		t.Error("不存在的会话应返回错误")
@@ -187,7 +187,7 @@ func TestSmartCSOrchestrator_AgentReply_NoSession(t *testing.T) {
 
 // TestSmartCSOrchestrator_IsAgentOnline 座席在线检查（nil repo 安全）
 func TestSmartCSOrchestrator_IsAgentOnline_NilRepo(t *testing.T) {
-	o := NewSmartCSOrchestrator(nil, nil)
+	o := NewSmartCSOrchestrator(nil, nil, nil)
 	if o.isAgentOnline(context.Background(), 99999) {
 		t.Error("不存在的座席应不在线")
 	}
@@ -254,7 +254,7 @@ func setupOrchestratorFindOrCreateTestDB(t *testing.T) {
 func TestSmartCSOrchestrator_FindOrCreateSession_DerivesOneIDFromPlatformSender(t *testing.T) {
 	setupOrchestratorFindOrCreateTestDB(t)
 
-	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig())
+	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig(), nil)
 	ctx := context.Background()
 
 	in := &IncomingContext{
@@ -289,7 +289,7 @@ func TestSmartCSOrchestrator_FindOrCreateSession_DerivesOneIDFromPlatformSender(
 func TestSmartCSOrchestrator_FindOrCreateSession_GroupScoped(t *testing.T) {
 	setupOrchestratorFindOrCreateTestDB(t)
 
-	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig())
+	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig(), nil)
 	ctx := context.Background()
 
 	in1 := &IncomingContext{
@@ -343,7 +343,7 @@ func TestSmartCSOrchestrator_FindOrCreateSession_GroupScoped(t *testing.T) {
 func TestSmartCSOrchestrator_FindOrCreateSession_HonorsExplicitOneID(t *testing.T) {
 	setupOrchestratorFindOrCreateTestDB(t)
 
-	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig())
+	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig(), nil)
 	ctx := context.Background()
 
 	in := &IncomingContext{
@@ -369,7 +369,7 @@ func TestSmartCSOrchestrator_FindOrCreateSession_HonorsExplicitOneID(t *testing.
 func TestSmartCSOrchestrator_FindOrCreateSession_DerivedOneIDMergesSameUser(t *testing.T) {
 	setupOrchestratorFindOrCreateTestDB(t)
 
-	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig())
+	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig(), nil)
 	ctx := context.Background()
 
 	first, err := o.findOrCreateSession(ctx, &IncomingContext{

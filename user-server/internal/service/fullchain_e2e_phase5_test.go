@@ -178,7 +178,7 @@ func TestE2E_FullChain_SmartOrchestratorDelegatesToEngine(t *testing.T) {
 	engine := NewSalesEngine(nil, nil, nil, nil, nil, nil, nil, nil)
 	engine.SetFeedbackLearner(context.Background(), fl)
 
-	orchestrator := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig())
+	orchestrator := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig(), nil)
 
 	if orchestrator.engine == nil {
 		t.Fatal("orchestrator 应持有 engine 引用")

@@ -367,6 +367,8 @@ func Setup(r *gin.Engine, gormDB *gorm.DB) {
 
 		setupSystemUserRoutes(auth)
 
+		setupConfigParamRoutes(auth, gormDB)
+
 		setupRoleRoutes(auth)
 
 		setupPermissionRoutes(auth)

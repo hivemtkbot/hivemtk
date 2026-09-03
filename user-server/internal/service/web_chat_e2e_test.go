@@ -175,7 +175,7 @@ func setupWebChatE2E(t *testing.T) (*VisitorChatService, *SmartCSOrchestrator, *
 		fakeScript{},
 		fakeCustomerLookup{},
 	)
-	orch := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig())
+	orch := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig(), nil)
 	channelSvc := MustNewChatChannelService(database)
 	visitorSvc := NewVisitorChatService(context.Background(), database, channelSvc, orch, nil)
 	return visitorSvc, orch, rag, database

@@ -150,7 +150,7 @@ func TestVisitorChatService_ResolveCardChannel(t *testing.T) {
 		nil,
 		nil, nil, nil, nil, nil, nil,
 	)
-	orch := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig())
+	orch := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig(), nil)
 	channelSvc := MustNewChatChannelService(database)
 	visitorSvc := NewVisitorChatService(context.Background(), database, channelSvc, orch, nil)
 
@@ -212,7 +212,7 @@ func TestVisitorChatService_OpenSessionWithVisitorMeta(t *testing.T) {
 	db.SetTestDB(database)
 
 	engine := NewSalesEngine(database, nil, nil, nil, nil, nil, nil, nil)
-	orch := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig())
+	orch := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig(), nil)
 	channelSvc := MustNewChatChannelService(database)
 	visitorSvc := NewVisitorChatService(context.Background(), database, channelSvc, orch, nil)
 
