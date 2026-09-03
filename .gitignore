@@ -36,6 +36,13 @@ yarn-error.log*
 .claude/
 .trae/
 .sisyphus/
+.codebuddy/
+.codeartsdoer/
+.opencode/
+.arts/
+.freebuff/
+.planning/
+.playwright-cli/
 *.swp
 *.swo
 *~
@@ -43,6 +50,10 @@ yarn-error.log*
 # ---------- 操作系统 ----------
 .DS_Store
 Thumbs.db
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 
 # ---------- 构建产物 ----------
 # dist 目录内容忽略，但保留 .gitkeep 占位
@@ -97,6 +108,8 @@ temp/
 uploads/
 downloads/
 .data/
+.round
+.round.*
 
 # ---------- 数据库 / 持久化数据 ----------
 *.db
@@ -169,9 +182,6 @@ user-web/tests/e2e/audit/reach/
 user-web/tests/e2e/audit/summary.json
 # 临时运行日志（前端桥接运行输出，非源码）
 user-web/_bridge_run.txt
-
-# CodeBuddy IDE 数据（不纳入版本追踪）
-.codebuddy/
 
 # ---------- 内部/敏感文档：不对外公开，仅本地留存于仓库外 internal-docs/ ----------
 # 含内部需求/设计逻辑/审计结论/真实客户数据，禁止进入公开仓库。
