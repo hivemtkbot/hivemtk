@@ -184,3 +184,14 @@ user-server/docs/audit/
 internal-docs/
 .env.geo.local
 user-server/geo-run
+
+# ---------- 编译产物（62MB 已 commit 过，GitHub warning）----------
+mtk-serve
+*.exe
+
+# ---------- 模型数据文件（>1GB，不应进 git）----------
+*.gguf
+*.mlx
+*.safetensors
+*.bin
+*.pt
