@@ -545,3 +545,234 @@ chmod +x /usr/local/bin/mtk-healthcheck.sh
 - Cloudflare Tunnel：https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/
 - nginx WebSocket 反代：https://nginx.org/en/docs/http/websocket.html
 - 项目 frpc 模板：`hivemtk-platform/scripts/release.sh` → `frp/frpc.toml`（位于平台端仓库，若已 clone 可复用；若不可达，按本指南 §3.3 模板自行编写）
+
+---
+
+## 十三、HiveMtk 生产实际部署架构（混合模式 + 同机 frps）
+
+> **2026-09-03 踩坑记录**：之前按"独立 Chat 整站穿透"理解架构，错误地把 `hiveuser.xapptool.cn` 整站都走 frp，实际上**前端静态包在服务器 Nginx 上**，只有 API 路径才走 frp。此节记录正确架构和必守铁律，避免再犯。
+
+### 13.1 架构图
+
+```
+                              云端服务器 (118.25.236.101)
+                              ┌─────────────────────────────┐
+                              │                             │
+  ┌────────────────────┐      │   ┌─────────────────┐       │
+  │  用户浏览器         │──HTTPS──>│  Nginx (宝塔)    │       │
+  └────────────────────┘      │   │  443 ssl        │       │
+                              │   └────────┬────────┘       │
+                              │            │                │
+                              │   ┌────────┴────────┐       │
+                              │   │ 路径分流         │       │
+                              │   ├─────────────────┤       │
+                              │   │ /               │       │
+                              │   │ /assets/*       │       │
+                              │   │ /favicon.svg    │       │
+                              │   │                 │       │
+                              │   │  → root dist/   │       │
+                              │   │  (Nginx 直接读)  │       │
+                              │   └─────────────────┘       │
+                              │            │                │
+                              │   ┌────────┴────────┐       │
+                              │   │ /api/*           │       │
+                              │   │ /chat/embed      │       │
+                              │   │                  │       │
+                              │   │  proxy_pass      │       │
+                              │   │  127.0.0.1:8280  │       │
+                              │   │  Host 改写       │       │
+                              │   │  ↓               │       │
+                              │   │  frps vhostHTTP  │       │
+                              │   │  (同机 frps)     │       │
+                              │   └────────┬─────────┘       │
+                              │            │                │
+                              │            │ frp 隧道       │
+                              │            │ (长连接)        │
+                              └────────────┼─────────────────┘
+                                           │
+                                           ▼
+                        ┌──────────────────────────────┐
+                        │   本地开发机                  │
+                        │   ┌────────────────────────┐ │
+                        │   │  frpc → 127.0.0.1:7000  │ │
+                        │   └────────┬───────────────┘ │
+                        │            │                  │
+                        │            ▼                  │
+                        │   ┌────────────────────────┐ │
+                        │   │ user-server :8204      │ │
+                        │   │ (Go, 含 LLM 推理)       │ │
+                        │   └────────────────────────┘ │
+                        │            │                  │
+                        │            ▼                  │
+                        │   ┌──────────┐  ┌─────────┐  │
+                        │   │ PostgreSQL│  │ Redis   │  │
+                        │   └──────────┘  └─────────┘  │
+                        └──────────────────────────────┘
+```
+
+### 13.2 域名 / frps customDomain / 本地端口 对照表
+
+| 公网域名 | frpc customDomain | frps vhost 匹配后转到 | 本地服务 |
+|----------|-------------------|-----------------------|----------|
+| `hiveuserapi.xapptool.cn` | `hiveuserapi.xapptool.cn` | 本地 :8204 | Go user-server |
+| `hiveuser.xapptool.cn/api/*` | (无独立域名, **Nginx 里 Host 改写**到下一行) | 同 `hiveuserapi.xapptool.cn` | Go user-server |
+| `hiveuser.xapptool.cn/chat/embed` | `hiveuser.xapptool.cn` | 本地 :8204 | Go user-server (embed 路由) |
+
+### 13.3 Nginx 关键配置（避免踩坑的完整模板）
+
+```nginx
+# /www/server/panel/vhost/nginx/hiveuser.xapptool.cn.conf
+server {
+    listen 80;
+    listen 443 ssl;
+    server_name hiveuser.xapptool.cn;
+    root /www/wwwroot/hivemtk/user-web/dist/;
+
+    # === 铁律 1: /api/ 必须 Host 改写 ===
+    # 透传 $host (=hiveuser.xapptool.cn) → frps 按 Host 匹配不到 customDomain → 404
+    # 必须改成 frpc 已注册的 customDomain
+    location /api/ {
+        proxy_pass http://127.0.0.1:8280;   # 同机 frps vhostHTTPPort (不是 bindPort 7000!)
+        proxy_set_header Host              hiveuserapi.xapptool.cn;  # ← 关键改写
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # WebSocket + SSE
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+    }
+
+    # === (可选) /chat/embed — 穿透 frp 实现本地热更新 ===
+    # 不想热更新就删掉这段, 让下面 location / 走 dist/ 静态包
+    location /chat/embed {
+        proxy_pass http://127.0.0.1:8280;
+        proxy_set_header Host              hiveuser.xapptool.cn;   # ← 改写 frpc 已注册的 domain
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+    }
+
+    # === SPA 兜底 + 静态资源 ===
+    # 除了 /api/* /chat/embed 之外, 全部由 Nginx 直接读 dist/ (不走 frp!)
+    location / {
+        expires -1;                        # index.html 不缓存 (防旧 chunk hash)
+        try_files $uri $uri/ /index.html;
+    }
+
+    # ... 静态资源缓存规则略 ...
+}
+```
+
+### 13.4 frpc 配置（本地开发机）
+
+```toml
+serverAddr = "118.25.236.101"
+serverPort = 7000
+auth.token = "7sK9pR2tG5bN8dQ0zL4vX1cJ6mY3aU7fH"
+transport.tls.enable = true
+
+# 主 API 隧道 (hiveuserapi + hiveuser.xapptool.cn/api/* 都走这里)
+[[proxies]]
+name = "mtk-user-chat"
+type = "http"
+localIP = "127.0.0.1"
+localPort = 8204
+customDomains = ["hiveuserapi.xapptool.cn"]
+transport.useCompression = true
+
+# /chat/embed 隧道 (可选, 不需要热更新可删)
+[[proxies]]
+name = "mtk-user-web-embed"
+type = "http"
+localIP = "127.0.0.1"
+localPort = 8204
+customDomains = ["hiveuser.xapptool.cn"]
+transport.useCompression = true
+```
+
+### 13.5 frps 配置（云端, 同机 Nginx）
+
+```toml
+# /www/wwwroot/frp/frps.toml
+bindPort = 7000                        # 控制连接端口 (frpc 连这个)
+auth.token = "7sK9pR2tG5bN8dQ0zL4vX1cJ6mY3aU7fH"
+vhostHTTPPort = 8280                   # ← 关键! Nginx 反代这个端口
+transport.tcpMux = true
+transport.maxPoolCount = 10
+webServer.addr = "0.0.0.0"
+webServer.port = 7500
+webServer.user = "admin"
+webServer.password = "$XiaoWei123"
+# 注意: Nginx 占了 80/443, 所以 frps 不直接监听这些端口
+# frps 只提供 8280 vhost, 由 Nginx 转发过来
+```
+
+### 13.6 排错 Checklist（按顺序执行）
+
+```
+场景: https://hiveuser.xapptool.cn/api/health 返回 404 / 502 / 连接超时
+
+[Step 1] 本地 Go 服务是否在跑?
+         curl -sS http://127.0.0.1:8204/health
+         → 期望: {"code":0,"status":"ok"}
+         → 挂了? 启动: GIN_MODE=debug MASTER_KEY=... ./mtk-serve
+
+[Step 2] frpc 是否在跑 + 是否已注册 customDomain?
+         pgrep -af frpc
+         cat /tmp/frpc.log | tail -20
+         → 期望: "start proxy success" 且无 "already exists" 持续刷屏
+         → 看 frps 端: curl -u admin:$PASS http://frps:7500/api/v1/proxy/http
+
+[Step 3] frps vhost 端口是多少?
+         ssh root@118.25.236.101 'ss -tlnp | grep frps'
+         → 期望: LISTEN *:8280 (不是 7000!)
+         → 如果 frps 没监听 vhostHTTPPort: 检查 frps.toml + systemctl restart frps
+
+[Step 4] frps 能否直接匹配 Host? (绕过 Nginx 验证)
+         curl -sS -H "Host: hiveuserapi.xapptool.cn" http://127.0.0.1:8280/api/health
+         → 本地 frps 上执行 (或 ssh 进服务器后测)
+         → 返回 200 → frp 链路 OK, 问题在 Nginx 层
+         → 返回 404 → frpc customDomain 没注册上 (Step 2 检查)
+         → 返回 502 → frpc customDomain 存在但 local service 挂了 (Step 1 检查)
+
+[Step 5] Nginx Host header 是否改写了? (最常见的坑!)
+         ssh root@118.25.236.101 'cat /www/server/panel/vhost/nginx/hiveuser.xapptool.cn.conf'
+         → grep "proxy_set_header Host"
+         → 期望: proxy_set_header Host  hiveuserapi.xapptool.cn;
+         → 如果是 $host 或 hiveuser.xapptool.cn → 改过来!
+         → nginx -t && nginx -s reload
+
+[Step 6] Nginx proxy_pass 端口对不对?
+         → 同机 frps 用 127.0.0.1:8280 (内网回环)
+         → 跨机 frps 用 IP:8280 (公网 IP)
+         → 错写成 7000? 那是 frp 控制端口, 不是 vhost HTTP 端口!
+
+[Step 7] 浏览器能通但 API 404 → 前端 API baseURL 写错域名
+         curl -sS https://hiveuser.xapptool.cn/ | grep -o 'api.*base.*url'
+         检查 Vite src/core/constants.js DEFAULT_USER_SERVER
+```
+
+### 13.7 本次踩坑记录
+
+| 时间 | 错误行为 | 根因 | 正确做法 |
+|------|---------|------|---------|
+| 2026-09-03 10:00 | 把 `hiveuser.xapptool.cn` 整站反代 frps | 以为前端也走 frp 热更新 | 前端静态包托管在服务器, 只有 `/api/` 走 frp |
+| 2026-09-03 10:00 | frpc.toml 加了 `mtk-user-web` proxy | 对应上条错误理解 | 删除, 前端 Nginx 直接读 dist/ |
+| 2026-09-03 10:00 | Vite 加 `allowedHosts: true` 为了 frp 反代 | 前端不走 frp, 这条不需要 | 回滚 |
+| 2026-09-03 10:05 | Nginx `location /api/` 透传 `$host` | 忘了 frps 按 Host 匹配 customDomain | 显式 `proxy_set_header Host hiveuserapi.xapptool.cn` |
+| 2026-09-03 10:15 | frpc 被杀后残留进程冲突 | 用 kill -9 PID 但不知道 root 用户也在跑 | 先看 `ps aux \| grep frpc` 找出所有用户的进程 |
+| 2026-09-03 10:15 | frpc.toml 文件 `operation not permitted` | macOS 扩展属性 `com.apple.quarantine` | `xattr -cr frpc.toml` |
+| 2026-09-03 10:20 | Go 服务 `MASTER_KEY missing` 退出 | 没 export GIN_MODE=debug + MASTER_KEY | `GIN_MODE=debug MASTER_KEY=<32字节+> ./mtk-serve` |
+| 2026-09-03 10:20 | 以为 frps 监听 80/443 | Nginx 占了 80/443, frps 监听 `vhostHTTPPort=8280` | Nginx `proxy_pass http://127.0.0.1:8280` |
+
+### 13.8 一句话口诀
+
+> **前端在服务器, API 走 frp; Host 必改写, 端口是 8280。**
