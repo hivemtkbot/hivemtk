@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/pkg/utils/logger"
 	textutil "hivemtk-user/internal/pkg/utils/text"
 	"sync"
@@ -164,7 +165,15 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 		return d.dispatchFanOut(ctx, req, activeRoute, candidates)
 	}
 
-	traceID := logger.TraceIDFromContext(ctx)
+	// 优先从 tracing.Carrier 获取稳定 tr-xxx（入口注入），
+	// fallback 到 logger context key（兼容旧路径）。
+	traceID := ""
+	if c := tracing.CarrierFromContext(ctx); c != nil {
+		traceID = c.TraceID
+	}
+	if traceID == "" {
+		traceID = logger.TraceIDFromContext(ctx)
+	}
 
 	var lastErr error
 	attempted := 0
