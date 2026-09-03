@@ -199,8 +199,10 @@ func (e *SalesEngine) runAgentLoop(
 	writeLoopSpan := func(output any, err error) {
 		sr := tooluse.StopReasonOf(err)
 		innerSR := stopReason
+		// R57: 不再显式 .TraceID(loopTraceID) — loopTraceID 是 session_id，
+		// 会覆盖 tracing.Start(ctx, ...) 从 Carrier 继承的稳定 tr-xxx。
+		// 让 traceID 从 ctx.Carrier 自然继承即可。
 		sp := tracing.Start(ctx, tracing.NodeAgentTurn).
-			TraceID(loopTraceID).
 			Kind("agent_turn").
 			Agent(agentIDStr)
 		switch {
