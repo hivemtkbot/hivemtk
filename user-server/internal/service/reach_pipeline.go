@@ -1613,7 +1613,10 @@ func (s *ReachPipelineService) ListJobsByExperiment(ctx context.Context, experim
 // transactional 豁免与 PerUser 对齐（审核修正 1）；键日期格式复用既有 2006-01-02 CST（修正 2）；
 // Redis 不可用降级进程内 map（带日期分键，修正 4），拒绝带独立 WARN reason（修正 5）。
 func (s *ReachPipelineService) checkGlobalPerUserDaily(ctx context.Context, customerID string, transactional bool) bool {
-	limit := s.globalLimitFn(ctx)
+	limit := 3 // 默认值；globalLimitFn 未注入（直构实例）时同样适用
+	if s.globalLimitFn != nil {
+		limit = s.globalLimitFn(ctx)
+	}
 	if limit <= 0 || customerID == "" || transactional {
 		return true
 	}
