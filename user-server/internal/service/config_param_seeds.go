@@ -31,6 +31,13 @@ func strPtr(s string) *string { return &s }
 //  3. Min/Max/Step 基于参数语义的合理范围（用于 UI slider/number input）
 func DefaultParamDefs() []ParamDef {
 	return []ParamDef{
+		// ==================== permission（角色权限矩阵，D13） ====================
+		// admin 恒 "*" 不进配置（防自锁）；解析端 strip 非 admin 角色的 "*" 并告警。
+		// role 不在表中 = 运营显式删除 → fail-closed 拒绝（不回退内置）。
+		{Group: "permission", Key: "role_permissions_json", Name: "角色权限矩阵",
+			Description: "JSON: {角色码: [权限项]}；权限项支持 module.* 通配；admin 恒全权不走此配置",
+			ValueType: "string", DefaultValue: `{"customer_service":["cards.*","shortlinks.*","clues.*","autoreply.*"],"staff":["cards.view","shortlinks.view","clues.view"]}`, Category: "权限"},
+
 		// ==================== bridge（消息通道/HTTP长轮询/SSE） ====================
 		{Group: "bridge", Key: "polling_max_timeout", Name: "轮询最大超时",
 			Description: "客户端 HTTP 长轮询允许的最长等待时间（秒），超时由服务端主动返回",

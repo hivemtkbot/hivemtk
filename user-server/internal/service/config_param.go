@@ -67,6 +67,12 @@ func SetGlobal(svc *ConfigParamService) {
 	})
 }
 
+// SetGlobalForTest 测试专用：强制替换全局实例（绕过 globalOnce）。
+// 生产代码禁止调用——生产一律走 SetGlobal/NewConfigParamService+Seed。
+func SetGlobalForTest(svc *ConfigParamService) {
+	globalConfigParam = svc
+}
+
 // GlobalConfigParam 获取全局单例（nil-safe：返回一个无 DB 的 fallback stub，
 // 所有 Get* 方法走 fallback 默认值而非 panic）
 func GlobalConfigParam() *ConfigParamService {
