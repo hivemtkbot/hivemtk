@@ -116,7 +116,7 @@ func NewHybridSearcher(db *gorm.DB, embeddingClient llm.EmbeddingServiceInterfac
 	}
 	if db != nil {
 		h.vectorSearcher = NewVectorRetriever(db, embeddingClient, cfg.EfSearch)
-		h.keywordSearcher = NewBM25Retriever(db)
+		h.keywordSearcher = NewLexicalRetriever(db)
 	}
 	return h
 }
@@ -214,7 +214,9 @@ func (h *HybridSearcher) SearchIndex(ctx context.Context, productID string, quer
 	}
 	bm25Ms := time.Since(keywordStart).Milliseconds()
 
-	fused := h.reciprocalRankFusion(vecResults, kwResults)
+	// D17: 查询自适应权重——标识符查询 keyword 主导，其余用 base 档
+	profile := ResolveQueryWeightProfile(query, h.vectorWeight, h.keywordWeight)
+	fused := h.reciprocalRankFusion(vecResults, kwResults, profile.VectorWeight, profile.KeywordWeight)
 
 	rerankCount := 0
 	if h.config.EnableRerank && h.reranker != nil && len(fused) > topK {
@@ -431,7 +433,7 @@ func (h *HybridSearcher) keywordSearchPGFallback(ctx context.Context, productID 
 // reciprocalRankFusion 倒数排名融合（RRF）
 // score = sum(weight / (k + rank))
 // RRF 公式来源：https://plg.uwaterloo.ca/~gvcormac/cormacksal.j.pdf
-func (h *HybridSearcher) reciprocalRankFusion(vecResults, kwResults []Chunk) []Chunk {
+func (h *HybridSearcher) reciprocalRankFusion(vecResults, kwResults []Chunk, vecW, kwW float64) []Chunk {
 	k := h.config.RRFK
 	if k <= 0 {
 		k = 60
@@ -444,14 +446,14 @@ func (h *HybridSearcher) reciprocalRankFusion(vecResults, kwResults []Chunk) []C
 	// 原：c.DocumentID + "_" + c.ID → 跨段碰撞（如 doc="a_b" id="c" 与 doc="a" id="b_c" 撞同 key）
 	for rank, c := range vecResults {
 		key := makeRRFKey(c.DocumentID, c.ID)
-		scores[key] += h.vectorWeight / float64(k+rank+1)
+		scores[key] += vecW / float64(k+rank+1)
 		chunkMap[key] = c
 	}
 
 	// 关键词结果排名
 	for rank, c := range kwResults {
 		key := makeRRFKey(c.DocumentID, c.ID)
-		scores[key] += h.keywordWeight / float64(k+rank+1)
+		scores[key] += kwW / float64(k+rank+1)
 		if _, exists := chunkMap[key]; !exists {
 			chunkMap[key] = c
 		}
