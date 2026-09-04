@@ -90,7 +90,7 @@ func TestFallbackNilDB(t *testing.T) {
 
 func TestDefaultParamDefsCount(t *testing.T) {
 	defs := DefaultParamDefs()
-	if len(defs) != 109 { t.Fatalf("want 109 defs, got %d", len(defs)) }
+	if len(defs) != 110 { t.Fatalf("want 110 defs, got %d", len(defs)) }
 	for i, d := range defs {
 		if d.Group == "" || d.Key == "" || d.DefaultValue == "" {
 			t.Errorf("def[%d] bad: group=%q key=%q default=%q", i, d.Group, d.Key, d.DefaultValue)
