@@ -16,6 +16,8 @@ type GeoAlertRepository interface {
 	List(ctx context.Context, alertType, level string, page, limit int) ([]*model.GeoAlert, int64, error)
 	MarkNotified(ctx context.Context, id uint) error
 	DeleteBefore(ctx context.Context, before time.Time) error
+	CountUnread(ctx context.Context) (int64, error)
+	Delete(ctx context.Context, id uint) error
 }
 
 type geoAlertRepo struct {
@@ -24,6 +26,11 @@ type geoAlertRepo struct {
 
 func NewGeoAlertRepository() GeoAlertRepository {
 	return &geoAlertRepo{db: _db.GetDB()}
+}
+
+// NewGeoAlertRepositoryWithDB 显式注入 gormDB（路由装配用，测试可替换）
+func NewGeoAlertRepositoryWithDB(db *gorm.DB) GeoAlertRepository {
+	return &geoAlertRepo{db: db}
 }
 
 func (r *geoAlertRepo) Create(ctx context.Context, alert *model.GeoAlert) error {
@@ -63,4 +70,25 @@ func (r *geoAlertRepo) MarkNotified(ctx context.Context, id uint) error {
 
 func (r *geoAlertRepo) DeleteBefore(ctx context.Context, before time.Time) error {
 	return r.db.WithContext(ctx).Where("created_at < ?", before).Delete(&model.GeoAlert{}).Error
+}
+
+// CountUnread 未确认（未通知）告警数，供前端角标
+func (r *geoAlertRepo) CountUnread(ctx context.Context) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Model(&model.GeoAlert{}).
+		Where("notified = ?", false).
+		Count(&n).Error
+	return n, err
+}
+
+// Delete 单条软删
+func (r *geoAlertRepo) Delete(ctx context.Context, id uint) error {
+	res := r.db.WithContext(ctx).Delete(&model.GeoAlert{}, id)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }

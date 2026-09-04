@@ -94,7 +94,7 @@ const credFields = (source) => ({
 const loadConnectors = async () => {
   try {
     const res = await http.get('/api/knowledge/connectors')
-    connectors.value = res?.data?.list || []
+    connectors.value = res?.list || res?.data?.list || []
     // R46 修复: 密钥字段不回填脱敏值（此前把 ****xxxx 回填表单，保存时会把掩码存回毁掉真凭据）
     // 非密钥字段正常回显；密钥字段留空 + placeholder 提示"已配置(输入以更换)"
     for (const c of connectors.value) {
@@ -122,7 +122,7 @@ const isMasked = (source, key) => !!maskedFields.value[`${source}.${key}`]
 const loadKBs = async () => {
   try {
     const res = await http.get('/api/knowledge-bases')
-    kbList.value = res?.data?.list || res?.data || []
+    kbList.value = res?.list || res?.data?.list || res?.data || []
   } catch (e) { console.error('load kbs failed', e) }
 }
 

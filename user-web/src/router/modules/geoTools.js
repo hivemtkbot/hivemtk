@@ -82,5 +82,11 @@ export default [
     name: 'GeoCompetitors',
     component: () => import('@/views/geo/CompetitorManage.vue'),
     meta: { title: '竞品管理', group: 'analytics', icon: 'Users', requiresAuth: true }
+  },
+  {
+    path: '/geo-tools/alerts',
+    name: 'GeoAlertCenter',
+    component: () => import('@/views/geo/AlertCenter.vue'),
+    meta: { title: '告警中心', group: 'analytics', icon: 'Bell', requiresAuth: true }
   }
 ]

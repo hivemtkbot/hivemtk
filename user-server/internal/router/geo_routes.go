@@ -135,6 +135,10 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	competitorSvc := geoservice.NewGeoCompetitorService(competitorRepo)
 	competitorCtrl := geoctrl.NewCompetitorController(competitorSvc)
 
+	// 告警中心（消费 scheduler 写入的 geo_alerts）
+	alertSvc := geoservice.NewAlertService(georepo.NewGeoAlertRepositoryWithDB(gormDB))
+	alertCtrl := geoctrl.NewAlertController(alertSvc)
+
 	// 注册路由（统一挂在 /geo 下）
 	geo := auth.Group("/geo")
 
@@ -177,6 +181,12 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	geo.POST("/competitors", competitorCtrl.Create)
 	geo.PUT("/competitors/:id", competitorCtrl.Update)
 	geo.DELETE("/competitors/:id", competitorCtrl.Delete)
+
+	// 告警中心（负面监控/异常检测命中消费闭环）
+	geo.GET("/alerts", alertCtrl.List)
+	geo.GET("/alerts/unread-count", alertCtrl.UnreadCount)
+	geo.POST("/alerts/:id/ack", alertCtrl.MarkNotified)
+	geo.DELETE("/alerts/:id", alertCtrl.Delete)
 
 	// 配置路由（读取：所有登录用户）
 	geo.GET("/config", configCtrl.GetConfig)
