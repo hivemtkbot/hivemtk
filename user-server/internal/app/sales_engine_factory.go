@@ -69,6 +69,11 @@ func BuildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 	// D19: Conformal 在线重校准后台任务（每 60s Recalibrate）
 	confidenceAgg.StartConformalBackground(context.Background())
 
+	// D11: vote 策略开关接线（KV fanout_vote_enabled，默认关）
+	llm.SetFanoutVoteEnabledGetter(func() bool {
+		return service.GlobalConfigParam().GetBool(context.Background(), "agent_llm", "fanout_vote_enabled", false)
+	})
+
 	humanizeSvc := service.GetHumanizeEvalService()
 	if humanizeSvc == nil {
 		humanizeSvc = service.InitHumanizeEvalService(gormDB, dispatcher)

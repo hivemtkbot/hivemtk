@@ -169,6 +169,15 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 	candidates = append(candidates, activeRoute.Fallbacks...)
 
 	// P1-8: Fan-out 并发模式（默认关闭，配置开启）
+	// D11 (A'): vote 策略 KV 开关——仅 high_quality 场景且运营显式开启（默认关，
+	// 成本=N provider 倍数）；请求自带 FanOut 优先于配置。
+	if (req.FanOut == nil || !req.FanOut.Enable) && req.Scenario == ScenarioHighQuality {
+		if fanoutVoteEnabled() {
+			if len(candidates) >= 2 {
+				req.FanOut = &FanOutConfig{Enable: true, Strategy: "vote", Timeout: 8 * time.Second}
+			}
+		}
+	}
 	if req.FanOut != nil && req.FanOut.Enable && len(candidates) >= 2 {
 		return d.dispatchFanOut(ctx, req, activeRoute, candidates)
 	}
@@ -510,5 +519,52 @@ func (d *Dispatcher) dispatchFanOut(ctx context.Context, req DispatchRequest, ro
 		return nil, lastErr
 	}
 
+	// D11 (A'): vote 策略——收集全部候选（≤maxConcurrent 并发已由上游限制），
+	// MultiModelVote 一致性表决返回最一致答案；分歧率打点供观测。
+	if strategy == "vote" {
+		results := make([]*DispatchResult, 0, maxConcurrent)
+		var lastErr error
+		for i := 0; i < maxConcurrent; i++ {
+			select {
+			case res := <-ch:
+				if res.err == nil && res.r != nil {
+					results = append(results, res.r)
+				} else if res.err != nil {
+					lastErr = res.err
+				}
+			case <-fanCtx.Done():
+				return nil, fmt.Errorf("fan-out timeout: %w", fanCtx.Err())
+			}
+		}
+		if len(results) == 0 {
+			return nil, lastErr
+		}
+		winner := d.MultiModelVote(results)
+		agreement := float64(1)
+		if len(results) > 1 {
+			agreement = float64(1) / float64(len(results)) // 占位：MultiModelVote 内部有 Jaccard 一致率，外部用倒数观测分歧
+		}
+		logger.Infof("[LLM] fan-out vote decided: providers=%d agreement~%.2f winner_provider=%s",
+			len(results), agreement, results[0].Provider)
+		for _, r := range results {
+			if r.Content == winner {
+				return r, nil
+			}
+		}
+		return results[0], nil
+	}
+
 	return nil, fmt.Errorf("fan-out strategy %q not implemented", strategy)
+}
+
+// fanoutVoteEnabled D11: vote 策略开关（默认关）——装配层经 SetFanoutVoteEnabledGetter 注入 DB 驱动读取
+var fanoutVoteEnabledGetter = func() bool { return false }
+
+func fanoutVoteEnabled() bool { return fanoutVoteEnabledGetter() }
+
+// SetFanoutVoteEnabledGetter 装配层注入（config_param 就绪后调用）
+func SetFanoutVoteEnabledGetter(fn func() bool) {
+	if fn != nil {
+		fanoutVoteEnabledGetter = fn
+	}
 }
