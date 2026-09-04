@@ -115,6 +115,11 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	probeSvc := geoservice.NewProbeService(probes, probeRepo)
 	probeCtrl := geoctrl.NewProbeController(probeSvc)
 
+	// 可见性趋势环比 + Prompt 扇出研究（复用 probeSvc 供扇出探针验证）
+	visibilitySvc := geoservice.NewVisibilityService(georepo.NewGeoDailyStatRepositoryWithDB(gormDB))
+	fanoutSvc := geoservice.NewPromptFanoutService(llmAdapter, probeSvc)
+	visibilityCtrl := geoctrl.NewVisibilityController(visibilitySvc, fanoutSvc)
+
 	// 定时任务管理（互斥/历史/调度配置统一由 JobManager 处理）
 	jobCtrl := geoctrl.NewJobController(geoservice.GetGeoJobManager())
 
@@ -187,6 +192,10 @@ func SetupGeoRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	geo.GET("/alerts/unread-count", alertCtrl.UnreadCount)
 	geo.POST("/alerts/:id/ack", alertCtrl.MarkNotified)
 	geo.DELETE("/alerts/:id", alertCtrl.Delete)
+
+	// 可见性趋势环比 + Prompt 扇出研究
+	geo.GET("/visibility/trend", visibilityCtrl.Trend)
+	geo.POST("/prompt/fanout", visibilityCtrl.Fanout)
 
 	// 配置路由（读取：所有登录用户）
 	geo.GET("/config", configCtrl.GetConfig)

@@ -20,6 +20,7 @@ type GeoDailyStat struct {
 	CompetitorMentionedCount int       `gorm:"column:competitor_mentioned_count" json:"competitor_mentioned_count"`
 	CitationCount            int       `gorm:"column:citation_count" json:"citation_count"`
 	NegativeCount            int       `gorm:"column:negative_count" json:"negative_count"`
+	ProbeCount               int       `gorm:"column:probe_count;default:0" json:"probe_count"` // 当日该组探针总次数（可见率分母）
 	CreatedAt                time.Time      `json:"created_at"`
 	UpdatedAt                time.Time      `json:"updated_at"`
 	DeletedAt                gorm.DeletedAt `gorm:"index" json:"-"`

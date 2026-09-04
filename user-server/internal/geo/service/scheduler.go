@@ -134,6 +134,7 @@ func aggregateDailyStats(ctx context.Context, probeRepo repository.GeoProbeRunRe
 		if r.Sentiment == "negative" {
 			agg[k].NegativeCount++
 		}
+		agg[k].ProbeCount++
 		// citations 计数
 		var cits []map[string]interface{}
 		if err := json.Unmarshal(r.Citations, &cits); err == nil {

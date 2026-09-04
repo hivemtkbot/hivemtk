@@ -40,6 +40,7 @@ func (r *geoDailyStatRepo) Upsert(ctx context.Context, stat *model.GeoDailyStat)
 			CompetitorMentionedCount: stat.CompetitorMentionedCount,
 			CitationCount:            stat.CitationCount,
 			NegativeCount:            stat.NegativeCount,
+			ProbeCount:               stat.ProbeCount,
 		}).
 		FirstOrCreate(stat).Error
 }
