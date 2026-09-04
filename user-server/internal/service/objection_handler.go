@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"hash/fnv"
 	"log/slog"
 	"math/rand"
@@ -9,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/repository"
@@ -21,13 +24,30 @@ type ScriptLibraryRepo interface {
 }
 
 // ObjectionHandlerService 异议处理服务
+// objectionDispatcher 分类兜底 LLM 的窄接口（审核修正③：便于 mock，解耦 llm.Dispatcher 具体类型）
+type objectionDispatcher interface {
+	Dispatch(ctx context.Context, req llm.DispatchRequest) (*llm.DispatchResult, error)
+}
+
 type ObjectionHandlerService struct {
 	scriptRepo ScriptLibraryRepo
+	// D10: LLM 兜底分类器；nil 时行为 = 纯规则（API 保持零依赖可用）
+	dispatcher objectionDispatcher
+}
+
+// SetDispatcher 注入 LLM 兜底（路由装配点调用；nil 不影响既有行为）
+func (s *ObjectionHandlerService) SetDispatcher(d objectionDispatcher) {
+	s.dispatcher = d
 }
 
 // NewObjectionHandlerService 创建服务
+// D10: 直接接入全局 dispatcher（审核修正①——装配点零改动；全局未初始化时兜底自动关闭）
 func NewObjectionHandlerService() *ObjectionHandlerService {
-	return &ObjectionHandlerService{scriptRepo: repository.NewScriptLibraryRepository(repository.GetDB())}
+	s := &ObjectionHandlerService{scriptRepo: repository.NewScriptLibraryRepository(repository.GetDB())}
+	if d := llm.GetGlobalDispatcher(); d != nil {
+		s.dispatcher = d
+	}
+	return s
 }
 
 // ObjectionCategory 异议类别
@@ -162,16 +182,43 @@ type HandleResponse struct {
 	Suggestion   string              `json:"suggestion"`
 	Acknowledge  string              `json:"acknowledge,omitempty"`
 	Clarify      string              `json:"clarify_question,omitempty"`
+	// D10: LLM 兜底补充字段。IsGenuine 用 *bool（nil=未评估，false=拒绝伪装）；
+	// LLMCategory 保留 LLM 原始分类（is_genuine=false 归 Other 后供运营分析）。
+	IsGenuine   *bool             `json:"is_genuine,omitempty"`
+	LLMCategory ObjectionCategory `json:"llm_category,omitempty"`
+	Source      string            `json:"source,omitempty"` // rule / llm
 }
 
 // Handle 处理异议
 func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest) (*HandleResponse, error) {
 	category, name, confidence := s.classifyWithConfidence(ctx, req.Text)
+	// D10: 单词命中（conf=0.70）且注入了 dispatcher → LLM 兜底重判
+	//（多词命中 0.90 保持首中即返——审核修正⑤：不改规则表有序优先级语义）
+	var isGenuine *bool
+	var llmCategory ObjectionCategory
+	source := "rule"
+	if s.dispatcher != nil && confidence == confidenceSingleHit {
+		if cat2, conf2, genuine, ok := s.classifyByLLM(ctx, req.Text); ok {
+			isGenuine = &genuine
+			llmCategory = cat2
+			if genuine {
+				category, name, confidence = cat2, s.categoryName(cat2), conf2
+				source = "llm"
+			} else {
+				// 拒绝伪装 → 归 Other 低置信（原 category 保留在 LLMCategory）
+				category, name, confidence = ObjectionOther, "其他异议", confidenceFallback
+				source = "llm"
+			}
+		}
+	}
 	resp := &HandleResponse{
 		Category:     category,
 		CategoryName: name,
 		Confidence:   confidence,
 		Templates:    make([]ObjectionTemplate, 0),
+		IsGenuine:    isGenuine,
+		LLMCategory:  llmCategory,
+		Source:       source,
 	}
 
 	if req.Category == "" {
@@ -489,4 +536,68 @@ func pickAcknowledge(cat ObjectionCategory, seedID uint, text string) string {
 	}
 	idx := int(rand.New(rand.NewSource(seed)).Int63()) % len(tpls)
 	return tpls[idx]
+}
+
+// categoryName 类别中文名（LLM 兜底回填用）
+func (s *ObjectionHandlerService) categoryName(cat ObjectionCategory) string {
+	for _, def := range objectionRules {
+		if def.Category == cat {
+			return def.Name
+		}
+	}
+	return "其他异议"
+}
+
+// classifyByLLM D10 兜底分类：低置信关键词命中后用低成本 LLM 复判真伪与类别。
+// 复用 ScenarioIntentRecognize（同分类任务同成本档——审核修正③注）；
+// JSONMode temp=0；解析失败/未知类别返回 ok=false 走规则结果。
+func (s *ObjectionHandlerService) classifyByLLM(ctx context.Context, text string) (ObjectionCategory, float64, bool, bool) {
+	catList := make([]string, 0, len(objectionRules))
+	for _, r := range objectionRules {
+		catList = append(catList, fmt.Sprintf("%s: %s", r.Category, r.Name))
+	}
+	prompt := fmt.Sprintf(`你是销售异议分类专家。判断客户消息是否为真实异议（而非拒绝/敷衍伪装），并归类。
+
+【客户消息】: %s
+
+【异议类别】:
+%s
+other: 无法归类
+
+【输出要求】(严格 JSON):
+{"category": "类别之一", "confidence": 0.0-1.0, "is_genuine": true/false}
+is_genuine=false 表示"太贵了买不起"实为委婉拒绝等伪装场景。`, text, strings.Join(catList, "\n"))
+
+	result, err := s.dispatcher.Dispatch(ctx, llm.DispatchRequest{
+		Scenario:    llm.ScenarioIntentRecognize,
+		Prompt:      prompt,
+		JSONMode:    true,
+		MaxTokens:   200,
+		Temperature: 0,
+	})
+	if err != nil {
+		return "", 0, false, false
+	}
+	var parsed struct {
+		Category   string  `json:"category"`
+		Confidence float64 `json:"confidence"`
+		IsGenuine  bool    `json:"is_genuine"`
+	}
+	if err := json.Unmarshal([]byte(extractJSONFromStr(result.Content)), &parsed); err != nil {
+		return "", 0, false, false
+	}
+	valid := false
+	for _, r := range objectionRules {
+		if ObjectionCategory(parsed.Category) == r.Category {
+			valid = true
+			break
+		}
+	}
+	if parsed.Category == "other" {
+		valid = true
+	}
+	if !valid || parsed.Confidence <= 0 || parsed.Confidence > 1 {
+		return "", 0, false, false
+	}
+	return ObjectionCategory(parsed.Category), parsed.Confidence, parsed.IsGenuine, true
 }
