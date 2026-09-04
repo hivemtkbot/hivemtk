@@ -11,9 +11,10 @@ import (
 // seq=0 表示不分配序号（用于 heartbeat 等控制帧）
 func NewEnvelope(seq uint64, messageType string, payload any) (*Envelope, error) {
 	env := &Envelope{
-		Seq:  seq,
-		TS:   time.Now().UnixMilli(),
-		Type: messageType,
+		Seq:   seq,
+		TS:    time.Now().UnixMilli(),
+		Epoch: CurrentEpoch(), // D15: 自动填充，调用点零改动
+		Type:  messageType,
 	}
 	if payload != nil {
 		raw, err := json.Marshal(payload)

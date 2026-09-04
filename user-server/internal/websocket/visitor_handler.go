@@ -170,10 +170,16 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 	}
 
 	sinceSeq := uint64(0)
-	if s := strings.TrimSpace(c.Query("since_seq")); s != "" {
-		if n, err := strconv.ParseUint(s, 10, 64); err == nil {
-			sinceSeq = n
+	// D15: query 入口 epoch 校验——客户端带旧 epoch 或缺 epoch → sinceSeq=0 全量补发
+	if c.Query("epoch") == CurrentEpoch() {
+		if s := strings.TrimSpace(c.Query("since_seq")); s != "" {
+			if n, err := strconv.ParseUint(s, 10, 64); err == nil {
+				sinceSeq = n
+			}
 		}
+	} else {
+		logger.Ctx(ctx).Info().Str("client_epoch", c.Query("epoch")).Str("server_epoch", CurrentEpoch()).
+			Msg("[WS] epoch mismatch on query, full resync")
 	}
 
 	if sessionID == "" || visitorID == "" {
@@ -423,7 +429,14 @@ func (h *VisitorWSHandler) readPump(client *Client, conn *websocket.Conn, ctx co
 			ackedCount := handleAckMessage(client, msg)
 			logger.Ctx(ctx).Debug().Str("session_id", client.sessionID).Int("acked", ackedCount).Msg("ack received")
 		case "resume":
-			sinceSeq := parseSinceSeq(msg)
+			// D15: epoch 不匹配/缺失 → sinceSeq=0 全量补发（旧 epoch 序列无意义）
+			sinceSeq := uint64(0)
+			if msgEpoch, _ := msg["epoch"].(string); msgEpoch == CurrentEpoch() {
+				sinceSeq = parseSinceSeq(msg)
+			} else {
+				logger.Ctx(ctx).Info().Str("session_id", client.sessionID).
+					Msg("[WS] epoch mismatch on resume, full resync")
+			}
 			logger.Ctx(ctx).Info().Str("session_id", client.sessionID).Uint64("since_seq", sinceSeq).Msg("resume requested")
 			go h.onConnect(client, sinceSeq, ctx)
 		case "delivered":

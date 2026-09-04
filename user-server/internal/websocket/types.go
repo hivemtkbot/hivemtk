@@ -59,6 +59,7 @@ const (
 type Envelope struct {
 	Seq     uint64          `json:"seq,omitempty"`
 	TS      int64           `json:"ts,omitempty"`
+	Epoch   string          `json:"epoch,omitempty"` // D15: 服务端纪元（重启即变；旧值客户端 resume 走全量补发）
 	Type    string          `json:"type"`
 	Payload json.RawMessage `json:"payload,omitempty"`
 }

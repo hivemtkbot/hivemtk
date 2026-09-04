@@ -1,0 +1,117 @@
+package websocket
+
+import (
+	"testing"
+	"time"
+
+	"hivemtk-user/internal/cache"
+)
+
+// D15: seq Redis/降级语义
+
+// 降级路径：seqIsRedis=false → 本地 atomic 递增
+func TestD15_FallbackLocalSeq(t *testing.T) {
+	oldIsRedis, oldCache := seqIsRedis, seqCache
+	defer func() { seqIsRedis, seqCache = oldIsRedis, oldCache }()
+	seqIsRedis = func() bool { return false }
+	seqCache = nil
+	redisDegraded.Store(false)
+
+	a, b := NextSeq(), NextSeq()
+	if b != a+1 {
+		t.Errorf("降级路径应本地递增, got %d→%d", a, b)
+	}
+	redisDegraded.Store(false)
+}
+
+// Redis 模式：MemoryCache 替身走 INCR 递增
+func TestD15_RedisSeqIncr(t *testing.T) {
+	oldIsRedis, oldCache := seqIsRedis, seqCache
+	defer func() { seqIsRedis, seqCache = oldIsRedis, oldCache }()
+	mc := cache.NewMemoryCache()
+	seqIsRedis = func() bool { return true }
+	seqCache = mc
+	redisDegraded.Store(false)
+
+	a, b, c := NextSeq(), NextSeq(), NextSeq()
+	if !(b == a+1 && c == b+1) {
+		t.Errorf("Redis INCR 应连续递增: %d %d %d", a, b, c)
+	}
+	if PeekSeq() != c {
+		t.Errorf("PeekSeq 应=最新值 %d, got %d", c, PeekSeq())
+	}
+	redisDegraded.Store(false)
+}
+
+// 撞号保护：降级期间本地发号超 Redis 水位，恢复后自动跳过
+func TestD15_RecoverySkipsLocalPeak(t *testing.T) {
+	oldIsRedis, oldCache := seqIsRedis, seqCache
+	defer func() { seqIsRedis, seqCache = oldIsRedis, oldCache }()
+	mc := cache.NewMemoryCache()
+	seqIsRedis = func() bool { return true }
+	seqCache = mc
+	redisDegraded.Store(false)
+
+	redisN := NextSeq() // Redis 到 1
+	// 模拟降级：本地连发 5 个
+	redisDegraded.Store(true)
+	local := NextSeq()
+	for i := 0; i < 4; i++ {
+		local = NextSeq()
+	}
+	// 恢复：INCR 返回 2 <= 本地峰值 6 → 自动跳到 7
+	got := NextSeq()
+	if got <= uint64(redisN) || got <= local {
+		t.Errorf("恢复后应跳过本地峰值, redis=%d local=%d got=%d", redisN, local, got)
+	}
+	redisDegraded.Store(false)
+}
+
+// epoch：同进程内稳定、与 NewEnvelope 自动填充一致
+func TestD15_EpsilonStableAndFilled(t *testing.T) {
+	if CurrentEpoch() == "" {
+		t.Fatal("epoch 不应为空")
+	}
+	if CurrentEpoch() != epochStr {
+		t.Error("CurrentEpoch 应= epochStr")
+	}
+	env := MustEnvelope(NextSeq(), "msg", nil)
+	if env.Epoch != epochStr {
+		t.Errorf("Envelope.Epoch 应自动填充, got %q", env.Epoch)
+	}
+}
+
+// PendingSince 合并远端（MemoryCache 写穿同进程即时可见）
+func TestD15_PendingSinceMergesRemote(t *testing.T) {
+	oldIsRedis, oldCache := seqIsRedis, seqCache
+	defer func() { seqIsRedis, seqCache = oldIsRedis, oldCache }()
+	seqIsRedis = func() bool { return true }
+	seqCache = cache.NewMemoryCache()
+	redisDegraded.Store(false)
+
+	p := NewPendingAck()
+	p.Track("s1", 5)
+	p.Track("s1", 7)
+	// 模拟他副本写入远端
+	pendingRedis.asyncSetJSON("s1", map[uint64]time.Time{9: time.Now()})
+	// async goroutine 需要时间——同步写一份保证可见
+	_ = seqCache.SetJSON(nil, pendingKey("s1"), map[uint64]time.Time{5: time.Now(), 9: time.Now()}, 0)
+
+	got := p.PendingSince("s1", 6)
+	// 本地 7（>6）+ 远端 9（合并自他副本）= 2 条
+	if len(got) != 2 {
+		t.Errorf("应合并本地 7 + 远端 9 共 2 条, got %v", got)
+	}
+	for _, want := range []uint64{7, 9} {
+		found := false
+		for _, g := range got {
+			if g == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("缺 seq=%d, got %v", want, got)
+		}
+	}
+	redisDegraded.Store(false)
+}
