@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"time"
@@ -153,6 +154,22 @@ func LivenessCheck() gin.HandlerFunc {
 	}
 }
 
+// notReadyResponse 就绪探针失败响应：HTTP 503 + 业务码。
+//
+// 必须返回真实 HTTP 503（而非 200 包业务码）：K8s readinessProbe / 负载均衡
+// 健康检查只依据 HTTP 状态码决定摘除流量，200 会导致 DB 挂掉后实例仍收流量。
+// reason 为技术诊断串（面向运维日志），无需本地化。
+func notReadyResponse(c *gin.Context, code int, reason string) {
+	c.JSON(http.StatusServiceUnavailable, gin.H{
+		"code":    code,
+		"message": reason,
+		"data": gin.H{
+			"status": "not_ready",
+			"reason": reason,
+		},
+	})
+}
+
 // ReadinessCheck 就绪性检查（检查依赖）
 func ReadinessCheck(redisClient Pinger, gormDB *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -160,35 +177,25 @@ func ReadinessCheck(redisClient Pinger, gormDB *gorm.DB) gin.HandlerFunc {
 		defer cancel()
 
 		if database := gormDB; database == nil {
-			response.ErrorWithBusinessCode(c, 50302, "database not initialized", gin.H{
-				"status": "not_ready", "reason": "database not initialized",
-			})
+			notReadyResponse(c, 50302, "database not initialized")
 			return
 		}
 		if err := gormDB.WithContext(ctx).Exec("SELECT 1").Error; err != nil {
-			response.ErrorWithBusinessCode(c, 50303, "database: "+err.Error(), gin.H{
-				"status": "not_ready", "reason": "database: "+err.Error(),
-			})
+			notReadyResponse(c, 50303, "database: "+err.Error())
 			return
 		}
 		if redisClient != nil {
 			if err := redisClient.Ping(ctx); err != nil {
-				response.ErrorWithBusinessCode(c, 50304, "redis: "+err.Error(), gin.H{
-					"status": "not_ready", "reason": "redis: "+err.Error(),
-				})
+				notReadyResponse(c, 50304, "redis: "+err.Error())
 				return
 			}
 		}
 		if infStatus := inferenceStatus(); infStatus == "down" {
-			response.ErrorWithBusinessCode(c, 50305, "inference: no healthy LLM provider", gin.H{
-				"status": "not_ready", "reason": "inference: no healthy LLM provider",
-			})
+			notReadyResponse(c, 50305, "inference: no healthy LLM provider")
 			return
 		}
 		if embStatus, embErr := embeddingStatus(); embStatus == "down" && os.Getenv("HEALTH_EMBEDDING_CRITICAL") == "true" {
-			response.ErrorWithBusinessCode(c, 50306, "embedding: "+embErr, gin.H{
-				"status": "not_ready", "reason": "embedding: "+embErr,
-			})
+			notReadyResponse(c, 50306, "embedding: "+embErr)
 			return
 		}
 		response.Success(c, gin.H{

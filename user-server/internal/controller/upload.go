@@ -189,6 +189,10 @@ func UploadFile(ctx *gin.Context) {
 		uploadFolder = "attachments"
 	}
 	baseDir := os.Getenv("STORAGE_LOCAL_BASE_DIR")
+	if baseDir == "" {
+		// 兼容历史 UPLOAD_DIR 约定（测试与部署脚本使用），统一存储层迁移时遗漏
+		baseDir = os.Getenv("UPLOAD_DIR")
+	}
 	publicURLPrefix := os.Getenv("STORAGE_LOCAL_PUBLIC_URL")
 	driver := storage.NewLocalDriver(baseDir, publicURLPrefix)
 

@@ -471,8 +471,9 @@ func TestHandleToolList_HTTP(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("response body not JSON: %v; body=%s", err, w.Body.String())
 	}
-	if _, ok := resp["success"]; !ok {
-		t.Errorf("response missing 'success' field; body=%s", w.Body.String())
+	// 现行响应契约: {"code":0,"message":"ok","data":{...}}（success 字段为旧契约已废弃）
+	if code, ok := resp["code"].(float64); !ok || code != 0 {
+		t.Errorf("response code != 0; body=%s", w.Body.String())
 	}
 }
 
@@ -573,8 +574,9 @@ func TestHandleToolStats_HTTP(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("body not JSON: %v; body=%s", err, w.Body.String())
 	}
-	if _, ok := resp["success"]; !ok {
-		t.Errorf("missing 'success' field; body=%s", w.Body.String())
+	// 现行响应契约: {"code":0,...}（success 字段为旧契约已废弃）
+	if code, ok := resp["code"].(float64); !ok || code != 0 {
+		t.Errorf("response code != 0; body=%s", w.Body.String())
 	}
 }
 

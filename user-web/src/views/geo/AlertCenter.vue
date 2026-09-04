@@ -159,7 +159,10 @@ const remove = async (row) => {
 
 onMounted(() => {
   load()
-  pollTimer = setInterval(load, 60000)
+  pollTimer = setInterval(() => {
+    // 页面隐藏时跳过轮询，减少无效请求
+    if (document.visibilityState === 'visible') load()
+  }, 60000)
 })
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)

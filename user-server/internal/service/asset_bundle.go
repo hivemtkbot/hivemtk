@@ -16,6 +16,8 @@ import (
 	"strings"
 
 	"sync"
+
+	_db "hivemtk-user/internal/pkg/db"
 	"time"
 
 	"hivemtk-user/internal/dto"
@@ -697,6 +699,11 @@ func (c *hotPlugCache) ensureKV() repository.SystemConfigKVRepository {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.kv == nil {
+		// 无显式注入 KV 后端时回退全局仓储；但全局 DB 未初始化（单测/
+		// 极早期启动）时保持 nil → 调用方走进程内语义，避免空指针 panic
+		if _db.GetDB() == nil {
+			return nil
+		}
 		c.kv = repository.NewSystemConfigKVRepository()
 	}
 	return c.kv

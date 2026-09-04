@@ -97,13 +97,18 @@ func TestHandleToolProviders_HTTP_WithProviderRegistry(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("body not JSON: %v; body=%s", err, w.Body.String())
 	}
-	if resp["success"] != true {
-		t.Errorf("success should be true; body=%s", w.Body.String())
+	// 现行响应契约: {"code":0,"message":"ok","data":{...}}（顶层 success 为旧契约已废弃）
+	if resp["code"] != float64(0) {
+		t.Errorf("code should be 0; body=%s", w.Body.String())
 	}
-	if int(resp["total_providers"].(float64)) != 1 {
-		t.Errorf("total_providers = %v, want 1", resp["total_providers"])
+	data, _ := resp["data"].(map[string]any)
+	if data == nil {
+		t.Fatalf("missing data; body=%s", w.Body.String())
 	}
-	results := resp["results"].([]any)
+	if int(data["total_providers"].(float64)) != 1 {
+		t.Errorf("total_providers = %v, want 1", data["total_providers"])
+	}
+	results := data["results"].([]any)
 	if len(results) != 1 {
 		t.Fatalf("results len = %d, want 1", len(results))
 	}
