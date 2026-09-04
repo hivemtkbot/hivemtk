@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"sync"
+	"time"
 
 	"hivemtk-user/internal/pkg/utils/logger"
 )
@@ -159,6 +160,16 @@ func (c *ConformalCalibrator) BackgroundRunner(ctx context.Context) {
 	if c == nil {
 		return
 	}
-	// 简化：直接返回；未来可加 ticker
-	<-ctx.Done()
+	// D19: 周期重算分位数（间隔=recalibrateSec）；AddScore 回流的新样本
+	// 经 Recalibrate 生效为 Quantile() 新阈值。
+	ticker := time.NewTicker(time.Duration(c.recalibrateSec) * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c.Recalibrate()
+		}
+	}
 }

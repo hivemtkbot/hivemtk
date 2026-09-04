@@ -23,6 +23,7 @@ type ConfidenceAggregator struct {
 	calibrator *Calibrator
 	platt      *PlattScaling
 	conformal  *ConformalPredictor
+	conformalCalib *ConformalCalibrator // D19: 在线校准器（AddScore 回流）
 	aggregator *WeightedAggregator
 	vetoChain  *VetoChain
 	calc       *DynamicThresholdCalculator
@@ -174,7 +175,12 @@ func (a *ConfidenceAggregator) Aggregate(ctx context.Context, in *dto.SignalColl
 		Signals:          *signals,
 		CalculatedAt:     time.Now(),
 	}
-	// _ = conformalUncertain：当前决策已 band 表达；保留供未来扩展
+	// D19: non-conformity 回流在线校准器（滑动窗口 AddScore），
+	// BackgroundRunner 周期 Recalibrate 分位数——通道已建未通的最后一公里
+	if a.conformalCalib != nil {
+		a.conformalCalib.AddScore(1.0 - aggregatedConf)
+	}
+	// conformalUncertain：当前决策已 band 表达；保留供未来扩展
 	_ = conformalUncertain
 
 	a.saveSignalAsync(ctx, in, decision, signals, calibratedIntentConf)
@@ -256,3 +262,12 @@ var ErrAggregatorNotInitialized = &aggError{"confidence aggregator not initializ
 type aggError struct{ msg string }
 
 func (e *aggError) Error() string { return e.msg }
+
+// StartConformalBackground D19: 启动 Conformal 在线重校准后台任务（每 recalibrateSec 周期 Recalibrate）。
+// 未注入校准器时为 no-op。
+func (a *ConfidenceAggregator) StartConformalBackground(ctx context.Context) {
+	if a == nil || a.conformalCalib == nil {
+		return
+	}
+	go a.conformalCalib.BackgroundRunner(ctx)
+}

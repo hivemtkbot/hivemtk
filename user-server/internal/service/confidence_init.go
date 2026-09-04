@@ -55,7 +55,14 @@ func buildConfidenceAggregator(db *gorm.DB, embedder confidencesvc.Embedder) *co
 
 	signalRepo := repository.NewConfidenceSignalRepository()
 
-	return confidencesvc.NewConfidenceAggregator(collector, calibrator, aggregator, vetoChain, calc, signalRepo)
+	agg := confidencesvc.NewConfidenceAggregator(collector, calibrator, aggregator, vetoChain, calc, signalRepo)
+
+	// D19: Conformal 在线校准接线（通道已建未通——CalibrateOnline/AddScore 生产零调用）
+	// 校准器窗口 1000、重算 60s；聚合器持 predictor；后台重算随 Start 启动。
+	confCalib := confidencesvc.NewConformalCalibrator(1000, 60)
+	agg.SetConformal(confCalib.Predictor())
+
+	return agg
 }
 
 // GetConfidenceAggregator 获取全局聚合器（可能为 nil，未初始化时）

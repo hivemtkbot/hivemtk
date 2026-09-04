@@ -66,6 +66,8 @@ func BuildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 	// D01 (G4) 修复：agg 此前被 `_ =` 丢弃——engine 的转人工预检链
 	// shouldTransferByConfidence 恒走 nil 短路。此处注入使其真正生效。
 	engine.SetConfidenceAggregator(context.Background(), confidenceAgg)
+	// D19: Conformal 在线重校准后台任务（每 60s Recalibrate）
+	confidenceAgg.StartConformalBackground(context.Background())
 
 	humanizeSvc := service.GetHumanizeEvalService()
 	if humanizeSvc == nil {
