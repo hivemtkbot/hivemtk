@@ -102,6 +102,9 @@ func (p *PendingAck) PendingSince(sessionID string, sinceSeq uint64) []uint64 {
 			merged[s] = ts
 		}
 	}
+	if len(merged) == 0 {
+		return nil // 既有契约：未知 session 返回 nil（TestPendingAck_EmptySession）
+	}
 	out := make([]uint64, 0, len(merged))
 	for s := range merged {
 		if s > sinceSeq {
