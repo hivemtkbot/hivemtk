@@ -392,21 +392,21 @@ func TestRecognizeRule_SocialHello(t *testing.T) {
 	}
 }
 
-// 38. 社交 - 你好
+// 38. 打招呼 - 你好（D07: greeting 入词典，纯问候归 greeting）
 func TestRecognizeRule_SocialGreet(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
 	r, _ := rec.Recognize(context.Background(), "s-1", "u-1", "你好")
-	if r.IntentType != IntentSocial {
-		t.Errorf("expected social, got %s", r.IntentType)
+	if r.IntentType != IntentGreeting {
+		t.Errorf("expected greeting, got %s", r.IntentType)
 	}
 }
 
-// 39. 社交 - hi
+// 39. 打招呼 - hi（D07）
 func TestRecognizeRule_SocialHi(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
 	r, _ := rec.Recognize(context.Background(), "s-1", "u-1", "hi")
-	if r.IntentType != IntentSocial {
-		t.Errorf("expected social, got %s", r.IntentType)
+	if r.IntentType != IntentGreeting {
+		t.Errorf("expected greeting, got %s", r.IntentType)
 	}
 }
 
@@ -480,8 +480,8 @@ func TestRecognize_UnknownFallback(t *testing.T) {
 func TestRecognize_CaseInsensitive(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
 	r, _ := rec.Recognize(context.Background(), "s-1", "u-1", "HI")
-	if r.IntentType != IntentSocial {
-		t.Errorf("expected social, got %s", r.IntentType)
+	if r.IntentType != IntentGreeting {
+		t.Errorf("expected greeting, got %s", r.IntentType)
 	}
 }
 
@@ -987,8 +987,8 @@ func TestRecognize_WithEmoji(t *testing.T) {
 	if r == nil {
 		t.Fatal("expected non-nil")
 	}
-	if r.IntentType != IntentSocial {
-		t.Errorf("expected social, got %s", r.IntentType)
+	if r.IntentType != IntentGreeting {
+		t.Errorf("expected greeting, got %s", r.IntentType)
 	}
 }
 
@@ -1118,5 +1118,50 @@ func TestRecognize_MultiSession(t *testing.T) {
 	list, _ := rec.GetRecentIntents(context.Background(), "u-1", 10)
 	if len(list) != 2 {
 		t.Errorf("expected 2 across sessions, got %d", len(list))
+	}
+}
+
+// ── D07 CI 校验：意图常量 ↔ 规则词典 完整性 ──
+// 防止再次出现 "常量定义了但词典无词条"（G3 greeting 悬空）的漂移。
+// 豁免：IntentUnknown（fail-closed 兜底，非规则可识别意图）、IntentClarify（由编排层产生，非识别目标）。
+// 别名（IntentStall/AskTrust/AskCompetitor）与目标意图同字符串值，随目标自动覆盖。
+
+// allIntentConstants 显式清单（与常量定义同文件维护）：新增意图常量时必须同步此处，
+// 从而强制作者决定"进词典 or 豁免"，堵住 G3 式悬空。
+func allIntentConstants() []string {
+	return []string{
+		IntentObjectionPrice, IntentObjectionNeed, IntentObjectionTrust, IntentObjectionTiming,
+		IntentObjectionCompetitor, IntentPurchase, IntentAskProduct, IntentAskService,
+		IntentPriceInquiry, IntentAfterSale, IntentChurn, IntentSocial, IntentGreeting,
+		IntentComplaint,
+	}
+}
+
+func TestD07_DictionaryCoversAllIntentConstants(t *testing.T) {
+	exempt := map[string]bool{
+		IntentUnknown: true,
+		IntentClarify: true,
+	}
+	dict := map[string]bool{}
+	for _, def := range DefaultIntents {
+		dict[def.Type] = true
+	}
+	for _, it := range allIntentConstants() {
+		if exempt[it] {
+			continue
+		}
+		if !dict[it] {
+			t.Errorf("意图常量 %q 未在 DefaultIntents 词典中（G3 漂移复发）", it)
+		}
+	}
+}
+
+func TestD07_GreetingRecognizableByRule(t *testing.T) {
+	rec, _ := newIntentRecognizer(t)
+	for _, text := range []string{"你好", "hello", "hi", "您好", "早上好"} {
+		r, _ := rec.Recognize(context.Background(), "s-d07", "u-d07", text)
+		if r == nil || r.IntentType != IntentGreeting {
+			t.Errorf("%q: expected greeting, got %+v", text, r)
+		}
 	}
 }
