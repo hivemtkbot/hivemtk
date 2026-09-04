@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"strings"
 	"time"
 
 	"hivemtk-user/internal/pkg/metrics"
@@ -40,6 +43,7 @@ const (
 	stopReasonCostDrift   agentLoopStopReason = "cost_drift_detected"
 	stopReasonLLMError    agentLoopStopReason = "llm_error"
 	stopReasonEmptyFinal  agentLoopStopReason = "empty_final_content"
+	stopReasonStateLoop   agentLoopStopReason = "state_loop_detected" // D09: 状态指纹循环（换工具不换局面）
 )
 
 // agentLoopDriftFactor 成本漂移熔断倍率：近 3 轮均成本 ≥ 首轮 3 轮均值 × 该倍数即触发。
@@ -81,6 +85,8 @@ type agentLoopGuard struct {
 
 	pendingEstimateTokens int     // ChargeEstimated 先行扣款后待冲抵的 token
 	pendingEstimateCost   float64 // ChargeEstimated 先行扣款后待冲抵的美元成本
+
+	stateHashes []string // D09: 每轮状态指纹序列（滚动窗口，容量 stateLoopWindow）
 }
 
 func newAgentLoopGuard(totalTimeout time.Duration, maxTokens int, maxCostUSD float64) *agentLoopGuard {
@@ -187,6 +193,55 @@ func (g *agentLoopGuard) RemainingCostUSD() float64 {
 		return 0
 	}
 	return remain
+}
+
+// stateLoopWindow 状态指纹滚动窗口容量；stateLoopThreshold 连续相同指纹次数阈值。
+// 阈值 3 与 tooluse LoopGuard MaxRepeatCount=3 对齐（审核修正项：2 过严，轮询类工具误杀面大）。
+const (
+	stateLoopWindow    = 8
+	stateLoopThreshold = 3
+)
+
+// ObserveState 记录本轮状态指纹并检测语义循环（D09）。
+//
+// 输入约定（与 runAgentLoop 对齐）：assistantContent 为本轮 assistant 消息 Content
+//（tool_calls 轮常为空），toolContents 为本轮全部 role=tool 消息 Content——
+// 必须是同轮全部工具结果而非尾部 2 条，否则 N≥3 时循环体现在首个工具会漏检。
+// 连续 stateLoopThreshold 次指纹相同 → 返回 stopReasonStateLoop（换工具/换参数但局面不变）。
+// 渐变结果（分页、状态推进）hash 必变，不触发。
+func (g *agentLoopGuard) ObserveState(assistantContent string, toolContents []string) agentLoopStopReason {
+	parts := make([]string, 0, len(toolContents)+1)
+	// 空的 assistant 分量跳过（tool_calls 轮 assistant 常为空）；全部为空则该轮无信息量，不记录
+	for _, tc := range toolContents {
+		if tc == "" {
+			parts = append(parts, "empty")
+			continue
+		}
+		parts = append(parts, truncate(tc, 512))
+	}
+	if assistantContent != "" {
+		parts = append(parts, truncate(assistantContent, 512))
+	}
+	if len(parts) == 0 {
+		return stopReasonNone
+	}
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\x1f")))
+	hash := hex.EncodeToString(sum[:8])
+
+	g.stateHashes = append(g.stateHashes, hash)
+	if len(g.stateHashes) > stateLoopWindow {
+		g.stateHashes = g.stateHashes[len(g.stateHashes)-stateLoopWindow:]
+	}
+	if len(g.stateHashes) < stateLoopThreshold {
+		return stopReasonNone
+	}
+	tail := g.stateHashes[len(g.stateHashes)-stateLoopThreshold:]
+	for _, h := range tail {
+		if h != tail[0] {
+			return stopReasonNone
+		}
+	}
+	return stopReasonStateLoop
 }
 
 // Iteration 当前迭代计数（从 runAgentLoop 注入）

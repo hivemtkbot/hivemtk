@@ -370,6 +370,21 @@ func (e *SalesEngine) runAgentLoop(
 				Content:    tr.Content,
 			})
 		}
+
+		// D09 状态指纹循环检测：本轮 assistant（tool_calls 轮常为空）+ 全部工具结果。
+		// toolResults 与 result.ToolCalls 按索引一一对应（DispatchToolCalls 保序），
+		// 因此"本条 assistant 之后的全部 tool 消息"即上列 tr.Content 序列。
+		// 换工具/换参数但局面不变（连续同指纹）时提前熔断，省掉下一轮 LLM 调用。
+		toolContents := make([]string, 0, len(toolResults))
+		for _, tr := range toolResults {
+			toolContents = append(toolContents, tr.Content)
+		}
+		if r := guard.ObserveState(result.Content, toolContents); r != stopReasonNone {
+			stopReason = r
+			logger.Warnf("[AgentLoop] state loop detected at iter=%d (identical state x%d), fallback to last content", iter, stateLoopThreshold)
+			break
+		}
+
 		logger.Infof("[AgentLoop] iter=%d finish_reason=%s tool_calls=%d total_calls=%d",
 			iter, result.FinishReason, len(result.ToolCalls), totalToolCalls)
 	}
