@@ -374,6 +374,7 @@ type LLMNodeExecutor struct {
 	nodeType   string
 	dispatcher *llm.Dispatcher
 	llmSem     chan struct{}
+	db         *gorm.DB // D03: 补偿需清 ExecutionData 落库
 }
 
 func (e *LLMNodeExecutor) NodeType() string { return e.nodeType }
@@ -477,7 +478,43 @@ func NewLLMNodeExecutor(nodeType string, deps *SOPNodeExecutorDeps) *LLMNodeExec
 		nodeType:   nodeType,
 		dispatcher: deps.Dispatcher,
 		llmSem:     deps.LLMSem,
+		db:         deps.DB,
 	}
+}
+
+// Compensate D03 试点 1：清除该节点在 ExecutionData 中的产物键（业务状态回滚，幂等）。
+// 已知粗粒度：_llm_decision/_llm_reason 为共享键（多 LLM 节点互相覆盖），
+// 清理影响最后一个写入者——单 LLM 节点 SOP 语义精确；多节点 SOP 声明为粗粒度回滚。
+// dispatcher/db 为 nil（直构/降级）时直接成功——无状态可回滚。
+func (e *LLMNodeExecutor) Compensate(ctx context.Context, execCtx *ExecutionContext) error {
+	if e == nil || execCtx == nil || execCtx.Execution == nil {
+		return nil
+	}
+	if e.db == nil || execCtx.Node == nil {
+		return nil
+	}
+	// execution_data 列为 text（JSONMap 序列化存储），不能 JSONB 路径赋值——读改写
+	var exec model.SOPExecution
+	if err := e.db.WithContext(ctx).First(&exec, execCtx.Execution.ID).Error; err != nil {
+		return err
+	}
+	if exec.ExecutionData == nil {
+		return nil // 无产物即无可回滚，幂等成功
+	}
+	changed := false
+	for _, k := range []string{"_llm_decision", "_llm_reason", "_llm_" + execCtx.Node.ID} {
+		if _, exists := exec.ExecutionData[k]; exists {
+			delete(exec.ExecutionData, k)
+			changed = true
+		}
+	}
+	if !changed {
+		return nil // 幂等：已清过
+	}
+	return e.db.WithContext(ctx).
+		Model(&model.SOPExecution{}).
+		Where("id = ?", exec.ID).
+		Update("execution_data", exec.ExecutionData).Error
 }
 
 type llmDecision struct {
@@ -626,10 +663,31 @@ func NewWaitExecutor(deps *SOPNodeExecutorDeps) *WaitExecutor {
 	return e
 }
 
+// Compensate D03 试点 2：删除该执行+节点的 pending 定时器（幂等）。
+// 价值场景：wait 节点重试（每次 attempt 都 Create）可产生重复 pending timer；
+// 补偿清空防重启恢复后幽灵触发。带 status='pending' 守卫与 MarkFired 原子互斥——
+// 客户已回复（timer 已 fired）时删不掉，不打断已完成节点。repo nil（直构/降级）直接成功。
+func (e *WaitExecutor) Compensate(ctx context.Context, execCtx *ExecutionContext) error {
+	if e == nil || execCtx == nil || execCtx.Execution == nil || execCtx.Node == nil {
+		return nil
+	}
+	if e.timerRepo == nil {
+		return nil
+	}
+	_, err := e.timerRepo.DeletePendingByExecutionAndNode(ctx, execCtx.Execution.ID, execCtx.Node.ID)
+	return err
+}
+
 // RegisterAllNodeExecutors 注册所有 14 种节点执行器 + 5 种旧版兼容执行器
 //
 // 应在 SOPExecutionDispatcher 初始化时调用一次。
 // 重复注册会 panic（启动期错误）。
+//
+// 节点-Saga 补偿能力对照表（D03，Compensable 接口断言决定是否补偿）：
+//   - wait            → 可补偿：删除 pending 定时器（WaitExecutor.Compensate，防重复/幽灵 timer）
+//   - llm / ai_decide → 可补偿：清 ExecutionData 中该节点产物键（LLMNodeExecutor.Compensate，业务状态回滚）
+//   - 9 种 message / message / action / send_offer → 不可补偿（发消息=外部副作用事务点，只能"补偿通知"，留 TODO）
+//   - start / end / condition / branch → 控制流，无副作用无需补偿（skipped）
 func RegisterAllNodeExecutors(registry *NodeExecutorRegistry, deps *SOPNodeExecutorDeps) {
 	registry.Register(context.Background(), &StartExecutor{})
 	registry.Register(context.Background(), &EndExecutor{})

@@ -817,6 +817,7 @@ func (d *SOPExecutionDispatcher) tryCompensate(_ context.Context, exec *model.SO
 					Variant:       exec.Variant,
 					Input:         exec.ExecutionData,
 					ExecutionData: exec.ExecutionData,
+					TraceID:       exec.TraceID,
 					StartedAt:     time.Now(),
 					Attempt:       0,
 				}

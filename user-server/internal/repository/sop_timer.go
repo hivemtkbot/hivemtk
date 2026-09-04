@@ -206,3 +206,16 @@ func (r *SOPTimerRepository) GetExecutionSummary(ctx context.Context, executionI
 	}
 	return &row, nil
 }
+
+// DeletePendingByExecutionAndNode 删除指定执行+节点的 pending 定时器（D09/D03 补偿配套）。
+// 带 status='pending' 守卫：与 MarkFired 的原子条件更新互斥——先 fired 则删不掉（不打断已完成节点），
+// 先删则 FindDueForUpdate 不再可见。返回删除行数。
+func (r *SOPTimerRepository) DeletePendingByExecutionAndNode(ctx context.Context, executionID uint, nodeID string) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("sop timer repository not initialized")
+	}
+	res := r.db.WithContext(ctx).
+		Where("execution_id = ? AND node_id = ? AND status = 'pending'", executionID, nodeID).
+		Delete(&model.SOPTimer{})
+	return res.RowsAffected, res.Error
+}
