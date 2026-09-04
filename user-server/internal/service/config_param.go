@@ -43,7 +43,7 @@ type ConfigParamService struct {
 	mu     sync.RWMutex
 	cache  map[string]paramEntry // group.key → entry
 	loaded map[string]bool        // group 是否已完整加载
-	nowFn  func() time.Time       // D12: 可注入时钟（测试用），默认 time.Now
+	nowFn  func() time.Time       // D12: 可注入时钟（测试用），默认 time.Now；nil 安全走 now()
 }
 
 var globalConfigParam *ConfigParamService
@@ -201,12 +201,20 @@ func (s *ConfigParamService) GetString(ctx context.Context, group, key, fallback
 	return v
 }
 
+// now 返回当前时间（nowFn nil 安全——直构实例（如测试）未注入时回退 time.Now）
+func (s *ConfigParamService) now() time.Time {
+	if s.nowFn != nil {
+		return s.nowFn()
+	}
+	return time.Now()
+}
+
 // getString 核心读取 + 缓存加载
 func (s *ConfigParamService) getString(ctx context.Context, group, key string) (string, bool) {
 	cacheKey := group + "." + key
 
 	// 快速路径：缓存命中（未过期）；过期 → 删 entry + 重置组加载标记，走下方全组重拉
-	now := s.nowFn()
+	now := s.now()
 	s.mu.RLock()
 	e, hit := s.cache[cacheKey]
 	expired := hit && !now.Before(e.expiresAt)
@@ -255,7 +263,7 @@ func (s *ConfigParamService) getString(ctx context.Context, group, key string) (
 	}
 
 	s.mu.Lock()
-	filledAt := s.nowFn().Add(configParamTTL)
+	filledAt := s.now().Add(configParamTTL)
 	for _, p := range params {
 		s.cache[p.Group+"."+p.Key] = paramEntry{value: p.Value, expiresAt: filledAt}
 	}
