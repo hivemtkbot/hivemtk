@@ -199,6 +199,10 @@ type ReachPipelineService struct {
 
 	rateMu       sync.RWMutex
 	rateState    map[string]*rateBucket
+
+	globalMu    sync.Mutex
+	globalHits  map[string]int // D14: 全局频控降级计数（key 含日期）
+	globalLimitFn func(ctx context.Context) int // D14: 可注入上限读取（默认 GlobalConfigParam）
 	dailyQuotaMu sync.RWMutex
 	dailyQuota   map[string]*dailyCounter
 	perUserMu    sync.RWMutex
@@ -300,11 +304,13 @@ type dailyCounter struct {
 }
 
 func NewReachPipelineService(db *gorm.DB) *ReachPipelineService {
+	_ = db
 	return &ReachPipelineService{
-		repo:        repository.NewReachPipelineRepository(db),
-		rateState:   make(map[string]*rateBucket),
-		dailyQuota:  make(map[string]*dailyCounter),
-		perUserHits: make(map[string][]time.Time),
+		repo:          repository.NewReachPipelineRepository(db),
+		rateState:     make(map[string]*rateBucket),
+		dailyQuota:    make(map[string]*dailyCounter),
+		perUserHits:   make(map[string][]time.Time),
+		globalLimitFn: func(ctx context.Context) int { return GlobalConfigParam().GetInt(ctx, "reach", "global_per_user_daily_limit", 3) },
 	}
 }
 
@@ -1221,6 +1227,10 @@ func (s *ReachPipelineService) checkRateLimit(ctx context.Context, channel, acco
 			return false
 		}
 	}
+	// D14: 全局频控（跨管线，customerID 维度）——置于 per-user 之前
+	if !s.checkGlobalPerUserDaily(ctx, customerID, transactional) {
+		return false
+	}
 	perUserLimit := s.resolvePerUserLimit(ctx, rl.PerUserLimit)
 	if perUserLimit > 0 && customerID != "" && !transactional {
 		if !s.checkPerUser(ctx, customerID, perUserLimit, time.Duration(rl.CooldownSecs)*time.Second) {
@@ -1596,4 +1606,44 @@ func (s *ReachPipelineService) ListJobsByExperiment(ctx context.Context, experim
 	}
 	// 复用 repo 现有查询，按 pipeline_id 过滤（AB 实验通常把 pipeline_id 当 experiment_id 用）
 	return s.repo.ListJobs(ctx, experimentID, "", page, pageSize)
+}
+
+// checkGlobalPerUserDaily D14 全局频控：同客户跨全部管线的自然日（CST）触达上限。
+// 与 checkPerUser（cooldown 滚动窗，本就无 channel 维度）互补：本层管"总量"，彼层管"节奏"。
+// transactional 豁免与 PerUser 对齐（审核修正 1）；键日期格式复用既有 2006-01-02 CST（修正 2）；
+// Redis 不可用降级进程内 map（带日期分键，修正 4），拒绝带独立 WARN reason（修正 5）。
+func (s *ReachPipelineService) checkGlobalPerUserDaily(ctx context.Context, customerID string, transactional bool) bool {
+	limit := s.globalLimitFn(ctx)
+	if limit <= 0 || customerID == "" || transactional {
+		return true
+	}
+	day := time.Now().In(cstLoc()).Format("2006-01-02")
+	key := "reach:global:" + customerID + ":" + day
+
+	if c := s.rateCacheOrGlobal(); c != nil {
+		n, err := c.Incr(ctx, key, nextCSTMidnight(time.Now()))
+		if err == nil {
+			if n > int64(limit) {
+				logger.Ctx(ctx).Warn().Str("customer", customerID).Int64("count", n).Int("limit", limit).
+					Msg("[Reach] global per-user daily limit exceeded (cross-pipeline), suppressed")
+				return false
+			}
+			return true
+		}
+		s.warnRedisDegraded("global_per_user", err)
+	}
+	// 降级：进程内 map（带日期分键）
+	s.globalMu.Lock()
+	defer s.globalMu.Unlock()
+	if s.globalHits == nil {
+		s.globalHits = map[string]int{}
+	}
+	ck := key
+	// 清理跨日残留（同 map 混存多日键，日期在 key 内天然隔离，无需额外清理）
+	s.globalHits[ck]++
+	return s.globalHits[ck] <= limit
+}
+
+func cstLoc() *time.Location {
+	return time.FixedZone("CST", 8*3600)
 }

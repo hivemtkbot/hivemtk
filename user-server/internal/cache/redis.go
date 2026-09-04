@@ -190,3 +190,12 @@ func (r *RedisCache) Close() error {
 	}
 	return r.client.Close()
 }
+
+// Client 暴露底层 go-redis client（供需要原生命令的组件：redis_rate GCRA 等）。
+// 返回 nil 表示非 Redis 后端。
+func (r *RedisCache) Client() *redis.Client {
+	if r == nil {
+		return nil
+	}
+	return r.client
+}

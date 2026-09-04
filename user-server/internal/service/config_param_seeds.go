@@ -38,6 +38,10 @@ func DefaultParamDefs() []ParamDef {
 			Description: "JSON: {角色码: [权限项]}；权限项支持 module.* 通配；admin 恒全权不走此配置",
 			ValueType: "string", DefaultValue: `{"customer_service":["cards.*","shortlinks.*","clues.*","autoreply.*"],"staff":["cards.view","shortlinks.view","clues.view"]}`, Category: "权限"},
 
+		// ==================== reach（触达频控，D14） ====================
+		{Group: "reach", Key: "global_per_user_daily_limit", Name: "单客户全管线日触达上限",
+			Description: "同一客户被全部触达管线共享的每日（CST 自然日）触达上限；0=禁用该层",
+			ValueType: "int", DefaultValue: "3", Min: strPtr("0"), Max: strPtr("50"), Category: "触达"},
 		// ==================== bridge（消息通道/HTTP长轮询/SSE） ====================
 		{Group: "bridge", Key: "polling_max_timeout", Name: "轮询最大超时",
 			Description: "客户端 HTTP 长轮询允许的最长等待时间（秒），超时由服务端主动返回",
