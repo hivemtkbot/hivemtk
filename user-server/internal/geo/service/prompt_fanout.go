@@ -80,6 +80,11 @@ func (s *PromptFanoutService) Fanout(ctx context.Context, req *FanoutRequest) (*
 	if len(variants) == 0 {
 		return nil, fmt.Errorf("LLM 未返回有效变体")
 	}
+	// 成本护栏：with_probes 每变体×每引擎都是一次真实探针调用，超量截断
+	const maxVariants = 20
+	if len(variants) > maxVariants {
+		variants = variants[:maxVariants]
+	}
 
 	result := &FanoutResult{Seed: seed, Variants: variants, Model: resp.Model}
 
