@@ -774,6 +774,12 @@ func (o *SmartCSOrchestrator) transferToHuman(ctx context.Context, session *mode
 	session.Status = model.SessionStatusWaiting
 	session.HandlerType = model.HandlerTypeHuman
 	session.LastMessage = reason
+	// D20: outcome episode 起点（幂等：重复转人工不覆盖首因）
+	if session.HandoffAt == nil {
+		now := time.Now()
+		session.HandoffAt = &now
+		session.HandoffReason = reason
+	}
 	now := time.Now()
 	session.LastMessageAt = &now
 	session.AIReplyCount = 0
@@ -958,5 +964,9 @@ func (o *SmartCSOrchestrator) AgentReply(ctx context.Context, sessionID string, 
 	now := time.Now()
 	session.LastMessageAt = &now
 	session.LastMessageBy = "agent"
+	// D20: outcome episode 终点——转人工后首条人工回复时间（幂等：仅首条打点）
+	if session.HandoffAt != nil && session.FirstHumanReplyAt == nil {
+		session.FirstHumanReplyAt = &now
+	}
 	return o.sessionRepo.Update(ctx, session)
 }

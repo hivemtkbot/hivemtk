@@ -36,6 +36,11 @@ type CustomerSession struct {
 	UserEmail       string        `gorm:"type:varchar(100)" json:"user_email"`
 	Status          SessionStatus `gorm:"type:varchar(20);default:'pending'" json:"status"`
 	HandlerType     HandlerType   `gorm:"type:varchar(20)" json:"handler_type"`
+
+	// D20: 转人工 outcome 追踪（episode：handoff_at → first_human_reply_at）
+	HandoffAt         *time.Time `gorm:"index" json:"handoff_at,omitempty"`
+	HandoffReason     string     `gorm:"type:varchar(200)" json:"handoff_reason,omitempty"`
+	FirstHumanReplyAt *time.Time `json:"first_human_reply_at,omitempty"`
 	AgentID         uint          `gorm:"index" json:"agent_id"`
 	AgentName       string        `gorm:"type:varchar(100)" json:"agent_name"`
 	Priority        int           `gorm:"default:0" json:"priority"` 
