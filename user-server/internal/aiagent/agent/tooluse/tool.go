@@ -3,6 +3,7 @@ package tooluse
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -58,14 +59,62 @@ type ToolParam struct {
 
 // ToolResult 工具执行结果
 type ToolResult struct {
-	Success    bool       `json:"success"`               
-	Data       any        `json:"data,omitempty"`        
-	Error      string     `json:"error,omitempty"`       
-	Timing     ToolTiming `json:"timing"`                
-	ToolName   string     `json:"tool_name"`             
-	ExecutedAt time.Time  `json:"executed_at"`           
-	AuditTrace string     `json:"audit_trace,omitempty"` 
+	Success    bool       `json:"success"`
+	Data       any        `json:"data,omitempty"`
+	Error      string     `json:"error,omitempty"`
+	ErrorCode  string     `json:"error_code,omitempty"` // D08: 机器可读失败分类，供 Reflection 决策（重试/换参/放弃）
+	Timing     ToolTiming `json:"timing"`
+	ToolName   string     `json:"tool_name"`
+	ExecutedAt time.Time  `json:"executed_at"`
+	AuditTrace string     `json:"audit_trace,omitempty"`
 	Card *model.RichCard `json:"card,omitempty"`
+}
+
+// 工具失败分类枚举（D08）：随 ToolResult.error_code 回灌给 LLM。
+// 语义约定：INVALID_PARAMS→修参重试；RATE_LIMITED/CIRCUIT_OPEN→等待或降级；
+// PERMISSION_DENIED/APPROVAL_DENIED/DNC_BLOCKED→放弃该路径；其余→INTERNAL。
+const (
+	ToolErrInvalidParams    = "TOOL_INVALID_PARAMS"
+	ToolErrRateLimited      = "TOOL_RATE_LIMITED"
+	ToolErrPermissionDenied = "TOOL_PERMISSION_DENIED"
+	ToolErrTimeout          = "TOOL_TIMEOUT"
+	ToolErrPanic            = "TOOL_PANIC"
+	ToolErrApprovalDenied   = "TOOL_APPROVAL_DENIED"
+	ToolErrDNCBlocked       = "TOOL_DNC_BLOCKED"
+	ToolErrCircuitOpen      = "TOOL_CIRCUIT_OPEN"
+	ToolErrNotFound         = "TOOL_NOT_FOUND"
+	ToolErrInternal         = "TOOL_INTERNAL"
+)
+
+// ClassifyToolError 将错误映射为机器可读分类（sentinel errors.Is 穿透 %w 包装链）。
+// 是失败分类的唯一映射表：isNonRetryableError 基于其返回值判定，避免双套分类漂移。
+func ClassifyToolError(err error) string {
+	if err == nil {
+		return ""
+	}
+	switch {
+	case errors.Is(err, ErrParamValidationFailed):
+		return ToolErrInvalidParams
+	case errors.Is(err, ErrRateLimited):
+		return ToolErrRateLimited
+	case errors.Is(err, ErrPermissionDenied):
+		return ToolErrPermissionDenied
+	case errors.Is(err, ErrToolTimeout), errors.Is(err, context.DeadlineExceeded):
+		return ToolErrTimeout
+	case errors.Is(err, ErrToolPanic):
+		return ToolErrPanic
+	case errors.Is(err, ErrApprovalDenied):
+		return ToolErrApprovalDenied
+	case errors.Is(err, ErrDNCBlocked):
+		return ToolErrDNCBlocked
+	case errors.Is(err, ErrCircuitOpen):
+		return ToolErrCircuitOpen
+	case errors.Is(err, ErrLoopDetected):
+		return ToolErrInternal
+	case errors.Is(err, context.Canceled):
+		return ToolErrInternal
+	}
+	return ToolErrInternal
 }
 
 // ToolTiming 执行耗时统计
@@ -110,11 +159,12 @@ func ToLLMFunction(t Tool) LLMFunction {
 	}
 }
 
-// ErrorResult 快速构造错误结果
+// ErrorResult 快速构造错误结果（ErrorCode 由 ClassifyToolError 统一判定）
 func ErrorResult(toolName string, err error) ToolResult {
 	return ToolResult{
 		Success:    false,
 		Error:      err.Error(),
+		ErrorCode:  ClassifyToolError(err),
 		ToolName:   toolName,
 		ExecutedAt: time.Now(),
 	}

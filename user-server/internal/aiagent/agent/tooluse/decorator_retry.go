@@ -84,13 +84,22 @@ func isNonRetryableError(err error) bool {
 	if err == nil {
 		return false
 	}
-	if errors.Is(err, ErrPermissionDenied) ||
-		errors.Is(err, ErrRateLimited) ||
-		errors.Is(err, ErrCircuitOpen) ||
-		errors.Is(err, ErrLoopDetected) ||
-		errors.Is(err, context.Canceled) ||
-		errors.Is(err, context.DeadlineExceeded) {
+	// D08: 基于 ClassifyToolError 的唯一映射判定——确定性强失败（权限/审批/DNC/参数/熔断/限流/循环）
+	// 不重试；TIMEOUT/PANIC/INTERNAL 保持可重试（原语义）。
+	switch ClassifyToolError(err) {
+	case ToolErrPermissionDenied, ToolErrApprovalDenied, ToolErrDNCBlocked,
+		ToolErrInvalidParams, ToolErrRateLimited, ToolErrCircuitOpen:
 		return true
+	case ToolErrInternal:
+		// Canceled/LoopDetected 均映射 INTERNAL，但语义上属于非重试（保留原判定）
+		if errors.Is(err, context.Canceled) || errors.Is(err, ErrLoopDetected) {
+			return true
+		}
+	case ToolErrTimeout:
+		// 裸 context.DeadlineExceeded（无 ErrToolTimeout 包装）保留原判定：不可重试
+		if errors.Is(err, context.DeadlineExceeded) {
+			return true
+		}
 	}
 
 	errMsg := err.Error()

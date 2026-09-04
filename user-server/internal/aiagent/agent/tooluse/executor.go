@@ -521,6 +521,21 @@ func extractToolError(r LLMToolResult) string {
 	return ""
 }
 
+// mustToolErrorJSON 构造带 error_code 的失败 Content（D08）。
+// Marshal map 保证 err 文案含引号/换行时仍是合法 JSON；Marshal 出错时退化为纯 error 字段。
+func mustToolErrorJSON(code, msg string) string {
+	b, err := json.Marshal(map[string]string{"error": msg, "error_code": code})
+	if err != nil {
+		return fmt.Sprintf(`{"error":%s,"error_code":%s}`, quoteJSON(msg), quoteJSON(code))
+	}
+	return string(b)
+}
+
+func quoteJSON(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
+}
+
 // executeSingleLLMToolCall 执行单个 LLM tool_call
 func (e *ToolExecutor) executeSingleLLMToolCall(ctx context.Context, call LLMToolCall, toolCtx *ToolContext) LLMToolResult {
 	args := make(map[string]any)
@@ -528,15 +543,17 @@ func (e *ToolExecutor) executeSingleLLMToolCall(ctx context.Context, call LLMToo
 		if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
 			return LLMToolResult{
 				ToolCallID: call.ID,
-				Content:    fmt.Sprintf(`{"error":"arguments JSON 解析失败：%s"}`, err.Error()),
-				Success:    false,
+				// D08: json.Marshal 构造（原 Sprintf 拼接在 err 含引号时产生非法 JSON，
+				// extractToolError 会静默丢弃 error），并带机器可读 error_code
+				Content: mustToolErrorJSON(ToolErrInvalidParams, fmt.Sprintf("arguments JSON 解析失败：%s", err.Error())),
+				Success: false,
 			}
 		}
 	}
 	if err := e.preflightToolCall(call.Function.Name, args); err != nil {
 		return LLMToolResult{
 			ToolCallID: call.ID,
-			Content:    fmt.Sprintf(`{"error":"preflight_check_failed: %s"}`, err.Error()),
+			Content:    mustToolErrorJSON(ClassifyToolError(err), fmt.Sprintf("preflight_check_failed: %s", err.Error())),
 			Success:    false,
 		}
 	}
