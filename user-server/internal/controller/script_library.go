@@ -2,12 +2,10 @@
 package controller
 
 import (
-	"context"
 	"net/http"
 	"strconv"
 
 	"hivemtk-user/internal/pkg/utils/response"
-	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -20,23 +18,8 @@ type ScriptLibraryController struct {
 
 // NewScriptLibraryController 创建控制器
 func NewScriptLibraryController() *ScriptLibraryController {
-	repo := repository.NewScriptLibraryRepositoryFromGlobal()
-	svc := service.NewScriptABService(repo)
-	kvRepo := repository.NewSystemConfigKVRepository()
-	svc.SetKVStore(
-		func(ctx context.Context, key string) (string, bool) {
-			v, err := kvRepo.Get(ctx, key)
-			if err != nil || v == "" {
-				return "", false
-			}
-			return v, true
-		},
-		func(ctx context.Context, key, val string) error {
-			_, err := kvRepo.Upsert(ctx, key, val)
-			return err
-		},
-	)
-	return &ScriptLibraryController{abSvc: svc}
+	// 装配下沉 service.NewScriptABServiceFromGlobal：controller 不直连 repository
+	return &ScriptLibraryController{abSvc: service.NewScriptABServiceFromGlobal()}
 }
 
 func parseUintParam(ctx *gin.Context, name string) (uint, bool) {

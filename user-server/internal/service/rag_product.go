@@ -6,6 +6,7 @@ import (
 
 	kbrepo "hivemtk-user/internal/aiagent/knowledge/repository"
 	"hivemtk-user/internal/model"
+	_db "hivemtk-user/internal/pkg/db"
 
 	"gorm.io/gorm"
 )
@@ -17,6 +18,12 @@ type RagProductService struct {
 
 func NewRagProductService(db *gorm.DB) *RagProductService {
 	return &RagProductService{db: db, repo: kbrepo.NewRagConfigRepository(db)}
+}
+
+// NewRagProductServiceFromGlobal 全局 DB 装配入口。
+// 供 router 装配层调用，controller 不直连 gorm（depguard controller-layer 规则）。
+func NewRagProductServiceFromGlobal() *RagProductService {
+	return NewRagProductService(_db.GetDB())
 }
 
 func (s *RagProductService) List(ctx context.Context) ([]*model.RagProduct, error) {

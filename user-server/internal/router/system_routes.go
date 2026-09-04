@@ -98,6 +98,10 @@ func setupKnowledgeBaseRoutes(auth *gin.RouterGroup) {
 	knowledgeWorkspaceCtrl := knowledgectrl.NewKnowledgeWorkspaceController(&openAPISourceAdapter{svc: service.NewOpenAPIService()})
 	knowledgeWorkspaceCtrl.RegisterRoutes(auth)
 
+	// R40 连接器凭据管理（原在 aiagent 工作台 RegisterRoutes 内，因 depguard
+	// aiagent-layer 禁止反向依赖主域 controller，移至本装配层注册）
+	knowledgeWorkspaceCtrl.RegisterConnectors(auth, controller.NewKBConnectorController())
+
 	knowledgeMerchantCtrl := knowledgectrl.NewKnowledgeMerchantController()
 	knowledgeMerchantCtrl.RegisterRoutes(auth)
 }

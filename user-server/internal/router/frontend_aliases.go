@@ -392,7 +392,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doRegAdmin("PUT", "/live-codes/:id", liveCodeCtrl.Update)
 	doRegAdmin("DELETE", "/live-codes/:id", liveCodeCtrl.Delete)
 
-	ragProductCtrl := controller.NewRagProductController(gormDB)
+	ragProductCtrl := controller.NewRagProductController()
 	doReg("GET", "/rag-product-configs", ragProductCtrl.List)
 	doReg("GET", "/rag-product-configs/list", ragProductCtrl.List)
 	doReg("GET", "/rag-product-configs/stats", ragProductCtrl.Stats)

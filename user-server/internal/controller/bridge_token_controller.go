@@ -1,13 +1,10 @@
 package controller
 
 import (
-	"os"
-	"crypto/rand"
-	"encoding/base64"
 	"net/http"
 
 	"hivemtk-user/internal/pkg/utils/response"
-	"hivemtk-user/internal/repository"
+	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,27 +14,13 @@ import (
 // GET  /api/bridge/token/status  —— 查询配置状态（不回显明文）
 // POST /api/bridge/token/reset   —— 轮换：旧值转 PREV，生成新值返回（仅此一次明文）
 //
-// 存储优先级：DB system_config_kv（运行时可变）> 环境变量 BRIDGE_INGEST_TOKEN。
+// 业务逻辑在 service.BridgeTokenService（controller 不直连 repository）。
 type BridgeTokenController struct {
-	kv repository.SystemConfigKVRepository
+	svc *service.BridgeTokenService
 }
 
 func NewBridgeTokenController() *BridgeTokenController {
-	return &BridgeTokenController{kv: repository.NewSystemConfigKVRepository()}
-}
-
-const (
-	bridgeTokenKVKey     = "bridge_ingest_token"
-	bridgeTokenPrevKVKey = "bridge_ingest_token_prev"
-)
-
-// generateBridgeToken 32 字节随机 → base64url（43 字符，无填充）
-func generateBridgeToken() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
+	return &BridgeTokenController{svc: service.NewBridgeTokenService()}
 }
 
 // GetBridgeTokenStatus godoc
@@ -48,22 +31,7 @@ func generateBridgeToken() (string, error) {
 // @Success      200 {object} response.Response
 // @Router       /api/bridge/token/status [get]
 func (c *BridgeTokenController) GetStatus(ctx *gin.Context) {
-	status := gin.H{
-		"main_configured": false,
-		"prev_configured": false,
-		"source":          "unset",
-	}
-	if v, err := c.kv.Get(ctx.Request.Context(), bridgeTokenKVKey); err == nil && v != "" {
-		status["main_configured"] = true
-		status["source"] = "db"
-	} else if os.Getenv("BRIDGE_INGEST_TOKEN") != "" {
-		status["main_configured"] = true
-		status["source"] = "env"
-	}
-	if v, err := c.kv.Get(ctx.Request.Context(), bridgeTokenPrevKVKey); err == nil && v != "" {
-		status["prev_configured"] = true
-	}
-	response.Success(ctx, status, "ok")
+	response.Success(ctx, c.svc.Status(ctx.Request.Context()), "ok")
 }
 
 // ResetBridgeToken godoc
@@ -74,17 +42,8 @@ func (c *BridgeTokenController) GetStatus(ctx *gin.Context) {
 // @Success      200 {object} response.Response
 // @Router       /api/bridge/token/reset [post]
 func (c *BridgeTokenController) ResetBridgeToken(ctx *gin.Context) {
-	newTok, err := generateBridgeToken()
+	newTok, err := c.svc.Reset(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "生成凭证失败")
-		return
-	}
-	cctx := ctx.Request.Context()
-	// 当前值 → PREV（双值灰度窗口）
-	if cur, gerr := c.kv.Get(cctx, bridgeTokenKVKey); gerr == nil && cur != "" {
-		_, _ = c.kv.Upsert(cctx, bridgeTokenPrevKVKey, cur)
-	}
-	if _, uerr := c.kv.Upsert(cctx, bridgeTokenKVKey, newTok); uerr != nil {
 		response.Error(ctx, http.StatusInternalServerError, "持久化凭证失败")
 		return
 	}

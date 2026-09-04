@@ -4,7 +4,6 @@ import (
 	"context"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/response"
-	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
 	"net/http"
 	"strconv"
@@ -15,16 +14,14 @@ import (
 
 // CustomerEventController 客户事件控制器
 type CustomerEventController struct {
-	tracker   *service.EventTracker
-	eventRepo repository.CustomerEventRepository
+	tracker *service.EventTracker
 }
 
 // NewCustomerEventController 创建客户事件控制器
 func NewCustomerEventController() *CustomerEventController {
 	customerService := service.NewCustomerService()
 	return &CustomerEventController{
-		tracker:   service.NewEventTracker(customerService),
-		eventRepo: repository.NewCustomerEventRepository(),
+		tracker: service.NewEventTracker(customerService),
 	}
 }
 
@@ -334,7 +331,7 @@ func (c *CustomerEventController) ListGlobal(ctx *gin.Context) {
 	if page <= 0 {
 		page = 1
 	}
-	list, total, err := c.eventRepo.ListGlobal(ctx.Request.Context(), ctx.Query("event_type"), limit, (page-1)*limit)
+	list, total, err := c.tracker.ListGlobalEvents(ctx.Request.Context(), ctx.Query("event_type"), limit, (page-1)*limit)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, err.Error())
 		return

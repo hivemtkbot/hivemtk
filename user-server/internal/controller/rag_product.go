@@ -8,15 +8,14 @@ import (
 	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type RagProductController struct {
 	svc *service.RagProductService
 }
 
-func NewRagProductController(db *gorm.DB) *RagProductController {
-	return &RagProductController{svc: service.NewRagProductService(db)}
+func NewRagProductController() *RagProductController {
+	return &RagProductController{svc: service.NewRagProductServiceFromGlobal()}
 }
 
 func (c *RagProductController) List(ctx *gin.Context) {

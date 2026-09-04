@@ -3,15 +3,14 @@ package controller
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // DataExportController GDPR DSAR 数据导出 API
@@ -45,7 +44,7 @@ func (c *DataExportController) Export(ctx *gin.Context) {
 		switch {
 		case strings.Contains(msg, "DSAR_001"):
 			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": msg})
-		case strings.Contains(msg, "DSAR_002") || errors.Is(err, gorm.ErrRecordNotFound) || strings.Contains(msg, "不存在"):
+		case strings.Contains(msg, "DSAR_002") || utils.IsRecordNotFound(err) || strings.Contains(msg, "不存在"):
 			ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": msg})
 		default:
 			ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": fmt.Sprintf("导出失败: %v", err)})

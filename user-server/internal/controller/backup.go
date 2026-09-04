@@ -1,14 +1,13 @@
 package controller
 
 import (
-	"errors"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // BackupController 备份控制器
@@ -255,7 +254,7 @@ func (c *RestoreController) GetLastRestore(ctx *gin.Context) {
 
 	record, err := c.restoreService.GetLastRestore(ctx.Request.Context())
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if utils.IsRecordNotFound(err) {
 			// 降级：暂无恢复记录是正常状态，不是业务错误
 			response.Success(ctx, nil, "暂无恢复记录")
 			return

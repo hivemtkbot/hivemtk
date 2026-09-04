@@ -1,7 +1,6 @@
 package controller
 
 import (
-	connectorcontroller "hivemtk-user/internal/controller"
 	"encoding/json"
 	"fmt"
 	knowledgemodel "hivemtk-user/internal/aiagent/knowledge/model"
@@ -28,6 +27,8 @@ type KnowledgeWorkspaceController struct {
 //
 // P2-3：OpenAPI 数据源能力改经 OpenAPISourcePort 窄接口注入（装配层提供适配器），
 // 未注入时相关端点返回 503。
+// R41+：连接器路由改为 RegisterConnectors 由装配层单独注册，
+// 本包不再 import 主域 controller 包（depguard aiagent-layer 禁止反向依赖）。
 func NewKnowledgeWorkspaceController(openapiPort OpenAPISourcePort) *KnowledgeWorkspaceController {
 	return &KnowledgeWorkspaceController{
 		kbService:      knowledgesvc.NewKnowledgeService(),
@@ -36,10 +37,27 @@ func NewKnowledgeWorkspaceController(openapiPort OpenAPISourcePort) *KnowledgeWo
 	}
 }
 
+// RegisterConnectors 注册连接器凭据管理路由（装配层注入主域 connector controller）
+//
+// R40: 外部连接器凭据管理（Notion/飞书/钉钉/CRM），独立于 KB 服务。
+// R41+: 路由注册移到装配层以消除 aiagent → controller 反向依赖。
+func (ctrl *KnowledgeWorkspaceController) RegisterConnectors(router *gin.RouterGroup, connectorCtrl interface {
+	List(ctx *gin.Context)
+	Get(ctx *gin.Context)
+	Save(ctx *gin.Context)
+	Test(ctx *gin.Context)
+	Pull(ctx *gin.Context)
+}) {
+	kb := router.Group("/knowledge")
+	kb.GET("/connectors", connectorCtrl.List)
+	kb.GET("/connectors/:source", connectorCtrl.Get)
+	kb.PUT("/connectors/:source", connectorCtrl.Save)
+	kb.POST("/connectors/:source/test", connectorCtrl.Test)
+	kb.POST("/connectors/:source/pull", connectorCtrl.Pull)
+}
+
 // RegisterRoutes 注册路由
 func (ctrl *KnowledgeWorkspaceController) RegisterRoutes(router *gin.RouterGroup) {
-	// R40 连接器控制器（独立于 KB 服务，凭据走 system_config_kv）
-	connectorCtrl := connectorcontroller.NewKBConnectorController()
 	kb := router.Group("/knowledge")
 	{
 		kb.POST("/import/upload", ctrl.UploadImport)
@@ -79,12 +97,6 @@ func (ctrl *KnowledgeWorkspaceController) RegisterRoutes(router *gin.RouterGroup
 		kb.POST("/:id/import/dingtalk", ctrl.DingtalkImportToKB)
 		kb.POST("/:id/import/crm", ctrl.CRMImportToKB)
 		kb.GET("/document-types", ctrl.ListDocumentTypes)
-		// R40: 外部连接器凭据管理（Notion/飞书/钉钉/CRM）
-		kb.GET("/connectors", connectorCtrl.List)
-		kb.GET("/connectors/:source", connectorCtrl.Get)
-		kb.PUT("/connectors/:source", connectorCtrl.Save)
-		kb.POST("/connectors/:source/test", connectorCtrl.Test)
-		kb.POST("/connectors/:source/pull", connectorCtrl.Pull)
 
 		kb.GET("/stats/overview", ctrl.GetOverviewStats)
 		kb.GET("/stats/documents", ctrl.GetDocumentStats)

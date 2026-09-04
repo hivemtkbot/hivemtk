@@ -8,12 +8,12 @@ import (
 	"time"
 
 	opssvc "hivemtk-user/internal/ops/service"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // MarketingFlowSyncController 营销流程 AB 结果回流控制器
@@ -39,7 +39,7 @@ func (c *MarketingFlowSyncController) SyncABResults(ctx *gin.Context) {
 	sourceID := strconv.FormatUint(id, 10)
 	experiment, err := c.abService.GetExperimentBySourceID(sourceID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if utils.IsRecordNotFound(err) {
 			response.Success(ctx, gin.H{"synced": false, "results": []any{}}, "流程未绑定实验")
 			return
 		}

@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"gorm.io/gorm"
 
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/pkg/utils/pagination"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 
@@ -352,7 +352,7 @@ func (c *WorkflowOrchestratorController) StopExecution(ctx *gin.Context) {
 	}
 
 	if err := c.svc.StopExecution(ctx.Request.Context(), uint(id)); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if utils.IsRecordNotFound(err) {
 			response.Error(ctx, http.StatusNotFound, "执行不存在")
 			return
 		}

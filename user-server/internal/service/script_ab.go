@@ -49,6 +49,27 @@ func NewScriptABService(repo *repository.ScriptLibraryRepository) *ScriptABServi
 	return &ScriptABService{repo: repo, now: time.Now}
 }
 
+// NewScriptABServiceFromGlobal 全局 DB 装配入口：repo + kv 端口一站式注入。
+// 供 router 装配层调用，controller 不得直连 repository（depguard 规则）。
+func NewScriptABServiceFromGlobal() *ScriptABService {
+	svc := NewScriptABService(repository.NewScriptLibraryRepositoryFromGlobal())
+	kvRepo := repository.NewSystemConfigKVRepository()
+	svc.SetKVStore(
+		func(ctx context.Context, key string) (string, bool) {
+			v, err := kvRepo.Get(ctx, key)
+			if err != nil || v == "" {
+				return "", false
+			}
+			return v, true
+		},
+		func(ctx context.Context, key, val string) error {
+			_, err := kvRepo.Upsert(ctx, key, val)
+			return err
+		},
+	)
+	return svc
+}
+
 // SetKVStore 注入 system_config_kv 读写端口（DI 由路由装配完成）
 func (s *ScriptABService) SetKVStore(getter func(ctx context.Context, key string) (string, bool), setter func(ctx context.Context, key, val string) error) {
 	s.kvGetter = getter

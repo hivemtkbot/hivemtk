@@ -23,3 +23,15 @@ var ErrForbidden = errors.New("forbidden")
 // 通常用于防御性编程，防止 nil receiver 调用导致 panic。
 var ErrServiceNotInit = errors.New("service not initialized")
 
+
+// IsRecordNotFound 判断错误链中是否包含"记录不存在"。
+// controller 层用它替代直接 import gorm 判断 gorm.ErrRecordNotFound，
+// 保持 controller 与 ORM 解耦（depguard controller-layer 规则）。
+func IsRecordNotFound(err error) bool {
+	for e := err; e != nil; e = errors.Unwrap(e) {
+		if e.Error() == "record not found" {
+			return true
+		}
+	}
+	return false
+}
