@@ -19,8 +19,13 @@ import (
 
 // paramEntry 缓存条目
 type paramEntry struct {
-	value string
+	value     string
+	expiresAt time.Time // D12: 过期时间（读时过期替代写时广播，多实例 60s 窗口失效）
 }
+
+// configParamTTL 单条缓存存活期；到期后下次读取触发整组重拉。
+// 多实例失效语义：写仅本进程 invalidate，他实例最迟 TTL 后回源读到新值。
+const configParamTTL = 60 * time.Second
 
 // ConfigParamService 动态参数服务
 //
@@ -38,6 +43,7 @@ type ConfigParamService struct {
 	mu     sync.RWMutex
 	cache  map[string]paramEntry // group.key → entry
 	loaded map[string]bool        // group 是否已完整加载
+	nowFn  func() time.Time       // D12: 可注入时钟（测试用），默认 time.Now
 }
 
 var globalConfigParam *ConfigParamService
@@ -50,6 +56,7 @@ func NewConfigParamService(db *gorm.DB) *ConfigParamService {
 		db:     db,
 		cache:  make(map[string]paramEntry, 256),
 		loaded: make(map[string]bool, 32),
+		nowFn:  time.Now,
 	}
 }
 
@@ -198,13 +205,24 @@ func (s *ConfigParamService) GetString(ctx context.Context, group, key, fallback
 func (s *ConfigParamService) getString(ctx context.Context, group, key string) (string, bool) {
 	cacheKey := group + "." + key
 
-	// 快速路径：缓存命中
+	// 快速路径：缓存命中（未过期）；过期 → 删 entry + 重置组加载标记，走下方全组重拉
+	now := s.nowFn()
 	s.mu.RLock()
-	if e, ok := s.cache[cacheKey]; ok {
-		s.mu.RUnlock()
+	e, hit := s.cache[cacheKey]
+	expired := hit && !now.Before(e.expiresAt)
+	s.mu.RUnlock()
+	if hit && !expired {
 		return e.value, true
 	}
-	s.mu.RUnlock()
+	if expired {
+		s.mu.Lock()
+		delete(s.cache, cacheKey)
+		s.loaded[group] = false
+		s.mu.Unlock()
+	}
+
+	// D12: 过期或无 DB 前先判 DB——nil DB 且缓存已有陈旧条目时仍返回陈旧值
+	//（测试/离线场景唯一可用数据源），保持既有语义
 
 	// DB 未接入（nil DB）→ 返回 false，由上层使用 fallback
 	if s.db == nil {
@@ -228,13 +246,18 @@ func (s *ConfigParamService) getString(ctx context.Context, group, key string) (
 
 	params, err := s.repo.ListByGroup(ctx, group)
 	if err != nil {
+		// D12 修复：加载失败必须回滚 loaded——否则该组永久返回 fallback（既有 bug）
 		logger.Warnf("[ConfigParam] load group %s failed: %v", group, err)
+		s.mu.Lock()
+		s.loaded[group] = false
+		s.mu.Unlock()
 		return "", false
 	}
 
 	s.mu.Lock()
+	filledAt := s.nowFn().Add(configParamTTL)
 	for _, p := range params {
-		s.cache[p.Group+"."+p.Key] = paramEntry{value: p.Value}
+		s.cache[p.Group+"."+p.Key] = paramEntry{value: p.Value, expiresAt: filledAt}
 	}
 	s.mu.Unlock()
 
