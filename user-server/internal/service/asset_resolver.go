@@ -2,11 +2,23 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 
+	"hivemtk-user/internal/platform"
 	"hivemtk-user/internal/repository"
 )
+
+// ReportUsageBestEffort best-effort 异步上报资产使用到平台（闭环使用统计），
+// 失败静默忽略，绝不阻塞/影响运行时主流程。
+func ReportUsageBestEffort(assetID string) {
+	defer func() { _ = recover() }()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	client := platform.NewAssetMarketClient()
+	_ = client.ReportUsage(ctx, assetID, 1)
+}
 
 // AssetResolver 资产市场运行时覆盖层（M2：运行时覆盖默认）。
 //
@@ -52,6 +64,12 @@ func (r *AssetResolver) activeAssetID(ctx context.Context, assetType string) (st
 	aid, err := r.assetRepo.FindActiveAssetIDByType(ctx, assetType)
 	if err != nil || aid == "" {
 		return "", false
+	}
+	// 运行时消费计数：解析命中即累加 use_count（闭环「平台下发 → 商户同步 → 运行时消费」），
+	// 并 best-effort 异步回传平台统计，失败不影响主流程。
+	if la, findErr := r.assetRepo.FindByAssetID(ctx, aid); findErr == nil && la != nil {
+		_ = r.assetRepo.IncrementUseCount(ctx, la.ID, 1)
+		go ReportUsageBestEffort(aid)
 	}
 	return aid, true
 }

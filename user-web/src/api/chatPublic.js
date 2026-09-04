@@ -9,13 +9,15 @@ import axios from 'axios'
 //   - visitorId 通过 X-Chat-Visitor-Id Header 传递（必须，用于会话归属）
 // ============================================================================
 
-const publicPost = async (url, data, channelId, visitorId) => {
+const publicPost = async (url, data, channelId, visitorId, visitorToken) => {
   return axios.post(url, data, {
     baseURL: window.location.origin,
     headers: {
       'Content-Type': 'application/json',
       'X-Chat-Channel-Id': channelId,
-      'X-Chat-Visitor-Id': visitorId
+      'X-Chat-Visitor-Id': visitorId,
+      // 会话级操作需携带 OpenSession 返回的 visitor_token（后端 IDOR 防护）
+      ...(visitorToken ? { 'X-Chat-Visitor-Token': visitorToken } : {})
     }
   }).then(res => res.data)
 }
@@ -57,8 +59,8 @@ export const getOfflineMessages = (sessionId, channelId, visitorId) => {
 }
 
 // 发送消息
-export const sendMessage = (sessionId, body, channelId, visitorId) => {
-  return publicPost(`/api/chat/public/sessions/${sessionId}/messages`, body, channelId, visitorId)
+export const sendMessage = (sessionId, body, channelId, visitorId, visitorToken) => {
+  return publicPost(`/api/chat/public/sessions/${sessionId}/messages`, body, channelId, visitorId, visitorToken)
 }
 
 // 转人工

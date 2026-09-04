@@ -346,7 +346,7 @@ const onSend = async (payload) => {
       body.media_name = attachment.name
       body.media_size = attachment.size
     }
-    const res = await chatApi.sendMessage(sessionId.value, body, effectiveChannelId.value, visitorId.value)
+    const res = await chatApi.sendMessage(sessionId.value, body, effectiveChannelId.value, visitorId.value, visitorToken.value)
     const data = res?.data || res
     if (data.ai_response) {
       typing.value = false
