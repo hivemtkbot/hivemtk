@@ -543,6 +543,16 @@ func (s *LLMService) callProvider(ctx context.Context, config *LLMConfig, body [
 		}
 
 		if resp.StatusCode != http.StatusOK {
+			// D05: 429 结构化返回——RateLimitError 携带 Retry-After（秒数形式），
+			// 供 provider_failover.RecordFailure 做单次即冷却特判（对齐 LiteLLM 语义）。
+			// 保持 return 不重试（429 重试属盲打；冷却由熔断层负责）。
+			if resp.StatusCode == http.StatusTooManyRequests {
+				return nil, &RateLimitError{
+					StatusCode: resp.StatusCode,
+					RetryAfter: parseRetryAfterSeconds(resp.Header.Get("Retry-After")),
+					Body:       string(respBody),
+				}
+			}
 			return nil, fmt.Errorf("LLM API error: status=%d body=%s", resp.StatusCode, string(respBody))
 		}
 
