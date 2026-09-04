@@ -187,5 +187,6 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	register(NewSOPHeatmapIndexMigration(db))
 	register(NewEmailSmtpPasswordEncryptMigration(db))
 	register(NewSOPExecutedNodesMigration(db))
+	register(NewBanditRefluxLogMigration(db))
 }
 

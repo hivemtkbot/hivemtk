@@ -35,12 +35,13 @@ func NewFeedbackLoopCron(db *gorm.DB, components *FeedbackLoopComponents) *Feedb
 		c.sopRepo = repository.NewSopAgentRepository(db)
 		c.abTestRepo = repository.NewFeedbackLoopRepositoryWithDB(db)
 	}
-	c.wg.Add(5)
+	c.wg.Add(6)
 	go c.runChampionBaselineMonthly(context.Background(), db)
 	go c.runChampionDialogueWeekly(context.Background())
 	go c.runPromptIteratorDaily(context.Background())
 	go c.runBanditConvergence(context.Background())
 	go c.runOptimizerCycle(context.Background())
+	go c.runBanditRewardReflux(context.Background(), db)
 	return c
 }
 
