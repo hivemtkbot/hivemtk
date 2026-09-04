@@ -274,9 +274,14 @@ func (s *KnowledgeService) resolveEmbeddingConfig(ctx context.Context, numericPr
 	return s.embeddingSvc, nil
 }
 
-// persistChunkEmbeddings 委托给 chunkRepo 持久化 embedding
+// persistChunkEmbeddings 委托给 chunkRepo 持久化 embedding（默认 tei 来源）
 func (s *KnowledgeService) persistChunkEmbeddings(ctx context.Context, chunks []model.KnowledgeChunk, embeddings [][]float32) error {
-	return s.chunkRepo.UpdateEmbeddingsBatch(ctx, chunks, embeddings)
+	return s.persistChunkEmbeddingsWithSource(ctx, chunks, embeddings, llm.EmbedSourceTEI)
+}
+
+// persistChunkEmbeddingsWithSource D16：带来源标记持久化
+func (s *KnowledgeService) persistChunkEmbeddingsWithSource(ctx context.Context, chunks []model.KnowledgeChunk, embeddings [][]float32, source string) error {
+	return s.chunkRepo.UpdateEmbeddingsBatchWithSource(ctx, chunks, embeddings, source)
 }
 
 // EmbedAndPersistChunks 向量化指定分片并写入 knowledge_chunks.embedding（per-product 配置优先）。
@@ -287,13 +292,13 @@ func (s *KnowledgeService) EmbedAndPersistChunks(ctx context.Context, numericPro
 	for i, c := range chunks {
 		texts[i] = c.Content
 	}
-	embeddings, err := embService.Embed(ctx, embCfg, texts)
+	embeddings, source, err := embService.EmbedWithSource(ctx, embCfg, texts)
 	if err != nil {
 		return fmt.Errorf("向量化失败: %w", err)
 	}
 	// N-4 维度守卫：preset 不符条目剔除（log+跳过），不中断批量写入
 	chunks, embeddings = filterValidEmbeddings(embService, embCfg, chunks, embeddings)
-	return s.persistChunkEmbeddings(ctx, chunks, embeddings)
+	return s.persistChunkEmbeddingsWithSource(ctx, chunks, embeddings, source)
 }
 
 // Search 检索知识库

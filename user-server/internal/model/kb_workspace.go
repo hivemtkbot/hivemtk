@@ -80,7 +80,9 @@ type KnowledgeChunk struct {
 	HitCount        int     `gorm:"default:0" json:"hit_count"`
 	Weight         float64 `gorm:"type:double precision;not null;default:1" json:"weight"`
 	Metadata       string  `gorm:"type:jsonb;default:'{}'" json:"metadata"`
-	SourceLanguage string  `gorm:"type:varchar(8);default:'zh'" json:"source_language"` 
+	SourceLanguage string  `gorm:"type:varchar(8);default:'zh'" json:"source_language"`
+	// D16: 向量来源（'tei'=真实模型 / 'hash'=FNV 兜底）；读路径按 'tei' 过滤
+	EmbeddingSource string `gorm:"type:varchar(16);not null;default:'tei'" json:"embedding_source"`
 	TranslatedVersions JSONMap   `gorm:"type:jsonb;column:translated_versions" json:"translated_versions,omitempty"`
 	CreatedAt          time.Time `gorm:"autoCreateTime" json:"created_at"`
 }

@@ -8,7 +8,8 @@ import (
 // N-4 写入前维度守卫：pgvector 写入前按模型 preset 校验向量维度，
 // 不符条目 log 告警并剔除（跳过该条写入，不中断批量），读路径零感知。
 // 默认/未知模型不在 preset 表内 → 校验直通（零行为变化）。
-// knowledge_chunks 表无 embedding model 元数据列，仅做内存维度校验（禁 DDL）。
+// knowledge_chunks 自 v3.31.0 起有 embedding_source 列（D16 来源标记），
+// 维度校验仍为内存级（列来源语义由写路径 EmbedWithSource + UpdateEmbeddingsBatchWithSource 保证）。
 
 // embeddingModelName 取本次向量化实际使用的模型名（per-product 配置优先，nil 回退服务默认）
 func embeddingModelName(embService *llm.EmbeddingService, embCfg *llm.EmbeddingConfig) string {

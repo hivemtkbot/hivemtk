@@ -193,6 +193,12 @@ func (r *KnowledgeChunkRepository) BatchUpdateLastIndexed(ctx context.Context, d
 //
 // 要求 chunks 与 embeddings 长度一致；使用参数化 SQL 防止注入；事务保证原子性。
 func (r *KnowledgeChunkRepository) UpdateEmbeddingsBatch(ctx context.Context, chunks []model.KnowledgeChunk, embeddings [][]float32) error {
+	return r.UpdateEmbeddingsBatchWithSource(ctx, chunks, embeddings, "tei")
+}
+
+// UpdateEmbeddingsBatchWithSource D16：更新 embedding 并显式标记来源（"tei"/"hash"）。
+// 兜底向量（hash）必须与真实向量（tei）可区分——读路径按 source='tei' 过滤防混写。
+func (r *KnowledgeChunkRepository) UpdateEmbeddingsBatchWithSource(ctx context.Context, chunks []model.KnowledgeChunk, embeddings [][]float32, source string) error {
 	if len(chunks) != len(embeddings) {
 		return errors.New("chunks 与 embeddings 长度不一致")
 	}
@@ -203,8 +209,8 @@ func (r *KnowledgeChunkRepository) UpdateEmbeddingsBatch(ctx context.Context, ch
 		for i, c := range chunks {
 			vec := vecToPGString(embeddings[i])
 			if err := tx.Exec(
-				"UPDATE knowledge_chunks SET embedding = $1::vector, embed_status = 'indexed' WHERE id = $2",
-				vec, c.ID,
+				"UPDATE knowledge_chunks SET embedding = $1::vector, embed_status = 'indexed', embedding_source = $3 WHERE id = $2",
+				vec, c.ID, source,
 			).Error; err != nil {
 				return err
 			}

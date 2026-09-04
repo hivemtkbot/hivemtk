@@ -307,7 +307,7 @@ func (h *HybridSearcher) vectorSearchPG(ctx context.Context, productID string, q
 	sql := `
 		SELECT id, document_id, content, embedding <=> $1::vector AS score
 		FROM knowledge_chunks
-		WHERE embedding IS NOT NULL
+		WHERE embedding IS NOT NULL AND embedding_source = 'tei'
 	`
 	args := []any{vecStr}
 	if productID != "" {

@@ -36,6 +36,7 @@ func (s *RagSearcher) vectorSearch(ctx context.Context, productID string, query 
 			       (1 - (embedding <=> ?::vector))::float8 AS score
 			FROM knowledge_chunks
 			WHERE embedding IS NOT NULL
+			  AND embedding_source = 'tei'
 			  AND product_id = ?
 			ORDER BY embedding <=> ?::vector
 			LIMIT ?
@@ -49,6 +50,7 @@ func (s *RagSearcher) vectorSearch(ctx context.Context, productID string, query 
 			       (1 - (embedding <=> ?::vector))::float8 AS score
 			FROM knowledge_chunks
 			WHERE embedding IS NOT NULL
+			  AND embedding_source = 'tei'
 			ORDER BY embedding <=> ?::vector
 			LIMIT ?
 		`

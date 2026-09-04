@@ -62,7 +62,7 @@ func (r *VectorRetriever) SearchVector(ctx context.Context, kbID string, queryVe
 			SELECT id, document_id, content,
 			       (1 - (embedding <=> ?::vector))::float8 AS score
 			FROM knowledge_chunks
-			WHERE embedding IS NOT NULL
+			WHERE embedding IS NOT NULL AND embedding_source = 'tei'
 		`
 		args := []any{vecLiteral}
 		if kbID != "" {
@@ -126,7 +126,7 @@ func (r *VectorRetriever) Retrieve(ctx context.Context, productID string, query 
 			SELECT id, document_id, content,
 			       (1 - (embedding <=> ?::vector))::float8 AS score
 			FROM knowledge_chunks
-			WHERE embedding IS NOT NULL
+			WHERE embedding IS NOT NULL AND embedding_source = 'tei'
 		`
 		args := []any{vecLiteral}
 		if productID != "" {

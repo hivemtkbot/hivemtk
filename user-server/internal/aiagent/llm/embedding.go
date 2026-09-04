@@ -273,6 +273,27 @@ func (s *EmbeddingService) Embed(ctx context.Context, cfg *EmbeddingConfig, text
 	return s.EmbedWithLane(ctx, cfg, texts, EmbeddingLaneOnline)
 }
 
+// EmbedWithSource 带来源标记的向量化（D16）：返回本批向量来源（"tei"/"hash"）。
+// 批内同源：AllowFallback=true 整批走 fallback；false 整批走 provider（失败即返错，无批内静默降级）。
+// 仅新调用方使用；旧 Embed 语义不变。
+func (s *EmbeddingService) EmbedWithSource(ctx context.Context, cfg *EmbeddingConfig, texts []string) ([][]float32, string, error) {
+	if len(texts) == 0 {
+		return [][]float32{}, EmbedSourceTEI, nil
+	}
+	if cfg != nil && cfg.AllowFallback {
+		vecs, err := s.EmbedWithLane(ctx, cfg, texts, EmbeddingLaneOnline)
+		return vecs, EmbedSourceHash, err
+	}
+	vecs, err := s.EmbedWithLane(ctx, cfg, texts, EmbeddingLaneOnline)
+	return vecs, EmbedSourceTEI, err
+}
+
+// 向量来源常量（D16）
+const (
+	EmbedSourceTEI  = "tei"
+	EmbedSourceHash = "hash"
+)
+
 // EmbedWithLane 按指定车道向量化（N-1：批量入库传 EmbeddingLaneBatch 为在线检索让路）。
 func (s *EmbeddingService) EmbedWithLane(ctx context.Context, cfg *EmbeddingConfig, texts []string, lane EmbeddingLane) ([][]float32, error) {
 	if len(texts) == 0 {
