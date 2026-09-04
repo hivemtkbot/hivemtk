@@ -12,11 +12,13 @@ import (
 
 	"hivemtk-user/internal/aiagent/llm"
 	ragcache "hivemtk-user/internal/aiagent/rag/cache"
+	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/identity"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
+	confidencesvc "hivemtk-user/internal/service/confidence"
 )
 
 // faqPromptVersion FAQ 语义缓存 prompt 版本（RT-2 缓存 key 维度之一；
@@ -54,6 +56,9 @@ type SmartCSOrchestrator struct {
 	enableAutoReply     bool
 	maxAIConsecutive    int
 
+	// D01: 五信号置信度聚合器（G4 打通）；nil 时 extractConfidence 回退启发式
+	confidenceAgg *confidencesvc.ConfidenceAggregator
+
 	// FAQ 语义缓存（M6 R-2）：构造时从全局装配读取；nil 时零影响直通
 	faqCache    *ragcache.FAQAnswerCacheService
 	faqEmbedder llm.EmbeddingServiceInterface
@@ -78,6 +83,11 @@ func DefaultOrchestratorConfig() *OrchestratorConfig {
 		EnableAutoReply:     cp.GetBool(context.Background(), "smart_cs", "enable_auto_reply", true),
 		MaxAIConsecutive:    cp.GetInt(context.Background(), "smart_cs", "max_ai_consecutive", 10),
 	}
+}
+
+// SetConfidenceAggregator 注入五信号置信度聚合器（D01；factory 层从 engine 取同实例）
+func (o *SmartCSOrchestrator) SetConfidenceAggregator(agg *confidencesvc.ConfidenceAggregator) {
+	o.confidenceAgg = agg
 }
 
 // NewSmartCSOrchestrator 创建智能体编排器
@@ -371,10 +381,10 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		}
 	}
 	result.SalesResponse = salesResp
-	result.Confidence = o.extractConfidence(ctx, salesResp)
+	result.Confidence = o.extractConfidence(ctx, salesResp, session.SessionID, in.Content)
 	result.Cards = RichCardsFromDTO(salesResp.Cards)
 
-	suggestionID := o.saveAISuggestion(ctx, session.SessionID, salesResp)
+	suggestionID := o.saveAISuggestion(ctx, session.SessionID, salesResp, in.Content)
 	result.SuggestionID = suggestionID
 
 	threshold := o.confidenceThreshold
@@ -734,11 +744,11 @@ func (o *SmartCSOrchestrator) saveOutboundMessage(ctx context.Context, session *
 }
 
 // saveAISuggestion 保存 AI 建议供座席参考
-func (o *SmartCSOrchestrator) saveAISuggestion(ctx context.Context, sessionID string, resp *SalesResponse) uint {
+func (o *SmartCSOrchestrator) saveAISuggestion(ctx context.Context, sessionID string, resp *SalesResponse, userText string) uint {
 	if o.suggestionRepo == nil || resp == nil || resp.Reply == "" {
 		return 0
 	}
-	confidence := o.extractConfidence(context.Background(), resp)
+	confidence := o.extractConfidence(ctx, resp, sessionID, userText)
 	suggestion := &model.AISuggestion{
 		SessionID:  sessionID,
 		Suggestion: resp.Reply,
@@ -839,11 +849,36 @@ func (o *SmartCSOrchestrator) isUrgentOrComplaint(ctx context.Context, content s
 	return MatchUrgentKeywords(content)
 }
 
-// extractConfidence 从 SalesResponse 提取置信度
-func (o *SmartCSOrchestrator) extractConfidence(ctx context.Context, resp *SalesResponse) float64 {
+// extractConfidence 提取置信度（D01/G4 打通）：
+// 优先走五信号校准链（ConfidenceAggregator.Aggregate——Temperature×Platt×Conformal），
+// 与转人工预检（sales_engine_transfer）、坐席分配（session_assignment）同一把尺子；
+// agg 未注入或 Aggregate 失败时回退启发式 fallbackConfidence（保留为降级路径）。
+func (o *SmartCSOrchestrator) extractConfidence(ctx context.Context, resp *SalesResponse, sessionID, userText string) float64 {
 	if resp == nil {
 		return 0
 	}
+	if o.confidenceAgg != nil {
+		in := &dto.SignalCollectionInput{
+			SessionID: sessionID,
+			Text:      userText,
+			RAGExecuted: len(resp.RAGChunks) > 0,
+			RAGChunks: resp.RAGChunks,
+		}
+		if resp.Intent != nil {
+			in.IntentType = resp.Intent.IntentType
+			in.RawIntentConf = resp.Intent.Confidence
+		}
+		if dec, err := o.confidenceAgg.Aggregate(ctx, in); err == nil && dec != nil {
+			return dec.AggregatedConf
+		} else if err != nil {
+			logger.Ctx(ctx).Warn().Err(err).Msg("[Orchestrator] confidence aggregate failed, fallback to heuristic")
+		}
+	}
+	return o.fallbackConfidence(resp)
+}
+
+// fallbackConfidence 启发式降级路径（原 extractConfidence 固定加分逻辑，G4 修复前行为）
+func (o *SmartCSOrchestrator) fallbackConfidence(resp *SalesResponse) float64 {
 	if resp.Intent != nil && resp.Intent.Confidence > 0 {
 		return resp.Intent.Confidence
 	}

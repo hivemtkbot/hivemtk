@@ -155,6 +155,11 @@ func (e *SalesEngine) SetConfidenceAggregator(ctx context.Context, agg *confiden
 	e.confidenceAggregator = agg
 }
 
+// ConfidenceAggregator getter（D01：orchestrator 复用同实例，避免重复初始化）
+func (e *SalesEngine) ConfidenceAggregator() *confidencesvc.ConfidenceAggregator {
+	return e.confidenceAggregator
+}
+
 func (e *SalesEngine) SetHumanizeEvaluator(ctx context.Context, ev *humanizesvc.HumanizeEvalService) {
 	e.humanizeEvaluator = ev
 }

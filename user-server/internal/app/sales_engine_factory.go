@@ -63,7 +63,9 @@ func BuildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 	if confidenceAgg == nil {
 		confidenceAgg = service.InitConfidenceAggregator(gormDB, dispatcher, nil)
 	}
-	_ = confidenceAgg 
+	// D01 (G4) 修复：agg 此前被 `_ =` 丢弃——engine 的转人工预检链
+	// shouldTransferByConfidence 恒走 nil 短路。此处注入使其真正生效。
+	engine.SetConfidenceAggregator(context.Background(), confidenceAgg)
 
 	humanizeSvc := service.GetHumanizeEvalService()
 	if humanizeSvc == nil {
@@ -109,6 +111,8 @@ func BuildSmartOrchestrator(engine *service.SalesEngine, kbRepo *repository.Know
 	cfg.ConfidenceThreshold = 0.5
 	o := service.NewSmartCSOrchestrator(engine, cfg, kbRepo)
 	o.SetIdentityService(service.NewCustomerIdentityService())
+	// D01: orchestrator ⑧ 步与 engine 转人工预检共用同一校准分（G4 打通）
+	o.SetConfidenceAggregator(engine.ConfidenceAggregator())
 
 	// CS-P0-1: 注入 DNC（Do-Not-Contact）全局退订检查器
 	// 修复前 dncChecker 恒为 nil → Bridge/WebSocket/AI 回复等所有入站链路的
