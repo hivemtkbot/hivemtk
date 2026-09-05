@@ -1,6 +1,6 @@
 <template>
   <div class="xiaohongshu-card-stats-container">
-    <!-- 卡片信息 - 小红书聊天消息样式 -->
+    
     <div class="chat-message-container">
       <div class="chat-message">
         <div class="message-avatar">
@@ -44,7 +44,7 @@
       </div>
     </div>
 
-    <!-- 统计卡片 -->
+    
     <el-row :gutter="20" class="stats-cards">
       <el-col :span="8">
         <el-card class="stats-card">
@@ -103,7 +103,7 @@
       </el-col>
     </el-row>
 
-    <!-- 筛选条件 -->
+    
     <el-card class="filter-card">
       <el-form :model="filterForm" inline>
         <el-form-item :label="$t('日期范围')">
@@ -131,7 +131,7 @@
       </el-form>
     </el-card>
 
-    <!-- 图表区域 -->
+    
     <el-row :gutter="20" class="chart-row">
       <el-col :span="24">
         <el-card class="chart-card">
@@ -143,7 +143,7 @@
       </el-col>
     </el-row>
 
-    <!-- 最近活动 -->
+    
     <el-card class="activity-card">
       <div class="activity-header">
         <span>{{ $t('最近活动') }}</span>
@@ -153,7 +153,7 @@
           <el-table-column prop="views" :label="$t('浏览量')" width="80" />
         </el-table>
       
-      <!-- 分页 -->
+      
       <div class="pagination-container">
         <el-pagination
           v-model:current-page="pagination.page"
@@ -179,15 +179,12 @@ import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'
 import { getXiaohongshuCard, getXiaohongshuCardStats } from '@/api/xiaohongshuCard'
 
-// 路由
-const route = useRoute()
+const route = useRoute();
 const router = useRouter()
 
-// 响应式数据
-const loading = ref(false)
+const loading = ref(false);
 const viewChart = ref(null)
 
-// 卡片信息
 const cardInfo = reactive({
   id: null,
   title: '',
@@ -200,34 +197,29 @@ const cardInfo = reactive({
   is_active: true,
   created_at: '',
   updated_at: ''
-})
+});
 
-// 卡片统计
 const cardStats = reactive({
   view_count: 0,
   engagement_rate: 0,
   unique_visitors: 0,
   avg_view_time: 0,
   view_trend: []
-})
+});
 
-// 筛选表单
 const filterForm = reactive({
   dateRange: [],
   groupBy: 'day'
-})
+});
 
-// 最近活动
-const recentActivities = ref([])
+const recentActivities = ref([]);
 
-// 分页
 const pagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
-})
+});
 
-// 获取卡片信息
 const fetchCardInfo = async () => {
   const cardId = route.params.id
   if (!cardId) {
@@ -237,15 +229,13 @@ const fetchCardInfo = async () => {
   
   try {
     const res = await getXiaohongshuCard(cardId)
-    // 拦截器已解包，res 直接就是数据对象
-    Object.assign(cardInfo, res)
+    Object.assign(cardInfo, res);
   } catch (error) {
     ElMessage.error(i18n.global.t('获取卡片信息失败'))
     console.error(error)
   }
-}
+};
 
-// 获取卡片统计
 const fetchCardStats = async () => {
   const cardId = route.params.id
   if (!cardId) {
@@ -260,73 +250,60 @@ const fetchCardStats = async () => {
       page_size: pagination.pageSize
     }
     
-    // 添加日期范围参数
     if (filterForm.dateRange && filterForm.dateRange.length === 2) {
       params.start_date = filterForm.dateRange[0]
       params.end_date = filterForm.dateRange[1]
     }
     
-    // 添加分组参数
-    params.group_by = filterForm.groupBy
+    params.group_by = filterForm.groupBy;
     
     const res = await getXiaohongshuCardStats(cardId, params)
-    // 拦截器已解包，res 直接就是数据对象
-    // 更新统计数据
     if (res.card) {
       Object.assign(cardStats, res.card)
     } else if (res.viewCount !== undefined) {
       cardStats.view_count = res.viewCount
     }
 
-    // 更新每日趋势（后端字段为 dailyStats，DailyStat 含 date/view）
-    recentActivities.value = res.dailyStats || []
+    recentActivities.value = res.dailyStats || [];
     pagination.total = res.dailyStats ? res.dailyStats.length : 0
 
-    // 更新图表
     nextTick(() => {
       updateCharts()
-    })
+    });
   } catch (error) {
     ElMessage.error(i18n.global.t('获取统计数据失败'))
     console.error(error)
   } finally {
     loading.value = false
   }
-}
+};
 
-// 刷新数据
 const refreshData = () => {
   fetchCardStats()
-}
+};
 
-// 日期范围改变
 const handleDateChange = () => {
   pagination.page = 1
   fetchCardStats()
-}
+};
 
-// 分组方式改变
 const handleGroupByChange = () => {
   pagination.page = 1
   fetchCardStats()
-}
+};
 
-// 分页大小改变
 const handleSizeChange = (val) => {
   pagination.pageSize = val
   pagination.page = 1
   fetchCardStats()
-}
+};
 
-// 当前页改变
 const handleCurrentChange = (val) => {
   pagination.page = val
   fetchCardStats()
-}
+};
 
-// 更新图表
 const updateCharts = () => {
-  // 访问趋势图
   if (viewChart.value) {
     viewChart.value.dispose()
   }
@@ -363,13 +340,12 @@ const updateCharts = () => {
     }
     viewChart.value.setOption(viewOption)
   }
-}
+};
 
-// 工具函数
 const formatNumber = (num) => {
   if (!num) return 0
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
+};
 
 const formatPercent = (num) => {
   if (!num) return 0
@@ -394,10 +370,8 @@ const getActionText = (type) => {
   return '浏览'
 }
 
-// 页面加载时获取数据
 onMounted(() => {
-  // 设置默认日期范围为最近7天
-  const end = new Date()
+  const end = new Date();
   const start = new Date()
   start.setDate(start.getDate() - 7)
   
@@ -408,7 +382,7 @@ onMounted(() => {
   
   fetchCardInfo()
   fetchCardStats()
-})
+});
 </script>
 
 <style scoped>

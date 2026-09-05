@@ -24,7 +24,7 @@
         </div>
       </template>
 
-      <!-- 卡片信息 -->
+      
       <div class="card-info-section" v-if="cardInfo.id">
         <el-row :gutter="20">
           <el-col :span="6">
@@ -51,7 +51,7 @@
         </el-row>
       </div>
 
-      <!-- 总体统计 -->
+      
       <div class="stats-overview">
         <el-row :gutter="20">
           <el-col :span="24">
@@ -65,7 +65,7 @@
         </el-row>
       </div>
 
-      <!-- 图表区域 -->
+      
       <div class="charts-section">
         <el-row :gutter="20">
           <el-col :span="24">
@@ -81,7 +81,7 @@
         </el-row>
       </div>
 
-      <!-- 最近活动 -->
+      
       <div class="bottom-section">
         <el-row :gutter="20">
           <el-col :span="24">
@@ -125,43 +125,36 @@ import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'
 import { getTikTokCard, getTikTokCardStats } from '@/api/tiktokCard'
 
-// 路由
-const route = useRoute()
+const route = useRoute();
 const router = useRouter()
 
-// 响应式数据
-const loading = ref(false)
+const loading = ref(false);
 const cardId = ref(route.params.id)
 const cardInfo = ref({})
 const dateRange = ref([])
 const groupBy = ref('day')
 
-// 卡片统计数据
 const cardStats = reactive({
   cardId: 0,
   title: '',
   viewCount: 0,
   dailyStats: [],
   recentActivity: []
-})
+});
 
-// 图表实例
-const visitTrendChart = ref(null)
+const visitTrendChart = ref(null);
 let visitChartInstance = null
 
-// 获取卡片信息
 const fetchCardInfo = async () => {
   try {
     const res = await getTikTokCard(cardId.value)
-    // 拦截器已解包，res 直接就是数据对象
-    cardInfo.value = res
+    cardInfo.value = res;
   } catch (error) {
     ElMessage.error(i18n.global.t('获取卡片信息失败'))
     console.error(error)
   }
-}
+};
 
-// 获取统计数据
 const fetchCardStats = async () => {
   loading.value = true
   try {
@@ -175,24 +168,20 @@ const fetchCardStats = async () => {
     }
     
     const res = await getTiktokCardStats(cardId.value, params)
-    // 拦截器已解包，res 直接就是数据对象
-    Object.assign(cardStats, res)
+    Object.assign(cardStats, res);
 
-    // 更新图表
     nextTick(() => {
       updateCharts()
-    })
+    });
   } catch (error) {
     ElMessage.error(i18n.global.t('获取统计数据失败'))
     console.error(error)
   } finally {
     loading.value = false
   }
-}
+};
 
-// 更新图表
 const updateCharts = () => {
-  // 更新访问趋势图
   if (visitChartInstance) {
     visitChartInstance.dispose()
   }
@@ -224,40 +213,33 @@ const updateCharts = () => {
   }
   visitChartInstance.setOption(visitOption)
   
-  // 响应式调整
   window.addEventListener('resize', () => {
     if (visitChartInstance) visitChartInstance.resize()
-  })
-}
+  });
+};
 
-// 日期范围变化
 const handleDateChange = () => {
   fetchCardStats()
-}
+};
 
-// 分组方式变化
 const handleGroupByChange = () => {
   fetchCardStats()
-}
+};
 
-// 刷新数据
 const refreshData = () => {
   fetchCardInfo()
   fetchCardStats()
-}
+};
 
-// 返回上一页
 const goBack = () => {
   router.go(-1)
-}
+};
 
-// 格式化数字
 const formatNumber = (num) => {
   if (!num) return '0'
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
+};
 
-// 格式化日期
 const formatDate = (date) => {
   if (!date) return ''
   if (typeof date === 'string') return date
@@ -268,28 +250,24 @@ const formatDate = (date) => {
   const day = String(d.getDate()).padStart(2, '0')
   
   return `${year}-${month}-${day}`
-}
+};
 
-// 获取操作类型
 const getActionType = (action) => {
   const actionMap = {
     view: ''
   }
   return actionMap[action] || ''
-}
+};
 
-// 获取操作文本
 const getActionText = (action) => {
   const actionMap = {
     view: '浏览'
   }
   return actionMap[action] || action
-}
+};
 
-// 初始化
 onMounted(() => {
-  // 设置默认日期范围为最近7天
-  const endDate = new Date()
+  const endDate = new Date();
   const startDate = new Date()
   startDate.setDate(endDate.getDate() - 7)
   
@@ -297,7 +275,7 @@ onMounted(() => {
   
   fetchCardInfo()
   fetchCardStats()
-})
+});
 </script>
 
 <style scoped>

@@ -84,10 +84,7 @@
 </template>
 
 <script setup>
-/**
- * WhatsApp 模板批量发送矩阵（USR-SM-01）
- */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue';
 import { ElMessage } from 'element-plus'
 import { http } from '@/utils/request'
 
@@ -108,8 +105,8 @@ const progressList = ref([])
 const progressStatus = ref('')
 
 async function load() {
-  templates.value = await http.get('/api/whatsapp/templates') || []
-  segments.value = await http.get('/api/user-segments') || []
+  templates.value = (await http.get('/api/whatsapp/templates')) || []
+  segments.value = (await http.get('/api/user-segments')) || []
 }
 
 const progressStats = computed(() => {

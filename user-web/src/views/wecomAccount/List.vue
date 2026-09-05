@@ -1,6 +1,6 @@
 <template>
   <div class="wecom-account-list">
-    <!-- 健康度概览卡片 -->
+    
     <el-row :gutter="16" class="summary-row" v-loading="summaryLoading">
       <el-col :span="6">
         <el-card shadow="hover">
@@ -42,7 +42,7 @@
       </el-col>
     </el-row>
 
-    <!-- 账号列表 -->
+    
     <el-card shadow="never" class="table-card">
       <template #header>
         <div class="card-header">
@@ -119,7 +119,7 @@
       </el-table>
     </el-card>
 
-    <!-- AI 智能体绑定对话框 -->
+    
     <AgentBindingDialog
       v-model="bindingDialogVisible"
       channel-type="wecom"
@@ -128,10 +128,10 @@
       :account-enabled="bindingAccountEnabled"
     />
 
-    <!-- 测试发送消息对话框（复用组件） -->
+    
     <WeComSendDialog v-model:visible="sendDialogVisible" :account-id="sendAccountId" />
 
-    <!-- 新增 / 编辑企微账号对话框 -->
+    
     <el-dialog v-model="createDialogVisible" :title="dialogTitle" width="520px" @closed="resetCreateForm">
       <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="110px">
         <el-form-item label="CorpID" prop="corp_id">
@@ -177,7 +177,7 @@
       </template>
     </el-dialog>
 
-    <!-- 账号详情对话框 -->
+    
     <el-dialog v-model="detailDialogVisible" title="账号详情" width="640px">
       <el-descriptions v-if="detailAccount" :column="2" border size="small">
         <el-descriptions-item label="账号ID">{{ detailAccount.id }}</el-descriptions-item>
@@ -233,8 +233,7 @@ import { Refresh, Plus, ArrowDown, Link, Promotion, RefreshRight, DataLine } fro
 import { wecomAccountApi } from '@/api/wecomAccount.js'
 import AgentBindingDialog from '@/components/AgentBindingDialog.vue'
 import WeComSendDialog from '@/components/WeComSendDialog.vue'
-// 账号登录状态/风险等级：取自统一 accountType 常量
-import { getAccountStatusLabel, getAccountStatusTagType } from '@/constants/accountType'
+import { getAccountStatusLabel, getAccountStatusTagType } from '@/constants/accountType';
 
 const router = useRouter()
 
@@ -243,11 +242,10 @@ const summaryLoading = ref(false)
 const accountList = ref([])
 const summary = ref(null)
 
-// 新增 / 编辑账号
-const createDialogVisible = ref(false)
+const createDialogVisible = ref(false);
 const createLoading = ref(false)
 const createFormRef = ref(null)
-const dialogMode = ref('create') // create | edit
+const dialogMode = ref('create');
 const editingId = ref(null)
 const createForm = reactive({
   corp_id: '',
@@ -341,8 +339,7 @@ const submitForm = async () => {
   }
 }
 
-// 详情
-const detailDialogVisible = ref(false)
+const detailDialogVisible = ref(false);
 const detailAccount = ref(null)
 const detailHealth = ref(null)
 const viewDetail = (row) => {
@@ -351,7 +348,6 @@ const viewDetail = (row) => {
   detailDialogVisible.value = true
 }
 
-// 删除
 const handleDelete = async (account) => {
   try {
     await ElMessageBox.confirm(`确认删除企业微信账号「${account.corp_id}」？该操作不可恢复。`, '删除确认', {
@@ -369,7 +365,7 @@ const handleDelete = async (account) => {
   } catch (err) {
     ElMessage.error('删除失败: ' + (err.message || '未知错误'))
   }
-}
+};
 
 const healthScoreClass = computed(() => {
   const score = summary.value?.avg_score ?? 0
@@ -445,8 +441,7 @@ onMounted(() => {
   loadData()
 })
 
-// ===== AI 智能体绑定对话框状态 =====
-const bindingDialogVisible = ref(false)
+const bindingDialogVisible = ref(false);
 const bindingAccountId = ref('')
 const bindingAccountLabel = ref('')
 const bindingAccountEnabled = ref(true)
@@ -458,11 +453,9 @@ const openBindingDialog = (account) => {
   bindingDialogVisible.value = true
 }
 
-// ===== 操作加载态（防重复点击） =====
-const actionLoading = ref('')
+const actionLoading = ref('');
 
-// ===== 测试发送对话框（复用组件） =====
-const sendDialogVisible = ref(false)
+const sendDialogVisible = ref(false);
 const sendAccountId = ref(null)
 
 const openSendDialog = (account) => {
@@ -470,7 +463,6 @@ const openSendDialog = (account) => {
   sendDialogVisible.value = true
 }
 
-// ===== 同步客户 / 客户群 / 标签 =====
 const syncAction = async (account, type) => {
   const apiMap = {
     syncCustomers: wecomAccountApi.syncCustomers,
@@ -489,9 +481,8 @@ const syncAction = async (account, type) => {
   } finally {
     actionLoading.value = ''
   }
-}
+};
 
-// ===== 刷新登录状态（强制重新换取 access_token） =====
 const refreshAccount = async (account) => {
   actionLoading.value = 'refresh'
   try {
@@ -503,9 +494,8 @@ const refreshAccount = async (account) => {
   } finally {
     actionLoading.value = ''
   }
-}
+};
 
-// ===== “更多”下拉命令分发 =====
 const handleMoreCommand = (cmd, row) => {
   const account = row.account
   switch (cmd) {
@@ -531,7 +521,7 @@ const handleMoreCommand = (cmd, row) => {
       refreshAccount(account)
       break
   }
-}
+};
 </script>
 
 <style scoped>

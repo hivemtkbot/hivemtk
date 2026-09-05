@@ -72,11 +72,7 @@
 </template>
 
 <script setup>
-/**
- * LLM 路由成本看板（USR-AI-08）
- * API：/api/llm/cost-stats, /api/llm/usage, /api/llm/egress-audit
- */
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue';
 import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'
 import { http } from '@/utils/request'

@@ -1,10 +1,5 @@
 import { http } from '@/utils/request'
 
-/**
- * 知识库扩展 API（USR-KB-01）
- * 文档类型：Markdown / DOCX / PDF / HTML / Notion / 飞书
- */
-
 export const uploadDocument = (kbId, file, options = {}) => {
   const form = new FormData()
   form.append('file', file)
@@ -13,7 +8,7 @@ export const uploadDocument = (kbId, file, options = {}) => {
   return http.post(`/api/knowledge/${kbId}/upload`, form, {
     headers: { 'Content-Type': 'multipart/form-data' }
   })
-}
+};
 
 export const importFromURL = (kbId, data) =>
   http.post(`/api/knowledge/${kbId}/import/url`, data)

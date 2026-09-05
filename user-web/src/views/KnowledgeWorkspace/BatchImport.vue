@@ -15,11 +15,11 @@
     </el-alert>
 
     <el-row :gutter="16" style="margin-top: 16px">
-      <!-- 左侧:配置 + 输入 -->
+      
       <el-col :span="14">
         <el-card>
           <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-            <!-- 文件上传 -->
+            
             <el-tab-pane label="文件上传" name="upload">
               <el-form label-width="100px" :model="uploadForm">
                 <el-form-item label="产品" required>
@@ -55,7 +55,7 @@
               <el-button type="primary" :icon="View" :disabled="!uploadForm.file" @click="loadPreview" style="margin-top: 8px">预览解析结果</el-button>
             </el-tab-pane>
 
-            <!-- JSON 粘贴 -->
+            
             <el-tab-pane label="JSON 粘贴" name="paste">
               <el-form label-width="100px">
                 <el-form-item label="产品" required>
@@ -81,7 +81,7 @@
         </el-card>
       </el-col>
 
-      <!-- 右侧:预览 + 导入结果 -->
+      
       <el-col :span="10">
         <el-card>
           <template #header>
@@ -114,7 +114,7 @@
       </el-col>
     </el-row>
 
-    <!-- 导入结果 -->
+    
     <el-card v-if="lastResult" style="margin-top: 16px">
       <template #header>
         <div class="card-header">
@@ -147,7 +147,7 @@
       </el-table>
     </el-card>
 
-    <!-- 帮助 -->
+    
     <el-card style="margin-top: 16px">
       <template #header>
         <div class="card-header">
@@ -228,7 +228,6 @@ const handleExceed = () => {
   ElMessage.warning(i18n.global.t('只能上传 1 个文件'))
 }
 
-// 通过本地解析预览
 const loadPreview = () => {
   if (!uploadForm.file) {
     ElMessage.warning(i18n.global.t('请先选择文件'))
@@ -240,7 +239,7 @@ const loadPreview = () => {
     parseTextToPreview(text, uploadForm.format === 'auto' ? detectFormat(uploadForm.file.name) : uploadForm.format)
   }
   reader.readAsText(uploadForm.file)
-}
+};
 
 const loadPastePreview = () => {
   if (!pasteForm.jsonText.trim()) {
@@ -363,8 +362,7 @@ const handleBatchImport = async () => {
     if (res) {
       lastResult.value = res
       ElMessage.success(`导入完成:成功 ${res.accepted} / 失败 ${res.rejected}`)
-      // 重置预览
-      preview.value = []
+      preview.value = [];
       if (activeTab.value === 'upload') uploadForm.file = null
       else pasteForm.jsonText = ''
     }

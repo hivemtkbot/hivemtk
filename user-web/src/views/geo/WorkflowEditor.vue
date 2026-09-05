@@ -2,7 +2,7 @@
   <div class="geo-page">
 
     <div class="p-4" style="display:flex; gap:16px; min-height:calc(100vh - 180px)">
-    <!-- 左栏：Workflow 模板列表 -->
+    
     <el-card style="width:260px; flex-shrink:0">
       <template #header>
         <div class="flex items-center justify-between">
@@ -24,9 +24,9 @@
       </div>
     </el-card>
 
-    <!-- 中间 + 右栏 -->
+    
     <div style="flex:1; display:flex; flex-direction:column; gap:16px">
-      <!-- 工作流编辑器 -->
+      
       <el-card style="flex:1">
         <template #header>
           <div class="flex items-center justify-between">
@@ -42,7 +42,7 @@
           </div>
         </template>
 
-        <!-- 步骤列表（可拖拽） -->
+        
         <div class="steps-container">
           <div
             v-for="(step, idx) in steps"
@@ -58,7 +58,7 @@
                 <el-input v-model="step.name" size="small" placeholder="步骤名称" style="width:200px" />
               </div>
               <div class="step-config">
-                <!-- 控制节点（无执行器）-->
+                
                 <template v-if="step.type === 'trigger'">
                   <el-tag size="small" type="info">工作流入口节点，接收触发事件</el-tag>
                 </template>
@@ -75,7 +75,7 @@
                   <el-tag size="small" type="info">通用动作节点 — 如需实际执行，请改为具体执行器类型</el-tag>
                 </template>
 
-                <!-- 执行器节点 -->
+                
                 <template v-else-if="step.type === 'content_generate'">
                   <div class="flex gap-2 flex-wrap">
                     <el-input v-model="step.topic" size="small" placeholder="文章主题" style="flex:1;min-width:140px" />
@@ -157,7 +157,7 @@
         </div>
       </el-card>
 
-      <!-- 底部：Execution 监控 -->
+      
       <el-card>
         <template #header><span class="font-bold">执行监控</span></template>
         <el-table :data="executions" v-loading="execLoading" size="small">
@@ -214,12 +214,11 @@ const running = ref(false)
 const executions = ref([])
 const execLoading = ref(false)
 
-// 安全读取 STEP_TYPES 属性（模板不可用可选链）
 const stepMeta = (type, key) => {
   const meta = STEP_TYPES[type]
   if (!meta) return key === 'label' ? (type || '未知') : undefined
   return meta[key]
-}
+};
 
 const selectWorkflow = (w) => {
   currentWorkflow.value = w
@@ -300,14 +299,14 @@ const loadWorkflows = async () => {
   try {
     const data = await listWorkflows()
     workflows.value = Array.isArray(data) ? data : (data?.list || data?.items || [])
-  } catch { /* 忽略 */ }
+  } catch {}
 }
 const loadExecutions = async () => {
   execLoading.value = true
   try {
     const data = await listWorkflowExecutions(currentWorkflow.value?.id)
     executions.value = Array.isArray(data) ? data : (data?.list || data?.items || [])
-  } catch { /* 忽略 */ }
+  } catch {}
   execLoading.value = false
 }
 

@@ -93,7 +93,7 @@
       </div>
     </el-card>
 
-    <!-- 帮助文档弹窗 -->
+    
     <el-dialog v-model="helpDialogVisible" title="RAG 帮助文档" width="780px" :close-on-click-modal="false">
       <div class="help-doc-content">
         <el-collapse v-model="activeHelpSections">
@@ -201,19 +201,16 @@ import { knowledgeBaseAPI } from '@/api/knowledgeBase'
 
 const router = useRouter()
 
-// 统计数据
 const stats = ref({
   totalProducts: 0,
   activeProducts: 0,
   activatedAccounts: 0,
   totalDocuments: 0
-})
+});
 
-// 最近活动数据
-const activities = ref([])
+const activities = ref([]);
 
-// 状态 label/type：取自统一 PASS_FAIL_STATUS 集（兼容"成功/失败/进行中"中文字面量）
-const STATUS_ZH_TO_VALUE = { '成功': 'success', '失败': 'failed', '进行中': 'running' }
+const STATUS_ZH_TO_VALUE = { '成功': 'success', '失败': 'failed', '进行中': 'running' };
 const getStatusTagType = (status) => {
   const v = STATUS_ZH_TO_VALUE[status] || status
   switch (v) {
@@ -226,47 +223,38 @@ const getStatusTagType = (status) => {
 const STATUS_ZH_LABEL = { '成功': '成功', '失败': '失败', '进行中': '进行中' }
 const getStatusLabel = (status) => STATUS_ZH_LABEL[status] || (status === 'success' ? '成功' : status === 'failed' ? '失败' : status === 'running' ? '进行中' : status)
 
-// 跳转到配置页面
 const goToConfig = () => {
   router.push('/system/rag-product-config')
-}
+};
 
-// 跳转到账号配置页面
 const goToAccountConfig = () => {
   router.push('/system/rag-product-config')
-}
+};
 
-// 帮助文档弹窗
-const helpDialogVisible = ref(false)
+const helpDialogVisible = ref(false);
 const activeHelpSections = ref(['1'])
 
-// 打开帮助文档
 const goToDocs = () => {
   helpDialogVisible.value = true
-}
+};
 
-// 加载真实统计数据
 const loadStats = async () => {
   try {
-    // 加载 RAG 产品数据
-    const productsRes = await ragProductConfigAPI.getRagProducts({})
+    const productsRes = await ragProductConfigAPI.getRagProducts({});
     const products = productsRes?.items || productsRes?.list || []
     if (Array.isArray(products)) {
       stats.value.totalProducts = products.length
       stats.value.activeProducts = products.filter((p) => p.is_active !== false).length
     }
 
-    // 加载知识库文档（汇总各知识库 doc_count）
     try {
       const kbsRes = await knowledgeBaseAPI.listKBs({ page: 1, page_size: 100 })
       const kbs = kbsRes?.list || kbsRes?.items || (Array.isArray(kbsRes) ? kbsRes : [])
       stats.value.totalDocuments = kbs.reduce((sum, k) => sum + Number(k?.doc_count || k?.document_count || 0), 0)
     } catch (e) {
-      // 静默失败,不影响其他数据加载
-      console.warn('加载知识库文档失败:', e)
+      console.warn('加载知识库文档失败:', e);
     }
 
-    // 加载账号配置（统计账号数）
     try {
       const accountsRes = await ragProductConfigAPI.getAccountConfig({})
       const accounts = accountsRes?.list || accountsRes || []
@@ -274,11 +262,9 @@ const loadStats = async () => {
         stats.value.activatedAccounts = accounts.filter((a) => a.is_active !== false).length
       }
     } catch (e) {
-      // 静默失败
-      console.warn('加载账号配置失败:', e)
+      console.warn('加载账号配置失败:', e);
     }
 
-    // 构造活动数据(基于最新产品的更新时间)
     if (Array.isArray(products) && products.length > 0) {
       activities.value = products.slice(0, 5).map((p) => ({
         time: p.updated_at || p.created_at || '未知时间',
@@ -293,7 +279,7 @@ const loadStats = async () => {
     console.error('加载 RAG 概览数据失败:', error)
     ElMessage.warning(i18n.global.t('RAG 概览数据加载失败,请稍后重试'))
   }
-}
+};
 
 onMounted(() => {
   loadStats()

@@ -67,74 +67,62 @@ const emits = defineEmits(['update:modelValue', 'input'])
 
 const editorRef = ref(null)
 
-// 初始化编辑器
 onMounted(() => {
   if (props.disabled) {
     editorRef.value.contentEditable = false
   }
-  // 设置初始内容（经 DOMPurify 净化，防止存储型 XSS）
   if (props.modelValue && editorRef.value) {
     editorRef.value.innerHTML = DOMPurify.sanitize(props.modelValue, { USE_PROFILES: { html: true } })
   }
-})
+});
 
-// 监听 modelValue 变化
 watch(() => props.modelValue, (newVal) => {
   if (editorRef.value && editorRef.value.innerHTML !== newVal) {
-    // 经 DOMPurify 净化后再赋值给 innerHTML，防止外部传入恶意脚本
-    editorRef.value.innerHTML = DOMPurify.sanitize(newVal || '', { USE_PROFILES: { html: true } })
+    editorRef.value.innerHTML = DOMPurify.sanitize(newVal || '', { USE_PROFILES: { html: true } });
   }
-})
+});
 
-// 处理输入
 const handleInput = () => {
   const html = editorRef.value.innerHTML
   emits('update:modelValue', html)
   emits('input', html)
-}
+};
 
-// 处理键盘事件
 const handleKeydown = (e) => {
-  // 处理Tab键
   if (e.key === 'Tab') {
     e.preventDefault()
     document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;')
   }
-}
+};
 
-// 处理粘贴事件
 const handlePaste = (e) => {
   e.preventDefault()
   const text = e.clipboardData.getData('text/plain')
   document.execCommand('insertText', false, text)
-}
+};
 
-// 执行命令
 const execCommand = (command, value = null) => {
   document.execCommand(command, false, value)
   handleInput()
-}
+};
 
-// 检查命令是否激活
 const isCommandActive = (command) => {
   return document.queryCommandState(command)
-}
+};
 
-// 插入链接
 const insertLink = () => {
   const url = prompt(i18n.global.t('请输入链接地址:'))
   if (url) {
     execCommand('createLink', url)
   }
-}
+};
 
-// 插入图片
 const insertImage = () => {
   const url = prompt(i18n.global.t('请输入图片地址:'))
   if (url) {
     execCommand('insertImage', url)
   }
-}
+};
 </script>
 
 <style scoped>

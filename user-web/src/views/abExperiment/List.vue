@@ -86,7 +86,7 @@
       </el-table>
     </el-card>
 
-    <!-- 创建 / 编辑 -->
+    
     <el-dialog :title="editingId ? t('ab.edit') : t('ab.create')" v-model="createDialogVisible" width="720px">
       <el-form :model="createForm" label-width="120px">
         <el-form-item :label="t('ab.experimentName')" required>
@@ -133,7 +133,7 @@
       </template>
     </el-dialog>
 
-    <!-- 详情 -->
+    
     <el-dialog :title="t('ab.detail')" v-model="detailDialogVisible" width="760px">
       <template v-if="detailData">
         <el-descriptions :column="2" border>
@@ -242,9 +242,7 @@ async function refreshData() {
   }
 }
 
-function handleSearch() {
-  // 前端过滤，直接依赖 computed
-}
+function handleSearch() {}
 function handleReset() {
   statusFilter.value = ''
   searchKeyword.value = ''
@@ -406,9 +404,7 @@ async function showDetail(row) {
   try {
     const res = await getExperimentResults(row.id)
     results.value = Array.isArray(res) ? res : (res.list || [])
-  } catch (e) {
-    // 无结果数据不报错
-  } finally {
+  } catch (e) {} finally {
     resultsLoading.value = false
   }
 }

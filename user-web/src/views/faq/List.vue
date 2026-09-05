@@ -1,6 +1,6 @@
 <template>
   <div class="faq-list-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -24,7 +24,7 @@
       </div>
     </el-card>
 
-    <!-- 统计卡片 -->
+    
     <el-row :gutter="20" class="stat-row" v-if="stats">
       <el-col :span="6">
         <el-card shadow="never" class="stat-card">
@@ -52,7 +52,7 @@
       </el-col>
     </el-row>
 
-    <!-- 搜索栏 -->
+    
     <el-card shadow="never" class="filter-card">
       <el-form :inline="true" :model="filter" @submit.prevent>
         <el-form-item label="关键词">
@@ -96,7 +96,7 @@
       </el-form>
     </el-card>
 
-    <!-- 列表 -->
+    
     <el-card shadow="never">
       <el-table :data="list" v-loading="loading" stripe border>
         <el-table-column prop="id" label="ID" width="70" align="center" />
@@ -194,7 +194,7 @@
       </div>
     </el-card>
 
-    <!-- 匹配测试弹窗 -->
+    
     <el-dialog v-model="testDialogVisible" title="FAQ 匹配测试" width="640px" top="6vh">
       <el-form :model="testForm" label-width="80px">
         <el-form-item label="测试问题">
@@ -246,8 +246,7 @@ import { listKBs } from '@/api/knowledgeBase'
 
 const router = useRouter()
 
-// ===== 状态 =====
-const loading = ref(false)
+const loading = ref(false);
 const list = ref([])
 const total = ref(0)
 const page = ref(1)
@@ -260,10 +259,8 @@ const filter = ref({
   enabled: ''
 })
 
-// 所属知识库映射 (kb_id -> { name, kb_code })
-const kbMap = ref({})
+const kbMap = ref({});
 
-// 加载所有 FAQ 类型知识库，构建 ID -> Name 映射
 const loadKBMap = async () => {
   try {
     const res = await listKBs({ kb_type: 'faq', page: 1, page_size: 200 }).catch(() => null)
@@ -274,10 +271,9 @@ const loadKBMap = async () => {
     })
     kbMap.value = map
   } catch (e) {
-    // 静默失败：未挂载时显示"未挂载"
-    kbMap.value = {}
+    kbMap.value = {};
   }
-}
+};
 
 const getKBName = (kbId) => {
   if (kbId == null || kbId === '' || kbId === 0) return ''
@@ -286,12 +282,11 @@ const getKBName = (kbId) => {
   return info.kb_code ? `[${info.kb_code}] ${info.name}` : info.name
 }
 
-// ===== 派生 =====
 const categoryOptions = computed(() => {
   const set = new Set()
   list.value.forEach((it) => { if (it.category) set.add(it.category) })
   return Array.from(set)
-})
+});
 
 const enableRate = computed(() => {
   if (!stats.value?.total) return '0%'
@@ -304,18 +299,16 @@ const categoryCount = computed(() => {
   return set.size
 })
 
-// ===== 测试弹窗 =====
-const testDialogVisible = ref(false)
+const testDialogVisible = ref(false);
 const testLoading = ref(false)
 const testTouched = ref(false)
 const testForm = ref({ msg: '' })
 const testResult = ref([])
 
-// ===== 工具 =====
 const truncate = (text, len) => {
   if (!text) return '-'
   return text.length > len ? text.slice(0, len) + '...' : text
-}
+};
 
 const formatTime = (t) => {
   if (!t) return '-'
@@ -337,7 +330,6 @@ const getMatchTagType = (s) => {
   return 'info'
 }
 
-// ===== 数据加载 =====
 const loadList = async () => {
   loading.value = true
   try {
@@ -359,15 +351,14 @@ const loadList = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
 const loadStats = async () => {
   try {
     const res = await faqApi.stats()
     stats.value = res || { total: 0, enabled: 0 }
   } catch (e) {
-    // 统计失败不阻塞
-    console.warn('加载 FAQ 统计失败：', e?.message)
+    console.warn('加载 FAQ 统计失败：', e?.message);
   }
 }
 
@@ -387,10 +378,9 @@ const resetFilter = () => {
   loadList()
 }
 
-// ===== 跳转 =====
 const goCreate = () => {
   router.push('/faq/editor')
-}
+};
 
 const goEdit = (row) => {
   router.push(`/faq/editor/${row.id}`)
@@ -403,7 +393,6 @@ const goTest = () => {
   testDialogVisible.value = true
 }
 
-// ===== 启用/禁用 =====
 const onToggle = async (row, v) => {
   row._toggling = true
   try {
@@ -416,7 +405,7 @@ const onToggle = async (row, v) => {
   } finally {
     row._toggling = false
   }
-}
+};
 
 const stripToPayload = (row) => ({
   question: row.question,
@@ -427,7 +416,6 @@ const stripToPayload = (row) => ({
   confidence: row.confidence || 0
 })
 
-// ===== 删除 =====
 const onDelete = (row) => {
   ElMessageBox.confirm(`确认删除 FAQ「${truncate(row.question, 30)}」吗？删除后不可恢复。`, '删除确认', {
     type: 'warning',
@@ -443,17 +431,15 @@ const onDelete = (row) => {
       ElMessage.error('删除失败：' + (e.message || '未知错误'))
     }
   }).catch(() => {})
-}
+};
 
-// ===== 单条测试 =====
 const onTestOne = (row) => {
   testTouched.value = true
   testForm.value.msg = row.question
   testDialogVisible.value = true
   runTest()
-}
+};
 
-// ===== 匹配测试 =====
 const runTest = async () => {
   if (!testForm.value.msg || !testForm.value.msg.trim()) {
     ElMessage.warning('请输入测试问题')
@@ -470,7 +456,7 @@ const runTest = async () => {
   } finally {
     testLoading.value = false
   }
-}
+};
 
 onMounted(() => {
   loadKBMap()

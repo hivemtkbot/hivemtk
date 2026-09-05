@@ -1,6 +1,6 @@
 <template>
   <div class="short-link-container">
-    <!-- 页面标题和操作按钮 -->
+    
     <div class="page-header">
       <h2>{{ $t('短链管理') }}</h2>
       <div class="action-buttons">
@@ -11,7 +11,7 @@
       </div>
     </div>
 
-    <!-- 搜索表单 -->
+    
     <div class="search-form">
       <el-form :inline="true" :model="searchForm" class="search-form-content">
         <el-form-item :label="$t('短码')">
@@ -39,7 +39,7 @@
       </el-form>
     </div>
 
-    <!-- 短链列表 -->
+    
     <PageState v-if="error" state="error" :error-text="error" @retry="fetchShortLinkList" />
     <el-table v-if="!error" :data="shortLinkList" border style="width: 100%" v-loading="loading">
       <el-table-column prop="id" label="ID" width="80" />
@@ -84,7 +84,7 @@
       </template>
     </el-table>
 
-    <!-- 分页 -->
+    
     <div class="pagination-container">
       <el-pagination
         v-model:current-page="pagination.page"
@@ -97,7 +97,7 @@
       />
     </div>
 
-    <!-- 添加/编辑对话框 -->
+    
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
@@ -155,7 +155,7 @@
       </template>
     </el-dialog>
 
-    <!-- 统计对话框 -->
+    
     <el-dialog
       v-model="statsDialogVisible"
       title="短链统计"
@@ -219,7 +219,7 @@
       </div>
     </el-dialog>
 
-    <!-- 分享对话框 -->
+    
     <el-dialog
       v-model="shareDialogVisible"
       title="分享短链"
@@ -257,8 +257,7 @@ import PageState from '@/components/PageState.vue'
 import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'
 
-// 响应式数据
-const loading = ref(false)
+const loading = ref(false);
 const error = ref('')
 const generating = ref(false)
 const statsLoading = ref(false)
@@ -273,29 +272,24 @@ const formRef = ref(null)
 const currentStats = ref({})
 const shareData = ref({})
 
-// 图表引用
-const trendChartRef = ref(null)
+const trendChartRef = ref(null);
 const deviceChartRef = ref(null)
 
-// 图表实例
-let trendChart = null
+let trendChart = null;
 let deviceChart = null
 
-// 搜索表单
 const searchForm = reactive({
   short_code: '',
   original_url: '',
   status: ''
-})
+});
 
-// 分页
 const pagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
-})
+});
 
-// 表单
 const form = reactive({
   id: null,
   short_code: '',
@@ -305,9 +299,8 @@ const form = reactive({
   password: '',
   expire_time: null,
   status: 1
-})
+});
 
-// 表单验证规则
 const rules = {
   short_code: [
     { required: true, message: i18n.global.t('请输入短码'), trigger: 'blur' },
@@ -318,19 +311,16 @@ const rules = {
     { required: true, message: i18n.global.t('请输入原始URL'), trigger: 'blur' },
     { type: 'url', message: i18n.global.t('请输入有效的URL'), trigger: 'blur' }
   ]
-}
+};
 
-// 计算属性
 const dialogTitle = computed(() => {
   return isEdit.value ? '编辑短链' : '添加短链'
-})
+});
 
-// 生命周期
 onMounted(() => {
   fetchShortLinkList()
-})
+});
 
-// 方法
 const fetchShortLinkList = async () => {
   loading.value = true
   error.value = ''
@@ -355,12 +345,14 @@ const fetchShortLinkList = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
 const getStatusType = (row) => {
-  if (row.status === 2) return 'danger' // 禁用
-  if (row.expire_time && new Date(row.expire_time) < new Date()) return 'warning' // 已过期
-  return 'success' // 正常
+  if (row.status === 2)
+    return 'danger';
+  if (row.expire_time && new Date(row.expire_time) < new Date())
+    return 'warning';
+  return 'success';
 }
 
 const handleSearch = () => {
@@ -418,15 +410,15 @@ const handleDelete = (row) => {
   ).then(async () => {
     try {
       const res = await shortLinkApi.delete(row.id)
-      // 拦截器已解包，res 直接就是数据对象
-      ElMessage.success(i18n.global.t('删除成功'))
+      ElMessage.success(i18n.global.t('删除成功'));
       fetchShortLinkList()
     } catch (error) {
       ElMessage.error(i18n.global.t('删除失败'))
       console.error(error)
     }
   }).catch((e) => {
-    if (e !== 'cancel' && e !== 'close') throw e // R47: 取消不报未捕获异常
+    if (e !== 'cancel' && e !== 'close')
+      throw e;
   })
 }
 
@@ -434,8 +426,7 @@ const generateShortCode = async () => {
   generating.value = true
   try {
     const res = await shortLinkApi.generateShortCode({ length: 6 })
-    // 拦截器已解包，res 直接就是数据对象
-    form.short_code = res.short_code
+    form.short_code = res.short_code;
   } catch (error) {
     ElMessage.error(i18n.global.t('生成短码失败'))
     console.error(error)
@@ -458,8 +449,7 @@ const handleSubmit = async () => {
           res = await shortLinkApi.create(form)
         }
 
-        // 拦截器已解包，res 直接就是数据对象
-        ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
+        ElMessage.success(isEdit.value ? '更新成功' : '创建成功');
         dialogVisible.value = false
         fetchShortLinkList()
       } catch (error) {
@@ -495,8 +485,7 @@ const handleStats = async (row) => {
   statsLoading.value = true
   
   try {
-    // 获取最近7天的统计数据
-    const endDate = new Date()
+    const endDate = new Date();
     const startDate = new Date()
     startDate.setDate(endDate.getDate() - 6)
     
@@ -506,11 +495,9 @@ const handleStats = async (row) => {
     }
     
     const res = await shortLinkApi.getStats(row.id, params)
-    // 拦截器已解包，res 直接就是数据对象
-    currentStats.value = res
+    currentStats.value = res;
 
-    // 等待DOM更新后初始化图表
-    await nextTick()
+    await nextTick();
     initCharts(res)
   } catch (error) {
     ElMessage.error(i18n.global.t('获取统计数据失败'))
@@ -526,8 +513,7 @@ const handleShare = async (row) => {
   
   try {
     const res = await shortLinkApi.share(row.id)
-    // 拦截器已解包，res 直接就是数据对象
-    shareData.value = res
+    shareData.value = res;
   } catch (error) {
     ElMessage.error(i18n.global.t('获取分享信息失败'))
     console.error(error)
@@ -544,8 +530,7 @@ const copyToClipboard = (text) => {
       ElMessage.error(i18n.global.t('复制失败'))
     })
   } else {
-    // 兼容性处理
-    const textarea = document.createElement('textarea')
+    const textarea = document.createElement('textarea');
     textarea.value = text
     document.body.appendChild(textarea)
     textarea.select()
@@ -563,12 +548,11 @@ const formatDate = (date) => {
 }
 
 const initCharts = (data) => {
-  // 销毁已存在的图表实例
-  if (trendChart) trendChart.dispose()
+  if (trendChart)
+    trendChart.dispose();
   if (deviceChart) deviceChart.dispose()
   
-  // 初始化趋势图
-  trendChart = safeInit(trendChartRef.value)
+  trendChart = safeInit(trendChartRef.value);
   const trendOption = {
     title: {
       show: false
@@ -605,8 +589,7 @@ const initCharts = (data) => {
   }
   trendChart.setOption(trendOption)
   
-  // 初始化设备分布图
-  deviceChart = safeInit(deviceChartRef.value)
+  deviceChart = safeInit(deviceChartRef.value);
   const deviceOption = {
     title: {
       show: false
@@ -648,11 +631,10 @@ const initCharts = (data) => {
   }
   deviceChart.setOption(deviceOption)
   
-  // 监听窗口大小变化，调整图表大小
   window.addEventListener('resize', () => {
     trendChart.resize()
     deviceChart.resize()
-  })
+  });
 }
 </script>
 

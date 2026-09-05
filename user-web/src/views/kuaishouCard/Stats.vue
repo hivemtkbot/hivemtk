@@ -23,7 +23,7 @@
         </div>
       </template>
 
-      <!-- 总体统计 -->
+      
       <div class="stats-overview">
         <el-row :gutter="20">
           <el-col :span="6">
@@ -61,7 +61,7 @@
         </el-row>
       </div>
 
-      <!-- 图表区域 -->
+      
       <div class="charts-section">
         <el-row :gutter="20">
           <el-col :span="24">
@@ -77,7 +77,7 @@
         </el-row>
       </div>
 
-      <!-- 热门卡片和最近活动 -->
+      
       <div class="bottom-section">
         <el-row :gutter="20">
           <el-col :span="12">
@@ -150,13 +150,10 @@ const loading = ref(false)
 const dateRange = ref([])
 const groupBy = ref('day')
 
-// 图表实例
-let visitTrendChart = null
+let visitTrendChart = null;
 
-// 图表DOM引用
-const visitTrendChartRef = ref(null)
+const visitTrendChartRef = ref(null);
 
-// 总体统计数据
 const overallStats = ref({
   totalCards: 0,
   activeCards: 0,
@@ -164,9 +161,8 @@ const overallStats = ref({
   activationRate: 0,
   popularCards: [],
   recentActivities: []
-})
+});
 
-// 获取总体统计数据
 const fetchOverallStats = async () => {
   if (!dateRange.value || dateRange.value.length !== 2) {
     ElMessage.warning(i18n.global.t('请选择日期范围'))
@@ -183,7 +179,6 @@ const fetchOverallStats = async () => {
     }
 
     const response = await getKuaishouCardOverallStats(params)
-    // 拦截器已解包，response 直接就是数据对象
     overallStats.value = {
       totalCards: response.totalCards || 0,
       activeCards: response.activeCards || 0,
@@ -195,30 +190,25 @@ const fetchOverallStats = async () => {
         dates: (response.dailyStats && Array.isArray(response.dailyStats)) ? response.dailyStats.map(item => item.date) : [],
         views: (response.dailyStats && Array.isArray(response.dailyStats)) ? response.dailyStats.map(item => item.views) : []
       }
-    }
+    };
 
-    // 更新图表
-    updateCharts()
+    updateCharts();
   } catch (error) {
     console.error('获取统计数据失败:', error)
     ElMessage.error(i18n.global.t('获取统计数据失败'))
   } finally {
     loading.value = false
   }
-}
+};
 
-// 更新图表
 const updateCharts = () => {
   if (!overallStats.value.trend_data) return
 
-  // 如果没有趋势数据，创建空数据
   if (!overallStats.value.trend_data.dates || overallStats.value.trend_data.dates.length === 0) {
-    // 创建默认日期和数据
-    const today = new Date()
+    const today = new Date();
     const dates = []
     const views = []
     
-    // 创建最近7天的数据
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today)
       date.setDate(today.getDate() - i)
@@ -232,7 +222,6 @@ const updateCharts = () => {
     }
   }
 
-  // 更新访问趋势图
   if (visitTrendChart) {
     const option = {
       title: {
@@ -270,54 +259,44 @@ const updateCharts = () => {
     }
     visitTrendChart.setOption(option)
   }
-}
+};
 
-// 初始化图表
 const initCharts = () => {
-  // 访问趋势图
   if (visitTrendChartRef.value) {
     visitTrendChart = safeInit(visitTrendChartRef.value)
   }
 
-  // 窗口大小变化时重新调整图表
   window.addEventListener('resize', () => {
     if (visitTrendChart) visitTrendChart.resize()
-  })
-}
+  });
+};
 
-// 处理日期变化
 const handleDateChange = () => {
   fetchOverallStats()
-}
+};
 
-// 处理分组方式变化
 const handleGroupByChange = () => {
   fetchOverallStats()
-}
+};
 
-// 刷新数据
 const refreshData = () => {
   fetchOverallStats()
-}
+};
 
-// 跳转到卡片统计页面
 const goToCardStats = (cardId) => {
   router.push(`/kuaishou-card/stats/${cardId}`)
-}
+};
 
-// 格式化数字
 const formatNumber = (num) => {
   if (!num) return '0'
   return Number(num).toLocaleString()
-}
+};
 
-// 格式化百分比
 const formatPercent = (num, total) => {
   if (!total || total === 0) return '0%'
   return `${((num / total) * 100).toFixed(1)}%`
-}
+};
 
-// 格式化日期
 const formatDate = (date) => {
   if (!date) return ''
   const d = new Date(date)
@@ -325,9 +304,8 @@ const formatDate = (date) => {
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
-}
+};
 
-// 格式化时间
 const formatTime = (time) => {
   if (!time) return ''
   const date = new Date(time)
@@ -349,51 +327,43 @@ const formatTime = (time) => {
   } else {
     return formatDate(date)
   }
-}
+};
 
-// 获取操作类型
 const getActionType = (action) => {
   const actionTypeMap = {
     view: ''
   }
   return actionTypeMap[action] || ''
-}
+};
 
-// 获取操作文本
 const getActionText = (action) => {
   const actionTextMap = {
     view: '浏览'
   }
   return actionTextMap[action] || action
-}
+};
 
-// 页面初始化
 onMounted(() => {
-  // 设置默认日期范围为最近7天
-  const endDate = new Date()
+  const endDate = new Date();
   const startDate = new Date()
   startDate.setDate(endDate.getDate() - 7)
   
   dateRange.value = [startDate, endDate]
   
-  // 使用nextTick确保DOM完全渲染后再初始化图表
   nextTick(() => {
-    // 初始化图表
-    initCharts()
+    initCharts();
     
-    // 获取数据
-    fetchOverallStats()
-  })
-})
+    fetchOverallStats();
+  });
+});
 
-// 页面卸载时清理
 onUnmounted(() => {
   if (visitTrendChart) {
     visitTrendChart.dispose()
     visitTrendChart = null
   }
   window.removeEventListener('resize', () => {})
-})
+});
 </script>
 
 <style scoped>

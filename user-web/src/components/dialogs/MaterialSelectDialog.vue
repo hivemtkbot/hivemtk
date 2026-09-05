@@ -93,17 +93,15 @@ const handleCategoryClick = (id) => {
   searchCategoryId.value = id
 }
 
-// 过滤素材
-const searchKeyword = ref('')
+const searchKeyword = ref('');
 const searchCategoryId = ref(0)
 const filteredMaterials = computed(() => {
   const keyword = searchKeyword.value.toLowerCase()
   const categoryid = searchCategoryId.value
   if (!keyword && categoryid < 1) return appStore.materials
-  // 如果有分类id或者关键词锁执行过滤
   return appStore.materials.filter(material => 
     (categoryid < 1 || (material.category_id == categoryid)) && (!keyword || (material.filename.toLowerCase().includes(keyword)) )
-  )
+  );
 })
 </script>
 

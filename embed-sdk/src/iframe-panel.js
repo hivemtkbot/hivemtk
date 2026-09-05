@@ -1,9 +1,6 @@
 
 
 
-/**
- * 浮标按钮类(管理 iframe 聊天窗的创建 / 显示 / 隐藏 / 销毁)
- */
 export class IframePanel {
   constructor(options) {
     this.apiBaseURL = options.apiBaseURL
@@ -22,8 +19,7 @@ export class IframePanel {
     this.height = options.height || 560
     this.allowedOrigins = options.allowedOrigins || []
     this.onClose = options.onClose || (() => {})
-    // USR-EM-01: Embedded 模式（容器内渲染，参考 Zendesk Web Widget）
-    this.mode = options.mode || 'floating' // 'floating' | 'embedded'
+    this.mode = options.mode || 'floating';
     this.targetElement = options.targetElement || null
     this.cspNonce = options.cspNonce || ''
 
@@ -97,13 +93,11 @@ export class IframePanel {
     const channelRef = this.getChannelRef()
     iframe.src = `${this.apiBaseURL}/chat/embed/${encodeURIComponent(channelRef)}#/chat/embed/${encodeURIComponent(channelRef)}`
     iframe.allow = 'clipboard-write'
-    // USR-EM-03: CSP nonce
     if (this.cspNonce) {
       iframe.setAttribute('nonce', this.cspNonce)
     }
     iframe.style.cssText = this.getStyle('none')
 
-    // USR-EM-01: Embedded 模式挂到目标容器
     if (this.mode === 'embedded' && this.targetElement) {
       const target = typeof this.targetElement === 'string'
         ? document.querySelector(this.targetElement)
@@ -145,7 +139,6 @@ export class IframePanel {
   }
 
   getStyle(display) {
-    // USR-EM-01: Embedded 模式用 100% 容器尺寸
     if (this.mode === 'embedded') {
       return [
         'border: none',
@@ -178,7 +171,6 @@ export class IframePanel {
       ].join(';')
     }
 
-    // USR-EM-02: 用逻辑属性（inset-inline-*）自动 RTL 镜像
     return [
       'position: fixed',
       `bottom: ${this.offsetY}px`,
@@ -191,7 +183,7 @@ export class IframePanel {
       'box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15)',
       `display: ${display}`,
       'background: #fff'
-    ].join(';')
+    ].join(';');
   }
 
   setupVisualViewport() {

@@ -1,6 +1,6 @@
 <template>
   <div class="xiaohongshu-stats-container">
-    <!-- 统计卡片 -->
+    
     <el-row :gutter="20" class="stats-cards">
       <el-col :span="8">
         <el-card class="stats-card">
@@ -43,7 +43,7 @@
       </el-col>
     </el-row>
 
-    <!-- 筛选条件 -->
+    
     <el-card class="filter-card">
       <el-form :model="filterForm" inline>
         <el-form-item :label="$t('日期范围')">
@@ -71,7 +71,7 @@
       </el-form>
     </el-card>
 
-    <!-- 图表区域 -->
+    
     <el-row :gutter="20" class="chart-row">
       <el-col :span="24">
         <el-card class="chart-card">
@@ -83,7 +83,7 @@
       </el-col>
     </el-row>
 
-    <!-- 热门卡片和最近活动 -->
+    
     <el-row :gutter="20" class="table-row">
       <el-col :span="12">
         <el-card class="table-card">
@@ -139,20 +139,16 @@ import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'
 import { getXiaohongshuCardOverallStats } from '@/api/xiaohongshuCard'
 
-// 路由
-const router = useRouter()
+const router = useRouter();
 
-// 响应式数据
-const loading = ref(false)
+const loading = ref(false);
 const viewChart = ref(null)
 
-// 筛选表单
 const filterForm = reactive({
   dateRange: [],
   groupBy: 'day'
-})
+});
 
-// 统计数据
 const overallStats = reactive({
   total_cards: 0,
   active_cards: 0,
@@ -160,26 +156,22 @@ const overallStats = reactive({
   top_cards: [],
   recent_activities: [],
   view_trend: []
-})
+});
 
-// 获取统计数据
 const fetchOverallStats = async () => {
   loading.value = true
   try {
     const params = {}
     
-    // 添加日期范围参数
     if (filterForm.dateRange && filterForm.dateRange.length === 2) {
       params.start_date = filterForm.dateRange[0]
       params.end_date = filterForm.dateRange[1]
     }
     
-    // 添加分组参数
-    params.group_by = filterForm.groupBy
+    params.group_by = filterForm.groupBy;
     
     const res = await getXiaohongshuCardOverallStats(params)
-    // 拦截器已解包，res 即后端返回对象（camelCase），映射到模板使用的 snake_case
-    overallStats.total_cards = res.totalCards || 0
+    overallStats.total_cards = res.totalCards || 0;
     overallStats.active_cards = res.activeCards || 0
     overallStats.total_views = res.totalViews || 0
     overallStats.top_cards = (res.popularCards || []).map(p => ({
@@ -197,36 +189,30 @@ const fetchOverallStats = async () => {
     }))
     overallStats.view_trend = (res.dailyStats || []).map(d => ({ date: d.date, count: d.view }))
 
-    // 更新图表
     nextTick(() => {
       updateCharts()
-    })
+    });
   } catch (error) {
     ElMessage.error(i18n.global.t('获取统计数据失败'))
     console.error(error)
   } finally {
     loading.value = false
   }
-}
+};
 
-// 刷新数据
 const refreshData = () => {
   fetchOverallStats()
-}
+};
 
-// 日期范围改变
 const handleDateChange = () => {
   fetchOverallStats()
-}
+};
 
-// 分组方式改变
 const handleGroupByChange = () => {
   fetchOverallStats()
-}
+};
 
-// 更新图表
 const updateCharts = () => {
-  // 访问趋势图
   if (viewChart.value) {
     viewChart.value.dispose()
   }
@@ -263,18 +249,16 @@ const updateCharts = () => {
     }
     viewChart.value.setOption(viewOption)
   }
-}
+};
 
-// 跳转到单个卡片统计页面
 const goToCardStats = (cardId) => {
   router.push(`/xiaohongshu-card-stats/${cardId}`)
-}
+};
 
-// 工具函数
 const formatNumber = (num) => {
   if (!num) return 0
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
+};
 
 const formatPercent = (num) => {
   if (!num) return 0
@@ -305,10 +289,8 @@ const getActionText = (type) => {
   return textMap[type] || type
 }
 
-// 页面加载时获取数据
 onMounted(() => {
-  // 设置默认日期范围为最近7天
-  const end = new Date()
+  const end = new Date();
   const start = new Date()
   start.setDate(start.getDate() - 7)
   
@@ -318,7 +300,7 @@ onMounted(() => {
   ]
   
   fetchOverallStats()
-})
+});
 </script>
 
 <style scoped>

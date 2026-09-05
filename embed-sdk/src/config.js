@@ -1,7 +1,6 @@
 
 
 
-/** @type {McwConfig} */
 const DEFAULTS = {
   appKey: '',
   channelId: '',
@@ -19,13 +18,8 @@ const DEFAULTS = {
   height: 560,
   allowedOrigins: null,   
   events: {}              
-}
+};
 
-/**
- * 解析 <script data-*> 属性
- * @param {HTMLScriptElement|null} script
- * @returns {Partial<McwConfig>}
- */
 function readDataAttrs(script) {
   if (!script || !script.dataset) return {}
   const d = script.dataset
@@ -47,10 +41,6 @@ function readDataAttrs(script) {
   return out
 }
 
-/**
- * 解析 query string(部分场景使用)
- * @returns {Partial<McwConfig>}
- */
 function readQueryParams() {
   if (typeof window === 'undefined') return {}
   const params = new URLSearchParams(window.location.search)
@@ -61,11 +51,6 @@ function readQueryParams() {
   return out
 }
 
-/**
- * 解析 apiBaseURL(默认使用 script 同源 / window.location.origin)
- * @param {HTMLScriptElement|null} script
- * @returns {string}
- */
 function resolveApiBaseURL(script) {
   if (script && script.src) {
     try {
@@ -78,10 +63,6 @@ function resolveApiBaseURL(script) {
   return ''
 }
 
-/**
- * 解析最终配置
- * @returns {McwConfig}
- */
 export function parseConfig() {
   const script = (typeof document !== 'undefined')
     ? (document.currentScript || (function () {

@@ -1,6 +1,6 @@
 <template>
   <div class="i18n-dashboard-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -21,7 +21,7 @@
       </div>
     </el-card>
 
-    <!-- KPI 卡片 -->
+    
     <el-row :gutter="16" class="kpi-row">
       <el-col :xs="12" :sm="12" :md="6">
         <el-card shadow="never" class="kpi-card kpi-blue">
@@ -65,7 +65,7 @@
       </el-col>
     </el-row>
 
-    <!-- 第二行：语言分布 + 缓存命中 -->
+    
     <el-row :gutter="16" class="section-row">
       <el-col :xs="24" :md="14">
         <el-card shadow="never" class="section-card">
@@ -114,7 +114,7 @@
       </el-col>
     </el-row>
 
-    <!-- 第三行：质量趋势 + 术语覆盖率 -->
+    
     <el-row :gutter="16" class="section-row">
       <el-col :xs="24" :md="14">
         <el-card shadow="never" class="section-card">
@@ -162,7 +162,7 @@
       </el-col>
     </el-row>
 
-    <!-- 第四行：延迟统计 -->
+    
     <el-card shadow="never" class="section-card">
       <template #header>
         <div class="card-title">
@@ -233,8 +233,7 @@ import { getLanguageLabel } from '@/constants/languages'
 
 const t = i18n.global.t
 
-// ===== 状态 =====
-const loading = ref(false)
+const loading = ref(false);
 const days = ref(7)
 const overview = ref({
   total_calls: 0,
@@ -249,19 +248,17 @@ const glossaryCoverage = ref([])
 const qualityTrend = ref([])
 const latencyStats = ref([])
 
-// ===== 图表引用 =====
-const langDistChart = ref(null)
+const langDistChart = ref(null);
 const qualityChart = ref(null)
 let langDistInst = null
 let qualityInst = null
 
-// ===== 计算属性 =====
 const crossLingualRatio = computed(() => {
   const total = Number(overview.value.total_calls || 0)
   const cross = Number(overview.value.cross_lingual_calls || 0)
   if (!total) return '0.0'
   return ((cross / total) * 100).toFixed(1)
-})
+});
 
 const cacheHitColor = computed(() => {
   const p = formatPercent(cacheStats.value.hit_rate)
@@ -270,18 +267,17 @@ const cacheHitColor = computed(() => {
   return '#F56C6C'
 })
 
-// ===== 格式化工具 =====
 const formatNumber = (n) => {
   const v = Number(n || 0)
   if (!Number.isFinite(v)) return '0'
   return v.toLocaleString('en-US')
-}
+};
 
 const formatPercent = (n) => {
   const v = Number(n || 0)
   if (!Number.isFinite(v)) return '0.0'
-  // 后端可能返回 0~1 的小数或 0~100 的百分数，统一兜底
-  if (v > 0 && v <= 1) return (v * 100).toFixed(1)
+  if (v > 0 && v <= 1)
+    return (v * 100).toFixed(1);
   return v.toFixed(1)
 }
 
@@ -297,14 +293,13 @@ const formatMs = (n) => {
   return v.toFixed(0)
 }
 
-// ===== 术语覆盖率辅助 =====
 const glossaryCovPercent = (row) => {
   const total = Number(row?.term_count || 0)
   const active = Number(row?.active_count || 0)
   if (!total) return 0
   const p = (active / total) * 100
   return Math.min(100, Math.max(0, p))
-}
+};
 
 const covColor = (p) => {
   if (p >= 80) return '#67C23A'
@@ -312,14 +307,12 @@ const covColor = (p) => {
   return '#F56C6C'
 }
 
-// ===== 延迟辅助 =====
-// 阈值：>=1000ms 危险，>=500ms 警告，否则正常
 const latencyClass = (ms) => {
   const v = Number(ms || 0)
   if (v >= 1000) return 'latency-danger'
   if (v >= 500) return 'latency-warning'
   return 'latency-ok'
-}
+};
 
 const latencyColor = (ms) => latencyToColor(ms)
 
@@ -332,11 +325,9 @@ const latencyToColor = (ms) => {
 
 const latencyBarPercent = (ms) => {
   const v = Number(ms || 0)
-  // 2000ms 满刻度
-  return Math.min(100, Math.max(0, (v / 2000) * 100))
+  return Math.min(100, Math.max(0, (v / 2000) * 100));
 }
 
-// ===== 数据加载 =====
 const loadAll = async () => {
   loading.value = true
   try {
@@ -363,9 +354,8 @@ const loadAll = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
-// ===== 图表渲染 =====
 const renderLangDist = () => {
   if (!langDistChart.value) return
   if (!langDistInst) {
@@ -410,7 +400,7 @@ const renderLangDist = () => {
       label: { show: true, position: 'right', formatter: '{c}' }
     }]
   }, true)
-}
+};
 
 const renderQuality = () => {
   if (!qualityChart.value) return
@@ -470,11 +460,10 @@ const renderQuality = () => {
   }, true)
 }
 
-// ===== 窗口 resize =====
 const onResize = () => {
   langDistInst && langDistInst.resize()
   qualityInst && qualityInst.resize()
-}
+};
 
 onMounted(() => {
   loadAll()

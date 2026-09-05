@@ -36,23 +36,22 @@ const jobsList = ref([])
 const jobsTotal = ref(0)
 const jobsPage = ref(1)
 const jobsLimit = ref(10)
-const loading = ref(false) // 添加加载状态
+const loading = ref(false);
 
 const handlePageChange = (number) => {
-  // 防止重复点击同一页码
-  if (jobsPage.value === number) return
+  if (jobsPage.value === number)
+    return;
   jobsPage.value = number
   fetchJobsList()
 }
 
 const fetchJobsList = async () => {
-  // 防止并发请求
-  if (loading.value) return
+  if (loading.value)
+    return;
   loading.value = true
   try {
     const res = await emailApi.getJobsList(jobsPage.value, jobsLimit.value)
-    // 拦截器已解包，res 直接就是数据对象
-    jobsList.value = res.list || []
+    jobsList.value = res.list || [];
     jobsTotal.value = res.total || 0
   } catch (error) {
     console.error('获取任务列表失败:', error) 
@@ -61,10 +60,9 @@ const fetchJobsList = async () => {
     loading.value = false
   }
 }
-// 组件挂载时获取任务列表
 onMounted(() => {
   fetchJobsList()
-})
+});
 
 </script>
 

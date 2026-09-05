@@ -64,7 +64,7 @@
       </el-table>
     </el-card>
 
-    <!-- 配置表单对话框 -->
+    
     <el-dialog
       :title="dialogTitle"
       v-model="dialogVisible"
@@ -91,7 +91,7 @@
           </el-select>
         </el-form-item>
 
-        <!-- 云存储字段：local 类型隐藏 -->
+        
         <template v-if="formData.provider !== 'local'">
           <el-form-item label="Access Key" prop="access_key">
             <el-input v-model="formData.access_key" placeholder="请输入 Access Key" show-password />
@@ -110,7 +110,7 @@
           </el-form-item>
         </template>
 
-        <!-- Endpoint：local = 本地目录，cloud = S3 Endpoint -->
+        
         <el-form-item :label="endpointLabel" prop="endpoint">
           <el-input v-model="formData.endpoint" :placeholder="endpointPlaceholder" />
           <div class="form-tip" v-if="formData.provider === 'local'">
@@ -130,7 +130,7 @@
           </div>
         </el-form-item>
 
-        <!-- Domain：local = 公开 URL 前缀，cloud = 可选 CDN 域名 -->
+        
         <el-form-item :label="domainLabel">
           <el-input v-model="formData.domain" :placeholder="domainPlaceholder" />
           <div class="form-tip" v-if="formData.provider === 'local'">
@@ -182,8 +182,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getObsConfigList, createObsConfig, updateObsConfig, deleteObsConfig, testObsConnection, setDefaultObsConfig } from '@/api/obs'
 
-// 统一枚举（后端 model/const 对齐）
-const OBS_STATUS = { active: '正常', disabled: '禁用', inactive: '禁用', error: '错误' }
+const OBS_STATUS = { active: '正常', disabled: '禁用', inactive: '禁用', error: '错误' };
 const OBS_STATUS_TAG = { active: 'success', disabled: 'danger', inactive: 'danger', error: 'warning' }
 const getStatusLabel = (s) => OBS_STATUS[s] || s || '-'
 const getStatusTagType = (s) => OBS_STATUS_TAG[s] || ''
@@ -194,7 +193,6 @@ const dialogVisible = ref(false)
 const formRef = ref(null)
 const currentId = ref(null)
 
-// 完全对齐后端 DTO snake_case 字段名（后端 json tag 全是 snake_case）
 const formData = reactive({
   name: '',
   provider: '',
@@ -208,9 +206,8 @@ const formData = reactive({
   max_size: 104857600,
   max_count: 1000,
   status: 'active'
-})
+});
 
-// 动态校验规则：local 类型只要求 name + provider；云类型要求 name + provider + AK/SK/Bucket；AWS 额外要求 region
 const dynamicRules = computed(() => {
   const rules = {
     name: [{ required: true, message: i18n.global.t('请输入配置名称'), trigger: 'blur' }],
@@ -225,7 +222,7 @@ const dynamicRules = computed(() => {
     rules.region = [{ required: true, message: i18n.global.t('请输入 AWS 存储区域'), trigger: 'blur' }]
   }
   return rules
-})
+});
 
 const dialogTitle = computed(() => (currentId.value ? '编辑配置' : '新增配置'))
 
@@ -259,10 +256,8 @@ const getProviderLabel = (provider) => {
   return labels[provider] || provider
 }
 
-// 切换服务商时自动填充合理默认值，并清空 provider 专属字段避免脏数据
 const handleProviderChange = (provider) => {
-  // 先清空所有 provider 专属字段（保留 name/status/max_size/max_count/path_prefix）
-  formData.access_key = ''
+  formData.access_key = '';
   formData.secret_key = ''
   formData.bucket = ''
   formData.region = ''
@@ -288,7 +283,7 @@ const handleProviderChange = (provider) => {
       formData.endpoint = 'https://s3.ap-southeast-1.amazonaws.com'
       break
   }
-}
+};
 
 const loadConfigList = async () => {
   loading.value = true
@@ -308,12 +303,11 @@ const handleCreate = () => {
   dialogVisible.value = true
 }
 
-// 后端 ObsConfigResponse 全是 snake_case，Object.assign 直接对齐 formData 字段
 const handleEdit = (row) => {
   currentId.value = row.id
   Object.assign(formData, row)
   dialogVisible.value = true
-}
+};
 
 const handleTest = async (row) => {
   try {

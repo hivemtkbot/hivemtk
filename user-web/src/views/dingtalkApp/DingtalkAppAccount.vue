@@ -50,7 +50,7 @@
       />
     </el-card>
 
-    <!-- 新增/编辑 -->
+    
     <el-dialog v-model="dialogVisible" :title="dialogMode === 'edit' ? '编辑钉钉应用账号' : '新增钉钉应用账号'" width="680px">
       <el-form :model="form" label-width="150px">
         <el-form-item label="名称" prop="account_name">
@@ -97,7 +97,7 @@
       </template>
     </el-dialog>
 
-    <!-- 绑定 AI -->
+    
     <agent-binding-dialog
       v-model:visible="bindVisible"
       channel-type="dingtalk"

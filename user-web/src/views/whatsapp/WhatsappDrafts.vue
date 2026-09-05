@@ -47,7 +47,7 @@
       </div>
     </el-card>
 
-    <!-- 编辑/新建对话框 -->
+    
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑草稿' : '新建草稿'" width="600px" @close="resetForm">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="标题" prop="title">
@@ -103,12 +103,11 @@ const formatDate = (d) => {
 const load = async () => {
   loading.value = true
   try {
-    // 响应拦截器已解包为 data.data
     const res = await api.listDrafts({
       page: pagination.page,
       page_size: pagination.page_size,
       title: search.title
-    })
+    });
     if (Array.isArray(res)) {
       drafts.value = res
       pagination.total = res.length

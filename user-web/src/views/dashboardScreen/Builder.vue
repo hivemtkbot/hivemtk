@@ -50,11 +50,7 @@
 </template>
 
 <script setup>
-/**
- * 自定义看板拖拽（USR-AN-01）
- * 借鉴：Metabase / Apache Superset
- */
-import { ref, reactive, markRaw } from 'vue'
+import { ref, reactive, markRaw } from 'vue';
 import { ElMessage } from 'element-plus'
 import {
   DataLine, PieChart, Document, Histogram, TrendCharts, LocationInformation
@@ -126,7 +122,7 @@ function blockStyle(b) {
   }
 }
 
-function addBlock() { /* 同 onDrop */ }
+function addBlock() {}
 function resize(i) {
   blocks.value[i].width = blocks.value[i].width === 6 ? 12 : 6
 }

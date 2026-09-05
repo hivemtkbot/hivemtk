@@ -20,7 +20,7 @@
     </el-card>
 
     <el-row :gutter="20" v-loading="loading">
-      <!-- 左侧：渠道选择 + 嵌入代码 -->
+      
       <el-col :xs="24" :md="14">
         <el-card shadow="never">
           <template #header>
@@ -96,7 +96,7 @@
         </el-card>
       </el-col>
 
-      <!-- 右侧：实时预览 + 调试 -->
+      
       <el-col :xs="24" :md="10">
         <el-card shadow="never" class="preview-card">
           <template #header>
@@ -114,7 +114,7 @@
                 <p class="mock-line">您的网站内容</p>
                 <p class="mock-line">访客在此浏览...</p>
                 <p class="mock-line">点击右下角浮标发起对话</p>
-                <!-- 浮标 -->
+                
                 <div
                   v-if="selected"
                   class="widget-button"
@@ -124,7 +124,7 @@
                 >
                   <el-icon :size="24"><ChatDotRound /></el-icon>
                 </div>
-                <!-- 弹窗 -->
+                
                 <div v-if="previewOpen && selected" class="widget-window" :class="['pos-' + (selected.widget_position || 'bottom-right')]">
                   <div class="window-header" :style="{ backgroundColor: selected.widget_color || '#4F46E5' }">
                     <span>{{ selected.welcome_message || '在线客服' }}</span>
@@ -174,7 +174,6 @@ import { listChannels, getChannel, updateChannel } from '@/api/chatChannel'
 import { http } from '@/utils/request'
 
 const router = useRouter()
-// 引用图标以避免 IDE 误判
 void Back; void Refresh; void CopyDocument; void ChatDotRound
 void Close; void Connection; void CircleCheck; void CircleClose
 
@@ -183,9 +182,8 @@ const channels = ref([])
 const selectedId = ref('')
 const selected = ref(null)
 
-// 后端 allowed_origins 可能是数组或逗号分隔字符串，统一转为换行文本
 const originsToText = (v) =>
-  Array.isArray(v) ? v.join('\n') : String(v || '').split(',').map(s => s.trim()).filter(Boolean).join('\n')
+  Array.isArray(v) ? v.join('\n') : String(v || '').split(',').map(s => s.trim()).filter(Boolean).join('\n');
 const originInput = ref('')
 const originSaving = ref(false)
 const previewOpen = ref(false)
@@ -197,7 +195,6 @@ const embedSnippet = computed(() => {
   if (!selected.value) return ''
   const appKey = selected.value.app_key
   const host = window.location.origin
-  // 与后端 embed_static_routes.go 提供的 chat 页面保持一致
   return `<!-- 客服 Widget 浮标 - 私域部署 -->
 <script>
 (function() {
@@ -216,7 +213,7 @@ const embedSnippet = computed(() => {
   };
   document.body.appendChild(btn);
 })();
-<\/script>`
+<\/script>`;
 })
 
 const loadChannels = async () => {
@@ -286,8 +283,7 @@ const onTestConnection = async () => {
   testing.value = true
   testResult.value = null
   try {
-    // 公开 chat API 测试连通性
-    const resp = await http.get(`/api/chat/public/channel/${selected.value.app_key}/info`)
+    const resp = await http.get(`/api/chat/public/channel/${selected.value.app_key}/info`);
     if (resp && resp.channel_id) {
       testResult.value = { ok: true, message: `连接成功 · ${resp.channel_name || ''}` }
     } else {

@@ -62,11 +62,7 @@
 </template>
 
 <script setup>
-/**
- * RAG 评估看板（USR-AI-04）
- * 借鉴：https://www.youngju.dev/blog/llm/2026-03-04-llm-rag-chunking-embedding-optimization-2026.en
- */
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'

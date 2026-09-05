@@ -1,6 +1,5 @@
 import { http } from '@/utils/request';
 
-// 仪表板大屏 - 匹配后端 /api/dashboards/* 路径
 export function getScreenList(params) {
   return http.get('/api/dashboards', params)
 }
@@ -20,7 +19,6 @@ export function publicViewScreen(code) {
   return http.get(`/api/dashboards/public/${code}`)
 }
 
-// 真实大屏数据接口(后端聚合) - 严禁使用模拟数据
 export function getDashboardData() {
   return http.get('/api/dashboards/data')
 }

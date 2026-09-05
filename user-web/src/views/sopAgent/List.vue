@@ -1,6 +1,6 @@
 <template>
   <div class="sop-agent-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -17,9 +17,9 @@
     </el-card>
 
     <el-tabs v-model="activeMainTab" class="main-tabs" @tab-change="onMainTabChange">
-      <!-- ============ SOP 管理 ============ -->
+      
       <el-tab-pane :label="$t('SOP 管理')" name="manage">
-        <!-- 统计卡片 -->
+        
         <el-row :gutter="16" class="stats-row" v-loading="statsLoading">
           <el-col :span="6">
             <el-card shadow="hover" class="stat-card">
@@ -112,7 +112,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- ============ 执行监控 ============ -->
+      
       <el-tab-pane label="执行监控" name="executions">
         <el-card shadow="never">
           <template #header>
@@ -182,7 +182,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- ============ 意图匹配测试 ============ -->
+      
       <el-tab-pane label="意图匹配测试" name="match">
         <el-card shadow="never">
           <template #header>
@@ -239,7 +239,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 创建/编辑 SOP 弹窗 -->
+    
     <el-dialog v-model="sopDialogVisible" :title="editingSop.id ? '编辑 SOP' : '创建 SOP'" width="720px" top="6vh">
       <el-form :model="sopForm" label-width="100px">
         <el-form-item label="SOP 名称" required>
@@ -283,7 +283,7 @@
       </template>
     </el-dialog>
 
-    <!-- SOP 详情弹窗 -->
+    
     <el-dialog v-model="sopDetailVisible" title="SOP 详情" width="680px">
       <template v-if="currentSop">
         <el-descriptions :column="2" border>
@@ -304,7 +304,7 @@
       </template>
     </el-dialog>
 
-    <!-- 执行详情弹窗 -->
+    
     <el-dialog v-model="execDetailVisible" title="执行详情" width="760px" v-loading="execDetailLoading">
       <template v-if="currentExecution">
         <el-descriptions :column="2" border>
@@ -331,7 +331,7 @@
       </template>
     </el-dialog>
 
-    <!-- 执行 SOP 弹窗 -->
+    
     <el-dialog v-model="executeDialogVisible" title="执行 SOP" width="520px">
       <el-form :model="executeForm" label-width="100px">
         <el-form-item label="SOP">
@@ -363,22 +363,18 @@ import { sopApi } from '@/api/sopAgent.js'
 const loading = ref(false)
 const activeMainTab = ref('manage')
 
-// ===== SOP 管理 =====
-const statsLoading = ref(false)
+const statsLoading = ref(false);
 const sopStats = ref({})
 const sopLoading = ref(false)
 const sopList = ref([])
 const sopFilter = ref({ keyword: '', status: '' })
 const sopPagination = ref({ page: 1, pageSize: 20, total: 0 })
 
-// 创建/编辑
-const sopDialogVisible = ref(false)
+const sopDialogVisible = ref(false);
 const saving = ref(false)
 const editingSop = ref({})
 const sopForm = ref({ name: '', description: '', trigger_intent: '', status: 'draft', nodes: [] })
 
-// SOP 节点类型选项（修复：前端缺 type 字段导致后端 validateGraph 拒绝）
-// 与 user-server/internal/service/sop_service.go:64 SOPNodeSupportedTypes 保持同步
 const sopNodeTypeOptions = [
   { value: 'start', label: '开始 (start)' },
   { value: 'end', label: '结束 (end)' },
@@ -399,14 +395,12 @@ const sopNodeTypeOptions = [
   { value: 'wait', label: '等待 (wait)' },
   { value: 'action', label: '动作(旧) (action)' },
   { value: 'send_offer', label: '发送报价(旧) (send_offer)' }
-]
+];
 
-// SOP 详情
-const sopDetailVisible = ref(false)
+const sopDetailVisible = ref(false);
 const currentSop = ref(null)
 
-// ===== 执行监控 =====
-const execLoading = ref(false)
+const execLoading = ref(false);
 const executionList = ref([])
 const execFilter = ref({ customer_id: '', status: '' })
 const execPagination = ref({ page: 1, pageSize: 20, total: 0 })
@@ -415,14 +409,12 @@ const execDetailVisible = ref(false)
 const execDetailLoading = ref(false)
 const currentExecution = ref(null)
 
-// ===== 意图匹配 =====
-const matchIntent = ref('')
+const matchIntent = ref('');
 const matchLoading = ref(false)
 const matchResults = ref([])
 const hasSearched = ref(false)
 
-// ===== 执行 SOP =====
-const executeDialogVisible = ref(false)
+const executeDialogVisible = ref(false);
 const executing = ref(false)
 const executeForm = ref({ sop_id: '', sop_name: '', customer_id: '', context: '' })
 
@@ -489,8 +481,7 @@ const getNodeStepStatus = (node, idx) => {
   if (nodeStatus === 'completed' || nodeStatus === 'success') return 'success'
   if (nodeStatus === 'failed' || nodeStatus === 'error') return 'error'
   if (nodeStatus === 'running' || nodeStatus === 'active') return 'process'
-  // 根据当前节点位置判断
-  const nodes = currentExecution.value.nodes || currentExecution.value.steps || []
+  const nodes = currentExecution.value.nodes || currentExecution.value.steps || [];
   const current = currentExecution.value.current_node || currentExecution.value.current_node_id
   const currentIdx = nodes.findIndex(n => (n.id || n.node_id) === current)
   if (currentIdx >= 0) {
@@ -510,7 +501,6 @@ const formatTime = (t) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-// ===== 加载数据 =====
 const loadStats = async () => {
   statsLoading.value = true
   try {
@@ -521,7 +511,7 @@ const loadStats = async () => {
   } finally {
     statsLoading.value = false
   }
-}
+};
 
 const onSopSearch = () => {
   sopPagination.value.page = 1
@@ -593,11 +583,10 @@ const refreshAll = async () => {
   }
 }
 
-// ===== SOP 增删改 =====
 const resetSopForm = () => {
   sopForm.value = { name: '', description: '', trigger_intent: '', status: 'draft', nodes: [] }
   editingSop.value = {}
-}
+};
 
 const addNode = () => {
   sopForm.value.nodes.push({ id: '', type: 'message', name: '', action: '' })
@@ -717,7 +706,6 @@ const viewSopDetail = async (row) => {
   }
 }
 
-// ===== 执行操作 =====
 const viewExecutionDetail = async (row) => {
   execDetailVisible.value = true
   execDetailLoading.value = true
@@ -731,7 +719,7 @@ const viewExecutionDetail = async (row) => {
   } finally {
     execDetailLoading.value = false
   }
-}
+};
 
 const pauseExecution = async (row) => {
   try {
@@ -769,7 +757,6 @@ const cancelExecution = (row) => {
   }).catch(() => {})
 }
 
-// ===== 意图匹配 =====
 const runMatch = async () => {
   if (!matchIntent.value || !matchIntent.value.trim()) {
     ElMessage.warning(i18n.global.t('请输入意图'))
@@ -786,18 +773,17 @@ const runMatch = async () => {
   } finally {
     matchLoading.value = false
   }
-}
+};
 
 const quickFillIntent = () => {
   const intents = ['price_inquiry', 'purchase', 'objection_price', 'objection_trust', 'after_sale', 'churn']
   matchIntent.value = intents[Math.floor(Math.random() * intents.length)]
 }
 
-// ===== 执行 SOP =====
 const openExecuteDialog = (row) => {
   executeForm.value = { sop_id: row.id, sop_name: row.name, customer_id: '', context: '' }
   executeDialogVisible.value = true
-}
+};
 
 const confirmExecute = async () => {
   if (!executeForm.value.customer_id || !executeForm.value.customer_id.trim()) {
@@ -829,8 +815,7 @@ const confirmExecute = async () => {
   }
 }
 
-// 初始化
-loadStats()
+loadStats();
 loadSopList()
 </script>
 

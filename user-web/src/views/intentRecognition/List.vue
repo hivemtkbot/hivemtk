@@ -1,6 +1,6 @@
 <template>
   <div class="intent-recognition-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -36,7 +36,7 @@
       </div>
     </el-card>
 
-    <!-- 意图识别测试区 -->
+    
     <el-card shadow="never" class="test-card">
       <template #header>
         <div class="card-header">
@@ -155,7 +155,7 @@
       </template>
     </el-card>
 
-    <!-- 统计卡片 -->
+    
     <el-row :gutter="16" class="stats-row" v-loading="statsLoading">
       <el-col :span="6">
         <el-card shadow="hover" class="stat-card">
@@ -184,7 +184,7 @@
     </el-row>
 
     <el-row :gutter="16">
-      <!-- 意图分布 -->
+      
       <el-col :span="10">
         <el-card shadow="never">
           <template #header>
@@ -212,7 +212,7 @@
         </el-card>
       </el-col>
 
-      <!-- 最近意图记录 -->
+      
       <el-col :span="14">
         <el-card shadow="never">
           <template #header>
@@ -275,7 +275,7 @@
       </el-col>
     </el-row>
 
-    <!-- ===== M-2 P1 精细意图识别（8 大类 + 7 子类） ===== -->
+    
     <el-card shadow="never" class="test-card">
       <template #header>
         <div class="card-header">
@@ -331,7 +331,7 @@
       </template>
     </el-card>
 
-    <!-- 精细意图日志 -->
+    
     <el-card shadow="never" class="dict-card">
       <template #header>
         <div class="card-header">
@@ -378,7 +378,7 @@
       </el-table>
     </el-card>
 
-    <!-- 意图词典 -->
+    
     <el-card shadow="never" class="dict-card">
       <template #header>
         <div class="card-header">
@@ -420,47 +420,39 @@ import { ElMessage } from 'element-plus'
 import { Aim, MagicStick, Refresh } from '@element-plus/icons-vue'
 import { intentApi } from '@/api/intentRecognition.js'
 import { getChannelLabel } from '@/constants/channel'
-// 统一枚举：识别方法（LLM / 规则）
-const RECOGNIZE_METHOD = { llm: 'LLM', rule: '规则', keyword: '关键词', bert: 'BERT', hybrid: '混合' }
+const RECOGNIZE_METHOD = { llm: 'LLM', rule: '规则', keyword: '关键词', bert: 'BERT', hybrid: '混合' };
 const RECOGNIZE_METHOD_TAG = { llm: 'danger', rule: 'info', keyword: 'success', bert: 'warning', hybrid: 'primary' }
 const getMethodLabel = (m) => RECOGNIZE_METHOD[m] || m || '-'
 const getMethodTagType = (m) => RECOGNIZE_METHOD_TAG[m] || ''
 
-// 统计
-const statsLoading = ref(false)
+const statsLoading = ref(false);
 const statsData = ref({})
 
-// 最近记录
-const recentLoading = ref(false)
+const recentLoading = ref(false);
 const recentList = ref([])
 const filterIntentType = ref('')
 const recentPagination = ref({ page: 1, pageSize: 20, total: 0 })
 
-// 意图词典
-const intentDict = ref([])
+const intentDict = ref([]);
 const dictKeyword = ref('')
 
-// 测试表单
-const recognizing = ref(false)
+const recognizing = ref(false);
 const testForm = ref({ customer_id: '', platform: '', context: '', message: '' })
 const recognizeResult = ref(null)
 
-// 批量识别
-const batchLoading = ref(false)
+const batchLoading = ref(false);
 const batchResults = ref([])
 
-// ===== 精细意图识别（8 大类 + 7 子类）=====
-const fineLoading = ref(false)
+const fineLoading = ref(false);
 const fineForm = ref({ message: '', customer_id: '' })
 const fineResult = ref(null)
 const fineLogsLoading = ref(false)
 const fineLogs = ref([])
 const filterFineMajor = ref('')
-// 8 大类常量,避免硬编码不一致
 const fineMajorOptions = [
   'consult', 'price_inquiry', 'objection', 'after_sale',
   'complaint', 'churn', 'intent_buy', 'ask_product'
-]
+];
 const FINE_METHOD_LABEL = { rule: '规则', llm: 'LLM', hybrid: '规则+LLM' }
 const FINE_METHOD_TAG = { rule: 'success', llm: 'danger', hybrid: 'warning' }
 const getFineMethodLabel = (m) => FINE_METHOD_LABEL[m] || m || '-'
@@ -468,12 +460,10 @@ const getFineMethodType = (m) => FINE_METHOD_TAG[m] || 'info'
 
 const loading = ref(false)
 
-// ===== 意图识别总开关（user-web 在线配置，不走 env）=====
-const configLoading = ref(false)
+const configLoading = ref(false);
 const intentEnabled = ref(true)
 const configMeta = ref({ updated_at: '', updated_by: '' })
 
-// 加载意图识别配置
 const loadIntentConfig = async () => {
   configLoading.value = true
   try {
@@ -486,15 +476,13 @@ const loadIntentConfig = async () => {
       }
     }
   } catch (e) {
-    // 加载失败时默认开启（与后端默认一致），并提示
-    intentEnabled.value = true
+    intentEnabled.value = true;
     ElMessage.warning('加载意图识别配置失败，已使用默认开启状态：' + (e.message || '未知错误'))
   } finally {
     configLoading.value = false
   }
-}
+};
 
-// 切换意图识别开关
 const onToggleIntent = async (val) => {
   configLoading.value = true
   try {
@@ -507,20 +495,18 @@ const onToggleIntent = async (val) => {
     }
     ElMessage.success(`意图识别已${val ? '启用' : '关闭'}，业务链路立即生效`)
   } catch (e) {
-    // 回滚 UI 状态
-    intentEnabled.value = !val
+    intentEnabled.value = !val;
     ElMessage.error('更新意图识别配置失败：' + (e.message || '未知错误'))
   } finally {
     configLoading.value = false
   }
-}
+};
 
-// 意图名称映射
 const intentNameMap = computed(() => {
   const map = {}
   intentDict.value.forEach(d => { map[d.type] = d.name })
   return map
-})
+});
 
 const objectionTotal = computed(() => {
   const s = statsData.value
@@ -530,7 +516,6 @@ const objectionTotal = computed(() => {
 
 const distributionList = computed(() => {
   const s = statsData.value
-  // 兼容后端可能返回 distribution 数组或扁平字段
   if (Array.isArray(s.distribution)) {
     return s.distribution
   }
@@ -606,7 +591,6 @@ const loadStats = async () => {
       page: 1,
       page_size: 100
     })
-    // 兼容返回结构：可能是对象（含 total/distribution）或直接统计字段
     if (res && typeof res === 'object') {
       statsData.value = res
     } else {
@@ -633,8 +617,7 @@ const loadRecent = async () => {
     }
     if (filterIntentType.value) params.intent_type = filterIntentType.value
     const res = await intentApi.getRecent(params)
-    // 后端列表接口返回 {list, total}
-    recentList.value = res?.list || (Array.isArray(res) ? res : [])
+    recentList.value = res?.list || (Array.isArray(res) ? res : []);
     recentPagination.value.total = res?.total || recentList.value.length
   } catch (e) {
     ElMessage.error('加载最近记录失败：' + (e.message || '未知错误'))
@@ -698,8 +681,7 @@ const runRecognize = async () => {
 }
 
 const runBatchRecognize = async () => {
-  // 将测试区消息按行拆分批量识别
-  const lines = (testForm.value.message || '').split('\n').map(s => s.trim()).filter(Boolean)
+  const lines = (testForm.value.message || '').split('\n').map(s => s.trim()).filter(Boolean);
   if (lines.length === 0) {
     ElMessage.warning(i18n.global.t('请在客户消息框输入多行文本，每行一条进行批量识别'))
     return
@@ -720,8 +702,6 @@ const runBatchRecognize = async () => {
   }
 }
 
-// ===== 精细意图识别方法 =====
-
 const fillFineExample = () => {
   const examples = [
     '你们这个产品跟别家有什么区别？',
@@ -732,7 +712,7 @@ const fillFineExample = () => {
     '我想确认下具体功能再决定'
   ]
   fineForm.value.message = examples[Math.floor(Math.random() * examples.length)]
-}
+};
 
 const runRecognizeFine = async () => {
   if (!fineForm.value.message || !fineForm.value.message.trim()) {

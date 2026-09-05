@@ -138,7 +138,7 @@
       />
     </el-card>
 
-    <!-- 审计详情对话框 -->
+    
     <el-dialog v-model="detailVisible" title="审计详情" width="780px">
       <div v-if="detailRecord">
         <el-descriptions :column="2" border>
@@ -311,8 +311,7 @@ const viewDetail = async (row) => {
       detailItems.value = data.items || data.checks || data.findings || data.results || []
     }
   } catch (e) {
-    // 失败也展示主记录
-    ElMessage.warning(i18n.global.t('未获取到详细检查项'))
+    ElMessage.warning(i18n.global.t('未获取到详细检查项'));
   } finally {
     detailLoading.value = false
   }

@@ -39,8 +39,7 @@
 </template>
 
 <script setup>
-// R48 T1: 公开帮助中心门户（免登录，对标 Chatwoot Help Center）
-import { ref, onMounted } from 'vue'
+import { ref, onMounted } from 'vue';
 import { Search, ArrowLeft } from '@element-plus/icons-vue'
 
 const categories = ref([])

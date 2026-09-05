@@ -48,7 +48,7 @@
       </el-table>
     </el-card>
 
-    <!-- 编辑弹窗 -->
+    
     <el-dialog v-model="dialogVisible" :title="editing.id ? '编辑规则' : '新增规则'" width="640px">
       <el-form :model="editing" label-width="100px">
         <el-form-item label="规则名称">
@@ -90,7 +90,7 @@
       </template>
     </el-dialog>
 
-    <!-- 命中预览 -->
+    
     <el-card v-if="preview" class="preview-card">
       <template #header>
         <span>命中预览</span>
@@ -110,11 +110,7 @@
 </template>
 
 <script setup>
-/**
- * OneID 合并规则配置（USR-CM-01b）
- * API：/api/oneid/merge-rules（已就位）
- */
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { http } from '@/utils/request'
 
@@ -139,10 +135,9 @@ async function load() {
   loading.value = true
   try {
     const res = await http.get('/api/oneid/merge-rules')
-    // 后端返回 {built_in:[], custom:[], strategy:{}} 对象，前端表格需要扁平数组
     const list = Array.isArray(res)
       ? res
-      : [...(res?.built_in || []), ...(res?.custom || [])]
+      : [...(res?.built_in || []), ...(res?.custom || [])];
     rules.value = list.map(r => ({
       ...r,
       type: r.type || 'deterministic',

@@ -73,7 +73,7 @@
       </div>
     </div>
 
-    <!-- 添加/编辑账号对话框 -->
+    
     <el-dialog
       v-model="dialogVisible"
       :title="dialogType === 'add' ? '添加飞书账号' : '编辑飞书账号'"
@@ -130,7 +130,7 @@
       </template>
     </el-dialog>
 
-    <!-- 测试发送对话框 -->
+    
     <el-dialog
       v-model="testSendVisible"
       title="测试发送消息"
@@ -157,7 +157,7 @@
       </template>
     </el-dialog>
 
-    <!-- 绑定智能体对话框 -->
+    
     <el-dialog
       v-model="bindingVisible"
       title="绑定 智能体"
@@ -198,17 +198,15 @@ import {
   refreshToken
 } from '@/api/feishu'
 
-// ===== 状态 =====
-const loading = ref(false)
+const loading = ref(false);
 const submitting = ref(false)
 const testSending = ref(false)
 const bindingSubmitting = ref(false)
 const accounts = ref([])
 const searchKeyword = ref('')
 
-// 添加/编辑对话框
-const dialogVisible = ref(false)
-const dialogType = ref('add') // 'add' | 'edit'
+const dialogVisible = ref(false);
+const dialogType = ref('add');
 const accountFormRef = ref(null)
 const accountForm = ref({
   account_name: '',
@@ -221,8 +219,7 @@ const accountForm = ref({
   status: 1
 })
 
-// 测试发送
-const testSendVisible = ref(false)
+const testSendVisible = ref(false);
 const testSendForm = ref({
   account_id: null,
   open_id: '',
@@ -230,8 +227,7 @@ const testSendForm = ref({
   msg_type: 'text'
 })
 
-// 绑定AI
-const bindingVisible = ref(false)
+const bindingVisible = ref(false);
 const bindingForm = ref({
   account_id: null,
   account_name: '',
@@ -239,22 +235,19 @@ const bindingForm = ref({
   webhook_enabled: false
 })
 
-// ===== 表单规则 =====
 const rules = {
   account_name: [{ required: true, message: i18n.global.t('请输入账号名称'), trigger: 'blur' }],
   app_id: [{ required: true, message: i18n.global.t('请输入 App ID'), trigger: 'blur' }],
   app_secret: [{ required: true, message: i18n.global.t('请输入 App Secret'), trigger: 'blur' }]
-}
+};
 
-// ===== 计算属性 =====
 const filteredAccounts = computed(() => {
   if (!searchKeyword.value) return accounts.value
   return accounts.value.filter(a =>
     a.account_name?.toLowerCase().includes(searchKeyword.value.toLowerCase())
   )
-})
+});
 
-// ===== 方法 =====
 const fetchAccounts = async () => {
   loading.value = true
   try {
@@ -265,11 +258,9 @@ const fetchAccounts = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
-const handleSearch = () => {
-  // 搜索逻辑通过 computed 自动处理
-}
+const handleSearch = () => {}
 
 const resetForm = () => {
   accountForm.value = {
@@ -296,9 +287,9 @@ const handleEdit = (row) => {
     id: row.id,
     account_name: row.account_name,
     app_id: row.app_id,
-    app_secret: '', // 编辑时不回显
+    app_secret: '',
     verification_token: row.verification_token || '',
-    encrypt_key: '', // 编辑时不回显
+    encrypt_key: '',
     webhook_enabled: row.webhook_enabled || false,
     ai_agent_enabled: row.ai_agent_enabled || false,
     status: row.status
@@ -416,10 +407,9 @@ const submitBinding = async () => {
   }
 }
 
-// ===== 生命周期 =====
 onMounted(() => {
   fetchAccounts()
-})
+});
 </script>
 
 <style scoped>

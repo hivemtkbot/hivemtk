@@ -1,6 +1,6 @@
 <template>
   <div class="tool-management-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -16,7 +16,7 @@
       </div>
     </el-card>
 
-    <!-- 统计卡片 -->
+    
     <el-row :gutter="16" class="stats-row">
       <el-col :span="6">
         <el-card shadow="never" class="stat-card">
@@ -44,7 +44,7 @@
       </el-col>
     </el-row>
 
-    <!-- 筛选栏 -->
+    
     <el-card shadow="never" class="filter-card">
       <el-form :inline="true" :model="filter">
         <el-form-item label="分类">
@@ -69,7 +69,7 @@
       </el-form>
     </el-card>
 
-    <!-- 工具列表 -->
+    
     <el-card shadow="never">
       <el-table :data="tools" v-loading="loading" stripe border>
         <el-table-column label="工具" min-width="280">
@@ -128,7 +128,7 @@
       </el-table>
     </el-card>
 
-    <!-- 详情弹窗 -->
+    
     <el-dialog v-model="detailVisible" title="工具详情" width="600px">
       <el-descriptions :column="2" border v-if="currentTool">
         <el-descriptions-item label="工具名称">{{ currentTool.tool_name }}</el-descriptions-item>
@@ -149,7 +149,7 @@
       </el-descriptions>
     </el-dialog>
 
-    <!-- 绑定账号弹窗 -->
+    
     <el-dialog v-model="bindDialogVisible" :title="`绑定账号 - ${currentTool?.tool_name}`" width="600px">
       <el-form :model="bindForm" label-width="100px">
         <el-form-item label="账号类型">
@@ -186,8 +186,7 @@ import { ElMessage } from 'element-plus'
 import { Refresh, Star } from '@element-plus/icons-vue'
 import { listTools, updateToolStatus, bindToolAccount } from '@/api/aiTool.js'
 
-// 状态
-const loading = ref(false)
+const loading = ref(false);
 const tools = ref([])
 const filter = reactive({
   category: '',
@@ -200,26 +199,23 @@ const stats = reactive({
   categories: 5
 })
 
-// 详情弹窗
-const detailVisible = ref(false)
+const detailVisible = ref(false);
 const currentTool = ref(null)
 
-// 绑定弹窗
-const bindDialogVisible = ref(false)
+const bindDialogVisible = ref(false);
 const bindForm = reactive({
   account_type: '',
   account_id: '',
   is_primary: false
 })
 
-// 分类映射
 const categoryMap = {
   reach: '触达工具',
   customer: '客户工具',
   knowledge: '知识工具',
   business: '业务工具',
   private_message: '私信工具'
-}
+};
 
 const getCategoryLabel = (category) => categoryMap[category] || category
 
@@ -234,12 +230,10 @@ const getCategoryTagType = (category) => {
   return map[category] || 'info'
 }
 
-// 判断是否需要账号
 const needsAccount = (category) => {
   return category === 'reach' || category === 'private_message'
-}
+};
 
-// 加载工具列表
 const loadTools = async () => {
   loading.value = true
   try {
@@ -250,8 +244,7 @@ const loadTools = async () => {
     const res = await listTools(params)
     tools.value = res?.list || []
 
-    // 计算统计
-    stats.total = tools.value.length
+    stats.total = tools.value.length;
     stats.enabled = tools.value.filter(t => t.is_enabled).length
     stats.disabled = tools.value.filter(t => !t.is_enabled).length
   } catch (e) {
@@ -259,9 +252,8 @@ const loadTools = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
-// 切换工具状态
 const onToggleTool = async (tool) => {
   tool._toggling = true
   try {
@@ -273,31 +265,27 @@ const onToggleTool = async (tool) => {
   } finally {
     tool._toggling = false
   }
-}
+};
 
-// 重置筛选
 const resetFilter = () => {
   filter.category = ''
   filter.enabled = null
   loadTools()
-}
+};
 
-// 打开详情
 const openDetail = (tool) => {
   currentTool.value = tool
   detailVisible.value = true
-}
+};
 
-// 打开绑定弹窗
 const openBindDialog = (tool) => {
   currentTool.value = tool
   bindForm.account_type = ''
   bindForm.account_id = ''
   bindForm.is_primary = false
   bindDialogVisible.value = true
-}
+};
 
-// 绑定账号
 const onBind = async () => {
   if (!bindForm.account_type || !bindForm.account_id) {
     ElMessage.warning('请选择账号类型并输入账号ID')
@@ -317,12 +305,11 @@ const onBind = async () => {
   } catch (e) {
     ElMessage.error('绑定失败：' + e.message)
   }
-}
+};
 
-// 初始化
 onMounted(() => {
   loadTools()
-})
+});
 </script>
 
 <style scoped lang="scss">

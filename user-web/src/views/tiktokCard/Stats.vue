@@ -23,7 +23,7 @@
         </div>
       </template>
 
-      <!-- 总体统计 -->
+      
       <div class="stats-overview">
         <el-row :gutter="20">
           <el-col :span="8">
@@ -53,7 +53,7 @@
         </el-row>
       </div>
 
-      <!-- 图表区域 -->
+      
       <div class="charts-section">
         <el-row :gutter="20">
           <el-col :span="24">
@@ -69,7 +69,7 @@
         </el-row>
       </div>
 
-      <!-- 热门卡片和最近活动 -->
+      
       <div class="bottom-section">
         <el-row :gutter="20">
           <el-col :span="12">
@@ -137,11 +137,9 @@ import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'
 import { getTikTokCardOverallStats } from '@/api/tiktokCard'
 
-// 路由
-const router = useRouter()
+const router = useRouter();
 
-// 响应式数据
-const loading = ref(false)
+const loading = ref(false);
 const dateRange = ref([])
 const groupBy = ref('day')
 const overallStats = reactive({
@@ -153,11 +151,9 @@ const overallStats = reactive({
   recent_activity: []
 })
 
-// 图表实例
-const visitTrendChart = ref(null)
+const visitTrendChart = ref(null);
 let visitChartInstance = null
 
-// 获取统计数据
 const fetchOverallStats = async () => {
   loading.value = true
   try {
@@ -171,9 +167,7 @@ const fetchOverallStats = async () => {
     }
     
     const res = await getTikTokCardOverallStats(params)
-    // 拦截器已解包，res 直接就是数据对象
-    // 映射后端返回的字段到前端期望的字段
-    const data = res
+    const data = res;
     Object.assign(overallStats, {
       total_cards: data.totalCards || 0,
       active_cards: data.activeCards || 0,
@@ -183,36 +177,30 @@ const fetchOverallStats = async () => {
       recent_activity: data.recentActivity || []
     })
 
-    // 更新图表
     nextTick(() => {
       updateCharts()
-    })
+    });
   } catch (error) {
     ElMessage.error(i18n.global.t('获取统计数据失败'))
     console.error(error)
   } finally {
     loading.value = false
   }
-}
+};
 
-// 刷新数据
 const refreshData = () => {
   fetchOverallStats()
-}
+};
 
-// 日期变化处理
 const handleDateChange = () => {
   fetchOverallStats()
-}
+};
 
-// 分组方式变化处理
 const handleGroupByChange = () => {
   fetchOverallStats()
-}
+};
 
-// 更新图表
 const updateCharts = () => {
-  // 访问趋势图
   if (visitTrendChart.value) {
     if (visitChartInstance) {
       visitChartInstance.dispose()
@@ -244,18 +232,16 @@ const updateCharts = () => {
       }]
     })
   }
-}
+};
 
-// 跳转到单个卡片统计页面
 const goToCardStats = (cardId) => {
   router.push(`/tiktok-card-stats/${cardId}`)
-}
+};
 
-// 工具函数
 const formatNumber = (num) => {
   if (!num) return '0'
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
+};
 
 const formatPercent = (active, total) => {
   if (!total || total === 0) return '0%'
@@ -308,16 +294,14 @@ const getActionText = (action) => {
   return texts[action] || action
 }
 
-// 初始化
 onMounted(() => {
-  // 设置默认日期范围为最近7天
-  const endDate = new Date()
+  const endDate = new Date();
   const startDate = new Date()
   startDate.setDate(endDate.getDate() - 7)
   dateRange.value = [startDate, endDate]
   
   fetchOverallStats()
-})
+});
 </script>
 
 <style scoped>

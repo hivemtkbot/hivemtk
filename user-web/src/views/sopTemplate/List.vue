@@ -1,6 +1,6 @@
 <template>
   <div class="sop-template-list-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -20,7 +20,7 @@
       </div>
     </el-card>
 
-    <!-- 搜索栏 -->
+    
     <el-card shadow="never" class="filter-card">
       <el-form :inline="true" :model="filter" @submit.prevent>
         <el-form-item label="名称">
@@ -64,7 +64,7 @@
       </el-form>
     </el-card>
 
-    <!-- 列表 -->
+    
     <el-card shadow="never">
       <el-table :data="list" v-loading="loading" stripe border>
         <el-table-column prop="id" label="ID" width="70" align="center" />
@@ -172,8 +172,7 @@ import { listKBs } from '@/api/knowledgeBase'
 
 const router = useRouter()
 
-// ===== 状态 =====
-const loading = ref(false)
+const loading = ref(false);
 const list = ref([])
 const total = ref(0)
 const page = ref(1)
@@ -187,11 +186,9 @@ const filter = ref({
   page_size: 20
 })
 
-// SOP 阶段
-const stageOptions = ['initial', 'middle', 'late', 'objection', 'closing']
+const stageOptions = ['initial', 'middle', 'late', 'objection', 'closing'];
 
-// 所属知识库映射
-const kbMap = ref({})
+const kbMap = ref({});
 const loadKBMap = async () => {
   try {
     const res = await listKBs({ kb_type: 'sop', page: 1, page_size: 200 }).catch(() => null)
@@ -212,11 +209,10 @@ const getKBName = (kbId) => {
   return info.kb_code ? `[${info.kb_code}] ${info.name}` : info.name
 }
 
-// ===== 工具 =====
 const truncate = (text, len) => {
   if (!text) return '-'
   return text.length > len ? text.slice(0, len) + '...' : text
-}
+};
 
 const formatTime = (t) => {
   if (!t) return '-'
@@ -232,7 +228,6 @@ const getConfColor = (c) => {
   return '#f56c6c'
 }
 
-// ===== 数据加载 =====
 const loadList = async () => {
   loading.value = true
   try {
@@ -254,7 +249,7 @@ const loadList = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
 const onSearch = () => {
   page.value = 1
@@ -274,16 +269,14 @@ const resetFilter = () => {
   loadList()
 }
 
-// ===== 跳转 =====
 const goCreate = () => {
   router.push('/sop-template/editor')
-}
+};
 
 const goEdit = (row) => {
   router.push(`/sop-template/editor/${row.id}`)
 }
 
-// ===== 启用/禁用 =====
 const onToggle = async (row, v) => {
   row._toggling = true
   try {
@@ -304,9 +297,8 @@ const onToggle = async (row, v) => {
   } finally {
     row._toggling = false
   }
-}
+};
 
-// ===== 删除 =====
 const onDelete = (row) => {
   ElMessageBox.confirm(`确认删除模板「${row.name}」吗？删除后不可恢复。`, '删除确认', {
     type: 'warning',
@@ -321,7 +313,7 @@ const onDelete = (row) => {
       ElMessage.error('删除失败：' + (e.message || '未知错误'))
     }
   }).catch(() => {})
-}
+};
 
 onMounted(() => {
   loadKBMap()

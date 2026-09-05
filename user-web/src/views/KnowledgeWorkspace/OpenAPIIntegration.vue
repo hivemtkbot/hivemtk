@@ -1,6 +1,6 @@
 <template>
   <div class="openapi-integration">
-    <!-- 顶部说明 -->
+    
     <el-alert
       :title="$t('OpenAPI 数据源集成')"
       type="info"
@@ -12,7 +12,7 @@
       </template>
     </el-alert>
 
-    <!-- 筛选 -->
+    
     <el-card class="filter-card">
       <div class="filter-bar">
         <el-select v-model="filter.product_id" placeholder="选择产品(可选)" clearable style="width: 220px" @change="loadSources">
@@ -23,7 +23,7 @@
       </div>
     </el-card>
 
-    <!-- 数据源列表 -->
+    
     <el-card>
       <el-table :data="sources" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80" />
@@ -72,7 +72,7 @@
       <el-empty v-if="!loading && sources.length === 0" description="还没有数据源,点击右上角「新建数据源」开始" />
     </el-card>
 
-    <!-- 新建/编辑对话框 -->
+    
     <el-dialog v-model="showCreateDialog" :title="editingId ? '编辑数据源' : '新建数据源'" width="720px" :close-on-click-modal="false">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="名称" prop="name">
@@ -144,7 +144,7 @@
       </template>
     </el-dialog>
 
-    <!-- 测试结果对话框 -->
+    
     <el-dialog v-model="showTestResultDialog" title="连接测试结果" width="600px">
       <el-descriptions :column="1" border v-if="testResult">
         <el-descriptions-item label="是否成功">
@@ -170,7 +170,7 @@
       </el-descriptions>
     </el-dialog>
 
-    <!-- 同步结果对话框 -->
+    
     <el-dialog v-model="showSyncResultDialog" title="同步结果" width="600px">
       <el-descriptions :column="2" border v-if="syncResult">
         <el-descriptions-item label="数据源ID">{{ syncResult.source_id }}</el-descriptions-item>
@@ -198,16 +198,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 import { knowledgeAPI } from '@/api/knowledge'
 import { ragProductConfigAPI } from '@/api/ragProductConfig'
-// 统一枚举：HTTP 方法/认证类型/同步状态
-import { getAuthTypeLabel } from '@/constants/authType'
+import { getAuthTypeLabel } from '@/constants/authType';
 import { PASS_FAIL_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'
 
-// HTTP 方法 label/type：GET 显示普通色，其他（POST/PUT/DELETE/PATCH）高亮
-const HTTP_METHOD_TAG = { GET: '', POST: 'success', PUT: 'warning', DELETE: 'danger', PATCH: 'warning' }
+const HTTP_METHOD_TAG = { GET: '', POST: 'success', PUT: 'warning', DELETE: 'danger', PATCH: 'warning' };
 const getMethodLabel = (m) => (m || '').toUpperCase()
 const getMethodTagType = (m) => HTTP_METHOD_TAG[(m || '').toUpperCase()] || 'info'
-// 同步成功/失败 label/type
-const getLastStatusLabel = (s) => (s ? getStatusLabel(s, PASS_FAIL_STATUS) : '待同步')
+const getLastStatusLabel = (s) => (s ? getStatusLabel(s, PASS_FAIL_STATUS) : '待同步');
 const getLastStatusTagType = (s) => (s ? getStatusTagType(s, PASS_FAIL_STATUS) : 'info')
 
 const loading = ref(false)
@@ -311,7 +308,6 @@ const showEditDialog = (row) => {
     schedule: row.schedule,
     enabled: row.enabled === 1
   })
-  // 解析 auth_config
   try {
     const authCfg = row.auth_config ? JSON.parse(row.auth_config) : {}
     if (authCfg.token) form.auth_token = authCfg.token
@@ -326,12 +322,11 @@ const handleSave = async () => {
   try {
     await formRef.value.validate()
   } catch {
-    return // R44: 空表单校验失败 reject fields 数组——此前未捕获触发 PAGEERROR
+    return;
   }
   saving.value = true
   try {
-    // 构造 auth_config
-    const authConfig = {}
+    const authConfig = {};
     if (form.auth_type === 'bearer' || form.auth_type === 'api_key' || form.auth_type === 'hmac') {
       authConfig.token = form.auth_token
       authConfig.secret = form.auth_token

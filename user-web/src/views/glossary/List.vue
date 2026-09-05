@@ -1,6 +1,6 @@
 <template>
   <div class="glossary-list-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -24,7 +24,7 @@
       </div>
     </el-card>
 
-    <!-- 筛选栏 -->
+    
     <el-card shadow="never" class="filter-card">
       <el-form :inline="true" :model="filter" @submit.prevent>
         <el-form-item :label="$t('分类')">
@@ -58,7 +58,7 @@
       </el-form>
     </el-card>
 
-    <!-- 列表表格 -->
+    
     <el-card shadow="never">
       <el-table :data="list" v-loading="loading" stripe border>
         <el-table-column prop="term_id" label="term_id" min-width="160" show-overflow-tooltip />
@@ -125,7 +125,7 @@
         </template>
       </el-table>
 
-      <!-- 分页 -->
+      
       <div class="pagination-wrap" v-if="total > 0">
         <el-pagination
           v-model:current-page="page"
@@ -140,7 +140,7 @@
       </div>
     </el-card>
 
-    <!-- 新增/编辑弹窗 -->
+    
     <el-dialog
       v-model="formDialogVisible"
       :title="isEdit ? $t('编辑术语') : $t('新增术语')"
@@ -221,7 +221,7 @@
       </template>
     </el-dialog>
 
-    <!-- 校验预览弹窗 -->
+    
     <el-dialog
       v-model="validateDialogVisible"
       :title="$t('术语校验预览')"
@@ -330,14 +330,13 @@ import {
   getLanguageLabel
 } from '@/constants/languages'
 
-// ===== 分类常量 =====
 const categoryOptions = [
   { value: 'brand', label: '品牌词' },
   { value: 'product', label: '产品词' },
   { value: 'entity', label: '实体名' },
   { value: 'technical', label: '技术术语' },
   { value: 'custom', label: '自定义' }
-]
+];
 const categoryMap = categoryOptions.reduce((acc, o) => { acc[o.value] = o.label; return acc }, {})
 const getCategoryLabel = (v) => categoryMap[v] || v || '-'
 const getCategoryTagType = (v) => {
@@ -348,19 +347,16 @@ const getCategoryTagType = (v) => {
   return 'info'
 }
 
-// 语言选项
-const languageOptions = SUPPORTED_LANGUAGES
+const languageOptions = SUPPORTED_LANGUAGES;
 
-// ===== 列表数据 =====
-const loading = ref(false)
+const loading = ref(false);
 const list = ref([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 const filter = ref({ category: '', status: '', keyword: '' })
 
-// ===== 表单弹窗 =====
-const formDialogVisible = ref(false)
+const formDialogVisible = ref(false);
 const formLoading = ref(false)
 const submitting = ref(false)
 const isEdit = ref(false)
@@ -374,15 +370,13 @@ const form = ref({
   status: 1,
   translations: {}
 })
-// 翻译编辑列表（动态增删）
-const translationList = ref([])
+const translationList = ref([]);
 const rules = {
   term_id: [{ required: true, message: '请输入 term_id', trigger: 'blur' }],
   category: [{ required: true, message: '请选择分类', trigger: 'change' }]
 }
 
-// ===== 校验弹窗 =====
-const validateDialogVisible = ref(false)
+const validateDialogVisible = ref(false);
 const validating = ref(false)
 const validateForm = ref({ lang: 'en', text: '' })
 const validateResult = ref(null)
@@ -399,19 +393,17 @@ const validateViolations = computed(() => {
   return Array.isArray(r.violations) ? r.violations : (Array.isArray(r.issues) ? r.issues : [])
 })
 
-// ===== 工具函数 =====
 const normalizeTranslations = (t) => {
   if (!t) return {}
   if (Array.isArray(t)) {
-    // 兼容 [{lang, text}, ...] 形式
-    const obj = {}
+    const obj = {};
     t.forEach((item) => {
       if (item && item.lang) obj[item.lang] = item.text || item.translation || ''
     })
     return obj
   }
   return t
-}
+};
 
 const hasTranslations = (t) => {
   const obj = normalizeTranslations(t)
@@ -432,7 +424,6 @@ const formatTime = (t) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-// ===== 加载列表 =====
 const loadList = async () => {
   loading.value = true
   try {
@@ -446,7 +437,6 @@ const loadList = async () => {
     }
     if (filter.value.keyword) params.keyword = filter.value.keyword
     const res = await listGlossaries(params)
-    // 兼容 {list, total} 与纯数组
     if (Array.isArray(res)) {
       list.value = res
       total.value = res.length
@@ -459,7 +449,7 @@ const loadList = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
 const onSearch = () => {
   page.value = 1
@@ -472,7 +462,6 @@ const resetFilter = () => {
   loadList()
 }
 
-// ===== 新增/编辑 =====
 const resetForm = () => {
   form.value = {
     term_id: '',
@@ -484,7 +473,7 @@ const resetForm = () => {
   }
   translationList.value = []
   editingTermId.value = ''
-}
+};
 
 const addTranslation = () => {
   translationList.value.push({ lang: '', text: '' })
@@ -507,10 +496,9 @@ const openEditDialog = async (row) => {
   formDialogVisible.value = true
   formLoading.value = true
   try {
-    // 优先用列表行数据，缺失字段再请求详情
     const detail = row.term_id && !hasTranslations(row.translations)
       ? await getGlossarySafe(row.term_id)
-      : row
+      : row;
     form.value = {
       term_id: detail.term_id || row.term_id,
       category: detail.category || 'brand',
@@ -529,7 +517,6 @@ const openEditDialog = async (row) => {
 }
 
 const getGlossarySafe = async (termId) => {
-  // 详情接口可选（后端可能未实现 getGlossary 时直接用列表行）
   try {
     const { getGlossary } = await import('@/api/glossary.js')
     return await getGlossary(termId)
@@ -545,8 +532,7 @@ const submitForm = async () => {
   } catch (_) {
     return
   }
-  // 组装 translations 对象（过滤空值）
-  const translations = {}
+  const translations = {};
   let hasInvalid = false
   translationList.value.forEach((item) => {
     if (item.lang && item.text) {
@@ -586,7 +572,6 @@ const submitForm = async () => {
   }
 }
 
-// ===== 启用/禁用 =====
 const onToggleStatus = (row) => {
   const next = row.status === 1 ? 0 : 1
   const action = next === 1 ? '启用' : '禁用'
@@ -603,9 +588,8 @@ const onToggleStatus = (row) => {
       ElMessage.error(`${action}失败：` + (e.message || '未知错误'))
     }
   }).catch(() => {})
-}
+};
 
-// ===== 删除 =====
 const onDelete = (row) => {
   ElMessageBox.confirm(
     `确认删除术语「${row.term_id}」吗？删除后不可恢复。`,
@@ -620,14 +604,13 @@ const onDelete = (row) => {
       ElMessage.error(i18n.global.t('删除失败') + '：' + (e.message || '未知错误'))
     }
   }).catch(() => {})
-}
+};
 
-// ===== 校验预览 =====
 const openValidateDialog = () => {
   validateForm.value = { lang: 'en', text: '' }
   validateResult.value = null
   validateDialogVisible.value = true
-}
+};
 
 const runValidate = async () => {
   if (!validateForm.value.text || !validateForm.value.text.trim()) {
@@ -659,10 +642,9 @@ const clearValidateResult = () => {
   validateForm.value.text = ''
 }
 
-// 初始化
 onMounted(() => {
   loadList()
-})
+});
 </script>
 
 <style scoped lang="scss">

@@ -7,7 +7,7 @@
         </div>
       </template>
 
-      <!-- 筛选条件 -->
+      
       <el-form :model="filterForm" inline label-width="80px" style="margin-bottom: 20px;">
         <el-form-item label="状态">
           <el-select v-model="filterForm.status" placeholder="选择线索状态" clearable>
@@ -38,7 +38,7 @@
         </el-form-item>
       </el-form>
 
-      <!-- 线索列表 -->
+      
       <el-table 
         :data="leads" 
         style="width: 100%; margin-top: 20px;" 
@@ -80,7 +80,7 @@
       />
     </el-card>
 
-    <!-- 选择的群体操作区 -->
+    
     <el-card style="margin-top: 20px;" v-if="selectedLeads.length > 0">
       <template #header>
         <div class="card-header">
@@ -137,24 +137,21 @@ const filterForm = reactive({
 const fetchLeads = async () => {
   try {
     loading.value = true
-    // 使用clueApi.list获取线索列表
     const response = await clueApi.clueApi.list(
       pagination.currentPage,
       pagination.pageSize
-    )
-    // 修复：request.js 拦截器已解包 data.data，response 即业务数据本身（{list,total}）
-    const clueData = response?.list || response || []
-    // 将clue数据转换为适合前端显示的格式
+    );
+    const clueData = response?.list || response || [];
     leads.value = clueData.map(clue => ({
       id: clue.ID,
       name: clue.Name || clue.name || '未知',
       phone: clue.Account || clue.account || '',
-      email: '', // 线索表中没有email字段
+      email: '',
       company: clue.Address || clue.address || clue.City || clue.city || '',
       source: 'clue',
-      score: 80, // 默认评分
+      score: 80,
       status: 'new'
-    }))
+    }));
     pagination.total = response?.total || response?.length || 0
   } catch (error) {
     ElMessage.error(i18n.global.t('获取线索列表失败'))
@@ -182,10 +179,8 @@ const handleSelectionChange = (selection) => {
 }
 
 const proceedToMessaging = () => {
-  // 将选中的线索传递给群发消息页面
-  localStorage.setItem('selectedLeads', JSON.stringify(selectedLeads.value.map(lead => lead.id)))
-  // 跳转到群发消息页面
-  router.push('/whatsapp/group-messaging')
+  localStorage.setItem('selectedLeads', JSON.stringify(selectedLeads.value.map(lead => lead.id)));
+  router.push('/whatsapp/group-messaging');
 }
 
 const getScoreType = (score) => {
@@ -224,10 +219,9 @@ const handleCurrentChange = (val) => {
   fetchLeads()
 }
 
-// 初始化加载数据
 onMounted(() => {
   fetchLeads()
-})
+});
 </script>
 
 <style scoped>

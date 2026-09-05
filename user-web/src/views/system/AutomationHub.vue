@@ -1,6 +1,6 @@
 <template>
   <div class="automation-hub">
-    <!-- 办公时间 T2 -->
+    
     <el-card class="mb16">
       <template #header><b>办公时间与离开自动回复</b><el-tag size="small" style="margin-left:8px">{{ oh.enabled ? '已启用' : '未启用' }}</el-tag></template>
       <el-form label-width="120px" size="small">
@@ -25,7 +25,7 @@
       </el-form>
     </el-card>
 
-    <!-- 宏 T4 -->
+    
     <el-card class="mb16">
       <template #header><b>会话宏（一键多动作）</b></template>
       <div style="margin-bottom:10px;display:flex;gap:8px">
@@ -55,7 +55,7 @@
       </el-table>
     </el-card>
 
-    <!-- Webhook Out T6 -->
+    
     <el-card class="mb16">
       <template #header><b>出站 Webhook 订阅</b><span class="hint">事件推送：message.created / session.created / session.closed / all</span></template>
       <div style="margin-bottom:10px;display:flex;gap:8px">
@@ -77,7 +77,7 @@
       </el-table>
     </el-card>
 
-    <!-- 报表订阅 T9 -->
+    
     <el-card class="mb16">
       <template #header><b>定时邮件报表</b><el-button size="small" style="float:right" @click="sendNow">立即发送一次</el-button></template>
       <div style="margin-bottom:10px;display:flex;gap:8px">
@@ -102,7 +102,7 @@
       </el-table>
     </el-card>
 
-    <!-- AI 绩效 T12 -->
+    
     <el-card>
       <template #header><b>AI 代理绩效</b>
         <el-radio-group v-model="perfDays" size="small" style="float:right" @change="loadPerf">
@@ -122,8 +122,7 @@
 </template>
 
 <script setup>
-// R48: 自动化中心（办公时间/宏/Webhook Out/报表订阅/AI绩效 集中管理）
-import { ref, onMounted } from 'vue'
+import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { http } from '@/utils/request'
 

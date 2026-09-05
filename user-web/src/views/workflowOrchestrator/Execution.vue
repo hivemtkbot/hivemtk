@@ -3,7 +3,7 @@
     <el-page-header :content="`执行详情 #${executionId}`" @back="$router.back()" />
 
     <div v-loading="loading" class="execution-body">
-      <!-- 执行概览 -->
+      
       <el-row :gutter="16" class="overview-row">
         <el-col :span="6">
           <el-card>
@@ -50,7 +50,7 @@
         </el-col>
       </el-row>
 
-      <!-- 操作按钮 -->
+      
       <el-card class="actions-card">
         <el-button
           type="primary"
@@ -66,7 +66,7 @@
         </el-button>
       </el-card>
 
-      <!-- 触发参数 -->
+      
       <el-card class="detail-card">
         <template #header>
           <span>{{ $t('触发参数') }}</span>
@@ -80,7 +80,7 @@
         />
       </el-card>
 
-      <!-- 执行错误 -->
+      
       <el-card v-if="execution.error" class="error-card">
         <template #header>
           <span style="color: var(--el-color-danger)">{{ $t('错误信息') }}</span>
@@ -88,7 +88,7 @@
         <pre class="error-text">{{ execution.error }}</pre>
       </el-card>
 
-      <!-- 节点执行时间线 -->
+      
       <el-card class="timeline-card">
         <template #header>
           <span>{{ $t('节点执行时间线') }}</span>
@@ -179,7 +179,6 @@ const triggerPayloadText = computed(() => {
   }
 })
 
-// === 加载数据 ===
 const loadData = async () => {
   loading.value = true
   try {
@@ -194,9 +193,8 @@ const loadData = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
-// === 操作 ===
 const handleStop = async () => {
   try {
     await ElMessageBox.confirm('确认停止此执行？', '停止确认', { type: 'warning' })
@@ -204,10 +202,9 @@ const handleStop = async () => {
     ElMessage.success('已停止')
     loadData()
   } catch (_) {}
-}
+};
 
-// === 辅助 ===
-const statusType = (s) => ({ running: 'primary', completed: 'success', failed: 'danger', terminated: 'warning', pending: 'info' }[s] || 'info')
+const statusType = (s) => ({ running: 'primary', completed: 'success', failed: 'danger', terminated: 'warning', pending: 'info' }[s] || 'info');
 const statusText = (s) => ({ running: '运行中', completed: '已完成', failed: '失败', terminated: '已终止', pending: '等待中' }[s] || s)
 const timelineColor = (s) => ({ running: 'primary', completed: 'success', failed: 'danger', terminated: 'warning', pending: 'info' }[s] || 'gray')
 const formatTime = (t) => {

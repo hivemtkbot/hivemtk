@@ -43,7 +43,7 @@
       </el-table>
     </el-card>
 
-    <!-- 编辑弹窗 -->
+    
     <el-dialog v-model="dialogVisible" :title="editing ? '编辑竞品' : '新增竞品'" width="520px" destroy-on-close>
       <el-form :model="form" label-width="90px" size="default">
         <el-form-item label="名称">

@@ -1,21 +1,6 @@
-/**
- * 轻量 Mustache-like 模板渲染（USR-WB-02）
- * 借鉴 libredesk Canned Responses
- * 支持：
- *   {{customer.name}} {{order.id}} {{agent.name}} {{product.title}}
- *   嵌套 {{customer.profile.tag}}
- *   条件 {{#if hasOrder}}...{{/if}}
- *
- * 无依赖，< 200 行
- */
-
-const VARIABLE_RE = /\{\{\s*([^{}]+?)\s*\}\}/g
+const VARIABLE_RE = /\{\{\s*([^{}]+?)\s*\}\}/g;
 const IF_RE = /\{\{#if\s+([^{}]+?)\}\}([\s\S]*?)\{\{\/if\}\}/g
 
-/**
- * 检查变量是否"真"
- * 支持 . 分隔的嵌套访问
- */
 function lookup(path, ctx) {
   if (!path || !ctx) return undefined
   const parts = path.trim().split('.')
@@ -36,17 +21,11 @@ function isTruthy(v) {
   return true
 }
 
-/**
- * 提取模板中所有用到的变量
- * @param {string} template
- * @returns {string[]}
- */
 export function extractVariables(template) {
   if (!template) return []
   const vars = new Set()
   let m
-  // 跳过 {{#if}} 块
-  const cleaned = template.replace(IF_RE, '')
+  const cleaned = template.replace(IF_RE, '');
   const re = new RegExp(VARIABLE_RE.source, 'g')
   while ((m = re.exec(cleaned))) {
     const path = m[1].trim()
@@ -57,25 +36,14 @@ export function extractVariables(template) {
   return Array.from(vars)
 }
 
-/**
- * 渲染模板
- * @param {string} template
- * @param {object} context
- * @param {object} [options]
- * @param {boolean} [options.strict=false] 严格模式（变量缺失抛错）
- * @param {string} [options.missing='[?]'] 变量缺失占位符
- * @returns {string}
- */
 export function render(template, context = {}, options = {}) {
   if (!template) return ''
   const { strict = false, missing = '[?]' } = options
 
-  // 1. 处理 {{#if condition}}...{{/if}}
   let out = template.replace(IF_RE, (_, cond, inner) => {
     return isTruthy(lookup(cond, context)) ? inner : ''
-  })
+  });
 
-  // 2. 替换 {{var.path}}
   out = out.replace(VARIABLE_RE, (_, path) => {
     const v = lookup(path, context)
     if (v === undefined || v === null) {
@@ -84,29 +52,22 @@ export function render(template, context = {}, options = {}) {
     }
     if (typeof v === 'object') return JSON.stringify(v)
     return String(v)
-  })
+  });
 
   return out
 }
 
-/**
- * 校验模板语法
- * @param {string} template
- * @returns {{valid: boolean, errors: string[]}}
- */
 export function validateTemplate(template) {
   const errors = []
   if (!template) return { valid: true, errors }
 
-  // 检查 if 配对
-  const ifOpen = (template.match(/\{\{#if\s+/g) || []).length
+  const ifOpen = (template.match(/\{\{#if\s+/g) || []).length;
   const ifClose = (template.match(/\{\{\/if\}\}/g) || []).length
   if (ifOpen !== ifClose) {
     errors.push(`{{#if}} 块未闭合: 开启 ${ifOpen} 个，关闭 ${ifClose} 个`)
   }
 
-  // 检查 {{}} 配对
-  const openCount = (template.match(/\{\{/g) || []).length
+  const openCount = (template.match(/\{\{/g) || []).length;
   const closeCount = (template.match(/\}\}/g) || []).length
   if (openCount !== closeCount) {
     errors.push(`{{}} 配对不平衡: {{ 共 ${openCount} 个，}} 共 ${closeCount} 个`)
@@ -115,9 +76,6 @@ export function validateTemplate(template) {
   return { valid: errors.length === 0, errors }
 }
 
-/**
- * 列出模板可用的内置变量（提示给客服）
- */
 export const BUILTIN_VARIABLES = [
   { key: 'customer.name', desc: '客户名称' },
   { key: 'customer.phone', desc: '客户手机号' },
@@ -128,6 +86,6 @@ export const BUILTIN_VARIABLES = [
   { key: 'agent.name', desc: '坐席姓名' },
   { key: 'product.title', desc: '商品名称' },
   { key: 'product.price', desc: '商品价格' }
-]
+];
 
 export default { render, extractVariables, validateTemplate, BUILTIN_VARIABLES }

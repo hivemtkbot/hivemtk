@@ -32,11 +32,7 @@
 </template>
 
 <script setup>
-/**
- * 知识库引用 UI 强化（USR-KB-03）
- * 借鉴：Perplexity / Microsoft Copilot 引用卡片
- */
-import { ref } from 'vue'
+import { ref } from 'vue';
 import { ElMessage } from 'element-plus'
 import { Pointer, View, CaretTop, CaretBottom } from '@element-plus/icons-vue'
 import { http } from '@/utils/request'
@@ -57,8 +53,7 @@ function scoreTag(score) {
 function highlightedContent(cite) {
   let content = cite.content || ''
   if (!props.query) return content
-  // 高亮查询关键词
-  const tokens = props.query.split(/\s+/).filter((t) => t.length > 1)
+  const tokens = props.query.split(/\s+/).filter((t) => t.length > 1);
   tokens.forEach((t) => {
     const re = new RegExp(`(${escape(t)})`, 'gi')
     content = content.replace(re, '<mark>$1</mark>')

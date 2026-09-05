@@ -187,8 +187,7 @@ function onReset() {
   loadConfig()
 }
 
-// ---- 线索库 ----
-const leads = ref([])
+const leads = ref([]);
 const loading = ref(false)
 const total = ref(0)
 const pageSize = ref(20)
@@ -210,8 +209,7 @@ async function loadLeads() {
     const envelope = res?.data ?? res
     const data = envelope?.data ?? envelope
     const list = data?.list ?? (Array.isArray(data) ? data : [])
-    // 线索发掘写入 type=8，前端过滤
-    let filtered = list.filter((c) => Number(c.type) === 8)
+    let filtered = list.filter((c) => Number(c.type) === 8);
     if (kw.value) {
       const k = kw.value.toLowerCase()
       filtered = filtered.filter(

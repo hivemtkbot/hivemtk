@@ -86,8 +86,7 @@ export class FloatingButton {
   }
 
   getStyle() {
-    // USR-EM-02: 改用逻辑属性 inset-inline-* 自动 RTL 镜像
-    const isLeft = this.position === 'bottom-left'
+    const isLeft = this.position === 'bottom-left';
     return [
       'position: fixed',
       `bottom: ${this.offsetY}px`,

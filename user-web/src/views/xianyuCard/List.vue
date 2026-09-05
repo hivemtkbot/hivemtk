@@ -15,7 +15,7 @@
         </div>
       </template>
 
-      <!-- 搜索表单 -->
+      
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="关键词">
           <el-input v-model="searchForm.keyword" placeholder="标题、描述或标签" clearable />
@@ -32,7 +32,7 @@
         </el-form-item>
       </el-form>
 
-      <!-- 闲鱼卡片列表 -->
+      
       <el-table :data="tableData" style="width: 100%" v-loading="loading">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="title" label="标题" width="180" />
@@ -68,7 +68,7 @@
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
+      
       <div class="pagination-container">
         <el-pagination
           v-model:current-page="currentPage"
@@ -82,7 +82,7 @@
       </div>
     </el-card>
 
-    <!-- 添加/编辑对话框 -->
+    
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
@@ -144,7 +144,7 @@
       </template>
     </el-dialog>
 
-    <!-- 图片选择对话框 -->
+    
     <MaterialSelectDialog
       v-model="imageDialogVisible"
       @confirm="handleImageSelected"
@@ -154,14 +154,13 @@
 
 <script setup>
 
-// R41: 占位外链图(img.example.com 等)不可达时显示内置占位 SVG
 const onImgError = (e) => {
   const img = e.target
   if (img && !img.dataset.fallback) {
     img.dataset.fallback = '1'
     img.src = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="%23f0f2f5"/><text x="40" y="46" font-size="12" text-anchor="middle" fill="%2390a0b0">%E6%97%A0%E5%9B%BE</text></svg>')
   }
-}
+};
 import i18n from '@/i18n'
 
 import { ref, reactive, onMounted } from 'vue'
@@ -180,24 +179,20 @@ import {
 
 const router = useRouter()
 
-// 表格数据
-const tableData = ref([])
+const tableData = ref([]);
 const loading = ref(false)
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 
-// 域名池数据
-const domainPoolOptions = ref([])
+const domainPoolOptions = ref([]);
 
-// 搜索表单
 const searchForm = reactive({
   keyword: '',
   is_active: null
-})
+});
 
-// 对话框数据
-const dialogVisible = ref(false)
+const dialogVisible = ref(false);
 const dialogTitle = ref('')
 const formRef = ref()
 const form = reactive({
@@ -211,10 +206,8 @@ const form = reactive({
   domain_pool_id: null
 })
 
-// 图片选择对话框
-const imageDialogVisible = ref(false)
+const imageDialogVisible = ref(false);
 
-// 表单验证规则
 const rules = {
   title: [
     { required: true, message: i18n.global.t('请输入卡片标题'), trigger: 'blur' },
@@ -235,21 +228,18 @@ const rules = {
   tags: [
     { max: 255, message: i18n.global.t('标签长度不能超过255个字符'), trigger: 'blur' }
   ]
-}
+};
 
-// 获取域名池列表
 const getDomainPoolList = async () => {
   try {
     const res = await domainPoolApi.getList({ page: 1, page_size: 100 })
-    // 拦截器已解包，res 直接就是数据对象
-    domainPoolOptions.value = res.list || []
+    domainPoolOptions.value = res.list || [];
   } catch (error) {
     ElMessage.error(i18n.global.t('获取域名池列表失败'))
     console.error(error)
   }
-}
+};
 
-// 获取列表数据
 const fetchData = async () => {
   loading.value = true
   try {
@@ -260,8 +250,7 @@ const fetchData = async () => {
       is_active: searchForm.is_active
     }
     const res = await getXianyuCardList(params)
-    // 拦截器已解包，res 直接就是数据对象
-    tableData.value = res.list || []
+    tableData.value = res.list || [];
     total.value = res.total || 0
   } catch (error) {
     ElMessage.error(i18n.global.t('获取列表失败'))
@@ -269,33 +258,29 @@ const fetchData = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
-// 搜索
 const handleSearch = () => {
   currentPage.value = 1
   fetchData()
-}
+};
 
-// 重置搜索
 const resetSearch = () => {
   searchForm.keyword = ''
   searchForm.is_active = null
   handleSearch()
-}
+};
 
-// 分页
 const handleSizeChange = (val) => {
   pageSize.value = val
   fetchData()
-}
+};
 
 const handleCurrentChange = (val) => {
   currentPage.value = val
   fetchData()
 }
 
-// 重置表单
 const resetForm = () => {
   form.id = null
   form.title = ''
@@ -308,45 +293,38 @@ const resetForm = () => {
   if (formRef.value) {
     formRef.value.resetFields()
   }
-}
+};
 
-// 添加卡片
 const handleAdd = () => {
   dialogTitle.value = '添加闲鱼卡片'
   resetForm()
   dialogVisible.value = true
-}
+};
 
-// 编辑卡片
 const handleEdit = async (row) => {
   dialogTitle.value = '编辑闲鱼卡片'
   try {
     const res = await getXianyuCard(row.id)
-    // 拦截器已解包，res 直接就是数据对象
-    Object.assign(form, res)
+    Object.assign(form, res);
     dialogVisible.value = true
   } catch (error) {
     ElMessage.error(i18n.global.t('获取详情失败'))
     console.error(error)
   }
-}
+};
 
-// 提交表单
 const submitForm = async () => {
   formRef.value.validate(async (valid) => {
     if (valid) {
       try {
         let res
         if (form.id) {
-          // 更新
-          res = await updateXianyuCard(form)
+          res = await updateXianyuCard(form);
         } else {
-          // 创建
-          res = await createXianyuCard(form)
+          res = await createXianyuCard(form);
         }
 
-        // 拦截器已解包，res 直接就是数据对象
-        ElMessage.success(form.id ? '更新成功' : '创建成功')
+        ElMessage.success(form.id ? '更新成功' : '创建成功');
         dialogVisible.value = false
         fetchData()
       } catch (error) {
@@ -355,9 +333,8 @@ const submitForm = async () => {
       }
     }
   })
-}
+};
 
-// 删除卡片
 const handleDelete = (row) => {
   ElMessageBox.confirm('确定要删除这张卡片吗？', '提示', {
     confirmButtonText: '确定',
@@ -372,39 +349,30 @@ const handleDelete = (row) => {
       ElMessage.error(i18n.global.t('删除失败'))
     }
   }).catch(() => {})
-}
+};
 
-// 复制链接
 const handleCopyLink = async (row) => {
   try {
-    // 优先使用短链接，如果没有则使用原始链接
-    let linkUrl = ''
+    let linkUrl = '';
     if (row.short_link_url) {
-      // 如果有短链接，使用完整域名
-      linkUrl = window.location.origin + row.short_link_url
+      linkUrl = window.location.origin + row.short_link_url;
     } else {
-      // 如果没有短链接，先生成短链接
       try {
         const res = await generateXianyuShortLink(row.id)
-        // 拦截器已解包，res 直接就是数据对象
-        linkUrl = window.location.origin + res.short_link_url
-        // 更新列表中的数据
-        row.short_link_url = res.short_link_url
+        linkUrl = window.location.origin + res.short_link_url;
+        row.short_link_url = res.short_link_url;
         row.short_code = res.short_code
       } catch (apiError) {
         console.error('生成短链接API调用失败:', apiError)
-        // 生成短链接失败，使用原始链接
-        linkUrl = row.redirect_url || window.location.origin + '/xianyu/card/' + row.id
+        linkUrl = row.redirect_url || window.location.origin + '/xianyu/card/' + row.id;
       }
     }
     
-    // 尝试使用现代浏览器的剪贴板API
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(linkUrl)
       ElMessage.success(i18n.global.t('链接已复制到剪贴板'))
     } else {
-      // 降级方案：使用传统的复制方法
-      const textArea = document.createElement('textarea')
+      const textArea = document.createElement('textarea');
       textArea.value = linkUrl
       document.body.appendChild(textArea)
       textArea.focus()
@@ -424,28 +392,24 @@ const handleCopyLink = async (row) => {
     ElMessage.error(i18n.global.t('复制链接失败'))
     console.error('复制链接错误:', error)
   }
-}
+};
 
-// 统计
 const handleStats = (row) => {
   router.push(`/xianyu-card-stats/${row.id}`)
-}
+};
 
-// 跳转到统计页面
 const goToStats = () => {
   router.push('/xianyu/stats')
-}
+};
 
-// 选择图片
 const selectImage = () => {
   imageDialogVisible.value = true
-}
+};
 
-// 处理图片选择
 const handleImageSelected = (material) => {
   form.image_url = material.url
   imageDialogVisible.value = false
-}
+};
 
 onMounted(() => {
   fetchData()

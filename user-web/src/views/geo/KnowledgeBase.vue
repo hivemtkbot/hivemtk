@@ -2,7 +2,7 @@
   <div class="geo-page">
 
     <div class="p-4" style="display:flex; gap:16px; min-height:calc(100vh - 180px)">
-    <!-- 左：文档管理 -->
+    
     <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:16px">
       <el-row :gutter="16">
         <el-col :span="8">
@@ -57,7 +57,7 @@
       </el-card>
     </div>
 
-    <!-- 右：Ask 面板 -->
+    
     <el-card style="width:400px; flex-shrink:0; display:flex; flex-direction:column">
       <template #header><span class="font-bold">Ask GEO KB</span></template>
       <div class="chat-panel" style="flex:1; overflow-y:auto; padding-right:4px">
@@ -106,8 +106,7 @@ const loadDocs = async () => {
 
 const onUpload = async (file) => {
   const rawFile = file.raw || file
-  // 只支持文本类文件（txt / md / json）
-  const ext = (rawFile.name || '').split('.').pop()?.toLowerCase() || ''
+  const ext = (rawFile.name || '').split('.').pop()?.toLowerCase() || '';
   const isText = ['txt', 'md', 'markdown', 'json'].includes(ext) ||
     rawFile.type?.startsWith('text/') ||
     rawFile.type === 'application/json'

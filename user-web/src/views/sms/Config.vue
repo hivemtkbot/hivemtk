@@ -92,7 +92,6 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import smsApi from '@/api/sms'
 
-// 短信配置数据
 const smsConfig = ref({
   defaultProvider: 'aliyun',
   rateLimit: 100,
@@ -115,11 +114,10 @@ const smsConfig = ref({
     sender: '',
     signature: ''
   }
-})
+});
 
 const loading = ref(false)
 
-// 获取短信配置
 const getSmsConfig = async () => {
   loading.value = true
   try {
@@ -130,9 +128,8 @@ const getSmsConfig = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
-// 保存配置
 const handleSave = async () => {
   loading.value = true
   try {
@@ -143,7 +140,7 @@ const handleSave = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
 onMounted(() => {
   getSmsConfig()

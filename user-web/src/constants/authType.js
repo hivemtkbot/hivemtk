@@ -1,9 +1,3 @@
-/**
- * 统一通用枚举：认证类型（auth_type）
- *
- * 业务：OpenAPI 集成
- */
-
 export const AUTH_TYPE_OPTIONS = Object.freeze([
   { value: 'bearer',  label: 'Bearer Token', tagType: 'info',    description: 'Bearer Token 鉴权' },
   { value: 'api_key', label: 'API Key',      tagType: 'warning', description: 'API Key 鉴权' },
@@ -11,7 +5,7 @@ export const AUTH_TYPE_OPTIONS = Object.freeze([
   { value: 'basic',   label: 'Basic Auth',   tagType: 'danger',  description: 'HTTP Basic 鉴权' },
   { value: 'oauth2',  label: 'OAuth2',       tagType: 'success', description: 'OAuth2 鉴权' },
   { value: 'none',    label: '无鉴权',       tagType: '',        description: '无需鉴权（内网调用）' }
-])
+]);
 
 export const AUTH_TYPE_LABEL_MAP = Object.freeze(
   AUTH_TYPE_OPTIONS.reduce((acc, o) => { acc[o.value] = o.label; return acc }, {})

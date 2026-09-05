@@ -5,9 +5,6 @@ import { IframePanel } from './iframe-panel.js'
 
 
 
-/**
- * 营销客服浮标 SDK 主类（USR-EM-04 支持多实例）
- */
 class MarketingChatWidget {
   constructor(config) {
     this.id = config.id || `mcw_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
@@ -22,7 +19,6 @@ class MarketingChatWidget {
       console.info('[MarketingChatWidget] 未指定 appKey/channelId,使用默认 channel(私域部署模式)')
     }
 
-    // USR-EM-04: 多实例支持：使用 z-index 隔离
     if (this.config.zIndex === undefined) {
       this.config.zIndex = 9999 + (MarketingChatWidget._instanceCount * 2)
     }
@@ -74,7 +70,6 @@ class MarketingChatWidget {
     })
   }
 
-  // USR-EM-04: 暴露创建静态方法
   static create(config) {
     const instance = new MarketingChatWidget(config)
     instance.init()
@@ -85,11 +80,9 @@ class MarketingChatWidget {
   }
 }
 
-// USR-EM-04: 静态计数器（多实例 z-index 隔离）
-MarketingChatWidget._instanceCount = 0
+MarketingChatWidget._instanceCount = 0;
 
-// 默认自动初始化（保留向后兼容）
-const config = parseConfig()
+const config = parseConfig();
 if (config && !config._skipAutoInit) {
   const widget = new MarketingChatWidget(config)
   widget.init()

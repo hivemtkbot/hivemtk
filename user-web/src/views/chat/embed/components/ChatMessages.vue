@@ -10,7 +10,7 @@
 
     <template v-else>
       <div v-for="(msg, idx) in messages" :key="msg.id || idx" class="message-row" :class="messageClass(msg)">
-        <!-- 结构化富卡片：直接渲染卡片组件，不走文本气泡 -->
+        
         <div v-if="msg.content_type === 'card' && msg.card" class="bubble-wrap card-wrap">
           <RichCard :card="msg.card" @action="onCardAction" />
         </div>
@@ -46,9 +46,7 @@
 import i18n from '@/i18n'
 
 import { ref, watch, nextTick, onMounted } from 'vue'
-// 补 修复：访客消息经 DOMPurify 净化后再 v-html 渲染，防止 XSS
-// 访客可发送 <img onerror>、<script> 等恶意内容；原 formatContent 仅做实体转义，未拦截 on* 事件和 javascript: 协议
-import DOMPurify from 'dompurify'
+import DOMPurify from 'dompurify';
 import RichCard from './RichCard.vue'
 
 const props = defineProps({
@@ -72,21 +70,18 @@ const bubbleClass = (msg) => {
   return 'ai'
 }
 
-// 访客端发送者名称：绝不向用户暴露 AI 身份，统一显示为「客服」
 const displayName = (msg) => {
   if (msg.sender_type === 'user' || msg.sender_type === 'system') return ''
   if (msg.sender_type === 'ai') return '客服'
   return msg.sender_name || '客服'
-}
+};
 
-// 头像背景色（极简白底规范 ：用纯色字母头像替代 emoji）
 const avatarBg = (msg) => {
   if (msg.sender_type === 'user') return '#1989fa'
   if (msg.sender_type === 'agent') return '#10B981'
-  return '#909399' // AI
-}
+  return '#909399';
+};
 
-// 头像显示文字（替代 emoji）
 const avatarText = (msg) => {
   if (msg.sender_type === 'user') {
     const name = msg.sender_name || '我'
@@ -97,23 +92,19 @@ const avatarText = (msg) => {
     return name.slice(0, 1)
   }
   return '客'
-}
+};
 
 const avatarStyle = (msg) => ({ background: avatarBg(msg) })
 
-// 卡片按钮自定义动作钩子（URL 跳转由 <a> 直接处理；action 类型由父级扩展）
 const onCardAction = (btn) => {
-  // 占位：当前卡片按钮以 URL 跳转为主，自定义 action 可在此上报埋点或触发业务
-  if (btn && btn.action) {
-    // 占位：自定义 action 类型暂无业务处理，预留扩展点
-  }
-}
+  if (btn && btn.action)
+    {}
+};
 
-// 是否显示发送者名（同类型相邻消息只显示一次）
 const showName = (msg) => {
   if (msg.sender_type === 'user' || msg.sender_type === 'system') return false
   return true
-}
+};
 
 const formatTime = (t) => {
   if (!t) return ''
@@ -126,7 +117,6 @@ const formatTime = (t) => {
   return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-// 简单 HTML 转义 + 保留换行 + DOMPurify 终极净化（双保险）
 const formatContent = (text) => {
   if (!text) return ''
   const escaped = String(text)
@@ -135,9 +125,8 @@ const formatContent = (text) => {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
   const html = escaped.replace(/\n/g, '<br>')
-  // 补：即使前面转义过，仍走 DOMPurify 兜底，杜绝任何绕过路径
-  return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } })
-}
+  return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+};
 
 const scrollToBottom = async () => {
   await nextTick()

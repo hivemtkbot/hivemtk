@@ -76,12 +76,7 @@
 </template>
 
 <script setup>
-/**
- * 拖拽式邮件编辑器（USR-RC-02）
- * 借鉴：Mautic / Mailchimp + MJML
- * 依赖：mjml-browser（已加到 package.json）
- */
-import { ref, computed } from 'vue'
+import { ref, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Document, Picture, EditPen, PriceTag, Share, ChatLineRound, Loading
@@ -189,7 +184,6 @@ function previewMobile() {
 }
 
 function compileToHTML() {
-  // 简易 MJML 编译（实际项目用 mjml-browser）
   const parts = blocks_state.value.map((b) => {
     if (b.type === 'text') return `<mj-text>${b.content || ''}</mj-text>`
     if (b.type === 'image') return `<mj-image src="${b.src || ''}" alt="${b.alt || ''}" />`
@@ -198,7 +192,7 @@ function compileToHTML() {
     if (b.type === 'social') return `<mj-social><mj-social-element name="${b.networks?.[0] || 'wechat'}" /></mj-social>`
     if (b.type === 'coupon') return `<mj-text>优惠券：${b.code}（减 ${b.amount}，${b.expires} 内有效）</mj-text>`
     return ''
-  })
+  });
   const mjml = `<mjml><mj-body>${parts.join('\n')}</mj-body></mjml>`
   try {
     return mjml2html(mjml).html

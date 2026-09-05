@@ -18,7 +18,7 @@
     </el-card>
 
     <el-tabs v-model="activeTab">
-      <!-- 预测列表 -->
+      
       <el-tab-pane label="预测列表" name="predictions">
         <el-row :gutter="20" class="stats-row">
           <el-col :span="6">
@@ -90,7 +90,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- 预警列表 -->
+      
       <el-tab-pane label="预警列表" name="warnings">
         <el-card>
           <el-table :data="warnings" v-loading="loadingWarn" stripe>
@@ -125,7 +125,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- 模型配置 -->
+      
       <el-tab-pane label="模型配置" name="config">
         <el-card>
           <el-form :model="configForm" label-width="170px" style="max-width: 640px">
@@ -163,7 +163,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 干预 -->
+    
     <el-dialog v-model="interveneDialogVisible" title="流失干预" width="500px">
       <el-form :model="interveneForm" label-width="100px">
         <el-form-item label="干预方式">
@@ -184,7 +184,7 @@
       </template>
     </el-dialog>
 
-    <!-- 详情 -->
+    
     <el-dialog v-model="detailVisible" title="用户流失风险详情" width="700px" v-loading="detailLoading">
       <template v-if="currentUser">
         <el-descriptions :column="2" border>
@@ -355,9 +355,7 @@ const loadConfig = async () => {
         critical_risk_score: cfg.critical_risk_score ?? 85,
       })
     }
-  } catch (e) {
-    // 配置可选，失败不阻断
-  }
+  } catch (e) {}
 }
 
 const refreshAll = async () => {

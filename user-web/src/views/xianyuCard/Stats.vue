@@ -23,7 +23,7 @@
         </div>
       </template>
 
-      <!-- 总体统计 -->
+      
       <div class="stats-overview">
         <el-row :gutter="20">
           <el-col :span="6">
@@ -61,7 +61,7 @@
         </el-row>
       </div>
 
-      <!-- 图表统计 -->
+      
       <div class="charts-container">
         <el-row :gutter="20">
           <el-col :span="12">
@@ -79,7 +79,7 @@
         </el-row>
       </div>
 
-      <!-- 卡片排行 -->
+      
       <div class="ranking-container">
         <el-card>
           <div class="card-title">热门卡片排行</div>
@@ -117,18 +117,16 @@ import { getXianyuCardOverallStats } from '@/api/xianyuCard'
 const router = useRouter()
 const loading = ref(false)
 
-// 日期范围
-const dateRange = ref([])
+const dateRange = ref([]);
 const groupBy = ref('day')
 
-// 统计数据
 const overallStats = reactive({
   total_cards: 0,
   active_cards: 0,
   total_views: 0,
   total_clicks: 0,
   total_shares: 0
-})
+});
 
 const chartData = reactive({
   views: [],
@@ -138,34 +136,29 @@ const chartData = reactive({
 
 const cardRanking = ref([])
 
-// 图表实例
-let viewsChartInstance = null
+let viewsChartInstance = null;
 let clicksChartInstance = null
 
 const viewsChart = ref(null)
 const clicksChart = ref(null)
 
-// 格式化数字
 const formatNumber = (num) => {
   if (!num) return '0'
   if (num >= 10000) {
     return (num / 10000).toFixed(1) + '万'
   }
   return num.toString()
-}
+};
 
-// 格式化百分比
 const formatPercent = (rate) => {
   if (!rate) return '0%'
   return (rate * 100).toFixed(2) + '%'
-}
+};
 
-// 初始化图表
 const initCharts = () => {
-  // 防御：图表容器未挂载（tab 懒渲染/路由快速切换）时跳过，避免 echarts invalid dom 崩溃
-  if (!viewsChart.value || !clicksChart.value) return
-  // 浏览量图表
-  viewsChartInstance = safeInit(viewsChart.value)
+  if (!viewsChart.value || !clicksChart.value)
+    return;
+  viewsChartInstance = safeInit(viewsChart.value);
   const viewsOption = {
     tooltip: {
       trigger: 'axis'
@@ -192,8 +185,7 @@ const initCharts = () => {
   }
   viewsChartInstance.setOption(viewsOption)
 
-  // 点击量图表
-  clicksChartInstance = safeInit(clicksChart.value)
+  clicksChartInstance = safeInit(clicksChart.value);
   const clicksOption = {
     tooltip: {
       trigger: 'axis'
@@ -219,9 +211,8 @@ const initCharts = () => {
     }]
   }
   clicksChartInstance.setOption(clicksOption)
-}
+};
 
-// 获取统计数据
 const fetchStats = async () => {
   loading.value = true
   try {
@@ -232,21 +223,16 @@ const fetchStats = async () => {
     }
     
     const res = await getXianyuCardOverallStats(params)
-    // 拦截器已解包，res 直接就是数据对象
-    const data = res
+    const data = res;
 
-    // 更新总体统计
-    Object.assign(overallStats, data.overall || {})
+    Object.assign(overallStats, data.overall || {});
 
-    // 更新图表数据
-    chartData.dates = data.chart?.dates || []
+    chartData.dates = data.chart?.dates || [];
     chartData.views = data.chart?.views || []
     chartData.clicks = data.chart?.clicks || []
 
-    // 更新卡片排行
-    cardRanking.value = data.ranking || []
+    cardRanking.value = data.ranking || [];
 
-    // 重新渲染图表
     if (viewsChartInstance && clicksChartInstance) {
       initCharts()
     }
@@ -256,29 +242,24 @@ const fetchStats = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
-// 查看卡片详情
 const viewCardDetails = (card) => {
   router.push(`/xianyu-card-stats/${card.id}`)
-}
+};
 
-// 日期变化处理
 const handleDateChange = () => {
   fetchStats()
-}
+};
 
-// 分组方式变化处理
 const handleGroupByChange = () => {
   fetchStats()
-}
+};
 
-// 刷新数据
 const refreshData = () => {
   fetchStats()
-}
+};
 
-// 响应式处理
 const handleResize = () => {
   if (viewsChartInstance) {
     viewsChartInstance.resize()
@@ -286,28 +267,24 @@ const handleResize = () => {
   if (clicksChartInstance) {
     clicksChartInstance.resize()
   }
-}
+};
 
 onMounted(() => {
-  // 设置默认日期范围（最近30天）
-  const endDate = new Date()
+  const endDate = new Date();
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - 30)
   dateRange.value = [startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]
   
   fetchStats()
   
-  // 初始化图表
   setTimeout(() => {
     initCharts()
-  }, 100)
+  }, 100);
   
-  // 监听窗口大小变化
-  window.addEventListener('resize', handleResize)
+  window.addEventListener('resize', handleResize);
 })
 
 onUnmounted(() => {
-  // 清理图表实例
   if (viewsChartInstance) {
     viewsChartInstance.dispose()
   }
@@ -315,8 +292,7 @@ onUnmounted(() => {
     clicksChartInstance.dispose()
   }
   
-  // 移除事件监听
-  window.removeEventListener('resize', handleResize)
+  window.removeEventListener('resize', handleResize);
 })
 </script>
 

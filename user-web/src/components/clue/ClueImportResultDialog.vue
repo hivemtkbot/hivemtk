@@ -76,12 +76,7 @@
 </template>
 
 <script setup>
-/**
- * 线索导入去重可视化（USR-CM-06）
- * 后端 BatchCreateWithDedup 已就位（OPT-ARC-07）
- * 此组件展示导入结果，让用户选择重复项的处理方式
- */
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch } from 'vue';
 import { ElMessage } from 'element-plus'
 import { http } from '@/utils/request'
 
@@ -122,7 +117,7 @@ async function applyAll() {
   try {
     await http.post('/api/clues/import/apply-suggestions', {
       duplicates: props.result.duplicates || [],
-      action: 'merge' // 默认全部合并
+      action: 'merge'
     })
     ElMessage.success('应用完成')
     emit('applied')

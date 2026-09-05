@@ -24,7 +24,7 @@
         </div>
       </template>
 
-      <!-- 卡片基本信息 -->
+      
       <div class="card-info" v-if="cardInfo">
         <el-descriptions :column="3" border>
           <el-descriptions-item label="卡片标题">{{ cardInfo.title }}</el-descriptions-item>
@@ -40,7 +40,7 @@
         </el-descriptions>
       </div>
 
-      <!-- 统计概览 -->
+      
       <div class="stats-overview">
         <el-row :gutter="20">
           <el-col :span="6">
@@ -78,7 +78,7 @@
         </el-row>
       </div>
 
-      <!-- 图表统计 -->
+      
       <div class="charts-container">
         <el-row :gutter="20">
           <el-col :span="12">
@@ -96,7 +96,7 @@
         </el-row>
       </div>
 
-      <!-- 详细数据表格 -->
+      
       <div class="detail-table">
         <el-card>
           <div class="table-title">详细访问记录</div>
@@ -113,7 +113,7 @@
             <el-table-column prop="unique_visitors" label="独立访客" width="100" />
           </el-table>
           
-          <!-- 分页 -->
+          
           <div class="pagination-container">
             <el-pagination
               v-model:current-page="pagination.page"
@@ -145,23 +145,19 @@ const router = useRouter()
 const route = useRoute()
 const loading = ref(false)
 
-// 卡片ID
-const cardId = ref(route.params.id)
+const cardId = ref(route.params.id);
 
-// 日期范围
-const dateRange = ref([])
+const dateRange = ref([]);
 const groupBy = ref('day')
 
-// 卡片信息
-const cardInfo = ref(null)
+const cardInfo = ref(null);
 
-// 统计数据
 const statsData = reactive({
   total_views: 0,
   total_clicks: 0,
   total_shares: 0,
   click_rate: 0
-})
+});
 
 const chartData = reactive({
   views: [],
@@ -171,46 +167,39 @@ const chartData = reactive({
 
 const detailData = ref([])
 
-// 分页数据
 const pagination = reactive({
   page: 1,
   page_size: 10,
   total: 0
-})
+});
 
-// 图表实例
-let viewsChartInstance = null
+let viewsChartInstance = null;
 let clicksChartInstance = null
 
 const viewsChart = ref(null)
 const clicksChart = ref(null)
 
-// 格式化数字
 const formatNumber = (num) => {
   if (!num) return '0'
   if (num >= 10000) {
     return (num / 10000).toFixed(1) + '万'
   }
   return num.toString()
-}
+};
 
-// 格式化百分比
 const formatPercent = (rate) => {
   if (!rate) return '0%'
   return (rate * 100).toFixed(2) + '%'
-}
+};
 
-// 返回上一页
 const goBack = () => {
   router.back()
-}
+};
 
-// 初始化图表
 const initCharts = () => {
-  // 防御：图表容器未挂载（tab 懒渲染/路由快速切换）时跳过，避免 echarts invalid dom 崩溃
-  if (!viewsChart.value || !clicksChart.value) return
-  // 浏览量图表
-  viewsChartInstance = safeInit(viewsChart.value)
+  if (!viewsChart.value || !clicksChart.value)
+    return;
+  viewsChartInstance = safeInit(viewsChart.value);
   const viewsOption = {
     tooltip: {
       trigger: 'axis'
@@ -237,8 +226,7 @@ const initCharts = () => {
   }
   viewsChartInstance.setOption(viewsOption)
 
-  // 点击量图表
-  clicksChartInstance = safeInit(clicksChart.value)
+  clicksChartInstance = safeInit(clicksChart.value);
   const clicksOption = {
     tooltip: {
       trigger: 'axis'
@@ -264,21 +252,18 @@ const initCharts = () => {
     }]
   }
   clicksChartInstance.setOption(clicksOption)
-}
+};
 
-// 获取卡片信息
 const fetchCardInfo = async () => {
   try {
     const res = await getXianyuCard(cardId.value)
-    // 拦截器已解包，res 直接就是数据对象
-    cardInfo.value = res
+    cardInfo.value = res;
   } catch (error) {
     ElMessage.error(i18n.global.t('获取卡片信息失败'))
     console.error(error)
   }
-}
+};
 
-// 获取统计数据
 const fetchStats = async () => {
   loading.value = true
   try {
@@ -291,21 +276,15 @@ const fetchStats = async () => {
     }
     
     const res = await getXianyuCardStats(cardId.value, params)
-    // 拦截器已解包，res 直接就是数据对象
+    Object.assign(statsData, res.stats || {});
 
-    // 更新统计数据
-    Object.assign(statsData, res.stats || {})
-
-    // 更新图表数据
-    chartData.dates = res.chart?.dates || []
+    chartData.dates = res.chart?.dates || [];
     chartData.views = res.chart?.views || []
     chartData.clicks = res.chart?.clicks || []
 
-    // 更新详细数据
-    detailData.value = res.details?.list || []
+    detailData.value = res.details?.list || [];
     pagination.total = res.details?.total || 0
 
-    // 重新渲染图表
     if (viewsChartInstance && clicksChartInstance) {
       initCharts()
     }
@@ -315,38 +294,32 @@ const fetchStats = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
-// 日期变化处理
 const handleDateChange = () => {
   pagination.page = 1
   fetchStats()
-}
+};
 
-// 分组方式变化处理
 const handleGroupByChange = () => {
   pagination.page = 1
   fetchStats()
-}
+};
 
-// 刷新数据
 const refreshData = () => {
   fetchStats()
-}
+};
 
-// 分页大小变化
 const handleSizeChange = (size) => {
   pagination.page_size = size
   fetchStats()
-}
+};
 
-// 当前页变化
 const handleCurrentChange = (page) => {
   pagination.page = page
   fetchStats()
-}
+};
 
-// 响应式处理
 const handleResize = () => {
   if (viewsChartInstance) {
     viewsChartInstance.resize()
@@ -354,11 +327,10 @@ const handleResize = () => {
   if (clicksChartInstance) {
     clicksChartInstance.resize()
   }
-}
+};
 
 onMounted(() => {
-  // 设置默认日期范围（最近30天）
-  const endDate = new Date()
+  const endDate = new Date();
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - 30)
   dateRange.value = [startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]
@@ -366,17 +338,14 @@ onMounted(() => {
   fetchCardInfo()
   fetchStats()
   
-  // 初始化图表
   setTimeout(() => {
     initCharts()
-  }, 100)
+  }, 100);
   
-  // 监听窗口大小变化
-  window.addEventListener('resize', handleResize)
+  window.addEventListener('resize', handleResize);
 })
 
 onUnmounted(() => {
-  // 清理图表实例
   if (viewsChartInstance) {
     viewsChartInstance.dispose()
   }
@@ -384,8 +353,7 @@ onUnmounted(() => {
     clicksChartInstance.dispose()
   }
   
-  // 移除事件监听
-  window.removeEventListener('resize', handleResize)
+  window.removeEventListener('resize', handleResize);
 })
 </script>
 

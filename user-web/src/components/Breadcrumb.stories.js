@@ -16,12 +16,10 @@ const Template = (args) => ({
   template: '<Breadcrumb v-bind="args" />',
 })
 
-// 默认 story
-export const Default = Template.bind({})
+export const Default = Template.bind({});
 Default.args = {}
 
-// 首页状态
-export const HomePage = Template.bind({})
+export const HomePage = Template.bind({});
 HomePage.parameters = {
   docs: {
     description: {
@@ -30,8 +28,7 @@ HomePage.parameters = {
   },
 }
 
-// 二级页面状态
-export const SubPage = Template.bind({})
+export const SubPage = Template.bind({});
 SubPage.parameters = {
   docs: {
     description: {

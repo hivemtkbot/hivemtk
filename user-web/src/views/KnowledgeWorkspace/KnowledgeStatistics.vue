@@ -1,6 +1,6 @@
 <template>
   <div class="knowledge-statistics">
-    <!-- 顶部筛选 -->
+    
     <el-card class="filter-card">
       <div class="filter-bar">
         <el-select v-model="filter.product_id" :placeholder="$t('选择产品(可选)')" clearable style="width: 220px" @change="loadAll">
@@ -13,7 +13,7 @@
       </div>
     </el-card>
 
-    <!-- 概览卡片 -->
+    
     <el-row :gutter="16" class="overview-row">
       <el-col :span="6">
         <el-card class="metric-card">
@@ -61,7 +61,7 @@
       </el-col>
     </el-row>
 
-    <!-- 索引健康 + 来源分布 -->
+    
     <el-row :gutter="16" class="chart-row">
       <el-col :span="12">
         <el-card>
@@ -103,7 +103,7 @@
       </el-col>
     </el-row>
 
-    <!-- 文档统计 -->
+    
     <el-card class="chart-card">
       <template #header>
         <div class="card-header">
@@ -158,7 +158,7 @@
       </div>
     </el-card>
 
-    <!-- 检索统计 -->
+    
     <el-row :gutter="16" class="chart-row">
       <el-col :span="12">
         <el-card>
@@ -193,7 +193,7 @@
       </el-col>
     </el-row>
 
-    <!-- 热点查询 + 检索质量 -->
+    
     <el-row :gutter="16" class="chart-row">
       <el-col :span="12">
         <el-card>
@@ -229,7 +229,7 @@
       </el-col>
     </el-row>
 
-    <!-- 导入日志 -->
+    
     <el-card class="chart-card">
       <template #header>
         <div class="card-header">
@@ -269,7 +269,7 @@
       </el-table>
     </el-card>
 
-    <!-- OpenAPI 同步状态 -->
+    
     <el-card class="chart-card">
       <template #header>
         <span>OpenAPI 数据源同步状态</span>
@@ -311,13 +311,10 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { Document, Files, Coin, Search, Refresh } from '@element-plus/icons-vue'
 import { knowledgeAPI } from '@/api/knowledge'
 import { ragProductConfigAPI } from '@/api/ragProductConfig'
-// 系统级来源 label：取自统一 source 常量
-import { getSourceLabel } from '@/constants/source'
-// 通用成功/失败 label/type：取自统一 status 集
-import { PASS_FAIL_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'
+import { getSourceLabel } from '@/constants/source';
+import { PASS_FAIL_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status';
 
-// 通用成功/失败 label/type
-const getPassFailStatusLabel = (s) => getStatusLabel(s, PASS_FAIL_STATUS)
+const getPassFailStatusLabel = (s) => getStatusLabel(s, PASS_FAIL_STATUS);
 const getPassFailStatusTagType = (s) => getStatusTagType(s, PASS_FAIL_STATUS)
 
 const productList = ref([])
@@ -411,10 +408,9 @@ const maxScore = computed(() => {
   return Math.max(1, ...list.map(i => i.count || 0))
 })
 
-// 知识来源类型 color 映射（仅知识库专用；与 source.js 的 tagType 分离，保留原视觉）
 const SOURCE_COLOR_MAP = {
   upload: '#4F46E5', text: '#10B981', url: '#F59E0B', openapi: '#EF4444', batch: '#909399'
-}
+};
 const sourceTypeLabel = (t) => getSourceLabel(t)
 const sourceTypeColor = (t) => SOURCE_COLOR_MAP[t] || '#4F46E5'
 

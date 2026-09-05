@@ -18,7 +18,7 @@
     </el-row>
 
     <el-row :gutter="16" style="min-height:500px">
-      <!-- 左：实体列表 -->
+      
       <el-col :span="8">
         <el-card style="height:100%">
           <template #header>
@@ -41,7 +41,7 @@
         </el-card>
       </el-col>
 
-      <!-- 右：关系图 + JSON-LD -->
+      
       <el-col :span="16">
         <el-card class="mb-4">
           <template #header>
@@ -50,10 +50,10 @@
               <el-button size="small" type="primary" :disabled="!currentEntity" @click="onGenerateSchema" :loading="schemaLoading">生成 JSON-LD Schema</el-button>
             </div>
           </template>
-          <!-- SVG 关系图 -->
+          
           <div ref="graphRef" class="graph-container">
             <svg :viewBox="`0 0 ${svgSize.w} ${svgSize.h}`" preserveAspectRatio="xMidYMid meet">
-              <!-- 连线 -->
+              
               <g v-if="currentEntity">
                 <line v-for="(rel, i) in relations" :key="'l'+i"
                   :x1="svgSize.w/2" :y1="svgSize.h/2"
@@ -65,12 +65,12 @@
                   fill="#909399" font-size="11" text-anchor="middle">
                   {{ rel.relation_type || rel.relationType || '关联' }}
                 </text>
-                <!-- 中心节点 -->
+                
                 <circle :cx="svgSize.w/2" :cy="svgSize.h/2" r="36" fill="#409eff" />
                 <text :x="svgSize.w/2" :y="svgSize.h/2 + 4" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">
                   {{ currentEntity.name }}
                 </text>
-                <!-- 关联节点 -->
+                
                 <g v-for="(rel, i) in relations" :key="'n'+i">
                   <circle :cx="rel.node?.x || 0" :cy="rel.node?.y || 0" r="24" fill="#10b981" />
                   <text :x="rel.node?.x || 0" :y="(rel.node?.y || 0) + 4" text-anchor="middle" fill="#fff" font-size="11">
@@ -163,14 +163,13 @@ const onGenerateSchema = async () => {
   if (!currentEntity.value) return
   schemaLoading.value = true
   try {
-    // 拉品牌配置 + 调后端 schema 生成端点
-    let brandName = 'HiveMTK', advantages = '', domain = ''
+    let brandName = 'HiveMTK', advantages = '', domain = '';
     try {
       const cfg = await geoApi.getConfig()
       brandName = cfg?.brand_name || brandName
       advantages = cfg?.advantages || ''
       domain = cfg?.domain || ''
-    } catch { /* 用默认值 */ }
+    } catch {}
     const data = await geoApi.generateSchema({
       content: currentEntity.value.description || currentEntity.value.name,
       brand_name: brandName,
@@ -179,7 +178,6 @@ const onGenerateSchema = async () => {
       domain
     })
     const result = typeof data === 'string' ? data : (data?.schema_json || data?.schema || JSON.stringify(data, null, 2))
-    // 后端可能返回纯 JSON 对象，需要格式化
     try {
       const parsed = JSON.parse(typeof result === 'string' ? result : JSON.stringify(result))
       schema.value = JSON.stringify(parsed, null, 2)

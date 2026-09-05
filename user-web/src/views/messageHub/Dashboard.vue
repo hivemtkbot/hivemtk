@@ -85,10 +85,7 @@
 </template>
 
 <script setup>
-/**
- * 消息中台 MQ 监控（USR-WB-08）
- */
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'
 import { http } from '@/utils/request'

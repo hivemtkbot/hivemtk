@@ -1,26 +1,16 @@
-/**
- * 拟人度/置信度联动策略（USR-AI-06）
- * 当 AI 拟人度或置信度低于阈值时自动触发转人工
- */
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch } from 'vue';
 import { http } from '@/utils/request'
 
-// 全局配置（可从后端拉取）
 const config = ref({
-  humanizeThreshold: 0.7, // 拟人度阈值（低于此值转人工）
-  confidenceThreshold: 0.6, // 置信度阈值
-  autoTransferEnabled: true, // 是否自动转人工
-  warnOnly: false // true = 仅警告不转人工
-})
+  humanizeThreshold: 0.7,
+  confidenceThreshold: 0.6,
+  autoTransferEnabled: true,
+  warnOnly: false
+});
 
 export function useEscalationPolicy() {
   const lastDecision = ref(null)
 
-  /**
-   * 评估单条 AI 回复
-   * @param {object} aiResponse { content, confidence, humanize_score }
-   * @returns {object} { shouldTransfer, reason, severity }
-   */
   function evaluate(aiResponse) {
     if (!config.value.autoTransferEnabled) {
       return { shouldTransfer: false, reason: 'auto_disabled', severity: 'info' }

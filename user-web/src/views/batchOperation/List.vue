@@ -82,7 +82,7 @@
       </template>
     </el-dialog>
 
-    <!-- 预览对话框 -->
+    
     <el-dialog v-model="previewVisible" title="批量操作预览" width="900px" :close-on-click-modal="false">
       <div v-loading="previewLoading">
         <div class="preview-summary" v-if="!previewLoading">
@@ -143,7 +143,7 @@
       </template>
     </el-dialog>
 
-    <!-- 任务详情对话框 -->
+    
     <el-dialog v-model="detailDialogVisible" title="批量任务执行详情" width="800px">
       <div v-loading="detailLoading">
         <template v-if="taskDetail">
@@ -203,11 +203,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, User, ChatLineRound, Promotion, Money, Document, Bell, ShoppingCart } from '@element-plus/icons-vue'
 import { getBatchTools, runBatch, getBatchHistories, cancelBatch, previewBatch, getBatchDetail } from '@/api/batchOperation.js'
 import { toList } from '@/utils/list.js'
-// 统一枚举：通用成功/失败状态
-import { PASS_FAIL_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'
+import { PASS_FAIL_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status';
 
-// 预览状态 label/type：success=可通过，failed=失败
-const getPreviewStatusLabel = (s) => getStatusLabel(s, PASS_FAIL_STATUS) === '成功' ? '可通过' : (getStatusLabel(s, PASS_FAIL_STATUS) || s || '-')
+const getPreviewStatusLabel = (s) => getStatusLabel(s, PASS_FAIL_STATUS) === '成功' ? '可通过' : (getStatusLabel(s, PASS_FAIL_STATUS) || s || '-');
 const getPreviewStatusTagType = (s) => getStatusTagType(s, PASS_FAIL_STATUS)
 
 const loading = ref(false)
@@ -221,8 +219,7 @@ const detailDialogVisible = ref(false)
 const detailLoading = ref(false)
 const taskDetail = ref(null)
 
-// 预览相关
-const previewVisible = ref(false)
+const previewVisible = ref(false);
 const previewLoading = ref(false)
 const previewData = ref([])
 const previewSummary = ref({ total: 0, success: 0, failed: 0, errors: [] })
@@ -264,11 +261,9 @@ const preview = async () => {
 
   try {
     const res = await previewBatch({ tool: currentTool.value.name, ...form.value, dryRun: true })
-    // 修复：res 即业务数据本身
-    const data = res
+    const data = res;
 
-    // 适配后端返回的预览数据格式
-    previewData.value = data.items || data.records || []
+    previewData.value = data.items || data.records || [];
     previewSummary.value = {
       total: data.total || data.totalCount || previewData.value.length,
       success: data.successCount || data.success || 0,

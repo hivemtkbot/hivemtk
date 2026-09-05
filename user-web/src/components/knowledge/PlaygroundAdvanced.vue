@@ -41,11 +41,7 @@
 </template>
 
 <script setup>
-/**
- * Playground 高级调参（USR-KB-04）
- * 借鉴：Qdrant 控制台
- */
-import { ref, reactive, defineEmits } from 'vue'
+import { ref, reactive, defineEmits } from 'vue';
 import { ElMessage } from 'element-plus'
 import { http } from '@/utils/request'
 

@@ -1,8 +1,7 @@
 import { http } from '@/utils/http'
 
-// ===== Entity 实体图谱（后端 /geo/entity/*） =====
 export const listEntities = (type, keyword) =>
-  http.get('/api/geo/entity/list', { type: type || '', keyword: keyword || '' })
+  http.get('/api/geo/entity/list', { type: type || '', keyword: keyword || '' });
 
 export const getEntityRelations = (entityId) =>
   http.get(`/api/geo/entity/${entityId}/graph`)
@@ -10,9 +9,8 @@ export const getEntityRelations = (entityId) =>
 export const extractEntities = (docId) =>
   http.post('/api/geo/entities/extract', { doc_id: docId })
 
-// ===== 知识库 / 文档管理（后端 /geo/kb/*） =====
 export const listKBDocuments = (keyword, sourceLevel) =>
-  http.get('/api/geo/kb/documents', { keyword: keyword || '', source_level: sourceLevel || '' })
+  http.get('/api/geo/kb/documents', { keyword: keyword || '', source_level: sourceLevel || '' });
 
 export const saveKBDocument = (data) =>
   http.post('/api/geo/kb/documents', data)
@@ -29,9 +27,8 @@ export const searchKB = (q, limit = 10) =>
 export const askKB = (question) =>
   http.post('/api/geo/kb/ask', { question })
 
-// ===== 工作流（后端 /geo/workflow/workflows*） =====
 export const listWorkflows = () =>
-  http.get('/api/geo/workflow/workflows')
+  http.get('/api/geo/workflow/workflows');
 
 export const getWorkflow = (id) =>
   http.get(`/api/geo/workflow/workflows/${id}`)
@@ -51,9 +48,8 @@ export const runWorkflow = (id, params) =>
 export const listWorkflowExecutions = (workflowId) =>
   http.get(`/api/geo/workflow/workflows/${workflowId}/executions`)
 
-// ===== 工作流模板 =====
 export const listWorkflowTemplates = () =>
-  http.get('/api/geo/workflow/templates')
+  http.get('/api/geo/workflow/templates');
 
 export const saveWorkflowTemplate = (data) =>
   http.post('/api/geo/workflow/templates', data)

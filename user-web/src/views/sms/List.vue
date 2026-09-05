@@ -71,7 +71,7 @@
       </div>
     </el-card>
 
-    <!-- 发送短信对话框 -->
+    
     <el-dialog v-model="sendDialogVisible" title="发送短信" width="500px">
       <el-form :model="sendForm" label-width="80px">
         <el-form-item label="手机号">
@@ -95,24 +95,20 @@ import i18n from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import smsApi from '@/api/sms'
-// 短信发送状态：取自统一 orderStatus 常量
-import { getOrderStatusLabel, getOrderStatusTagType } from '@/constants/orderStatus'
+import { getOrderStatusLabel, getOrderStatusTagType } from '@/constants/orderStatus';
 
-// 搜索表单
 const searchForm = ref({
   phone: '',
   status: '',
   dateRange: []
-})
+});
 
-// 短信列表数据
-const smsList = ref([])
+const smsList = ref([]);
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const loading = ref(false)
 
-// 获取状态类型
 const getStatusType = (status) => {
   const statusMap = {
     pending: 'info',
@@ -121,9 +117,8 @@ const getStatusType = (status) => {
     failed: 'danger'
   }
   return statusMap[status] || 'info'
-}
+};
 
-// 获取状态文本
 const getStatusText = (status) => {
   const statusMap = {
     pending: '待发送',
@@ -132,9 +127,8 @@ const getStatusText = (status) => {
     failed: '发送失败'
   }
   return statusMap[status] || '未知'
-}
+};
 
-// 获取短信列表
 const getSmsList = async () => {
   loading.value = true
   try {
@@ -147,23 +141,20 @@ const getSmsList = async () => {
       endDate: searchForm.value.dateRange?.[1] || ''
     }
     const response = await smsApi.getSmsList(params)
-    // 拦截器已解包，response 直接就是数据对象
-    smsList.value = response.list || []
+    smsList.value = response.list || [];
     total.value = response.total || 0
   } catch (error) {
     ElMessage.error(i18n.global.t('获取短信列表失败'))
   } finally {
     loading.value = false
   }
-}
+};
 
-// 搜索
 const handleSearch = () => {
   currentPage.value = 1
   getSmsList()
-}
+};
 
-// 重置
 const handleReset = () => {
   searchForm.value = {
     phone: '',
@@ -171,9 +162,8 @@ const handleReset = () => {
     dateRange: []
   }
   handleSearch()
-}
+};
 
-// 查看
 const handleView = async (row) => {
   try {
     const response = await smsApi.getSmsDetail(row.id)
@@ -181,9 +171,8 @@ const handleView = async (row) => {
   } catch (error) {
     ElMessage.error(i18n.global.t('获取短信详情失败'))
   }
-}
+};
 
-// 重发
 const handleResend = async (row) => {
   try {
     await smsApi.resendSms(row.id)
@@ -192,26 +181,23 @@ const handleResend = async (row) => {
   } catch (error) {
     ElMessage.error(i18n.global.t('短信重发失败'))
   }
-}
+};
 
-// 分页大小改变
 const handleSizeChange = (val) => {
   pageSize.value = val
   getSmsList()
-}
+};
 
-// 当前页改变
 const handleCurrentChange = (val) => {
   currentPage.value = val
   getSmsList()
-}
+};
 
 onMounted(() => {
   getSmsList()
 })
 
-// 发送短信
-const sendDialogVisible = ref(false)
+const sendDialogVisible = ref(false);
 const sending = ref(false)
 const sendForm = reactive({ phone: '', content: '' })
 

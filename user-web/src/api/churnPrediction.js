@@ -1,6 +1,5 @@
 import { http } from '@/utils/request';
 
-// 流失预警 - 匹配后端真实路由 /api/churn-prediction/*
 export function getChurnPrediction(params) {
   return http.get('/api/churn/prediction', params)
 }
@@ -32,7 +31,6 @@ export function getRiskDistribution() {
   return http.get('/api/churn/risk-distribution')
 }
 
-// 兼容旧接口
 export function runChurnPrediction() {
   return calculateRFM({ type: 'churn' })
 }

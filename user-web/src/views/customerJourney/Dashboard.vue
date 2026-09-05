@@ -21,7 +21,7 @@
       </div>
     </el-card>
 
-    <!-- 顶部统计 -->
+    
     <el-row :gutter="20" class="stat-row">
       <el-col :span="6">
         <el-card class="stat-card stat-blue">
@@ -61,7 +61,7 @@
       </el-col>
     </el-row>
 
-    <!-- 旅程漏斗图 -->
+    
     <el-card class="funnel-card">
       <template #header>
         <div class="card-header">
@@ -93,7 +93,7 @@
       </div>
     </el-card>
 
-    <!-- 阶段详情 -->
+    
     <el-row :gutter="20" class="detail-row">
       <el-col :span="12">
         <el-card class="detail-card">
@@ -154,7 +154,7 @@
       </el-col>
     </el-row>
 
-    <!-- 实时事件流 -->
+    
     <el-card class="events-card">
       <template #header>
         <div class="card-header">
@@ -210,8 +210,7 @@ import {
 import {
   getJourneyOverview, listJourneyStages, listByStage
 } from '@/api/customerJourney.js'
-// 统一枚举：负责角色 label/type
-import { getRoleLabel, getRoleTagType } from '@/constants/role'
+import { getRoleLabel, getRoleTagType } from '@/constants/role';
 
 const loading = ref(false)
 const autoRefresh = ref(false)
@@ -244,11 +243,10 @@ const rateColor = (rate) => {
   return '#909399'
 }
 
-// 漏斗阶段颜色
 const stageColors = [
   '#909399', '#c0c4cc', '#4F46E5', '#10B981', '#F59E0B',
   '#EF4444', '#9b59b6', '#16a085', '#e74c3c', '#34495e'
-]
+];
 
 const getFunnelStyle = (idx) => {
   const maxRate = 100
@@ -309,7 +307,7 @@ const toggleAutoRefresh = (val) => {
   if (val) {
     refreshTimer = setInterval(() => {
       loadOverview()
-    }, 30000) // 30 秒刷新
+    }, 30000);
     ElMessage.success(i18n.global.t('已开启自动刷新（30秒）'))
   } else {
     if (refreshTimer) {

@@ -13,7 +13,7 @@
     </el-alert>
 
     <el-row :gutter="16" style="margin-top: 16px">
-      <!-- 左侧:Token 列表 -->
+      
       <el-col :span="16">
         <el-card>
           <template #header>
@@ -71,7 +71,7 @@
         </el-card>
       </el-col>
 
-      <!-- 右侧:创建表单 -->
+      
       <el-col :span="8">
         <el-card>
           <template #header>
@@ -109,7 +109,7 @@
           </el-form>
         </el-card>
 
-        <!-- 集成示例 -->
+        
         <el-card style="margin-top: 16px">
           <template #header>
             <span>外部系统调用示例</span>
@@ -138,7 +138,7 @@ curl -X POST \
       </el-col>
     </el-row>
 
-    <!-- 创建成功对话框:显示明文 Token -->
+    
     <el-dialog v-model="showTokenDialog" title="Token 已创建" width="640px" :close-on-click-modal="false">
       <el-alert type="success" :closable="false" show-icon>
         <template #default>

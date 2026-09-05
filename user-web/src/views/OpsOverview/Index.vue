@@ -2,7 +2,7 @@
   <div class="ops-overview">
     <PageHeader title="运维总览" subtitle="系统健康度、关键指标、告警一览" />
 
-    <!-- 顶部状态卡片 -->
+    
     <el-row :gutter="20" class="status-row">
       <el-col :span="6">
         <el-card class="status-card status-ok">
@@ -34,7 +34,7 @@
       </el-col>
     </el-row>
 
-    <!-- 二级：模块状态 -->
+    
     <el-row :gutter="20" class="mt-20">
       <el-col :span="12">
         <el-card header="11 大系统模块状态">

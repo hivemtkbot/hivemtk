@@ -23,7 +23,7 @@
     />
 
     <el-tabs v-else v-model="activeTab" @tab-change="onTabChange">
-      <!-- 系统角色 -->
+      
       <el-tab-pane label="系统角色" name="system">
         <el-row :gutter="20" v-loading="loading">
           <el-col
@@ -64,7 +64,7 @@
         </el-row>
       </el-tab-pane>
 
-      <!-- 自定义角色 -->
+      
       <el-tab-pane label="自定义角色" name="custom">
         <el-row :gutter="20" v-loading="loading">
           <el-col
@@ -138,7 +138,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 成员列表对话框 -->
+    
     <el-dialog
       v-model="membersDialogVisible"
       :title="currentRole ? `${currentRole.name} - 成员列表` : ''"
@@ -159,7 +159,7 @@
       </el-table>
     </el-dialog>
 
-    <!-- 创建/编辑角色对话框 -->
+    
     <el-dialog
       v-model="formDialogVisible"
       :title="formMode === 'create' ? '新建自定义角色' : '编辑自定义角色'"
@@ -218,7 +218,7 @@
           </el-col>
         </el-row>
 
-        <!-- 菜单权限 -->
+        
         <el-form-item label="菜单权限">
           <el-card shadow="never" class="perm-card">
             <el-tree
@@ -232,7 +232,7 @@
           </el-card>
         </el-form-item>
 
-        <!-- 按钮权限 -->
+        
         <el-form-item label="按钮权限">
           <el-card shadow="never" class="perm-card">
             <el-checkbox-group v-model="form.button_perms">
@@ -247,7 +247,7 @@
           </el-card>
         </el-form-item>
 
-        <!-- 数据范围 -->
+        
         <el-form-item label="数据范围" prop="scope_type">
           <el-radio-group v-model="form.scope_type">
             <el-radio value="all">全部数据</el-radio>
@@ -295,21 +295,18 @@ import {
 } from '@/api/role'
 import PageState from '@/components/PageState.vue'
 
-// ===== 状态 =====
-const activeTab = ref('system')
+const activeTab = ref('system');
 const loading = ref(false)
 const error = ref('')
 const systemRoles = ref([])
 const customRoles = ref([])
 
-// 成员弹窗
-const membersDialogVisible = ref(false)
+const membersDialogVisible = ref(false);
 const membersLoading = ref(false)
 const currentRole = ref(null)
 const members = ref([])
 
-// 表单弹窗
-const formDialogVisible = ref(false)
+const formDialogVisible = ref(false);
 const formMode = ref('create')
 const formLoading = ref(false)
 const formSubmitting = ref(false)
@@ -339,7 +336,6 @@ const formRules = {
   scope_type: [{ required: true, message: '请选择数据范围', trigger: 'change' }]
 }
 
-// 菜单树（简化版，实际应从后端拉取）
 const menuTree = ref([
   {
     title: '工作台',
@@ -386,9 +382,8 @@ const menuTree = ref([
       { title: '操作日志', path: '/system/log' }
     ]
   }
-])
+]);
 
-// 可用按钮（实际应从后端拉取）
 const availableButtons = ref([
   { code: 'user:create', name: '新建用户' },
   { code: 'user:update', name: '编辑用户' },
@@ -399,13 +394,12 @@ const availableButtons = ref([
   { code: 'customer:export', name: '导出客户' },
   { code: 'order:refund', name: '订单退款' },
   { code: 'message:send', name: '发送消息' }
-])
+]);
 
-// ===== 工具 =====
 const getScopeLabel = (scope) => {
   const map = { all: '全部', dept: '部门', self: '自己', custom: '自定义' }
   return map[scope] || scope
-}
+};
 
 const syncCustomDept = () => {
   if (!customDeptText.value) {
@@ -435,7 +429,6 @@ const resetForm = () => {
   formRef.value?.clearValidate()
 }
 
-// ===== 数据加载 =====
 const loadRoles = async () => {
   loading.value = true
   error.value = ''
@@ -451,7 +444,7 @@ const loadRoles = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
 const onTabChange = (tab) => {
   if (tab === 'system') loadSystemRoles()
@@ -490,12 +483,11 @@ const openMembersDialog = async (role) => {
   }
 }
 
-// ===== 表单操作 =====
 const openCreateDialog = () => {
   formMode.value = 'create'
   resetForm()
   formDialogVisible.value = true
-}
+};
 
 const openEditDialog = async (role) => {
   formMode.value = 'edit'
@@ -534,8 +526,7 @@ const onSubmit = async () => {
   }
   formSubmitting.value = true
   try {
-    // 从 menuTreeRef 获取选中的菜单路径
-    const checked = menuTreeRef.value?.getCheckedNodes() || []
+    const checked = menuTreeRef.value?.getCheckedNodes() || [];
     const halfChecked = menuTreeRef.value?.getHalfCheckedNodes() || []
     const allCheckedNodes = [...checked, ...halfChecked]
     form.value.menu_perms = allCheckedNodes.map((n) => n.path).filter(Boolean)

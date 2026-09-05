@@ -1,8 +1,7 @@
 import { http } from '@/utils/request';
 
-// 市场
 export const listAssets = (params) =>
-  http.get('/api/v1/asset-market/list', params)
+  http.get('/api/v1/asset-market/list', params);
 
 export const assetDetail = (id) =>
   http.get(`/api/v1/asset-market/detail/${id}`)
@@ -16,9 +15,8 @@ export const syncAsset = (data) =>
 export const reportUsage = (data) =>
   http.post('/api/v1/asset-market/report-usage', data)
 
-// 本地资产（同源同构）
 export const listLocalAssets = (params) =>
-  http.get('/api/v1/local-assets', params)
+  http.get('/api/v1/local-assets', params);
 
 export const getLocalAsset = (id) =>
   http.get(`/api/v1/local-assets/${id}`)

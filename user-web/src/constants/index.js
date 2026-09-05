@@ -1,34 +1,4 @@
-/**
- * 统一枚举常量索引
- *
- * 所有 user-web 业务枚举的单一入口。
- * 业务视图统一从本目录 import，禁止再各自维护零散的 label/type map。
- *
- * 类别：
- * - channel.js     渠道（wecom/douyin/...）
- * - source.js      系统级来源（auto/manual/llm/...）
- * - enabled.js     启用/禁用（1/0/active/disabled）
- * - role.js        角色（admin/agent/user/ai/...）
- * - msgType.js     消息类型（text/image/link/...）
- * - aiAgentType.js AI 智能体类型（sales/customer_service/hybrid）
- * - assetType.js   资产类型（agent_persona/sales_script/...）
- * - riskLevel.js   风险等级（1/2/3/4）
- * - priority.js    优先级（urgent/high/medium/low）
- * - direction.js   方向（in/out/inbound/outbound）
- * - authType.js    认证类型（bearer/api_key/hmac/basic）
- * - rating.js      反馈评分（1/0/-1）
- * - intentType.js  对话意图（purchase/price_inquiry/...）
- * - trend.js       趋势方向（up/down/flat）
- * - status.js      业务级 status 集（任务/同步/备份/实验/群组/内容/审核/提示词/黑名单/会话/阶段/对话/嵌入/坐席/通过失败/分群类型）
- * - leadStatus.js  线索状态（new/contacted/qualified/negotiating/converted/lost/invalid）
- * - customerTag.js 客户状态/标签（active/inactive/lost/churn/vip/high_value/...）
- * - accountType.js 账号状态（1/2/3，active/online/offline/banned + 风险等级）
- * - orderStatus.js 订单/作业状态（pending/running/paused/completed/failed/cancelled/...）
- * - cardPlatform.js 卡片/线索平台（douyin/kuaishou/xiaohongshu/xianyu/tiktok + 1-4 数字线索类型）
- * - languages.js   多语言配置（智能体内部语言/目标语言，与后端 i18n.SupportedLanguages 对齐）
- */
-
-export * as channel from './channel'
+export * as channel from './channel';
 export * as source from './source'
 export * as enabled from './enabled'
 export * as role from './role'

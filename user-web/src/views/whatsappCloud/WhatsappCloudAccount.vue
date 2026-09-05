@@ -51,7 +51,7 @@
       />
     </el-card>
 
-    <!-- 新增/编辑 -->
+    
     <el-dialog v-model="dialogVisible" :title="dialogMode === 'edit' ? '编辑 WhatsApp Cloud 账号' : '新增 WhatsApp Cloud 账号'" width="640px">
       <el-form :model="form" label-width="150px">
         <el-form-item label="名称" prop="name">
@@ -101,7 +101,7 @@
       </template>
     </el-dialog>
 
-    <!-- 测试发送 -->
+    
     <el-dialog v-model="testVisible" title="测试发送" width="520px">
       <el-form :model="testForm" label-width="90px">
         <el-form-item label="接收号码">
@@ -117,7 +117,7 @@
       </template>
     </el-dialog>
 
-    <!-- 绑定 AI -->
+    
     <agent-binding-dialog
       v-model:visible="bindVisible"
       channel-type="whatsapp"

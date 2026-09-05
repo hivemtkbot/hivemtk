@@ -116,10 +116,9 @@ const saving = ref(false)
 const originsText = ref('')
 const targetLanguageOptions = TARGET_LANGUAGE_OPTIONS
 
-// 默认智能体下拉
-const enabledAgents = ref([])
+const enabledAgents = ref([]);
 const loadingAgents = ref(false)
-const initialDefaultAgentId = ref(null) // 编辑前的默认智能体（用于对比是否变更）
+const initialDefaultAgentId = ref(null);
 
 const getAgentTypeLabel = (type) => {
   const map = { sales: '销售', customer_service: '客服', hybrid: '混合' }
@@ -150,11 +149,9 @@ const loadDetail = async () => {
   try {
     const res = await getChannel(route.params.id)
     Object.assign(form.value, res)
-    // 目标语言允许空串（跟随智能体配置），归一化 null/undefined 为 ''
-    form.value.target_language = res?.target_language || ''
+    form.value.target_language = res?.target_language || '';
     originsText.value = (res.allowed_origins || '').split(',').filter(Boolean).join('\n')
-    // 加载启用的智能体列表 + 当前渠道已绑定的默认智能体
-    await Promise.all([loadEnabledAgents(), loadCurrentDefaultAgent()])
+    await Promise.all([loadEnabledAgents(), loadCurrentDefaultAgent()]);
   } catch (err) {
     ElMessage.error('加载失败：' + (err?.message || err))
   } finally {
@@ -177,8 +174,7 @@ const loadEnabledAgents = async () => {
 
 const loadCurrentDefaultAgent = async () => {
   try {
-    // 后端 List 按 channel_type + account_id 查询（web 渠道 account_id = channel_id）
-    const res = await listBindings({ channel_type: 'web_embed', account_id: form.value.channel_id })
+    const res = await listBindings({ channel_type: 'web_embed', account_id: form.value.channel_id });
     const list = Array.isArray(res) ? res : res?.list || res?.items || []
     const def = list.find((b) => b.is_default || b.is_primary) || list[0]
     if (def) {
@@ -186,16 +182,13 @@ const loadCurrentDefaultAgent = async () => {
       form.value.default_agent_id = aid
       initialDefaultAgentId.value = aid
     }
-  } catch {
-    // 静默
-  }
+  } catch {}
 }
 
 const syncDefaultAgentBinding = async () => {
   const cur = form.value.default_agent_id ? Number(form.value.default_agent_id) : null
   const orig = initialDefaultAgentId.value ? Number(initialDefaultAgentId.value) : null
   if (cur === orig) return
-  // 解除原默认绑定
   if (orig) {
     try {
       const res = await listBindings({ channel_type: 'web_embed', account_id: form.value.channel_id, agent_id: orig })
@@ -205,11 +198,8 @@ const syncDefaultAgentBinding = async () => {
           await deleteBinding(b.id || b.ID).catch(() => null)
         }
       }
-    } catch {
-      // 静默
-    }
+    } catch {}
   }
-  // 创建新默认绑定
   if (cur) {
     await createBinding({
       channel_type: 'web_embed',
@@ -228,7 +218,7 @@ const onSubmit = async () => {
   try {
     await formRef.value.validate()
   } catch {
-    return // R44: 校验失败 reject 数组未捕获 → PAGEERROR
+    return;
   }
   saving.value = true
   try {
@@ -245,7 +235,6 @@ const onSubmit = async () => {
       target_language: form.value.target_language || ''
     }
     await updateChannel(form.value.channel_id, payload)
-    // 同步默认智能体绑定（变更时）
     try {
       await syncDefaultAgentBinding()
     } catch (bindErr) {

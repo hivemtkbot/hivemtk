@@ -1,6 +1,6 @@
 <template>
   <div class="message-hub-container">
-    <!-- 页面标题与操作 -->
+    
     <div class="page-header">
       <h2>消息中台 MQ</h2>
       <div class="header-actions">
@@ -15,7 +15,7 @@
       </div>
     </div>
 
-    <!-- 统计卡片 -->
+    
     <el-row :gutter="16" class="stats-row" v-loading="statsLoading">
       <el-col :span="4">
         <el-card shadow="hover" class="stat-card">
@@ -55,7 +55,7 @@
       </el-col>
     </el-row>
 
-    <!-- 平台分布条形图 -->
+    
     <el-card v-if="stats.by_platform && Object.keys(stats.by_platform).length" class="platform-card" shadow="never">
       <template #header>
         <span>{{ $t('平台消息分布') }}</span>
@@ -71,7 +71,7 @@
       </div>
     </el-card>
 
-    <!-- 搜索表单 -->
+    
     <div class="search-form">
       <el-form :inline="true" :model="searchForm" class="search-form-content">
         <el-form-item label="平台">
@@ -127,7 +127,7 @@
       </el-form>
     </div>
 
-    <!-- 消息列表 -->
+    
     <el-table :data="messageList" border style="width: 100%" v-loading="loading"
               @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="44" />
@@ -185,13 +185,13 @@
       </el-table-column>
     </el-table>
 
-    <!-- 批量操作 -->
+    
     <div class="batch-bar" v-if="selectedRows.length">
       <span>已选 {{ selectedRows.length }} 条</span>
       <el-button size="small" type="primary" @click="handleBatchMarkRead">批量标记已读</el-button>
     </div>
 
-    <!-- 分页 -->
+    
     <div class="pagination-container">
       <el-pagination
         v-model:current-page="pagination.page"
@@ -204,7 +204,7 @@
       />
     </div>
 
-    <!-- 推送消息对话框 -->
+    
     <el-dialog v-model="pushDialogVisible" title="推送消息到中台" width="720px" top="5vh">
       <el-form :model="pushForm" :rules="pushRules" ref="pushFormRef" label-width="120px">
         <el-form-item label="平台" prop="platform">
@@ -267,7 +267,7 @@
       </template>
     </el-dialog>
 
-    <!-- 消息详情对话框 -->
+    
     <el-dialog v-model="detailDialogVisible" title="消息详情" width="820px" top="5vh">
       <div v-loading="detailLoading">
         <el-descriptions :column="2" border>
@@ -325,11 +325,8 @@ import { Plus, Search, RefreshRight, DataAnalysis } from '@element-plus/icons-vu
 import { messageHubApi } from '@/api/messageHub'
 import { getMyAgent } from '@/api/customerService'
 import AgentSocket from '@/utils/agentSocket'
-// 平台（消息中台 MQ）label / tag type：取自统一 channel 常量，
-// 业务视图禁止再各自维护 platformLabelMap。
-import { getChannelLabel, getChannelTagType, PLATFORM_GROUP_MEMBERS_REVERSE } from '@/constants/channel'
-// 方向/消息类型 label/type：取自统一 direction/msgType 常量
-import { getDirectionLabel, getDirectionTagType } from '@/constants/direction'
+import { getChannelLabel, getChannelTagType, PLATFORM_GROUP_MEMBERS_REVERSE } from '@/constants/channel';
+import { getDirectionLabel, getDirectionTagType } from '@/constants/direction';
 import { getMsgTypeLabel, getMsgTypeTagType } from '@/constants/msgType'
 
 const loading = ref(false)
@@ -356,8 +353,6 @@ const searchForm = reactive({
 
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 
-// 平台分布归并：把历史 *_web 后缀值合并回来源平台全名（与统一收件箱一致），
-// 确保消息中台 MQ 分布图绝不出现「抖音web / 闲鱼web / 快手web / 小红书web」等独立分段。
 const mergedByPlatform = computed(() => {
   const src = stats.value.by_platform
   if (!src) return {}
@@ -367,7 +362,7 @@ const mergedByPlatform = computed(() => {
     out[canonical] = (out[canonical] || 0) + count
   }
   return out
-})
+});
 
 const platformCount = computed(() => {
   return Object.keys(mergedByPlatform.value).length
@@ -383,8 +378,7 @@ const barWidth = (count) => {
   return Math.round((count / maxPlatformCount.value) * 100)
 }
 
-// 平台（消息中台 MQ）label / tag type：取自统一 channel 常量
-const platformLabel = (p) => getChannelLabel(p)
+const platformLabel = (p) => getChannelLabel(p);
 const platformTagType = (p) => getChannelTagType(p)
 
 const formatTime = (t) => {
@@ -398,8 +392,7 @@ const formatTime = (t) => {
   }
 }
 
-// 推送表单
-const pushDialogVisible = ref(false)
+const pushDialogVisible = ref(false);
 const pushFormRef = ref(null)
 const pushForm = reactive({
   platform: 'wecom',
@@ -428,12 +421,10 @@ const pushRules = {
   content: [{ required: true, message: i18n.global.t('请输入消息内容'), trigger: 'blur' }]
 }
 
-// 详情
-const detailDialogVisible = ref(false)
+const detailDialogVisible = ref(false);
 const currentMessage = ref({})
 
-// R55 T6: 坐席 WS 实时接线——新消息/会话到达自动刷新（3s 去抖）
-let agentSocketInst = null
+let agentSocketInst = null;
 let realtimeTimer = null
 const scheduleRealtimeRefresh = () => {
   if (realtimeTimer) return
@@ -456,9 +447,7 @@ const setupRealtime = async () => {
       onError: (e) => { console.warn('[messageHub ws]', e) }
     })
     agentSocketInst.connect()
-  } catch (e) {
-    // 静默：保持手动刷新可用
-  }
+  } catch (e) {}
 }
 
 onMounted(async () => {

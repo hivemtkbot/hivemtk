@@ -1,7 +1,7 @@
 <template>
   <div class="geo-page">
 
-    <!-- 验证表单 -->
+    
     <el-card shadow="never" class="form-card">
       <template #header><span class="card-title">验证配置</span></template>
       <el-form :model="form" label-width="92px">
@@ -66,7 +66,7 @@
       </el-form>
     </el-card>
 
-    <!-- 验证结果 -->
+    
     <el-card v-if="results.length" shadow="never" class="result-card">
       <template #header><span class="card-title">验证结果</span></template>
       <el-table v-loading="verifying" :data="results" stripe style="width: 100%">
@@ -90,7 +90,7 @@
       </el-table>
     </el-card>
 
-    <!-- 负面监控 -->
+    
     <el-card shadow="never" class="negative-card">
       <template #header>
         <div class="card-header">
@@ -132,8 +132,8 @@ const loadModelOptions = async () => {
     const options = list
       .filter((m) => {
         if (!m || m.enabled === false) return false
-        // 排除本地推理 provider（vendor=local 或 base_url 是本地地址）
-        if (m.vendor === 'local') return false
+        if (m.vendor === 'local')
+          return false;
         const url = (m.base_url || m.baseURL || '').toLowerCase()
         if (url.includes('127.0.0.1') || url.includes('localhost') || url.includes('0.0.0.0')) return false
         return true
@@ -143,7 +143,6 @@ const loadModelOptions = async () => {
         value: m.name
       }))
     modelOptions.value = options
-    // 默认选中第一个 provider
     if (options.length && (!form.models || !form.models.length)) {
       form.models = [options[0].value]
     }
@@ -204,8 +203,7 @@ const handleVerify = async () => {
   verifying.value = true
   results.value = []
   try {
-    // 后端单次验证一个 query，按行拆分逐条验证
-    const queries = form.queries.split('\n').map((s) => s.trim()).filter(Boolean)
+    const queries = form.queries.split('\n').map((s) => s.trim()).filter(Boolean);
     for (const q of queries) {
       const res = await geoApi.verifyArticle({
         article_id: form.article_id || undefined,

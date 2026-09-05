@@ -43,7 +43,7 @@
     </el-row>
 
     <el-tabs v-model="activeTab" class="content-tabs">
-      <!-- 1. 置信度信号流 -->
+      
       <el-tab-pane :label="$t('置信度信号')" name="signals">
         <el-card>
           <template #header>
@@ -123,7 +123,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- 2. 校准曲线 -->
+      
       <el-tab-pane label="置信度校准" name="calibrations">
         <el-card>
           <template #header>
@@ -160,7 +160,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- 3. 阈值策略（CRUD） -->
+      
       <el-tab-pane label="转人工阈值策略" name="policies">
         <el-card>
           <template #header>
@@ -209,7 +209,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 策略编辑弹窗 -->
+    
     <el-dialog v-model="policyDialogVisible" :title="editingPolicy.id ? '编辑阈值策略' : '新建阈值策略'" width="640px">
       <el-form :model="editingPolicy" label-width="120px">
         <el-form-item label="策略名" required>
@@ -266,8 +266,7 @@ import {
 
 const activeTab = ref('signals')
 
-// 顶部统计
-const stats = ref({ totalSignals: 0, avgConfidence: '0.000', transferCount: 0, autoReplyCount: 0 })
+const stats = ref({ totalSignals: 0, avgConfidence: '0.000', transferCount: 0, autoReplyCount: 0 });
 const avgConfColor = computed(() => {
   const v = parseFloat(stats.value.avgConfidence)
   if (v >= 0.7) return '#10B981'
@@ -275,8 +274,7 @@ const avgConfColor = computed(() => {
   return '#EF4444'
 })
 
-// 信号
-const signals = ref([])
+const signals = ref([]);
 const signalSearch = ref('')
 const signalPage = ref(1)
 const signalPageSize = ref(20)
@@ -308,13 +306,11 @@ async function loadStats() {
       autoReplyCount: data.auto_reply_count || 0
     }
   } catch (e) {
-    // 静默失败，不阻塞 UI
-    stats.value = { totalSignals: 0, avgConfidence: '0.000', transferCount: 0, autoReplyCount: 0 }
+    stats.value = { totalSignals: 0, avgConfidence: '0.000', transferCount: 0, autoReplyCount: 0 };
   }
 }
 
-// 校准
-const calibrations = ref([])
+const calibrations = ref([]);
 const calibrationsLoading = ref(false)
 async function loadCalibrations() {
   calibrationsLoading.value = true
@@ -328,8 +324,7 @@ async function loadCalibrations() {
   }
 }
 
-// 阈值策略
-const policies = ref([])
+const policies = ref([]);
 const policiesLoading = ref(false)
 async function loadPolicies() {
   policiesLoading.value = true
@@ -399,7 +394,6 @@ async function togglePolicy(row) {
   }
 }
 
-// 工具
 function confTagType(v) {
   if (v >= 0.7) return 'success'
   if (v >= 0.5) return 'warning'

@@ -103,10 +103,7 @@
 </template>
 
 <script setup>
-/**
- * 备份恢复 UI 强化（USR-SY-02）
- */
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { formatFileSize } from '@/utils/format'
 import { http } from '@/utils/request'
@@ -144,8 +141,7 @@ async function load() {
 }
 
 async function saveStrategy() {
-  // R47: 字段名对齐后端(snake_case), daily/weekly 时间选择器→hour/minute
-  const d = strategy.daily instanceof Date ? strategy.daily : new Date(strategy.daily)
+  const d = strategy.daily instanceof Date ? strategy.daily : new Date(strategy.daily);
   const w = strategy.weeklyTime instanceof Date ? strategy.weeklyTime : new Date(strategy.weeklyTime)
   await http.put('/api/backup/strategy', {
     enabled: strategy.enabled,

@@ -1,6 +1,5 @@
 import { http } from '@/utils/request';
 
-// 自定义报表 - 匹配后端 /api/custom-reports/* 路径
 export function getReportList(params) {
   return http.get('/api/custom-reports', params)
 }
@@ -26,7 +25,6 @@ export function queryReportData(id, params) {
   return http.get(`/api/custom-reports/${id}/data`, params)
 }
 
-// 兼容旧接口
 export function getCustomReports(params) {
   return getReportList(params)
 }

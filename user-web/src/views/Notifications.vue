@@ -116,7 +116,7 @@
       />
     </el-card>
 
-    <!-- 查看详情 -->
+    
     <el-dialog v-model="viewVisible" :title="current?.title || '通知详情'" width="560px">
       <div v-if="current" class="detail-content">
         <el-tag :type="typeTagType(current.type)" size="small">
@@ -149,7 +149,6 @@ import { http } from '@/utils/request'
 import { platformAPI } from '@/api/platform'
 
 const loading = ref(false)
-// 引用图标以避免 IDE 误判
 void Refresh; void Check; void Link
 const marking = ref(false)
 const list = ref([])
@@ -187,12 +186,10 @@ const formatTime = (t) => {
 const loadList = async () => {
   loading.value = true
   try {
-    // 平台端暂未提供 /api/platform/message/list，调用本地回退聚合接口
-    // 这里降级使用 /api/auth/notifications（若后端未实现则降级为本地最新一条）
     const params = {
       page: page.value,
       page_size: pageSize.value
-    }
+    };
     if (filter.type) params.type = filter.type
     if (filter.is_read !== '') params.is_read = filter.is_read
     if (filter.keyword) params.keyword = filter.keyword
@@ -201,7 +198,6 @@ const loadList = async () => {
     try {
       res = await http.get('/api/auth/notifications', { params })
     } catch (e1) {
-      // 降级：使用平台最新消息
       try {
         const latest = await platformAPI.getLatestMessage()
         res = latest ? { list: [latest.data || latest], total: 1 } : { list: [], total: 0 }
@@ -211,8 +207,7 @@ const loadList = async () => {
     }
     list.value = res?.list || []
     total.value = res?.total || list.value.length
-    // 重新计算 stats
-    computeStats()
+    computeStats();
   } catch (err) {
     ElMessage.error('加载通知失败：' + (err?.message || err))
   } finally {

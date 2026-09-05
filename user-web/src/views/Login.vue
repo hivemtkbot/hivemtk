@@ -1,6 +1,6 @@
 <template>
   <div class="login-container">
-    <!-- 左侧品牌展示面板 -->
+    
     <div class="login-aside">
       <div class="aside-inner">
         <div class="brand">
@@ -27,7 +27,7 @@
       </div>
     </div>
 
-    <!-- 右侧登录表单 -->
+    
     <div class="login-main">
       <div class="login-box">
         <div class="login-header">
@@ -94,13 +94,11 @@ const userStore = useUserStore()
 const loginFormRef = ref(null)
 const loading = ref(false)
 
-// 登录表单
 const loginForm = reactive({
   username: '',
   password: ''
-})
+});
 
-// 表单验证规则
 const rules = {
   username: [
     { required: true, message: t('core.login.pleaseUsername'), trigger: 'blur' }
@@ -108,9 +106,8 @@ const rules = {
   password: [
     { required: true, message: t('core.login.pleasePassword'), trigger: 'blur' }
   ]
-}
+};
 
-// 处理登录
 const handleLogin = async () => {
   if (!loginFormRef.value) return
 
@@ -143,7 +140,7 @@ const handleLogin = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 </script>
 
 <style scoped>

@@ -1,6 +1,6 @@
 <template>
   <div class="chat-channel-list-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -20,7 +20,7 @@
       </div>
     </el-card>
 
-    <!-- 搜索栏 -->
+    
     <el-card shadow="never" class="filter-card">
       <el-form :inline="true" :model="filter" @submit.prevent>
         <el-form-item :label="$t('关键词')">
@@ -49,7 +49,7 @@
       </el-form>
     </el-card>
 
-    <!-- 列表表格 -->
+    
     <el-card shadow="never">
       <el-table :data="list" v-loading="loading" stripe border>
         <el-table-column prop="id" label="ID" width="70" align="center" />
@@ -124,8 +124,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search, CopyDocument, ChatLineRound } from '@element-plus/icons-vue'
 import { listChannels, updateChannel, rotateAppKey, resetAppSecret } from '@/api/chatChannel'
 import DOMPurify from 'dompurify'
-// 统一枚举：启用/禁用
-import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
+import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled';
 import { getLanguageLabel } from '@/constants/languages'
 
 const getStatusLabel = (s) => getEnabledLabel(s)

@@ -1,21 +1,14 @@
-/**
- * 统一通用枚举：风险等级（risk_level）
- *
- * 业务：securityAudit 安全审计
- */
-
 export const RISK_LEVEL_OPTIONS = Object.freeze([
   { value: 1, label: '低',    tagType: 'success', description: '低风险' },
   { value: 2, label: '中',    tagType: 'warning', description: '中风险' },
   { value: 3, label: '高',    tagType: 'danger',  description: '高风险' },
   { value: 4, label: '严重',  tagType: 'danger',  description: '严重风险' }
-])
+]);
 
-// alias: 'low'/'medium'/'high'/'critical'
 const ALIAS = {
   low: 1, medium: 2, high: 3, critical: 4,
   L: 1, M: 2, H: 3, S: 4
-}
+};
 
 const ALIAS_KEY = Object.freeze(
   Object.entries(ALIAS).reduce((acc, [k, v]) => { acc[k.toLowerCase()] = v; return acc }, {})

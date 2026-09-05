@@ -1,6 +1,6 @@
 <template>
   <div class="platform-account-container">
-    <!-- 页面标题和操作按钮 -->
+    
     <div class="page-header">
       <h2>{{ $t('平台账号管理') }}</h2>
       <div class="action-buttons">
@@ -15,7 +15,7 @@
       </div>
     </div>
 
-    <!-- 搜索表单 -->
+    
     <div class="search-form">
       <el-form :inline="true" :model="searchForm" class="search-form-content">
         <el-form-item :label="$t('平台')">
@@ -51,7 +51,7 @@
       </el-form>
     </div>
 
-    <!-- 平台账号列表 -->
+    
     <el-table :data="accountList" border style="width: 100%" v-loading="loading">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="platform" :label="$t('平台')" width="120" />
@@ -88,7 +88,7 @@
       </el-table-column>
     </el-table>
 
-    <!-- 分页 -->
+    
     <div class="pagination-container">
       <el-pagination
         v-model:current-page="pagination.page"
@@ -101,7 +101,7 @@
       />
     </div>
 
-    <!-- 新增/编辑账号对话框 -->
+    
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
@@ -156,7 +156,7 @@
       </template>
     </el-dialog>
 
-    <!-- 支持平台对话框 -->
+    
     <el-dialog
       v-model="platformsDialogVisible"
       title="支持的平台"
@@ -171,7 +171,7 @@
       </div>
     </el-dialog>
 
-    <!-- 登录对话框 -->
+    
     <el-dialog
       v-model="loginDialogVisible"
       title="账号登录"
@@ -201,7 +201,7 @@
       </template>
     </el-dialog>
 
-    <!-- 状态检查结果对话框 -->
+    
     <el-dialog
       v-model="statusDialogVisible"
       title="账号状态"
@@ -233,11 +233,9 @@ import {
   Plus, Search, RefreshRight, Edit, Delete, Platform, SwitchButton, Check
 } from '@element-plus/icons-vue'
 import { platformAccountApi } from '@/api/platformAccount'
-// 状态显示：统一取自 accountType 常量
-import { getAccountStatusLabel, getAccountStatusTagType } from '@/constants/accountType'
+import { getAccountStatusLabel, getAccountStatusTagType } from '@/constants/accountType';
 
-// 响应式数据
-const loading = ref(false)
+const loading = ref(false);
 const submitting = ref(false)
 const platformsLoading = ref(false)
 const loginLoading = ref(false)
@@ -254,21 +252,18 @@ const formRef = ref(null)
 const currentAccount = ref({})
 const statusResult = ref({})
 
-// 搜索表单
 const searchForm = reactive({
   platform: '',
   account: '',
   status: ''
-})
+});
 
-// 分页
 const pagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
-})
+});
 
-// 表单
 const form = reactive({
   id: null,
   platform: '',
@@ -276,14 +271,12 @@ const form = reactive({
   account_id: '',
   credentials: '',
   status: 1
-})
+});
 
-// 登录表单
 const loginForm = reactive({
   code: ''
-})
+});
 
-// 表单验证规则
 const rules = {
   platform: [
     { required: true, message: i18n.global.t('请选择平台'), trigger: 'change' }
@@ -294,20 +287,17 @@ const rules = {
   account_id: [
     { required: true, message: i18n.global.t('请输入账号ID'), trigger: 'blur' }
   ]
-}
+};
 
-// 计算属性
 const dialogTitle = computed(() => {
   return isEdit.value ? '编辑账号' : '新增账号'
-})
+});
 
-// 生命周期
 onMounted(() => {
   fetchAccountList()
   fetchPlatforms()
-})
+});
 
-// 获取平台账号列表
 const fetchAccountList = async () => {
   loading.value = true
   try {
@@ -326,7 +316,7 @@ const fetchAccountList = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
 const handleSearch = () => {
   pagination.page = 1
@@ -388,7 +378,8 @@ const handleDelete = (row) => {
       console.error(error)
     }
   }).catch((e) => {
-    if (e !== 'cancel' && e !== 'close') throw e // R47: 取消不报未捕获异常
+    if (e !== 'cancel' && e !== 'close')
+      throw e;
   })
 }
 
@@ -403,9 +394,7 @@ const handleSubmit = async () => {
         if (submitData.credentials) {
           try {
             submitData.credentials = JSON.parse(submitData.credentials)
-          } catch (e) {
-            // 保持字符串原样
-          }
+          } catch (e) {}
         }
         if (isEdit.value) {
           await platformAccountApi.updateAccount(form.id, submitData)
@@ -441,7 +430,6 @@ const resetForm = () => {
   }
 }
 
-// 获取支持平台
 const fetchPlatforms = async () => {
   try {
     const res = await platformAccountApi.getPlatforms()
@@ -453,19 +441,18 @@ const fetchPlatforms = async () => {
   } catch (error) {
     console.error(error)
   }
-}
+};
 
 const handleViewPlatforms = () => {
   platformsDialogVisible.value = true
   fetchPlatforms()
 }
 
-// 登录
 const handleLogin = (row) => {
   currentAccount.value = row
   loginDialogVisible.value = true
   loginForm.code = ''
-}
+};
 
 const handleLoginDialogClose = () => {
   loginForm.code = ''
@@ -486,7 +473,6 @@ const submitLogin = async () => {
   }
 }
 
-// 检查状态
 const handleCheckStatus = async (row) => {
   currentAccount.value = row
   statusDialogVisible.value = true
@@ -499,10 +485,9 @@ const handleCheckStatus = async (row) => {
   } finally {
     statusLoading.value = false
   }
-}
+};
 
-// 状态显示（统一取自 accountType 常量）
-const getStatusType = (status) => getAccountStatusTagType(status)
+const getStatusType = (status) => getAccountStatusTagType(status);
 const getStatusText = (status) => getAccountStatusLabel(status)
 </script>
 

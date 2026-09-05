@@ -78,7 +78,6 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { SystemApi } from '@/api/system'
 
-// 配置表单数据
 const configForm = ref({
   site_name: '',
   website_url: '',
@@ -96,17 +95,15 @@ const configForm = ref({
   maintenance_mode: false,
   max_users: 100,
   max_upload_size_mb: 50
-})
+});
 
 const loading = ref(false)
 const saving = ref(false)
 
-// 加载配置
 const fetchConfig = async () => {
   loading.value = true
   try {
-    // 响应拦截器已解包为 data.data
-    const response = await SystemApi.getConfig()
+    const response = await SystemApi.getConfig();
     if (response && typeof response === 'object') {
       configForm.value = { ...configForm.value, ...response }
     }
@@ -116,9 +113,8 @@ const fetchConfig = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
-// 保存配置
 const saveConfig = async () => {
   saving.value = true
   try {
@@ -134,7 +130,7 @@ const saveConfig = async () => {
   } finally {
     saving.value = false
   }
-}
+};
 
 const submitForm = async () => {
   await saveConfig()

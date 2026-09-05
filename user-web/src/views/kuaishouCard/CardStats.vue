@@ -24,7 +24,7 @@
         </div>
       </template>
 
-      <!-- 卡片信息 -->
+      
       <div class="card-info-section" v-if="cardInfo.id">
         <el-row :gutter="20">
           <el-col :span="6">
@@ -51,7 +51,7 @@
         </el-row>
       </div>
 
-      <!-- 总体统计 -->
+      
       <div class="stats-overview">
         <el-row :gutter="20">
           <el-col :span="24">
@@ -65,7 +65,7 @@
         </el-row>
       </div>
 
-      <!-- 图表区域 -->
+      
       <div class="charts-section">
         <el-row :gutter="20">
           <el-col :span="24">
@@ -81,7 +81,7 @@
         </el-row>
       </div>
 
-      <!-- 最近活动 -->
+      
       <div class="bottom-section">
         <el-row :gutter="20">
           <el-col :span="24">
@@ -125,82 +125,67 @@ import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'
 import { getKuaishouCard, getKuaishouCardStats } from '@/api/kuaishouCard'
 
-// 路由
-const route = useRoute()
+const route = useRoute();
 const router = useRouter()
 
-// 响应式数据
-const loading = ref(false)
+const loading = ref(false);
 const cardId = ref(route.params.id)
 const cardInfo = ref({})
 const dateRange = ref([])
 const groupBy = ref('day')
 
-// 卡片统计数据
 const cardStats = reactive({
   cardId: 0,
   title: '',
   viewCount: 0,
   dailyStats: [],
   recentActivity: []
-})
+});
 
-// 图表实例
-const visitTrendChart = ref(null)
+const visitTrendChart = ref(null);
 let visitChartInstance = null
 
-// 获取卡片信息
 const fetchCardInfo = async () => {
   try {
     const res = await getKuaishouCard(cardId.value)
-    // 拦截器已解包，res 直接就是数据对象
-    cardInfo.value = res
+    cardInfo.value = res;
   } catch (error) {
     ElMessage.error(i18n.global.t('获取卡片信息失败'))
     console.error('获取快手卡片信息失败:', error)
   }
-}
+};
 
-// 获取卡片统计数据
 const fetchCardStats = async () => {
   try {
     const params = {}
     
-    // 添加日期范围参数
     if (dateRange.value && dateRange.value.length === 2) {
       params.start_date = formatDate(dateRange.value[0])
       params.end_date = formatDate(dateRange.value[1])
     }
     
-    // 添加分组参数
-    params.group_by = groupBy.value
+    params.group_by = groupBy.value;
     
     const res = await getKuaishouCardStats(cardId.value, params)
-    // 拦截器已解包，res 直接就是数据对象
-    // 更新统计数据
-    Object.assign(cardStats, res)
-    // 后端无数据时可能返回 null，需兜底为空数组，避免图表初始化崩溃
-    if (!Array.isArray(cardStats.dailyStats)) cardStats.dailyStats = []
+    Object.assign(cardStats, res);
+    if (!Array.isArray(cardStats.dailyStats))
+      cardStats.dailyStats = [];
     if (!Array.isArray(cardStats.recentActivity)) cardStats.recentActivity = []
 
-    // 更新图表
     nextTick(() => {
       initCharts()
-    })
+    });
   } catch (error) {
     ElMessage.error(i18n.global.t('获取统计数据失败'))
     console.error('获取快手卡片统计失败:', error)
   }
-}
+};
 
-// 初始化图表
 const initCharts = () => {
-  // 销毁已存在的图表
   if (visitChartInstance) {
     visitChartInstance.dispose()
   }
 
-  // 初始化访问趋势图
   if (visitTrendChart.value) {
     visitChartInstance = safeInit(visitTrendChart.value)
     const visitOption = {
@@ -242,43 +227,35 @@ const initCharts = () => {
     visitChartInstance.setOption(visitOption)
   }
 
-  // 响应式调整
-  window.addEventListener('resize', handleResize)
-}
+  window.addEventListener('resize', handleResize);
+};
 
-// 处理窗口大小变化
 const handleResize = () => {
   if (visitChartInstance) visitChartInstance.resize()
-}
+};
 
-// 处理日期范围变化
 const handleDateChange = () => {
   fetchCardStats()
-}
+};
 
-// 处理分组方式变化
 const handleGroupByChange = () => {
   fetchCardStats()
-}
+};
 
-// 刷新数据
 const refreshData = () => {
   fetchCardInfo()
   fetchCardStats()
-}
+};
 
-// 返回列表
 const goBack = () => {
   router.push('/kuaishouCard')
-}
+};
 
-// 格式化数字
 const formatNumber = (num) => {
   if (!num) return '0'
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
+};
 
-// 格式化日期
 const formatDate = (date) => {
   if (!date) return ''
   const d = new Date(date)
@@ -286,39 +263,33 @@ const formatDate = (date) => {
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
-}
+};
 
-// 获取操作类型标签
 const getActionType = (action) => {
   const typeMap = {
     'view': 'info'
   }
   return typeMap[action] || 'default'
-}
+};
 
-// 获取操作类型文本
 const getActionText = (action) => {
   const typeMap = {
     'view': '浏览'
   }
   return typeMap[action] || '未知'
-}
+};
 
-// 生命周期
 onMounted(async () => {
-  // 设置默认日期范围为最近30天
-  const endDate = new Date()
+  const endDate = new Date();
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - 30)
   dateRange.value = [startDate, endDate]
   
-  // 获取数据
-  await fetchCardInfo()
+  await fetchCardInfo();
   await fetchCardStats()
-})
+});
 
-// 组件卸载时清理
-import { onUnmounted } from 'vue'
+import { onUnmounted } from 'vue';
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   if (visitChartInstance) visitChartInstance.dispose()

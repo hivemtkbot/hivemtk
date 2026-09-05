@@ -13,7 +13,7 @@
     </el-alert>
 
     <el-row :gutter="16" style="margin-top: 16px">
-      <!-- 左侧:接入测试 + JSON 调试 -->
+      
       <el-col :span="14">
         <el-card>
           <template #header>
@@ -67,7 +67,7 @@
           </el-form>
         </el-card>
 
-        <!-- 响应结果 -->
+        
         <el-card v-if="lastResponse" style="margin-top: 16px">
           <template #header>
             <div class="card-header">
@@ -107,7 +107,7 @@
         </el-card>
       </el-col>
 
-      <!-- 右侧:Token 提示 + 历史任务 -->
+      
       <el-col :span="10">
         <el-card>
           <template #header>
@@ -299,12 +299,10 @@ const formatDate = (d) => d ? new Date(d).toLocaleString('zh-CN') : '-'
 onMounted(async () => {
   await loadProducts()
   await loadJobs()
-  // 从 localStorage 读取 token(避免重复输入)
-  apiToken.value = localStorage.getItem('knowledge_merchant_token') || ''
+  apiToken.value = localStorage.getItem('knowledge_merchant_token') || '';
 })
 
-// 监听 token 变化保存
-import { watch } from 'vue'
+import { watch } from 'vue';
 watch(apiToken, (val) => {
   if (val) localStorage.setItem('knowledge_merchant_token', val)
 })

@@ -9,7 +9,7 @@
       </div>
     </el-card>
 
-    <!-- 快捷操作：启停 + 改密 -->
+    
     <el-card class="section-card">
       <template #header>
         <span class="section-title">
@@ -84,7 +84,7 @@
       </el-form>
     </el-card>
 
-    <!-- 操作审计日志 -->
+    
     <el-card class="section-card">
       <template #header>
         <div class="card-header">
@@ -186,8 +186,7 @@ import { setUserEnabled, resetUserPassword, listAuditLogs } from '@/api/permissi
 
 const { t } = useI18n()
 
-// 表单
-const formRef = ref(null)
+const formRef = ref(null);
 const form = reactive({
   userId: null,
   enabled: true,
@@ -207,8 +206,7 @@ const submitting = reactive({
   password: false
 })
 
-// 审计日志
-const filterAction = ref('')
+const filterAction = ref('');
 const actionOptions = [
   { value: 'user.enable', label: 'user.enable' },
   { value: 'user.disable', label: 'user.disable' },
@@ -218,7 +216,6 @@ const logs = ref([])
 const logsLoading = ref(false)
 const logsPagination = ref({ page: 1, size: 20, total: 0 })
 
-// 启停
 async function handleToggleEnabled() {
   if (!form.userId) {
     ElMessage.warning(t('permission.targetUserId'))
@@ -245,7 +242,6 @@ async function handleToggleEnabled() {
   }
 }
 
-// 改密
 async function handleResetPassword() {
   if (!form.userId) {
     ElMessage.warning(t('permission.targetUserId'))
@@ -282,7 +278,6 @@ async function handleResetPassword() {
   }
 }
 
-// 审计日志
 async function loadLogs() {
   logsLoading.value = true
   try {

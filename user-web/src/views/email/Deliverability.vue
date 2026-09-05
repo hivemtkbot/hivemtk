@@ -70,11 +70,7 @@
 </template>
 
 <script setup>
-/**
- * 送达率监控（USR-RC-04）
- * 借鉴：Postal / Listmonk / Amazon SES
- */
-import { ref, onMounted } from 'vue'
+import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'

@@ -20,7 +20,7 @@
       </el-col>
     </el-row>
 
-    <!-- 平台账号管理 -->
+    
     <el-card class="mb-4">
       <template #header>
         <div class="flex items-center justify-between">
@@ -81,7 +81,7 @@
       </div>
     </el-card>
 
-    <!-- 发布 Pipeline -->
+    
     <el-card class="mb-4">
       <template #header><span class="font-bold">发布 Pipeline</span></template>
       <div class="flex items-center gap-4 mb-4 flex-wrap">
@@ -110,7 +110,7 @@
       </el-table>
     </el-card>
 
-    <!-- 发布记录 -->
+    
     <el-card>
       <template #header><span class="font-bold">发布记录</span></template>
       <el-table :data="records" v-loading="recordsLoading" size="small">
@@ -127,7 +127,7 @@
       <div v-if="records.length === 0" class="empty-hint">暂无发布记录</div>
     </el-card>
 
-    <!-- 账号配置 Dialog -->
+    
     <el-dialog v-model="accountDialogVisible" :title="`配置 ${currentPlatform?.display_name} Token`" width="480px">
       <el-form :model="accountForm" label-width="120px">
         <el-form-item label="AppKey / UserID">
@@ -161,7 +161,7 @@ import {
   listPlatformPublishRecords
 } from '@/api/geoPlatform.js'
 
-const allPlatforms = ref([]) // 后端返回的完整列表
+const allPlatforms = ref([]);
 const platformsLoading = ref(false)
 const accounts = ref({})
 const articles = ref([])
@@ -177,10 +177,6 @@ const accountDialogVisible = ref(false)
 const currentPlatform = ref(null)
 const accountForm = reactive({ app_key: '', secret: '', extra: '' })
 
-// 过滤规则：
-// 1) capability === 'stub'          →  完全隐藏（自定义平台是假的）
-// 2) capability === 'cookie_gray' && !has_account  →  隐藏（无 cookie 账号 = 无法使用）
-// 3) 其余 real_api 或 cookie_gray 且有账号的 →  展示
 const availablePlatforms = computed(() => {
   return allPlatforms.value.filter(p => {
     const cap = p.capability
@@ -188,7 +184,7 @@ const availablePlatforms = computed(() => {
     if (cap === 'cookie_gray' && !p.has_account) return false
     return true
   })
-})
+});
 
 const hiddenCount = computed(() => allPlatforms.value.length - availablePlatforms.value.length)
 const filteredCount = computed(() => availablePlatforms.value.length)
@@ -242,7 +238,7 @@ const loadAccounts = async () => {
     accounts.value = Array.isArray(data)
       ? data.reduce((acc, a) => { acc[a.platform || a.name || a.key] = a; return acc }, {})
       : (data || {})
-  } catch { /* 忽略 */ }
+  } catch {}
 }
 
 const loadArticles = async () => {
@@ -329,7 +325,7 @@ const runPipeline = async () => {
           url: r.url
         }))
       }
-    } catch { /* 忽略查询失败 */ }
+    } catch {}
     pipelineRunning.value = false
     ElMessage.success('Pipeline 执行完成')
     loadRecords()

@@ -14,7 +14,7 @@
     </div>
 
     <div class="step-content">
-      <!-- 第一步：阅读使用声明 -->
+      
       <div v-if="currentStep === 0" class="step-item">
         <h2>{{ $t('软件使用声明') }}</h2>
         <div class="agreement-content">
@@ -35,7 +35,7 @@
         </div>
       </div>
 
-      <!-- 第二步：创建超管 + 选填联系方式（初始化后上报平台） -->
+      
       <div v-if="currentStep === 1" class="step-item">
         <h2>{{ $t('创建超级管理员') }}</h2>
         <p class="step-tip">
@@ -112,7 +112,7 @@
         </div>
       </div>
 
-      <!-- 第三步：完成提示 -->
+      
       <div v-if="currentStep === 2" class="step-item">
         <el-result
           icon="success"
@@ -154,8 +154,7 @@ const router = useRouter()
 const currentStep = ref(0)
 const agreed = ref(false)
 
-// 超管表单（开源版：手机号/邮箱/姓名选填，初始化后由后端上报平台）
-const adminFormRef = ref(null)
+const adminFormRef = ref(null);
 const adminForm = reactive({
   username: '',
   password: '',
@@ -218,18 +217,16 @@ const handleCreateAdmin = async () => {
   try {
     await adminFormRef.value.validate()
     creatingAdmin.value = true
-    // 公开 API：无需 JWT。后端会创建超管并直接上报安装信息到平台。
     const resp = await http.post('/api/system/init-admin', {
       username: adminForm.username,
       password: adminForm.password,
       contact_phone: adminForm.contact_phone,
       email: adminForm.email,
       real_name: adminForm.real_name
-    }, { _silent: true })
+    }, { _silent: true });
     if (resp) {
       ElMessage.success(resp.message || '超管创建成功')
-      // 标记前端初始化完成
-      await markInitializationComplete()
+      await markInitializationComplete();
       nextStep()
     }
   } catch (error) {
@@ -245,7 +242,6 @@ const goToLogin = () => {
 }
 
 onMounted(async () => {
-  // 检查后端初始化状态，跳过已初始化步骤
   try {
     const status = await http.get('/api/system/init-status')
     if (status && status.state) {

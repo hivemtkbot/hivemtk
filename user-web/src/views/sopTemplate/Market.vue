@@ -1,6 +1,6 @@
 <template>
   <div class="sop-market-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -16,7 +16,7 @@
       </div>
     </el-card>
 
-    <!-- 搜索 + 分类 -->
+    
     <el-card shadow="never" class="filter-card">
       <el-form :inline="true" :model="filter" @submit.prevent>
         <el-form-item label="关键词">
@@ -55,7 +55,7 @@
       </el-form>
     </el-card>
 
-    <!-- 模板网格 -->
+    
     <div class="template-grid" v-loading="loading">
       <el-empty
         v-if="!loading && filteredTemplates.length === 0"
@@ -144,7 +144,7 @@
       </el-card>
     </div>
 
-    <!-- 详情对话框 -->
+    
     <el-dialog
       v-model="detailVisible"
       :title="currentTpl?.name || '模板详情'"
@@ -210,7 +210,6 @@ import {
 } from '@element-plus/icons-vue'
 import { sopTemplateApi } from '@/api/sopTemplate'
 
-// ===== 内置模板库（5 大业务场景）=====
 const builtInTemplates = ref([
   {
     code: 'pre_sale_followup',
@@ -389,10 +388,9 @@ const builtInTemplates = ref([
       { name: 'agent_name', desc: '客服名称' }
     ]
   }
-])
+]);
 
-// ===== 状态 =====
-const loading = ref(false)
+const loading = ref(false);
 const filter = ref({ keyword: '', category: '' })
 const detailVisible = ref(false)
 const currentTpl = ref(null)
@@ -403,7 +401,6 @@ const categories = [
   { value: 'marketing', label: '营销' }
 ]
 
-// ===== 计算 =====
 const filteredTemplates = computed(() => {
   let list = builtInTemplates.value
   if (filter.value.keyword) {
@@ -418,13 +415,12 @@ const filteredTemplates = computed(() => {
     list = list.filter((t) => t.category === filter.value.category)
   }
   return list
-})
+});
 
-// ===== 工具 =====
 const truncate = (text, len) => {
   if (!text) return '-'
   return text.length > len ? text.slice(0, len) + '...' : text
-}
+};
 
 const getCategoryLabel = (cat) => {
   const c = categories.find((x) => x.value === cat)
@@ -438,7 +434,6 @@ const getCategoryTagType = (cat) => {
   return 'info'
 }
 
-// ===== 加载已导入状态 =====
 const loadImportedState = async () => {
   try {
     const res = await sopTemplateApi.list({ page: 1, page_size: 100 }).catch(() => null)
@@ -454,12 +449,9 @@ const loadImportedState = async () => {
   } catch (e) {
     console.warn('加载已导入状态失败', e)
   }
-}
+};
 
-// ===== 操作 =====
-const onSearch = () => {
-  // computed 自动响应
-}
+const onSearch = () => {};
 
 const resetFilter = () => {
   filter.value = { keyword: '', category: '' }

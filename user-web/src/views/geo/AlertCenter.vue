@@ -1,7 +1,7 @@
 <template>
   <div class="geo-page">
     <div class="p-4">
-      <!-- 顶部统计 -->
+      
       <el-row :gutter="16" class="mb-4">
         <el-col :span="8">
           <el-card>
@@ -25,7 +25,7 @@
         </el-col>
       </el-row>
 
-      <!-- 过滤器 -->
+      
       <el-card class="mb-4">
         <div class="flex items-center gap-3 flex-wrap">
           <el-select v-model="filterType" placeholder="告警类型" clearable style="width:180px" @change="load">
@@ -41,7 +41,7 @@
         </div>
       </el-card>
 
-      <!-- 告警列表 -->
+      
       <el-card>
         <template #header><span class="font-bold">GEO 告警（AI 引擎负面命中 / 异常）</span></template>
         <el-table :data="alerts" v-loading="loading" size="small">
@@ -160,8 +160,8 @@ const remove = async (row) => {
 onMounted(() => {
   load()
   pollTimer = setInterval(() => {
-    // 页面隐藏时跳过轮询，减少无效请求
-    if (document.visibilityState === 'visible') load()
+    if (document.visibilityState === 'visible')
+      load();
   }, 60000)
 })
 onBeforeUnmount(() => {

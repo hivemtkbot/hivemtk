@@ -122,8 +122,7 @@ const list = ref([])
 const total = ref(0)
 const loading = ref(false)
 const enabledList = ref([])
-// 当前已热启用（运行时热插拔缓存）的资产包 id 集合，驱动列表「热启用/热禁用」按钮显隐
-const hotEnabledIds = ref(new Set())
+const hotEnabledIds = ref(new Set());
 
 const scopeLabel = (s) => ({ private: '私有', shared: '共享', official: '官方' }[s] || s)
 const scopeTagType = (s) => ({ private: 'info', shared: 'warning', official: 'success' }[s] || '')
@@ -166,9 +165,7 @@ const fetchEnabled = async () => {
     const list = data.list || []
     enabledList.value = list
     hotEnabledIds.value = new Set(list.map(b => b.id))
-  } catch (e) {
-    // 静默失败
-  }
+  } catch (e) {}
 }
 
 const handleEnable = async (row) => {

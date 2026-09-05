@@ -1,9 +1,6 @@
 import { http } from '@/utils/request'
 
 export const clueApi = {
-  // type: () => {
-  //   return http.get(`/api/clues/type`)
-  // },
   delete: (id) => {
     return http.delete(`/api/clues/delete/${id}`)
   },
