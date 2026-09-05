@@ -244,6 +244,14 @@ func (h *HybridSearcher) SearchIndex(ctx context.Context, productID string, quer
 		}
 	}
 
+	// D17b 量纲修复：rerank 未生效时 fused 分数是 RRF 量纲（~0.016-0.033/满分 ~0.04），
+	// 下游（置信度 RAGQual、相似度门控）按 0~1 语义消费——min-max 归一化到 (0,1]，
+	// 消除"rerank 在线=cosine 量纲 / 降级=RRF 量纲"的分数语义混用。
+	// rerank 生效时 applyRerank 已产出归一化分数，跳过。
+	if rerankCount == 0 && len(fused) > 0 {
+		normalizeRRFScores(fused)
+	}
+
 	if h.config.CandidatePool > 0 && len(fused) > h.config.CandidatePool {
 		fused = fused[:h.config.CandidatePool]
 	}
@@ -481,4 +489,29 @@ func (h *HybridSearcher) reciprocalRankFusion(vecResults, kwResults []Chunk, vec
 		}
 	}
 	return result
+}
+
+// normalizeRRFScores 就地把 RRF 融合分 min-max 归一化到 (0,1]：
+// 最高分→1，其余按比例；单调性不变（排序/截断语义不受影响）。
+func normalizeRRFScores(chunks []Chunk) {
+	if len(chunks) == 0 {
+		return
+	}
+	max, min := chunks[0].Score, chunks[0].Score
+	for _, c := range chunks[1:] {
+		if c.Score > max {
+			max = c.Score
+		}
+		if c.Score < min {
+			min = c.Score
+		}
+	}
+	span := max - min
+	for i := range chunks {
+		if span <= 0 {
+			chunks[i].Score = 1.0 // 全同分：唯一文档场景，给满分（覆盖率照常按条数折减）
+			continue
+		}
+		chunks[i].Score = (chunks[i].Score - min) / span
+	}
 }
