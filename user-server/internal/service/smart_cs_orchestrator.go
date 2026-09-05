@@ -32,7 +32,6 @@ var (
 	globalFAQEmbedder llm.EmbeddingServiceInterface
 )
 
-// SetGlobalFAQAnswerCache 装配层注入 FAQ 答案语义缓存（M6 R-2 / RT-2 契约：仅 smart_cs FAQ 场景启用）
 func SetGlobalFAQAnswerCache(svc *ragcache.FAQAnswerCacheService, embedder llm.EmbeddingServiceInterface) {
 	globalFAQCache = svc
 	globalFAQEmbedder = embedder
@@ -130,11 +129,6 @@ func (o *SmartCSOrchestrator) SetIdentityService(svc *CustomerIdentityService) {
 	o.identitySvc = svc
 }
 
-// SetDNCChecker CS-P0-1: 注入全局退订检查器
-//
-// 生产接线：sales_engine_factory.BuildSmartOrchestrator 在创建编排器后注入
-// DoNotContactService，使 checkDNCBlocked 能真正查 DB。
-// 测试 / 无 DB 环境可传 nil（向后兼容，DNC 检查被跳过）。
 func (o *SmartCSOrchestrator) SetDNCChecker(checker DoNotContactChecker) {
 	o.dncChecker = checker
 }

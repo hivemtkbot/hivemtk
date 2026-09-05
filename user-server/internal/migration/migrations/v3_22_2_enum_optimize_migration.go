@@ -9,22 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// EnumOptimizeMigration OPT-DB-08: 高频 enum 改 PostgreSQL ENUM
-//
-// 现状：AgentType、AgentMode、ChannelType、KnowledgeBaseType 等高频枚举字段
-// 使用 varchar(16/32) 存储，缺乏数据库层的值校验与类型安全。
-//
-// 本迁移为以下高频枚举创建 PostgreSQL 原生 ENUM 类型，并迁移对应列：
-//   - agent_type:        sales / customer_service / hybrid
-//   - agent_mode:        passive / active
-//   - channel_type:      telegram / wecom / feishu / whatsapp / dingtalk / douyin /
-//     xiaohongshu / kuaishou / xianyu / tiktok / web / web_embed
-//   - kb_type:           faq / rag / sop
-//   - kb_owner_type:     private / shared
-//   - asset_bundle_scope: private / shared / official
-//   - asset_bundle_status: draft / active / inactive / archived
-//
-// 幂等安全：CREATE TYPE IF NOT EXISTS 通过 DO $$ 块模拟。
 type EnumOptimizeMigration struct {
 	db *gorm.DB
 }

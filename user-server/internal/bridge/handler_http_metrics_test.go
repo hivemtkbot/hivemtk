@@ -1,12 +1,3 @@
-// 桥接 handler 指标埋点测试（2026-08-15 M3-P1-E4）
-//
-// 验证三端点（ingest / outbox / ack）的指标埋点行为：
-//   - ingest:  IngestTotal（channel+agent_id）计数、IngestErrors 错误码计数、IngestDuration 耗时
-//   - outbox:  OutboxFetched 计数、OutboxDuration 耗时、参数校验错误计数
-//   - ack:     OutboxAcked 按 per-msg-id 状态计数、AckDuration 耗时、参数校验错误计数
-//
-// 说明：指标为全局单例，跨测试累计，因此断言用「前后差值」，避免相互污染。
-// 成功路径依赖真实 PostgreSQL（testutil 自动 Skip），失败路径为纯单元测试。
 package bridge
 
 import (

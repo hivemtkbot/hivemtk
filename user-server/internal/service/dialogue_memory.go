@@ -18,12 +18,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// DialogueMemoryService 对话记忆服务（短期+长期）
-//
-// M-3 双轨写合并：本服务已降级为 MemorySystem 的 L1/L2 写入适配器，
-// 保留全部函数签名兼容现有调用方；摘要结果统一经 MemorySystem.Remember 写入。
-//
-// 五层架构修复：service 层不再持有 *gorm.DB，由 repository 层封装所有 DB 操作。
 type DialogueMemoryService struct {
 	repo       repository.DialogueMemoryRepository
 	ms         *MemorySystem

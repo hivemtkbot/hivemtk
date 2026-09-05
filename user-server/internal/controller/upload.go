@@ -20,7 +20,7 @@ import (
 // 文件上传配置
 const (
 	MaxUploadSize = 10 * 1024 * 1024
-	// P1-2 修复：白名单移除 image/svg+xml（SVG 可携带 script，构成存储型 XSS 面）
+
 	AllowedImageTypes   = "image/jpeg,image/jpg,image/png,image/gif,image/webp"
 	AllowedVideoTypes   = "video/mp4,video/quicktime,video/x-msvideo"
 	AllowedDocTypes     = "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
@@ -68,10 +68,6 @@ type UploadConfig struct {
 	CheckMagicNumber bool
 }
 
-// DefaultUploadConfig 默认上传配置
-//
-// P0-26 收紧：AllowedTypes 与 allowedExtensions 保持一致，只放行
-// 图片 (jpeg/png/gif/webp) + PDF + Word。
 var DefaultUploadConfig = UploadConfig{
 	MaxSize:          MaxUploadSize,
 	AllowedTypes:     "image/jpeg,image/jpg,image/png,image/gif,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",

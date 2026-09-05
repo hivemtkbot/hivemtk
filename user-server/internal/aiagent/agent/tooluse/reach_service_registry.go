@@ -6,10 +6,6 @@ import (
 	"sync"
 )
 
-// ReachChannelService 渠道 service 抽象接口
-//
-//	2026-08-16：tooluse 包不能直接 import service（循环依赖），
-//	改为通过适配器把 service 包装成这套接口，由 service 包在启动时注册。
 type ReachChannelService interface {
 	ChannelName() string
 }

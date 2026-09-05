@@ -16,13 +16,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// TestAckBridgeOutbox_DetailedItems_P3D 验证 P3-D：ack 响应包含 per-msg-id 详细状态。
-//
-// 场景：
-//  1. seed 3 条 pending：msg_a, msg_b, msg_c
-//  2. 先把 msg_b 单独 ack 一次 → msg_b 翻转为 delivered
-//  3. 再批量 ack [msg_a, msg_b, msg_c, msg_d（不存在）]
-//  4. 响应：acked=2（a+c）, duplicate=1（b）, not_found=1（d）
 func TestAckBridgeOutbox_DetailedItems_P3D(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -100,7 +93,6 @@ func TestAckBridgeOutbox_DetailedItems_P3D(t *testing.T) {
 	}
 }
 
-// TestAckBridgeOutbox_TooManyMsgIDs_P3D 验证 P3-D：单次 ack msg_ids 数量上限保护。
 func TestAckBridgeOutbox_TooManyMsgIDs_P3D(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -131,7 +123,6 @@ func TestAckBridgeOutbox_TooManyMsgIDs_P3D(t *testing.T) {
 	}
 }
 
-// TestAckOutboundDeliveredDetailed_CrossSession_P3D 验证跨会话同 msg_id 互不影响（P3-D 详细 ack）。
 func TestAckOutboundDeliveredDetailed_CrossSession_P3D(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.MessageHub{})
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
@@ -219,11 +210,6 @@ func TestGetByMsgIDsInScope_OwnershipIsolation_P3D(t *testing.T) {
 	}
 }
 
-// TestAckOutboundDeliveredDetailed_ConcurrentDoubleAck_P4 验证 P4-2.1：并发双重 ack。
-//
-// 场景：N=10 个 goroutine 同时 ack 同一 msg_id，最终只能 1 个 acked + 9 个 duplicate。
-// 之前"先查后更"实现会出现 acked 计数虚高；P4 修复后用 RETURNING 单 SQL 原子"分类+翻转"。
-// 跑 go test -race 检测竞态。
 func TestAckOutboundDeliveredDetailed_ConcurrentDoubleAck_P4(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -287,9 +273,6 @@ func TestAckOutboundDeliveredDetailed_ConcurrentDoubleAck_P4(t *testing.T) {
 	}
 }
 
-// TestAckOutboundDeliveredDetailed_HubRepoNil_P4 验证 P4-3.1：hubRepo nil 必须返 error。
-// 注：NewInboxIngressServiceWithDB 在 db!=nil 时会自动装配默认 hubRepo（8/18 起），
-// 因此 nil-repo 场景通过 db=nil 构造。
 func TestAckOutboundDeliveredDetailed_HubRepoNil_P4(t *testing.T) {
 	svc := service.NewInboxIngressServiceWithDB(nil, nil)
 	r, err := svc.AckOutboundDeliveredDetailed(context.Background(), "douyin", "acc", []string{"m1"}, "", "delivered", nil)
@@ -301,7 +284,6 @@ func TestAckOutboundDeliveredDetailed_HubRepoNil_P4(t *testing.T) {
 	}
 }
 
-// TestAckOutboundDeliveredDetailed_DuplicateMsgIDInput_P4 验证 P4-7.4：msg_id 入参去重。
 func TestAckOutboundDeliveredDetailed_DuplicateMsgIDInput_P4(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -335,7 +317,6 @@ func TestAckOutboundDeliveredDetailed_DuplicateMsgIDInput_P4(t *testing.T) {
 	}
 }
 
-// TestGetByMsgIDsInScope_OnlyOutbound_P4 验证 P4-1.1：GetByMsgIDsInScope 仅返回 outbound 行。
 func TestGetByMsgIDsInScope_OnlyOutbound_P4(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.MessageHub{})
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {

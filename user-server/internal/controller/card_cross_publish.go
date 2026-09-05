@@ -1,7 +1,3 @@
-// card_cross_publish.go 名片跨平台同步发布（R39 /api/cards/cross-publish）
-//
-// 语义：一份卡片素材（标题/描述/图/跳转）同步创建到多个平台卡片体系；
-// 单平台失败不阻断其余平台，逐平台返回结果（部分成功语义）。
 package controller
 
 import (

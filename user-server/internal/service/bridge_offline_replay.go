@@ -11,14 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// BridgeOfflineReplayService Bridge 离线消息回扫服务
-//
-// G10: 竞品标配功能 - 每 5 分钟扫描 bridge_metrics 发现离线渠道，
-// 重新发送 reach_delayed_outbound 中累积的消息。
-//
-// 依赖的表（由 v3_26_0_reach_tables_migration 已创建）：
-//   - reach_delayed_outbound：延迟出站消息（累积队列）
-//   - bridge_metrics：桥接渠道指标（判断渠道离线）
 type BridgeOfflineReplayService struct {
 	db *gorm.DB
 }

@@ -107,17 +107,6 @@ func SetAllowedWSOrigins(origins []string) {
 	allowedWSOrigins = origins
 }
 
-// HandleVisitorWebSocket 处理访客 WebSocket 连接
-//
-// 安全修复（2026-08-18）：
-//   - 验证 visitor_token（HMAC-SHA256 签名），防止 IDOR 越权连接他人会话
-//   - 验证通过后才升级到 WebSocket 连接
-//
-// 鲁棒性加固（方向B）：
-//   - 接受 query `since_seq=N` 增量补发（断点续传）
-//   - readPump 处理 `{"type":"ack","seq":[N,...]}` 清理待 ACK
-//   - readPump 处理 `{"type":"resume","since_seq":N}` 拉取增量消息
-//   - onConnect 接受 sinceSeq 沿用 delivered_at 兜底补发
 func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 	sessionID := strings.TrimSpace(c.Query("session_id"))
 	visitorID := strings.TrimSpace(c.Query("visitor_id"))

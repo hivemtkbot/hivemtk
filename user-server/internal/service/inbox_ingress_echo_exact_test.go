@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// T2 验收①：入站回显携带出站行同款平台消息 ID（wamid）→ 精确拦截。
 func TestInboxIngress_SelfEcho_ExactPlatformMsgID_Blocked(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)
@@ -57,7 +56,6 @@ func TestInboxIngress_SelfEcho_ExactPlatformMsgID_Blocked(t *testing.T) {
 	}
 }
 
-// T2 验收②：同款 msg_id 但方向是 inbound（客户消息 ID 撞车防护）→ 不拦截。
 func TestInboxIngress_ExactMatch_InboundRowNotBlocked(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)
@@ -100,7 +98,6 @@ func TestInboxIngress_ExactMatch_InboundRowNotBlocked(t *testing.T) {
 	}
 }
 
-// T2 验收③：UpdateMsgID 只回写 outbound 行；inbound 行与空 ID 不动。
 func TestMessageHub_UpdateMsgID_DirectionGuard(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	repo := repository.NewMessageHubRepositoryWithDB(db)
@@ -134,7 +131,6 @@ func TestMessageHub_UpdateMsgID_DirectionGuard(t *testing.T) {
 	}
 }
 
-// T2 验收④：channelMsgIDOf 过滤服务端自造占位 ID（不可能与平台 ID 匹配，省一次查询）。
 func TestChannelMsgIDOf_FiltersPlaceholder(t *testing.T) {
 	cases := []struct {
 		raw  string

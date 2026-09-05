@@ -77,21 +77,6 @@ func (r *CustomerSessionRepository) GetByIDString(ctx context.Context, id string
 	return &session, nil
 }
 
-// UpsertByOneID 原子 UPSERT 会话（修复 2026-08-05 P1 race condition）。
-//
-// 历史 bug：findOrCreateSession 用 time.Now().UnixNano() 派生 session_id，并发首消息会
-// 产生 N 个不同 session_id → N 个重复 session 实体。
-// 修复：稳定 session_id = "sess_" + platform + account + one_id（确定输入 → 唯一输出）；
-// 用 (platform, account_id, one_id) 作为业务键做 INSERT ... ON CONFLICT DO NOTHING。
-// 冲突时 RETURNING 不返回行 → 再 SELECT 拿稳定 session_id。
-//
-// 入参：
-//   - platform, accountID, oneID：业务唯一键
-//   - userID, userName：用户身份信息（首次入站填）
-//   - lastMessage, lastMessageAt：本次消息预览
-//   - dncBlocked：CS-P0-1 全局退订标记（true 时 INSERT 写入）
-//
-// 返回：稳定 session_id（首消息=新创建, 重复=已存在）；err 留给上层降级到旧逻辑
 func (r *CustomerSessionRepository) UpsertByOneID(ctx context.Context, platform, accountID, oneID, userID, userName, lastMessage string, lastMessageAt *time.Time, dncBlocked bool) (string, error) {
 	stableID := fmt.Sprintf("sess_%s_%s_%s", platform, accountID, oneID)
 	now := time.Now()

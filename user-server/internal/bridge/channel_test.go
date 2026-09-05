@@ -2,10 +2,6 @@ package bridge
 
 import "testing"
 
-// TestIsBridgeChannel_AcceptsLegacyAliases 验证 2026-08-13 修复：
-// 上游桥接扩展可能上报 xhs / xhs_web / douyin_web 等历史简写，IsBridgeChannel
-// 须在归一化后放行，否则 /api/bridge/ingest 会以 unsupported_channel 拒绝上报
-// （小红书消息丢失）。全名白名单仍保持原行为。
 func TestIsBridgeChannel_AcceptsLegacyAliases(t *testing.T) {
 	accept := []string{
 		"xiaohongshu", "xhs", "xhs_web",

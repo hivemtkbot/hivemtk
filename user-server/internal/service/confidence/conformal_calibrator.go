@@ -9,17 +9,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ConformalCalibrator Conformal 校准在线串联
-//
-// 业界依据（Vovk 2005 "Algorithmic Learning in a Random World"）：
-//   - Conformal 预测的可靠性完全取决于校准集质量
-//   - 真实生产中应持续收集新 (prediction, ground_truth) 对，更新校准集
-//   - 在线更新策略：滑动窗口（sliding window）+ 周期性重算分位数
-//
-// v3 审计 P1-#6 增强：
-//   - 解决 ConformalPredictor.CalibrateOnline 散落调用的问题
-//   - 提供「在线校准器」统一接口，支持：批量更新 / 自动重算 / 阈值查询
-//   - 与 ConfidenceAggregator 解耦（通过 SetConformal 注入）
 type ConformalCalibrator struct {
 	mu             sync.RWMutex
 	predictor      *ConformalPredictor

@@ -5,8 +5,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// FromIntegrationTemplateModel 模板 → 响应
-// 转换属业务层职责（原位于 dto 包，P0-7 下沉至 service，dto 保持纯数据结构）
 func FromIntegrationTemplateModel(t *model.IntegrationTemplate) *dto.IntegrationTemplateResponse {
 	if t == nil {
 		return nil

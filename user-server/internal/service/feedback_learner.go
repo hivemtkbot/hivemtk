@@ -65,12 +65,6 @@ func NewFeedbackLearner(db *gorm.DB) *FeedbackLearner {
 	}
 }
 
-// RecordFeedback 记录反馈
-//
-// 数据流（G7 闭环起点）：
-//  1. 持久化到 feedback_records 表（db 非空时），供 FeedbackLearningService
-//     周期调用 ExtractProfile 提取销冠画像、AnalyzeNodeConversion 分析转化。
-//  2. 同步更新内存缓存（intentCache / sopCache），供低延迟查询与置信度阈值建议。
 func (f *FeedbackLearner) RecordFeedback(ctx context.Context, record *FeedbackRecord) error {
 	if record == nil {
 		return nil

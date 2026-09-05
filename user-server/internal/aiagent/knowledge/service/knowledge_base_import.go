@@ -31,8 +31,6 @@ type ImportDocumentResult struct {
 	Status     string `json:"status"`
 }
 
-// MaxUploadFileSize 上传文件大小上限 50MB。
-// v7 审计修复：原 io.Copy 无任何上限，超大文件可打满磁盘。
 const MaxUploadFileSize int64 = 50 << 20
 
 // ImportDocument 导入文档:保存文件 + 创建记录(status=pending) + 异步处理

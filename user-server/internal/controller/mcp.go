@@ -10,17 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// MCPController 处理 MCP（Model Context Protocol 2025-06-18）JSON-RPC over HTTP 请求。
-//
-// 原 router.go 中 bridgeWS.POST("/mcp", ...) 的内联 handler 抽出至此 controller。
-//
-// 设计要点：
-//   - 每次请求新建 mcp.Server：v3 审计发现 Server 不能是单例（initialize 状态
-//     会被并发请求污染——会话握手、capabilities 协商是 per-request 状态）。
-//   - 当前 mcp.NewServer(nil) 暂未接入 tooluse registry（initialize/ping 已工作）；
-//     后续挂上 tooluse registry 时只需替换参数。
-//   - 直接写 c.Writer + c.Header：MCP 响应体是 JSON-RPC 2.0 原始字节，
-//     不应经过 response 包装层。
 type MCPController struct{}
 
 // NewMCPController 构造 MCP controller。

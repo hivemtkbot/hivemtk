@@ -258,7 +258,6 @@ func (s *FeatureFlagService) ListEvalLogs(ctx context.Context, flagKey string) (
 	return s.repo.ListEvalLogs(ctx, flagKey, 100)
 }
 
-// CodeReferences 代码引用（R40: KV 登记表实现，工具链通过 Register 端点登记）
 func (s *FeatureFlagService) CodeReferences(ctx context.Context, flagKey string) []map[string]string {
 	refs, err := s.ListCodeReferences(ctx, flagKey)
 	if err != nil {

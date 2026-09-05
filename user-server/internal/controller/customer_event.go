@@ -123,16 +123,6 @@ func (c *CustomerEventController) DeleteEvent(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"deleted_count": count}, "删除成功")
 }
 
-// GetEventStats 获取事件统计
-// @Summary 获取事件统计
-// @Description 获取指定时间范围内的事件统计数据
-// @Tags CDP-事件追踪
-// @Accept json
-// @Produce json
-// @Param start query string false "开始日期 (YYYY-MM-DD)" default(30 天前)
-// @Param end query string false "结束日期 (YYYY-MM-DD)" default(今天)
-// @Success 200 {object} object{data=repository.EventStats} "获取成功"
-// @Router /api/events/stats [get]
 func (c *CustomerEventController) GetEventStats(ctx *gin.Context) {
 	start := ctx.Query("start")
 	end := ctx.Query("end")
@@ -321,9 +311,6 @@ func (c *CustomerEventController) TrackAddToCart(ctx *gin.Context) {
 	response.Success(ctx, nil, "加购事件追踪成功")
 }
 
-// ListGlobal R41: GET /api/customer-events/list — 全局分页事件流
-//
-// 替代前端"全客户 N+1 逐个拉取"模式（同时根除脏 conv-id 触发 Gin %2F 解码 404 的问题）。
 func (c *CustomerEventController) ListGlobal(ctx *gin.Context) {
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "50"))
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))

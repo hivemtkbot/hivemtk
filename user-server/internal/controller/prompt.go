@@ -12,8 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// PromptController Prompt 版本管理 + A/B 实验控制器
-// G13: 竞品标配功能
 type PromptController struct {
 	svc *service.PromptService
 }

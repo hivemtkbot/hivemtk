@@ -7,8 +7,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// FromCustomerRFMModel RFM 实体 → 响应
-// 转换属业务层职责（原位于 dto 包，P0-7 下沉至 service，dto 保持纯数据结构）
 func FromCustomerRFMModel(rfm *model.CustomerRFM) *dto.CustomerRFMResponse {
 	if rfm == nil {
 		return nil

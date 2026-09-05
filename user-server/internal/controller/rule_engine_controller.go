@@ -1,4 +1,3 @@
-// rule_engine_controller.go R53 B 自动化规则控制器
 package controller
 
 import (

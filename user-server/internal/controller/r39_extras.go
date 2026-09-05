@@ -1,4 +1,3 @@
-// r39_extras_controller.go R39 零散端点（营销流程 AB 回流 / 批量事件 / Web Vitals / 跨平台发布）
 package controller
 
 import (

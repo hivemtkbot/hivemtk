@@ -153,10 +153,6 @@ func DecryptString(s string) (string, error) {
 	return string(out), nil
 }
 
-// IsCiphertextFormat 判定字符串是否是本模块产生的密文。
-// 仅通过 `enc:v1:` 前缀识别——历史上曾用长度启发式（>=28 字节），
-// 但这会把 35 字节的明文 API key（如 sk-21c52964732247729...）误判为密文，
-// 导致 MASTER_KEY 未配置时解密失败返回空串（P0 bug 2026-08-31）。
 func IsCiphertextFormat(s string) bool {
 	return strings.HasPrefix(s, stringEncPrefix)
 }

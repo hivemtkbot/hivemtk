@@ -7,8 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CustomerServiceController 客服队列与容量管理控制器
-// G9: 竞品标配功能 - 实时队列长度、坐席容量、坐席状态列表
 type CustomerServiceController struct {
 	svc *service.CustomerQueueService
 }

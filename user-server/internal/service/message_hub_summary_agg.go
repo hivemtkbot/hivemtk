@@ -13,22 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// MessageHubSummaryAggregationService message_hub 小时级增量汇总服务（M18 表 D-3）。
-//
-// 决策源：docs/architecture/MASTER_COMPETITIVE_DECISIONS.md M18 表 D-3 / X-8。
-//
-// 流水线：
-//
-//	message_hub(raw, 按 id 序)
-//	  → watermark(aggregation_watermarks.last_event_id)
-//	  → 内存按 (hour_bucket, merchant_id, platform) 聚合
-//	  → 批量 INSERT ... ON CONFLICT DO UPDATE（计数累加）
-//	  → 水位线与数据同事务推进
-//
-// 正确性：
-//   - 增量正确性：仅消费 id > watermark 的行；
-//   - 幂等：水位线在 upsert 同事务推进，重跑不重复累加；
-//   - 迟到事件：迟到消息的 id 必然大于水位线，下轮被增量累加进历史 bucket，天然修正。
 type MessageHubSummaryAggregationService struct {
 	repo repository.MessageHubSummaryRepository
 	db   *gorm.DB

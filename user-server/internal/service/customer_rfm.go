@@ -214,11 +214,6 @@ func (s *CustomerRFMService) ComputeForCustomer(ctx context.Context, customerID 
 	return rfm, nil
 }
 
-// ComputeAll 计算所有客户 RFM
-//
-// v7 审计修复：原实现 List(ctx,1,limit) 只处理第一页（≤1000），其余客户永不参与分层。
-// 现按 pageSize=500 分页遍历全量客户；limit<=0 表示不设上限，
-// limit>0 时最多处理 limit 个（兼容旧调用方默认 200）。
 func (s *CustomerRFMService) ComputeAll(ctx context.Context, limit int) (int, error) {
 	const pageSize = 500
 	cfg := DefaultRFMConfig()

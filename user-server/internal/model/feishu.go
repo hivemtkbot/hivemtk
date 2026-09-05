@@ -5,7 +5,7 @@ import "time"
 // FeishuAccount 飞书账号（机器人应用）
 type FeishuAccount struct {
 	ID uint `gorm:"primaryKey;autoIncrement" json:"id"`
-	// OwnerUserID 创建者（归属 staff）ID；0 表示存量共享账号（P1-5 归属校验向后兼容）
+
 	OwnerUserID       uint       `gorm:"default:0;index" json:"owner_user_id"`
 	AccountName       string     `gorm:"type:varchar(100);not null" json:"account_name"`
 	AppID             string     `gorm:"type:varchar(100);not null" json:"app_id"`
@@ -64,7 +64,7 @@ func (FeishuMessage) TableName() string { return "feishu_messages" }
 // TelegramAccount Telegram 机器人账号
 type TelegramAccount struct {
 	ID uint `gorm:"primaryKey;autoIncrement" json:"id"`
-	// OwnerUserID 创建者（归属 staff）ID；0 表示存量共享账号（P1-5 归属校验向后兼容）
+
 	OwnerUserID        uint       `gorm:"default:0;index" json:"owner_user_id"`
 	AccountName        string     `gorm:"type:varchar(100);not null" json:"account_name"`
 	BotToken           string     `gorm:"type:varchar(200);not null" json:"bot_token"`
@@ -88,7 +88,7 @@ func (TelegramAccount) TableName() string { return "telegram_accounts" }
 // WhatsAppCloudAccount WhatsApp Cloud API 商业账号
 type WhatsAppCloudAccount struct {
 	ID uint `gorm:"primaryKey;autoIncrement" json:"id"`
-	// OwnerUserID 创建者（归属 staff）ID；0 表示存量共享账号（P1-5 归属校验向后兼容）
+
 	OwnerUserID        uint       `gorm:"default:0;index" json:"owner_user_id"`
 	AccountName        string     `gorm:"type:varchar(100);not null" json:"account_name"`
 	PhoneNumberID      string     `gorm:"type:varchar(100);not null" json:"phone_number_id"`

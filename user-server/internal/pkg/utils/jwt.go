@@ -22,11 +22,6 @@ const testJWTSecret = "test-jwt-secret-do-not-use-in-prod-32+chars"
 
 var dotenvLoaded bool
 
-// LoadDotEnv 极简 .env 加载器（零外部依赖）：KEY=VALUE 逐行解析，
-// 支持 # 注释行与内联注释；已存在的环境变量不覆盖（生产 env / 编排注入优先）。
-// 文件不存在时静默跳过。位置说明：必须在 utils 包内实现并供 init 期调用，
-// 因为 DefaultJWTConfig 的包级初始化先于 main() 执行，cmd 层加载器来不及生效
-// （R48 实证 panic）；main() 侧重复调用靠 dotenvLoaded 幂等。
 func LoadDotEnv(path string) {
 	if dotenvLoaded {
 		return

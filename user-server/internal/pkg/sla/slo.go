@@ -1,24 +1,3 @@
-// SLO 跟踪与 Error Budget（2026-08-15 M3-P1-E5 SLA 保障）
-//
-// 设计目标：
-//   - 声明式 SLO 定义（availability / latency / freshness）
-//   - 自动从指标采集数据计算 SLO 达成率
-//   - Error Budget 跟踪：30 天滑动窗口
-//   - 暴露 SLO 状态到 /metrics（slo_achievement / error_budget_remaining）
-//   - 失败时通过 SLOAlert 回调告警
-//
-// 用法：
-//
-//	slo := NewSLOTracker()
-//	slo.Define(SLO{
-//	    Name:        "bridge_ingest_availability",
-//	    Service:     "bridge",
-//	    SLITarget:   0.999,                   // 99.9% 可用性
-//	    Window:      30 * 24 * time.Hour,
-//	    Description: "Bridge ingest API 99.9% 请求成功",
-//	})
-//	// 每次请求：slo.Record("bridge_ingest_availability", true)
-//	// 告警：slo.OnBreach(func(s SLO) { alert(s) })
 package sla
 
 import (

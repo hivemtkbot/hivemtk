@@ -85,11 +85,6 @@ type ActionResult struct {
 	Extra       map[string]any `json:"extra,omitempty"`
 }
 
-// Reviewer 复审者（三段式角色分工模式 T10 第三段）
-//
-// 在 Planner/Executor 完成后对生成内容做最后一道质量/合规/安全审查，
-// 对应推荐方案 A 中"Reviewer"角色；本阶段不影响早退（handoff）决策，
-// 只对最终回复做打分与必要的话术修正，并记录 ReviewResult 供可观测使用。
 type Reviewer interface {
 	InferenceStage
 	Review(ctx context.Context, ic *InferenceContext) (*ReviewResult, error)

@@ -135,10 +135,6 @@ func Normalize(in Identifiers) Identifiers {
 	}
 }
 
-// PhoneHash 返回手机号 SHA-256 哈希。
-// v3 审计 P0-05 修复：盐从环境变量注入（避免硬编码）
-// 原：sha256.Sum256([]byte("oneid_phone_salt::" + normalized)) → 硬编码
-// 新：env ONEID_SALT（未设置时 fallback 到硬编码，warning）
 func PhoneHash(phone string) string {
 	normalized := NormalizePhone(phone)
 	if normalized == "" {
@@ -168,10 +164,6 @@ func HasAny(in Identifiers) bool {
 		strings.TrimSpace(in.XiaohongshuID) != ""
 }
 
-// UnifiedIDFromPhone 由手机号派生 OneID（不可逆：盐化哈希，杜绝明文手机号入库）。
-// v3 审计 P0-2 配套修复：原 "phone:"+明文 随各接口下发造成 PII 泄露。
-// model.GenerateCustomerUnifiedID 与 service.unifiedIDFromIdentifiers 必须经由本函数，
-// 保证两处派生一致；存量客户的旧格式 unified_id 作为不透明键继续有效（仅新增客户用新格式）。
 func UnifiedIDFromPhone(phone string) string {
 	h := PhoneHash(phone)
 	if h == "" {

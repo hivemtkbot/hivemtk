@@ -87,15 +87,6 @@ func RequireNotViewer(operatorRole string) error {
 	return nil
 }
 
-// RequirePermission 要求操作者具备指定权限
-//   - 使用 PermissionService.CheckPermission
-//   - 管理员（admin）默认放行
-//
-// # RequirePermission 校验操作者是否拥有指定权限
-//
-// 提示：旧版用 context.Background() 会丢失调用方 trace / cancel。
-// v3 审计 P1-26 修复：必须由调用方显式传 ctx；如确有不需要 trace 的场景，
-// 调用方传 context.Background() 即可（不再"自动"丢失）。
 func RequirePermission(ctx context.Context, operatorRole, permission string) error {
 	if operatorRole == "" {
 		return ErrServiceRoleMissing

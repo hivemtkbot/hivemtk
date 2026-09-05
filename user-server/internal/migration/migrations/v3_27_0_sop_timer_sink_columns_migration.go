@@ -9,12 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// SOPTimerSinkColumnsMigration M4 sop_timers 列下沉迁移 v3.27.0
-//
-// expires_at / max_wait_at / claim_count 原先仅存于 Payload JSONB，无法建索引、
-// 无法用 SQL 条件扫描。本迁移补齐实体列并创建 pending 状态部分索引；
-// 列定义与 model.SOPTimer 一致（AutoMigrate 也会自动补列，本迁移额外负责
-// 历史数据回填与部分索引——AutoMigrate 不支持部分索引）。
 type SOPTimerSinkColumnsMigration struct {
 	db *gorm.DB
 }

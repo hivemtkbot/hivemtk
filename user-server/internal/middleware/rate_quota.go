@@ -79,8 +79,6 @@ func recordQuotaTrigger(path, clientIP string) {
 	}
 }
 
-// GetQuotaSnapshots 获取所有已配置路径的当前限流状态
-// 供 G11 /api/system/rate-quota 面板端点调用
 func GetQuotaSnapshots() []quotaUsageSnapshot {
 	result := make([]quotaUsageSnapshot, 0, len(DefaultPathQuota))
 	minute := time.Now().Truncate(time.Minute).Unix()

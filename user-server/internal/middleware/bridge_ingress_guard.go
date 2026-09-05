@@ -48,12 +48,6 @@ func extractBridgeToken(c *gin.Context) string {
 	return ""
 }
 
-// BridgeIngressGuard 浏览器扩展桥接通道凭证守卫（v3 审计 P0-1）。
-//
-// 策略：
-//   - 配置 BRIDGE_INGEST_TOKEN 后：请求必须携带有效凭证（header 或 SSE query），
-//     常量时间比对通过；支持 PREV 双值灰度
-//   - 未配置：默认拒绝；开发/联调可显式设置 BRIDGE_INGEST_AUTH=off 放行
 func BridgeIngressGuard() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		candidates := bridgeTokenCandidates()

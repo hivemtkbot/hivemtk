@@ -69,10 +69,6 @@ var sharedEmbeddingTransport = &http.Transport{
 	TLSHandshakeTimeout: 10 * time.Second,
 }
 
-// EmbeddingLane embedding 并发车道（N-1 优先级隔离）。
-//
-// 背景：单信号量下，批量入库任务会占满全部并发额度，饿死在线检索（用户请求超时）。
-// 决策源：docs/architecture/MASTER_COMPETITIVE_DECISIONS.md M3 表 N-1。
 type EmbeddingLane int
 
 const (

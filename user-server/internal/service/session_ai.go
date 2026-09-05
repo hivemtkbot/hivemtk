@@ -1,4 +1,3 @@
-// session_ai.go AI 会话摘要（R48 T5，对标 Intercom Copilot / Libredesk 会话摘要）
 package service
 
 import (

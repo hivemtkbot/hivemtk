@@ -1,9 +1,3 @@
-// Package model 知识库域模型（兼容层）。
-//
-// 架构整改 P0-2（2026-08-10）：知识库实体的权威定义已下沉到共享叶子层
-// hivemtk-user/internal/model（五层架构中 model 为叶子层，不得被反向依赖）。
-// 本包保留为纯别名转发层，供既有 35 处 import 平滑过渡；
-// 新代码应直接 import hivemtk-user/internal/model，本包后续随域重构移除。
 package model
 
 import (

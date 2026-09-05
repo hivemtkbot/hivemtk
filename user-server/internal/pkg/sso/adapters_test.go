@@ -1,11 +1,3 @@
-// SSO 适配器测试（2026-08-15 M3-P1-E3）
-//
-// 覆盖各 IdP 适配器的 claim 归一化逻辑：
-//   - 飞书：name 兜底用户名 / avatar_url / union_id
-//   - 钉钉：nick 优先用户名 / avatar
-//   - 企微：userid 兜底 subject+用户名 / avatar
-//   - 通用 OIDC：标准 claims 直通
-//   - NewAdapter 空名称报错 / 未知名称回退通用
 package sso
 
 import (

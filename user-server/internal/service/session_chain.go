@@ -1,9 +1,3 @@
-// session_chain.go R53 会话生命周期链闭环（对标 Chatwoot 链2/链3）
-//
-// A1 resolved/closed → CSAT 自动触发（csat_survey_listener 语义）
-// A2 自动解决 SLA：auto_resolve_hours 无活动超时 → 打标+关闭（resolution_job 语义）
-// A3 访客消息 → resolved/closed 会话自动 reopen（toggle_status 语义）
-// B  轻量自动化规则引擎（automation_rules 精简版：事件+条件+动作+延迟）
 package service
 
 import (

@@ -269,11 +269,6 @@ type NodeHealth struct {
 	LastAbnormal  time.Time `json:"last_abnormal_at"`
 }
 
-// NodeHealthByChannel 按渠道 × 节点聚合：响应时间（avg/p95）、异常率。
-// 时间窗口 nodeHealthWindow（默认 24h），避免大表全扫。
-//
-// 修复（2026-08-08）：原实现对每个 (channel,node) 再发 2 条查询（Pluck 取全部 duration 算 p95、
-// Scan 取最近异常），形成 N+1。改为单条 SQL 用窗口聚合一次性算出 p95 与最近异常时间。
 func NodeHealthByChannel(ctx context.Context) ([]NodeHealth, error) {
 	d := db.GetDB()
 	if d == nil {

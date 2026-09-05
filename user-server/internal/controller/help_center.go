@@ -37,8 +37,6 @@ func (c *HelpCenterController) Articles(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"list": list, "total": len(list)}, "ok")
 }
 
-// Search GET /api/public/help-center/search?keyword=xxx&limit=10
-// [P0-FIX B] 公开门户搜索端点：走 ILIKE 标题 + knowledge_chunks 正文关联查询，免登录
 func (c *HelpCenterController) Search(ctx *gin.Context) {
 	keyword := ctx.Query("keyword")
 	limit := 20

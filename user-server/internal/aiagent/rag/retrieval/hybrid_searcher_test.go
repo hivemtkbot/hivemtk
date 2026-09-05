@@ -154,10 +154,6 @@ func TestHybridSearcher_VectorRetrieve_EndToEnd(t *testing.T) {
 	}
 }
 
-// TestHybridSearcher_BM25Retrieve_Fallback 集成测试：BM25 召回（向量路失败时）
-//
-// 场景：向量 embedding 全部为 nil（mockEmbed 返回 error），但 BM25 路径应能召回
-// 期望：向量路失败，BM25 路成功，仍返回结果
 func TestHybridSearcher_BM25Retrieve_Fallback(t *testing.T) {
 	if os.Getenv("POSTGRES_TEST_DSN") == "" && os.Getenv("POSTGRES_TEST_HOST") == "" {
 		t.Skip("skipping PG integration test (no POSTGRES_TEST_DSN)")

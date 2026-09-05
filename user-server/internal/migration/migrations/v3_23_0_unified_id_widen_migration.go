@@ -9,16 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// UnifiedIDWidenMigration v3 审计 P0-2 配套：unified_id 列宽修复
-//
-// 背景：unified_id 派生格式升级为盐化哈希（"phone:" + SHA-256 hex = 70 字符），
-// 但列宽仍为 varchar(64)，导致所有携带手机号的新客户 INSERT 报
-// "value too long for type character varying(64)" (SQLSTATE 22001)。
-//
-// 本迁移将所有 unified_id 列统一 ALTER 为 varchar(128)，
-// 同时容纳旧格式与新的盐化哈希格式。
-//
-// 幂等安全：information_schema 动态扫描，只对当前长度 < 128 的列执行 ALTER。
 type UnifiedIDWidenMigration struct {
 	db *gorm.DB
 }

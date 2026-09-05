@@ -10,11 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// IsTestMode 测试模式标志，仅用于测试时绕过认证
-//
-// R55 T9 安全加固：此前本文件 import "testing" 并以 `IsTestMode && testing.Testing()`
-// 绕过认证——生产二进制引入测试框架依赖，且为认证绕过留口子。现改为可注入 gate：
-// 默认恒 false（生产零绕过），测试环境由 *_test.go 替换。
 var IsTestMode bool
 
 var testModeGate = func() bool { return false }

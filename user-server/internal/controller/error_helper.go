@@ -6,10 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// HandleDBError 处理服务层返回的错误（委托 pkg/errhttp）。
-//
-// P2-5 content/ops 双范式归位：实现下沉到 internal/pkg/errhttp，
-// 本包保留委托函数以兼容存量 controller；新代码请直接使用 errhttp 包。
 func HandleDBError(ctx *gin.Context, err error, operation string) bool {
 	return errhttp.HandleDBError(ctx, err, operation)
 }

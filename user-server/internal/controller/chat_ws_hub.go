@@ -78,9 +78,6 @@ func (c *Client) RecvChan() <-chan []byte { return c.send }
 // TraceID 返回 trace_id
 func (c *Client) TraceID() string { return c.traceID }
 
-// Close 标记客户端关闭并安全关闭 send 通道（由 Hub.Run 在 unregister 时调用）。
-// v3 审计 P2-3：closed 标志保证并发发送方（sendSafe）先看到标志而放弃投递，
-// 因此这里的 close(chan) 不会被并发写入命中，根除 "send on closed channel" panic。
 func (c *Client) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()

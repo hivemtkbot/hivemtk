@@ -9,20 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// TestInboxIngress_BatchMerge_Scenarios 验证 2026-08-05 重构后的 batch 合并机制。
-//
-// 架构变更（用户科学方案）：
-//   - 入库判断：按 msg_id 查 DB（存在则幂等跳过），逐条检查
-//   - 回复判断：查 DB 最后一条消息方向（outbound→不回复，inbound→回复）
-//   - AI 合并：batch 内同会话多条 inbound 消息合并一次 AI 回复
-//   - 时序处理：timestamp 与锚点比较，历史堆积消息保留原 timestamp
-//
-// 本测试用 nil DB（hubRepo==nil），验证 batch 内 AI 合并行为：
-//  1. 相同会话多条消息 → batch 末尾合并一次 AI 回复
-//  2. 不同会话消息 → 各自触发 AI（按 conversation 分组）
-//  3. 不同渠道相同会话 → 同 conversation 分组，合并触发
-//  4. 不同账号不同会话 → 各自触发 AI
-//  5. 内容 hash 函数仍存在（兼容性验证）
 func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 	ctx := context.Background()
 

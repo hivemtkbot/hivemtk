@@ -32,14 +32,6 @@ func NewRoleServiceWithRepo(repo repository.SystemUserRepository) *RoleService {
 	return &RoleService{userRepo: repo}
 }
 
-// ListRoles 列出全部系统角色 + 成员数
-//
-// 业务规则：
-//   - 按 model.SystemRoleList 的固定顺序返回（admin → customer_service → staff）
-//   - 成员数通过 CountByRole 实时统计
-//   - 统计失败时记 0 + log，不阻断列表（部分失败降级）
-//
-// v3 审计 P2-14 修复：记 0 掩盖真实错误 → 补 log
 func (s *RoleService) ListRoles(ctx context.Context) ([]*RoleWithCount, error) {
 	roles := make([]*RoleWithCount, 0, len(model.SystemRoleList))
 	for _, r := range model.SystemRoleList {

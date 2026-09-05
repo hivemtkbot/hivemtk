@@ -251,18 +251,6 @@ func (s *WebhookService) triggerSmartOrchestrator(ctx context.Context, channel W
 	go s.runAIGeneration(ctx, channel, accountID, p, hubMsg, in, agentCtx)
 }
 
-// TriggerInboundAI 实现 service.AITrigger 接口：供网页桥接入站消息触发 AI 客服。
-//
-// 复用与 web 私信同源的同步主链路 triggerSmartOrchestrator，确保抖音/小红书/TikTok
-// 网页桥接的新消息能像 web 私信一样被 AI 及时处理，并原路经 WebSocket 回写扩展。
-// 若智能体编排器（smartOrchestrator）未注入，则安全空转（仅落库，不回复）。
-//
-// opts 透传群聊/发送者元数据（senderName/isGroup/groupID/groupName）：
-// 群聊中客户消息 sender_id 聚合为群 id，AI 编排需据此区分成员（见 AITrigger 注释）。
-//
-// 修复（2026-08-05）：入口加 panic recover。TriggerInboundAI 由 inbox_ingress.HandleIngressMessage
-// 同步调用，任何 panic 会冒泡到 bridge.readPump goroutine → runtime，整体进程被杀。
-// 修复后 panic 转 Error + 堆栈，进程存活，业务可继续入站。
 func (s *WebhookService) TriggerInboundAI(ctx context.Context, channel, accountID, conversationID, customerID, content, eventID string, opts ...TriggerInboundOption) {
 	defer func() {
 		if r := recover(); r != nil {

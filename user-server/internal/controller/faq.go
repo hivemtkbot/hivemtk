@@ -239,9 +239,6 @@ func (c *FAQController) Stats(ctx *gin.Context) {
 	}, "查询成功")
 }
 
-// AnnotateFromSession R53 D1: bad case 一键标注（Dify annotation-reply 对标）
-// POST /api/faqs/annotate {session_id, message_content, answer}
-// 将会话中的 bad case（AI 答错的问题+正确答案）固化为 FAQ 标注，后续 Layer1 命中直接返回
 func (c *FAQController) AnnotateFromSession(ctx *gin.Context) {
 	var req struct {
 		SessionID      string `json:"session_id" binding:"required"`

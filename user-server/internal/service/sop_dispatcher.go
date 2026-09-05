@@ -217,10 +217,6 @@ func NewSOPExecutionDispatcher(db *gorm.DB, sopSvc *SOPService, registry *NodeEx
 	return d
 }
 
-// SetWSHub 注入 WebSocket Hub（避免循环依赖，启动后注入）
-//
-// 由 main.go 在装配 WebSocket Hub 后调用。内部遍历 registry 中所有已注册的
-// 消息发送类执行器，调用其 SetWSHub 真正注入到执行器（修复原 #6 不一致点）。
 func (d *SOPExecutionDispatcher) SetWSHub(ctx context.Context, hub *websocket.Hub) {
 	if d == nil || hub == nil {
 		return

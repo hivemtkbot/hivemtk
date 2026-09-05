@@ -61,8 +61,6 @@ type WeComTokenResponse struct {
 	ExpiresIn   int    `json:"expires_in"`
 }
 
-// GetAccessToken 获取访问令牌
-// v3 审计 P1-47 修复：同 account 加锁防击穿
 func (s *WeComService) GetAccessToken(ctx context.Context, account *model.WeComAccount) (string, error) {
 	if account == nil {
 		return "", errors.New("账户不能为空")

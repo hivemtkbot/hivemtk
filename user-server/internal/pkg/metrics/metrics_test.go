@@ -1,12 +1,3 @@
-// 指标包基础测试（2026-08-15 M3-P1-E3）
-//
-// 验证：
-//   - Counter 增 / 加
-//   - Gauge 增减
-//   - Histogram Observe
-//   - 标签隔离
-//   - 指标文本格式输出
-//   - 全局注册表 / Handler
 package metrics
 
 import (

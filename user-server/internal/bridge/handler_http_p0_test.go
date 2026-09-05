@@ -15,7 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// TestAckOutboundDeliveredDetailed_FailedStatus_P0_3 验证 P0-3：req.Status="failed" 实际标记为 failed 终态。
 func TestAckOutboundDeliveredDetailed_FailedStatus_P0_3(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -65,7 +64,6 @@ func TestAckOutboundDeliveredDetailed_FailedStatus_P0_3(t *testing.T) {
 	}
 }
 
-// TestAckOutboundDeliveredDetailed_ConversationIDFilter_P0_1 验证 P0-1：conversation_id 过滤。
 func TestAckOutboundDeliveredDetailed_ConversationIDFilter_P0_1(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -118,7 +116,6 @@ func TestAckOutboundDeliveredDetailed_ConversationIDFilter_P0_1(t *testing.T) {
 	}
 }
 
-// TestAckOutboundDeliveredDetailed_NotInScope_P0_8 验证 P0-8：not_in_scope 与 not_found 区分。
 func TestAckOutboundDeliveredDetailed_NotInScope_P0_8(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -170,7 +167,6 @@ func TestAckOutboundDeliveredDetailed_NotInScope_P0_8(t *testing.T) {
 	}
 }
 
-// TestAckOutboundDeliveredDetailed_ErrorField_P0_2 验证 P0-2：AckOutboundItem.Error 字段透传。
 func TestAckOutboundDeliveredDetailed_ErrorField_P0_2(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -216,7 +212,6 @@ func TestAckOutboundDeliveredDetailed_ErrorField_P0_2(t *testing.T) {
 	}
 }
 
-// TestAckBridgeOutbox_V2Protocol_P0_1 验证 P0-1：v2 协议（items[] 必填 conversation_id）。
 func TestAckBridgeOutbox_V2Protocol_P0_1(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -285,7 +280,6 @@ func TestAckBridgeOutbox_V2Protocol_P0_1(t *testing.T) {
 	}
 }
 
-// TestAckBridgeOutbox_FailedStatus_P0_3 验证 P0-3：handler 解析 status=failed。
 func TestAckBridgeOutbox_FailedStatus_P0_3(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -336,7 +330,6 @@ func TestAckBridgeOutbox_FailedStatus_P0_3(t *testing.T) {
 	}
 }
 
-// TestAckBridgeOutbox_InvalidStatus_P0_3 验证 P0-3：非法 status 返 400。
 func TestAckBridgeOutbox_InvalidStatus_P0_3(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -355,7 +348,6 @@ func TestAckBridgeOutbox_InvalidStatus_P0_3(t *testing.T) {
 	}
 }
 
-// TestAckOutboundDeliveredDetailed_InvalidStatus 验证 P0-3：service 层拒绝非法 terminalStatus。
 func TestAckOutboundDeliveredDetailed_InvalidStatus(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -366,15 +358,6 @@ func TestAckOutboundDeliveredDetailed_InvalidStatus(t *testing.T) {
 	}
 }
 
-// TestAckOutboundDeliveredDetailed_CrossAccountProbe_NotInScope_P0_6
-// 验证 P0-6：跨账号探测场景下，msg_id 在其他 (channel, account_id) 下存在时，
-// 应分类为 not_in_scope（而非 not_found），以触发告警 + 停止前端重发。
-//
-// 场景：
-//   - 扩展用 account_id_A 探测 msg_id="m_owned_by_B"
-//   - 该 msg_id 在同 channel 下被 account_id_B 持有（outbound）
-//   - 期望：A 收到 not_in_scope（发现即告警但不告知具体归属）
-//   - DB 状态：B 的 outbound 行不应被 A 的探测操作影响
 func TestAckOutboundDeliveredDetailed_CrossAccountProbe_NotInScope_P0_6(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -420,12 +403,6 @@ func TestAckOutboundDeliveredDetailed_CrossAccountProbe_NotInScope_P0_6(t *testi
 	}
 }
 
-// TestAckOutboundDeliveredDetailed_RealNotFound_NoLeak_P0_6
-// 验证 P0-6：真实 not_found（无任何账号持有）必须返回 not_found 而非 not_in_scope。
-//
-// 区分逻辑：
-//   - 任何 channel 下都不存在 → not_found（真 GC 回收或伪造 msg_id）
-//   - 存在但不在本 (channel, account_id) 范围 → not_in_scope
 func TestAckOutboundDeliveredDetailed_RealNotFound_NoLeak_P0_6(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -450,8 +427,6 @@ func TestAckOutboundDeliveredDetailed_RealNotFound_NoLeak_P0_6(t *testing.T) {
 	}
 }
 
-// TestAckBridgeOutbox_CrossAccountProbe_NotInScope_P0_6
-// 验证 P0-6：HTTP 层端到端测试，跨账号探测被正确分类为 not_in_scope。
 func TestAckBridgeOutbox_CrossAccountProbe_NotInScope_P0_6(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})

@@ -10,9 +10,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// S1-1 防重复进入（MASTER_COMPETITIVE_DECISIONS.md M1 / RT-2）：
-// SOP 定义 JSON 新增 entry_policy{mode, cooldown_days, goal_exit}。
-// 存量 SOP 无字段时默认 once；goal_exit 达成即退出。
 const (
 	SOPEntryModeOnce     = "once"
 	SOPEntryModeCooldown = "cooldown"

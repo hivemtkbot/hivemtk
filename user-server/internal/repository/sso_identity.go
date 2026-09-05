@@ -12,9 +12,6 @@ import (
 // ErrSSOIdentityNotFound SSO 身份记录不存在
 var ErrSSOIdentityNotFound = errors.New("sso: identity not found")
 
-// SSOIdentityRepository SSO 身份仓储接口
-//
-// 提供 SSO 外部身份与本地系统用户的关联读写（企业 SSO 接入 P1-E3）。
 type SSOIdentityRepository interface {
 	Create(ctx context.Context, identity *model.SSOIdentity) error
 	GetByProviderSubject(ctx context.Context, provider, subject string) (*model.SSOIdentity, error)

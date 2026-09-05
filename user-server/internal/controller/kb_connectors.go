@@ -54,9 +54,6 @@ func (c *KBConnectorController) Test(ctx *gin.Context) {
 	response.Success(ctx, res, res.Message)
 }
 
-// Pull POST /api/knowledge/connectors/:source/pull {product_id, query, max_pages}
-//
-// R42: 一键拉取导入（notion 完整实现；其余源返回明确 not_implemented 契约）。
 func (c *KBConnectorController) Pull(ctx *gin.Context) {
 
 	var body struct {

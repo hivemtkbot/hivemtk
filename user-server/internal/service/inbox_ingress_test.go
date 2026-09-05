@@ -184,14 +184,6 @@ func TestInboxIngress_HandleIngressMessage_HumanLockedBypassesAI(t *testing.T) {
 	}
 }
 
-// TestInboxIngress_HandleIngressMessage_TriggersAITrigger 验证入站消息触发 AI 客服
-//
-// 业务契约（2026-08-05 重构后）：
-//  1. 接受事件并标记为 QueuedForAI=true
-//  2. 调用注入的 AITrigger（由 WebhookService 桥接编排器）
-//  3. AI 锁不立即释放（由 webhook.go 在 outbound 落库后调用 OnAIReplyCompleted 释放）
-//     - 同会话后续消息入 pending 队列，AI 完成后合并触发一次 AI
-//     - AI 锁 TTL 5min 兜底：若 webhook/AI 链路异常未释放，TTL 过期后自动释放
 func TestInboxIngress_HandleIngressMessage_TriggersAITrigger(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()

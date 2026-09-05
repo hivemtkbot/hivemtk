@@ -785,8 +785,6 @@ func (c *SystemUserController) CreateDefaultAdmin(ctx *gin.Context) {
 	}, "默认管理员创建成功")
 }
 
-// CreateDefaultAdmin R39：createDefaultAdmin 别名端点（系统初始化引导），
-// 复用 InitAdmin 语义（仅未初始化系统可执行，重复调用返回已初始化错误）。
 func (c *AuthController) CreateDefaultAdmin(ctx *gin.Context) {
 	c.InitAdmin(ctx)
 }

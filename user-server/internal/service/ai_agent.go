@@ -402,12 +402,6 @@ func (s *ChannelAgentBindingService) LoadAgentForChannel(ctx context.Context, ch
 	return s.agentSvc.LoadContext(ctx, binding.AgentID)
 }
 
-// NormalizeChannelType 规范化渠道类型字符串
-// 将 WebhookChannel 转换为 model.ChannelType
-//
-// 2026-08-05 渠道编码统一：所有渠道统一为全名（xiaohongshu/douyin/kuaishou/xianyu/tiktok），
-// "xhs" / "xhs_web" / "douyin_web" / "kuaishou_web" / "xianyu_web" / "tiktok_web" 视为历史简写，
-// 全部归一化到 ChannelType 枚举值，便于 channel_agent_bindings 表查询命中。
 func NormalizeChannelType(ch string) string {
 	ch = strings.ToLower(strings.TrimSpace(ch))
 	switch ch {

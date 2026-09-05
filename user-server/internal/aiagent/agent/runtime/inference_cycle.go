@@ -101,7 +101,6 @@ func NewInferenceCycleWithConfig(cfg InferenceCycleConfig, perception, alignment
 	return cycle
 }
 
-// SetReviewerStage 注入自定义 Reviewer（T10 三段式模式第三段）
 func (c *InferenceCycle) SetReviewerStage(r InferenceStage) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

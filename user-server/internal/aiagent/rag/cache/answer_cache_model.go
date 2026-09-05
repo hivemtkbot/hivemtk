@@ -1,28 +1,3 @@
-// Package ragcache RAG 答案语义缓存（M6 R-2，RT-2 契约约束版）
-//
-// 三层结构：
-//   - Tier1 精确键：同 kb_id + prompt_version + 归一化 query 向量精确相等（~1ms）
-//   - Tier2 语义层：pgvector cosine >= 0.95（只调紧不放松）
-//   - Tier3 回源：前两层未命中走正常检索+生成链路
-//
-// RT-2 契约（MASTER_COMPETITIVE_DECISIONS.md）：
-//   - 只对 smart_cs FAQ 场景启用；答案必须来自知识库检索且不含客户个性化变量才可入缓存
-//   - 缓存 key = (kb_id, prompt_version, 归一化 query 向量)
-//   - 命中前校验 kb 更新时间 > 缓存时间则失效
-//   - 空/refusal 响应不入缓存
-//
-// 表结构（需迁移注册，见包内 PGAnswerCacheStore 注释）：
-//
-//	CREATE TABLE IF NOT EXISTS rag_answer_cache (
-//	    id             BIGSERIAL PRIMARY KEY,
-//	    kb_id          VARCHAR(64)  NOT NULL,
-//	    prompt_version VARCHAR(64)  NOT NULL,
-//	    query_vector   vector(1024) NOT NULL,
-//	    answer         TEXT         NOT NULL,
-//	    created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-//	    kb_updated_at  TIMESTAMPTZ  NOT NULL
-//	);
-//	CREATE INDEX IF NOT EXISTS idx_rag_answer_cache_kb_prompt ON rag_answer_cache (kb_id, prompt_version);
 package ragcache
 
 import "time"

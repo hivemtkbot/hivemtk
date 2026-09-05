@@ -32,14 +32,6 @@ func BlacklistJWT(token string) {
 	}
 }
 
-// IsJWTBlacklisted 检查 JWT 是否在黑名单中
-// OPT-ARC-13 + OPT-SEC-01：fail-closed 策略
-//
-// 旧实现：缓存查询失败时返回 false（fail-open），已被吊销的 token 可能被短暂放行
-// 新实现：缓存查询失败时返回 true（fail-closed），宁可误拒也不放过
-//
-// 理由：登出 token 写入失败 = 系统已不可信，强行放行会扩大攻击面
-// 副作用：Redis 不可达时全部 JWT 请求被拒，需要 Redis 高可用保障
 func IsJWTBlacklisted(token string) bool {
 	if token == "" {
 		return false

@@ -1,4 +1,3 @@
-// r44_gap_endpoints.go R44 断链清欠控制器（views 内联调用的 21 条端点，契约以页面为准）
 package controller
 
 import (
@@ -296,8 +295,6 @@ func (c *EmailGapController) PlaygroundPresets(ctx *gin.Context) {
 	}, "total": 5}, "ok")
 }
 
-// ClueApplySuggestions POST /api/clues/import/apply-suggestions {duplicates:[{existingClueId,row}], action}
-// R46 真实语义: duplicates 逐条按 action 处理——merge=把 row 字段合并进现有线索; skip=跳过
 func (c *EmailGapController) ClueApplySuggestions(ctx *gin.Context) {
 	var req struct {
 		Duplicates []struct {

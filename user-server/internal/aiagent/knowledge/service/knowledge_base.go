@@ -76,8 +76,6 @@ func (s *KnowledgeBaseService) GetDocument(ctx context.Context, id uint) (*model
 	return &doc, nil
 }
 
-// DeleteDocument 删除文档
-// v7 审计修复：文档删除与分段清理放入同一事务，根除孤儿 chunk 行。
 func (s *KnowledgeBaseService) DeleteDocument(ctx context.Context, id uint) error {
 	var doc model.KBDocument
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

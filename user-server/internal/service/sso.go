@@ -1,10 +1,3 @@
-// 企业 SSO 登录服务（2026-08-15 M3-P1-E3）
-//
-// 职责：
-//   - 从配置构建 IdP 适配器（飞书 / 钉钉 / 企微 / 通用 OIDC）
-//   - 处理 IdP 回调：交换 token → 验证 ID Token → 归一化 claims
-//   - 本地用户关联 / 自动 provisioning（auto_provision）
-//   - 签发本地 JWT（与既有 /api/auth/login 同源，前端无缝接入）
 package service
 
 import (

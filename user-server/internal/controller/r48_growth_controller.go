@@ -1,4 +1,3 @@
-// r48_growth_controller.go R48 T6-T12 控制器
 package controller
 
 import (
@@ -11,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GrowthController R48 综合控制器
 type GrowthController struct {
 	csPlus    *service.CustomerServicePlusService
 	webhook   *service.WebhookSubService

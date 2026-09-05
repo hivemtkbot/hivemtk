@@ -1,13 +1,3 @@
-// sales_cockpit.go AI 销冠驾驶舱聚合（R39 补齐 /api/ai/sales-cockpit）
-//
-// 数据源（全部既有表，SQL 实时聚合，单租户小微规模无需物化）：
-//   - ReAct 智能体：llm_routing_logs 当日调用数（agent 场景）
-//   - SOP 引擎：sop_executions 运行中数量
-//   - RAG：rag_metrics 当日查询数（缺表回退 0，不阻塞驾驶舱）
-//   - 触达：reach_jobs 当日已发送
-//   - LLM 路由：llm_routing_logs 按场景×厂商聚合当日
-//   - 渠道健康：channel_accounts 按平台×状态
-//   - 意图分布：intent_logs 近 7 天按意图
 package service
 
 import (

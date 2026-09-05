@@ -266,7 +266,6 @@ func (s *EventTracker) GetEventCount(ctx context.Context, customerID string) (in
 	return int64(len(events)), nil
 }
 
-// ListGlobalEvents R41: 全局分页事件流（controller 经此访问，不直连 repository）
 func (s *EventTracker) ListGlobalEvents(ctx context.Context, eventType string, limit, offset int) ([]*model.CustomerEvent, int64, error) {
 	return s.repo.ListGlobal(ctx, eventType, limit, offset)
 }

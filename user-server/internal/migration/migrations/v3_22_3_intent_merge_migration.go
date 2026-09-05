@@ -9,23 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// IntentMergeMigration OPT-DB-10: intent_records 与 intent_logs 整合
-//
-// 现状：
-//   - intent_records（销售意图识别记录）：记录销售场景下的意图识别结果，
-//     包含 IntentType/IntentSubtype/Confidence/Entities/Sentiment 等业务字段。
-//   - intent_logs（精细意图识别日志）：记录 LLM 层的精细意图识别结果，
-//     包含 IntentMajor/IntentMinor/Method/Reasoning/TraceID 等运行时字段。
-//
-// 两张表功能重叠且数据源相同（同一 LLM 意图识别链路），应当合并为一。
-//
-// 迁移策略：
-//  1. 为 intent_records 添加来自 intent_logs 的缺失字段（method / reasoning / trace_id / timestamp）
-//  2. 添加 source 字段标记记录来源（'sales' 来自原 intent_records, 'fine_grained' 来自原 intent_logs）
-//  3. 将 intent_logs 数据按字段映射并入 intent_records
-//  4. 删除原 intent_logs 表
-//
-// 幂等安全：每一步先检查目标和前置条件，已执行则跳过。
 type IntentMergeMigration struct {
 	db *gorm.DB
 }

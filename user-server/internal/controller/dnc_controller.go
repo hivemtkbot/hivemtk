@@ -1,4 +1,3 @@
-// dnc_controller.go DNC 全局退订控制器（R51：合规核心功能此前无 API 暴露——业务缺陷修复）
 package controller
 
 import (

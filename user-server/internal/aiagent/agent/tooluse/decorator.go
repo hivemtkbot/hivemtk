@@ -72,15 +72,6 @@ func ChainDecorators(handler ToolHandler, decorators ...ToolDecorator) ToolHandl
 	return handler
 }
 
-// BuildChain 标准工具装饰器链
-// v3 审计 P1-41 修复：RateLimit 移至 Retry 之外
-// 原：Permission → RateLimit → Retry → Timeout → Audit
-//
-//	rate 一次扣 1 token，retry 期间下游被调用 N 次，实际 N × nominal
-//
-// 新：Permission → Retry → Timeout → RateLimit → Audit
-//
-//	retry 完成后才扣 rate limit token（每 retry 完成后都记 1 次）
 func BuildDefaultChain(
 	handler ToolHandler,
 	checker PermissionChecker,

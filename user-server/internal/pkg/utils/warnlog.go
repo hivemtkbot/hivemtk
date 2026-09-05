@@ -1,14 +1,5 @@
 package utils
 
-// WarnErrIfNotNil 治理 M6：明确将历史上被吞掉的 err 写为 warn 日志。
-// 用法：替代 `_ = doSomething()`，改为 `utils.WarnErrIfNotNil("module.func", doSomething())`。
-//
-// 设计：
-//   - err == nil → 一条空函数调用，性能敏感路径可走 GetWarnLogger().Debug() 兜底；
-//   - err != nil → 以 warn 级别写入（含 trace_id 由上游 logger hook 注入，参见 R38 M11）；
-//   - 显式 context 仅在调用方有 ctx 时使用 WarnErrCtx；否则使用全局 logger。
-//
-// 测试：参见 warnlog_test.go。
 func WarnErrIfNotNil(scope string, err error) {
 	if err == nil {
 		return
@@ -19,8 +10,6 @@ func WarnErrIfNotNil(scope string, err error) {
 		Msg("warn-only err (originally silently swallowed)")
 }
 
-// WarnErrCtx 治理 M6：带 ctx 的吞错 warn，ctx 用于注入 trace_id（即使 M11 尚未落
-// 地 OTEL，全局 logger 仍会从 zerolog hook 拿 trace_id 输出格式）。
 func WarnErrCtx(scope string, ctx zerologContext, err error) {
 	if err == nil {
 		return

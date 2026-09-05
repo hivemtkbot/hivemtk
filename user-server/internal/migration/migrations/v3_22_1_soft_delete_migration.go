@@ -9,40 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// SoftDeleteMigration OPT-DB-07: 软删除扩到核心业务表
-//
-// 现状：核心业务表（ai_agents、knowledge_bases、sop_agents 等）缺少 deleted_at 字段，
-// 无法实现软删除，数据一旦被删除无法恢复。
-//
-// 本迁移为以下核心业务表添加 deleted_at timestamptz 列：
-//   - ai_agents
-//   - knowledge_bases
-//   - sop_agents
-//   - sop_templates
-//   - message_hub
-//   - intent_records
-//   - channel_agent_bindings
-//   - customer_service_agents
-//   - inbox_conversations
-//   - feedback_events
-//   - sop_executions
-//   - sop_node_transitions
-//   - optimization_suggestions
-//   - faq_entries
-//   - platform_account_configs
-//   - community_groups
-//   - customer_sessions
-//   - live_codes
-//   - sla_policies
-//   - sla_violations
-//   - agent_statuses
-//   - feedback_records
-//   - layer_decision_logs
-//   - memory_items
-//   - business_memories
-//   - sop_state_memories
-//
-// 幂等安全：先检查列是否存在，不存在才 ADD。
 type SoftDeleteMigration struct {
 	db *gorm.DB
 }

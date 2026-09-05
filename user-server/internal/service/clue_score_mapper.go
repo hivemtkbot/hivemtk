@@ -5,8 +5,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// FromClueScoreModel ClueScore → ClueScoreResponse
-// 转换属业务层职责（原位于 dto 包，P0-7 下沉至 service，dto 保持纯数据结构）
 func FromClueScoreModel(s *model.ClueScore) *dto.ClueScoreResponse {
 	if s == nil {
 		return nil

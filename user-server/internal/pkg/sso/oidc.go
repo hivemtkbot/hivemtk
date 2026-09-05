@@ -1,30 +1,3 @@
-// SSO / OIDC 集成（2026-08-15 M3-P1-E4）
-//
-// 支持：
-//   - OIDC Discovery（自动获取 /.well-known/openid-configuration）
-//   - Authorization Code Flow + PKCE（防 CSRF / 中间人攻击）
-//   - ID Token 验证（JWT + JWKS 签名验证）
-//   - UserInfo 端点拉取（可选）
-//   - 多 IdP 并存（可同时接入企业微信 / 飞书 / 钉钉 / Okta / Azure AD）
-//   - 自动 provisioning（首次登录自动创建本地用户）
-//   - SAML 2.0 简单模式（POST Binding，通过 IdP metadata XML 配置）
-//
-// 不依赖第三方库（避免外部依赖污染）：
-//   - JWT 签名：标准库 crypto/rsa + crypto/ecdsa
-//   - JWKS 拉取：标准库 net/http
-//   - PKCE：标准库 crypto/sha256 + encoding/base64
-//
-// 用法：
-//
-//	r := gin.New()
-//	sso := sso.NewOIDCProvider(sso.OIDCConfig{
-//	    Issuer:   "https://login.example.com",
-//	    ClientID: "hivemtk",
-//	    RedirectURL: "https://hivemtk.example.com/api/sso/callback",
-//	    Scopes:   []string{"openid", "profile", "email"},
-//	})
-//	r.GET("/api/sso/login", sso.LoginHandler())
-//	r.GET("/api/sso/callback", sso.CallbackHandler())
 package sso
 
 import (

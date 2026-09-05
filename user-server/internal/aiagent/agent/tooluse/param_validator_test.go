@@ -66,7 +66,6 @@ func TestValidateParams_IntegerFromFloat(t *testing.T) {
 	}
 }
 
-// TestValidateParams_NestedObject 验证嵌套对象递归校验（v3 审计 P3-2 新增能力）
 func TestValidateParams_NestedObject(t *testing.T) {
 	schema := ToolParameters{
 		Properties: map[string]ToolParam{

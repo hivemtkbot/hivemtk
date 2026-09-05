@@ -48,13 +48,6 @@ type MessageVolumeRawRow struct {
 	MessageCount int64
 }
 
-// DashboardStatsRepository 实时驾驶舱统计仓库接口
-//
-// 配套 service.DashboardStatsService，封装 customer_sessions / humanize_scores /
-// customer_journey 表的实时统计查询。所有 Raw SQL 在此层封装，service 不再直接持有 *gorm.DB。
-//
-// X-8 双读（M18 表 D-3）：消息量指标优先读 msg_hourly_summary（分钟级陈旧容忍），
-// summary 陈旧 >10min 或为空时回源 message_hub 原生 SQL 聚合。
 type DashboardStatsRepository interface {
 	Available(ctx context.Context) bool
 	CountSessionsByStatus(ctx context.Context, statuses []model.SessionStatus, onlineThreshold time.Time) (int64, error)

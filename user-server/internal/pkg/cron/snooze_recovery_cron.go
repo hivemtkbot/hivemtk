@@ -1,4 +1,3 @@
-// snooze_recovery_cron.go R48 T3: 会话暂缓到期恢复（每 5 分钟，幂等启动+panic 隔离，惯例同 M1）
 package cron
 
 import (

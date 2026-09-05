@@ -143,9 +143,6 @@ func (r *ScriptLibraryRepository) CreateScriptExposure(ctx context.Context, e *m
 	return r.db.WithContext(ctx).Create(e).Error
 }
 
-// MarkScriptExposuresConverted 归因窗内转化回写：同 one_id+conversation_id 的未转化曝光标记 converted
-//
-// scriptID > 0 时额外限定该话术（R55 T4：按话术各自归因窗口回写）。
 func (r *ScriptLibraryRepository) MarkScriptExposuresConverted(ctx context.Context, oneID, conversationID, outcome string, at time.Time, since time.Time, scriptIDs ...uint) (int64, error) {
 	if r == nil || r.db == nil {
 		return 0, errors.New("script library repository not initialized")
@@ -171,8 +168,6 @@ func (r *ScriptLibraryRepository) MarkScriptExposuresConverted(ctx context.Conte
 	return res.RowsAffected, res.Error
 }
 
-// ListScriptIDsByExposureAnchor 查询 one_id/conversation 上有曝光记录的话术 ID 去重集合
-// （R55 T4：转化回写需按话术各自归因窗口处理）
 func (r *ScriptLibraryRepository) ListScriptIDsByExposureAnchor(ctx context.Context, oneID, conversationID string) ([]uint, error) {
 	if r == nil || r.db == nil {
 		return nil, errors.New("script library repository not initialized")

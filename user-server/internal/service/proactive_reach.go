@@ -60,11 +60,6 @@ type ProactiveReachResponse struct {
 	Strategy string `json:"strategy"`
 }
 
-// ProactiveReachService 主动触达服务（按客户 OneID 完整信息智能选渠道）
-//
-// 2026-08-16 严肃化：之前是"逐个渠道尝试"的反模式（autoDetectAndSend 函数），
-// 现在改为"先查客户完整信息 → 选有完整身份的渠道 → 发送"，
-// 全程无需猜测，由客户 OneID 决定。
 type ProactiveReachService struct {
 	db            *gorm.DB
 	customerRepo  *customerRepo

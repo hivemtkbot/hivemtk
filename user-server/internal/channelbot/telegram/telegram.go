@@ -63,15 +63,6 @@ type InlineButton struct {
 	URL          string
 }
 
-// SendMessage 主动发文本消息，返回 Telegram 消息 ID。
-//
-// 健壮性（与本任务全链路审计 Top-5 对齐）：
-//  1. AI 生成的回复通常是 Markdown，统一转换为 Telegram HTML（parse_mode=HTML），
-//     并在解析失败时回退纯文本重发
-//  2. 单条消息 > 4096 字符：按行/段优先切分，循环发送多条
-//  3. 429 限流：读 parameters.retry_after 退避后重试，最多 3 次
-//  4. 5xx / 网络错误：指数退避重试，最多 3 次
-//  5. 支持 reply_to_message_id、inline_keyboard、disable_web_page_preview
 func (c *Client) SendMessage(ctx context.Context, chatID int64, text string, opts ...SendMessageOptions) (int64, error) {
 	opt := SendMessageOptions{}
 	if len(opts) > 0 {
@@ -400,11 +391,6 @@ func (c *Client) DeleteWebhook(ctx context.Context) error {
 	return nil
 }
 
-// VerifyWebhook 校验 X-Telegram-Bot-Api-Secret-Token（明文常量比较，非 HMAC）。
-//
-// v3 审计 P1-49 修复：secret 为空时强制按环境变量判断
-// 原：secret == "" → return true（无条件放行）
-// 新：必须显式 ALLOW_INSECURE_TELEGRAM_WEBHOOK=true 才放行；否则 401
 func VerifyWebhook(secret, headerSecret string) bool {
 	if secret == "" {
 

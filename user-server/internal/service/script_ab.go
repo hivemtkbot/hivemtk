@@ -217,10 +217,6 @@ func (s *ScriptABService) attributionHoursFor(ctx context.Context, scriptID uint
 	return ScriptABAttributionHours
 }
 
-// RecordConversion 转化回写：归因窗内同 one_id（或会话）的未转化曝光标记 converted
-//
-// R55 T4 修复：归因窗口此前死变量 48h，现读取 AB 配置（scriptID 无法从 oneID 推出时，
-// 扫描该 one_id 归属的 script 逐个按其配置回写）。
 func (s *ScriptABService) RecordConversion(ctx context.Context, oneID, conversationID, outcome string) error {
 
 	scriptIDs, err := s.repo.ListScriptIDsByExposureAnchor(ctx, oneID, conversationID)

@@ -66,23 +66,6 @@ func SetGlobalInboxIngressService(s *InboxIngressService) { globalInboxIngressSe
 // GlobalInboxIngressService 读取桥接入站服务（装配前为 nil）
 func GlobalInboxIngressService() *InboxIngressService { return globalInboxIngressService }
 
-// DeliverBridgeOutbound 桥接渠道出站统一入口：构造 MessageHub 并持久化到 outbox，
-// 由桥接扩展 GET /api/bridge/outbox 拉取后转发到网页（2026-08-06 三通道架构）。
-//
-// 替代已废弃的内存 httpReplyBuffer 长轮询路径——2026-08-06 后 buffer 不再被任何调用方读取，
-// 走 buffer 会导致人工外联/主动触达消息静默丢失。本方法直接落库 message_hub(status=pending)，
-// 与 AI 回复（webhook_outbound.go sendOutbound 桥接分支）走同一下发队列，保证可靠投递。
-//
-// 调用方：
-//   - service/proactive_reach.go::sendBridge     主动外联（修复 proactive_reach 走死通道 bug）
-//   - service/douyin_integration.go::SendMessage  抖音主动私聊（修复同 bug）
-//   - tooluse.RegisterBridgeOutboundDeliver      AI 智能体 reach.*.send 工具的 bridge 分支
-//
-// 入参约定：
-//   - accountID:  本账号在平台的标识（私有化部署由扩展在 ingest 时上报）
-//   - conversationID: 客户会话 ID（与 ingest 端 convention 一致）
-//   - eventID:  仅用于日志/tracing，不作为 msg_id（msg_id 由 content 哈希生成）
-//   - 返回 error: nil=落库成功；非 nil=落库失败（不进入 outbox 队列）
 func DeliverBridgeOutbound(ctx context.Context, channel, accountID, conversationID, msgType, content, eventID string) error {
 	if globalInboxIngressService == nil {
 		return errBridgeOutboundNotReady

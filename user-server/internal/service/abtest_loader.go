@@ -92,10 +92,6 @@ func defaultABTests() map[string]*ABTestPlan {
 	}
 }
 
-// ToSOPABTestConfig 将 AB 测试方案资产转换为业务侧 A/B 测试配置（M2 运行时覆盖默认）。
-// 注意：dto.SOPABTestVariant 必须关联具体的 SOP 图（SOPGraphID），该图在「落库到业务表」
-// 形态下由应用流程创建；纯运行时覆盖默认形态下此处仅填充方案/权重骨架，
-// 调用方需补充变体关联的 SOP 图后才能真正启用 A/B 实验。
 func (p *ABTestPlan) ToSOPABTestConfig(ctx context.Context) dto.SOPABTestConfig {
 	cfg := dto.SOPABTestConfig{
 		Enabled: true,

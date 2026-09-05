@@ -1,9 +1,3 @@
-// Package integration 跨域集成测试落点（test-only 包，不放生产代码；ADR-015 定性）。
-//
-// 生产模板数据在 templates 子包（被 service/integration_template.go 引用）。
-// Package integration 跨域集成测试落点（test-only 包，不放生产代码；ADR-015 定性）。
-//
-// 生产模板数据在 templates 子包（被 service/integration_template.go 引用）。
 package integration
 
 import (

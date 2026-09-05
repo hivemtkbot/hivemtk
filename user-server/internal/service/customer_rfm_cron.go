@@ -11,14 +11,6 @@ import (
 
 var rfmRetryBackoff = []time.Duration{time.Minute, 5 * time.Minute, 15 * time.Minute}
 
-// CustomerRFMCron 铁律级补漏：RFM 全量计算定时任务。
-//
-// v7 审计修复：ComputeAll 此前仅有手动端点触发（content_routes.go），
-// 无任何 cron 注册，RFM 分层/流失预警实际永不更新。
-// 现每日 04:00（北京时间，避开夜间禁发与业务高峰）全量重算一次。
-//
-// M2 修复：计算失败按指数退避重试 3 次（1m/5m/15m），全部耗尽后
-// 通过既有 system_alerts SSE 通道发布告警（运维侧可实时感知）。
 type CustomerRFMCron struct {
 	svc *CustomerRFMService
 

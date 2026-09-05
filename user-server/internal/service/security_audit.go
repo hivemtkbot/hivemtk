@@ -14,14 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// SecurityAuditService 安全审计：执行一组可选（非默认开启）安全检查，
-// 持久化审计结果与明细，供前端「系统设置 → 安全审计」展示。
-//
-// 注意：本审计为管理员手动触发（前端点「立即审计」），不默认后台静默扫描，
-// 符合「无默认开启内容/安全扫描」的私域部署约束。
-//
-// OPT-ARC-01：保留 db 字段作 fallback，引入 securityAuditRepo 提供
-// repository 注入；withDB 优先走 repository，无覆盖时回退到 db 字段。
 type SecurityAuditService struct {
 	db   *gorm.DB
 	repo *repository.SecurityAuditRepository

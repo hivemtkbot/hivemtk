@@ -1,14 +1,3 @@
-// 企业 SSO 登录控制器（2026-08-15 M3-P1-E3）
-//
-// 提供 3 个公开端点（无需登录态，供浏览器 OAuth 授权码流程使用）：
-//   - GET /api/sso/providers      列出已启用登录方式（登录页按钮）
-//   - GET /api/sso/login/:provider 发起登录：生成 state/nonce/PKCE 并 302 到 IdP
-//   - GET /api/sso/callback/:provider 处理 IdP 回调：换 token → 关联/创建用户 → 签发本地 JWT
-//
-// 安全设计：
-//   - state 存 HttpOnly+Secure cookie，回调时严格比对（防 CSRF）
-//   - code_verifier 存 cookie（PKCE，防授权码截获重放）
-//   - 回调成功默认 302 到前端（PUBLIC_BASE_URL）携带 token；?format=json 返回 JSON 便于测试/嵌入
 package controller
 
 import (

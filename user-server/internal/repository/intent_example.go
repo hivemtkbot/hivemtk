@@ -10,7 +10,6 @@ import (
 	_db "hivemtk-user/internal/pkg/db"
 )
 
-// IntentExampleRepository 意图示例句向量仓储（M4 I-1 pgvector 锚点库）
 type IntentExampleRepository struct {
 	db *gorm.DB
 }

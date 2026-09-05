@@ -175,14 +175,6 @@ func RateLimitMiddleware(config ...RateLimitConfig) gin.HandlerFunc {
 	}
 }
 
-// Allow 判断是否放行某客户端请求。
-// 业务需要：防滥用/公平限流必须跨实例一致。多实例下若各持独立令牌桶，
-// 全局实际允许量被放大为 N×单实例配额，等于架空限流。
-// 实现：REDIS_HOST 配置时走全局缓存固定窗口计数（Redis 共享，各实例累计同一配额）；
-// 未配置 Redis 时回退进程内令牌桶（单实例平滑限流）。后端异常一律放行（可用性优先）。
-// v3 审计 P2-16 修复：ctx 透传
-// 原：context.Background() 丢失 trace_id
-// 新：ctx 由调用方传入
 func (rl *RateLimiter) Allow(ctx context.Context, clientKey string) bool {
 	if !cache.GlobalIsRedis() {
 		return rl.getLimiter(clientKey).Allow()

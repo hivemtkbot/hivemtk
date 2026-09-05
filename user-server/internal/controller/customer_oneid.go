@@ -265,7 +265,6 @@ func parsePage(s string) int {
 	return n
 }
 
-// GetMergeRules 获取 OneID 合并规则集（OPT-UX-04）
 func (c *CustomerOneIDController) GetMergeRules(ctx *gin.Context) {
 	mergeRuleSvc := service.NewOneIDMergeRuleService()
 	set, err := mergeRuleSvc.GetRules(ctx.Request.Context())
@@ -276,7 +275,6 @@ func (c *CustomerOneIDController) GetMergeRules(ctx *gin.Context) {
 	response.Success(ctx, set, "获取成功")
 }
 
-// SaveMergeRules 保存 OneID 合并规则集（OPT-UX-04）
 func (c *CustomerOneIDController) SaveMergeRules(ctx *gin.Context) {
 	var set service.MergeRuleSet
 	if err := ctx.ShouldBindJSON(&set); err != nil {

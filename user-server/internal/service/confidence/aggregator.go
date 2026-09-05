@@ -12,12 +12,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ConfidenceAggregator 置信度总聚合器
-//
-// v3 审计 P0-#3 增强：集成 Platt（logistic 二分类校准）+ Conformal（覆盖率保证）。
-//   - Platt：补全 Temperature 之外的二分类校准标准（Platt 1999）
-//   - Conformal：在聚合决策上叠加 1-δ 覆盖率保证（Vovk 2005）
-//   - 两者均为可选，nil 时跳过；保持向后兼容
 type ConfidenceAggregator struct {
 	collector  *SignalCollector
 	calibrator *Calibrator

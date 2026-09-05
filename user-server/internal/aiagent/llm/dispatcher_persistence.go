@@ -20,9 +20,6 @@ func providerDB() *gorm.DB {
 	return db.GetDB()
 }
 
-// LoadProvidersFromDB 启动时从 llm_providers 表加载所有 provider 到内存路由表。
-// DB 定义覆盖同名的 config 占位 provider（如 deepseek 在库里有真实密钥则启用）。
-// T6：加载时解密 api_key（明文双轨兼容），并对存量明文行做一次性加密回写。
 func (d *Dispatcher) LoadProvidersFromDB() error {
 	g := providerDB()
 	if g == nil {

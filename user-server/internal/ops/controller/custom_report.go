@@ -229,10 +229,6 @@ func (c *CustomReportController) QueryReportData(ctx *gin.Context) {
 	response.Success(ctx, data, "获取成功")
 }
 
-// ExportCSV CSV 流式导出（D-4）
-//
-// csv.Writer 直写 ResponseWriter；行数 >30K 时拒绝同步导出并返回 400，
-// 提示缩小时间范围/过滤条件（异步任务本期不做，决策源 M18 表 D-4）。
 func (c *CustomReportController) ExportCSV(ginCtx *gin.Context) {
 
 	idStr := ginCtx.Param("id")

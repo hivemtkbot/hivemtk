@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/geo/repository"
 )
 
-// VerificationService AI 搜索验证服务（R49 重构版：先真实探针，再 LLM 分析）
 type VerificationService struct {
 	verifyRepo  repository.GeoVerifyResultRepository
 	apiCallRepo repository.GeoAPICallRepository
@@ -52,10 +51,6 @@ type verifyLLMResponse struct {
 	CompetitorsMentioned []string `json:"competitors_mentioned"`
 }
 
-// VerifyArticle 执行 AI 搜索验证（R49 真实探针架构）
-//
-// 流程：真实探针引擎返回搜索结果 → LLM 基于真实结果做品牌提及/情感分析 → 落库
-// 不再让 LLM "模拟搜索引擎回答"
 func (s *VerificationService) VerifyArticle(ctx context.Context, req dto.VerifyRequest) (*model.GeoVerifyResult, error) {
 
 	probeResult, probeErr := s.probe.Probe(ctx, req.Query)
@@ -187,8 +182,6 @@ type negativeMonitorResult struct {
 	} `json:"summary"`
 }
 
-// MonitorNegative 负面提及监控（R49 真实探针架构）
-// 流程：生成负面查询 → 真实探针引擎逐个搜索 → 拼接结果 → LLM 分析汇总 → 落库
 func (s *VerificationService) MonitorNegative(ctx context.Context, brandName string) (map[string]any, error) {
 
 	negativeQueries, err := s.generateNegativeQueries(ctx, brandName)

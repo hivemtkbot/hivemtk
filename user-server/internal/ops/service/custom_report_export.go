@@ -13,18 +13,11 @@ import (
 	"hivemtk-user/internal/ops/model"
 )
 
-// CSV 同步流式导出安全边界（M18 表 D-4：同步安全边界 csv30K 行）。
-// 超过上限时拒绝同步导出，提示缩小时间范围/过滤条件（异步任务表本期不做）。
 const CSVExportMaxRows = 30000
 
 // ErrReportTooManyRows 报表行数超过 CSV 同步导出上限
 var ErrReportTooManyRows = errors.New("报表数据超过 30000 行，CSV 同步导出已拒绝；请缩小时间范围或增加过滤条件后重试")
 
-// ExportReportCSV 将报表查询结果以 CSV 流式写出。
-//
-// 决策源：docs/architecture/MASTER_COMPETITIVE_DECISIONS.md M18 表 D-4。
-// csv.Writer 直接写 ResponseWriter（controller 层注入 io.Writer），不在内存中拼装
-// 完整文件体；行数超过 CSVExportMaxRows 时返回 ErrReportTooManyRows（不写任何字节）。
 func (s *CustomReportService) ExportReportCSV(ctx context.Context, w io.Writer, report *model.CustomReport, params map[string]any) error {
 	data, err := s.QueryReportData(ctx, report, params)
 	if err != nil {

@@ -36,7 +36,6 @@ type Customer struct {
 	UnifiedID string `gorm:"type:varchar(128);uniqueIndex" json:"unified_id"`
 	Name      string `gorm:"type:varchar(100);index" json:"name"`
 
-	// R48 T7: 联系人自定义属性（JSONB merge，竞品标配 Custom Attributes）
 	CustomAttributes string `gorm:"type:jsonb;default:'{}'" json:"custom_attributes"`
 
 	// 强标识（用作 OneID 主键候选）
@@ -44,12 +43,6 @@ type Customer struct {
 	PhoneHash string `gorm:"type:varchar(64);index;column:phone_hash" json:"-"`
 	Email     string `gorm:"type:varchar(100);index" json:"email"`
 
-	// 13 渠道 OpenID / UserID（每个渠道独立字段，可与 phone/email 并存）
-	//
-	// 2026-08-17 严肃化：gorm column tag 指向 DB 实际列名
-	// （历史 model 用 `whatsapp_phone/wecom_external_id/tiktok_open_id`，
-	//  DB 实际是 `whats_app_phone/we_com_external_id/tik_tok_open_id`，
-	//  缺 column tag 导致 GORM 读写全部为 NULL，本节添加显式 mapping 修复）
 	TelegramChatID   int64  `gorm:"type:bigint;index;column:telegram_chat_id" json:"telegram_chat_id"`
 	TelegramUsername string `gorm:"type:varchar(100);index;column:telegram_username" json:"telegram_username"`
 	WhatsAppPhone    string `gorm:"type:varchar(20);index;column:whats_app_phone" json:"whatsapp_phone"`
@@ -67,8 +60,6 @@ type Customer struct {
 	RFMScore  int    `gorm:"default:0" json:"rfm_score"`
 	ChurnRisk string `gorm:"type:varchar(20);default:'low'" json:"churn_risk"`
 
-	// S-4 专属坐席（2026-08-26）：客户绑定的专属人工坐席（agent_statuses.agent_id，可空）。
-	// 会话分配时优先路由给该坐席（在线且有容量），否则回退现有分配算法。
 	OwnerAgentID *uint `gorm:"index;column:owner_agent_id" json:"owner_agent_id,omitempty"`
 
 	// 时间

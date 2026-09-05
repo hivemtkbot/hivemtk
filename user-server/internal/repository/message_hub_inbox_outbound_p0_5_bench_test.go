@@ -91,8 +91,6 @@ func getBenchTestDSN() string {
 	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=postgres sslmode=disable", host, port, user, pass)
 }
 
-// BenchmarkAckOutboundDeliveredBatchReturningWithStatus_500_P0_5
-// 验证 P0-5：500 条 msg_id 走单 SQL UPDATE...RETURNING 的性能基线。
 func BenchmarkAckOutboundDeliveredBatchReturningWithStatus_500_P0_5(b *testing.B) {
 	db := newBenchDB(b, &model.MessageHub{})
 	repo := &MessageHubRepository{db: db}
@@ -150,8 +148,6 @@ func BenchmarkAckOutboundDeliveredBatchReturningWithStatus_500_P0_5(b *testing.B
 	}
 }
 
-// TestAckOutboundDeliveredBatchReturningWithStatus_500_P0_5_PerfThreshold
-// 验证 P0-5：500 条 IN 列表的 ack 翻转 P95 < 200ms（PG 本地）。
 func TestAckOutboundDeliveredBatchReturningWithStatus_500_P0_5_PerfThreshold(t *testing.T) {
 	if testing.Short() {
 		t.Skip("short 模式跳过性能阈值测试")

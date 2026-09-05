@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// FeedbackLearningCron G7 反馈学习闭环定时任务
 type FeedbackLearningCron struct {
 	svc      *FeedbackLearningService
 	sopRepo  *repository.SopAgentRepository
@@ -20,10 +19,6 @@ type FeedbackLearningCron struct {
 	wg       sync.WaitGroup
 }
 
-// NewFeedbackLearningCron 创建 G7 闭环定时任务
-//
-// db 非空时构造 FeedbackLearningService 与 SOP repository；db 为空返回 nil
-// （不启动，避免无 DB 环境下空转报错）。
 func NewFeedbackLearningCron(db *gorm.DB) *FeedbackLearningCron {
 	if db == nil {
 		return nil

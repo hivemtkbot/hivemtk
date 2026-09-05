@@ -60,7 +60,6 @@ func (r *QuickReplyFolderRepository) UpdateSortOrder(ctx context.Context, id uin
 
 var _ = time.Now
 
-// Delete 删除文件夹（R43: 用户可建文件夹但无删除路由——补齐）
 func (r *QuickReplyFolderRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.QuickReplyFolder{}, id).Error
 }

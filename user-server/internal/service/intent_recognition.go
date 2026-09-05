@@ -194,9 +194,6 @@ func (s *IntentRecognizer) loadAnchorsFromDB(ctx context.Context) bool {
 	return true
 }
 
-// EnsureIntentExamplesIndexed 将 DefaultIntents 全部示例句向量化并幂等写入
-// intent_examples 表（M4 I-1 初始化方法；X-7 独立分表不污染 KB 语料）。
-// 返回本次新导入的条数。embedding 服务不可用或 DB 不可用时返回错误（调用方降级）。
 func (s *IntentRecognizer) EnsureIntentExamplesIndexed(ctx context.Context) (int, error) {
 	if s.embedSvc == nil {
 		return 0, fmt.Errorf("embedding service not injected")

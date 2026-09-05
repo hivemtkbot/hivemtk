@@ -9,12 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// SecurityAuditRepository 安全审计仓储（OPT-ARC-01）
-//
-// 与其它 repository 保持一致的形态：
-//   - 无参构造（NewSecurityAuditRepository）
-//   - SetDB 注入 db（兼容测试与多租户）
-//   - GetDB 返回当前 db（供 service 层 withDB 统一包装）
 type SecurityAuditRepository struct {
 	db *gorm.DB
 }

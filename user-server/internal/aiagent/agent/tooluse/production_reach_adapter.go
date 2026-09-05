@@ -8,13 +8,6 @@ import (
 	"time"
 )
 
-// ProductionReachAdapter 把智能体 Reach 工具全部接上真实的渠道 service
-//
-// 2026-08-16 严肃化：之前 NewReachToolDeps 默认返回 NoOpReachAdapter，
-// 导致 20 个 Reach 工具虽然注册成功但全部走 NoOp 路径 → AI 永远触发不了真实发送。
-//
-// 本 Adapter 通过 GlobalServiceRegistry() 调用 service 层；启动时 service 包会注册。
-// 任意渠道调用失败不阻断其他渠道（fallback 由 Pipeline 处理）。
 type ProductionReachAdapter struct{}
 
 // NewProductionReachAdapter 创建生产 Reach Adapter

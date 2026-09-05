@@ -9,20 +9,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// FAQAnswerCacheService RAG 答案语义缓存服务（M6 R-2，RT-2 契约）
-//
-// ⚠️ RT-2 契约：本服务只允许在 smart_cs FAQ 场景接入（知识库 FAQ 问答链路）。
-// 其他场景（销售话术、闲聊、个性化推荐等）禁止接入——答案含客户上下文，
-// 语义近似命中会串答案。
-//
-// 入缓存四道门（CanCache）：
-//  1. 调用方断言答案来自知识库检索（FromKnowledgeBase=true）
-//  2. 答案非空
-//  3. 非 refusal（"知识不足/无法回答/转人工"类兜底话术）
-//  4. 不含客户个性化变量（模板占位符 {{name}} / {order_id} 等）
-//
-// 失效策略：命中前校验 knowledge_bases.updated_at > 条目记录的 kb_updated_at
-// 则视为过期，删除条目并回源。
 type FAQAnswerCacheService struct {
 	store     Store
 	kbMeta    KBMetaReader

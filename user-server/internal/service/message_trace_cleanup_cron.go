@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// MessageTraceCleanupTask message_trace 正文 TTL 分层清理任务（M16 表 TR-2 / TR-3 轻量版）。
 type MessageTraceCleanupTask struct {
 	repo     *repository.MessageTraceCleanupRepo
 	stopCh   chan struct{}

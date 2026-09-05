@@ -413,7 +413,6 @@ func CustomerSessionCanSendMessage(s *model.CustomerSession) bool {
 	}
 }
 
-// DispatchSessionEventAsync R53 B: 规则引擎事件 fire-and-forget 入口
 func DispatchSessionEventAsync(event, sessionID string, session *model.CustomerSession) {
 	go func() {
 		defer func() {

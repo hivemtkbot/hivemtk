@@ -1,20 +1,3 @@
-// 桥接架构专用指标（2026-08-15 M3-P1-E3 指标采集）
-//
-// 命名规范：bridge_<module>_<metric>_<unit>
-//   - bridge_ingest_total          Counter   桥接 ingest 请求总数
-//   - bridge_ingest_errors_total   Counter   ingest 错误数（按错误码分类）
-//   - bridge_ingest_duration_ms    Histogram ingest 耗时分布
-//   - bridge_outbox_fetched_total  Counter   outbox 下行拉取消息总数
-//   - bridge_outbox_duration_ms    Histogram outbox 拉取耗时分布
-//   - bridge_outbox_acked_total    Counter   outbox ack 数（按状态分类）
-//   - bridge_ack_duration_ms       Histogram ack 耗时分布
-//     -bridge_circuit_breaker_state  Gauge     熔断器状态（0=CLOSED 1=HALF_OPEN 2=OPEN）
-//   - bridge_pending_ack_size      Gauge     pendingAck 队列长度
-//   - bridge_pending_dead_letters  Gauge     dead letters 队列长度
-//   - bridge_dlq_total             Counter   DLQ 累计（按 channel）
-//   - bridge_emergency_stop        Gauge     紧急停止状态（0/1）
-//   - bridge_idempotency_hits      Counter   幂等命中数（去重）
-//   - bridge_pii_redactions_total  Counter   PII 脱敏次数
 package metrics
 
 import (

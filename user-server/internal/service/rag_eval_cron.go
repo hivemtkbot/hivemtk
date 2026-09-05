@@ -8,11 +8,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// RagEvalCron R55 T7：RAG 自动评测每日 cron
-//
-// 此前 RunAutoEvaluation 仅有手动端点，评测从不周期执行——分数永远滞后。
-// 现每日 03:40 CST 用生产查询采样 + 真实检索判定跑一轮，结果落 rag_eval_runs
-// 供 /knowledge/rag-eval 页面查看趋势。
 type RagEvalCron struct {
 	svc *RagEvalAutoService
 

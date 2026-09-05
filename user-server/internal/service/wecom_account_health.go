@@ -281,12 +281,6 @@ func (s *WeComAccountHealthService) ResetDailyQuota(ctx context.Context) (int64,
 	})
 }
 
-// ResetAllDailyQuotas 全量重置所有企微账号日配额。
-//
-// M1 修复：ResetDailyQuota 此前仅有手动端点
-// （POST /api/wecom/health/accounts/quota/reset），需每日人工触发。
-// 现由 internal/pkg/cron.WeComQuotaResetCron 每日 00:05 CST 调用；
-// 本方法为调度装配层的稳定复用入口（语义与 ResetDailyQuota 一致）。
 func (s *WeComAccountHealthService) ResetAllDailyQuotas(ctx context.Context) (int64, error) {
 	return s.ResetDailyQuota(ctx)
 }

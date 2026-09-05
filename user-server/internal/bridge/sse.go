@@ -241,13 +241,6 @@ func (h *SSEHandler) SetMaxDuration(d time.Duration) {
 	}
 }
 
-// HandleOutboxSSE GET /api/bridge/outbox/sse?channel=...&account_id=...
-//
-// 优化（2026-08-18）：
-//  1. 初始拉取 → SSEBus 订阅 → 订阅后补拉：消灭竞态窗口
-//  2. SSE retry: 指令：告诉客户端重连间隔，防止过于激进的重连
-//  3. 写入错误检测：区分网络断开和临时错误
-//  4. 动态 poll 间隔：SSEBus 正常时延迟 poll，事件丢失时快速 poll
 func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 	channel := c.Query("channel")
 	accountID := c.Query("account_id")

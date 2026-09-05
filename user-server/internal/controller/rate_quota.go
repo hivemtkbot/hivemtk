@@ -7,8 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RateQuotaController 限流配额面板控制器
-// G11: 竞品标配功能 - 展示各 API 路径的限流配置和当前用量
 type RateQuotaController struct{}
 
 // NewRateQuotaController 创建限流配额控制器

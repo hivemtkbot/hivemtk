@@ -52,8 +52,6 @@ func runtimeMaxAckMsgIDs(ctx context.Context) int {
 	return service.GlobalConfigParam().GetInt(ctx, "bridge", "max_ack_msg_ids", 500)
 }
 
-// HTTPIngestRequest 上报请求体（别名 channelgw.IngestRequest，与扩展端 http-ingest.js 严格对齐）。
-// 2026-08-10 协议单源化：线路协议类型统一收敛到渠道网关 channelgw，HTTP/WS 共用。
 type HTTPIngestRequest = channelgw.IngestRequest
 
 // HTTPIngestMessage 单条消息（别名 channelgw.IngestMessage，与前端 types.js UnifiedMessage 对齐）。
@@ -142,16 +140,6 @@ func readBodyForLog(rc io.ReadCloser, previewBytes int) (string, int, string, bo
 	return full, total, preview, true
 }
 
-// BridgeIngestHandler HTTP 上报端点处理器（2026-08-05 HTTP-only 重构）
-//
-// mock 注入点（2026-08-05）：
-//   - MockHandleIngress / MockPersistHistory 用于本地 mock 跑通 HTTP 长轮询 e2e，
-//     不依赖 DB / Redis / AI 引擎。生产环境（NewBridgeIngestHandler）保持 nil，handler 走真实 ingress。
-//   - 测试中通过 NewBridgeIngestHandlerWithMock 注入 fake，让 HandleIngressMessage / PersistBridgeHistory
-//     走测试桩函数，验证 5min 去重、长轮询 reply 拉取、OutboundReplies 序列化等。
-//
-// v3 审计：新增 sseHandler 提供 SSE 流式响应（替换长轮询）
-// Phase 1：新增 outboxFetcher 引用，支持后期注入 OutboxQuerier
 type BridgeIngestHandler struct {
 	ingress       *service.InboxIngressService
 	mockHandle    func(ctx context.Context, ev *model.MessageEvent) (*service.InboxIngressResult, error)
@@ -181,10 +169,6 @@ func (h *BridgeIngestHandler) SetLeadMiner(fn func(ctx context.Context, ev *mode
 	h.leadMiner = fn
 }
 
-// HandleOutboxSSE 桥接 outbox SSE 流式端点（替换长轮询）
-//
-// v3 审计：业界 Twilio Flex / Intercom 做法，长轮询 1-3s → SSE <500ms
-// Phase 1：使用预初始化的 outboxFetcher（支持后期注入 OutboxQuerier）
 func (h *BridgeIngestHandler) HandleOutboxSSE(c *gin.Context) {
 	if h.sseHandler == nil {
 		if h.outboxFetcher == nil {
@@ -278,19 +262,6 @@ func (h *BridgeIngestHandler) callPersistHistory(ctx context.Context, ev *model.
 	return h.ingress.PersistBridgeHistory(ctx, ev, direction)
 }
 
-// HandleHTTPIngest POST /api/bridge/ingest 统一收件箱 HTTP 上报端点
-//
-// 2026-08-05 架构重构（用户诉求）：
-//  1. 接收扩展一次性上报的多条消息
-//  2. 对每条消息走 InboxIngressService.HandleIngressMessage（含 sender_type 过滤、
-//     内容 hash 去重、5min 回复窗口、AI 触发）
-//  3. 若 expect_reply=true 且至少一条消息触发 AI：长轮询等待 AI 推理完成（最多 HTTPPollingMaxTimeout）
-//  4. 返回 ingest 处理结果 + outbound_replies（AI 回复）
-//
-// 鉴权（与 WS 端点一致）：
-//   - 路由层仅过 InitGuard（系统须已初始化），不过 JWTAuthMiddleware
-//   - 账号以 channel+account_id 自证身份（私有化部署单用户场景）
-//   - 若请求携带有效 JWT，则再校验 (channel, account_id) 是否属于该 user
 func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 	info := collectHTTPRequestInfo(c)
 	channel := info.Channel
@@ -654,10 +625,6 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 // BridgeOutboxMessage 下发队列中的一条待发消息（别名 channelgw.OutboxMessage，HTTP/WS 共用序列化）。
 type BridgeOutboxMessage = channelgw.OutboxMessage
 
-// BridgeOutboxAckItem v2 协议单条 ack 条目（P0-1）。
-//
-// 2026-08-15 P0-1：v2 协议下每条 item 必须带 conversation_id，服务端按
-// (channel, account_id, msg_id, conversation_id) 严格去重，根除"跨会话同名 msg_id 一锅端"。
 type BridgeOutboxAckItem struct {
 	MsgID          string `json:"msg_id"`
 	ConversationID string `json:"conversation_id"`
@@ -665,12 +632,6 @@ type BridgeOutboxAckItem struct {
 	Error          string `json:"error,omitempty"`
 }
 
-// BridgeOutboxAckRequest 状态上报请求体（通道B）。
-//
-// 2026-08-15 P0-1 协议升级：
-//   - v1（缺省）：{ msg_ids: [...], status: "delivered" }，按 (channel, account_id) 范围 ack（兼容旧扩展）
-//   - v2：{ v: 2, items: [{ msg_id, conversation_id, status?, error? }], status? }，
-//     每个 item 必填 conversation_id，缺则 400；按 (channel, account_id, msg_id, conversation_id) 严格去重
 type BridgeOutboxAckRequest struct {
 	V      int                   `json:"v,omitempty"`
 	MsgIDs []string              `json:"msg_ids"`
@@ -820,19 +781,6 @@ func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 	writeOutboxJSON(c, hubs)
 }
 
-// BridgeOutboxAckResponse 状态确认响应（通道B），含 per-msg-id 详细状态（P3-D 2026-08-15 + P4 二次审核 6.2）。
-//
-// 字段语义（2026-08-15 P4 区分 affected vs acked_items）：
-//   - AffectedCount:     SQL UPDATE 实际翻转为 delivered 的行数（跨会话同名 msg_id 时可能 > AckedItemsCount）
-//   - AckedItemsCount:   items 中 status='acked' 的元素数（= 真正"被本次 ack 命中"的 msg_id 数）
-//   - DuplicateCount:    此前已为 delivered 的 msg_id 数（幂等跳过）
-//   - NotFoundCount:     不存在的 msg_id 数
-//   - Items:             按入参 msg_ids 顺序（去重后）逐条结果
-//
-// 协议契约（与前端 downlink.js 配套）：
-//   - items[].status = "acked"        本次成功翻转 pending→delivered
-//   - items[].status = "duplicate"    此前已为 delivered，本地重试队列可清空
-//   - items[].status = "not_found"    本 (channel, account_id) 下不存在，停止重发
 type BridgeOutboxAckResponse struct {
 	Status           string                    `json:"status"`
 	AffectedCount    int                       `json:"affected_count"`
@@ -844,16 +792,6 @@ type BridgeOutboxAckResponse struct {
 	Items            []service.AckOutboundItem `json:"items"`
 }
 
-// AckBridgeOutbox 桥接下发状态确认（通道B·状态上报）。
-// 扩展把消息成功转发到网页后，批量上报 msg_ids，服务端标记为 delivered。
-//
-// POST /api/bridge/outbox/ack  body: {"msg_ids":[...],"status":"delivered"}
-//
-// 2026-08-15 P3-D：响应包含 per-msg-id 详细状态（acked/duplicate/not_found）。
-// 2026-08-15 P4 二次审核修复：
-//   - 7.3: 加 MaxBytesReader 1MB body 大小保护（防 DoS）
-//   - 6.2: 区分 affected_count（行级）与 acked_items_count（msg_id 级）
-//   - 3.3: 去掉 items omitempty 始终输出数组
 func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
 	channel := c.Query("channel")

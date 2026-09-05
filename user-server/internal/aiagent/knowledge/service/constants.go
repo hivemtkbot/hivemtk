@@ -89,8 +89,6 @@ func MaxSearchListSize() int {
 	return 1000
 }
 
-// BM25ScanLimit BM25 文本匹配扫描上限
-// seed: knowledge.bm25_scan_limit
 func BM25ScanLimit() int {
 	if globalReader != nil {
 		return globalReader.GetInt(context.Background(), "knowledge", "bm25_scan_limit", 10000)

@@ -2,7 +2,6 @@ package model
 
 import "time"
 
-// SLAPolicy SLA 策略（USR-WB-04）
 type SLAPolicy struct {
 	ID                   uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name                 string    `gorm:"type:varchar(100);not null" json:"name"`

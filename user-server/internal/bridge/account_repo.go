@@ -134,20 +134,6 @@ func (r *BridgeAccountRepository) SetOffline(ctx context.Context, channel, accou
 		Updates(map[string]any{"status": "offline", "last_sync_at": now}).Error
 }
 
-// TouchLastSync 续约最后同步时间戳（2026-08-05 审计 P1）。
-//
-// 长连接场景下，hub.clients 显示在线但 DB 的 last_sync_at 可能停留在注册时刻
-// （数小时前）。运维通过 last_sync_at 判定账号是否真的"健康在线"会失败。
-// 本方法仅更新 last_sync_at 字段（不动 status / agent_id / user_id 等其他列），
-// 由 handler 启动 heartbeat goroutine 每 30s 调一次。
-//
-// 性能考量：
-//   - UPDATE 单行 where channel+account_id 走唯一索引，<1ms
-//   - 心跳间隔 30s 远大于 DB 写耗时，不会成为瓶颈
-//   - 失败仅 Warn 日志，不重试（下次心跳自然续）
-//
-// ctx 透传：与 SetOffline 一致，用 context.WithoutCancel 解绑 WS 生命周期，
-// 防止 WS ctx 取消导致心跳 DB 写入失败（心跳期间连接可能正在被 Kick）。
 func (r *BridgeAccountRepository) TouchLastSync(ctx context.Context, channel, accountID string) error {
 	now := time.Now()
 	dbCtx := ctx
@@ -161,16 +147,6 @@ func (r *BridgeAccountRepository) TouchLastSync(ctx context.Context, channel, ac
 		Update("last_sync_at", now).Error
 }
 
-// OnlineGraceWindow 账号"在线"判定窗口：last_sync_at 在该窗口内视为在线（DB 驱动，以下为 fallback 默认值）。
-// 运行时通过 service.GlobalConfigParam() 按 group=bridge 读取 bridge.online_grace_window。
-//
-// 2026-08-05 架构重构（WS → HTTP）：
-//   - 旧实现：Online = GetBridgeHub().IsOnline(ch, acc)（依赖 WS hub 内存状态）
-//   - 新实现：Online = now() - last_sync_at < OnlineGraceWindow（依赖 DB 时间戳）
-//   - 30s 窗口：bridge 端每秒巡检/上报一次，30s 内必有 last_sync_at 更新；超出则视为"卡死或离线"
-//
-// 与 TouchLastSync 心跳节流配合：HTTP 模式下每个 ingest 请求都更新 last_sync_at，
-// 30s 窗口可容许扩展侧最多丢失 1 个心跳，不会误判。
 const OnlineGraceWindow = 30 * time.Second
 
 func runtimeOnlineGraceWindow(ctx context.Context) time.Duration {
@@ -187,9 +163,6 @@ func isOnlineByLastSync(ctx context.Context, lastSyncAt *time.Time, status strin
 	return now.Sub(*lastSyncAt) < runtimeOnlineGraceWindow(ctx)
 }
 
-// ListByUser 列出某用户全部桥接账号（基于 last_sync_at 判断在线状态）。
-//
-// 2026-08-05 架构重构：彻底移除对 GetBridgeHub 的依赖，Online 字段由 DB 时间戳推导。
 func (r *BridgeAccountRepository) ListByUser(ctx context.Context, userID uint) ([]BridgeAccountView, error) {
 	var accs []model.BridgeAccount
 	if err := r.db.WithContext(ctx).Where("user_id = ?", userID).Order("id desc").Find(&accs).Error; err != nil {

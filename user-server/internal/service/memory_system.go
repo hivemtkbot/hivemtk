@@ -21,16 +21,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// MemorySystem 4 层记忆系统入口
-// 对应 SYSTEM_AUDIT_REPORT_20260715_V3
-// L1 短期: 当前会话最近 N 条消息（DB 持久化 + 可选 Redis 加速）
-// L2 长期: 客户档案、关键事实、对话摘要（PostgreSQL + 嵌入向量预留）
-// L3 SOP 状态: SOP 流程级执行位置（与 sop_executions 同步）
-// L4 业务: 订单/咨询/异议/意向等业务实体记忆
-//
-// G5 增强：L2 长期记忆新增 pgvector 增强版（CustomerLongTermMemory）
-//   - Remember/Recall 提供向量检索 + 重排序（importance + 时间衰减）
-//   - 与原 L2SaveFact/L2ListFacts 并行，互不干扰
 type MemorySystem struct {
 	memoryRepo   repository.MemoryRepository
 	embeddingSvc llm.EmbeddingServiceInterface
@@ -173,10 +163,6 @@ func (m *MemorySystem) L2SaveFact(ctx context.Context, customerID, key, value st
 	return m.L2SaveFactAt(ctx, customerID, key, value, importance, time.Time{})
 }
 
-// L2SaveFactAt M-6 双时间轴（Zep 模式）：保存长期事实并支持显式事件时间
-//   - eventAt 零值 → ValidFrom=now（调用方未传事件时间兜底）
-//   - 矛盾更新：同键已有未失效记录且内容不同 → 旧记录 InvalidAt=now 软失效（不物理删）
-//   - 同键同内容 → 幂等跳过，保持时间轴稳定
 func (m *MemorySystem) L2SaveFactAt(ctx context.Context, customerID, key, value string, importance int, eventAt time.Time) error {
 	if m.memoryRepo == nil {
 		return nil
@@ -247,8 +233,6 @@ func (m *MemorySystem) L2ListFacts(ctx context.Context, customerID string, limit
 	return m.memoryRepo.ListFacts(ctx, customerID, limit)
 }
 
-// L2ListFactsAsOf M-6 双时间轴读取：asOf 时刻仍有效的长期事实
-// asOf 零值时取 now；判定语义见 repository.ListFactsAsOf
 func (m *MemorySystem) L2ListFactsAsOf(ctx context.Context, customerID string, asOf time.Time, limit int) ([]model.MemoryItem, error) {
 	if m.memoryRepo == nil {
 		return nil, nil
@@ -262,9 +246,6 @@ func (m *MemorySystem) L2ListFactsAsOf(ctx context.Context, customerID string, a
 	return m.memoryRepo.ListFactsAsOf(ctx, customerID, asOf, limit)
 }
 
-// ListValidFacts M-6 双时间轴查询（Zep 风格）：asOf 时刻仍有效的事实列表
-// 过滤语义：InvalidAt IS NULL（或 > asOf）AND ValidAt（兜底 CreatedAt）<= asOf
-// asOf 零值取 now；底层委托 repository.ListFactsAsOf
 func (m *MemorySystem) ListValidFacts(ctx context.Context, customerID string, asOf time.Time, limit int) ([]model.MemoryItem, error) {
 	return m.L2ListFactsAsOf(ctx, customerID, asOf, limit)
 }
@@ -499,9 +480,6 @@ type LongTermMemoryRecallResult struct {
 	Score      float64
 }
 
-// Remember 记录一条长期记忆（自动 Embedding + 存储）
-// 对应 PRD §5.2 G5：MemorySystem.Remember(ctx, customerID, memType, content, importance)
-// 验收：第一次对话客户说预算 5000，第二次对话 Recall 能主动返回该记忆
 func (m *MemorySystem) Remember(ctx context.Context, customerID string, memType model.LongTermMemoryType, content string, importance int) (*model.CustomerLongTermMemory, error) {
 	if m.memoryRepo == nil {
 		return nil, fmt.Errorf("memory system db not initialized")

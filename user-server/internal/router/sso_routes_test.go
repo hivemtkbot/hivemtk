@@ -1,12 +1,3 @@
-// SSO 路由测试（2026-08-15 M3-P1-E3）
-//
-// 覆盖：
-//   - Setup 后 3 个 SSO 路由已注册（providers / login / callback）
-//   - GET /api/sso/providers：SSO 关闭返回 enabled=false；开启返回已启用 provider 列表
-//   - GET /api/sso/login/:provider：未知 provider 404；已知 provider 302 到 IdP 并携带
-//     response_type / client_id / redirect_uri / state / nonce / code_challenge(PKCE)，
-//     且 state 已写入 HttpOnly cookie
-//   - GET /api/sso/callback/:provider：state 缺失 / 不匹配返回 400；code 缺失返回 400
 package router
 
 import (

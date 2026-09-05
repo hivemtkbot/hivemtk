@@ -1,25 +1,3 @@
-// Package mcp implements the Model Context Protocol (MCP) server side.
-//
-// 规范：https://modelcontextprotocol.io/specification/2025-11-25
-//   - 协议：JSON-RPC 2.0
-//   - 传输：HTTP (JSON-RPC over HTTP POST)；GET/SSE 流未实现（无推送需求，合法子集，见 TL-2）
-//   - 三大原语：Tools / Resources / Prompts
-//
-// 设计目标：
-//   - 零外部依赖（自实现 JSON-RPC 2.0，参考官方 spec 严格实现）
-//   - 与现有 tooluse 工具集成（tooluse.Tool → MCP Tool）
-//   - 同时实现 capabilities 协商、initialize handshake、tools/list、tools/call
-//   - 可作为独立 HTTP server 暴露，也可嵌入到现有 router
-//
-// 实现覆盖（2025-06-18 spec）：
-//   - initialize / initialized notification
-//   - tools/list → 返回所有 tooluse 工具
-//   - tools/call → 调用工具并返回结果
-//   - ping / health check
-//   - resources/list, resources/read → 空实现（扩展点）
-//   - prompts/list, prompts/get → 空实现（扩展点）
-//
-// 不实现：stdio 传输（仅 HTTP）、sampling（host 端发起）、Roots（客户端能力）
 package mcp
 
 import (
@@ -33,12 +11,6 @@ import (
 	"hivemtk-user/internal/aiagent/agent/tooluse"
 )
 
-// TL-2（MASTER_COMPETITIVE_DECISIONS M13）：对齐 MCP 2025-11-25 最小子集。
-// 支持的协议版本为 [2025-06-18, 2025-11-25]；客户端请求的版本不在支持范围内时，
-// initialize 响应返回服务端最新支持版（协议协商语义）。
-//
-// 无推送需求：不实现 GET/SSE 流（Streamable HTTP 规范允许服务器不提供
-// server→client SSE 流，仅以 POST 响应式返回），属合法子集。
 const (
 	ProtocolVersionLegacy = "2025-06-18"
 	ProtocolVersionLatest = "2025-11-25"

@@ -232,11 +232,6 @@ func (r *FeedbackLoopRepository) MarkSuggestionApplied(ctx context.Context, id u
 		Updates(map[string]any{"status": model.SuggestionStatusApplied, "applied_at": appliedAt}).Error
 }
 
-// CloneSOPAndCreateABTest 事务：克隆 SOP 为 variant B + 创建 A/B 测试 + 2 个 bandit arms
-//
-// R55 T1：clone 后调用 mutate（Service 注入的图变异器）对 variant B 做真实变异
-// （此前原样复制，variant B ≡ variant A，AB 实验无意义）。mutate 为 nil 或返回 nil
-// 时降级为原样克隆（图结构未知时不产出非法图，与"失败不阻断"哲学一致）。
 func (r *FeedbackLoopRepository) CloneSOPAndCreateABTest(ctx context.Context, sopID uint, nameSuffix string, experimentTag string) error {
 	return r.CloneSOPAndCreateABTestMutated(ctx, sopID, nameSuffix, experimentTag, nil)
 }

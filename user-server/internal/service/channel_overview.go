@@ -15,10 +15,6 @@ import (
 // ErrChannelCustomerNotFound 客户不存在（customer_id 未命中）
 var ErrChannelCustomerNotFound = errors.New("customer not found")
 
-// ChannelOverviewService 渠道概览业务服务
-//
-// 2026-08-16 严肃化：13 个真实渠道的统一配置入口。
-// 聚合各渠道账号数 / 在线状态，并提供客户渠道绑定管理。
 type ChannelOverviewService struct {
 	repo *repository.ChannelOverviewRepository
 }
