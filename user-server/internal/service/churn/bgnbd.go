@@ -67,8 +67,13 @@ func PAlive(p Params, x, tx, T float64) float64 {
 //	          ---------------------------------------------------------------
 //	                    1 + (a/(b+x-1)) · ((α+T)/(α+tx))^(r+x)
 func ConditionalExpectedPurchases(p Params, x, tx, T, t float64) float64 {
-	if t <= 0 || p.A <= 1 {
+	// 注意：a<1 完全合法（CDNOW 全局最优 a≈0.79），(a-1)<0 时分子分母同时变号结果不变号，
+	// 公式仍成立——不得加 a<=1 的守卫（CDNOW 对拍抓出的 bug，见 cdnow_parity_test.go）。
+	if t <= 0 {
 		return 0
+	}
+	if p.B+x-1 == 0 {
+		return 0 // P(alive) 分母退化
 	}
 	zt := t / (p.Alpha + T + t)
 	numeratorInner := 1 -

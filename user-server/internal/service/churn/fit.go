@@ -20,53 +20,88 @@ type FitResult struct {
 	Converged bool
 }
 
-// logLikelihood BG/NBD 对数似然（Fader-Hardie 附录 A；省略与参数无关的常数项）
+// logLikelihood BG/NBD 对数似然（Fader-Hardie 2005 附录 A；lifetimes 官方同款逐项展开）
 //
-// LL_i = ln[ Γ(r+x)/Γ(r) · α^r / (α+T)^(r+x) · B(a,b+x)/B(a,b)
-//            + δ(x>0) · Γ(r+x)/Γ(r) · α^r / (α+tx)^(r+x) · B(a+1,b+x-1)/B(a,b) ]
+//	A_1 = ln Γ(r+x)/Γ(r) + r·ln α
+//	A_2 = ln Γ(a+b) + ln Γ(b+x) − ln Γ(b) − ln Γ(a+b+x)
+//	A_3 = −(r+x)·ln(α+T)
+//	A_4 = ln a − ln(b+max(x,1)−1) − (r+x)·ln(α+tx)
+//	LL  = A_1 + A_2 + logsumexp(A_3, A_4·δ(x>0))
+//
+// 数值要点（CDNOW 对拍得出的教训）：A_4 必须用 log a − log(b+x−1) 的显式差形式，
+// 不能展开成 lgamma(a+1)+lgamma(b+x−1) 组合——后者在优化器探边时（b 大 x 大）落进
+// 浮点坍缩带，似然面出现假下降谷，Nelder-Mead 会滑向 a→0,b→∞ 的伪解。
 func (p Params) logLikelihood(stats []CustomerStats) float64 {
 	total := 0.0
 	lgR := lgamma(p.R)
+	lgB := lgamma(p.B)
+	lgAB := lgamma(p.A + p.B)
+	logA := math.Log(p.A)
 	for _, s := range stats {
-		// 公共项 Γ(r+x)/Γ(r) · α^r
-		common := lgamma(p.R+s.X) - lgR + p.R*math.Log(p.Alpha)
-		// B(a,b+x)/B(a,b) 与 B(a+1,b+x-1)/B(a,b) 的 logBeta 差
-		lb1 := lgamma(p.A) + lgamma(p.B+s.X) - lgamma(p.A+p.B+s.X)
-		lb2 := lgamma(p.A+1) + lgamma(p.B+s.X-1) - lgamma(p.A+p.B+s.X)
-		l1 := common - (p.R+s.X)*math.Log(p.Alpha+s.T) + lb1
-		l2 := math.Inf(-1)
-		if s.X > 0 {
-			l2 = common - (p.R+s.X)*math.Log(p.Alpha+s.Tx) + lb2
-		}
-		m := math.Max(l1, l2)
-		total += m + math.Log(math.Exp(l1-m)+math.Exp(l2-m))
+		A1 := lgamma(p.R+s.X) - lgR + p.R*math.Log(p.Alpha)
+		A2 := lgAB + lgamma(p.B+s.X) - lgB - lgamma(p.A+p.B+s.X)
+		A3 := -(p.R + s.X) * math.Log(p.Alpha+s.T)
+		bxm1 := p.B + math.Max(s.X, 1) - 1
+		A4 := logA - math.Log(bxm1) - (p.R+s.X)*math.Log(p.Alpha+s.Tx)
+		m := math.Max(A3, A4)
+		term := A1 + A2 + m + math.Log(math.Exp(A3-m)+math.Exp(A4-m)*b2f(s.X > 0))
+		total += term
 	}
 	return total
 }
 
-// Fit MLE 拟合四参数（L-BFGS，多起点单点起步；约束 a,b>1+ε, r,α>ε）
+func b2f(v bool) float64 {
+	if v {
+		return 1
+	}
+	return 0
+}
+
+// Fit MLE 拟合四参数。
+//
+// 实现：log-param 变换（四参数恒正，消除边界约束）+ Nelder-Mead 单纯形。
+// 与 lifetimes 官方一致（scipy minimize method='Nelder-Mead'，初始 log(1,1,1,1)=0）。
+// a 无下界约束（论文模型 a∈(0,∞)，CDNOW 全局最优 a≈0.79<1——旧版强加 a>1.001
+// 是错误约束，会把全局最优排除在可行域外）。
 func Fit(in FitInput) FitResult {
 	if len(in.Stats) == 0 {
 		return FitResult{}
 	}
-	p0 := in.Init
-	if p0.R <= 0 || p0.Alpha <= 0 || p0.A <= 1 || p0.B <= 1 {
-		p0 = Params{R: 1, Alpha: 1, A: 1.5, B: 2}
+	init := []float64{1, 1, 1, 1} // log 空间 (r,α,a,b)=(1,1,1,1)，与 lifetimes 默认一致
+	if in.Init.R > 0 && in.Init.Alpha > 0 && in.Init.A > 0 && in.Init.B > 0 {
+		init = []float64{
+			math.Log(in.Init.R), math.Log(in.Init.Alpha),
+			math.Log(in.Init.A), math.Log(in.Init.B),
+		}
 	}
 	problem := optimize.Problem{
 		Func: func(x []float64) float64 {
-			p := Params{R: x[0], Alpha: x[1], A: x[2] + 1.001, B: x[3] + 1.001}
+			p := Params{
+				R:     math.Exp(x[0]),
+				Alpha: math.Exp(x[1]),
+				A:     math.Exp(x[2]),
+				B:     math.Exp(x[3]),
+			}
+			// log-param 下 |x| 无界时 Exp 上溢/下溢 → 返回大惩罚把单纯形推回
+			if math.IsInf(p.R, 0) || math.IsInf(p.Alpha, 0) || math.IsInf(p.A, 0) || math.IsInf(p.B, 0) ||
+				p.R == 0 || p.Alpha == 0 || p.A == 0 || p.B == 0 {
+				return math.Inf(1)
+			}
 			return -p.logLikelihood(in.Stats)
 		},
-		// 无解析梯度：4 维小问题用 Nelder-Mead（单纯形）足够，避免数值梯度精度噪声
 	}
-	res, err := optimize.Minimize(problem, []float64{p0.R, p0.Alpha, p0.A - 1.001, p0.B - 1.001}, &optimize.Settings{}, &optimize.NelderMead{})
+	res, err := optimize.Minimize(problem, init, &optimize.Settings{}, &optimize.NelderMead{})
 	if err != nil && res == nil {
 		return FitResult{Converged: false}
 	}
 	x := res.X
 	return FitResult{
-		Params:    Params{R: x[0], Alpha: x[1], A: x[2] + 1.001, B: x[3] + 1.001},
+		Params: Params{
+			R:     math.Exp(x[0]),
+			Alpha: math.Exp(x[1]),
+			A:     math.Exp(x[2]),
+			B:     math.Exp(x[3]),
+		},
 		LogLik:    -res.F,
 		Converged: res.Status != optimize.Failure,
 	}

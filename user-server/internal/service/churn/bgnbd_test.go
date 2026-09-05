@@ -12,8 +12,8 @@ var refParams = Params{R: 0.24, Alpha: 4.41, A: 0.79, B: 2.43}
 //   - x=0（新客，tx=0）→ ratio=(a/(b-1))*((α+T)/α)^r，T 越大 P 越低
 //   - 频繁购买（x 大、tx≈T）→ P(alive)→高
 func TestD22_PAliveSemantics(t *testing.T) {
-	frequent := PAlive(refParams, 10, 38, 39)  // 高频近期
-	churned := PAlive(refParams, 1, 1, 39)     // 早购后沉寂
+	frequent := PAlive(refParams, 10, 38, 39) // 高频近期
+	churned := PAlive(refParams, 1, 1, 39)    // 早购后沉寂
 	if frequent <= churned {
 		t.Errorf("高频近期客户 P(alive)=%.3f 应高于沉寂客户 %.3f", frequent, churned)
 	}
